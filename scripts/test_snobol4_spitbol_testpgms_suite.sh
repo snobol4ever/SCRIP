@@ -74,7 +74,7 @@ declared_memory_begin "$SUITE/ALL.csv" "$DECL" || { echo "⛔ REFUSE(rc=2): a de
 PROG_ROWS="$W/progress.tsv"; : > "$PROG_ROWS"
 CANON_SUITE="$ROOT/corpus/packages/snobol4/spitbol_testpgms"
 PROG_RECORD=0; { [ "$SUITE" = "$CANON_SUITE" ] || [ -n "${S4E_PROGRESS_DB:-}" ]; } && PROG_RECORD=1
-prog_row() { printf 'package\ttestpgms\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$3" "${4:-}" >> "$PROG_ROWS"; }
+prog_row() { printf 'package\ttestpgms\tsnobol4\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$(progress_row_secs "$2")" "${4:-}" >> "$PROG_ROWS"; }   # secs: ROW_S3/ROW_S4, each mode's own wall (CEO-1676 (c))
 verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
 # graded_same <scrip-stdout> -- the one comparison, both modes (CEO-1316): stdout byte for byte against the oracle's stdout, or against
 # its body with the post-mortem block removed; and for a post-mortem answer, SCRIP's stderr (<stdout>.err) rendered through the one
@@ -114,7 +114,7 @@ TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINE
 BOTH=0; OUTSIDE_LIST=""; OUTSIDE_TSV="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE.tsv"
 for p in $progs; do
     export S4E_TIMEOUT_KEY="$p"   # the unit a retried timeout's stamp names (CEO-1335)
-    TOTAL=$((TOTAL+1))
+    TOTAL=$((TOTAL+1)); ROW_S3=0; ROW_S4=0
     src="$W/$p.spt"
     okind=sbl; obin="$SBL"; oflags="$FLAGS"; cmpt=""
     # ── the oracle, in the scratch dir, fed the shared stdin file. Status FIRST, bytes never.
@@ -133,9 +133,9 @@ for p in $progs; do
         if [ "$crc" = 0 ]; then
             SCORED=$((SCORED+1)); CR_GRADED=$((CR_GRADED+1))
             ca="$(declared_compile_args_from_table "$DECL" "$p")" || exit 2
-            m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- "$TIMEOUT_RETRY" "$T" "$SCRIP" $cmpt $ca "$p.spt" < "$(stdin_of "$p")" > "$m3" 2>"$m3.err"); r3=$?
+            _t0="$(progress_clock)"; m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- "$TIMEOUT_RETRY" "$T" "$SCRIP" $cmpt $ca "$p.spt" < "$(stdin_of "$p")" > "$m3" 2>"$m3.err"); r3=$?; ROW_S3="$(progress_secs_since "$_t0")"
             got3="$(python3 "$HERE/util_render_error_voice.py" spitbol < "$m3.err" | python3 "$HERE/util_spitbol_compile_refusal.py" pairs -)"
-            s4="$W/$p.s"; (cd "$W" && "$TIMEOUT_RETRY" "$T" "$SCRIP" $cmpt --compile $ca "$p.spt" > "$s4" 2>"$s4.err") </dev/null; r4=$?
+            _t0="$(progress_clock)"; s4="$W/$p.s"; (cd "$W" && "$TIMEOUT_RETRY" "$T" "$SCRIP" $cmpt --compile $ca "$p.spt" > "$s4" 2>"$s4.err") </dev/null; r4=$?; ROW_S4="$(progress_secs_since "$_t0")"
             got4="$(python3 "$HERE/util_render_error_voice.py" spitbol < "$s4.err" | python3 "$HERE/util_spitbol_compile_refusal.py" pairs -)"
             want="$(printf '%s' "$cr_pairs" | tr '\t\n' ': ' | sed 's/ *$//')"
             _p3=0; _p4=0
@@ -228,11 +228,11 @@ for p in $progs; do
     SCORED=$((SCORED+1))
     # ── mode 3 and mode 4, same scratch cwd, same stdin.
     ca="$(declared_compile_args_from_table "$DECL" "$p")" || exit 2
-    m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- "$TIMEOUT_RETRY" "$T" "$SCRIP" $cmpt $ca "$p.spt" < "$(stdin_of "$p")" > "$m3" 2>"$m3.err"); r3=$?
+    _t0="$(progress_clock)"; m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- "$TIMEOUT_RETRY" "$T" "$SCRIP" $cmpt $ca "$p.spt" < "$(stdin_of "$p")" > "$m3" 2>"$m3.err"); r3=$?; ROW_S3="$(progress_secs_since "$_t0")"
     _p3=0
     if graded_same "$m3"; then M3P=$((M3P+1)); _p3=1; else M3F=$((M3F+1)); RED_LINES="$RED_LINES  RED  $p m3 (rc=$r3, $(why_red "$m3"))
 "; fi
-    s4="$W/$p.s"; b4="$W/$p.bin"
+    s4="$W/$p.s"; b4="$W/$p.bin"; _t0="$(progress_clock)"
     (cd "$W" && "$TIMEOUT_RETRY" "$T" "$SCRIP" $cmpt --compile $ca "$p.spt" > "$s4" 2>/dev/null) </dev/null
     m4="$W/$p.m4"; r4=0
     if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -o "$b4" 2>/dev/null; then
@@ -240,6 +240,7 @@ for p in $progs; do
     else
         : > "$m4"; : > "$m4.err"; r4=125
     fi
+    ROW_S4="$(progress_secs_since "$_t0")"
     _p4=0
     if graded_same "$m4"; then M4P=$((M4P+1)); _p4=1; else M4F=$((M4F+1)); RED_LINES="$RED_LINES  RED  $p m4 (rc=$r4, $(why_red "$m4"))
 "; fi

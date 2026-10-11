@@ -341,7 +341,7 @@ run_mode() {
     local mode="$1"
     local pass=0 fail=0 reject=0 crash=0 hang=0
     local -a reject_names=() fail_names=() crash_names=() hang_names=()
-    local _want _nsub
+    local _want _nsub _t0 _secs
     local icn std kind outfile
     for icn in "$CORPUS"/*.icn; do
         [ -f "$icn" ] || continue
@@ -365,12 +365,12 @@ run_mode() {
         name=$(basename "$icn" .icn)
         decl_ask "$name"
         _want="$std"
-        kind=$(run_one "$mode" "$exe" "$_want" "$outfile")
+        _t0="$(progress_clock)"; kind=$(run_one "$mode" "$exe" "$_want" "$outfile"); _secs="$(progress_secs_since "$_t0")"   # the mode's own wall for its row (CEO-1676 (c))
         # ⭐ THE PROGRESS DATABASE, ONE ROW PER PROGRAM PER MODE (CEO-331). Placed at the SINGLE point where
         # this runner already decides a per-program verdict, so the recorded outcome and the counted one are
         # the same value -- a second classification here would be a second opinion that drifts. $kind is
         # already exactly the writer's vocabulary (PASS|FAIL|REJECT|CRASH|HANG), so nothing is translated.
-        progress_append package jcon icon "$name" "$mode" "$kind" || PROGRESS_FAILED=$((PROGRESS_FAILED+1))
+        progress_append package jcon icon "$name" "$mode" "$kind" "$_secs" || PROGRESS_FAILED=$((PROGRESS_FAILED+1))
         case "$kind" in
             PASS)   pass=$((pass+1)) ;;
             FAIL)   fail=$((fail+1)); fail_names+=("$name") ;;
@@ -383,12 +383,14 @@ run_mode() {
         local _pp _pargv _prc _prest _pgot _pa
         while IFS=$'\t' read -r _pp _pargv _prc _prest; do
             case "$_pp" in ''|'#'*) continue ;; esac
+            _t0="$(progress_clock)"
             ( cd "$CORPUS/$(dirname "$_pp")" && "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" -E $_pargv < /dev/null > "$WORK/pp.out" 2> "$WORK/pp.err" ); _pgot=$?
+            _secs="$(awk -v d="$(progress_secs_since "$_t0")" -v n="$(echo $_pargv | wc -w)" 'BEGIN { printf "%.3f", d / (n > 0 ? n : 1) }')"   # one run, split over its rows
             if cat "$WORK/pp.err" "$WORK/pp.out" | cmp -s - "$CORPUS/$(dirname "$_pp")/$(basename "$_pp" .icn).E.ref" && [ "$_pgot" = "$_prc" ]; then kind=PASS
             elif [ "$_pgot" = 124 ]; then kind=HANG; elif [ "$_pgot" -ge 128 ]; then kind=CRASH; else kind=FAIL; fi
             for _pa in $_pargv; do
                 name="$(basename "$_pa" .icn)"
-                progress_append package jcon icon "$name" "$mode" "$kind" 0 "preprocess-only contract: scrip -E $_pargv against icont -E (stderr then stdout, rc $_prc) -- the frontend both modes share" </dev/null || PROGRESS_FAILED=$((PROGRESS_FAILED+1))
+                progress_append package jcon icon "$name" "$mode" "$kind" "$_secs" "preprocess-only contract: scrip -E $_pargv against icont -E (stderr then stdout, rc $_prc) -- the frontend both modes share" </dev/null || PROGRESS_FAILED=$((PROGRESS_FAILED+1))
                 case "$kind" in
                     PASS)  pass=$((pass+1)) ;;
                     FAIL)  fail=$((fail+1)); fail_names+=("$name") ;;

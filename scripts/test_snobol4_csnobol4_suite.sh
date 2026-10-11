@@ -366,10 +366,12 @@ for sno in "$SUITE"/*.sno; do
     # referencing program (TRACE(), error messages, &FILE) embed a throwaway tmpdir string instead of the
     # bare name the .ref expects — a harness artifact, not a SCRIP or oracle divergence (found triaging
     # row snobol4-csnobol4-thirty-regen-candidate-refs-stale-pin-or-real-defect, seat07 2026-09-04).
+    _t0="$(progress_clock)"   # each mode's own wall for its row (CEO-1676 (c)); m4's takes its compile and link
     got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" $COMPAT $pre_extra --run $ca "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
+    s3="$(progress_secs_since "$_t0")"
     got3="$(normalize "$name" "$got3")"
     st3="$(status_of "$got3" "$rc3" "$exp")"
-    progress_append package csnobol4 snobol4 "$name" m3 "$st3" >/dev/null 2>&1 || true
+    progress_append package csnobol4 snobol4 "$name" m3 "$st3" "$s3" >/dev/null 2>&1 || true
     case "$st3" in
         PASS) M3_PASS=$((M3_PASS+1));;
         FAIL) M3_FAIL=$((M3_FAIL+1)); RED3="$RED3 $name";;
@@ -378,11 +380,13 @@ for sno in "$SUITE"/*.sno; do
         HANG) M3_HANG=$((M3_HANG+1)); RED3="$RED3 $name";;
     esac
 
+    _t0="$(progress_clock)"
     if (cd "$RUN" && compile_m4 "$relprog" "$W/prog.bin" "$ca"); then
         got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" "$TIMEOUT_RETRY" "$TIMEOUT" "$W/prog.bin" $xargs_extra < "$inp" 2>&1)"; rc4=$?
+        s4="$(progress_secs_since "$_t0")"
         got4="$(normalize "$name" "$got4")"
         st4="$(status_of "$got4" "$rc4" "$exp")"
-        progress_append package csnobol4 snobol4 "$name" m4 "$st4" >/dev/null 2>&1 || true
+        progress_append package csnobol4 snobol4 "$name" m4 "$st4" "$s4" >/dev/null 2>&1 || true
         case "$st4" in
             PASS) M4_PASS=$((M4_PASS+1));;
             FAIL) M4_FAIL=$((M4_FAIL+1)); RED4="$RED4 $name";;

@@ -85,7 +85,7 @@ verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then 
 PROG_ROWS="$W/progress.tsv"; : > "$PROG_ROWS"
 CANON_SUITE="$ROOT/corpus/packages/snobol4/spitbol_x32_tests"
 PROG_RECORD=0; { [ "$SUITE" = "$CANON_SUITE" ] || [ -n "${S4E_PROGRESS_DB:-}" ]; } && PROG_RECORD=1
-prog_row() { local o="$3"; [ "$o" = COMPILE_FAIL ] && o=FAIL; printf 'package\tspitbol_x32\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$o" "$4" >> "$PROG_ROWS"; }   # the progress table's vocabulary has no COMPILE_FAIL: a graded program our toolchain refused is a FAIL there, the note keeps the word (cfo 2026-09-12: the append refused the whole run's rows, so no x64 row was ever written)
+prog_row() { local o="$3"; [ "$o" = COMPILE_FAIL ] && o=FAIL; printf 'package\tspitbol_x32\tsnobol4\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$o" "$(progress_row_secs "$2")" "$4" >> "$PROG_ROWS"; }   # the progress table's vocabulary has no COMPILE_FAIL: a graded program our toolchain refused is a FAIL there, the note keeps the word (cfo 2026-09-12: the append refused the whole run's rows, so no x64 row was ever written)
 verdict_lines() { grep -cE '^( pass: |\*FAIL: )' "$1" 2>/dev/null | tr -d ' '; }
 pass_lines()    { grep -c '^ pass: '  "$1" 2>/dev/null | tr -d ' '; }
 fail_lines()    { grep -c '^\*FAIL: ' "$1" 2>/dev/null | tr -d ' '; }
@@ -111,7 +111,7 @@ compile_m4() {  # compile_m4 <src> <out> [<compile_args>]; on failure echoes "<O
     return 0
 }
 for sno in "$SUITE"/*.spt; do
-    name="$(basename "$sno" .spt)"; base="$(basename "$sno")"
+    name="$(basename "$sno" .spt)"; base="$(basename "$sno")"; ROW_S3=0; ROW_S4=0   # each mode's own wall for its row (CEO-1676 (c))
     export S4E_TIMEOUT_KEY="$name"   # the unit a retried timeout's stamp names (CEO-1335)
     # ⛔ THE ORACLE FIRST, AND IT DECIDES BOTH WHETHER AND HOW.  Whether: a program our mandated -bf arm
     # cannot get an answer for is UNGRADED (work owed, declared in UNGRADED.tsv).  How: whether its own
@@ -143,7 +143,9 @@ for sno in "$SUITE"/*.spt; do
     fi
     # --- mode 3
     ca="$(declared_compile_args_from_table "$DECL" "$name")" || exit 2
+    _t0="$(progress_clock)"
     run_at_declared_table "$DECL" "$name" -- "$TIMEOUT_RETRY" "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" --run $6 "$3" < /dev/null > "$4" 2> "$5"' _ "$RUN" "$SCRIP" "$base" "$W/m3.out" "$W/m3.err" "$ca" 2>/dev/null; rc3=$?
+    ROW_S3="$(progress_secs_since "$_t0")"
     if [ "$rc3" -eq 124 ] || [ "$rc3" -ge 128 ]; then OUT3="$(verdict_of "$rc3")"; N3="rc=$rc3: $(head -1 "$W/m3.err" | cut -c1-90)"
     elif [ "$ARM" = self ]; then
         sp="$(pass_lines "$W/m3.out")"; sf="$(fail_lines "$W/m3.out")"
@@ -154,6 +156,7 @@ for sno in "$SUITE"/*.spt; do
     fi
     if [ "$isx" = 1 ]; then :; elif [ "$OUT3" = PASS ]; then P3=$((P3+1)); else F3=$((F3+1)); FL3="$FL3 $name($OUT3)"; fi
     # --- mode 4
+    _t0="$(progress_clock)"
     m4why=""; if m4why="$(compile_m4 "$base" "$W/prog.bin" "$ca")"; then
         run_at_declared_table "$DECL" "$name" -- "$TIMEOUT_RETRY" "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" < /dev/null > "$3" 2> "$4"' _ "$RUN" "$W/prog.bin" "$W/m4.out" "$W/m4.err" 2>/dev/null; rc4=$?
         if [ "$rc4" -eq 124 ] || [ "$rc4" -ge 128 ]; then OUT4="$(verdict_of "$rc4")"; N4="rc=$rc4: $(head -1 "$W/m4.err" | cut -c1-90)"
@@ -172,6 +175,7 @@ for sno in "$SUITE"/*.spt; do
     fi
     [ "$isx" = 0 ] && [ "$OUT3" = PASS ] && [ "$OUT4" = PASS ] && BOTH=$((BOTH+1))
     [ "$isx" = 1 ] && { XG_N=$((XG_N+1)); XG_LIST="$XG_LIST $name(m3=$OUT3,m4=$OUT4)"; XG_NAMES="$XG_NAMES $base"; }
+    ROW_S4="$(progress_secs_since "$_t0")"
     prog_row "$name" m3 "$OUT3" "$N3"; prog_row "$name" m4 "$OUT4" "$N4"
 done
 GC=$((GRADED - XG_N))

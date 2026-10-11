@@ -32,6 +32,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import glob
 from concurrent.futures import ThreadPoolExecutor
 
@@ -1045,6 +1046,7 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     workroot = tempfile.mkdtemp(prefix="lgtsuite.")
     results = {}
     probe_results = {}
+    case_secs = {}   # (work index, mode) -> the case's own wall seconds in that mode, for its progress row (CEO-1676 (c))
     try:
         for mode in modes:
             # ⛔ THE POLICING ARM RUNS IN THE SAME PASS AS THE BOARD, on the same binary and the same tree. A
@@ -1058,21 +1060,25 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
                 # the harness failing, not the case -- it is reported as such and the other 3616 still get
                 # measured. A runner that dies at case 900 publishes nothing at all.
                 k, fc, p = t
+                t0 = time.monotonic()
                 try:
                     return k, run_one(p, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path),
-                                      loaded=fc.loaded or (), sw=decl_switches(decl, fc, p), key="%s:%s" % (fc.group, p.case.name))
+                                      loaded=fc.loaded or (), sw=decl_switches(decl, fc, p), key="%s:%s" % (fc.group, p.case.name)), \
+                        time.monotonic() - t0
                 except Exception as e:                      # noqa: BLE001 -- deliberately broad, see above
-                    return k, ("harness", "%s: %s" % (type(e).__name__, e))
+                    return k, ("harness", "%s: %s" % (type(e).__name__, e)), time.monotonic() - t0
             with ThreadPoolExecutor(max_workers=jobs) as pool:
-                for k, res in pool.map(job, todo):
+                for k, res, secs in pool.map(job, todo):
                     (results if k[0] == "w" else probe_results)[(k[1], mode)] = res
+                    if k[0] == "w":
+                        case_secs[(k[1], mode)] = secs
         cands = _sweep(work, results, where, builders, dbs, shim_src, scrip, modes, workroot, jobs, decl=decl) \
             if sweep else []
     finally:
         shutil.rmtree(workroot, ignore_errors=True)
     seqinfo = {"table": sequenced, "errors": seqerr, "probes": probes, "probe_results": probe_results,
                "sweep": cands, "outside_n": outside_n, "outside_unresolved": outside_unresolved,
-               "outside_off": outside_off, "excluded": excl_hits}
+               "outside_off": outside_off, "excluded": excl_hits, "secs": case_secs}
     return (work, results, seqinfo), []
 
 
@@ -1326,8 +1332,8 @@ def main(argv):
                     v, why = verdict(p, results[(i, m)][0])
                     note = ("iso-13211-1-case-expectation" + ("-file-sequenced" if p.sequenced else "")) \
                         if v == "PASS" else (why or v)[:60]
-                pf.write("package\tlogtalk\tprolog\t%s\t%s\t%s\t0\t%s\n"
-                         % (_prog, m, v, note))
+                pf.write("package\tlogtalk\tprolog\t%s\t%s\t%s\t%.3f\t%s\n"
+                         % (_prog, m, v, seqinfo.get("secs", {}).get((i, m), 0.0), note))
     print("PROGRESS_ROWS_TSV %s" % rows)
     # ⛔ THE OUTSIDE COUNT IS APPENDED, NEVER SUBTRACTED FROM pop HERE. Every reader of this line takes its
     # fields POSITIONALLY, and a shrinking pop would silently re-base every one of them; a trailing field is

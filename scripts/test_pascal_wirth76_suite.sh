@@ -56,32 +56,35 @@ for name in "${PROGS[@]}"; do
     exp="$(cat "$ref")"
     T_RUN="${TMO_OF[$name]:-$RUN_TIMEOUT}"
     wantrc=$(awk -F'\t' -v n="$name" '$1==n{print $2; exit}' "$WANTRC" 2>/dev/null); [ -n "$wantrc" ] || wantrc=0
-    m3ok=0
+    m3ok=0; _t0="$(progress_clock)"
     m3out=$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- "$TIMEOUT_RETRY" "$T_RUN" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null); m3rc=$?
+    S3="$(progress_secs_since "$_t0")"   # each mode's own wall for its row (CEO-1676 (c)); m4's takes its compile and link
     if [ "$m3out" = "$exp" ] && [ "$m3rc" = "$wantrc" ]; then
-        M3_PASS=$((M3_PASS+1)); m3ok=1; printf 'package\t%s\tpascal\t%s\tm3\tPASS\t0\t\n' "$KEY" "$name" >>"$PROG_ROWS"
+        M3_PASS=$((M3_PASS+1)); m3ok=1; printf 'package\t%s\tpascal\t%s\tm3\tPASS\t%s\t\n' "$KEY" "$name" "$S3" >>"$PROG_ROWS"
     else
         M3_FAIL=$((M3_FAIL+1)); M3_FAIL_NAMES+=("$name")
         if [ "$m3out" = "$exp" ]; then _d3="exit-code-differs(got=$m3rc want=$wantrc)"; else _d3="output-differs-from-ref"; fi
         [ "$m3rc" = 124 ] && _d3="timeout-at-${T_RUN}s"
-        printf 'package\t%s\tpascal\t%s\tm3\tFAIL\t0\t%s\n' "$KEY" "$name" "$_d3" >>"$PROG_ROWS"
+        printf 'package\t%s\tpascal\t%s\tm3\tFAIL\t%s\t%s\n' "$KEY" "$name" "$S3" "$_d3" >>"$PROG_ROWS"
     fi
-    m4bin="$TMP/${name}.bin"; m4s="$TMP/${name}.s"
+    m4bin="$TMP/${name}.bin"; m4s="$TMP/${name}.s"; _t0="$(progress_clock)"
     if "$TIMEOUT_RETRY" "$T_RUN" "$SCRIP" --compile "$pas" -o "$m4s" < /dev/null 2>/dev/null \
         && gcc -no-pie "$m4s" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$m4bin" 2>/dev/null; then
         m4out=$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- "$TIMEOUT_RETRY" "$T_RUN" "$m4bin" < "$inp" 2>/dev/null); m4rc=$?
+        S4="$(progress_secs_since "$_t0")"
         if [ "$m4out" = "$exp" ] && [ "$m4rc" = "$wantrc" ]; then
             M4_PASS=$((M4_PASS+1)); [ "$m3ok" -eq 1 ] && BOTH_PASS=$((BOTH_PASS+1))
-            printf 'package\t%s\tpascal\t%s\tm4\tPASS\t0\t\n' "$KEY" "$name" >>"$PROG_ROWS"
+            printf 'package\t%s\tpascal\t%s\tm4\tPASS\t%s\t\n' "$KEY" "$name" "$S4" >>"$PROG_ROWS"
         else
             M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES+=("$name")
             if [ "$m4out" = "$exp" ]; then _d4="exit-code-differs(got=$m4rc want=$wantrc)"; else _d4="output-differs-from-ref"; fi
             [ "$m4rc" = 124 ] && _d4="timeout-at-${T_RUN}s"
-            printf 'package\t%s\tpascal\t%s\tm4\tFAIL\t0\t%s\n' "$KEY" "$name" "$_d4" >>"$PROG_ROWS"
+            printf 'package\t%s\tpascal\t%s\tm4\tFAIL\t%s\t%s\n' "$KEY" "$name" "$S4" "$_d4" >>"$PROG_ROWS"
         fi
     else
+        S4="$(progress_secs_since "$_t0")"
         M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES+=("$name (build/link failed)")
-        printf 'package\t%s\tpascal\t%s\tm4\tFAIL\t0\tbuild-or-link-failed\n' "$KEY" "$name" >>"$PROG_ROWS"
+        printf 'package\t%s\tpascal\t%s\tm4\tFAIL\t%s\tbuild-or-link-failed\n' "$KEY" "$name" "$S4" >>"$PROG_ROWS"
     fi
 done
 echo ""

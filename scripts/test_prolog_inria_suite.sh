@@ -47,6 +47,18 @@ _inria_out="$(mktemp "${TMPDIR:-/tmp}/inria_board.XXXXXX")"
 python3 - <<'PY' | tee "$_inria_out"
 import os, re, subprocess, tempfile, sys
 sys.path.insert(0, os.environ["INRIA_HERE"]); import lib_timeout_retry as _ltr   # a graded run's timeout under load is retried once (CEO-1335)
+# ⭐ THE ENTRY'S OWN SECONDS PER MODE (CEO-1676 (c)): every run below goes through _ltr.run, so its wall is added to the (index, mode) the
+# loop is grading -- both passes (the outcome class and the bindings) -- and the progress row carries the sum.
+import time as _time, collections as _coll
+isecs = _coll.defaultdict(float); _cur = [None]
+_ltr_run = _ltr.run
+def _timed_run(*a, **k):
+    t0 = _time.monotonic()
+    try:
+        return _ltr_run(*a, **k)
+    finally:
+        if _cur[0] is not None: isecs[_cur[0]] += _time.monotonic() - t0
+_ltr.run = _timed_run
 suite = os.environ["INRIA_SUITE"]; scrip = os.environ["INRIA_SCRIP"]
 def expected_class(exp):
     e = exp.strip()
@@ -298,6 +310,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
     if _tidx in OUTSIDE: continue
     want, wfun = expected_class(exp)
     for mode in ("m3", "m4"):
+        _cur[0] = (_tidx, mode)
         with open(prog, "w") as f:
             f.write(HARNESS_PRELUDE + dq_lead(_tidx, mode))
             f.write(":- catch( ( %s -> write('@OK') ; write('@NO') ), E, ( write('@ER('), write(E), write(')') ) ), nl.\n" % goal)
@@ -477,6 +490,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
         excluded_fresh_named.append("%s:%s" % (fam, goal[:40]))
         sols = None
     for mode in ("m3", "m4"):
+        _cur[0] = (_tidx, mode)
         if sols is None:
             # Nothing finer to check than outcome class -- inherit that verdict directly (never re-derive
             # it from the truncated `named` diagnostics, which can collide on goal[:28]).
@@ -549,8 +563,8 @@ with open(_prog_rows, "w") as _pf:
     for _i, (_fam, _goal, _exp) in enumerate(tests):
         if _i in OUTSIDE: continue
         for _m in ("m3", "m4"):
-            _pf.write("package\tinria\tprolog\t%s#%d\t%s\t%s\t0\toutcome-class-and-bindings\n"
-                      % (_fam, _i, _m, "PASS" if bok.get((_i, _m), False) else "FAIL"))
+            _pf.write("package\tinria\tprolog\t%s#%d\t%s\t%s\t%.3f\toutcome-class-and-bindings\n"
+                      % (_fam, _i, _m, "PASS" if bok.get((_i, _m), False) else "FAIL", isecs.get((_i, _m), 0.0)))
 assert sum(1 for _k, _v in bok.items() if _v and _k[1] == "m3") == bres["m3"][0] and sum(1 for _k, _v in bok.items() if _v and _k[1] == "m4") == bres["m4"][0], "the per-entry verdicts disagree with the bindings board's counters"
 print("PROGRESS_ROWS_TSV %s" % _prog_rows)
 open(os.path.join(tmp, "bindings_board"), "w").write("%d %d %d" % (_gtot, bres["m3"][0], bres["m4"][0]))

@@ -108,6 +108,7 @@ for k in "${KERNELS[@]}"; do
   bash "$GEN" "$f" --mode=time --bud="$BUD_MS" --engine=scrip -o "$T/$k.time.pl" >/dev/null 2>"$T/$k.time.gen" || gen_ok=0
   okboth=1
   for m in m3 m4; do
+    _tm="$(progress_clock)"   # the mode's own wall for its row: its three angles, and in m4 their compile and link (CEO-1676 (c))
     r1=FAIL; r2=FAIL; r3=FAIL; why=""
     if [ "$gen_ok" = 0 ]; then why="the wrapper generator REFUSED: $(head -c 160 "$T/$k.iter.gen" "$T/$k.time.gen" 2>/dev/null | tr '\n' ' ')"
     else
@@ -130,7 +131,8 @@ for k in "${KERNELS[@]}"; do
     if [ "$r1$r2$r3" = PASSPASSPASS ]; then v=PASS; [ -n "$ocls" ] || PASSN[$m]=$((PASSN[$m]+1)); note="ref-under-three-angles"
     else v=FAIL; okboth=0; note="$(echo "$why" | sed 's/^[; ]*//' | tr '\t' ' ')"; [ -n "$ocls" ] || NAMED="$NAMED $k.$m"; fi
     [ -n "$ocls" ] && note="$ocls (OUTSIDE.tsv, out of the denominator): $note"
-    printf 'benchmark\tprolog-bench-ref\tprolog\t%s\t%s\t%s\t0\t%s\t%s\n' "$k" "$m" "$v" "$note" "$cfg" >>"$PROG_ROWS"
+    SM="$(progress_secs_since "$_tm")"
+    printf 'benchmark\tprolog-bench-ref\tprolog\t%s\t%s\t%s\t%s\t%s\t%s\n' "$k" "$m" "$v" "$SM" "$note" "$cfg" >>"$PROG_ROWS"
     printf '%-20s %-4s %-7s %-7s %-7s %s\n' "$k" "$m" "$r1" "$r2" "$r3" "$v${why:+ -- $(echo "$why" | sed 's/^[; ]*//')}"
   done
   [ "$okboth" = 1 ] && [ -z "$ocls" ] && BOTH=$((BOTH+1))

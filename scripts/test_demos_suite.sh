@@ -83,8 +83,10 @@ for r in "${PROGS[@]}"; do
         cat "${units[@]}" "$f" > "$W/$b" || refuse "$r: its chain could not be concatenated"
         CH=$((CH+1))
     fi
+    t0="$(progress_clock)"
     # shellcheck disable=SC2086
     ( cd "$W" && SNO_LIB="$W:$S4E/corpus/include" "$TIMEOUT_RETRY" "$TMO" "$SCRIP" $sw --run $ca "$b" ${args[@]+-- "${args[@]}"} < "$in" > "$W/.m3" 2> "$W/.m3e" ); r3=$?
+    s3="$(progress_secs_since "$t0")"; t0="$(progress_clock)"   # each mode's own seconds for its row (CEO-1676 (c)); m4's take compile and link
     v3="$(verdict "$r3" "$W/.m3" "$ref")"
     # shellcheck disable=SC2086
     if ( cd "$W" && SNO_LIB="$W:$S4E/corpus/include" "$TIMEOUT_RETRY" "$TMO" "$SCRIP" --compile $ca "$b" < /dev/null > "$W/.p.s" 2> "$W/.p.cc" ) && [ -s "$W/.p.s" ] \
@@ -93,12 +95,13 @@ for r in "${PROGS[@]}"; do
         ( cd "$W" && SNO_LIB="$W:$S4E/corpus/include" "$TIMEOUT_RETRY" "$TMO" "$W/.p4" $sw ${args[@]+"${args[@]}"} < "$in" > "$W/.m4" 2> "$W/.m4e" ); r4=$?
         v4="$(verdict "$r4" "$W/.m4" "$ref")"
     else v4=FAIL; r4=125; fi
+    s4="$(progress_secs_since "$t0")"
     note=""; [ "$v3" = PASS ] || note="m3 rc=$r3$(head -c 90 "$W/.m3e" 2>/dev/null | tr '\n' ' ' | sed 's/^/ /')"
     [ "$v4" = PASS ] || note="$note${note:+; }m4 rc=$r4$( [ "$r4" = 125 ] && head -c 90 "$W/.p.cc" | tr '\n' ' ' | sed 's/^/ compile: /')"
     [ "$v3" = PASS ] && M3P=$((M3P+1)); [ "$v4" = PASS ] && M4P=$((M4P+1))
     if [ "$v3" = PASS ] && [ "$v4" = PASS ]; then BOTH=$((BOTH+1)); else NAMED="$NAMED $r(m3=$v3,m4=$v4)"; fi
-    printf 'benchmark\t%s-demos\t%s\tdemos/%s/%s\tm3\t%s\t0\t%s\n' "$L" "$L" "$L" "$r" "$v3" "sample" >> "$PROG_ROWS"
-    printf 'benchmark\t%s-demos\t%s\tdemos/%s/%s\tm4\t%s\t0\t%s\n' "$L" "$L" "$L" "$r" "$v4" "sample" >> "$PROG_ROWS"
+    printf 'benchmark\t%s-demos\t%s\tdemos/%s/%s\tm3\t%s\t%s\t%s\n' "$L" "$L" "$L" "$r" "$v3" "$s3" "sample" >> "$PROG_ROWS"
+    printf 'benchmark\t%s-demos\t%s\tdemos/%s/%s\tm4\t%s\t%s\t%s\n' "$L" "$L" "$L" "$r" "$v4" "$s4" "sample" >> "$PROG_ROWS"
     printf '%-40s %-6s %-6s %s\n' "$r" "$v3" "$v4" "$note"
     rm -rf "$M"
 done

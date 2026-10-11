@@ -110,23 +110,26 @@ for name in "${PAIRS[@]}"; do
     inp="$SUITE/$name.in"; [ -f "$inp" ] || inp=/dev/null
     if [ -n "${REFUSE_SET[$name]:-}" ]; then
         NREF=$((NREF+1)); m3ok=0
+        _t0="$(progress_clock)"
         _e3="$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "$pas" <"$inp" 2>&1 >/dev/null)"; _r3=$?
+        S3="$(progress_secs_since "$_t0")"; _t0="$(progress_clock)"   # each mode's own wall for its row (CEO-1676 (c))
         if [ "$_r3" -ne 0 ] && [ "$_r3" -lt 124 ] && printf '%s' "$_e3" | grep -q 'ISO 7185'; then
-            M3_PASS=$((M3_PASS+1)); m3ok=1; printf 'package\tfpc\tpascal\t%s\tm3\tPASS\t0\texpected-refusal-iso-7185\n' "$name" >>"$PROG_ROWS"
+            M3_PASS=$((M3_PASS+1)); m3ok=1; printf 'package\tfpc\tpascal\t%s\tm3\tPASS\t%s\texpected-refusal-iso-7185\n' "$name" "$S3" >>"$PROG_ROWS"
         else
             M3_FAIL=$((M3_FAIL+1)); M3_FAIL_NAMES+=("$name(expected-refusal)")
-            printf 'package\tfpc\tpascal\t%s\tm3\tFAIL\t0\texpected-refusal-not-refused-with-an-iso-diagnostic(rc=%s)\n' "$name" "$_r3" >>"$PROG_ROWS"
+            printf 'package\tfpc\tpascal\t%s\tm3\tFAIL\t%s\texpected-refusal-not-refused-with-an-iso-diagnostic(rc=%s)\n' "$name" "$S3" "$_r3" >>"$PROG_ROWS"
         fi
         _e4="$(cd "$TMP" && "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --compile "$pas" -o "$TMP/$name.s" </dev/null 2>&1 >/dev/null)"; _r4=$?
         if [ "$_r4" = 0 ] && gcc -no-pie "$TMP/$name.s" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$TMP/$name.bin" 2>/dev/null; then
             _e4="$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$TMP/$name.bin" <"$inp" 2>&1 >/dev/null)"; _r4=$?
         fi
+        S4="$(progress_secs_since "$_t0")"
         if [ "$_r4" -ne 0 ] && [ "$_r4" -lt 124 ] && printf '%s' "$_e4" | grep -q 'ISO 7185'; then
             M4_PASS=$((M4_PASS+1)); [ "$m3ok" -eq 1 ] && BOTH_PASS=$((BOTH_PASS+1))
-            printf 'package\tfpc\tpascal\t%s\tm4\tPASS\t0\texpected-refusal-iso-7185\n' "$name" >>"$PROG_ROWS"
+            printf 'package\tfpc\tpascal\t%s\tm4\tPASS\t%s\texpected-refusal-iso-7185\n' "$name" "$S4" >>"$PROG_ROWS"
         else
             M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES+=("$name(expected-refusal)")
-            printf 'package\tfpc\tpascal\t%s\tm4\tFAIL\t0\texpected-refusal-not-refused-with-an-iso-diagnostic(rc=%s)\n' "$name" "$_r4" >>"$PROG_ROWS"
+            printf 'package\tfpc\tpascal\t%s\tm4\tFAIL\t%s\texpected-refusal-not-refused-with-an-iso-diagnostic(rc=%s)\n' "$name" "$S4" "$_r4" >>"$PROG_ROWS"
         fi
         continue
     fi
@@ -152,38 +155,42 @@ for name in "${PAIRS[@]}"; do
     # ⛔ THE EXPECTED rc IS CUT FROM THE ORACLE, NEVER FROM US: corpus/packages/pascal/fpc_tests/ALL.wantrc
     # carries fpc's own exit status for every entry that is not 0, same filename and format as the Icon
     # rungs'. An entry absent from that file expects 0. A line there is the oracle's answer, not a waiver.
+    _t0="$(progress_clock)"
     m3out=$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- "$TIMEOUT_RETRY" "$T_RUN" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null); m3rc=$?
+    S3="$(progress_secs_since "$_t0")"
     wantrc=$(awk -F'\t' -v n="$name" '$1==n{print $2; exit}' "$WANTRC" 2>/dev/null); [ -n "$wantrc" ] || wantrc=0
     if [ "$m3out" = "$exp" ] && [ "$m3rc" = "$wantrc" ]; then
         M3_PASS=$((M3_PASS+1)); m3ok=1
-        printf 'package\tfpc\tpascal\t%s\tm3\tPASS\t0\t\n' "$name" >>"$PROG_ROWS"
+        printf 'package\tfpc\tpascal\t%s\tm3\tPASS\t%s\t\n' "$name" "$S3" >>"$PROG_ROWS"
         [ "$VERBOSE" -eq 1 ] && echo "  m3 PASS $name"
     else
         M3_FAIL=$((M3_FAIL+1)); M3_FAIL_NAMES+=("$name")
         if [ "$m3out" = "$exp" ]; then _d3="exit-code-differs(got=$m3rc want=$wantrc)"; else _d3="output-differs-from-ref"; fi
         [ "$m3rc" = 124 ] && _d3="timeout-at-${T_RUN}s"
-        printf 'package\tfpc\tpascal\t%s\tm3\tFAIL\t0\t%s\n' "$name" "$_d3" >>"$PROG_ROWS"
+        printf 'package\tfpc\tpascal\t%s\tm3\tFAIL\t%s\t%s\n' "$name" "$S3" "$_d3" >>"$PROG_ROWS"
         [ "$VERBOSE" -eq 1 ] && echo "  m3 FAIL $name"
     fi
 
-    m4bin="$TMP/${name}.bin"; m4s="$TMP/${name}.s"
+    m4bin="$TMP/${name}.bin"; m4s="$TMP/${name}.s"; _t0="$(progress_clock)"
     if "$TIMEOUT_RETRY" "$T_RUN" "$SCRIP" --compile "$pas" -o "$m4s" < /dev/null 2>/dev/null \
         && gcc -no-pie "$m4s" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$m4bin" 2>/dev/null; then
         m4out=$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- "$TIMEOUT_RETRY" "$T_RUN" "$m4bin" < "$inp" 2>/dev/null); m4rc=$?
+        S4="$(progress_secs_since "$_t0")"
         if [ "$m4out" = "$exp" ] && [ "$m4rc" = "$wantrc" ]; then
             M4_PASS=$((M4_PASS+1)); [ "$m3ok" -eq 1 ] && BOTH_PASS=$((BOTH_PASS+1))
-            printf 'package\tfpc\tpascal\t%s\tm4\tPASS\t0\t\n' "$name" >>"$PROG_ROWS"
+            printf 'package\tfpc\tpascal\t%s\tm4\tPASS\t%s\t\n' "$name" "$S4" >>"$PROG_ROWS"
             [ "$VERBOSE" -eq 1 ] && echo "  m4 PASS $name"
         else
             M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES+=("$name")
             if [ "$m4out" = "$exp" ]; then _d4="exit-code-differs(got=$m4rc want=$wantrc)"; else _d4="output-differs-from-ref"; fi
             [ "$m4rc" = 124 ] && _d4="timeout-at-${T_RUN}s"
-            printf 'package\tfpc\tpascal\t%s\tm4\tFAIL\t0\t%s\n' "$name" "$_d4" >>"$PROG_ROWS"
+            printf 'package\tfpc\tpascal\t%s\tm4\tFAIL\t%s\t%s\n' "$name" "$S4" "$_d4" >>"$PROG_ROWS"
             [ "$VERBOSE" -eq 1 ] && echo "  m4 FAIL $name"
         fi
     else
+        S4="$(progress_secs_since "$_t0")"
         M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES+=("$name (build/link failed)")
-        printf 'package\tfpc\tpascal\t%s\tm4\tFAIL\t0\tbuild-or-link-failed\n' "$name" >>"$PROG_ROWS"
+        printf 'package\tfpc\tpascal\t%s\tm4\tFAIL\t%s\tbuild-or-link-failed\n' "$name" "$S4" >>"$PROG_ROWS"
         [ "$VERBOSE" -eq 1 ] && echo "  m4 FAIL $name (build/link failed)"
     fi
 done

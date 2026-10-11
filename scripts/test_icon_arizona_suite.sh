@@ -62,7 +62,7 @@ PROGRESS_CONFIG="$(progress_config_of_env)"   # every row declares what it ran u
 PROGRESS_FAILED=0
 # ⛔ THE PROGRESS KEY IS THE PATH KEY <subdir>/<stem> (coo 2026-10-08, CEO-1366 (b)): the container ALL.csv keys arizona_tests
 # general/args, the IPL board writes progs/when, and this board wrote the bare stem -- two keys for one program in the progress table.
-arizona_progress() { progress_append package arizona icon "$sub/$1" "$2" "$3" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
+arizona_progress() { progress_append package arizona icon "$sub/$1" "$2" "$3" "${AZ_SECS:-0}" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }   # AZ_SECS: that mode's own wall (CEO-1676 (c))
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_SO="$HERE/../out/libscrip_rt.so"
 CORPUS="$S4E/corpus"
@@ -293,6 +293,7 @@ for std in "$SUITE"/*.ref; do
   # icn_keyboard_pty_drive.py drives the program's own fixed 3-phase keystroke protocol over a real pty and
   # already applies the ONE error voice itself (same renderer, called from inside it) -- proven byte-stable
   # against the oracle over 8 m3 + 8 m4 runs before landing (see the script's own header).
+  AZ_T0="$(progress_clock)"
   if [ "$sub/$name" = "special/keyboard" ]; then
     m3out=$(cd "$SUITE" && "$TIMEOUT_RETRY" $((TIMEOUT+5)) python3 "$HERE/icn_keyboard_pty_drive.py" "$SUITE" "$TIMEOUT" -- "$SCRIP" --run $_ca $_sw "$name.icn"); m3rc=$?
   else
@@ -300,6 +301,7 @@ for std in "$SUITE"/*.ref; do
     # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
     m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
   fi
+  AZ_SECS="$(progress_secs_since "$AZ_T0")"
   # CEO-409: an implementation-defined line is masked to the SAME marker in both streams before compare.
   m3out="$(mask_apply "$std" "$name" "$m3out")"; exp3="$(mask_apply "$std" "$name" "$exp3")"
   if printf '%s' "$m3out" | grep -q 'parse error'; then
@@ -332,6 +334,7 @@ for std in "$SUITE"/*.ref; do
   # tracked corpus content, and the snapshot sweep would NOT remove it (it is not new) -- so the damage would
   # be silent and permanent. No arizona name collides today; this is the guard for the day one does.
   if [ -e "$bin4" ]; then echo "REFUSE(2): $sub/$name -- cannot pin the m4 binary to $bin4, a shipped file already owns that name" >&2; rm -f "$s4"; exit 2; fi
+  AZ_T0="$(progress_clock)"
   m4diag=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --compile $_ca "$name.icn" 2>&1 >"$s4" </dev/null)
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
@@ -345,6 +348,7 @@ for std in "$SUITE"/*.ref; do
       fi
     fi
   fi
+  AZ_SECS="$(progress_secs_since "$AZ_T0")"
   # CEO-409: same marker, same reasoning as the m3 arm above.
   m4out="$(mask_apply "$std" "$name" "$m4out")"; exp4="$(mask_apply "$std" "$name" "$exp4")"
   if printf '%s\n%s\n%s' "$m4diag" "$m4out" "$(cat "$s4" 2>/dev/null)" | grep -q 'parse error'; then
@@ -386,7 +390,9 @@ if [ -f "$PRE_TSV" ]; then
       [ -f "$_pd/$_pa" ] || { echo "⛔ REFUSED TO GRADE rc=2: $_pp's contract argv names $_psub/$_pa, which is not shipped" >&2; exit 2; }
       [ -f "$_pd/${_pa%.icn}.ref" ] && { echo "⛔ REFUSED TO GRADE rc=2: $_psub/$_pa has its own .ref AND a preprocess contract -- two grading vehicles for one program" >&2; exit 2; }
     done
+    _pt0="$(progress_clock)"
     ( cd "$_pd" && "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" -E $_pargv < /dev/null > "$RUNDIR/pp.out" 2> "$RUNDIR/pp.err" ); _pgot=$?
+    _psecs="$(awk -v d="$(progress_secs_since "$_pt0")" -v n="$(( $(echo $_pargv | wc -w) * 2 ))" 'BEGIN { printf "%.3f", d / n }')"   # one run, split over its rows
     if cat "$RUNDIR/pp.err" "$RUNDIR/pp.out" | cmp -s - "$_pref" && [ "$_pgot" = "$_prc" ]; then _pv=PASS
     elif [ "$_pgot" = 124 ]; then _pv=HANG
     elif [ "$_pgot" -ge 128 ]; then _pv=CRASH
@@ -399,7 +405,7 @@ if [ -f "$PRE_TSV" ]; then
         CRASH) M3_CRASH=$((M3_CRASH+1)); M4_CRASH=$((M4_CRASH+1)); M3_CRASH_NAMES="$M3_CRASH_NAMES $id"; M4_CRASH_NAMES="$M4_CRASH_NAMES $id" ;;
         *)     M3_FAIL=$((M3_FAIL+1)); M4_FAIL=$((M4_FAIL+1)); M3_FAIL_NAMES="$M3_FAIL_NAMES $id"; M4_FAIL_NAMES="$M4_FAIL_NAMES $id" ;;
       esac
-      for _pm in m3 m4; do progress_append package arizona icon "$_psub/$id" "$_pm" "$_pv" 0 "preprocess-only contract: scrip -E $_pargv against icont -E (stderr then stdout, rc $_prc) -- one run, the shared frontend, recorded in both modes" </dev/null || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); done
+      for _pm in m3 m4; do progress_append package arizona icon "$_psub/$id" "$_pm" "$_pv" "$_psecs" "preprocess-only contract: scrip -E $_pargv against icont -E (stderr then stdout, rc $_prc) -- one run, the shared frontend, recorded in both modes" </dev/null || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); done
     done
     echo "PREPROCESS_CONTRACT $_pp argv=\"$_pargv\" want_rc=$_prc got_rc=$_pgot verdict=$_pv graded=$(echo $_pargv | wc -w)"
   done < "$PRE_TSV"

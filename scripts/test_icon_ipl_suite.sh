@@ -316,7 +316,7 @@ PROGRESS_FAILED=0
 # bare stem: the IPL ships gener and morse both as a procs/ library graded through its driver and as a progs/ program, so stem keys
 # collapsed 550 graded programs into 548 DB names, two passes vanished from the DB's count, and util_score_row's cross-check refused
 # the row (hq_icon 2026-09-26 18:2x: AND 513 of 550 against 511 PASS over 841). gimpel, gnu, roast and swi key by path already.
-ipl_progress() { if [ -n "$SMOKE_KEYS" ]; then SMOKE_V["$IPL_ISO_SUBDIR/$1 $2"]="$3"; return 0; fi; progress_append package ipl icon "$IPL_ISO_SUBDIR/$1" "$2" "$3" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
+ipl_progress() { if [ -n "$SMOKE_KEYS" ]; then SMOKE_V["$IPL_ISO_SUBDIR/$1 $2"]="$3"; return 0; fi; progress_append package ipl icon "$IPL_ISO_SUBDIR/$1" "$2" "$3" "${IPL_SECS:-0}" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }   # IPL_SECS: that mode's own wall (CEO-1676 (c)); 0 for a row that ran nothing
 ipl_isolation_init "$PKG" || { echo "⛔ GATE REFUSES: could not build IPL isolation template" >&2; exit 2; }
 # ⛔ Snapshot the subtree BEFORE any graded program runs -- ipl_isolation_verify_clean at the end reports
 # what moved SINCE HERE, not what differs from HEAD; the fixtures a sitting is authoring are untracked by
@@ -353,7 +353,7 @@ for std in "${STDFILES[@]}"; do
     # CEO-1272 made NEEDS_DRIVER): NAME_driver.icn and its .ref beside NAME.icn -- the driver is what RUNS, NAME is what is counted,
     # named and recorded, as in the Arizona and Jcon runners. The driver run puts its own directory first on IPATH (IPL_ISO_DRIVER).
     # A driver whose library is not shipped, or a library carrying its own .ref as well, refuses: two answers, or none, to one question.
-    id="$base"; unset IPL_ISO_DRIVER; _drvpath=()
+    id="$base"; unset IPL_ISO_DRIVER; _drvpath=(); IPL_SECS=0
     case "$base" in *_driver)
         id="${base%_driver}"
         [ -f "$(dirname "$std")/$id.icn" ] || { echo "⛔ REFUSED TO GRADE rc=2: ${std#"$PKG"/} is a driver's ref but its library $id.icn is not shipped beside it -- a vehicle with nothing to carry (CEO-1269)" >&2; exit 2; }
@@ -419,12 +419,13 @@ for std in "${STDFILES[@]}"; do
     # looks right, it runs, and every count downstream would have been quietly off.
     decl_ask "$IPL_ISO_SUBDIR/$id"
     _ca="$(declared_compile_args_from_table "$CA_TBL" "$IPL_ISO_SUBDIR/$id")" || exit 2
+    _t0="$(progress_clock)"
     if [ "${#IPLARGV[@]}" -gt 0 ]; then
         ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" "$SCRIP" --run $_ca $_sw "$icn" -- "${IPLARGV[@]}"
     else
         ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" "$SCRIP" --run $_ca $_sw "$icn"
     fi
-    rc3=$?
+    rc3=$?; IPL_SECS="$(progress_secs_since "$_t0")"
     by3=$(wc -c < "$TMP/${base}.m3.out" 2>/dev/null || echo 0)
     if [ "$rc3" -eq 124 ]; then M3_RUN_HANG=$((M3_RUN_HANG+1)); M3_RUN_HANG_NAMES+=("$id"); ipl_progress "$id" m3 HANG
     elif [ "$rc3" -eq 125 ]; then M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$id(fixture-sidecar-malformed)"); ipl_progress "$id" m3 REFUSE
@@ -436,7 +437,7 @@ for std in "${STDFILES[@]}"; do
 
     # -- m4 (--compile): emitting .s does not execute the target program, so THAT step is unisolated,
     # same as the compile tier above; only running the linked binary carries the self-mutation hazard.
-    s4="$TMP/${base}.m4.s"; bin4="$TMP/${base}.m4.bin"
+    s4="$TMP/${base}.m4.s"; bin4="$TMP/${base}.m4.bin"; _t0="$(progress_clock)"
     ${_drvpath[@]+"${_drvpath[@]}"} "$SCRIP" --compile $_ca "$icn" >"$s4" 2>"$TMP/${base}.m4.diag" </dev/null
     if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
         if [ "${#IPLARGV[@]}" -gt 0 ]; then
@@ -444,7 +445,7 @@ for std in "${STDFILES[@]}"; do
         else
             ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" "$bin4" $_sw
         fi
-        rc4=$?
+        rc4=$?; IPL_SECS="$(progress_secs_since "$_t0")"
         by4=$(wc -c < "$TMP/${base}.m4.out" 2>/dev/null || echo 0)
         if [ "$rc4" -eq 124 ]; then M4_RUN_HANG=$((M4_RUN_HANG+1)); M4_RUN_HANG_NAMES+=("$id"); ipl_progress "$id" m4 HANG
         elif [ "$rc4" -eq 125 ]; then M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id(fixture-sidecar-malformed)"); ipl_progress "$id" m4 REFUSE
@@ -454,6 +455,7 @@ for std in "${STDFILES[@]}"; do
         elif { python3 "$HERE/util_render_error_voice.py" icon < "$TMP/${base}.m4.out" > "$TMP/${base}.m4.voice" 2>/dev/null; ipl_graded_cmp "$IPL_ISO_FIXTURES" "$TMP/${base}.m4.voice" "$std"; }; then M4_RUN_PASS=$((M4_RUN_PASS+1)); ipl_progress "$id" m4 PASS
         else M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id"); ipl_progress "$id" m4 FAIL; fi
     else
+        IPL_SECS="$(progress_secs_since "$_t0")"
         M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id(compile/link)"); ipl_progress "$id" m4 FAIL
     fi
     rm -f "$s4" "$bin4" "$TMP/${base}.m3.out" "$TMP/${base}.m4.out"

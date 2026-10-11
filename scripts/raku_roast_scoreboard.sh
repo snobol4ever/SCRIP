@@ -239,23 +239,25 @@ if [ "$DO_RUN" = 1 ]; then
     so="$TMP/o"; se="$TMP/e"
     pname="${src#$ROAST/}"; pname="${pname%.t}"; roast_sw "$pname"
     export S4E_TIMEOUT_KEY="$pname"   # the unit a retried timeout's stamp names (CEO-1335)
-    incwd "$TIMEOUT_RETRY" 5 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
+    _t0="$(progress_clock)"   # each mode's own wall for its row (CEO-1676 (c)); m4's takes its compile and link
+    incwd "$TIMEOUT_RETRY" 5 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null; rc=$?; _s3="$(progress_secs_since "$_t0")"
     v3="$(classify "$so" "$se" "$rc")"
-    progress_append package roast raku "$pname" m3 "$(roast_outcome "$v3")" >/dev/null 2>&1 || true
+    progress_append package roast raku "$pname" m3 "$(roast_outcome "$v3")" "$_s3" >/dev/null 2>&1 || true
     if [ "$v3" = PASS ]; then m3p=$((m3p+1)); else m3f=$((m3f+1)); FAILED_M3="$FAILED_M3 $pname:$v3"; fi
     s4="$TMP/c.s"; o4="$TMP/c.o"; b4="$TMP/c.bin"
+    _t0="$(progress_clock)"
     if "$TIMEOUT_RETRY" 20 "$SCRIP" --compile --target=x86 "$stage" > "$s4" 2>/dev/null \
        && "$TIMEOUT_RETRY" 20 gcc -c "$s4" -o "$o4" 2>/dev/null \
        && "$TIMEOUT_RETRY" 20 gcc "$o4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$b4" 2>/dev/null; then
       compiled_ok=$((compiled_ok+1))
-      incwd "$TIMEOUT_RETRY" 10 "$b4" "${RSW[@]}" > "$TMP/o4" 2> "$TMP/e4" < /dev/null; rc4=$?
+      incwd "$TIMEOUT_RETRY" 10 "$b4" "${RSW[@]}" > "$TMP/o4" 2> "$TMP/e4" < /dev/null; rc4=$?; _s4="$(progress_secs_since "$_t0")"
       v4="$(classify "$TMP/o4" "$TMP/e4" "$rc4")"
-      progress_append package roast raku "$pname" m4 "$(roast_outcome "$v4")" >/dev/null 2>&1 || true
+      progress_append package roast raku "$pname" m4 "$(roast_outcome "$v4")" "$_s4" >/dev/null 2>&1 || true
       if [ "$v4" = PASS ]; then m4p=$((m4p+1)); else m4f=$((m4f+1)); FAILED_M4="$FAILED_M4 $pname:$v4"; fi
       [ "$v3" = PASS ] && [ "$v4" = PASS ] && bothp=$((bothp+1))
     else
       m4f=$((m4f+1)); FAILED_M4="$FAILED_M4 $pname:CC"
-      progress_append package roast raku "$pname" m4 REJECT 0 "mode-4 compile or link failed" >/dev/null 2>&1 || true
+      progress_append package roast raku "$pname" m4 REJECT "$(progress_secs_since "$_t0")" "mode-4 compile or link failed" >/dev/null 2>&1 || true
     fi
     if [ $((n % 100)) -eq 0 ]; then
       printf '  ...%d files (%ds elapsed): m3 %d/%d  m4 %d/%d\n' "$n" "$(( $(date +%s) - t0 ))" "$m3p" "$n" "$m4p" "$n" >&2

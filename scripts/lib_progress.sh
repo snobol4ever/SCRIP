@@ -11,6 +11,7 @@
 #   progress_append_results_tsv <suite> <lang> <file>     # scorecard_snobol4.sh results.tsv (suite program m3 m4 t3 t4 note)
 #   progress_append_triangulation <lang> <file>           # bench_triangulate_* TSV (kernel engine a1 a2 ratio verdict ...)
 #   progress_context                                      # prints scrip= corpus= measurer= db= off= -- what a row would carry
+#   t0="$(progress_clock)"; ...run...; s="$(progress_secs_since "$t0")"   # the program's own wall seconds, for the row's secs field
 #
 # Control arms: S4E_PROGRESS_DB=<path> (gates point it at a scratch file), S4E_PROGRESS_OFF=1 (says so on stderr).
 _PROGRESS_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_progress_append.py"
@@ -40,3 +41,14 @@ progress_append_rows_tsv() { _progress_run rows-tsv "$1"; }
 progress_append_results_tsv() { _progress_run results-tsv --suite "$1" --lang "$2" "$3"; }
 progress_append_triangulation() { _progress_run triangulation --lang "$1" "$2"; }
 progress_context() { _progress_run context; }
+# ⭐ THE PROGRAM'S OWN SECONDS (ceo CEO-1676 row (c); ARCH-SUITE-PARTITIONS.md section 4 (c)): the secs column read 0 for nearly every
+# suite (snobol4-rungs 0 of 4028 rows, swi 0 of 5870), so no partition could be sized by time. A runner reads progress_clock before a
+# program's run in a mode and progress_secs_since after it, and passes that as the row's secs; a row that ran nothing keeps 0.
+# $EPOCHREALTIME: no fork per program (its decimal mark follows the locale, so a comma is read as a point).
+progress_clock() { local t="${EPOCHREALTIME:-$(date +%s.%N)}"; printf '%s' "${t/,/.}"; }
+progress_secs_since() { awk -v a="$1" -v b="$(progress_clock)" 'BEGIN { d = b - a; if (d < 0) d = 0; printf "%.3f", d }'; }
+# progress_row_secs <mode> -- the secs a runner's own row helper writes: ROW_S3 / ROW_S4, which the runner resets to 0 at the head of each
+# program and sets from progress_clock around each mode's run, so a row written before (or instead of) a run -- UNGRADED, OUTSIDE -- reads 0.
+progress_row_secs() { case "$1" in m3) printf '%s' "${ROW_S3:-0}";; m4) printf '%s' "${ROW_S4:-0}";; *) printf 0;; esac; }
+# progress_secs_sum <secs>... -- one row's seconds made of parts (a mode-4 row: the compile shared before the modes plus its own runs).
+progress_secs_sum() { awk 'BEGIN { s = 0; for (i = 1; i < ARGC; i++) s += ARGV[i]; printf "%.3f", s }' "$@"; }

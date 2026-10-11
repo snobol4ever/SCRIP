@@ -209,12 +209,17 @@ for f in "${FILES[@]}"; do
         din=/dev/null; [ -f "${drv%.pl}.in" ] && din="${drv%.pl}.in"
         # ⛔ A DRIVER RUNS IN THE SCRATCH DIRECTORY, never in the tree under test: dec10io's tell(user) made a FILE named user in the cwd
         # (a SCRIP defect the driver exposed) and a dirty SCRIP skips every row this pass writes.
+        # each mode's own wall for its row (CEO-1676 (c)): m3 its run, m4 the compile, link and run
+        _t0="$(progress_clock)"
         "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --compile "$drv" -o "$dout" < /dev/null > "$probe_log" 2>&1; drc=$?
+        _cs="$(progress_secs_since "$_t0")"; _t0="$(progress_clock)"
         m3_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "$drv" ${dargv[0]+--} "${dargv[@]}" < "$din" 2>/dev/null)
+        S3="$(progress_secs_since "$_t0")"; _t0="$(progress_clock)"
         m4_out=""
         if [ "$drc" -eq 0 ] && gcc -no-pie "$dout" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$dbin" 2>/dev/null; then
             m4_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$dbin" "${dargv[@]}" < "$din" 2>/dev/null)
         fi
+        S4="$(progress_secs_sum "$(progress_secs_since "$_t0")" "$_cs")"
         gp_out=$(gprolog_out "$drv" "$din" "${dargv[@]}")
         dref="${f%.pl}_driver.ref"
         if [ ! -s "$dref" ]; then SIDE_ERR+=("${dref#"$PKG"/} is missing or empty -- cut it from gprolog (GNU_SUITE_CUT_REFS=1 bash $0) before grading")
@@ -228,8 +233,8 @@ for f in "${FILES[@]}"; do
         fi
         if [ "$m3_out" = "$gp_out" ] && [ "$m4_out" = "$gp_out" ]; then _gv=PASS; else _gv=FAIL; fi
         if command -v progress_append >/dev/null 2>&1; then
-            progress_append package gnu prolog "$rel" m3 "$([ "$m3_out" = "$gp_out" ] && echo PASS || echo FAIL)" 0 "driver ${base}_driver.pl vs gprolog" || true
-            progress_append package gnu prolog "$rel" m4 "$([ "$m4_out" = "$gp_out" ] && echo PASS || echo FAIL)" 0 "driver ${base}_driver.pl vs gprolog" || true
+            progress_append package gnu prolog "$rel" m3 "$([ "$m3_out" = "$gp_out" ] && echo PASS || echo FAIL)" "$S3" "driver ${base}_driver.pl vs gprolog" || true
+            progress_append package gnu prolog "$rel" m4 "$([ "$m4_out" = "$gp_out" ] && echo PASS || echo FAIL)" "$S4" "driver ${base}_driver.pl vs gprolog" || true
         fi
         if [ "$_gv" = PASS ]; then
             OK_PASS=$((OK_PASS+1))
@@ -254,8 +259,9 @@ for f in "${FILES[@]}"; do
         continue
     fi
 
+    _t0="$(progress_clock)"
     "$TIMEOUT_RETRY" "$CLASSIFY_TIMEOUT" "$SCRIP" --compile "$f" -o "$out" < /dev/null > "$probe_log" 2>&1
-    rc=$?
+    rc=$?; _cs="$(progress_secs_since "$_t0")"   # the classify compile is mode 4's compile: its row carries it (CEO-1676 (c))
 
     if [ "$rc" -eq 124 ]; then
         REJECT=$((REJECT+1)); REJECT_NAMES+=("$rel")
@@ -266,12 +272,15 @@ for f in "${FILES[@]}"; do
     if [ "$rc" -eq 0 ]; then
         OK_TOTAL=$((OK_TOTAL+1))
         # -- triangulate: SCRIP m3, SCRIP m4 (link+run the .s this classify pass already produced), gprolog --
+        _t0="$(progress_clock)"
         m3_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
+        S3="$(progress_secs_since "$_t0")"; _t0="$(progress_clock)"
         bin="$TMP/${base}.bin"
         m4_out=""
         if gcc -no-pie "$out" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$bin" 2>/dev/null; then
             m4_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$bin" < /dev/null 2>/dev/null)
         fi
+        S4="$(progress_secs_sum "$(progress_secs_since "$_t0")" "$_cs")"
         # ⛔⭐ --init-goal RUNS *BEFORE* --consult-file, SO THE FILE'S OWN `:- initialization(...)`
         # DIRECTIVE NEVER FIRES (verified by hand: --init-goal halt produces silent empty output on a
         # file proven, by a separate plain-consult run, to print real text on init -- the exact
@@ -311,8 +320,8 @@ for f in "${FILES[@]}"; do
         [ -z "${UNG_SET[$rel]:-}" ] || SIDE_ERR+=("$rel is named in UNGRADED.tsv and now grades with output -- delete the stale row")
         if command -v progress_append >/dev/null 2>&1; then
             if [ "$m3_out" = "$m4_out" ] && [ "$m4_out" = "$gp_out" ]; then _gv=PASS; else _gv=FAIL; fi
-            progress_append package gnu prolog "$rel" m3 "$_gv" 0 "three-way m3=m4=gprolog" || true
-            progress_append package gnu prolog "$rel" m4 "$_gv" 0 "three-way m3=m4=gprolog" || true
+            progress_append package gnu prolog "$rel" m3 "$_gv" "$S3" "three-way m3=m4=gprolog" || true
+            progress_append package gnu prolog "$rel" m4 "$_gv" "$S4" "three-way m3=m4=gprolog" || true
         fi
         if [ "$m3_out" = "$m4_out" ] && [ "$m4_out" = "$gp_out" ]; then
             OK_PASS=$((OK_PASS+1))

@@ -73,10 +73,12 @@ for k in "${KERNELS[@]}"; do
   in="$B/$k.in"; [ -f "$in" ] || in=/dev/null
   DECL_SW=(); dw=$(declared_switches_beside "$B/$k.pas") || refuse "$k: a .heap or .stack sidecar the reader refuses (it said why above)"; [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"
   knob=0; if [ "$in" != /dev/null ] && [ "$(grep -c . "$in")" = 1 ] && grep -qE '^[[:space:]]*[0-9]+[[:space:]]*$' "$in"; then knob=1; fi
+  tc="$(progress_clock)"
   m4ok=1; ( cd "$TMP" && "$TIMEOUT_RETRY" 300s "$SCRIP" --compile -o "$TMP/$k.s" "$B/$k.pas" </dev/null >"$TMP/$k.cc.err" 2>&1 ) \
     && ( cd "$TMP" && cc -m64 -no-pie "$k.s" -o "$k.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >>"$TMP/$k.cc.err" 2>&1 ) || m4ok=0
+  cs="$(progress_secs_since "$tc")"
   for m in m3 m4; do
-    a1=FAIL; a2=FAIL; a3=FAIL; why=""
+    a1=FAIL; a2=FAIL; a3=FAIL; why=""; tm="$(progress_clock)"
     if [ "$m" = m4 ] && [ "$m4ok" = 0 ]; then why="m4 compile/link failed: $(head -c 120 "$TMP/$k.cc.err" | tr '\n' ' ')"
     else
       o="$OUTDIR/$k.$m.wrap.stdout"; run_kernel "$m" "$k" "$in" "$o" "$WRAP"; rc=$?
@@ -102,7 +104,9 @@ for k in "${KERNELS[@]}"; do
     fi
     if [ "$a1$a2$a3" = PASSPASSPASS ]; then v=PASS; PASSN[$m]=$((PASSN[$m]+1)); note="ref-under-three-angles"
     else v=FAIL; okboth=0; note="$(echo "$why" | sed 's/^[; ]*//' | tr '\t' ' ')"; NAMED="$NAMED $k.$m"; fi
-    printf 'benchmark\tpascal-bench-ref\tpascal\t%s\t%s\t%s\t0\t%s\n' "$k" "$m" "$v" "$note" >>"$PROG_ROWS"
+    # the row's secs: this mode's three angles, and for m4 the compile and link before them (CEO-1676 (c))
+    s="$(progress_secs_since "$tm")"; [ "$m" = m4 ] && s="$(progress_secs_sum "$s" "$cs")"
+    printf 'benchmark\tpascal-bench-ref\tpascal\t%s\t%s\t%s\t%s\t%s\n' "$k" "$m" "$v" "$s" "$note" >>"$PROG_ROWS"
     printf '%-10s %-4s %-7s %-7s %-7s %s\n' "$k" "$m" "$a1" "$a2" "$a3" "$v${why:+ -- $why}"
   done
   [ "$okboth" = 1 ] && BOTH=$((BOTH+1))

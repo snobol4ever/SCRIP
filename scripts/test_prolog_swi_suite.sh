@@ -95,6 +95,7 @@ if [ ! -f "$ref" ]; then echo "NOREF" > "$od/$mode.tsv"; exit 0; fi
 # never collapses into FAIL). rc is the run's own status (timeout passes a child's signal on as 128+N and answers 124 itself); a mode-4
 # program that never compiled has no run, and keeps rc 0 and its FAIL.
 rc=0
+_t0="${EPOCHREALTIME/,/.}"   # the process's own wall (CEO-1676 (c)): the aggregator divides it over the case rows this process produced
 if [ "$mode" = "m4" ]; then
     if "$TIMEOUT_RETRY" 60 "$SCRIP" --compile "$PLUNIT" "$f" "$WORK/wrap.pl" > "$od/m4.s" 2>"$od/m4.err" && [ -s "$od/m4.s" ] \
        && gcc -no-pie "$od/m4.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$od/m4.bin" 2>>"$od/m4.err"; then
@@ -108,6 +109,7 @@ if [ "$mode" = "m4" ]; then
 else
     run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- "$TIMEOUT_RETRY" 60 "$SCRIP" --run "$PLUNIT" "$f" "$WORK/wrap.pl" < /dev/null > "$act" 2>"$od/m3.err"; rc=$?
 fi
+awk -v a="$_t0" -v b="${EPOCHREALTIME/,/.}" 'BEGIN { printf "%.3f\n", b - a }' > "$od/$mode.secs"
 python3 "$MATCH_PY" "$f" "$ref" "$act" "$rc" > "$od/$mode.tsv"
 GEOF
 chmod +x "$WORK/grade_one.sh"
@@ -137,6 +139,13 @@ for f in open(files).read().split('\n'):
     if per is None: continue
     first = per[modes[0]]
     n_decl = len(first); declared += n_decl
+    # each case row's secs: its mode's process wall over the case rows that process produced, so the suite's summed secs is its wall
+    def _secs(m):
+        try:
+            return float(open(os.path.join(od, m + '.secs')).read().strip() or 0) / max(1, n_decl)
+        except (OSError, ValueError):
+            return 0.0
+    csecs = {m: '%.3f' % _secs(m) for m in modes}
     fpass = 0; fgraded = 0
     for i, row in enumerate(first):
         label, verdict = row[0], row[1]
@@ -154,7 +163,7 @@ for f in open(files).read().split('\n'):
             ungraded_cases += 1; ungraded_reason[_why] += 1
             _cls = 'UNGRADABLE' if _why == 'UNGRADABLE' else 'UNGRADED'
             for m in modes:
-                rows.append('package\tswi\tprolog\t%s:%s\t%s\t%s\t0\t%s' % (rel, label, m, _cls, ((row[2] if len(row) > 2 else _why) or _why)[:60]))
+                rows.append('package\tswi\tprolog\t%s:%s\t%s\t%s\t%s\t%s' % (rel, label, m, _cls, csecs[m], ((row[2] if len(row) > 2 else _why) or _why)[:60]))
             continue
         fgraded += 1; graded_cases += 1
         ok_all = True
@@ -167,7 +176,7 @@ for f in open(files).read().split('\n'):
             if r[1] != 'PASS':
                 ok_all = False
                 if name_reds: reds.append('RED %s:%s:%s:%s' % (rel, label, m, (r[2] if len(r) > 2 else '')[:120]))
-            rows.append('package\tswi\tprolog\t%s:%s\t%s\t%s\t0\tcase of %s%s' % (rel, label, m, v, rel, ('' if v in ('PASS', 'FAIL') else ' -- ' + (r[2] if len(r) > 2 else '')[:40])))
+            rows.append('package\tswi\tprolog\t%s:%s\t%s\t%s\t%s\tcase of %s%s' % (rel, label, m, v, csecs[m], rel, ('' if v in ('PASS', 'FAIL') else ' -- ' + (r[2] if len(r) > 2 else '')[:40])))
         if ok_all: both += 1; fpass += 1
     perfile.append((rel, fpass, fgraded, n_decl - fgraded))
 for rel, p, g, u in perfile:

@@ -109,6 +109,7 @@ for f in "$SUITE"/iso7185prt*.pas; do
         # get louder as the cure lands -- it gets quieter, because the cure it cannot see keeps arriving.
         # ⛔ A LINK FAILURE IS NOT A REFUSAL: the compiler accepted the program, so the witness FAILS (it was not
         # refused) rather than passing on a toolchain accident. test_gate_pas_pat_m4_arm_links_and_runs.sh pins this.
+        _t0="$(progress_clock)"   # the mode's own wall for its row (CEO-1676 (c)): m4's takes its compile and link
         if [ "$m" = m3 ]; then ( cd "$TMP" && run_at_declared_table "$DECL" "$b" -- "$TIMEOUT_RETRY" 2s "$SCRIP" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
         else ( cd "$TMP" && exec "$TIMEOUT_RETRY" 8s "$SCRIP" --compile -o "$TMP/rj.s" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
              if [ "$rc" = 0 ]; then
@@ -116,6 +117,7 @@ for f in "$SUITE"/iso7185prt*.pas; do
                      ( cd "$TMP" && run_at_declared_table "$DECL" "$b" -- "$TIMEOUT_RETRY" 2s ./rj </dev/null >"$TMP/o" 2>&1 ); rc=$?
                  else : ; fi
              fi; fi
+        SM="$(progress_secs_since "$_t0")"
         # ⛔⭐ THE VERDICT IS STABLE; ONLY THE DIAGNOSIS VARIES (ceo ruling 2026-09-03, after their audit read
         # m3 296/129 where mine read 303/123 on the same tree). THE VERDICT is binary and load-independent:
         # a rejection test PASSES only when scrip REFUSES it with a diagnostic, and everything else -- ran to
@@ -129,7 +131,7 @@ for f in "$SUITE"/iso7185prt*.pas; do
         # and writing them here would put this suite's crash column OUTSIDE its fail column for every reader
         # who counts FAIL -- the exact two-HQs-disagree defect the verdict/diagnosis split was cut to end.
         if [ "$rc" -ne 0 ] && [ "$rc" -lt 124 ] && [ -s "$TMP/o" ]; then P[$m]=$((P[$m]+1))
-            printf 'package\tpat\tpascal\t%s\t%s\tPASS\t0\trefused-with-a-diagnostic\n' "$b" "$m" >>"$PROG_ROWS"
+            printf 'package\tpat\tpascal\t%s\t%s\tPASS\t%s\trefused-with-a-diagnostic\n' "$b" "$m" "$SM" >>"$PROG_ROWS"
             [ -n "${PAT_VERBOSE:-}" ] && echo "  $m PASS $b"
         else
             F[$m]=$((F[$m]+1)); okboth=0
@@ -138,7 +140,7 @@ for f in "$SUITE"/iso7185prt*.pas; do
             elif [ "$rc" -ne 0 ];   then DIAG="rejected-silently-no-diagnostic"
             else                         DIAG="accepted"; fi
             NAMED="$NAMED $b:$m:FAIL/diag=$DIAG"
-            printf 'package\tpat\tpascal\t%s\t%s\tFAIL\t0\t%s\n' "$b" "$m" "$DIAG" >>"$PROG_ROWS"
+            printf 'package\tpat\tpascal\t%s\t%s\tFAIL\t%s\t%s\n' "$b" "$m" "$SM" "$DIAG" >>"$PROG_ROWS"
             [ -n "${PAT_VERBOSE:-}" ] && echo "  $m FAIL $b ($DIAG)"
         fi
     done
@@ -195,20 +197,22 @@ for f in "$SUITE"/iso7185pat*.pas "${ACCEPT_FILES[@]}"; do
     # taken from the verdicts themselves rather than reconstructed from two counts afterwards, which cannot be done.
     okboth=1
     for m in m3 m4; do
+        _t0="$(progress_clock)"
         if [ "$m" = m3 ]; then run_at_declared_table "$DECL" "$b" -- "$TIMEOUT_RETRY" 20s "$SCRIP" "$f" <"$in" >"$TMP/got" 2>&1; rc=$?
         else "$TIMEOUT_RETRY" 20s "$SCRIP" --compile -o "$TMP/b.s" "$f" </dev/null >/dev/null 2>&1 && \
              gcc -m64 -no-pie "$TMP/b.s" -o "$TMP/bin" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -lm 2>/dev/null && \
              run_at_declared_table "$DECL" "$b" -- "$TIMEOUT_RETRY" 20s "$TMP/bin" <"$in" >"$TMP/got" 2>&1; rc=$?; fi
+        SM="$(progress_secs_since "$_t0")"
         # ⛔ A CRASHED ACCEPTANCE TEST IS A FAIL AND MUST BE COUNTED AS ONE. Before this line it incremented
         # the crash column ALONE, so a crash left P+F one short of TOTAL and the board's own denominator
         # stopped adding up -- latent today only because both acceptance fixtures are ungradable by the
         # oracle, i.e. the arm never fires; it fires the day one of them becomes gradable.
         if [ "$rc" -ge 124 ]; then C[$m]=$((C[$m]+1)); F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:CRASH(rc=$rc)"; okboth=0
-            printf 'package\tpat\tpascal\t%s\t%s\tFAIL\t0\tcrash(rc=%s)\n' "$b" "$m" "$rc" >>"$PROG_ROWS"
+            printf 'package\tpat\tpascal\t%s\t%s\tFAIL\t%s\tcrash(rc=%s)\n' "$b" "$m" "$SM" "$rc" >>"$PROG_ROWS"
         elif cmp -s "$TMP/want" "$TMP/got"; then P[$m]=$((P[$m]+1))
-            printf 'package\tpat\tpascal\t%s\t%s\tPASS\t0\tmatches-the-oracle\n' "$b" "$m" >>"$PROG_ROWS"
+            printf 'package\tpat\tpascal\t%s\t%s\tPASS\t%s\tmatches-the-oracle\n' "$b" "$m" "$SM" >>"$PROG_ROWS"
         else F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:MISMATCH"; okboth=0
-            printf 'package\tpat\tpascal\t%s\t%s\tFAIL\t0\tmismatch-vs-oracle\n' "$b" "$m" >>"$PROG_ROWS"; fi
+            printf 'package\tpat\tpascal\t%s\t%s\tFAIL\t%s\tmismatch-vs-oracle\n' "$b" "$m" "$SM" >>"$PROG_ROWS"; fi
     done
     BOTH=$((BOTH+okboth))
 done

@@ -141,7 +141,7 @@ BASE=0; BASE_BOTH=0; OUTSIDE_N=0; OUTSIDE_LIST=""; OUTSIDE_TSV="$SUITE/OUTSIDE_S
 # every pattern here silently moves fixtures OUT of the denominator, which is the direction that
 # flatters the board. One pattern per line, each with the date and seat that measured it.
 ORACLE_REFUSAL_RE='No END statement found in source file'   # measured 2026-09-08 (ceo, coo)
-prog_row() { printf 'package\tsnoflake\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$3" "$4" >> "$PROG_ROWS"; }
+prog_row() { printf 'package\tsnoflake\tsnobol4\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$(progress_row_secs "$2")" "$4" >> "$PROG_ROWS"; }   # secs: ROW_S3/ROW_S4, each mode's own wall (CEO-1676 (c))
 verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
@@ -330,7 +330,7 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
     esac; }
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
-    name="$(basename "$sno" .sno)"; TOTAL=$((TOTAL+1))
+    name="$(basename "$sno" .sno)"; TOTAL=$((TOTAL+1)); ROW_S3=0; ROW_S4=0
     export S4E_TIMEOUT_KEY="$name"   # the unit a retried timeout's stamp names (CEO-1335)
     read -r MATCH IC NSTD HASINP OPTS <<< "$(parse_fixture "$sno")"
     mask_arm "$name"
@@ -360,7 +360,7 @@ for sno in "$SUITE"/*.sno; do
     ORACLE_CMP="$(mask_apply "$ORACLE_OUT")"
     if grade "$ORACLE_OUT" "$RC" "$MATCH" "$IC"; then [ "$NSTD" = 1 ] && NSP=$((NSP+1)) || PS=$((PS+1)); ORACLE_MEETS_EXPECT=1
     else [ "$NSTD" = 1 ] && NSF=$((NSF+1)) || { FS=$((FS+1)); FLS="$FLS $name"; }; ORACLE_MEETS_EXPECT=0; fi
-    run_one m3 "$sno"; M3RC=$RC; M4RC=0; OUT3=""; NOTE3=""
+    _t0="$(progress_clock)"; run_one m3 "$sno"; M3RC=$RC; M4RC=0; OUT3=""; NOTE3=""; ROW_S3="$(progress_secs_since "$_t0")"
     if oracle_equal "$(mask_apply "$GOT")" "$ORACLE_CMP"; then [ "$NSTD" = 1 ] && N3P=$((N3P+1)) || P3=$((P3+1))
         if [ "$OE_KIND" = exact ]; then OUT3=PASS; else OUT3=UNGRADED; NOTE3="error_number_only: same ERROR number as sbl -bf, stream differs (narrower instrument)"; fi
         if [ "$NSTD" != 1 ]; then
@@ -369,7 +369,7 @@ for sno in "$SUITE"/*.sno; do
         [ "$ORACLE_MEETS_EXPECT" = 0 ] && { DIA=$((DIA+1)); DIAL="$DIAL $name"; }
     else [ "$NSTD" = 1 ] && N3F=$((N3F+1)) || { F3=$((F3+1)); FL3="$FL3 $name"; }
         OUT3="$(verdict_of "$RC")"; NOTE3="rc=$RC vs sbl -bf"; [ "$NSTD" = 1 ] && { NOTE3="@nonstandard by snoflake's own header, yet SPITBOL runs it, so it is graded in the baseline; $NOTE3"; }; fi
-    compile_m4 "$sno" "$W/prog.bin"; m4rc=$?; OUT4=""; NOTE4=""
+    _t0="$(progress_clock)"; compile_m4 "$sno" "$W/prog.bin"; m4rc=$?; OUT4=""; NOTE4=""
     if [ "$m4rc" -eq 0 ]; then
         run_one m4 "$sno"; M4RC=$RC
         if oracle_equal "$(mask_apply "$GOT")" "$ORACLE_CMP"; then [ "$NSTD" = 1 ] && N4P=$((N4P+1)) || P4=$((P4+1))
@@ -390,6 +390,7 @@ for sno in "$SUITE"/*.sno; do
     [ "$OUT3" = PASS ] && [ "$OUT4" = PASS ] && BOTH_STREAM=$((BOTH_STREAM+1))
     if [ "$OUTSIDE" = 1 ]; then OUT3=UNGRADED; OUT4=UNGRADED; NOTE3="OUTSIDE_SPITBOL_BASELINE: SPITBOL itself does not run it -- $OERR"; NOTE4="$NOTE3"
     elif [ "$OUT3" = PASS ] && [ "$OUT4" = PASS ]; then BASE_BOTH=$((BASE_BOTH+1)); fi
+    ROW_S4="$(progress_secs_since "$_t0")"
     prog_row "$name" m3 "$OUT3" "$NOTE3"; prog_row "$name" m4 "$OUT4" "$NOTE4"
     if [ -n "$CSN" ]; then
         run_one csn "$sno"

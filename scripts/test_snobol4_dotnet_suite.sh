@@ -102,7 +102,7 @@ PROG_ROWS="$W/progress.tsv"; : > "$PROG_ROWS"
 CANON_SUITE="$ROOT/corpus/packages/snobol4/dotnet"
 PROG_RECORD=0; { [ "$SUITE" = "$CANON_SUITE" ] || [ -n "${S4E_PROGRESS_DB:-}" ]; } && PROG_RECORD=1
 BOTH=0
-prog_row() { printf 'package\tdotnet\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$3" "$4" >> "$PROG_ROWS"; }
+prog_row() { printf 'package\tdotnet\tsnobol4\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$(progress_row_secs "$2")" "$4" >> "$PROG_ROWS"; }   # secs: ROW_S3/ROW_S4, each mode's own wall (CEO-1676 (c))
 # ⭐ THE SPITBOL BASELINE (Lon 2026-09-08, row snobol4-every-package-runner-states-its-row-over-the-spitbol-
 # baseline-measured-live; test_snoflake_suite.sh is the shape). A program the ONE ORACLE cannot run is OUTSIDE
 # the baseline and out of the denominator. This runner already MEASURES that set live -- it is exactly the
@@ -142,7 +142,7 @@ mask_dot() { # $1=text $2=name $3=side -> the text masked per ALL.mask (the harn
 }
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
-    name="$(basename "$sno" .sno)"
+    name="$(basename "$sno" .sno)"; ROW_S3=0; ROW_S4=0
     export S4E_TIMEOUT_KEY="$name"   # the unit a retried timeout's stamp names (CEO-1335)
     # ⛔ A CONTAINER IS NOT A PROGRAM (ceo CEO-1272): chap7.sno carries two top-level ENDs, a chapter of example programs in one
     # file, and CONTAINERS.tsv names it MULTI_PROGRAM with that measurement -- it is neither graded nor outside the baseline.
@@ -180,7 +180,9 @@ for sno in "$SUITE"/*.sno; do
     # are per-entry rows); a row that matches nothing changes nothing, so a program without one is compared byte for byte as before
     gotS="$(mask_dot "$gotS" "$name" oracle)"
     ca="$(declared_compile_args_from_table "$DECL" "$name")" || exit 2
+    _t0="$(progress_clock)"
     got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --run $ca "$sno" < "$inp" 2>"$W/err3")"; rc3=$?
+    ROW_S3="$(progress_secs_since "$_t0")"
     if [ "$DIED" = 1 ]; then got3="$(mask_dot "$(fatal_render "$got3" "$W/err3")" "$name" scrip)"; else got3="$(mask_dot "$got3" "$name" scrip)"; fi
     [ -n "${DOTNET_DEBUG_DIR:-}" ] && { printf '%s' "$gotS" > "$DOTNET_DEBUG_DIR/$name.oracle"; printf '%s' "$got3" > "$DOTNET_DEBUG_DIR/$name.m3"; cp "$W/err3" "$DOTNET_DEBUG_DIR/$name.err3" 2>/dev/null; }   # what this runner compared, on request (a red a reader cannot see is a red nobody can cure)
     if [ "$got3" = "$gotS" ]; then P3=$((P3+1)); OUT3=PASS; else F3=$((F3+1)); FL3="$FL3 $name"; OUT3="$(verdict_of "$rc3")"; fi
@@ -189,13 +191,14 @@ for sno in "$SUITE"/*.sno; do
     # with 0 bytes, and "0 bytes equals 0 bytes" graded it PASS. The board's P3 keeps this runner's own label; the
     # progress row and the AND line say HANG, which is what happened.
     [ "$rc3" -eq 124 ] && OUT3=HANG
-    rc4=""; if compile_m4 "$sno" "$W/prog.bin" "$ca"; then
+    rc4=""; _t0="$(progress_clock)"; if compile_m4 "$sno" "$W/prog.bin" "$ca"; then
         got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- "$TIMEOUT_RETRY" "$TIMEOUT" "$W/prog.bin" < "$inp" 2>"$W/err4")"; rc4=$?
         if [ "$DIED" = 1 ]; then got4="$(mask_dot "$(fatal_render "$got4" "$W/err4")" "$name" scrip)"; else got4="$(mask_dot "$got4" "$name" scrip)"; fi
         if [ "$got4" = "$gotS" ]; then P4=$((P4+1)); OUT4=PASS; else F4=$((F4+1)); FL4="$FL4 $name"; OUT4="$(verdict_of "$rc4")"; fi
         [ "$rc4" -eq 124 ] && OUT4=HANG
     else S4=$((S4+1)); FL4="$FL4 $name(CC)"; OUT4=SKIP
     fi
+    ROW_S4="$(progress_secs_since "$_t0")"
     [ "$OUT3" = PASS ] && [ "$OUT4" = PASS ] && BOTH=$((BOTH+1))
     N3="vs live sbl -bf, rc=$rc3"; [ "$OUT3" = HANG ] && N3="SCRIP hit the ${TIMEOUT} timeout (rc=124) while the oracle exited rc=$rcS; streams equal at the cut"
     N4="vs live sbl -bf${rc4:+, rc=$rc4}"; [ "$OUT4" = HANG ] && N4="SCRIP hit the ${TIMEOUT} timeout (rc=124) while the oracle exited rc=$rcS; streams equal at the cut"

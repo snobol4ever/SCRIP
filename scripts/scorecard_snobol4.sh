@@ -365,19 +365,21 @@ run_one() {  # suite lib prog norm run_to
     echo DIFF
   }
   # ---- m3
-  t0=$SECONDS
+  # t3/t4: each mode's own wall in decimal seconds ($EPOCHREALTIME, CEO-1676 (c)); $SECONDS read 0 for every program under a second,
+  # so 213 of gimpel's 290 progress rows of 2026-10-11 carried 0 and no chunk could be sized by them
+  t0="${EPOCHREALTIME/,/.}"
   (cd "$d" && run_at_declared_table "$SC_DECL" "$prog" -- env SNO_LIB="$lib" "$TIMEOUT_RETRY" "$rto" "$SCRIP" $cflag --run $ca "$prog" < "$in" > "$W/m3" 2>"$W/m3e"); rc=$?
   if [ ! -s "$W/m3" ] && [ $rc -ne 0 ] && grep -q 'emit_chain.*FAILED\|unresolved forward\|bb_emit_end\|[Pp]arse error\|syntax error\|COMPILE' "$W/m3e" 2>/dev/null; then st3=COMPILE_FAIL; else st3="$(grade "$W/m3" $rc)"; fi
-  t3=$((SECONDS-t0))
+  t3="$(awk -v a="$t0" -v b="${EPOCHREALTIME/,/.}" 'BEGIN { printf "%.3f", b - a }')"
   # ---- m4
-  t0=$SECONDS
+  t0="${EPOCHREALTIME/,/.}"
   if ! (cd "$d" && SNO_LIB="$lib" "$TIMEOUT_RETRY" 60 "$SCRIP" $cflag --compile $ca "$prog" </dev/null > "$W/p.s" 2>/dev/null) || [ ! -s "$W/p.s" ]; then st4=COMPILE_FAIL
   elif ! gcc -no-pie "$W/p.s" -L"$SC/out" -lscrip_rt -lm -Wl,-rpath,"$SC/out" -o "$W/p.bin" 2>/dev/null; then st4=ASM_FAIL
   else
     (cd "$d" && run_at_declared_table "$SC_DECL" "$prog" -- env SNO_LIB="$lib" "$TIMEOUT_RETRY" "$rto" "$W/p.bin" < "$in" > "$W/m4" 2>/dev/null); rc=$?
     st4="$(grade "$W/m4" $rc)"
   fi
-  t4=$((SECONDS-t0))
+  t4="$(awk -v a="$t0" -v b="${EPOCHREALTIME/,/.}" 'BEGIN { printf "%.3f", b - a }')"
   [ $have_pin = 1 ] && [ $have_live = 1 ] && ! cmp -s "$W/pin" "$W/live" && note="pin!=live"
   [ $have_live = 0 ] && note="pin-only$ordead"
   [ -s "$W/mask_scrip" ] && mnote="$mnote masked:$(tr '\n' ' ' < "$W/mask_scrip" | sed 's/ $//; s/ /,/g')"
