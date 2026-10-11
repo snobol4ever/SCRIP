@@ -3265,6 +3265,8 @@ static const char *icn_errmsg_known(int n) {
         return "program malfunction";
         case 600:
         return "vidget usage error";
+        case 701:
+        return "a call can never succeed against its callee's declared signature";
     }
     return (const char *)0;
 }

@@ -5280,6 +5280,80 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     return &g_stage2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_701_decls(const tree_t * t, const char * nm, const tree_t ** one) {
+    if (!t) return 0;
+    int n = 0;
+    if (t->t == TT_SUB_DECL && t->n > 0 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, nm)) { n++; *one = t; }
+    for (int i = 0; i < t->n; i++) n += rk_701_decls(t->c[i], nm, one);
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_701_has_default(const tree_t * sd) {
+    for (int i = 1; i < sd->n; i++) {
+        const tree_t * u = sd->c[i];
+        if (!u || u->t != TT_UNLESS || u->n < 1 || !u->c[0] || u->c[0]->t != TT_METHCALL || u->c[0]->n < 2) continue;
+        const tree_t * q = u->c[0]->c[1];
+        if (u->c[0]->c[0] && u->c[0]->c[0]->t == TT_VAR && q && q->t == TT_QLIT && q->v.sval && !strcmp(q->v.sval, "defined")) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_701_numeric_text(const char * s) { if (!s) return 0; char * e = NULL; if (*s == '+' || *s == '-') s++; if (!*s) return 0; strtod(s, &e); return e && e != s; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_701_lit_type(const tree_t * a) { return !a ? "Any" : a->t == TT_ILIT ? "Int" : a->t == TT_QLIT ? "Str" : a->t == TT_FLIT ? "Num" : "Any"; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_701_never(const char * ty, const tree_t * a) {
+    if (!ty || !a) return 0;
+    int numeric = !strcmp(ty, "Int") || !strcmp(ty, "Num") || !strcmp(ty, "Rat") || !strcmp(ty, "Numeric");
+    if (numeric && a->t == TT_QLIT && !rk_701_numeric_text(a->v.sval)) return 1;
+    if (!strcmp(ty, "Str") && a->t == TT_ILIT) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * rk_701_find(const tree_t * prog, const tree_t * t, int line, int * at) {
+    if (!t) return NULL;
+    if (t->line > 0) line = t->line;
+    if (t->t == TT_FNC && t->v.sval && strncmp(t->v.sval, "__", 2) && t->n >= 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, t->v.sval)) {
+        const tree_t * sd = NULL;
+        int nd = rk_701_decls(prog, t->v.sval, &sd);
+        int np = 0, ok = nd == 1 && sd && !rk_701_has_default(sd);
+        for (int k = 1; ok && k < sd->n && sd->c[k] && sd->c[k]->t == TT_VAR; k++) {
+            const tree_t * pv = sd->c[k];
+            if (!pv->v.sval || !*pv->v.sval || strchr("@%&", pv->v.sval[0])) ok = 0;
+            if (pv->n >= 1 && pv->c[0] && pv->c[0]->v.sval && strpbrk(pv->c[0]->v.sval, ":()*|\\")) ok = 0;
+            np++;
+        }
+        if (ok && np == t->n - 1) for (int k = 1; k <= np; k++) {
+            const tree_t * pv = sd->c[k];
+            const char * ty = (pv->n >= 1 && pv->c[0]) ? pv->c[0]->v.sval : NULL;
+            if (rk_701_never(ty, t->c[k])) { *at = line; return t; }
+        }
+    }
+    for (int i = 0; i < t->n; i++) { const tree_t * r = rk_701_find(prog, t->c[i], line, at); if (r) return r; }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int lower_raku_refuse(const tree_t * prog, const char * file) {
+    int line = 0;
+    const tree_t * call = rk_701_find(prog, prog, 0, &line);
+    if (!call) return 0;
+    const tree_t * sd = NULL;
+    rk_701_decls(prog, call->v.sval, &sd);
+    char args[256] = "", sig[256] = "";
+    size_t al = 0, sl = 0;
+    for (int k = 1; k < call->n; k++) al += (size_t) snprintf(args + al, al < sizeof args ? sizeof args - al : 0, "%s%s", k > 1 ? ", " : "", rk_701_lit_type(call->c[k]));
+    for (int k = 1; k < sd->n && sd->c[k] && sd->c[k]->t == TT_VAR && sl < sizeof sig; k++) {
+        const tree_t * pv = sd->c[k];
+        const char * ty = (pv->n >= 1 && pv->c[0] && pv->c[0]->v.sval) ? pv->c[0]->v.sval : NULL;
+        sl += (size_t) snprintf(sig + sl, sizeof sig - sl, "%s%s%s$%s", k > 1 ? ", " : "", ty ? ty : "", ty ? " " : "", pv->v.sval);
+    }
+    char msg[fmt_len("call %s(%s) can never succeed against the declared signature (%s)", call->v.sval, args, sig)];
+    snprintf(msg, sizeof msg, "call %s(%s) can never succeed against the declared signature (%s)", call->v.sval, args, sig);
+    extern void core_error_voice_at(int code, const char *msg, const char *file, long line, long stno);
+    core_error_voice_at(701, msg, file, line, 0);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_raku_stage2(const tree_t *prog) { return rk_stage2_core(prog, 1, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * rk_eval_proc_name(int n) { char nb[48]; snprintf(nb, sizeof nb, "EVAL$%d", n); return lp_strdup(nb); }

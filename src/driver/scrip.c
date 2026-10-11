@@ -1911,6 +1911,7 @@ int main(int argc, char **argv) {
             tree_t *parsed_ast = sub_ast;
             if (lang_pascal) sub_ast = lower_pascal_tree(sub_ast, input_path);
             if (dump_ast && sub_ast) { if (lang_pascal) { for (int _di = 0; _di < parsed_ast->n; _di++) ir_dump_tree(parsed_ast->c[_di], stdout); } else ir_dump_program(sub_ast, stdout); return 0; }
+            if (lang_raku && sub_ast && lower_raku_refuse(sub_ast, input_path)) return 1;
             lower_entry_fn seg_fn = lower_sno_stage2;
             if (lang_icon && n_sources == 1) { extern void icn_prune_unreachable_procs(tree_t * prog); icn_prune_unreachable_procs(sub_ast); }
             if (lang_pascal) seg_fn = lower_pascal_stage2;

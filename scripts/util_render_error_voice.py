@@ -24,12 +24,24 @@ THE LISTS (each row is what the oracle prints for the SCRIP field, measured on t
   spitbol  SPITBOL x64 fork /home/resources/x64/bin/sbl -bf (RULES.md § Oracles):
              "<file>(<line>) : ERROR <code:03d> -- <text>\\nin statement <stno>\\n"   (stno 0 when SCRIP printed none;
              frames and offending value have no SPITBOL counterpart and are dropped -- SPITBOL prints none)
+  raku     rakudo-local 2026.05 (/home/resources/rakudo-local/bin/raku), the compile-time refusals only (code 701; measured
+           2026-10-11 on sub f(Int $x) { }; f("x"), master entry sub_say_9):
+             "===SORRY!=== Error while compiling <file>\\nCalling <f>(<types>) will never work with declared signature (<sig>)\\n
+              at <file>:<line>\\n"  -- Rakudo's next line, the source excerpt with <HERE> (------>), is a field SCRIP does not
+              carry and is not invented; every other code is left as SCRIP printed it
   none     identity (the SCRIP voice itself)
+
+THE CODE RANGES THE VOICE RESERVES (src/runtime/core/core.c icn_errmsg_known is the table):
+  700-799  compile-time semantic refusals of ANY language: a program refused before it runs (the cto's ruling on hq_raku's
+           ask, 2026-10-11 04:xx CDT). The voice's located form, then exit 1: mode 3 before execution, mode 4's compile writes
+           no .s. Taken: 701 a call that can never succeed against its callee's declared signature (Raku, lower_raku_refuse).
+           The next language's compile-time refusal takes 702 and up.
 """
 import re, sys, os
 
 HEAD = re.compile(r'^scrip: error (\d+): (.*)$')
 AT = re.compile(r'^  at (.*?):(\d+)(?:; statement (\d+))?$')
+RAKU_701 = re.compile(r'^call (\S+?)\((.*)\) can never succeed against the declared signature (\(.*\))$')
 
 def render(lines, oracle):
     out = []; i = 0; n = len(lines)
@@ -58,6 +70,10 @@ def render(lines, oracle):
         elif oracle == 'spitbol':
             f = at.group(1) if at else ''; ln = at.group(2) if at else '0'; st = at.group(3) if (at and at.group(3)) else '0'
             out += ['%s(%s) : ERROR %03d -- %s' % (f, ln, code, text), 'in statement %s' % st]
+        elif oracle == 'raku' and code == 701 and RAKU_701.match(text):
+            r = RAKU_701.match(text); f = at.group(1) if at else ''; ln = at.group(2) if at else '0'
+            out += ['===SORRY!=== Error while compiling %s' % f, 'Calling %s(%s) will never work with declared signature %s' % (r.group(1), r.group(2), r.group(3)),
+                    'at %s:%s' % (f, ln)]
         else:
             out += lines[i:j]
         i = j
@@ -201,8 +217,8 @@ if __name__ == '__main__':
         args.remove('--fatal-merged'); fatal = 'merged'
     elif '--fatal-stdout' in args:
         args.remove('--fatal-stdout'); fatal = 'stdout'
-    if len(args) != 1 or args[0] not in ('icon', 'spitbol', 'none'):
-        sys.stderr.write('REFUSE(rc=2): util_render_error_voice.py <icon|spitbol|none> [--fatal-merged|--fatal-stdout]  (stdin -> stdout)\n'); sys.exit(2)
+    if len(args) != 1 or args[0] not in ('icon', 'spitbol', 'raku', 'none'):
+        sys.stderr.write('REFUSE(rc=2): util_render_error_voice.py <icon|spitbol|raku|none> [--fatal-merged|--fatal-stdout]  (stdin -> stdout)\n'); sys.exit(2)
     data = sys.stdin.buffer.read().decode('utf-8', 'surrogateescape')
     trailing_nl = data.endswith('\n')
     lines = data.split('\n')

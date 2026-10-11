@@ -47,6 +47,7 @@ tree_t *lower_snocone_tree(tree_t *pruned);
 stage2_t *lower_icon_stage2(const tree_t *prog);
 stage2_t *lower_pl_stage2(const tree_t *prog);
 stage2_t *lower_raku_stage2(const tree_t *prog);
+int lower_raku_refuse(const tree_t *prog, const char *file);
 const char *lower_raku_eval_stage2(const tree_t *prog);
 stage2_t *lower_pascal_stage2(const tree_t *prog);
 tree_t *lower_pascal_tree(tree_t *pruned, const char *filename);
