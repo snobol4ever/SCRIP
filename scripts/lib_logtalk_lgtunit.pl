@@ -73,6 +73,20 @@ lgt_load_term((:- D)) :- !, call(D).
 lgt_load_term(T) :- assertz(T).
 lgt_member(X, [X| _]).
 lgt_member(X, [_| T]) :- lgt_member(X, T).
+% More library objects, each clause as upstream writes it for the GNU Prolog backend (cfo 2026-10-11, CEO-1689, the coo's terms:
+% upstream only, never a stand-in for a SCRIP builtin). GNU is the ISO-strict backend whose builtins SCRIP answers as gprolog
+% does -- environ/2, shell/1,2, file_exists/1, file_property/2, call_det/2, between/3 -- so a red these reach is SCRIP's, not
+% this shim's. library/os/os.lgt: operating_system_type/1, shell/1,2, file_exists/1, ensure_file/1 (its directory step,
+% make_directory_path of decompose_file_name's directory, is left out: every path here is a bare name in the case's own
+% directory, lgt_file_path/2). tools/lgtunit/lgtunit.lgt: deterministic/2. library/types/integer.lgt: between/3, which
+% upstream hands to the backend's own between/3 when it has one.
+lgt_os_operating_system_type(Type) :- ( environ('COMSPEC', _) -> Type = windows ; Type = unix ).
+lgt_os_shell(Command) :- shell(Command).
+lgt_os_shell(Command, Status) :- shell(Command, Status).
+lgt_os_file_exists(File) :- absolute_file_name(File, Path), file_exists(Path), file_property(Path, type(regular)).
+lgt_os_ensure_file(File) :- ( lgt_os_file_exists(File) -> true ; open(File, append, Stream), close(Stream) ).
+lgt_lgtunit_deterministic(Goal, Deterministic) :- call_det(Goal, Deterministic), !.
+lgt_integer_between(Lower, Upper, Integer) :- between(Lower, Upper, Integer).
 
 lgt_read_chars(S, L) :- get_char(S, C), ( C == end_of_file -> L = [] ; L = [C|T], lgt_read_chars(S, T) ).
 lgt_file_to_atom(F, A) :- open(F, read, S), lgt_read_chars(S, Cs), close(S), atom_chars(A, Cs).
@@ -153,6 +167,7 @@ lgt_set_binary_input(Bytes) :-
     open('lgt_capture_in.bin', read, S, [type(binary)]), assertz(lgt_cap_in(S)), set_input(S).
 lgt_set_binary_input(Alias, Bytes) :- lgt_set_binary_input(Alias, Bytes, []).
 lgt_set_binary_input(Alias, Bytes, Opts) :-
+    lgt_clean_alias(Alias, 'lgt_capture_in.bin'),
     lgt_bytes_to_file('lgt_capture_in.bin', Bytes),
     open('lgt_capture_in.bin', read, S, [type(binary), alias(Alias)|Opts]), assertz(lgt_cap_in(S)).
 lgt_check_binary_input(Expected) :- current_input(S), lgt_read_bytes(S, Got), Got == Expected.
@@ -160,6 +175,14 @@ lgt_check_binary_input(Alias, Expected) :- lgt_read_bytes(Alias, Got), Got == Ex
 lgt_clean_binary_input :- lgt_close_in, catch(lgt_delete('lgt_capture_in.bin'), _, true).
 
 % ---- input ------------------------------------------------------------------------------------------
+% lgtunit's set_text_input/3 and set_binary_input/3 begin with clean_file(Alias, File, Path) (upstream tools/lgtunit/lgtunit.lgt):
+% close the stream holding Alias ("the alias may be associated with a stream opened for a different file"), then every stream
+% open on the file. So a case may set the same alias twice: sics_at_end_of_stream_1_10 does, and its second open raised
+% permission_error(open, source_sink, alias(st_i)) here before (cfo 2026-10-11, CEO-1689). The file itself is rewritten next.
+lgt_clean_alias(Alias, File) :-
+    ( catch(stream_property(S, alias(Alias)), _, fail) -> close(S) ; true ),
+    absolute_file_name(File, Path),
+    forall(catch(stream_property(T, file_name(Path)), _, fail), close(T)).
 lgt_close_in :- ( retract(lgt_cap_in(S)) -> catch(close(S), _, true) ; true ),
                 ( retract(lgt_prev_in(P)) -> catch(set_input(P), _, true) ; true ).
 lgt_set_text_input(Contents) :-
@@ -168,6 +191,7 @@ lgt_set_text_input(Contents) :-
     open('lgt_capture_in.txt', read, S), assertz(lgt_cap_in(S)), set_input(S).
 lgt_set_text_input(Alias, Contents) :- lgt_set_text_input(Alias, Contents, []).
 lgt_set_text_input(Alias, Contents, Opts) :-
+    lgt_clean_alias(Alias, 'lgt_capture_in.txt'),
     lgt_atom_to_file('lgt_capture_in.txt', Opts, Contents),
     open('lgt_capture_in.txt', read, S, [alias(Alias)|Opts]), assertz(lgt_cap_in(S)).
 % ⛔ check_text_input reads what is LEFT on the stream -- it is the suite's way of asserting how far a

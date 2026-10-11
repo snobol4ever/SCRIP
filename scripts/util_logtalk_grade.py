@@ -165,13 +165,34 @@ def _clause_head_name(clause):
     return m.group(1) if m else None
 
 
-def split_db(db):
-    """(plain-Prolog clauses, names dropped). A helper clause in Logtalk-only syntax cannot be expressed
-    here, so it is DROPPED rather than emitted -- and its name is returned, because a case that calls it
-    must become UNGRADED-and-named rather than a silent existence_error red."""
+def express_helper_clause(cl, supported):
+    """A helper clause in Logtalk syntax as plain Prolog, or None. The SAME three rewrites a case's goal takes (action_goal):
+    ^^helper -> the shim's lgt_helper, {Goal} -> (Goal), a LIB_MESSAGES message -> its shim predicate; anything left over (an
+    unsupported ^^helper, any other Obj::Goal) keeps the clause unexpressible. cfo 2026-10-11 (CEO-1689): open_4's condition
+    helpers create_no_read_permission_file and kin are written with os::operating_system_type, os::shell and ^^file_path, and
+    were dropped whole, so lgt_open_4_27..30 read UNGRADED logtalk-only-helper-clause."""
+    goal, bad = _rewrite_helpers(cl, supported)
+    if bad is not None:
+        return None
+    goal, msg = _rewrite_messages(_braces_to_parens(goal))
+    if msg is not None or LOGTALK_ONLY_SYNTAX.search(goal):
+        return None
+    return goal
+
+
+def split_db(db, supported=None):
+    """(plain-Prolog clauses, names dropped). A helper clause in Logtalk-only syntax that the case-goal rewrites cannot express
+    (express_helper_clause; never tried when `supported` is None) is DROPPED rather than emitted -- and its name is returned,
+    because a case that calls it must become UNGRADED-and-named rather than a silent existence_error red. The file's setup/0 and
+    cleanup/0 hooks are never expressed here: running a Logtalk-syntax hook that was dropped until now would move fifteen groups
+    (write_term_3, the syntax groups, builtins) at once, an instrument question of its own (named to the coo, CEO-1689)."""
     keep, dropped = [], set()
     for cl in db:
         if LOGTALK_ONLY_SYNTAX.search(cl):
+            g = express_helper_clause(cl, supported) if supported is not None and _clause_head_name(cl) not in ("setup", "cleanup") else None
+            if g is not None:
+                keep.append(g)
+                continue
             n = _clause_head_name(cl)
             if n:
                 dropped.add(n)
@@ -260,7 +281,11 @@ def _braces_to_parens(s):
 # shim predicate each becomes. Anything else of the form Obj::Goal cannot be expressed here, so the case is
 # UNGRADED-and-named -- the alternative, emitting `list::member(...)` into a Prolog file, is a parse error that
 # reads as the builtin under test failing (the harness-made-red class this runner's header is about).
-LIB_MESSAGES = (("list::member", "lgt_member"),)
+# cfo 2026-10-11 (CEO-1689, the coo's terms: upstream only): os::, lgtunit::deterministic/2 and integer::between/3, each answered
+# in lib_logtalk_lgtunit.pl by the clause upstream writes for the GNU Prolog backend (the shim names the files).
+LIB_MESSAGES = (("list::member", "lgt_member"), ("os::operating_system_type", "lgt_os_operating_system_type"), ("os::shell", "lgt_os_shell"),
+                ("os::file_exists", "lgt_os_file_exists"), ("os::ensure_file", "lgt_os_ensure_file"),
+                ("lgtunit::deterministic", "lgt_lgtunit_deterministic"), ("integer::between", "lgt_integer_between"))
 
 
 def _rewrite_messages(goal):
@@ -385,9 +410,9 @@ def plan_case(c, supported):
     # vocabulary here rather than given their own grading path, because two paths that mean the same thing
     # are two places for the meaning to drift, and 349 of the 3617 cases (10%) ride on this one.
     if c.kind == "succeeds" or (c.kind == "test" and not c.expect):
-        return _finish(c, "succ", goal, [], None, opts)
+        return _finish(c, "succ", goal, [], None, opts, supported)
     if c.kind == "fails":
-        return _finish(c, "fail", goal, [], None, opts)
+        return _finish(c, "fail", goal, [], None, opts, supported)
     if True:
         e = (c.expect or "").strip()
         m = re.match(r"([a-z_]+)\s*(\()?", e)
@@ -451,10 +476,10 @@ def plan_case(c, supported):
             return Plan(c, skip_reason="expectation form not implemented: %s" % e[:60])
         if head != "all":
             goal = goal + _braces_to_parens(tail)
-        return _finish(c, want, goal, balls, weaker, opts)
+        return _finish(c, want, goal, balls, weaker, opts, supported)
 
 
-def _finish(c, want, goal, balls, weaker, opts):
+def _finish(c, want, goal, balls, weaker, opts, supported=frozenset()):
     # ⛔ AN OPTION IS LOGTALK TEXT LIKE A TEST BODY, SO ITS {Goal} ESCAPE IS REWRITTEN THE SAME WAY (cfo 2026-10-05). Passed verbatim,
     # condition({predicate_property('*->'(_,_), built_in)}) called '{}'/1, raised existence_error({}/1), and the catch around '$lgt_cond'
     # read it as a false condition: predicate_property_2 22, 23, 29 and operators 57 sat UNGRADED as "the case's own condition(...) option
@@ -466,7 +491,16 @@ def _finish(c, want, goal, balls, weaker, opts):
     if opts.get("cleanup"):
         goal = "%s, lgt_h((%s))" % (goal, opts["cleanup"])
     p = Plan(c, want=want, goal=goal, balls=balls, weaker=weaker)
-    p.condition = opts.get("condition")
+    # A condition takes the goal's own rewrites, ^^helpers and LIB_MESSAGES (cfo 2026-10-11, CEO-1689): lgt_open_4_31's
+    # condition(os::operating_system_type(unix)) reached the program verbatim and read "condition false" on every system.
+    cond = opts.get("condition")
+    if cond:
+        cg, cbad = _rewrite_helpers(cond, supported)
+        if cbad is None:
+            cg, cmsg = _rewrite_messages(cg)
+            if cmsg is None:
+                cond = cg
+    p.condition = cond
     return p
 
 
@@ -909,7 +943,7 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     for fc in files:
         if only_group and fc.group != only_group:
             continue
-        clean, dropped = split_db(fc.db)
+        clean, dropped = split_db(fc.db, supported)
         clean = clean + lgtunit_aliases(fc.path, supported)
         dbs[fc.path] = clean
         drops[fc.path] = dropped
