@@ -17,6 +17,7 @@
 #define TBBUCK_ENT        8
 #define TBBLK_BUCKETS     0
 #define TBBLK_NBUCK       8
+#define TBBLK_DFLT       32
 #define TBL_LINEAR_MAX   12
 RTX_GATE_DEF(table)
 RTX_FUNC(rt_table_assign_fast)
@@ -75,14 +76,11 @@ RTX_FUNC(rt_table_assign_fast)
     ret
 .Lta_miss:
     RTX_CFA(24)
-    RTX_SUB_RSP(8)
-    call    c_rt_table_assign_fast
-    RTX_ADD_RSP(24)
-    RTX_GVA_R9
-    ret
+    RTX_ADD_RSP(16)
+    RTX_DECLINE
 .Lta_c:
     RTX_CFA(8)
-    RTX_CTAIL_GVA(c_rt_table_assign_fast)
+    RTX_DECLINE
 RTX_ENDF(rt_table_assign_fast)
 RTX_FUNC(table_find_pair_d)
     RTX_GATE(table, .Ltf_c)
@@ -374,8 +372,22 @@ RTX_FUNC(rt_subscript_var_container_only)
 .Lsvco_sv:
     RTX_JMP(rt_subscript_var)
 .Lsvco_miss:
-    RTX_CTAIL(c_rt_svco_miss_d)
+    movzx   eax, byte ptr [rdi + TBBLK_DFLT]
+    cmp     al, DT_FAIL
+    je      .Lsvco_null
+    test    al, al
+    je      .Lsvco_null
+    mov     rdx, [rdi + TBBLK_DFLT + 8]
+    mov     rax, [rdi + TBBLK_DFLT]
+    ret
+.Lsvco_null:
+    xor     eax, eax
+    lea     rdx, [rip + .Lsvco_empty]
+    ret
 .Lsvco_c:
-    RTX_CTAIL(c_rt_subscript_var_container_only)
+    RTX_DECLINE
 RTX_ENDF(rt_subscript_var_container_only)
+.section .rodata
+.Lsvco_empty:
+    .byte 0
 .section .note.GNU-stack,"",@progbits

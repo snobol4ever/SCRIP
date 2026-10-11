@@ -7,7 +7,8 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b);
 long rt_sxt_match(const char *s);
 typedef struct { int v; unsigned slen; long tok; unsigned long nbytes; char bytes[512]; } obs_t;
-static int fails = 0, n = 0;
+static int fails = 0, n = 0, declined = 0;
+static DESCR_t box_str_concat_d(DESCR_t a, DESCR_t b) { DESCR_t r = str_concat_d(a, b); if (r.v != RTX_NOT_HANDLED) return r; declined++; return c_str_concat_d(a, b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static obs_t take(DESCR_t (*fn)(DESCR_t, DESCR_t), DESCR_t a, DESCR_t b) {
     obs_t o;
@@ -38,9 +39,9 @@ static void cmp(const char *what, obs_t x, obs_t c) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void both(const char *what, DESCR_t a, DESCR_t b) {
-    cmp(what, take(str_concat_d, a, b), take(c_str_concat_d, a, b));
+    cmp(what, take(box_str_concat_d, a, b), take(c_str_concat_d, a, b));
     obs_t c2 = take(c_str_concat_d, a, b);
-    cmp(what, take(str_concat_d, a, b), c2);
+    cmp(what, take(box_str_concat_d, a, b), c2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t S(const char *s) { DESCR_t d = {0}; d.v = DT_S; d.slen = (uint32_t)strlen(s); d.s = (char *)s; return d; }
@@ -99,14 +100,14 @@ int main(void) {
     for (int rep = 0; rep < 3; rep++) {
         DESCR_t acc = S("seed");
         for (int k = 0; k < 6; k++) {
-            DESCR_t x = str_concat_d(acc, S("+ch"));
+            DESCR_t x = box_str_concat_d(acc, S("+ch"));
             DESCR_t y = c_str_concat_d(acc, S("+ch"));
             n++;
             if (x.v != y.v || x.slen != y.slen || strcmp(x.s, y.s) != 0) { fails++; printf("  MISMATCH append-loop k=%d asm{%u \"%s\"} c{%u \"%s\"}\n", k, x.slen, x.s, y.slen, y.s); }
             acc = x;
         }
     }
-    printf("RTX-3 STR: %d cases, %d mismatches\n", n, fails);
+    printf("RTX-3 STR: %d cases, %d mismatches, %d declined to the twin\n", n, fails, declined);
     if (fails) { printf("RTX STR UNIT: FAIL\n"); return 1; }
     printf("RTX STR UNIT: PASS\n");
     return 0;

@@ -126,7 +126,7 @@ RTX_FUNC(rt_jct_relop)
     mov     eax, 1
     ret
 .Lbail:
-    RTX_CTAIL(c_rt_jct_relop)
+    RTX_DECLINE
 RTX_ENDF(rt_jct_relop)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_str_coerce)
@@ -141,6 +141,6 @@ RTX_FUNC(rt_str_coerce)
     mov     rdx, rsi
     ret
 .Lsco_c:
-    RTX_CTAIL(c_rt_str_coerce)
+    RTX_DECLINE
 RTX_ENDF(rt_str_coerce)
 .section .note.GNU-stack,"",@progbits

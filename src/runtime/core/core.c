@@ -4802,9 +4802,9 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs, long *r
         if (strcmp(e->name, name) == 0) {
             {
                 extern int rt_dat_field_of_any_live(const char *);
-                extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
+                extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj);
                 const char *_tgt = e->entry_label ? e->entry_label : (const char *)0;
-                if (_tgt && nargs == 1 && args && IS_DATA_TAG_fn(args[0].v) && strcmp(_tgt, name) != 0 && rt_dat_field_of_any_live(_tgt)) return dat_field_get(_tgt, args[0]);
+                if (_tgt && nargs == 1 && args && IS_DATA_TAG_fn(args[0].v) && strcmp(_tgt, name) != 0 && rt_dat_field_of_any_live(_tgt)) return c_dat_field_get(_tgt, args[0]);
             }
             if (e->fn == _APPLY_ && rq && nargs >= 1) {
                 extern DESCR_t APPLY_fn_rq(const char *, DESCR_t *, int, long *);

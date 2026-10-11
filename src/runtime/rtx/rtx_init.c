@@ -51,6 +51,9 @@ __attribute__((constructor)) static void rtx_gates_init(void) {
     rtx_gate_plunify = rtx_env_on("SCRIP_RTX_PLUNIFY", d);
     rtx_gate_table = rtx_env_on("SCRIP_RTX_TABLE", d);
 }
+_Static_assert(offsetof(TBBLK_t, dflt) == 32 && offsetof(DESCR_t, v) == 0 && offsetof(DESCR_t, s) == 8,
+    "rtx_table.s rt_subscript_var_container_only answers a table miss from TBBLK_t.dflt at a fixed offset 32 (tag byte, then the two words) and builds NULVCL as {tag 0, slen 0, s}; core.h drifted"
+    " -- every nested-table miss would return a wrong default");
 extern int Σlen;
 extern uint32_t g_cap_gen;
 extern uint32_t g_cap_gen_next;

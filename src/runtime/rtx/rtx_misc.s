@@ -50,14 +50,12 @@ RTX_FUNC(rt_call_bid_sn4)
     RTX_POP(rsi)
     RTX_POP(rdi)
 .Lcb_miss:
-    RTX_SUB_RSP(8)
-    call    c_rt_call_bid_sn4
-    RTX_ADD_RSP(8)
+    mov     eax, RTX_NOT_HANDLED
     RTX_GVA_R9
     ret
 .Lcb_c:
     RTX_CFA(8)
-    RTX_CTAIL(c_rt_call_bid_sn4)
+    RTX_DECLINE
 RTX_ENDF(rt_call_bid_sn4)
 RTX_FUNC(rt_kw_set_rtntype_role)
     cmp     edi, 2

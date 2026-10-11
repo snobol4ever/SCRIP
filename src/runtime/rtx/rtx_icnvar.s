@@ -100,6 +100,6 @@ RTX_FUNC(rt_assign_var)
     RTX_GVA_R9
     jmp     .Lav_sxt_done
 .Lav_c:
-    RTX_CTAIL(c_rt_assign_var)
+    RTX_DECLINE
 RTX_ENDF(rt_assign_var)
 .section .note.GNU-stack,"",@progbits

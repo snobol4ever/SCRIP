@@ -157,7 +157,7 @@ void dat_set_field_priv(const char *cls, const char *field);
 int dat_field_is_private(const char *cls, const char *field);
 void dat_set_field_default_s(const char *cls, const char *field, const char *v);
 void dat_set_field_default_r(const char *cls, const char *field, double v);
-DESCR_t dat_field_get(const char *fname, DESCR_t obj);
+DESCR_t c_dat_field_get(const char *fname, DESCR_t obj);
 DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs);
 DESCR_t call_builtin(tree_t *call, DESCR_t *args, int nargs);
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);

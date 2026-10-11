@@ -153,9 +153,7 @@ RTX_FUNC(str_concat_d)
     RTX_GVA_R9
     ret
 .Lsc_slow:
-    RTX_SUB_RSP(8)
-    call    c_str_concat_d
-    RTX_ADD_RSP(8)
+    mov     eax, RTX_NOT_HANDLED
     RTX_GVA_R9
     ret
 RTX_ENDF(str_concat_d)
@@ -176,7 +174,11 @@ RTX_FUNC(VARVAL_fn)
     mov     rax, rsi
     ret
 .Lvv_c:
-    RTX_CTAIL(c_VARVAL_fn)
+    RTX_SUB_RSP(8)
+    call    c_VARVAL_fn
+    RTX_ADD_RSP(8)
+    RTX_GVA_R9
+    ret
 RTX_ENDF(VARVAL_fn)
 RTX_FUNC(rt_translate_bytes)
     RTX_GATE(str, .Ltrb_c)
@@ -193,6 +195,10 @@ RTX_FUNC(rt_translate_bytes)
 .Ltrb_done:
     ret
 .Ltrb_c:
-    RTX_CTAIL(c_rt_translate_bytes)
+    RTX_SUB_RSP(8)
+    call    c_rt_translate_bytes
+    RTX_ADD_RSP(8)
+    RTX_GVA_R9
+    ret
 RTX_ENDF(rt_translate_bytes)
 .section .note.GNU-stack,"",@progbits

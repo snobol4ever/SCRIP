@@ -915,7 +915,7 @@ static void dcf_stage_leave(const char *s) {
     else rt_eval_stage_leave(s ? dcf_name(s) + 1 : (const char *)0);
 }
 static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
-    extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+    extern DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
     extern int rt_g_ret_by_name;
     extern int rt_g_want_name;
     const int strict = rt_cap_name_strict();
@@ -957,7 +957,7 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
         const char *ns = VARVAL_fn(nm);
         if (!ns || !*ns) { extern int kwb_error(int, const char *); kwb_error(239, "indirection operand is not name"); c->rc = 1; return 1; }
         NV_SET_p_fn(ns, d, &c->pend);
-    } else rt_assign_var(nm, d);
+    } else c_rt_assign_var(nm, d);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1175,10 +1175,10 @@ _Static_assert(sizeof(rt_capo_t) == 176 && offsetof(rt_capo_t, pend) == 64,
     "bb_match_capture.cpp carves the computed-name capture record as 176 bytes of spine cells: four cells and the pending value trace at +64, whose first cell the box zeroes");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name, trace_pend_t *pend) {
-    extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+    extern DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
     if (IS_FAIL_fn(nm)) return rt_cap_fail_retreat() ? -1 : 0;
     if (rt_cap_name_strict() && !by_name) { g_cap_abort_gen = g_cap_gen; return 0; }
-    if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_p_fn(ns, matched, pend); } else rt_assign_var(nm, matched);
+    if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_p_fn(ns, matched, pend); } else c_rt_assign_var(nm, matched);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1363,13 +1363,13 @@ long rt_at_cursor(const char *varname, int cur_delta, trace_pend_t *pend) {
     if (varname[0] == '*' && (unsigned char)varname[1] == 1) {
         extern DESCR_t rt_sno_dtx_value_rec(sno_dstar_rec_t *);
         extern int rt_g_want_name;
-        extern DESCR_t rt_assign_var(DESCR_t, DESCR_t);
+        extern DESCR_t c_rt_assign_var(DESCR_t, DESCR_t);
         int wsv = rt_g_want_name;
         rt_g_want_name = 1;
         DESCR_t nm = rt_sno_dtx_value_rec((sno_dstar_rec_t *)(void *)varname);
         rt_g_want_name = wsv;
         if (IS_FAIL_fn(nm)) return (pend && pend->args[0].v) ? 2 : 0;
-        if (IS_VARREF_fn(nm)) rt_assign_var(nm, pos);
+        if (IS_VARREF_fn(nm)) c_rt_assign_var(nm, pos);
         else if (nm.v == DT_S && nm.s && *nm.s) NV_SET_p_fn(nm.s, pos, pend);
         return (pend && pend->args[0].v) ? 2 : 0;
     }
@@ -1377,7 +1377,7 @@ long rt_at_cursor(const char *varname, int cur_delta, trace_pend_t *pend) {
         extern int rt_proc_is_registered(const char *);
         extern DESCR_t rt_call_proc_descr(const char *, int);
         extern int rt_g_want_name;
-        extern DESCR_t rt_assign_var(DESCR_t, DESCR_t);
+        extern DESCR_t c_rt_assign_var(DESCR_t, DESCR_t);
         const char * pn = varname + 1;
         if (!rt_proc_is_registered(pn)) return (pend && pend->args[0].v) ? 2 : 0;
         int wsv = rt_g_want_name;
@@ -1385,7 +1385,7 @@ long rt_at_cursor(const char *varname, int cur_delta, trace_pend_t *pend) {
         DESCR_t nm = RT_GC_CALLBACK(rt_call_proc_descr(pn, 0));
         rt_g_want_name = wsv;
         if (IS_FAIL_fn(nm)) return (pend && pend->args[0].v) ? 2 : 0;
-        if (IS_VARREF_fn(nm)) rt_assign_var(nm, pos);
+        if (IS_VARREF_fn(nm)) c_rt_assign_var(nm, pos);
         else if (nm.v == DT_S && nm.s && *nm.s) NV_SET_p_fn(nm.s, pos, pend);
         return (pend && pend->args[0].v) ? 2 : 0;
     }
@@ -1397,9 +1397,9 @@ typedef struct { DESCR_t pos; DESCR_t wsv; trace_pend_t pend; } rt_atco_t;
 _Static_assert(sizeof(rt_atco_t) == 144 && offsetof(rt_atco_t, pend) == 32,
     "bb_match_atp.cpp carves the computed cursor-target record as 144 bytes of spine: two cells and the pending value trace at +32, whose first cell the box zeroes");
 static void rt_at_cursor_assign(DESCR_t nm, DESCR_t pos, trace_pend_t *pend) {
-    extern DESCR_t rt_assign_var(DESCR_t, DESCR_t);
+    extern DESCR_t c_rt_assign_var(DESCR_t, DESCR_t);
     if (IS_FAIL_fn(nm)) return;
-    if (IS_VARREF_fn(nm)) rt_assign_var(nm, pos);
+    if (IS_VARREF_fn(nm)) c_rt_assign_var(nm, pos);
     else if (nm.v == DT_S && nm.s && *nm.s) NV_SET_p_fn(nm.s, pos, pend);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1866,7 +1866,6 @@ static DESCR_t c_rt_subscript_var_s(DESCR_t base, DESCR_t idx, int strict) {
     return subscript_get_s(base, idx, strict);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_svco_miss_d(TBBLK_t *tb) { if (!tb) return FAILDESCR; if (tb->dflt.v != DT_FAIL && tb->dflt.v != 0) return tb->dflt; return NULVCL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t c_rt_subscript_var_container_only_s(DESCR_t base, DESCR_t idx, int strict) {
     extern int kwb_error(int code, const char *msg);
@@ -1890,7 +1889,7 @@ DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
     extern int g_gc_pending;
     enum { g_sno_etrace_n = 0, g_trace_budget = 0 };
 #endif
-    if (g_gc_pending || g_sno_etrace_n != 0) { DESCR_t ref = rt_subscript_var(base, idx); if (ref.v == DT_FAIL) return ref; return rt_assign_var(ref, val); }
+    if (g_gc_pending || g_sno_etrace_n != 0) { DESCR_t ref = rt_subscript_var(base, idx); if (ref.v == DT_FAIL) return ref; return c_rt_assign_var(ref, val); }
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (base.v == DT_A) {
         ARBLK_t *a = base.arr;
@@ -1898,7 +1897,7 @@ DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
             long off = (long)idx.i - (long)a->lo;
             if (off >= 0 && off <= (long)a->hi - (long)a->lo) { a->data[off] = val; if (g_trace_budget != 0) sno_trace_value("<lval>", val); return val; }
         }
-        { DESCR_t ref = rt_subscript_var(base, idx); if (ref.v == DT_FAIL) return ref; return rt_assign_var(ref, val); }
+        { DESCR_t ref = rt_subscript_var(base, idx); if (ref.v == DT_FAIL) return ref; return c_rt_assign_var(ref, val); }
     }
     table_set_descr_d(base.tbl, idx, val);
     if (g_trace_budget != 0) sno_trace_value("<lval>", val);
@@ -1929,15 +1928,15 @@ static int rt_nd2_fast(DESCR_t base, DESCR_t idx1, DESCR_t idx2, DESCR_t *out) {
 DESCR_t c_rt_subscript_var2(DESCR_t base, DESCR_t idx1, DESCR_t idx2) {
     DESCR_t out;
     if (rt_nd2_fast(base, idx1, idx2, &out)) return out;
-    DESCR_t hop1 = rt_subscript_var_container_only(base, idx1);
+    DESCR_t hop1 = c_rt_subscript_var_container_only(base, idx1);
     if (hop1.v == DT_FAIL) return FAILDESCR;
-    return rt_subscript_var_container_only(hop1, idx2);
+    return c_rt_subscript_var_container_only(hop1, idx2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2) {
     DESCR_t out;
     if (rt_nd2_fast(base, idx1, idx2, &out)) return out;
-    DESCR_t hop1 = rt_subscript_var_container_only(base, idx1);
+    DESCR_t hop1 = c_rt_subscript_var_container_only(base, idx1);
     if (hop1.v == DT_FAIL) return FAILDESCR;
     return rt_subscript_var(hop1, idx2);
 }
@@ -2429,7 +2428,7 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
         long tb = g_trace_budget;
         g_trace_budget = 0;
 #endif
-        DESCR_t wr = rt_assign_var(vc->sv, nsd);
+        DESCR_t wr = c_rt_assign_var(vc->sv, nsd);
 #if RT_DIAG
         g_trace_budget = tb;
 #endif
@@ -2486,8 +2485,8 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
         DESCR_t dx = rt_deref(va), dy = rt_deref(vb);
         { extern void rt_sxt_break(const char *); if (dx.v == DT_S) rt_sxt_break(dx.s); if (dy.v == DT_S) rt_sxt_break(dy.s); }
         if (dx.v == DT_FAIL || dy.v == DT_FAIL) return FAILDESCR;
-        if (rt_assign_var(va, dy).v == DT_FAIL) return FAILDESCR;
-        if (rt_assign_var(vb, dx).v == DT_FAIL) return FAILDESCR;
+        if (c_rt_assign_var(va, dy).v == DT_FAIL) return FAILDESCR;
+        if (c_rt_assign_var(vb, dx).v == DT_FAIL) return FAILDESCR;
         return rt_deref(va);
     }
     VCELL_t *xc = (VCELL_t *)va.p, *yc = (VCELL_t *)vb.p;
@@ -2543,9 +2542,9 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
         if (ux && uy) { if (ux->cellp && ux->cellp == uy->cellp) same_slot = 1; else if (ux->tbl && ux->tbl == uy->tbl) { if (tbl_key_equal(ux->key_d, uy->key_d)) same_slot = 1; } }
         if (same_slot) { if (xc->pos > yc->pos) adj1 = xc->len - yc->len; else if (yc->pos > xc->pos) adj2 = yc->len - xc->len; }
     }
-    if (rt_assign_var(va, dy).v == DT_FAIL) return FAILDESCR;
+    if (c_rt_assign_var(va, dy).v == DT_FAIL) return FAILDESCR;
     if (adj2 != 0) yc->pos += adj2;
-    if (rt_assign_var(vb, dx).v == DT_FAIL) return FAILDESCR;
+    if (c_rt_assign_var(vb, dx).v == DT_FAIL) return FAILDESCR;
     if (adj1 != 0) xc->pos += adj1;
     return rt_deref(va);
 }
@@ -2577,13 +2576,13 @@ DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) { return rt_secti
 DESCR_t rt_section_var_strict(DESCR_t base, DESCR_t i1d, DESCR_t i2d) { return rt_section_var_s(base, i1d, i2d, 1); }
 DESCR_t rt_subscript_val(DESCR_t base, DESCR_t idx) {
     extern DESCR_t rt_deref(DESCR_t);
-    extern DESCR_t rt_subscript_var_container_only(DESCR_t, DESCR_t);
+    extern DESCR_t c_rt_subscript_var_container_only(DESCR_t, DESCR_t);
     if (IS_VARREF_fn(base)) base = rt_deref(base);
     if (base.v == DT_A && idx.v == DT_I) {
         ARBLK_t *a = base.arr;
         if (a && a->ndim == 1 && a->data) { long off = (long)idx.i - (long)a->lo; if (off >= 0 && off <= (long)a->hi - (long)a->lo) return a->data[off]; }
     }
-    { DESCR_t r = rt_subscript_var_container_only(base, idx); return (r.v == DT_N && r.slen != 0) ? rt_deref(r) : r; }
+    { DESCR_t r = c_rt_subscript_var_container_only(base, idx); return (r.v == DT_N && r.slen != 0) ? rt_deref(r) : r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_subscript_val_strict(DESCR_t base, DESCR_t idx) {

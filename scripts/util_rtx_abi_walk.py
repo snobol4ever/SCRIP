@@ -17,7 +17,9 @@ name every external target -- and abstract-interprets every entry along every pa
   align  = every call is made with rsp 16-aligned: an even number of slots since the entry (whose one slot is
            the return address) or since the last `and rsp, -16`.
   ret    = the stack must hold only the return address; r8, r10, r11 must be E; r9 must be E or G,
-           and G alone when the entry reads r9 before writing it (it came in as an argument).
+           and G alone when the entry reads r9 before writing it (it came in as an argument), EXCEPT a ret reached
+           right after mov eax,0xff: that is a DECLINE (ARCH-RT-CALL-PROTOCOL.md section 15), the entry hands every
+           argument back as received, so r9 may be its sixth argument; the emitted site's twin call reloads it.
   tail   = a jump to another RTX entry through the GOT is judged like a ret; a jump into C or
            through a PLT slot is a violation (the callee returns to our caller with the four gone).
 
@@ -137,6 +139,12 @@ def gotrel(rel):
     return rel is not None and ('GOTPC' in rel[0])
 
 
+_PREV = {}
+def prev_ins(code, key):
+    if id(code) not in _PREV:
+        _PREV[id(code)] = {c['next']: k for k, c in code.items() if c.get('next') is not None}
+    k = _PREV[id(code)].get(key)
+    return code[k]['ins'] if k else ''
 def walk(name, code, funcs, rtx, clob=None):
     if name not in funcs: return ['%s: no body found in the objects' % name]
     obj, sec, base = funcs[name]
@@ -225,19 +233,20 @@ def walk(name, code, funcs, rtx, clob=None):
             errs.append('UNANALYZABLE %s: rsp loaded from something the walker cannot follow' % where); continue
         if mn == 'ret':
             bad = []
+            decl = re.fullmatch(r'mov\s+eax,0xff', prev_ins(code, key)) is not None
             if stack != ['RA']: bad.append('%d slot(s) left above the return address' % (len(stack) - 1))
             if clob is not None:
                 for r in ('r8', 'r10', 'r11'):
                     if getr(r) != 'E': clob.add(r)
                 if getr('r9') not in ('E', 'G'): clob.add('r9')
                 if bad: errs.append('%s: %s' % (where, '; '.join(bad)))
-                else: rets.append((where, getr('r9')))
+                else: rets.append((where, 'G' if decl else getr('r9')))
                 continue
             for r in ('r8', 'r10', 'r11'):
                 if getr(r) != 'E' and r not in own: bad.append('%s not returned' % r)
             if getr('r9') not in ('E', 'G') and 'r9' not in own: bad.append('r9 not returned as GVA')
             if bad: errs.append('%s: %s' % (where, '; '.join(bad)))
-            else: rets.append((where, getr('r9')))
+            else: rets.append((where, 'G' if decl else getr('r9')))
             continue
         if mn == 'call' or mn.startswith('j'):
             tgt = o[0] if o else ''

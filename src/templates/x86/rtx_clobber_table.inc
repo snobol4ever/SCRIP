@@ -1,7 +1,7 @@
 #define RTX_CLOB_TAB_N 289
-#define RTX_CLOB_TAB_N_CLOBBERING 20
+#define RTX_CLOB_TAB_N_CLOBBERING 23
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
-    { "VARVAL_fn", 0 },
+    { "VARVAL_fn", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "dat_field_get", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "descr_identical", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_add", 0 },
@@ -30,7 +30,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_is_truthy", 0 },
     { "rt_jct_relop", 0 },
     { "rt_kw_set_rtntype_role", 0 },
-    { "rt_list_bang_at", 0 },
+    { "rt_list_bang_at", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_match_ctx_restore", 0 },
     { "rt_match_enter", 0 },
     { "rt_match_replace", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
@@ -280,8 +280,8 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_sub_sno", 0 },
     { "rt_subscript_var", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_subscript_var_container_only", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
-    { "rt_table_assign_fast", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
-    { "rt_translate_bytes", 0 },
+    { "rt_table_assign_fast", RTCC_C_R10|RTCC_C_R11 },
+    { "rt_translate_bytes", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_zdp_anchor", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_zdp_ev", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_zdp_origin", 0 },

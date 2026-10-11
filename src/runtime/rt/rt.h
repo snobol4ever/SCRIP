@@ -147,7 +147,7 @@ void rt_call_builtin(const char *name, int nargs);
 int rt_builtin_is_known(const char *name);
 int rt_builtin_is_generator(const char *name);
 int rt_is_truthy(DESCR_t v);
-DESCR_t rt_size_d(uint64_t lo, uint64_t hi);
+DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi);
 void rt_proc_set_local_offs(const char *name, const int *loffs, int nlocals);
 int rt_proc_loff(const char *name, int k);
 void rt_proc_set_loc_params(const char *name, const char **pnames, int nparams);
