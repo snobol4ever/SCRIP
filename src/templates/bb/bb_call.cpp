@@ -409,18 +409,18 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define BCR(r) (_.op_call_route == (r))
+#define BCR_KNOWN() \
+    (BCR(CALL_ROUTE_BYNAME) || BCR(CALL_ROUTE_BYNAME_GEN) || BCR(CALL_ROUTE_DVAL2_BOMB) || BCR(CALL_ROUTE_PROC_STAGED) \
+  || BCR(CALL_ROUTE_RK_BOOL_RELOP) || BCR(CALL_ROUTE_RK_BOOL_SLOT) || BCR(CALL_ROUTE_FN))
+#define BCR_FATAL() (fprintf(stderr, "[IBB] FATAL bb_call: unsupported call shape fn='%s'\n", _.op_sval ? _.op_sval : ""), abort(), std::string())
 std::string bb_call(IR_t * pBB) {
-    switch (_.op_call_route) {
-        case CALL_ROUTE_BYNAME: return bb_call_byname_str(pBB);
-        case CALL_ROUTE_BYNAME_GEN: return bb_call_byname_gen_str(pBB);
-        case CALL_ROUTE_DVAL2_BOMB: return x86_alpha() + x86_bomb("CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
-        case CALL_ROUTE_PROC_STAGED: return bb_call_proc_staged_str(pBB);
-        case CALL_ROUTE_RK_BOOL_RELOP: return bb_call_bool_relop();
-        case CALL_ROUTE_RK_BOOL_SLOT: return bb_call_bool_slot();
-        case CALL_ROUTE_FN: return bb_call_fn_str(pBB);
-        default: break;
-    }
-    fprintf(stderr, "[IBB] FATAL bb_call: unsupported call shape fn='%s'\n", _.op_sval ? _.op_sval : "");
-    abort();
-    return std::string();
+    return IF(BCR(CALL_ROUTE_BYNAME), bb_call_byname_str(pBB))
+         + IF(BCR(CALL_ROUTE_BYNAME_GEN), bb_call_byname_gen_str(pBB))
+         + IF(BCR(CALL_ROUTE_DVAL2_BOMB), x86_alpha() + x86_bomb("CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule"))
+         + IF(BCR(CALL_ROUTE_PROC_STAGED), bb_call_proc_staged_str(pBB))
+         + IF(BCR(CALL_ROUTE_RK_BOOL_RELOP), bb_call_bool_relop())
+         + IF(BCR(CALL_ROUTE_RK_BOOL_SLOT), bb_call_bool_slot())
+         + IF(BCR(CALL_ROUTE_FN), bb_call_fn_str(pBB))
+         + IF(!BCR_KNOWN(), BCR_FATAL());
 }
