@@ -1679,7 +1679,9 @@ int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell, pl_tr
     pl_cell_t *tc = char_cell ? pl_deref((pl_cell_t *)char_cell) : (pl_cell_t *)0;
     if (!tc || !type_cell) return 0;
     char b0[256];
-    const char *cs = plc_atom_op_text(tc, b0, sizeof b0);
+    int cn = ((int)tc->v == DT_I && tc->i >= 0 && tc->i <= 0x10FFFF) ? rt_pl_u8_put(b0, (int)tc->i) : 0;
+    if ((int)tc->v == DT_I) b0[cn] = 0;
+    const char *cs = (int)tc->v == DT_I ? b0 : plc_atom_op_text(tc, b0, sizeof b0);
     if (!cs || !cs[0]) return 0;
     unsigned char ch = (unsigned char)cs[0];
     pl_cell_t *td = pl_deref((pl_cell_t *)type_cell);
