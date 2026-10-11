@@ -12208,12 +12208,11 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "__rk_arr_xx") && nargs == 2) {
-        rk_av_t a = rk_av_args(args, 0, 1);
         long cnt = IS_INT_fn(args[1]) ? args[1].i : (IS_REAL_fn(args[1]) ? (long)args[1].r : 0);
-        if (cnt < 1 || !a.n) { *out = rk_mk_arr(NULL, 0); return 1; }
-        DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) a.n * (size_t) cnt);
-        for (long k = 0; k < cnt; k++) for (int i = 0; i < a.n; i++) r[k * a.n + i] = a.el[i];
-        *out = rk_mk_arr(r, (int) (a.n * cnt));
+        if (cnt < 1) { *out = rk_mk_arr(NULL, 0); return 1; }
+        DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) cnt);
+        for (long k = 0; k < cnt; k++) r[k] = args[0];
+        *out = rk_mk_arr(r, (int) cnt);
         return 1;
     }
     if (!strcmp(fn, "__rk_hash")) { DESCR_t hh = TABLE_VAL(table_new()); for (int i = 0; i + 1 < nargs; i += 2) hh = rk_hash_store(hh, args[i], args[i + 1]); *out = hh; return 1; }

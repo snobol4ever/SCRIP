@@ -4760,6 +4760,7 @@ static int rk_xx_value_is_pure(const tree_t * e) {
     if (!e) return 1;
     if (e->t == TT_QLIT || e->t == TT_ILIT || e->t == TT_FLIT || e->t == TT_NUL || e->t == TT_VAR) return 1;
     if (e->t == TT_SEQ_EXPR && e->n == 1) return rk_xx_value_is_pure(e->c[0]);
+    if (e->t == TT_TO && e->n == 2) return rk_xx_value_is_pure(e->c[0]) && rk_xx_value_is_pure(e->c[1]);
     if (e->t != TT_FNC || !e->v.sval || strcmp(e->v.sval, "__rk_arr")) return 0;
     for (int i = 1; i < e->n; i++) if (!rk_xx_value_is_pure(e->c[i])) return 0;
     return 1;
@@ -4820,6 +4821,8 @@ static void rk_range_values(tree_t * t) {
         t->c[i] = rk_range_val_of(t->c[i]);
     }
     if (t->t == TT_FNC && t->v.sval && strncmp(t->v.sval, "__", 2)) for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr")) for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr_xx") && t->n == 3 && t->c[1] && t->c[1]->t == TT_TO && t->c[1]->n == 2) t->c[1] = rk_range_val_of(t->c[1]);
     if (t->t == TT_METHCALL) for (int i = 2; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
     if (t->t == TT_INVOKE) for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
     if (t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, "__rk_in_range") || !strcmp(t->v.sval, "__rk_numify") || !strcmp(t->v.sval, "__rk_smartmatch"))) {
