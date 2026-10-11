@@ -142,7 +142,8 @@ test-postoffice:  # ⭐ THE HERMETIC POSTOFFICE GATES, WIRED 2026-09-03 (hq_B, c
 
 SHELL := /bin/bash
 preflight:  # ⭐ THE CHEAP HERMETIC ARMS, WITH NO BUILD (hq_T's ask 2026-09-06, measured by them: the Makefile had all/pristine/test/test-postoffice/buildinfo/scrip/clean and NO cheap target of any kind, so EVERY sub-second hermetic arm was trapped behind a full build -- a STRUCTURAL disincentive, not anyone's discipline). ⛔ THE MISSING `scrip` PREREQUISITE IS THE ENTIRE POINT OF THIS TARGET AND MUST NOT BE ADDED. Population DECLARED in scripts/preflight_arms.txt because a static grep cannot classify it in either direction (it convicts strip_comments.py, which says "make test" in its prose, and it clears test_gate_pl_quad_regs.sh, which reaches the compiler through a lib_ helper without naming it); scripts/test_gate_preflight_arms_stay_cheap.sh PINS EVERY ARM BY MEASURED DURATION so this cannot quietly acquire a 45-second arm and stop being worth running.
-	@bad=0; n=0; \
+	@s=$$(bash "$(ROOT)/scripts/lib_one_runner.sh" --seat 2>/dev/null); if [ "$$s" != coo ] && [ -z "$$S4E_ONE_TEST_ADMIT" ]; then printf '⛔ REFUSE(2) ZERO OR ONE TEST PER SEAT (Lon 2026-10-11, CEO-1671): make preflight is 77 arms and runs only in the coo'"'"'s loop, once per batch of landings; seat %s verifies a landing by its row'"'"'s DONE-WHEN alone. S4E_ONE_TEST_ADMIT="why" is the ceo'"'"'s audit-window override.\n' "$${s:-?}"; exit 2; fi; \
+	bad=0; n=0; \
 	while read -r arm; do \
 	  n=$$((n + 1)); \
 	  case "$$arm" in *.py*) out=$$(cd "$(ROOT)" && python3 $$arm </dev/null 2>&1) ;; *) out=$$(cd "$(ROOT)" && bash $$arm </dev/null 2>&1) ;; esac; \

@@ -126,6 +126,14 @@ _ho_seat="${S4E_SEAT:-$(basename "$(cd "$SELF_DIR/../.." && pwd)" | sed 's/^clau
 if [ "${SKIP_S_ARTIFACT_CHECK:-0}" = "1" ]; then
   echo "  SKIPPED (SKIP_S_ARTIFACT_CHECK=1 set) — .s drift is UNVERIFIED this run, and an unverified check cannot read COMPLETE."
   unknown=1; unknown_reasons+=(".s artifact drift NOT GRADED: skipped by SKIP_S_ARTIFACT_CHECK=1 -- unset it and re-run")
+elif [ "$_ho_seat" != coo ] && [ -z "${S4E_ONE_TEST_ADMIT:-}" ]; then
+  # ⛔⭐⭐⭐⭐ ZERO OR ONE TEST PER SEAT (Lon 2026-10-11 11:5x CDT, verbatim: "I'm thinking each seat can run ZERO test, oh ONE test, instead. Then let
+  # COO prioritize testing on a per feature basis and still cycle through everything eventually."; ceo CEO-1671): this verifier regenerates
+  # every demo and benchmark .s of every language (102 artifacts, each a compile) in a disposable clone, and it ran here for EVERY seat at
+  # every handoff -- and through the Stop hook's banner at every response. MEASURED 11:57 CDT: load 29 on 16 cores, the ceo's and
+  # hq_templates' chains both compiling the Prolog benches. The drift check is the coo's, once per batch of landings; a seat's handoff
+  # does not run it and is not blocked by it. S4E_ONE_TEST_ADMIT="why" is the ceo's loud audit-window override.
+  echo "  ARTIFACT DRIFT: not graded by seat $_ho_seat -- the coo's loop grades .s drift once per batch (ZERO OR ONE TEST PER SEAT, CEO-1671)"
 else
   verifier="$SELF_DIR/util_verify_s_artifacts_owed.sh"
   if [ ! -x "$verifier" ]; then
