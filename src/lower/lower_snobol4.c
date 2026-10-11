@@ -213,7 +213,7 @@ static int sno_pe_op(tree_e op, const char * fn, DESCR_t * av, int n, DESCR_t * 
     extern DESCR_t rt_num_pos(DESCR_t);
     extern DESCR_t rt_num_pos_sno(DESCR_t);
     extern DESCR_t rt_num_arith_sno(DESCR_t, DESCR_t, int);
-    extern DESCR_t sno_concat_d(DESCR_t, DESCR_t);
+    extern DESCR_t c_sno_concat_d(DESCR_t, DESCR_t);
     extern DESCR_t rt_call_arr_bl_sn4(const char *, DESCR_t *, int, int);
     long snum = g_icn_errnumber;
     const char * stxt = g_icn_errtext;
@@ -229,7 +229,7 @@ static int sno_pe_op(tree_e op, const char * fn, DESCR_t * av, int n, DESCR_t * 
     if (!jc) {
         core_errjmp_push(&ej);
         g_core_errjmp_n = my + 1;
-        r = op == TT_FNC ? rt_call_arr_bl_sn4(fn, av, n, -1) : op == TT_MNS ? rt_num_neg_sno(av[0]) : op == TT_PLS ? rt_num_pos_sno(av[0]) : op == TT_SEQ ? sno_concat_d(av[0], av[1]) :
+        r = op == TT_FNC ? rt_call_arr_bl_sn4(fn, av, n, -1) : op == TT_MNS ? rt_num_neg_sno(av[0]) : op == TT_PLS ? rt_num_pos_sno(av[0]) : op == TT_SEQ ? c_sno_concat_d(av[0], av[1]) :
             rt_num_arith_sno(av[0], av[1], sno_binop_code(op));
     }
     core_errjmp_pop(&ej, my);

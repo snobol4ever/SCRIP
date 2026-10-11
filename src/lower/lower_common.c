@@ -151,7 +151,7 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
         case BINOP_LCONCAT:
         { extern DESCR_t rt_icn_lconcat_d(DESCR_t, DESCR_t); return rt_icn_lconcat_d(lv, rv); }
         case BINOP_CONCAT_SNO:
-        { extern DESCR_t sno_concat_d(DESCR_t, DESCR_t); return sno_concat_d(lv, rv); }
+        { extern DESCR_t c_sno_concat_d(DESCR_t, DESCR_t); return c_sno_concat_d(lv, rv); }
         case BINOP_CONCAT:
         case BINOP_CONCAT_FRACDIGIT:
         {

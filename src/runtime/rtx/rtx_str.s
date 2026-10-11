@@ -1,6 +1,7 @@
 #include "rtx_abi.inc"
 RTX_GATE_DEF(str)
 #define HBF_TTL 0x0001
+#define RTX_GVA_VA 0x70001000
 .macro RTX_MEMCPY
     cmp     rcx, 16
     jb      201f
@@ -42,6 +43,7 @@ RTX_GATE_DEF(str)
 209:
 .endm
 RTX_FUNC(str_concat_d)
+RTX_ENTRY(sno_concat_d)
     RTX_GATE(str, .Lsc_slow)
     cmp     dil, DT_S
     jne     .Lsc_null
@@ -70,7 +72,7 @@ RTX_FUNC(str_concat_d)
     js      .Lsc_slow
     jnz     .Lsc_nosxt
     cmp     rsi, [rax + 0]
-    je      .Lsc_slow
+    je      .Lsc_ext
 .Lsc_nosxt:
     RTX_SUB_RSP(40)
     mov     qword ptr [rsp + 32], rsi
@@ -152,6 +154,98 @@ RTX_FUNC(str_concat_d)
     mov     rdx, rsi
     RTX_GVA_R9
     ret
+.Lsc_ext:
+    cmp     r8, qword ptr [rax + 8]
+    jne     .Lsc_nosxt
+    lea     r10, [rsi - 16]
+    test    word ptr [r10 + 14], HBF_TTL
+    je      .Lsc_ext_bad
+    cmp     word ptr [r10 + 12], DT_S
+    jne     .Lsc_ext_bad
+    mov     r11d, dword ptr [r10 + 8]
+    add     r11, r10
+    mov     rdx, qword ptr [rip + g_hp_fr@GOTPCREL]
+    cmp     r11, qword ptr [rdx + 0]
+    jne     .Lsc_ext_bad
+    mov     edi, dword ptr [rax + 16]
+    mov     r11d, RTX_GVA_VA
+    xor     r10d, r10d
+.Lsc_ext_scan:
+    test    edi, edi
+    jle     .Lsc_ext_have
+    cmp     qword ptr [r11 + 8], rsi
+    jne     .Lsc_ext_next
+    cmp     byte ptr [r11], DT_S
+    jne     .Lsc_ext_next
+    inc     r10d
+    cmp     r10d, 1
+    ja      .Lsc_ext_bad
+.Lsc_ext_next:
+    add     r11, 16
+    dec     edi
+    jmp     .Lsc_ext_scan
+.Lsc_ext_have:
+    lea     r10, [rsi - 16]
+    lea     rdi, [r8 + r9 + 16]
+    and     rdi, -16
+    add     rdi, 16
+    mov     r11d, dword ptr [r10 + 8]
+    cmp     rdi, r11
+    jbe     .Lsc_ext_pad
+    sub     r11, rdi
+    neg     r11
+    mov     rax, qword ptr [rdx + 0]
+    add     rax, r11
+    cmp     rax, qword ptr [rdx + 48]
+    ja      .Lsc_ext_bad
+    mov     qword ptr [rdx + 0], rax
+    add     qword ptr [rdx + 56], r11
+    add     qword ptr [rdx + 64], r11
+    mov     dword ptr [r10 + 8], edi
+.Lsc_ext_pad:
+    mov     r10, rsi
+    mov     rdx, rdi
+    lea     rdi, [rsi + r8]
+    mov     rsi, rcx
+    mov     rcx, r9
+    RTX_MEMCPY
+    lea     rdi, [r10 + r8]
+    add     rdi, r9
+    mov     byte ptr [rdi], 0
+    inc     rdi
+    lea     rsi, [r10 + rdx - 16]
+    sub     rsi, rdi
+    jz      .Lsc_ext_done
+    cmp     rsi, 8
+    jb      .Lsc_ext_z4
+    mov     qword ptr [rdi], 0
+    mov     qword ptr [rdi + rsi - 8], 0
+    jmp     .Lsc_ext_done
+.Lsc_ext_z4:
+    cmp     rsi, 4
+    jb      .Lsc_ext_z1
+    mov     dword ptr [rdi], 0
+    mov     dword ptr [rdi + rsi - 4], 0
+    jmp     .Lsc_ext_done
+.Lsc_ext_z1:
+    mov     byte ptr [rdi], 0
+    mov     byte ptr [rdi + rsi - 1], 0
+    cmp     rsi, 3
+    jb      .Lsc_ext_done
+    mov     byte ptr [rdi + 1], 0
+.Lsc_ext_done:
+    lea     rax, [r8 + r9]
+    lea     rcx, [rip + g_sxt_fr]
+    mov     qword ptr [rcx + 8], rax
+    mov     rdx, r10
+    shl     rax, 32
+    or      rax, DT_S
+    RTX_GVA_R9
+    ret
+.Lsc_ext_bad:
+    lea     rax, [rip + g_sxt_fr]
+    mov     qword ptr [rax + 0], 0
+    jmp     .Lsc_nosxt
 .Lsc_slow:
     mov     eax, RTX_NOT_HANDLED
     RTX_GVA_R9

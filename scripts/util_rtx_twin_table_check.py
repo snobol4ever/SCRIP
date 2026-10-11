@@ -6,6 +6,7 @@ ROOT = os.path.dirname(HERE)
 KINDS = {"RTX_DECLINE": "AL", "RTX_DECLINE_INT": "INT", "RTX_DECLINE_PTR": "PTR", "RTX_NOT_HANDLED": "AL", "RTX_NOT_HANDLED_INT": "INT", "RTX_NOT_HANDLED_PTR": "PTR"}
 FUNC = re.compile(r"^RTX_FUNC\((\w+)\)")
 ENDF = re.compile(r"^RTX_ENDF\((\w+)\)")
+ENTRY = re.compile(r"^RTX_ENTRY\((\w+)\)")
 ROW = re.compile(r"^RTX_TWIN\((AL|INT|PTR),\s*[^,]+,\s*(\w+),\s*(\w+),")
 
 
@@ -15,18 +16,26 @@ def declining_leaves(rtx_dir):
         if not fn.endswith(".s"):
             continue
         cur = None
+        names = []
         for ln in open(os.path.join(rtx_dir, fn), encoding="utf-8"):
             m = FUNC.match(ln)
             if m:
                 cur = m.group(1)
+                names = [cur]
                 continue
             if ENDF.match(ln):
                 cur = None
+                names = []
                 continue
             if cur:
+                m = ENTRY.match(ln)
+                if m:
+                    names.append(m.group(1))
+                    continue
                 for tok in re.findall(r"\bRTX_[A-Z_]+\b", ln):
                     if tok in KINDS:
-                        out.setdefault(cur, set()).add(KINDS[tok])
+                        for nm in names:
+                            out.setdefault(nm, set()).add(KINDS[tok])
     return out
 
 

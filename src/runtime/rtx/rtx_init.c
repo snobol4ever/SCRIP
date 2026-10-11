@@ -66,6 +66,9 @@ _Static_assert(sizeof(Σlen) == 4,
 _Static_assert(RT_DCAP_TOP == 0x70000000UL,
     "rtx_match.s's rt_match_enter hardcodes RTX_DCAP_TOP_VA 0x70000000 as an absolute disp32 to inline the rt_dcap_lazy_init test; pin_va.h moved the pin -- the asm would test a DEAD page, read 0 fo"
     "rever, and call the initializer on EVERY match instead of once");
+_Static_assert(RT_GVA_VA == 0x70001000UL,
+    "rtx_str.s str_concat_d scans the global-variable descriptors for a second reference to the string it extends at the baked absolute address 0x70001000; pin_va.h moved the pin -- the scan would r"
+    "ead an" " unmapped page or the wrong table and extend a string another variable still holds");
 extern __attribute__((visibility("hidden"))) int g_repl_trace;
 _Static_assert(sizeof(g_repl_trace) == 4,
     "rtx_match.s SLICE 9 tests g_repl_trace with `cmp dword ptr`; if it widens, the compare reads half the flag and the asm would run the hot arm while tracing is on -- silently swallowing every [RE"

@@ -20,3 +20,4 @@ RTX_TWIN(AL, void, rt_coerce_num2_d, c_rt_coerce_num2_d, (const DESCR_t *, const
 RTX_TWIN(AL, DESCR_t, rt_subscript_var, c_rt_subscript_var, (DESCR_t, DESCR_t))
 RTX_TWIN(AL, void, rt_match_replace, c_rt_match_replace, (const char *, uint64_t, uint64_t, int64_t, int64_t, DESCR_t *))
 RTX_TWIN(AL, DESCR_t, rt_sno_name_dl, c_rt_sno_name_dl, (DESCR_t *, int))
+RTX_TWIN(AL, DESCR_t, sno_concat_d, c_sno_concat_d, (DESCR_t, DESCR_t))
