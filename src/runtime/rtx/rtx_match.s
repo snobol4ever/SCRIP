@@ -101,10 +101,7 @@ RTX_FUNC(rt_match_enter)
     jz      .Lme_c
     mov     rdx, rdi
     shr     rdx, 32
-    jnz     .Lme_mutate
-    cmp     byte ptr [rsi], 0
-    je      .Lme_c
-.Lme_mutate:
+    jz      .Lme_c
     mov     eax, dword ptr [rip + g_cap_gen_next]
     add     eax, 1
     jne     .Lme_gen_ok
@@ -116,14 +113,6 @@ RTX_FUNC(rt_match_enter)
     test    r12, r12
     je      .Lme_dcap_cold
 .Lme_dcap_done:
-    test    edx, edx
-    jnz     .Lme_store
-    mov     rdi, rsi
-    RTX_PUSH(rsi)
-    call    strlen@PLT
-    RTX_GVA_R9
-    RTX_POP(rsi)
-    mov     rdx, rax
 .Lme_store:
     mov     rcx, qword ptr [rip + Σ@GOTPCREL]
     mov     qword ptr [rcx], rsi
