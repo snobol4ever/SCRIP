@@ -4472,15 +4472,23 @@ static tree_t * pl_dict_canon(const tree_t * t) {
     for (int i = 0; i < np; i++) { ast_push(d, c->c[2 + 2 * ord[i]]); ast_push(d, c->c[1 + 2 * ord[i]]); }
     return d;
 }
+static tree_t * pl_dot_var(int k, int named) {
+    if (!named) return pl_ssu_var(k);
+    char b[32];
+    snprintf(b, sizeof b, "_$dot%d", k);
+    tree_t * v = ast_node_new(TT_VAR);
+    v->v.sval = ct_strdup(b);
+    return v;
+}
 static tree_t * pl_dot_take(const tree_t * t, lc_vec * ev, int * next) {
     if (!t) return NULL;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "$dot") && t->n == 2) {
         tree_t * o = pl_dot_take(t->c[0], ev, next);
         tree_t * f = pl_dot_take(t->c[1], ev, next);
-        int slot = (*next)++;
-        tree_t * g = pl_cc_fnc3("$dict_eval", o, f, pl_ssu_var(slot));
+        int named = *next < 0, k = named ? -((*next)--) : (*next)++;
+        tree_t * g = pl_cc_fnc3("$dict_eval", o, f, pl_dot_var(k, named));
         lc_vec_push(ev, &g);
-        return pl_ssu_var(slot);
+        return pl_dot_var(k, named);
     }
     tree_t * c = ast_node_new(t->t);
     c->v = t->v;
@@ -4495,11 +4503,16 @@ static tree_t * pl_dot_goal_arg(const tree_t * a, char spec, lc_vec * ev, int * 
     if (a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "^") && a->n == 2) return pl_cc_fnc2("^", pl_dot_take(a->c[0], ev, next), pl_dot_goal_arg(a->c[1], '^', ev, next));
     return pl_dot_goal(a, next);
 }
+static const char * pl_dot_meta(const tree_t * g) {
+    if (!g || g->t != TT_FNC || !g->v.sval) return (const char *) 0;
+    if (!strcmp(g->v.sval, "initialization") && (g->n == 1 || g->n == 2)) return g->n == 1 ? "0" : "0?";
+    return pl_meta_template(g->v.sval, g->n);
+}
 static tree_t * pl_dot_goal(const tree_t * g, int * next) {
     if (!g) return NULL;
     lc_vec ev;
     lc_vec_init(&ev, (int) sizeof(tree_t *));
-    const char * tmpl = (g->t == TT_FNC && g->v.sval) ? pl_meta_template(g->v.sval, g->n) : (const char *) 0;
+    const char * tmpl = pl_dot_meta(g);
     tree_t * c;
     if (g->t == TT_IF || g->t == TT_PROGRAM || tmpl) {
         c = ast_node_new(g->t);
@@ -4526,7 +4539,7 @@ static tree_t * pl_dict_clause(const tree_t * cl) {
     for (int i = 0; i < hev.n; i++) ast_push(nc, ((tree_t **) hev.data)[i]);
     for (int i = ar; i < k->n; i++) {
         const tree_t * g = k->c[i];
-        if (g && (g->t == TT_IF || g->t == TT_PROGRAM || (g->t == TT_FNC && g->v.sval && pl_meta_template(g->v.sval, g->n)))) { ast_push(nc, pl_dot_goal(g, &next)); continue; }
+        if (g && (g->t == TT_IF || g->t == TT_PROGRAM || pl_dot_meta(g))) { ast_push(nc, pl_dot_goal(g, &next)); continue; }
         lc_vec ev;
         lc_vec_init(&ev, (int) sizeof(tree_t *));
         tree_t * g2 = pl_dot_take(g, &ev, &next);
@@ -4553,7 +4566,7 @@ static const tree_t * pl_dict_rewrite(const tree_t * prog) {
             ns->line = subj->line;
             for (int k = 0; k < subj->n; k++) ast_push(ns, pl_dict_clause(subj->c[k]));
         } else if (subj->t == TT_CLAUSE) ns = pl_dict_clause(subj);
-        else ns = pl_dict_canon(subj);
+        else { int next = -1; ns = pl_dot_goal(pl_dict_canon(subj), &next); }
         ast_push(np, pl_table_stmt(s, ns));
     }
     return np;

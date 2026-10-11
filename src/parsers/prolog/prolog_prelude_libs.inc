@@ -13046,6 +13046,251 @@ static const char PL_PRELUDE_LIB_13_SRC[] =
     "    call(Pred, H, K),\n"
     "    '$pairs_map_list_to_pairs2'(T0, Pred, T).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_EXPORTS[] = {
+    { "re_match", 2 },
+    { "re_match", 3 },
+    { "re_matchsub", 3 },
+    { "re_matchsub", 4 },
+    { "re_foldl", 6 },
+    { "re_split", 3 },
+    { "re_split", 4 },
+    { "re_replace", 4 },
+    { "re_replace", 5 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_14_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_14_SRC[] =
+    "re_match(Re, S) :- re_match(Re, S, []).\n"
+    "re_match(Re, S, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_search'(R, W, 0, W, _, _), !.\n"
+    "re_matchsub(Re, S, Sub) :- re_matchsub(Re, S, Sub, []).\n"
+    "re_matchsub(Re, S, Sub, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_search'(R, W, 0, W, M, _), !, '$re_sub'(R, M, Sub).\n"
+    "re_foldl(G, Re, S, V0, V, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_fold'(R, G, W, W, 0, V0, V).\n"
+    "'$re_fold'(R, G, W, Cs, P, V0, V) :-\n"
+    "    (   '$re_search'(R, W, P, Cs, M, Rest)\n"
+    "    ->  '$re_sub'(R, M, Sub), call(G, Sub, V0, V1), '$re_step'(M, Rest, Cs1, P1), ( Cs1 == none -> V = V1 ; '$re_fold'(R, G, W, Cs1, P1, V1, V) )\n"
+    "    ;   V = V0\n"
+    "    ).\n"
+    "'$re_step'(m(_, c(S, E, _), _, _), Rest, Cs, P) :- ( E =:= S -> ( Rest = [_|Cs] -> P is E + 1 ; Cs = none, P = E ) ; Cs = Rest, P = E ).\n"
+    "re_split(Re, S, Parts) :- re_split(Re, S, Parts, []).\n"
+    "re_split(Re, S, Parts, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_type'(R, 0, T), '$re_split'(R, T, W, W, 0, W, 0, Parts).\n"
+    "'$re_split'(R, T, W, Cs, P, FCs, From, Parts) :-\n"
+    "    (   '$re_search'(R, W, P, Cs, M, Rest)\n"
+    "    ->  M = m(_, c(S, E, SCs), _, _), '$re_cap'(T, c(From, S, FCs), Pre), '$re_cap'(T, c(S, E, SCs), Mid), Parts = [Pre, Mid|Ps],\n"
+    "        '$re_step'(M, Rest, Cs1, P1),\n"
+    "        ( Cs1 == none -> '$re_cap'(T, c(E, E, Rest), Post), Ps = [Post] ; '$re_split'(R, T, W, Cs1, P1, Rest, E, Ps) )\n"
+    "    ;   length(FCs, L), E is From + L, '$re_cap'(T, c(From, E, FCs), Post), Parts = [Post]\n"
+    "    ).\n"
+    "re_replace(Re, With, S, Out) :- re_replace(Re, With, S, Out, []).\n"
+    "re_replace(Re, With, S, Out, Opts) :-\n"
+    "    '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_codes'(With, Ws), R = re(_, _, Fl, _, _),\n"
+    "    ( memberchk(g, Fl) -> All = true ; All = false ), '$re_repl'(R, Ws, W, W, 0, W, 0, All, Os), string_codes(Out, Os).\n"
+    "'$re_repl'(R, Ws, W, Cs, P, FCs, From, All, Os) :-\n"
+    "    (   '$re_search'(R, W, P, Cs, M, Rest)\n"
+    "    ->  M = m(_, c(S, E, _), _, _), N is S - From, '$re_take'(N, FCs, Pre), '$re_subst'(Ws, M, Rep), append(Pre, Rep, Os0),\n"
+    "        (   All == true, '$re_step'(M, Rest, Cs1, P1), Cs1 \\== none\n"
+    "        ->  '$re_repl'(R, Ws, W, Cs1, P1, Rest, E, All, Os1), append(Os0, Os1, Os)\n"
+    "        ;   append(Os0, Rest, Os)\n"
+    "        )\n"
+    "    ;   Os = FCs\n"
+    "    ).\n"
+    "'$re_subst'([], _, []).\n"
+    "'$re_subst'([0'\\\\, D|Ws], M, Out) :- D >= 0'0, D =< 0'9, !, I is D - 0'0, '$re_group_codes'(M, I, G), '$re_subst'(Ws, M, R), append(G, R, Out).\n"
+    "'$re_subst'([0'$, D|Ws], M, Out) :- D >= 0'0, D =< 0'9, !, I is D - 0'0, '$re_group_codes'(M, I, G), '$re_subst'(Ws, M, R), append(G, R, Out).\n"
+    "'$re_subst'([C|Ws], M, [C|R]) :- '$re_subst'(Ws, M, R).\n"
+    "'$re_group_codes'(m(_, C0, Caps, _), I, G) :- ( I =:= 0 -> C = C0 ; memberchk(I-C, Caps) -> true ; C = c(0, 0, []) ), C = c(S, E, Cs), N is E - S, '$re_take'(N, Cs, G).\n"
+    "'$re_prep'(Re, Opts, re(Ast, NG, Fl, Names, T)) :-\n"
+    "    ( nonvar(Re), Re = Pat/F -> atom_codes(F, FCs), '$re_flags'(FCs, Fl0, T0) ; Pat = Re, Fl0 = [], T0 = s ),\n"
+    "    '$re_opts'(Opts, Fl0, Fl, T0, T), '$re_codes'(Pat, PCs),\n"
+    "    ( memberchk(x, Fl) -> '$re_strip_x'(PCs, PCs1) ; PCs1 = PCs ),\n"
+    "    ( '$re_alt'(PCs1, [], 0, NG, [], Names, Ast) -> true ; throw(error(existence_error(re_syntax, Pat), _)) ).\n"
+    "'$re_flags'([], [], s).\n"
+    "'$re_flags'([C|Cs], Fl, T) :- '$re_flags'(Cs, Fl0, T0), char_code(Ch, C),\n"
+    "    ( memberchk(Ch-Ty, [a-a, 'I'-'I', f-f, n-n, r-r, 'S'-s, t-t]) -> Fl = Fl0, T = Ty ; Fl = [Ch|Fl0], T = T0 ).\n"
+    "'$re_opts'([], Fl, Fl, T, T).\n"
+    "'$re_opts'([O|Os], Fl0, Fl, T0, T) :- '$re_opt'(O, Fl0, Fl1, T0, T1), '$re_opts'(Os, Fl1, Fl, T1, T).\n"
+    "'$re_opt'(capture_type(Ty), Fl, Fl, _, T) :- !, '$re_type_name'(Ty, T).\n"
+    "'$re_opt'(caseless(true), Fl, [i|Fl], T, T) :- !.\n"
+    "'$re_opt'(multiline(true), Fl, [m|Fl], T, T) :- !.\n"
+    "'$re_opt'(dotall(true), Fl, [s|Fl], T, T) :- !.\n"
+    "'$re_opt'(extended(true), Fl, [x|Fl], T, T) :- !.\n"
+    "'$re_opt'(_, Fl, Fl, T, T).\n"
+    "'$re_type_name'(string, s).\n"
+    "'$re_type_name'(atom, a).\n"
+    "'$re_type_name'(integer, 'I').\n"
+    "'$re_type_name'(float, f).\n"
+    "'$re_type_name'(number, n).\n"
+    "'$re_type_name'(range, r).\n"
+    "'$re_type_name'(term, t).\n"
+    "'$re_codes'(T, Cs) :- string(T), !, string_codes(T, Cs).\n"
+    "'$re_codes'(T, Cs) :- atom(T), !, atom_codes(T, Cs).\n"
+    "'$re_codes'(T, Cs) :- is_list(T), !, ( T = [C|_], atom(C) -> atomic_list_concat(T, A), atom_codes(A, Cs) ; Cs = T ).\n"
+    "'$re_codes'(T, Cs) :- number(T), !, number_codes(T, Cs).\n"
+    "'$re_codes'(T, _) :- var(T), !, throw(error(instantiation_error, _)).\n"
+    "'$re_codes'(T, _) :- throw(error(type_error(text, T), _)).\n"
+    "'$re_strip_x'([], []).\n"
+    "'$re_strip_x'([0'\\\\, C|Cs], [0'\\\\, C|Os]) :- !, '$re_strip_x'(Cs, Os).\n"
+    "'$re_strip_x'([0'[|Cs], [0'[|Os]) :- !, '$re_strip_x_class'(Cs, Os).\n"
+    "'$re_strip_x'([0'#|Cs], Os) :- !, '$re_strip_x_comment'(Cs, Os).\n"
+    "'$re_strip_x'([C|Cs], Os) :- memberchk(C, [32, 9, 10, 13, 12, 11]), !, '$re_strip_x'(Cs, Os).\n"
+    "'$re_strip_x'([C|Cs], [C|Os]) :- '$re_strip_x'(Cs, Os).\n"
+    "'$re_strip_x_class'([], []).\n"
+    "'$re_strip_x_class'([0'\\\\, C|Cs], [0'\\\\, C|Os]) :- !, '$re_strip_x_class'(Cs, Os).\n"
+    "'$re_strip_x_class'([0']|Cs], [0']|Os]) :- !, '$re_strip_x'(Cs, Os).\n"
+    "'$re_strip_x_class'([C|Cs], [C|Os]) :- '$re_strip_x_class'(Cs, Os).\n"
+    "'$re_strip_x_comment'([], []).\n"
+    "'$re_strip_x_comment'([10|Cs], Os) :- !, '$re_strip_x'(Cs, Os).\n"
+    "'$re_strip_x_comment'([_|Cs], Os) :- '$re_strip_x_comment'(Cs, Os).\n"
+    "'$re_alt'(Cs0, Cs, G0, G, N0, N, Ast) :-\n"
+    "    '$re_seq'(Cs0, Cs1, G0, G1, N0, N1, S),\n"
+    "    ( Cs1 = [0'||Cs2] -> '$re_alt'(Cs2, Cs, G1, G, N1, N, A2), ( A2 = alt(As) -> Ast = alt([S|As]) ; Ast = alt([S, A2]) ) ; Cs = Cs1, G = G1, N = N1, Ast = S ).\n"
+    "'$re_seq'(Cs0, Cs, G0, G, N0, N, seq(Items)) :- '$re_items'(Cs0, Cs, G0, G, N0, N, Items).\n"
+    "'$re_items'([], [], G, G, N, N, []) :- !.\n"
+    "'$re_items'([C|Cs], [C|Cs], G, G, N, N, []) :- ( C =:= 0'| ; C =:= 0') ), !.\n"
+    "'$re_items'(Cs0, Cs, G0, G, N0, N, [I|Is]) :- '$re_atom'(Cs0, Cs1, G0, G1, N0, N1, A), '$re_quant'(Cs1, Cs2, A, I), '$re_items'(Cs2, Cs, G1, G, N1, N, Is).\n"
+    "'$re_quant'([0'*|Cs0], Cs, A, rep(A, 0, inf, M)) :- !, '$re_lazy'(Cs0, Cs, M).\n"
+    "'$re_quant'([0'+|Cs0], Cs, A, rep(A, 1, inf, M)) :- !, '$re_lazy'(Cs0, Cs, M).\n"
+    "'$re_quant'([0'?|Cs0], Cs, A, rep(A, 0, 1, M)) :- !, '$re_lazy'(Cs0, Cs, M).\n"
+    "'$re_quant'([0'{|Cs0], Cs, A, rep(A, Min, Max, M)) :- '$re_int'(Cs0, Cs1, Min), ( Cs1 = [0'}|Cs2] -> Max = Min ; Cs1 = [0',, 0'}|Cs2] -> Max = inf ; Cs1 = [0',|Cs3], '$re_int'(Cs3, [0'}|Cs2], Max) ), !, '$re_lazy'(Cs2, Cs, M).\n"
+    "'$re_quant'(Cs, Cs, A, A).\n"
+    "'$re_lazy'([0'?|Cs], Cs, lazy) :- !.\n"
+    "'$re_lazy'([0'+|Cs], Cs, greedy) :- !.\n"
+    "'$re_lazy'(Cs, Cs, greedy).\n"
+    "'$re_int'([D|Cs0], Cs, N) :- D >= 0'0, D =< 0'9, '$re_int_more'(Cs0, Cs, D, Ds), number_codes(N, Ds).\n"
+    "'$re_int_more'([D|Cs0], Cs, D0, [D0|Ds]) :- D >= 0'0, D =< 0'9, !, '$re_int_more'(Cs0, Cs, D, Ds).\n"
+    "'$re_int_more'(Cs, Cs, D0, [D0]).\n"
+    "'$re_atom'([0'(, 0'?, 0':|Cs0], Cs, G0, G, N0, N, A) :- !, '$re_alt'(Cs0, [0')|Cs], G0, G, N0, N, A).\n"
+    "'$re_atom'([0'(, 0'?, 0'<, C|Cs0], Cs, G0, G, N0, N, group(G1, A)) :- C \\== 0'=, C \\== 0'!, !, '$re_name'([C|Cs0], Cs1, Nm), G1 is G0 + 1, '$re_alt'(Cs1, [0')|Cs], G1, G, [G1-Nm|N0], N, A).\n"
+    "'$re_atom'([0'(, 0'?, 0'P, 0'<|Cs0], Cs, G0, G, N0, N, group(G1, A)) :- !, '$re_name'(Cs0, Cs1, Nm), G1 is G0 + 1, '$re_alt'(Cs1, [0')|Cs], G1, G, [G1-Nm|N0], N, A).\n"
+    "'$re_atom'([0'(, 0'?|_], _, _, _, _, _, _) :- !, fail.\n"
+    "'$re_atom'([0'(|Cs0], Cs, G0, G, N0, N, group(G1, A)) :- !, G1 is G0 + 1, '$re_alt'(Cs0, [0')|Cs], G1, G, N0, N, A).\n"
+    "'$re_atom'([0'[, 0'^|Cs0], Cs, G, G, N, N, class(true, Is)) :- !, '$re_class'(Cs0, Cs, Is, first).\n"
+    "'$re_atom'([0'[|Cs0], Cs, G, G, N, N, class(false, Is)) :- !, '$re_class'(Cs0, Cs, Is, first).\n"
+    "'$re_atom'([0'.|Cs], Cs, G, G, N, N, any) :- !.\n"
+    "'$re_atom'([0'^|Cs], Cs, G, G, N, N, bol) :- !.\n"
+    "'$re_atom'([0'$|Cs], Cs, G, G, N, N, eol) :- !.\n"
+    "'$re_atom'([0'\\\\, C|Cs0], Cs, G, G, N, N, A) :- !, '$re_esc'(C, Cs0, Cs, A).\n"
+    "'$re_atom'([C|Cs], Cs, G, G, N, N, chr(C)) :- C =\\= 0'), C =\\= 0'|, C =\\= 0'*, C =\\= 0'+, C =\\= 0'?.\n"
+    "'$re_name'(Cs0, Cs, Nm) :- '$re_name_codes'(Cs0, Cs, NCs), NCs \\== [], atom_codes(Nm, NCs).\n"
+    "'$re_name_codes'([0'>|Cs], Cs, []) :- !.\n"
+    "'$re_name_codes'([C|Cs0], Cs, [C|Ns]) :- ( code_type(C, alnum) ; C =:= 0'_ ), !, '$re_name_codes'(Cs0, Cs, Ns).\n"
+    "'$re_esc'(0'd, Cs, Cs, cls(digit)) :- !.\n"
+    "'$re_esc'(0'D, Cs, Cs, ncls(digit)) :- !.\n"
+    "'$re_esc'(0'w, Cs, Cs, cls(word)) :- !.\n"
+    "'$re_esc'(0'W, Cs, Cs, ncls(word)) :- !.\n"
+    "'$re_esc'(0's, Cs, Cs, cls(space)) :- !.\n"
+    "'$re_esc'(0'S, Cs, Cs, ncls(space)) :- !.\n"
+    "'$re_esc'(0'b, Cs, Cs, wordb) :- !.\n"
+    "'$re_esc'(0'B, Cs, Cs, nwordb) :- !.\n"
+    "'$re_esc'(0'A, Cs, Cs, bos) :- !.\n"
+    "'$re_esc'(0'z, Cs, Cs, eos) :- !.\n"
+    "'$re_esc'(0'Z, Cs, Cs, eol_z) :- !.\n"
+    "'$re_esc'(C, Cs0, Cs, chr(X)) :- '$re_esc_code'(C, Cs0, Cs, X), !.\n"
+    "'$re_esc'(C, _, _, _) :- ( C >= 0'1, C =< 0'9 ; memberchk(C, [0'p, 0'P, 0'k, 0'g, 0'G, 0'K, 0'R, 0'X, 0'h, 0'H, 0'N, 0'C]) ), !, fail.\n"
+    "'$re_esc'(C, Cs, Cs, chr(C)).\n"
+    "'$re_esc_code'(0'n, Cs, Cs, 10).\n"
+    "'$re_esc_code'(0't, Cs, Cs, 9).\n"
+    "'$re_esc_code'(0'r, Cs, Cs, 13).\n"
+    "'$re_esc_code'(0'f, Cs, Cs, 12).\n"
+    "'$re_esc_code'(0'v, Cs, Cs, 11).\n"
+    "'$re_esc_code'(0'e, Cs, Cs, 27).\n"
+    "'$re_esc_code'(0'a, Cs, Cs, 7).\n"
+    "'$re_esc_code'(0'0, Cs, Cs, 0).\n"
+    "'$re_esc_code'(0'x, [0'{|Cs0], Cs, X) :- !, '$re_hex'(Cs0, [0'}|Cs], 0, X, _).\n"
+    "'$re_esc_code'(0'x, Cs0, Cs, X) :- '$re_hex2'(Cs0, Cs, X).\n"
+    "'$re_hex'([D|Cs0], Cs, X0, X, n) :- '$re_hexd'(D, V), !, X1 is X0 * 16 + V, '$re_hex'(Cs0, Cs, X1, X, _).\n"
+    "'$re_hex'(Cs, Cs, X, X, _).\n"
+    "'$re_hex2'([D1, D2|Cs], Cs, X) :- '$re_hexd'(D1, V1), '$re_hexd'(D2, V2), !, X is V1 * 16 + V2.\n"
+    "'$re_hex2'([D1|Cs], Cs, X) :- '$re_hexd'(D1, X).\n"
+    "'$re_hexd'(D, V) :- D >= 0'0, D =< 0'9, !, V is D - 0'0.\n"
+    "'$re_hexd'(D, V) :- D >= 0'a, D =< 0'f, !, V is D - 0'a + 10.\n"
+    "'$re_hexd'(D, V) :- D >= 0'A, D =< 0'F, V is D - 0'A + 10.\n"
+    "'$re_class'([0']|Cs], Cs, [], rest) :- !.\n"
+    "'$re_class'([0'\\\\, C|Cs0], Cs, [I|Is], _) :- !, '$re_class_esc'(C, Cs0, Cs1, I0), '$re_class_range'(I0, Cs1, Cs2, I), '$re_class'(Cs2, Cs, Is, rest).\n"
+    "'$re_class'([C|Cs0], Cs, [I|Is], _) :- '$re_class_range'(C, Cs0, Cs1, I), '$re_class'(Cs1, Cs, Is, rest).\n"
+    "'$re_class_esc'(C, Cs, Cs, cls(K)) :- memberchk(C-K, [0'd-digit, 0'w-word, 0's-space]), !.\n"
+    "'$re_class_esc'(C, Cs, Cs, ncls(K)) :- memberchk(C-K, [0'D-digit, 0'W-word, 0'S-space]), !.\n"
+    "'$re_class_esc'(0'b, Cs, Cs, 8) :- !.\n"
+    "'$re_class_esc'(C, Cs0, Cs, X) :- '$re_esc_code'(C, Cs0, Cs, X), !.\n"
+    "'$re_class_esc'(C, Cs, Cs, C).\n"
+    "'$re_class_range'(L, [0'-, 0'\\\\, E|Cs0], Cs, range(L, H)) :- integer(L), '$re_esc_code'(E, Cs0, Cs, H), !.\n"
+    "'$re_class_range'(L, [0'-, H|Cs], Cs, range(L, H)) :- integer(L), H \\== 0'], H \\== 0'\\\\, !.\n"
+    "'$re_class_range'(I, Cs, Cs, I).\n"
+    "'$re_search'(re(Ast, _, Fl, _, _), W, P0, Cs0, m(W, Whole, Caps, Fl), Rest) :- '$re_try'(Ast, env(Fl, W), Cs0, P0, Whole, Caps, Rest).\n"
+    "'$re_try'(Ast, Env, Cs, P, c(P, E, Cs), Caps, Rest) :- '$re_m'(Ast, Env, Cs, P, Rest, E, [], Caps), !.\n"
+    "'$re_try'(Ast, Env, [_|Cs], P0, Whole, Caps, Rest) :- P1 is P0 + 1, '$re_try'(Ast, Env, Cs, P1, Whole, Caps, Rest).\n"
+    "'$re_m'(seq(Is), Env, Cs0, P0, Cs, P, C0, C) :- '$re_seqm'(Is, Env, Cs0, P0, Cs, P, C0, C).\n"
+    "'$re_m'(alt(As), Env, Cs0, P0, Cs, P, C0, C) :- '$re_altm'(As, Env, Cs0, P0, Cs, P, C0, C).\n"
+    "'$re_m'(chr(X), env(Fl, _), [Y|Cs], P0, Cs, P, C, C) :- ( X =:= Y -> true ; memberchk(i, Fl), '$re_lower'(X, L), '$re_lower'(Y, L) ), P is P0 + 1.\n"
+    "'$re_m'(any, env(Fl, _), [Y|Cs], P0, Cs, P, C, C) :- ( Y =\\= 10 -> true ; memberchk(s, Fl) ), P is P0 + 1.\n"
+    "'$re_m'(cls(K), _, [Y|Cs], P0, Cs, P, C, C) :- '$re_kind'(K, Y), P is P0 + 1.\n"
+    "'$re_m'(ncls(K), _, [Y|Cs], P0, Cs, P, C, C) :- \\+ '$re_kind'(K, Y), P is P0 + 1.\n"
+    "'$re_m'(class(Neg, Is), env(Fl, _), [Y|Cs], P0, Cs, P, C, C) :- ( '$re_in'(Is, Fl, Y) -> Neg == false ; Neg == true ), P is P0 + 1.\n"
+    "'$re_m'(group(I, A), Env, Cs0, P0, Cs, P, C0, C) :- '$re_m'(A, Env, Cs0, P0, Cs, P, C0, C1), '$re_setcap'(C1, I, c(P0, P, Cs0), C).\n"
+    "'$re_m'(rep(A, Min, Max, M), Env, Cs0, P0, Cs, P, C0, C) :- '$re_rep'(Min, Max, M, A, Env, Cs0, P0, Cs, P, C0, C).\n"
+    "'$re_m'(bol, env(Fl, W), Cs, P, Cs, P, C, C) :- ( P =:= 0 -> true ; memberchk(m, Fl), P1 is P - 1, '$re_nth0'(P1, W, 10) ).\n"
+    "'$re_m'(eol, env(Fl, _), Cs, P, Cs, P, C, C) :- ( Cs == [] -> true ; Cs == [10] -> true ; memberchk(m, Fl), Cs = [10|_] ).\n"
+    "'$re_m'(bos, _, Cs, 0, Cs, 0, C, C).\n"
+    "'$re_m'(eos, _, [], P, [], P, C, C).\n"
+    "'$re_m'(eol_z, _, Cs, P, Cs, P, C, C) :- ( Cs == [] ; Cs == [10] ), !.\n"
+    "'$re_m'(wordb, env(_, W), Cs, P, Cs, P, C, C) :- '$re_atb'(W, P, Cs).\n"
+    "'$re_m'(nwordb, env(_, W), Cs, P, Cs, P, C, C) :- \\+ '$re_atb'(W, P, Cs).\n"
+    "'$re_seqm'([], _, Cs, P, Cs, P, C, C).\n"
+    "'$re_seqm'([I|Is], Env, Cs0, P0, Cs, P, C0, C) :- '$re_m'(I, Env, Cs0, P0, Cs1, P1, C0, C1), '$re_seqm'(Is, Env, Cs1, P1, Cs, P, C1, C).\n"
+    "'$re_altm'([A|_], Env, Cs0, P0, Cs, P, C0, C) :- '$re_m'(A, Env, Cs0, P0, Cs, P, C0, C).\n"
+    "'$re_altm'([_|As], Env, Cs0, P0, Cs, P, C0, C) :- '$re_altm'(As, Env, Cs0, P0, Cs, P, C0, C).\n"
+    "'$re_rep'(Min, Max, M, A, Env, Cs0, P0, Cs, P, C0, C) :-\n"
+    "    Min > 0, !, '$re_m'(A, Env, Cs0, P0, Cs1, P1, C0, C1), Min1 is Min - 1, '$re_dec'(Max, Max1), '$re_rep'(Min1, Max1, M, A, Env, Cs1, P1, Cs, P, C1, C).\n"
+    "'$re_rep'(_, Max, greedy, A, Env, Cs0, P0, Cs, P, C0, C) :-\n"
+    "    Max \\== 0, '$re_m'(A, Env, Cs0, P0, Cs1, P1, C0, C1), P1 > P0, '$re_dec'(Max, Max1), '$re_rep'(0, Max1, greedy, A, Env, Cs1, P1, Cs, P, C1, C).\n"
+    "'$re_rep'(_, _, greedy, _, _, Cs, P, Cs, P, C, C).\n"
+    "'$re_rep'(_, _, lazy, _, _, Cs, P, Cs, P, C, C).\n"
+    "'$re_rep'(_, Max, lazy, A, Env, Cs0, P0, Cs, P, C0, C) :-\n"
+    "    Max \\== 0, '$re_m'(A, Env, Cs0, P0, Cs1, P1, C0, C1), P1 > P0, '$re_dec'(Max, Max1), '$re_rep'(0, Max1, lazy, A, Env, Cs1, P1, Cs, P, C1, C).\n"
+    "'$re_dec'(inf, inf) :- !.\n"
+    "'$re_dec'(N, N1) :- N1 is N - 1.\n"
+    "'$re_setcap'([], I, V, [I-V]).\n"
+    "'$re_setcap'([J-W|Cs], I, V, Out) :- ( J =:= I -> Out = [I-V|Cs] ; Out = [J-W|Out1], '$re_setcap'(Cs, I, V, Out1) ).\n"
+    "'$re_kind'(digit, Y) :- Y >= 0'0, Y =< 0'9.\n"
+    "'$re_kind'(word, Y) :- ( Y >= 0'a, Y =< 0'z ; Y >= 0'A, Y =< 0'Z ; Y >= 0'0, Y =< 0'9 ; Y =:= 0'_ ), !.\n"
+    "'$re_kind'(space, Y) :- memberchk(Y, [32, 9, 10, 11, 12, 13]).\n"
+    "'$re_in'([I|Is], Fl, Y) :- ( '$re_in1'(I, Fl, Y) -> true ; '$re_in'(Is, Fl, Y) ).\n"
+    "'$re_in1'(range(L, H), Fl, Y) :- !, ( Y >= L, Y =< H -> true ; memberchk(i, Fl), '$re_lower'(Y, Ly), '$re_upper'(Y, Uy), ( Ly >= L, Ly =< H ; Uy >= L, Uy =< H ) ).\n"
+    "'$re_in1'(cls(K), _, Y) :- !, '$re_kind'(K, Y).\n"
+    "'$re_in1'(ncls(K), _, Y) :- !, \\+ '$re_kind'(K, Y).\n"
+    "'$re_in1'(X, Fl, Y) :- ( X =:= Y -> true ; memberchk(i, Fl), '$re_lower'(X, L), '$re_lower'(Y, L) ).\n"
+    "'$re_lower'(X, L) :- ( X >= 0'A, X =< 0'Z -> L is X + 32 ; L = X ).\n"
+    "'$re_upper'(X, U) :- ( X >= 0'a, X =< 0'z -> U is X - 32 ; U = X ).\n"
+    "'$re_nth0'(I, [X|Xs], Y) :- ( I =:= 0 -> X = Y ; I1 is I - 1, '$re_nth0'(I1, Xs, Y) ).\n"
+    "'$re_atb'(W, P, Cs) :- ( P =:= 0 -> Before = false ; P1 is P - 1, '$re_nth0'(P1, W, B), ( '$re_kind'(word, B) -> Before = true ; Before = false ) ),\n"
+    "    ( Cs = [A|_], '$re_kind'(word, A) -> After = true ; After = false ), Before \\== After.\n"
+    "'$re_sub'(re(_, NG, _, Names, T), m(_, Whole, Caps, _), Sub) :- '$re_cap'(T, Whole, V0), '$re_subs'(1, NG, Names, T, Caps, Ps), dict_pairs(Sub, re_match, [0-V0|Ps]).\n"
+    "'$re_subs'(I, NG, _, _, _, []) :- I > NG, !.\n"
+    "'$re_subs'(I, NG, Names, T, Caps, Ps) :- I1 is I + 1,\n"
+    "    ( memberchk(I-C, Caps) -> '$re_key'(I, Names, T, K, Ty), '$re_cap'(Ty, C, V), Ps = [K-V|Ps1] ; Ps = Ps1 ),\n"
+    "    '$re_subs'(I1, NG, Names, T, Caps, Ps1).\n"
+    "'$re_key'(I, Names, T, K, Ty) :- ( memberchk(I-Nm, Names) -> '$re_name_type'(Nm, T, K, Ty) ; K = I, Ty = T ).\n"
+    "'$re_name_type'(Nm, T, K, Ty) :-\n"
+    "    atom_codes(Nm, Cs), ( append(KCs, [0'_, C], Cs), KCs \\== [], char_code(Ch, C), memberchk(Ch-Ty, ['A'-a, 'I'-'I', 'F'-f, 'N'-n, 'R'-r, 'S'-s, 'T'-t]) -> atom_codes(K, KCs) ; K = Nm, Ty = T ).\n"
+    "'$re_type'(re(_, _, _, _, T), _, T).\n"
+    "'$re_cap'(r, c(S, E, _), S-L) :- !, L is E - S.\n"
+    "'$re_cap'(T, c(S, E, Cs0), V) :- N is E - S, '$re_take'(N, Cs0, Cs), '$re_conv'(T, Cs, V).\n"
+    "'$re_conv'(s, Cs, V) :- !, string_codes(V, Cs).\n"
+    "'$re_conv'(a, Cs, V) :- !, atom_codes(V, Cs).\n"
+    "'$re_conv'('I', Cs, V) :- !, number_codes(V, Cs).\n"
+    "'$re_conv'(f, Cs, V) :- !, number_codes(N, Cs), V is float(N).\n"
+    "'$re_conv'(n, Cs, V) :- !, number_codes(V, Cs).\n"
+    "'$re_conv'(t, Cs, V) :- !, atom_codes(A, Cs), term_to_atom(V, A).\n"
+    "'$re_conv'(_, Cs, V) :- string_codes(V, Cs).\n"
+    "'$re_take'(0, _, []) :- !.\n"
+    "'$re_take'(N, [C|Cs], [C|Ts]) :- N1 is N - 1, '$re_take'(N1, Cs, Ts).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
     { "unix", 1 },
     { "abs", 2 },
     { "sin", 2 },
@@ -13083,16 +13328,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_EXPORTS[] = {
     { "on_exception", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_14_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_15_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_14_SRC[] =
+static const char PL_PRELUDE_LIB_15_SRC[] =
     "unix(system(Command)) :-\n"
     "    shell(Command).\n"
     "unix(shell(Command)) :-\n"
@@ -13202,7 +13447,7 @@ static const char PL_PRELUDE_LIB_14_SRC[] =
     "    throw(Term).\n"
     "on_exception(Except, Goal, Recover) :-\n"
     "    catch(Goal, Except, Recover).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
     { "rb_new", 1 },
     { "rb_empty", 1 },
     { "rb_lookup", 3 },
@@ -13233,16 +13478,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
     { "rb_in", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_15_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_15_SRC[] =
+static const char PL_PRELUDE_LIB_16_SRC[] =
     "rb_new(t(Nil,Nil)) :-\n"
     "    Nil = black('',_,_,'').\n"
     "rb_empty(t(Nil,Nil)) :-\n"
@@ -13851,7 +14096,7 @@ static const char PL_PRELUDE_LIB_15_SRC[] =
     "'$rbtrees_check_red_child'(black(_,_,_,_)) => true.\n"
     "'$rbtrees_check_red_child'(Node), Node = red(_,_,_,_) =>\n"
     "    domain_error(rb_black, Node).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "dedent_lines", 3 },
     { "indent_lines", 3 },
     { "indent_lines", 4 },
@@ -13859,16 +14104,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
     { "string_lines", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_16_SRC[] =
+static const char PL_PRELUDE_LIB_17_SRC[] =
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
     "interpolate_string(Module:In, Out, Map, Options) :-\n"
     "    '$strings_comp_interpolate'(In, Compiled, Map, [module(Module)|Options]),\n"
@@ -14078,23 +14323,23 @@ static const char PL_PRELUDE_LIB_16_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_17_SRC[] =
+static const char PL_PRELUDE_LIB_18_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -14244,9 +14489,10 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "option", PL_PRELUDE_LIB_11_EXPORTS, PL_PRELUDE_LIB_11_OPS, PL_PRELUDE_LIB_11_SHADOWS, PL_PRELUDE_LIB_11_QUIET, PL_PRELUDE_LIB_11_SRC },
     { "ordsets", PL_PRELUDE_LIB_12_EXPORTS, PL_PRELUDE_LIB_12_OPS, PL_PRELUDE_LIB_12_SHADOWS, PL_PRELUDE_LIB_12_QUIET, PL_PRELUDE_LIB_12_SRC },
     { "pairs", PL_PRELUDE_LIB_13_EXPORTS, PL_PRELUDE_LIB_13_OPS, PL_PRELUDE_LIB_13_SHADOWS, PL_PRELUDE_LIB_13_QUIET, PL_PRELUDE_LIB_13_SRC },
-    { "quintus", PL_PRELUDE_LIB_14_EXPORTS, PL_PRELUDE_LIB_14_OPS, PL_PRELUDE_LIB_14_SHADOWS, PL_PRELUDE_LIB_14_QUIET, PL_PRELUDE_LIB_14_SRC },
-    { "rbtrees", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC },
-    { "strings", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
-    { "writef", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
+    { "pcre", PL_PRELUDE_LIB_14_EXPORTS, PL_PRELUDE_LIB_14_OPS, PL_PRELUDE_LIB_14_SHADOWS, PL_PRELUDE_LIB_14_QUIET, PL_PRELUDE_LIB_14_SRC },
+    { "quintus", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC },
+    { "rbtrees", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
+    { "strings", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
+    { "writef", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
     { 0, 0, 0, 0, 0, 0 }
 };
