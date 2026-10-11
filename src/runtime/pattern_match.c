@@ -1373,6 +1373,9 @@ typedef struct { void *fn; long aux; } rt_defer_pr_t;
 _Static_assert(sizeof(rt_dfx_t) == 32, "bb_match_defer.cpp carves the deferred-expression record as 32 bytes of spine: the value cell and a flags unit whose pointer word stays 0");
 _Static_assert(__builtin_offsetof(rt_dfx_t, val) == 0, "rtx_match.s reads val at +0");
 _Static_assert(__builtin_offsetof(rt_dfx_t, failed) == 16, "rtx_match.s reads failed at +16");
+typedef struct { rt_dfx_t d; eval_frame_t ev; } rt_dfxe_t;
+_Static_assert(sizeof(rt_dfxe_t) == 144 && __builtin_offsetof(rt_dfxe_t, ev) == 32,
+    "bb_match_defer.cpp carves DFX_RECORD_BYTES = 144: the 32-byte rt_dfx_t at +0 that rtx_match.s and the value box read, then the EVAL frame a CONVERT chain runs in (ceo C" "EO-1630)");
 _Static_assert(__builtin_offsetof(rt_dfx_t, dtx_used) == 20, "rtx_match.s reads dtx_used at +20");
 _Static_assert(sizeof(DESCR_t) == 16, "rtx_match.s assumes the 16-byte DESCR pair");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1444,6 +1447,11 @@ static rt_dcap_next_t rt_defer_resolve(rt_dfx_t *s, DESCR_t r) {
     extern void *dtp_fn_of(void *);
     for (int _g = 0; _g < RT_XPAT_CHAIN_MAX; _g++) {
         if (IS_FAIL_fn(r)) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
+        if (r.v == DT_E && r.slen == RT_CONVE_CHAIN_MARK && r.ptr) {
+            extern long rt_conve_chain_open(DESCR_t, eval_frame_t *);
+            long fn = rt_conve_chain_open(r, &((rt_dfxe_t *)s)->ev);
+            if (fn) return (rt_dcap_next_t){ fn, 5 };
+        }
         if (r.v == DT_E) { r = EXPVAL_fn(r); continue; }
         if (r.v == DT_X) {
             sno_dstar_rec_t *rec = SNO_DTX_REC(r);
@@ -1505,6 +1513,13 @@ rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0, long word, rt_dfx_t *s) {
     extern DESCR_t rt_call_land_γ(DESCR_t, long);
     if (!s) { rt_bomb("rt_defer_land_γ: no spine record -- the deferred-expression box passes the one it carved"); return (rt_dcap_next_t){ 0, 0 }; }
     { DESCR_t r = rt_call_land_γ(frame0, word); { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); } return rt_defer_resolve(s, r); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_dcap_next_t rt_defer_land_chain(long word, rt_dfx_t *s) {
+    extern DESCR_t rt_conve_chain_land(eval_frame_t *);
+    (void)word;
+    if (!s) { rt_bomb("rt_defer_land_chain: no spine record -- the deferred-expression box passes the one it carved"); return (rt_dcap_next_t){ 0, 0 }; }
+    return rt_defer_resolve(s, rt_conve_chain_land(&((rt_dfxe_t *)s)->ev));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_dcap_next_t rt_defer_land_ω(long word, rt_dfx_t *s) {

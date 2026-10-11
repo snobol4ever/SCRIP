@@ -12,7 +12,8 @@ extern "C" rt_dcap_next_t rt_patv_defer_open_entry(void *hv, long i, const char 
 extern "C" rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0, long word, void *rec);
 extern "C" rt_dcap_next_t rt_defer_land_ω(long word, void *rec);
 extern "C" int rt_defer_close (int cur_delta, void *rec);
-#define DFX_RECORD_BYTES 32L
+extern "C" rt_dcap_next_t rt_defer_land_chain(long word, void *rec);
+#define DFX_RECORD_BYTES 144L
 extern "C" void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb);
 typedef struct { void *fn; long aux; } rt_defer_pr_t;
 extern "C" rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site); extern "C" void *bb_dstar_rec_addr(const char *star);
@@ -297,6 +298,8 @@ std::string bb_match_defer() {
          + x86("je", "L3")
          + x86("cmp", "rdx", 4L)
          + x86("je", L(40))
+         + x86("cmp", "rdx", 5L)
+         + x86("je", L(61))
          + bb_glue_enter_c2bb(41, 46, 47)
          + x86("def", L(46))
          + x86("mov", "rcx", "rsp")
@@ -307,6 +310,13 @@ std::string bb_match_defer() {
          + x86("mov", "rsi", "rsp")
          + x86("call", "rt_defer_land_ω", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(long, void *))rt_defer_land_ω)
          + x86_rt_gc_poll_rec_sigma_pair(1, 53)
+         + x86("jmp", "L2")
+         + x86("def", L(61))
+         + x86("comment", "IR_MATCH_DEFER CONVERT chain: the box enters the compiled expression and lands its value (CEO-1630)")
+         + bb_glue_enter_chain_ret(62)
+         + x86("mov", "rsi", "rsp")
+         + x86("call", "rt_defer_land_chain", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(long, void *))rt_defer_land_chain)
+         + x86_rt_gc_poll_rec_sigma_pair(1, 63)
          + x86("jmp", "L2")
          + x86("def", L(40))
          + x86("add", "rsp", DFX_RECORD_BYTES)

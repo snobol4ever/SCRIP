@@ -42,7 +42,6 @@ typedef struct { char *key; eval_chain_fn fn; long gen; } eval_cache_ent_t;
 static eval_cache_ent_t *g_eval_cache = NULL;
 static int g_eval_cache_n = 0;
 static int g_eval_cache_cap = 0;
-typedef struct { DESCR_t saved; DESCR_t key; DESCR_t fn; DESCR_t mark; DESCR_t built; DESCR_t esv; DESCR_t flags; } eval_frame_t;
 _Static_assert(sizeof(eval_frame_t) == 112, "bb_call_fn.cpp carves BCFN_EVAL_REC = 112 bytes on the spine for the EVAL record; the record drifted");
 typedef struct eval_cframe_s { eval_frame_t f; struct eval_cframe_s *prev; } eval_cframe_t;
 static eval_cframe_t *g_eval_cfr = NULL;
@@ -711,6 +710,25 @@ rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) {
     f->esv = INTVAL(g_error == G_ERROR_EVAL_STAGE ? 0 : g_error);
     g_error = G_ERROR_EVAL_STAGE;
     return (rt_eval_next_t){ (long)f->fn.i, (long)(uintptr_t)f };
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_conve_chain_open(DESCR_t expr, eval_frame_t *f) {
+    if (!f || expr.v != DT_E || expr.slen != RT_CONVE_CHAIN_MARK || !expr.ptr || !eval_open_on()) return 0;
+    DESCR_t *tc = NV_CELL_PLAIN_fn(EVAL_TMP);
+    if (eval_frame_init(f, tc ? *tc : NV_GET_fn(EVAL_TMP), (const char *)0) < 0) return 0;
+    f->fn = INTVAL((int64_t)(uintptr_t)expr.ptr);
+    if (tc) *tc = FAILDESCR;
+    else NV_SET_fn(EVAL_TMP, FAILDESCR);
+    f->flags = INTVAL(4);
+    f->esv = INTVAL(g_error == G_ERROR_EVAL_STAGE ? 0 : g_error);
+    g_error = G_ERROR_EVAL_STAGE;
+    return (long)f->fn.i;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_conve_chain_land(eval_frame_t *f) {
+    if (!f || f->flags.v != DT_I || !(f->flags.i & 4)) { fprintf(stderr, "rt_conve_chain_land: %p is not an opened CONVERT chain record on the spine\n", (void *)f); abort(); }
+    g_error = f->esv.i;
+    return eval_frame_land(f, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_eval_land(long word) {
