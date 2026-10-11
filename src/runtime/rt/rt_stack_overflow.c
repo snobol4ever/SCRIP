@@ -2,6 +2,7 @@
 #include <signal.h>
 #include "ct_arena.h"
 #include "gc_heap.h"
+#include "bb_pool.h"
 #include <ucontext.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -23,7 +24,11 @@ static void rt_fault_say(int sig, const siginfo_t *si, const ucontext_t *uc) {
     if (found) {
         n = snprintf(buf, sizeof buf, "scrip: fatal signal %d (SIGSEGV) at pc %s+0x%lx", sig, mod, (unsigned long)(ip - (uintptr_t)di.dli_fbase));
         if (*sym) n += snprintf(buf + n, sizeof buf - (size_t)n, " (%s+0x%lx)", sym, (unsigned long)(ip - (uintptr_t)di.dli_saddr));
-    } else n = snprintf(buf, sizeof buf, "scrip: fatal signal %d (SIGSEGV) at pc %p (no loaded module holds it: emitted code, mode 3's slab)", sig, (void *)ip);
+    } else if (ip >= (uintptr_t)bb_pool_base() && ip < (uintptr_t)bb_pool_base() + bb_pool_used()) n =
+        snprintf(buf, sizeof buf,
+        "scrip: fatal signal %d (SIGSEGV) at pc %p (in the code pool: emitted code, or a page the assertz reclaim returned -- a reclaimed run-time fragment is PROT_NONE, so a pc there was a live "
+        "activation the reclaim did not see, or a wild jump into the pool)", sig, (void *)ip);
+    else n = snprintf(buf, sizeof buf, "scrip: fatal signal %d (SIGSEGV) at pc %p (no loaded module holds it: emitted code, mode 3's slab)", sig, (void *)ip);
     n += snprintf(buf + n, sizeof buf - (size_t)n, ", fault address %p, si_code=%d, rsp=%p (rsp mod 16 = %lu)", si->si_addr, si->si_code, (void *)sp, (unsigned long)(sp & 15u));
     if (si->si_code == SI_KERNEL && (sp & 15u) == 8u)
         n += snprintf(buf + n, sizeof buf - (size_t)n,

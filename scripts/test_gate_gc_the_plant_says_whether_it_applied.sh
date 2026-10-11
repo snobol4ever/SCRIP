@@ -82,7 +82,8 @@ SCRIP_GC_PLANT_STACK_LABEL|GC-STACKLABEL|test_gate_gc_the_stack_walk_survives_va
 SCRIP_GC_PLANT_CSET_STRONG|GC-CSET|test_gate_icn_the_cset_registry_is_weak_so_a_dead_computed_cset_leaves_the_collector.sh
 SCRIP_GC_PLANT_ICN_OP|GC-ICNOP|test_gate_gc_the_icon_operator_context_survives_a_collection.sh
 SCRIP_GC_PLANT_UNROOT|GC-UNROOT|test_gate_gc_conservative_auditor_reports_and_cannot_ship.sh
-SCRIP_GC_PLANT_FRAME_LINK|FRAME-LINK REFUSED|test_gate_gc_a_prolog_retained_frame_is_reached_by_its_call_sites_typed_frame_link.sh'
+SCRIP_GC_PLANT_FRAME_LINK|FRAME-LINK REFUSED|test_gate_gc_a_prolog_retained_frame_is_reached_by_its_call_sites_typed_frame_link.sh
+SCRIP_GC_PLANT_PL_RECLAIM|PL-RECLAIM-PLANT|test_gate_pl_an_erased_clauses_code_is_reclaimed_once_no_activation_can_reach_it.sh'
 scan="$(cd "$HERE" && grep -HnE 'SCRIP_GC_PLANT_[A-Z_]+=' test_gate_*.sh 2>/dev/null | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#')"
 bad=""; rows=0; gates=0
 while IFS='|' read -r knob lit want; do

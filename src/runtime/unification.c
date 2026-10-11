@@ -16,6 +16,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <limits.h>
+#include <sys/mman.h>
 #include "../parsers/prolog/pl_cell.h"
 #include "rt/rt_pl_trail.h"
 #include "rt/pl_rational.h"
@@ -2863,9 +2865,30 @@ typedef struct { int si; int pi; int mark; } pl_spropit_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_DB_CELL0 24
 typedef struct { pl_cell_t cl; int erased; int ref; int ridx; int chain_off; int next_idx; int frag; } pl_db_slot_t;
-typedef struct { pl_db_slot_t *s; int n; int cap; int killed; int next_ref; int head_idx; int tail_idx; int cell_k; int erased_n; } pl_db_t;
+typedef struct {
+    pl_db_slot_t *s;
+    int n;
+    int cap;
+    int killed;
+    int next_ref;
+    int head_idx;
+    int tail_idx;
+    int cell_k;
+    int erased_n;
+    int recl_n;
+    int recl_lo;
+    int recl_gc;
+    int recl_since;
+    int frag_top;
+} pl_db_t;
+#define PL_DB_FRAG_PAGES(f) (((f) >> 20) & 0x3FF)
+#define PL_DB_FRAG_HELD 0x40000000
+#define PL_DB_FRAG_GONE ((int)0x80000000u)
+#define PL_DB_FRAG_REC(f) (((f) & 0x3FFFFFFF) != 0)
 _Static_assert(__builtin_offsetof(pl_db_slot_t, frag) == 36,
-    "frag at +36 is the C side's alone (no emitted code reads it): the fragment's first code-pool page in the low 20 bits and its page count above them, 0 when unrecorded");
+    "frag at +36 is the C side's alone (no emitted code reads it): the fragment's first code-pool page in the low 20 bits, its page count in the next 10, HELD (a reclaim pass saw a holder) in bit 30"
+    " and " "GONE (its pages reclaimed) in bit 31, 0 when unrecorded; a range of 1024 pages or more is never recorded, and 1024 pages is FLAT_BUF_MAX's floor, so a run-time compile nested inside the "
+    "fragment's own emission (which leaves the emission's whole reservation below it) can never be taken for the fragment");
 _Static_assert(sizeof(pl_db_slot_t) == 40 && __builtin_offsetof(pl_db_slot_t, erased) == 16 && __builtin_offsetof(pl_db_slot_t, ref) == 20 && __builtin_offsetof(pl_db_slot_t, ridx) == 24 &&
     __builtin_offsetof(pl_db_slot_t, chain_off) == 28 && __builtin_offsetof(pl_db_slot_t, next_idx) == 32,
     "xa_flat.cpp's chain-omega and bb_to.cpp's db walk bake the slot layout (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A/B)");
@@ -2890,6 +2913,11 @@ void * rt_pl_db_get(void *root, int64_t k) {
             d->tail_idx = -1;
             d->cell_k = (int)k;
             d->erased_n = 0;
+            d->recl_n = 0;
+            d->recl_lo = 0;
+            d->recl_gc = -1;
+            d->recl_since = 0;
+            d->frag_top = -1;
             d->s = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)d->cap * sizeof(pl_db_slot_t));
             if (!d->s) { d->cap = 0; }
             *cell = d;
@@ -3458,13 +3486,23 @@ static int pl_db_frag_pack(size_t m0, size_t m1) {
     if (ps <= 0) return 0;
     lo = (m0 + (size_t)ps - 1) / (size_t)ps;
     hi = (m1 + (size_t)ps - 1) / (size_t)ps;
-    if (hi <= lo || lo >= ((size_t)1 << 20) || hi - lo >= ((size_t)1 << 11)) return 0;
+    if (hi <= lo || lo >= ((size_t)1 << 20) || hi - lo >= ((size_t)1 << 10)) return 0;
     return (int)(lo | ((hi - lo) << 20));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *pl_db_frag_lo(int f) { const uint8_t *b = bb_pool_base(); return (f && b) ? (const char *)b + (size_t)(f & 0xFFFFF) * (size_t)bb_pool_page() : (const char *)0; }
+static const char *pl_db_frag_lo(int f) { const uint8_t *b = bb_pool_base(); return (PL_DB_FRAG_REC(f) && b) ? (const char *)b + (size_t)(f & 0xFFFFF) * (size_t)bb_pool_page() : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *pl_db_frag_hi(int f) { const char *lo = pl_db_frag_lo(f); return lo ? lo + (size_t)((f >> 20) & 0x7FF) * (size_t)bb_pool_page() : (const char *)0; }
+static const char *pl_db_frag_hi(int f) { const char *lo = pl_db_frag_lo(f); return lo ? lo + (size_t)PL_DB_FRAG_PAGES(f) * (size_t)bb_pool_page() : (const char *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_frag_record(pl_db_t *db, int i, const void *fn, size_t m0) {
+    const uint8_t *b = bb_pool_base();
+    size_t at = (b && fn) ? (size_t)((const uint8_t *)fn - b) : 0;
+    int f = (b && fn && (const uint8_t *)fn >= b && at >= m0) ? pl_db_frag_pack(at, bb_pool_mark()) : 0;
+    db->s[i].frag = f;
+    if (!f) { db->frag_top = -2; return; }
+    if (db->frag_top == -2) return;
+    db->frag_top = ((f & 0xFFFFF) > db->frag_top) ? (f & 0xFFFFF) : -2;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_fragment(void *root, pl_db_t *db, int i) {
     extern void * pl_runtime_define_fragment(const char *, void *, int, int, int, int *, int *, void *);
@@ -3481,9 +3519,11 @@ static int pl_db_fragment(void *root, pl_db_t *db, int i) {
         {
             char fkey[fmt_len("%s@%d", key, i)];
             size_t m0 = bb_pool_mark();
+            void *fn;
             snprintf(fkey, sizeof fkey, "%s@%d", key, i);
-            if (!pl_runtime_define_fragment(fkey, (void *)&db->s[i].cl, ar, db->cell_k, i, &ridx, &off, root)) return 0;
-            db->s[i].frag = pl_db_frag_pack(m0, bb_pool_mark());
+            fn = pl_runtime_define_fragment(fkey, (void *)&db->s[i].cl, ar, db->cell_k, i, &ridx, &off, root);
+            if (!fn) return 0;
+            pl_db_frag_record(db, i, fn, m0);
         }
         db->s[i].ridx = ridx;
         db->s[i].chain_off = off;
@@ -3510,6 +3550,7 @@ static const char *pl_db_head_name(void *pair_cell, int *ar) {
 int rt_pl_db_head_key(void *pair_cell, char *out, size_t n, int *ar) { const char *nm = pl_db_head_name(pair_cell, ar); if (!nm) return 0; snprintf(out, n, "%s/%d", nm, *ar); return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, int recompile);
+static void pl_db_reclaim(pl_db_t *db);
 int rt_pl_db_assert(void *root, void *db_v, void *clause_term, int prepend) { return pl_db_store(root, db_v, clause_term, prepend, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_assert_ref(void *root, void *db_v, void *clause_term, int prepend) {
@@ -3533,6 +3574,7 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
     extern int prolog_atom_intern(const char *);
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || !clause_term) return 0;
+    pl_db_reclaim(db);
     db->killed = 0;
     if (db->n >= db->cap) {
         int nc = db->cap > 0 ? db->cap * 2 : 8;
@@ -3568,6 +3610,7 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
             db->s[i].frag = 0;
             if (prepend) {
                 db->s[i].next_idx = db->head_idx;
+                if (db->head_idx >= 0 && db->head_idx < db->recl_lo) db->recl_lo = db->head_idx;
                 db->head_idx = i;
                 if (db->tail_idx < 0) db->tail_idx = i;
             } else {
@@ -3615,7 +3658,7 @@ static void pl_db_reclaim_report(pl_db_t *db) {
         unsigned char mk[db->n];
         pl_db_rr_t r = { db, mk, 0 };
         int ar = 0, live = 0, recount = 0, unrec = 0, vis = 0, raw = 0, only = 0, ok;
-        long pages = 0;
+        long pages = 0, gone = 0;
         const char *nm = (const char *)0, *top = rt_gc_program_stack_top();
         char probe = 0;
         memset(mk, 0, sizeof mk);
@@ -3625,24 +3668,132 @@ static void pl_db_reclaim_report(pl_db_t *db) {
             if (!nm) nm = pl_db_head_name((void *)&db->s[i].cl, &ar);
             if (!db->s[i].erased) { live++; continue; }
             recount++;
-            if (!db->s[i].frag) unrec++;
-            else pages += (db->s[i].frag >> 20) & 0x7FF;
+            if (!PL_DB_FRAG_REC(db->s[i].frag)) unrec++;
+            else if (db->s[i].frag & PL_DB_FRAG_GONE) gone += PL_DB_FRAG_PAGES(db->s[i].frag);
+            else pages += PL_DB_FRAG_PAGES(db->s[i].frag);
             if (mk[i] & 1) vis++;
             if (mk[i] & 2) raw++;
             if ((mk[i] & 2) && !(mk[i] & 1)) only++;
         }
         fprintf(stderr,
-            "[PL-RECLAIM] key=%s/%d slots=%d live=%d erased=%d recount=%d erased_pages=%ld unrecorded=%d visitor=%s frames=%ld visitor_live=%d raw_live=%d raw_only=%d pool_used=%zu slot_bytes=%ld\n",
-            nm ? nm : "?", ar, db->n, live, db->erased_n, recount, pages, unrec, ok ? "whole" : "refused", r.frames, vis, raw, only, bb_pool_used(), (long)db->cap * (long)sizeof(pl_db_slot_t));
+            "[PL-RECLAIM] key=%s/%d slots=%d live=%d erased=%d recount=%d erased_pages=%ld unrecorded=%d visitor=%s frames=%ld visitor_live=%d raw_live=%d raw_only=%d pool_used=%zu slot_bytes=%ld"
+            " reclaimed=%d reclaimed_pages=%ld\n", nm ? nm : "?", ar, db->n, live, db->erased_n, recount, pages, unrec, ok ? "whole" : "refused", r.frames, vis, raw, only, bb_pool_used(),
+            (long)db->cap * (long)sizeof(pl_db_slot_t), db->recl_n, gone);
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_frag_find(const pl_db_t *db, const char *p) {
+    int lo = 0, hi = db->n - 1;
+    while (lo <= hi) {
+        int mid = lo + (hi - lo) / 2, m = mid;
+        while (m <= hi && !PL_DB_FRAG_REC(db->s[m].frag)) m++;
+        if (m > hi) { hi = mid - 1; continue; }
+        if (p < pl_db_frag_lo(db->s[m].frag)) hi = mid - 1;
+        else if (p >= pl_db_frag_hi(db->s[m].frag)) lo = m + 1;
+        else return m;
+    }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { pl_db_t *db; const char *lo; const char *hi; int min_g; int c_lo; int c_hi; } pl_db_rc_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_rc_hold(pl_db_rc_t *r, const char *p) {
+    int j;
+    if (!p || p < r->lo || p >= r->hi || (j = pl_db_frag_find(r->db, p)) < 0) return;
+    if (r->db->s[j].frag & PL_DB_FRAG_GONE)
+        rt_bomb("the assertz reclaim: a frame holds a reclaimed run-time Prolog fragment -- a pass reclaimed code a live activation still reaches (unification.c pl_db_rc_hold)");
+    if (r->db->s[j].ref + 1 < r->min_g) r->min_g = r->db->s[j].ref + 1;
+    if (j >= r->c_lo && j <= r->c_hi) r->db->s[j].frag |= PL_DB_FRAG_HELD;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_rc_frame(const void *map, const char *base, void *a) {
+    pl_db_rc_t *r = (pl_db_rc_t *)a;
+    const gc_frame_map_t *m = (const gc_frame_map_t *)map;
+    pl_db_rc_hold(r, (const char *)map);
+    if (!m || !(m->flags & (GC_FRAME_MAP_BLOB | GC_FRAME_MAP_LAYOUT))) return;
+    {
+        const uint64_t *t = (const uint64_t *)(m + 1);
+        for (long i = 0; i < (long)t[0]; i++) {
+            uint64_t q = t[1 + i];
+            if (GC_LAY_KIND(q) != GC_LAY_PTR_CODE) continue;
+            for (int o = 0; o + 8 <= GC_LAY_SIZE(q); o += 8) pl_db_rc_hold(r, *(const char * const *)(base + GC_LAY_OFF(q) + o));
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+__attribute__((noreturn, force_align_arg_pointer)) static void pl_db_reclaimed_entry(void) {
+    rt_bomb("a reclaimed run-time Prolog fragment was entered -- its clause was erased and the assertz reclaim found no live activation that could still reach it (unification.c pl_db_reclaim)");
+    abort();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_reclaim_one(pl_db_t *db, int i) {
+    extern void rt_gc_frame_maps_drop_range(const void *, const void *);
+    extern void rt_gc_frame_sites_drop_range(const void *, const void *);
+    extern void rt_proc_set_fn_at(int, bb_box_fn);
+    extern void rt_proc_set_dcfn(const char *, void *);
+    extern void bb_ab_seal_alpha(const char *, void *);
+    int f = db->s[i].frag, ar = 0;
+    char *lo = (char *)pl_db_frag_lo(f), *hi = (char *)pl_db_frag_hi(f);
+    const char *nm = pl_db_head_name((void *)&db->s[i].cl, &ar);
+    if (!lo || !nm || db->s[i].ridx < 0 || mprotect(lo, (size_t)(hi - lo), PROT_NONE) != 0) return 0;
+    madvise(lo, (size_t)(hi - lo), MADV_DONTNEED);
+    rt_gc_frame_maps_drop_range(lo, hi);
+    rt_gc_frame_sites_drop_range(lo, hi);
+    {
+        PL_DB_KEY_VLA(key, nm, ar);
+        char fkey[fmt_len("%s@%d", key, i)];
+        snprintf(fkey, sizeof fkey, "%s@%d", key, i);
+        rt_proc_set_fn_at(db->s[i].ridx, (bb_box_fn)pl_db_reclaimed_entry);
+        rt_proc_set_dcfn(fkey, (void *)pl_db_reclaimed_entry);
+        bb_ab_seal_alpha(fkey, (void *)pl_db_reclaimed_entry);
+    }
+    db->s[i].chain_off = 0;
+    db->s[i].frag = (f & ~PL_DB_FRAG_HELD) | PL_DB_FRAG_GONE;
+    db->recl_n++;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_reclaim_cand(const pl_db_t *db, int i) { int f = db->s[i].frag; return db->s[i].erased && PL_DB_FRAG_REC(f) && !(f & PL_DB_FRAG_GONE) && i != db->head_idx; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_reclaim(pl_db_t *db) {
+    extern long rt_gc_runs_count(void);
+    const char *b = (const char *)bb_pool_base();
+    int runs, lo = -1, hi = -1, next_lo;
+    if (!db || db->frag_top < 0 || !b || db->recl_since <= 0) return;
+    runs = (int)rt_gc_runs_count();
+    if (runs == db->recl_gc && db->recl_since < 1024) return;
+    db->recl_gc = runs;
+    db->recl_since = 0;
+    for (int i = db->recl_lo; i < db->n; i++) if (pl_db_reclaim_cand(db, i)) { if (lo < 0) lo = i; hi = i; }
+    if (lo < 0) { db->recl_lo = db->n; return; }
+    {
+        pl_db_rc_t r = { db, b, b + bb_pool_used(), INT_MAX, lo, hi };
+        int ok = rt_gc_frames_visit(pl_db_rc_frame, (void *)&r);
+        const char *pe = getenv("SCRIP_GC_PLANT_PL_RECLAIM");
+        int plant = pe && *pe && *pe != '0';
+        next_lo = db->n;
+        for (int i = lo; i <= hi; i++) {
+            int held = db->s[i].frag & PL_DB_FRAG_HELD;
+            db->s[i].frag &= ~PL_DB_FRAG_HELD;
+            if (!pl_db_reclaim_cand(db, i)) continue;
+            if (plant && ok && (held || db->s[i].erased >= r.min_g) && pl_db_reclaim_one(db, i)) {
+                fprintf(stderr, "[PL-RECLAIM-PLANT] applied: slot %d reclaimed though %s\n", i, held ? "a frame holds it" : "a live walk's generation can still see it");
+                continue;
+            }
+            if (!ok || held || db->s[i].erased >= r.min_g || !pl_db_reclaim_one(db, i)) { if (i < next_lo) next_lo = i; }
+        }
+        db->recl_lo = next_lo;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_note_erase(pl_db_t *db, int i, int gen) { db->s[i].erased = gen; db->erased_n++; db->recl_since++; if (i < db->recl_lo) db->recl_lo = i; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_erase(void *db_v, int i) {
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || i < 0 || i >= db->n || db->s[i].erased) return 0;
-    db->s[i].erased = db->next_ref++;
-    db->erased_n++;
+    pl_db_note_erase(db, i, db->next_ref++);
     pl_db_reclaim_report(db);
+    pl_db_reclaim(db);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3725,10 +3876,11 @@ int rt_pl_db_abolish(void *root, void *db_v) {
     int hi = -1;
     if (!db) return 0;
     for (int i = 0; i < db->n && hi < 0; i++) if (pl_db_head_name((void *)&db->s[i].cl, &ar)) hi = i;
-    { int st = db->next_ref++; for (int i = 0; i < db->n; i++) if (!db->s[i].erased) { db->s[i].erased = st; db->erased_n++; } }
+    { int st = db->next_ref++; for (int i = 0; i < db->n; i++) if (!db->s[i].erased) pl_db_note_erase(db, i, st); }
     pl_db_reclaim_report(db);
     db->killed = 1;
     if (hi >= 0) { const char *nm = pl_db_head_name((void *)&db->s[hi].cl, &ar); PL_DB_KEY_VLA(key, nm, ar); pl_db_define_absent(root, key, ar); }
+    pl_db_reclaim(db);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3744,12 +3896,13 @@ int rt_pl_db_match_erase(void *db_v, void *goal_term) {
             pl_cell_t pair = plc_copy(&db->s[i].cl);
             pl_cell_t g = plc_copy((pl_cell_t *)goal_term);
             pl_cell_t *h = (pl_cell_t *)pl_deref(&pair)->p;
-            if (h && pl_unify(&h[0], &g)) { if (key_i < 0 && pl_db_head_name((void *)&db->s[i].cl, &ar)) key_i = i; db->s[i].erased = db->next_ref++; db->erased_n++; hit++; }
+            if (h && pl_unify(&h[0], &g)) { if (key_i < 0 && pl_db_head_name((void *)&db->s[i].cl, &ar)) key_i = i; pl_db_note_erase(db, i, db->next_ref++); hit++; }
         }
     }
     (void)key_i;
     (void)ar;
     if (hit) pl_db_reclaim_report(db);
+    if (hit) pl_db_reclaim(db);
     return hit;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
