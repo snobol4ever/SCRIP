@@ -141,6 +141,7 @@ typedef struct {
     int * valias;
     int nvalias;
     const char * cur_key;
+    int tail;
 } lcx_t;
 static const char * pl_vname(const lcx_t * cx, int slot);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -584,10 +585,14 @@ static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t 
     IR_t ** rd = (IR_t **) ct_zalloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
     int * rds = (int *) ct_zalloc((size_t)(ng > 0 ? ng : 1), sizeof(int));
     IR_t * next = γtail;
+    int tail = cx->tail;
+    cx->tail = 0;
     for (int i = ng - 1; i >= 0; i--) {
         IR_t * e = NULL;
         cx->meta_redo_set = 0;
+        cx->tail = (i == ng - 1) ? tail : 0;
         IR_t * nd = goal(cx, gl[i], next, ωbase, &e);
+        cx->tail = 0;
         rd[i] = cx->meta_redo_set ? cx->meta_redo : NULL;
         rds[i] = cx->meta_redo_set;
         cx->meta_redo_set = 0;
@@ -680,7 +685,11 @@ static int pl_conj_top_cut(const lc_vec * v) {
 }
 static IR_t * pl_cut_redo(lcx_t * cx) { return build(cx, IR_GOTO, cx->cutω, cx->cutω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_trace_wanted(void);
+static void pl_seal_branch_tail(int tail, IR_t * nd) { if (tail && nd && nd->op == IR_CALL_PROC_STAGED && !pl_trace_wanted()) nd->seal = PL_SEAL_TAIL; }
 static IR_t * pl_lower_disj(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    int tail = cx->tail;
+    cx->tail = 0;
     lc_vec bv;
     lc_vec_init(&bv, (int) sizeof(const tree_t *));
     collect_disj(t, &bv);
@@ -695,7 +704,11 @@ static IR_t * pl_lower_disj(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * 
         collect_conj(br[j], &glv);
         IR_t * bentry = NULL;
         IR_t * redo = NULL;
-        IR_t * first = pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, dj, dj, &bentry, &redo, NULL);
+        IR_t * dtail = NULL;
+        cx->tail = tail;
+        IR_t * first = pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, dj, dj, &bentry, &redo, &dtail);
+        cx->tail = 0;
+        pl_seal_branch_tail(tail, dtail);
         for (int k = before; k < cx->g->n; k++) {
             IR_t * x = cx->g->all[k];
             if (!x) continue;
@@ -824,6 +837,8 @@ static IR_t * pl_probe_before(lcx_t * cx, IR_t * target, IR_t * mark, int needs_
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    int tail = cx->tail;
+    cx->tail = 0;
     IR_t * ig = build(cx, IR_GATE, γnext, ωfail);
     IR_t * mark = build(cx, IR_BOUND, NULL, ig);
     IR_t * unmk_c = build(cx, IR_UNMARK, ig, ωfail);
@@ -844,7 +859,11 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
         collect_conj(arms[j], &av);
         IR_t * ae = NULL;
         IR_t * redo = NULL;
-        IR_t * first = pl_lower_conj(cx, (const tree_t * const *) av.data, av.n, ml, unmk_c, &ae, &redo, NULL);
+        IR_t * atail = NULL;
+        cx->tail = tail;
+        IR_t * first = pl_lower_conj(cx, (const tree_t * const *) av.data, av.n, ml, unmk_c, &ae, &redo, &atail);
+        cx->tail = 0;
+        pl_seal_branch_tail(tail, atail);
         IR_t * rt = redo ? redo : (pl_conj_top_cut(&av) ? pl_cut_redo(cx) : ig);
         ir_operand_push(ml, rt);
         ir_operand_push(ml, ig);
@@ -886,6 +905,8 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
 static IR_t * pl_sc_entry(IR_t * e) { int guard = 0; while (e && e->op == IR_SUCCEED && e->γ.node && guard++ < 4096) e = e->γ.node; return e; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    int tail = cx->tail;
+    cx->tail = 0;
     IR_t * ig = build(cx, IR_GATE, γnext, ωfail);
     IR_t * eg = build(cx, IR_GATE, γnext, ig);
     IR_t * mark = build(cx, IR_BOUND, NULL, ig);
@@ -928,7 +949,11 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
         collect_conj(T, &tv);
         int before = cx->g->n;
         IR_t * te = NULL;
-        IR_t * tfirst = pl_lower_conj(cx, (const tree_t * const *) tv.data, tv.n, ml_t, credo ? credo : unmk_c, &te, &tredo, NULL);
+        IR_t * ttail = NULL;
+        cx->tail = tail;
+        IR_t * tfirst = pl_lower_conj(cx, (const tree_t * const *) tv.data, tv.n, ml_t, credo ? credo : unmk_c, &te, &tredo, &ttail);
+        cx->tail = 0;
+        pl_seal_branch_tail(tail, ttail);
         sc_cut_in_then = !tredo && pl_conj_top_cut(&tv);
         if (sc_cut_in_then) sc_then_cut = pl_cut_redo(cx);
         if (credo) pl_mark_into(cx, before, credo, "β", "β");
@@ -941,7 +966,11 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
         lc_vec_init(&ev, (int) sizeof(const tree_t *));
         collect_conj(E, &ev);
         IR_t * eredo = NULL;
-        IR_t * efirst = pl_lower_conj(cx, (const tree_t * const *) ev.data, ev.n, ml_ee, unmk_c, &ee, &eredo, NULL);
+        IR_t * etail = NULL;
+        cx->tail = tail;
+        IR_t * efirst = pl_lower_conj(cx, (const tree_t * const *) ev.data, ev.n, ml_ee, unmk_c, &ee, &eredo, &etail);
+        cx->tail = 0;
+        pl_seal_branch_tail(tail, etail);
         sc_cut_in_else = !eredo && pl_conj_top_cut(&ev);
         if (sc_cut_in_else) sc_else_cut = pl_cut_redo(cx);
         ir_operand_push(ml_ee, sc_cut_in_else ? sc_else_cut : (eredo ? eredo : ig));
@@ -2967,6 +2996,7 @@ static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     cx.scope_seq = 0;
     cx.meta_redo = NULL;
     cx.meta_redo_set = 0;
+    cx.tail = 0;
     cx.stmt_depth = 1;
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail = build(&cx, IR_FAIL, NULL, NULL);
@@ -2981,6 +3011,7 @@ static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     int fresh_saved = g_lower.pl.fresh_next;
     g_lower.pl.fresh_next = maxlocal + 1;
     if (pl_trace_wanted()) for (int i = 0; i < ng; i++) pl_trace_number_goals(gl[i]);
+    cx.tail = !pl_trace_wanted();
     IR_t * first = pl_lower_conj(&cx, gl, ng, succeed, step, &entry, &redo, &tnode);
     if (tnode && tnode->op == IR_CALL_PROC_STAGED && !pl_trace_wanted()) tnode->seal = PL_SEAL_TAIL;
     maxlocal = g_lower.pl.fresh_next - 1;
@@ -3011,6 +3042,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     cx.scope_seq = 0;
     cx.meta_redo = NULL;
     cx.meta_redo_set = 0;
+    cx.tail = 0;
     const char * trace_key = key ? ct_strdup(key) : NULL;
     {
         extern int pl_prelude_defines(const char *, int);
@@ -3074,6 +3106,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         int nbg = cl->n - ar + 1;
         const tree_t * bg[nbg > 0 ? nbg : 1];
         int nb = pl_attv_on() ? pl_attv_body(cl, ar, bg, nbg) : 0;
+        cx.tail = !pl_trace_wanted();
         IR_t * first = pl_attv_on() ? pl_lower_conj(&cx, bg, nb, tret, step, &bentry, &redo, &tnode) :
             pl_lower_conj(&cx, (const tree_t * const *)(cl->c + ar), cl->n - ar, tret, step, &bentry, &redo, &tnode);
         if (tnode && tnode->op == IR_CALL_PROC_STAGED && !pl_trace_wanted()) tnode->seal = PL_SEAL_TAIL;

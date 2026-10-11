@@ -606,6 +606,7 @@ test_gate_pl_a_directive_name_before_an_infix_operator_is_an_atom.sh	WIRED	-	-	-
 test_gate_pl_a_dollar_named_dynamic_predicate_is_dynamic_at_run_time.sh	WIRED	-	-	-
 test_gate_pl_a_float_with_no_fraction_is_a_syntax_error_only_under_the_iso_flag.sh	WIRED	-	-	-
 test_gate_pl_a_head_structure_against_an_unbound_argument_is_built_by_the_box.sh	WIRED	-	-	-
+test_gate_pl_a_last_call_in_an_if_then_else_branch_releases_its_frame.sh	WIRED	-	-	-
 test_gate_pl_a_meta_call_of_a_compiled_predicate_jumps_to_it_and_resumes_through_its_token.sh	WIRED	-	-	-
 test_gate_pl_a_meta_called_format_reads_its_empty_argument_list.sh	WIRED	-	-	-
 test_gate_pl_a_module_qualified_goal_runs_its_goal_as_swipl.sh	WIRED	-	-	-
