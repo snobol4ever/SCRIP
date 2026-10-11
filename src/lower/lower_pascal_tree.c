@@ -836,6 +836,12 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     }
     if (name && !strcmp(name, "close") && args && args->count >= 1) { return mk_fnc1("__pas_fclose", args->items[0]); }
     if (name && !strcmp(name, "erase") && args && args->count >= 1) { return mk_fnc1("__pas_ferase", args->items[0]); }
+    if (name && !strcmp(name, "page") && !pas_is_proc(name) && !pas_is_func(name)) {
+        PNodeList *pa = pnl_new();
+        pnl_push(pa, mk_fnc1("__pas_chrlit", ilit(12)));
+        pnl_push(pa, ilit(-1));
+        return mk_call("write", pa);
+    }
     if (name && !strcmp(name, "new") && args && args->count >= 1) {
         tree_t *pv0 = args->items[0], *pv = pas_vt_unwrap_read(pv0);
         tree_t *pvchk = (pv != pv0 && pv0 && pv0->t == TT_SEQ_EXPR && pv0->n >= 2) ? pv0->c[0] : NULL;

@@ -11771,10 +11771,10 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (IS_FH_fn(args[0])) {
             int oidx = (int)args[0].i;
             FILE *ofp = fh_get(oidx);
-            if (ofp) { rewind(ofp); if (ftruncate(fileno(ofp), 0) == 0) { *out = args[0]; return 1; } }
+            if (ofp) { fflush(ofp); rewind(ofp); if (ftruncate(fileno(ofp), 0) == 0) { *out = args[0]; return 1; } }
             if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name;
         }
-        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]);
+        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : IS_STR_fn(args[0]) ? VARVAL_fn(args[0]) : NULL;
         if ((!nm || !nm[0]) && nargs == 2 && IS_INT_fn(args[1])) {
             extern const char *pas_main_arg(int);
             const char *pa = pas_main_arg((int)(args[1].i >> 1));
