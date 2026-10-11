@@ -1733,30 +1733,35 @@ int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_byte
     return m;
 }
 static int zls_int_cmp(const void * a, const void * b) { int x = *(const int *)a, y = *(const int *)b; return x < y ? -1 : x > y ? 1 : 0; }
-int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int * out, int cap) {
-    int lo = 0, hi = 0, n = 0;
-    if (!g || !scope_nd || !IR_release_scope_get(g, scope_nd, &lo, &hi)) return zls_g_ptr_frame_offs(g, out, cap);
-    if (hi > g->n) hi = g->n;
-    for (int k = lo; k < hi; k++) {
-        const IR_t * x = g->all[k];
-        const zls_entry_t * e;
-        if (!x || (x->op != IR_CALL_PROC_STAGED && x->op != IR_CALL_VALUE) || !(e = zx_find(x))) continue;
-        for (int f = 0; f < g_lower.ir.zf_n; f++) if (zf[f].nd == x && zf[f].scope_id == e->scope_id && zf[f].kind == ZK_PTR_FRAME && zf[f].what && !strncmp(zf[f].what, "callgen.act +0", 14)) {
-            if (out && n < cap) out[n] = zf[f].off;
-            n++;
-            break;
-        }
-    }
-    if (out && n <= cap && n > 1) { int w = 1; qsort(out, (size_t)n, sizeof *out, zls_int_cmp); for (int i = 1; i < n; i++) if (out[i] != out[w - 1]) out[w++] = out[i]; n = w; }
-    return n;
+static int zls_slot_matches(int f, int kind) {
+    if (zf[f].kind != kind || zf[f].size <= 0 || zf[f].off < 0) return 0;
+    return kind != ZK_PTR_FRAME || (zf[f].what && !strncmp(zf[f].what, "callgen.act +0", 14));
 }
-int zls_g_ptr_frame_offs(const IR_graph_t * g, int * out, int cap) {
+int zls_g_ptr_frame_offs(const IR_graph_t * g, int kind, int * out, int cap) {
     zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0;
     int n = 0;
     if (!r || r->first_scope < 0) return 0;
-    for (int f = 0; f < g_lower.ir.zf_n; f++) if (zf[f].kind == ZK_PTR_FRAME && zf[f].size > 0 && zf[f].off >= 0 && zf[f].scope_id >= r->first_scope && zf[f].scope_id < r->first_scope + r->n_scopes) {
+    for (int f = 0; f < g_lower.ir.zf_n; f++) if (zls_slot_matches(f, kind) && zf[f].scope_id >= r->first_scope && zf[f].scope_id < r->first_scope + r->n_scopes) {
         if (out && n < cap) out[n] = zf[f].off;
         n++;
+    }
+    return n;
+}
+int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int kind, int * out, int cap) {
+    int lo = 0, hi = 0, raw = 0, n = 0;
+    if (!g || !scope_nd || !IR_release_scope_get(g, scope_nd, &lo, &hi)) return zls_g_ptr_frame_offs(g, kind, out, cap);
+    if (hi > g->n) hi = g->n;
+    for (int k = lo; k < hi; k++) if (g->all[k]) raw++;
+    {
+        int tmp[raw > 0 ? raw : 1];
+        for (int k = lo; k < hi; k++) {
+            const IR_t * x = g->all[k];
+            const zls_entry_t * e;
+            if (!x || (x->op != IR_CALL_PROC_STAGED && x->op != IR_CALL_VALUE && x->op != IR_PROC_GEN) || !(e = zx_find(x))) continue;
+            for (int f = 0; f < g_lower.ir.zf_n; f++) if (zf[f].nd == x && zf[f].scope_id == e->scope_id && zls_slot_matches(f, kind)) { tmp[n++] = zf[f].off; break; }
+        }
+        if (n > 1) { int w = 1; qsort(tmp, (size_t)n, sizeof tmp[0], zls_int_cmp); for (int i = 1; i < n; i++) if (tmp[i] != tmp[w - 1]) tmp[w++] = tmp[i]; n = w; }
+        for (int i = 0; out && i < n && i < cap; i++) out[i] = tmp[i];
     }
     return n;
 }

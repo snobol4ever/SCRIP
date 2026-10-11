@@ -2095,16 +2095,16 @@ inline std::string x86_pl_disj_open(const char * fb, int kt, int l_take, int l_d
     { return x86("note", "pl_disj_open inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): the floor word re-aimed at this frame's base; this frame becomes the youngest choice unless a younger one already is")
     + x86("mov", "rax", fb) + x86_raw_pack("rax") + x86("mov", RDQ(fb, kt - 32), "rax") + x86("lea", "rcx", RDQ(fb, kt - 64)) + x86("test", "r13", "r13") + x86("je", L(l_take)) +
     x86("cmp", "r13", "rcx") + x86("jb", L(l_done)) + x86("def", L(l_take)) + x86("mov", "r13", "rcx") + x86("def", L(l_done)); }
-extern "C" int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int * out, int cap);
-inline std::string x86_pl_release_acts(bool below_rsp)
+extern "C" int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int kind, int * out, int cap);
+inline std::string x86_release_acts(bool below_rsp, int kind = 4)
 {
     const IR_t * sc = g_emit.node;
     if (below_rsp && sc && sc->n_operands > 0 && sc->operands[0] && sc->operands[0]->op == IR_BOUND) sc = sc->operands[0];
-    int n = g_emit_cfg ? zls_g_release_act_offs(g_emit_cfg, sc, (int *)0, 0) : 0;
-    std::vector<int> offs((size_t)(n > 0 ? n : 1));
+    int n = g_emit_cfg ? zls_g_release_act_offs(g_emit_cfg, sc, kind, (int *)0, 0) : 0;
     std::string s;
     if (n <= 0) return s;
-    zls_g_release_act_offs(g_emit_cfg, sc, offs.data(), n);
+    std::vector<int> offs((size_t)n);
+    n = zls_g_release_act_offs(g_emit_cfg, sc, kind, offs.data(), n);
     for (int i = 0; i < n; i++) {
         if (!below_rsp) {
             s += x86("mov", FRQ(offs[i]), 0L);

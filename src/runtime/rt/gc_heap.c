@@ -2667,16 +2667,26 @@ static long gc_chain_links(gc_chf_t *f, long n, long cap, const char *lo, const 
         t = (const uint64_t *)(m + 1);
         for (long j = 0; j < (long)t[0]; j++) {
             uint64_t q = t[1 + j];
-            if (GC_LAY_KIND(q) != GC_LAY_PTR_FRAME) continue;
+            unsigned lk = GC_LAY_KIND(q);
+            if (lk != GC_LAY_PTR_FRAME && lk != GC_LAY_PTR_FRAME_H) continue;
             for (int k = 0; k < GC_LAY_SIZE(q); k += 8) {
                 const char *c = f[i].base + GC_LAY_OFF(q) + k, *v = *(const char *const *)c, *why = (const char *)0;
-                uint64_t beta = *(const uint64_t *)(c + 8);
+                const char *hdr = (const char *)0;
+                uint64_t beta = 0;
                 const gc_site_blk_t *b;
                 long d;
                 if (!v) continue;
                 if (plant) { v += 16; plant = 0; }
-                b = gc_code_block(beta);
-                if (!b) why = "its beta word names no registered graph";
+                if (lk == GC_LAY_PTR_FRAME_H) {
+                    hdr = v;
+                    if (hdr < lo || hdr + 48 > hi || hdr >= f[i].base) why = "the generator header lies outside the segment or not below the frame that links it";
+                    else beta = *(const uint64_t *)(hdr + 32);
+                } else beta = *(const uint64_t *)(c + 8);
+                b = why ? (const gc_site_blk_t *)0 : gc_code_block(beta);
+                if (why) ;
+                else if (!b) why = "its beta word names no registered graph";
+                else if (hdr && !(b->map->flags & GC_FRAME_MAP_GEN_ANCHOR)) why = "the generator's resume cell names no generator graph";
+                else if (hdr && (v = hdr - (long)b->map->frame_bytes) < lo) why = "the target lies outside the segment";
                 else if (v < lo || v + b->map->map_off + 16 + b->map->header_bytes > hi) why = "the target lies outside the segment";
                 else if (v >= f[i].base) why = "the target is not below the frame that links it";
                 else if (!GC_LINK_SET(b->link)) why = "the target's map states no link word";
@@ -3292,7 +3302,7 @@ static long gc_audit_b_lay_ranges(const char *anchor, const gc_frame_map_t *m, c
         uint64_t q = t[1 + j];
         unsigned kind = GC_LAY_KIND(q);
         const char *w = anchor + GC_LAY_OFF(q), *e = w + GC_LAY_SIZE(q);
-        if (kind != GC_LAY_RAW && kind != GC_LAY_PTR_CODE && kind != GC_LAY_PTR_FRAME) continue;
+        if (kind != GC_LAY_RAW && kind != GC_LAY_PTR_CODE && kind != GC_LAY_PTR_FRAME && kind != GC_LAY_PTR_FRAME_H) continue;
         if (w < lo) w = lo;
         if (e > hi) e = hi;
         if (w < e) { xr[n].lo = w; xr[n].hi = e; n++; }

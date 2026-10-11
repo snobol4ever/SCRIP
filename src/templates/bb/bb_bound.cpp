@@ -13,6 +13,7 @@ static std::string bound_unmark_zd() {
     return x86("comment", "IR_UNMARK cells arm -- restore rsp from BOUND frame slot (depth-immune FRQ)")
          + x86_alpha()
          + x86("mov", "rsp", FRQ(_.op_off))
+         + x86_release_acts(true, 5)
          + x86_gamma()
          + x86_beta_trampoline();
 }
@@ -33,14 +34,14 @@ std::string bb_bound() {
          + x86("mov", "r13", FRQ(_.op_off + 16))
                + x86("comment", "then the frames themselves, off a FRAME-relative slot that stays readable across the move.")
                + x86("mov", "rsp", FRQ(_.op_off + 8))
-               + x86_pl_release_acts(true)
+               + x86_release_acts(true)
                + x86_gamma() + x86_beta_trampoline()
              : x86_alpha() + x86_pl_tr_unwind_at(FRQ(_.op_off), 200, 201)
                + IF((_.op_ival & 1) != 0,
                       x86("test", "r15", "r15") + x86_omega("jne"))
                + IF((_.op_ival & 4) != 0, x86("mov", "r13", FRQ(_.op_off + 16))
                + x86("mov", "rsp", FRQ(_.op_off + 8))
-               + x86_pl_release_acts(true))
+               + x86_release_acts(true))
                + x86_gamma() + x86_beta_trampoline())
          + IF(!BND_BOMB() && !x86_fb_pinned() && _.op_zres && _.op_sb == 1,
                x86("comment", "IR_BOUND cells arm -- save rsp to frame slot (Op_Mark: bounded-expression entry frontier)")
@@ -54,7 +55,7 @@ std::string bb_bound() {
                x86("comment", _.op_sb == 1 ? "IR_BOUND" : "IR_UNMARK")
              + x86_alpha()
              + IF(_.op_sb == 1, x86("mov", FRQ(_.op_off), "rsp"))
-             + IF(_.op_sb != 1, x86("mov", "rsp", FRQ(_.op_off)))
+             + IF(_.op_sb != 1, x86("mov", "rsp", FRQ(_.op_off)) + x86_release_acts(true, 5))
              + x86_gamma()
              + x86_beta_trampoline());
 }

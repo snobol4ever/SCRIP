@@ -17,6 +17,10 @@
 # offchain-swept=0 and bad-link=0; (3) PLANTED: SCRIP_GC_PLANT_FRAME_LINK=1 displaces a followed link by 16 bytes and the
 # walker REFUSES it by name ("is not a site of the frame that links it"), bad-link > 0; (4) the witness's --dump-zeta
 # types callgen.act +0 PTR_FRAME.
+# ICON (hq_collector 2026-10-11, the cto's H-form condition met by hq_zetas' 50f4604e6): the callgen act +8 word of an Icon generator call is zero or H, the callee's retained generator frame
+# (GC_LAY_PTR_FRAME_H); the walker takes the resume cell at H+32, requires a generator graph, derives the base as H minus the map's frame_bytes, and validates it like a Prolog link.
+# ARMS: (5) hb_coexpr_parked and hb_coexpr_genp_scan, both modes, stress 1: offchain-swept=0, bad-link=0, frame-links > 0; (6) PLANTED: SCRIP_GC_PLANT_FRAME_LINK=1 displaces the followed H word
+# and the walker refuses it by name. The release half: bb_bound.cpp's unmark arms zero the slots below the restored rsp.
 # Red on SCRIP 7fd180c09 (before the landing): arm (1) reads offchain-swept=26700, arm (2) 627 over 5 witnesses.
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -79,6 +83,27 @@ s="$(grep -a '^\[CHAIN-WALK\] SUMMARY ' "$W/ep" | tail -1)"; bl="$(num "$s" bad-
 if [ "${bl:-0}" -gt 0 ] && grep -q 'FRAME-LINK REFUSED: the target.s return word is not a site of the frame that links it' "$W/ep"; then
   ck ok "(3) PLANTED: a link displaced by 16 bytes is refused by name in $bl collection(s), never followed"
 else ck no "(3) PLANTED: bad-link=${bl:-?} and no named refusal -- a link that does not name a frame was followed or skipped"; fi
+build4i() {
+  local src="$1" b="$2"
+  ( cd "$W" && timeout 300 "$SCRIP" --compile -o "$b.s" "$src" > /dev/null 2> "$b.c4" < /dev/null ) || refuse "mode 4 could not compile $src: $(head -c 200 "$W/$b.c4")"
+  gcc "$W/$b.s" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" -o "$W/$b.x" 2> "$W/$b.ld4" || refuse "mode 4 link failed for $src: $(head -c 200 "$W/$b.ld4")"
+}
+for b in hb_coexpr_parked hb_coexpr_genp_scan; do
+  f="$ROOT/scripts/gc_witnesses/$b.icn"
+  [ -f "$f" ] || refuse "no Icon witness $f"
+  build4i "$f" "$b"
+  for m in 3 4; do
+    if [ "$m" = 3 ]; then ( cd "$W" && run_env SCRIP_GC_STRESS=1 timeout 300 "$SCRIP" "$f" > /dev/null 2> e < /dev/null ); else ( cd "$W" && run_env SCRIP_GC_STRESS=1 timeout 300 "./$b.x" > /dev/null 2> e < /dev/null ); fi
+    s="$(grep -a '^\[CHAIN-WALK\] SUMMARY ' "$W/e" | tail -1)"
+    oc="$(num "$s" offchain-swept)"; bl="$(num "$s" bad-link)"; fl="$(num "$s" frame-links)"
+    if [ -n "$s" ] && [ "$oc" = 0 ] && [ "$bl" = 0 ] && [ "${fl:-0}" -gt 0 ]; then ck ok "(5) Icon $b mode $m: offchain-swept=0 bad-link=0 ($fl generator frame link(s) followed through act +8 H)"
+    else ck no "(5) Icon $b mode $m: offchain-swept=${oc:-?} bad-link=${bl:-?} frame-links=${fl:-?} -- a retained Icon generator frame is off the chain and off every typed H link"; fi
+  done
+done
+( cd "$W" && run_env SCRIP_GC_STRESS=1 SCRIP_GC_PLANT_FRAME_LINK=1 timeout 300 "$SCRIP" "$ROOT/scripts/gc_witnesses/hb_coexpr_parked.icn" > /dev/null 2> ep < /dev/null )
+s="$(grep -a '^\[CHAIN-WALK\] SUMMARY ' "$W/ep" | tail -1)"; bl="$(num "$s" bad-link)"
+if [ "${bl:-0}" -gt 0 ] && grep -q 'FRAME-LINK REFUSED' "$W/ep"; then ck ok "(6) PLANTED: an Icon H link displaced by 16 bytes is refused by name in $bl collection(s), never followed"
+else ck no "(6) PLANTED: Icon bad-link=${bl:-?} and no named refusal -- a displaced H word was followed or skipped"; fi
 z="$(cd "$W" && "$SCRIP" --dump-zeta w.pl < /dev/null 2>/dev/null | grep -c 'PTR_FRAME callgen.act +0')"
 if [ "${z:-0}" -gt 0 ]; then ck ok "(4) the witness's --dump-zeta types callgen.act +0 PTR_FRAME at $z call site(s)"
 else ck no "(4) no callgen.act +0 is typed PTR_FRAME in the witness's frames"; fi
