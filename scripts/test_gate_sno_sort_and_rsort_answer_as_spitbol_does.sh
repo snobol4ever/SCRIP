@@ -11,10 +11,13 @@
 # statement 14; a two-dimensional array was sorted as a flat list of its rows' first cells; RSORT reversed the ascending order, so
 # its ties came out reversed. The one oracle's sort is sorta/sortc/sorth in sbl.min (read in the spitbol-pristine drop).
 # NO MONITOR BRACKET: the divergence is inside one builtin call; the program stops at it.
+# RE-CUT (CEO-1663): corpus a9f30db68 spelled tab.sno's CONVERT(words,"array") as "ARRAY" (Lon, CEO-1456); under -bf the lower-case
+# name failed the CONVERT and RSORT met a null, which was the 256. sbl -bf now runs tab.sno whole (rc 0, 277 lines), so arms 3-4 grade
+# its whole stdout: RSORT of the CONVERTed table's rows by column 2 with ties in input order, then SORT of the table by column 1.
 #
 # THE ARMS (expectations cut from sbl -bf AT RUN TIME):
 #   1-2  m3 / m4: the SORT/RSORT matrix -- 31 programs, stdout and error code                                  -- RED on base
-#   3-4  m3 / m4: csnobol4_suite tab.sno on its post-END input stops with 256 at sbl's line and statement      -- RED on base
+#   3-4  m3 / m4: csnobol4_suite tab.sno on its post-END input prints sbl's whole stdout                     -- RED on base
 # EXIT: 0 all arms pass · 1 an arm failed · 2 REFUSED (no binary, no oracle, no csnobol4_suite).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
@@ -77,9 +80,9 @@ for i in "${!CASES[@]}"; do
 done
 grep -qx 'error=256' "$T/c30.oracle" && grep -qx 'error=258' "$T/c12.oracle" && grep -qx 'fail 256' "$T/c15.oracle" || refuse "the oracle's SORT answers moved: [$(tr '\n' '|' < "$T/c30.oracle")] [$(tr '\n' '|' < "$T/c12.oracle")]"
 mkdir "$T/tab" && cp "$PKG/tab.sno" "$T/tab/" && sed -n '/^END/,$p' "$PKG/tab.sno" | tail -n +2 > "$T/tab/tab.in" || refuse "could not stage tab.sno"
-( cd "$T/tab" && timeout 20 "$SBL" -bf tab.sno < tab.in > sbl.out 2>/dev/null )
-TAB_WANT="$(grep -m1 'total words' "$T/tab/sbl.out")|$(grep -m1 -oE 'ERROR [0-9]+' "$T/tab/sbl.out")|$(grep -m1 -oE '^in line +[0-9]+' "$T/tab/sbl.out" | tr -s ' ' | cut -d' ' -f3)|$(grep -m1 -oE '^in statement +[0-9]+' "$T/tab/sbl.out" | tr -s ' ' | cut -d' ' -f3)"
-[ "$TAB_WANT" = "total words: 271|ERROR 256|18|14" ] || refuse "the oracle's tab.sno answer moved: [$TAB_WANT]"
+( cd "$T/tab" && timeout 20 "$SBL" -bf tab.sno < tab.in > sbl.out 2>/dev/null ); TAB_RC=$?
+TAB_WANT="rc=$TAB_RC|$(head -1 "$T/tab/sbl.out")|$(wc -l < "$T/tab/sbl.out")|$(grep -c 'ERROR' "$T/tab/sbl.out")|$(sed -n 2p "$T/tab/sbl.out" | tr -s ' ')"
+[ "$TAB_WANT" = "rc=0|total words: 271|277|0|13 that" ] || refuse "the oracle's tab.sno answer moved: [$TAB_WANT]"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
 run() { ( cd "$1" && if [ "$3" = m3 ]; then timeout 20 "$SCRIP" "$2.sno"; else timeout 30 "$SCRIP" --compile -o "$2.s" "$2.sno" < /dev/null > /dev/null 2>&1 && gcc "$2.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$2.bin" > /dev/null 2>&1 && timeout 20 "./$2.bin"; fi ) 2>&1; }
@@ -88,13 +91,11 @@ matrix() { local bad=""
         run "$T" "c$i" "$1" < /dev/null | norm > "$T/c$i.$1"
         cmp -s "$T/c$i.$1" "$T/c$i.oracle" || bad="$bad c$i got [$(tr '\n' '|' < "$T/c$i.$1")] want [$(tr '\n' '|' < "$T/c$i.oracle")];"
     done; [ -z "$bad" ] && echo ok || echo "$bad"; }
-tab() { local out got
-    out="$(run "$T/tab" tab "$1" < "$T/tab/tab.in")"
-    got="$(printf '%s\n' "$out" | grep -m1 'total words')|ERROR $(printf '%s\n' "$out" | grep -m1 -oE 'error [0-9]+' | tr -dc 0-9)|$(printf '%s\n' "$out" | grep -m1 -oE 'at tab\.sno:[0-9]+' | cut -d: -f2)|$(printf '%s\n' "$out" | grep -m1 -oE 'statement [0-9]+' | tr -dc 0-9)"
-    [ "$got" = "$TAB_WANT" ] && echo ok || echo "got [$got] want [$TAB_WANT]"; }
+tab() { run "$T/tab" tab "$1" < "$T/tab/tab.in" > "$T/tab/$1.out"
+    cmp -s "$T/tab/$1.out" "$T/tab/sbl.out" && echo ok || echo "stdout differs from sbl's: $(diff "$T/tab/sbl.out" "$T/tab/$1.out" | head -4 | tr '\n' '|')"; }
 arm "m3: the SORT/RSORT matrix (${#CASES[@]} programs), stdout and error code" "$(matrix m3)"
 arm "m4: the SORT/RSORT matrix (${#CASES[@]} programs), stdout and error code" "$(matrix m4)"
-arm "m3: csnobol4_suite tab.sno stops with 256 at sbl's line and statement" "$(tab m3)"
-arm "m4: csnobol4_suite tab.sno stops with 256 at sbl's line and statement" "$(tab m4)"
+arm "m3: csnobol4_suite tab.sno prints sbl's whole stdout" "$(tab m3)"
+arm "m4: csnobol4_suite tab.sno prints sbl's whole stdout" "$(tab m4)"
 [ "$fail" = 0 ] && { echo "GATE PASS [$NAME]: $n/$n arms"; exit 0; }
 echo "GATE FAIL [$NAME]"; exit 1
