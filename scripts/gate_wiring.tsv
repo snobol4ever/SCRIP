@@ -537,6 +537,7 @@ test_gate_pas_array_field_elements_keep_their_declared_width.sh	WIRED	-	-	-
 test_gate_pas_boolean_write_iso_mod_and_forward_params.sh	WIRED	-	-	-
 test_gate_pas_bytebool_wordbool_longbool_store_the_oracles_all_bits_value.sh	WIRED	-	-	-
 test_gate_pas_calls_carry_more_than_six_operands.sh	WIRED	-	-	-
+test_gate_pas_conditional_compilation_and_initialized_vars_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pas_declared_locals_get_frame_slots.sh	WIRED	-	-	-
 test_gate_pas_dispose_of_a_pointer_whose_pointee_a_with_statement_references_is_refused.sh	WIRED	-	-	-
 test_gate_pas_eoln_needs_a_defined_file_not_at_its_end.sh	WIRED	-	-	-
@@ -544,6 +545,7 @@ test_gate_pas_every_identifier_has_a_defining_point.sh	WIRED	-	-	-
 test_gate_pas_exit_leaves_the_routine_it_names.sh	WIRED	-	-	-
 test_gate_pas_fillchar_of_a_dereferenced_pointer_array_fills_the_pointee_bounds.sh	WIRED	-	-	-
 test_gate_pas_five_or_more_parameters_arrive.sh	WIRED	-	-	-
+test_gate_pas_fpc_dialect_strings_case_else_and_builtins_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pas_fpc_suite_grades_against_a_corrected_ref_and_refuses_a_stale_or_missing_one.sh	WIRED	-	-	-
 test_gate_pas_heap_table_is_a_movable_root.sh	WIRED	-	-	-
 test_gate_pas_inline_record_char_fields_print_as_chars.sh	WIRED	-	-	-
@@ -578,8 +580,6 @@ test_gate_pas_typed_files_read_and_write_components.sh	WIRED	-	-	-
 test_gate_pas_under_overflow_checking_an_unsigned_sum_that_goes_negative_is_runtime_error_215.sh	WIRED	-	-	-
 test_gate_pas_uplevel_var_parameter_writes_back.sh	WIRED	-	-	-
 test_gate_pas_uses_and_units_answer_as_fpc.sh	WIRED	-	-	-
-test_gate_pas_conditional_compilation_and_initialized_vars_answer_as_fpc.sh	WIRED	-	-	-
-test_gate_pas_fpc_dialect_strings_case_else_and_builtins_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pas_variant_arms_overlay_the_same_storage.sh	WIRED	-	-	-
 test_gate_pas_variant_record_arms_share_one_byte_storage_as_fpc_overlays_them.sh	WIRED	-	-	-
 test_gate_pas_zero_based_strings_make_low_zero_and_index_from_zero_after_the_directive.sh	WIRED	-	-	-
@@ -763,6 +763,7 @@ test_gate_raku_an_infix_multi_on_objects_is_entered_from_the_binop_box_in_an_arm
 test_gate_raku_an_unknown_method_throws_x_method_notfound_dot_question_calls_it_maybe_can_finds_methods_and_attributes_and_fallback_catches_the_rest_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_array_push_is_amortised_constant_and_keeps_its_aliasing.sh	WIRED	-	-	-
 test_gate_raku_assigning_the_wrong_type_to_a_typed_variable_throws_x_typecheck_assignment_agree_with_rakudo.sh	WIRED	-	-	-
+test_gate_raku_bench_runner_grades_the_angles_it_is_given.sh	WIRED	-	-	-
 test_gate_raku_builtin_gaps_and_is_run_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_callsame_callwith_nextsame_nextwith_open_the_next_candidate_from_the_box_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_delegation_fallback_maybe_augment_and_a_user_gist_or_str_open_from_the_box_agree_with_rakudo.sh	WIRED	-	-	-

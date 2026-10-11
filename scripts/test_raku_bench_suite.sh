@@ -45,6 +45,16 @@ WRAP="$HERE/../tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O0 -o "$WRAP" "$HERE/../tools/bench_rusage.c" || refuse "tools/bench_rusage failed to build -- angle 1 has no wrapper"
 case "$ITER_N" in ''|*[!0-9]*|0) refuse "BENCH_ITER_N must be a positive integer (got '$ITER_N')";; esac
 case "$BUD_MS" in ''|*[!0-9]*|0) refuse "BENCH_BUD_MS must be a positive whole number of milliseconds (got '$BUD_MS')";; esac
+# ⭐ BENCH_ANGLES CHOOSES THE ANGLES GRADED (Lon 2026-10-08, in-chat to the ceo: "Why does RakBench take so long to run? Are the benchmarks
+# parameters tunable so that could be reduced?"; CEO-1564): default process,iter,time; the coo's standing loop grades the row with
+# BENCH_ANGLES=process -- the pristine kernel once per mode against its .ref, the row's verdict -- and the three angles run on the publish
+# cadence. An angle not chosen is not generated, built or run, reads "-" in its column, and the board line names the angles graded.
+ANGLES="${BENCH_ANGLES:-process,iter,time}"; DO_P=0; DO_I=0; DO_T=0
+IFS=',' read -r -a _angs <<<"$ANGLES"
+for _a in "${_angs[@]}"; do case "$_a" in process) DO_P=1;; iter) DO_I=1;; time) DO_T=1;; *) refuse "BENCH_ANGLES names '$_a' -- process, iter and time are the angles (got '$ANGLES')";; esac; done
+[ "$DO_P$DO_I$DO_T" != 000 ] || refuse "BENCH_ANGLES names no angle (got '$ANGLES')"
+[ "$((DO_P+DO_I+DO_T))" = "${#_angs[@]}" ] || refuse "BENCH_ANGLES names an angle twice (got '$ANGLES')"
+ANGLES="$( { [ $DO_P = 1 ] && printf 'process,'; [ $DO_I = 1 ] && printf 'iter,'; [ $DO_T = 1 ] && printf 'time,'; } | sed 's/,$//')"
 IS_BOARD=0; one_runner_suite_is_a_board "$BD" && IS_BOARD=1
 mapfile -t KERNELS < <(find "$BD" -maxdepth 1 -type f -name "*.$EXT" -printf '%f\n' | sed "s/\.$EXT\$//" | LC_ALL=C sort)
 [ "${#KERNELS[@]}" -gt 0 ] || refuse "no *.$EXT under $BD -- a population of zero is not a green board"
@@ -84,36 +94,38 @@ for k in "${KERNELS[@]}"; do
   fi
   want="$(python3 -c 'import sys; print(len(open(sys.argv[1], encoding="utf-8", errors="surrogateescape").read()))' "$ref")"
   gen_ok=1
-  for a in iter time; do python3 "$GEN" "$f" --mode "$a" --n "$ITER_N" --bud-ms "$BUD_MS" -o "$T/$k.$a.$EXT" 2>"$T/$k.$a.gen" || gen_ok=0; done
+  for a in iter time; do { [ $a = iter ] && [ $DO_I = 0 ]; } || { [ $a = time ] && [ $DO_T = 0 ]; } && continue
+    python3 "$GEN" "$f" --mode "$a" --n "$ITER_N" --bud-ms "$BUD_MS" -o "$T/$k.$a.$EXT" 2>"$T/$k.$a.gen" || gen_ok=0; done
   okboth=1
   for m in m3 m4; do
-    r1=FAIL; r2=FAIL; r3=FAIL; why=""
+    r1=FAIL; r2=FAIL; r3=FAIL; why=""; [ $DO_P = 1 ] || r1=-; [ $DO_I = 1 ] || r2=-; [ $DO_T = 1 ] || r3=-
     if [ "$gen_ok" = 0 ]; then why="the wrapper generator REFUSED: $(head -c 160 "$T/$k.iter.gen" "$T/$k.time.gen" 2>/dev/null | tr '\n' ' ')"
     else
       if [ "$m" = m3 ]; then P=("$SCRIP" --run "$f"); I=("$SCRIP" --run "$T/$k.iter.$EXT"); TM=("$SCRIP" --run "$T/$k.time.$EXT")
       else
-        if build4 "$f" "$T/$k.p4" && build4 "$T/$k.iter.$EXT" "$T/$k.i4" && build4 "$T/$k.time.$EXT" "$T/$k.t4"; then P=("$T/$k.p4"); I=("$T/$k.i4"); TM=("$T/$k.t4")
+        if { [ $DO_P = 0 ] || build4 "$f" "$T/$k.p4"; } && { [ $DO_I = 0 ] || build4 "$T/$k.iter.$EXT" "$T/$k.i4"; } && { [ $DO_T = 0 ] || build4 "$T/$k.time.$EXT" "$T/$k.t4"; }; then P=("$T/$k.p4"); I=("$T/$k.i4"); TM=("$T/$k.t4")
         else why="m4 compile/link failed: $(cat "$T/$k.p4.cc" "$T/$k.i4.cc" "$T/$k.t4.cc" 2>/dev/null | head -c 160 | tr '\n' ' ')"; fi
       fi
       if [ -z "$why" ]; then
-        run1 "$T/$k.$m.p" "$kb" "$WRAP" "${P[@]}"; rc=$?
-        if [ "$rc" = 0 ] && cmp -s "$T/$k.$m.p.out" "$ref"; then r1=PASS; else why="process: rc=$rc$(cmp -s "$T/$k.$m.p.out" "$ref" || echo ', output differs from .ref')"; fi
-        run1 "$T/$k.$m.i" "$kb" "${I[@]}"; rc=$?; w="$(bench_ok "$T/$k.$m.i.err" iter "$want")"
-        if [ "$rc" = 0 ] && cmp -s "$T/$k.$m.i.out" "$ref" && [ -z "$w" ]; then r2=PASS; else why="$why; iter: rc=$rc$(cmp -s "$T/$k.$m.i.out" "$ref" || echo ', stdout differs from .ref')${w:+, $w}"; fi
-        run1 "$T/$k.$m.t" "$kb" "${TM[@]}"; rc=$?; w="$(bench_ok "$T/$k.$m.t.err" time "$want")"
-        if [ "$rc" = 0 ] && cmp -s "$T/$k.$m.t.out" "$ref" && [ -z "$w" ]; then r3=PASS; else why="$why; time: rc=$rc$(cmp -s "$T/$k.$m.t.out" "$ref" || echo ', stdout differs from .ref')${w:+, $w}"; fi
-        grep -h '^BENCH_RUSAGE' "$T/$k.$m.p.err" | sed "s/^/    scouting $k $m: /"
-        for x in i t; do grep -h '^BENCH mode=' "$T/$k.$m.$x.err" | sed "s/^/    scouting $k $m: /"; done
+        if [ $DO_P = 1 ]; then run1 "$T/$k.$m.p" "$kb" "$WRAP" "${P[@]}"; rc=$?
+          if [ "$rc" = 0 ] && cmp -s "$T/$k.$m.p.out" "$ref"; then r1=PASS; else why="process: rc=$rc$(cmp -s "$T/$k.$m.p.out" "$ref" || echo ', output differs from .ref')"; fi
+          grep -h '^BENCH_RUSAGE' "$T/$k.$m.p.err" | sed "s/^/    scouting $k $m: /"; fi
+        if [ $DO_I = 1 ]; then run1 "$T/$k.$m.i" "$kb" "${I[@]}"; rc=$?; w="$(bench_ok "$T/$k.$m.i.err" iter "$want")"
+          if [ "$rc" = 0 ] && cmp -s "$T/$k.$m.i.out" "$ref" && [ -z "$w" ]; then r2=PASS; else why="$why; iter: rc=$rc$(cmp -s "$T/$k.$m.i.out" "$ref" || echo ', stdout differs from .ref')${w:+, $w}"; fi
+          grep -h '^BENCH mode=' "$T/$k.$m.i.err" | sed "s/^/    scouting $k $m: /"; fi
+        if [ $DO_T = 1 ]; then run1 "$T/$k.$m.t" "$kb" "${TM[@]}"; rc=$?; w="$(bench_ok "$T/$k.$m.t.err" time "$want")"
+          if [ "$rc" = 0 ] && cmp -s "$T/$k.$m.t.out" "$ref" && [ -z "$w" ]; then r3=PASS; else why="$why; time: rc=$rc$(cmp -s "$T/$k.$m.t.out" "$ref" || echo ', stdout differs from .ref')${w:+, $w}"; fi
+          grep -h '^BENCH mode=' "$T/$k.$m.t.err" | sed "s/^/    scouting $k $m: /"; fi
       fi
     fi
-    if [ "$r1$r2$r3" = PASSPASSPASS ]; then v=PASS; PASSN[$m]=$((PASSN[$m]+1)); note="ref-under-three-angles"
+    if [ "$(printf '%s%s%s' "$r1" "$r2" "$r3" | tr -d '-')" = "$(printf 'PASS%.0s' $(seq $((DO_P+DO_I+DO_T))))" ]; then v=PASS; PASSN[$m]=$((PASSN[$m]+1)); note="ref-under-$(tr ',' '+' <<<"$ANGLES")"
     else v=FAIL; okboth=0; note="$(echo "$why" | sed 's/^[; ]*//' | tr '\t' ' ')"; NAMED="$NAMED $k.$m"; fi
     printf 'benchmark\t%s\t%s\t%s\t%s\t%s\t0\t%s\t%s\n' "$SUITE_KEY" "$LANG_KEY" "$k" "$m" "$v" "$note" "$cfg" >>"$PROG_ROWS"
     printf '%-28s %-4s %-7s %-7s %-7s %s\n' "$k" "$m" "$r1" "$r2" "$r3" "$v${why:+ -- $(echo "$why" | sed 's/^[; ]*//')}"
   done
   [ "$okboth" = 1 ] && BOTH=$((BOTH+1))
 done
-LINE="SUITE_BOARD family=$SUITE_KEY total=$TOTAL shipped=$TOTAL all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=process,iter,time iter_n=$ITER_N bud_ms=$BUD_MS memory_declared=$HEAPD"
+LINE="SUITE_BOARD family=$SUITE_KEY total=$TOTAL shipped=$TOTAL all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=$ANGLES iter_n=$ITER_N bud_ms=$BUD_MS memory_declared=$HEAPD"
 echo
 echo "$LINE"
 [ -n "$NAMED" ] && echo "  not passing:$NAMED"
@@ -127,6 +139,7 @@ else
   echo "  row write: $([ "$WRITE" = 1 ] && echo yes || echo no) -- $WRITE_WHY"
   if [ "$WRITE" = 1 ]; then
     python3 "$HERE/util_score_row.py" write --lang "$LANG_KEY" --column bench-ref --measurer "${S4E_SEAT:-}" --text "$LINE" \
+      ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
       || echo "⚠ SUITE ROW NOT WRITTEN -- util_score_row.py refused (reason above)"
   else
     echo "  suite row: not written ($WRITE_WHY; a whole-population pass publishes by default, the Raku lane's seat publishes: util_score_row.py write --lang raku --column bench-ref)"
