@@ -8,7 +8,20 @@
 typedef struct pas_scope_s { const char * names[PAS_MAX_SCOPE]; int n; int nparams; long long byref; int has_children; const char * proc_name; struct pas_scope_s * outer; } pas_scope_t;
 typedef struct { const char * name; IR_t * node; } pas_label_t;
 struct pas_fact { const char * nm; struct pas_fact * up; };
-typedef struct { IR_graph_t * g; pas_scope_t sc; lc_vec labels; int npbt; const tree_t * pd; IR_t * unw; IR_t * xit; lc_vec fvars; struct pas_fact * fact; int inchk; } pcx_t;
+typedef struct {
+    IR_graph_t * g;
+    pas_scope_t sc;
+    lc_vec labels;
+    int npbt;
+    const tree_t * pd;
+    IR_t * unw;
+    IR_t * xit;
+    lc_vec fvars;
+    struct pas_fact * fact;
+    int inchk;
+    IR_t * lbrk;
+    IR_t * lcont;
+} pcx_t;
 #define PAS_PROC(i) LC_AT(&g_lower.pas.proc_list, const tree_t *, (i))
 #define PAS_PARENT(i) LC_AT(&g_lower.pas.proc_parent, const tree_t *, (i))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -636,14 +649,24 @@ static IR_t * lower_while(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     if (is_shortcirc(cond)) {
         IR_t * B = build(cx, IR_GOTO, NULL, NULL);
         IR_t * ce = pas_cond(cx, cond, B, W, &cr);
+        IR_t * ob = cx->lbrk, * oc = cx->lcont;
+        cx->lbrk = W;
+        cx->lcont = ce;
         IR_t * be = lower(cx, body, ce, ce, NULL);
+        cx->lbrk = ob;
+        cx->lcont = oc;
         γ_to(B, be ? be : ce);
         ω_to(B, be ? be : ce);
         if (res) *res = W;
         return ce;
     }
     IR_t * ce = pas_cond(cx, cond, NULL, W, &cr);
+    IR_t * ob = cx->lbrk, * oc = cx->lcont;
+    cx->lbrk = W;
+    cx->lcont = ce;
     IR_t * be = lower(cx, body, ce, ce, NULL);
+    cx->lbrk = ob;
+    cx->lcont = oc;
     γ_to(cr, be ? be : ce);
     if (res) *res = W;
     return ce;
@@ -690,7 +713,12 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     }
     struct pas_fact me = { vname, cx->fact };
     if (t->v.ival & 2) cx->fact = &me;
+    IR_t * ob = cx->lbrk, * oc = cx->lcont;
+    cx->lbrk = γ;
+    cx->lcont = cont;
     IR_t * be = lower(cx, body, cont, cont, NULL);
+    cx->lbrk = ob;
+    cx->lcont = oc;
     cx->fact = me.up;
     γ_to(cmp, be ? be : cont);
     IR_t * init_asn = lower_assign_var(cx, vname, lim_var, ω);
@@ -708,14 +736,24 @@ static IR_t * lower_repeat(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     if (is_shortcirc(cond)) {
         IR_t * B = build(cx, IR_GOTO, NULL, NULL);
         IR_t * ce = pas_cond(cx, cond, γ, B, &cr);
+        IR_t * ob = cx->lbrk, * oc = cx->lcont;
+        cx->lbrk = γ;
+        cx->lcont = ce;
         IR_t * be = lower(cx, body, ce, ω, NULL);
+        cx->lbrk = ob;
+        cx->lcont = oc;
         γ_to(B, be ? be : ce);
         ω_to(B, be ? be : ce);
         if (res) *res = cr;
         return be ? be : ce;
     }
     IR_t * ce = pas_cond(cx, cond, γ, NULL, &cr);
+    IR_t * ob = cx->lbrk, * oc = cx->lcont;
+    cx->lbrk = γ;
+    cx->lcont = ce;
     IR_t * be = lower(cx, body, ce, ω, NULL);
+    cx->lbrk = ob;
+    cx->lcont = oc;
     ω_to(cr, be ? be : ce);
     if (res) *res = cr;
     return be ? be : ce;
@@ -826,6 +864,11 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             return e;
         }
         case TT_FNC:
+        if (t->n == 1 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && (!strcmp(t->c[0]->v.sval, "break") || !strcmp(t->c[0]->v.sval, "continue")) && !pas_callee_is_user_proc(t->c[0]->v.sval))
+            {
+            IR_t * tgt = !strcmp(t->c[0]->v.sval, "break") ? cx->lbrk : cx->lcont;
+            if (tgt) { IR_t * j = build(cx, IR_GOTO, tgt, tgt); if (res) *res = j; return j; }
+        }
         return lower_call(cx, t, γ, ω, res);
         case TT_IF:
         case TT_UNLESS:

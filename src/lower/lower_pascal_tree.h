@@ -121,6 +121,9 @@ typedef struct {
     struct { char *vname; char *tname; int is_global; int uid; } *pas_scalarvartype;
     int pas_nscalarvartype;
     int pas_scalarvartype_cap;
+    struct { char *name; tree_t *val; int uid; } *pas_setconsts;
+    int pas_nsetconst;
+    int pas_setconst_cap;
     struct { char *name; long long low; long long high; int ischar; } pas_tfcomp[128];
     int pas_ntfcomp;
     long long pas_pend_frng_lo;

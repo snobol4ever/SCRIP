@@ -436,6 +436,10 @@ ALNUM    [A-Za-z0-9_]
 "<"                     { return LTOP; }
 ">"                     { return GTOP; }
 "="                     { return EQOP; }
+"+="                    { return ADDBECOMES; }
+"-="                    { return SUBBECOMES; }
+"*="                    { return MULBECOMES; }
+"/="                    { return DIVBECOMES; }
 "+"                     { return PLUS; }
 "-"                     { return MINUS; }
 "*"                     { return MUL; }

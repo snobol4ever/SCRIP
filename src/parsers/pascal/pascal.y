@@ -135,6 +135,12 @@ static long long cenv_value(tree_t *n) {
         default: return 0;
     }
 }
+static void cenv_note(const char *name, tree_t *e) {
+    if (e && e->t == TT_FLIT) cenv_real(name, e->v.dval);
+    else if (e && (e->t == TT_PLS || e->t == TT_MNS) && e->n == 1 && e->c[0] && e->c[0]->t == TT_FLIT) cenv_real(name, e->t == TT_MNS ? -e->c[0]->v.dval : e->c[0]->v.dval);
+    else if (e && e->t == TT_QLIT) cenv_string(name, e->v.sval);
+    else cenv_int(name, cenv_value(e));
+}
 %}
 %union { tree_t *node; }
 %token GOTOSY PROGRAMSY SEMICOLON ARRAYSY LABELSY CONSTSY FORWARDSY
@@ -144,6 +150,7 @@ static long long cenv_value(tree_t *n) {
 %token FUNCTIONSY BEGINSY BECOMES TYPESY IFSY ELSESY INOP NOTSY IDIV IMOD ANDOP OROP
 %token LTOP LEOP GTOP GEOP NEOP EQOP PLUS MINUS MUL RDIV
 %token COMMA PERIOD COLON ARROW LBRACK RBRACK LPARENT RPARENT DOTDOT ATSIGN
+%token ADDBECOMES SUBBECOMES MULBECOMES DIVBECOMES
 %token <node> INTCONST CHARCODE REALCONST STRINGCONST IDENT
 %type <node> program file_id_list_opt block decl_part_list decl_part label_list const_decl_list const_decl constant scalar_constant type_decl_list case_tail
 %type <node> type_decl type packed_opt simple_type record_body record_field_list record_field case_arm_mark case_open record_case_opt record_case_list
@@ -152,6 +159,7 @@ static long long cenv_value(tree_t *n) {
 %type <node> selector expression_list compound_statement goto_statement if_statement case_statement case_list case_elem constant_list while_statement
 %type <node> repeat_statement for_statement with_statement with_open selector_list expression simple_expression term factor set_member_list set_member
 %type <node> expression_list_opt compilation_unit unit intf_part_list intf_part init_opt fini_opt
+%type <node> typed_value typed_value_list field_value_list
 %start compilation_unit
 %%
 compilation_unit:
@@ -213,12 +221,22 @@ const_decl_list:
     |const_decl { $$ = pt_part("const", $1); }
     ;
 const_decl:
-    IDENT EQOP REALCONST SEMICOLON { $$ = pt_decl("const", $1, $3); cenv_real($1->v.sval, $3->v.dval); }
-    |IDENT EQOP PLUS REALCONST SEMICOLON { $$ = pt_decl("const", $1, pt_add(pt_new(TT_PLS), $4)); cenv_real($1->v.sval, $4->v.dval); }
-    |IDENT EQOP MINUS REALCONST SEMICOLON { $$ = pt_decl("const", $1, pt_add(pt_new(TT_MNS), $4)); cenv_real($1->v.sval, -$4->v.dval); }
-    |IDENT EQOP STRINGCONST SEMICOLON { $$ = pt_decl("const", $1, $3); cenv_string($1->v.sval, $3->v.sval); }
-    |IDENT EQOP CHARCODE SEMICOLON { $$ = pt_decl("const", $1, $3); cenv_int($1->v.sval, $3->v.ival); }
-    |IDENT EQOP constant SEMICOLON { $$ = pt_decl("const", $1, $3); cenv_int($1->v.sval, cenv_value($3)); }
+    IDENT EQOP expression SEMICOLON { $$ = pt_decl("const", $1, $3); cenv_note($1->v.sval, $3); }
+    |IDENT COLON type EQOP typed_value SEMICOLON { $$ = pt_add(pt_decl("tconst", pt_add(pt_new(TT_VLIST), $1), $3), $5); }
+    ;
+typed_value:
+    expression { $$ = $1; }
+    |LPARENT typed_value COMMA typed_value_list RPARENT { $$ = pt_cat(pt_add(pt_sval(pt_new(TT_VLIST), "aggregate"), $2), $4); }
+    |LPARENT field_value_list RPARENT { $$ = $2; }
+    |LPARENT field_value_list SEMICOLON RPARENT { $$ = $2; }
+    ;
+typed_value_list:
+    typed_value { $$ = pt_add(pt_new(TT_VLIST), $1); }
+    |typed_value_list COMMA typed_value { $$ = pt_add($1, $3); }
+    ;
+field_value_list:
+    IDENT COLON typed_value { $$ = pt_add(pt_sval(pt_new(TT_VLIST), "record aggregate"), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
+    |field_value_list SEMICOLON IDENT COLON typed_value { $$ = pt_add($1, pt_add(pt_add(pt_new(TT_FIELD), $3), $5)); }
     ;
 constant:
     scalar_constant { $$ = $1; }
@@ -375,6 +393,7 @@ call:
     ;
 call_with_args:
     IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), $1), $3); }
+    |IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), $1); }
     |selector PERIOD IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)), $5); }
     ;
 argument_list:
@@ -388,6 +407,10 @@ argument:
     ;
 assignment:
     selector BECOMES expression { $$ = pt_add(pt_add(pt_new(TT_ASSIGN), $1), $3); }
+    |selector ADDBECOMES expression { $$ = pt_add(pt_add(pt_add(pt_new(TT_ASSIGN), $1), $3), pt_kw("+=")); }
+    |selector SUBBECOMES expression { $$ = pt_add(pt_add(pt_add(pt_new(TT_ASSIGN), $1), $3), pt_kw("-=")); }
+    |selector MULBECOMES expression { $$ = pt_add(pt_add(pt_add(pt_new(TT_ASSIGN), $1), $3), pt_kw("*=")); }
+    |selector DIVBECOMES expression { $$ = pt_add(pt_add(pt_add(pt_new(TT_ASSIGN), $1), $3), pt_kw("/=")); }
     ;
 selector:
     selector LBRACK expression_list RBRACK { $$ = pt_cat(pt_add(pt_new(TT_IDX), $1), $3); }
