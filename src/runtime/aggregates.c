@@ -89,8 +89,17 @@ TBBLK_t *table_new(void) {
     t->ord_dead = 0u;
     t->gen_idx = -1;
     t->gen_pos = -1;
+    t->icn_ord = (DESCR_t *)0;
+    t->icn_ord_len = 0u;
+    t->icn_ord_cap = 0u;
+    t->icn_stamp_len = 0u;
+    t->icn_stamp_dead = 0u;
+    t->icn_stamp_mask = 0ul;
+    t->icn_stamp_size = 0ul;
     t->gen_mask = 0ul;
-    t->gen_lseg = t->gen_lslot = t->gen_lhn = 0ul;
+    t->gen_lseg = 0ul;
+    t->gen_lslot = 0ul;
+    t->gen_lhn = 0ul;
     t->gen_lseq = 0u;
     t->gen_have = 0;
     t->icn_mask = 15ul;
@@ -413,40 +422,76 @@ static int _icn_key_lt(unsigned long aseg, unsigned long aslot, unsigned long ah
     if (ahn != bhn) return ahn < bhn;
     return aseq < bseq;
 }
-static int _icn_succ(TBBLK_t *tbl, TBPAIR_t **out) {
-    TBPAIR_t *be = (TBPAIR_t *)0;
-    unsigned long bseg = 0ul, bslot = 0ul, bhn = 0ul;
-    unsigned bseq = 0u;
-    int have = 0;
+static void _icn_order_build(TBBLK_t *tbl, unsigned long mask) {
+    unsigned live = 0;
+    for (unsigned oi = 0; oi < tbl->ord_len; oi++) if (tbl->ord[oi].v != DT_RAW && table_find_pair_d(tbl, tbl->ord[oi])) live++;
+    _icn_ord_t tmp[live > 0u ? live : 1u];
+    unsigned n = 0;
     for (unsigned oi = 0; oi < tbl->ord_len; oi++) {
         if (tbl->ord[oi].v == DT_RAW) continue;
         TBPAIR_t *e = table_find_pair_d(tbl, tbl->ord[oi]);
-        if (!e) continue;
+        if (!e || n >= live) continue;
         unsigned long hn = _icn_hash(tbl->ord[oi]), seg, slot;
-        _icn_slot(hn, tbl->gen_mask, &seg, &slot);
-        if (tbl->gen_have && !_icn_key_lt(tbl->gen_lseg, tbl->gen_lslot, tbl->gen_lhn, tbl->gen_lseq, seg, slot, hn, oi)) continue;
-        if (!have || _icn_key_lt(seg, slot, hn, oi, bseg, bslot, bhn, bseq)) { be = e; bseg = seg; bslot = slot; bhn = hn; bseq = oi; have = 1; }
+        _icn_slot(hn, mask, &seg, &slot);
+        tmp[n].e = e;
+        tmp[n].seg = seg;
+        tmp[n].slot = slot;
+        tmp[n].hn = hn;
+        tmp[n].seq = oi;
+        n++;
     }
-    if (!have) return 0;
-    tbl->gen_lseg = bseg;
-    tbl->gen_lslot = bslot;
-    tbl->gen_lhn = bhn;
-    tbl->gen_lseq = bseq;
-    tbl->gen_have = 1;
-    *out = be;
-    return 1;
+    qsort(tmp, (size_t)n, sizeof(_icn_ord_t), _icn_cmp);
+    if (!tbl->icn_ord || tbl->icn_ord_cap < n) { unsigned nc = n > 16u ? n : 16u; tbl->icn_ord = rt_ws_alloc_descr((size_t)nc); tbl->icn_ord_cap = nc; }
+    for (unsigned k = 0; k < n; k++) tbl->icn_ord[k] = (DESCR_t){ .v = DT_I, .i = (int64_t)tmp[k].seq };
+    tbl->icn_ord_len = n;
+    tbl->icn_stamp_len = tbl->ord_len;
+    tbl->icn_stamp_dead = tbl->ord_dead;
+    tbl->icn_stamp_mask = mask;
+    tbl->icn_stamp_size = (unsigned long)tbl->size;
+}
+static int _icn_order_stale(const TBBLK_t *tbl, unsigned long mask) {
+    return !tbl->icn_ord || tbl->icn_stamp_len != tbl->ord_len || tbl->icn_stamp_dead != tbl->ord_dead || tbl->icn_stamp_mask != mask || tbl->icn_stamp_size != (unsigned long)tbl->size;
+}
+static void _icn_order_key(const TBBLK_t *tbl, unsigned pos, unsigned long *seg, unsigned long *slot, unsigned long *hn, unsigned *seq) {
+    unsigned oi = (unsigned)tbl->icn_ord[pos].i;
+    *hn = _icn_hash(tbl->ord[oi]);
+    _icn_slot(*hn, tbl->gen_mask, seg, slot);
+    *seq = oi;
+}
+static unsigned _icn_order_after_last(const TBBLK_t *tbl) {
+    unsigned lo = 0, hi = tbl->icn_ord_len;
+    while (lo < hi) {
+        unsigned mid = lo + (hi - lo) / 2u, seq;
+        unsigned long seg, slot, hn;
+        _icn_order_key(tbl, mid, &seg, &slot, &hn, &seq);
+        if (_icn_key_lt(tbl->gen_lseg, tbl->gen_lslot, tbl->gen_lhn, tbl->gen_lseq, seg, slot, hn, seq)) hi = mid;
+        else lo = mid + 1u;
+    }
+    return lo;
 }
 int table_icn_nth(TBBLK_t *tbl, int64_t idx, TBPAIR_t **out) {
     if (!tbl || idx < 0 || tbl->ord_len == 0u) return 0;
-    if (idx == 0 || tbl->gen_idx != idx - 1) {
-        tbl->gen_mask = tbl->icn_mask;
-        tbl->gen_have = 0;
-        tbl->gen_idx = -1;
-        for (int64_t k = 0; k < idx; k++) { TBPAIR_t *skip; if (!_icn_succ(tbl, &skip)) return 0; }
+    {
+        int restart = (idx == 0 || tbl->gen_idx != idx - 1);
+        int rebuilt = 0;
+        unsigned pos;
+        if (restart) { tbl->gen_have = 0; tbl->gen_mask = tbl->icn_mask; }
+        if (_icn_order_stale(tbl, tbl->gen_mask)) { _icn_order_build(tbl, tbl->gen_mask); rebuilt = 1; }
+        if (restart || !tbl->gen_have) pos = (uint64_t)idx < (uint64_t)tbl->icn_ord_len ? (unsigned)idx : tbl->icn_ord_len;
+        else if (rebuilt) pos = _icn_order_after_last(tbl);
+        else pos = (unsigned)tbl->gen_pos + 1u;
+        if (pos >= tbl->icn_ord_len) return 0;
+        {
+            unsigned oi = (unsigned)tbl->icn_ord[pos].i;
+            TBPAIR_t *e = (oi < tbl->ord_len && tbl->ord[oi].v != DT_RAW) ? table_find_pair_d(tbl, tbl->ord[oi]) : (TBPAIR_t *)0;
+            if (!e) return 0;
+            _icn_order_key(tbl, pos, &tbl->gen_lseg, &tbl->gen_lslot, &tbl->gen_lhn, &tbl->gen_lseq);
+            tbl->gen_have = 1;
+            tbl->gen_idx = idx;
+            tbl->gen_pos = (int64_t)pos;
+            *out = e;
+        }
     }
-    if (!_icn_succ(tbl, out)) return 0;
-    tbl->gen_idx = idx;
-    tbl->gen_pos = 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -109,6 +109,9 @@ typedef struct _TBBLK_t {
     long dumpno;
     int64_t gen_idx, gen_pos;
     unsigned ord_dead;
+    DESCR_t *icn_ord;
+    unsigned icn_ord_len, icn_ord_cap, icn_stamp_len, icn_stamp_dead;
+    unsigned long icn_stamp_mask, icn_stamp_size;
     unsigned long gen_mask, gen_lseg, gen_lslot, gen_lhn;
     unsigned gen_lseq;
     int gen_have;
