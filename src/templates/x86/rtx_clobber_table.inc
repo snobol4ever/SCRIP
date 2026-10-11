@@ -1,12 +1,12 @@
 #define RTX_CLOB_TAB_N 289
-#define RTX_CLOB_TAB_N_CLOBBERING 23
+#define RTX_CLOB_TAB_N_CLOBBERING 26
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "dat_field_get", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "descr_identical", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_add", 0 },
     { "rt_add_sno", 0 },
-    { "rt_agg_alloc", 0 },
+    { "rt_agg_alloc", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_assign_var", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_call_bid_sn4", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_cap_match_begin", 0 },
@@ -23,7 +23,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_gc_forward_run", 0 },
     { "rt_gc_index_run", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_gc_reset_run", 0 },
-    { "rt_gcheap_alloc", 0 },
+    { "rt_gcheap_alloc", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_gen_spine_pass_γ", 0 },
     { "rt_gen_spine_pass_ω", 0 },
     { "rt_gen_spine_resume_enter", 0 },
@@ -274,7 +274,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_zguard_cold", 0 },
     { "rt_proc_value", 0 },
     { "rt_size_d", 0 },
-    { "rt_str_alloc", 0 },
+    { "rt_str_alloc", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_str_coerce", 0 },
     { "rt_sub", 0 },
     { "rt_sub_sno", 0 },

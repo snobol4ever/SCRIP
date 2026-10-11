@@ -82,7 +82,11 @@ RTX_FUNC(rt_gcheap_alloc)
     lea     rax, [rsi + 16]
     ret
 .Lga_c:
-    RTX_CTAIL(c_rt_gcheap_alloc)
+    RTX_SUB_RSP(8)
+    call    c_rt_gcheap_alloc
+    RTX_ADD_RSP(8)
+    RTX_GVA_R9
+    ret
 RTX_ENDF(rt_gcheap_alloc)
 RTX_FUNC(rt_str_alloc)
     RTX_GATE(alloc, .Lsa_c)
@@ -98,7 +102,11 @@ RTX_FUNC(rt_str_alloc)
     mov     edi, DT_S
     jmp     .Lga_armed
 .Lsa_c:
-    RTX_CTAIL(c_rt_str_alloc)
+    RTX_SUB_RSP(8)
+    call    c_rt_str_alloc
+    RTX_ADD_RSP(8)
+    RTX_GVA_R9
+    ret
 RTX_ENDF(rt_str_alloc)
 RTX_FUNC(rt_agg_alloc)
     RTX_GATE(alloc, .Laa_c)
@@ -120,7 +128,11 @@ RTX_FUNC(rt_agg_alloc)
     cmove   rsi, rcx
     jmp     .Lga_armed
 .Laa_c:
-    RTX_CTAIL(c_rt_agg_alloc)
+    RTX_SUB_RSP(8)
+    call    c_rt_agg_alloc
+    RTX_ADD_RSP(8)
+    RTX_GVA_R9
+    ret
 RTX_ENDF(rt_agg_alloc)
 RTX_FUNC(rt_gc_fix_slots)
     test    rsi, rsi
