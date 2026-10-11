@@ -47,6 +47,13 @@
 #     them declared on a scratch CLASS_AB.tsv it reads 0 of 0, says no LOUD guard remains, and exits 0
 # The no-guard, drop and function-scope unguarded counts are PRINTED, not graded here: bringing each to zero is the row's criterion
 # (CEO-1231), not this gate's.
+# ⛔ BASELINE 217 -> 215, 2026-10-11 (the coo, ceo CEO-1692 on hq_pascal's report): two tables CONVERTED, both hq_snobol4's -- the
+#   arena src/runtime/pattern_match.c RT_DCAP_ISLAND_BYTES (ca929266d: the CAS island follows the declared -s stack, overrun is ERROR 246) and
+#   the field src/emitter/emit.h op_df_clbl (3d3a91085: the deferred-capture cell half deleted). Named by diffing the census's file, static,
+#   field and arena rows at abcfc21e9 (the 217 baseline's tree) and 1e3b157b5 by (file, scope, name): 225 -> 223 rows, exactly these two
+#   gone, nothing added. The ceo's by-name compare that read "the same 202 at both trees" is not reproduced here: after the not-shipped
+#   set-aside the file/static/field rows read 195 -> 194 (op_df_clbl the one), and the arena is outside file/static/field -- the ratchet
+#   counts scope `arena` with them on purpose (CEO-1231 stage 2 (b): a constant 64 KiB or more from an allocator).
 # ⛔ BASELINE_FUNCTION_SCOPE 404 -> 401, 2026-10-02 (the cto, ceo rank-1 row snocone-a-setexit-trap-is-not-taken-...): the
 # three char _ab[300] locals that spelled an LBL__ alias in src/driver/scrip.c (the mode-4 and mode-3 main-chain alias builders and
 # the mode-3 alias registration) are gone -- one helper spells each alias in a stack array sized to its need (the lifetime rule).
