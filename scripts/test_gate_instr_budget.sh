@@ -193,7 +193,18 @@ ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-12872014}"
 #                             +0.7M the NV_SET_fn -> NV_SET_p_fn wrapper layer; no capture, cursor or pump probe shows in the per-function diff (beauty runs no cursor assignment)
 #   1,624,515,945 -> 1,626,072,751  666108ad4 -> 3cb3126a5  the DATA TWEAK hook road (CEO-1638): +1.56M, +0.10%
 # Two readings of one tree differ by up to 0.14% (6ec5871c8 twice: 1,618,721,415 / 1,619,272,123; 4030b0d03 by this gate 1,622,070,134, by the worktree 1,624,407,409), inside the band.
-BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-1626072751}"
+# ⛔⭐ BEAUTY RE-PINNED DOWN 2026-10-11 by the cto, the owner the block above names (row gc-the-emitters-rsp-prepass-of-the-chain-over-the-maps-step-a-costs-beauty-170m-ir-...-ceo-1639):
+# 1,626,072,751 -> 1,466,981,489, this gate's own reading of the cure over 299e125f8 (fixed point kept, beauty.s byte-identical to its base at every step, 465 of 518 programs across every
+# language byte-identical and the other 53 refused alike by both trees). THE CURE, five steps on the runtime emitter, each a callgrind reading of beauty fed its own source:
+#   1,624,099,019  56c4ad49a  the base re-measured
+#   1,556,750,617  step 1     the rsp snapshot scans read raw pointers and the dry-run commit restores its state without copying it (x86_rsp_pre_t)
+#   1,491,181,143  step 2     frame_slot_scan reads a per-graph memo of each node's frame-slot candidacy and units, validated once per scan
+#   1,480,814,759  step 2b    frame_slot_scan answers from per-graph prefix sums of slot units and the query's index through xci_probe
+#   1,476,537,849  step 3     the dry-run commit copies only the jumps added since the last commit; the real pass holds one reference to the rsp state
+#   1,466,644,494  step 4     the snapshot scans walk backward by pointer comparing the key first (each kind and key is unique in its list), a define scans only when not aligned
+# TRIED AND REVERTED: an open-addressing index over the snapshot vectors read 3.9M WORSE at -O0 (the per-graph lists are short; the hashing's calls cost more than the walks).
+# The remaining ~18M over the 974557f25 parent (1,448,889,372) is the site tables themselves, the ruled design.
+BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-1466981489}"
 # Watermarks: RT_OPT=-O0, `make pristine`, SCRIP `eca52780`, 2026-08-24 (seat04).  Re-pin with the FINDING that changed them.
 # TABLE_ACCESS re-pinned 2026-08-24 (seat01, post RTX-31 + RTX-NEW-ICNVAR): 15267937 -> 12986443.
 # TABLE_ACCESS re-pinned 2026-08-27 (seat12, row perf-table-subscript-fastpath lever 2, post subscript+assign fusion
