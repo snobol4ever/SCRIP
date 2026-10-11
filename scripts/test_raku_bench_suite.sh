@@ -80,9 +80,27 @@ bench_ok() {
   [ "$val" = "$3" ] || { echo "value=$val characters captured, the .ref has $3 (an empty capture is a lost output, not a pass)"; return 1; }
   return 0
 }
+# ⭐ OUTSIDE.tsv NAMES A KERNEL OUT OF THE RUN (Lon 2026-10-10, in-chat to the cto, verbatim: "Fix RakBench not to take 1 hour." then "Well then,
+# just remove the four slow ones and keep the rest."; the cto's measurement: four raku-bench whole programs, 29-52 s a run each, were 341 of the
+# 399 s the 84 kernels take on the process angle alone, and under three angles the hour): kernel<TAB>CLASS<TAB>evidence, OUTSIDE_SLOW the one
+# class. Unlike the Prolog bench's OUTSIDE_CLPFD (graded, out of the denominator) a slow kernel is NOT generated, built or run here -- that is
+# the whole point -- it stays vendored for the gates that witness with it and for the publish-cadence bench grid, is named on its own line, and
+# leaves total/all_n (shipped = total + excluded, the row's Excl column); a malformed row, another class, no evidence or a name that is no
+# kernel refuses rc 2 before anything is graded.
+declare -A OUTS; NOUT=0; OUTN=""
+if [ -f "$BD/OUTSIDE.tsv" ]; then
+  while IFS=$'\t' read -r _ok _ocls _oev || [ -n "$_ok" ]; do
+    case "$_ok" in ''|'#'*) continue ;; esac
+    [ "$_ocls" = OUTSIDE_SLOW ] || refuse "OUTSIDE.tsv names $_ok with class '$_ocls' -- OUTSIDE_SLOW is the one class (Lon 2026-10-10)"
+    [ -n "${_oev// /}" ] || refuse "OUTSIDE.tsv names $_ok with no evidence -- an exclusion with no measurement is an opinion"
+    [ -f "$BD/$_ok.$EXT" ] || refuse "OUTSIDE.tsv names $_ok, which is no kernel under $BD"
+    OUTS[$_ok]="$_ocls"
+  done < "$BD/OUTSIDE.tsv"
+fi
 printf '%-28s %-4s %-7s %-7s %-7s %s\n' kernel mode process iter time verdict
 declare -A PASSN; PASSN[m3]=0; PASSN[m4]=0; BOTH=0; TOTAL=0; NAMED=""; HEAPD=0
 for k in "${KERNELS[@]}"; do
+  if [ -n "${OUTS[$k]:-}" ]; then NOUT=$((NOUT+1)); OUTN="$OUTN $k(${OUTS[$k]})"; printf '%-28s %-4s %s\n' "$k" both "OUT ${OUTS[$k]} (OUTSIDE.tsv): not run, out of the denominator"; continue; fi
   TOTAL=$((TOTAL+1)); f="$BD/$k.$EXT"; ref="$BD/$k.ref"
   kb="$(declared_arena_kb_beside "$f")" || refuse "$k: its .heap sidecar is refused (the reader said why above)"
   st="$(declared_stack_kb_beside "$f")" || refuse "$k: its .stack sidecar is refused (the reader said why above)"
@@ -125,10 +143,11 @@ for k in "${KERNELS[@]}"; do
   done
   [ "$okboth" = 1 ] && BOTH=$((BOTH+1))
 done
-LINE="SUITE_BOARD family=$SUITE_KEY total=$TOTAL shipped=$TOTAL all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=$ANGLES iter_n=$ITER_N bud_ms=$BUD_MS memory_declared=$HEAPD"
+LINE="SUITE_BOARD family=$SUITE_KEY total=$TOTAL shipped=$((TOTAL+NOUT))$([ "$NOUT" -gt 0 ] && echo " excluded=$NOUT") all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=$ANGLES iter_n=$ITER_N bud_ms=$BUD_MS memory_declared=$HEAPD"
 echo
 echo "$LINE"
 [ -n "$NAMED" ] && echo "  not passing:$NAMED"
+[ -n "$OUTN" ] && echo "  not run, out of the denominator (OUTSIDE.tsv, Lon 2026-10-10):$OUTN"
 echo "  tree: SCRIP=$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null)$(git -C "$HERE/.." diff --quiet 2>/dev/null || echo -dirty) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null)$(git -C "$S4E/corpus" diff --quiet 2>/dev/null || echo -dirty) RT_OPT=-O0"
 if [ "$IS_BOARD" = 0 ]; then
   echo "  population $BD is OUTSIDE the corpus tree -- not a board (CEO-547): graded, and no progress row and no suite row written"
@@ -139,7 +158,7 @@ else
   echo "  row write: $([ "$WRITE" = 1 ] && echo yes || echo no) -- $WRITE_WHY"
   if [ "$WRITE" = 1 ]; then
     python3 "$HERE/util_score_row.py" write --lang "$LANG_KEY" --column bench-ref --measurer "${S4E_SEAT:-}" --text "$LINE" \
-      ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
+      ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} $([ "$NOUT" -gt 0 ] && echo "--excluded $NOUT") \
       || echo "⚠ SUITE ROW NOT WRITTEN -- util_score_row.py refused (reason above)"
   else
     echo "  suite row: not written ($WRITE_WHY; a whole-population pass publishes by default, the Raku lane's seat publishes: util_score_row.py write --lang raku --column bench-ref)"
