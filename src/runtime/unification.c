@@ -1210,9 +1210,15 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     }
     int as_codes = (!strcmp(fn, "atom_codes") || !strcmp(fn, "string_codes"));
     if (!strcmp(fn, "atom_chars") || !strcmp(fn, "string_chars") || as_codes) {
+        int swi = !strncmp(fn, "string_", 7);
+        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        extern void *rt_pl_ball_instantiation(void);
         if (t0 && !pl_cell_unbound(t0)) {
             const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
-            if (!s) { return 0; }
+            if (!s) {
+                if (swi && cx && !cx->ball) cx->ball = rt_pl_ball_kind2("type_error", "text", *t0);
+                return 0;
+            }
             if (t1 && (int)t1->v == DT_S) return !strcmp(plc_atom_text(t1), s);
             int *cps = (int *)rt_wsb_alloc((strlen(s) + 1) * sizeof(int));
             int cn = 0, adv;
@@ -1231,6 +1237,30 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             return 1;
         }
         if (t1 && (int)t1->v == DT_S) return plc_text_out(a0_cell, plc_atom_text(t1), fn[0] == 's', cx);
+        if (swi) {
+            int mode = -1;
+            size_t cap = 64, oi = 0;
+            char *o = (char *)rt_wsb_alloc(cap);
+            void *b = (void *)0;
+            for (pl_cell_t *c = t1; !b; c = pl_deref(&((pl_cell_t *)c->p)[1])) {
+                if (!c || pl_cell_unbound(c)) { b = rt_pl_ball_instantiation(); break; }
+                if (plc_is_atomlike(c) && plc_atom_id_of(c) == ATOM_NIL) break;
+                if (!((int)c->v == DT_PLREF && plc_fid_name(c->slen) == ATOM_DOT && plc_fid_arity(c->slen) == 2 && c->p)) { b = rt_pl_ball_kind2("type_error", "list", *t1); break; }
+                pl_cell_t *el = pl_deref(&((pl_cell_t *)c->p)[0]);
+                int cp = 0, adv = 0;
+                const char *cn = ((int)el->v == DT_PLATOM || (int)el->v == DT_S) ? plc_atom_text(el) : (const char *)0;
+                if (pl_cell_unbound(el)) { b = rt_pl_ball_instantiation(); break; }
+                if (mode < 0) mode = (int)el->v == DT_I ? 0 : 1;
+                if (mode == 0 && (int)el->v != DT_I) { b = rt_pl_ball_kind2("type_error", "character_code", *el); break; }
+                if (mode == 1 && (!cn || !cn[0] || ((cp = rt_pl_u8_get(cn, &adv)), cn[adv]))) { b = rt_pl_ball_kind2("type_error", "character", *el); break; }
+                if (mode == 0) cp = (int)el->i;
+                if (oi + 8 >= cap) { cap *= 2; o = (char *)rt_wsb_realloc(o, cap); }
+                oi += (size_t)rt_pl_u8_put(o + oi, cp);
+            }
+            if (b) { if (cx && !cx->ball) cx->ball = b; return 0; }
+            o[oi] = '\0';
+            return plc_text_out(a0_cell, o, 1, cx);
+        }
         pl_cell_t *cur = t1;
         size_t ocap = 256;
         char *out = (char *)rt_wsb_alloc(ocap);
