@@ -18,7 +18,7 @@ prologue seed) so every cell of it is rbp-relative, or it is not and every cell 
 the .s was never emitted and its sites are counted UNEMITTED, not placed.
 CRITERION VERDICT.  A box RETAINS when it can leave a callee frame on the spine after its gamma: SUSPEND, PROC_GEN, CREATE,
 ACTIVATE, CORET, COFAIL, CALL_VALUE, and a call whose callee graph (found by name in the same program) retains -- for Icon a
-callee containing one of the generator kinds, for Prolog a callee with more than one clause (more than one SUCCEED box; this
+callee containing a SUSPEND (the compiler's rt_proc_is_generator; a procedure that only drives a generator inside itself does not retain for its caller), for Prolog a callee with more than one clause (more than one SUCCEED box; this
 is a CONSERVATIVE bound, determinate-by-indexing predicates are counted as retaining, so MISPLACED is a floor).
   operand edge (O,P)  REQUIRED iff a retaining box lies on a gamma path strictly between P and O.
   local site          REQUIRED iff a retaining box can execute before the site (it reaches it over any edge), or is it.
@@ -220,10 +220,11 @@ def analyse_program(lang, src, tmpasm, seen):
         if e['from'] in boxes and e['to'] in boxes:
             gedges[int(e['from'].split('_')[0][1:])].append(e)
     gname = {g: names.get(g, '?') for g in by}
-    gen_graph, multi, sigs = {}, {}, {}
+    gen_graph, susp_graph, multi, sigs = {}, {}, {}, {}
     for g, ids in by.items():
         ks = {boxes[i]['kind'] for i in ids}
         gen_graph[gname[g]] = bool(ks & GEN_KINDS)
+        susp_graph[gname[g]] = 'SUSPEND' in ks
         multi[gname[g]] = sum(1 for i in ids if boxes[i]['kind'] == 'SUCCEED') > 1
         sigs[g] = hashlib.sha1(json.dumps([sorted((boxes[i]['kind'], boxes[i].get('label', '')) for i in ids),
                                            sorted((e['from'].split('_', 1)[1], e.get('fp', ''), e['to'].split('_', 1)[1], e.get('tp', ''), e.get('rel', ''), e.get('slot', ''))
@@ -237,7 +238,7 @@ def analyse_program(lang, src, tmpasm, seen):
             return True
         if b['kind'] in CALL_KINDS:
             lab = b.get('label', '')
-            return gen_graph.get(lab, False) if lang == 'icon' else multi.get(lab, False)
+            return susp_graph.get(lab, False) if lang == 'icon' else multi.get(lab, False)
         return False
 
     out = []
