@@ -31,12 +31,13 @@ W="$(mktemp -d "${TMPDIR:-/tmp}/gate_announce.XXXXXX")" || refuse "mktemp failed
 cleanup(){ chmod -R u+w "$W" 2>/dev/null; rm -rf "$W"; }
 trap cleanup EXIT
 mkdir -p "$W/tasks" "$W/claims" "$W/released"
-STANDING="ceo cto cfo coo hq_raku hq_snobol4 hq_prolog"
-DOWN="hq_icon hq_pascal seat07"
+# the roster of SEPTET as CEO-1595 redefined it (2026-10-10, s4e_msg.sh a8767cfdd): hq_pascal stands, hq_snobol4 is stood down
+STANDING="ceo cto cfo coo hq_raku hq_pascal hq_prolog"
+DOWN="hq_icon hq_snobol4 seat07"
 for s in $STANDING $DOWN; do mkdir -p "$W/$s/inbox" "$W/$s/archive"; done
 # ⭐ THE FIXTURE BRINGS ITS OWN MODE, and it is SEPTET because that is the mode whose roster splits the HQs -- a
 # fixture under a mode that admits everybody could not tell arm 1 from arm 2.
-printf 'SEPTET\n# scratch line 2 for a gate fixture: LANES: icon=ceo prolog=hq_prolog snobol4=hq_snobol4 raku=hq_raku\n' > "$W/MODE"
+printf 'SEPTET\n# scratch line 2 for a gate fixture: LANES: icon=ceo prolog=hq_prolog snobol4=ceo pascal=ceo raku=hq_raku\n' > "$W/MODE"
 printf '0\trow-the-coo-takes\tcoo\tFREE\n0\trow-the-cfo-already-holds\tcfo\tCLAIMED:cfo\n0\trow-for-the-picker\tcto\tFREE\n' > "$W/QUEUE.tsv"
 for t in row-the-coo-takes row-the-cfo-already-holds row-for-the-picker; do
   printf '# TASK %s\nGOAL: gate fixture.\nDONE-WHEN: true\n## NEXT\nfixture\n## QA\n## LEDGER\n' "$t" > "$W/tasks/$t.task.md"; done
