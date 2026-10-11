@@ -12,8 +12,10 @@
 # UTF-32LE). bom(false) skips detection, so the BOM is read as the code 0xFEFF.
 #
 # ARM 1 (the suite's own expectations): util_logtalk_grade.py --group encodings in m3 and m4 -- each case is graded against the
-# expectation ISO/IEC 13211-1 and Logtalk state in the case -- floor 9 per mode (the 9 cases graded in; 40 are OUTSIDE, needing
-# logtalk_compile/logtalk_load). ARM 2 (the bytes): a term written to a stream opened with encoding(E) and bom(true), in each of
+# expectation ISO/IEC 13211-1 and Logtalk state in the case -- floor 29 per mode (RE-PINNED 9 -> 29, cfo 2026-10-11, CEO-1695/1696:
+# the 20 _03/_04 fixture cases are graded with _02 replayed first through the backend adapter, lib_logtalk_sequenced.tsv; the 20
+# _01/_02 logtalk_compile/logtalk_load cases are EXCLUDED NO_ORACLE_ANSWER; measured 29/29 here and 6/29 on 1c320b13e, before the
+# streams). ARM 2 (the bytes): a term written to a stream opened with encoding(E) and bom(true), in each of
 # the four encodings, is byte-identical to the BOM plus the text as python3's codec encodes it, and reads back with E detected,
 # in m3 and m4. FAIL-ONCE, measured on the parent 1c320b13e rebuilt: ARM 1 read m3_pass=2 m4_pass=2 (floor 9), ARM 2 every write
 # raised domain_error(stream_option, encoding(E)); with the cure 9/9 graded and 4 of 4 byte-identical in both modes.
@@ -37,8 +39,8 @@ line="$(python3 "$HERE/util_logtalk_grade.py" --suite "$SUITE" --scrip "$SCRIP" 
 [ -n "$line" ] || refuse "the grader printed no LOGTALK_ISO_BOARD line for --group encodings"
 p3="$(printf '%s\n' "$line" | sed -n 's/.*m3_pass=\([0-9]*\).*/\1/p')"
 p4="$(printf '%s\n' "$line" | sed -n 's/.*m4_pass=\([0-9]*\).*/\1/p')"
-if [ "${p3:-0}" -ge 9 ] && [ "${p4:-0}" -ge 9 ]; then echo "  ARM 1 GREEN: encodings m3_pass=$p3 m4_pass=$p4 (floor 9)"
-else echo "  ARM 1 RED: encodings m3_pass=${p3:-?} m4_pass=${p4:-?} (floor 9)  $line"; red=1; fi
+if [ "${p3:-0}" -ge 29 ] && [ "${p4:-0}" -ge 29 ]; then echo "  ARM 1 GREEN: encodings m3_pass=$p3 m4_pass=$p4 (floor 29)"
+else echo "  ARM 1 RED: encodings m3_pass=${p3:-?} m4_pass=${p4:-?} (floor 29)  $line"; red=1; fi
 for pair in UTF-16BE:utf-16-be UTF-16LE:utf-16-le UTF-32BE:utf-32-be UTF-32LE:utf-32-le; do
     enc="${pair%%:*}"; codec="${pair#*:}"; w="w_${codec//-/_}"
     cat > "$D/$w.pl" <<PL

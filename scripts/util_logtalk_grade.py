@@ -84,8 +84,11 @@ LOGTALK_ONLY_SYNTAX = re.compile(r"\^\^|::")
 SEQ_TABLE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib_logtalk_sequenced.tsv")
 
 
-def load_sequenced(path=SEQ_TABLE):
-    """{(group, case): reason} read from the declaration table. A malformed line is NAMED, never skipped."""
+def load_sequenced(path=SEQ_TABLE, setups=None):
+    """{(group, case): reason} read from the declaration table. A malformed line is NAMED, never skipped. A line may carry a fourth
+    column, a SETUP goal (ceo CEO-1695): the case is then graded with that goal run inside it ahead of its own goal, instead of its
+    file's prefix -- encodings' _03/_04 cases query facts their fixture defines, loaded through the adapter's '$lgt_load_prolog_file'/1
+    as lgtunit's run would have loaded it at _02. `setups`, when given, is filled {(group, case): goal}."""
     out, bad = {}, []
     if not os.path.exists(path):
         return out, [(path, "the sequenced-case declaration table is missing -- it is data this runner reads, "
@@ -94,10 +97,12 @@ def load_sequenced(path=SEQ_TABLE):
         if not line.strip() or line.lstrip().startswith("#"):
             continue
         f = line.rstrip("\n").split("\t")
-        if len(f) != 3 or not all(x.strip() for x in f):
-            bad.append((path, "line %d is not group<TAB>case<TAB>reason: %r" % (n, line.rstrip()[:80])))
+        if len(f) not in (3, 4) or not all(x.strip() for x in f):
+            bad.append((path, "line %d is not group<TAB>case<TAB>reason[<TAB>setup goal]: %r" % (n, line.rstrip()[:80])))
             continue
         out[(f[0].strip(), f[1].strip())] = f[2].strip()
+        if len(f) == 4 and setups is not None:
+            setups[(f[0].strip(), f[1].strip())] = f[3].strip()
     return out, bad
 
 
@@ -120,6 +125,10 @@ EXCLUDED_CLASSES = {
     # ceo CEO-1540 (2026-10-07): max_arity is an integer (ISO, GNU); at SCRIP's 2147483647 a case written for a small max_arity asks for a
     # structure no declared heap holds, and expects a representation_error where an engine raises resource_error (the cfo, 4f612be5d).
     "BOUNDED_MAX_ARITY_ONLY": "a condition(...) that holds only where max_arity is not unbounded, written for a system whose max_arity is small",
+    # Lon via the ceo, CEO-1696 (2026-10-11, RULES.md section Oracles): "Exclude any program in which we have no way to get output from an
+    # oracle, or in which we do not know the answer." The evidence checked on the case: its goal calls a Logtalk SYSTEM predicate
+    # (LOGTALK_SYSTEM below), which the oracle answers with existence_error -- no oracle answers the case.
+    "NO_ORACLE_ANSWER": "no oracle answers the case: its goal calls a Logtalk system predicate (logtalk_compile, logtalk_load, ...) no Prolog oracle has",
 }
 
 
@@ -147,6 +156,10 @@ def load_excluded(root):
 def _dotless_float_read(case):
     """The case reads a numeral with an exponent and no fraction (1e33, 1E33) and expects a syntax error."""
     return bool(re.search(r"set_text_input\('\d+[eE][+-]?\d+\. '\)", case.goal or "")) and "syntax_error" in (case.expect or "")
+
+
+def _no_oracle_answer(case):
+    return any(k in LOGTALK_SYSTEM for k in called_predicates(case.goal or ""))
 
 
 def _bounded_max_arity_only(case):
@@ -362,7 +375,7 @@ def _split_option(options):
 class Plan(object):
     """How one case will be graded, or why it will not be."""
     __slots__ = ("case", "want", "goal", "balls", "weaker", "skip_reason", "condition", "prefix", "sequenced",
-                 "outside_reason")
+                 "outside_reason", "setup")
 
     def __init__(self, case, want=None, goal=None, balls=(), weaker=None, skip_reason=None):
         self.case = case
@@ -375,6 +388,7 @@ class Plan(object):
         self.condition = None
         self.prefix = []          # earlier cases' goals, run before this one (see SEQ_TABLE above)
         self.sequenced = None     # the declared reason it needs them
+        self.setup = None         # a declared SETUP goal run ahead of the case's own goal (CEO-1695), instead of the prefix
 
 
 def action_goal(c, supported):
@@ -828,6 +842,8 @@ def assign_outside(work, dbs, supported, root):
                         break
                 except Exception:
                     continue
+            if prov and p.setup and prov in p.setup:
+                continue
             if prov:
                 p.outside_reason = ("%s/%d is defined only in %s, which nothing but logtalk_load/1-2 can "
                                     "bring in, and the oracle lacks it" % (nm, ar, prov))
@@ -920,7 +936,8 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     files, bad = ex.parse_suite(root)
     if bad:
         return None, bad
-    sequenced, seqbad = load_sequenced(seq_table)
+    seq_setups = {}
+    sequenced, seqbad = load_sequenced(seq_table, seq_setups)
     if seqbad:
         return None, seqbad
     excluded, exbad = load_excluded(root)
@@ -959,7 +976,11 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
         def build(c, idx, want_prefix, fc=fc, dropped=dropped, has_setup=has_setup, has_cleanup=has_cleanup):
             """One plan for one case. want_prefix wires this file's EARLIER cases ahead of it (SEQ_TABLE)."""
             p = plan_case(c, supported)
-            if p.skip_reason is None and want_prefix and idx > 0:
+            setup = seq_setups.get((fc.group, c.name))
+            if p.skip_reason is None and want_prefix and setup:
+                p.setup = setup
+                p.goal = "%s, %s" % (setup, p.goal)
+            elif p.skip_reason is None and want_prefix and idx > 0:
                 pre = []
                 for e in fc.cases[:idx]:
                     g, why = action_goal(e, supported)
@@ -1004,6 +1025,13 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
                 if not _bounded_max_arity_only(c):
                     exerr.append((xk, "is excluded BOUNDED_MAX_ARITY_ONLY and its options %r carry no condition that needs a "
                                       "max_arity that is not unbounded -- the row is stale or names the wrong case" % (c.options or "")))
+                    continue
+                excl_hits.append((xk, xr[0], xr[1]))
+                continue
+            if xr is not None and xr[0] == "NO_ORACLE_ANSWER":
+                if not _no_oracle_answer(c):
+                    exerr.append((xk, "is excluded NO_ORACLE_ANSWER and its goal %r calls no Logtalk system predicate -- the row is "
+                                      "stale or names the wrong case" % ((c.goal or "")[:80],)))
                     continue
                 excl_hits.append((xk, xr[0], xr[1]))
                 continue
