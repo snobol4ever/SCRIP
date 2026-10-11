@@ -78,10 +78,19 @@ static inline const char * pl_ax_suffix_ext(const char * s, int ar) {
         if (!strcmp(s, "ceil")) return "ceil";
         if (!strcmp(s, "lgamma")) return "lgamma";
         if (!strcmp(s, "random")) return "rand";
+        if (!strcmp(s, "$rand_set")) return "rset";
+        if (!strcmp(s, "$rand_seed")) return "rseed";
         return (const char *)0;
     }
     if (ar == 3) { if (!strcmp(s, "powm")) return "powm"; return (const char *)0; }
-    if (ar == 0) { if (!strcmp(s, "epsilon")) return "eps"; if (!strcmp(s, "inf")) return "inf"; if (!strcmp(s, "nan")) return "nan"; return (const char *)0; }
+    if (ar == 0) {
+        if (!strcmp(s, "epsilon")) return "eps";
+        if (!strcmp(s, "inf")) return "inf";
+        if (!strcmp(s, "nan")) return "nan";
+        if (!strcmp(s, "random_float")) return "rflt";
+        if (!strcmp(s, "$rand_state")) return "rstate";
+        return (const char *)0;
+    }
     return (const char *)0;
 }
 static inline const char * pl_ax_suffix_any(const char * s, int ar) { const char * f = pl_ax_suffix_of(s, ar); return f ? f : pl_ax_suffix_ext(s, ar); }

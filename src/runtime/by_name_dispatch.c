@@ -5687,6 +5687,16 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "eps")) { *out = REALVAL(DBL_EPSILON); return 1; }
         if (!strcmp(op, "inf")) { *out = REALVAL(HUGE_VAL); return 1; }
         if (!strcmp(op, "nan")) { *out = REALVAL(0.0 / 0.0); return 1; }
+        if (!strcmp(op, "rflt")) { *out = REALVAL(drand48()); return 1; }
+        if (!strcmp(op, "rstate")) {
+            unsigned short z[3] = { 0, 0, 0 }, *o = seed48(z), s[3];
+            s[0] = o[0];
+            s[1] = o[1];
+            s[2] = o[2];
+            (void)seed48(s);
+            *out = INTVAL((long long)s[0] | (long long)s[1] << 16 | (long long)s[2] << 32);
+            return 1;
+        }
         *out = FAILDESCR;
         return 1;
     }
@@ -5774,7 +5784,15 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
             extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
             if (!ai) { if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "integer", a); *out = FAILDESCR; return 1; }
             if (a.i < 1) { if (ball && !*ball) *ball = rt_pl_ball_kind2("domain_error", "not_less_than_one", a); *out = FAILDESCR; return 1; }
-            *out = INTVAL((long long)(((unsigned long long)random() << 31 ^ (unsigned long long)random()) % (unsigned long long)a.i));
+            *out = INTVAL((long long)(drand48() * (double)a.i));
+            return 1;
+        }
+        if (!strcmp(op, "rset") || !strcmp(op, "rseed")) {
+            extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+            if (!ai) { if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "integer", a); *out = FAILDESCR; return 1; }
+            if (!strcmp(op, "rseed")) srand48(a.i < 0 ? (long)time((time_t *)0) ^ (long)getpid() : (long)a.i);
+            else { unsigned short s[3] = { (unsigned short)(a.i & 0xFFFF), (unsigned short)(a.i >> 16 & 0xFFFF), (unsigned short)(a.i >> 32 & 0xFFFF) }; (void)seed48(s); }
+            *out = INTVAL(0);
             return 1;
         }
         if (!strcmp(op, "tan")) { *out = REALVAL(tan(ad)); return 1; }
