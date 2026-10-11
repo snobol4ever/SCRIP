@@ -2050,7 +2050,8 @@ void rkb_colonpair(RkB *b, RkTerm *it, int from, int to, int ck, int kfrom, int 
     it->name = spn(b, kfrom, kto);
     if (vkind == 'W') it->val = leaf_sval(TT_QLIT, trimdup(b->s + vfrom, vto - vfrom)); else it->val = val;
     it->t = rk_adverb_bool(ck != '!');
-    if (ck == '$' && val) { tree_t *pr = make_call("__rk_pair"); expr_add_child(pr, leaf_sval(TT_QLIT, it->name)); expr_add_child(pr, val); it->t = pr; }
+    if ((ck == '$' || (ck == 'v' && (vkind == 'P' || vkind == 'W'))) && it->val) { tree_t *pr = make_call("__rk_pair"); expr_add_child(pr, leaf_sval(TT_QLIT, it->name)); expr_add_child(pr, it->val); it->t = pr; }
+    else if ((ck == 'n' || ck == '!') && it->name && *it->name) { tree_t *pr = make_call("__rk_pair"); expr_add_child(pr, leaf_sval(TT_QLIT, it->name)); expr_add_child(pr, rk_adverb_bool(ck == 'n')); it->t = pr; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_fatarrow(RkB *b, RkTerm *it, int from, int to, int kfrom, int kto, RkList *val) {
