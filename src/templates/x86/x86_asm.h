@@ -16,6 +16,7 @@ long *rt_anchor_ptr(void);
 int rtx_entry_is(const char *sym);
 int emit_rtx_entry_is(const char * sym);
 unsigned emit_rtx_clob_mask(const char * sym);
+void * emit_rtx_twin(const char * sym, const char ** cname);
 }
 #include "rtx/rtcc.h"
 #ifndef _
@@ -391,10 +392,11 @@ inline std::string x86_call_text_adj(const char * sym, const char * sfx, int adj
     return x86_rec("call") + sym + sfx + "\n" + x86_gc_site_adj(X86_SITE_CALL, adj);
 }
 inline std::string x86_call_text(const char * sym, const char * sfx) { return x86_call_text_adj(sym, sfx, 0); }
+inline std::string x86_rtx_verdict_adj(const char * sym, int adj);
 inline std::string x86_call_ro_adj(const char * sym, uint64_t ptr, int adj) {
     if (MEDIUM_BINARY) { std::string code; code += (char)0x48; code += (char)0xB8; code += u64le(ptr); code += (char)0xFF; code += (char)0xD0;
-        return x86_align_assert() + x86_Lrec(code) + x86_gc_site_adj(X86_SITE_CALL, adj) + x86_rtx_after_bare(sym); }
-    return x86_align_assert() + x86_call_text_adj(sym, "@PLT", adj) + x86_rtx_after_bare(sym);
+        return x86_align_assert() + x86_Lrec(code) + x86_gc_site_adj(X86_SITE_CALL, adj) + x86_rtx_after_bare(sym) + x86_rtx_verdict_adj(sym, adj); }
+    return x86_align_assert() + x86_call_text_adj(sym, "@PLT", adj) + x86_rtx_after_bare(sym) + x86_rtx_verdict_adj(sym, adj);
 }
 inline std::string x86_call_ro(const char * sym, uint64_t ptr) { return x86_call_ro_adj(sym, ptr, 0); }
 #define RTCC_C_R8 1u
@@ -2669,6 +2671,14 @@ inline std::string x86_gc_gate(const std::string & body) {
           if (!said++ && getenv("SCRIP_GATE_DIAG")) fprintf(stderr, "[GATE-DIAG] a poll body carries a record kind x86_rec_bytes does not size; the site is emitted ungated\n"); return body; }
       std::string je = (n <= 127) ? x86_b2(0x74, (uint8_t)n) : (x86_b2(0x0F, 0x84) + x86_b4((uint8_t)(n & 255), (uint8_t)((n >> 8) & 255), (uint8_t)((n >> 16) & 255), (uint8_t)((n >> 24) & 255)));
       return test + x86_Lrec(je) + body; }
+}
+inline std::string x86_rtx_verdict_adj(const char * sym, int adj) {
+    static int seq;
+    const char * cname = 0;
+    void * caddr = emit_rtx_entry_is(sym) ? emit_rtx_twin(sym, &cname) : 0;
+    if (!caddr) return std::string();
+    const struct bb_label_t * done = emit_label_alloc(".Lvd%d", seq++);
+    return x86("cmp", "al", (long)RTX_NOT_HANDLED) + x86("jne", "extlbl", (uint64_t)(uintptr_t)done) + x86_rtcc_call_adj(cname, (uint64_t)(uintptr_t)caddr, adj) + x86_def_ext(done);
 }
 inline std::string x86_rt_gc_poll_at(const char * f, int l) { const char * b = strrchr(f, '/');
     return x86("note", std::string("gc_poll ") + (b ? b + 1 : f) + ":" + std::to_string(l)) + x86_gc_gate(x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm)); }

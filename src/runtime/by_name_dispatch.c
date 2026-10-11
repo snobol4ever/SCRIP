@@ -15644,9 +15644,9 @@ static __attribute__((noinline)) int bn_lexrel(DESCR_t *args, int nargs, DESCR_t
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_identdiffer(DESCR_t *args, int nargs, DESCR_t *out, int ident) {
-    extern int descr_identical(DESCR_t, DESCR_t);
+    extern int c_descr_identical(DESCR_t, DESCR_t);
     DESCR_t a = nargs > 0 ? args[0] : NULVCL, b = nargs > 1 ? args[1] : NULVCL;
-    int same = descr_identical(a, b);
+    int same = c_descr_identical(a, b);
     *out = (ident ? same : !same) ? NULVCL : FAILDESCR;
     return 1;
 }
@@ -19619,8 +19619,8 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         if ((_bid == BID_x3Ex3Ex3D)) _STRREL(>=);
         if ((_bid == BID_x3Dx3D)) _STRREL(==);
         if ((_bid == BID_x7Ex3Dx3D)) _STRREL(!=);
-        if ((_bid == BID_x3Dx3Dx3D)) { extern int descr_identical(DESCR_t, DESCR_t); *out=descr_identical(l,r)?r:FAILDESCR; return 1; }
-        if ((_bid == BID_x7Ex3Dx3Dx3D)) { extern int descr_identical(DESCR_t, DESCR_t); *out=descr_identical(l,r)?FAILDESCR:r; return 1; }
+        if ((_bid == BID_x3Dx3Dx3D)) { extern int c_descr_identical(DESCR_t, DESCR_t); *out=c_descr_identical(l,r)?r:FAILDESCR; return 1; }
+        if ((_bid == BID_x7Ex3Dx3Dx3D)) { extern int c_descr_identical(DESCR_t, DESCR_t); *out=c_descr_identical(l,r)?FAILDESCR:r; return 1; }
         if ((_bid == BID_x5Bx5D)) { *out=subscript_get(l,r); return 1; }
         if ((_bid == BID_x2Bx2B) || (_bid == BID_x2Dx2D) || (_bid == BID_x2Ax2A)) {
             if (l.v == DT_T && l.tbl && l.tbl->is_set && r.v == DT_T && r.tbl && r.tbl->is_set) {

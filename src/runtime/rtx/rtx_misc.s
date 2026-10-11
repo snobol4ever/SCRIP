@@ -170,16 +170,14 @@ RTX_FUNC(descr_identical)
     RTX_GVA_R9
     ret
 .Ldi_cs:
-    RTX_SUB_RSP(8)
-    call    c_descr_identical
-    RTX_ADD_RSP(8)
+    mov     eax, RTX_NOT_HANDLED
     RTX_GVA_R9
     ret
 .Ldi_zero:
     xor     eax, eax
     ret
 .Ldi_c:
-    RTX_CTAIL(c_descr_identical)
+    RTX_DECLINE
 RTX_ENDF(descr_identical)
 RTX_FUNC(rt_faildescr)
     mov     eax, DT_FAIL

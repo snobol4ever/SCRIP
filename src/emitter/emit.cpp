@@ -5315,6 +5315,22 @@ extern "C" unsigned emit_rtx_clob_mask(const char * sym) {
     for (int i = 0; i < RTX_CLOB_TAB_N; i++) if (rtx_clob_tab[i].sym[0] == sym[0] && strcmp(rtx_clob_tab[i].sym, sym) == 0) return rtx_clob_tab[i].mask;
     return 0u;
 }
+#define RTX_TWIN(ret, leaf, twin, args) extern "C" ret twin args;
+#include "../templates/x86/rtx_twin_table.inc"
+#undef RTX_TWIN
+static const struct { const char * sym; const char * cname; void * caddr; } rtx_twin_tab[] = {
+#define RTX_TWIN(ret, leaf, twin, args) { #leaf, #twin, (void *)twin },
+#include "../templates/x86/rtx_twin_table.inc"
+#undef RTX_TWIN
+};
+extern "C" void * emit_rtx_twin(const char * sym, const char ** cname) {
+    if (!sym) return 0;
+    for (size_t i = 0; i < sizeof rtx_twin_tab / sizeof rtx_twin_tab[0]; i++) {
+        if (rtx_twin_tab[i].sym[0] != sym[0] || strcmp(rtx_twin_tab[i].sym, sym) != 0) continue;
+        *cname = rtx_twin_tab[i].cname; return rtx_twin_tab[i].caddr;
+    }
+    return 0;
+}
 int emit_rtx_entry_is(const char * sym) {
     if (!sym) return 0;
     if (!g_emitter.g_rtxe_cap) { uint32_t n = 0, c = 64; for (const char * p = __start_rtx_entry_names; p < __stop_rtx_entry_names; p += strlen(p) + 1) n++;
