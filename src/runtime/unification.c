@@ -1684,6 +1684,9 @@ int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell, pl_tr
         if (!strcmp(ty, "digit")) {
             if (!isdigit(ch)) { return 0; }
             out = pl_make_int((int64_t)(ch - '0'));
+        } else if (!strcmp(ty, "xdigit")) {
+            if (!isxdigit(ch)) { return 0; }
+            out = pl_make_int((int64_t)(isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10));
         } else if (!strcmp(ty, "to_lower")) {
             char c2[2] = { (char)toupper(ch), 0 };
             out = plc_make_atom_cell(c2);

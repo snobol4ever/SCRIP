@@ -18,12 +18,11 @@
 # backtracks(B); (3) GNU's expressions INSIDE the operators SWI's clpfd also exports -- X ** 2 #= 49, dist/2, exact division (Z / 3
 # #= 4 admits only 12), quot_rem/3, min/max, // and rem, (A #<=> B) #/\ (C #<=> E), ## and #==> under #\/, #\ over a #>=#, a
 # reified ** -- answered through gnu_fd's wrappers over the '$clpfd_wrapped_<op>' copies the generator's WRAPS emits; the arm
-# declares -s16384k (measured: 8 MB stops at its ninth line, 16 MB runs it whole; its min/max line alone overflows 4 MB, the
-# last-call-in-a-branch shape of CEO-1632).  FAIL-ONCE of arm 3, measured on 84ed661f8 (before WRAPS): domain_error(clpfd_expression,
-# _ ** 2) on the first line, 12 of 12 lines differ.  ARM 2 also declares -s16384k since the cto's wake-up cure d5d4f00c7 (its
-# after-goal probe adds 160 bytes to an armed clause frame, and a branch's last call keeps its frame, CEO-1632): measured on
-# cccf3d032 the 23-line witness stops at its twelfth line at 4 MB and at 8 MB and runs whole at 16 MB; it ran whole at 4 MB on
-# c399cd256.  When CEO-1632 lands, re-measure and lower both declarations.  FAIL-ONCE, measured on 70f3505ed: arm 1 (no base table) 11 of 11 lines differ, arm 2 (existence_error fd_domain/3)
+# declares -s8192k (re-measured on the cto's CEO-1632 chunk 1, 45e63ef51: 4 MB stops it, 8 MB runs it whole; before chunk 1 it
+# needed 16 MB).  FAIL-ONCE of arm 3, measured on 84ed661f8 (before WRAPS): domain_error(clpfd_expression,
+# _ ** 2) on the first line, 12 of 12 lines differ.  ARM 2 declared -s16384k from 18e3120f5 (the wake-up cure's frame cost) until
+# CEO-1632 chunk 1 (45e63ef51) released an if-then-else branch's last call; re-measured there, its 23-line witness runs whole at the
+# 4 MB default again, so it declares nothing.  FAIL-ONCE, measured on 70f3505ed: arm 1 (no base table) 11 of 11 lines differ, arm 2 (existence_error fd_domain/3)
 # 23 of 23; on the cure 0 of 34.  rc=0 agrees with gprolog · rc=1 a divergence · rc=2 REFUSAL (no gplc, no build).  ~8 s.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -87,7 +86,7 @@ PL
 for w in ops fd ex; do
     ( cd "$D" && timeout 120 "$GPLC" -o "$w.gnu" "$w.pl" > /dev/null 2>&1 && timeout 30 "./$w.gnu" < /dev/null > "$w.want" 2>&1 ) || refuse "gprolog itself fails on $w.pl"
     [ -s "$D/$w.want" ] || refuse "gprolog printed nothing for $w.pl"
-    stk=; [ "$w" = ops ] || stk=-s16384k
+    stk=; [ "$w" = ex ] && stk=-s8192k
     ( cd "$D" && timeout 120 "$B/scrip" $stk --run "$w.pl" < /dev/null > "$w.m3" 2>&1 )
     n=$(wc -l < "$D/$w.want")
     if cmp -s "$D/$w.want" "$D/$w.m3"; then echo "  $w m3 GREEN: $n of $n lines as gprolog"

@@ -1840,6 +1840,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$dcg_body'(V,S0,S,phrase(V,S0,S)):-var(V),!.\n"
     "'$dcg_body'([],S0,S,S0=S):-!.\n"
     "'$dcg_body'([H|T],S0,S,S0=L):-!,'$dcg_list'([H|T],S,L).\n"
+    "'$dcg_body'(Str,S0,S,S0=L):-string(Str),!,string_codes(Str,Cs),'$dcg_list'(Cs,S,L).\n"
     "'$dcg_body'((A,B),S0,S,(GA,GB)):-!,'$dcg_body'(A,S0,S1,GA),'$dcg_body'(B,S1,S,GB).\n"
     "'$dcg_body'((C->T;E),S0,S,(GC->GT;GE)):-!,'$dcg_body'(C,S0,S1,GC),'$dcg_body'(T,S1,S,GT),'$dcg_body'(E,S0,S,GE).\n"
     "'$dcg_body'((C*->T;E),S0,S,(GC*->GT;GE)):-!,'$dcg_body'(C,S0,S1,GC),'$dcg_body'(T,S1,S,GT),'$dcg_body'(E,S0,S,GE).\n"
@@ -2226,9 +2227,22 @@ static int pl_word_count(const char *src, const char *w) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_dcg_ctrl(const tree_t *b, int n, const char *op) { return b->t == TT_FNC && b->v.sval && b->n == n && !strcmp(b->v.sval, op); }
+static void pl_tree_collect_dcg_keys(const tree_t *b, cv_t *keys) {
+    if (!b) return;
+    if (pl_dcg_ctrl(b, 2, ",") || pl_dcg_ctrl(b, 2, ";") || pl_dcg_ctrl(b, 2, "->") || pl_dcg_ctrl(b, 2, "|")) { pl_tree_collect_dcg_keys(b->c[0], keys); pl_tree_collect_dcg_keys(b->c[1], keys); return; }
+    if (pl_dcg_ctrl(b, 1, "\\+")) { pl_tree_collect_dcg_keys(b->c[0], keys); return; }
+    if (!((b->t == TT_FNC || b->t == TT_QLIT || b->t == TT_NAME) && b->v.sval)) return;
+    if (!strcmp(b->v.sval, "{}") || !strcmp(b->v.sval, ".") || !strcmp(b->v.sval, "[]") || !strcmp(b->v.sval, "!") || !strcmp(b->v.sval, "call")) return;
+    char k[strlen(b->v.sval) + 16];
+    snprintf(k, sizeof k, "%s/%d", b->v.sval, (b->t == TT_FNC ? b->n : 0) + 2);
+    pl_cv_add(keys, k);
+}
 static void pl_tree_collect_keys(const tree_t *t, cv_t *keys) {
     if (!t) return;
     if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) { char k[strlen(t->v.sval) + 16]; snprintf(k, sizeof k, "%s/%d", t->v.sval, t->t == TT_FNC ? t->n : 0); pl_cv_add(keys, k); }
+    if (pl_dcg_ctrl(t, 2, "-->")) pl_tree_collect_dcg_keys(t->c[1], keys);
+    if (pl_dcg_ctrl(t, 2, "phrase") || pl_dcg_ctrl(t, 3, "phrase")) pl_tree_collect_dcg_keys(t->c[0], keys);
     for (int i = 0; i < t->n; i++) pl_tree_collect_keys(t->c[i], keys);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2276,7 +2290,7 @@ static int pl_lib_named(const pl_prelude_lib_t *lib, const pl_pk_t *rk, uint32_t
     for (const pl_prelude_lib_pi_t *e = lib->exports; e->nm; e++) {
         if (native_only && !strcmp(e->nm, native_only)) continue;
         if (ud && pl_pk_has(ud, udc, e->nm, e->ar)) continue;
-        if (!pl_pk_has(rk, rkc, e->nm, e->ar) && !(e->ar && pl_pk_has(rk, rkc, e->nm, 0))) continue;
+        if (!pl_pk_has(rk, rkc, e->nm, e->ar) && !(e->ar && pl_pk_has(rk, rkc, e->nm, 0) && !pl_lib_quiet(lib, e->nm, 0))) continue;
         if (pl_lib_quiet(lib, e->nm, e->ar)) continue;
         if (!(bk ? pl_pk_has(bk, bkc, e->nm, e->ar) : pl_base_defines(base, base_last, e->nm, e->ar))) return 1;
     }

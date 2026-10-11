@@ -42,6 +42,14 @@ references it finds in the parsed library, selects the libraries that one needs,
       definition takes precedence over a special-cased builtin) is listed in OMIT below with its reason and its clauses
       are dropped.  An export the base prelude defines needs no entry: the injector drops it (the base prelude wins).
 
+A library in QUIET_BARE is never selected by a BARE atom of an export's name (the any-arity match a closure such as
+maplist(foo, L) needs): dcg/basics exports integer//1, atom//1, number//1, string//1 and kin, and library(error)'s type names
+are those atoms, so every program reaching error would select dcg_basics.  Its exports are quiet at arity 0 (the injector's
+bare-match test reads that entry); a DCG body or phrase/2,3 names a nonterminal at its full arity, which still selects it.
+
+A library whose SWI path is not its file stem is named in LIB_PATH (dcg_basics.pl is SWI's library/dcg/basics.pl, module
+dcg_basics): the reader resolves and identity-checks it there.
+
 A library in LOCAL is SCRIP's OWN text (gnu_fd.pl, AGPL): no SWI reader, no identity check, no renames (its helpers are
 '$'-named by hand); its exports and operators come from its module directive and its clause heads are keyed by this
 tokenizer, so they are written in canonical form.  A library in SHADOWS names the export keys of OTHER libraries that its
@@ -50,7 +58,9 @@ itself (fd_dom/2 is also SWI's).  Both tables are emitted beside the exports and
 
 A helper CALLED BY ITS NAME AS DATA -- clpfd's override(selection, ...) reaches selection/1 through call(What, Value), so the
 rename of the predicate alone leaves call/2 asking for a selection/1 that no longer exists -- is listed in RENAME_AS_DATA and
-every bare occurrence of that atom (one not followed by an open parenthesis) is renamed with it; --show's "left as data" line is
+every bare occurrence of that atom (one not followed by an open parenthesis) is renamed with it; a helper whose COMPOUND data
+term is later called -- clpfd's distinct_goals builds [neq_num(V, N)|Gs] and runs maplist(call, Gs) -- is listed in
+RENAME_TERMS_AS_DATA and its compound occurrences are renamed too; --show's "left as data" line is
 the review surface for the rest, each of which is a term never called.
 
 A library in WRAPS stands in front of another library's exports: for each wrapped key the generator APPENDS to the wrapped
@@ -83,11 +93,14 @@ DROP_DIRECTIVES = {"module", "use_module", "autoload", "meta_predicate", "multif
                    "reexport", "type", "pred", "quasi_quotation_syntax", "volatile", "encoding", "$hide"}
 KEEP_DIRECTIVES = {"if", "elif", "else", "endif", "op", "create_prolog_flag", "dynamic"}
 EXPANDED = {"clpfd"}
+LIB_PATH = {"dcg_basics": "dcg/basics"}
+RENAME_TERMS_AS_DATA = {"clpfd": {"neq_num"}}
 RENAME_AS_DATA = {"clpfd": {"selection", "order", "choice", "bare_integer", "circuit_successors", "g0_successors", "gcc_successors", "clear_parent", "fd_variable",
                             "conjunction", "disjunction", "sink", "source", "clpfd_equal_", "clpfd_geq_", "clpfd_neq"}}
 LOCAL = {"gnu_fd"}
 SHADOWS = {"gnu_fd": {("fd_dom", 2): "GNU's fd_dom/2 answers the list of the domain's values where SWI's answers the domain term (measured on gprolog 1.6.0 and swipl 9.0.4, 2026-10-10)"}}
 QUIET = {"gnu_fd": {("fd_dom", 2)}}
+QUIET_BARE = {"dcg_basics"}
 WRAPS = {"gnu_fd": {"clpfd": {("#=", 2), ("#\\=", 2), ("#<", 2), ("#>", 2), ("#=<", 2), ("#>=", 2), ("#/\\", 2), ("#\\/", 2), ("#\\", 1), ("#==>", 2)}}}
 EXPAND_PL = os.path.join(HERE, "util_gen_prolog_prelude_libs_expand.pl")
 INIT_DROPS = {"clpfd": {"warn_if_bounded_arithmetic": "only prints a warning when the integer flag bounded is true"}}
@@ -318,12 +331,16 @@ def local_heads(toks, path):
     return heads
 
 
-def rename_bare_atom(raw, nm, new, path):
-    """Every bare occurrence of the atom nm in raw -- an atom token not followed by '(' -- becomes the quoted atom new."""
+def rename_bare_atom(raw, nm, new, path, with_args=False):
+    """Every bare occurrence of the atom nm in raw -- an atom token not followed by '(' -- becomes the quoted atom new; with
+    with_args, an occurrence written as a compound's functor (nm immediately followed by '(') is renamed too."""
     toks = tokenize(raw, path)
     out = []
     for i, t in enumerate(toks):
         if t[0] == "atom" and t[1] == nm:
+            if with_args and i + 1 < len(toks) and toks[i + 1] == ("punct", "("):
+                out.append(quote(new))
+                continue
             j = i + 1
             while j < len(toks) and toks[j][0] in ("ws", "comment"):
                 j += 1
@@ -363,7 +380,7 @@ def reader_refs(path, lib, read_path=None):
     head key, and every predicate reference's span -- head, body goal, meta-argument, DCG nonterminal -- never data."""
     if not shutil.which("swipl"):
         raise Refuse("swipl is not on PATH -- the predicate references of %s are read by SWI's own reader" % path)
-    r = subprocess.run(["swipl", REFS_PL, "--", path, lib] + ([read_path] if read_path else []), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    r = subprocess.run(["swipl", REFS_PL, "--", path, LIB_PATH.get(lib, lib)] + ([read_path] if read_path else []), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if r.returncode != 0:
         raise Refuse("SWI's reader refused %s (rc=%d): %s" % (path, r.returncode, r.stderr.strip()[:300]))
     heads, refs = {}, []
@@ -487,6 +504,11 @@ def process(path):
                 raise Refuse("%s: RENAME_AS_DATA names %s, which is not a local predicate of %s" % (path, nm, lib))
             raw = rename_bare_atom(raw, nm, "$%s_%s" % (lib, nm), path)
             renamed["%s (as data)" % nm] = "$%s_%s" % (lib, nm)
+        for nm in sorted(RENAME_TERMS_AS_DATA.get(lib, set())):
+            if not any(k[0] == nm for k in local):
+                raise Refuse("%s: RENAME_TERMS_AS_DATA names %s, which is not a local predicate of %s" % (path, nm, lib))
+            raw = rename_bare_atom(raw, nm, "$%s_%s" % (lib, nm), path, with_args=True)
+            renamed["%s (as a goal term)" % nm] = "$%s_%s" % (lib, nm)
         if hk and hk[3]:
             raw = raw[:hk[1] - cs] + hk[3] + ":" + raw[hk[1] - cs:]
         elif hk:
@@ -536,6 +558,9 @@ def generate(pdir):
             by_lib[lib]["drops"]["wrapped by %s: %d clauses of %d keys copied under '$%s_wrapped_<op>'" % (w, sum(counts.values()), len(counts), lib)] = 1
             by_lib[w]["shadows"] = sorted(set(by_lib[w]["shadows"]) | set(keys))
             by_lib[w]["quiet"] = sorted(set(by_lib[w]["quiet"]) | set(keys))
+    for L in libs:
+        if L["lib"] in QUIET_BARE:
+            L["quiet"] = sorted(set(L["quiet"]) | {(n, 0) for n, _ in L["exports"]})
     for L in libs:
         L["names"] = sorted(M["lib"] for M in libs if M is not L and any(n in L["atoms"] for n, _ in M["exports"]))
     o = ["typedef struct { const char *nm; int ar; } pl_prelude_lib_pi_t;",

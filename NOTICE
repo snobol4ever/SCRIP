@@ -31,4 +31,4 @@ predicates '$<library>_<name>' (SCRIP has no module system); the generated table
 src/parsers/prolog/prolog_prelude_libs.inc.  library(clpfd) (clpfd.pl, Copyright (C) 2007-2017 Markus Triska, the same
 BSD 2-Clause terms) is embedded as SWI-Prolog itself compiles it: the generator runs SWI's own term and goal expansion
 over the vendored file (scripts/util_gen_prolog_prelude_libs_expand.pl) and embeds the expanded clauses, because that
-library defines part of itself through expansion.
+library defines part of itself through expansion.  dcg_basics.pl is SWI-Prolog's library/dcg/basics.pl (module dcg_basics), vendored verbatim under its module's name.
