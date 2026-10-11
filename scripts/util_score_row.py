@@ -1632,6 +1632,7 @@ def cmd_from_progress(a):
         except ValueError:
             return 0.0
     wall = int(round(sum(_f(v[4]) for v in last.values())))   # the row's Wall: the sum of the latest readings' own seconds (row (c))
+    timed = sum(1 for v in last.values() if _f(v[4]) > 0)        # a reading taken before the runner recorded seconds carries 0
     cnt, _pop, _xp, _labels, _bounded, _shards = _aud.tally(d, side, s_ungradable, s_ungraded)
     unread = [e for e in pop if e not in d and e not in side]
     halfread = [e for e in pop if e in d and set(d[e]) != {"m3", "m4"}]
@@ -1639,9 +1640,9 @@ def cmd_from_progress(a):
     oldest, newest = (reads[0], reads[-1]) if reads else (("-", "-"), ("-", "-"))
     total = len(pop)
     print("SUITE_ROW suite=%s pass=%d total=%d read=%d unread=%d half_read=%d oldest_tree=%s@%s newest_tree=%s@%s secs=%d db_suite=%s table=%s "
-          "(PASS %d FAIL %d OUTSIDE %d UNGRADABLE %d UNGRADED %d DEFERRED %d)"
+          "(PASS %d FAIL %d OUTSIDE %d UNGRADABLE %d UNGRADED %d DEFERRED %d) timed=%d"
           % (key, cnt["PASS"], total, len(d), len(unread), len(halfread), oldest[1], oldest[0], newest[1], newest[0], wall, dbsuite,
-             os.path.relpath(tdir, corpus), cnt["PASS"], cnt["FAIL"], cnt["OUTSIDE"], cnt["UNGRADABLE"], cnt["UNGRADED"], cnt["DEFERRED"]))
+             os.path.relpath(tdir, corpus), cnt["PASS"], cnt["FAIL"], cnt["OUTSIDE"], cnt["UNGRADABLE"], cnt["UNGRADED"], cnt["DEFERRED"], timed))
     if part:
         byc = _c.defaultdict(list)
         for (prog, m), v in last.items():
@@ -1665,8 +1666,12 @@ def cmd_from_progress(a):
     cmd = [sys.executable, SUITE_BANNER, "--set", key, str(cnt["PASS"]), str(total), _box_clock_day(), oldest[1]]
     if (a.criterion_changed or os.environ.get("S4E_CRITERION_CHANGED", "")).strip():
         cmd += ["--criterion-changed", (a.criterion_changed or os.environ.get("S4E_CRITERION_CHANGED", "")).strip()]
-    if wall > 0:
+    # ⛔ the Wall is written only when EVERY reading carries its seconds: a sum over the few readings a subset re-took is a fraction of the
+    # suite's time printed as all of it (IcnRungs read WALL=221s from one tier-2 subset, 2026-10-11 14:1x); until then the row keeps its own
+    if wall > 0 and timed == len(last):
         cmd += ["--secs", str(wall)]
+    elif wall > 0:
+        print("  wall NOT written: %d of %d readings carry their seconds (the rest predate the runner recording them); the row keeps its Wall" % (timed, len(last)))
     r = subprocess.run(cmd, capture_output=True, text=True, env=env)
     sys.stdout.write(r.stdout); sys.stderr.write(r.stderr)
     return r.returncode
