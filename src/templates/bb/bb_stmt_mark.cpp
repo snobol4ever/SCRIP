@@ -11,6 +11,7 @@ extern const char *g_file;
 extern long g_stcount;
 }
 #include "x86_asm.h"
+#include "bb_templates.h"
 #define RO_SEAL_STR(n, s) \
     (x86("def", L(n)) \
    + x86(".quad", LS(n), (s)) \
@@ -20,7 +21,21 @@ extern long g_stcount;
 std::string bb_stmt_mark(long stno, long line) {
     x86_begin();
     return x86_alpha()
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
+         + IF(_.op_seal == IR_SEAL_STMT_HOOK,
+               x86("comment", "IR_STMT_MARK stlimit hook: the leaf counts the statement and fills a pending KEYWORD trace; the box runs the callback (CEO-1635)")
+             + x86_align_enter()
+             + x86("sub", "rsp", 112L)
+             + x86("mov", RDQ("rsp", 0), 0L)
+             + x86("mov", "rdi", (long)stno)
+             + x86("mov", "rsi", (long)line)
+             + x86("mov", "rdx", "rsp")
+             + x86("call", "rt_stmt_enter_p", (uint64_t)(uintptr_t)(void *)rt_stmt_enter_p)
+             + x86_rt_gc_poll()
+             + bb_glue_trace_pend_run(100, std::string(), 0)
+             + x86("add", "rsp", 112L)
+             + x86_align_leave())
+         + IF(_.op_seal != IR_SEAL_STMT_HOOK,
+               x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
          + x86("mov", "rcx", RDQ("rax", 0))
          + x86("mov", RDQ("rax", 0), (long)stno)
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastno, "g_lastno")
@@ -31,7 +46,7 @@ std::string bb_stmt_mark(long stno, long line) {
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastline, "g_lastline")
          + x86("mov", RDQ("rax", 0), "rcx")
          + IF(x86_trace_hooks_on(), x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stcount, "g_stcount")
-         + x86("inc", RDQ("rax", 0)))
+         + x86("inc", RDQ("rax", 0))))
          + x86_gamma()
          + x86_beta_trampoline();
 }

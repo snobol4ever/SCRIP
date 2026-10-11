@@ -249,6 +249,8 @@ void rt_trace_event_args_ip(int kind, const char *name, DESCR_t *args, int nargs
 void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook, trace_pend_t *pend);
 void comm_var_open(const char *name, DESCR_t val, long long stno, trace_pend_t *pend);
 void rt_trace_pend_run(trace_pend_t *pend);
+void rt_trace_keyword_write_p(const char *kw, int64_t v, long long stno, trace_pend_t *pend);
+void rt_stmt_enter_p(long stno, long line, trace_pend_t *pend);
 void rt_trace_pend_close(trace_pend_t *pend);
 DESCR_t NV_GET_open(const char *name, trace_pend_t *pend);
 DESCR_t *NV_CELL_PLAIN_fn(const char *name);

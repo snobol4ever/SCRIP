@@ -1680,16 +1680,11 @@ static IR_t * sco_stmt_hook(scx_t * cx, const tree_t * s, IR_t * body) {
     long line = (long) lp_s_int(s, ":line");
     if (!line) line = (long) lp_s_int(s, ":lline");
     if (g_lower.sno.uses_stmtkw) {
-        IR_t * hook = lc_build(cx->g, IR_CALL, body, body);
-        IR_LIT(hook).sval = (char *) "SNO$STMT";
-        IR_t * num = lc_build(cx->g, IR_LIT_INTEGER, hook, hook);
-        IR_LIT(num).ival = (int64_t) stno;
-        IR_t * lnn = lc_build(cx->g, IR_LIT_INTEGER, hook, hook);
-        IR_LIT(lnn).ival = (int64_t) line;
-        lc_γ_to(num, lnn);
-        ir_operand_push(hook, num);
-        ir_operand_push(hook, lnn);
-        return num;
+        IR_t * hook = lc_build(cx->g, IR_STMT_MARK, body, body);
+        IR_LIT(hook).ival = (int64_t) stno;
+        hook->pat_static = (int) line;
+        hook->seal = IR_SEAL_STMT_HOOK;
+        return hook;
     }
     return body;
 }
@@ -3641,16 +3636,11 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     bb_label_registry_reset();
     IR_t * endnd = exitnd;
     if (g_lower.sno.uses_stmtkw && end_line > 0) {
-        IR_t * ehook = lc_build(g, IR_CALL, exitnd, exitnd);
-        IR_LIT(ehook).sval = (char *) "SNO$STMT";
-        IR_t * enum_ = lc_build(g, IR_LIT_INTEGER, ehook, ehook);
-        IR_LIT(enum_).ival = (int64_t)(nst + 1) + stno_base;
-        IR_t * elnn = lc_build(g, IR_LIT_INTEGER, ehook, ehook);
-        IR_LIT(elnn).ival = (int64_t)end_line;
-        lc_γ_to(enum_, elnn);
-        ir_operand_push(ehook, enum_);
-        ir_operand_push(ehook, elnn);
-        endnd = enum_;
+        IR_t * ehook = lc_build(g, IR_STMT_MARK, exitnd, exitnd);
+        IR_LIT(ehook).ival = (int64_t)(nst + 1) + stno_base;
+        ehook->pat_static = (int) end_line;
+        ehook->seal = IR_SEAL_STMT_HOOK;
+        endnd = ehook;
     }
     for (int i = 0; i < nst; i++) {
         anchor[i] = lc_build(g, IR_GOTO, NULL, NULL);
@@ -4039,17 +4029,13 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         for (int i = 0; i < nst; i++) {
             if (lp_s_int(st[i], ":nocount") || sno_stmt_is_blank(st[i])) continue;
             IR_t * body = anchor[i]->γ.node;
-            IR_t * hook = lc_build(g, IR_CALL, body, body);
-            IR_LIT(hook).sval = (char *) "SNO$STMT";
-            IR_t * num = lc_build(g, IR_LIT_INTEGER, hook, hook);
-            IR_LIT(num).ival = (int64_t)(i + 1) + stno_base;
+            IR_t * hook = lc_build(g, IR_STMT_MARK, body, body);
+            IR_LIT(hook).ival = (int64_t)(i + 1) + stno_base;
             int _lln = lp_s_int(st[i], ":lline");
             if (!_lln) _lln = lp_s_int(st[i], ":line");
-            IR_t * lnn = lc_build(g, IR_LIT_INTEGER, hook, hook);
-            IR_LIT(lnn).ival = (int64_t)_lln;
-            lc_γ_to(num, lnn);
-            ir_operand_push(hook, num);
-            ir_operand_push(hook, lnn);
+            hook->pat_static = _lln;
+            hook->seal = IR_SEAL_STMT_HOOK;
+            IR_t * entry = hook;
             {
                 extern const char * stmt_src_get_file(void);
                 const char * _sf = sfind_str(st[i], ":file");
@@ -4057,13 +4043,23 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 if (!_sf) _sf = "";
                 if (!_stmtkw_cur_file || strcmp(_stmtkw_cur_file, _sf) != 0) {
                     _stmtkw_cur_file = _sf;
-                    IR_t * fpn = lc_build(g, IR_LIT_STRING, hook, hook);
+                    IR_t * fhook = lc_build(g, IR_CALL, body, body);
+                    IR_LIT(fhook).sval = (char *) "SNO$STMT";
+                    IR_t * fnum = lc_build(g, IR_LIT_INTEGER, fhook, fhook);
+                    IR_LIT(fnum).ival = (int64_t) -1;
+                    IR_t * flnn = lc_build(g, IR_LIT_INTEGER, fhook, fhook);
+                    IR_LIT(flnn).ival = (int64_t)_lln;
+                    IR_t * fpn = lc_build(g, IR_LIT_STRING, fhook, fhook);
                     IR_LIT(fpn).sval = (char *) _sf;
-                    lc_γ_to(lnn, fpn);
-                    ir_operand_push(hook, fpn);
+                    lc_γ_to(fnum, flnn);
+                    lc_γ_to(flnn, fpn);
+                    ir_operand_push(fhook, fnum);
+                    ir_operand_push(fhook, flnn);
+                    ir_operand_push(fhook, fpn);
+                    lc_γ_to(hook, fnum);
                 }
             }
-            lc_γ_to(anchor[i], num);
+            lc_γ_to(anchor[i], entry);
         }
     }
     for (int i = 0; i < nst; i++) {

@@ -431,7 +431,7 @@ void rt_trace_label_hook(const char *name) {
     trace_print_banner_args(name, (DESCR_t *)0, 0, NULVCL, (long long)g_stno, TRK_LABEL);
     trace_recursion_depth--;
 }
-void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) {
+void rt_trace_keyword_write_p(const char *kw, int64_t v, long long stno, trace_pend_t *pend) {
     if (trace_idle()) return;
     if (!kw || !*kw) return;
     if (trace_recursion_depth > 0) return;
@@ -447,6 +447,16 @@ void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) {
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(kw));
         cbargs[1] = STRVAL(rt_heap_strdup_c(e->tag ? e->tag : ""));
+        if (pend) {
+            pend->args[0] = STRVAL(rt_heap_strdup_c(e->cbfn));
+            pend->args[1] = cbargs[0];
+            pend->args[2] = cbargs[1];
+            pend->saved_trace = INTVAL(saved_trace);
+            pend->saved_ftrace = INTVAL(saved_ftrace);
+            pend->val = NULVCL;
+            pend->hook = INTVAL(0);
+            return;
+        }
         (void)RT_GC_CALLBACK(APPLY_fn(e->cbfn, cbargs, 2));
         trace_recursion_depth--;
         g_trace = saved_trace;
@@ -463,6 +473,7 @@ void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) {
     }
     trace_recursion_depth--;
 }
+void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) { rt_trace_keyword_write_p(kw, v, stno, (trace_pend_t *)0); }
 DESCR_t rt_trace_apply_island(const char *name, DESCR_t *args, int nargs, long island);
 __asm__( ".text\n" ".globl rt_trace_apply_island\n" ".type rt_trace_apply_island, @function\n" "rt_trace_apply_island:\n" "  pushq %r12\n" "  movq %rcx, %r12\n" "  xorl %ecx, %ecx\n"
     "  call APPLY_fn_rq@PLT\n" "  popq %r12\n" "  ret\n" ".size rt_trace_apply_island, .-rt_trace_apply_island\n" );

@@ -619,6 +619,21 @@ void rt_stmt_enter(long stno, long line) {
     if (kw_stlimit > 0 && g_stcount > kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_stmt_enter_p(long stno, long line, trace_pend_t *pend) {
+    g_lastno = g_stno;
+    g_stno = stno;
+    g_lastline = g_line;
+    g_line = line;
+    g_lastfile = (g_stcount > 0) ? g_file : (const char *)0;
+    if (kw_stlimit < 0) return;
+    g_stcount++;
+    if (g_stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();
+#if RT_DIAG
+    { extern void rt_trace_keyword_write_p(const char *, int64_t, long long, trace_pend_t *); rt_trace_keyword_write_p("STCOUNT", (int64_t)g_stcount, (long long)stno, pend); }
+#endif
+    if (kw_stlimit > 0 && g_stcount > kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_gen(const char *sval, long idx) {
     if (!sval) return FAILDESCR;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;

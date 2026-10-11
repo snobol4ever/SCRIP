@@ -1259,7 +1259,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
       g_emit.op_gva_k = (g_gva_active && (nm_op || defer_op) && IR_LIT(nd).sval && !graph_has_local(g_emit_cfg, IR_LIT(nd).sval)) ? gva_index_of(IR_LIT(nd).sval) : -1; }
     { extern int g_proc_direct_active; extern int proc_slot_of(const char *); extern int proc_direct_eligible(const char *); int nm_op = (ir_norm_call_kind(nd->op) == IR_CALL);
       g_emit.op_proc_k = (g_proc_direct_active && nm_op && IR_LIT(nd).sval && proc_direct_eligible(IR_LIT(nd).sval)) ? proc_slot_of(IR_LIT(nd).sval) : -1; }
-    if (nd->op == IR_STATEMENT_BEGIN || nd->op == IR_STATEMENT_END || nd->op == IR_STATEMENT || nd->op == IR_STMT_MARK) { int32_t _stno = (int32_t)IR_LIT(nd).ival;
+    if (nd->op == IR_STATEMENT_BEGIN || nd->op == IR_STATEMENT_END || nd->op == IR_STATEMENT || (nd->op == IR_STMT_MARK && nd->seal != IR_SEAL_STMT_HOOK)) { int32_t _stno = (int32_t)IR_LIT(nd).ival;
         if (_stno != g_emit.stno_last) { emit_stno_mark(_stno); g_emit.stno_last = _stno; } g_emit.op_stno = _stno; }
     g_emit.op_ival = (ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_PROC_GEN) ? (int64_t)nd->n_operands : (nd->op == IR_GOTO_DEFERRED ? (int64_t)nd->seal : IR_LIT(nd).ival);
     if (nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) { int64_t r = (int64_t)zd_sr_role(nd); g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }
@@ -1547,7 +1547,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         bb_emit_x86(bb_statement()); { extern std::string bb_zdp_anchor(long, long); if (g_emitter.walk_bb_node_inner__zdpa < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN");
         g_emitter.walk_bb_node_inner__zdpa = (e && *e == '1') ? 1 : 0; } if (g_emitter.walk_bb_node_inner__zdpa) bb_emit_x86(bb_zdp_anchor((long)nd->op, (long)bb_node_id((IR_t *)nd)));
             } g_emit.op_mon_stmt_tap = 0; } return 0;
-    case IR_STMT_MARK: bb_emit_x86(bb_stmt_mark((long)IR_LIT(nd).ival, (long)nd->pat_static)); return 0;
+    case IR_STMT_MARK: g_emit.op_seal = nd->seal; bb_emit_x86(bb_stmt_mark((long)IR_LIT(nd).ival, (long)nd->pat_static)); return 0;
     case IR_SETEXIT_TEST: bb_emit_x86(bb_setexit_test()); return 0;
     case IR_CLEANUP: bb_emit_x86(bb_cleanup()); return 0;
     case IR_LINE_MARK: if ((long)nd->pat_static > 0) g_emit.icn_line_cur = (long)nd->pat_static; if (IR_LIT(nd).sval && *IR_LIT(nd).sval) g_emit.icn_file_cur = IR_LIT(nd).sval;
