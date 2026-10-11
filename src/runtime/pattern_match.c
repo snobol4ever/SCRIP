@@ -835,10 +835,24 @@ typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_d
 const char *g_dcap_base = 0;
 #define g_dcap_top (*(const char **)RT_DCAP_TOP)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_dcap_lazy_init(void) {
-    extern void *rt_slab_region(size_t);
-    if (!g_dcap_top) { g_dcap_base = (const char *)rt_slab_region(RT_DCAP_ISLAND_BYTES); if (!g_dcap_base) { fprintf(stderr, "rt_dcap: island reserve failed\n"); abort(); } g_dcap_top = g_dcap_base; }
+size_t rt_dcap_island_bytes(void) {
+    extern long rt_sw_stack_bytes(void);
+    extern long rt_stack_budget_bytes(long);
+    size_t s = ((size_t)rt_stack_budget_bytes(rt_sw_stack_bytes()) + RT_DCAP_GUARD_BYTES - 1) & ~(RT_DCAP_GUARD_BYTES - 1);
+    return s > RT_DCAP_ISLAND_BYTES ? s : RT_DCAP_ISLAND_BYTES;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_dcap_lazy_init(void) {
+    if (!g_dcap_top) {
+        size_t n = rt_dcap_island_bytes();
+        char *m = (char *)mmap((void *)0, n + RT_DCAP_GUARD_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+        if (m == (char *)MAP_FAILED || mprotect(m + n, RT_DCAP_GUARD_BYTES, PROT_NONE) != 0) { fprintf(stderr, "rt_dcap: island reserve of %zu bytes failed\n", n); abort(); }
+        g_dcap_base = m;
+        g_dcap_top = g_dcap_base;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_dcap_guard_hit(uintptr_t a) { if (!g_dcap_base) return 0; uintptr_t end = (uintptr_t)g_dcap_base + rt_dcap_island_bytes(); return a >= end && a < end + RT_DCAP_GUARD_BYTES; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_cap_fail_retreat(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_FAIL_RETREAT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }

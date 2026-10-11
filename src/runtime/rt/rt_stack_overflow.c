@@ -58,6 +58,15 @@ static void rt_stack_overflow_sig(int sig, siginfo_t *si, void *uctx) {
     }
 #endif
     {
+        extern int rt_dcap_guard_hit(uintptr_t);
+        if (rt_dcap_guard_hit(fault)) {
+            static const char msg[] = "scrip: runtime error: ERROR 246 -- stack overflow (a pattern match's conditional-assignment stack outgrew its island, sized by the -s stack budget)\n";
+            fflush(stdout);
+            write(2, msg, sizeof msg - 1);
+            _exit(1);
+        }
+    }
+    {
         extern void rt_gc_main_stack_bounds(char **, char **);
         char *mlo = NULL, *mhi = NULL;
         rt_gc_main_stack_bounds(&mlo, &mhi);
