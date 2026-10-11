@@ -71,6 +71,13 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # it assembles in 30 s at 1.38 GB peak RSS to a 52.6 MB .o, and links in 3.1 s at 165 MB to a 33 MB binary (load 34).
 # Every other program already fits 128 with the switch. 256 is 1.5x the largest measured, and the transient is still
 # one program's .s + .o at a time (about 230 MB against 19 GB free on / at 16:4x).
+# ⭐ 256 -> 512 MB (ceo 2026-10-11, CEO-1661), MEASURED AT SCRIP 78a66a7d2 WITH THE SWITCH: the statement-mark box now carries the
+# trace and stlimit roads inline at every statement (rt_stmt_enter_p, the gc poll, rt_apply_open and the handler's frame: 324 lines
+# per chks() statement against 102 without the switch), so the same four went DEFERRED again with no program wrong (X64T 33 -> 29
+# on the coo's pass of 342a17f55). math_sum with the switch is 387,982,654 bytes; it compiles in 17 s at 311 MB RSS, assembles and
+# links in 12.7 s at 2.9 GB peak RSS to a 55 MB binary that runs in 5.9 s and prints SPITBOL's 15378 lines byte for byte (load 2).
+# 512 is 1.3x the largest measured; the transient is one program's .s + .o, about 450 MB against 13 GB free on /tmp. The size is
+# the ceo's code-size row (snobol4-the-stlimit-switch-grows-mode-4-asm-...), never a reason to leave a correct program ungraded.
 # ⛔ THE PER-STEP TIMEOUT IS 600 s (was 120), FOR THE SAME FOUR PROGRAMS, MEASURED THE SAME DAY: math_diff/div/prod
 # need about 50 s of CPU per mode-3 run and per mode-4 compile. At load 27 on 16 cores a run read rc=124 at 120 s
 # and printed HANG over a program that passes -- 120 s sat within about 2x of the real duration, the flaky-timeout
@@ -92,7 +99,7 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; SD="$HERE/.."; ROOT="$(cd "$SD/.." && pwd)"
 SUITE="${SPITBOL_X64_SUITE:-$ROOT/corpus/packages/snobol4/spitbol_x64_tests}"
 SCRIP="$SD/scrip"; RT_DIR="$SD/out"
-TIMEOUT="${TIMEOUT:-600}"; M4_ASM_MB="${SPITBOL_X64_M4_ASM_MB:-256}"; SHIPPED_EXPECT="${SPITBOL_X64_SHIPPED:-36}"
+TIMEOUT="${TIMEOUT:-600}"; M4_ASM_MB="${SPITBOL_X64_M4_ASM_MB:-512}"; SHIPPED_EXPECT="${SPITBOL_X64_SHIPPED:-36}"
 [ -d "$SUITE" ] || { echo "⛔ REFUSE(rc=2): suite dir missing: $SUITE"; exit 2; }
 [ -x "$SCRIP" ] || { echo "⛔ REFUSE(rc=2): no scrip binary at $SCRIP -- build first (make)"; exit 2; }
 # ⛔⭐ STALE-BINARY PREFLIGHT.  NO LOGIC HERE: util_require_fresh.sh sources gate_require_fresh from
