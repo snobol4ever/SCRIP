@@ -425,6 +425,27 @@ ALNUM    [A-Za-z0-9_]
                           pascal_strbuf[pascal_strpos] = '\0';
                           pascal_yylval.node = pascal_leaf(TT_QLIT); pascal_yylval.node->v.sval = pascal_raw_dup(pascal_strbuf, pascal_strpos);
                           return STRINGCONST; }
+('([^']|'')*'|"#"[0-9]+|"#$"[0-9A-Fa-f]+)('([^']|'')*'|"#"[0-9]+|"#$"[0-9A-Fa-f]+)+ { int n = (int)pascal_yyleng; pascal_strpos = 0;
+                          for (int i = 0; i < n; ) {
+                              char ch = 0;
+                              if (pascal_yytext[i] == '#') {
+                                  int hex = pascal_yytext[i + 1] == '$';
+                                  char *end = NULL;
+                                  ch = (char)(strtoll(pascal_yytext + i + (hex ? 2 : 1), &end, hex ? 16 : 10) & 0xFF);
+                                  i = (int)(end - pascal_yytext);
+                                  if (pascal_strpos < (int)sizeof pascal_strbuf - 1) pascal_strbuf[pascal_strpos++] = ch;
+                              } else {
+                                  i++;
+                                  while (i < n) {
+                                      if (pascal_yytext[i] == '\'' && i + 1 < n && pascal_yytext[i + 1] == '\'') { if (pascal_strpos < (int)sizeof pascal_strbuf - 1) pascal_strbuf[pascal_strpos++] = '\''; i += 2; }
+                                      else if (pascal_yytext[i] == '\'') { i++; break; }
+                                      else { if (pascal_strpos < (int)sizeof pascal_strbuf - 1) pascal_strbuf[pascal_strpos++] = pascal_yytext[i]; i++; }
+                                  }
+                              }
+                          }
+                          pascal_strbuf[pascal_strpos] = '\0';
+                          pascal_yylval.node = pascal_leaf(TT_QLIT); pascal_yylval.node->v.sval = pascal_raw_dup(pascal_strbuf, pascal_strpos);
+                          return STRINGCONST; }
 {ALPHA}{ALNUM}*         { int kw = pascal_context_keyword(pascal_yytext);
                           if (kw) return kw;
                           pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); return IDENT; }

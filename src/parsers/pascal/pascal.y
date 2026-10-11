@@ -44,7 +44,7 @@ static int pas_stmt_sp = 0;
 static void pas_stmt_mark(void) { if (pas_stmt_sp < PAS_STMT_STACK) pas_stmt_line_stk[pas_stmt_sp] = -1; pas_stmt_sp++; }
 static void pas_stmt_line_fill(void) { if (pas_stmt_sp > 0 && pas_stmt_sp <= PAS_STMT_STACK && pas_stmt_line_stk[pas_stmt_sp - 1] < 0) pas_stmt_line_stk[pas_stmt_sp - 1] = pascal_get_lineno(); }
 static int  pas_stmt_line_pop(void) { int l = -1; if (pas_stmt_sp > 0) { pas_stmt_sp--; if (pas_stmt_sp < PAS_STMT_STACK) l = pas_stmt_line_stk[pas_stmt_sp]; } return l >= 0 ? l : pascal_get_lineno(); }
-int pascal_lex_wrapped(void) { int t = pascal_yylex(); pas_stmt_line_fill(); return t; }
+int pascal_lex_wrapped(void);
 #define pascal_yylex pascal_lex_wrapped
 void pascal_yyerror(const char *msg) { fprintf(stderr, "pascal parse error line %d: %s\n", pascal_get_lineno(), msg); }
 tree_t   *pascal_prog_result = NULL;
@@ -59,7 +59,7 @@ static tree_t *pt_decl(const char *w, tree_t *a, tree_t *b) { return pt_add(pt_a
 static void pt_flush_pragmas(tree_t *root) { pascal_pragma_flush(root); }
 typedef struct { char *name; int kind; long long iv; double dv; char *sv; } PasCEnvE;
 typedef struct { char *name; int on; int has; double val; } PasDefE;
-static struct { PasCEnvE *e; int n; int cap; int ni; int nr; int ns; int unit_mode; int dialect; PasDefE *defs; int ndefs; int capdefs; int cond_skip; int cond_depth; int cond_taken; int cond_unknown; int macro_on; int string_declared; const char *mode_macro; unsigned sw_set; unsigned sw_on; unsigned *sw_save; int sw_n; int sw_cap; } g_pascal_cenv;
+static struct { PasCEnvE *e; int n; int cap; int ni; int nr; int ns; int unit_mode; int dialect; PasDefE *defs; int ndefs; int capdefs; int cond_skip; int cond_depth; int cond_taken; int cond_unknown; int macro_on; int string_declared; const char *mode_macro; unsigned sw_set; unsigned sw_on; unsigned *sw_save; int sw_n; int sw_cap; int last_tok; } g_pascal_cenv;
 static void cenv_put(const char *name, int kind, long long iv, double dv, const char *sv) {
     if (!name || (kind == 0 && g_pascal_cenv.ni >= 256) || (kind == 1 && g_pascal_cenv.nr >= 64) || (kind == 2 && g_pascal_cenv.ns >= 64)) return;
     if (g_pascal_cenv.n >= g_pascal_cenv.cap) { g_pascal_cenv.cap = g_pascal_cenv.cap ? g_pascal_cenv.cap * 2 : 64; g_pascal_cenv.e = (PasCEnvE *)ct_grow(g_pascal_cenv.e, (size_t)g_pascal_cenv.cap * sizeof(PasCEnvE)); }
@@ -72,10 +72,24 @@ static void cenv_string(const char *name, const char *s) { if (s && strlen(s) ==
 int pascal_cenv_int(const char *name, long long *out) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 0 && !strcmp(g_pascal_cenv.e[i].name, name)) { *out = g_pascal_cenv.e[i].iv; return 1; } return 0; }
 int pascal_cenv_real(const char *name, double *out) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 1 && !strcmp(g_pascal_cenv.e[i].name, name)) { *out = g_pascal_cenv.e[i].dv; return 1; } return 0; }
 const char *pascal_cenv_str(const char *name) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 2 && !strcmp(g_pascal_cenv.e[i].name, name)) return g_pascal_cenv.e[i].sv; return NULL; }
-void pascal_cenv_reset(void) { g_pascal_cenv.n = 0; g_pascal_cenv.ni = 0; g_pascal_cenv.nr = 0; g_pascal_cenv.ns = 0; g_pascal_cenv.unit_mode = 0; g_pascal_cenv.dialect = PAS_DIALECT_ISO_DEFAULT; g_pascal_cenv.ndefs = 0; g_pascal_cenv.cond_skip = 0; g_pascal_cenv.cond_depth = 0; g_pascal_cenv.cond_taken = 0; g_pascal_cenv.cond_unknown = 0; g_pascal_cenv.macro_on = 0; g_pascal_cenv.string_declared = 0; g_pascal_cenv.mode_macro = NULL; g_pascal_cenv.sw_set = 0; g_pascal_cenv.sw_on = 0; g_pascal_cenv.sw_n = 0; }
+void pascal_cenv_reset(void) { g_pascal_cenv.last_tok = 0; g_pascal_cenv.n = 0; g_pascal_cenv.ni = 0; g_pascal_cenv.nr = 0; g_pascal_cenv.ns = 0; g_pascal_cenv.unit_mode = 0; g_pascal_cenv.dialect = PAS_DIALECT_ISO_DEFAULT; g_pascal_cenv.ndefs = 0; g_pascal_cenv.cond_skip = 0; g_pascal_cenv.cond_depth = 0; g_pascal_cenv.cond_taken = 0; g_pascal_cenv.cond_unknown = 0; g_pascal_cenv.macro_on = 0; g_pascal_cenv.string_declared = 0; g_pascal_cenv.mode_macro = NULL; g_pascal_cenv.sw_set = 0; g_pascal_cenv.sw_on = 0; g_pascal_cenv.sw_n = 0; }
 int pascal_unit_mode(void) { return g_pascal_cenv.unit_mode; }
 void pascal_unit_mode_set(int m) { g_pascal_cenv.unit_mode = m; }
 int pascal_dialect(void) { return g_pascal_cenv.dialect; }
+int pascal_lex_wrapped(void) {
+#undef pascal_yylex
+    int t = pascal_yylex();
+#define pascal_yylex pascal_lex_wrapped
+    pas_stmt_line_fill();
+    int lt = g_pascal_cenv.last_tok;
+    if (t == IDENT && pascal_yylval.node && pascal_yylval.node->v.sval && (lt == IDENT || lt == INTCONST || lt == REALCONST || lt == STRINGCONST || lt == CHARCODE || lt == RPARENT || lt == RBRACK)) {
+        const char *w = pascal_yylval.node->v.sval;
+        if (!strcmp(w, "shl") || !strcmp(w, "shr")) { pascal_flip_dialect(PAS_DIALECT_FPC); t = SHIFTOP; }
+        else if (!strcmp(w, "xor")) { pascal_flip_dialect(PAS_DIALECT_FPC); t = XOROP; }
+    }
+    g_pascal_cenv.last_tok = t;
+    return t;
+}
 void pascal_dialect_set(int d) { g_pascal_cenv.dialect = d; }
 int pascal_def_state(const char *n) {
     for (int i = 0; n && i < g_pascal_cenv.ndefs; i++) if (!strcasecmp(g_pascal_cenv.defs[i].name, n)) return g_pascal_cenv.defs[i].on;
@@ -152,6 +166,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %token COMMA PERIOD COLON ARROW LBRACK RBRACK LPARENT RPARENT DOTDOT ATSIGN
 %token ADDBECOMES SUBBECOMES MULBECOMES DIVBECOMES
 %token <node> INTCONST CHARCODE REALCONST STRINGCONST IDENT
+%token <node> SHIFTOP XOROP
 %type <node> program file_id_list_opt block decl_part_list decl_part label_list const_decl_list const_decl constant scalar_constant type_decl_list case_tail
 %type <node> type_decl type packed_opt simple_type record_body record_field_list record_field case_arm_mark case_open record_case_opt record_case_list
 %type <node> record_case_arm var_decl_list var_decl procedure_decl pv_mark parameter_list_opt parameter_decl_list parameter_decl pf_params pf_sections
@@ -161,6 +176,8 @@ static void cenv_note(const char *name, tree_t *e) {
 %type <node> expression_list_opt compilation_unit unit intf_part_list intf_part init_opt fini_opt
 %type <node> typed_value typed_value_list field_value_list
 %type <node> param_type
+%type <node> lo_bound lo_term b_expr b_term b_factor case_label
+%type <node> program_name
 %start compilation_unit
 %%
 compilation_unit:
@@ -168,7 +185,12 @@ compilation_unit:
     |unit { $$ = $1; }
     ;
 program:
-    PROGRAMSY IDENT file_id_list_opt SEMICOLON block PERIOD { pascal_stamp_dialect($2); $$ = pt_add(pt_add(pt_add(pt_new(TT_PROGRAM), $2), $3), $5); pt_flush_pragmas($$); pascal_prog_result = $$; }
+    PROGRAMSY program_name file_id_list_opt SEMICOLON block PERIOD { pascal_stamp_dialect($2); $$ = pt_add(pt_add(pt_add(pt_new(TT_PROGRAM), $2), $3), $5); pt_flush_pragmas($$); pascal_prog_result = $$; }
+    |block PERIOD { $$ = pt_add(pt_new(TT_PROGRAM), $1); pascal_stamp_dialect($$); pt_flush_pragmas($$); pascal_prog_result = $$; }
+    ;
+program_name:
+    IDENT { $$ = $1; }
+    |program_name PERIOD IDENT { $$ = $1; }
     ;
 file_id_list_opt:
     LPARENT id_list RPARENT { $$ = $2; }
@@ -277,9 +299,39 @@ simple_type:
     LPARENT id_list RPARENT { $$ = pt_retag($2, TT_ENUM_TYPE); for (int _i = 0; $$ && _i < $$->n; _i++) cenv_int($$->c[_i]->v.sval, _i); }
     |IDENT { pascal_note_type_ident($1); $$ = $1; }
     |IDENT LBRACK constant RBRACK { pascal_note_type_ident($1); $$ = pt_add(pt_add(pt_new(TT_IDX), $1), $3); }
-    |constant DOTDOT constant { $$ = pt_add(pt_add(pt_new(TT_SUBRANGE), $1), $3); }
-    |STRINGCONST DOTDOT constant { $$ = pt_add(pt_add(pt_new(TT_SUBRANGE), $1), $3); }
-    |CHARCODE DOTDOT constant { $$ = pt_add(pt_add(pt_new(TT_SUBRANGE), $1), $3); }
+    |lo_bound DOTDOT b_expr { $$ = pt_add(pt_add(pt_new(TT_SUBRANGE), $1), $3); }
+    ;
+lo_bound:
+    lo_term { $$ = $1; }
+    |PLUS lo_term { $$ = pt_add(pt_new(TT_PLS), $2); }
+    |MINUS lo_term { $$ = pt_add(pt_new(TT_MNS), $2); }
+    |lo_bound PLUS b_term { $$ = pt_add(pt_add(pt_new(TT_ADD), $1), $3); }
+    |lo_bound MINUS b_term { $$ = pt_add(pt_add(pt_new(TT_SUB), $1), $3); }
+    ;
+lo_term:
+    scalar_constant { $$ = $1; }
+    |lo_term MUL b_factor { $$ = pt_add(pt_add(pt_new(TT_MUL), $1), $3); }
+    |lo_term IDIV b_factor { $$ = pt_add(pt_add(pt_new(TT_IDIV), $1), $3); }
+    |lo_term IMOD b_factor { $$ = pt_add(pt_add(pt_new(TT_MOD), $1), $3); }
+    |lo_term SHIFTOP b_factor { $$ = pt_add(pt_add(pt_add(pt_new(TT_FNC), $2), $1), $3); }
+    ;
+b_expr:
+    b_term { $$ = $1; }
+    |PLUS b_term { $$ = pt_add(pt_new(TT_PLS), $2); }
+    |MINUS b_term { $$ = pt_add(pt_new(TT_MNS), $2); }
+    |b_expr PLUS b_term { $$ = pt_add(pt_add(pt_new(TT_ADD), $1), $3); }
+    |b_expr MINUS b_term { $$ = pt_add(pt_add(pt_new(TT_SUB), $1), $3); }
+    ;
+b_term:
+    b_factor { $$ = $1; }
+    |b_term MUL b_factor { $$ = pt_add(pt_add(pt_new(TT_MUL), $1), $3); }
+    |b_term IDIV b_factor { $$ = pt_add(pt_add(pt_new(TT_IDIV), $1), $3); }
+    |b_term IMOD b_factor { $$ = pt_add(pt_add(pt_new(TT_MOD), $1), $3); }
+    |b_term SHIFTOP b_factor { $$ = pt_add(pt_add(pt_add(pt_new(TT_FNC), $2), $1), $3); }
+    ;
+b_factor:
+    scalar_constant { $$ = $1; }
+    |LPARENT b_expr RPARENT { $$ = $2; }
     ;
 record_body:
     record_field_list record_case_opt { $$ = pt_add(pt_retag($1, TT_FIELDS), $2); }
@@ -458,8 +510,12 @@ case_elem:
     |{ $$ = NULL; }
     ;
 constant_list:
-    constant_list COMMA constant { $$ = pt_add($1, $3); }
-    |constant { $$ = pt_add(pt_new(TT_VLIST), $1); }
+    constant_list COMMA case_label { $$ = pt_add($1, $3); }
+    |case_label { $$ = pt_add(pt_new(TT_VLIST), $1); }
+    ;
+case_label:
+    b_expr { $$ = $1; }
+    |b_expr DOTDOT b_expr { $$ = pt_add(pt_add(pt_new(TT_SUBRANGE), $1), $3); }
     ;
 while_statement:
     WHILESY expression DOSY body_stmt { $$ = pt_add(pt_add(pt_new(TT_WHILE), $2), $4); }
@@ -470,6 +526,7 @@ repeat_statement:
 for_statement:
     FORSY IDENT BECOMES expression TOSY expression DOSY body_stmt { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FOR), $2), $4), $6), $8); pt_sval($$, "to"); }
     |FORSY IDENT BECOMES expression DOWNTOSY expression DOSY body_stmt { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FOR), $2), $4), $6), $8); pt_sval($$, "downto"); }
+    |FORSY IDENT INOP expression DOSY body_stmt { $$ = pt_add(pt_add(pt_add(pt_new(TT_FOR), $2), $4), $6); pt_sval($$, "in"); }
     ;
 with_statement:
     WITHSY with_open DOSY body_stmt { $$ = pt_add(pt_cat(pt_new(TT_WITH), $2), $4); }
@@ -499,6 +556,7 @@ simple_expression:
     |simple_expression PLUS term { $$ = pt_add(pt_add(pt_new(TT_ADD), $1), $3); }
     |simple_expression MINUS term { $$ = pt_add(pt_add(pt_new(TT_SUB), $1), $3); }
     |simple_expression OROP term { $$ = pt_add(pt_add(pt_new(TT_ALT), $1), $3); }
+    |simple_expression XOROP term { $$ = pt_add(pt_add(pt_add(pt_new(TT_FNC), $2), $1), $3); }
     ;
 term:
     factor { $$ = $1; }
@@ -507,6 +565,7 @@ term:
     |term IDIV factor { $$ = pt_add(pt_add(pt_new(TT_IDIV), $1), $3); }
     |term IMOD factor { $$ = pt_add(pt_add(pt_new(TT_MOD), $1), $3); }
     |term ANDOP factor { $$ = pt_add(pt_add(pt_new(TT_CONJ), $1), $3); }
+    |term SHIFTOP factor { $$ = pt_add(pt_add(pt_add(pt_new(TT_FNC), $2), $1), $3); }
     ;
 factor:
     selector { $$ = $1; }

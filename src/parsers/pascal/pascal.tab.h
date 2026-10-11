@@ -163,7 +163,9 @@ void pascal_mode_macro_set(const char *m);
     CHARCODE = 327,                /* CHARCODE  */
     REALCONST = 328,               /* REALCONST  */
     STRINGCONST = 329,             /* STRINGCONST  */
-    IDENT = 330                    /* IDENT  */
+    IDENT = 330,                   /* IDENT  */
+    SHIFTOP = 331,                 /* SHIFTOP  */
+    XOROP = 332                    /* XOROP  */
   };
   typedef enum pascal_yytokentype pascal_yytoken_kind_t;
 #endif
@@ -172,10 +174,10 @@ void pascal_mode_macro_set(const char *m);
 #if ! defined PASCAL_YYSTYPE && ! defined PASCAL_YYSTYPE_IS_DECLARED
 union PASCAL_YYSTYPE
 {
-#line 145 "pascal.y"
+#line 159 "pascal.y"
  tree_t *node; 
 
-#line 179 "pascal.tab.h"
+#line 181 "pascal.tab.h"
 
 };
 typedef union PASCAL_YYSTYPE PASCAL_YYSTYPE;
