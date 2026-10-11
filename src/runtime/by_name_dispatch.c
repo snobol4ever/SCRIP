@@ -6822,6 +6822,7 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     extern int fh_alloc(FILE *);
     extern void *rt_pl_ball_instantiation(void);
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     extern int fh_is_untranslated(int);
     extern void fh_set_bom(int, int);
     char fb[4096], mb[64];
@@ -6842,7 +6843,7 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     fmode = !strcmp(md, "read") ? "r" : !strcmp(md, "write") ? "w" : !strcmp(md, "append") ? "a" : !strcmp(md, "update") ? "r+" : (const char *)0;
     if (!fmode) { cx->ball = rt_pl_ball_kind2("domain_error", "io_mode", m); return 0; }
     fp = fopen(fn, fmode);
-    if (!fp) { cx->ball = rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
+    if (!fp) { cx->ball = (errno == EACCES || errno == EPERM || errno == EROFS) ? rt_pl_ball_permission3("open", "source_sink", f) : rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
     {
         int idx = fh_alloc(fp);
         if (idx < 0) { fclose(fp); return 0; }
