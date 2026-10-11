@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2555
-#define GC_ALLOC_TAB_N_VOID 304
+#define GC_ALLOC_TAB_N 2557
+#define GC_ALLOC_TAB_N_VOID 306
 #define GC_ALLOC_TAB_N_DESCR 1237
 #define GC_ALLOC_TAB_N_OTHER 997
 #define GC_ALLOC_TAB_N_UNKNOWN 17
@@ -2394,6 +2394,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_sno_stmt_d", GC_RET_DESCR },
     { "rt_sno_target_name", GC_RET_OTHER },
     { "rt_stmt_enter", GC_RET_VOID },
+    { "rt_stmt_enter_p", GC_RET_VOID },
     { "rt_str_alloc", GC_RET_OTHER },
     { "rt_str_coerce", GC_RET_DESCR },
     { "rt_str_dup", GC_RET_OTHER },
@@ -2430,6 +2431,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_trace_gen_fail_hook", GC_RET_VOID },
     { "rt_trace_gen_return_hook", GC_RET_VOID },
     { "rt_trace_keyword_write", GC_RET_VOID },
+    { "rt_trace_keyword_write_p", GC_RET_VOID },
     { "rt_trace_label_hook", GC_RET_VOID },
     { "rt_trace_pend_close", GC_RET_VOID },
     { "rt_trace_pend_run", GC_RET_VOID },
