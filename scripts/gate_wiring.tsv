@@ -964,6 +964,7 @@ test_gate_sno_a_stale_nreturn_mark_never_reaches_the_next_call.sh	WIRED	-	-	-
 test_gate_sno_a_statement_level_query_takes_a_concatenated_subject_and_chains_left_to_right.sh	WIRED	-	-	-
 test_gate_sno_a_static_thunk_carries_no_name_and_every_reader_reaches_it_by_its_record.sh	WIRED	-	-	-
 test_gate_icn_the_callgen_act_plus_8_word_is_h_or_zero_and_labelled_ptr_frame_h.sh	WIRED	-	-	-
+test_gate_sno_eval_of_a_deferred_selection_falls_from_a_failed_first_alternative_through_a_user_call.sh	WIRED	-	-	-
 test_gate_sno_a_stored_fenced_pattern_retries_an_alternation_that_an_operand_follows.sh	WIRED	-	-	-
 test_gate_sno_a_stored_pattern_with_a_fence_is_reentered_at_its_rightmost_segment.sh	WIRED	-	-	-
 test_gate_sno_a_table_keyed_by_a_name_finds_it_through_any_name_of_that_variable.sh	WIRED	-	-	-
