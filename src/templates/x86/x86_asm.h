@@ -17,6 +17,8 @@ int rtx_entry_is(const char *sym);
 int emit_rtx_entry_is(const char * sym);
 unsigned emit_rtx_clob_mask(const char * sym);
 void * emit_rtx_twin(const char * sym, const char ** cname, int * kind);
+const char * emit_rtx_twin_sym(const char * sym);
+void * emit_rtx_twin_addr(const char * sym, void * addr);
 #define RTX_VERDICT_AL 0
 #define RTX_VERDICT_INT 1
 #define RTX_VERDICT_PTR 2

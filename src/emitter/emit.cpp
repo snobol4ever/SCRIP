@@ -5332,6 +5332,8 @@ extern "C" void * emit_rtx_twin(const char * sym, const char ** cname, int * kin
     }
     return 0;
 }
+extern "C" const char * emit_rtx_twin_sym(const char * sym) { const char * cname = 0; int kind = 0; return emit_rtx_twin(sym, &cname, &kind) ? cname : sym; }
+extern "C" void * emit_rtx_twin_addr(const char * sym, void * addr) { const char * cname = 0; int kind = 0; void * caddr = emit_rtx_twin(sym, &cname, &kind); return caddr ? caddr : addr; }
 int emit_rtx_entry_is(const char * sym) {
     if (!sym) return 0;
     if (!g_emitter.g_rtxe_cap) { uint32_t n = 0, c = 64; for (const char * p = __start_rtx_entry_names; p < __stop_rtx_entry_names; p += strlen(p) + 1) n++;

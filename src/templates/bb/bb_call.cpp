@@ -218,13 +218,12 @@ static std::string bb_call_byname_str(IR_t * pBB) {
                 s += x86("mov", x86_zref(i * 16 + 8, 1), "rax");
             }
         }
-        int _pbi = bcbn_pas_bi(fn);
-        if (_pbi >= 0) {
+        if (bcbn_pas_bi(fn) >= 0) {
             s += x86("comment", (std::string("PASCAL BUILTIN CALL ") + fn + " -> rt_call_pas_bi with its table index baked (no name, no lookup)").c_str());
             if (narg > 0) s += x86("lea", "rdi", RDQ("rsp", 0));
             else s += x86("xor", "edi", "edi");
             s += x86("mov32", "esi", (long)narg);
-            s += x86("mov32", "edx", (long)_pbi);
+            s += x86("mov32", "edx", (long)bcbn_pas_bi(fn));
             s += x86("call", "rt_call_pas_bi", (uint64_t)(uintptr_t)(void *)rt_call_pas_bi);
             s += x86_rt_gc_poll_res();
         } else if (int _bk = bcbn_baked_kind(fn, _.op_strict)) {
@@ -297,12 +296,11 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     int dsave = argbase + 16 * (int)narg;
     if (curmov) s += x86("mov", FRQ(dsave), "r14");
     if (scansync) s += x86_scan_sync_out_force();
-    int _pbi = bcbn_pas_bi(fn);
-    if (_pbi >= 0) {
+    if (bcbn_pas_bi(fn) >= 0) {
     s += x86("comment", (std::string("PASCAL BUILTIN CALL ") + fn + " -> rt_call_pas_bi with its table index baked (no name, no lookup)").c_str());
     s += x86("lea", "rdi", FRQ(argbase));
     s += x86("mov32", "esi", (long)narg);
-    s += x86("mov32", "edx", (long)_pbi);
+    s += x86("mov32", "edx", (long)bcbn_pas_bi(fn));
     s += x86("rtcc_wb");
     s += x86("call_bare", "rt_call_pas_bi", (uint64_t)(uintptr_t)(void *)rt_call_pas_bi);
     s += x86("rtcc_rl");
