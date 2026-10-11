@@ -1926,6 +1926,31 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         case TT_LOOP_NEXT:
         { IR_t * tgt = (t->t == TT_LOOP_BREAK) ? cx->loop_exit : cx->loop_next; if (!tgt) tgt = ω; IR_t * j = build(cx, IR_GOTO, tgt, tgt); *res = NULL; return j; }
         case TT_EVERY:
+        if (t->slen != 82 && t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0 && !t->c[0]->v.sval) {
+            char sn[48];
+            snprintf(sn, sizeof sn, "__forsv_%d", ++g_lower.rk.lower_rv_forlist_ctr);
+            const char * sv = intern(sn);
+            tree_t * lp = ast_node_new(TT_EVERY);
+            lp->line = t->line;
+            lp->slen = 82;
+            for (int i = 0; i < t->n; i++) ast_push(lp, t->c[i]);
+            tree_t * sa = ast_node_new(TT_ASSIGN);
+            ast_push(sa, leaf_sval2(TT_VAR, sv));
+            ast_push(sa, leaf_sval2(TT_VAR, "_"));
+            tree_t * ra = ast_node_new(TT_ASSIGN);
+            ast_push(ra, leaf_sval2(TT_VAR, "_"));
+            ast_push(ra, leaf_sval2(TT_VAR, sv));
+            tree_t * rw = ast_node_new(TT_ASSIGN);
+            ast_push(rw, leaf_sval2(TT_VAR, "_"));
+            ast_push(rw, leaf_sval2(TT_VAR, sv));
+            IR_t * r1 = NULL, * r2 = NULL, * rl = NULL, * rs = NULL;
+            IR_t * eg = lower_rv(cx, ra, γ, ω, &r1);
+            IR_t * ew = lower_rv(cx, rw, ω, ω, &r2);
+            IR_t * el = lower_rv(cx, lp, eg, ew, &rl);
+            IR_t * es = lower_rv(cx, sa, el, ω, &rs);
+            *res = rl;
+            return es;
+        }
         if (t->n > 1 && t->c[0] && t->c[0]->t == TT_ITERATE && t->c[0]->n > 0) {
             const char * vname = t->c[0]->v.sval ? t->c[0]->v.sval : "_";
             const tree_t * src = t->c[0]->c[0];
