@@ -3726,12 +3726,12 @@ static DESCR_t NV_GET_untapped(const char *name) {
         return STRVAL(rt_heap_strdup_c(_io_chan[ch].buf));
     }
     if (strcmp (name, "&subject") == 0) {
-        extern const char *scan_subj;
+        extern const char *g_scan_subj;
         extern long rt_scan_subj_len(void);
-        if (!scan_subj) return NULVCL;
-        { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)scan_subj, n) : STRVAL(scan_subj); }
+        if (!g_scan_subj) return NULVCL;
+        { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_scan_subj, n) : STRVAL(g_scan_subj); }
     }
-    if (strcmp (name, "&pos") == 0) { extern int scan_pos; return INTVAL(scan_pos); }
+    if (strcmp (name, "&pos") == 0) { extern int g_scan_pos; return INTVAL(g_scan_pos); }
     unsigned h = _var_hash(name);
     for (NV_t *e = VBR(h); e; e = e->next) if (nv_key_c(e, name) && _nv_ordinary(e)) return e->is_gva ? *e->cell : e->val;
     { extern DESCR_t rt_proc_value(const char *); if (name && (!strcmp(name, "write") || !strcmp(name, "writes"))) return rt_proc_value(name); }
@@ -3808,17 +3808,17 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
     if (strcmp(name, "OUTPUT") == 0) { extern int rt_kw_output_on(void); if (rt_kw_output_on()) output_val(val); _var_assoc_set("_OUTPUT", val); return val; }
     if (strcmp(name, "TERMINAL") == 0) { const char *s = IS_STR(val) ? rt_cstr_d(val) : ""; fprintf(stderr, "%s\n", s); return val; }
     if (strcmp (name, "&subject") == 0) {
-        extern const char *scan_subj;
+        extern const char *g_scan_subj;
         const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);
         {
             extern void rt_scan_subj_len_set(const char *, long);
             long n = (val.v == DT_S && val.slen != 0xFFFFFFFFu) ? (long)val.slen : (s ? (long)strlen(s) : 0);
-            if (!s) { scan_subj = ""; rt_scan_subj_len_set("", 0); return val; }
-            { char *c = (char *)rt_heap_alloc_c((size_t)n + 1); memcpy(c, s, (size_t)n); c[n] = 0; scan_subj = c; rt_scan_subj_len_set(c, n); }
+            if (!s) { g_scan_subj = ""; rt_scan_subj_len_set("", 0); return val; }
+            { char *c = (char *)rt_heap_alloc_c((size_t)n + 1); memcpy(c, s, (size_t)n); c[n] = 0; g_scan_subj = c; rt_scan_subj_len_set(c, n); }
         }
         return val;
     }
-    if (strcmp (name, "&pos") == 0) { extern int scan_pos; scan_pos = (int)((val.v==DT_I) ? val.i : (int64_t)to_real(val)); return val; }
+    if (strcmp (name, "&pos") == 0) { extern int g_scan_pos; g_scan_pos = (int)((val.v==DT_I) ? val.i : (int64_t)to_real(val)); return val; }
     if (g_kw_ctx) {
         static const char *const known_kw[] = { "STLIMIT","ANCHOR","TRIM","FULLSCAN","CASE","MAXLNGTH", "FTRACE","ERRLIMIT","CODE","FNCLEVEL","RTNTYPE", "ALPHABET","UCASE","LCASE","DIGITS","PI",
             "PARM", "STEXEC","STCOUNT","STNO","DUMP","ABEND", "TRACE","GTRACE","FATALLIMIT","ERRLIMIT","ERRTYPE","ERRTEXT", "INPUT","OUTPUT","TERMINAL","PUNCHAR", NULL };

@@ -4,7 +4,7 @@
 # (ceo CEO-1152, named by the cfo at fa1dc84a5).
 #
 # WHAT WAS THERE, AND IT WAS TWO HOLDERS OF ONE ADDRESS AGAIN. rt_scan_subj_len() answers the scan subject's length from a cache
-# keyed on the subject's ADDRESS (g_scan_subj_ptr / g_scan_subj_len). gen_gc_roots moved scan_subj at every collection and never
+# keyed on the subject's ADDRESS (g_scan_subj_ptr / g_scan_subj_len). gen_gc_roots moved g_scan_subj at every collection and never
 # the cache, so the first collection after a scan began left the key naming the pre-move address, the lookup missed, and the
 # function fell back to strlen() -- which stops at an embedded NUL. A callee reading its caller's subject (it has no scan
 # registers of its own) then saw *&subject = 2 and image(&subject) = "ab" for "ab\x00cdeee", rc=0, both modes, at every stress
@@ -12,14 +12,14 @@
 # unmeasured STRVAL even with no collection at all, so tab(0) in a callee read "b" and &pos 3.
 #
 # WHAT IS HERE. The cache is registered as a slot of its own when it aliases the subject at the collection (rt_gc_visit_raw
-# fixes up every registered slot after the move -- assigning it from scan_subj right after the visit would copy the OLD
-# address, which is what the first cut of this cure measured), and is left alone when it does not. Every writer of scan_subj
+# fixes up every registered slot after the move -- assigning it from g_scan_subj right after the visit would copy the OLD
+# address, which is what the first cut of this cure measured), and is left alone when it does not. Every writer of g_scan_subj
 # sets the length -- the co-expression ScanState now carries it, the resets and the reenter paths set it, the empty subject is
 # one shared object -- so the strlen() fallback is DELETED: a subject whose length was not carried is an internal error that
 # aborts loudly, never a shorter answer. tab(), move() and pos() read the carried length and tab() returns it with BSTRVAL.
 #
 # ARMS. (1) STRUCTURE, both directions: rt_scan_subj_len has no strlen and aborts on a miss; gen_gc_roots registers the cache
-# slot under the alias test; no strlen(scan_subj) is left anywhere under src/runtime. (2) BAND, both media: the witness matches
+# slot under the alias test; no strlen(g_scan_subj) is left anywhere under src/runtime. (2) BAND, both media: the witness matches
 # its iconx-cut ref at stress 0,1,3,5 under SCRIP_GC_RELOC=1 in a 128 KB arena, and EVERY arm reports collections>0 from the
 # run's own report. (3) NO COLLECTION: in a 64 MB arena the same witness matches in both media -- the tab() arm's own path.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -36,10 +36,10 @@ echo "  HOLDS: a scan subject with an embedded NUL keeps its carried length acro
 body="$(sed -n '/^long rt_scan_subj_len(void) {/,/^}/p' "$GR")"
 fb=$(printf '%s\n' "$body" | grep -c 'strlen')
 ab=$(printf '%s\n' "$body" | grep -c 'abort()')
-sl=$(grep -cF 'g_scan_subj_ptr == scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);' "$GR")
-ms=$(grep -rn 'strlen(scan_subj)' "$ROOT/src/runtime" | wc -l)
+sl=$(grep -cF 'g_scan_subj_ptr == g_scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);' "$GR")
+ms=$(grep -rn 'strlen(g_scan_subj)' "$ROOT/src/runtime" | wc -l)
 if [ -n "$body" ] && [ "$fb" = 0 ] && [ "$ab" = 1 ] && [ "$sl" = 1 ] && [ "$ms" = 0 ]; then
-  echo "  arm 1 PASS: rt_scan_subj_len has no strlen and aborts on a miss, gen_gc_roots registers the cache slot under the alias test, no strlen(scan_subj) left under src/runtime"
+  echo "  arm 1 PASS: rt_scan_subj_len has no strlen and aborts on a miss, gen_gc_roots registers the cache slot under the alias test, no strlen(g_scan_subj) left under src/runtime"
 else echo "  arm 1 FAIL: body_found=$([ -n "$body" ] && echo 1 || echo 0) strlen_in_body=$fb abort_in_body=$ab cache_slot_registered=$sl strlen_of_scan_subj_sites=$ms"; RC=1; fi
 "$SCRIP" --compile -o "$T/w.s" "$WIT" </dev/null >/dev/null 2>&1 && gcc -no-pie "$T/w.s" -o "$T/w4" -L"$ROOT/out" -lscrip_rt -lm -lstdc++ -lpthread -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 \
   || { echo "⛔ GATE REFUSE(2) [$G]: the witness does not build in mode 4"; exit 2; }

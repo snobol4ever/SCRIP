@@ -3656,11 +3656,12 @@ static long gc_collect_ex(const gc_ent_t *ent) {
 #endif
     if (g_gc_shield_r && *g_gc_shield_r) {
         extern const char *Σ;
-        extern const char *scan_subj;
-        if (*g_gc_shield_r == Σ || *g_gc_shield_r == scan_subj) rt_gc_visit_raw(g_gc_shield_r);
+        extern const char *g_scan_subj;
+        if (*g_gc_shield_r == Σ || *g_gc_shield_r == g_scan_subj) rt_gc_visit_raw(g_gc_shield_r);
         else if (!g_gc_shield_r_is_probe) {
             fprintf(stderr,
-                "[ZHP] rt_gc_point_arr_c refuses r0 %p: a CALLER handed this shield a word to protect and it aliases neither the subject nor scan_subj, so this shield cannot reach it and honouring t"
+                "[ZHP] rt_gc_point_arr_c refuses r0 %p: a CALLER handed this shield a word to protect and it aliases neither the subject nor g_scan_subj, so this shield cannot reach it and honouring"
+                " t"
                 "he call silently would drop a root -- pass the word as a tagged DESCR cell in arr[] instead (CEO-972). The asm shim's saved-subject PROBE is rt_gc_point_arr_probe_c and is not this "
                 "road.\n", (const void *)*g_gc_shield_r);
             abort();

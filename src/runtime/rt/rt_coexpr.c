@@ -21,12 +21,12 @@ static scrip_coctx_t *g_co_gc_head = NULL;
 static pthread_t g_co_main_thr;
 static int g_co_main_set = 0;
 static long g_coexpr_serial = 1;
-extern int scan_depth;
+extern int g_scan_depth;
 typedef struct scrip_coexpr_entry_pkg_t { void *body_entry_addr; uint64_t r12, r14, rbx, csav5, gva, frame_bytes, below; } scrip_coexpr_entry_pkg_t;
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_entry_addr) == 0, "pkg layout drift: body_entry_addr");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r12) == 8, "pkg layout drift: r12");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r14) == 16,
-    "pkg layout drift: r14 -- the package holds no subject word: the trampoline loads r13/r15 from the rooted global scan_subj, as iconx keeps &subject global");
+    "pkg layout drift: r14 -- the package holds no subject word: the trampoline loads r13/r15 from the rooted global g_scan_subj, as iconx keeps &subject global");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, rbx) == 24, "pkg layout drift: rbx");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, csav5) == 32, "pkg layout drift: csav5");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, gva) == 40,
@@ -124,9 +124,9 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
         new_ctx->started = 1;
         { extern void rt_scan_state_reset(void); if (new_ctx->entry_fn && !_inh_ctx) rt_scan_state_reset(); }
         if (_inh_ctx && new_ctx->entry_fn == scrip_coexpr_trampoline_entry && new_ctx->entry_arg) {
-            extern int scan_pos;
+            extern int g_scan_pos;
             scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)new_ctx->entry_arg;
-            pkg->r14 = (uint64_t)(scan_pos > 0 ? scan_pos - 1 : 0);
+            pkg->r14 = (uint64_t)(g_scan_pos > 0 ? g_scan_pos - 1 : 0);
         }
     }
     __asm__ volatile ("mov %%rsp, %0\n\tmov %%rbp, %1" : "=m"(old->park_sp), "=m"(old->park_rbp));
@@ -378,7 +378,7 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->stk_hi = 0;
     ctx->park_sp = 0;
     ctx->park_rbp = 0;
-    ctx->sigma_live = scan_depth > 0;
+    ctx->sigma_live = g_scan_depth > 0;
     ctx->image = 0;
     ctx->image_src = 0;
     ctx->image_span = 0;

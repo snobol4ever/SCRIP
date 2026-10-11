@@ -11,8 +11,8 @@
 #include <time.h>
 #include <unistd.h>
 const char *cset_canonical(const char *cs, int len);
-extern const char *scan_subj;
-extern int scan_pos;
+extern const char *g_scan_subj;
+extern int g_scan_pos;
 extern unsigned long bb_rnd_seed;
 void fh_ensure_init(void);
 long g_error = 0;
@@ -406,11 +406,11 @@ DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v) { if (idx < 0 || idx >= (int64_t
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t kw_read(const char *kw) {
     if (!kw) return FAILDESCR;
-    if (!strcmp(kw,"pos")) return INTVAL(scan_pos);
+    if (!strcmp(kw,"pos")) return INTVAL(g_scan_pos);
     if (!strcmp(kw,"subject")) {
         extern long rt_scan_subj_len(void);
-        if (!scan_subj) return STRVAL("");
-        { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)scan_subj, n) : STRVAL(scan_subj); }
+        if (!g_scan_subj) return STRVAL("");
+        { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_scan_subj, n) : STRVAL(g_scan_subj); }
     }
     if (!strcmp(kw,"e")) return REALVAL(2.718281828459045);
     if (!strcmp(kw,"pi")) return REALVAL(3.141592653589793);

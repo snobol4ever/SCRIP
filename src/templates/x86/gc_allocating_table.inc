@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2615
+#define GC_ALLOC_TAB_N 2614
 #define GC_ALLOC_TAB_N_VOID 312
 #define GC_ALLOC_TAB_N_DESCR 1245
-#define GC_ALLOC_TAB_N_OTHER 1041
+#define GC_ALLOC_TAB_N_OTHER 1040
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1678,7 +1678,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_heap_alloc_c", GC_RET_OTHER },
     { "rt_heap_out_of_memory", GC_RET_VOID },
     { "rt_heap_strdup_c", GC_RET_OTHER },
-    { "rt_icn_cset_member", GC_RET_OTHER },
     { "rt_icn_cset_member_n", GC_RET_OTHER },
     { "rt_icn_cset_register", GC_RET_VOID },
     { "rt_icn_lconcat_d", GC_RET_DESCR },

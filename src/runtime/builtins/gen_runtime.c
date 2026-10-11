@@ -16,26 +16,24 @@ extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
 extern int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 tree_t *g_root = NULL;
 unsigned long bb_rnd_seed = 12345UL;
-tree_t *drive_node = NULL;
-DESCR_t drive_val;
 static const char g_scan_empty[1] = "";
-const char *scan_subj = g_scan_empty;
+const char *g_scan_subj = g_scan_empty;
 long g_scan_subj_len = 0;
 const char *g_scan_subj_ptr = g_scan_empty;
 long rt_scan_subj_len(void);
 void rt_scan_subj_len_set(const char *p, long n);
-int scan_pos = 1;
-int scan_depth = 0;
+int g_scan_pos = 1;
+int g_scan_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_scan_active(void) { return (scan_depth > 0) || (scan_subj && scan_subj[0] != 0) || (scan_pos != 1); }
+int rt_scan_active(void) { return (g_scan_depth > 0) || (g_scan_subj && g_scan_subj[0] != 0) || (g_scan_pos != 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_scan_state_capture(void *prev) {
     ScanState *s = (ScanState *)prev;
     if (!s) s = (ScanState *)ct_zalloc(1, sizeof(ScanState));
     if (!s) return NULL;
-    s->subj = scan_subj;
-    s->pos = scan_pos;
-    s->depth = scan_depth;
+    s->subj = g_scan_subj;
+    s->pos = g_scan_pos;
+    s->depth = g_scan_depth;
     s->len = rt_scan_subj_len();
     return s;
 }
@@ -43,24 +41,24 @@ void *rt_scan_state_capture(void *prev) {
 void rt_scan_state_apply(void *saved) {
     ScanState *s = (ScanState *)saved;
     if (!s) return;
-    scan_subj = s->subj ? s->subj : g_scan_empty;
-    scan_pos = s->pos;
-    scan_depth = s->depth;
-    rt_scan_subj_len_set(scan_subj, (s->subj && s->len >= 0) ? s->len : 0);
+    g_scan_subj = s->subj ? s->subj : g_scan_empty;
+    g_scan_pos = s->pos;
+    g_scan_depth = s->depth;
+    rt_scan_subj_len_set(g_scan_subj, (s->subj && s->len >= 0) ? s->len : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_scan_state_reset(void) { scan_subj = g_scan_empty; scan_pos = 1; scan_depth = 0; rt_scan_subj_len_set(scan_subj, 0); }
+void rt_scan_state_reset(void) { g_scan_subj = g_scan_empty; g_scan_pos = 1; g_scan_depth = 0; rt_scan_subj_len_set(g_scan_subj, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned long rt_scan_state_size(void) { return (unsigned long)sizeof(ScanState); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_scan_subj_len(void) {
-    extern const char *scan_subj;
-    if (!scan_subj) return -1;
-    if (g_scan_subj_ptr == scan_subj && g_scan_subj_len >= 0) return g_scan_subj_len;
+    extern const char *g_scan_subj;
+    if (!g_scan_subj) return -1;
+    if (g_scan_subj_ptr == g_scan_subj && g_scan_subj_len >= 0) return g_scan_subj_len;
     fflush(stdout);
     fprintf(stderr,
         "scrip: internal error: the scan subject's length was not carried (subject %p, cached %p len %ld) -- a subject was set without "
-        "rt_scan_subj_len_set, or moved without its cache; measuring it would lose an embedded NUL\n", (const void *)scan_subj, (const void *)g_scan_subj_ptr, g_scan_subj_len);
+        "rt_scan_subj_len_set, or moved without its cache; measuring it would lose an embedded NUL\n", (const void *)g_scan_subj, (const void *)g_scan_subj_ptr, g_scan_subj_len);
     abort();
 }
 void rt_scan_subj_len_set(const char *p, long n) { g_scan_subj_ptr = p; g_scan_subj_len = n; }
@@ -72,12 +70,12 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     memcpy(&sv, w, sizeof sv);
     if (sv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); sv = STRVAL(rt_big_str(sv)); } else if (core_icn_argtype_check(lo, hi, 103)) { ScanSubjRegs z; z.ptr = 0; z.len = 0; return z; }
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
-    scan_depth++;
+    g_scan_depth++;
     rt_gc_point(&sv, (const char **)0);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
-    scan_subj = s;
-    scan_pos = 1;
+    g_scan_subj = s;
+    g_scan_pos = 1;
     uint64_t L;
     if (IS_CSET_fn(sv)) {
         extern int kw_cset_len(const char *);
@@ -92,8 +90,6 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *g_scan_needle_ptr = 0;
-long g_scan_needle_len = -1;
 ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
     uint64_t w[2];
     w[0] = lo;
@@ -109,8 +105,6 @@ ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
         int kn = sv.s ? kw_cset_len(sv.s) : -1;
         L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s);
     } else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
-    g_scan_needle_ptr = s;
-    g_scan_needle_len = (long)L;
     ScanSubjRegs r;
     r.ptr = (uint64_t)(uintptr_t)s;
     r.len = L;
@@ -118,27 +112,27 @@ ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len) {
-    if (scan_depth > 0) scan_depth--;
-    scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
-    scan_pos = (int)outer_delta + 1;
-    rt_scan_subj_len_set(scan_subj, outer_sigma ? (long)outer_len : 0);
+    if (g_scan_depth > 0) g_scan_depth--;
+    g_scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
+    g_scan_pos = (int)outer_delta + 1;
+    rt_scan_subj_len_set(g_scan_subj, outer_sigma ? (long)outer_len : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_scan_sync_out(uint64_t delta) { scan_pos = (int)delta + 1; }
-uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(scan_pos - 1); }
-uint64_t rt_scan_live_subj(void) { return (uint64_t)(uintptr_t)(scan_subj ? scan_subj : ""); }
+void rt_scan_sync_out(uint64_t delta) { g_scan_pos = (int)delta + 1; }
+uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(g_scan_pos - 1); }
+uint64_t rt_scan_live_subj(void) { return (uint64_t)(uintptr_t)(g_scan_subj ? g_scan_subj : ""); }
 ScanSubjRegs rt_scan_live_regs(void) {
     ScanSubjRegs r;
-    long n = scan_subj ? rt_scan_subj_len() : 0;
-    r.ptr = (uint64_t)(uintptr_t)(scan_subj ? scan_subj : g_scan_empty);
+    long n = g_scan_subj ? rt_scan_subj_len() : 0;
+    r.ptr = (uint64_t)(uintptr_t)(g_scan_subj ? g_scan_subj : g_scan_empty);
     r.len = (uint64_t)(n > 0 ? n : 0);
     return r;
 }
 ScanSubjRegs rt_scan_reenter_live(uint64_t subj, uint64_t len) {
     const char *s = subj ? (const char *)(uintptr_t)subj : g_scan_empty;
     long n = (s == g_scan_empty) ? 0 : (long)(uint32_t)len;
-    scan_depth++;
-    scan_subj = s;
+    g_scan_depth++;
+    g_scan_subj = s;
     rt_scan_subj_len_set(s, n);
     ScanSubjRegs r;
     r.ptr = (uint64_t)(uintptr_t)s;
@@ -239,8 +233,8 @@ DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b) {
     return BSTRVAL(buf, (long)len);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_keyword_subject(void) { if (!scan_subj) return NULVCL; { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)scan_subj, n) : STRVAL(scan_subj); } }
-DESCR_t rt_keyword_pos(void) { return INTVAL((int64_t)scan_pos); }
+DESCR_t rt_keyword_subject(void) { if (!g_scan_subj) return NULVCL; { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_scan_subj, n) : STRVAL(g_scan_subj); } }
+DESCR_t rt_keyword_pos(void) { return INTVAL((int64_t)g_scan_pos); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long cvpos_of(DESCR_t v, long len, int *ok) {
     long i;
@@ -263,17 +257,17 @@ DESCR_t rt_keyword_pos_set_strict(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_pos_set(DESCR_t v) {
-    long len = scan_subj ? rt_scan_subj_len() : 0;
+    long len = g_scan_subj ? rt_scan_subj_len() : 0;
     int ok;
     long p = cvpos_of(v, len, &ok);
     if (!ok) return FAILDESCR;
-    scan_pos = (int)p;
+    g_scan_pos = (int)p;
     return INTVAL((int64_t)p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rsw_get(long kind, DESCR_t *vp, int64_t *spill) {
     if (kind == 0) return vp ? *vp : NULVCL;
-    if (kind == 1) return INTVAL(spill ? spill[0] + 1 : (int64_t)scan_pos);
+    if (kind == 1) return INTVAL(spill ? spill[0] + 1 : (int64_t)g_scan_pos);
     if (kind == 3) { extern long g_random; return INTVAL((int64_t)g_random); }
     if (kind == 4) { extern long g_error; return INTVAL((int64_t)g_error); }
     if (kind == 6) { extern long g_dump; return INTVAL((int64_t)g_dump); }
@@ -284,12 +278,12 @@ static DESCR_t rsw_get(long kind, DESCR_t *vp, int64_t *spill) {
 static int rsw_set(long kind, DESCR_t *vp, int64_t *spill, DESCR_t v) {
     if (kind == 0) { if (vp) *vp = v; return 1; }
     if (kind == 1) {
-        long len = spill ? (long)spill[1] : (scan_subj ? rt_scan_subj_len() : 0);
+        long len = spill ? (long)spill[1] : (g_scan_subj ? rt_scan_subj_len() : 0);
         int ok;
         long p = cvpos_of(v, len, &ok);
         if (!ok) return 0;
         if (spill) spill[0] = (int64_t)(p - 1);
-        else scan_pos = (int)p;
+        else g_scan_pos = (int)p;
         return 1;
     }
     extern DESCR_t rt_keyword_random_set(DESCR_t), rt_keyword_error_set(DESCR_t), rt_keyword_dump_set(DESCR_t);
@@ -352,8 +346,8 @@ ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi) {
         int kn = kw_cset_len(s);
         L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s);
     } else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
-    scan_subj = s;
-    scan_pos = 1;
+    g_scan_subj = s;
+    g_scan_pos = 1;
     rt_scan_subj_len_set(s, (long)L);
     ScanSubjRegs r;
     r.ptr = (uint64_t)(uintptr_t)s;
@@ -419,12 +413,10 @@ DESCR_t rt_keyword_dump_set(DESCR_t v) {
 void gen_gc_roots(void) {
     extern void rt_gc_visit_descr(DESCR_t *d);
     extern void rt_gc_visit_raw(const char **loc);
-    rt_gc_visit_descr(&drive_val);
     extern int scrip_co_gc_plant(void);
     const int drop_subj = scrip_co_gc_plant() == 3;
-    if (!drop_subj && g_scan_subj_ptr == scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);
-    if (g_scan_needle_ptr) rt_gc_visit_raw(&g_scan_needle_ptr);
-    if (!drop_subj) rt_gc_visit_raw(&scan_subj);
+    if (!drop_subj && g_scan_subj_ptr == g_scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);
+    if (!drop_subj) rt_gc_visit_raw(&g_scan_subj);
     { extern void rt_coexpr_gc_scan_states(void); rt_coexpr_gc_scan_states(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

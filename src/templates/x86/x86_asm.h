@@ -2677,7 +2677,7 @@ extern "C" void rt_gc_point_arr_probe_c(DESCR_t * arr, int n, const char ** save
 inline std::string x86_rt_gc_poll_res() {
 return x86_gc_gate(x86("comment",
     "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell at the sweep floor across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it; r1"
-    "3 is spilled as a raw word BELOW the floor and handed to the probe entry as the saved subject, which rewrites it only when it aliases Sigma or scan_subj")
+    "3 is spilled as a raw word BELOW the floor and handed to the probe entry as the saved subject, which rewrites it only when it aliases Sigma or g_scan_subj")
          + x86("sub", "rsp", (long)32)
          + x86_reg_disp32_store64("rsp", 0, "r13")
          + x86_reg_disp32_store64("rsp", 16, "rax")

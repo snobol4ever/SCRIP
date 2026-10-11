@@ -13,8 +13,8 @@ static inline IR_graph_t *bb_graph_of_proc(const ProcEntry *e) { if (!e) return 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_t *bb_proc_entry(const ProcEntry *e) { IR_graph_t *g = bb_graph_of_proc(e); if (!g) return NULL; if (e->proc_entry_node) return e->proc_entry_node; return g->entry; }
 extern tree_t *g_root;
-extern const char *scan_subj;
-extern int scan_pos;
+extern const char *g_scan_subj;
+extern int g_scan_pos;
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 typedef struct { const char *subj; int pos; int depth; long len; } ScanState;
 void *rt_scan_state_capture(void *prev);
@@ -32,12 +32,11 @@ void rt_scan_sync_out(uint64_t delta);
 uint64_t rt_scan_sync_in(void);
 ScanSubjRegs rt_scan_live_regs(void);
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
-extern int scan_depth;
+extern int g_scan_depth;
 int frame_lookup(tree_t *n, long *out);
 int frame_lookup_sv(tree_t *n, long *out, const char **sv);
 int is_global(const char *name);
 void global_register(const char *name);
-extern DESCR_t drive_val;
 int scope_add(Scope *sc, const char *name);
 int scope_get(Scope *sc, const char *name);
 DESCR_t proc_table_call(int pi, DESCR_t *args, int nargs);

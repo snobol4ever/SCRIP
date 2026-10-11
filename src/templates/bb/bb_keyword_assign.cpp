@@ -26,7 +26,7 @@ std::string bb_keyword_assign() {
     return IF(KA_OFFBAD(), x86_alpha() + x86_bomb("bb_keyword_assign: no result slot"))
          + IF(!KA_OFFBAD() && KA_SLOTBAD(), x86_alpha() + x86_bomb("bb_keyword_assign: rhs operand slot unresolved"))
          + IF(!KA_OFFBAD() && !KA_SLOTBAD() && KA_IS("pos"),
-               x86("comment", "BOX ICN IR_KW_ASSIGN pos [unconditional two-world sync: scan_pos global + r14 delta; fail->omega; result {DT_I,pos}]")
+               x86("comment", "BOX ICN IR_KW_ASSIGN pos [unconditional two-world sync: g_scan_pos global + r14 delta; fail->omega; result {DT_I,pos}]")
              + x86_alpha()
              + x86("mov", "rdi", FRQ(_.op_a_slot))
              + x86("mov", "rsi", FRQ(_.op_a_slot + 8))
@@ -41,7 +41,7 @@ std::string bb_keyword_assign() {
              + x86_gamma()
              + x86_beta_trampoline())
          + IF(!KA_OFFBAD() && !KA_SLOTBAD() && !KA_IS("pos") && KA_IS("subject"),
-               x86("comment", "BOX ICN IR_KW_ASSIGN subject [oasgn.r kywdsubj: cnv:str fail->omega; scan_subj=s, &pos=1; in-scan also r13=ptr r15=len r14=0; result {DT_S,ptr}]")
+               x86("comment", "BOX ICN IR_KW_ASSIGN subject [oasgn.r kywdsubj: cnv:str fail->omega; g_scan_subj=s, &pos=1; in-scan also r13=ptr r15=len r14=0; result {DT_S,ptr}]")
              + x86_alpha()
              + x86("mov", "rdi", FRQ(_.op_a_slot))
              + x86("mov", "rsi", FRQ(_.op_a_slot + 8))
