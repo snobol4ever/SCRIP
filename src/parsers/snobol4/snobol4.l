@@ -309,7 +309,7 @@ G       ({WS}|{CONT})*
 <BODY>";"              { gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
 <BODY>{W}";"           { gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
 <BODY>{G}":"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; gt_angle=0; gt_have_operand=0; BEGIN(GT); }
-<BODY>&{ALPHA}{ALNUM}* { strbuf[0]='\0'; strncat(strbuf,yytext+1,sizeof(strbuf)-1); sno_fold(strbuf); return T_KEYWORD; }
+<BODY>&{ALPHA}{IDCONT}* { strbuf[0]='\0'; strncat(strbuf,yytext+1,sizeof(strbuf)-1); sno_fold(strbuf); return T_KEYWORD; }
 <BODY>{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_CONCAT; }
 <BODY>{W}"**"{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
 <BODY>{W}"^"{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }

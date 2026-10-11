@@ -63,7 +63,6 @@ kw_s = SpecialNms;   while (kw_s ? (POS(0) BREAK(' ') . kw_w ' ' REM . kw_s)) { 
 Function    =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *DIFFER(FunctionsT[REPLACE(tx, &LCASE, &UCASE)]);
 BuiltinVar  =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *DIFFER(BuiltinVarsT[REPLACE(tx, &LCASE, &UCASE)]);
 SpecialNm   =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *DIFFER(SpecialNmsT[REPLACE(tx, &LCASE, &UCASE)]);
-ProtKwd     =  SPAN(&UCASE &LCASE)                $ tx *DIFFER(ProtKwdsT[REPLACE(tx, &LCASE, &UCASE)]);
 UnprotKwd   =  SPAN(&UCASE &LCASE)                $ tx *DIFFER(UnprotKwdsT[REPLACE(tx, &LCASE, &UCASE)]);
 Integer     =  SPAN('0123456789');
 DQ          =  '"' (BREAK('"' CHAR(10))) . thx . *Shift('TT_QLIT', thx) '"';
@@ -146,7 +145,6 @@ Expr13      =  *Expr14 FENCE(*$'~' *Expr13 . *Reduce('TT_OPSYN', 2, '~') | epsil
 Expr14      =  '@' *Expr14 . *ReduceV('TT_CAPT_CURSOR', 1)
             |  '~' *Expr14 . *Reduce('TT_NOT', 1)
             |  '?' *Expr14 . *Reduce('TT_INTERROGATE', 1)
-            |  '&' (*ProtKwd) . thx . *Shift('TT_KEYWORD', REPLACE(thx, SnLT[SnCase], SnUT[SnCase]))
             |  '&' (*Id) . thx . *Shift('TT_KEYWORD', REPLACE(thx, SnLT[SnCase], SnUT[SnCase]))
             |  '&' *Expr14 . *ReduceV('TT_OPSYN', 1, '&')
             |  '+' *Expr14 . *ReduceV('TT_PLS', 1)
