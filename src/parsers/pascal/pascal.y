@@ -160,6 +160,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %type <node> repeat_statement for_statement with_statement with_open selector_list expression simple_expression term factor set_member_list set_member
 %type <node> expression_list_opt compilation_unit unit intf_part_list intf_part init_opt fini_opt
 %type <node> typed_value typed_value_list field_value_list
+%type <node> param_type
 %start compilation_unit
 %%
 compilation_unit:
@@ -261,6 +262,7 @@ type:
     simple_type { $$ = $1; }
     |ARROW IDENT { $$ = pt_add(pt_new(TT_PTR_TYPE), $2); }
     |packed_opt ARRAYSY LBRACK simple_type RBRACK OFSY { } { } type { $$ = pt_add(pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4), $9); }
+    |packed_opt ARRAYSY OFSY type { $$ = pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4); }
     |packed_opt ARRAYSY LBRACK simple_type COMMA simple_type RBRACK OFSY type { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4), $6), $9); }
     |packed_opt RECORDSY { } record_body ENDSY { $$ = pt_add(pt_add(pt_new(TT_RECORD), $1), $4); }
     |packed_opt SETSY OFSY simple_type { $$ = pt_add(pt_add(pt_new(TT_SET_TYPE), $1), $4); }
@@ -338,8 +340,14 @@ parameter_decl_list:
 parameter_decl:
     PROCEDURESY IDENT pf_params { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $3); pt_sval($$, "procedure"); }
     |FUNCTIONSY IDENT pf_params COLON IDENT { pascal_note_type_ident($5); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $3), $5); pt_sval($$, "function"); }
-    |VARSY id_list COLON IDENT { pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
-    |id_list COLON IDENT { pascal_note_type_ident($3); $$ = pt_add(pt_add(pt_new(TT_DECL), $1), $3); pt_sval($$, "value"); }
+    |VARSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
+    |id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $1), $3); pt_sval($$, "value"); }
+    |CONSTSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "const"); }
+    |IDENT id_list COLON param_type { if (!$1->v.sval || strcasecmp($1->v.sval, "out")) { pascal_yyerror("syntax error"); YYERROR; } pascal_flip_dialect(PAS_DIALECT_OBJFPC); $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
+    ;
+param_type:
+    IDENT { pascal_note_type_ident($1); $$ = $1; }
+    |ARRAYSY OFSY IDENT { pascal_note_type_ident($3); $$ = pt_add(pt_new(TT_ARRAY_TYPE), $3); }
     ;
 pf_params:
     LPARENT pf_sections RPARENT { $$ = $2; }
@@ -350,8 +358,9 @@ pf_sections:
     |pf_section { $$ = pt_add(pt_new(TT_PARAMS), $1); }
     ;
 pf_section:
-    id_list COLON IDENT { pascal_note_type_ident($3); $$ = pt_add(pt_add(pt_new(TT_DECL), $1), $3); pt_sval($$, "value"); }
-    |VARSY id_list COLON IDENT { pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
+    id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $1), $3); pt_sval($$, "value"); }
+    |VARSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
+    |CONSTSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "const"); }
     |PROCEDURESY IDENT pf_params { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $3); pt_sval($$, "procedure"); }
     |FUNCTIONSY IDENT pf_params COLON IDENT { pascal_note_type_ident($5); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $3), $5); pt_sval($$, "function"); }
     ;

@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2573
+#define GC_ALLOC_TAB_N 2575
 #define GC_ALLOC_TAB_N_VOID 308
-#define GC_ALLOC_TAB_N_DESCR 1242
+#define GC_ALLOC_TAB_N_DESCR 1244
 #define GC_ALLOC_TAB_N_OTHER 1006
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -828,6 +828,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_cond", GC_RET_OTHER },
     { "pas_cond_bool", GC_RET_OTHER },
     { "pas_cond_sc", GC_RET_OTHER },
+    { "pas_dyn_block", GC_RET_DESCR },
+    { "pas_dynset", GC_RET_DESCR },
     { "pas_elem_ref", GC_RET_DESCR },
     { "pas_envcall_wrap", GC_RET_OTHER },
     { "pas_index_fault", GC_RET_OTHER },

@@ -91,12 +91,12 @@ typedef struct {
     struct { char *name; char *val; } pas_sconsts[64];
     int pas_nsconst;
     int pas_level;
-    struct { char *name; long long high; long long ncols; int is_param; int is_local; long long low; int isbool; } pas_arrays[256];
+    struct { char *name; long long high; long long ncols; int is_param; int is_local; long long low; int isbool; int isdyn; int isopen; } pas_arrays[256];
     int pas_narray;
     long long pas_pend_arr_ncols;
     struct { char *name; } pas_assigned[512];
     int pas_nassigned;
-    struct { char *name; long long high; int ndim2; long long ncols; int ischar; long long lo; int isbool; } pas_arrtypes[64];
+    struct { char *name; long long high; int ndim2; long long ncols; int ischar; long long lo; int isbool; int isdyn; char *elem; } pas_arrtypes[64];
     int pas_narrtype;
     int pas_pend_arr_ischar;
     int pas_pend_arr_wrap;
@@ -124,6 +124,9 @@ typedef struct {
     struct { char *name; tree_t *val; int uid; } *pas_setconsts;
     int pas_nsetconst;
     int pas_catmp_seq;
+    struct { char *name; unsigned long long mask; } *pas_openparms;
+    int pas_nopenparm;
+    int pas_openparm_cap;
     int pas_setconst_cap;
     struct { char *name; long long lo; long long hi; int istype; int kind; int uid; } *pas_rows;
     int pas_nrows;
@@ -131,6 +134,7 @@ typedef struct {
     long long pas_pend_row_lo;
     long long pas_pend_row_hi;
     int pas_pend_row_kind;
+    int pas_pend_dyn;
     struct { char *name; long long low; long long high; int ischar; } pas_tfcomp[128];
     int pas_ntfcomp;
     long long pas_pend_frng_lo;

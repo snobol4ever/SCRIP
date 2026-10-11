@@ -3922,6 +3922,39 @@ static DESCR_t pas_agg_copy(DESCR_t v) {
     d.arr = b;
     return d;
 }
+static DESCR_t pas_dyn_block(long long n) {
+    ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
+    b->id = rt_agg_serial_list();
+    b->dumpno = rt_sno_dumpno_next();
+    b->lo = 0;
+    b->hi = (int) (n - 1);
+    b->ndim = 1;
+    b->lo2 = 0;
+    b->hi2 = 0;
+    b->proto_bare = 0;
+    b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) (n > 0 ? n : 1));
+    DESCR_t d = {0};
+    d.v = DT_A;
+    d.slen = 0;
+    d.arr = b;
+    return d;
+}
+static DESCR_t pas_dynset(DESCR_t old, DESCR_t proto, int depth, DESCR_t *dims, int nd) {
+    long long n = IS_INT_fn(dims[0]) ? dims[0].i : 0;
+    if (n < 0) n = 0;
+    ARBLK_t *ob = (old.v == DT_A && old.arr) ? (ARBLK_t *) old.arr : NULL;
+    long long on = ob ? (long long)ob->hi - ob->lo + 1 : 0;
+    DESCR_t d = pas_dyn_block(n);
+    ARBLK_t *b = (ARBLK_t *) d.arr;
+    for (long long k = 0; k < n; k++) {
+        DESCR_t prev = k < on ? ob->data[k] : NULVCL;
+        if (nd > 1) b->data[k] = pas_dynset(prev, proto, depth - 1, dims + 1, nd - 1);
+        else if (k < on) b->data[k] = prev;
+        else if (depth > 1) b->data[k] = pas_dyn_block(0);
+        else b->data[k] = pas_agg_copy(proto);
+    }
+    return d;
+}
 static DESCR_t pas_chars_of(DESCR_t v, long lo) {
     if (IS_STR_fn(v)) return v;
     if (v.v != DT_A || !v.arr) return STRVAL(rt_heap_strdup_c(""));
@@ -11872,6 +11905,23 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "__pas_rdecode") && nargs == 4) { *out = pas_rdecode(args[0], (long)pas_ord_of(args[1]), (long)pas_ord_of(args[2]), (long)pas_ord_of(args[3])); return 1; }
     if (!strcmp(fn, "__pas_rpatch") && nargs == 5) { *out = pas_rpatch(args[0], (long)pas_ord_of(args[1]), (long)pas_ord_of(args[2]), (long)pas_ord_of(args[3]), args[4]); return 1; }
     if (!strcmp(fn, "__pas_view") && nargs == 4) { *out = pas_view_make(args, nargs); return 1; }
+    if (!strcmp(fn, "__pas_dynlen") && nargs == 1) { ARBLK_t *b = (args[0].v == DT_A && args[0].arr) ? (ARBLK_t *) args[0].arr : NULL; *out = INTVAL(b ? (long long)b->hi - b->lo + 1 : 0); return 1; }
+    if (!strcmp(fn, "__pas_open") && nargs == 1) {
+        DESCR_t c = pas_agg_copy(args[0]);
+        if (c.v == DT_A && c.arr && ((ARBLK_t *) c.arr)->ndim == 1 && c.arr != args[0].arr) { ARBLK_t *b = (ARBLK_t *) c.arr; b->hi = b->hi - b->lo; b->lo = 0; }
+        *out = c;
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_rebase") && nargs == 2) {
+        if (args[0].v == DT_A && args[0].arr && ((ARBLK_t *) args[0].arr)->ndim == 1 && IS_INT_fn(args[1])) {
+            ARBLK_t *b = (ARBLK_t *) args[0].arr;
+            b->hi = (int) (args[1].i + (b->hi - b->lo));
+            b->lo = (int) args[1].i;
+        }
+        *out = args[0];
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_dynset") && nargs >= 4) { *out = pas_dynset(args[0], args[1], IS_INT_fn(args[2]) ? (int)args[2].i : 1, args + 3, nargs - 3); return 1; }
     if (!strcmp(fn, "__pas_setlength") && nargs == 2) {
         const char *s = VARVAL_fn(args[0]);
         if (!s) s = "";
