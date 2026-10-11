@@ -1726,13 +1726,12 @@ static int sno_label_reserved(const char * nm) {
 static IR_t * sno_label_trace_wrap(IR_graph_t * g, const char * nm, IR_t * land) {
     if (!g_lower.sno.traces_a_label || !nm || !nm[0] || !land) return land;
     if (sno_label_reserved(nm)) return land;
-    IR_t * hook = lc_build(g, IR_CALL, land, land);
-    IR_LIT(hook).sval = (char *) "SNO$STMT";
-    IR_t * nmn = lc_build(g, IR_LIT_STRING, hook, hook);
-    IR_LIT(nmn).sval = lp_strdup(nm);
-    ir_operand_push(hook, nmn);
-    bb_src_note(nmn, "sno_label_hook", 0);
-    return nmn;
+    IR_t * hook = lc_build(g, IR_STMT_MARK, land, land);
+    hook->seal = IR_SEAL_LABEL_HOOK;
+    IR_LIT(hook).sval = lp_strdup(nm);
+    hook->pat_static = 0;
+    bb_src_note(hook, "sno_label_hook", 0);
+    return hook;
 }
 static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
     extern int g_rt_fragment_emit;

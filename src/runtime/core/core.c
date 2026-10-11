@@ -404,7 +404,7 @@ void rt_trace_all_set(int on) {
         trace_unregister("*", TRK_RETURN);
     }
 }
-void rt_trace_label_hook(const char *name) {
+void rt_trace_label_hook_p(const char *name, trace_pend_t *pend) {
     if (trace_idle()) return;
     extern long g_stno;
     if (!name || !*name) return;
@@ -421,6 +421,14 @@ void rt_trace_label_hook(const char *name) {
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(name));
         cbargs[1] = STRVAL(rt_heap_strdup_c(e->tag ? e->tag : ""));
+        if (pend) {
+            pend->args[0] = STRVAL(rt_heap_strdup_c(e->cbfn));
+            pend->args[1] = cbargs[0];
+            pend->args[2] = cbargs[1];
+            pend->saved_trace = INTVAL(saved_trace);
+            pend->saved_ftrace = INTVAL(saved_ftrace);
+            return;
+        }
         (void)RT_GC_CALLBACK(APPLY_fn(e->cbfn, cbargs, 2));
         trace_recursion_depth--;
         g_trace = saved_trace;
@@ -431,6 +439,7 @@ void rt_trace_label_hook(const char *name) {
     trace_print_banner_args(name, (DESCR_t *)0, 0, NULVCL, (long long)g_stno, TRK_LABEL);
     trace_recursion_depth--;
 }
+void rt_trace_label_hook(const char *name) { rt_trace_label_hook_p(name, (trace_pend_t *)0); }
 void rt_trace_keyword_write_p(const char *kw, int64_t v, long long stno, trace_pend_t *pend) {
     if (trace_idle()) return;
     if (!kw || !*kw) return;
@@ -555,6 +564,7 @@ void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_seria
 }
 void rt_trace_all_set(int on) { (void)on; }
 void rt_trace_label_hook(const char *name) { (void)name; }
+void rt_trace_label_hook_p(const char *name, trace_pend_t *pend) { (void)name; (void)pend; }
 void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) { (void)kw; (void)v; (void)stno; }
 void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno) { (void)kind; (void)name; (void)args; (void)nargs; (void)value; (void)stno; }
 void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) { (void)kind; (void)name; (void)value; (void)stno; }

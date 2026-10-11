@@ -34,7 +34,20 @@ std::string bb_stmt_mark(long stno, long line) {
              + bb_glue_trace_pend_run(100, std::string(), 0)
              + x86("add", "rsp", 112L)
              + x86_align_leave())
-         + IF(_.op_seal != IR_SEAL_STMT_HOOK,
+         + IF(_.op_seal == IR_SEAL_LABEL_HOOK,
+               x86("comment", "IR_STMT_MARK label hook: a transfer reached a traced label; the leaf fills a pending LABEL trace and the box runs the callback (CEO-1644)")
+             + x86_align_enter()
+             + x86("sub", "rsp", 112L)
+             + x86("mov", RDQ("rsp", 0), 0L)
+             + x86("mov", RDQ("rsp", 8), 0L)
+             + bb_glue_name_or_rec_lea(_.op_sval ? _.op_sval : "")
+             + x86("mov", "rsi", "rsp")
+             + x86("call", "rt_trace_label_hook_p", (uint64_t)(uintptr_t)(void *)rt_trace_label_hook_p)
+             + x86_rt_gc_poll()
+             + bb_glue_trace_pend_run(100, std::string(), 0)
+             + x86("add", "rsp", 112L)
+             + x86_align_leave())
+         + IF(_.op_seal != IR_SEAL_STMT_HOOK && _.op_seal != IR_SEAL_LABEL_HOOK,
                x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
          + x86("mov", "rcx", RDQ("rax", 0))
          + x86("mov", RDQ("rax", 0), (long)stno)

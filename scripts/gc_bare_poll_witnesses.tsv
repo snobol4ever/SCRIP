@@ -182,3 +182,4 @@ src/emitter/emit.cpp:rt_trace_gen_fail_hook#1	hb_size_result_polled.icn
 src/emitter/emit.cpp:rt_trace_fail_hook#1	hb_size_result_polled.icn
 src/templates/bb/bb_match_capture.cpp:rt_value_trace_open#1	hb_value_trace_during_match.sno
 src/templates/bb/bb_glue_flat.cpp:rt_tweak_open#1	hb_data_tweak_hook.sno
+src/templates/bb/bb_stmt_mark.cpp:rt_trace_label_hook_p#1	hb_label_trace_hook.sno

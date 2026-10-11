@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2566
-#define GC_ALLOC_TAB_N_VOID 305
+#define GC_ALLOC_TAB_N 2567
+#define GC_ALLOC_TAB_N_VOID 306
 #define GC_ALLOC_TAB_N_DESCR 1241
 #define GC_ALLOC_TAB_N_OTHER 1003
 #define GC_ALLOC_TAB_N_UNKNOWN 17
@@ -2440,6 +2440,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_trace_keyword_write", GC_RET_VOID },
     { "rt_trace_keyword_write_p", GC_RET_VOID },
     { "rt_trace_label_hook", GC_RET_VOID },
+    { "rt_trace_label_hook_p", GC_RET_VOID },
     { "rt_trace_pend_close", GC_RET_VOID },
     { "rt_trace_pend_run", GC_RET_VOID },
     { "rt_trace_resume_hook", GC_RET_VOID },
