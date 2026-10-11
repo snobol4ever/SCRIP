@@ -423,9 +423,7 @@ RTX_FUNC(rt_subscript_var)
     jmp     .Lsv_c
 .Lsv_c:
     RTX_CFA(8)
-    RTX_SUB_RSP(8)
-    call    c_rt_subscript_var
-    RTX_ADD_RSP(8)
+    mov     eax, RTX_NOT_HANDLED
     RTX_GVA_R9
     ret
 RTX_ENDF(rt_subscript_var)

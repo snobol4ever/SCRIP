@@ -375,14 +375,11 @@ RTX_FUNC(rt_match_replace)
     mov     rdi, qword ptr [rsp + 0]
     call    NV_SET_fn
     RTX_ADD_RSP(88)
+    xor     eax, eax
     RTX_GVA_R9
     ret
 .Lmr_c:
-    RTX_SUB_RSP(8)
-    call    c_rt_match_replace
-    RTX_ADD_RSP(8)
-    RTX_GVA_R9
-    ret
+    RTX_DECLINE
 RTX_ENDF(rt_match_replace)
 RTX_FUNC(rt_cap_open)
     test    rdi, rdi

@@ -120,6 +120,7 @@ RTX_FUNC(rt_coerce_num2_d)
     mov dword ptr [rdx], DT_I
     mov dword ptr [rdx + 4], 0
     mov qword ptr [rdx + 8], r8
+    xor     eax, eax
     RTX_GVA_R9
     ret
 .Lint_to_real:
@@ -128,12 +129,11 @@ RTX_FUNC(rt_coerce_num2_d)
     mov dword ptr [rdx], DT_R
     mov dword ptr [rdx + 4], 0
     movq qword ptr [rdx + 8], xmm0
+    xor     eax, eax
     RTX_GVA_R9
     ret
 .Lbail:
-    RTX_SUB_RSP(8)
-    call    c_rt_coerce_num2_d
-    RTX_ADD_RSP(8)
+    mov     eax, RTX_NOT_HANDLED
     RTX_GVA_R9
     ret
 RTX_ENDF(rt_coerce_num2_d)

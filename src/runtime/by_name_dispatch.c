@@ -4582,7 +4582,7 @@ static const char *icn_opproc_find(const char *nm, int arity) {
 static int icn_opproc_arity(const char *s) { int n; const icn_opproc_t *t = icn_opproc_table(&n); for (int i = 0; s && i < n; i++) if (s == t[i].opsym) return t[i].ar; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_opproc_typed(const char *nm, DESCR_t *argv, int n, DESCR_t *out) {
-    extern void rt_coerce_num2_d(const DESCR_t *, const DESCR_t *, DESCR_t *, long);
+    extern void c_rt_coerce_num2_d(const DESCR_t *, const DESCR_t *, DESCR_t *, long);
     extern DESCR_t str_concat_fracdigit_d(DESCR_t, DESCR_t);
     extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);
     extern DESCR_t rt_div_strict(DESCR_t, DESCR_t);
@@ -4595,13 +4595,13 @@ static int icn_opproc_typed(const char *nm, DESCR_t *argv, int n, DESCR_t *out) 
     DESCR_t l, r;
     if (bc < 0 || (n == 1 && bc != BINOP_ADD && bc != BINOP_SUB)) return 0;
     if (n == 1) {
-        rt_coerce_num2_d(&argv[0], &argv[0], &r, 102 | COERCE_ERR_FAILURE_CONVERTIBLE | (bc == BINOP_SUB ? COERCE_OP_UNARY_NEG : COERCE_OP_UNARY_POS));
+        c_rt_coerce_num2_d(&argv[0], &argv[0], &r, 102 | COERCE_ERR_FAILURE_CONVERTIBLE | (bc == BINOP_SUB ? COERCE_OP_UNARY_NEG : COERCE_OP_UNARY_POS));
         *out = IS_FAIL_fn(r) ? FAILDESCR : (bc == BINOP_SUB) ? RT_GC_CALLBACK(rt_num_arith_strict(INTVAL(0), r, BINOP_SUB)) : r;
         return 1;
     }
-    rt_coerce_num2_d(&argv[0], &argv[1], &l, 102 | COERCE_ERR_FAILURE_CONVERTIBLE | COERCE_OP_TAG(bc));
+    c_rt_coerce_num2_d(&argv[0], &argv[1], &l, 102 | COERCE_ERR_FAILURE_CONVERTIBLE | COERCE_OP_TAG(bc));
     if (IS_FAIL_fn(l)) { *out = FAILDESCR; return 1; }
-    rt_coerce_num2_d(&argv[1], &argv[0], &r, 102 | COERCE_ERR_FAILURE_CONVERTIBLE | (bc == BINOP_POW ? COERCE_KEEP_INT : 0) | COERCE_OP_TAG(bc) | COERCE_OP_SELF_RIGHT);
+    c_rt_coerce_num2_d(&argv[1], &argv[0], &r, 102 | COERCE_ERR_FAILURE_CONVERTIBLE | (bc == BINOP_POW ? COERCE_KEEP_INT : 0) | COERCE_OP_TAG(bc) | COERCE_OP_SELF_RIGHT);
     if (IS_FAIL_fn(r)) { *out = FAILDESCR; return 1; }
     *out = RT_GC_CALLBACK(bc == BINOP_DIV ? rt_div_strict(l, r) : bc == BINOP_MOD ? rt_mod_strict(l, r) : bc == BINOP_POW ? rt_pow_strict(l, r) : rt_num_arith_strict(l, r, bc));
     return 1;
@@ -14962,10 +14962,10 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
             return rt_deref(v);
         }
         if (!strcmp(fn, "[]")) {
-            extern DESCR_t rt_subscript_var(DESCR_t, DESCR_t);
+            extern DESCR_t c_rt_subscript_var(DESCR_t, DESCR_t);
             extern DESCR_t rt_subscript_var_strict(DESCR_t, DESCR_t);
             extern DESCR_t rt_deref(DESCR_t);
-            DESCR_t v = (strict ? rt_subscript_var_strict : rt_subscript_var)(a, b);
+            DESCR_t v = (strict ? rt_subscript_var_strict : c_rt_subscript_var)(a, b);
             if (IS_FAIL_fn(v)) return FAILDESCR;
             return rt_deref(v);
         }
@@ -18209,13 +18209,13 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     if ((_bid == BID_abs) && nargs == 1) {
         { extern int rk_rat_is(DESCR_t); extern int rk_rat_method(const char *, DESCR_t, DESCR_t *, DESCR_t *); if (rk_rat_is(args[0]) && rk_rat_method("abs", args[0], NULL, out)) return 1; }
         if (args[0].v == DT_CPLX) { extern double rt_cplx_abs(DESCR_t); *out = REALVAL(rt_cplx_abs(args[0])); return 1; }
-        extern void rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes);
+        extern void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes);
         extern int rt_big_is(DESCR_t);
         extern int rt_big_sign(DESCR_t);
         extern DESCR_t rt_big_neg(DESCR_t);
         DESCR_t av = args[0];
         DESCR_t nv;
-        rt_coerce_num2_d(&av, &av, &nv, 0);
+        c_rt_coerce_num2_d(&av, &av, &nv, 0);
         if (rt_big_is(nv)) { *out = rt_big_sign(nv) < 0 ? rt_big_neg(nv) : nv; return 1; }
         if (IS_REAL_fn(nv)) { *out = REALVAL(fabs(nv.r)); return 1; }
         if (nv.i == (-9223372036854775807LL - 1)) { *out = rt_big_neg(nv); return 1; }
@@ -19385,10 +19385,10 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     L_bidjmp_6484:
     ;
     if ((_bid == BID_ITEM) && nargs >= 2) {
-        extern DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
+        extern DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx);
         extern DESCR_t rt_deref(DESCR_t v);
         DESCR_t cur = args[0];
-        for (int k = 1; k < nargs; k++) { cur = rt_subscript_var(cur, args[k]); if (IS_FAIL_fn(cur)) { *out = FAILDESCR; return 1; } }
+        for (int k = 1; k < nargs; k++) { cur = c_rt_subscript_var(cur, args[k]); if (IS_FAIL_fn(cur)) { *out = FAILDESCR; return 1; } }
         *out = rt_deref(cur);
         return 1;
     }

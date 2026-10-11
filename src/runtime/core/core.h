@@ -349,7 +349,7 @@ DESCR_t pat_assign_callcap_named_imm(DESCR_t child, const char *fnc_name, DESCR_
 DESCR_t var_as_pattern(DESCR_t v);
 DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
-DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
+DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx);
 DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
 DESCR_t c_rt_subscript_var2(DESCR_t base, DESCR_t idx1, DESCR_t idx2);
 DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2);

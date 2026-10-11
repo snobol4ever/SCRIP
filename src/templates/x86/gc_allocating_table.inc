@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2617
-#define GC_ALLOC_TAB_N_VOID 312
+#define GC_ALLOC_TAB_N 2616
+#define GC_ALLOC_TAB_N_VOID 311
 #define GC_ALLOC_TAB_N_DESCR 1242
 #define GC_ALLOC_TAB_N_OTHER 1046
 #define GC_ALLOC_TAB_N_UNKNOWN 17
@@ -1583,7 +1583,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_code_pool_check", GC_RET_VOID },
     { "rt_code_pool_overflow", GC_RET_VOID },
     { "rt_coerce_int_d", GC_RET_VOID },
-    { "rt_coerce_num2_d", GC_RET_VOID },
     { "rt_coerce_real_d", GC_RET_VOID },
     { "rt_coerce_shown_d", GC_RET_DESCR },
     { "rt_coerce_str_d", GC_RET_OTHER },

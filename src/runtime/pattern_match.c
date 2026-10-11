@@ -1878,7 +1878,7 @@ static DESCR_t c_rt_subscript_var_container_only_s(DESCR_t base, DESCR_t idx, in
         if (!tb) return FAILDESCR;
         { TBPAIR_t *e = table_find_pair_d(tb, idx); if (e) return e->val; if (tb->dflt.v != DT_FAIL && tb->dflt.v != 0) return tb->dflt; return NULVCL; }
     }
-    return rt_subscript_var(base, idx);
+    return c_rt_subscript_var(base, idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
@@ -1889,7 +1889,7 @@ DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
     extern int g_gc_pending;
     enum { g_sno_etrace_n = 0, g_trace_budget = 0 };
 #endif
-    if (g_gc_pending || g_sno_etrace_n != 0) { DESCR_t ref = rt_subscript_var(base, idx); if (ref.v == DT_FAIL) return ref; return c_rt_assign_var(ref, val); }
+    if (g_gc_pending || g_sno_etrace_n != 0) { DESCR_t ref = c_rt_subscript_var(base, idx); if (ref.v == DT_FAIL) return ref; return c_rt_assign_var(ref, val); }
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (base.v == DT_A) {
         ARBLK_t *a = base.arr;
@@ -1897,7 +1897,7 @@ DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
             long off = (long)idx.i - (long)a->lo;
             if (off >= 0 && off <= (long)a->hi - (long)a->lo) { a->data[off] = val; if (g_trace_budget != 0) sno_trace_value("<lval>", val); return val; }
         }
-        { DESCR_t ref = rt_subscript_var(base, idx); if (ref.v == DT_FAIL) return ref; return c_rt_assign_var(ref, val); }
+        { DESCR_t ref = c_rt_subscript_var(base, idx); if (ref.v == DT_FAIL) return ref; return c_rt_assign_var(ref, val); }
     }
     table_set_descr_d(base.tbl, idx, val);
     if (g_trace_budget != 0) sno_trace_value("<lval>", val);
@@ -1938,7 +1938,7 @@ DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2) {
     if (rt_nd2_fast(base, idx1, idx2, &out)) return out;
     DESCR_t hop1 = c_rt_subscript_var_container_only(base, idx1);
     if (hop1.v == DT_FAIL) return FAILDESCR;
-    return rt_subscript_var(hop1, idx2);
+    return c_rt_subscript_var(hop1, idx2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_data_is_record_inst(DESCR_t obj) { DESCR_t *e = 0; int n = 0; return IS_DATA_INST_fn(obj) && obj.u && obj.u->type && obj.u->type->name && !rt_list_view(obj, &e, &n); }
