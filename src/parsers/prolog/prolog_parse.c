@@ -2663,6 +2663,8 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             }
             cv_t calls = { 0 };
             pl_tree_collect_calls(pl_clause_body(cl), &calls);
+            if (pl_cv_has(&calls, "call_cleanup") || pl_cv_has(&calls, "setup_call_cleanup")) pl_cv_add(&calls, "$scc_cut");
+            if (pl_cv_has(&calls, "string_concat")) pl_cv_add(&calls, "$string_concat_split");
             for (uint32_t ci = 0; ci < calls.len; ci++) {
                 for (PlClause *d = pre->head; d; d = d->next) {
                     const char *dn; int dar;

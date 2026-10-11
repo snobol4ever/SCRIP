@@ -19,7 +19,11 @@
                           format_to_atom/3, format_to_codes/3, format_to_chars/3,
                           read_from_atom/2, read_from_codes/2, read_from_chars/2,
                           number_atom/2, lower_upper/2, new_atom/1, new_atom/2,
-                          portray_clause/1, portray_clause/2, name_singleton_vars/1, name_query_vars/2, bind_variables/2 ]).
+                          portray_clause/1, portray_clause/2, name_singleton_vars/1, name_query_vars/2, bind_variables/2,
+                          partial_list/1, list_or_partial_list/1, generic_var/1, non_generic_var/1, non_fd_var/1, current_atom/1, atom_property/2,
+                          call_with_args/1, call_with_args/2, call_with_args/3, call_with_args/4, call_with_args/5, call_with_args/6, call_with_args/7,
+                          call_with_args/8, call_with_args/9, call_with_args/10, call_with_args/11, call_det/2, setarg/4, term_variables/3,
+                          term_hash/4, term_ref/2 ]).
 write_to_atom(A, T) :- with_output_to(atom(A), write(T)).
 writeq_to_atom(A, T) :- with_output_to(atom(A), writeq(T)).
 print_to_atom(A, T) :- with_output_to(atom(A), print(T)).
@@ -50,7 +54,9 @@ lower_upper(L, U) :- '$gnu_b_char'(U), downcase_atom(U, L0), L = L0.
 '$gnu_b_char'(C) :- var(C), !, throw(error(instantiation_error, lower_upper/2)).
 '$gnu_b_char'(C) :- atom(C), atom_length(C, 1), !.
 '$gnu_b_char'(C) :- throw(error(type_error(character, C), lower_upper/2)).
+new_atom(A) :- nonvar(A), !, throw(error(uninstantiation_error(A), new_atom/1)).
 new_atom(A) :- new_atom('$atom_', A).
+new_atom(_, A) :- nonvar(A), !, throw(error(uninstantiation_error(A), new_atom/2)).
 new_atom(P, A) :- ( nb_current('$gnu_b_new_atom', N0) -> true ; N0 = 0 ), N is N0 + 1, nb_setval('$gnu_b_new_atom', N), atom_number(S, N), atom_concat(P, S, A).
 portray_clause(T) :- current_output(S), '$gnu_b_portray'(S, T, portray_clause/1).
 portray_clause(S, T) :- '$gnu_b_portray'(S, T, portray_clause/2).
@@ -129,3 +135,61 @@ bind_variables(T, Os) :- '$gnu_b_bv_opts'(Os, [], Ex, 0, From, _, Next, numberva
     '$gnu_b_bindn'(Vs, K1, Rs, N, Mode).
 '$gnu_b_free'(N0, Rs, K) :- ( memberchk(N0, Rs) -> N1 is N0 + 1, '$gnu_b_free'(N1, Rs, K) ; K = N0 ).
 '$gnu_b_letter'(K, A) :- L is K mod 26, S is K // 26, C is 0'A + L, ( S =:= 0 -> atom_codes(A, [C]) ; number_codes(S, Ds), atom_codes(A, [C|Ds]) ).
+partial_list(L) :- '$gnu_b_tail'(L, T), var(T).
+list_or_partial_list(L) :- '$gnu_b_tail'(L, T), ( var(T) -> true ; T == [] ).
+'$gnu_b_tail'(L, T) :- ( nonvar(L), L = [_|R] -> '$gnu_b_tail'(R, T) ; T = L ).
+generic_var(X) :- var(X).
+non_generic_var(X) :- nonvar(X).
+non_fd_var(X) :- \+ ( var(X), get_attr(X, clpfd, _) ).
+current_atom(A) :- atom(A).
+atom_property(A, _) :- var(A), !, throw(error(instantiation_error, atom_property/2)).
+atom_property(A, _) :- \+ atom(A), !, throw(error(type_error(atom, A), atom_property/2)).
+atom_property(A, P) :- nonvar(P), \+ '$gnu_b_aprop'(P), !, throw(error(domain_error(atom_property, P), atom_property/2)).
+atom_property(A, length(N)) :- atom_length(A, N).
+atom_property(A, prefix_op) :- '$gnu_b_op'(A, [fx, fy]).
+atom_property(A, infix_op) :- '$gnu_b_op'(A, [xfx, xfy, yfx]).
+atom_property(A, postfix_op) :- '$gnu_b_op'(A, [xf, yf]).
+atom_property(A, needs_quotes) :- with_output_to(atom(Q), writeq(A)), Q \== A.
+atom_property(A, hash(H)) :- term_hash(A, H).
+'$gnu_b_aprop'(length(_)).
+'$gnu_b_aprop'(prefix_op).
+'$gnu_b_aprop'(infix_op).
+'$gnu_b_aprop'(postfix_op).
+'$gnu_b_aprop'(needs_quotes).
+'$gnu_b_aprop'(hash(_)).
+'$gnu_b_op'(A, Ts) :- current_op(_, T, A), memberchk(T, Ts), !.
+call_with_args(P) :- '$gnu_b_cwa'(P, [], 1).
+call_with_args(P, A1) :- '$gnu_b_cwa'(P, [A1], 2).
+call_with_args(P, A1, A2) :- '$gnu_b_cwa'(P, [A1, A2], 3).
+call_with_args(P, A1, A2, A3) :- '$gnu_b_cwa'(P, [A1, A2, A3], 4).
+call_with_args(P, A1, A2, A3, A4) :- '$gnu_b_cwa'(P, [A1, A2, A3, A4], 5).
+call_with_args(P, A1, A2, A3, A4, A5) :- '$gnu_b_cwa'(P, [A1, A2, A3, A4, A5], 6).
+call_with_args(P, A1, A2, A3, A4, A5, A6) :- '$gnu_b_cwa'(P, [A1, A2, A3, A4, A5, A6], 7).
+call_with_args(P, A1, A2, A3, A4, A5, A6, A7) :- '$gnu_b_cwa'(P, [A1, A2, A3, A4, A5, A6, A7], 8).
+call_with_args(P, A1, A2, A3, A4, A5, A6, A7, A8) :- '$gnu_b_cwa'(P, [A1, A2, A3, A4, A5, A6, A7, A8], 9).
+call_with_args(P, A1, A2, A3, A4, A5, A6, A7, A8, A9) :- '$gnu_b_cwa'(P, [A1, A2, A3, A4, A5, A6, A7, A8, A9], 10).
+call_with_args(P, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) :- '$gnu_b_cwa'(P, [A1, A2, A3, A4, A5, A6, A7, A8, A9, A10], 11).
+'$gnu_b_cwa'(P, _, N) :- var(P), !, throw(error(instantiation_error, call_with_args/N)).
+'$gnu_b_cwa'(P, _, N) :- \+ atom(P), !, throw(error(type_error(atom, P), call_with_args/N)).
+'$gnu_b_cwa'(P, As, _) :- G =.. [P|As], call(G).
+call_det(G, _) :- var(G), !, throw(error(instantiation_error, call_det/2)).
+call_det(_, D) :- nonvar(D), D \== true, D \== false, !, throw(error(type_error(boolean, D), call_det/2)).
+call_det(G, D) :- call_cleanup(G, Det = true), ( Det == true -> D = true ; D = false ).
+setarg(_, _, _, U) :- var(U), !, throw(error(instantiation_error, setarg/4)).
+setarg(_, _, _, U) :- U \== true, U \== false, !, throw(error(type_error(boolean, U), setarg/4)).
+setarg(N, T, V, true) :- setarg(N, T, V).
+setarg(_, _, V, false) :- \+ atomic(V), !, throw(error(type_error(atomic, V), setarg/4)).
+setarg(N, T, V, false) :- nb_setarg(N, T, V).
+term_variables(T, Vs, Tail) :- term_variables(T, Vs0), append(Vs0, Tail, Vs).
+term_hash(_, D, _, _) :- var(D), !, throw(error(instantiation_error, term_hash/4)).
+term_hash(_, D, _, _) :- \+ integer(D), !, throw(error(type_error(integer, D), term_hash/4)).
+term_hash(_, _, R, _) :- var(R), !, throw(error(instantiation_error, term_hash/4)).
+term_hash(_, _, R, _) :- \+ integer(R), !, throw(error(type_error(integer, R), term_hash/4)).
+term_hash(_, _, R, _) :- R < 0, !, throw(error(domain_error(not_less_than_zero, R), term_hash/4)).
+term_hash(T, _, R, H) :- ( ground(T) -> term_hash(T, H0), ( R =:= 0 -> H = H0 ; H is H0 mod R ) ; true ).
+term_ref(T, R) :- var(R), !, ( var(T) -> throw(error(instantiation_error, term_ref/2)) ; '$gnu_b_tref_add'(T, R) ).
+term_ref(_, R) :- \+ integer(R), !, throw(error(type_error(integer, R), term_ref/2)).
+term_ref(_, R) :- R < 0, !, throw(error(domain_error(not_less_than_zero, R), term_ref/2)).
+term_ref(T, R) :- '$gnu_b_tref_key'(R, K), b_getval(K, T0), T = T0.
+'$gnu_b_tref_key'(R, K) :- atom_number(A, R), atom_concat('$gnu_b_tref_', A, K).
+'$gnu_b_tref_add'(T, R) :- ( nb_current('$gnu_b_tref_n', N0) -> true ; N0 = 0 ), R is N0 + 1, nb_setval('$gnu_b_tref_n', R), '$gnu_b_tref_key'(R, K), b_setval(K, T).

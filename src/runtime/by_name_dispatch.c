@@ -7048,6 +7048,7 @@ static int rt_pl_setarg_cell(DESCR_t *na, DESCR_t *ta, DESCR_t *va, pl_tr_ctx_t 
     if (plw_unbound_tag(n) || plw_unbound_tag(t)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
     if (n->v != (DTYPE_t)DT_I) { cx->ball = rt_pl_ball_kind2("type_error", "integer", *n); return 0; }
     if (t->v != (DTYPE_t)DT_PLREF || !t->p) { cx->ball = rt_pl_ball_kind2("type_error", "compound", *t); return 0; }
+    if (n->i < 0) { cx->ball = rt_pl_ball_kind2("domain_error", "not_less_than_zero", *n); return 0; }
     if (n->i < 1 || n->i > (int64_t)plc_fid_arity(t->slen)) return 0;
     {
         DESCR_t *cell = &((DESCR_t *)t->p)[n->i - 1];
