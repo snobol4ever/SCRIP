@@ -2089,7 +2089,10 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     collect_conj(ext, &glv);
                     IR_t * ientry = NULL;
                     IR_t * iredo = NULL;
-                    pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, γnext, callω, &ientry, &iredo, NULL);
+                    IR_t * itail = NULL;
+                    int ctail = cx->tail;
+                    pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, γnext, callω, &ientry, &iredo, &itail);
+                    pl_seal_branch_tail(ctail, 0, itail);
                     cx->cutω = saveω;
                     cx->cut_scope = save_scope;
                     cx->cut_mark = save_mark_0;
