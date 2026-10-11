@@ -1536,7 +1536,15 @@ tree_t *rkb_prefix_apply(RkB *b, const char *op, tree_t *x) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_incdec(RkB *b, const char *var, int add) { return rk_incdec(b, var, add); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rkb_smartmatch_term_raw(RkB *b, tree_t *l, RkTerm *x);
 tree_t *rkb_smartmatch_term(RkB *b, tree_t *l, RkTerm *x) {
+    if (!rk_wc_operand(b, l)) return rkb_smartmatch_term_raw(b, l, x);
+    TL ps = { 0 };
+    tree_t *m = rkb_smartmatch_term_raw(b, rk_wc_take(b, l, &ps), x);
+    return m ? rk_wc_close(m, &ps) : NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rkb_smartmatch_term_raw(RkB *b, tree_t *l, RkTerm *x) {
     if (x->kind == TK_QUOTE && !x->npost && !x->npre && x->t) {
         tree_t *t = x->t;
         if (t->t == TT_SMATCH && t->n >= 3) { t->c[0] = l; return t; }

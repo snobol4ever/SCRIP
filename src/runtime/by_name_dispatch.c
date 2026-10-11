@@ -15502,7 +15502,16 @@ static const char *rk_obj_default_raku(DESCR_t d) {
     if (np) { r[o++] = '('; for (int i = 0; i < np; i++) o += (size_t)snprintf(r + o, total + 1 - o, "%s%s", i ? ", " : "", piece[i]); r[o++] = ')'; r[o] = '\0'; }
     return r;
 }
-static int rk_agg_truth(DESCR_t v) { if (v.v == DT_T) return v.tbl && v.tbl->size > 0; return v.arr ? rk_av(v).n > 0 : 0; }
+static int rk_agg_truth(DESCR_t v) {
+    if (v.v == DT_T) return v.tbl && v.tbl->size > 0;
+    if (!v.arr) return 0;
+    rk_av_t a = rk_av(v);
+    if (!rk_is_jct(v)) return a.n > 0;
+    const char *fl = ((ARBLK_t *) v.arr)->proto;
+    int hits = 0;
+    for (int i = 0; i < a.n; i++) hits += rk_is_truthy(a.el[i]) ? 1 : 0;
+    return fl == rk_proto_jct_any ? hits > 0 : fl == rk_proto_jct_all ? hits == a.n : fl == rk_proto_jct_one ? hits == 1 : hits == 0;
+}
 DESCR_t rk_attr_defaults(DatType *dt, DESCR_t inst) {
     DATINST_t *di = (IS_DATA_INST_fn(inst) && inst.u) ? (DATINST_t *) inst.u : NULL;
     if (!di || !dt) return inst;
