@@ -15,7 +15,12 @@
 # fd_dom/2 as a list, fd_min/fd_max/fd_size, fd_max_integer, fd_vector_max, fd_at_least_one, fd_prime, fd_not_prime,
 # fd_atleast, fd_minimize, fd_element, fd_element_var, fd_reified_in, fd_cardinality/2,3, fd_has_vector, fd_has_extra_cstr,
 # fd_labeling/2's value_method(max|middle) and variable_method(ff), fd_domain/2 over a value list, fd_labeling of one variable,
-# backtracks(B).  FAIL-ONCE, measured on 70f3505ed: arm 1 (no base table) 11 of 11 lines differ, arm 2 (existence_error fd_domain/3)
+# backtracks(B); (3) GNU's expressions INSIDE the operators SWI's clpfd also exports -- X ** 2 #= 49, dist/2, exact division (Z / 3
+# #= 4 admits only 12), quot_rem/3, min/max, // and rem, (A #<=> B) #/\ (C #<=> E), ## and #==> under #\/, #\ over a #>=#, a
+# reified ** -- answered through gnu_fd's wrappers over the '$clpfd_wrapped_<op>' copies the generator's WRAPS emits; the arm
+# declares -s16384k (measured: 8 MB stops at its ninth line, 16 MB runs it whole; its min/max line alone overflows 4 MB, the
+# last-call-in-a-branch shape of CEO-1632).  FAIL-ONCE of arm 3, measured on 84ed661f8 (before WRAPS): domain_error(clpfd_expression,
+# _ ** 2) on the first line, 12 of 12 lines differ.  FAIL-ONCE, measured on 70f3505ed: arm 1 (no base table) 11 of 11 lines differ, arm 2 (existence_error fd_domain/3)
 # 23 of 23; on the cure 0 of 34.  rc=0 agrees with gprolog · rc=1 a divergence · rc=2 REFUSAL (no gplc, no build).  ~8 s.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -59,10 +64,28 @@ main :-
     fd_domain([K1,K2], 1, 2), fd_labeling([K1,K2], [backtracks(Bk)]), write(bk(Bk)), nl, halt.
 PL
 red=0
-for w in ops fd; do
+cat > "$D/ex.pl" <<'PL'
+:- initialization(main).
+main :-
+    fd_domain(X, 1, 20), X ** 2 #= 49, fd_labeling([X]), write(pow(X)), nl,
+    D #= dist(3, 8), write(dist(D)), nl,
+    fd_domain(Y, 1, 20), dist(Y, 10) #= 4, fd_labeling([Y]), write(dist_lab(Y)), nl,
+    fd_domain(Z, 1, 20), Z / 3 #= 4, fd_labeling([Z]), write(exact_div(Z)), nl,
+    ( fd_domain(W, 1, 20), W / 3 #= 4, W #\= 12 -> write(exact_div_alt(W)) ; write(exact_div_only_12) ), nl,
+    Q #= quot_rem(17, 5, R), write(qr(Q, R)), nl,
+    fd_domain(M, 0, 9), min(M, 4) + max(M, 2) #= 9, fd_labeling([M]), write(minmax(M)), nl,
+    fd_domain(K, 0, 30), K // 4 #= 3, K rem 4 #= 1, fd_labeling([K]), write(quot_rem2(K)), nl,
+    fd_domain([A,B,C,E], 0, 1), (A #<=> B) #/\ (C #<=> E), A = 1, C = 0, fd_labeling([B,E]), write(and_equiv(B, E)), nl,
+    fd_domain([P,S], 0, 1), (P ## S) #\/ (P #==> S), fd_labeling([P,S]), write(or_xor(P, S)), nl,
+    fd_domain(T, 1, 9), #\ (T ** 2 #>=# 10), fd_labeling([T]), write(not_pow(T)), nl,
+    fd_domain(U, 0, 50), B2 #<=> (U ** 2 #= 25), B2 = 1, fd_labeling([U]), write(reif_pow(U)), nl,
+    halt.
+PL
+for w in ops fd ex; do
     ( cd "$D" && timeout 120 "$GPLC" -o "$w.gnu" "$w.pl" > /dev/null 2>&1 && timeout 30 "./$w.gnu" < /dev/null > "$w.want" 2>&1 ) || refuse "gprolog itself fails on $w.pl"
     [ -s "$D/$w.want" ] || refuse "gprolog printed nothing for $w.pl"
-    ( cd "$D" && timeout 60 "$B/scrip" --run "$w.pl" < /dev/null > "$w.m3" 2>&1 )
+    stk=; [ "$w" = ex ] && stk=-s16384k
+    ( cd "$D" && timeout 120 "$B/scrip" $stk --run "$w.pl" < /dev/null > "$w.m3" 2>&1 )
     n=$(wc -l < "$D/$w.want")
     if cmp -s "$D/$w.want" "$D/$w.m3"; then echo "  $w m3 GREEN: $n of $n lines as gprolog"
     else echo "  $w m3 RED: $(diff "$D/$w.want" "$D/$w.m3" 2>/dev/null | grep -c '^<') of $n lines differ from gprolog"; diff "$D/$w.want" "$D/$w.m3" 2>/dev/null | head -8 | sed 's/^/    /'; red=1; fi

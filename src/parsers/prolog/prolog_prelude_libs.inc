@@ -11200,7 +11200,75 @@ static const char PL_PRELUDE_LIB_3_SRC[] =
     "    ).\n"
     "'$clpfd_safe_api'(A/B, sandbox:safe_primitive(clpfd:C)) :-\n"
     "    functor(C, A, B).\n"
-    ":- op(1200, xfx, =>).\n";
+    ":- op(1200, xfx, =>).\n"
+    "'$clpfd_wrapped_#>='(A, B) :-\n"
+    "    '$clpfd_clpfd_geq'(A, B).\n"
+    "'$clpfd_wrapped_#=<'(A, B) :-\n"
+    "    (   integer(B)\n"
+    "    ->  (   integer(A)\n"
+    "        ->  B>=A\n"
+    "        ;   C=B,\n"
+    "            clpfd:'$clpfd_clpfd_geq'(C, A)\n"
+    "        )\n"
+    "    ;   integer(A)\n"
+    "    ->  C=A,\n"
+    "        clpfd:'$clpfd_clpfd_geq'(B, C)\n"
+    "    ;   clpfd:'$clpfd_clpfd_geq'(B, A)\n"
+    "    ).\n"
+    "'$clpfd_wrapped_#='(A, B) :-\n"
+    "    '$clpfd_clpfd_equal'(A, B).\n"
+    "'$clpfd_wrapped_#\\\\='(A, B) :-\n"
+    "    '$clpfd_clpfd_neq'(A, B),\n"
+    "    '$clpfd_do_queue'.\n"
+    "'$clpfd_wrapped_#>'(A, B) :-\n"
+    "    (   integer(A)\n"
+    "    ->  (   integer(B)\n"
+    "        ->  A>=B+1\n"
+    "        ;   C=A,\n"
+    "            clpfd:'$clpfd_clpfd_geq'(C, B+1)\n"
+    "        )\n"
+    "    ;   integer(B)\n"
+    "    ->  C is B+1,\n"
+    "        clpfd:'$clpfd_clpfd_geq'(A, C)\n"
+    "    ;   clpfd:'$clpfd_clpfd_geq'(A, B+1)\n"
+    "    ).\n"
+    "'$clpfd_wrapped_#<'(A, B) :-\n"
+    "    (   integer(B)\n"
+    "    ->  (   integer(A)\n"
+    "        ->  B>=A+1\n"
+    "        ;   C=B,\n"
+    "            clpfd:'$clpfd_clpfd_geq'(C, A+1)\n"
+    "        )\n"
+    "    ;   integer(A)\n"
+    "    ->  C is A+1,\n"
+    "        clpfd:'$clpfd_clpfd_geq'(B, C)\n"
+    "    ;   clpfd:'$clpfd_clpfd_geq'(B, A+1)\n"
+    "    ).\n"
+    "'$clpfd_wrapped_#\\\\'(A) :-\n"
+    "    '$clpfd_reify'(A, 0),\n"
+    "    '$clpfd_do_queue'.\n"
+    "'$clpfd_wrapped_#==>'(A, B) :-\n"
+    "    '$clpfd_reify'(A, C, D),\n"
+    "    '$clpfd_reify'(B, E, F),\n"
+    "    append(D, F, G),\n"
+    "    '$clpfd_propagator_init_trigger'([C, E],\n"
+    "                            pimpl(C, E, G)).\n"
+    "'$clpfd_wrapped_#/\\\\'(A, B) :-\n"
+    "    '$clpfd_reify'(A, 1),\n"
+    "    '$clpfd_reify'(B, 1),\n"
+    "    '$clpfd_do_queue'.\n"
+    "'$clpfd_wrapped_#\\\\/'(A, B) :-\n"
+    "    (   '$clpfd_disjunctive_eqs_var_drep'(A#\\/B, C, D)\n"
+    "    ->  clpfd:'$clpfd_clpfd_in'(C, D)\n"
+    "    ;   '$clpfd_reify'(A, E, F),\n"
+    "        '$clpfd_reify'(B, G, H),\n"
+    "        '$clpfd_propagator_init_trigger'([E, G],\n"
+    "                                reified_or(E,\n"
+    "                                           F,\n"
+    "                                           G,\n"
+    "                                           H,\n"
+    "                                           1))\n"
+    "    ).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_4_EXPORTS[] = {
     { "instantiation_error", 1 },
     { "uninstantiation_error", 1 },
@@ -11452,13 +11520,43 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_EXPORTS[] = {
     { "fd_at_most_one", 1 },
     { "fd_only_one", 1 },
     { "fd_reified_in", 4 },
+    { "#=", 2 },
+    { "#\\=", 2 },
+    { "#<", 2 },
+    { "#>", 2 },
+    { "#=<", 2 },
+    { "#>=", 2 },
+    { "#/\\", 2 },
+    { "#\\/", 2 },
+    { "#\\", 1 },
+    { "#==>", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_SHADOWS[] = {
+    { "#/\\", 2 },
+    { "#<", 2 },
+    { "#=", 2 },
+    { "#=<", 2 },
+    { "#==>", 2 },
+    { "#>", 2 },
+    { "#>=", 2 },
+    { "#\\", 1 },
+    { "#\\/", 2 },
+    { "#\\=", 2 },
     { "fd_dom", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_QUIET[] = {
+    { "#/\\", 2 },
+    { "#<", 2 },
+    { "#=", 2 },
+    { "#=<", 2 },
+    { "#==>", 2 },
+    { "#>", 2 },
+    { "#>=", 2 },
+    { "#\\", 1 },
+    { "#\\/", 2 },
+    { "#\\=", 2 },
     { "fd_dom", 2 },
     { 0, 0 }
 };
@@ -11478,6 +11576,35 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_5_OPS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_5_SRC[] =
+    "'#='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#='(X1, Y1).\n"
+    "'#\\\\='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#\\\\='(X1, Y1).\n"
+    "'#<'(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#<'(X1, Y1).\n"
+    "'#>'(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#>'(X1, Y1).\n"
+    "'#=<'(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#=<'(X1, Y1).\n"
+    "'#>='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#>='(X1, Y1).\n"
+    "'#/\\\\'(P, Q) :- '$gnu_plain'(P, P1), '$gnu_plain'(Q, Q1), '$clpfd_wrapped_#/\\\\'(P1, Q1).\n"
+    "'#\\\\/'(P, Q) :- '$gnu_plain'(P, P1), '$gnu_plain'(Q, Q1), '$clpfd_wrapped_#\\\\/'(P1, Q1).\n"
+    "'#\\\\'(P) :- '$gnu_plain'(P, P1), '$clpfd_wrapped_#\\\\'(P1).\n"
+    "'#==>'(P, Q) :- '$gnu_plain'(P, P1), '$gnu_plain'(Q, Q1), '$clpfd_wrapped_#==>'(P1, Q1).\n"
+    "'$gnu_expr'(V, V) :- var(V), !.\n"
+    "'$gnu_expr'(I, I) :- integer(I), !.\n"
+    "'$gnu_expr'(A + B, A1 + B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).\n"
+    "'$gnu_expr'(A - B, A1 - B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).\n"
+    "'$gnu_expr'(A * B, A1 * B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).\n"
+    "'$gnu_expr'(- A, - A1) :- !, '$gnu_expr'(A, A1).\n"
+    "'$gnu_expr'(+ A, A1) :- !, '$gnu_expr'(A, A1).\n"
+    "'$gnu_expr'(A ** B, A1 ^ B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).\n"
+    "'$gnu_expr'(A ^ B, A1 ^ B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).\n"
+    "'$gnu_expr'(dist(A, B), abs(A1 - B1)) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).\n"
+    "'$gnu_expr'(abs(A), abs(A1)) :- !, '$gnu_expr'(A, A1).\n"
+    "'$gnu_expr'(min(A, B), min(A1, B1)) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).\n"
+    "'$gnu_expr'(max(A, B), max(A1, B1)) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).\n"
+    "'$gnu_expr'(A // B, A1 // B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).\n"
+    "'$gnu_expr'(A rem B, A1 rem B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).\n"
+    "'$gnu_expr'(A mod B, A1 mod B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).\n"
+    "'$gnu_expr'(A / B, Q) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1), '$clpfd_wrapped_#='(Q * B1, A1).\n"
+    "'$gnu_expr'(quot_rem(A, B, R), Q) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1), '$clpfd_wrapped_#='(Q, A1 // B1), '$clpfd_wrapped_#='(R, A1 rem B1).\n"
+    "'$gnu_expr'(E, E).\n"
     "'#=#'(X, Y) :- X #= Y.\n"
     "'#\\\\=#'(X, Y) :- X #\\= Y.\n"
     "'#<#'(X, Y) :- X #< Y.\n"
@@ -11491,12 +11618,19 @@ static const char PL_PRELUDE_LIB_5_SRC[] =
     "'#\\\\\\\\/'(X, Y) :- '$gnu_plain'(X, X1), '$gnu_plain'(Y, Y1), #\\ (X1 #\\/ Y1).\n"
     "'#\\\\/\\\\'(X, Y) :- '$gnu_plain'(X, X1), '$gnu_plain'(Y, Y1), #\\ (X1 #/\\ Y1).\n"
     "'$gnu_plain'(V, V) :- var(V), !.\n"
-    "'$gnu_plain'('#=#'(X, Y), X #= Y) :- !.\n"
-    "'$gnu_plain'('#\\\\=#'(X, Y), X #\\= Y) :- !.\n"
-    "'$gnu_plain'('#<#'(X, Y), X #< Y) :- !.\n"
-    "'$gnu_plain'('#>#'(X, Y), X #> Y) :- !.\n"
-    "'$gnu_plain'('#=<#'(X, Y), X #=< Y) :- !.\n"
-    "'$gnu_plain'('#>=#'(X, Y), X #>= Y) :- !.\n"
+    "'$gnu_plain'(I, I) :- integer(I), !.\n"
+    "'$gnu_plain'('#=#'(X, Y), X1 #= Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).\n"
+    "'$gnu_plain'('#\\\\=#'(X, Y), X1 #\\= Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).\n"
+    "'$gnu_plain'('#<#'(X, Y), X1 #< Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).\n"
+    "'$gnu_plain'('#>#'(X, Y), X1 #> Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).\n"
+    "'$gnu_plain'('#=<#'(X, Y), X1 #=< Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).\n"
+    "'$gnu_plain'('#>=#'(X, Y), X1 #>= Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).\n"
+    "'$gnu_plain'(X #= Y, X1 #= Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).\n"
+    "'$gnu_plain'(X #\\= Y, X1 #\\= Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).\n"
+    "'$gnu_plain'(X #< Y, X1 #< Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).\n"
+    "'$gnu_plain'(X #> Y, X1 #> Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).\n"
+    "'$gnu_plain'(X #=< Y, X1 #=< Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).\n"
+    "'$gnu_plain'(X #>= Y, X1 #>= Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).\n"
     "'$gnu_plain'('#<=>'(X, Y), '#<==>'(X1, Y1)) :- !, '$gnu_plain'(X, X1), '$gnu_plain'(Y, Y1).\n"
     "'$gnu_plain'('#\\\\<=>'(X, Y), #\\ '#<==>'(X1, Y1)) :- !, '$gnu_plain'(X, X1), '$gnu_plain'(Y, Y1).\n"
     "'$gnu_plain'('#\\\\==>'(X, Y), #\\ (X1 #==> Y1)) :- !, '$gnu_plain'(X, X1), '$gnu_plain'(Y, Y1).\n"

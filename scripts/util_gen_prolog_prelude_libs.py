@@ -53,6 +53,13 @@ rename of the predicate alone leaves call/2 asking for a selection/1 that no lon
 every bare occurrence of that atom (one not followed by an open parenthesis) is renamed with it; --show's "left as data" line is
 the review surface for the rest, each of which is a term never called.
 
+A library in WRAPS stands in front of another library's exports: for each wrapped key the generator APPENDS to the wrapped
+library's text a copy of that key's clauses under the head '$<lib>_wrapped_<name>', and adds the key to the wrapper's SHADOWS
+and QUIET, so when both are selected the wrapper's own clauses for the key replace the public ones and call the copy, and the
+key alone never selects the wrapper.  gnu_fd wraps clpfd's six comparisons and four shared boolean connectives so a GNU
+program's ** dist / quot_rem and #<=> ## inside them are translated before clpfd's parser sees them; SWI programs never select
+gnu_fd and keep clpfd's public clauses.  A wrapped key with no clause in the wrapped library REFUSES rc=2.
+
 A head this script cannot key (an operator-form head, a variable head) REFUSES rc=2 by name.  An export with no clause in
 the library is SWI's C (term_hash/2 in library(terms)): it leaves the export table and --show names it as C-side, so a
 program calling it reaches SCRIP's builtin or an existence error, never a stub.
@@ -81,6 +88,7 @@ RENAME_AS_DATA = {"clpfd": {"selection", "order", "choice", "bare_integer", "cir
 LOCAL = {"gnu_fd"}
 SHADOWS = {"gnu_fd": {("fd_dom", 2): "GNU's fd_dom/2 answers the list of the domain's values where SWI's answers the domain term (measured on gprolog 1.6.0 and swipl 9.0.4, 2026-10-10)"}}
 QUIET = {"gnu_fd": {("fd_dom", 2)}}
+WRAPS = {"gnu_fd": {"clpfd": {("#=", 2), ("#\\=", 2), ("#<", 2), ("#>", 2), ("#=<", 2), ("#>=", 2), ("#/\\", 2), ("#\\/", 2), ("#\\", 1), ("#==>", 2)}}}
 EXPAND_PL = os.path.join(HERE, "util_gen_prolog_prelude_libs_expand.pl")
 INIT_DROPS = {"clpfd": {"warn_if_bounded_arithmetic": "only prints a warning when the integer flag bounded is true"}}
 ATTR_HOOKS = {("attr_unify_hook", 2), ("attribute_goals", 3)}
@@ -324,6 +332,30 @@ def rename_bare_atom(raw, nm, new, path):
     return "".join(out)
 
 
+def wrapped_copies(text, lib, keys, path):
+    """The clauses of text whose head is one of keys, in operator form (A op B or op A), each copied under the head
+    '$<lib>_wrapped_<op>'(A, B) with its body verbatim.  Returns (copies text, {key: count})."""
+    out, counts = [], {}
+    for cl in split_clauses(tokenize(text, path)):
+        s = sig(cl)
+        if len(s) >= 4 and s[0][0] == "var" and s[1][0] == "atom" and (s[1][1], 2) in keys and s[2][0] == "var" and (s[3] == ("atom", ":-") or s[3][0] == "end"):
+            key, nhead, args = (s[1][1], 2), 3, s[0][1] + ", " + s[2][1]
+        elif len(s) >= 3 and s[0][0] == "atom" and (s[0][1], 1) in keys and s[1][0] == "var" and (s[2] == ("atom", ":-") or s[2][0] == "end"):
+            key, nhead, args = (s[0][1], 1), 2, s[1][1]
+        else:
+            continue
+        seen, rest = 0, []
+        for t in cl:
+            if seen < nhead:
+                if t[0] not in ("ws", "comment"):
+                    seen += 1
+                continue
+            rest.append(t[1])
+        out.append(quote("$%s_wrapped_%s" % (lib, key[0])) + "(" + args + ")" + "".join(rest).rstrip() + "\n")
+        counts[key] = counts.get(key, 0) + 1
+    return "".join(out), counts
+
+
 def reader_refs(path, lib, read_path=None):
     """SWI's own reader over the vendored file (util_gen_prolog_prelude_libs_refs.pl): every clause's start offset and
     head key, and every predicate reference's span -- head, body goal, meta-argument, DCG nonterminal -- never data."""
@@ -487,6 +519,21 @@ def generate(pdir):
     libs = [process(os.path.join(pdir, f)) for f in sorted(os.listdir(pdir)) if f.endswith(".pl")]
     if not libs:
         raise Refuse("no vendored library under %s" % pdir)
+    by_lib = {L["lib"]: L for L in libs}
+    for w, wmap in sorted(WRAPS.items()):
+        if w not in by_lib:
+            raise Refuse("WRAPS names %s, which is not a vendored library" % w)
+        for lib, keys in sorted(wmap.items()):
+            if lib not in by_lib:
+                raise Refuse("WRAPS: %s wraps %s, which is not a vendored library" % (w, lib))
+            copies, counts = wrapped_copies(by_lib[lib]["text"], lib, keys, lib + ".pl")
+            missing = sorted("%s/%d" % k for k in keys if k not in counts)
+            if missing:
+                raise Refuse("WRAPS: %s wraps %s in %s, which has no operator-form clause for them" % (w, " ".join(missing), lib))
+            by_lib[lib]["text"] += copies
+            by_lib[lib]["drops"]["wrapped by %s: %d clauses of %d keys copied under '$%s_wrapped_<op>'" % (w, sum(counts.values()), len(counts), lib)] = 1
+            by_lib[w]["shadows"] = sorted(set(by_lib[w]["shadows"]) | set(keys))
+            by_lib[w]["quiet"] = sorted(set(by_lib[w]["quiet"]) | set(keys))
     for L in libs:
         L["names"] = sorted(M["lib"] for M in libs if M is not L and any(n in L["atoms"] for n, _ in M["exports"]))
     o = ["typedef struct { const char *nm; int ar; } pl_prelude_lib_pi_t;",

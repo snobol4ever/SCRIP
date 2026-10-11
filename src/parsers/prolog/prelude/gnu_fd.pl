@@ -22,6 +22,14 @@
     the lower middle first; backtracks(B) is unified with 0 -- SCRIP counts no labeling backtracks (named gap); fd_minimize/2 and
     fd_maximize/2 are gprolog's own branch-and-bound (BipsFD/fd_optim.pl) over nb_setval.  NAMED GAPS: fd_dom/2 of a variable
     with no domain (gprolog gives it 0..fd_max_integer), the reorder(_) labeling option, value_method(limits).
+
+    GNU'S EXPRESSIONS INSIDE THE SHARED OPERATORS.  A GNU program writes X ** 2 #= N, D #= dist(X, Y) and
+    (A #<=> B) #/\ (C #<=> D): its arithmetic and boolean subterms reach operators SWI's clpfd also exports, whose parser rejects
+    them (domain_error(clpfd_expression, _)).  The generator's WRAPS table copies clpfd's clauses for #= #\= #< #> #=< #>= #/\
+    #\/ #\ #==> under '$clpfd_wrapped_<op>' and this library shadows the public ones with the wrappers below, which translate
+    and call the copy.  GNU's expression table (doc/fd-cstr.tex): + - * min max // rem as SWI's; E1 ** E2 is SWI's ^; dist(E1, E2)
+    is abs(E1 - E2); E1 / E2 succeeds only if the remainder is 0, so it becomes Q with Q * E2 #= E1 posted; quot_rem(E1, E2, R)
+    becomes Q with Q #= E1 // E2 and R #= E1 rem E2 posted.  The boolean connectives map as the GNU operators above.
 */
 :- module(gnu_fd, [ op(700, xfx, #=#), op(700, xfx, #\=#), op(700, xfx, #<#), op(700, xfx, #>#), op(700, xfx, #=<#), op(700, xfx, #>=#),
                     op(750, xfy, #<=>), op(750, xfy, #\<=>), op(740, xfy, #\==>), op(730, xfy, ##), op(730, yfx, #\\/), op(720, yfx, #\/\),
@@ -30,8 +38,38 @@
                     fd_element/3, fd_element_var/3, fd_atleast/3, fd_atmost/3, fd_exactly/3, fd_cardinality/2, fd_cardinality/3,
                     fd_relation/2, fd_relationc/2, fd_minimize/2, fd_maximize/2, fd_min/2, fd_max/2, fd_dom/2,
                     fd_has_extra_cstr/1, fd_has_vector/1, fd_use_vector/1, fd_vector_max/1, fd_set_vector_max/1, fd_max_integer/1,
-                    fd_prime/1, fd_not_prime/1, fd_at_least_one/1, fd_at_most_one/1, fd_only_one/1, fd_reified_in/4 ]).
+                    fd_prime/1, fd_not_prime/1, fd_at_least_one/1, fd_at_most_one/1, fd_only_one/1, fd_reified_in/4,
+                    (#=)/2, (#\=)/2, (#<)/2, (#>)/2, (#=<)/2, (#>=)/2, (#/\)/2, (#\/)/2, (#\)/1, (#==>)/2 ]).
 :- use_module(library(clpfd)).
+'#='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#='(X1, Y1).
+'#\\='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#\\='(X1, Y1).
+'#<'(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#<'(X1, Y1).
+'#>'(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#>'(X1, Y1).
+'#=<'(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#=<'(X1, Y1).
+'#>='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#>='(X1, Y1).
+'#/\\'(P, Q) :- '$gnu_plain'(P, P1), '$gnu_plain'(Q, Q1), '$clpfd_wrapped_#/\\'(P1, Q1).
+'#\\/'(P, Q) :- '$gnu_plain'(P, P1), '$gnu_plain'(Q, Q1), '$clpfd_wrapped_#\\/'(P1, Q1).
+'#\\'(P) :- '$gnu_plain'(P, P1), '$clpfd_wrapped_#\\'(P1).
+'#==>'(P, Q) :- '$gnu_plain'(P, P1), '$gnu_plain'(Q, Q1), '$clpfd_wrapped_#==>'(P1, Q1).
+'$gnu_expr'(V, V) :- var(V), !.
+'$gnu_expr'(I, I) :- integer(I), !.
+'$gnu_expr'(A + B, A1 + B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).
+'$gnu_expr'(A - B, A1 - B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).
+'$gnu_expr'(A * B, A1 * B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).
+'$gnu_expr'(- A, - A1) :- !, '$gnu_expr'(A, A1).
+'$gnu_expr'(+ A, A1) :- !, '$gnu_expr'(A, A1).
+'$gnu_expr'(A ** B, A1 ^ B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).
+'$gnu_expr'(A ^ B, A1 ^ B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).
+'$gnu_expr'(dist(A, B), abs(A1 - B1)) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).
+'$gnu_expr'(abs(A), abs(A1)) :- !, '$gnu_expr'(A, A1).
+'$gnu_expr'(min(A, B), min(A1, B1)) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).
+'$gnu_expr'(max(A, B), max(A1, B1)) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).
+'$gnu_expr'(A // B, A1 // B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).
+'$gnu_expr'(A rem B, A1 rem B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).
+'$gnu_expr'(A mod B, A1 mod B1) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1).
+'$gnu_expr'(A / B, Q) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1), '$clpfd_wrapped_#='(Q * B1, A1).
+'$gnu_expr'(quot_rem(A, B, R), Q) :- !, '$gnu_expr'(A, A1), '$gnu_expr'(B, B1), '$clpfd_wrapped_#='(Q, A1 // B1), '$clpfd_wrapped_#='(R, A1 rem B1).
+'$gnu_expr'(E, E).
 '#=#'(X, Y) :- X #= Y.
 '#\\=#'(X, Y) :- X #\= Y.
 '#<#'(X, Y) :- X #< Y.
@@ -45,12 +83,19 @@
 '#\\\\/'(X, Y) :- '$gnu_plain'(X, X1), '$gnu_plain'(Y, Y1), #\ (X1 #\/ Y1).
 '#\\/\\'(X, Y) :- '$gnu_plain'(X, X1), '$gnu_plain'(Y, Y1), #\ (X1 #/\ Y1).
 '$gnu_plain'(V, V) :- var(V), !.
-'$gnu_plain'('#=#'(X, Y), X #= Y) :- !.
-'$gnu_plain'('#\\=#'(X, Y), X #\= Y) :- !.
-'$gnu_plain'('#<#'(X, Y), X #< Y) :- !.
-'$gnu_plain'('#>#'(X, Y), X #> Y) :- !.
-'$gnu_plain'('#=<#'(X, Y), X #=< Y) :- !.
-'$gnu_plain'('#>=#'(X, Y), X #>= Y) :- !.
+'$gnu_plain'(I, I) :- integer(I), !.
+'$gnu_plain'('#=#'(X, Y), X1 #= Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).
+'$gnu_plain'('#\\=#'(X, Y), X1 #\= Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).
+'$gnu_plain'('#<#'(X, Y), X1 #< Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).
+'$gnu_plain'('#>#'(X, Y), X1 #> Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).
+'$gnu_plain'('#=<#'(X, Y), X1 #=< Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).
+'$gnu_plain'('#>=#'(X, Y), X1 #>= Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).
+'$gnu_plain'(X #= Y, X1 #= Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).
+'$gnu_plain'(X #\= Y, X1 #\= Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).
+'$gnu_plain'(X #< Y, X1 #< Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).
+'$gnu_plain'(X #> Y, X1 #> Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).
+'$gnu_plain'(X #=< Y, X1 #=< Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).
+'$gnu_plain'(X #>= Y, X1 #>= Y1) :- !, '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1).
 '$gnu_plain'('#<=>'(X, Y), '#<==>'(X1, Y1)) :- !, '$gnu_plain'(X, X1), '$gnu_plain'(Y, Y1).
 '$gnu_plain'('#\\<=>'(X, Y), #\ '#<==>'(X1, Y1)) :- !, '$gnu_plain'(X, X1), '$gnu_plain'(Y, Y1).
 '$gnu_plain'('#\\==>'(X, Y), #\ (X1 #==> Y1)) :- !, '$gnu_plain'(X, X1), '$gnu_plain'(Y, Y1).
