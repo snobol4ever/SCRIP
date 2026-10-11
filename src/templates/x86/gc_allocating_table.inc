@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2562
+#define GC_ALLOC_TAB_N 2564
 #define GC_ALLOC_TAB_N_VOID 305
-#define GC_ALLOC_TAB_N_DESCR 1240
-#define GC_ALLOC_TAB_N_OTHER 1000
+#define GC_ALLOC_TAB_N_DESCR 1241
+#define GC_ALLOC_TAB_N_OTHER 1001
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -566,6 +566,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "dat_alloc_fill", GC_RET_DESCR },
     { "dat_construct", GC_RET_DESCR },
     { "dat_construct_byref", GC_RET_DESCR },
+    { "dat_construct_rq", GC_RET_DESCR },
     { "dat_field_get", GC_RET_DESCR },
     { "dat_set_field_default_s", GC_RET_VOID },
     { "dcg_call_nt", GC_RET_OTHER },
@@ -2448,6 +2449,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_trace_suspend_hook", GC_RET_VOID },
     { "rt_trace_value", GC_RET_VOID },
     { "rt_trace_value_sigil", GC_RET_VOID },
+    { "rt_tweak_open", GC_RET_OTHER },
     { "rt_unify_terms", GC_RET_OTHER },
     { "rt_value_trace_open", GC_RET_OTHER },
     { "rt_var_ref_cell", GC_RET_DESCR },
