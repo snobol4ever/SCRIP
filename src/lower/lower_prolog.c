@@ -2544,7 +2544,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 }
             }
             if (!strcmp(nm, "display") && t->n == 1 && g_stage2.pl_dialect_swi && !pl_file_defines(nm, 1)) return goal(cx, pl_cc_fnc1("$display_swi", (tree_t *) t->c[0]), γnext, ωfail, entry_out);
-            if (!strcmp(nm, "put") && t->n == 1 && t->c[0] && t->c[0]->t != TT_ILIT && !pl_file_defines(nm, 1)) {
+            if (!strcmp(nm, "put") && t->n == 1 && t->c[0] && (t->c[0]->t == TT_FNC || t->c[0]->t == TT_MAKELIST) && !pl_file_defines(nm, 1)) {
                 tree_t * v = pl_cc_freshvar();
                 return goal(cx, pl_cc_fnc2(",", pl_cc_fnc2("is", v, (tree_t *) t->c[0]), pl_cc_fnc1("put_code", v)), γnext, ωfail, entry_out);
             }
