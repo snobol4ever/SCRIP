@@ -68,6 +68,7 @@ static const OpEntry BIN_OPS[] = {
     { ",",    1000, ASSOC_RIGHT },
     { ";",    1100, ASSOC_RIGHT },
     { "|",    1105, ASSOC_RIGHT },
+    { "|",    1105, ASSOC_RIGHT },
     { "->",   1050, ASSOC_RIGHT },
     { "*->",  1050, ASSOC_RIGHT },
     { "@",     900, ASSOC_NONE  },
@@ -855,6 +856,7 @@ static tree_t *pt_term(Parser *p, TreeScope *ts, int max_prec) {
         else if (pk.kind == TK_COMMA && p->in_args > 0)         break;
         else if (pk.kind == TK_COMMA && max_prec >= 1000)       optext = ",";
         else if (pk.kind == TK_SEMI  && max_prec >= 1100)       optext = ";";
+        else if (pk.kind == TK_PIPE  && p->in_args == 0 && max_prec >= 1105) optext = "|";
         else if (pk.kind == TK_NECK  && max_prec >= 1200)       optext = ":-";
         else break;
         const OpEntry *op = optext ? find_binop(optext) : NULL;
@@ -980,7 +982,7 @@ static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeSco
         idx = dcg_expand_body(body->c[1], s_mid, s_out, ts, buf, idx);
         return idx;
     }
-    if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, ";") == 0
+    if (body->t == TT_FNC && body->v.sval && (strcmp(body->v.sval, ";") == 0 || strcmp(body->v.sval, "|") == 0)
             && body->n == 2) {
         tree_t *buf_a[dcg_need(body->c[0])]; int na = 0;
         tree_t *buf_b[dcg_need(body->c[1])]; int nb = 0;
@@ -1912,6 +1914,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$dcg_body'((C->T;E),S0,S,(GC->GT;GE)):-!,'$dcg_body'(C,S0,S1,GC),'$dcg_body'(T,S1,S,GT),'$dcg_body'(E,S0,S,GE).\n"
     "'$dcg_body'((C*->T;E),S0,S,(GC*->GT;GE)):-!,'$dcg_body'(C,S0,S1,GC),'$dcg_body'(T,S1,S,GT),'$dcg_body'(E,S0,S,GE).\n"
     "'$dcg_body'((A;B),S0,S,(GA;GB)):-!,'$dcg_body'(A,S0,S,GA),'$dcg_body'(B,S0,S,GB).\n"
+    "'$dcg_body'('|'(A,B),S0,S,(GA;GB)):-!,'$dcg_body'(A,S0,S,GA),'$dcg_body'(B,S0,S,GB).\n"
     "'$dcg_body'((C->T),S0,S,(GC->GT)):-!,'$dcg_body'(C,S0,S1,GC),'$dcg_body'(T,S1,S,GT).\n"
     "'$dcg_body'(\\+A,S0,S,(\\+GA,S0=S)):-!,'$dcg_body'(A,S0,_,GA).\n"
     "'$dcg_body'({}(G),S0,S,(G,S0=S)):-!.\n"

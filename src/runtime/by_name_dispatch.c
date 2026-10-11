@@ -8135,14 +8135,24 @@ PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_OUT_CX_LEAF(put_char_c, 2)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_write_opt_bad(const char *on, DESCR_t a) {
-    static const char *bools[] = { "quoted", "ignore_ops", "numbervars", "portray", "portrayed", "character_escapes", "quote_non_ascii", 0 };
+static int pl_var_name_ok(const char *n) {
+    if (!n || !(isupper((unsigned char)n[0]) || n[0] == '_')) return 0;
+    for (const char *q = n + 1; *q; q++) if (!(isalnum((unsigned char)*q) || *q == '_')) return 0;
+    return 1;
+}
+static int pl_write_opt_bad(const char *on, DESCR_t a, DESCR_t *culprit) {
+    static const char *bools[] = { "quoted", "ignore_ops", "numbervars", "portray", "portrayed", "character_escapes", "quote_non_ascii", "partial", "character_escapes_unicode", 0 };
     const char *as;
     if (!on) return 2;
-    if (pl_val_unbound(a)) { for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return 1; if (!strcmp(on, "variable_names") || !strcmp(on, "max_depth")) return 1; return 2; }
+    if (!strcmp(on, "truncated")) return 0;
+    if (pl_val_unbound(a)) {
+        for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return 1;
+        if (!strcmp(on, "variable_names") || !strcmp(on, "max_depth") || !strcmp(on, "max_text")) return 1;
+        return 2;
+    }
     as = pl_atom_str(a);
     for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return (as && (!strcmp(as, "true") || !strcmp(as, "false"))) ? 0 : 2;
-    if (!strcmp(on, "max_depth")) return (a.v == DT_I && a.i >= 0) ? 0 : 2;
+    if (!strcmp(on, "max_depth") || !strcmp(on, "max_text")) return (a.v == DT_I && a.i >= 0) ? 0 : 2;
     if (!strcmp(on, "priority")) return (a.v == DT_I && a.i >= 0 && a.i <= 1200) ? 0 : 2;
     if (!strcmp(on, "variable_names")) {
         DESCR_t l = a;
@@ -8155,7 +8165,12 @@ static int pl_write_opt_bad(const char *on, DESCR_t a) {
                 DESCR_t e = rt_pl_deref_val(k[0]);
                 if (pl_val_unbound(e)) return 1;
                 if (e.v != (DTYPE_t)DT_PLREF || plc_fid_arity(e.slen) != 2 || plc_fid_name(e.slen) != prolog_atom_intern("=")) return 2;
-                { DESCR_t nmv = rt_pl_deref_val(((DESCR_t *)e.p)[0]); if (pl_val_unbound(nmv)) return 1; if (!pl_atom_str(nmv)) return 2; }
+                {
+                    DESCR_t nmv = rt_pl_deref_val(((DESCR_t *)e.p)[0]);
+                    if (pl_val_unbound(nmv)) return 1;
+                    if ((int)nmv.v != DT_PLATOM || !pl_atom_str(nmv)) { *culprit = nmv; return 4; }
+                    if (!pl_var_name_ok(pl_atom_str(nmv))) { *culprit = nmv; return 5; }
+                }
                 l = rt_pl_deref_val(k[1]);
             }
         }
@@ -8176,8 +8191,8 @@ static int pl_write_opts_check(DESCR_t optlist, DESCR_t *culprit) {
             if (pl_val_unbound(opt)) return 1;
             *culprit = opt;
             if (opt.v != (DTYPE_t)DT_PLREF || plc_fid_arity(opt.slen) != 1) return 3;
-            bad = pl_write_opt_bad(prolog_atom_name(plc_fid_name(opt.slen)), rt_pl_deref_val(((DESCR_t *)opt.p)[0]));
-            if (bad) return bad == 1 ? 1 : 3;
+            bad = pl_write_opt_bad(prolog_atom_name(plc_fid_name(opt.slen)), rt_pl_deref_val(((DESCR_t *)opt.p)[0]), culprit);
+            if (bad) return bad == 1 ? 1 : bad >= 4 ? bad : 3;
             o = rt_pl_deref_val(kids[1]);
         }
     }
@@ -8194,6 +8209,8 @@ PL_CX_LEAF_HEAD(write_term, 2)
         if (k == 1) cx->ball = rt_pl_ball_instantiation();
         else if (k == 2) cx->ball = rt_pl_ball_kind2("type_error", "list", bad);
         else if (k == 3) cx->ball = rt_pl_ball_kind2("domain_error", "write_option", bad);
+        else if (k == 4) cx->ball = rt_pl_ball_kind2("type_error", "atom", bad);
+        else if (k == 5) cx->ball = rt_pl_ball_kind2("domain_error", "variable_name", bad);
         else { rt_pl_write_term_cell(&args[0], &args[1]); ok = 1; }
     }
 PL_CX_LEAF_TAIL
@@ -8380,7 +8397,7 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     0 } }, { "protect_static_code", "false", 1, { "true", "false", 0 } }, { "iso", "false", 1, { "true", "false", 0 } }, { "occurs_check", "false", 1, { "true", "false", "error", 0 } },
     { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", 0 } }, { "argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } },
     { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } },
-    { "multifile_warning", "on", 1, { "on", "off", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { 0, "", 0, { 0 } } };
+    { "multifile_warning", "on", 1, { "on", "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { 0, "", 0, { 0 } } };
 static cv_t g_pl_flags;
 #define pl_flags ((pl_flag_t *)g_pl_flags.p)
 static void pl_flags_ready(void) { if (g_pl_flags.len) return; for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; } }

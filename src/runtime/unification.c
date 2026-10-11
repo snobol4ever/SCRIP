@@ -781,7 +781,7 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell) {
     m.pthrown = (void *)0;
     m.cx = (pl_tr_ctx_t *)0;
     m.pheld = 0;
-    int quoted = 0, ignore_ops = 0, numbervars = 0, prio = 1200, noesc = 0, qna = 0;
+    int quoted = 0, ignore_ops = 0, numbervars = 0, prio = 1200, noesc = 0, qna = 0, partial = 0;
     long max_depth = 0;
     pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
     while (lst && (int)lst->v == DT_PLREF && plc_fid_arity(lst->slen) == 2) {
@@ -793,6 +793,7 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell) {
             if (on && !strcmp(on, "quoted")) quoted = plc_opt_is_true(o);
             else if (on && !strcmp(on, "character_escapes")) noesc = !plc_opt_is_true(o);
             else if (on && !strcmp(on, "quote_non_ascii")) qna = plc_opt_is_true(o);
+            else if (on && !strcmp(on, "partial")) partial = plc_opt_is_true(o);
             else if (on && !strcmp(on, "priority")) {
                 pl_cell_t *a = pl_deref(&oa[0]);
                 if ((int)a->v == DT_I && a->i >= 0 && a->i <= 1200) prio = (int)a->i;
@@ -821,7 +822,12 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell) {
         }
         lst = pl_deref(&pair[1]);
     }
+    pl_cell_t *tt = pl_deref((pl_cell_t *)term_cell);
+    int br = 0, p1 = 0, p2 = 0, lm, rm;
+    if (partial && (int)tt->v == DT_PLATOM) { const char *an = plc_atom_text(tt); br = (plc_op_info(an, 1, &p1, &lm, &rm) && p1 > prio) || (plc_op_info(an, 2, &p2, &lm, &rm) && p2 > prio); }
+    if (br) fputc('(', m.fp);
     plc_wt((pl_cell_t *)term_cell, quoted ? (1 | (noesc ? PLC_WQ_NOESC : 0) | (qna ? PLC_WQ_NONASCII : 0)) : 0, ignore_ops, numbervars, max_depth, 0, prio, &m);
+    if (br) fputc(')', m.fp);
 }
 extern const char *prolog_atom_name(int id);
 extern int rt_last_ok(void);
@@ -1215,10 +1221,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         extern void *rt_pl_ball_instantiation(void);
         if (t0 && !pl_cell_unbound(t0)) {
             const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
-            if (!s) {
-                if (swi && cx && !cx->ball) cx->ball = rt_pl_ball_kind2("type_error", "text", *t0);
-                return 0;
-            }
+            if (!s) { if (swi && cx && !cx->ball) cx->ball = rt_pl_ball_kind2("type_error", "text", *t0); return 0; }
             if (t1 && (int)t1->v == DT_S) return !strcmp(plc_atom_text(t1), s);
             int *cps = (int *)rt_wsb_alloc((strlen(s) + 1) * sizeof(int));
             int cn = 0, adv;
