@@ -12026,6 +12026,15 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     }
     if ((!strcmp(fn, "__rk_cross") || !strcmp(fn, "__rk_zip")) && nargs >= 1) {
         int zip = fn[5] == 'z';
+        long long fin = -1;
+        for (int i = 0; zip && i < nargs; i++) if (!rk_is_seq(args[i])) { long long n = rk_av_args(args, i, i + 1).n; fin = (fin < 0 || n < fin) ? n : fin; }
+        if (fin >= 0) {
+            rk_cbh_t hold[nargs];
+            for (int i = 0; i < nargs; i++) { hold[i] = (rk_cbh_t) { g_rk_cbh_cur, { args[i], NULVCL } }; g_rk_cbh_cur = &hold[i]; }
+            for (int i = 0; i < nargs; i++) if (rk_is_seq(hold[i].d[0])) rk_seq_reify(&hold[i].d[0], fin);
+            g_rk_cbh_cur = hold[0].prev;
+            for (int i = 0; i < nargs; i++) args[i] = rk_is_seq(hold[i].d[0]) ? ((ARBLK_t *) hold[i].d[0].arr)->data[3] : hold[i].d[0];
+        }
         rk_av_t *vs = (rk_av_t *) rt_wsb_alloc(sizeof(rk_av_t) * (size_t) nargs);
         long long rows = zip ? -1 : 1;
         for (int i = 0; i < nargs; i++) { vs[i] = rk_av_args(args, i, i + 1); if (zip) rows = (rows < 0 || vs[i].n < rows) ? vs[i].n : rows; else rows *= vs[i].n; }

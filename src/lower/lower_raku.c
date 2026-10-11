@@ -4756,6 +4756,63 @@ static void rk_user_terms_unmark(tree_t * t, const int * declared) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_user_terms(tree_t * prog) { int declared[sizeof rk_shadowable_terms / sizeof *rk_shadowable_terms] = { 0 }; rk_user_terms_find(prog, declared); rk_user_terms_unmark(prog, declared); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_range_end_is_infinite(const tree_t * e) { return e && e->t == TT_VAR && e->v.sval && (!strcmp(e->v.sval, "Inf") || !strcmp(e->v.sval, "*") || !strcmp(e->v.sval, "∞")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_infinite_range_gather(tree_t * to, int * seq) {
+    char * k = (char *) ct_alloc(32);
+    snprintf(k, 32, "__rk_inf%d", (*seq)++);
+    tree_t * lo = to->c[0];
+    if (to->v.ival & 1) lo = rk_t2(TT_ADD, lo, rk_ti(1));
+    tree_t * step = ast_node_new(TT_SEQ_EXPR);
+    tree_t * tk = ast_node_new(TT_SUSPEND);
+    ast_push(tk, rk_tv(k));
+    ast_push(step, tk);
+    ast_push(step, rk_tset(k, rk_t2(TT_ADD, rk_tv(k), rk_ti(1))));
+    tree_t * body = ast_node_new(TT_SEQ_EXPR);
+    ast_push(body, rk_tset(k, lo));
+    ast_push(body, rk_t2(TT_WHILE, rk_ti(1), step));
+    tree_t * g = ast_node_new(TT_GATHER);
+    g->line = to->line;
+    ast_push(g, body);
+    return g;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_range_iterates(const tree_t * t, int i) {
+    static const char * const meths[] = { "head", "map", "grep", "first", "list", "Seq", "Array", "flat", "skip", "kv", "pairs", "values", "rotor", "batch", "toggle", "produce", "lazy", "cache",
+        "iterator", NULL };
+    if (t->t == TT_ITERATE || (t->t == TT_ARR_GET && i == 0)) return 1;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr_slice") && i == 1) return 1;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_range_arr")) return 0;
+    if (t->t != TT_METHCALL || i != 0 || t->n < 2 || !t->c[1] || t->c[1]->t != TT_QLIT || !t->c[1]->v.sval) return 0;
+    for (int k = 0; meths[k]; k++) if (!strcmp(t->c[1]->v.sval, meths[k])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_infinite_ranges(tree_t * t, int * seq, int insub) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) {
+        tree_t * c = t->c[i];
+        int sub = ((t->t == TT_ARR_GET || t->t == TT_ARR_SET || t->t == TT_HASH_GET || t->t == TT_HASH_SET) && i > 0) || (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr_slice") && i > 1);
+        rk_infinite_ranges(c, seq, sub);
+        if (!c) continue;
+        int star = c->t == TT_VAR && c->v.sval && !strcmp(c->v.sval, "*");
+        if (star && ((t->t == TT_TO && t->n == 2 && i == 1 && !insub) || (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_in_range") && i == 3))) {
+            t->c[i] = rk_tv("Inf");
+            t->c[i]->slen = 1;
+            continue;
+        }
+        if (c->t == TT_FNC && c->v.sval && !strcmp(c->v.sval, "__rk_range_arr") && c->n >= 3 && rk_range_end_is_infinite(c->c[2]) && !rk_range_end_is_infinite(c->c[1])) {
+            tree_t * to = rk_t2(TT_TO, c->c[1], c->c[2]);
+            to->line = c->line;
+            to->v.ival = (c->n >= 4 && c->c[3] && c->c[3]->t == TT_ILIT) ? c->c[3]->v.ival : 0;
+            t->c[i] = rk_infinite_range_gather(to, seq);
+            continue;
+        }
+        if (c->t != TT_TO || c->n != 2 || sub || !rk_range_end_is_infinite(c->c[1]) || rk_range_end_is_infinite(c->c[0]) || !rk_range_iterates(t, i)) continue;
+        t->c[i] = rk_infinite_range_gather(c, seq);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_xx_value_is_pure(const tree_t * e) {
     if (!e) return 1;
     if (e->t == TT_QLIT || e->t == TT_ILIT || e->t == TT_FLIT || e->t == TT_NUL || e->t == TT_VAR) return 1;
@@ -4771,9 +4828,18 @@ static void rk_xx_thunks(tree_t * t) {
     for (int i = 0; i < t->n; i++) {
         tree_t * c = t->c[i];
         rk_xx_thunks(c);
-        if (!c || c->t != TT_FNC || c->n != 3 || !c->v.sval || strcmp(c->v.sval, "__rk_arr_xx") || rk_xx_value_is_pure(c->c[1])) continue;
+        if (!c || c->t != TT_FNC || c->n != 3 || !c->v.sval || strcmp(c->v.sval, "__rk_arr_xx")) continue;
         tree_t * cnt = c->c[2];
-        if (!cnt || (cnt->t == TT_VAR && cnt->v.sval && !strcmp(cnt->v.sval, "*"))) continue;
+        if (rk_range_end_is_infinite(cnt)) {
+            tree_t * tk = ast_node_new(TT_SUSPEND);
+            ast_push(tk, c->c[1]);
+            tree_t * g = ast_node_new(TT_GATHER);
+            g->line = c->line;
+            ast_push(g, rk_t2(TT_WHILE, rk_ti(1), tk));
+            t->c[i] = g;
+            continue;
+        }
+        if (!cnt || rk_xx_value_is_pure(c->c[1])) continue;
         tree_t * to = rk_t2(TT_TO, rk_ti(0), cnt);
         to->v.ival = 2;
         to->line = c->line;
@@ -5018,6 +5084,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_typed_vars((tree_t *) prog);
     rk_sprintf_names((tree_t *) prog, rk_uses_v6e(prog));
     rk_user_terms((tree_t *) prog);
+    { int iseq = 0; rk_infinite_ranges((tree_t *) prog, &iseq, 0); }
     rk_xx_thunks((tree_t *) prog);
     rk_array_single_arg((tree_t *) prog);
     rk_range_values((tree_t *) prog);
