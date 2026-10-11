@@ -5,6 +5,9 @@
 # shim" whatever the program did, because pj_do_all had a clause for == alone). RED BEFORE, measured on SCRIP 765ce1154 with the
 # old shim: the witness below read four of its six all/1 tests "no verdict from the shim"; library/test_yall.pl hit 24 of 42 and
 # core/test_bips.pl 38 of 46 in util_swi_match.py, 25 and 39 after (yall_tests:disjunction, length:gen_unbound).
+# AND the bare form (hq_prolog's report, 2026-10-11): plunit's shorthand test(Name, A Cmp B) means true(A Cmp B) for the same four
+# comparisons (swipl's plunit.pl expand_option/2); the shim had no clause for it, so a bare option passed whenever the body succeeded,
+# whatever the value -- 733 test heads in 76 swi_tests files. RED BEFORE on the old shim: bare_wrong and listed_wrong read pass.
 # ARMS: (P) the premise -- swipl's own plunit runs the witness and fails exactly the test named wrong, so the verdicts wanted here
 # are the oracle's; (W) both modes -- the witness through the shim prints exactly those verdicts, one line per test.
 set -u
@@ -33,22 +36,29 @@ test(variant, all(X =@= [f(_),f(_)])) :- p(_), X = f(_).
 test(arith, all(X =:= [1.0,2.0])) :- p(X).
 test(wrong, all(X = [1])) :- p(X).
 test(after) :- true.
+test(bare_ident, X == 2) :- X = 2.
+test(bare_wrong, X == 2) :- X = 1.
+test(bare_arith, X =:= 2.0) :- X = 2.
+test(bare_unify, X = f(_)) :- X = f(1).
+test(bare_variant, X =@= f(_)) :- X = f(_).
+test(listed_wrong, [X == 3]) :- X = 1.
 :- end_tests(al).
 EOP
 want="$(printf '%s\n' '  pass: al:unify' '  pass: al:pair' '  pass: al:ident' '  pass: al:variant' '  pass: al:arith' \
-    '  FAIL: al:wrong  (all mismatch)' '  pass: al:after')"
+    '  FAIL: al:wrong  (all mismatch)' '  pass: al:after' '  pass: al:bare_ident' '  FAIL: al:bare_wrong  (true check failed)' \
+    '  pass: al:bare_arith' '  pass: al:bare_unify' '  pass: al:bare_variant' '  FAIL: al:listed_wrong  (true check failed)')"
 red=0; total=1
 oracle="$(cd "$T" && timeout 60 "$SWIPL" -q -g run_tests -t halt w.pl 2>&1)"
-failed="$(printf '%s\n' "$oracle" | sed -n 's/^[[:space:]]*test \([a-z]*\): .*/\1/p' | sort -u | tr '\n' ' ')"
-if [ "$failed" = "wrong " ]; then echo "  ok  premise: swipl's plunit fails exactly 'wrong' on the witness"
-else echo "  RED premise: swipl's plunit failed [${failed}], want [wrong] -- the wanted verdicts are no longer the oracle's"; red=$((red+1)); fi
+failed="$(printf '%s\n' "$oracle" | sed -n 's/^[[:space:]]*test \([a-z_]*\): .*/\1/p' | sort -u | tr '\n' ' ')"
+if [ "$failed" = "bare_wrong listed_wrong wrong " ]; then echo "  ok  premise: swipl's plunit fails exactly bare_wrong, listed_wrong and wrong on the witness"
+else echo "  RED premise: swipl's plunit failed [${failed}], want [bare_wrong listed_wrong wrong] -- the wanted verdicts are no longer the oracle's"; red=$((red+1)); fi
 run() { local mode="$1"
     if [ "$mode" = m4 ]; then timeout 60 "$SCRIP" --compile "$PLUNIT" "$T/w.pl" "$T/wrap.pl" > "$T/p.s" 2>/dev/null && gcc -no-pie "$T/p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$T/p" 2>/dev/null && timeout 60 "$T/p" </dev/null 2>/dev/null
     else timeout 60 "$SCRIP" --run "$PLUNIT" "$T/w.pl" "$T/wrap.pl" </dev/null 2>/dev/null; fi; }
 for mode in ${MODES//,/ }; do
     total=$((total+1))
     got="$(run "$mode" | grep -E '^\s+(pass|FAIL|skip):')"
-    if [ "$got" = "$want" ]; then echo "  ok  witness $mode: ==, =:=, =, =@= graded; a wrong all/1 is an all mismatch; the next test runs"
+    if [ "$got" = "$want" ]; then echo "  ok  witness $mode: ==, =:=, =, =@= graded in all/1 and bare; a wrong all/1 is an all mismatch, a wrong bare comparison a true-check FAIL"
     else echo "  RED witness $mode: got [$(printf '%s' "$got" | tr '\n' '|')] want [$(printf '%s' "$want" | tr '\n' '|')]"; red=$((red+1)); fi
 done
 echo "$GATE_NAME: arms=$total red=$red modes=$MODES"
