@@ -112,6 +112,7 @@ CONT    \n[+.][ \t]*
 W       ({WS}|{CONT})+
 G       ({WS}|{CONT})*
 %%
+<INITIAL>\n/[+.]        { lineno++; BEGIN(AFTER_BLANK); }
 <INITIAL>\n             { lineno++; BEGIN(AFTER_BLANK); return T_STMT_END; }
 <INITIAL>[*!|]          { sno_stmt_comment_latch(); BEGIN(SKIP); }
 <INITIAL>";"            { BEGIN(AFTER_SEMI); return T_STMT_END; }
