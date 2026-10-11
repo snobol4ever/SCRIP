@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2557
-#define GC_ALLOC_TAB_N_VOID 306
-#define GC_ALLOC_TAB_N_DESCR 1237
-#define GC_ALLOC_TAB_N_OTHER 997
+#define GC_ALLOC_TAB_N 2560
+#define GC_ALLOC_TAB_N_VOID 305
+#define GC_ALLOC_TAB_N_DESCR 1238
+#define GC_ALLOC_TAB_N_OTHER 1000
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -56,6 +56,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "NV_PTR_fn", GC_RET_OTHER },
     { "NV_PTR_n", GC_RET_OTHER },
     { "NV_SET_fn", GC_RET_DESCR },
+    { "NV_SET_p_fn", GC_RET_DESCR },
     { "NV_bind_gva", GC_RET_OTHER },
     { "NV_intern_name_fn", GC_RET_OTHER },
     { "NV_nul_key", GC_RET_OTHER },
@@ -1448,7 +1449,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_args_list_from", GC_RET_DESCR },
     { "rt_assign_var", GC_RET_DESCR },
     { "rt_assign_var_strict", GC_RET_DESCR },
-    { "rt_at_cursor", GC_RET_VOID },
+    { "rt_at_cursor", GC_RET_OTHER },
     { "rt_at_cursor_assign", GC_RET_VOID },
     { "rt_at_cursor_land_γ", GC_RET_OTHER },
     { "rt_at_cursor_open", GC_RET_OTHER },
@@ -1560,6 +1561,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_dcap_land_γ", GC_RET_OTHER },
     { "rt_dcap_land_ω", GC_RET_OTHER },
     { "rt_dcap_pump", GC_RET_OTHER },
+    { "rt_dcap_resume", GC_RET_OTHER },
     { "rt_dcap_star_finish", GC_RET_OTHER },
     { "rt_defer_close", GC_RET_OTHER },
     { "rt_defer_close_v", GC_RET_OTHER },
@@ -2445,6 +2447,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_trace_value", GC_RET_VOID },
     { "rt_trace_value_sigil", GC_RET_VOID },
     { "rt_unify_terms", GC_RET_OTHER },
+    { "rt_value_trace_open", GC_RET_OTHER },
     { "rt_var_ref_cell", GC_RET_DESCR },
     { "rt_var_ref_cell_named", GC_RET_DESCR },
     { "rt_write_any_nl", GC_RET_VOID },

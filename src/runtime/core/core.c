@@ -1499,6 +1499,12 @@ void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line,
 }
 void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook) { comm_var_hook_p(name, val, file, line, stno, hook, (trace_pend_t *)0); }
 void comm_var_open(const char *name, DESCR_t val, long long stno, trace_pend_t *pend) { comm_var_hook_p(name, val, (const char *)0, 0, stno, 0, pend); }
+long rt_value_trace_open(const char *name, trace_pend_t *pend) {
+    DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name);
+    if (!cell) return 0;
+    comm_var_hook_p(name, *cell, stmt_src_get_file(), 0, 0, 0, pend);
+    return pend->args[0].v ? 2 : 0;
+}
 void rt_trace_pend_run(trace_pend_t *pend) { (void)RT_GC_CALLBACK(APPLY_fn(VARVAL_fn(pend->args[0]), &pend->args[1], 2)); }
 void rt_trace_pend_close(trace_pend_t *pend) {
     if (!pend->args[0].v) return;
@@ -1559,6 +1565,7 @@ void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line,
     (void)pend;
 }
 void comm_var_open(const char *name, DESCR_t val, long long stno, trace_pend_t *pend) { (void)name; (void)val; (void)stno; (void)pend; }
+long rt_value_trace_open(const char *name, trace_pend_t *pend) { (void)name; (void)pend; return 0; }
 void rt_trace_pend_run(trace_pend_t *pend) { (void)pend; }
 void rt_trace_pend_close(trace_pend_t *pend) { (void)pend; }
 void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno) { (void)name; (void)val; (void)file; (void)line; (void)stno; }
@@ -3749,7 +3756,7 @@ __attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char 
     return e->is_gva ? e->cell : &e->val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
+DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
 #if RT_DIAG
     {
         static int _xd = -1;
@@ -3775,7 +3782,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
 #if RT_DIAG
     {
         DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name);
-        if (cell) { *cell = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var_hook(name, val, stmt_src_get_file(), 0, 0, 2); return val; }
+        if (cell) { *cell = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var_hook_p(name, val, stmt_src_get_file(), 0, 0, 2, pend); return val; }
     }
 #else
     { DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name); if (cell) { *cell = val; return val; } }
@@ -3817,7 +3824,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
             else e->val = val;
             if (name[0] == '&' && !_nv_kwsplit()) e->is_const = 1;
 #if RT_DIAG
-            comm_var_hook(name, val, stmt_src_get_file(), 0, 0, 2);
+            comm_var_hook_p(name, val, stmt_src_get_file(), 0, 0, 2, pend);
 #endif
             return val;
         }
@@ -3841,10 +3848,12 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     g_nv_memo_gen++;
     if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
 #if RT_DIAG
-    comm_var_hook(name, val, stmt_src_get_file(), 0, 0, 2);
+    comm_var_hook_p(name, val, stmt_src_get_file(), 0, 0, 2, pend);
 #endif
     return val;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t NV_SET_fn(const char *name, DESCR_t val) { return NV_SET_p_fn(name, val, (trace_pend_t *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int NV_EXISTS_fn(const char *name) {
     _var_init();

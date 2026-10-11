@@ -95,7 +95,7 @@ std::string bb_glue_pass_wires_blob_regs(int gid, int wid);
 std::string bb_glue_enter_c2bb(int base, int lg, int lw, int hi = -1);
 std::string bb_glue_callee_try_enter(int base, int val_id, int join_id);
 std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_shim = 0);
-std::string bb_glue_trace_pend_run(int base, const std::string & after, int in_shim = 0);
+std::string bb_glue_trace_pend_run(int base, const std::string & after, int in_shim = 0, long off = 0);
 std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno = 0,
     int in_shim = 0);
 std::string bb_glue_stno_unit_push(void);

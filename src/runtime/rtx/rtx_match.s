@@ -482,17 +482,9 @@ RTX_ENTRY(rt_cap_open_plain)
     RTX_CALL_UNALIGN(8)
     test    eax, eax
     jz      .Lcap_fastret
-    RTX_CALL_ALIGN(8)
-    mov     rdi, r11
-    mov     esi, 2
-    shl     rcx, 32
-    or      rsi, rcx
-    mov     rdx, r8
-    xor     ecx, ecx
-    xor     r8d, r8d
-    xor     r9d, r9d
-    call    comm_var@PLT
-    RTX_CALL_UNALIGN(8)
+    mov     eax, 2
+    RTX_GVA_R9
+    ret
 #endif
 .Lcap_fastret:
     xor     eax, eax

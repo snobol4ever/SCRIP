@@ -213,20 +213,20 @@ std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_sh
         (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1, in_shim);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_trace_pend_run(int base, const std::string & after, int in_shim) {
+std::string bb_glue_trace_pend_run(int base, const std::string & after, int in_shim, long off) {
     int skip = base + (in_shim ? 10 : 20), val = base + (in_shim ? 11 : 21), join = base + (in_shim ? 12 : 22);
     return IF(in_shim, x86_rsp_mark_push())
-         + x86("mov", "rcx", RDQ("rsp", 0))
+         + x86("mov", "rcx", RDQ("rsp", off))
          + x86("test", "rcx", "rcx")
          + x86_jcc_id("jz", skip)
-         + x86("lea", "rdi", RDQ("rsp", 0))
+         + x86("lea", "rdi", RDQ("rsp", off))
          + x86("mov32", "esi", 3L)
          + bb_glue_apply_try_enter(base, val, join, in_shim)
-         + x86("lea", "rdi", RDQ("rsp", 0))
+         + x86("lea", "rdi", RDQ("rsp", off))
          + x86("call", "rt_trace_pend_run", (uint64_t)(uintptr_t)(void *)rt_trace_pend_run)
          + x86_rt_gc_poll()
          + x86_deflabel_id(join)
-         + x86("lea", "rdi", RDQ("rsp", 0))
+         + x86("lea", "rdi", RDQ("rsp", off))
          + x86("call", "rt_trace_pend_close", (uint64_t)(uintptr_t)(void *)rt_trace_pend_close)
          + x86_rt_gc_poll()
          + after

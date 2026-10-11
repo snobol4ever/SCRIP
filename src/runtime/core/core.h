@@ -248,6 +248,8 @@ void rt_trace_event_args_i(int kind, const char *name, DESCR_t *args, int nargs,
 void rt_trace_event_args_ip(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, long island, trace_pend_t *pend);
 void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook, trace_pend_t *pend);
 void comm_var_open(const char *name, DESCR_t val, long long stno, trace_pend_t *pend);
+DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend);
+long rt_value_trace_open(const char *name, trace_pend_t *pend);
 void rt_trace_pend_run(trace_pend_t *pend);
 void rt_trace_keyword_write_p(const char *kw, int64_t v, long long stno, trace_pend_t *pend);
 void rt_stmt_enter_p(long stno, long line, trace_pend_t *pend);
