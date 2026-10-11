@@ -39,8 +39,10 @@ for f in scope:
     for t in texts:
         for var in set(SPLICE.findall(t)):
             spliced += 1
-            # assigned anywhere in this file: at a line start, after a separator, or via export/local/read.
-            if re.search(r'(?m)(^|[;&|(]\s*|^\s*(export|local|declare|typeset)\s+)%s=' % re.escape(var), txt): continue
+            # assigned anywhere in this file: at a line start (indented too -- a function body's own assignment, the coo 2026-10-10:
+            # lib_container_package_runner.sh's `  inv="$(inventory_line ...)"` read as never assigned), after a separator, or via
+            # export/local/read.
+            if re.search(r'(?m)(^\s*|[;&|(]\s*|^\s*(export|local|declare|typeset)\s+)%s=' % re.escape(var), txt): continue
             if re.search(r'(?m)^\s*(read|for)\b[^\n]*\b%s\b' % re.escape(var), txt): continue
             bad.append("  %s: --text splices ${%s:+...} and this file never assigns %s.  The splice is SILENT on an unset "
                        "variable, so the clause simply vanishes and util_score_row.py refuses the write on every run -- "
