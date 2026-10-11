@@ -5802,6 +5802,7 @@ static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) {
     if (d.v == DT_I || d.v == DT_R || d.v == DT_BIG) { *out = d; return 1; }
     *out = d;
     if (d.v == (DTYPE_t)DT_PLVAR || d.v == DT_SNUL || d.v == DT_FAIL) { *ball = rt_pl_ball_instantiation(); return 0; }
+    if (d.v == DT_S) { const char *one = pl_atom_str(d); int adv = 0; if (one && one[0]) { long long cp = (long long)rt_pl_u8_get(one, &adv); if (one[adv] == '\0') { *out = INTVAL(cp); return 1; } } }
     if ((int)d.v == DT_PLATOM || d.v == DT_S) {
         const char *nm = pl_atom_str(d);
         const char *sfx = pl_ax_suffix_any(nm, 0);

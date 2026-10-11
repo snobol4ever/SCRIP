@@ -1,4 +1,5 @@
 #include "prolog_lower.h"
+#include "prolog_lex.h"
 #include "ct_arena.h"
 #include "ct_vec.h"
 #include "rt/prolog_atom.h"
@@ -427,11 +428,13 @@ void prolog_dq_lower(tree_t *t, int mode) {
         if (mode == 3) return;
         if (mode == 0) { t->t = TT_QLIT; t->v.sval = (char *)b; t->n = 0; return; }
         t->t = TT_MAKELIST; t->v.ival = 0; t->n = 0;
-        for (size_t i = 0; i < n; i++) {
+        for (size_t i = 0; i < n;) {
             tree_t *e;
-            if (mode == 2) { e = ast_node_new(TT_ILIT); e->v.ival = (long long)(unsigned char)b[i]; }
-            else { char one[2]; one[0] = b[i]; one[1] = 0; e = ast_node_new(TT_QLIT); e->v.sval = ct_strdup(one); }
+            int cp, w = u8_decode((const unsigned char *)b + i, &cp);
+            if (mode == 2) { e = ast_node_new(TT_ILIT); e->v.ival = (long long)cp; }
+            else { e = ast_node_new(TT_QLIT); e->v.sval = ct_strndup(b + i, (size_t)w); }
             ast_push(t, e);
+            i += (size_t)w;
         }
         return;
     }

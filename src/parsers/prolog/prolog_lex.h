@@ -60,4 +60,11 @@ Token lexer_expect(Lexer *lx, TkKind kind, const char *context);
 void token_free(Token *t);
 int prolog_escape_bytes(const char *raw, char *out, int cap);
 const char *tk_name(TkKind kind);
+static inline int u8_decode(const unsigned char *u, int *cp) {
+    if ((u[0] & 0xE0) == 0xC0 && (u[1] & 0xC0) == 0x80) { *cp = ((u[0] & 0x1F) << 6) | (u[1] & 0x3F); return 2; }
+    if ((u[0] & 0xF0) == 0xE0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80) { *cp = ((u[0] & 0x0F) << 12) | ((u[1] & 0x3F) << 6) | (u[2] & 0x3F); return 3; }
+    if ((u[0] & 0xF8) == 0xF0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80 && (u[3] & 0xC0) == 0x80) {
+        *cp = ((u[0] & 0x07) << 18) | ((u[1] & 0x3F) << 12) | ((u[2] & 0x3F) << 6) | (u[3] & 0x3F); return 4; }
+    *cp = u[0]; return 1;
+}
 #endif

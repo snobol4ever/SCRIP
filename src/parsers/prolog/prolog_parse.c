@@ -510,7 +510,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             tree_t *n = ast_node_new(TT_MAKELIST);
             n->v.ival = 0;
             { const unsigned char *q0 = (const unsigned char *)tk.text; size_t qn = tk.len >= 0 ? (size_t)tk.len : strlen(tk.text);
-            for (const unsigned char *q = q0; q < q0 + qn; q++) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival = (long long)*q; ast_push(n, e); } }
+            for (const unsigned char *q = q0; q < q0 + qn;) { int cp; tree_t *e = ast_node_new(TT_ILIT); q += u8_decode(q, &cp); e->v.ival = (long long)cp; ast_push(n, e); } }
             return pt_stamp(n, ln);
         }
         case TK_STRING: {
@@ -827,7 +827,9 @@ static tree_t *dcg_var_use(TreeScope *ts, tree_t *v) {
 static tree_t *dcg_dq_codes(const tree_t *dq) {
     const char *b = (dq->n > 0 && dq->c[0] && dq->c[0]->v.sval) ? dq->c[0]->v.sval : ""; size_t n = strlen(b);
     tree_t *acc = mk_atom(ATOM_NIL);
-    for (size_t i = n; i > 0; i--) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival = (long long)(unsigned char)b[i - 1]; tree_t *dargs[2] = { e, acc }; acc = mk_raw(ATOM_DOT, dargs, 2); }
+    int cps[n + 1], k = 0;
+    for (size_t i = 0; i < n;) i += (size_t)u8_decode((const unsigned char *)b + i, &cps[k++]);
+    while (k > 0) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival = (long long)cps[--k]; tree_t *dargs[2] = { e, acc }; acc = mk_raw(ATOM_DOT, dargs, 2); }
     return acc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

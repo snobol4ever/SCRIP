@@ -94,14 +94,6 @@ static char *sb_text(Lexer *lx) {
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int u8_decode(const unsigned char *u, int *cp) {
-    if ((u[0] & 0xE0) == 0xC0 && (u[1] & 0xC0) == 0x80) { *cp = ((u[0] & 0x1F) << 6) | (u[1] & 0x3F); return 2; }
-    if ((u[0] & 0xF0) == 0xE0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80) { *cp = ((u[0] & 0x0F) << 12) | ((u[1] & 0x3F) << 6) | (u[2] & 0x3F); return 3; }
-    if ((u[0] & 0xF8) == 0xF0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80 && (u[3] & 0xC0) == 0x80) {
-        *cp = ((u[0] & 0x07) << 18) | ((u[1] & 0x3F) << 12) | ((u[2] & 0x3F) << 6) | (u[3] & 0x3F); return 4; }
-    *cp = u[0]; return 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int decode_escape(Lexer *lx, const char **pp, int *code) {
     const char *p = *pp; int e = PEEK(0), v = 0, h, i, want;
     if (e) ADV(1);
@@ -300,7 +292,7 @@ S_QUOTED:
                                                                         if (st < 0) { SYNC(); return err_tok(line, kind == TK_ATOM ? "invalid escape sequence in quoted atom"
                                                                                                                                          : "invalid escape sequence in double-quoted token"); }
                                                                                                                                                goto S_QUOTED;      }
-    if (PEEK(0) == '\n' || PEEK(0) == '\t')                          {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unescaped layout character in quoted atom"
+    if (PEEK(0) == '\n' || (PEEK(0) == '\t' && lx->iso))           {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unescaped layout character in quoted atom"
                                                                                                                     : "unescaped layout character in double-quoted token"); }
                                                                      {  sb_put(lx, PEEK(0)); ADV(1);                                           goto S_QUOTED;      }
 S_GRAPHIC:
