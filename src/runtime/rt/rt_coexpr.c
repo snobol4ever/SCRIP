@@ -227,7 +227,7 @@ extern uint64_t rt_genp_deliver_n2_γ(uint64_t H);
 __asm__(".text\n.globl rt_genp_spine_enter\n" "rt_genp_spine_enter:\n" "  pushq $0\n" "  leaq 4f(%rip), %rax\n" "  pushq $0\n" "  pushq %rax\n" "  movq %rdi, %rax\n" "  testq %rsi, %rsi\n" "  jz 6f\n"
     "  movq %rsi, %rcx\n" "  shlq $4, %rcx\n" "  subq %rcx, %rsp\n" "  movq g_call_args@GOTPCREL(%rip), %rsi\n" "  movq (%rsi), %rsi\n" "  movq %rsp, %rdi\n" "  shrq $3, %rcx\n" "  rep movsq\n" "6:\n"
     "  leaq 2f(%rip), %rcx\n" "  leaq 3f(%rip), %rdx\n" "  jmp *%rax\n" "2:\n" "  call rt_genp_deliver_γ\n" "  jmp *(%rsp)\n" "3:\n" "  call rt_genp_deliver_ω\n" "4:\n" "  call rt_genp_deliver_ω\n"
-    );
+    ".pushsection .data.rel.ro\n" ".balign 8\n" ".globl rt_genp_conts\n" "rt_genp_conts:\n" ".quad 2b\n" ".quad 3b\n" ".quad 4b\n" ".popsection\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 _Static_assert(DT_FAIL == 0x68, "rt_genp_spine_enter_n2's cmpb $0x68 bakes DT_FAIL");
 __asm__(".text\n.globl rt_genp_spine_enter_n2\n" "rt_genp_spine_enter_n2:\n"
@@ -307,6 +307,14 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     { extern long g_line; ctx->create_line = g_line; }
     ctx->create_proc = procname;
     ctx->cur_line = 0;
+    ctx->pl_gen = 0;
+    ctx->pl_seq = 0;
+    ctx->pl_park = 0;
+    ctx->pl_cmd = 0;
+    ctx->pl_tr = 0;
+    ctx->pl_floor = 0;
+    ctx->pl_base = 0;
+    ctx->pl_xtr = 0;
     ctx->gc_next = g_co_gc_head;
     g_co_gc_head = ctx;
     { scrip_coctx_t *cur = scrip_co_current ? scrip_co_current : &g_root_ctx; scrip_co_init_once(cur); }
@@ -394,6 +402,14 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->create_line = 0;
     ctx->create_proc = NULL;
     ctx->cur_line = 0;
+    ctx->pl_gen = 0;
+    ctx->pl_seq = 0;
+    ctx->pl_park = 0;
+    ctx->pl_cmd = 0;
+    ctx->pl_tr = 0;
+    ctx->pl_floor = 0;
+    ctx->pl_base = 0;
+    ctx->pl_xtr = 0;
     ctx->gc_next = NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

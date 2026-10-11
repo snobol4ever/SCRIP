@@ -1280,6 +1280,19 @@ static PlClause *parse_clause(Parser *p) {
 }
 static const char * const PL_PRELUDE_SRC =
     "member(X,[X|_]).\n"
+    "reset(G,B,C):-'$co_enter'(G,H,R,N),'$reset_k'(R,H,N,B,C).\n"
+    "'$co_enter'(G,H,R,N):-nonvar(G),G='$cont'(H0,N0),!,H=H0,'$co_resume'(H0,1,N0,R,N).\n"
+    "'$co_enter'(G,H,R,N):-'$co_start'(G,H,R,N).\n"
+    "'$reset_k'(shift(X),H,N,B,C):-(\\+X=B->shift(X),'$co_resume'(H,1,N,R,N1),'$reset_k'(R,H,N1,B,C);(X=B,C='$cont'(H,N);'$reset_redo'(H,N,B,C))).\n"
+    "'$reset_k'(done,H,N,B,C):-(C=0;'$reset_redo'(H,N,B,C)).\n"
+    "'$reset_k'(throw(E),_,_,_,_):-throw(E).\n"
+    "'$reset_redo'(H,N,B,C):-'$co_resume'(H,0,N,R,N1),'$reset_k'(R,H,N1,B,C).\n"
+    "shift(X):-('$co_inside'->'$co_yield'(shift(X),N),(true;'$co_unwound'(unwound,N));throw(error(existence_error(reset,X),context(shift/1,'No matching reset/3 call')))).\n"
+    "'$cont'(H,N):-'$co_resume'(H,1,N,R,N1),'$cont_k'(R,H,N1).\n"
+    "'$cont_k'(done,H,N):-(true;'$co_resume'(H,0,N,R,N1),'$cont_k'(R,H,N1)).\n"
+    "'$cont_k'(shift(X),H,N):-shift(X),'$co_resume'(H,1,N,R,N1),'$cont_k'(R,H,N1).\n"
+    "'$cont_k'(throw(E),_,_):-throw(E).\n"
+    "'$co_body'(G):-'$co_mark',(call(G),'$co_yield'(done,_),fail;'$co_finish'(0,fail)).\n"
     "'$scc_cut':-'$scc_bnew'(B),'$scc_cut_loop'(B).\n"
     "'$scc_cut_loop'(B):-'$scc_take'(B,C),!,(catch(C,_,true)->true;true),'$scc_cut_loop'(B).\n"
     "'$scc_cut_loop'(_).\n"
@@ -2616,6 +2629,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, ":")) pl_cv_add(&referenced, "$mod_head");
     for (PlClause *cl = prog->head; cl; cl = cl->next) if (cl->tr && pl_tree_has_fn(cl->tr, "$dot")) { pl_cv_add(&referenced, "$dict_eval"); pl_cv_add(&refkeys, pl_pred_key("$dict_eval", 3)); break; }
     if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$load_item");
+    if (pl_word_referenced(user_src, "reset") || pl_word_referenced(user_src, "shift")) pl_cv_add(&referenced, "$co_body");
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
     for (PlClause *cl = prog->head; cl; cl = cl->next) if (pl_clause_ssu(cl)) { pl_cv_add(&referenced, "subsumes_term"); break; }
     PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");

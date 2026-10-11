@@ -6069,6 +6069,8 @@ DESCR_t rt_pl_dop_db_t_guard(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_t(DES
     int); DESCR_t rt_pl_dop_db_abolish_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_retractall_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_r(DESCR_t *,
         int); DESCR_t rt_pl_dop_db_assertz_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_ref(DESCR_t *, int); DESCR_t rt_pl_dop_db_n_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_at_r(DESCR_t *,
             int); DESCR_t rt_pl_dop_db_ref_r(DESCR_t *, int);
+DESCR_t rt_pl_dop_co_start(DESCR_t *, int); DESCR_t rt_pl_dop_co_resume(DESCR_t *, int); DESCR_t rt_pl_dop_co_yield(DESCR_t *, int); DESCR_t rt_pl_dop_co_unwound(DESCR_t *, int);
+DESCR_t rt_pl_dop_co_finish(DESCR_t *, int); DESCR_t rt_pl_dop_co_mark(DESCR_t *, int); DESCR_t rt_pl_dop_co_inside(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_store_k(DESCR_t *, int); DESCR_t rt_pl_dop_db_copy(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cp_nth(DESCR_t *,
     int); DESCR_t rt_pl_dop_pl_cp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_nth(DESCR_t *,
         int); DESCR_t rt_pl_dop_halt(DESCR_t *, int);
@@ -6183,6 +6185,10 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
             rt_pl_dop_db_nonempty }, { "$ball_pending", 0, "rt_pl_dop_ball_pending", rt_pl_dop_ball_pending }, { "$db_seed_once", 3, "rt_pl_dop_db_seed_once", rt_pl_dop_db_seed_once },
         { "$db_retractall", 2, "rt_pl_dop_db_retractall", rt_pl_dop_db_retractall },
         { "$db_alive", 2, "rt_pl_dop_db_alive", rt_pl_dop_db_alive },
+        { "$co_start", 4, "rt_pl_dop_co_start", rt_pl_dop_co_start }, { "$co_resume", 5, "rt_pl_dop_co_resume", rt_pl_dop_co_resume },
+        { "$co_yield", 2, "rt_pl_dop_co_yield", rt_pl_dop_co_yield }, { "$co_unwound", 2, "rt_pl_dop_co_unwound", rt_pl_dop_co_unwound },
+        { "$co_finish", 2, "rt_pl_dop_co_finish", rt_pl_dop_co_finish }, { "$co_mark", 0, "rt_pl_dop_co_mark", rt_pl_dop_co_mark },
+        { "$co_inside", 0, "rt_pl_dop_co_inside", rt_pl_dop_co_inside },
         { "$db_store_k", 1, "rt_pl_dop_db_store_k", rt_pl_dop_db_store_k }, { "$db_copy", 2, "rt_pl_dop_db_copy", rt_pl_dop_db_copy }, { "$pl_cp_count", 1, "rt_pl_dop_pl_cp_count",
             rt_pl_dop_pl_cp_count }, { "$pl_cp_nth", 3, "rt_pl_dop_pl_cp_nth", rt_pl_dop_pl_cp_nth }, { "$pl_pp_guard", 1, "rt_pl_dop_pl_pp_guard", rt_pl_dop_pl_pp_guard }, { "$pl_pp_count",
                 2, "rt_pl_dop_pl_pp_count", rt_pl_dop_pl_pp_count }, { "$pl_pp_nth", 3, "rt_pl_dop_pl_pp_nth", rt_pl_dop_pl_pp_nth }, { "$pl_cp_guard", 1, "rt_pl_dop_pl_cp_guard",

@@ -394,6 +394,16 @@ PL_COLD_PLAIN(atop)
 #define PL_CTX_LEAF_BALL(nm) RTX_FUNC(rt_pl_dop_##nm); RTX_SUB_RSP(CTX_FRAME); CTX_SAVE; \
     mov qword ptr [rsp + CTX_BALL], 0; mov rdx, rsp; call rt_pl_dop_##nm##_c; RTX_GVA_R9; mov r12, qword ptr [rsp + CTX_TR]; mov rcx, qword ptr [rsp + CTX_BALL]; RTX_ADD_RSP(CTX_FRAME); \
     test rcx, rcx; jz 99f; PL_BALL_ARM(rcx, rax); mov eax, DT_FAIL ; xor edx, edx; 99: ret; RTX_ENDF(rt_pl_dop_##nm)
+#define PL_CTX_SWITCH_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); RTX_PUSHS(rbp); mov rbp, rsp; .cfi_def_cfa_register rbp; sub rsp, 48; CTX_SAVE; mov qword ptr [rsp + CTX_BALL], 0; \
+    mov rdx, rsp; call rt_pl_dop_##nm##_c; RTX_GVA_R9; mov r12, qword ptr [rsp + CTX_TR]; mov rcx, qword ptr [rsp + CTX_BALL]; mov rsp, rbp; pop rbp; .cfi_def_cfa rsp, 8; .cfi_restore rbp; \
+    test rcx, rcx; jz 99f; PL_BALL_ARM(rcx, rax); mov eax, DT_FAIL ; xor edx, edx; 99: ret; RTX_ENDF(rt_pl_dop_##nm)
+PL_CTX_SWITCH_LEAF(co_start)
+PL_CTX_SWITCH_LEAF(co_resume)
+PL_CTX_SWITCH_LEAF(co_yield)
+PL_CTX_SWITCH_LEAF(co_unwound)
+PL_CTX_SWITCH_LEAF(co_finish)
+PL_CTX_LEAF(co_mark)
+PL_CTX_LEAF(co_inside)
 PL_CTX_LEAF_BALL(sub_atom_at)
 PL_CTX_LEAF_BALL(atom_concat_at)
 PL_CTX_LEAF_BALL(bagof_group_at)
