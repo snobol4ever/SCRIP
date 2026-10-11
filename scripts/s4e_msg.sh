@@ -1039,13 +1039,17 @@ s4e_lane_owner_of_language() {
       # ⛔⭐ MODE SEXTET (CEO-1591, 2026-10-10 09:0x CDT, Lon in-chat to the ceo, verbatim: "Let's continue getting Prolog and Raku at 100% like SNOBOL4 and Icon." then
       # "Let's also have HQ-PROLOG and HQ-RAKU join us."): PROLOG to hq_prolog, RAKU to hq_raku, the other five to the ceo, who assigns; rows with an owner cell keep their
       # owner. The QUARTET table above is the flip-back template. MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
+      # ⛔⭐ MODE QUARTET (CEO-1659, 2026-10-11 09:3x CDT, Lon in-chat to the ceo, verbatim: "Go to QUARTET mode with all four officers being seated as Opus 5.5 with
+      # xhigh effort."): the SEPTET of CEO-1595 ends -- hq_prolog, hq_raku and hq_pascal stand down with their claims and rows in place, nothing re-laned (the
+      # CEO-1357/1372/1396/1587 precedent); EVERY LANGUAGE TO THE ceo, who assigns, the table of CEO-1587. The SEXTET table above is the flip-back template:
+      # prolog hq_prolog, raku hq_raku, the other five the ceo. MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
        icon)     printf 'ceo';;
-       prolog)   printf 'hq_prolog';;
+       prolog)   printf 'ceo';;
        snobol4)  printf 'ceo';;
        pascal)   printf 'ceo';;
        snocone)  printf 'ceo';;
        rebus)    printf 'ceo';;
-       raku)     printf 'hq_raku';;
+       raku)     printf 'ceo';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
