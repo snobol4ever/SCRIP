@@ -8453,6 +8453,7 @@ static void pl_flag_effects(const pl_flag_t *fl, pl_tr_ctx_t *cx) {
     *pl_tr_ocheck_slot(pl_tr_base_of(cx->tr)) = !strcmp(fl->val, "true") ? 1 : (!strcmp(fl->val, "error") ? 2 : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_dialect_swi(void) { return pl_swi_dialect(); }
 int rt_pl_iso_mode(void) { pl_flag_t *fl = pl_flag_find("iso"); return fl && !strcmp(fl->val, "true"); }
 static int pl_float_flag(const char *nm, const char *val) { pl_flag_t *fl = pl_flag_find(nm); return fl && fl->val && !strcmp(fl->val, val); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

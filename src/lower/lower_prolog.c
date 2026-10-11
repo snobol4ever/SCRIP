@@ -2717,6 +2717,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 }
             }
             if (!strcmp(nm, "display") && t->n == 1 && g_stage2.pl_dialect_swi && !pl_file_defines(nm, 1)) return goal(cx, pl_cc_fnc1("$display_swi", (tree_t *) t->c[0]), γnext, ωfail, entry_out);
+            if (!strcmp(nm, "write_canonical") && (t->n == 1 || t->n == 2) && g_stage2.pl_dialect_swi && !pl_file_defines(nm, t->n))
+                return goal(cx, t->n == 1 ? pl_cc_fnc1("$write_canonical_swi", (tree_t *) t->c[0]) : pl_cc_fnc2("$write_canonical_swi", (tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail, entry_out);
             if (!strcmp(nm, "print") && (t->n == 1 || t->n == 2) && !pl_file_defines(nm, t->n) && !pl_file_defines("portray", 1) && !pl_db_owned("portray", 1)) {
                 const char * wn = g_stage2.pl_dialect_swi ? "writeq" : "write";
                 return goal(cx, t->n == 1 ? pl_cc_fnc1(wn, (tree_t *) t->c[0]) : pl_cc_fnc2(wn, (tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail, entry_out);

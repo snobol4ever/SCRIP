@@ -2089,6 +2089,11 @@ static const char * const PL_PRELUDE_SRC =
     "'$nv_single'([]).\n"
     "'$nv_single'([V|Vs]):-V='$VAR'('_'),'$nv_single'(Vs).\n"
     "trim_stacks.\n"
+    "'$write_canonical_swi'(T):-current_output(S),'$write_canonical_swi'(S,T).\n"
+    "'$write_canonical_swi'(S,T):-term_variables(T,Vs),term_singletons(T,Ss),'$wcs_names'(Vs,Ss,0,VN),write_term(S,T,[quoted(true),ignore_ops(true),quote_non_ascii(true),variable_names(VN)]).\n"
+    "'$wcs_names'([],_,_,[]).\n"
+    "'$wcs_names'([V|Vs],Ss,I,[N=V|R]):-(memberchk_eq(V,Ss)->N='_',I1=I;'$wcs_name'(I,N),I1 is I+1),'$wcs_names'(Vs,Ss,I1,R).\n"
+    "'$wcs_name'(I,N):-L is 65+I mod 26,J is I//26,(J=:=0->atom_codes(N,[L]);number_codes(J,Ds),atom_codes(N,[L|Ds])).\n"
     "string_bytes(S,B,E):-var(S),!,'$sb_dec'(E,B,Cs),string_codes(S,Cs).\n"
     "string_bytes(S,B,E):-string_codes(S,Cs),'$sb_enc'(E,Cs,B0),B=B0.\n"
     "'$sb_enc'(utf8,Cs,B):-!,'$sb_u8e'(Cs,B).\n"
@@ -2582,6 +2587,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
     if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");
     if (pl_cv_has(&referenced, "display")) pl_cv_add(&referenced, "$display_swi");
+    if (pl_cv_has(&referenced, "write_canonical")) pl_cv_add(&referenced, "$write_canonical_swi");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");

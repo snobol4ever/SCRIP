@@ -170,6 +170,7 @@ static int plc_utf8_run(const char *q) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_has_non_ascii(const char *s) { for (; *s; s++) if ((unsigned char)*s >= 0x80) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int rt_pl_dialect_swi(void);
 static void plc_wt_atom(FILE *fp, const char *name, int quoted) {
     int noesc = quoted & PLC_WQ_NOESC, qna = quoted & PLC_WQ_NONASCII;
     quoted &= 1;
@@ -180,7 +181,7 @@ static void plc_wt_atom(FILE *fp, const char *name, int quoted) {
             if (noesc && *q != '\'') { fputc(*q, fp); continue; }
             switch (*q) {
                 case '\'':
-                fputs("''", fp);
+                fputs(!noesc && rt_pl_dialect_swi() ? "\\'" : "''", fp);
                 break;
                 case '\\':
                 fputs("\\\\", fp);
