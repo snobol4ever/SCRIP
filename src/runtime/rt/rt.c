@@ -1714,6 +1714,7 @@ int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn) {
     rt_proc_t *p = *pp;
     long ix = (long)(p - g_rt_gen_procs);
     int slot = ix >= 0 && ix < g_rt_gen_proc_count;
+    rt_proc_resolve_cells(p);
     int np = p->nparams;
     { int nf = p->nformals > 0 ? p->nformals : np; if (nargs > nf) nargs = nf; }
     const char **pn = p->pnames;
