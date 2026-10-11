@@ -909,10 +909,91 @@ static void pl_module_flatten(PlProgram *pl_prog) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_yall_loaded(const PlProgram *pl_prog) {
+    for (const PlClause *cl = pl_prog->head; cl; cl = cl->next) {
+        const tree_t *tr = cl->tr, *g, *a;
+        if (!tr || tr->t != TT_CLAUSE || tr->n != 2 || !tr->c[0] || tr->c[0]->t != TT_NUL) continue;
+        g = tr->c[1];
+        a = (g && g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "use_module") && g->n >= 1) ? g->c[0] : (const tree_t *)0;
+        if (a && a->t == TT_FNC && a->n == 1 && a->v.sval && !strcmp(a->v.sval, "library") && a->c[0] && a->c[0]->t == TT_QLIT && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "yall")) return 1;
+    }
+    return 0;
+}
+static int pl_yall_has(const cv_t *v, const char *s) {
+    for (uint32_t i = 0; i < v->len; i++) if (!strcmp(CV_AT(*v, const char *, i), s)) return (int)i + 1;
+    return 0;
+}
+static void pl_yall_names(const tree_t *t, cv_t *names) {
+    if (!t) return;
+    if (t->t == TT_VAR && t->v.sval && strcmp(t->v.sval, "_") && !pl_yall_has(names, t->v.sval)) CV_PUSH(*names, const char *) = t->v.sval;
+    for (int i = 0; i < t->n; i++) pl_yall_names(t->c[i], names);
+}
+static void pl_yall_rename(tree_t *t, const cv_t *keep, cv_t *from, cv_t *to, int k) {
+    if (!t) return;
+    if (t->t == TT_VAR && t->v.sval && strcmp(t->v.sval, "_") && !pl_yall_has(keep, t->v.sval)) {
+        int at = pl_yall_has(from, t->v.sval);
+        if (!at) {
+            char nm[strlen(t->v.sval) + 32];
+            snprintf(nm, sizeof nm, "$yall%d_%s", k, t->v.sval);
+            CV_PUSH(*from, const char *) = t->v.sval;
+            CV_PUSH(*to, const char *) = ct_strdup(nm);
+            at = (int)from->len;
+        }
+        t->v.sval = (char *)CV_AT(*to, const char *, at - 1);
+    }
+    for (int i = 0; i < t->n; i++) pl_yall_rename(t->c[i], keep, from, to, k);
+}
+static void pl_yall_body(tree_t *g, int *k);
+static void pl_yall_closure(tree_t *a, int *k) {
+    cv_t keep = { 0 }, from = { 0 }, to = { 0 };
+    tree_t *ps = a->c[0];
+    if (ps && ps->t == TT_FNC && ps->n == 2 && ps->v.sval && !strcmp(ps->v.sval, "/")) pl_yall_names(ps->c[0], &keep);
+    (*k)++;
+    pl_yall_rename(a, &keep, &from, &to, *k);
+    pl_yall_body(a->c[1], k);
+}
+static void pl_yall_body(tree_t *g, int *k) {
+    if (!g) return;
+    if (g->t == TT_PROGRAM || g->t == TT_IF) {
+        for (int i = 0; i < g->n; i++) pl_yall_body(g->c[i], k);
+        return;
+    }
+    if (g->t != TT_FNC || !g->v.sval) return;
+    const char *nm = g->v.sval;
+    if (!strcmp(nm, ",") || !strcmp(nm, ";") || (g->n == 2 && (!strcmp(nm, "->") || !strcmp(nm, "*->")))) {
+        for (int i = 0; i < g->n; i++) pl_yall_body(g->c[i], k);
+        return;
+    }
+    if (g->n == 2 && !strcmp(nm, ":")) {
+        pl_yall_body(g->c[1], k);
+        return;
+    }
+    for (int i = 0; pl_mod_meta_builtins[i].nm; i++) {
+        if (pl_mod_meta_builtins[i].ar != g->n || strcmp(pl_mod_meta_builtins[i].nm, nm)) continue;
+        const char *sp = pl_mod_meta_builtins[i].spec;
+        for (int j = 0; j < g->n && sp[j]; j++) {
+            tree_t *a = g->c[j];
+            if (sp[j] >= '0' && sp[j] <= '9' && a && a->t == TT_FNC && a->n == 2 && a->v.sval && !strcmp(a->v.sval, ">>")) pl_yall_closure(a, k);
+            else if (sp[j] == '0') pl_yall_body(a, k);
+            else if (sp[j] == '^') {
+                while (a && a->t == TT_FNC && a->n == 2 && a->v.sval && !strcmp(a->v.sval, "^")) a = a->c[1];
+                pl_yall_body(a, k);
+            }
+        }
+        return;
+    }
+}
+static void pl_yall_lower_program(PlProgram *pl_prog) {
+    int k = 0;
+    if (!pl_yall_loaded(pl_prog)) return;
+    for (PlClause *cl = pl_prog->head; cl; cl = cl->next) if (cl->tr && cl->tr->t == TT_CLAUSE && cl->tr->n == 2) pl_yall_body(cl->tr->c[1], &k);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *prolog_lower(PlProgram *pl_prog) {
     for (PlClause *fcl = pl_prog->head; fcl; fcl = fcl->next) prolog_fold_pieces(fcl->tr);
     pl_dq_lower_program(pl_prog);
     for (PlClause *dcl = pl_prog->head; dcl; dcl = dcl->next) prolog_dcg_expand(dcl);
+    pl_yall_lower_program(pl_prog);
     pl_module_flatten(pl_prog);
     pl_dyn_mark(ct_strdup("$db_registry"), 0);
     for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) { int _isdir = (mcl->tr->n > 0 && mcl->tr->c[0] && mcl->tr->c[0]->t == TT_NUL); pld_mark_scan(mcl->tr, 1); (void) _isdir; }

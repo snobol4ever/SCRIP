@@ -1973,10 +1973,33 @@ static const char * const PL_PRELUDE_SRC =
     "maplist(G,[X|Xs],[Y|Ys],[Z|Zs]):-call(G,X,Y,Z),maplist(G,Xs,Ys,Zs).\n"
     "maplist(_,[],[],[],[]).\n"
     "maplist(G,[W|Ws],[X|Xs],[Y|Ys],[Z|Zs]):-call(G,W,X,Y,Z),maplist(G,Ws,Xs,Ys,Zs).\n"
-    "'>>'(P,B,A1):-copy_term(P>>B,P1>>B1),P1=[A1],call(B1).\n"
-    "'>>'(P,B,A1,A2):-copy_term(P>>B,P1>>B1),P1=[A1,A2],call(B1).\n"
-    "'>>'(P,B,A1,A2,A3):-copy_term(P>>B,P1>>B1),P1=[A1,A2,A3],call(B1).\n"
-    "'>>'(P,B,A1,A2,A3,A4):-copy_term(P>>B,P1>>B1),P1=[A1,A2,A3,A4],call(B1).\n"
+    "'>>'(P,B):-'$yall'(P,B,[]).\n"
+    "'>>'(P,B,A1):-'$yall'(P,B,[A1]).\n"
+    "'>>'(P,B,A1,A2):-'$yall'(P,B,[A1,A2]).\n"
+    "'>>'(P,B,A1,A2,A3):-'$yall'(P,B,[A1,A2,A3]).\n"
+    "'>>'(P,B,A1,A2,A3,A4):-'$yall'(P,B,[A1,A2,A3,A4]).\n"
+    "'>>'(P,B,A1,A2,A3,A4,A5):-'$yall'(P,B,[A1,A2,A3,A4,A5]).\n"
+    "'>>'(P,B,A1,A2,A3,A4,A5,A6):-'$yall'(P,B,[A1,A2,A3,A4,A5,A6]).\n"
+    "'>>'(P,B,A1,A2,A3,A4,A5,A6,A7):-'$yall'(P,B,[A1,A2,A3,A4,A5,A6,A7]).\n"
+    "'/'(F,L):-'$yall_slash'(F,L,[]).\n"
+    "'/'(F,L,A1):-'$yall_slash'(F,L,[A1]).\n"
+    "'/'(F,L,A1,A2):-'$yall_slash'(F,L,[A1,A2]).\n"
+    "'/'(F,L,A1,A2,A3):-'$yall_slash'(F,L,[A1,A2,A3]).\n"
+    "'/'(F,L,A1,A2,A3,A4):-'$yall_slash'(F,L,[A1,A2,A3,A4]).\n"
+    "'/'(F,L,A1,A2,A3,A4,A5):-'$yall_slash'(F,L,[A1,A2,A3,A4,A5]).\n"
+    "'/'(F,L,A1,A2,A3,A4,A5,A6):-'$yall_slash'(F,L,[A1,A2,A3,A4,A5,A6]).\n"
+    "'/'(F,L,A1,A2,A3,A4,A5,A6,A7):-'$yall_slash'(F,L,[A1,A2,A3,A4,A5,A6,A7]).\n"
+    "'$yall_slash'(F,L,As):-copy_term(F/L,F1/L1),F1=F,(nonvar(L1),L1=(Ps>>B)->'$yall_bind'(Ps,As,B,G);'$yall_ext'(As,L1,G)),call(G).\n"
+    "'$yall'(P,B,As):-copy_term(P>>B,P1>>B1),'$yall_free'(P,P1,Ps),'$yall_bind'(Ps,As,B1,G),call(G).\n"
+    "'$yall_free'(P,P1,Ps):-nonvar(P),P=F/_,!,P1=F1/Ps,F1=F.\n"
+    "'$yall_free'(_,Ps,Ps).\n"
+    "'$yall_bind'([],As,B,G):-!,'$yall_ext'(As,B,G).\n"
+    "'$yall_bind'([P|Ps],[A|As],B,G):-!,P=A,'$yall_bind'(Ps,As,B,G).\n"
+    "'$yall_bind'(_,[],B,B).\n"
+    "'$yall_ext'([],B,B):-!.\n"
+    "'$yall_ext'(As,B,G):-B=..L0,'$yall_app'(L0,As,L1),G=..L1.\n"
+    "'$yall_app'([],L,L).\n"
+    "'$yall_app'([H|T],L,[H|R]):-'$yall_app'(T,L,R).\n"
     "call_nth(G,_):-var(G),!,throw(error(instantiation_error,call_nth/2)).\n"
     "call_nth(G,_):- \\+ callable(G),!,throw(error(type_error(callable,G),call_nth/2)).\n"
     "call_nth(_,N):-nonvar(N),\\+ integer(N),!,throw(error(type_error(integer,N),call_nth/2)).\n"
@@ -2450,6 +2473,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (!pl_clause_key(cl, &nm, &ar) || !nm) continue;
         if (native_only && ar == 3 && !strcmp(nm, native_only)) continue;
         if (pl_cv_has(&attv_off, nm) && !pl_cv_has(&referenced, "$wakeup")) continue;
+        if (!strcmp(nm, "/") && !pl_cv_has(&referenced, nm) && !strstr(user_src, "}/")) continue;
         if (!pl_cv_has(&referenced, nm) && (nm[0] == '$' || !pl_word_referenced(user_src, nm))) continue;
         char *key = pl_pred_key(nm, ar);
         if (!pl_cv_has(&user_defined, key)) pl_cv_add(&wanted, key);
