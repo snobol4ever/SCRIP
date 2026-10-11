@@ -14,10 +14,10 @@ def main():
     except OSError as e: print("REFUSE(2): " + str(e)); return 2
     if not lines: print("REFUSE(2): no CMD lines in " + sys.argv[1]); return 2
     keys = ['missing', 'mapdiff', 'short', 'extra-blob-ptrgc', 'extra-gen-ptrgc', 'extra-root-ptrgc', 'extra-plain-ptrgc', 'bad-link', 'nosite', 'frameless', 'unknown-depth', 'cycle', 'no-link', 'no-rise']
-    bad = []; tot = {k: 0 for k in keys + ['runs', 'whole', 'offchain-swept']}
+    bad = []; tot = {k: 0 for k in keys + ['runs', 'whole', 'offchain-swept', 'ghost']}
     for l in lines:
         cmd, _, summ = l[4:].partition(' | ')
-        d = {k: num(summ, k) for k in keys + ['runs', 'whole', 'offchain-swept']}
+        d = {k: num(summ, k) for k in keys + ['runs', 'whole', 'offchain-swept', 'ghost']}
         for k in d: tot[k] += d[k]
         if d['whole'] != d['runs'] or any(d[k] for k in keys):
             bad.append((cmd, d))
@@ -25,7 +25,7 @@ def main():
         print("UNCLEAN %-60s runs=%d whole=%d %s" % (cmd[:60], d['runs'], d['whole'], ' '.join('%s=%d' % (k, d[k]) for k in keys if d[k])))
     if '--all' in sys.argv:
         for l in lines: print(l[:200])
-    print("PROGRAMS %d, UNCLEAN %d; collections whole %d of %d; off-chain frames swept %d (dead per the poison plant, not an unclean count)" % (len(lines), len(bad), tot['whole'], tot['runs'], tot['offchain-swept']))
+    print("PROGRAMS %d, UNCLEAN %d; collections whole %d of %d; off-chain frames swept %d (dead per the poison plant, not an unclean count); marker-scan frames that were a dead sibling's %d (the chain is right there, STEP B retires the marker)" % (len(lines), len(bad), tot['whole'], tot['runs'], tot['offchain-swept'], tot['ghost']))
     print("TOTAL " + ' '.join('%s=%d' % (k, tot[k]) for k in keys if tot[k]))
     return 1 if bad else 0
 sys.exit(main())

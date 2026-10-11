@@ -205,6 +205,7 @@ test_gate_gc_the_asm_allocator_carves_reused_ground_after_a_collection.sh	WIRED	
 test_gate_gc_the_birth_ledger_names_a_line_not_a_two_thousand_line_symbol.sh	WIRED	-	-	-
 test_gate_gc_the_blob_frame_interior_is_a_static_layout.sh	WIRED	-	-	-
 test_gate_gc_the_caller_saved_spill_block_never_holds_a_heap_reference.sh	WIRED	-	-	-
+test_gate_gc_the_chain_hops_a_function_body_nested_in_a_match_in_the_mapped_main_block.sh	WIRED	-	-	-
 test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh	WIRED	-	-	-
 test_gate_gc_the_cset_registry_is_rooted.sh	WIRED	-	-	-
 test_gate_gc_the_decidable_test.sh	WIRED	-	-	-

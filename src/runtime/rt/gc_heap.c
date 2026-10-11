@@ -2234,7 +2234,7 @@ static int gc_walk_cell(const char *p, const char *hi, const gc_frame_map_t **mo
 }
 typedef struct { const char *base; const gc_frame_map_t *map; uint64_t link; int rule; } gc_chf_t;
 typedef struct {
-    int st, found, host, mkf_n;
+    int st, found, host, mkf_n, ghost, ghosts;
     uint64_t pc;
     const gc_frame_map_t *ctxmap, *first_map;
     const gc_site_ent_t *e;
@@ -2249,7 +2249,7 @@ typedef struct {
 } gc_chx_t;
 static struct {
     long runs, whole, frames, offchain, said, missing, mapdiff, xblob, xgen, xroot, xplain, beyond, shrt, s_root, s_nosite, s_frameless, s_unknown, s_cycle, s_nolink, s_rise, s_left, s_costart,
-        s_badlink, links, said_link, v_same, v_diff, v_refused;
+        s_badlink, links, said_link, v_same, v_diff, v_refused, ghost;
     uint64_t fsum;
 } g_gc_chw;
 static const char *gc_chw_divname(int k) {
@@ -2304,6 +2304,12 @@ static int gc_chw_has_ptrgc(const gc_frame_map_t *m) {
     return 0;
 }
 static void gc_chw_div(gc_chx_t *cx, int k, const char *base, const gc_frame_map_t *m) { if (cx->div) return; cx->div = k; cx->div_base = base; cx->div_map = m; cx->div_i = cx->chf_i; }
+static int gc_chain_ghost(const char *base, const gc_frame_map_t *mk, const gc_frame_map_t *mc) {
+    const DESCR_t *d;
+    if (!((mk->flags & mc->flags) & GC_FRAME_MAP_BLOB) || mk->frame_bytes <= mc->frame_bytes) return 0;
+    d = (const DESCR_t *)(base - (long)mc->frame_bytes);
+    return d->v == DT_MAP && d->p == (void *)mc && d->slen == mc->frame_bytes;
+}
 static void gc_mkf_add(gc_chx_t *cx, const char *base, const gc_frame_map_t *m) {
     if (!cx->first_map) { cx->first_map = m; cx->first_base = base; }
     cx->mkf_n++;
@@ -2315,7 +2321,7 @@ static void gc_mkf_add(gc_chx_t *cx, const char *base, const gc_frame_map_t *m) 
         }
         if (cx->chf_i < cx->chf_n && cx->chf[cx->chf_i].base == base) {
             if (cx->chf[cx->chf_i].map == m) cx->chf_match++;
-            else gc_chw_div(cx, 2, base, m);
+            else if (gc_chain_ghost(base, m, cx->chf[cx->chf_i].map)) { cx->chf_match++; cx->ghosts++; } else gc_chw_div(cx, 2, base, m);
             cx->chf_i++;
         } else if (cx->chf_i >= cx->chf_n) gc_chw_div(cx, 7, base, m);
         else if (gc_chw_has_ptrgc(m)) gc_chw_div(cx, gc_chw_mapkind(m), base, m);
@@ -2323,7 +2329,11 @@ static void gc_mkf_add(gc_chx_t *cx, const char *base, const gc_frame_map_t *m) 
     }
     if (cx->st != 1) return;
     if (m == cx->b->map) cx->truth = base;
-    if (base == cx->base) { if (m == cx->b->map) cx->found = 1; else if (cx->e->rule == 1 && (m->flags & GC_FRAME_MAP_ROOT)) cx->host = 1; }
+    if (base == cx->base) {
+        if (m == cx->b->map) cx->found = 1;
+        else if (cx->e->rule == 1 && (m->flags & GC_FRAME_MAP_ROOT)) cx->host = 1;
+        else if (gc_chain_ghost(base, m, cx->b->map)) { cx->found = 1; cx->ghost = 1; }
+    }
     if (cx->e->rule == 0 && base == cx->rbp && !cx->ctxmap) cx->ctxmap = m;
 }
 static void gc_poison_maybe(const gc_chx_t *cx, const char *anchor, const char *base, const gc_frame_map_t *m, const char *lo, const char *hi);
@@ -2395,12 +2405,12 @@ static int gc_chain_check_on(void) {
     return g_gc_chain_knob;
 }
 static long g_gc_chain_ok = 0, g_gc_chain_nosite = 0, g_gc_chain_host = 0, g_gc_chain_bad = 0, g_gc_chain_said = 0, g_gc_chain_frameless = 0, g_gc_chain_ctx = 0, g_gc_chain_fnhops = 0,
-    g_gc_chain_landhops = 0, g_gc_chain_roadhops = 0;
+    g_gc_chain_landhops = 0, g_gc_chain_roadhops = 0, g_gc_chain_ghost = 0;
 extern char rt_tge_gamma_ret[], rt_tge_omega_ret[];
 extern const uint64_t rt_genp_n2_conts[2];
 static void gc_chain_report_atexit(void) {
-    fprintf(stderr, "[CHAIN-CHECK] SUMMARY ok=%ld host=%ld frameless=%ld ctxrbp=%ld nosite=%ld mismatch=%ld fnhops=%ld landhops=%ld roadhops=%ld\n", g_gc_chain_ok, g_gc_chain_host,
-        g_gc_chain_frameless, g_gc_chain_ctx, g_gc_chain_nosite, g_gc_chain_bad, g_gc_chain_fnhops, g_gc_chain_landhops, g_gc_chain_roadhops);
+    fprintf(stderr, "[CHAIN-CHECK] SUMMARY ok=%ld host=%ld frameless=%ld ctxrbp=%ld nosite=%ld mismatch=%ld fnhops=%ld landhops=%ld roadhops=%ld ghost=%ld\n", g_gc_chain_ok, g_gc_chain_host,
+        g_gc_chain_frameless, g_gc_chain_ctx, g_gc_chain_nosite, g_gc_chain_bad, g_gc_chain_fnhops, g_gc_chain_landhops, g_gc_chain_roadhops, g_gc_chain_ghost);
 }
 static const gc_site_blk_t *gc_code_block_of(uint64_t pc) {
     for (int i = 0; i < g_gc_sblk_n; i++) if (g_gc_sblk[i].code && pc >= g_gc_sblk[i].code && pc < g_gc_sblk[i].hi) return &g_gc_sblk[i];
@@ -2519,18 +2529,20 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
         }
     }
     if (!b->map) { cx->st = 3; return; }
+    const char *rbm6 = (const char *)0;
     if (e->rule == 6) {
         int nl = (e->kind >> 8) & 15, ek = (e->kind >> 12) & 15;
         const char *fp = rbp;
         for (int k = 1; k < nl; k++) fp = *(const char *const *)fp;
         base = (ek == 1 || ek == 3) ? *(const char *const *)fp : fp + 8 + e->depth;
+        if (ek == 0) rbm6 = *(const char *const *)fp;
     } else if (e->rule == 0) base = r + e->depth;
     else if (e->rule == 1) base = rbp;
     else if (e->rule == 2) base = rbp - e->depth;
     else if (e->rule == 3) base = rbp;
     else if (e->rule == 4) base = *(const char *const *)r + e->depth;
     else base = (const char *)0;
-    if (e->rule == 0) {
+    if (e->rule == 0 || rbm6) {
         uint64_t w = *(const uint64_t *)base;
         const gc_site_ent_t *x = (const gc_site_ent_t *)0;
         const gc_site_blk_t *xb = gc_site_find(w, &x);
@@ -2539,10 +2551,11 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
             const char *L = *(const char *const *)(base + loff);
             pc = *(const uint64_t *)(L + 8);
             r = (x->rule == 8) ? L : base + 16 + carve;
+            if (rbm6) rbp = rbm6;
             g_gc_chain_fnhops++;
             goto again;
         }
-        if (xb && x && (x->kind & 255) == 2) { pc = w; r = base; g_gc_chain_landhops++; goto again; }
+        if (xb && x && (x->kind & 255) == 2) { pc = w; r = base; if (rbm6) rbp = rbm6; g_gc_chain_landhops++; goto again; }
     }
     cx->base = base;
     cx->st = (e->rule == 5) ? 4 : 1;
@@ -2829,9 +2842,9 @@ static void gc_chain_walk_report_atexit(void) {
         snprintf(line, sizeof line,
         "[CHAIN-WALK] SUMMARY runs=%ld whole=%ld frames=%ld offchain-swept=%ld missing=%ld mapdiff=%ld extra-blob-ptrgc=%ld extra-gen-ptrgc=%ld extra-root-ptrgc=%ld extra-plain-ptrgc=%ld beyond-stop"
         "=%ld short=%ld | stop: root=%ld nosite=%ld frameless=%ld unknown-depth=%ld cycle=%ld no-link=%ld no-rise=%ld left-segment=%ld coroutine-start=%ld bad-link=%ld | frame-links=%ld | visitor: s"
-        "ame=%ld differ=%ld refused=%ld" "\n", g_gc_chw.runs, g_gc_chw.whole, g_gc_chw.frames, g_gc_chw.offchain, g_gc_chw.missing, g_gc_chw.mapdiff, g_gc_chw.xblob, g_gc_chw.xgen, g_gc_chw.xroot,
-        g_gc_chw.xplain, g_gc_chw.beyond, g_gc_chw.shrt, g_gc_chw.s_root, g_gc_chw.s_nosite, g_gc_chw.s_frameless, g_gc_chw.s_unknown, g_gc_chw.s_cycle, g_gc_chw.s_nolink, g_gc_chw.s_rise,
-        g_gc_chw.s_left, g_gc_chw.s_costart, g_gc_chw.s_badlink, g_gc_chw.links, g_gc_chw.v_same, g_gc_chw.v_diff, g_gc_chw.v_refused);
+        "ame=%ld differ=%ld refused=%ld | ghost=%ld" "\n", g_gc_chw.runs, g_gc_chw.whole, g_gc_chw.frames, g_gc_chw.offchain, g_gc_chw.missing, g_gc_chw.mapdiff, g_gc_chw.xblob, g_gc_chw.xgen,
+        g_gc_chw.xroot, g_gc_chw.xplain, g_gc_chw.beyond, g_gc_chw.shrt, g_gc_chw.s_root, g_gc_chw.s_nosite, g_gc_chw.s_frameless, g_gc_chw.s_unknown, g_gc_chw.s_cycle, g_gc_chw.s_nolink,
+        g_gc_chw.s_rise, g_gc_chw.s_left, g_gc_chw.s_costart, g_gc_chw.s_badlink, g_gc_chw.links, g_gc_chw.v_same, g_gc_chw.v_diff, g_gc_chw.v_refused, g_gc_chw.ghost);
     fputs(line, stderr);
     if (lg && *lg && n > 0 && n < (int)sizeof line) {
         int fd = open(lg, O_WRONLY | O_APPEND | O_CREAT, 0644);
@@ -2888,6 +2901,7 @@ static void gc_chain_walk_judge(gc_chx_t *cx) {
     }
     if (cx->chf_i < cx->chf_n) gc_chw_div(cx, 1, cx->chf[cx->chf_i].base, cx->chf[cx->chf_i].map);
     if (!cx->div && cx->chf_stop != 0 && cx->segmain) gc_chw_div(cx, 8, (const char *)0, (const gc_frame_map_t *)0);
+    g_gc_chw.ghost += cx->ghosts;
     if (!cx->div) { g_gc_chw.whole++; return; }
     switch (cx->div) {
         case 1:
@@ -3024,7 +3038,7 @@ static void gc_chain_judge(gc_chx_t *cx) {
             fprintf(stderr, "[CHAIN-SITE] pc=%p off=%ld kind=%u rule=%u chain_depth=%d true_depth=%ld map=%s%s\n", (const void *)(uintptr_t)pc, (long)(pc - b->lo), (unsigned)e->kind,
             (unsigned)e->rule, (int)e->depth, cx->truth ? (long)(cx->truth - r) : -1L, b->map->graph_name ? b->map->graph_name : "?", cx->truth ? "" : " (no marker frame of this map)");
     }
-    if (cx->found) { g_gc_chain_ok++; return; }
+    if (cx->found) { g_gc_chain_ok++; g_gc_chain_ghost += cx->ghost; return; }
     if (cx->host) { g_gc_chain_host++; return; }
     if (cx->ctxmap) {
         g_gc_chain_ctx++;
