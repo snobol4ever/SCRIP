@@ -20,7 +20,8 @@ RUNG="${1:-prolog-bench-regen}"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
 TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT   # PER-INVOCATION scratch: /tmp/regen_{cerr,aserr}.$$ was PID-keyed (safe) but the .s temps escaped on SIGKILL; one dir under the trap covers both (s169 seat2 FINDING §7.5)
-changed=0; fenced=0; rejected=0; emitted=0; timedout=0; errored=0; refused=0
+changed=0; fenced=0; rejected=0; emitted=0; timedout=0; errored=0; refused=0; oversize=0
+OVERSIZE_BYTES="${OVERSIZE_BYTES:-99000000}"
 for pl in "$B"/*.pl; do
   s="${pl%.pl}"; base=$(basename "$s"); tmp="$(mktemp -p "$TMPD")"
   # Capture via REDIRECT-TO-TEMP (not command-substitution): a shell pipe `$(...)` can truncate bursty multi-KB asm
@@ -30,8 +31,17 @@ for pl in "$B"/*.pl; do
   if grep -qE '^\s*\.(intel_syntax|text|globl)' "$tmp"; then
     emitted=$((emitted+1))
     if as --64 -o /dev/null "$tmp" 2>"$TMPD/aserr"; then
+      sz=$(stat -c %s "$tmp")
+      if [ "$sz" -gt "$OVERSIZE_BYTES" ]; then
+        # ⛔ OVERSIZE (hq_prolog 2026-10-11): GitHub refuses a file over 100 MB (GH001, pre-receive), so an honest .s that large can
+        # never be committed -- measured: chat_parser.s 114 MB, unify.s 102 MB, queens_clpfd.s 141 MB. The marker names the size, as
+        # .s.FENCED names a fence; the .s returns when the emitted code shrinks under the limit.
+        rm -f "$tmp" "$s.s" "$s.s.FENCED" "$s.s.REFUSED"; oversize=$((oversize+1))
+        printf 'OVERSIZE: the honest .s is %s bytes, over the %s-byte limit this repository can hold (GitHub refuses a file over 100 MB)\n' "$sz" "$OVERSIZE_BYTES" > "$s.s.OVERSIZE"
+        echo "  OVERSIZE $base ($sz bytes) -> $base.s.OVERSIZE"; continue
+      fi
       if [ ! -f "$s.s" ] || ! cmp -s "$tmp" "$s.s"; then mv "$tmp" "$s.s"; chmod 644 "$s.s"; changed=$((changed+1)); echo "  WROTE $base.s"; else rm -f "$tmp"; fi
-      rm -f "$s.s.FENCED" "$s.s.REFUSED"
+      rm -f "$s.s.FENCED" "$s.s.REFUSED" "$s.s.OVERSIZE"
     else
       rm -f "$tmp"; rejected=$((rejected+1)); echo "  REJECTED-BY-AS $base (left untouched)"
     fi
@@ -54,7 +64,7 @@ for pl in "$B"/*.pl; do
     rm -f "$tmp"; errored=$((errored+1)); echo "  ERROR $base (no asm + no fence signal, rc=$rc — .s LEFT UNTOUCHED)"
   fi
 done
-echo "regen[$RUNG]: emitted=$emitted changed=$changed fenced=$fenced refused=$refused rejected=$rejected timedout=$timedout errored=$errored"
+echo "regen[$RUNG]: emitted=$emitted changed=$changed fenced=$fenced refused=$refused rejected=$rejected timedout=$timedout errored=$errored oversize=$oversize"
 if [ "$timedout" -ne 0 ] || [ "$errored" -ne 0 ]; then
   echo "WARNING: $timedout timed out + $errored errored — their .s were PRESERVED (re-run, or compile standalone). A timeout is NOT a fence."
 fi
