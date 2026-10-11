@@ -31,25 +31,17 @@ extern int64_t kw_fnclevel;
 #define icn_wire_stack_on() emit_knob_unless_zero("SCRIP_ICN_WIRE_STACK")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
-    if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_ENTRY_DISPATCH");
-    if (MEDIUM_BINARY) return std::string();
-    if (MEDIUM_TEXT) {
-        if (!g_is_text) return std::string();
-        return std::string("  cmp esi, 0\n")
+    return IF_M4(IF(g_is_text,
+               std::string("  cmp esi, 0\n")
              + "  je " + (g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?") + "\n"
-             + "  jmp " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
-    }
+             + "  jmp " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_data_section_str(void) {
-    if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FLAT_DATA_SECTION");
-    if (MEDIUM_BINARY) return std::string();
-    if (MEDIUM_TEXT) {
-        if (!g_flat_data_any) return std::string();
-        return std::string("  .section .data\n")
+    return IF_M4(IF(g_flat_data_any,
+               std::string("  .section .data\n")
              + (g_flat_data_len ? std::string((const char *)g_flat_data_buf.p, g_flat_data_len) : std::string())
-             + "  .section .text\n";
-    }
+             + "  .section .text\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_entry_dispatch(void) {
