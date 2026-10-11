@@ -119,7 +119,7 @@ $'>'        =  *$' ' '>';
 ArgTail     =  *$',' FENCE(*Expr | epsilon . *Reduce('TT_NUL', 0)) . *IncCounter() FENCE(*ArgTail | epsilon);
 ArgList     =  FENCE(*Expr . *IncCounter() FENCE(*ArgTail | epsilon) | epsilon . *Reduce('TT_NUL', 0) . *IncCounter() *ArgTail);
 Expr        =  *Expr0;
-Expr0       =  *Expr1 FENCE(*$'=' *Expr0 . *Reduce('TT_ASSIGN', 2) | *$'  ' '=' (epsilon) . thx . *Shift('TT_QLIT', thx) . *Reduce('TT_ASSIGN', 2) | epsilon);
+Expr0       =  *Expr1 FENCE(*$'=' *(~TopIsValue()) *Expr0 . *Reduce('TT_ASSIGN', 2) | *$'  ' '=' *(~TopIsValue()) (epsilon) . thx . *Shift('TT_QLIT', thx) . *Reduce('TT_ASSIGN', 2) | epsilon);
 Expr1       =  *Expr2 *Expr1t;
 Expr1t      =  FENCE(*$'?' *Expr2 . *Reduce('TT_SCAN', 2) *Expr1t | epsilon);
 Expr2       =  *Expr3 *Expr2t;
@@ -141,14 +141,15 @@ Expr10      =  *Expr11 *Expr10t;
 Expr10t     =  FENCE(*$'%' *Expr11 . *Reduce('TT_OPSYN', 2, '%') *Expr10t | epsilon);
 Expr11      =  *Expr12 FENCE(*$'  ' ('**' | '^' | '!') *$'  ' *Expr11 . *Reduce('TT_POW', 2) | epsilon);
 Expr12      =  *Expr13 *Expr12tail;
-Expr12tail  =  FENCE(*$'  ' ('$' *$'  ' *Expr13 . *Reduce('TT_CAPT_IMMED_ASGN', 2) *Expr12tail | '.' *$'  ' *Expr13 . *Reduce('TT_CAPT_COND_ASGN', 2) *Expr12tail ) | epsilon);
+Expr12tail  =  FENCE(*$'  ' (  '$' *$'  ' *Expr13 *(~TopIsValue()) . *Reduce('TT_CAPT_IMMED_ASGN', 2) *Expr12tail
+                            |  '.' *$'  ' *Expr13 *(~TopIsValue()) . *Reduce('TT_CAPT_COND_ASGN', 2) *Expr12tail ) | epsilon);
 Expr13      =  *Expr14 FENCE(*$'~' *Expr13 . *Reduce('TT_OPSYN', 2, '~') | epsilon);
-Expr14      =  '@' *Expr14 . *Reduce('TT_CAPT_CURSOR', 1)
+Expr14      =  '@' *Expr14 *(~TopIsValue()) . *Reduce('TT_CAPT_CURSOR', 1)
             |  '~' *Expr14 . *Reduce('TT_NOT', 1)
             |  '?' *Expr14 . *Reduce('TT_INTERROGATE', 1)
             |  '&' (*ProtKwd) . thx . *Shift('TT_KEYWORD', REPLACE(thx, SnLT[SnCase], SnUT[SnCase]))
             |  '&' (*Id) . thx . *Shift('TT_KEYWORD', REPLACE(thx, SnLT[SnCase], SnUT[SnCase]))
-            |  '&' *Expr14 . *Reduce('TT_OPSYN', 1, '&')
+            |  '&' *Expr14 *(~TopIsValue()) . *Reduce('TT_OPSYN', 1, '&')
             |  '+' *Expr14 . *Reduce('TT_PLS', 1)
             |  '-' *Expr14 . *Reduce('TT_MNS', 1)
             |  '*' *Expr14 . *Reduce('TT_DEFER', 1)
@@ -227,7 +228,7 @@ Comment     =  '*' BREAK(CHAR(10));
 /* or ?-separated pattern match is TT_SCAN subject pattern inside it (snobol4.y opt_subject) -- then :eq and :repl (an     */
 /* empty replacement is the null string), then the gotos present.                                                         */
 StmtLabel   =  (NOTANY(' ' CHAR(9) CHAR(10) ';') FENCE(BREAK(' ' CHAR(9) CHAR(10) ';') | REM)) $ ltx *IDENT(SnLblT[ltx]) *DIFFER((SnLblT[ltx] = 1));
-StmtRepl    =  *$'  ' '=' . *Reduce('TT_ATTR', 0, ':eq') . *IncCounter() *$' '
+StmtRepl    =  *(~SubjIsValue()) *$'  ' '=' . *Reduce('TT_ATTR', 0, ':eq') . *IncCounter() *$' '
                FENCE(*Expr | (epsilon) . thx . *Shift('TT_QLIT', thx)) . *Reduce('TT_ATTR', 1, ':repl') . *IncCounter();
 /* a statement-level ? chain, left to right: each ? takes its pattern (or none) and wraps what stands before it in a TT_SCAN (snobol4.y qsubject) */
 StmtQuery   =  *$'?' FENCE(*Expr3 . *Reduce('TT_SCAN', 2) | epsilon . *Reduce('TT_SCAN', 1)) FENCE(*StmtQuery | epsilon);
@@ -337,6 +338,27 @@ function PPFind(nm, i, t) {
     freturn;
 }
 /* ==================================================================================================================== */
+/* a literal or a name (the unary dot) is a VALUE, never a variable: SPITBOL refuses it at compile time as the target of =, $, . and @, and as */
+/* the operand of & (the ceo, CEO-1649); the C grammar refuses the same shapes in snobol4.y, so the two trees stay one                            */
+function TopIsValue(x) {
+    x = Top();
+    if (IDENT(t(x), 'TT_QLIT')) { return; }
+    if (IDENT(t(x), 'TT_ILIT')) { return; }
+    if (IDENT(t(x), 'TT_FLIT')) { return; }
+    if (IDENT(t(x), 'TT_NAME')) { return; }
+    freturn;
+}
+function SubjIsValue(x) {
+    x = Top();
+    x = c(x)[1];
+    while (IDENT(t(x), 'TT_SCAN')) { x = c(x)[1]; }
+    while (IDENT(t(x), 'TT_SEQ')) { x = c(x)[1]; }
+    if (IDENT(t(x), 'TT_QLIT')) { return; }
+    if (IDENT(t(x), 'TT_ILIT')) { return; }
+    if (IDENT(t(x), 'TT_FLIT')) { return; }
+    if (IDENT(t(x), 'TT_NAME')) { return; }
+    freturn;
+}
 function PPErr(msg) {
     TERMINAL = 'Preprocess: ' msg;
     pp_err = 1;
