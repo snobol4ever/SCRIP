@@ -2089,6 +2089,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$nv_single'([]).\n"
     "'$nv_single'([V|Vs]):-V='$VAR'('_'),'$nv_single'(Vs).\n"
     "trim_stacks.\n"
+    "subsumes(G,S):-subsumes_term(G,S),G=S.\n"
     "'$arg_swi'(N,T,A):-var(N),!,(compound(T)->functor(T,_,Ar),between(1,Ar,N),arg(N,T,A);arg(N,T,A)).\n"
     "'$arg_swi'(N,T,A):-arg(N,T,A).\n"
     "is_most_general_term(T):-atom(T),!.\n"
