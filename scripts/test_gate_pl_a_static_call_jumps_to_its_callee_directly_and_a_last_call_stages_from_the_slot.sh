@@ -4,7 +4,12 @@
 # (ARCH-PROLOG-C-OUT-OF-THE-BOX.md section 9). ARM 1: the 23 kernels' mode-4 text loads g_rt_gen_procs ZERO times -- a static callee (file-defined,
 # a registered compile-time graph or the predicate's own key; never declared dynamic, never a packet) is entered by lea rax, [rip + FN__callee];
 # jmp rax in the text and through its sealed alpha cell in the slab (x86_jmp_via_cell, both media), not by the record's three dependent loads;
-# a dynamic or run-time-defined callee keeps the registry jump. ARMS 2-3: two swipl-cut witnesses in m3 AND m4, the behaviour the cure keeps:
+# a dynamic or run-time-defined callee keeps the registry jump, so arm 1 counts a load only when its callee is NOT declared dynamic in the kernel's
+# own source: the callee is read off the jump itself -- the record offset after the load is 8 + 128 * proc index (PROC_FN at +8, the stride rt.c
+# asserts) and the index names its .Lgccode_<name>_<index> label (the cto's ruling 2026-10-11, CEO-1663: nand.pl's two loads are its tail and
+# non-tail arms of one staged call to the dynamic state_/2, unchanged since before CEO-1632; corpus 0bc5934ce had grown the census from 23 to 42
+# kernels and nand is the first with a dynamic predicate). ARM 1b, the fail-once: a registry jump to a STATIC proc planted into nand's text is
+# counted, and the planted jump to state_/2 is not. ARMS 2-3: two swipl-cut witnesses in m3 AND m4, the behaviour the cure keeps:
 # (2) a 300,000-deep last-call recursion with variable arguments in the default stack (the tail arm fires: the block staged from each
 # variable's own slot, one hop fewer than through its name cell), a last call passing a head variable down two frames, a last call passing a
 # local bound by the previous goal, two locals aliased by =/2 then passed (the decline road); (3) a static clause whose last call is a
@@ -27,16 +32,59 @@ SCRIP="${SCRIP_BIN:-$HERE/../scrip}"
 RT="${RT_DIR:-$(dirname "$SCRIP")/out}"
 refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- run make first"
-[ -x "$HERE/bench_prolog_text_census.sh" ] || refuse "no bench_prolog_text_census.sh beside this gate"
 [ -n "${SCRIP_BIN:-}" ] || "$HERE/util_require_fresh.sh" --gate "$GATE_NAME" "$SCRIP" "$RT/libscrip_rt.so" || exit 2
 TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT
 red=0
-cen="$(S4E_HOME="$ROOT" SCRIP_BIN="$SCRIP" bash "$HERE/bench_prolog_text_census.sh" 'g_rt_gen_procs' 2>&1)"; crc=$?
-case "$crc" in
-    0) echo "  ok  arm 1: $cen" ;;
-    1) echo "  RED arm 1: $(printf '%s' "$cen" | cut -c1-200)"; red=$((red+1)) ;;
-    *) refuse "the text census could not measure: $(printf '%s' "$cen" | cut -c1-200)" ;;
-esac
+B="${S4E_CORPUS:-$ROOT/corpus}/benchmarks/prolog/bench"
+mkdir -p "$TMPD/k"
+for p in "$B"/*.pl; do
+    k="$(basename "$p" .pl)"; [ -f "$B/$k.ref" ] || continue
+    timeout 120 "$SCRIP" --compile -o "$TMPD/k/$k.s" "$p" </dev/null 2>/dev/null || refuse "$k.pl did not compile"
+    cp "$p" "$TMPD/k/$k.pl"
+done
+regjumps() {   # $1 = dir of <k>.s + <k>.pl; prints "<kernels> <static loads> <exempt loads> <per-kernel list>", rc 2 when nothing measured
+python3 - "$1" <<'PY'
+import os, re, sys
+d = sys.argv[1]; ks = sorted(f[:-2] for f in os.listdir(d) if f.endswith(".s") and os.path.exists(os.path.join(d, f[:-2] + ".pl")))
+if not ks: sys.exit(2)
+dec = lambda n: re.sub(r"\$([0-9A-F]{2})", lambda m: chr(int(m.group(1), 16)), n)
+tot = ex = 0; per = []
+for k in ks:
+    s = open(os.path.join(d, k + ".s"), errors="replace").read().split("\n"); src = open(os.path.join(d, k + ".pl"), errors="replace").read()
+    src = re.sub(r"%[^\n]*", "", src); dyn = set()
+    for m in re.finditer(r":-\s*dynamic\b(.*?)\.(?:\s|$)", src, re.S):
+        for n, a in re.findall(r"([a-z][A-Za-z0-9_]*|'[^']*')\s*/\s*(\d+)", m.group(1)): dyn.add("%s/%s" % (n.strip("'"), a))
+    lab = {}
+    for ln in s:
+        m = re.match(r"^\.Lgccode_(.+)_(\d+):", ln)
+        if m: lab[int(m.group(2))] = dec(m.group(1))
+    c = 0
+    for i, ln in enumerate(s):
+        if "g_rt_gen_procs" not in ln: continue
+        callee = None
+        for nx in s[i + 1:i + 4]:
+            m = re.search(r"\[rax \+ (\d+)\]", nx)
+            if m and int(m.group(1)) > 0 and (int(m.group(1)) - 8) % 128 == 0: callee = lab.get((int(m.group(1)) - 8) // 128); break
+        if callee in dyn: ex += 1
+        else: c += 1
+    tot += c
+    if c: per.append("%s=%d" % (k, c))
+print(len(ks), tot, ex, " ".join(per))
+PY
+}
+read -r nk nst nex nper <<<"$(regjumps "$TMPD/k")" || true
+[ -n "${nk:-}" ] && [ "${nk:-0}" -gt 0 ] || refuse "the registry-jump census measured no kernel under $B"
+if [ "$nst" = 0 ]; then echo "  ok  arm 1: zero registry loads with a static callee in the mode-4 text of $nk kernels ($nex to a declared-dynamic callee kept)"
+else echo "  RED arm 1: $nst registry load(s) with a static callee remain in the mode-4 text of $nk kernels: $nper"; red=$((red+1)); fi
+mkdir -p "$TMPD/plant"; cp "$B/nand.pl" "$TMPD/plant/nand.pl" 2>/dev/null && cp "$TMPD/k/nand.s" "$TMPD/plant/nand.s" 2>/dev/null || refuse "the fail-once needs nand.pl, the census's one kernel with a dynamic predicate"
+pst=$(grep -m1 -oE '^\.Lgccode_[a-z][A-Za-z0-9_]*\$2F[0-9]+_[0-9]+:' "$TMPD/plant/nand.s" | grep -v 'state_' | sed 's/.*_\([0-9]*\):$/\1/')
+pdy=$(grep -m1 -oE '^\.Lgccode_state_\$2F2_[0-9]+:' "$TMPD/plant/nand.s" | sed 's/.*_\([0-9]*\):$/\1/')
+[ -n "$pst" ] && [ -n "$pdy" ] || refuse "the fail-once found no static and dynamic proc label in nand's text"
+read -r _ b0 e0 _ <<<"$(regjumps "$TMPD/plant")"
+for idx in "$pst" "$pdy"; do printf '        mov rax, qword ptr [rip + g_rt_gen_procs@GOTPCREL]\n        mov rax, qword ptr [rax + 0]\n        mov rax, qword ptr [rax + %d];        jmp   rax\n' $((8 + 128 * idx)) >> "$TMPD/plant/nand.s"; done
+read -r _ b1 e1 _ <<<"$(regjumps "$TMPD/plant")"
+if [ "$b1" = $((b0 + 1)) ] && [ "$e1" = $((e0 + 1)) ]; then echo "  ok  arm 1b: a planted registry jump to static proc $pst is counted, the planted jump to state_/2 (proc $pdy) is kept"
+else echo "  RED arm 1b: the planted jumps read static $b0 -> $b1 and dynamic $e0 -> $e1, want +1 each"; red=$((red+1)); fi
 mkw() { cat > "$TMPD/$1.pl"; }
 mkw w_lco <<'EOP'
 cnt(0, A, A) :- !.
@@ -118,5 +166,5 @@ got="$(cd "$TMPD" && SCRIP_M4_ALPHA_SEAL=0 timeout 60 "$SCRIP" w_lco.pl </dev/nu
 if [ "$rc" = 0 ] && [ "$got" = "$want_w_lco" ]; then echo "  ok  w_lco m3 with the seal knob off"
 else echo "  RED w_lco m3 with the seal knob off: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-120)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi
 [ "$red" = 0 ] || { echo "GATE FAIL [$GATE_NAME]: $red arm(s) red"; exit 1; }
-echo "GATE PASS [$GATE_NAME]: no static call of the 23 kernels goes through the registry record, the last-call witnesses (the slot road, the var-var link, the static-permission invariant, the dynamic road) answer swipl's text in both modes, and the slab's static jump needs no knob"
+echo "GATE PASS [$GATE_NAME]: no static call of the bench kernels goes through the registry record, the last-call witnesses (the slot road, the var-var link, the static-permission invariant, the dynamic road) answer swipl's text in both modes, and the slab's static jump needs no knob"
 exit 0
