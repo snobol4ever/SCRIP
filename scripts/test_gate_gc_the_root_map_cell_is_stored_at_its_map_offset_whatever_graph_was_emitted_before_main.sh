@@ -33,7 +33,7 @@ reading() {
   local prog="$1" b; b="$(basename "$prog")"
   ( cd "$W" && SCRIP_GC_MAPS_REPORT=1 timeout 60 "$SCRIP" --compile "$prog" > "$W/$b.s" 2> "$W/$b.rep" < /dev/null ) || { echo "COMPILE-FAILED"; return; }
   local mo cell
-  mo="$(sed -n 's/^\[GC-MAP\] graph=main frame_bytes=[0-9]* header_bytes=[0-9]* map_off=\([0-9]*\) flags=[0-9]*$/\1/p' "$W/$b.rep" | head -1)"
+  mo="$(sed -n 's/^\[GC-MAP\] graph=main frame_bytes=[0-9]* header_bytes=[0-9]* map_off=\([0-9]*\) flags=[0-9]*\( map=.*\)\{0,1\}$/\1/p' "$W/$b.rep" | head -1)"
   [ -n "$mo" ] || { echo "NO-ROOT-MAP"; return; }
   cell="$(awk '/^main_α:/{on=1} on && /lea +rax, \[rip \+ \.Lgcmap_main\]/{lea=1; next} lea && /mov +dword ptr \[rsp \+ [0-9]+\], 160/{match($0, /\[rsp \+ [0-9]+\]/); s=substr($0, RSTART+7, RLENGTH-8); print s; exit} /^main_α_body:/{exit}' "$W/$b.s")"
   [ -n "$cell" ] || { echo "NO-CELL-STORE map_off=$mo"; return; }
