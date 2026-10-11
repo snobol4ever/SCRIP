@@ -1,5 +1,38 @@
 unit sysutils;
 interface
+type
+  Exception = class
+  private
+    FMessage: string;
+  public
+    constructor Create(const msg: string);
+    function ToString: string; override;
+    property Message: string read FMessage write FMessage;
+  end;
+  EAbort = class(Exception);
+  EConvertError = class(Exception);
+  EInvalidCast = class(Exception);
+  ENotImplemented = class(Exception);
+  EVariantError = class(Exception);
+  EInvalidOpException = class(Exception);
+  EArgumentException = class(Exception);
+  EArgumentOutOfRangeException = class(EArgumentException);
+  EArgumentNilException = class(EArgumentException);
+  EInOutError = class(Exception);
+  EExternal = class(Exception);
+  EIntError = class(EExternal);
+  EDivByZero = class(EIntError);
+  ERangeError = class(EIntError);
+  EIntOverflow = class(EIntError);
+  EMathError = class(EExternal);
+  EInvalidOp = class(EMathError);
+  EZeroDivide = class(EMathError);
+  EOverflow = class(EMathError);
+  EUnderflow = class(EMathError);
+  EAccessViolation = class(EExternal);
+  EHeapMemoryError = class(Exception);
+  EInvalidPointer = class(EHeapMemoryError);
+  EOutOfMemory = class(EHeapMemoryError);
 function IntToStr(n: integer): string;
 function StrToInt(s: string): integer;
 function UpperCase(s: string): string;
@@ -8,6 +41,14 @@ function TrimLeft(s: string): string;
 function TrimRight(s: string): string;
 function Trim(s: string): string;
 implementation
+constructor Exception.Create(const msg: string);
+begin
+  FMessage := msg
+end;
+function Exception.ToString: string;
+begin
+  ToString := ClassName + ': ' + FMessage
+end;
 function IntToStr(n: integer): string;
 var r: string; neg: boolean;
 begin
@@ -22,14 +63,22 @@ begin
   IntToStr := r
 end;
 function StrToInt(s: string): integer;
-var i, v: integer; neg: boolean;
+var i, v: integer; neg, ok: boolean;
 begin
   i := 1;
   v := 0;
   neg := false;
+  ok := false;
   while (i <= length(s)) and (s[i] = ' ') do i := i + 1;
   if (i <= length(s)) and ((s[i] = '-') or (s[i] = '+')) then begin neg := s[i] = '-'; i := i + 1 end;
-  while (i <= length(s)) and (s[i] >= '0') and (s[i] <= '9') do begin v := v * 10 + (ord(s[i]) - ord('0')); i := i + 1 end;
+  if (i <= length(s)) and (s[i] = '$') then
+  begin
+    i := i + 1;
+    while (i <= length(s)) and (pos(upcase(s[i]), '0123456789ABCDEF') > 0) do begin v := v * 16 + pos(upcase(s[i]), '0123456789ABCDEF') - 1; i := i + 1; ok := true end
+  end
+  else
+    while (i <= length(s)) and (s[i] >= '0') and (s[i] <= '9') do begin v := v * 10 + (ord(s[i]) - ord('0')); i := i + 1; ok := true end;
+  if not ok or (i <= length(s)) then raise EConvertError.Create('"' + s + '" is an invalid integer');
   if neg then v := -v;
   StrToInt := v
 end;

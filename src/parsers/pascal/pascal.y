@@ -24,6 +24,9 @@ int *pascal_cond_depth_p(void);
 int *pascal_cond_taken_p(void);
 const char *pascal_mode_macro(void);
 void pascal_mode_macro_set(const char *m);
+int pascal_last_tok(void);
+void pascal_last_ident_set(const char *p, int n);
+tree_t *pascal_last_ident_qlit(void);
 }
 %{
 #include "ct_arena.h"
@@ -59,7 +62,7 @@ static tree_t *pt_decl(const char *w, tree_t *a, tree_t *b) { return pt_add(pt_a
 static void pt_flush_pragmas(tree_t *root) { pascal_pragma_flush(root); }
 typedef struct { char *name; int kind; long long iv; double dv; char *sv; } PasCEnvE;
 typedef struct { char *name; int on; int has; double val; } PasDefE;
-static struct { PasCEnvE *e; int n; int cap; int ni; int nr; int ns; int unit_mode; int dialect; PasDefE *defs; int ndefs; int capdefs; int cond_skip; int cond_depth; int cond_taken; int cond_unknown; int macro_on; int string_declared; const char *mode_macro; unsigned sw_set; unsigned sw_on; unsigned *sw_save; int sw_n; int sw_cap; int last_tok; } g_pascal_cenv;
+static struct { PasCEnvE *e; int n; int cap; int ni; int nr; int ns; int unit_mode; int dialect; PasDefE *defs; int ndefs; int capdefs; int cond_skip; int cond_depth; int cond_taken; int cond_unknown; int macro_on; int string_declared; const char *mode_macro; unsigned sw_set; unsigned sw_on; unsigned *sw_save; int sw_n; int sw_cap; int last_tok; const char *ident_p; int ident_n; } g_pascal_cenv;
 static void cenv_put(const char *name, int kind, long long iv, double dv, const char *sv) {
     if (!name || (kind == 0 && g_pascal_cenv.ni >= 256) || (kind == 1 && g_pascal_cenv.nr >= 64) || (kind == 2 && g_pascal_cenv.ns >= 64)) return;
     if (g_pascal_cenv.n >= g_pascal_cenv.cap) { g_pascal_cenv.cap = g_pascal_cenv.cap ? g_pascal_cenv.cap * 2 : 64; g_pascal_cenv.e = (PasCEnvE *)ct_grow(g_pascal_cenv.e, (size_t)g_pascal_cenv.cap * sizeof(PasCEnvE)); }
@@ -72,10 +75,20 @@ static void cenv_string(const char *name, const char *s) { if (s && strlen(s) ==
 int pascal_cenv_int(const char *name, long long *out) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 0 && !strcmp(g_pascal_cenv.e[i].name, name)) { *out = g_pascal_cenv.e[i].iv; return 1; } return 0; }
 int pascal_cenv_real(const char *name, double *out) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 1 && !strcmp(g_pascal_cenv.e[i].name, name)) { *out = g_pascal_cenv.e[i].dv; return 1; } return 0; }
 const char *pascal_cenv_str(const char *name) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 2 && !strcmp(g_pascal_cenv.e[i].name, name)) return g_pascal_cenv.e[i].sv; return NULL; }
-void pascal_cenv_reset(void) { g_pascal_cenv.last_tok = 0; g_pascal_cenv.n = 0; g_pascal_cenv.ni = 0; g_pascal_cenv.nr = 0; g_pascal_cenv.ns = 0; g_pascal_cenv.unit_mode = 0; g_pascal_cenv.dialect = PAS_DIALECT_ISO_DEFAULT; g_pascal_cenv.ndefs = 0; g_pascal_cenv.cond_skip = 0; g_pascal_cenv.cond_depth = 0; g_pascal_cenv.cond_taken = 0; g_pascal_cenv.cond_unknown = 0; g_pascal_cenv.macro_on = 0; g_pascal_cenv.string_declared = 0; g_pascal_cenv.mode_macro = NULL; g_pascal_cenv.sw_set = 0; g_pascal_cenv.sw_on = 0; g_pascal_cenv.sw_n = 0; }
+void pascal_cenv_reset(void) { g_pascal_cenv.last_tok = 0; g_pascal_cenv.ident_p = NULL; g_pascal_cenv.ident_n = 0;g_pascal_cenv.n = 0; g_pascal_cenv.ni = 0; g_pascal_cenv.nr = 0; g_pascal_cenv.ns = 0; g_pascal_cenv.unit_mode = 0; g_pascal_cenv.dialect = PAS_DIALECT_ISO_DEFAULT; g_pascal_cenv.ndefs = 0; g_pascal_cenv.cond_skip = 0; g_pascal_cenv.cond_depth = 0; g_pascal_cenv.cond_taken = 0; g_pascal_cenv.cond_unknown = 0; g_pascal_cenv.macro_on = 0; g_pascal_cenv.string_declared = 0; g_pascal_cenv.mode_macro = NULL; g_pascal_cenv.sw_set = 0; g_pascal_cenv.sw_on = 0; g_pascal_cenv.sw_n = 0; }
 int pascal_unit_mode(void) { return g_pascal_cenv.unit_mode; }
 void pascal_unit_mode_set(int m) { g_pascal_cenv.unit_mode = m; }
 int pascal_dialect(void) { return g_pascal_cenv.dialect; }
+int pascal_last_tok(void) { return g_pascal_cenv.last_tok; }
+void pascal_last_ident_set(const char *p, int n) { g_pascal_cenv.ident_p = p; g_pascal_cenv.ident_n = n; }
+tree_t *pascal_last_ident_qlit(void) {
+    tree_t *q = ast_node_new(TT_QLIT);
+    char *s = ct_alloc((size_t)g_pascal_cenv.ident_n + 1);
+    if (g_pascal_cenv.ident_p) memcpy(s, g_pascal_cenv.ident_p, (size_t)g_pascal_cenv.ident_n);
+    s[g_pascal_cenv.ident_p ? g_pascal_cenv.ident_n : 0] = '\0';
+    q->v.sval = s;
+    return q;
+}
 int pascal_lex_wrapped(void) {
 #undef pascal_yylex
     int t = pascal_yylex();
@@ -168,6 +181,8 @@ static void cenv_note(const char *name, tree_t *e) {
 %token <node> INTCONST CHARCODE REALCONST STRINGCONST IDENT
 %token <node> SHIFTOP XOROP
 %token POWOP
+%token <node> CLASSSY ISOP ASOP
+%token TRYSY EXCEPTSY FINALLYSY RAISESY INHERITEDSY CONSTRUCTORSY DESTRUCTORSY PROPERTYSY ONSY
 %type <node> program file_id_list_opt block decl_part_list decl_part label_list const_decl_list const_decl constant scalar_constant type_decl_list case_tail
 %type <node> type_decl type packed_opt simple_type record_body record_field_list record_field case_arm_mark case_open record_case_opt record_case_list
 %type <node> record_case_arm var_decl_list var_decl procedure_decl pv_mark parameter_list_opt parameter_decl_list parameter_decl pf_params pf_sections
@@ -179,6 +194,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %type <node> param_type
 %type <node> lo_bound lo_term b_expr b_term b_factor case_label
 %type <node> program_name routine_directives power
+%type <node> class_members class_member prop_index_opt prop_specs try_statement handler_list handler raise_statement inherited_call
 %start compilation_unit
 %%
 compilation_unit:
@@ -282,6 +298,8 @@ type_decl_list:
     ;
 type_decl:
     IDENT EQOP type SEMICOLON { pascal_note_type_decl($1); $$ = pt_decl("type", $1, $3); }
+    |IDENT EQOP CLASSSY SEMICOLON { $$ = pt_decl("type", $1, pt_sval(pt_add(pt_new(TT_CLASS_DECL), $3), "forward")); }
+    |IDENT EQOP CLASSSY LPARENT id_list RPARENT SEMICOLON { $$ = pt_decl("type", $1, pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), $3), pt_retag($5, TT_ARGS)), pt_new(TT_VLIST))); }
     ;
 type:
     simple_type { $$ = $1; }
@@ -295,6 +313,33 @@ type:
     |packed_opt SETSY OFSY simple_type { $$ = pt_add(pt_add(pt_new(TT_SET_TYPE), $1), $4); }
     |packed_opt FILESY { $$ = pt_add(pt_new(TT_FILE_TYPE), $1); }
     |packed_opt FILESY OFSY type { $$ = pt_add(pt_add(pt_new(TT_FILE_TYPE), $1), $4); }
+    |CLASSSY class_members ENDSY { $$ = pt_add(pt_add(pt_new(TT_CLASS_DECL), $1), $2); }
+    |CLASSSY LPARENT id_list RPARENT class_members ENDSY { $$ = pt_add(pt_add(pt_add(pt_new(TT_CLASS_DECL), $1), pt_retag($3, TT_ARGS)), $5); }
+    ;
+class_members:
+    { $$ = pt_new(TT_VLIST); }
+    |class_members class_member { $$ = pt_add($1, $2); }
+    ;
+class_member:
+    IDENT { $$ = pt_retag($1, TT_KEYWORD); }
+    |IDENT SEMICOLON { $$ = pt_retag($1, TT_KEYWORD); }
+    |id_list COLON type SEMICOLON { $$ = pt_decl("field", $1, $3); }
+    |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
+    |CONSTRUCTORSY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), "constructor"); }
+    |DESTRUCTORSY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), "destructor"); }
+    |CLASSSY PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_sval(pt_add(pt_add(pt_new(TT_PROCEDURE), $3), $5), "class"); }
+    |CLASSSY FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON { $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $3), $5), $7), "class"); }
+    |PROPERTYSY IDENT prop_index_opt COLON IDENT prop_specs SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_sval(pt_new(TT_DECL), "property"), $2), $5), $3), $6); }
+    ;
+prop_index_opt:
+    { $$ = NULL; }
+    |LBRACK parameter_decl_list RBRACK { $$ = $2; }
+    ;
+prop_specs:
+    { $$ = pt_new(TT_VLIST); }
+    |prop_specs IDENT IDENT { $$ = pt_add(pt_add($1, $2), $3); }
+    |prop_specs IDENT INTCONST { $$ = pt_add(pt_add($1, $2), $3); }
     ;
 packed_opt:
     PACKEDSY { $$ = pt_kw("packed"); }
@@ -382,6 +427,22 @@ procedure_decl:
     |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), $8); }
     |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON routine_directives { pascal_note_type_ident($6); } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), $10); }
     |FUNCTIONSY IDENT pv_mark SEMICOLON { } block SEMICOLON { $$ = pt_add(pt_add(pt_new(TT_FUNCTION), $2), $6); }
+    |PROCEDURESY IDENT PERIOD IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), pt_add(pt_add(pt_new(TT_FIELD), $2), $4)), $6), $10); }
+    |FUNCTIONSY IDENT PERIOD IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON routine_directives { } block SEMICOLON {
+        $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), pt_add(pt_add(pt_new(TT_FIELD), $2), $4)), $6), $8), $12);
+    }
+    |CONSTRUCTORSY IDENT PERIOD IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON {
+        $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), pt_add(pt_add(pt_new(TT_FIELD), $2), $4)), $6), $10), "constructor");
+    }
+    |DESTRUCTORSY IDENT PERIOD IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON {
+        $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), pt_add(pt_add(pt_new(TT_FIELD), $2), $4)), $6), $10), "destructor");
+    }
+    |CLASSSY PROCEDURESY IDENT PERIOD IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON {
+        $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), pt_add(pt_add(pt_new(TT_FIELD), $3), $5)), $7), $11), "class");
+    }
+    |CLASSSY FUNCTIONSY IDENT PERIOD IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON routine_directives { } block SEMICOLON {
+        $$ = pt_sval(pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), pt_add(pt_add(pt_new(TT_FIELD), $3), $5)), $7), $9), $13), "class");
+    }
     ;
 pv_mark:
     { }
@@ -466,7 +527,35 @@ statement_no_label:
     |repeat_statement { $$ = $1; }
     |for_statement { $$ = $1; }
     |with_statement { $$ = $1; }
+    |try_statement { $$ = $1; }
+    |raise_statement { $$ = $1; }
+    |inherited_call { $$ = $1; }
+    |INHERITEDSY { $$ = pt_kw("inherited"); }
     |{ $$ = pt_new(TT_SUCCEED); }
+    ;
+try_statement:
+    TRYSY statement_list EXCEPTSY statement_list ENDSY { $$ = pt_sval(pt_add(pt_add(pt_new(TT_TRY), $2), $4), "except"); }
+    |TRYSY statement_list EXCEPTSY handler_list ENDSY { $$ = pt_sval(pt_add(pt_add(pt_new(TT_TRY), $2), $4), "except"); }
+    |TRYSY statement_list EXCEPTSY handler_list ELSESY statement_list ENDSY { $$ = pt_sval(pt_add(pt_add(pt_add(pt_new(TT_TRY), $2), $4), pt_add(pt_sval(pt_new(TT_PART), "else"), $6)), "except"); }
+    |TRYSY statement_list FINALLYSY statement_list ENDSY { $$ = pt_sval(pt_add(pt_add(pt_new(TT_TRY), $2), $4), "finally"); }
+    ;
+handler_list:
+    handler { $$ = pt_add(pt_new(TT_VLIST), $1); }
+    |handler_list SEMICOLON handler { $$ = pt_add($1, $3); }
+    |handler_list SEMICOLON { $$ = $1; }
+    ;
+handler:
+    ONSY IDENT COLON IDENT DOSY body_stmt { $$ = pt_add(pt_add(pt_add(pt_new(TT_CATCH), $2), $4), $6); }
+    |ONSY IDENT DOSY body_stmt { $$ = pt_add(pt_add(pt_new(TT_CATCH), $2), $4); }
+    ;
+raise_statement:
+    RAISESY { $$ = pt_new(TT_DIE); }
+    |RAISESY expression { $$ = pt_add(pt_new(TT_DIE), $2); }
+    ;
+inherited_call:
+    INHERITEDSY IDENT { $$ = pt_add(pt_kw("inherited"), pt_add(pt_new(TT_FNC), $2)); }
+    |INHERITEDSY IDENT LPARENT RPARENT { $$ = pt_add(pt_kw("inherited"), pt_add(pt_new(TT_FNC), $2)); }
+    |INHERITEDSY IDENT LPARENT argument_list RPARENT { $$ = pt_add(pt_kw("inherited"), pt_cat(pt_add(pt_new(TT_FNC), $2), $4)); }
     ;
 call:
     IDENT { $$ = pt_add(pt_new(TT_FNC), $1); }
@@ -498,6 +587,8 @@ selector:
     selector LBRACK expression_list RBRACK { $$ = pt_cat(pt_add(pt_new(TT_IDX), $1), $3); }
     |selector PERIOD IDENT { $$ = pt_add(pt_add(pt_new(TT_FIELD), $1), $3); }
     |selector ARROW { $$ = pt_add(pt_new(TT_DEREF), $1); }
+    |call_with_args PERIOD IDENT { $$ = pt_add(pt_add(pt_new(TT_FIELD), $1), $3); }
+    |call_with_args ARROW { $$ = pt_add(pt_new(TT_DEREF), $1); }
     |IDENT { $$ = $1; }
     ;
 expression_list:
@@ -570,6 +661,7 @@ expression:
     |expression GEOP simple_expression { $$ = pt_add(pt_add(pt_new(TT_GE), $1), $3); }
     |expression NEOP simple_expression { $$ = pt_add(pt_add(pt_new(TT_NE), $1), $3); }
     |expression EQOP simple_expression { $$ = pt_add(pt_add(pt_new(TT_EQ), $1), $3); }
+    |expression ISOP simple_expression { $$ = pt_add(pt_add(pt_add(pt_new(TT_FNC), $2), $1), $3); }
     ;
 simple_expression:
     term { $$ = $1; }
@@ -588,6 +680,7 @@ term:
     |term IMOD power { $$ = pt_add(pt_add(pt_new(TT_MOD), $1), $3); }
     |term ANDOP power { $$ = pt_add(pt_add(pt_new(TT_CONJ), $1), $3); }
     |term SHIFTOP power { $$ = pt_add(pt_add(pt_add(pt_new(TT_FNC), $2), $1), $3); }
+    |term ASOP power { $$ = pt_add(pt_add(pt_add(pt_new(TT_FNC), $2), $1), $3); }
     ;
 power:
     factor { $$ = $1; }
@@ -601,6 +694,7 @@ factor:
     |STRINGCONST { $$ = $1; }
     |CHARCODE { $$ = $1; }
     |LPARENT expression RPARENT { $$ = $2; }
+    |inherited_call { $$ = $1; }
     |NOTSY factor { $$ = pt_add(pt_new(TT_NOT), $2); }
     |ATSIGN factor { $$ = pt_add(pt_new(TT_ADDR), $2); }
     |LBRACK RBRACK { $$ = pt_new(TT_SET); }

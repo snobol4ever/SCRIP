@@ -79,8 +79,11 @@ int *pascal_cond_depth_p(void);
 int *pascal_cond_taken_p(void);
 const char *pascal_mode_macro(void);
 void pascal_mode_macro_set(const char *m);
+int pascal_last_tok(void);
+void pascal_last_ident_set(const char *p, int n);
+tree_t *pascal_last_ident_qlit(void);
 
-#line 84 "pascal.tab.h"
+#line 87 "pascal.tab.h"
 
 /* Token kinds.  */
 #ifndef PASCAL_YYTOKENTYPE
@@ -166,7 +169,19 @@ void pascal_mode_macro_set(const char *m);
     IDENT = 330,                   /* IDENT  */
     SHIFTOP = 331,                 /* SHIFTOP  */
     XOROP = 332,                   /* XOROP  */
-    POWOP = 333                    /* POWOP  */
+    POWOP = 333,                   /* POWOP  */
+    CLASSSY = 334,                 /* CLASSSY  */
+    ISOP = 335,                    /* ISOP  */
+    ASOP = 336,                    /* ASOP  */
+    TRYSY = 337,                   /* TRYSY  */
+    EXCEPTSY = 338,                /* EXCEPTSY  */
+    FINALLYSY = 339,               /* FINALLYSY  */
+    RAISESY = 340,                 /* RAISESY  */
+    INHERITEDSY = 341,             /* INHERITEDSY  */
+    CONSTRUCTORSY = 342,           /* CONSTRUCTORSY  */
+    DESTRUCTORSY = 343,            /* DESTRUCTORSY  */
+    PROPERTYSY = 344,              /* PROPERTYSY  */
+    ONSY = 345                     /* ONSY  */
   };
   typedef enum pascal_yytokentype pascal_yytoken_kind_t;
 #endif
@@ -175,10 +190,10 @@ void pascal_mode_macro_set(const char *m);
 #if ! defined PASCAL_YYSTYPE && ! defined PASCAL_YYSTYPE_IS_DECLARED
 union PASCAL_YYSTYPE
 {
-#line 159 "pascal.y"
+#line 172 "pascal.y"
  tree_t *node; 
 
-#line 182 "pascal.tab.h"
+#line 197 "pascal.tab.h"
 
 };
 typedef union PASCAL_YYSTYPE PASCAL_YYSTYPE;

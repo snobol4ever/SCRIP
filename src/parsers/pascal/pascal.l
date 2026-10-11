@@ -251,6 +251,25 @@ static int pascal_context_keyword(const char *w) {
     if (k == 3) pascal_seen_decl_start = 0;
     return T[k];
 }
+static int pascal_oo_keyword(const char *w, int peek) {
+    static const char *K[] = { "class", "try", "except", "finally", "raise", "inherited", "constructor", "destructor", "property", "is", "as", "on" };
+    static const int T[] = { CLASSSY, TRYSY, EXCEPTSY, FINALLYSY, RAISESY, INHERITEDSY, CONSTRUCTORSY, DESTRUCTORSY, PROPERTYSY, ISOP, ASOP, ONSY };
+    int k = -1, d = pascal_dialect(), lt = pascal_last_tok();
+    for (int i = 0; i < 12; i++) if (!strcasecmp(w, K[i])) k = i;
+    if (k < 0 || d == PAS_DIALECT_ISO) return 0;
+    int oo = d == PAS_DIALECT_OBJFPC || d == PAS_DIALECT_DELPHI;
+    if (k == 11) return oo && (isalpha(peek) || peek == '_') ? ONSY : 0;
+    if (!oo) {
+        int stmt = lt == BEGINSY || lt == SEMICOLON || lt == DOSY || lt == THENSY || lt == ELSESY || lt == REPEATSY;
+        int ident_next = peek == 0 || strchr(":,()[].^=;", peek) != NULL;
+        if (!((k == 0 && lt == EQOP) || (k == 1 && stmt && !ident_next))) return 0;
+        if (d == PAS_DIALECT_ISO_DEFAULT) pascal_event("seen_mode");
+        pascal_dialect_set(PAS_DIALECT_OBJFPC);
+    }
+    if (k == 0) pascal_yylval.node = pascal_last_ident_qlit();
+    if (k == 9 || k == 10) { pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = ct_strdup(K[k]); }
+    return T[k];
+}
 static char pascal_modebuf[64];
 static int  pascal_modepos;
 static char pascal_packrecbuf[16];
@@ -447,6 +466,9 @@ ALNUM    [A-Za-z0-9_]
                           return STRINGCONST; }
 {ALPHA}{ALNUM}*         { int kw = pascal_context_keyword(pascal_yytext);
                           if (kw) return kw;
+                          { int pk = (unsigned char)yy_hold_char; const char *q = yy_c_buf_p + 1; while (pk == ' ' || pk == '\t' || pk == '\n' || pk == '\r') pk = (unsigned char)*q++; kw = pascal_oo_keyword(pascal_yytext, pk); }
+                          if (kw) return kw;
+                          pascal_last_ident_set(pascal_yytext, (int)pascal_yyleng);
                           pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); return IDENT; }
 ":="                    { return BECOMES; }
 ".."                    { return DOTDOT; }

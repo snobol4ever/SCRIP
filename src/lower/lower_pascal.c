@@ -50,6 +50,8 @@ static tree_t * pas_lc_leaf(tree_e k, const char * s);
 static tree_t * pas_lc_bin(tree_e k, tree_t * a, tree_t * b);
 static IR_t * pas_nlg_goto(pcx_t * cx, const char * name, IR_t * ω);
 static IR_t * pas_nlg_check(pcx_t * cx, IR_t * γ, IR_t * ω);
+static IR_t * pas_lower_raise(pcx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * pas_lower_try(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * pas_lower_exit(pcx_t * cx, const tree_t * t, IR_t * ω);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_name_is_byref(pcx_t * cx, const char * name) {
@@ -354,6 +356,10 @@ static int pas_callee_is_user_proc(const char * name) {
     for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, name)) return 1;
     return 0;
 }
+static int pas_callee_is_func(const char * name) {
+    for (int i = 0; name && i < g_lower.pas.proc_list.n; i++) { const tree_t * pd = PAS_PROC(i); if (pd->v.sval && !strcmp(pd->v.sval, name)) return pd->n > 3 && pd->c[3] && pd->c[3]->t == TT_VAR; }
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_display_node(pcx_t * cx, IR_e op, int lvl, IR_t * γ, IR_t * ω) { pas_res_t r = { -1, 1, lvl, "__pas_display" }; return pas_frame_node(cx, op, "__pas_display", &r, γ, ω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -517,12 +523,18 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         }
     }
     int rtl = pas_callee_is_user_proc(cn ? cn->v.sval : NULL);
-    if (rtl || env) γ = pas_nlg_check(cx, γ, ω);
+    IR_t * rdv = NULL, * rasg = NULL;
+    if ((rtl || env) && cx->unw && pas_callee_is_func(cn ? cn->v.sval : NULL)) {
+        rdv = lower_var(cx, "__pas_crv", γ, ω);
+        rasg = lower_assign_var(cx, "__pas_crv", pas_nlg_check(cx, rdv, ω), ω);
+        γ = rasg;
+    } else if (rtl || env) γ = pas_nlg_check(cx, γ, ω);
     IR_t * nd = build(cx, IR_CALL, γ, ω);
     IR_t * tgt = env ? pas_envcall_wrap(cx, t, nd, γ, ω) : nd;
     IR_t * e = pas_call_args_brm_dir(cx, nd, tgt, brm, (const tree_t * const *) (t->n > env + 1 ? &t->c[env + 1] : NULL), (t->n > env) ? t->n - env - 1 : 0, ω, rtl);
     IR_LIT(nd).sval = (cn && cn->v.sval) ? cn->v.sval : NULL;
-    *res = nd;
+    if (rasg) ir_operand_push(rasg, nd);
+    *res = rdv ? rdv : nd;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -933,6 +945,10 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             if (nl) { *res = nl; return nl; }
             return build(cx, IR_SUCCEED, γ, ω);
         }
+        case TT_TRY:
+        return pas_lower_try(cx, t, γ, ω, res);
+        case TT_DIE:
+        return pas_lower_raise(cx, γ, ω, res);
         default:
         { IR_t * s = build(cx, IR_GOTO, γ, γ); *res = s; return s; }
     }
@@ -1034,6 +1050,7 @@ static const tree_t * pas_exit_owner(const tree_t * pd, const tree_t * t) { cons
 static void pas_nlg_scan(const tree_t * t, const tree_t * pd, const tree_t * want, lc_vec * mine, int * any, int * wx, int * xm) {
     if (!t) return;
     if (pas_is_exit_call(t)) { const tree_t * o = pas_exit_owner(pd, t); if (o == want) *wx = 1; if (o != pd) { *any = 1; if (o == want) *xm = 1; } }
+    if (t->t == TT_DIE || t->t == TT_TRY) *any = 1;
     if (t->t == TT_GOTO_U && t->v.sval) {
         const tree_t * o = pas_label_owner(pd, t->v.sval);
         if (o) {
@@ -1084,6 +1101,63 @@ static IR_t * pas_lower_exit(pcx_t * cx, const tree_t * t, IR_t * ω) {
     if (t->n < 2 || !cx->pd->v.sval || pas_exit_names(cx->pd, t)) return build(cx, IR_GOTO, cx->xit, cx->xit);
     tree_t * asn = pas_lc_bin(TT_ASSIGN, pas_lc_leaf(TT_VAR, cx->pd->v.sval), t->c[1]);
     return lower(cx, asn, cx->xit, ω, NULL);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PAS_EXC_CODE (-2000000000L)
+static IR_t * pas_nlg_test(pcx_t * cx, const char * name, long code, IR_t * γ, IR_t * ω, IR_t * fail) {
+    IR_t * op = build(cx, IR_BINOP_TEST, γ, ω);
+    IR_LIT(op).ival = lc_binop_code(TT_EQ);
+    IR_t * v = lower_var(cx, name, NULL, fail);
+    IR_t * k = build(cx, IR_LIT_INTEGER, op, fail);
+    IR_LIT(k).ival = code;
+    γ_to(v, k);
+    ir_operand_push(op, v);
+    ir_operand_push(op, k);
+    return v;
+}
+static IR_t * pas_set_int(pcx_t * cx, const char * name, long code, IR_t * γ, IR_t * ω) {
+    IR_t * a = lower_assign_var(cx, name, γ, ω);
+    IR_t * c = build(cx, IR_LIT_INTEGER, a, ω);
+    IR_LIT(c).ival = code;
+    ir_operand_push(a, c);
+    return c;
+}
+static IR_t * pas_set_var(pcx_t * cx, const char * name, const char * from, IR_t * γ, IR_t * ω) {
+    IR_t * a = lower_assign_var(cx, name, γ, ω);
+    IR_t * v = lower_var(cx, from, a, ω);
+    ir_operand_push(a, v);
+    return v;
+}
+static IR_t * pas_lower_raise(pcx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_t * e = cx->unw ? pas_set_int(cx, "__pas_nlg", PAS_EXC_CODE, cx->unw, ω) : build(cx, IR_GOTO, γ, γ);
+    *res = e;
+    return e;
+}
+static IR_t * pas_lower_try(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_t * outer = cx->unw;
+    IR_t * u = IR_node_alloc(cx->g, IR_GOTO);
+    IR_t * hent;
+    if (t->v.sval && !strcmp(t->v.sval, "finally") && t->n > 2 && t->c[2] && t->c[2]->v.sval) {
+        const char * tv = t->c[2]->v.sval;
+        IR_t * rs = pas_set_var(cx, "__pas_nlg", tv, outer ? outer : γ, ω);
+        IR_t * tail = pas_nlg_test(cx, tv, 0, γ, rs, ω);
+        IR_t * fin = lower(cx, t->c[1], tail, ω, NULL);
+        IR_t * clr = pas_set_int(cx, "__pas_nlg", 0, fin, ω);
+        hent = pas_set_var(cx, tv, "__pas_nlg", clr, ω);
+        γ_to(u, hent);
+        cx->unw = u;
+        IR_t * body = lower(cx, t->c[0], pas_set_int(cx, tv, 0, fin, ω), ω, res);
+        cx->unw = outer;
+        return body;
+    }
+    IR_t * h = lower(cx, t->c[1], γ, ω, NULL);
+    IR_t * clr = pas_set_int(cx, "__pas_nlg", 0, h, ω);
+    hent = pas_nlg_test(cx, "__pas_nlg", PAS_EXC_CODE, clr, outer ? outer : γ, ω);
+    γ_to(u, hent);
+    cx->unw = u;
+    IR_t * body = lower(cx, t->c[0], γ, ω, res);
+    cx->unw = outer;
+    return body;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_nlg_unwind(pcx_t * cx, const lc_vec * mine, int xm, IR_t * succ, IR_t * fail) {

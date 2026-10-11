@@ -7,6 +7,7 @@
 #include "../parsers/snobol4/scrip_cc.h"
 #include "lower.h"
 #include "g_lower.h"
+#include "lower_pascal_class.h"
 #define IS(x, k) ((x) && (x)->t == (k))
 static int pas_trace_enabled(void) { extern long g_trace_budget; return g_trace_budget != 0; }
 static PNodeList *pnl_new(void) { PNodeList *l = (PNodeList *)ct_zalloc(1, sizeof *l); return l; }
@@ -6629,6 +6630,17 @@ static pval E_statement_no_label(const tree_t *n) {
     if (IS(n, TT_FOR)) { v[1] = E_for_statement(n); { out.node = v[1].node; } return out; }
     if (IS(n, TT_WITH)) { v[1] = E_with_statement(n); { out.node = v[1].node; } return out; }
     if (IS(n, TT_SUCCEED)) { { out.node = ast_node_new(TT_SUCCEED); } return out; }
+    if (IS(n, TT_DIE)) { out.node = ast_node_new(TT_DIE); out.node->line = n->line; return out; }
+    if (IS(n, TT_TRY) && n->n >= 2) {
+        tree_t *T = ast_node_new(TT_TRY);
+        T->v.sval = n->v.sval;
+        T->line = n->line;
+        ast_push(T, E_statement_no_label(n->c[0]).node);
+        ast_push(T, E_statement_no_label(n->c[1]).node);
+        if (n->n > 2 && IS(n->c[2], TT_VAR)) ast_push(T, leaf_s(TT_VAR, n->c[2]->v.sval));
+        out.node = T;
+        return out;
+    }
     elab_bad("statement_no_label", n);
     return out;
 }
@@ -7459,6 +7471,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     if (!g_lower.pas.sem.pas_dialect_fpc) pas_iso_empty_strings(pruned);
     tree_t *flat = pas_flatten_units(pruned);
     pas_shortstrings(flat);
+    flat = pas_classes_prepass(flat);
     pas_defaults_prepass(flat);
     pas_param_prepass(flat);
     if (!g_lower.pas.sem.pas_mode_iso && pas_addr_of_routine(flat, flat)) g_lower.pas.sem.pas_seen_mode_directive = 1;
