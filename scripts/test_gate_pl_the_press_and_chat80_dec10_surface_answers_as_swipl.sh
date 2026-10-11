@@ -2,14 +2,16 @@
 # test_gate_pl_the_press_and_chat80_dec10_surface_answers_as_swipl.sh
 #
 # THE ROWS (hq_pascal's, found vendoring PRESS and CHAT-80 under CEO-1595; hq_prolog 2026-10-10): abolish/2 refused at compile;
-# put/1 of a one-element code list a type error; the recorded database (recorda/recordz/recorded/erase) missing; and in mode 4 an asserted clause calling the program's own for/2 refused at run time.
+# put/1 of a one-element code list a type error; the recorded database (recorda/recordz/recorded/erase) missing; prompt/2, prompt1/1, statistics/2 and style_check/1 missing; and in mode 4 an asserted clause calling the program's
+# own for/2 refused at run time.
 # THE CURES: the lowerer rewrites abolish(N, A) to abolish(N/A) and put(X) to (V is X, put_code(V)) as DEC-10 Prolog's put/1
 # evaluates; the evaluator reads [X] as X (a code) or the code of a one-character atom, as swipl does; the prelude carries the
 # recorded database over '$rec'/3 facts with '$record'(Id) references, and erase/1 routes such a reference there; public and mode
-# are declarations; and the ladder's builtin refusal does not fire while lowering at run time (g_stage2.rt_lowering), where
+# are declarations; statistics/2 reads a new CPU-clock leaf '$cpu_ms'/1 (CLOCK_PROCESS_CPUTIME_ID) and wall_ms/1, prompt/2 keeps the
+# prompt (printed by no read, as swipl prints none when user_input is not a terminal), prompt1/1 and style_check/1 accept; and the ladder's builtin refusal does not fire while lowering at run time (g_stage2.rt_lowering), where
 # the program's own predicates are not in the compile-time table.
 #
-# THE ARM: 9 lines as SWI-Prolog 9.0.4 prints them, in both modes. rc=0 clean · rc=1 a divergence · rc=2 REFUSAL.
+# THE ARM: 11 lines as SWI-Prolog 9.0.4 prints them, in both modes. rc=0 clean · rc=1 a divergence · rc=2 REFUSAL.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 B="$HERE/.."
@@ -38,6 +40,9 @@ main :-
   erase(R2), findall(V, recorded(k, val(V)), L2), write(L2), nl,
   recorda(f(x, y), two), ( recorded(f(_, _), T) -> write(T) ; write(none) ), nl,
   natnum(N0), write(N0), nl,
+  prompt(Old, 'Q: '), prompt(Mid, Old), write(Mid), nl, prompt1('P: '), style_check(-singleton),
+  statistics(runtime, [T0, _]), statistics(walltime, [W0, _]), statistics(cputime, C),
+  ( integer(T0), integer(W0), number(C) -> write(stats_ok) ; write(stats_bad) ), nl,
   assertz((h :- for(2, (write(q), nl)))), h,
   halt.
 PL
@@ -49,6 +54,8 @@ gone
 [0,1]
 two
 0
+Q: 
+stats_ok
 q
 q
 REF
@@ -57,7 +64,7 @@ REF
 ( cd "$D" && timeout 60 ./g.bin < /dev/null > g.m4 2>&1 )
 red=0
 for m in m3 m4; do
-    if cmp -s "$D/g.ref" "$D/g.$m"; then echo "  ok   $m: 9 of 9 lines answer as swipl"
+    if cmp -s "$D/g.ref" "$D/g.$m"; then echo "  ok   $m: 11 of 11 lines answer as swipl"
     else echo "  FAIL $m: diverges from swipl:"; diff "$D/g.ref" "$D/g.$m" | head -12; red=$((red + 1)); fi
 done
 if [ $red -eq 0 ]; then echo "GATE PASS(0): the PRESS and CHAT-80 DEC-10 surface answers as swipl in both modes"; exit 0; fi

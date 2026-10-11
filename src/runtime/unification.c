@@ -1005,7 +1005,7 @@ static pl_cell_t plc_sp_addsub(pl_cell_t a, pl_cell_t b, int sub) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_wall_clock_cell(int ms, void *a_cell, pl_tr_ctx_t *cx) {
     struct timespec _ts;
-    clock_gettime(CLOCK_MONOTONIC, &_ts);
+    clock_gettime(ms == 2 ? CLOCK_PROCESS_CPUTIME_ID : CLOCK_MONOTONIC, &_ts);
     long long us = (long long)_ts.tv_sec * 1000000LL + (long long)_ts.tv_nsec / 1000LL;
     pl_cell_t v = pl_make_int(ms ? us / 1000LL : us);
     return plc_unify_cells_cx((pl_cell_t *)a_cell, &v, cx) ? 1 : 0;

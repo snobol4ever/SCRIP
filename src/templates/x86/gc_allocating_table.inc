@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2560
+#define GC_ALLOC_TAB_N 2562
 #define GC_ALLOC_TAB_N_VOID 305
-#define GC_ALLOC_TAB_N_DESCR 1238
+#define GC_ALLOC_TAB_N_DESCR 1240
 #define GC_ALLOC_TAB_N_OTHER 1000
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -1857,6 +1857,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_copy_term_c", GC_RET_DESCR },
     { "rt_pl_dop_copy_term_nat", GC_RET_DESCR },
     { "rt_pl_dop_copy_term_nat_c", GC_RET_DESCR },
+    { "rt_pl_dop_cpu_ms", GC_RET_DESCR },
+    { "rt_pl_dop_cpu_ms_c", GC_RET_DESCR },
     { "rt_pl_dop_create_prolog_flag", GC_RET_DESCR },
     { "rt_pl_dop_create_prolog_flag_c", GC_RET_DESCR },
     { "rt_pl_dop_current_input", GC_RET_DESCR },

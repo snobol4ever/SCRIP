@@ -6945,6 +6945,7 @@ PL_CX_LEAF_HEAD(setarg, 3) ok = rt_pl_setarg_cell(&args[0], &args[1], &args[2], 
 PL_CX_LEAF_HEAD(nb_setarg, 3) ok = rt_pl_setarg_cell(&args[0], &args[1], &args[2], cx, 0); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(wall_us, 1) ok = rt_pl_wall_clock_cell(0, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(wall_ms, 1) ok = rt_pl_wall_clock_cell(1, &args[0], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(cpu_ms, 1) ok = rt_pl_wall_clock_cell(2, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(succ, 2) ok = rt_pl_succ_plus_cell(2, &args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(plus, 3) ok = rt_pl_succ_plus_cell(3, &args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 static int pl_is_pair(DESCR_t d) { extern int prolog_atom_intern(const char *); return d.v == (DTYPE_t)DT_PLREF && plc_fid_name(d.slen) == prolog_atom_intern("-") && plc_fid_arity(d.slen) == 2; }
