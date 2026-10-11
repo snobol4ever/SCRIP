@@ -630,23 +630,28 @@ static const char * icn_assign_var_name(const tree_t * t) {
 }
 static int icn_assign_names_var(const tree_t * t) { return t && (t->t == TT_ASSIGN || t->t == TT_AUGOP) && icn_assign_var_name(t) != NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
-    if (t->n < 2 || !t->c[0]) { IR_t * su = build(cx, IR_SUCCEED, NULL, ω); *var_res = su; return su; }
-    IR_t * br = NULL;
-    IR_t * entry;
-    const tree_t * b0 = t->c[0];
-    IR_t * b4 = cx->beta;
+static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res);
+static IR_t * lower_idx_base(icx_t * cx, const tree_t * b0, IR_t * ω, IR_t ** br) {
     if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&' && !(cx->ret_lv && !icn_ret_global_name(cx, b0->v.sval))) {
         IR_t * vr = build(cx, IR_VAR_REF, NULL, ω);
         IR_LIT(vr).sval = b0->v.sval;
-        br = vr;
-        entry = vr;
-    } else if (b0->t == TT_IDX) {
-        entry = lower_idx_var(cx, b0, ω, &br);
-    } else if (icn_tree_is_kw_var(b0) || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD || icn_assign_names_var(b0)) {
-        IR_t * e2 = lower_lvalue_var(cx, b0, ω, &br);
-        entry = e2 ? e2 : lower(cx, b0, NULL, ω, &br);
-    } else entry = lower(cx, b0, NULL, ω, &br);
+        *br = vr;
+        return vr;
+    }
+    if (b0->t == TT_IDX) return lower_idx_var(cx, b0, ω, br);
+    if (icn_tree_is_kw_var(b0) || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD || icn_assign_names_var(b0)) {
+        IR_t * e2 = lower_lvalue_var(cx, b0, ω, br);
+        return e2 ? e2 : lower(cx, b0, NULL, ω, br);
+    }
+    return lower(cx, b0, NULL, ω, br);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
+    if (t->n < 2 || !t->c[0]) { IR_t * su = build(cx, IR_SUCCEED, NULL, ω); *var_res = su; return su; }
+    IR_t * br = NULL;
+    const tree_t * b0 = t->c[0];
+    IR_t * b4 = cx->beta;
+    IR_t * entry = lower_idx_base(cx, b0, ω, &br);
     IR_t * cur = br;
     IR_t * hook = br;
     IR_t * prevβ = (b0->t == TT_VAR || icn_tree_is_kw_var(b0)) ? NULL : (b0->t == TT_IDX && cx->beta == b4) ? NULL : cx->beta;
@@ -1307,6 +1312,27 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                 int var_road = cx->var_road;
                 cx->var_road = 0;
                 IR_t * b4 = cx->beta;
+                if (lhs && lhs->t == TT_IDX && lhs->n == 2 && lhs->c[0] && lhs->c[1] && !var_road) {
+                    const tree_t * b0 = lhs->c[0];
+                    IR_t * br = NULL;
+                    IR_t * be = lower_idx_base(cx, b0, ω, &br);
+                    if (be && br) {
+                        IR_t * prevβ = (b0->t == TT_VAR || icn_tree_is_kw_var(b0)) ? NULL : (b0->t == TT_IDX && cx->beta == b4) ? NULL : cx->beta;
+                        IR_t * ir = NULL;
+                        IR_t * ie = lower(cx, lhs->c[1], NULL, prevβ ? prevβ : ω, &ir);
+                        lc_γ_to(br, ie);
+                        IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
+                        IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+                        IR_t * rr = NULL;
+                        IR_t * re = lower(cx, rhs, asn, lvbeta ? lvbeta : ω, &rr);
+                        lc_γ_to(ir, re);
+                        ir_operand_push(asn, br);
+                        ir_operand_push(asn, ir);
+                        ir_operand_push(asn, rr);
+                        *res = asn;
+                        return be;
+                    }
+                }
                 IR_t * lv = NULL;
                 IR_t * lve = lhs ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
                 if (lve && lv) {
@@ -1314,11 +1340,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                     IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
                     IR_t * rr = NULL;
                     IR_t * re = lower(cx, rhs, asn, lvbeta ? lvbeta : ω, &rr);
-                    int tbl_store = lhs->t == TT_IDX && lhs->n == 2 && lv->op == IR_SUBSCRIPT && lv->n_operands == 2 && !IR_LIT(lv).sval && !var_road;
                     lc_γ_to(lv, re);
                     ir_operand_push(asn, lv);
                     ir_operand_push(asn, rr);
-                    if (tbl_store) { lv->seal = IR_SEAL_SUBSCRIPT_LVTBL; asn->seal = IR_SEAL_ASSIGN_LVTBL; ir_operand_push(asn, lv->operands[1]); }
                     *res = asn;
                     return lve;
                 }
