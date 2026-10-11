@@ -2635,7 +2635,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");
     if (pl_cv_has(&referenced, "display")) pl_cv_add(&referenced, "$display_swi");
     if (pl_cv_has(&referenced, "write_canonical")) pl_cv_add(&referenced, "$write_canonical_swi");
-    if (pl_cv_has(&referenced, "arg")) pl_cv_add(&referenced, "$arg_swi");
+    pl_cv_add(&referenced, "$arg_swi");
     pl_cv_add(&referenced, "$conj_nocut");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
