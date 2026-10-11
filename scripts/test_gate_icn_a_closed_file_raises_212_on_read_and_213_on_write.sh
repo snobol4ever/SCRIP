@@ -28,8 +28,8 @@ DP="$ROOT/src/driver/driver_private.h"; DG="$ROOT/src/driver/driver_globals.c"; 
 for f in "$DP" "$DG" "$BN" "$IO"; do [ -f "$f" ] || { echo "⛔ GATE REFUSE(2) [$G]: missing $f"; exit 2; }; done
 echo "  HOLDS: a closed file raises 212 on read and 213 on write, &input/&output/&errout included, in both media, as iconx does"
 fl=$(tr '\n' ' ' < "$DP" | grep -oE 'char closed;[^}]*\} fh_slot_t;' | wc -l); cl=$(( $(grep -c 's->closed=0' "$DG") == 1 && $(grep -c 'fh_slot_init(&g_fh\[i\], fp)' "$DG") == 2 ? 1 : 0 )); st=$(grep -c 'g_fh\[idx\].closed = 1;' "$BN"); fp=$(grep -c 'fh_is_closed(1)' "$IO")
-if [ "$fl" = 1 ] && [ "$cl" = 1 ] && [ "$st" = 1 ] && [ "$fp" = 3 ]; then echo "  arm 1 PASS: the slot flag exists, close sets it, fh_alloc clears it on reuse, the three fast-path writers test it"
-else echo "  arm 1 FAIL: flag=$fl cleared_on_alloc=$cl set_by_close=$st fast_path_tests=$fp (want 1 1 1 3)"; RC=1; fi
+if [ "$fl" = 1 ] && [ "$cl" = 1 ] && [ "$st" = 2 ] && [ "$fp" = 3 ]; then echo "  arm 1 PASS: the slot flag exists, both close roads set it (Icon's close builtin and the Raku IO::Handle close method, 8de60be25), fh_alloc clears it on reuse, the three fast-path writers test it"
+else echo "  arm 1 FAIL: flag=$fl cleared_on_alloc=$cl set_by_close=$st fast_path_tests=$fp (want 1 1 2 3: the Icon close builtin and the Raku IO::Handle close method each mark the slot, ceo CEO-1627)"; RC=1; fi
 printf 'a\nb\nc\n' > "$T/in.txt"
 cat > "$T/w1.icn" <<'EOF'
 procedure main()
