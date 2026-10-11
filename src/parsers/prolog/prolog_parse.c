@@ -1359,6 +1359,7 @@ static const char * const PL_PRELUDE_SRC =
     "sub_string(S,B,L,A,Sub):-atom_string(Sub,T),sub_atom(S,B,L,A,T).\n"
     "atomics_to_string(L,S):-atomic_list_concat(L,A),atom_string(A,S).\n"
     "atomics_to_string(L,Sep,S):-atomic_list_concat(L,Sep,A),atom_string(A,S).\n"
+    "string_to_list(S,L):-string_codes(S,L).\n"
     "string_code(_,S,_):-var(S),!,throw(error(instantiation_error,string_code/3)).\n"
     "string_code(I,S,C):-var(I),!,string_codes(S,Cs),'$sc_enum'(Cs,1,I,C).\n"
     "string_code(I,_,_):- \\+ integer(I),!,throw(error(type_error(integer,I),string_code/3)).\n"
