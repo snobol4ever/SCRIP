@@ -1117,6 +1117,7 @@ extern "C" int rt_proc_entry_pending(const char *);
 extern "C++" void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym);
 extern "C" int dop_direct_leaf_known(const char * fn, int narg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RK_BOOL_ROUTE(a0) (((a0) && (a0)->op == IR_BINOP && IR_LIT(a0).ival >= BINOP_LT && IR_LIT(a0).ival <= BINOP_NE) ? CALL_ROUTE_RK_BOOL_RELOP : CALL_ROUTE_RK_BOOL_SLOT)
 int bb_call_route_classify(IR_t * nd) {
     const char * fn = g_emit.op_sval ? g_emit.op_sval : ""; int64_t narg = g_emit.op_ival; IR_t * a0 = ir_call_arg(nd, 0); double dv = g_emit.op_dval;
     IR_e k = nd ? nd->op : IR_CALL;
@@ -1127,13 +1128,13 @@ int bb_call_route_classify(IR_t * nd) {
     if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_known(fn)) return CALL_ROUTE_FN;
-    if (!strcmp(fn, "__rk_bool") && narg >= 1) return CALL_ROUTE_RK_BOOL_SLOT;
+    if (!strcmp(fn, "__rk_bool") && narg >= 1) return RK_BOOL_ROUTE(a0);
     if (dv == 2.0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
     if ((dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) return CALL_ROUTE_PROC_STAGED;
     if ((dv == 2.0 || dv == 3.0) && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (dv == 2.0) return CALL_ROUTE_DVAL2_BOMB;
     if (fn[0] && rt_proc_is_registered(fn)) return rt_proc_entry_pending(fn) ? CALL_ROUTE_BYNAME : CALL_ROUTE_PROC_STAGED;
-    if (!strcmp(fn, "__rk_bool") && dv == 0.0 && narg == 1 && a0 && bb_slot_get(a0) >= 0) return CALL_ROUTE_RK_BOOL_SLOT;
+    if (!strcmp(fn, "__rk_bool") && dv == 0.0 && narg == 1 && a0 && bb_slot_get(a0) >= 0) return RK_BOOL_ROUTE(a0);
     if (fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (fn[0] && !rt_proc_is_registered(fn)) return CALL_ROUTE_BYNAME;
     return CALL_ROUTE_FATAL;

@@ -277,7 +277,10 @@ void emit_label_define_bb (bb_label_t * lbl);
 extern "C" {
 #endif
 #include "IR.h"
-enum { CALL_ROUTE_FATAL = 0, CALL_ROUTE_BYNAME = 1, CALL_ROUTE_DVAL2_BOMB = 3, CALL_ROUTE_PROC_STAGED = 5, CALL_ROUTE_RK_BOOL_SLOT = 6, CALL_ROUTE_FN = 11, CALL_ROUTE_BYNAME_GEN = 12 };
+enum {
+    CALL_ROUTE_FATAL = 0, CALL_ROUTE_BYNAME = 1, CALL_ROUTE_DVAL2_BOMB = 3, CALL_ROUTE_PROC_STAGED = 5, CALL_ROUTE_RK_BOOL_SLOT = 6, CALL_ROUTE_RK_BOOL_RELOP = 13, CALL_ROUTE_FN = 11,
+        CALL_ROUTE_BYNAME_GEN = 12
+};
 struct SrcLines;
 typedef struct { int tag; int64_t val; struct bb_label_t * to; } pl_ix_arm_t;
 typedef struct {

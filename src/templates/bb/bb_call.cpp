@@ -70,7 +70,8 @@ extern "C++" uint64_t sn4_byname_fp(const char * fn, int strict);
 #define bcbn_baked_kind(fn, strict) (((fn) && (fn)[0] && !x86_is_scan_builtin_name((fn)) && strcmp((fn), "tab") && strcmp((fn), "move")) ? bb_callee_baked_kind((fn), (strict)) : 0)
 extern std::string bb_call_proc_staged_str(IR_t *);
 extern std::string bb_call_fn_str(IR_t *);
-extern std::string bb_call_bool_str(IR_t *);
+extern std::string bb_call_bool_relop();
+extern std::string bb_call_bool_slot();
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx) {
     if (owner && owner == _.node && idx >= 0 && idx < _.op_arg_slot_n && _.op_arg_slot[idx] >= 0) {
@@ -414,7 +415,8 @@ std::string bb_call(IR_t * pBB) {
         case CALL_ROUTE_BYNAME_GEN: return bb_call_byname_gen_str(pBB);
         case CALL_ROUTE_DVAL2_BOMB: return x86_alpha() + x86_bomb("CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
         case CALL_ROUTE_PROC_STAGED: return bb_call_proc_staged_str(pBB);
-        case CALL_ROUTE_RK_BOOL_SLOT: return bb_call_bool_str(pBB);
+        case CALL_ROUTE_RK_BOOL_RELOP: return bb_call_bool_relop();
+        case CALL_ROUTE_RK_BOOL_SLOT: return bb_call_bool_slot();
         case CALL_ROUTE_FN: return bb_call_fn_str(pBB);
         default: break;
     }
