@@ -121,7 +121,7 @@ ANY_BANNER_RE = re.compile(r"^[*#%{/][*#%{/ ]*-{3,} \d+ \S+")
 LANG_CONFIGS = {
     "raku": {"ext": ".raku", "comment_open": "#", "comment_close": "", "modes": "m3,m4"},
     "rebus": {"ext": ".reb", "comment_open": "#", "comment_close": "", "modes": "m3,m4"},
-    "pascal": {"ext": ".pas", "comment_open": "{", "comment_close": "}", "modes": "m3,m4"},
+    "pascal": {"ext": ".pas", "comment_open": "{", "comment_close": "}", "modes": "m3,m4", "expected_refusal_re": r"ISO 7185 [0-9.]+ violation"},
     "prolog": {"ext": ".pl", "comment_open": "%", "comment_close": "", "modes": "m3,m4"},
     "icon": {"ext": ".icn", "comment_open": "#", "comment_close": "", "modes": "m3,m4"},
     "snocone": {"ext": ".sc", "comment_open": "/*", "comment_close": " */", "modes": "m3,m4"},
@@ -991,9 +991,9 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir, compile_args=None):
     # the file's own directory too, not wherever the caller happened to stand.
     with open(s_path, "wb") as f:
         r = subprocess.run([str(paths["scrip_bin"]), "--compile"] + _compile_switches(paths, compile_args) + [sno_path.name],
-                            stdout=f, stderr=subprocess.DEVNULL, env=env, cwd=str(sno_path.parent))
+                            stdout=f, stderr=subprocess.PIPE, env=env, cwd=str(sno_path.parent))
     if r.returncode != 0:
-        return Verdict("SKIP", detail="scrip --compile failed")
+        return Verdict("SKIP", stderr=r.stderr or b"", detail="scrip --compile failed")
     o_path = tmp_dir / "p.o"
     r = subprocess.run(["gcc", "-c", str(s_path), "-o", str(o_path)],
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=str(paths["scrip_root"]))
@@ -3160,6 +3160,23 @@ def cmd_run(args):
         return d
     oom_named = []
     counts = {m: _fresh() for m in modes}
+    # ⭐ AN EXPECTED REFUSAL (CEO-1228, CEO-1657): ISO_EXPECTED_REFUSALS.tsv beside the container names each entry the oracle's mode runs while
+    # the language's standard refuses it (Pascal: fpc -Miso runs it, ISO 7185 refuses it). Such an entry PASSes in a mode when that mode
+    # refuses it with the language's standard diagnostic (LANG_CONFIGS expected_refusal_re) and is red otherwise; its ref is never compared
+    # and the denominator is unchanged. A listed name the suite does not carry refuses rc 2, as a stale outside row does.
+    _xr_re = LANG_CONFIGS.get(getattr(args, "lang", "") or "", {}).get("expected_refusal_re")
+    _xr_path = Path(args.sno).with_name("ISO_EXPECTED_REFUSALS.tsv")
+    expected_refusals = set()
+    if _xr_re and _xr_path.is_file():
+        for _l in _xr_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            _c = _l.split("\t")[0].strip()
+            if _c and not _c.startswith("#"):
+                expected_refusals.add(_c[:-len(ext)] if _c.endswith(ext) else _c)
+        _stale = sorted(expected_refusals - _suite_names)
+        if _stale:
+            refuse(f"{_xr_path} names {len(_stale)} entr(ies) this suite does not carry: {', '.join(_stale[:10])}")
+        print(f"EXPECTED_REFUSALS n={len(expected_refusals)} from {_xr_path} -- each PASSes in a mode only when refused with /{_xr_re}/ (CEO-1228)")
+    _xr_rx = re.compile(_xr_re.encode()) if expected_refusals else None
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
     fails = []
     _progress_rows = []
@@ -3169,6 +3186,12 @@ def cmd_run(args):
     try:
         for e in run_entries:
             verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext, companion_dir=Path(args.sno).parent)
+            if e.name in expected_refusals:
+                for m in modes:
+                    _v = verdicts[m]
+                    _refused = _v.kind != "PASS" and (_v.kind == "SKIP" or (_v.returncode or 0) != 0) and _xr_rx.search(_v.stderr or b"")
+                    verdicts[m] = Verdict("PASS", _v.stdout, _v.stderr, _v.returncode, detail="expected-refusal") if _refused else \
+                        Verdict("FAIL", _v.stdout, _v.stderr, _v.returncode, detail="expected-refusal-not-refused-with-the-standard-diagnostic")
             for m in modes:
                 kind = verdicts[m].kind
                 _progress_rows.append((e.name, m, kind, 0, _entry_note(e.xfail, verdicts[m], shard_tag)))

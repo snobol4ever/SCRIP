@@ -4392,6 +4392,7 @@ static long long pas_index_bound(long long v, int want_hi) {
 }
 static long long pas_decl_part_order(long long prev, long long cur) {
     const char *nm[] = { "", "label-declaration-part", "constant-definition-part", "type-definition-part", "variable-declaration-part", "procedure-and-function-declaration-part" };
+    if (g_lower.pas.sem.pas_dialect_fpc) return cur > prev ? cur : prev;
     if (cur < prev) {
         fprintf(stderr, "pascal: ISO 7185 6.2.1 violation: a block's %s shall precede its %s\n", nm[cur], nm[prev]);
         g_lower.pas.sem.pas_iso_errors++;
@@ -4842,6 +4843,20 @@ static int pascal_sem_check(const tree_t *root, const char *filename) {
     return nerr;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_tree_has_event(const tree_t *t, const char *ev) {
+    if (!t) return 0;
+    if (t->t == TT_ATTR && t->v.sval && !strcmp(t->v.sval, ":pragma") && t->n > 0 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, ev)) return 1;
+    for (int i = 0; i < t->n; i++) if (pas_tree_has_event(t->c[i], ev)) return 1;
+    return 0;
+}
+static void pas_iso_empty_strings(const tree_t *t) {
+    if (!t) return;
+    if (t->t == TT_ATTR && t->v.sval && !strcmp(t->v.sval, ":pragma") && t->n > 0 && t->c[0] && t->c[0]->v.sval && !strncmp(t->c[0]->v.sval, "iso_6_1_7 ", 10)) {
+        fprintf(stderr, "pascal: ISO 7185 6.1.7 violation line %d: a character-string shall contain at least one string-element -- '' is not one\n", atoi(t->c[0]->v.sval + 10));
+        g_lower.pas.sem.pas_iso_errors++;
+    }
+    for (int i = 0; i < t->n; i++) pas_iso_empty_strings(t->c[i]);
+}
 static void elab_bad(const char *nt, const tree_t *n) { fprintf(stderr, "pascal: internal error: no production of '%s' fits tree node kind %d\n", nt, n ? (int)n->t : -1); abort(); }
 static void pas_apply_event(const char *ev) {
     if (!strcmp(ev, "iso_error")) g_lower.pas.sem.pas_iso_errors++;
@@ -7440,6 +7455,8 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     g_lower.pas.sem.pas_pend_arr_ncols = -1;
     g_lower.pas.sem.pas_pend_enum_max = -1;
     g_lower.pas.sem.pas_pend_sub_high = -1;
+    g_lower.pas.sem.pas_dialect_fpc = g_lower.pas.sem.pas_seen_mode_directive = pas_tree_has_event(pruned, "seen_mode");
+    if (!g_lower.pas.sem.pas_dialect_fpc) pas_iso_empty_strings(pruned);
     tree_t *flat = pas_flatten_units(pruned);
     pas_shortstrings(flat);
     pas_defaults_prepass(flat);

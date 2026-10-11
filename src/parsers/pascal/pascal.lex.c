@@ -1462,15 +1462,15 @@ static int  pascal_minenumpos;
 static char pascal_packsetbuf[16];
 static int  pascal_packsetpos;
 static void pascal_mode_directive(const char *m) {
-    static const char *M[] = { "objfpc", "delphi", "tp", "fpc", "macpas" };
-    static const int D[] = { PAS_DIALECT_OBJFPC, PAS_DIALECT_DELPHI, PAS_DIALECT_FPC, PAS_DIALECT_FPC, PAS_DIALECT_FPC };
+    static const char *M[] = { "objfpc", "delphi", "tp", "fpc", "macpas", "delphiunicode" };
+    static const int D[] = { PAS_DIALECT_OBJFPC, PAS_DIALECT_DELPHI, PAS_DIALECT_FPC, PAS_DIALECT_FPC, PAS_DIALECT_FPC, PAS_DIALECT_DELPHI };
     if (!strcasecmp(m, "iso")) {
         pascal_event("mode_iso");
         if (!pascal_seen_decl_start) pascal_dialect_set(PAS_DIALECT_ISO);
         return;
     }
-    static const char *const MAC[] = { "FPC_OBJFPC", "FPC_DELPHI", "FPC_TP", NULL, "FPC_MACPAS" };
-    for (int i = 0; i < 5; i++) if (!strcasecmp(m, M[i]) && !pascal_seen_decl_start) {
+    static const char *const MAC[] = { "FPC_OBJFPC", "FPC_DELPHI", "FPC_TP", NULL, "FPC_MACPAS", "FPC_DELPHIUNICODE" };
+    for (int i = 0; i < 6; i++) if (!strcasecmp(m, M[i]) && !pascal_seen_decl_start) {
         pascal_dialect_set(D[i]);
         pascal_mode_macro_set(MAC[i]);
         pascal_event("seen_mode");
@@ -2226,8 +2226,7 @@ case 107:
 /* rule 107 can match eol */
 YY_RULE_SETUP
 { int n = (int)pascal_yyleng; pascal_strpos = 0;
-                          if (n == 2) { pascal_event("iso_error");
-                              fprintf(stderr, "pascal: ISO 7185 6.1.7 violation line %d: a character-string shall contain at least one string-element -- '' is not one\n", pascal_yylineno); }
+                          if (n == 2) pascal_event_num("iso_6_1_7", pascal_yylineno);
                           for (int i = 1; i < n - 1; i++) {
                               if (pascal_yytext[i] == '\'' && i + 1 < n - 1 && pascal_yytext[i + 1] == '\'') { if (pascal_strpos < (int)sizeof pascal_strbuf - 1) pascal_strbuf[pascal_strpos++] = '\''; i++; }
                               else { if (pascal_strpos < (int)sizeof pascal_strbuf - 1) pascal_strbuf[pascal_strpos++] = pascal_yytext[i]; }

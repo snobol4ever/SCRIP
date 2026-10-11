@@ -60,6 +60,7 @@ typedef struct {
     } pas_scope;
     int pas_iso_errors;
     int pas_seen_mode_directive;
+    int pas_dialect_fpc;
     int pas_mode_iso;
     int pas_min_enum_size;
     int pas_pack_set_size;
