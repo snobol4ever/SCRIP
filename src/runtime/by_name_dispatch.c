@@ -1136,6 +1136,84 @@ static int rk_is_list(DESCR_t v) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_mark_list(DESCR_t d) { if (d.v == DT_A && d.arr) ((ARBLK_t *) d.arr)->proto = rk_proto_list; return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char rk_proto_methval[] = "Method";
+static const char rk_proto_attrval[] = "Attribute";
+static int rk_is_methval(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_methval; }
+static int rk_is_attrval(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_attrval; }
+static DESCR_t rk_mk_metaval(const char *proto, const char *a, const char *b) {
+    DESCR_t el[2] = { STRVAL(rt_heap_strdup_c(a)), STRVAL(rt_heap_strdup_c(b ? b : "")) };
+    DESCR_t d = rk_mk_arr(el, b ? 2 : 1);
+    ((ARBLK_t *) d.arr)->proto = proto;
+    return d;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_dat_index(const char *name) {
+    extern int dat_type_count(void);
+    extern const char *dat_type_name(int i);
+    int n = dat_type_count();
+    for (int i = 0; name && i < n; i++) { const char *t = dat_type_name(i); if (t && !strcmp(t, name)) return i; }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_typeobj(const char *nm);
+static int bnd_dat_need(const char *c, int what);
+static int rk_field_inherited(const char **mro, int mn, int k, const char *fn) {
+    extern int dat_type_nfields(int i);
+    extern const char *dat_type_field(int i, int j);
+    for (int q = k + 1; fn && q < mn; q++) { int ti = rk_dat_index(mro[q]); for (int j = 0; ti >= 0 && j < dat_type_nfields(ti); j++) if (!strcmp(dat_type_field(ti, j), fn)) return 1; }
+    return 0;
+}
+static DESCR_t rk_meta_list(const char *cn, char what, int local) {
+    extern int dat_mro(const char *name, const char **out, int max);
+    extern int dat_type_nmethods(int i), dat_type_nfields(int i), dat_type_nroles(int i), dat_type_field_sigil(int i, int j);
+    extern const char *dat_type_method_at(int i, int j), *dat_type_field(int i, int j), *dat_type_role_at(int i, int j);
+    const char *mro[bnd_dat_need(cn, 0)];
+    int mn = dat_mro(cn, mro, (int)(sizeof mro / sizeof mro[0]));
+    if (mn == 0) { mro[0] = cn; mn = 1; }
+    int mnall = mn;
+    if (local) mn = 1;
+    int cap = 1 + mn;
+    for (int k = 0; k < mn; k++) {
+        int ti = rk_dat_index(mro[k]);
+        if (ti < 0) continue;
+        cap += dat_type_nmethods(ti) + dat_type_nfields(ti) + 3;
+        for (int r = 0; r < dat_type_nroles(ti); r++) { int ri = rk_dat_index(dat_type_role_at(ti, r)); if (ri >= 0) cap += dat_type_nmethods(ri); }
+    }
+    DESCR_t el[cap];
+    int n = 0;
+    for (int k = (what == 'p') ? 1 : 0; k < mn; k++) {
+        if (what == 'p') { if (strcmp(mro[k], "Any") && strcmp(mro[k], "Mu")) el[n++] = rk_typeobj(mro[k]); continue; }
+        int ti = rk_dat_index(mro[k]);
+        if (ti < 0) continue;
+        if (what == 'a') {
+            for (int j = 0; j < dat_type_nfields(ti); j++) {
+                int sg = dat_type_field_sigil(ti, j);
+                const char *fn = dat_type_field(ti, j);
+                if (rk_field_inherited(mro, mnall, k, fn)) continue;
+                char nm[strlen(fn ? fn : "") + 3];
+                snprintf(nm, sizeof nm, "%c!%s", sg == '@' || sg == '%' ? sg : '$', fn ? fn : "");
+                el[n++] = rk_mk_metaval(rk_proto_attrval, sg == '@' ? "Positional" : sg == '%' ? "Associative" : "Mu", nm);
+            }
+            continue;
+        }
+        for (int j = 0; j < dat_type_nmethods(ti); j++) el[n++] = rk_mk_metaval(rk_proto_methval, dat_type_method_at(ti, j), NULL);
+        for (int j = 0; j < dat_type_nfields(ti); j++) {
+            extern int dat_type_field_priv(int i, int j);
+            const char *fn = dat_type_field(ti, j);
+            int own = 0;
+            for (int q = 0; fn && q < dat_type_nmethods(ti); q++) if (!strcmp(dat_type_method_at(ti, q), fn)) own = 1;
+            if (fn && !own && !dat_type_field_priv(ti, j) && !rk_field_inherited(mro, mnall, k, fn)) el[n++] = rk_mk_metaval(rk_proto_methval, fn, NULL);
+        }
+        for (int r = 0; r < dat_type_nroles(ti); r++) {
+            int ri = rk_dat_index(dat_type_role_at(ti, r));
+            for (int j = 0; ri >= 0 && j < dat_type_nmethods(ri); j++) el[n++] = rk_mk_metaval(rk_proto_methval, dat_type_method_at(ri, j), NULL);
+        }
+        el[n++] = rk_mk_metaval(rk_proto_methval, "POPULATE", NULL);
+        if (k > 0) el[n++] = rk_mk_metaval(rk_proto_methval, "POPULATE", NULL);
+    }
+    return rk_mk_arr(el, n);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_unmark(DESCR_t d) { if (d.v == DT_A && d.arr) ((ARBLK_t *) d.arr)->proto = (const char *) 0; return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char rk_proto_pair[] = "Pair";
@@ -1716,6 +1794,8 @@ static const char *rk_join_gists(const char **tx, int n, const char *sep, const 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_range_text(DESCR_t v);
 static const char *rk_gist_str(DESCR_t v) {
+    if (rk_is_methval(v)) return rk_cstr(rk_av(v).el[0]);
+    if (rk_is_attrval(v)) { rk_av_t a = rk_av(v); const char *t = rk_cstr(a.el[0]), *nm = rk_cstr(a.el[1]); char *r = rt_wsb_alloc(strlen(t) + strlen(nm) + 2); sprintf(r, "%s %s", t, nm); return r; }
     { const char *tn = rk_typeobj_name(v); if (tn) { char *r = rt_wsb_alloc(strlen(tn) + 3); snprintf(r, strlen(tn) + 3, "(%s)", tn); return r; } }
     if (v.v == DT_T && v.tbl) {
         TBBLK_t *t = v.tbl;
@@ -13632,6 +13712,14 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             }
         }
         if (mname0 && rk_is_range(args[0]) && rk_range_method(mname0, args[0], nargs - 2, out)) return 1;
+        if (mname0 && (rk_is_methval(args[0]) || rk_is_attrval(args[0]))) {
+            rk_av_t ma = rk_av(args[0]);
+            int ism = rk_is_methval(args[0]);
+            if (!strcmp(mname0, "name")) { *out = ism ? ma.el[0] : ma.el[1]; return 1; }
+            if (!strcmp(mname0, "gist") || !strcmp(mname0, "Str")) { *out = STRVAL(rt_heap_strdup_c(ism ? rk_cstr(ma.el[0]) : rk_gist_str(args[0]))); return 1; }
+            if (!strcmp(mname0, "type") && !ism) { *out = rk_typeobj(rk_cstr(ma.el[0])); return 1; }
+            if (!strcmp(mname0, "WHAT")) { *out = rk_typeobj(ism ? "Method" : "Attribute"); return 1; }
+        }
         int maybe = 0;
         if (mname0 && mname0[0] == '?' && mname0[1]) {
             DESCR_t *fa = rt_ws_alloc_descr((size_t) nargs);
@@ -13654,43 +13742,13 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             }
             if (cn && !strcmp(mm, "name")) { *out = STRVAL(rt_heap_strdup_c(cn)); return 1; }
             if (!cn && !strcmp(mm, "name")) { *out = STRVAL(rt_heap_strdup_c(rk_value_type(args[0]))); return 1; }
-            if (cn && !strcmp(mm, "parents")) {
-                extern int dat_mro(const char *name, const char **out, int max);
-                const char *mro[bnd_dat_need(cn, 0)];
-                int mn = dat_mro(cn, mro, (int)(sizeof mro / sizeof mro[0]));
-                size_t bl = 1;
-                for (int i = 1; i < mn; i++) if (mro[i]) bl += strlen(mro[i]) + 1;
-                char buf[bl];
-                int pos = 0;
-                buf[0] = 0;
-                for (int i = 1; i < mn; i++) { if (!mro[i]) continue; pos += snprintf(buf + pos, (int)sizeof buf - pos, "%s%s", pos ? " " : "", mro[i]); }
-                *out = STRVAL(rt_heap_strdup_c(buf));
-                return 1;
-            }
-            if (cn && !strcmp(mm, "methods")) {
-                extern int dat_methods(const char *name, const char **out, int max);
-                const char *ms[bnd_dat_need(cn, 3)];
-                int mn = dat_methods(cn, ms, (int)(sizeof ms / sizeof ms[0]));
-                size_t bl = 1;
-                for (int i = 0; i < mn; i++) if (ms[i]) bl += strlen(ms[i]) + 1;
-                char buf[bl];
-                int pos = 0;
-                buf[0] = 0;
-                for (int i = 0; i < mn; i++) { if (!ms[i]) continue; pos += snprintf(buf + pos, (int)sizeof buf - pos, "%s%s", pos ? " " : "", ms[i]); }
-                *out = STRVAL(rt_heap_strdup_c(buf));
-                return 1;
-            }
-            if (cn && !strcmp(mm, "attributes")) {
-                extern int dat_attributes(const char *name, const char **out, int max);
-                const char *as[bnd_dat_need(cn, 4)];
-                int an = dat_attributes(cn, as, (int)(sizeof as / sizeof as[0]));
-                size_t bl = 1;
-                for (int i = 0; i < an; i++) if (as[i]) bl += strlen(as[i]) + 1;
-                char buf[bl];
-                int pos = 0;
-                buf[0] = 0;
-                for (int i = 0; i < an; i++) { if (!as[i]) continue; pos += snprintf(buf + pos, (int)sizeof buf - pos, "%s%s", pos ? " " : "", as[i]); }
-                *out = STRVAL(rt_heap_strdup_c(buf));
+            if (cn && (!strcmp(mm, "parents") || !strcmp(mm, "methods") || !strcmp(mm, "attributes"))) {
+                int local = 0;
+                for (int k = 2; k < nargs; k++) {
+                    if (rk_is_pair(args[k]) && !strcmp(rk_av_text(rk_av(args[k]), 0), "local") && rk_is_truthy(rk_av(args[k]).el[1])) local = 1;
+                    if (IS_STR_fn(args[k]) && k + 1 < nargs && !strcmp(rk_cstr(args[k]), "local") && rk_is_truthy(args[k + 1])) local = 1;
+                }
+                *out = rk_meta_list(cn, mm[0], local);
                 return 1;
             }
             *out = FAILDESCR;

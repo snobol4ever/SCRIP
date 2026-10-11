@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2553
+#define GC_ALLOC_TAB_N 2555
 #define GC_ALLOC_TAB_N_VOID 304
-#define GC_ALLOC_TAB_N_DESCR 1235
+#define GC_ALLOC_TAB_N_DESCR 1237
 #define GC_ALLOC_TAB_N_OTHER 997
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -1279,6 +1279,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_match_render", GC_RET_OTHER },
     { "rk_match_span", GC_RET_DESCR },
     { "rk_match_text", GC_RET_OTHER },
+    { "rk_meta_list", GC_RET_DESCR },
     { "rk_method_land_γ", GC_RET_DESCR },
     { "rk_method_missing", GC_RET_VOID },
     { "rk_method_open", GC_RET_OTHER },
@@ -1286,6 +1287,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_method_open_d", GC_RET_OTHER },
     { "rk_mk_arr", GC_RET_DESCR },
     { "rk_mk_jct", GC_RET_DESCR },
+    { "rk_mk_metaval", GC_RET_DESCR },
     { "rk_mk_pair", GC_RET_DESCR },
     { "rk_mu_method", GC_RET_OTHER },
     { "rk_num_dbl", GC_RET_OTHER },
