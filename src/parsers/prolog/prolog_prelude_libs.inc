@@ -11828,6 +11828,30 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_EXPORTS[] = {
     { "term_variables", 3 },
     { "term_hash", 4 },
     { "term_ref", 2 },
+    { "shell", 1 },
+    { "shell", 2 },
+    { "system", 1 },
+    { "system", 2 },
+    { "spawn", 2 },
+    { "spawn", 3 },
+    { "unlink", 1 },
+    { "rename_file", 2 },
+    { "delete_directory", 1 },
+    { "copy_file", 2 },
+    { "file_permission", 2 },
+    { "sleep", 1 },
+    { "host_name", 1 },
+    { "os_version", 1 },
+    { "architecture", 1 },
+    { "date_time", 1 },
+    { "send_signal", 2 },
+    { "temporary_name", 2 },
+    { "temporary_file", 3 },
+    { "is_absolute_file_name", 1 },
+    { "cpu_time", 1 },
+    { "real_time", 1 },
+    { "user_time", 1 },
+    { "system_time", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_SHADOWS[] = {
@@ -12008,7 +12032,67 @@ static const char PL_PRELUDE_LIB_7_SRC[] =
     "term_ref(_, R) :- R < 0, !, throw(error(domain_error(not_less_than_zero, R), term_ref/2)).\n"
     "term_ref(T, R) :- '$gnu_b_tref_key'(R, K), b_getval(K, T0), T = T0.\n"
     "'$gnu_b_tref_key'(R, K) :- atom_number(A, R), atom_concat('$gnu_b_tref_', A, K).\n"
-    "'$gnu_b_tref_add'(T, R) :- ( nb_current('$gnu_b_tref_n', N0) -> true ; N0 = 0 ), R is N0 + 1, nb_setval('$gnu_b_tref_n', R), '$gnu_b_tref_key'(R, K), b_setval(K, T).\n";
+    "'$gnu_b_tref_add'(T, R) :- ( nb_current('$gnu_b_tref_n', N0) -> true ; N0 = 0 ), R is N0 + 1, nb_setval('$gnu_b_tref_n', R), '$gnu_b_tref_key'(R, K), b_setval(K, T).\n"
+    "shell(C) :- shell(C, 0).\n"
+    "shell(C, S) :- '$gnu_b_cmd'(C, shell/2), '$gnu_os'(shell, C, S0), S = S0.\n"
+    "system(C) :- system(C, 0).\n"
+    "system(C, S) :- '$gnu_b_cmd'(C, system/2), '$gnu_os'(system, C, S0), S = S0.\n"
+    "'$gnu_b_cmd'(C, PI) :- var(C), !, throw(error(instantiation_error, PI)).\n"
+    "'$gnu_b_cmd'(C, PI) :- \\+ atom(C), !, throw(error(type_error(atom, C), PI)).\n"
+    "'$gnu_b_cmd'(_, _).\n"
+    "spawn(Cmd, Args) :- spawn(Cmd, Args, 0).\n"
+    "spawn(Cmd, _, _) :- var(Cmd), !, throw(error(instantiation_error, spawn/3)).\n"
+    "spawn(_, Args, _) :- var(Args), !, throw(error(instantiation_error, spawn/3)).\n"
+    "spawn(Cmd, Args, S) :- '$gnu_b_quote'(Cmd, Q), '$gnu_b_quotes'(Args, Qs), atomic_list_concat(['exec', Q|Qs], ' ', Line), '$gnu_os'(shell, Line, S0), S = S0.\n"
+    "'$gnu_b_quotes'([], []).\n"
+    "'$gnu_b_quotes'([A|As], [Q|Qs]) :- '$gnu_b_quote'(A, Q), '$gnu_b_quotes'(As, Qs).\n"
+    "'$gnu_b_quote'(A, Q) :- atom_codes(A, Cs), '$gnu_b_qcodes'(Cs, Qs), append([39|Qs], [39], QC), atom_codes(Q, QC).\n"
+    "'$gnu_b_qcodes'([], []).\n"
+    "'$gnu_b_qcodes'([39|Cs], Qs) :- !, append([39, 92, 39, 39], Qs1, Qs), '$gnu_b_qcodes'(Cs, Qs1).\n"
+    "'$gnu_b_qcodes'([C|Cs], [C|Qs]) :- '$gnu_b_qcodes'(Cs, Qs).\n"
+    "unlink(P) :- var(P), !, throw(error(instantiation_error, unlink/1)).\n"
+    "unlink(P) :- catch('$gnu_os'(unlink, P, _), error(system_error(_), _), true).\n"
+    "delete_directory(P) :- '$gnu_os'(rmdir, P, _).\n"
+    "rename_file(F, T) :- '$gnu_os'(rename, F, T).\n"
+    "copy_file(F, T) :- '$gnu_os'(copy, F, T).\n"
+    "file_permission(_, M) :- var(M), !, throw(error(instantiation_error, file_permission/2)).\n"
+    "file_permission(P, M) :- '$gnu_b_perm'(M, 0, Mask), '$gnu_os'(access, P, Mask).\n"
+    "'$gnu_b_perm'([], K, K) :- !.\n"
+    "'$gnu_b_perm'([M|Ms], K0, K) :- !, '$gnu_b_perm1'(M, B), K1 is K0 \\/ B, '$gnu_b_perm'(Ms, K1, K).\n"
+    "'$gnu_b_perm'(M, K0, K) :- '$gnu_b_perm1'(M, B), K is K0 \\/ B.\n"
+    "'$gnu_b_perm1'(M, _) :- var(M), !, throw(error(instantiation_error, file_permission/2)).\n"
+    "'$gnu_b_perm1'(read, 4) :- !.\n"
+    "'$gnu_b_perm1'(write, 2) :- !.\n"
+    "'$gnu_b_perm1'(execute, 1) :- !.\n"
+    "'$gnu_b_perm1'(search, 1) :- !.\n"
+    "'$gnu_b_perm1'(M, _) :- throw(error(domain_error(os_file_permission, M), file_permission/2)).\n"
+    "sleep(S) :- var(S), !, throw(error(instantiation_error, sleep/1)).\n"
+    "sleep(S) :- \\+ number(S), !, throw(error(type_error(number, S), sleep/1)).\n"
+    "sleep(S) :- S < 0, !, throw(error(domain_error(not_less_than_zero, S), sleep/1)).\n"
+    "sleep(S) :- '$gnu_os'(sleep, S, _).\n"
+    "host_name(H) :- '$gnu_os'(hostname, 0, H).\n"
+    "os_version(V) :- '$gnu_os'(os_version, 0, V).\n"
+    "architecture(A) :- '$gnu_os'(architecture, 0, A).\n"
+    "date_time(DT) :- '$gnu_os'(date_time, 0, DT).\n"
+    "send_signal(P, _) :- var(P), !, throw(error(instantiation_error, send_signal/2)).\n"
+    "send_signal(_, S) :- var(S), !, throw(error(instantiation_error, send_signal/2)).\n"
+    "send_signal(P, S) :- '$gnu_os'(kill, P, S).\n"
+    "temporary_name(T, _) :- var(T), !, throw(error(instantiation_error, temporary_name/2)).\n"
+    "temporary_name(T, P) :- atom_codes(T, Cs), atom_codes('XXXXXX', X6), ( append(Pre, X6, Cs) -> true ; Pre = Cs ), '$gnu_b_tmp_suffix'(Suf), append(Pre, Suf, Ps), atom_codes(P, Ps).\n"
+    "temporary_file(D, _, _) :- var(D), !, throw(error(instantiation_error, temporary_file/3)).\n"
+    "temporary_file(D, Pre, P) :- atom_codes(Pre, PCs), ( length(P5, 5), append(P5, _, PCs) -> true ; P5 = PCs ), '$gnu_b_tmp_suffix'(Suf), atom_codes(D, DCs),\n"
+    "    ( append(_, [47], DCs) -> Sep = [] ; Sep = [47] ), append([DCs, Sep, P5, Suf], Ps), atom_codes(P, Ps).\n"
+    "'$gnu_b_tmp_suffix'(Suf) :- prolog_pid(Pid), ( nb_current('$gnu_b_tmp_n', N0) -> true ; N0 = 0 ), N is N0 + 1, nb_setval('$gnu_b_tmp_n', N),\n"
+    "    K is (Pid * 1000 + N) mod 1000000 + 1000000, number_codes(K, [_|Suf]).\n"
+    "is_absolute_file_name(F) :- var(F), !, throw(error(instantiation_error, is_absolute_file_name/1)).\n"
+    "is_absolute_file_name(F) :- atom(F), sub_atom(F, 0, 1, _, '/').\n"
+    "cpu_time(T) :- '$gnu_b_clock'(T, cpu_time/1), statistics(cpu_time, [T0, _]), T = T0.\n"
+    "real_time(T) :- '$gnu_b_clock'(T, real_time/1), statistics(real_time, [T0, _]), T = T0.\n"
+    "user_time(T) :- '$gnu_b_clock'(T, user_time/1), statistics(user_time, [T0, _]), T = T0.\n"
+    "system_time(T) :- '$gnu_b_clock'(T, system_time/1), statistics(system_time, [T0, _]), T = T0.\n"
+    "'$gnu_b_clock'(T, _) :- var(T), !.\n"
+    "'$gnu_b_clock'(T, _) :- integer(T), !.\n"
+    "'$gnu_b_clock'(T, PI) :- throw(error(type_error(integer, T), PI)).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },

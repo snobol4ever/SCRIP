@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2619
+#define GC_ALLOC_TAB_N 2622
 #define GC_ALLOC_TAB_N_VOID 311
-#define GC_ALLOC_TAB_N_DESCR 1242
-#define GC_ALLOC_TAB_N_OTHER 1049
+#define GC_ALLOC_TAB_N_DESCR 1244
+#define GC_ALLOC_TAB_N_OTHER 1050
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -998,6 +998,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_format_body", GC_RET_OTHER },
     { "pl_gnu_abs_path", GC_RET_OTHER },
     { "pl_gnu_cat3", GC_RET_OTHER },
+    { "pl_gnu_copy", GC_RET_OTHER },
     { "pl_gnu_ctx", GC_RET_VOID },
     { "pl_gnu_cwd", GC_RET_OTHER },
     { "pl_gnu_dt", GC_RET_DESCR },
@@ -2027,6 +2028,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_gnu_make_directory_c", GC_RET_DESCR },
     { "rt_pl_dop_gnu_msort1", GC_RET_DESCR },
     { "rt_pl_dop_gnu_msort1_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_os", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_os_c", GC_RET_DESCR },
     { "rt_pl_dop_gnu_prolog_file_name", GC_RET_DESCR },
     { "rt_pl_dop_gnu_prolog_file_name_c", GC_RET_DESCR },
     { "rt_pl_dop_gnu_prolog_pid", GC_RET_DESCR },

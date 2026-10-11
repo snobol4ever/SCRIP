@@ -162,6 +162,7 @@ extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);
 #include <termios.h>
 #include <dlfcn.h>
 #include <sys/wait.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <sys/time.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -8763,7 +8764,6 @@ static char *pl_gnu_abs_path(const char *src) {
     size_t need = 1, k = 0;
     char *a = (char *)0, *out;
     size_t o = 0, n;
-    int add_slash;
     for (int pass = 0; pass < 2; pass++) {
         if (pass) { a = (char *)rt_wsb_alloc(need); k = 0; }
         for (const char *p = src; *p; ) {
@@ -8788,7 +8788,6 @@ static char *pl_gnu_abs_path(const char *src) {
     if (a[0] == '~' && (a[1] == '/' || a[1] == 0)) { const char *h = getenv("HOME"); if (!h) return (char *)0; a = pl_gnu_cat3(h, "/", a + 1); } else if (a[0] == '~') return (char *)0;
     if (!strcmp(a, "user")) return a;
     if (!a[0]) return (char *)0;
-    add_slash = a[strlen(a) - 1] == '/';
     if (a[0] != '/') { char *cwd = pl_gnu_cwd(); if (!cwd) return (char *)0; a = pl_gnu_cat3(cwd, "/", a); }
     n = strlen(a);
     out = (char *)rt_wsb_alloc(n + 2);
@@ -8806,7 +8805,6 @@ static char *pl_gnu_abs_path(const char *src) {
         i = e;
     }
     if (o == 0) out[o++] = '/';
-    else if (add_slash) out[o++] = '/';
     out[o] = 0;
     return out;
 }
@@ -8907,6 +8905,58 @@ PL_CX_LEAF_HEAD(gnu_make_directory, 1)
     { const char *p = pl_gnu_path_arg(args[0], cx); ok = 0; if (p) ok = mkdir(p, 0777) == 0 ? 1 : pl_gnu_os_fail(cx); pl_gnu_ctx(cx, "make_directory", 1); }
 PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_delete_file, 1) { const char *p = pl_gnu_path_arg(args[0], cx); ok = 0; if (p) ok = unlink(p) == 0 ? 1 : pl_gnu_os_fail(cx); pl_gnu_ctx(cx, "delete_file", 2); } PL_CX_LEAF_TAIL
+static int pl_gnu_copy(const char *f, const char *t, pl_tr_ctx_t *cx) {
+    char b[65536];
+    ssize_t n = 0;
+    int in = open(f, O_RDONLY), out = -1, e;
+    if (in < 0) return pl_gnu_os_fail(cx);
+    if ((out = open(t, O_WRONLY | O_CREAT | O_TRUNC, 0666)) < 0) { e = errno; close(in); errno = e; return pl_gnu_os_fail(cx); }
+    while ((n = read(in, b, sizeof b)) > 0) if (write(out, b, (size_t)n) != n) { n = -1; break; }
+    e = errno;
+    close(in);
+    close(out);
+    errno = e;
+    return n < 0 ? pl_gnu_os_fail(cx) : 1;
+}
+PL_CX_LEAF_HEAD(gnu_os, 3)
+    {
+        const char *op = pl_atom_str(rt_pl_deref_val(args[0]));
+        DESCR_t a = rt_pl_deref_val(args[1]), b = rt_pl_deref_val(args[2]);
+        ok = 0;
+        if (!op) ok = 0;
+        else if (!strcmp(op, "shell") || !strcmp(op, "system")) {
+            const char *c = pl_atom_str(a);
+            int st = c ? system(c) : -1;
+            if (st == -1) ok = pl_gnu_os_fail(cx);
+            else ok = plw_unify_vals(args[2], INTVAL(op[1] == 'h' ? (WIFEXITED(st) ? WEXITSTATUS(st) : 128 + WTERMSIG(st)) : st), cx);
+        } else if (!strcmp(op, "unlink") || !strcmp(op, "rmdir")) {
+            const char *p = pl_gnu_path_arg(args[1], cx);
+            if (p) ok = (op[0] == 'u' ? unlink(p) : rmdir(p)) == 0 ? 1 : pl_gnu_os_fail(cx);
+        } else if (!strcmp(op, "rename") || !strcmp(op, "copy")) {
+            const char *f = pl_gnu_path_arg(args[1], cx), *t = f ? pl_gnu_path_arg(args[2], cx) : (const char *)0;
+            if (t) ok = op[0] == 'r' ? (rename(f, t) == 0 ? 1 : pl_gnu_os_fail(cx)) : pl_gnu_copy(f, t, cx);
+        } else if (!strcmp(op, "access")) {
+            const char *p = pl_gnu_path_arg(args[1], cx);
+            ok = p && b.v == (DTYPE_t)DT_I && access(p, (int)b.i) == 0;
+        } else if (!strcmp(op, "sleep")) {
+            double sec = a.v == (DTYPE_t)DT_I ? (double)a.i : a.v == (DTYPE_t)DT_R ? a.r : -1.0;
+            struct timespec ts;
+            ts.tv_sec = (time_t)sec;
+            ts.tv_nsec = (long)((sec - (double)ts.tv_sec) * 1e9);
+            ok = sec >= 0 && nanosleep(&ts, (struct timespec *)0) == 0;
+        } else if (!strcmp(op, "hostname")) {
+            char h[256];
+            if (gethostname(h, sizeof h) != 0) ok = pl_gnu_os_fail(cx);
+            else { h[sizeof h - 1] = 0; ok = plw_unify_vals(args[2], pl_mk_atom_dup(h, strlen(h)), cx); }
+        } else if (!strcmp(op, "os_version") || !strcmp(op, "architecture")) {
+            struct utsname u;
+            if (uname(&u) != 0) ok = pl_gnu_os_fail(cx);
+            else { const char *v = op[0] == 'o' ? u.release : u.machine; ok = plw_unify_vals(args[2], pl_mk_atom_dup(v, strlen(v)), cx); }
+        } else if (!strcmp(op, "kill")) ok = a.v == (DTYPE_t)DT_I && b.v == (DTYPE_t)DT_I && (kill((pid_t)a.i, (int)b.i) == 0 ? 1 : pl_gnu_os_fail(cx));
+        else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
+        else if (!strcmp(op, "atoms")) { extern int prolog_atom_count(void); ok = plw_unify_vals(args[2], INTVAL(prolog_atom_count()), cx); }
+    }
+PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_file_exists, 1) { const char *p = pl_gnu_path_arg(args[0], cx); ok = p && access(p, F_OK) == 0; pl_gnu_ctx(cx, "file_exists", 1); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_directory_files, 2)
     {

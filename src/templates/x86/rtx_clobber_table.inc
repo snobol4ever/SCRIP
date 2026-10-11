@@ -1,5 +1,5 @@
-#define RTX_CLOB_TAB_N 289
-#define RTX_CLOB_TAB_N_CLOBBERING 261
+#define RTX_CLOB_TAB_N 290
+#define RTX_CLOB_TAB_N_CLOBBERING 262
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "dat_field_get", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
@@ -136,6 +136,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_gnu_line_position", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_gnu_make_directory", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_gnu_msort1", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_gnu_os", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_gnu_prolog_file_name", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_gnu_prolog_pid", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_gnu_sort1", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
