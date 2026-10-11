@@ -206,6 +206,22 @@ RTX_FUNC(inj_reload)
     add     rsp, 16
     ret
 RTX_ENDF(inj_reload)
+RTX_FUNC(inj_spill)
+    sub     rsp, 40
+    mov     qword ptr [rsp], r8
+    mov     qword ptr [rsp + 8], r9
+    mov     qword ptr [rsp + 16], r10
+    mov     qword ptr [rsp + 24], r11
+    call    inj_c
+    mov     r8, qword ptr [rsp]
+    mov     r9, qword ptr [rsp + 8]
+    mov     r10, qword ptr [rsp + 16]
+    mov     r11, qword ptr [rsp + 24]
+    mov     rax, qword ptr [r10]
+    add     rsp, 40
+    RTX_GVA_R9
+    ret
+RTX_ENDF(inj_spill)
 .section .note.GNU-stack,"",@progbits
 ASM
 cat > "$WORK/inj/inj_lie.s" <<'ASM'
@@ -266,6 +282,23 @@ RTX_FUNC(lie_reload)
     add     rsp, 16
     ret
 RTX_ENDF(lie_reload)
+RTX_FUNC(lie_read_after_call)
+    sub     rsp, 8
+    mov     r10, rdi
+    call    inj_c
+    mov     rax, qword ptr [r10]
+    add     rsp, 8
+    ret
+RTX_ENDF(lie_read_after_call)
+RTX_FUNC(lie_r9_own)
+    sub     rsp, 8
+    mov     r9, rdi
+    call    inj_c
+    RTX_GVA_R9
+    mov     rax, qword ptr [r9]
+    add     rsp, 8
+    ret
+RTX_ENDF(lie_r9_own)
     .text
     .globl  lie_unregistered
     .type   lie_unregistered,@function
@@ -311,11 +344,12 @@ import sys
 ok_out, ok_rc, ok_ent, lie_out, lie_rc = open(sys.argv[1]).read(), int(sys.argv[2]), open(sys.argv[3]).read().split(), open(sys.argv[4]).read(), int(sys.argv[5])
 bad = []
 if ok_rc != 0: bad.append('the truthful set was NOT proven (rc=%d):\n%s' % (ok_rc, ok_out))
-if len(ok_ent) != 10: bad.append('the truthful set registered %d entries, wanted 10' % len(ok_ent))
-if 'PROVEN: 10 ' not in ok_out: bad.append('the truthful set did not report 10 proven')
+if len(ok_ent) != 11: bad.append('the truthful set registered %d entries, wanted 11' % len(ok_ent))
+if 'PROVEN: 11 ' not in ok_out: bad.append('the truthful set did not report 11 proven')
 want = {'lie_clobber': 'r10 not returned', 'lie_ctail': 'tail exit into C', 'lie_cbare': 'r8 not returned',
         'lie_plt': 'r10 not returned', 'lie_r9': 'came in as an argument', 'lie_stack': 'left above the return address',
-        'lie_gate': 'tail exit into C', 'lie_unregistered': 'does not name', 'lie_reload': 'r10 not returned', 'lie_misaligned': 'misaligned'}
+        'lie_gate': 'tail exit into C', 'lie_unregistered': 'does not name', 'lie_reload': 'r10 not returned', 'lie_misaligned': 'misaligned',
+        'lie_read_after_call': 'reads r10 after a call', 'lie_r9_own': 'reads r9 after a call'}
 lines = [l for l in lie_out.split('\n') if 'VIOLATION' in l]
 for name, frag in want.items():
     hit = [l for l in lines if (' ' + name + '+') in l or (' ' + name + ':') in l]
@@ -324,7 +358,7 @@ for name, frag in want.items():
 if lie_rc != 1: bad.append('the lying set exited %d, wanted 1' % lie_rc)
 if any(' inj_leaf2+' in l or ' inj_leaf2:' in l for l in lines): bad.append('the honest leaf inside the lying set was convicted')
 for b in bad: print('  SELF-TEST FAIL  ' + b)
-if not bad: print('  SELF-TEST PASS  10 truthful forms proven; 10 lies caught by name and for the right reason; the honest leaf beside them proven')
+if not bad: print('  SELF-TEST PASS  11 truthful forms proven; 12 lies caught by name and for the right reason; the honest leaf beside them proven')
 sys.exit(1 if bad else 0)
 PY
 inj_rc=$?

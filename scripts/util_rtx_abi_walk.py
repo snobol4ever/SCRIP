@@ -169,6 +169,13 @@ def walk(name, code, funcs, rtx, clob=None):
             todo.append((k, (tuple(kw.get('regs', regs)), tuple(kw.get('stack', stack)), kw.get('rbpd', rbpd), kw.get('r9w', r9w))))
         if not r9w and reads(mn, o, 'r9'):
             r9_input.append(where)
+        if getr('r9') in ('KX', 'GK', 'RTCCK') and reads(mn, o, 'r9') and not (getr('r9') == 'RTCCK' and re.fullmatch(r'QWORD PTR \[r9\+0x30\]', o[1].strip() if len(o) > 1 else '')):
+            msg = '%s: reads r9 after a call or a GVA reload destroyed the value the body kept in it (contract point 2)' % where
+            if msg not in errs: errs.append(msg)
+        for kr in ('r8', 'r10', 'r11'):
+            if getr(kr) == 'K' and (reads(mn, o, kr) or (mn == 'push' and o and regof(o[0]) == kr)):
+                msg = '%s: reads %s after a call clobbered it -- a value the body still needs after a call lives in its own frame (contract point 2)' % (where, kr)
+                if msg not in errs: errs.append(msg)
         if mn == 'ud2' or mn == 'hlt':
             continue
         if mn in ('endbr64', 'cld', 'nop') or mn.startswith('nop') or mn.startswith('rep') or mn in ('movsb', 'cmpsb', 'stosb', 'lodsb', 'scasb'):
@@ -238,13 +245,13 @@ def walk(name, code, funcs, rtx, clob=None):
             if clob is not None:
                 for r in ('r8', 'r10', 'r11'):
                     if getr(r) != 'E': clob.add(r)
-                if getr('r9') not in ('E', 'G'): clob.add('r9')
+                if getr('r9') not in ('E', 'G', 'GK'): clob.add('r9')
                 if bad: errs.append('%s: %s' % (where, '; '.join(bad)))
                 else: rets.append((where, 'G' if decl else getr('r9')))
                 continue
             for r in ('r8', 'r10', 'r11'):
                 if getr(r) != 'E' and r not in own: bad.append('%s not returned' % r)
-            if getr('r9') not in ('E', 'G') and 'r9' not in own: bad.append('r9 not returned as GVA')
+            if getr('r9') not in ('E', 'G', 'GK') and 'r9' not in own: bad.append('r9 not returned as GVA')
             if bad: errs.append('%s: %s' % (where, '; '.join(bad)))
             else: rets.append((where, 'G' if decl else getr('r9')))
             continue
@@ -260,15 +267,16 @@ def walk(name, code, funcs, rtx, clob=None):
                 if above % 2:
                     errs.append('%s: the call is made with rsp misaligned (%d slot(s) since the last 16-byte point)' % (where, above))
                 if rel is not None and rel[1] in rtx:
-                    setr('r9', 'G')
+                    setr('r9', 'GK' if getr('r9') in ('X', 'E', 'KX', 'GK', 'RTCCK') else 'G')
                     if not gotrel(rel):
-                        setr('r10', 'X'); setr('r11', 'X')
+                        setr('r10', 'K'); setr('r11', 'K')
                     if clob is not None:
-                        for r in CLOB_TABLE.get(rel[1], ()): setr(r, 'X')
+                        for r in CLOB_TABLE.get(rel[1], ()): setr(r, 'K' if r != 'r9' else 'X')
                     elif RECORDED is not None:
-                        for r in RECORDED.get(rel[1], ()): setr(r, 'X')
+                        for r in RECORDED.get(rel[1], ()): setr(r, 'K' if r != 'r9' else 'X')
                 else:
-                    for r in REGS: setr(r, 'X')
+                    r9own = getr('r9') in ('X', 'E', 'KX', 'GK', 'RTCCK')
+                    for r in REGS: setr(r, 'K' if r != 'r9' else ('KX' if r9own else 'X'))
                 push_state(nxt); continue
             if local is not None:
                 if mn != 'jmp': push_state(nxt)
@@ -279,7 +287,7 @@ def walk(name, code, funcs, rtx, clob=None):
                 if clob is not None:
                     for r in ('r8', 'r10', 'r11'):
                         if getr(r) != 'E': clob.add(r)
-                    if getr('r9') not in ('E', 'G'): clob.add('r9')
+                    if getr('r9') not in ('E', 'G', 'GK'): clob.add('r9')
                     for r in CLOB_TABLE.get(rel[1], ()): clob.add(r)
                     if bad: errs.append('%s: %s' % (where, '; '.join(bad)))
                     continue
@@ -307,9 +315,9 @@ def walk(name, code, funcs, rtx, clob=None):
                     ok = k < len(stack) and 'PAD' not in stack[len(stack) - 1 - k:]
                     setr(d, regval(d, stack[-1 - k]) if ok else 'X')
                 elif d == 'r9' and mn == 'mov' and c['rel'] is not None and c['rel'][1] == 'rtccb':
-                    setr('r9', 'RTCC')
-                elif d == 'r9' and mn == 'mov' and getr('r9') == 'RTCC' and re.fullmatch(r'QWORD PTR \[r9\+0x30\]', o[1].strip() if len(o) > 1 else ''):
-                    setr('r9', 'G')
+                    setr('r9', 'RTCCK' if getr('r9') in ('KX', 'GK', 'RTCCK') else 'RTCC')
+                elif d == 'r9' and mn == 'mov' and getr('r9') in ('RTCC', 'RTCCK') and re.fullmatch(r'QWORD PTR \[r9\+0x30\]', o[1].strip() if len(o) > 1 else ''):
+                    setr('r9', 'GK' if getr('r9') == 'RTCCK' else 'G')
                 else:
                     setr(d, 'X')
                 if d == 'r9': r9w = True

@@ -122,6 +122,10 @@ RTX_ENDF(rt_pl_dop_clause_unify)
     .l##5: mov rax, r12; and rax, 134217727; cmp rax, 134217696; jae .Lun_refuse; mov rax, qword ptr [c]; mov rcx, qword ptr [c + 8]; mov qword ptr [r12], c; mov qword ptr [r12 + 8], 0; mov qword ptr [r12 + 16], rax; mov qword ptr [r12 + 24], rcx; add r12, 32; \
     .l##9:
 #define PL_U_WORK_BYTES 696
+#define PL_U_FRAME_BYTES 728
+#define PL_U_SPILL mov qword ptr [rsp + PL_U_WORK_BYTES], r8; mov qword ptr [rsp + PL_U_WORK_BYTES + 8], r9; mov qword ptr [rsp + PL_U_WORK_BYTES + 16], r10; mov qword ptr [rsp + PL_U_WORK_BYTES + 24], r11
+#define PL_U_FILL mov r8, qword ptr [rsp + PL_U_WORK_BYTES]; mov r9, qword ptr [rsp + PL_U_WORK_BYTES + 8]; mov r10, qword ptr [rsp + PL_U_WORK_BYTES + 16]; mov r11, qword ptr [rsp + PL_U_WORK_BYTES + 24]
+#define PL_U_CALL(fn) PL_U_SPILL; call fn; PL_U_FILL
 #define PL_U_AG_BASE 64
 RTX_FUNC(rt_pl_unify_deep)
     RTX_SUB_RSP(CTX_FRAME)
@@ -133,7 +137,7 @@ RTX_FUNC(rt_pl_unify_deep)
     ret
 RTX_ENDF(rt_pl_unify_deep)
 RTX_FUNC(rtx_pl_unify)
-    RTX_SUB_RSP(PL_U_WORK_BYTES)
+    RTX_SUB_RSP(PL_U_FRAME_BYTES)
     mov     r8, r12
     mov     qword ptr [rsp], 0
     mov     qword ptr [rsp + 8], 0
@@ -249,7 +253,7 @@ RTX_FUNC(rtx_pl_unify)
     mov     rcx, qword ptr [rsp]
     test    rcx, rcx
     jnz     .Lun_tab
-    call rt_pl_functor_entries; RTX_GVA_R9
+    PL_U_CALL(rt_pl_functor_entries)
     mov     qword ptr [rsp], rax
     mov     rcx, rax
 .Lun_tab:
@@ -298,7 +302,7 @@ RTX_FUNC(rtx_pl_unify)
 .Lun_cold:
     mov     rdi, r10
     mov     rsi, r11
-    call rt_pl_unify_atomic_cold; RTX_GVA_R9
+    PL_U_CALL(rt_pl_unify_atomic_cold)
     test    eax, eax
     jz      .Lun_fail
 .Lun_next:
@@ -322,12 +326,12 @@ RTX_FUNC(rtx_pl_unify)
     mov     rax, r12
     and     rax, PL_TR_ARENA_MASK
     mov     qword ptr [rax], r12
-    RTX_ADD_RSP(PL_U_WORK_BYTES)
+    RTX_ADD_RSP(PL_U_FRAME_BYTES)
     mov     eax, 1
     RTX_GVA_R9
     ret
 .Lun_fail:
-    RTX_CFA(704)
+    RTX_CFA(PL_U_FRAME_BYTES + 8)
     cmp     r12, r8
     jbe     .Lun_unw_done
     sub     r12, 32
@@ -338,35 +342,35 @@ RTX_FUNC(rtx_pl_unify)
     mov     qword ptr [rdi + 8], rdx
     jmp     .Lun_fail
 .Lun_unw_done:
-    RTX_CFA(704)
+    RTX_CFA(PL_U_FRAME_BYTES + 8)
     mov     rax, r12
     and     rax, PL_TR_ARENA_MASK
     mov     qword ptr [rax], r12
-    RTX_ADD_RSP(PL_U_WORK_BYTES)
+    RTX_ADD_RSP(PL_U_FRAME_BYTES)
     xor     eax, eax
     RTX_GVA_R9
     ret
 .Lun_refuse:
-    RTX_CFA(704)
+    RTX_CFA(PL_U_FRAME_BYTES + 8)
     mov     rdi, r12
     call rt_pl_tr_refuse; RTX_GVA_R9
-    RTX_ADD_RSP(PL_U_WORK_BYTES)
+    RTX_ADD_RSP(PL_U_FRAME_BYTES)
     xor     eax, eax
     RTX_GVA_R9
     ret
 .Lun_restart:
-    RTX_CFA(704)
+    RTX_CFA(PL_U_FRAME_BYTES + 8)
     mov     rdi, qword ptr [rsp + 48]
     mov     rsi, qword ptr [rsp + 56]
-    call rt_pl_unify_deep; RTX_GVA_R9
+    PL_U_CALL(rt_pl_unify_deep)
     test    eax, eax
     jz      .Lun_fail
     jmp     .Lun_ok
 .Lun_deep:
-    RTX_CFA(704)
+    RTX_CFA(PL_U_FRAME_BYTES + 8)
     mov     rdi, r10
     mov     rsi, r11
-    call rt_pl_unify_deep; RTX_GVA_R9
+    PL_U_CALL(rt_pl_unify_deep)
     test    eax, eax
     jz      .Lun_fail
     jmp     .Lun_next
