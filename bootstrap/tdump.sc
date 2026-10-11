@@ -155,11 +155,29 @@ function TreeDumpScale(a, k, p, n) {
     TreeDumpScale = (GE(k, 0) a * p, a / p);
     return;
 }
-function TreeDumpRound(s, m, f) {
+/* the sign of (a * 10^k) - s for s = TreeDumpScale(a, k): the one rounded multiply (or divide) can turn a value a hair off a tie into a */
+/* tie, and printf, which rounds the exact binary value, does not (6869.955 is a hair below its tie and prints 6869.95); Dekker's exact */
+/* product gives the error of that one operation.                                                                                    */
+function TreeDumpErr(a, k, s, p, n, x, c, xh, xl, yh, yl, ph, pl) {
+    p = 1.0;
+    n = (GE(k, 0) k, -k);
+    while (GT(n, 0)) { p = p * 10.0; n = n - 1; }
+    x = (GE(k, 0) a, s);
+    c = 134217729.0 * x; xh = c - (c - x); xl = x - xh;
+    c = 134217729.0 * p; yh = c - (c - p); yl = p - yh;
+    ph = x * p;
+    pl = ((xh * yh - ph) + xh * yl + xl * yh) + xl * yl;
+    TreeDumpErr = (GE(k, 0) pl, (a - ph) - pl);
+    return;
+}
+function TreeDumpRound(s, a, k, m, f, e) {
     m = CONVERT(s, 'INTEGER');
     f = s - m;
     if (GT(f, 0.5)) { m = m + 1; }
-    else if (EQ(f, 0.5)) { m = m + REMDR(m, 2); }
+    else if (EQ(f, 0.5)) {
+        e = TreeDumpErr(a, k, s);
+        if (GT(e, 0)) { m = m + 1; } else if (EQ(e, 0)) { m = m + REMDR(m, 2); }
+    }
     TreeDumpRound = m;
     return;
 }
@@ -172,9 +190,9 @@ function TreeDumpG(r, sg, a, t, x, m, ds, ip, fp) {
     x = 0;
     while (GE(t, 10.0)) { t = t / 10.0; x = x + 1; }
     while (LT(t, 1.0)) { t = t * 10.0; x = x - 1; }
-    m = TreeDumpRound(TreeDumpScale(a, 5 - x));
-    if (GE(m, 1000000)) { x = x + 1; m = TreeDumpRound(TreeDumpScale(a, 5 - x)); }
-    if (LT(m, 100000)) { x = x - 1; m = TreeDumpRound(TreeDumpScale(a, 5 - x)); }
+    m = TreeDumpRound(TreeDumpScale(a, 5 - x), a, 5 - x);
+    if (GE(m, 1000000)) { x = x + 1; m = TreeDumpRound(TreeDumpScale(a, 5 - x), a, 5 - x); }
+    if (LT(m, 100000)) { x = x - 1; m = TreeDumpRound(TreeDumpScale(a, 5 - x), a, 5 - x); }
     ds = '' m;
     if (LT(x, -4)) { ip = SUBSTR(ds, 1, 1); fp = SUBSTR(ds, 2); }
     else if (GE(x, 6)) { ip = SUBSTR(ds, 1, 1); fp = SUBSTR(ds, 2); }
