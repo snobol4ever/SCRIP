@@ -1496,7 +1496,8 @@ long rt_cas_gc_roots(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_defer_nv_read(const char *name) {
     extern int rt_udc_on(void);
-    if (name && name[0] == '&' && rt_udc_on() && NV_CONST_ASSIGNED_fn(name)) return NV_KW_GET_fn(name);
+    extern DESCR_t rt_keyword_read_snobol4(const char *);
+    if (name && name[0] == '&') { if (rt_udc_on() && NV_CONST_ASSIGNED_fn(name)) return NV_KW_GET_fn(name); return rt_keyword_read_snobol4(name); }
     return NV_GET_fn(name ? name : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
