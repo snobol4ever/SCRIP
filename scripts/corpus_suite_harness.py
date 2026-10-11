@@ -880,6 +880,12 @@ def _classify_run(argv, timeout, expected_text, cwd=None, env=None, stdin_text=N
         return Verdict("UNPROVEN", out, err, None, detail=err.decode("utf-8", "replace"))
     if rc is not None and rc < 0:
         return Verdict("CRASH", out, err, rc, detail=f"signal {-rc}")
+    return _grade_output(out, err, rc, expected_text, want_rc=want_rc, mask=mask, merge_stderr=merge_stderr)
+
+
+def _grade_output(out, err, rc, expected_text, want_rc=0, mask=None, merge_stderr=False):
+    """The grade of a process that ended (no hang, no signal): its stdout against the ONE ref through the masks and the one error voice,
+    its rc against the declared want_rc. Shared by every run and by a mode-4 compile refusal (CEO-1354), so the two cannot disagree."""
     got = out.decode("utf-8", "replace").rstrip("\n")
     if merge_stderr:
         got = _render_merged_stream(got)
@@ -994,7 +1000,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir, compile_args=None):
         r = subprocess.run([str(paths["scrip_bin"]), "--compile"] + _compile_switches(paths, compile_args) + [sno_path.name],
                             stdout=f, stderr=subprocess.PIPE, env=env, cwd=str(sno_path.parent))
     if r.returncode != 0:
-        return Verdict("SKIP", stderr=r.stderr or b"", detail="scrip --compile failed")
+        return Verdict("SKIP", stderr=r.stderr or b"", returncode=r.returncode, detail="scrip --compile failed")
     o_path = tmp_dir / "p.o"
     r = subprocess.run(["gcc", "-c", str(s_path), "-o", str(o_path)],
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=str(paths["scrip_root"]))
@@ -1054,6 +1060,19 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     out_bin = (Path(bin_dir) if bin_dir else tmp_dir) / (Path(sno_path).stem or "t")
     skip = compile_m4(paths, sno_path, out_bin, tmp_dir, compile_args=compile_args)
     if skip is not None:
+        # ⛔⭐ A COMPILE REFUSAL IS A VERDICT, NOT A SKIP (ceo CEO-1354, the coo's ask of 2026-09-28 on hq_snobol4's witness; hq_raku
+        # 2026-10-11 on RakRungs class_method_range_replace_6 and class_method_say_replace_49): a program whose correct behaviour IS a
+        # compile-time refusal -- the oracle refuses it, its ref is the refusal, its want_rc the refusal's -- read PASS in mode 3 and SKIP
+        # in mode 4 forever, because every m4 compile failure was a SKIP. A refusal that ended (rc > 0, no signal) is graded exactly as
+        # mode 3 grades the same refusal from --run: no stdout (the .s took it), the compiler's stderr through the one error voice, the
+        # rc against the declared want_rc -- so a refusal the oracle shares is PASS and one it does not is FAIL. A compiler that died on a
+        # signal, gcc and the link stay SKIP. S4E_M4_COMPILE_REFUSAL_SKIP=1 restores the old SKIP (the gate's fail-once arm only).
+        if (skip.detail == "scrip --compile failed" and skip.returncode is not None and skip.returncode > 0
+                and os.environ.get("S4E_M4_COMPILE_REFUSAL_SKIP", "") != "1"):
+            v = _grade_output(skip.stderr if merge_stderr else b"", skip.stderr, skip.returncode, expected_text, want_rc=want_rc,
+                              mask=mask, merge_stderr=merge_stderr)
+            v.detail = "compile refusal, graded as mode 3 grades it" + (": " + v.detail if v.detail else "")
+            return v
         return skip
     # ⭐ NO `--` HERE, AND THE ASYMMETRY WITH run_m3 IS THE POINT: a mode-4 binary IS the program, so
     # its argv is the program's argv directly -- there is no driver in front of it to shield. Same

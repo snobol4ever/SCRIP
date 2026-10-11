@@ -120,7 +120,10 @@ grep -q '^MISSING-ENTRY$' <<<"$out1" && { echo "⛔ REFUSED-TO-GRADE rc=2: array
 before_line="$(grep '^BEFORE' <<<"$out1")"
 after_line="$(grep '^AFTER' <<<"$out1")"
 secs_line="$(grep '^SECS' <<<"$out1")"
-[ "$before_line" = "BEFORE FAIL SKIP" ] && ck ok "fail-once: the one-level copier reproduces the exact pre-cure verdicts (FAIL m3 / SKIP m4)" \
+# ⭐ THE PRE-CURE m4 VERDICT IS FAIL SINCE CEO-1354 (the coo 2026-10-11): the one-level copier leaves the second-level file absent, so
+# scrip --compile refuses rc 1; that refusal was a SKIP, and is now graded as mode 3 grades the same refusal from --run -- FAIL, a refusal
+# the oracle does not share. The arm still proves the copier's failure KIND (a refusal in both modes, never the program's own verdict).
+[ "$before_line" = "BEFORE FAIL FAIL" ] && ck ok "fail-once: the one-level copier reproduces the exact pre-cure verdicts (FAIL m3 / FAIL m4, the m4 compile refusal graded since CEO-1354)" \
     || ck no "fail-once did not reproduce the documented pre-cure shape -- ${before_line:-<no output>}"
 # ⛔ A HANG AT A DECLARED, GENEROUS BUDGET IS A REFUSAL, NOT A RED. The two readings "this program never
 # finishes" and "this program needed more than ${ARM1_BUDGET}s" are the same observation, and this arm cannot
@@ -136,7 +139,7 @@ fi
 # ⭐ THE CURED READING IS THE RUNTIME'S, NOT THIS GATE'S (the coo 2026-09-28): at the mint the witness exhausted the workspace heap and
 # aborted in both modes (CRASH CRASH, oracle-confirmed then); since the collector grew it runs to the end and matches ALL.ref, the
 # oracle's cut (PASS PASS). What companion-copying decides is that the second-level file is PRESENT, so the program compiles and both
-# modes read the same runtime verdict -- never the one-level copier's FAIL m3 / SKIP m4. Either cured reading holds; anything else reds.
+# modes read the same runtime verdict -- never the one-level copier's FAIL m3 / FAIL m4 (SKIP m4 before CEO-1354). Either cured reading holds; anything else reds.
 case "$after_line" in
   "AFTER CRASH CRASH"|"AFTER PASS PASS")
     ck ok "pass-once: the cured copier reaches the program in both modes (${after_line#AFTER }, the runtime's verdict with every companion present)" ;;
