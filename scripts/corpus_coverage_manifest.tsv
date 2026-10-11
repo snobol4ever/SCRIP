@@ -61,7 +61,7 @@ SUBTREE	demos/icon	GATED	test_demo_icon_jcon.sh
 # the new location; no new line needed.
 SUBTREE	demos/scriptix	GATED	test_demos_suite.sh
 SUBTREE	demos/pascal	GATED	test_demos_suite.sh
-SUBTREE	benchmarks/snocone	ROWD	snocone-demo-trailing-comma-locals-parse-gap
+SUBTREE	benchmarks/snocone	GATED	test_snocone_bench_suite.sh
 SUBTREE	benchmarks/rebus	GATED	test_rebus_bench_suite.sh
 # tests/scrip_test is TRANSIENT STAGING, not a stable corpus location: SCRIP/test was moved here wholesale
 # (2026-08-29, "11a36c87", repo-boundary ruling, 594 files) and the ceo all-hands-consolidation broadcast the
