@@ -35,13 +35,11 @@ std::string bb_match_replace() {
          + x86_align_leave()
          + IF(_.op_zres && _.op_zdepth > 0, x86("note", "repl_subtree_free")
                                            + x86("add", "rsp", (long)_.op_zdepth))
-         + x86_jmp_id(1)
+         + IF(_.flat_deep_arrival, x86("note", HKN(0)) + std::string(""))
+         + x86_rt_gc_poll()
+         + x86_gamma()
          + x86("def", L(0))
          + x86(".quad", LS(0), _.op_sval ? _.op_sval : "")
          + x86("label", LS(0))
-         + x86(".string", _.op_sval ? _.op_sval : "")
-         + x86_deflabel_id(1)
-         + IF(_.flat_deep_arrival, x86("note", HKN(0)) + std::string(""))
-         + x86_rt_gc_poll()
-         + x86_gamma();
+         + x86(".string", _.op_sval ? _.op_sval : "");
 }

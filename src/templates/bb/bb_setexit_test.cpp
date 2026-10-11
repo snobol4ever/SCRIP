@@ -6,7 +6,8 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_setexit_take(int land_id, long drop) {
-    return x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
+    return x86_rsp_mark_save()
+         + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
          + x86("mov", "rax", RDQ("rcx", 200))
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", land_id)
@@ -19,6 +20,7 @@ std::string bb_setexit_take(int land_id, long drop) {
          + x86("mov", RDQ("rcx", 232), "r12")
          + x86("jmp", "rax")
          + x86_deflabel_id(land_id + 60)
+         + x86_rsp_land(-drop)
          + IF(drop > 0, x86("sub", "rsp", drop));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
