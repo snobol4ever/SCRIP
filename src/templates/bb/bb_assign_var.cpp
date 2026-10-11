@@ -28,6 +28,7 @@ std::string bb_assign_var() {
              + x86("mov", "r8", FRQ(_.op_sa))
              + x86("mov", "r9", FRQ(_.op_sa + 8))
              + x86("call", "rt_table_assign_fast", (uint64_t)(uintptr_t)(void *)rt_table_assign_fast)
+             + x86_rt_gc_poll_res()
              + x86("jmp", L(1))
              + x86("def", L(0))
              + x86("mov", "rdx", FRQ(_.op_sa))

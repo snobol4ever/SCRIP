@@ -42,8 +42,8 @@ SRC=src/templates/bb/bb_assign_global.cpp
 # match `bb_assign_global.cpp:37:comm_var`, and d752e30eb (the tap under --stlimit) moved the call to line 36, so the gate read RED
 # on origin for two days over a listing that printed the site POLLED with the expected form -- the same keys-by-line defect the bare-poll
 # table had. The census names a site by the line of its x86("call") and there is exactly one comm_var call in this template.
-TAPLN=$(grep -n 'x86("call", "comm_var"' "$SRC" | cut -d: -f1 | head -1)
-[ -n "$TAPLN" ] && [ "$(grep -c 'x86("call", "comm_var"' "$SRC")" -eq 1 ] || { echo "GATE safe-point-emitted-paths REFUSED(2): $SRC does not carry exactly one comm_var call -- the tap moved or split, tell the gate"; exit 2; }
+TAPLN=$(grep -n 'x86("call", "comm_var_open"' "$SRC" | cut -d: -f1 | head -1)
+[ -n "$TAPLN" ] && [ "$(grep -c 'x86("call", "comm_var_open"' "$SRC")" -eq 1 ] || { echo "GATE safe-point-emitted-paths REFUSED(2): $SRC does not carry exactly one comm_var call -- the tap moved or split, tell the gate"; exit 2; }
 command -v python3 >/dev/null || { echo "GATE safe-point-emitted-paths REFUSED(2): no python3"; exit 2; }
 
 D=$(mktemp -d) || { echo "GATE safe-point-emitted-paths REFUSED(2): mktemp failed"; exit 2; }
@@ -70,7 +70,7 @@ mp=$(grep -oE 'multi_path_sites=[0-9]+' <<<"$line" | head -1 | cut -d= -f2)
 # ---- ARM B: the comm_var tap reads POLLED unplanted (the cto polled it in dc6c47216, form poll_res), and a copy
 # ---- with that poll REMOVED reads UNPOLLED -- the reader can see an unpolled site, proven on a doctored copy and
 # ---- no longer asserted on the real tree, which since 2026-09-24 has none (cto, the seventeen-red row) ---------
-grep -qE '^  POLLED .*bb_assign_global\.cpp:'"$TAPLN"':comm_var form=x86_rt_gc_poll_res' <<<"$base" \
+grep -qE '^  POLLED .*bb_assign_global\.cpp:'"$TAPLN"':comm_var_open form=x86_rt_gc_poll_res' <<<"$base" \
   || { echo "GATE safe-point-emitted-paths RED: the unplanted comm_var tap does not read POLLED with form x86_rt_gc_poll_res -- the tap's poll (dc6c47216) moved or the reader lost the site"; grep -E 'bb_assign_global' <<<"$base" | head -3; exit 1; }
 python3 - "$D/src/templates/bb/bb_assign_global.cpp" <<'UNPLANT' || { echo "GATE safe-point-emitted-paths REFUSED(2): the unpoll doctoring failed"; exit 2; }
 import io,sys
@@ -81,28 +81,28 @@ s=s.replace(b, '+ x86("pop", "rax");\n', 1)
 io.open(p,'w',encoding='utf-8').write(s)
 UNPLANT
 unpolled=$(run_census "$D") || true
-grep -qE '^  UNPOLLED .*bb_assign_global\.cpp:'"$TAPLN"':comm_var' <<<"$unpolled" \
+grep -qE '^  UNPOLLED .*bb_assign_global\.cpp:'"$TAPLN"':comm_var_open' <<<"$unpolled" \
   || { echo "GATE safe-point-emitted-paths RED: with the tap's poll removed on a copy the census still does not read it UNPOLLED -- the reader is blind to an unpolled site"; grep -E 'bb_assign_global' <<<"$unpolled" | head -3; exit 1; }
 
 # ---- ARM C: FAIL ONCE. On that copy plant a poll that genuinely reaches two of the four expansions ---------
 python3 - "$D/src/templates/bb/bb_assign_global.cpp" <<'PLANT' || { echo "GATE safe-point-emitted-paths REFUSED(2): plant failed"; exit 2; }
 import io,sys
 p=sys.argv[1]; s=io.open(p,encoding='utf-8').read()
-a='(void (*)(const char *, DESCR_t, const char *, long, long long))comm_var)\n'
+a='x86("call", "comm_var_open", (uint64_t)(uintptr_t)(void *)comm_var_open)\n'
 assert a in s, "plant anchor missing"
 s=s.replace(a, a + '         + IF(g_gva_active, x86("lea", "rax", "[rip + g_gc_pending]"))\n', 1)
 io.open(p,'w',encoding='utf-8').write(s)
 PLANT
 planted=$(run_census "$D") || true
 pline=$(grep -m1 '^CENSUS safe-points emitter_call_sites=' <<<"$planted")
-if ! grep -qE '^  PARTIAL .*bb_assign_global\.cpp:'"$TAPLN"':comm_var' <<<"$planted"; then
+if ! grep -qE '^  PARTIAL .*bb_assign_global\.cpp:'"$TAPLN"':comm_var_open' <<<"$planted"; then
   echo "GATE safe-point-emitted-paths RED: a poll guarded by g_gva_active reaches two of the tap's four expansions,"
   echo "  and the census did not call the site PARTIAL. A partial cure counted as whole is DARK wearing a number."
   echo "  headline: $pline"
   grep -E '^  (PARTIAL|UNPOLLED) .*bb_assign_global' <<<"$planted" | sed 's/^/  /'
   exit 1
 fi
-if grep -qE '^  UNPOLLED .*bb_assign_global\.cpp:'"$TAPLN"':comm_var' <<<"$planted"; then
+if grep -qE '^  UNPOLLED .*bb_assign_global\.cpp:'"$TAPLN"':comm_var_open' <<<"$planted"; then
   echo "GATE safe-point-emitted-paths RED: the planted site reads UNPOLLED and PARTIAL at once"; exit 1
 fi
 # and the old criterion really would have read it POLLED: the poll text sits inside the source window

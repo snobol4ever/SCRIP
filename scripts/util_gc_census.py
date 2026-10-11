@@ -353,7 +353,7 @@ CRITERION_CHANGES = [
     "WAS NOT IN IT: the regex matched calls TO the dispatcher and never the callback OUT of it, so "
     "by_name_dispatch.c:5260 `out = APPLY_fn(fn, args, nargs);` -- the exact gdb site CEO-836 traced, the raw heap "
     "name pointer live across a call into emitted code -- was outside the census entirely. OUTBOUND is now its own "
-    "printed population over a DECLARED set (APPLY_fn, _usercall_hook, rt_chain_enter, rt_chain_enter_v) that "
+    "printed population over a DECLARED set (APPLY_fn, _usercall_hook; rt_chain_enter and rt_chain_enter_v left the tree with CEO-1576) that "
     "REFUSES rc=2 if a named symbol leaves the tree. (iv) RT_GC_CALLBACK IS DEFINED NOWHERE IN src/: wrapped=0 was "
     "never 'nobody has wrapped one yet', and a no-op macro would have taken this census to GREEN with no semantic "
     "change -- the definition's absence is now PRINTED beside the count. THE ARITHMETIC CLOSES: 63 -> 48 on the "
@@ -503,13 +503,24 @@ def _param_literals(own_text, site_line, ident):
         if idx is None:
             return [], ""
         lits = []
+        via = ""
         for c in re.finditer(r"\b" + re.escape(name) + r"\s*\(", own_text):
             if own_text.count("\n", 0, c.start()) + 1 == first:
                 continue
             args = _top_args(own_text, c.end())
             if idx < len(args):
-                lits += LIT_RX.findall(args[idx])
-        return (sorted(set(lits)), f"parameter {ident} of {name}()") if lits else ([], "")
+                found = LIT_RX.findall(args[idx])
+                lits += found
+                # the caller passes an IDENTIFIER, not a literal: its candidates are the string literals of that identifier's
+                # initializers in the same file (bb_call_fn.cpp's osym = _meth ? "rk_method_open" : ... ? "rk_callwith_open"
+                # : "rk_callsame_open", passed to bcfn_method_open_enter(..., osym, ofp); the cto 2026-10-10, CEO-1627). An
+                # identifier with no literal initializer in the file resolves to nothing, and UNRESOLVED stays the answer.
+                av = args[idx].strip()
+                if not found and re.match(r"[A-Za-z_]\w*$", av):
+                    for ini in re.finditer(r"\b" + re.escape(av) + r"\s*=\s*([^;]*);", own_text):
+                        lits += LIT_RX.findall(ini.group(1))
+                        via = f" via the initializers of {av}"
+        return (sorted(set(lits)), f"parameter {ident} of {name}(){via}") if lits else ([], "")
     return [], ""
 
 
@@ -1617,9 +1628,12 @@ def _marker_spans(src, marker):
 OUTBOUND_SYMS = [
     ("APPLY_fn",         "by_name_dispatch.c's apply path; CEO-836's gdb site holds `const char *fn` across it"),
     ("_usercall_hook",   "the driver hook the runtime reaches emitted code through (driver_hooks.c -> call_user_function -> label_lookup)"),
-    ("rt_chain_enter",   "runtime_eval.c's chain entry into emitted code (hq_snobol4's correction, COO-100)"),
-    ("rt_chain_enter_v", "the value-returning twin of rt_chain_enter"),
 ]
+# rt_chain_enter and rt_chain_enter_v (runtime_eval.c's chain entry into emitted code, COO-100) LEFT THE TREE with the
+# C->BB deletions of CEO-1576 (row gc-the-five-c-to-bb-entries-outside-rt-c-go-to-zero-the-eval-chain-shims-in-runtime-eval-c-
+# and-the-three-riders-in-by-name-dispatch-c, DONE): the box jumps to the address the C returns, so there is no outbound call
+# to count. Dropped from the declared set by the cto 2026-10-10 (CEO-1627 routing); with them declared the census REFUSED(2)
+# "appear nowhere in the censused scope" and the ratchet read callbacks.unwrapped NOT-MEASURED on origin from 08c00e5b4.
 OUTBOUND_RX = re.compile(r"(?<![A-Za-z0-9_])(" + "|".join(re.escape(x) for x, _ in OUTBOUND_SYMS) + r")\s*\(")
 
 # Heads that can legally precede a CALL and would otherwise read as a return type.
@@ -2533,7 +2547,7 @@ def selftest():
     open(cb_bad, "w").write("static void f(void) { char *s = raw; DESCR_t r = rt_call_proc_descr(p, 2); use(s); DESCR_t q = RT_GC_CALLBACK(rt_call_value(v)); }\n")
     # every fixture below names the four declared OUTBOUND symbols in a comment-free trailer, so the census's
     # stale-enumeration refusal does not fire on a fixture that simply has no outbound site of its own
-    OUTB = "\nstatic void _decl_only(void) { if (0) { APPLY_fn(0,0,0); _usercall_hook(0); rt_chain_enter(0); rt_chain_enter_v(0); } }\n"
+    OUTB = "\nstatic void _decl_only(void) { if (0) { APPLY_fn(0,0,0); _usercall_hook(0); _usercall_hook(0); APPLY_fn(0); } }\n"
     open(cb_ok, "a").write(OUTB)
     buf.clear(); rc = census_callbacks([cb_ok], out=buf.append)
     ck(rc == 1 and "INBOUND call_back_sites=1 wrapped_in_RT_GC_CALLBACK=1 unwrapped=0" in "\n".join(buf),
@@ -2563,7 +2577,7 @@ def selftest():
         "static void g(void) { if (!hook) { extern DESCR_t _usercall_hook(const char *n, DESCR_t *a, int c); hook = _usercall_hook; } }\n"
         "static void h(void) { int n = 1; extern DESCR_t rt_call_proc_descr(const char *name, int nargs); DESCR_t r = rt_call_proc_descr(\"F\", n); use(r); }\n"
         "static void k(void) { APPLY_fn(0,0,0); }\n"
-        "static void m(void) { rt_chain_enter(0); rt_chain_enter_v(0); }\n")
+        "static void m(void) { _usercall_hook(0); APPLY_fn(0); }\n")
     buf.clear(); rc = census_callbacks([cb_stmt], out=buf.append)
     _t = "\n".join(buf)
     ck("INBOUND call_back_sites=1 " in _t and "unwrapped=1" in _t,
@@ -2575,8 +2589,8 @@ def selftest():
     open(cb_out, "w").write(
         "static DESCR_t f(const char *fn, DESCR_t *args, int nargs) {\n"
         "  DESCR_t out = APPLY_fn(fn, args, nargs);\n"
-        "  DESCR_t q = RT_GC_CALLBACK(rt_chain_enter(fn));\n"
-        "  _usercall_hook(fn);\n  rt_chain_enter_v(fn);\n  return out;\n}\n")
+        "  DESCR_t q = RT_GC_CALLBACK(_usercall_hook(fn));\n"
+        "  _usercall_hook(fn);\n  APPLY_fn(fn);\n  return out;\n}\n")
     buf.clear(); rc = census_callbacks([cb_out], out=buf.append)
     j = "\n".join(buf)
     ck(rc == 1 and "OUTBOUND call_out_sites=4 wrapped_in_RT_GC_CALLBACK=1 unwrapped=3" in j and "cb_out.c:2:APPLY_fn" in j,
@@ -2587,12 +2601,12 @@ def selftest():
     open(cb_v, "w").write(
         "static DESCR_t f(const char *fn, DESCR_t *args, int nargs) {\n"
         "  DESCR_t out = APPLY_fn(fn, args, nargs);\n"
-        "  RT_GC_CALLBACK_V(rt_chain_enter(fn));\n"
-        "  _usercall_hook(fn);\n  rt_chain_enter_v(fn);\n  return out;\n}\n")
+        "  RT_GC_CALLBACK_V(_usercall_hook(fn));\n"
+        "  _usercall_hook(fn);\n  APPLY_fn(fn);\n  return out;\n}\n")
     buf.clear(); rc = census_callbacks([cb_v], out=buf.append)
     jv = "\n".join(buf)
     ck(rc == 1 and "OUTBOUND call_out_sites=4 wrapped_in_RT_GC_CALLBACK=1 unwrapped=3" in jv,
-       "callbacks: the VOID variant RT_GC_CALLBACK_V counts as a wrap and the three bare calls beside it still count as unwrapped -- a void callee cannot take the value form (RT_GC_CALLBACK(rt_chain_enter(fn)) is `_cb_r declared void`, proven by compiling it), so a detector blind to _V leaves that site permanently uncountable (ceo CEO-1104)")
+       "callbacks: the VOID variant RT_GC_CALLBACK_V counts as a wrap and the three bare calls beside it still count as unwrapped -- a void callee cannot take the value form (RT_GC_CALLBACK(_usercall_hook(fn)) is `_cb_r declared void`, proven by compiling it), so a detector blind to _V leaves that site permanently uncountable (ceo CEO-1104)")
     # (iv) the marker's absence is PRINTED, never read as progress pending
     nodef = os.path.join(w, "nodef"); os.makedirs(os.path.join(nodef, "src"), exist_ok=True)
     buf2 = []; census_callbacks([cb_out], out=buf2.append, root=nodef); jnd = "\n".join(buf2)
