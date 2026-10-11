@@ -389,25 +389,25 @@ int rt_builtin_is_known(const char *name) {
         "cos", "tan", "exp", "log", "asin", "acos", "atan", "dtor", "rtod", "max", "min", "trim", "reverse", "repl", "map", "left", "center", "right", "detab", "entab", "read", "reads", "sprintf",
         "printf", "iand", "ior", "ixor", "ishift", "icom", "table", "list", "set", "sort", "sortf", "get", "pop", "pull", "member", "insert", "delete", "key", "[]", "__apply__", "MAKELIST",
         "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make", "__rk_arr_xx", "__rk_arr_at", "__rk_seq_new",
-        "__rk_iter_has", "__rk_take_dyn", "__rk_seq_plan", "__rk_seq_next", "__rk_seq_stop", "__rk_seq_arity", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first", "__rk_arr_map",
-        "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip", "__rk_hyper_shape",
-        "__rk_adjacent_pairs", "__rk_all_true", "__rk_regex", "__rk_smartmatch", "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash",
-        "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_set_uni", "__rk_set_int", "__rk_set_dif", "__rk_set_sym", "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem",
-        "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne",
-        "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick", "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat",
-        "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_pow", "__rk_ratlit", "__rk_ratnew", "__rk_exend", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv",
-        "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_unset", "__rk_unany", "__rk_elem_put", "__rk_hyper_incdec", "__rk_radix_list", "__rk_radix_str", "__rk_ident", "__rk_intdiv",
-        "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor",
-        "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem",
-        "__rk_set_cont", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile",
-        "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure", "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists",
-        "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "__rk_new_alloc", "__rk_new_check", "__rk_new_defaults",
-        "meth_call", "field_set", "field_set_pub", "field_get_pub", "__rk_say_capture", "__rk_say_named_capture", "__rk_gist_capture", "__rk_gist_named_capture", "nqp::create", "nqp::bindattr",
-        "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die", "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close",
-        "__blk_invoke", "__rk_box", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE",
-        "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA",
-        "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call",
-        "__trace_return", "__trace_value", "__trace_tap_off", NULL };
+        "__rk_iter_has", "__rk_take_dyn", "__rk_seq_plan", "__rk_seq_next", "__rk_seq_stop", "__rk_seq_arity", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first", "__rk_first_shape",
+        "__rk_exc_umsg", "__rk_die_m", "__rk_exc_umeth", "__rk_tl_got", "__rk_is_code", "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append",
+        "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip", "__rk_hyper_shape", "__rk_adjacent_pairs", "__rk_all_true", "__rk_regex", "__rk_smartmatch", "__rk_arr_keys",
+        "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_set_uni",
+        "__rk_set_int", "__rk_set_dif", "__rk_set_sym", "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem", "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub",
+        "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne", "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr",
+        "__rk_arr_slice", "__rk_arr_pick", "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_pow", "__rk_ratlit",
+        "__rk_ratnew", "__rk_exend", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_unset", "__rk_unany",
+        "__rk_elem_put", "__rk_hyper_incdec", "__rk_radix_list", "__rk_radix_str", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg",
+        "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm",
+        "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list",
+        "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure",
+        "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists", "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any",
+        "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "__rk_new_alloc", "__rk_new_check", "__rk_new_defaults", "meth_call", "field_set", "field_set_pub", "field_get_pub",
+        "__rk_say_capture", "__rk_say_named_capture", "__rk_gist_capture", "__rk_gist_named_capture", "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die",
+        "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box", "TIME", "DATE", "IDENTICAL", "getenv",
+        "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR",
+        "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET",
+        "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", NULL };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
     { if (dat_find_type(name)) return 1; }
     { extern int rt_dat_field_of_any(const char *); if (rt_dat_field_of_any(name)) return 1; }
@@ -1080,6 +1080,14 @@ static const char *rk_av_text(rk_av_t a, int i) { return (i < 0 || i >= a.n) ? "
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_av_elem(rk_av_t a, int i) { return (i < 0 || i >= a.n) ? NULVCL : a.el[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_first_shape(DESCR_t src, int i, int mode) {
+    DESCR_t ed = rk_av_elem(rk_av(src), i);
+    if (mode == 1) return INTVAL(i);
+    if (mode == 2) { DESCR_t kv[2] = { INTVAL(i), ed }; return rk_mk_arr(kv, 2); }
+    if (mode == 3) return rk_mk_pair(INTVAL(i), ed);
+    return ed;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rk_av_t rk_av_args(DESCR_t *args, int from, int to) {
     int tot = 0, m = to > from ? to - from : 0;
     rk_av_t *vs = (rk_av_t *) rt_wsb_alloc(sizeof(rk_av_t) * (size_t) (m ? m : 1));
@@ -1092,6 +1100,8 @@ static rk_av_t rk_av_args(DESCR_t *args, int from, int to) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char rk_proto_slip[] = "Slip";
+static const char rk_proto_tlgot[] = "TLGot";
+static int rk_is_tlgot(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_tlgot; }
 static const char rk_proto_list[] = "List";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_mk_arr(const DESCR_t *el, int n) {
@@ -4155,7 +4165,7 @@ void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
             for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, proc)) break;
             if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) {
                 extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
-                rt_c2bb_bomb("TWEAK from C (a class the lowerer's .new helper sub did not see: the box calls TWEAK, C never does)", proc);
+                rt_c2bb_bomb("TWEAK from C (a Raku class the lowerer's .new helper sub did not see, or a SNOBOL4 DATA type's <type>__TWEAK hook: the box calls TWEAK, C never does)", proc);
             } else {
                 extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na);
                 DESCR_t a0 = self;
@@ -10758,6 +10768,14 @@ static const char *rk_exc_message(DESCR_t ex) {
     return "Died";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_exc_umsg(DESCR_t ex) {
+    if (!rk_exc_is(ex)) return (const char *) 0;
+    const char *rmc = resolve_method_chain(ex.u->type->name, "message", NULL);
+    char proc[fmt_len("%s__%s", rmc, "message")];
+    snprintf(proc, sizeof proc, "%s__%s", rmc, "message");
+    return meth_is_user_proc(proc) ? rmc : (const char *) 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_exc_from_msg(const char *msg) {
     rk_exc_init();
     for (int i = 0; rk_exc_tab[i].cls; i++) if (strstr(msg, rk_exc_tab[i].needle)) return DATCON_fn(rk_exc_tab[i].cls, STRVAL(rt_heap_strdup_c(msg)));
@@ -10767,7 +10785,7 @@ static DESCR_t rk_exc_from_msg(const char *msg) {
 static DESCR_t rk_exc_current(void) {
     extern char g_script_exception[512];
     DESCR_t cur = NV_GET_fn("!");
-    if (rk_exc_is(cur) && !strcmp(rk_exc_message(cur), g_script_exception)) return cur;
+    if (rk_exc_is(cur) && (rk_exc_umsg(cur) || !strcmp(rk_exc_message(cur), g_script_exception))) return cur;
     if (!g_script_exception[0]) return rk_exc_is(cur) ? cur : NULVCL;
     cur = rk_exc_from_msg(g_script_exception);
     NV_SET_fn("!", cur);
@@ -10789,10 +10807,15 @@ static void rk_method_missing(DESCR_t recv, const char *mname, DESCR_t *out) {
     *out = FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_exc_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) {
+static int rk_exc_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
     DESCR_t ex = args[0];
     (void) nargs;
-    if (!strcmp(m, "message") || !strcmp(m, "Str") || !strcmp(m, "gist")) { *out = STRVAL(rt_heap_strdup_c(rk_exc_message(ex))); return 1; }
+    if (!strcmp(m, "message") || !strcmp(m, "Str") || !strcmp(m, "gist")) {
+        const char *rmc = rk_exc_umsg(ex);
+        if (rmc) { char proc[fmt_len("%s__%s", rmc, "message")]; snprintf(proc, sizeof proc, "%s__%s", rmc, "message"); *out = invoke_method_proc_rq(proc, &ex, 1, rq); return 1; }
+        *out = STRVAL(rt_heap_strdup_c(rk_exc_message(ex)));
+        return 1;
+    }
     if (!strcmp(m, "throw") || !strcmp(m, "rethrow")) { rk_exc_throw(ex); *out = FAILDESCR; return 1; }
     if (!strcmp(m, "Bool") || !strcmp(m, "so") || !strcmp(m, "defined")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 1 }; return 1; }
     if (!strcmp(m, "backtrace")) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
@@ -11429,12 +11452,18 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
                 const char *k0 = rk_cstr(p.el[0]);
                 char key[strlen(k0) + 1];
                 strcpy(key, k0);
-                DESCR_t ma[2] = { ex, STRVAL(key) }, got, t;
-                if (!script_try_call_builtin_by_name("meth_call", ma, 2, &got) || IS_FAIL_fn(got)) { c = 0; snprintf(why, sizeof why, "the exception has no attribute '%.200s'", key); break; }
+                DESCR_t ma[2] = { ex, STRVAL(key) }, got, t, wantv = p.n > 1 ? p.el[1] : NULVCL;
+                int pre = rk_is_tlgot(wantv);
+                if (pre) { rk_av_t g = rk_av(wantv); got = rk_av_elem(g, 1); wantv = rk_av_elem(g, 0); }
+                if ((!pre && !script_try_call_builtin_by_name("meth_call", ma, 2, &got)) || IS_FAIL_fn(got)) {
+                    c = 0;
+                    snprintf(why, sizeof why, "the exception has no attribute '%.200s'", key);
+                    break;
+                }
                 const char *g0 = rk_cstr(got);
                 char gs[strlen(g0) + 1];
                 strcpy(gs, g0);
-                DESCR_t sm[2] = { got, p.n > 1 ? p.el[1] : NULVCL };
+                DESCR_t sm[2] = { got, wantv };
                 if (!(script_try_call_builtin_by_name("__rk_smartmatch", sm, 2, &t) && !IS_FAIL_fn(t) && rk_is_truthy(t))) {
                     c = 0;
                     snprintf(why, sizeof why, "%.200s: got '%.200s' which does not match", key, gs);
@@ -12930,6 +12959,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+    if (!strcmp(fn, "__rk_is_code") && nargs == 1) { *out = rk_is_code(args[0]) ? INTVAL(1) : FAILDESCR; return 1; }
+    if (!strcmp(fn, "__rk_first_shape") && nargs == 3) { *out = rk_first_shape(args[0], IS_INT_fn(args[1]) ? (int)args[1].i : -1, IS_INT_fn(args[2]) ? (int)args[2].i : 0); return 1; }
     if (!strcmp(fn, "__rk_arr_first") && nargs >= 1) {
         int fend = 0, fmode = 0, fmi = -1;
         for (int i = 1; i < nargs; i++) {
@@ -12967,10 +12998,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
                 hit = script_try_call_builtin_by_name("__rk_smartmatch", sm, 2, &t) && !IS_FAIL_fn(t) && rk_is_truthy(t);
             }
             if (!hit) continue;
-            ed = rk_av_elem(rk_av(H.d[0]), i);
-            if (fmode == 1) *out = INTVAL(i);
-            else if (fmode == 2) { DESCR_t kv[2] = { INTVAL(i), ed }; *out = rk_mk_arr(kv, 2); } else if (fmode == 3) *out = rk_mk_pair(INTVAL(i), ed);
-            else *out = ed;
+            *out = rk_first_shape(H.d[0], i, fmode);
             break;
         }
         g_rk_cbh_cur = H.prev;
@@ -13195,6 +13223,24 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         DESCR_t *r = a.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) a.n) : NULL;
         for (int i = 0; i < a.n; i++) r[i] = a.el[a.n - 1 - i];
         *out = rk_mk_arr(r, a.n);
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_exc_umeth") && nargs == 2) {
+        const char *mn = rk_cstr(args[1]);
+        if (!rk_exc_is(args[0]) || !mn || !*mn) { *out = FAILDESCR; return 1; }
+        const char *rmc = resolve_method_chain(args[0].u->type->name, mn, NULL);
+        char proc[fmt_len("%s__%s", rmc, mn)];
+        snprintf(proc, sizeof proc, "%s__%s", rmc, mn);
+        *out = meth_is_user_proc(proc) ? INTVAL(1) : FAILDESCR;
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_tl_got") && nargs == 2) { *out = rk_mk_arr(args, 2); ((ARBLK_t *) out->arr)->proto = rk_proto_tlgot; return 1; }
+    if (!strcmp(fn, "__rk_exc_umsg") && nargs == 1) { *out = rk_exc_umsg(args[0]) ? INTVAL(1) : FAILDESCR; return 1; }
+    if (!strcmp(fn, "__rk_die_m") && nargs == 2) {
+        rk_exc_init();
+        DESCR_t ex = rk_exc_is(args[0]) ? args[0] : rk_exc_adhoc(args[0]);
+        if (rk_exc_umsg(ex)) { extern void rt_script_die_surface(const char *msg); const char *m = rk_cstr(args[1]); NV_SET_fn("!", ex); rt_script_die_surface(m ? m : ""); } else rk_exc_throw(ex);
+        *out = FAILDESCR;
         return 1;
     }
     if ((!strcmp(fn, "die") || !strcmp(fn, "script_die")) && nargs >= 1) { rk_exc_init(); rk_exc_throw(rk_exc_is(args[0]) ? args[0] : rk_exc_adhoc(args[0])); *out = FAILDESCR; return 1; }
@@ -13896,7 +13942,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         char procname[fmt_len("%s__%s", rmc, mname)];
         snprintf(procname, sizeof procname, "%s__%s", rmc, mname);
         if (!meth_is_user_proc(procname) && rt_multi_meth_dispatch(cname, mname, args, nargs, out, rq)) return 1;
-        if (!meth_is_user_proc(procname) && rk_exc_is(args[0]) && rk_exc_method(mname, args, nargs, out)) return 1;
+        if (!meth_is_user_proc(procname) && rk_exc_is(args[0]) && rk_exc_method(mname, args, nargs, out, rq)) return 1;
         if (nargs == 2 && !meth_is_user_proc(procname)) {
             extern int dat_field_is_private(const char *cls, const char *field);
             if (dat_field_is_private(cname, mname)) {
