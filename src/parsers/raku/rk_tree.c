@@ -972,6 +972,7 @@ static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
             if (d == 'f') { sb_c(&buf, '\f'); i += 2; continue; }
             if (d == '\\') { sb_c(&buf, '\\'); i += 2; continue; }
             if (d == '"') { sb_c(&buf, '"'); i += 2; continue; }
+            if (d == '$' || d == '@') { GROW(mk, nmk, cmk, Mk); mk[nmk].at = buf.n; mk[nmk].pos = -(int) d; nmk++; i += 2; continue; }
             sb_c(&buf, c); i++; continue;
         }
         if (c == '{') {
@@ -989,7 +990,11 @@ static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
         tree_t *st = leaf_sval(TT_QLIT, seg);
         if (strchr(seg, '$') || strchr(seg, '@')) st = lower_interp_str(b, seg);
         acc = acc ? expr_binary(TT_CAT, acc, st) : st;
-        if (k < nmk) { acc = expr_binary(TT_CAT, acc, closure_expr(b, closure_at(cl, ncl, mk[k].pos))); segstart = mk[k].at; }
+        if (k < nmk) {
+            tree_t *x = mk[k].pos < 0 ? leaf_sval(TT_QLIT, mk[k].pos == -(int) '$' ? "$" : "@") : closure_expr(b, closure_at(cl, ncl, mk[k].pos));
+            acc = expr_binary(TT_CAT, acc, x);
+            segstart = mk[k].at;
+        }
     }
     return acc;
 }
