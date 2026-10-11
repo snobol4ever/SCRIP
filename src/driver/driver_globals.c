@@ -127,6 +127,10 @@ static void fh_slot_init(fh_slot_t *s, FILE *fp) {
     s->pos_lpos=0;
     s->rd_line=0;
     s->rd_col=0;
+    s->raw=NULL;
+    s->xk=0;
+    s->xin_n=0;
+    s->xout_n=0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fh_alloc(FILE *fp) {
@@ -152,6 +156,90 @@ void fh_set_input(int idx){ fh_cur_ensure(); if(idx>=0&&idx<FH_N&&g_fh[idx].fp) 
 void fh_set_output(int idx){ fh_cur_ensure(); if(idx>=0&&idx<FH_N&&g_fh[idx].fp) fh_cur_out=idx; }
 FILE *fh_cur_out_fp(void){ fh_cur_ensure(); FILE *fp=fh_get(fh_cur_out); return fp?fp:stdout; }
 FILE *fh_cur_in_fp(void){ fh_cur_ensure(); FILE *fp=fh_get(fh_cur_in); return fp?fp:stdin; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int fh_x_utf8(unsigned long c, unsigned char *o){
+    if(c<0x80){ o[0]=(unsigned char)c; return 1; }
+    if(c<0x800){ o[0]=(unsigned char)(0xC0|(c>>6)); o[1]=(unsigned char)(0x80|(c&0x3F)); return 2; }
+    if(c<0x10000){ o[0]=(unsigned char)(0xE0|(c>>12)); o[1]=(unsigned char)(0x80|((c>>6)&0x3F)); o[2]=(unsigned char)(0x80|(c&0x3F)); return 3; }
+    o[0]=(unsigned char)(0xF0|(c>>18));
+    o[1]=(unsigned char)(0x80|((c>>12)&0x3F));
+    o[2]=(unsigned char)(0x80|((c>>6)&0x3F));
+    o[3]=(unsigned char)(0x80|(c&0x3F));
+    return 4;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int fh_x_unit(FILE *r, int k, unsigned long *u){
+    unsigned char b[4];
+    int w=k<=2?2:4;
+    if(fread(b,1,(size_t)w,r)!=(size_t)w) return 0;
+    if(w==2) *u=k==1?((unsigned long)b[0]<<8|b[1]):((unsigned long)b[1]<<8|b[0]);
+    else *u=k==3?((unsigned long)b[0]<<24|(unsigned long)b[1]<<16|(unsigned long)b[2]<<8|b[3]):((unsigned long)b[3]<<24|(unsigned long)b[2]<<16|(unsigned long)b[1]<<8|b[0]);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static ssize_t fh_x_read(void *c, char *buf, size_t n){
+    long i=(long)(intptr_t)c;
+    size_t o=0;
+    while(o<n){
+        fh_slot_t *s=&g_fh[i];
+        unsigned long u, v;
+        if(s->xout_n){ int m=0; while(m<s->xout_n&&o<n) buf[o++]=(char)s->xout[m++]; memmove(s->xout,s->xout+m,(size_t)(s->xout_n-m)); s->xout_n=(char)(s->xout_n-m); continue; }
+        if(!fh_x_unit(s->raw,s->xk,&u)) break;
+        if(s->xk<=2&&u>=0xD800&&u<=0xDBFF&&fh_x_unit(s->raw,s->xk,&v)&&v>=0xDC00&&v<=0xDFFF) u=0x10000+((u-0xD800)<<10)+(v-0xDC00);
+        s->xout_n=(char)fh_x_utf8(u,s->xout);
+    }
+    return (ssize_t)o;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void fh_x_put(FILE *r, int k, unsigned long u){
+    unsigned char b[4];
+    if(k<=2&&u>=0x10000){ fh_x_put(r,k,0xD800+((u-0x10000)>>10)); fh_x_put(r,k,0xDC00+((u-0x10000)&0x3FF)); return; }
+    if(k==1){ b[0]=(unsigned char)(u>>8); b[1]=(unsigned char)u; fwrite(b,1,2,r); return; }
+    if(k==2){ b[0]=(unsigned char)u; b[1]=(unsigned char)(u>>8); fwrite(b,1,2,r); return; }
+    if(k==3){ b[0]=(unsigned char)(u>>24); b[1]=(unsigned char)(u>>16); b[2]=(unsigned char)(u>>8); b[3]=(unsigned char)u; fwrite(b,1,4,r); return; }
+    b[0]=(unsigned char)u;
+    b[1]=(unsigned char)(u>>8);
+    b[2]=(unsigned char)(u>>16);
+    b[3]=(unsigned char)(u>>24);
+    fwrite(b,1,4,r);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static ssize_t fh_x_write(void *c, const char *p, size_t n){
+    long i=(long)(intptr_t)c;
+    fh_slot_t *s=&g_fh[i];
+    for(size_t k=0;k<n;k++){
+        unsigned char b0;
+        int need;
+        unsigned long u;
+        s->xin[(int)s->xin_n]=(unsigned char)p[k];
+        s->xin_n++;
+        b0=s->xin[0];
+        need=b0<0x80?1:(b0&0xE0)==0xC0?2:(b0&0xF0)==0xE0?3:(b0&0xF8)==0xF0?4:1;
+        if(s->xin_n<need) continue;
+        u=need==1?b0:need==2?(unsigned long)(b0&0x1F):need==3?(unsigned long)(b0&0x0F):(unsigned long)(b0&0x07);
+        for(int m=1;m<need;m++) u=(u<<6)|(unsigned long)(s->xin[m]&0x3F);
+        s->xin_n=0;
+        fh_x_put(s->raw,s->xk,u);
+    }
+    return (ssize_t)n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int fh_x_close(void *c){ long i=(long)(intptr_t)c; FILE *r=g_fh[i].raw; g_fh[i].raw=NULL; g_fh[i].xk=0; return r?fclose(r):0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int fh_transcode(int idx, int kind, const char *mode){
+    cookie_io_functions_t io={ fh_x_read, fh_x_write, NULL, fh_x_close };
+    FILE *w;
+    fh_ensure_init();
+    if(idx<3||idx>=FH_N||!g_fh[idx].fp||kind<1||kind>4) return 0;
+    w=fopencookie((void *)(intptr_t)idx,mode,io);
+    if(!w) return 0;
+    g_fh[idx].raw=g_fh[idx].fp;
+    g_fh[idx].fp=w;
+    g_fh[idx].xk=(char)kind;
+    g_fh[idx].xin_n=0;
+    g_fh[idx].xout_n=0;
+    return 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *g_fh_sink_v = NULL;
 long g_fh_sink_cap = 0;

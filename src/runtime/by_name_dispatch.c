@@ -6745,15 +6745,34 @@ static int pl_enc_norm(const char *s, char *out, size_t n) {
     return k != 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *const pl_bom_enc[] = { "UTF-8", "UTF-8", "UTF-16BE", "UTF-16LE", "UTF-32BE", "UTF-32LE" };
 static int pl_skip_bom(FILE *fp) {
     long pos = ftell(fp);
-    unsigned char bom[3];
-    size_t n = fread(bom, 1, 3, fp);
-    if (n == 3 && bom[0] == 0xEF && bom[1] == 0xBB && bom[2] == 0xBF) return 1;
-    if (pos >= 0) { if (fseek(fp, pos, SEEK_SET) == 0) return 0; }
-    while (n > 0) { ungetc(bom[--n], fp); }
-    return 0;
+    unsigned char b[4];
+    size_t n = fread(b, 1, 4, fp), len = 0;
+    int k = 0;
+    if (n == 4 && !b[0] && !b[1] && b[2] == 0xFE && b[3] == 0xFF) {
+        k = 4;
+        len = 4;
+    } else if (n == 4 && b[0] == 0xFF && b[1] == 0xFE && !b[2] && !b[3]) {
+        k = 5;
+        len = 4;
+    } else if (n >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF) {
+        k = 1;
+        len = 3;
+    } else if (n >= 2 && b[0] == 0xFE && b[1] == 0xFF) {
+        k = 2;
+        len = 2;
+    } else if (n >= 2 && b[0] == 0xFF && b[1] == 0xFE) {
+        k = 3;
+        len = 2;
+    }
+    if (pos >= 0 && fseek(fp, pos + (long)len, SEEK_SET) == 0) return k;
+    while (n > len) { ungetc(b[--n], fp); }
+    return k;
 }
+static int pl_enc_kind(const char *e) { return !strcmp(e, "UTF-16BE") ? 1 : !strcmp(e, "UTF-16LE") ? 2 : !strcmp(e, "UTF-32BE") ? 3 : !strcmp(e, "UTF-32LE") ? 4 : 0; }
+static const char *pl_flag_encoding(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int *bom_opt) {
     extern void *rt_pl_ball_instantiation(void);
@@ -6804,8 +6823,13 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
             } else if (on && !strcmp(on, "encoding")) {
                 extern void fh_set_encoding(int, const char *);
                 char eb[(as ? strlen(as) : 0) + 1];
-                if (!as || !pl_enc_norm(as, eb, sizeof eb) || (strcmp(eb, "utf8") && strcmp(eb, "text"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
-                fh_set_encoding(idx, "UTF-8");
+                const char *en;
+                if (!as || !pl_enc_norm(as, eb, sizeof eb)) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
+                en = !strcmp(eb, "utf8") ||
+                    !strcmp(eb, "text") ? "UTF-8" : !strcmp(eb, "utf16be") ? "UTF-16BE" : !strcmp(eb, "utf16le") ? "UTF-16LE" : !strcmp(eb, "utf32be") ? "UTF-32BE" : !strcmp(eb, "utf32le") ?
+                    "UTF-32LE" : (const char *)0;
+                if (!en) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
+                fh_set_encoding(idx, en);
             } else {
                 cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt);
                 return 0;
@@ -6854,8 +6878,15 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
             int bom_opt = -1;
             if (!pl_open_opts(args, nargs, idx, cx, &bom_opt)) { fclose(fp); fh_free(idx); return 0; }
             if (g_fh[idx].type != 'b' && !fh_is_untranslated(idx)) {
-                if (fmode[0] == 'r') fh_set_bom(idx, bom_opt != 0 ? pl_skip_bom(fp) : 0);
-                else if (bom_opt == 1 && (fmode[0] == 'w' || ftell(fp) == 0)) { fputs("\357\273\277", fp); fh_set_bom(idx, 1); }
+                extern void fh_set_encoding(int, const char *);
+                extern int fh_transcode(int, int, const char *);
+                int bk = fmode[0] == 'r' && bom_opt != 0 ? pl_skip_bom(fp) : 0;
+                int wbom = fmode[0] != 'r' && bom_opt == 1 && (fmode[0] == 'w' || ftell(fp) == 0);
+                const char *en = bk ? pl_bom_enc[bk] : g_fh[idx].enc ? g_fh[idx].enc : pl_flag_encoding();
+                if (fmode[0] == 'r') fh_set_bom(idx, bk != 0);
+                if (strcmp(en, "UTF-8")) fh_set_encoding(idx, en);
+                if (pl_enc_kind(en) && !fh_transcode(idx, pl_enc_kind(en), fmode)) { fclose(fp); fh_free(idx); return 0; }
+                if (wbom) { fputs("\357\273\277", g_fh[idx].fp); fh_set_bom(idx, 1); }
             }
         }
         return plw_unify_vals(args[2], pl_mk_stream(idx), cx);
@@ -8501,9 +8532,10 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     "error", 1, { "error", "infinity", 0 } }, { "float_zero_div", "error", 1, { "error", "infinity", 0 } }, { "float_undefined", "error", 1, { "error", "nan", 0 } }, { "char_conversion", "off", 1,
     { "on", "off", 0 } }, { "debug", "off", 1, { "on", "off", 0 } }, { "unknown", "error", 1, { "error", "fail", "warning", 0 } }, { "double_quotes", "codes", 1, { "atom", "chars", "codes", "string",
     0 } }, { "protect_static_code", "false", 1, { "true", "false", 0 } }, { "iso", "false", 1, { "true", "false", 0 } }, { "occurs_check", "false", 1, { "true", "false", "error", 0 } },
-    { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", 0 } }, { "argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } },
-    { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } },
-    { "multifile_warning", "on", 1, { "on", "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { 0, "", 0, { 0 } } };
+    { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", "UTF-16BE", "UTF-16LE", "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0,
+    { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } },
+    { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on", "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect",
+    "iso", 1, { "iso", "swi", 0 } }, { 0, "", 0, { 0 } } };
 static cv_t g_pl_flags;
 #define pl_flags ((pl_flag_t *)g_pl_flags.p)
 static void pl_flags_ready(void) { if (g_pl_flags.len) return; for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; } }
@@ -8522,6 +8554,7 @@ void rt_pl_flags_gc_roots(void) {
 void bnd_text_gc_roots(void) { extern void rt_gc_visit_raw(const char **); rt_gc_visit_raw(&pl_edin_out_name); rt_gc_visit_raw(&pl_edin_in_name); rt_gc_visit_raw(&g_tap_todo_reason); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_t * pl_flag_find(const char *nm) { pl_flags_ready(); for (int i = 0; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i]; return (pl_flag_t *)0; }
+static const char *pl_flag_encoding(void) { pl_flag_t *fl = pl_flag_find("encoding"); return fl && fl->val ? fl->val : "UTF-8"; }
 const char *rt_pl_flag_text(const char *nm) { pl_flag_t *fl = pl_flag_find(nm); return fl && fl->val ? fl->val : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_flag_opt_true(const char *on) {
