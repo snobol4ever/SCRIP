@@ -2184,6 +2184,16 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
         # already-existing Path(td) is a safe no-op), so nothing already grading through this function
         # can regress.
         cand.parent.mkdir(parents=True, exist_ok=True)
+        # ⭐ A PACKAGE'S PRELUDE (hq_prolog's ask on CEO-1632, the coo 2026-10-11): ALL.prelude beside the container holds the text every
+        # entry runs after -- the package's contract with the oracle that cut its refs (rosetta-prolog: swipl read a double-quoted text
+        # as a string, so `:- set_prolog_flag(double_quotes, string).`), as util_logtalk_grade.py prepends the iso flag. Its non-blank
+        # lines that are not `#` notes are joined and PREFIXED TO THE ENTRY'S FIRST LINE, never a line of their own, so a message that
+        # names a line still names the entry's own. No ALL.prelude: the entry is byte-identical to before.
+        _pre = (Path(companion_dir) / "ALL.prelude") if companion_dir else None
+        if _pre is not None and _pre.is_file():
+            _pt = " ".join(l.strip() for l in _pre.read_text().splitlines() if l.strip() and not l.lstrip().startswith("#"))
+            if _pt:
+                text = _pt + " " + text
         cand.write_text(text)
         # ⛔⭐ A NESTED ENTRY'S COMPANIONS LIVE BESIDE IT, AND LAND BESIDE IT (the coo 2026-10-01, measured on the regenerated arizona_tests
         # container): the entry runs in cand.parent (td/general for "general/fncs1"), but its companions were looked up in the suite's
