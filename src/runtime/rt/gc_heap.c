@@ -2408,6 +2408,7 @@ static long g_gc_chain_ok = 0, g_gc_chain_nosite = 0, g_gc_chain_host = 0, g_gc_
     g_gc_chain_landhops = 0, g_gc_chain_roadhops = 0, g_gc_chain_ghost = 0;
 extern char rt_tge_gamma_ret[], rt_tge_omega_ret[];
 extern const uint64_t rt_genp_n2_conts[2];
+extern const uint64_t rt_genp_conts[3];
 static void gc_chain_report_atexit(void) {
     fprintf(stderr, "[CHAIN-CHECK] SUMMARY ok=%ld host=%ld frameless=%ld ctxrbp=%ld nosite=%ld mismatch=%ld fnhops=%ld landhops=%ld roadhops=%ld ghost=%ld\n", g_gc_chain_ok, g_gc_chain_host,
         g_gc_chain_frameless, g_gc_chain_ctx, g_gc_chain_nosite, g_gc_chain_bad, g_gc_chain_fnhops, g_gc_chain_landhops, g_gc_chain_roadhops, g_gc_chain_ghost);
@@ -2436,7 +2437,13 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
         g_gc_chain_roadhops++;
         goto again;
     }
-    if (pc == rt_genp_n2_conts[0] || pc == rt_genp_n2_conts[1]) { cx->pc = pc; cx->r = r; cx->rbp = rbp; cx->st = 7; return; }
+    if (pc == rt_genp_n2_conts[0] || pc == rt_genp_n2_conts[1] || pc == rt_genp_conts[0] || pc == rt_genp_conts[1] || pc == rt_genp_conts[2]) {
+        cx->pc = pc;
+        cx->r = r;
+        cx->rbp = rbp;
+        cx->st = 7;
+        return;
+    }
     b = gc_site_find(pc, &e);
     if (b && e && (e->kind & 255) == 7) { pc = *(const uint64_t *)(r + e->depth); r = r + e->depth + 8; g_gc_chain_roadhops++; goto again; }
     if (!b || !e) {

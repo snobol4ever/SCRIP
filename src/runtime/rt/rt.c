@@ -1530,7 +1530,16 @@ void rt_genp_deliver_γ(DESCR_t v) {
     { uint64_t d0, d1; memcpy(&d0, &v, 8); memcpy(&d1, (char *)&v + 8, 8); scrip_coret(d0, d1, (void *)0); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_genp_deliver_ω(void) { rt_genp_s *g = g_genp_self; if (!g->first_done) { g->first_done = 1; (void)rt_proc_call_epilogue_ω(1L); } g->done = 2; scrip_cofail(); for (;;) pause(); }
+void rt_genp_deliver_ω(void) {
+    char *tr;
+    rt_genp_s *g = g_genp_self;
+    __asm__ volatile("movq %%r12,%0" : "=m"(tr));
+    if (g->co.pl_park && g->co.activator) g->co.activator->pl_xtr = tr;
+    if (!g->first_done) { g->first_done = 1; (void)rt_proc_call_epilogue_ω(1L); }
+    g->done = 2;
+    scrip_cofail();
+    for (;;) pause();
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void rt_genp_spine_enter_n2(void *fn, void *region, long nblk);
 extern uint64_t rt_genp_deliver_n2_γ(uint64_t H);
@@ -1565,6 +1574,8 @@ void rt_genp_yield(uint64_t d0, uint64_t d1) { scrip_coret(d0, d1, (void *)0); }
 int rt_genp_active(void) { return g_genp_self != (rt_genp_s *)0; }
 static rt_genp_s *rt_genp_lookup(void *h) { for (rt_genp_s *g = g_genp_head; g; g = g->next) if ((void *)g == h) return g; return (rt_genp_s *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+scrip_coctx_t *rt_genp_co_of(void *h) { rt_genp_s *g = rt_genp_lookup(h); return g ? &g->co : (scrip_coctx_t *)0; }
+void *rt_genp_of_co(scrip_coctx_t *c) { for (rt_genp_s *g = g_genp_head; g; g = g->next) if (&g->co == c) return (void *)g; return (void *)0; }
 static void rt_genp_destroy(rt_genp_s *g) { scrip_coexpr_destroy(&g->co); rt_genp_s **pp = &g_genp_head; while (*pp && *pp != g) pp = &(*pp)->next; if (*pp) *pp = g->next; ct_drop(g); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_genp_triage(rt_genp_s *g, int ok, uint64_t *out2, void **hout) {
@@ -1647,6 +1658,57 @@ DESCR_t rt_proc_resume_frame_h(void **hslot) {
     if (hslot) *hslot = (void *)0;
     return FAILDESCR;
 }
+int rt_plco_mark(char *tr) { scrip_coctx_t *me = scrip_co_current; if (!me || !rt_genp_of_co(me)) return 0; me->pl_park = 1; me->pl_base = tr; me->pl_floor = tr; return 1; }
+int rt_plco_inside(void) { scrip_coctx_t *me = scrip_co_current; return me && me->pl_park != 0 && rt_genp_of_co(me) != (void *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_plco_park(int kind, DESCR_t r, char **tr, long *gen, long gen_in) {
+    scrip_coctx_t *me = scrip_co_current;
+    uint64_t d0, d1;
+    if (!me || !me->pl_park) return -2;
+    if (me->pl_floor && *tr < me->pl_floor) { me->pl_floor = me->pl_base; return -1; }
+    me->pl_park = kind;
+    me->pl_gen = kind == 3 ? gen_in : ++me->pl_seq;
+    *gen = me->pl_gen;
+    me->pl_tr = *tr;
+    memcpy(&d0, &r, 8);
+    memcpy(&d1, (char *)&r + 8, 8);
+    scrip_coret(d0, d1, (void *)0);
+    *tr = me->pl_tr;
+    me->pl_park = 1;
+    return me->pl_cmd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_plco_settle(scrip_coctx_t *c, void *slot, DESCR_t r, char **tr, long *gen_out, int *st) {
+    int park;
+    if (!slot) { scrip_coctx_t *me = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); if (me->pl_xtr) *tr = me->pl_xtr; me->pl_xtr = 0; *st = 0; return FAILDESCR; }
+    *tr = c->pl_tr;
+    *gen_out = c->pl_gen;
+    park = c->pl_park;
+    if (park == 4 || park == 5) rt_proc_drop_frame_h(&slot);
+    *st = park == 4 ? 0 : 1;
+    return park == 4 ? FAILDESCR : r;
+}
+DESCR_t rt_plco_after_start(void *h, DESCR_t r, char **tr, long *gen_out, int *st, DESCR_t *hd) {
+    scrip_coctx_t *c = h ? rt_genp_co_of(h) : (scrip_coctx_t *)0;
+    DESCR_t d = {0};
+    if (!c || !c->pl_park) { if (h) rt_proc_drop_frame_h(&h); return rt_plco_settle(c, (void *)0, r, tr, gen_out, st); }
+    d.v = DT_CO;
+    d.p = c;
+    *hd = d;
+    return rt_plco_settle(c, h, r, tr, gen_out, st);
+}
+DESCR_t rt_plco_resume(DESCR_t h, long cmd, long gen, char **tr, long *gen_out, int *st) {
+    scrip_coctx_t *c = (scrip_coctx_t *)h.p;
+    void *slot = (h.v == DT_CO && c) ? rt_genp_of_co(c) : (void *)0;
+    *st = -1;
+    if (!slot || c->pl_gen != gen || !(c->pl_park == 2 || (!cmd && c->pl_park == 3))) return FAILDESCR;
+    c->pl_cmd = cmd ? 1 : 0;
+    c->pl_tr = *tr;
+    c->pl_floor = cmd ? *tr : c->pl_base;
+    { scrip_coctx_t *me = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); me->pl_xtr = 0; }
+    return rt_plco_settle(c, slot, rt_proc_resume_frame_h(&slot), tr, gen_out, st);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PROC_FRAME_NEST_QWORDS 512
 #define DCR_CELL_CACHE_SIZE 2048
 #define DCR_CELL_CACHE_MASK (DCR_CELL_CACHE_SIZE - 1)

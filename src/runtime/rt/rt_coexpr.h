@@ -46,6 +46,14 @@ typedef struct scrip_coctx_t {
     long cur_line;
     jmp_buf exit_jmp;
     size_t stk_need;
+    long pl_gen;
+    long pl_seq;
+    int pl_park;
+    int pl_cmd;
+    char *pl_tr;
+    char *pl_floor;
+    char *pl_base;
+    char *pl_xtr;
 } scrip_coctx_t;
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);

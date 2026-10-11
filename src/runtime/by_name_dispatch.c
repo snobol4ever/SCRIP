@@ -6862,6 +6862,80 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
 }
 #define PL_CX_LEAF_HEAD(nm, ar) DESCR_t rt_pl_dop_##nm##_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {int ok; if (nargs != ar) return FAILDESCR;pl_atoms_ready();rt_pl_tr_gc_sync(cx->tr);
 #define PL_CX_LEAF_TAIL rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int rt_plco_mark(char *tr);
+extern int rt_plco_inside(void);
+extern int rt_plco_park(int kind, DESCR_t r, char **tr, long *gen, long gen_in);
+extern DESCR_t rt_plco_after_start(void *h, DESCR_t r, char **tr, long *gen_out, int *st, DESCR_t *hd);
+extern DESCR_t rt_plco_resume(DESCR_t h, long cmd, long gen, char **tr, long *gen_out, int *st);
+extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
+static DESCR_t pl_co_answer(DESCR_t *args, int ir, DESCR_t r, long gen, int st, pl_tr_ctx_t *cx) {
+    char *tr0 = cx->tr;
+    void *pend = st > 0 ? (void *)0 : *pl_tr_ball_slot(pl_tr_base_of(cx->tr));
+    if (pend) { cx->ball = pend; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
+    int ok = st > 0 && plw_unify_vals(args[ir], r, cx) && plw_unify_vals(args[ir + 1], INTVAL(gen), cx);
+    if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
+    rt_pl_tr_gc_sync(cx->tr);
+    return ok ? pl_ok() : FAILDESCR;
+}
+DESCR_t rt_pl_dop_co_start_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    DESCR_t g, r, hd = {0};
+    void *h = (void *)0, *ball = (void *)0;
+    char *tr = cx->tr;
+    long gen = 0;
+    int st = 0;
+    if (nargs != 4) return FAILDESCR;
+    pl_atoms_ready();
+    rt_pl_tr_gc_sync(cx->tr);
+    g = rt_pl_deref_val(args[0]);
+    r = rt_pl_goal_gen_h_c(pl_mk_atom_dup("$co_body", 8), &g, 1, &h, &ball, cx);
+    if (ball) { cx->ball = ball; return FAILDESCR; }
+    r = rt_plco_after_start(h, r, &tr, &gen, &st, &hd);
+    cx->tr = tr;
+    if (st > 0 && !plw_unify_vals(args[1], hd, cx)) st = 0;
+    return pl_co_answer(args, 2, r, gen, st, cx);
+}
+DESCR_t rt_pl_dop_co_resume_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    DESCR_t h, cm, gn, r;
+    char *tr = cx->tr;
+    long gen = 0;
+    int st = 0;
+    if (nargs != 5) return FAILDESCR;
+    rt_pl_tr_gc_sync(cx->tr);
+    h = rt_pl_deref_val(args[0]);
+    cm = rt_pl_deref_val(args[1]);
+    gn = rt_pl_deref_val(args[2]);
+    if (cm.v != DT_I || gn.v != DT_I) return FAILDESCR;
+    r = rt_plco_resume(h, (long)cm.i, (long)gn.i, &tr, &gen, &st);
+    if (st < 0) { cx->ball = rt_pl_ball_permission3("resume", "continuation", h); return FAILDESCR; }
+    cx->tr = tr;
+    return pl_co_answer(args, 3, r, gen, st, cx);
+}
+static DESCR_t pl_co_park_leaf(DESCR_t *args, int kind, long gen_in, int bind_gen, pl_tr_ctx_t *cx) {
+    DESCR_t r = rt_pl_deref_val(args[kind >= 4 ? 1 : 0]);
+    char *tr = cx->tr;
+    long gen = 0;
+    int cmd, ok;
+    rt_pl_tr_gc_sync(cx->tr);
+    cmd = rt_plco_park(kind, r, &tr, &gen, gen_in);
+    if (cmd < 0) { cx->ball = rt_pl_ball_permission3("backtrack", "continuation", r); return FAILDESCR; }
+    cx->tr = tr;
+    ok = cmd > 0 && bind_gen && plw_unify_vals(args[1], INTVAL(gen), cx);
+    rt_pl_tr_gc_sync(cx->tr);
+    return ok ? pl_ok() : FAILDESCR;
+}
+DESCR_t rt_pl_dop_co_yield_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { return nargs == 2 ? pl_co_park_leaf(args, 2, 0, 1, cx) : FAILDESCR; }
+DESCR_t rt_pl_dop_co_unwound_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    DESCR_t gn = nargs == 2 ? rt_pl_deref_val(args[1]) : FAILDESCR;
+    return gn.v == DT_I ? pl_co_park_leaf(args, 3, (long)gn.i, 0, cx) : FAILDESCR;
+}
+DESCR_t rt_pl_dop_co_finish_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    DESCR_t cd = nargs == 2 ? rt_pl_deref_val(args[0]) : FAILDESCR;
+    return cd.v == DT_I ? pl_co_park_leaf(args, cd.i ? 5 : 4, 0, 0, cx) : FAILDESCR;
+}
+PL_CX_LEAF_HEAD(co_mark, 0) ok = rt_plco_mark(cx->tr); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(co_inside, 0) ok = rt_plco_inside(); PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(compare, 3) ok = rt_pl_compare_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(functor, 3) ok = rt_pl_functor_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(arg, 3) ok = rt_pl_arg_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL

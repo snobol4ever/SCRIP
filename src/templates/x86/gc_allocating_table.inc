@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2626
+#define GC_ALLOC_TAB_N 2644
 #define GC_ALLOC_TAB_N_VOID 311
-#define GC_ALLOC_TAB_N_DESCR 1246
-#define GC_ALLOC_TAB_N_OTHER 1052
+#define GC_ALLOC_TAB_N_DESCR 1263
+#define GC_ALLOC_TAB_N_OTHER 1053
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -960,6 +960,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_cell_is_clref", GC_RET_OTHER },
     { "pl_cell_text", GC_RET_OTHER },
     { "pl_cell_tree", GC_RET_OTHER },
+    { "pl_co_answer", GC_RET_DESCR },
+    { "pl_co_park_leaf", GC_RET_DESCR },
     { "pl_code_range_ball", GC_RET_OTHER },
     { "pl_conj_top_cut", GC_RET_OTHER },
     { "pl_cons", GC_RET_DESCR },
@@ -1902,6 +1904,20 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_clause_unify_c", GC_RET_DESCR },
     { "rt_pl_dop_close", GC_RET_DESCR },
     { "rt_pl_dop_close_c", GC_RET_DESCR },
+    { "rt_pl_dop_co_finish", GC_RET_DESCR },
+    { "rt_pl_dop_co_finish_c", GC_RET_DESCR },
+    { "rt_pl_dop_co_inside", GC_RET_DESCR },
+    { "rt_pl_dop_co_inside_c", GC_RET_DESCR },
+    { "rt_pl_dop_co_mark", GC_RET_DESCR },
+    { "rt_pl_dop_co_mark_c", GC_RET_DESCR },
+    { "rt_pl_dop_co_resume", GC_RET_DESCR },
+    { "rt_pl_dop_co_resume_c", GC_RET_DESCR },
+    { "rt_pl_dop_co_start", GC_RET_DESCR },
+    { "rt_pl_dop_co_start_c", GC_RET_DESCR },
+    { "rt_pl_dop_co_unwound", GC_RET_DESCR },
+    { "rt_pl_dop_co_unwound_c", GC_RET_DESCR },
+    { "rt_pl_dop_co_yield", GC_RET_DESCR },
+    { "rt_pl_dop_co_yield_c", GC_RET_DESCR },
     { "rt_pl_dop_compare", GC_RET_DESCR },
     { "rt_pl_dop_compare_c", GC_RET_DESCR },
     { "rt_pl_dop_concat_atom", GC_RET_DESCR },
@@ -2369,6 +2385,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_writeq_cell", GC_RET_VOID },
     { "rt_pl_zguard_cold", GC_RET_DESCR },
     { "rt_pl_zguard_cold_c", GC_RET_OTHER },
+    { "rt_plco_park", GC_RET_OTHER },
+    { "rt_plco_resume", GC_RET_DESCR },
     { "rt_pm_struct_alloc", GC_RET_OTHER },
     { "rt_pow", GC_RET_DESCR },
     { "rt_pow_sno", GC_RET_DESCR },
