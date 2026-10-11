@@ -1,4 +1,5 @@
 #include <string.h>
+#include <unistd.h>
 #include "ct_arena.h"
 #include "ct_vec.h"
 #include <stdlib.h>
@@ -5361,6 +5362,40 @@ int lower_raku_refuse(const tree_t * prog, const char * file) {
     extern void core_error_voice_at(int code, const char *msg, const char *file, long line, long stno);
     core_error_voice_at(701, msg, file, line, 0);
     return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_source_terms(tree_t * t, const char * given, const char * absolute) {
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t * c = t->c[i];
+        rk_source_terms(c, given, absolute);
+        if (!c || c->t != TT_VAR || !c->v.sval) continue;
+        int prog = !strcmp(c->v.sval, "*PROGRAM"), name = !strcmp(c->v.sval, "*PROGRAM-NAME"), file = !strcmp(c->v.sval, "?FILE");
+        if (!prog && !name && !file) continue;
+        tree_t * f = ast_node_new(TT_FNC);
+        f->line = c->line;
+        f->v.sval = (char *) "__rk_pre_src";
+        ast_push(f, leaf_sval2(TT_VAR, "__rk_pre_src"));
+        ast_push(f, leaf_sval2(TT_QLIT, prog ? "*PROGRAM" : "*PROGRAM-NAME"));
+        ast_push(f, leaf_sval2(TT_QLIT, file ? absolute : given));
+        t->c[i] = f;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void lower_raku_source(tree_t * prog, const char * file) {
+    if (!prog || !file || !*file) return;
+    const char * absolute = file;
+    if (file[0] != '/') {
+        char * cwd = NULL;
+        for (size_t n = 256; n < ((size_t) 1 << 24) && !cwd; n *= 2) { char * b = (char *) ct_alloc(n); if (getcwd(b, n)) cwd = b; else ct_drop(b); }
+        if (cwd) {
+            const char * rel = (file[0] == '.' && file[1] == '/') ? file + 2 : file;
+            char joined[fmt_len("%s/%s", cwd, rel)];
+            snprintf(joined, sizeof joined, "%s/%s", cwd, rel);
+            absolute = lp_strdup(joined);
+            ct_drop(cwd);
+        }
+    }
+    rk_source_terms(prog, lp_strdup(file), absolute);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_raku_stage2(const tree_t *prog) { return rk_stage2_core(prog, 1, 1); }

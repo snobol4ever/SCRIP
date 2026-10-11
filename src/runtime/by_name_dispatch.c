@@ -12243,6 +12243,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "__rk_hash")) { DESCR_t hh = TABLE_VAL(table_new()); for (int i = 0; i + 1 < nargs; i += 2) hh = rk_hash_store(hh, args[i], args[i + 1]); *out = hh; return 1; }
+    if (!strcmp(fn, "__rk_pre_src") && nargs == 2) { const char *p = rk_cstr(args[1]); *out = !strcmp(rk_cstr(args[0]), "*PROGRAM") ? rk_io_mk(p) : STRVAL(rt_heap_strdup_c(p)); return 1; }
     if (!strcmp(fn, "__rk_pre") && nargs == 1) { if (!rk_pre_value(rk_cstr(args[0]), out)) *out = NULVCL; return 1; }
     if (!strcmp(fn, "__rk_to_hash") && nargs == 1) {
         if (args[0].v == DT_T && args[0].tbl) *out = rk_hash_copy(args[0]);
