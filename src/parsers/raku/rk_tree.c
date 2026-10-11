@@ -196,7 +196,7 @@ static tree_t *rk_testop_shape(RkB *b, tree_t *c) {
         if (lives) {
             tree_t *fl = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, fv), make_call("__rk_mkbool")); expr_add_child(fl->c[1], rk_ilit(0));
             tree_t *cs = ast_node_new(TT_CASE), *cb = ast_node_new(TT_SEQ_EXPR), *ct = ast_node_new(TT_CATCH), *cq = ast_node_new(TT_SEQ_EXPR);
-            expr_add_child(cb, fl); expr_add_child(cs, leaf_sval(TT_VAR, "_")); expr_add_child(cs, ast_node_new(TT_NUL)); expr_add_child(cs, cb); expr_add_child(cq, cs); expr_add_child(ct, cq); expr_add_child(body, ct);
+            expr_add_child(cb, fl); expr_add_child(cs, leaf_sval(TT_VAR, "_")); { tree_t *da = ast_node_new(TT_ARM); expr_add_child(da, cb); expr_add_child(cs, da); } expr_add_child(cq, cs); expr_add_child(ct, cq); expr_add_child(body, ct);
         } else {
             tree_t *fl = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, fv), make_call("__rk_mkbool")); expr_add_child(fl->c[1], rk_ilit(0)); expr_add_child(body, fl);
         }
@@ -2908,11 +2908,10 @@ void rkb_when(RkB *b, tree_t *list, int bk, RkList *cond, tree_t *blk) {
     if (!list) return;
     tree_t *c = rkb_expr(b, cond);
     if (bk == BK_CATCH) c = rk_catch_when_cond(c);
-    if (bk == BK_GIVEN || bk == BK_CATCH) { ast_push(list, c); ast_push(list, blk); return; }
-    tree_t *e = ast_node_new(TT_IF); expr_add_child(e, c); expr_add_child(e, blk); ast_push(list, e);
+    tree_t *w = ast_node_new(TT_ARM); expr_add_child(w, c); expr_add_child(w, blk); ast_push(list, w);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rkb_default(RkB *b, tree_t *list, tree_t *blk) { (void) b; if (!list) return; ast_push(list, ast_node_new(TT_NUL)); ast_push(list, blk); }
+void rkb_default(RkB *b, tree_t *list, tree_t *blk) { (void) b; if (!list) return; tree_t *w = ast_node_new(TT_ARM); expr_add_child(w, blk); ast_push(list, w); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_catch(RkB *b, tree_t *body, int whens) {
     tree_t *e = ast_node_new(TT_CATCH);

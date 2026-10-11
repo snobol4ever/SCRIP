@@ -517,21 +517,24 @@ static const tree_t * rk_catch_handler(const tree_t * c) {
         if (u && u->t == TT_STMT) { const tree_t * sub = stmt_subj(u); if (sub) u = sub; }
         if (i != ci) { ast_push(nh, (tree_t *) s); continue; }
         int hasdef = 0;
-        for (int k = 1; k < u->n; k += 2) if (u->c[k] && u->c[k]->t == TT_NUL) hasdef = 1;
+        for (int k = 1; k < u->n; k++) if (u->c[k] && u->c[k]->t == TT_ARM && u->c[k]->n == 1) hasdef = 1;
         if (hasdef) { ast_push(nh, (tree_t *) s); continue; }
         tree_t * nc = ast_node_new(TT_CASE);
         nc->line = u->line;
         for (int k = 0; k < u->n; k++) ast_push(nc, u->c[k]);
-        ast_push(nc, ast_node_new(TT_NUL));
         tree_t * rb = ast_node_new(TT_SEQ_EXPR);
         ast_push(rb, rt);
-        ast_push(nc, rb);
+        tree_t * da = ast_node_new(TT_ARM);
+        ast_push(da, rb);
+        ast_push(nc, da);
         ast_push(nh, nc);
     }
     if (ci < 0) ast_push(nh, rt);
     return nh;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_arm_chain(const tree_t * const * st, int n, const char * subj);
+static int rk_block_has_arm(const tree_t * t);
 static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** last_res) {
     if (t && (t->t == TT_SEQ || t->t == TT_SEQ_EXPR || t->t == TT_PROGRAM) && t->slen != 78) {
         const tree_t * ct = rk_catch_of(t);
@@ -550,6 +553,10 @@ static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
             if (last_res) *last_res = r;
             return e;
         }
+    }
+    if (t && (t->t == TT_SEQ || t->t == TT_SEQ_EXPR || t->t == TT_PROGRAM) && rk_block_has_arm(t)) {
+        tree_t * ch = rk_arm_chain((const tree_t * const *) t->c, t->n, "_");
+        return lower_rblock(cx, ch, γ, ω, last_res);
     }
     if (!t) return (γ && ir_is_generator_kind(γ->op)) ? γ : build(cx, IR_SUCCEED, γ, ω);
     if (t->t != TT_SEQ && t->t != TT_PROGRAM && t->t != TT_SEQ_EXPR) { IR_t * r = NULL; IR_t * e = lower_rv(cx, t, γ, ω, &r); if (last_res) *last_res = r; return e; }
@@ -746,27 +753,57 @@ static tree_t * rk_case_match(const tree_t * subj, const tree_t * cond) {
     return eq;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * rk_case_desugar(const tree_t * t) {
-    char nb[48];
-    snprintf(nb, sizeof nb, "__case_%d", g_lower.rk.rk_case_desugar_cid++);
-    const char * vn = intern(nb);
-    tree_t * chain = NULL;
-    for (int i = t->n - 2; i >= 1; i -= 2) {
-        const tree_t * cond = t->c[i];
-        const tree_t * blk = t->c[i + 1];
-        if (cond && cond->t == TT_NUL) { chain = (tree_t *) blk; continue; }
+static tree_t * rk_arm_chain(const tree_t * const * st, int n, const char * subj) {
+    tree_t * rest = NULL;
+    const tree_t * run[n > 0 ? n : 1];
+    int nr = 0;
+    for (int i = n - 1; i >= -1; i--) {
+        const tree_t * u = i >= 0 ? st[i] : NULL;
+        if (u && u->t == TT_STMT) { const tree_t * sub = stmt_subj(u); if (sub) u = sub; }
+        int arm = u && u->t == TT_ARM && u->n >= 1;
+        if (i >= 0 && !arm) { run[nr++] = st[i]; continue; }
+        if (nr) { tree_t * sq = ast_node_new(TT_SEQ_EXPR); for (int k = nr - 1; k >= 0; k--) ast_push(sq, (tree_t *) run[k]); if (rest) ast_push(sq, rest); rest = sq; nr = 0; }
+        if (i < 0) break;
+        if (u->n == 1) { rest = (tree_t *) u->c[0]; continue; }
         tree_t * gate = ast_node_new(TT_IF);
-        ast_push(gate, rk_case_match(leaf_sval2(TT_VAR, vn), cond));
-        ast_push(gate, (tree_t *) blk);
-        if (chain) ast_push(gate, chain);
-        chain = gate;
+        ast_push(gate, rk_case_match(leaf_sval2(TT_VAR, subj), u->c[0]));
+        ast_push(gate, (tree_t *) u->c[1]);
+        if (rest) ast_push(gate, rest);
+        rest = gate;
     }
+    return rest;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_block_has_arm(const tree_t * t) {
+    for (int i = 0; t && i < t->n; i++) { const tree_t * u = t->c[i]; if (u && u->t == TT_STMT) { const tree_t * sub = stmt_subj(u); if (sub) u = sub; } if (u && u->t == TT_ARM) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_case_desugar(const tree_t * t) {
+    int cid = g_lower.rk.rk_case_desugar_cid++;
+    char nb[48], sb[48];
+    snprintf(nb, sizeof nb, "__case_%d", cid);
+    snprintf(sb, sizeof sb, "__casesv_%d", cid);
+    const char * vn = intern(nb), * sv = intern(sb);
+    tree_t * chain = rk_arm_chain((const tree_t * const *) t->c + 1, t->n - 1, vn);
     tree_t * seq = ast_node_new(TT_SEQ);
     tree_t * as = ast_node_new(TT_ASSIGN);
     ast_push(as, leaf_sval2(TT_VAR, vn));
     ast_push(as, (tree_t *) t->c[0]);
     ast_push(seq, as);
+    tree_t * sa = ast_node_new(TT_ASSIGN);
+    ast_push(sa, leaf_sval2(TT_VAR, sv));
+    ast_push(sa, leaf_sval2(TT_VAR, "_"));
+    ast_push(seq, sa);
+    tree_t * ta = ast_node_new(TT_ASSIGN);
+    ast_push(ta, leaf_sval2(TT_VAR, "_"));
+    ast_push(ta, leaf_sval2(TT_VAR, vn));
+    ast_push(seq, ta);
     if (chain) ast_push(seq, chain);
+    tree_t * ra = ast_node_new(TT_ASSIGN);
+    ast_push(ra, leaf_sval2(TT_VAR, "_"));
+    ast_push(ra, leaf_sval2(TT_VAR, sv));
+    ast_push(seq, ra);
     return seq;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
