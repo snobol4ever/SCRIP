@@ -97,6 +97,8 @@ LIB_FLAGS = {"clpfd": [("clpfd_propagation", "default", "read by the propagation
 HOOK_HEADS = {("term_expansion", 2), ("goal_expansion", 2), ("term_expansion", 4), ("goal_expansion", 4)}
 OMIT = {"aggregate": {("foreach", 2): "SWI's foreach/2 resets its template between solutions with '$unbind_template'/1, SWI C; the base prelude "
                                       "hand-types it as SWI 6 did, copying the goal per solution with its other variables kept shared"},
+        "quintus": {("current_stream", 3): "SCRIP lowers current_stream/3 natively (lower_prolog.c, the GNU and ISO stream table); the library's clause, a "
+                                           "file definition, would override that lowering in every program naming it"},
         "strings": {("string", 4): "quasi-quotation support ({|string(X)||...|}); SCRIP's reader has no quasi-quotations, and the bare name string "
                                     "would select the library in every program that tests string/1"}}
 DICT_METHOD_HEADS = {(":=", 2)}

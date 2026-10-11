@@ -12676,6 +12676,163 @@ static const char PL_PRELUDE_LIB_10_SRC[] =
     "    call(Pred, H, K),\n"
     "    '$pairs_map_list_to_pairs2'(T0, Pred, T).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
+    { "unix", 1 },
+    { "abs", 2 },
+    { "sin", 2 },
+    { "cos", 2 },
+    { "tan", 2 },
+    { "log", 2 },
+    { "log10", 2 },
+    { "pow", 3 },
+    { "ceiling", 2 },
+    { "floor", 2 },
+    { "round", 2 },
+    { "acos", 2 },
+    { "asin", 2 },
+    { "atan", 2 },
+    { "atan2", 3 },
+    { "sign", 2 },
+    { "sqrt", 2 },
+    { "genarg", 3 },
+    { "mode", 1 },
+    { "no_style_check", 1 },
+    { "otherwise", 0 },
+    { "simple", 1 },
+    { "prolog_flag", 2 },
+    { "date", 1 },
+    { "stream_position", 3 },
+    { "skip_line", 0 },
+    { "skip_line", 1 },
+    { "compile", 1 },
+    { "atom_char", 2 },
+    { "midstring", 3 },
+    { "midstring", 4 },
+    { "midstring", 5 },
+    { "midstring", 6 },
+    { "raise_exception", 1 },
+    { "on_exception", 3 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_11_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_11_SRC[] =
+    "unix(system(Command)) :-\n"
+    "    shell(Command).\n"
+    "unix(shell(Command)) :-\n"
+    "    shell(Command).\n"
+    "unix(shell) :-\n"
+    "    shell.\n"
+    "unix(access(File, 0)) :-\n"
+    "    access_file(File, read).\n"
+    "unix(cd) :-\n"
+    "    expand_file_name(~, [Home]),\n"
+    "    working_directory(_, Home).\n"
+    "unix(cd(Dir)) :-\n"
+    "    working_directory(_, Dir).\n"
+    "unix(args(L)) :-\n"
+    "    current_prolog_flag(os_argv, L).\n"
+    "unix(argv(L)) :-\n"
+    "    current_prolog_flag(os_argv, S),\n"
+    "    maplist('$quintus_to_prolog', S, L).\n"
+    "'$quintus_to_prolog'(S, A) :-\n"
+    "    name(S, L),\n"
+    "    name(A, L).\n"
+    "otherwise.\n"
+    "abs(Number, Absolute) :-\n"
+    "    Absolute is abs(Number).\n"
+    "sin(A, V) :-      V is sin(A).\n"
+    "cos(A, V) :-      V is cos(A).\n"
+    "tan(A, V) :-      V is tan(A).\n"
+    "log(A, V) :-      V is log(A).\n"
+    "log10(X, V) :-    V is log10(X).\n"
+    "pow(X,Y,V) :-     V is X**Y.\n"
+    "ceiling(X, V) :-  V is ceil(X).\n"
+    "floor(X, V) :-    V is floor(X).\n"
+    "round(X, V) :-    V is round(X).\n"
+    "sqrt(X, V) :-     V is sqrt(X).\n"
+    "acos(X, V) :-     V is acos(X).\n"
+    "asin(X, V) :-     V is asin(X).\n"
+    "atan(X, V) :-     V is atan(X).\n"
+    "atan2(Y, X, V) :- V is atan(Y, X).\n"
+    "sign(X, V) :-     V is sign(X).\n"
+    "genarg(N, T, A) :-\n"
+    "    arg(N, T, A).\n"
+    "prolog_flag(version, Version) :-\n"
+    "    !,\n"
+    "    current_prolog_flag(version_data, swi(Major, Minor, Patch, _)),\n"
+    "    current_prolog_flag(arch, Arch),\n"
+    "    current_prolog_flag(compiled_at, Compiled),\n"
+    "    atomic_list_concat(['SWI-Prolog ',\n"
+    "                 Major, '.', Minor, '.', Patch,\n"
+    "                 ' (', Arch, '): ', Compiled], Version).\n"
+    "prolog_flag(Flag, Value) :-\n"
+    "    current_prolog_flag(Flag, Value).\n"
+    "date(Date) :-\n"
+    "    get_time(T),\n"
+    "    stamp_date_time(T, DaTime, local),\n"
+    "    date_time_value(date, DaTime, Date).\n"
+    "'$quintus_q_style_option'(single_var, singleton) :- !.\n"
+    "'$quintus_q_style_option'(Option, Option).\n"
+    "no_style_check(QOption) :-\n"
+    "    '$quintus_q_style_option'(QOption, SWIOption),\n"
+    "    style_check(-SWIOption).\n"
+    "mode(_).\n"
+    "simple(X) :-\n"
+    "    (   atomic(X)\n"
+    "    ->  true\n"
+    "    ;   var(X)\n"
+    "    ).\n"
+    "'$quintus_stream_mode'(read,   read).\n"
+    "'$quintus_stream_mode'(write,  write).\n"
+    "'$quintus_stream_mode'(append, write).\n"
+    "'$quintus_stream_mode'(update, write).\n"
+    "stream_position(Stream, Old, New) :-\n"
+    "    stream_property(Stream, position(Old)),\n"
+    "    set_stream_position(Stream, New).\n"
+    "skip_line :-\n"
+    "    skip(10).\n"
+    "skip_line(Stream) :-\n"
+    "    skip(Stream, 10).\n"
+    "compile(Files) :-\n"
+    "    consult(Files).\n"
+    "atom_char(Char, Code) :-\n"
+    "    char_code(Char, Code).\n"
+    "midstring(ABC, B, AC) :-\n"
+    "    midstring(ABC, B, AC, _, _, _).\n"
+    "midstring(ABC, B, AC, LenA) :-\n"
+    "    midstring(ABC, B, AC, LenA, _, _).\n"
+    "midstring(ABC, B, AC, LenA, LenB) :-\n"
+    "    midstring(ABC, B, AC, LenA, LenB, _).\n"
+    "midstring(ABC, B, AC, LenA, LenB, LenC) :-\n"
+    "    var(ABC),\n"
+    "    !,\n"
+    "    atom_length(AC, LenAC),\n"
+    "    (   nonvar(LenA) ; nonvar(LenC)\n"
+    "    ->  plus(LenA, LenC, LenAC)\n"
+    "    ;   true\n"
+    "    ),\n"
+    "    sub_atom(AC, 0, LenA, _, A),\n"
+    "    LenC is LenAC - LenA,\n"
+    "    sub_atom(AC, _, LenC, 0, C),\n"
+    "    atom_length(B, LenB),\n"
+    "    atomic_list_concat([A,B,C], ABC).\n"
+    "midstring(ABC, B, AC, LenA, LenB, LenC) :-\n"
+    "    sub_atom(ABC, LenA, LenB, LenC, B),\n"
+    "    sub_atom(ABC, 0, LenA, _, A),\n"
+    "    sub_atom(ABC, _, LenC, 0, C),\n"
+    "    atom_concat(A, C, AC).\n"
+    "raise_exception(Term) :-\n"
+    "    throw(Term).\n"
+    "on_exception(Except, Goal, Recover) :-\n"
+    "    catch(Goal, Except, Recover).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
     { "rb_new", 1 },
     { "rb_empty", 1 },
     { "rb_lookup", 3 },
@@ -12706,16 +12863,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "rb_in", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_11_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_12_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_11_SRC[] =
+static const char PL_PRELUDE_LIB_12_SRC[] =
     "rb_new(t(Nil,Nil)) :-\n"
     "    Nil = black('',_,_,'').\n"
     "rb_empty(t(Nil,Nil)) :-\n"
@@ -13324,7 +13481,7 @@ static const char PL_PRELUDE_LIB_11_SRC[] =
     "'$rbtrees_check_red_child'(black(_,_,_,_)) => true.\n"
     "'$rbtrees_check_red_child'(Node), Node = red(_,_,_,_) =>\n"
     "    domain_error(rb_black, Node).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_EXPORTS[] = {
     { "dedent_lines", 3 },
     { "indent_lines", 3 },
     { "indent_lines", 4 },
@@ -13332,16 +13489,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
     { "string_lines", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_12_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_13_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_12_SRC[] =
+static const char PL_PRELUDE_LIB_13_SRC[] =
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
     "interpolate_string(Module:In, Out, Map, Options) :-\n"
     "    '$strings_comp_interpolate'(In, Compiled, Map, [module(Module)|Options]),\n"
@@ -13563,7 +13720,8 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "option", PL_PRELUDE_LIB_8_EXPORTS, PL_PRELUDE_LIB_8_OPS, PL_PRELUDE_LIB_8_SHADOWS, PL_PRELUDE_LIB_8_QUIET, PL_PRELUDE_LIB_8_SRC },
     { "ordsets", PL_PRELUDE_LIB_9_EXPORTS, PL_PRELUDE_LIB_9_OPS, PL_PRELUDE_LIB_9_SHADOWS, PL_PRELUDE_LIB_9_QUIET, PL_PRELUDE_LIB_9_SRC },
     { "pairs", PL_PRELUDE_LIB_10_EXPORTS, PL_PRELUDE_LIB_10_OPS, PL_PRELUDE_LIB_10_SHADOWS, PL_PRELUDE_LIB_10_QUIET, PL_PRELUDE_LIB_10_SRC },
-    { "rbtrees", PL_PRELUDE_LIB_11_EXPORTS, PL_PRELUDE_LIB_11_OPS, PL_PRELUDE_LIB_11_SHADOWS, PL_PRELUDE_LIB_11_QUIET, PL_PRELUDE_LIB_11_SRC },
-    { "strings", PL_PRELUDE_LIB_12_EXPORTS, PL_PRELUDE_LIB_12_OPS, PL_PRELUDE_LIB_12_SHADOWS, PL_PRELUDE_LIB_12_QUIET, PL_PRELUDE_LIB_12_SRC },
+    { "quintus", PL_PRELUDE_LIB_11_EXPORTS, PL_PRELUDE_LIB_11_OPS, PL_PRELUDE_LIB_11_SHADOWS, PL_PRELUDE_LIB_11_QUIET, PL_PRELUDE_LIB_11_SRC },
+    { "rbtrees", PL_PRELUDE_LIB_12_EXPORTS, PL_PRELUDE_LIB_12_OPS, PL_PRELUDE_LIB_12_SHADOWS, PL_PRELUDE_LIB_12_QUIET, PL_PRELUDE_LIB_12_SRC },
+    { "strings", PL_PRELUDE_LIB_13_EXPORTS, PL_PRELUDE_LIB_13_OPS, PL_PRELUDE_LIB_13_SHADOWS, PL_PRELUDE_LIB_13_QUIET, PL_PRELUDE_LIB_13_SRC },
     { 0, 0, 0, 0, 0, 0 }
 };
