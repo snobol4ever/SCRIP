@@ -1047,13 +1047,16 @@ s4e_lane_owner_of_language() {
       # ⛔⭐ MODE SEPTET (CEO-1662, 2026-10-11 10:3x CDT, Lon in-chat to the ceo, verbatim: "I suppose we should start HQ-SNOBOL4, HQ-ICON, and HQ-PROLOG to help."):
       # ICON to hq_icon, SNOBOL4 to hq_snobol4, PROLOG to hq_prolog, the other four to the ceo, who assigns; rows with an owner cell keep their owner. The QUARTET
       # table of CEO-1659 is the flip-back template (every language the ceo). MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
+      # ⛔⭐ MODE TENET (CEO-1665, 2026-10-11 11:3x CDT, Lon in-chat to the ceo, verbatim: "I suppose we can get the remaining 7 HQ's up and running all seated as Sonnet 5.5
+      # with xhigh effort. Lift the ban on Pascal and Raku."): the four officers and all ten HQs; the CEO-1383/1530 TENET table again -- every language to its own HQ, rebus
+      # the ceo's keep-green. The SEPTET table of CEO-1662 is the flip-back template. MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
        icon)     printf 'hq_icon';;
        prolog)   printf 'hq_prolog';;
        snobol4)  printf 'hq_snobol4';;
-       pascal)   printf 'ceo';;
-       snocone)  printf 'ceo';;
+       pascal)   printf 'hq_pascal';;
+       snocone)  printf 'hq_snocone';;
        rebus)    printf 'ceo';;
-       raku)     printf 'ceo';;
+       raku)     printf 'hq_raku';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
