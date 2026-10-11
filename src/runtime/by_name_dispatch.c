@@ -14723,7 +14723,12 @@ static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bi
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, 0, 0, (long *)0)); }
 DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, 1, 0, (long *)0)); }
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0, (long *)0)); }
-DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0, (long *)0)); }
+static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out);
+DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) {
+    DESCR_t out;
+    if (bidlen >= 0 && icn_bi_direct(bidlen, args, nargs, &out)) return out;
+    return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0, (long *)0));
+}
 #define RT_CTOR_IC_N 256
 static struct { const char *fn; void *dt; long gen; } g_ctor_ic[RT_CTOR_IC_N];
 static long rt_ctor_gen(void) {
@@ -15926,6 +15931,28 @@ static dtax_ent_t g_dtax[256];
 static dtax_ent_t g_dtax_bid[1025];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dtax_off(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_DTAX_OFF"); p = (e && *e) ? 1 : 0; } return p; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_bi_string_of_int(DESCR_t av, DESCR_t *out) {
+    char tmp[24], *e = tmp + sizeof tmp;
+    unsigned long long u = av.i < 0 ? 0ull - (unsigned long long)av.i : (unsigned long long)av.i;
+    do { *--e = (char)('0' + u % 10ull); u /= 10ull; } while (u);
+    if (av.i < 0) *--e = '-';
+    size_t n = (size_t)(tmp + sizeof tmp - e);
+    char *ib = rt_wsb_alloc(n + 1);
+    memcpy(ib, e, n);
+    ib[n] = 0;
+    *out = (DESCR_t){ .v = DT_S, .slen = (uint32_t)n, .s = ib };
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
+    const int bid = bidlen & BID_BAKE_MASK;
+    const unsigned fnlen = (unsigned)bidlen >> 16;
+    if (nargs != 1 || bid != BID_string || !fnlen || fnlen >= 14 || dtax_off() || g_dtax_bid[bid].gen != rt_dtax_gen || g_dtax_bid[bid].kind != 0) return 0;
+    if (args[0].v == DT_I) return icn_bi_string_of_int(args[0], out);
+    if (args[0].v == DT_S && !IS_CSET_fn(args[0])) { *out = args[0]; return 1; }
+    return 0;
+}
 static void dtx4(dtax_ent_t *e, unsigned char l, const char *nm, void *h) {
     if (!e || !l) return;
     e->gen = rt_dtax_gen;
@@ -17513,18 +17540,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         if (IS_CSET_fn(av)) { *out = c_rt_str_coerce(av); return 1; }
         if (IS_STR_fn(av)) { *out = av; return 1; }
         if (av.v == DT_BIG) { extern char *rt_big_str(DESCR_t); *out = STRVAL(rt_big_str(av)); return 1; }
-        if (IS_INT_fn(av)) {
-            char tmp[24], *e = tmp + sizeof tmp;
-            unsigned long long u = av.i < 0 ? 0ull - (unsigned long long)av.i : (unsigned long long)av.i;
-            do { *--e = (char)('0' + u % 10ull); u /= 10ull; } while (u);
-            if (av.i < 0) *--e = '-';
-            size_t n = (size_t)(tmp + sizeof tmp - e);
-            char *ib = rt_wsb_alloc(n + 1);
-            memcpy(ib, e, n);
-            ib[n] = 0;
-            *out = (DESCR_t){ .v = DT_S, .slen = (uint32_t)n, .s = ib };
-            return 1;
-        }
+        if (IS_INT_fn(av)) return icn_bi_string_of_int(av, out);
         char *buf = rt_wsb_alloc(64);
         if (IS_REAL_fn(av)) { icon_real_str(av.r,buf,64); } else { *out = FAILDESCR; return 1; }
         *out = STRVAL(buf);
