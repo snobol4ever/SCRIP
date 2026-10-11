@@ -1830,8 +1830,10 @@ static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop) {
     }
     return 0;
 }
+static long g_gc_poison_coll;
 static long gc_stack_segments(char *floor, const gc_ent_t *ent) {
     gc_seg_it_t it;
+    g_gc_poison_coll++;
     char *lo, *hi;
     int pop;
     long words = 0;
@@ -2323,6 +2325,7 @@ static void gc_mkf_add(gc_chx_t *cx, const char *base, const gc_frame_map_t *m) 
     if (base == cx->base) { if (m == cx->b->map) cx->found = 1; else if (cx->e->rule == 1 && (m->flags & GC_FRAME_MAP_ROOT)) cx->host = 1; }
     if (cx->e->rule == 0 && base == cx->rbp && !cx->ctxmap) cx->ctxmap = m;
 }
+static void gc_poison_maybe(const gc_chx_t *cx, const char *anchor, const char *base, const gc_frame_map_t *m, const char *lo, const char *hi);
 #if RT_DIAG
 static void gc_walk_range_census(const char *lo0, const char *hi0, gc_chx_t *cx) {
     const char *lo = (const char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = hi0, *p = lo;
@@ -2358,6 +2361,7 @@ static void gc_walk_range_census(const char *lo0, const char *hi0, gc_chx_t *cx)
             const char *top = c + (long)m->frame_bytes + (long)m->header_bytes;
             if (top > hi) top = hi;
             gc_walk_words_census(p, c, above ? 2 : 0, lo, above ? last : m->graph_name, c);
+            gc_poison_maybe(cx, c + (long)m->frame_bytes, c + (long)m->frame_bytes, m, lo, hi);
             gc_walk_interior_census(c + (long)m->frame_bytes, m, lo, hi);
             p = top;
         } else {
@@ -2368,6 +2372,7 @@ static void gc_walk_range_census(const char *lo0, const char *hi0, gc_chx_t *cx)
                 gc_walk_words_census(p, slo, above ? 2 : 0, lo, above ? last : m->graph_name, base);
                 if (nf == 1 && !above && g->s_raw_heap > before) gc_walk_dump(p, slo, m->graph_name);
             }
+            gc_poison_maybe(cx, base, base, m, lo, hi);
             if (m->flags & GC_FRAME_MAP_LAYOUT) gc_walk_interior_census(base, m, lo, hi);
             else g->notab++;
             gc_walk_words_census(hlo, hhi, 1, lo, m->graph_name, base);
@@ -3024,6 +3029,41 @@ static void gc_chain_judge(gc_chx_t *cx) {
     }
     if (gc_chain_check_on() == 2) abort();
 }
+static long g_gc_poison_frames, g_gc_poison_cells;
+static void gc_poison_report_atexit(void);
+static int gc_poison_mode(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_POISON"); v = (e && *e) ? atoi(e) : 0; if (v) atexit(gc_poison_report_atexit); } return v; }
+static void gc_poison_report_atexit(void) { fprintf(stderr, "[GC-PLANT] poison mode=%d applied: frames=%ld cells=%ld\n", gc_poison_mode(), g_gc_poison_frames, g_gc_poison_cells); }
+static int gc_chf_has(const gc_chx_t *cx, const char *base) {
+    long lo = 0, hi = cx->chf_n - 1;
+    while (lo <= hi) { long mid = (lo + hi) / 2; const char *b = cx->chf[mid].base; if (b == base) return 1; if (b < base) lo = mid + 1; else hi = mid - 1; }
+    return 0;
+}
+static void gc_poison_frame(const char *anchor, const gc_frame_map_t *m, const char *lo, const char *hi) {
+    const uint64_t *t = (const uint64_t *)(m + 1);
+    long n = (long)t[0];
+    for (long i = 0; i < n; i++) {
+        uint64_t q = t[1 + i];
+        int off = GC_LAY_OFF(q), size = GC_LAY_SIZE(q);
+        unsigned kind = GC_LAY_KIND(q);
+        const char *w = anchor + off, *e = w + size;
+        if (w < lo) w = (kind == GC_LAY_DESCR) ? w + (((lo - w) + 15) & ~15L) : lo;
+        if (e > hi) e = hi;
+        if (w >= e) continue;
+        if (kind == GC_LAY_DESCR) {
+            for (const char *c = w; c + 16 <= e; c += 16) {
+                DESCR_t *d = (DESCR_t *)c;
+                if (gc_tag_known(d->v) && gc_tag_bears_ptr(d->v) && gc_blk_of((const char *)d->p)) { d->v = DT_RAW; d->p = (void *)(uintptr_t)0xdb; g_gc_poison_cells++; }
+            }
+            continue;
+        }
+        if (kind == GC_LAY_PTR_GC) for (const char *c = w; c + 8 <= e; c += 8) if (gc_blk_of(*(const char *const *)c)) { *(const char **)c = (const char *)(uintptr_t)0xdb; g_gc_poison_cells++; }
+    }
+}
+static void gc_poison_maybe(const gc_chx_t *cx, const char *anchor, const char *base, const gc_frame_map_t *m, const char *lo, const char *hi) {
+    int pm = gc_poison_mode();
+    if (!pm || !cx || !cx->chf || !(m->flags & (GC_FRAME_MAP_LAYOUT | GC_FRAME_MAP_BLOB))) return;
+    if ((pm == 1 && !gc_chf_has(cx, base)) || (pm == 2 && gc_chf_has(cx, base) && g_gc_poison_coll == 10)) { g_gc_poison_frames++; gc_poison_frame(anchor, m, lo, hi); }
+}
 static void gc_walk_range(const char *lo0, const char *hi0, gc_chx_t *cx) {
 #if RT_DIAG
     if (gc_walk_census_on()) { gc_walk_range_census(lo0, hi0, cx); return; }
@@ -3041,12 +3081,14 @@ static void gc_walk_range(const char *lo0, const char *hi0, gc_chx_t *cx) {
             const char *top = c + (long)m->frame_bytes + (long)m->header_bytes;
             if (top > hi) top = hi;
             gc_walk_words(p, c, above ? 2 : 0, lo, above ? last : m->graph_name, c);
+            gc_poison_maybe(cx, c + (long)m->frame_bytes, c + (long)m->frame_bytes, m, lo, hi);
             gc_walk_interior(c + (long)m->frame_bytes, m, lo, hi);
             p = top;
         } else {
             const char *base = c - (long)m->map_off, *slo = (base < p) ? p : base, *hlo = c + 16, *hhi = hlo + (long)m->header_bytes;
             if (hhi > hi) hhi = hi;
             gc_walk_words(p, slo, above ? 2 : 0, lo, above ? last : m->graph_name, base);
+            gc_poison_maybe(cx, base, base, m, lo, hi);
             if (m->flags & GC_FRAME_MAP_LAYOUT) gc_walk_interior(base, m, lo, hi);
             gc_walk_words(hlo, hhi, 1, lo, m->graph_name, base);
             p = hhi;
