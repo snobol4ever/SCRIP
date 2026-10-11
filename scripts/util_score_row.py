@@ -1610,14 +1610,18 @@ def cmd_from_progress(a):
         print("REFUSE(2): from-progress: the progress DB %s does not exist" % db)
         return 2
     want = set(pop)
-    last = {}   # (program, mode) -> (outcome, note, tree, ts, secs): the LAST row in the append-only table is the latest reading
+    # (program, mode) -> (outcome, note, tree, ts, secs) at the NEWEST timestamp: the table is compacted (older keys kept ahead of today's
+    # appends, 380 backward steps measured 2026-10-11), so file order is not time order; a tie keeps the later line, the later append
+    last = {}
     with open(db, encoding="utf-8", errors="replace") as fh:
         fh.readline()
         for line in fh:
             fl = line.rstrip("\n").split("\t")
             if len(fl) < 10 or fl[5] != dbsuite or fl[8] not in ("m3", "m4") or fl[7] not in want:
                 continue
-            last[(fl[7], fl[8])] = (fl[9], fl[11] if len(fl) > 11 else "", fl[1], fl[0], fl[10])
+            k = (fl[7], fl[8])
+            if k not in last or fl[0] >= last[k][3]:
+                last[k] = (fl[9], fl[11] if len(fl) > 11 else "", fl[1], fl[0], fl[10])
     d = _c.defaultdict(dict)
     for (prog, m), (o, note, _tree, _ts, _secs) in last.items():
         d[prog][m] = (o, note)
