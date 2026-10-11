@@ -166,7 +166,8 @@ struct g_emitter_t {
     IR_t ** g_bcs_all;
     int g_bcs_n = -1, g_bcs_nc, g_bcs_lf, g_bcs_fn;
     uint32_t g_bcs_ep;
-    cv_t g_fsc_u;
+    cv_t g_fsc_u, g_fsc_pre, g_fsc_lmb, g_fsc_nmb;
+    int g_fsc_full = 0;
     const IR_graph_t * g_fsc_g;
     IR_t ** g_fsc_all;
     int g_fsc_n = -1, g_fsc_bs = -1, g_fsc_bm = -1;

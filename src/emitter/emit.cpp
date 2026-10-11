@@ -2949,13 +2949,38 @@ static int * frame_slot_memo(void) {
         int * f = xci_ints(&g_emitter.g_fsc_u, (uint32_t)(g_emit_cfg->n > 0 ? g_emit_cfg->n : 1));
         for (int k = 0; k < g_emit_cfg->n; k++) f[k] = -1;
         g_emitter.g_fsc_g = g_emit_cfg; g_emitter.g_fsc_all = g_emit_cfg->all; g_emitter.g_fsc_n = g_emit_cfg->n; g_emitter.g_fsc_ep = g_emitter.g_xci_epoch;
-        g_emitter.g_fsc_bs = blob_frame_scope(); g_emitter.g_fsc_bm = blob_slots_mask(); }
+        g_emitter.g_fsc_bs = blob_frame_scope(); g_emitter.g_fsc_bm = blob_slots_mask(); g_emitter.g_fsc_full = 0; }
     return (int *)g_emitter.g_fsc_u.p;
 }
 static int frame_slot_units_at(int * u, int j) { if (u[j] < 0) { IR_t * m = g_emit_cfg->all[j]; u[j] = (m && frame_slot_is_candidate(m)) ? frame_slot_units(m) : 0; } return u[j]; }
+static void frame_slot_prefix_build(int * fu) {
+    int n = g_emit_cfg->n; g_emitter.g_fsc_full = 2;
+    int * pre = xci_ints(&g_emitter.g_fsc_pre, (uint32_t)n + 1), * lmb = xci_ints(&g_emitter.g_fsc_lmb, (uint32_t)(n > 0 ? n : 1));
+    int * nmb = xci_ints(&g_emitter.g_fsc_nmb, (uint32_t)(n > 0 ? n : 1));
+    int last = -1; pre[0] = 0;
+    for (int j = 0; j < n; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) last = j; lmb[j] = last; pre[j + 1] = pre[j] + frame_slot_units_at(fu, j); }
+    int next = n; for (int j = n - 1; j >= 0; j--) { nmb[j] = next; IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) next = j; }
+    g_emitter.g_fsc_full = 1;
+}
 static int frame_slot_scan(const IR_t * query, int * out_index, int * out_count) {
     if (out_index) *out_index = -1; if (out_count) *out_count = 0;
     if (!g_emit_cfg) return 0;
+    if (!g_emitter.g_frame_slot_visitor) {
+        int * fm = frame_slot_memo();
+        if (g_emitter.g_fsc_full == 0) frame_slot_prefix_build(fm);
+        if (g_emitter.g_fsc_full == 1) {
+            int n = g_emit_cfg->n, qi = -1;
+            if (query) {
+                if (g_emitter.g_xci_g != g_emit_cfg || g_emitter.g_xci_all != g_emit_cfg->all || g_emitter.g_xci_n != g_emit_cfg->n || g_emitter.g_xci_built != g_emitter.g_xci_epoch) xci_build();
+                xci_slot_t * xs = xci_probe(query); if (xs->gen == g_emitter.g_xci_gen && xs->nd == query) qi = xs->idx; }
+            const int * pre = (const int *)g_emitter.g_fsc_pre.p, * lmb = (const int *)g_emitter.g_fsc_lmb.p, * nmb = (const int *)g_emitter.g_fsc_nmb.p;
+            int mb = n > 0 ? lmb[qi >= 0 ? qi : n - 1] : -1;
+            int blob = (mb < 0 && blob_frame_scope()) ? 1 : 0;
+            if (mb < 0 && !blob) return 0;
+            int hi = blob ? n : nmb[mb];
+            if (out_index && qi > mb && qi < hi && pre[qi + 1] > pre[qi]) *out_index = pre[qi] - pre[mb + 1];
+            if (out_count) *out_count = pre[hi] - pre[mb + 1];
+            return blob ? 2 : 1; } }
     int qi = -1; if (query) for (int j = 0; j < g_emit_cfg->n; j++) if (g_emit_cfg->all[j] == query) { qi = j; break; }
     int mb = -1; for (int j = (qi >= 0 ? qi : g_emit_cfg->n - 1); j >= 0; j--) { IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) { mb = j; break; } }
     int blob = (mb < 0 && blob_frame_scope()) ? 1 : 0;
