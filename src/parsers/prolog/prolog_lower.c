@@ -444,6 +444,12 @@ static int pl_dialect_marker(const tree_t *tr) {
     const tree_t *g = (tr && tr->t == TT_CLAUSE && tr->n == 2 && tr->c[0] && tr->c[0]->t == TT_NUL) ? tr->c[1] : (const tree_t *)0;
     return g && g->t == TT_FNC && g->v.sval && ((!strcmp(g->v.sval, "module") && g->n == 2) || (!strcmp(g->v.sval, "use_module") && (g->n == 1 || g->n == 2)));
 }
+static int pl_tree_has_dict(const tree_t *t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, "$dict_lit") || !strcmp(t->v.sval, "$dot"))) return 1;
+    for (int i = 0; i < t->n; i++) if (pl_tree_has_dict(t->c[i])) return 1;
+    return 0;
+}
 static PlClause *pl_dq_string_directive(int lineno, const char *flag, const char *val) {
     PlClause *c = ct_zalloc(1, sizeof(PlClause));
     tree_t *cl = ast_node_new(TT_CLAUSE), *g = ast_node_new(TT_FNC), *f = ast_node_new(TT_QLIT), *v = ast_node_new(TT_QLIT);
@@ -462,7 +468,7 @@ static void pl_dq_lower_program(PlProgram *pl_prog) {
     int marker = 0, line0 = 0, set = 0;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
         if (cl->lineno && !line0) line0 = cl->lineno;
-        if (cl->lineno && pl_dialect_marker(cl->tr)) marker = 1;
+        if (cl->lineno && (pl_dialect_marker(cl->tr) || pl_tree_has_dict(cl->tr))) marker = 1;
     }
     for (int k = 0; k < 2; k++) {
         if (!marker || g_stage2.pl_dialect_swi || (k == 0 && g_stage2.pl_dq_mode)) continue;
