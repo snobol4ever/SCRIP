@@ -1198,7 +1198,7 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     "$gnu_absolute_file_name" }, { "prolog_file_name", 2, "$gnu_prolog_file_name" }, { "$gnu_builtin", 2, "$gnu_builtin" }, { "working_directory", 1, "$gnu_working_directory" }, { "change_directory",
     1, "$gnu_change_directory" }, { "make_directory", 1, "$gnu_make_directory" }, { "delete_file", 1, "$gnu_delete_file" }, { "file_exists", 1, "$gnu_file_exists" }, { "directory_files", 2,
     "$gnu_directory_files" }, { "term_hash", 2, "$gnu_term_hash" }, { "prolog_pid", 1, "$gnu_prolog_pid" }, { "$gnu_environ_list", 1, "$gnu_environ_list" }, { "$gnu_file_props", 2,
-    "$gnu_file_props" }, { 0, 0, 0 } };
+    "$gnu_file_props" }, { "$trie_slice", 4, "$trie_slice" }, { 0, 0, 0 } };
 static int pl_det_leaf_name_wired(const char * nm) { for (int i = 0; pl_det_leaves[i].nm; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_det_leaf_sym(const char * nm, int ar) {
@@ -3534,12 +3534,31 @@ static void pl_db_decls_capture(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_db_decls_words(long long ** out) { *out = g_stage2.db_decls_words; return g_stage2.db_decls_words ? g_stage2.db_decls_n : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_table_specs(const tree_t * a, const char ** keys, int n, int cap) {
-    if (!a || a->t != TT_FNC || !a->v.sval || a->n != 2) return n;
-    if (!strcmp(a->v.sval, ",")) return pl_table_specs(a->c[1], keys, pl_table_specs(a->c[0], keys, n, cap), cap);
-    if (!strcmp(a->v.sval, "as")) return pl_table_specs(a->c[0], keys, n, cap);
-    if (strcmp(a->v.sval, "/") || !a->c[0] || (a->c[0]->t != TT_QLIT && a->c[0]->t != TT_NAME) || !a->c[0]->v.sval || !a->c[1] || a->c[1]->t != TT_ILIT) return n;
-    if (keys && n < cap) { char b[strlen(a->c[0]->v.sval) + 24]; snprintf(b, sizeof b, "%s/%lld", a->c[0]->v.sval, a->c[1]->v.ival); keys[n] = lp_strdup(b); }
+static int pl_table_index_mode(const tree_t * m) { return !m || m->t == TT_VAR || ((m->t == TT_QLIT || m->t == TT_NAME) && m->v.sval && (!strcmp(m->v.sval, "index") || !strcmp(m->v.sval, "+"))); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_table_specs(const tree_t * a, const char ** keys, const tree_t ** specs, int n, int cap) {
+    if (!a || a->t != TT_FNC || !a->v.sval || a->n < 1) return n;
+    if (a->n == 2 && !strcmp(a->v.sval, ",")) return pl_table_specs(a->c[1], keys, specs, pl_table_specs(a->c[0], keys, specs, n, cap), cap);
+    if (a->n == 2 && !strcmp(a->v.sval, "as")) return pl_table_specs(a->c[0], keys, specs, n, cap);
+    if (a->n == 2 && (!strcmp(a->v.sval, "/") || !strcmp(a->v.sval, "//"))) {
+        if (!a->c[0] || (a->c[0]->t != TT_QLIT && a->c[0]->t != TT_NAME) || !a->c[0]->v.sval || !a->c[1] || a->c[1]->t != TT_ILIT) return n;
+        if (keys && n < cap) {
+            char b[strlen(a->c[0]->v.sval) + 24];
+            snprintf(b, sizeof b, "%s/%lld", a->c[0]->v.sval, a->c[1]->v.ival + (a->v.sval[1] == '/' ? 2 : 0));
+            keys[n] = lp_strdup(b);
+            specs[n] = NULL;
+        }
+        return n + 1;
+    }
+    if (!strcmp(a->v.sval, ":") || !strcmp(a->v.sval, "/") || !strcmp(a->v.sval, "//")) return n;
+    if (keys && n < cap) {
+        int moded = 0;
+        for (int i = 0; i < a->n; i++) if (!pl_table_index_mode(a->c[i])) moded = 1;
+        char b[strlen(a->v.sval) + 24];
+        snprintf(b, sizeof b, "%s/%d", a->v.sval, a->n);
+        keys[n] = lp_strdup(b);
+        specs[n] = moded ? a : NULL;
+    }
     return n + 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3563,7 +3582,16 @@ static tree_t * pl_table_goal(const char * f, int ar) {
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * pl_table_wrapper(const char * key) {
+static tree_t * pl_table_mode_copy(const tree_t * t) {
+    tree_t * c = ast_node_new(t->t == TT_VAR ? TT_QLIT : t->t);
+    c->line = t->line;
+    if (t->t == TT_VAR) { c->v.sval = (char *) "index"; return c; }
+    c->v = t->v;
+    for (int i = 0; i < t->n; i++) ast_push(c, pl_table_mode_copy(t->c[i]));
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_table_wrapper(const char * key, const tree_t * spec) {
     const char * sl = strrchr(key, '/');
     int ar = atoi(sl + 1);
     char nm[sl - key + 1], tn[sl - key + 6];
@@ -3574,9 +3602,10 @@ static tree_t * pl_table_wrapper(const char * key) {
     cl->v.dval = ar;
     for (int i = 0; i < ar; i++) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = i; ast_push(cl, v); }
     tree_t * call = ast_node_new(TT_FNC);
-    call->v.sval = (char *) "$tbl_call";
+    call->v.sval = (char *) (spec ? "$tbl_mcall" : "$tbl_call");
     ast_push(call, pl_table_goal(lp_strdup(nm), ar));
     ast_push(call, pl_table_goal(lp_strdup(tn), ar));
+    if (spec) ast_push(call, pl_table_mode_copy(spec));
     ast_push(cl, call);
     tree_t * ch = ast_node_new(TT_CHOICE);
     ch->v.sval = (char *) lp_strdup(key);
@@ -3840,13 +3869,14 @@ static const tree_t * pl_attv_rewrite(const tree_t * prog) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_table_rewrite(const tree_t * prog) {
     int nk = 0;
-    for (int i = 0; i < prog->n; i++) nk = pl_table_specs(pl_table_dir(prog->c[i]), NULL, nk, 0);
+    for (int i = 0; i < prog->n; i++) nk = pl_table_specs(pl_table_dir(prog->c[i]), NULL, NULL, nk, 0);
     if (!nk) return prog;
     const char * keys[nk];
+    const tree_t * specs[nk];
     unsigned char done[nk];
     int nf = 0;
     memset(done, 0, sizeof done);
-    for (int i = 0; i < prog->n; i++) nf = pl_table_specs(pl_table_dir(prog->c[i]), keys, nf, nk);
+    for (int i = 0; i < prog->n; i++) nf = pl_table_specs(pl_table_dir(prog->c[i]), keys, specs, nf, nk);
     tree_t * np = ast_node_new(prog->t);
     np->v = prog->v;
     np->line = prog->line;
@@ -3861,7 +3891,7 @@ static const tree_t * pl_table_rewrite(const tree_t * prog) {
         snprintf(b, sizeof b, "$tbl %s", keys[k]);
         rn->v.sval = (char *) lp_strdup(b);
         ast_push(np, pl_table_stmt(s, rn));
-        if (!done[k]) { done[k] = 1; ast_push(np, pl_table_stmt(s, pl_table_wrapper(keys[k]))); }
+        if (!done[k]) { done[k] = 1; ast_push(np, pl_table_stmt(s, pl_table_wrapper(keys[k], specs[k]))); }
     }
     return np;
 }

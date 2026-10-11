@@ -19561,6 +19561,7 @@ extern int rt_pl_trie_lookup(void *, int64_t, void *, void *, pl_tr_ctx_t *);
 extern int rt_pl_trie_delete(void *, int64_t, void *, void *, pl_tr_ctx_t *);
 extern int rt_pl_trie_entries(void *, int64_t, void *, pl_tr_ctx_t *);
 extern int rt_pl_trie_entry_key(void *, int64_t, int64_t, void *, pl_tr_ctx_t *);
+extern int rt_pl_trie_slice(void *, int64_t, int64_t, int64_t, void *, pl_tr_ctx_t *);
 extern int rt_pl_trie_count(void *, int64_t);
 extern int rt_pl_trie_meta_set(void *, int64_t, int, void *);
 extern int rt_pl_trie_meta_get(void *, int64_t, int, void *, pl_tr_ctx_t *);
@@ -19610,6 +19611,11 @@ DESCR_t rt_pl_dop_trie_entries_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void
     int64_t id;
     if (!pl_trie_leaf_open(args, nargs, 2, cx, &id)) return FAILDESCR;
     return pl_trie_leaf_close(rt_pl_trie_entries(root, id, (void *)&args[1], cx), cx);
+}
+DESCR_t rt_pl_dop_trie_slice_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    int64_t id, from, to;
+    if (!pl_trie_leaf_open(args, nargs, 4, cx, &id) || !pl_trie_leaf_int(args[1], &from) || !pl_trie_leaf_int(args[2], &to)) return FAILDESCR;
+    return pl_trie_leaf_close(rt_pl_trie_slice(root, id, from, to, (void *)&args[3], cx), cx);
 }
 DESCR_t rt_pl_dop_trie_entry_key_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
     int64_t id, ent;

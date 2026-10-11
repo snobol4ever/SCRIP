@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2548
-#define GC_ALLOC_TAB_N_VOID 303
-#define GC_ALLOC_TAB_N_DESCR 1233
-#define GC_ALLOC_TAB_N_OTHER 995
+#define GC_ALLOC_TAB_N 2553
+#define GC_ALLOC_TAB_N_VOID 304
+#define GC_ALLOC_TAB_N_DESCR 1235
+#define GC_ALLOC_TAB_N_OTHER 997
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -998,6 +998,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_mod_pi", GC_RET_VOID },
     { "pl_mod_qname", GC_RET_OTHER },
     { "pl_mod_resolve", GC_RET_OTHER },
+    { "pl_mod_table_pi", GC_RET_VOID },
     { "pl_module_flatten", GC_RET_VOID },
     { "pl_name_is_scrip_own", GC_RET_OTHER },
     { "pl_nb_cell_k", GC_RET_OTHER },
@@ -1049,6 +1050,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_trie_at", GC_RET_OTHER },
     { "pl_trie_child", GC_RET_OTHER },
     { "pl_trie_descend", GC_RET_OTHER },
+    { "pl_trie_ents_list", GC_RET_OTHER },
     { "pl_trie_give", GC_RET_OTHER },
     { "pl_trie_key_term", GC_RET_DESCR },
     { "pl_trie_leaf_open", GC_RET_OTHER },
@@ -2182,6 +2184,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_trie_meta_set_c", GC_RET_DESCR },
     { "rt_pl_dop_trie_new", GC_RET_DESCR },
     { "rt_pl_dop_trie_new_c", GC_RET_DESCR },
+    { "rt_pl_dop_trie_slice", GC_RET_DESCR },
+    { "rt_pl_dop_trie_slice_c", GC_RET_DESCR },
     { "rt_pl_dop_unget_byte", GC_RET_DESCR },
     { "rt_pl_dop_unget_byte_c", GC_RET_DESCR },
     { "rt_pl_dop_unget_byte_s", GC_RET_DESCR },
@@ -2284,6 +2288,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_trie_meta_get", GC_RET_OTHER },
     { "rt_pl_trie_meta_set", GC_RET_OTHER },
     { "rt_pl_trie_new", GC_RET_OTHER },
+    { "rt_pl_trie_slice", GC_RET_OTHER },
     { "rt_pl_trie_tbl_vt", GC_RET_OTHER },
     { "rt_pl_type_cold", GC_RET_DESCR },
     { "rt_pl_type_cold_c", GC_RET_DESCR },

@@ -3248,12 +3248,10 @@ int rt_pl_trie_delete(void *root, int64_t id, void *key, void *val_cell, pl_tr_c
     t->nvals--;
     return pl_trie_give(v, val_cell, cx);
 }
-int rt_pl_trie_entries(void *root, int64_t id, void *out_cell, pl_tr_ctx_t *cx) {
-    pl_trie_t *t = pl_trie_at(root, id);
+static int pl_trie_ents_list(pl_trie_t *t, int64_t from, int64_t hi, pl_cell_t *out) {
     pl_cell_t acc = plc_nil_cell();
     int dot_id = prolog_atom_intern("."), e_id = prolog_atom_intern("e");
-    if (!t) return 0;
-    for (int i = t->nents - 1; i >= 0; i--) {
+    for (int64_t i = hi - 1; i >= from; i--) {
         pl_trie_node_t *n = (pl_trie_node_t *)t->ents[i];
         pl_cell_t *blk;
         if (!n || !n->has_val) continue;
@@ -3264,7 +3262,26 @@ int rt_pl_trie_entries(void *root, int64_t id, void *out_cell, pl_tr_ctx_t *cx) 
         blk[2] = plc_copy(&n->val);
         acc = plc_cons(dot_id, pl_make_compound(e_id, 3, blk), acc);
     }
+    *out = acc;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_trie_entries(void *root, int64_t id, void *out_cell, pl_tr_ctx_t *cx) {
+    pl_trie_t *t = pl_trie_at(root, id);
+    pl_cell_t acc;
+    if (!t || !pl_trie_ents_list(t, 0, t->nents, &acc)) return 0;
     return pl_trie_give(acc, out_cell, cx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_trie_slice(void *root, int64_t id, int64_t from, int64_t to, void *out_cell, pl_tr_ctx_t *cx) {
+    pl_trie_t *t = pl_trie_at(root, id);
+    pl_cell_t acc, *pr;
+    if (!t || !pl_trie_ents_list(t, from < 0 ? 0 : from, (to < 0 || to > t->nents) ? t->nents : to, &acc)) return 0;
+    pr = (pl_cell_t *)rt_ws_alloc_descr(2);
+    if (!pr) return 0;
+    pr[0] = pl_make_int(t->nents);
+    pr[1] = acc;
+    return pl_trie_give(pl_make_compound(prolog_atom_intern("-"), 2, pr), out_cell, cx);
 }
 int rt_pl_trie_entry_key(void *root, int64_t id, int64_t ent, void *out_cell, pl_tr_ctx_t *cx) {
     pl_trie_t *t = pl_trie_at(root, id);

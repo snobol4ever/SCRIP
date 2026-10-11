@@ -5999,6 +5999,7 @@ DESCR_t rt_pl_dop_nb_setval(DESCR_t *, int); DESCR_t rt_pl_dop_nb_getval(DESCR_t
 DESCR_t rt_pl_dop_trie_new(DESCR_t *, int); DESCR_t rt_pl_dop_trie_alive(DESCR_t *, int); DESCR_t rt_pl_dop_trie_destroy(DESCR_t *, int); DESCR_t rt_pl_dop_trie_insert(DESCR_t *, int);
 DESCR_t rt_pl_dop_trie_lookup(DESCR_t *, int); DESCR_t rt_pl_dop_trie_delete(DESCR_t *, int); DESCR_t rt_pl_dop_trie_entries(DESCR_t *, int); DESCR_t rt_pl_dop_trie_entry_key(DESCR_t *, int);
 DESCR_t rt_pl_dop_trie_count(DESCR_t *, int); DESCR_t rt_pl_dop_trie_meta_set(DESCR_t *, int); DESCR_t rt_pl_dop_trie_meta_get(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_vt(DESCR_t *, int);
+DESCR_t rt_pl_dop_trie_slice(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_retractall(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_alive(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_t_guard(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_t(DESCR_t *,
@@ -6136,6 +6137,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$trie_entries", 2, "rt_pl_dop_trie_entries", rt_pl_dop_trie_entries }, { "$trie_entry_key", 3, "rt_pl_dop_trie_entry_key", rt_pl_dop_trie_entry_key },
         { "$trie_count", 2, "rt_pl_dop_trie_count", rt_pl_dop_trie_count }, { "$trie_meta_set", 3, "rt_pl_dop_trie_meta_set", rt_pl_dop_trie_meta_set },
         { "$trie_meta_get", 3, "rt_pl_dop_trie_meta_get", rt_pl_dop_trie_meta_get }, { "$tbl_vt", 1, "rt_pl_dop_tbl_vt", rt_pl_dop_tbl_vt },
+        { "$trie_slice", 4, "rt_pl_dop_trie_slice", rt_pl_dop_trie_slice },
         { "$pl_nb_getval_guard", 2, "rt_pl_dop_nb_getval_guard", rt_pl_dop_nb_getval_guard },
         { "$ax_eguard", 1, "rt_pl_dop_ax_eguard", rt_pl_dop_ax_eguard },
         { "$quit_trap_300", 0, "rt_quit_trap_300", rt_quit_trap_300 }, { "$quit_trap_320", 0, "rt_quit_trap_320", rt_quit_trap_320 },

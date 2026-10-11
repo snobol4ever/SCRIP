@@ -1,4 +1,4 @@
-#define RTX_CLOB_TAB_N 287
+#define RTX_CLOB_TAB_N 288
 #define RTX_CLOB_TAB_N_CLOBBERING 20
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", 0 },
@@ -240,6 +240,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_trie_meta_get", 0 },
     { "rt_pl_dop_trie_meta_set", 0 },
     { "rt_pl_dop_trie_new", 0 },
+    { "rt_pl_dop_trie_slice", 0 },
     { "rt_pl_dop_unget_byte", 0 },
     { "rt_pl_dop_unget_byte_s", 0 },
     { "rt_pl_dop_unget_char", 0 },

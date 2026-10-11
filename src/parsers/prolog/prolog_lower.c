@@ -499,6 +499,18 @@ static void pl_mod_pi_each(tree_t *spec, const char *mod, cv_t *into) {
     if (spec->t == TT_FNC && spec->v.sval && (!strcmp(spec->v.sval, "/") || !strcmp(spec->v.sval, "//")) && spec->n == 2 && pl_mod_atomish(spec->c[0]) && spec->c[1] && spec->c[1]->t == TT_ILIT)
         pl_mk_add(into, mod, spec->c[0]->v.sval, (int)spec->c[1]->v.ival + (spec->v.sval[1] == '/' ? 2 : 0));
 }
+static int pl_mod_table_moded(const tree_t *spec) {
+    return spec && spec->t == TT_FNC && spec->v.sval && spec->n >= 1 && strcmp(spec->v.sval, ",") && strcmp(spec->v.sval, "as") && strcmp(spec->v.sval, "/") && strcmp(spec->v.sval, "//") && strcmp(spec->v.sval, ":");
+}
+static void pl_mod_table_each(tree_t *spec, const char *mod, cv_t *into) {
+    if (spec && spec->t == TT_FNC && spec->v.sval && (!strcmp(spec->v.sval, ",") || !strcmp(spec->v.sval, "as")) && spec->n == 2) {
+        pl_mod_table_each(spec->c[0], mod, into);
+        if (!strcmp(spec->v.sval, ",")) pl_mod_table_each(spec->c[1], mod, into);
+        return;
+    }
+    if (pl_mod_table_moded(spec)) pl_mk_add(into, mod, spec->v.sval, spec->n);
+    else pl_mod_pi_each(spec, mod, into);
+}
 static const char *pl_mod_resolve(pl_mods_t *ms, const char *m1, const char *m2, const char *nm, int ar) {
     if (!nm) return (const char *)0;
     if (m1 && pl_mk_has(&ms->defs, m1, nm, ar)) return pl_mod_qname(m1, nm);
@@ -546,6 +558,26 @@ static void pl_mod_pi(pl_mods_t *ms, const char *m1, const char *m2, tree_t *spe
     if (spec->t == TT_FNC && spec->v.sval && (!strcmp(spec->v.sval, "/") || !strcmp(spec->v.sval, "//")) && spec->n == 2 && pl_mod_atomish(spec->c[0]) && spec->c[1] && spec->c[1]->t == TT_ILIT
         && (q = pl_mod_resolve(ms, m1, m2, spec->c[0]->v.sval, (int)spec->c[1]->v.ival + (spec->v.sval[1] == '/' ? 2 : 0))))
         spec->c[0]->v.sval = (char *)q;
+}
+static void pl_mod_table_pi(pl_mods_t *ms, const char *m1, const char *m2, tree_t *spec) {
+    const char *q;
+    if (spec && spec->t == TT_FNC && spec->v.sval && (!strcmp(spec->v.sval, ",") || !strcmp(spec->v.sval, "as")) && spec->n == 2) {
+        pl_mod_table_pi(ms, m1, m2, spec->c[0]);
+        if (!strcmp(spec->v.sval, ",")) pl_mod_table_pi(ms, m1, m2, spec->c[1]);
+        return;
+    }
+    if (!pl_mod_table_moded(spec)) { pl_mod_pi(ms, m1, m2, spec); return; }
+    for (int i = 0; i < spec->n; i++) {
+        tree_t *m = spec->c[i], *x;
+        int ar;
+        if (!m || m->t != TT_FNC || !m->v.sval || m->n != 1 || (strcmp(m->v.sval, "lattice") && strcmp(m->v.sval, "po"))) continue;
+        x = m->c[0];
+        ar = m->v.sval[0] == 'l' ? 3 : 2;
+        if (x && x->t == TT_FNC && x->v.sval && !strcmp(x->v.sval, "/") && x->n == 2 && pl_mod_atomish(x->c[0]) && x->c[1] && x->c[1]->t == TT_ILIT) { x = x->c[0]; ar = (int)m->c[0]->c[1]->v.ival; }
+        if (x && pl_mod_atomish(x) && (q = pl_mod_resolve(ms, m1, m2, x->v.sval, ar))) x->v.sval = (char *)q;
+        else if (x && x->t == TT_FNC && x->v.sval && strcmp(x->v.sval, ":") && (q = pl_mod_resolve(ms, m1, m2, x->v.sval, x->n))) x->v.sval = (char *)q;
+    }
+    if ((q = pl_mod_resolve(ms, m1, m2, spec->v.sval, spec->n))) spec->v.sval = (char *)q;
 }
 static void pl_mod_closure(pl_mods_t *ms, const char *m1, const char *m2, tree_t *a, int extra) {
     const char *q;
@@ -668,7 +700,8 @@ static void pl_module_flatten(PlProgram *pl_prog) {
             else if (!strcmp(f, "meta_predicate")) for (int k = 0; k < d->n; k++) pl_mod_meta_collect(d->c[k], &ms.metas);
             else if (!strcmp(f, "dynamic") || !strcmp(f, "discontiguous") || !strcmp(f, "table")) {
                 if (strcmp(m1v[ci], "user")) for (int k = 0; k < (d->n == 2 && !strcmp(f, "dynamic") ? 1 : d->n); k++) {
-                    pl_mod_pi_each(d->c[k], m1v[ci], &ms.defs);
+                    if (!strcmp(f, "table")) pl_mod_table_each(d->c[k], m1v[ci], &ms.defs);
+                    else pl_mod_pi_each(d->c[k], m1v[ci], &ms.defs);
                     if (!strcmp(f, "dynamic")) pl_mod_pi_each(d->c[k], m1v[ci], &ms.dyns);
                 }
             }
@@ -719,7 +752,8 @@ static void pl_module_flatten(PlProgram *pl_prog) {
         if (cl->lineno == 0) continue;
         if (d) {
             const char *f = (d->t == TT_FNC) ? d->v.sval : (const char *)0;
-            if (f && (!strcmp(f, "dynamic") || !strcmp(f, "discontiguous") || !strcmp(f, "table") || !strcmp(f, "module_transparent"))) { for (int k = 0; k < d->n; k++) pl_mod_pi(&ms, m1, m2, d->c[k]); continue; }
+            if (f && !strcmp(f, "table")) { for (int k = 0; k < d->n; k++) pl_mod_table_pi(&ms, m1, m2, d->c[k]); continue; }
+            if (f && (!strcmp(f, "dynamic") || !strcmp(f, "discontiguous") || !strcmp(f, "module_transparent"))) { for (int k = 0; k < d->n; k++) pl_mod_pi(&ms, m1, m2, d->c[k]); continue; }
             if (f && !strcmp(f, "meta_predicate")) continue;
             if (f && !strcmp(f, "begin_tests") && d->n == 2) { pl_mod_opts(&ms, m1, m2, d->c[1], 0); continue; }
             if (f && (!strcmp(f, "module") || !strcmp(f, "$module_restore") || !strcmp(f, "end_tests") || !strcmp(f, "begin_tests") || !strcmp(f, "use_module") || !strcmp(f, "ensure_loaded")
