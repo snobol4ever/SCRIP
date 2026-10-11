@@ -586,6 +586,22 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         return mk_assign(v, f);
     }
     if (name && !strcmp(name, "length") && args && args->count >= 1 && pas_is_dynexpr(args->items[0])) return mk_fnc1("__pas_dynlen", args->items[0]);
+    if (name && !pas_is_func(name) && !pas_is_proc(name) && g_lower.pas.sem.pas_seen_mode_directive && !g_lower.pas.sem.pas_mode_iso) {
+        if (!strcmp(name, "random")) return (args && args->count >= 1) ? mk_fnc1("__pas_random", args->items[0]) : mk_fnc0("__pas_random");
+        if (!strcmp(name, "randomize")) return mk_fnc0("__pas_randomize");
+        if (!strcmp(name, "stringofchar") && args && args->count >= 3) return mk_fnc2("__pas_stringofchar", args->items[0], args->items[2]);
+        if (!strcmp(name, "str") && args && args->count >= 4) {
+            tree_t *v = args->items[0], *w = args->items[1], *p = ilit(-1), *dst = args->items[args->count - 2];
+            if (w && w->t == TT_ILIT && w->v.ival == -3 && args->count >= 6) { w = args->items[2]; p = args->items[3]; }
+            tree_t *f = ast_node_new(TT_FNC);
+            ast_push(f, leaf_s(TT_VAR, "__pas_strf"));
+            ast_push(f, v);
+            ast_push(f, (w && w->t == TT_ILIT && w->v.ival < 0) ? ilit(-1) : w);
+            ast_push(f, p);
+            ast_push(f, ilit(g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive ? 0 : 1));
+            return mk_assign(dst, f);
+        }
+    }
     if (name && (!strcmp(name, "shl") || !strcmp(name, "shr") || !strcmp(name, "xor")) && args && args->count >= 3 && !pas_is_func(name) && !pas_is_proc(name)) {
         tree_t *x = args->items[0], *y = args->items[2];
         if (!strcmp(name, "xor")) return (pas_is_boolexpr(x) && pas_is_boolexpr(y)) ? bin(TT_NE, x, y) : mk_fnc2("ixor", x, y);
@@ -754,6 +770,25 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "sqrt") && args && args->count >= 1) return mk_fnc1("__pas_sqrt", args->items[0]);
     if (name && !strcmp(name, "ln") && args && args->count >= 1) return mk_fnc1("__pas_ln", args->items[0]);
     if (name && !strcmp(name, "arctan") && args && args->count >= 1) return mk_fnc1("__pas_arctan", args->items[0]);
+    if (name && args && args->count >= 1 && !pas_is_func(name) && !pas_is_proc(name)) {
+        static const char *const m1[] = { "tan", "arcsin", "arccos", "sinh", "cosh", "tanh", "log2", "cot", "degtorad", "radtodeg", "arcsinh", "arccosh", "arctanh" };
+        static const char *const m2[] = { "arctan2", "hypot", "logn" };
+        for (int k = 0; k < (int)(sizeof m1 / sizeof m1[0]); k++) if (!strcmp(name, m1[k])) {
+            tree_t *f = ast_node_new(TT_FNC);
+            ast_push(f, leaf_s(TT_VAR, "__pas_mathf"));
+            ast_push(f, ilit(k + 1));
+            ast_push(f, bin(TT_ADD, args->items[0], flit(0.0)));
+            return f;
+        }
+        for (int k = 0; k < (int)(sizeof m2 / sizeof m2[0]); k++) if (!strcmp(name, m2[k]) && args->count >= 3) {
+            tree_t *f = ast_node_new(TT_FNC);
+            ast_push(f, leaf_s(TT_VAR, "__pas_mathf"));
+            ast_push(f, ilit(101 + k));
+            ast_push(f, bin(TT_ADD, args->items[0], flit(0.0)));
+            ast_push(f, bin(TT_ADD, args->items[2], flit(0.0)));
+            return f;
+        }
+    }
     if (name && !strcmp(name, "odd") && args && args->count >= 1) return bin(TT_NE, bin(TT_MOD, args->items[0], ilit(2)), ilit(0));
     if (name && !strcmp(name, "eof") && (!args || args->count == 0)) return mk_fnc0("__pas_eof");
     if (name && !strcmp(name, "eoln") && (!args || args->count == 0)) return mk_fnc0("__pas_eoln");
@@ -3956,6 +3991,8 @@ static tree_t *mk_ident(const char *name) {
     { tree_t *sc = pas_setconst_get(name); if (sc) return pas_tree_clone(sc); }
     if (pas_is_func(name)) return mk_call(name, NULL);
     if (name && !strcmp(name, "pi") && !pas_scope_uid("pi") && !pas_scalarvartype_get(name)) return flit(3.141592653589793);
+    if (name && !strcmp(name, "random") && !pas_scope_uid("random") && !pas_scalarvartype_get(name) && g_lower.pas.sem.pas_seen_mode_directive && !g_lower.pas.sem.pas_mode_iso)
+        return mk_fnc0("__pas_random");
     for (int wi = g_lower.pas.sem.with_depth - 1; wi >= 0; wi--) {
         tree_t *wsel = g_lower.pas.sem.with_stk[wi].sel;
         const char *rt = g_lower.pas.sem.with_stk[wi].rtype;

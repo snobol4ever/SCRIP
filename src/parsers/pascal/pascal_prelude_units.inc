@@ -8,6 +8,7 @@ static const char PAS_PRELUDE_UNIT_0_SRC[] =
     "function Log10(x: real): real;\n"
     "function Max(a, b: integer): integer;\n"
     "function Min(a, b: integer): integer;\n"
+    "function IntPower(base: real; exponent: integer): real;\n"
     "implementation\n"
     "function Power(base, exponent: real): real;\n"
     "var r: real; k, i: integer;\n"
@@ -41,6 +42,14 @@ static const char PAS_PRELUDE_UNIT_0_SRC[] =
     "function Min(a, b: integer): integer;\n"
     "begin\n"
     "  if a < b then Min := a else Min := b\n"
+    "end;\n"
+    "function IntPower(base: real; exponent: integer): real;\n"
+    "var r: real; i: integer;\n"
+    "begin\n"
+    "  r := 1.0;\n"
+    "  for i := 1 to abs(exponent) do r := r * base;\n"
+    "  if exponent < 0 then r := 1.0 / r;\n"
+    "  IntPower := r\n"
     "end;\n"
     "end.\n";
 static const char PAS_PRELUDE_UNIT_1_SRC[] =

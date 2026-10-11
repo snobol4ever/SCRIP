@@ -6,6 +6,7 @@ function Ceil(x: real): integer;
 function Log10(x: real): real;
 function Max(a, b: integer): integer;
 function Min(a, b: integer): integer;
+function IntPower(base: real; exponent: integer): real;
 implementation
 function Power(base, exponent: real): real;
 var r: real; k, i: integer;
@@ -39,5 +40,13 @@ end;
 function Min(a, b: integer): integer;
 begin
   if a < b then Min := a else Min := b
+end;
+function IntPower(base: real; exponent: integer): real;
+var r: real; i: integer;
+begin
+  r := 1.0;
+  for i := 1 to abs(exponent) do r := r * base;
+  if exponent < 0 then r := 1.0 / r;
+  IntPower := r
 end;
 end.

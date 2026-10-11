@@ -3922,6 +3922,7 @@ static DESCR_t pas_agg_copy(DESCR_t v) {
     d.arr = b;
     return d;
 }
+static void pas_real_str_exp(double r, char *buf, int bufsz, int prec, int expdig, int upper);
 static DESCR_t pas_dyn_block(long long n) {
     ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
     b->id = rt_agg_serial_list();
@@ -11905,6 +11906,96 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "__pas_rdecode") && nargs == 4) { *out = pas_rdecode(args[0], (long)pas_ord_of(args[1]), (long)pas_ord_of(args[2]), (long)pas_ord_of(args[3])); return 1; }
     if (!strcmp(fn, "__pas_rpatch") && nargs == 5) { *out = pas_rpatch(args[0], (long)pas_ord_of(args[1]), (long)pas_ord_of(args[2]), (long)pas_ord_of(args[3]), args[4]); return 1; }
     if (!strcmp(fn, "__pas_view") && nargs == 4) { *out = pas_view_make(args, nargs); return 1; }
+    if (!strcmp(fn, "__pas_random") && nargs <= 1) {
+        long r = random();
+        if (nargs == 1 && IS_INT_fn(args[0])) *out = INTVAL(args[0].i > 0 ? (long long)(r % args[0].i) : 0);
+        else *out = REALVAL((double)r / 2147483648.0);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_mathf") && (nargs == 2 || nargs == 3) && IS_INT_fn(args[0])) {
+        double x = IS_REAL_fn(args[1]) ? args[1].r : (IS_INT_fn(args[1]) ? (double)args[1].i : 0.0);
+        double y = nargs == 3 ? (IS_REAL_fn(args[2]) ? args[2].r : (IS_INT_fn(args[2]) ? (double)args[2].i : 0.0)) : 0.0;
+        double r = 0.0;
+        switch ((int)args[0].i) {
+            case 1:
+            r = tan(x);
+            break;
+            case 2:
+            r = asin(x);
+            break;
+            case 3:
+            r = acos(x);
+            break;
+            case 4:
+            r = sinh(x);
+            break;
+            case 5:
+            r = cosh(x);
+            break;
+            case 6:
+            r = tanh(x);
+            break;
+            case 7:
+            r = log2(x);
+            break;
+            case 8:
+            r = 1.0 / tan(x);
+            break;
+            case 9:
+            r = x * (M_PI / 180.0);
+            break;
+            case 10:
+            r = x * (180.0 / M_PI);
+            break;
+            case 11:
+            r = asinh(x);
+            break;
+            case 12:
+            r = acosh(x);
+            break;
+            case 13:
+            r = atanh(x);
+            break;
+            case 101:
+            r = atan2(x, y);
+            break;
+            case 102:
+            r = hypot(x, y);
+            break;
+            case 103:
+            r = log(y) / log(x);
+            break;
+            default:
+            r = 0.0;
+        }
+        *out = REALVAL(r);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_randomize") && nargs == 0) { srandom((unsigned)time(NULL) ^ (unsigned)getpid()); *out = NULVCL; return 1; }
+    if (!strcmp(fn, "__pas_stringofchar") && nargs == 2) {
+        const char *c = VARVAL_fn(args[0]);
+        long long n = IS_INT_fn(args[1]) ? args[1].i : 0;
+        if (n < 0) n = 0;
+        char *o = rt_wsb_alloc((size_t)n + 1);
+        memset(o, IS_INT_fn(args[0]) ? (int)(unsigned char)args[0].i : (c && c[0] ? c[0] : ' '), (size_t)n);
+        o[n] = '\0';
+        *out = STRVAL(o);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_strf") && nargs == 4) {
+        long long w = IS_INT_fn(args[1]) ? args[1].i : -1, p = IS_INT_fn(args[2]) ? args[2].i : -1;
+        size_t cap = (size_t)(w > 0 ? w : 0) + 96;
+        char *b = rt_wsb_alloc(cap), *o = rt_wsb_alloc(cap);
+        if (IS_REAL_fn(args[0]) && p >= 0) snprintf(o, cap, "%*.*f", (int)(w < 0 ? 0 : w), (int)(p > 16 ? 16 : p), args[0].r);
+        else if (IS_REAL_fn(args[0])) {
+            int prec = w < 0 ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : (int)w - 8));
+            pas_real_str_exp(args[0].r, b, (int)cap, prec, 3, IS_INT_fn(args[3]) && args[3].i);
+            int sp = b[0] == '-' ? 0 : 1, len = (int)strlen(b), fw = w < 0 ? len + sp : (len + sp > w ? len + sp : (int)w);
+            snprintf(o, cap, "%*s", fw, b);
+        } else snprintf(o, cap, "%*lld", (int)(w < 0 ? 0 : w), IS_INT_fn(args[0]) ? (long long)args[0].i : 0LL);
+        *out = STRVAL(o);
+        return 1;
+    }
     if (!strcmp(fn, "__pas_dynlen") && nargs == 1) { ARBLK_t *b = (args[0].v == DT_A && args[0].arr) ? (ARBLK_t *) args[0].arr : NULL; *out = INTVAL(b ? (long long)b->hi - b->lo + 1 : 0); return 1; }
     if (!strcmp(fn, "__pas_open") && nargs == 1) {
         DESCR_t c = pas_agg_copy(args[0]);
