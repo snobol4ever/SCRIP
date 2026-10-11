@@ -1659,6 +1659,7 @@ static int named_form(RkTerm *t, int first) {
     if (t->kind == TK_FAT) return 1;
     if (t->kind == TK_CP && t->ck == 'v' && t->cnt == 'P') return 1;
     if (t->kind == TK_CP && t->ck == 'n' && first) return 1;
+    if (t->kind == TK_CP && t->ck == '$' && t->val) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2049,6 +2050,7 @@ void rkb_colonpair(RkB *b, RkTerm *it, int from, int to, int ck, int kfrom, int 
     it->name = spn(b, kfrom, kto);
     if (vkind == 'W') it->val = leaf_sval(TT_QLIT, trimdup(b->s + vfrom, vto - vfrom)); else it->val = val;
     it->t = rk_adverb_bool(ck != '!');
+    if (ck == '$' && val) { tree_t *pr = make_call("__rk_pair"); expr_add_child(pr, leaf_sval(TT_QLIT, it->name)); expr_add_child(pr, val); it->t = pr; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_fatarrow(RkB *b, RkTerm *it, int from, int to, int kfrom, int kto, RkList *val) {
@@ -2370,6 +2372,13 @@ static tree_t *build_decl_raw(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
         return type ? decl_node(b, type, var, val) : expr_binary(TT_ASSIGN, var, val);
     }
     tree_t *e = el_tree(b, rs[0]);
+    if (type && d->init_op && !strcmp(d->init_op, ".=") && e && e->t == TT_METHCALL && e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "_") &&
+        e->c[1] && e->c[1]->t == TT_QLIT && e->c[1]->v.sval) {
+        tree_t *r;
+        if (!strcmp(e->c[1]->v.sval, "new")) { r = ast_node_new(TT_NEW); ast_push(r, leaf_sval(TT_QLIT, type)); for (int i = 2; i < e->n; i++) ast_push(r, e->c[i]); }
+        else { r = e; r->c[0] = leaf_sval(TT_VAR, type); }
+        return decl_node(b, type, var_node(b, name), r);
+    }
     if (type) return decl_node(b, type, var_node(b, name), e);
     mark_arrlit(b, strip_sigil(name), e);
     return expr_binary(TT_ASSIGN, var_node(b, name), rk_scalar_rhs(e));
