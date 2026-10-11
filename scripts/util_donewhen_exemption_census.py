@@ -20,6 +20,10 @@ tell which. Each exposed baton is printed with its QUEUE.tsv owner and state, th
           population named (no --corpus, no CORPUS=), the three conditions one_runner_guard admits on. A smoke writes no progress row
           and no score row, so it is not a board run; counted, never named as exposed. A plain run of the same runner, a smoke of a
           runner without a smoke mode, or a smoke beside any other board stays BOARD.
+  ONEFILE every guarded runner it names runs in its ONE-FILE mode the guard admits for every seat and for the bus done (ceo CEO-1664):
+          the runner one of lib_one_runner.sh's ONE_RUNNER_SINGLE_FILE_RUNNERS -- READ FROM THAT LINE -- with --file <one file> on every
+          command naming it and no population named. That mode grades exactly one file and writes no progress row and no score row, so
+          it is not a board run; counted, never named as exposed. The same runner without --file stays BOARD.
   CLEAR   it runs one of those but clears the exemption first (env -u S4E_DONE_WHEN_RUN, S4E_DONE_WHEN_RUN= , unset) -- measured
           on its own terms; counted, never named as exposed.
 
@@ -39,6 +43,8 @@ GUARD_RX = re.compile(r"\blib_one_runner\.sh\b|\bone_runner_guard\b")
 GENERIC_RX = re.compile(r"\b(test_[a-z0-9_]+_suite\.sh|board_[a-z0-9_]+\.sh|scorecard_[a-z0-9_]+\.sh)\b")
 HARNESS_RX = re.compile(r"\bcorpus_suite_harness\.py\s+run\b")
 SMOKE_LIST_RX = re.compile(r'^ONE_RUNNER_SMOKE_MODE_RUNNERS="([^"]*)"', re.M)
+ONEFILE_LIST_RX = re.compile(r'^ONE_RUNNER_SINGLE_FILE_RUNNERS="([^"]*)"', re.M)
+ONEFILE_ARG_RX = re.compile(r"(?:^|\s)--file\s+[^\s;&|)]+")
 SMOKE_SET_RX = re.compile(r"""\bS4E_AREA_SMOKE_ENTRIES=(?:"[^"]+"|'[^']+'|[^\s"';&|]+)""")
 SMOKE_EXPORT_RX = re.compile(r"""\bexport\s+S4E_AREA_SMOKE_ENTRIES=(?:"[^"]+"|'[^']+'|[^\s"';&|]+)""")
 POPULATION_RX = re.compile(r"(?:^|\s)--corpus\b|\bCORPUS=")
@@ -62,6 +68,26 @@ def smoke_runners():
     return set(m.group(1).split()) if m else None
 
 
+def onefile_runners():
+    """the runners one_runner_guard admits in their one-file mode: lib_one_runner.sh's own list, empty when it names none."""
+    try:
+        m = ONEFILE_LIST_RX.search(open(os.path.join(HERE, "lib_one_runner.sh"), encoding="utf-8").read())
+    except OSError:
+        return set()
+    return set(m.group(1).split()) if m else set()
+
+
+def onefile_admitted(dw, runner):
+    """True when every command of dw that names runner passes it --file <one file> and names no population."""
+    seen = False
+    for seg in SEGMENT_RX.split(dw):
+        if re.search(r"\b" + re.escape(runner) + r"\b", seg):
+            seen = True
+            if not ONEFILE_ARG_RX.search(seg) or POPULATION_RX.search(seg):
+                return False
+    return seen
+
+
 def smoke_admitted(dw, runner):
     """True when every command of dw that names runner is an area smoke the guard admits: the entries set non-empty on that command
     or exported before it, and no population named on it."""
@@ -83,7 +109,7 @@ def donewhen(path):
     return None
 
 
-def classify(dw, board_names, smoke_names=frozenset()):
+def classify(dw, board_names, smoke_names=frozenset(), onefile_names=frozenset()):
     mech = []
     for m in GUARD_RX.findall(dw):
         mech.append(m)
@@ -98,6 +124,8 @@ def classify(dw, board_names, smoke_names=frozenset()):
         return None, []
     if CLEAR_RX.search(dw):
         return "CLEAR", mech
+    if not guard and all(m in onefile_names and onefile_admitted(dw, m) for m in mech):
+        return "ONEFILE", mech
     if not guard and all(m in smoke_names and smoke_admitted(dw, m) for m in mech):
         return "SMOKE", mech
     return ("GUARD" if guard else "BOARD"), mech
@@ -115,19 +143,19 @@ def main(argv):
         return 2
     rows = {c[1]: (c[2] if len(c) > 2 else "", c[3] if len(c) > 3 else "") for c in q if len(c) > 1}
     names = sorted(f for f in os.listdir(TASKS) if f.endswith(".task.md"))
-    bn, sm = boards(), smoke_runners()
+    bn, sm, of = boards(), smoke_runners(), onefile_runners()
     if sm is None:
         print("REFUSED(2): ONE_RUNNER_SMOKE_MODE_RUNNERS is not readable in lib_one_runner.sh -- the census cannot tell an admitted area "
               "smoke from a board run", file=sys.stderr)
         return 2
     with_dw, out = 0, []
-    counts = {"GUARD": 0, "BOARD": 0, "SMOKE": 0, "CLEAR": 0}
+    counts = {"ONEFILE": 0, "GUARD": 0, "BOARD": 0, "SMOKE": 0, "CLEAR": 0}
     for f in names:
         dw = donewhen(os.path.join(TASKS, f))
         if dw is None:
             continue
         with_dw += 1
-        cls, mech = classify(dw, bn, sm)
+        cls, mech = classify(dw, bn, sm, of)
         if not cls:
             continue
         topic = f[:-len(".task.md")]
@@ -141,11 +169,11 @@ def main(argv):
                           "rows": out if show_all else [r for r in out if r["live"]]}, indent=1))
     else:
         for r in out:
-            if r["class"] in ("SMOKE", "CLEAR") or not (r["live"] or show_all):
+            if r["class"] in ("SMOKE", "CLEAR", "ONEFILE") or not (r["live"] or show_all):
                 continue
             print(f"  {r['class']:5}  {r['owner'] or '-':12} {r['state'][:22]:22} {r['topic'][:110]}  <- {', '.join(r['mechanism'][:3])}")
         print(f"population: {with_dw} baton(s) with a DONE-WHEN under {TASKS}; {len(out)} shell out to the guard or a guarded runner: "
-              f"GUARD {counts['GUARD']}, BOARD {counts['BOARD']}, SMOKE {counts['SMOKE']}, CLEAR {counts['CLEAR']}; exposed and LIVE: {len(exposed_live)}")
+              f"ONEFILE {counts['ONEFILE']}, GUARD {counts['GUARD']}, BOARD {counts['BOARD']}, SMOKE {counts['SMOKE']}, CLEAR {counts['CLEAR']}; exposed and LIVE: {len(exposed_live)}")
     return 1 if exposed_live else 0
 
 

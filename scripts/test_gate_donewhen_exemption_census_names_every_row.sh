@@ -59,6 +59,17 @@ n7=$(grep -cE '^  BOARD +hq_icon .*(plain-ipl|smoke-nosmoke-runner|smoke-with-co
 [ "$rc7" = 1 ] && [ "$n7" = 4 ] && ! grep -qE 'smoke-ipl|smoke-exported' <<<"$out7" && grep -q 'BOARD 4, SMOKE 2, CLEAR 0; exposed and LIVE: 4$' <<<"$out7" \
   && ck ok "(7) an admitted area smoke (set on the command, or exported) is counted SMOKE and never named; plain, no-smoke-mode, --corpus and beside-a-board stay BOARD" \
   || ck no "(7) rc=$rc7 named-BOARD=$n7 :: $(tr '\n' '|' <<<"$out7" | cut -c1-400)"
+T9="$T/a9"; mkdir -p "$T9/tasks"; : > "$T9/QUEUE.tsv"
+mk9() { printf '# TASK %s\nGOAL: fixture\nDONE-WHEN: %s\n## NEXT\nx\n' "$1" "$2" > "$T9/tasks/$1.task.md"; printf '2\t%s\thq_prolog\tFREE\n' "$1" >> "$T9/QUEUE.tsv"; }
+mk9 onefile-swi 'cd "$S4E_HOME/SCRIP" && out=$(timeout 1200 bash scripts/test_prolog_swi_suite.sh --file core/test_arith.pl --modes m3,m4 2>&1); printf "%s" "$out" | grep -q "^SWI_BOARD"'
+mk9 swi-without-file 'cd "$S4E_HOME/SCRIP" && bash scripts/test_prolog_swi_suite.sh --modes m3'
+mk9 file-on-a-runner-not-listed 'cd "$S4E_HOME/SCRIP" && bash scripts/test_icon_jcon_suite.sh --file x.icn'
+mk9 swi-file-with-corpus 'cd "$S4E_HOME/SCRIP" && bash scripts/test_prolog_swi_suite.sh --file core/test_arith.pl --corpus ../corpus'
+out9="$(S4E_TASKS="$T9/tasks" S4E_QUEUE="$T9/QUEUE.tsv" python3 "$C" 2>&1)"; rc9=$?
+n9=$(grep -cE '^  BOARD +hq_prolog .*(swi-without-file|file-on-a-runner-not-listed|swi-file-with-corpus) ' <<<"$out9")
+[ "$rc9" = 1 ] && [ "$n9" = 3 ] && ! grep -q 'onefile-swi' <<<"$out9" && grep -q 'ONEFILE 1, GUARD 0, BOARD 3, SMOKE 0, CLEAR 0; exposed and LIVE: 3$' <<<"$out9" \
+  && ck ok "(9) a one-file run of a runner on lib_one_runner.sh's single-file list is counted ONEFILE and never named (CEO-1664); without --file, on a runner off the list, or naming --corpus it stays BOARD" \
+  || ck no "(9) rc=$rc9 named-BOARD=$n9 :: $(tr '\n' '|' <<<"$out9" | cut -c1-400)"
 mkdir -p "$T/nolib"; cp "$C" "$T/nolib/"
 S4E_TASKS="$T7/tasks" S4E_QUEUE="$T7/QUEUE.tsv" python3 "$T/nolib/${C##*/}" > /dev/null 2>&1; r8=$?
 [ "$r8" = 2 ] && ck ok "(8) a census beside no lib_one_runner.sh cannot read the smoke-mode list and REFUSES rc 2 -- never a guess" || ck no "(8) rc=$r8 with no lib_one_runner.sh beside the census"
