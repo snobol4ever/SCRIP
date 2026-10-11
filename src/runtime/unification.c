@@ -2516,7 +2516,7 @@ void *rt_pl_ball_make(DESCR_t *a, int n) {
     if (pl_cell_unbound(pl_deref((pl_cell_t *)&a[0]))) return rt_pl_ball_instantiation();
     pl_cell_t *b = (pl_cell_t *)PL_CELL_ALLOC(sizeof(pl_cell_t));
     if (!b) return (void *)0;
-    *b = rt_pl_cell_snapshot(&a[0]);
+    *b = plc_copy_x((pl_cell_t *)&a[0], 1);
     return (void *)b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
