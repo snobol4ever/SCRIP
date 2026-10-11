@@ -1265,6 +1265,13 @@ def selftest():
             "void g2(int c) { if (c) { return; } char g2_after_brace[2] = { (char)c, 0 }; (void)g2_after_brace; }\n"
             "void g3(int is_const, const char *s) { if (is_const) { char g3_not_const[64]; snprintf(g3_not_const, sizeof g3_not_const, \"p_%s\", s); } }\n"
             "static const struct {\n    const char *nm;\n    int id;\n} g4_const_multiline[4] = { {\"a\", 1} };\n")
+        # ⭐ CEO-1624: a VLA sized by a local computed at entry (rk_rat.c's `char res[L]`, filled by snprintf) and one sized by a parameter
+        # are not caps; a local sized by a short #define named like a variable stays a counted table
+        open(os.path.join(d, "v.c"), "w").write(
+            "#define K 4\n"
+            "void v1_fn(const char *s) { size_t L = strlen(s) + 1; char v1_vla[L]; snprintf(v1_vla, L, \"%s\", s); (void)v1_vla; }\n"
+            "void v2_fn(int N) { char v2_vla[N]; v2_vla[0] = 0; (void)v2_vla; }\n"
+            "void v3_fn(void) { char v3_short_macro[K]; v3_short_macro[0] = 0; (void)v3_short_macro; }\n")
         out = os.path.join(d, "c.tsv")
         import io, contextlib
         with contextlib.redirect_stdout(io.StringIO()):
@@ -1282,14 +1289,15 @@ def selftest():
                 "s2_field": ["field"], "s3_macro_local": ["local"], "s4_after_tail": ["file"], "s5_after_brace": ["file"],
                 "e1_after_extern_c": ["file"], "e2_const_struct": ["file"], "e3_first": ["file"], "e3_second": ["file"], "e3_third": ["file"],
                 "e4_after_scalar": ["file"], "g1_first": ["file"], "g1_second": ["file"], "g2_after_brace": ["local"], "g3_not_const": ["local"],
-                "g4_const_multiline": ["file"], "A1_BYTES": ["arena"], "A2_BYTES": ["arena"], "A3_SIZE": ["arena"], "a5_shift_table": ["file"]}
+                "g4_const_multiline": ["file"], "A1_BYTES": ["arena"], "A2_BYTES": ["arena"], "A3_SIZE": ["arena"], "a5_shift_table": ["file"],
+                "v3_short_macro": ["local"]}
         ok = True
         for n, sc in want.items():
             if got.get(n) != sc:
                 print("SELFTEST FAIL: %s counted as %r, want %r" % (n, got.get(n), sc)); ok = False
             else:
                 print("SELFTEST: %s counted once, scope %s" % (n, sc[0]))
-        for n in ("t3_is_a_type", "t4_extern", "e", "from", "arena@malloc"):
+        for n in ("t3_is_a_type", "t4_extern", "e", "from", "arena@malloc", "v1_vla", "v2_vla"):
             if n in got:
                 print("SELFTEST FAIL: %s was counted %r -- a typedef, an extern, a comparison (e && e[0] == '0'), a string (\"frames from [1]\") and an allocation sized by its request or under 64 KiB are not storage we count" % (n, got[n])); ok = False
             else:
@@ -1321,6 +1329,48 @@ def selftest():
     finally:
         import shutil
         shutil.rmtree(d, ignore_errors=True)
+
+
+# ⭐ A BOUND THAT IS A VARIABLE OF ITS OWN FUNCTION IS A VLA, NOT A CAP (the coo 2026-10-10, ceo CEO-1624): BOUND_RE reads an UPPER_CASE
+# word as a macro, so hq_raku's `char res[L]` in rk_rat.c (7229ef797), with `size_t L` computed from strlen at the function's entry -- a
+# stack array sized by its need, THE LIFETIME RULE's own shape -- was counted as a fixed table bound by a macro named L, and the snprintf
+# into it tagged FORMAT:snprintf DROP; the ratchet read 32 against 30. A local whose bound is one identifier that no #define names and
+# that its enclosing function declares, assigns or takes as a parameter before the array is a VLA and is never a row.
+VLA_DECL = r"\b(?:size_t|ssize_t|ptrdiff_t|int|long|short|unsigned|signed|char|u?int(?:8|16|32|64)_t|uintptr_t|intptr_t|const)\b[^;{}]*?\b%s\s*[=;,)\[]"
+
+
+def vla_rows(rows, texts, defines):
+    """rows without every `local` row whose bound is a variable of its own function (a VLA), and the dropped (path, line, name)."""
+    keep, dropped, cache = [], [], {}
+    for r in rows:
+        p, i, scope, name, bound = r[0], r[1], r[2], r[3], r[4]
+        if scope != "local" or not re.fullmatch(r"[A-Za-z_]\w*", bound) or bound in defines or p not in texts:
+            keep.append(r)
+            continue
+        if p not in cache:
+            st = strip_c(texts[p], pp=False)
+            starts = [0]
+            for ln in st.split("\n"):
+                starts.append(starts[-1] + len(ln) + 1)
+            cache[p] = (st, starts, [sp for v in functions(st).values() for sp in v])
+        st, starts, spans = cache[p]
+        off = starts[i - 1] if i - 1 < len(starts) else len(st)
+        mm = re.compile(r"\b" + re.escape(name) + r"\s*\[").search(st, off, starts[i] if i < len(starts) else len(st))
+        off = mm.start() if mm else off   # the array's own position: a one-line function opens its body before it on the same line
+        vla = False
+        for a, e in spans:
+            if a <= off <= e:
+                head = st[max(0, a - 400):a]
+                params = head[head.rfind("("):] if "(" in head else ""
+                before = st[a:off]
+                vla = bool(re.search(VLA_DECL % re.escape(bound), params) or re.search(VLA_DECL % re.escape(bound), before)
+                           or re.search(r"(?<![\w.>])" + re.escape(bound) + r"\s*=(?!=)", before))
+                break
+        if vla:
+            dropped.append((p, i, name))
+        else:
+            keep.append(r)
+    return keep, dropped
 
 
 def main(argv):
@@ -1486,6 +1536,7 @@ def main(argv):
     # in the last column; `const` marks a read-only table. The old guarded/UNGUARDED reading (the macro compared anywhere in the file)
     # is retired with it.
     rows += arena_rows(texts, defines)
+    rows, _vla = vla_rows(rows, texts, defines)
     rows, _gr = classify_guards(rows, texts)
     # ⭐ AND THE FILL COLUMN, the function-scope reader's (CEO-1231 (1), stage 2): a local's fill kind, B:<why> when it is fixed by
     # construction, empty when nothing fills it; empty for every other scope.
