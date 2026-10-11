@@ -879,7 +879,8 @@ __attribute__((visibility("hidden"))) int g_dcap_trace = -1;
 __attribute__((visibility("hidden"))) int g_dcap_trace = 0;
 #endif
 _Static_assert(sizeof(rt_dcf_t) == 224 && offsetof(rt_dcf_t, pend) == 112,
-    "bb_match_end.cpp release_pump carves the commit-pump record as 224 bytes of spine: seven cells and the pending value trace at +112, whose first cell the box zeroes");
+    "bb_match_end.cpp release_pump and bb_match_flush.cpp flush_pump carve the commit-pump record as 224 bytes of spine: seven cells and the pending value trace at +112, whose first cell the box zer"
+    "oes");
 _Static_assert(offsetof(rt_dcf_t, pending) == 0 && offsetof(rt_dcf_t, subj_v) == 16 && offsetof(rt_dcf_t, subj) == 24 && offsetof(rt_dcf_t, star_v) == 32 && offsetof(rt_dcf_t, star) == 40,
     "rtx_match.s rt_dcap_end_ok_open writes pending at +0 and the subject and star DT_S cells at +16 and +32");
 _Static_assert(offsetof(rt_dcf_t, cur_v) == 48 && offsetof(rt_dcf_t, cur) == 56 && offsetof(rt_dcf_t, top_v) == 64 && offsetof(rt_dcf_t, top) == 72,

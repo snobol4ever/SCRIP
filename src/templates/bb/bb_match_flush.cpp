@@ -10,7 +10,8 @@ typedef struct { long fn; long how; } rt_dcap_next_t;
 extern "C" rt_dcap_next_t rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj, void *rec);
 extern "C" rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0, void *rec);
 extern "C" rt_dcap_next_t rt_dcap_land_ω(void *rec);
-#define DCF_RECORD_BYTES 112L
+extern "C" rt_dcap_next_t rt_dcap_resume(void *rec);
+#define DCF_RECORD_BYTES 224L
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string flush_pump() {
@@ -19,6 +20,8 @@ static std::string flush_pump() {
          + x86_xfer_enter()
          + x86_anchor_enter()
          + x86("sub", "rsp", DCF_RECORD_BYTES)
+         + x86("mov", RDQ("rsp", 112), 0L)
+         + x86("mov", RDQ("rsp", 120), 0L)
          + x86("note", "cas_mark")
          + x86("mov", "rdi", "r12")
          + x86("def", L(4))
@@ -35,6 +38,8 @@ static std::string flush_pump() {
          + x86("def", L(1))
          + x86("cmp", "rax", 1L)
          + x86("jbe", L(2))
+         + x86("cmp", "rax", 2L)
+         + x86("je", L(10))
          + bb_glue_enter_c2bb(20, 8, 9)
          + x86("def", L(8))
          + x86("mov", "rdx", "rsp")
@@ -44,6 +49,12 @@ static std::string flush_pump() {
          + x86("def", L(9))
          + x86("mov", "rdi", "rsp")
          + x86("call", "rt_dcap_land_ω", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *))rt_dcap_land_ω)
+         + x86_rt_gc_poll_rec_sigma_word(1)
+         + x86("jmp", L(1))
+         + x86("def", L(10))
+         + bb_glue_trace_pend_run(40, std::string(), 0, 112)
+         + x86("mov", "rdi", "rsp")
+         + x86("call", "rt_dcap_resume", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *))rt_dcap_resume)
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("jmp", L(1))
          + x86("def", L(2))
