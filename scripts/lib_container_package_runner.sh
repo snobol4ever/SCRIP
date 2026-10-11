@@ -53,13 +53,17 @@ container_package_run() {
   # ⭐ THE POPULATION IS SHIPPED TOO (CEO-749/1286, test_gate_score_row_denominator_includes_xfails.sh): every shipped program the container does
   # not grade gets one UNGRADED progress row per mode, its class from UNGRADABLE.tsv or UNGRADED.tsv, before the row is written
   . "$here/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_progress.sh unloadable"; return 2; }
-  local graded_list ung_rows n cls
+  local graded_list ung_rows n cls cfg
+  # ⛔ AND EACH DECLARES ITS CONFIGURATION, as the harness's graded rows do (the coo 2026-10-10: these rows went in `undeclared` 2-3 s after
+  # the lane's declared rows, and test_gate_progress_configuration_declarations_do_not_regress.sh read rosetta-pascal, rosetta-prolog,
+  # puzzles and trealla as lanes that stopped declaring); rows-tsv's ninth column, from the ONE reader of the environment
+  cfg="$(progress_config_of_env)"
   graded_list="$(cd "$sd" && S4E_PROGRESS_OFF=1 python3 scripts/corpus_suite_harness.py list "$suite/ALL.$ext" "$suite/ALL.ref" --lang "$lang" 2>/dev/null)"
   ( ung_rows="$(mktemp)"; trap 'rm -f "$ung_rows"' EXIT   # a subshell trap: this library is sourced, so an EXIT trap here must not replace the caller's
   while IFS= read -r f; do
     n="$(basename "$f" ".$ext")"; grep -qxF "$n" <<<"$graded_list" && continue; grep -qxF -- "$n.$ext" <<<"$conts" && continue
     cls="$(awk -F'\t' -v k="$n.$ext" '$1==k {print $2; exit}' "$suite/UNGRADABLE.tsv" "$suite/UNGRADED.tsv" 2>/dev/null)"
-    printf 'package\t%s\t%s\t%s\tm3\tUNGRADED\t0\t%s\npackage\t%s\t%s\t%s\tm4\tUNGRADED\t0\t%s\n' "$key" "$lang" "$n" "${cls:-unclassed}" "$key" "$lang" "$n" "${cls:-unclassed}" >> "$ung_rows"
+    printf 'package\t%s\t%s\t%s\tm3\tUNGRADED\t0\t%s\t%s\npackage\t%s\t%s\t%s\tm4\tUNGRADED\t0\t%s\t%s\n' "$key" "$lang" "$n" "${cls:-unclassed}" "$cfg" "$key" "$lang" "$n" "${cls:-unclassed}" "$cfg" >> "$ung_rows"
   done < <(find "$suite" -maxdepth 1 -name "*.$ext" ! -name "ALL.$ext" | sort)
   [ -s "$ung_rows" ] && { progress_append_rows_tsv "$ung_rows" || echo "⚠ the UNGRADED progress rows were not appended (reason above) -- the row write's cross-check reads the graded population only" >&2; } )
   # the denominator is SHIPPED (CEO-1286): a program the container does not grade is named in UNGRADABLE.tsv or UNGRADED.tsv and stays
