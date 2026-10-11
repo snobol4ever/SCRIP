@@ -3183,6 +3183,18 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         const char *tn = rk_typeobj_name(recv);
         if (tn) {
             if (!strcmp(meth, "defined") || !strcmp(meth, "Bool") || !strcmp(meth, "so")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
+            if (!strcmp(tn, "Bool") && (!strcmp(meth, "pick") || !strcmp(meth, "roll")) && nmargs <= 1) {
+                if (nmargs == 0) { *out = (DESCR_t){ .v = DT_BOOL, .i = rand() & 1 }; return 1; }
+                if (!rk_int_or_rat(margs[0])) return 0;
+                long cnt = (long) rk_int_arg(margs[0], 0);
+                if (cnt < 0) cnt = 0;
+                if (meth[0] == 'p' && cnt > 2) cnt = 2;
+                DESCR_t *r = cnt > 0 ? (DESCR_t *) rt_ws_alloc_descr((size_t) cnt) : NULL;
+                long first = rand() & 1;
+                for (long i = 0; i < cnt; i++) r[i] = (DESCR_t){ .v = DT_BOOL, .i = meth[0] == 'p' ? (i ? !first : first) : (rand() & 1) };
+                *out = rk_mk_arr(r, (int) cnt);
+                return 1;
+            }
             if (!strcmp(meth, "gist") && !strcmp(tn, "Nil")) { *out = STRVAL(rt_heap_strdup_c("Nil")); return 1; }
             if (!strcmp(meth, "gist")) {
                 const char *sc = strrchr(tn, ':');
@@ -12530,6 +12542,13 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = !strcmp(fn, "__rk_arr") ? rk_mark_list(ag) : rk_unmark(ag);
         return 1;
     }
+    if (!strcmp(fn, "__rk_arr_spread") && nargs == 1) {
+        DESCR_t v = args[0];
+        int spread = (rk_is_seq(v) || (v.v == DT_A && v.arr)) && !rk_is_range(v) && !rk_is_pair(v) && !rk_is_jct(v);
+        rk_av_t a = spread ? rk_av(v) : (rk_av_t) { 1, args };
+        *out = rk_unmark(rt_make_item_agg((DESCR_t *) a.el, a.n));
+        return 1;
+    }
     if (!strcmp(fn, "__rk_materialize") && nargs == 1) { DESCR_t *a = 0; int n = 0; if (!rt_lv_is_list(args[0], &a, &n)) return 0; *out = rk_mark_list(rt_make_item_agg(a, n)); return 1; }
     if (!strcmp(fn, "__rk_pair") && nargs == 2) { *out = rk_mk_pair(args[0], args[1]); return 1; }
     if (!strcmp(fn, "__rk_named_call") && nargs >= 2) {
@@ -13324,7 +13343,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "join") && nargs >= 1) {
         char sb[64];
         const char *sep = rt_heap_strdup_c(to_cstring(args[0], sb, sizeof sb));
-        *out = STRVAL(rk_av_joined(rk_av_args(args, 1, nargs), sep, "", ""));
+        *out = STRVAL(rk_av_joined(rk_av(rk_flat_agg(args + 1, nargs - 1)), sep, "", ""));
         return 1;
     }
     if (!strcmp(fn, "arr_make") && (nargs == 1 || nargs == 2)) {

@@ -165,14 +165,14 @@ static int rk_user_proc_exists(const char * nm) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * const rk_shadowable_terms[] = { "now", "time", "rand", "Empty", "Less", "Same", "More", NULL };
 static int rk_predeclared(const char * nm, int bare) {
     if (!nm || !*nm) return 0;
     static const char * const dyn[] = { "*DISTRO", "*KERNEL", "*VM", "*RAKU", "*PERL", "*PID", "*PROGRAM", "*PROGRAM-NAME", "*CWD", "*EXECUTABLE", "*EXECUTABLE-NAME", "*HOME", "*TMPDIR", "*USER",
         "%*ENV", "@*ARGS", "?FILE", "/", "!", "Order::Less", "Order::Same", "Order::More", "Bool::True", "Bool::False", NULL };
     for (int i = 0; dyn[i]; i++) if (!strcmp(nm, dyn[i])) return 1;
     if (!bare) return 0;
-    static const char * const terms[] = { "now", "time", "rand", "Empty", "Less", "Same", "More", NULL };
-    for (int i = 0; terms[i]; i++) if (!strcmp(nm, terms[i]) && !rk_is_class_name(nm) && !rk_user_proc_exists(nm)) return 1;
+    for (int i = 0; rk_shadowable_terms[i]; i++) if (!strcmp(nm, rk_shadowable_terms[i]) && !rk_is_class_name(nm) && !rk_user_proc_exists(nm)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1474,6 +1474,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             if (r2) ir_operand_push(as, r2);
             *res = as;
             return e;
+        }
+        if (t->n > 2 && t->c[0] && t->c[0]->t == TT_TWIGIL_FIELD) {
+            tree_t * nv = ast_node_new(TT_FNC);
+            nv->v.sval = (char *) "__rk_arr_set";
+            nv->line = t->line;
+            ast_push(nv, leaf_sval2(TT_VAR, "__rk_arr_set"));
+            for (int i = 0; i < t->n; i++) ast_push(nv, t->c[i]);
+            return lower_field_set(cx, t->c[0], nv, γ, ω, res);
         }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
         case TT_USE_DECL:
@@ -4732,6 +4740,66 @@ static int rk_range_method_name(const char * m) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_user_terms_find(const tree_t * t, int * declared) {
+    if (!t) return;
+    if (t->t == TT_ASSIGN && t->n >= 1 && t->c[0] && t->c[0]->t == TT_VAR && (t->c[0]->slen & 1) && t->c[0]->v.sval) {
+        for (int k = 0; rk_shadowable_terms[k]; k++) if (!strcmp(t->c[0]->v.sval, rk_shadowable_terms[k])) declared[k] = 1;
+    }
+    for (int i = 0; i < t->n; i++) rk_user_terms_find(t->c[i], declared);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_user_terms_unmark(tree_t * t, const int * declared) {
+    if (!t) return;
+    if (t->t == TT_VAR && (t->slen & 1) && t->v.sval) for (int k = 0; rk_shadowable_terms[k]; k++) if (declared[k] && !strcmp(t->v.sval, rk_shadowable_terms[k])) t->slen &= ~1;
+    for (int i = 0; i < t->n; i++) rk_user_terms_unmark(t->c[i], declared);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_user_terms(tree_t * prog) { int declared[sizeof rk_shadowable_terms / sizeof *rk_shadowable_terms] = { 0 }; rk_user_terms_find(prog, declared); rk_user_terms_unmark(prog, declared); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_xx_value_is_pure(const tree_t * e) {
+    if (!e) return 1;
+    if (e->t == TT_QLIT || e->t == TT_ILIT || e->t == TT_FLIT || e->t == TT_NUL || e->t == TT_VAR) return 1;
+    if (e->t == TT_SEQ_EXPR && e->n == 1) return rk_xx_value_is_pure(e->c[0]);
+    if (e->t != TT_FNC || !e->v.sval || strcmp(e->v.sval, "__rk_arr")) return 0;
+    for (int i = 1; i < e->n; i++) if (!rk_xx_value_is_pure(e->c[i])) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_xx_thunks(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) {
+        tree_t * c = t->c[i];
+        rk_xx_thunks(c);
+        if (!c || c->t != TT_FNC || c->n != 3 || !c->v.sval || strcmp(c->v.sval, "__rk_arr_xx") || rk_xx_value_is_pure(c->c[1])) continue;
+        tree_t * cnt = c->c[2];
+        if (!cnt || (cnt->t == TT_VAR && cnt->v.sval && !strcmp(cnt->v.sval, "*"))) continue;
+        tree_t * to = rk_t2(TT_TO, rk_ti(0), cnt);
+        to->v.ival = 2;
+        to->line = c->line;
+        tree_t * body = ast_node_new(TT_SEQ_EXPR);
+        ast_push(body, c->c[1]);
+        tree_t * blk = ast_node_new(TT_ANON_BLOCK);
+        ast_push(blk, body);
+        tree_t * mc = ast_node_new(TT_METHCALL);
+        mc->line = c->line;
+        ast_push(mc, to);
+        ast_push(mc, leaf_sval2(TT_QLIT, "map"));
+        ast_push(mc, blk);
+        t->c[i] = mc;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_array_single_arg(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_array_single_arg(t->c[i]);
+    if (t->t != TT_FNC || t->n != 2 || !t->v.sval || strcmp(t->v.sval, "__rk_arr_lit") || !t->c[0] || t->c[0]->t != TT_VAR) return;
+    const tree_t * x = t->c[1];
+    if (!x || x->t == TT_QLIT || x->t == TT_ILIT || x->t == TT_FLIT || x->t == TT_NUL || x->t == TT_TO) return;
+    if (x->t == TT_VAR && (!x->v.sval || x->v.sval[0] != '@')) return;
+    t->v.sval = (char *) "__rk_arr_spread";
+    t->c[0] = leaf_sval2(TT_VAR, "__rk_arr_spread");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_range_values(tree_t * t) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_range_values(t->c[i]);
@@ -4946,6 +5014,9 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_tail_ifs((tree_t *) prog);
     rk_typed_vars((tree_t *) prog);
     rk_sprintf_names((tree_t *) prog, rk_uses_v6e(prog));
+    rk_user_terms((tree_t *) prog);
+    rk_xx_thunks((tree_t *) prog);
+    rk_array_single_arg((tree_t *) prog);
     rk_range_values((tree_t *) prog);
     rk_exclusive_ranges((tree_t *) prog);
     rk_elem_store_values((tree_t *) prog);
