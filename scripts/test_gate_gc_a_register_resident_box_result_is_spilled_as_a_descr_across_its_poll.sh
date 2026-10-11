@@ -85,12 +85,12 @@ if arm1_verdict "stk="; then echo "⛔ ARM 1 PLANTED-VIOLATION DID NOT TRIP: the
 else echo "  ARM 1 planted-violation: the SAME comparator rejects the recorded bare-poll reading 'stk=' -- the arm discriminates"; fi
 
 "$SCRIP" --compile "$T/w.sno" >"$T/w.s" 2>/dev/null || { echo "⛔ GATE REFUSE(2) [$G]: mode 4 emission failed"; exit 2; }
-IDIOM='sub[[:space:]]+rsp,[[:space:]]*16|mov[[:space:]]+qword ptr \[rsp \+ 0\],[[:space:]]*rax|mov[[:space:]]+qword ptr \[rsp \+ 8\],[[:space:]]*rdx|lea[[:space:]]+rdi,[[:space:]]*\[rsp \+ 0\]|lea[[:space:]]+rcx,[[:space:]]*\[rsp \+ 16\]|call[[:space:]]+rt_gc_point_arr_c|mov[[:space:]]+rax,[[:space:]]*qword ptr \[rsp \+ 0\]|mov[[:space:]]+rdx,[[:space:]]*qword ptr \[rsp \+ 8\]|add[[:space:]]+rsp,[[:space:]]*16'
+IDIOM='sub[[:space:]]+rsp,[[:space:]]*32|mov[[:space:]]+qword ptr \[rsp \+ 0\],[[:space:]]*rax|mov[[:space:]]+qword ptr \[rsp \+ 8\],[[:space:]]*rdx|mov[[:space:]]+qword ptr \[rsp \+ 16\],[[:space:]]*r13|lea[[:space:]]+rdi,[[:space:]]*\[rsp \+ 0\]|lea[[:space:]]+rdx,[[:space:]]*\[rsp \+ 16\]|lea[[:space:]]+rcx,[[:space:]]*\[rsp \+ 32\]|call[[:space:]]+rt_gc_point_arr_probe_c|mov[[:space:]]+rax,[[:space:]]*qword ptr \[rsp \+ 0\]|mov[[:space:]]+rdx,[[:space:]]*qword ptr \[rsp \+ 8\]|mov[[:space:]]+r13,[[:space:]]*qword ptr \[rsp \+ 16\]|add[[:space:]]+rsp,[[:space:]]*32'
 SITE="$(grep -n 'call *NV_SET_fn' "$T/w.s" | head -1 | cut -d: -f1)"
 [ -n "$SITE" ] || { echo "⛔ GATE REFUSE(2) [$G]: the witness emitted no NV_SET_fn call -- this gate graded nothing"; exit 2; }
-awk -v n="$SITE" 'NR>=n && NR<=n+28' "$T/w.s" > "$T/win.s"
+awk -v n="$SITE" 'NR>=n && NR<=n+34' "$T/w.s" > "$T/win.s"
 SEQ="$(grep -oE "$IDIOM" "$T/win.s" | tr -d ' ' | paste -sd'|' -)"
-WANT='subrsp,16|movqwordptr[rsp+0],rax|movqwordptr[rsp+8],rdx|leardi,[rsp+0]|learcx,[rsp+16]|callrt_gc_point_arr_c|movrax,qwordptr[rsp+0]|movrdx,qwordptr[rsp+8]|addrsp,16'
+WANT='subrsp,32|movqwordptr[rsp+0],rax|movqwordptr[rsp+8],rdx|movqwordptr[rsp+16],r13|leardi,[rsp+0]|leardx,[rsp+16]|learcx,[rsp+32]|callrt_gc_point_arr_probe_c|movrax,qwordptr[rsp+0]|movrdx,qwordptr[rsp+8]|movr13,qwordptr[rsp+16]|addrsp,32'
 if printf '%s' "$SEQ" | grep -qF "$WANT"; then echo "  ARM 2 emission: the record idiom appears in order in mode 4 -- the pair written as the record's one cell, arr and the RAISED floor, the typed poll, and both reloads"
 else echo "⛔ ARM 2 RED: the record idiom is not emitted in order in mode 4 -- a dropped reload loses the result whenever a collection fires; read: $SEQ"; RC=1; fi
 BROKEN="$(printf '%s' "$SEQ" | sed 's/|movrax,qwordptr\[rsp+0\]//g')"
@@ -130,11 +130,16 @@ else echo "⛔ ARM 3 RED: the allocating witness printed '$A3' under SCRIP_GC_ST
 # multiple of 16 is what keeps rsp parity at the poll's call, which is the other thing a record owes). A size that
 # is not one still reads open == 0 and still reds, so nothing passes in silence, and the planted violation lowers
 # EVERY floor by displacement rather than by the two displacements someone happened to have seen.
+# hq_icon 2026-10-11: the record form x86_rt_gc_poll_rec_res now hands the saved r13 to rt_gc_point_arr_probe_c (the subject shield every
+# result-preserving poll owes, cfo 2026-10-04), so a probe call that passes a shield array (lea rdi, [rsp + 0]) is a record too; x86_rt_gc_poll_res,
+# which passes none (xor edi, edi) and keeps its cell AT the floor by design, is not one and is not counted.
 floor_below_cell() {
     awk '
       /sub +rsp, +[0-9]+$/ { o=$0; sub(/.*rsp, +/, "", o); o=o+0; open=(o > 0 && o % 16 == 0) ? o : 0 }
       /lea +rcx, +\[rsp \+ [0-9]+\]/ { f=$0; sub(/.*\[rsp \+ /, "", f); sub(/\].*/, "", f); floor=f+0 }
-      /call +rt_gc_point_arr_c/ { n++; if (floor != open || open == 0) bad++; floor=-1; open=0 }
+      /lea +rdi, +\[rsp \+ 0\]/ { arr=1 }
+      /xor +edi, +edi/ { arr=0 }
+      /call +rt_gc_point_arr_c([^a-z_]|$)/ || (/call +rt_gc_point_arr_probe_c([^a-z_]|$)/ && arr) { n++; if (floor != open || open == 0) bad++; floor=-1; open=0; arr=0 }
       END { print (bad+0) " " (n+0) }
     ' "$1"
 }

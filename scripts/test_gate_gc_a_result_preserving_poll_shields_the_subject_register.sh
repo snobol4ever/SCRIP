@@ -16,6 +16,14 @@
 # (c) THE PLANT: the same witness's mode-4 text with the saved-subject argument taken away (mov rdx, rsp -> xor edx, edx) is an unshielded
 #     poll_res, and it LOSES at 4 or more of the 6 points -- so (b) is a measurement and not a pass by construction.
 # FAIL_ONCE=1 runs (b) against the planted text.
+#
+# THE RECORD FORM (hq_icon 2026-10-11, row icon-a-trapped-substring-...-ceo-1660): x86_rt_gc_poll_rec_res, the record poll of 23 box sites
+# (field get, subscript, assign_var_sub, assign_global, call_fn, to_by, rev_assign_var, glue_flat), called rt_gc_point_arr_c with r0 = NULL,
+# so a collection at a field store inside an Icon scan left r13 stale: Jcon tgrlink read 0xdb poison under every SCRIP_GC_STRESS setting on
+# SCRIP 60b7e1572, and rc 139 at the default window once one more trapped variable moved collection #1 into crack()'s scan. It now keeps its
+# result in arr[0] and hands the saved r13 to rt_gc_point_arr_probe_c. (d) the record shape reads in the Icon witness's mode-4 text and the
+# plant (lea rdx, [rsp + 16] -> xor edx, edx) edits exactly those sites; (e) the witness answers its iconx ref at stress 1..8 under the
+# displacement plant, both modes; (f) the planted text LOSES at 3 or more of the 8 points (measured 5 of 8 when the arm was cut).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -59,7 +67,36 @@ if [ "$bad" = 0 ]; then echo "  ok   (b) THE PROPERTY: the witness answers its r
 else echo "  FAIL (b) a poll_res inside a match lost the subject --$band"; RC=1; fi
 if [ "$phit" -ge 4 ]; then echo "  ok   (c) PLANTED: with the saved-subject argument taken away the same text loses at $phit of 6 points --$pband -- so (b) measures the shield"
 else echo "  FAIL (c) the unshielded plant lost at only $phit of 6 points ($pband) -- the witness no longer holds a subject in r13 across a poll_res, and (b) proves nothing"; RC=1; fi
-echo "population: 3 arm(s) graded"
-if [ $RC = 0 ]; then echo "✅ GATE PASS(0) [$G]: x86_rt_gc_poll_res hands the subject register to the collector as the plain poll does, and the plant shows the loss it would otherwise be"
+RW="$WD/hb_icn_record_poll_inside_a_scan_keeps_its_subject"
+[ -s "$RW.icn" ] && [ -s "$RW.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the record-form witness or its .ref is missing under gc_witnesses"; exit 2; }
+( cd "$T" && "$SCRIP" --compile -o r.s "$RW.icn" < /dev/null > /dev/null 2> rc.err ) || { echo "⛔ GATE REFUSE(2) [$G]: the record-form witness did not compile in mode 4"; exit 2; }
+sed 's/^\( *\)lea  *rdx, \[rsp + 16\]$/\1xor edx, edx/' "$T/r.s" > "$T/rp.s"
+rplant=$(diff "$T/r.s" "$T/rp.s" | grep -c '^<')
+rshape=$(awk '
+  /mov +qword ptr \[rsp \+ 16\], r13/ { a=NR }
+  /lea +rdx, \[rsp \+ 16\]/ && a && NR-a<=3 { b=NR }
+  /call +rt_gc_point_arr_probe_c/ && b && NR-b<=4 { c=NR }
+  /mov +r13, qword ptr \[rsp \+ 16\]/ && c && NR-c<=4 { n++; a=b=c=0 }
+  END { print n+0 }' "$T/r.s")
+if [ "$rshape" -gt 0 ] && [ "$rplant" = "$rshape" ]; then echo "  ok   (d) the record form reads whole $rshape time(s) in the Icon witness's mode-4 text: r13 spilled beside the arr cell, rdx = its word, the probe call, the r13 reload"
+else echo "  FAIL (d) the record form reads $rshape time(s) and the plant edits $rplant line(s) -- x86_rt_gc_poll_rec_res no longer hands r13 to rt_gc_point_arr_probe_c"; RC=1; fi
+RSRC="r"; [ "${FAIL_ONCE:-0}" = 1 ] && RSRC="rp"
+gcc -m64 -no-pie -rdynamic "$T/$RSRC.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$T/$RSRC.bin" 2>/dev/null || { echo "⛔ GATE REFUSE(2) [$G]: the record-form text did not link"; exit 2; }
+gcc -m64 -no-pie -rdynamic "$T/rp.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$T/rp.bin" 2>/dev/null || { echo "⛔ GATE REFUSE(2) [$G]: the planted record-form text did not link"; exit 2; }
+rband=""; rbad=0; rpband=""; rphit=0
+for st in 1 2 3 4 5 6 7 8; do
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_SHIFT=1024 SCRIP_GC_STRESS=$st timeout 60s "$SCRIP" --run "$RW.icn" < /dev/null > rm3_$st.out 2> /dev/null ); r3=$?
+  if [ $r3 = 0 ] && cmp -s "$T/rm3_$st.out" "$RW.ref"; then rband="$rband m3_s$st:ref"; else rband="$rband m3_s$st:LOSS"; rbad=1; fi
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_SHIFT=1024 SCRIP_GC_STRESS=$st timeout 60s "./$RSRC.bin" < /dev/null > rm4_$st.out 2> /dev/null ); r4=$?
+  if [ $r4 = 0 ] && cmp -s "$T/rm4_$st.out" "$RW.ref"; then rband="$rband m4_s$st:ref"; else rband="$rband m4_s$st:LOSS"; rbad=1; fi
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_SHIFT=1024 SCRIP_GC_STRESS=$st timeout 60s ./rp.bin < /dev/null > rp_$st.out 2> /dev/null ); rp=$?
+  if [ $rp != 0 ] || ! cmp -s "$T/rp_$st.out" "$RW.ref"; then rpband="$rpband s$st:LOSS"; rphit=$((rphit+1)); else rpband="$rpband s$st:ref"; fi
+done
+if [ "$rbad" = 0 ]; then echo "  ok   (e) THE PROPERTY: a field store inside an Icon scan keeps the subject at stress 1..8 under the displacement plant, both modes --$rband"
+else echo "  FAIL (e) a record poll inside a scan lost the subject --$rband"; RC=1; fi
+if [ "$rphit" -ge 3 ]; then echo "  ok   (f) PLANTED: with the record form's saved-subject argument taken away the same text loses at $rphit of 8 points --$rpband -- so (e) measures the shield"
+else echo "  FAIL (f) the unshielded record plant lost at only $rphit of 8 points ($rpband) -- the witness no longer holds a subject in r13 across a record poll, and (e) proves nothing"; RC=1; fi
+echo "population: 6 arm(s) graded"
+if [ $RC = 0 ]; then echo "✅ GATE PASS(0) [$G]: x86_rt_gc_poll_res and the record form x86_rt_gc_poll_rec_res hand the subject register to the collector as the plain poll does, and each plant shows the loss it would otherwise be"
 else echo "⛔ GATE FAIL(1) [$G]: a result-preserving poll does not shield r13"; fi
 exit $RC

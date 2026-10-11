@@ -2797,17 +2797,19 @@ return x86_gc_gate(x86("sub", "rsp", (long)48)
          + x86("add", "rsp", (long)48));
 }
 inline std::string x86_rt_gc_poll_rec_res() {
-return x86_gc_gate(x86("sub", "rsp", (long)16)
+return x86_gc_gate(x86("sub", "rsp", (long)32)
          + x86_rsp_store64(0, "rax")
          + x86_rsp_store64(8, "rdx")
+         + x86_rsp_store64(16, "r13")
          + x86_reg_disp32_lea64("rdi", "rsp", 0)
          + x86("mov", "esi", (long)1)
-         + x86("mov", "edx", (long)0)
-         + x86_reg_disp32_lea64("rcx", "rsp", 16)
-         + x86_rtcc_call_adj("rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c, 0)
+         + x86("lea", "rdx", RDQ("rsp", 16))
+         + x86_reg_disp32_lea64("rcx", "rsp", 32)
+         + x86_rtcc_call_adj("rt_gc_point_arr_probe_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_probe_c, 0)
          + x86_rsp_load64("rax", 0)
          + x86_rsp_load64("rdx", 8)
-         + x86("add", "rsp", (long)16));
+         + x86_rsp_load64("r13", 16)
+         + x86("add", "rsp", (long)32));
 }
 #include "stage2.h"
 std::string bb_glue_binop_open(int base, const std::string & load, const std::string & store, long op, int ldecline, int truthy);

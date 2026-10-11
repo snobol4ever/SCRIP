@@ -1312,7 +1312,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                 int var_road = cx->var_road;
                 cx->var_road = 0;
                 IR_t * b4 = cx->beta;
-                if (lhs && lhs->t == TT_IDX && lhs->n == 2 && lhs->c[0] && lhs->c[1] && !var_road) {
+                if (lhs && lhs->t == TT_IDX && lhs->n == 2 && lhs->c[0] && lhs->c[1] && !var_road && rhs && (icn_tree_is_literal(rhs) || (rhs->t == TT_VAR && rhs->v.sval && rhs->v.sval[0] != '&'))) {
                     const tree_t * b0 = lhs->c[0];
                     IR_t * br = NULL;
                     IR_t * be = lower_idx_base(cx, b0, ω, &br);
