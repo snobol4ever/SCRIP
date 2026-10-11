@@ -99,15 +99,7 @@ RTX_FUNC(inj_saved)
 RTX_ENDF(inj_saved)
 RTX_FUNC(inj_ccall)
     sub     rsp, 8
-    RTX_PUSH(r8)
-    RTX_PUSH(r9)
-    RTX_PUSH(r10)
-    RTX_PUSH(r11)
-    call    inj_c
-    RTX_POP(r11)
-    RTX_POP(r10)
-    RTX_POP(r9)
-    RTX_POP(r8)
+    RTX_CCALL(inj_c)
     add     rsp, 8
     ret
 RTX_ENDF(inj_ccall)
@@ -116,18 +108,7 @@ RTX_FUNC(inj_ctail)
     jz      .Linj_ct
     ret
 .Linj_ct:
-    RTX_PUSH(r8)
-    RTX_PUSH(r9)
-    RTX_PUSH(r10)
-    RTX_PUSH(r11)
-    RTX_SUB_RSP(8)
-    call    inj_c
-    RTX_ADD_RSP(8)
-    RTX_POP(r11)
-    RTX_POP(r10)
-    RTX_POP(r9)
-    RTX_POP(r8)
-    ret
+    RTX_CTAIL(inj_c)
 RTX_ENDF(inj_ctail)
 RTX_FUNC(inj_saved_tail)
     push    r8
