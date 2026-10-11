@@ -1742,6 +1742,14 @@ static bb_label_t * fc_seq_sigma_tgt(IR_t **nodes, int n, int k, int src, bb_lab
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string pl_clause_zero(int ak) {
+    const IR_graph_t * g = g_emit_cfg;
+    if (!g || !g->alt_zhi || ak < 1 || ak >= g->n_alts || g->alt_zhi[ak] <= g->alt_zlo) return std::string();
+    int b = g->alt_zhi[ak] - g->alt_zlo;
+    std::string r = x86("note", "the clause overlay: every clause's construct slots share one region, so a clause entered after another zeroes its own extent, as the prologue zeroes the first");
+    if (b <= 128) { for (int q = 0; q < b / 8; q++) r += x86("mov", RDQ("rbp", g->alt_zlo + 8 * q), 0L); return r; }
+    return r + x86("lea", "rdi", RDQ("rbp", g->alt_zlo)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(b / 8)) + x86("rep_stosq");
+}
 static std::string pl_step_reseed_locals(void) {
     std::string r;
     if (!g_emit_cfg || !g_emit_cfg->lnames) return r;
@@ -5040,6 +5048,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             bb_emit_x86(x86("comment",
                 "PL ALTERNATIVE TRAMPOLINE (rung 2, Jcon ir_MoveLabel): advance F.CUR to the NEXT alternative, or zero it on the last one so the step concedes, then enter this clause head unificatio"
                 "n.")
+                      + pl_clause_zero(_ak)
                       + (_ak + 1 < n_alt ? x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)g_emitter.codegen_flat_chain_body_alt_tr[_ak + 1]) : x86("xor", "eax", "eax"))
                       + x86("mov", RDQ("rbp", _kt - 56), "rax")
                       + IF(_ak + 1 >= n_alt,
@@ -5091,7 +5100,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                 emit_jmp_label(pl_alt_target(_it[0]), JMP_JMP);
                 for (int _j = 1; _j < _m; _j++) {
                     emit_sep_rule('-'); emit_label_define_bb(_tl[_j]);
-                    bb_emit_x86((_j + 1 < _m ? x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)_tl[_j + 1]) : x86("xor", "eax", "eax"))
+                    bb_emit_x86(pl_clause_zero(_it[_j])
+                              + (_j + 1 < _m ? x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)_tl[_j + 1]) : x86("xor", "eax", "eax"))
                               + x86("mov", RDQ("rbp", _kt - 56), "rax")
                               + IF(_j + 1 >= _m, x86("mov", "r13", RDQ("rbp", _kt - 40))));
                     emit_jmp_label(pl_alt_target(_it[_j]), JMP_JMP);

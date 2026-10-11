@@ -3094,6 +3094,8 @@ static void pl_alt_alloc(IR_graph_t * g, int nc) {
     g->alt_entry = (IR_t **) ct_zalloc((size_t) nc, sizeof(IR_t *));
     g->alt_ret = (IR_t **) ct_zalloc((size_t) nc, sizeof(IR_t *));
     g->alt_redo = (IR_t **) ct_zalloc((size_t) nc, sizeof(IR_t *));
+    g->alt_lo = nc > 1 ? (int *) ct_zalloc((size_t)(2 * nc + 2), sizeof(int)) : (int *) 0;
+    g->alt_zhi = g->alt_lo ? g->alt_lo + nc + 1 : (int *) 0;
     g->n_alts = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3198,6 +3200,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     cx.nvalias = nva;
     g_lower.pl.fresh_next = maxlocal + 1;
     for (int k = 0; k < nc; k++) {
+        if (g->alt_lo) g->alt_lo[k] = g->n;
         const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[k] : ch;
         if (!cl || cl->t != TT_CLAUSE) pl_refuse("clause shape in", key, 2);
         int ar = (int) cl->v.dval;
@@ -3269,6 +3272,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         g->alt_ret[k] = succeed;
         g->alt_redo[k] = redo;
     }
+    if (g->alt_lo) g->alt_lo[nc] = g->n;
     maxlocal = g_lower.pl.fresh_next - 1;
     g_lower.pl.fresh_next = fresh_saved;
     if (arity < 0) arity = 0;

@@ -785,6 +785,132 @@ static const char * zls_pas_display_name(int lvl) {
     return (lvl >= 4 && lvl <= 16) ? g_lower.ir.zls_pas_display_name_names[lvl - 4] : (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zls_grant_at(const IR_graph_t * g, const IR_t * nd, int i, int sc, int root, const zls_reuse_t * rec, int dl_base, const char * lv, const char * uo, int * scratch_off, int off) {
+    if (rec[i].pooled >= 0) { zls_entry(nd, sc, rec[i].pooled); if (dl_base >= 0 && zls_reuse_detleaf(nd)) ze[g_lower.ir.ze_n - 1].aoff = dl_base; return 0; }
+    if (g_lower.ir.zls_build_eon && uo[i] == 1 && rec[i].w < 0 && (nd->op == IR_VAR_REF || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL))
+        return 0;
+    if (dl_base >= 0 && zls_reuse_detleaf(nd) && sc == root) {
+        if (g_lower.ir.zls_build_eon && !lv[i]) {
+            if (*scratch_off < 0) {
+                *scratch_off = off;
+                zls_entry(nd, sc, off);
+                ze[g_lower.ir.ze_n - 1].live = 0;
+                ze[g_lower.ir.ze_n - 1].aoff = dl_base;
+                zls_field(sc, off, 16, ZK_DESCR, 0, "result (SLOT-ELIDE shared dead-result scratch — every later dead leaf in this graph aliases here)", nd);
+                return 1;
+            }
+            zls_entry(nd, sc, *scratch_off);
+            ze[g_lower.ir.ze_n - 1].live = 0;
+            ze[g_lower.ir.ze_n - 1].aoff = dl_base;
+            return 0;
+        }
+        zls_entry(nd, sc, off);
+        ze[g_lower.ir.ze_n - 1].live = g_lower.ir.zls_build_eon ? lv[i] : 1;
+        ze[g_lower.ir.ze_n - 1].aoff = dl_base;
+        zls_field(sc, off, 16, ZK_DESCR, 0, "result", nd);
+        return 1;
+    }
+    return g_lower.ir.zls_build_eon ? zls_grant_elide(g, nd, sc, off, lv[i], scratch_off) : zls_grant(g, nd, sc, off);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const IR_t * nd; int c; } zls_ovn_t;
+static int zls_ovn_cmp(const void * a, const void * b) { const IR_t * x = ((const zls_ovn_t *)a)->nd, * y = ((const zls_ovn_t *)b)->nd; return x < y ? -1 : x > y ? 1 : 0; }
+static int zls_ovn_clause(const zls_ovn_t * v, int n, const IR_t * nd) {
+    int lo = 0, hi = n - 1;
+    while (lo <= hi) { int m = (lo + hi) / 2; if (v[m].nd == nd) return v[m].c; if (v[m].nd < nd) lo = m + 1; else hi = m - 1; }
+    return -1;
+}
+static int zls_ov_shares(const IR_graph_t * g) {
+    int na = g->n_alts, lo = g->alt_lo[0], hi = g->alt_lo[na], n = 0;
+    zls_ovn_t v[hi - lo > 0 ? hi - lo : 1];
+    for (int c = 0; c < na; c++) for (int i = g->alt_lo[c]; i < g->alt_lo[c + 1]; i++) if (g->all[i]) v[n++] = (zls_ovn_t){ g->all[i], c };
+    qsort(v, (size_t)n, sizeof v[0], zls_ovn_cmp);
+    for (int c = 0; c < na; c++) for (int i = g->alt_lo[c]; i < g->alt_lo[c + 1]; i++) {
+        const IR_t * x = g->all[i];
+        if (!x) continue;
+        int o = x->γ.node ? zls_ovn_clause(v, n, x->γ.node) : -1;
+        if (o >= 0 && o != c) return 1;
+        o = x->ω.node ? zls_ovn_clause(v, n, x->ω.node) : -1;
+        if (o >= 0 && o != c) return 1;
+        for (int j = 0; j < x->n_operands; j++) { o = x->operands[j] ? zls_ovn_clause(v, n, x->operands[j]) : -1; if (o >= 0 && o != c) return 1; }
+    }
+    return 0;
+}
+static int zls_overlay(IR_graph_t * g, int base, int k0, int root, const char * rb, const zls_reuse_t * rec, int dl_base, const char * lv, const char * uo, int * scratch_off) {
+    int na = g->n_alts, lo = g->alt_lo[0], hi = g->alt_lo[na];
+    if (*scratch_off < 0 && g_lower.ir.zls_build_eon) {
+        int need = 0;
+        for (int i = lo; i < hi && !need; i++) {
+            const IR_t * nd = g->all[i];
+            if (!nd || !rb[i] || rec[i].pooled >= 0 || lv[i]) continue;
+            if ((dl_base >= 0 && zls_reuse_detleaf(nd)) || (!zls_is_wiring(nd->op) && zls_elide_ok(nd->op))) need = 1;
+        }
+        if (need) {
+            *scratch_off = base + k0 * 16;
+            zls_field(root, *scratch_off, 16, ZK_DESCR, 0, "result (SLOT-ELIDE shared dead-result scratch, below the clause overlay so every clause's dead leaves alias one slot)", (const IR_t *)0);
+            k0++;
+        }
+    }
+    long S = 0;
+    for (int i = lo; i < hi; i++) {
+        const IR_t * nd = g->all[i];
+        if (!nd || !rb[i]) continue;
+        int a = g_lower.ir.zf_n, b = g_lower.ir.ze_n, x = g_lower.ir.zx_n, st = *scratch_off;
+        S += zls_grant_at(g, nd, i, root, root, rec, dl_base, lv, uo, &st, base + k0 * 16);
+        g_lower.ir.zf_n = a;
+        g_lower.ir.ze_n = b;
+        g_lower.ir.zx_n = x;
+    }
+    int seq = S <= 0 || S > (1L << 16);
+    unsigned short km[seq ? 1 : S];
+    unsigned char occ[seq ? 1 : S];
+    memset(km, 0, sizeof km);
+    int kend = k0;
+    g->alt_zlo = base + k0 * 16;
+    for (int c = 0; c < na; c++) {
+        int ce = 0, low = 0;
+        memset(occ, 0, sizeof occ);
+        for (int i = g->alt_lo[c]; i < g->alt_lo[c + 1]; i++) {
+            const IR_t * nd = g->all[i];
+            if (!nd || !rb[i]) continue;
+            int a = g_lower.ir.zf_n, b = g_lower.ir.ze_n, x = g_lower.ir.zx_n, st = *scratch_off, pr = base + k0 * 16;
+            int n = zls_grant_at(g, nd, i, root, root, rec, dl_base, lv, uo, &st, pr);
+            int nf = g_lower.ir.zf_n - a, s0 = -1;
+            int poff[nf > 0 ? nf : 1], psz[nf > 0 ? nf : 1], pk[nf > 0 ? nf : 1];
+            for (int f = 0; f < nf; f++) { poff[f] = zf[a + f].off - pr; psz[f] = zf[a + f].size; pk[f] = zf[a + f].kind; }
+            g_lower.ir.zf_n = a;
+            g_lower.ir.ze_n = b;
+            g_lower.ir.zx_n = x;
+            if (n <= 0) { zls_grant_at(g, nd, i, root, root, rec, dl_base, lv, uo, scratch_off, pr); continue; }
+            for (int s = seq ? -1 : low; s >= 0 && s + n <= S && s0 < 0; s++) {
+                int ok = 1;
+                for (int j = 0; j < n && ok; j++) if (occ[s + j]) ok = 0;
+                for (int f = 0; f < nf && ok; f++) for (int y = poff[f]; y < poff[f] + psz[f] && ok; y += 4) {
+                    long rel = (long)s * 16 + y, sl = rel / 16;
+                    if (rel < 0 || sl >= S) continue;
+                    unsigned have = (km[sl] >> (4 * ((rel % 16) / 4))) & 15u;
+                    if (have && have != (unsigned)pk[f] + 1u) ok = 0;
+                }
+                if (ok) s0 = s;
+            }
+            if (s0 < 0) { seq = 1; s0 = kend - k0 > ce ? kend - k0 : ce; }
+            int got = zls_grant_at(g, nd, i, root, root, rec, dl_base, lv, uo, scratch_off, base + (k0 + s0) * 16);
+            if (!seq) {
+                for (int j = 0; j < got && s0 + j < S; j++) occ[s0 + j] = 1;
+                for (int f = 0; f < nf; f++) for (int y = poff[f]; y < poff[f] + psz[f]; y += 4) {
+                    long rel = (long)s0 * 16 + y, sl = rel / 16;
+                    if (rel >= 0 && sl < S) km[sl] = (unsigned short)(km[sl] | (((unsigned)pk[f] + 1u) << (4 * ((rel % 16) / 4))));
+                }
+                while (low < S && occ[low]) low++;
+            }
+            if (s0 + got > ce) ce = s0 + got;
+            if (k0 + ce > kend) kend = k0 + ce;
+        }
+        g->alt_zhi[c] = base + (k0 + ce) * 16;
+    }
+    return kend;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_build(IR_graph_t * g) {
     if (!g) return;
     {
@@ -1133,40 +1259,18 @@ void zls_build(IR_graph_t * g) {
             if (r->scratch_pool >= 0) scratch_off = pool_base + r->scratch_pool * 16;
             for (int i = 0; i < g->n; i++) { if (rec[i].direct >= 0) rec[i].pooled = dl_base + rec[i].direct * 16; else if (rec[i].pooled >= 0) rec[i].pooled = pool_base + rec[i].pooled * 16; }
         }
+        int ov = g->alt_lo && g->alt_zhi && g->n_alts > 1 && nl == 0 && g->alt_lo[0] <= g->alt_lo[g->n_alts] && g->alt_lo[g->n_alts] <= g->n && !zls_ov_shares(g);
         for (int i = 0; i < g->n; i++) {
             IR_t * nd = g->all[i];
             if (!nd) continue;
             while (cur < nl && i >= mstart[cur]) cur++;
             if (!rb[i]) continue;
+            if (ov && i >= g->alt_lo[0] && i < g->alt_lo[g->n_alts]) continue;
             int sc = (cur > 0) ? mfirst[cur - 1] : root;
-            if (rec[i].pooled >= 0) { zls_entry(nd, sc, rec[i].pooled); if (dl_base >= 0 && zls_reuse_detleaf(nd)) ze[g_lower.ir.ze_n - 1].aoff = dl_base; continue; }
-            if (g_lower.ir.zls_build_eon && uo[i] == 1 && rec[i].w < 0 &&
-                (nd->op == IR_VAR_REF || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL)) continue;
-            if (dl_base >= 0 && zls_reuse_detleaf(nd) && sc == root) {
-                if (g_lower.ir.zls_build_eon && !lv[i]) {
-                    if (scratch_off < 0) {
-                        scratch_off = base + k * 16;
-                        zls_entry(nd, sc, scratch_off);
-                        ze[g_lower.ir.ze_n - 1].live = 0;
-                        ze[g_lower.ir.ze_n - 1].aoff = dl_base;
-                        zls_field(sc, scratch_off, 16, ZK_DESCR, 0, "result (SLOT-ELIDE shared dead-result scratch — every later dead leaf in this graph aliases here)", nd);
-                        k += 1;
-                        continue;
-                    }
-                    zls_entry(nd, sc, scratch_off);
-                    ze[g_lower.ir.ze_n - 1].live = 0;
-                    ze[g_lower.ir.ze_n - 1].aoff = dl_base;
-                    continue;
-                }
-                zls_entry(nd, sc, base + k * 16);
-                ze[g_lower.ir.ze_n - 1].live = g_lower.ir.zls_build_eon ? lv[i] : 1;
-                ze[g_lower.ir.ze_n - 1].aoff = dl_base;
-                zls_field(sc, base + k * 16, 16, ZK_DESCR, 0, "result", nd);
-                k += 1;
-                continue;
-            }
-            k += g_lower.ir.zls_build_eon ? zls_grant_elide(g, nd, sc, base + k * 16, lv[i], &scratch_off) : zls_grant(g, nd, sc, base + k * 16);
+            k += zls_grant_at(g, nd, i, sc, root, rec, dl_base, lv, uo, &scratch_off, base + k * 16);
         }
+        if (ov) k = zls_overlay(g, base, k, root, rb, rec, dl_base, lv, uo, &scratch_off);
+        else if (g->alt_zhi) for (int c = 0; c < g->n_alts; c++) g->alt_zhi[c] = 0;
         {
             int nr = 0;
             for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && !zls_is_wiring(g->all[i]->op)) nr++;

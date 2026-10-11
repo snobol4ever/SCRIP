@@ -202,6 +202,9 @@ struct IR_graph_t {
     IR_t ** alt_entry;
     IR_t ** alt_ret;
     IR_t ** alt_redo;
+    int * alt_lo;
+    int * alt_zhi;
+    int alt_zlo;
     IR_t * alt_fail;
     int n_alts;
 #define AG_RING 16
