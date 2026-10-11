@@ -18,6 +18,9 @@
 #     it knew whether any library was selected, 4,730,717 for hello world, red; the cure returned before any work (11,735
 #     with 6 libraries and name-only selection; 329,587 once the scan formatted a key per export, cured to compare in place).
 #   ARM 2 (names rbtrees, the largest library CEO-1473 names): exactly rbtrees and the libraries its own references need
+#          RE-PINNED 25,000,000 -> 27,000,000 (cfo 2026-10-10, GNU FD row): the selection pass scans every vendored library's export
+#          table against the program's references, so a thirteenth library (gnu_fd, 45 exports) costs ~1.3M instructions here --
+#          measured 24,447,993 on 70f3505ed and 25,794,816 with gnu_fd embedded; the cap keeps the ~5% headroom it had.
 #     are parsed -- rbtrees and error (must_be/2), 2 parses, pinned from the measurement and re-pinned with a reason when
 #     the vendored set changes what rbtrees reaches -- and pl_libs_append <= 25,000,000 instructions (measured 20,842,950:
 #     rbtrees is 1152 lines and error 463, parsed at ~40,000 instructions a line as the base prelude is; apply alone was
@@ -83,7 +86,7 @@ read -r p3 f3 <<< "$(reading native)"
 [ "$f2" = True ] && [ -n "$i2" ] || refuse "arm 2: pl_libs_append is not in the profile -- the reader found nothing"
 if [ "$p1" = 0 ] && [ "$i1" -le 400000 ]; then echo "  ARM 1 GREEN: a program naming no library parsed $p1 libraries, pl_libs_append $i1 instructions (<= 400,000)"
 else echo "  ARM 1 RED: a program naming no library parsed $p1 libraries, pl_libs_append $i1 instructions (want 0 and <= 400,000)"; red=1; fi
-b2=25000000
+b2=27000000
 if [ "$p2" = "$want" ] && [ "$i2" -le "$b2" ]; then echo "  ARM 2 GREEN: naming rbtrees parsed $p2 libraries (rbtrees and error: $want), pl_libs_append $i2 instructions (<= $b2)"
 else echo "  ARM 2 RED: naming rbtrees parsed $p2 libraries (want rbtrees and error, $want), pl_libs_append $i2 instructions (want <= $b2)"; red=1; fi
 if [ "$p3" = 0 ]; then echo "  ARM 3 GREEN: a program whose aggregate_all/3 calls SCRIP lowers itself parsed $p3 libraries"

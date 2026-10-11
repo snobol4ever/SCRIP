@@ -42,6 +42,17 @@ references it finds in the parsed library, selects the libraries that one needs,
       definition takes precedence over a special-cased builtin) is listed in OMIT below with its reason and its clauses
       are dropped.  An export the base prelude defines needs no entry: the injector drops it (the base prelude wins).
 
+A library in LOCAL is SCRIP's OWN text (gnu_fd.pl, AGPL): no SWI reader, no identity check, no renames (its helpers are
+'$'-named by hand); its exports and operators come from its module directive and its clause heads are keyed by this
+tokenizer, so they are written in canonical form.  A library in SHADOWS names the export keys of OTHER libraries that its
+own clauses replace when it is selected (gnu_fd's fd_dom/2 over clpfd's); a key in QUIET never selects the library by
+itself (fd_dom/2 is also SWI's).  Both tables are emitted beside the exports and the injector reads them.
+
+A helper CALLED BY ITS NAME AS DATA -- clpfd's override(selection, ...) reaches selection/1 through call(What, Value), so the
+rename of the predicate alone leaves call/2 asking for a selection/1 that no longer exists -- is listed in RENAME_AS_DATA and
+every bare occurrence of that atom (one not followed by an open parenthesis) is renamed with it; --show's "left as data" line is
+the review surface for the rest, each of which is a term never called.
+
 A head this script cannot key (an operator-form head, a variable head) REFUSES rc=2 by name.  An export with no clause in
 the library is SWI's C (term_hash/2 in library(terms)): it leaves the export table and --show names it as C-side, so a
 program calling it reaches SCRIP's builtin or an existence error, never a stub.
@@ -65,6 +76,11 @@ DROP_DIRECTIVES = {"module", "use_module", "autoload", "meta_predicate", "multif
                    "reexport", "type", "pred", "quasi_quotation_syntax", "volatile", "encoding", "$hide"}
 KEEP_DIRECTIVES = {"if", "elif", "else", "endif", "op", "create_prolog_flag", "dynamic"}
 EXPANDED = {"clpfd"}
+RENAME_AS_DATA = {"clpfd": {"selection", "order", "choice", "bare_integer", "circuit_successors", "g0_successors", "gcc_successors", "clear_parent", "fd_variable",
+                            "conjunction", "disjunction", "sink", "source", "clpfd_equal_", "clpfd_geq_", "clpfd_neq"}}
+LOCAL = {"gnu_fd"}
+SHADOWS = {"gnu_fd": {("fd_dom", 2): "GNU's fd_dom/2 answers the list of the domain's values where SWI's answers the domain term (measured on gprolog 1.6.0 and swipl 9.0.4, 2026-10-10)"}}
+QUIET = {"gnu_fd": {("fd_dom", 2)}}
 EXPAND_PL = os.path.join(HERE, "util_gen_prolog_prelude_libs_expand.pl")
 INIT_DROPS = {"clpfd": {"warn_if_bounded_arithmetic": "only prints a warning when the integer flag bounded is true"}}
 ATTR_HOOKS = {("attr_unify_hook", 2), ("attribute_goals", 3)}
@@ -165,7 +181,7 @@ def atom_value(tok):
     if kind == "atom":
         return text
     if kind == "qatom":
-        return text[1:-1].replace("''", "'")
+        return text[1:-1].replace("''", "'").replace("\\\\", "\\")
     return None
 
 
@@ -263,6 +279,51 @@ def directive_name(s):
     return atom_value(s[2]) if s[1] == ("punct", "(") and len(s) > 2 else atom_value(s[1])
 
 
+def local_heads(toks, path):
+    """A LOCAL library's clause classification by this tokenizer alone: offset -> (kind, arity, name)."""
+    heads, off = {}, 0
+    for cl in split_clauses(toks):
+        start = off
+        off += sum(len(t[1]) for t in cl)
+        first = start
+        for t in cl:
+            if t[0] not in ("ws", "comment"):
+                break
+            first += len(t[1])
+        s = sig(cl)
+        if not s:
+            continue
+        if atom_value(s[0]) == ":-":
+            heads[first] = ("directive", 0, "-"); continue
+        if len(s) > 2 and s[1][1] == ":" and atom_value(s[0]) is not None:
+            heads[first] = ("qualified", 0, "-"); continue
+        nm = atom_value(s[0])
+        if nm is None:
+            raise Refuse("%s: a LOCAL library head this tokenizer cannot key (%s)" % (path, " ".join(t[1] for t in s[:6])))
+        ar = 0
+        if len(s) > 1 and s[1] == ("punct", "("):
+            args, _ = top_level_args(s, 1)
+            ar = len(args)
+        heads[first] = ("head", ar, nm)
+    return heads
+
+
+def rename_bare_atom(raw, nm, new, path):
+    """Every bare occurrence of the atom nm in raw -- an atom token not followed by '(' -- becomes the quoted atom new."""
+    toks = tokenize(raw, path)
+    out = []
+    for i, t in enumerate(toks):
+        if t[0] == "atom" and t[1] == nm:
+            j = i + 1
+            while j < len(toks) and toks[j][0] in ("ws", "comment"):
+                j += 1
+            if not (j < len(toks) and toks[j] == ("punct", "(")):
+                out.append(quote(new))
+                continue
+        out.append(t[1])
+    return "".join(out)
+
+
 def reader_refs(path, lib, read_path=None):
     """SWI's own reader over the vendored file (util_gen_prolog_prelude_libs_refs.pl): every clause's start offset and
     head key, and every predicate reference's span -- head, body goal, meta-argument, DCG nonterminal -- never data."""
@@ -296,7 +357,10 @@ def process(path):
             d = directive_name(s)
             if d not in KEEP_DIRECTIVES and d not in DROP_DIRECTIVES and d != "module" and d != "initialization":
                 raise Refuse("%s clause %d: the directive :- %s is neither dropped nor kept by this generator -- decide what it means for SCRIP first" % (path, no, d))
-    heads, refs = reader_refs(path, lib, read_path)
+    if lib in LOCAL:
+        heads, refs = local_heads(toks, path), []
+    else:
+        heads, refs = reader_refs(path, lib, read_path)
     if read_path:
         os.unlink(read_path)
     mod, exports, ops, kept, drops, keyed, hooks, libops = None, [], [], [], {}, [], [], set()
@@ -384,6 +448,11 @@ def process(path):
             new = "$%s_%s" % (lib, nm)
             raw = raw[:f - cs] + quote(new) + raw[t - cs:]
             renamed["%s/%d" % (nm, ar)] = new
+        for nm in sorted(RENAME_AS_DATA.get(lib, set())):
+            if not any(k[0] == nm for k in local):
+                raise Refuse("%s: RENAME_AS_DATA names %s, which is not a local predicate of %s" % (path, nm, lib))
+            raw = rename_bare_atom(raw, nm, "$%s_%s" % (lib, nm), path)
+            renamed["%s (as data)" % nm] = "$%s_%s" % (lib, nm)
         if hk and hk[3]:
             raw = raw[:hk[1] - cs] + hk[3] + ":" + raw[hk[1] - cs:]
         elif hk:
@@ -397,7 +466,10 @@ def process(path):
     out_toks = tokenize(text, path)
     local_names = {n for n, _ in local} - {n for n, _ in exports}
     as_data = sorted({atom_value(t) for t in out_toks if t[0] in ("atom", "qatom") and atom_value(t) in local_names})
+    for k, why in SHADOWS.get(lib, {}).items():
+        drops["shadows %s/%d of other libraries: %s" % (k[0], k[1], why)] = 1
     return {"lib": lib, "exports": [e for e in exports if e not in OMIT.get(lib, {}) and e not in cside], "cside": cside, "renames": renamed, "ops": ops, "as_op": as_op,
+            "shadows": sorted(SHADOWS.get(lib, {})), "quiet": sorted(QUIET.get(lib, set())),
             "drops": drops, "as_data": as_data, "text": text, "atoms": {atom_value(t) for t in out_toks if t[0] in ("atom", "qatom")}}
 
 
@@ -419,13 +491,19 @@ def generate(pdir):
         L["names"] = sorted(M["lib"] for M in libs if M is not L and any(n in L["atoms"] for n, _ in M["exports"]))
     o = ["typedef struct { const char *nm; int ar; } pl_prelude_lib_pi_t;",
          "typedef struct { int pri; const char *type; const char *nm; } pl_prelude_lib_op_t;",
-         "typedef struct { const char *lib; const pl_prelude_lib_pi_t *exports; const pl_prelude_lib_op_t *ops; const char *src; } pl_prelude_lib_t;"]
+         "typedef struct { const char *lib; const pl_prelude_lib_pi_t *exports; const pl_prelude_lib_op_t *ops; const pl_prelude_lib_pi_t *shadows; const pl_prelude_lib_pi_t *quiet; const char *src; } pl_prelude_lib_t;"]
     for i, L in enumerate(libs):
         o.append("static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_%d_EXPORTS[] = {" % i)
         for n, a in L["exports"]:
             o.append('    { "%s", %d },' % (n.replace("\\", "\\\\").replace('"', '\\"'), a))
         o.append("    { 0, 0 }")
         o.append("};")
+        for fld in ("shadows", "quiet"):
+            o.append("static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_%d_%s[] = {" % (i, fld.upper()))
+            for n, a in L[fld]:
+                o.append('    { "%s", %d },' % (n.replace("\\", "\\\\").replace('"', '\\"'), a))
+            o.append("    { 0, 0 }")
+            o.append("};")
         o.append("static const pl_prelude_lib_op_t PL_PRELUDE_LIB_%d_OPS[] = {" % i)
         for pri, ty, n in L["ops"]:
             o.append('    { %d, "%s", "%s" },' % (pri, ty, n.replace("\\", "\\\\").replace('"', '\\"')))
@@ -436,8 +514,8 @@ def generate(pdir):
         o[-1] += ";"
     o.append("static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {")
     for i, L in enumerate(libs):
-        o.append('    { "%s", PL_PRELUDE_LIB_%d_EXPORTS, PL_PRELUDE_LIB_%d_OPS, PL_PRELUDE_LIB_%d_SRC },' % (L["lib"], i, i, i))
-    o.append("    { 0, 0, 0, 0 }")
+        o.append('    { "%s", PL_PRELUDE_LIB_%d_EXPORTS, PL_PRELUDE_LIB_%d_OPS, PL_PRELUDE_LIB_%d_SHADOWS, PL_PRELUDE_LIB_%d_QUIET, PL_PRELUDE_LIB_%d_SRC },' % (L["lib"], i, i, i, i, i))
+    o.append("    { 0, 0, 0, 0, 0, 0 }")
     o.append("};")
     return libs, "\n".join(o) + "\n"
 

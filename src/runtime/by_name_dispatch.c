@@ -322,6 +322,16 @@ static int plw_unify_oc_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
     pl_tr_ctx_t *cx = (pl_tr_ctx_t *)ctx;
     int av = plw_unbound_tag(A), bv = plw_unbound_tag(B);
     if (av && bv) {
+        int aa = pl_attv_is(A), ba = pl_attv_is(B);
+        if (aa || ba) {
+            DESCR_t r = {0};
+            r.v = (DTYPE_t)DT_PLVAR;
+            if (aa && ba) { DESCR_t *lo = A < B ? A : B, *hi = A < B ? B : A; r.p = (void *)lo; plw_bind(hi, r, cx); return 1; }
+            if (aa) { r.p = (void *)A; plw_bind(B, r, cx); return 1; }
+            r.p = (void *)B;
+            plw_bind(A, r, cx);
+            return 1;
+        }
         DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1);
         j->v = (DTYPE_t)DT_PLVAR;
         j->slen = 0;

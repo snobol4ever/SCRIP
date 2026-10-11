@@ -107,6 +107,27 @@ static const OpEntry BIN_OPS[] = {
     { "^",     200, ASSOC_RIGHT },
     { ":",     600, ASSOC_RIGHT },
     { "as",    700, ASSOC_NONE  },
+    { "#<=>",  750, ASSOC_RIGHT },
+    { "#\\<=>", 750, ASSOC_RIGHT },
+    { "#==>",  740, ASSOC_RIGHT },
+    { "#\\==>", 740, ASSOC_RIGHT },
+    { "##",    730, ASSOC_RIGHT },
+    { "#\\/",   730, ASSOC_LEFT  },
+    { "#\\\\/",  730, ASSOC_LEFT  },
+    { "#/\\",   720, ASSOC_LEFT  },
+    { "#\\/\\",  720, ASSOC_LEFT  },
+    { "#=",    700, ASSOC_NONE  },
+    { "#\\=",   700, ASSOC_NONE  },
+    { "#<",    700, ASSOC_NONE  },
+    { "#=<",   700, ASSOC_NONE  },
+    { "#>",    700, ASSOC_NONE  },
+    { "#>=",   700, ASSOC_NONE  },
+    { "#=#",   700, ASSOC_NONE  },
+    { "#\\=#",  700, ASSOC_NONE  },
+    { "#<#",   700, ASSOC_NONE  },
+    { "#=<#",  700, ASSOC_NONE  },
+    { "#>#",   700, ASSOC_NONE  },
+    { "#>=#",  700, ASSOC_NONE  },
     { NULL,    0,   ASSOC_NONE  }
 };
 static const OpEntry PREFIX_OPS[] = {
@@ -116,6 +137,7 @@ static const OpEntry PREFIX_OPS[] = {
     { "-",     200, ASSOC_RIGHT, FIX_PREFIX },
     { "+",     200, ASSOC_RIGHT, FIX_PREFIX },
     { "\\",    200, ASSOC_RIGHT, FIX_PREFIX },
+    { "#\\",   710, ASSOC_RIGHT, FIX_PREFIX },
     { NULL,    0,   ASSOC_NONE,  FIX_INFIX  }
 };
 static OpEntry *g_uinfix = NULL;
@@ -142,7 +164,12 @@ static const OpEntry *find_binop(const char *name) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const OpEntry *find_prefix(const char *name) { const OpEntry *u = find_user(name, FIX_PREFIX); return (u && u->prec > 0) ? u : NULL; }
+static const OpEntry *find_prefix(const char *name) {
+    const OpEntry *u = find_user(name, FIX_PREFIX);
+    if (u) return u->prec > 0 ? u : NULL;
+    for (const OpEntry *op = PREFIX_OPS; op->name; op++) if (strcmp(op->name, name) == 0 && op->name[0] == '#') return op;
+    return NULL;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const OpEntry *find_postfix(const char *name) { const OpEntry *u = find_user(name, FIX_POSTFIX); return (u && u->prec > 0) ? u : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -245,6 +272,14 @@ static void register_op_directive(tree_t *goal) {
     register_op_one((int)pn->v.ival, tn->v.sval, nn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int lexer_functor_follows(Lexer *lx) {
+    Lexer saved = *lx;
+    lexer_next(lx);
+    Token b = lexer_peek(lx);
+    int r = b.kind == TK_LPAREN && b.adj;
+    *lx = saved;
+    return r;
+}
 static int prefix_arg_starts(Token pk) {
     switch (pk.kind) {
         case TK_VAR: case TK_ANON: case TK_INT: case TK_FLOAT: case TK_STRING: case TK_BQSTRING: case TK_LPAREN: case TK_LBRACKET: case TK_LBRACE: case TK_CUT: return 1;
@@ -519,7 +554,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             if (strcmp(tk.text, "[]") == 0)
                 return pt_stamp(ast_node_new(TT_MAKELIST), ln);
             const OpEntry *pre_a = find_prefix(tk.text);
-            if (pre_a && prefix_arg_starts(pk)) {
+            if (pre_a && (prefix_arg_starts(pk) || ((pk.kind == TK_ATOM || pk.kind == TK_OP) && lexer_functor_follows(&p->lx)))) {
                 tree_t *fnc = ast_node_new(TT_FNC);
                 fnc->v.sval = ct_strdup(tk.text);
                 tree_t *arg = pt_term(p, ts, (pre_a->assoc == ASSOC_RIGHT) ? pre_a->prec : pre_a->prec - 1);
@@ -624,7 +659,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                   if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
                   else perror_at(p, rp.line, "expected ) to close argument list");
                   return pt_stamp(fnc, ln); } }
-            if ((strcmp(tk.text, "\\+") == 0 || strcmp(tk.text, "not") == 0) && prefix_arg_starts(lexer_peek(&p->lx))) {
+            if ((strcmp(tk.text, "\\+") == 0 || strcmp(tk.text, "not") == 0) && (prefix_arg_starts(lexer_peek(&p->lx)) || lexer_functor_follows(&p->lx))) {
                 tree_t *arg = pt_term(p, ts, 900);
                 tree_t *fnc = ast_node_new(TT_FNC);
                 fnc->v.sval = ct_strdup(tk.text);
@@ -698,7 +733,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                     return pt_stamp(fnc, ln);
                 }
                 const OpEntry *pre_o = find_prefix(tk.text);
-                if (pre_o && prefix_arg_starts(pk3)) {
+                if (pre_o && (prefix_arg_starts(pk3) || ((pk3.kind == TK_ATOM || pk3.kind == TK_OP) && lexer_functor_follows(&p->lx)))) {
                     tree_t *fnc = ast_node_new(TT_FNC);
                     fnc->v.sval = ct_strdup(tk.text);
                     tree_t *arg = pt_term(p, ts, (pre_o->assoc == ASSOC_RIGHT) ? pre_o->prec : pre_o->prec - 1);
@@ -1207,6 +1242,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$b_getval_hooked'(K,V):-catch('$b_getval_raw'(K,V),error(existence_error(variable,K),_),('$undefined_global_retry'(K)->'$b_getval_raw'(K,V);throw(error(existence_error(variable,K),b_getval/2)))).\n"
     "'$undefined_global_retry'(K):-exception(undefined_global_variable,K,A),A==retry.\n"
     "create_prolog_flag(F,V,O):-(memberchk(keep(true),O),catch(current_prolog_flag(F,_),_,fail)->true;'$create_prolog_flag'(F,V)).\n"
+    "nb_current(K,V):-atom(K),catch(nb_getval(K,V0),error(existence_error(_,_),_),fail),V=V0.\n"
     "nth_integer_root_and_remainder(N,I,R,M):-integer(N),integer(I),N>=1,(I>=0->'$nth_root_bs'(N,I,0,I,R);N mod 2=:=1,J is -I,'$nth_root_bs'(N,J,0,J,R0),R is -R0),M is I-R^N.\n"
     "'$nth_root_bs'(_,_,L,H,R):-H-L=<1,!,R=L.\n"
     "'$nth_root_bs'(N,I,L,H,R):-M is (L+H)//2,(M^N=<I->'$nth_root_bs'(N,I,M,H,R);'$nth_root_bs'(N,I,L,M,R)).\n"
@@ -1834,7 +1870,7 @@ static const char * const PL_PRELUDE_SRC =
     "include(P,[H|T],R):-(call(P,H)->R=[H|R1];R=R1),include(P,T,R1).\n"
     "list_to_set(L,S):-'$lts_'(L,[],S).\n"
     "'$lts_'([],_,[]).\n"
-    "'$lts_'([H|T],Seen,R):-(member(H,Seen)->R=R1;R=[H|R1]),'$lts_'(T,[H|Seen],R1).\n"
+    "'$lts_'([H|T],Seen,R):-(memberchk_eq(H,Seen)->R=R1;R=[H|R1]),'$lts_'(T,[H|Seen],R1).\n"
     "maplist(_,[]).\n"
     "maplist(G,[X|Xs]):-call(G,X),maplist(G,Xs).\n"
     "maplist(_,[],[]).\n"
@@ -2123,11 +2159,16 @@ static int pl_base_defines(PlClause *first, PlClause *last, const char *nm, int 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_cv_has_key(const cv_t *v, const char *nm, int ar);
+static int pl_lib_quiet(const pl_prelude_lib_t *lib, const char *nm, int ar) {
+    for (const pl_prelude_lib_pi_t *q = lib->quiet; q && q->nm; q++) if (q->ar == ar && !strcmp(q->nm, nm)) return 1;
+    return 0;
+}
 static int pl_lib_named(const pl_prelude_lib_t *lib, const cv_t *refkeys, PlClause *base, PlClause *base_last, const char *native_only, const cv_t *user_defined) {
     for (const pl_prelude_lib_pi_t *e = lib->exports; e->nm; e++) {
         if (native_only && !strcmp(e->nm, native_only)) continue;
         if (user_defined && pl_cv_has_key(user_defined, e->nm, e->ar)) continue;
         if (!pl_cv_has_key(refkeys, e->nm, e->ar) && !(e->ar && pl_cv_has_key(refkeys, e->nm, 0))) continue;
+        if (pl_lib_quiet(lib, e->nm, e->ar)) continue;
         if (!pl_base_defines(base, base_last, e->nm, e->ar)) return 1;
     }
     return 0;
@@ -2161,6 +2202,20 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     }
     for (int i = 0; i < nlibs; i++) {
         if (!lp[i]) continue;
+        for (int j = 0; j < nlibs; j++) {
+            if (!lp[j] || j == i) continue;
+            for (const pl_prelude_lib_pi_t *sh = PL_PRELUDE_LIBS[j].shadows; sh && sh->nm; sh++) {
+                PlClause *prev = NULL, *nx = NULL;
+                for (PlClause *cl = lp[i]->head; cl; cl = nx) {
+                    const char *cn; int car;
+                    nx = cl->next;
+                    if (!pl_clause_key(cl, &cn, &car) || !cn || car != sh->ar || strcmp(cn, sh->nm)) { prev = cl; continue; }
+                    if (prev) prev->next = nx; else lp[i]->head = nx;
+                    if (lp[i]->tail == cl) lp[i]->tail = prev;
+                    lp[i]->nclauses--;
+                }
+            }
+        }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "phrase")) pl_cv_add(referenced, "$phrase");
         if (strstr(PL_PRELUDE_LIBS[i].src, "=>")) pl_cv_add(referenced, "subsumes_term");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
