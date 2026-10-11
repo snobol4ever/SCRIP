@@ -86,7 +86,15 @@ cat > "$WORK/inj/ok.s" <<'ASM'
 #include "rtx_abi.inc"
 RTX_FUNC(ok_ccall)
     RTX_SUB_RSP(8)
-    RTX_CCALL(ok_c@PLT)
+    RTX_PUSH(r8)
+    RTX_PUSH(r9)
+    RTX_PUSH(r10)
+    RTX_PUSH(r11)
+    call    ok_c@PLT
+    RTX_POP(r11)
+    RTX_POP(r10)
+    RTX_POP(r9)
+    RTX_POP(r8)
     RTX_ADD_RSP(8)
     ret
 RTX_ENDF(ok_ccall)
@@ -95,7 +103,18 @@ RTX_FUNC(ok_ctail)
     jz      .Lok_ct
     ret
 .Lok_ct:
-    RTX_CTAIL(ok_c@PLT)
+    RTX_PUSH(r8)
+    RTX_PUSH(r9)
+    RTX_PUSH(r10)
+    RTX_PUSH(r11)
+    RTX_SUB_RSP(8)
+    call    ok_c@PLT
+    RTX_ADD_RSP(8)
+    RTX_POP(r11)
+    RTX_POP(r10)
+    RTX_POP(r9)
+    RTX_POP(r8)
+    ret
 RTX_ENDF(ok_ctail)
 RTX_FUNC(ok_saved)
     RTX_PUSHS(rbx)
