@@ -5313,7 +5313,9 @@ static int rk_701_never(const char * ty, const tree_t * a) {
 static const tree_t * rk_701_find(const tree_t * prog, const tree_t * t, int line, int * at) {
     if (!t) return NULL;
     if (t->line > 0) line = t->line;
-    if (t->t == TT_FNC && t->v.sval && strncmp(t->v.sval, "__", 2) && t->n >= 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, t->v.sval)) {
+    int lit = 0;
+    for (int k = 1; t->t == TT_FNC && k < t->n; k++) if (t->c[k] && (t->c[k]->t == TT_QLIT || t->c[k]->t == TT_ILIT)) lit = 1;
+    if (lit && t->v.sval && strncmp(t->v.sval, "__", 2) && t->n >= 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, t->v.sval)) {
         const tree_t * sd = NULL;
         int nd = rk_701_decls(prog, t->v.sval, &sd);
         int np = 0, ok = nd == 1 && sd && !rk_701_has_default(sd);
@@ -5339,13 +5341,20 @@ int lower_raku_refuse(const tree_t * prog, const char * file) {
     if (!call) return 0;
     const tree_t * sd = NULL;
     rk_701_decls(prog, call->v.sval, &sd);
-    char args[256] = "", sig[256] = "";
+    size_t an = 1, sn = 1;
+    for (int k = 1; k < call->n; k++) an += strlen(rk_701_lit_type(call->c[k])) + 2;
+    for (int k = 1; k < sd->n && sd->c[k] && sd->c[k]->t == TT_VAR; k++) {
+        const tree_t * pv = sd->c[k];
+        sn += strlen(pv->v.sval) + 4 + ((pv->n >= 1 && pv->c[0] && pv->c[0]->v.sval) ? strlen(pv->c[0]->v.sval) + 1 : 0);
+    }
+    char args[an], sig[sn];
     size_t al = 0, sl = 0;
-    for (int k = 1; k < call->n; k++) al += (size_t) snprintf(args + al, al < sizeof args ? sizeof args - al : 0, "%s%s", k > 1 ? ", " : "", rk_701_lit_type(call->c[k]));
-    for (int k = 1; k < sd->n && sd->c[k] && sd->c[k]->t == TT_VAR && sl < sizeof sig; k++) {
+    args[0] = sig[0] = 0;
+    for (int k = 1; k < call->n; k++) al += (size_t) snprintf(args + al, an - al, "%s%s", k > 1 ? ", " : "", rk_701_lit_type(call->c[k]));
+    for (int k = 1; k < sd->n && sd->c[k] && sd->c[k]->t == TT_VAR; k++) {
         const tree_t * pv = sd->c[k];
         const char * ty = (pv->n >= 1 && pv->c[0] && pv->c[0]->v.sval) ? pv->c[0]->v.sval : NULL;
-        sl += (size_t) snprintf(sig + sl, sizeof sig - sl, "%s%s%s$%s", k > 1 ? ", " : "", ty ? ty : "", ty ? " " : "", pv->v.sval);
+        sl += (size_t) snprintf(sig + sl, sn - sl, "%s%s%s$%s", k > 1 ? ", " : "", ty ? ty : "", ty ? " " : "", pv->v.sval);
     }
     char msg[fmt_len("call %s(%s) can never succeed against the declared signature (%s)", call->v.sval, args, sig)];
     snprintf(msg, sizeof msg, "call %s(%s) can never succeed against the declared signature (%s)", call->v.sval, args, sig);
