@@ -1,4 +1,5 @@
 #include "core.h"
+#include "rtx_try.h"
 #include "dtp.h"
 #include "ct_arena.h"
 #include "core_errjmp.h"
@@ -3570,12 +3571,16 @@ typedef struct _VarEntry {
     int is_io;
     struct _VarEntry *next;
 } NV_t;
-static gv_t g_var_buckets;
-static unsigned _var_nbuckets = 0;
+__attribute__((visibility("hidden"))) gv_t g_var_buckets;
+__attribute__((visibility("hidden"))) unsigned _var_nbuckets = 0;
 static unsigned long _var_count = 0;
 #define VB(h) (((NV_t **)g_var_buckets.p)[h])
 #define VBR(h) (g_var_buckets.p ? VB(h) : (NV_t *)0)
-static int _var_init_done = 0;
+__attribute__((visibility("hidden"))) int _var_init_done = 0;
+_Static_assert(offsetof(NV_t, name) == 0 && offsetof(NV_t, nlen) == 8 && offsetof(NV_t, has_nul) == 12 && offsetof(NV_t, val) == 32 && offsetof(NV_t, cell) == 48 && offsetof(NV_t, is_gva) == 56 &&
+    offsetof(NV_t, is_io) == 68 && offsetof(NV_t, next) == 72 && offsetof(gv_t, p) == 0,
+    "rtx_misc.s rt_sno_name_dl walks the variable table at these fixed offsets (name 0, nlen 8, has_nul 12, val 32, cell 48, is_gva 56, is_io 68, next 72; the bucket vector is g_var_buckets.p); core"
+    ".c drifted -- every by-name lookup would read the wrong word");
 static inline __attribute__((always_inline)) uint64_t nv_hash_raw(const char *s, size_t n);
 static void _var_grow(unsigned nb) {
     gv_t nv = { 0, 0, 0, 0, 0, 0 };
@@ -4806,7 +4811,7 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs, long *r
                 extern int rt_dat_field_of_any_live(const char *);
                 extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj);
                 const char *_tgt = e->entry_label ? e->entry_label : (const char *)0;
-                if (_tgt && nargs == 1 && args && IS_DATA_TAG_fn(args[0].v) && strcmp(_tgt, name) != 0 && rt_dat_field_of_any_live(_tgt)) return c_dat_field_get(_tgt, args[0]);
+                if (_tgt && nargs == 1 && args && IS_DATA_TAG_fn(args[0].v) && strcmp(_tgt, name) != 0 && rt_dat_field_of_any_live(_tgt)) return rtx_try_dat_field_get(_tgt, args[0]);
             }
             if (e->fn == _APPLY_ && rq && nargs >= 1) {
                 extern DESCR_t APPLY_fn_rq(const char *, DESCR_t *, int, long *);

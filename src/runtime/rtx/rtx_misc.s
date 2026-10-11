@@ -221,4 +221,200 @@ RTX_FUNC(rt_is_truthy)
     movzx   eax, al
     ret
 RTX_ENDF(rt_is_truthy)
+#define NV_NAME   0
+#define NV_NLEN   8
+#define NV_HASNUL 12
+#define NV_VAL    32
+#define NV_CELL   48
+#define NV_ISGVA  56
+#define NV_ISIO   68
+#define NV_NEXT   72
+RTX_FUNC(rt_sno_name_dl)
+    RTX_GATE(misc, .Lsn_c)
+    cmp     esi, 1
+    jne     .Lsn_c
+    mov     rax, qword ptr [rip + g_error@GOTPCREL]
+    cmp     qword ptr [rax], 0
+    jne     .Lsn_c
+    mov     rax, qword ptr [rip + kw_errlimit@GOTPCREL]
+    cmp     qword ptr [rax], 0
+    jne     .Lsn_c
+#if RT_DIAG
+    mov     rax, qword ptr [rip + g_comm_dbg@GOTPCREL]
+    cmp     dword ptr [rax], 0
+    jne     .Lsn_c
+    mov     rax, qword ptr [rip + trace_set_n@GOTPCREL]
+    cmp     dword ptr [rax], 0
+    jne     .Lsn_c
+    mov     rax, qword ptr [rip + monitor_fd@GOTPCREL]
+    cmp     dword ptr [rax], 0
+    jge     .Lsn_c
+#endif
+    mov     rax, qword ptr [rdi]
+    cmp     al, DT_S
+    jne     .Lsn_c
+    mov     r8, qword ptr [rdi + 8]
+    test    r8, r8
+    jz      .Lsn_c
+    mov     r10, rax
+    shr     r10, 32
+    jz      .Lsn_c
+    cmp     r10d, 0x7FFFFFFF
+    jae     .Lsn_c
+    movzx   ecx, byte ptr [r8]
+    cmp     cl, 1
+    je      .Lsn_c
+    cmp     cl, 38
+    je      .Lsn_c
+    lea     eax, [rcx - 65]
+    cmp     eax, 18
+    ja      .Lsn_lead_ok
+    mov     edx, 0x60023
+    bt      edx, eax
+    jc      .Lsn_c
+.Lsn_lead_ok:
+    cmp     cl, 73
+    jne     .Lsn_not_i
+    cmp     r10d, 5
+    je      .Lsn_c
+.Lsn_not_i:
+    cmp     cl, 79
+    jne     .Lsn_not_o
+    cmp     r10d, 6
+    je      .Lsn_c
+.Lsn_not_o:
+    cmp     cl, 84
+    jne     .Lsn_not_t
+    cmp     r10d, 8
+    je      .Lsn_c
+.Lsn_not_t:
+    mov     rax, qword ptr [rip + _var_init_done@GOTPCREL]
+    cmp     dword ptr [rax], 0
+    je      .Lsn_c
+    mov     rax, qword ptr [rip + g_var_buckets@GOTPCREL]
+    mov     rdx, qword ptr [rax]
+    test    rdx, rdx
+    jz      .Lsn_c
+    mov     rax, qword ptr [rip + _var_nbuckets@GOTPCREL]
+    mov     r9d, dword ptr [rax]
+    test    r9d, r9d
+    jz      .Lsn_c
+    dec     r9d
+    mov     r11, 0x9E3779B97F4A7C15
+    xor     r11, r10
+    xor     ecx, ecx
+.Lsn_w8:
+    lea     rax, [rcx + 8]
+    cmp     rax, r10
+    ja      .Lsn_tail
+    mov     rax, qword ptr [r8 + rcx]
+    xor     r11, rax
+    mov     rax, 0xFF51AFD7ED558CCD
+    imul    r11, rax
+    add     rcx, 8
+    jmp     .Lsn_w8
+.Lsn_tail:
+    cmp     rcx, r10
+    jae     .Lsn_fin
+    cmp     r10, 8
+    jb      .Lsn_lt8
+    mov     rax, qword ptr [r8 + r10 - 8]
+    jmp     .Lsn_mix
+.Lsn_lt8:
+    cmp     r10, 4
+    jb      .Lsn_lt4
+    mov     eax, dword ptr [r8]
+    mov     ecx, dword ptr [r8 + r10 - 4]
+    shl     rcx, 32
+    or      rax, rcx
+    jmp     .Lsn_mix
+.Lsn_lt4:
+    movzx   eax, byte ptr [r8]
+    mov     rcx, r10
+    shr     rcx, 1
+    movzx   ecx, byte ptr [r8 + rcx]
+    shl     ecx, 8
+    or      eax, ecx
+    movzx   ecx, byte ptr [r8 + r10 - 1]
+    shl     ecx, 16
+    or      eax, ecx
+.Lsn_mix:
+    xor     r11, rax
+    mov     rax, 0xC4CEB9FE1A85EC53
+    imul    r11, rax
+.Lsn_fin:
+    mov     rax, r11
+    shr     rax, 33
+    xor     r11, rax
+    and     r11, r9
+    mov     rax, qword ptr [rdx + r11*8]
+.Lsn_chain:
+    test    rax, rax
+    jz      .Lsn_c
+    mov     ecx, dword ptr [rax + NV_NLEN]
+    cmp     rcx, r10
+    jne     .Lsn_next
+    mov     rdx, qword ptr [rax + NV_NAME]
+    cmp     r10, 8
+    jb      .Lsn_cmp_lt8
+    xor     ecx, ecx
+.Lsn_cmp_w:
+    lea     r9, [rcx + 8]
+    cmp     r9, r10
+    ja      .Lsn_cmp_last
+    mov     r11, qword ptr [rdx + rcx]
+    cmp     r11, qword ptr [r8 + rcx]
+    jne     .Lsn_next
+    mov     rcx, r9
+    jmp     .Lsn_cmp_w
+.Lsn_cmp_last:
+    mov     r11, qword ptr [rdx + r10 - 8]
+    cmp     r11, qword ptr [r8 + r10 - 8]
+    jne     .Lsn_next
+    jmp     .Lsn_hit
+.Lsn_cmp_lt8:
+    cmp     r10, 4
+    jb      .Lsn_cmp_lt4
+    mov     r11d, dword ptr [rdx]
+    cmp     r11d, dword ptr [r8]
+    jne     .Lsn_next
+    mov     r11d, dword ptr [rdx + r10 - 4]
+    cmp     r11d, dword ptr [r8 + r10 - 4]
+    jne     .Lsn_next
+    jmp     .Lsn_hit
+.Lsn_cmp_lt4:
+    xor     ecx, ecx
+.Lsn_cmp_b:
+    movzx   r11d, byte ptr [rdx + rcx]
+    cmp     r11b, byte ptr [r8 + rcx]
+    jne     .Lsn_next
+    inc     rcx
+    cmp     rcx, r10
+    jb      .Lsn_cmp_b
+    jmp     .Lsn_hit
+.Lsn_next:
+    mov     rax, qword ptr [rax + NV_NEXT]
+    jmp     .Lsn_chain
+.Lsn_hit:
+    cmp     dword ptr [rax + NV_HASNUL], 0
+    jne     .Lsn_c
+    cmp     dword ptr [rax + NV_ISIO], 0
+    jne     .Lsn_c
+    cmp     dword ptr [rax + NV_ISGVA], 0
+    je      .Lsn_val
+    mov     rdx, qword ptr [rax + NV_CELL]
+    test    rdx, rdx
+    jz      .Lsn_c
+    jmp     .Lsn_ret
+.Lsn_val:
+    lea     rdx, [rax + NV_VAL]
+.Lsn_ret:
+    mov     rax, 0x100000028
+    RTX_GVA_R9
+    ret
+.Lsn_c:
+    mov     eax, RTX_NOT_HANDLED
+    RTX_GVA_R9
+    ret
+RTX_ENDF(rt_sno_name_dl)
 .section .note.GNU-stack,"",@progbits
