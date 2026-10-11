@@ -115,8 +115,8 @@ mapfile -t FILES < <(find "$PKG" -name "*.pl" ! -name "*_driver.pl" | sort)
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE: zero .pl files found under $PKG"; exit 2; }
 
-LIB=0; OK_TOTAL=0; OK_PASS=0; OK_FAIL=0; REJECT=0; UNEXPECTED=0; LADDER=0; EMPTY=0; CON_N=0; DRIVEN=0; UGB=0
-UNEXPECTED_NAMES=(); REJECT_NAMES=(); OK_FAIL_NAMES=(); EMPTY_NAMES=(); SIDE_ERR=()
+LIB=0; OK_TOTAL=0; OK_PASS=0; OK_FAIL=0; OK_TIMEOUT=0; REJECT=0; UNEXPECTED=0; LADDER=0; EMPTY=0; CON_N=0; DRIVEN=0; UGB=0
+UNEXPECTED_NAMES=(); REJECT_NAMES=(); OK_FAIL_NAMES=(); OK_TIMEOUT_NAMES=(); EMPTY_NAMES=(); SIDE_ERR=()
 # ⛔⭐ THE ROW IS PUBLISHED OVER THE SHIPPED POPULATION, AND AN EMPTY OUTPUT GRADES NOTHING (Lon 2026-10-05, in-chat to the ceo, verbatim:
 # "What's up with \"GNU source\" test suite entry? Is that real? Did you write drivers for all those?"; ceo CEO-1523). The row read 11/11:
 # the 11 files that compile print 0 bytes in m3, m4 and gprolog with zero arguments, so their three-way agreement proved only that they
@@ -213,11 +213,11 @@ for f in "${FILES[@]}"; do
         _t0="$(progress_clock)"
         "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --compile "$drv" -o "$dout" < /dev/null > "$probe_log" 2>&1; drc=$?
         _cs="$(progress_secs_since "$_t0")"; _t0="$(progress_clock)"
-        m3_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "$drv" ${dargv[0]+--} "${dargv[@]}" < "$din" 2>/dev/null)
+        m3_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "$drv" ${dargv[0]+--} "${dargv[@]}" < "$din" 2>/dev/null); m3rc=$?
         S3="$(progress_secs_since "$_t0")"; _t0="$(progress_clock)"
-        m4_out=""
+        m4_out=""; m4rc=0
         if [ "$drc" -eq 0 ] && gcc -no-pie "$dout" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$dbin" 2>/dev/null; then
-            m4_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$dbin" "${dargv[@]}" < "$din" 2>/dev/null)
+            m4_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$dbin" "${dargv[@]}" < "$din" 2>/dev/null); m4rc=$?
         fi
         S4="$(progress_secs_sum "$(progress_secs_since "$_t0")" "$_cs")"
         gp_out=$(gprolog_out "$drv" "$din" "${dargv[@]}")
@@ -232,6 +232,23 @@ for f in "${FILES[@]}"; do
             gp_out=$(drop_excluded_lines "$rel" "$gp_out"); m3_out=$(drop_excluded_lines "$rel" "$m3_out"); m4_out=$(drop_excluded_lines "$rel" "$m4_out")
         fi
         if [ "$m3_out" = "$gp_out" ] && [ "$m4_out" = "$gp_out" ]; then _gv=PASS; else _gv=FAIL; fi
+        # ⛔ A TIMEOUT UNDER LOAD IS A TIMEOUT, NEVER A FAIL (ceo CEO-1686, CEO-1574's load-guard rule for every runner; the coo 2026-10-11): at
+        # load 20-30 five driver compiles read rc 124 on 966109bb9 (Pl2Wam/all.pl among them with 0 of 201 lines differing) and the row fell
+        # 18 -> 17 on a reading of the box, not the program. A driver whose compile or run answered 124 -- after util_timeout_retry.sh's own
+        # retry -- while the 1-minute load is at or above the cores is COULD NOT MEASURE: named with the load, recorded UNGRADED, outside pass
+        # and fail, and the suite row is not written from such a pass. At a load under the cores a 124 stays the program's FAIL.
+        if [ "$_gv" = FAIL ] && { [ "$drc" -eq 124 ] || [ "$m3rc" -eq 124 ] || [ "$m4rc" -eq 124 ]; }; then
+            _l1="${GNU_SUITE_LOAD1:-$(cut -d' ' -f1 /proc/loadavg 2>/dev/null || echo 0)}"; _nc="$(nproc 2>/dev/null || echo 1)"   # GNU_SUITE_LOAD1: a fixture's load
+            if awk -v l="$_l1" -v n="$_nc" 'BEGIN { exit !(l + 0 >= n + 0) }'; then
+                OK_TIMEOUT=$((OK_TIMEOUT+1)); OK_TIMEOUT_NAMES+=("$rel (compile rc $drc, m3 rc $m3rc, m4 rc $m4rc at load1 $_l1 on $_nc cores)")
+                echo "  DRIVEN TIMEOUT $rel -- compile rc $drc, m3 rc $m3rc, m4 rc $m4rc at load1 $_l1 on $_nc cores: could not measure (CEO-1686), not a FAIL"
+                if command -v progress_append >/dev/null 2>&1; then
+                    progress_append package gnu prolog "$rel" m3 UNGRADED "$S3" "timeout-under-load load1=$_l1 cores=$_nc" || true
+                    progress_append package gnu prolog "$rel" m4 UNGRADED "$S4" "timeout-under-load load1=$_l1 cores=$_nc" || true
+                fi
+                continue
+            fi
+        fi
         if command -v progress_append >/dev/null 2>&1; then
             progress_append package gnu prolog "$rel" m3 "$([ "$m3_out" = "$gp_out" ] && echo PASS || echo FAIL)" "$S3" "driver ${base}_driver.pl vs gprolog" || true
             progress_append package gnu prolog "$rel" m4 "$([ "$m4_out" = "$gp_out" ] && echo PASS || echo FAIL)" "$S4" "driver ${base}_driver.pl vs gprolog" || true
@@ -393,7 +410,12 @@ if [ "${#SIDE_ERR[@]}" -gt 0 ]; then
     echo "⛔ REFUSED-TO-GRADE: UNGRADED.tsv disagrees with this run:"; for n in "${SIDE_ERR[@]}"; do echo "   $n"; done; exit 2
 fi
 echo ""
-echo "GNU_SUITE_BOARD population=$POP pass=$OK_PASS driven=$DRIVEN excluded=$CON_N empty=$EMPTY ungradable=$UGB total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(subset of ok_fail) unexpected=$UNEXPECTED"
+if [ "$OK_TIMEOUT" -gt 0 ]; then
+    echo ""
+    echo "-- TIMEOUT UNDER LOAD (could not measure, CEO-1686 -- outside pass and fail; the suite row is not written from this pass): $OK_TIMEOUT --"
+    for n in "${OK_TIMEOUT_NAMES[@]}"; do echo "   $n"; done
+fi
+echo "GNU_SUITE_BOARD population=$POP pass=$OK_PASS driven=$DRIVEN excluded=$CON_N empty=$EMPTY ungradable=$UGB total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(subset of ok_fail) unexpected=$UNEXPECTED timeout_under_load=$OK_TIMEOUT"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. LIB (bootstrap/library files, no independent behavior) is a ruling about what the
 # file IS, so it is UNGRADABLE/CONTAINER_OR_LIBRARY; REJECT (hang after parse error, a known, filed,
@@ -408,10 +430,14 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # ⛔ NON-FATAL BY DESIGN: a bookkeeping failure must never turn a real measurement into a red board,
 # because a gate that goes red for a reason unrelated to the code is a gate people route around. It
 # warns and names the unrecorded row instead; it has no silent path.
+if [ "$OK_TIMEOUT" -gt 0 ]; then
+    echo "SUITES.tsv NOT UPDATED: $OK_TIMEOUT driver(s) timed out under load (CEO-1686: a timeout under load is could-not-measure, so this pass is not a reading of the suite) -- re-read on a quieter box"
+else
 python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite GNU --modes m3,m4 \
     --suite-pass "$OK_PASS" --suite-total "$POP" --excluded "$CON_N" ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
     --measurer "${S4E_SEAT:-}" --text "PASS $OK_PASS over $POP shipped programs (Excl $CON_N containers) -- a program passes when m3 = m4 = gprolog and the output is not empty · ungraded $((LIB + EMPTY)) named in UNGRADED.tsv ($LIB libraries, $EMPTY that print nothing) · ungradable $UGB named in UNGRADABLE.tsv with the oracle's reason · ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(of ok_fail) unexpected=$UNEXPECTED of total=$TOTAL${INV_LINE:+ · $INV_LINE (\`test_prolog_gnu_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+fi
 
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
@@ -419,4 +445,5 @@ python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite GN
 # and OK_FAIL/UNEXPECTED read 0 too when nothing was discovered -- refuse first.
 "$HERE/util_require_population.sh" --gate test_prolog_gnu_suite "$TOTAL" 1 "prolog GNU source files discovered" || exit 2
 [ "$((CON_N + UGB + LIB + OK_TOTAL + REJECT + UNEXPECTED))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
-[ "$OK_FAIL" -eq 0 ] && [ "$UNEXPECTED" -eq 0 ]
+[ "$OK_FAIL" -eq 0 ] && [ "$UNEXPECTED" -eq 0 ] || exit 1
+[ "$OK_TIMEOUT" -eq 0 ] || exit 2   # a pass with a timeout under load and no red is could-not-measure (CEO-1686)
