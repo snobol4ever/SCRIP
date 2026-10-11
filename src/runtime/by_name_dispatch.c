@@ -1216,6 +1216,16 @@ static DESCR_t rk_meta_list(const char *cn, char what, int local) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_unmark(DESCR_t d) { if (d.v == DT_A && d.arr) ((ARBLK_t *) d.arr)->proto = (const char *) 0; return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_arr_store_in_place(DESCR_t a, long idx, DESCR_t v) {
+    if (a.v != DT_A || !a.arr) return 0;
+    ARBLK_t *b = (ARBLK_t *) a.arr;
+    if (b->proto || b->ndim != 1 || b->lo != 0) return 0;
+    long n = b->hi + 1 > 0 ? b->hi + 1 : 0;
+    if (idx >= n) { DESCR_t *d = (DESCR_t *) rt_ws_alloc_descr((size_t) (idx + 1)); for (long i = 0; i < idx; i++) d[i] = i < n ? b->data[i] : rk_typeobj("Any"); b->data = d; b->hi = (int) idx; }
+    b->data[idx] = v;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char rk_proto_pair[] = "Pair";
 static const char rk_proto_jct_any[] = "any";
 static const char rk_proto_jct_all[] = "all";
@@ -12108,6 +12118,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         char ib[64];
         long idx = IS_INT_fn(args[2]) ? (long)args[2].i : IS_REAL_fn(args[2]) ? (long)args[2].r : strtol(to_cstring(args[2], ib, sizeof ib), NULL, 10);
         if (idx < 0) { *out = FAILDESCR; return 1; }
+        if (rk_arr_store_in_place(cur, idx, args[3])) { *out = cur; return 1; }
         long n = idx + 1 > a.n ? idx + 1 : a.n;
         DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
         for (long i = 0; i < n; i++) r[i] = (i == idx) ? args[3] : (i < a.n ? rk_av_elem(a, (int) i) : rk_typeobj("Any"));
@@ -13942,6 +13953,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         char ib[64];
         long idx = IS_INT_fn(args[1]) ? (long)args[1].i : IS_REAL_fn(args[1]) ? (long)args[1].r : strtol(to_cstring(args[1], ib, sizeof ib), NULL, 10);
         if (idx < 0) { *out = FAILDESCR; return 1; }
+        if (rk_arr_store_in_place(args[0], idx, args[2])) { *out = args[0]; return 1; }
         long n = idx + 1 > a.n ? idx + 1 : a.n;
         DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
         for (long i = 0; i < n; i++) r[i] = (i == idx) ? args[2] : (i < a.n ? rk_av_elem(a, (int) i) : rk_typeobj("Any"));
