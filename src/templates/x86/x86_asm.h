@@ -193,23 +193,33 @@ struct x86_rsp_st_t { int delta = 0, before = 0, aligned = 0, unknown = 0, dead 
 inline x86_rsp_st_t & x86_rsp_S(void) { static x86_rsp_st_t v; return v; }
 inline int & x86_rsp_state(int k) { x86_rsp_st_t & S = x86_rsp_S(); return k == 0 ? S.delta : k == 1 ? S.before : k == 2 ? S.aligned : S.unknown; }
 inline void x86_rsp_reset_all(void) { x86_rsp_st_t & S = x86_rsp_S(); S.delta = 0; S.before = 0; S.aligned = 0; S.unknown = 0; S.dead = 0; S.j.clear(); S.p.clear(); S.quiet = 0; S.mark9_set = 0; }
-inline void x86_rsp_jump(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); if (S.aligned || S.unknown) return; for (const x86_rsp_snap_t & q : S.j) if (q.kind == kind && q.key == key) return;
+inline void x86_rsp_jump(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); if (S.aligned || S.unknown) return;
+    const x86_rsp_snap_t * q = S.j.data(); size_t n = S.j.size(); for (size_t i = 0; i < n; i++) if (q[i].kind == kind && q[i].key == key) return;
     S.j.push_back(x86_rsp_snap_t{ key, kind, S.delta }); }
 inline void x86_rsp_define(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); int found = -1;
-    for (size_t i = 0; i < S.j.size(); i++) if (S.j[i].kind == kind && S.j[i].key == key) { found = (int)i; break; }
+    const x86_rsp_snap_t * jq = S.j.data(); size_t jn = S.j.size(); for (size_t i = 0; i < jn; i++) if (jq[i].kind == kind && jq[i].key == key) { found = (int)i; break; }
     if (S.aligned) { S.dead = 0; return; }
-    if (S.dead && found < 0) for (const x86_rsp_snap_t & q : S.p) if (q.kind == kind && q.key == key) { S.delta = q.delta; S.unknown = 0; S.dead = 0; return; }
-    if (S.dead) { if (found >= 0) { S.delta = S.j[found].delta; S.unknown = 0; } else { S.unknown = 1;
+    if (S.dead && found < 0) { const x86_rsp_snap_t * pq = S.p.data(); size_t pn = S.p.size();
+        for (size_t i = 0; i < pn; i++) if (pq[i].kind == kind && pq[i].key == key) { S.delta = pq[i].delta; S.unknown = 0; S.dead = 0; return; } }
+    if (S.dead) { if (found >= 0) { S.delta = jq[found].delta; S.unknown = 0; } else { S.unknown = 1;
         if (!S.quiet && x86_rsp_trace_on())
         fprintf(stderr, "[RSP-TRACE] %s dead define kind=%d key=%llu no jump recorded (delta %d)\n", _.x86_uid_kind ? _.x86_uid_kind : "?", kind, (unsigned long long)key, S.delta); } }
-    else if (found >= 0 && S.j[found].delta != S.delta) { S.unknown = 1;
+    else if (found >= 0 && jq[found].delta != S.delta) { S.unknown = 1;
         if (!S.quiet && x86_rsp_trace_on())
-        fprintf(stderr, "[RSP-TRACE] %s live define kind=%d key=%llu jump delta %d vs fallthrough %d\n", _.x86_uid_kind ? _.x86_uid_kind : "?", kind, (unsigned long long)key, S.j[found].delta,
+        fprintf(stderr, "[RSP-TRACE] %s live define kind=%d key=%llu jump delta %d vs fallthrough %d\n", _.x86_uid_kind ? _.x86_uid_kind : "?", kind, (unsigned long long)key, jq[found].delta,
         S.delta); }
     S.dead = 0; }
-inline void x86_rsp_prepass_commit(const x86_rsp_st_t & before) { x86_rsp_st_t after = x86_rsp_S(); x86_rsp_st_t & S = x86_rsp_S(); S = before;
-    for (const x86_rsp_snap_t & a : after.j) { int have = 0; for (const x86_rsp_snap_t & q : S.p) if (q.kind == a.kind && q.key == a.key) { have = 1; break; }
-        if (!have) S.p.push_back(a); } }
+struct x86_rsp_pre_t { int delta, before, aligned, unknown, dead, mark, mark_unknown, quiet, mark9, mark9_unknown, mark9_set; size_t jn; };
+static_assert(offsetof(x86_rsp_st_t, j) == 48 && sizeof(x86_rsp_st_t) == 48 + 2 * sizeof(std::vector<x86_rsp_snap_t>),
+    "x86_rsp_pre_t saves every scalar of x86_rsp_st_t: a field added to the state must join the saved record and its restore");
+inline x86_rsp_pre_t x86_rsp_prepass_open(void) { x86_rsp_st_t & S = x86_rsp_S();
+    x86_rsp_pre_t b = { S.delta, S.before, S.aligned, S.unknown, S.dead, S.mark, S.mark_unknown, S.quiet, S.mark9, S.mark9_unknown, S.mark9_set, S.j.size() }; S.quiet = 1; return b; }
+inline void x86_rsp_prepass_commit(const x86_rsp_pre_t & b) { x86_rsp_st_t & S = x86_rsp_S(); size_t n = S.j.size();
+    for (size_t i = 0; i < n; i++) { const x86_rsp_snap_t a = S.j.data()[i]; const x86_rsp_snap_t * q = S.p.data(); size_t m = S.p.size(); int have = 0;
+        for (size_t k = 0; k < m; k++) if (q[k].kind == a.kind && q[k].key == a.key) { have = 1; break; }
+        if (!have) S.p.push_back(a); }
+    S.j.resize(b.jn); S.delta = b.delta; S.before = b.before; S.aligned = b.aligned; S.unknown = b.unknown; S.dead = b.dead; S.mark = b.mark; S.mark_unknown = b.mark_unknown;
+    S.quiet = b.quiet; S.mark9 = b.mark9; S.mark9_unknown = b.mark9_unknown; S.mark9_set = b.mark9_set; }
 inline std::string x86_rsp_mark_save(void) { if (MEDIUM_BINARY) return std::string(1, 'K'); return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspK\n"); }
 inline void x86_rsp_mark9_push(void) { x86_rsp_st_t & S = x86_rsp_S();
     if (S.mark9_set) { fprintf(stderr, "FATAL x86_rsp_mark9_push: a shim's mark is already saved; a glue nests one deep inside a SHIM-SELF site\n"); abort(); }
@@ -2585,9 +2595,9 @@ inline void x86_text_rsp_notes_strip(std::string & r) {
     r.swap(o);
 }
 inline void bb_emit_x86(const std::string & s) {
-    if (!MEDIUM_BINARY) { if (!s.empty()) { std::string r = x86_internal_resolve(s); { x86_rsp_st_t before = x86_rsp_S(); x86_rsp_S().quiet = 1; x86_text_sites_scan(r, false);
+    if (!MEDIUM_BINARY) { if (!s.empty()) { std::string r = x86_internal_resolve(s); { x86_rsp_pre_t before = x86_rsp_prepass_open(); x86_text_sites_scan(r, false);
         x86_rsp_prepass_commit(before); } x86_text_sites_scan(r, true); x86_text_rsp_notes_strip(r); emit_text_n(r.data(), r.size()); } return; }
-    { x86_rsp_st_t before = x86_rsp_S(); x86_rsp_st_t & S = x86_rsp_S(); S.quiet = 1; size_t i = 0, n = s.size();
+    { x86_rsp_pre_t before = x86_rsp_prepass_open(); x86_rsp_st_t & S = x86_rsp_S(); size_t i = 0, n = s.size();
       while (i < n) { char tag = s[i++];
         if (tag == 'L') { int k = (unsigned char)s[i++]; i += (size_t)k; if (k > 0) S.dead = 0; }
         else if (tag == 'J') { int id = (unsigned char)s[i++]; x86_rsp_jump(1, (uint64_t)id); }
