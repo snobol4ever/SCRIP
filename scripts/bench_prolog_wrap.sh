@@ -164,7 +164,7 @@ if [ "$CLOCK" = 0 ] && [ "$MODE" = time ]; then
 K="$(sed -n 's/^% \*BENCH kernel=\([A-Za-z0-9_]*\).*/\1/p' "$KPL" | head -1)"
 [ -n "$K" ] || { echo "⛔ REFUSED: $KPL carries no '% *BENCH kernel=<name>' marker" >&2; exit 2; }
 grep -qE '^bench_work\(' "$KPL" || { echo "⛔ REFUSED: $KPL defines no bench_work/1 -- the bracket would enclose nothing" >&2; exit 2; }
-if grep -qE '\b(wall_us|wall_ms|statistics|real_time|get_time)\s*\(' "$KPL"; then
+if sed 's/^%.*//' "$KPL" | grep -qE '\b(wall_us|wall_ms|statistics|real_time|get_time)\s*\('; then
   echo "⛔ REFUSED: $KPL is NOT PRISTINE -- it carries a timing builtin (CEO-567)" >&2; exit 2; fi
 [ -n "$OUT" ] || OUT="$(mktemp -t "bench_${K}_XXXXXX.pl")"
 {
