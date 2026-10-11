@@ -1,4 +1,5 @@
 #include <sys/utsname.h>
+#include "rtx_try.h"
 #include "dtp.h"
 #include "by_name_dispatch.h"
 #include "ct_arena.h"
@@ -4186,7 +4187,7 @@ static rt_call_next_t rk_method_open_d(DESCR_t *args, int nargs, rk_redisp_t *re
         if (dat_handles_field(cname, mname, df, (int)sizeof df)) {
             DESCR_t fwd[nargs];
             for (int k = 0; k < nargs; k++) fwd[k] = args[k];
-            fwd[0] = c_dat_field_get(df, args[0]);
+            fwd[0] = rtx_try_dat_field_get(df, args[0]);
             return rk_method_open_d(fwd, nargs, rec, depth + 1);
         }
     }
@@ -4751,7 +4752,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     }
     if (n == 1 && IS_PROCVAL_fn(callee) && icn_opproc_arity(nm) == 1) {
         if (!strcmp(nm, ".")) return argv[0];
-        if (!strcmp(nm, "*")) { uint64_t w[2]; memcpy(w, &argv[0], sizeof w); return RT_GC_CALLBACK(c_rt_size_d(w[0], w[1])); }
+        if (!strcmp(nm, "*")) { uint64_t w[2]; memcpy(w, &argv[0], sizeof w); return RT_GC_CALLBACK(rtx_try_rt_size_d(w[0], w[1])); }
         if (!strcmp(nm, "~")) { extern DESCR_t rt_cset_compl(DESCR_t); return RT_GC_CALLBACK(rt_cset_compl(argv[0])); }
         if (!strcmp(nm, "^")) return RT_GC_CALLBACK(rt_call_arr_strict("ICN$REFRESH", argv, 1));
         if (!strcmp(nm, "=")) { DESCR_t m = RT_GC_CALLBACK(rt_call_arr_strict("match", argv, 1)); if (IS_FAIL_fn(m)) return FAILDESCR; return RT_GC_CALLBACK(rt_call_arr_strict("tab", &m, 1)); }
@@ -11238,7 +11239,7 @@ DESCR_t pas_view_make(DESCR_t *args, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pas_view_get(VCELL_t *vc) { return pas_rdecode(rt_deref(vc->sv), vc->pos, (long)vc->key_d.i, vc->len); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pas_view_set(VCELL_t *vc, DESCR_t val) { c_rt_assign_var(vc->sv, pas_rpatch(rt_deref(vc->sv), vc->pos, (long)vc->key_d.i, vc->len, val)); return val; }
+DESCR_t pas_view_set(VCELL_t *vc, DESCR_t val) { rtx_try_rt_assign_var(vc->sv, pas_rpatch(rt_deref(vc->sv), vc->pos, (long)vc->key_d.i, vc->len, val)); return val; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) { return script_try_call_builtin_by_name_rq(fn, args, nargs, out, (long *)0); }
 static int rk_fast_rat_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
@@ -11883,7 +11884,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "__rk_deref") && nargs == 1) { extern DESCR_t rt_deref(DESCR_t d); *out = rt_deref(args[0]); return 1; }
     if (!strcmp(fn, "__rk_byref_assign") && nargs == 2) {
         extern DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
-        if (args[0].v == DT_N) { DESCR_t rv = c_rt_assign_var(args[0], args[1]); *out = IS_FAIL_fn(rv) ? args[1] : rv; } else *out = args[1];
+        if (args[0].v == DT_N) { DESCR_t rv = rtx_try_rt_assign_var(args[0], args[1]); *out = IS_FAIL_fn(rv) ? args[1] : rv; } else *out = args[1];
         return 1;
     }
     if (!strcmp(fn, "__rk_box") && nargs == 1) {
@@ -13222,7 +13223,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             }
         }
         extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj);
-        *out = c_dat_field_get(fname, args[0]);
+        *out = rtx_try_dat_field_get(fname, args[0]);
         return 1;
     }
     if (!strcmp(fn, "field_set") && nargs == 3) {
@@ -13682,7 +13683,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             char delegfield[bnd_handles_need(cname, mname)];
             if (dat_handles_field(cname, mname, delegfield, (int)sizeof delegfield)) {
                 extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj);
-                DESCR_t deleg = c_dat_field_get(delegfield, args[0]);
+                DESCR_t deleg = rtx_try_dat_field_get(delegfield, args[0]);
                 DESCR_t *fwd = rt_ws_alloc_descr((size_t)nargs);
                 fwd[0] = deleg;
                 fwd[1] = args[1];
@@ -15101,8 +15102,8 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
             else if (!strcmp(fn, "===")) oc = BINOP_EQV;
             else if (!strcmp(fn, "~===")) oc = BINOP_NEQV;
             if (oc >= 0) {
-                if (!c_rt_jct_relop(a, b, oc)) return FAILDESCR;
-                if (oc >= BINOP_SLT && oc <= BINOP_SNE) return c_rt_str_coerce(b);
+                if (!rtx_try_rt_jct_relop(a, b, oc)) return FAILDESCR;
+                if (oc >= BINOP_SLT && oc <= BINOP_SNE) return rtx_try_rt_str_coerce(b);
                 if (oc == BINOP_EQV || oc == BINOP_NEQV) return b;
                 DESCR_t _rv;
                 rt_relop_val_coerce(a, b, &_rv);
@@ -15116,7 +15117,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
             DATBLK_t *idb = args[0].u->type;
             const char _f0 = fn[0];
             extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj);
-            for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) return c_dat_field_get(fn, args[0]);
+            for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) return rtx_try_dat_field_get(fn, args[0]);
         }
         { extern int rt_proc_is_registered(const char *); if (sn4 && !sysfn && rt_proc_is_registered(fn)) { out = RT_GC_CALLBACK(APPLY_fn_rq(fn, args, nargs, rq)); return out; } }
         if (sn4 && !sysfn && !sn4_call_in_scope(fn)) {
@@ -15383,7 +15384,7 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0) {
     }
     if (str_rel && !(core_icn_str_ok(lhs) && core_icn_str_ok(rhs))) {
         DESCR_t sl = lhs;
-        if (core_icn_str_ok(lhs) && (lhs.v == DT_I || lhs.v == DT_R || lhs.v == DT_BIG)) { extern DESCR_t c_rt_str_coerce(DESCR_t); sl = c_rt_str_coerce(lhs); }
+        if (core_icn_str_ok(lhs) && (lhs.v == DT_I || lhs.v == DT_R || lhs.v == DT_BIG)) { extern DESCR_t c_rt_str_coerce(DESCR_t); sl = rtx_try_rt_str_coerce(lhs); }
         core_icn_op_ctx(core_icn_binop_sym(op), 2, sl, rhs);
         core_icn_error(103, core_icn_str_ok(lhs) ? rhs : lhs);
         core_icn_op_ctx_clear();
@@ -15583,9 +15584,9 @@ static const char *rk_dyn_text(DESCR_t d, int use_gist) {
     for (size_t i = 0; i < sizeof dyn / sizeof dyn[0]; i++) if (!strcmp(d.u->type->name, dyn[i])) hit = 1;
     if (!hit) return NULL;
     extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj);
-    const char *nm = rk_cstr(c_dat_field_get("name", d));
+    const char *nm = rk_cstr(rtx_try_dat_field_get("name", d));
     if (!use_gist) return nm;
-    const char *vs = rk_cstr(c_dat_field_get("version", d));
+    const char *vs = rk_cstr(rtx_try_dat_field_get("version", d));
     if (*vs == 'v') vs++;
     size_t n = strlen(nm) + strlen(vs) + 4;
     char *r = rt_wsb_alloc(n);
@@ -15605,7 +15606,7 @@ static const char *rk_obj_default_raku(DESCR_t d) {
     size_t total = strlen(cn) + 8;
     for (int i = 0; i < an; i++) {
         if (!as[i] || dat_field_is_private(cn, as[i])) continue;
-        const char *vs = rk_raku_str(c_dat_field_get(as[i], d), 0);
+        const char *vs = rk_raku_str(rtx_try_dat_field_get(as[i], d), 0);
         size_t pl = strlen(as[i]) + 4 + strlen(vs) + 2;
         char *pc = rt_wsb_alloc(pl + 1);
         snprintf(pc, pl + 1, "%s => %s", as[i], vs);
@@ -15710,7 +15711,7 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
 #define _NUMREL(op) do { DESCR_t _l=args[0],_r=args[1]; _OPCOERCE(_l); _OPCOERCE(_r); double _lv2=IS_REAL_fn(_l)?_l.r:(double)_l.i, _rv2=IS_REAL_fn(_r)?_r.r:(double)_r.i; *out=(_lv2 op _rv2)?(( \
     IS_REAL_fn(_l)&&!IS_REAL_fn(_r))?REALVAL(_rv2):_r):FAILDESCR; return 1; } while(0)
 #define _STRREL(op) do { DESCR_t _l=args[0],_r=args[1]; const char *_ls=VARVAL_fn(_l); if(!_ls)_ls=""; const char *_rs=VARVAL_fn(_r); if(!_rs)_rs=""; int _cmp=strcmp(_ls,_rs); *out=(_cmp op 0)? \
-    c_rt_str_coerce(_r):FAILDESCR; return 1; } while(0)
+    rtx_try_rt_str_coerce(_r):FAILDESCR; return 1; } while(0)
 #define _SNOCOERCE(d) do { if (!IS_INT_fn(d) && !IS_REAL_fn(d)) { const char *_s9 = IS_STR(d) ? rt_cstr_d(d) : VARVAL_fn(d); if (!_s9 || !*_s9) { (d) = INTVAL(0); } else { _OPCOERCE(d); } } } while(0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_cvpos(long long pos, int len, int *out_p) { if (pos < -(long long)len || pos > (long long)len + 1) return 0; *out_p = (int)(pos > 0 ? pos : (long long)len + pos + 1); return 1; }
@@ -15819,7 +15820,7 @@ static __attribute__((noinline)) int bn_lexrel(DESCR_t *args, int nargs, DESCR_t
 static __attribute__((noinline)) int bn_identdiffer(DESCR_t *args, int nargs, DESCR_t *out, int ident) {
     extern int c_descr_identical(DESCR_t, DESCR_t);
     DESCR_t a = nargs > 0 ? args[0] : NULVCL, b = nargs > 1 ? args[1] : NULVCL;
-    int same = c_descr_identical(a, b);
+    int same = rtx_try_descr_identical(a, b);
     *out = (ident ? same : !same) ? NULVCL : FAILDESCR;
     return 1;
 }
@@ -16407,7 +16408,7 @@ _Static_assert(sizeof(bn_direct_t) == 16, "rtx_misc.s indexes g_bn_direct with a
 static int bn_sno_name_d(DESCR_t *args, int nargs, DESCR_t *out, int op) { (void)op; return nargs == 1 ? bn_sno_name(args, nargs, out) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_HOOK_GUARD(nm) do { extern long g_error; extern int64_t kw_errlimit; if (g_error != 0 || kw_errlimit != 0) return c_rt_call_bid_sn4((nm), args, nargs, -1); } while (0)
-DESCR_t rt_sno_name_dl(DESCR_t *args, int nargs) { RT_HOOK_GUARD("SNO$NAME"); DESCR_t out = FAILDESCR; if (nargs == 1) bn_sno_name(args, nargs, &out); return out; }
+DESCR_t c_rt_sno_name_dl(DESCR_t *args, int nargs) { RT_HOOK_GUARD("SNO$NAME"); DESCR_t out = FAILDESCR; if (nargs == 1) bn_sno_name(args, nargs, &out); return out; }
 static const char *rt_sno_target_name(DESCR_t d) { return (d.v == DT_S && d.s && d.slen != 0xFFFFFFFFu && NV_name_needs_key(d.s, (size_t)d.slen)) ? NV_nul_key(d.s, (size_t)d.slen) : rt_cstr_d(d); }
 DESCR_t rt_sno_pbk_d(DESCR_t *args, int nargs) {
     extern DESCR_t pat_mk_cset(int, const char *);
@@ -16646,7 +16647,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         const char _f0 = fn ? fn[0] : 0;
         for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) {
             extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj);
-            *out = c_dat_field_get(fn, args[0]);
+            *out = rtx_try_dat_field_get(fn, args[0]);
             return 1;
         }
     }
@@ -17599,7 +17600,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     if ((_bid == BID_string) && nargs == 1) {
         DESCR_t av = args[0];
         if (av.v == DT_SNUL) { *out = FAILDESCR; return 1; }
-        if (IS_CSET_fn(av)) { *out = c_rt_str_coerce(av); return 1; }
+        if (IS_CSET_fn(av)) { *out = rtx_try_rt_str_coerce(av); return 1; }
         if (IS_STR_fn(av)) { *out = av; return 1; }
         if (av.v == DT_BIG) { extern char *rt_big_str(DESCR_t); *out = STRVAL(rt_big_str(av)); return 1; }
         if (IS_INT_fn(av)) return icn_bi_string_of_int(av, out);
@@ -19155,7 +19156,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         const char *fname = VARVAL_fn(fname_d);
         if (!fname || obj.v != DT_DATA) { *out=FAILDESCR; return 1; }
         extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj);
-        *out = c_dat_field_get(fname, obj);
+        *out = rtx_try_dat_field_get(fname, obj);
         return 1;
     }
     L_bidjmp_6330:
@@ -19486,7 +19487,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         extern DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx);
         extern DESCR_t rt_deref(DESCR_t v);
         DESCR_t cur = args[0];
-        for (int k = 1; k < nargs; k++) { cur = c_rt_subscript_var(cur, args[k]); if (IS_FAIL_fn(cur)) { *out = FAILDESCR; return 1; } }
+        for (int k = 1; k < nargs; k++) { cur = rtx_try_rt_subscript_var(cur, args[k]); if (IS_FAIL_fn(cur)) { *out = FAILDESCR; return 1; } }
         *out = rt_deref(cur);
         return 1;
     }
@@ -19671,7 +19672,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         extern DESCR_t NV_GET_fn(const char *);
         extern DESCR_t rt_deref(DESCR_t);
         extern int rt_dat_field_of_any_live(const char *);
-        if (rt_dat_field_of_any_live("VALUE")) { extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj); *out = c_dat_field_get("VALUE", args[0]); return 1; }
+        if (rt_dat_field_of_any_live("VALUE")) { extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj); *out = rtx_try_dat_field_get("VALUE", args[0]); return 1; }
         if (args[0].v == DT_N) { *out = rt_deref(args[0]); return 1; }
         const char *nm = VARVAL_fn(args[0]);
         if (!nm || !*nm) { *out = FAILDESCR; return 1; }
@@ -19803,8 +19804,8 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         if ((_bid == BID_x3Ex3Ex3D)) _STRREL(>=);
         if ((_bid == BID_x3Dx3D)) _STRREL(==);
         if ((_bid == BID_x7Ex3Dx3D)) _STRREL(!=);
-        if ((_bid == BID_x3Dx3Dx3D)) { extern int c_descr_identical(DESCR_t, DESCR_t); *out=c_descr_identical(l,r)?r:FAILDESCR; return 1; }
-        if ((_bid == BID_x7Ex3Dx3Dx3D)) { extern int c_descr_identical(DESCR_t, DESCR_t); *out=c_descr_identical(l,r)?FAILDESCR:r; return 1; }
+        if ((_bid == BID_x3Dx3Dx3D)) { extern int c_descr_identical(DESCR_t, DESCR_t); *out=rtx_try_descr_identical(l,r)?r:FAILDESCR; return 1; }
+        if ((_bid == BID_x7Ex3Dx3Dx3D)) { extern int c_descr_identical(DESCR_t, DESCR_t); *out=rtx_try_descr_identical(l,r)?FAILDESCR:r; return 1; }
         if ((_bid == BID_x5Bx5D)) { *out=subscript_get(l,r); return 1; }
         if ((_bid == BID_x2Bx2B) || (_bid == BID_x2Dx2D) || (_bid == BID_x2Ax2A)) {
             if (l.v == DT_T && l.tbl && l.tbl->is_set && r.v == DT_T && r.tbl && r.tbl->is_set) {
@@ -19871,7 +19872,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     {
         extern int rt_dat_field_of_any_live(const char *);
-        if (nargs == 1 && rt_dat_field_of_any_live(fn)) { extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj); *out = c_dat_field_get(fn, args[0]); return 1; }
+        if (nargs == 1 && rt_dat_field_of_any_live(fn)) { extern DESCR_t c_dat_field_get(const char *field, DESCR_t obj); *out = rtx_try_dat_field_get(fn, args[0]); return 1; }
     }
     if (!_dx_skip_syn) {
         extern const char *rt_builtin_synonym(const char *);

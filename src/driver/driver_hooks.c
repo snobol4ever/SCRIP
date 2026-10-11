@@ -1,4 +1,5 @@
 #include "driver_private.h"
+#include "rtx_try.h"
 extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _eval_str_impl_fn(const char *s) { extern DESCR_t eval_string_transient(const char *s); return eval_string_transient(s); }
@@ -29,7 +30,7 @@ DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs, long *rq) {
         if (_dt) return dat_construct(_dt, args, nargs);
         int _fi = 0;
         DatType *_ft = dat_find_field(name, &_fi);
-        if (_ft && nargs >= 1) return c_dat_field_get(name, args[0]);
+        if (_ft && nargs >= 1) return rtx_try_dat_field_get(name, args[0]);
         size_t _nlen = strlen(name);
         if (_nlen > 4 && strcmp(name + _nlen - 4, "_SET") == 0 && nargs >= 2) {
             size_t _flen = _nlen - 4;

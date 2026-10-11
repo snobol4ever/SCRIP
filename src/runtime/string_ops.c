@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "rtx_try.h"
 #include "core.h"
 #include "sil_macros.h"
 #include "coerce.h"
@@ -64,7 +65,7 @@ DESCR_t sno_concat_d(DESCR_t a, DESCR_t b) {
         if (so_sno_cat_bad(a)) { core_runtime_error(8, "concatenation left operand is not a string or pattern"); return FAILDESCR; }
         if (so_sno_cat_bad(b)) { core_runtime_error(9, "concatenation right operand is not a string or pattern"); return FAILDESCR; }
     }
-    return c_str_concat_d(a, b);
+    return rtx_try_str_concat_d(a, b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_str_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_BOOL || d.v == DT_R || d.v == DT_BIG || IS_CSET_fn(d); }
@@ -74,7 +75,7 @@ DESCR_t rt_icn_lconcat_d(DESCR_t a, DESCR_t b) {
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
     if (!so_is_list(a)) { core_icn_op_ctx("|||", 2, a, b); core_icn_error(108, a); core_icn_op_ctx_clear(); return FAILDESCR; }
     if (!so_is_list(b)) { core_icn_op_ctx("|||", 2, a, b); core_icn_error(108, b); core_icn_op_ctx_clear(); return FAILDESCR; }
-    return c_str_concat_d(a, b);
+    return rtx_try_str_concat_d(a, b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
@@ -94,7 +95,7 @@ DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
     if (b.v == DT_R || b.v == DT_I || b.v == DT_BOOL) b = descr_to_str_fracdigit(b);
     if (a.v == DT_BIG && a.p) a = STRVAL(rt_big_str(a));
     if (b.v == DT_BIG && b.p) b = STRVAL(rt_big_str(b));
-    return c_str_concat_d(a, b);
+    return rtx_try_str_concat_d(a, b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_repeat_d(DESCR_t s, DESCR_t n) {

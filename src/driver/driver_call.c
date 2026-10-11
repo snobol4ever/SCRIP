@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "rtx_try.h"
 #include "driver_private.h"
 cv_t init_tab_v;
 int init_n = 0;
@@ -66,7 +67,7 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs) {
                 extern int rt_dat_field_of_any(const char *);
                 extern DESCR_t c_dat_field_get(const char *fname, DESCR_t obj);
                 const char *_fld = (entry && rt_dat_field_of_any(entry)) ? entry : ((fname && rt_dat_field_of_any(fname)) ? fname : (const char *)0);
-                if (_fld && nargs < 1) { retval = c_dat_field_get(_fld, NULVCL); goto fn_done; }
+                if (_fld && nargs < 1) { retval = rtx_try_dat_field_get(_fld, NULVCL); goto fn_done; }
             }
             if (getenv("SCRIP_DEBUG_APPLY")) fprintf(stderr, "[call-err5] unresolved '%s' (ufname='%s', nargs=%d)\n", fname ? fname : "(null)", ufname ? ufname : "(null)", nargs);
             { extern void core_undefined_call_error(const char *); core_undefined_call_error(fname); }
