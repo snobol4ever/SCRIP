@@ -2842,27 +2842,32 @@ static void gc_frames_visit_judge(const uint64_t *v) {
         fprintf(stderr, "[CHAIN-VISIT] DIFFER rt_gc_frames_visit frames=%lu sum=%lx, the collector's chain frames=%lu sum=%lx\n", (unsigned long)v[0], (unsigned long)v[1], (unsigned long)n,
         (unsigned long)g_gc_chw.fsum);
 }
-static void gc_chain_walk_report_atexit(void) {
-    char line[1536], cmd[256];
-    const char *lg = getenv("SCRIP_GC_CHAIN_LOG");
-    int n =
-        snprintf(line, sizeof line,
+static int gc_chw_line(char *buf, size_t sz) {
+    return snprintf(buf, sz,
         "[CHAIN-WALK] SUMMARY runs=%ld whole=%ld frames=%ld offchain-swept=%ld missing=%ld mapdiff=%ld extra-blob-ptrgc=%ld extra-gen-ptrgc=%ld extra-root-ptrgc=%ld extra-plain-ptrgc=%ld beyond-stop"
         "=%ld short=%ld | stop: root=%ld nosite=%ld frameless=%ld unknown-depth=%ld cycle=%ld no-link=%ld no-rise=%ld left-segment=%ld coroutine-start=%ld bad-link=%ld | frame-links=%ld | visitor: s"
         "ame=%ld differ=%ld refused=%ld | ghost=%ld" "\n", g_gc_chw.runs, g_gc_chw.whole, g_gc_chw.frames, g_gc_chw.offchain, g_gc_chw.missing, g_gc_chw.mapdiff, g_gc_chw.xblob, g_gc_chw.xgen,
         g_gc_chw.xroot, g_gc_chw.xplain, g_gc_chw.beyond, g_gc_chw.shrt, g_gc_chw.s_root, g_gc_chw.s_nosite, g_gc_chw.s_frameless, g_gc_chw.s_unknown, g_gc_chw.s_cycle, g_gc_chw.s_nolink,
         g_gc_chw.s_rise, g_gc_chw.s_left, g_gc_chw.s_costart, g_gc_chw.s_badlink, g_gc_chw.links, g_gc_chw.v_same, g_gc_chw.v_diff, g_gc_chw.v_refused, g_gc_chw.ghost);
+}
+static long gc_cmdline_len(void) { char ch; long n = 0; int c = open("/proc/self/cmdline", O_RDONLY); if (c < 0) return 0; while (read(c, &ch, 1) == 1) n++; close(c); return n; }
+static void gc_chain_walk_report_atexit(void) {
+    const char *lg = getenv("SCRIP_GC_CHAIN_LOG");
+    int n = gc_chw_line((char *)0, 0);
+    char line[n + 1];
+    gc_chw_line(line, (size_t)n + 1);
     fputs(line, stderr);
-    if (lg && *lg && n > 0 && n < (int)sizeof line) {
+    if (lg && *lg && n > 0) {
         int fd = open(lg, O_WRONLY | O_APPEND | O_CREAT, 0644);
         if (fd >= 0) {
-            char out[2048];
-            ssize_t k = 0;
+            long k = gc_cmdline_len();
+            char cmd[k + 1], out[k + n + 8];
             int c = open("/proc/self/cmdline", O_RDONLY);
-            if (c >= 0) { k = read(c, cmd, sizeof cmd - 1); close(c); }
-            if (k < 0) k = 0;
-            cmd[k] = 0;
-            for (ssize_t q = 0; q < k; q++) if (cmd[q] == 0) cmd[q] = ' ';
+            long r = 0;
+            if (c >= 0) { r = (long)read(c, cmd, (size_t)k); close(c); }
+            if (r < 0) r = 0;
+            cmd[r] = 0;
+            for (long q = 0; q < r; q++) if (cmd[q] == 0) cmd[q] = ' ';
             int m = snprintf(out, sizeof out, "CMD %s | %s", cmd, line);
             if (m > 0 && m < (int)sizeof out && write(fd, out, (size_t)m) < 0) { }
             close(fd);
