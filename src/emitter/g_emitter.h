@@ -166,6 +166,11 @@ struct g_emitter_t {
     IR_t ** g_bcs_all;
     int g_bcs_n = -1, g_bcs_nc, g_bcs_lf, g_bcs_fn;
     uint32_t g_bcs_ep;
+    cv_t g_fsc_u;
+    const IR_graph_t * g_fsc_g;
+    IR_t ** g_fsc_all;
+    int g_fsc_n = -1, g_fsc_bs = -1, g_fsc_bm = -1;
+    uint32_t g_fsc_ep;
     int blob_carve_pad_v = -1;
     cv_t g_blob_lay;
     cv_t g_zls_lay_v;

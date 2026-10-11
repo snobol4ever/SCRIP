@@ -2943,6 +2943,16 @@ static int rk_frame_block_off(const IR_t * nd) {
     if (!rc || idx < 0) return -1;
     return frame_slot_off(rc, idx + frame_slot_units(nd) - 1);
 }
+static int * frame_slot_memo(void) {
+    if (g_emitter.g_fsc_g != g_emit_cfg || g_emitter.g_fsc_all != g_emit_cfg->all || g_emitter.g_fsc_n != g_emit_cfg->n || g_emitter.g_fsc_ep != g_emitter.g_xci_epoch
+        || g_emitter.g_fsc_bs != blob_frame_scope() || g_emitter.g_fsc_bm != blob_slots_mask()) {
+        int * f = xci_ints(&g_emitter.g_fsc_u, (uint32_t)(g_emit_cfg->n > 0 ? g_emit_cfg->n : 1));
+        for (int k = 0; k < g_emit_cfg->n; k++) f[k] = -1;
+        g_emitter.g_fsc_g = g_emit_cfg; g_emitter.g_fsc_all = g_emit_cfg->all; g_emitter.g_fsc_n = g_emit_cfg->n; g_emitter.g_fsc_ep = g_emitter.g_xci_epoch;
+        g_emitter.g_fsc_bs = blob_frame_scope(); g_emitter.g_fsc_bm = blob_slots_mask(); }
+    return (int *)g_emitter.g_fsc_u.p;
+}
+static int frame_slot_units_at(int * u, int j) { if (u[j] < 0) { IR_t * m = g_emit_cfg->all[j]; u[j] = (m && frame_slot_is_candidate(m)) ? frame_slot_units(m) : 0; } return u[j]; }
 static int frame_slot_scan(const IR_t * query, int * out_index, int * out_count) {
     if (out_index) *out_index = -1; if (out_count) *out_count = 0;
     if (!g_emit_cfg) return 0;
@@ -2952,8 +2962,9 @@ static int frame_slot_scan(const IR_t * query, int * out_index, int * out_count)
     if (mb < 0 && !blob) return 0;
     int hi = g_emit_cfg->n; if (!blob) for (int j = mb + 1; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) { hi = j; break; } }
     int k = 0, found = -1;
-    for (int j = mb + 1; j < hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || !frame_slot_is_candidate(m)) continue;
-        if (j == qi) found = k; { int u = frame_slot_units(m); if (g_emitter.g_frame_slot_visitor) g_emitter.g_frame_slot_visitor(m, k, u); k += u; } }
+    int * fu = frame_slot_memo();
+    for (int j = mb + 1; j < hi; j++) { int u = frame_slot_units_at(fu, j); if (!u) continue; IR_t * m = g_emit_cfg->all[j];
+        if (j == qi) found = k; { if (g_emitter.g_frame_slot_visitor) g_emitter.g_frame_slot_visitor(m, k, u); k += u; } }
     if (out_index) *out_index = found; if (out_count) *out_count = k;
     return blob ? 2 : 1;
 }
@@ -2976,8 +2987,8 @@ static int arbno_body_slot_window(const IR_t * nd, int * out_lo, int * out_bytes
     if (mb < 0 && !blob) return 0;
     int hi = g_emit_cfg->n; if (!blob) for (int j = mb + 1; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) { hi = j; break; } }
     int rc = blob ? 2 : 1, k = 0, lo = 0, top = 0, any = 0;
-    for (int j = mb + 1; j < hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || !frame_slot_is_candidate(m)) continue;
-        int u = frame_slot_units(m);
+    int * fu = frame_slot_memo();
+    for (int j = mb + 1; j < hi; j++) { int u = frame_slot_units_at(fu, j); if (!u) continue; IR_t * m = g_emit_cfg->all[j];
         if (j >= s0 && j <= s1 && m != nd) { int a = frame_slot_off(rc, k + u - 1), b = frame_slot_off(rc, k) + 16; if (!any || a < lo) lo = a; if (!any || b > top) top = b; any = 1; }
         k += u; }
     for (int j = s0; j <= s1; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || m == nd || m->op != IR_MATCH_ALTERNATE || frame_slot_is_candidate(m)) continue;
