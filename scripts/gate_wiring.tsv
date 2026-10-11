@@ -859,6 +859,7 @@ test_gate_right_sealed_defer_beta_no_double_teardown.sh	WIRED	-	-	-
 test_gate_rtcc_claimed_regs.sh	WIRED	-	-	-
 test_gate_rtcc_no_read_of_r8_r10_r11_after_a_call.sh	WIRED	-	-	-
 test_gate_rtx_calls_carry_no_veneer.sh	WIRED	-	-	-
+test_gate_rtx_declining_leaves_are_exactly_the_twin_table.sh	WIRED	-	-	-
 test_gate_rtx_entries_keep_the_rtcc_four.sh	WIRED	-	-	-
 test_gate_rtx_every_leaf_carries_cfi_true_at_every_pc.sh	WIRED	-	-	-
 test_gate_rtx_the_leaf_clobber_table_is_derived_and_gated_against_the_objects.sh	WIRED	-	-	-
