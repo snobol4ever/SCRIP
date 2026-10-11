@@ -175,7 +175,14 @@ tab	src/templates/bb/bb_scan_tab.cpp
 move	src/templates/bb/bb_scan_move.cpp
 pos	src/templates/bb/bb_scan_pos.cpp
 alternation	src/templates/bb/bb_scan_alternate.cpp
-gen_with_every	src/templates/bb/bb_iterate.cpp
+# Icon generators (the coo 2026-10-10): 7a5aa2f9a deleted the Raku grammar prototype bb_glit.cpp and bb_galt.cpp with the rows that had
+# carried element_gen and gen_with_alternation, and renamed every to gen_with_every, a column no table has -- so test_gate_area_smoke_
+# reads_the_attribute_rows.sh arm 7a read three Icon columns unmapped. Their carriers: Icon's !x lowers to IR_ITERATE (bb_iterate.cpp, the
+# every loop's box too), and alternation in a generator is lower_alt / lower_alt_impl in src/lower/lower_icon.c.
+every	src/templates/bb/bb_iterate.cpp
+element_gen	src/templates/bb/bb_iterate.cpp
+gen_with_alternation	lower_alt
+gen_with_alternation	lower_alt_impl
 every_with_suspend	src/templates/bb/bb_iterate.cpp
 every_with_suspend	src/templates/bb/bb_suspend.cpp
 suspend	src/templates/bb/bb_suspend.cpp
