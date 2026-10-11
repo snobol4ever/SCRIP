@@ -150,6 +150,8 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + bb_glue_try_enter(BCFN_TAIL_TRY_SYM((fn), _.op_strict), BCFN_TAIL_TRY_FP((fn), _.op_strict), "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ, \
                              "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω, (base), (val_id), (join_id), 0, 0, (out_lea)) )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define BCFN_OPEN_SYM(fn, nargs) (bcfn_opens_as_method((fn), (nargs)) ? "rk_method_open" : bcfn_redispatch_with(fn) ? "rk_callwith_open" : "rk_callsame_open")
+#define BCFN_OPEN_FP(fn, nargs) (bcfn_opens_as_method((fn), (nargs)) ? (void *)rk_method_open : bcfn_redispatch_with(fn) ? (void *)rk_callwith_open : (void *)rk_callsame_open)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_fn_str(IR_t * pBB) {
     int polled_in_arm = 0;
@@ -182,13 +184,12 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += pl_leaf_zd_cold(fn, nargs);
             polled_in_arm = 1;
         } else {
-        const char * cmn = IR_LIT(pBB).sval;
-        int _meth = bcfn_opens_as_method(cmn, nargs), _mopen = _meth || bcfn_opens_as_redispatch(cmn);
+        int _mopen = bcfn_opens_as_method(fn, nargs) || bcfn_opens_as_redispatch(fn);
         if (_mopen) {
-            const char * osym = _meth ? "rk_method_open" : bcfn_redispatch_with(cmn) ? "rk_callwith_open" : "rk_callsame_open";
-            void * ofp = _meth ? (void *)rk_method_open : bcfn_redispatch_with(cmn) ? (void *)rk_callwith_open : (void *)rk_callsame_open;
-            s += x86("lea", "rdi", RDQ("rsp", 0)) + x86("mov32", "esi", (long)nargs);
-            s += bcfn_method_open_enter(20, 28, 29, zls_argv_off(pBB) >= 0 ? zls_argv_off(pBB) + 16 * nargs : -1, osym, ofp);
+            s += x86("lea", "rdi", RDQ("rsp", 0));
+            s += x86("mov32", "esi", (long)nargs);
+            s += bcfn_method_open_enter(20, 28, 29, zls_argv_off(pBB) >= 0 ? zls_argv_off(pBB) + 16 * nargs : -1,
+                                        BCFN_OPEN_SYM(fn, nargs), BCFN_OPEN_FP(fn, nargs));
             s += x86_deflabel_id(28);
         }
         int _aopen = bcfn_opens_as_apply(fn, nargs);
@@ -281,13 +282,12 @@ std::string bb_call_fn_str(IR_t * pBB) {
         polled_in_arm = 1;
         if (pas_elem_kind()) s += pas_elem_flat_join();
     } else {
-        const char * cmn = IR_LIT(pBB).sval;
-        int _meth = bcfn_opens_as_method(cmn, nargs), _mopen = _meth || bcfn_opens_as_redispatch(cmn);
+        int _mopen = bcfn_opens_as_method(fn, nargs) || bcfn_opens_as_redispatch(fn);
         if (_mopen) {
-            const char * osym = _meth ? "rk_method_open" : bcfn_redispatch_with(cmn) ? "rk_callwith_open" : "rk_callsame_open";
-            void * ofp = _meth ? (void *)rk_method_open : bcfn_redispatch_with(cmn) ? (void *)rk_callwith_open : (void *)rk_callsame_open;
-            s += x86("lea", "rdi", FRQ(argbase)) + x86("mov32", "esi", (long)nargs);
-            s += bcfn_method_open_enter(20, 28, 29, zls_argv_off(pBB) >= 0 ? zls_argv_off(pBB) + 16 * nargs : -1, osym, ofp);
+            s += x86("lea", "rdi", FRQ(argbase));
+            s += x86("mov32", "esi", (long)nargs);
+            s += bcfn_method_open_enter(20, 28, 29, zls_argv_off(pBB) >= 0 ? zls_argv_off(pBB) + 16 * nargs : -1,
+                                        BCFN_OPEN_SYM(fn, nargs), BCFN_OPEN_FP(fn, nargs));
             s += x86_deflabel_id(28);
         }
         int _aopen = bcfn_opens_as_apply(fn, nargs);

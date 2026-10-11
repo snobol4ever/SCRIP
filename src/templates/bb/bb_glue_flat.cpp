@@ -259,18 +259,18 @@ std::string bb_glue_callee_try_enter(int base, int val_id, int join_id, const st
                              "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1, 0, tweak_out_lea);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PEND_CALL_ID(base, n) ((base) + (n))
 std::string bb_glue_call_pend_run(int base, long nargs, long off) {
-    int skip = base + 20, val = base + 21, join = base + 22;
     return x86("mov", "rcx", RDQ("rsp", off))
          + x86("test", "rcx", "rcx")
-         + x86_jcc_id("jz", skip)
+         + x86_jcc_id("jz", PEND_CALL_ID(base, 20))
          + x86("lea", "rdi", RDQ("rsp", off))
          + x86("mov32", "esi", nargs)
-         + bb_glue_apply_try_enter(base, val, join, 0)
-         + x86_deflabel_id(join)
+         + bb_glue_apply_try_enter(base, PEND_CALL_ID(base, 21), PEND_CALL_ID(base, 22), 0)
+         + x86_deflabel_id(PEND_CALL_ID(base, 22))
          + x86("lea", "rdi", RDQ("rsp", off))
          + x86("call", "rt_call_pend_close", (uint64_t)(uintptr_t)(void *)rt_call_pend_close)
-         + x86_deflabel_id(skip);
+         + x86_deflabel_id(PEND_CALL_ID(base, 20));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_shim) {
@@ -278,24 +278,24 @@ std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_sh
         (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1, in_shim);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PEND_TRACE_ID(base, in_shim, n) ((base) + ((in_shim) ? (n) : (n) + 10))
 std::string bb_glue_trace_pend_run(int base, const std::string & after, int in_shim, long off) {
-    int skip = base + (in_shim ? 10 : 20), val = base + (in_shim ? 11 : 21), join = base + (in_shim ? 12 : 22);
     return IF(in_shim, x86_rsp_mark_push())
          + x86("mov", "rcx", RDQ("rsp", off))
          + x86("test", "rcx", "rcx")
-         + x86_jcc_id("jz", skip)
+         + x86_jcc_id("jz", PEND_TRACE_ID(base, in_shim, 10))
          + x86("lea", "rdi", RDQ("rsp", off))
          + x86("mov32", "esi", 3L)
-         + bb_glue_apply_try_enter(base, val, join, in_shim)
+         + bb_glue_apply_try_enter(base, PEND_TRACE_ID(base, in_shim, 11), PEND_TRACE_ID(base, in_shim, 12), in_shim)
          + x86("lea", "rdi", RDQ("rsp", off))
          + x86("call", "rt_trace_pend_run", (uint64_t)(uintptr_t)(void *)rt_trace_pend_run)
          + x86_rt_gc_poll()
-         + x86_deflabel_id(join)
+         + x86_deflabel_id(PEND_TRACE_ID(base, in_shim, 12))
          + x86("lea", "rdi", RDQ("rsp", off))
          + x86("call", "rt_trace_pend_close", (uint64_t)(uintptr_t)(void *)rt_trace_pend_close)
          + x86_rt_gc_poll()
          + after
-         + x86_deflabel_id(skip);
+         + x86_deflabel_id(PEND_TRACE_ID(base, in_shim, 10));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_enter_chain_ret(int lid) {
@@ -327,8 +327,8 @@ std::string bb_glue_enter_chain_ret(int lid) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_name_or_rec_lea(const char * nm) {
-    if (emit_star_is_thunk(nm)) return x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(nm), (std::string(".Ldstar_") + bb_ab_sym_name(nm)).c_str());
-    return x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)nm, x86_strtab_lbl(nm).c_str());
+    return emit_star_is_thunk(nm) ? x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(nm), (std::string(".Ldstar_") + bb_ab_sym_name(nm)).c_str())
+                                  : x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)nm, x86_strtab_lbl(nm).c_str());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_glue_prim_open_enter(int base) {
@@ -405,7 +405,12 @@ std::string bb_glue_binop_open(int base, const std::string & load, const std::st
          + x86("call", "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ)
          + x86_rt_gc_poll_rec_res()
          + store
-         + IF(truthy, x86("mov", "rdi", "rax") + x86("mov", "rsi", "rdx") + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy) + x86("test", "eax", "eax") + x86_omega("je"))
+         + IF(truthy,
+               x86("mov", "rdi", "rax")
+             + x86("mov", "rsi", "rdx")
+             + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy)
+             + x86("test", "eax", "eax")
+             + x86_omega("je"))
          + x86_gamma()
          + x86_deflabel_id(base + 6)
          + x86("call", "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω)

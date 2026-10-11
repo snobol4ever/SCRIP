@@ -1632,7 +1632,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_CALL_ICON: case IR_CALL_SNOBOL4:
     case IR_PROC_GEN:
     case IR_CALL: {
-        g_emit.op_call_route = bb_call_route_classify(nd);
+        g_emit.op_call_route = bb_call_route_classify(nd); g_emit.op_seal = nd->seal;
         { extern int fc_call_active(const IR_t *); extern long fc_vwpop(const IR_t *); extern int zls_off(const IR_t *); if (fc_call_active(nd)) { g_emit.op_fc_wbytes = 16;
             g_emit.op_fc_base = zls_off(nd); long _w = fc_vwpop(nd); if (_w > 0) g_emit.op_wpop += (int)_w; } }
         bb_emit_x86(bb_call(nd));

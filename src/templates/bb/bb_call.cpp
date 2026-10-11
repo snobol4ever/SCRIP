@@ -52,6 +52,8 @@ int rt_builtin_tail_may_open(const char * fn);
 extern "C++" long bid_bake_of(const char * fn);
 extern "C++" const char * sn4_byname_sym(const char * fn, int strict);
 extern "C++" int sn4_byname_kind(const char * fn, int strict);
+#define BC_K3_SYM() (sn4_byname_kind(fn, _.op_strict) == 3 ? "rt_call_arr_bl_sn4_try" : "rt_call_arr_bl_try")
+#define BC_K3_FP() (sn4_byname_kind(fn, _.op_strict) == 3 ? (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4_try : (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_try)
 extern "C++" uint64_t sn4_byname_fp(const char * fn, int strict);
 #define RO_SEAL_ADDR(n, sym, addr) \
     (x86("def", L(n)) \
@@ -241,10 +243,9 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         if (narg > 0) s += x86("lea", "rsi", RDQ("rsp", 0));
         else s += x86("xor", "esi", "esi");
         if (sn4_byname_kind(fn, _.op_strict) == 3 || (sn4_byname_kind(fn, _.op_strict) == 5 && rt_builtin_tail_may_open(fn))) {
-            int _k3 = sn4_byname_kind(fn, _.op_strict) == 3;
             s += x86("lea", "rcx", ZRES(0));
             s += x86("movabs", "rdx", ((uint64_t)(uint32_t)bid_bake_of(fn) << 32) | (uint64_t)(uint32_t)narg);
-            s += bb_glue_try_enter(_k3 ? "rt_call_arr_bl_sn4_try" : "rt_call_arr_bl_try", _k3 ? (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4_try : (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_try,
+            s += bb_glue_try_enter(BC_K3_SYM(), BC_K3_FP(),
                                    "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ, "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω, 100, 108, 29, 0, 0,
                                        x86("lea", "rdi", ZRES(0)));
             s += x86("mov", "rax", ZRES(0));
@@ -313,10 +314,9 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
     s += x86("lea", "rsi", FRQ(argbase));
     if (sn4_byname_kind(fn, _.op_strict) == 3 || (sn4_byname_kind(fn, _.op_strict) == 5 && rt_builtin_tail_may_open(fn))) {
-        int _k3 = sn4_byname_kind(fn, _.op_strict) == 3;
         s += x86("lea", "rcx", FRQ(resoff));
         s += x86("movabs", "rdx", ((uint64_t)(uint32_t)bid_bake_of(fn) << 32) | (uint64_t)(uint32_t)narg);
-        s += bb_glue_try_enter(_k3 ? "rt_call_arr_bl_sn4_try" : "rt_call_arr_bl_try", _k3 ? (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4_try : (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_try,
+        s += bb_glue_try_enter(BC_K3_SYM(), BC_K3_FP(),
                                "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ, "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω, 100, 108, 29, 0, 0,
                                    x86("lea", "rdi", FRQ(resoff)));
         s += x86("mov", "rax", FRQ(resoff));

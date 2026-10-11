@@ -239,6 +239,7 @@ int rt_proc_nformals(const char *);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define S9(f) emit_shim9(32 + 16L * xt4, F4, (f))
+#define BD_PEND_FIT() (nf4 <= BB_SHIM_TRACE_NF_MAX)
 static std::string bb_define_sr() {
     x86_begin();
     long role = (long)_.op_ival;
@@ -261,7 +262,6 @@ static std::string bb_define_sr() {
                  + x86_gamma());
         int xt4 = ns4 - nf4;
         long T4 = 16L * xt4 + 32;
-        int trace_ids = BB_SHIM_ID_OMEGA + nf4 + 2, pend_fit = nf4 <= BB_SHIM_TRACE_NF_MAX;
         int rgx = rg4 < 0 ? 0 : rg4; int nnv4 = 0; for (int j = 0; j < ns4; j++) if (gk4[j] < 0) nnv4++;
         auto GQ = [&](int gk, int w) { return (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, w) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w); };
         auto R8Q = [&](long d) { return std::string("[r8 + ") + std::to_string(d) + "]"; };
@@ -450,15 +450,16 @@ static std::string bb_define_sr() {
                  + x86("push", "r12")
                  + x86("push", "rdi")
                  + x86_align_enter()
-                 + IF(pend_fit, x86("sub", "rsp", 112L) + x86("mov", RDQ("rsp", 0), 0L))
+                 + IF(BD_PEND_FIT(), x86("sub", "rsp", 112L))
+                 + IF(BD_PEND_FIT(), x86("mov", RDQ("rsp", 0), 0L))
                  + x86("mov", "rdi", ROQ(232))
-                 + IF(pend_fit, x86("mov", "rsi", "rsp")
+                 + IF(BD_PEND_FIT(), x86("mov", "rsi", "rsp")
                  + S9([&]() { return x86("call", "rt_trace_call_hook_p", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_p)
                  + x86_rt_gc_poll(); })
-                 + S9([&]() { return bb_glue_trace_pend_run(trace_ids, std::string(), 1); })
+                 + S9([&]() { return bb_glue_trace_pend_run(BB_SHIM_ID_OMEGA + nf4 + 2, std::string(), 1); })
                  + x86("add", "rsp", 112L))
                  +
-                     IF(!pend_fit,
+                     IF(!BD_PEND_FIT(),
                      x86_bomb(
                      "bb_define: a traced DEFINE of more than 39 formals has no internal label ids left for its trace-handler glue (X86_INTERNAL_MAX 250, BB_SHIM_TRACE_NF_MAX); the C-entered hook is"
                      " DELETED (CEO-1576) - widen the id space or move the glue to named labels"))
@@ -540,14 +541,15 @@ static std::string bb_define_sr() {
                  + x86("mov", "rdi", ROQ(237))
                  + x86_rsp_load64("rsi", 48)
                  + x86_rsp_load64("rdx", 56)
-                 + IF(pend_fit, x86("sub", "rsp", 112L) + x86("mov", RDQ("rsp", 0), 0L))
-                 + IF(pend_fit, x86("mov", "rcx", "rsp")
+                 + IF(BD_PEND_FIT(), x86("sub", "rsp", 112L))
+                 + IF(BD_PEND_FIT(), x86("mov", RDQ("rsp", 0), 0L))
+                 + IF(BD_PEND_FIT(), x86("mov", "rcx", "rsp")
                  + S9([&]() { return x86("call", "rt_trace_return_hook_p", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook_p)
                  + x86_rt_gc_poll(); })
-                 + S9([&]() { return bb_glue_trace_pend_run(trace_ids + BB_SHIM_TRACE_IDS, std::string(), 1); })
+                 + S9([&]() { return bb_glue_trace_pend_run(BB_SHIM_ID_OMEGA + nf4 + 2 + BB_SHIM_TRACE_IDS, std::string(), 1); })
                  + x86("add", "rsp", 112L))
                  +
-                     IF(!pend_fit,
+                     IF(!BD_PEND_FIT(),
                      x86_bomb(
                      "bb_define: a traced DEFINE of more than 39 formals has no internal label ids left for its trace-handler glue (X86_INTERNAL_MAX 250, BB_SHIM_TRACE_NF_MAX); the C-entered hook is"
                      " DELETED (CEO-1576) - widen the id space or move the glue to named labels"))
@@ -631,15 +633,16 @@ static std::string bb_define_sr() {
                  + x86("push", "r12")
                  + x86("push", "rdi")
                  + x86_align_enter()
-                 + IF(pend_fit, x86("sub", "rsp", 112L) + x86("mov", RDQ("rsp", 0), 0L))
+                 + IF(BD_PEND_FIT(), x86("sub", "rsp", 112L))
+                 + IF(BD_PEND_FIT(), x86("mov", RDQ("rsp", 0), 0L))
                  + x86("mov", "rdi", ROQ(237))
-                 + IF(pend_fit, x86("mov", "rsi", "rsp")
+                 + IF(BD_PEND_FIT(), x86("mov", "rsi", "rsp")
                  + S9([&]() { return x86("call", "rt_trace_fail_hook_p", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook_p)
                  + x86_rt_gc_poll(); })
-                 + S9([&]() { return bb_glue_trace_pend_run(trace_ids + 2 * BB_SHIM_TRACE_IDS, std::string(), 1); })
+                 + S9([&]() { return bb_glue_trace_pend_run(BB_SHIM_ID_OMEGA + nf4 + 2 + 2 * BB_SHIM_TRACE_IDS, std::string(), 1); })
                  + x86("add", "rsp", 112L))
                  +
-                     IF(!pend_fit,
+                     IF(!BD_PEND_FIT(),
                      x86_bomb(
                      "bb_define: a traced DEFINE of more than 39 formals has no internal label ids left for its trace-handler glue (X86_INTERNAL_MAX 250, BB_SHIM_TRACE_NF_MAX); the C-entered hook is"
                      " DELETED (CEO-1576) - widen the id space or move the glue to named labels"))

@@ -30,7 +30,13 @@ extern "C" const char * bb_ab_sym_name(const char * nm);
 )
 #define cap_gva() (sn4_cap_gva() && g_gva_active && _.op_gva_k >= 0 && cap_name_plain() && !is_protected_pat_name(_.op_sval))
 #define CAPO_RECORD_BYTES 176L
-#define capo_carve() (cap_name_plain() ? std::string() : x86("sub", "rsp", CAPO_RECORD_BYTES) + x86("mov", RDQ("rsp", 64), 0L) + x86("mov", RDQ("rsp", 72), 0L))
+#define capo_carve() ( \
+      cap_name_plain() \
+    ? std::string() \
+    : x86("sub", "rsp", CAPO_RECORD_BYTES) \
+    + x86("mov", RDQ("rsp", 64), 0L) \
+    + x86("mov", RDQ("rsp", 72), 0L) \
+)
 static std::string cap_value_trace_plain() {
     return x86("comment", "IR_MATCH_CAPTURE_IMM value trace: the leaf stored the value and found a trace armed; the box fills the pending record from the cell and runs the callback (CEO-1636)")
          + x86("sub", "rsp", 112L)
@@ -71,16 +77,16 @@ static std::string cap_imm_gva(const std::string & homeop) {
          + x86_gamma()
          + x86_beta_trampoline();
 }
-static std::string cap_cond_target_rcx() {
-    return IF(cap_gva() && gva_name_hidden(_.op_sval),
-               x86("note", gva_note(_.op_gva_k))
-                        + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rcx", gva_cell_addr(_.op_gva_k).c_str())
-                                                            : x86_movabs_r64("rcx", (uint64_t)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16))))
-         + IF(!(cap_gva() && gva_name_hidden(_.op_sval)) && (_.op_sval && _.op_sval[0] == '*' && _.op_sval[1]),
-               x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(_.op_sval), (std::string(".Ldstar_") + bb_ab_sym_name(_.op_sval)).c_str()))
-         + IF(!(cap_gva() && gva_name_hidden(_.op_sval)) && !(_.op_sval && _.op_sval[0] == '*' && _.op_sval[1]),
-               x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str()));
-}
+#define cap_cond_target_rcx() ( \
+      IF(cap_gva() && gva_name_hidden(_.op_sval), \
+          x86("note", gva_note(_.op_gva_k)) \
+                   + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rcx", gva_cell_addr(_.op_gva_k).c_str()) \
+                                                       : x86_movabs_r64("rcx", (uint64_t)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))) \
+    + IF(!(cap_gva() && gva_name_hidden(_.op_sval)) && (_.op_sval && _.op_sval[0] == '*' && _.op_sval[1]), \
+          x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(_.op_sval), (std::string(".Ldstar_") + bb_ab_sym_name(_.op_sval)).c_str())) \
+    + IF(!(cap_gva() && gva_name_hidden(_.op_sval)) && !(_.op_sval && _.op_sval[0] == '*' && _.op_sval[1]), \
+          x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str())) \
+)
 #define writehome() (_.op_zres ? ZRESD(0) : FR(_.op_off))
 #define readhome() (_.op_zres ? ZOPD(1, 0) : FR(_.op_off))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

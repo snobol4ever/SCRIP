@@ -9,7 +9,15 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static_assert(PL_TR_CLEANUP_OFF == 32 && PL_TR_PROBE_B_OFF == 40, "bb_cleanup reads the trail header's cleanup cell at +32 and the probe's B word at +40");
 #define CL_REC(k) FRQ(_.op_off + (k))
-static std::string cl_hdr(const char * r) { return x86("mov", r, "r12") + x86("and", r, X86_PL_TR_ARENA_MASK); }
+#define cl_hdr(r) ( \
+      x86("mov", (r), "r12") \
+    + x86("and", (r), X86_PL_TR_ARENA_MASK) \
+)
+#define CL_NOSLOT() (_.op_off < 0 && _.op_ival != CLEANUP_PROBE && _.op_ival != CLEANUP_BANK && _.op_ival != CLEANUP_WAKE)
+#define CL_LIVE() (!CL_NOSLOT() && x86_fb_pinned())
+#define CL_KIND() ((int)_.op_ival)
+#define CL_KNOWN() (CL_KIND() == CLEANUP_OPEN || CL_KIND() == CLEANUP_TEST || CL_KIND() == CLEANUP_POP || CL_KIND() == CLEANUP_RESUME \
+    || CL_KIND() == CLEANUP_PROBE || CL_KIND() == CLEANUP_WAKE || CL_KIND() == CLEANUP_DRAIN || CL_KIND() == CLEANUP_BANK || CL_KIND() == CLEANUP_DET)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cl_open() {
     return x86("comment", "IR_CLEANUP open: link this frame's setup_call_cleanup record under the trail header's cleanup cell, bank B_s, mark it ACTIVE, keep C")
@@ -35,129 +43,129 @@ static std::string cl_open() {
          + x86_beta_trampoline();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cl_test() {
-    return x86("comment",
-        "IR_CLEANUP test: G's exit is deterministic when B reads B_s again (omega, to the commit and the cleanup); otherwise the record is PENDING and the construct exits with G's choices kept (gamm"
-        "a)")
-         + x86_alpha()
-         + x86("mov", "rax", CL_REC(CLEANUP_REC_BS))
-         + x86("cmp", "r13", "rax")
-         + x86_omega("je")
-         + x86("mov32", "edx", (long)CLEANUP_PENDING)
-         + x86("mov", CL_REC(CLEANUP_REC_STATE), "rdx")
-         + x86_gamma()
-         + x86_beta_trampoline();
-}
+#define cl_test() ( \
+      x86("comment", \
+    "IR_CLEANUP test: G's exit is deterministic when B reads B_s again (omega, to the commit and the cleanup); otherwise the record is PENDING and the construct exits with G's choices kept (gamm" \
+    "a)") \
+     + x86_alpha() \
+     + x86("mov", "rax", CL_REC(CLEANUP_REC_BS)) \
+     + x86("cmp", "r13", "rax") \
+     + x86_omega("je") \
+     + x86("mov32", "edx", (long)CLEANUP_PENDING) \
+     + x86("mov", CL_REC(CLEANUP_REC_STATE), "rdx") \
+     + x86_gamma() \
+     + x86_beta_trampoline() \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cl_pop() {
-    return x86("comment", "IR_CLEANUP pop: the record must be the youngest; unlink it and mark it DONE")
-         + x86_alpha()
-         + cl_hdr("rax")
-         + x86("lea", "rcx", CL_REC(0))
-         + x86("mov", "rdx", RDQ("rax", PL_TR_CLEANUP_OFF))
-         + x86("cmp", "rdx", "rcx")
-         + x86("jne", L(2))
-         + x86("mov", "rdx", CL_REC(CLEANUP_REC_LINK))
-         + x86("mov", RDQ("rax", PL_TR_CLEANUP_OFF), "rdx")
-         + x86("mov32", "edx", (long)CLEANUP_DONE)
-         + x86("mov", CL_REC(CLEANUP_REC_STATE), "rdx")
-         + x86_gamma()
-         + x86("def", L(2))
-         + x86_bomb("setup_call_cleanup: a record popped while a younger one is still linked under the trail header's cleanup cell")
-         + x86_beta_trampoline();
-}
+#define cl_pop() ( \
+      x86("comment", "IR_CLEANUP pop: the record must be the youngest; unlink it and mark it DONE") \
+    + x86_alpha() \
+    + cl_hdr("rax") \
+    + x86("lea", "rcx", CL_REC(0)) \
+    + x86("mov", "rdx", RDQ("rax", PL_TR_CLEANUP_OFF)) \
+    + x86("cmp", "rdx", "rcx") \
+    + x86("jne", L(2)) \
+    + x86("mov", "rdx", CL_REC(CLEANUP_REC_LINK)) \
+    + x86("mov", RDQ("rax", PL_TR_CLEANUP_OFF), "rdx") \
+    + x86("mov32", "edx", (long)CLEANUP_DONE) \
+    + x86("mov", CL_REC(CLEANUP_REC_STATE), "rdx") \
+    + x86_gamma() \
+    + x86("def", L(2)) \
+    + x86_bomb("setup_call_cleanup: a record popped while a younger one is still linked under the trail header's cleanup cell") \
+    + x86_beta_trampoline() \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cl_resume() {
-    return x86("comment",
-        "IR_CLEANUP resume: alpha concedes (the construct's failure exit); beta is its redo -- DONE concedes, otherwise ACTIVE again and G is retried, a ball in flight too, so G concedes into the ex"
-        "haustion road")
-         + x86_alpha()
-         + x86_omega()
-         + x86_beta()
-         + x86("mov", "rax", CL_REC(CLEANUP_REC_STATE))
-         + x86("cmp", "rax", (long)CLEANUP_PENDING)
-         + x86_omega("jne")
-         + x86("mov32", "edx", (long)CLEANUP_ACTIVE)
-         + x86("mov", CL_REC(CLEANUP_REC_STATE), "rdx")
-         + x86("jmp", PAIR(0));
-}
+#define cl_resume() ( \
+      x86("comment", \
+    "IR_CLEANUP resume: alpha concedes (the construct's failure exit); beta is its redo -- DONE concedes, otherwise ACTIVE again and G is retried, a ball in flight too, so G concedes into the ex" \
+    "haustion road") \
+     + x86_alpha() \
+     + x86_omega() \
+     + x86_beta() \
+     + x86("mov", "rax", CL_REC(CLEANUP_REC_STATE)) \
+     + x86("cmp", "rax", (long)CLEANUP_PENDING) \
+     + x86_omega("jne") \
+     + x86("mov32", "edx", (long)CLEANUP_ACTIVE) \
+     + x86("mov", CL_REC(CLEANUP_REC_STATE), "rdx") \
+     + x86("jmp", PAIR(0)) \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cl_probe() {
-    return x86("comment",
-        "IR_CLEANUP probe: before B rises, a PENDING youngest record whose B_s is not younger than the new B is dropped -- bank the new B in the trail header and run '$scc_cut' (gamma)")
-         + x86_alpha()
-         + cl_hdr("rax")
-         + x86("mov", "rcx", RDQ("rax", PL_TR_CLEANUP_OFF))
-         + x86("test", "rcx", "rcx")
-         + x86_omega("je")
-         + x86("cmp", RDQ("rcx", CLEANUP_REC_STATE), (long)CLEANUP_PENDING)
-         + x86_omega("jne")
-         + (_.op_sa < 0 ? x86("mov", "rdx", RDQ(x86_fb(), g_emit.flat_frame_bytes - 40)) : x86("mov", "rdx", FRQ(_.op_sa + 16)))
-         + x86("test", "rdx", "rdx")
-         + x86("je", L(3))
-         + x86("mov", "rsi", RDQ("rcx", CLEANUP_REC_BS))
-         + x86("cmp", "rsi", "rdx")
-         + x86_omega("ja")
-         + x86("def", L(3))
-         + x86("mov", RDQ("rax", PL_TR_PROBE_B_OFF), "rdx")
-         + x86_gamma()
-         + x86_beta_trampoline();
-}
+#define cl_probe() ( \
+      x86("comment", \
+    "IR_CLEANUP probe: before B rises, a PENDING youngest record whose B_s is not younger than the new B is dropped -- bank the new B in the trail header and run '$scc_cut' (gamma)") \
+     + x86_alpha() \
+     + cl_hdr("rax") \
+     + x86("mov", "rcx", RDQ("rax", PL_TR_CLEANUP_OFF)) \
+     + x86("test", "rcx", "rcx") \
+     + x86_omega("je") \
+     + x86("cmp", RDQ("rcx", CLEANUP_REC_STATE), (long)CLEANUP_PENDING) \
+     + x86_omega("jne") \
+     + IF(_.op_sa < 0, x86("mov", "rdx", RDQ(x86_fb(), g_emit.flat_frame_bytes - 40))) \
+     + IF(_.op_sa >= 0, x86("mov", "rdx", FRQ(_.op_sa + 16))) \
+     + x86("test", "rdx", "rdx") \
+     + x86("je", L(3)) \
+     + x86("mov", "rsi", RDQ("rcx", CLEANUP_REC_BS)) \
+     + x86("cmp", "rsi", "rdx") \
+     + x86_omega("ja") \
+     + x86("def", L(3)) \
+     + x86("mov", RDQ("rax", PL_TR_PROBE_B_OFF), "rdx") \
+     + x86_gamma() \
+     + x86_beta_trampoline() \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cl_wake() {
-    return x86("comment", "IR_CLEANUP wake: an attributed variable bound since the last probe lowered the trail header's wake word -- gamma runs '$wakeup', omega goes on")
-         + x86_alpha()
-         + cl_hdr("rax")
-         + x86("cmp", RDQ("rax", PL_TR_WAKE_OFF), 0L)
-         + x86_omega("je")
-         + x86_gamma()
-         + x86_beta_trampoline();
-}
+#define cl_wake() ( \
+      x86("comment", "IR_CLEANUP wake: an attributed variable bound since the last probe lowered the trail header's wake word -- gamma runs '$wakeup', omega goes on") \
+    + x86_alpha() \
+    + cl_hdr("rax") \
+    + x86("cmp", RDQ("rax", PL_TR_WAKE_OFF), 0L) \
+    + x86_omega("je") \
+    + x86_gamma() \
+    + x86_beta_trampoline() \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cl_drain() {
-    return x86("comment", "IR_CLEANUP drain: the exhaustion road's head -- every younger record was resolved on the way here, so the record must be the youngest")
-         + x86_alpha()
-         + cl_hdr("rax")
-         + x86("mov", "rcx", RDQ("rax", PL_TR_CLEANUP_OFF))
-         + x86("lea", "rdx", CL_REC(0))
-         + x86("cmp", "rcx", "rdx")
-         + x86_gamma("je")
-         + x86_bomb("setup_call_cleanup: the exhaustion road found a younger record still linked, or its own unlinked")
-         + x86_beta_trampoline();
-}
+#define cl_drain() ( \
+      x86("comment", "IR_CLEANUP drain: the exhaustion road's head -- every younger record was resolved on the way here, so the record must be the youngest") \
+    + x86_alpha() \
+    + cl_hdr("rax") \
+    + x86("mov", "rcx", RDQ("rax", PL_TR_CLEANUP_OFF)) \
+    + x86("lea", "rdx", CL_REC(0)) \
+    + x86("cmp", "rcx", "rdx") \
+    + x86_gamma("je") \
+    + x86_bomb("setup_call_cleanup: the exhaustion road found a younger record still linked, or its own unlinked") \
+    + x86_beta_trampoline() \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cl_bank() {
-    return x86("comment", "IR_CLEANUP bank: a cut scope with no mark of its own (an inline call/1) keeps B at its entry where a scoped cut's probe reads it")
-         + x86_alpha()
-         + x86("mov", FRQ(_.op_sa + 16), "r13")
-         + x86_gamma()
-         + x86_beta_trampoline();
-}
+#define cl_bank() ( \
+      x86("comment", "IR_CLEANUP bank: a cut scope with no mark of its own (an inline call/1) keeps B at its entry where a scoped cut's probe reads it") \
+    + x86_alpha() \
+    + x86("mov", FRQ(_.op_sa + 16), "r13") \
+    + x86_gamma() \
+    + x86_beta_trampoline() \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cl_det() {
-    return x86("comment", "IR_CLEANUP det: SWI's determinism marks -- gamma when r13 reads the B its bank kept ($/1) or the frame's F.B0 ($/0, after the clause cut); omega when a choice is left")
-         + x86_alpha()
-         + (_.op_sa >= 0 ? x86("mov", "rax", FRQ(_.op_sa + 16)) : x86("mov", "rax", RDQ(x86_fb(), g_emit.flat_frame_bytes - 40)))
-         + x86("cmp", "r13", "rax")
-         + x86_omega("jne")
-         + x86_gamma()
-         + x86_beta_trampoline();
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define cl_det() ( \
+      x86("comment", "IR_CLEANUP det: SWI's determinism marks -- gamma when r13 reads the B its bank kept ($/1) or the frame's F.B0 ($/0, after the clause cut); omega when a choice is left") \
+    + x86_alpha() \
+    + IF(_.op_sa >= 0, x86("mov", "rax", FRQ(_.op_sa + 16))) \
+    + IF(_.op_sa < 0, x86("mov", "rax", RDQ(x86_fb(), g_emit.flat_frame_bytes - 40))) \
+    + x86("cmp", "r13", "rax") \
+    + x86_omega("jne") \
+    + x86_gamma() \
+    + x86_beta_trampoline() \
+)
 std::string bb_cleanup() {
     x86_begin();
-    if (_.op_off < 0 && _.op_ival != CLEANUP_PROBE && _.op_ival != CLEANUP_BANK && _.op_ival != CLEANUP_WAKE) return x86_alpha() + x86_bomb("bb_cleanup: no record slot (op_off)");
-    if (!x86_fb_pinned()) return x86_alpha() + x86_bomb("bb_cleanup: a setup_call_cleanup record outside a pinned RBP frame");
-    switch ((int)_.op_ival) {
-        case CLEANUP_OPEN: return cl_open();
-        case CLEANUP_TEST: return cl_test();
-        case CLEANUP_POP: return cl_pop();
-        case CLEANUP_RESUME: return cl_resume();
-        case CLEANUP_PROBE: return cl_probe();
-        case CLEANUP_WAKE: return cl_wake();
-        case CLEANUP_DRAIN: return cl_drain();
-        case CLEANUP_BANK: return cl_bank();
-        case CLEANUP_DET: return cl_det();
-        default: return x86_alpha() + x86_bomb("bb_cleanup: unknown sub-kind");
-    }
+    return IF(CL_NOSLOT(), x86_alpha() + x86_bomb("bb_cleanup: no record slot (op_off)"))
+         + IF(!CL_NOSLOT() && !x86_fb_pinned(), x86_alpha() + x86_bomb("bb_cleanup: a setup_call_cleanup record outside a pinned RBP frame"))
+         + IF(CL_LIVE() && CL_KIND() == CLEANUP_OPEN, cl_open())
+         + IF(CL_LIVE() && CL_KIND() == CLEANUP_TEST, cl_test())
+         + IF(CL_LIVE() && CL_KIND() == CLEANUP_POP, cl_pop())
+         + IF(CL_LIVE() && CL_KIND() == CLEANUP_RESUME, cl_resume())
+         + IF(CL_LIVE() && CL_KIND() == CLEANUP_PROBE, cl_probe())
+         + IF(CL_LIVE() && CL_KIND() == CLEANUP_WAKE, cl_wake())
+         + IF(CL_LIVE() && CL_KIND() == CLEANUP_DRAIN, cl_drain())
+         + IF(CL_LIVE() && CL_KIND() == CLEANUP_BANK, cl_bank())
+         + IF(CL_LIVE() && CL_KIND() == CLEANUP_DET, cl_det())
+         + IF(CL_LIVE() && !CL_KNOWN(), x86_alpha() + x86_bomb("bb_cleanup: unknown sub-kind"));
 }
