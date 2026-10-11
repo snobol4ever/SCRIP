@@ -2494,6 +2494,20 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
                     g_gc_chain_fnhops++;
                     goto again;
                 }
+                if (fbm + b->ckt + 16 <= seg_top) {
+                    const char *a0 = fbm + b->ckt;
+                    const gc_site_ent_t *x3 = (const gc_site_ent_t *)0;
+                    const gc_site_blk_t *xb3 = gc_site_find(*(const uint64_t *)a0, &x3);
+                    if (xb3 && x3 && (x3->kind & 255) == 6) {
+                        int loff = (int)(x3->depth & 0xffff), carve = (int)((x3->depth >> 16) & 0xffff);
+                        const char *lrec = *(const char *const *)(a0 + loff);
+                        pc = *(const uint64_t *)(lrec + 8);
+                        r = (x3->rule == 8) ? lrec : a0 + 16 + carve;
+                        rbp = rbm;
+                        g_gc_chain_fnhops++;
+                        goto again;
+                    }
+                }
                 if (g && gc_code_block_of(g) && gc_code_block_of(g + 8)) {
                     uint64_t sg = *(const uint64_t *)(uintptr_t)(g + 8);
                     const gc_site_ent_t *y = (const gc_site_ent_t *)0;
