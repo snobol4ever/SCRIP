@@ -99,9 +99,13 @@ static inline int rtop_row(long long op, int strict, int i) {
 #define rtop_is_dyn(op) (rtop_addr_s((op), 0) == (void*)rt_num_arith)
 #define RTOP_I() rtop_row(_.op_ival, _.op_strict, 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define rtop_call_leaf() x86("call", rtop_tab[RTOP_I()].name, (uint64_t)(uintptr_t)rtop_tab[RTOP_I()].addr)
+#define rtop_call_leaf() ( \
+      x86("call", rtop_tab[RTOP_I()].name, (uint64_t)(uintptr_t)rtop_tab[RTOP_I()].addr) \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define rtop_call_c() x86("call", emit_rtx_twin_sym(rtop_tab[RTOP_I()].name), (uint64_t)(uintptr_t)emit_rtx_twin_addr(rtop_tab[RTOP_I()].name, rtop_tab[RTOP_I()].addr))
+#define rtop_call_c() ( \
+      x86("call", emit_rtx_twin_sym(rtop_tab[RTOP_I()].name), (uint64_t)(uintptr_t)emit_rtx_twin_addr(rtop_tab[RTOP_I()].name, rtop_tab[RTOP_I()].addr)) \
+)
 #define SCRIP_DEF_ARITH_FUSE 1
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define fuse_on() (SCRIP_DEF_ARITH_FUSE)
