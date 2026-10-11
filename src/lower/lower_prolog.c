@@ -2408,6 +2408,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 lc_ω_to(xl, ωfail);
                 lc_γ_to(lo, hie ? hie : hi);
                 lc_ω_to(lo, ωfail);
+                IR_t * lov = lo;
+                IR_t * hiv = hi;
                 {
                     IR_t * chk = build(cx, IR_CALL, to, ωfail);
                     IR_LIT(chk).sval = "$pl_between_guard";
@@ -2416,9 +2418,25 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     ir_operand_push(chk, xl);
                     lc_γ_to(hi, chk);
                     lc_ω_to(hi, ωfail);
+                    IR_t * last = chk;
+                    if (lo_t && lo_t->t == TT_VAR) {
+                        IR_t * ve = NULL;
+                        lov = lower_arith_val(cx, pl_cc_fnc1("+", (tree_t *) lo_t), ωfail, &ve);
+                        lc_γ_to(last, ve ? ve : lov);
+                        lc_ω_to(lov, ωfail);
+                        last = lov;
+                    }
+                    if (hi_t && hi_t->t == TT_VAR) {
+                        IR_t * ve = NULL;
+                        hiv = lower_arith_val(cx, pl_cc_fnc1("+", (tree_t *) hi_t), ωfail, &ve);
+                        lc_γ_to(last, ve ? ve : hiv);
+                        lc_ω_to(hiv, ωfail);
+                        last = hiv;
+                    }
+                    lc_γ_to(last, to);
                 }
-                ir_operand_push(to, lo);
-                ir_operand_push(to, hi);
+                ir_operand_push(to, lov);
+                ir_operand_push(to, hiv);
                 ir_operand_push(nd, xl);
                 ir_operand_push(nd, to);
                 lc_ω_to_β(nd, to);
