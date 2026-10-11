@@ -198,7 +198,7 @@ static int sno_pe_valfn(const char * s) {
     return s &&
         (!strcmp(s, "LN") || !strcmp(s, "OR") || !strcmp(s, "ABS") || !strcmp(s, "AND") || !strcmp(s, "COS") || !strcmp(s, "EXP") || !strcmp(s, "SIN") || !strcmp(s, "TAN") || !strcmp(s, "XOR") ||
         !strcmp(s, "ATAN") || !strcmp(s, "CHAR") || !strcmp(s, "CHOP") || !strcmp(s, "LPAD") || !strcmp(s, "RPAD") || !strcmp(s, "SQRT") || !strcmp(s, "COMPL") || !strcmp(s, "REMDR") ||
-        !strcmp(s, "REPLACE") || !strcmp(s, "REVERSE") || !strcmp(s, "DATATYPE")) && core_fn_is_c(s);
+        !strcmp(s, "REPLACE") || !strcmp(s, "REVERSE") || !strcmp(s, "DATATYPE") || !strcmp(s, "SIZE")) && core_fn_is_c(s);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pe_op(tree_e op, const char * fn, DESCR_t * av, int n, DESCR_t * out, sno_pe_t * e) {
