@@ -6135,7 +6135,8 @@ DESCR_t rt_pl_dop_current_input(DESCR_t *, int); DESCR_t rt_pl_dop_open(DESCR_t 
                     int); DESCR_t rt_pl_dop_flush_output_sb(DESCR_t *, int); DESCR_t rt_pl_dop_op(DESCR_t *, int); DESCR_t rt_pl_dop_pl_op_check(DESCR_t *,
                         int); DESCR_t rt_pl_dop_pl_sp_check(DESCR_t *, int); DESCR_t rt_pl_dop_pl_ioarg(DESCR_t *, int); DESCR_t rt_pl_dop_pl_op_count(DESCR_t *,
                             int); DESCR_t rt_pl_dop_pl_op_nth(DESCR_t *, int); DESCR_t rt_pl_dop_pl_sp_count(DESCR_t *, int); DESCR_t rt_pl_dop_cutcall(DESCR_t *,
-                                int); DESCR_t rt_pl_dop_pl_sp_nth(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cs_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cs_nth(DESCR_t *, int);
+                                int); DESCR_t rt_pl_dop_shc(DESCR_t *, int); DESCR_t rt_pl_dop_pl_sp_nth(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cs_count(DESCR_t *, int);
+                                    DESCR_t rt_pl_dop_pl_cs_nth(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_rem(DESCR_t *, int); DESCR_t rt_pl_dop_ax_fpow(DESCR_t *, int); DESCR_t rt_pl_dop_ax_pow(DESCR_t *, int); DESCR_t rt_pl_dop_ax_min(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_max(DESCR_t *, int); DESCR_t rt_pl_dop_ax_gcd(DESCR_t *, int); DESCR_t rt_pl_dop_ax_xor(DESCR_t *, int); DESCR_t rt_pl_dop_ax_shr(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_shl(DESCR_t *, int); DESCR_t rt_pl_dop_ax_band(DESCR_t *, int); DESCR_t rt_pl_dop_ax_bor(DESCR_t *, int); DESCR_t rt_pl_dop_ax_neg(DESCR_t *, int);
@@ -6291,7 +6292,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
             { "$set_stream_position", 2, "rt_pl_dop_set_stream_position", rt_pl_dop_set_stream_position }, { "$format3", 3, "rt_pl_dop_format3", rt_pl_dop_format3 }, { "$write_term", 2,
                 "rt_pl_dop_write_term", rt_pl_dop_write_term }, { "$write_term_s", 3, "rt_pl_dop_write_term_s", rt_pl_dop_write_term_s }, { "$op", 3, "rt_pl_dop_op", rt_pl_dop_op },
                     { "$pl_op_check", 3, "rt_pl_dop_pl_op_check", rt_pl_dop_pl_op_check }, { "$pl_sp_check", 2, "rt_pl_dop_pl_sp_check", rt_pl_dop_pl_sp_check }, { "$pl_ioarg", 2,
-                        "rt_pl_dop_pl_ioarg", rt_pl_dop_pl_ioarg }, { "$cutcall", 2, "rt_pl_dop_cutcall", rt_pl_dop_cutcall },
+                        "rt_pl_dop_pl_ioarg", rt_pl_dop_pl_ioarg }, { "$cutcall", 2, "rt_pl_dop_cutcall", rt_pl_dop_cutcall }, { "$shc", 1, "rt_pl_dop_shc", rt_pl_dop_shc },
         { "$print", 1, "rt_pl_dop_print", rt_pl_dop_print }, { "$print_s", 2, "rt_pl_dop_print_s", rt_pl_dop_print_s },
         { "$pl_op_count", 1, "rt_pl_dop_pl_op_count", rt_pl_dop_pl_op_count }, { "$pl_op_nth", 4, "rt_pl_dop_pl_op_nth", rt_pl_dop_pl_op_nth },
         { "$pl_sp_count", 1, "rt_pl_dop_pl_sp_count", rt_pl_dop_pl_sp_count }, { "$pl_sp_nth", 3, "rt_pl_dop_pl_sp_nth", rt_pl_dop_pl_sp_nth },

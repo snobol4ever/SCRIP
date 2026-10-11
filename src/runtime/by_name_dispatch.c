@@ -21101,6 +21101,21 @@ static int pl_cutcall_walk(DESCR_t *c, char *sk, size_t *len, DESCR_t **leaves, 
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_shc_has(DESCR_t *c, int depth) {
+    extern const char *prolog_atom_name(int);
+    for (;;) {
+        DESCR_t *d = (DESCR_t *)pl_deref((pl_cell_t *)c);
+        const char *nm;
+        if (pl_cell_unbound(d)) return 0;
+        if ((int)d->v == DT_PLATOM) { const char *s = prolog_atom_name((int)d->i); return s && !strcmp(s, "!"); }
+        if ((int)d->v != DT_PLREF || pl_arity((pl_cell_t *)d) != 2) return 0;
+        nm = prolog_atom_name(plc_functor((pl_cell_t *)d));
+        if (!nm || strcmp(nm, ",")) return 0;
+        if (depth < 2048 && pl_shc_has(&((DESCR_t *)d->p)[0], depth + 1)) return 1;
+        c = &((DESCR_t *)d->p)[1];
+    }
+}
+PL_CX_LEAF_HEAD(shc, 1) ok = pl_shc_has(&args[0], 0); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(cutcall, 2)
     {
         extern tree_t *pl_runtime_clause_tree(tree_t *);

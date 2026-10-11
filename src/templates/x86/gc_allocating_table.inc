@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2622
+#define GC_ALLOC_TAB_N 2625
 #define GC_ALLOC_TAB_N_VOID 311
-#define GC_ALLOC_TAB_N_DESCR 1244
-#define GC_ALLOC_TAB_N_OTHER 1050
+#define GC_ALLOC_TAB_N_DESCR 1246
+#define GC_ALLOC_TAB_N_OTHER 1051
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1225,6 +1225,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_apply_actions", GC_RET_VOID },
     { "rk_arr_append", GC_RET_VOID },
     { "rk_arr_of_texts", GC_RET_DESCR },
+    { "rk_arr_store_in_place", GC_RET_OTHER },
     { "rk_arr_text", GC_RET_OTHER },
     { "rk_attr_defaults", GC_RET_DESCR },
     { "rk_av", GC_RET_OTHER },
@@ -2178,6 +2179,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_setof_group_at_c", GC_RET_DESCR },
     { "rt_pl_dop_setof_result", GC_RET_DESCR },
     { "rt_pl_dop_setof_result_c", GC_RET_DESCR },
+    { "rt_pl_dop_shc", GC_RET_DESCR },
+    { "rt_pl_dop_shc_c", GC_RET_DESCR },
     { "rt_pl_dop_skip", GC_RET_DESCR },
     { "rt_pl_dop_skip_c", GC_RET_DESCR },
     { "rt_pl_dop_skip_list", GC_RET_DESCR },

@@ -2096,6 +2096,8 @@ static const char * const PL_PRELUDE_SRC =
     "'$nv_single'([]).\n"
     "'$nv_single'([V|Vs]):-V='$VAR'('_'),'$nv_single'(Vs).\n"
     "trim_stacks.\n"
+    "'$conj_nocut'(G):-nonvar(G),G=(A,B),!,call(A),'$conj_nocut'(B).\n"
+    "'$conj_nocut'(G):-call(G).\n"
     "current_locale(L):-(nb_current('$cur_locale',L0)->L=L0;L=default).\n"
     "locale_property(L0,P):-'$loc_resolve'(L0,L),'$loc_props'(L,Ps),member(P,Ps).\n"
     "'$loc_resolve'(current_locale,L):-!,current_locale(L).\n"
@@ -2634,6 +2636,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "display")) pl_cv_add(&referenced, "$display_swi");
     if (pl_cv_has(&referenced, "write_canonical")) pl_cv_add(&referenced, "$write_canonical_swi");
     if (pl_cv_has(&referenced, "arg")) pl_cv_add(&referenced, "$arg_swi");
+    pl_cv_add(&referenced, "$conj_nocut");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
