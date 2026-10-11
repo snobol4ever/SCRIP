@@ -21,6 +21,14 @@
 #          RE-PINNED 25,000,000 -> 27,000,000 (cfo 2026-10-10, GNU FD row): the selection pass scans every vendored library's export
 #          table against the program's references, so a thirteenth library (gnu_fd, 45 exports) costs ~1.3M instructions here --
 #          measured 24,447,993 on 70f3505ed and 25,794,816 with gnu_fd embedded; the cap keeps the ~5% headroom it had.
+#          RE-PINNED 27,000,000 -> 15,000,000 (hq_prolog 2026-10-10, row prolog-library-quintus-...): the two linear scans are
+#          hashed -- the base-prelude check walked every base clause for every library clause, and each export was looked up by a
+#          walk of the reference vector on every closure pass. The references and the user definitions are a stack key set built per
+#          call, the base prelude's keys one built only once a library is parsed (the first pass keeps the walk: a program naming
+#          only exports the base answers parses nothing, and building the base set would cost it more than the walk -- ARM 1
+#          207,504, was 295,005). Measured 14,116,171 on c399cd256 + this landing, 14,224,525 with quintus vendored (was 25,810,564
+#          by the linear scans on c399cd256, the cfo's reading; quintus cost 0.88M under them on 70f3505ed and costs 0.11M now);
+#          the cap keeps ~5% over the reading.
 #     are parsed -- rbtrees and error (must_be/2), 2 parses, pinned from the measurement and re-pinned with a reason when
 #     the vendored set changes what rbtrees reaches -- and pl_libs_append <= 25,000,000 instructions (measured 20,842,950:
 #     rbtrees is 1152 lines and error 463, parsed at ~40,000 instructions a line as the base prelude is; apply alone was
@@ -86,7 +94,7 @@ read -r p3 f3 <<< "$(reading native)"
 [ "$f2" = True ] && [ -n "$i2" ] || refuse "arm 2: pl_libs_append is not in the profile -- the reader found nothing"
 if [ "$p1" = 0 ] && [ "$i1" -le 400000 ]; then echo "  ARM 1 GREEN: a program naming no library parsed $p1 libraries, pl_libs_append $i1 instructions (<= 400,000)"
 else echo "  ARM 1 RED: a program naming no library parsed $p1 libraries, pl_libs_append $i1 instructions (want 0 and <= 400,000)"; red=1; fi
-b2=27000000
+b2=15000000
 if [ "$p2" = "$want" ] && [ "$i2" -le "$b2" ]; then echo "  ARM 2 GREEN: naming rbtrees parsed $p2 libraries (rbtrees and error: $want), pl_libs_append $i2 instructions (<= $b2)"
 else echo "  ARM 2 RED: naming rbtrees parsed $p2 libraries (want rbtrees and error, $want), pl_libs_append $i2 instructions (want <= $b2)"; red=1; fi
 if [ "$p3" = 0 ]; then echo "  ARM 3 GREEN: a program whose aggregate_all/3 calls SCRIP lowers itself parsed $p3 libraries"

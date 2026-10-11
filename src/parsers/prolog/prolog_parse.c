@@ -2229,6 +2229,7 @@ static void pl_tree_collect_keys(const tree_t *t, cv_t *keys) {
     for (int i = 0; i < t->n; i++) pl_tree_collect_keys(t->c[i], keys);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_cv_has_key(const cv_t *v, const char *nm, int ar);
 static int pl_base_defines(PlClause *first, PlClause *last, const char *nm, int ar) {
     for (PlClause *cl = first; cl; cl = cl->next) {
         const char *cn; int car;
@@ -2237,19 +2238,44 @@ static int pl_base_defines(PlClause *first, PlClause *last, const char *nm, int 
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_cv_has_key(const cv_t *v, const char *nm, int ar);
+typedef struct { const char *s; int n; int ar; } pl_pk_t;
+static uint32_t pl_pk_hash(const char *s, int n, int ar) {
+    uint32_t h = 2166136261u;
+    for (int i = 0; i < n; i++) h = (h ^ (unsigned char)s[i]) * 16777619u;
+    return h ^ ((uint32_t)ar * 2654435761u);
+}
+static uint32_t pl_pk_cap(uint32_t n) { uint32_t c = 16; while (c < 2 * n + 2) c <<= 1; return c; }
+static void pl_pk_put(pl_pk_t *t, uint32_t cap, const char *s, int n, int ar) {
+    for (uint32_t i = pl_pk_hash(s, n, ar) & (cap - 1);; i = (i + 1) & (cap - 1)) {
+        if (!t[i].s) { t[i].s = s; t[i].n = n; t[i].ar = ar; return; }
+        if (t[i].n == n && t[i].ar == ar && !memcmp(t[i].s, s, (size_t)n)) return;
+    }
+}
+static int pl_pk_has(const pl_pk_t *t, uint32_t cap, const char *s, int ar) {
+    int n = (int)strlen(s);
+    for (uint32_t i = pl_pk_hash(s, n, ar) & (cap - 1);; i = (i + 1) & (cap - 1)) {
+        if (!t[i].s) return 0;
+        if (t[i].n == n && t[i].ar == ar && !memcmp(t[i].s, s, (size_t)n)) return 1;
+    }
+}
+static void pl_pk_fill_cv(pl_pk_t *t, uint32_t cap, const cv_t *v) {
+    for (uint32_t i = 0; v && i < v->len; i++) {
+        const char *e = CV_AT(*v, char *, i), *sl = strrchr(e, '/');
+        if (sl) pl_pk_put(t, cap, e, (int)(sl - e), (int)strtol(sl + 1, (char **)0, 10));
+    }
+}
 static int pl_lib_quiet(const pl_prelude_lib_t *lib, const char *nm, int ar) {
     for (const pl_prelude_lib_pi_t *q = lib->quiet; q && q->nm; q++) if (q->ar == ar && !strcmp(q->nm, nm)) return 1;
     return 0;
 }
-static int pl_lib_named(const pl_prelude_lib_t *lib, const cv_t *refkeys, PlClause *base, PlClause *base_last, const char *native_only, const cv_t *user_defined) {
+static int pl_lib_named(const pl_prelude_lib_t *lib, const pl_pk_t *rk, uint32_t rkc, const pl_pk_t *bk, uint32_t bkc, PlClause *base, PlClause *base_last, const char *native_only, const pl_pk_t *ud,
+    uint32_t udc) {
     for (const pl_prelude_lib_pi_t *e = lib->exports; e->nm; e++) {
         if (native_only && !strcmp(e->nm, native_only)) continue;
-        if (user_defined && pl_cv_has_key(user_defined, e->nm, e->ar)) continue;
-        if (!pl_cv_has_key(refkeys, e->nm, e->ar) && !(e->ar && pl_cv_has_key(refkeys, e->nm, 0))) continue;
+        if (ud && pl_pk_has(ud, udc, e->nm, e->ar)) continue;
+        if (!pl_pk_has(rk, rkc, e->nm, e->ar) && !(e->ar && pl_pk_has(rk, rkc, e->nm, 0))) continue;
         if (pl_lib_quiet(lib, e->nm, e->ar)) continue;
-        if (!pl_base_defines(base, base_last, e->nm, e->ar)) return 1;
+        if (!(bk ? pl_pk_has(bk, bkc, e->nm, e->ar) : pl_base_defines(base, base_last, e->nm, e->ar))) return 1;
     }
     return 0;
 }
@@ -2268,8 +2294,23 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     char seen[nlibs + 1];
     PlClause *base_last = pre->tail;
     int any = 0;
-    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (pl_lib_named(&PL_PRELUDE_LIBS[i], refkeys, pre->head, base_last, native_only, user_defined)) { register_lib_ops(PL_PRELUDE_LIBS[i].lib); lp[i] = prolog_parse(PL_PRELUDE_LIBS[i].src, "<prelude>"); if (lp[i]) pl_preprocess_list(lp[i], 1); any = 1; } }
+    uint32_t rkc = pl_pk_cap(refkeys ? refkeys->len : 0), udc = pl_pk_cap(user_defined ? user_defined->len : 0), nb = 0;
+    pl_pk_t rk[rkc], ud[udc];
+    memset(rk, 0, sizeof rk);
+    memset(ud, 0, sizeof ud);
+    pl_pk_fill_cv(rk, rkc, refkeys);
+    pl_pk_fill_cv(ud, udc, user_defined);
+    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (pl_lib_named(&PL_PRELUDE_LIBS[i], rk, rkc, NULL, 0, pre->head, base_last, native_only, user_defined ? ud : NULL, udc)) { register_lib_ops(PL_PRELUDE_LIBS[i].lib); lp[i] = prolog_parse(PL_PRELUDE_LIBS[i].src, "<prelude>"); if (lp[i]) pl_preprocess_list(lp[i], 1); any = 1; } }
     if (!any) return;
+    for (PlClause *cl = pre->head; cl; cl = cl->next) { nb++; if (cl == base_last) break; }
+    uint32_t bkc = pl_pk_cap(nb);
+    pl_pk_t bk[bkc];
+    memset(bk, 0, sizeof bk);
+    for (PlClause *cl = pre->head; cl; cl = cl->next) {
+        const char *cn; int car;
+        if (pl_clause_key(cl, &cn, &car) && cn) pl_pk_put(bk, bkc, cn, (int)strlen(cn), car);
+        if (cl == base_last) break;
+    }
     for (int changed = 1; changed;) {
         changed = 0;
         for (int i = 0; i < nlibs; i++) {
@@ -2277,7 +2318,11 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             if (!lp[i] || seen[i]) continue;
             for (PlClause *cl = lp[i]->head; cl; cl = cl->next) pl_tree_collect_keys(cl->tr, &lk);
             seen[i] = 1;
-            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_named(&PL_PRELUDE_LIBS[j], &lk, pre->head, base_last, NULL, user_defined)) { register_lib_ops(PL_PRELUDE_LIBS[j].lib); lp[j] = prolog_parse(PL_PRELUDE_LIBS[j].src, "<prelude>"); if (lp[j]) pl_preprocess_list(lp[j], 1); changed = 1; }
+            uint32_t lkc = pl_pk_cap(lk.len);
+            pl_pk_t lks[lkc];
+            memset(lks, 0, sizeof lks);
+            pl_pk_fill_cv(lks, lkc, &lk);
+            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_named(&PL_PRELUDE_LIBS[j], lks, lkc, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc)) { register_lib_ops(PL_PRELUDE_LIBS[j].lib); lp[j] = prolog_parse(PL_PRELUDE_LIBS[j].src, "<prelude>"); if (lp[j]) pl_preprocess_list(lp[j], 1); changed = 1; }
         }
     }
     for (int i = 0; i < nlibs; i++) {
@@ -2303,7 +2348,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         for (PlClause *cl = lp[i]->head; cl; cl = nextc) {
             nextc = cl->next;
             const char *nm; int ar;
-            if (!pl_clause_is_directive(cl) && !pl_clause_is_attv_hook(cl) && (!pl_clause_key(cl, &nm, &ar) || !nm || (nm[0] != '$' && pl_base_defines(pre->head, base_last, nm, ar)))) continue;
+            if (!pl_clause_is_directive(cl) && !pl_clause_is_attv_hook(cl) && (!pl_clause_key(cl, &nm, &ar) || !nm || (nm[0] != '$' && pl_pk_has(bk, bkc, nm, ar)))) continue;
             cl->next = NULL;
             cl->dq_forced = 3 + 1;
             if (!pre->head) pre->head = cl; else pre->tail->next = cl;
