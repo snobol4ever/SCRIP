@@ -2621,6 +2621,7 @@ void rkb_block_term(RkB *b, RkTerm *it, int from, int to, tree_t *seq, tree_t *s
     if (!sig && nstmts == 1 && last && last->n >= 1) { tree_t *h = paren_hash(b, last); if (h && !rk_uses_topic(h)) { it->kind = TK_TREE; it->t = h; return; } }
     rk_pcv_release(b, sig);
     tree_t *a = ast_node_new(TT_ANON_BLOCK); expr_add_child(a, seq);
+    a->slen = sub ? 1 : 0;
     for (int i = 0; sig && i < sig->n; i++) { tree_t *p = sig->c[i]; if (p && p->t == TT_ASSIGN && p->n) p = p->c[0]; expr_add_child(a, p); }
     if (!sig && rk_reads_var(seq, "@_")) { tree_t *ap = var_node(b, "@_"); expr_add_child(ap, leaf_sval(TT_QLIT, intern("*@"))); expr_add_child(a, ap); }
     if (!sig && rk_reads_var(seq, "%_")) { tree_t *hp = var_node(b, "%_"); expr_add_child(hp, leaf_sval(TT_QLIT, intern("*%"))); expr_add_child(a, hp); }

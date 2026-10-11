@@ -1539,7 +1539,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 if (!handler && body && (body->t == TT_SEQ || body->t == TT_SEQ_EXPR || body->t == TT_PROGRAM)) for (int i = 0; i < body->n; i++) {
                     const tree_t * s = body->c[i];
                     if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (sub) s = sub; }
-                    if (s && s->t == TT_CATCH && s->n > 0) { handler = s->c[0]; break; }
+                    if (s && s->t == TT_CATCH && s->n > 0) { handler = rk_catch_handler(s); break; }
                 }
                 IR_t * kexit = build(cx, IR_CALL, γ, ω);
                 IR_LIT(kexit).sval = "try_exit";
@@ -3989,6 +3989,13 @@ static tree_t * rk_seq_to_gather(tree_t * t) {
     if (infinite) g->slen |= 256;
     return g;
 }
+static void rk_return_outside_routine(tree_t * t, int in_routine) {
+    if (!t) return;
+    if (t->t == TT_SUB_DECL || (t->t == TT_ANON_BLOCK && t->slen == 1)) in_routine = 1;
+    if (t->t == TT_RETURN && !in_routine) { t->t = TT_DIE; t->n = 0; ast_push(t, leaf_sval2(TT_QLIT, "Attempt to return outside of any Routine")); return; }
+    for (int i = 0; i < t->n; i++) rk_return_outside_routine(t->c[i], in_routine);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_seq_desugar(tree_t * t) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_seq_desugar(t->c[i]);
@@ -4864,6 +4871,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_nested_elem_sets((tree_t *) prog);
     rk_place_phasers((tree_t *) prog);
     rk_rename_user_main((tree_t *) prog);
+    rk_return_outside_routine((tree_t *) prog, 0);
     rk_seq_desugar((tree_t *) prog);
     rk_lazy_stages((tree_t *) prog);
     rk_gather_blockify((tree_t *) prog);
