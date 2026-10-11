@@ -172,7 +172,28 @@ ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-12872014}"
 # ⛔ So the honest reading of a -14.4% NOTE here was: -1.35% earned, -13.2% is a different program.  The new pin is a fresh
 # basis, and NO cross-workload comparison may be made against the old one (RULES.md: a SLOPE is not a TOTAL; a number carried
 # into a new column must be re-measured).  Beauty remains the Milestone-1 self-host fixed point under the new source.
-BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-1430567872}"
+# ⛔⭐ BEAUTY RE-PINNED 2026-10-11 by the ceo (row snobol4-the-instruction-budget-gate-reads-beauty-at-1622m-ir-...-ceo-1637; GOAL-CEO.md CEO-1640): 1,430,567,872 -> 1,626,072,751 (SCRIP `3cb3126a5`, HEAD
+# `7cf8878ba` whose only difference is the generated allocating table), THE PRICE OF ONE RULED FEATURE, NAMED, not a workload change (beauty.sno unchanged since corpus 924bd8bd0, 618 lines,
+# every arm below a verified fixed point).  BISECTED from the pin tree with this gate's own measure_ir in a scratch worktree (callgrind, -O0, mode 4), the staircase, each step a
+# parent -> child pair unless noted:
+#   1,430,285,467  496798c3b  the pin tree re-measured: reproduces the pin to 0.02%, so the pin was sound
+#   1,448,889,372  974557f25  the parent of the step below (+1.3% over 10-02..10-05: under the band)
+#   1,619,272,123  6ec5871c8  gc: the chain over the maps, STEP A (ARCH-GC s13, CEO-1492) -- +170,382,751, +11.76%, THE WHOLE RED: the runtime emitter (beauty resolves deferred expressions
+#                             at run time, rt_defer_resolve 491,254 calls, bb_emit_x86 4,211) scans every box twice for the per-site tables and re-asks frame membership per instruction
+#                             (xop_frame_member 9,365 -> 89,717 calls, zd_k 14,164 -> 95,481, zdp_scratch_cell 16,380 -> 204,922) with linear scans over its rsp snapshot vectors (+37M in
+#                             std::vector<x86_rsp_snap_t> iteration alone).  The site tables are the ruled design; the dry-run scan, the re-classification and the linear scans are the
+#                             cto's row gc-the-emitters-rsp-prepass-of-the-chain-over-the-maps-step-a-costs-beauty-170m-ir-...-ceo-1639 (DONE-WHEN: this gate with BEAUTY_IR_WATERMARK=1448889372).
+#                             When it lands this gate reads "improved; consider re-pinning down" and the owner re-pins to the reading, naming the cure.
+#   1,633,132,812  e3421a999  10-07, the peak measured
+#   1,502,416,860 -> 1,501,577,470  ea03e8627 -> dc6654135  the ACCESS trace callback road: -0.06%, neutral
+#   1,567,768,103 -> 1,516,094,868  badc713de -> 2356c4868  the C name-save stack deleted (CEO-1542): -51,673,235, -3.3%, a win kept
+#   1,560,638,441  dbd4b7cf1  10-10 18:46, the cto's reading reproduced
+#   1,621,141,491 -> 1,621,212,235  302521554 -> 7210bcef1  the KEYWORD trace road (CEO-1635): +71K, 0.004%
+#   1,620,291,817 -> 1,624,407,409  1ba942a4a -> 4030b0d03  the VALUE trace inside a match (CEO-1636): +4.1M, +0.25%, of which +2.9M is strcmp in the variable hash walk (layout) and
+#                             +0.7M the NV_SET_fn -> NV_SET_p_fn wrapper layer; no capture, cursor or pump probe shows in the per-function diff (beauty runs no cursor assignment)
+#   1,624,515,945 -> 1,626,072,751  666108ad4 -> 3cb3126a5  the DATA TWEAK hook road (CEO-1638): +1.56M, +0.10%
+# Two readings of one tree differ by up to 0.14% (6ec5871c8 twice: 1,618,721,415 / 1,619,272,123; 4030b0d03 by this gate 1,622,070,134, by the worktree 1,624,407,409), inside the band.
+BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-1626072751}"
 # Watermarks: RT_OPT=-O0, `make pristine`, SCRIP `eca52780`, 2026-08-24 (seat04).  Re-pin with the FINDING that changed them.
 # TABLE_ACCESS re-pinned 2026-08-24 (seat01, post RTX-31 + RTX-NEW-ICNVAR): 15267937 -> 12986443.
 # TABLE_ACCESS re-pinned 2026-08-27 (seat12, row perf-table-subscript-fastpath lever 2, post subscript+assign fusion
