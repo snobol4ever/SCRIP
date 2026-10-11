@@ -152,6 +152,8 @@ preflight:  # ⭐ THE CHEAP HERMETIC ARMS, WITH NO BUILD (hq_T's ask 2026-09-06,
 	done < <(grep -E '^scripts/' "$(ROOT)/scripts/preflight_arms.txt"); \
 	echo "preflight: $$n arm(s), $$bad red -- NO BUILD, hermetic. NOT a substitute for the test target: it cannot see a codegen defect."; \
 	[ $$bad -eq 0 ]
+fleet-smoke:  # ⭐ TIER 1 OF THE VERIFIER LOOP (Lon 2026-10-11 12:4x CDT: "The COO should run a set of super-fast test, a so-called smoke test, often."; ceo CEO-1673): the eight per-language smokes, about 8-20 s in all, the coo's to run after every origin landing; every other seat is refused rc 2 (CEO-1671). No build: a stale ./scrip is the freshness guard's refusal, never a verdict.
+	@bash "$(ROOT)/scripts/test_fleet_smoke.sh"
 
 arena: export SCRIP_HEAP_KB := $(SCRIP_HEAP_KB_TINY)
 arena:  # ⭐ WHAT ARENA WILL THE TINY PASS USE? print it rather than assume it (LAW 0), and it is the one place test-arena's arena is decided.
