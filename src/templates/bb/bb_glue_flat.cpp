@@ -9,10 +9,16 @@ extern long g_line;
 typedef struct { long fn; long how; } rt_call_next_t;
 extern rt_call_next_t rt_apply_open(DESCR_t * args, int nargs);
 extern rt_call_next_t rt_call_callee_try_sn4(DESCR_t * args, int nargs, sno_callee_rec_t * r, DESCR_t * out);
+extern long rt_tweak_open(DESCR_t * out, const char * cname, trace_pend_t * pend);
+extern void rt_call_pend_close(trace_pend_t * pend);
 extern DESCR_t rt_apply_land_γ(DESCR_t frame0, long word, const long * sv);
 extern DESCR_t rt_apply_land_ω(long word, const long * sv);
 }
 #include "x86_asm.h"
+std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno, int in_shim,
+    const std::string & tweak_out_lea = std::string());
+std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_shim);
+std::string bb_glue_call_pend_run(int base, long nargs, long off);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_flat_enter() {
     return IF(_.op_fc_bytes > 0, x86("sub", "rsp", _.op_fc_bytes));
@@ -179,11 +185,27 @@ std::string bb_glue_stno_unit_push(void) {
          + x86_rsp_store64(8, "rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno, int in_shim)
+std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno, int in_shim,
+    const std::string & tweak_out_lea)
     {
     return x86("call", try_sym, try_fp)
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", val_id)
+         + IF(!tweak_out_lea.empty(),
+               x86("cmp", "rax", 2L)
+             + x86_jcc_id("jne", base + 9)
+             + tweak_out_lea
+             + x86("mov", "rsi", "rdx")
+             + x86("sub", "rsp", 112L)
+             + x86("mov", RDQ("rsp", 0), 0L)
+             + x86("mov", RDQ("rsp", 8), 0L)
+             + x86("mov", "rdx", "rsp")
+             + x86("call", "rt_tweak_open", (uint64_t)(uintptr_t)(void *)rt_tweak_open)
+             + x86_rt_gc_poll()
+             + bb_glue_call_pend_run(base + 30, 2L, 0L)
+             + x86("add", "rsp", 112L)
+             + x86_jmp_id(val_id)
+             + x86_deflabel_id(base + 9))
          + x86_rt_gc_poll_rec_sigma_word(1)
          + IF(stno, bb_glue_stno_unit_push())
          + bb_glue_enter_c2bb(base, base + 5, base + 6, in_shim ? base + 7 : -1)
@@ -203,9 +225,23 @@ std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char 
          + x86_deflabel_id(val_id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_callee_try_enter(int base, int val_id, int join_id) {
+std::string bb_glue_callee_try_enter(int base, int val_id, int join_id, const std::string & tweak_out_lea) {
     return bb_glue_try_enter("rt_call_callee_try_sn4", (uint64_t)(uintptr_t)(void *)rt_call_callee_try_sn4, "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ,
-                             "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1, 0);
+                             "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1, 0, tweak_out_lea);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_call_pend_run(int base, long nargs, long off) {
+    int skip = base + 20, val = base + 21, join = base + 22;
+    return x86("mov", "rcx", RDQ("rsp", off))
+         + x86("test", "rcx", "rcx")
+         + x86_jcc_id("jz", skip)
+         + x86("lea", "rdi", RDQ("rsp", off))
+         + x86("mov32", "esi", nargs)
+         + bb_glue_apply_try_enter(base, val, join, 0)
+         + x86_deflabel_id(join)
+         + x86("lea", "rdi", RDQ("rsp", off))
+         + x86("call", "rt_call_pend_close", (uint64_t)(uintptr_t)(void *)rt_call_pend_close)
+         + x86_deflabel_id(skip);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_shim) {

@@ -504,13 +504,14 @@ static void dat_check_required(DatType *t, DESCR_t self) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) {
+DESCR_t dat_construct_rq(DatType *t, DESCR_t *args, int nargs, long *rq) {
     DESCR_t r = dat_alloc_fill(t, args, nargs);
     dat_check_required(t, r);
-    extern void rt_fire_buildplan_tweak(const char *cname, DESCR_t self);
-    rt_fire_buildplan_tweak(t->name, r);
+    extern void rt_fire_buildplan_tweak_rq(const char *cname, DESCR_t self, long *rq);
+    rt_fire_buildplan_tweak_rq(t->name, r, rq);
     return r;
 }
+DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) { return dat_construct_rq(t, args, nargs, (long *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_construct_alloc(DatType *t, DESCR_t *args, int nargs) { return dat_alloc_fill(t, args, nargs); }
 void rt_construct_check(DatType *t, DESCR_t self) { dat_check_required(t, self); }

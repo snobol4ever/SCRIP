@@ -141,6 +141,7 @@ void rt_call_args_clear_from(int n);
 #include "re.h"
 #include "rx.h"
 #include "core.h"
+extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);
 #include "core/utf8.h"
 #include "builtin_ids.h"
 #include "pattern_match.h"
@@ -4232,7 +4233,7 @@ _Static_assert((RT_TWEAK_IC_N & (RT_TWEAK_IC_N - 1)) == 0,
     "THE CONSTRUCTOR HOOK CACHE (ceo 2026-09-25, CEO-1258): a type whose method-resolution chain carries no <type>__TWEAK procedure is remembered by its name pointer under a generation that moves wh"
     "enever a procedure or a type is added or the procedure table is reset, so the check that cost every record constructor a formatted name, a proc-table scan and a hash lookup runs once per type p"
     "er generation");
-void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
+void rt_fire_buildplan_tweak_rq(const char *cname, DESCR_t self, long *rq) {
     extern int dat_mro(const char *name, const char **out, int max);
     extern int rt_proc_has_native_fn(const char *name);
     extern int g_rt_gen_proc_count;
@@ -4253,7 +4254,10 @@ void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
             any = 1;
             int pi;
             for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, proc)) break;
-            if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) {
+            if ((pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) && rq && !rq[0]) {
+                rq[0] = 2;
+                rq[1] = (long)(uintptr_t)chain[i];
+            } else if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) {
                 extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
                 rt_c2bb_bomb("TWEAK from C (a Raku class the lowerer's .new helper sub did not see, or a SNOBOL4 DATA type's <type>__TWEAK hook: the box calls TWEAK, C never does)", proc);
             } else {
@@ -4264,6 +4268,18 @@ void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
         }
         if (!any) { g_tweak_none[h].cname = cname; g_tweak_none[h].gen = gen; }
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) { rt_fire_buildplan_tweak_rq(cname, self, (long *)0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_tweak_open(DESCR_t *out, const char *cname, trace_pend_t *pend) {
+    if (!out || !cname || !*cname || !pend || !IS_DATA_INST_fn(*out)) return 0;
+    char proc[fmt_len("%s__TWEAK", cname)];
+    snprintf(proc, sizeof proc, "%s__TWEAK", cname);
+    pend->args[0] = STRVAL(rt_heap_strdup_c(proc));
+    pend->args[1] = *out;
+    pend->args[2] = NULVCL;
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed) {
@@ -13638,7 +13654,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (!dt) { *out = FAILDESCR; return 1; }
         DESCR_t fvals[dt->nfields > 0 ? dt->nfields : 1];
         for (int fi = 0; fi < dt->nfields; fi++) fvals[fi] = NULVCL;
-        *out = dat_construct(dt, fvals, dt->nfields);
+        *out = dat_construct_rq(dt, fvals, dt->nfields, rq);
         return 1;
     }
     if (!strncmp(fn, "nqp::bindattr", 13) && nargs == 4 && (!fn[13] || !strcmp(fn + 13, "_n") || !strcmp(fn + 13, "_i") || !strcmp(fn + 13, "_s"))) {
@@ -13688,7 +13704,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             if (!kname) continue;
             for (int fi = 0; fi < dt->nfields; fi++) { if (strcmp(dt->fields[fi], kname) == 0) { if (!dt->priv[fi]) fvals[fi] = args[ci + 1]; break; } }
         }
-        *out = rk_attr_defaults(dt, dat_construct(dt, fvals, dt->nfields));
+        *out = rk_attr_defaults(dt, dat_construct_rq(dt, fvals, dt->nfields, rq));
         return 1;
     }
     if (!strncmp(fn, "__rk_new_", 9) && nargs >= 1) {
@@ -13850,7 +13866,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
                 if (!kname) continue;
                 for (int fi = 0; fi < dt->nfields; fi++) if (strcmp(dt->fields[fi], kname) == 0) { fvals[fi] = args[ci + 1]; break; }
             }
-            *out = dat_construct(dt, fvals, dt->nfields);
+            *out = dat_construct_rq(dt, fvals, dt->nfields, rq);
             return 1;
         }
         if (mname0 && !strcmp(mname0, "clone") && IS_DATA_INST_fn(args[0]) && args[0].u) {
@@ -13865,7 +13881,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
                 if (!kname) continue;
                 for (int fi = 0; fi < dt->nfields; fi++) if (strcmp(dt->fields[fi], kname) == 0) { fvals[fi] = args[ci + 1]; break; }
             }
-            *out = dat_construct(dt, fvals, dt->nfields);
+            *out = dat_construct_rq(dt, fvals, dt->nfields, rq);
             return 1;
         }
         if (mname0 && (!strcmp(mname0, "parse") || !strcmp(mname0, "subparse")) && nargs >= 3) {
@@ -14460,7 +14476,7 @@ static DESCR_t rt_call_arr_bl_sn4_rq(const char *fn, DESCR_t *args, int nargs, i
     extern int64_t kw_errlimit;
     if (g_error == 0 && kw_errlimit == 0 && fn) {
         int h = rt_ctor_ic_find(fn, rt_ctor_gen());
-        if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt; if (nargs <= _udt->nfields) return dat_construct(_udt, args, nargs); }
+        if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt; if (nargs <= _udt->nfields) return dat_construct_rq(_udt, args, nargs, rq); }
     }
     { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1, rq)); g_ctor_ic_site = outer; return r; }
 }
@@ -14522,25 +14538,25 @@ int rt_builtin_tail_may_open(const char *fn) {
 rt_call_next_t rt_call_arr_bl_try(const char *fn, DESCR_t *args, long nb, DESCR_t *out) {
     long rq[2] = { 0, 0 };
     int nargs = (int)(uint32_t)nb, bidlen = (int)(nb >> 32);
-    { DESCR_t v = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0, rq)); if (!rq[0]) *out = v; return (rt_call_next_t){ rq[0], rq[1] }; }
+    { DESCR_t v = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0, rq)); if (!rq[0] || rq[0] == 2) *out = v; return (rt_call_next_t){ rq[0], rq[1] }; }
 }
 rt_call_next_t rt_call_arr_bl_sn4_try(const char *fn, DESCR_t *args, long nb, DESCR_t *out) {
     long rq[2] = { 0, 0 };
     int nargs = (int)(uint32_t)nb, bidlen = (int)(nb >> 32);
-    { DESCR_t v = RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, rq)); if (!rq[0]) *out = v; return (rt_call_next_t){ rq[0], rq[1] }; }
+    { DESCR_t v = RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, rq)); if (!rq[0] || rq[0] == 2) *out = v; return (rt_call_next_t){ rq[0], rq[1] }; }
 }
 rt_call_next_t rt_call_callee_try_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r, DESCR_t *out) {
     extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
     long rq[2] = { 0, 0 };
     if (r->ctor && r->cgen == rt_ctor_gen() && nargs <= ((DatType *)r->ctor)->nfields && !(nargs == 1 && IS_DATA_INST_fn(args[0]))) {
-        *out = dat_construct((DatType *)r->ctor, args, nargs);
-        return (rt_call_next_t){ 0, 0 };
+        *out = dat_construct_rq((DatType *)r->ctor, args, nargs, rq);
+        return (rt_call_next_t){ rq[0], rq[1] };
     }
     {
         DESCR_t v = rt_call_name_sn4_rq(r->name, args, nargs, -1, rq);
         int h = rt_ctor_ic_find(r->name, rt_ctor_gen());
         if (h >= 0) { r->ctor = g_ctor_ic[h].dt; r->cgen = g_ctor_ic[h].gen; }
-        if (!rq[0]) *out = v;
+        if (!rq[0] || rq[0] == 2) *out = v;
         return (rt_call_next_t){ rq[0], rq[1] };
     }
 }
@@ -14564,7 +14580,7 @@ static DESCR_t rt_call_name_sn4_rq(const char *fn, DESCR_t *args, int nargs, int
     }
     if (fn) {
         int h = rt_ctor_ic_find(fn, rt_ctor_gen());
-        if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt; if (nargs <= _udt->nfields) return dat_construct(_udt, args, nargs); }
+        if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt; if (nargs <= _udt->nfields) return dat_construct_rq(_udt, args, nargs, rq); }
     }
     { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, rq)); g_ctor_ic_site = outer; return r; }
 }
@@ -14764,8 +14780,10 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
         icn_bi_rec_t bi;
         core_icn_bi_push(&bi, fn, args, nargs);
         if (core_icn_builtin_argcheck(fn, args, nargs, strict)) { core_icn_bi_pop(&bi); return FAILDESCR; }
-        int hit = try_call_builtin_by_name_bl_s_rq(fn, args, nargs, &out, bidlen, strict, sn4 ? (long *)0 : rq);
+        long trq[2] = { 0, 0 };
+        int hit = try_call_builtin_by_name_bl_s_rq(fn, args, nargs, &out, bidlen, strict, sn4 ? trq : rq);
         core_icn_bi_pop(&bi);
+        if (sn4 && rq && trq[0] == 2 && !rq[0]) { rq[0] = 2; rq[1] = trq[1]; }
         if (hit) return out;
     }
     if (sn4) {
@@ -16452,7 +16470,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             _dx->ctor = (void *)_udt;
             _dx->syn = 0;
         }
-        if (_udt && nargs <= _udt->nfields) { rt_ctor_ic_note(fn, (void *)_udt); *out = dat_construct(_udt, args, nargs); return 1; }
+        if (_udt && nargs <= _udt->nfields) { rt_ctor_ic_note(fn, (void *)_udt); *out = dat_construct_rq(_udt, args, nargs, rq); return 1; }
         if (!_udt && _dx && !_dx_hit) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 3; _dx->nf = 0; memcpy(_dx->dxn, fn, _dxl); _dx->ctor = 0; _dx->syn = 0; }
     }
     {
@@ -18797,7 +18815,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         if (!rname || !*rname) { *out=FAILDESCR; return 1; }
         DatType *_dt = dat_find_type(rname);
         if (!_dt) { *out=FAILDESCR; return 1; }
-        *out = dat_construct(_dt, args + 1, nargs - 1);
+        *out = dat_construct_rq(_dt, args + 1, nargs - 1, rq);
         return 1;
     }
     L_bidjmp_6361:
@@ -19463,7 +19481,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
 #undef _OPCOERCE
 #undef _NUMREL
 #undef _STRREL
-    { DatType *_rdt = dat_find_type(fn); if (_rdt) { *out = dat_construct(_rdt, args, nargs); return 1; } }
+    { DatType *_rdt = dat_find_type(fn); if (_rdt) { *out = dat_construct_rq(_rdt, args, nargs, rq); return 1; } }
     if (script_try_call_builtin_by_name_rq(fn, args, nargs, out, rq)) return 1;
     {
         DatType *dt = dat_find_type(fn);
@@ -19471,7 +19489,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             DESCR_t fv[dt->nfields > 0 ? dt->nfields : 1];
             int nf = dt->nfields;
             for (int i = 0; i < nf; i++) fv[i] = (i < nargs) ? args[i] : NULVCL;
-            *out = dat_construct(dt, fv, nf);
+            *out = dat_construct_rq(dt, fv, nf, rq);
             return 1;
         }
     }

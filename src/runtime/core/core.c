@@ -1515,6 +1515,7 @@ void rt_trace_pend_close(trace_pend_t *pend) {
     if (pend->hook.slen == 1) comm_var_tail(pend->args[1].s, pend->val, (int)pend->hook.i);
     pend->hook.slen = 0;
 }
+void rt_call_pend_close(trace_pend_t *pend) { pend->args[0].v = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno) { comm_var_hook(name, val, file, line, stno, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1568,6 +1569,7 @@ void comm_var_open(const char *name, DESCR_t val, long long stno, trace_pend_t *
 long rt_value_trace_open(const char *name, trace_pend_t *pend) { (void)name; (void)pend; return 0; }
 void rt_trace_pend_run(trace_pend_t *pend) { (void)pend; }
 void rt_trace_pend_close(trace_pend_t *pend) { (void)pend; }
+void rt_call_pend_close(trace_pend_t *pend) { pend->args[0].v = 0; }
 void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno) { (void)name; (void)val; (void)file; (void)line; (void)stno; }
 void comm_call(const char *fname) { (void)fname; }
 void comm_return(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }

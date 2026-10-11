@@ -146,9 +146,9 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
 #define BCFN_TAIL_TRY(fn, strict) (sn4_byname_kind((fn), (strict)) == 3 || (sn4_byname_kind((fn), (strict)) == 5 && rt_builtin_tail_may_open((fn))))
 #define BCFN_TAIL_TRY_SYM(fn, strict) (sn4_byname_kind((fn), (strict)) == 3 ? "rt_call_arr_bl_sn4_try" : "rt_call_arr_bl_try")
 #define BCFN_TAIL_TRY_FP(fn, strict) (sn4_byname_kind((fn), (strict)) == 3 ? (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4_try : (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_try)
-#define BCFN_TAIL_TRY_ENTER(fn, nargs, base, val_id, join_id) ( x86("movabs", "rdx", ((uint64_t)(uint32_t)bid_bake_of((fn)) << 32) | (uint64_t)(uint32_t)(nargs)) \
+#define BCFN_TAIL_TRY_ENTER(fn, nargs, base, val_id, join_id, out_lea) ( x86("movabs", "rdx", ((uint64_t)(uint32_t)bid_bake_of((fn)) << 32) | (uint64_t)(uint32_t)(nargs)) \
          + bb_glue_try_enter(BCFN_TAIL_TRY_SYM((fn), _.op_strict), BCFN_TAIL_TRY_FP((fn), _.op_strict), "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ, \
-                             "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω, (base), (val_id), (join_id)) )
+                             "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω, (base), (val_id), (join_id), 0, 0, (out_lea)) )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_fn_str(IR_t * pBB) {
@@ -209,7 +209,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += bb_callee_rdx(fn);
             if (_bk == 2) {
                 s += x86("lea", "rcx", RDQ("rsp", nargs * 16));
-                s += bb_glue_callee_try_enter(100, 108, 29);
+                s += bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", RDQ("rsp", nargs * 16)));
                 s += x86_rsp_load64("rax", nargs * 16) + x86_rsp_load64("rdx", nargs * 16 + 8);
                 s += x86_deflabel_id(29) + x86_rt_gc_poll_res();
             } else {
@@ -229,7 +229,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         else s += x86("xor", "esi", "esi");
         if (BCFN_TAIL_TRY(fn, _.op_strict)) {
             s += x86("lea", "rcx", ZRES(0));
-            s += BCFN_TAIL_TRY_ENTER(fn, nargs, 100, 108, 29);
+            s += BCFN_TAIL_TRY_ENTER(fn, nargs, 100, 108, 29, x86("lea", "rdi", ZRES(0)));
             s += x86("mov", "rax", ZRES(0));
             s += x86("mov", "rdx", ZRES(8));
             if (!(_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict))) s += x86_deflabel_id(29) + x86_rt_gc_poll_res();
@@ -307,7 +307,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += bb_callee_rdx(fn);
             if (_bk == 2) {
                 s += x86("lea", "rcx", FRQ(resoff));
-                s += bb_glue_callee_try_enter(100, 108, 29);
+                s += bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", FRQ(resoff)));
                 s += x86("mov", "rax", FRQ(resoff))
                    + x86("mov", "rdx", FRQ(resoff + 8));
                 s += x86_deflabel_id(29);
@@ -329,7 +329,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("lea", "rsi", FRQ(argbase + (BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict) ? BCFN_EVAL_REC : 0)));
         if (BCFN_TAIL_TRY(fn, _.op_strict)) {
             s += x86("lea", "rcx", FRQ(resoff));
-            s += BCFN_TAIL_TRY_ENTER(fn, nargs, 100, 108, 29);
+            s += BCFN_TAIL_TRY_ENTER(fn, nargs, 100, 108, 29, x86("lea", "rdi", FRQ(resoff)));
             s += x86("mov", "rax", FRQ(resoff));
             s += x86("mov", "rdx", FRQ(resoff + 8));
             if (!(_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict))) {

@@ -220,7 +220,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
             s += bb_callee_rdx(fn);
             if (_bk == 2) {
                 s += x86("lea", "rcx", RDQ("rsp", (int)narg * 16));
-                s += bb_glue_callee_try_enter(100, 108, 29);
+                s += bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", RDQ("rsp", (int)narg * 16)));
                 s += x86_rsp_load64("rax", (int)narg * 16) + x86_rsp_load64("rdx", (int)narg * 16 + 8);
                 s += x86_deflabel_id(29) + x86_rt_gc_poll_res();
             } else {
@@ -245,7 +245,8 @@ static std::string bb_call_byname_str(IR_t * pBB) {
             s += x86("lea", "rcx", ZRES(0));
             s += x86("movabs", "rdx", ((uint64_t)(uint32_t)bid_bake_of(fn) << 32) | (uint64_t)(uint32_t)narg);
             s += bb_glue_try_enter(_k3 ? "rt_call_arr_bl_sn4_try" : "rt_call_arr_bl_try", _k3 ? (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4_try : (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_try,
-                                   "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ, "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω, 100, 108, 29);
+                                   "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ, "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω, 100, 108, 29, 0, 0,
+                                       x86("lea", "rdi", ZRES(0)));
             s += x86("mov", "rax", ZRES(0));
             s += x86("mov", "rdx", ZRES(8));
             s += x86_deflabel_id(29) + x86_rt_gc_poll_res();
@@ -289,7 +290,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     s += bb_callee_rdx(fn);
     if (_bk == 2) {
     s += x86("lea", "rcx", FRQ(resoff));
-    s += bb_glue_callee_try_enter(100, 108, 29);
+    s += bb_glue_callee_try_enter(100, 108, 29, x86("lea", "rdi", FRQ(resoff)));
     s += x86("mov", "rax", FRQ(resoff))
        + x86("mov", "rdx", FRQ(resoff + 8));
     s += x86_deflabel_id(29);
@@ -316,7 +317,8 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("lea", "rcx", FRQ(resoff));
         s += x86("movabs", "rdx", ((uint64_t)(uint32_t)bid_bake_of(fn) << 32) | (uint64_t)(uint32_t)narg);
         s += bb_glue_try_enter(_k3 ? "rt_call_arr_bl_sn4_try" : "rt_call_arr_bl_try", _k3 ? (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4_try : (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_try,
-                               "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ, "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω, 100, 108, 29);
+                               "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ, "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω, 100, 108, 29, 0, 0,
+                                   x86("lea", "rdi", FRQ(resoff)));
         s += x86("mov", "rax", FRQ(resoff));
         s += x86("mov", "rdx", FRQ(resoff + 8));
         s += x86_deflabel_id(29);
