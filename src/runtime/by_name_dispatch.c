@@ -10676,7 +10676,8 @@ static const struct {
 } rk_exc_tab[] = { { "Attempt to divide by zero", "X::Numeric::DivideByZero", "Exception" }, { "Cannot resolve caller", "X::Multi::NoMatch", "Exception" }, { "Type check failed in binding",
     "X::TypeCheck::Binding", "X::TypeCheck" }, { "Type check failed in assignment", "X::TypeCheck::Assignment", "X::TypeCheck" }, { "Cannot modify an immutable", "X::Assignment::RO", "Exception" },
     { "No such method", "X::Method::NotFound", "Exception" }, { "out of range", "X::OutOfRange", "Exception" }, { "Cannot convert string to number", "X::Str::Numeric", "Exception" },
-    { "Unrecognized trailing characters", "X::Str::Numeric", "Exception" }, { "must be resolved by class", "X::Role::Composition", "Exception" }, { NULL, NULL, NULL } };
+    { "Unrecognized trailing characters", "X::Str::Numeric", "Exception" }, { "numeric expected", "X::Str::Numeric", "Exception" }, { "must be resolved by class", "X::Role::Composition",
+    "Exception" }, { NULL, NULL, NULL } };
 static const struct {
     const char *needle, *cls, *parent;
 } rk_comp_tab[] = { { "Unsupported use of", "X::Obsolete", "X::Comp" }, { "Quantifier quantifies nothing", "X::Syntax::Regex::SolitaryQuantifier", "X::Syntax" }, { "Null regex not allowed",
@@ -14745,23 +14746,25 @@ const char *rt_main_arg_at(int i) { return (i >= 0 && i < g_main_args_n && g_mai
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int relop_num_coerce(DESCR_t v, DESCR_t *out) {
+static int relop_num_coerce(DESCR_t v, DESCR_t *out, int blank0) {
     if (v.v == DT_BIG) { *out = v; return 1; }
     if (v.v == DT_ORDER) { *out = INTVAL((int64_t)v.i); return 1; }
     if (IS_INT_fn(v) || IS_REAL_fn(v)) { *out = v; return 1; }
     const char *s = IS_STR_fn(v) ? v.s : IS_CSET_fn(v) ? v.s : (const char *)0;
+    if (!s && blank0 && IS_STR_fn(v)) { *out = INTVAL(0); return 1; }
     if (!s) return 0;
     char nb[128];
     if (IS_STR_fn(v) && v.slen != 0 && v.slen != 0xFFFFFFFFu) { char *cp = (v.slen < sizeof nb) ? nb : (char *)rt_wsb_alloc((size_t)v.slen + 1); memcpy(cp, s, v.slen); cp[v.slen] = '\0'; s = cp; }
     const char *t = s;
-    while (*t == ' ') t++;
+    while (*t == ' ' || (blank0 && isspace((unsigned char)*t))) t++;
+    if (!*t && blank0) { *out = INTVAL(0); return 1; }
     if (!*t) return 0;
     char *endi = 0, *endd = 0;
     long long iv = strtoll(t, &endi, 10);
     double dv = strtod(t, &endd);
     const char *e = (endd > endi) ? endd : endi;
     if (e == t) return 0;
-    while (*e == ' ') e++;
+    while (*e == ' ' || (blank0 && isspace((unsigned char)*e))) e++;
     if (*e != '\0') return 0;
     *out = (endd > endi) ? REALVAL(dv) : INTVAL((int64_t)iv);
     return 1;
@@ -14779,7 +14782,7 @@ DESCR_t c_rt_str_coerce(DESCR_t d) {
     for (int i = 1; i < cl; i++) { char t = b[i]; int j = i - 1; while (j >= 0 && (unsigned char)b[j] > (unsigned char)t) { b[j+1] = b[j]; j--; } b[j+1] = t; }
     return BSTRVAL(b, cl);
 }
-static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op);
+static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     extern int g_core_errjmp_n;
@@ -14789,12 +14792,12 @@ int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); g_rk_cbh_cur = cbh0; return 0; }
     core_errjmp_push(&ej);
     g_core_errjmp_n = my + 1;
-    int r = rt_jct_relop_impl(lhs, rhs, op);
+    int r = rt_jct_relop_impl(lhs, rhs, op & ~BINOP_F_NUMIFY_BLANK, op & BINOP_F_NUMIFY_BLANK);
     core_errjmp_pop(&ej, my);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
+static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0) {
     if (IS_FAIL_fn(lhs) || IS_FAIL_fn(rhs)) return 0;
     if (op == BINOP_EQV || op == BINOP_NEQV) {
         int eq = 0;
@@ -14850,8 +14853,8 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
     }
     if (num_rel) {
         DESCR_t L, R;
-        int _relop_lok = relop_num_coerce(lhs, &L);
-        if (_relop_lok && relop_num_coerce(rhs, &R)) {
+        int _relop_lok = relop_num_coerce(lhs, &L, blank0);
+        if (_relop_lok && relop_num_coerce(rhs, &R, blank0)) {
             if (IS_REAL_fn(L) || IS_REAL_fn(R)) {
                 double a = to_real(L), b = to_real(R);
                 switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b; case BINOP_LE: return a<=b; case BINOP_GT: return a>b; case BINOP_GE: return a>=b; }
@@ -14866,6 +14869,12 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
             int64_t a = L.i, b = R.i;
             switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b; case BINOP_LE: return a<=b; case BINOP_GT: return a>b; case BINOP_GE: return a>=b; }
             return 0;
+        }
+        if (blank0) {
+            extern int g_script_try_depth;
+            extern const char *core_icn_errmsg(int code);
+            extern void rt_script_die_surface(const char *msg);
+            if (g_script_try_depth > 0) { rt_script_die_surface(core_icn_errmsg(102)); return -1; }
         }
         core_icn_op_ctx(core_icn_binop_sym(op), 2, _relop_lok ? L : lhs, rhs);
         core_icn_error(102, _relop_lok ? rhs : lhs);

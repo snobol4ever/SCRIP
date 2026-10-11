@@ -152,6 +152,8 @@ static int rk_is_binop(tree_e tt) { switch (tt) { case TT_ADD: case TT_SUB: case
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int64_t rk_binop_code(tree_e tt) { switch (tt) { case TT_ADD: return BINOP_ADD_BIG; case TT_SUB: return BINOP_SUB_BIG; case TT_MUL: return BINOP_MUL_BIG; default: return lc_binop_code(tt); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_relop_code(IR_t * op, tree_e tt) { IR_LIT(op).ival = lc_binop_code(tt); if (IR_LIT(op).ival >= BINOP_LT && IR_LIT(op).ival <= BINOP_NE) op->strict |= IR_STRICT_RELOP_NUMIFY_BLANK; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_io_lower_name(const char * nm) {
     static const char * const names[] = { "open", "close", "slurp", "spurt", "unlink", "mkdir", "rmdir", "copy", "rename", "move", "chmod", "dir", "chdir", "make-temp-file", "make-temp-dir", NULL };
     for (int i = 0; names[i]; i++) if (!strcmp(nm, names[i])) return 1;
@@ -768,7 +770,7 @@ static IR_t * lower_cond(rcx_t * cx, const tree_t * c, IR_t * on_true, IR_t * on
     if (c->t == TT_DIVIS && c->n > 1) return lower_cond(cx, rk_divis_desugar(c), on_true, on_false);
     if (rk_is_relop(c->t) && c->n > 1) {
         IR_t * op = build(cx, IR_BINOP_TEST, on_true, on_false);
-        IR_LIT(op).ival = lc_binop_code(c->t);
+        rk_relop_code(op, c->t);
         IR_t * lr = NULL, * rr = NULL;
         IR_t * ea = lower_rv(cx, c->c[0], NULL, on_false, &lr);
         IR_t * eb = lower_rv(cx, c->c[1], op, on_false, &rr);
@@ -1061,7 +1063,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     if (rk_is_relop(t->t)) {
         if (t->n < 2) return rk_excise(cx, γ, ω, res);
         IR_t * op = build(cx, IR_BINOP_RELOP_VAL, γ, ω);
-        IR_LIT(op).ival = lc_binop_code(t->t);
+        rk_relop_code(op, t->t);
         IR_t * lr = NULL, * rr = NULL;
         IR_t * ea = lower_rv(cx, t->c[0], NULL, ω, &lr);
         IR_t * eb = lower_rv(cx, t->c[1], op, ω, &rr);
@@ -1253,7 +1255,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 IR_t * nd = build(cx, IR_ASSIGN, γ, ω);
                 IR_LIT(nd).sval = t->c[0]->v.sval;
                 IR_t * op = build(cx, IR_BINOP_RELOP_VAL, nd, ω);
-                IR_LIT(op).ival = lc_binop_code(rhs->t);
+                rk_relop_code(op, rhs->t);
                 IR_t * lr = NULL, * rr = NULL;
                 IR_t * ea = lower_rv(cx, rhs->c[0], NULL, ω, &lr);
                 IR_t * eb = lower_rv(cx, rhs->c[1], op, ω, &rr);

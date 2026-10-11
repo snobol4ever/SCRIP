@@ -131,6 +131,7 @@ struct IR_t { IR_e op; IR_ref_t γ; IR_ref_t ω; IR_t ** operands; int n_operand
 #define IR_SEAL_SUBSCRIPT_VALUE 5
 #define IR_SEAL_SUBSCRIPT_LVTBL 6
 #define IR_SEAL_ASSIGN_LVTBL 7
+#define IR_STRICT_RELOP_NUMIFY_BLANK (1 << 29)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_range_tag_has(const IR_t * nd, char a, char b, char c) {
     const char * t = nd ? IR_LIT(nd).sval : (const char *)0;

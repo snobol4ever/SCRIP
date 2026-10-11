@@ -12,8 +12,11 @@ RTX_GATE_DEF(icnrel)
 #define OP_SNE  17
 #define OP_EQV  22
 #define OP_NEQV 23
+#define OP_F_NUMIFY_BLANK 0x100
 RTX_FUNC(rt_jct_relop)
     RTX_GATE(icnrel, .Lbail)
+    test    r8d, OP_F_NUMIFY_BLANK
+    jnz     .Lbail
     cmp     r8d, OP_EQV
     je      .Leqv
     cmp     r8d, OP_NEQV
