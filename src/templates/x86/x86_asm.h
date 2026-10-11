@@ -189,10 +189,11 @@ inline std::string x86_neg(const char * reg) {
 inline int x86_rsp_trace_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_GC_RSP_TRACE"); v = (e && *e == '1') ? 1 : 0; } return v; }
 typedef struct { uint64_t key; int kind, delta; } x86_rsp_snap_t;
 struct x86_rsp_st_t { int delta = 0, before = 0, aligned = 0, unknown = 0, dead = 0, mark = 0, mark_unknown = 0, quiet = 0; int mark9 = 0, mark9_unknown = 0, mark9_set = 0;
-    std::vector<x86_rsp_snap_t> j, p; };
+    std::vector<x86_rsp_snap_t> j, p; size_t jp_done = 0; };
 inline x86_rsp_st_t & x86_rsp_S(void) { static x86_rsp_st_t v; return v; }
 inline int & x86_rsp_state(int k) { x86_rsp_st_t & S = x86_rsp_S(); return k == 0 ? S.delta : k == 1 ? S.before : k == 2 ? S.aligned : S.unknown; }
-inline void x86_rsp_reset_all(void) { x86_rsp_st_t & S = x86_rsp_S(); S.delta = 0; S.before = 0; S.aligned = 0; S.unknown = 0; S.dead = 0; S.j.clear(); S.p.clear(); S.quiet = 0; S.mark9_set = 0; }
+inline void x86_rsp_reset_all(void) { x86_rsp_st_t & S = x86_rsp_S(); S.delta = 0; S.before = 0; S.aligned = 0; S.unknown = 0; S.dead = 0; S.j.clear(); S.p.clear(); S.jp_done = 0; S.quiet = 0;
+    S.mark9_set = 0; }
 inline void x86_rsp_jump(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); if (S.aligned || S.unknown) return;
     const x86_rsp_snap_t * q = S.j.data(); size_t n = S.j.size(); for (size_t i = 0; i < n; i++) if (q[i].kind == kind && q[i].key == key) return;
     S.j.push_back(x86_rsp_snap_t{ key, kind, S.delta }); }
@@ -210,15 +211,15 @@ inline void x86_rsp_define(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_
         S.delta); }
     S.dead = 0; }
 struct x86_rsp_pre_t { int delta, before, aligned, unknown, dead, mark, mark_unknown, quiet, mark9, mark9_unknown, mark9_set; size_t jn; };
-static_assert(offsetof(x86_rsp_st_t, j) == 48 && sizeof(x86_rsp_st_t) == 48 + 2 * sizeof(std::vector<x86_rsp_snap_t>),
-    "x86_rsp_pre_t saves every scalar of x86_rsp_st_t: a field added to the state must join the saved record and its restore");
+static_assert(offsetof(x86_rsp_st_t, j) == 48 && sizeof(x86_rsp_st_t) == 48 + 2 * sizeof(std::vector<x86_rsp_snap_t>) + sizeof(size_t),
+    "x86_rsp_pre_t saves every scalar of x86_rsp_st_t: a field added to the state must join the saved record and its restore; jp_done is the commit's progress, never rolled back");
 inline x86_rsp_pre_t x86_rsp_prepass_open(void) { x86_rsp_st_t & S = x86_rsp_S();
     x86_rsp_pre_t b = { S.delta, S.before, S.aligned, S.unknown, S.dead, S.mark, S.mark_unknown, S.quiet, S.mark9, S.mark9_unknown, S.mark9_set, S.j.size() }; S.quiet = 1; return b; }
 inline void x86_rsp_prepass_commit(const x86_rsp_pre_t & b) { x86_rsp_st_t & S = x86_rsp_S(); size_t n = S.j.size();
-    for (size_t i = 0; i < n; i++) { const x86_rsp_snap_t a = S.j.data()[i]; const x86_rsp_snap_t * q = S.p.data(); size_t m = S.p.size(); int have = 0;
+    for (size_t i = S.jp_done < b.jn ? S.jp_done : b.jn; i < n; i++) { const x86_rsp_snap_t a = S.j.data()[i]; const x86_rsp_snap_t * q = S.p.data(); size_t m = S.p.size(); int have = 0;
         for (size_t k = 0; k < m; k++) if (q[k].kind == a.kind && q[k].key == a.key) { have = 1; break; }
         if (!have) S.p.push_back(a); }
-    S.j.resize(b.jn); S.delta = b.delta; S.before = b.before; S.aligned = b.aligned; S.unknown = b.unknown; S.dead = b.dead; S.mark = b.mark; S.mark_unknown = b.mark_unknown;
+    S.j.resize(b.jn); S.jp_done = b.jn; S.delta = b.delta; S.before = b.before; S.aligned = b.aligned; S.unknown = b.unknown; S.dead = b.dead; S.mark = b.mark; S.mark_unknown = b.mark_unknown;
     S.quiet = b.quiet; S.mark9 = b.mark9; S.mark9_unknown = b.mark9_unknown; S.mark9_set = b.mark9_set; }
 inline std::string x86_rsp_mark_save(void) { if (MEDIUM_BINARY) return std::string(1, 'K'); return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspK\n"); }
 inline void x86_rsp_mark9_push(void) { x86_rsp_st_t & S = x86_rsp_S();
@@ -2621,25 +2622,25 @@ inline void bb_emit_x86(const std::string & s) {
       x86_rsp_prepass_commit(before); }
     bb_label_t internal[X86_INTERNAL_MAX]; char inm[X86_INTERNAL_MAX][8];
     for (int k = 0; k < X86_INTERNAL_MAX; k++) { internal[k].offset = BB_LABEL_UNRESOLVED; internal[k].name = ""; internal[k].name_cap = 0; }
-    size_t i = 0, n = s.size();
+    size_t i = 0, n = s.size(); x86_rsp_st_t & RS = x86_rsp_S();
     while (i < n) {
         char tag = s[i++];
-        if (tag == 'L') { int k = (unsigned char)s[i++]; for (int j = 0; j < k; j++) bb_emit_byte((uint8_t)(unsigned char)s[i++]); if (k > 0) x86_rsp_S().dead = 0; }
+        if (tag == 'L') { int k = (unsigned char)s[i++]; for (int j = 0; j < k; j++) bb_emit_byte((uint8_t)(unsigned char)s[i++]); if (k > 0) RS.dead = 0; }
         else if (tag == 'J') { int id = (unsigned char)s[i++]; x86_rsp_jump(1, (uint64_t)id); bb_emit_patch_rel32(x86_label_for(id, internal, inm)); }
-        else if (tag == 'D') { int id = (unsigned char)s[i++]; if (id == X86P_ALPHA) { x86_rsp_S().delta = 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0;
-            } else if (id == X86P_BETA) { x86_rsp_S().delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0; } else x86_rsp_define(1, (uint64_t)id);
+        else if (tag == 'D') { int id = (unsigned char)s[i++]; if (id == X86P_ALPHA) { RS.delta = 0; RS.dead = 0; RS.unknown = 0;
+            } else if (id == X86P_BETA) { RS.delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; RS.dead = 0; RS.unknown = 0; } else x86_rsp_define(1, (uint64_t)id);
             bb_label_define(x86_label_for(id, internal, inm)); }
         else if (tag == 'Q') { int id = (unsigned char)s[i++]; bb_emit_patch_abs64(x86_label_for(id, internal, inm)); }
         else if (tag == 'E') { int idx = x86_pair_idx_read(s, i); x86_rsp_define(2, (uint64_t)idx); if (XA_PAIR(idx).define) bb_label_define(XA_PAIR(idx).define); }
         else if (tag == 'F') { int idx = x86_pair_idx_read(s, i); x86_rsp_jump(2, (uint64_t)idx); bb_label_t * _t = x86_pair_tgt(idx); if (_t) bb_emit_patch_rel32(_t); }
         else if (tag == 'X') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_jump(3, v); bb_emit_patch_rel32((bb_label_t *)(uintptr_t)v); }
         else if (tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_define(3, v); bb_label_define((bb_label_t *)(uintptr_t)v); }
-        else if (tag == 'G') { x86_rsp_S().dead = 1; }
-        else if (tag == 'K') { x86_rsp_S().mark = x86_rsp_S().delta; x86_rsp_S().mark_unknown = x86_rsp_S().unknown; }
+        else if (tag == 'G') { RS.dead = 1; }
+        else if (tag == 'K') { RS.mark = RS.delta; RS.mark_unknown = RS.unknown; }
         else if (tag == 'M') { x86_rsp_mark9_push(); }
         else if (tag == 'N') { x86_rsp_mark9_pop(); }
-        else if (tag == 'k') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_S().delta = x86_rsp_S().mark + (int32_t)v; x86_rsp_S().dead = 0;
-            x86_rsp_S().unknown = x86_rsp_S().mark_unknown; }
+        else if (tag == 'k') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); RS.delta = RS.mark + (int32_t)v; RS.dead = 0;
+            RS.unknown = RS.mark_unknown; }
         else if (tag == 'S') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); extern bb_buf_t bb_emit_buf; extern int bb_emit_pos;
             emit_gc_site_play((int)v, (const void *)(bb_emit_buf + bb_emit_pos), g_x86_rsp_aligned ? g_x86_rsp_before : g_x86_rsp_delta, g_x86_rsp_aligned, g_x86_rsp_unknown); }
         else if (tag == 'R') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); if (!g_x86_rsp_aligned) g_x86_rsp_delta += (int32_t)v; }
