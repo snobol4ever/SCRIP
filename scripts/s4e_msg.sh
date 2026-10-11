@@ -791,7 +791,8 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
                       # (10 no_layout and the findall enumeration defect, the only reds left in the 108-witness battery). hq_pascal and hq_snocone are REFUSED BY NAME rather than omitted: both have ZERO no_layout and
                       # rung suites at 246/246 and 336/336, so there is no GC work to give them, and hq_icon is refused for the same reason at two entries -- a refusal that states its measurement is a decision, not an oversight.
                       # ⛔⭐ MODE SEPTET REDEFINED (Lon 2026-10-10 10:0x CDT, in-chat to the ceo, verbatim: "Give the tasks of mining and vendoring the Prolog programs in /home/resources to another HQ seat. Which HQ do you want on the team?"; ceo CEO-1595): the four officers, hq_prolog, hq_raku and hq_pascal -- the third HQ vendors the Prolog downloads as demos and suites; the CEO-979 SEPTET (hq_raku hq_snobol4 hq_prolog) is history.
-                      SEPTET) case "$_seat" in hq_prolog|hq_raku|hq_pascal) : ;; *) _dr "an HQ" "Under SEPTET three HQs stand -- hq_prolog hq_raku hq_pascal -- and $_seat is not one of them: the four officers and those three work rows, and $_seat is stood down (Lon 2026-10-10, CEO-1595).";; esac ;;
+                      # ⛔⭐ MODE SEPTET REDEFINED AGAIN (Lon 2026-10-11 10:3x CDT, in-chat to the ceo, verbatim: "I suppose we should start HQ-SNOBOL4, HQ-ICON, and HQ-PROLOG to help."; ceo CEO-1662): the four officers, hq_snobol4, hq_icon and hq_prolog -- the three languages of CEO-1660's order of work (Icon and SNOBOL4 first, then Prolog); the CEO-1595 SEPTET (hq_prolog hq_raku hq_pascal) is history.
+                      SEPTET) case "$_seat" in hq_snobol4|hq_icon|hq_prolog) : ;; *) _dr "an HQ" "Under SEPTET three HQs stand -- hq_snobol4 hq_icon hq_prolog -- and $_seat is not one of them: the four officers and those three work rows, and $_seat is stood down (Lon 2026-10-11, CEO-1662).";; esac ;;
                       # ⛔⭐ MODE TENET (Lon 2026-09-20, in-chat to the ceo, verbatim: "Let's got to TENET mode, 4 officers and 6 HQ's all running Opus 5 (xhigh). All officers running Opus 5 (max)."; ceo CEO-1010). TEN WORKING SEATS: the four officers and the SIX language HQs.
                       # ⛔ THIS ARM EXISTS BECAUSE THE coo PREDICTED ITS ABSENCE THIS MORNING, verbatim: "both cures are correct today and NEITHER SURVIVES THE NEXT MODE LON NAMES." TENET is that next mode, and the arm is written BEFORE the MODE file is flipped -- the ec3a99b43 order, never the reverse.
                       # TENET is DECTET's roster under Lon's own name for it; the arm is spelled out rather than aliased to DECTET because an alias makes two modes share one reason, and the reasons differ: DECTET was one-HQ-per-language for the shared nodes, TENET is six HQs driving their languages to 100% while the officers finish the GC.
@@ -1043,9 +1044,12 @@ s4e_lane_owner_of_language() {
       # xhigh effort."): the SEPTET of CEO-1595 ends -- hq_prolog, hq_raku and hq_pascal stand down with their claims and rows in place, nothing re-laned (the
       # CEO-1357/1372/1396/1587 precedent); EVERY LANGUAGE TO THE ceo, who assigns, the table of CEO-1587. The SEXTET table above is the flip-back template:
       # prolog hq_prolog, raku hq_raku, the other five the ceo. MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
-       icon)     printf 'ceo';;
-       prolog)   printf 'ceo';;
-       snobol4)  printf 'ceo';;
+      # ⛔⭐ MODE SEPTET (CEO-1662, 2026-10-11 10:3x CDT, Lon in-chat to the ceo, verbatim: "I suppose we should start HQ-SNOBOL4, HQ-ICON, and HQ-PROLOG to help."):
+      # ICON to hq_icon, SNOBOL4 to hq_snobol4, PROLOG to hq_prolog, the other four to the ceo, who assigns; rows with an owner cell keep their owner. The QUARTET
+      # table of CEO-1659 is the flip-back template (every language the ceo). MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
+       icon)     printf 'hq_icon';;
+       prolog)   printf 'hq_prolog';;
+       snobol4)  printf 'hq_snobol4';;
        pascal)   printf 'ceo';;
        snocone)  printf 'ceo';;
        rebus)    printf 'ceo';;

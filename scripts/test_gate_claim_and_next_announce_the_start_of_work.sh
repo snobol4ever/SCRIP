@@ -31,13 +31,13 @@ W="$(mktemp -d "${TMPDIR:-/tmp}/gate_announce.XXXXXX")" || refuse "mktemp failed
 cleanup(){ chmod -R u+w "$W" 2>/dev/null; rm -rf "$W"; }
 trap cleanup EXIT
 mkdir -p "$W/tasks" "$W/claims" "$W/released"
-# the roster of SEPTET as CEO-1595 redefined it (2026-10-10, s4e_msg.sh a8767cfdd): hq_pascal stands, hq_snobol4 is stood down
-STANDING="ceo cto cfo coo hq_raku hq_pascal hq_prolog"
-DOWN="hq_icon hq_snobol4 seat07"
+# the roster of SEPTET as CEO-1662 redefined it (2026-10-11): hq_snobol4, hq_icon and hq_prolog stand, hq_raku and hq_pascal are stood down
+STANDING="ceo cto cfo coo hq_snobol4 hq_icon hq_prolog"
+DOWN="hq_raku hq_pascal seat07"
 for s in $STANDING $DOWN; do mkdir -p "$W/$s/inbox" "$W/$s/archive"; done
 # ⭐ THE FIXTURE BRINGS ITS OWN MODE, and it is SEPTET because that is the mode whose roster splits the HQs -- a
 # fixture under a mode that admits everybody could not tell arm 1 from arm 2.
-printf 'SEPTET\n# scratch line 2 for a gate fixture: LANES: icon=ceo prolog=hq_prolog snobol4=ceo pascal=ceo raku=hq_raku\n' > "$W/MODE"
+printf 'SEPTET\n# scratch line 2 for a gate fixture: LANES: icon=hq_icon prolog=hq_prolog snobol4=hq_snobol4 pascal=ceo raku=ceo\n' > "$W/MODE"
 printf '0\trow-the-coo-takes\tcoo\tFREE\n0\trow-the-cfo-already-holds\tcfo\tCLAIMED:cfo\n0\trow-for-the-picker\tcto\tFREE\n' > "$W/QUEUE.tsv"
 for t in row-the-coo-takes row-the-cfo-already-holds row-for-the-picker; do
   printf '# TASK %s\nGOAL: gate fixture.\nDONE-WHEN: true\n## NEXT\nfixture\n## QA\n## LEDGER\n' "$t" > "$W/tasks/$t.task.md"; done
@@ -72,10 +72,10 @@ n=$(ls "$W/ceo/inbox"/*claim-notice-row-for-the-picker* 2>/dev/null | wc -l)
 echo "--- ARM 7: AN ANNOUNCEMENT THAT FAILS NAMES ITSELF AND DOES NOT FAIL THE CLAIM ---"
 printf '0\trow-with-a-deaf-neighbour\tcoo\tFREE\n' >> "$W/QUEUE.tsv"
 printf '# TASK row-with-a-deaf-neighbour\nGOAL: gate fixture.\nDONE-WHEN: true\n## NEXT\nfixture\n## QA\n## LEDGER\n' > "$W/tasks/row-with-a-deaf-neighbour.task.md"
-chmod 000 "$W/hq_raku/inbox"
+chmod 000 "$W/hq_icon/inbox"
 out2="$(S4E_SEAT=coo S4E_POST="$W" bash "$SUT" claim row-with-a-deaf-neighbour 2>&1)"; rc2=$?
-chmod 755 "$W/hq_raku/inbox"
-[ "$rc2" = 0 ] && [ "$(head -1 "$W/claims/row-with-a-deaf-neighbour.claim")" = coo ] && [[ "$out2" == *"COULD NOT ANNOUNCE to hq_raku"* ]]
+chmod 755 "$W/hq_icon/inbox"
+[ "$rc2" = 0 ] && [ "$(head -1 "$W/claims/row-with-a-deaf-neighbour.claim")" = coo ] && [[ "$out2" == *"COULD NOT ANNOUNCE to hq_icon"* ]]
 arm $? "an undeliverable notice is NAMED, the claim still stands (rc=$rc2), and the count does not include it"
 [[ "$out2" == *"announced to 5 standing seat(s)"* ]]
 arm $? "and the number printed is what was DELIVERED -- an instrument that reports success while doing nothing is the recurring failure"
