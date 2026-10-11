@@ -20660,6 +20660,11 @@ static int pl_anum_code_ok(long c) { return c >= 0 && c <= 0x10FFFF; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_anum_one_char(const char *es) { int adv; if (!es || !es[0]) return 0; (void)rt_pl_u8_get(es, &adv); return es[adv] == '\0'; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void * pl_code_range_ball(DESCR_t c) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_kind1(const char *, const char *);
+    return pl_swi_dialect() ? rt_pl_ball_kind2("type_error", "character_code", c) : rt_pl_ball_kind1("representation_error", "character_code");
+}
 static void * pl_anum_elems(DESCR_t lst, int codes, int allow_var) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_instantiation(void);
@@ -20670,7 +20675,7 @@ static void * pl_anum_elems(DESCR_t lst, int codes, int allow_var) {
         if (pl_iso_unbound(e)) { if (!allow_var) return rt_pl_ball_instantiation(); cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]); continue; }
         if (codes) {
             if (e.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", e);
-            if (!pl_anum_code_ok((long)e.i)) return rt_pl_ball_kind1("representation_error", "character_code");
+            if (!pl_anum_code_ok((long)e.i)) return pl_code_range_ball(e);
         } else {
             const char *es = pl_atom_str(e);
             if (!pl_anum_one_char(es)) return rt_pl_ball_kind2("type_error", "character", e);
@@ -20726,6 +20731,10 @@ static void * pl_anum_text_list_pair(DESCR_t a, DESCR_t l, int codes, const char
         DESCR_t num;
         const char *p = pl_skip_layout(l.s ? l.s : "");
         return (strcmp(atom_type, "number") || (*p && pl_parse_number(p, &num))) ? (void *)0 : rt_pl_ball_kind1("syntax_error", "illegal_number");
+    }
+    if (pl_iso_unbound(a)) {
+        for (DESCR_t m = rt_pl_deref_val(l); pl_is_cons(m); m = rt_pl_deref_val(((DESCR_t *)m.p)[1])) if (pl_iso_unbound(rt_pl_deref_val(((DESCR_t *)m.p)[0]))) return rt_pl_ball_instantiation();
+        if (lk == 0 && pl_swi_dialect()) return rt_pl_ball_instantiation();
     }
     if (lk == -1) return rt_pl_ball_kind2("type_error", "list", l);
     { void *b = pl_anum_elems(l, codes, !pl_iso_unbound(a)); if (b) return b; }
@@ -20797,10 +20806,7 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
     if (!strcmp(nm, "char_code") && n == 2) {
         DESCR_t c = rt_pl_deref_val(a[0]), k = rt_pl_deref_val(a[1]);
         if (!pl_iso_unbound(c)) { const char *cs = pl_atom_str(c); if (!cs || !cs[0] || cs[utf8_seqlen((unsigned char)cs[0])]) return rt_pl_ball_kind2("type_error", "character", c); }
-        if (!pl_iso_unbound(k)) {
-            if (k.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", k);
-            if (!pl_anum_code_ok((long)k.i)) { extern void *rt_pl_ball_kind1(const char *, const char *); return rt_pl_ball_kind1("representation_error", "character_code"); }
-        }
+        if (!pl_iso_unbound(k)) { if (k.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", k); if (!pl_anum_code_ok((long)k.i)) return pl_code_range_ball(k); }
         if (pl_iso_unbound(c) && pl_iso_unbound(k)) return rt_pl_ball_instantiation();
         return (void *)0;
     }
