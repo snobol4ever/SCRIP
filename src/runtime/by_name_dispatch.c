@@ -8141,7 +8141,7 @@ static int pl_var_name_ok(const char *n) {
     return 1;
 }
 static int pl_write_opt_bad(const char *on, DESCR_t a, DESCR_t *culprit) {
-    static const char *bools[] = { "quoted", "ignore_ops", "numbervars", "portray", "portrayed", "character_escapes", "quote_non_ascii", "partial", "character_escapes_unicode", 0 };
+    static const char *bools[] = { "quoted", "ignore_ops", "numbervars", "portray", "portrayed", "character_escapes", "quote_non_ascii", "partial", "character_escapes_unicode", "space_args", 0 };
     const char *as;
     if (!on) return 2;
     if (!strcmp(on, "truncated")) return 0;
