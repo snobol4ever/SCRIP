@@ -195,19 +195,19 @@ inline int & x86_rsp_state(int k) { x86_rsp_st_t & S = x86_rsp_S(); return k == 
 inline void x86_rsp_reset_all(void) { x86_rsp_st_t & S = x86_rsp_S(); S.delta = 0; S.before = 0; S.aligned = 0; S.unknown = 0; S.dead = 0; S.j.clear(); S.p.clear(); S.jp_done = 0; S.quiet = 0;
     S.mark9_set = 0; }
 inline void x86_rsp_jump(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); if (S.aligned || S.unknown) return;
-    const x86_rsp_snap_t * q = S.j.data(); size_t n = S.j.size(); for (size_t i = 0; i < n; i++) if (q[i].kind == kind && q[i].key == key) return;
+    const x86_rsp_snap_t * b0 = S.j.data(), * q = b0 + S.j.size(); while (q != b0) { q--; if (q->key == key && q->kind == kind) return; }
     S.j.push_back(x86_rsp_snap_t{ key, kind, S.delta }); }
-inline void x86_rsp_define(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); int found = -1;
-    const x86_rsp_snap_t * jq = S.j.data(); size_t jn = S.j.size(); for (size_t i = 0; i < jn; i++) if (jq[i].kind == kind && jq[i].key == key) { found = (int)i; break; }
+inline void x86_rsp_define(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S();
     if (S.aligned) { S.dead = 0; return; }
-    if (S.dead && found < 0) { const x86_rsp_snap_t * pq = S.p.data(); size_t pn = S.p.size();
-        for (size_t i = 0; i < pn; i++) if (pq[i].kind == kind && pq[i].key == key) { S.delta = pq[i].delta; S.unknown = 0; S.dead = 0; return; } }
-    if (S.dead) { if (found >= 0) { S.delta = jq[found].delta; S.unknown = 0; } else { S.unknown = 1;
+    const x86_rsp_snap_t * fj = 0, * b0 = S.j.data(), * q = b0 + S.j.size(); while (q != b0) { q--; if (q->key == key && q->kind == kind) { fj = q; break; } }
+    if (S.dead && !fj) { const x86_rsp_snap_t * p0 = S.p.data(), * r = p0 + S.p.size();
+        while (r != p0) { r--; if (r->key == key && r->kind == kind) { S.delta = r->delta; S.unknown = 0; S.dead = 0; return; } } }
+    if (S.dead) { if (fj) { S.delta = fj->delta; S.unknown = 0; } else { S.unknown = 1;
         if (!S.quiet && x86_rsp_trace_on())
         fprintf(stderr, "[RSP-TRACE] %s dead define kind=%d key=%llu no jump recorded (delta %d)\n", _.x86_uid_kind ? _.x86_uid_kind : "?", kind, (unsigned long long)key, S.delta); } }
-    else if (found >= 0 && jq[found].delta != S.delta) { S.unknown = 1;
+    else if (fj && fj->delta != S.delta) { S.unknown = 1;
         if (!S.quiet && x86_rsp_trace_on())
-        fprintf(stderr, "[RSP-TRACE] %s live define kind=%d key=%llu jump delta %d vs fallthrough %d\n", _.x86_uid_kind ? _.x86_uid_kind : "?", kind, (unsigned long long)key, jq[found].delta,
+        fprintf(stderr, "[RSP-TRACE] %s live define kind=%d key=%llu jump delta %d vs fallthrough %d\n", _.x86_uid_kind ? _.x86_uid_kind : "?", kind, (unsigned long long)key, fj->delta,
         S.delta); }
     S.dead = 0; }
 struct x86_rsp_pre_t { int delta, before, aligned, unknown, dead, mark, mark_unknown, quiet, mark9, mark9_unknown, mark9_set; size_t jn; };
@@ -217,7 +217,7 @@ inline x86_rsp_pre_t x86_rsp_prepass_open(void) { x86_rsp_st_t & S = x86_rsp_S()
     x86_rsp_pre_t b = { S.delta, S.before, S.aligned, S.unknown, S.dead, S.mark, S.mark_unknown, S.quiet, S.mark9, S.mark9_unknown, S.mark9_set, S.j.size() }; S.quiet = 1; return b; }
 inline void x86_rsp_prepass_commit(const x86_rsp_pre_t & b) { x86_rsp_st_t & S = x86_rsp_S(); size_t n = S.j.size();
     for (size_t i = S.jp_done < b.jn ? S.jp_done : b.jn; i < n; i++) { const x86_rsp_snap_t a = S.j.data()[i]; const x86_rsp_snap_t * q = S.p.data(); size_t m = S.p.size(); int have = 0;
-        for (size_t k = 0; k < m; k++) if (q[k].kind == a.kind && q[k].key == a.key) { have = 1; break; }
+        for (const x86_rsp_snap_t * r = q + m; r != q;) { r--; if (r->key == a.key && r->kind == a.kind) { have = 1; break; } }
         if (!have) S.p.push_back(a); }
     S.j.resize(b.jn); S.jp_done = b.jn; S.delta = b.delta; S.before = b.before; S.aligned = b.aligned; S.unknown = b.unknown; S.dead = b.dead; S.mark = b.mark; S.mark_unknown = b.mark_unknown;
     S.quiet = b.quiet; S.mark9 = b.mark9; S.mark9_unknown = b.mark9_unknown; S.mark9_set = b.mark9_set; }
