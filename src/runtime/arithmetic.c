@@ -628,16 +628,42 @@ static void rt_sno_operand_error(int op, int left) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_numeric_operand(DESCR_t d) {
+    if (!IS_STR_fn(d)) return is_numeric_like(d);
+    {
+        const char *s = rt_cstr_d(d);
+        size_t n = descr_slen(d), i = 0;
+        while (i < n && (s[i] == ' ' || s[i] == '\t')) i++;
+        if (i == n) return 1;
+        if (memchr(s + i, '\0', n - i)) return 0;
+        {
+            const char *p = s + i, *d0;
+            int nd = 0, real = 0;
+            if (*p == '+' || *p == '-') p++;
+            d0 = p;
+            while (*p >= '0' && *p <= '9') p++;
+            nd = (int)(p - d0);
+            if (*p == '.') { real = 1; p++; while (*p >= '0' && *p <= '9') { p++; nd++; } }
+            if (nd == 0) return 0;
+            if (*p == 'e' || *p == 'E') { const char *e0; real = 1; p++; if (*p == '+' || *p == '-') p++; e0 = p; while (*p >= '0' && *p <= '9') p++; if (p == e0) return 0; }
+            while (*p == ' ' || *p == '\t') p++;
+            if (*p) return 0;
+            if (!real) { char *e = 0; errno = 0; strtoll(s + i, &e, 10); return errno != ERANGE; }
+            return isfinite(strtod(s + i, (char **)0)) ? 1 : 0;
+        }
+    }
+}
 static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
     if (a.v == DT_CPLX || b.v == DT_CPLX) return rt_cplx_arith(a, b, op);
     if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return rt_cset_arith(a, b, op);
     DESCR_t oa = a, ob = b;
-    a = big_str_operand(a);
-    b = big_str_operand(b);
+    if (strict != 2) { a = big_str_operand(a); b = big_str_operand(b); }
     if (rt_big_arith_wanted(a, b, op)) return rt_big_arith_route(a, b, op);
     if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) a = INTVAL(0);
     if ((b.v == DT_S || b.v == DT_SNUL) && (!b.s || descr_slen(b) == 0)) b = INTVAL(0);
-    if (!is_numeric_like(a) || !is_numeric_like(b)) { if (strict == 2) rt_sno_operand_error(op, is_numeric_like(b)); return FAILDESCR; }
+    if (strict == 2) {
+        if (!sno_numeric_operand(a) || !sno_numeric_operand(b)) { rt_sno_operand_error(op, sno_numeric_operand(b)); return FAILDESCR; }
+    } else if (!is_numeric_like(a) || !is_numeric_like(b)) return FAILDESCR;
     int lf = IS_REAL_fn(a), rf = IS_REAL_fn(b);
     int anyf = lf || rf || operand_is_real_str(a) || operand_is_real_str(b);
     double ld = to_real(a), rd = to_real(b);
@@ -738,7 +764,7 @@ DESCR_t rt_cset_compl(DESCR_t a) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_neg_s(DESCR_t a, int strict) {
     if (a.v == DT_BIG) { extern DESCR_t rt_big_neg(DESCR_t); return rt_big_neg(a); }
-    if (!is_numeric_like(a)) { core_runtime_error(10, "negation operand is not numeric"); return FAILDESCR; }
+    if (!(strict == 2 ? sno_numeric_operand(a) : is_numeric_like(a))) { core_runtime_error(10, "negation operand is not numeric"); return FAILDESCR; }
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(-to_real(a));
     {
         int64_t li = to_int(a);
@@ -755,6 +781,13 @@ DESCR_t rt_num_pos(DESCR_t a) {
     if (a.v == DT_BIG) return a;
     { DESCR_t bs = big_str_operand(a); if (bs.v == DT_BIG) return bs; }
     if (!is_numeric_like(a)) { core_runtime_error(4, "affirmation operand is not numeric"); return FAILDESCR; }
+    if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(to_real(a));
+    return INTVAL(to_int(a));
+}
+DESCR_t rt_num_pos_sno(DESCR_t a) {
+    if (a.v == DT_BIG) return a;
+    if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) return INTVAL(0);
+    if (!sno_numeric_operand(a)) { core_runtime_error(4, "affirmation operand is not numeric"); return FAILDESCR; }
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(to_real(a));
     return INTVAL(to_int(a));
 }

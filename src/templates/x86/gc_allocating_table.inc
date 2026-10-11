@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2571
+#define GC_ALLOC_TAB_N 2573
 #define GC_ALLOC_TAB_N_VOID 308
-#define GC_ALLOC_TAB_N_DESCR 1241
-#define GC_ALLOC_TAB_N_OTHER 1005
+#define GC_ALLOC_TAB_N_DESCR 1242
+#define GC_ALLOC_TAB_N_OTHER 1006
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1704,6 +1704,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_num_neg_sno", GC_RET_DESCR },
     { "rt_num_neg_strict", GC_RET_DESCR },
     { "rt_num_pos", GC_RET_DESCR },
+    { "rt_num_pos_sno", GC_RET_DESCR },
     { "rt_nv_cstr", GC_RET_OTHER },
     { "rt_parse_num_d", GC_RET_OTHER },
     { "rt_pat_prim_int_take", GC_RET_OTHER },
@@ -2489,6 +2490,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "sno_array_from_proto_d", GC_RET_DESCR },
     { "sno_concat_d", GC_RET_DESCR },
     { "sno_lower_fragment_at", GC_RET_OTHER },
+    { "sno_numeric_operand", GC_RET_OTHER },
     { "sno_pe_op", GC_RET_OTHER },
     { "sno_pe_walk", GC_RET_OTHER },
     { "sno_preeval_expr", GC_RET_OTHER },

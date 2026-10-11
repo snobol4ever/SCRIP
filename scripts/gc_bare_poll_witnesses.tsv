@@ -159,14 +159,14 @@ src/templates/bb/bb_to_by.cpp:core_icn_by_zero_check#1	hb_scan_subject_across_al
 src/templates/bb/bb_unify_struct.cpp:rt_gcheap_alloc#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
 src/templates/bb/bb_unify_value.cpp:rt_pl_dop_unify_raise#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
 src/templates/bb/bb_unop.cpp:rt_num_neg_sno/rt_num_neg_strict/rt_num_neg#1	UNWITNESSED
-src/templates/bb/bb_unop.cpp:rt_num_pos#1	UNWITNESSED
+src/templates/bb/bb_unop.cpp:rt_num_pos_sno/rt_num_pos#1	UNWITNESSED
 src/templates/bb/bb_unop.cpp:rt_size_d#1	UNWITNESSED
 src/templates/bb/bb_unop.cpp:rt_cset_compl#1	UNWITNESSED
 src/templates/bb/bb_unop.cpp:rt_deref#1	hb_frame_map_anchor_recursive_marklists_mode4.icn
 src/templates/bb/bb_unop.cpp:rt_cset_compl#2	UNWITNESSED
 src/templates/bb/bb_unop.cpp:rt_size_d#2	hb_size_result_polled.icn
 src/templates/bb/bb_unop.cpp:rt_num_neg_sno/rt_num_neg_strict/rt_num_neg#2	hb_bignum_length.icn
-src/templates/bb/bb_unop.cpp:rt_num_pos#2	hb_bignum_length.icn
+src/templates/bb/bb_unop.cpp:rt_num_pos_sno/rt_num_pos#2	hb_bignum_length.icn
 src/templates/bb/bb_var_global.cpp:NV_GET_fn#1	hb_shim_nv_road.sno
 src/templates/bb/bb_var_ref.cpp:rt_pl_fresh_var_ref#1	UNWITNESSED
 src/templates/bb/bb_var_ref.cpp:rt_var_ref_cell_named#1	UNWITNESSED
