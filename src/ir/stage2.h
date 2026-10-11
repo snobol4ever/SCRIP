@@ -70,6 +70,7 @@ typedef struct stage2_t {
     cv_t pl_decl_multifile;
     cv_t pl_decl_meta;
     int pl_dq_mode;
+    int pl_dialect_swi;
     int pl_scc_aux_n;
     int pl_attv_armed;
     int rk_infix_armed;

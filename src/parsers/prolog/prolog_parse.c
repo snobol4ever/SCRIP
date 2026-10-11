@@ -1785,6 +1785,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$stat_w0'(W0):-catch(nb_getval('$stat_w0',W0),_,(wall_ms(W0),nb_setval('$stat_w0',W0))).\n"
     "prompt(O,N):-catch(nb_getval('$prompt',O0),_,O0='|: '),O=O0,(atom(N)->nb_setval('$prompt',N);throw(error(type_error(atom,N),prompt/2))).\n"
     "prompt1(_).\n"
+    "'$display_swi'(T):-write_term(T,[quoted(true),ignore_ops(true)]).\n"
     "style_check(_).\n"
     "recorda(K,T):-recorda(K,T,_).\n"
     "recordz(K,T):-recordz(K,T,_).\n"
@@ -2348,6 +2349,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (cl->tr) { pl_tree_collect_calls(cl->tr, &referenced); pl_tree_collect_keys(cl->tr, &refkeys); }
     }
     if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
+    if (pl_cv_has(&referenced, "display")) pl_cv_add(&referenced, "$display_swi");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");

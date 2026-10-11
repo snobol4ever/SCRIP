@@ -440,14 +440,45 @@ void prolog_dq_lower(tree_t *t, int mode) {
     }
     for (int i = 0; i < t->n; i++) prolog_dq_lower(t->c[i], mode);
 }
+static int pl_dialect_marker(const tree_t *tr) {
+    const tree_t *g = (tr && tr->t == TT_CLAUSE && tr->n == 2 && tr->c[0] && tr->c[0]->t == TT_NUL) ? tr->c[1] : (const tree_t *)0;
+    return g && g->t == TT_FNC && g->v.sval && ((!strcmp(g->v.sval, "module") && g->n == 2) || (!strcmp(g->v.sval, "use_module") && (g->n == 1 || g->n == 2)));
+}
+static PlClause *pl_dq_string_directive(int lineno) {
+    PlClause *c = ct_zalloc(1, sizeof(PlClause));
+    tree_t *cl = ast_node_new(TT_CLAUSE), *g = ast_node_new(TT_FNC), *f = ast_node_new(TT_QLIT), *v = ast_node_new(TT_QLIT);
+    f->v.sval = ct_strdup("double_quotes");
+    v->v.sval = ct_strdup("string");
+    g->v.sval = ct_strdup("set_prolog_flag");
+    ast_push(g, f);
+    ast_push(g, v);
+    ast_push(cl, ast_node_new(TT_NUL));
+    ast_push(cl, g);
+    c->lineno = lineno;
+    c->tr = cl;
+    return c;
+}
 static void pl_dq_lower_program(PlProgram *pl_prog) {
+    int marker = 0, line0 = 0, set = 0;
+    for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
+        if (cl->lineno && !line0) line0 = cl->lineno;
+        if (cl->lineno && pl_dialect_marker(cl->tr)) marker = 1;
+    }
+    if (marker && !g_stage2.pl_dialect_swi && !g_stage2.pl_dq_mode) {
+        PlClause *d = pl_dq_string_directive(line0 ? line0 : 1);
+        d->next = pl_prog->head;
+        pl_prog->head = d;
+        if (!pl_prog->tail) pl_prog->tail = d;
+        pl_prog->nclauses++;
+    }
+    if (marker) g_stage2.pl_dialect_swi = 1;
     int mode = g_stage2.pl_dq_mode ? g_stage2.pl_dq_mode - 1 : 2;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
         tree_t *tr = cl->tr; int m;
-        if (tr && tr->t == TT_CLAUSE && tr->n == 2 && tr->c[0] && tr->c[0]->t == TT_NUL && (m = pl_dq_directive_mode(tr->c[1])) >= 0) { mode = m; continue; }
+        if (tr && tr->t == TT_CLAUSE && tr->n == 2 && tr->c[0] && tr->c[0]->t == TT_NUL && (m = pl_dq_directive_mode(tr->c[1])) >= 0) { mode = m; set = 1; continue; }
         prolog_dq_lower(tr, cl->dq_forced ? cl->dq_forced - 1 : mode);
     }
-    g_stage2.pl_dq_mode = mode + 1;
+    if (set) g_stage2.pl_dq_mode = mode + 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno, const char *file) {
