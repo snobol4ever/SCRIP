@@ -3741,6 +3741,7 @@ static tree_t * pl_attv_goal(const tree_t * g) {
     if (g->t == TT_CUT || g->t == TT_MAKELIST) return (tree_t *) g;
     if (g->t == TT_VAR) return pl_cc_fnc2(",", (tree_t *) g, pl_attv_w());
     if (g->t == TT_IF && g->n == 3) { tree_t * n = ast_node_new(TT_IF); n->v = g->v; n->line = g->line; for (int i = 0; i < 3; i++) ast_push(n, pl_attv_goal(g->c[i])); return n; }
+    if (g->t == TT_PROGRAM) { tree_t * n = ast_node_new(TT_PROGRAM); n->v = g->v; n->line = g->line; for (int i = 0; i < g->n; i++) ast_push(n, pl_attv_goal(g->c[i])); return n; }
     if (g->t == TT_QLIT || g->t == TT_NAME) {
         const char * nm = g->v.sval ? g->v.sval : "";
         if (pl_attv_user(nm, 0) || pl_attv_nobind(nm, 0)) return (tree_t *) g;
