@@ -118,8 +118,9 @@ typedef struct {
     struct { char *name; char *target; } pas_typealias[64];
     int pas_ntypealias;
     int pas_ldepth;
-    struct { char *vname; char *tname; int is_global; int uid; } pas_scalarvartype[512];
+    struct { char *vname; char *tname; int is_global; int uid; } *pas_scalarvartype;
     int pas_nscalarvartype;
+    int pas_scalarvartype_cap;
     struct { char *name; long long low; long long high; int ischar; } pas_tfcomp[128];
     int pas_ntfcomp;
     long long pas_pend_frng_lo;

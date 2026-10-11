@@ -316,7 +316,9 @@ static IR_t * pas_call_args_brm_dir(pcx_t * cx, IR_t * call, IR_t * tgt, uint64_
             ae = vr;
             ar = vr;
         } else if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval) {
-            IR_t * vr = build(cx, IR_VAR, (i == nargs - 1) ? tgt : NULL, ω);
+            pas_res_t r;
+            pas_resolve2(cx, args[k]->v.sval, &r);
+            IR_t * vr = r.uplevel ? pas_frame_node(cx, IR_VAR_FRAME, args[k]->v.sval, &r, (i == nargs - 1) ? tgt : NULL, ω) : build(cx, IR_VAR, (i == nargs - 1) ? tgt : NULL, ω);
             IR_LIT(vr).sval = args[k]->v.sval;
             ae = vr;
             ar = vr;
