@@ -15,10 +15,16 @@
 # broken. It is here so a future reader cannot conclude "recursion is the trigger" -- the trigger is SITE
 # RE-ENTRY. If arm 3 ever goes red the cure has broken ordinary recursion, which no board would attribute here.
 #
-# ⭐ SELF-TEST (the arm hq_U's row taught): the gate re-runs arms 1 and 2 under SCRIP_PB_ARGORDER=1, which
-# reproduces the PRE-CURE lowering in the SAME binary, and REFUSES unless that goes RED. A gate that cannot
-# fail on the defect it names is a decoration; this one proves it rejects the exact lowering it was minted
-# against, with no second build and no pinned artifact.
+# ⭐ SELF-TEST (the arm hq_U's row taught): the gate re-runs arms 1 and 2 under a lowering that stages each
+# pattern operand through a PER-SITE global, the defect it names, and REFUSES unless that goes RED. A gate that
+# cannot fail on the defect it names is a decoration. The knob it first used, SCRIP_PB_ARGORDER, left the tree
+# at cac4d66ca with the PAT$n$V<i> staging globals (operands became SNO$MKPAT call operands), and the gate went
+# UNTRIPPABLE (0/2, ceo CEO-1663). The trip is now MANUFACTURED (RULES.md CEO-554/576) by the test-only seam
+# SCRIP_TEST_PLANT_PATV_STAGING in lower_snobol4.c sno_mkpat_emit: =1 evaluates the operands left to right and
+# stores each to STAGE$<site>$<i> as it is evaluated, =2 right to left, and the call reads them back after the
+# last -- re-entry of the site overwrites the outer activation's staged operand. Arm 4 proves the seam INERT
+# (env unset and =0 emit byte-identical .s); at landing 63 programs' .s were byte-identical to a build WITHOUT
+# the seam, captured first (60 demos/benchmarks/gimpel + these 3 arms, 27 with pattern-thunk sites).
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; SD="$HERE/.."; SCRIP="$SD/scrip"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSE(rc=2): no scrip binary at $SCRIP -- build first (make)"; exit 2; }
@@ -81,17 +87,23 @@ echo "== pattern operand staging must be per-ACTIVATION (row: per-site-globals-c
 grade "arm1 re-entry in RIGHT operand" right.sno "$WANT3" || fail=1
 grade "arm2 re-entry in LEFT operand (MIRROR)" left.sno "$WANT3" || fail=1
 grade "arm3 recursion WITHOUT site re-entry (discriminator)" norentry.sno "$WANT2" || fail=1
-# ---- SELF-TEST: the pre-cure lowering must FAIL arms 1+2, or this gate proves nothing.
+# ---- SELF-TEST: the planted per-site staging must FAIL arms 1+2, or this gate proves nothing.
 neg=0
-grade "self-test arm1 @PB_ARGORDER=1" right.sno "$WANT3" SCRIP_PB_ARGORDER=1 >/dev/null 2>&1 || neg=$((neg+1))
-grade "self-test arm2 @PB_ARGORDER=0" left.sno  "$WANT3" SCRIP_PB_ARGORDER=0 >/dev/null 2>&1 || neg=$((neg+1))
+grade "self-test arm1 @PLANT_PATV_STAGING=1" right.sno "$WANT3" SCRIP_TEST_PLANT_PATV_STAGING=1 >/dev/null 2>&1 || neg=$((neg+1))
+grade "self-test arm2 @PLANT_PATV_STAGING=2" left.sno  "$WANT3" SCRIP_TEST_PLANT_PATV_STAGING=2 >/dev/null 2>&1 || neg=$((neg+1))
 if [ "$neg" -lt 2 ]; then
-    echo "  ⛔ REFUSE(rc=2): SELF-TEST DID NOT FAIL ON THE PRE-CURE LOWERING ($neg/2 arms went red)."
-    echo "     SCRIP_PB_ARGORDER=1 reproduces the interleaved eval/store chain and =0 the reversed one;"
-    echo "     both are the defect this gate names, so both MUST be red here. A gate that cannot fail on"
-    echo "     its own defect is a decoration -- fix the gate before trusting a green verdict from it."
+    echo "  ⛔ REFUSE(rc=2): SELF-TEST DID NOT FAIL ON THE PLANTED PER-SITE STAGING ($neg/2 arms went red)."
+    echo "     SCRIP_TEST_PLANT_PATV_STAGING=1 stages the operands left to right through per-site globals and =2"
+    echo "     right to left; both are the defect this gate names, so both MUST be red here. The seam is gone or"
+    echo "     renamed, or the arms lost their power -- fix the gate before trusting a green verdict from it."
     exit 2
 fi
-echo "  SELF-TEST OK: both pre-cure lowerings ($neg/2) are REJECTED by these arms"
-[ "$fail" = 0 ] && { echo "OK: operand temporaries survive re-entry of their own staging site (3 arms, both modes)"; exit 0; }
+# ---- arm 4: the seam is INERT when unset -- a test hook that alters real output is a new global in disguise.
+for f in right left norentry; do
+    (cd "$W" && "$SCRIP" --compile -o "$W/u.s" "$f.sno" </dev/null >/dev/null 2>&1)
+    (cd "$W" && SCRIP_TEST_PLANT_PATV_STAGING=0 "$SCRIP" --compile -o "$W/z.s" "$f.sno" </dev/null >/dev/null 2>&1)
+    if [ -s "$W/u.s" ] && cmp -s "$W/u.s" "$W/z.s"; then :; else echo "  ⛔ arm4 RED: $f.sno emits differently with the seam at 0 than unset"; fail=1; fi
+done
+echo "  SELF-TEST OK: both planted per-site stagings ($neg/2) are REJECTED by these arms"
+[ "$fail" = 0 ] && { echo "OK: operand temporaries survive re-entry of their own staging site (3 arms, both modes; seam inert)"; exit 0; }
 echo "⛔ GATE RED: a pattern operand was clobbered by re-entry of its staging site"; exit 1
