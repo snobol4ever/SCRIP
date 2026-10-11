@@ -25,7 +25,8 @@
 # byte its dump would print (C: ir_dump_tree into a hashing stream, src/tools/parser_main.c; .sc: TreeDumpPut/TreeDumpEnd,
 # bootstrap/tdump.sc) -- and the gate compares the numbers. THE CANARY: the first compared file of each language is also dumped in full on
 # both sides and each number is re-derived from its dump here, so a hash that stopped folding cannot read as MATCH (rc 2).
-# GATE_DETAIL=1 dumps the first DIFF file of each language in full and prints its first differing line pair. GATE_LANGS="snobol4 icon"
+# GATE_DETAIL=1 dumps the first DIFF file of each language in full and prints its first differing line pair. GATE_REDS=<file> appends one
+# line per file that is not a MATCH or a both-refused (language, kind, path under the corpus) -- the list a whole-corpus run owes the lane that cures it. GATE_LANGS="snobol4 icon"
 # grades those languages alone (a landing's own arm; the closure run grades all six).
 # THE C SIDE DUMPS WHAT ITS PARSER BUILT (the ceo's row, CEO-1364: "the C side dumps the parse tree the .sc reproduces"): Icon
 # before link resolution, Pascal before its semantic check, Rebus before rebus_lower, Prolog each clause's tree before
@@ -72,6 +73,7 @@ pp_twin() { case "$1" in
     snobol4) ( cd "$(dirname "$2")" && python3 "$ROOT/scripts/util_sno_include_twin.py" "$2" ) > "$T/pp.sno" 2>/dev/null || return 1; echo "$T/pp.sno" ;;
     *) echo "$2" ;; esac; }
 sc_run() { local f="$1"; shift; ( [ "$L" = snobol4 ] && cd "$(dirname "$f")"; "$@" < "$f" ); }
+red() { [ -n "${GATE_REDS:-}" ] && printf '%s\t%s\t%s\n' "$L" "$1" "${f#$CORPUS/}" >> "$GATE_REDS"; true; }
 RC=0; GRADED=0; GREEN=0
 echo "TREE-FOR-TREE [$G]: population=$POP, EACH FILE ALONE through out/parser_<lang> and the .sc chain compiled once to a mode-4 binary at the chain's declared heap and stack (bootstrap/parser_<lang>.heap, .stack), one tree hash per file per side (PARSER_TREE_HASH=1), timeout ${TMO}s per run"
 for L in ${GATE_LANGS:-snobol4 snocone icon prolog rebus pascal}; do
@@ -89,16 +91,16 @@ for L in ${GATE_LANGS:-snobol4 snocone icon prolog rebus pascal}; do
         g=$(pp_twin "$L" "$f") || { rb=$((rb + 1)); continue; }
         ( cd "$(dirname "$f")"; SNO_LIB="$CORPUS/include" PARSER_TREE_HASH=1 timeout "$TMO" "$exe" - < "$g" > "$T/c.hash" 2>/dev/null ); crc=$?
         sc_run "$f" env PARSER_TREE_HASH=1 timeout "$TMO" "$T/$L.bin" $SW > "$T/s.hash" 2>/dev/null; src=$?
-        if [ $crc -eq 124 ] || [ $src -eq 124 ]; then u=$((u + 1)); continue; fi
-        if [ $crc -ge 128 ]; then kc=$((kc + 1)); [ -n "$first" ] || first="C crashed rc=$crc ${f#$CORPUS/}"; continue; fi
-        if [ $src -ne 0 ] && ! refused "$T/s.hash"; then ks=$((ks + 1)); [ -n "$first" ] || first=".sc crashed rc=$src ${f#$CORPUS/}"; continue; fi
+        if [ $crc -eq 124 ] || [ $src -eq 124 ]; then u=$((u + 1)); red TIMEOUT; continue; fi
+        if [ $crc -ge 128 ]; then kc=$((kc + 1)); red CRASH-C; [ -n "$first" ] || first="C crashed rc=$crc ${f#$CORPUS/}"; continue; fi
+        if [ $src -ne 0 ] && ! refused "$T/s.hash"; then ks=$((ks + 1)); red CRASH-SC; [ -n "$first" ] || first=".sc crashed rc=$src ${f#$CORPUS/}"; continue; fi
         cr=0; sr=0; { refused "$T/c.hash" || [ $crc -ne 0 ]; } && cr=1; refused "$T/s.hash" && sr=1
         if [ $cr = 1 ] && [ $sr = 1 ]; then rb=$((rb + 1))
-        elif [ $cr = 1 ]; then rc_=$((rc_ + 1)); [ -n "$first" ] || first="C refused ${f#$CORPUS/}"
-        elif [ $sr = 1 ]; then rs=$((rs + 1)); [ -n "$first" ] || first=".sc refused ${f#$CORPUS/}"
+        elif [ $cr = 1 ]; then rc_=$((rc_ + 1)); red REFUSED-BY-C; [ -n "$first" ] || first="C refused ${f#$CORPUS/}"
+        elif [ $sr = 1 ]; then rs=$((rs + 1)); red REFUSED-BY-SC; [ -n "$first" ] || first=".sc refused ${f#$CORPUS/}"
         else hc=$((hc + 1)); [ -n "$canary" ] || canary=$(tree_canary "$g" "$exe" "$T/$L.bin" "$f")
             if cmp -s "$T/c.hash" "$T/s.hash"; then m=$((m + 1))
-        else d=$((d + 1)); [ -n "$first" ] || { first="DIFF ${f#$CORPUS/}"; firstf="$f"; }; fi; fi
+        else d=$((d + 1)); red DIFF; [ -n "$first" ] || { first="DIFF ${f#$CORPUS/}"; firstf="$f"; }; fi; fi
     done < "$T/$L.files"
     if [ "${GATE_DETAIL:-}" = 1 ] && [ -n "$firstf" ]; then
         g=$(pp_twin "$L" "$firstf")
