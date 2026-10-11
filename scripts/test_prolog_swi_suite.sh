@@ -38,6 +38,7 @@ RT="${RT_DIR:-$HERE/../out}"
 SWIT="${S4E_CORPUS:-$S4E/corpus}/packages/prolog/swi_tests"   # the expression line 2 hands the guard, so it judges the suite graded here
 PLUNIT="$S4E/corpus/tests/prolog/plunit.pl"
 MATCH_PY="$HERE/util_swi_match.py"
+STO_PY="$HERE/util_swi_sto_merge.py"   # each deferred sto(rational_trees) case's ALONE verdict, put where the file's run deferred it (CEO-1684)
 MODES="m3,m4"; JOBS="${SWI_JOBS:-}"; ONLY_FILE=""; NAME_REDS=0; VERBOSE=0
 refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 while [ $# -gt 0 ]; do
@@ -105,10 +106,30 @@ if [ "$mode" = "m4" ]; then
         # per-mode split made by the flush, not the program (measured: a print-then-loop witness keeps its two lines under stdbuf, none bare).
         run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- "$TIMEOUT_RETRY" 60 ${STDBUF:+$STDBUF -o0 -e0} "$od/m4.bin" < /dev/null > "$act" 2>"$od/m4.run.err"; rc=$?
     fi
-    rm -f "$od/m4.s" "$od/m4.bin"
 else
     run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- "$TIMEOUT_RETRY" 60 "$SCRIP" --run "$PLUNIT" "$f" "$WORK/wrap.pl" < /dev/null > "$act" 2>"$od/m3.err"; rc=$?
 fi
+# ⭐ EACH sto(rational_trees) CASE ALONE (ceo CEO-1684): the shim defers every such case in the file's run, so a cyclic-term case that loops
+# or exhausts the stack can no longer end its whole file (core/test_arith 221 cases -> 61, core/test_term 52 -> 9 when run in line, measured
+# on 4783ee83e); here each deferred spec runs ALONE in the same program -- m4 the same binary -- from its own directory, whose pj_sto_only.pl
+# names it, under its own 30 s timeout, and util_swi_sto_merge.py puts its verdict where the file's run deferred it: a case that loops or
+# dies reads FAIL with the loop named, and costs that case only. Its seconds join the mode's (the aggregator divides them over the cases).
+if grep -q '\[sto-deferred only(' "$act"; then
+    grep -oE '\[sto-deferred only\(.*\)\]$' "$act" | sed -E 's/^\[sto-deferred (.*)\]$/\1/' | awk '!s[$0]++' > "$od/$mode.sto"
+    k=0
+    while IFS= read -r spec; do
+        k=$((k+1)); sd="$od/$mode.sto.$k"; mkdir -p "$sd"; printf '%s.\n' "$spec" > "$sd/pj_sto_only.pl"
+        if [ "$mode" = "m4" ]; then
+            if [ -x "$od/m4.bin" ]; then (cd "$sd" && run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- "$TIMEOUT_RETRY" 30 ${STDBUF:+$STDBUF -o0 -e0} "$od/m4.bin" < /dev/null > out 2> err); echo $? > "$sd/rc"; else echo 2 > "$sd/rc"; fi
+        else
+            (cd "$sd" && run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- "$TIMEOUT_RETRY" 30 "$SCRIP" --run "$PLUNIT" "$f" "$WORK/wrap.pl" < /dev/null > out 2> err); echo $? > "$sd/rc"
+        fi
+    done < "$od/$mode.sto"
+    python3 "$STO_PY" "$act" "$od/$mode.sto" "$od/$mode.sto." 30 > "$act.sto" && mv "$act.sto" "$act"
+fi
+# only the m4 job removes its own .s and binary: the m3 and m4 jobs of one file share $od and run in parallel, and an m3 job that removed
+# them unconditionally deleted the m4 job's .s mid-compile -- every m4 case of core/test_term read "no verdict" (the coo's control arm)
+[ "$mode" = "m4" ] && rm -f "$od/m4.s" "$od/m4.bin"
 awk -v a="$_t0" -v b="${EPOCHREALTIME/,/.}" 'BEGIN { printf "%.3f\n", b - a }' > "$od/$mode.secs"
 python3 "$MATCH_PY" "$f" "$ref" "$act" "$rc" > "$od/$mode.tsv"
 GEOF
@@ -118,7 +139,7 @@ for m in ${MODES//,/ }; do while IFS= read -r f; do printf '%s %s\n' "$f" "$m" >
 echo "grading $NFILES file(s) x modes=$MODES with $JOBS job(s), oracle refs beside the sources"
 LIB_DECL="$HERE/lib_declared_arena.sh"
 STDBUF="$(command -v stdbuf 2>/dev/null)"   # the mode-4 binary runs unbuffered when stdbuf exists, as the harness's do (grade_one.sh)
-export SCRIP RT PLUNIT WORK SWIT MATCH_PY LIB_DECL STDBUF
+export SCRIP RT PLUNIT WORK SWIT MATCH_PY STO_PY LIB_DECL STDBUF
 xargs -P "$JOBS" -n 2 -a "$WORK/jobs.txt" bash "$WORK/grade_one.sh"
 python3 - "$WORK" "$FILES" "$MODES" "$SWIT" "$NAME_REDS" <<'PY'
 import sys, os, collections
