@@ -470,6 +470,7 @@ test_gate_pas_a_for_variable_threat_names_its_real_lines_and_a_sibling_local_is_
 test_gate_pas_a_forward_declared_parameters_record_fields_resolve.sh	WIRED	-	-	-
 test_gate_pas_a_function_result_belongs_to_its_activation_and_a_name_has_its_own_scopes_type.sh	WIRED	-	-	-
 test_gate_pas_what_fpc_miso_accepts_beyond_iso_answers_as_fpc.sh	WIRED	-	-	-
+test_gate_pas_an_array_of_arrays_holds_each_row_as_an_array_and_copies_a_row_as_fpc_does.sh	WIRED	-	-	-
 test_gate_pas_a_function_result_is_defined_when_its_algorithm_completes.sh	WIRED	-	-	-
 test_gate_pas_a_goto_leaves_its_routine_for_an_enclosing_label.sh	WIRED	-	-	-
 test_gate_pas_a_goto_never_enters_a_structured_statement.sh	WIRED	-	-	-

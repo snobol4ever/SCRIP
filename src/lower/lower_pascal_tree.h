@@ -124,6 +124,12 @@ typedef struct {
     struct { char *name; tree_t *val; int uid; } *pas_setconsts;
     int pas_nsetconst;
     int pas_setconst_cap;
+    struct { char *name; long long lo; long long hi; int istype; int kind; int uid; } *pas_rows;
+    int pas_nrows;
+    int pas_rows_cap;
+    long long pas_pend_row_lo;
+    long long pas_pend_row_hi;
+    int pas_pend_row_kind;
     struct { char *name; long long low; long long high; int ischar; } pas_tfcomp[128];
     int pas_ntfcomp;
     long long pas_pend_frng_lo;
