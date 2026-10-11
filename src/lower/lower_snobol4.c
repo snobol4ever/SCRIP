@@ -3304,8 +3304,6 @@ static const char * sno_pat_collect(const tree_t * pat) {
     { sno_pat_ent_t x; x.name = lp_strdup(buf); x.pat = pat; x.salt = g_lower.sno.expr_salt; CV_PUSH(g_lower.sno.pats, sno_pat_ent_t) = x; return x.name; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_plant_patv_staging(void) { const char * e = getenv("SCRIP_TEST_PLANT_PATV_STAGING"); return (e && (*e == '1' || *e == '2')) ? *e - '0' : 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_mkpat_emit(scx_t * cx, const tree_t * pat, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_graph_t * g = cx->g;
     const char * bn = sno_pat_collect(pat);
@@ -3332,30 +3330,10 @@ static IR_t * sno_mkpat_emit(scx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
     tx.pat_seal = sno_thunk_abort_exit(tg, tno);
     sno_pat_node(&tx, pat, tok, tno);
     IR_t * last = nl;
-    int plant = (tx.npre > 0) ? sno_plant_patv_staging() : 0;
-    for (int k = 0; plant && k < tx.npre; k++) {
-        int api = (plant == 1) ? k : tx.npre - 1 - k;
-        char vb[fmt_len("STAGE$%s$%d", bn, api)];
-        snprintf(vb, sizeof vb, "STAGE$%s$%d", bn, api);
+    for (int api = 0; api < tx.npre; api++) {
         IR_t * av = NULL;
         IR_t * ae = sx_lower(cx, tx.pre[api].arg, NULL, ω, &av);
         lc_γ_to(last, ae);
-        IR_t * asn = lc_build(g, IR_ASSIGN, NULL, ω);
-        IR_LIT(asn).sval = lp_strdup(vb);
-        sno_reg_var(IR_LIT(asn).sval);
-        ir_operand_push(asn, av);
-        lc_γ_to(av, asn);
-        last = asn;
-    }
-    for (int api = 0; api < tx.npre; api++) {
-        IR_t * av = NULL;
-        if (plant) {
-            char vb[fmt_len("STAGE$%s$%d", bn, api)];
-            snprintf(vb, sizeof vb, "STAGE$%s$%d", bn, api);
-            av = lc_build(g, IR_VAR, NULL, ω);
-            IR_LIT(av).sval = lp_strdup(vb);
-            lc_γ_to(last, av);
-        } else lc_γ_to(last, sx_lower(cx, tx.pre[api].arg, NULL, ω, &av));
         last = av;
         if (tx.pre[api].str && tx.pre[api].codes) { IR_t * co = lc_build(g, IR_COERCE_STRING, NULL, ω); IR_LIT(co).ival = tx.pre[api].codes; lc_γ_to(av, co); ir_operand_push(co, av); last = co; }
         ir_operand_push(mk, last);
