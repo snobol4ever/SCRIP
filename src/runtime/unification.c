@@ -1066,18 +1066,7 @@ static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz) {
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plc_num_of_text(const char *s, pl_cell_t *out) {
-    char *end;
-    long iv;
-    errno = 0;
-    iv = strtol(s, &end, 10);
-    if (end != s && *end == '\0') {
-        if (errno != ERANGE) { *out = pl_make_int(iv); return 1; }
-        { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(s); if ((int)bg.v == DT_FAIL) return 0; *out = bg; return 1; }
-    }
-    { double dv = strtod(s, &end); if (end != s && *end == '\0') { *out = pl_make_float(dv); return 1; } }
-    return 0;
-}
+static int plc_num_of_text(const char *s, pl_cell_t *out) { extern int rt_pl_parse_number(const char *, DESCR_t *); return s && rt_pl_parse_number(s, out); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_cell_t plc_make_atom_cell(const char *name) { int id = prolog_atom_intern(name ? name : ""); const char *nm = prolog_atom_name(id); (void)nm; return pl_make_atom(id); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -2862,7 +2862,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * alt = (tree_t *) 0;
                 for (int i = 63; i >= 0; i--) {
                     const char * fnm = rt_pl_flag_name(i);
-                    if (!fnm) continue;
+                    if (!fnm || fnm[0] == '$') continue;
                     tree_t * u = pl_cc_fnc2("=", (tree_t *) t->c[0], (tree_t *) pl_atom_goal(fnm));
                     alt = alt ? pl_cc_fnc2(";", u, alt) : u;
                 }

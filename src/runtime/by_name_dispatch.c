@@ -5547,6 +5547,7 @@ static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball);
 static void *pl_ax_int_ball(DESCR_t a, DESCR_t b, int ai) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); return rt_pl_ball_kind2("type_error", "integer", ai ? b : a); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_float_flag(const char *nm, const char *val);
+static int pl_swi_dialect(void) { return pl_float_flag("$dialect", "swi"); }
 static int pl_ax_undef(const char *fn, int arity, DESCR_t *out, void **ball) {
     extern void *rt_pl_ball_eval_error(const char *, const char *, int);
     if (pl_float_flag("float_undefined", "nan")) { *out = REALVAL(NAN); return 1; }
@@ -5629,6 +5630,11 @@ static int pl_big_binop(const char *op, DESCR_t a, DESCR_t b, DESCR_t *out, void
         }
     }
     if ((!strcmp(op, "pow") || !strcmp(op, "fpow")) && b.v == DT_I && b.i >= 0) { *out = rt_big_pow(a, b.i); return 1; }
+    if ((!strcmp(op, "pow") || !strcmp(op, "fpow")) && b.v == DT_BIG && a.v == DT_I && (a.i == 1 || a.i == -1 || (a.i == 0 && pl_big_sign(b) > 0))) {
+        long long r = a.i == 0 ? 0 : (a.i == 1 || rt_big_cmp(rt_big_mod(b, INTVAL(2)), INTVAL(0)) == 0) ? 1 : -1;
+        *out = (!strcmp(op, "fpow") && !pl_swi_dialect()) ? REALVAL((double)r) : INTVAL(r);
+        return 1;
+    }
     {
         extern DESCR_t rt_big_and(DESCR_t, DESCR_t);
         extern DESCR_t rt_big_or(DESCR_t, DESCR_t);
@@ -5651,6 +5657,7 @@ static int pl_ax_shift(const char *op, DESCR_t a, DESCR_t b, DESCR_t *out, void 
     extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);
     extern DESCR_t rt_big_pow(DESCR_t, int64_t);
     enum { SHIFT_BITS_MAX = 1 << 20 };
+    if (b.v == DT_BIG && (pl_big_sign(b) > 0) != !strcmp(op, "shl")) { *out = INTVAL(0); return 1; }
     if (b.v != DT_I) return 0;
     long long n = b.i;
     int left = !strcmp(op, "shl");
@@ -5706,6 +5713,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "sign")) { *out = ai ? INTVAL((a.i > 0) - (a.i < 0)) : REALVAL((double)((ad > 0) - (ad < 0))); return 1; }
         if (!strcmp(op, "trunc") || !strcmp(op, "floor") || !strcmp(op, "ceil") || !strcmp(op, "round")) {
             extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+            if (!arl && pl_swi_dialect()) { *out = a; return 1; }
             if (!arl) { if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "float", a); *out = FAILDESCR; return 1; }
             {
                 double r = !strcmp(op, "trunc") ? trunc(ad) : !strcmp(op, "floor") ? floor(ad) : !strcmp(op, "ceil") ? ceil(ad) : floor(ad) + (ad - floor(ad) >= 0.5);
@@ -5736,6 +5744,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         }
         if (!strcmp(op, "exp")) { return pl_ax_float_result(exp(ad), ad, 0.0, "exp", 1, out, ball); }
         if (!strcmp(op, "lgamma")) { return pl_ax_float_result(lgamma(ad), ad, 0.0, "lgamma", 1, out, ball); }
+        if ((!strcmp(op, "fip") || !strcmp(op, "ffp")) && (a.v == DT_I || a.v == DT_BIG) && pl_swi_dialect()) { *out = !strcmp(op, "fip") ? a : INTVAL(0); return 1; }
         if ((!strcmp(op, "fip") || !strcmp(op, "ffp")) && (int)a.v != DT_R) {
             extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
             if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "float", a);
@@ -5746,13 +5755,25 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "ffp")) { *out = REALVAL(ad - trunc(ad)); return 1; }
         if (!strcmp(op, "msb")) {
             if (!ai) { if (ball && !*ball) *ball = pl_ax_int_ball(a, a, 0); *out = FAILDESCR; return 1; }
-            if (a.i <= 0) { *out = FAILDESCR; return 1; }
+            if (a.i <= 0) {
+                extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+                if (pl_swi_dialect() && ball && !*ball) *ball = rt_pl_ball_kind2("domain_error", "not_less_than_one", a);
+                *out = FAILDESCR;
+                return 1;
+            }
             *out = INTVAL(63 - __builtin_clzll((unsigned long long)a.i));
             return 1;
         }
         if (!strcmp(op, "bnot")) {
             if (!ai) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "integer", a); *out = FAILDESCR; return 1; }
             *out = INTVAL(~a.i);
+            return 1;
+        }
+        if (!strcmp(op, "rand")) {
+            extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+            if (!ai) { if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "integer", a); *out = FAILDESCR; return 1; }
+            if (a.i < 1) { if (ball && !*ball) *ball = rt_pl_ball_kind2("domain_error", "not_less_than_one", a); *out = FAILDESCR; return 1; }
+            *out = INTVAL((long long)(((unsigned long long)random() << 31 ^ (unsigned long long)random()) % (unsigned long long)a.i));
             return 1;
         }
         if (!strcmp(op, "tan")) { *out = REALVAL(tan(ad)); return 1; }
@@ -5770,9 +5791,9 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         }
         if (!strcmp(op, "lsb") || !strcmp(op, "popc")) {
             if (!ai) { if (ball && !*ball) *ball = pl_ax_int_ball(a, a, 0); *out = FAILDESCR; return 1; }
-            if (a.i < 0) {
+            if (a.i < 0 || (a.i == 0 && !strcmp(op, "lsb") && pl_swi_dialect())) {
                 extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
-                if (ball && !*ball) *ball = rt_pl_ball_kind2("domain_error", "not_less_than_zero", a);
+                if (ball && !*ball) *ball = rt_pl_ball_kind2("domain_error", !strcmp(op, "lsb") && pl_swi_dialect() ? "not_less_than_one" : "not_less_than_zero", a);
                 *out = FAILDESCR;
                 return 1;
             }
@@ -5800,7 +5821,13 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
             int ovf = 0;
             while (e) { if (e & 1) ovf |= __builtin_mul_overflow(r, bs, &r); e >>= 1; if (e) ovf |= __builtin_mul_overflow(bs, bs, &bs); }
             if (!ovf) { *out = INTVAL(r); return 1; }
-            if (!strcmp(op, "pow")) { extern DESCR_t rt_big_pow(DESCR_t, int64_t); *out = rt_big_pow(a, b.i); return 1; }
+            if (!strcmp(op, "pow") || pl_swi_dialect()) { extern DESCR_t rt_big_pow(DESCR_t, int64_t); *out = rt_big_pow(a, b.i); return 1; }
+        }
+        if (!strcmp(op, "fpow") && ai && bi && b.i < 0 && (a.i == 1 || a.i == -1 || a.i == 0) && pl_swi_dialect()) {
+            extern void *rt_pl_ball_eval_error(const char *, const char *, int);
+            if (a.i == 0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("zero_divisor", "**", 2); return 1; }
+            *out = INTVAL(a.i == 1 || !(b.i & 1) ? 1 : -1);
+            return 1;
         }
         {
             extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
@@ -5833,6 +5860,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         *out = REALVAL(log(bd) / log(ad));
         return 1;
     }
+    if ((!strcmp(op, "min") || !strcmp(op, "max")) && (arl && isnan(ad)) != (brl && isnan(bd))) { *out = (arl && isnan(ad)) ? b : a; return 1; }
     if (!strcmp(op, "min")) { *out = (ai && bi) ? INTVAL(a.i < b.i ? a.i : b.i) : (ad < bd ? a : ad > bd ? b : arl ? a : b); return 1; }
     if (!strcmp(op, "max")) { *out = (ai && bi) ? INTVAL(a.i > b.i ? a.i : b.i) : (ad > bd ? a : ad < bd ? b : arl ? a : b); return 1; }
     if (!strcmp(op, "copysign")) { if (ai) { long long m = a.i < 0 ? -a.i : a.i; *out = INTVAL(signbit(bd) ? -m : m); } else *out = REALVAL(copysign(ad, bd)); return 1; }
@@ -6318,6 +6346,8 @@ static int pl_parse_number_radix(const char *s, DESCR_t *out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * pl_skip_layout(const char *s) { if (!s) return s; while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r' || *s == '\f' || *s == '\v') s++; return s; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_parse_number(const char *s, DESCR_t *out);
+int rt_pl_parse_number(const char *s, DESCR_t *out) { return pl_parse_number(s, out); }
 static int pl_parse_number(const char *s, DESCR_t *out) {
     char *e = 0;
     if (!s) return 0;
@@ -8349,7 +8379,7 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     0 } }, { "protect_static_code", "false", 1, { "true", "false", 0 } }, { "iso", "false", 1, { "true", "false", 0 } }, { "occurs_check", "false", 1, { "true", "false", "error", 0 } },
     { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", 0 } }, { "argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } },
     { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } },
-    { "multifile_warning", "on", 1, { "on", "off", 0 } }, { 0, "", 0, { 0 } } };
+    { "multifile_warning", "on", 1, { "on", "off", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { 0, "", 0, { 0 } } };
 static cv_t g_pl_flags;
 #define pl_flags ((pl_flag_t *)g_pl_flags.p)
 static void pl_flags_ready(void) { if (g_pl_flags.len) return; for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; } }

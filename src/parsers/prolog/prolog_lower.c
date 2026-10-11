@@ -444,11 +444,11 @@ static int pl_dialect_marker(const tree_t *tr) {
     const tree_t *g = (tr && tr->t == TT_CLAUSE && tr->n == 2 && tr->c[0] && tr->c[0]->t == TT_NUL) ? tr->c[1] : (const tree_t *)0;
     return g && g->t == TT_FNC && g->v.sval && ((!strcmp(g->v.sval, "module") && g->n == 2) || (!strcmp(g->v.sval, "use_module") && (g->n == 1 || g->n == 2)));
 }
-static PlClause *pl_dq_string_directive(int lineno) {
+static PlClause *pl_dq_string_directive(int lineno, const char *flag, const char *val) {
     PlClause *c = ct_zalloc(1, sizeof(PlClause));
     tree_t *cl = ast_node_new(TT_CLAUSE), *g = ast_node_new(TT_FNC), *f = ast_node_new(TT_QLIT), *v = ast_node_new(TT_QLIT);
-    f->v.sval = ct_strdup("double_quotes");
-    v->v.sval = ct_strdup("string");
+    f->v.sval = ct_strdup(flag);
+    v->v.sval = ct_strdup(val);
     g->v.sval = ct_strdup("set_prolog_flag");
     ast_push(g, f);
     ast_push(g, v);
@@ -464,8 +464,9 @@ static void pl_dq_lower_program(PlProgram *pl_prog) {
         if (cl->lineno && !line0) line0 = cl->lineno;
         if (cl->lineno && pl_dialect_marker(cl->tr)) marker = 1;
     }
-    if (marker && !g_stage2.pl_dialect_swi && !g_stage2.pl_dq_mode) {
-        PlClause *d = pl_dq_string_directive(line0 ? line0 : 1);
+    for (int k = 0; k < 2; k++) {
+        if (!marker || g_stage2.pl_dialect_swi || (k == 0 && g_stage2.pl_dq_mode)) continue;
+        PlClause *d = k == 0 ? pl_dq_string_directive(line0 ? line0 : 1, "double_quotes", "string") : pl_dq_string_directive(line0 ? line0 : 1, "$dialect", "swi");
         d->next = pl_prog->head;
         pl_prog->head = d;
         if (!pl_prog->tail) pl_prog->tail = d;

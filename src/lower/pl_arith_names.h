@@ -77,6 +77,7 @@ static inline const char * pl_ax_suffix_ext(const char * s, int ar) {
         if (!strcmp(s, "popcount")) return "popc";
         if (!strcmp(s, "ceil")) return "ceil";
         if (!strcmp(s, "lgamma")) return "lgamma";
+        if (!strcmp(s, "random")) return "rand";
         return (const char *)0;
     }
     if (ar == 3) { if (!strcmp(s, "powm")) return "powm"; return (const char *)0; }
