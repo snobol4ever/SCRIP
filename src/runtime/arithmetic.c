@@ -787,7 +787,7 @@ DESCR_t rt_num_pos(DESCR_t a) {
 DESCR_t rt_num_pos_sno(DESCR_t a) {
     if (a.v == DT_BIG) return a;
     if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) return INTVAL(0);
-    if (!sno_numeric_operand(a)) { core_runtime_error(4, "affirmation operand is not numeric"); return FAILDESCR; }
+    if (!(IS_STR_fn(a) ? sno_numeric_operand(a) : is_numeric_like(a))) { core_runtime_error(4, "affirmation operand is not numeric"); return FAILDESCR; }
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(to_real(a));
     return INTVAL(to_int(a));
 }
