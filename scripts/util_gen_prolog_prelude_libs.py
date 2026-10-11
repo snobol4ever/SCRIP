@@ -46,6 +46,11 @@ A library in QUIET_BARE is never selected by a BARE atom of an export's name (th
 maplist(foo, L) needs): dcg/basics exports integer//1, atom//1, number//1, string//1 and kin, and library(error)'s type names
 are those atoms, so every program reaching error would select dcg_basics.  Its exports are quiet at arity 0 (the injector's
 bare-match test reads that entry); a DCG body or phrase/2,3 names a nonterminal at its full arity, which still selects it.
+clpfd is quiet the same way (cfo 2026-10-11, row ...-logtalk-reads-100-percent-...-ceo-1689): its exports are named like common
+data atoms -- in, ins, sum, chain, element, label, transpose -- so open(F, read, S, [alias(in)]) or a bare `sum` in a term
+selected all of clpfd and cost ~9 s of compile (measured: f(in) 9.36 s, f(sum) 9.05 s, f(element) 8.03 s; three Logtalk
+stream_property/2 cases timed out at 10 s on alias(in)).  swipl never autoloads clpfd, and every corpus program naming a clpfd
+export as a bare closure (maplist(all_distinct, Rows), maplist(indomain, Vs)) also calls one at its full arity, which selects it.
 
 A library whose SWI path is not its file stem is named in LIB_PATH (dcg_basics.pl is SWI's library/dcg/basics.pl, module
 dcg_basics): the reader resolves and identity-checks it there.
@@ -100,7 +105,7 @@ RENAME_AS_DATA = {"clpfd": {"selection", "order", "choice", "bare_integer", "cir
 LOCAL = {"gnu_fd", "gnu_builtins", "dicts", "pcre"}
 SHADOWS = {"gnu_fd": {("fd_dom", 2): "GNU's fd_dom/2 answers the list of the domain's values where SWI's answers the domain term (measured on gprolog 1.6.0 and swipl 9.0.4, 2026-10-10)"}}
 QUIET = {"gnu_fd": {("fd_dom", 2)}}
-QUIET_BARE = {"dcg_basics"}
+QUIET_BARE = {"dcg_basics", "clpfd"}
 WRAPS = {"gnu_fd": {"clpfd": {("#=", 2), ("#\\=", 2), ("#<", 2), ("#>", 2), ("#=<", 2), ("#>=", 2), ("#/\\", 2), ("#\\/", 2), ("#\\", 1), ("#==>", 2)}}}
 EXPAND_PL = os.path.join(HERE, "util_gen_prolog_prelude_libs_expand.pl")
 INIT_DROPS = {"clpfd": {"warn_if_bounded_arithmetic": "only prints a warning when the integer flag bounded is true"}}
