@@ -40,6 +40,20 @@ case "$BUD_MS" in ''|*[!0-9]*|0) refuse "BENCH_BUD_MS must be a positive whole n
 IS_BOARD=0; one_runner_suite_is_a_board "$BD" && IS_BOARD=1
 mapfile -t KERNELS < <(find "$BD" -maxdepth 1 -type f -name '*.pl' -printf '%f\n' | sed 's/\.pl$//' | LC_ALL=C sort)
 [ "${#KERNELS[@]}" -gt 0 ] || refuse "no *.pl under $BD -- a population of zero is not a green board"
+# ⭐ OUTSIDE.tsv NAMES A KERNEL OUT OF THE DENOMINATOR (hq_prolog 2026-10-10, corpus 0bc5934ce: queens_clpfd, Lon's CEO-579 "Do not count the
+# FD as failures for us", the OUTSIDE_CLPFD class of CEO-1593): kernel<TAB>CLASS<TAB>evidence. The kernel is still graded and its progress
+# rows written (it grades the day CLP(FD) is in the baseline), but it leaves total/all_n and is shown as excluded=, so shipped = total +
+# excluded reads off the line and the row's Excl column; a malformed row, another class, or a name that is no kernel refuses rc 2.
+declare -A OUTS; NOUT=0; OUTN=""
+if [ -f "$BD/OUTSIDE.tsv" ]; then
+  while IFS=$'\t' read -r _ok _ocls _oev || [ -n "$_ok" ]; do
+    case "$_ok" in ''|'#'*) continue ;; esac
+    [ "$_ocls" = OUTSIDE_CLPFD ] || refuse "OUTSIDE.tsv names $_ok with class '$_ocls' -- OUTSIDE_CLPFD is the one class (CEO-579, CEO-1593)"
+    [ -n "${_oev// /}" ] || refuse "OUTSIDE.tsv names $_ok with no evidence -- an exclusion with no measurement is an opinion"
+    [ -f "$BD/$_ok.pl" ] || refuse "OUTSIDE.tsv names $_ok, which is no kernel under $BD"
+    OUTS[$_ok]="$_ocls"
+  done < "$BD/OUTSIDE.tsv"
+fi
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 PROG_ROWS="$T/progress.tsv"; : >"$PROG_ROWS"
 run1() {
@@ -71,7 +85,8 @@ declare -A PASSN; PASSN[m3]=0; PASSN[m4]=0; BOTH=0; TOTAL=0; NAMED=""; HEAPD=0
 # gprolog|swipl refuses: a declaration nothing can check is not a declaration.
 declare -A ORC; ORC[gprolog]=0; ORC[swipl]=0; ORC_NAMED=""
 for k in "${KERNELS[@]}"; do
-  TOTAL=$((TOTAL+1)); f="$BD/$k.pl"; ref="$BD/$k.ref"
+  f="$BD/$k.pl"; ref="$BD/$k.ref"; ocls="${OUTS[$k]:-}"
+  if [ -n "$ocls" ]; then NOUT=$((NOUT+1)); OUTN="$OUTN $k($ocls)"; else TOTAL=$((TOTAL+1)); fi
   kb="$(declared_arena_kb_beside "$f")" || refuse "$k: its .heap sidecar is refused (the reader said why above)"
   st="$(declared_stack_kb_beside "$f")" || refuse "$k: its .stack sidecar is refused (the reader said why above)"
   cfg="shipped"; [ -n "$kb" ] && { cfg="SCRIP_HEAP_CAP_KB=$kb"; HEAPD=$((HEAPD+1)); }
@@ -86,7 +101,7 @@ for k in "${KERNELS[@]}"; do
   [ -n "$st" ] && { cfg="$([ "$cfg" = shipped ] || printf '%s,' "$cfg")SCRIP_STACK=${st}k"; HEAPD=$((HEAPD+1)); }
   if [ ! -s "$ref" ]; then
     for m in m3 m4; do printf 'benchmark\tprolog-bench-ref\tprolog\t%s\t%s\tFAIL\t0\tno-ref\t%s\n' "$k" "$m" "$cfg" >>"$PROG_ROWS"; done
-    printf '%-20s %-4s %s\n' "$k" both "FAIL no .ref -- a benchmark without a REF cannot be graded, and is counted, not skipped"; NAMED="$NAMED $k(no-ref)"; continue
+    printf '%-20s %-4s %s\n' "$k" both "FAIL no .ref -- a benchmark without a REF cannot be graded, and is counted, not skipped"; [ -n "$ocls" ] || NAMED="$NAMED $k(no-ref)"; continue
   fi
   gen_ok=1
   bash "$GEN" "$f" --mode=iter --n="$ITER_N" --engine=scrip -o "$T/$k.iter.pl" >/dev/null 2>"$T/$k.iter.gen" || gen_ok=0
@@ -112,17 +127,19 @@ for k in "${KERNELS[@]}"; do
         for x in i t; do grep -h '^BENCH kernel=' "$T/$k.$m.$x.err" | sed "s/^/    scouting $k $m: /"; done
       fi
     fi
-    if [ "$r1$r2$r3" = PASSPASSPASS ]; then v=PASS; PASSN[$m]=$((PASSN[$m]+1)); note="ref-under-three-angles"
-    else v=FAIL; okboth=0; note="$(echo "$why" | sed 's/^[; ]*//' | tr '\t' ' ')"; NAMED="$NAMED $k.$m"; fi
+    if [ "$r1$r2$r3" = PASSPASSPASS ]; then v=PASS; [ -n "$ocls" ] || PASSN[$m]=$((PASSN[$m]+1)); note="ref-under-three-angles"
+    else v=FAIL; okboth=0; note="$(echo "$why" | sed 's/^[; ]*//' | tr '\t' ' ')"; [ -n "$ocls" ] || NAMED="$NAMED $k.$m"; fi
+    [ -n "$ocls" ] && note="$ocls (OUTSIDE.tsv, out of the denominator): $note"
     printf 'benchmark\tprolog-bench-ref\tprolog\t%s\t%s\t%s\t0\t%s\t%s\n' "$k" "$m" "$v" "$note" "$cfg" >>"$PROG_ROWS"
     printf '%-20s %-4s %-7s %-7s %-7s %s\n' "$k" "$m" "$r1" "$r2" "$r3" "$v${why:+ -- $(echo "$why" | sed 's/^[; ]*//')}"
   done
-  [ "$okboth" = 1 ] && BOTH=$((BOTH+1))
+  [ "$okboth" = 1 ] && [ -z "$ocls" ] && BOTH=$((BOTH+1))
 done
-LINE="SUITE_BOARD family=prolog-bench-ref total=$TOTAL shipped=$TOTAL all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=process,iter,time iter_n=$ITER_N bud_ms=$BUD_MS memory_declared=$HEAPD oracles=gprolog:${ORC[gprolog]},swipl:${ORC[swipl]}"
+LINE="SUITE_BOARD family=prolog-bench-ref total=$TOTAL shipped=$((TOTAL+NOUT))$([ "$NOUT" -gt 0 ] && echo " excluded=$NOUT") all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=process,iter,time iter_n=$ITER_N bud_ms=$BUD_MS memory_declared=$HEAPD oracles=gprolog:${ORC[gprolog]},swipl:${ORC[swipl]}"
 echo
 echo "$LINE"
 [ -n "$NAMED" ] && echo "  not passing:$NAMED"
+[ -n "$OUTN" ] && echo "  graded and out of the denominator (OUTSIDE.tsv):$OUTN"
 [ -n "$ORC_NAMED" ] && echo "  refs not cut from gprolog:$ORC_NAMED"
 echo "  tree: SCRIP=$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null)$(git -C "$HERE/.." diff --quiet 2>/dev/null || echo -dirty) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null)$(git -C "$S4E/corpus" diff --quiet 2>/dev/null || echo -dirty)"
 if [ "$IS_BOARD" = 0 ]; then
@@ -134,6 +151,7 @@ else
   echo "  row write: $([ "$WRITE" = 1 ] && echo yes || echo no) -- $WRITE_WHY"
   if [ "$WRITE" = 1 ]; then
     python3 "$HERE/util_score_row.py" write --lang prolog --column bench-ref --measurer "${S4E_SEAT:-}" --text "$LINE" \
+      ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} $([ "$NOUT" -gt 0 ] && echo "--excluded $NOUT") \
       || echo "⚠ SUITE ROW NOT WRITTEN -- util_score_row.py refused (reason above)"
   else
     echo "  suite row: not written ($WRITE_WHY; a whole-population pass publishes by default, the Prolog lane's seat publishes: util_score_row.py write --lang prolog --column bench-ref)"
