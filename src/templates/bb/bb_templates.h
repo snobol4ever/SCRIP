@@ -92,7 +92,7 @@ std::string bb_glue_pass_wires(int gid, int wid);
 std::string bb_glue_wire_land(void);
 std::string bb_glue_pass_wires_blob(int gid, int wid);
 std::string bb_glue_pass_wires_blob_regs(int gid, int wid);
-std::string bb_glue_enter_c2bb(int base, int lg, int lw, int hi = -1);
+std::string bb_glue_enter_c2bb(int base, int lg, int lw, int hi = -1, int blk = 0);
 std::string bb_glue_callee_try_enter(int base, int val_id, int join_id, const std::string & tweak_out_lea = std::string());
 std::string bb_glue_call_pend_run(int base, long nargs, long off);
 std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_shim = 0);

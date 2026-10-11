@@ -3067,6 +3067,7 @@ static void rk_cap_declared(const tree_t * t, rk_ns_t * out) {
 static void rk_cap_uses(const tree_t * t, rk_ns_t * out) {
     if (!t || t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return;
     if (t->t == TT_VAR && t->v.sval) rk_ns_add(out, t->v.sval);
+    if (t->t == TT_TWIGIL_FIELD) rk_ns_add(out, intern("self"));
     for (int i = (t->t == TT_FNC ? 1 : 0); i < t->n; i++) rk_cap_uses(t->c[i], out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3310,9 +3311,13 @@ static void rk_cap_box_decls(tree_t * t, const rk_ns_t * Bx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_cap_walk(tree_t * t, const rk_ns_t * encl);
 static void rk_cap_block(tree_t * parent, int idx, const rk_ns_t * encl);
-static void rk_cap_proc(tree_t * sd) {
+static int rk_cap_is_package(const tree_t * t) { return t && (t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL); }
+static void rk_cap_proc_m(tree_t * sd, int mth);
+static void rk_cap_proc(tree_t * sd) { rk_cap_proc_m(sd, 0); }
+static void rk_cap_proc_m(tree_t * sd, int mth) {
     rk_ns_t d = { 0 };
-    int np = (int) sd->v.ival;
+    int np = (int) sd->v.ival - (mth ? 1 : 0);
+    if (mth) rk_ns_add(&d, intern("self"));
     for (int k = 0; k < np && 1 + k < sd->n; k++) { const char * pn = rk_cap_pname(sd->c[1 + k]); if (pn) rk_ns_add(&d, pn); }
     for (int i = 1 + np; i < sd->n; i++) rk_cap_declared(sd->c[i], &d);
     rk_ns_t boxable = { 0 }, Bx = { 0 };
@@ -3407,7 +3412,7 @@ static void rk_cap_walk(tree_t * t, const rk_ns_t * encl) {
     for (int i = 0; i < t->n; i++) {
         tree_t * c = t->c[i];
         if (!c) continue;
-        if (c->t == TT_SUB_DECL) rk_cap_proc(c);
+        if (c->t == TT_SUB_DECL) rk_cap_proc_m(c, rk_cap_is_package(t));
         else if (c->t == TT_ANON_BLOCK) rk_cap_block(t, i, encl);
         else rk_cap_walk(c, encl);
     }

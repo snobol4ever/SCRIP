@@ -83,7 +83,7 @@ static std::string bcfn_method_open_enter(int base, int decl_id, int join_id, in
              + x86_rt_gc_poll_rec_sigma_word(1)
              + x86("test", "rax", "rax")
              + x86_jcc_id("jz", decl_id)
-             + bb_glue_enter_c2bb(base, base + 5, base + 6)
+             + bb_glue_enter_c2bb(base, base + 5, base + 6, -1, 1)
              + x86_deflabel_id(base + 5)
              + x86("call", "rk_method_land_γ", (uint64_t)(uintptr_t)(void *)rk_method_land_γ)
              + x86_rt_gc_poll_rec_res()

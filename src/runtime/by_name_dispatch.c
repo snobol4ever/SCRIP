@@ -4047,6 +4047,22 @@ static DESCR_t invoke_method_proc_rq(const char *procname, DESCR_t *callargs, in
 }
 static DESCR_t invoke_method_proc(const char *procname, DESCR_t *callargs, int total) { return invoke_method_proc_rq(procname, callargs, total, (long *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static rt_call_next_t rk_open_pinned_block(rt_call_next_t n, const char *procname, int nargs) {
+    extern int rt_proc_pinned(const char *name);
+    extern int rt_proc_nparams(const char *name);
+    if (!n.fn || !rt_proc_pinned(procname)) return n;
+    int np = rt_proc_nparams(procname);
+    if (np < 0 || nargs > np) {
+        fprintf(stderr, "rk_open_pinned_block: the method %s is a pinned block-protocol graph called with %d arguments over %d parameters (a variadic pinned method has no block road yet)\n", procname,
+            nargs, np);
+        { volatile char *z = (volatile char *)0; (void)*z; }
+    }
+    rt_call_args_need(np);
+    for (int k = nargs; k < np; k++) CALL_ARGS[k] = NULVCL;
+    n.how = (n.how & ~(63L | (0xffffffffL << 8))) | 3L | ((long)(unsigned)np << 8);
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rt_call_next_t rk_method_open_at(DESCR_t *args, int nargs, rk_redisp_t *rec, const char *procname, const char *cname, int found_idx, int fallback, const char *mstrip) {
     extern int rt_define_returns_by_frame(const char *name);
     extern int rt_proc_has_native_fn(const char *name);
@@ -4073,7 +4089,7 @@ static rt_call_next_t rk_method_open_at(DESCR_t *args, int nargs, rk_redisp_t *r
     g_redisp_cur = rec;
     rt_call_args_need(rec->nargs);
     for (int k = 0; k < rec->nargs; k++) CALL_ARGS[k] = rd_arg(rec, k);
-    { rt_call_next_t n = rt_call_open_by_name(procname, rec->nargs); if (!n.fn) { g_redisp_cur = rec->prev; return none; } return n; }
+    { rt_call_next_t n = rt_call_open_by_name(procname, rec->nargs); if (!n.fn) { g_redisp_cur = rec->prev; return none; } return rk_open_pinned_block(n, procname, rec->nargs); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rt_call_next_t rk_method_open_d(DESCR_t *args, int nargs, rk_redisp_t *rec, int depth) {
@@ -4175,7 +4191,7 @@ static rt_call_next_t rk_redispatch_open(DESCR_t *args, int nargs, void *recp, i
     g_redisp_cur = rec;
     rt_call_args_need(rec->nargs);
     for (int k = 0; k < rec->nargs; k++) CALL_ARGS[k] = rd_arg(rec, k);
-    { rt_call_next_t n = rt_call_open_by_name(nproc, rec->nargs); if (!n.fn) { g_redisp_cur = rec->prev; return none; } return n; }
+    { rt_call_next_t n = rt_call_open_by_name(nproc, rec->nargs); if (!n.fn) { g_redisp_cur = rec->prev; return none; } return rk_open_pinned_block(n, nproc, rec->nargs); }
 }
 rt_call_next_t rk_callsame_open(DESCR_t *args, int nargs, void *recp) { return rk_redispatch_open(args, nargs, recp, 0); }
 rt_call_next_t rk_callwith_open(DESCR_t *args, int nargs, void *recp) { return rk_redispatch_open(args, nargs, recp, 1); }

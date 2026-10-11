@@ -101,6 +101,7 @@ extern "C" int emit_star_is_thunk(const char * star);
 extern "C" const char * bb_ab_sym_name(const char * nm);
 extern "C" void * bb_dstar_rec_addr(const char * star);
 extern "C" void rt_tiny_glue_enter(void);
+extern "C" struct gv_s g_call_args;
 extern "C" void rt_pat_prim_land_γ(DESCR_t frame0, long word);
 extern "C" void rt_pat_prim_land_ω(long word);
 extern "C" long rt_pat_prim_int_take(void);
@@ -137,12 +138,13 @@ extern "C" long rt_pat_prim_member(int ch, long codes);
     + GLUE_RESTORE() \
     + x86_jmp_id(lw) \
 )
-std::string bb_glue_enter_c2bb(int base, int lg, int lw, int hi) {
+std::string bb_glue_enter_c2bb(int base, int lg, int lw, int hi, int blk = 0) {
     if (hi < 0) hi = base + 100;
     return emit_seq({ GLUE_SAVE(),
          x86_rsp_mark_save()
          + x86("mov", "rcx", "rdx")
          + x86("and", "rcx", 63L)
+         + IF(blk, x86("cmp", "rcx", 3L) + x86_jcc_id("je", hi + 3))
          + x86("cmp", "rcx", 2L)
          + x86_jcc_id("je", base)
          + x86("cmp", "rcx", 1L)
@@ -172,7 +174,34 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw, int hi) {
          + x86_deflabel_id(hi + 1)
          + GLUE_LAND_G(lg, 0L, 16)
          + x86_deflabel_id(hi + 2)
-         + GLUE_LAND_W(lw, 0L, 16) });
+         + GLUE_LAND_W(lw, 0L, 16)
+         + IF(blk,
+               x86("note",
+                   "the block protocol, Raku regime, on the by-name road: the open answered a pinned callee (how 3) and its parameter count in rdx>>8; the block is carved on this spine and filled fr"
+                   "om the staged medium, the wires go in rcx and rdx, and the callee's release pops the block")
+             + x86_deflabel_id(hi + 3)
+             + x86("mov", "rcx", "rdx")
+             + x86("shl", "rcx", 24L)
+             + x86("shr", "rcx", 32L)
+             + x86("mov", "r8", "rcx")
+             + x86("shl", "r8", 4L)
+             + x86("sub", "rsp", "r8")
+             + x86("add", "rcx", "rcx")
+             + x86("mov", "rsi", "[rip + __]", (uint64_t)(uintptr_t)&g_call_args, "g_call_args")
+             + x86("mov", "rsi", RDQ("rsi", 0))
+             + x86("mov", "rdi", "rsp")
+             + x86("rep_movsq")
+             + x86_lea_id("rcx", hi + 4)
+             + x86_lea_id("rdx", hi + 5)
+             + x86_jmp_reg("rax")
+             + x86_deflabel_id(hi + 4)
+             + x86_rsp_land(0L)
+             + x86_gc_site_adj(X86_SITE_LANDING, 0)
+             + x86_rsp_load64("rdx", 40)
+             + GLUE_RESTORE()
+             + x86_jmp_id(lg)
+             + x86_deflabel_id(hi + 5)
+             + GLUE_LAND_W(lw, 0L, 0)) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_stno_unit_push(void) {
