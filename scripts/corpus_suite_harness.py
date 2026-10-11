@@ -570,7 +570,7 @@ def _oom_verdict(out, err, rc, masked_n=0):
 
 
 class Verdict:
-    __slots__ = ("kind", "stdout", "stderr", "returncode", "detail", "masked_lines", "retry")
+    __slots__ = ("kind", "stdout", "stderr", "returncode", "detail", "masked_lines", "retry", "secs")
 
     def __init__(self, kind, stdout=b"", stderr=b"", returncode=None, detail=""):
         self.kind = kind  # PASS FAIL CRASH HANG UNPROVEN SKIP OOM
@@ -580,6 +580,7 @@ class Verdict:
         self.detail = detail
         self.masked_lines = 0
         self.retry = ""   # "retried=1 load1=<first>/<second> nproc=<n>" when a timeout under load was re-run (CEO-1335)
+        self.secs = 0.0   # the program's own wall seconds in this mode (m4: compile, link and run), set by run_all_modes (CEO-1676 row (c))
 
     def text(self):
         return self.stdout.decode("utf-8", "replace")
@@ -1364,12 +1365,16 @@ def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=No
     if "m3" in modes:
         if _trd:
             os.environ["SCRIP_C2BB_TRACE"] = os.path.join(_trd, "%s.m3.trace" % Path(sno_path).stem)
+        _t0 = time.monotonic()
         out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args, out_files=out_files, merge_stderr=merge_stderr)
+        out["m3"].secs = time.monotonic() - _t0
     if "m4" in modes:
         if _trd:
             os.environ["SCRIP_C2BB_TRACE"] = os.path.join(_trd, "%s.m4.trace" % Path(sno_path).stem)
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
+            _t0 = time.monotonic()
             out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args, out_files=out_files, merge_stderr=merge_stderr)
+            out["m4"].secs = time.monotonic() - _t0
     if _trd:
         os.environ.pop("SCRIP_C2BB_TRACE", None)
     return out
@@ -2995,6 +3000,19 @@ def cmd_run(args):
         if not entries:
             refuse(f"--shard {args.shard} selects zero of the {_all} entries -- N exceeds the suite; a shard that grades nothing is not a board")
         shard_tag = f"shard={_k}/{_n}"
+    if getattr(args, "partition", ""):
+        if shard_tag:
+            refuse("--partition and --shard together: a partition is already a bounded subset; grade one or the other")
+        _pname, _psel, _pn, _ppath = select_partition(args.sno, args.partition)
+        _by = {e.name: e for e in entries}
+        _gone = [n for n in _psel if n not in _by]
+        if _gone:
+            refuse(f"--partition {_pname}: {len(_gone)} of its {len(_psel)} entries are not in {args.sno} ({', '.join(_gone[:5])}) -- "
+                   f"{_ppath} is stale; rebuild it with scripts/util_suite_partition.py build")
+        entries = [_by[n] for n in _psel]
+        shard_tag = f"partition={_pname}"
+        PARTITION_RUN["name"] = _pname
+        print(f"PARTITION {_pname}: {len(entries)} of {_pn} entries ({_ppath}) -- a subset, never the suite's row")
     # ⛔⭐⭐ HONOUR THE heap_kb COLUMN -- UNCONDITIONALLY, AND THAT IS THE WHOLE DESIGN (Lon 2026-09-23,
     # verbatim: "Well, each test should have the needed amount of memory in the attribute TSV/CSV files.";
     # CEO-1167). There is deliberately NO --by-heap-column flag: `heap_kb` says what the entry NEEDS IN ORDER TO RUN AT ALL: a
@@ -3192,9 +3210,11 @@ def cmd_run(args):
                     _refused = _v.kind != "PASS" and (_v.kind == "SKIP" or (_v.returncode or 0) != 0) and _xr_rx.search(_v.stderr or b"")
                     verdicts[m] = Verdict("PASS", _v.stdout, _v.stderr, _v.returncode, detail="expected-refusal") if _refused else \
                         Verdict("FAIL", _v.stdout, _v.stderr, _v.returncode, detail="expected-refusal-not-refused-with-the-standard-diagnostic")
+                    verdicts[m].secs = _v.secs
             for m in modes:
                 kind = verdicts[m].kind
-                _progress_rows.append((e.name, m, kind, 0, _entry_note(e.xfail, verdicts[m], shard_tag)))
+                # ⭐ secs: the program's own wall in this mode (CEO-1676 row (c)) -- util_suite_partition.py build --secs sizes chunks by it
+                _progress_rows.append((e.name, m, kind, getattr(verdicts[m], "secs", 0) or 0, _entry_note(e.xfail, verdicts[m], shard_tag)))
                 if kind == _OOMK:
                     oom_named.append((e.name, m, verdicts[m], e.xfail))
                 ck = "FAIL" if kind == _OOMK else kind   # the board line's fail keeps an OOM (see _OOMK above)
@@ -3276,6 +3296,9 @@ def cmd_run(args):
         # the fingerprint of OUR stdout beside every red (see _entry_note): a red that moved is a diff, not a silence
         print(f"  {tag} {m} {name}: {v.detail} [fp={hashlib.md5(v.stdout or b'').hexdigest()[:8]} rc={'-' if v.returncode is None else v.returncode}]", file=sys.stderr)
     sys.exit(0 if not fails else 1)
+
+
+PARTITION_RUN = {"name": ""}   # the --partition this run grades, read by _progress_record into each row's config (CEO-1676 row (d))
 
 
 def _entry_note(xfail, v, shard_tag=""):
@@ -3366,6 +3389,10 @@ def _progress_record(sno_path, paths, rows):
         # its own environment and a runner may set the axis per-child.
         _axis = _pa.gc_axis_env()
         _config = ",".join(f"{k}={v}" for k, v in _axis.items()) if _axis else "shipped"
+        # ⭐ a partition run says so in its config (CEO-1676 row (d): "every chunk run stamps its progress rows' config with partition=chunk:NN")
+        # -- the shape of the run, never a configuration of the program: util_progress_flips.py drops the token from its series key.
+        if PARTITION_RUN["name"]:
+            _config += f",partition={PARTITION_RUN['name']}"
         # ⛔ THE KEY IS THE BOARD'S (the coo 2026-10-09, CEO-1366 (b) under CEO-1269): an Icon package entry graded through its driver
         # is recorded under the LIBRARY, the key the package's board writes, through the one rule both sides import.
         from lib_package_keys import board_key as _bk
@@ -4449,6 +4476,121 @@ def _write_extracted_unit_sidecars(suite_sno, entry_name, out_sno):
             os.remove(path)
 
 
+# ====================================================== stored partitions ===
+# ⛔⭐⭐ A SUBSET IS LOOKED UP BY NAME, NEVER QUERIED (Lon 2026-10-11 13:0x CDT, in-chat to the ceo, verbatim: "subsets need to be identified
+# independent of a query against the attribute file for the long running test suites. So to partition them as major cores, and shells around
+# that core with each major feature broken out."; ceo CEO-1676; RULES.md ONE TESTING OFFICER clause 9; ARCH-SUITE-PARTITIONS.md). Every suite
+# table carries PARTITION.tsv beside it (util_suite_partition.py build, gated current): entry, part (core | chunk:NN), cluster, shells (the
+# distinctive features the entry marks). These read it and nothing else: `run --partition NAME` grades exactly that subset, and the
+# `partition` verb prints the selection and runs nothing. A partition is never the suite: its SUITE_BOARD carries partition=NAME, which the
+# score writer refuses as a suite row, and each progress row carries it in its note and its config (row (d): the record shows the loop's shape).
+def partition_path_for(suite_path):
+    """The stored partition beside a suite file (ALL.<ext> or ALL.csv): the same directory's PARTITION.tsv."""
+    return Path(suite_path).resolve().parent / "PARTITION.tsv"
+
+
+def read_partition(suite_path):
+    """(path, [(entry, part, cluster, [shell features])]) in file order; refuses rc=2 when there is no partition or its header is not
+    util_suite_partition.py's."""
+    p = partition_path_for(suite_path)
+    if not p.is_file():
+        refuse(f"no stored partition beside {suite_path}: {p} is missing -- build it with scripts/util_suite_partition.py build <ALL.csv> "
+               f"(CEO-1676)")
+    hdr, rows = None, []
+    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        f = line.split("\t")
+        if hdr is None:
+            hdr = f
+            continue
+        rows.append((f[0], f[1] if len(f) > 1 else "", f[2] if len(f) > 2 else "", f[3].split() if len(f) > 3 else []))
+    if not hdr or hdr[:2] != ["entry", "part"]:
+        refuse(f"{p}: the header is {hdr!r}, not util_suite_partition.py's (entry, part, cluster, shells) -- rebuild it")
+    if not rows:
+        refuse(f"{p} names no entry")
+    return p, rows
+
+
+def select_partition(suite_path, name):
+    """A comma-separated list of names is their UNION in partition order, its canonical name the parts joined by '+' (the loop's tier 2
+    grades core plus each shell a landing's diff marks in one run: partition=core+shell:FENCE+shell:SPAN)."""
+    names = [n for n in (name or "").split(",") if n.strip()]
+    if len(names) > 1:
+        canons, want, n_all, path = [], set(), 0, None
+        for nm in names:
+            c, sel, n_all, path = select_one_partition(suite_path, nm)
+            canons.append(c)
+            want.update(sel)
+        _p, rows = read_partition(suite_path)
+        return "+".join(canons), [r[0] for r in rows if r[0] in want], n_all, path
+    return select_one_partition(suite_path, name)
+
+
+def select_one_partition(suite_path, name):
+    """(canonical name, [entry names in partition order], n entries in the partition, path) for core | shell:<feature> | chunk:NN.
+    A chunk is named by its number (chunk:3 and chunk:03 are one chunk; the canonical spelling is the file's). A shell names a DISTINCTIVE
+    feature as the attribute table spells it; a feature no entry's shells carry refuses with the vocabulary (a ubiquitous feature is the
+    core's by definition, ARCH-SUITE-PARTITIONS.md section 2). An empty selection refuses: a subset that grades nothing is not a run."""
+    p, rows = read_partition(suite_path)
+    nm = (name or "").strip()
+    if nm == "core":
+        canon, sel = "core", [r[0] for r in rows if r[1] == "core"]
+    elif nm.startswith("chunk:"):
+        try:
+            k = int(nm[len("chunk:"):])
+        except ValueError:
+            refuse(f"--partition {nm!r}: a chunk is named chunk:NN")
+        chunks = sorted({r[1] for r in rows if r[1].startswith("chunk:")}, key=lambda c: int(c[len("chunk:"):] or 0))
+        hit = [c for c in chunks if int(c[len("chunk:"):] or 0) == k]
+        if not hit:
+            refuse(f"--partition {nm}: {p} has {len(chunks)} chunk(s): {', '.join(chunks)}")
+        canon, sel = hit[0], [r[0] for r in rows if r[1] == hit[0]]
+    elif nm.startswith("shell:"):
+        feat = nm[len("shell:"):]
+        canon, sel = f"shell:{feat}", [r[0] for r in rows if feat in r[3]]
+        if not sel:
+            vocab = sorted({f for r in rows for f in r[3]})
+            refuse(f"--partition {nm}: no entry of {p} carries {feat!r} in its shells; the distinctive features ({len(vocab)}): "
+                   f"{' '.join(vocab)}")
+    else:
+        refuse(f"--partition wants core | shell:<feature> | chunk:NN, got {name!r}")
+    if not sel:
+        refuse(f"--partition {canon}: {p} selects zero of its {len(rows)} entries")
+    return canon, sel, len(rows), p
+
+
+def cmd_partition(args):
+    """THE SELECTION VERB (CEO-1676 row (a)): print PARTITION <name>: <k> of <n> entries for a suite's stored partition, and with --list
+    the names one per line; runs nothing, appends nothing, writes nothing. Without --name it prints every part: the core, each chunk, and
+    the shells' sizes. The entry set is checked against the suite's own ALL.csv when one sits beside it, so a stale partition refuses here
+    as the gate (test_gate_suite_partitions_are_current.sh) refuses it."""
+    import collections
+    p, rows = read_partition(args.suite)
+    csvp = Path(args.suite).resolve().parent / "ALL.csv"
+    if csvp.is_file():
+        import csv as _csv
+        with open(csvp, encoding="utf-8", errors="replace", newline="") as f:
+            names = [r.get("entry", "") for r in _csv.DictReader(f)]
+        a, b = set(names) - {""}, {r[0] for r in rows}
+        if a != b:
+            refuse(f"{p} is STALE against {csvp}: {len(a - b)} entr(y/ies) of the table are in no part ({', '.join(sorted(a - b)[:5])}), "
+                   f"{len(b - a)} in the partition are not in the table ({', '.join(sorted(b - a)[:5])}) -- run scripts/util_suite_partition.py "
+                   f"build {csvp} (CEO-1676: a landing that changes a suite table rebuilds its partition)")
+    if not args.name:
+        parts = collections.Counter(r[1] for r in rows)
+        for part in sorted(parts, key=lambda c: (c != "core", int(c[len("chunk:"):]) if c.startswith("chunk:") else 0)):
+            print(f"PARTITION {part}: {parts[part]} of {len(rows)} entries")
+        shells = collections.Counter(f for r in rows for f in r[3])
+        print(f"PARTITION_SHELLS {len(shells)}: " + " ".join(f"{f}={n}" for f, n in sorted(shells.items())))
+        return
+    canon, sel, n, _p = select_partition(args.suite, args.name)
+    print(f"PARTITION {canon}: {len(sel)} of {n} entries ({p})")
+    if args.list:
+        for e in sel:
+            print(e)
+
+
 # ================================================================ area smoke ===
 # THE AREA SMOKE (Lon 2026-09-27, verbatim: "So if you change the SPAN function, then run every program that has SPAN as a
 # reference. That is one of the columns in the attribute file."; ceo CEO-1342; RULES.md section ONE TESTING OFFICER, ONE SCORE
@@ -4913,7 +5055,14 @@ def main():
                         "ride with. Prints OUTSIDE_BASELINE_LIST NONE loudly, naming the list it skipped, because such a run's "
                         "pass count is not comparable to a board graded against the baseline. Incompatible with --outside.")
     r.add_argument("--shard", default="", help="k/N: grade only every N-th entry starting at the k-th (1-based, interleaved), so the N shards partition the suite exactly once and their boards SUM to the monolithic board; the SUITE_BOARD line carries shard=k/N and total=<this shard's entries> (row corpus-runner-master-suite-exceeds-single-call-cap, hq_B 2026-09-02)")
+    r.add_argument("--partition", default="", help="core | shell:<feature> | chunk:NN, or a comma-separated union of them: grade exactly that subset of the suite's stored PARTITION.tsv (CEO-1676), both modes, progress rows per program carrying partition=NAME in their note and config; the SUITE_BOARD carries partition=NAME, which util_score_row.py refuses as a suite row (a partition is never the suite). Incompatible with --shard")
     r.set_defaults(func=cmd_run)
+
+    pt = sub.add_parser("partition", help="THE SELECTION VERB (CEO-1676): print PARTITION <name>: <k> of <n> entries from the suite's stored PARTITION.tsv (core | shell:<feature> | chunk:NN; every part without --name); runs nothing, records nothing")
+    pt.add_argument("suite", help="the suite file (ALL.<ext> or ALL.csv); its PARTITION.tsv sits beside it")
+    pt.add_argument("--name", default="", help="core | shell:<feature> | chunk:NN, or a comma-separated union of them")
+    pt.add_argument("--list", action="store_true", help="also print the selected entry names, one per line, in partition order")
+    pt.set_defaults(func=cmd_partition)
 
     e = sub.add_parser("extract", help="materialize ONE suite entry back into a standalone .sno (+ optional .ref/.in/.xfail) file")
     e.add_argument("sno")

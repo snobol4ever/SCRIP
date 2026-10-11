@@ -1300,8 +1300,15 @@ def board_line_fraction(text):
         return None, None, None
     # ⛔ A SHARD BOARD IS NOT THE SUITE: its total= is this shard's entries, so its fraction is a fact about a
     # quarter of a population and the suite row is about all of it.  Named rather than skipped.
+    # ⛔ AND A PARTITION BOARD IS NOT THE SUITE (CEO-1676 row (a)): `run --partition core|shell:F|chunk:NN` grades a stored subset and its
+    # line carries partition=NAME; the suite row is assembled from the per-program readings (row (b)), never from one subset's fraction.
+    parts = [l for l in lines if board_field_by_name(l, "partition")]
     shards = [l for l in lines if board_field_by_name(l, "shard")]
-    whole = [l for l in lines if l not in shards]
+    whole = [l for l in lines if l not in shards and l not in parts]
+    if not whole and parts:
+        return None, None, ("the --text's only SUITE_BOARD line carries partition=%s -- a PARTITION board is a stored subset, not the "
+                            "suite (CEO-1676), so its fraction cannot be the suite row's -- the row is assembled from the per-program "
+                            "readings (util_score_row.py from-progress)" % board_field_by_name(parts[0], "partition"))
     if not whole:
         return None, None, ("the --text's only SUITE_BOARD line carries shard=%s -- a SHARD board is not the suite "
                             "(its total= is that shard's entries), so its fraction cannot be the suite row's -- "
@@ -1550,6 +1557,115 @@ def db_crosscheck(key, p, t):
               % (key, t, pop, tree, cnt["PASS"], cnt["FAIL"], cnt["OUTSIDE"], cnt["UNGRADABLE"], cnt["UNGRADED"], cnt["DEFERRED"]))
     if shards:
         print("  ⚠ the newest rows on %s are PARTIAL (%s) -- a shard, not a board" % (tree, ", ".join(sorted(shards))))
+
+
+# ⛔⭐⭐ THE ROW FROM THE LATEST PER-PROGRAM READINGS (Lon 2026-10-11 13:0x CDT, in-chat to the ceo, verbatim: "One reason for the subsets on
+# large suites is so they can be run in chunks even when the full regressions are being run in its "spare" time."; ceo CEO-1676 row (b);
+# ARCH-SUITE-PARTITIONS.md section 4 (b)). With the long suites read a chunk at a time, no single run grades the whole population, so the row is
+# ASSEMBLED: every entry of the suite's table at its LATEST reading in each mode, whatever tree read it; the AND per program over m3 and m4 is
+# the numerator, the table's entries the denominator. The row is CURRENT at a tree when every entry has a reading at or after it -- so it names
+# the OLDEST reading's tree beside the newest, per chunk too, and a write stamps the oldest (the tree every reading is at or after).
+FROM_PROGRESS_MASTERS = {"sno-rungs": "tests/snobol4", "icn-rungs": "tests/icon", "pl-rungs": "tests/prolog", "pas-rungs": "tests/pascal",
+                         "raku-rungs": "tests/raku", "snc-rungs": "tests/snocone", "reb-rungs": "tests/rebus"}
+
+
+def from_progress_table(corpus, key):
+    """(table dir, progress suite name) for a SUITES.tsv key: the seven masters by name, a package by the harness's own key rule
+    (PROGRESS_PACKAGE_KEYS: a package directory's progress key, else its name), or (None, None)."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import util_suite_rows_vs_progress as _aud
+    if key in FROM_PROGRESS_MASTERS:
+        return os.path.join(corpus, FROM_PROGRESS_MASTERS[key]), _aud.DBNAME.get(key, key)
+    import corpus_suite_harness as _h
+    for lang in sorted(os.listdir(os.path.join(corpus, "packages"))) if os.path.isdir(os.path.join(corpus, "packages")) else []:
+        ld = os.path.join(corpus, "packages", lang)
+        for pkg in sorted(os.listdir(ld)) if os.path.isdir(ld) else []:
+            if _h.PROGRESS_PACKAGE_KEYS.get(pkg, pkg) == key and os.path.exists(os.path.join(ld, pkg, "ALL.csv")):
+                return os.path.join(ld, pkg), _aud.DBNAME.get(key, key)
+    return None, None
+
+
+def cmd_from_progress(a):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import csv as _csv, collections as _c
+    import util_suite_rows_vs_progress as _aud
+    key = a.suite
+    corpus = os.environ.get("S4E_CORPUS_ROOT") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "corpus")
+    tdir, dbsuite = from_progress_table(corpus, key)
+    if not tdir:
+        print("REFUSE(2): from-progress: no suite table for key %r under %s (the seven masters and the packages with an ALL.csv)" % (key, corpus))
+        return 2
+    with open(os.path.join(tdir, "ALL.csv"), encoding="utf-8", errors="replace", newline="") as f:
+        pop = [r.get("entry", "") for r in _csv.DictReader(f) if r.get("entry", "")]
+    part = {}
+    pp = os.path.join(tdir, "PARTITION.tsv")
+    if os.path.exists(pp):
+        for line in open(pp, encoding="utf-8", errors="replace"):
+            fl = line.rstrip("\n").split("\t")
+            if line.startswith("#") or len(fl) < 2 or fl[0] == "entry":
+                continue
+            part[fl[0]] = fl[1]
+    db = os.environ.get("S4E_PROGRESS_DB", "/home/resources/progress/results.tsv")
+    if not os.path.exists(db):
+        print("REFUSE(2): from-progress: the progress DB %s does not exist" % db)
+        return 2
+    want = set(pop)
+    last = {}   # (program, mode) -> (outcome, note, tree, ts, secs): the LAST row in the append-only table is the latest reading
+    with open(db, encoding="utf-8", errors="replace") as fh:
+        fh.readline()
+        for line in fh:
+            fl = line.rstrip("\n").split("\t")
+            if len(fl) < 10 or fl[5] != dbsuite or fl[8] not in ("m3", "m4") or fl[7] not in want:
+                continue
+            last[(fl[7], fl[8])] = (fl[9], fl[11] if len(fl) > 11 else "", fl[1], fl[0], fl[10])
+    d = _c.defaultdict(dict)
+    for (prog, m), (o, note, _tree, _ts, _secs) in last.items():
+        d[prog][m] = (o, note)
+    d, side, s_ungradable, s_ungraded = _aud.population_inputs(corpus, key, dict(d))
+    def _f(x):
+        try:
+            return float(x)
+        except ValueError:
+            return 0.0
+    wall = int(round(sum(_f(v[4]) for v in last.values())))   # the row's Wall: the sum of the latest readings' own seconds (row (c))
+    cnt, _pop, _xp, _labels, _bounded, _shards = _aud.tally(d, side, s_ungradable, s_ungraded)
+    unread = [e for e in pop if e not in d and e not in side]
+    halfread = [e for e in pop if e in d and set(d[e]) != {"m3", "m4"}]
+    reads = sorted((v[3], v[2]) for v in last.values())
+    oldest, newest = (reads[0], reads[-1]) if reads else (("-", "-"), ("-", "-"))
+    total = len(pop)
+    print("SUITE_ROW suite=%s pass=%d total=%d read=%d unread=%d half_read=%d oldest_tree=%s@%s newest_tree=%s@%s secs=%d db_suite=%s table=%s "
+          "(PASS %d FAIL %d OUTSIDE %d UNGRADABLE %d UNGRADED %d DEFERRED %d)"
+          % (key, cnt["PASS"], total, len(d), len(unread), len(halfread), oldest[1], oldest[0], newest[1], newest[0], wall, dbsuite,
+             os.path.relpath(tdir, corpus), cnt["PASS"], cnt["FAIL"], cnt["OUTSIDE"], cnt["UNGRADABLE"], cnt["UNGRADED"], cnt["DEFERRED"]))
+    if part:
+        byc = _c.defaultdict(list)
+        for (prog, m), v in last.items():
+            byc[part.get(prog, "?")].append((v[3], v[2]))
+        sizes = _c.Counter(part.get(e, "?") for e in pop)
+        for c in sorted(sizes, key=lambda c: (c != "core", c)):
+            r = sorted(byc.get(c, []))
+            nread = len({prog for (prog, _m) in last if part.get(prog, "?") == c})
+            print("SUITE_ROW_PART %s entries=%d read=%d oldest=%s newest=%s" % (c, sizes[c], nread, "%s@%s" % (r[0][1], r[0][0]) if r else "-",
+                                                                              "%s@%s" % (r[-1][1], r[-1][0]) if r else "-"))
+    if unread:
+        print("SUITE_ROW_UNREAD %d: %s%s" % (len(unread), " ".join(unread[:30]), " ..." if len(unread) > 30 else ""))
+    if a.dry_run:
+        print("from-progress --dry-run: nothing written (would set %s -> %d/%d stamped %s, the oldest reading's tree)" % (key, cnt["PASS"], total, oldest[1]))
+        return 0
+    if unread or halfread:
+        print("REFUSE(2): from-progress: %d entr(y/ies) have no reading and %d only one mode's -- the row is current when every chunk has a "
+              "reading (CEO-1676); nothing written" % (len(unread), len(halfread)))
+        return 2
+    env = dict(os.environ); env["S4E_SUITES_TSV"] = SUITES_TSV; env["S4E_SCORE_MD"] = SCORE_MD
+    cmd = [sys.executable, SUITE_BANNER, "--set", key, str(cnt["PASS"]), str(total), _box_clock_day(), oldest[1]]
+    if (a.criterion_changed or os.environ.get("S4E_CRITERION_CHANGED", "")).strip():
+        cmd += ["--criterion-changed", (a.criterion_changed or os.environ.get("S4E_CRITERION_CHANGED", "")).strip()]
+    if wall > 0:
+        cmd += ["--secs", str(wall)]
+    r = subprocess.run(cmd, capture_output=True, text=True, env=env)
+    sys.stdout.write(r.stdout); sys.stderr.write(r.stderr)
+    return r.returncode
 
 
 def _box_clock_day():
@@ -4941,6 +5057,11 @@ def main():
     q.set_defaults(fn=cmd_clausecheck)
     s = sub.add_parser("selftest", help="prove rewrite-in-place and every refusal path, on a scratch copy")
     s.set_defaults(fn=cmd_selftest)
+    fp = sub.add_parser("from-progress", help="assemble ONE SUITE TABLE row from the latest per-program readings in the progress DB (CEO-1676 row (b)): the AND per program over m3 and m4 at each entry's newest reading, any tree; prints SUITE_ROW with the oldest and newest reading's tree (and per partition part); runs no suite")
+    fp.add_argument("--suite", required=True, help="the SUITES.tsv key (reb-rungs, swi, ...)")
+    fp.add_argument("--dry-run", action="store_true", help="print the row and the population it read; write nothing")
+    fp.add_argument("--criterion-changed", default="", metavar="'YYYY-MM-DD:reason'", help="stamp a criterion change on the row (passed to util_suite_banner.py --set; S4E_CRITERION_CHANGED fills it)")
+    fp.set_defaults(fn=cmd_from_progress)
     n = sub.add_parser("seat-name", help="print THE ONE seat identity derived from the root path; runs no suite")
     n.set_defaults(fn=cmd_seat_name)
     a = p.parse_args()
