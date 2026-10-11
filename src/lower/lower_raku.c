@@ -2266,6 +2266,21 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 for (int i = 1; i < t->n; i++) ast_push(mc, t->c[i]);
                 return lower_rcall(cx, mc, "__multi_call", 1, γ, ω, res);
             }
+            if (cls && !rk_is_class_name(cls) && (!strcmp(cls, "Int") || !strcmp(cls, "Num") || !strcmp(cls, "Str")) && t->n <= 2) {
+                if (t->n == 1 && cls[0] == 'S') { tree_t * e = leaf_sval2(TT_QLIT, ""); return lower_rv(cx, e, γ, ω, res); }
+                tree_t * mc = ast_node_new(TT_METHCALL);
+                mc->line = t->line;
+                ast_push(mc, t->n == 2 ? t->c[1] : rk_ti(0));
+                ast_push(mc, leaf_sval2(TT_QLIT, cls));
+                return lower_rv(cx, mc, γ, ω, res);
+            }
+            if (cls && !rk_is_class_name(cls) && (!strcmp(cls, "Array") || !strcmp(cls, "List"))) {
+                tree_t * ar = rk_fnc2(cls[0] == 'A' ? "__rk_arr_lit" : "__rk_arr", NULL, NULL);
+                ar->line = t->line;
+                for (int i = 1; i < t->n; i++) ast_push(ar, t->c[i]);
+                return lower_rv(cx, ar, γ, ω, res);
+            }
+            if (cls && !rk_is_class_name(cls) && !strcmp(cls, "Hash") && t->n == 1) { tree_t * h = rk_fnc2("__rk_hash", NULL, NULL); return lower_rv(cx, h, γ, ω, res); }
             if (cls && (t->n == 3 || t->n == 1) && !rk_is_class_name(cls) && (!strcmp(cls, "Rat") || !strcmp(cls, "FatRat"))) {
                 tree_t * rn = ast_node_new(TT_FNC);
                 rn->line = t->line;
