@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2541
+#define GC_ALLOC_TAB_N 2544
 #define GC_ALLOC_TAB_N_VOID 302
-#define GC_ALLOC_TAB_N_DESCR 1231
-#define GC_ALLOC_TAB_N_OTHER 991
+#define GC_ALLOC_TAB_N_DESCR 1232
+#define GC_ALLOC_TAB_N_OTHER 993
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1532,6 +1532,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_concat_parts_d", GC_RET_DESCR },
     { "rt_construct_alloc", GC_RET_DESCR },
     { "rt_construct_build", GC_RET_DESCR },
+    { "rt_conve_chain_land", GC_RET_DESCR },
+    { "rt_conve_chain_open", GC_RET_OTHER },
     { "rt_cplx_abs", GC_RET_OTHER },
     { "rt_cplx_arith", GC_RET_DESCR },
     { "rt_cplx_make", GC_RET_DESCR },
@@ -1554,6 +1556,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_defer_close", GC_RET_OTHER },
     { "rt_defer_close_v", GC_RET_OTHER },
     { "rt_defer_expr_value", GC_RET_DESCR },
+    { "rt_defer_land_chain", GC_RET_OTHER },
     { "rt_defer_land_γ", GC_RET_OTHER },
     { "rt_defer_land_ω", GC_RET_OTHER },
     { "rt_defer_nv_read", GC_RET_DESCR },
