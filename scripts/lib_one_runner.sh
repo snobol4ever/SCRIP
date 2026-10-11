@@ -183,6 +183,7 @@ one_runner_population_of() {
   printf '%s' "${CORPUS:-}"
 }
 ONE_RUNNER_SMOKE_MODE_RUNNERS="test_icon_ipl_suite.sh test_snobol4_gimpel_suite.sh"   # runners with an area-smoke mode that writes nothing (see one_runner_guard)
+ONE_RUNNER_SINGLE_FILE_RUNNERS="test_prolog_swi_suite.sh"   # runners whose --file mode grades exactly one file and writes no progress row and no score row (see one_runner_guard)
 one_runner_guard() {
   # ⭐ THE RUN'S START, STAMPED BY EVERY RUNNER FOR ITSELF (Lon 2026-10-08, in-chat to the ceo: "List in a grid the total time for each test
   # suite to run."; CEO-1562): util_score_row.py turns it into the row's wall clock (SUITES.tsv today_secs, the grid's Wall). Unconditional,
@@ -216,6 +217,15 @@ one_runner_guard() {
   # in ONE_RUNNER_SMOKE_MODE_RUNNERS, which honours S4E_AREA_SMOKE_ENTRIES and writes nothing, and only with no suite path named.
   if [ -n "${S4E_AREA_SMOKE_ENTRIES:-}" ] && [ -z "$suite" ] && case " $ONE_RUNNER_SMOKE_MODE_RUNNERS " in *" $board "*) true ;; *) false ;; esac; then
     printf 'ONE-RUNNER AREA SMOKE by %s on %s: %s named entr(ies), no progress row and no score row\n' "${seat:-?}" "$board" "$(printf '%s\n' $S4E_AREA_SMOKE_ENTRIES | grep -c .)"; return 0
+  fi
+  # ⭐ ONE FILE IS NOT A BOARD (ceo CEO-1664, 2026-10-11, measured: under SEPTET hq_prolog, the cto and the cfo work SWI's 1563 reds
+  # class by class, and every one of them was refused rc 2 grading the one plunit file its row names -- the runner's own --file mode,
+  # which its header calls "a development aid, never a board; writes no row", fell through to the board refusal). A runner in
+  # ONE_RUNNER_SINGLE_FILE_RUNNERS sets S4E_ONE_RUNNER_SINGLE_FILE from its OWN argv on line 2 (empty without --file, so an inherited
+  # value never admits a whole run), grades exactly one file in that mode (it refuses a --file matching more), and writes no progress
+  # row and no score row; it is admitted for every seat and for the bus's computed done, so a class row's DONE-WHEN can name its file.
+  if [ -n "${S4E_ONE_RUNNER_SINGLE_FILE:-}" ] && case " $ONE_RUNNER_SINGLE_FILE_RUNNERS " in *" $board "*) true ;; *) false ;; esac; then
+    printf 'ONE-RUNNER SINGLE FILE by %s on %s: %s, no progress row and no score row\n' "${seat:-?}" "$board" "$S4E_ONE_RUNNER_SINGLE_FILE"; return 0
   fi
   if [ -n "${S4E_ONE_RUNNER_FIXTURE:-}" ]; then
     local _fxpop="${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}"

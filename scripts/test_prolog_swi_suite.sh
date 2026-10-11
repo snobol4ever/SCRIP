@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}/packages/prolog/swi_tests" || exit 2
+S4E_ONE_RUNNER_SINGLE_FILE=""; _sf_prev=""; for _sf_a in "$@"; do [ "$_sf_prev" = --file ] && S4E_ONE_RUNNER_SINGLE_FILE="$_sf_a"; _sf_prev="$_sf_a"; done; source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}/packages/prolog/swi_tests" || exit 2
 # test_prolog_swi_suite.sh -- THE SWI-PROLOG TEST SUITE BOARD: every plunit CASE the vendored swipl-devel src/Tests tree
 # declares, graded by AGREEMENT with real swipl's own verdict, in mode 3 and mode 4.
 #
@@ -78,7 +78,7 @@ WORK="$(mktemp -d /tmp/swi_board_XXXXXX)"; trap 'rm -rf "$WORK"' EXIT
 printf 'main :- run_tests.\n:- initialization(main).\n' > "$WORK/wrap.pl"
 FILES="$WORK/files.txt"
 grep -rl --include='*.pl' 'begin_tests(' "$SWIT" | sort > "$FILES"
-if [ -n "$ONLY_FILE" ]; then grep -F -- "/$ONLY_FILE" "$FILES" > "$FILES.one" && mv "$FILES.one" "$FILES" || refuse "--file $ONLY_FILE matches no shipped test file"; fi
+if [ -n "$ONLY_FILE" ]; then grep -F -- "/$ONLY_FILE" "$FILES" > "$FILES.one" || refuse "--file $ONLY_FILE matches no shipped test file"; _nf=$(wc -l < "$FILES.one"); [ "$_nf" = 1 ] || refuse "--file $ONLY_FILE matches $_nf shipped test files -- it grades exactly one (CEO-1664)"; mv "$FILES.one" "$FILES"; fi
 NFILES=$(wc -l < "$FILES")
 [ "$NFILES" -gt 0 ] || refuse "no plunit files found under $SWIT"
 cat > "$WORK/grade_one.sh" <<'GEOF'
