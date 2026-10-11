@@ -95,6 +95,7 @@ lang:prolog	src/parsers/prolog/
 lang:prolog	src/lower/lower_prolog.c
 lang:prolog	src/lower/pl_arith_names.h
 lang:prolog	src/lower/pl_control_names.h
+lang:prolog	src/lower/pl_aggregate_names.h
 lang:prolog	src/templates/bb/bb_unify_const.cpp
 lang:prolog	src/templates/bb/bb_unify_struct.cpp
 lang:prolog	src/templates/bb/bb_unify_first.cpp

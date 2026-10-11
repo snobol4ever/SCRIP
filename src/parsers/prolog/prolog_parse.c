@@ -4,6 +4,7 @@
 #include "prolog_lex.h"
 #include "rt/prolog_atom.h"
 #include "stage2.h"
+#include "pl_aggregate_names.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -2116,13 +2117,6 @@ static void pl_tree_collect_calls(const tree_t *t, cv_t *names) {
     if (!t) return;
     if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) pl_cv_add(names, t->v.sval);
     for (int i = 0; i < t->n; i++) pl_tree_collect_calls(t->c[i], names);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *pl_aggregate_all_native_kind(const tree_t *spec) {
-    const char * const kinds[] = { "count", "max", "min", "sum", "bag", "set", NULL };
-    if (spec && spec->t == TT_FNC && spec->n == 1 && spec->v.sval) for (int i = 0; kinds[i]; i++) if (!strcmp(spec->v.sval, kinds[i])) return kinds[i];
-    if (spec && (spec->t == TT_NAME || spec->t == TT_QLIT) && spec->v.sval && !strcmp(spec->v.sval, "count")) return "count";
-    return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_agg_native_calls(const tree_t *t) {

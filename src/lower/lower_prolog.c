@@ -12,6 +12,7 @@
 #include "ir_query.h"
 #include "pl_arith_names.h"
 #include "pl_control_names.h"
+#include "pl_aggregate_names.h"
 #include "ct_vec.h"
 #include "g_lower.h"
 typedef struct { const char * name; int arity; int bb_idx; } pl_bb_ent_t;
@@ -2207,7 +2208,6 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             extern int pl_prelude_defines(const char *, int);
             if (!strcmp(nm, "aggregate_all") && t->n == 3 && (!pl_file_defines(nm, 3) || pl_prelude_defines(nm, 3))) {
                 const tree_t * spec = t->c[0];
-                extern const char * pl_aggregate_all_native_kind(const tree_t *);
                 const char * kind = pl_aggregate_all_native_kind(spec);
                 const tree_t * tmpl = !kind ? (const tree_t *) 0 : (spec->t == TT_FNC ? spec->c[0] : pl_cc_ilit(0));
                 if (kind && !strcmp(kind, "set")) {
