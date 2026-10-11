@@ -30,6 +30,8 @@ extern "C" DESCR_t rt_call_bid_sn4(const char *, DESCR_t *, int, int);
 extern "C" DESCR_t rt_call_name_sn4(const char *, DESCR_t *, int, int);
 extern "C" void * dat_find_type(const char *);
 extern "C++" std::string bb_callee_rdx(const char * fn);
+extern "C" int rt_pas_bi_index(const char * fn);
+extern "C" DESCR_t rt_call_pas_bi(DESCR_t * args, int nargs, long idx);
 extern "C++" int bb_callee_baked_kind(const char * fn, int strict);
 extern "C++" const char * bb_callee_baked_sym(int k);
 extern "C++" uint64_t bb_callee_baked_fp(int k);
@@ -198,6 +200,8 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
 int pl_leaf_inline_known(const char * fn, int narg);
 std::string pl_leaf_inline_arm(const char * fn, int narg, int argbase, int resoff, IR_t * first_operand);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bcbn_pas_bi(const char * fn) { return (fn && fn[0] == '_' && fn[1] == '_' && fn[2] == 'p' && fn[3] == 'a' && fn[4] == 's' && fn[5] == '_') ? rt_pas_bi_index(fn) : -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_byname_str(IR_t * pBB) {
     const char * fn = _.op_sval ? _.op_sval : "";
     int64_t narg = _.op_ival;
@@ -214,7 +218,16 @@ static std::string bb_call_byname_str(IR_t * pBB) {
                 s += x86("mov", x86_zref(i * 16 + 8, 1), "rax");
             }
         }
-        if (int _bk = bcbn_baked_kind(fn, _.op_strict)) {
+        int _pbi = bcbn_pas_bi(fn);
+        if (_pbi >= 0) {
+            s += x86("comment", (std::string("PASCAL BUILTIN CALL ") + fn + " -> rt_call_pas_bi with its table index baked (no name, no lookup)").c_str());
+            if (narg > 0) s += x86("lea", "rdi", RDQ("rsp", 0));
+            else s += x86("xor", "edi", "edi");
+            s += x86("mov32", "esi", (long)narg);
+            s += x86("mov32", "edx", (long)_pbi);
+            s += x86("call", "rt_call_pas_bi", (uint64_t)(uintptr_t)(void *)rt_call_pas_bi);
+            s += x86_rt_gc_poll_res();
+        } else if (int _bk = bcbn_baked_kind(fn, _.op_strict)) {
             s += x86("comment", (std::string(_bk == 2 ? "CALLEE CALL " : "FIELD CALL ") + fn + " -> " + bb_callee_baked_sym(_bk) + " with its record baked (no name, no lookup)").c_str());
             if (narg > 0) s += x86("lea", "rdi", RDQ("rsp", 0));
             else s += x86("xor", "edi", "edi");
@@ -284,7 +297,19 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     int dsave = argbase + 16 * (int)narg;
     if (curmov) s += x86("mov", FRQ(dsave), "r14");
     if (scansync) s += x86_scan_sync_out_force();
-    if (int _bk = bcbn_baked_kind(fn, _.op_strict)) {
+    int _pbi = bcbn_pas_bi(fn);
+    if (_pbi >= 0) {
+    s += x86("comment", (std::string("PASCAL BUILTIN CALL ") + fn + " -> rt_call_pas_bi with its table index baked (no name, no lookup)").c_str());
+    s += x86("lea", "rdi", FRQ(argbase));
+    s += x86("mov32", "esi", (long)narg);
+    s += x86("mov32", "edx", (long)_pbi);
+    s += x86("rtcc_wb");
+    s += x86("call_bare", "rt_call_pas_bi", (uint64_t)(uintptr_t)(void *)rt_call_pas_bi);
+    s += x86("rtcc_rl");
+    s += x86("mov", FRQ(resoff), "rax");
+    s += x86("mov", FRQ(resoff + 8), "rdx");
+    s += x86_rt_gc_poll();
+    } else if (int _bk = bcbn_baked_kind(fn, _.op_strict)) {
     s += x86("comment", (std::string(_bk == 2 ? "CALLEE CALL " : "FIELD CALL ") + fn + " -> " + bb_callee_baked_sym(_bk) + " with its record baked (no name, no lookup)").c_str());
     s += x86("lea", "rdi", FRQ(argbase));
     s += x86("mov32", "esi", (long)narg);

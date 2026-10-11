@@ -4534,6 +4534,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
 int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict);
 static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict, long *rq);
 static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq);
+static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq);
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen);
 extern const char *icon_real_str(double r, char *buf, int bufsz);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -11853,714 +11854,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = args[1];
         return 1;
     }
-    if (!strcmp(fn, "__pas_sqr") && nargs == 1) {
-        if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r = {0}; r.v = DT_R; r.r = d * d; *out = r; return 1; }
-        long v = IS_INT_fn(args[0]) ? args[0].i : 0;
-        if (v > 46340 || v < -46340) pas_file_err("6.6.6.2", "sqr(x) of an integer whose square exceeds maxint, so no such value exists", NULL);
-        *out = INTVAL(v * v);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_alloc") && nargs == 0) { long n = pas_heap_take(); DESCR_t *c = pas_heap_cell(n, 1); if (c) *c = INTVAL(0); *out = INTVAL(n); return 1; }
-    if (!strcmp(fn, "__pas_alloc_rec") && nargs == 1) {
-        long n = pas_heap_take();
-        DESCR_t *c = pas_heap_cell(n, 1);
-        if (c) *c = (args[0].v == DT_A && args[0].arr) ? args[0] : STRVAL(rt_heap_strdup_c("0"));
-        *out = INTVAL(n);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_dispose") && nargs == 1) {
-        if (!IS_INT_fn(args[0]) || args[0].i <= 0) pas_file_err("6.6.5.3", "dispose of a pointer that is nil or undefined, so it identifies no variable", NULL);
-        if (args[0].i < g_pas_heap_cap && (g_pas_heap_dead[args[0].i] & 2))
-            pas_file_err("6.6.5.3", "dispose(p) of a variable created with new(p, c1, ..., cn) must name the same variant constants", NULL);
-        pas_heap_give(args[0].i);
-        *out = NULVCL;
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_dispose_k") && nargs == 3) {
-        if (!IS_INT_fn(args[0]) || args[0].i <= 0) pas_file_err("6.6.5.3", "dispose of a pointer that is nil or undefined, so it identifies no variable", NULL);
-        long long n = args[0].i;
-        int tagged = n < g_pas_heap_cap && (g_pas_heap_dead[n] & 2);
-        if (!tagged) pas_file_err("6.6.5.3", "dispose(p, k1, ..., kn) names variants for a variable not created with new(p, c1, ..., cn)", NULL);
-        if (IS_INT_fn(args[1]) && IS_INT_fn(args[2]) && pas_tag_ne(args[1].i, args[2].i))
-            pas_file_err("6.6.5.3", "the variant constants of dispose are not those of the new that created the variable", NULL);
-        pas_heap_give(n);
-        *out = NULVCL;
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_tagmark") && nargs == 1) { if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_pas_heap_cap) g_pas_heap_dead[args[0].i] |= 2; *out = NULVCL; return 1; }
-    if (!strcmp(fn, "__pas_tagset_chk") && nargs == 3) {
-        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_pas_heap_cap && (g_pas_heap_dead[args[0].i] & 2) && IS_INT_fn(args[1]) && IS_INT_fn(args[2]) && pas_tag_ne(args[1].i, args[2].i))
-            pas_file_err("6.6.5.3", "the tag-field of a variable created with new(p, c1, ..., cn) is assigned a value that activates a different variant", NULL);
-        *out = NULVCL;
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_tagwhole") && nargs == 1) {
-        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_pas_heap_cap && (g_pas_heap_dead[args[0].i] & 2))
-            pas_file_err("6.6.5.3", "a variable created with new(p, c1, ..., cn) is accessed as a whole by a factor, an assignment or an actual-parameter", NULL);
-        *out = NULVCL;
-        return 1;
-    }
-    if ((!strcmp(fn, "__pas_udiv") || !strcmp(fn, "__pas_umod")) && nargs == 2) {
-        unsigned long long x = IS_INT_fn(args[0]) ? (unsigned long long)args[0].i : 0ULL, y = IS_INT_fn(args[1]) ? (unsigned long long)args[1].i : 0ULL;
-        if (!y) pas_file_err("6.7.2.2", "the divisor of div or mod is zero", NULL);
-        *out = INTVAL((long long)(fn[7] == 'd' ? x / y : x % y));
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_s2wide") && nargs == 4) {
-        const char *src = VARVAL_fn(args[0]);
-        if (!src) src = "";
-        if (args[1].v == DT_A && args[1].arr && IS_INT_fn(args[2]) && IS_INT_fn(args[3])) {
-            ARBLK_t *b = (ARBLK_t *)args[1].arr;
-            long k = (long)args[2].i, n = (long)args[3].i, l = (long)strlen(src), m = n > 0 ? (l < n - 1 ? l : n - 1) : 0;
-            for (long i = 0; i < m; i++) if (k + i >= b->lo && k + i <= b->hi) b->data[k + i - b->lo] = INTVAL((long long)(unsigned char)src[i]);
-            if (n > 0 && k + m >= b->lo && k + m <= b->hi) b->data[k + m - b->lo] = INTVAL(0);
-        }
-        *out = NULVCL;
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_wide2s") && nargs == 2) {
-        if (args[0].v == DT_A && args[0].arr && IS_INT_fn(args[1])) {
-            ARBLK_t *b = (ARBLK_t *)args[0].arr;
-            long k = (long)args[1].i;
-            long l = 0;
-            for (long i = k; i <= b->hi && i >= b->lo && IS_INT_fn(b->data[i - b->lo]) && b->data[i - b->lo].i != 0; i++) l++;
-            char *o = (char *)rt_wsb_alloc((size_t)l + 1);
-            for (long i = 0; i < l; i++) o[i] = (char)b->data[k + i - b->lo].i;
-            o[l] = '\0';
-            *out = (DESCR_t){ .v = DT_S, .s = o, .slen = (uint32_t)l };
-            return 1;
-        }
-        *out = STRVAL((char *)"");
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_qchk") && nargs == 1) { if (IS_INT_fn(args[0]) && args[0].i < 0) { fflush(NULL); fprintf(stderr, "Runtime error 215 at $0\n"); exit(215); } *out = args[0]; return 1; }
-    if (!strcmp(fn, "__pas_vcheck") && nargs == 2) {
-        long long tv = IS_INT_fn(args[0]) ? args[0].i : -2, m = IS_INT_fn(args[1]) ? args[1].i : 0;
-        if (tv == -1) tv = 1;
-        if (tv >= 0 && tv <= 62 && !((m >> tv) & 1)) pas_file_err("6.5.3.3", "a component of a variant is accessed while the tag-field selects a different variant", NULL);
-        *out = NULVCL;
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_mark") && nargs == 0) { *out = INTVAL(g_pas_heap_ctr + 1); return 1; }
-    if (!strcmp(fn, "__pas_release") && nargs == 1) { if (IS_INT_fn(args[0])) pas_heap_release(args[0].i); *out = NULVCL; return 1; }
-    if (!strcmp(fn, "__pas_alpha_str") && nargs == 2) { *out = pas_chars_of(args[0], IS_INT_fn(args[1]) ? (long)args[1].i : 0); return 1; }
-    if (!strcmp(fn, "__pas_rdecode") && nargs == 4) { *out = pas_rdecode(args[0], (long)pas_ord_of(args[1]), (long)pas_ord_of(args[2]), (long)pas_ord_of(args[3])); return 1; }
-    if (!strcmp(fn, "__pas_rpatch") && nargs == 5) { *out = pas_rpatch(args[0], (long)pas_ord_of(args[1]), (long)pas_ord_of(args[2]), (long)pas_ord_of(args[3]), args[4]); return 1; }
-    if (!strcmp(fn, "__pas_view") && nargs == 4) { *out = pas_view_make(args, nargs); return 1; }
-    if (!strcmp(fn, "__pas_random") && nargs <= 1) {
-        long r = random();
-        if (nargs == 1 && IS_INT_fn(args[0])) *out = INTVAL(args[0].i > 0 ? (long long)(r % args[0].i) : 0);
-        else *out = REALVAL((double)r / 2147483648.0);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_pow") && nargs == 2) {
-        if (IS_INT_fn(args[0]) && IS_INT_fn(args[1]) && args[1].i >= 0) {
-            long long r = 1, b = args[0].i, e = args[1].i;
-            while (e > 0) { if (e & 1) r *= b; b *= b; e >>= 1; }
-            *out = INTVAL(r);
-        } else {
-            double x = IS_REAL_fn(args[0]) ? args[0].r : (IS_INT_fn(args[0]) ? (double)args[0].i : 0.0);
-            double y = IS_REAL_fn(args[1]) ? args[1].r : (IS_INT_fn(args[1]) ? (double)args[1].i : 0.0);
-            *out = REALVAL(pow(x, y));
-        }
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_mathf") && (nargs == 2 || nargs == 3) && IS_INT_fn(args[0])) {
-        double x = IS_REAL_fn(args[1]) ? args[1].r : (IS_INT_fn(args[1]) ? (double)args[1].i : 0.0);
-        double y = nargs == 3 ? (IS_REAL_fn(args[2]) ? args[2].r : (IS_INT_fn(args[2]) ? (double)args[2].i : 0.0)) : 0.0;
-        double r = 0.0;
-        switch ((int)args[0].i) {
-            case 1:
-            r = tan(x);
-            break;
-            case 2:
-            r = asin(x);
-            break;
-            case 3:
-            r = acos(x);
-            break;
-            case 4:
-            r = sinh(x);
-            break;
-            case 5:
-            r = cosh(x);
-            break;
-            case 6:
-            r = tanh(x);
-            break;
-            case 7:
-            r = log2(x);
-            break;
-            case 8:
-            r = 1.0 / tan(x);
-            break;
-            case 9:
-            r = x * (M_PI / 180.0);
-            break;
-            case 10:
-            r = x * (180.0 / M_PI);
-            break;
-            case 11:
-            r = asinh(x);
-            break;
-            case 12:
-            r = acosh(x);
-            break;
-            case 13:
-            r = atanh(x);
-            break;
-            case 101:
-            r = atan2(x, y);
-            break;
-            case 102:
-            r = hypot(x, y);
-            break;
-            case 103:
-            r = log(y) / log(x);
-            break;
-            default:
-            r = 0.0;
-        }
-        *out = REALVAL(r);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_randomize") && nargs == 0) { srandom((unsigned)time(NULL) ^ (unsigned)getpid()); *out = NULVCL; return 1; }
-    if (!strcmp(fn, "__pas_stringofchar") && nargs == 2) {
-        const char *c = VARVAL_fn(args[0]);
-        long long n = IS_INT_fn(args[1]) ? args[1].i : 0;
-        if (n < 0) n = 0;
-        char *o = rt_wsb_alloc((size_t)n + 1);
-        memset(o, IS_INT_fn(args[0]) ? (int)(unsigned char)args[0].i : (c && c[0] ? c[0] : ' '), (size_t)n);
-        o[n] = '\0';
-        *out = STRVAL(o);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_strf") && nargs == 4) {
-        long long w = IS_INT_fn(args[1]) ? args[1].i : -1, p = IS_INT_fn(args[2]) ? args[2].i : -1;
-        size_t cap = (size_t)(w > 0 ? w : 0) + 96;
-        char *b = rt_wsb_alloc(cap), *o = rt_wsb_alloc(cap);
-        if (IS_REAL_fn(args[0]) && p >= 0) snprintf(o, cap, "%*.*f", (int)(w < 0 ? 0 : w), (int)(p > 16 ? 16 : p), args[0].r);
-        else if (IS_REAL_fn(args[0])) {
-            int prec = w < 0 ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : (int)w - 8));
-            pas_real_str_exp(args[0].r, b, (int)cap, prec, 3, IS_INT_fn(args[3]) && args[3].i);
-            int sp = b[0] == '-' ? 0 : 1, len = (int)strlen(b), fw = w < 0 ? len + sp : (len + sp > w ? len + sp : (int)w);
-            snprintf(o, cap, "%*s", fw, b);
-        } else snprintf(o, cap, "%*lld", (int)(w < 0 ? 0 : w), IS_INT_fn(args[0]) ? (long long)args[0].i : 0LL);
-        *out = STRVAL(o);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_dynlen") && nargs == 1) { ARBLK_t *b = (args[0].v == DT_A && args[0].arr) ? (ARBLK_t *) args[0].arr : NULL; *out = INTVAL(b ? (long long)b->hi - b->lo + 1 : 0); return 1; }
-    if (!strcmp(fn, "__pas_open") && nargs == 1) {
-        DESCR_t c = pas_agg_copy(args[0]);
-        if (c.v == DT_A && c.arr && ((ARBLK_t *) c.arr)->ndim == 1 && c.arr != args[0].arr) { ARBLK_t *b = (ARBLK_t *) c.arr; b->hi = b->hi - b->lo; b->lo = 0; }
-        *out = c;
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_rebase") && nargs == 2) {
-        if (args[0].v == DT_A && args[0].arr && ((ARBLK_t *) args[0].arr)->ndim == 1 && IS_INT_fn(args[1])) {
-            ARBLK_t *b = (ARBLK_t *) args[0].arr;
-            b->hi = (int) (args[1].i + (b->hi - b->lo));
-            b->lo = (int) args[1].i;
-        }
-        *out = args[0];
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_dynset") && nargs >= 4) { *out = pas_dynset(args[0], args[1], IS_INT_fn(args[2]) ? (int)args[2].i : 1, args + 3, nargs - 3); return 1; }
-    if (!strcmp(fn, "__pas_setlength") && nargs == 2) {
-        const char *s = VARVAL_fn(args[0]);
-        if (!s) s = "";
-        long oldlen = (long)strlen(s);
-        long newlen = IS_INT_fn(args[1]) ? (long)args[1].i : 0;
-        if (newlen < 0) newlen = 0;
-        long copy = oldlen < newlen ? oldlen : newlen;
-        char *o = rt_wsb_alloc((size_t)newlen + 1);
-        if (copy > 0) memcpy(o, s, (size_t)copy);
-        if (newlen > copy) memset(o + copy, ' ', (size_t)(newlen - copy));
-        o[newlen] = '\0';
-        *out = STRVAL(o);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_strcmp") && nargs == 2) {
-        const char *sa = VARVAL_fn(args[0]);
-        if (!sa) sa = "";
-        const char *sb = VARVAL_fn(args[1]);
-        if (!sb) sb = "";
-        size_t la = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (size_t)args[0].slen : strlen(sa);
-        size_t lb = (args[1].v == DT_S && args[1].slen != 0xFFFFFFFFu) ? (size_t)args[1].slen : strlen(sb);
-        size_t lm = la < lb ? la : lb;
-        int c = lm ? memcmp(sa, sb, lm) : 0;
-        if (c == 0) c = (la < lb) ? -1 : (la > lb) ? 1 : 0;
-        *out = INTVAL(c < 0 ? -1 : c > 0 ? 1 : 0);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_ca_pack") && nargs >= 1) { *out = pas_chars_of(args[0], (nargs >= 2 && IS_INT_fn(args[1])) ? (long)args[1].i : 0); return 1; }
-    if (!strcmp(fn, "__pas_ca_unpack") && nargs >= 1) { *out = args[0]; return 1; }
-    if (!strcmp(fn, "__pas_arr_copy") && nargs == 1) { *out = pas_agg_copy(args[0]); return 1; }
-    if (!strcmp(fn, "__pas_arr_of") && nargs == 3) {
-        long long lo = IS_INT_fn(args[0]) ? args[0].i : 0;
-        long long hi = IS_INT_fn(args[1]) ? args[1].i : 0;
-        long long n = hi - lo + 1;
-        if (n < 1) n = 1;
-        ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
-        b->id = rt_agg_serial_list();
-        b->dumpno = rt_sno_dumpno_next();
-        b->lo = (int) lo;
-        b->hi = (int) hi;
-        b->ndim = 1;
-        b->lo2 = 0;
-        b->hi2 = 0;
-        b->proto_bare = 0;
-        b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
-        for (long long k = 0; k < n; k++) b->data[k] = pas_agg_copy(args[2]);
-        DESCR_t d = {0};
-        d.v = DT_A;
-        d.slen = 0;
-        d.arr = b;
-        *out = d;
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_stdfile") && nargs == 1) { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL(IS_INT_fn(args[0]) && args[0].i == 1 ? 1 : 0); return 1; }
-    if (!strcmp(fn, "__pas_ca_encode") && nargs == 3) {
-        if (args[0].v == DT_A && args[0].arr) { *out = pas_agg_copy(args[0]); return 1; }
-        const char *sa = VARVAL_fn(args[0]);
-        if (!sa) sa = "";
-        long lo = IS_INT_fn(args[1]) ? (long)args[1].i : 0;
-        long hi = IS_INT_fn(args[2]) ? (long)args[2].i : -1;
-        long sl = (long)strlen(sa);
-        if (hi < lo + sl - 1) hi = lo + sl - 1;
-        if (hi < lo) hi = lo;
-        ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
-        b->id = rt_agg_serial_list();
-        b->dumpno = rt_sno_dumpno_next();
-        b->lo = (int) lo;
-        b->hi = (int) hi;
-        b->ndim = 1;
-        b->lo2 = 0;
-        b->hi2 = 0;
-        b->proto_bare = 0;
-        b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) (hi - lo + 1));
-        for (long k = lo; k <= hi; k++) b->data[k - lo] = INTVAL(k - lo < sl ? (unsigned char) sa[k - lo] : 32);
-        DESCR_t d = {0};
-        d.v = DT_A;
-        d.slen = 0;
-        d.arr = b;
-        *out = d;
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_field_set") && nargs == 3) {
-        DESCR_t *hc = pas_heap_ref(args[0], fn);
-        long idx = rk_ival(args[1]);
-        if (hc->v == DT_A && hc->arr) { ARBLK_t *b = (ARBLK_t *) hc->arr; if (idx >= b->lo && idx <= b->hi) b->data[idx - b->lo] = args[2]; *out = args[2]; return 1; }
-        *hc = (idx >= 1) ? pas_str_setch(*hc, idx, pas_ch_of(args[2])) : args[2];
-        *out = args[2];
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_field_idx_set") && nargs == 4) {
-        DESCR_t *hc = pas_heap_ref(args[0], fn);
-        long fidx = IS_INT_fn(args[1]) ? args[1].i : 0;
-        long eidx = IS_INT_fn(args[2]) ? args[2].i : 0;
-        unsigned char ch = pas_ch_of(args[3]);
-        if (hc->v == DT_A && hc->arr && eidx >= 1) { ARBLK_t *b = (ARBLK_t *) hc->arr; if (fidx >= b->lo && fidx <= b->hi) b->data[fidx - b->lo] = pas_str_setch(b->data[fidx - b->lo], eidx, ch); }
-        *out = args[3];
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_field_idx_update") && nargs == 4) {
-        long fidx = IS_INT_fn(args[1]) ? args[1].i : 0;
-        long eidx = IS_INT_fn(args[2]) ? args[2].i : 0;
-        unsigned char ch = pas_ch_of(args[3]);
-        if (args[0].v == DT_A && args[0].arr && eidx >= 1) {
-            ARBLK_t *b = (ARBLK_t *) args[0].arr;
-            if (fidx >= b->lo && fidx <= b->hi) b->data[fidx - b->lo] = pas_str_setch(b->data[fidx - b->lo], eidx, ch);
-        }
-        *out = args[0];
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_deref") && nargs == 1) { *out = *pas_heap_ref(args[0], fn); return 1; }
-    if (!strcmp(fn, "__pas_deref_set") && nargs == 2) { *pas_heap_ref(args[0], fn) = args[1]; *out = args[1]; return 1; }
-    if (!strcmp(fn, "__pas_fassign") && nargs == 1) { const char *s = VARVAL_fn(args[0]); if (!s) s = ""; *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
-    if (!strcmp(fn, "__pas_rewrite") && (nargs == 1 || nargs == 2)) {
-        extern int fh_alloc(FILE *);
-        const char *stale_nm = NULL;
-        if (IS_FH_fn(args[0])) {
-            int oidx = (int)args[0].i;
-            FILE *ofp = fh_get(oidx);
-            if (ofp) { fflush(ofp); rewind(ofp); if (ftruncate(fileno(ofp), 0) == 0) { *out = args[0]; return 1; } }
-            if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name;
-        }
-        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : IS_STR_fn(args[0]) ? VARVAL_fn(args[0]) : NULL;
-        long long hcode = (IS_INT_fn(args[0]) && args[0].i < 0) ? 2 * (-args[0].i) + 1 : (nargs == 2 && IS_INT_fn(args[1])) ? args[1].i : -1;
-        if ((!nm || !nm[0]) && hcode >= 0) {
-            extern const char *pas_main_arg(int);
-            const char *pa = pas_main_arg((int)(hcode >> 1));
-            if (pa) nm = pa;
-            else { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL((hcode & 1) ? 1 : 0); return 1; }
-        }
-        if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
-        if (nm && nm[0] && (!strcmp(nm, "input") || !strcmp(nm, "output"))) nm = "";
-        FILE *fp;
-        if (nm && nm[0]) { fp = fopen(nm, "w+"); } else { char tmpl[] = "/tmp/scrip_pas_XXXXXX"; int fd = mkstemp(tmpl); if (fd >= 0) unlink(tmpl); fp = (fd >= 0) ? fdopen(fd, "w+") : (FILE *)0; }
-        if (!fp) { *out = FAILDESCR; return 1; }
-        int idx = fh_alloc(fp);
-        if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
-        if (nm && nm[0]) g_fh[idx].name = rt_heap_strdup_c(nm);
-        *out = FHVAL(idx);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_append") && (nargs == 1 || nargs == 2)) {
-        extern int fh_alloc(FILE *);
-        const char *stale_nm = NULL;
-        if (IS_FH_fn(args[0])) { int oidx = (int)args[0].i; FILE *ofp = fh_get(oidx); if (ofp) { *out = args[0]; return 1; } if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name; }
-        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]);
-        if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
-        if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
-        FILE *fp = fopen(nm, "a+");
-        if (!fp) { *out = FAILDESCR; return 1; }
-        int idx = fh_alloc(fp);
-        if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
-        g_fh[idx].name = rt_heap_strdup_c(nm);
-        *out = FHVAL(idx);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_reset") && (nargs == 1 || nargs == 2)) {
-        extern int fh_alloc(FILE *);
-        const char *stale_nm = NULL;
-        if (IS_FH_fn(args[0])) { int oidx = (int)args[0].i; FILE *ofp = fh_get(oidx); if (ofp) { rewind(ofp); *out = args[0]; return 1; } if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name; }
-        int hvar = IS_INT_fn(args[0]) && args[0].i < 0;
-        long long hcode = hvar ? 2 * (-args[0].i) : (nargs == 2 && IS_INT_fn(args[1])) ? args[1].i : -1;
-        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : hvar ? NULL : VARVAL_fn(args[0]);
-        if ((!nm || !nm[0]) && hcode >= 0) {
-            extern const char *pas_main_arg(int);
-            const char *pa = pas_main_arg((int)(hcode >> 1));
-            if (pa) nm = pa;
-            else { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL((hcode & 1) ? 1 : 0); return 1; }
-        }
-        if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
-        if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
-        FILE *fp = fopen(nm, "r");
-        if (!fp) { fflush(stdout); fprintf(stderr, "Runtime error 2 at $0\n"); exit(2); }
-        int idx = fh_alloc(fp);
-        if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
-        g_fh[idx].name = rt_heap_strdup_c(nm);
-        *out = FHVAL(idx);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_fclose") && nargs == 1) {
-        extern FILE *fh_get(int);
-        extern void fh_free(int);
-        if (IS_FH_fn(args[0])) { int idx = (int)args[0].i; FILE *fp = fh_get(idx); if (fp && fp != stdout && fp != stderr && fp != stdin) { fflush(fp); fclose(fp); fh_free(idx); } }
-        *out = NULVCL;
-        return 1;
-    }
-    if ((!strcmp(fn, "__pas_read_s") && nargs == 0) || (!strcmp(fn, "__pas_read_s_f") && nargs == 1)) {
-        extern FILE *fh_get(int);
-        FILE *f = nargs == 1 && IS_FH_fn(args[0]) ? fh_get((int)args[0].i) : stdin;
-        if (!f) f = stdin;
-        size_t cap = 64, n = 0;
-        char *r = (char *)rt_wsb_alloc(cap);
-        int ch;
-        while ((ch = fgetc(f)) != EOF && ch != '\n') { if (n + 1 >= cap) { char *g = (char *)rt_wsb_alloc(cap * 2); memcpy(g, r, n); r = g; cap *= 2; } r[n++] = (char)ch; }
-        if (ch == '\n') ungetc('\n', f);
-        r[n] = '\0';
-        *out = (DESCR_t){ .v = DT_S, .s = r, .slen = (uint32_t)n };
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_copy") && nargs == 3) {
-        const char *sv = VARVAL_fn(args[0]);
-        long long len = sv ? (long long)strlen(sv) : 0, i = IS_INT_fn(args[1]) ? args[1].i : 1, n = IS_INT_fn(args[2]) ? args[2].i : 0;
-        if (i < 1) i = 1;
-        long long avail = len - (i - 1);
-        if (avail < 0) avail = 0;
-        if (n > avail) n = avail;
-        if (n < 0) n = 0;
-        char *r = (char *)rt_wsb_alloc((size_t)n + 1);
-        if (n > 0) memcpy(r, sv + (i - 1), (size_t)n);
-        r[n] = '\0';
-        *out = (DESCR_t){ .v = DT_S, .s = r, .slen = (uint32_t)n };
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_upcase") && nargs == 1) {
-        if (IS_INT_fn(args[0])) { long long c = args[0].i; *out = INTVAL(c >= 'a' && c <= 'z' ? c - 32 : c); return 1; }
-        const char *sv = VARVAL_fn(args[0]);
-        size_t n = sv ? strlen(sv) : 0;
-        char *r = (char *)rt_wsb_alloc(n + 1);
-        for (size_t k = 0; k < n; k++) r[k] = (sv[k] >= 'a' && sv[k] <= 'z') ? (char)(sv[k] - 32) : sv[k];
-        r[n] = '\0';
-        *out = (DESCR_t){ .v = DT_S, .s = r, .slen = (uint32_t)n };
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_paramcount") && nargs == 0) { extern int pas_main_argc(void); *out = INTVAL(pas_main_argc()); return 1; }
-    if (!strcmp(fn, "__pas_paramstr") && nargs == 1) {
-        extern const char *pas_main_arg(int);
-        const char *a = IS_INT_fn(args[0]) ? pas_main_arg((int)args[0].i) : (const char *)0;
-        size_t n = a ? strlen(a) : 0;
-        char *r = (char *)rt_wsb_alloc(n + 1);
-        if (n) memcpy(r, a, n);
-        r[n] = '\0';
-        *out = (DESCR_t){ .v = DT_S, .s = r, .slen = (uint32_t)n };
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_std_mute") && nargs == 0) { fflush(stdout); int nul = open("/dev/null", O_WRONLY); if (nul >= 0) { dup2(nul, 1); close(nul); } *out = NULVCL; return 1; }
-    if (!strcmp(fn, "__pas_ferase") && nargs == 1) {
-        extern FILE *fh_get(int);
-        extern void fh_free(int);
-        const char *nm = NULL;
-        if (IS_FH_fn(args[0])) {
-            int idx = (int)args[0].i;
-            if (idx >= 0 && idx < FH_N) nm = g_fh[idx].name;
-            FILE *fp = fh_get(idx);
-            if (fp && fp != stdout && fp != stderr && fp != stdin) { fflush(fp); fclose(fp); fh_free(idx); }
-        } else nm = VARVAL_fn(args[0]);
-        if (nm && nm[0]) remove(nm);
-        *out = NULVCL;
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_pchar_deref") && nargs == 1) { const char *s = VARVAL_fn(args[0]); *out = INTVAL(s && s[0] ? (long long)(unsigned char)s[0] : 0); return 1; }
-    if (!strcmp(fn, "__pas_ord_check") && (nargs == 4 || nargs == 5)) {
-        if (IS_INT_fn(args[0]) && IS_INT_fn(args[1]) && IS_INT_fn(args[2]) && (args[0].i < args[1].i || args[0].i > args[2].i)) {
-            const char *wn = VARVAL_fn(args[3]);
-            char w[fmt_len("%s -- the value %lld is outside %lld..%lld", wn, (long long)args[0].i, (long long)args[1].i, (long long)args[2].i)];
-            snprintf(w, sizeof w, "%s -- the value %lld is outside %lld..%lld", wn, (long long)args[0].i, (long long)args[1].i, (long long)args[2].i);
-            pas_file_err(nargs == 5 ? VARVAL_fn(args[4]) : "6.6.6.4", w, NULL);
-        }
-        *out = args[0];
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_resundef") && nargs == 1) { *out = INTVAL(args[0].v == DT_SNUL ? 1L : 0L); return 1; }
-    if (!strcmp(fn, "__pas_rterr") && nargs == 2) { pas_file_err(VARVAL_fn(args[0]), VARVAL_fn(args[1]), NULL); *out = NULVCL; return 1; }
-    if (!strcmp(fn, "__pas_range_check") && nargs == 5) {
-        long long lo = IS_INT_fn(args[1]) ? args[1].i : 0, hi = IS_INT_fn(args[2]) ? args[2].i : 0;
-        const char *cl = VARVAL_fn(args[3]);
-        unsigned char bits[PAS_SET_BYTES];
-        pas_set_bits(args[0], bits);
-        int out_of = 0;
-        for (long long e = 0; e < PAS_SET_BYTES * 8; e++) if (((bits[e / 8] >> (e % 8)) & 1) && (e < lo || e > hi)) { out_of = 1; break; }
-        if (out_of && cl && cl[0]) pas_file_err(cl, "a member of the set value lies outside the base-type of the set variable it is given to", NULL);
-        if (out_of) { fflush(NULL); fprintf(stderr, "Runtime error 201 at $0\n"); exit(201); }
-        *out = args[0];
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_range_check") && (nargs == 3 || nargs == 4)) {
-        long long v = IS_INT_fn(args[0]) ? args[0].i : 0;
-        long long lo = IS_INT_fn(args[1]) ? args[1].i : 0;
-        long long hi = IS_INT_fn(args[2]) ? args[2].i : 0;
-        if ((v < lo || v > hi) && nargs == 4) pas_file_err(VARVAL_fn(args[3]), "the value is not assignment-compatible with the subrange type of the variable it is given to", NULL);
-        if (v < lo || v > hi) { fflush(NULL); fprintf(stderr, "Runtime error 201 at $0\n"); exit(201); }
-        *out = args[0];
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_str_to_int") && nargs == 1) { const char *s = VARVAL_fn(args[0]); *out = INTVAL(s ? strtoll(s, NULL, 10) : 0); return 1; }
-    if (!strcmp(fn, "__pas_str_delete") && nargs == 3) {
-        const char *s = VARVAL_fn(args[0]);
-        if (!s) s = "";
-        size_t len = strlen(s);
-        long long pos = IS_INT_fn(args[1]) ? args[1].i : 1;
-        long long cnt = IS_INT_fn(args[2]) ? args[2].i : 0;
-        if (pos < 1) pos = 1;
-        if ((size_t)pos > len || cnt <= 0) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
-        size_t start = (size_t)pos - 1;
-        size_t n = (size_t)cnt;
-        if (start + n > len) n = len - start;
-        char *buf = rt_heap_alloc_c(len - n + 1);
-        memcpy(buf, s, start);
-        memcpy(buf + start, s + start + n, len - start - n);
-        buf[len - n] = '\0';
-        *out = STRVAL(buf);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_str_insert") && nargs == 3) {
-        const char *src = VARVAL_fn(args[0]);
-        if (!src) src = "";
-        const char *s = VARVAL_fn(args[1]);
-        if (!s) s = "";
-        size_t slen = strlen(src), len = strlen(s);
-        long long pos = IS_INT_fn(args[2]) ? args[2].i : 1;
-        if (pos < 1) pos = 1;
-        if ((size_t)pos > len + 1) pos = (long long)len + 1;
-        size_t at = (size_t)pos - 1;
-        char *buf = rt_heap_alloc_c(len + slen + 1);
-        memcpy(buf, s, at);
-        memcpy(buf + at, src, slen);
-        memcpy(buf + at + slen, s + at, len - at);
-        buf[len + slen] = '\0';
-        *out = STRVAL(buf);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_in") && nargs == 2) {
-        long e = pas_ord_of(args[0]);
-        unsigned char bits[PAS_SET_BYTES];
-        pas_set_bits(args[1], bits);
-        int hit = (e >= 0 && e < PAS_SET_BYTES * 8) ? ((bits[e / 8] >> (e % 8)) & 1) : 0;
-        *out = INTVAL(hit ? 1 : 0);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_tget") || !strcmp(fn, "__pas_tput") || !strcmp(fn, "__pas_tbuf_get") || !strcmp(fn, "__pas_tbuf_set")) {
-        extern FILE *fh_get(int);
-        static struct { int has; int c; } tb[512];
-        if (!IS_FH_fn(args[0])) { extern void core_runtime_error(int code, const char *msg); core_runtime_error(103, "file not open (reset or rewrite it first)"); *out = FAILDESCR; return 1; }
-        int idx = (int)args[0].i;
-        FILE *fp = fh_get(idx);
-        if (!fp || idx < 0 || idx >= 512) { *out = FAILDESCR; return 1; }
-        if (!strcmp(fn, "__pas_tbuf_get")) {
-            int c = fgetc(fp);
-            if (c == EOF) { *out = INTVAL((long long)' '); return 1; }
-            ungetc(c, fp);
-            if (c == '\n') c = ' ';
-            *out = INTVAL((long long)(unsigned char)c);
-            return 1;
-        }
-        if (!strcmp(fn, "__pas_tbuf_set") && nargs == 2) {
-            tb[idx].has = 1;
-            tb[idx].c = IS_INT_fn(args[1]) ? (int)args[1].i : (VARVAL_fn(args[1]) ? (unsigned char)VARVAL_fn(args[1])[0] : ' ');
-            *out = NULVCL;
-            return 1;
-        }
-        if (!strcmp(fn, "__pas_tget")) { int c = fgetc(fp); (void)c; *out = NULVCL; return 1; }
-        if (!strcmp(fn, "__pas_tput")) { if (tb[idx].has) fputc(tb[idx].c, fp); tb[idx].has = 0; *out = NULVCL; return 1; }
-        *out = FAILDESCR;
-        return 1;
-    }
-    if (!strncmp(fn, "__pas_f", 7) || !strcmp(fn, "__pas_treset") || !strcmp(fn, "__pas_trewrite")) {
-        extern int fh_alloc(FILE *);
-        extern FILE *fh_get(int);
-        if (!strcmp(fn, "__pas_trewrite") && (nargs == 1 || nargs == 2)) {
-            FILE *fp = (FILE *)0;
-            int idx = -1;
-            if (IS_FH_fn(args[0])) { idx = (int)args[0].i; fp = fh_get(idx); if (fp) { rewind(fp); if (ftruncate(fileno(fp), 0) != 0) fp = (FILE *)0; } }
-            if (!fp) {
-                const char *nm = IS_FH_fn(args[0]) ? (const char *)0 : VARVAL_fn(args[0]);
-                if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]);
-                if (nm && nm[0]) fp = fopen(nm, "w+b");
-                else { char tmpl[] = "/tmp/scrip_pas_XXXXXX"; int fd = mkstemp(tmpl); if (fd >= 0) unlink(tmpl); fp = (fd >= 0) ? fdopen(fd, "w+b") : (FILE *)0; }
-                if (!fp) { *out = FAILDESCR; return 1; }
-                idx = fh_alloc(fp);
-                if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
-            }
-            if (idx >= 0) pas_tf_set(idx, INTVAL(0), 0, 1);
-            *out = FHVAL(idx);
-            return 1;
-        }
-        int pas_tf_read(FILE *fp, DESCR_t *o);
-        void pas_tf_write(FILE *fp, DESCR_t v);
-        void pas_file_err(const char *clause, const char *what, const char *proc);
-        if (!strcmp(fn, "__pas_treset") && (nargs == 1 || nargs == 2)) {
-            FILE *fp = (FILE *)0;
-            int idx = -1;
-            if (IS_FH_fn(args[0])) { idx = (int)args[0].i; fp = fh_get(idx); if (fp) { fflush(fp); rewind(fp); } }
-            if (!fp) {
-                const char *nm = VARVAL_fn(args[0]);
-                if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]);
-                if (!nm || !nm[0]) {
-                    pas_file_err("6.6.5.2", "the file is undefined immediately prior to reset (it has neither been rewritten nor associated with an external file)", "__pas_treset");
-                    *out = FAILDESCR;
-                    return 1;
-                }
-                fp = fopen(nm, "rb");
-                if (!fp) { *out = FAILDESCR; return 1; }
-                idx = fh_alloc(fp);
-                if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
-            }
-            if (idx >= 0) { DESCR_t b = INTVAL(0); int h = pas_tf_read(fp, &b); pas_tf_set(idx, b, h, 2); }
-            *out = FHVAL(idx);
-            return 1;
-        }
-        if (!IS_FH_fn(args[0])) { pas_file_err("6.6.5.2", "the file is undefined (it has been neither reset nor rewritten)", fn); *out = FAILDESCR; return 1; }
-        int idx = (int)args[0].i;
-        FILE *fp = fh_get(idx);
-        if (!fp || idx < 0 || idx >= PTF_N) { pas_file_err("6.6.5.2", "the file is undefined (no open stream stands behind it)", fn); *out = FAILDESCR; return 1; }
-        if (!strcmp(fn, "__pas_fbuf_get") && nargs == 1) { *out = PTF_HAS(idx) ? PTF_BUF(idx) : INTVAL(0); return 1; }
-        if (!strcmp(fn, "__pas_fbuf_set") && nargs == 2) { pas_tf_set(idx, args[1], 1, PTF_MODE(idx)); *out = NULVCL; return 1; }
-        if (!strcmp(fn, "__pas_fput") && nargs == 1) {
-            if (PTF_MODE(idx) != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to put", fn);
-            if (!PTF_HAS(idx)) pas_file_err("6.6.5.2", "the buffer-variable is undefined immediately prior to put", fn);
-            pas_tf_write(fp, PTF_BUF(idx));
-            pas_tf_set(idx, PTF_BUF(idx), 0, PTF_MODE(idx));
-            *out = NULVCL;
-            return 1;
-        }
-        if (!strcmp(fn, "__pas_fget") && nargs == 1) {
-            if (PTF_MODE(idx) != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to get", fn);
-            if (!PTF_HAS(idx)) pas_file_err("6.6.5.2", "end-of-file is true immediately prior to get", fn);
-            { DESCR_t b = INTVAL(0); int h = pas_tf_read(fp, &b); pas_tf_set(idx, b, h, PTF_MODE(idx)); }
-            *out = NULVCL;
-            return 1;
-        }
-        if (!strcmp(fn, "__pas_fwrite") && nargs == 2) {
-            if (PTF_MODE(idx) != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to write", fn);
-            pas_tf_write(fp, args[1]);
-            *out = NULVCL;
-            return 1;
-        }
-        if (!strcmp(fn, "__pas_fwrite_range") && nargs == 4) {
-            if (PTF_MODE(idx) != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to write", fn);
-            long _lo = pas_ord_of(args[2]), _hi = pas_ord_of(args[3]), _ov = pas_ord_of(args[1]);
-            if (_ov < _lo || _ov > _hi) pas_file_err("6.4.3.5", "the value written is not assignment-compatible with the file's subrange component-type", fn);
-            pas_tf_write(fp, args[1]);
-            *out = NULVCL;
-            return 1;
-        }
-        if (!strcmp(fn, "__pas_fread") && nargs == 1) {
-            if (PTF_MODE(idx) != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to read", fn);
-            if (!PTF_HAS(idx)) pas_file_err("6.9.1", "the buffer-variable is undefined immediately prior to read (end-of-file is true)", fn);
-            DESCR_t v = PTF_BUF(idx);
-            { DESCR_t b = INTVAL(0); int h = pas_tf_read(fp, &b); pas_tf_set(idx, b, h, PTF_MODE(idx)); }
-            *out = v;
-            return 1;
-        }
-        if (!strcmp(fn, "__pas_fread_range") && nargs == 3) {
-            if (PTF_MODE(idx) != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to read", fn);
-            if (!PTF_HAS(idx)) pas_file_err("6.9.1", "the buffer-variable is undefined immediately prior to read (end-of-file is true)", fn);
-            DESCR_t v = PTF_BUF(idx);
-            { DESCR_t b = INTVAL(0); int h = pas_tf_read(fp, &b); pas_tf_set(idx, b, h, PTF_MODE(idx)); }
-            long _lo = pas_ord_of(args[1]), _hi = pas_ord_of(args[2]), _ov = pas_ord_of(v);
-            if (_ov < _lo || _ov > _hi) pas_file_err("6.9.1", "the value read is not assignment-compatible with the subrange of the destination variable", fn);
-            *out = v;
-            return 1;
-        }
-        if (!strcmp(fn, "__pas_feof_t") && nargs == 1) { *out = INTVAL(PTF_HAS(idx) ? 0 : 1); return 1; }
-        *out = FAILDESCR;
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_setrange") && nargs == 2) {
-        unsigned char *buf = (unsigned char *)rt_str_alloc(PAS_SET_BYTES);
-        memset(buf, 0, PAS_SET_BYTES);
-        long lo = pas_ord_of(args[0]), hi = pas_ord_of(args[1]);
-        if (lo < 0) lo = 0;
-        if (hi >= PAS_SET_BYTES * 8) hi = PAS_SET_BYTES * 8 - 1;
-        for (long e = lo; e <= hi; e++) buf[e / 8] |= (unsigned char)(1u << (e % 8));
-        *out = BSTRVAL((char *)buf, PAS_SET_BYTES);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_set")) {
-        unsigned char *buf = (unsigned char *)rt_str_alloc(PAS_SET_BYTES);
-        memset(buf, 0, PAS_SET_BYTES);
-        for (int k = 0; k < nargs; k++) { long e = pas_ord_of(args[k]); if (e >= 0 && e < PAS_SET_BYTES * 8) buf[e / 8] |= (unsigned char)(1u << (e % 8)); }
-        *out = BSTRVAL((char *)buf, PAS_SET_BYTES);
-        return 1;
-    }
-    if (nargs == 2 &&
-        (!strcmp(fn, "__pas_setuni") || !strcmp(fn, "__pas_setint") || !strcmp(fn, "__pas_setdif") || !strcmp(fn, "__pas_subset") || !strcmp(fn, "__pas_super") || !strcmp(fn, "__pas_seteq") ||
-        !strcmp(fn, "__pas_setne"))) {
-        unsigned char a[PAS_SET_BYTES], b[PAS_SET_BYTES];
-        pas_set_bits(args[0], a);
-        pas_set_bits(args[1], b);
-        if (!strcmp(fn, "__pas_subset") || !strcmp(fn, "__pas_super")) {
-            const unsigned char *x = !strcmp(fn, "__pas_subset") ? a : b;
-            const unsigned char *y = !strcmp(fn, "__pas_subset") ? b : a;
-            int ok = 1;
-            for (int i = 0; i < PAS_SET_BYTES; i++) if (x[i] & (unsigned char)~y[i]) { ok = 0; break; }
-            *out = INTVAL(ok);
-            return 1;
-        }
-        if (!strcmp(fn, "__pas_seteq") || !strcmp(fn, "__pas_setne")) { int eq = memcmp(a, b, PAS_SET_BYTES) == 0; *out = INTVAL((!strcmp(fn, "__pas_seteq") ? eq : !eq) ? 1 : 0); return 1; }
-        unsigned char *r = (unsigned char *)rt_str_alloc(PAS_SET_BYTES);
-        for (int i = 0; i < PAS_SET_BYTES; i++) {
-            if (!strcmp(fn, "__pas_setuni")) r[i] = a[i] | b[i];
-            else if (!strcmp(fn, "__pas_setint")) r[i] = a[i] & b[i];
-            else r[i] = a[i] & (unsigned char)~b[i];
-        }
-        *out = BSTRVAL((char *)r, PAS_SET_BYTES);
-        return 1;
-    }
+    if (fn[0] == '_' && fn[1] == '_' && fn[2] == 'p' && fn[3] == 'a' && fn[4] == 's' && fn[5] == '_' && pas_bi_chain(fn, args, nargs, out, rq)) return 1;
     if (nargs >= 1 && (!strcmp(fn, "__rk_jct_any") || !strcmp(fn, "__rk_jct_all") || !strcmp(fn, "__rk_jct_one") || !strcmp(fn, "__rk_jct_none"))) {
         const char *fl = !strcmp(fn, "__rk_jct_any") ? rk_proto_jct_any : !strcmp(fn, "__rk_jct_all") ? rk_proto_jct_all : !strcmp(fn, "__rk_jct_one") ? rk_proto_jct_one : rk_proto_jct_none;
         *out = rk_mk_jct(fl, args, nargs);
@@ -14649,6 +13943,732 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
+    if (!strcmp(fn, "__pas_sqr") && nargs == 1) {
+        if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r = {0}; r.v = DT_R; r.r = d * d; *out = r; return 1; }
+        long v = IS_INT_fn(args[0]) ? args[0].i : 0;
+        if (v > 46340 || v < -46340) pas_file_err("6.6.6.2", "sqr(x) of an integer whose square exceeds maxint, so no such value exists", NULL);
+        *out = INTVAL(v * v);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_alloc") && nargs == 0) { long n = pas_heap_take(); DESCR_t *c = pas_heap_cell(n, 1); if (c) *c = INTVAL(0); *out = INTVAL(n); return 1; }
+    if (!strcmp(fn, "__pas_alloc_rec") && nargs == 1) {
+        long n = pas_heap_take();
+        DESCR_t *c = pas_heap_cell(n, 1);
+        if (c) *c = (args[0].v == DT_A && args[0].arr) ? args[0] : STRVAL(rt_heap_strdup_c("0"));
+        *out = INTVAL(n);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_dispose") && nargs == 1) {
+        if (!IS_INT_fn(args[0]) || args[0].i <= 0) pas_file_err("6.6.5.3", "dispose of a pointer that is nil or undefined, so it identifies no variable", NULL);
+        if (args[0].i < g_pas_heap_cap && (g_pas_heap_dead[args[0].i] & 2))
+            pas_file_err("6.6.5.3", "dispose(p) of a variable created with new(p, c1, ..., cn) must name the same variant constants", NULL);
+        pas_heap_give(args[0].i);
+        *out = NULVCL;
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_dispose_k") && nargs == 3) {
+        if (!IS_INT_fn(args[0]) || args[0].i <= 0) pas_file_err("6.6.5.3", "dispose of a pointer that is nil or undefined, so it identifies no variable", NULL);
+        long long n = args[0].i;
+        int tagged = n < g_pas_heap_cap && (g_pas_heap_dead[n] & 2);
+        if (!tagged) pas_file_err("6.6.5.3", "dispose(p, k1, ..., kn) names variants for a variable not created with new(p, c1, ..., cn)", NULL);
+        if (IS_INT_fn(args[1]) && IS_INT_fn(args[2]) && pas_tag_ne(args[1].i, args[2].i))
+            pas_file_err("6.6.5.3", "the variant constants of dispose are not those of the new that created the variable", NULL);
+        pas_heap_give(n);
+        *out = NULVCL;
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_tagmark") && nargs == 1) { if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_pas_heap_cap) g_pas_heap_dead[args[0].i] |= 2; *out = NULVCL; return 1; }
+    if (!strcmp(fn, "__pas_tagset_chk") && nargs == 3) {
+        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_pas_heap_cap && (g_pas_heap_dead[args[0].i] & 2) && IS_INT_fn(args[1]) && IS_INT_fn(args[2]) && pas_tag_ne(args[1].i, args[2].i))
+            pas_file_err("6.6.5.3", "the tag-field of a variable created with new(p, c1, ..., cn) is assigned a value that activates a different variant", NULL);
+        *out = NULVCL;
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_tagwhole") && nargs == 1) {
+        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_pas_heap_cap && (g_pas_heap_dead[args[0].i] & 2))
+            pas_file_err("6.6.5.3", "a variable created with new(p, c1, ..., cn) is accessed as a whole by a factor, an assignment or an actual-parameter", NULL);
+        *out = NULVCL;
+        return 1;
+    }
+    if ((!strcmp(fn, "__pas_udiv") || !strcmp(fn, "__pas_umod")) && nargs == 2) {
+        unsigned long long x = IS_INT_fn(args[0]) ? (unsigned long long)args[0].i : 0ULL, y = IS_INT_fn(args[1]) ? (unsigned long long)args[1].i : 0ULL;
+        if (!y) pas_file_err("6.7.2.2", "the divisor of div or mod is zero", NULL);
+        *out = INTVAL((long long)(fn[7] == 'd' ? x / y : x % y));
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_s2wide") && nargs == 4) {
+        const char *src = VARVAL_fn(args[0]);
+        if (!src) src = "";
+        if (args[1].v == DT_A && args[1].arr && IS_INT_fn(args[2]) && IS_INT_fn(args[3])) {
+            ARBLK_t *b = (ARBLK_t *)args[1].arr;
+            long k = (long)args[2].i, n = (long)args[3].i, l = (long)strlen(src), m = n > 0 ? (l < n - 1 ? l : n - 1) : 0;
+            for (long i = 0; i < m; i++) if (k + i >= b->lo && k + i <= b->hi) b->data[k + i - b->lo] = INTVAL((long long)(unsigned char)src[i]);
+            if (n > 0 && k + m >= b->lo && k + m <= b->hi) b->data[k + m - b->lo] = INTVAL(0);
+        }
+        *out = NULVCL;
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_wide2s") && nargs == 2) {
+        if (args[0].v == DT_A && args[0].arr && IS_INT_fn(args[1])) {
+            ARBLK_t *b = (ARBLK_t *)args[0].arr;
+            long k = (long)args[1].i;
+            long l = 0;
+            for (long i = k; i <= b->hi && i >= b->lo && IS_INT_fn(b->data[i - b->lo]) && b->data[i - b->lo].i != 0; i++) l++;
+            char *o = (char *)rt_wsb_alloc((size_t)l + 1);
+            for (long i = 0; i < l; i++) o[i] = (char)b->data[k + i - b->lo].i;
+            o[l] = '\0';
+            *out = (DESCR_t){ .v = DT_S, .s = o, .slen = (uint32_t)l };
+            return 1;
+        }
+        *out = STRVAL((char *)"");
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_qchk") && nargs == 1) { if (IS_INT_fn(args[0]) && args[0].i < 0) { fflush(NULL); fprintf(stderr, "Runtime error 215 at $0\n"); exit(215); } *out = args[0]; return 1; }
+    if (!strcmp(fn, "__pas_vcheck") && nargs == 2) {
+        long long tv = IS_INT_fn(args[0]) ? args[0].i : -2, m = IS_INT_fn(args[1]) ? args[1].i : 0;
+        if (tv == -1) tv = 1;
+        if (tv >= 0 && tv <= 62 && !((m >> tv) & 1)) pas_file_err("6.5.3.3", "a component of a variant is accessed while the tag-field selects a different variant", NULL);
+        *out = NULVCL;
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_mark") && nargs == 0) { *out = INTVAL(g_pas_heap_ctr + 1); return 1; }
+    if (!strcmp(fn, "__pas_release") && nargs == 1) { if (IS_INT_fn(args[0])) pas_heap_release(args[0].i); *out = NULVCL; return 1; }
+    if (!strcmp(fn, "__pas_alpha_str") && nargs == 2) { *out = pas_chars_of(args[0], IS_INT_fn(args[1]) ? (long)args[1].i : 0); return 1; }
+    if (!strcmp(fn, "__pas_rdecode") && nargs == 4) { *out = pas_rdecode(args[0], (long)pas_ord_of(args[1]), (long)pas_ord_of(args[2]), (long)pas_ord_of(args[3])); return 1; }
+    if (!strcmp(fn, "__pas_rpatch") && nargs == 5) { *out = pas_rpatch(args[0], (long)pas_ord_of(args[1]), (long)pas_ord_of(args[2]), (long)pas_ord_of(args[3]), args[4]); return 1; }
+    if (!strcmp(fn, "__pas_view") && nargs == 4) { *out = pas_view_make(args, nargs); return 1; }
+    if (!strcmp(fn, "__pas_random") && nargs <= 1) {
+        long r = random();
+        if (nargs == 1 && IS_INT_fn(args[0])) *out = INTVAL(args[0].i > 0 ? (long long)(r % args[0].i) : 0);
+        else *out = REALVAL((double)r / 2147483648.0);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_pow") && nargs == 2) {
+        if (IS_INT_fn(args[0]) && IS_INT_fn(args[1]) && args[1].i >= 0) {
+            long long r = 1, b = args[0].i, e = args[1].i;
+            while (e > 0) { if (e & 1) r *= b; b *= b; e >>= 1; }
+            *out = INTVAL(r);
+        } else {
+            double x = IS_REAL_fn(args[0]) ? args[0].r : (IS_INT_fn(args[0]) ? (double)args[0].i : 0.0);
+            double y = IS_REAL_fn(args[1]) ? args[1].r : (IS_INT_fn(args[1]) ? (double)args[1].i : 0.0);
+            *out = REALVAL(pow(x, y));
+        }
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_mathf") && (nargs == 2 || nargs == 3) && IS_INT_fn(args[0])) {
+        double x = IS_REAL_fn(args[1]) ? args[1].r : (IS_INT_fn(args[1]) ? (double)args[1].i : 0.0);
+        double y = nargs == 3 ? (IS_REAL_fn(args[2]) ? args[2].r : (IS_INT_fn(args[2]) ? (double)args[2].i : 0.0)) : 0.0;
+        double r = 0.0;
+        switch ((int)args[0].i) {
+            case 1:
+            r = tan(x);
+            break;
+            case 2:
+            r = asin(x);
+            break;
+            case 3:
+            r = acos(x);
+            break;
+            case 4:
+            r = sinh(x);
+            break;
+            case 5:
+            r = cosh(x);
+            break;
+            case 6:
+            r = tanh(x);
+            break;
+            case 7:
+            r = log2(x);
+            break;
+            case 8:
+            r = 1.0 / tan(x);
+            break;
+            case 9:
+            r = x * (M_PI / 180.0);
+            break;
+            case 10:
+            r = x * (180.0 / M_PI);
+            break;
+            case 11:
+            r = asinh(x);
+            break;
+            case 12:
+            r = acosh(x);
+            break;
+            case 13:
+            r = atanh(x);
+            break;
+            case 101:
+            r = atan2(x, y);
+            break;
+            case 102:
+            r = hypot(x, y);
+            break;
+            case 103:
+            r = log(y) / log(x);
+            break;
+            default:
+            r = 0.0;
+        }
+        *out = REALVAL(r);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_randomize") && nargs == 0) { srandom((unsigned)time(NULL) ^ (unsigned)getpid()); *out = NULVCL; return 1; }
+    if (!strcmp(fn, "__pas_stringofchar") && nargs == 2) {
+        const char *c = VARVAL_fn(args[0]);
+        long long n = IS_INT_fn(args[1]) ? args[1].i : 0;
+        if (n < 0) n = 0;
+        char *o = rt_wsb_alloc((size_t)n + 1);
+        memset(o, IS_INT_fn(args[0]) ? (int)(unsigned char)args[0].i : (c && c[0] ? c[0] : ' '), (size_t)n);
+        o[n] = '\0';
+        *out = STRVAL(o);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_strf") && nargs == 4) {
+        long long w = IS_INT_fn(args[1]) ? args[1].i : -1, p = IS_INT_fn(args[2]) ? args[2].i : -1;
+        size_t cap = (size_t)(w > 0 ? w : 0) + 96;
+        char *b = rt_wsb_alloc(cap), *o = rt_wsb_alloc(cap);
+        if (IS_REAL_fn(args[0]) && p >= 0) snprintf(o, cap, "%*.*f", (int)(w < 0 ? 0 : w), (int)(p > 16 ? 16 : p), args[0].r);
+        else if (IS_REAL_fn(args[0])) {
+            int prec = w < 0 ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : (int)w - 8));
+            pas_real_str_exp(args[0].r, b, (int)cap, prec, 3, IS_INT_fn(args[3]) && args[3].i);
+            int sp = b[0] == '-' ? 0 : 1, len = (int)strlen(b), fw = w < 0 ? len + sp : (len + sp > w ? len + sp : (int)w);
+            snprintf(o, cap, "%*s", fw, b);
+        } else snprintf(o, cap, "%*lld", (int)(w < 0 ? 0 : w), IS_INT_fn(args[0]) ? (long long)args[0].i : 0LL);
+        *out = STRVAL(o);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_dynlen") && nargs == 1) { ARBLK_t *b = (args[0].v == DT_A && args[0].arr) ? (ARBLK_t *) args[0].arr : NULL; *out = INTVAL(b ? (long long)b->hi - b->lo + 1 : 0); return 1; }
+    if (!strcmp(fn, "__pas_open") && nargs == 1) {
+        DESCR_t c = pas_agg_copy(args[0]);
+        if (c.v == DT_A && c.arr && ((ARBLK_t *) c.arr)->ndim == 1 && c.arr != args[0].arr) { ARBLK_t *b = (ARBLK_t *) c.arr; b->hi = b->hi - b->lo; b->lo = 0; }
+        *out = c;
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_rebase") && nargs == 2) {
+        if (args[0].v == DT_A && args[0].arr && ((ARBLK_t *) args[0].arr)->ndim == 1 && IS_INT_fn(args[1])) {
+            ARBLK_t *b = (ARBLK_t *) args[0].arr;
+            b->hi = (int) (args[1].i + (b->hi - b->lo));
+            b->lo = (int) args[1].i;
+        }
+        *out = args[0];
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_dynset") && nargs >= 4) { *out = pas_dynset(args[0], args[1], IS_INT_fn(args[2]) ? (int)args[2].i : 1, args + 3, nargs - 3); return 1; }
+    if (!strcmp(fn, "__pas_setlength") && nargs == 2) {
+        const char *s = VARVAL_fn(args[0]);
+        if (!s) s = "";
+        long oldlen = (long)strlen(s);
+        long newlen = IS_INT_fn(args[1]) ? (long)args[1].i : 0;
+        if (newlen < 0) newlen = 0;
+        long copy = oldlen < newlen ? oldlen : newlen;
+        char *o = rt_wsb_alloc((size_t)newlen + 1);
+        if (copy > 0) memcpy(o, s, (size_t)copy);
+        if (newlen > copy) memset(o + copy, ' ', (size_t)(newlen - copy));
+        o[newlen] = '\0';
+        *out = STRVAL(o);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_strcmp") && nargs == 2) {
+        const char *sa = VARVAL_fn(args[0]);
+        if (!sa) sa = "";
+        const char *sb = VARVAL_fn(args[1]);
+        if (!sb) sb = "";
+        size_t la = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (size_t)args[0].slen : strlen(sa);
+        size_t lb = (args[1].v == DT_S && args[1].slen != 0xFFFFFFFFu) ? (size_t)args[1].slen : strlen(sb);
+        size_t lm = la < lb ? la : lb;
+        int c = lm ? memcmp(sa, sb, lm) : 0;
+        if (c == 0) c = (la < lb) ? -1 : (la > lb) ? 1 : 0;
+        *out = INTVAL(c < 0 ? -1 : c > 0 ? 1 : 0);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_ca_pack") && nargs >= 1) { *out = pas_chars_of(args[0], (nargs >= 2 && IS_INT_fn(args[1])) ? (long)args[1].i : 0); return 1; }
+    if (!strcmp(fn, "__pas_ca_unpack") && nargs >= 1) { *out = args[0]; return 1; }
+    if (!strcmp(fn, "__pas_arr_copy") && nargs == 1) { *out = pas_agg_copy(args[0]); return 1; }
+    if (!strcmp(fn, "__pas_arr_of") && nargs == 3) {
+        long long lo = IS_INT_fn(args[0]) ? args[0].i : 0;
+        long long hi = IS_INT_fn(args[1]) ? args[1].i : 0;
+        long long n = hi - lo + 1;
+        if (n < 1) n = 1;
+        ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
+        b->id = rt_agg_serial_list();
+        b->dumpno = rt_sno_dumpno_next();
+        b->lo = (int) lo;
+        b->hi = (int) hi;
+        b->ndim = 1;
+        b->lo2 = 0;
+        b->hi2 = 0;
+        b->proto_bare = 0;
+        b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
+        for (long long k = 0; k < n; k++) b->data[k] = pas_agg_copy(args[2]);
+        DESCR_t d = {0};
+        d.v = DT_A;
+        d.slen = 0;
+        d.arr = b;
+        *out = d;
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_stdfile") && nargs == 1) { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL(IS_INT_fn(args[0]) && args[0].i == 1 ? 1 : 0); return 1; }
+    if (!strcmp(fn, "__pas_ca_encode") && nargs == 3) {
+        if (args[0].v == DT_A && args[0].arr) { *out = pas_agg_copy(args[0]); return 1; }
+        const char *sa = VARVAL_fn(args[0]);
+        if (!sa) sa = "";
+        long lo = IS_INT_fn(args[1]) ? (long)args[1].i : 0;
+        long hi = IS_INT_fn(args[2]) ? (long)args[2].i : -1;
+        long sl = (long)strlen(sa);
+        if (hi < lo + sl - 1) hi = lo + sl - 1;
+        if (hi < lo) hi = lo;
+        ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
+        b->id = rt_agg_serial_list();
+        b->dumpno = rt_sno_dumpno_next();
+        b->lo = (int) lo;
+        b->hi = (int) hi;
+        b->ndim = 1;
+        b->lo2 = 0;
+        b->hi2 = 0;
+        b->proto_bare = 0;
+        b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) (hi - lo + 1));
+        for (long k = lo; k <= hi; k++) b->data[k - lo] = INTVAL(k - lo < sl ? (unsigned char) sa[k - lo] : 32);
+        DESCR_t d = {0};
+        d.v = DT_A;
+        d.slen = 0;
+        d.arr = b;
+        *out = d;
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_field_set") && nargs == 3) {
+        DESCR_t *hc = pas_heap_ref(args[0], fn);
+        long idx = rk_ival(args[1]);
+        if (hc->v == DT_A && hc->arr) { ARBLK_t *b = (ARBLK_t *) hc->arr; if (idx >= b->lo && idx <= b->hi) b->data[idx - b->lo] = args[2]; *out = args[2]; return 1; }
+        *hc = (idx >= 1) ? pas_str_setch(*hc, idx, pas_ch_of(args[2])) : args[2];
+        *out = args[2];
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_field_idx_set") && nargs == 4) {
+        DESCR_t *hc = pas_heap_ref(args[0], fn);
+        long fidx = IS_INT_fn(args[1]) ? args[1].i : 0;
+        long eidx = IS_INT_fn(args[2]) ? args[2].i : 0;
+        unsigned char ch = pas_ch_of(args[3]);
+        if (hc->v == DT_A && hc->arr && eidx >= 1) { ARBLK_t *b = (ARBLK_t *) hc->arr; if (fidx >= b->lo && fidx <= b->hi) b->data[fidx - b->lo] = pas_str_setch(b->data[fidx - b->lo], eidx, ch); }
+        *out = args[3];
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_field_idx_update") && nargs == 4) {
+        long fidx = IS_INT_fn(args[1]) ? args[1].i : 0;
+        long eidx = IS_INT_fn(args[2]) ? args[2].i : 0;
+        unsigned char ch = pas_ch_of(args[3]);
+        if (args[0].v == DT_A && args[0].arr && eidx >= 1) {
+            ARBLK_t *b = (ARBLK_t *) args[0].arr;
+            if (fidx >= b->lo && fidx <= b->hi) b->data[fidx - b->lo] = pas_str_setch(b->data[fidx - b->lo], eidx, ch);
+        }
+        *out = args[0];
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_deref") && nargs == 1) { *out = *pas_heap_ref(args[0], fn); return 1; }
+    if (!strcmp(fn, "__pas_deref_set") && nargs == 2) { *pas_heap_ref(args[0], fn) = args[1]; *out = args[1]; return 1; }
+    if (!strcmp(fn, "__pas_fassign") && nargs == 1) { const char *s = VARVAL_fn(args[0]); if (!s) s = ""; *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
+    if (!strcmp(fn, "__pas_rewrite") && (nargs == 1 || nargs == 2)) {
+        extern int fh_alloc(FILE *);
+        const char *stale_nm = NULL;
+        if (IS_FH_fn(args[0])) {
+            int oidx = (int)args[0].i;
+            FILE *ofp = fh_get(oidx);
+            if (ofp) { fflush(ofp); rewind(ofp); if (ftruncate(fileno(ofp), 0) == 0) { *out = args[0]; return 1; } }
+            if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name;
+        }
+        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : IS_STR_fn(args[0]) ? VARVAL_fn(args[0]) : NULL;
+        long long hcode = (IS_INT_fn(args[0]) && args[0].i < 0) ? 2 * (-args[0].i) + 1 : (nargs == 2 && IS_INT_fn(args[1])) ? args[1].i : -1;
+        if ((!nm || !nm[0]) && hcode >= 0) {
+            extern const char *pas_main_arg(int);
+            const char *pa = pas_main_arg((int)(hcode >> 1));
+            if (pa) nm = pa;
+            else { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL((hcode & 1) ? 1 : 0); return 1; }
+        }
+        if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
+        if (nm && nm[0] && (!strcmp(nm, "input") || !strcmp(nm, "output"))) nm = "";
+        FILE *fp;
+        if (nm && nm[0]) { fp = fopen(nm, "w+"); } else { char tmpl[] = "/tmp/scrip_pas_XXXXXX"; int fd = mkstemp(tmpl); if (fd >= 0) unlink(tmpl); fp = (fd >= 0) ? fdopen(fd, "w+") : (FILE *)0; }
+        if (!fp) { *out = FAILDESCR; return 1; }
+        int idx = fh_alloc(fp);
+        if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
+        if (nm && nm[0]) g_fh[idx].name = rt_heap_strdup_c(nm);
+        *out = FHVAL(idx);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_append") && (nargs == 1 || nargs == 2)) {
+        extern int fh_alloc(FILE *);
+        const char *stale_nm = NULL;
+        if (IS_FH_fn(args[0])) { int oidx = (int)args[0].i; FILE *ofp = fh_get(oidx); if (ofp) { *out = args[0]; return 1; } if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name; }
+        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]);
+        if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
+        if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
+        FILE *fp = fopen(nm, "a+");
+        if (!fp) { *out = FAILDESCR; return 1; }
+        int idx = fh_alloc(fp);
+        if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
+        g_fh[idx].name = rt_heap_strdup_c(nm);
+        *out = FHVAL(idx);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_reset") && (nargs == 1 || nargs == 2)) {
+        extern int fh_alloc(FILE *);
+        const char *stale_nm = NULL;
+        if (IS_FH_fn(args[0])) { int oidx = (int)args[0].i; FILE *ofp = fh_get(oidx); if (ofp) { rewind(ofp); *out = args[0]; return 1; } if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name; }
+        int hvar = IS_INT_fn(args[0]) && args[0].i < 0;
+        long long hcode = hvar ? 2 * (-args[0].i) : (nargs == 2 && IS_INT_fn(args[1])) ? args[1].i : -1;
+        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : hvar ? NULL : VARVAL_fn(args[0]);
+        if ((!nm || !nm[0]) && hcode >= 0) {
+            extern const char *pas_main_arg(int);
+            const char *pa = pas_main_arg((int)(hcode >> 1));
+            if (pa) nm = pa;
+            else { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL((hcode & 1) ? 1 : 0); return 1; }
+        }
+        if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
+        if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
+        FILE *fp = fopen(nm, "r");
+        if (!fp) { fflush(stdout); fprintf(stderr, "Runtime error 2 at $0\n"); exit(2); }
+        int idx = fh_alloc(fp);
+        if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
+        g_fh[idx].name = rt_heap_strdup_c(nm);
+        *out = FHVAL(idx);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_fclose") && nargs == 1) {
+        extern FILE *fh_get(int);
+        extern void fh_free(int);
+        if (IS_FH_fn(args[0])) { int idx = (int)args[0].i; FILE *fp = fh_get(idx); if (fp && fp != stdout && fp != stderr && fp != stdin) { fflush(fp); fclose(fp); fh_free(idx); } }
+        *out = NULVCL;
+        return 1;
+    }
+    if ((!strcmp(fn, "__pas_read_s") && nargs == 0) || (!strcmp(fn, "__pas_read_s_f") && nargs == 1)) {
+        extern FILE *fh_get(int);
+        FILE *f = nargs == 1 && IS_FH_fn(args[0]) ? fh_get((int)args[0].i) : stdin;
+        if (!f) f = stdin;
+        size_t cap = 64, n = 0;
+        char *r = (char *)rt_wsb_alloc(cap);
+        int ch;
+        while ((ch = fgetc(f)) != EOF && ch != '\n') { if (n + 1 >= cap) { char *g = (char *)rt_wsb_alloc(cap * 2); memcpy(g, r, n); r = g; cap *= 2; } r[n++] = (char)ch; }
+        if (ch == '\n') ungetc('\n', f);
+        r[n] = '\0';
+        *out = (DESCR_t){ .v = DT_S, .s = r, .slen = (uint32_t)n };
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_copy") && nargs == 3) {
+        const char *sv = VARVAL_fn(args[0]);
+        long long len = sv ? (long long)strlen(sv) : 0, i = IS_INT_fn(args[1]) ? args[1].i : 1, n = IS_INT_fn(args[2]) ? args[2].i : 0;
+        if (i < 1) i = 1;
+        long long avail = len - (i - 1);
+        if (avail < 0) avail = 0;
+        if (n > avail) n = avail;
+        if (n < 0) n = 0;
+        char *r = (char *)rt_wsb_alloc((size_t)n + 1);
+        if (n > 0) memcpy(r, sv + (i - 1), (size_t)n);
+        r[n] = '\0';
+        *out = (DESCR_t){ .v = DT_S, .s = r, .slen = (uint32_t)n };
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_upcase") && nargs == 1) {
+        if (IS_INT_fn(args[0])) { long long c = args[0].i; *out = INTVAL(c >= 'a' && c <= 'z' ? c - 32 : c); return 1; }
+        const char *sv = VARVAL_fn(args[0]);
+        size_t n = sv ? strlen(sv) : 0;
+        char *r = (char *)rt_wsb_alloc(n + 1);
+        for (size_t k = 0; k < n; k++) r[k] = (sv[k] >= 'a' && sv[k] <= 'z') ? (char)(sv[k] - 32) : sv[k];
+        r[n] = '\0';
+        *out = (DESCR_t){ .v = DT_S, .s = r, .slen = (uint32_t)n };
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_paramcount") && nargs == 0) { extern int pas_main_argc(void); *out = INTVAL(pas_main_argc()); return 1; }
+    if (!strcmp(fn, "__pas_paramstr") && nargs == 1) {
+        extern const char *pas_main_arg(int);
+        const char *a = IS_INT_fn(args[0]) ? pas_main_arg((int)args[0].i) : (const char *)0;
+        size_t n = a ? strlen(a) : 0;
+        char *r = (char *)rt_wsb_alloc(n + 1);
+        if (n) memcpy(r, a, n);
+        r[n] = '\0';
+        *out = (DESCR_t){ .v = DT_S, .s = r, .slen = (uint32_t)n };
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_std_mute") && nargs == 0) { fflush(stdout); int nul = open("/dev/null", O_WRONLY); if (nul >= 0) { dup2(nul, 1); close(nul); } *out = NULVCL; return 1; }
+    if (!strcmp(fn, "__pas_ferase") && nargs == 1) {
+        extern FILE *fh_get(int);
+        extern void fh_free(int);
+        const char *nm = NULL;
+        if (IS_FH_fn(args[0])) {
+            int idx = (int)args[0].i;
+            if (idx >= 0 && idx < FH_N) nm = g_fh[idx].name;
+            FILE *fp = fh_get(idx);
+            if (fp && fp != stdout && fp != stderr && fp != stdin) { fflush(fp); fclose(fp); fh_free(idx); }
+        } else nm = VARVAL_fn(args[0]);
+        if (nm && nm[0]) remove(nm);
+        *out = NULVCL;
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_pchar_deref") && nargs == 1) { const char *s = VARVAL_fn(args[0]); *out = INTVAL(s && s[0] ? (long long)(unsigned char)s[0] : 0); return 1; }
+    if (!strcmp(fn, "__pas_ord_check") && (nargs == 4 || nargs == 5)) {
+        if (IS_INT_fn(args[0]) && IS_INT_fn(args[1]) && IS_INT_fn(args[2]) && (args[0].i < args[1].i || args[0].i > args[2].i)) {
+            const char *wn = VARVAL_fn(args[3]);
+            char w[fmt_len("%s -- the value %lld is outside %lld..%lld", wn, (long long)args[0].i, (long long)args[1].i, (long long)args[2].i)];
+            snprintf(w, sizeof w, "%s -- the value %lld is outside %lld..%lld", wn, (long long)args[0].i, (long long)args[1].i, (long long)args[2].i);
+            pas_file_err(nargs == 5 ? VARVAL_fn(args[4]) : "6.6.6.4", w, NULL);
+        }
+        *out = args[0];
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_resundef") && nargs == 1) { *out = INTVAL(args[0].v == DT_SNUL ? 1L : 0L); return 1; }
+    if (!strcmp(fn, "__pas_rterr") && nargs == 2) { pas_file_err(VARVAL_fn(args[0]), VARVAL_fn(args[1]), NULL); *out = NULVCL; return 1; }
+    if (!strcmp(fn, "__pas_range_check") && nargs == 5) {
+        long long lo = IS_INT_fn(args[1]) ? args[1].i : 0, hi = IS_INT_fn(args[2]) ? args[2].i : 0;
+        const char *cl = VARVAL_fn(args[3]);
+        unsigned char bits[PAS_SET_BYTES];
+        pas_set_bits(args[0], bits);
+        int out_of = 0;
+        for (long long e = 0; e < PAS_SET_BYTES * 8; e++) if (((bits[e / 8] >> (e % 8)) & 1) && (e < lo || e > hi)) { out_of = 1; break; }
+        if (out_of && cl && cl[0]) pas_file_err(cl, "a member of the set value lies outside the base-type of the set variable it is given to", NULL);
+        if (out_of) { fflush(NULL); fprintf(stderr, "Runtime error 201 at $0\n"); exit(201); }
+        *out = args[0];
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_range_check") && (nargs == 3 || nargs == 4)) {
+        long long v = IS_INT_fn(args[0]) ? args[0].i : 0;
+        long long lo = IS_INT_fn(args[1]) ? args[1].i : 0;
+        long long hi = IS_INT_fn(args[2]) ? args[2].i : 0;
+        if ((v < lo || v > hi) && nargs == 4) pas_file_err(VARVAL_fn(args[3]), "the value is not assignment-compatible with the subrange type of the variable it is given to", NULL);
+        if (v < lo || v > hi) { fflush(NULL); fprintf(stderr, "Runtime error 201 at $0\n"); exit(201); }
+        *out = args[0];
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_str_to_int") && nargs == 1) { const char *s = VARVAL_fn(args[0]); *out = INTVAL(s ? strtoll(s, NULL, 10) : 0); return 1; }
+    if (!strcmp(fn, "__pas_str_delete") && nargs == 3) {
+        const char *s = VARVAL_fn(args[0]);
+        if (!s) s = "";
+        size_t len = strlen(s);
+        long long pos = IS_INT_fn(args[1]) ? args[1].i : 1;
+        long long cnt = IS_INT_fn(args[2]) ? args[2].i : 0;
+        if (pos < 1) pos = 1;
+        if ((size_t)pos > len || cnt <= 0) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
+        size_t start = (size_t)pos - 1;
+        size_t n = (size_t)cnt;
+        if (start + n > len) n = len - start;
+        char *buf = rt_heap_alloc_c(len - n + 1);
+        memcpy(buf, s, start);
+        memcpy(buf + start, s + start + n, len - start - n);
+        buf[len - n] = '\0';
+        *out = STRVAL(buf);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_str_insert") && nargs == 3) {
+        const char *src = VARVAL_fn(args[0]);
+        if (!src) src = "";
+        const char *s = VARVAL_fn(args[1]);
+        if (!s) s = "";
+        size_t slen = strlen(src), len = strlen(s);
+        long long pos = IS_INT_fn(args[2]) ? args[2].i : 1;
+        if (pos < 1) pos = 1;
+        if ((size_t)pos > len + 1) pos = (long long)len + 1;
+        size_t at = (size_t)pos - 1;
+        char *buf = rt_heap_alloc_c(len + slen + 1);
+        memcpy(buf, s, at);
+        memcpy(buf + at, src, slen);
+        memcpy(buf + at + slen, s + at, len - at);
+        buf[len + slen] = '\0';
+        *out = STRVAL(buf);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_in") && nargs == 2) {
+        long e = pas_ord_of(args[0]);
+        unsigned char bits[PAS_SET_BYTES];
+        pas_set_bits(args[1], bits);
+        int hit = (e >= 0 && e < PAS_SET_BYTES * 8) ? ((bits[e / 8] >> (e % 8)) & 1) : 0;
+        *out = INTVAL(hit ? 1 : 0);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_tget") || !strcmp(fn, "__pas_tput") || !strcmp(fn, "__pas_tbuf_get") || !strcmp(fn, "__pas_tbuf_set")) {
+        extern FILE *fh_get(int);
+        static struct { int has; int c; } tb[512];
+        if (!IS_FH_fn(args[0])) { extern void core_runtime_error(int code, const char *msg); core_runtime_error(103, "file not open (reset or rewrite it first)"); *out = FAILDESCR; return 1; }
+        int idx = (int)args[0].i;
+        FILE *fp = fh_get(idx);
+        if (!fp || idx < 0 || idx >= 512) { *out = FAILDESCR; return 1; }
+        if (!strcmp(fn, "__pas_tbuf_get")) {
+            int c = fgetc(fp);
+            if (c == EOF) { *out = INTVAL((long long)' '); return 1; }
+            ungetc(c, fp);
+            if (c == '\n') c = ' ';
+            *out = INTVAL((long long)(unsigned char)c);
+            return 1;
+        }
+        if (!strcmp(fn, "__pas_tbuf_set") && nargs == 2) {
+            tb[idx].has = 1;
+            tb[idx].c = IS_INT_fn(args[1]) ? (int)args[1].i : (VARVAL_fn(args[1]) ? (unsigned char)VARVAL_fn(args[1])[0] : ' ');
+            *out = NULVCL;
+            return 1;
+        }
+        if (!strcmp(fn, "__pas_tget")) { int c = fgetc(fp); (void)c; *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_tput")) { if (tb[idx].has) fputc(tb[idx].c, fp); tb[idx].has = 0; *out = NULVCL; return 1; }
+        *out = FAILDESCR;
+        return 1;
+    }
+    if (!strncmp(fn, "__pas_f", 7) || !strcmp(fn, "__pas_treset") || !strcmp(fn, "__pas_trewrite")) {
+        extern int fh_alloc(FILE *);
+        extern FILE *fh_get(int);
+        if (!strcmp(fn, "__pas_trewrite") && (nargs == 1 || nargs == 2)) {
+            FILE *fp = (FILE *)0;
+            int idx = -1;
+            if (IS_FH_fn(args[0])) { idx = (int)args[0].i; fp = fh_get(idx); if (fp) { rewind(fp); if (ftruncate(fileno(fp), 0) != 0) fp = (FILE *)0; } }
+            if (!fp) {
+                const char *nm = IS_FH_fn(args[0]) ? (const char *)0 : VARVAL_fn(args[0]);
+                if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]);
+                if (nm && nm[0]) fp = fopen(nm, "w+b");
+                else { char tmpl[] = "/tmp/scrip_pas_XXXXXX"; int fd = mkstemp(tmpl); if (fd >= 0) unlink(tmpl); fp = (fd >= 0) ? fdopen(fd, "w+b") : (FILE *)0; }
+                if (!fp) { *out = FAILDESCR; return 1; }
+                idx = fh_alloc(fp);
+                if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
+            }
+            if (idx >= 0) pas_tf_set(idx, INTVAL(0), 0, 1);
+            *out = FHVAL(idx);
+            return 1;
+        }
+        int pas_tf_read(FILE *fp, DESCR_t *o);
+        void pas_tf_write(FILE *fp, DESCR_t v);
+        void pas_file_err(const char *clause, const char *what, const char *proc);
+        if (!strcmp(fn, "__pas_treset") && (nargs == 1 || nargs == 2)) {
+            FILE *fp = (FILE *)0;
+            int idx = -1;
+            if (IS_FH_fn(args[0])) { idx = (int)args[0].i; fp = fh_get(idx); if (fp) { fflush(fp); rewind(fp); } }
+            if (!fp) {
+                const char *nm = VARVAL_fn(args[0]);
+                if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]);
+                if (!nm || !nm[0]) {
+                    pas_file_err("6.6.5.2", "the file is undefined immediately prior to reset (it has neither been rewritten nor associated with an external file)", "__pas_treset");
+                    *out = FAILDESCR;
+                    return 1;
+                }
+                fp = fopen(nm, "rb");
+                if (!fp) { *out = FAILDESCR; return 1; }
+                idx = fh_alloc(fp);
+                if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
+            }
+            if (idx >= 0) { DESCR_t b = INTVAL(0); int h = pas_tf_read(fp, &b); pas_tf_set(idx, b, h, 2); }
+            *out = FHVAL(idx);
+            return 1;
+        }
+        if (!IS_FH_fn(args[0])) { pas_file_err("6.6.5.2", "the file is undefined (it has been neither reset nor rewritten)", fn); *out = FAILDESCR; return 1; }
+        int idx = (int)args[0].i;
+        FILE *fp = fh_get(idx);
+        if (!fp || idx < 0 || idx >= PTF_N) { pas_file_err("6.6.5.2", "the file is undefined (no open stream stands behind it)", fn); *out = FAILDESCR; return 1; }
+        if (!strcmp(fn, "__pas_fbuf_get") && nargs == 1) { *out = PTF_HAS(idx) ? PTF_BUF(idx) : INTVAL(0); return 1; }
+        if (!strcmp(fn, "__pas_fbuf_set") && nargs == 2) { pas_tf_set(idx, args[1], 1, PTF_MODE(idx)); *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_fput") && nargs == 1) {
+            if (PTF_MODE(idx) != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to put", fn);
+            if (!PTF_HAS(idx)) pas_file_err("6.6.5.2", "the buffer-variable is undefined immediately prior to put", fn);
+            pas_tf_write(fp, PTF_BUF(idx));
+            pas_tf_set(idx, PTF_BUF(idx), 0, PTF_MODE(idx));
+            *out = NULVCL;
+            return 1;
+        }
+        if (!strcmp(fn, "__pas_fget") && nargs == 1) {
+            if (PTF_MODE(idx) != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to get", fn);
+            if (!PTF_HAS(idx)) pas_file_err("6.6.5.2", "end-of-file is true immediately prior to get", fn);
+            { DESCR_t b = INTVAL(0); int h = pas_tf_read(fp, &b); pas_tf_set(idx, b, h, PTF_MODE(idx)); }
+            *out = NULVCL;
+            return 1;
+        }
+        if (!strcmp(fn, "__pas_fwrite") && nargs == 2) {
+            if (PTF_MODE(idx) != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to write", fn);
+            pas_tf_write(fp, args[1]);
+            *out = NULVCL;
+            return 1;
+        }
+        if (!strcmp(fn, "__pas_fwrite_range") && nargs == 4) {
+            if (PTF_MODE(idx) != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to write", fn);
+            long _lo = pas_ord_of(args[2]), _hi = pas_ord_of(args[3]), _ov = pas_ord_of(args[1]);
+            if (_ov < _lo || _ov > _hi) pas_file_err("6.4.3.5", "the value written is not assignment-compatible with the file's subrange component-type", fn);
+            pas_tf_write(fp, args[1]);
+            *out = NULVCL;
+            return 1;
+        }
+        if (!strcmp(fn, "__pas_fread") && nargs == 1) {
+            if (PTF_MODE(idx) != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to read", fn);
+            if (!PTF_HAS(idx)) pas_file_err("6.9.1", "the buffer-variable is undefined immediately prior to read (end-of-file is true)", fn);
+            DESCR_t v = PTF_BUF(idx);
+            { DESCR_t b = INTVAL(0); int h = pas_tf_read(fp, &b); pas_tf_set(idx, b, h, PTF_MODE(idx)); }
+            *out = v;
+            return 1;
+        }
+        if (!strcmp(fn, "__pas_fread_range") && nargs == 3) {
+            if (PTF_MODE(idx) != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to read", fn);
+            if (!PTF_HAS(idx)) pas_file_err("6.9.1", "the buffer-variable is undefined immediately prior to read (end-of-file is true)", fn);
+            DESCR_t v = PTF_BUF(idx);
+            { DESCR_t b = INTVAL(0); int h = pas_tf_read(fp, &b); pas_tf_set(idx, b, h, PTF_MODE(idx)); }
+            long _lo = pas_ord_of(args[1]), _hi = pas_ord_of(args[2]), _ov = pas_ord_of(v);
+            if (_ov < _lo || _ov > _hi) pas_file_err("6.9.1", "the value read is not assignment-compatible with the subrange of the destination variable", fn);
+            *out = v;
+            return 1;
+        }
+        if (!strcmp(fn, "__pas_feof_t") && nargs == 1) { *out = INTVAL(PTF_HAS(idx) ? 0 : 1); return 1; }
+        *out = FAILDESCR;
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_setrange") && nargs == 2) {
+        unsigned char *buf = (unsigned char *)rt_str_alloc(PAS_SET_BYTES);
+        memset(buf, 0, PAS_SET_BYTES);
+        long lo = pas_ord_of(args[0]), hi = pas_ord_of(args[1]);
+        if (lo < 0) lo = 0;
+        if (hi >= PAS_SET_BYTES * 8) hi = PAS_SET_BYTES * 8 - 1;
+        for (long e = lo; e <= hi; e++) buf[e / 8] |= (unsigned char)(1u << (e % 8));
+        *out = BSTRVAL((char *)buf, PAS_SET_BYTES);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_set")) {
+        unsigned char *buf = (unsigned char *)rt_str_alloc(PAS_SET_BYTES);
+        memset(buf, 0, PAS_SET_BYTES);
+        for (int k = 0; k < nargs; k++) { long e = pas_ord_of(args[k]); if (e >= 0 && e < PAS_SET_BYTES * 8) buf[e / 8] |= (unsigned char)(1u << (e % 8)); }
+        *out = BSTRVAL((char *)buf, PAS_SET_BYTES);
+        return 1;
+    }
+    if (nargs == 2 &&
+        (!strcmp(fn, "__pas_setuni") || !strcmp(fn, "__pas_setint") || !strcmp(fn, "__pas_setdif") || !strcmp(fn, "__pas_subset") || !strcmp(fn, "__pas_super") || !strcmp(fn, "__pas_seteq") ||
+        !strcmp(fn, "__pas_setne"))) {
+        unsigned char a[PAS_SET_BYTES], b[PAS_SET_BYTES];
+        pas_set_bits(args[0], a);
+        pas_set_bits(args[1], b);
+        if (!strcmp(fn, "__pas_subset") || !strcmp(fn, "__pas_super")) {
+            const unsigned char *x = !strcmp(fn, "__pas_subset") ? a : b;
+            const unsigned char *y = !strcmp(fn, "__pas_subset") ? b : a;
+            int ok = 1;
+            for (int i = 0; i < PAS_SET_BYTES; i++) if (x[i] & (unsigned char)~y[i]) { ok = 0; break; }
+            *out = INTVAL(ok);
+            return 1;
+        }
+        if (!strcmp(fn, "__pas_seteq") || !strcmp(fn, "__pas_setne")) { int eq = memcmp(a, b, PAS_SET_BYTES) == 0; *out = INTVAL((!strcmp(fn, "__pas_seteq") ? eq : !eq) ? 1 : 0); return 1; }
+        unsigned char *r = (unsigned char *)rt_str_alloc(PAS_SET_BYTES);
+        for (int i = 0; i < PAS_SET_BYTES; i++) {
+            if (!strcmp(fn, "__pas_setuni")) r[i] = a[i] | b[i];
+            else if (!strcmp(fn, "__pas_setint")) r[i] = a[i] & b[i];
+            else r[i] = a[i] & (unsigned char)~b[i];
+        }
+        *out = BSTRVAL((char *)r, PAS_SET_BYTES);
+        return 1;
+    }
+    return 0;
+}
+#include "pas_bi_names.h"
+int rt_pas_bi_index(const char *fn) {
+    int lo = 0, hi = (int)PAS_BI_COUNT - 1;
+    while (fn && lo <= hi) { int mid = (lo + hi) >> 1, c = strcmp(g_pas_bi_name[mid], fn); if (c == 0) return mid; if (c < 0) lo = mid + 1; else hi = mid - 1; }
+    return -1;
+}
+DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
+    DESCR_t out = FAILDESCR;
+    const char *fn = (idx >= 0 && idx < (long)PAS_BI_COUNT) ? g_pas_bi_name[idx] : "";
+    unsigned n = (unsigned)strlen(fn);
+    int bid = bid_of(fn, n);
+    if (!bid && RT_GC_CALLBACK(pas_bi_chain(fn, args, nargs, &out, (long *)0))) return out;
+    return RT_GC_CALLBACK(rt_call_arr_bl(fn, args, nargs, (int)((n << 16) | (unsigned)bid)));
 }
 static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4, long *rq);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

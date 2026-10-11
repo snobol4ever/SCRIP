@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2617
+#define GC_ALLOC_TAB_N 2619
 #define GC_ALLOC_TAB_N_VOID 312
-#define GC_ALLOC_TAB_N_DESCR 1241
-#define GC_ALLOC_TAB_N_OTHER 1047
+#define GC_ALLOC_TAB_N_DESCR 1242
+#define GC_ALLOC_TAB_N_OTHER 1048
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -850,6 +850,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_agg_copy", GC_RET_DESCR },
     { "pas_arr_get", GC_RET_DESCR },
     { "pas_arr_set", GC_RET_DESCR },
+    { "pas_bi_chain", GC_RET_OTHER },
     { "pas_call_args", GC_RET_OTHER },
     { "pas_call_args_brm", GC_RET_OTHER },
     { "pas_call_args_brm_dir", GC_RET_OTHER },
@@ -1556,6 +1557,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_open_staged_rec", GC_RET_OTHER },
     { "rt_call_open_tail", GC_RET_OTHER },
     { "rt_call_open_tail_lex", GC_RET_OTHER },
+    { "rt_call_pas_bi", GC_RET_DESCR },
     { "rt_call_proc_descr", GC_RET_DESCR },
     { "rt_call_proc_descr_p", GC_RET_DESCR },
     { "rt_call_value", GC_RET_DESCR },
