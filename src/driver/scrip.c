@@ -2584,8 +2584,6 @@ int main(int argc, char **argv) {
         stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
         n2_host_scan_diag(s2);
         if (!s2) return 1;
-        ast_tree_free(ast_prog);
-        ast_prog = NULL;
         {
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
