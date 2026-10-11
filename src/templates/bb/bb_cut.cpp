@@ -12,6 +12,7 @@ static std::string cut_barrier() {
              + x86("mov", RDQ(x86_fb(), g_emit.flat_frame_bytes - 48), 0L)
              + x86("note", "pl_cut_barrier inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): B := F.B0, the caller's choice the prologue saved at [kt-40]")
              + x86("mov", "r13", RDQ(x86_fb(), g_emit.flat_frame_bytes - 40))
+             + x86_pl_release_acts(false)
              + x86("mov", "rsp", x86_fb()));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

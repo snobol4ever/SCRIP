@@ -36,6 +36,23 @@ static const char * const kind_names[IR_OP_COUNT] = { [IR_LIT_INTEGER] = "IR_LIT
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) { if (k >= 0 && k < IR_OP_COUNT && kind_names[k]) return kind_names[k]; return "IR_UNKNOWN"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void IR_release_scope_add(IR_graph_t * g, const IR_t * nd, int lo, int hi) {
+    if (!g || !nd) return;
+    if (g->n_rel == g->max_rel) {
+        int nm = g->max_rel ? 2 * g->max_rel : 16;
+        struct IR_relscope_t * nv = ct_zalloc((size_t)nm, sizeof *nv);
+        if (!nv) return;
+        for (int i = 0; i < g->n_rel; i++) nv[i] = g->rel[i];
+        g->rel = nv;
+        g->max_rel = nm;
+    }
+    g->rel[g->n_rel++] = (struct IR_relscope_t){ nd, lo, hi };
+}
+int IR_release_scope_get(const IR_graph_t * g, const IR_t * nd, int * lo, int * hi) {
+    if (!g || !nd) return 0;
+    for (int i = g->n_rel - 1; i >= 0; i--) if (g->rel[i].nd == nd) { *lo = g->rel[i].lo; *hi = g->rel[i].hi; return 1; }
+    return 0;
+}
 IR_graph_t * IR_alloc(int max_nodes) {
     IR_graph_t * bbg = ct_zalloc(1, sizeof(IR_graph_t));
     if (!bbg) return NULL;

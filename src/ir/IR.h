@@ -227,8 +227,13 @@ struct IR_graph_t {
     int pkt_fragment;
     int pkt_cell;
     int pkt_slot;
+    struct IR_relscope_t { const IR_t * nd; int lo, hi; } * rel;
+    int n_rel;
+    int max_rel;
 };
 IR_graph_t * IR_alloc(int max_nodes);
+void IR_release_scope_add(IR_graph_t * g, const IR_t * nd, int lo, int hi);
+int IR_release_scope_get(const IR_graph_t * g, const IR_t * nd, int * lo, int * hi);
 int ir_varslot_of(const IR_graph_t * g, const char * name);
 int graph_has_local(const IR_graph_t * g, const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

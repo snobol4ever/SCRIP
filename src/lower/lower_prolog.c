@@ -701,6 +701,15 @@ static int pl_seal_branch_tail(int tail, int pop, IR_t * nd) {
     nd->seal = pop ? PL_SEAL_TAIL_POP : PL_SEAL_TAIL;
     return pop;
 }
+static void pl_register_releases(lcx_t * cx, int from) {
+    int to = cx->g->n;
+    for (int k = from; k < to; k++) {
+        IR_t * x = cx->g->all[k];
+        if (!x) continue;
+        if (x->op == IR_BOUND) IR_release_scope_add(cx->g, x, k, to);
+        if (x->op == IR_CUT && IR_LIT(x).ival == 0) IR_release_scope_add(cx->g, x, from, to);
+    }
+}
 static void pl_pop_ok(lcx_t * cx, IR_t * nd) { if (cx->pop_ok && nd) lc_vec_push(cx->pop_ok, &nd); }
 static void pl_pop_vet(lcx_t * cx, int from) {
     int any = 0, bad = 0;
@@ -3130,7 +3139,9 @@ static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     g_lower.pl.fresh_next = maxlocal + 1;
     if (pl_trace_wanted()) for (int i = 0; i < ng; i++) pl_trace_number_goals(gl[i]);
     cx.tail = !pl_trace_wanted();
+    int rel_from = cx.g->n;
     IR_t * first = pl_lower_conj(&cx, gl, ng, succeed, step, &entry, &redo, &tnode);
+    pl_register_releases(&cx, rel_from);
     if (tnode && tnode->op == IR_CALL_PROC_STAGED && !pl_trace_wanted()) tnode->seal = PL_SEAL_TAIL;
     maxlocal = g_lower.pl.fresh_next - 1;
     g_lower.pl.fresh_next = fresh_saved;
@@ -3246,6 +3257,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         if (tnode && tnode->op == IR_CALL_PROC_STAGED && !pl_trace_wanted()) tnode->seal = PL_SEAL_TAIL;
         cx.tail_pop = 0;
         if (pop_on) pl_pop_vet(&cx, pop_from);
+        pl_register_releases(&cx, pop_from);
         cx.pop_ok = (lc_vec *) 0;
         IR_t * next = bentry ? bentry : (first ? first : succeed);
         for (int i = ar - 1; i >= 0; i--) {

@@ -32,6 +32,8 @@ int zls_g_locals(const IR_graph_t * g);
 int zls_node_bytes(const IR_t * nd);
 int zls_g_vslot_count(const IR_graph_t * g);
 int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_bytes, int * conflicts);
+int zls_g_ptr_frame_offs(const IR_graph_t * g, int * out, int cap);
+int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int * out, int cap);
 const char * zls_g_vslot_get(const IR_graph_t * g, int i, int * off);
 void zls_dump(FILE * fp);
 #endif
