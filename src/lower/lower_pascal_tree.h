@@ -123,6 +123,7 @@ typedef struct {
     int pas_scalarvartype_cap;
     struct { char *name; tree_t *val; int uid; } *pas_setconsts;
     int pas_nsetconst;
+    int pas_catmp_seq;
     int pas_setconst_cap;
     struct { char *name; long long lo; long long hi; int istype; int kind; int uid; } *pas_rows;
     int pas_nrows;

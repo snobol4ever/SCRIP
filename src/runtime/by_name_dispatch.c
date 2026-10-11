@@ -11994,11 +11994,12 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name;
         }
         const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : IS_STR_fn(args[0]) ? VARVAL_fn(args[0]) : NULL;
-        if ((!nm || !nm[0]) && nargs == 2 && IS_INT_fn(args[1])) {
+        long long hcode = (IS_INT_fn(args[0]) && args[0].i < 0) ? 2 * (-args[0].i) + 1 : (nargs == 2 && IS_INT_fn(args[1])) ? args[1].i : -1;
+        if ((!nm || !nm[0]) && hcode >= 0) {
             extern const char *pas_main_arg(int);
-            const char *pa = pas_main_arg((int)(args[1].i >> 1));
+            const char *pa = pas_main_arg((int)(hcode >> 1));
             if (pa) nm = pa;
-            else { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL((args[1].i & 1) ? 1 : 0); return 1; }
+            else { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL((hcode & 1) ? 1 : 0); return 1; }
         }
         if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
         if (nm && nm[0] && (!strcmp(nm, "input") || !strcmp(nm, "output"))) nm = "";
@@ -12030,12 +12031,14 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         extern int fh_alloc(FILE *);
         const char *stale_nm = NULL;
         if (IS_FH_fn(args[0])) { int oidx = (int)args[0].i; FILE *ofp = fh_get(oidx); if (ofp) { rewind(ofp); *out = args[0]; return 1; } if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name; }
-        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]);
-        if ((!nm || !nm[0]) && nargs == 2 && IS_INT_fn(args[1])) {
+        int hvar = IS_INT_fn(args[0]) && args[0].i < 0;
+        long long hcode = hvar ? 2 * (-args[0].i) : (nargs == 2 && IS_INT_fn(args[1])) ? args[1].i : -1;
+        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : hvar ? NULL : VARVAL_fn(args[0]);
+        if ((!nm || !nm[0]) && hcode >= 0) {
             extern const char *pas_main_arg(int);
-            const char *pa = pas_main_arg((int)(args[1].i >> 1));
+            const char *pa = pas_main_arg((int)(hcode >> 1));
             if (pa) nm = pa;
-            else { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL((args[1].i & 1) ? 1 : 0); return 1; }
+            else { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL((hcode & 1) ? 1 : 0); return 1; }
         }
         if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
         if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }

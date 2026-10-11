@@ -267,6 +267,10 @@ static int pas_is_strarr(const char *name);
 static long long pas_strarr_lo(const char *name);
 static tree_t *pas_alpha_wrap(tree_t *x);
 static int pas_ca_is_read(const tree_t *e);
+static void pas_local_add(const char *name);
+static int pas_is_cafield(const tree_t *e);
+static long long pas_cafield_lo_get(const tree_t *e);
+static long long pas_cafield_hi_get(const tree_t *e);
 static tree_t *pas_trace_wrap_value(tree_t *val);
 static const char *pas_rectype_field_enum_by_index(const char *rn, long idx);
 static const char *pas_enumarr_get(const char *a);
@@ -947,7 +951,8 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         } else {
             unsigned long long _cam = pas_caparm_mask(name);
             tree_t *_vpost[args->count / 2 + 1];
-            int _nvpost = 0;
+            tree_t *_vpre[args->count / 2 + 1];
+            int _nvpost = 0, _nvpre = 0;
             for (int i = 0; i < args->count; i += 2) {
                 tree_t *val = args->items[i];
                 int _pidx = i / 2;
@@ -971,12 +976,29 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                     long long _lo = pas_caparm_lo(name, _pidx);
                     val = pas_str_to_alpha(val->v.sval, _lo, _lo + (long long)strlen(val->v.sval) - 1);
                 } else if (pas_ca_is_read(val) && _pidx < 64 && ((_cam >> _pidx) & 1ULL)) {
+                    tree_t *_fld = val->n >= 2 ? val->c[1] : NULL;
                     tree_t *_en = ast_node_new(TT_FNC);
                     ast_push(_en, leaf_s(TT_VAR, "__pas_ca_encode"));
                     ast_push(_en, val);
                     ast_push(_en, ilit(pas_caparm_lo(name, _pidx)));
-                    ast_push(_en, ilit(-1));
+                    {
+                        long long _fh = (_fld && pas_is_cafield(_fld)) ? pas_cafield_hi_get(_fld) : -1;
+                        long long _fl = (_fld && pas_is_cafield(_fld)) ? pas_cafield_lo_get(_fld) : 0;
+                        ast_push(_en, ilit(_fh >= _fl ? pas_caparm_lo(name, _pidx) + (_fh - _fl) : -1));
+                    }
                     val = _en;
+                    if (pas_is_proc(name) && pas_proc_param_is_var(name, _pidx) && _fld && pas_is_cafield(_fld)) {
+                        char *_tn = (char *)ct_zalloc(32, 1);
+                        snprintf(_tn, 32, "__pas_catmp_%d", ++g_lower.pas.sem.pas_catmp_seq);
+                        pas_local_add(_tn);
+                        _vpre[_nvpre++] = bin(TT_ASSIGN, leaf_s(TT_VAR, _tn), val);
+                        tree_t *_pk = ast_node_new(TT_FNC);
+                        ast_push(_pk, leaf_s(TT_VAR, "__pas_ca_pack"));
+                        ast_push(_pk, leaf_s(TT_VAR, _tn));
+                        ast_push(_pk, ilit(pas_cafield_lo_get(_fld)));
+                        _vpost[_nvpost++] = mk_assign(pas_tree_clone(_fld), _pk);
+                        val = leaf_s(TT_VAR, _tn);
+                    }
                 }
                 if (val && val->t != TT_FLIT && pas_proc_param_is_real(name, _pidx)) val = bin(TT_ADD, val, flit(0.0));
                 if (val && val->t == TT_FNC && val->n == 2 && val->c[0] && val->c[0]->v.sval && !strcmp(val->c[0]->v.sval, "__pas_chrlit") && val->c[1] && val->c[1]->t == TT_ILIT &&
@@ -988,7 +1010,13 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                 }
                 ast_push(e, val);
             }
-            if (_nvpost) { tree_t *q = ast_node_new(TT_SEQ_EXPR); ast_push(q, e); for (int k = 0; k < _nvpost; k++) ast_push(q, _vpost[k]); e = q; }
+            if (_nvpost || _nvpre) {
+                tree_t *q = ast_node_new(TT_SEQ_EXPR);
+                for (int k = 0; k < _nvpre; k++) ast_push(q, _vpre[k]);
+                ast_push(q, e);
+                for (int k = 0; k < _nvpost; k++) ast_push(q, _vpost[k]);
+                e = q;
+            }
         }
     }
     return e;
@@ -5748,6 +5776,10 @@ static pval E_program(const tree_t *n) {
                     if (!vn || !g_lower.pas.sem.pas_scalarvartype[i].is_global || pas_is_func(vn) || pas_is_proc(vn) || pas_array_high_get(vn, &_ah)) continue;
                     if (pas_var_typename_is(vn, pas_is_int_typename)) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, vn), ilit(0)));
                     else if (pas_var_typename_is(vn, pas_is_realtypename)) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, vn), flit(0.0)));
+                }
+                if (g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive) for (int i = 0; i < g_lower.pas.sem.pas_nhdrfile; i++) {
+                    const char *hn = g_lower.pas.sem.pas_hdrfiles[i], *ht = hn ? pas_scalarvartype_get(hn) : NULL;
+                    if (ht && !strcmp(ht, "text")) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, hn), ilit(-(long long)(i + 1))));
                 }
                 if (body && body->t == TT_PROGRAM) { for (int i = 0; i < body->n; i++) ast_push(combined, body->c[i]); } else if (body) ast_push(combined, body);
                 body = combined;
