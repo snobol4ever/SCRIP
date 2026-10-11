@@ -11,6 +11,8 @@
 # A FEATURE is a column name exactly as the tables spell it (FENCE, scan, cut, record ...), or one of the two widenings:
 #   *           every feature column of every table (a SHARED NODE reaches every language -- the CEO-405 widening)
 #   lang:<x>    every feature column of the tables under tests/<x> and packages/<x>/ (a frontend or lowerer of one language)
+#   <x>:<col>   that column in the tables of language x only -- the form for a column several languages share whose carrier is
+#               one language's own (its lowerer): the unqualified name would select every language's column of that name
 # A carrier mapped to `-` carries NO area (src/tools/, a test helper): touching it owes no smoke, and the wrapper says so.
 # ⛔ A touched src/ file with no row here REFUSES the smoke rc=2 naming the file -- the lander adds the row with its landing.
 # ⛔ The gate test_gate_area_smoke_reads_the_attribute_rows.sh keeps every feature column of every runnable table named in an
@@ -107,6 +109,14 @@ lang:pascal	src/parsers/pascal/
 lang:pascal	src/lower/lower_pascal.c
 lang:pascal	src/lower/lower_pascal_tree.c
 lang:pascal	src/lower/lower_pascal_tree.h
+# a column several languages share, carried by ONE language's lowerer, is qualified <lang>:<column> on each lowerer: an unqualified
+# row on lower_icon.c selected Raku's and Pascal's while on every Icon lowerer landing (the coo 2026-10-11, the first verifier batch)
+pascal:while	src/lower/lower_pascal_tree.c
+pascal:case	src/lower/lower_pascal_tree.c
+pascal:var	src/lower/lower_pascal_tree.c
+pascal:succ	src/lower/lower_pascal_tree.c
+pascal:for	src/lower/lower_pascal_tree.c
+raku:while	src/lower/lower_raku.c
 # ---- SNOBOL4 / Snocone / Rebus pattern features: the match boxes ----
 FENCE	src/templates/bb/bb_match_fence0.cpp
 FENCE	src/templates/bb/bb_match_fence1.cpp
@@ -233,9 +243,9 @@ map	src/runtime/rtx/rtx_str.s
 trim	src/runtime/rtx/rtx_str.s
 seq	src/lower/lower_icon.c
 integer	src/runtime/rtx/rtx_icnnum.s
-while	src/lower/lower_icon.c
+icon:while	src/lower/lower_icon.c
 until	src/lower/lower_icon.c
-case	src/lower/lower_icon.c
+icon:case	src/lower/lower_icon.c
 next	src/lower/lower_icon.c
 break	src/lower/lower_icon.c
 local	src/lower/lower_icon.c
@@ -272,7 +282,7 @@ between	src/lower/lower_prolog.c
 functor	src/lower/lower_prolog.c
 arg	src/lower/lower_prolog.c
 copy_term	src/lower/lower_prolog.c
-var	src/lower/lower_prolog.c
+prolog:var	src/lower/lower_prolog.c
 nonvar	src/lower/lower_prolog.c
 atom	src/runtime/rt/prolog_atom.c
 number	src/lower/lower_prolog.c
@@ -281,25 +291,25 @@ write_canonical	src/lower/lower_prolog.c
 format	src/lower/lower_prolog.c
 nl	src/lower/lower_prolog.c
 clause	src/lower/lower_prolog.c
-succ	src/lower/lower_prolog.c
+prolog:succ	src/lower/lower_prolog.c
 op	src/parsers/prolog/prolog_parse.c
 dcg	src/parsers/prolog/prolog_lower.c
 univ	src/lower/lower_prolog.c
 list_cons	src/lower/lower_prolog.c
 directive	src/parsers/prolog/prolog_driver.c
 # ---- Raku features ----
-sub	src/lower/lower_raku.c
+raku:sub	src/lower/lower_raku.c
 multi	src/lower/lower_raku.c
 my	src/lower/lower_raku.c
 our	src/lower/lower_raku.c
 say	src/lower/lower_raku.c
-print	src/lower/lower_raku.c
+raku:print	src/lower/lower_raku.c
 given	src/lower/lower_raku.c
 when	src/lower/lower_raku.c
 if	src/lower/lower_raku.c
 elsif	src/lower/lower_raku.c
 unless	src/lower/lower_raku.c
-for	src/lower/lower_raku.c
+raku:for	src/lower/lower_raku.c
 loop	src/lower/lower_raku.c
 class	src/lower/lower_raku.c
 has	src/lower/lower_raku.c
@@ -320,7 +330,7 @@ range_op	src/lower/lower_raku.c
 feed_op	src/lower/lower_raku.c
 smartmatch	src/lower/lower_raku.c
 regex_with_smartmatch	src/lower/lower_raku.c
-string_concat	src/lower/lower_raku.c
+raku:string_concat	src/lower/lower_raku.c
 sub_with_return	src/lower/lower_raku.c
 for_with_say	src/lower/lower_raku.c
 # ---- Pascal features ----

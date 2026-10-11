@@ -11,7 +11,8 @@
 #   6  test_area_smoke.sh with NO argument maps a touched bb_match_fence0.cpp through area_map.tsv to FENCE (Lon's sixth question:
 #      the seat does not have to know) and selects the same one row; a touched src/ file with NO map row refuses rc=2 naming it;
 #      a tree equal to its base prints NO-DIFF rc=0; a file mapped to `-` prints NO-AREA rc=0;
-#   7  THE MAP COVERS THE VOCABULARY: every feature column of every runnable table (real corpus, read only) has an explicit row,
+#   7  THE MAP COVERS THE VOCABULARY: every feature column of every runnable table (real corpus, read only) has an explicit row
+#      (unqualified, or qualified <lang>:<column> by the language of the table that carries the column),
 #      and every carrier in the map exists in this tree (a file, a directory, or a symbol grep finds under src/).
 # EXIT: 0 every arm holds; 1 an arm failed; 2 could not measure. Population printed.
 set -uo pipefail
@@ -117,7 +118,8 @@ ck "6f a src/ file the landing deletes is named as deleted and does not refuse (
 echo "--- ARM 7: the map covers the vocabulary and every carrier exists (real corpus, read only) ---"
 vocab=$(python3 "$H" smoke --vocabulary 2>&1); rv=$?
 [ "$rv" = 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: smoke --vocabulary rc=$rv: $(tail -1 <<<"$vocab")"; gate_stamp; exit 2; }
-missing_feats=$(printf '%s\n' "$vocab" | grep ' runnable=yes ' | sed 's/^AREA_SMOKE_VOCAB table=[^ ]* runnable=yes //' | tr ' ' '\n' | sort -u | while read -r f; do [ -n "$f" ] || continue; awk -F'\t' -v f="$f" '$1==f {found=1} END {exit !found}' "$MAP" || printf '%s ' "$f"; done)
+# a column is named by an unqualified row, or by a row qualified with the language of the table that carries it (<lang>:<col>)
+missing_feats=$(printf '%s\n' "$vocab" | grep ' runnable=yes ' | awk '{split($2,p,"[=/]"); for (i=4;i<=NF;i++) print p[3]":"$i}' | sort -u | while IFS=: read -r l f; do [ -n "$f" ] || continue; awk -F'\t' -v f="$f" -v q="$l:$f" '$1==f || $1==q {found=1} END {exit !found}' "$MAP" || printf '%s ' "$l:$f"; done)
 ntab=$(printf '%s\n' "$vocab" | grep -c ' runnable=yes ')
 ck "7a every feature column of the $ntab runnable table(s) has an explicit row in area_map.tsv" '[ -z "$missing_feats" ]'
 [ -z "$missing_feats" ] || echo "      unmapped feature column(s): $missing_feats"
