@@ -5315,19 +5315,20 @@ extern "C" unsigned emit_rtx_clob_mask(const char * sym) {
     for (int i = 0; i < RTX_CLOB_TAB_N; i++) if (rtx_clob_tab[i].sym[0] == sym[0] && strcmp(rtx_clob_tab[i].sym, sym) == 0) return rtx_clob_tab[i].mask;
     return 0u;
 }
-#define RTX_TWIN(ret, leaf, twin, args) extern "C" ret twin args;
+struct rtx_ssr_t { const char * s; long n; };
+#define RTX_TWIN(kind, ret, leaf, twin, args) extern "C" ret twin args;
 #include "../templates/x86/rtx_twin_table.inc"
 #undef RTX_TWIN
-static const struct { const char * sym; const char * cname; void * caddr; } rtx_twin_tab[] = {
-#define RTX_TWIN(ret, leaf, twin, args) { #leaf, #twin, (void *)twin },
+static const struct { const char * sym; const char * cname; void * caddr; int kind; } rtx_twin_tab[] = {
+#define RTX_TWIN(kind, ret, leaf, twin, args) { #leaf, #twin, (void *)twin, RTX_VERDICT_##kind },
 #include "../templates/x86/rtx_twin_table.inc"
 #undef RTX_TWIN
 };
-extern "C" void * emit_rtx_twin(const char * sym, const char ** cname) {
+extern "C" void * emit_rtx_twin(const char * sym, const char ** cname, int * kind) {
     if (!sym) return 0;
     for (size_t i = 0; i < sizeof rtx_twin_tab / sizeof rtx_twin_tab[0]; i++) {
         if (rtx_twin_tab[i].sym[0] != sym[0] || strcmp(rtx_twin_tab[i].sym, sym) != 0) continue;
-        *cname = rtx_twin_tab[i].cname; return rtx_twin_tab[i].caddr;
+        *cname = rtx_twin_tab[i].cname; *kind = rtx_twin_tab[i].kind; return rtx_twin_tab[i].caddr;
     }
     return 0;
 }

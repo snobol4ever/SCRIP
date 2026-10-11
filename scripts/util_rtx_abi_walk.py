@@ -233,7 +233,7 @@ def walk(name, code, funcs, rtx, clob=None):
             errs.append('UNANALYZABLE %s: rsp loaded from something the walker cannot follow' % where); continue
         if mn == 'ret':
             bad = []
-            decl = re.fullmatch(r'mov\s+eax,0xff', prev_ins(code, key)) is not None
+            decl = re.fullmatch(r'mov\s+(eax,0xff|eax,0xfffffffe|rax,0xffffffffffffffff)', prev_ins(code, key)) is not None
             if stack != ['RA']: bad.append('%d slot(s) left above the return address' % (len(stack) - 1))
             if clob is not None:
                 for r in ('r8', 'r10', 'r11'):

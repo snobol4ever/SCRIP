@@ -38,12 +38,6 @@ DESCR_t rt_mod_sno(DESCR_t, DESCR_t);
 DESCR_t rt_pow_sno(DESCR_t, DESCR_t);
 DESCR_t rt_powreal_sno(DESCR_t, DESCR_t);
 DESCR_t rt_num_arith_sno(DESCR_t, DESCR_t, int);
-DESCR_t c_rt_add(DESCR_t, DESCR_t);
-DESCR_t c_rt_sub(DESCR_t, DESCR_t);
-DESCR_t c_rt_mul(DESCR_t, DESCR_t);
-DESCR_t c_rt_add_sno(DESCR_t, DESCR_t);
-DESCR_t c_rt_sub_sno(DESCR_t, DESCR_t);
-DESCR_t c_rt_mul_sno(DESCR_t, DESCR_t);
 }
 #include "x86_asm.h"
 #include <cstdlib>
@@ -53,7 +47,7 @@ DESCR_t c_rt_mul_sno(DESCR_t, DESCR_t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define binop_promotes(op) ((op) == BINOP_ADD_BIG || (op) == BINOP_SUB_BIG || (op) == BINOP_MUL_BIG)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const struct { long long op; int col; const char * name; void * addr; const char * cname; void * caddr; } rtop_tab[] = {
+static const struct { long long op; int col; const char * name; void * addr; } rtop_tab[] = {
     { BINOP_ADD_BIG, 0, "rt_add_big", (void*)rt_add_big },
     { BINOP_ADD_BIG, 1, "rt_add_big", (void*)rt_add_big },
     { BINOP_ADD_BIG, 2, "rt_add_big", (void*)rt_add_big },
@@ -63,15 +57,15 @@ static const struct { long long op; int col; const char * name; void * addr; con
     { BINOP_MUL_BIG, 0, "rt_mul_big", (void*)rt_mul_big },
     { BINOP_MUL_BIG, 1, "rt_mul_big", (void*)rt_mul_big },
     { BINOP_MUL_BIG, 2, "rt_mul_big", (void*)rt_mul_big },
-    { BINOP_ADD, 0, "rt_add", (void*)rt_add, "c_rt_add", (void*)c_rt_add },
-    { BINOP_ADD, 1, "rt_add", (void*)rt_add, "c_rt_add", (void*)c_rt_add },
-    { BINOP_ADD, 2, "rt_add_sno", (void*)rt_add_sno, "c_rt_add_sno", (void*)c_rt_add_sno },
-    { BINOP_SUB, 0, "rt_sub", (void*)rt_sub, "c_rt_sub", (void*)c_rt_sub },
-    { BINOP_SUB, 1, "rt_sub", (void*)rt_sub, "c_rt_sub", (void*)c_rt_sub },
-    { BINOP_SUB, 2, "rt_sub_sno", (void*)rt_sub_sno, "c_rt_sub_sno", (void*)c_rt_sub_sno },
-    { BINOP_MUL, 0, "rt_mul", (void*)rt_mul, "c_rt_mul", (void*)c_rt_mul },
-    { BINOP_MUL, 1, "rt_mul", (void*)rt_mul, "c_rt_mul", (void*)c_rt_mul },
-    { BINOP_MUL, 2, "rt_mul_sno", (void*)rt_mul_sno, "c_rt_mul_sno", (void*)c_rt_mul_sno },
+    { BINOP_ADD, 0, "rt_add", (void*)rt_add },
+    { BINOP_ADD, 1, "rt_add", (void*)rt_add },
+    { BINOP_ADD, 2, "rt_add_sno", (void*)rt_add_sno },
+    { BINOP_SUB, 0, "rt_sub", (void*)rt_sub },
+    { BINOP_SUB, 1, "rt_sub", (void*)rt_sub },
+    { BINOP_SUB, 2, "rt_sub_sno", (void*)rt_sub_sno },
+    { BINOP_MUL, 0, "rt_mul", (void*)rt_mul },
+    { BINOP_MUL, 1, "rt_mul", (void*)rt_mul },
+    { BINOP_MUL, 2, "rt_mul_sno", (void*)rt_mul_sno },
     { BINOP_DIV, 0, "rt_div", (void*)rt_div },
     { BINOP_DIV, 1, "rt_div_strict", (void*)rt_div_strict },
     { BINOP_DIV, 2, "rt_div_sno", (void*)rt_div_sno },
@@ -105,18 +99,15 @@ static inline int rtop_row(long long op, int strict, int i) {
 #define rtop_is_dyn(op) (rtop_addr_s((op), 0) == (void*)rt_num_arith)
 #define RTOP_I() rtop_row(_.op_ival, _.op_strict, 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define rtop_call_leaf() ( \
-      x86("call", rtop_tab[RTOP_I()].name, (uint64_t)(uintptr_t)rtop_tab[RTOP_I()].addr) \
-    + IF(rtop_tab[RTOP_I()].cname, x86("cmp", "al", (long)RTX_NOT_HANDLED) \
-                     + x86("jne", L(11)) \
-                     + x86("call", rtop_tab[RTOP_I()].cname, (uint64_t)(uintptr_t)rtop_tab[RTOP_I()].caddr) \
-                     + x86("def", L(11))) \
-)
+#define rtop_call_leaf() x86("call", rtop_tab[RTOP_I()].name, (uint64_t)(uintptr_t)rtop_tab[RTOP_I()].addr)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define rtop_call_c() ( \
-      IF(rtop_tab[RTOP_I()].cname, x86("call", rtop_tab[RTOP_I()].cname, (uint64_t)(uintptr_t)rtop_tab[RTOP_I()].caddr)) \
-    + IF(!rtop_tab[RTOP_I()].cname, x86("call", rtop_tab[RTOP_I()].name, (uint64_t)(uintptr_t)rtop_tab[RTOP_I()].addr)) \
-)
+static inline std::string rtop_call_twin(const char * name, void * addr) {
+    const char * cname = 0;
+    int kind = 0;
+    void * caddr = emit_rtx_twin(name, &cname, &kind);
+    return x86("call", caddr ? cname : name, (uint64_t)(uintptr_t)(caddr ? caddr : addr));
+}
+#define rtop_call_c() rtop_call_twin(rtop_tab[RTOP_I()].name, rtop_tab[RTOP_I()].addr)
 #define SCRIP_DEF_ARITH_FUSE 1
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define fuse_on() (SCRIP_DEF_ARITH_FUSE)

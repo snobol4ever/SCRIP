@@ -69,7 +69,7 @@ RTX_FUNC(rt_defer_close)
     mov     eax, -1
     ret
 .Ldc_c:
-    RTX_CTAIL(c_rt_defer_close)
+    RTX_DECLINE_INT
 RTX_ENDF(rt_defer_close)
 .section .rodata
 .align 1
@@ -120,7 +120,8 @@ RTX_FUNC(rt_match_enter)
     jnz     .Lme_store
     mov     rdi, rsi
     RTX_PUSH(rsi)
-    RTX_CCALL(strlen@PLT)
+    call    strlen@PLT
+    RTX_GVA_R9
     RTX_POP(rsi)
     mov     rdx, rax
 .Lme_store:
@@ -134,13 +135,14 @@ RTX_FUNC(rt_match_enter)
     RTX_PUSH(rsi)
     RTX_PUSH(rdx)
     RTX_SUB_RSP(8)
-    RTX_CCALL(rt_dcap_lazy_init)
+    call    rt_dcap_lazy_init
+    RTX_GVA_R9
     RTX_ADD_RSP(8)
     RTX_POP(rdx)
     RTX_POP(rsi)
     jmp     .Lme_dcap_done
 .Lme_c:
-    RTX_CTAIL(c_rt_match_enter)
+    RTX_DECLINE_PTR
 RTX_ENDF(rt_match_enter)
 RTX_FUNC(rt_dcap_fast_run)
     RTX_GATE(match, .Ldfr_off)
@@ -241,9 +243,17 @@ RTX_FUNC(rt_dcap_end_ok_open)
     mov     qword ptr [rcx + 96], DT_I
     mov     qword ptr [rcx + 104], 0
     mov     rdi, rcx
-    RTX_CTAIL(rt_dcap_pump)
+    RTX_SUB_RSP(8)
+    call    rt_dcap_pump
+    RTX_ADD_RSP(8)
+    RTX_GVA_R9
+    ret
 .Ldeoo_c:
-    RTX_CTAIL(c_rt_dcap_end_ok_open)
+    RTX_SUB_RSP(8)
+    call    c_rt_dcap_end_ok_open
+    RTX_ADD_RSP(8)
+    RTX_GVA_R9
+    ret
 RTX_ENDF(rt_dcap_end_ok_open)
 RTX_FUNC(rt_match_replace)
     RTX_GATE(match, .Lmr_c)
@@ -503,7 +513,11 @@ RTX_ENTRY(rt_cap_open_plain)
     RTX_GVA_R9
     ret
 .Lco_c:
-    RTX_CTAIL(c_rt_cap_open)
+    RTX_SUB_RSP(8)
+    call    c_rt_cap_open
+    RTX_ADD_RSP(8)
+    RTX_GVA_R9
+    ret
 RTX_ENDF(rt_cap_open)
     .size rt_cap_open_plain, .-rt_cap_open_plain
 RTX_FUNC(rt_cap_open_gva)

@@ -16,7 +16,10 @@ long *rt_anchor_ptr(void);
 int rtx_entry_is(const char *sym);
 int emit_rtx_entry_is(const char * sym);
 unsigned emit_rtx_clob_mask(const char * sym);
-void * emit_rtx_twin(const char * sym, const char ** cname);
+void * emit_rtx_twin(const char * sym, const char ** cname, int * kind);
+#define RTX_VERDICT_AL 0
+#define RTX_VERDICT_INT 1
+#define RTX_VERDICT_PTR 2
 }
 #include "rtx/rtcc.h"
 #ifndef _
@@ -2697,13 +2700,19 @@ inline std::string x86_gc_gate(const std::string & body) {
       std::string je = (n <= 127) ? x86_b2(0x74, (uint8_t)n) : (x86_b2(0x0F, 0x84) + x86_b4((uint8_t)(n & 255), (uint8_t)((n >> 8) & 255), (uint8_t)((n >> 16) & 255), (uint8_t)((n >> 24) & 255)));
       return test + x86_Lrec(je) + body; }
 }
+inline std::string x86_rtx_verdict_cmp(int kind) {
+    if (kind == RTX_VERDICT_INT) return x86("cmp", "eax", (long)(int)RTX_NOT_HANDLED_INT);
+    if (kind == RTX_VERDICT_PTR) return x86("cmp", "rax", (long)-1);
+    return x86("cmp", "al", (long)RTX_NOT_HANDLED);
+}
 inline std::string x86_rtx_verdict_adj(const char * sym, int adj) {
     static int seq;
     const char * cname = 0;
-    void * caddr = emit_rtx_entry_is(sym) ? emit_rtx_twin(sym, &cname) : 0;
+    int kind = 0;
+    void * caddr = emit_rtx_entry_is(sym) ? emit_rtx_twin(sym, &cname, &kind) : 0;
     if (!caddr) return std::string();
     const struct bb_label_t * done = emit_label_alloc(".Lvd%d", seq++);
-    return x86("cmp", "al", (long)RTX_NOT_HANDLED) + x86("jne", "extlbl", (uint64_t)(uintptr_t)done) + x86_rtcc_call_adj(cname, (uint64_t)(uintptr_t)caddr, adj) + x86_def_ext(done);
+    return x86_rtx_verdict_cmp(kind) + x86("jne", "extlbl", (uint64_t)(uintptr_t)done) + x86_rtcc_call_adj(cname, (uint64_t)(uintptr_t)caddr, adj) + x86_def_ext(done);
 }
 inline std::string x86_rt_gc_poll_at(const char * f, int l) { const char * b = strrchr(f, '/');
     return x86("note", std::string("gc_poll ") + (b ? b + 1 : f) + ":" + std::to_string(l)) + x86_gc_gate(x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm)); }

@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2619
+#define GC_ALLOC_TAB_N 2617
 #define GC_ALLOC_TAB_N_VOID 312
 #define GC_ALLOC_TAB_N_DESCR 1242
-#define GC_ALLOC_TAB_N_OTHER 1048
+#define GC_ALLOC_TAB_N_OTHER 1046
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1612,7 +1612,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_dcap_pump", GC_RET_OTHER },
     { "rt_dcap_resume", GC_RET_OTHER },
     { "rt_dcap_star_finish", GC_RET_OTHER },
-    { "rt_defer_close", GC_RET_OTHER },
     { "rt_defer_close_v", GC_RET_OTHER },
     { "rt_defer_expr_value", GC_RET_DESCR },
     { "rt_defer_land_chain", GC_RET_OTHER },
@@ -1718,7 +1717,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_make_item_agg", GC_RET_DESCR },
     { "rt_make_list", GC_RET_DESCR },
     { "rt_match_capture", GC_RET_DESCR },
-    { "rt_match_enter", GC_RET_OTHER },
     { "rt_match_replace", GC_RET_VOID },
     { "rt_match_value_get_pat_dtp", GC_RET_OTHER },
     { "rt_match_value_get_pat_fn", GC_RET_OTHER },
