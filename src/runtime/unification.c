@@ -1565,12 +1565,30 @@ static int plc_fmt_text(pl_cell_t *h, char **out, size_t *len, void **ball) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_fmt_digits(plc_fb *f, int neg, const char *d, long nd, long places, int group) {
+    extern const char *rt_pl_flag_text(const char *);
     long tot = nd > places ? nd : places + 1, ip = tot - places, i;
+    const char *dp = ".", *ts = ",", *gs = "r3", *x;
+    char mark[ip + 1];
+    memset(mark, 0, (size_t)ip + 1);
+    if (group) {
+        if ((x = rt_pl_flag_text("$loc_dp")) && x[0]) dp = x;
+        if ((x = rt_pl_flag_text("$loc_ts"))) ts = x;
+        if ((x = rt_pl_flag_text("$loc_grp")) && x[0]) gs = x;
+        for (long pos = ip; pos > 0 && *gs; ) {
+            char *e;
+            long g;
+            if (*gs == 'r') { g = strtol(gs + 1, &e, 10); while (g > 0 && (pos -= g) > 0) mark[pos] = 1; break; }
+            g = strtol(gs, &e, 10);
+            if (g <= 0 || e == gs) break;
+            if ((pos -= g) > 0) mark[pos] = 1;
+            gs = *e == ',' ? e + 1 : e;
+        }
+    }
     if (neg) plc_fb_add(f, "-", 1);
     for (i = 0; i < tot; i++) {
         char c = i < tot - nd ? '0' : d[i - (tot - nd)];
-        if (i == ip && places > 0) plc_fb_add(f, ".", 1);
-        if (group && i && i < ip && !((ip - i) % 3)) plc_fb_add(f, ",", 1);
+        if (i == ip && places > 0) plc_fb_add(f, group ? dp : ".", strlen(group ? dp : "."));
+        if (group && i && i < ip && mark[i]) plc_fb_add(f, ts, strlen(ts));
         plc_fb_add(f, &c, 1);
     }
 }
@@ -1620,7 +1638,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
     fmt = fmtc;
     for (p = fmt; *p && !ball; p++) {
         long nval = 0;
-        int have_n = 0, fill = ' ';
+        int have_n = 0, fill = ' ', colon = 0;
         if (*p != '~') { plc_fb_add(&f, p, 1); continue; }
         p++;
         if (*p == '`' && p[1]) {
@@ -1639,6 +1657,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
             while (*p >= '0' && *p <= '9') { nval = nval * 10 + (*p - '0'); have_n = 1; p++; }
             if (have_n) fill = (int)nval;
         }
+        if (*p == ':') { colon = 1; p++; }
         if (!*p) break;
         if (*p == '~') { plc_fb_add(&f, "~", 1); continue; }
         if (*p == 'n') { long r = have_n ? nval : 1; for (long i = 0; i < r; i++) plc_fb_add(&f, "\n", 1); continue; }
@@ -1677,12 +1696,12 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
                         extern char *rt_big_str(DESCR_t);
                         char *bs = rt_big_str(bv);
                         int ng = bs && bs[0] == '-';
-                        plc_fmt_digits(&f, ng, bs ? bs + ng : "0", bs ? (long)strlen(bs + ng) : 1L, have_n ? nval : 0, *p == 'D');
+                        plc_fmt_digits(&f, ng, bs ? bs + ng : "0", bs ? (long)strlen(bs + ng) : 1L, have_n ? nval : 0, *p == 'D' || colon);
                         continue;
                     }
                 }
                 if (!plc_fmt_int(h, &iv, &ball)) break;
-                plc_fmt_dec(&f, (long long)iv, have_n ? nval : 0, *p == 'D');
+                plc_fmt_dec(&f, (long long)iv, have_n ? nval : 0, *p == 'D' || colon);
             } else if (*p == 'r' || *p == 'R') {
                 long iv;
                 long base = have_n ? nval : 8;
@@ -1692,13 +1711,38 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
             } else if (*p == 'f' || *p == 'e' || *p == 'E' || *p == 'g' || *p == 'G') {
                 double dv;
                 char spec[8];
-                if (!plc_fmt_dbl(h, &dv, &ball)) break;
+                DESCR_t nv;
+                int prec = have_n ? (int)nval : 6;
+                if (!plc_fmt_eval(h, &nv, &ball)) break;
+                if (*p == 'f' && (nv.v == DT_I || nv.v == DT_BIG)) {
+                    extern char *rt_big_str(DESCR_t);
+                    char ib[24];
+                    const char *is = nv.v == DT_BIG ? rt_big_str(nv) : (snprintf(ib, sizeof ib, "%lld", (long long)nv.i), ib);
+                    int ng = is && is[0] == '-';
+                    size_t il = is ? strlen(is + ng) : 0;
+                    char dg[il + (size_t)(prec > 0 ? prec : 0) + 2];
+                    memcpy(dg, is ? is + ng : "0", il);
+                    for (int k = 0; k < prec; k++) dg[il + (size_t)k] = '0';
+                    plc_fmt_digits(&f, ng, dg, (long)il + (prec > 0 ? prec : 0), prec > 0 ? prec : 0, colon);
+                    continue;
+                }
+                if (nv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); dv = strtod(rt_big_str(nv), (char **)0); } else dv = nv.v == DT_I ? (double)nv.i : nv.r;
                 spec[0] = '%';
                 spec[1] = '.';
                 spec[2] = '*';
                 spec[3] = (char)*p;
                 spec[4] = '\0';
-                { int prec = have_n ? (int)nval : 6; char nb[fmt_len(spec, prec, dv)]; snprintf(nb, sizeof nb, spec, prec, dv); plc_fb_add(&f, nb, strlen(nb)); }
+                {
+                    char nb[fmt_len(spec, prec, dv)];
+                    snprintf(nb, sizeof nb, spec, prec, dv);
+                    if (colon && *p == 'f' && isfinite(dv)) {
+                        int ng = nb[0] == '-';
+                        size_t nl = strlen(nb), k = 0;
+                        char dg[nl + 1];
+                        for (size_t i = (size_t)ng; i < nl; i++) if (nb[i] != '.') dg[k++] = nb[i];
+                        plc_fmt_digits(&f, ng, dg, (long)k, prec, 1);
+                    } else plc_fb_add(&f, nb, strlen(nb));
+                }
             } else if (*p == 's') {
                 char *tx = (char *)0;
                 size_t tn = 0;

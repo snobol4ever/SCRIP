@@ -8435,6 +8435,7 @@ void rt_pl_flags_gc_roots(void) {
 void bnd_text_gc_roots(void) { extern void rt_gc_visit_raw(const char **); rt_gc_visit_raw(&pl_edin_out_name); rt_gc_visit_raw(&pl_edin_in_name); rt_gc_visit_raw(&g_tap_todo_reason); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_t * pl_flag_find(const char *nm) { pl_flags_ready(); for (int i = 0; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i]; return (pl_flag_t *)0; }
+const char *rt_pl_flag_text(const char *nm) { pl_flag_t *fl = pl_flag_find(nm); return fl && fl->val ? fl->val : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_flag_opt_true(const char *on) {
     extern int prolog_atom_intern(const char *);
