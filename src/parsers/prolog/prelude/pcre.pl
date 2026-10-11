@@ -15,7 +15,8 @@
     THE MATCH.  Leftmost, and among the matches at one start the first in PCRE's backtracking order (alternatives left to right,
     greedy repeats longest first).  Positions count characters.  A match is a dict re_match{0: Whole, 1: G1, ..., Name: Gn} -- an
     unset group is absent -- each capture converted to its type.  re_foldl/6 and re_split/3,4 walk the non-overlapping matches left
-    to right; after an empty match the next search starts one character on, as libpcre2's callers do.
+    to right; after an empty match the next search starts one character on, as libpcre2's callers do.  re_foldl/6 calls its goal
+    once per match, as swipl's C fold does through PL_call_predicate: a choice point the goal leaves is cut, never resumed.
 
     MEASURED AGAINST swipl 9.0.4 (2026-10-11): the row's witness (re_foldl over \d+, re_split over \s+) and the Advent of Code day-3
     shape ((?<num>\d+)/r read as Start-Length).
@@ -29,7 +30,7 @@ re_matchsub(Re, S, Sub, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$r
 re_foldl(G, Re, S, V0, V, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_fold'(R, G, W, W, 0, V0, V).
 '$re_fold'(R, G, W, Cs, P, V0, V) :-
     (   '$re_search'(R, W, P, Cs, M, Rest)
-    ->  '$re_sub'(R, M, Sub), call(G, Sub, V0, V1), '$re_step'(M, Rest, Cs1, P1), ( Cs1 == none -> V = V1 ; '$re_fold'(R, G, W, Cs1, P1, V1, V) )
+    ->  '$re_sub'(R, M, Sub), once(call(G, Sub, V0, V1)), '$re_step'(M, Rest, Cs1, P1), ( Cs1 == none -> V = V1 ; '$re_fold'(R, G, W, Cs1, P1, V1, V) )
     ;   V = V0
     ).
 '$re_step'(m(_, c(S, E, _), _, _), Rest, Cs, P) :- ( E =:= S -> ( Rest = [_|Cs] -> P is E + 1 ; Cs = none, P = E ) ; Cs = Rest, P = E ).

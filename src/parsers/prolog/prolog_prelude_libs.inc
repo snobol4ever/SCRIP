@@ -13323,7 +13323,7 @@ static const char PL_PRELUDE_LIB_14_SRC[] =
     "re_foldl(G, Re, S, V0, V, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_fold'(R, G, W, W, 0, V0, V).\n"
     "'$re_fold'(R, G, W, Cs, P, V0, V) :-\n"
     "    (   '$re_search'(R, W, P, Cs, M, Rest)\n"
-    "    ->  '$re_sub'(R, M, Sub), call(G, Sub, V0, V1), '$re_step'(M, Rest, Cs1, P1), ( Cs1 == none -> V = V1 ; '$re_fold'(R, G, W, Cs1, P1, V1, V) )\n"
+    "    ->  '$re_sub'(R, M, Sub), once(call(G, Sub, V0, V1)), '$re_step'(M, Rest, Cs1, P1), ( Cs1 == none -> V = V1 ; '$re_fold'(R, G, W, Cs1, P1, V1, V) )\n"
     "    ;   V = V0\n"
     "    ).\n"
     "'$re_step'(m(_, c(S, E, _), _, _), Rest, Cs, P) :- ( E =:= S -> ( Rest = [_|Cs] -> P is E + 1 ; Cs = none, P = E ) ; Cs = Rest, P = E ).\n"
