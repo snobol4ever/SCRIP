@@ -195,7 +195,7 @@ S_START:
     case D_COMMA:                                                    {  ADV(1); SYNC(); return tok(TK_COMMA,    (char *)",",  line);                               }
     case D_BANG:                                                     {  ADV(1); SYNC(); return tok(TK_CUT,      (char *)"!",  line);                               }
     case D_SEMI:                                                     {  ADV(1); SYNC(); return tok(TK_SEMI,     (char *)";",  line);                               }
-    case D_LBRACE:                                                   {  ADV(1); SYNC(); return tok(TK_LBRACE,   (char *)"{",  line);                               }
+    case D_LBRACE:                                                   {  t = tok(TK_LBRACE, (char *)"{", line); t.adj = (p > lx->src && !is_layout((unsigned char)p[-1])); ADV(1); SYNC(); return t;                               }
     case D_RBRACE:                                                   {  ADV(1); SYNC(); return tok(TK_RBRACE,   (char *)"}",  line);                               }
     case D_DOT:     if (PEEK(1) == '\0' || is_layout(PEEK(1)) || PEEK(1) == '%') {  ADV(1); SYNC(); return tok(TK_DOT, (char *)".", line);                         }
                                                                      {  ADV(1);                                                                goto S_GRAPHIC;     }
@@ -299,6 +299,7 @@ S_GRAPHIC:
     if (is_graphic(PEEK(0)))                                         {  ADV(1);                                                                goto S_GRAPHIC;     }
     if (p - s == 2 && s[0] == ':' && s[1] == '-')                    {  SYNC(); return tok(TK_NECK,  (char *)":-", line);                                          }
     if (p - s == 2 && s[0] == '?' && s[1] == '-')                    {  SYNC(); return tok(TK_QUERY, (char *)"?-", line);                                          }
+    if (!lx->iso && p - s == 1 && s[0] == '.' && s > lx->src && !is_layout((unsigned char)s[-1]) && (DC[PEEK(0)] == D_LOWER || DC[PEEK(0)] == D_UPPER || DC[PEEK(0)] == D_USCORE)) {  t = tok(TK_OP, (char *)".", line); t.adj = 1; SYNC(); return t; }
                                                                      {  SYNC(); return tok(TK_OP, ct_strndup(s, (size_t)(p - s)), line);                           }
 LX_INT:
     t = tok(TK_INT, span_text(s, p, seps), line); errno = 0; t.ival = (long)strtoll(t.text, NULL, 10); t.big = (errno == ERANGE); SYNC(); return t;

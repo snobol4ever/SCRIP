@@ -495,6 +495,22 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
         fputc(']', fp);
         return;
     }
+    if ((ar & 1) && strcmp(fn, "$dict") == 0) {
+        PLC_KID(&aa[0], depth+1, 0);
+        if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
+        fputc('{', fp);
+        for (int i = 1; i < ar; i += 2) {
+            if (i > 1) fputc(',', fp);
+            PLC_KID(&aa[i + 1], depth+1, 0);
+            if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
+            fputc(':', fp);
+            if (plc_is_graphic_char(plc_first_char(&aa[i], quoted, ignore_ops, numbervars))) fputc(' ', fp);
+            PLC_KID(&aa[i], depth+1, 999);
+            if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
+        }
+        fputc('}', fp);
+        return;
+    }
     if (!ignore_ops && ar == 1 && strcmp(fn, "{}") == 0) { fprintf(fp, "{"); PLC_KID(&aa[0], depth+1, 1200); fprintf(fp, "}"); return; }
     {
         int op_prec = 0, lmax = 0, rmax = 0;

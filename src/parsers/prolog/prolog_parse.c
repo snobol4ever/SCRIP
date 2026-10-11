@@ -486,7 +486,7 @@ static tree_t *pt_binop(const char *op, tree_t *lhs, tree_t *rhs) {
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *pt_primary(Parser *p, TreeScope *ts) {
+static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
     Token tk = lexer_next(&p->lx); int ln = tk.line; p->prec = 0;
     switch (tk.kind) {
         case TK_VAR:
@@ -777,6 +777,68 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             perror_at(p, tk.line, "unexpected token, expected a term");
             return pt_stamp(NULL, ln);
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pt_dict(Parser *p, TreeScope *ts, tree_t *tag, int ln) {
+    lexer_next(&p->lx);
+    tree_t *d = ast_node_new(TT_FNC);
+    d->v.sval = ct_strdup("$dict_lit");
+    ast_push(d, tag);
+    if (lexer_peek(&p->lx).kind == TK_RBRACE) { lexer_next(&p->lx); return pt_stamp(d, ln); }
+    p->in_args++;
+    for (;;) {
+        Token kt = lexer_next(&p->lx);
+        tree_t *k = NULL;
+        if (kt.kind == TK_ATOM) { k = ast_node_new(TT_QLIT); k->v.sval = ct_strdup(kt.text); }
+        else if (kt.kind == TK_INT && !kt.big) { k = ast_node_new(TT_ILIT); k->v.ival = kt.ival; }
+        else { perror_at(p, kt.line, "expected an atom or a small integer as a dict key"); break; }
+        Token ct = lexer_next(&p->lx);
+        if (ct.kind != TK_OP || strcmp(ct.text, ":")) { perror_at(p, ct.line, "expected : after a dict key"); break; }
+        tree_t *v = pt_term(p, ts, 999);
+        if (!v) break;
+        ast_push(d, pt_stamp(k, kt.line));
+        ast_push(d, v);
+        Token sep = lexer_next(&p->lx);
+        if (sep.kind == TK_COMMA) continue;
+        if (sep.kind != TK_RBRACE) perror_at(p, sep.line, "expected , or } in a dict");
+        break;
+    }
+    p->in_args--;
+    return pt_stamp(d, ln);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pt_primary(Parser *p, TreeScope *ts) {
+    tree_t *n = pt_primary0(p, ts);
+    if (!n || p->prec != 0) return n;
+    int ln = n->line;
+    Token pk = lexer_peek(&p->lx);
+    if (!p->iso && pk.kind == TK_LBRACE && pk.adj && (n->t == TT_VAR || n->t == TT_QLIT)) n = pt_dict(p, ts, n, ln);
+    for (;;) {
+        pk = lexer_peek(&p->lx);
+        if (pk.kind != TK_OP || !pk.adj || strcmp(pk.text, ".")) break;
+        lexer_next(&p->lx);
+        Token ft = lexer_next(&p->lx);
+        tree_t *f = NULL;
+        if (ft.kind == TK_VAR) f = ts_get(ts, ft.text);
+        else if (ft.kind == TK_ATOM && lexer_peek(&p->lx).kind == TK_LPAREN && lexer_peek(&p->lx).adj) {
+            lexer_next(&p->lx);
+            f = ast_node_new(TT_FNC);
+            f->v.sval = ct_strdup(ft.text);
+            pt_args(p, ts, f);
+            Token rp = lexer_peek(&p->lx);
+            if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
+            else perror_at(p, rp.line, "expected ) to close argument list");
+        }
+        else if (ft.kind == TK_ATOM) { f = ast_node_new(TT_QLIT); f->v.sval = ct_strdup(ft.text); }
+        else { perror_at(p, ft.line, "expected a key or a function after a dict ."); break; }
+        tree_t *dn = ast_node_new(TT_FNC);
+        dn->v.sval = ct_strdup("$dot");
+        ast_push(dn, n);
+        ast_push(dn, pt_stamp(f, ft.line));
+        n = pt_stamp(dn, ln);
+    }
+    p->prec = 0;
+    return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pt_term(Parser *p, TreeScope *ts, int max_prec) {
@@ -1560,8 +1622,8 @@ static const char * const PL_PRELUDE_SRC =
     "nth1(N,L,E):-'$nth_'(L,1,N,E).\n"
     "'$nth_'([H|_],I,I,H).\n"
     "'$nth_'([_|T],I,N,E):-I1 is I+1,'$nth_'(T,I1,N,E).\n"
-    "is_dict(_):-fail.\n"
-    "is_dict(_,_):-fail.\n"
+    "is_dict(D):-compound(D),functor(D,'$dict',A),A mod 2=:=1.\n"
+    "is_dict(D,T):-is_dict(D),arg(1,D,T).\n"
     "rational(X):-integer(X).\n"
     "rational(X,N,D):-integer(X),N=X,D=1.\n"
     "'$is_char_list'(L,N):-is_list(L),'$is_char_list_'(L,0,N).\n"
@@ -2432,6 +2494,12 @@ static void pl_tree_collect_declared(const tree_t *t, cv_t *keys) {
     }
     for (int i = 0; i < t->n; i++) pl_tree_collect_declared(t->c[i], keys);
 }
+static int pl_tree_has_fn(const tree_t *t, const char *fn) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, fn)) return 1;
+    for (int i = 0; i < t->n; i++) if (pl_tree_has_fn(t->c[i], fn)) return 1;
+    return 0;
+}
 void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
     cv_t user_defined = { 0 }, referenced = { 0 }, refkeys = { 0 }, wanted = { 0 }, attv_off = { 0 };
@@ -2460,6 +2528,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         for (int i = 0; pl_attv_api[i]; i++) if (!seen[i]) { const char *sl = strchr(pl_attv_api[i], '/'); char nm[sl - pl_attv_api[i] + 1]; memcpy(nm, pl_attv_api[i], (size_t)(sl - pl_attv_api[i])); nm[sl - pl_attv_api[i]] = 0; pl_cv_add(&attv_off, ct_strdup(nm)); }
     }
     if (pl_cv_has(&referenced, ":")) pl_cv_add(&referenced, "$mod_head");
+    for (PlClause *cl = prog->head; cl; cl = cl->next) if (cl->tr && pl_tree_has_fn(cl->tr, "$dot")) { pl_cv_add(&referenced, "$dict_eval"); pl_cv_add(&refkeys, pl_pred_key("$dict_eval", 3)); break; }
     if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$load_item");
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
     for (PlClause *cl = prog->head; cl; cl = cl->next) if (pl_clause_ssu(cl)) { pl_cv_add(&referenced, "subsumes_term"); break; }

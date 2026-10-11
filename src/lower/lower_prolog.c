@@ -4437,8 +4437,125 @@ static const tree_t * pl_ssu_rewrite(const tree_t * prog) {
     return np;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_dict_any(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, "$dict_lit") || !strcmp(t->v.sval, "$dot"))) return 1;
+    for (int i = 0; i < t->n; i++) if (pl_dict_any(t->c[i])) return 1;
+    return 0;
+}
+static int pl_dict_key_cmp(const tree_t * a, const tree_t * b) {
+    int ai = a->t == TT_ILIT, bi = b->t == TT_ILIT;
+    if (ai != bi) return ai ? -1 : 1;
+    if (ai) return (a->v.ival > b->v.ival) - (a->v.ival < b->v.ival);
+    return strcmp(a->v.sval ? a->v.sval : "", b->v.sval ? b->v.sval : "");
+}
+static tree_t * pl_dict_canon(const tree_t * t) {
+    if (!t) return NULL;
+    tree_t * c = ast_node_new(t->t);
+    c->v = t->v;
+    c->line = t->line;
+    for (int i = 0; i < t->n; i++) ast_push(c, pl_dict_canon(t->c[i]));
+    if (c->t != TT_FNC || !c->v.sval || strcmp(c->v.sval, "$dict_lit") || !(c->n & 1)) return c;
+    int np = (c->n - 1) / 2;
+    int ord[np > 0 ? np : 1];
+    for (int i = 0; i < np; i++) ord[i] = i;
+    for (int i = 1; i < np; i++) for (int j = i; j > 0 && pl_dict_key_cmp(c->c[1 + 2 * ord[j]], c->c[1 + 2 * ord[j - 1]]) < 0; j--) { int x = ord[j]; ord[j] = ord[j - 1]; ord[j - 1] = x; }
+    tree_t * d = ast_node_new(TT_FNC);
+    d->v.sval = (char *) "$dict";
+    d->line = c->line;
+    ast_push(d, c->c[0]);
+    for (int i = 0; i < np; i++) { ast_push(d, c->c[2 + 2 * ord[i]]); ast_push(d, c->c[1 + 2 * ord[i]]); }
+    return d;
+}
+static tree_t * pl_dot_take(const tree_t * t, lc_vec * ev, int * next) {
+    if (!t) return NULL;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "$dot") && t->n == 2) {
+        tree_t * o = pl_dot_take(t->c[0], ev, next);
+        tree_t * f = pl_dot_take(t->c[1], ev, next);
+        int slot = (*next)++;
+        tree_t * g = pl_cc_fnc3("$dict_eval", o, f, pl_ssu_var(slot));
+        lc_vec_push(ev, &g);
+        return pl_ssu_var(slot);
+    }
+    tree_t * c = ast_node_new(t->t);
+    c->v = t->v;
+    c->line = t->line;
+    for (int i = 0; i < t->n; i++) ast_push(c, pl_dot_take(t->c[i], ev, next));
+    return c;
+}
+static tree_t * pl_dot_goal(const tree_t * g, int * next);
+static tree_t * pl_dot_goal_arg(const tree_t * a, char spec, lc_vec * ev, int * next) {
+    if (spec == '0') return pl_dot_goal(a, next);
+    if (spec != '^') return pl_dot_take(a, ev, next);
+    if (a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "^") && a->n == 2) return pl_cc_fnc2("^", pl_dot_take(a->c[0], ev, next), pl_dot_goal_arg(a->c[1], '^', ev, next));
+    return pl_dot_goal(a, next);
+}
+static tree_t * pl_dot_goal(const tree_t * g, int * next) {
+    if (!g) return NULL;
+    lc_vec ev;
+    lc_vec_init(&ev, (int) sizeof(tree_t *));
+    const char * tmpl = (g->t == TT_FNC && g->v.sval) ? pl_meta_template(g->v.sval, g->n) : (const char *) 0;
+    tree_t * c;
+    if (g->t == TT_IF || g->t == TT_PROGRAM || tmpl) {
+        c = ast_node_new(g->t);
+        c->v = g->v;
+        c->line = g->line;
+        for (int i = 0; i < g->n; i++) ast_push(c, tmpl ? pl_dot_goal_arg(g->c[i], tmpl[i], &ev, next) : pl_dot_goal(g->c[i], next));
+    } else c = pl_dot_take(g, &ev, next);
+    for (int i = ev.n - 1; i >= 0; i--) c = pl_cc_fnc2(",", ((tree_t **) ev.data)[i], c);
+    return c;
+}
+static tree_t * pl_dict_clause(const tree_t * cl) {
+    if (!cl || cl->t != TT_CLAUSE || !pl_dict_any(cl)) return (tree_t *) cl;
+    tree_t * k = pl_dict_canon(cl);
+    int ar = (int) cl->v.dval;
+    if (ar < 0) ar = 0;
+    if (ar > k->n) ar = k->n;
+    int next = max_var_slot(cl, -1) + 1;
+    tree_t * nc = ast_node_new(TT_CLAUSE);
+    nc->v = cl->v;
+    nc->line = cl->line;
+    lc_vec hev;
+    lc_vec_init(&hev, (int) sizeof(tree_t *));
+    for (int i = 0; i < ar; i++) ast_push(nc, pl_dot_take(k->c[i], &hev, &next));
+    for (int i = 0; i < hev.n; i++) ast_push(nc, ((tree_t **) hev.data)[i]);
+    for (int i = ar; i < k->n; i++) {
+        const tree_t * g = k->c[i];
+        if (g && (g->t == TT_IF || g->t == TT_PROGRAM || (g->t == TT_FNC && g->v.sval && pl_meta_template(g->v.sval, g->n)))) { ast_push(nc, pl_dot_goal(g, &next)); continue; }
+        lc_vec ev;
+        lc_vec_init(&ev, (int) sizeof(tree_t *));
+        tree_t * g2 = pl_dot_take(g, &ev, &next);
+        for (int j = 0; j < ev.n; j++) ast_push(nc, ((tree_t **) ev.data)[j]);
+        ast_push(nc, g2);
+    }
+    return nc;
+}
+static const tree_t * pl_dict_rewrite(const tree_t * prog) {
+    int any = 0;
+    for (int i = 0; i < prog->n && !any; i++) { const tree_t * s = prog->c[i]; any = pl_dict_any((s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL); }
+    if (!any) return prog;
+    tree_t * np = ast_node_new(prog->t);
+    np->v = prog->v;
+    np->line = prog->line;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (!pl_dict_any(subj)) { ast_push(np, (tree_t *) s); continue; }
+        tree_t * ns;
+        if (subj->t == TT_CHOICE) {
+            ns = ast_node_new(TT_CHOICE);
+            ns->v = subj->v;
+            ns->line = subj->line;
+            for (int k = 0; k < subj->n; k++) ast_push(ns, pl_dict_clause(subj->c[k]));
+        } else if (subj->t == TT_CLAUSE) ns = pl_dict_clause(subj);
+        else ns = pl_dict_canon(subj);
+        ast_push(np, pl_table_stmt(s, ns));
+    }
+    return np;
+}
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_ssu_rewrite(prog);
+    prog = pl_dict_rewrite(prog);
     prog = pl_table_rewrite(prog);
     prog = pl_scc_rewrite(prog);
     prog = pl_mq_rewrite(prog);
