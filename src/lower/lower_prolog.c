@@ -1303,7 +1303,7 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     2, "$create_prolog_flag" }, { "$attv_atts", 2, "$attv_atts" }, { "$attv_take", 1, "$attv_take" }, { "$unifiable", 3, "$unifiable" }, { "plus", 3, "$plus" }, { "sort", 2, "$sort" }, { "msort", 2,
     "$msort" }, { "char_type", 2, "$char_type" }, { "term_string", 2, "$term_string" }, { "term_to_atom", 2, "$term_to_atom" }, { "atom_length", 2, "$atom_length" }, { "atom_concat", 3,
     "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "atom_number", 2, "$atom_number" }, { "atom_string", 2, "$atom_string" }, { "upcase_atom", 2,
-    "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" }, { "string_concat", 3, "$string_concat" }, { "string_length", 2, "$string_length" }, { "string_lower", 2, "$string_lower" },
+    "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" }, { "string_concat", 3, "$string_concat" }, { "$string_concat_det", 3, "$string_concat" }, { "string_length", 2, "$string_length" }, { "string_lower", 2, "$string_lower" },
     { "string_upper", 2, "$string_upper" }, { "string_to_atom", 2, "$string_to_atom" }, { "number_string", 2, "$number_string" }, { "string_chars", 2, "$string_chars" }, { "string_codes", 2,
     "$string_codes" }, { "atomic_concat", 3, "$atomic_concat" }, { "atomic_list_concat", 2, "$atomic_list_concat" }, { "atomic_list_concat", 3, "$atomic_list_concat" }, { "concat_atom", 2,
     "$concat_atom" }, { "concat_atom", 3, "$concat_atom" }, { "char_code", 2, "$char_code" }, { "number_codes", 2, "$number_codes" }, { "number_chars", 2, "$number_chars" }, { "name", 2, "$name" },
@@ -2024,6 +2024,11 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             const char * nm = t->v.sval ? t->v.sval : "?";
             if (!strcmp(nm, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[1]) { cx->tail_pop = tpop; return goal(cx, t->c[1], γnext, ωfail, entry_out); }
             if (!strcmp(nm, "$") && t->n == 1 && !pl_dollar_user(1)) return pl_lower_det_goal(cx, t->c[0], γnext, ωfail, entry_out);
+            if (!strcmp(nm, "string_concat") && t->n == 3 && !pl_file_defines(nm, 3)) {
+                tree_t * both = pl_cc_fnc2(",", pl_cc_fnc1("nonvar", (tree_t *) t->c[0]), pl_cc_fnc1("nonvar", (tree_t *) t->c[1]));
+                tree_t * det = pl_cc_fnc3("$string_concat_det", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) t->c[2]);
+                return goal(cx, pl_cc_ite(both, det, pl_cc_fnc3("$string_concat_split", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) t->c[2])), γnext, ωfail, entry_out);
+            }
             if (!strcmp(nm, ",")) {
                 cx->tail_pop = tpop;
                 lc_vec glv;

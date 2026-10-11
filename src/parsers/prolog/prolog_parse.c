@@ -1422,6 +1422,8 @@ static const char * const PL_PRELUDE_SRC =
     "atomics_to_string(L,S):-atomic_list_concat(L,A),atom_string(A,S).\n"
     "atomics_to_string(L,Sep,S):-atomic_list_concat(L,Sep,A),atom_string(A,S).\n"
     "string_to_list(S,L):-string_codes(S,L).\n"
+    "'$string_concat_split'(_,_,C):-var(C),!,throw(error(instantiation_error,context(system:string_concat/3,_))).\n"
+    "'$string_concat_split'(A,B,C):-string_codes(C,Cs),(nonvar(A)->string_codes(A,As),append(As,Bs,Cs),string_codes(B,Bs);nonvar(B)->string_codes(B,Bs),append(As,Bs,Cs),string_codes(A,As);append(As,Bs,Cs),string_codes(A,As),string_codes(B,Bs)).\n"
     "string_code(_,S,_):-var(S),!,throw(error(instantiation_error,string_code/3)).\n"
     "string_code(I,S,C):-var(I),!,string_codes(S,Cs),'$sc_enum'(Cs,1,I,C).\n"
     "string_code(I,_,_):- \\+ integer(I),!,throw(error(type_error(integer,I),string_code/3)).\n"
@@ -2535,6 +2537,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (cl->tr) { pl_tree_collect_calls(cl->tr, &referenced); pl_tree_collect_keys(cl->tr, &refkeys); }
     }
     if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
+    if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");
     if (pl_cv_has(&referenced, "display")) pl_cv_add(&referenced, "$display_swi");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
