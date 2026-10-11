@@ -4096,6 +4096,11 @@ rt_call_next_t rt_apply_open(DESCR_t *args, int nargs) {
 #if RT_DIAG
             rt_c2bb_hit("apply.open", pn);
 #endif
+            if (na == 1 && CALL_ARGS[0].v == DT_X && pn[0] == 'E' && !strcmp(pn, "EVAL")) {
+                extern int rt_dtx_open_tail(sno_dstar_rec_t *, long *);
+                long rq[2] = { 0, 0 };
+                if (rt_dtx_open_tail(SNO_DTX_REC(CALL_ARGS[0]), rq) && rq[0]) return (rt_call_next_t){ rq[0], rq[1] };
+            }
             { extern rt_call_next_t rt_call_open_found(const char *, int, int *); int reg = 0; rt_call_next_t n = rt_call_open_found(pn, na, &reg); if (!(reg && n.fn)) return none; return n; }
         }
     }

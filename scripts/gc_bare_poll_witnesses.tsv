@@ -110,6 +110,8 @@ src/templates/bb/bb_match_capture.cpp:rt_cap_open_gva#1	hb_immediate_capture_int
 src/templates/bb/bb_match_capture.cpp:rt_cap_open_plain/rt_cap_open#1	UNWITNESSED
 src/templates/bb/bb_match_capture.cpp:rt_cap_land_γ#1	UNWITNESSED
 src/templates/bb/bb_match_capture.cpp:rt_cap_land_ω#1	UNWITNESSED
+src/templates/bb/bb_match_atp.cpp:rt_at_cursor_open#1	UNWITNESSED
+src/templates/bb/bb_match_atp.cpp:rt_at_cursor_land_γ#1	UNWITNESSED
 src/templates/bb/bb_match_capture.cpp:rt_cap_open_plain/rt_cap_open#2	UNWITNESSED
 src/templates/bb/bb_match_capture.cpp:rt_cap_land_γ#2	UNWITNESSED
 src/templates/bb/bb_match_capture.cpp:rt_cap_land_ω#2	UNWITNESSED

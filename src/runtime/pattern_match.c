@@ -1366,6 +1366,72 @@ void rt_at_cursor(const char *varname, int cur_delta) {
     }
     NV_SET_fn(varname, pos);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { DESCR_t pos; DESCR_t wsv; } rt_atco_t;
+_Static_assert(sizeof(rt_atco_t) == 32, "bb_match_atp.cpp carves the computed cursor-target record as 32 bytes of spine: the cursor and the want-name save (ceo CEO-1633)");
+static void rt_at_cursor_assign(DESCR_t nm, DESCR_t pos) {
+    extern DESCR_t rt_assign_var(DESCR_t, DESCR_t);
+    if (IS_FAIL_fn(nm)) return;
+    if (IS_VARREF_fn(nm)) rt_assign_var(nm, pos);
+    else if (nm.v == DT_S && nm.s && *nm.s) NV_SET_fn(nm.s, pos);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_dcap_next_t rt_at_cursor_open(const char *varname, int cur_delta, rt_atco_t *rec) {
+    extern rt_dcap_next_t rt_call_open_by_name(const char *, int);
+    extern rt_dcap_next_t rt_call_open_staged_rec(sno_dstar_rec_t *, int *);
+    extern int rt_proc_is_registered(const char *);
+    extern int rt_g_want_name;
+    DESCR_t pos = { .v = DT_I, .i = (int64_t)cur_delta };
+    if (!rec) { rt_bomb("rt_at_cursor_open: no spine record -- the cursor-assignment box carves one before the open"); return (rt_dcap_next_t){ 0, 0 }; }
+    rec->pos = pos;
+    rec->wsv = INTVAL((long long)rt_g_want_name);
+    if (!varname || varname[0] != '*') { rt_at_cursor(varname, cur_delta); return (rt_dcap_next_t){ 0, 0 }; }
+    if ((unsigned char)varname[1] == 1) {
+        sno_dstar_rec_t *srec = (sno_dstar_rec_t *)(void *)varname;
+        int reg = 0;
+        if (srec->flags & SNO_DSTAR_VARREF) { rt_at_cursor_assign(NV_GET_fn(sno_dstar_star(srec) + 1), pos); return (rt_dcap_next_t){ 0, 0 }; }
+        rt_g_want_name = 1;
+        {
+            rt_dcap_next_t n = rt_call_open_staged_rec(srec, &reg);
+            if (!reg) { rt_g_want_name = (int)rec->wsv.i; rt_at_cursor_assign(NV_GET_fn(sno_dstar_star(srec) + 1), pos); return (rt_dcap_next_t){ 0, 0 }; }
+            if (!n.fn) { rt_g_want_name = (int)rec->wsv.i; return (rt_dcap_next_t){ 0, 0 }; }
+            return n;
+        }
+    }
+    {
+        const char *pn = varname + 1;
+        if (!rt_proc_is_registered(pn)) return (rt_dcap_next_t){ 0, 0 };
+        rt_g_want_name = 1;
+        {
+            rt_dcap_next_t n = rt_call_open_by_name(pn, 0);
+            if (!n.fn) { rt_g_want_name = (int)rec->wsv.i; return (rt_dcap_next_t){ 0, 0 }; }
+            { extern void rt_eval_stage_enter(const char *); rt_eval_stage_enter(pn); }
+            return n;
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_at_cursor_land_γ(DESCR_t frame0, long word, rt_atco_t *rec) {
+    extern DESCR_t rt_call_land_γ(DESCR_t, long);
+    extern int rt_g_want_name;
+    DESCR_t nm = rt_call_land_γ(frame0, word);
+    { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); }
+    if (!rec) { rt_bomb("rt_at_cursor_land_γ: no spine record -- the cursor-assignment box passes the one it carved"); return 0; }
+    rt_g_want_name = (int)rec->wsv.i;
+    rt_at_cursor_assign(nm, rec->pos);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_at_cursor_land_ω(long word, rt_atco_t *rec) {
+    extern DESCR_t rt_call_land_ω(long);
+    extern int rt_g_want_name;
+    (void)rt_call_land_ω(word);
+    { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); }
+    if (!rec) { rt_bomb("rt_at_cursor_land_ω: no spine record -- the cursor-assignment box passes the one it carved"); return 0; }
+    rt_g_want_name = (int)rec->wsv.i;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern const char *Σ;
 extern int Σlen;
 typedef struct { DESCR_t val; int failed; int dtx_used; int64_t zero; } rt_dfx_t;
@@ -1405,7 +1471,6 @@ static DESCR_t rt_defer_nv_read(const char *name) {
     if (name && name[0] == '&' && rt_udc_on() && NV_CONST_ASSIGNED_fn(name)) return NV_KW_GET_fn(name);
     return NV_GET_fn(name ? name : "");
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_defer_expr_value(DESCR_t val) { if (val.v != DT_E) return val; val = EXPVAL_fn(val); return val; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
