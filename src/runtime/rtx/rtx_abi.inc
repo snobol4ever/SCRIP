@@ -19,9 +19,6 @@
 #define RTX_SUB_RSP_DYN(n, d, k) sub rsp, n; RTX_CFA_DYN(d, k)
 #define RTX_ADD_RSP_DYN(n, d, k) add rsp, n; RTX_CFA_DYN(d, k)
 #define RTX_GVA_R9 mov r9, qword ptr [rip + rtccb@GOTPCREL]; mov r9, qword ptr [r9 + 48]
-#define RTX_CCALL(fn) RTX_PUSH(r8); RTX_PUSH(r9); RTX_PUSH(r10); RTX_PUSH(r11); call fn; RTX_POP(r11); RTX_POP(r10); RTX_POP(r9); RTX_POP(r8)
-#define RTX_CTAIL(fn) RTX_PUSH(r8); RTX_PUSH(r9); RTX_PUSH(r10); RTX_PUSH(r11); RTX_SUB_RSP(8); call fn; RTX_ADD_RSP(8); RTX_POP(r11); RTX_POP(r10); RTX_POP(r9); RTX_POP(r8); ret
-#define RTX_CTAIL_GVA(fn) RTX_PUSH(r8); RTX_PUSH(r9); RTX_PUSH(r10); RTX_PUSH(r11); RTX_SUB_RSP(8); call fn; RTX_ADD_RSP(8); RTX_POP(r11); RTX_POP(r10); RTX_POP(r9); RTX_POP(r8); RTX_GVA_R9; ret
 #define RTX_DECLINE mov eax, RTX_NOT_HANDLED; ret
 #define RTX_DECLINE_INT mov eax, RTX_NOT_HANDLED_INT; ret
 #define RTX_DECLINE_PTR mov rax, RTX_NOT_HANDLED_PTR; ret
