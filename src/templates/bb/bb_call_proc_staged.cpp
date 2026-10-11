@@ -751,7 +751,7 @@ static std::string bcps_block_build(IR_graph_t ** argblks, int n) {
                     + x86("mov", "rax", FRQ(slot + 8)) + x86_rsp_store64(16 * i + 8, "rax"); });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx) {
+static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop) {
     int ns = g_emit_cfg ? g_emit_cfg->nparams : 0;
     auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; return bb_varslot_peek(a->sval); };
     auto arms = [&](int lb) -> std::string {
@@ -847,13 +847,24 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx) {
          + chk
          + x86("mov", "rax", RDQ(x86_fb(), kt - 40))
          + x86("cmp", "r13", "rax")
-         + x86("jne", L(lsk + 99))
+         + (pop ? x86("note", "pop: this frame's own choice is the youngest only through a construct the lowering proved dead, so the call may also take the tail arm when r13 is this frame's "
+                      "header and no clause alternative is left; r13 returns to the caller's choice with the frame")
+                  + x86("je", L(lsk + 98))
+                  + x86("lea", "rax", RDQ(x86_fb(), kt - 64))
+                  + x86("cmp", "r13", "rax")
+                  + x86("jne", L(lsk + 99))
+                  + x86("mov", "rax", RDQ(x86_fb(), kt - 56))
+                  + x86("test", "rax", "rax")
+                  + x86("jne", L(lsk + 99))
+                  + x86("def", L(lsk + 98))
+                : x86("jne", L(lsk + 99)))
          + x86("lea", "rax", RDQ("rsp", 16 * n))
          + x86("cmp", "rax", x86_fb())
          + x86("jne", L(lsk + 99))
          + x86("mov", "rcx", RDQ(x86_fb(), kt - 24))
          + x86("mov", "rdx", RDQ(x86_fb(), kt - 16))
          + x86("mov", "r8", RDQ(x86_fb(), kt - 8))
+         + (pop ? x86("mov", "r13", RDQ(x86_fb(), kt - 40)) : std::string())
          + mv
          + x86("lea", "rsp", RDQ(x86_fb(), nb))
          + x86("mov", x86_fb(), "r8")
@@ -864,12 +875,12 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long idx) {
     int n = (int)_.op_ival; int kt = g_emit.flat_frame_bytes;
-    int pl_lco_armed = _.node && _.node->seal == 1 && !(g_emit_cfg && g_emit_cfg->root_graph);
+    int pl_lco_armed = _.node && (_.node->seal == 1 || _.node->seal == IR_SEAL_TAIL_POP) && !(g_emit_cfg && g_emit_cfg->root_graph);
     return x86_alpha()
          + x86("note", "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the argument block on this spine, the wires, a jump; no staged medium, no registry call, no C prologue")
          + x86("mov", FRQ(act), 0L)
          + bcps_block_build(argblks, n)
-         + IF(pl_lco_armed, bcps_block_tail_arm(n, kt, 100, idx))
+         + IF(pl_lco_armed, bcps_block_tail_arm(n, kt, 100, idx, _.node && _.node->seal == IR_SEAL_TAIL_POP))
          + x86_rsp_mark_save()
          + x86_lea_id("rcx", 3) + x86_lea_id("rdx", 4)
          + bcps_jmp_callee(idx)
