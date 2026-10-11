@@ -582,7 +582,11 @@ static void collect_conj(const tree_t * t, lc_vec * out) {
     lc_vec_push(out, &t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_goal_is_dollar(const tree_t * g);
+static IR_t * pl_lower_conj_guard(lcx_t * cx, const tree_t * const * gl, int ng, int k, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t ** redo_out, IR_t ** tail_out);
 static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t ** redo_out, IR_t ** tail_out) {
+    if (cx->cur_key && cx->cutω == cx->clause_cutω) for (int k = 0; k < ng; k++) if (pl_goal_is_dollar(gl[k]))
+        return pl_lower_conj_guard(cx, gl, ng, k, γtail, ωbase, entry_out, redo_out, tail_out);
     IR_t ** gn = (IR_t **) ct_zalloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
     IR_t ** en = (IR_t **) ct_zalloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
     IR_t ** rd = (IR_t **) ct_zalloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
@@ -685,7 +689,7 @@ static IR_t * pl_disj_entry(lcx_t * cx, IR_t * e, IR_t * dj) {
 static int pl_conj_top_cut(const lc_vec * v) {
     for (int i = 0; i < v->n; i++) {
         const tree_t * g = ((const tree_t * const *) v->data)[i];
-        if (g && (g->t == TT_CUT || ((g->t == TT_QLIT || g->t == TT_NAME) && g->v.sval && !strcmp(g->v.sval, "!")))) return 1;
+        if (g && (g->t == TT_CUT || ((g->t == TT_QLIT || g->t == TT_NAME) && g->v.sval && !strcmp(g->v.sval, "!")) || pl_goal_is_dollar(g))) return 1;
     }
     return 0;
 }
@@ -1054,6 +1058,66 @@ static IR_t * pl_cleanup_node(lcx_t * cx, int kind, IR_t * open, IR_t * γ, IR_t
     IR_LIT(n).ival = kind;
     if (open) ir_operand_push(n, open);
     return n;
+}
+static int pl_dollar_user(int ar) { extern int pl_prelude_defines(const char *, int); return pl_file_defines("$", ar) && !pl_prelude_defines("$", ar); }
+static int pl_goal_is_dollar(const tree_t * g) { return g && (g->t == TT_QLIT || g->t == TT_NAME) && g->v.sval && !strcmp(g->v.sval, "$") && !pl_dollar_user(0); }
+static tree_t * pl_cc_key_pi(const char * key) {
+    const char * sl = key ? strrchr(key, '/') : (const char *) 0;
+    if (!sl || sl == key) return pl_cc_freshvar();
+    char * nm = ct_strndup(key, (size_t)(sl - key));
+    char * colon = strchr(nm, ':');
+    if (colon && colon != nm && colon[1]) { *colon = 0; return pl_cc_fnc2(":", (tree_t *) pl_atom_goal(nm), pl_cc_pi_ar(colon + 1, atoi(sl + 1))); }
+    return pl_cc_pi_ar(nm, atoi(sl + 1));
+}
+static tree_t * pl_cc_det_throw(tree_t * culprit, const char * found, const char * how, tree_t * ctx) {
+    tree_t * de = pl_cc_fnc4("determinism_error", culprit, (tree_t *) pl_atom_goal("det"), (tree_t *) pl_atom_goal(found), (tree_t *) pl_atom_goal(how));
+    return pl_cc_fnc1("throw", pl_cc_fnc2("error", de, pl_cc_fnc2("context", ctx, pl_cc_freshvar())));
+}
+static IR_t * pl_det_fail_road(lcx_t * cx, tree_t * fthrow, IR_t * out) {
+    tree_t * bv = pl_cc_freshvar();
+    tree_t * bv2 = pl_cc_freshvar();
+    bv2->v.ival = bv->v.ival;
+    IR_t * re = NULL;
+    IR_t * fe = NULL;
+    IR_t * he = NULL;
+    IR_t * rn = goal(cx, pl_cc_fnc1("throw", bv2), out, out, &re);
+    IR_t * fn = goal(cx, fthrow, out, out, &fe);
+    IR_t * hn = pl_leaf_lv(cx, "$catch_handle", pl_cc_fnc1("$catch_handle", bv), 1, re ? re : rn, fe ? fe : fn, &he);
+    return he ? he : hn;
+}
+static IR_t * pl_lower_conj_guard(lcx_t * cx, const tree_t * const * gl, int ng, int k, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t ** redo_out, IR_t ** tail_out) {
+    IR_t * out = cx->cutω;
+    IR_t * te = NULL;
+    IR_t * tn = goal(cx, pl_cc_det_throw(pl_cc_key_pi(cx->cur_key), "nondet", "guard", pl_cc_key_pi(cx->cur_key)), out, out, &te);
+    IR_t * det = pl_cleanup_node(cx, CLEANUP_DET, (IR_t *) 0, γtail, te ? te : tn);
+    IR_t * fe = pl_det_fail_road(cx, pl_cc_det_throw(pl_cc_key_pi(cx->cur_key), "fail", "guard", pl_cc_key_pi(cx->cur_key)), out);
+    IR_t * re = NULL;
+    IR_t * rredo = NULL;
+    pl_lower_conj(cx, gl + k + 1, ng - k - 1, det, fe, &re, &rredo, tail_out);
+    cx->tail = 0;
+    cx->tail_pop = 0;
+    const tree_t * pre[k + 1];
+    for (int i = 0; i < k; i++) pre[i] = gl[i];
+    pre[k] = pl_atom_goal("!");
+    IR_t * pe = NULL;
+    IR_t * first = pl_lower_conj(cx, pre, k + 1, re ? re : det, ωbase, &pe, (IR_t **) 0, (IR_t **) 0);
+    if (redo_out) *redo_out = rredo;
+    if (entry_out) *entry_out = pe ? pe : first;
+    return first;
+}
+static IR_t * pl_lower_det_goal(lcx_t * cx, const tree_t * G, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * out = build(cx, IR_GOTO, ωfail, ωfail);
+    IR_t * te = NULL;
+    IR_t * tn = goal(cx, pl_cc_det_throw((tree_t *) G, "nondet", "goal", pl_cc_key_pi(cx->cur_key)), out, out, &te);
+    IR_t * bank = pl_cleanup_node(cx, CLEANUP_BANK, (IR_t *) 0, (IR_t *) 0, ωfail);
+    IR_t * det = pl_cleanup_node(cx, CLEANUP_DET, bank, γnext, te ? te : tn);
+    IR_t * fe = pl_det_fail_road(cx, pl_cc_det_throw((tree_t *) G, "fail", "goal", pl_cc_key_pi(cx->cur_key)), out);
+    IR_t * ce = NULL;
+    IR_t * cn = goal(cx, pl_cc_fnc1("call", (tree_t *) G), det, fe, &ce);
+    cx->meta_redo_set = 0;
+    lc_γ_to(bank, ce ? ce : cn);
+    if (entry_out) *entry_out = bank;
+    return out;
 }
 static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const tree_t * C, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     if (pl_tree_number(C)) return goal(cx, pl_cc_type_error("callable", C, "setup_call_cleanup", 3), γnext, ωfail, entry_out);
@@ -1488,7 +1552,7 @@ static const char * pl_meta_template(const char * pn, int ar) {
     } m[] = { { ",", 2, "00" }, { ";", 2, "00" }, { "->", 2, "00" }, { "*->", 2, "00" }, { "\\+", 1, "0" }, { "call", 1, "0" }, { "call", 2, "1?" }, { "call", 3, "2??" }, { "call", 4, "3???" },
         { "call", 5, "4????" }, { "call", 6, "5?????" }, { "call", 7, "6??????" }, { "call", 8, "7???????" }, { "once", 1, "0" }, { "ignore", 1, "0" }, { "not", 1, "0" }, { "catch", 3, "0?0" },
         { "findall", 3, "?0?" }, { "findall", 4, "?0??" }, { "bagof", 3, "?^?" }, { "setof", 3, "?^?" }, { "forall", 2, "00" }, { "aggregate_all", 3, "?0?" }, { "setup_call_cleanup", 3, "000" },
-        { "call_cleanup", 2, "00" }, { "call_nth", 2, "0?" }, { "if", 3, "000" }, { NULL, 0, NULL } };
+        { "call_cleanup", 2, "00" }, { "call_nth", 2, "0?" }, { "if", 3, "000" }, { "$", 1, "0" }, { NULL, 0, NULL } };
     for (int i = 0; m[i].n; i++) if (m[i].a == ar && !strcmp(m[i].n, pn)) return m[i].t;
     return (const char *) 0;
 }
@@ -1950,6 +2014,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
         {
             const char * nm = t->v.sval ? t->v.sval : "?";
             if (!strcmp(nm, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[1]) { cx->tail_pop = tpop; return goal(cx, t->c[1], γnext, ωfail, entry_out); }
+            if (!strcmp(nm, "$") && t->n == 1 && !pl_dollar_user(1)) return pl_lower_det_goal(cx, t->c[0], γnext, ωfail, entry_out);
             if (!strcmp(nm, ",")) {
                 cx->tail_pop = tpop;
                 lc_vec glv;
@@ -2942,7 +3007,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 return nd;
             }
             if (!strcmp(nm, "repeat") && !pl_file_defines(nm, 0)) return goal(cx, pl_cc_fnc3("between", pl_cc_ilit(1), pl_cc_ilit(9223372036854775807LL), pl_cc_freshvar()), γnext, ωfail, entry_out);
-            if (!strcmp(nm, "!")) {
+            if (!strcmp(nm, "!") || (!strcmp(nm, "$") && !pl_dollar_user(0))) {
                 IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω);
                 if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1;
                 if (entry_out) *entry_out = pl_probe_before(cx, cn, IR_LIT(cn).ival ? cx->cut_mark : (IR_t *) 0, IR_LIT(cn).ival != 0);

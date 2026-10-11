@@ -139,6 +139,7 @@ static const OpEntry PREFIX_OPS[] = {
     { "+",     200, ASSOC_RIGHT, FIX_PREFIX },
     { "\\",    200, ASSOC_RIGHT, FIX_PREFIX },
     { "#\\",   710, ASSOC_RIGHT, FIX_PREFIX },
+    { "$",       1, ASSOC_NONE,  FIX_PREFIX },
     { NULL,    0,   ASSOC_NONE,  FIX_INFIX  }
 };
 static OpEntry *g_uinfix = NULL;
@@ -168,7 +169,7 @@ static const OpEntry *find_binop(const char *name) {
 static const OpEntry *find_prefix(const char *name) {
     const OpEntry *u = find_user(name, FIX_PREFIX);
     if (u) return u->prec > 0 ? u : NULL;
-    for (const OpEntry *op = PREFIX_OPS; op->name; op++) if (strcmp(op->name, name) == 0 && op->name[0] == '#') return op;
+    for (const OpEntry *op = PREFIX_OPS; op->name; op++) if (strcmp(op->name, name) == 0 && (op->name[0] == '#' || op->name[0] == '$')) return op;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1789,6 +1790,8 @@ static const char * const PL_PRELUDE_SRC =
     "prompt(O,N):-catch(nb_getval('$prompt',O0),_,O0='|: '),O=O0,(atom(N)->nb_setval('$prompt',N);throw(error(type_error(atom,N),prompt/2))).\n"
     "prompt1(_).\n"
     "'$display_swi'(T):-write_term(T,[quoted(true),ignore_ops(true)]).\n"
+    "'$'.\n"
+    "'$'(G):- $G.\n"
     "style_check(_).\n"
     "recorda(K,T):-recorda(K,T,_).\n"
     "recordz(K,T):-recordz(K,T,_).\n"

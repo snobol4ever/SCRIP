@@ -497,7 +497,7 @@ static const pl_mspec_t pl_mod_meta_builtins[] = { { "call", 1, "0" }, { "call",
     { "setup_call_cleanup", 3, "000" }, { "time", 1, "0" }, { "with_output_to", 2, "-0" }, { "maplist", 2, "1-" }, { "maplist", 3, "2--" }, { "maplist", 4, "3---" }, { "maplist", 5, "4----" },
     { "maplist", 6, "5-----" }, { "maplist", 7, "6------" }, { "foldl", 4, "3---" }, { "foldl", 5, "4----" }, { "foldl", 6, "5-----" }, { "foldl", 7, "6------" }, { "include", 3, "1--" },
     { "exclude", 3, "1--" }, { "partition", 4, "1---" }, { "partition", 6, "2-----" }, { "convlist", 3, "2--" }, { "phrase", 2, "2-" }, { "phrase", 3, "2--" }, { "initialization", 1, "0" },
-    { "initialization", 2, "0-" }, { "assertion", 1, "0" }, { "call_nth", 2, "0-" }, { "limit", 2, "-0" }, { "offset", 2, "-0" }, { "distinct", 1, "0" }, { "distinct", 2, "-0" },
+    { "initialization", 2, "0-" }, { "assertion", 1, "0" }, { "call_nth", 2, "0-" }, { "limit", 2, "-0" }, { "offset", 2, "-0" }, { "distinct", 1, "0" }, { "distinct", 2, "-0" }, { "$", 1, "0" },
     { "snapshot", 1, "0" }, { "transaction", 1, "0" }, { "tnot", 1, "0" }, { "call_with_depth_limit", 3, "0--" }, { 0, 0, 0 } };
 static int pl_mk_has(const cv_t *v, const char *mod, const char *name, int ar) {
     for (uint32_t i = 0; i < v->len; i++) {

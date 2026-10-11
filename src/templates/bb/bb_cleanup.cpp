@@ -134,6 +134,16 @@ static std::string cl_bank() {
          + x86_beta_trampoline();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string cl_det() {
+    return x86("comment", "IR_CLEANUP det: SWI's determinism marks -- gamma when r13 reads the B its bank kept ($/1) or the frame's F.B0 ($/0, after the clause cut); omega when a choice is left")
+         + x86_alpha()
+         + (_.op_sa >= 0 ? x86("mov", "rax", FRQ(_.op_sa + 16)) : x86("mov", "rax", RDQ(x86_fb(), g_emit.flat_frame_bytes - 40)))
+         + x86("cmp", "r13", "rax")
+         + x86_omega("jne")
+         + x86_gamma()
+         + x86_beta_trampoline();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cleanup() {
     x86_begin();
     if (_.op_off < 0 && _.op_ival != CLEANUP_PROBE && _.op_ival != CLEANUP_BANK && _.op_ival != CLEANUP_WAKE) return x86_alpha() + x86_bomb("bb_cleanup: no record slot (op_off)");
@@ -147,6 +157,7 @@ std::string bb_cleanup() {
         case CLEANUP_WAKE: return cl_wake();
         case CLEANUP_DRAIN: return cl_drain();
         case CLEANUP_BANK: return cl_bank();
+        case CLEANUP_DET: return cl_det();
         default: return x86_alpha() + x86_bomb("bb_cleanup: unknown sub-kind");
     }
 }

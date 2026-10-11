@@ -1548,7 +1548,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         bb_emit_x86(bb_statement()); { extern std::string bb_zdp_anchor(long, long); if (g_emitter.walk_bb_node_inner__zdpa < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN");
         g_emitter.walk_bb_node_inner__zdpa = (e && *e == '1') ? 1 : 0; } if (g_emitter.walk_bb_node_inner__zdpa) bb_emit_x86(bb_zdp_anchor((long)nd->op, (long)bb_node_id((IR_t *)nd)));
             } g_emit.op_mon_stmt_tap = 0; } return 0;
-    case IR_STMT_MARK: g_emit.op_seal = nd->seal; g_emit.op_sval = nd->seal == IR_SEAL_LABEL_HOOK ? IR_LIT(nd).sval : (const char *)0; bb_emit_x86(bb_stmt_mark((long)IR_LIT(nd).ival, (long)nd->pat_static)); return 0;
+    case IR_STMT_MARK: g_emit.op_seal = nd->seal; g_emit.op_sval = nd->seal == IR_SEAL_LABEL_HOOK ? IR_LIT(nd).sval : (const char *)0;
+        bb_emit_x86(bb_stmt_mark((long)IR_LIT(nd).ival, (long)nd->pat_static)); return 0;
     case IR_SETEXIT_TEST: bb_emit_x86(bb_setexit_test()); return 0;
     case IR_CLEANUP: bb_emit_x86(bb_cleanup()); return 0;
     case IR_LINE_MARK: if ((long)nd->pat_static > 0) g_emit.icn_line_cur = (long)nd->pat_static; if (IR_LIT(nd).sval && *IR_LIT(nd).sval) g_emit.icn_file_cur = IR_LIT(nd).sval;
@@ -1801,11 +1802,12 @@ static void flat_drive_cleanup(IR_t **nodes, int n, int i, bb_label_t **lbls, bb
         xa_pair_push(NULL, kx >= 0 ? lbls[kx] : node_ω);
     }
     g_emit.op_ival = kind;
-    g_emit.op_off = (kind == CLEANUP_PROBE || kind == CLEANUP_WAKE) ? 0 : (open ? zls_off(open) : -1);
+    g_emit.op_off = (kind == CLEANUP_PROBE || kind == CLEANUP_WAKE || kind == CLEANUP_DET) ? 0 : (open ? zls_off(open) : -1);
     g_emit.op_sa = -1;
     if (kind == CLEANUP_OPEN && nd->n_operands > 1 && nd->operands[1]) g_emit.op_sa = drive_value_slot(nd->operands[1]);
     if (kind == CLEANUP_PROBE && op0) g_emit.op_sa = zls_off(op0);
     if (kind == CLEANUP_BANK) g_emit.op_sa = zls_off(nd);
+    if (kind == CLEANUP_DET) g_emit.op_sa = op0 ? zls_off(op0) : -1;
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
