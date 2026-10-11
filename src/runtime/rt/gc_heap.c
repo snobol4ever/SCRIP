@@ -2466,7 +2466,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
             rbm = *(const char *const *)fp;
         }
         if (fbm) {
-            uint64_t w = *(const uint64_t *)fbm;
+            uint64_t w = b->ckt >= 48 ? 0 : *(const uint64_t *)fbm;
             const gc_site_ent_t *x = (const gc_site_ent_t *)0;
             const gc_site_blk_t *xb = gc_site_find(w, &x);
             if (xb && x && (x->kind & 255) == 6) {
