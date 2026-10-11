@@ -15167,7 +15167,7 @@ static void pas_currency_str(double r, char *buf, int bufsz) {
     *o++ = (char)('0' + e % 10);
     *o = '\0';
 }
-static void pas_real_str_exp(double r, char *buf, int bufsz, int prec, int expdig) {
+static void pas_real_str_exp(double r, char *buf, int bufsz, int prec, int expdig, int upper) {
     if (prec < 1) prec = 1;
     if (prec > 16) prec = 16;
     char tmp[64];
@@ -15181,8 +15181,8 @@ static void pas_real_str_exp(double r, char *buf, int bufsz, int prec, int expdi
     char mant[ml + 1];
     memcpy(mant, tmp, ml);
     mant[ml] = '\0';
-    if (ndig < expdig) snprintf(buf, bufsz, "%s%c%c%0*d", mant, 'e', sign, expdig, atoi(digits));
-    else snprintf(buf, bufsz, "%s", tmp);
+    if (ndig < expdig) snprintf(buf, bufsz, "%s%c%c%0*d", mant, upper ? 'E' : 'e', sign, expdig, atoi(digits));
+    else { snprintf(buf, bufsz, "%s", tmp); if (upper) { char *q = strchr(buf, 'e'); if (q) *q = 'E'; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t proc_as_value(const char *name) {
@@ -17141,6 +17141,8 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             DESCR_t av = args[_pi];
             DESCR_t aw = args[_pi + 1];
             int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i == -6 ? -6 : (aw.i == -7 ? -7 : (aw.i >= 0 ? (int)aw.i : -1)))))) : -1;
+            int _upper = 0;
+            if (IS_INT_fn(aw) && aw.i == -10 && _pi + 3 < nargs) { _upper = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
             if (w == -6) { double _cv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0); int _cn = 32; char _cb[_cn]; pas_currency_str(_cv, _cb, _cn); fputs(_cb, _dest); continue; }
             if (w == -3) {
                 double _rv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0);
@@ -17163,7 +17165,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             } else if (IS_REAL_fn(av)) {
                 char _rb[64];
                 int _prec = (w == -5) ? 9 : (w < 0) ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
-                pas_real_str_exp(av.r, _rb, sizeof _rb, _prec, w == -5 ? 2 : 3);
+                pas_real_str_exp(av.r, _rb, sizeof _rb, _prec, w == -5 ? 2 : 3, _upper || w == -4);
                 int _pfmtlen = (int)strlen(_rb);
                 int _signpad = (_rb[0] == '-') ? 0 : 1;
                 int _basew = (w == -5) ? 0 : (w < 0) ? 20 : w;

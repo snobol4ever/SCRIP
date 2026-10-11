@@ -285,6 +285,8 @@ type:
     |ARROW IDENT { $$ = pt_add(pt_new(TT_PTR_TYPE), $2); }
     |packed_opt ARRAYSY LBRACK simple_type RBRACK OFSY { } { } type { $$ = pt_add(pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4), $9); }
     |packed_opt ARRAYSY OFSY type { $$ = pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4); }
+    |PROCEDURESY pf_params { $$ = pt_add(pt_sval(pt_new(TT_DECL), "proctype"), $2); }
+    |FUNCTIONSY pf_params COLON IDENT { pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_sval(pt_new(TT_DECL), "functype"), $2), $4); }
     |packed_opt ARRAYSY LBRACK simple_type COMMA simple_type RBRACK OFSY type { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_ARRAY_TYPE), $1), $4), $6), $9); }
     |packed_opt RECORDSY { } record_body ENDSY { $$ = pt_add(pt_add(pt_new(TT_RECORD), $1), $4); }
     |packed_opt SETSY OFSY simple_type { $$ = pt_add(pt_add(pt_new(TT_SET_TYPE), $1), $4); }

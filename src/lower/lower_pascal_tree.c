@@ -276,6 +276,8 @@ static int pas_array_isopen(const char *name);
 static void pas_openparm_add(const char *name, unsigned long long m);
 static unsigned long long pas_openparm_mask(const char *name);
 static void pas_open_type_ensure(const char *tn);
+static const char *pas_proctype_get(const char *name);
+static void pas_proctype_add(const char *name, const char *sig);
 static long long pas_arrtype_ncols(const char *name);
 static long long pas_arrtype_lo(const char *name);
 static int pas_string_type_kind(const char *t);
@@ -952,6 +954,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (_wstream) { ast_push(e, pas_tree_clone(_wstream)); ast_push(e, ilit(-9)); }
     if (args) {
         if (is_pas_io(map_io(name))) {
+            int _fmt_cont = 0;
             for (int i = _wstart; i + 1 < args->count; i += 2) {
                 tree_t *val = args->items[i];
                 tree_t *wid = args->items[i + 1];
@@ -992,6 +995,15 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                     val = _w;
                 }
                 if (g_lower.pas.sem.pas_seen_mode_directive && wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-4);
+                int _cont = _fmt_cont;
+                _fmt_cont = wid->t == TT_ILIT && wid->v.ival == -3;
+                if (!_cont && g_lower.pas.sem.pas_seen_mode_directive && !g_lower.pas.sem.pas_mode_iso && !(wid->t == TT_ILIT && wid->v.ival < 0)) {
+                    ast_push(e, val);
+                    ast_push(e, ilit(-10));
+                    ast_push(e, wid);
+                    ast_push(e, ilit(0));
+                    continue;
+                }
                 ast_push(e, val);
                 ast_push(e, wid);
             }
@@ -1527,6 +1539,21 @@ static int pas_array_isdyn(const char *name) {
         .isdyn;
     return 0;
 }
+static void pas_proctype_add(const char *name, const char *sig) {
+    if (!name || !sig) return;
+    if (g_lower.pas.sem.pas_nproctype >= g_lower.pas.sem.pas_proctype_cap) {
+        g_lower.pas.sem.pas_proctype_cap = g_lower.pas.sem.pas_proctype_cap ? g_lower.pas.sem.pas_proctype_cap * 2 : 16;
+        g_lower.pas.sem.pas_proctypes = ct_grow(g_lower.pas.sem.pas_proctypes, (size_t)g_lower.pas.sem.pas_proctype_cap * sizeof *g_lower.pas.sem.pas_proctypes);
+    }
+    g_lower.pas.sem.pas_proctypes[g_lower.pas.sem.pas_nproctype].name = ct_strdup(name);
+    g_lower.pas.sem.pas_proctypes[g_lower.pas.sem.pas_nproctype].sig = ct_strdup(sig);
+    g_lower.pas.sem.pas_proctypes[g_lower.pas.sem.pas_nproctype].uid = pas_scope_uid(name);
+    g_lower.pas.sem.pas_nproctype++;
+}
+static const char *pas_proctype_get(const char *name) {
+    for (int i = g_lower.pas.sem.pas_nproctype - 1; name && i >= 0; i--) if (!strcmp(g_lower.pas.sem.pas_proctypes[i].name, name)) return g_lower.pas.sem.pas_proctypes[i].sig;
+    return NULL;
+}
 static void pas_array_mark_open(const char *name) {
     for (int i = g_lower.pas.sem.pas_narray - 1; name && i >= 0; i--) if (g_lower.pas.sem.pas_arrays[i].name && !strcmp(g_lower.pas.sem.pas_arrays[i].name, name)) {
         g_lower.pas.sem.pas_arrays[i].isopen = 1;
@@ -1938,6 +1965,7 @@ static void pas_fwd_restore(const char *pn) {
     }
 }
 static void pas_pend_reset(void) {
+    g_lower.pas.sem.pas_pend_proctype = NULL;
     g_lower.pas.sem.pas_pend_dyn = 0;
     g_lower.pas.sem.pas_pend_row_lo = 0;
     g_lower.pas.sem.pas_pend_row_hi = -1;
@@ -4513,6 +4541,12 @@ static void pas_pf_closure(PNodeList *out, tree_t *a, const char *fsig, const ch
     if (a && a->t == TT_VAR) nm = a->v.sval;
     else if (a && a->t == TT_FNC && a->n >= 1 && a->c[0] && a->c[0]->t == TT_VAR && a->c[0]->v.sval) nm = (!strcmp(a->c[0]->v.sval, "__pas_pcall") && a->n == 4) ? a->c[1]->v.sval :
         (a->n == 1 ? a->c[0]->v.sval : NULL);
+    if (!nm && a && a->t == TT_ILIT) {
+        for (int i = 0; !nm && i < g_lower.pas.sem.pas_nproc; i++) if (g_lower.pas.sem.pas_procs[i].name && pas_hash_stable(g_lower.pas.sem.pas_procs[i].name) == a->v.ival) nm =
+            g_lower.pas.sem.pas_procs[i].name;
+        for (int i = 0; !nm && i < g_lower.pas.sem.pas_nfunc; i++) if (g_lower.pas.sem.pas_funcs[i].name && pas_hash_stable(g_lower.pas.sem.pas_funcs[i].name) == a->v.ival) nm =
+            g_lower.pas.sem.pas_funcs[i].name;
+    }
     const PasDef *d = pas_pf_lookup(nm);
     if (!d) {
         fprintf(stderr, "pascal: ISO 7185 6.6.3.4 violation: the actual-parameter %d of '%s' shall be a %s-identifier\n", pos, callee, *fsig == 'F' ? "function" : "procedure");
@@ -5729,6 +5763,17 @@ static pval E_parameter_decl(const tree_t *n) {
         }
         return out;
     }
+    if (IS(n, TT_DECL) && !strcmp(n->v.sval, "value") && pas_proctype_get(tok_s(n->c[1]))) {
+        const char *sig = pas_proctype_get(tok_s(n->c[1]));
+        v[1] = E_id_list(n->c[0], 0, n->c[0]->n);
+        PNodeList *all = pnl_new();
+        for (int i = 0; v[1].list && i < v[1].list->count; i++) if (v[1].list->items[i] && v[1].list->items[i]->v.sval) {
+            PNodeList *one = pas_pf_formal(v[1].list->items[i]->v.sval, sig);
+            for (int k = 0; k < one->count; k++) pnl_push(all, one->items[k]);
+        }
+        out.list = all;
+        return out;
+    }
     if (IS(n, TT_DECL) && !strcmp(n->v.sval, "value")) {
         v[1] = E_id_list(n->c[0], 0, n->c[0]->n);
         v[3].str = tok_s(n->c[1]);
@@ -6528,6 +6573,15 @@ static pval E_type(const tree_t *n) {
     memset(&out, 0, sizeof out);
     int off = (n->n > 0 && n->c[0] && n->c[0]->t == TT_KEYWORD) ? 1 : 0;
     if (IS(n, TT_PTR_TYPE)) { v[2].str = tok_s(n->c[0]); { g_lower.pas.sem.pas_pend_esz = -1; g_lower.pas.sem.pas_pend_ptrtarget = ct_strdup(v[2].str); out.ival = -3; } return out; }
+    if (IS(n, TT_DECL) && n->v.sval && (!strcmp(n->v.sval, "proctype") || !strcmp(n->v.sval, "functype"))) {
+        int fn = !strcmp(n->v.sval, "functype");
+        const tree_t *pp = (n->n > 0 && IS(n->c[0], TT_PARAMS)) ? n->c[0] : NULL;
+        v[2] = E_pf_params(pp);
+        const char *rt = fn && n->n > 0 ? tok_s(n->c[n->n - 1]) : NULL;
+        g_lower.pas.sem.pas_pend_proctype = pas_pf_sig(fn ? 'F' : 'P', v[2].str, rt);
+        out.ival = -1;
+        return out;
+    }
     if (IS(n, TT_ARRAY_TYPE) && n->n - off == 1) {
         v[1] = E_packed_opt(off ? n->c[0] : NULL);
         g_lower.pas.sem.pas_pend_esz = -1;
@@ -6748,6 +6802,7 @@ static pval E_type_decl(const tree_t *n) {
             if (g_lower.pas.sem.pas_pend_enum_max >= 0) { pas_enumtype_add(v[1].str, g_lower.pas.sem.pas_pend_enum_max); pas_enumnames_add(v[1].str, g_lower.pas.sem.pas_pend_enum_names); }
             if (g_lower.pas.sem.pas_pend_sub_high >= 0 && _ty3 < 0 && g_lower.pas.sem.pas_pend_arr_ncols < 0)
                 pas_subtype_add(v[1].str, g_lower.pas.sem.pas_pend_sub_low, g_lower.pas.sem.pas_pend_sub_high);
+            if (g_lower.pas.sem.pas_pend_proctype) pas_proctype_add(v[1].str, g_lower.pas.sem.pas_pend_proctype);
             if (_ty3 >= 0 && !g_lower.pas.sem.pas_pend_ptrtarget) { pas_arrtype_add(v[1].str, _ty3, g_lower.pas.sem.pas_pend_arr_ncols >= 0 ? 1 : 0, g_lower.pas.sem.pas_pend_arr_ncols); }
             if (_ty3 >= 0 && !g_lower.pas.sem.pas_pend_ptrtarget && g_lower.pas.sem.pas_pend_row_hi >= g_lower.pas.sem.pas_pend_row_lo)
                 pas_rows_add(v[1].str, g_lower.pas.sem.pas_pend_row_lo, g_lower.pas.sem.pas_pend_row_hi, 1, g_lower.pas.sem.pas_pend_row_kind);
@@ -7239,6 +7294,18 @@ static void pas_var_inits_in(tree_t *t, struct pas_blk *chain) {
     t->c[t->n - 1] = inits;
 }
 static void pas_var_inits(tree_t *t) { pas_var_inits_in(t, NULL); }
+static int pas_routine_named(const tree_t *t, const char *nm) {
+    if (!t || !nm) return 0;
+    if ((IS(t, TT_PROCEDURE) || IS(t, TT_FUNCTION)) && t->n > 0 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, nm)) return 1;
+    for (int i = 0; i < t->n; i++) if (pas_routine_named(t->c[i], nm)) return 1;
+    return 0;
+}
+static int pas_addr_of_routine(const tree_t *root, const tree_t *t) {
+    if (!t) return 0;
+    if (IS(t, TT_ADDR) && t->n == 1 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && pas_routine_named(root, t->c[0]->v.sval)) return 1;
+    for (int i = 0; i < t->n; i++) if (pas_addr_of_routine(root, t->c[i])) return 1;
+    return 0;
+}
 static void pas_param_prepass(tree_t *t) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) pas_param_prepass(t->c[i]);
@@ -7275,6 +7342,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     tree_t *flat = pas_flatten_units(pruned);
     pas_shortstrings(flat);
     pas_param_prepass(flat);
+    if (!g_lower.pas.sem.pas_mode_iso && pas_addr_of_routine(flat, flat)) g_lower.pas.sem.pas_seen_mode_directive = 1;
     pas_var_inits(flat);
     tree_t *root = E_program(flat).node;
     int nsem = pascal_sem_check(root, filename) + g_lower.pas.sem.pas_iso_errors;
