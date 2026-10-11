@@ -167,6 +167,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %token ADDBECOMES SUBBECOMES MULBECOMES DIVBECOMES
 %token <node> INTCONST CHARCODE REALCONST STRINGCONST IDENT
 %token <node> SHIFTOP XOROP
+%token POWOP
 %type <node> program file_id_list_opt block decl_part_list decl_part label_list const_decl_list const_decl constant scalar_constant type_decl_list case_tail
 %type <node> type_decl type packed_opt simple_type record_body record_field_list record_field case_arm_mark case_open record_case_opt record_case_list
 %type <node> record_case_arm var_decl_list var_decl procedure_decl pv_mark parameter_list_opt parameter_decl_list parameter_decl pf_params pf_sections
@@ -177,7 +178,7 @@ static void cenv_note(const char *name, tree_t *e) {
 %type <node> typed_value typed_value_list field_value_list
 %type <node> param_type
 %type <node> lo_bound lo_term b_expr b_term b_factor case_label
-%type <node> program_name
+%type <node> program_name routine_directives power
 %start compilation_unit
 %%
 compilation_unit:
@@ -237,7 +238,9 @@ fini_opt:
     ;
 label_list:
     label_list COMMA INTCONST { $$ = pt_add($1, $3); }
+    |label_list COMMA IDENT { $$ = pt_add($1, $3); }
     |INTCONST { $$ = pt_part("label", $1); }
+    |IDENT { $$ = pt_part("label", $1); }
     ;
 const_decl_list:
     const_decl_list const_decl { $$ = pt_add($1, $2); }
@@ -371,13 +374,13 @@ var_decl_list:
     ;
 var_decl:
     id_list COLON type SEMICOLON { $$ = pt_decl("var", $1, $3); }
-    |id_list COLON type EQOP expression SEMICOLON { $$ = pt_add(pt_decl("var", $1, $3), $5); }
+    |id_list COLON type EQOP typed_value SEMICOLON { $$ = pt_add(pt_decl("var", $1, $3), $5); }
     ;
 procedure_decl:
     PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON FORWARDSY SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), pt_kw("forward")); }
     |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON FORWARDSY SEMICOLON { pascal_note_type_ident($6); $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), pt_kw("forward")); }
-    |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), $7); }
-    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON { pascal_note_type_ident($6); } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), $9); }
+    |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON routine_directives { } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), $8); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON routine_directives { pascal_note_type_ident($6); } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), $10); }
     |FUNCTIONSY IDENT pv_mark SEMICOLON { } block SEMICOLON { $$ = pt_add(pt_add(pt_new(TT_FUNCTION), $2), $6); }
     ;
 pv_mark:
@@ -385,6 +388,7 @@ pv_mark:
     ;
 parameter_list_opt:
     LPARENT parameter_decl_list RPARENT { $$ = $2; }
+    |LPARENT RPARENT { $$ = NULL; }
     |{ $$ = NULL; }
     ;
 parameter_decl_list:
@@ -397,14 +401,28 @@ parameter_decl:
     |VARSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
     |id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $1), $3); pt_sval($$, "value"); }
     |CONSTSY id_list COLON param_type { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "const"); }
+    |id_list COLON param_type EQOP expression { pascal_flip_dialect(PAS_DIALECT_OBJFPC); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $1), $3), $5); pt_sval($$, "value"); }
+    |CONSTSY id_list COLON param_type EQOP expression { pascal_flip_dialect(PAS_DIALECT_OBJFPC); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $4), $6); pt_sval($$, "const"); }
     |IDENT id_list COLON param_type { if (!$1->v.sval || strcasecmp($1->v.sval, "out")) { pascal_yyerror("syntax error"); YYERROR; } pascal_flip_dialect(PAS_DIALECT_OBJFPC); $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
     ;
 param_type:
     IDENT { pascal_note_type_ident($1); $$ = $1; }
     |ARRAYSY OFSY IDENT { pascal_note_type_ident($3); $$ = pt_add(pt_new(TT_ARRAY_TYPE), $3); }
     ;
+routine_directives:
+    { $$ = NULL; }
+    |routine_directives IDENT SEMICOLON {
+        static const char *const ok[] = { "inline", "cdecl", "register", "stdcall", "pascal", "overload", "safecall", "far", "near", "noinline", "nostackframe" };
+        int hit = 0;
+        for (size_t k = 0; k < sizeof ok / sizeof ok[0]; k++) if ($2->v.sval && !strcasecmp($2->v.sval, ok[k])) hit = 1;
+        if (!hit) { pascal_yyerror("syntax error"); YYERROR; }
+        pascal_flip_dialect(PAS_DIALECT_FPC);
+        $$ = NULL;
+    }
+    ;
 pf_params:
     LPARENT pf_sections RPARENT { $$ = $2; }
+    |LPARENT RPARENT { $$ = NULL; }
     |{ $$ = NULL; }
     ;
 pf_sections:
@@ -435,6 +453,7 @@ body_stmt:
 statement:
     statement_no_label { $$ = $1; }
     |INTCONST COLON statement_no_label { $$ = pt_add(pt_add(pt_new(TT_LABEL_DEF), $1), $3); }
+    |IDENT COLON statement_no_label { $$ = pt_add(pt_add(pt_new(TT_LABEL_DEF), $1), $3); }
     ;
 statement_no_label:
     assignment { $$ = $1; }
@@ -490,6 +509,7 @@ compound_statement:
     ;
 goto_statement:
     GOTOSY INTCONST { $$ = pt_add(pt_new(TT_GOTO_U), $2); $$->line = pascal_get_lineno(); }
+    |GOTOSY IDENT { $$ = pt_add(pt_new(TT_GOTO_U), $2); $$->line = pascal_get_lineno(); }
     ;
 if_statement:
     IFSY expression THENSY body_stmt { $$ = pt_add(pt_add(pt_new(TT_IF), $2), $4); }
@@ -561,13 +581,17 @@ simple_expression:
     |simple_expression XOROP term { $$ = pt_add(pt_add(pt_add(pt_new(TT_FNC), $2), $1), $3); }
     ;
 term:
+    power { $$ = $1; }
+    |term MUL power { $$ = pt_add(pt_add(pt_new(TT_MUL), $1), $3); }
+    |term RDIV power { $$ = pt_add(pt_add(pt_new(TT_DIV), $1), $3); }
+    |term IDIV power { $$ = pt_add(pt_add(pt_new(TT_IDIV), $1), $3); }
+    |term IMOD power { $$ = pt_add(pt_add(pt_new(TT_MOD), $1), $3); }
+    |term ANDOP power { $$ = pt_add(pt_add(pt_new(TT_CONJ), $1), $3); }
+    |term SHIFTOP power { $$ = pt_add(pt_add(pt_add(pt_new(TT_FNC), $2), $1), $3); }
+    ;
+power:
     factor { $$ = $1; }
-    |term MUL factor { $$ = pt_add(pt_add(pt_new(TT_MUL), $1), $3); }
-    |term RDIV factor { $$ = pt_add(pt_add(pt_new(TT_DIV), $1), $3); }
-    |term IDIV factor { $$ = pt_add(pt_add(pt_new(TT_IDIV), $1), $3); }
-    |term IMOD factor { $$ = pt_add(pt_add(pt_new(TT_MOD), $1), $3); }
-    |term ANDOP factor { $$ = pt_add(pt_add(pt_new(TT_CONJ), $1), $3); }
-    |term SHIFTOP factor { $$ = pt_add(pt_add(pt_add(pt_new(TT_FNC), $2), $1), $3); }
+    |power POWOP factor { $$ = pt_add(pt_add(pt_new(TT_POW), $1), $3); }
     ;
 factor:
     selector { $$ = $1; }

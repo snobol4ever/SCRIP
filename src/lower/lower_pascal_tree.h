@@ -139,6 +139,9 @@ typedef struct {
     struct { char *name; char *sig; int uid; } *pas_proctypes;
     int pas_nproctype;
     int pas_proctype_cap;
+    struct { char *routine; int idx; tree_t *expr; } *pas_defaults;
+    int pas_ndefault;
+    int pas_default_cap;
     struct { char *name; long long low; long long high; int ischar; } pas_tfcomp[128];
     int pas_ntfcomp;
     long long pas_pend_frng_lo;

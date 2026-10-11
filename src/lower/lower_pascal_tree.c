@@ -277,6 +277,8 @@ static void pas_openparm_add(const char *name, unsigned long long m);
 static unsigned long long pas_openparm_mask(const char *name);
 static void pas_open_type_ensure(const char *tn);
 static const char *pas_proctype_get(const char *name);
+static PNodeList *pas_defaults_extend(const char *routine, PNodeList *args);
+static tree_t *pas_default_get(const char *routine, int idx);
 static void pas_proctype_add(const char *name, const char *sig);
 static long long pas_arrtype_ncols(const char *name);
 static long long pas_arrtype_lo(const char *name);
@@ -3989,7 +3991,7 @@ static tree_t *mk_ident(const char *name) {
     const char *sv = pas_sconst_get(name);
     if (sv) return leaf_s(TT_QLIT, sv);
     { tree_t *sc = pas_setconst_get(name); if (sc) return pas_tree_clone(sc); }
-    if (pas_is_func(name)) return mk_call(name, NULL);
+    if (pas_is_func(name)) return mk_call(name, pas_defaults_extend(name, NULL));
     if (name && !strcmp(name, "pi") && !pas_scope_uid("pi") && !pas_scalarvartype_get(name)) return flit(3.141592653589793);
     if (name && !strcmp(name, "random") && !pas_scope_uid("random") && !pas_scalarvartype_get(name) && g_lower.pas.sem.pas_seen_mode_directive && !g_lower.pas.sem.pas_mode_iso)
         return mk_fnc0("__pas_random");
@@ -4060,6 +4062,22 @@ static void pas_not_a_word_symbol(const char *n) {
         g_lower.pas.sem.pas_iso_errors++;
         return;
     }
+}
+static long long tok_i(const tree_t *n);
+static long long pas_label_key(const tree_t *c) {
+    if (c && c->t == TT_VAR && c->v.sval) return 100000000LL + (long long)((unsigned long long)pas_hash_stable(c->v.sval) % 1000000000ULL);
+    return tok_i(c);
+}
+static void pas_label_ident_check(const tree_t *c) {
+    if (!c || c->t != TT_VAR || !c->v.sval || (g_lower.pas.sem.pas_seen_mode_directive && !g_lower.pas.sem.pas_mode_iso)) return;
+    fprintf(stderr, "pascal: ISO 7185 6.1.6 violation: the label '%s' is not a digit-sequence -- an identifier label is fpc's, not ISO's\n", c->v.sval);
+    g_lower.pas.sem.pas_iso_errors++;
+}
+static const char *pas_label_text(const tree_t *c, long long key) {
+    if (c && c->t == TT_VAR && c->v.sval) return ct_strdup(c->v.sval);
+    char *b = (char *)ct_zalloc(24, 1);
+    snprintf(b, 24, "%lld", key);
+    return b;
 }
 static void pas_label_in_range(long long v) {
     if (v < 0 || v > 9999) { fprintf(stderr, "pascal: ISO 7185 6.1.6 violation: the label %lld is not in the closed interval 0 to 9999\n", v); g_lower.pas.sem.pas_iso_errors++; }
@@ -5088,7 +5106,11 @@ static pval E_call(const tree_t *n) {
         v[1].str = pas_alias_resolve(tok_s(n->c[0]));
         {
             if (pas_pf_is_formal(v[1].str)) out.node = pas_pf_callthrough(v[1].str, NULL);
-            else if (pas_is_proc(v[1].str)) {
+            else if (pas_default_get(v[1].str, 0)) {
+                PNodeList *dl = pas_defaults_extend(v[1].str, NULL);
+                pas_call_arity(v[1].str, dl);
+                out.node = mk_call(v[1].str, dl);
+            } else if (pas_is_proc(v[1].str)) {
                 pas_call_arity(v[1].str, NULL);
                 tree_t *e = ast_node_new(TT_FNC);
                 ast_push(e, leaf_s(TT_VAR, v[1].str));
@@ -5113,6 +5135,7 @@ static pval E_call_with_args(const tree_t *n) {
     if (IS(n, TT_FNC)) {
         v[1].str = pas_alias_resolve(tok_s(n->c[0]));
         v[3] = E_argument_list(n, 1, n->n);
+        v[3].list = pas_defaults_extend(v[1].str, v[3].list);
         {
             v[3].list = pas_pf_actuals(v[1].str, v[3].list);
             if (v[3].list) for (int i = 0; i < v[3].list->count; i++) if (pas_proc_param_is_var(v[1].str, i) && pas_actual_is_packed_component(v[3].list->items[i])) {
@@ -5447,6 +5470,7 @@ static pval E_expression(const tree_t *n) {
         { out.node = pas_is_qword(v[1].node) ? mk_fnc2("__pas_umod", v[1].node, v[3].node) : pas_mod(v[1].node, v[3].node); }
         return out;
     }
+    if (IS(n, TT_POW) && n->n == 2) { v[1] = E_expression(n->c[0]); v[3] = E_expression(n->c[1]); { out.node = mk_fnc2("__pas_pow", v[1].node, v[3].node); } return out; }
     if (IS(n, TT_CONJ)) {
         v[1] = E_expression(n->c[0]);
         v[3] = E_expression(n->c[1]);
@@ -5651,16 +5675,8 @@ static pval E_goto_statement(const tree_t *n) {
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
     if (IS(n, TT_GOTO_U)) {
-        v[2].ival = tok_i(n->c[0]);
-        {
-            pas_label_find(v[2].ival);
-            char _gb[24];
-            snprintf(_gb, sizeof _gb, "%lld", (long long)v[2].ival);
-            tree_t *G = ast_node_new(TT_GOTO_U);
-            G->v.sval = ct_strdup(_gb);
-            G->line = (n->line);
-            out.node = G;
-        }
+        v[2].ival = pas_label_key(n->c[0]);
+        { pas_label_find(v[2].ival); tree_t *G = ast_node_new(TT_GOTO_U); G->v.sval = (char *)pas_label_text(n->c[0], v[2].ival); G->line = (n->line); out.node = G; }
         return out;
     }
     elab_bad("goto_statement", n);
@@ -5713,12 +5729,12 @@ static pval E_label_list(const tree_t *n, int from, int to) {
     for (int i = from; i < to; i++) {
         const tree_t *ce = n->c[i];
         if (i == from) {
-            v[1].ival = tok_i(ce);
-            { pas_label_in_range(v[1].ival); pas_label_declare(v[1].ival); }
+            v[1].ival = pas_label_key(ce);
+            { pas_label_ident_check(ce); if (!IS(ce, TT_VAR)) pas_label_in_range(v[1].ival); pas_label_declare(v[1].ival); }
         } else {
             v[1] = out;
-            v[3].ival = tok_i(ce);
-            { pas_label_in_range(v[3].ival); pas_label_declare(v[3].ival); }
+            v[3].ival = pas_label_key(ce);
+            { pas_label_ident_check(ce); if (!IS(ce, TT_VAR)) pas_label_in_range(v[3].ival); pas_label_declare(v[3].ival); }
         }
     }
     return out;
@@ -6535,15 +6551,13 @@ static pval E_statement(const tree_t *n) {
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
     if (IS(n, TT_LABEL_DEF)) {
-        v[1].ival = tok_i(n->c[0]);
+        v[1].ival = pas_label_key(n->c[0]);
         v[3] = E_statement_no_label(n->c[1]);
         {
-            pas_label_in_range(v[1].ival);
+            if (!IS(n->c[0], TT_VAR)) pas_label_in_range(v[1].ival);
             pas_label_prefix(v[1].ival);
-            char _lb[24];
-            snprintf(_lb, sizeof _lb, "%lld", (long long)v[1].ival);
             tree_t *L = ast_node_new(TT_LABEL_DEF);
-            L->v.sval = ct_strdup(_lb);
+            L->v.sval = (char *)pas_label_text(n->c[0], v[1].ival);
             ast_push(L, v[3].node);
             out.node = L;
         }
@@ -7322,6 +7336,15 @@ static void pas_var_inits_in(tree_t *t, struct pas_blk *chain) {
         for (int j = 0; j < part->n; j++) {
             tree_t *d = part->c[j];
             if (!IS(d, TT_DECL) || d->n < 3 || !IS(d->c[0], TT_VLIST)) continue;
+            if (IS(d->c[2], TT_VLIST) && d->c[2]->v.sval && (!strcmp(d->c[2]->v.sval, "aggregate") || !strcmp(d->c[2]->v.sval, "record aggregate"))) {
+                tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+                int ok = 1;
+                for (int k = 0; ok && k < d->c[0]->n; k++) ok = pas_agg_assign(leaf_s(TT_VAR, d->c[0]->c[k]->v.sval), d->c[1], 0, k ? pas_tree_clone(d->c[2]) : d->c[2], seq, &me);
+                if (!ok) continue;
+                for (int k = 0; k < seq->n; k++) ast_push(inits, seq->c[k]);
+                d->n = 2;
+                continue;
+            }
             for (int k = 0; k < d->c[0]->n; k++) ast_push(inits, bin(TT_ASSIGN, leaf_s(TT_VAR, d->c[0]->c[k]->v.sval), k ? pas_tree_clone(d->c[2]) : d->c[2]));
             d->n = 2;
         }
@@ -7342,6 +7365,47 @@ static int pas_addr_of_routine(const tree_t *root, const tree_t *t) {
     if (IS(t, TT_ADDR) && t->n == 1 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && pas_routine_named(root, t->c[0]->v.sval)) return 1;
     for (int i = 0; i < t->n; i++) if (pas_addr_of_routine(root, t->c[i])) return 1;
     return 0;
+}
+static void pas_default_add(const char *routine, int idx, tree_t *expr) {
+    if (!routine || !expr) return;
+    if (g_lower.pas.sem.pas_ndefault >= g_lower.pas.sem.pas_default_cap) {
+        g_lower.pas.sem.pas_default_cap = g_lower.pas.sem.pas_default_cap ? g_lower.pas.sem.pas_default_cap * 2 : 16;
+        g_lower.pas.sem.pas_defaults = ct_grow(g_lower.pas.sem.pas_defaults, (size_t)g_lower.pas.sem.pas_default_cap * sizeof *g_lower.pas.sem.pas_defaults);
+    }
+    g_lower.pas.sem.pas_defaults[g_lower.pas.sem.pas_ndefault].routine = ct_strdup(routine);
+    g_lower.pas.sem.pas_defaults[g_lower.pas.sem.pas_ndefault].idx = idx;
+    g_lower.pas.sem.pas_defaults[g_lower.pas.sem.pas_ndefault].expr = expr;
+    g_lower.pas.sem.pas_ndefault++;
+}
+static tree_t *pas_default_get(const char *routine, int idx) {
+    for (int i = g_lower.pas.sem.pas_ndefault - 1; routine && i >= 0; i--) if (g_lower.pas.sem.pas_defaults[i].idx == idx && !strcmp(g_lower.pas.sem.pas_defaults[i].routine, routine))
+        return g_lower.pas.sem.pas_defaults[i].expr;
+    return NULL;
+}
+static PNodeList *pas_defaults_extend(const char *routine, PNodeList *args) {
+    int nact = args ? args->count / 2 : 0;
+    for (int idx = nact; pas_default_get(routine, idx); idx++) {
+        if (!args) args = pnl_new();
+        pnl_push(args, E_expression(pas_tree_clone(pas_default_get(routine, idx))).node);
+        pnl_push(args, ilit(-1));
+    }
+    return args;
+}
+static void pas_defaults_prepass(tree_t *t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) pas_defaults_prepass(t->c[i]);
+    if (!(IS(t, TT_PROCEDURE) || IS(t, TT_FUNCTION)) || t->n < 2 || !t->c[0] || !t->c[0]->v.sval) return;
+    tree_t *ps = NULL;
+    for (int i = 1; i < t->n; i++) if (IS(t->c[i], TT_PARAMS)) { ps = t->c[i]; break; }
+    if (!ps) return;
+    int idx = 0;
+    for (int i = 0; i < ps->n; i++) {
+        tree_t *d = ps->c[i];
+        if (!IS(d, TT_DECL)) continue;
+        int names = (d->n > 0 && d->c[0] && d->c[0]->n > 0 && d->v.sval && strcmp(d->v.sval, "procedure") && strcmp(d->v.sval, "function")) ? d->c[0]->n : 1;
+        if (d->n >= 3 && d->v.sval && (!strcmp(d->v.sval, "value") || !strcmp(d->v.sval, "const"))) { for (int k = 0; k < names; k++) pas_default_add(t->c[0]->v.sval, idx + k, d->c[2]); d->n = 2; }
+        idx += names;
+    }
 }
 static void pas_param_prepass(tree_t *t) {
     if (!t) return;
@@ -7378,6 +7442,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     g_lower.pas.sem.pas_pend_sub_high = -1;
     tree_t *flat = pas_flatten_units(pruned);
     pas_shortstrings(flat);
+    pas_defaults_prepass(flat);
     pas_param_prepass(flat);
     if (!g_lower.pas.sem.pas_mode_iso && pas_addr_of_routine(flat, flat)) g_lower.pas.sem.pas_seen_mode_directive = 1;
     pas_var_inits(flat);

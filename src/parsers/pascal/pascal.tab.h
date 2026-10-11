@@ -165,7 +165,8 @@ void pascal_mode_macro_set(const char *m);
     STRINGCONST = 329,             /* STRINGCONST  */
     IDENT = 330,                   /* IDENT  */
     SHIFTOP = 331,                 /* SHIFTOP  */
-    XOROP = 332                    /* XOROP  */
+    XOROP = 332,                   /* XOROP  */
+    POWOP = 333                    /* POWOP  */
   };
   typedef enum pascal_yytokentype pascal_yytoken_kind_t;
 #endif
@@ -177,7 +178,7 @@ union PASCAL_YYSTYPE
 #line 159 "pascal.y"
  tree_t *node; 
 
-#line 181 "pascal.tab.h"
+#line 182 "pascal.tab.h"
 
 };
 typedef union PASCAL_YYSTYPE PASCAL_YYSTYPE;

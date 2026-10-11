@@ -476,6 +476,7 @@ test_gate_pas_dynamic_and_open_arrays_and_const_and_out_parameters_answer_as_fpc
 test_gate_pas_shifts_bounds_case_ranges_headless_programs_string_runs_and_for_in_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pas_procedural_types_and_reals_written_per_dialect_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pas_fpc_system_and_math_routines_answer_as_fpc_and_stay_refused_in_iso.sh	WIRED	-	-	-
+test_gate_pas_var_aggregates_defaults_directives_labels_and_power_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pas_a_function_result_is_defined_when_its_algorithm_completes.sh	WIRED	-	-	-
 test_gate_pas_a_goto_leaves_its_routine_for_an_enclosing_label.sh	WIRED	-	-	-
 test_gate_pas_a_goto_never_enters_a_structured_statement.sh	WIRED	-	-	-

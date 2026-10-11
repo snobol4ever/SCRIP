@@ -11911,6 +11911,18 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         else *out = REALVAL((double)r / 2147483648.0);
         return 1;
     }
+    if (!strcmp(fn, "__pas_pow") && nargs == 2) {
+        if (IS_INT_fn(args[0]) && IS_INT_fn(args[1]) && args[1].i >= 0) {
+            long long r = 1, b = args[0].i, e = args[1].i;
+            while (e > 0) { if (e & 1) r *= b; b *= b; e >>= 1; }
+            *out = INTVAL(r);
+        } else {
+            double x = IS_REAL_fn(args[0]) ? args[0].r : (IS_INT_fn(args[0]) ? (double)args[0].i : 0.0);
+            double y = IS_REAL_fn(args[1]) ? args[1].r : (IS_INT_fn(args[1]) ? (double)args[1].i : 0.0);
+            *out = REALVAL(pow(x, y));
+        }
+        return 1;
+    }
     if (!strcmp(fn, "__pas_mathf") && (nargs == 2 || nargs == 3) && IS_INT_fn(args[0])) {
         double x = IS_REAL_fn(args[1]) ? args[1].r : (IS_INT_fn(args[1]) ? (double)args[1].i : 0.0);
         double y = nargs == 3 ? (IS_REAL_fn(args[2]) ? args[2].r : (IS_INT_fn(args[2]) ? (double)args[2].i : 0.0)) : 0.0;

@@ -463,6 +463,7 @@ ALNUM    [A-Za-z0-9_]
 "/="                    { return DIVBECOMES; }
 "+"                     { return PLUS; }
 "-"                     { return MINUS; }
+"**"                    { pascal_flip_dialect(PAS_DIALECT_FPC); return POWOP; }
 "*"                     { return MUL; }
 "/"                     { return RDIV; }
 "^"                     { return ARROW; }
