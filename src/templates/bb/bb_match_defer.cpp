@@ -19,7 +19,7 @@ typedef struct { void *fn; long aux; } rt_defer_pr_t;
 extern "C" rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site); extern "C" void *bb_dstar_rec_addr(const char *star);
 extern "C" void *dtp_fn_of(void *headv);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" uint64_t g_sno_defer_cells[4096];
+extern "C" uint64_t g_sno_defer_cells[2048];
 extern uint64_t g_scan_hit_start;
 extern int g_gva_active;
 extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
@@ -47,8 +47,7 @@ extern "C" int sn4_alt_carrier(void);
 #define DF_STAR() (_.op_df_vslot < 0 && !DF_GVA() && _.op_sval && _.op_sval[0] == '*' && _.op_sval[1])
 #define DF_MERGED() (_.op_df_vslot < 0 && !(g_gva_active && _.op_gva_k >= 0))
 #define DF_DLBL() (DF_STAR() ? std::string(".Ldstar_") + bb_ab_sym_name(_.op_sval) : std::string())
-#define DF_CADR() (_.op_df_cell >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[_.op_df_cell] : 0)
-#define DF_PAIRADR() (_.op_df_site >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[2048 + _.op_df_site * 2] : 0)
+#define DF_PAIRADR() (_.op_df_site >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[_.op_df_site * 2] : 0)
 std::string bb_match_defer() {
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
@@ -56,15 +55,6 @@ std::string bb_match_defer() {
                x86("comment", "IR_MATCH_DEFER ζ-frame")
              + x86("push", "rbp")
              + x86("mov", "rbp", "rsp"))
-         + IF(_.op_df_cell >= 0,
-               x86("comment", "IR_MATCH_DEFER cell")
-             + x86("lea", "rsi", "[rip + __]", DF_CADR(), _.op_df_clbl)
-             + x86("mov", "rdx", RDQ("rsi", 0))
-             + x86("test", "rdx", "rdx")
-             + x86("je", L(13))
-             + x86("mov", "rax", RDQ("rdx", 0))
-             + x86("jmp", L(11))
-             + x86("def", L(13)))
          + IF(_.op_df_vslot >= 0 && patv_fast_on(),
                x86("comment", "IR_MATCH_DEFER patv-fast")
              + x86("mov", "rdi", RDQ("rbp", -24))
@@ -121,13 +111,6 @@ std::string bb_match_defer() {
              + x86("def", L(9))
              + x86("xor", "eax", "eax")
              + x86("def", L(10)))
-         + IF(_.op_df_cell >= 0,
-               x86("test", "rax", "rax")
-             + x86("je", L(15))
-             + x86("lea", "rsi", "[rip + __]", DF_CADR(), _.op_df_clbl)
-             + x86("mov", RDQ("rsi", 0), "rdx")
-             + x86("def", L(15))
-             + x86("def", L(11)))
          + IF(DF_MERGED() && _.op_df_site >= 0 && defer_inline() && defer_ic_on(),
                x86("comment", "IR_MATCH_DEFER probe-head")
              + x86("lea", "rcx", "[rip + __]", DF_PAIRADR(), _.op_df_pairlbl)

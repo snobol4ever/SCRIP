@@ -1007,6 +1007,7 @@ test_gate_sno_convert_reads_a_numeric_string_as_spitbol_gtnum_does.sh	WIRED	-	-	
 test_gate_sno_convert_takes_its_datatype_name_exactly_as_spitbol_does.sh	WIRED	-	-	-
 test_gate_sno_cset_from_a_string_view_uses_its_length.sh	WIRED	-	-	-
 test_gate_sno_data_type_named_list_is_a_record.sh	WIRED	-	-	-
+test_gate_sno_defer_pair_sites_past_the_cap_take_the_uncached_road.sh	WIRED	-	-	-
 test_gate_sno_deferred_capture_keeps_the_name_save_stack_balanced.sh	WIRED	-	-	-
 test_gate_sno_deferred_goto_from_match_inside_define.sh	WIRED	-	-	-
 test_gate_sno_deferred_pattern_primitive_arg.sh	WIRED	-	-	-

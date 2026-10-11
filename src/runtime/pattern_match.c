@@ -810,9 +810,9 @@ DESCR_t sort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 0); }
 DESCR_t rsort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 uint64_t g_scan_hit_start = 0;
-uint64_t g_sno_defer_cells[4096];
+uint64_t g_sno_defer_cells[2048];
 static int g_sno_defer_pair_hwm = 0;
-void rt_defer_pairs_forget(void) { for (int i = 0; i < g_sno_defer_pair_hwm; i++) { g_sno_defer_cells[2048 + i * 2] = 0; g_sno_defer_cells[2048 + i * 2 + 1] = 0; } g_sno_defer_pair_hwm = 0; }
+void rt_defer_pairs_forget(void) { for (int i = 0; i < g_sno_defer_pair_hwm; i++) { g_sno_defer_cells[i * 2] = 0; g_sno_defer_cells[i * 2 + 1] = 0; } g_sno_defer_pair_hwm = 0; }
 uint64_t g_pat_main_rsp = 0;
 uint64_t g_rspd_save = 0, g_rspd_g4 = 0, g_rspd_g5 = 0, g_rspd_s2 = 0, g_rspd_g6 = 0, g_rspd_beta = 0;
 #if RT_DIAG
@@ -1499,12 +1499,7 @@ static inline __attribute__((always_inline)) rt_dfx_t *rt_dfx_init(rt_dfx_t *s) 
 long rt_cas_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **);
     long b = 0;
-    for (int c = 0; c < 2048; c += 8) {
-        const uint64_t *w = &g_sno_defer_cells[c];
-        if ((w[0] | w[1] | w[2] | w[3] | w[4] | w[5] | w[6] | w[7]) == 0) continue;
-        for (int i = 0; i < 8; i++) if (w[i]) rt_gc_visit_raw((const char **)&w[i]);
-    }
-    for (int i = 0; i < g_sno_defer_pair_hwm; i++) { uint64_t *slot = &g_sno_defer_cells[2048 + i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
+    for (int i = 0; i < g_sno_defer_pair_hwm; i++) { uint64_t *slot = &g_sno_defer_cells[i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1727,9 +1722,9 @@ static int rt_defer_run_all_v(const char *varname, int cur_delta, DESCR_t val) {
 static inline __attribute__((always_inline)) DESCR_t *rt_defer_cell_ptr(const char *varname, long site) {
     extern DESCR_t *NV_PTR_fn(const char *name);
     extern DESCR_t *NV_CELL_IF_FASTSET_fn(const char *);
-    extern uint64_t g_sno_defer_cells[4096];
+    extern uint64_t g_sno_defer_cells[2048];
     if (site < 0 || site >= 1024 || !varname || varname[0] == '&' || varname[0] == '*') return (DESCR_t *)0;
-    uint64_t *slot = &g_sno_defer_cells[2048 + site * 2];
+    uint64_t *slot = &g_sno_defer_cells[site * 2];
     if (slot[0] == (uint64_t)(uintptr_t)varname) return (DESCR_t *)(uintptr_t)slot[1];
     DESCR_t *cell = NV_PTR_fn(varname);
     if (!cell || !NV_CELL_IF_FASTSET_fn(varname)) return (DESCR_t *)0;

@@ -6309,7 +6309,7 @@ extern "C" int dop_direct_leaf_known(const char * fn, int narg) {
     const char * s = 0;
     return (dop_direct_fp(fn, (int64_t)narg, &s) || pl_leaf_inline_known(fn, narg)) ? 1 : 0;
 }
-extern "C" uint64_t g_sno_defer_cells[4096];
+extern "C" uint64_t g_sno_defer_cells[2048];
 void defer_prepare(void) {
     extern int g_gva_active;
     int vslot = -1;
@@ -6318,15 +6318,11 @@ void defer_prepare(void) {
     int gva_road = (vslot < 0 && g_gva_active && g_emit.op_gva_k >= 0);
     int star = (vslot < 0 && !gva_road && g_emit.op_sval && g_emit.op_sval[0] == '*' && g_emit.op_sval[1]) ? 1 : 0;
     if (gva_road || vslot >= 0 || star) g_emit.op_df_b[0] = 0; else strtab_label(g_emit.op_df_b, sizeof g_emit.op_df_b, g_emit.op_sval ? g_emit.op_sval : "");
-    int ci = (vslot < 0 && emit_knob_nonzero("SCRIP_DEFER_CELL") && g_gva_active && g_emit.op_gva_k >= 0 && g_emit.op_seal == 2 && g_emit.sn4_defer_cell_n < 2048) ? g_emit.sn4_defer_cell_n++ : -1;
-    g_emit.op_df_clbl[0] = 0;
-    if (ci >= 0) snprintf(g_emit.op_df_clbl, sizeof g_emit.op_df_clbl, "g_sno_defer_cells+%d", ci * 8);
     int merged = (vslot < 0 && !(g_gva_active && g_emit.op_gva_k >= 0));
     int msite = (merged && !star) ? (g_emitter.defer_prepare_g_defer_site_n < 1024 ? g_emitter.defer_prepare_g_defer_site_n++ : -1) : -1;
     g_emit.op_df_pairlbl[0] = 0;
-    if (msite >= 0) snprintf(g_emit.op_df_pairlbl, sizeof g_emit.op_df_pairlbl, "g_sno_defer_cells+%d", (2048 + msite * 2) * 8);
+    if (msite >= 0) snprintf(g_emit.op_df_pairlbl, sizeof g_emit.op_df_pairlbl, "g_sno_defer_cells+%d", msite * 2 * 8);
     g_emit.op_df_vslot = vslot;
-    g_emit.op_df_cell = ci;
     g_emit.op_df_site = msite;
 }
 void emit_diag_arbno_arm(const char * arm) { if (emit_knob_if_one("SCRIP_ARBNO_DIAG")) fprintf(stderr, "[ARBNO-ARM] %s\n", arm); }

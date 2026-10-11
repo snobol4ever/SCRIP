@@ -497,17 +497,14 @@ typedef struct {
     int op_define_role;
     const int * op_arbno_zq;
     int op_arbno_nzq;
-    int sn4_defer_cell_n;
     cv_t flat_cap_off;
     int flat_cap_n;
     int op_arbno_dt;
     int op_arbno_dt_susp;
     int op_defer_leaf_susp;
     int op_df_vslot;
-    int op_df_cell;
     int op_df_site;
     char op_df_b[24];
-    char op_df_clbl[48];
     char op_df_pairlbl[48];
     int op_tail_dfr;
     int op_tail_fpr_rsp;
