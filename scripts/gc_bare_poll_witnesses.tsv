@@ -30,7 +30,7 @@ src/templates/bb/bb_binop_xrep_slot.cpp:str_repeat_d#1	rk_list_array_marker.raku
 src/templates/bb/bb_call.cpp:rt_call_callee_sn4/rt_call_fld_sn4#1	UNWITNESSED
 src/templates/bb/bb_call.cpp:rt_call_bid_sn4/rt_call_name_sn4/...#1	hb_wsb_rk_gram_parse.raku
 src/templates/bb/bb_call_bool.cpp:rk_is_truthy#1	hb_wsb_rk_iter_grep.raku
-src/templates/bb/bb_call_fn.cpp:rt_pl_dop_clause_unify/rt_pl_throw_raise/...#1	hb_deferexpr_a_dupl.sno
+src/templates/bb/bb_call_fn.cpp:rt_pl_dop_clause_unify/rt_pl_throw_raise/...#1	UNWITNESSED
 src/templates/bb/bb_call_fn.cpp:rt_call_callee_sn4/rt_call_fld_sn4#1	UNWITNESSED
 src/templates/bb/bb_call_fn.cpp:rt_call_bid_sn4/rt_call_name_sn4/...#1	hb_size_result_polled.icn
 src/templates/bb/bb_call_pl_leaf.cpp:rt_pl_anum_cold/rt_pl_atop_cold/...#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
