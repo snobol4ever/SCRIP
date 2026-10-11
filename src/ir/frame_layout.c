@@ -200,6 +200,10 @@ static int zls_act_kind(const IR_graph_t * g, const IR_t * nd) {
     if (nd->op == IR_CALL_VALUE && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "goal")) return ZK_PTR_FRAME;
     return ZK_RAW;
 }
+static int zls_act8_kind(const IR_graph_t * g, const IR_t * nd) {
+    if (g && g->icn_cells_graph) return (nd->op == IR_PROC_GEN || nd->op == IR_CALL_PROC_STAGED) ? ZK_PTR_FRAME_H : ZK_RAW;
+    return ZK_PTR_CODE;
+}
 static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
     switch (nd->op) {
         case IR_TO:
@@ -483,9 +487,9 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
             " NON-RESUMABLE callee -- a plain procedure return"
             "s once and releases, so beta fails forward on 2 instead of resuming (ceo 2026-09-19, CVSPINE_t in descr.h); at the gamma landing it holds the callee's RETAINED frame base (rax) or 0 whe"
             "n the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp)", nd);
-        zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_PTR_CODE, 0,
-            "callgen.act +8 (WRITTEN, not a pad: the callee's graph beta at the gamma landing, or the saved rsp on the LCO/forwarding arms; read back on beta to resume the callee -- bb_call_proc_sta"
-            "ged.cpp)", nd);
+        zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, zls_act8_kind(g, nd), 0,
+            "callgen.act +8 (WRITTEN, not a pad: ZK_PTR_FRAME_H on an Icon cells graph -- H, the callee's retained generator frame, and ZERO on every other landing and at alpha; else the callee's gr"
+            "aph beta at the gamma landing, or the saved rsp on the LCO/forwarding arms; read back on beta to resume the callee -- bb_call_proc_staged.cpp)", nd);
         return 1 + nd->n_operands;
         default:
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) {
@@ -496,9 +500,9 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
                     "opened a NON-RESUMABLE callee -- a plain procedur"
                     "e returns once and releases, so beta fails forward on 2 instead of resuming (ceo 2026-09-19, CVSPINE_t in descr.h); at the gamma landing it holds the callee's RETAINED frame bas"
                     "e (rax) or 0 when the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp)", nd);
-                zls_field(scope_id, off + 8, 8, ZK_PTR_CODE, 0,
-                    "callgen.act +8 (WRITTEN, not a pad: the callee's graph beta at the gamma landing, or the saved rsp on the LCO/forwarding arms; read back on beta to resume the callee -- bb_call_"
-                    "proc_staged.cpp)", nd);
+                zls_field(scope_id, off + 8, 8, zls_act8_kind(g, nd), 0,
+                    "callgen.act +8 (WRITTEN, not a pad: ZK_PTR_FRAME_H on an Icon cells graph -- H, the callee's retained generator frame, and ZERO on every other landing and at alpha; else the cal"
+                    "lee's graph beta at the gamma landing, or the saved rsp on the LCO/forwarding arms; read back on beta to resume the callee -- bb_call_proc_staged.cpp)", nd);
                 return 1;
             }
             for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
@@ -1586,7 +1590,8 @@ int zls_g_resume_by_name(const char *name) { if (!name) return -1; for (int i = 
 int zls_g_locals(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->locals_off : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "gc_frame_map.h"
-_Static_assert(GC_LAY_DESCR == ZK_DESCR && GC_LAY_RAW == ZK_RAW && GC_LAY_PTR_GC == ZK_PTR_GC && GC_LAY_PTR_CODE == ZK_PTR_CODE,
+_Static_assert(GC_LAY_DESCR == ZK_DESCR && GC_LAY_RAW == ZK_RAW && GC_LAY_PTR_GC == ZK_PTR_GC && GC_LAY_PTR_CODE == ZK_PTR_CODE && GC_LAY_PTR_FRAME == ZK_PTR_FRAME &&
+    GC_LAY_PTR_FRAME_H == ZK_PTR_FRAME_H,
     "a layout quad's kind IS the zls_field kind: the emitter seals zls_field_t.kind unchanged after the map's four quads and the collector reads it back as GC_LAY_*, so the two enumerations must agr"
     "ee by value (ARCH-GC section 6.2h)");
 typedef struct { int off; int size; unsigned char kind; } zls_layq_t;
@@ -1633,7 +1638,9 @@ const char * zls_g_vslot_get(const IR_graph_t * g, int i, int * off) {
     return zv[r->first_vslot + i].name;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * zk_name(int k) { return k == ZK_DESCR ? "DESCR" : k == ZK_RAW ? "RAW" : k == ZK_PTR_GC ? "PTR_GC" : k == ZK_PTR_CODE ? "PTR_CODE" : k == ZK_PTR_FRAME ? "PTR_FRAME" : "?"; }
+static const char * zk_name(int k) {
+    return k == ZK_DESCR ? "DESCR" : k == ZK_RAW ? "RAW" : k == ZK_PTR_GC ? "PTR_GC" : k == ZK_PTR_CODE ? "PTR_CODE" : k == ZK_PTR_FRAME ? "PTR_FRAME" : k == ZK_PTR_FRAME_H ? "PTR_FRAME_H" : "?";
+}
 static const char * zsc_name(int k) { return k == ZSC_FN ? "FN" : k == ZSC_GROUP ? "GROUP" : k == ZSC_ITER ? "ITER" : k == ZSC_PAT ? "PAT" : k == ZSC_COEXPR ? "COEXPR" : "?"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_op_names_a_string(IR_e op) {
