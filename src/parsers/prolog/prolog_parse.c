@@ -2089,6 +2089,14 @@ static const char * const PL_PRELUDE_SRC =
     "'$nv_single'([]).\n"
     "'$nv_single'([V|Vs]):-V='$VAR'('_'),'$nv_single'(Vs).\n"
     "trim_stacks.\n"
+    "'$arg_swi'(N,T,A):-var(N),!,(compound(T)->functor(T,_,Ar),between(1,Ar,N),arg(N,T,A);arg(N,T,A)).\n"
+    "'$arg_swi'(N,T,A):-arg(N,T,A).\n"
+    "is_most_general_term(T):-atom(T),!.\n"
+    "is_most_general_term(T):-nonvar(T),T=[_|_],!,is_list(T),'$mgt_vars'(T,[]).\n"
+    "is_most_general_term(T):-compound(T),T=..[_|As],'$mgt_vars'(As,[]).\n"
+    "'$mgt_vars'([],_).\n"
+    "'$mgt_vars'([V|Vs],Seen):-var(V),\\+ memberchk_eq(V,Seen),'$mgt_vars'(Vs,[V|Seen]).\n"
+    "apply(G,As):-G=..L0,'$yall_app'(L0,As,L1),G1=..L1,call(G1).\n"
     "'$write_canonical_swi'(T):-current_output(S),'$write_canonical_swi'(S,T).\n"
     "'$write_canonical_swi'(S,T):-term_variables(T,Vs),term_singletons(T,Ss),'$wcs_names'(Vs,Ss,0,VN),write_term(S,T,[quoted(true),ignore_ops(true),quote_non_ascii(true),variable_names(VN)]).\n"
     "'$wcs_names'([],_,_,[]).\n"
@@ -2588,6 +2596,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");
     if (pl_cv_has(&referenced, "display")) pl_cv_add(&referenced, "$display_swi");
     if (pl_cv_has(&referenced, "write_canonical")) pl_cv_add(&referenced, "$write_canonical_swi");
+    if (pl_cv_has(&referenced, "arg")) pl_cv_add(&referenced, "$arg_swi");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
