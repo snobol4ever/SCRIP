@@ -31,8 +31,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 2
 [ -r "$ROOT/out/libscrip_rt.so" ] || { echo "REFUSE: out/libscrip_rt.so missing -- build first (make)"; exit 2; }
 [ -r "$ROOT/src/runtime/rt/rt_coexpr.h" ] || { echo "REFUSE: rt_coexpr.h not where expected -- re-anchor"; exit 2; }
-SRC=/tmp/coexpr_stack_of_uncreated_thread_witness.c
-BIN=/tmp/coexpr_stack_of_uncreated_thread_witness
+D="$(mktemp -d)" || { echo "REFUSE: no scratch dir"; exit 2; }
+trap 'rm -rf "$D"' EXIT
+SRC="$D/coexpr_stack_of_uncreated_thread_witness.c"
+BIN="$D/coexpr_stack_of_uncreated_thread_witness"
 cat > "$SRC" <<'EOF'
 #include <stdio.h>
 #include <stdint.h>
@@ -56,11 +58,11 @@ int main(void) {
     return 0;
 }
 EOF
-gcc -O0 -g -I "$ROOT/src/runtime/rt" -I "$ROOT/src/ir" -o "$BIN" "$SRC" "$ROOT/out/libscrip_rt.so" -Wl,-rpath,"$ROOT/out" -lpthread 2>/tmp/coexpr_witness_build.log
+gcc -O0 -g -I "$ROOT/src/runtime/rt" -I "$ROOT/src/ir" -o "$BIN" "$SRC" "$ROOT/out/libscrip_rt.so" -Wl,-rpath,"$ROOT/out" -lpthread 2>"$D/build.log"
 bc=$?
 if [ "$bc" -ne 0 ]; then
     echo "REFUSE: witness failed to build"
-    cat /tmp/coexpr_witness_build.log
+    cat "$D/build.log"
     exit 2
 fi
 out=$("$BIN" 2>&1)
