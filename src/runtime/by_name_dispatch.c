@@ -7509,7 +7509,7 @@ PL_CX_LEAF_HEAD(name, 2)
             if (!t) {
                 ok = 0;
                 if (pl_val_unbound(rt_pl_deref_val(args[1]))) cx->ball = rt_pl_ball_instantiation();
-            } else ok = plw_unify_vals(args[0], pl_parse_number(t, &num) ? num : pl_mk_atom_dup(t, strlen(t)), cx);
+            } else ok = plw_unify_vals(args[0], pl_parse_number(t, &num) && !(pl_swi_dialect() && isspace((unsigned char)t[0])) ? num : pl_mk_atom_dup(t, strlen(t)), cx);
         }
     }
 PL_CX_LEAF_TAIL
@@ -20780,6 +20780,7 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
         DESCR_t l = rt_pl_deref_val(a[0]), sep = rt_pl_deref_val(a[1]), r = rt_pl_deref_val(a[n - 1]);
         if (n == 3 && !pl_iso_unbound(sep) && !pl_is_nil(sep) && !pl_anum_is_text(sep) && !pl_anum_is_num(sep)) return rt_pl_ball_kind2("type_error", "atomic", sep);
         if (!pl_iso_unbound(r) && !pl_anum_is_text(r)) return rt_pl_ball_kind2("type_error", "atom", r);
+        if (n == 3 && !pl_is_nil(l) && pl_iso_unbound(l) && !pl_iso_unbound(r) && pl_atom_str(sep) && !pl_atom_str(sep)[0]) return rt_pl_ball_kind2("domain_error", "non_empty_atom", sep);
         if (n == 3 && !pl_is_nil(l) && pl_iso_unbound(l) && !pl_iso_unbound(r)) return (void *)0;
         if (n == 3 && pl_iso_unbound(sep)) return rt_pl_ball_instantiation();
         { void *b = pl_anum_atomics_in_list(l); if (b) return b; }
