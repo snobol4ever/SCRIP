@@ -4648,7 +4648,13 @@ static const char *icn_opproc_find(const char *nm, int arity) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_opproc_arity(const char *s) { int n; const icn_opproc_t *t = icn_opproc_table(&n); for (int i = 0; s && i < n; i++) if (s == t[i].opsym) return t[i].ar; return -1; }
+static int icn_opproc_arity(const char *s) {
+    int n;
+    const icn_opproc_t *t = icn_opproc_table(&n);
+    if (!s || (uintptr_t)s < (uintptr_t)t[0].opsym || (uintptr_t)s > (uintptr_t)t[n - 1].opsym) return -1;
+    for (int i = 0; i < n; i++) if (s == t[i].opsym) return t[i].ar;
+    return -1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_opproc_typed(const char *nm, DESCR_t *argv, int n, DESCR_t *out) {
     extern void c_rt_coerce_num2_d(const DESCR_t *, const DESCR_t *, DESCR_t *, long);
@@ -15818,11 +15824,6 @@ DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return RT_GC_CAL
 DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, 1, 0, (long *)0)); }
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0, (long *)0)); }
 static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out);
-DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) {
-    DESCR_t out;
-    if (bidlen >= 0 && icn_bi_direct(bidlen, args, nargs, &out)) return out;
-    return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0, (long *)0));
-}
 #define RT_CTOR_IC_N 256
 static struct { const char *fn; void *dt; long gen; } g_ctor_ic[RT_CTOR_IC_N];
 static long rt_ctor_gen(void) {
@@ -15867,6 +15868,20 @@ static DESCR_t rt_call_arr_bl_sn4_rq(const char *fn, DESCR_t *args, int nargs, i
     { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1, rq)); g_ctor_ic_site = outer; return r; }
 }
 DESCR_t rt_call_arr_bl_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, (long *)0)); }
+DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) {
+    extern long g_error;
+    extern int64_t kw_errlimit;
+    extern int rt_g_want_name;
+    extern DESCR_t dat_construct_byref(void *, DESCR_t *, int);
+    extern int dat_nfields_byref(void *);
+    DESCR_t out;
+    if (bidlen >= 0 && icn_bi_direct(bidlen, args, nargs, &out)) return out;
+    if (fn && g_error == 0 && kw_errlimit == 0 && !rt_g_want_name) {
+        int h = rt_ctor_ic_find(fn, rt_ctor_gen());
+        if (h >= 0 && nargs <= dat_nfields_byref(g_ctor_ic[h].dt)) return dat_construct_byref(g_ctor_ic[h].dt, args, nargs);
+    }
+    { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0, (long *)0)); g_ctor_ic_site = outer; return r; }
+}
 #define RT_FIELD_IC_N 256
 static struct { const char *fn; const DATBLK_t *type; int idx; } g_field_ic[RT_FIELD_IC_N];
 _Static_assert((RT_FIELD_IC_N & (RT_FIELD_IC_N - 1)) == 0,
@@ -16291,6 +16306,19 @@ static int relop_num_coerce(DESCR_t v, DESCR_t *out, int blank0) {
     while (*t == ' ' || (blank0 && isspace((unsigned char)*t))) t++;
     if (!*t && blank0) { *out = INTVAL(0); return 1; }
     if (!*t) return 0;
+    {
+        const char *q = t + (*t == '-' || *t == '+');
+        long long acc = 0;
+        int nd = 0;
+        while (nd < 19 && q[nd] >= '0' && q[nd] <= '9') { acc = acc * 10 + (q[nd] - '0'); nd++; }
+        const char *qe = q + nd;
+        if (nd > 0 && nd <= 18 && (*qe == '\0' || *qe == ' ' || (blank0 && isspace((unsigned char)*qe)))) {
+            while (*qe == ' ' || (blank0 && isspace((unsigned char)*qe))) qe++;
+            if (*qe != '\0') return 0;
+            *out = INTVAL((int64_t)(*t == '-' ? -acc : acc));
+            return 1;
+        }
+    }
     char *endi = 0, *endd = 0;
     long long iv = strtoll(t, &endi, 10);
     double dv = strtod(t, &endd);
