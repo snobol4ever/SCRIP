@@ -63,6 +63,7 @@ type
     constructor Create;
     function Add(const S: string): Integer;
     function AddObject(const S: string; AObject: TObject): Integer;
+    procedure Append(const S: string);
     procedure AddStrings(Source: TStringList);
     procedure Insert(Index: Integer; const S: string);
     procedure InsertObject(Index: Integer; const S: string; AObject: TObject);
@@ -308,6 +309,11 @@ begin
     if FDuplicates = dupError then raise EListError.Create('String list does not allow duplicates')
   end;
   InsertItem(Result, S, AObject)
+end;
+procedure TStringList.Append(const S: string);
+var r: Integer;
+begin
+  r := Add(S)
 end;
 procedure TStringList.AddStrings(Source: TStringList);
 var k: Integer;

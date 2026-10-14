@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_gate_pas_the_classes_unit_tstringlist_and_tlist_answer_as_fpc.sh -- `uses classes` gives TStringList and TList that answer as fpc's do:
-# Add, AddObject, Insert, Delete, Clear, Exchange, Move, IndexOf, IndexOfName, IndexOfObject, Find, Sort and CustomSort (order-preserving for equal
+# Add, AddObject, Append, Insert, Delete, Clear, Exchange, Move, IndexOf, IndexOfName, IndexOfObject, Find, Sort and CustomSort (order-preserving for equal
 # keys, which fpc leaves undefined), Sorted with Duplicates, CaseSensitive, Assign, Equals, Text (get and set, #10 #13 #13#10), CommaText,
 # Delimiter, QuoteChar, StrictDelimiter and DelimitedText (get and set), Names, Values, ValueFromIndex, the default Strings property, the
 # EListError messages; TList: Add, Insert, Delete, Remove, IndexOf, First, Last, Exchange, Clear, Count and the default Items property.
@@ -84,7 +84,7 @@ begin
   t.Sort;
   for i := 0 to t.Count - 1 do write(t[i], ';'); writeln;
   writeln(t.IndexOf('CHERRY'), ' ', t.IndexOf('zzz'));
-  t.Delete(0); t.Insert(1, 'mid'); writeln(t.Text);
+  t.Append('tail'); t.Delete(0); t.Insert(1, 'mid'); writeln(t.Text);
   t.Sorted := true; t.Duplicates := dupIgnore; t.Add('mid'); t.Add('zed'); writeln(t.CommaText, ' ', t.Count);
   t.Free
 end.
