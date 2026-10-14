@@ -4269,26 +4269,13 @@ static int pl_load_dir_is_exec(const tree_t * subj) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * pl_load_unit_of(const tree_t * prog, const tree_t * subj, int * is_unit) {
+static const char * pl_load_unit_of(const tree_t * subj, int * is_unit) {
     *is_unit = 0;
-    if (!subj || subj->t != TT_FNC || !subj->v.sval || strcmp(subj->v.sval, "initialization") || subj->n < 1) return NULL;
-    const tree_t * a = subj->c[0];
-    if (!a || a->t != TT_QLIT || !a->v.sval || strncmp(a->v.sval, "pj_dir_", 7)) return NULL;
-    char key[strlen(a->v.sval) + 3];
-    snprintf(key, sizeof key, "%s/0", a->v.sval);
-    for (int i = 0; i < prog->n; i++) {
-        const tree_t * s = prog->c[i];
-        const tree_t * ch = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
-        if (!ch || (ch->t != TT_CHOICE && ch->t != TT_CLAUSE) || !ch->v.sval || strcmp(ch->v.sval, key)) continue;
-        const tree_t * c = pl_load_clause(ch, 0);
-        const tree_t * g = (c && c->n > 0) ? c->c[0] : NULL;
-        if (!g || g->t != TT_FNC || !g->v.sval || g->n < 1) return NULL;
-        if (!strcmp(g->v.sval, "end_tests")) { *is_unit = 1; return NULL; }
-        if (strcmp(g->v.sval, "begin_tests")) return NULL;
-        *is_unit = 1;
-        return (g->c[0] && (g->c[0]->t == TT_QLIT || g->c[0]->t == TT_NAME || g->c[0]->t == TT_FNC)) ? g->c[0]->v.sval : NULL;
-    }
-    return NULL;
+    if (!subj || subj->t != TT_FNC || !subj->v.sval || subj->n < 1) return NULL;
+    if (!strcmp(subj->v.sval, "end_tests") && subj->n == 1) { *is_unit = 1; return NULL; }
+    if (strcmp(subj->v.sval, "begin_tests") || subj->n > 2) return NULL;
+    *is_unit = 1;
+    return (subj->c[0] && (subj->c[0]->t == TT_QLIT || subj->c[0]->t == TT_NAME || subj->c[0]->t == TT_FNC)) ? subj->c[0]->v.sval : NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_load_item_cmp(const void * a, const void * b) {
@@ -4370,7 +4357,7 @@ static const char * pl_load_unit_at(const tree_t * prog, const char * file, int 
         int is_unit = 0, ln;
         const char * nu;
         if (!subj || subj->t == TT_CHOICE || subj->t == TT_CLAUSE || strcmp(pl_stmt_file(s), file)) continue;
-        nu = pl_load_unit_of(prog, subj, &is_unit);
+        nu = pl_load_unit_of(subj, &is_unit);
         ln = lp_s_int(s, ":line");
         if (is_unit && ln < line && ln > best) { best = ln; u = nu; }
     }

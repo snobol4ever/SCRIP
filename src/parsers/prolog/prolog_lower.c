@@ -1168,38 +1168,6 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
             }
         }
         if (is_assert) continue;
-        if (goal_tr->t == TT_FNC && goal_tr->v.sval && goal_tr->n > 0) {
-            const char *gn = goal_tr->v.sval; int ga = goal_tr->n;
-            int callable_with_args =
-                  (strcmp(gn,"begin_tests")==0   && (ga==1||ga==2))
-               || (strcmp(gn,"end_tests")==0     && ga==1)
-               || (strcmp(gn,"nb_setval")==0     && ga==2);
-            if (callable_with_args) {
-                static int pj_dir_seq = 0;
-                char hname[64]; snprintf(hname, sizeof hname, "pj_dir_%d", pj_dir_seq++);
-                int hfn = prolog_atom_intern(hname);
-                PredKey hk = { hfn, 0 };
-                tree_t *helper_head = ast_node_new(TT_QLIT);
-                helper_head->v.sval = ct_strdup(hname);
-                tree_t *syn = ast_node_new(TT_FNC);
-                syn->v.sval = ct_strdup(":-");
-                syn->n = 0;
-                expr_add_child(syn, helper_head);
-                expr_add_child(syn, goal_tr);
-                {
-                    int hi = pl_pred_add(&keys, &choices, hk);
-                    tree_t *ec = lower_clause_from_tree(syn, hk, 0, &csm);
-                    expr_add_child(CV_AT(choices, tree_t *, hi), ec);
-                    tree_t *init_arg = ast_node_new(TT_QLIT);
-                    init_arg->v.sval = ct_strdup(hname);
-                    tree_t *init_call = ast_node_new(TT_FNC);
-                    init_call->v.sval = ct_strdup("initialization");
-                    init_call->n = 0;
-                    expr_add_child(init_call, init_arg);
-                    goal_tr = init_call;
-                }
-            }
-        }
         if (goal_tr && goal_tr->t == TT_FNC && goal_tr->v.sval && strcmp(goal_tr->v.sval, "export") == 0 && goal_tr->n == 1) continue;
         pl_stmt_push(prog, goal_tr, cl->lineno, pl_prog->filename);
     }
