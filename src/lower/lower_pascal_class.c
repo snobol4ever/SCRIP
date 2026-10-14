@@ -460,6 +460,7 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
     if (PC_IS(e, TT_VAR)) {
         const char *n = pc_sv(e);
         for (int i = x->nren - 1; i >= 0; i--) if (pc_eq(x->ren[i].from, n)) return pc_var(x->ren[i].to);
+        if (x->curm && x->curm->isfunc && pc_eq(x->curm->name, n)) return e;
         if (pc_ident_is_member(x, n)) return pc_read_member(x, pc_self(x, n), pc_member_owner(x, n), n, NULL);
         pc_ty t = pc_ident_type(x, n);
         if (t.ref && t.cls) return pc_int(t.cls->id);

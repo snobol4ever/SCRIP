@@ -15200,6 +15200,19 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
         return 1;
     }
     if (!strcmp(fn, "__pas_dynlen") && nargs == 1) { ARBLK_t *b = (args[0].v == DT_A && args[0].arr) ? (ARBLK_t *) args[0].arr : NULL; *out = INTVAL(b ? (long long)b->hi - b->lo + 1 : 0); return 1; }
+    if (!strcmp(fn, "__pas_len") && nargs == 1) {
+        if (args[0].v == DT_A && args[0].arr) { const ARBLK_t *b = (const ARBLK_t *) args[0].arr; *out = INTVAL((long long)b->hi - b->lo + 1); return 1; }
+        const char *sv = VARVAL_fn(args[0]);
+        *out = INTVAL(sv ? (long long)strlen(sv) : 0);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_bound") && nargs == 2) {
+        int hi = IS_INT_fn(args[1]) && args[1].i != 0;
+        if (args[0].v == DT_A && args[0].arr) { const ARBLK_t *b = (const ARBLK_t *) args[0].arr; *out = INTVAL(hi ? (long long)b->hi : (long long)b->lo); return 1; }
+        const char *sv = VARVAL_fn(args[0]);
+        *out = INTVAL(hi ? (sv ? (long long)strlen(sv) : 0) : 1);
+        return 1;
+    }
     if (!strcmp(fn, "__pas_ustr") && nargs == 1) {
         int cap = 24;
         char *o = rt_wsb_alloc((size_t)cap);
