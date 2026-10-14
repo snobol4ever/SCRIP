@@ -1,10 +1,10 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2727
+#define GC_ALLOC_TAB_N 2719
 #define GC_ALLOC_TAB_N_VOID 315
 #define GC_ALLOC_TAB_N_DESCR 1301
-#define GC_ALLOC_TAB_N_OTHER 1093
-#define GC_ALLOC_TAB_N_UNKNOWN 18
+#define GC_ALLOC_TAB_N_OTHER 1086
+#define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
     { "APPLY_fn_rq", GC_RET_DESCR },
@@ -1100,7 +1100,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_rat_binop", GC_RET_OTHER },
     { "pl_rat_cmp", GC_RET_OTHER },
     { "pl_rat_done", GC_RET_OTHER },
-    { "pl_rat_eq", GC_RET_OTHER },
     { "pl_rat_fput", GC_RET_VOID },
     { "pl_rat_from_double", GC_RET_OTHER },
     { "pl_rat_make", GC_RET_DESCR },
@@ -1212,9 +1211,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_wsref_set", GC_RET_VOID },
     { "plc_wt", GC_RET_VOID },
     { "plc_wt_lv", GC_RET_VOID },
-    { "plu_leaf", GC_RET_OTHER },
-    { "plu_walk", GC_RET_OTHER },
-    { "plu_walk_run", GC_RET_OTHER },
     { "plw_bind", GC_RET_VOID },
     { "plw_bind_x", GC_RET_VOID },
     { "plw_det_cell", GC_RET_OTHER },
@@ -2453,10 +2449,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_type_cold_c", GC_RET_DESCR },
     { "rt_pl_type_test_cell", GC_RET_OTHER },
     { "rt_pl_unifiable_cell", GC_RET_OTHER },
-    { "rt_pl_unify_atomic_cold", GC_RET_OTHER },
     { "rt_pl_unify_cyc_plain", GC_RET_OTHER },
-    { "rt_pl_unify_deep", GC_RET_UNKNOWN },
-    { "rt_pl_unify_deep_c", GC_RET_OTHER },
     { "rt_pl_univ_cell", GC_RET_OTHER },
     { "rt_pl_variant_cells", GC_RET_OTHER },
     { "rt_pl_wall_clock_cell", GC_RET_OTHER },
@@ -2616,7 +2609,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_ws_alloc_descr", GC_RET_OTHER },
     { "rt_wsb_alloc", GC_RET_OTHER },
     { "rt_wsb_realloc", GC_RET_OTHER },
-    { "rtx_pl_unify", GC_RET_OTHER },
     { "rx_alloc0", GC_RET_OTHER },
     { "rx_compile", GC_RET_OTHER },
     { "rx_exec", GC_RET_OTHER },

@@ -18,6 +18,7 @@ extern char *rt_big_str(DESCR_t);
 extern long rt_big_bits(DESCR_t);
 extern int rt_big_sign(DESCR_t);
 extern int rt_big_cmp(DESCR_t, DESCR_t);
+extern int rt_big_eq(DESCR_t, DESCR_t);
 extern DESCR_t rk_rat_new(DESCR_t, DESCR_t, int);
 extern int rk_rat_is(DESCR_t);
 extern int rk_rat_to_real(DESCR_t, double *);
@@ -31,6 +32,7 @@ static DESCR_t pq_sub(DESCR_t a, DESCR_t b) { int64_t z; if (a.v == DT_I && b.v 
 static DESCR_t pq_mul(DESCR_t a, DESCR_t b) { int64_t z; if (a.v == DT_I && b.v == DT_I && !__builtin_mul_overflow(a.i, b.i, &z)) return INTVAL(z); return rt_big_mul(a, b); }
 static DESCR_t pq_neg(DESCR_t a) { if (a.v == DT_I && a.i != INT64_MIN) return INTVAL(-a.i); return rt_big_neg(a); }
 static DESCR_t pq_abs(DESCR_t a) { return pq_sgn(a) < 0 ? pq_neg(a) : a; }
+static int pq_same(DESCR_t a, DESCR_t b) { if (a.v == DT_I || b.v == DT_I) return a.v == b.v && a.i == b.i; return rt_big_eq(a, b); }
 static int pq_cmp(DESCR_t a, DESCR_t b) { if (a.v == DT_I && b.v == DT_I) return (a.i > b.i) - (a.i < b.i); return rt_big_cmp(a, b); }
 static DESCR_t pq_divt(DESCR_t a, DESCR_t b) { if (a.v == DT_I && b.v == DT_I && !(a.i == INT64_MIN && b.i == -1)) return INTVAL(a.i / b.i); return rt_big_div(a, b); }
 static DESCR_t pq_modt(DESCR_t a, DESCR_t b) { if (a.v == DT_I && b.v == DT_I) return INTVAL(b.i == -1 ? 0 : a.i % b.i); return rt_big_mod(a, b); }
@@ -71,7 +73,7 @@ double pl_rat_real(DESCR_t a) {
     return 0.0;
 }
 int pl_rat_cmp(DESCR_t a, DESCR_t b) { DESCR_t an, ad, bn, bd; pq_parts(a, &an, &ad); pq_parts(b, &bn, &bd); return pq_cmp(pq_mul(an, bd), pq_mul(bn, ad)); }
-int pl_rat_eq(DESCR_t a, DESCR_t b) { DESCR_t an, ad, bn, bd; pq_parts(a, &an, &ad); pq_parts(b, &bn, &bd); return pq_cmp(an, bn) == 0 && pq_cmp(ad, bd) == 0; }
+int pl_rat_eq(DESCR_t a, DESCR_t b) { DESCR_t an, ad, bn, bd; pq_parts(a, &an, &ad); pq_parts(b, &bn, &bd); return pq_same(an, bn) && pq_same(ad, bd); }
 DESCR_t pl_rat_num(DESCR_t a) { DESCR_t n, d; pq_parts(a, &n, &d); return n; }
 DESCR_t pl_rat_den(DESCR_t a) { DESCR_t n, d; pq_parts(a, &n, &d); return d; }
 DESCR_t pl_rat_scaled(DESCR_t a, long places, int *neg) {
