@@ -3313,7 +3313,13 @@ def cmd_run(args):
     for name, m, v in (fails if _os.environ.get('SUITE_LIST_ALL') else fails[:40]):
         tag = "XPASS(marker stale, promote it)" if v.kind == "PASS" else v.kind
         # the fingerprint of OUR stdout beside every red (see _entry_note): a red that moved is a diff, not a silence
-        print(f"  {tag} {m} {name}: {v.detail} [fp={hashlib.md5(v.stdout or b'').hexdigest()[:8]} rc={'-' if v.returncode is None else v.returncode}]", file=sys.stderr)
+        # SUITE_STDERR_HEAD=1 (opt-in, the coo 2026-10-14 for the ceo's empty-output census, CEO-1709): the run's first non-empty stderr
+        # line rides beside each red, so a class of FAIL that prints nothing names what it said instead; the default output is unchanged
+        _e1 = ""
+        if _os.environ.get('SUITE_STDERR_HEAD'):
+            _e1 = next((l.strip() for l in (v.stderr or b'').decode('utf-8', 'replace').splitlines() if l.strip()), "")
+            _e1 = " err1=" + (_e1[:160].replace("\t", " ") if _e1 else "(none)")
+        print(f"  {tag} {m} {name}: {v.detail} [fp={hashlib.md5(v.stdout or b'').hexdigest()[:8]} rc={'-' if v.returncode is None else v.returncode}]{_e1}", file=sys.stderr)
     sys.exit(0 if not fails else 1)
 
 
