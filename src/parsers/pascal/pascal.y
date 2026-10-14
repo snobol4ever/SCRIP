@@ -126,7 +126,10 @@ void pascal_def_setval(const char *n, double v) {
 }
 int *pascal_cond_unknown_p(void) { return &g_pascal_cenv.cond_unknown; }
 int *pascal_macro_on_p(void) { return &g_pascal_cenv.macro_on; }
-void pascal_note_type_ident(tree_t *id) { if (id && id->v.sval && !strcasecmp(id->v.sval, "string") && !g_pascal_cenv.string_declared) pascal_flip_dialect(PAS_DIALECT_FPC); }
+void pascal_note_type_ident(tree_t *id) {
+    if (!id || !id->v.sval) return;
+    if ((!strcasecmp(id->v.sval, "string") && !g_pascal_cenv.string_declared) || !strcasecmp(id->v.sval, "ansistring") || !strcasecmp(id->v.sval, "pchar")) pascal_flip_dialect(PAS_DIALECT_FPC);
+}
 void pascal_note_type_decl(tree_t *id) { if (id && id->v.sval && !strcasecmp(id->v.sval, "string")) g_pascal_cenv.string_declared = 1; }
 unsigned *pascal_sw_set_p(void) { return &g_pascal_cenv.sw_set; }
 unsigned *pascal_sw_on_p(void) { return &g_pascal_cenv.sw_on; }

@@ -578,6 +578,7 @@ test_gate_pas_a_function_returning_a_dynamic_array_holds_an_array.sh	WIRED	-	-	-
 test_gate_pas_set_symmetric_difference_operator.sh	WIRED	-	-	-
 test_gate_pas_paren_star_conditional_directives_act_as_the_brace_form.sh	WIRED	-	-	-
 test_gate_pas_sizeof_of_an_array_element_folds.sh	WIRED	-	-	-
+test_gate_pas_ansistring_and_pchar_flip_to_the_fpc_dialect.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_and_text_get_put.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_stays_inside_the_unpacked_arrays_index_type.sh	WIRED	-	-	-
 test_gate_pas_packed_component_is_not_a_var_parameter.sh	WIRED	-	-	-
