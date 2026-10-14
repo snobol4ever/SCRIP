@@ -4083,21 +4083,24 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
     extern const char * zls_graph_name_get(const IR_graph_t *); extern int zls_g_vslot_count(const IR_graph_t *); extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
     const IR_graph_t * g = g_emit_cfg;
     const char * gn = g ? zls_graph_name_get(g) : (const char *)0;
+    int gi = -1;
+    for (int k = 0; g && k < g_stage2.bbp.count; k++) if (g_stage2.bbp.table[k] == g) { gi = k; break; }
+    int pinned = x86_fb_pinned() || icn_host_pinned() || icn_gen_zeta_ft() > 0;
     for (int i = 0; i < n; i++) {
         IR_t * nd = nodes[i];
         if (!nd) continue;
         int ai = -1;
         for (int k = 0; g && k < g->n; k++) if (g->all[k] == nd) { ai = k; break; }
         int off = bb_slot_get(nd); if (off < 0) off = nd_slot(nd);
-        int rbp = xop_frame_slot(nd) != -1 || icn_gen_zeta_ft() > 0 || x86_fb_pinned() || icn_host_pinned();
-        const char * home = zon[i] ? "SPINE" : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
-        fprintf(stderr, "[HOMES] graph=%s all=%d kind=%s home=%s off=%d\n", gn ? gn : "?", ai, bb_op_name(nd->op), home, off);
+        int rbp = pinned || xop_frame_slot(nd) != -1;
+        const char * home = zon[i] ? (zd_k(nd) > 0 ? "SPINE" : "NONE") : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
+        fprintf(stderr, "[HOMES] g=%d graph=%s all=%d kind=%s home=%s off=%d\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), home, off);
     }
     int nv = g ? zls_g_vslot_count(g) : 0;
     for (int k = 0; k < nv; k++) {
         int off = -1;
         const char * vn = zls_g_vslot_get(g, k, &off);
-        fprintf(stderr, "[HOMES] graph=%s local=%s home=%s off=%d\n", gn ? gn : "?", vn ? vn : "?", off < 0 ? "NONE" : (x86_fb_pinned() || icn_host_pinned()) ? "RBP" : "RSP_CARVED", off);
+        fprintf(stderr, "[HOMES] g=%d graph=%s local=%s home=%s off=%d\n", gi, gn ? gn : "?", vn ? vn : "?", off < 0 ? "NONE" : pinned ? "RBP" : "RSP_CARVED", off);
     }
 }
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
