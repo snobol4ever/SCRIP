@@ -14707,11 +14707,9 @@ static const char PL_PRELUDE_LIB_18_SRC[] =
     "        '$readutil_read_stream_to_terms'(Stream, Terms, Tail, Options),\n"
     "        close(Stream)).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
-    { "dedent_lines", 3 },
-    { "indent_lines", 3 },
-    { "indent_lines", 4 },
-    { "interpolate_string", 4 },
-    { "string_lines", 2 },
+    { "record", 1 },
+    { "current_record", 2 },
+    { "current_record_predicate", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
@@ -14721,9 +14719,319 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
     { 0, 0 }
 };
 static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
+    { 1150, "fx", "record" },
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_19_SRC[] =
+    "'$error_has_type'(record(M:Name), X) :-\n"
+    "    '$record_is_record'(Name, M, X).\n"
+    "'$record_is_record'(Name, M, X) :-\n"
+    "    current_record(Name, M, _, X, IsX),\n"
+    "    !,\n"
+    "    call(M:IsX).\n"
+    "record(Record) :-\n"
+    "    Record == '<compiled>',\n"
+    "    !.\n"
+    "record(Record) :-\n"
+    "    '$record_compile_records'(Record, [_|Clauses]),\n"
+    "    forall(member(Clause, Clauses), '$record_record_assert'(Clause)).\n"
+    "'$record_record_assert'((record):current_record(Name, M, Def, X, IsX)) :-\n"
+    "    !,\n"
+    "    assertz(current_record(Name, M, Def, X, IsX)).\n"
+    "'$record_record_assert'(Clause) :-\n"
+    "    assertz(Clause).\n"
+    "'$record_compile_records'(Spec,\n"
+    "                [ (:- record('<compiled>'))\n"
+    "                | Clauses\n"
+    "                ]) :-\n"
+    "    phrase('$record_compile_records'(Spec), Clauses).\n"
+    "'$record_compile_records'(Var) -->\n"
+    "    { var(Var),\n"
+    "      !,\n"
+    "      instantiation_error(Var)\n"
+    "    }.\n"
+    "'$record_compile_records'((A,B)) -->\n"
+    "    '$record_compile_record'(A),\n"
+    "    '$record_compile_records'(B).\n"
+    "'$record_compile_records'(A) -->\n"
+    "    '$record_compile_record'(A).\n"
+    "'$record_compile_record'(RecordDef) -->\n"
+    "    { RecordDef =.. [Constructor|Args],\n"
+    "      '$record_defaults'(Args, Defs, TypedArgs),\n"
+    "      '$record_types'(TypedArgs, Names, Types),\n"
+    "      atom_concat(default_, Constructor, DefName),\n"
+    "      atom_concat(Constructor, '_data', DataName),\n"
+    "      DefRecord =.. [Constructor|Defs],\n"
+    "      DefClause =.. [DefName,DefRecord],\n"
+    "      length(Names, Arity)\n"
+    "    },\n"
+    "    [ DefClause ],\n"
+    "    '$record_access_predicates'(Names, 1, Arity, Constructor),\n"
+    "    '$record_data_predicate'(Names, 1, Arity, Constructor, DataName),\n"
+    "    '$record_set_predicates'(Names, 1, Arity, Types, Constructor),\n"
+    "    '$record_set_field_predicates'(Names, 1, Arity, Types, Constructor),\n"
+    "    '$record_make_predicate'(Constructor),\n"
+    "    '$record_is_predicate'(Constructor, Types),\n"
+    "    '$record_current_clause'(RecordDef).\n"
+    "current_record(Name, M:Term) :-\n"
+    "    current_record(Name, M, Term, _, _).\n"
+    "'$record_current_clause'(RecordDef) -->\n"
+    "    { prolog_load_context(module, M),\n"
+    "      functor(RecordDef, Name, _),\n"
+    "      atom_concat(is_, Name, IsName),\n"
+    "      IsX =.. [IsName, X]\n"
+    "    },\n"
+    "    [ (record):current_record(Name, M, RecordDef, X, IsX)\n"
+    "    ].\n"
+    "current_record_predicate(Record, M:PI) :-\n"
+    "    (   ground(PI)\n"
+    "    ->  Det = true\n"
+    "    ;   Det = false\n"
+    "    ),\n"
+    "    current_record(Record, M:RecordDef),\n"
+    "    (   '$record_general_record_pred'(Record, M:PI)\n"
+    "    ;   RecordDef =.. [_|Args],\n"
+    "        '$record_defaults'(Args, _Defs, TypedArgs),\n"
+    "        '$record_types'(TypedArgs, Names, _Types),\n"
+    "        member(Field, Names),\n"
+    "        '$record_field_record_pred'(Record, Field, M:PI)\n"
+    "    ),\n"
+    "    (   Det == true\n"
+    "    ->  !\n"
+    "    ;   true\n"
+    "    ).\n"
+    "'$record_general_record_pred'(Record, _:Name/1) :-\n"
+    "    atom_concat(is_, Record, Name).\n"
+    "'$record_general_record_pred'(Record, _:Name/1) :-\n"
+    "    atom_concat(default_, Record, Name).\n"
+    "'$record_general_record_pred'(Record, _:Name/A) :-\n"
+    "    member(A, [2,3]),\n"
+    "    atom_concat(make_, Record, Name).\n"
+    "'$record_general_record_pred'(Record, _:Name/3) :-\n"
+    "    atom_concat(Record, '_data', Name).\n"
+    "'$record_general_record_pred'(Record, _:Name/A) :-\n"
+    "    member(A, [3,4]),\n"
+    "    atomic_list_concat([set_, Record, '_fields'], Name).\n"
+    "'$record_general_record_pred'(Record, _:Name/3) :-\n"
+    "    atomic_list_concat([set_, Record, '_field'], Name).\n"
+    "'$record_field_record_pred'(Record, Field, _:Name/2) :-\n"
+    "    atomic_list_concat([Record, '_', Field], Name).\n"
+    "'$record_field_record_pred'(Record, Field, _:Name/A) :-\n"
+    "    member(A, [2,3]),\n"
+    "    atomic_list_concat([set_, Field, '_of_', Record], Name).\n"
+    "'$record_field_record_pred'(Record, Field, _:Name/2) :-\n"
+    "    atomic_list_concat([nb_set_, Field, '_of_', Record], Name).\n"
+    "'$record_make_predicate'(Constructor) -->\n"
+    "    { atomic_list_concat([make_, Constructor], MakePredName),\n"
+    "      atomic_list_concat([default_, Constructor], DefPredName),\n"
+    "      atomic_list_concat([set_, Constructor, '_fields'], SetFieldsName),\n"
+    "      atomic_list_concat([set_, Constructor, '_field'], SetFieldName),\n"
+    "      MakeHead3 =.. [MakePredName, Fields, Record],\n"
+    "      MakeHead4 =.. [MakePredName, Fields, Record, []],\n"
+    "      MakeClause3 = (MakeHead3 :- MakeHead4),\n"
+    "      MakeHead =.. [MakePredName, Fields, Record, RestFields],\n"
+    "      DefGoal  =.. [DefPredName, Record0],\n"
+    "      SetGoal  =.. [SetFieldsName, Fields, Record0, Record, RestFields],\n"
+    "      MakeClause = (MakeHead :- DefGoal, SetGoal),\n"
+    "      SetHead3 =.. [SetFieldsName, Fields, R0, R],\n"
+    "      SetHead4 =.. [SetFieldsName, Fields, R0, R, []],\n"
+    "      SetClause0 = (SetHead3 :- SetHead4),\n"
+    "      SetClause1 =.. [SetFieldsName, [], R, R, []],\n"
+    "      SetHead2  =.. [SetFieldsName, [H|T], R0, R, RF],\n"
+    "      SetGoal2a =.. [SetFieldName, H, R0, R1],\n"
+    "      SetGoal2b =.. [SetFieldsName, T, R1, R, RF],\n"
+    "      SetGoal2c =.. [SetFieldsName, T, R0, R, RF1],\n"
+    "      SetClause2 = (SetHead2 :- (SetGoal2a -> SetGoal2b ; RF=[H|RF1], SetGoal2c))\n"
+    "    },\n"
+    "    [ MakeClause3, MakeClause, SetClause0, SetClause1, SetClause2 ].\n"
+    "'$record_is_predicate'(Constructor, Types) -->\n"
+    "    { '$record_type_checks'(Types, Vars, Body0),\n"
+    "      '$record_clean_body'(Body0, Body),\n"
+    "      Term =.. [Constructor|Vars],\n"
+    "      atom_concat(is_, Constructor, Name),\n"
+    "      Head1 =.. [Name,Var],\n"
+    "      Head2 =.. [Name,Term]\n"
+    "    },\n"
+    "    [   (Head1 :- var(Var), !, fail) ],\n"
+    "    (   { Body == true }\n"
+    "    ->  [ Head2 ]\n"
+    "    ;   [ (Head2 :- Body) ]\n"
+    "    ).\n"
+    "'$record_type_checks'([], [], true).\n"
+    "'$record_type_checks'([any|T], [_|Vars], Body) :-\n"
+    "    '$record_type_checks'(T, Vars, Body).\n"
+    "'$record_type_checks'([Type|T], [V|Vars], (Goal, Body)) :-\n"
+    "    '$record_type_goal'(Type, V, Goal),\n"
+    "    '$record_type_checks'(T, Vars, Body).\n"
+    "'$record_type_goal'(Type, Var, Body) :-\n"
+    "    current_type(Type, Var, Body),\n"
+    "    !.\n"
+    "'$record_type_goal'(record(Record), Var, Body) :-\n"
+    "    !,\n"
+    "    atom_concat(is_, Record, Pred),\n"
+    "    Body =.. [Pred,Var].\n"
+    "'$record_type_goal'(Record, Var, Body) :-\n"
+    "    atom(Record),\n"
+    "    !,\n"
+    "    atom_concat(is_, Record, Pred),\n"
+    "    Body =.. [Pred,Var].\n"
+    "'$record_type_goal'(Type, _, _) :-\n"
+    "    domain_error(type, Type).\n"
+    "'$record_clean_body'(Var, G) :-\n"
+    "    var(Var),\n"
+    "    !,\n"
+    "    G = Var.\n"
+    "'$record_clean_body'(M:C0, G) :-\n"
+    "    nonvar(C0),\n"
+    "    '$record_control'(C0),\n"
+    "    !,\n"
+    "    C0 =.. [Name|Args0],\n"
+    "    '$record_clean_args'(Args0, M, Args),\n"
+    "    G =.. [Name|Args].\n"
+    "'$record_clean_body'((A0,true), A) :-\n"
+    "    !,\n"
+    "    '$record_clean_body'(A0, A).\n"
+    "'$record_clean_body'((true,A0), A) :-\n"
+    "    !,\n"
+    "    '$record_clean_body'(A0, A).\n"
+    "'$record_clean_body'(C0, G) :-\n"
+    "    '$record_control'(C0),\n"
+    "    !,\n"
+    "    C0 =.. [Name|Args0],\n"
+    "    '$record_clean_args'(Args0, Args),\n"
+    "    G =.. [Name|Args].\n"
+    "'$record_clean_body'(_:A, A) :-\n"
+    "    predicate_property(system:A, built_in),\n"
+    "    \\+ predicate_property(system:A, meta_predicate(_)),\n"
+    "    !.\n"
+    "'$record_clean_body'(A, A).\n"
+    "'$record_clean_args'([], []).\n"
+    "'$record_clean_args'([H0|T0], [H|T]) :-\n"
+    "    '$record_clean_body'(H0, H),\n"
+    "    '$record_clean_args'(T0, T).\n"
+    "'$record_clean_args'([], _, []).\n"
+    "'$record_clean_args'([H0|T0], M, [H|T]) :-\n"
+    "    '$record_clean_body'(M:H0, H),\n"
+    "    '$record_clean_args'(T0, M, T).\n"
+    "'$record_control'((_,_)).\n"
+    "'$record_control'((_;_)).\n"
+    "'$record_control'((_->_)).\n"
+    "'$record_control'((_*->_)).\n"
+    "'$record_control'(\\+(_)).\n"
+    "'$record_access_predicates'([], _, _, _) -->\n"
+    "    [].\n"
+    "'$record_access_predicates'([Name|NT], I, Arity, Constructor) -->\n"
+    "    { atomic_list_concat([Constructor, '_', Name], PredName),\n"
+    "      functor(Record, Constructor, Arity),\n"
+    "      arg(I, Record, Value),\n"
+    "      Clause =.. [PredName, Record, Value],\n"
+    "      I2 is I + 1\n"
+    "    },\n"
+    "    [Clause],\n"
+    "    '$record_access_predicates'(NT, I2, Arity, Constructor).\n"
+    "'$record_data_predicate'([], _, _, _, _) -->\n"
+    "    [].\n"
+    "'$record_data_predicate'([Name|NT], I, Arity, Constructor, DataName) -->\n"
+    "    { functor(Record, Constructor, Arity),\n"
+    "      arg(I, Record, Value),\n"
+    "      Clause =.. [DataName, Name, Record, Value],\n"
+    "      I2 is I + 1\n"
+    "    },\n"
+    "    [Clause],\n"
+    "    '$record_data_predicate'(NT, I2, Arity, Constructor, DataName).\n"
+    "'$record_set_predicates'([], _, _, _, _) -->\n"
+    "    [].\n"
+    "'$record_set_predicates'([Name|NT], I, Arity, [Type|TT], Constructor) -->\n"
+    "    { atomic_list_concat(['set_', Name, '_of_', Constructor], PredName),\n"
+    "      atomic_list_concat(['nb_set_', Name, '_of_', Constructor], NBPredName),\n"
+    "      length(Args, Arity),\n"
+    "      '$record_replace_nth'(I, Args, Value, NewArgs),\n"
+    "      Old =.. [Constructor|Args],\n"
+    "      New =.. [Constructor|NewArgs],\n"
+    "      Head =.. [PredName, Value, Old, New],\n"
+    "      SetHead =.. [PredName, Value, Term],\n"
+    "      NBSetHead =.. [NBPredName, Value, Term],\n"
+    "      (   Type == any\n"
+    "      ->  Clause = Head,\n"
+    "          SetClause = (SetHead :- setarg(I, Term, Value)),\n"
+    "          NBSetClause = (NBSetHead :- nb_setarg(I, Term, Value))\n"
+    "      ;   '$record_type_check'(Type, Value, MustBe),\n"
+    "          Clause = (Head :- MustBe),\n"
+    "          SetClause = (SetHead :- MustBe,\n"
+    "                                  setarg(I, Term, Value)),\n"
+    "          NBSetClause = (NBSetHead :- MustBe,\n"
+    "                                      nb_setarg(I, Term, Value))\n"
+    "      ),\n"
+    "      I2 is I + 1\n"
+    "    },\n"
+    "    [ Clause, SetClause, NBSetClause ],\n"
+    "    '$record_set_predicates'(NT, I2, Arity, TT, Constructor).\n"
+    "'$record_type_check'(Type, Value, must_be(Type, Value)) :-\n"
+    "    current_type(Type, Value, _),\n"
+    "    !.\n"
+    "'$record_type_check'(record(Spec), Value, must_be(record(M:Name), Value)) :-\n"
+    "    !,\n"
+    "    prolog_load_context(module, C),\n"
+    "    strip_module(C:Spec, M, Name).\n"
+    "'$record_type_check'(Atom, Value, Check) :-\n"
+    "    atom(Atom),\n"
+    "    !,\n"
+    "    '$record_type_check'(record(Atom), Value, Check).\n"
+    "'$record_set_field_predicates'([], _, _, _, _) -->\n"
+    "    [].\n"
+    "'$record_set_field_predicates'([Name|NT], I, Arity, [Type|TT], Constructor) -->\n"
+    "    { atomic_list_concat(['set_', Constructor, '_field'], FieldPredName),\n"
+    "      length(Args, Arity),\n"
+    "      '$record_replace_nth'(I, Args, Value, NewArgs),\n"
+    "      Old =.. [Constructor|Args],\n"
+    "      New =.. [Constructor|NewArgs],\n"
+    "      NameTerm =.. [Name, Value],\n"
+    "      SetFieldHead =.. [FieldPredName, NameTerm, Old, New],\n"
+    "      (   Type == any\n"
+    "      ->  SetField = SetFieldHead\n"
+    "      ;   '$record_type_check'(Type, Value, MustBe),\n"
+    "          SetField = (SetFieldHead :- MustBe)\n"
+    "      ),\n"
+    "      I2 is I + 1\n"
+    "    },\n"
+    "    [ SetField ],\n"
+    "    '$record_set_field_predicates'(NT, I2, Arity, TT, Constructor).\n"
+    "'$record_replace_nth'(1, [_|T], V, [V|T]) :- !.\n"
+    "'$record_replace_nth'(I, [H|T0], V, [H|T]) :-\n"
+    "    I2 is I - 1,\n"
+    "    '$record_replace_nth'(I2, T0, V, T).\n"
+    "'$record_defaults'([], [], []).\n"
+    "'$record_defaults'([Arg=Default|T0], [Default|TD], [Arg|TA]) :-\n"
+    "    !,\n"
+    "    '$record_defaults'(T0, TD, TA).\n"
+    "'$record_defaults'([Arg|T0], [_|TD], [Arg|TA]) :-\n"
+    "    '$record_defaults'(T0, TD, TA).\n"
+    "'$record_types'([], [], []).\n"
+    "'$record_types'([Name:Type|T0], [Name|TN], [Type|TT]) :-\n"
+    "    !,\n"
+    "    must_be(atom, Name),\n"
+    "    '$record_types'(T0, TN, TT).\n"
+    "'$record_types'([Name|T0], [Name|TN], [any|TT]) :-\n"
+    "    must_be(atom, Name),\n"
+    "    '$record_types'(T0, TN, TT).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
+    { "dedent_lines", 3 },
+    { "indent_lines", 3 },
+    { "indent_lines", 4 },
+    { "interpolate_string", 4 },
+    { "string_lines", 2 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_20_SRC[] =
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
     "interpolate_string(Module:In, Out, Map, Options) :-\n"
     "    '$strings_comp_interpolate'(In, Compiled, Map, [module(Module)|Options]),\n"
@@ -14933,23 +15241,23 @@ static const char PL_PRELUDE_LIB_19_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_21_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_20_SRC[] =
+static const char PL_PRELUDE_LIB_21_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -15104,7 +15412,8 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "quintus", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
     { "rbtrees", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
     { "readutil", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
-    { "strings", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
-    { "writef", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC },
+    { "record", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
+    { "strings", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC },
+    { "writef", PL_PRELUDE_LIB_21_EXPORTS, PL_PRELUDE_LIB_21_OPS, PL_PRELUDE_LIB_21_SHADOWS, PL_PRELUDE_LIB_21_QUIET, PL_PRELUDE_LIB_21_SRC },
     { 0, 0, 0, 0, 0, 0 }
 };

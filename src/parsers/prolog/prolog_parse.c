@@ -313,7 +313,12 @@ static tree_t *mk_call(int fid, tree_t **args, int arity) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *tls(tree_t *t) {
+static tree_t *mk_raw(int fid, tree_t **args, int arity);
+static int tls_control(const tree_t *t) {
+    const char *f = t->v.sval;
+    return f && ((t->n == 2 && (!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "|") || !strcmp(f, "->") || !strcmp(f, "*->"))) || (t->n == 1 && !strcmp(f, "\\+")));
+}
+static tree_t *tls(tree_t *t, int goal) {
     if (!t) return mk_atom(ATOM_NIL);
     switch (t->t) {
         case TT_VAR: case TT_ILIT: case TT_FLIT: case TT_CUT: case TT_DQLIT:
@@ -322,10 +327,10 @@ static tree_t *tls(tree_t *t) {
             return pt_stamp(mk_atom(prolog_atom_intern(t->v.sval ? t->v.sval : "")), t->line);
         case TT_MAKELIST: {
             int nelem = t->v.ival ? t->n - 1 : t->n;
-            tree_t *result = t->v.ival ? tls(t->c[t->n - 1]) : mk_atom(ATOM_NIL);
+            tree_t *result = t->v.ival ? tls(t->c[t->n - 1], 0) : mk_atom(ATOM_NIL);
             for (int i = nelem - 1; i >= 0; i--) {
-                tree_t *dargs[2] = { tls(t->c[i]), result };
-                result = mk_call(ATOM_DOT, dargs, 2);
+                tree_t *dargs[2] = { tls(t->c[i], 0), result };
+                result = mk_raw(ATOM_DOT, dargs, 2);
             }
             return pt_stamp(result, t->line);
         }
@@ -333,8 +338,8 @@ static tree_t *tls(tree_t *t) {
             int fid = prolog_atom_intern(t->v.sval ? t->v.sval : "");
             int arity = t->n;
             tree_t **args = arity > 0 ? (tree_t **)rt_wsb_alloc((size_t)arity * sizeof(tree_t *)) : NULL;
-            for (int i = 0; i < arity; i++) args[i] = tls(t->c[i]);
-            return pt_stamp(mk_call(fid, args, arity), t->line);
+            for (int i = 0; i < arity; i++) args[i] = tls(t->c[i], goal && tls_control(t));
+            return pt_stamp(goal ? mk_call(fid, args, arity) : mk_raw(fid, args, arity), t->line);
         }
     }
 }
@@ -1063,9 +1068,9 @@ static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, t
     }
     tree_t *new_head_final = ast_node_new(TT_FNC);
     new_head_final->v.sval = ct_strdup(new_head->v.sval ? new_head->v.sval : "");
-    for (int i = 0; i < new_head->n; i++) ast_push(new_head_final, tls(new_head->c[i]));
+    for (int i = 0; i < new_head->n; i++) ast_push(new_head_final, tls(new_head->c[i], 0));
     tree_t *body_prog = ast_node_new(TT_PROGRAM);
-    for (int i = 0; i < n; i++) ast_push(body_prog, tls(buf[i]));
+    for (int i = 0; i < n; i++) ast_push(body_prog, tls(buf[i], 1));
     tree_t *_cl = ast_node_new(TT_CLAUSE);
     ast_push(_cl, new_head_final);
     ast_push(_cl, body_prog);
@@ -1984,6 +1989,10 @@ static const char * const PL_PRELUDE_SRC =
     "term_string(T,S,_):-var(S),!,term_string(T,S).\n"
     "term_string(T,S,O):-read_term_from_atom(S,T,O).\n"
     "garbage_collect.\n"
+    "prolog_load_context(module,user).\n"
+    "strip_module(T,M,P):-'$strip_module'(T,user,M,P).\n"
+    "'$strip_module'(T,_,M,P):-nonvar(T),T=M1:T1,atom(M1),!,'$strip_module'(T1,M1,M,P).\n"
+    "'$strip_module'(T,M,M,T).\n"
     "garbage_collect_atoms:-catch(nb_getval('$stat_agc',N0),_,N0=0),N is N0+1,nb_setval('$stat_agc',N).\n"
     "wildcard_match(P,S):-wildcard_match(P,S,[]).\n"
     "wildcard_match(P,S,O):-'$wc_ign'(O,I),'$wc_codes'(P,Pc),'$wc_codes'(S,Sc0),'$wc_comp'(Pc,I,top,Ops,_),'$wc_lowl'(I,Sc0,Sc),('$wc_m'(Ops,Sc)->true).\n"

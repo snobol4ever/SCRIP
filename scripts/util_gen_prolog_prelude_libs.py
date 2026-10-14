@@ -124,6 +124,28 @@ INIT_AS_CLAUSES = {"readutil": {"link_foreign": ("with no foreign readutil, link
     "read_line_to_codes(Stream, Line, Tail) :- pl_read_line_to_codes(Stream, Line, Tail).",
     "read_stream_to_codes(Stream, Content) :- pl_read_stream_to_codes(Stream, Content).",
     "read_stream_to_codes(Stream, Content, Tail) :- pl_read_stream_to_codes(Stream, Content, Tail)."])}}
+# A literal EDIT of a library's source, applied before the file is read and keyed exactly as INIT_AS_CLAUSES is (the identity
+# check stays on the vendored file); each old text must occur exactly once or the generator REFUSES rc=2 (cfo 2026-10-14, row
+# prolog-swi-library-test-record-...-ceo-1664).  library(record) defines its accessors through system:term_expansion/2 on
+# (:- record(R)), and SCRIP runs no term_expansion for a vendored library (rule (3) drops the hook), so the directive is CALLED;
+# its second clause, which raises context_error(nodirective, ...) for a call SWI never makes, asserts the clauses
+# compile_records/2 writes instead -- the clauses the expansion would have put in the file.  The (record):current_record/5 fact it
+# writes is asserted without its qualifier: current_record/5 has no clause in the library, so it keeps its name, and that is the
+# name the library's own calls read.
+SOURCE_EDITS = {"record": [("the directive :- record(R) asserts the clauses system:term_expansion/2 would have compiled", """record(Record) :-
+    throw(error(context_error(nodirective, record(Record)), _)).""", """record(Record) :-
+    compile_records(Record, [_|Clauses]),
+    forall(member(Clause, Clauses), record_assert(Clause)).
+record_assert((record):current_record(Name, M, Def, X, IsX)) :-
+    !,
+    assertz(current_record(Name, M, Def, X, IsX)).
+record_assert(Clause) :-
+    assertz(Clause).""")]}
+# A module-qualified head extending ANOTHER vendored library's local predicate (rule (3) drops every other one): the qualifier
+# and name are replaced by that library's renamed local, so the clause joins the other library's predicate when both are
+# selected (cfo 2026-10-14): library(record)'s error:has_type(record(M:Name), X) is what makes must_be(record(...), V) check a
+# record-typed field, and library(error)'s has_type/2 is '$error_has_type'/2 in the embedded text.
+CROSS_HOOKS = {"record": {("error", "has_type"): "$error_has_type"}}
 ATTR_HOOKS = {("attr_unify_hook", 2), ("attribute_goals", 3)}
 LIB_FLAGS = {"clpfd": [("clpfd_propagation", "default", "read by the propagation loop and never created by 9.0.4's library: swipl fails on an absent flag where "
                                                            "SCRIP's ISO current_prolog_flag/2 raises domain_error, so the flag is declared at its documented default")]}
@@ -271,7 +293,7 @@ def parse_exports(s, path):
     args, _ = top_level_args(s, 1)
     if len(args) < 2:
         raise Refuse("%s: a module directive without an export list" % path)
-    mod = atom_value(args[0][0])
+    mod = atom_value(next((t for t in args[0] if t not in (("punct", "("), ("punct", ")"))), args[0][0]))
     lst = args[1]
     if not lst or lst[0] != ("punct", "["):
         raise Refuse("%s: the export list is not a list" % path)
@@ -430,6 +452,13 @@ def process(path):
         init_drops["directive initialization(%s) replaced by the %d clauses it asserts: %s" % (g, len(clauses), why)] = 1
         read_path = os.path.join(os.environ.get("TMPDIR", "/tmp"), "pl_prelude_initclauses_%s_%d.pl" % (lib, os.getpid()))
         open(read_path, "w", encoding="utf-8").write(src)
+    for why, old, new in SOURCE_EDITS.get(lib, []):
+        if src.count(old) != 1:
+            raise Refuse("%s: SOURCE_EDITS text for '%s' occurs %d times, not once" % (path, why, src.count(old)))
+        src = src.replace(old, new)
+        init_drops["edited: %s" % why] = 1
+        read_path = os.path.join(os.environ.get("TMPDIR", "/tmp"), "pl_prelude_edited_%s_%d.pl" % (lib, os.getpid()))
+        open(read_path, "w", encoding="utf-8").write(src)
     toks = tokenize(src, path)
     for no, cl in enumerate(split_clauses(toks), 1):
         s = sig(cl)
@@ -444,6 +473,7 @@ def process(path):
     if read_path:
         os.unlink(read_path)
     mod, exports, ops, kept, drops, keyed, hooks, libops = None, [], [], [], dict(init_drops), [], [], set()
+    cross = {}
     off = 0
     for no, cl in enumerate(split_clauses(toks), 1):
         start = off
@@ -493,6 +523,13 @@ def process(path):
             if qm == "user" and qn:
                 hooks.append((start, first, off, "")); drops["user: qualifier stripped"] = drops.get("user: qualifier stripped", 0) + 1
                 continue
+            if qn and (qm, qn) in CROSS_HOOKS.get(lib, {}):
+                new = CROSS_HOOKS[lib][(qm, qn)]
+                if src[first:first + len(qm) + 1 + len(qn)] != qm + ":" + qn:
+                    raise Refuse("%s clause %d: the cross-library hook %s:%s is not written %s:%s( -- the head cannot be renamed in place" % (path, no, qm, qn, qm, qn))
+                kept.append((start, off)); cross[start] = (first, len(qm) + 1 + len(qn), new)
+                drops["hook %s:%s joins %s" % (qm, qn, new)] = drops.get("hook %s:%s joins %s" % (qm, qn, new), 0) + 1
+                continue
             if qn and (qn, 0) in {(h, 0) for h, _ in ATTR_HOOKS}:
                 kept.append((start, off)); drops["hook %s:%s kept qualified" % (qm, qn)] = drops.get("hook %s:%s kept qualified" % (qm, qn), 0) + 1
                 continue
@@ -538,6 +575,9 @@ def process(path):
                 raise Refuse("%s: RENAME_TERMS_AS_DATA names %s, which is not a local predicate of %s" % (path, nm, lib))
             raw = rename_bare_atom(raw, nm, "$%s_%s" % (lib, nm), path, with_args=True)
             renamed["%s (as a goal term)" % nm] = "$%s_%s" % (lib, nm)
+        if cs in cross:
+            hf, hl, hn = cross[cs]
+            raw = raw[:hf - cs] + quote(hn) + raw[hf - cs + hl:]
         if hk and hk[3]:
             raw = raw[:hk[1] - cs] + hk[3] + ":" + raw[hk[1] - cs:]
         elif hk:
