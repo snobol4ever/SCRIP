@@ -22,6 +22,11 @@ _Static_assert(GC_HEAP_KB == 1024 && GC_HEAP_CAP_KB == 131072,
     "option defaults as -d128m -i1m -m16m -s4m: the initial window is -i1m and the hard cap -d128m; the window is also the least each growth commits (rt_gcheap_grow), which is -i's second meaning; t"
     "he 128 KB arena of CEO-1095 is the GC-testing instrument (make test-arena, SCRIP_HEAP_KB_TINY) and no longer the shipped default");
 #define GC_HEAP_KB_FLOOR 64
+#define GC_ERR_RESERVE 4096u
+_Static_assert(GC_ERR_RESERVE == 4096u,
+    "THE ERROR RESERVE IS SPITBOL'S e_srs, HELD INSIDE THE CAP (ceo CEO-1704): sbl.min keeps e_srs = 30 words back at the end of storage and its alloc (alc3b) adds them ONCE before error 204, "
+    "so a SETEXIT handler can still allocate; SCRIP's heap commits by the 4 KB page, so the reserve is the cap's last page, rt_gcheap_grow never commits it, the exhausted allocator commits it once "
+    "(released is g_hp_end == g_hp_cap_end) and the heap never passes its cap");
 #define GC_FREE_PCT 15
 _Static_assert(GC_FREE_PCT == 15,
     "A WINDOW IS SPENT BEFORE IT IS COLLECTED, AS SPITBOL SPENDS ITS -i (ceo 2026-09-25, CEO-1264; Lon 2026-09-25 10:06, in-chat to the ceo: \"continue getting all demos and benchmarks running faste"
@@ -226,7 +231,7 @@ static void rt_gcheap_line_reset(long head) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_gcheap_grow(uint64_t need) {
-    size_t left = (size_t)(g_hp_cap_end - g_hp_end);
+    size_t left = (size_t)(g_hp_cap_end - g_hp_end) > GC_ERR_RESERVE ? (size_t)(g_hp_cap_end - g_hp_end) - GC_ERR_RESERVE : 0;
 #if RT_DIAG
     if (!left) { rt_gcheap_cap_hit(need); return 0; }
 #else
@@ -476,6 +481,7 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes) {
         if (g_hp_win < g_hp_wend) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_win; fl->fwd = 0; fl->size = (uint32_t)(g_hp_wend - g_hp_win); fl->type = HB_FILL; fl->flags = HBF_TTL; }
         return r;
     }
+    if (g_hp_end + GC_ERR_RESERVE == g_hp_cap_end && mprotect(g_hp_end, GC_ERR_RESERVE, PROT_READ | PROT_WRITE) == 0) { g_hp_end = g_hp_cap_end; rt_gcheap_line_reset(0); }
 #if RT_DIAG
     fprintf(stderr,
         "[ZHP] heap exhausted AT THE HARD CAP (%ld KB cap, %ld KB committed lazily so far, %ld blocks live, cap hit %ld times, COLLECTIONS RUN %ld) -- THIS REQUEST wanted %llu payload bytes (%llu wi"
