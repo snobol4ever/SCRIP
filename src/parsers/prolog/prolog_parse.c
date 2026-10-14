@@ -2808,7 +2808,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "write_canonical")) pl_cv_add(referenced, "$write_canonical_swi");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "display")) pl_cv_add(referenced, "$display_swi");
-        if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "put_attr") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "freeze")) pl_cv_add(referenced, "$wakeup");
+        if (imp[i] && (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "put_attr") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "freeze"))) pl_cv_add(referenced, "$wakeup");
         PlClause *nextc = NULL;
         for (PlClause *cl = lp[i]->head; cl; cl = nextc) {
             nextc = cl->next;
@@ -2870,6 +2870,7 @@ static void pl_collect_imported_libs(PlProgram *prog, cv_t *imported) {
         if (!g || g->t != TT_FNC || !g->v.sval || strcmp(g->v.sval, "use_module") || (g->n != 1 && g->n != 2) || !g->c[0] || g->c[0]->t != TT_FNC || !g->c[0]->v.sval) continue;
         if (strcmp(g->c[0]->v.sval, "library") || g->c[0]->n != 1 || !pl_lib_path_name(g->c[0]->c[0], nm, sizeof nm)) continue;
         pl_cv_add(imported, nm);
+        if (!strcmp(nm, "pio")) pl_cv_add(imported, "pure_input");
     }
 }
 void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
