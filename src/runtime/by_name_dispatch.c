@@ -15741,6 +15741,25 @@ int rt_pas_bi_index(const char *fn) {
 DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
     DESCR_t out = FAILDESCR;
     const char *fn = (idx >= 0 && idx < (long)PAS_BI_COUNT) ? g_pas_bi_name[idx] : "";
+    if (nargs == 1 && fn[0] == '_') {
+        const char *nm = fn + 6;
+        if (nm[0] == 'r' && !strcmp(nm, "resundef")) return INTVAL(args[0].v == DT_SNUL ? 1L : 0L);
+        if ((nm[0] == 's' && (!strcmp(nm, "sin") || !strcmp(nm, "sqrt"))) || (nm[0] == 'c' && !strcmp(nm, "cos")) || (nm[0] == 'e' && !strcmp(nm, "exp")) || (nm[0] == 'l' && !strcmp(nm, "ln")) ||
+            (nm[0] == 'a' && !strcmp(nm, "arctan"))) {
+            double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0), r;
+            if (nm[1] == 'i') r = sin(d);
+            else if (nm[0] == 'c') r = cos(d);
+            else if (nm[0] == 'e') r = exp(d);
+            else if (nm[0] == 's') {
+                if (d < 0) pas_file_err("6.6.6.2", "sqrt(x) of a negative x", NULL);
+                r = sqrt(d);
+            } else if (nm[0] == 'l') {
+                if (!(d > 0)) pas_file_err("6.6.6.2", "ln(x) of an x that is not greater than zero", NULL);
+                r = log(d);
+            } else r = atan(d);
+            return REALVAL(r);
+        }
+    }
     unsigned n = (unsigned)strlen(fn);
     int bid = bid_of(fn, n);
     if (!bid && RT_GC_CALLBACK(pas_bi_chain(fn, args, nargs, &out, (long *)0))) return out;
