@@ -5256,8 +5256,8 @@ static pval E_case_statement(const tree_t *n) {
         {
             tree_t *seq = ast_node_new(TT_SEQ_EXPR);
             ast_push(seq, bin(TT_ASSIGN, leaf_s(TT_VAR, pas_case_cur()), v[2].node));
-            tree_t *chain = els ? E_compound_statement(els->c[0]).node : ast_node_new(TT_FNC);
-            if (!els) {
+            tree_t *chain = els ? E_compound_statement(els->c[0]).node : ast_node_new(g_lower.pas.sem.pas_dialect_fpc ? TT_SUCCEED : TT_FNC);
+            if (!els && !g_lower.pas.sem.pas_dialect_fpc) {
                 ast_push(chain, leaf_s(TT_VAR, "__pas_rterr"));
                 ast_push(chain, leaf_s(TT_QLIT, "6.8.3.5"));
                 ast_push(chain, leaf_s(TT_QLIT, "no case-constant of the case-statement is equal to the value of its case-index"));
