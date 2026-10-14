@@ -35,25 +35,9 @@ extern void rt_gc_frame_sites_install_counted(const void *tab);
 extern void rt_proc_table_fill(int64_t *tab, const char **names, int n);
 extern char *rt_gc_program_top_get(void);
 extern void rt_gc_program_top_set(char *top);
-extern void rt_gc_inhibit_push(void);
-extern void rt_gc_inhibit_pop(void);
 extern void rt_sc_outer_call(void *fn);
 extern DESCR_t array_get(ARBLK_t *a, int i);
 extern char *rt_heap_strdup_c(const char *s);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *g_sc_inc_dirs = (char *)0;
-void rt_sc_include_dir_add(const char *d) {
-    size_t o = g_sc_inc_dirs ? strlen(g_sc_inc_dirs) : 0, n = d ? strlen(d) : 0;
-    char *j;
-    if (!n) return;
-    j = (char *)malloc(o + n + 2);
-    if (o) { memcpy(j, g_sc_inc_dirs, o); j[o++] = ':'; }
-    memcpy(j + o, d, n);
-    j[o + n] = 0;
-    free(g_sc_inc_dirs);
-    g_sc_inc_dirs = j;
-}
-const char *rt_sc_include_dirs_joined(void) { return g_sc_inc_dirs ? g_sc_inc_dirs : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _MATCHAT_(DESCR_t *args, int nargs) { (void)args; (void)nargs; return (DESCR_t){ .v = DT_I, .slen = 0, .i = (int64_t)rtccb[RTCC_SLOT_MATCHAT] }; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -89,7 +73,7 @@ static sc_module_t *sc_module_get(void) {
 static void sc_module_run(sc_module_t *m) {
     int64_t s_anchor = kw_anchor, s_trim = kw_trim, s_full = kw_fullscan, s_max = kw_maxlngth, s_stl = kw_stlimit, s_stc = kw_stcount, s_tr = kw_trace, s_ftr = kw_ftrace;
     char *save_top = rt_gc_program_top_get();
-    int nested = save_top != (char *)0;
+    if (save_top) { fprintf(stderr, "rt_sc_module: the parser module was entered while a program is live -- a run-time parse takes the C parser (CEO-1749)\n"); abort(); }
     kw_anchor = 0;
     kw_trim = 0;
     kw_fullscan = 1;
@@ -97,11 +81,9 @@ static void sc_module_run(sc_module_t *m) {
     kw_stlimit = -1;
     kw_trace = 0;
     kw_ftrace = 0;
-    if (nested) rt_gc_inhibit_push();
-    else rt_gc_program_top_set((char *)0);
+    rt_gc_program_top_set((char *)0);
     rt_sc_outer_call(m->d->main_alpha);
-    if (nested) rt_gc_inhibit_pop();
-    else rt_gc_program_top_set(save_top);
+    rt_gc_program_top_set(save_top);
     kw_anchor = s_anchor;
     kw_trim = s_trim;
     kw_fullscan = s_full;
@@ -234,7 +216,7 @@ static tree_t *sc_export(sc_export_t *x, DESCR_t d, long *first_off, int root) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *rt_sc_module_parse(const char *lang, const char *src, size_t len, const char *path, const char *incl, long *nodes_out, long *errpos_out) {
+tree_t *rt_sc_module_parse(const char *lang, const char *src, size_t len, const char *path, const char *incl, size_t incl_len, long *nodes_out, long *errpos_out) {
     sc_module_t *m = sc_module_get();
     tree_t *root = (tree_t *)0;
     if (errpos_out) *errpos_out = -1;
@@ -248,7 +230,7 @@ tree_t *rt_sc_module_parse(const char *lang, const char *src, size_t len, const 
         m->base[m->i_src] = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = hs };
         m->base[m->i_path] = path && *path ? STRVAL(rt_heap_strdup_c(path)) : NULVCL;
         m->base[m->i_lang] = STRVAL(rt_heap_strdup_c(lang));
-        if (m->i_incl >= 0) m->base[m->i_incl] = incl && *incl ? STRVAL(rt_heap_strdup_c(incl)) : NULVCL;
+        if (m->i_incl >= 0) m->base[m->i_incl] = incl && incl_len ? (DESCR_t){ .v = DT_S, .slen = (uint32_t)incl_len, .s = (char *)incl } : NULVCL;
         m->base[m->i_tree] = (DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" };
         if (m->i_errpos >= 0) m->base[m->i_errpos] = (DESCR_t){ .v = DT_I, .slen = 0, .i = -1 };
         sc_module_run(m);
@@ -257,7 +239,9 @@ tree_t *rt_sc_module_parse(const char *lang, const char *src, size_t len, const 
         DESCR_t t = m->base[m->i_tree];
         if (IS_DATA_INST_fn(t) && t.u) {
             sc_export_t x;
-            int *ls = (int *)malloc(sizeof(int) * (len + 2));
+            long nl = 0;
+            for (size_t i = 0; i < len; i++) if (src[i] == '\n') nl++;
+            int ls[nl + 2];
             long off0 = -1;
             x.src = src;
             x.len = len;
@@ -271,15 +255,9 @@ tree_t *rt_sc_module_parse(const char *lang, const char *src, size_t len, const 
             x.fn = sc_field_index(t.u, "sc_n");
             x.fc = sc_field_index(t.u, "sc_c");
             x.fp = sc_field_index(t.u, "sc_p");
-            if (x.ft < 0 || x.fv < 0 || x.fn < 0 || x.fc < 0) {
-                fprintf(stderr, "rt_sc_module: the %s parser returned a record that is not a tree\n", lang);
-                free(ls);
-                m->busy = 0;
-                return (tree_t *)0;
-            }
+            if (x.ft < 0 || x.fv < 0 || x.fn < 0 || x.fc < 0) { fprintf(stderr, "rt_sc_module: the %s parser returned a record that is not a tree\n", lang); m->busy = 0; return (tree_t *)0; }
             root = sc_export(&x, t, &off0, 1);
             if (nodes_out) *nodes_out = x.nodes;
-            free(ls);
         } else if (m->i_errpos >= 0 && errpos_out) {
             DESCR_t ep = m->base[m->i_errpos];
             *errpos_out = ep.v == DT_I ? (long)ep.i : -1;
@@ -321,11 +299,9 @@ static void sc_stmt_insert(tree_t *st, int at, tree_t *a) { ast_push(st, a); for
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char **lines; int *lens; int n; } sc_lines_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sc_lines_build(const char *src, size_t len, sc_lines_t *L) {
-    int n = 1;
-    for (size_t i = 0; i < len; i++) if (src[i] == '\n') n++;
-    L->lines = (const char **)malloc(sizeof(const char *) * (size_t)n);
-    L->lens = (int *)malloc(sizeof(int) * (size_t)n);
+static void sc_lines_build(const char *src, size_t len, sc_lines_t *L, const char **lines, int *lens) {
+    L->lines = lines;
+    L->lens = lens;
     L->n = 0;
     {
         size_t a = 0;
@@ -378,7 +354,11 @@ static tree_t *sc_sno_bookkeep(tree_t *root, const char *src, size_t len, const 
     tree_t *prog = ast_node_new(TT_PROGRAM);
     int ordinal = 0, prev_line = 0;
     (void)path;
-    sc_lines_build(src, len, &L);
+    long nl = 1;
+    for (size_t i = 0; i < len; i++) if (src[i] == '\n') nl++;
+    const char *lines[nl];
+    int lens[nl];
+    sc_lines_build(src, len, &L, lines, lens);
     for (int i = 0; i < root->n; i++) { tree_t *st = root->c[i]; if (!st || (st->t != TT_STMT && st->t != TT_END)) continue; ast_push(prog, st); }
     for (int i = 0; i < prog->n; i++) {
         tree_t *st = prog->c[i];
@@ -405,15 +385,13 @@ static tree_t *sc_sno_bookkeep(tree_t *root, const char *src, size_t len, const 
         } else sno_end_lineno = line;
         prev_line = line;
     }
-    free((void *)L.lines);
-    free(L.lens);
     return prog;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *sno_parse_stage_buf(const char *src, size_t len, const char *path) {
-    if (rt_sc_module_linked() && sc_stage_wants_module()) {
+tree_t *sno_parse_stage_buf(const char *src, size_t len, const char *path, const char *incl, size_t incl_len) {
+    if (rt_sc_module_linked() && sc_stage_wants_module() && !rt_gc_program_top_get()) {
         long nodes = 0, errpos = -1;
-        tree_t *root = rt_sc_module_parse("snobol4", src, len, path, rt_sc_include_dirs_joined(), &nodes, &errpos);
+        tree_t *root = rt_sc_module_parse("snobol4", src, len, path, incl, incl_len, &nodes, &errpos);
         if (!root) {
             sno_nerrors = 1;
             fprintf(stderr, "scrip: parse error in '%s'%s\n", path ? path : "<stdin>", errpos >= 0 ? " (the linked SNOBOL4 parser refused a statement)" : "");
@@ -425,26 +403,15 @@ tree_t *sno_parse_stage_buf(const char *src, size_t len, const char *path) {
     { char *copy = (char *)ct_alloc(len + 2); memcpy(copy, src, len); copy[len] = 0; copy[len + 1] = 0; return sno_parse_ast_buf(copy, len, path, (void *)0, 1); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *sno_parse_stage_file(FILE *f, const char *path) {
-    size_t cap = 65536, len = 0;
-    char *buf = (char *)malloc(cap);
-    tree_t *t;
-    if (!f || !buf) return (tree_t *)0;
-    for (;;) { size_t got = fread(buf + len, 1, cap - len, f); len += got; if (len < cap) break; cap *= 2; buf = (char *)realloc(buf, cap); if (!buf) return (tree_t *)0; }
-    t = sno_parse_stage_buf(buf, len, path);
-    free(buf);
-    return t;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *sno_parse_stage_string(const char *src) {
-    if (!(rt_sc_module_linked() && sc_stage_wants_module())) { extern tree_t *sno_parse_string_ast(const char *, void *); return sno_parse_string_ast(src, (void *)0); }
+    if (!(rt_sc_module_linked() && sc_stage_wants_module() && !rt_gc_program_top_get())) { extern tree_t *sno_parse_string_ast(const char *, void *); return sno_parse_string_ast(src, (void *)0); }
     {
         size_t n = src ? strlen(src) : 0;
         char *buf = (char *)ct_alloc(n + 6);
         tree_t *prog;
         if (n) memcpy(buf, src, n);
         memcpy(buf + n, "\nEND\n", 6);
-        prog = sno_parse_stage_buf(buf, n + 5, "<code>");
+        prog = sno_parse_stage_buf(buf, n + 5, "<code>", (const char *)0, 0);
         if (prog && prog->n > 0 && prog->c[prog->n - 1] && prog->c[prog->n - 1]->t == TT_END) prog->n--;
         return prog && prog->n > 0 ? prog : (tree_t *)0;
     }

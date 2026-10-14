@@ -72,7 +72,11 @@ fi
 # ⭐ 10 -> 0 ON 2026-10-14 (cto, CEO-1749): the sweep on SCRIP 0bd04f618 reads no transfer left in rt.c, by_name_dispatch.c
 # or runtime_eval.c, so all three pins drop; the one transfer the sweep sees is rt_sc_module.c's, whose pin or cure is
 # hq_snocone's rank-0 row under CEO-1749.
+# ⭐ rt_sc_module.c pinned at 1 on 2026-10-14 (hq_snocone, CEO-1749): rt_sc_outer_call, the COMPILE-TIME entry of the linked parse-stage module
+# (no program live) -- a whole-program entry sanctioned as CEO-1735 reads it. The run-time arm (CODE/EVAL with a program live) takes the C
+# parser and has no pin; a run-time parse through the module returns later as a BOX ROAD (CEO-1576), its own row.
 PINS="
+1 src/runtime/rt/rt_sc_module.c
 "
 PIN_TOTAL=$(echo "$PINS" | awk 'NF{t+=$1} END{print t+0}')
 # The site lines the gate prints are indented and shaped `    <file>:<line>  (<fn>, <shape>)`; the ledger-group

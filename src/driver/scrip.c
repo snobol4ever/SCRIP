@@ -247,7 +247,40 @@ static int proc_role3_kind(const IR_graph_t *g) {
 }
 static const char *asm_sym_name(const char *nm) { extern const char * bb_ab_sym_name(const char *); return bb_ab_sym_name(nm); }
 static const char *g_sc_module_name = (const char *)0;
-extern tree_t *sno_parse_stage_file(FILE *f, const char *path);
+extern tree_t *sno_parse_stage_buf(const char *src, size_t len, const char *path, const char *incl, size_t incl_len);
+static tree_t *sno_stage_parse_file(FILE *f, const char *path, const char *incl, size_t incl_len) {
+    long flen;
+    if (!f || fseek(f, 0, SEEK_END) != 0) return (tree_t *)0;
+    flen = ftell(f);
+    rewind(f);
+    if (flen < 0) return (tree_t *)0;
+    {
+        char *src = (char *)ct_alloc((size_t)flen + 2);
+        tree_t *t;
+        if (!src) return (tree_t *)0;
+        if (fread(src, 1, (size_t)flen, f) != (size_t)flen) { ct_drop(src); return (tree_t *)0; }
+        src[flen] = 0;
+        src[flen + 1] = 0;
+        t = sno_parse_stage_buf(src, (size_t)flen, path, incl, incl_len);
+        ct_drop(src);
+        return t;
+    }
+}
+static const char *sno_stage_incl_add(const char *cur, size_t *len, const char *d) {
+    size_t o = *len, n = d ? strlen(d) : 0;
+    if (!n) return cur;
+    {
+        char *j = (char *)ct_alloc(o + n + 2);
+        if (!j) return cur;
+        if (o) memcpy(j, cur, o);
+        if (o) j[o++] = ':';
+        memcpy(j + o, d, n);
+        j[o + n] = 0;
+        if (*len) ct_drop((void *)cur);
+        *len = o + n;
+        return j;
+    }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SC_QUAL_NPFX 9
 static const char *const sc_qual_pfx[SC_QUAL_NPFX] = { "sc_", "mod_", "sno_", "snc_", "rak_", "reb_", "icn_", "pro_", "pas_" };
@@ -1887,7 +1920,6 @@ int main(int argc, char **argv) {
         return 1;
     }
     extern void sno_add_include_dir(const char *d);
-    extern void rt_sc_include_dir_add(const char *d);
     struct timespec _t0, _t1, _t2, _t3;
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t0);
     int first_file_argi = argi;
@@ -1939,6 +1971,8 @@ int main(int argc, char **argv) {
         if (strcmp(argv[argi], "--") == 0) { argi++; g_prog_argv = &argv[argi]; g_prog_argc = argc - argi; break; }
         const char *input_path = argv[argi];
         last_input_path = input_path;
+        const char *sno_incl = (const char *)0;
+        size_t sno_incl_len = 0;
         { extern void stmt_src_set_file(const char *); if (input_path) stmt_src_set_file(input_path); }
         {
             char rp[4096];
@@ -1946,14 +1980,21 @@ int main(int argc, char **argv) {
             char dirbuf[strlen(abs_path) + 1];
             memcpy(dirbuf, abs_path, sizeof dirbuf);
             char *sl = strrchr(dirbuf, '/');
-            if (sl) { *sl = '\0'; sno_add_include_dir(ct_strdup(dirbuf)); rt_sc_include_dir_add(dirbuf); } else { sno_add_include_dir("."); rt_sc_include_dir_add("."); }
+            if (sl) {
+                *sl = '\0';
+                sno_add_include_dir(ct_strdup(dirbuf));
+                sno_incl = sno_stage_incl_add(sno_incl, &sno_incl_len, dirbuf);
+            } else {
+                sno_add_include_dir(".");
+                sno_incl = sno_stage_incl_add(sno_incl, &sno_incl_len, ".");
+            }
             const char *core_lib = getenv("SNO_LIB");
             if (core_lib && *core_lib) {
                 char envb[strlen(core_lib) + 1];
                 memcpy(envb, core_lib, sizeof envb);
                 char *sp = envb;
                 char *tk;
-                while ((tk = strsep(&sp, ":")) != (char *)0) if (*tk) { sno_add_include_dir(ct_strdup(tk)); rt_sc_include_dir_add(tk); }
+                while ((tk = strsep(&sp, ":")) != (char *)0) if (*tk) { sno_add_include_dir(ct_strdup(tk)); sno_incl = sno_stage_incl_add(sno_incl, &sno_incl_len, tk); }
             }
             char walk[strlen(abs_path) + 1];
             memcpy(walk, abs_path, sizeof walk);
@@ -1967,15 +2008,15 @@ int main(int argc, char **argv) {
                 if (!hit) {
                     snprintf(probe, sizeof probe, "%s/library", walk);
                     hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode));
-                    if (hit) { sno_add_include_dir(ct_strdup(probe)); rt_sc_include_dir_add(probe); }
+                    if (hit) { sno_add_include_dir(ct_strdup(probe)); sno_incl = sno_stage_incl_add(sno_incl, &sno_incl_len, probe); }
                 }
                 snprintf(probe, sizeof probe, "%s/include", walk);
-                if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) { hit = 1; sno_add_include_dir(ct_strdup(probe)); rt_sc_include_dir_add(probe); }
-                if (hit) { sno_add_include_dir(ct_strdup(walk)); rt_sc_include_dir_add(walk); }
+                if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) { hit = 1; sno_add_include_dir(ct_strdup(probe)); sno_incl = sno_stage_incl_add(sno_incl, &sno_incl_len, probe); }
+                if (hit) { sno_add_include_dir(ct_strdup(walk)); sno_incl = sno_stage_incl_add(sno_incl, &sno_incl_len, walk); }
                 p = strrchr(walk, '/');
             }
             sno_add_include_dir(".");
-            rt_sc_include_dir_add(".");
+            sno_incl = sno_stage_incl_add(sno_incl, &sno_incl_len, ".");
         }
         const char *dot = strrchr(input_path, '.');
         int lang_snocone = dot && strcasecmp(dot, ".sc") == 0;
@@ -2043,7 +2084,7 @@ int main(int argc, char **argv) {
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
             if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
-            tree_t *sub_ast = sno_parse_stage_file(f, input_path);
+            tree_t *sub_ast = sno_stage_parse_file(f, input_path, sno_incl, sno_incl_len);
             fclose(f);
             ir_dump_program(sub_ast, stdout);
             return 0;
@@ -2051,7 +2092,7 @@ int main(int argc, char **argv) {
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
             if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
-            tree_t *sub_ast = sno_parse_stage_file(f, input_path);
+            tree_t *sub_ast = sno_stage_parse_file(f, input_path, sno_incl, sno_incl_len);
             fclose(f);
             RECORD_SEG(sub_ast, lower_sno_stage2);
             MERGE_AST(sub_ast);
@@ -2081,7 +2122,7 @@ int main(int argc, char **argv) {
                     if (!f) { fprintf(stderr, "scrip: cannot stage %d -L preload(s)\n", n_preload); ct_drop(_pre_buf); return 1; }
                 }
             }
-            tree_t *sub_ast = sno_parse_stage_file(f, input_path);
+            tree_t *sub_ast = sno_stage_parse_file(f, input_path, sno_incl, sno_incl_len);
             fclose(f);
             ct_drop(_pre_buf);
             if (opt_input_after_end) {
