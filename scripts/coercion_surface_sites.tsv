@@ -48,7 +48,7 @@ src/runtime/string_ops.c	str_repeat_d	DT_BOOL@descr_to_str	string repetition str
 src/runtime/arithmetic.c	rt_num_arith_body	DT_BOOL@is_numeric_like	all arithmetic gates on is_numeric_like and then coerces with to_real/to_int, each of which carries the tag; covered by delegation
 src/runtime/arithmetic.c	rt_num_pos_sno	DT_BOOL@is_numeric_like	SNOBOL4 affirmation (ceo CEO-1648): a string is read by SPITBOL's grammar (sno_numeric_operand), every other tag is gated by is_numeric_like, then to_real/to_int coerce, each carrying the tag; covered by delegation
 src/runtime/core/core.c	is_numeric_like	DT_BOOL	the gate every arithmetic operation passes through; without the tag here rt_num_arith_body returns FAILDESCR and Bool arithmetic yields nothing (ceo CEO-662)
-src/runtime/string_ops.c	str_concat_fracdigit_d	-	Icon's `||` only: it rejects any operand failing core_icn_str_ok before coercing, and no Icon program can hold a Bool -- DT_BOOL is minted by the Raku lowering alone
+src/runtime/string_ops.c	c_str_concat_fracdigit_d	-	Icon's `||` only: it rejects any operand failing core_icn_str_ok before coercing, and no Icon program can hold a Bool -- DT_BOOL is minted by the Raku lowering alone
 src/runtime/arithmetic.c	big_route_operand	-	routes only bignum-shaped operands; a Bool is a 1/0 machine integer and is never a big
 src/runtime/arithmetic.c	rt_cset_compl	-	cset complement; a Bool is not a cset and FAILDESCR is the right answer
 src/runtime/rt/rt.c	c_rt_size_d	-	Icon's `*x`; unreachable from Raku, which is the only frontend that mints DT_BOOL
