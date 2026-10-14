@@ -126,6 +126,7 @@ static int icn_name_assigned(const char * nm) {
     return 0;
 }
 static int icn_proc_reassigned(const char * nm) { return nm && icn_is_proc(nm) && icn_name_assigned(nm); }
+static int icn_record_reassigned(const char * nm) { extern void * dat_find_type(const char *); return nm && !icn_is_proc(nm) && dat_find_type(nm) && icn_name_assigned(nm); }
 static int icn_is_icon_function(const char * nm);
 #define ICN_IF_FROM_INITIAL 0x1417
 static void icn_reassigned_walk(const tree_t * n) {
@@ -236,7 +237,7 @@ static int icn_call_allow_gen(const char * name) { return name && (icn_proc_is_g
 static int icn_callee_is_a_value(const char * nm) {
     extern int icn_builtin_is_known(const char *);
     extern void * dat_find_type(const char *);
-    return nm && nm[0] != '&' && (icn_proc_reassigned(nm) || (!icn_is_proc(nm) && !icn_is_icon_function(nm) && !icn_builtin_is_known(nm) && !dat_find_type(nm)));
+    return nm && nm[0] != '&' && (icn_proc_reassigned(nm) || icn_record_reassigned(nm) || (!icn_is_proc(nm) && !icn_is_icon_function(nm) && !icn_builtin_is_known(nm) && !dat_find_type(nm)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int augop_code(int aop) {
@@ -444,7 +445,8 @@ static int icn_undeclared_assigned_var(const icx_t * cx, const char * nm) {
 }
 static int icn_callee_is_name(const icx_t * cx, const tree_t * fn) {
     return fn && fn->t == TT_VAR && fn->v.sval && fn->v.sval[0] != '&' && !icn_is_local(cx, fn->v.sval) && !(icn_is_own_global(cx, fn->v.sval) && !icn_is_proc(fn->v.sval)) &&
-        !icn_proc_reassigned(fn->v.sval) && !icn_builtin_reassigned(fn->v.sval) && !icn_undeclared_assigned_var(cx, fn->v.sval) && !icn_is_static_mangled_name(fn->v.sval);
+        !icn_proc_reassigned(fn->v.sval) && !icn_record_reassigned(fn->v.sval) && !icn_builtin_reassigned(fn->v.sval) && !icn_undeclared_assigned_var(cx, fn->v.sval) &&
+        !icn_is_static_mangled_name(fn->v.sval);
 }
 static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
     if (!a) return 0;
