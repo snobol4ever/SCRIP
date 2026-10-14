@@ -2697,11 +2697,20 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 { const tree_t * bad = pl_clause_ill_typed(t->c[0]); if (bad) return goal(cx, pl_cc_type_error("callable", bad, nm, 1), γnext, ωfail, entry_out); }
                 pn = pl_head_key(t->c[0], &ar);
                 if (!pn) {
+                    tree_t * tg = pl_cc_freshvar();
+                    tree_t * tg2 = pl_cc_freshvar();
+                    tree_t * tg3 = pl_cc_freshvar();
                     IR_t * le = NULL;
-                    IR_t * nd = pl_db_enum(cx, -1, pl_clause_target(t->c[0], NULL), 1, γnext, ωfail, &le);
+                    IR_t * nd;
                     IR_t * ge = NULL;
-                    pl_db_leaf2_tree(cx, "$db_t_guard", t->c[0], pl_atom_goal("retract"), le, ωfail, &ge);
-                    if (entry_out) *entry_out = ge ? ge : le;
+                    IR_t * te = NULL;
+                    IR_t * tn;
+                    tg2->v.ival = tg->v.ival;
+                    tg3->v.ival = tg->v.ival;
+                    nd = pl_db_enum(cx, -1, tg, 1, γnext, ωfail, &le);
+                    pl_db_leaf2_tree(cx, "$db_t_guard", tg2, pl_atom_goal("retract"), le, ωfail, &ge);
+                    tn = goal(cx, pl_cc_fnc2("$retract_target", (tree_t *) t->c[0], tg3), ge ? ge : le, ωfail, &te);
+                    if (entry_out) *entry_out = te ? te : tn;
                     return nd;
                 }
                 if (pl_pi_is_static_builtin(pn, ar) || !pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);

@@ -131,7 +131,8 @@ INIT_AS_CLAUSES = {"readutil": {"link_foreign": ("with no foreign readutil, link
 # its second clause, which raises context_error(nodirective, ...) for a call SWI never makes, asserts the clauses
 # compile_records/2 writes instead -- the clauses the expansion would have put in the file.  The (record):current_record/5 fact it
 # writes is asserted without its qualifier: current_record/5 has no clause in the library, so it keeps its name, and that is the
-# name the library's own calls read.
+# name the library's own calls read.  library(gensym) builds its symbol with atom_concat(Base, N, Atom), which SWI allows for a
+# number N and SCRIP's ISO atom_concat/3 refuses outside the SWI dialect; the edit builds it with atomic_list_concat/2.
 SOURCE_EDITS = {"record": [("the directive :- record(R) asserts the clauses system:term_expansion/2 would have compiled", """record(Record) :-
     throw(error(context_error(nodirective, record(Record)), _)).""", """record(Record) :-
     compile_records(Record, [_|Clauses]),
@@ -140,7 +141,11 @@ record_assert((record):current_record(Name, M, Def, X, IsX)) :-
     !,
     assertz(current_record(Name, M, Def, X, IsX)).
 record_assert(Clause) :-
-    assertz(Clause).""")]}
+    assertz(Clause).""")],
+    "gensym": [("atom_concat/3 is ISO outside the SWI dialect (a number argument is a type_error), so the library's own symbol is built by atomic_list_concat/2, which takes "
+                "the number in every dialect", """    New is Old+1,
+    atom_concat(Base, New, Atom).""", """    New is Old+1,
+    atomic_list_concat([Base, New], Atom).""")]}
 # A module-qualified head extending ANOTHER vendored library's local predicate (rule (3) drops every other one): the qualifier
 # and name are replaced by that library's renamed local, so the clause joins the other library's predicate when both are
 # selected (cfo 2026-10-14): library(record)'s error:has_type(record(M:Name), X) is what makes must_be(record(...), V) check a

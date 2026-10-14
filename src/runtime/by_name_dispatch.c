@@ -8733,8 +8733,8 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     { "true", "false", "error", 0 } }, { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", "UTF-16BE", "UTF-16LE", "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0,
     { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on",
     "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on", "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } },
-    { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { 0, "", 0,
-    { 0 } } };
+    { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "threads", "false", 0, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural",
+    "compatibility", 0 } }, { 0, "", 0, { 0 } } };
 static cv_t g_pl_flags;
 #define pl_flags ((pl_flag_t *)g_pl_flags.p)
 static void pl_flags_ready(void) { if (g_pl_flags.len) return; for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; } }
@@ -20459,7 +20459,13 @@ DESCR_t rt_pl_dop_db_asserta_c(DESCR_t *args, int nargs, void *root) { return pl
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_erase_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 2) return FAILDESCR;
-    { void *db = pl_db_cell_of(args, root); DESCR_t iv = rt_pl_deref_val(args[1]); if (!db || iv.v != DT_I) return FAILDESCR; return rt_pl_db_erase(db, (int)iv.i) ? pl_ok() : FAILDESCR; }
+    {
+        extern int rt_pl_db_slot_erased(void *, int);
+        void *db = pl_db_cell_of(args, root);
+        DESCR_t iv = rt_pl_deref_val(args[1]);
+        if (!db || iv.v != DT_I) return FAILDESCR;
+        return (rt_pl_db_erase(db, (int)iv.i) || rt_pl_db_slot_erased(db, (int)iv.i)) ? pl_ok() : FAILDESCR;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_db_count(void *);
@@ -21233,9 +21239,10 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
     }
     if (!strcmp(nm, "atom_concat") && n == 3) {
         DESCR_t x = rt_pl_deref_val(a[0]), y = rt_pl_deref_val(a[1]), z = rt_pl_deref_val(a[2]);
-        if (!pl_iso_unbound(z) && !pl_anum_is_text(z)) return rt_pl_ball_kind2("type_error", "atom", z);
-        if (!pl_iso_unbound(x) && !pl_anum_is_text(x)) return rt_pl_ball_kind2("type_error", "atom", x);
-        if (!pl_iso_unbound(y) && !pl_anum_is_text(y)) return rt_pl_ball_kind2("type_error", "atom", y);
+        int swi = pl_swi_dialect();
+        if (!pl_iso_unbound(z) && !pl_anum_is_text(z) && !(swi && pl_anum_is_num(z))) return rt_pl_ball_kind2("type_error", swi ? "atomic" : "atom", z);
+        if (!pl_iso_unbound(x) && !pl_anum_is_text(x) && !(swi && pl_anum_is_num(x))) return rt_pl_ball_kind2("type_error", swi ? "atomic" : "atom", x);
+        if (!pl_iso_unbound(y) && !pl_anum_is_text(y) && !(swi && pl_anum_is_num(y))) return rt_pl_ball_kind2("type_error", swi ? "atomic" : "atom", y);
         if (pl_iso_unbound(z) && (pl_iso_unbound(x) || pl_iso_unbound(y))) return rt_pl_ball_instantiation();
         return (void *)0;
     }

@@ -1990,6 +1990,18 @@ static const char * const PL_PRELUDE_SRC =
     "term_string(T,S,O):-read_term_from_atom(S,T,O).\n"
     "garbage_collect.\n"
     "prolog_load_context(module,user).\n"
+    "flag(K,Old,New):-'$flag_key'(K,NK),(nb_current(NK,V)->true;V=0),Old=V,(atom(New)->V1=New;V1 is New),nb_setval(NK,V1).\n"
+    "get_flag(K,V):-'$flag_key'(K,NK),(nb_current(NK,V0)->V=V0;V=0).\n"
+    "set_flag(K,V):-'$flag_key'(K,NK),nb_setval(NK,V).\n"
+    "'$flag_key'(K,NK):-format(atom(A),'~q',[K]),atom_concat('$flag ',A,NK).\n"
+    "with_mutex(_,G):-once(G).\n"
+    "'$retract_target'(C,T):-var(C),!,T=(C:-true).\n"
+    "'$retract_target'(M:C,T):-!,'$mod_head'(M,C,QC),'$retract_target'(QC,T).\n"
+    "'$retract_target'((H:-B),(H1:-B)):-!,'$retract_head'(H,H1).\n"
+    "'$retract_target'(C,(C:-true)).\n"
+    "'$retract_head'(H,H):-var(H),!.\n"
+    "'$retract_head'(M:H,H1):-!,'$mod_head'(M,H,QH),'$retract_head'(QH,H1).\n"
+    "'$retract_head'(H,H).\n"
     "strip_module(T,M,P):-'$strip_module'(T,user,M,P).\n"
     "'$strip_module'(T,_,M,P):-nonvar(T),T=M1:T1,atom(M1),!,'$strip_module'(T1,M1,M,P).\n"
     "'$strip_module'(T,M,M,T).\n"
@@ -2819,6 +2831,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "write_canonical")) pl_cv_add(&referenced, "$write_canonical_swi");
     pl_cv_add(&referenced, "$arg_swi");
     pl_cv_add(&referenced, "$conj_nocut");
+    pl_cv_add(&referenced, "$retract_target");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
@@ -2878,6 +2891,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             pl_tree_collect_calls(pl_clause_body(cl), &calls);
             if (pl_cv_has(&calls, "call_cleanup") || pl_cv_has(&calls, "setup_call_cleanup")) pl_cv_add(&calls, "$scc_cut");
             if (pl_cv_has(&calls, "string_concat")) pl_cv_add(&calls, "$string_concat_split");
+            if (pl_cv_has(&calls, "erase")) { pl_cv_add(&calls, "$rec_ref"); pl_cv_add(&calls, "$rec_erase"); }
             for (uint32_t ci = 0; ci < calls.len; ci++) {
                 for (PlClause *d = pre->head; d; d = d->next) {
                     const char *dn; int dar;
