@@ -16,6 +16,10 @@ classify() {
   # $1=stdout file  $2=stderr file  $3=rc  -> echoes one of PASS/FAIL/PARSE-FAIL/CRASH/NO-TAP
   local so="$1" se="$2" rc="$3"
   if grep -q "parse error" "$se" 2>/dev/null; then echo "PARSE-FAIL"; return; fi
+  # The native emitter's refusal ("[SMX] --run: mode-3 native emitter does not yet cover this program: ...") stops the program before it
+  # runs, as a parse error does: it is a REJECT, not a run that printed no TAP (hq_raku 2026-10-14: 270 roast files read UNPROVEN in mode 3
+  # and REJECT in mode 4 for the same refusal, so the class hid behind two names).
+  if grep -q '^\[SMX\] ' "$se" 2>/dev/null && ! grep -qE '^(ok|not ok) [0-9]+|^1\.\.[0-9]+' "$so" 2>/dev/null; then echo "PARSE-FAIL"; return; fi
   # A test file that reports its failures exits with the NUMBER of failures (Rakudo's Test, capped at 254), so a high status with TAP on stdout and no signal message is a FAIL the TAP
   # shows, not a crash (hq_raku 2026-10-04: 46 files with 128 to 254 failures were read as crashes). A signal death leaves "fatal signal" on stderr or no TAP at all.
   if [ "$rc" -ge 124 ] && ! { [ "$rc" -ne 124 ] && grep -qE '^(ok|not ok) [0-9]+|^1\.\.[0-9]+' "$so" 2>/dev/null && ! grep -qE 'fatal signal|core dumped' "$se" 2>/dev/null; }; then echo "CRASH"; return; fi

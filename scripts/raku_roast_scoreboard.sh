@@ -252,7 +252,8 @@ if [ "$DO_RUN" = 1 ]; then
     _t0="$(progress_clock)"   # each mode's own wall for its row (CEO-1676 (c)); m4's takes its compile and link
     incwd "$TIMEOUT_RETRY" 5 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null; rc=$?; _s3="$(progress_secs_since "$_t0")"
     v3="$(classify "$so" "$se" "$rc")"
-    progress_append package roast raku "$pname" m3 "$(roast_outcome "$v3")" "$_s3" >/dev/null 2>&1 || true
+    _e3=""; [ "$v3" = PASS ] || _e3="$(grep -v '^[[:space:]]*$' "$se" 2>/dev/null | head -1 | tr '\t' ' ' | cut -c1-200)"
+    progress_append package roast raku "$pname" m3 "$(roast_outcome "$v3")" "$_s3" "$_e3" >/dev/null 2>&1 || true
     if [ "$v3" = PASS ]; then m3p=$((m3p+1)); else m3f=$((m3f+1)); FAILED_M3="$FAILED_M3 $pname:$v3"; fi
     s4="$TMP/c.s"; o4="$TMP/c.o"; b4="$TMP/c.bin"
     _t0="$(progress_clock)"
