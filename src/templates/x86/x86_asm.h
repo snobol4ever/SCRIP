@@ -2713,7 +2713,7 @@ inline std::string x86_rtx_verdict_adj(const char * sym, int adj) {
     int kind = 0;
     void * caddr = emit_rtx_entry_is(sym) ? emit_rtx_twin(sym, &cname, &kind) : 0;
     if (!caddr) return std::string();
-    const struct bb_label_t * done = emit_label_alloc(".Lvd%d", seq++);
+    const struct bb_label_t * done = emit_label_alloc(".L%s_vd_%d_%d", x86_boxkind(), _.x86_uid, seq++);
     return x86_rtx_verdict_cmp(kind) + x86("jne", "extlbl", (uint64_t)(uintptr_t)done) + x86_rtcc_call_adj(cname, (uint64_t)(uintptr_t)caddr, adj) + x86_def_ext(done);
 }
 inline std::string x86_rt_gc_poll_at(const char * f, int l) { const char * b = strrchr(f, '/');
