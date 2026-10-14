@@ -66,9 +66,10 @@ cto's three conditions, 2026-09-20).  It is PRINTED FOR EVERY LANGUAGE INCLUDING
 diff of numbers and never of shapes.  A DECLARED no-layout is an entry the rungs' own ALL.wantrc gives a NON-ZERO rc:
 the suite declares it must not compile, so having no frame is the correct and permanent answer rather than a defect.
 words = 8-byte words of every graded graph's zls region; unkinded = words of those inside a reported hole.
-Planted arm: SCRIP_TEST_PLANT_ZLS_HOLE=1 makes zls_dump omit the first field of every graph, so a gate can
-prove this census still detects a hole the day the real ones are gone (CEO-554: a gate anchored on a found
-witness dies when someone cures the witness).
+Detector arm: --dumps grades saved `--dump-zeta` texts instead of running scrip, so a gate can dump a clean
+fixture, corrupt ONE field line of that text itself, and require rc 1 -- proof this census still detects a hole
+the day the real ones are gone (CEO-554).  The detector lives in the INSTRUMENT, never in SCRIP: the old
+SCRIP_TEST_PLANT_ZLS_HOLE seam in zls_dump was deleted under CEO-1680 (hq_raku 2026-10-14, the cto's yes).
 """
 import argparse, os, re, subprocess, sys, tempfile
 from pathlib import Path
@@ -192,6 +193,17 @@ def dump_one(scrip, path, timeout):
     return graphs, "", ""
 
 
+def dump_text(path):
+    """dump_one's answer for a SAVED `--dump-zeta` text: the same parse, no compiler run; an unreadable file is UNMEASURED."""
+    try:
+        graphs = parse_dump(Path(path).read_text(errors="replace"))
+    except OSError as e:
+        return None, f"cannot read {path}: {e}", "UNMEASURED"
+    if not graphs:
+        return None, "no graph in the dump", "EMITTED-NO-LAYOUT"
+    return graphs, "", ""
+
+
 def wantrc_sidecar(lang, s4e_home):
     """THE DECLARATION IS ALREADY IN THE DATA (hq_raku, granted ceo CEO-1003 + cto, 2026-09-20).  A program the suite itself
     declares must not compile HAS no frame layout, and that is the correct and permanent answer rather than a refusal the
@@ -239,16 +251,17 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--lang", default="", help="census this language's rungs suite (corpus/tests/<lang>/ALL.<ext>)")
     ap.add_argument("--files", nargs="*", default=[], help="census these programs instead of a rung suite")
+    ap.add_argument("--dumps", nargs="*", default=[], help="census these saved `scrip --dump-zeta` texts instead of running scrip (the gates' detector arm corrupts one)")
     ap.add_argument("--timeout", type=float, default=8.0)
     ap.add_argument("--wantrc", default="", help="grade DECLARED against this ALL.wantrc instead of the rungs' own (the gate fixture seam; --files has no rungs)")
     a = ap.parse_args()
     s4e_home = os.environ.get("S4E_HOME", str(HERE.parent.parent))
     scrip = Path(os.environ.get("SCRIP", str(HERE.parent / "scrip")))
-    label = a.lang or "files"
+    label = a.lang or ("dumps" if a.dumps else "files")
     if not scrip.is_file():
         print(f"zls-frame-map-census[{label}]: REFUSE(2): {scrip} is not a file"); return 2
-    if bool(a.lang) == bool(a.files):
-        print(f"zls-frame-map-census[{label}]: REFUSE(2): give exactly one of --lang or --files"); return 2
+    if (bool(a.lang) + bool(a.files) + bool(a.dumps)) != 1:
+        print(f"zls-frame-map-census[{label}]: REFUSE(2): give exactly one of --lang, --files or --dumps"); return 2
     work = []
     wantrc = {}; wantrc_note = ""
     if a.wantrc:
@@ -281,14 +294,14 @@ def main():
                 _H._copy_companions(text, str(_cd), tmp.name)
             work.append((e.name, p))
     else:
-        for f in a.files:
+        for f in (a.files or a.dumps):
             work.append((f, Path(f)))
     list_all = os.environ.get("ZLS_LIST_ALL") == "1"
     cap = 40
     counts = {"region-gap": 0, "scope-gap": 0, "overlap": 0, "vslot-unmapped": 0, "provisional-kind": 0, "unknown-kind": 0}
     graded = 0; nolayout = []; graphs_n = 0; fields_n = 0; holes = 0; shown = 0; words_n = 0; unkinded_n = 0; zero_region = []
     for name, p in work:
-        graphs, err, kind = dump_one(scrip, p, a.timeout)
+        graphs, err, kind = dump_text(p) if a.dumps else dump_one(scrip, p, a.timeout)
         if graphs is None:
             nolayout.append((name, err, kind)); continue
         graded += 1

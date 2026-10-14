@@ -8,8 +8,9 @@
 # overlap, vslot-unmapped, provisional-kind, unknown-kind).  FAIL-ONCE ON ORIGIN 162e8a172: the return-value cell IR_RETURN writes at
 # frame +0 was unregistered in every function graph (raku 318, pascal 514, icon 304, prolog 88364 holes) and two Icon pad quads were
 # unregistered (scanseq +8, revswap +56); all registered at this landing, every rung suite reads holes=0.
-# THE DETECTOR ARM: SCRIP_TEST_PLANT_ZLS_HOLE=1 (an inert cached-getenv seam in zls_dump, CEO-554's shape) omits the first field of
-# every graph; the census on a one-function fixture must then report a hole, or this gate REFUSES rc=2 -- a detector that fails open
+# THE DETECTOR ARM (re-cut 2026-10-14, hq_raku, CEO-1680 + the cto's yes): the one-function fixture is dumped once by
+# `--dump-zeta`; the census must read that saved text green (--dumps), and with its first field line dropped by this gate it
+# must read rc 1, or this gate REFUSES rc=2. The old SCRIP_TEST_PLANT_ZLS_HOLE seam in zls_dump is deleted: no plant in SCRIP -- a detector that fails open
 # reads as "there was never a bug here".  NOT CENSUSED HERE, said so the reader does not over-read a green: the emitter's wire header
 # past region_end (saved continuations and rsp) and the spine cells are the cto's F6 step-2 map cell and DESCR discipline.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -36,8 +37,13 @@ say add(1, 2);
 FIX
 python3 "$CENSUS" --files "$W/plant.raku" > "$W/clean.txt" 2>&1; rc_clean=$?
 if [ "$rc_clean" -ne 0 ]; then echo "FAIL fixture: the one-function fixture is not clean (rc=$rc_clean)"; grep '^HOLE' "$W/clean.txt" | head -5; RED=$((RED+1)); fi
-SCRIP_TEST_PLANT_ZLS_HOLE=1 python3 "$CENSUS" --files "$W/plant.raku" > "$W/plant.txt" 2>&1; rc_plant=$?
-if [ "$rc_plant" -ne 1 ]; then echo "REFUSE(2) [$(basename "$0" .sh)]: the detector arm did not fire -- SCRIP_TEST_PLANT_ZLS_HOLE=1 read rc=$rc_plant, wanted 1 (a census that cannot see a planted hole cannot be trusted with the real ones)"; tail -2 "$W/plant.txt"; exit 2; fi
+"$SCRIP" --dump-zeta "$W/plant.raku" < /dev/null > "$W/plant.zeta" 2>&1 || { echo "REFUSE(2) [$(basename "$0" .sh)]: --dump-zeta of the one-function fixture failed, so the detector arm has no dump to corrupt"; tail -2 "$W/plant.zeta"; exit 2; }
+python3 "$CENSUS" --dumps "$W/plant.zeta" > "$W/dump_clean.txt" 2>&1; rc_dclean=$?
+if [ "$rc_dclean" -ne 0 ]; then echo "REFUSE(2) [$(basename "$0" .sh)]: the census read the fixture's saved dump rc=$rc_dclean, wanted 0 -- the --dumps reader disagrees with the compiler run, so the corrupted arm would grade nothing"; tail -2 "$W/dump_clean.txt"; exit 2; fi
+awk 'gone || !/^;     \+/ { print; next } { gone = 1 }' "$W/plant.zeta" > "$W/hole.zeta"
+if cmp -s "$W/plant.zeta" "$W/hole.zeta"; then echo "REFUSE(2) [$(basename "$0" .sh)]: the fixture's dump carries no field line to drop, so the detector arm corrupted nothing"; exit 2; fi
+python3 "$CENSUS" --dumps "$W/hole.zeta" > "$W/plant.txt" 2>&1; rc_plant=$?
+if [ "$rc_plant" -ne 1 ]; then echo "REFUSE(2) [$(basename "$0" .sh)]: the detector arm did not fire -- the fixture's dump with its first field line dropped read rc=$rc_plant, wanted 1 (a census that cannot see a corrupted map cannot be trusted with the real ones)"; tail -2 "$W/plant.txt"; exit 2; fi
 # THE DECLARED ARM (hq_raku 2026-09-20, granted ceo CEO-1003 + the cto's three conditions).  A no_layout entry the rungs' own
 # ALL.wantrc gives a NON-ZERO rc is DECLARED -- the suite says it must not compile, so having no frame is correct and permanent,
 # not a defect.  This arm is the PRICE OF THE FIELD: without it the classifier is a claim rather than a measurement.  Both
@@ -59,5 +65,5 @@ fi
 if [ "$yes_n" != 1 ]; then echo "FAIL declared: wantrc=1 on an uncompilable fixture read no_layout_declared=$yes_n, wanted 1 -- a DECLARED entry is being counted a defect"; RED=$((RED+1)); fi
 if [ "$no_n" != 0 ]; then echo "FAIL declared: wantrc=0 on the SAME fixture read no_layout_declared=$no_n, wanted 0 -- a real defect is being declared away, which is the narrowing the field exists to refuse"; RED=$((RED+1)); fi
 [ "$yes_n" = 1 ] && [ "$no_n" = 0 ] && echo "PASS declared: one uncompilable fixture reads declared=1 under wantrc=1 and declared=0 under wantrc=0"
-echo "gc-raku-every-frame-slot-has-a-kind:$SUMMARY fixture=clean planted=RED(rc=1) (population: the Raku and Rebus rungs entries that lay out, both arms; the wire header past region_end and the spine are not censused)"
+echo "gc-raku-every-frame-slot-has-a-kind:$SUMMARY fixture=clean corrupted-dump=RED(rc=1) (population: the Raku and Rebus rungs entries that lay out, both arms; the wire header past region_end and the spine are not censused)"
 if [ "$RED" -eq 0 ]; then echo "GATE PASS(0) [$(basename "$0" .sh)]: 0 holes in every graded Raku and Rebus graph"; exit 0; else echo "GATE RED [$(basename "$0" .sh)]: $RED red arm(s)"; exit 1; fi

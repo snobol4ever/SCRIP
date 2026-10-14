@@ -2026,14 +2026,12 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_dump(FILE * fp) {
-    if (g_lower.ir.zls_dump_plant < 0) { const char * e = getenv("SCRIP_TEST_PLANT_ZLS_HOLE"); g_lower.ir.zls_dump_plant = (e && *e == '1') ? 1 : 0; }
     fprintf(fp, "; FRAME LAYOUT (per-activation, typed)\n");
     fprintf(fp,
         "; kinds: DESCR = 16B t.p pair (GC traces payload) | RAW = int/cursor/counter (GC skips) | PTR_GC = heap pointer (GC traces+fixes) | PTR_CODE = continuation (GC skips, never relocates)\n");
     fprintf(fp, "; (audit) = kind provisional pending template audit — 2026-07-05 burndown: all shipped grants template-verified, audit=0; any NEW grant lands audit=1 until verified\n");
     for (int i = 0; i < g_lower.ir.zg_n; i++) {
         zls_graph_t * r = &zg[i];
-        int planted = 0;
         if (r->first_scope < 0) continue;
         fprintf(fp, "; graph %d '%s' — slots=%d region_end=%d resume=%d vslots=%d scopes=%d\n", i, r->name ? r->name : "?", r->nslots, r->region, r->resume_off, r->n_vslots, r->n_scopes);
         for (int s = r->first_scope; s < r->first_scope + r->n_scopes; s++) {
@@ -2044,7 +2042,6 @@ void zls_dump(FILE * fp) {
             fprintf(fp, ";   scope %-3d %-6s %-24s parent=%-3d [%d..%d)\n", zs[s].id, zsc_name(zs[s].klass), zs[s].name ? zs[s].name : "?", zs[s].parent, zs[s].n_fields ? zs[s].lo_off : 0,
                 zs[s].n_fields ? zs[s].hi_off : 0);
             for (int f = 0; f < g_lower.ir.zf_n; f++) if (zf[f].scope_id == s) {
-                if (g_lower.ir.zls_dump_plant && !planted) { planted = 1; continue; }
                 const char * on = "-";
                 char onb[16];
                 if (zf[f].nd) { on = bb_op_name(zf[f].nd->op); if (!on) { snprintf(onb, sizeof onb, "op%d", (int)zf[f].nd->op); on = onb; } }
