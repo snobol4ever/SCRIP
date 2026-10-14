@@ -1685,6 +1685,7 @@ static DESCR_t rk_lines_arr(const char *s, size_t n) {
 static int rk_text_int(const char *t, long long *v) { char *ep; *v = strtoll(t, &ep, 10); return *ep == '\0' && ep != t; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_av_minmax(rk_av_t a, int want_max) {
+    if (a.n == 0) return REALVAL(want_max ? -INFINITY : INFINITY);
     {
         extern int rk_rat_is(DESCR_t);
         int anyrat = 0, allnum = a.n > 0;
@@ -13372,7 +13373,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if ((!strcmp(fn, "__rk_flat") || !strcmp(fn, "__rk_arr_flat")) && nargs >= 0) { *out = rk_flat_agg(args, nargs); return 1; }
     if (!strcmp(fn, "__rk_to_array") && nargs == 1) {
         if (rk_is_seq(args[0])) { *out = args[0]; return 1; }
-        if (args[0].v == DT_A && args[0].arr) { rk_av_t a = rk_av(args[0]); *out = rk_unmark(rk_mk_arr(a.el, a.n)); } else *out = args[0];
+        if (args[0].v == DT_A && args[0].arr) { rk_av_t a = rk_av(args[0]); *out = rk_unmark(rk_mk_arr(a.el, a.n)); } else *out = args[0].v == DT_SNUL ? rk_unmark(rk_mk_arr(NULL, 0)) : args[0];
         return 1;
     }
     if (!strcmp(fn, "__rk_arr_slip") && nargs >= 1) { rk_av_t a = rk_av(args[0]); DESCR_t s = rk_mk_arr(a.el, a.n); ((ARBLK_t *) s.arr)->proto = rk_proto_slip; *out = s; return 1; }
