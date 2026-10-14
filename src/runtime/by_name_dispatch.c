@@ -5568,6 +5568,18 @@ void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ax_float_to_int(double r, DESCR_t *out) {
+    extern DESCR_t rt_big_from_str(const char *);
+    if (r >= -9223372036854775808.0 && r < 9223372036854775808.0) { *out = INTVAL((long long)r); return 1; }
+    if (r != r || r - r != 0.0) return 0;
+    char nb[snprintf((char *)0, 0, "%.0f", r) + 1];
+    snprintf(nb, sizeof nb, "%.0f", r);
+    *out = rt_big_from_str(nb);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ax_swi_round(double d, DESCR_t *out) { if (d == 9223372036854775808.0) { *out = INTVAL(LLONG_MAX); return 1; } return pl_ax_float_to_int(round(d), out); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *pl_ax_int_ball(DESCR_t a, DESCR_t b, int ai) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); return rt_pl_ball_kind2("type_error", "integer", ai ? b : a); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_float_flag(const char *nm, const char *val);
@@ -5771,23 +5783,19 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "pos")) { *out = a; return 1; }
         if (!strcmp(op, "abs")) { if (ai && a.i == LLONG_MIN) return pl_big_unop("abs", a, out); *out = ai ? INTVAL(a.i < 0 ? -a.i : a.i) : REALVAL(fabs(ad)); return 1; }
         if (!strcmp(op, "sign")) { *out = ai ? INTVAL((a.i > 0) - (a.i < 0)) : isnan(ad) ? a : REALVAL((double)((ad > 0) - (ad < 0))); return 1; }
+        if (!strcmp(op, "intg") && arl && isfinite(ad) && pl_swi_dialect()) return pl_ax_swi_round(ad, out);
         if (!strcmp(op, "trunc") || !strcmp(op, "floor") || !strcmp(op, "ceil") || !strcmp(op, "round")) {
             extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
-            if (!arl && pl_swi_dialect()) { *out = a; return 1; }
-            if (arl && !isfinite(ad) && pl_swi_dialect()) { *out = a; return 1; }
+            int swi = pl_swi_dialect();
+            if (!arl && swi) { *out = a; return 1; }
+            if (arl && !isfinite(ad) && swi) { *out = a; return 1; }
             if (!arl) { if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "float", a); *out = FAILDESCR; return 1; }
+            if (swi && !strcmp(op, "round")) return pl_ax_swi_round(ad, out);
             {
                 double r = !strcmp(op, "trunc") ? trunc(ad) : !strcmp(op, "floor") ? floor(ad) : !strcmp(op, "ceil") ? ceil(ad) : floor(ad) + (ad - floor(ad) >= 0.5);
-                if (r >= -9223372036854775808.0 && r < 9223372036854775808.0) *out = INTVAL((long long)r);
-                else if (r == r && r - r == 0.0) {
-                    extern DESCR_t rt_big_from_str(const char *);
-                    char nb[400];
-                    snprintf(nb, sizeof nb, "%.0f", r);
-                    *out = rt_big_from_str(nb);
-                } else {
-                    *out = FAILDESCR;
-                    if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", op, 1);
-                }
+                if (pl_ax_float_to_int(r, out)) return 1;
+                *out = FAILDESCR;
+                if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", op, 1);
             }
             return 1;
         }
@@ -5983,9 +5991,10 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
     if (!strcmp(op, "nexttoward")) { *out = REALVAL(nexttoward(ad, (long double)bd)); return 1; }
     if (!strcmp(op, "gcd")) {
         if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; }
-        long long x = a.i < 0 ? -a.i : a.i, y = b.i < 0 ? -b.i : b.i;
-        while (y) { long long t2 = x % y; x = y; y = t2; }
-        *out = INTVAL(x);
+        unsigned long long x = a.i < 0 ? 0ULL - (unsigned long long)a.i : (unsigned long long)a.i, y = b.i < 0 ? 0ULL - (unsigned long long)b.i : (unsigned long long)b.i;
+        while (y) { unsigned long long t2 = x % y; x = y; y = t2; }
+        if (x > (unsigned long long)LLONG_MAX) return pl_big_unop("neg", INTVAL(LLONG_MIN), out);
+        *out = INTVAL((long long)x);
         return 1;
     }
     if (!strcmp(op, "rem")) {
