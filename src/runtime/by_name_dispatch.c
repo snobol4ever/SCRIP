@@ -10254,11 +10254,15 @@ static int rk_flat_into(DESCR_t *r, int k, DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_flat_agg(DESCR_t *args, int nargs) {
+    if (nargs <= 0) return rk_mk_arr(NULL, 0);
+    rk_cbh_t hold[nargs];
+    for (int i = 0; i < nargs; i++) { hold[i] = (rk_cbh_t) { g_rk_cbh_cur, { args[i], NULVCL } }; g_rk_cbh_cur = &hold[i]; }
     int cap = 0;
-    for (int i = 0; i < nargs; i++) cap += rk_flat_count(args[i]);
+    for (int i = 0; i < nargs; i++) cap += rk_flat_count(hold[i].d[0]);
     DESCR_t *r = cap > 0 ? (DESCR_t *) rt_ws_alloc_descr((size_t) cap) : NULL;
     int k = 0;
-    for (int i = 0; i < nargs; i++) k = rk_flat_into(r, k, args[i]);
+    for (int i = 0; i < nargs; i++) k = rk_flat_into(r, k, hold[i].d[0]);
+    g_rk_cbh_cur = hold[0].prev;
     return rk_mk_arr(r, k);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -13319,9 +13323,16 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "__rk_reduce_cat") && nargs >= 1) { *out = STRVAL(rk_av_joined(rk_av(args[0]), "", "", "")); return 1; }
     if ((!strcmp(fn, "__rk_reduce_min") || !strcmp(fn, "__rk_reduce_max")) && nargs >= 1) { *out = rk_av_minmax(rk_av(args[0]), fn[13] == 'a'); return 1; }
     if (!strcmp(fn, "join") && nargs >= 1) {
+        rk_cbh_t H = { g_rk_cbh_cur, { args[0], NULVCL } };
+        g_rk_cbh_cur = &H;
+        rk_av_t a = rk_av(rk_flat_agg(args + 1, nargs - 1));
+        g_rk_cbh_cur = H.prev;
         char sb[64];
-        const char *sep = rt_heap_strdup_c(to_cstring(args[0], sb, sizeof sb));
-        *out = STRVAL(rk_av_joined(rk_av(rk_flat_agg(args + 1, nargs - 1)), sep, "", ""));
+        const char *s0 = to_cstring(H.d[0], sb, sizeof sb);
+        size_t sl = strlen(s0);
+        char sep[sl + 1];
+        memcpy(sep, s0, sl + 1);
+        *out = STRVAL(rk_av_joined(a, sep, "", ""));
         return 1;
     }
     if (!strcmp(fn, "arr_make") && (nargs == 1 || nargs == 2)) {

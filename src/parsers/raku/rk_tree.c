@@ -2759,12 +2759,16 @@ tree_t *rkb_enum(RkB *b, const char *text, int n) {
         tree_t *val = rk_ilit(idx++);
         tl_add(&l, expr_binary(TT_ASSIGN, var_node(b, tok), val));
     }
-    return make_seq(&l);
+    tree_t *seq = make_seq(&l);
+    rk_mark_declared(seq);
+    return seq;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_constant(RkB *b, const char *name, int namelen, RkList *init) {
     tree_t *e = rkb_expr(b, init);
-    return expr_binary(TT_ASSIGN, var_node(b, trimdup(name, namelen)), e);
+    tree_t *t = expr_binary(TT_ASSIGN, var_node(b, trimdup(name, namelen)), e);
+    rk_mark_declared(t);
+    return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_use(RkB *b, const char *name, int namelen, RkList *args) {
