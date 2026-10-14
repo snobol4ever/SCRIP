@@ -151,6 +151,7 @@ static long long pas_array_decl_low(void);
 static long long pas_array_nonparam_low(const char *name);
 static int pas_subvar_get(const char *n, long long *lo, long long *hi);
 static int pas_sizeof_lookup(const char *name, long long *out);
+static long long pas_elem_size(const char *an);
 static int pas_sizeof_builtin_size(const char *n, long long *out);
 static int pas_ordinal_bound_lookup(const char *name, long long *lo, long long *hi);
 static int pas_var_string_kind(const char *name);
@@ -672,6 +673,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         return f;
     }
     if (name && !strcmp(name, "sizeof") && args && args->count >= 1) {
+        if (args->items[0] && args->items[0]->t == TT_IDX && args->items[0]->n == 2 && args->items[0]->c[0] && args->items[0]->c[0]->t == TT_VAR) {
+            long long z = pas_elem_size(args->items[0]->c[0]->v.sval);
+            if (z > 0) return ilit(z);
+        }
         tree_t *a = args->items[0];
         if (a && a->t == TT_VAR && a->v.sval) { long long sz; if (pas_sizeof_lookup(a->v.sval, &sz)) return ilit(sz); }
     }
@@ -733,9 +738,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                 return mk_assign(leaf_s(TT_VAR, an), f);
             }
             if (pas_array_isdyn(an) || pas_array_high_get(an, &ah)) {
-                const char *et = pas_scalarvartype_get(an);
-                if (ah >= 0 && pas_sizeof_lookup(an, &tot) && tot > 0) esz = tot / (ah - pas_array_low(an) + 1);
-                else if (et && !pas_sizeof_builtin_size(et, &esz)) esz = 0;
+                esz = pas_elem_size(an);
                 tree_t *f = ast_node_new(TT_FNC);
                 ast_push(f, leaf_s(TT_VAR, "__pas_fill_from"));
                 ast_push(f, leaf_s(TT_VAR, an));
@@ -4506,6 +4509,15 @@ static void pas_formal_chararrs(const char *sig, PNodeList *params) {
         const char *t = pas_sig_value_type(sig, fi++, 1);
         if (t && pas_arrtype_ischar(t)) { pas_chararr_add2(id->v.sval, pas_arrtype_lo(t)); pas_chararr_shape(id->v.sval, pas_arrtype_nostr(t), pas_arrtype_high(t)); }
     }
+}
+static long long pas_elem_size(const char *an) {
+    long long ah = -1, z = -1;
+    if (an && !pas_array_isdyn(an) && pas_array_high_get(an, &ah) && pas_sizeof_lookup(an, &z) && z > 0) return z / (ah - pas_array_low(an) + 1);
+    const char *t = an ? pas_scalarvartype_get(an) : NULL;
+    if (t && pas_arrtype_elem(t)) t = pas_arrtype_elem(t);
+    if (t && pas_sizeof_builtin_size(t, &z) && z > 0) return z;
+    if (t && pas_sizeof_lookup(t, &z) && z > 0) return z;
+    return -1;
 }
 static void pas_formal_tfiles(const char *sig, PNodeList *params) {
     for (int i = 0, fi = 0; params && i < params->count; i++) {
