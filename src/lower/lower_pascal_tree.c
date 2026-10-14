@@ -134,6 +134,7 @@ static const char *pas_with_sel_rtype(tree_t *sel);
 static const char *pas_recvar_field_rectype(const char *vn, long idx);
 static int pas_rectype_nf(const char *rn);
 static int pas_array_high_get(const char *name, long long *out);
+static int pas_is_strelem_arr(const char *name);
 static int pas_is_aggregate_designator(tree_t *e);
 static tree_t *mk_rec_init_type(const char *rt);
 static tree_t *pas_new_target_init(const char *rt);
@@ -589,6 +590,12 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         return mk_assign(v, f);
     }
     if (name && !strcmp(name, "length") && args && args->count >= 1 && pas_is_dynexpr(args->items[0])) return mk_fnc1("__pas_dynlen", args->items[0]);
+    if (name && !strcmp(name, "length") && !pas_is_func(name) && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_VAR && pas_is_strelem_arr(args->items[0]->v.sval) &&
+        !pas_array_isdyn(args->items[0]->v.sval)) {
+        long long hi = 0;
+        pas_array_high_get(args->items[0]->v.sval, &hi);
+        return ilit(hi - pas_array_low(args->items[0]->v.sval) + 1);
+    }
     if (name && !pas_is_func(name) && !pas_is_proc(name) && g_lower.pas.sem.pas_seen_mode_directive && !g_lower.pas.sem.pas_mode_iso) {
         if (!strcmp(name, "random")) return (args && args->count >= 1) ? mk_fnc1("__pas_random", args->items[0]) : mk_fnc0("__pas_random");
         if (!strcmp(name, "randomize")) return mk_fnc0("__pas_randomize");
@@ -1845,13 +1852,15 @@ static int pas_string_type_kind(const char *t) {
     }
     return 0;
 }
-static int pas_var_string_kind(const char *name) {
+static int pas_decl_string_kind(const char *name) {
     int u = pas_scope_uid(name);
     for (int i = g_lower.pas.sem.pas_nscalarvartype - 1; name && i >= 0; i--)
         if (g_lower.pas.sem.pas_scalarvartype[i].vname && g_lower.pas.sem.pas_scalarvartype[i].uid == u && !strcmp(g_lower.pas.sem.pas_scalarvartype[i].vname, name))
         return pas_string_type_kind(g_lower.pas.sem.pas_scalarvartype[i].tname);
     return 0;
 }
+static int pas_is_strelem_arr(const char *name) { long long hi; return name && pas_decl_string_kind(name) && (pas_array_isdyn(name) || pas_array_high_get(name, &hi)); }
+static int pas_var_string_kind(const char *name) { return pas_is_strelem_arr(name) ? 0 : pas_decl_string_kind(name); }
 static void pas_tfcomp_add(const char *n, long long lo, long long hi, int ischar) {
     if (g_lower.pas.sem.pas_ntfcomp < 128 && n) {
         g_lower.pas.sem.pas_tfcomp[g_lower.pas.sem.pas_ntfcomp].name = ct_strdup(n);
@@ -2946,7 +2955,7 @@ static int pas_is_charexpr(tree_t *e) {
     if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_charvar(e->c[0]->v.sval)) return 1;
     if (e->t == TT_IDX && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_chararr(e->c[0]->v.sval)) return 1;
     if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_IDX && e->c[0]->n == 2 && e->c[0]->c[0] && e->c[0]->c[0]->t == TT_VAR && e->c[0]->c[0]->v.sval &&
-        pas_is_strarr(e->c[0]->c[0]->v.sval)) return 1;
+        (pas_is_strarr(e->c[0]->c[0]->v.sval) || pas_is_strelem_arr(e->c[0]->c[0]->v.sval))) return 1;
     if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && (pas_var_string_kind(e->c[0]->v.sval) || pas_is_pcharvar(e->c[0]->v.sval))) return 1;
     if (e->t == TT_IDX && e->n >= 2 && e->c[0] && pas_is_cafield(e->c[0])) return 1;
     if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_IDX && e->c[0]->n == 2 && e->c[0]->c[0] && e->c[0]->c[0]->t == TT_VAR && e->c[0]->c[0]->v.sval &&
@@ -2996,11 +3005,13 @@ static int pas_is_strval(tree_t *e) {
     if (pas_ca_is_read(e)) return 1;
     if (e->t == TT_VAR && e->v.sval && (pas_is_chararr(e->v.sval) || pas_is_strarr(e->v.sval))) return 1;
     if (e->t == TT_IDX && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_strarr(e->c[0]->v.sval)) return 1;
+    if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && pas_is_strelem_arr(e->c[0]->v.sval)) return 1;
     if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_func_returns_stringish(e->c[0]->v.sval)) return 1;
     return 0;
 }
 static tree_t *mk_set_bin(const char *fn, tree_t *a, tree_t *b);
 static tree_t *pas_rel(tree_e tt, tree_t *a, tree_t *b) {
+    if ((pas_is_stringexpr(a) && pas_is_charexpr(b)) || (pas_is_charexpr(a) && pas_is_stringexpr(b))) return bin(tt, mk_set_bin("__pas_strcmp", pas_concat_operand(a), pas_concat_operand(b)), ilit(0));
     int lex = pas_is_strval(a) || pas_is_strval(b);
     if (lex || pas_is_strtyped(a) || pas_is_strtyped(b)) { a = pas_alpha_wrap(a); b = pas_alpha_wrap(b); }
     return lex ? bin(tt, mk_set_bin("__pas_strcmp", a, b), ilit(0)) : bin(tt, a, b);
@@ -3319,6 +3330,7 @@ static int pas_is_stringexpr(tree_t *e) {
     if (e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_upcase")) return pas_is_stringexpr(e->c[1]);
     if (e->t == TT_QLIT) return !(e->v.sval && strlen(e->v.sval) == 1);
     if (e->t == TT_VAR && e->v.sval) return pas_var_string_kind(e->v.sval) != 0;
+    if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_strelem_arr(e->c[0]->v.sval)) return 1;
     if (e->t == TT_IDX && e->n >= 2 && e->c[0] && e->c[1] && e->c[1]->t == TT_ILIT) {
         const char *rt = pas_with_sel_rtype(e->c[0]);
         const char *tn = rt ? pas_rectype_field_typename(rt, e->c[1]->v.ival) : NULL;
@@ -3932,6 +3944,8 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
         }
     }
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_QLIT && pas_var_string_kind(sel->v.sval) && pas_is_charexpr(rhs)) rhs = mk_chr_wrap(rhs);
+    if (sel && sel->t == TT_IDX && sel->n == 2 && sel->c[0] && sel->c[0]->t == TT_VAR && pas_is_strelem_arr(sel->c[0]->v.sval) && rhs && rhs->t != TT_QLIT && pas_is_charexpr(rhs)) rhs =
+        mk_chr_wrap(rhs);
     if (sel && sel->t == TT_FNC && sel->n == 1 && sel->c[0] && sel->c[0]->t == TT_VAR && sel->c[0]->v.sval && rhs && rhs->t != TT_QLIT && pas_func_returns_stringish(sel->c[0]->v.sval) &&
         pas_is_charexpr(rhs)) rhs = pas_concat_operand(rhs);
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->v.sval) && !pas_array_isdyn(sel->v.sval)) rhs = bin(TT_ADD, rhs, flit(0.0));

@@ -567,6 +567,7 @@ test_gate_pas_no_aggregate_is_a_delimiter_joined_string.sh	WIRED	-	-	-
 test_gate_pas_only_the_tree_crosses_from_the_parser_to_lower.sh	WIRED	-	-	-
 test_gate_pas_format_matches_fpc_sysutils.sh	WIRED	-	-	-
 test_gate_pas_xor_keeps_the_iso_dialect.sh	WIRED	-	-	-
+test_gate_pas_string_element_arrays_read_as_strings.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_and_text_get_put.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_stays_inside_the_unpacked_arrays_index_type.sh	WIRED	-	-	-
 test_gate_pas_packed_component_is_not_a_var_parameter.sh	WIRED	-	-	-
