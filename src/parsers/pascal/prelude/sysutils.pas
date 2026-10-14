@@ -40,6 +40,10 @@ function LowerCase(s: string): string;
 function TrimLeft(s: string): string;
 function TrimRight(s: string): string;
 function Trim(s: string): string;
+function StrToIntDef(s: string; d: integer): integer;
+function CompareText(a, b: string): integer;
+function SameText(a, b: string): boolean;
+function QuotedStr(s: string): string;
 implementation
 constructor Exception.Create(const msg: string);
 begin
@@ -119,5 +123,48 @@ end;
 function Trim(s: string): string;
 begin
   Trim := TrimRight(TrimLeft(s))
+end;
+function StrToIntDef(s: string; d: integer): integer;
+var i, v: integer; neg, ok: boolean;
+begin
+  i := 1;
+  v := 0;
+  neg := false;
+  ok := false;
+  while (i <= length(s)) and (s[i] = ' ') do i := i + 1;
+  if (i <= length(s)) and ((s[i] = '-') or (s[i] = '+')) then begin neg := s[i] = '-'; i := i + 1 end;
+  if (i <= length(s)) and (s[i] = '$') then
+  begin
+    i := i + 1;
+    while (i <= length(s)) and (pos(upcase(s[i]), '0123456789ABCDEF') > 0) do begin v := v * 16 + pos(upcase(s[i]), '0123456789ABCDEF') - 1; i := i + 1; ok := true end
+  end
+  else
+    while (i <= length(s)) and (s[i] >= '0') and (s[i] <= '9') do begin v := v * 10 + (ord(s[i]) - ord('0')); i := i + 1; ok := true end;
+  if not ok or (i <= length(s)) then StrToIntDef := d
+  else if neg then StrToIntDef := -v
+  else StrToIntDef := v
+end;
+function CompareText(a, b: string): integer;
+var x, y: string; i, n: integer;
+begin
+  x := UpperCase(a);
+  y := UpperCase(b);
+  n := length(x);
+  if length(y) < n then n := length(y);
+  i := 1;
+  while (i <= n) and (x[i] = y[i]) do i := i + 1;
+  if i <= n then CompareText := ord(x[i]) - ord(y[i])
+  else CompareText := length(x) - length(y)
+end;
+function SameText(a, b: string): boolean;
+begin
+  SameText := CompareText(a, b) = 0
+end;
+function QuotedStr(s: string): string;
+var r: string; i: integer;
+begin
+  r := '''';
+  for i := 1 to length(s) do if s[i] = '''' then r := r + '''''' else r := r + s[i];
+  QuotedStr := r + ''''
 end;
 end.
