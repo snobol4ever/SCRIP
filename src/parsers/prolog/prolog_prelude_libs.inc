@@ -13151,13 +13151,12 @@ static const char PL_PRELUDE_LIB_12_SRC[] =
     "        subtract(T, D, R1)\n"
     "    ).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_EXPORTS[] = {
-    { "option", 2 },
-    { "option", 3 },
-    { "select_option", 3 },
-    { "select_option", 4 },
-    { "merge_options", 3 },
-    { "meta_options", 3 },
-    { "dict_options", 2 },
+    { "main", 0 },
+    { "argv_options", 3 },
+    { "argv_options", 4 },
+    { "argv_usage", 1 },
+    { "cli_parse_debug_options", 2 },
+    { "cli_enable_development_system", 0 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_SHADOWS[] = {
@@ -13170,6 +13169,588 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_13_OPS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_13_SRC[] =
+    ":- dynamic\n"
+    "    interactive/0.\n"
+    "main :-\n"
+    "    current_prolog_flag(break_level, _),\n"
+    "    !,\n"
+    "    current_prolog_flag(argv, Av),\n"
+    "    context_module(M),\n"
+    "    M:main(Av).\n"
+    "main :-\n"
+    "    context_module(M),\n"
+    "    '$main_set_signals',\n"
+    "    current_prolog_flag(argv, Av),\n"
+    "    catch_with_backtrace(M:main(Av), Error, throw(Error)),\n"
+    "    (   interactive\n"
+    "    ->  cli_enable_development_system\n"
+    "    ;   true\n"
+    "    ).\n"
+    "'$main_set_signals' :-\n"
+    "    on_signal(int, _, interrupt).\n"
+    "'$main_interrupt'(_Sig) :-\n"
+    "    halt(1).\n"
+    "argv_options(Argv, Positional, Options) :-\n"
+    "    Argv \\= _:_,\n"
+    "    !,\n"
+    "    argv_options(user:Argv, Positional, Options).\n"
+    "argv_options(M:Argv, Positional, Options) :-\n"
+    "    '$main_in'(M:opt_type(_,_,_)),\n"
+    "    !,\n"
+    "    argv_options(M:Argv, Positional, Options, [on_error(halt(1))]).\n"
+    "argv_options(_:Argv, Positional, Options) :-\n"
+    "    '$main_argv_untyped_options'(Argv, Positional, Options).\n"
+    "argv_options(Argv, Positional, Options, POptions) :-\n"
+    "    Argv \\= _:_,\n"
+    "    !,\n"
+    "    argv_options(user:Argv, Positional, Options, POptions).\n"
+    "argv_options(Argv, Positional, Options, POptions) :-\n"
+    "    option(on_error(halt(Code)), POptions),\n"
+    "    !,\n"
+    "    E = error(_,_),\n"
+    "    catch('$main_opt_parse'(Argv, Positional, Options, POptions), E,\n"
+    "\t  ( print_message(error, E),\n"
+    "\t    halt(Code)\n"
+    "\t  )).\n"
+    "argv_options(Argv, Positional, Options, POptions) :-\n"
+    "    '$main_opt_parse'(Argv, Positional, Options, POptions).\n"
+    "'$main_argv_untyped_options'([], Pos, Opts) =>\n"
+    "    Pos = [], Opts = [].\n"
+    "'$main_argv_untyped_options'([--|R], Pos, Ops) =>\n"
+    "    Pos = R, Ops = [].\n"
+    "'$main_argv_untyped_options'([H0|T0], R, Ops), sub_atom(H0, 0, _, _, --) =>\n"
+    "    Ops = [H|T],\n"
+    "    (   sub_atom(H0, B, _, A, =)\n"
+    "    ->  B2 is B-2,\n"
+    "\tsub_atom(H0, 2, B2, _, Name),\n"
+    "\tsub_string(H0, _, A,  0, Value0),\n"
+    "\t'$main_convert_option'(Name, Value0, Value)\n"
+    "    ;   sub_atom(H0, 2, _, 0, Name0),\n"
+    "\t(   sub_atom(Name0, 0, _, _, 'no-')\n"
+    "\t->  sub_atom(Name0, 3, _, 0, Name),\n"
+    "\t    Value = false\n"
+    "\t;   Name = Name0,\n"
+    "\t    Value = true\n"
+    "\t)\n"
+    "    ),\n"
+    "    '$main_canonical_name'(Name, PlName),\n"
+    "    H =.. [PlName,Value],\n"
+    "    '$main_argv_untyped_options'(T0, R, T).\n"
+    "'$main_argv_untyped_options'([H|T0], Ops, T) =>\n"
+    "    Ops = [H|R],\n"
+    "    '$main_argv_untyped_options'(T0, R, T).\n"
+    "'$main_convert_option'(password, String, String) :- !.\n"
+    "'$main_convert_option'(_, String, Number) :-\n"
+    "    number_string(Number, String),\n"
+    "    !.\n"
+    "'$main_convert_option'(_, String, Atom) :-\n"
+    "    atom_string(Atom, String).\n"
+    "'$main_canonical_name'(Name, PlName) :-\n"
+    "    split_string(Name, \"-_\", \"\", Parts),\n"
+    "    atomic_list_concat(Parts, '_', PlName).\n"
+    "'$main_opt_parse'(M:Argv, _Positional, _Options, _POptions) :-\n"
+    "    '$main_opt_needs_help'(M:Argv),\n"
+    "    !,\n"
+    "    argv_usage(M:debug),\n"
+    "    halt(0).\n"
+    "'$main_opt_parse'(M:Argv, Positional, Options, POptions) :-\n"
+    "    '$main_opt_parse'(Argv, Positional, Options, M, POptions).\n"
+    "'$main_opt_needs_help'(M:[Arg]) :-\n"
+    "    '$main_in'(M:opt_type(_, help, boolean)),\n"
+    "    !,\n"
+    "    '$main_in'(M:opt_type(Opt, help, boolean)),\n"
+    "    (   '$main_short_opt'(Opt)\n"
+    "    ->  atom_concat(-, Opt, Arg)\n"
+    "    ;   atom_concat(--, Opt, Arg)\n"
+    "    ),\n"
+    "    !.\n"
+    "'$main_opt_needs_help'(_:['-h']).\n"
+    "'$main_opt_needs_help'(_:['-?']).\n"
+    "'$main_opt_needs_help'(_:['--help']).\n"
+    "'$main_opt_parse'([], Positional, Options, _, _) =>\n"
+    "    Positional = [],\n"
+    "    Options = [].\n"
+    "'$main_opt_parse'([--|T], Positional, Options, _, _) =>\n"
+    "    Positional = T,\n"
+    "    Options = [].\n"
+    "'$main_opt_parse'([H|T], Positional, Options, M, POptions), atom_concat(--, Long, H) =>\n"
+    "    '$main_take_long'(Long, T, Positional, Options, M, POptions).\n"
+    "'$main_opt_parse'([H|T], Positional, Options, M, POptions),\n"
+    "    H \\== '-',\n"
+    "    string_concat(-, Opts, H) =>\n"
+    "    string_chars(Opts, Shorts),\n"
+    "    '$main_take_shorts'(Shorts, T, Positional, Options, M, POptions).\n"
+    "'$main_opt_parse'(Argv, Positional, Options, _M, POptions),\n"
+    "    option(options_after_arguments(false), POptions) =>\n"
+    "    Positional = Argv,\n"
+    "    Options = [].\n"
+    "'$main_opt_parse'([H|T], Positional, Options, M, POptions) =>\n"
+    "    Positional = [H|PT],\n"
+    "    '$main_opt_parse'(T, PT, Options, M, POptions).\n"
+    "'$main_take_long'(Long, T, Positional, Options, M, POptions) :-\n"
+    "    sub_atom(Long, B, _, A, =),\n"
+    "    !,\n"
+    "    sub_atom(Long, 0, B, _, LName0),\n"
+    "    sub_atom(Long, _, A, 0, VAtom),\n"
+    "    '$main_canonical_name'(LName0, LName),\n"
+    "    (   '$main_in'(M:opt_type(LName, Name, Type))\n"
+    "    ->  '$main_opt_value'(Type, Long, VAtom, Value),\n"
+    "\tOpt =.. [Name,Value],\n"
+    "\tOptions = [Opt|OptionsT],\n"
+    "\t'$main_opt_parse'(T, Positional, OptionsT, M, POptions)\n"
+    "    ;   '$main_opt_error'(unknown_option(M:LName0))\n"
+    "    ).\n"
+    "'$main_take_long'(LName0, T, Positional, Options, M, POptions) :-\n"
+    "    '$main_canonical_name'(LName0, LName),\n"
+    "    '$main_take_long_'(LName, T, Positional, Options, M, POptions).\n"
+    "'$main_take_long_'(Long, T, Positional, Options, M, POptions) :-\n"
+    "    '$main_opt_bool_type'(Long, Name, Value, M),\n"
+    "    !,\n"
+    "    Opt =.. [Name,Value],\n"
+    "    Options = [Opt|OptionsT],\n"
+    "    '$main_opt_parse'(T, Positional, OptionsT, M, POptions).\n"
+    "'$main_take_long_'(Long, T, Positional, Options, M, POptions) :-\n"
+    "    (   atom_concat('no_', LName, Long)\n"
+    "    ;   atom_concat('no', LName, Long)\n"
+    "    ),\n"
+    "    '$main_opt_bool_type'(LName, Name, Value0, M),\n"
+    "    !,\n"
+    "    '$main_negate'(Value0, Value),\n"
+    "    Opt =.. [Name,Value],\n"
+    "    Options = [Opt|OptionsT],\n"
+    "    '$main_opt_parse'(T, Positional, OptionsT, M, POptions).\n"
+    "'$main_take_long_'(Long, T, Positional, Options, M, POptions) :-\n"
+    "    '$main_in'(M:opt_type(Long, Name, Type)),\n"
+    "    !,\n"
+    "    (   T = [VAtom|T1]\n"
+    "    ->  '$main_opt_value'(Type, Long, VAtom, Value),\n"
+    "\tOpt =.. [Name,Value],\n"
+    "\tOptions = [Opt|OptionsT],\n"
+    "\t'$main_opt_parse'(T1, Positional, OptionsT, M, POptions)\n"
+    "    ;   '$main_opt_error'(missing_value(Long, Type))\n"
+    "    ).\n"
+    "'$main_take_long_'(Long, _, _, _, M, _) :-\n"
+    "    '$main_opt_error'(unknown_option(M:Long)).\n"
+    "'$main_take_shorts'([], T, Positional, Options, M, POptions) :-\n"
+    "    '$main_opt_parse'(T, Positional, Options, M, POptions).\n"
+    "'$main_take_shorts'([H|T], Argv, Positional, Options, M, POptions) :-\n"
+    "    '$main_opt_bool_type'(H, Name, Value, M),\n"
+    "    !,\n"
+    "    Opt =.. [Name,Value],\n"
+    "    Options = [Opt|OptionsT],\n"
+    "    '$main_take_shorts'(T, Argv, Positional, OptionsT, M, POptions).\n"
+    "'$main_take_shorts'([H|T], Argv, Positional, Options, M, POptions) :-\n"
+    "    '$main_in'(M:opt_type(H, Name, Type)),\n"
+    "    !,\n"
+    "    (   T == []\n"
+    "    ->  (   Argv = [VAtom|ArgvT]\n"
+    "\t->  '$main_opt_value'(Type, H, VAtom, Value),\n"
+    "\t    Opt =.. [Name,Value],\n"
+    "\t    Options = [Opt|OptionsT],\n"
+    "\t    '$main_take_shorts'(T, ArgvT, Positional, OptionsT, M, POptions)\n"
+    "\t;   '$main_opt_error'(missing_value(H, Type))\n"
+    "\t)\n"
+    "    ;   atom_chars(VAtom, T),\n"
+    "\t'$main_opt_value'(Type, H, VAtom, Value),\n"
+    "\tOpt =.. [Name,Value],\n"
+    "\tOptions = [Opt|OptionsT],\n"
+    "\t'$main_take_shorts'([], Argv, Positional, OptionsT, M, POptions)\n"
+    "    ).\n"
+    "'$main_take_shorts'([H|_], _, _, _, M, _) :-\n"
+    "    '$main_opt_error'(unknown_option(M:H)).\n"
+    "'$main_opt_bool_type'(Opt, Name, Value, M) :-\n"
+    "    '$main_in'(M:opt_type(Opt, Name, Type)),\n"
+    "    (   Type == boolean\n"
+    "    ->  Value = true\n"
+    "    ;   Type = boolean(Value)\n"
+    "    ).\n"
+    "'$main_negate'(true, false).\n"
+    "'$main_negate'(false, true).\n"
+    "'$main_opt_value'(Type, _Opt, VAtom, Value) :-\n"
+    "    '$main_opt_convert'(Type, VAtom, Value),\n"
+    "    !.\n"
+    "'$main_opt_value'(Type, Opt, VAtom, _) :-\n"
+    "    '$main_opt_error'(value_type(Opt, Type, VAtom)).\n"
+    "'$main_opt_convert'(A|B, Spec, Value) :-\n"
+    "    (   '$main_opt_convert'(A, Spec, Value)\n"
+    "    ->  true\n"
+    "    ;   '$main_opt_convert'(B, Spec, Value)\n"
+    "    ).\n"
+    "'$main_opt_convert'(boolean, Spec, Value) :-\n"
+    "    '$main_to_bool'(Spec, Value).\n"
+    "'$main_opt_convert'(boolean(_), Spec, Value) :-\n"
+    "    '$main_to_bool'(Spec, Value).\n"
+    "'$main_opt_convert'(number, Spec, Value) :-\n"
+    "    atom_number(Spec, Value).\n"
+    "'$main_opt_convert'(integer, Spec, Value) :-\n"
+    "    atom_number(Spec, Value),\n"
+    "    integer(Value).\n"
+    "'$main_opt_convert'(float, Spec, Value) :-\n"
+    "    atom_number(Spec, Value0),\n"
+    "    Value is float(Value0).\n"
+    "'$main_opt_convert'(nonneg, Spec, Value) :-\n"
+    "    atom_number(Spec, Value),\n"
+    "    integer(Value),\n"
+    "    Value >= 0.\n"
+    "'$main_opt_convert'(natural, Spec, Value) :-\n"
+    "    atom_number(Spec, Value),\n"
+    "    integer(Value),\n"
+    "    Value >= 1.\n"
+    "'$main_opt_convert'(between(Low, High), Spec, Value) :-\n"
+    "    atom_number(Spec, Value0),\n"
+    "    (   ( float(Low) ; float(High) )\n"
+    "    ->  Value is float(Value0)\n"
+    "    ;   integer(Value0),\n"
+    "\tValue = Value0\n"
+    "    ),\n"
+    "    Value >= Low, Value =< High.\n"
+    "'$main_opt_convert'(atom, Value, Value).\n"
+    "'$main_opt_convert'(oneof(List), Value, Value) :-\n"
+    "    memberchk(Value, List).\n"
+    "'$main_opt_convert'(string, Value0, Value) :-\n"
+    "    atom_string(Value0, Value).\n"
+    "'$main_opt_convert'(file, Spec, Value) :-\n"
+    "    prolog_to_os_filename(Value, Spec).\n"
+    "'$main_opt_convert'(file(Access), Spec, Value) :-\n"
+    "    (   Spec == '-'\n"
+    "    ->  Value = '-'\n"
+    "    ;   prolog_to_os_filename(Value, Spec),\n"
+    "\t(   access_file(Value, Access)\n"
+    "\t->  true\n"
+    "\t;   '$main_opt_error'(access_file(Spec, Access))\n"
+    "\t)\n"
+    "    ).\n"
+    "'$main_opt_convert'(term, Spec, Value) :-\n"
+    "    term_string(Value, Spec, []).\n"
+    "'$main_opt_convert'(term(Options), Spec, Value) :-\n"
+    "    term_string(Term, Spec, Options),\n"
+    "    (   option(variable_names(Bindings), Options)\n"
+    "    ->  Value = Term-Bindings\n"
+    "    ;   Value = Term\n"
+    "    ).\n"
+    "'$main_to_bool'(true,    true).\n"
+    "'$main_to_bool'('True',  true).\n"
+    "'$main_to_bool'('TRUE',  true).\n"
+    "'$main_to_bool'(on,      true).\n"
+    "'$main_to_bool'('On',    true).\n"
+    "'$main_to_bool'('1',     true).\n"
+    "'$main_to_bool'(false,   false).\n"
+    "'$main_to_bool'('False', false).\n"
+    "'$main_to_bool'('FALSE', false).\n"
+    "'$main_to_bool'(off,     false).\n"
+    "'$main_to_bool'('Off',   false).\n"
+    "'$main_to_bool'('0',     false).\n"
+    "argv_usage(Level) :-\n"
+    "    Level \\= _:_,\n"
+    "    !,\n"
+    "    argv_usage(user:Level).\n"
+    "argv_usage(M:Level) :-\n"
+    "    print_message(Level, opt_usage(M)).\n"
+    "'$main_usage'(M) -->\n"
+    "    '$main_usage_text'(M:header),\n"
+    "    '$main_usage_line'(M),\n"
+    "    '$main_usage_options'(M),\n"
+    "    '$main_usage_text'(M:footer).\n"
+    "'$main_usage_text'(M:Which) -->\n"
+    "    { '$main_in'(M:opt_help(help(Which), Help))\n"
+    "    },\n"
+    "    !,\n"
+    "    (   {Which == header}\n"
+    "    ->  '$main_user_text'(M:Help), [nl]\n"
+    "    ;   [nl], '$main_user_text'(M:Help)\n"
+    "    ).\n"
+    "'$main_usage_text'(_) -->\n"
+    "    [].\n"
+    "'$main_user_text'(M:Entries) -->\n"
+    "    { is_list(Entries) },\n"
+    "    sequence(help_elem(M), Entries).\n"
+    "'$main_user_text'(_:Help) -->\n"
+    "    [ '~w'-[Help] ].\n"
+    "'$main_help_elem'(M, \\Callable) -->\n"
+    "    { callable(Callable) },\n"
+    "    call(M:Callable),\n"
+    "    !.\n"
+    "'$main_help_elem'(_M, Elem) -->\n"
+    "    [ Elem ].\n"
+    "'$main_usage_line'(M) -->\n"
+    "    [ ansi(comment, 'Usage: ', []) ],\n"
+    "    '$main_cmdline'(M),\n"
+    "    (   {'$main_in'(M:opt_help(help(usage), Help))}\n"
+    "    ->  '$main_user_text'(M:Help)\n"
+    "    ;   [ ' [options]'-[] ]\n"
+    "    ),\n"
+    "    [ nl, nl ].\n"
+    "'$main_cmdline'(_M) -->\n"
+    "    { current_prolog_flag(associated_file, AbsFile),\n"
+    "      file_base_name(AbsFile, Base),\n"
+    "      current_prolog_flag(os_argv, Argv),\n"
+    "      append(Pre, [File|_], Argv),\n"
+    "      file_base_name(File, Base),\n"
+    "      append(Pre, [File], Cmd),\n"
+    "      !\n"
+    "    },\n"
+    "    sequence(cmdarg, [' '-[]], Cmd).\n"
+    "'$main_cmdline'(_M) -->\n"
+    "    { current_prolog_flag(saved_program, true),\n"
+    "      current_prolog_flag(os_argv, OsArgv),\n"
+    "      append(_, ['-x', State|_], OsArgv),\n"
+    "      !\n"
+    "    },\n"
+    "    '$main_cmdarg'(State).\n"
+    "'$main_cmdline'(_M) -->\n"
+    "    { current_prolog_flag(os_argv, [Argv0|_])\n"
+    "    },\n"
+    "    '$main_cmdarg'(Argv0).\n"
+    "'$main_cmdarg'(A) -->\n"
+    "    [ '~w'-[A] ].\n"
+    "'$main_usage_options'(M) -->\n"
+    "    { findall(Opt, '$main_get_option'(M, Opt), Opts),\n"
+    "      maplist('$main_options_width', Opts, OptWidths),\n"
+    "      max_list(OptWidths, MaxOptWidth),\n"
+    "      catch(tty_size(_, Width), _, Width = 80),\n"
+    "      OptColW is min(MaxOptWidth, 30),\n"
+    "      HelpColW is Width-4-OptColW\n"
+    "    },\n"
+    "    [ ansi(comment, 'Options:', []), nl ],\n"
+    "    sequence(opt_usage(OptColW, HelpColW), [nl], Opts).\n"
+    "'$main_opt_usage'(OptColW, HelpColW, opt(_Name, Type, Short, Long, Help, Meta)) -->\n"
+    "    '$main_options'(Type, Short, Long, Meta),\n"
+    "    [ '~t~*:| '-[OptColW] ],\n"
+    "    '$main_help_text'(Help, OptColW, HelpColW).\n"
+    "'$main_help_text'([First|Lines], Indent, _Width) -->\n"
+    "    !,\n"
+    "    [ '~w'-[First], nl ],\n"
+    "    sequence(rest_line(Indent), [nl], Lines).\n"
+    "'$main_help_text'(Text, _Indent, Width) -->\n"
+    "    { string_length(Text, Len),\n"
+    "      Len =< Width\n"
+    "    },\n"
+    "    !,\n"
+    "    [ '~w'-[Text] ].\n"
+    "'$main_help_text'(Text, Indent, Width) -->\n"
+    "    { '$main_wrap_text'(Width, Text, [First|Lines])\n"
+    "    },\n"
+    "    [ '~w'-[First], nl ],\n"
+    "    sequence(rest_line(Indent), [nl], Lines).\n"
+    "'$main_rest_line'(Indent, Line) -->\n"
+    "    [ '~t~*| ~w'-[Indent, Line] ].\n"
+    "'$main_wrap_text'(Width, Text, Wrapped) :-\n"
+    "    split_string(Text, \" \\t\\n\", \" \\t\\n\", Words),\n"
+    "    '$main_wrap_lines'(Words, Width, Wrapped).\n"
+    "'$main_wrap_lines'([], _, []).\n"
+    "'$main_wrap_lines'([H|T0], Width, [Line|Lines]) :-\n"
+    "    !,\n"
+    "    string_length(H, Len),\n"
+    "    '$main_take_line'(T0, T1, Width, Len, LineWords),\n"
+    "    atomics_to_string([H|LineWords], \" \", Line),\n"
+    "    '$main_wrap_lines'(T1, Width, Lines).\n"
+    "'$main_take_line'([H|T0], T, Width, Here, [H|Line]) :-\n"
+    "    string_length(H, Len),\n"
+    "    NewHere is Here+Len+1,\n"
+    "    NewHere =< Width,\n"
+    "    !,\n"
+    "    '$main_take_line'(T0, T, Width, NewHere, Line).\n"
+    "'$main_take_line'(T, T, _, _, []).\n"
+    "'$main_options'(Type, ShortOpt, LongOpts, Meta) -->\n"
+    "    { append(ShortOpt, LongOpts, Opts) },\n"
+    "    sequence(option(Type, Meta), [', '-[]], Opts).\n"
+    "'$main_option'(boolean, _, Opt) -->\n"
+    "    '$main_opt'(Opt).\n"
+    "'$main_option'(_, Meta, Opt) -->\n"
+    "    '$main_opt'(Opt),\n"
+    "    (   { '$main_short_opt'(Opt) }\n"
+    "    ->  [ ' '-[] ]\n"
+    "    ;   [ '='-[] ]\n"
+    "    ),\n"
+    "    [ ansi(var, '~w', [Meta]) ].\n"
+    "'$main_options_width'(opt(_Name, boolean, Short, Long, _Help, _Meta), W) =>\n"
+    "    length(Short, SCount),\n"
+    "    length(Long, LCount),\n"
+    "    maplist(atom_length, Long, LLens),\n"
+    "    sum_list(LLens, LLen),\n"
+    "    W is ((SCount+LCount)-1)*2 +\n"
+    "\t SCount*2 +\n"
+    "\t LCount*2 + LLen.\n"
+    "'$main_options_width'(opt(_Name, _Type, Short, Long, _Help, Meta), W) =>\n"
+    "    length(Short, SCount),\n"
+    "    length(Long, LCount),\n"
+    "    atom_length(Meta, MLen),\n"
+    "    maplist(atom_length, Long, LLens),\n"
+    "    sum_list(LLens, LLen),\n"
+    "    W is ((SCount+LCount)-1)*2 +\n"
+    "\t SCount*3 + SCount*MLen +\n"
+    "\t LCount*3 + LLen + LCount*MLen.\n"
+    "'$main_get_option'(M, opt(help, boolean, [h,?], [help],\n"
+    "\t\t  Help, -)) :-\n"
+    "    \\+ '$main_in'(M:opt_type(_, help, boolean)),\n"
+    "    (   '$main_in'(M:opt_help(help, Help))\n"
+    "    ->  true\n"
+    "    ;   Help = \"Show this help message and exit\"\n"
+    "    ).\n"
+    "'$main_get_option'(M, opt(Name, Type, Short, Long, Help, Meta)) :-\n"
+    "    findall(Name, '$main_in'(M:opt_type(_, Name, _)), Names),\n"
+    "    list_to_set(Names, UNames),\n"
+    "    member(Name, UNames),\n"
+    "    findall(Opt-Type,\n"
+    "\t    '$main_in'(M:opt_type(Opt, Name, Type)),\n"
+    "\t    Pairs),\n"
+    "    '$main_option_type'(Name, Pairs, TypeT),\n"
+    "    functor(TypeT, Type, _),\n"
+    "    pairs_keys(Pairs, Opts),\n"
+    "    partition('$main_short_opt', Opts, Short, Long),\n"
+    "    (   '$main_in'(M:opt_help(Name, Help))\n"
+    "    ->  true\n"
+    "    ;   Help = ''\n"
+    "    ),\n"
+    "    (   '$main_in'(M:opt_meta(Name, Meta))\n"
+    "    ->  true\n"
+    "    ;   upcase_atom(Type, Meta)\n"
+    "    ).\n"
+    "'$main_option_type'(Name, Pairs, Type) :-\n"
+    "    pairs_values(Pairs, Types),\n"
+    "    sort(Types, [Type|UTypes]),\n"
+    "    (   UTypes = []\n"
+    "    ->  true\n"
+    "    ;   print_message(warning,\n"
+    "\t\t      error(opt_error(multiple_types(Name, [Type|UTypes])),_))\n"
+    "    ).\n"
+    "'$main_in'(Goal) :-\n"
+    "    pi_head(PI, Goal),\n"
+    "    current_predicate(PI),\n"
+    "    call(Goal).\n"
+    "'$main_short_opt'(Opt) :-\n"
+    "    atom_length(Opt, 1).\n"
+    "'$main_opt_error'(Error) :-\n"
+    "    throw(error(opt_error(Error), _)).\n"
+    "'$main_opt_error'(unknown_option(M:Opt)) -->\n"
+    "    [ 'Unknown option: '-[] ],\n"
+    "    '$main_opt'(Opt),\n"
+    "    '$main_hint_help'(M).\n"
+    "'$main_opt_error'(missing_value(Opt, Type)) -->\n"
+    "    [ 'Option '-[] ],\n"
+    "    '$main_opt'(Opt),\n"
+    "    [ ' requires an argument (of type ~p)'-[Type] ].\n"
+    "'$main_opt_error'(value_type(Opt, Type, Found)) -->\n"
+    "    [ 'Option '-[] ],\n"
+    "    '$main_opt'(Opt), [' requires'],\n"
+    "    '$main_type'(Type),\n"
+    "    [ ' (found '-[], ansi(code, '~w', [Found]), ')'-[] ].\n"
+    "'$main_opt_error'(access_file(File, exist)) -->\n"
+    "    [ 'File '-[], ansi(code, '~w', [File]),\n"
+    "      ' does not exist'-[]\n"
+    "    ].\n"
+    "'$main_opt_error'(access_file(File, Access)) -->\n"
+    "    { '$main_access_verb'(Access, Verb) },\n"
+    "    [ 'Cannot access file '-[], ansi(code, '~w', [File]),\n"
+    "      ' for '-[], ansi(code, '~w', [Verb])\n"
+    "    ].\n"
+    "'$main_access_verb'(read,    reading).\n"
+    "'$main_access_verb'(write,   writing).\n"
+    "'$main_access_verb'(append,  writing).\n"
+    "'$main_access_verb'(execute, executing).\n"
+    "'$main_hint_help'(M) -->\n"
+    "    { '$main_in'(M:opt_type(Opt, help, boolean)) },\n"
+    "    !,\n"
+    "    [ ' (' ], '$main_opt'(Opt), [' for help)'].\n"
+    "'$main_hint_help'(_) -->\n"
+    "    [ ' (-h for help)'-[] ].\n"
+    "'$main_opt'(Opt) -->\n"
+    "    { '$main_short_opt'(Opt) },\n"
+    "    !,\n"
+    "    [ ansi(bold, '-~w', [Opt]) ].\n"
+    "'$main_opt'(Opt) -->\n"
+    "    [ ansi(bold, '--~w', [Opt]) ].\n"
+    "'$main_type'(A|B) -->\n"
+    "    '$main_type'(A), [' or'],\n"
+    "    '$main_type'(B).\n"
+    "'$main_type'(oneof([One])) -->\n"
+    "    !,\n"
+    "    [ ' ' ],\n"
+    "    '$main_atom'(One).\n"
+    "'$main_type'(oneof(List)) -->\n"
+    "    !,\n"
+    "    [ ' one of '-[] ],\n"
+    "    sequence(atom, [', '], List).\n"
+    "'$main_type'(between(Low, High)) -->\n"
+    "    !,\n"
+    "    [ ' a number '-[],\n"
+    "      ansi(code, '~w', [Low]), '..', ansi(code, '~w', [High])\n"
+    "    ].\n"
+    "'$main_type'(nonneg) -->\n"
+    "    [ ' a non-negative integer'-[] ].\n"
+    "'$main_type'(natural) -->\n"
+    "    [ ' a positive integer (>= 1)'-[] ].\n"
+    "'$main_type'(file(Access)) -->\n"
+    "    [ ' a file with ~w access'-[Access] ].\n"
+    "'$main_type'(Type) -->\n"
+    "    [ ' an argument of type '-[], ansi(code, '~w', [Type]) ].\n"
+    "'$main_atom'(A) -->\n"
+    "    [ ansi(code, '~w', [A]) ].\n"
+    "cli_parse_debug_options([], []).\n"
+    "cli_parse_debug_options([H|T0], Opts) :-\n"
+    "    '$main_debug_option'(H),\n"
+    "    !,\n"
+    "    cli_parse_debug_options(T0, Opts).\n"
+    "cli_parse_debug_options([H|T0], [H|T]) :-\n"
+    "    cli_parse_debug_options(T0, T).\n"
+    "'$main_debug_option'(interactive(true)) :-\n"
+    "    asserta(interactive).\n"
+    "'$main_debug_option'(debug(TopicS)) :-\n"
+    "    term_string(Topic, TopicS),\n"
+    "    debug(Topic).\n"
+    "'$main_debug_option'(spy(Atom)) :-\n"
+    "    '$main_atom_pi'(Atom, PI),\n"
+    "    spy(PI).\n"
+    "'$main_debug_option'(gspy(Atom)) :-\n"
+    "    '$main_atom_pi'(Atom, PI),\n"
+    "    spy(PI).\n"
+    "'$main_atom_pi'(Atom, Module:PI) :-\n"
+    "    '$main_split'(Atom, :, Module, PiAtom),\n"
+    "    !,\n"
+    "    '$main_atom_pi'(PiAtom, PI).\n"
+    "'$main_atom_pi'(Atom, Name//Arity) :-\n"
+    "    '$main_split'(Atom, //, Name, Arity),\n"
+    "    !.\n"
+    "'$main_atom_pi'(Atom, Name/Arity) :-\n"
+    "    '$main_split'(Atom, /, Name, Arity),\n"
+    "    !.\n"
+    "'$main_atom_pi'(Atom, _) :-\n"
+    "    format(user_error, 'Invalid predicate indicator: \"~w\"~n', [Atom]),\n"
+    "    halt(1).\n"
+    "'$main_split'(Atom, Sep, Before, After) :-\n"
+    "    sub_atom(Atom, BL, _, AL, Sep),\n"
+    "    !,\n"
+    "    sub_atom(Atom, 0, BL, _, Before),\n"
+    "    sub_atom(Atom, _, AL, 0, AfterAtom),\n"
+    "    (   atom_number(AfterAtom, After)\n"
+    "    ->  true\n"
+    "    ;   After = AfterAtom\n"
+    "    ).\n"
+    "cli_enable_development_system :-\n"
+    "    on_signal(int, _, debug),\n"
+    "    set_prolog_flag(xpce_threaded, true),\n"
+    "    set_prolog_flag(message_ide, true),\n"
+    "    set_prolog_flag(toplevel_goal, prolog).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_EXPORTS[] = {
+    { "option", 2 },
+    { "option", 3 },
+    { "select_option", 3 },
+    { "select_option", 4 },
+    { "merge_options", 3 },
+    { "meta_options", 3 },
+    { "dict_options", 2 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_14_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_14_SRC[] =
     "option(Opt, Options, Default) :-\n"
     "    is_dict(Options),\n"
     "    !,\n"
@@ -13344,7 +13925,403 @@ static const char PL_PRELUDE_LIB_13_SRC[] =
     "    !.\n"
     "'$option_key_name'(Opt, _) :-\n"
     "    domain_error(option, Opt).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
+    { "opt_parse", 5 },
+    { "opt_parse", 4 },
+    { "opt_arguments", 3 },
+    { "opt_help", 2 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_15_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_15_SRC[] =
+    "opt_arguments(OptsSpec, Opts, PositionalArgs) :-\n"
+    "    current_prolog_flag(argv, Argv),\n"
+    "    opt_parse(OptsSpec, Argv, Opts, PositionalArgs).\n"
+    "opt_parse(OptsSpec, ApplArgs, Opts, PositionalArgs) :-\n"
+    "    opt_parse(OptsSpec, ApplArgs, Opts, PositionalArgs, []).\n"
+    "opt_parse(OptsSpec, ApplArgs, Opts, PositionalArgs, ParseOptions) :-\n"
+    "    '$optparse_opt_parse_'(OptsSpec, ApplArgs, Opts, PositionalArgs, ParseOptions).\n"
+    "opt_help(OptsSpec, Help) :-\n"
+    "    '$optparse_opt_help'(OptsSpec, Help, []).\n"
+    "'$optparse_opt_help'(OptsSpec, Help, HelpOptions0) :-\n"
+    "    Defaults = [ line_width(80)\n"
+    "               , min_help_width(40)\n"
+    "               , break_long_flags(false)\n"
+    "               , suppress_empty_meta(true)\n"
+    "               ],\n"
+    "    merge_options(HelpOptions0, Defaults, HelpOptions),\n"
+    "    '$optparse_opt_help_'(OptsSpec, Help, HelpOptions).\n"
+    "'$optparse_opt_parse_'(OptsSpec0, Args0, Opts, PositionalArgs, ParseOptions) :-\n"
+    "    must_be(list(atom), Args0),\n"
+    "    '$optparse_check_opts_spec'(OptsSpec0, ParseOptions, OptsSpec),\n"
+    "    maplist(atom_codes, Args0, Args1),\n"
+    "    '$optparse_parse_options'(OptsSpec, Args1, Args2, PositionalArgs),\n"
+    "    '$optparse_add_default_opts'(OptsSpec, Args2, Args3),\n"
+    "    option(duplicated_flags(Keep), ParseOptions, keeplast),\n"
+    "    '$optparse_remove_duplicates'(Keep, Args3, Args4),\n"
+    "    option(output_functor(Func), ParseOptions, 'OPTION'),\n"
+    "    '$optparse_refunctor_opts'(Func, Args4, Opts).\n"
+    "'$optparse_opt_help_'(OptsSpec0, Help, HelpOptions) :-\n"
+    "    '$optparse_check_opts_spec'(OptsSpec0, HelpOptions, OptsSpec1),\n"
+    "    '$optparse_include_in_help'(OptsSpec1, OptsSpec2),\n"
+    "    '$optparse_format_help_fields'(OptsSpec2, OptsSpec3),\n"
+    "    '$optparse_col_widths'(OptsSpec3, [shortflags, metatypedef], CWs),\n"
+    "    '$optparse_long_flag_col_width'(OptsSpec3, LongestFlagWidth),\n"
+    "    maplist('$optparse_format_opt'(LongestFlagWidth, CWs, HelpOptions), OptsSpec3, Lines),\n"
+    "    atomic_list_concat(Lines, Help).\n"
+    "'$optparse_include_in_help'([], []).\n"
+    "'$optparse_include_in_help'([OptSpec|OptsSpec], Result) :-\n"
+    "    (  '$optparse_flags'(OptSpec, [_|_])\n"
+    "    -> Result = [OptSpec|Rest]\n"
+    "    ;  Result = Rest\n"
+    "    ),\n"
+    "    '$optparse_include_in_help'(OptsSpec, Rest).\n"
+    "'$optparse_format_help_fields'(OptsSpec0, OptsSpec) :-\n"
+    "    maplist('$optparse_embellish_flag'(short), OptsSpec0, OptsSpec1),\n"
+    "    maplist('$optparse_embellish_flag'(long), OptsSpec1, OptsSpec2),\n"
+    "    maplist('$optparse_merge_meta_type_def', OptsSpec2, OptsSpec).\n"
+    "'$optparse_merge_meta_type_def'(OptSpecIn, [metatypedef(MTD)|OptSpecIn]) :-\n"
+    "    memberchk(meta(Meta), OptSpecIn),\n"
+    "    memberchk(type(Type), OptSpecIn),\n"
+    "    memberchk(default(Def), OptSpecIn),\n"
+    "    atom_length(Meta, N),\n"
+    "    (  N > 0\n"
+    "    -> format(atom(MTD), '~w:~w=~w', [Meta, Type, Def])\n"
+    "    ;  format(atom(MTD), '~w=~w', [Type, Def])\n"
+    "    ).\n"
+    "'$optparse_embellish_flag'(short, OptSpecIn, OptSpecOut) :-\n"
+    "    memberchk(shortflags(FlagsIn), OptSpecIn),\n"
+    "    maplist(atom_concat('-'), FlagsIn, FlagsOut0),\n"
+    "    atomic_list_concat(FlagsOut0, ',',  FlagsOut),\n"
+    "    merge_options([shortflags(FlagsOut)], OptSpecIn, OptSpecOut).\n"
+    "'$optparse_embellish_flag'(long, OptSpecIn, OptSpecOut) :-\n"
+    "    memberchk(longflags(FlagsIn), OptSpecIn),\n"
+    "    maplist(atom_concat('--'), FlagsIn, FlagsOut),\n"
+    "    merge_options([longflags(FlagsOut)], OptSpecIn, OptSpecOut).\n"
+    "'$optparse_col_widths'(OptsSpec, Functors, ColWidths) :-\n"
+    "    maplist('$optparse_col_width'(OptsSpec), Functors, ColWidths).\n"
+    "'$optparse_col_width'(OptsSpec, Functor, ColWidth) :-\n"
+    "    findall(N,\n"
+    "            ( member(OptSpec, OptsSpec),\n"
+    "              M =.. [Functor, Arg],\n"
+    "              member(M, OptSpec),\n"
+    "              format(atom(Atom), '~w', [Arg]),\n"
+    "              atom_length(Atom, N0),\n"
+    "              N is N0 + 2\n"
+    "            ),\n"
+    "            Ns),\n"
+    "    max_list([0|Ns], ColWidth).\n"
+    "'$optparse_long_flag_col_width'(OptsSpec, ColWidth) :-\n"
+    "    findall(FlagLength,\n"
+    "           ( member(OptSpec, OptsSpec),\n"
+    "             memberchk(longflags(LFlags), OptSpec),\n"
+    "             member(LFlag, LFlags),\n"
+    "             atom_length(LFlag, FlagLength)\n"
+    "             ),\n"
+    "            FlagLengths),\n"
+    "    max_list([0|FlagLengths], ColWidth).\n"
+    "'$optparse_format_opt'(LongestFlagWidth, [SFlagsCW, MTDCW], HelpOptions, Opt, Line) :-\n"
+    "    memberchk(shortflags(SFlags), Opt),\n"
+    "    memberchk(longflags(LFlags0), Opt),\n"
+    "    '$optparse_group_length'(LongestFlagWidth, LFlags0, LFlags1),\n"
+    "    LFlagsCW is LongestFlagWidth + 2,\n"
+    "    option(break_long_flags(BLF), HelpOptions, true),\n"
+    "    (  BLF\n"
+    "    -> maplist('$optparse_atomic_list_concat_'(',\\n'), LFlags1, LFlags2)\n"
+    "    ;  maplist('$optparse_atomic_list_concat_'(', '), LFlags1, LFlags2)\n"
+    "    ),\n"
+    "    atomic_list_concat(LFlags2, ',\\n', LFlags),\n"
+    "    memberchk(metatypedef(MetaTypeDef), Opt),\n"
+    "    memberchk(help(Help), Opt),\n"
+    "    HelpIndent is LFlagsCW + SFlagsCW + MTDCW + 2,\n"
+    "    option(line_width(LW), HelpOptions, 80),\n"
+    "    option(min_help_width(MHW), HelpOptions, 40),\n"
+    "    HelpWidth is max(MHW, LW - HelpIndent),\n"
+    "    (  ( atom(Help) ; string(Help) )\n"
+    "    -> '$optparse_line_breaks'(Help, HelpWidth, HelpIndent, BrokenHelp)\n"
+    "    ;  assertion('$optparse_is_list_of_atoms'(Help))\n"
+    "    -> '$optparse_indent_lines'(Help, HelpIndent, BrokenHelp)\n"
+    "    ),\n"
+    "    format(atom(Line), '~w~t~*+~w~t~*+~w~t~*+~w~n',\n"
+    "      [LFlags, LFlagsCW, SFlags, SFlagsCW, MetaTypeDef, MTDCW, BrokenHelp]).\n"
+    "'$optparse_line_breaks'(TextLine, LineLength, Indent, TextLines) :-\n"
+    "    atomic_list_concat(Words, ' ', TextLine),\n"
+    "    '$optparse_group_length'(LineLength, Words, Groups0),\n"
+    "    maplist('$optparse_atomic_list_concat_'(' '), Groups0, Groups),\n"
+    "    '$optparse_indent_lines'(Groups, Indent, TextLines).\n"
+    "'$optparse_indent_lines'(Lines, Indent, TextLines) :-\n"
+    "    format(atom(Separator), '~n~*|', [Indent]),\n"
+    "    atomic_list_concat(Lines, Separator, TextLines).\n"
+    "'$optparse_atomic_list_concat_'(Separator, List, Atom) :-\n"
+    "    atomic_list_concat(List, Separator, Atom).\n"
+    "'$optparse_group_length'(LineLength, Words, Groups) :-\n"
+    "    '$optparse_group_length_'(Words, LineLength, LineLength, [], [], Groups).\n"
+    "'$optparse_group_length_'([], _, _, ThisLine, GroupsAcc, Groups) :-\n"
+    "    maplist(reverse, [ThisLine|GroupsAcc], GroupsAcc1),\n"
+    "    reverse(GroupsAcc1, Groups).\n"
+    "'$optparse_group_length_'([Word|Words], LineLength, Remains, ThisLine, Groups, GroupsAcc) :-\n"
+    "    atom_length(Word, K),\n"
+    "    (  (Remains >= K; ThisLine = [])\n"
+    "    -> Remains1 is Remains - K - 1,\n"
+    "     '$optparse_group_length_'(Words, LineLength, Remains1, [Word|ThisLine], Groups, GroupsAcc)\n"
+    "    ;  '$optparse_group_length_'([Word|Words], LineLength, LineLength, [], [ThisLine|Groups], GroupsAcc)\n"
+    "    ).\n"
+    "'$optparse_add_default_defaults'(OptsSpec0, OptsSpec, Options) :-\n"
+    "    option(suppress_empty_meta(SEM), Options, true),\n"
+    "    maplist('$optparse_default_defaults'(SEM), OptsSpec0, OptsSpec).\n"
+    "'$optparse_default_defaults'(SuppressEmptyMeta, OptSpec0, OptSpec) :-\n"
+    "    (   SuppressEmptyMeta\n"
+    "    ->  Meta = ''\n"
+    "    ;   memberchk(type(Type), OptSpec0)\n"
+    "    ->  '$optparse_meta_placeholder'(Type, Meta)\n"
+    "    ;   Meta = 'T'\n"
+    "    ),\n"
+    "    Defaults = [ help(''),\n"
+    "                 type(term),\n"
+    "                 shortflags([]),\n"
+    "                 longflags([]),\n"
+    "                 default('_'),\n"
+    "                 meta(Meta)\n"
+    "               ],\n"
+    "    merge_options(OptSpec0, Defaults, OptSpec).\n"
+    "'$optparse_meta_placeholder'(boolean, 'B').\n"
+    "'$optparse_meta_placeholder'(atom,    'A').\n"
+    "'$optparse_meta_placeholder'(float,   'F').\n"
+    "'$optparse_meta_placeholder'(integer, 'I').\n"
+    "'$optparse_meta_placeholder'(term,    'T').\n"
+    "'$optparse_check_opts_spec'(OptsSpec0, Options, OptsSpec) :-\n"
+    "    '$optparse_validate_opts_spec'(OptsSpec0, Options),\n"
+    "    '$optparse_add_default_defaults'(OptsSpec0, OptsSpec, Options),\n"
+    "    '$optparse_validate_opts_spec'(OptsSpec, Options).\n"
+    "'$optparse_validate_opts_spec'(OptsSpec, ParseOptions) :-\n"
+    "    \\+ '$optparse_invalidate_opts_spec'(OptsSpec, ParseOptions).\n"
+    "'$optparse_invalidate_opts_spec'(OptsSpec, _ParseOptions) :-\n"
+    "    ( \\+ ground(OptsSpec)\n"
+    "    -> throw(error(instantiation_error,\n"
+    "                   context(validate_opts_spec/1, 'option spec must be ground')))\n"
+    "    ;   member(O1, OptsSpec), '$optparse_flags'(O1, Flags1), member(F, Flags1),\n"
+    "        member(O2, OptsSpec), '$optparse_flags'(O2, Flags2), member(F, Flags2),\n"
+    "        O1 \\= O2\n"
+    "    ->  throw(error(domain_error(unique_atom, F),\n"
+    "                   context(validate_opts_spec/1, 'ambiguous flag')))\n"
+    "    ;   member(OptSpec, OptsSpec),\n"
+    "        member(Spec, OptSpec),\n"
+    "        functor(Spec, F, _),\n"
+    "        \\+ member(F, [opt, shortflags, longflags, type, help, default, meta])\n"
+    "    ->  throw(error(domain_error(opt_spec, F),\n"
+    "                   context(validate_opts_spec/1, 'unknown opt spec')))\n"
+    "    ;   member(O1, OptsSpec), member(opt(Name), O1),\n"
+    "        member(O2, OptsSpec), member(opt(Name), O2),\n"
+    "        O1 \\= O2\n"
+    "    -> throw(error(domain_error(unique_atom, Name),\n"
+    "                   context(_, 'ambiguous id')))\n"
+    "    ).\n"
+    "'$optparse_invalidate_opts_spec'(OptsSpec, _ParseOptions) :-\n"
+    "    member(OptSpec, OptsSpec),\n"
+    "    \\+ member(opt(_Name), OptSpec),\n"
+    "    throw(error(domain_error(unique_atom, OptSpec),\n"
+    "                context(_, 'opt(id) missing'))).\n"
+    "'$optparse_invalidate_opts_spec'(OptsSpec, ParseOptions) :-\n"
+    "    member(OptSpec, OptsSpec),\n"
+    "    member(opt(Name), OptSpec),\n"
+    "    option(allow_empty_flag_spec(AllowEmpty), ParseOptions, true),\n"
+    "    (   (   AllowEmpty \\== true,\n"
+    "            \\+ '$optparse_flags'(OptSpec, [_|_])\n"
+    "        )\n"
+    "    ->  format(atom(Msg), 'no flag specified for option ''~w''', [Name]),\n"
+    "        throw(error(domain_error(unique_atom, _),\n"
+    "                    context(_, Msg)))\n"
+    "    ;   memberchk(shortflags(Flags), OptSpec),\n"
+    "        member(F, Flags),\n"
+    "        atom_length(F, L),\n"
+    "        L > 1\n"
+    "    ->  format(atom(Msg), 'option ''~w'': flag too long to be short', [Name]),\n"
+    "        throw(error(domain_error(short_flag, F),\n"
+    "                    context(_, Msg)))\n"
+    "    ;   '$optparse_duplicate_optspec'(OptSpec,\n"
+    "                          [type,opt,default,help,shortflags,longflags,meta])\n"
+    "    ->  format(atom(Msg), 'duplicate spec in option ''~w''', [Name]),\n"
+    "        throw(error(domain_error(unique_functor, _),\n"
+    "                    context(_, Msg)))\n"
+    "    ;   memberchk(type(Type), OptSpec),\n"
+    "        Type \\== term,\n"
+    "        \\+ (   current_type(Type, _Var, _Body)\n"
+    "           ;   clause(parse_type(Type, _, _), _)\n"
+    "           )\n"
+    "    ->  existence_error(type, Type)\n"
+    "    ;   memberchk(type(Type), OptSpec),\n"
+    "        current_type(Type, _, _),\n"
+    "        memberchk(default(Default), OptSpec),\n"
+    "        Default \\== '_'\n"
+    "    ->  \\+ must_be(Type, Default)\n"
+    "    ;   fail\n"
+    "    ).\n"
+    "'$optparse_duplicate_optspec'(_, []) :- !, fail.\n"
+    "'$optparse_duplicate_optspec'(OptSpec, [Func|Funcs]) :-\n"
+    "    functor(F, Func, 1),\n"
+    "    findall(F, member(F, OptSpec), Xs),\n"
+    "    (   Xs = [_,_|_]\n"
+    "    ->  true\n"
+    "    ;   '$optparse_duplicate_optspec'(OptSpec, Funcs)\n"
+    "    ).\n"
+    "'$optparse_parse_options'(OptsSpec, Args0, Options, PosArgs) :-\n"
+    "    append(Args0, [\"\"], Args1),\n"
+    "    '$optparse_parse_args_'(Args1, OptsSpec, Args2),\n"
+    "    '$optparse_partition_args_'(Args2, Options, PosArgs).\n"
+    "'$optparse_parse_args_'([Arg,Arg2|Args], OptsSpec, [opt(KID, false)|Result]) :-\n"
+    "    '$optparse_flag_name_long_neg'(Dashed, NonDashed, Arg, []),\n"
+    "    '$optparse_flag_id_type'(OptsSpec, NonDashed, KID, boolean),\n"
+    "    !,\n"
+    "    '$optparse_parse_args_'([Dashed, \"false\", Arg2|Args], OptsSpec, Result).\n"
+    "'$optparse_parse_args_'([Arg,Arg2|Args], OptsSpec, Result) :-\n"
+    "    '$optparse_flag_name'(K, Arg, []),\n"
+    "    '$optparse_flag_id_type'(OptsSpec, K, _KID, boolean),\n"
+    "    \\+ member(Arg2, [\"true\", \"false\"]),\n"
+    "    !,\n"
+    "    '$optparse_parse_args_'([Arg, \"true\", Arg2 | Args], OptsSpec, Result).\n"
+    "'$optparse_parse_args_'([Arg|Args], OptsSpec, [opt(KID, Val)|Result]) :-\n"
+    "    '$optparse_flag_name_value'(Arg1, Arg2, Arg, []),\n"
+    "    \\+ '$optparse_short_flag_w_equals'(Arg1, Arg2),\n"
+    "    '$optparse_flag_name'(K, Arg1, []),\n"
+    "    !,\n"
+    "    '$optparse_parse_option'(OptsSpec, K, Arg2, opt(KID, Val)),\n"
+    "    '$optparse_parse_args_'(Args, OptsSpec, Result).\n"
+    "'$optparse_parse_args_'([Arg1,Arg2|Args], OptsSpec, [opt(KID, Val)|Result]) :-\n"
+    "    '$optparse_flag_name'(K, Arg1, []),\n"
+    "    !,\n"
+    "    '$optparse_parse_option'(OptsSpec, K, Arg2, opt(KID, Val)),\n"
+    "    '$optparse_parse_args_'(Args, OptsSpec, Result).\n"
+    "'$optparse_parse_args_'([Arg1,Arg2|Args], OptsSpec, [pos(At)|Result]) :-\n"
+    "    \\+ '$optparse_flag_name'(_, Arg1, []),\n"
+    "    !,\n"
+    "    atom_codes(At, Arg1),\n"
+    "    '$optparse_parse_args_'([Arg2|Args], OptsSpec, Result).\n"
+    "'$optparse_parse_args_'([\"\"], _, []) :- !.\n"
+    "'$optparse_parse_args_'([], _, []) :- !.\n"
+    "'$optparse_short_flag_w_equals'([0'-,_C], [0'=|_]) :-\n"
+    "    throw(error(syntax_error('disallowed: <shortflag>=<value>'),_)).\n"
+    "'$optparse_flag_id_type'(OptsSpec, FlagCodes, ID, Type) :-\n"
+    "    atom_codes(Flag, FlagCodes),\n"
+    "    member(OptSpec, OptsSpec),\n"
+    "    '$optparse_flags'(OptSpec, Flags),\n"
+    "    member(Flag, Flags),\n"
+    "    member(type(Type), OptSpec),\n"
+    "    member(opt(ID), OptSpec).\n"
+    "'$optparse_flag_name'(NonDashed) --> '$optparse_flag_name_long'(_, NonDashed).\n"
+    "'$optparse_flag_name'(NonDashed) --> '$optparse_flag_name_short'(_, NonDashed).\n"
+    "'$optparse_flag_name'(NonDashed) --> '$optparse_flag_name_long_neg'(_, NonDashed).\n"
+    "'$optparse_flag_name_long_neg'([0'-,0'-|Cs], Cs) --> \"--no-\", '$optparse_name_long'(Cs).\n"
+    "'$optparse_flag_name_long'([0'-,0'-|Cs], Cs) --> \"--\", '$optparse_name_long'(Cs).\n"
+    "'$optparse_flag_name_short'([0'-|C], C) --> \"-\", '$optparse_name_1st'(C).\n"
+    "'$optparse_flag_value'([C|Cs]) --> [C], '$optparse_flag_value0'(Cs).\n"
+    "'$optparse_flag_value0'([]) --> [].\n"
+    "'$optparse_flag_value0'([C|Cs]) --> [C], '$optparse_flag_value0'(Cs).\n"
+    "'$optparse_flag_name_value'(Dashed, Val) --> '$optparse_flag_name_long'(Dashed, _), \"=\", '$optparse_flag_value0'(Val).\n"
+    "'$optparse_flag_name_value'(Dashed, Val) --> '$optparse_flag_name_short'(Dashed, _), '$optparse_flag_value'(Val).\n"
+    "'$optparse_name_long'([C|Cs]) --> '$optparse_name_1st'([C]), '$optparse_name_rest'(Cs).\n"
+    "'$optparse_name_1st'([C]) --> [C], {'$optparse_name_1st'(C)}.\n"
+    "'$optparse_name_rest'([]) --> [].\n"
+    "'$optparse_name_rest'([C|Cs]) --> [C], {'$optparse_name_char'(C)}, '$optparse_name_rest'(Cs).\n"
+    "'$optparse_name_1st'(C) :- char_type(C, alpha).\n"
+    "'$optparse_name_char'(C) :- char_type(C, alpha).\n"
+    "'$optparse_name_char'( 0'_ ).\n"
+    "'$optparse_name_char'( 0'- ).\n"
+    "'$optparse_parse_option'(OptsSpec, Arg1, Arg2, opt(KID, Val)) :-\n"
+    "    (   '$optparse_flag_id_type'(OptsSpec, Arg1, KID, Type)\n"
+    "    ->  '$optparse_parse_val'(Arg1, Type, Arg2, Val)\n"
+    "    ;   atom_codes(Flag, Arg1),\n"
+    "        existence_error(commandline_option, Flag)\n"
+    "    ).\n"
+    "'$optparse_parse_val'(Opt, Type, Cs, Val) :-\n"
+    "    catch(\n"
+    "    '$optparse_parse_loc'(Type, Cs, Val),\n"
+    "    E,\n"
+    "    ( format('~nERROR: flag ''~s'': expected atom parsable as ~w, found ''~s'' ~n',\n"
+    "                             [Opt,                           Type,        Cs]),\n"
+    "      throw(E))\n"
+    "    ).\n"
+    "'$optparse_parse_loc'(Type, _LOC, _) :-\n"
+    "    var(Type), !, throw(error(instantiation_error, _)).\n"
+    "'$optparse_parse_loc'(_Type, LOC, _) :-\n"
+    "    var(LOC), !, throw(error(instantiation_error, _)).\n"
+    "'$optparse_parse_loc'(boolean, Cs, true) :- atom_codes(true, Cs), !.\n"
+    "'$optparse_parse_loc'(boolean, Cs, false) :- atom_codes(false, Cs), !.\n"
+    "'$optparse_parse_loc'(atom, Cs, Result) :- atom_codes(Result, Cs), !.\n"
+    "'$optparse_parse_loc'(integer, Cs, Result) :-\n"
+    "    number_codes(Result, Cs),\n"
+    "    integer(Result),\n"
+    "    !.\n"
+    "'$optparse_parse_loc'(float, Cs, Result)   :-\n"
+    "    number_codes(Result, Cs),\n"
+    "    float(Result),\n"
+    "    !.\n"
+    "'$optparse_parse_loc'(term, Cs, Result) :-\n"
+    "    atom_codes(A, Cs),\n"
+    "    term_to_atom(Result, A),\n"
+    "    !.\n"
+    "'$optparse_parse_loc'(Type, Cs, Result) :-\n"
+    "    parse_type(Type, Cs, Result),\n"
+    "    !.\n"
+    "'$optparse_parse_loc'(Type, _Cs, _) :-\n"
+    "    throw(error(type_error(flag_value, Type), _)),\n"
+    "    !.\n"
+    "'$optparse_partition_args_'([], [], []).\n"
+    "'$optparse_partition_args_'([opt(K,V)|Rest], [opt(K,V)|RestOpts], RestPos) :-\n"
+    "    !,\n"
+    "    '$optparse_partition_args_'(Rest, RestOpts, RestPos).\n"
+    "'$optparse_partition_args_'([pos(Arg)|Rest], RestOpts, [Arg|RestPos]) :-\n"
+    "    !,\n"
+    "    '$optparse_partition_args_'(Rest, RestOpts, RestPos).\n"
+    "'$optparse_add_default_opts'([], Opts, Opts).\n"
+    "'$optparse_add_default_opts'([OptSpec|OptsSpec], OptsIn, Result) :-\n"
+    "    memberchk(opt(OptName), OptSpec),\n"
+    "    (  memberchk(opt(OptName, _Val), OptsIn)\n"
+    "    -> Result = OptsOut\n"
+    "    ;\n"
+    "       memberchk(default('_'), OptSpec)\n"
+    "    -> Result = [opt(OptName, _) | OptsOut]\n"
+    "    ;\n"
+    "       memberchk(default(Def), OptSpec),\n"
+    "       Result = [opt(OptName, Def) | OptsOut]\n"
+    "    ),\n"
+    "    '$optparse_add_default_opts'(OptsSpec, OptsIn, OptsOut).\n"
+    "'$optparse_remove_duplicates'(_, [], []) :- !.\n"
+    "'$optparse_remove_duplicates'(keeplast, [opt(OptName, Val) | Opts], Result) :-\n"
+    "    !,\n"
+    "    (  memberchk(opt(OptName, _), Opts)\n"
+    "    -> Result = RestOpts\n"
+    "    ;  Result = [opt(OptName, Val) | RestOpts]\n"
+    "    ),\n"
+    "    '$optparse_remove_duplicates'(keeplast, Opts, RestOpts).\n"
+    "'$optparse_remove_duplicates'(keepfirst, OptsIn, OptsOut) :-\n"
+    "    !,\n"
+    "    reverse(OptsIn, OptsInRev),\n"
+    "    '$optparse_remove_duplicates'(keeplast, OptsInRev, OptsOutRev),\n"
+    "    reverse(OptsOutRev, OptsOut).\n"
+    "'$optparse_remove_duplicates'(keepall, OptsIn, OptsIn) :- !.\n"
+    "'$optparse_remove_duplicates'(K, [_|_], _) :-\n"
+    "    !,\n"
+    "    throw(error(domain_error(keep_flag, K), _)).\n"
+    "'$optparse_refunctor_opts'(Fnct, OptsIn, OptsOut) :-\n"
+    "    maplist('$optparse_refunctor_opt'(Fnct), OptsIn, OptsOut).\n"
+    "'$optparse_refunctor_opt'('OPTION', opt(OptName, OptVal), Result) :-\n"
+    "    !,\n"
+    "    Result =.. [OptName, OptVal].\n"
+    "'$optparse_refunctor_opt'(F, opt(OptName, OptVal), Result) :-\n"
+    "    Result =.. [F, OptName, OptVal].\n"
+    "'$optparse_flags'(OptSpec, Flags) :- memberchk(shortflags(Flags), OptSpec).\n"
+    "'$optparse_flags'(OptSpec, Flags) :- memberchk(longflags(Flags), OptSpec).\n"
+    "'$optparse_is_list_of_atoms'([]).\n"
+    "'$optparse_is_list_of_atoms'([X|Xs]) :- atom(X), '$optparse_is_list_of_atoms'(Xs).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
     { "is_ordset", 1 },
     { "list_to_ord_set", 2 },
     { "ord_add_element", 3 },
@@ -13367,16 +14344,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_EXPORTS[] = {
     { "ord_intersection", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_14_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_14_SRC[] =
+static const char PL_PRELUDE_LIB_16_SRC[] =
     "is_ordset(Term) :-\n"
     "    is_list(Term),\n"
     "    '$ordsets_is_ordset2'(Term).\n"
@@ -13595,7 +14572,7 @@ static const char PL_PRELUDE_LIB_14_SRC[] =
     "    ord_symdiff(T1, T2, Difference).\n"
     "'$ordsets_ord_symdiff'(>, H1, T1, H2, Set2, [H2|Difference]) :-\n"
     "    '$ordsets_ord_symdiff'(Set2, H1, T1, Difference).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "pairs_keys_values", 3 },
     { "pairs_values", 2 },
     { "pairs_keys", 2 },
@@ -13604,16 +14581,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
     { "map_list_to_pairs", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_15_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_15_SRC[] =
+static const char PL_PRELUDE_LIB_17_SRC[] =
     "pairs_keys_values(Pairs, Keys, Values) :-\n"
     "    (   nonvar(Pairs) ->\n"
     "        '$pairs_pairs_keys_values_'(Pairs, Keys, Values)\n"
@@ -13657,7 +14634,7 @@ static const char PL_PRELUDE_LIB_15_SRC[] =
     "'$pairs_map_list_to_pairs2'([H|T0], Pred, [K-H|T]) :-\n"
     "    call(Pred, H, K),\n"
     "    '$pairs_map_list_to_pairs2'(T0, Pred, T).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "re_match", 2 },
     { "re_match", 3 },
     { "re_matchsub", 3 },
@@ -13669,16 +14646,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
     { "re_replace", 5 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_16_SRC[] =
+static const char PL_PRELUDE_LIB_18_SRC[] =
     "re_match(Re, S) :- re_match(Re, S, []).\n"
     "re_match(Re, S, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_search'(R, W, 0, W, _, _), !.\n"
     "re_matchsub(Re, S, Sub) :- re_matchsub(Re, S, Sub, []).\n"
@@ -13902,7 +14879,7 @@ static const char PL_PRELUDE_LIB_16_SRC[] =
     "'$re_conv'(_, Cs, V) :- string_codes(V, Cs).\n"
     "'$re_take'(0, _, []) :- !.\n"
     "'$re_take'(N, [C|Cs], [C|Ts]) :- N1 is N - 1, '$re_take'(N1, Cs, Ts).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "phrase_from_file", 2 },
     { "phrase_from_file", 3 },
     { "phrase_from_stream", 2 },
@@ -13912,16 +14889,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "lazy_list_character_count", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_17_SRC[] =
+static const char PL_PRELUDE_LIB_19_SRC[] =
     "phrase_from_file(Grammar, File) :-\n"
     "    phrase_from_file(Grammar, File, []).\n"
     "phrase_from_file(Grammar, File, Options) :-\n"
@@ -14003,7 +14980,7 @@ static const char PL_PRELUDE_LIB_17_SRC[] =
     "        )\n"
     "    ;   Value = Read\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
     { "unix", 1 },
     { "abs", 2 },
     { "sin", 2 },
@@ -14041,16 +15018,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "on_exception", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_18_SRC[] =
+static const char PL_PRELUDE_LIB_20_SRC[] =
     "unix(system(Command)) :-\n"
     "    shell(Command).\n"
     "unix(shell(Command)) :-\n"
@@ -14160,7 +15137,7 @@ static const char PL_PRELUDE_LIB_18_SRC[] =
     "    throw(Term).\n"
     "on_exception(Except, Goal, Recover) :-\n"
     "    catch(Goal, Except, Recover).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
     { "rb_new", 1 },
     { "rb_empty", 1 },
     { "rb_lookup", 3 },
@@ -14191,16 +15168,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "rb_in", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_21_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_19_SRC[] =
+static const char PL_PRELUDE_LIB_21_SRC[] =
     "rb_new(t(Nil,Nil)) :-\n"
     "    Nil = black('',_,_,'').\n"
     "rb_empty(t(Nil,Nil)) :-\n"
@@ -14809,7 +15786,7 @@ static const char PL_PRELUDE_LIB_19_SRC[] =
     "'$rbtrees_check_red_child'(black(_,_,_,_)) => true.\n"
     "'$rbtrees_check_red_child'(Node), Node = red(_,_,_,_) =>\n"
     "    domain_error(rb_black, Node).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
     { "read_line_to_codes", 2 },
     { "read_line_to_codes", 3 },
     { "read_stream_to_codes", 2 },
@@ -14820,16 +15797,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
     { "read_file_to_terms", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_22_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_20_SRC[] =
+static const char PL_PRELUDE_LIB_22_SRC[] =
     "'$readutil_link_foreign' :-\n"
     "    catch(use_foreign_library(foreign(readutil)), _, fail),\n"
     "    !.\n"
@@ -14939,23 +15916,23 @@ static const char PL_PRELUDE_LIB_20_SRC[] =
     "        open(Path, read, Stream, Options),\n"
     "        '$readutil_read_stream_to_terms'(Stream, Terms, Tail, Options),\n"
     "        close(Stream)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
     { "record", 1 },
     { "current_record", 2 },
     { "current_record_predicate", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_21_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_23_OPS[] = {
     { 1150, "fx", "record" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_21_SRC[] =
+static const char PL_PRELUDE_LIB_23_SRC[] =
     "'$error_has_type'(record(M:Name), X) :-\n"
     "    '$record_is_record'(Name, M, X).\n"
     "'$record_is_record'(Name, M, X) :-\n"
@@ -15247,7 +16224,7 @@ static const char PL_PRELUDE_LIB_21_SRC[] =
     "'$record_types'([Name|T0], [Name|TN], [any|TT]) :-\n"
     "    must_be(atom, Name),\n"
     "    '$record_types'(T0, TN, TT).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
     { "dedent_lines", 3 },
     { "indent_lines", 3 },
     { "indent_lines", 4 },
@@ -15255,16 +16232,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
     { "string_lines", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_22_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_24_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_22_SRC[] =
+static const char PL_PRELUDE_LIB_24_SRC[] =
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
     "interpolate_string(Module:In, Out, Map, Options) :-\n"
     "    '$strings_comp_interpolate'(In, Compiled, Map, [module(Module)|Options]),\n"
@@ -15474,23 +16451,23 @@ static const char PL_PRELUDE_LIB_22_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_23_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_25_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_23_SRC[] =
+static const char PL_PRELUDE_LIB_25_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -15639,16 +16616,18 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "gnu_fd", PL_PRELUDE_LIB_10_EXPORTS, PL_PRELUDE_LIB_10_OPS, PL_PRELUDE_LIB_10_SHADOWS, PL_PRELUDE_LIB_10_QUIET, PL_PRELUDE_LIB_10_SRC },
     { "heaps", PL_PRELUDE_LIB_11_EXPORTS, PL_PRELUDE_LIB_11_OPS, PL_PRELUDE_LIB_11_SHADOWS, PL_PRELUDE_LIB_11_QUIET, PL_PRELUDE_LIB_11_SRC },
     { "lists", PL_PRELUDE_LIB_12_EXPORTS, PL_PRELUDE_LIB_12_OPS, PL_PRELUDE_LIB_12_SHADOWS, PL_PRELUDE_LIB_12_QUIET, PL_PRELUDE_LIB_12_SRC },
-    { "option", PL_PRELUDE_LIB_13_EXPORTS, PL_PRELUDE_LIB_13_OPS, PL_PRELUDE_LIB_13_SHADOWS, PL_PRELUDE_LIB_13_QUIET, PL_PRELUDE_LIB_13_SRC },
-    { "ordsets", PL_PRELUDE_LIB_14_EXPORTS, PL_PRELUDE_LIB_14_OPS, PL_PRELUDE_LIB_14_SHADOWS, PL_PRELUDE_LIB_14_QUIET, PL_PRELUDE_LIB_14_SRC },
-    { "pairs", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC },
-    { "pcre", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
-    { "pure_input", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
-    { "quintus", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
-    { "rbtrees", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
-    { "readutil", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC },
-    { "record", PL_PRELUDE_LIB_21_EXPORTS, PL_PRELUDE_LIB_21_OPS, PL_PRELUDE_LIB_21_SHADOWS, PL_PRELUDE_LIB_21_QUIET, PL_PRELUDE_LIB_21_SRC },
-    { "strings", PL_PRELUDE_LIB_22_EXPORTS, PL_PRELUDE_LIB_22_OPS, PL_PRELUDE_LIB_22_SHADOWS, PL_PRELUDE_LIB_22_QUIET, PL_PRELUDE_LIB_22_SRC },
-    { "writef", PL_PRELUDE_LIB_23_EXPORTS, PL_PRELUDE_LIB_23_OPS, PL_PRELUDE_LIB_23_SHADOWS, PL_PRELUDE_LIB_23_QUIET, PL_PRELUDE_LIB_23_SRC },
+    { "main", PL_PRELUDE_LIB_13_EXPORTS, PL_PRELUDE_LIB_13_OPS, PL_PRELUDE_LIB_13_SHADOWS, PL_PRELUDE_LIB_13_QUIET, PL_PRELUDE_LIB_13_SRC },
+    { "option", PL_PRELUDE_LIB_14_EXPORTS, PL_PRELUDE_LIB_14_OPS, PL_PRELUDE_LIB_14_SHADOWS, PL_PRELUDE_LIB_14_QUIET, PL_PRELUDE_LIB_14_SRC },
+    { "optparse", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC },
+    { "ordsets", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
+    { "pairs", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
+    { "pcre", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
+    { "pure_input", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
+    { "quintus", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC },
+    { "rbtrees", PL_PRELUDE_LIB_21_EXPORTS, PL_PRELUDE_LIB_21_OPS, PL_PRELUDE_LIB_21_SHADOWS, PL_PRELUDE_LIB_21_QUIET, PL_PRELUDE_LIB_21_SRC },
+    { "readutil", PL_PRELUDE_LIB_22_EXPORTS, PL_PRELUDE_LIB_22_OPS, PL_PRELUDE_LIB_22_SHADOWS, PL_PRELUDE_LIB_22_QUIET, PL_PRELUDE_LIB_22_SRC },
+    { "record", PL_PRELUDE_LIB_23_EXPORTS, PL_PRELUDE_LIB_23_OPS, PL_PRELUDE_LIB_23_SHADOWS, PL_PRELUDE_LIB_23_QUIET, PL_PRELUDE_LIB_23_SRC },
+    { "strings", PL_PRELUDE_LIB_24_EXPORTS, PL_PRELUDE_LIB_24_OPS, PL_PRELUDE_LIB_24_SHADOWS, PL_PRELUDE_LIB_24_QUIET, PL_PRELUDE_LIB_24_SRC },
+    { "writef", PL_PRELUDE_LIB_25_EXPORTS, PL_PRELUDE_LIB_25_OPS, PL_PRELUDE_LIB_25_SHADOWS, PL_PRELUDE_LIB_25_QUIET, PL_PRELUDE_LIB_25_SRC },
     { 0, 0, 0, 0, 0, 0 }
 };

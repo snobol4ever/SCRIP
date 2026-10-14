@@ -2977,6 +2977,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * n;
                 tree_t * a;
                 tree_t * body;
+                if (s && s->t == TT_FNC && s->v.sval && !strcmp(s->v.sval, ":") && s->n == 2) return goal(cx, pl_cc_fnc2("$cp_mq", s->c[0], s->c[1]), γnext, ωfail, entry_out);
                 { tree_t * bad = pl_cc_spec_ill_typed(s, nm); if (bad) return goal(cx, bad, γnext, ωfail, entry_out); }
                 if (s && s->t == TT_FNC && s->v.sval && !strcmp(s->v.sval, "/") && s->n == 2) {
                     n = (tree_t *) s->c[0];
@@ -2992,6 +2993,16 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     n2->v.ival = n->v.ival;
                     a2->v.ival = a->v.ival;
                     body = pl_cc_fnc2(",", pl_cc_fnc2("=", s, pl_cc_fnc2("/", n2, a2)), pl_cc_gen2("$pl_cp_count", "$pl_cp_nth", n, a, (tree_t *) 0));
+                    {
+                        tree_t * m = pl_cc_freshvar();
+                        tree_t * p = pl_cc_freshvar();
+                        tree_t * m2 = pl_cc_freshvar();
+                        tree_t * p2 = pl_cc_freshvar();
+                        m2->v.ival = m->v.ival;
+                        p2->v.ival = p->v.ival;
+                        tree_t * qualified = pl_cc_fnc2(",", pl_cc_fnc1("nonvar", s), pl_cc_fnc2("=", s, pl_cc_fnc2(":", m, p)));
+                        return goal(cx, pl_cc_ite(qualified, pl_cc_fnc2("$cp_mq", m2, p2), pl_cc_fnc2(",", pl_cc_fnc1("$pl_cp_guard", s), body)), γnext, ωfail, entry_out);
+                    }
                 }
                 return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("$pl_cp_guard", s), body), γnext, ωfail, entry_out);
             }

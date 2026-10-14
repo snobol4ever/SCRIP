@@ -1753,6 +1753,14 @@ static const char * const PL_PRELUDE_SRC =
     "':'(M,G,A,B,C,D,E):-('$mod_cl'(M,G,5,G2)->call(G2,A,B,C,D,E);call(G,A,B,C,D,E)).\n"
     "':'(M,G,A,B,C,D,E,F):-('$mod_cl'(M,G,6,G2)->call(G2,A,B,C,D,E,F);call(G,A,B,C,D,E,F)).\n"
     "':'(M,G,A,B,C,D,E,F,H):-('$mod_cl'(M,G,7,G2)->call(G2,A,B,C,D,E,F,H);call(G,A,B,C,D,E,F,H)).\n"
+    "'$cp_mq'(M,P):-var(M),!,current_predicate(P),M=user.\n"
+    "'$cp_mq'(M,_):- \\+atom(M),!,throw(error(type_error(atom,M),current_predicate/1)).\n"
+    "'$cp_mq'(M,P):-nonvar(P),\\+P=_/_,!,throw(error(type_error(predicate_indicator,M:P),current_predicate/1)).\n"
+    "'$cp_mq'(user,P):-!,current_predicate(P).\n"
+    "'$cp_mq'(M,N/A):-atom_concat(M,':',Pre),'$cp_mq1'(Pre,N,A).\n"
+    "'$cp_mq1'(Pre,N,A):-atom(N),!,(atom_concat(Pre,N,QN),current_predicate(QN/A);current_predicate(N/A),atom_concat(Pre,N,QN),\\+current_predicate(QN/A)).\n"
+    "'$cp_mq1'(Pre,N,A):-current_predicate(QN/A),atom_concat(Pre,N,QN).\n"
+    "'$cp_mq1'(Pre,N,A):-current_predicate(N/A),\\+sub_atom(N,_,_,_,':'),atom_concat(Pre,N,QN),\\+current_predicate(QN/A).\n"
     "'$mod_head'(M,T,QT):-atom(M),M\\==user,nonvar(T),(T=(H:-B)->'$mod_q1'(M,H,QH),QT=(QH:-B);'$mod_q1'(M,T,QT)),!.\n"
     "'$mod_head'(_,T,T).\n"
     "'$mod_q1'(M,H,QH):-callable(H),functor(H,F,N),atom(F),atom_concat(M,':',P),atom_concat(P,F,QF),current_predicate(QF/N),H=..[_|As],QH=..[QF|As].\n"
@@ -2868,6 +2876,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     pl_cv_add(&referenced, "$conj_nocut");
     pl_cv_add(&referenced, "$retract_target");
     if (pl_cv_has(&referenced, "current_prolog_flag")) pl_cv_add(&referenced, "$flag_member");
+    if (pl_cv_has(&referenced, "current_predicate")) pl_cv_add(&referenced, "$cp_mq");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
@@ -2928,6 +2937,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             if (pl_cv_has(&calls, "call_cleanup") || pl_cv_has(&calls, "setup_call_cleanup")) pl_cv_add(&calls, "$scc_cut");
             if (pl_cv_has(&calls, "string_concat")) pl_cv_add(&calls, "$string_concat_split");
             if (pl_cv_has(&calls, "erase")) { pl_cv_add(&calls, "$rec_ref"); pl_cv_add(&calls, "$rec_erase"); }
+            if (pl_cv_has(&calls, "current_predicate")) pl_cv_add(&calls, "$cp_mq");
             for (uint32_t ci = 0; ci < calls.len; ci++) {
                 for (PlClause *d = pre->head; d; d = d->next) {
                     const char *dn; int dar;

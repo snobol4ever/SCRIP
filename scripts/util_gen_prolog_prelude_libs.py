@@ -133,6 +133,7 @@ INIT_AS_CLAUSES = {"readutil": {"link_foreign": ("with no foreign readutil, link
 # writes is asserted without its qualifier: current_record/5 has no clause in the library, so it keeps its name, and that is the
 # name the library's own calls read.  library(gensym) builds its symbol with atom_concat(Base, N, Atom), which SWI allows for a
 # number N and SCRIP's ISO atom_concat/3 refuses outside the SWI dialect; the edit builds it with atomic_list_concat/2.
+WHY_MAIN_META = ("SCRIP's module flattener qualifies a meta-argument (:) only inside a module or a plunit unit, and none in a file without either; from user the argument arrives bare, so a bare one is read as user:X, the term swipl passes from user")
 SOURCE_EDITS = {"record": [("the directive :- record(R) asserts the clauses system:term_expansion/2 would have compiled", """record(Record) :-
     throw(error(context_error(nodirective, record(Record)), _)).""", """record(Record) :-
     compile_records(Record, [_|Clauses]),
@@ -142,6 +143,47 @@ record_assert((record):current_record(Name, M, Def, X, IsX)) :-
     assertz(current_record(Name, M, Def, X, IsX)).
 record_assert(Clause) :-
     assertz(Clause).""")],
+    "main": [("SCRIP has no library(thread_util) or library(guitracer) source and loads no library at run time, so exists_source/1 fails for both and "
+              "--gspy=PI takes the clause's own third branch, spy(PI)", """debug_option(gspy(Atom)) :-
+    atom_pi(Atom, PI),
+    (   exists_source(library(thread_util))
+    ->  use_module(library(threadutil), [tspy/1]),
+	Goal = tspy(PI)
+    ;   exists_source(library(guitracer))
+    ->  use_module(library(gui_tracer), [gspy/1]),
+	Goal = gspy(PI)
+    ;   Goal = spy(PI)
+    ),
+    call(Goal).""", """debug_option(gspy(Atom)) :-
+    atom_pi(Atom, PI),
+    spy(PI)."""),
+             ("%s (argv_options/3)" % WHY_MAIN_META, """argv_options(M:Argv, Positional, Options) :-
+    in(M:opt_type(_,_,_)),""", """argv_options(Argv, Positional, Options) :-
+    Argv \\= _:_,
+    !,
+    argv_options(user:Argv, Positional, Options).
+argv_options(M:Argv, Positional, Options) :-
+    in(M:opt_type(_,_,_)),"""),
+             ("%s (argv_options/4)" % WHY_MAIN_META, """argv_options(Argv, Positional, Options, POptions) :-
+    option(on_error(halt(Code)), POptions),""", """argv_options(Argv, Positional, Options, POptions) :-
+    Argv \\= _:_,
+    !,
+    argv_options(user:Argv, Positional, Options, POptions).
+argv_options(Argv, Positional, Options, POptions) :-
+    option(on_error(halt(Code)), POptions),"""),
+             ("%s (argv_usage/1)" % WHY_MAIN_META, """argv_usage(M:Level) :-""", """argv_usage(Level) :-
+    Level \\= _:_,
+    !,
+    argv_usage(user:Level).
+argv_usage(M:Level) :-"""),
+             ("SCRIP has no xpce: the flag xpce_version is never defined, so cli_enable_development_system/0 never takes the branch that loads "
+              "library(pce_dispatch) at run time", """    (   current_prolog_flag(xpce_version, _)
+    ->  use_module(library(pce_dispatch)),
+	memberchk(Goal, [pce_dispatch([])]),
+	call(Goal)
+    ;   true
+    ),
+""", "")],
     "gensym": [("atom_concat/3 is ISO outside the SWI dialect (a number argument is a type_error), so the library's own symbol is built by atomic_list_concat/2, which takes "
                 "the number in every dialect", """    New is Old+1,
     atom_concat(Base, New, Atom).""", """    New is Old+1,
