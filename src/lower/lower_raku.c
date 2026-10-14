@@ -3398,11 +3398,12 @@ static void rk_cap_proc_m(tree_t * sd, int mth) {
     int added = 0;
     for (int k = 0; k < np && 1 + k < sd->n; k++) {
         const char * pn = rk_cap_pname(sd->c[1 + k]);
-        if (!pn || !rk_ns_has(&Bx, pn) || rk_param_is_rw(sd->c[1 + k])) continue;
+        if (!pn || !rk_ns_has(&Bx, pn)) continue;
+        const char * wrap = rk_param_is_rw(sd->c[1 + k]) ? "__rk_cell_of" : "__rk_box";
         tree_t * bx = ast_node_new(TT_FNC);
         bx->line = sd->line;
-        bx->v.sval = (char *) "__rk_box";
-        ast_push(bx, leaf_sval2(TT_VAR, "__rk_box"));
+        bx->v.sval = (char *) wrap;
+        ast_push(bx, leaf_sval2(TT_VAR, wrap));
         ast_push(bx, leaf_sval2(TT_VAR, pn));
         tree_t * as = ast_node_new(TT_ASSIGN);
         as->line = sd->line;
@@ -5262,6 +5263,32 @@ static void rk_rw_calls(tree_t * t, const rk_rwmap_t * m, int in_blk) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_user_sub_named(const tree_t * prog, const char * nm) {
+    size_t l = strlen(nm);
+    for (int i = 0; prog && i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (sub) d = sub; }
+        const char * dn = (d && d->t == TT_SUB_DECL && d->n > 0 && d->c[0]) ? d->c[0]->v.sval : NULL;
+        if (dn && !strncmp(dn, nm, l) && (dn[l] == 0 || dn[l] == '$')) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_minmax_fns(tree_t * t, const tree_t * prog, int umax, int umin) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_minmax_fns(t->c[i], prog, umax, umin);
+    if (t->t != TT_FNC || !t->v.sval || t->n < 2 || !t->c[0] || t->c[0]->t != TT_VAR) return;
+    for (int i = 1; t->n > 2 && i < t->n; i++) {
+        const tree_t * a = t->c[i];
+        if (a && ((a->t == TT_VAR && a->v.sval && a->v.sval[0] == '@') || (a->t == TT_FNC && a->v.sval && !strncmp(a->v.sval, "__rk_arr", 8)))) return;
+    }
+    int mx = !strcmp(t->v.sval, "max"), mn = !strcmp(t->v.sval, "min");
+    if ((!mx || umax) && (!mn || umin)) return;
+    const char * nn = mx ? "__rk_arr_max" : "__rk_arr_min";
+    t->v.sval = (char *) nn;
+    t->c[0]->v.sval = (char *) nn;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     rk_hoist_nested_types((tree_t *) prog);
     rk_hoist_nested_multis((tree_t *) prog);
@@ -5276,6 +5303,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_range_values((tree_t *) prog);
     rk_exclusive_ranges((tree_t *) prog);
     rk_bind_refs((tree_t *) prog, 0);
+    rk_minmax_fns((tree_t *) prog, prog, rk_user_sub_named(prog, "max"), rk_user_sub_named(prog, "min"));
     { int rseq = 0; rk_rw_loops((tree_t *) prog, &rseq); }
     { rk_rwmap_t rm = { 0 }; rk_rw_subs(prog, &rm); if (rm.n) rk_rw_calls((tree_t *) prog, &rm, 0); }
     rk_elem_store_values((tree_t *) prog);
