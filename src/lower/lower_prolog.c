@@ -869,7 +869,7 @@ static int pl_fence_on(void) { return emit_pl_fence_on(); }
 static int pl_file_defines(const char * nm, int ar);
 static int pl_attv_on(void);
 static int pl_attv_body(const tree_t * cl, int ar, const tree_t ** out, int cap);
-static int pl_scc_armed(void) { return pl_fence_on() && pl_file_defines("$scc_cut", 0); }
+static int pl_scc_armed(void) { extern int rt_proc_jmp_entry(const char *); return pl_fence_on() && (pl_file_defines("$scc_cut", 0) || rt_proc_jmp_entry("$scc_cut/0")); }
 int emit_pl_scc_armed(void) { return pl_scc_armed(); }
 static IR_t * pl_probe_before(lcx_t * cx, IR_t * target, IR_t * mark, int needs_mark) {
     if (!pl_scc_armed() || (needs_mark && !mark)) return target;
