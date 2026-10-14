@@ -1752,6 +1752,22 @@ static char *rk_av_joined(rk_av_t a, const char *sep, const char *open, const ch
     return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_reify_deep(DESCR_t v, int depth) {
+    if (v.v != DT_A || !v.arr || depth > 64) return;
+    rk_cbh_t H = { g_rk_cbh_cur, { v, NULVCL } };
+    g_rk_cbh_cur = &H;
+    if (rk_is_seq(H.d[0])) rk_seq_reify(&H.d[0], -1L);
+    for (long i = 0; ; i++) {
+        DESCR_t a = rk_is_seq(H.d[0]) ? ((ARBLK_t *) H.d[0].arr)->data[3] : H.d[0];
+        if (a.v != DT_A || !a.arr || rk_is_jct(a) || rk_is_range(a)) break;
+        ARBLK_t *b = (ARBLK_t *) a.arr;
+        if (i > (long) b->hi - b->lo) break;
+        DESCR_t e = b->data[i];
+        if (e.v == DT_A && e.arr) rk_reify_deep(e, depth + 1);
+    }
+    g_rk_cbh_cur = H.prev;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_jct_text(DESCR_t v) {
     rk_av_t a = rk_av(v);
     const char *fl = ((ARBLK_t *) v.arr)->proto;
@@ -1809,7 +1825,7 @@ static const char *rk_tbl_text(DESCR_t v) {
     return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *rk_arr_text(DESCR_t v) { if (rk_is_pair(v)) return rk_pair_text(v); if (rk_is_jct(v)) return rk_jct_text(v); return rk_av_joined(rk_av(v), " ", "", ""); }
+static const char *rk_arr_text(DESCR_t v) { rk_reify_deep(v, 0); if (rk_is_pair(v)) return rk_pair_text(v); if (rk_is_jct(v)) return rk_jct_text(v); return rk_av_joined(rk_av(v), " ", "", ""); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_join_gists(const char **tx, int n, const char *sep, const char *open, const char *close) {
     size_t sl = strlen(sep), ol = strlen(open), cl = strlen(close), tot = ol + cl + 1;
@@ -1827,6 +1843,7 @@ static const char *rk_join_gists(const char **tx, int n, const char *sep, const 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_range_text(DESCR_t v);
 static const char *rk_gist_str(DESCR_t v) {
+    rk_reify_deep(v, 0);
     if (rk_is_methval(v)) return rk_cstr(rk_av(v).el[0]);
     if (rk_is_attrval(v)) { rk_av_t a = rk_av(v); const char *t = rk_cstr(a.el[0]), *nm = rk_cstr(a.el[1]); char *r = rt_wsb_alloc(strlen(t) + strlen(nm) + 2); sprintf(r, "%s %s", t, nm); return r; }
     { const char *tn = rk_typeobj_name(v); if (tn) { char *r = rt_wsb_alloc(strlen(tn) + 3); snprintf(r, strlen(tn) + 3, "(%s)", tn); return r; } }
@@ -1913,6 +1930,7 @@ static int rk_ident_key(const char *k) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_raku_str(DESCR_t v, int in_hash) {
+    rk_reify_deep(v, 0);
     if (rk_match_is(v)) {
         if (!(int) FIELD_GET_fn(v, "ok").i) return "Nil";
         DESCR_t pa = FIELD_GET_fn(v, "positional"), na = FIELD_GET_fn(v, "named");
@@ -2011,19 +2029,10 @@ static const char *rk_raku_str(DESCR_t v, int in_hash) {
         rk_av_t a = rk_av(v);
         const char **tx = a.n ? (const char **) rt_pvec_alloc((size_t) a.n) : NULL;
         for (int i = 0; i < a.n; i++) tx[i] = rk_raku_str(a.el[i], 0);
-        int lst = rk_is_list(v) || rk_is_slip(v);
-        if (lst && a.n == 1) {
-            const char *one = tx[0];
-            size_t L = strlen(one);
-            char *b = rt_wsb_alloc(L + 4);
-            b[0] = '(';
-            memcpy(b + 1, one, L);
-            b[1 + L] = ',';
-            b[2 + L] = ')';
-            b[3 + L] = '\0';
-            return b;
-        }
+        int sq = rk_is_seq(v), lst = sq || rk_is_list(v) || rk_is_slip(v);
+        if (lst && a.n == 1) { const char *one = tx[0]; size_t L = strlen(one); char *b = rt_wsb_alloc(L + 8); snprintf(b, L + 8, "(%s,)%s", one, sq ? ".Seq" : ""); return b; }
         const char *body = rk_join_gists(tx, a.n, ", ", lst ? "(" : "[", lst ? ")" : "]");
+        if (sq) { size_t L = strlen(body); char *b = rt_wsb_alloc(L + 5); snprintf(b, L + 5, "%s.Seq", body); return b; }
         if (in_hash && !lst) { size_t L = strlen(body); char *b = rt_wsb_alloc(L + 2); b[0] = '$'; memcpy(b + 1, body, L + 1); return b; }
         return body;
     }

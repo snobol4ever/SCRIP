@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2720
-#define GC_ALLOC_TAB_N_VOID 315
+#define GC_ALLOC_TAB_N 2721
+#define GC_ALLOC_TAB_N_VOID 316
 #define GC_ALLOC_TAB_N_DESCR 1302
 #define GC_ALLOC_TAB_N_OTHER 1086
 #define GC_ALLOC_TAB_N_UNKNOWN 17
@@ -1475,6 +1475,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_rat_to_real", GC_RET_OTHER },
     { "rk_redispatch_open", GC_RET_OTHER },
     { "rk_register_classes", GC_RET_VOID },
+    { "rk_reify_deep", GC_RET_VOID },
     { "rk_rsp_arg_num", GC_RET_VOID },
     { "rk_rsp_legacy_pad", GC_RET_VOID },
     { "rk_rsp_pad", GC_RET_VOID },
