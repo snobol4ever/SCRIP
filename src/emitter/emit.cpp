@@ -6174,6 +6174,7 @@ DESCR_t rt_pl_dop_gnu_working_directory(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_c
 DESCR_t rt_pl_dop_gnu_delete_file(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_file_exists(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_directory_files(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_environ_list(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_file_props(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_term_hash(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_prolog_pid(DESCR_t *, int);
+DESCR_t rt_pl_dop_pipe(DESCR_t *, int); DESCR_t rt_pl_dop_open_null_stream(DESCR_t *, int);
 DESCR_t rt_pl_dop_number_chars(DESCR_t *, int); DESCR_t rt_pl_dop_name(DESCR_t *, int); DESCR_t rt_pl_dop_get_char(DESCR_t *, int); DESCR_t rt_pl_dop_peek_char(DESCR_t *, int);
 DESCR_t rt_pl_dop_read(DESCR_t *, int); DESCR_t rt_pl_dop_atom_to_term(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_atom(DESCR_t *,
     int); DESCR_t rt_pl_dop_read_term_from_chars(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_codes(DESCR_t *, int);DESCR_t rt_pl_dop_display(DESCR_t *,
@@ -6343,6 +6344,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$gnu_file_props", 2, "rt_pl_dop_gnu_file_props", rt_pl_dop_gnu_file_props },
         { "$gnu_term_hash", 2, "rt_pl_dop_gnu_term_hash", rt_pl_dop_gnu_term_hash },
         { "$gnu_prolog_pid", 1, "rt_pl_dop_gnu_prolog_pid", rt_pl_dop_gnu_prolog_pid },
+        { "$pipe", 2, "rt_pl_dop_pipe", rt_pl_dop_pipe },
+        { "$open_null_stream", 1, "rt_pl_dop_open_null_stream", rt_pl_dop_open_null_stream },
         { "$number_codes", 2, "rt_pl_dop_number_codes", rt_pl_dop_number_codes }, { "$number_chars", 2, "rt_pl_dop_number_chars", rt_pl_dop_number_chars },
         { "$name", 2, "rt_pl_dop_name", rt_pl_dop_name }, { "$get_char", 1, "rt_pl_dop_get_char", rt_pl_dop_get_char }, { "$peek_char", 1, "rt_pl_dop_peek_char", rt_pl_dop_peek_char },
         { "$get_code", 1, "rt_pl_dop_get_code", rt_pl_dop_get_code }, { "$peek_code", 1, "rt_pl_dop_peek_code", rt_pl_dop_peek_code },

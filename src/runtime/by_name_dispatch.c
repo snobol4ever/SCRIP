@@ -7148,6 +7148,43 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
 #define PL_CX_LEAF_HEAD(nm, ar) DESCR_t rt_pl_dop_##nm##_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {int ok; if (nargs != ar) return FAILDESCR;pl_atoms_ready();rt_pl_tr_gc_sync(cx->tr);
 #define PL_CX_LEAF_TAIL rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(pipe, 2)
+    {
+        extern int fh_alloc(FILE *);
+        extern void *rt_pl_ball_kind1(const char *, const char *);
+        int fds[2];
+        FILE * rf = NULL, * wf = NULL;
+        ok = 0;
+        if (pipe(fds) != 0) cx->ball = rt_pl_ball_kind1("resource_error", "open_files");
+        else if (!(rf = fdopen(fds[0], "r"))) {
+            close(fds[0]);
+            close(fds[1]);
+            cx->ball = rt_pl_ball_kind1("resource_error", "open_files");
+        } else if (!(wf = fdopen(fds[1], "w"))) {
+            fclose(rf);
+            close(fds[1]);
+            cx->ball = rt_pl_ball_kind1("resource_error", "open_files");
+        } else {
+            int ri = fh_alloc(rf), wi = fh_alloc(wf);
+            g_fh[ri].mode = 'r';
+            g_fh[wi].mode = 'w';
+            ok = plw_unify_vals(args[0], pl_mk_stream(ri), cx) && plw_unify_vals(args[1], pl_mk_stream(wi), cx);
+            if (!ok) { fclose(rf); fclose(wf); fh_free(ri); fh_free(wi); }
+        }
+    }
+PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(open_null_stream, 1)
+    {
+        extern int fh_alloc(FILE *);
+        extern void *rt_pl_ball_kind1(const char *, const char *);
+        FILE * fp = fopen("/dev/null", "w");
+        ok = 0;
+        if (!fp) cx->ball = rt_pl_ball_kind1("resource_error", "open_files");
+        else { int idx = fh_alloc(fp); g_fh[idx].mode = 'w'; ok = plw_unify_vals(args[0], pl_mk_stream(idx), cx); if (!ok) { fclose(fp); fh_free(idx); } }
+    }
+PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_set_stream_bool(const char *as) { return as && (!strcmp(as, "true") || !strcmp(as, "false")); }
 PL_CX_LEAF_HEAD(set_stream, 2)
     {
