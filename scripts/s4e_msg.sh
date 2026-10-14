@@ -2192,6 +2192,10 @@ case "$cmd" in
               # ⛔ `assign` IS DELIBERATELY NOT GATED: an HQ writes the seat's claim on the HQ's own tree, which
               # is not the tree the work will happen on, so a premise measured there answers about the wrong
               # machine. The ASSIGNED row is gated at SERVE time instead, in PASS 1 of `next`, on the seat's tree.
+              # ⛔ A CLAIM LOCKS A ROW, SO A TOPIC WITH NO QUEUE.tsv ROW IS REFUSED rc 2 BEFORE ANY LOCK (coo 2026-10-14:
+              # hq_templates claimed zzz-nonexistent-row, the bus wrote claims/zzz-nonexistent-row.claim and announced it
+              # fleet-wide, and s4e_set_row_state's no-op on a rowless topic was swallowed by its `|| true` below).
+              [ -n "$(qrow "$topic")" ] || { echo "⛔ REFUSED (rc 2): no QUEUE.tsv row is named $topic -- a claim locks a row and there is none to lock; nothing written, nothing announced. Claim the row's exact topic, or ask the ceo to mint it."; exit 2; }
               s4e_premise_gate "$topic" claim || exit 1
               t="$(mktemp "$PO/claims/.c.XXXXXX")"; echo "$ME" > "$t"
               if ln "$t" "$c" 2>/dev/null; then rm -f "$t"
