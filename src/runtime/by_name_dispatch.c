@@ -7347,6 +7347,23 @@ PL_CX_LEAF_HEAD(attv_take, 1) ok = rt_pl_attv_take_cell(&args[0], cx); PL_CX_LEA
 PL_CX_LEAF_HEAD(crv_enter, 1) ok = rt_pl_crv_enter_cell(&args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(crv_adj, 1) ok = rt_pl_crv_adj_cell(&args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(crv_collect, 2) ok = rt_pl_crv_collect_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
+static DESCR_t pl_link_word(DESCR_t *a, pl_tr_ctx_t *cx) {
+    DESCR_t *c = plw_cell_deref(plw_entry(a)), w, *slot = &w;
+    for (;;) {
+        int n;
+        DESCR_t *nk, *ok;
+        if (plw_unbound_tag(c) || c->v != (DTYPE_t)DT_PLREF || !c->p) { *slot = pl_attv_word(c, cx); return w; }
+        n = (int)plc_fid_arity(c->slen);
+        if (n < 1) { *slot = *c; return w; }
+        nk = (DESCR_t *)rt_ws_alloc_descr((size_t)n);
+        ok = (DESCR_t *)c->p;
+        *slot = *c;
+        slot->p = (void *)nk;
+        for (int i = 0; i < n - 1; i++) nk[i] = pl_link_word(&ok[i], cx);
+        slot = &nk[n - 1];
+        c = plw_cell_deref(plw_entry(&ok[n - 1]));
+    }
+}
 static int rt_pl_setarg_cell(DESCR_t *na, DESCR_t *ta, DESCR_t *va, pl_tr_ctx_t *cx, int trail) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_instantiation(void);
@@ -7361,7 +7378,8 @@ static int rt_pl_setarg_cell(DESCR_t *na, DESCR_t *ta, DESCR_t *va, pl_tr_ctx_t 
     {
         DESCR_t *cell = &((DESCR_t *)t->p)[n->i - 1];
         DESCR_t w;
-        if (trail != 0) w = pl_attv_word(va, cx);
+        if (trail == 2) w = pl_link_word(va, cx);
+        else if (trail) w = pl_attv_word(va, cx);
         else {
             DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1), *d;
             j->v = (DTYPE_t)DT_PLVAR;
