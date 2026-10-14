@@ -1,6 +1,7 @@
 unit sysutils;
 interface
 type
+  TDateTime = double;
   Exception = class
   private
     FMessage: string;
@@ -43,6 +44,11 @@ function Trim(s: string): string;
 function StrToIntDef(s: string; d: integer): integer;
 function TryStrToInt(s: string; var n: integer): boolean;
 function FileExists(s: string): boolean;
+function Now: double;
+function Date: double;
+function Time: double;
+function GetTickCount64: int64;
+function GetTickCount: int64;
 function CompareStr(a, b: string): integer;
 function CompareText(a, b: string): integer;
 function AnsiCompareStr(a, b: string): integer;
@@ -175,6 +181,28 @@ end;
 function FileExists(s: string): boolean;
 begin
   FileExists := __pas_fileexists(s)
+end;
+function Now: double;
+begin
+  Now := __pas_now()
+end;
+function Date: double;
+begin
+  Date := trunc(__pas_now())
+end;
+function Time: double;
+var d: double;
+begin
+  d := __pas_now();
+  Time := d - trunc(d)
+end;
+function GetTickCount64: int64;
+begin
+  GetTickCount64 := __pas_ticks()
+end;
+function GetTickCount: int64;
+begin
+  GetTickCount := __pas_ticks() mod 4294967296
 end;
 function CompareStr(a, b: string): integer;
 var i, n: integer;

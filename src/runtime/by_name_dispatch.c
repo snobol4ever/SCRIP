@@ -15271,6 +15271,21 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
     }
     if (!strcmp(fn, "__pas_dynlen") && nargs == 1) { ARBLK_t *b = (args[0].v == DT_A && args[0].arr) ? (ARBLK_t *) args[0].arr : NULL; *out = INTVAL(b ? (long long)b->hi - b->lo + 1 : 0); return 1; }
     if (!strcmp(fn, "__pas_arrlit")) { DESCR_t d = pas_dyn_block(nargs); for (int k = 0; k < nargs; k++) ((ARBLK_t *) d.arr)->data[k] = args[k]; *out = d; return 1; }
+    if (!strcmp(fn, "__pas_now") && nargs == 0) {
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        time_t t = ts.tv_sec;
+        struct tm lt;
+        localtime_r(&t, &lt);
+        *out = REALVAL(((double)t + (double)lt.tm_gmtoff) / 86400.0 + 25569.0 + (double)ts.tv_nsec / 1e9 / 86400.0);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_ticks") && nargs == 0) {
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        *out = INTVAL((long long)ts.tv_sec * 1000LL + (long long)(ts.tv_nsec / 1000000L));
+        return 1;
+    }
     if (!strcmp(fn, "__pas_fileexists") && nargs == 1) { const char *sv = VARVAL_fn(args[0]); struct stat st; *out = INTVAL(sv && *sv && stat(sv, &st) == 0 && S_ISREG(st.st_mode) ? 1 : 0); return 1; }
     if (!strcmp(fn, "__pas_rounde") && nargs == 1) {
         double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0), e = rint(d);

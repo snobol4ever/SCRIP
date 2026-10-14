@@ -588,6 +588,7 @@ test_gate_pas_a_program_using_a_unit_keeps_its_typed_constants_and_fpc_rounds_ha
 test_gate_pas_include_exclude_assignfile_array_constructors_trystrtoint_and_fileexists.sh	WIRED	-	-	-
 test_gate_pas_a_method_call_may_carry_an_empty_argument_list.sh	WIRED	-	-	-
 test_gate_pas_an_unsigned_byte_word_or_longword_variable_wraps_on_assignment.sh	WIRED	-	-	-
+test_gate_pas_sysutils_now_date_time_and_the_tick_counters_answer_in_range.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_and_text_get_put.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_stays_inside_the_unpacked_arrays_index_type.sh	WIRED	-	-	-
 test_gate_pas_packed_component_is_not_a_var_parameter.sh	WIRED	-	-	-
