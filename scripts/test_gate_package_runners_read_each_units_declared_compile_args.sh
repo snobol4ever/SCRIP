@@ -279,7 +279,8 @@ fi
 RATCHET_EXEMPT="lib_port_trace.sh:the port-trace grader's instrumentation, not a unit attribute (landing 3's ruling)
 util_stlimit_keeps_three_package_answers.sh:an instrument that measures the switch itself -- its arms type it by design
 corpus_suite_harness.py:COMPILE_ARGS_ADMITTED is the switch's one definition
-util_gc_safe_point_contract.py:CEO-1250 pins its reach reading's environment to the switch"
+util_gc_safe_point_contract.py:CEO-1250 pins its reach reading's environment to the switch
+util_gc_demo_porter_chain_reading.sh:a one-entry GC witness reading (hq_collector's porter reading): --stlimit is tests/snobol4 demo_porter's own ALL.csv compile_args, spelled on its command line as the harness passes it (the coo, ceo CEO-1697)"
 ratchet_offenders() {  # <dir> -> the basename of every non-gate .sh/.py in it with an executable line typing the switch
     local f; for f in "$1"/*.sh "$1"/*.py; do [ -f "$f" ] || continue
         case "${f##*/}" in test_gate_*) continue;; esac
