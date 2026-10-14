@@ -1,5 +1,5 @@
-#define RTX_CLOB_TAB_N 311
-#define RTX_CLOB_TAB_N_CLOBBERING 282
+#define RTX_CLOB_TAB_N 312
+#define RTX_CLOB_TAB_N_CLOBBERING 283
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "dat_field_get", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
@@ -299,6 +299,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_str_coerce", 0 },
     { "rt_sub", 0 },
     { "rt_sub_sno", 0 },
+    { "rt_subscript_val", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_subscript_var", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_subscript_var_container_only", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_table_assign_fast", RTCC_C_R10|RTCC_C_R11 },

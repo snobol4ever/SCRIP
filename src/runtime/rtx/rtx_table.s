@@ -18,6 +18,10 @@
 #define TBBLK_BUCKETS     0
 #define TBBLK_NBUCK       8
 #define TBBLK_DFLT       32
+#define ARBLK_LO          0
+#define ARBLK_HI          4
+#define ARBLK_NDIM        8
+#define ARBLK_DATA       32
 #define TBBLK_SIZE       12
 #define TBBLK_INIT       16
 #define HB_AGGB         211
@@ -574,6 +578,85 @@ RTX_FUNC(rt_subscript_var_container_only)
 .Lsvco_c:
     RTX_DECLINE
 RTX_ENDF(rt_subscript_var_container_only)
+RTX_FUNC(rt_subscript_val)
+    RTX_GATE(table, .Lsvv_c)
+    cmp     dil, DT_T
+    je      .Lsvv_tbl
+    cmp     dil, DT_A
+    jne     .Lsvv_c
+    cmp     dl, DT_I
+    jne     .Lsvv_c
+    test    rsi, rsi
+    je      .Lsvv_c
+    cmp     dword ptr [rsi + ARBLK_NDIM], 1
+    jne     .Lsvv_c
+    mov     r8, qword ptr [rsi + ARBLK_DATA]
+    test    r8, r8
+    je      .Lsvv_c
+    movsxd  rax, dword ptr [rsi + ARBLK_LO]
+    mov     r10, rcx
+    sub     r10, rax
+    movsxd  r11, dword ptr [rsi + ARBLK_HI]
+    sub     r11, rax
+    js      .Lsvv_c
+    cmp     r10, r11
+    ja      .Lsvv_c
+    shl     r10, 4
+    mov     rax, qword ptr [r8 + r10]
+    mov     rdx, qword ptr [r8 + r10 + 8]
+    RTX_GVA_R9
+    ret
+.Lsvv_tbl:
+    test    rsi, rsi
+    je      .Lsvv_c
+    RTX_PUSH(rdi)
+    RTX_PUSH(rsi)
+    RTX_PUSH(rdx)
+    RTX_PUSH(rcx)
+    RTX_SUB_RSP(8)
+    mov     rdi, rsi
+    mov     rsi, rdx
+    mov     rdx, rcx
+    RTX_CALL(table_find_pair_d)
+    RTX_ADD_RSP(8)
+    test    rax, rax
+    je      .Lsvv_miss
+    mov     rdx, qword ptr [rax + 24]
+    mov     rax, qword ptr [rax + 16]
+    jmp     .Lsvv_have
+.Lsvv_miss:
+    mov     rdi, qword ptr [rsp + 16]
+    movzx   eax, byte ptr [rdi + TBBLK_DFLT]
+    cmp     al, DT_FAIL
+    je      .Lsvv_null
+    test    al, al
+    je      .Lsvv_null
+    mov     rdx, qword ptr [rdi + TBBLK_DFLT + 8]
+    mov     rax, qword ptr [rdi + TBBLK_DFLT]
+    jmp     .Lsvv_have
+.Lsvv_null:
+    xor     eax, eax
+    lea     rdx, [rip + .Lsvco_empty]
+.Lsvv_have:
+    cmp     al, DT_N
+    jne     .Lsvv_ok
+    mov     rcx, rax
+    shr     rcx, 32
+    jnz     .Lsvv_decl
+.Lsvv_ok:
+    RTX_ADD_RSP(32)
+    RTX_GVA_R9
+    ret
+.Lsvv_decl:
+    RTX_CFA(40)
+    RTX_POP(rcx)
+    RTX_POP(rdx)
+    RTX_POP(rsi)
+    RTX_POP(rdi)
+    RTX_DECLINE
+.Lsvv_c:
+    RTX_DECLINE
+RTX_ENDF(rt_subscript_val)
 .section .rodata
 .Lsvco_empty:
     .byte 0

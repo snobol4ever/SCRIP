@@ -2584,7 +2584,7 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) { return subscript_get
 DESCR_t subscript_get2_strict(DESCR_t arr, DESCR_t i, DESCR_t j) { return subscript_get2_s(arr, i, j, 1); }
 DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) { return rt_section_var_s(base, i1d, i2d, 0); }
 DESCR_t rt_section_var_strict(DESCR_t base, DESCR_t i1d, DESCR_t i2d) { return rt_section_var_s(base, i1d, i2d, 1); }
-DESCR_t rt_subscript_val(DESCR_t base, DESCR_t idx) {
+DESCR_t c_rt_subscript_val(DESCR_t base, DESCR_t idx) {
     extern DESCR_t rt_deref(DESCR_t);
     extern DESCR_t c_rt_subscript_var_container_only(DESCR_t, DESCR_t);
     if (IS_VARREF_fn(base)) base = rt_deref(base);
