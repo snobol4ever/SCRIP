@@ -11767,6 +11767,11 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_EXPORTS[] = {
     { "del_dict", 4 },
     { "dict_pairs", 3 },
     { "dict_create", 3 },
+    { "select_dict", 3 },
+    { ":<", 2 },
+    { ">:<", 2 },
+    { "b_set_dict", 3 },
+    { "nb_set_dict", 3 },
     { "$dict_eval", 3 },
     { 0, 0 }
 };
@@ -11783,10 +11788,13 @@ static const char PL_PRELUDE_LIB_6_SRC[] =
     "'$dict_need'(D) :- is_dict(D), !.\n"
     "'$dict_need'(D) :- var(D), !, throw(error(instantiation_error, _)).\n"
     "'$dict_need'(D) :- throw(error(type_error(dict, D), _)).\n"
+    "'$dict_conv'(D, D) :- is_dict(D), !.\n"
+    "'$dict_conv'(L, D) :- is_list(L), !, dict_create(D, _, L).\n"
+    "'$dict_conv'(D, _) :- '$dict_need'(D).\n"
     "'$dict_vk'([], []).\n"
     "'$dict_vk'([V, K|R], [K-V|P]) :- '$dict_vk'(R, P).\n"
     "'$dict_kvs'(D, T, P) :- D =.. ['$dict', T|VK], '$dict_vk'(VK, P).\n"
-    "'$dict_build'(T, P, D) :- keysort(P, S), '$dict_nodup'(S), '$dict_vk'(VK, S), D =.. ['$dict', T|VK].\n"
+    "'$dict_build'(T, P, D) :- '$dict_keys_ok'(P), keysort(P, S), '$dict_nodup'(S), '$dict_vk'(VK, S), D =.. ['$dict', T|VK].\n"
     "'$dict_nodup'([]).\n"
     "'$dict_nodup'([K-_|R]) :- '$dict_nodup'(R, K).\n"
     "'$dict_nodup'([], _).\n"
@@ -11801,6 +11809,11 @@ static const char PL_PRELUDE_LIB_6_SRC[] =
     "'$dict_kv'(K:V, K, V) :- !.\n"
     "'$dict_kv'(E, K, V) :- compound(E), E =.. [K, V], !.\n"
     "'$dict_kv'(E, _, _) :- throw(error(type_error(pair, E), _)).\n"
+    "'$dict_keys_ok'([]).\n"
+    "'$dict_keys_ok'([K-_|R]) :- '$dict_key_ok'(K), '$dict_keys_ok'(R).\n"
+    "'$dict_key_ok'(K) :- var(K), !, throw(error(instantiation_error, _)).\n"
+    "'$dict_key_ok'(K) :- ( atom(K) ; integer(K) ), !.\n"
+    "'$dict_key_ok'(K) :- throw(error(type_error('dict-key', K), _)).\n"
     "dict_pairs(D, T, P) :- is_dict(D), !, '$dict_kvs'(D, T, P).\n"
     "dict_pairs(_, T, P) :- var(T), var(P), !, throw(error(instantiation_error, _)).\n"
     "dict_pairs(D, T, P) :- '$dict_norm'(P, P1), '$dict_build'(T, P1, D).\n"
@@ -11808,7 +11821,7 @@ static const char PL_PRELUDE_LIB_6_SRC[] =
     "get_dict(K, D, V) :- '$dict_need'(D), '$dict_kvs'(D, _, P), ( var(K) -> '$dict_member'(P, K, V) ; '$dict_get'(P, K, V0), V = V0 ).\n"
     "'$dict_member'([K0-V0|R], K, V) :- ( K = K0, V = V0 ; '$dict_member'(R, K, V) ).\n"
     "'$dict_get'([K0-V0|R], K, V) :- ( K0 == K -> V = V0 ; '$dict_get'(R, K, V) ).\n"
-    "get_dict(K, D, V, NV, ND) :- get_dict(K, D, V), put_dict(K, D, NV, ND).\n"
+    "get_dict(K, D, V, ND, NV) :- '$dict_conv'(D, D1), get_dict(K, D1, V), put_dict(K, D1, NV, ND).\n"
     "put_dict(K, D, V, ND) :- '$dict_need'(D), '$dict_kvs'(D, T, P), '$dict_put'(P, K, V, P1), '$dict_build'(T, P1, ND).\n"
     "'$dict_put'([], K, V, [K-V]).\n"
     "'$dict_put'([K0-V0|R], K, V, O) :- ( K0 == K -> O = [K-V|R] ; O = [K0-V0|O1], '$dict_put'(R, K, V, O1) ).\n"
@@ -11818,7 +11831,19 @@ static const char PL_PRELUDE_LIB_6_SRC[] =
     "'$dict_putall'([K-V|R], P, O) :- '$dict_put'(P, K, V, P1), '$dict_putall'(R, P1, O).\n"
     "del_dict(K, D, V, ND) :- '$dict_need'(D), '$dict_kvs'(D, T, P), '$dict_del'(P, K, V, P1), '$dict_build'(T, P1, ND).\n"
     "'$dict_del'([K0-V0|R], K, V, O) :- ( K0 == K -> V = V0, O = R ; O = [K0-V0|O1], '$dict_del'(R, K, V, O1) ).\n"
-    "'$dict_eval'(D, F, V) :- '$dict_need'(D), '$dict_fn'(F, D, V).\n"
+    "'$dict_eval'(D, F, V) :- '$dict_conv'(D, D1), '$dict_fn'(F, D1, V).\n"
+    "select_dict(S, F, R) :- '$dict_conv'(S, S1), '$dict_conv'(F, F1), '$dict_kvs'(S1, T, SP), '$dict_kvs'(F1, T, FP), '$dict_sel'(SP, FP, RP), '$dict_build'(_, RP, R).\n"
+    "'$dict_sel'([], R, R).\n"
+    "'$dict_sel'([K-V|S], F, R) :- '$dict_take'(F, K, V0, F1), V = V0, '$dict_sel'(S, F1, R).\n"
+    "'$dict_take'([K0-V0|R], K, V, O) :- ( K0 == K -> V = V0, O = R ; O = [K0-V0|O1], '$dict_take'(R, K, V, O1) ).\n"
+    "':<'(S, F) :- select_dict(S, F, _).\n"
+    "'>:<'(A, B) :- '$dict_conv'(A, A1), '$dict_conv'(B, B1), '$dict_kvs'(A1, T, AP), '$dict_kvs'(B1, T, BP), '$dict_join'(AP, BP).\n"
+    "'$dict_join'([], _).\n"
+    "'$dict_join'([K-V|R], P) :- ( '$dict_get'(P, K, V0) -> V = V0 ; true ), '$dict_join'(R, P).\n"
+    "b_set_dict(K, D, V) :- '$dict_need'(D), '$dict_slot'(K, D, I), setarg(I, D, V).\n"
+    "nb_set_dict(K, D, V) :- '$dict_need'(D), '$dict_slot'(K, D, I), nb_setarg(I, D, V).\n"
+    "'$dict_slot'(K, D, I) :- D =.. [_, _|VK], ( '$dict_slot_'(VK, K, 2, I0) -> I = I0 ; throw(error(existence_error(key, K, D), _)) ).\n"
+    "'$dict_slot_'([_, K0|R], K, I0, I) :- ( K0 == K -> I = I0 ; I1 is I0 + 2, '$dict_slot_'(R, K, I1, I) ).\n"
     "'$dict_fn'(F, D, V) :- var(F), !, get_dict(F, D, V).\n"
     "'$dict_fn'(get(K), D, V) :- !, get_dict(K, D, V).\n"
     "'$dict_fn'(get(K, Df), D, V) :- !, ( get_dict(K, D, V0) -> V = V0 ; V = Df ).\n"
