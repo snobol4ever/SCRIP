@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2654
+#define GC_ALLOC_TAB_N 2665
 #define GC_ALLOC_TAB_N_VOID 312
-#define GC_ALLOC_TAB_N_DESCR 1270
-#define GC_ALLOC_TAB_N_OTHER 1055
+#define GC_ALLOC_TAB_N_DESCR 1276
+#define GC_ALLOC_TAB_N_OTHER 1060
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1133,8 +1133,11 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_copy", GC_RET_DESCR },
     { "plc_copy_cx", GC_RET_DESCR },
     { "plc_copy_run", GC_RET_OTHER },
+    { "plc_copy_share_run", GC_RET_OTHER },
+    { "plc_copy_shared", GC_RET_DESCR },
     { "plc_copy_x", GC_RET_DESCR },
     { "plc_factorize", GC_RET_DESCR },
+    { "plc_factorize_x", GC_RET_DESCR },
     { "plc_fb_term", GC_RET_OTHER },
     { "plc_first_char", GC_RET_OTHER },
     { "plc_fmt_dbl", GC_RET_OTHER },
@@ -1155,6 +1158,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_op_is_postfix", GC_RET_OTHER },
     { "plc_op_is_postfix_id", GC_RET_OTHER },
     { "plc_portray_hit", GC_RET_OTHER },
+    { "plc_sh_more", GC_RET_OTHER },
     { "plc_sp_addsub", GC_RET_DESCR },
     { "plc_sp_int_arg", GC_RET_OTHER },
     { "plc_sp_not_negative", GC_RET_OTHER },
@@ -1816,8 +1820,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_cmp_cold_c", GC_RET_DESCR },
     { "rt_pl_compare_cell", GC_RET_OTHER },
     { "rt_pl_compound_cell", GC_RET_OTHER },
+    { "rt_pl_copy_keep_cell", GC_RET_OTHER },
     { "rt_pl_copy_term_cell", GC_RET_OTHER },
     { "rt_pl_copy_term_nat_cell", GC_RET_OTHER },
+    { "rt_pl_copy_term_share_cell", GC_RET_OTHER },
     { "rt_pl_crv_collect_cell", GC_RET_OTHER },
     { "rt_pl_crv_enter_cell", GC_RET_OTHER },
     { "rt_pl_db_abolish", GC_RET_OTHER },
@@ -1925,6 +1931,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_compare_c", GC_RET_DESCR },
     { "rt_pl_dop_concat_atom", GC_RET_DESCR },
     { "rt_pl_dop_concat_atom_c", GC_RET_DESCR },
+    { "rt_pl_dop_copy_keep", GC_RET_DESCR },
+    { "rt_pl_dop_copy_keep_c", GC_RET_DESCR },
     { "rt_pl_dop_copy_term", GC_RET_DESCR },
     { "rt_pl_dop_copy_term_c", GC_RET_DESCR },
     { "rt_pl_dop_copy_term_nat", GC_RET_DESCR },
@@ -1999,6 +2007,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_display_s_c", GC_RET_DESCR },
     { "rt_pl_dop_downcase_atom", GC_RET_DESCR },
     { "rt_pl_dop_downcase_atom_c", GC_RET_DESCR },
+    { "rt_pl_dop_factorize_term", GC_RET_DESCR },
+    { "rt_pl_dop_factorize_term_c", GC_RET_DESCR },
     { "rt_pl_dop_findall_add", GC_RET_DESCR },
     { "rt_pl_dop_findall_new", GC_RET_DESCR },
     { "rt_pl_dop_findall_result", GC_RET_DESCR },
@@ -2320,6 +2330,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_writeq_sb", GC_RET_DESCR },
     { "rt_pl_dop_writeq_sb_c", GC_RET_DESCR },
     { "rt_pl_exist_raise", GC_RET_DESCR },
+    { "rt_pl_factorize_term_cell", GC_RET_OTHER },
     { "rt_pl_findall_begin", GC_RET_OTHER },
     { "rt_pl_findall_collect", GC_RET_VOID },
     { "rt_pl_findall_finish", GC_RET_OTHER },

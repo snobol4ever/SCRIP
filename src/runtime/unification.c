@@ -587,7 +587,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
 #undef PLC_KID
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { void *blk; pl_cell_t *nb; int done; } plc_fz_ent_t;
-typedef struct { plr_stk_t ag, lg; pl_cell_t *s; pl_cell_t *d; long next_k; int named; pl_cell_t knodes; plc_fz_ent_t *tab; long mask; } plc_fz_t;
+typedef struct { plr_stk_t ag, lg; pl_cell_t *s; pl_cell_t *d; long next_k; int named; int dag; pl_cell_t knodes; plc_fz_ent_t *tab; long mask; } plc_fz_t;
 static pl_cell_t plc_fz_var(plc_fz_t *z, long k) {
     if (z->named) {
         char nb[32];
@@ -612,7 +612,7 @@ static int plc_fz_run(void *wv) {
         plc_fz_ent_t *e = ar > 0 ? plc_fz_slot(w, d->p) : (plc_fz_ent_t *)0;
         if (e && e->blk) {
             pl_cell_t *nb = e->nb;
-            if (!e->done && nb[ar].v == DT_SNUL) {
+            if ((!e->done || w->dag) && nb[ar].v == DT_SNUL) {
                 pl_cell_t *kc = (pl_cell_t *)rt_ws_alloc_descr(2);
                 nb[ar] = plc_fz_var(w, ++w->next_k);
                 kc[0] = pl_make_compound(plc_fid_name(d->slen), ar, nb);
@@ -649,7 +649,7 @@ static int plc_fz_run(void *wv) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_fz_count_visit(pl_cell_t *d, void *ctx) { if ((int)d->v == DT_PLREF) ++*(long *)ctx; return PLR_V_GO; }
-PLR_WALK1(plc_fz_count_walk, plc_fz_count_visit, pl_deref) static pl_cell_t plc_factorize(pl_cell_t *c, int named) {
+PLR_WALK1(plc_fz_count_walk, plc_fz_count_visit, pl_deref) static pl_cell_t plc_factorize_x(pl_cell_t *c, int named, int dag) {
     long n = 0, cap = 64;
     pl_cell_t out, subs = pl_make_atom(ATOM_NIL), *args = (pl_cell_t *)rt_ws_alloc_descr(2);
     plc_fz_t w;
@@ -665,6 +665,7 @@ PLR_WALK1(plc_fz_count_walk, plc_fz_count_visit, pl_deref) static pl_cell_t plc_
         w.d = &out;
         w.next_k = 0;
         w.named = named;
+        w.dag = dag;
         w.knodes = pl_make_atom(ATOM_NIL);
         w.tab = tab;
         w.mask = cap - 1;
@@ -684,6 +685,7 @@ PLR_WALK1(plc_fz_count_walk, plc_fz_count_visit, pl_deref) static pl_cell_t plc_
     args[1] = subs;
     return pl_make_compound(prolog_atom_intern("@"), 2, args);
 }
+static pl_cell_t plc_factorize(pl_cell_t *c, int named) { return plc_factorize_x(c, named, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_acyclic_walk(pl_cell_t *c);
 static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, long max_depth, long depth, int maxp, plc_vmap *m) {
@@ -2556,7 +2558,7 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell, int as_str, pl_tr_ct
     return plc_text_out(str_cell, buf ? buf : "", as_str, cx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { plr_stk_t ag, lg; pl_cell_t *s; pl_cell_t *d; int atts; pl_tr_ctx_t *cx; } plc_cp_t;
+typedef struct { plr_stk_t ag, lg; pl_cell_t *s; pl_cell_t *d; int atts; pl_tr_ctx_t *cx; long nfr; } plc_cp_t;
 static int plc_copy_run(void *wv) {
     plc_cp_t *w = (plc_cp_t *)wv;
     for (;;) {
@@ -2615,11 +2617,125 @@ static pl_cell_t plc_copy_cx(pl_cell_t *c, int atts, pl_tr_ctx_t *cx) {
     w.d = &out;
     w.atts = atts;
     w.cx = cx;
+    w.nfr = 0;
     (void)plc_copy_run(&w);
     return out;
 }
 static pl_cell_t plc_copy_x(pl_cell_t *c, int atts) { return plc_copy_cx(c, atts, (pl_tr_ctx_t *)0); }
 static pl_cell_t plc_copy(pl_cell_t *c) { return plc_copy_x(c, 0); }
+#define PLC_SH_FRAME (1ull << 63)
+#define PLC_SH_CHG (1ull << 62)
+#define PLC_SH_ATT (1ull << 61)
+#define PLC_SH_CNT 0xFFFFFFFFull
+#define PLC_SH_BUDGET 1024
+_Static_assert(PLC_SH_BUDGET > 0,
+    "copy_term shares a subterm its copy would leave unchanged (SWI shares ground subterms), deciding at the subterm's end, so a compound still unchanged when its last argument comes "
+    "up keeps its frame; past this many kept frames a compound is copied instead of shared, so a long ground spine costs the copier no more stack than the plain copy's own marks");
+static int plc_sh_room2(const plr_stk_t *s) { return s->top && (s->top->cap - s->top->n >= 2 || s->top->next); }
+static void plc_sh_changed(plc_cp_t *w) { if (!plr_empty(&w->ag)) plr_peek(&w->ag)->n |= PLC_SH_CHG; }
+static int plc_copy_share_run(void *wv);
+static int plc_sh_more(plc_cp_t *w) {
+    long na = plc_sh_room2(&w->ag) ? 0 : w->ag.want, nb = plr_room(&w->lg) ? 0 : w->lg.want;
+    plr_ent_t ea[na > 0 ? na : 1], eb[nb > 0 ? nb : 1];
+    plr_seg_t sa, sb;
+    if (na) plr_link(&w->ag, &sa, ea, na);
+    if (nb) plr_link(&w->lg, &sb, eb, nb);
+    return plc_copy_share_run(w);
+}
+static int plc_copy_share_run(void *wv) {
+    plc_cp_t *w = (plc_cp_t *)wv;
+    for (;;) {
+        pl_cell_t *d = plr_resolve(pl_deref(w->s));
+        if (d->v == PLR_COPY) {
+            *w->d = pl_make_compound(plc_fid_name(d->slen), plc_fid_arity(d->slen), d->p);
+            plc_sh_changed(w);
+        } else if (d->v == PLR_VCOPY) {
+            pl_cell_t *f = (pl_cell_t *)d->p;
+            *w->d = pl_make_ref(f, (int)f->slen);
+            if (f != d) plc_sh_changed(w);
+        } else if (pl_cell_unbound(d)) {
+            pl_cell_t *fresh;
+            uint64_t w0;
+            int at = w->atts && pl_attv_is(d);
+            if (!plr_room(&w->lg) || (at && !plr_room(&w->ag))) return plc_sh_more(w);
+            fresh = (pl_cell_t *)rt_ws_alloc_descr(at ? 2 : 1);
+            if (at) { fresh[0].v = (DTYPE_t)DT_PLVAR; fresh[0].slen = PL_ATTV_SLEN; fresh[0].p = (void *)fresh; } else pl_init_var(fresh, -1);
+            if (at && pl_tr_residue_on(w->cx)) { memset(&fresh[1], 0, sizeof fresh[1]); pl_tr_push_residue(w->cx, fresh + 1); }
+            memcpy(&w0, d, 8);
+            plr_push(&w->lg, d, d->p, w0);
+            d->v = PLR_VCOPY;
+            d->p = (void *)fresh;
+            *w->d = pl_make_ref(fresh, (int)fresh->slen);
+            plc_sh_changed(w);
+            if (at) plr_push(&w->ag, d + 1, fresh + 1, 1 | PLC_SH_ATT);
+        } else if ((int)d->v == DT_PLREF) {
+            int ar = plc_fid_arity(d->slen);
+            pl_cell_t *aa = (pl_cell_t *)d->p, *na;
+            uint64_t w0;
+            if (ar <= 0) *w->d = *d;
+            else {
+                if (!plr_room(&w->lg) || !plc_sh_room2(&w->ag)) return plc_sh_more(w);
+                na = (pl_cell_t *)rt_ws_alloc_descr((size_t)ar);
+                memcpy(&w0, d, 8);
+                *w->d = pl_make_compound(plc_fid_name(d->slen), ar, na);
+                plr_push(&w->lg, d, (void *)aa, w0);
+                plr_push(&w->ag, (void *)w->d, (void *)aa, PLC_SH_FRAME | (uint64_t)d->slen);
+                w->nfr++;
+                plr_push(&w->ag, (void *)aa, (void *)na, (uint64_t)ar);
+                d->v = PLR_COPY;
+                d->p = (void *)na;
+            }
+        } else *w->d = *d;
+        for (;;) {
+            plr_ent_t *t;
+            if (plr_empty(&w->ag)) goto done;
+            t = plr_peek(&w->ag);
+            if (t->n & PLC_SH_CNT) {
+                w->s = (pl_cell_t *)t->x;
+                w->d = (pl_cell_t *)t->y;
+                t->x = (void *)(w->s + 1);
+                t->y = (void *)(w->d + 1);
+                if (--t->n & PLC_SH_CNT || (!(t->n & (PLC_SH_CHG | PLC_SH_ATT)) && w->nfr <= PLC_SH_BUDGET)) break;
+                { uint64_t f = t->n; plr_drop(&w->ag); if (!(f & PLC_SH_ATT)) { plr_drop(&w->ag); w->nfr--; plc_sh_changed(w); } }
+                break;
+            }
+            {
+                uint64_t f = t->n;
+                plr_drop(&w->ag);
+                if (f & PLC_SH_ATT) continue;
+                t = plr_peek(&w->ag);
+                {
+                    pl_cell_t *dst = (pl_cell_t *)t->x, r;
+                    memset(&r, 0, sizeof r);
+                    r.v = (DTYPE_t)DT_PLREF;
+                    r.slen = (uint32_t)(t->n & PLC_SH_CNT);
+                    r.p = t->y;
+                    plr_drop(&w->ag);
+                    w->nfr--;
+                    if (!(f & PLC_SH_CHG)) *dst = r;
+                    else plc_sh_changed(w);
+                }
+            }
+        }
+    }
+    done:
+    for (plr_seg_t *g = w->lg.top; g; g = g->prev) for (long i = g->n; i-- > 0; ) { pl_cell_t *c = (pl_cell_t *)g->e[i].x; uint64_t w0 = g->e[i].n; memcpy(c, &w0, 8); c->p = g->e[i].y; }
+    return 0;
+}
+static pl_cell_t plc_copy_shared(pl_cell_t *c, int atts, pl_tr_ctx_t *cx) {
+    pl_cell_t out;
+    plc_cp_t w;
+    memset(&out, 0, sizeof out);
+    plr_stk_init(&w.ag);
+    plr_stk_init(&w.lg);
+    w.s = c;
+    w.d = &out;
+    w.atts = atts;
+    w.cx = cx;
+    w.nfr = 0;
+    (void)plc_copy_share_run(&w);
+    return out;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 pl_cell_t rt_pl_cell_snapshot(void *cell) { return plc_copy((pl_cell_t *)cell); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2866,6 +2982,29 @@ int rt_pl_copy_term_cell(void *term_cell, void *copy_cell, pl_tr_ctx_t *cx) {
     return 1;
 }
 void rt_pl_residue_recopy(DESCR_t *el, int n, pl_tr_ctx_t *cx) { if (pl_tr_residue_on(cx)) for (int i = 0; i < n; i++) el[i] = plc_copy_cx((pl_cell_t *)&el[i], 1, cx); }
+int rt_pl_copy_term_share_cell(void *term_cell, void *copy_cell, pl_tr_ctx_t *cx) {
+    pl_cell_t copy = plc_copy_shared((pl_cell_t *)term_cell, 1, cx);
+    return plc_unify_cells_cx((pl_cell_t *)copy_cell, &copy, cx) ? 1 : 0;
+}
+int rt_pl_copy_keep_cell(void *keep_cell, void *src_cell, void *dst_cell, void *atts_cell, pl_tr_ctx_t *cx) {
+    pl_cell_t *a = pl_deref((pl_cell_t *)atts_cell), copy;
+    if ((int)a->v != DT_I) return 0;
+    for (pl_cell_t *l = pl_deref((pl_cell_t *)keep_cell); (int)l->v == DT_PLREF && plc_fid_arity(l->slen) == 2; l = pl_deref(&((pl_cell_t *)l->p)[1])) {
+        pl_cell_t *v = pl_deref(&((pl_cell_t *)l->p)[0]);
+        if ((int)v->v == DT_PLVAR && v->p == (void *)v) v->v = PLR_VCOPY;
+    }
+    copy = plc_copy_shared((pl_cell_t *)src_cell, a->i != 0, cx);
+    for (pl_cell_t *l = pl_deref((pl_cell_t *)keep_cell); (int)l->v == DT_PLREF && plc_fid_arity(l->slen) == 2; l = pl_deref(&((pl_cell_t *)l->p)[1])) {
+        pl_cell_t *v = pl_deref(&((pl_cell_t *)l->p)[0]);
+        if (v->v == PLR_VCOPY && v->p == (void *)v) v->v = (DTYPE_t)DT_PLVAR;
+    }
+    return plc_unify_cells_cx((pl_cell_t *)dst_cell, &copy, cx) ? 1 : 0;
+}
+int rt_pl_factorize_term_cell(void *term_cell, void *skel_cell, void *subst_cell, pl_tr_ctx_t *cx) {
+    pl_cell_t f = plc_factorize_x((pl_cell_t *)term_cell, 0, 1);
+    pl_cell_t *fa = (pl_cell_t *)f.p;
+    return plc_unify_cells_cx((pl_cell_t *)skel_cell, &fa[0], cx) && plc_unify_cells_cx((pl_cell_t *)subst_cell, &fa[1], cx) ? 1 : 0;
+}
 int rt_pl_copy_term_nat_cell(void *term_cell, void *copy_cell, pl_tr_ctx_t *cx) {
     pl_cell_t copy = plc_copy_x((pl_cell_t *)term_cell, 0);
     if (!plc_unify_cells_cx((pl_cell_t *)copy_cell, &copy, cx)) { return 0; }

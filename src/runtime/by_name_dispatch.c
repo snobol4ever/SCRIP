@@ -6275,6 +6275,9 @@ void rt_pl_format_cell(const char *, void *);
 int rt_pl_char_type_cell(void *, void *, void *, pl_tr_ctx_t *);
 int rt_pl_term_string_cell(void *, void *, int, pl_tr_ctx_t *);
 int rt_pl_copy_term_cell(void *, void *, pl_tr_ctx_t *);
+int rt_pl_copy_term_share_cell(void *, void *, pl_tr_ctx_t *);
+int rt_pl_copy_keep_cell(void *, void *, void *, void *, pl_tr_ctx_t *);
+int rt_pl_factorize_term_cell(void *, void *, void *, pl_tr_ctx_t *);
 int rt_pl_copy_term_nat_cell(void *, void *, pl_tr_ctx_t *);
 int rt_pl_term_variables_cell(void *, void *, void *, pl_tr_ctx_t *);
 int rt_pl_numbervars_cell(void *, void *, void *, pl_tr_ctx_t *);
@@ -6991,7 +6994,9 @@ PL_CX_LEAF_HEAD(skip_list, 3)
     }
 PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(univ, 2) ok = rt_pl_univ_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(copy_term, 2) ok = rt_pl_copy_term_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(copy_term, 2) ok = rt_pl_copy_term_share_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(copy_keep, 4) ok = rt_pl_copy_keep_cell(&args[0], &args[1], &args[2], &args[3], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(factorize_term, 3) ok = rt_pl_factorize_term_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(copy_term_nat, 2) ok = rt_pl_copy_term_nat_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(term_variables, 2)
     {

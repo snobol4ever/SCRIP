@@ -1,5 +1,5 @@
-#define RTX_CLOB_TAB_N 304
-#define RTX_CLOB_TAB_N_CLOBBERING 275
+#define RTX_CLOB_TAB_N 306
+#define RTX_CLOB_TAB_N_CLOBBERING 277
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "dat_field_get", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
@@ -82,6 +82,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_co_yield", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_compare", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_concat_atom", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_copy_keep", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_copy_term", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_copy_term_nat", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_cpu_ms", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
@@ -119,6 +120,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_display", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_display_s", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_downcase_atom", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_factorize_term", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_findall_result", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_findall_result4", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_flush_output_sb", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
