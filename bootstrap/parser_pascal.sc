@@ -481,7 +481,7 @@ MulStar         =   FENCE(*MulOp *MulStar | epsilon);
 AddOp           =   ( *$' ' ('+' *$' '  *Expr2 . *Reduce('TT_ADD', 2)
                     | '-' *$' '  *Expr2 . *Reduce('TT_SUB', 2)
                     ) | *$'or' *Expr2 . *Reduce('TT_ALT', 2)
-                    | *$' ' (*Id $ tx . thy) *IDENT(lwr(tx), 'xor') *$' ' epsilon . *Lf('TT_VAR', lwr(thy)) epsilon . *Swap2() epsilon . *PasFlip(2) *Expr2 . *Reduce('TT_FNC', 3)
+                    | *$' ' (*Id $ tx . thy) *IDENT(lwr(tx), 'xor') *$' ' epsilon . *Lf('TT_VAR', lwr(thy)) epsilon . *Swap2() *Expr2 . *Reduce('TT_FNC', 3)
                     );
 /* A sign belongs to the first term of a simple expression: -a*b is TT_MNS(TT_MUL(a, b)).  */
 Expr1           =   ( *$'-' *Expr2 . *Reduce('TT_MNS', 1)
