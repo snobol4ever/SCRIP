@@ -11,6 +11,7 @@ int pl_rat_cmp(DESCR_t a, DESCR_t b);
 int pl_rat_eq(DESCR_t a, DESCR_t b);
 DESCR_t pl_rat_num(DESCR_t a);
 DESCR_t pl_rat_den(DESCR_t a);
+DESCR_t pl_rat_scaled(DESCR_t a, long places, int *neg);
 DESCR_t pl_rat_parse(const char *s);
 void pl_rat_fput(DESCR_t a, FILE *fp);
 size_t pl_rat_text(DESCR_t a, char *out, size_t cap);

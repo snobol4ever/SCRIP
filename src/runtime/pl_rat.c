@@ -74,6 +74,13 @@ int pl_rat_cmp(DESCR_t a, DESCR_t b) { DESCR_t an, ad, bn, bd; pq_parts(a, &an, 
 int pl_rat_eq(DESCR_t a, DESCR_t b) { DESCR_t an, ad, bn, bd; pq_parts(a, &an, &ad); pq_parts(b, &bn, &bd); return pq_cmp(an, bn) == 0 && pq_cmp(ad, bd) == 0; }
 DESCR_t pl_rat_num(DESCR_t a) { DESCR_t n, d; pq_parts(a, &n, &d); return n; }
 DESCR_t pl_rat_den(DESCR_t a) { DESCR_t n, d; pq_parts(a, &n, &d); return d; }
+DESCR_t pl_rat_scaled(DESCR_t a, long places, int *neg) {
+    DESCR_t n, d, two = INTVAL(2);
+    pq_parts(a, &n, &d);
+    *neg = pq_sgn(n) < 0;
+    n = pq_mul(pq_mul(pq_abs(n), pq_pow(INTVAL(10), places)), two);
+    return pq_divt(pq_add(n, d), pq_mul(d, two));
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pl_rat_parse(const char *s) {
     const char *r = s ? strchr(s, 'r') : (const char *)0;

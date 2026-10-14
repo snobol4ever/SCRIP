@@ -1745,7 +1745,22 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
                     plc_fmt_digits(&f, ng, dg, (long)il + (prec > 0 ? prec : 0), prec > 0 ? prec : 0, colon);
                     continue;
                 }
-                if (nv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); dv = strtod(rt_big_str(nv), (char **)0); } else dv = nv.v == DT_I ? (double)nv.i : nv.r;
+                if (*p == 'f' && pl_rat_is(nv)) {
+                    extern char *rt_big_str(DESCR_t);
+                    int ng = 0;
+                    long pp = prec > 0 ? prec : 0;
+                    DESCR_t qv = pl_rat_scaled(nv, pp, &ng);
+                    char ib[24];
+                    const char *is = qv.v == DT_BIG ? rt_big_str(qv) : (snprintf(ib, sizeof ib, "%lld", (long long)qv.i), ib);
+                    size_t il = strlen(is), z = il <= (size_t)pp ? (size_t)pp + 1 - il : 0;
+                    char dg[il + z + 1];
+                    memset(dg, '0', z);
+                    memcpy(dg + z, is, il);
+                    plc_fmt_digits(&f, ng, dg, (long)(il + z), pp, colon);
+                    continue;
+                }
+                if (pl_rat_is(nv)) dv = pl_rat_real(nv);
+                else if (nv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); dv = strtod(rt_big_str(nv), (char **)0); } else dv = nv.v == DT_I ? (double)nv.i : nv.r;
                 spec[0] = '%';
                 spec[1] = '.';
                 spec[2] = '*';

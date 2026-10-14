@@ -235,38 +235,45 @@ DESCR_t rt_big_pow(DESCR_t x, int64_t e) {
     return rt_big_norm(acc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int big_ucmp_nz(const BIG_t *a, const BIG_t *b) {
-    uint32_t an = a->n, bn = b->n;
-    while (an > 1 && a->limb[an - 1] == 0) an--;
-    while (bn > 1 && b->limb[bn - 1] == 0) bn--;
-    if (an != bn) return an < bn ? -1 : 1;
-    for (uint32_t i = an; i-- > 0;) if (a->limb[i] != b->limb[i]) return a->limb[i] < b->limb[i] ? -1 : 1;
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void big_usub_into(BIG_t *a, const BIG_t *b) {
-    int64_t br = 0;
-    for (uint32_t i = 0; i < a->n; i++) {
-        int64_t t = (int64_t)a->limb[i] - br - (int64_t)(i < b->n ? b->limb[i] : 0);
-        if (t < 0) { t += ((int64_t)1 << 32); br = 1; } else br = 0;
-        a->limb[i] = (uint32_t)t;
+static void big_divmnu(uint32_t *q, uint32_t *r, const uint32_t *u, uint32_t m, const uint32_t *v, uint32_t n) {
+    int s = __builtin_clz(v[n - 1]);
+    uint32_t vn[n], un[m + 1];
+    int64_t t = 0;
+    for (uint32_t i = n - 1; i > 0; i--) vn[i] = (uint32_t)(((uint64_t)v[i] << s) | ((uint64_t)v[i - 1] >> (32 - s)));
+    vn[0] = (uint32_t)((uint64_t)v[0] << s);
+    un[m] = (uint32_t)((uint64_t)u[m - 1] >> (32 - s));
+    for (uint32_t i = m - 1; i > 0; i--) un[i] = (uint32_t)(((uint64_t)u[i] << s) | ((uint64_t)u[i - 1] >> (32 - s)));
+    un[0] = (uint32_t)((uint64_t)u[0] << s);
+    for (uint32_t j = m - n + 1; j-- > 0;) {
+        uint64_t num = ((uint64_t)un[j + n] << 32) | un[j + n - 1], qhat = num / vn[n - 1], rhat = num % vn[n - 1];
+        while ((qhat >> 32) || qhat * vn[n - 2] > ((rhat << 32) | un[j + n - 2])) { qhat--; rhat += vn[n - 1]; if (rhat >> 32) break; }
+        int64_t k = 0;
+        for (uint32_t i = 0; i < n; i++) { uint64_t p = qhat * vn[i]; t = (int64_t)un[i + j] - k - (int64_t)(p & 0xFFFFFFFFu); un[i + j] = (uint32_t)t; k = (int64_t)(p >> 32) - (t >> 32); }
+        t = (int64_t)un[j + n] - k;
+        un[j + n] = (uint32_t)t;
+        q[j] = (uint32_t)qhat;
+        if (t < 0) { uint64_t c = 0; q[j]--; for (uint32_t i = 0; i < n; i++) { uint64_t w = (uint64_t)un[i + j] + vn[i] + c; un[i + j] = (uint32_t)w; c = w >> 32; } un[j + n] += (uint32_t)c; }
     }
+    for (uint32_t i = 0; i + 1 < n; i++) r[i] = (uint32_t)(((uint64_t)un[i] >> s) | ((uint64_t)un[i + 1] << (32 - s)));
+    r[n - 1] = un[n - 1] >> s;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void big_shl1_fixed(BIG_t *b) { uint32_t carry = 0; for (uint32_t i = 0; i < b->n; i++) { uint32_t nc = b->limb[i] >> 31; b->limb[i] = (b->limb[i] << 1) | carry; carry = nc; } }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int big_bit(const BIG_t *b, uint32_t k) { return (k / 32 < b->n) ? (int)((b->limb[k / 32] >> (k % 32)) & 1u) : 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void big_setbit(BIG_t *b, uint32_t k) { if (k / 32 < b->n) b->limb[k / 32] |= (1u << (k % 32)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int big_udivmod(const BIG_t *u, const BIG_t *v, BIG_t **q_out, BIG_t **r_out) {
+    uint32_t m = u->n, n = v->n;
     if (v->sign == 0) return 0;
-    uint32_t un = u->n ? u->n : 1;
-    BIG_t *q = big_alloc(un);
+    while (m > 0 && u->limb[m - 1] == 0) m--;
+    while (n > 0 && v->limb[n - 1] == 0) n--;
+    if (n == 0) return 0;
+    BIG_t *q = big_alloc(m >= n ? m - n + 1 : 1);
     if (!q) return 0;
-    BIG_t *r = big_alloc(un + 1);
+    BIG_t *r = big_alloc(n);
     if (!r) return 0;
-    for (uint32_t bit = un * 32; bit-- > 0;) { big_shl1_fixed(r); if (big_bit(u, bit)) r->limb[0] |= 1u; if (big_ucmp_nz(r, v) >= 0) { big_usub_into(r, v); big_setbit(q, bit); } }
+    if (m < n) memcpy(r->limb, u->limb, (size_t)m * 4);
+    else if (n == 1) {
+        uint64_t k = 0;
+        for (uint32_t j = m; j-- > 0;) { uint64_t w = (k << 32) | u->limb[j]; q->limb[j] = (uint32_t)(w / v->limb[0]); k = w % v->limb[0]; }
+        r->limb[0] = (uint32_t)k;
+    } else big_divmnu(q->limb, r->limb, u->limb, m, v->limb, n);
     big_trim(q);
     big_trim(r);
     q->sign = (q->n == 1 && q->limb[0] == 0) ? 0 : 1;
