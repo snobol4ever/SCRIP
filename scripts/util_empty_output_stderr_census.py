@@ -10,6 +10,9 @@ prelude and every companion file stand where the program expects them, and corpu
 with SUITE_STDERR_HEAD=1 (each red line carries err1=<the first non-empty stderr line>) and S4E_PROGRESS_OFF=1 (no progress row, no
 score row: a census is a measurement, never a reading of the suite). The first stderr lines are grouped into classes (numbers, quoted
 atoms and paths folded) and printed per suite, largest first, with an example program each; the full table goes to DIR/census.tsv.
+DIR is the caller's: --out DIR, else the one fixed directory $S4E_HOME/.scratch/empty_census_out (else /tmp/empty_census_out) that a rerun
+reuses -- the table is the deliverable, so it is never removed, and a fixed name cannot pile up a /tmp directory per run. The package copy
+the harness grades is scratch and is removed as soon as it has been graded.
 rc 0 measured, 2 could not measure.
 """
 import collections, os, re, shutil, subprocess, sys, tempfile
@@ -62,7 +65,7 @@ def census(key, pkg, lang, outdir):
     ext = EXT.get(lang) or refuse(f"no container extension known for --lang {lang}")
     src = os.path.join(pkg, "ALL." + ext)
     os.path.isfile(src) or refuse(f"no container at {src}")
-    work = tempfile.mkdtemp(prefix=f"empty_census_{key}_", dir=outdir)
+    work = tempfile.mkdtemp(prefix=f"empty_census_{key}_", dir=outdir); __import__("atexit").register(shutil.rmtree, work, True)
     copy = os.path.join(work, os.path.basename(pkg.rstrip("/")))
     shutil.copytree(pkg, copy, symlinks=True)
     nset = set(names)
@@ -85,6 +88,7 @@ def census(key, pkg, lang, outdir):
     env = dict(os.environ, S4E_PROGRESS_OFF="1", SUITE_LIST_ALL="1", SUITE_STDERR_HEAD="1")
     r = subprocess.run([sys.executable, os.path.join(HERE, "corpus_suite_harness.py"), "run", os.path.join(copy, "ALL." + ext),
                         os.path.join(copy, "ALL.ref"), "--lang", lang, "--modes", "m3"], env=env, capture_output=True, text=True)
+    shutil.rmtree(work, ignore_errors=True)   # the mini-container is a package copy: released the moment it has been graded, not at exit
     open(os.path.join(outdir, f"{key}.harness.out"), "w").write(r.stdout + r.stderr)
     # ⛔ A HARNESS THAT DID NOT GRADE IS A REFUSAL, NEVER "0 red": the first draft read a harness traceback as every program cured
     if r.returncode not in (0, 1) or "SUITE_BOARD " not in (r.stdout + r.stderr):
@@ -114,7 +118,7 @@ def klass(e):
 
 def main(argv):
     suites = [argv[i + 1] for i, a in enumerate(argv) if a == "--suite"]
-    outdir = argv[argv.index("--out") + 1] if "--out" in argv else tempfile.mkdtemp(prefix="empty_census_")
+    outdir = argv[argv.index("--out") + 1] if "--out" in argv else os.path.join(os.path.join(os.environ["S4E_HOME"], ".scratch") if os.environ.get("S4E_HOME") else tempfile.gettempdir(), "empty_census_out")
     suites or refuse("usage: util_empty_output_stderr_census.py --suite KEY=PKGDIR:LANG [...] [--out DIR]")
     os.makedirs(outdir, exist_ok=True)
     os.path.isfile(DB) or refuse(f"no progress table at {DB}")
