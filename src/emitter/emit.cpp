@@ -6179,6 +6179,11 @@ DESCR_t rt_pl_dop_ax_sin(DESCR_t *, int); DESCR_t rt_pl_dop_ax_cos(DESCR_t *, in
 DESCR_t rt_pl_dop_ax_exp(DESCR_t *, int); DESCR_t rt_pl_dop_ax_fip(DESCR_t *, int); DESCR_t rt_pl_dop_ax_ffp(DESCR_t *, int); DESCR_t rt_pl_dop_ax_pi(DESCR_t *,
     int); DESCR_t rt_pl_dop_ax_e(DESCR_t *, int);
 }
+extern "C" {
+DESCR_t rt_pas_resundef(DESCR_t *, int); DESCR_t rt_pas_sin(DESCR_t *, int); DESCR_t rt_pas_cos(DESCR_t *, int); DESCR_t rt_pas_exp(DESCR_t *, int); DESCR_t rt_pas_sqrt(DESCR_t *, int);
+DESCR_t rt_pas_ln(DESCR_t *, int); DESCR_t rt_pas_arctan(DESCR_t *, int); DESCR_t rt_pas_sqr(DESCR_t *, int);
+DESCR_t rt_rk_arr_at(DESCR_t *, int); DESCR_t rt_rk_arr_set(DESCR_t *, int); DESCR_t rt_rk_elem_put(DESCR_t *, int);
+}
 void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
     static const struct { const char * nm; int ar; const char * sy; DESCR_t (*fp)(DESCR_t *, int); } t[] = {
         { "$clause_unify", 2, "rt_pl_dop_clause_unify", rt_pl_dop_clause_unify },
@@ -6343,6 +6348,10 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "arr_get", 2, "pas_arr_get", pas_arr_get }, { "arr_set_pure", 3, "pas_arr_set", pas_arr_set },
         { "__pas_elem_ref", 3, "pas_elem_ref", pas_elem_ref }, { "__pas_ref_val", 1, "pas_ref_val", pas_ref_val },
         { "__pas_view", 4, "pas_view_make", pas_view_make },
+        { "__pas_resundef", 1, "rt_pas_resundef", rt_pas_resundef }, { "__pas_sin", 1, "rt_pas_sin", rt_pas_sin }, { "__pas_cos", 1, "rt_pas_cos", rt_pas_cos },
+        { "__pas_exp", 1, "rt_pas_exp", rt_pas_exp }, { "__pas_sqrt", 1, "rt_pas_sqrt", rt_pas_sqrt }, { "__pas_ln", 1, "rt_pas_ln", rt_pas_ln }, { "__pas_arctan", 1, "rt_pas_arctan", rt_pas_arctan },
+        { "__pas_sqr", 1, "rt_pas_sqr", rt_pas_sqr },
+        { "__rk_arr_at", 2, "rt_rk_arr_at", rt_rk_arr_at }, { "__rk_arr_set", 3, "rt_rk_arr_set", rt_rk_arr_set }, { "__rk_elem_put", 4, "rt_rk_elem_put", rt_rk_elem_put },
         { 0, 0, 0, 0 } };
     for (int i = 0; t[i].nm; i++) if (!strcmp(fn, t[i].nm) && (t[i].ar < 0 ? narg >= 1 : narg == t[i].ar)) {
         const char * nd = getenv("SCRIP_NO_DOP"); if (nd && nd[0] == '1') return (void *)0;

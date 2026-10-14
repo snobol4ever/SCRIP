@@ -21,3 +21,4 @@ src/tools/test_template_byte_identity.c	a test tool with its own main(); its dri
 src/runtime/rtx/rtx_tins_test.c	a unit test battery compiled into its own binary by scripts/test_rtx_unit.sh
 src/runtime/rtx/rtx_sval_test.c	a unit test battery compiled into its own binary by scripts/test_rtx_unit.sh
 src/runtime/rtx/rtx_relop_test.c	a unit test battery compiled into its own binary by scripts/test_rtx_unit.sh
+src/runtime/rtx/rtx_direct_test.c	a unit test battery compiled into its own binary by scripts/test_rtx_unit.sh
