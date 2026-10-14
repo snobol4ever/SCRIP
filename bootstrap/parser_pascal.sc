@@ -25,8 +25,8 @@ reserved          = POS(0) ( 'and' | 'array' | 'begin' | 'case' | 'const' | 'div
 /* Lexical layer.  Pascal has TWO comment forms and neither nests; a CR is blank (CRLF files). */
 white       =   (  SPAN(' ' CHAR(9) CHAR(10) CHAR(13))
                 |  '{$' BREAK('}') . pd '}' . *PasDir(pd)
-                |  '{' BREAK('}') '}'
-                |  '(*' FENCE(BREAKX('*') '*)')
+                |  '{' FENCE(BREAK('}') '}' | REM)
+                |  '(*' FENCE(BREAKX('*') '*)' | REM)
                 |  '//' FENCE(BREAK(CHAR(10)) | REM)
                 );
 White      =   *white FENCE(*White | epsilon);
@@ -210,6 +210,49 @@ function PasLines() {
     return;
 }
 /* ==================================================================================================================== */
+function CatDecode(t, r, p, h, n, i, c) {
+    r = '';
+    while (DIFFER(t)) {
+        if (t ? (POS(0) "'")) {
+            t ? (POS(0) "'") = ;
+            n = 1;
+            while (DIFFER(n)) {
+                t ? (POS(0) BREAK("'") . p "'") = ;
+                r = r p;
+                if (t ? (POS(0) "'")) { t ? (POS(0) "'") = ; r = r "'"; } else { n = ''; }
+            }
+        } else if (t ? (POS(0) '#$' SPAN('0123456789abcdefABCDEF') . h)) {
+            t ? (POS(0) '#$' SPAN('0123456789abcdefABCDEF')) = ;
+            h = REPLACE(h, 'abcdef', 'ABCDEF');
+            n = 0;
+            i = SIZE(h);
+            if (GT(i, 1)) { h = SUBSTR(h, i - 1, 2); }
+            while (h ? (LEN(1) . c) = ) { '0123456789ABCDEF' ? (BREAK(c) @p); n = n * 16 + p; }
+            r = r CHAR(n);
+        } else {
+            t ? (POS(0) '#' SPAN('0123456789') . h);
+            t ? (POS(0) '#' SPAN('0123456789')) = ;
+            n = 255;
+            if (LT(SIZE(h), 19)) { n = REMDR(h + 0, 256); }
+            r = r CHAR(n);
+        }
+    }
+    CatDecode = r;
+    return;
+}
+/* ==================================================================================================================== */
+function CatLeaf(t) {
+    CatLeaf = .dummy;
+    Lf('TT_QLIT', CatDecode(t));
+    nreturn;
+}
+/* ==================================================================================================================== */
+function RealLeaf(t, v) {
+    RealLeaf = .dummy;
+    if (v = CONVERT(t, 'REAL')) { Lf('TT_FLIT', t); } else { PasEv('iso_error'); Lf('TT_FLIT', 'Inf'); }
+    nreturn;
+}
+/* ==================================================================================================================== */
 function StrLeaf(t) {
     StrLeaf = .dummy;
     if (IDENT(t)) { pas_ek = pas_ek + 1; PasEv('iso_6_1_7 ' pas_eln[pas_ek]); }
@@ -290,7 +333,10 @@ while (alpha_s ? (LEN(1) . alpha_c) = ) { AlphaT[alpha_c] = 1; }
 NextAlpha   =   @nlc *DIFFER(AlphaT[SUBSTR(Src, nlc + 1, 1)]);
 IntLeaf     =   ( (SPAN('0123456789') . thx) *NextAlpha epsilon . *LitIntS(thx) | (*Integer) . thx . *LitInt(thx) );
 String      =   "'" (*StrChars) . thx . *StrLeaf(thx) "'";
-PasChunk    =   ( '{' BREAK('}') '}' | '(*' FENCE(BREAKX('*') '*)') | '//' FENCE(BREAK(CHAR(10)) | REM) | *Quoted | NOTANY("'{(/") FENCE(BREAK("'{(/") | REM) | ANY("'{(/") );
+Piece       =   ( *Quoted | '#$' SPAN('0123456789abcdefABCDEF') | '#' SPAN('0123456789') );
+PieceRest   =   *Piece FENCE(*PieceRest | epsilon);
+StrCatTok   =   (*Piece *PieceRest) . thc . *CatLeaf(thc);
+PasChunk    =   ( '{' FENCE(BREAK('}') '}' | REM) | '(*' FENCE(BREAKX('*') '*)' | REM) | '//' FENCE(BREAK(CHAR(10)) | REM) | *Quoted | NOTANY("'{(/") FENCE(BREAK("'{(/") | REM) | ANY("'{(/") );
 PasScan     =   POS(0) ARBNO(FENCE(*PasChunk $ pch $ *PasNote(pch))) RPOS(0);
 /* An integer literal's value is strtoull's, read as a signed 64-bit: $hex in base 16, leading zeros gone, 2^63 .. 2^64-1 negative; beyond 2^64-1 it is -1 and carries the iso_error pragma (pascal.l). */
 function IntVal(t, d, n, i, p, hi, lo, h, l) {
@@ -407,9 +453,10 @@ Postfix         =   ( epsilon . *PushCounter() *IdxTail . *Reduce('TT_IDX', nTop
 PostStar        =   FENCE(*Postfix *PostStar | epsilon);
 /* true, false and nil are identifiers; #n is a character literal with no value of its own in the dump.  */
 Primary         =   ( *$'(' *Expr0 *$')'
+                    | *StrCatTok
                     | '#' *Integer epsilon . *Lf('TT_CHRLIT', '')
                     | *SetCtor
-                    | (*Real) . thx . *Lf('TT_FLIT', thx)
+                    | (*Real) . thx . *RealLeaf(thx)
                     | *IntLeaf
                     | *String
                     | *FuncCall
@@ -525,7 +572,7 @@ Name            =   (*Ident) . thx . *Lf('TT_VAR', lwr(thx));
 TypeId          =   (*Ident) . thx . *Lf('TT_VAR', lwr(thx)) . *NoteType(thx);
 IdList          =   epsilon . *PushCounter() *Name . *IncCounter() ARBNO(*$',' *Name . *IncCounter()) . *Reduce('TT_VLIST', nTop()) . *PopCounter();
 /* A type name, or string[n] -> TT_IDX(string, n).  */
-TypeName        =   *TypeId FENCE(*$'[' *Expr0 *$']' . *Reduce('TT_IDX', 2) | epsilon);
+TypeName        =   (*Ident) . tnm . *Lf('TT_VAR', lwr(tnm)) FENCE(*$'[' *Expr0 *$']' . *Reduce('TT_IDX', 2) | epsilon) epsilon . *NoteType(tnm);
 /* A type denoter, ISO 7185 6.4.  */
 EnumType        =   epsilon . *PushCounter() *$'(' *Name . *IncCounter() ARBNO(*$',' *Name . *IncCounter()) *$')' . *Reduce('TT_ENUM_TYPE', nTop()) . *PopCounter();
 SimpleType      =   ( *EnumType
@@ -593,8 +640,13 @@ ParamsOpt       =   FENCE(*Params . *IncCounter() | *$'(' *$')' | epsilon);
 /* procedure P(params); <block>; -> TT_PROCEDURE(TT_VAR P, TT_PARAMS, TT_BLOCK); function F(params): T; adds the result type before the block; forward; is TT_KEYWORD forward. */
 Body            =   epsilon . *PushCounter() *$'begin' FENCE(*StmtFirst *StmtStar | epsilon) *$'end' . *Reduce('TT_SEQ_EXPR', nTop()) . *PopCounter();
 Block           =   epsilon . *PushCounter() *Decls *Body . *IncCounter() . *Reduce('TT_BLOCK', nTop()) . *PopCounter();
+RdT             =   TABLE(15);
+RdT['inline'] = 1; RdT['cdecl'] = 1; RdT['register'] = 1; RdT['stdcall'] = 1; RdT['pascal'] = 1; RdT['overload'] = 1; RdT['safecall'] = 1;
+RdT['far'] = 1; RdT['near'] = 1; RdT['noinline'] = 1; RdT['nostackframe'] = 1;
+RoutineDir      =   *$' ' (*Id $ tx . thd) *DIFFER(RdT[lwr(tx)]) epsilon . *Lf('TT_VAR', lwr(thd)) epsilon . *Drop() *$';' epsilon . *PasFlip(2);
+RoutineDirs     =   FENCE(*RoutineDir *RoutineDirs | epsilon);
 ProcTail        =   ( *$'forward' *$';' . *Shift('TT_KEYWORD', 'forward') . *IncCounter()
-                    | *Block . *IncCounter() *$';'
+                    | *RoutineDirs *Block . *IncCounter() *$';'
                     );
 proc_decl       =   epsilon . *PushCounter() *$'procedure' *Name . *IncCounter() *ParamsOpt *$';' *ProcTail . *Reduce('TT_PROCEDURE', nTop()) . *PopCounter();
 func_decl       =   epsilon . *PushCounter() *$'function' *Name . *IncCounter() *ParamsOpt FENCE(*$':' *TypeId . *IncCounter() | epsilon) *$';' *ProcTail
@@ -914,25 +966,24 @@ function PPDir(tx, b, cmd, rest, sym, val, nm, t, sv, st, md, inc) {
             pp_skip = st;
         }
         PPEmit(PPNls(tx));
-    } else if (cmd ? (POS(0) ('if' | 'ifc' | 'ifopt') RPOS(0))) {
+    } else if (cmd ? (POS(0) ('if' | 'ifc') RPOS(0))) {
         pp_sn = pp_sn + 1;
         pp_stk[pp_sn] = pp_skip;
         if (DIFFER(pp_skip)) { pp_skip = 'off'; }
-        else if (IDENT(cmd, 'ifopt')) { TERMINAL = 'Preprocess: ' tx ': unsupported ifopt, the arm is taken as false'; pp_skip = 'wait'; }
         else { pp_skip = PPCond(rest); }
         PPEmit(PPNls(tx));
     } else if (IDENT(cmd, 'elseif')) {
-        if (LE(pp_sn, pp_base)) { PPErr('no corresponding $if...'); }
+        if (LE(pp_sn, pp_base)) { ; }
         else if (IDENT(pp_skip)) { pp_skip = 'done'; }
         else if (IDENT(pp_skip, 'wait')) { pp_skip = PPCond(rest); }
         PPEmit(PPNls(tx));
     } else if (cmd ? (POS(0) ('else' | 'elsec') RPOS(0))) {
-        if (LE(pp_sn, pp_base)) { PPErr('no corresponding $if...'); }
+        if (LE(pp_sn, pp_base)) { ; }
         else if (IDENT(pp_skip)) { pp_skip = 'done'; }
         else if (IDENT(pp_skip, 'wait')) { pp_skip = ''; }
         PPEmit(PPNls(tx));
     } else if (cmd ? (POS(0) ('endif' | 'ifend' | 'endc') RPOS(0))) {
-        if (LE(pp_sn, pp_base)) { PPErr('no corresponding $if...'); }
+        if (LE(pp_sn, pp_base)) { ; }
         else { pp_skip = pp_stk[pp_sn]; pp_sn = pp_sn - 1; }
         PPEmit(PPNls(tx));
     } else if (DIFFER(pp_skip)) {
