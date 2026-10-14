@@ -334,6 +334,21 @@ RTX_ENTRY(sno_concat_d)
     RTX_GVA_R9
     ret
 RTX_ENDF(str_concat_d)
+RTX_FUNC(str_concat_fracdigit_d)
+    cmp     dil, DT_S
+    je      .Lscf_a
+    cmp     dil, DT_I
+    jne     .Lscf_slow
+.Lscf_a:
+    cmp     dl, DT_S
+    je      .Lscf_b
+    cmp     dl, DT_I
+    jne     .Lscf_slow
+.Lscf_b:
+    RTX_JMP(str_concat_d)
+.Lscf_slow:
+    RTX_DECLINE
+RTX_ENDF(str_concat_fracdigit_d)
 RTX_FUNC(VARVAL_fn)
     RTX_GATE(str, .Lvv_c)
     cmp     dil, DT_S

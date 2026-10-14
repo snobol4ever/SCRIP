@@ -4619,13 +4619,13 @@ static int icn_opproc_arity(const char *s) { int n; const icn_opproc_t *t = icn_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_opproc_typed(const char *nm, DESCR_t *argv, int n, DESCR_t *out) {
     extern void c_rt_coerce_num2_d(const DESCR_t *, const DESCR_t *, DESCR_t *, long);
-    extern DESCR_t str_concat_fracdigit_d(DESCR_t, DESCR_t);
+    extern DESCR_t c_str_concat_fracdigit_d(DESCR_t, DESCR_t);
     extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);
     extern DESCR_t c_rt_div_strict(DESCR_t, DESCR_t);
     extern DESCR_t c_rt_mod_strict(DESCR_t, DESCR_t);
     extern DESCR_t rt_pow_strict(DESCR_t, DESCR_t);
     if (icn_opproc_arity(nm) != n) return 0;
-    if (n == 2 && !strcmp(nm, "||")) { *out = RT_GC_CALLBACK(str_concat_fracdigit_d(argv[0], argv[1])); return 1; }
+    if (n == 2 && !strcmp(nm, "||")) { *out = RT_GC_CALLBACK(c_str_concat_fracdigit_d(argv[0], argv[1])); return 1; }
     int bc = !strcmp(nm, "+") ? BINOP_ADD : !strcmp(nm, "-") ? BINOP_SUB : !strcmp(nm, "*") ? BINOP_MUL : !strcmp(nm, "/") ? BINOP_DIV : !strcmp(nm, "%") ? BINOP_MOD : !strcmp(nm, "^") ? BINOP_POW :
         -1;
     DESCR_t l, r;

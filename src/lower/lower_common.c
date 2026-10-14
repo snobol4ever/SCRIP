@@ -157,8 +157,8 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
         {
             {
                 extern int core_icn_str_ok(DESCR_t d);
-                extern DESCR_t str_concat_fracdigit_d(DESCR_t, DESCR_t);
-                if (op == BINOP_CONCAT_FRACDIGIT && !(core_icn_str_ok(lv) && core_icn_str_ok(rv))) return str_concat_fracdigit_d(lv, rv);
+                extern DESCR_t c_str_concat_fracdigit_d(DESCR_t, DESCR_t);
+                if (op == BINOP_CONCAT_FRACDIGIT && !(core_icn_str_ok(lv) && core_icn_str_ok(rv))) return c_str_concat_fracdigit_d(lv, rv);
             }
             DESCR_t ls_d;
             ls_d = (op == BINOP_CONCAT_FRACDIGIT) ? descr_to_str_fracdigit(lv) : descr_to_str(lv);

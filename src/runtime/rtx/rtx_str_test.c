@@ -5,10 +5,13 @@
 #include "descr.h"
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b);
+DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
+DESCR_t c_str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
 long rt_sxt_match(const char *s);
 typedef struct { int v; unsigned slen; long tok; unsigned long nbytes; char bytes[512]; } obs_t;
 static int fails = 0, n = 0, declined = 0;
 static DESCR_t box_str_concat_d(DESCR_t a, DESCR_t b) { DESCR_t r = str_concat_d(a, b); if (r.v != RTX_NOT_HANDLED) return r; declined++; return c_str_concat_d(a, b); }
+static DESCR_t box_str_concat_fracdigit_d(DESCR_t a, DESCR_t b) { DESCR_t r = str_concat_fracdigit_d(a, b); if (r.v != RTX_NOT_HANDLED) return r; declined++; return c_str_concat_fracdigit_d(a, b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static obs_t take(DESCR_t (*fn)(DESCR_t, DESCR_t), DESCR_t a, DESCR_t b) {
     obs_t o;
@@ -38,6 +41,7 @@ static void cmp(const char *what, obs_t x, obs_t c) {
     printf("  %-39s   c{v=%d slen=%u tok=%ld n=%lu \"%.40s\"}\n", "", c.v, c.slen, c.tok, c.nbytes, c.bytes);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void both_fd(const char *what, DESCR_t a, DESCR_t b) { cmp(what, take(box_str_concat_fracdigit_d, a, b), take(c_str_concat_fracdigit_d, a, b)); }
 static void both(const char *what, DESCR_t a, DESCR_t b) {
     cmp(what, take(box_str_concat_d, a, b), take(c_str_concat_d, a, b));
     obs_t c2 = take(c_str_concat_d, a, b);
@@ -116,6 +120,21 @@ int main(void) {
                 acc = x;
             }
         }
+    }
+    {
+        static const int64_t fv[] = { 0, 7, -7, 10, 123456789, -9223372036854775807LL - 1, 9223372036854775807LL };
+        for (unsigned i = 0; i < sizeof fv / sizeof fv[0]; i++) {
+            both_fd("fd string + int", S("key"), I(fv[i]));
+            both_fd("fd int + string", I(fv[i]), S("key"));
+            both_fd("fd int + int", I(fv[i]), I(fv[(i + 3) % (sizeof fv / sizeof fv[0])]));
+            both_fd("fd long string + int", Sraw(big, 300), I(fv[i]));
+            both_fd("fd int + unstamped", I(fv[i]), Sraw(big, 0xFFFFFFFFu));
+            both_fd("fd real + string", R(2.5), S("x"));
+            both_fd("fd string + real", S("x"), R(100.0));
+            both_fd("fd empty + int", Sraw("", 0), I(fv[i]));
+        }
+        both_fd("fd string + string", S("abc"), S("def"));
+        both_fd("fd string + string long", Sraw(big, 500), Sraw(big2, 90));
     }
     both("real left (coerce)", R(0.5), S("x"));
     both("real right", S("x"), R(100.0));

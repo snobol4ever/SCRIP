@@ -78,7 +78,7 @@ DESCR_t rt_icn_lconcat_d(DESCR_t a, DESCR_t b) {
     return rtx_try_str_concat_d(a, b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
+DESCR_t c_str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
     extern char *rt_big_str(DESCR_t);
     extern int core_icn_error(int code, DESCR_t val);
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
@@ -91,8 +91,8 @@ DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
         core_icn_op_ctx_clear();
         return FAILDESCR;
     }
-    if (a.v == DT_R || a.v == DT_I || a.v == DT_BOOL) a = descr_to_str_fracdigit(a);
-    if (b.v == DT_R || b.v == DT_I || b.v == DT_BOOL) b = descr_to_str_fracdigit(b);
+    if (a.v == DT_R || a.v == DT_BOOL) a = descr_to_str_fracdigit(a);
+    if (b.v == DT_R || b.v == DT_BOOL) b = descr_to_str_fracdigit(b);
     if (a.v == DT_BIG && a.p) a = STRVAL(rt_big_str(a));
     if (b.v == DT_BIG && b.p) b = STRVAL(rt_big_str(b));
     return rtx_try_str_concat_d(a, b);
