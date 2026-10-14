@@ -571,6 +571,7 @@ call_with_args:
     IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), $1), $3); }
     |IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), $1); }
     |selector PERIOD IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)), $5); }
+    |selector PERIOD IDENT LPARENT RPARENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
     ;
 argument_list:
     argument_list COMMA argument { $$ = pt_add($1, $3); }

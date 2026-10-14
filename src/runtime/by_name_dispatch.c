@@ -15270,6 +15270,8 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
         return 1;
     }
     if (!strcmp(fn, "__pas_dynlen") && nargs == 1) { ARBLK_t *b = (args[0].v == DT_A && args[0].arr) ? (ARBLK_t *) args[0].arr : NULL; *out = INTVAL(b ? (long long)b->hi - b->lo + 1 : 0); return 1; }
+    if (!strcmp(fn, "__pas_arrlit")) { DESCR_t d = pas_dyn_block(nargs); for (int k = 0; k < nargs; k++) ((ARBLK_t *) d.arr)->data[k] = args[k]; *out = d; return 1; }
+    if (!strcmp(fn, "__pas_fileexists") && nargs == 1) { const char *sv = VARVAL_fn(args[0]); struct stat st; *out = INTVAL(sv && *sv && stat(sv, &st) == 0 && S_ISREG(st.st_mode) ? 1 : 0); return 1; }
     if (!strcmp(fn, "__pas_rounde") && nargs == 1) {
         double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0), e = rint(d);
         if (!(e >= -2147483647.0 && e <= 2147483647.0)) pas_file_err("6.6.6.3", "round(x) of a value that rounds outside -maxint..maxint, so no such integer value exists", NULL);

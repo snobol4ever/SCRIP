@@ -69,6 +69,7 @@ typedef struct {
     int pas_pack_records;
     int pas_zerobased_strings;
     int pas_codepage;
+    int pas_arrctor;
     long long pas_pend_sub_low;
     long long pas_pend_esz;
     struct { char *name; long long bytes; } *pas_tsz;

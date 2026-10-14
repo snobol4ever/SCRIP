@@ -585,6 +585,8 @@ test_gate_pas_paren_star_conditional_directives_act_as_the_brace_form.sh	WIRED	-
 test_gate_pas_sizeof_of_an_array_element_folds.sh	WIRED	-	-	-
 test_gate_pas_the_classes_unit_tstringlist_and_tlist_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pas_a_program_using_a_unit_keeps_its_typed_constants_and_fpc_rounds_halves_to_even.sh	WIRED	-	-	-
+test_gate_pas_include_exclude_assignfile_array_constructors_trystrtoint_and_fileexists.sh	WIRED	-	-	-
+test_gate_pas_a_method_call_may_carry_an_empty_argument_list.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_and_text_get_put.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_stays_inside_the_unpacked_arrays_index_type.sh	WIRED	-	-	-
 test_gate_pas_packed_component_is_not_a_var_parameter.sh	WIRED	-	-	-

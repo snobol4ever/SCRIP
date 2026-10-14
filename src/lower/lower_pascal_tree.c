@@ -134,6 +134,7 @@ static const char *pas_with_sel_rtype(tree_t *sel);
 static const char *pas_rectype_field_typename(const char *rn, long idx);
 static int pas_dyn_depth(tree_t *e, const char **elem);
 static int pas_dyn_elem_is_string(tree_t *base);
+static tree_t *mk_set_ctor(PNodeList *elems);
 static const char *pas_recvar_field_rectype(const char *vn, long idx);
 static int pas_rectype_nf(const char *rn);
 static int pas_array_high_get(const char *name, long long *out);
@@ -472,6 +473,11 @@ static int pas_expr_is_real(tree_t *e) {
         return tn && pas_is_realtypename(tn);
     }
     return 0;
+}
+static int pas_setcons_elems(tree_t *v, tree_t *out) {
+    if (!v || v->t != TT_FNC || v->n < 1 || !v->c[0] || !v->c[0]->v.sval) return 0;
+    if (!strcmp(v->c[0]->v.sval, "__pas_set")) { for (int i = 1; i < v->n; i++) ast_push(out, v->c[i]); return 1; }
+    return !strcmp(v->c[0]->v.sval, "__pas_setuni") && v->n == 3 && pas_setcons_elems(v->c[1], out) && pas_setcons_elems(v->c[2], out);
 }
 static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "fini.mute")) return mk_fnc0("__pas_std_mute");
@@ -1008,6 +1014,13 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         }
         return seq_of(stmts);
     }
+    if (name && g_lower.pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && args && args->count >= 3 && (!strcmp(name, "include") || !strcmp(name, "exclude"))) {
+        PNodeList *el = pnl_new();
+        pnl_push(el, args->items[2]);
+        return mk_assign(args->items[0], mk_set_bin(name[0] == 'i' ? "__pas_setuni" : "__pas_setdif", pas_tree_clone(args->items[0]), mk_set_ctor(el)));
+    }
+    if (name && g_lower.pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "assignfile")) return mk_call("assign", args);
+    if (name && g_lower.pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "closefile")) return mk_call("close", args);
     if (name && !strcmp(name, "assign") && args && args->count >= 3) { tree_t *fv = args->items[0]; tree_t *nm = args->items[2]; return mk_assign(fv, mk_fnc1("__pas_fassign", pas_alpha_wrap(nm))); }
     if (name && !strcmp(name, "rewrite") && args && args->count >= 1) {
         tree_t *fv = args->items[0];
@@ -1199,6 +1212,11 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                         _vpost[_nvpost++] = mk_assign(pas_tree_clone(_fld), _pk);
                         val = leaf_s(TT_VAR, _tn);
                     }
+                }
+                if (val && _pidx < 64 && ((pas_openparm_mask(name) >> _pidx) & 1ULL) && val->t == TT_FNC) {
+                    tree_t *_al = ast_node_new(TT_FNC);
+                    ast_push(_al, leaf_s(TT_VAR, "__pas_arrlit"));
+                    if (pas_setcons_elems(val, _al)) val = _al;
                 }
                 if (val && _pidx < 64 && ((pas_openparm_mask(name) >> _pidx) & 1ULL)) {
                     if (!pas_proc_param_is_var(name, _pidx)) val = mk_fnc1("__pas_open", val);
@@ -5311,7 +5329,15 @@ static pval E_call_with_args(const tree_t *n) {
     if (IS(n, TT_FNC)) {
         v[1].str = pas_alias_resolve(tok_s(n->c[0]));
         if (v[1].str && !strcmp(v[1].str, "format") && n->n == 3 && IS(n->c[2], TT_SET) && !pas_is_func(v[1].str) && !pas_is_proc(v[1].str) && (out.node = pas_format_call(n))) return out;
-        v[3] = E_argument_list(n, 1, n->n);
+        if (pas_openparm_mask(v[1].str) != 0) {
+            for (int i = 1; i < n->n; i++) {
+                int _ac = i - 1 < 64 && ((pas_openparm_mask(v[1].str) >> (i - 1)) & 1ULL) && IS(n->c[i], TT_SET);
+                g_lower.pas.sem.pas_arrctor = _ac;
+                pval _a = E_argument(n->c[i]);
+                g_lower.pas.sem.pas_arrctor = 0;
+                v[3].list = i == 1 ? _a.list : pnl_concat(v[3].list, _a.list);
+            }
+        } else v[3] = E_argument_list(n, 1, n->n);
         if (v[1].str && (!strcmp(v[1].str, "max") || !strcmp(v[1].str, "min")) && v[3].list && v[3].list->count >= 4 && pas_is_func("fpcmaxdouble") &&
             (pas_expr_is_real(v[3].list->items[0]) || pas_expr_is_real(v[3].list->items[2]))) v[1].str = v[1].str[1] == 'a' ? "fpcmaxdouble" : "fpcmindouble";
         v[3].list = pas_defaults_extend(v[1].str, v[3].list);
@@ -6641,7 +6667,11 @@ static pval E_set_member(const tree_t *n) {
         { pas_set_member_ordinal(v[1].node); pas_set_member_ordinal(v[3].node); out.node = mk_set_bin("__pas_setrange", v[1].node, v[3].node); }
         return out;
     }
-    if (n != NULL) { v[1] = E_expression(n); { pas_set_member_ordinal(v[1].node); PNodeList *_l = pnl_new(); pnl_push(_l, v[1].node); out.node = mk_set_ctor(_l); } return out; }
+    if (n != NULL) {
+        v[1] = E_expression(n);
+        { if (!g_lower.pas.sem.pas_arrctor) pas_set_member_ordinal(v[1].node); PNodeList *_l = pnl_new(); pnl_push(_l, v[1].node); out.node = mk_set_ctor(_l); }
+        return out;
+    }
     elab_bad("set_member", n);
     return out;
 }

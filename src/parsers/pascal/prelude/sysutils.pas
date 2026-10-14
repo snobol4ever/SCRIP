@@ -41,6 +41,8 @@ function TrimLeft(s: string): string;
 function TrimRight(s: string): string;
 function Trim(s: string): string;
 function StrToIntDef(s: string; d: integer): integer;
+function TryStrToInt(s: string; var n: integer): boolean;
+function FileExists(s: string): boolean;
 function CompareStr(a, b: string): integer;
 function CompareText(a, b: string): integer;
 function AnsiCompareStr(a, b: string): integer;
@@ -146,6 +148,33 @@ begin
   if not ok or (i <= length(s)) then StrToIntDef := d
   else if neg then StrToIntDef := -v
   else StrToIntDef := v
+end;
+function TryStrToInt(s: string; var n: integer): boolean;
+var i, v: integer; neg, ok: boolean;
+begin
+  i := 1;
+  v := 0;
+  neg := false;
+  ok := false;
+  while (i <= length(s)) and (s[i] = ' ') do i := i + 1;
+  if (i <= length(s)) and ((s[i] = '-') or (s[i] = '+')) then begin neg := s[i] = '-'; i := i + 1 end;
+  if (i <= length(s)) and (s[i] = '$') then
+  begin
+    i := i + 1;
+    while (i <= length(s)) and (pos(upcase(s[i]), '0123456789ABCDEF') > 0) do begin v := v * 16 + pos(upcase(s[i]), '0123456789ABCDEF') - 1; i := i + 1; ok := true end
+  end
+  else
+    while (i <= length(s)) and (s[i] >= '0') and (s[i] <= '9') do begin v := v * 10 + (ord(s[i]) - ord('0')); i := i + 1; ok := true end;
+  if not ok or (i <= length(s)) then TryStrToInt := false
+  else
+  begin
+    if neg then n := -v else n := v;
+    TryStrToInt := true
+  end
+end;
+function FileExists(s: string): boolean;
+begin
+  FileExists := __pas_fileexists(s)
 end;
 function CompareStr(a, b: string): integer;
 var i, n: integer;
