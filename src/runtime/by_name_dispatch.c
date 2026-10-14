@@ -15271,6 +15271,38 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
     }
     if (!strcmp(fn, "__pas_dynlen") && nargs == 1) { ARBLK_t *b = (args[0].v == DT_A && args[0].arr) ? (ARBLK_t *) args[0].arr : NULL; *out = INTVAL(b ? (long long)b->hi - b->lo + 1 : 0); return 1; }
     if (!strcmp(fn, "__pas_arrlit")) { DESCR_t d = pas_dyn_block(nargs); for (int k = 0; k < nargs; k++) ((ARBLK_t *) d.arr)->data[k] = args[k]; *out = d; return 1; }
+    if (!strcmp(fn, "__pas_move") && nargs == 6) {
+        if (args[0].v == DT_A && args[0].arr && args[2].v == DT_A && args[2].arr) {
+            ARBLK_t *db = (ARBLK_t *) args[0].arr, *sb = (ARBLK_t *) args[2].arr;
+            long long dj = IS_INT_fn(args[1]) ? (long long)args[1].i : db->lo, si = IS_INT_fn(args[3]) ? (long long)args[3].i : sb->lo;
+            long long bytes = IS_INT_fn(args[4]) ? (long long)args[4].i : 0, esz = IS_INT_fn(args[5]) ? (long long)args[5].i : 0;
+            long long n = esz > 0 ? bytes / esz : bytes, dk = dj - db->lo, sk = si - sb->lo;
+            long long dn = (long long)db->hi - db->lo + 1, sn = (long long)sb->hi - sb->lo + 1;
+            if (db->ndim == 1 && sb->ndim == 1 && dk >= 0 && sk >= 0) {
+                if (n > dn - dk) n = dn - dk;
+                if (n > sn - sk) n = sn - sk;
+                if (db == sb && dk > sk) for (long long t = n - 1; t >= 0; t--) db->data[dk + t] = pas_agg_copy(sb->data[sk + t]);
+                else for (long long t = 0; t < n; t++) db->data[dk + t] = pas_agg_copy(sb->data[sk + t]);
+            }
+        }
+        *out = args[0];
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_strmove") && nargs == 5) {
+        const char *d = VARVAL_fn(args[0]), *sv = VARVAL_fn(args[2]);
+        if (!d) d = "";
+        if (!sv) sv = "";
+        long long dl = (long long)strlen(d), sl = (long long)strlen(sv), j = IS_INT_fn(args[1]) ? (long long)args[1].i : 1, i = IS_INT_fn(args[3]) ? (long long)args[3].i : 1;
+        long long n = IS_INT_fn(args[4]) ? (long long)args[4].i : 0, total = dl > j - 1 + n ? dl : j - 1 + n;
+        if (n < 0 || j < 1 || i < 1) { *out = STRVAL((char *)d); return 1; }
+        char *o = rt_wsb_alloc((size_t)total + 1);
+        memcpy(o, d, (size_t)dl);
+        if (total > dl) memset(o + dl, ' ', (size_t)(total - dl));
+        for (long long t = 0; t < n; t++) o[j - 1 + t] = (i - 1 + t < sl) ? sv[i - 1 + t] : ' ';
+        o[total] = '\0';
+        *out = STRVAL(o);
+        return 1;
+    }
     if (!strcmp(fn, "__pas_now") && nargs == 0) {
         struct timespec ts;
         clock_gettime(CLOCK_REALTIME, &ts);

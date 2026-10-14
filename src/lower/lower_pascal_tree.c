@@ -1020,6 +1020,33 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         pnl_push(el, args->items[2]);
         return mk_assign(args->items[0], mk_set_bin(name[0] == 'i' ? "__pas_setuni" : "__pas_setdif", pas_tree_clone(args->items[0]), mk_set_ctor(el)));
     }
+    if (name && g_lower.pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "move") && args && args->count >= 6 && args->items[0] && args->items[2] &&
+        args->items[0]->t == TT_IDX && args->items[0]->n == 2 && args->items[0]->c[0] && args->items[0]->c[0]->t == TT_VAR && args->items[2]->t == TT_IDX && args->items[2]->n == 2 &&
+        args->items[2]->c[0] && args->items[2]->c[0]->t == TT_VAR) {
+        const char *sa = args->items[0]->c[0]->v.sval, *da = args->items[2]->c[0]->v.sval;
+        tree_t *f = ast_node_new(TT_FNC);
+        if (pas_var_string_kind(sa) && pas_var_string_kind(da)) {
+            ast_push(f, leaf_s(TT_VAR, "__pas_strmove"));
+            ast_push(f, leaf_s(TT_VAR, da));
+            ast_push(f, args->items[2]->c[1]);
+            ast_push(f, leaf_s(TT_VAR, sa));
+            ast_push(f, args->items[0]->c[1]);
+            ast_push(f, args->items[4]);
+            return mk_assign(leaf_s(TT_VAR, da), f);
+        }
+        long long hi = 0;
+        if ((pas_array_isdyn(sa) || pas_array_high_get(sa, &hi)) && (pas_array_isdyn(da) || pas_array_high_get(da, &hi))) {
+            long long z = pas_elem_size(da);
+            ast_push(f, leaf_s(TT_VAR, "__pas_move"));
+            ast_push(f, leaf_s(TT_VAR, da));
+            ast_push(f, args->items[2]->c[1]);
+            ast_push(f, leaf_s(TT_VAR, sa));
+            ast_push(f, args->items[0]->c[1]);
+            ast_push(f, args->items[4]);
+            ast_push(f, ilit(z > 0 ? z : 0));
+            return f;
+        }
+    }
     if (name && g_lower.pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "assignfile")) return mk_call("assign", args);
     if (name && g_lower.pas.sem.pas_dialect_fpc && !pas_is_func(name) && !pas_is_proc(name) && !strcmp(name, "closefile")) return mk_call("close", args);
     if (name && !strcmp(name, "assign") && args && args->count >= 3) { tree_t *fv = args->items[0]; tree_t *nm = args->items[2]; return mk_assign(fv, mk_fnc1("__pas_fassign", pas_alpha_wrap(nm))); }
