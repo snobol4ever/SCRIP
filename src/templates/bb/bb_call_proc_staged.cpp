@@ -1235,7 +1235,7 @@ static std::string bcps_spine_gen_arm() {
          + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_call_proc_staged_str(IR_t * pBB) {
+std::string bb_call_proc_staged() {
     int is_gen = _.op_sval && rt_proc_is_generator(_.op_sval);
     if (is_gen && _.op_node_kind != (int)IR_PROC_GEN && _.op_node_kind != (int)IR_CALL_PROC_STAGED) return x86_alpha()
         + x86_bomb("bb_call_proc_staged: generator call on an op kind without a callgen.act RSP-carve handle grant (zeta_storage.c widens only IR_PROC_GEN / IR_CALL_PROC_STAGED)");

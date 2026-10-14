@@ -277,10 +277,7 @@ void emit_label_define_bb (bb_label_t * lbl);
 extern "C" {
 #endif
 #include "IR.h"
-enum {
-    CALL_ROUTE_FATAL = 0, CALL_ROUTE_BYNAME = 1, CALL_ROUTE_DVAL2_BOMB = 3, CALL_ROUTE_PROC_STAGED = 5, CALL_ROUTE_RK_BOOL_SLOT = 6, CALL_ROUTE_RK_BOOL_RELOP = 13, CALL_ROUTE_FN = 11,
-        CALL_ROUTE_BYNAME_GEN = 12
-};
+#include "call_forms.h"
 struct SrcLines;
 typedef struct { int tag; int64_t val; struct bb_label_t * to; } pl_ix_arm_t;
 typedef struct {
@@ -597,6 +594,46 @@ typedef struct {
     uint64_t op_u_kval;
     int op_u_vo;
     void * thunk_stems;
+    int op_call_refuse;
+    int op_call_try;
+    const char * op_call_sym;
+    uint64_t op_call_fp;
+    const char * op_call_try_sym;
+    uint64_t op_call_try_fp;
+    const char * op_call_open_sym;
+    uint64_t op_call_open_fp;
+    long op_call_bid;
+    long op_call_idx;
+    int op_call_argbase;
+    int op_call_resoff;
+    int op_call_rec_off;
+    int op_call_genoff;
+    int op_call_dsave;
+    int op_call_scansync;
+    int op_call_curmov;
+    int op_call_pas_elem;
+    int op_call_sb_exit;
+    int op_call_fnlbl_fresh;
+    const char * op_call_fnlbl;
+    cv_t op_call_fnlbl_buf;
+    uint64_t op_call_rec_addr;
+    const char * op_call_rec_lbl;
+    cv_t op_call_rec_lbl_buf;
+    cv_t op_marg;
+    int op_marg_n;
+    int op_pl_kind;
+    int op_pl_sub;
+    int op_pl_rat;
+    const char * op_pl_op;
+    const char * op_pl_tags;
+    const char * op_pl_jcc;
+    const char * op_pl_oplbl;
+    cv_t op_pl_oplbl_buf;
+    const int * op_pl_rules;
+    int op_pl_fid_ok;
+    long op_pl_fid;
+    const long long * op_pl_db_words;
+    int op_pl_db_n;
 } sm_emit_t;
 extern sm_emit_t g_emit;
 #define XA_PAIR(i) CV_AT(g_emit.xa_bb_emit_pair, xa_pair_t, (i))

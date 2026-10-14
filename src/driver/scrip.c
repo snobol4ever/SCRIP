@@ -258,7 +258,11 @@ static int sc_qual_exempt_var(const char *nm) { return !strcmp(nm, "OUTPUT") || 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_qual_tab_add(sc_qual_tab_t *t, const char *nm, const char *pfx) {
     for (int i = 0; i < t->n; i++) if (!strcmp(t->names[i], nm) && !strcmp(t->pfx[i], pfx)) return;
-    if (t->n >= t->cap) { t->cap = t->cap ? t->cap * 2 : 256; t->names = (const char **)ct_grow((void *)t->names, (size_t)t->cap * sizeof(const char *)); t->pfx = (const char **)ct_grow((void *)t->pfx, (size_t)t->cap * sizeof(const char *)); }
+    if (t->n >= t->cap) {
+        t->cap = t->cap ? t->cap * 2 : 256;
+        t->names = (const char **)ct_grow((void *)t->names, (size_t)t->cap * sizeof(const char *));
+        t->pfx = (const char **)ct_grow((void *)t->pfx, (size_t)t->cap * sizeof(const char *));
+    }
     t->names[t->n] = nm;
     t->pfx[t->n] = pfx;
     t->n++;
@@ -286,7 +290,8 @@ static void sc_qual_collect(const tree_t *t, sc_qual_tab_t *fns, sc_qual_tab_t *
     if (t->t == TT_DEFINE && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) sc_qual_tab_add(fns, t->c[0]->v.sval, cur);
     else if (t->t == TT_STRUCT && t->n > 1 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) {
         sc_qual_tab_add(fns, t->c[0]->v.sval, cur);
-        if (t->c[1] && t->c[1]->t == TT_FIELDS) for (int i = 0; i < t->c[1]->n; i++) if (t->c[1]->c[i] && t->c[1]->c[i]->t == TT_VAR && t->c[1]->c[i]->v.sval) sc_qual_tab_add(fns, t->c[1]->c[i]->v.sval, cur);
+        if (t->c[1] && t->c[1]->t == TT_FIELDS) for (int i = 0; i < t->c[1]->n; i++) if (t->c[1]->c[i] && t->c[1]->c[i]->t == TT_VAR && t->c[1]->c[i]->v.sval)
+            sc_qual_tab_add(fns, t->c[1]->c[i]->v.sval, cur);
     } else if (t->t == TT_VAR && t->v.sval && !strcmp(cur, "sc_") && !sc_qual_exempt_var(t->v.sval)) sc_qual_tab_add(vars, t->v.sval, cur);
     else if (t->t == TT_INDIRECT && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval && !strcmp(cur, "sc_")) sc_qual_tab_add(vars, t->c[0]->v.sval, cur);
     for (int i = 0; i < t->n; i++) sc_qual_collect(t->c[i], fns, vars, cur);
@@ -308,8 +313,9 @@ static void sc_qual_apply(tree_t *t, const sc_qual_tab_t *fns, const sc_qual_tab
         if (p) sc_qual_set(t->c[0], p);
         else if (!strcmp(fn, "OPSYN") && argn > 1 && args->c[1] && args->c[1]->t == TT_QLIT && args->c[1]->v.sval) sc_qual_set(args->c[1], sc_qual_tab_find(fns, args->c[1]->v.sval, cur));
         else if (!strcmp(fn, "APPLY") && argn > 0 && args->c[0] && args->c[0]->t == TT_QLIT && args->c[0]->v.sval) sc_qual_set(args->c[0], sc_qual_tab_find(fns, args->c[0]->v.sval, cur));
-    } else if (t->t == TT_VAR && t->v.sval) { if (!sc_qual_exempt_var(t->v.sval)) { const char *p = sc_qual_tab_find(vars, t->v.sval, cur); sc_qual_set(t, p ? p : cur); } }
-    else if (t->t == TT_INDIRECT && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) {
+    } else if (t->t == TT_VAR && t->v.sval) {
+        if (!sc_qual_exempt_var(t->v.sval)) { const char *p = sc_qual_tab_find(vars, t->v.sval, cur); sc_qual_set(t, p ? p : cur); }
+    } else if (t->t == TT_INDIRECT && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) {
         if (!sc_qual_exempt_var(t->c[0]->v.sval)) { const char *p = sc_qual_tab_find(vars, t->c[0]->v.sval, cur); sc_qual_set(t->c[0], p ? p : cur); }
         return;
     } else if ((t->t == TT_LABEL || t->t == TT_GOTO_U || t->t == TT_GOTO_S || t->t == TT_GOTO_F) && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) {
@@ -708,6 +714,18 @@ static void bbj_label(FILE * fp, const IR_t * bb) {
         case IR_CALL:
         case IR_CALL_PROC_STAGED:
         case IR_CALL_BUILTIN:
+        case IR_CALL_DIRECT:
+        case IR_CALL_PL_LEAF:
+        case IR_CALL_PAS_BI:
+        case IR_CALL_CALLEE_REC:
+        case IR_CALL_FIELD_REC:
+        case IR_CALL_BYNAME:
+        case IR_CALL_TRY:
+        case IR_CALL_METHOD:
+        case IR_CALL_REDISP:
+        case IR_CALL_APPLY:
+        case IR_CALL_EVAL:
+        case IR_CALL_GEN:
         case IR_CALL_BUILTIN_GEN:
         case IR_CALL_ICON:
         case IR_CALL_SNOBOL4:
@@ -812,7 +830,7 @@ static int m4_program_has_prolog_terms(stage2_t *s2, IR_graph_t *bbg) {
             IR_t *nd = g->all[i];
             if (!nd) continue;
             if (nd->op == IR_LIT_ATOM) return 1;
-            if (nd->op == IR_CALL && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "$mkc") || !strcmp(IR_LIT(nd).sval, "$db_decls"))) return 1;
+            if ((nd->op == IR_CALL || nd->op == IR_CALL_PL_LEAF) && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "$mkc") || !strcmp(IR_LIT(nd).sval, "$db_decls"))) return 1;
         }
     }
     return 0;
@@ -1942,7 +1960,11 @@ int main(int argc, char **argv) {
                 snprintf(probe, sizeof probe, "%s/lib", walk);
                 struct stat st;
                 int hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode));
-                if (!hit) { snprintf(probe, sizeof probe, "%s/library", walk); hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)); if (hit) { sno_add_include_dir(ct_strdup(probe)); rt_sc_include_dir_add(probe); } }
+                if (!hit) {
+                    snprintf(probe, sizeof probe, "%s/library", walk);
+                    hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode));
+                    if (hit) { sno_add_include_dir(ct_strdup(probe)); rt_sc_include_dir_add(probe); }
+                }
                 snprintf(probe, sizeof probe, "%s/include", walk);
                 if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) { hit = 1; sno_add_include_dir(ct_strdup(probe)); }
                 if (hit) sno_add_include_dir(ct_strdup(walk));
@@ -2128,6 +2150,7 @@ int main(int argc, char **argv) {
         ast_prog = NULL;
         if (dump_zeta) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
         { extern void rt_proc_reset(void); rt_proc_reset(); register_procs_all(s2); drive_slots_all(s2); }
+        { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
         const IR_t ** seen_all = (const IR_t **) ct_zalloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_t *));
         int seen_n = 0;
         for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -2284,6 +2307,7 @@ int main(int argc, char **argv) {
                 if (_nm != stdout) fclose(_nm);
                 return 0;
             }
+            { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             g_medium = BB_MEDIUM_TEXT;
@@ -2459,8 +2483,8 @@ int main(int argc, char **argv) {
                 emit_textf("  .section .data\n  .align 8\n  .globl %s_sc_module\n%s_sc_module:\n", g_sc_module_name, g_sc_module_name);
                 emit_textf("  .quad %s\n  .quad main_\xce\xb1\n  .quad %s\n  .quad %d\n  .quad __alpha_cellp_tab\n  .quad __gc_frame_maps\n  .quad __gc_frame_sites\n",
                     _has_init ? (sn4_module_init_bottom() ? "module_init" : "main_init") : "0", _ngt > 0 ? "__gva_names" : "0", _ngt);
-                emit_textf("  .quad %s\n  .quad %s\n  .quad %d\n  .quad .Lscmodname\n.Lscmodname: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n",
-                    _nps > 0 ? "__proc" : "0", _nps > 0 ? "__proc_names" : "0", _nps, g_sc_module_name);
+                emit_textf("  .quad %s\n  .quad %s\n  .quad %d\n  .quad .Lscmodname\n.Lscmodname: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", _nps > 0 ? "__proc" : "0",
+                    _nps > 0 ? "__proc_names" : "0", _nps, g_sc_module_name);
                 goto sc_module_main_done;
             }
             emit_textf("  .globl main\n");
@@ -2765,6 +2789,7 @@ int main(int argc, char **argv) {
                     if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2);
                 }
             }
+            { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
             unsigned char _lbl_own[s2->bbp.count > 0 ? s2->bbp.count : 1];
             int _lbl_owned = sn4_lbl_owners(s2, _lbl_own);
             m3_lbl_ctx_t _m3lc = { s2, _lbl_own, _lbl_owned };

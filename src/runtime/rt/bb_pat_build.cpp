@@ -19,6 +19,7 @@ extern "C" void rt_code_pool_check(void);
 void emit_gc_tables_register(const void *fn);
 void optimizer_run(IR_graph_t * g);
 void ir_drive_slot_assign(IR_graph_t * g);
+void lower_call_forms_graph(IR_graph_t * g);
 void zls_reset(void);
 IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat);
 int zls_g_region(const IR_graph_t * g);
@@ -98,6 +99,7 @@ extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *z
     if (!g || !g->entry) { if (zsz) *zsz = 0; if (zstatic) *zstatic = 0; return (void *)0; }
     optimizer_run(g);
     ir_drive_slot_assign(g);
+    lower_call_forms_graph(g);
     IR_graph_t *saved_cfg = g_emit_cfg;
     int saved_fa = g_frame_active;
     extern int g_gva_active;

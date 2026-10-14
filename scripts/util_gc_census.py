@@ -518,7 +518,7 @@ def _top_args(s, k):
     return []
 
 
-def _param_literals(own_text, site_line, ident):
+def _param_literals(own_text, site_line, ident, depth=0, all_text=None):
     """A call target that is a PARAMETER of the function enclosing the site (bb_call_pl_leaf.cpp's pl_cold_call(const char * sym,
     ...) emitting x86("call", sym, ...)): the string literals passed in that position at every call of the function in the same
     file. ([], "") when the site is not in a function, `ident` is not one of its parameters, or no call passes a literal there --
@@ -552,6 +552,21 @@ def _param_literals(own_text, site_line, ident):
                     for ini in re.finditer(r"\b" + re.escape(av) + r"\s*=\s*([^;]*);", own_text):
                         lits += LIT_RX.findall(ini.group(1))
                         via = f" via the initializers of {av}"
+                    # the caller FORWARDS a parameter of its own (bb_call_fn.cpp's cf_open_method(osym, ofp) handing osym on to
+                    # bcfn_method_open_enter): the candidates are what ITS callers pass there, one level up, at most three deep
+                    if not lits and depth < 3:
+                        cl = own_text.count("\n", 0, c.start()) + 1
+                        fw, fwrule = _param_literals(own_text, cl, av, depth + 1, all_text)
+                        if fw:
+                            lits += fw
+                            via = f" forwarded from {fwrule}"
+                # the caller passes a g_emit FIELD (_.op_call_open_sym): the candidates are the emitter's writes into it
+                mfa = re.match(r"_\.(op_[a-z0-9_]+)$", av)
+                if not found and mfa and all_text is not None:
+                    fl, flrule = _emit_field_literals(mfa.group(1), all_text)
+                    if fl:
+                        lits += fl
+                        via = f" via the {flrule}"
                 mc = re.match(r"([A-Za-z_]\w*)\s*\(", av)
                 if not found and mc:
                     md = re.search(r"^[ \t]*#[ \t]*define[ \t]+" + re.escape(mc.group(1)) + r"\([^)]*\)(.*(?:\\\n.*)*)$", own_text, re.M)
@@ -572,9 +587,41 @@ def _rtx_twin_map():
     return {m.group(1): m.group(2) for m in re.finditer(r"RTX_TWIN\(\s*\w+\s*,[^,]+,\s*(\w+)\s*,\s*(\w+)\s*,", t)}
 
 
+def _emit_field_literals(field, all_text):
+    """A call target that is a g_emit FIELD (x86("call", _.op_call_sym, ...), hq_templates 2026-10-14, the call plan of ARCH-CALL-FORMS): the
+    candidates are what the emitter writes into it -- every `g_emit.<field> = <rhs>;` in the population (src/emitter is in it), each right-hand
+    side read by the rules of this file: its literals, a chooser it calls (a function defined in the population whose body returns literals),
+    and an identifier a resolver filled (dop_direct_fp(..., &s)). An empty literal is the field's reset, never a candidate."""
+    lits = []
+    n = 0
+    for w in re.finditer(r"g_emit\." + re.escape(field) + r"\s*=\s*([^;]*);", all_text):
+        rhs = w.group(1)
+        n += 1
+        lits += [l for l in LIT_RX.findall(rhs) if l]
+        for c in re.finditer(r"\b([A-Za-z_]\w*)\s*\(", rhs):
+            name = c.group(1)
+            if name in ("uint64_t", "uintptr_t", "void", "long", "int", "strcmp", "IF", "sizeof"):
+                continue
+            d = re.search(DEF_RX_FMT % re.escape(name), all_text, re.M)
+            if d:
+                lits += _chooser_literals_nested(all_text, d.end() - 1)
+        for ident in set(re.findall(r"(?<![\w.\"])([A-Za-z_]\w*)(?![\w(\"])", rhs)):
+            for rv in SYM_RESOLVERS:
+                if re.search(re.escape(rv) + r"\s*\([^;]*&\s*" + re.escape(ident) + r"\b", all_text):
+                    d = re.search(r"\b" + re.escape(rv) + r"\s*\([^;{]*\)\s*\{", all_text)
+                    if d:
+                        lits += _brace_body_literals(all_text, d.end() - 1)
+    return (sorted(set(lits)), f"emit field {field} ({n} writer(s) in the emitter)") if lits else ([], "")
+
+
 def resolve_computed(expr, own_text, all_text, site_line=None):
     """(candidates, rule) for a computed call target the census has been told how to read; ([], "") otherwise"""
     e = _first_arg(expr).strip()
+    mf = re.match(r"_\.(op_[a-z0-9_]+)\s*$", e)
+    if mf:
+        lits, rule = _emit_field_literals(mf.group(1), all_text)
+        if lits:
+            return lits, rule
     mt = re.match(r"emit_rtx_twin_sym\s*\((.*)\)\s*$", e)
     if mt:
         lits, rule = resolve_computed(mt.group(1), own_text, all_text, site_line)
@@ -608,7 +655,7 @@ def resolve_computed(expr, own_text, all_text, site_line=None):
                 return _chooser_literals_nested(all_text, ds[0].end() - 1), f"chooser {m.group(1)}(...) [extern, defined once in the set]"
     m = re.match(r"([A-Za-z_]\w*)\s*$", e)
     if m and site_line is not None:
-        lits, rule = _param_literals(own_text, site_line, m.group(1))
+        lits, rule = _param_literals(own_text, site_line, m.group(1), 0, all_text)
         if lits:
             return lits, rule
     if m:
@@ -2367,6 +2414,21 @@ def selftest():
     pr_unit = next(u for u in emission_units(pr_text) if u[0] == "func" and u[1] == "h")
     ck(expansion_lines(pr_unit, t_pr, {t_pr: pr_text}) == [(t_pr, 6)],
        "safe-points WRAPPED PROTOTYPE: a prototype whose parameter list wraps over two lines is not an expansion of its function -- only the call is")
+    t_fld = os.path.join(w, "fld.cpp"); t_fle = os.path.join(w, "fle.cpp")
+    open(t_fld, "w").write('std::string a(){\n    return x86("call", _.op_zz_sym, fp) + x86_rt_gc_poll();\n}\n')
+    open(t_fle, "w").write('void zz_prepare(void) {\n    g_emit.op_zz_sym = "";\n    g_emit.op_zz_sym = c ? "rt_concat" : "rt_gcheap_alloc";\n}\n')
+    o9 = []
+    census_safe_points("", [t_fld, t_fle], out=o9.append, allocating=alloc, list_polled=True)
+    ck(_sp_has(o9, allocating_call_sites=1, polled=1, unresolved=0) and any("emit field op_zz_sym" in x and "rt_concat" in x and "rt_gcheap_alloc" in x for x in o9),
+       "safe-points EMIT FIELD TARGET: x86(\"call\", _.op_X, ...) resolves to what the emitter writes into g_emit.op_X, its empty reset dropped")
+    t_fw = os.path.join(w, "fw.cpp")
+    open(t_fw, "w").write('static std::string inner(const char * sym, void * fp) {\n    return x86("call", sym, fp) + x86_rt_gc_poll();\n}\n'
+                          'static std::string outer(const char * osym, void * ofp) {\n    return inner(osym, ofp);\n}\n'
+                          'std::string a(){ return outer("rt_concat", fp) + outer(_.op_zz_sym, fp); }\n')
+    o10 = []
+    census_safe_points("", [t_fw, t_fle], out=o10.append, allocating=alloc, list_polled=True)
+    ck(_sp_has(o10, allocating_call_sites=1, polled=1, unresolved=0) and any("forwarded from" in x and "rt_concat" in x and "rt_gcheap_alloc" in x for x in o10),
+       "safe-points FORWARDED PARAMETER: a helper that hands its own parameter on resolves through its callers, a literal and a g_emit field among them")
     # THE WINDOW'S BUDGET COUNTS ONLY THE SITE'S OWN PATH (the cto 2026-10-08, bb_match_defer.cpp:307): the call heads the first of three
     # ternary arms, the two others hold sixteen x86 tokens, and the one poll follows the ternary's close -- POLLED on every arm. The same
     # sixteen tokens written on the call's own path (the control) still spend the window before the poll -- UNPOLLED.

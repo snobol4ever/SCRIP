@@ -153,6 +153,7 @@ static int eval_thunks_emit_from(int pc0) {
         if (!pname || idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) continue;
         { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g_stage2.bbp.table[idx]); }
         ir_drive_slot_assign(g_stage2.bbp.table[idx]);
+        { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g_stage2.bbp.table[idx]); }
         g_emit_cfg = g_stage2.bbp.table[idx];
         g_gen_proc_active = g_stage2.proc_table[pi].is_generator;
         if (b1c) { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
@@ -294,6 +295,7 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     g_emit_cfg = (IR_graph_t *)g;
     int fa = g_frame_active;
     g_frame_active = 1;
+    { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph((IR_graph_t *)g); }
     emit_jmp_entry_for_chain((IR_graph_t *)g);
     g_rt_fragment_emit = 1;
     eval_chain_fn fn = emit_chain(((IR_graph_t *)g)->entry, NULL, "pat_flat");
@@ -910,6 +912,7 @@ void *rt_sno_shim_install(void *pv, const char *name, void *efn) {
         zls_forget_graph_nodes(g);
         fl_derive_tier(g);
         ir_drive_slot_assign(g);
+        { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
         {
             IR_graph_t *cfg_sv = g_emit_cfg;
             int fa = g_frame_active, ga = g_gen_proc_active, rfe = g_rt_fragment_emit;
@@ -1046,6 +1049,7 @@ DESCR_t code_at(const char *src, long base) {
             g_frame_active = 1;
             int rfe_sv = g_rt_fragment_emit;
             g_rt_fragment_emit = 1;
+            { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
             emit_jmp_entry_for_chain(g);
             eval_chain_fn fn = emit_chain(g->entry, NULL, "code_flat");
             { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
@@ -1179,6 +1183,7 @@ static int rk_emit_new_procs(int pc0) {
         { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
         fl_derive_tier(g);
         ir_drive_slot_assign(g);
+        { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
         if (g->caller_frame && g->nslots > 0) rt_proc_set_frame(pname, g->nslots - 1, g_stage2.proc_table[pi].decl_level);
     }
     IR_graph_t *cfg_sv = g_emit_cfg;

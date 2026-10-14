@@ -27,6 +27,8 @@
 *	src/templates/x86/
 *	src/templates/xa/
 *	src/lower/lower_common.c
+*	src/lower/lower_call_forms.c
+*	src/ir/call_forms.h
 *	src/lower/lower.h
 *	src/lower/g_lower.h
 *	src/lower/lc_vec.h

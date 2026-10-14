@@ -3447,6 +3447,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
     { extern void fl_derive_tier(IR_graph_t *); fl_derive_tier(g); }
     { extern void ir_drive_slot_assign(IR_graph_t *); ir_drive_slot_assign(g); }
+    { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
     cfg_sv = g_emit_cfg;
     g_emit_cfg = g;
     fa = g_frame_active;

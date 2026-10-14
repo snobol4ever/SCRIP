@@ -124,8 +124,9 @@ static const char * flat_label_kind_of(IR_t * nd) {
 extern "C" const char * bb_kind_name(int op) { return flat_label_kind((IR_e)op); }
 extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);
 static int emit_floater_kind(const IR_t * n) { if (!n) return 0; if (n->op == IR_DEFINE && IR_LIT(n).ival == 1) return 1; if (n->op == IR_DEFINE && IR_LIT(n).ival == 2) return 2;
-    if (n->op == IR_LIT_STRING && n->γ.node && n->γ.node->op == IR_CALL && IR_LIT(n->γ.node).sval && !strcmp(IR_LIT(n->γ.node).sval, "SNO$NRET")) return 3; return 0; }
-static int emit_floater_member(const IR_t * n) { if (!n) return 0; if (emit_floater_kind(n)) return 1; if (n->op == IR_CALL && IR_LIT(n).sval && !strcmp(IR_LIT(n).sval, "SNO$NRET")) return 1;
+    if (n->op == IR_LIT_STRING && n->γ.node && ir_norm_call_kind(n->γ.node->op) == IR_CALL && IR_LIT(n->γ.node).sval && !strcmp(IR_LIT(n->γ.node).sval, "SNO$NRET")) return 3; return 0; }
+static int emit_floater_member(const IR_t * n) { if (!n) return 0; if (emit_floater_kind(n)) return 1;
+    if (ir_norm_call_kind(n->op) == IR_CALL && IR_LIT(n).sval && !strcmp(IR_LIT(n).sval, "SNO$NRET")) return 1;
     return 0; }
 static bb_label_t * emit_floater_label(int k) { static const char * const fn[4] = {0, "RETURN", "FRETURN", "NRETURN"}; if (k < 1 || k > 3) return (bb_label_t *)0;
     if (!g_emitter.g_flt_lbl[k]) g_emitter.g_flt_lbl[k] = g_emitter.g_flt_fam ? emit_label_alloc("%s_%s", fn[k], g_emitter.g_flt_fam) : emit_label_alloc("%s", fn[k]); return g_emitter.g_flt_lbl[k]; }
@@ -825,7 +826,7 @@ static int fence_body_kk_gamma(const IR_t * nd, int * closed) {
     *closed = 0; if (!nd->operands[0] || !nd->operands[1]) return 0;
     IR_t * cur = zd_chase(nd->operands[0]); int guard = 0; int kk = 0;
     while (cur && guard++ <= g_emit_cfg->n) {
-        if (cur != nd) { if (fence_body_kk_complex((int)cur->op)) return 0; kk += zd_k(cur); }
+        if (cur != nd) { if (fence_body_kk_complex((int)ir_kind0(cur))) return 0; kk += zd_k(cur); }
         if (cur == nd->operands[1]) { *closed = 1; return kk; }
         cur = zd_chase(cur->γ.node); }
     return 0;
@@ -840,7 +841,7 @@ static int fence_body_kk(const IR_t * nd) {
     if (fence_kk_gamma_on()) { int closed = 0; int gk = fence_body_kk_gamma(nd, &closed); if (closed) return gk; }
     int lo = -1, hi = -1; for (int k = 0; k < g_emit_cfg->n; k++) { if (g_emit_cfg->all[k] == nd->operands[0]) lo = k; if (g_emit_cfg->all[k] == nd->operands[1]) hi = k; }
     if (lo < 0 || hi < 0) return 0; if (lo > hi) { int t = lo; lo = hi; hi = t; }
-    int kk = 0; for (int j = lo; j <= hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || m == nd) continue; int mo = (int)m->op;
+    int kk = 0; for (int j = lo; j <= hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || m == nd) continue; int mo = (int)ir_kind0(m);
         if (mo == IR_MATCH_ALTERNATE || mo == IR_MATCH_ARBNO || (mo == IR_MATCH_FENCE1 || mo == IR_MATCH_FENCE0) || mo == IR_MATCH_DEFER || mo == IR_MATCH_VALUE || mo == IR_CALL ||
             mo == IR_CALL_VALUE || mo == IR_DISJUNCTION || mo == IR_MATCH_ABORT) return 0;
         kk += zd_k(m); }
@@ -860,7 +861,7 @@ static int fence0_dyn_floor(const IR_t * nd) {
     if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE0) return 0;
     if (!blob_frame_scope()) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: not blob scope\n", (const void *)nd); return 0; }
     int n = g_emit_cfg->n; int guard = 0; IR_t * cur = zd_chase(nd->γ.node); const IR_t ** met = (const IR_t **)alloca(sizeof(IR_t *) * (size_t)(n + 1)); int nmet = 0;
-    while (cur && guard++ <= n) { int mo = (int)cur->op;
+    while (cur && guard++ <= n) { int mo = (int)ir_kind0(cur);
         if (mo == IR_MATCH_END) break;
         if (mo == IR_MATCH_ALTERNATE || mo == IR_MATCH_ARBNO || mo == IR_MATCH_FENCE1 || mo == IR_MATCH_FENCE0 || mo == IR_MATCH_VALUE || mo == IR_CALL || mo == IR_CALL_VALUE ||
             mo == IR_DISJUNCTION || mo == IR_MATCH_ABORT) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p dyn: dynamic successor %s\n", (const void *)nd, bb_op_name((IR_e)mo)); return 0; }
@@ -888,7 +889,7 @@ static int fence0_release_bytes(const IR_t * nd) {
     if (ns < 0) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p not on any MATCH_BEGIN or thunk-entry forward chain -- bill 0\n", (const void *)nd); return 0; }
     if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p executed-prefix len=%d (cfg_n=%d)\n", (const void *)nd, ns, n);
     int total = 0;
-    for (int j = ns - 1; j >= 0; j--) { IR_t * m = seq[j]; int mo = (int)m->op;
+    for (int j = ns - 1; j >= 0; j--) { IR_t * m = seq[j]; int mo = (int)ir_kind0(m);
         if (_fzd) fprintf(stderr, "[FZ-DIAG]   step j=%-3d op=%-22s zd_k=%-3d total=%d\n", j, bb_op_name((IR_e)mo), zd_k(m), total);
         if (mo == IR_MATCH_BEGIN || mo == IR_STATEMENT_BEGIN) break;
         if (mo == IR_MATCH_ALTERNATE || mo == IR_MATCH_ARBNO || mo == IR_MATCH_FENCE1 || mo == IR_MATCH_FENCE0 || mo == IR_MATCH_DEFER || mo == IR_MATCH_VALUE || mo == IR_CALL ||
@@ -920,12 +921,12 @@ static int fence_frame_candidate(const IR_t * nd) {
                       for (int k = mb + 1; k < hi; k++) if (all[k] == t) { if (!seen[k - mb]) { seen[k - mb] = 1; stk[sp++] = k; } break; } } } } } }
     { IR_t * cur = zd_chase(nd->operands[0]); int guard = 0;
       while (cur && guard++ <= g_emit_cfg->n) {
-          if (cur != nd && fence_body_kk_complex((int)cur->op)) return 1;
+          if (cur != nd && fence_body_kk_complex((int)ir_kind0(cur))) return 1;
           if (cur == nd->operands[1]) break;
           cur = zd_chase(cur->γ.node); } }
     int lo = -1, hi = -1; for (int k = 0; k < g_emit_cfg->n; k++) { if (g_emit_cfg->all[k] == nd->operands[0]) lo = k; if (g_emit_cfg->all[k] == nd->operands[1]) hi = k; }
     if (lo < 0 || hi < 0) return 0; if (lo > hi) { int t = lo; lo = hi; hi = t; }
-    for (int j = lo; j <= hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || m == nd) continue; int mo = (int)m->op;
+    for (int j = lo; j <= hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || m == nd) continue; int mo = (int)ir_kind0(m);
         if (mo == IR_MATCH_ALTERNATE || mo == IR_MATCH_ARBNO || (mo == IR_MATCH_FENCE1 || mo == IR_MATCH_FENCE0) || mo == IR_MATCH_DEFER || mo == IR_MATCH_VALUE || mo == IR_CALL ||
             mo == IR_CALL_VALUE || mo == IR_DISJUNCTION || mo == IR_MATCH_ABORT) return 1; }
     return 0;
@@ -1121,25 +1122,20 @@ extern "C" int dop_direct_leaf_known(const char * fn, int narg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RK_BOOL_ROUTE(a0) (((a0) && (a0)->op == IR_BINOP && IR_LIT(a0).ival >= BINOP_LT && IR_LIT(a0).ival <= BINOP_NE) ? CALL_ROUTE_RK_BOOL_RELOP : CALL_ROUTE_RK_BOOL_SLOT)
 int bb_call_route_classify(IR_t * nd) {
-    const char * fn = g_emit.op_sval ? g_emit.op_sval : ""; int64_t narg = g_emit.op_ival; IR_t * a0 = ir_call_arg(nd, 0); double dv = g_emit.op_dval;
-    IR_e k = nd ? nd->op : IR_CALL;
-    if (k == IR_CALL_BUILTIN_GEN) return CALL_ROUTE_BYNAME_GEN;
-    if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
-    if (k == IR_CALL_PROC_STAGED) return CALL_ROUTE_PROC_STAGED;
-    if (k == IR_CALL && fn[0] && dop_direct_leaf_known(fn, (int)narg)) return CALL_ROUTE_FN;
-    if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
-    if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
-    if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_known(fn)) return CALL_ROUTE_FN;
-    if (!strcmp(fn, "__rk_bool") && narg >= 1) return RK_BOOL_ROUTE(a0);
-    if (dv == 2.0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
-    if ((dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) return CALL_ROUTE_PROC_STAGED;
-    if ((dv == 2.0 || dv == 3.0) && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
-    if (dv == 2.0) return CALL_ROUTE_DVAL2_BOMB;
-    if (fn[0] && rt_proc_is_registered(fn)) return rt_proc_entry_pending(fn) ? CALL_ROUTE_BYNAME : CALL_ROUTE_PROC_STAGED;
-    if (!strcmp(fn, "__rk_bool") && dv == 0.0 && narg == 1 && a0 && bb_slot_get(a0) >= 0) return RK_BOOL_ROUTE(a0);
-    if (fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
-    if (fn[0] && !rt_proc_is_registered(fn)) return CALL_ROUTE_BYNAME;
-    return CALL_ROUTE_FATAL;
+    int r = nd ? lower_call_route(nd) : CALL_ROUTE_FATAL;
+    return r == CALL_ROUTE_RK_BOOL ? RK_BOOL_ROUTE(ir_call_arg(nd, 0)) : r;
+}
+void call_prepare(IR_t * nd);
+static void call_fc_fill(IR_t * nd) {
+    extern int fc_call_active(const IR_t *); extern long fc_vwpop(const IR_t *); extern int zls_off(const IR_t *);
+    g_emit.op_seal = nd->seal;
+    if (fc_call_active(nd)) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = zls_off(nd); long _w = fc_vwpop(nd); if (_w > 0) g_emit.op_wpop += (int)_w; }
+}
+static void call_box_emit(std::string (*box)(void)) {
+    int sw = g_emit.op_wpop, sz = g_emit.op_zgpop;
+    if (g_emit.op_call_sb_exit) { g_emit.op_wpop = 0; g_emit.op_zgpop = 0; }
+    bb_emit_x86(box());
+    g_emit.op_wpop = sw; g_emit.op_zgpop = sz;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "walk_bb_flat"); abort(); }
@@ -1635,13 +1631,19 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN:
     case IR_CALL_ICON: case IR_CALL_SNOBOL4:
     case IR_PROC_GEN:
-    case IR_CALL: {
-        g_emit.op_call_route = bb_call_route_classify(nd); g_emit.op_seal = nd->seal;
-        { extern int fc_call_active(const IR_t *); extern long fc_vwpop(const IR_t *); extern int zls_off(const IR_t *); if (fc_call_active(nd)) { g_emit.op_fc_wbytes = 16;
-            g_emit.op_fc_base = zls_off(nd); long _w = fc_vwpop(nd); if (_w > 0) g_emit.op_wpop += (int)_w; } }
-        bb_emit_x86(bb_call(nd));
-        return 0;
-    }
+    case IR_CALL: { g_emit.op_call_route = bb_call_route_classify(nd); call_fc_fill(nd); bb_emit_x86(bb_call()); return 0; }
+    case IR_CALL_DIRECT: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_direct); return 0;
+    case IR_CALL_PL_LEAF: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_pl_leaf); return 0;
+    case IR_CALL_PAS_BI: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_pas_bi); return 0;
+    case IR_CALL_CALLEE_REC: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_callee_rec); return 0;
+    case IR_CALL_FIELD_REC: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_field_rec); return 0;
+    case IR_CALL_BYNAME: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_byname); return 0;
+    case IR_CALL_TRY: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_try); return 0;
+    case IR_CALL_METHOD: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_method); return 0;
+    case IR_CALL_REDISP: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_redisp); return 0;
+    case IR_CALL_APPLY: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_apply); return 0;
+    case IR_CALL_EVAL: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_eval); return 0;
+    case IR_CALL_GEN: call_fc_fill(nd); call_prepare(nd); call_box_emit(bb_call_gen); return 0;
     case IR_FAIL: bb_emit_x86(bb_fail()); return 0;
     case IR_CUT: bb_emit_x86(bb_cut()); return 0;
     case IR_UNOP:
@@ -2109,6 +2111,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_ASSIGN_FRAME:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CALL: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN: case IR_CALL_PROC_STAGED: case IR_PROC_GEN:
+    case IR_CALL_DIRECT: case IR_CALL_PL_LEAF: case IR_CALL_PAS_BI: case IR_CALL_CALLEE_REC: case IR_CALL_FIELD_REC: case IR_CALL_BYNAME: case IR_CALL_TRY: case IR_CALL_METHOD: case IR_CALL_REDISP:
+    case IR_CALL_APPLY: case IR_CALL_EVAL: case IR_CALL_GEN:
     case IR_CALL_ICON: case IR_CALL_SNOBOL4: {
         int na = nd->n_operands; drive_arg_slots_reserve(na);
         for (int i = 0; i < na; i++) { IR_t * a = ir_call_arg(nd, i); g_emit.op_arg_slot[i] = nd_slot(a); }
@@ -2750,11 +2754,11 @@ static int zd_wl_kind(IR_t * nd) {
     if (op == IR_DEREF || op == IR_ASSIGN_VAR) return 1;
     if (op == IR_FIELD_VAR) return 1;
     if (op == IR_SUBSCRIPT) return 1;
-    if (op == IR_CALL) { extern int rt_proc_is_registered(const char *); extern int rt_proc_is_generator(const char *); const char * fn = IR_LIT(nd).sval;
+    if (ir_kind0(nd) == IR_CALL) { extern int rt_proc_is_registered(const char *); extern int rt_proc_is_generator(const char *); const char * fn = IR_LIT(nd).sval;
         if (g_emitter.zd_wl_kind__zp < 0) { const char *e = getenv("SCRIP_ZD_PROC"); g_emitter.zd_wl_kind__zp = (e && *e == '0') ? 0 : 1;
             } if (fn && rt_proc_is_registered(fn)) { if (!g_emitter.zd_wl_kind__zp) return 0; return (rt_proc_is_generator(fn)) ? 0 : 1;
         } return 1; }
-    if (op == IR_CALL_ICON) { extern int icn_builtin_is_generator(const char *); extern int icn_builtin_is_known(const char *); const char * fn = IR_LIT(nd).sval;
+    if (ir_kind0(nd) == IR_CALL_ICON) { extern int icn_builtin_is_generator(const char *); extern int icn_builtin_is_known(const char *); const char * fn = IR_LIT(nd).sval;
         if (fn && icn_builtin_is_generator(fn)) return 0; if (fn && icn_builtin_is_known(fn)) return 1; return 1; }
     if (op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE) return 1;
     { if (g_emitter.zd_wl_kind__za < 0) { const char * e = getenv("SCRIP_ZD_ALT"); g_emitter.zd_wl_kind__za = (e && *e == '0') ? 0 : 1; }
@@ -2799,7 +2803,7 @@ static int zd_wl_kind(IR_t * nd) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zd_nops(IR_t * nd) { int op = (int)nd->op;
+static int zd_nops(IR_t * nd) { int op = (int)ir_kind0(nd);
     if (op == IR_KW_ASSIGN_SNOBOL4) return 1;
     return (op == IR_UNOP || op == IR_ASSIGN || op == IR_DEREF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_FIELD_VAR || op == IR_MATCH_BEGIN || op == IR_RETURN) ? 1 :
         (op == IR_BINOP || op == IR_COERCE_NUMERIC || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_BINOP_TEST || op == IR_BINOP_RELOP_VAL) ? 2 : (op == IR_MATCH_REPLACE) ? 2 :
@@ -2832,7 +2836,7 @@ static int arbno_frame_candidate(const IR_t * nd) {
     if (s0 < 0) return 0;
     for (int j = s0; j <= s1; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || m == nd) continue;
         if (m->op == IR_MATCH_DEFER && !m->pat_static) return 1;
-        int mo = (int)m->op;
+        int mo = (int)ir_kind0(m);
         if (zd_k(m) != 0 || mo == IR_MATCH_DEFER || mo == IR_MATCH_ALTERNATE || mo == IR_MATCH_ARBNO || (mo == IR_MATCH_FENCE1 || mo == IR_MATCH_FENCE0) || mo == IR_MATCH_VALUE
             || mo == IR_CALL || mo == IR_CALL_VALUE || mo == IR_DISJUNCTION || mo == IR_MATCH_ABORT) return 1; }
     if (arbno_reentry_hazard(nd)) return 1;
@@ -3105,7 +3109,7 @@ int blob_frame_scope(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int blob_wire_clobber_scan(void) {
     if (!g_emit_cfg) return 0;
-    for (int j = 0; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m) continue; int o = (int)m->op;
+    for (int j = 0; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m) continue; int o = (int)ir_kind0(m);
         if (o == IR_MATCH_DEFER || o == IR_CALL || o == IR_CALL_VALUE || o == IR_MATCH_VALUE || o == IR_MATCH_CALLOUT) return 1; }
     return 0;
 }
@@ -3389,7 +3393,7 @@ static int alt_arm_complex(const IR_t * nd) {
             (const void *)nd->operands[j + 1], s0, s1, g_emit_cfg->n);
         if (s0 < 0) continue;
         for (int k = s0; k <= s1; k++) { IR_t * m = g_emit_cfg->all[k];
-            if (m && m != nd && fence_body_kk_complex((int)m->op)) { if (getenv("SCRIP_ALTC_DIAG")) fprintf(stderr, "[ALTC]   -> complex at k=%d op=%d\n", k, (int)m->op); return 1; } } }
+            if (m && m != nd && fence_body_kk_complex((int)ir_kind0(m))) { if (getenv("SCRIP_ALTC_DIAG")) fprintf(stderr, "[ALTC]   -> complex at k=%d op=%d\n", k, (int)m->op); return 1; } } }
     return 0;
 }
 static int alt_flat_live_bytes(const IR_t * nd) { if (!nd || nd->op != IR_MATCH_ALTERNATE) return 0; if (choice_frame_slot(nd)) return 0;
@@ -3707,9 +3711,9 @@ static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, 
     ct_drop(w);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int flat_beta_kind_keeps(IR_t * nd) { int op = nd ? (int)nd->op : -1;
+static int flat_beta_kind_keeps(IR_t * nd) { int op = nd ? (int)ir_kind0(nd) : -1;
     return (nd &&
-    (ir_is_generator_kind(nd->op) || op == IR_SUSPEND || op == IR_CALL || op == IR_CALL_PROC_STAGED || op == IR_CALL_BUILTIN_GEN || op == IR_PROC_GEN || op == IR_REPALT || op == IR_LIMIT ||
+    (ir_is_generator_kind(ir_kind0(nd)) || op == IR_SUSPEND || op == IR_CALL || op == IR_CALL_PROC_STAGED || op == IR_CALL_BUILTIN_GEN || op == IR_PROC_GEN || op == IR_REPALT || op == IR_LIMIT ||
     op == IR_GOTO || op == IR_STATEMENT_BEGIN || (g_emit_cfg && nd == g_emit_cfg->body_root))) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_body_beta_keeps(IR_t * nd) { int op = nd ? (int)nd->op : -1; return (nd && (flat_beta_kind_keeps(nd) || op == IR_SCAN_TAB || op == IR_SCAN_MOVE)) ? 1 : 0; }
@@ -4762,7 +4766,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             if (gamma_is_phi) { node_γ = node_γ; }
         } }
         { int _flk = emit_floater_kind(gtgt); if (_flk) node_γ = emit_floater_label(_flk); }
-        { if (gtgt && gtgt->op == IR_CALL && emit_floater_member(gtgt) && node_γ == &lbl_γ) node_γ = emit_floater_label(1); }
+        { if (gtgt && ir_norm_call_kind(gtgt->op) == IR_CALL && emit_floater_member(gtgt) && node_γ == &lbl_γ) node_γ = emit_floater_label(1); }
         if (gtgt == NULL || gtgt->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (gtgt && gtgt->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;
@@ -4800,7 +4804,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             if (dobody->op == IR_FAIL) { g_emitter.g_suspend_dobody_beta = &lbl_ω; }
             else { { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, dobody);
                 if (k >= 0) { int do_alpha = g_emitter.codegen_flat_chain_body_nodes[i]->seal == 1 && !(dobody->op == IR_SCAN && dobody->n_operands > 2 && !dobody->operands[1]);
-                g_emitter.g_suspend_dobody_beta = (!do_alpha && (ir_is_generator_kind(dobody->op) || dobody->op == IR_CALL || dobody->op == IR_CALL_PROC_STAGED)) ? betas[k] : lbls[k]; } } }
+                g_emitter.g_suspend_dobody_beta = (!do_alpha && (ir_is_generator_kind(ir_kind0(dobody)) || ir_kind0(dobody) == IR_CALL || ir_kind0(dobody) == IR_CALL_PROC_STAGED)) ? betas[k] :
+                    lbls[k]; } } }
         }
         if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_DEFER) { g_emit.lbl_t1_p = NULL; g_emit.lbl_t1 = NULL;
             for (int _aj = 0; _aj < g_emitter.codegen_flat_chain_body_nodes[i]->n_operands; _aj++) { IR_t *_so = g_emitter.codegen_flat_chain_body_nodes[i]->operands[_aj];
@@ -5350,7 +5355,8 @@ static int emit_chain_arity(const IR_t *n) {
     case IR_ASSIGN: return 1;
     case IR_RETURN: return 1;
     case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN:
-    case IR_CALL_ICON: case IR_CALL_SNOBOL4:
+    case IR_CALL_ICON: case IR_CALL_SNOBOL4: case IR_CALL_DIRECT: case IR_CALL_PL_LEAF: case IR_CALL_PAS_BI: case IR_CALL_CALLEE_REC: case IR_CALL_FIELD_REC: case IR_CALL_BYNAME:
+    case IR_CALL_TRY: case IR_CALL_METHOD: case IR_CALL_REDISP: case IR_CALL_APPLY: case IR_CALL_EVAL: case IR_CALL_GEN:
     case IR_CALL: return n->n_operands;
     case IR_PROC_GEN: return 0;
     case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_POS:
@@ -5559,7 +5565,8 @@ static int emit_stmt_frame_scan(IR_graph_t * g, IR_t * entry) {
         { extern int fc_geom(const IR_t *, long *); long _fk = 0; int _fc = fc_geom(c, &_fk); if (g_emitter.emit_stmt_frame_scan__sd) { extern const char * bb_op_name(IR_e);
             fprintf(stderr, "[STF] node %s fc=%d k=%ld\n", bb_op_name(c->op), _fc, _fk); }
            if (g_emitter.emit_stmt_frame_scan__c2c < 0) { const char * e2 = getenv("SCRIP_CALL2BB"); g_emitter.emit_stmt_frame_scan__c2c = (e2 && *e2 == '1') ? 1 : 0; }
-          int _callfam = (g_emitter.emit_stmt_frame_scan__c2c && (c->op == IR_CALL || c->op == IR_CALL_PROC_STAGED || (c->op == IR_DEFINE && ir_define_sr_citizen(c)) || c->op == IR_GOTO_DEFERRED)) ?
+          int _callfam =
+              (g_emitter.emit_stmt_frame_scan__c2c && (ir_kind0(c) == IR_CALL || ir_kind0(c) == IR_CALL_PROC_STAGED || (c->op == IR_DEFINE && ir_define_sr_citizen(c)) || c->op == IR_GOTO_DEFERRED)) ?
               1 : 0;
           { extern int fc_vread_fp(const IR_t *); if (!_fc && c->op == IR_MATCH_BEGIN && fc_vread_fp(c) >= 0) _fc = 1;
             if (!_fc && c->op == IR_MATCH_END && c->n_operands > 0 && c->operands[0] && fc_vread_fp(c->operands[0]) >= 0) _fc = 1;
@@ -5884,22 +5891,6 @@ void * dat_find_type(const char * name);
 int emit_knob_unless_zero(const char * name) { const char * e = getenv(name); return (e && *e == '0') ? 0 : 1; }
 int emit_knob_nonzero(const char * name) { const char * e = getenv(name); return e ? (atoi(e) != 0) : 1; }
 int emit_knob_if_one(const char * name) { const char * e = getenv(name); return (e && *e == '1') ? 1 : 0; }
-long bid_bake_of(const char * fn) {
-    if (!emit_knob_unless_zero("SCRIP_BID_BAKE") || !fn) return -1L;
-    size_t n = strlen(fn);
-    if (n > 0xFFFFu) return -1L;
-    return (long)
-        (((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n) | (sn4_is_system_fn(fn) ? (unsigned long)BID_BAKE_SYSFN : 0UL) |
-        ((sn4_direct_on() && sn4_is_leaf_fn(fn)) ? (unsigned long)BID_BAKE_LEAF : 0UL));
-}
-int sn4_byname_kind(const char * fn, int strict) {
-    long bw = bid_bake_of(fn);
-    if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) return 1;
-    if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) return 2;
-    if (strict == 2) return 3;
-    if (strict) return 4;
-    return 5;
-}
 const char * sn4_byname_sym(const char * fn, int strict) {
     switch (sn4_byname_kind(fn, strict)) {
         case 1: return "rt_call_bid_sn4";
@@ -5918,66 +5909,14 @@ uint64_t sn4_byname_fp(const char * fn, int strict) {
         default: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl;
     }
 }
-int bb_callee_baked_kind(const char * fn, int strict) { if (!fn || !fn[0] || sn4_byname_kind(fn, strict) != 2) return 0; return (rt_dat_field_of_any(fn) && !dat_find_type(fn)) ? 1 : 2; }
 const char * bb_callee_baked_sym(int k) { return k == 2 ? "rt_call_callee_sn4" : "rt_call_fld_sn4"; }
 uint64_t bb_callee_baked_fp(int k) { return k == 2 ? (uint64_t)(uintptr_t)(void *)rt_call_callee_sn4 : (uint64_t)(uintptr_t)(void *)rt_call_fld_sn4; }
 #include "templates/bb/bb_pl_leaf_kinds.h"
-static int pl_ax_arity(const char * op) {
-    static const char * const b2[] = { "add", "sub", "mul", "div", "idiv", "divf", "mod", "rem", "fpow", "pow", "min", "max", "gcd", "xor", "shr", "shl", "band", "bor", 0 };
-    static const char * const b1[] = { "neg", "pos", "abs", "sign", "trunc", "intg", "flt", "floor", "ceil", "round", "sqrt", "msb", "bnot", "sin", "cos", "atan", "log", "exp", "fip", "ffp", 0 };
-    static const char * const b0[] = { "pi", "e", 0 };
-    for (int i = 0; b2[i]; i++) if (!strcmp(op, b2[i])) return 2;
-    for (int i = 0; b1[i]; i++) if (!strcmp(op, b1[i])) return 1;
-    for (int i = 0; b0[i]; i++) if (!strcmp(op, b0[i])) return 0;
-    return -1;
-}
-int pl_leaf_kind(const char * fn, int narg, const char ** op) {
-    static const char * const cmps[] = { "lt", "gt", "le", "ge", "eq", "ne", 0 };
-    static const char * const types[] = { "var", "nonvar", "atom", "number", "integer", "float", "atomic", "compound", "callable", "string", "rational", 0 };
-    *op = 0;
-    if (!fn || fn[0] != '$') return PLK_NONE;
-    if (!strcmp(fn, "$mkc")) return narg >= 1 ? PLK_MKC : PLK_NONE;
-    if (!strcmp(fn, "$db_decls")) return narg >= 1 ? PLK_DBDECLS : PLK_NONE;
-    if (!strcmp(fn, "$unify")) return narg == 2 ? PLK_UNIFY : PLK_NONE;
-    if (!strcmp(fn, "$ax_zguard")) return narg == 2 ? PLK_ZGUARD : PLK_NONE;
-    if (!strcmp(fn, "$ax_eguard")) return PLK_NONE;
-    if (!strncmp(fn, "$ax_", 4)) { *op = fn + 4; return pl_ax_arity(*op) == narg ? PLK_AX : PLK_NONE; }
-    if (!strncmp(fn, "$cmp_", 5) && narg == 2) { for (int i = 0; cmps[i]; i++) if (!strcmp(fn + 5, cmps[i])) { *op = fn + 5; return PLK_CMP; } return PLK_NONE; }
-    if (!strcmp(fn, "$is_v")) return narg == 2 ? PLK_IS : PLK_NONE;
-    if (!strncmp(fn, "$atop_", 6) && narg == 2) { for (int i = 0; cmps[i]; i++) if (!strcmp(fn + 6, cmps[i])) { *op = fn + 6; return PLK_ATOP; } return PLK_NONE; }
-    if (!strcmp(fn, "$pl_anum_guard2")) return narg == 3 ? PLK_ANUM : PLK_NONE;
-    if (!strcmp(fn, "$pl_anum_guard3")) return narg == 4 ? PLK_ANUM : PLK_NONE;
-    if (!strcmp(fn, "$pl_anum_guard5")) return narg == 6 ? PLK_ANUM : PLK_NONE;
-    if (narg == 1) for (int i = 0; types[i]; i++) if (!strcmp(fn + 1, types[i])) { *op = fn + 1; return PLK_TYPE; }
-    return PLK_NONE;
-}
 int pas_elem_kind(void) {
     const char * fn = g_emit.op_sval ? g_emit.op_sval : "";
     if (!emit_knob_unless_zero("SCRIP_PAS_ELEM")) return 0;
     if (!strcmp(fn, "arr_get") && g_emit.op_ival == 2) return 1;
     if (!strcmp(fn, "arr_set_pure") && g_emit.op_ival == 3) return 2;
-    return 0;
-}
-int pl_leaf_inline_known(const char * fn, int narg) {
-    const char * op = 0;
-    return pl_leaf_kind(fn, narg, &op) != PLK_NONE;
-}
-const int * pl_anum_rules(const char * name, int nargs) {
-    static const int r_atom_length[] = { PLR_TEXT, PLR_UNB_OR_INT0 }, r_text_list[] = { PLR_TEXT, PLR_UNB }, r_num_list[] = { PLR_NUM, PLR_UNB }, r_number_string[] = { PLR_NUM, PLR_ANY };
-    static const int r_char_code[] = { PLR_UNB, PLR_INTCODE }, r_atom_concat[] = { PLR_TEXT, PLR_TEXT, PLR_UNB_OR_TEXT }, r_atomic_concat[] = { PLR_TEXT_OR_NUM, PLR_TEXT_OR_NUM, PLR_UNB_OR_TEXT };
-    static const int r_sub_atom[] = { PLR_TEXT, PLR_UNB_OR_INT0, PLR_UNB_OR_INT0, PLR_UNB_OR_INT0, PLR_UNB_OR_TEXT }, r_arg[] = { PLR_INT0, PLR_COMP, PLR_ANY }, r_functor[] = { PLR_NONVAR,
-        PLR_ANY, PLR_ANY };
-    if (!name) return 0;
-    if (nargs == 2 && !strcmp(name, "atom_length")) return r_atom_length;
-    if (nargs == 2 && (!strcmp(name, "atom_chars") || !strcmp(name, "atom_codes"))) return r_text_list;
-    if (nargs == 2 && (!strcmp(name, "number_chars") || !strcmp(name, "number_codes"))) return r_num_list;
-    if (nargs == 2 && !strcmp(name, "number_string")) return r_number_string;
-    if (nargs == 2 && !strcmp(name, "char_code")) return r_char_code;
-    if (nargs == 3 && !strcmp(name, "atom_concat")) return r_atom_concat;
-    if (nargs == 3 && !strcmp(name, "atomic_concat")) return r_atomic_concat;
-    if (nargs == 5 && !strcmp(name, "sub_atom")) return r_sub_atom;
-    if (nargs == 3 && !strcmp(name, "arg")) return r_arg;
-    if (nargs == 3 && !strcmp(name, "functor")) return r_functor;
     return 0;
 }
 extern "C" { int stage2_owner_varslot(const char *, const char *); int bb_scc_probe(const char *, int, int *, int *, int *, int *); int rt_proc_nformals(const char *); extern int g_rt_fragment_emit;
@@ -6434,3 +6373,99 @@ const char * emit_rec_or_empty(void * r) { return r ? (const char *)r : ""; }
 #include "rt/rt_pl_trail.h"
 static_assert(X86_PL_TR_ENTRY_BYTES == PL_TR_ENTRY_BYTES, "x86_pl_tr_pop_entry spells the trail entry size as a literal");
 static_assert(X86_PL_TR_ARENA_MASK == -(long)PL_TR_ARENA_BYTES, "x86_pl_tr_top_sync spells the trail arena mask as a literal");
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int zls_argv_off(const IR_t *);
+extern "C" int pl_db_decls_words(long long ** out);
+extern "C" { typedef struct { long fn; long how; } call_next_rec_t; call_next_rec_t rt_call_arr_bl_try(const char *, DESCR_t *, long, DESCR_t *); call_next_rec_t rt_call_arr_bl_sn4_try(const char *,
+    DESCR_t *, long, DESCR_t *); call_next_rec_t rk_callsame_open(DESCR_t *, int, void *); call_next_rec_t rk_callwith_open(DESCR_t *, int, void *); }
+static void call_margs_reserve(int n) { cv_reserve(&g_emit.op_marg, (uint32_t)sizeof(marg_t), (uint64_t)(n > 0 ? n : 1), "op_marg"); }
+static const char * call_cv_text(cv_t * buf, const std::string & s) { cv_reserve(buf, 1, (uint64_t)s.size() + 1, "call_cv_text"); memcpy(buf->p, s.c_str(), s.size() + 1); return (const char *)buf->p;
+    }
+static void call_marg_plan(int i, IR_t * lf, int aoff, IR_t * owner) {
+    marg_t * m = &((marg_t *)g_emit.op_marg.p)[i]; m->kind = MARG_NONE; m->src = -1; m->imm = 0; m->str = 0;
+    if (owner && owner == g_emit.node && i >= 0 && i < g_emit.op_arg_slot_n && g_emit.op_arg_slot[i] >= 0) { m->src = g_emit.op_arg_slot[i]; m->kind = m->src == aoff ? MARG_DIRECT : MARG_SLOT; return;
+        }
+    if (!lf) return;
+    { const char * sv = IR_LIT(lf).sval;
+      if (lf->op == IR_LIT_INTEGER) { m->kind = MARG_LIT_I; m->imm = (uint64_t)IR_LIT(lf).ival; return; }
+      if (lf->op == IR_LIT_REAL) { m->kind = MARG_LIT_F; m->imm = emit_double_bits(IR_LIT(lf).dval); return; }
+      if (lf->op == IR_LIT_ATOM) { m->kind = MARG_LIT_ATOM; m->imm = (uint64_t)(unsigned)prolog_atom_intern(sv ? sv : ""); return; }
+      if (lf->op == IR_LIT_STRING && lf->seal == IR_SEAL_DSTAR_REF) { std::string star = std::string("*") + (sv ? sv : ""); m->kind = MARG_DSTAR;
+          m->str = ct_strdup((std::string(".Ldstar_") + bb_ab_sym_name(star.c_str())).c_str()); m->imm = (uint64_t)(uintptr_t)bb_dstar_rec_addr(star.c_str()); return; }
+      if (lf->op == IR_LIT_STRING && lf->seal == IR_SEAL_THUNK_REF) { m->kind = MARG_THUNK; m->str = ct_strdup((std::string(".Lthk_") + bb_ab_sym_name(sv ? sv : "")).c_str());
+          m->imm = (uint64_t)(uintptr_t)bb_thunk_rec_addr(sv); return; }
+      if (lf->op == IR_LIT_STRING) { m->kind = MARG_LIT_S; m->str = sv ? sv : ""; return; }
+      if ((ir_kind0(lf) == IR_CALL && (IR_LIT(lf).dval == 2.0 || IR_LIT(lf).dval == 3.0)) || ir_is_call_kind(ir_kind0(lf))) {
+          int staged = (ir_kind0(lf) == IR_CALL_PROC_STAGED || lf->op == IR_PROC_GEN);
+          if (owner && owner == g_emit.node && staged && bb_slot_get(lf) >= 0) { m->kind = MARG_SLOT; m->src = bb_slot_get(lf); return; }
+          m->kind = MARG_BOMB_TRAMPOLINE; return; }
+      if (lf->op == IR_VAR && sv && sv[0] != '&' && is_global(sv)) { m->kind = MARG_BOMB_GLOBAL; return; }
+      { int is_local_var = (lf->op == IR_VAR && sv && sv[0] != '&' && !is_global(sv)); int ps = is_local_var ? -1 : bb_slot_get(lf); if (ps < 0 && !is_local_var) ps = zls_off(lf);
+        if (ps >= 0) { m->src = ps; m->kind = ps == aoff ? MARG_DIRECT : MARG_SLOT; return; } }
+      { int voff = bb_varslot_peek(sv ? sv : ""); if (voff < 0) { m->kind = MARG_BOMB_VARSLOT; return; } m->kind = MARG_SLOT; m->src = voff; } }
+}
+static void call_fnlbl_set(const std::string & fl, int guard) {
+    g_emit.op_call_fnlbl = call_cv_text(&g_emit.op_call_fnlbl_buf, fl);
+    if (!guard) { g_emit.op_call_fnlbl_fresh = 1; return; }
+    { bb_label_t * dm = emit_label_intern((fl + "$def").c_str()); g_emit.op_call_fnlbl_fresh = (!dm || !bb_label_defined(dm)) ? 1 : 0; if (g_emit.op_call_fnlbl_fresh && dm) dm->offset = 0; }
+}
+static void call_pl_prepare(IR_t * nd, const char * fn, int narg, IR_graph_t ** subs, int fnroute) {
+    const char * op = 0; int k = pl_leaf_kind(fn, narg, &op); IR_t * a0 = (subs && subs[0]) ? subs[0]->entry : (fnroute ? ir_call_arg(nd, 0) : (IR_t *)0);
+    g_emit.op_pl_kind = k; g_emit.op_pl_op = op ? op : "";
+    g_emit.op_pl_sub = k == PLK_AX ? pl_ax_sub(op) : k == PLK_TYPE ? pl_type_sub(op) : k == PLK_ATOP ? pl_atop_sub(op) : 0;
+    g_emit.op_pl_tags = k == PLK_TYPE ? pl_type_tags(op) : "";
+    g_emit.op_pl_rat = k == PLK_TYPE ? pl_type_rat(op) : 0;
+    g_emit.op_pl_jcc = (k == PLK_CMP || k == PLK_ATOP) ? pl_cmp_fail_jcc(op) : "je";
+    if (k == PLK_ANUM) g_emit.op_pl_rules = pl_anum_rules((a0 && a0->op == IR_LIT_STRING) ? IR_LIT(a0).sval : (const char *)0, narg - 1);
+    if (k == PLK_MKC) { g_emit.op_pl_fid_ok = (a0 && a0->op == IR_LIT_INTEGER) ? 1 : 0; g_emit.op_pl_fid = g_emit.op_pl_fid_ok ? (long)IR_LIT(a0).ival : 0L; }
+    if (k == PLK_DBDECLS) { long long * w = 0; int n = pl_db_decls_words(&w); g_emit.op_pl_db_words = w; g_emit.op_pl_db_n = n; }
+    if (k == PLK_AX || k == PLK_CMP || k == PLK_TYPE || k == PLK_ATOP) g_emit.op_pl_oplbl =
+        call_cv_text(&g_emit.op_pl_oplbl_buf, std::string(".L") + x86_boxkind() + "_plop" + std::to_string(g_flat_node_id++));
+}
+void call_prepare(IR_t * nd) {
+    const char * fn = g_emit.op_sval ? g_emit.op_sval : ""; int narg = (int)g_emit.op_ival; int strict = g_emit.op_strict; IR_e kind = nd->op; int route = lower_call_route(nd);
+    int fnroute = (route == CALL_ROUTE_FN); int zd = (kind == IR_CALL_GEN) ? 0 : g_emit.op_zres; IR_graph_t ** subs = (IR_graph_t **)(intptr_t)g_emit.op_counter;
+    g_emit.op_call_route = route; g_emit.op_call_refuse = CALL_REFUSE_NONE; g_emit.op_call_try = 0; g_emit.op_call_sym = ""; g_emit.op_call_fp = 0; g_emit.op_call_try_sym = "";
+        g_emit.op_call_try_fp = 0;
+    g_emit.op_call_open_sym = ""; g_emit.op_call_open_fp = 0; g_emit.op_call_bid = -1; g_emit.op_call_idx = -1; g_emit.op_call_argbase = -1; g_emit.op_call_resoff = -1; g_emit.op_call_rec_off = -1;
+    g_emit.op_call_genoff = -1; g_emit.op_call_dsave = -1; g_emit.op_call_scansync = 0; g_emit.op_call_curmov = 0; g_emit.op_call_pas_elem = 0; g_emit.op_call_sb_exit = 0;
+    g_emit.op_call_fnlbl_fresh = 0; g_emit.op_call_fnlbl = ""; g_emit.op_call_rec_addr = 0; g_emit.op_call_rec_lbl = ""; g_emit.op_marg_n = 0; g_emit.op_pl_kind = PLK_NONE; g_emit.op_pl_sub = 0;
+    g_emit.op_pl_rat = 0; g_emit.op_pl_op = ""; g_emit.op_pl_tags = ""; g_emit.op_pl_jcc = "je"; g_emit.op_pl_oplbl = ""; g_emit.op_pl_rules = (const int *)0; g_emit.op_pl_fid_ok = 0;
+    g_emit.op_pl_fid = 0; g_emit.op_pl_db_words = (const long long *)0; g_emit.op_pl_db_n = 0;
+    if (!zd) {
+        g_emit.op_call_resoff = fnroute ? bcfn_result_slot(nd) : zls_off(nd);
+        if (g_emit.op_call_resoff < 0) g_emit.op_call_refuse = CALL_REFUSE_NO_SLOT;
+        else if (narg > nd->n_operands) g_emit.op_call_refuse = CALL_REFUSE_ARGC;
+        g_emit.op_call_argbase = zls_argv_off(nd); if (g_emit.op_call_argbase < 0) g_emit.op_call_argbase = g_emit.op_call_resoff + 16;
+        g_emit.op_call_genoff = g_emit.op_call_resoff + 16 * (1 + narg);
+    }
+    if (fnroute && !g_emit.op_call_refuse && nd->seal == IR_SEAL_CALL_DET_LEAF && kind != IR_CALL_DIRECT && kind != IR_CALL_PL_LEAF) g_emit.op_call_refuse = CALL_REFUSE_DET_LEAF;
+    if (!zd && !g_emit.op_call_refuse) { call_margs_reserve(narg); g_emit.op_marg_n = narg;
+        for (int i = narg - 1; i >= 0; i--) call_marg_plan(i, (subs && subs[i]) ? subs[i]->entry : (fnroute ? ir_call_arg(nd, i) : (IR_t *)0), g_emit.op_call_argbase + 16 * i, nd); }
+    g_emit.op_call_bid = bid_bake_of(fn);
+    g_emit.op_call_pas_elem = fnroute ? pas_elem_kind() : 0;
+    g_emit.op_call_sb_exit = (fnroute && zd && g_emit.op_sb) ? 1 : 0;
+    if (!fnroute && !zd && kind != IR_CALL_GEN) { g_emit.op_call_scansync = lower_call_is_scan_builtin(fn); g_emit.op_call_curmov = lower_call_is_curmov(fn);
+        g_emit.op_call_dsave = g_emit.op_call_argbase + 16 * narg; }
+    if (kind == IR_CALL_GEN) g_emit.op_call_scansync = lower_call_is_scan_builtin(fn);
+    switch (kind) {
+    case IR_CALL_DIRECT: { const char * s = 0; g_emit.op_call_fp = (uint64_t)(uintptr_t)dop_direct_fp(fn, (int64_t)narg, &s); g_emit.op_call_sym = s ? s : ""; break; }
+    case IR_CALL_PL_LEAF: call_pl_prepare(nd, fn, narg, subs, fnroute); break;
+    case IR_CALL_PAS_BI: g_emit.op_call_idx = lower_call_pas_bi(fn); break;
+    case IR_CALL_CALLEE_REC: case IR_CALL_FIELD_REC: {
+        g_emit.op_call_rec_lbl = call_cv_text(&g_emit.op_call_rec_lbl_buf, std::string(".Lcallee_") + bb_ab_sym_name(fn)); g_emit.op_call_rec_addr = (uint64_t)(uintptr_t)bb_callee_rec_addr(fn); break;
+            }
+    case IR_CALL_BYNAME: case IR_CALL_TRY: case IR_CALL_METHOD: case IR_CALL_REDISP: case IR_CALL_APPLY: case IR_CALL_EVAL: {
+        g_emit.op_call_sym = sn4_byname_sym(fn, strict); g_emit.op_call_fp = sn4_byname_fp(fn, strict); g_emit.op_call_try = lower_call_tail_try(fn, strict);
+        g_emit.op_call_try_sym = sn4_byname_kind(fn, strict) == 3 ? "rt_call_arr_bl_sn4_try" : "rt_call_arr_bl_try";
+        g_emit.op_call_try_fp = sn4_byname_kind(fn, strict) == 3 ? (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4_try : (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_try;
+        if (kind == IR_CALL_REDISP) { int with = (!strcmp(fn, "callwith") || !strcmp(fn, "nextwith")); g_emit.op_call_open_sym = with ? "rk_callwith_open" : "rk_callsame_open";
+            g_emit.op_call_open_fp = with ? (uint64_t)(uintptr_t)(void *)rk_callwith_open : (uint64_t)(uintptr_t)(void *)rk_callsame_open; }
+        if (kind == IR_CALL_METHOD || kind == IR_CALL_REDISP) g_emit.op_call_rec_off = zls_argv_off(nd) >= 0 ? zls_argv_off(nd) + 16 * narg : -1;
+        if (fnroute) call_fnlbl_set(std::string(".L") + x86_boxkind() + (zd ? "_rkfnzd" : "_rkfn") + std::to_string(g_flat_node_id++), 0);
+        else call_fnlbl_set(std::string(".L") + x86_boxkind() + (zd ? "_bynamefnzd" : "_bynamefn") + std::to_string((long long)g_emit.nid), 1);
+        break; }
+    case IR_CALL_GEN: call_fnlbl_set(std::string(".L") + x86_boxkind() + "_bynamegenfn" + std::to_string((long long)g_emit.nid), 1); break;
+    default: break;
+    }
+}

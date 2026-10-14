@@ -29,7 +29,8 @@ typedef enum {
         IR_REV_ASSIGN_VAR, IR_REV_SWAP, IR_SCAN, IR_SCAN_ALTERNATE, IR_SCAN_ANY, IR_SCAN_BAL, IR_SCAN_ENTER, IR_SCAN_FIND, IR_SCAN_MANY, IR_SCAN_MATCH, IR_SCAN_MOVE, IR_SCAN_POS, IR_SCAN_SEQUENCE,
         IR_SCAN_TAB, IR_SCAN_UPTO, IR_STATEMENT, IR_STATEMENT_BEGIN, IR_STATEMENT_END, IR_STMT_MARK, IR_LINE_MARK, IR_SUBSCRIPT, IR_SUCCEED, IR_SUSPEND, IR_SWAP, IR_SWAP_VAR, IR_TO, IR_TO_BY,
         IR_UNMARK, IR_UNOP, IR_UNOP_TEST, IR_VAR, IR_VAR_REF, IR_VAR_FRAME, IR_ASSIGN_FRAME, IR_LIMIT_GATE, IR_LIT_ATOM, IR_UNIFY_CONST, IR_UNIFY_STRUCT, IR_UNIFY_FIRST, IR_UNIFY_VALUE,
-        IR_SETEXIT_TEST, IR_CLEANUP, IR_OP_COUNT
+        IR_SETEXIT_TEST, IR_CLEANUP, IR_CALL_DIRECT, IR_CALL_PL_LEAF, IR_CALL_PAS_BI, IR_CALL_CALLEE_REC, IR_CALL_FIELD_REC, IR_CALL_BYNAME, IR_CALL_TRY, IR_CALL_METHOD, IR_CALL_REDISP, IR_CALL_APPLY,
+        IR_CALL_EVAL, IR_CALL_GEN, IR_OP_COUNT
 } IR_e;
 typedef enum { CLEANUP_OPEN = 0, CLEANUP_TEST = 1, CLEANUP_POP = 2, CLEANUP_RESUME = 3, CLEANUP_PROBE = 4, CLEANUP_DRAIN = 5, CLEANUP_BANK = 6, CLEANUP_WAKE = 7, CLEANUP_DET = 8 } cleanup_kind_e;
 typedef enum { SNO_FENCE_LIT_BARE = 0, SNO_FENCE_LIT_ARG = 1, SNO_FENCE_LIT_ARG_IN_ARBNO = 2, SNO_FENCE_LIT_FLUSH = 3 } sno_fence_lit_e;
@@ -116,7 +117,10 @@ static inline int ir_is_matcher_element(int t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_scan_kind(IR_e t) { (void) t; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int ir_is_call_kind(IR_e t) { return t == IR_CALL_PROC_STAGED || t == IR_CALL_BUILTIN || t == IR_CALL_BUILTIN_GEN || t == IR_CALL_ICON || t == IR_CALL_SNOBOL4 || t == IR_CALL_VALUE; }
+static inline int ir_is_call_road_kind(IR_e t) { return t >= IR_CALL_DIRECT && t <= IR_CALL_GEN; }
+static inline int ir_is_call_kind(IR_e t) {
+    return t == IR_CALL_PROC_STAGED || t == IR_CALL_BUILTIN || t == IR_CALL_BUILTIN_GEN || t == IR_CALL_ICON || t == IR_CALL_SNOBOL4 || t == IR_CALL_VALUE || ir_is_call_road_kind(t);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_e ir_norm_call_kind(IR_e t) { return ir_is_call_kind(t) ? IR_CALL : t; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -127,7 +131,20 @@ typedef enum { BINOP_CAT_ARITH = 0, BINOP_CAT_RELOP = 1, BINOP_CAT_CONCAT = 2, B
 typedef struct IR_t IR_t;
 typedef struct IR_graph_t IR_graph_t;
 typedef struct { IR_t * node; char sz[4]; } IR_ref_t;
-struct IR_t { IR_e op; IR_ref_t γ; IR_ref_t ω; IR_t ** operands; int n_operands; int in_scan; int seal; int pat_static; int strict; union { const char * sval; int64_t ival; double dval; }; };
+struct IR_t {
+    IR_e op;
+    IR_e op0;
+    IR_ref_t γ;
+    IR_ref_t ω;
+    IR_t ** operands;
+    int n_operands;
+    int in_scan;
+    int seal;
+    int pat_static;
+    int strict;
+    union { const char * sval; int64_t ival; double dval; };
+};
+static inline IR_e ir_kind0(const IR_t * n) { return n->op0 ? n->op0 : n->op; }
 #define IR_LIT(nd) (*(nd))
 #define IR_SEAL_CALL_DET_LEAF 2
 #define IR_SEAL_THUNK_REF 3

@@ -35,7 +35,7 @@ void gva_io_refuse_scan_graph(struct IR_graph_t *g) {
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i];
         if (!nd) continue;
-        if (nd->op != IR_CALL) continue;
+        if (ir_kind0(nd) != IR_CALL) continue;
         { const char *fn = IR_LIT(nd).sval; if (!fn || (strcmp(fn, "INPUT") != 0 && strcmp(fn, "OUTPUT") != 0)) continue; }
         if (nd->n_operands < 1 || !nd->operands[0]) continue;
         { IR_t *arg = nd->operands[0]; if ((arg->op == IR_LIT_NAME || arg->op == IR_LIT_STRING) && IR_LIT(arg).sval) gva_io_refuse_name(IR_LIT(arg).sval); }
@@ -83,7 +83,7 @@ void gva_trace_demote_scan_graph(struct IR_graph_t *g) {
     for (int i = 0; i < g->n; i++) {
         IR_t *nd = g->all[i];
         if (!nd) continue;
-        if (nd->op != IR_CALL) continue;
+        if (ir_kind0(nd) != IR_CALL) continue;
         { const char *fn = IR_LIT(nd).sval; if (!fn || strcmp(fn, "TRACE") != 0) continue; }
         if (nd->n_operands < 2) continue;
         if (gva_trace_type_provably_non_access(nd->operands[1])) continue;
