@@ -2887,6 +2887,9 @@ static void pl_collect_imported_libs(PlProgram *prog, cv_t *imported) {
         if (!strcmp(nm, "pio")) pl_cv_add(imported, "pure_input");
     }
 }
+typedef struct { const char *nm; int i; } pl_ckey_t;
+static int pl_ckey_cmp(const void *a, const void *b) { const pl_ckey_t *x = (const pl_ckey_t *)a, *y = (const pl_ckey_t *)b; int c = strcmp(x->nm, y->nm); return c ? c : (x->i > y->i) - (x->i < y->i); }
+static int pl_ckey_lower(const pl_ckey_t *so, int nk, const char *s) { int lo = 0, hi = nk; while (lo < hi) { int m = (lo + hi) / 2; if (strcmp(so[m].nm, s) < 0) lo = m + 1; else hi = m; } return lo; }
 void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
     cv_t user_defined = { 0 }, referenced = { 0 }, refkeys = { 0 }, wanted = { 0 }, attv_off = { 0 };
@@ -2955,37 +2958,61 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         char *key = pl_pred_key(nm, ar);
         if (!pl_cv_has(&user_defined, key)) pl_cv_add(&wanted, key);
     }
-    int changed = 1;
+    int n = 0, nk = 0, ng = 0, changed = 1;
+    for (PlClause *cl = pre->head; cl; cl = cl->next) n++;
+    PlClause *pc[n];
+    const char *pn[n];
+    int pa[n], gid[n], root[n];
+    pl_ckey_t so[n];
+    cv_t calls[n];
+    unsigned char cdone[n], wf[n], uf[n];
+    char *gkey[n];
+    {
+        int i = 0;
+        for (PlClause *cl = pre->head; cl; cl = cl->next, i++) {
+            pc[i] = cl;
+            gid[i] = -1;
+            cdone[i] = 0;
+            calls[i] = (cv_t){ 0 };
+            root[i] = pl_clause_is_directive(cl) || (pl_clause_is_attv_hook(cl) && cl->dq_forced == 3 + 1);
+            if (pl_clause_key(cl, &pn[i], &pa[i]) && pn[i]) so[nk++] = (pl_ckey_t){ pn[i], i };
+        }
+    }
+    qsort(so, (size_t)nk, sizeof so[0], pl_ckey_cmp);
+    for (int a = 0, b; a < nk; a = b) {
+        for (b = a; b < nk && !strcmp(so[b].nm, so[a].nm); b++) {
+            for (int k = a; k < b && gid[so[b].i] < 0; k++) if (pa[so[k].i] == pa[so[b].i]) gid[so[b].i] = gid[so[k].i];
+            if (gid[so[b].i] >= 0) continue;
+            gkey[ng] = pl_pred_key(so[b].nm, pa[so[b].i]);
+            wf[ng] = (unsigned char)pl_cv_has(&wanted, gkey[ng]);
+            uf[ng] = (unsigned char)pl_cv_has(&user_defined, gkey[ng]);
+            gid[so[b].i] = ng++;
+        }
+    }
     while (changed) {
         changed = 0;
-        for (PlClause *cl = pre->head; cl; cl = cl->next) {
-            const char *nm; int ar;
-            if (!pl_clause_is_directive(cl) && !(pl_clause_is_attv_hook(cl) && cl->dq_forced == 3 + 1)) {
-                if (!pl_clause_key(cl, &nm, &ar) || !nm) continue;
-                if (!pl_cv_has(&wanted, pl_pred_key(nm, ar))) continue;
+        for (int i = 0; i < n; i++) {
+            if (!root[i] && (gid[i] < 0 || !wf[gid[i]])) continue;
+            if (!cdone[i]) {
+                pl_tree_collect_calls(pl_clause_body(pc[i]), &calls[i]);
+                if (pl_cv_has(&calls[i], "call_cleanup") || pl_cv_has(&calls[i], "setup_call_cleanup") || pl_cv_has(&calls[i], "setup_call_catcher_cleanup")) pl_cv_add(&calls[i], "$scc_cut");
+                if (pl_cv_has(&calls[i], "string_concat")) pl_cv_add(&calls[i], "$string_concat_split");
+                if (pl_cv_has(&calls[i], "erase")) { pl_cv_add(&calls[i], "$rec_ref"); pl_cv_add(&calls[i], "$rec_erase"); }
+                if (pl_cv_has(&calls[i], "current_predicate")) pl_cv_add(&calls[i], "$cp_mq");
+                cdone[i] = 1;
             }
-            cv_t calls = { 0 };
-            pl_tree_collect_calls(pl_clause_body(cl), &calls);
-            if (pl_cv_has(&calls, "call_cleanup") || pl_cv_has(&calls, "setup_call_cleanup") || pl_cv_has(&calls, "setup_call_catcher_cleanup")) pl_cv_add(&calls, "$scc_cut");
-            if (pl_cv_has(&calls, "string_concat")) pl_cv_add(&calls, "$string_concat_split");
-            if (pl_cv_has(&calls, "erase")) { pl_cv_add(&calls, "$rec_ref"); pl_cv_add(&calls, "$rec_erase"); }
-            if (pl_cv_has(&calls, "current_predicate")) pl_cv_add(&calls, "$cp_mq");
-            for (uint32_t ci = 0; ci < calls.len; ci++) {
-                for (PlClause *d = pre->head; d; d = d->next) {
-                    const char *dn; int dar;
-                    if (!pl_clause_key(d, &dn, &dar) || !dn) continue;
-                    if (strcmp(dn, CV_AT(calls, char *, ci))) continue;
-                    char *dk = pl_pred_key(dn, dar);
-                    if (!pl_cv_has(&wanted, dk) && !pl_cv_has(&user_defined, dk)) { pl_cv_add(&wanted, dk); changed = 1; }
+            for (uint32_t ci = 0; ci < calls[i].len; ci++) {
+                const char *cn = CV_AT(calls[i], char *, ci);
+                for (int j = pl_ckey_lower(so, nk, cn); j < nk && !strcmp(so[j].nm, cn); j++) {
+                    int g = gid[so[j].i];
+                    if (!wf[g] && !uf[g]) { wf[g] = 1; CV_PUSH(wanted, char *) = gkey[g]; changed = 1; }
                 }
             }
         }
     }
-    PlClause *nextc = NULL;
-    for (PlClause *cl = pre->head; cl; cl = nextc) {
-        nextc = cl->next;
-        const char *nm; int ar;
-        int keep = (pl_clause_key(cl, &nm, &ar) && nm && pl_cv_has(&wanted, pl_pred_key(nm, ar))) || ((pl_clause_is_directive(cl) || pl_clause_is_attv_hook(cl)) && cl->dq_forced == 3 + 1);
+    for (int i = 0; i < n; i++) {
+        PlClause *cl = pc[i];
+        int keep = (gid[i] >= 0 && wf[gid[i]]) || ((pl_clause_is_directive(cl) || pl_clause_is_attv_hook(cl)) && cl->dq_forced == 3 + 1);
         if (keep) { cl->lineno = 0; cl->next = NULL; if (!prog->head) prog->head = cl; else prog->tail->next = cl; prog->tail = cl; prog->nclauses++; }
     }
     ct_drop(pre);
