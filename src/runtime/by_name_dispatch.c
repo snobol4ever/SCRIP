@@ -1078,6 +1078,8 @@ static const char *rk_tap_str(DESCR_t v) {
 typedef struct { int n; const DESCR_t *el; } rk_av_t;
 static const char rk_proto_seq[] = "Seq";
 static int rk_is_seq(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_seq; }
+#define RK_SEQ_LAZY 32
+static int rk_seq_is_lazy(DESCR_t v) { return rk_is_seq(v) && (((ARBLK_t *) v.arr)->proto_bare & RK_SEQ_LAZY); }
 static void rk_seq_reify(DESCR_t *sp, long need);
 #define RK_ARR_BOUND 16
 static int rk_is_cell(DESCR_t d) { return d.v == DT_N && d.slen == 1 && d.ptr; }
@@ -1753,7 +1755,7 @@ static char *rk_av_joined(rk_av_t a, const char *sep, const char *open, const ch
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_reify_deep(DESCR_t v, int depth) {
-    if (v.v != DT_A || !v.arr || depth > 64) return;
+    if (v.v != DT_A || !v.arr || depth > 64 || rk_seq_is_lazy(v)) return;
     rk_cbh_t H = { g_rk_cbh_cur, { v, NULVCL } };
     g_rk_cbh_cur = &H;
     if (rk_is_seq(H.d[0])) rk_seq_reify(&H.d[0], -1L);
@@ -1843,6 +1845,7 @@ static const char *rk_join_gists(const char **tx, int n, const char *sep, const 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_range_text(DESCR_t v);
 static const char *rk_gist_str(DESCR_t v) {
+    if (rk_seq_is_lazy(v)) return "(...)";
     rk_reify_deep(v, 0);
     if (rk_is_methval(v)) return rk_cstr(rk_av(v).el[0]);
     if (rk_is_attrval(v)) { rk_av_t a = rk_av(v); const char *t = rk_cstr(a.el[0]), *nm = rk_cstr(a.el[1]); char *r = rt_wsb_alloc(strlen(t) + strlen(nm) + 2); sprintf(r, "%s %s", t, nm); return r; }
@@ -12557,13 +12560,14 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *) &bx->data[0] };
         return 1;
     }
-    if (!strcmp(fn, "__rk_seq_new") && nargs == 1) {
+    if (!strcmp(fn, "__rk_seq_new") && (nargs == 1 || nargs == 2)) {
         DESCR_t sq = rk_mk_arr(NULL, 0);
         rk_arr_append((ARBLK_t *) sq.arr, args[0]);
         rk_arr_append((ARBLK_t *) sq.arr, (DESCR_t){ .v = DT_RAW, .ptr = (void *) 0 });
         rk_arr_append((ARBLK_t *) sq.arr, INTVAL(0));
         rk_arr_append((ARBLK_t *) sq.arr, rk_mark_list(rk_mk_arr(NULL, 0)));
         ((ARBLK_t *) sq.arr)->proto = rk_proto_seq;
+        if (nargs == 2 && IS_INT_fn(args[1]) && args[1].i) ((ARBLK_t *) sq.arr)->proto_bare |= RK_SEQ_LAZY;
         *out = sq;
         return 1;
     }
@@ -12904,6 +12908,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             if (args[_ri].v == DT_BOOL) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i ? "True" : "False"));
             else if (args[_ri].v == DT_ORDER) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i < 0 ? "Less" : (args[_ri].i > 0 ? "More" : "Same")));
             else if (args[_ri].v == DT_SNUL) tmp[_ri] = STRVAL(rt_heap_strdup_c("Nil"));
+            else if (!strcmp(fn, "rk_write") && rk_seq_is_lazy(args[_ri])) tmp[_ri] = STRVAL(rt_heap_strdup_c("(...)"));
             else if (IS_REAL_fn(args[_ri])) {
                 char *_rb = rt_wsb_alloc(64);
                 rk_real_str(args[_ri].r, _rb, 64);
@@ -14032,7 +14037,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "meth_call") && nargs >= 2) {
         const char *mname0 = VARVAL_fn(args[1]);
         if (mname0 && rk_is_seq(args[0])) {
-            if (!strcmp(mname0, "is-lazy")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 1 }; return 1; }
+            if (!strcmp(mname0, "is-lazy")) { *out = (DESCR_t){ .v = DT_BOOL, .i = rk_seq_is_lazy(args[0]) }; return 1; }
             if (!strcmp(mname0, "list") || !strcmp(mname0, "Seq") || !strcmp(mname0, "lazy") || !strcmp(mname0, "iterator")) { *out = args[0]; return 1; }
             {
                 long need = -1L;

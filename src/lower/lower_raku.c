@@ -4140,6 +4140,7 @@ static void rk_lazy_stages(tree_t * t) {
     g->line = t->line;
     ast_push(g, rk_sq_seq1(ev));
     if (k != 3 && (t->c[0]->slen & 256)) g->slen |= 256;
+    long long lz = (t->c[0]->t == TT_GATHER && t->c[0]->v.ival == 1) ? 1 : 0;
     if (k == 3) {
         t->t = TT_ARR_GET;
         t->n = 0;
@@ -4150,6 +4151,7 @@ static void rk_lazy_stages(tree_t * t) {
         t->t = TT_GATHER;
         t->n = 0;
         t->v.sval = NULL;
+        t->v.ival = lz;
         t->slen = g->slen;
         ast_push(t, g->c[0]);
     }
@@ -4171,7 +4173,7 @@ static tree_t * rk_gather_seqnode(const tree_t * g) {
     const tree_t * c = g->c[0];
     tree_t * cl = rk_closure_block(c) ? (tree_t *) c : NULL;
     if (!cl) { if (!c || c->t != TT_ANON_BLOCK || !c->v.sval) return NULL; cl = rk_fnc2("__blk_close", c, NULL); }
-    tree_t * q = rk_fnc2("__rk_seq_new", cl, NULL);
+    tree_t * q = rk_fnc2("__rk_seq_new", cl, (g->v.ival == 1 || (g->slen & 256)) ? rk_ti(1) : NULL);
     q->line = g->line;
     return q;
 }
@@ -4179,7 +4181,7 @@ static void rk_gather_consumers(tree_t * t, tree_t * parent, int idx) {
     if (!t) return;
     if (t->t == TT_GATHER && t->n >= 1 && t->c[0] && parent) {
         tree_t * rep = NULL;
-        int dyn = (t->slen & 128) != 0, inf = (t->slen & 256) != 0;
+        int dyn = (t->slen & 128) != 0, inf = (t->slen & 256) != 0 || t->v.ival == 1;
         tree_t * call = dyn ? NULL : rk_gather_callnode(t);
         if (call && (parent->t == TT_ITERATE || ((parent->t == TT_MAP || parent->t == TT_GREP) && idx == 1))) rep = call;
         else if (call && !inf && parent->t == TT_ASSIGN && idx == 1 && parent->c[0] && parent->c[0]->t == TT_VAR && parent->c[0]->v.sval && parent->c[0]->v.sval[0] == '@') rep =
@@ -4788,6 +4790,7 @@ static tree_t * rk_infinite_range_gather(tree_t * to, int * seq) {
     ast_push(body, rk_t2(TT_WHILE, rk_ti(1), step));
     tree_t * g = ast_node_new(TT_GATHER);
     g->line = to->line;
+    g->v.ival = 1;
     ast_push(g, body);
     return g;
 }
