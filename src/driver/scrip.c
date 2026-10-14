@@ -490,6 +490,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_EXCISED) return 1;
     if (r->op == IR_TO || r->op == IR_TO_BY || r->op == IR_PROC_GEN || r->op == IR_EXCISED) return 1;
     if (r->op == IR_MAKE_LIST) return 1;
+    if (r->op == IR_DEREF) return 1;
     if (r->op == IR_CONJUNCTION) { IR_t *lv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return lv ? rhs_kind_ok(lv) : 0; }
     {
         extern int is_global(const char *);
