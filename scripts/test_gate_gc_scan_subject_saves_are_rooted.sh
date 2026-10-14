@@ -1,25 +1,31 @@
 #!/usr/bin/env bash
 # test_gate_gc_scan_subject_saves_are_rooted.sh -- A SAVED SCAN SUBJECT IS A ROOT, NOT A POINTER THAT HAPPENS TO ALIAS A LIVE ONE.
-# ⛔ THE MEASURED DEFECT (cfo 2026-09-18): gen_gc_roots visited the LIVE scan_subj and nothing else, so every entry of scan_saved[]
-# (pushed by rt_scan_leave, read back by rt_scan_reenter) and every suspended coexpression's ScanState (rt_scan_state_capture, held
-# on ctx->scan_state) carried a collected-heap subject pointer that NO root walk visited -- unmarked and, worse, unregistered for
-# forwarding. It is the g_name_save class one stack over: the walk existed and looked complete, so every census that asks "is there
-# a root walk for scanning" read it as rooted. Measured on the pre-cure tree: 40 of 41 collections of a plain Icon scanning
-# generator carry exactly one such slot. It did not crash there because an EMITTED rooted holder aliased the same block -- an alibi,
-# not a root, and it vanishes when F6 step 3 replaces the ranges with compile-time maps or when the ScanState outlives its stack.
-# THE ARMS. (1) BEHAVIOURAL, and it is the discriminating one: SCRIP_GC_AUDIT_SLOTS asks the COLLECTOR'S OWN registered-slot set
-# whether each heap-pointing saved subject was registered this collection; unrooted must be 0 at every collection, in BOTH media.
-# Measured fail-once by deleting only the two cure lines and rebuilding: unrooted=1 at 40 collections, m3 and m4 (2026-09-18).
-# (2) ⛔ THE FACT-RULE ARM, dynamic and not a grep: heap must be >= 1, so the gate REFUSES rc=2 rather than passing when the
-# population is empty. That is what forbids the OTHER cure -- a later seat cannot green this gate by moving scan subjects off the
-# collected heap (RULES.md: the cure for an unrooted holder is a ROOT, never a different allocator), because doing so drops heap to
-# 0 and the gate refuses. (3) The witness's answer must stay the oracle's (icont/iconx: n=179240), so a cure that breaks scanning reds.
-# A stale binary REFUSES rc=2 and a refusal is not a red.
+# ⛔ THE MEASURED DEFECT (cfo 2026-09-18): gen_gc_roots visited the LIVE scan_subj and nothing else, so every saved outer subject of a
+# nested scan and every suspended coexpression's ScanState (rt_scan_state_capture, held on ctx->scan_state) carried a collected-heap
+# subject pointer that NO root walk visited -- unmarked and unregistered for forwarding; an EMITTED rooted holder aliased the same
+# block, an alibi, not a root.
+# ⛔ RE-CUT 2026-10-14 (hq_collector, row gc-blocking-gate-scan-subject-saves-are-rooted-refuses-heap-0-everywhere-ceo-1697): the
+# population moved. The per-scan saves of the outer subject no longer live on a scan_saved[] stack (NO GLOBAL HOLDS A STACK, CEO-1542):
+# they are cells of the scanning frame (outer_Σ in the match/scan prologue), typed in the frame's static layout and visited by the
+# chain over the maps (ARCH-GC 13); the only saves the SCRIP_GC_AUDIT_SLOTS audit still walks are the ScanStates a co-expression
+# SWITCH captures (g_root_ctx.scan_state and each parked context's). The old arm asked the audit about a witness with no
+# co-expression, read heap=0 everywhere and REFUSED on a tree where both populations are rooted. The two populations are graded
+# where each lives, and the discriminating evidence is THE ORACLE'S ANSWER UNDER MOVING COLLECTIONS, never a count alone:
+#   (1) FRAME SAVES: a plain scanning generator whose body allocates (a collection at every second safe point, relocation and
+#       verification on, SCRIP_GC_CHAIN_CHECK=3) answers exactly what icont/iconx answers, in BOTH media, with the chain walk whole
+#       (whole == runs, offchain-swept 0, missing 0) and at least one collection taken; an unrooted saved subject reads a stale
+#       pointer after the move and the answer or the walk says so.
+#   (2) CAPTURED SAVES: a co-expression created and activated INSIDE a scan under the same knobs answers what iconx answers, and the
+#       audit reads heap >= 1 at some collection (the captured subject IS a collected-heap pointer) and unrooted = 0 at every one.
+# Both refs are cut LIVE from icont; FAIL_ONCE=1 corrupts arm 1's ref (CEO-1680: a proper fail-once is a witness red against a
+# corrupted ref or the oracle's different answer). A stale binary or a missing icont REFUSES rc=2; a refusal is not a red.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT" || exit 2
+G=gc_scan_subject_saves_are_rooted
 bash scripts/util_require_fresh.sh >/dev/null 2>&1 || { echo "REFUSES rc=2: stale or missing ./scrip -- run make"; exit 2; }
+. "$HERE/lib_oracle_flags.sh"
+ICONT="$(icont_bin)" || { echo "⛔ GATE REFUSE(2) [$G]: no icont -- both refs are cut from the oracle"; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-EXPECT="n=179240"
 cat > "$W/w.icn" <<'ICN'
 procedure main();
    local i, t, n;
@@ -31,25 +37,50 @@ procedure main();
    write("n=", n);
 end
 ICN
-bad=0; refuse=0
-audit_arm() {
-    lbl="$1"; shift
-    "$@" > "$W/out.txt" 2> "$W/err.txt"; r=$?
-    hi=$(awk '/^\[GC-AUDIT\] scan-save/{for(i=1;i<=NF;i++){if($i~/^heap=/){split($i,a,"=");if(a[2]+0>m)m=a[2]+0}}} END{print m+0}' "$W/err.txt")
-    un=$(awk '/^\[GC-AUDIT\] scan-save/{for(i=1;i<=NF;i++){if($i~/^unrooted=/){split($i,a,"=");if(a[2]+0>m)m=a[2]+0}}} END{print m+0}' "$W/err.txt")
-    c=$(grep -c '^\[GC-AUDIT\] scan-save' "$W/err.txt")
-    if [ "$r" -ne 0 ] || [ "$(tail -1 "$W/out.txt")" != "$EXPECT" ]; then echo "  $lbl RED: rc=$r answer=$(tail -1 "$W/out.txt") (oracle $EXPECT)"; bad=1; return; fi
-    if [ "$c" -lt 1 ]; then echo "  $lbl REFUSES rc=2: no collection observed -- the witness no longer reaches the audit"; refuse=1; return; fi
-    if [ "$hi" -lt 1 ]; then echo "  $lbl REFUSES rc=2: $c collection(s) but heap=0 everywhere -- scan subjects are no longer on the COLLECTED heap, so this gate cannot measure rooting (FACT RULE: the cure is a root, not a different allocator)"; refuse=1; return; fi
-    if [ "$un" -ne 0 ]; then echo "  $lbl RED: $c collection(s), heap=$hi, unrooted=$un -- a saved scan subject is unregistered for forwarding"; bad=1; return; fi
-    echo "  $lbl PASS: $c collection(s), heap=$hi, unrooted=0"
+cat > "$W/c.icn" <<'ICN'
+procedure main();
+   local e, n, k;
+   n := 0;
+   repl("abc ", 50) ? {
+      e := create |(repl("y", 1500), 1);
+      every k := 1 to 20 do n := n + @e;
+      n := n + find("c");
+      };
+   write("n=", n);
+end
+ICN
+oracle() { ( cd "$W" && cp "$1.icn" "o_$1.icn" && "$ICONT" -s "o_$1.icn" -x </dev/null 2>/dev/null ) | head -1; }
+WANT_W="$(oracle w)"; WANT_C="$(oracle c)"
+[ -n "$WANT_W" ] && [ -n "$WANT_C" ] || { echo "⛔ GATE REFUSE(2) [$G]: icont printed nothing for a witness (w='$WANT_W' c='$WANT_C')"; exit 2; }
+[ "${FAIL_ONCE:-0}" = 1 ] && WANT_W="n=corrupted"
+build4() { ( cd "$W" && timeout 120 "$ROOT/scrip" --compile -o "$1.s" "$1.icn" </dev/null >/dev/null 2>&1 && gcc "$1.s" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" -o "$1.m4" >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: mode 4 did not build $1"; exit 2; }; }
+build4 w; build4 c
+num() { printf '%s\n' "$1" | sed -n "s/.* $2=\([0-9]*\).*/\1/p"; }
+bad=0
+run_w() {
+    local lbl="$1"; shift
+    env SCRIP_GC_STRESS=2 SCRIP_GC_RELOC=1 SCRIP_GC_VERIFY=1 SCRIP_GC_CHAIN_CHECK=3 timeout 120 "$@" </dev/null >"$W/o" 2>"$W/e"; local rc=$?
+    local got; got="$(head -1 "$W/o")"; local s; s="$(grep -a '^\[CHAIN-WALK\] SUMMARY ' "$W/e" | tail -1)"
+    local runs whole off miss; runs="$(num "$s" runs)"; whole="$(num "$s" whole)"; off="$(num "$s" offchain-swept)"; miss="$(num "$s" missing)"
+    if [ -z "$s" ] || [ "${runs:-0}" -lt 1 ]; then echo "⛔ GATE REFUSE(2) [$G]: $lbl took no collection under stress 2 -- nothing about a saved subject was measured"; exit 2; fi
+    if [ "$rc" = 0 ] && [ "$got" = "$WANT_W" ] && [ "$whole" = "$runs" ] && [ "$off" = 0 ] && [ "$miss" = 0 ]; then echo "  arm 1 $lbl PASS: $got as iconx under $runs moving collection(s), chain whole=$whole/$runs offchain-swept=0 missing=0"
+    else echo "⛔ arm 1 $lbl RED: rc=$rc got '$got' want '$WANT_W' chain runs=${runs:-?} whole=${whole:-?} offchain-swept=${off:-?} missing=${miss:-?} $(grep -ao 'REFUSED.*\|BOMB.*' "$W/e" | head -1 | cut -c1-120)"; bad=1; fi
 }
-audit_arm "m3 " env SCRIP_GC_AUDIT_SLOTS=1 SCRIP_GC_STRESS=2 timeout 60 "$ROOT/scrip" "$W/w.icn"
-if "$ROOT/scrip" --compile -o "$W/w.s" "$W/w.icn" < /dev/null 2>"$W/c.txt" && gcc "$W/w.s" -L "$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/w.m4" 2>>"$W/c.txt"; then
-    audit_arm "m4 " env SCRIP_GC_AUDIT_SLOTS=1 SCRIP_GC_STRESS=2 timeout 60 "$W/w.m4"
-else
-    echo "  m4  REFUSES rc=2: the witness did not compile or link -- $(tail -1 "$W/c.txt")"; refuse=1
-fi
-if [ "$bad" -ne 0 ]; then echo "GATE FAIL(1) [gc_scan_subject_saves_are_rooted]: a saved scan subject has no root"; exit 1; fi
-if [ "$refuse" -ne 0 ]; then echo "GATE REFUSE(2) [gc_scan_subject_saves_are_rooted]: the gate could not measure what it asserts"; exit 2; fi
-echo "GATE PASS(0) [gc_scan_subject_saves_are_rooted]: every heap-pointing saved scan subject is registered for forwarding in both media (2 arms, 0 red)"
+run_c() {
+    local lbl="$1"; shift
+    env SCRIP_GC_AUDIT_SLOTS=1 SCRIP_GC_STRESS=2 SCRIP_GC_RELOC=1 SCRIP_GC_VERIFY=1 timeout 120 "$@" </dev/null >"$W/o" 2>"$W/e"; local rc=$?
+    local got; got="$(head -1 "$W/o")"
+    local c hi un; c="$(grep -ac '^\[GC-AUDIT\] scan-save' "$W/e")"
+    hi=$(awk '/^\[GC-AUDIT\] scan-save/{for(i=1;i<=NF;i++){if($i~/^heap=/){split($i,a,"=");if(a[2]+0>m)m=a[2]+0}}} END{print m+0}' "$W/e")
+    un=$(awk '/^\[GC-AUDIT\] scan-save/{for(i=1;i<=NF;i++){if($i~/^unrooted=/){split($i,a,"=");s+=a[2]}}} END{print s+0}' "$W/e")
+    if [ "$c" -lt 1 ]; then echo "⛔ GATE REFUSE(2) [$G]: $lbl took no audited collection -- the captured population was not measured"; exit 2; fi
+    if [ "$hi" -lt 1 ]; then echo "⛔ GATE REFUSE(2) [$G]: $lbl audit reads heap=0 at every one of $c collection(s) -- the captured subject is off the collected heap, so rooting cannot be measured (the cure is a root, not a different allocator)"; exit 2; fi
+    if [ "$rc" = 0 ] && [ "$got" = "$WANT_C" ] && [ "$un" = 0 ]; then echo "  arm 2 $lbl PASS: $got as iconx, $c audited collection(s), captured subjects on the heap at most $hi, unrooted=0"
+    else echo "⛔ arm 2 $lbl RED: rc=$rc got '$got' want '$WANT_C' audited=$c heap<=$hi unrooted=$un"; bad=1; fi
+}
+run_w "m3" "$ROOT/scrip" "$W/w.icn"
+run_w "m4" "$W/w.m4"
+run_c "m3" "$ROOT/scrip" "$W/c.icn"
+run_c "m4" "$W/c.m4"
+if [ "$bad" = 0 ]; then echo "GATE PASS(0) [$G]: a saved scan subject is a root in both of its homes -- the scanning frame's cell (walked by the chain) and the co-expression's captured ScanState (registered for forwarding) -- both media, under moving collections, iconx's answers"; exit 0; fi
+echo "GATE FAIL(1) [$G]: a saved scan subject is not rooted where it lives (see the arms above)"; exit 1
