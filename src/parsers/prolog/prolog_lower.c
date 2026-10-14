@@ -220,6 +220,7 @@ static void pb_expand_goal(tree_t *t) {
         if (!strcmp(f, "forall") && t->n == 2) { pb_expand_goal(t->c[0]); pb_expand_goal(t->c[1]); return; }
         if (!strcmp(f, "catch") && t->n == 3) { pb_expand_goal(t->c[0]); pb_expand_goal(t->c[2]); return; }
         if (!strcmp(f, "setup_call_cleanup") && t->n == 3) { pb_expand_goal(t->c[0]); pb_expand_goal(t->c[1]); pb_expand_goal(t->c[2]); return; }
+        if (!strcmp(f, "setup_call_catcher_cleanup") && t->n == 4) { pb_expand_goal(t->c[0]); pb_expand_goal(t->c[1]); pb_expand_goal(t->c[3]); return; }
         if (!strcmp(f, "^") && t->n == 2) { pb_expand_goal(t->c[1]); return; }
         return;
     }
@@ -503,7 +504,7 @@ typedef struct { const char *nm; int ar; const char *spec; } pl_mspec_t;
 static const pl_mspec_t pl_mod_meta_builtins[] = { { "call", 1, "0" }, { "call", 2, "1-" }, { "call", 3, "2--" }, { "call", 4, "3---" }, { "call", 5, "4----" }, { "call", 6, "5-----" },
     { "call", 7, "6------" }, { "call", 8, "7-------" }, { "findall", 3, "-0-" }, { "findall", 4, "-0--" }, { "forall", 2, "00" }, { "\\+", 1, "0" }, { "not", 1, "0" }, { "once", 1, "0" },
     { "ignore", 1, "0" }, { "catch", 3, "0-0" }, { "bagof", 3, "-^-" }, { "setof", 3, "-^-" }, { "aggregate_all", 3, "-0-" }, { "aggregate_all", 4, "--0-" }, { "call_cleanup", 2, "00" },
-    { "setup_call_cleanup", 3, "000" }, { "time", 1, "0" }, { "with_output_to", 2, "-0" }, { "maplist", 2, "1-" }, { "maplist", 3, "2--" }, { "maplist", 4, "3---" }, { "maplist", 5, "4----" },
+    { "setup_call_cleanup", 3, "000" }, { "setup_call_catcher_cleanup", 4, "00-0" }, { "time", 1, "0" }, { "with_output_to", 2, "-0" }, { "maplist", 2, "1-" }, { "maplist", 3, "2--" }, { "maplist", 4, "3---" }, { "maplist", 5, "4----" },
     { "maplist", 6, "5-----" }, { "maplist", 7, "6------" }, { "foldl", 4, "3---" }, { "foldl", 5, "4----" }, { "foldl", 6, "5-----" }, { "foldl", 7, "6------" }, { "include", 3, "1--" },
     { "exclude", 3, "1--" }, { "partition", 4, "1---" }, { "partition", 6, "2-----" }, { "convlist", 3, "2--" }, { "phrase", 2, "2-" }, { "phrase", 3, "2--" }, { "initialization", 1, "0" },
     { "initialization", 2, "0-" }, { "assertion", 1, "0" }, { "call_nth", 2, "0-" }, { "limit", 2, "-0" }, { "offset", 2, "-0" }, { "distinct", 1, "0" }, { "distinct", 2, "-0" }, { "$", 1, "0" },

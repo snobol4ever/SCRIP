@@ -2896,7 +2896,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "current_predicate")) pl_cv_add(&referenced, "$cp_mq");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
-    if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
+    if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "setup_call_catcher_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&referenced, "meta_predicate")) pl_cv_add(&referenced, "$mq_arg");
     if (pl_cv_has(&referenced, "clause")) pl_cv_add(&referenced, "$clause_unmangle");
     {
@@ -2952,7 +2952,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             }
             cv_t calls = { 0 };
             pl_tree_collect_calls(pl_clause_body(cl), &calls);
-            if (pl_cv_has(&calls, "call_cleanup") || pl_cv_has(&calls, "setup_call_cleanup")) pl_cv_add(&calls, "$scc_cut");
+            if (pl_cv_has(&calls, "call_cleanup") || pl_cv_has(&calls, "setup_call_cleanup") || pl_cv_has(&calls, "setup_call_catcher_cleanup")) pl_cv_add(&calls, "$scc_cut");
             if (pl_cv_has(&calls, "string_concat")) pl_cv_add(&calls, "$string_concat_split");
             if (pl_cv_has(&calls, "erase")) { pl_cv_add(&calls, "$rec_ref"); pl_cv_add(&calls, "$rec_erase"); }
             if (pl_cv_has(&calls, "current_predicate")) pl_cv_add(&calls, "$cp_mq");

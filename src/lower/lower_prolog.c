@@ -467,7 +467,7 @@ static const char * const pl_rung7_builtins[] = { "between", "repeat", "sub_atom
 static const char * const pl_rung8_builtins[] = { "findall", "bagof", "setof", "aggregate_all", NULL };
 static const char * const pl_rung9_builtins[] = { NULL };
 static const char * const pl_rung10_builtins[] = { "call", "assert", "asserta", "assertz", "retractall", "abolish", "clause", "retract", "dynamic", "b_setval", "b_getval", "phrase", "with_output_to",
-    "setup_call_cleanup", "use_module", "ensure_loaded", "module", "set_prolog_flag", NULL };
+    "setup_call_cleanup", "setup_call_catcher_cleanup", "use_module", "ensure_loaded", "module", "set_prolog_flag", NULL };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_name_in(const char * nm, const char * const * lst) { if (!nm) return 0; for (int i = 0; lst[i]; i++) if (!strcmp(nm, lst[i])) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1131,16 +1131,22 @@ static IR_t * pl_lower_det_goal(lcx_t * cx, const tree_t * G, IR_t * γnext, IR_
     if (entry_out) *entry_out = bank;
     return out;
 }
-static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const tree_t * C, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
-    if (pl_tree_number(C)) return goal(cx, pl_cc_type_error("callable", C, "setup_call_cleanup", 3), γnext, ωfail, entry_out);
-    tree_t * vchk = (C && C->t == TT_VAR) ?
-        pl_cc_ite(pl_cc_fnc1("var", (tree_t *) C), pl_cc_throw_ar((tree_t *) pl_atom_goal("instantiation_error"), "setup_call_cleanup", 3), (tree_t *) pl_atom_goal("true")) : (tree_t *) 0;
+static const tree_t * pl_scc_why(const tree_t * K, const tree_t * C, tree_t * why) { return K ? pl_cc_fnc2(",", pl_cc_fnc2("=", (tree_t *) K, why), (tree_t *) C) : C; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const tree_t * K, const tree_t * C, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    const char * snm = K ? "setup_call_catcher_cleanup" : "setup_call_cleanup";
+    int sar = K ? 4 : 3;
+    if (pl_tree_number(C)) return goal(cx, pl_cc_type_error("callable", C, snm, sar), γnext, ωfail, entry_out);
+    tree_t * vchk = (C && C->t == TT_VAR) ? pl_cc_ite(pl_cc_fnc1("var", (tree_t *) C), pl_cc_throw_ar((tree_t *) pl_atom_goal("instantiation_error"), snm, sar), (tree_t *) pl_atom_goal("true")) :
+        (tree_t *) 0;
     if (!pl_scc_armed()) {
         tree_t * ball = pl_meta_var("$SccBall");
-        tree_t * quiet = pl_cc_fnc2(",", pl_cc_fnc3("catch", pl_cc_fnc1("once", (tree_t *) C), pl_meta_var("$SccIgn"), (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("throw", ball));
+        const tree_t * cx_exc = pl_scc_why(K, C, pl_cc_fnc1("exception", pl_meta_var("$SccBall")));
+        tree_t * quiet = pl_cc_fnc2(",", pl_cc_fnc3("catch", pl_cc_fnc1("once", (tree_t *) cx_exc), pl_meta_var("$SccIgn"), (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("throw", ball));
         tree_t * ran =
-            pl_cc_ite(pl_cc_fnc3("catch", (tree_t *) G, ball, quiet), pl_cc_ite(pl_cc_fnc1("once", (tree_t *) C), (tree_t *) pl_atom_goal("true"), (tree_t *) pl_atom_goal("true")),
-            pl_cc_fnc2(",", pl_cc_fnc1("once", (tree_t *) C), (tree_t *) pl_atom_goal("fail")));
+            pl_cc_ite(pl_cc_fnc3("catch", (tree_t *) G, ball, quiet),
+            pl_cc_ite(pl_cc_fnc1("once", (tree_t *) pl_scc_why(K, C, (tree_t *) pl_atom_goal("exit"))), (tree_t *) pl_atom_goal("true"), (tree_t *) pl_atom_goal("true")),
+            pl_cc_fnc2(",", pl_cc_fnc1("once", (tree_t *) pl_scc_why(K, C, (tree_t *) pl_atom_goal("fail"))), (tree_t *) pl_atom_goal("fail")));
         if (vchk) ran = pl_cc_fnc2(",", vchk, ran);
         return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("once", (tree_t *) S), ran), γnext, ωfail, entry_out);
     }
@@ -1162,14 +1168,17 @@ static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const
     lc_γ_to(hc, pop_b);
     {
         tree_t * bv2 = pl_cc_freshvar();
+        tree_t * bv3 = pl_cc_freshvar();
         bv2->v.ival = bv->v.ival;
-        const tree_t * gl[2] = { pl_cc_fnc3("catch", pl_cc_fnc1("once", (tree_t *) C), pl_cc_freshvar(), (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("throw", bv2) };
+        bv3->v.ival = bv->v.ival;
+        const tree_t * ce = pl_scc_why(K, C, pl_cc_fnc1("exception", bv3));
+        const tree_t * gl[2] = { pl_cc_fnc3("catch", pl_cc_fnc1("once", (tree_t *) ce), pl_cc_freshvar(), (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("throw", bv2) };
         IR_t * e = NULL;
         IR_t * f = pl_lower_conj(cx, gl, 2, resume, resume, &e, NULL, NULL);
         lc_γ_to(pop_b, e ? e : f);
     }
     {
-        const tree_t * gl[2] = { pl_cc_fnc1("once", (tree_t *) C), pl_atom_goal("fail") };
+        const tree_t * gl[2] = { pl_cc_fnc1("once", (tree_t *) pl_scc_why(K, C, (tree_t *) pl_atom_goal("fail"))), pl_atom_goal("fail") };
         IR_t * e = NULL;
         IR_t * f = pl_lower_conj(cx, gl, 2, resume, resume, &e, NULL, NULL);
         lc_γ_to(pop_f, e ? e : f);
@@ -1179,12 +1188,16 @@ static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const
     IR_LIT(commit).ival = 2;
     IR_t * pop_d = pl_cleanup_node(cx, CLEANUP_POP, open, (IR_t *) 0, resume);
     lc_γ_to(commit, pop_d);
-    { IR_t * ie = NULL; IR_t * ig = pl_lower_ite(cx, C, pl_atom_goal("true"), pl_atom_goal("true"), γnext, resume, &ie); lc_γ_to(pop_d, ie ? ie : ig); }
+    {
+        IR_t * ie = NULL;
+        IR_t * ig = pl_lower_ite(cx, pl_scc_why(K, C, (tree_t *) pl_atom_goal("exit")), pl_atom_goal("true"), pl_atom_goal("true"), γnext, resume, &ie);
+        lc_γ_to(pop_d, ie ? ie : ig);
+    }
     IR_t * test = pl_cleanup_node(cx, CLEANUP_TEST, open, γnext, commit);
     IR_t * ge = NULL;
     IR_t * gc = goal(cx, G, test, drain, &ge);
     IR_t * te = NULL;
-    IR_t * tv = term_e(cx, C, &te);
+    IR_t * tv = term_e(cx, pl_scc_why(K, C, (tree_t *) pl_atom_goal("!")), &te);
     lc_ω_to(tv, resume);
     lc_γ_to(mark, te ? te : tv);
     lc_γ_to(tv, open);
@@ -1578,7 +1591,7 @@ static const char * pl_meta_template(const char * pn, int ar) {
     } m[] = { { ",", 2, "00" }, { ";", 2, "00" }, { "->", 2, "00" }, { "*->", 2, "00" }, { "\\+", 1, "0" }, { "call", 1, "0" }, { "call", 2, "1?" }, { "call", 3, "2??" }, { "call", 4, "3???" },
         { "call", 5, "4????" }, { "call", 6, "5?????" }, { "call", 7, "6??????" }, { "call", 8, "7???????" }, { "once", 1, "0" }, { "ignore", 1, "0" }, { "not", 1, "0" }, { "catch", 3, "0?0" },
         { "findall", 3, "?0?" }, { "findall", 4, "?0??" }, { "bagof", 3, "?^?" }, { "setof", 3, "?^?" }, { "forall", 2, "00" }, { "aggregate_all", 3, "?0?" }, { "setup_call_cleanup", 3, "000" },
-        { "call_cleanup", 2, "00" }, { "call_nth", 2, "0?" }, { "if", 3, "000" }, { "$", 1, "0" }, { NULL, 0, NULL } };
+        { "setup_call_catcher_cleanup", 4, "00?0" }, { "call_cleanup", 2, "00" }, { "call_nth", 2, "0?" }, { "if", 3, "000" }, { "$", 1, "0" }, { NULL, 0, NULL } };
     for (int i = 0; m[i].n; i++) if (m[i].a == ar && !strcmp(m[i].n, pn)) return m[i].t;
     return (const char *) 0;
 }
@@ -2141,8 +2154,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             }
             if (!strcmp(nm, "throw") && t->n == 1) return pl_leaf(cx, "$throw", t, 1, ωfail, ωfail, entry_out);
             if (!strcmp(nm, "catch") && t->n == 3) return pl_lower_catch(cx, t->c[0], t->c[1], t->c[2], γnext, ωfail, entry_out);
-            if (!strcmp(nm, "setup_call_cleanup") && t->n == 3) return pl_lower_scc(cx, t->c[0], t->c[1], t->c[2], γnext, ωfail, entry_out);
-            if (!strcmp(nm, "call_cleanup") && t->n == 2 && !pl_file_defines(nm, 2)) return pl_lower_scc(cx, pl_atom_goal("true"), t->c[0], t->c[1], γnext, ωfail, entry_out);
+            if (!strcmp(nm, "setup_call_cleanup") && t->n == 3) return pl_lower_scc(cx, t->c[0], t->c[1], NULL, t->c[2], γnext, ωfail, entry_out);
+            if (!strcmp(nm, "setup_call_catcher_cleanup") && t->n == 4 && !pl_file_defines(nm, 4)) return pl_lower_scc(cx, t->c[0], t->c[1], t->c[2], t->c[3], γnext, ωfail, entry_out);
+            if (!strcmp(nm, "call_cleanup") && t->n == 2 && !pl_file_defines(nm, 2)) return pl_lower_scc(cx, pl_atom_goal("true"), t->c[0], NULL, t->c[1], γnext, ωfail, entry_out);
             if (!strcmp(nm, "=") && t->n == 2) { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
             if (!strcmp(nm, "\\=") && t->n == 2) {
                 tree_t * u = ast_node_new(TT_UNIFY);
@@ -3882,7 +3896,10 @@ static tree_t * pl_table_wrapper(const char * key, const tree_t * spec) {
     return ch;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_scc_is(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && ((t->n == 3 && !strcmp(t->v.sval, "setup_call_cleanup")) || (t->n == 2 && !strcmp(t->v.sval, "call_cleanup"))); }
+static int pl_scc_is(const tree_t * t) {
+    return t && t->t == TT_FNC && t->v.sval &&
+        ((t->n == 3 && !strcmp(t->v.sval, "setup_call_cleanup")) || (t->n == 4 && !strcmp(t->v.sval, "setup_call_catcher_cleanup")) || (t->n == 2 && !strcmp(t->v.sval, "call_cleanup")));
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_scc_count(const tree_t * t) { int n = 0; if (!t) return 0; if (pl_scc_is(t)) n++; for (int i = 0; i < t->n; i++) n += pl_scc_count(t->c[i]); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3943,10 +3960,10 @@ static void pl_scc_walk(tree_t * t, tree_t ** work, int * nw, int cap, int ccdef
     if (n == 3 && !strcmp(nm, "catch")) { pl_scc_walk(t->c[0], work, nw, cap, ccdef); pl_scc_walk(t->c[2], work, nw, cap, ccdef); return; }
     if (((n == 3 || n == 4) && !strcmp(nm, "findall")) || (n == 3 && !strcmp(nm, "aggregate_all"))) { pl_scc_walk(t->c[1], work, nw, cap, ccdef); return; }
     if (n == 3 && (!strcmp(nm, "bagof") || !strcmp(nm, "setof"))) { tree_t * g = t->c[1]; while (pl_scc_named(g, "^", 2)) g = g->c[1]; pl_scc_walk(g, work, nw, cap, ccdef); return; }
-    if (n == 3 && !strcmp(nm, "setup_call_cleanup")) {
+    if ((n == 3 && !strcmp(nm, "setup_call_cleanup")) || (n == 4 && !strcmp(nm, "setup_call_catcher_cleanup"))) {
         pl_scc_walk(t->c[0], work, nw, cap, ccdef);
         if (pl_scc_liftable(t->c[1])) t->c[1] = pl_scc_aux(t->c[1], work, nw, cap);
-        pl_scc_walk(t->c[2], work, nw, cap, ccdef);
+        pl_scc_walk(t->c[n - 1], work, nw, cap, ccdef);
         return;
     }
     if (n == 2 && !strcmp(nm, "call_cleanup") && !ccdef) { if (pl_scc_liftable(t->c[0])) t->c[0] = pl_scc_aux(t->c[0], work, nw, cap); pl_scc_walk(t->c[1], work, nw, cap, ccdef); }
