@@ -2783,6 +2783,9 @@ int core_stack_floor_raised = 0;
 long rt_sw_stack_bytes(void) { rt_cmdline_switches_apply(); return _sw_stack_bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_lib_init(void) {
+    static int core_lib_inited = 0;
+    if (core_lib_inited) return;
+    core_lib_inited = 1;
     { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
     if (!core_stack_floor_raised) {
         core_stack_floor_raised = 1;
@@ -2848,6 +2851,7 @@ void core_lib_init(void) {
     register_fn("LEQ", _LEQ_, 2, 2);
     register_fn("LNE", _LNE_, 2, 2);
     register_fn("HOST", _HOST_, 1, 5);
+    { extern DESCR_t _MATCHAT_(DESCR_t *, int); register_fn("MATCHAT", _MATCHAT_, 0, 0); }
     register_fn("ENDFILE", _ENDFILE_, 1, 1);
     register_fn("BACKSPACE", _BACKSPACE_, 1, 1);
     register_fn("DETACH", _DETACH_, 1, 1);

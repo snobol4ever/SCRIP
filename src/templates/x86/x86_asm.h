@@ -345,9 +345,18 @@ inline std::string x86_movimm32(const char * dst, long imm) {
     return x86_rec("mov") + dst + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int g_emit_module_pic;
 inline std::string x86_load_ro(const char * dst, const char * label, uint64_t ptr) {
     if (MEDIUM_BINARY) {
         int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)(0xB8 | (m & 7)); code += u64le(ptr); return x86_Lrec(code);
+    }
+    if (g_emit_module_pic && label && label[0] != '.') {
+        std::string sym(label), off;
+        size_t plus = sym.find('+');
+        if (plus != std::string::npos) { off = sym.substr(plus + 1); sym = sym.substr(0, plus); }
+        std::string r = x86_rec("mov") + dst + ", qword ptr [rip + " + sym + "@GOTPCREL]\n";
+        if (!off.empty() && off != "0") r += x86_rec("lea") + dst + ", [" + dst + " + " + off + "]\n";
+        return r;
     }
     return x86_rec("lea") + dst + ", [rip + " + (label ? label : "??") + "]\n";
 }
@@ -523,6 +532,13 @@ static inline std::string x86_rtcc_wb_text(unsigned m = RTCC_C_ALL) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_rl_text(unsigned m = RTCC_C_ALL) {
     std::string rl;
+    if (g_emit_module_pic) {
+        if (m & RTCC_C_R8) rl += x86_rec("mov") + "r8,  qword ptr [rip + rtccb@GOTPCREL]\n" + x86_rec("mov") + "r8,  qword ptr [r8 + 40]\n";
+        if (m & RTCC_C_R9) rl += x86_rec("mov") + "r9,  qword ptr [rip + rtccb@GOTPCREL]\n" + x86_rec("mov") + "r9,  qword ptr [r9 + 48]\n";
+        if (m & RTCC_C_R10) rl += x86_rec("mov") + "r10, qword ptr [rip + rtccb@GOTPCREL]\n" + x86_rec("mov") + "r10, qword ptr [r10 + 56]\n";
+        if (m & RTCC_C_R11) rl += x86_rec("mov") + "r11, qword ptr [rip + rtccb@GOTPCREL]\n" + x86_rec("mov") + "r11, qword ptr [r11 + 64]\n";
+        return rl;
+    }
     if (m & RTCC_C_R8) rl += x86_rec("mov") + "r8,  qword ptr [rip + rtccb+40]\n";
     if (m & RTCC_C_R9) rl += x86_rec("mov") + "r9,  qword ptr [rip + rtccb+48]\n";
     if (m & RTCC_C_R10) rl += x86_rec("mov") + "r10, qword ptr [rip + rtccb+56]\n";

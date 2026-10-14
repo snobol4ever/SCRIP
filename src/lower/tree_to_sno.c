@@ -662,6 +662,12 @@ int tree_to_sno(const tree_t *ast, FILE *out) {
     emit_nl(&c);
     emit(&c, "\tFLUSH = FENCE");
     emit_nl(&c);
+    emit(&c, "\tDEFINE('MATCHAT()')\t:(MATCHAT_end)");
+    emit_nl(&c);
+    emit(&c, "MATCHAT\tMATCHAT = 0\t:(RETURN)");
+    emit_nl(&c);
+    emit(&c, "MATCHAT_end");
+    emit_nl(&c);
     if (ast->t == TT_PROGRAM) codegen_program(&c, ast);
     else emit_node(&c, ast);
     emit(&c, "END");

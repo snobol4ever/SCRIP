@@ -123,6 +123,7 @@ static long gc_line_mb(void) { static long line_mb = -1; if (line_mb < 0) { cons
 static long gc_line_span(long room) { long line_mb = gc_line_mb(); if (line_mb == 0) return room; { long span = line_mb << 20; return span < room ? span : room; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_gva_count(int n) { g_sxt_gva_n = n; }
+int rt_sxt_gva_count_get(void) { return g_sxt_gva_n; }
 void rt_sxt_break(const char *s) { rt_sxt_break_fast(s); }
 void rt_sxt_frames_present(void) { g_sxt_fr.off = 1; g_sxt_owner = (char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1746,6 +1747,11 @@ static void gc_seg_begin(gc_seg_it_t *it, char *floor) {
 #endif
 }
 static char *g_gc_program_top = (char *)0;
+static int g_gc_inhibit = 0;
+char *rt_gc_program_top_get(void) { return g_gc_program_top; }
+void rt_gc_program_top_set(char *top) { g_gc_program_top = top; }
+void rt_gc_inhibit_push(void) { g_gc_inhibit++; }
+void rt_gc_inhibit_pop(void) { if (g_gc_inhibit > 0) g_gc_inhibit--; }
 static int g_gc_seg_main = 0;
 static const gc_frame_map_t *gc_root_map(void) {
     for (int i = 0; i < g_gc_maps_n; i++) if (g_gc_maps[i] && (g_gc_maps[i]->flags & GC_FRAME_MAP_ROOT)) return g_gc_maps[i];
@@ -3976,7 +3982,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
 long rt_gc_collect_c(char *floor) { long r; g_gc_seam_sp = floor; r = gc_collect_ex((const gc_ent_t *)0); g_gc_seam_sp = (char *)0; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_poll(void) {
-    if (g_gc_in) return;
+    if (g_gc_in || g_gc_inhibit) return;
     if (!g_gc_pending && !(g_hp_gcline && g_hp_top > g_hp_gcline)) return;
 #if RT_DIAG
     g_gc_polls++;

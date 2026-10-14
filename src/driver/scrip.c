@@ -245,6 +245,87 @@ static int proc_role3_kind(const IR_graph_t *g) {
     return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2;
 }
 static const char *asm_sym_name(const char *nm) { extern const char * bb_ab_sym_name(const char *); return bb_ab_sym_name(nm); }
+static const char *g_sc_module_name = (const char *)0;
+extern tree_t *sno_parse_stage_file(FILE *f, const char *path);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define SC_QUAL_NPFX 9
+static const char *const sc_qual_pfx[SC_QUAL_NPFX] = { "sc_", "mod_", "sno_", "snc_", "rak_", "reb_", "icn_", "pro_", "pas_" };
+typedef struct { const char **names; const char **pfx; int n, cap; } sc_qual_tab_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sc_qual_prefixed(const char *nm) { for (int i = 0; i < SC_QUAL_NPFX; i++) if (!strncmp(nm, sc_qual_pfx[i], strlen(sc_qual_pfx[i]))) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sc_qual_exempt_var(const char *nm) { return !strcmp(nm, "OUTPUT") || !strcmp(nm, "INPUT") || !strcmp(nm, "TERMINAL") || !strncmp(nm, "Mod", 3) || sc_qual_prefixed(nm); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sc_qual_tab_add(sc_qual_tab_t *t, const char *nm, const char *pfx) {
+    for (int i = 0; i < t->n; i++) if (!strcmp(t->names[i], nm) && !strcmp(t->pfx[i], pfx)) return;
+    if (t->n >= t->cap) { t->cap = t->cap ? t->cap * 2 : 256; t->names = (const char **)ct_grow((void *)t->names, (size_t)t->cap * sizeof(const char *)); t->pfx = (const char **)ct_grow((void *)t->pfx, (size_t)t->cap * sizeof(const char *)); }
+    t->names[t->n] = nm;
+    t->pfx[t->n] = pfx;
+    t->n++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *sc_qual_tab_find(const sc_qual_tab_t *t, const char *nm, const char *cur) {
+    int lib = 0;
+    for (int i = 0; i < t->n; i++) if (!strcmp(t->names[i], nm)) { if (!strcmp(t->pfx[i], cur)) return cur; if (!strcmp(t->pfx[i], "sc_")) lib = 1; }
+    return lib ? "sc_" : (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *sc_qual_marker(const tree_t *st) {
+    if (!st || st->t != TT_ASSIGN || st->n != 2 || !st->c[0] || !st->c[1]) return (const char *)0;
+    if (st->c[0]->t != TT_VAR || !st->c[0]->v.sval || strcmp(st->c[0]->v.sval, "ModPrefix")) return (const char *)0;
+    return st->c[1]->t == TT_QLIT && st->c[1]->v.sval ? st->c[1]->v.sval : (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sc_qual_set(tree_t *q, const char *pfx) {
+    if (!q || !q->v.sval || !pfx) return;
+    { size_t l = strlen(pfx) + strlen(q->v.sval) + 1; char *s = (char *)ct_alloc(l); snprintf(s, l, "%s%s", pfx, q->v.sval); q->v.sval = s; q->slen = (int)strlen(s); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sc_qual_collect(const tree_t *t, sc_qual_tab_t *fns, sc_qual_tab_t *vars, const char *cur) {
+    if (!t) return;
+    if (t->t == TT_DEFINE && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) sc_qual_tab_add(fns, t->c[0]->v.sval, cur);
+    else if (t->t == TT_STRUCT && t->n > 1 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) {
+        sc_qual_tab_add(fns, t->c[0]->v.sval, cur);
+        if (t->c[1] && t->c[1]->t == TT_FIELDS) for (int i = 0; i < t->c[1]->n; i++) if (t->c[1]->c[i] && t->c[1]->c[i]->t == TT_VAR && t->c[1]->c[i]->v.sval) sc_qual_tab_add(fns, t->c[1]->c[i]->v.sval, cur);
+    } else if (t->t == TT_VAR && t->v.sval && !strcmp(cur, "sc_") && !sc_qual_exempt_var(t->v.sval)) sc_qual_tab_add(vars, t->v.sval, cur);
+    else if (t->t == TT_INDIRECT && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval && !strcmp(cur, "sc_")) sc_qual_tab_add(vars, t->c[0]->v.sval, cur);
+    for (int i = 0; i < t->n; i++) sc_qual_collect(t->c[i], fns, vars, cur);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sc_qual_apply(tree_t *t, const sc_qual_tab_t *fns, const sc_qual_tab_t *vars, const char *cur) {
+    if (!t) return;
+    if (t->t == TT_DEFINE && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) sc_qual_set(t->c[0], sc_qual_tab_find(fns, t->c[0]->v.sval, cur));
+    else if (t->t == TT_STRUCT && t->n > 1 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) {
+        const char *p = sc_qual_tab_find(fns, t->c[0]->v.sval, cur);
+        sc_qual_set(t->c[0], p);
+        if (t->c[1] && t->c[1]->t == TT_FIELDS) for (int i = 0; i < t->c[1]->n; i++) if (t->c[1]->c[i] && t->c[1]->c[i]->t == TT_VAR) sc_qual_set(t->c[1]->c[i], p);
+        return;
+    } else if (t->t == TT_FNC && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) {
+        const char *fn = t->c[0]->v.sval;
+        const char *p = sc_qual_prefixed(fn) ? (const char *)0 : sc_qual_tab_find(fns, fn, cur);
+        tree_t *args = t->n > 1 ? t->c[1] : (tree_t *)0;
+        int argn = args && args->t == TT_ARGS ? args->n : 0;
+        if (p) sc_qual_set(t->c[0], p);
+        else if (!strcmp(fn, "OPSYN") && argn > 1 && args->c[1] && args->c[1]->t == TT_QLIT && args->c[1]->v.sval) sc_qual_set(args->c[1], sc_qual_tab_find(fns, args->c[1]->v.sval, cur));
+        else if (!strcmp(fn, "APPLY") && argn > 0 && args->c[0] && args->c[0]->t == TT_QLIT && args->c[0]->v.sval) sc_qual_set(args->c[0], sc_qual_tab_find(fns, args->c[0]->v.sval, cur));
+    } else if (t->t == TT_VAR && t->v.sval) { if (!sc_qual_exempt_var(t->v.sval)) { const char *p = sc_qual_tab_find(vars, t->v.sval, cur); sc_qual_set(t, p ? p : cur); } }
+    else if (t->t == TT_INDIRECT && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) {
+        if (!sc_qual_exempt_var(t->c[0]->v.sval)) { const char *p = sc_qual_tab_find(vars, t->c[0]->v.sval, cur); sc_qual_set(t->c[0], p ? p : cur); }
+        return;
+    } else if ((t->t == TT_LABEL || t->t == TT_GOTO_U || t->t == TT_GOTO_S || t->t == TT_GOTO_F) && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) {
+        if (!sc_qual_prefixed(t->c[0]->v.sval)) sc_qual_set(t->c[0], cur);
+        return;
+    }
+    for (int i = 0; i < t->n; i++) sc_qual_apply(t->c[i], fns, vars, cur);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sc_module_qualify(tree_t *root) {
+    sc_qual_tab_t fns = { 0, 0, 0, 0 }, vars = { 0, 0, 0, 0 };
+    const char *cur = "mod_";
+    for (int i = 0; i < root->n; i++) { const char *m = sc_qual_marker(root->c[i]); if (m) cur = m; else sc_qual_collect(root->c[i], &fns, &vars, cur); }
+    cur = "mod_";
+    for (int i = 0; i < root->n; i++) { const char *m = sc_qual_marker(root->c[i]); if (m) cur = m; else sc_qual_apply(root->c[i], &fns, &vars, cur); }
+}
 static const char *asm_fn_sym(const char *nm) { extern const char * bb_ab_fn_sym(const char *); return bb_ab_fn_sym(nm); }
 static const char * ir_define_plain_name(const IR_t * nd) { return (nd && nd->op == IR_DEFINE && !ir_define_sr_citizen(nd)) ? IR_LIT(nd).sval : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1532,6 +1613,10 @@ int main(int argc, char **argv) {
             if (strcmp(argv[argi], "--run") == 0) {
                 mode_run = 1;
                 argi++;
+            } else if (strcmp(argv[argi], "--module") == 0) {
+                if (argi + 1 >= argc) { fprintf(stderr, "scrip: --module needs a module name\n"); return 2; }
+                g_sc_module_name = argv[argi + 1];
+                argi += 2;
             } else if (strcmp(argv[argi], "--compile") == 0) {
                 mode_compile = 1;
                 if (!target_name) target_name = "x86";
@@ -1776,6 +1861,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     extern void sno_add_include_dir(const char *d);
+    extern void rt_sc_include_dir_add(const char *d);
     struct timespec _t0, _t1, _t2, _t3;
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t0);
     int first_file_argi = argi;
@@ -1834,14 +1920,14 @@ int main(int argc, char **argv) {
             char dirbuf[strlen(abs_path) + 1];
             memcpy(dirbuf, abs_path, sizeof dirbuf);
             char *sl = strrchr(dirbuf, '/');
-            if (sl) { *sl = '\0'; sno_add_include_dir(ct_strdup(dirbuf)); } else { sno_add_include_dir("."); }
+            if (sl) { *sl = '\0'; sno_add_include_dir(ct_strdup(dirbuf)); rt_sc_include_dir_add(dirbuf); } else { sno_add_include_dir("."); rt_sc_include_dir_add("."); }
             const char *core_lib = getenv("SNO_LIB");
             if (core_lib && *core_lib) {
                 char envb[strlen(core_lib) + 1];
                 memcpy(envb, core_lib, sizeof envb);
                 char *sp = envb;
                 char *tk;
-                while ((tk = strsep(&sp, ":")) != (char *)0) if (*tk) sno_add_include_dir(ct_strdup(tk));
+                while ((tk = strsep(&sp, ":")) != (char *)0) if (*tk) { sno_add_include_dir(ct_strdup(tk)); rt_sc_include_dir_add(tk); }
             }
             char walk[strlen(abs_path) + 1];
             memcpy(walk, abs_path, sizeof walk);
@@ -1852,7 +1938,7 @@ int main(int argc, char **argv) {
                 snprintf(probe, sizeof probe, "%s/lib", walk);
                 struct stat st;
                 int hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode));
-                if (!hit) { snprintf(probe, sizeof probe, "%s/library", walk); hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)); if (hit) sno_add_include_dir(ct_strdup(probe)); }
+                if (!hit) { snprintf(probe, sizeof probe, "%s/library", walk); hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)); if (hit) { sno_add_include_dir(ct_strdup(probe)); rt_sc_include_dir_add(probe); } }
                 snprintf(probe, sizeof probe, "%s/include", walk);
                 if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) { hit = 1; sno_add_include_dir(ct_strdup(probe)); }
                 if (hit) sno_add_include_dir(ct_strdup(walk));
@@ -1906,6 +1992,7 @@ int main(int argc, char **argv) {
             else if (lang_rebus) rebus_compile(src, input_path, &sub_ast);
             else if (lang_pascal) pascal_compile(src, input_path, &sub_ast);
             else snocone_compile(src, input_path, &sub_ast);
+            if (lang_snocone && g_sc_module_name && sub_ast) { extern void emit_module_mode(int); sc_module_qualify(sub_ast); emit_module_mode(1); }
             if (lang_snocone) sub_ast = lower_snocone_tree(sub_ast);
             ct_drop(src);
             tree_t *parsed_ast = sub_ast;
@@ -1925,7 +2012,7 @@ int main(int argc, char **argv) {
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
             if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
-            tree_t *sub_ast = sno_parse_ast(f, input_path, NULL);
+            tree_t *sub_ast = sno_parse_stage_file(f, input_path);
             fclose(f);
             ir_dump_program(sub_ast, stdout);
             return 0;
@@ -1933,7 +2020,7 @@ int main(int argc, char **argv) {
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
             if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
-            tree_t *sub_ast = sno_parse_ast(f, input_path, NULL);
+            tree_t *sub_ast = sno_parse_stage_file(f, input_path);
             fclose(f);
             RECORD_SEG(sub_ast, lower_sno_stage2);
             MERGE_AST(sub_ast);
@@ -1963,7 +2050,7 @@ int main(int argc, char **argv) {
                     if (!f) { fprintf(stderr, "scrip: cannot stage %d -L preload(s)\n", n_preload); ct_drop(_pre_buf); return 1; }
                 }
             }
-            tree_t *sub_ast = sno_parse_ast(f, input_path, NULL);
+            tree_t *sub_ast = sno_parse_stage_file(f, input_path);
             fclose(f);
             ct_drop(_pre_buf);
             if (opt_input_after_end) {
@@ -2359,6 +2446,19 @@ int main(int argc, char **argv) {
             int n_gram_emit = 0;
             { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
             int _pl_atoms = m4_program_has_prolog_terms(s2, bbg);
+            if (g_sc_module_name) {
+                extern int proc_slot_count(void);
+                extern int gva_trace_demoted(void);
+                int _nps = proc_slot_count();
+                int _ngt = gva_trace_demoted() ? 0 : gva_count();
+                int _has_init = (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2));
+                emit_textf("  .section .data\n  .align 8\n  .globl %s_sc_module\n%s_sc_module:\n", g_sc_module_name, g_sc_module_name);
+                emit_textf("  .quad %s\n  .quad main_\xce\xb1\n  .quad %s\n  .quad %d\n  .quad __alpha_cellp_tab\n  .quad __gc_frame_maps\n  .quad __gc_frame_sites\n",
+                    _has_init ? (sn4_module_init_bottom() ? "module_init" : "main_init") : "0", _ngt > 0 ? "__gva_names" : "0", _ngt);
+                emit_textf("  .quad %s\n  .quad %s\n  .quad %d\n  .quad .Lscmodname\n.Lscmodname: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n",
+                    _nps > 0 ? "__proc" : "0", _nps > 0 ? "__proc_names" : "0", _nps, g_sc_module_name);
+                goto sc_module_main_done;
+            }
             emit_textf("  .globl main\n");
             emit_textf("main:\n");
             emit_textf(
@@ -2460,6 +2560,7 @@ int main(int argc, char **argv) {
                     emit_textf(".Llevel_zero_return:\n  call rt_kw_return_level_zero@PLT\n  ud2\n");
                 }
             }
+            sc_module_main_done:
             if (!sn4_module_init_bottom())
                 emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "main_init");
             {

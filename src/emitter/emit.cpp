@@ -187,6 +187,8 @@ int bb_emit_end(void)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int seq_fold_on(void) { if (g_emitter.seq_fold_on_on < 0) { const char *e = getenv("SCRIP_SEQ_FOLD"); g_emitter.seq_fold_on_on = (e && *e == '0') ? 0 : 1; } return g_emitter.seq_fold_on_on; }
 extern "C" void bb_label_alias_reset(void) { g_emitter.g_lblfold_n = 0; }
+extern "C" int g_emit_module_pic = 0;
+extern "C" void emit_module_mode(int on) { g_emit_module_pic = on ? 1 : 0; }
 extern "C" void bb_label_alias(bb_label_t *stub, bb_label_t *tgt) { if (!seq_fold_on() || !stub || !tgt || stub == tgt || g_emitter.g_lblfold_n >= 4096) return;
     g_emitter.g_lblfold_from[g_emitter.g_lblfold_n] = stub;
     g_emitter.g_lblfold_to[g_emitter.g_lblfold_n] = tgt; g_emitter.g_lblfold_n++; }
@@ -372,7 +374,7 @@ static void emit_stno_row(int32_t stno, int32_t line, const char * file) {
     if (g_is_text) {
         char fq[32]; if (file) { emit_stno_file_label(file); snprintf(fq, sizeof fq, ".Lstnof%d", g_emit.stno_file_lbl); } else snprintf(fq, sizeof fq, "0");
         const char * kn = flat_label_kind(g_emit.node->op); int uid = g_emit.x86_uid;
-        emit_textf(".L%s_α_%d_stno:\n  .pushsection scrip_stno_map,\"a\",@progbits\n", kn, uid);
+        emit_textf(".L%s_α_%d_stno:\n  .pushsection scrip_stno_map,\"%s\",@progbits\n", kn, uid, g_emit_module_pic ? "aw" : "a");
         emit_textf("  .quad .L%s_α_%d_stno\n  .long %d\n  .long %d\n  .quad %s\n  .popsection\n", kn, uid, (int)stno, (int)line, fq);
     } else {
         stno_rec_push((uint64_t)(uintptr_t)(bb_emit_buf + bb_emit_pos), stno, line, file ? icn_trace_intern(file) : (const char *)0);

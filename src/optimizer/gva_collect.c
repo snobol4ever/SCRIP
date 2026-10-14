@@ -102,7 +102,12 @@ int gva_name_eligible(const char *name) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void gva_collect_reset(void) { g_lower.opt.gva_n = 0; if (g_lower.opt.gva_hx_cap) memset(g_lower.opt.gva_hx, 0, (size_t)g_lower.opt.gva_hx_cap * sizeof(gva_hx_t)); }
+int gva_collect_reserve(void);
+void gva_collect_reset(void) {
+    g_lower.opt.gva_n = 0;
+    if (g_lower.opt.gva_hx_cap) memset(g_lower.opt.gva_hx, 0, (size_t)g_lower.opt.gva_hx_cap * sizeof(gva_hx_t));
+    { extern long rt_sc_gva_reserve(void); long r = rt_sc_gva_reserve(); for (long i = 0; i < r; i++) gva_collect_reserve(); }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int gva_index_of(const char *name) {
     if (!name) return -1;

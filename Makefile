@@ -1359,6 +1359,7 @@ RT_PIC_SRCS := \
     $(RT)/rt/rt_pl_trail.c \
     $(RT)/rt/rt_arena.c \
     $(RT)/rt/rt.c \
+    $(RT)/rt/rt_sc_module.c \
     $(RT)/rt/gc_heap.c \
     $(RT)/rt/gc_audit_b.c \
     $(RT)/rt/rt_protected.c \
@@ -1667,11 +1668,36 @@ RT_SRC_ALL := $(shell find $(SRC) -type f 2>/dev/null)
 # flags with no object changed left every seat's `make` answering "up to date" on the library linked the old way -- measured on the
 # landing that moved libstdc++ into it (make rc 0 in 0 s, ldd still naming libstdc++.so.6). A relink over unchanged objects with
 # unchanged flags is byte-identical (measured: the plain relink cmp-equal to the shipped .so) and costs seconds.
-$(RT_SO): $(RT_PIC_OBJS) $(RT_SRC_ALL) Makefile
+# ── the linked parser module (stage 1 of the bootstrap, Lon 2026-10-14 "get all 7 parsers linked into SCRIP and running", and the same hour: ONE global
+# space, a 3-letter prefix per parser -- sno_ snc_ rak_ reb_ icn_ pro_ pas_; ARCH-PARSER-SC-BOOTSTRAP.md section 3.8): a stage-0 runtime and driver (no
+# module) compile ONE chain -- mod_head.sc, the library, every parser_<lang>.sc in SC_MOD_LANGS, mod_tail.sc, with a ModPrefix marker before each file --
+# through scrip --module scparsers, which qualifies every name by its file's prefix (the library's sc_) and emits a descriptor instead of main; the
+# runtime library links the object, and the user program's GVA slots start after the module's (rt_sc_gva_reserve).
+SC_MOD_LANGS := snobol4
+SC_MOD_LIB := global case assign match counter stack tree ShiftReduce tdump gen qize semantic omega trace
+sc_mod_pfx = $(if $(filter snobol4,$(1)),sno_,$(if $(filter snocone,$(1)),snc_,$(if $(filter raku,$(1)),rak_,$(if $(filter rebus,$(1)),reb_,$(if $(filter icon,$(1)),icn_,$(if $(filter prolog,$(1)),pro_,pas_))))))
+SC_MOD_OBJS := out/sc_mod/scparsers.o
+RT_SO0 := out/libscrip_rt0.so
+$(RT_SO0): $(RT_PIC_OBJS) Makefile
+	@mkdir -p out
+	$(CC) -shared $(RT_PIC_OBJS) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@
+out/scrip0: $(RT_SO0) $(SRC)/driver/scrip.c
+	@mkdir -p $(OBJ)
+	$(CC) $(CRT) -c $(SRC)/driver/scrip.c -o $(OBJ)/scrip_driver0.o
+	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/scrip_driver0.o -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt0 $(LIBS) -o $@
+out/sc_mod/scparsers.sc: bootstrap/mod_head.sc bootstrap/mod_tail.sc $(SC_MOD_LIB:%=bootstrap/%.sc) $(SC_MOD_LANGS:%=bootstrap/parser_%.sc) Makefile
+	@mkdir -p out/sc_mod
+	@{ printf "ModPrefix = 'mod_';\n"; cat bootstrap/mod_head.sc; printf "ModPrefix = 'sc_';\n"; cat $(SC_MOD_LIB:%=bootstrap/%.sc); \
+	   $(foreach L,$(SC_MOD_LANGS),printf "ModPrefix = '$(call sc_mod_pfx,$(L))';\n"; cat bootstrap/parser_$(L).sc;) \
+	   printf "ModPrefix = 'mod_';\n"; cat bootstrap/mod_tail.sc; } > $@
+out/sc_mod/scparsers.o: out/sc_mod/scparsers.sc out/scrip0
+	./out/scrip0 --module scparsers --compile -o out/sc_mod/scparsers.s out/sc_mod/scparsers.sc < /dev/null
+	$(CC) -c out/sc_mod/scparsers.s -o $@
+$(RT_SO): $(RT_PIC_OBJS) $(SC_MOD_OBJS) $(RT_SRC_ALL) Makefile
 	@mkdir -p out out/attic
 	@if [ -f $@ ]; then cp -pn $@ out/attic/$(notdir $(basename $(RT_SO)))-$$(md5sum $@ | cut -c1-12).so 2>/dev/null || true; fi
 	@ls -1t out/attic/*.so 2>/dev/null | tail -n +9 | xargs -r rm -f
-	$(CC) -shared $(RT_PIC_OBJS) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@   # ⛔⭐ libstdc++ AND libgcc ARE LINKED INTO THE RUNTIME, HIDDEN (the coo 2026-10-04, row instruments-a-mode-4-process-spends-1-76m-of-its-3-73m-instructions-in-ld-so-..., ceo CEO-1501 on hq_prolog's finding). MEASURED on SCRIP 9557a201d, callgrind, a mode-4 hello world (OUTPUT = 'hi'), the runtime relinked from the same 259 objects (the plain relink is byte-identical to the shipped .so): shared -lstdc++ 3,732,883 Ir (ld.so 1.76M of it) | + -Bsymbolic-functions 3,284,379 | THIS LINE 1,819,873 (PIE) / 1,814,168 (-no-pie) | this line + -Bsymbolic-functions 1,370,109 | + -Bsymbolic 1,248,271. An empty C main() reads 156,840 Ir and 1,873,917 with -lstdc++ -lm -lpthread loaded: LOADING libstdc++.so IS THE COST (its own 4,300 symbolic relocations and its initialisers), not this library's relocations. scrip and every mode-4 binary NEED no libstdc++ of their own (readelf -d scrip: libscrip_rt.so, libc.so.6), so the process holds ONE copy, compiled from the same GCC 13 headers as these objects. ⛔ NO -Bsymbolic OF EITHER KIND, ON PURPOSE: -Bsymbolic binds the runtime's data to its own copy where a -no-pie executable (scrip, scrip-monitor and ~510 scripts link -no-pie) holds a COPY relocation of it, and -Bsymbolic-functions gives a runtime function one address inside the library and another (its canonical PLT stub) inside a -no-pie executable, so a pointer compare across the two splits; both also defeat the LD_PRELOAD interposition util_parser_phase_profile.sh's rt_time_ns toggle reads. A ruling can add -Bsymbolic-functions (a further 0.45M) once both are proved absent.
+	$(CC) -shared $(RT_PIC_OBJS) $(SC_MOD_OBJS) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@   # ⛔⭐ libstdc++ AND libgcc ARE LINKED INTO THE RUNTIME, HIDDEN (the coo 2026-10-04, row instruments-a-mode-4-process-spends-1-76m-of-its-3-73m-instructions-in-ld-so-..., ceo CEO-1501 on hq_prolog's finding). MEASURED on SCRIP 9557a201d, callgrind, a mode-4 hello world (OUTPUT = 'hi'), the runtime relinked from the same 259 objects (the plain relink is byte-identical to the shipped .so): shared -lstdc++ 3,732,883 Ir (ld.so 1.76M of it) | + -Bsymbolic-functions 3,284,379 | THIS LINE 1,819,873 (PIE) / 1,814,168 (-no-pie) | this line + -Bsymbolic-functions 1,370,109 | + -Bsymbolic 1,248,271. An empty C main() reads 156,840 Ir and 1,873,917 with -lstdc++ -lm -lpthread loaded: LOADING libstdc++.so IS THE COST (its own 4,300 symbolic relocations and its initialisers), not this library's relocations. scrip and every mode-4 binary NEED no libstdc++ of their own (readelf -d scrip: libscrip_rt.so, libc.so.6), so the process holds ONE copy, compiled from the same GCC 13 headers as these objects. ⛔ NO -Bsymbolic OF EITHER KIND, ON PURPOSE: -Bsymbolic binds the runtime's data to its own copy where a -no-pie executable (scrip, scrip-monitor and ~510 scripts link -no-pie) holds a COPY relocation of it, and -Bsymbolic-functions gives a runtime function one address inside the library and another (its canonical PLT stub) inside a -no-pie executable, so a pointer compare across the two splits; both also defeat the LD_PRELOAD interposition util_parser_phase_profile.sh's rt_time_ns toggle reads. A ruling can add -Bsymbolic-functions (a further 0.45M) once both are proved absent.
 	@echo "Built: $@   RT_OPT=$(RT_OPT)"
 	@printf 'kept previous: %s   (out/attic/, 8 newest by content)\n' "$$(ls -1t out/attic/*.so 2>/dev/null | head -1 | xargs -r basename)"
 # out/libscrip_rt.so REMAINS THE CANONICAL PATH -- 73 scripts reference it by that exact name, so it must

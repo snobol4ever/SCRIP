@@ -298,6 +298,7 @@ function PPInit(w, s) {
     pp_out = '';
     pp_buf = '';
     s = HOST(4, 'SNO_LIB');
+    s = DIFFER(ModLinked) ModIncl;
     while (DIFFER(s)) {
         if (s ? (POS(0) BREAK(':') . w ':') = ) { ; } else { w = s; s = ''; }
         if (DIFFER(w)) { pp_nd = pp_nd + 1; pp_dirs[pp_nd] = w; }
@@ -533,8 +534,39 @@ function PPInc(ln, qc, r, nm, key, once, t, dir) {
     nreturn;
 }
 /* ==================================================================================================================== */
+/* ParseTree(src, path): the one parse the linked module and the driver share -- the include pre-pass, the per-parse setup and   */
+/* the Compiland match; the tree, or failure with ModErrPos the refused statement                                               */
+function ParseTree(src, path, ptree) {
+    Src = src;
+    pf_name = path;
+    pp_err = '';
+    if (Src ? ((POS(0) | CHAR(10)) '-' ANY('IiCc') ANY('NnOo'))) {
+        PPInit();
+        if (Src ? *Preprocess) { ; } else { pp_err = 1; }
+        if (IDENT(pp_err)) { Src = pp_out pp_buf; }
+    }
+    InitCounter();
+    InitStack();
+    ParseRefused = ;
+    StmtNo = 0;
+    RefusedStmt = 0;
+    StmtPosA = ARRAY(SIZE(Src) + 2);
+    StmtPosN = 0;
+    SnCaseNow = ;
+    SnCase = ;
+    SnLblT = TABLE(256);
+    if (DIFFER(pp_err)) freturn;
+    if (Src ? *Compiland) {
+        ptree = Pop();
+        if (DIFFER(ParseRefused)) { ModErrPos = RefusedStmt; freturn; }
+        ParseTree = ptree;
+        return;
+    }
+    freturn;
+}
 /* the driver: one file from stdin, or each file of PARSER_FILES in turn with a == header; the tree is dumped statement by  */
-/* statement, or the parse refused with Parse Error                                                                        */
+/* statement, or the parse refused with Parse Error; a linked module (mod_head.sc) skips it                                 */
+if (DIFFER(ModLinked)) goto ModEnd;
 pf_list = HOST(4, 'PARSER_FILES');
 pf_n = 0;
 pf_bytes = 0;
@@ -594,4 +626,4 @@ while (LE(0, 1)) {
     if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
     if (IDENT(pf_list)) break;
 }
-if (DIFFER(pf_list)) TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;
+ModEnd: if (DIFFER(pf_list)) TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;

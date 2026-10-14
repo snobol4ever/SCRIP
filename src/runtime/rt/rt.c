@@ -695,6 +695,7 @@ int rt_proc_enum_count(void) { return g_rt_gen_proc_count; }
 const char *rt_proc_enum_name(int i) { return (i >= 0 && i < g_rt_gen_proc_count) ? g_rt_gen_procs[i].name : (const char *)0; }
 void rt_proc_reset(void) {
     extern void bnd_tweak_cache_clear(void);
+    { extern void rt_sc_modules_invalidate(void); rt_sc_modules_invalidate(); }
     g_rt_gen_proc_count = 0;
     rt_proc_cache_clear();
     bnd_tweak_cache_clear();
@@ -798,8 +799,17 @@ DESCR_t *rt_gva_island(int n) {
         }
         g_gva_mapped = want;
     }
-    { extern void rt_sxt_gva_count(int); rt_sxt_gva_count(n); }
-    if (n > 0) memset((void *)RT_GVA_VA, 0, (size_t)n * sizeof(DESCR_t));
+    {
+        extern void rt_sxt_gva_count(int);
+        extern int rt_sxt_gva_count_get(void);
+        extern long rt_sc_gva_reserve(void);
+        long r = rt_sc_gva_reserve();
+        int have = rt_sxt_gva_count_get();
+        if (n < have) n = have;
+        if (n < r) n = (int)r;
+        rt_sxt_gva_count(n);
+        if (n > r) memset((void *)((DESCR_t *)RT_GVA_VA + r), 0, (size_t)(n - r) * sizeof(DESCR_t));
+    }
     return (DESCR_t *)RT_GVA_VA;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
