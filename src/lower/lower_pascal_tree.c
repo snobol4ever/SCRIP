@@ -6316,7 +6316,11 @@ static pval E_procedure_decl(const tree_t *n) {
             pas_local_add(v[2].str);
             pas_fwd_restore(v[2].str);
         }
+        int nrv0 = g_lower.pas.sem.pas_nrecvar;
+        if (v[6].str) pas_recvar_add_from_type(v[2].str, v[6].str);
+        int resrec = g_lower.pas.sem.pas_nrecvar > nrv0;
         v[9] = E_block(tail);
+        if (resrec && v[9].node) { tree_t *rb = ast_node_new(TT_PROGRAM); ast_push(rb, bin(TT_ASSIGN, leaf_s(TT_VAR, v[2].str), mk_rec_init_type(v[6].str))); ast_push(rb, v[9].node); v[9].node = rb; }
         {
             int d = g_lower.pas.sem.pas_ldepth - 1;
             int d_ok = (d >= 0 && d < PAS_NEST_MAX);
