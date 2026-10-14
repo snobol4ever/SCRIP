@@ -20,9 +20,9 @@
 # name (no return address can point into it; today the set scanners and the tiny-glue trampoline).
 #
 # NEGATIVE-TESTED IN EVERY RUN: a truthful synthetic set (RTX_CCALL, RTX_CTAIL, a callee-saved push, a stub label after a ret
-# re-declared with RTX_CFA, an aligned C call with pushes inside the region, a frame-pointer body) must be PROVEN, and each lie
+# re-declared with RTX_CFA, an aligned C call with pushes inside the region, a frame-pointer body, one torn down by mov rsp,rbp / pop rbp) must be PROVEN, and each lie
 # (a push the CFI does not count, a stub label left at the text's depth, an RTX_CALL_ALIGN given the wrong depth, a callee-saved
-# push with no record, a body that calls with no FDE at all) must be caught BY NAME.  An instrument that cannot fail measures
+# push with no record, a torn-down frame pointer whose rbp record is never restored, a body that calls with no FDE at all) must be caught BY NAME.  An instrument that cannot fail measures
 # nothing.  FLOOR: fewer than 250 FDEs over the real leaves is REFUSED (rc 2): 265 today.
 #
 # Usage: bash scripts/test_gate_rtx_every_leaf_carries_cfi_true_at_every_pc.sh   (exit 0 green, 1 measured broken, 2 could not measure)
@@ -157,6 +157,21 @@ RTX_FUNC(ok_framed)
     .cfi_restore rbp
     ret
 RTX_ENDF(ok_framed)
+RTX_FUNC(ok_framed_pop)
+    RTX_PUSHS(rbp)
+    mov     rbp, rsp
+    .cfi_def_cfa_register rbp
+    sub     rsp, 48
+    call    ok_c@PLT
+    mov     rsp, rbp
+    pop     rbp
+    .cfi_def_cfa rsp, 8
+    .cfi_restore rbp
+    test    rax, rax
+    jz      99f
+    mov     eax, 1
+99: ret
+RTX_ENDF(ok_framed_pop)
 .section .note.GNU-stack,"",@progbits
 ASM
 lie() {
@@ -203,6 +218,20 @@ lie unrecorded_save 'saved{rbx@cfa-16}  CFI rsp+16$' 'RTX_FUNC(lie_save)
     RTX_POP(rbx)
     ret
 RTX_ENDF(lie_save)'
+lie framed_pop_unrestored 'model rsp+8  CFI rsp+8 saved{rbp@cfa-16}' 'RTX_FUNC(lie_fp)
+    RTX_PUSHS(rbp)
+    mov     rbp, rsp
+    .cfi_def_cfa_register rbp
+    sub     rsp, 48
+    call    lie_c@PLT
+    mov     rsp, rbp
+    pop     rbp
+    .cfi_def_cfa rsp, 8
+    test    rax, rax
+    jz      99f
+    mov     eax, 1
+99: ret
+RTX_ENDF(lie_fp)'
 lie no_fde 'NO FDE covers this instruction of lie_bare' '.text
 .globl lie_bare
 .type lie_bare,@function

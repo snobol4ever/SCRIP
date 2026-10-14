@@ -276,8 +276,7 @@ def walk_fde(lo, hi, rows, code, syms, errs):
         if mn == 'mov' and o0 == 'rsp' and len(o) > 1:
             s1 = o[1].strip().lower()
             if s1 == 'rbp' and rbp is not None:
-                k = len(slots)
-                go(nxt, rsp=rbp, dyn=None, slots=slots); continue
+                go(nxt, rsp=rbp, dyn=None, slots=slots[:max((rbp - 8) // 8, 0)]); continue
             if dyn is not None and rsp_disp(o[1]) == dyn[0]:
                 sl = slots
                 if 'pad' in sl: sl = sl[:len(sl) - sl[::-1].index('pad') - 1 - 2]
