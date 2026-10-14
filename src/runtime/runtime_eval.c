@@ -1011,7 +1011,11 @@ DESCR_t code_at(const char *src, long base) {
     if (parse_err) parse_err = rt_heap_strdup_c(parse_err);
     int pe = 0;
     const char *pm = (const char *)0;
-    { extern int sno_preeval_stmt(const tree_t *, const char **); for (int i = 0; i < prog->n && !parse_err; i++) if ((pe = sno_preeval_stmt(prog->c[i], &pm))) parse_err = pm ? pm : ""; }
+    {
+        extern int sno_preeval_stmt(const tree_t *, const char **);
+        for (int i = 0; i < prog->n && !pe; i++) if ((pe = sno_preeval_stmt(prog->c[i], &pm)) && parse_err && !(pm && !strcmp(pm, parse_err))) pe = 0, pm = (const char *)0;
+        if (pe && !parse_err) parse_err = pm ? pm : "";
+    }
     if (g_sno_stmt_compiled < base) g_sno_stmt_compiled = base;
     long stno_base = g_sno_stmt_compiled;
     extern int sno_pat_count(void);
