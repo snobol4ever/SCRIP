@@ -51,10 +51,10 @@ cp "$H" "$T/plant.h"; printf '#define HB_ZZPLANT 299\n' >> "$T/plant.h"; pmiss=$
 if [ "$miss" = UNREADABLE ] || [ "$pmiss" != HB_ZZPLANT ]; then echo "⛔ GATE REFUSE(2) [$G]: the kind reader cannot measure (reader='$miss' plant='$pmiss', want the plant named alone)"; exit 2; fi
 if [ -z "$miss" ]; then echo "  arm 1 PASS: all $nk HB_ kinds of gc_heap.h are named in the mark worklist's dispatch; the planted kind is named missing"
 else echo "  arm 1 FAIL: kinds the mark worklist does not name: $miss"; RC=1; fi
-untyped() { grep -rnE '\brt_ws_alloc[[:space:]]*\(|\brt_gcheap_alloc[[:space:]]*\([^H)]|\brt_gcheap_grow_block[[:space:]]*\([^,]*,[[:space:]]*[^H ]' "$@" 2>/dev/null | grep -v 'src/runtime/rt/gc_heap\.[ch]:' | grep -vE '^[^:]+:[0-9]+:[^(]*\b(void|uint16_t)[[:space:]]*\*?[[:space:]]*rt_' ; }
+untyped() { grep -rnE '\brt_ws_alloc[[:space:]]*\(|\brt_gcheap_alloc[[:space:]]*\([^H)]|\brt_gcheap_grow_block[[:space:]]*\([^,]*,[[:space:]]*(\(uint16_t\)[[:space:]]*)?[^H ]' "$@" 2>/dev/null | grep -v 'src/runtime/rt/gc_heap\.[ch]:' | grep -vE '^[^:]+:[0-9]+:[^(]*\b(void|uint16_t)[[:space:]]*\*?[[:space:]]*rt_' ; }
 bad=$(untyped "$ROOT/src" --include=*.c --include=*.cpp --include=*.h)
-printf 'void f(void) { char *p = rt_gcheap_alloc(k, 8); }\n' > "$T/plant.c"; pbad=$(untyped "$T/plant.c")
-[ -n "$pbad" ] || { echo "⛔ GATE REFUSE(2) [$G]: the allocation reader did not flag a planted variable-kind call"; exit 2; }
+printf 'void f(void) { char *p = rt_gcheap_alloc(k, 8); }\nvoid g(void *p) { p = rt_gcheap_grow_block(p, (uint16_t)k, 8); }\nvoid h(void *p) { p = rt_gcheap_grow_block(p, (uint16_t)HB_WSB, 8); }\n' > "$T/plant.c"; pbad=$(untyped "$T/plant.c")
+[ "$(printf '%s\n' "$pbad" | grep -c .)" = 2 ] && ! printf '%s\n' "$pbad" | grep -q 'HB_WSB' || { echo "⛔ GATE REFUSE(2) [$G]: the allocation reader must flag the two planted variable-kind calls (bare and cast) and pass the cast typed kind, read: $pbad"; exit 2; }
 if [ -z "$bad" ]; then echo "  arm 2 PASS: no rt_ws_alloc( call and no variable-kind heap allocation outside gc_heap.c; the planted call is flagged"
 else echo "  arm 2 FAIL: untyped heap allocation sites:"; printf '%s\n' "$bad" | head -10 | sed 's/^/    /'; RC=1; fi
 ( cd "$T" && "$SCRIP" --compile "$W" -o w.s < /dev/null > /dev/null 2>&1 && gcc -m64 -no-pie -rdynamic w.s -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o w.bin 2>/dev/null ) || { echo "⛔ GATE REFUSE(2) [$G]: the witness does not build in mode 4"; exit 2; }
