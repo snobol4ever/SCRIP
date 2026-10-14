@@ -2242,6 +2242,10 @@ static const char * const PL_PRELUDE_SRC =
     "findnsols(N,_,_,L):-N=<0,!,L=[].\n"
     "findnsols(N,T0,G0,L):-copy_term(T0-G0,T-G),S='$fns'(0,[],no),(call(G),arg(2,S,A0),nb_setarg(2,S,[T|A0]),arg(1,S,C0),C is C0+1,nb_setarg(1,S,C),C>=N,arg(2,S,A),nb_setarg(1,S,0),nb_setarg(2,S,[]),nb_setarg(3,S,yes),reverse(A,L);arg(2,S,A),arg(3,S,Y),(A==[]->Y==no;true),reverse(A,L)).\n"
     "divmod(A,B,Q,R):-Q is A div B,R is A mod B.\n"
+    "'$wot_stream_sink'(S):-nonvar(S),S='$stream'(_),catch(stream_property(S,_),_,fail),!.\n"
+    "is_stream(S):-nonvar(S),S='$stream'(_),catch(stream_property(S,_),_,fail),!.\n"
+    "is_stream(S):-atom(S),catch(stream_property(_,alias(S)),_,fail),!.\n"
+    "'$wot_stream'(S,G):-current_output(O),setup_call_cleanup(set_output(S),once(G),set_output(O)).\n"
     "'$between_test'(L,_,_):-var(L),!,throw(error(instantiation_error,context(between/3,_))).\n"
     "'$between_test'(L,_,_):- \\+integer(L),!,throw(error(type_error(integer,L),context(between/3,_))).\n"
     "'$between_test'(_,H,_):-var(H),!,throw(error(instantiation_error,context(between/3,_))).\n"
@@ -2927,6 +2931,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "@")) pl_cv_add(&referenced, "$at_ctx");
     if (pl_cv_has(&referenced, "lazy_list")) pl_cv_add(&referenced, "$wakeup");
     if (pl_cv_has(&referenced, "between")) pl_cv_add(&referenced, "$between_test");
+    if (pl_cv_has(&referenced, "with_output_to")) { pl_cv_add(&referenced, "$wot_stream_sink"); pl_cv_add(&referenced, "$wot_stream"); }
     {
         int napi = 0;
         while (pl_attv_api[napi]) napi++;

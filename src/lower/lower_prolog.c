@@ -2406,6 +2406,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * fb = pl_cc_fnc2(",", dis, pl_atom_goal("fail"));
                 tree_t * ite = pl_cc_fnc2(";", pl_cc_fnc2("->", cg, cap), fb);
                 tree_t * body = pl_cc_fnc2(",", op, pl_cc_fnc2(",", so, ite));
+                body = pl_cc_ite(pl_cc_fnc1("$wot_stream_sink", (tree_t *) t->c[0]), pl_cc_fnc2("$wot_stream", (tree_t *) t->c[0], (tree_t *) t->c[1]), body);
                 return goal(cx, body, γnext, ωfail, entry_out);
             }
             extern int pl_prelude_defines(const char *, int);
