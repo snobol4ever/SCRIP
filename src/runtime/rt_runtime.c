@@ -20,6 +20,7 @@ extern int Δ;
 extern int Ω;
 extern int Σlen;
 #include "core.h"
+#include "rt/rt_list_view.h"
 #include "lower.h"
 #include "../runtime/builtins/gen_runtime.h"
 #include "../runtime/builtins/gen_value.h"
@@ -288,15 +289,9 @@ int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     if (obj.v == DT_DATA) {
-        DESCR_t tag = FIELD_GET_fn(obj, "gen_type");
-        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
-            int n = (int)FIELD_GET_fn(obj, "frame_size").i;
-            DESCR_t ea = FIELD_GET_fn(obj, "frame_elems");
-            DESCR_t *elems = IS_DATA_ELEMS_fn(ea) ? (DESCR_t *)ea.ptr : NULL;
-            if (!elems || idx >= n) return 0;
-            *out = elems[idx];
-            return 1;
-        }
+        DESCR_t *elems = NULL;
+        int n = 0;
+        if (rt_lv_is_list(obj, &elems, &n)) { if (!elems || idx >= n) return 0; *out = elems[idx]; return 1; }
         if (obj.u && obj.u->type && obj.u->type->nfields > 0) { int nf = obj.u->type->nfields; if (idx >= nf) return 0; *out = obj.u->fields[idx]; return 1; }
     }
     if (obj.v == DT_FH) {

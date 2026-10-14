@@ -14,6 +14,7 @@
 #include <alloca.h>
 #include "gc_heap.h"
 #include "core.h"
+#include "rt_list_view.h"
 #include "descr.h"
 #include "sil_macros.h"
 #include "bb_pool.h"
@@ -2287,8 +2288,8 @@ DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi) {
     }
     if (v.v == DT_S) { size_t n = descr_slen(v); DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
     if (IS_DATA_INST_fn(v) && v.u) {
-        DESCR_t tag = FIELD_GET_fn(v, "gen_type");
-        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)FIELD_GET_fn(v, "frame_size").i; return r; }
+        int ln = 0;
+        if (rt_lv_is_list(v, (DESCR_t **)0, &ln)) { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)ln; return r; }
         if (v.u->type) { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)v.u->type->nfields; return r; }
         { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = 0; return r; }
     }

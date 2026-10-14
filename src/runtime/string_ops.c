@@ -1,6 +1,7 @@
 #include "rt/rt_arena.h"
 #include "rtx_try.h"
 #include "core.h"
+#include "rt/rt_list_view.h"
 #include "sil_macros.h"
 #include "coerce.h"
 #include "string_ops.h"
@@ -10,7 +11,7 @@
 #include <string.h>
 #include <math.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int so_is_list(DESCR_t v) { if (!IS_DATA_INST_fn(v) || !v.u) return 0; DESCR_t t = FIELD_GET_fn(v, "gen_type"); return t.v == DT_S && t.s && !strcmp(t.s, "list"); }
+static int so_is_list(DESCR_t v) { return rt_lv_is_list(v, (DESCR_t **)0, (int *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     if (a.v == DT_P || b.v == DT_P || a.v == DT_X || b.v == DT_X) { extern DESCR_t pat_cat(DESCR_t, DESCR_t); return pat_cat(a, b); }
@@ -21,9 +22,9 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     if (so_is_list(a) && so_is_list(b)) {
         static int so_list_reg = 0;
         if (!so_list_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); so_list_reg = 1; }
-        int64_t an = FIELD_GET_fn(a, "frame_size").i, bn = FIELD_GET_fn(b, "frame_size").i;
-        DESCR_t *ae = (DESCR_t *)FIELD_GET_fn(a, "frame_elems").ptr;
-        DESCR_t *be = (DESCR_t *)FIELD_GET_fn(b, "frame_elems").ptr;
+        int64_t an = a.u->fields[1].i, bn = b.u->fields[1].i;
+        DESCR_t *ae = (DESCR_t *)a.u->fields[0].ptr;
+        DESCR_t *be = (DESCR_t *)b.u->fields[0].ptr;
         int64_t n = an + bn;
         DESCR_t *ne = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
         for (int64_t i = 0; i < an; i++) ne[i] = ae ? ae[i] : NULVCL;
