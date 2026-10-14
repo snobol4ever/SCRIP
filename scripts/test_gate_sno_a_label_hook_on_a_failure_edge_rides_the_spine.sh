@@ -21,7 +21,11 @@
 #   3  W2 (TREEREAD's shape: a caller's saved locals restored across a failure-edge label) m3 under the switch == oracle
 #   4  W2 m4 under the switch == oracle
 #   5  STRUCTURE: in W1's mode-4 asm under the switch, every box that loads a label name for the hook opens with a
-#      spine push (sub rsp, 16) -- none writes a frame slot off an unreserved rsp
+#      spine push (sub rsp, N) -- none writes a frame slot off an unreserved rsp. RE-CUT 2026-10-14 (hq_snobol4, row
+#      snobol4-blocking-gate-a-label-hook-on-a-failure-edge-refuses-hooks-moved-ceo-1697): since f947ec8e6 the hook is a
+#      sealed IR_STMT_MARK box (asm comment "# sno_label_hook") that carves a pending-trace record and passes the label from
+#      the .S<n> string pool (lea rdi, [rip + .Sn]); the old scan read an inline .string after a _lit_string_α label and
+#      found 0. The scan now resolves each sno_label_hook box's .Sn to its label and reads the box's first instruction.
 #   6  CONTROL: W1 and W2 in m3 WITHOUT the switch == oracle, so arms 1-4 grade the hook and not the witness
 # EXIT: 0 all arms pass · 1 an arm failed · 2 REFUSED (no binary, no oracle, oracle shape moved).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -95,11 +99,14 @@ rc=$(run4 w1 1); arm "W1 m4 under the switch answers the oracle" "$(verdict "$rc
 rc=$(run3 w2 1); arm "W2 m3 under the switch restores the caller's locals" "$(verdict "$rc" w2.m3.1 w2.oracle)"
 rc=$(run4 w2 1); arm "W2 m4 under the switch restores the caller's locals" "$(verdict "$rc" w2.m4.1 w2.oracle)"
 if [ -f "$T/w1.1.s" ]; then
-    scan=$(awk '/_lit_string_α:/ { lab=$1; box=$0 } /\.string/ && lab != "" { s=$NF; gsub(/"/, "", s); if (s ~ /^(G|G_1|G_END|F|F_END)$/) { print (box ~ /sub +rsp, 16/ ? "spine" : "FRAME") " " lab }; lab="" }' "$T/w1.1.s")
+    scan=$(awk 'FNR == NR { if ($1 ~ /^\.S[0-9]+:$/) { s = $NF; gsub(/"/, "", s); k = $1; sub(/:$/, "", k); pool[k] = s }; next }
+                /^# sno_label_hook/ { inb = 1; lab = ""; first = ""; next }
+                inb && first == "" && $1 ~ /_α:$/ { lab = $1; first = $2 " " $3 }
+                inb && /lea +rdi, \[rip \+ \.S[0-9]+\]/ { m = $0; sub(/.*\[rip \+ /, "", m); sub(/\].*/, "", m); if (pool[m] ~ /^(G|G_1|G_END|F|F_END)$/) print (first ~ /^sub rsp,/ ? "spine" : "FRAME") " " lab; inb = 0 }' "$T/w1.1.s" "$T/w1.1.s")
     hooks=$(printf '%s\n' "$scan" | grep -c .); bad=$(printf '%s\n' "$scan" | awk '$1 == "FRAME" { print $2 }')
-    [ "$hooks" -ge 3 ] || refuse "W1's mode-4 asm under the switch carries $hooks label-hook literal boxes -- the hooks moved and this arm cannot see them"
-    arm "every one of W1's $hooks label-hook literals opens with a spine push" "$([ -z "$bad" ] && echo ok || echo "frame-slot store off an unreserved rsp at: $(echo $bad | tr '\n' ' ')")"
-else arm "every label-hook literal opens with a spine push" "no mode-4 asm for W1 under the switch"; fi
+    [ "$hooks" -ge 3 ] || refuse "W1's mode-4 asm under the switch carries $hooks label-hook statement-mark boxes -- the hooks moved and this arm cannot see them"
+    arm "every one of W1's $hooks label-hook statement-mark boxes opens with a spine push" "$([ -z "$bad" ] && echo ok || echo "frame-slot store off an unreserved rsp at: $(echo $bad | tr '\n' ' ')")"
+else arm "every label-hook statement-mark box opens with a spine push" "no mode-4 asm for W1 under the switch"; fi
 rc1=$(run3 w1 0); rc2=$(run3 w2 0); v1=$(verdict "$rc1" w1.m3.0 w1.oracle); v2=$(verdict "$rc2" w2.m3.0 w2.oracle)
 arm "CONTROL: W1 and W2 in m3 without the switch answer the oracle" "$([ "$v1" = ok ] && [ "$v2" = ok ] && echo ok || echo "W1: $v1 / W2: $v2")"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }
