@@ -1783,6 +1783,8 @@ static const char * const PL_PRELUDE_SRC =
     "'$mod_head'(_,T,T).\n"
     "'$mod_call'(M,G):-'$mod_qb'(M,G,Q),call(Q).\n"
     "translate_bindings(B0,B,_,_,residuals([],[])):-copy_term(B0,B1),'$tb_name'(B1),'$tb_join'(B1,B).\n"
+    "get_prolog_backtrace(Max,Frames):-'$pl_backtrace'(Max,Frames).\n"
+    "get_prolog_backtrace(Max,Frames,_):-'$pl_backtrace'(Max,Frames).\n"
     "'$tb_name'([]).\n"
     "'$tb_name'([N=V|T]):-(var(V)->V='$VAR'(N);true),'$tb_name'(T).\n"
     "'$tb_join'([],[]).\n"

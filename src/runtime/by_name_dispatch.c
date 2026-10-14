@@ -9398,6 +9398,40 @@ static DESCR_t pl_gnu_dt(time_t t) {
     return pl_gnu_fn("dt", 6, a);
 }
 static DESCR_t *pl_gnu_vec_push(gv_t *el) { return (DESCR_t *)gv_push(el, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), "gnu_os_list"); }
+typedef struct { const char **nm; int n, cap; } pl_bt_t;
+static void pl_bt_visit(const void *map, const char *base, void *a) {
+    pl_bt_t *b = (pl_bt_t *)a;
+    const gc_frame_map_t *m = (const gc_frame_map_t *)map;
+    (void)base;
+    if (!m || !m->graph_name || !strchr(m->graph_name, '/')) return;
+    if (b->nm && b->n < b->cap) b->nm[b->n] = m->graph_name;
+    b->n++;
+}
+PL_CX_LEAF_HEAD(pl_backtrace, 2)
+    {
+        DESCR_t mx = rt_pl_deref_val(args[0]);
+        pl_bt_t c = { (const char **)0, 0, 0 };
+        int n;
+        (void)rt_gc_frames_visit(pl_bt_visit, &c);
+        n = c.n;
+        if (mx.v == DT_I && mx.i >= 0 && mx.i < n) n = (int)mx.i;
+        {
+            const char *nm[n > 0 ? n : 1];
+            DESCR_t fr[n > 0 ? n : 1];
+            pl_bt_t f = { nm, 0, n };
+            (void)rt_gc_frames_visit(pl_bt_visit, &f);
+            if (f.n < n) n = f.n;
+            for (int i = 0; i < n; i++) {
+                DESCR_t at = pl_mk_atom_dup(nm[i], strlen(nm[i])), a3[3];
+                a3[0] = INTVAL(i + 1);
+                a3[1] = pl_gnu_fn1("call", at);
+                a3[2] = at;
+                fr[i] = pl_gnu_fn("frame", 3, a3);
+            }
+            ok = plw_unify_vals(args[1], pl_list_from_arr(fr, n), cx);
+        }
+    }
+PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_working_directory, 1)
     {
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);

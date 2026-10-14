@@ -6041,6 +6041,7 @@ DESCR_t rt_pl_dop_stamp_date_time(DESCR_t *, int); DESCR_t rt_pl_dop_date_time_s
     DESCR_t rt_pl_dop_attv_atts(DESCR_t *, int); DESCR_t rt_pl_dop_attv_take(DESCR_t *, int); DESCR_t rt_pl_dop_unifiable(DESCR_t *, int);
     DESCR_t rt_pl_dop_crv_enter(DESCR_t *, int); DESCR_t rt_pl_dop_crv_adj(DESCR_t *, int); DESCR_t rt_pl_dop_crv_collect(DESCR_t *, int);
     DESCR_t rt_pl_dop_copy_keep(DESCR_t *, int); DESCR_t rt_pl_dop_factorize_term(DESCR_t *, int);
+    DESCR_t rt_pl_dop_pl_backtrace(DESCR_t *, int);
 DESCR_t rt_pl_dop_scc_bnew(DESCR_t *, int); DESCR_t rt_pl_dop_scc_take(DESCR_t *, int); DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_copy_term_nat(DESCR_t *, int);
     DESCR_t rt_pl_dop_term_variables(DESCR_t *, int);
     DESCR_t rt_pl_dop_numbervars3(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars1(DESCR_t *,
@@ -6185,7 +6186,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$attv_take", 1, "rt_pl_dop_attv_take", rt_pl_dop_attv_take }, { "$unifiable", 3, "rt_pl_dop_unifiable", rt_pl_dop_unifiable },
         { "$crv_enter", 1, "rt_pl_dop_crv_enter", rt_pl_dop_crv_enter }, { "$crv_adj", 1, "rt_pl_dop_crv_adj", rt_pl_dop_crv_adj },
         { "$crv_collect", 2, "rt_pl_dop_crv_collect", rt_pl_dop_crv_collect },
-        { "$copy_keep", 4, "rt_pl_dop_copy_keep", rt_pl_dop_copy_keep }, { "$factorize_term", 3, "rt_pl_dop_factorize_term", rt_pl_dop_factorize_term },
+        { "$copy_keep", 4, "rt_pl_dop_copy_keep", rt_pl_dop_copy_keep }, { "$pl_backtrace", 2, "rt_pl_dop_pl_backtrace", rt_pl_dop_pl_backtrace }, { "$factorize_term", 3, "rt_pl_dop_factorize_term",
+            rt_pl_dop_factorize_term },
         { "$wall_us", 1, "rt_pl_dop_wall_us", rt_pl_dop_wall_us }, { "$wall_ms", 1, "rt_pl_dop_wall_ms", rt_pl_dop_wall_ms },
         { "$sort", 2, "rt_pl_dop_sort", rt_pl_dop_sort }, { "$msort", 2, "rt_pl_dop_msort", rt_pl_dop_msort }, { "$char_type", 2, "rt_pl_dop_char_type", rt_pl_dop_char_type },
         { "$pl_big", 1, "rt_pl_dop_big", rt_pl_dop_big }, { "$findall_new", 0, "rt_pl_dop_findall_new", rt_pl_dop_findall_new }, { "$findall_add", 2, "rt_pl_dop_findall_add", rt_pl_dop_findall_add },
