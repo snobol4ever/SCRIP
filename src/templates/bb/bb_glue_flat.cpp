@@ -299,12 +299,7 @@ std::string bb_glue_trace_pend_run(int base, const std::string & after, int in_s
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_enter_chain_ret(int lid) {
-    return x86("sub", "rsp", 64L)
-         + x86_rsp_store64(56, "r12")
-         + x86_rsp_store64(48, "rbx")
-         + x86_rsp_store32_imm(32, (long)DT_I) + x86_rsp_store32_imm(36, 0L) + x86_rsp_store64(40, "rdx")
-         + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "r14")
-         + x86_rsp_store32_imm(0, (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13")
+    return GLUE_SAVE()
          + x86_rsp_mark_save()
          + x86("mov", "rcx", std::string("[rip@got + __]"), TEMPLATE_ADDR_SIGMA, "Σ")
          + x86("mov", "r13", RDQ("rcx", 0))
@@ -321,9 +316,7 @@ std::string bb_glue_enter_chain_ret(int lid) {
          + x86_gc_site_adj(X86_SITE_LANDING, 8)
          + x86("add", "rsp", 8L)
          + x86_rsp_load64("rdi", 40)
-         + x86_rsp_load64("r13", 8) + x86_rsp_load32("r15d", 4) + x86_rsp_load64("r14", 24)
-         + x86_rsp_load64("rbx", 48) + x86_rsp_load64("r12", 56)
-         + x86("add", "rsp", 64L);
+         + GLUE_RESTORE();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_name_or_rec_lea(const char * nm) {
