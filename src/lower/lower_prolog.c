@@ -4381,7 +4381,9 @@ static const tree_t * pl_src_file_rewrite(const tree_t * prog) {
         if (dup) continue;
         seen[nk++] = key;
         {
-            char * rp = realpath(file, NULL);
+            const size_t rpn = PATH_MAX;
+            char rpb[rpn];
+            const char * rp = realpath(file, rpb);
             char * nm = (char *) ct_alloc((size_t) (sl - key) + 1);
             tree_t * g = ast_node_new(TT_FNC);
             memcpy(nm, key, (size_t) (sl - key));
@@ -4390,7 +4392,6 @@ static const tree_t * pl_src_file_rewrite(const tree_t * prog) {
             ast_push(g, (tree_t *) pl_atom_goal(nm));
             ast_push(g, pl_cc_ilit(atoi(sl + 1)));
             ast_push(g, (tree_t *) pl_atom_goal(rp ? lp_strdup(rp) : file));
-            free(rp);
             ast_push(np, pl_table_stmt(s, g));
         }
     }
