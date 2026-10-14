@@ -2220,6 +2220,19 @@ static const char * const PL_PRELUDE_SRC =
     "is_most_general_term(T):-atom(T),!.\n"
     "is_most_general_term(T):-nonvar(T),T=[_|_],!,is_list(T),'$mgt_vars'(T,[]).\n"
     "is_most_general_term(T):-compound(T),T=..[_|As],'$mgt_vars'(As,[]).\n"
+    "'$clause_unmangle'(M,T,B):-'$body_unmangle'(T,M,B0),B=B0.\n"
+    "'$body_unmangle'(V,_,V):-var(V),!.\n"
+    "'$body_unmangle'((A,B),M,(A1,B1)):-!,'$body_unmangle'(A,M,A1),'$body_unmangle'(B,M,B1).\n"
+    "'$body_unmangle'((A;B),M,(A1;B1)):-!,'$body_unmangle'(A,M,A1),'$body_unmangle'(B,M,B1).\n"
+    "'$body_unmangle'((A->B),M,(A1->B1)):-!,'$body_unmangle'(A,M,A1),'$body_unmangle'(B,M,B1).\n"
+    "'$body_unmangle'((A*->B),M,(A1*->B1)):-!,'$body_unmangle'(A,M,A1),'$body_unmangle'(B,M,B1).\n"
+    "'$body_unmangle'(\\+A,M,\\+A1):-!,'$body_unmangle'(A,M,A1).\n"
+    "'$body_unmangle'(Q:G,M,R):-atom(Q),callable(G),functor(G,N,_),'$mod_split'(N,Q,GN),!,G=..[_|As],G0=..[GN|As],(Q==M->R=G0;R=Q:G0).\n"
+    "'$body_unmangle'(G,M,G1):-callable(G),functor(G,N,_),'$mod_split'(N,GM,GN),!,G=..[_|As],G0=..[GN|As],(GM==M->G1=G0;G1=GM:G0).\n"
+    "'$body_unmangle'(G,_,G).\n"
+    "'$mod_split'(N,M,R):-atom(N),sub_atom(N,Bf,1,Af,':'),!,Bf>0,Af>0,sub_atom(N,0,Bf,_,M),sub_atom(N,_,Af,0,R),atom_codes(M,[C|Cs]),C>=0'a,C=<0'z,'$mod_idc'(Cs).\n"
+    "'$mod_idc'([]).\n"
+    "'$mod_idc'([C|Cs]):-(C>=0'a,C=<0'z;C>=0'A,C=<0'Z;C>=0'0,C=<0'9;C=:=0'_),!,'$mod_idc'(Cs).\n"
     "'$mgt_vars'([],_).\n"
     "'$mgt_vars'([V|Vs],Seen):-var(V),\\+ memberchk_eq(V,Seen),'$mgt_vars'(Vs,[V|Seen]).\n"
     "apply(G,As):-G=..L0,'$yall_app'(L0,As,L1),G1=..L1,call(G1).\n"
@@ -2882,6 +2895,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&referenced, "meta_predicate")) pl_cv_add(&referenced, "$mq_arg");
+    if (pl_cv_has(&referenced, "clause")) pl_cv_add(&referenced, "$clause_unmangle");
     {
         int napi = 0;
         while (pl_attv_api[napi]) napi++;

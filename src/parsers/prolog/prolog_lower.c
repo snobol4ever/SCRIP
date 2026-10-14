@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <stdint.h>
 typedef struct {
     int functor;
     int arity;
@@ -583,6 +585,37 @@ static void pl_mod_head(pl_mods_t *ms, const char *m1, const char *m2, tree_t *h
     else if (h->t == TT_FNC && h->v.sval && (q = pl_mod_resolve(ms, m1, m2, h->v.sval, h->n))) h->v.sval = (char *)q;
 }
 static void pl_mod_goal(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g, int trans);
+static void pl_mod_clause_reflect(tree_t *g) {
+    tree_t *h = g->c[0], *c1, *c2, *own, *v1, *v2;
+    const char *hn = h ? h->v.sval : (const char *)0, *colon;
+    char vn[40];
+    size_t k = 0;
+    if (!hn || !(h->t == TT_FNC || pl_mod_atomish(h)) || !strcmp(hn, ":")) return;
+    colon = strchr(hn, ':');
+    if (colon && colon > hn && colon[1] && islower((unsigned char)hn[0])) {
+        k = (size_t)(colon - hn);
+        for (const char *q = hn; q < colon; q++) if (!isalnum((unsigned char)*q) && *q != '_') k = 0;
+    }
+    snprintf(vn, sizeof vn, "$cb%lx", (unsigned long)(uintptr_t)g);
+    own = ast_node_new(TT_QLIT);
+    own->v.sval = k ? ct_strndup(hn, k) : ct_strdup("user");
+    v1 = ast_node_new(TT_VAR);
+    v1->v.sval = ct_strdup(vn);
+    v2 = ast_node_new(TT_VAR);
+    v2->v.sval = ct_strdup(vn);
+    c1 = ast_node_new(TT_FNC);
+    c1->v.sval = ct_strdup("clause");
+    ast_push(c1, h);
+    ast_push(c1, v1);
+    c2 = ast_node_new(TT_FNC);
+    c2->v.sval = ct_strdup("$clause_unmangle");
+    ast_push(c2, own);
+    ast_push(c2, v2);
+    ast_push(c2, g->c[1]);
+    g->v.sval = ct_strdup(",");
+    g->c[0] = c1;
+    g->c[1] = c2;
+}
 static void pl_mod_clause_term(pl_mods_t *ms, const char *m1, const char *m2, tree_t *t, int trans) {
     if (!t) return;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":-") && t->n == 2) { pl_mod_head(ms, m1, m2, t->c[0]); pl_mod_goal(ms, m1, m2, t->c[1], trans); return; }
@@ -669,6 +702,14 @@ static void pl_mod_goal(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g
     if (ar == 2 && !strcmp(nm, ":") && pl_mod_atomish(g->c[0]) && g->c[1]) {
         tree_t *in = g->c[1];
         const char *m = g->c[0]->v.sval;
+        if (in->t == TT_FNC && in->n == 1 && in->v.sval && !strcmp(in->v.sval, "context_module")) {
+            tree_t *mq = ast_node_new(TT_QLIT);
+            mq->v.sval = ct_strdup(m);
+            g->v.sval = ct_strdup("=");
+            g->c[0] = in->c[0];
+            g->c[1] = mq;
+            return;
+        }
         if (pl_mod_atomish(in) && (q = pl_mod_resolve(ms, m, (const char *)0, in->v.sval, 0))) in->v.sval = (char *)q;
         else if (in->t == TT_FNC && in->v.sval && (q = pl_mod_resolve(ms, m, (const char *)0, in->v.sval, in->n))) in->v.sval = (char *)q;
         return;
@@ -679,7 +720,12 @@ static void pl_mod_goal(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g
         return;
     }
     if ((ar == 1 || ar == 2) && (!strcmp(nm, "assert") || !strcmp(nm, "asserta") || !strcmp(nm, "assertz") || (ar == 1 && !strcmp(nm, "retract")))) { pl_mod_clause_term(ms, m1, m2, g->c[0], trans); return; }
-    if ((ar == 1 && !strcmp(nm, "retractall")) || (ar == 2 && (!strcmp(nm, "clause") || !strcmp(nm, "predicate_property")))) { pl_mod_head(ms, m1, m2, g->c[0]); return; }
+    if (ar == 2 && !strcmp(nm, "clause")) {
+        pl_mod_head(ms, m1, m2, g->c[0]);
+        pl_mod_clause_reflect(g);
+        return;
+    }
+    if ((ar == 1 && !strcmp(nm, "retractall")) || (ar == 2 && !strcmp(nm, "predicate_property"))) { pl_mod_head(ms, m1, m2, g->c[0]); return; }
     if (ar == 1 && (!strcmp(nm, "abolish") || !strcmp(nm, "current_predicate"))) { pl_mod_pi(ms, m1, m2, g->c[0]); return; }
     pl_mod_args(ms, m1, m2, g, trans, nm);
     q = pl_mod_resolve(ms, m1, m2, nm, ar);
