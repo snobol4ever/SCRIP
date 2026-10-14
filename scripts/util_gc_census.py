@@ -201,8 +201,40 @@ def allocating_entries_from_binary(so, out=print):
     seen, funcs = _alloc_reach_from_disasm(txt, got=_got_slots(so))
     if seen is None:
         out(f"CENSUS safe-points REFUSED(2): {so} defines no rt_gcheap_alloc (renamed? tell the census)"); return None
-    out(f"CENSUS safe-points allocating_entries={len(seen)} of {len(funcs)} runtime functions reach rt_gcheap_alloc ({so})")
+    mod = _linked_module_symbols(so, out=out)
+    if mod is None: return None
+    seen = {s for s in seen if s not in mod}
+    nf = sum(1 for f in funcs if f not in mod)
+    out(f"CENSUS safe-points allocating_entries={len(seen)} of {nf} runtime functions reach rt_gcheap_alloc ({so}; {len(mod)} linked-module symbols excluded)")
     return seen
+
+
+def _nm_names(path):
+    """name -> how many times `nm --defined-only` lists it (local symbols may repeat across objects)"""
+    txt = subprocess.run(["nm", "--defined-only", path], capture_output=True, text=True, check=True).stdout
+    return collections.Counter(p[-1] for p in (l.split() for l in txt.splitlines()) if len(p) >= 3)
+
+
+def _linked_module_symbols(so, out=print):
+    """THE LINKED PARSE-STAGE MODULE IS EMITTED CODE, NOT RUNTIME C (6a3ff25a9 linked out/sc_mod/scparsers.o into the runtime; the
+    ceo's CEO-1732). Its 31,000 labels are not runtime functions the emitter calls by name, and the allocating set names only
+    those. The module is told apart by the names its own object defines, never by their shape: a .so that links the module
+    (it defines scparsers_sc_module) and whose object is unreadable, or a name the module defines that another object in the
+    .so also defines, REFUSES by name rather than guessing which one the call graph meant. Empty when no module is linked."""
+    try:
+        sonames = _nm_names(so)
+    except (OSError, subprocess.CalledProcessError) as e:
+        out(f"CENSUS safe-points REFUSED(2): nm on {so} failed: {e}"); return None
+    if "scparsers_sc_module" not in sonames: return set()
+    mo = os.path.join(os.path.dirname(os.path.abspath(so)), "sc_mod", "scparsers.o")
+    try:
+        mnames = _nm_names(mo)
+    except (OSError, subprocess.CalledProcessError) as e:
+        out(f"CENSUS safe-points REFUSED(2): {so} links the parse-stage module (scparsers_sc_module) and its object {mo} is not readable ({e}), so its emitted code cannot be told from runtime C"); return None
+    both = sorted(n for n, k in mnames.items() if sonames[n] > k)
+    if both:
+        out(f"CENSUS safe-points REFUSED(2): {len(both)} name(s) are defined by the linked module {mo} AND by another object in {so}: {', '.join(both[:5])}"); return None
+    return set(mnames)
 
 
 CALL_RX = re.compile(r'x86\(\s*"call(?:_rt|_bare)?"\s*,(.*)$')
