@@ -146,7 +146,7 @@ int pascal_lex_wrapped(void) {
     if (t == IDENT && pascal_yylval.node && pascal_yylval.node->v.sval && (lt == IDENT || lt == INTCONST || lt == REALCONST || lt == STRINGCONST || lt == CHARCODE || lt == RPARENT || lt == RBRACK)) {
         const char *w = pascal_yylval.node->v.sval;
         if (!strcmp(w, "shl") || !strcmp(w, "shr")) { pascal_flip_dialect(PAS_DIALECT_FPC); t = SHIFTOP; }
-        else if (!strcmp(w, "xor")) { pascal_flip_dialect(PAS_DIALECT_FPC); t = XOROP; }
+        else if (!strcmp(w, "xor")) t = XOROP;
     }
     g_pascal_cenv.last_tok = t;
     return t;
