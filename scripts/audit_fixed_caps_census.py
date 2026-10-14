@@ -146,6 +146,13 @@ def resolve(bound, defines, depth=0):
 # emit.cpp g_strtab/g_csettab and g_ab_fn_cells, raku re.c group_name LOUD; driver_call.c call_stack (return FAILDESCR), emit.cpp
 # g_gc_map_names (the cfo: drops past 8192), lower_snobol4.c DEFINE names, prolog_driver.c g_pl_consulted and rt.c g_call_args (past 64
 # arguments, the defect hq_snobol4 isolated by hand the same morning) DROP.
+# SPILL (the cfo, 2026-10-11, on hq_snobol4's row snobol4-the-deferred-capture-cells-...-indexes, CEO-1507 (4)): a table whose at-cap
+# road is a CORRECT SLOWER ROAD -- past the cap a site keeps working without the table (an uncached path), losing nothing -- is neither
+# LOUD nor a DROP. The census cannot read that from a comparison (g_sno_defer_cells' cap is a compile-time counter in emit.cpp, another
+# file), so it is RULED here, table by table, and only ever with the WITNESS GATE that proves the road: the gate must exist beside this
+# script, drive sites past the cap and grade them against the oracle in both modes, and fail once against a corrupted ref (CEO-1680).
+# A ruling whose gate is missing reads NONE again. Key: (file basename, table name) -> gate script name.
+SPILL_RULED = {("pattern_match.c", "g_sno_defer_cells"): "test_gate_sno_defer_pair_sites_past_the_cap_take_the_uncached_road.sh"}
 PRIM = re.compile(r"\b(abort|exit|_exit|_Exit|longjmp|siglongjmp|__builtin_trap)\s*\(")
 CALL = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
 ERRV = re.compile(r"(?:^|_)(err|error|errors|fatal|die|abort|refuse|refused|panic|overflow|full)(?:_|$)", re.I)
@@ -463,7 +470,10 @@ class GuardReader:
         return "NEUTRAL"
 
     def table(self, path, name, bound, scan):
-        """(guard, [evidence]) for one table: guard LOUD/DROP/NONE, evidence 'file:line:CLASS(var)' per attributed site."""
+        """(guard, [evidence]) for one table: guard LOUD/DROP/NONE (or a ruled SPILL), evidence 'file:line:CLASS(var)' per attributed site."""
+        sp = SPILL_RULED.get((os.path.basename(path), name))
+        if sp and os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), sp)):
+            return "SPILL", ["gate:" + sp]
         if re.fullmatch(r"[A-Z][A-Z0-9_]*", bound):
             bp = re.escape(bound)
         elif re.fullmatch(r"[0-9]+", bound):

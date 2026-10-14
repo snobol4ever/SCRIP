@@ -155,6 +155,7 @@ mkdir -p "$WORK/r/scripts/fixtures/dyn_caps" && cp -rL "$ROOT/src" "$WORK/r/src"
   && printf '%s\n' "$n" > "$WORK/r/scripts/fixtures/dyn_caps/BASELINE" && printf '%s\n' "$fn" > "$WORK/r/scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE" \
   && cp "$HERE/fixtures/dyn_caps/CLASS_AB.tsv" "$WORK/r/scripts/fixtures/dyn_caps/CLASS_AB.tsv" \
   && cp "$NSF" "$WORK/r/scripts/fixtures/dyn_caps/NOT_SHIPPED.tsv" && cp "$ROOT/Makefile" "$WORK/r/Makefile" \
+  && for sg in $(grep '^SPILL_RULED' "$C" | grep -oE 'test_gate_[A-Za-z0-9_]+[.]sh'); do cp "$HERE/$sg" "$WORK/r/scripts/" || exit 2; done \
   && printf 'src/planted_by_the_ratchet_gate.c\tg_planted_classab_by_the_ratchet_gate\tA\tthe gate plants it never compared and declares it\nsrc/planted_by_the_ratchet_gate.c\tg_no_such_table_by_the_ratchet_gate\tA\ta stale row the gate plants\nsrc/planted_by_the_ratchet_gate.c\tplanted_local_classab_by_the_ratchet_gate\tA\tthe gate plants a list-walk local and declares it\n' >> "$WORK/r/scripts/fixtures/dyn_caps/CLASS_AB.tsv" \
   || { echo "REFUSING(2) [$GATE_NAME]: cannot stage the scratch tree"; exit 2; }
 cat > "$WORK/r/src/planted_by_the_ratchet_gate.c" <<'PLANT'
