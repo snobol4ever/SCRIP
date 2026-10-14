@@ -5143,6 +5143,17 @@ static pval E_call(const tree_t *n) {
     elab_bad("call", n);
     return out;
 }
+static tree_t *pas_format_call(const tree_t *n) {
+    const tree_t *st = n->c[2];
+    if (IS(n->c[1], TT_FMT)) return NULL;
+    for (int i = 0; i < st->n; i++) if (IS(st->c[i], TT_SUBRANGE) || IS(st->c[i], TT_FMT)) return NULL;
+    tree_t *e = ast_node_new(TT_FNC);
+    ast_push(e, leaf_s(TT_VAR, "__pas_format"));
+    tree_t *f = E_expression(n->c[1]).node;
+    ast_push(e, pas_is_charexpr(f) ? mk_chr_wrap(f) : f);
+    for (int i = 0; i < st->n; i++) { tree_t *x = E_expression(st->c[i]).node; ast_push(e, pas_is_charexpr(x) ? mk_chr_wrap(x) : x); }
+    return e;
+}
 static pval E_call_with_args(const tree_t *n) {
     pval v[7];
     pval out;
@@ -5150,6 +5161,7 @@ static pval E_call_with_args(const tree_t *n) {
     memset(&out, 0, sizeof out);
     if (IS(n, TT_FNC)) {
         v[1].str = pas_alias_resolve(tok_s(n->c[0]));
+        if (v[1].str && !strcmp(v[1].str, "format") && n->n == 3 && IS(n->c[2], TT_SET) && !pas_is_func(v[1].str) && !pas_is_proc(v[1].str) && (out.node = pas_format_call(n))) return out;
         v[3] = E_argument_list(n, 1, n->n);
         v[3].list = pas_defaults_extend(v[1].str, v[3].list);
         {

@@ -870,6 +870,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_dynset", GC_RET_DESCR },
     { "pas_elem_ref", GC_RET_DESCR },
     { "pas_envcall_wrap", GC_RET_OTHER },
+    { "pas_format", GC_RET_OTHER },
+    { "pas_format_call", GC_RET_OTHER },
     { "pas_index_fault", GC_RET_OTHER },
     { "pas_lower_exit", GC_RET_OTHER },
     { "pas_lower_idx_assign_curried", GC_RET_OTHER },
