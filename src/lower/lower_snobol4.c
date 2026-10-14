@@ -2839,8 +2839,6 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             IR_t * R = lc_build(g, IR_MATCH_ARBNO, succ, NULL);
             sno_ω_to(R, fail);
             int before = g->n;
-            IR_t * prev_seal = cx->pat_seal;
-            cx->pat_seal = R;
             g_lower.sno.in_arbno++;
             cx->seq_rlast = NULL;
             cx->seq_rlast_for = NULL;
@@ -2848,7 +2846,6 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             IR_t * rl = (cx->seq_rlast && cx->seq_rlast_for == ei) ? cx->seq_rlast : NULL;
             IR_t * rtl = (rl && cx->seq_rtail) ? cx->seq_rtail : NULL;
             g_lower.sno.in_arbno--;
-            cx->pat_seal = prev_seal;
             if (before >= g->n) sno_fatal("ARBNO body lowered to zero nodes (bare FENCE / null pattern body)", NULL);
             int _rb = before;
             while (_rb < g->n && g->all[_rb] && g->all[_rb]->op == IR_GOTO && g->all[_rb]->γ.node == R && g->all[_rb]->n_operands == 0) _rb++;
