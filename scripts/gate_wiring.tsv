@@ -578,6 +578,7 @@ test_gate_pas_a_qword_writes_unsigned_at_its_dialects_width.sh	WIRED	-	-	-
 test_gate_pas_fillchar_from_an_element_fills_a_string_or_an_array_run.sh	WIRED	-	-	-
 test_gate_pas_sysutils_and_strutils_string_routines_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pas_a_functions_own_name_reads_its_result_in_the_fpc_dialects.sh	WIRED	-	-	-
+test_gate_pas_a_function_returning_a_dynamic_array_holds_an_array.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_and_text_get_put.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_stays_inside_the_unpacked_arrays_index_type.sh	WIRED	-	-	-
 test_gate_pas_packed_component_is_not_a_var_parameter.sh	WIRED	-	-	-

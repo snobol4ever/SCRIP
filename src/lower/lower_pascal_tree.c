@@ -6089,6 +6089,7 @@ static pval E_procedure_decl(const tree_t *n) {
             if (v[6].str && !strcmp(v[6].str, "char")) pas_charvar_add_outer(v[2].str);
             if (pas_is_booltype(v[6].str)) pas_boolvar_add_outer(v[2].str);
             if (v[6].str) pas_scalarvartype_add(v[2].str, v[6].str);
+            if (v[6].str && pas_arrtype_isdyn(v[6].str) && !pas_array_isdyn(v[2].str)) { pas_array_add(v[2].str, -1); pas_array_mark_dyn(v[2].str, pas_arrtype_isdyn(v[6].str)); }
             pas_fwd_save(v[2].str, v[4].list);
             pas_ptrvar_release();
             pas_recvar_release();
@@ -6136,6 +6137,7 @@ static pval E_procedure_decl(const tree_t *n) {
             if (v[6].str && !strcmp(v[6].str, "char")) pas_charvar_add_outer(v[2].str);
             if (pas_is_booltype(v[6].str)) pas_boolvar_add_outer(v[2].str);
             if (v[6].str) pas_scalarvartype_add(v[2].str, v[6].str);
+            if (v[6].str && pas_arrtype_isdyn(v[6].str) && !pas_array_isdyn(v[2].str)) { pas_array_add(v[2].str, -1); pas_array_mark_dyn(v[2].str, pas_arrtype_isdyn(v[6].str)); }
             pas_proc_enter();
             pas_curfunc_push(v[2].str);
             pas_local_add(v[2].str);
