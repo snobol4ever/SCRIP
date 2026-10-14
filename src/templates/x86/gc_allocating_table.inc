@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2761
+#define GC_ALLOC_TAB_N 2765
 #define GC_ALLOC_TAB_N_VOID 323
-#define GC_ALLOC_TAB_N_DESCR 1324
+#define GC_ALLOC_TAB_N_DESCR 1328
 #define GC_ALLOC_TAB_N_OTHER 1100
 #define GC_ALLOC_TAB_N_UNKNOWN 14
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -2191,6 +2191,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_open4", GC_RET_DESCR },
     { "rt_pl_dop_open4_c", GC_RET_DESCR },
     { "rt_pl_dop_open_c", GC_RET_DESCR },
+    { "rt_pl_dop_open_null_stream", GC_RET_DESCR },
+    { "rt_pl_dop_open_null_stream_c", GC_RET_DESCR },
     { "rt_pl_dop_peek_byte", GC_RET_DESCR },
     { "rt_pl_dop_peek_byte_c", GC_RET_DESCR },
     { "rt_pl_dop_peek_byte_s", GC_RET_DESCR },
@@ -2203,6 +2205,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_peek_code_c", GC_RET_DESCR },
     { "rt_pl_dop_peek_code_s", GC_RET_DESCR },
     { "rt_pl_dop_peek_code_s_c", GC_RET_DESCR },
+    { "rt_pl_dop_pipe", GC_RET_DESCR },
+    { "rt_pl_dop_pipe_c", GC_RET_DESCR },
     { "rt_pl_dop_pl_backtrace", GC_RET_DESCR },
     { "rt_pl_dop_pl_backtrace_c", GC_RET_DESCR },
     { "rt_pl_dop_pl_cp_count", GC_RET_DESCR },
