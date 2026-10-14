@@ -990,7 +990,7 @@ static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
             sb_c(&buf, c); i++; continue;
         }
         if (c == '{') {
-            int e = dq_closure_end(s, i, to);
+            int e = closure_at(cl, ncl, i) ? dq_closure_end(s, i, to) : -1;
             if (e > 0) { GROW(mk, nmk, cmk, Mk); mk[nmk].at = buf.n; mk[nmk].pos = i; nmk++; i = e; continue; }
         }
         sb_c(&buf, c); i++;
@@ -1861,12 +1861,43 @@ void rkb_number(RkB *b, RkTerm *it, int from, int to) {
     it->t = rk_ilit(strtoll(u, NULL, 0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_wordquote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int ncl) {
+    const unsigned char *u = (const unsigned char *) b->s + from;
+    int wl = 0;
+    while (from + wl < to && (isalnum(u[wl]) || u[wl] == '_')) wl++;
+    int kind = (wl == 1 && u[0] == 'q') ? 'q' : (wl == 2 && u[0] == 'q' && u[1] == 'q') ? 'Q' : (wl == 1 && u[0] == 'Q') ? 'R' : (wl == 2 && u[0] == 'q' && u[1] == 'w') ? 'W' : 0;
+    if (!kind || from + wl + 2 > to) return 0;
+    unsigned char d = u[wl];
+    if (d == ':' || isspace(d) || isalnum(d) || d == '_') return 0;
+    int ol = 1, cl_len = 1;
+    if (d >= 0xC0) ol = d >= 0xF0 ? 4 : d >= 0xE0 ? 3 : 2;
+    int ce = to - 1;
+    while (ce > from + wl + ol && ((unsigned char) b->s[ce] & 0xC0) == 0x80) ce--;
+    cl_len = to - ce;
+    int cf = from + wl + ol, ct = to - cl_len;
+    if (ct < cf) return 0;
+    if (kind == 'W') { rkb_words(b, it, from, to, cf, ct); return 1; }
+    if (kind == 'Q') it->t = b_dq(b, cl, ncl, cf, ct);
+    else if (kind == 'R') it->t = leaf_sval(TT_QLIT, spn(b, cf, ct));
+    else {
+        SB buf = { 0 };
+        char open = ol == 1 ? (char) d : 0, close = cl_len == 1 ? b->s[ce] : 0;
+        for (int i = cf; i < ct; ) {
+            if (b->s[i] == '\\' && i + 1 < ct && (b->s[i + 1] == '\\' || (open && b->s[i + 1] == open) || (close && b->s[i + 1] == close))) { sb_c(&buf, b->s[i + 1]); i += 2; continue; }
+            sb_c(&buf, b->s[i]); i++;
+        }
+        it->t = leaf_sval(TT_QLIT, sb_str(&buf));
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_quote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int ncl) {
     memset(it, 0, sizeof *it); it->kind = TK_QUOTE; it->from = from; it->to = it->core_to = to;
     const unsigned char *u = (const unsigned char *) b->s + from;
     if (u[0] == '"') it->t = b_dq(b, cl, ncl, from + 1, to - 1);
     else if (u[0] == '\'') it->t = b_sq(b, from + 1, to - 1);
     else if (u[0] == 0xEF && u[1] == 0xBD && u[2] == 0xA2) it->t = leaf_sval(TT_QLIT, spn(b, from + 3, to - 3));
+    else if ((u[0] == 'q' || u[0] == 'Q') && rk_wordquote(b, it, from, to, cl, ncl)) { }
     else {
         RkRq q;
         char rxbuf[2 * (to - from) + 8];
