@@ -4567,9 +4567,11 @@ static int sno_rsv_program(const tree_t * prog, int quiet) { int bad = 0; for (i
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int snobol4_list_event_count(void);
-extern int snobol4_list_event_line(int);
-extern int snobol4_list_event_on(int);
+extern int snobol4_list_event_nend(int);
+extern int snobol4_list_event_kind(int);
+extern int snobol4_list_event_arg(int);
 extern const char *snobol4_list_event_text(int);
+extern const char * stmt_src_image(int);
 typedef struct { char *buf; size_t len; size_t cap; } sno_list_sb_t;
 static void sno_list_sb_append(sno_list_sb_t * sb, const char * s, size_t n) {
     if (sb->len + n + 1 > sb->cap) {
@@ -4586,75 +4588,153 @@ static void sno_list_sb_append(sno_list_sb_t * sb, const char * s, size_t n) {
 }
 static void sno_list_sb_puts(sno_list_sb_t * sb, const char * s) { sno_list_sb_append(sb, s, strlen(s)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define SNO_LIST_NP 60
+#define SNO_LIST_PRLEN 120
+#define SNO_LIST_PGOFS 112
+#define SNO_LIST_STNPD 8
+#define SNO_LIST_VERSION "4.0f"
+typedef struct { sno_list_sb_t sb; int lstlc; int lstpg; int headp; int cnttl; int cswls; int cswpr; int cswdb; const char * ttl; const char * stl; } sno_list_t;
+static void sno_list_line(sno_list_t * L, const char * s, size_t n) {
+    while (n > SNO_LIST_PRLEN) { sno_list_sb_append(&L->sb, s, SNO_LIST_PRLEN); sno_list_sb_append(&L->sb, "\n", 1); s += SNO_LIST_PRLEN; n -= SNO_LIST_PRLEN; }
+    sno_list_sb_append(&L->sb, s, n);
+    sno_list_sb_append(&L->sb, "\n", 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_list_title(sno_list_t * L) {
+    const char * t = L->ttl ? L->ttl : "";
+    size_t tl = strlen(t);
+    while (tl > SNO_LIST_PRLEN) { sno_list_sb_append(&L->sb, t, SNO_LIST_PRLEN); sno_list_sb_append(&L->sb, "\n", 1); t += SNO_LIST_PRLEN; tl -= SNO_LIST_PRLEN; }
+    char msg[32];
+    size_t ml = (size_t) snprintf(msg, sizeof msg, "page %d", ++L->lstpg);
+    size_t width = SNO_LIST_PGOFS + ml;
+    char line[width + 1];
+    memset(line, ' ', width);
+    memcpy(line, t, tl < width ? tl : width);
+    memcpy(line + SNO_LIST_PGOFS, msg, ml);
+    sno_list_sb_append(&L->sb, line, width);
+    sno_list_sb_append(&L->sb, "\n", 1);
+    L->lstlc += 2;
+    if (L->stl) { sno_list_line(L, L->stl, strlen(L->stl)); L->lstlc++; }
+    sno_list_sb_append(&L->sb, "\n", 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_list_eject(sno_list_t * L) {
+    if (L->lstlc != 0) {
+        sno_list_sb_puts(&L->sb, "\n\n\n");
+        L->lstlc = 3;
+        if (!L->headp) {
+            time_t now = time(NULL);
+            const char * ct = ctime(&now);
+            size_t cl = ct ? strlen(ct) : 0;
+            if (cl && ct[cl - 1] == '\n') cl--;
+            L->headp = 1;
+            sno_list_sb_puts(&L->sb, "macro spitbol version " SNO_LIST_VERSION "\nx86-64  ");
+            sno_list_sb_append(&L->sb, ct ? ct : "", cl);
+            sno_list_sb_puts(&L->sb, "\n\n\n\n");
+            L->lstlc += 4;
+        }
+    }
+    sno_list_title(L);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_list_one(sno_list_t * L, const char * field, const char * s, size_t n) {
+    if (L->cnttl) { L->cnttl = 0; sno_list_eject(L); } else if (L->lstlc >= SNO_LIST_NP) sno_list_eject(L);
+    char buf[SNO_LIST_STNPD + n + 1];
+    memcpy(buf, field, SNO_LIST_STNPD);
+    memcpy(buf + SNO_LIST_STNPD, s, n);
+    sno_list_line(L, buf, SNO_LIST_STNPD + n);
+    L->lstlc++;
+    if (L->cswdb) { sno_list_sb_append(&L->sb, "\n", 1); L->lstlc++; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_list_stmt(sno_list_t * L, const tree_t * snode) {
+    int line = lp_s_int(snode, ":line");
+    const char * raw = stmt_src_image(line);
+    const char * txt = (snode->t == TT_STMT) ? sfind_str(snode, ":src") : NULL;
+    const char * ent = (snode->t == TT_END) ? sfind_str(snode, ":entry") : NULL;
+    char endbuf[(ent && ent[0]) ? fmt_len("END %s", ent) : 4];
+    size_t n;
+    char field[24];
+    if (snode->t == TT_END) {
+        if (raw && !strncmp(raw, "END", 3)) txt = raw;
+        else if (ent && ent[0]) { snprintf(endbuf, sizeof endbuf, "END %s", ent); txt = endbuf; } else { snprintf(endbuf, sizeof endbuf, "END"); txt = endbuf; }
+    }
+    if (!txt) txt = "";
+    n = strcspn(txt, "\n");
+    snprintf(field, sizeof field, "%-8d", lp_s_int(snode, ":stno"));
+    sno_list_one(L, field, txt, n);
+    if (snode->t != TT_STMT || !n || !raw || strlen(raw) != n || memcmp(raw, txt, n)) return;
+    for (int k = line + 1; (raw = stmt_src_image(k)) && (raw[0] == '+' || raw[0] == '.'); k++) sno_list_one(L, "        ", raw, strlen(raw));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_list_event(sno_list_t * L, int kind, int arg, const char * text) {
+    switch (kind) {
+        case 'L':
+        L->cswls = 1;
+        break;
+        case 'N':
+        L->cswls = 0;
+        break;
+        case 'P':
+        L->cswpr = 1;
+        break;
+        case 'Q':
+        L->cswpr = 0;
+        break;
+        case 'D':
+        L->cswdb = 1;
+        break;
+        case 'I':
+        L->cswdb = 0;
+        break;
+        case 'E':
+        if (L->cswls) sno_list_eject(L);
+        break;
+        case 'S':
+        if (L->cswls) { int wc = arg ? arg : 1; L->lstlc += wc; if (L->lstlc < SNO_LIST_NP) { for (int k = 0; k < wc; k++) sno_list_sb_append(&L->sb, "\n", 1); } else sno_list_eject(L); }
+        break;
+        case 'T':
+        L->ttl = text;
+        L->stl = "";
+        L->cnttl = 1;
+        break;
+        case 'U':
+        L->stl = text;
+        L->cnttl = 1;
+        break;
+        case 'C':
+        if (L->cswls) sno_list_one(L, "        ", text, strlen(text));
+        break;
+        case 'X':
+        if (L->cswls && L->cswpr) sno_list_one(L, "        ", text, strlen(text));
+        break;
+        default:
+        break;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * sno_list_build_listing(const tree_t * prog) {
     int nev = snobol4_list_event_count();
     if (nev == 0 || !prog) return NULL;
-    sno_list_sb_t sb = {0};
-    int ei = 0, list_on = 0, banner_done = 0, si = 0;
-    for (;;) {
-        int have_ev = (ei < nev);
-        int ev_line = have_ev ? snobol4_list_event_line(ei) : 0;
-        const tree_t * snode = NULL;
-        int s_line = 0;
-        for (int j = si; j < prog->n; j++) {
-            if (prog->c[j] && (prog->c[j]->t == TT_STMT || prog->c[j]->t == TT_END)) { snode = prog->c[j]; s_line = lp_s_int(snode, ":line"); si = j; break; }
-            si = j + 1;
-        }
-        int have_st = (snode != NULL);
-        if (!have_ev && !have_st) break;
-        if (have_ev && (!have_st || ev_line < s_line)) {
-            if (snobol4_list_event_on(ei)) {
-                if (!banner_done) {
-                    time_t now = time(NULL);
-                    const char * ct = ctime(&now);
-                    size_t cl = ct ? strlen(ct) : 0;
-                    if (cl && ct[cl - 1] == '\n') cl--;
-                    char tb[cl + 1];
-                    memcpy(tb, ct ? ct : "", cl);
-                    tb[cl] = '\0';
-                    sno_list_sb_puts(&sb, "\n\n\nmacro spitbol version 1.0\nx86-64  ");
-                    sno_list_sb_puts(&sb, tb);
-                    sno_list_sb_puts(&sb, "\n\n\n\n");
-                    { const char * hdr = "page 1"; int pad = 118 - (int) strlen(hdr); if (pad < 0) pad = 0; for (int k = 0; k < pad; k++) sno_list_sb_append(&sb, " ", 1); sno_list_sb_puts(&sb, hdr); }
-                    sno_list_sb_append(&sb, "\n", 1);
-                    sno_list_sb_append(&sb, "\n", 1);
-                    banner_done = 1;
-                }
-                sno_list_sb_puts(&sb, "        ");
-                sno_list_sb_puts(&sb, snobol4_list_event_text(ei));
-                sno_list_sb_append(&sb, "\n", 1);
-                list_on = 1;
-            } else {
-                list_on = 0;
-            }
-            ei++;
-        } else {
-            if (list_on) {
-                const char * txt;
-                const char * ent = (snode->t == TT_END) ? sfind_str(snode, ":entry") : NULL;
-                char endbuf[(ent && ent[0]) ? fmt_len("END %s", ent) : 4];
-                if (snode->t == TT_END) {
-                    if (ent && ent[0]) snprintf(endbuf, sizeof endbuf, "END %s", ent);
-                    else snprintf(endbuf, sizeof endbuf, "END");
-                    txt = endbuf;
-                } else {
-                    txt = sfind_str(snode, ":src");
-                    if (!txt) txt = "";
-                }
-                int stno = lp_s_int(snode, ":stno");
-                char numbuf[24];
-                int nn = snprintf(numbuf, sizeof numbuf, "%-8d", stno);
-                if (nn < 0) nn = 0;
-                if (nn >= (int) sizeof(numbuf)) nn = (int) sizeof(numbuf) - 1;
-                sno_list_sb_append(&sb, numbuf, (size_t) nn);
-                sno_list_sb_puts(&sb, txt);
-                sno_list_sb_append(&sb, "\n", 1);
-            }
-            si++;
-        }
+    sno_list_t L = {0};
+    L.lstlc = SNO_LIST_NP;
+    L.cswpr = 1;
+    int ei = 0, j = 0, prev_line = -1, prev_text = 0;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * snode = prog->c[i];
+        if (!snode || (snode->t != TT_STMT && snode->t != TT_END)) continue;
+        while (ei < nev && snobol4_list_event_nend(ei) <= j) { sno_list_event(&L, snobol4_list_event_kind(ei), snobol4_list_event_arg(ei), snobol4_list_event_text(ei)); ei++; }
+        const char * src = (snode->t == TT_STMT) ? sfind_str(snode, ":src") : NULL;
+        int line = lp_s_int(snode, ":line");
+        int same_image = (src && src[0] && prev_text && line == prev_line);
+        if (L.cswls && !same_image) sno_list_stmt(&L, snode);
+        prev_line = line;
+        prev_text = (src && src[0]) ? 1 : 0;
+        j++;
+        if (snode->t == TT_END) break;
     }
-    if (sb.len > 0 && sb.buf[sb.len - 1] == '\n') { sb.len--; sb.buf[sb.len] = '\0'; }
-    return sb.buf;
+    if (L.sb.len > 0 && L.sb.buf[L.sb.len - 1] == '\n') { L.sb.len--; L.sb.buf[L.sb.len] = '\0'; }
+    return L.sb.buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t * lower_sno_stage2(const tree_t * prog) {

@@ -5330,6 +5330,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         const char *vn = (n == 1 || ps == 0) ? _io_varname(a[0]) : NULL;
         if (ps == 0 && !vn) return NULVCL;
         _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
+        if (ps == 2 && fd < 0 && !core_io_assoc_legacy()) { core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; }
         if (ps == 2 && fd >= 0 && ch >= 0) {
             const char *cv = _io_varname(a[0]);
             FILE *nf;

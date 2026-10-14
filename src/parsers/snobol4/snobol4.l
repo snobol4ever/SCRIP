@@ -34,25 +34,74 @@ static int   strpos;
 static int   gt_depth;
 static int   gt_angle;
 static int   gt_have_operand;
-typedef struct { int lineno; int on; char *text; } sno_list_ev_t;
+typedef struct { int nend; int kind; int arg; char *text; } sno_list_ev_t;
 static sno_list_ev_t *g_list_events = NULL;
 static int g_list_nevents = 0;
 static int g_list_cap = 0;
-static void sno_list_record(int ln, int on, const char *text) {
+static int g_list_nends = 0;
+static int g_list_ever_on = 0;
+static void sno_list_record(int kind, int arg, const char *text, int tlen) {
     if (g_list_nevents >= g_list_cap) {
         int newcap = g_list_cap ? g_list_cap * 2 : 8;
         sno_list_ev_t *g = ct_grow(g_list_events, (size_t) newcap * sizeof(sno_list_ev_t));
         if (!g) return;
         g_list_events = g; g_list_cap = newcap;
     }
-    g_list_events[g_list_nevents].lineno = ln;
-    g_list_events[g_list_nevents].on = on;
-    g_list_events[g_list_nevents].text = text ? ct_strdup(text) : (char *)0;
+    g_list_events[g_list_nevents].nend = g_list_nends;
+    g_list_events[g_list_nevents].kind = kind;
+    g_list_events[g_list_nevents].arg = arg;
+    g_list_events[g_list_nevents].text = text ? ct_strndup(text, (size_t) tlen) : (char *)0;
     g_list_nevents++;
+    if (kind == 'L') g_list_ever_on = 1;
+}
+static int sno_list_is(const char *w, int wl, const char *nm) {
+    if (wl < 4) return 0;
+    for (int i = 0; i < 4; i++) { int c = (unsigned char) w[i]; if (g_case_fold && c >= 'a' && c <= 'z') c -= 32; if (c != nm[i]) return 0; }
+    return 1;
+}
+static void sno_list_card(const char *line, int len) {
+    int n = len;
+    while (n > 0 && (line[n-1] == '\n' || line[n-1] == '\r' || line[n-1] == ' ' || line[n-1] == '\t')) n--;
+    char *buf = ct_strndup(line, (size_t) n);
+    if (!buf) return;
+    int p = 1;
+    for (;;) {
+        while (buf[p] == ' ' || buf[p] == '\t') p++;
+        int s0 = p;
+        while ((buf[p] >= 'A' && buf[p] <= 'Z') || (buf[p] >= 'a' && buf[p] <= 'z') || (buf[p] >= '0' && buf[p] <= '9') || buf[p] == '_' || buf[p] == '.') p++;
+        int wl = p - s0;
+        const char *w = buf + s0;
+        int stop = 0;
+        if (wl == 0) break;
+        if (sno_list_is(w, wl, "LIST")) sno_list_record('L', 0, (const char *)0, 0);
+        else if (sno_list_is(w, wl, "NOLI")) sno_list_record('N', 0, (const char *)0, 0);
+        else if (sno_list_is(w, wl, "PRIN")) sno_list_record('P', 0, (const char *)0, 0);
+        else if (sno_list_is(w, wl, "NOPR")) sno_list_record('Q', 0, (const char *)0, 0);
+        else if (sno_list_is(w, wl, "DOUB")) sno_list_record('D', 0, (const char *)0, 0);
+        else if (sno_list_is(w, wl, "SING")) sno_list_record('I', 0, (const char *)0, 0);
+        else if (sno_list_is(w, wl, "EJEC")) { sno_list_record('E', 0, (const char *)0, 0); stop = 1; }
+        else if (sno_list_is(w, wl, "SPAC")) {
+            int cnt = 0;
+            while (buf[p] == ' ' || buf[p] == '\t') p++;
+            while (buf[p] >= '0' && buf[p] <= '9') cnt = cnt * 10 + (buf[p++] - '0');
+            sno_list_record('S', cnt, (const char *)0, 0);
+            stop = 1;
+        }
+        else if (sno_list_is(w, wl, "TITL")) { sno_list_record('T', 0, n > 7 ? buf + 7 : "", n > 7 ? n - 7 : 0); stop = 1; }
+        else if (sno_list_is(w, wl, "STIT")) { sno_list_record('U', 0, n > 7 ? buf + 7 : "", n > 7 ? n - 7 : 0); stop = 1; }
+        else if (sno_list_is(w, wl, "CASE") || sno_list_is(w, wl, "DUMP") || sno_list_is(w, wl, "COMP") || sno_list_is(w, wl, "INCL") || sno_list_is(w, wl, "COPY") || sno_list_is(w, wl, "LINE")) stop = 1;
+        if (stop) break;
+        while (buf[p] == ' ' || buf[p] == '\t') p++;
+        if (buf[p] != ',') break;
+        p++;
+    }
+    if (g_list_ever_on) sno_list_record('X', 0, buf, n);
+    ct_drop(buf);
 }
 int snobol4_list_event_count(void) { return g_list_nevents; }
-int snobol4_list_event_line(int idx) { return g_list_events[idx].lineno; }
-int snobol4_list_event_on(int idx) { return g_list_events[idx].on; }
+int snobol4_list_event_nend(int idx) { return g_list_events[idx].nend; }
+int snobol4_list_event_kind(int idx) { return g_list_events[idx].kind; }
+int snobol4_list_event_arg(int idx) { return g_list_events[idx].arg; }
 const char *snobol4_list_event_text(int idx) { return g_list_events[idx].text ? g_list_events[idx].text : ""; }
 int snobol4_get_stmt_lineno(void) { return g_stmt_pos.lineno; }
 int snobol4_get_stmt_lline(void) { return g_stmt_pos.lline; }
@@ -114,10 +163,15 @@ G       ({WS}|{CONT})*
 %%
 <INITIAL>\n/[+.]        { lineno++; BEGIN(AFTER_BLANK); }
 <INITIAL>\n             { lineno++; BEGIN(AFTER_BLANK); return T_STMT_END; }
-<INITIAL>[*!|]          { sno_stmt_comment_latch(); BEGIN(SKIP); }
+<INITIAL>[*!|][^\n]*    {
+    sno_stmt_comment_latch();
+    if (g_list_ever_on) { int _cn = yyleng; while (_cn > 0 && (yytext[_cn-1] == ' ' || yytext[_cn-1] == '\t' || yytext[_cn-1] == '\r')) _cn--; sno_list_record('C', 0, yytext, _cn); }
+    BEGIN(SKIP);
+}
 <INITIAL>";"            { BEGIN(AFTER_SEMI); return T_STMT_END; }
 <INITIAL>[ \t]          { sno_stmt_pos_mark(); BEGIN(BODY_START); }
 <INITIAL>"-"[Ii][Nn][Cc][Ll][Uu][Dd][Ee][ \t]+'[^'\n]+'[^\n]*\n  {
+    sno_list_card(yytext, yyleng);
     if (yyextra == SNO_LEX_NO_INCLUDE) { lineno++; } else {
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
     lineno++;
@@ -145,6 +199,7 @@ G       ({WS}|{CONT})*
     }
 }
 <INITIAL>"-"[Ii][Nn][Cc][Ll][Uu][Dd][Ee][ \t]+\"[^\"\n]+\"[^\n]*\n  {
+    sno_list_card(yytext, yyleng);
     if (yyextra == SNO_LEX_NO_INCLUDE) { lineno++; } else {
     char *q1 = strchr(yytext,'"'); char *q2 = strrchr(yytext,'"');
     lineno++;
@@ -173,6 +228,7 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>"-"[Cc][Oo][Pp][Yy][ \t]+'[^'\n]+'[^\n]*\n  {
+    sno_list_card(yytext, yyleng);
     if (yyextra == SNO_LEX_NO_INCLUDE) { lineno++; } else {
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
     lineno++;
@@ -196,6 +252,7 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>"-"[Ll][Ii][Nn][Ee]{WS}+{DIGIT}+[^\n]*\n  {
+    sno_list_card(yytext, yyleng);
     lineno++;
     {
         const char *p = yytext; SNO_SRC_FRAME_t *f = &incl_start_stack[incl_stack_depth]; long nn = 0;
@@ -209,11 +266,12 @@ G       ({WS}|{CONT})*
     }
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-<INITIAL>"-"[Nn][Oo][Ff][Aa][Ii][Ll][^\n]*\n    { lineno++; g_nofail_mode = 1; }
+<INITIAL>"-"[Nn][Oo][Ff][Aa][Ii][Ll][^\n]*\n    { sno_list_card(yytext, yyleng); lineno++; g_nofail_mode = 1; }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-<INITIAL>"-"[Ff][Aa][Ii][Ll][^\n]*\n    { lineno++; g_nofail_mode = 0; }
+<INITIAL>"-"[Ff][Aa][Ii][Ll][^\n]*\n    { sno_list_card(yytext, yyleng); lineno++; g_nofail_mode = 0; }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>"-"[Cc][Aa][Ss][Ee]([ \t][^\n]*)?\n    {
+    sno_list_card(yytext, yyleng);
     lineno++;
     if (g_case_fold || strncmp(yytext, "-CASE", 5) == 0) {
         const char *_p = yytext + 5; while (*_p == ' ' || *_p == '\t') _p++;
@@ -221,19 +279,8 @@ G       ({WS}|{CONT})*
     }
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-<INITIAL>"-"[Ll][Ii][Ss][Tt]([ \t][^\n]*)?\n    {
-    { int _tl = yyleng; while (_tl > 0 && (yytext[_tl-1] == '\n' || yytext[_tl-1] == '\r' || yytext[_tl-1] == ' ' || yytext[_tl-1] == '\t')) _tl--;
-      char _tb[256]; int _tn = _tl < (int)sizeof(_tb)-1 ? _tl : (int)sizeof(_tb)-1; memcpy(_tb, yytext, (size_t)_tn); _tb[_tn] = '\0';
-      sno_list_record(lineno, 1, _tb); }
-    lineno++;
-}
- /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-<INITIAL>"-"[Nn][Oo][Ll][Ii][Ss][Tt]([ \t][^\n]*)?\n    {
-    sno_list_record(lineno, 0, (const char *)0);
-    lineno++;
-}
- /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>"-"[^\n]*\n    {
+    sno_list_card(yytext, yyleng);
     lineno++;
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -495,6 +542,7 @@ Token flex_lex_next(Lex *lx) {
         t.dval   = 0.0;
         t.sval   = NULL;
         t.kind   = r;
+        if (r == T_STMT_END) g_list_nends++;
         if (r == T_STMT_END && lx->_extra == SNO_END_ARMED) { lx->_extra = SNO_END_CLOSED; sno_end_lineno = lineno; }
         switch (r) {
         case T_EOF:
