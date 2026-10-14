@@ -1557,7 +1557,7 @@ static int pascal_oo_keyword(const char *w, int peek) {
     if (!oo) {
         int stmt = lt == BEGINSY || lt == SEMICOLON || lt == DOSY || lt == THENSY || lt == ELSESY || lt == REPEATSY;
         int ident_next = peek == 0 || strchr(":,()[].^=;", peek) != NULL;
-        if (!((k == 0 && lt == EQOP) || (k == 1 && stmt && !ident_next))) return 0;
+        if (!((k == 0 && lt == EQOP) || ((k == 1 || k == 4) && stmt && !ident_next))) return 0;
         if (d == PAS_DIALECT_ISO_DEFAULT) pascal_event("seen_mode");
         pascal_dialect_set(PAS_DIALECT_OBJFPC);
     }

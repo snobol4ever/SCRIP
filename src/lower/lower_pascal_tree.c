@@ -135,6 +135,8 @@ static const char *pas_rectype_field_typename(const char *rn, long idx);
 static int pas_dyn_depth(tree_t *e, const char **elem);
 static int pas_dyn_elem_is_string(tree_t *base);
 static long long pas_wrap_mask_of_type(const char *t);
+static int pas_formal_is_dynarr(const char *callee, int idx);
+static int pas_formal_elem_is_string(const char *callee, int idx);
 static tree_t *mk_set_ctor(PNodeList *elems);
 static const char *pas_recvar_field_rectype(const char *vn, long idx);
 static int pas_rectype_nf(const char *rn);
@@ -1241,10 +1243,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                         val = leaf_s(TT_VAR, _tn);
                     }
                 }
-                if (val && _pidx < 64 && ((pas_openparm_mask(name) >> _pidx) & 1ULL) && val->t == TT_FNC) {
+                if (val && ((_pidx < 64 && ((pas_openparm_mask(name) >> _pidx) & 1ULL)) || pas_formal_is_dynarr(name, _pidx)) && val->t == TT_FNC) {
                     tree_t *_al = ast_node_new(TT_FNC);
                     ast_push(_al, leaf_s(TT_VAR, "__pas_arrlit"));
-                    if (pas_setcons_elems(val, _al)) val = _al;
+                    if (pas_setcons_elems(val, _al)) { if (pas_formal_elem_is_string(name, _pidx)) for (int _k = 1; _k < _al->n; _k++) _al->c[_k] = pas_concat_operand(_al->c[_k]); val = _al; }
                 }
                 if (val && _pidx < 64 && ((pas_openparm_mask(name) >> _pidx) & 1ULL)) {
                     if (!pas_proc_param_is_var(name, _pidx)) val = mk_fnc1("__pas_open", val);
@@ -4668,6 +4670,19 @@ static void pas_formal_strtypes(const char *sig, PNodeList *params) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_formal_is_dynarr(const char *callee, int idx) {
+    const PasDef *cd = pas_pf_lookup(callee);
+    const char *t = cd ? pas_sig_value_type(cd->sig, idx, 1) : NULL;
+    return t && pas_arrtype_isdyn(t);
+}
+static int pas_formal_elem_is_string(const char *callee, int idx) {
+    const PasDef *cd = pas_pf_lookup(callee);
+    const char *t = cd ? pas_sig_value_type(cd->sig, idx, 1) : NULL;
+    if (!t) return 0;
+    if (!strncmp(t, "$open$", 6)) t += 6;
+    else if (pas_arrtype_isdyn(t) && pas_arrtype_elem(t)) t = pas_arrtype_elem(t);
+    return pas_string_type_kind(t) || !strcmp(t, "string");
+}
 static void pas_value_actuals_check(const char *callee, const PasDef *cd, PNodeList *args) {
     for (int i = 0; i + 1 < args->count; i += 2) {
         const char *st = pas_sig_value_type(cd->sig, i / 2, 1);
@@ -5372,9 +5387,9 @@ static pval E_call_with_args(const tree_t *n) {
     if (IS(n, TT_FNC)) {
         v[1].str = pas_alias_resolve(tok_s(n->c[0]));
         if (v[1].str && !strcmp(v[1].str, "format") && n->n == 3 && IS(n->c[2], TT_SET) && !pas_is_func(v[1].str) && !pas_is_proc(v[1].str) && (out.node = pas_format_call(n))) return out;
-        if (pas_openparm_mask(v[1].str) != 0) {
+        if (pas_openparm_mask(v[1].str) != 0 || pas_pf_lookup(v[1].str)) {
             for (int i = 1; i < n->n; i++) {
-                int _ac = i - 1 < 64 && ((pas_openparm_mask(v[1].str) >> (i - 1)) & 1ULL) && IS(n->c[i], TT_SET);
+                int _ac = IS(n->c[i], TT_SET) && ((i - 1 < 64 && ((pas_openparm_mask(v[1].str) >> (i - 1)) & 1ULL)) || pas_formal_is_dynarr(v[1].str, i - 1));
                 g_lower.pas.sem.pas_arrctor = _ac;
                 pval _a = E_argument(n->c[i]);
                 g_lower.pas.sem.pas_arrctor = 0;
