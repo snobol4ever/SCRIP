@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${GNU_PROLOG_SUITE:=${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus/packages/prolog/gnu_prolog}" || exit 2
+S4E_ONE_RUNNER_SINGLE_FILE=""; _sf_prev=""; for _sf_a in "$@"; do [ "$_sf_prev" = --driver ] && S4E_ONE_RUNNER_SINGLE_FILE="$_sf_a"; _sf_prev="$_sf_a"; done; source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${GNU_PROLOG_SUITE:=${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus/packages/prolog/gnu_prolog}" || exit 2
 # test_prolog_gnu_suite.sh -- grades corpus/packages/prolog/gnu_prolog: GNU Prolog's OWN vendored
 # compiler/library source (62 .pl files -- BipsPl/ = the built-in-predicates library, Pl2Wam/ = the
 # Prolog-to-WAM compiler), NOT test programs. There is no external .ref oracle for these files; the
@@ -40,6 +40,13 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #               failure shape must never be silently folded into LIB or REJECT.
 #
 # AUTHORS: seat05, 2026-08-30 (Lon direct via ceo, row gnu-prolog-suite-runner-and-score)
+#
+# ⭐ --driver REL.pl GRADES ONE DRIVEN LIBRARY THE BOARD'S WAY (the cfo, 2026-10-14, ceo CEO-1727: "a row's criterion grades the way the
+# board grades, ruled exclusions included ... through the runner, never a second copy of drop_excluded_lines"). REL.pl is the library as
+# the board names it (BipsPl/flag.pl); the loop below runs for that file alone -- its driver, m3, m4, live gprolog, the stale-ref check
+# and EXCLUDED_LINES.tsv -- writes no progress row and no score row (lib_one_runner.sh admits it for every seat, as the SWI runner's
+# --file), and prints one labelled line, GNU_DRIVER rel=REL.pl verdict=PASS|FAIL|TIMEOUT|EXCLUDED m3_differ=N m4_differ=N: rc 0 PASS or
+# EXCLUDED (a container, EXCLUDED.tsv or UNGRADABLE.tsv names it, as the board leaves it out), 1 FAIL, 2 could not measure.
 set -uo pipefail   # deliberately NOT -e: a per-file compile/run failure is DATA the board must finish
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_oracle_flags.sh"
                    # printing, never a reason to abort the whole sweep partway through
@@ -49,7 +56,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$HERE/lib_progress.sh" ] && . "$HERE/lib_progress.sh"   # CEO-331: a runner that grades with its OWN loop appends its own rows
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: lib_flag_gate.sh unloadable"; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: lib_inventory.sh unloadable"; exit 2; }
-[ $# -eq 0 ] || flaggate_reject "$1" "(none -- set GNU_SUITE_VERBOSE / GNU_SUITE_CLASSIFY_TIMEOUT / GNU_SUITE_RUN_TIMEOUT via environment instead)"
+ONLY_DRIVER=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --driver) [ $# -ge 2 ] || flaggate_reject "$1" "--driver REL.pl (one driven library, as the board names it)"; ONLY_DRIVER="$2"; shift 2 ;;
+        *) flaggate_reject "$1" "--driver REL.pl, or none (set GNU_SUITE_VERBOSE / GNU_SUITE_CLASSIFY_TIMEOUT / GNU_SUITE_RUN_TIMEOUT via environment instead)" ;;
+    esac
+done
 SCRIP="${HERE}/../scrip"
 RT_SO="${HERE}/../out/libscrip_rt.so"
 PKG="${GNU_PROLOG_SUITE:-$S4E/corpus/packages/prolog/gnu_prolog}"   # line 2 sets it to this default, so the guard judges the suite graded here
@@ -112,6 +125,13 @@ if [ "${GNU_SUITE_CUT_REFS:-0}" = 1 ]; then
     echo "GNU driver refs cut from gprolog: $n"; exit 0
 fi
 mapfile -t FILES < <(find "$PKG" -name "*.pl" ! -name "*_driver.pl" | sort)
+D_V=""; D_M3=""; D_M4=""
+if [ -n "$ONLY_DRIVER" ]; then
+    [ -f "$PKG/$ONLY_DRIVER" ] || { echo "⛔ REFUSED-TO-GRADE: --driver $ONLY_DRIVER is no file of $PKG"; exit 2; }
+    [ -f "$PKG/${ONLY_DRIVER%.pl}_driver.pl" ] || { echo "⛔ REFUSED-TO-GRADE: --driver $ONLY_DRIVER has no ${ONLY_DRIVER%.pl}_driver.pl beside it"; exit 2; }
+    FILES=("$PKG/$ONLY_DRIVER")
+    progress_append() { :; }   # one driver is not a board: no progress row
+fi
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE: zero .pl files found under $PKG"; exit 2; }
 
@@ -246,6 +266,7 @@ for f in "${FILES[@]}"; do
             gp_out=$(drop_excluded_lines "$rel" "$gp_out"); m3_out=$(drop_excluded_lines "$rel" "$m3_out"); m4_out=$(drop_excluded_lines "$rel" "$m4_out")
         fi
         if [ "$m3_out" = "$gp_out" ] && [ "$m4_out" = "$gp_out" ]; then _gv=PASS; else _gv=FAIL; fi
+        D_V=$_gv; D_M3=$(diff <(printf '%s\n' "$gp_out") <(printf '%s\n' "$m3_out") | grep -c '^>'); D_M4=$(diff <(printf '%s\n' "$gp_out") <(printf '%s\n' "$m4_out") | grep -c '^>')
         # ⛔ A TIMEOUT UNDER LOAD IS A TIMEOUT, NEVER A FAIL (ceo CEO-1686, CEO-1574's load-guard rule for every runner; the coo 2026-10-11): at
         # load 20-30 five driver compiles read rc 124 on 966109bb9 (Pl2Wam/all.pl among them with 0 of 201 lines differing) and the row fell
         # 18 -> 17 on a reading of the box, not the program. A driver whose compile or run answered 124 -- after util_timeout_retry.sh's own
@@ -254,7 +275,7 @@ for f in "${FILES[@]}"; do
         if [ "$_gv" = FAIL ] && { [ "$drc" -eq 124 ] || [ "$m3rc" -eq 124 ] || [ "$m4rc" -eq 124 ]; }; then
             _l1="${GNU_SUITE_LOAD1:-$(cut -d' ' -f1 /proc/loadavg 2>/dev/null || echo 0)}"; _nc="$(nproc 2>/dev/null || echo 1)"   # GNU_SUITE_LOAD1: a fixture's load
             if awk -v l="$_l1" -v n="$_nc" 'BEGIN { exit !(l + 0 >= n + 0) }'; then
-                OK_TIMEOUT=$((OK_TIMEOUT+1)); OK_TIMEOUT_NAMES+=("$rel (compile rc $drc, m3 rc $m3rc, m4 rc $m4rc at load1 $_l1 on $_nc cores)")
+                D_V=TIMEOUT; OK_TIMEOUT=$((OK_TIMEOUT+1)); OK_TIMEOUT_NAMES+=("$rel (compile rc $drc, m3 rc $m3rc, m4 rc $m4rc at load1 $_l1 on $_nc cores)")
                 echo "  DRIVEN TIMEOUT $rel -- compile rc $drc, m3 rc $m3rc, m4 rc $m4rc at load1 $_l1 on $_nc cores: could not measure (CEO-1686), not a FAIL"
                 if command -v progress_append >/dev/null 2>&1; then
                     progress_append package gnu prolog "$rel" m3 UNGRADED "$S3" "timeout-under-load load1=$_l1 cores=$_nc" || true
@@ -422,6 +443,12 @@ echo "-- EMPTY (m3 = m4 = gprolog = 0 bytes: the file loads and prints nothing, 
 for n in "${EMPTY_NAMES[@]:-}"; do [ -n "$n" ] && echo "   $n"; done
 if [ "${#SIDE_ERR[@]}" -gt 0 ]; then
     echo "⛔ REFUSED-TO-GRADE: UNGRADED.tsv disagrees with this run:"; for n in "${SIDE_ERR[@]}"; do echo "   $n"; done; exit 2
+fi
+if [ -n "$ONLY_DRIVER" ]; then
+    if [ -z "$D_V" ] && { [ -n "${CON_SET[$ONLY_DRIVER]:-}" ] || [ -n "${EX_SET[$ONLY_DRIVER]:-}" ] || [ -n "${UGB_SET[$ONLY_DRIVER]:-}" ]; }; then D_V=EXCLUDED; fi
+    echo "GNU_DRIVER rel=$ONLY_DRIVER verdict=${D_V:-NONE} m3_differ=${D_M3:-?} m4_differ=${D_M4:-?}"
+    echo "SUITES.tsv NOT UPDATED (by design): --driver grades one driver and cannot produce a suite-wide number."
+    case "${D_V:-}" in PASS|EXCLUDED) exit 0 ;; FAIL) exit 1 ;; *) exit 2 ;; esac
 fi
 echo ""
 if [ "$OK_TIMEOUT" -gt 0 ]; then

@@ -183,7 +183,7 @@ one_runner_population_of() {
   printf '%s' "${CORPUS:-}"
 }
 ONE_RUNNER_SMOKE_MODE_RUNNERS="test_icon_ipl_suite.sh test_snobol4_gimpel_suite.sh"   # runners with an area-smoke mode that writes nothing (see one_runner_guard)
-ONE_RUNNER_SINGLE_FILE_RUNNERS="test_prolog_swi_suite.sh"   # runners whose --file mode grades exactly one file and writes no progress row and no score row (see one_runner_guard)
+ONE_RUNNER_SINGLE_FILE_RUNNERS="test_prolog_swi_suite.sh test_prolog_gnu_suite.sh"   # runners whose --file mode grades exactly one file and writes no progress row and no score row (see one_runner_guard)
 one_runner_guard() {
   # ⭐ THE RUN'S START, STAMPED BY EVERY RUNNER FOR ITSELF (Lon 2026-10-08, in-chat to the ceo: "List in a grid the total time for each test
   # suite to run."; CEO-1562): util_score_row.py turns it into the row's wall clock (SUITES.tsv today_secs, the grid's Wall). Unconditional,
