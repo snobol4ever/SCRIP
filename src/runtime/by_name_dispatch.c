@@ -4394,6 +4394,7 @@ void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed) 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rt_mc_type_name(DESCR_t d) {
+    if (rk_typeobj_name(d)) return rk_typeobj_name(d);
     switch (d.v) {
         case DT_I:
         return "Int";
@@ -4449,10 +4450,12 @@ static int rt_mc_accepts(const char *ptype, DESCR_t arg) {
     } else {
         snprintf(base, sizeof base, "%s", ptype);
     }
-    int is_undef = (arg.v == DT_SNUL);
+    int is_undef = (arg.v == DT_SNUL) || rk_typeobj_name(arg);
     if (require_def && is_undef) return 0;
-    if (require_undef) return is_undef;
-    if (!strcmp(base, "Any") || !strcmp(base, "Mu") || !strcmp(base, "Cool")) return 1;
+    if (require_undef && !is_undef) return 0;
+    if (!strcmp(base, "Any") || !strcmp(base, "Mu")) return 1;
+    if (require_undef && arg.v == DT_SNUL) return 0;
+    if (!strcmp(base, "Cool")) return 1;
     return rt_mc_is_subtype(rt_mc_type_name(arg), base);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
