@@ -1998,6 +1998,7 @@ static void sno_resume_ω_to(IR_graph_t * g, int tail_idx, IR_t * nd, IR_t * t) 
         if (T && T->op == IR_MATCH_ALTERNATE && T->n_operands > 0 && T->operands[0] == nd) { if (t) lc_γ_to_β(T, t); else lc_γ_to(T, t); return; }
     }
     if (nd && nd->op == IR_MATCH_ASSIGN_COND && nd->n_operands > 1 && nd->operands[1]) nd = nd->operands[1];
+    if (nd && t && nd->op == IR_GOTO && nd->n_operands == 0 && nd->γ.node && nd->γ.node == nd->ω.node && !strcmp(nd->γ.sz, "β")) lc_γ_to_β(nd, t);
     sno_ω_to(nd, t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
