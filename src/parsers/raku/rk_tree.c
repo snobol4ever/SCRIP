@@ -2853,13 +2853,28 @@ static int rk_unpack_scalars(RkB *b, const char *s, TL *vars) {
     for (;;) {
         while (*q == ' ' || *q == '\t' || *q == '\n') q++;
         if (*q == ')') return q[1] ? 0 : vars->n;
-        if (*q != '$') return 0;
+        if (isupper((unsigned char) *q)) {
+            const char *t = q;
+            while (isalnum((unsigned char) *t) || *t == '_' || *t == ':' || (*t == '-' && isalpha((unsigned char) t[1]))) t++;
+            if (*t != ' ' && *t != '\t') return 0;
+            q = t;
+            while (*q == ' ' || *q == '\t') q++;
+        }
+        if (*q != '$' && *q != '@' && *q != '%') return 0;
         const char *e = q + 1;
         while (isalnum((unsigned char) *e) || *e == '_' || ((*e == '-' || *e == '\'') && isalpha((unsigned char) e[1]))) e++;
         if (e == q + 1) return 0;
         tl_add(vars, var_node(b, trimdup(q, (int) (e - q))));
         q = e;
-        while (*q == ' ' || *q == '\t' || *q == '\n') q++;
+        for (;;) {
+            while (*q == ' ' || *q == '\t' || *q == '\n') q++;
+            if (q[0] != 'i' || q[1] != 's' || (q[2] != ' ' && q[2] != '\t')) break;
+            q += 2;
+            while (*q == ' ' || *q == '\t') q++;
+            const char *w = q;
+            while (isalnum((unsigned char) *q) || *q == '_' || *q == '-') q++;
+            if (q == w) return 0;
+        }
         if (*q == ',') { q++; continue; }
         if (*q != ')') return 0;
     }
