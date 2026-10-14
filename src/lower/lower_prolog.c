@@ -3618,7 +3618,7 @@ static int pl_mc_graph_fell_back(const IR_graph_t * g, const char * nm, int ar) 
         gv = nd->operands[0];
         if (!gv) continue;
         if (ar == 0 && (gv->op == IR_LIT_STRING || gv->op == IR_LIT_ATOM) && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, nm)) return 1;
-        if (ar > 0 && gv->op == IR_CALL && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, "$mkc") && gv->n_operands == ar + 1 && gv->operands[0] && pl_mkc_functor_is(gv->operands[0], nm)) return 1;
+        if (ar > 0 && ir_kind0(gv) == IR_CALL && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, "$mkc") && gv->n_operands == ar + 1 && gv->operands[0] && pl_mkc_functor_is(gv->operands[0], nm)) return 1;
     }
     return 0;
 }
