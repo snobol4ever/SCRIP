@@ -2724,7 +2724,7 @@ tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, 
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *rkb_package(RkB *b, const char *kind, const char *name, int namelen, RkTrait *tr, int ntr, tree_t *body) {
+tree_t *rkb_package(RkB *b, const char *kind, const char *name, int namelen, RkTrait *tr, int ntr, tree_t *body, tree_t *rsig) {
     (void) b;
     char *nm = trimdup(name ? name : "", name ? namelen : 0);
     tree_e k = !strcmp(kind, "class") ? TT_CLASS_DECL : !strcmp(kind, "role") ? TT_ROLE_DECL : !strcmp(kind, "grammar") ? TT_GRAMMAR_DECL : TT_MODULE_DECL;
@@ -2735,8 +2735,20 @@ tree_t *rkb_package(RkB *b, const char *kind, const char *name, int namelen, RkT
             char tag = !strcmp(tr[i].word, "is") ? 'i' : !strcmp(tr[i].word, "does") ? 'd' : 0;
             if (!tag || !tr[i].name) continue;
             SB s = { 0 }; sb_c(&s, tag); for (const char *c = tr[i].name; *c; c++) sb_c(&s, *c);
-            ast_push(nv, leaf_sval(TT_QLIT, sb_str(&s)));
+            tree_t *q = leaf_sval(TT_QLIT, sb_str(&s));
+            if (tag == 'd' && tr[i].args) ast_push(q, tr[i].args);
+            ast_push(nv, q);
         }
+    }
+    if (k == TT_ROLE_DECL) for (int i = 0; rsig && i < rsig->n; i++) {
+        tree_t *pv = rsig->c[i];
+        if (pv && pv->t == TT_ASSIGN && pv->n) pv = pv->c[0];
+        if (!pv || pv->t != TT_VAR || !pv->v.sval) continue;
+        const char *pn = pv->v.sval;
+        if (!*pn && pv->n && pv->c[0] && pv->c[0]->t == TT_QLIT && pv->c[0]->v.sval && !strncmp(pv->c[0]->v.sval, "::", 2)) pn = pv->c[0]->v.sval;
+        if (!*pn) continue;
+        SB s = { 0 }; sb_c(&s, 'r'); for (const char *c = pn; *c; c++) sb_c(&s, *c);
+        ast_push(nv, leaf_sval(TT_QLIT, sb_str(&s)));
     }
     ast_push(cd, nv);
     for (int i = 0; body && i < body->n; i++) if (body->c[i]) ast_push(cd, body->c[i]);

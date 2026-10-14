@@ -3667,6 +3667,16 @@ static int r_trait(RkP *p, int pos) {
         int t = ws(p, q);
         e = r_typename(p, t);
         if (e >= 0) { rt.word = ct_strndup0(p->s + pos, q - pos); rt.name = ct_strndup0(p->s + t, e - t); }
+        if (e >= 0 && p->build) {
+            const char *br = memchr(p->s + t, '[', (size_t) (e - t));
+            if (br) {
+                int sg = p->goal; p->goal = 0;
+                int s = r_semilist(p, (int) (br - p->s) + 1);
+                RkList *in = p->last_list; int nst = p->last_nstmts;
+                p->goal = sg;
+                if (s >= 0 && ch(p, s) == ']') rt.args = rkb_paren(p->B, in, nst);
+            }
+        }
         if (e < 0) { int l = r_longname(p, t); if (l >= 0) panic_at(p, t, "Invalid typename '%.*s'", l - t, p->s + t); panic_at(p, t, "Malformed trait"); }
     }
     else if ((q = kw(p, pos, "returns")) >= 0) {
@@ -4420,8 +4430,10 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     { RkPkg *k = &p->pkgs[p->npkgs++]; memset(k, 0, sizeof *k); k->kind = kind; k->name = pkg_len ? ct_strndup0(p->s + pkg_from, pkg_len) : NULL;
       k->unknown = saved_scope == 5 || saved_scope == 8; k->decl_pos = pkg_from; }
     scope_enter(p);
+    tree_t *rsig = NULL;
     if (!strcmp(kind, "role") && ch(p, q) == '[') {
         int s = r_signature(p, q + 1, 0); s = ws(p, s);
+        if (p->build) rsig = p->sig;
         if (ch(p, s) != ']') panic_at(p, s, "Unable to parse role signature; couldn't find final ']'");
         q = ws(p, s + 1);
     }
@@ -4464,7 +4476,7 @@ static int r_package_def(RkP *p, int pos, const char *kind) {
     if (!unit) p->pkg = saved_pkg;
     if (!unit) package_close(p);
     if (p->build) { memset(&p->tm, 0, sizeof p->tm); p->tm.kind = TK_BSTMT; p->tm.from = pos; p->tm.to = p->tm.core_to = e;
-        p->tm.t = rkb_package(p->B, kind, n >= 0 ? p->s + pkg_from : "", pkg_len, ktr, nktr, kbody); }
+        p->tm.t = rkb_package(p->B, kind, n >= 0 ? p->s + pkg_from : "", pkg_len, ktr, nktr, kbody, rsig); }
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

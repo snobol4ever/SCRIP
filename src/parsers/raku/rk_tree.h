@@ -28,7 +28,7 @@ struct RkList {
     const char *op1;
     tree_t *rg_lo, *rg_hi; const char *rg_op; int rg_nitem;
 };
-typedef struct { const char *word; const char *name; } RkTrait;
+typedef struct { const char *word; const char *name; tree_t *args; } RkTrait;
 #define RK_PV_COPY 1024
 #define RK_PV_RW 2048
 struct RkDecl {
@@ -103,7 +103,7 @@ void     rkb_statement(RkB *b, tree_t *list, int bk, int from, int to, RkList *L
 void     rkb_control(RkB *b, tree_t *list, int bk, int from, tree_t *t, int ns, int semi, int last);
 void     rkb_empty(RkB *b, tree_t *list, int bk);
 tree_t  *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, int prefix, tree_t *sig, int has_parens, tree_t *body, RkTrait *tr, int ntr);
-tree_t  *rkb_package(RkB *b, const char *kind, const char *name, int namelen, RkTrait *tr, int ntr, tree_t *body);
+tree_t  *rkb_package(RkB *b, const char *kind, const char *name, int namelen, RkTrait *tr, int ntr, tree_t *body, tree_t *rsig);
 tree_t  *rkb_regex_decl(RkB *b, int kind, const char *name, int namelen, int brace);
 void     rkb_decl(RkB *b, RkTerm *it, int from, int to, RkDecl *d);
 tree_t  *rkb_enum(RkB *b, const char *text, int n);

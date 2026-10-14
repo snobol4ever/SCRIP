@@ -5321,7 +5321,121 @@ static void rk_minmax_fns(tree_t * t, const tree_t * prog, int umax, int umin) {
     t->c[0]->v.sval = (char *) nn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_top_subj(tree_t * st) { return st && st->t == TT_STMT ? (tree_t *) stmt_subj(st) : st; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_role_nparams(const tree_t * rd) {
+    int k = 0;
+    for (int i = 0; rd && rd->n > 0 && rd->c[0] && i < rd->c[0]->n; i++) { const tree_t * q = rd->c[0]->c[i]; if (q && q->t == TT_QLIT && q->v.sval && q->v.sval[0] == 'r') k++; }
+    return k;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_role_specialized(tree_t * rd, const char * spec, const tree_t * args) {
+    int k = rk_role_nparams(rd);
+    const tree_t * vals[k > 0 ? k : 1];
+    if (!args) {
+        tree_t * any = ast_node_new(TT_FNC);
+        any->v.sval = (char *) "__rk_typeobj";
+        ast_push(any, leaf_sval2(TT_VAR, "__rk_typeobj"));
+        ast_push(any, leaf_sval2(TT_QLIT, "Any"));
+        for (int i = 0; i < k; i++) vals[i] = any;
+    } else if (k == 1) vals[0] = args;
+    else if (args && args->t == TT_FNC && args->v.sval && !strcmp(args->v.sval, "__rk_arr") && args->n - 1 == k) for (int i = 0; i < k; i++) vals[i] = args->c[1 + i];
+    else return NULL;
+    const char * names[k > 0 ? k : 1];
+    int ni = 0;
+    for (int i = 0; i < rd->c[0]->n; i++) {
+        const tree_t * q = rd->c[0]->c[i];
+        if (!q || q->t != TT_QLIT || !q->v.sval || q->v.sval[0] != 'r') continue;
+        const char * nm = q->v.sval + 1;
+        names[ni++] = intern(!strncmp(nm, "::", 2) ? nm + 2 : nm);
+    }
+    tree_t * cl = spec ? rk_clone_tree(rd) : rd;
+    if (spec) cl->c[0]->v.sval = (char *) intern(spec);
+    cl->c[0]->n = 0;
+    for (int j = 1; j < cl->n; j++) {
+        tree_t * m = cl->c[j];
+        if (!m || m->t != TT_SUB_DECL) continue;
+        int at = m->v.ival > 0 ? (int) m->v.ival : 1;
+        for (int x = k - 1; x >= 0; x--) {
+            tree_t * v = leaf_sval2(TT_VAR, names[x]);
+            v->slen |= 4;
+            tree_t * as = ast_node_new(TT_ASSIGN);
+            as->line = m->line;
+            ast_push(as, v);
+            ast_push(as, rk_clone_tree(vals[x]));
+            ast_push(m, NULL);
+            for (int y = m->n - 1; y > at; y--) m->c[y] = m->c[y - 1];
+            m->c[at] = as;
+        }
+    }
+    return cl;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_role_find(tree_t * t, const char * base) {
+    if (!t) return NULL;
+    tree_t * d = rk_top_subj(t);
+    if (d && d->t == TT_ROLE_DECL && d->n > 0 && d->c[0] && d->c[0]->v.sval && !strcmp(d->c[0]->v.sval, base) && rk_role_nparams(d)) return d;
+    for (int i = 0; i < t->n; i++) { tree_t * r = rk_role_find(t->c[i], base); if (r) return r; }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_role_spec_in(tree_t * t, tree_t * root, rk_ns_t * made) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) {
+        tree_t * cd = rk_top_subj(t->c[i]);
+        if (cd && cd != t->c[i] && cd->t != TT_CLASS_DECL) rk_role_spec_in(cd, root, made);
+        if (!cd || cd->t != TT_CLASS_DECL || cd->n < 1 || !cd->c[0]) { if (cd == t->c[i]) rk_role_spec_in(t->c[i], root, made); continue; }
+        for (int k = 1; k < cd->n; k++) rk_role_spec_in(cd->c[k], root, made);
+        for (int tq = 0; tq < cd->c[0]->n; tq++) {
+            tree_t * q = cd->c[0]->c[tq];
+            if (!q || q->t != TT_QLIT || !q->v.sval || q->v.sval[0] != 'd' || q->n < 1) continue;
+            const char * full = q->v.sval + 1;
+            const char * br = strchr(full, '[');
+            if (!br) continue;
+            int seen = -1;
+            for (int m = 0; m < made->n; m++) if (!strcmp(made->v[m], full)) seen = m;
+            if (seen >= 0) { char sb[(size_t) (br - full) + 40]; snprintf(sb, sizeof sb, "d%.*s__rs%d", (int) (br - full), full, seen); q->v.sval = (char *) intern(sb); continue; }
+            char base[br - full + 1];
+            memcpy(base, full, (size_t) (br - full));
+            base[br - full] = 0;
+            tree_t * rd = rk_role_find(root, base);
+            if (!rd) continue;
+            char sn[(size_t) (br - full) + 40];
+            snprintf(sn, sizeof sn, "%s__rs%d", base, made->n);
+            const char * spec = intern(sn);
+            tree_t * cl = rk_role_specialized(rd, spec, q->c[0]);
+            if (!cl) continue;
+            rk_ns_add(made, intern(full));
+            { char dq[strlen(spec) + 2]; snprintf(dq, sizeof dq, "d%s", spec); q->v.sval = (char *) intern(dq); }
+            tree_t * ins = cl;
+            if (t->c[i]->t == TT_STMT) {
+                extern tree_t *ast_stmt_new(tree_e kind);
+                extern tree_t *ast_attr_int(const char *tag, int ival);
+                extern tree_t *ast_attr_expr(const char *tag, tree_t *expr);
+                ins = ast_stmt_new(TT_STMT);
+                ast_push(ins, ast_attr_int(":line", 0));
+                ast_push(ins, ast_attr_int(":stno", 0));
+                ast_push(ins, ast_attr_expr(":subj", cl));
+            }
+            ast_push(t, NULL);
+            for (int y = t->n - 1; y > i; y--) t->c[y] = t->c[y - 1];
+            t->c[i] = ins;
+            i++;
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_role_unbind(tree_t * t) {
+    if (!t) return;
+    tree_t * d = rk_top_subj(t);
+    if (d && d->t == TT_ROLE_DECL && rk_role_nparams(d)) (void) rk_role_specialized(d, NULL, NULL);
+    for (int i = 0; i < t->n; i++) rk_role_unbind(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_role_specialize(tree_t * prog) { if (!prog) return; rk_ns_t made = { 0 }; rk_role_spec_in(prog, prog, &made); rk_role_unbind(prog); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
+    rk_role_specialize((tree_t *) prog);
     rk_hoist_nested_types((tree_t *) prog);
     rk_hoist_nested_multis((tree_t *) prog);
     rk_class_default_tweaks((tree_t *) prog);
