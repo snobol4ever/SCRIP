@@ -127,6 +127,22 @@ static int icn_cvt_int_ok(DESCR_t d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_argtype_raise(int code, DESCR_t val, DESCR_t *out) { core_icn_error(code, val); *out = FAILDESCR; return 1; }
+static int icn_alnum_c(int c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
+static int icn_cvt_num_ok(DESCR_t d) {
+    if (IS_INT_fn(d) || IS_REAL_fn(d) || d.v == DT_BIG) return 1;
+    if (d.v != DT_S || !d.s || icn_numeric_is_c_hex(d.s)) return 0;
+    const char *p = d.s;
+    while (*p == ' ') p++;
+    if (*p == '+' || *p == '-') p++;
+    if (!((*p >= '0' && *p <= '9') || (*p == '.' && p[1] >= '0' && p[1] <= '9'))) return 0;
+    const char *q = p;
+    while (*q >= '0' && *q <= '9') q++;
+    if (q > p && (*q == 'r' || *q == 'R')) { q++; if (!icn_alnum_c(*q)) return 0; while (icn_alnum_c(*q)) q++; while (*q == ' ') q++; return !*q; }
+    char *e;
+    strtod(p, &e);
+    while (*e == ' ') e++;
+    return !*e;
+}
 #include "rt/rt_arena.h"
 #include "rt/gc_heap.h"
 #include "rt/prolog_atom.h"
@@ -17716,7 +17732,15 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int
         case BID_center:
         if (!icn_cvt_chars_ok(args[0])) return icn_argtype_raise(103, args[0], out);
         if (nargs >= 2 && !IS_FAIL_fn(args[1]) && args[1].v != DT_SNUL && !icn_cvt_int_ok(args[1])) return icn_argtype_raise(101, args[1], out);
+        if (nargs >= 2 && !IS_FAIL_fn(args[1]) && args[1].v != DT_SNUL && to_int(args[1]) < 0) return icn_argtype_raise(205, args[1], out);
         if (nargs >= 3 && !IS_FAIL_fn(args[2]) && args[2].v != DT_SNUL && !icn_cvt_chars_ok(args[2])) return icn_argtype_raise(103, args[2], out);
+        return 0;
+        case BID_abs:
+        return (!strict || icn_cvt_num_ok(args[0])) ? 0 : icn_argtype_raise(102, args[0], out);
+        case BID_atan:
+        if (!strict) return 0;
+        if (!icn_cvt_num_ok(args[0])) return icn_argtype_raise(102, args[0], out);
+        if (nargs >= 2 && !IS_FAIL_fn(args[1]) && args[1].v != DT_SNUL && !icn_cvt_num_ok(args[1])) return icn_argtype_raise(102, args[1], out);
         return 0;
         case BID_tab:
         case BID_move:
@@ -19638,6 +19662,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         extern DESCR_t rt_big_neg(DESCR_t);
         DESCR_t av = args[0];
         DESCR_t nv;
+        { DESCR_t _rv; if (strict && relop_radix_coerce(av, &_rv)) av = _rv; }
         c_rt_coerce_num2_d(&av, &av, &nv, 0);
         if (rt_big_is(nv)) { *out = rt_big_sign(nv) < 0 ? rt_big_neg(nv) : nv; return 1; }
         if (IS_REAL_fn(nv)) { *out = REALVAL(fabs(nv.r)); return 1; }
@@ -19681,8 +19706,11 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     L_bidjmp_5791:
     ;
     if ((_bid == BID_atan) && nargs >= 1) {
-        double v = TONUM(args[0]);
-        if (nargs >= 2 && args[1].v != DT_SNUL) { double v2 = TONUM(args[1]); *out = REALVAL(atan2(v,v2)); } else *out = REALVAL(atan(v));
+        DESCR_t _a0 = args[0], _a1 = nargs >= 2 ? args[1] : args[0], _rv;
+        if (strict && relop_radix_coerce(_a0, &_rv)) _a0 = _rv;
+        if (strict && nargs >= 2 && relop_radix_coerce(_a1, &_rv)) _a1 = _rv;
+        double v = TONUM(_a0);
+        if (nargs >= 2 && args[1].v != DT_SNUL) { double v2 = TONUM(_a1); *out = REALVAL(atan2(v,v2)); } else *out = REALVAL(atan(v));
         return 1;
     }
     L_bidjmp_5797:
