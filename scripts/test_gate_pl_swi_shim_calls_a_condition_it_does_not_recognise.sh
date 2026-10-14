@@ -7,9 +7,12 @@
 # ARMS, both modes, one witness file of four tests:
 #   (1) condition(\+ fail)             runs -> pass      (the unrecognised shape that was skipped)
 #   (2) condition((X = 1, X > 0))      runs -> pass      (a conjunction, also unrecognised)
-#   (3) condition(\+ true)             skipped           (a condition that fails still skips)
-#   (4) condition(no_such_pred_xyz)    skipped           (a condition that raises skips, as plunit treats it)
-# FAIL-ONCE: the same witness against a copy of the shim with the old last clause restored must read arms (1) and (2) red.
+#   (3) condition(\+ true)             no line           (a condition that fails skips and prints NOTHING, as swipl's plunit prints
+#                                                          nothing for it -- hq_prolog 2026-10-14, corpus: a printed skip took an instance number)
+#   (4) condition(no_such_pred_xyz)    no line           (a condition that raises skips the same way, as plunit treats it)
+#   (5) two tests named dup, the first condition-false, the second run: exactly ONE line for cond:dup, a pass -- the pairing the oracle's
+#       one line meets (tabling_clpfd:fib_error)
+# FAIL-ONCE: the same witness against a copy of the shim with the old last clause restored must leave arms (1) and (2) with no line.
 set -u
 GATE_NAME=test_gate_pl_swi_shim_calls_a_condition_it_does_not_recognise
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,6 +35,8 @@ test(neg_fail, [condition(\+ fail)]) :- true.
 test(conj, [condition((X = 1, X > 0))]) :- true.
 test(neg_true, [condition(\+ true)]) :- true.
 test(raises, [condition(no_such_pred_xyz)]) :- true.
+test(dup, [condition(fail)]) :- true.
+test(dup, [condition(true)]) :- true.
 :- end_tests(cond).
 EOP
 run() { local mode="$1" shim="$2"
@@ -42,14 +47,16 @@ verdict() { grep -E "^\s+(pass|FAIL|skip):\s+cond:$1\b" <<<"$2" | head -1 | awk 
 red=0; total=0; mutred=0
 for mode in ${MODES//,/ }; do
     out="$(run "$mode" "$PLUNIT")"; old="$(run "$mode" "$T/plunit_old.pl")"
-    for a in "neg_fail pass" "conj pass" "neg_true skip" "raises skip"; do
-        set -- $a; total=$((total+1)); got="$(verdict "$1" "$out")"
+    for a in "neg_fail pass" "conj pass" "neg_true none" "raises none"; do
+        set -- $a; total=$((total+1)); got="$(verdict "$1" "$out")"; got="${got:-none}"
         if [ "$got" = "$2" ]; then echo "  ok  $mode cond:$1 -> $got"; else echo "  RED $mode cond:$1 -> '${got}' want $2"; red=$((red+1)); fi
     done
-    for t in neg_fail conj; do [ "$(verdict "$t" "$old")" = skip ] && mutred=$((mutred+1)); done
+    total=$((total+1)); nd=$(grep -cE "^\s+(pass|FAIL|skip):\s+cond:dup\b" <<<"$out")
+    if [ "$nd" = 1 ] && [ "$(verdict dup "$out")" = pass ]; then echo "  ok  $mode cond:dup -> one line, pass"; else echo "  RED $mode cond:dup -> $nd line(s), first '$(verdict dup "$out")' want 1 pass"; red=$((red+1)); fi
+    [ "$(verdict dup "$old")" = pass ] && for t in neg_fail conj; do [ -z "$(verdict "$t" "$old")" ] && mutred=$((mutred+1)); done
 done
 want_mut=$(( 2 * $(tr ',' '\n' <<<"$MODES" | grep -c .) ))
-echo "  FAIL-ONCE: the old clause skips $mutred of $want_mut runnable-condition cases (want all)"
+echo "  FAIL-ONCE: the old clause leaves $mutred of $want_mut runnable-condition cases with no line, its run test printed (want all)"
 [ "$mutred" = "$want_mut" ] || { echo "⛔ $GATE_NAME RED: the mutant with the old clause did not skip arms (1) and (2) -- the gate cannot see the defect"; red=$((red+1)); }
 echo "$GATE_NAME: arms=$total red=$red modes=$MODES"
 [ "$red" -eq 0 ] || { echo "⛔ $GATE_NAME RED"; exit 1; }
