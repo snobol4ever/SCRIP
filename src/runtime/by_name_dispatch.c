@@ -6937,27 +6937,28 @@ static int pl_enc_norm(const char *s, char *out, size_t n) {
 static const char *const pl_bom_enc[] = { "UTF-8", "UTF-8", "UTF-16BE", "UTF-16LE", "UTF-32BE", "UTF-32LE" };
 static int pl_skip_bom(FILE *fp) {
     long pos = ftell(fp);
-    unsigned char b[4];
-    size_t n = fread(b, 1, 4, fp), len = 0;
-    int k = 0;
-    if (n == 4 && !b[0] && !b[1] && b[2] == 0xFE && b[3] == 0xFF) {
+    unsigned long x = 0;
+    size_t n = 0, len = 0;
+    int k = 0, ch;
+    while (n < 4 && (ch = fgetc(fp)) != EOF) x |= (unsigned long)(unsigned char)ch << (8 * n++);
+    if (n == 4 && x == 0xFFFE0000UL) {
         k = 4;
         len = 4;
-    } else if (n == 4 && b[0] == 0xFF && b[1] == 0xFE && !b[2] && !b[3]) {
+    } else if (n == 4 && x == 0x0000FEFFUL) {
         k = 5;
         len = 4;
-    } else if (n >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF) {
+    } else if (n >= 3 && (x & 0xFFFFFFUL) == 0xBFBBEFUL) {
         k = 1;
         len = 3;
-    } else if (n >= 2 && b[0] == 0xFE && b[1] == 0xFF) {
+    } else if (n >= 2 && (x & 0xFFFFUL) == 0xFFFEUL) {
         k = 2;
         len = 2;
-    } else if (n >= 2 && b[0] == 0xFF && b[1] == 0xFE) {
+    } else if (n >= 2 && (x & 0xFFFFUL) == 0xFEFFUL) {
         k = 3;
         len = 2;
     }
     if (pos >= 0 && fseek(fp, pos + (long)len, SEEK_SET) == 0) return k;
-    while (n > len) { ungetc(b[--n], fp); }
+    while (n > len) { n--; ungetc((int)((x >> (8 * n)) & 0xFF), fp); }
     return k;
 }
 static int pl_enc_kind(const char *e) {
