@@ -6635,7 +6635,7 @@ static DESCR_t pl_mk_cmp1(const char *f, DESCR_t a0) {
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PL_SP_NPROP 12
+#define PL_SP_NPROP 13
 void pas_file_err(const char *clause, const char *what, const char *proc) {
     fflush(stdout);
     fprintf(stderr, "scrip: pascal runtime error: ISO 7185 %s: %s", clause ? clause : "", what ? what : "");
@@ -6779,13 +6779,16 @@ static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
             FILE *fp = fh_get(i);
             long off;
             if (!fp || i < 3) return 0;
-            off = ftell(fp);
+            off = ftell(g_fh[i].raw ? g_fh[i].raw : fp);
             if (off < 0) return 0;
             *out = pl_mk_cmp1("position", pl_mk_cmp1("$stream_position", INTVAL((long long)off)));
             return 1;
         }
         case 11:
         { extern int fh_repos(int); *out = pl_mk_cmp1("reposition", pl_mk_atom(i >= 3 && fh_repos(i) ? "true" : "false")); return 1; }
+        case 12:
+        *out = pl_mk_cmp1("buffer", pl_mk_atom(i == 2 ? "false" : i < 2 ? "line" : "full"));
+        return 1;
         default:
         return 0;
     }
@@ -6825,7 +6828,21 @@ static int pl_skip_bom(FILE *fp) {
     while (n > len) { ungetc(b[--n], fp); }
     return k;
 }
-static int pl_enc_kind(const char *e) { return !strcmp(e, "UTF-16BE") ? 1 : !strcmp(e, "UTF-16LE") ? 2 : !strcmp(e, "UTF-32BE") ? 3 : !strcmp(e, "UTF-32LE") ? 4 : 0; }
+static int pl_enc_kind(const char *e) {
+    if (!strcmp(e, "UTF-16BE")) return 1;
+    if (!strcmp(e, "UTF-16LE")) return 2;
+    if (!strcmp(e, "UTF-32BE")) return 3;
+    if (!strcmp(e, "UTF-32LE") || !strcmp(e, "wchar_t")) return 4;
+    if (!strcmp(e, "ISO-8859-1") || !strcmp(e, "US-ASCII") || !strcmp(e, "octet")) return 5;
+    return 0;
+}
+static const char *pl_enc_canon(const char *eb) {
+    static const char *const m[][2] = { { "utf8", "UTF-8" }, { "text", "UTF-8" }, { "utf16be", "UTF-16BE" }, { "utf16le", "UTF-16LE" }, { "unicodebe", "UTF-16BE" }, { "unicodele", "UTF-16LE" },
+        { "utf32be", "UTF-32BE" }, { "utf32le", "UTF-32LE" }, { "wchart", "wchar_t" }, { "octet", "octet" }, { "isolatin1", "ISO-8859-1" }, { "iso88591", "ISO-8859-1" }, { "latin1", "ISO-8859-1" },
+        { "ascii", "US-ASCII" }, { "usascii", "US-ASCII" }, { 0, 0 } };
+    for (int i = 0; m[i][0]; i++) if (!strcmp(eb, m[i][0])) return m[i][1];
+    return (const char *)0;
+}
 static const char *pl_flag_encoding(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int *bom_opt) {
@@ -6842,8 +6859,8 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
         if (pl_val_unbound(opt)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
         if (opt.v != (DTYPE_t)DT_PLREF || plc_fid_arity(opt.slen) != 1) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
         on = prolog_atom_name(plc_fid_name(opt.slen));
-        if (on && strcmp(on, "alias") && strcmp(on, "type") && strcmp(on, "reposition") && strcmp(on, "eof_action") && strcmp(on, "bom") && strcmp(on, "encoding") && pl_swi_dialect()
-            && !pl_float_flag("iso", "true")) {
+        if (on && strcmp(on, "alias") && strcmp(on, "type") && strcmp(on, "reposition") && strcmp(on, "eof_action") && strcmp(on, "bom") && strcmp(on, "encoding") && pl_swi_dialect() &&
+            !pl_float_flag("iso", "true")) {
             o = rt_pl_deref_val(kids[1]);
             continue;
         }
@@ -6884,9 +6901,7 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
                 char eb[(as ? strlen(as) : 0) + 1];
                 const char *en;
                 if (!as || !pl_enc_norm(as, eb, sizeof eb)) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
-                en = !strcmp(eb, "utf8") ||
-                    !strcmp(eb, "text") ? "UTF-8" : !strcmp(eb, "utf16be") ? "UTF-16BE" : !strcmp(eb, "utf16le") ? "UTF-16LE" : !strcmp(eb, "utf32be") ? "UTF-32BE" : !strcmp(eb, "utf32le") ?
-                    "UTF-32LE" : (const char *)0;
+                en = pl_enc_canon(eb);
                 if (!en) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
                 fh_set_encoding(idx, en);
             } else {
@@ -6953,6 +6968,81 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
 }
 #define PL_CX_LEAF_HEAD(nm, ar) DESCR_t rt_pl_dop_##nm##_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {int ok; if (nargs != ar) return FAILDESCR;pl_atoms_ready();rt_pl_tr_gc_sync(cx->tr);
 #define PL_CX_LEAF_TAIL rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_set_stream_bool(const char *as) { return as && (!strcmp(as, "true") || !strcmp(as, "false")); }
+PL_CX_LEAF_HEAD(set_stream, 2)
+    {
+        extern void *rt_pl_ball_instantiation(void);
+        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        extern void fh_set_alias(int, const char *);
+        extern int fh_alias_idx(const char *);
+        extern void fh_set_eof(int, int);
+        extern void fh_set_encoding(int, const char *);
+        extern int fh_transcode(int, int, const char *);
+        extern int fh_untranscode(int);
+        int idx = pl_stream_idx_ball(args[0], -1, 0, cx);
+        DESCR_t p = rt_pl_deref_val(args[1]), a;
+        const char *on, *as;
+        ok = 0;
+        if (idx < 0) goto done;
+        if (pl_val_unbound(p)) { cx->ball = rt_pl_ball_instantiation(); goto done; }
+        if (p.v != (DTYPE_t)DT_PLREF || plc_fid_arity(p.slen) != 1) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_attribute", p); goto done; }
+        on = prolog_atom_name(plc_fid_name(p.slen));
+        a = rt_pl_deref_val(((DESCR_t *)p.p)[0]);
+        as = pl_atom_str(a);
+        if (pl_val_unbound(a)) { cx->ball = rt_pl_ball_instantiation(); goto done; }
+        if (!on) cx->ball = rt_pl_ball_kind2("domain_error", "stream_attribute", p);
+        else if (!strcmp(on, "alias")) {
+            if (!as) { cx->ball = rt_pl_ball_kind2("type_error", "atom", a); goto done; }
+            { int j = fh_alias_idx(as); if (j >= 0 && j != idx) fh_set_alias(j, (const char *)0); }
+            fh_set_alias(idx, as);
+            ok = 1;
+        } else if (!strcmp(on, "eof_action")) {
+            if (!as) { cx->ball = rt_pl_ball_kind2("type_error", "atom", a); goto done; }
+            if (!strcmp(as, "error") || !strcmp(as, "eof_code") || !strcmp(as, "reset")) fh_set_eof(idx, !strcmp(as, "error") ? 'e' : !strcmp(as, "reset") ? 'r' : 'c');
+            ok = 1;
+        } else if (!strcmp(on, "type")) {
+            if (!as || (strcmp(as, "text") && strcmp(as, "binary"))) { cx->ball = rt_pl_ball_kind2("domain_error", "type", a); goto done; }
+            g_fh[idx].type = as[0] == 'b' ? 'b' : 't';
+            ok = 1;
+        } else if (!strcmp(on, "encoding")) {
+            char eb[(as ? strlen(as) : 0) + 1];
+            const char *en = as && pl_enc_norm(as, eb, sizeof eb) ? pl_enc_canon(eb) : (const char *)0;
+            int k;
+            if (!en) { cx->ball = rt_pl_ball_kind2("domain_error", "encoding", a); goto done; }
+            k = pl_enc_kind(en);
+            if (k) ok = fh_transcode(idx, k, g_fh[idx].mode == 'r' ? "r" : "w");
+            else { if (g_fh[idx].raw) fh_untranscode(idx); ok = 1; }
+            if (ok) fh_set_encoding(idx, strcmp(en, "UTF-8") ? en : (const char *)0);
+        } else if (!strcmp(on, "line_position")) {
+            if (a.v != DT_I) { cx->ball = rt_pl_ball_kind2("type_error", "integer", a); goto done; }
+            g_fh[idx].pos_lpos = (long)a.i;
+            ok = 1;
+        } else if (!strcmp(on, "file_name")) {
+            extern char *rt_heap_strdup_c(const char *);
+            if (!as) { cx->ball = rt_pl_ball_kind2("type_error", "atom", a); goto done; }
+            g_fh[idx].name = rt_heap_strdup_c(as);
+            ok = 1;
+        } else if (!strcmp(on, "buffer")) {
+            ok = as && (!strcmp(as, "full") || !strcmp(as, "line") || !strcmp(as, "false"));
+            if (!ok) cx->ball = rt_pl_ball_kind2("domain_error", "buffer", a);
+        } else if (!strcmp(on, "buffer_size") || !strcmp(on, "timeout")) {
+            ok = a.v == DT_I || a.v == DT_R || (as && !strcmp(as, "infinite"));
+            if (!ok) cx->ball = rt_pl_ball_kind2("type_error", "integer", a);
+        } else if (!strcmp(on, "close_on_abort") || !strcmp(on, "close_on_exec") || !strcmp(on, "tty") || !strcmp(on, "record_position")) {
+            ok = pl_set_stream_bool(as);
+            if (!ok) cx->ball = rt_pl_ball_kind2("type_error", "bool", a);
+        } else if (!strcmp(on, "newline")) {
+            ok = as && (!strcmp(as, "posix") || !strcmp(as, "dos") || !strcmp(as, "detect"));
+            if (!ok) cx->ball = rt_pl_ball_kind2("domain_error", "newline", a);
+        } else if (!strcmp(on, "representation_errors")) {
+            ok = as && (!strcmp(as, "error") || !strcmp(as, "prolog") || !strcmp(as, "xml"));
+            if (!ok) cx->ball = rt_pl_ball_kind2("domain_error", "representation_errors", a);
+        } else cx->ball = rt_pl_ball_kind2("domain_error", "stream_attribute", p);
+        done:
+        ;
+    }
+PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_plco_mark(char *tr);
 extern int rt_plco_inside(void);
@@ -8635,14 +8725,15 @@ static int pl_edin_revert(int is_out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *nm; const char *val; int mod; const char *allow[6]; int is_term; DESCR_t term; } pl_flag_t;
-static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "integer_rounding_function", "toward_zero", 0, { 0 } }, { "max_arity", "2147483647", 0, { 0 } }, { "float_overflow",
-    "error", 1, { "error", "infinity", 0 } }, { "float_zero_div", "error", 1, { "error", "infinity", 0 } }, { "float_undefined", "error", 1, { "error", "nan", 0 } }, { "char_conversion", "off", 1,
-    { "on", "off", 0 } }, { "debug", "off", 1, { "on", "off", 0 } }, { "unknown", "error", 1, { "error", "fail", "warning", 0 } }, { "double_quotes", "codes", 1, { "atom", "chars", "codes", "string",
-    0 } }, { "protect_static_code", "false", 1, { "true", "false", 0 } }, { "iso", "false", 1, { "true", "false", 0 } }, { "occurs_check", "false", 1, { "true", "false", "error", 0 } },
-    { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", "UTF-16BE", "UTF-16LE", "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0,
-    { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } },
-    { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on", "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect",
-    "iso", 1, { "iso", "swi", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { 0, "", 0, { 0 } } };
+static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "integer_rounding_function", "toward_zero", 0, { 0 } }, { "max_arity", "2147483647", 0, { 0 } }, { "max_char_code",
+    "1114111", 0, { 0 } }, { "float_overflow", "error", 1, { "error", "infinity", 0 } }, { "float_zero_div", "error", 1, { "error", "infinity", 0 } }, { "float_undefined", "error", 1, { "error",
+    "nan", 0 } }, { "char_conversion", "off", 1, { "on", "off", 0 } }, { "debug", "off", 1, { "on", "off", 0 } }, { "unknown", "error", 1, { "error", "fail", "warning", 0 } }, { "double_quotes",
+    "codes", 1, { "atom", "chars", "codes", "string", 0 } }, { "protect_static_code", "false", 1, { "true", "false", 0 } }, { "iso", "false", 1, { "true", "false", 0 } }, { "occurs_check", "false", 1,
+    { "true", "false", "error", 0 } }, { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", "UTF-16BE", "UTF-16LE", "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0,
+    { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on",
+    "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on", "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } },
+    { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { 0, "", 0,
+    { 0 } } };
 static cv_t g_pl_flags;
 #define pl_flags ((pl_flag_t *)g_pl_flags.p)
 static void pl_flags_ready(void) { if (g_pl_flags.len) return; for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; } }
@@ -8742,6 +8833,8 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
             ok = plw_unify_vals(args[1], pl_nil(), cx);
         } else if (!strcmp(fl->nm, "max_arity")) {
             ok = plw_unify_vals(args[1], INTVAL(PROLOG_MAX_ARITY), cx);
+        } else if (!strcmp(fl->nm, "max_char_code")) {
+            ok = plw_unify_vals(args[1], INTVAL(0x10FFFF), cx);
         } else if (!strcmp(fl->nm, "version_data")) {
             extern int prolog_atom_intern(const char *);
             DESCR_t *kk = (DESCR_t *)rt_ws_alloc_descr(4), c;
@@ -9500,7 +9593,7 @@ PL_CX_LEAF_HEAD(pl_sp_check, 2)
     {
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
         extern int prolog_atom_intern(const char *);
-        static const char *const pn[] = { "file_name", "mode", "input", "output", "alias", "position", "end_of_stream", "eof_action", "reposition", "type", "encoding", "bom", "newline", 0 };
+        static const char *const pn[] = { "file_name", "mode", "input", "output", "alias", "position", "end_of_stream", "eof_action", "reposition", "type", "encoding", "bom", "newline", "buffer", 0 };
         DESCR_t s = rt_pl_deref_val(args[0]), p = rt_pl_deref_val(args[1]);
         const char *nm = (const char *)0;
         int i;

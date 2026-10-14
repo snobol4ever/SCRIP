@@ -6100,6 +6100,7 @@ DESCR_t rt_pl_dop_gnu_last_read_start(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_abs
 DESCR_t rt_pl_dop_gnu_builtin(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_working_directory(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_change_directory(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_make_directory(DESCR_t *, int);
     DESCR_t rt_pl_dop_gnu_os(DESCR_t *, int);
+    DESCR_t rt_pl_dop_set_stream(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_delete_file(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_file_exists(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_directory_files(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_environ_list(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_file_props(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_term_hash(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_prolog_pid(DESCR_t *, int);
@@ -6250,6 +6251,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$gnu_change_directory", 1, "rt_pl_dop_gnu_change_directory", rt_pl_dop_gnu_change_directory },
         { "$gnu_make_directory", 1, "rt_pl_dop_gnu_make_directory", rt_pl_dop_gnu_make_directory },
         { "$gnu_os", 3, "rt_pl_dop_gnu_os", rt_pl_dop_gnu_os },
+        { "$set_stream", 2, "rt_pl_dop_set_stream", rt_pl_dop_set_stream },
         { "$gnu_delete_file", 1, "rt_pl_dop_gnu_delete_file", rt_pl_dop_gnu_delete_file },
         { "$gnu_file_exists", 1, "rt_pl_dop_gnu_file_exists", rt_pl_dop_gnu_file_exists },
         { "$gnu_directory_files", 2, "rt_pl_dop_gnu_directory_files", rt_pl_dop_gnu_directory_files },

@@ -721,6 +721,7 @@ test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-
 test_gate_pl_read_raises_catchable_syntax_error.sh	WIRED	-	-	-
 test_gate_pl_read_term_syntax_error_option_answers_as_the_oracles.sh	WIRED	-	-	-
 test_gate_pl_readutil_and_the_file_name_builtins_answer_as_swipl.sh	WIRED	-	-	-
+test_gate_pl_set_stream_encodings_pure_input_and_format_s_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_set_stream_position_round_trips_and_refuses.sh	WIRED	-	-	-
 test_gate_pl_setup_call_cleanup_runs_its_cleanup_on_every_road.sh	WIRED	-	-	-
 test_gate_pl_sort_4_answers_as_swipl.sh	WIRED	-	-	-

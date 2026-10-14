@@ -104,7 +104,7 @@ DROP_DIRECTIVES = {"module", "use_module", "autoload", "meta_predicate", "multif
 KEEP_DIRECTIVES = {"if", "elif", "else", "endif", "op", "create_prolog_flag", "dynamic"}
 EXPANDED = {"clpfd"}
 LIB_PATH = {"dcg_basics": "dcg/basics"}
-RENAME_TERMS_AS_DATA = {"clpfd": {"neq_num"}}
+RENAME_TERMS_AS_DATA = {"clpfd": {"neq_num"}, "pure_input": {"attr_unify_hook_ndebug"}}
 RENAME_AS_DATA = {"clpfd": {"selection", "order", "choice", "bare_integer", "circuit_successors", "g0_successors", "gcc_successors", "clear_parent", "fd_variable",
                             "conjunction", "disjunction", "sink", "source", "clpfd_equal_", "clpfd_geq_", "clpfd_neq"}}
 LOCAL = {"gnu_fd", "gnu_builtins", "dicts", "pcre"}

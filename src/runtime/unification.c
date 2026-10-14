@@ -1552,19 +1552,27 @@ static int plc_fmt_text(pl_cell_t *h, char **out, size_t *len, void **ball) {
     while (lst && (int)lst->v == DT_PLREF && pl_arity(lst) == 2) {
         pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(lst);
         pl_cell_t *e = pl_deref(&aa[0]);
-        int ch = -1;
+        long ch = -1;
+        const char *cs = (const char *)0;
+        size_t cl = 0;
         if (pl_cell_unbound(e)) { ct_drop(b); if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }
-        if (pl_is_int(e)) ch = (int)pl_int_val(e);
-        else if (plc_fmt_is_atom(e)) {
-            const char *s = plc_atom_text(e);
-            ch = s ? (unsigned char)s[0] : 0;
+        if (pl_is_int(e)) ch = (long)pl_int_val(e);
+        else if (plc_fmt_is_atom(e)) { cs = plc_atom_text(e); cl = cs ? strlen(cs) : 0; } else { ct_drop(b); if (!*ball) *ball = rt_pl_ball_kind2("type_error", "text", *e); return 0; }
+        if (n + cl + 6 > cap) { while (n + cl + 6 > cap) cap *= 2; char *nb = (char *)ct_grow(b, cap); if (!nb) { ct_drop(b); return 0; } b = nb; }
+        if (cs) { memcpy(b + n, cs, cl); n += cl; } else if (ch < 0x80) b[n++] = (char)ch;
+        else if (ch < 0x800) {
+            b[n++] = (char)(0xC0 | (ch >> 6));
+            b[n++] = (char)(0x80 | (ch & 0x3F));
+        } else if (ch < 0x10000) {
+            b[n++] = (char)(0xE0 | (ch >> 12));
+            b[n++] = (char)(0x80 | ((ch >> 6) & 0x3F));
+            b[n++] = (char)(0x80 | (ch & 0x3F));
         } else {
-            ct_drop(b);
-            if (!*ball) *ball = rt_pl_ball_kind2("type_error", "text", *e);
-            return 0;
+            b[n++] = (char)(0xF0 | (ch >> 18));
+            b[n++] = (char)(0x80 | ((ch >> 12) & 0x3F));
+            b[n++] = (char)(0x80 | ((ch >> 6) & 0x3F));
+            b[n++] = (char)(0x80 | (ch & 0x3F));
         }
-        if (n + 2 > cap) { cap *= 2; char *nb = (char *)ct_grow(b, cap); if (!nb) { ct_drop(b); return 0; } b = nb; }
-        b[n++] = (char)ch;
         lst = pl_deref(&aa[1]);
     }
     if (lst && pl_cell_unbound(lst)) { ct_drop(b); if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }

@@ -13670,6 +13670,107 @@ static const char PL_PRELUDE_LIB_14_SRC[] =
     "'$re_take'(0, _, []) :- !.\n"
     "'$re_take'(N, [C|Cs], [C|Ts]) :- N1 is N - 1, '$re_take'(N1, Cs, Ts).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
+    { "phrase_from_file", 2 },
+    { "phrase_from_file", 3 },
+    { "phrase_from_stream", 2 },
+    { "stream_to_lazy_list", 2 },
+    { "syntax_error", 3 },
+    { "lazy_list_location", 3 },
+    { "lazy_list_character_count", 3 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_15_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_15_SRC[] =
+    "phrase_from_file(Grammar, File) :-\n"
+    "    phrase_from_file(Grammar, File, []).\n"
+    "phrase_from_file(Grammar, File, Options) :-\n"
+    "    setup_call_cleanup(\n"
+    "        open(File, read, In, Options),\n"
+    "        phrase_from_stream(Grammar, In),\n"
+    "        close(In)).\n"
+    "phrase_from_stream(Grammar, In) :-\n"
+    "    stream_to_lazy_list(In, List),\n"
+    "    phrase(Grammar, List).\n"
+    "syntax_error(Error) -->\n"
+    "    lazy_list_location(Location),\n"
+    "    { throw(error(syntax_error(Error), Location))\n"
+    "    }.\n"
+    "lazy_list_location(Location, Here, Here) :-\n"
+    "    '$pure_input_lazy_list_location'(Here, Location).\n"
+    "'$pure_input_lazy_list_location'(Here, Location) :-\n"
+    "    '$skip_list'(Skipped, Here, Tail),\n"
+    "    (   attvar(Tail)\n"
+    "    ->  get_attr(Tail, pure_input, State),\n"
+    "        State = lazy_input(Stream, PrevPos, Pos, _),\n"
+    "        Details = [Line, LinePos, CharNo],\n"
+    "        (   stream_property(Stream, file_name(File))\n"
+    "        ->  PosParts = [file, File|Details]\n"
+    "        ;   PosParts = [stream, Stream|Details]\n"
+    "        ),\n"
+    "        Location =.. PosParts,\n"
+    "        (   PrevPos == (-)\n"
+    "        ->  Line = 1, LinePos = 0, CharNo = 0\n"
+    "        ;   stream_position_data(char_count, Pos, EndRecordCharNo),\n"
+    "            CharNo is EndRecordCharNo - Skipped,\n"
+    "            set_stream_position(Stream, PrevPos),\n"
+    "            stream_position_data(char_count, PrevPos, StartRecordCharNo),\n"
+    "            Skip is CharNo-StartRecordCharNo,\n"
+    "            forall(between(1, Skip, _), get_code(Stream, _)),\n"
+    "            stream_property(Stream, position(ErrorPos)),\n"
+    "            stream_position_data(line_count, ErrorPos, Line),\n"
+    "            stream_position_data(line_position, ErrorPos, LinePos)\n"
+    "        )\n"
+    "    ;   Tail == []\n"
+    "    ->  Location = end_of_file-Skipped\n"
+    "    ;   type_error(lazy_list, Here)\n"
+    "    ).\n"
+    "lazy_list_character_count(Location, Here, Here) :-\n"
+    "    '$pure_input_lazy_list_character_count'(Here, Location).\n"
+    "'$pure_input_lazy_list_character_count'(Here, CharNo) :-\n"
+    "    '$skip_list'(Skipped, Here, Tail),\n"
+    "    (   attvar(Tail)\n"
+    "    ->  get_attr(Tail, pure_input, State),\n"
+    "        arg(3, State, Pos),\n"
+    "        stream_position_data(char_count, Pos, EndRecordCharNo),\n"
+    "        CharNo is EndRecordCharNo - Skipped\n"
+    "    ;   Tail == []\n"
+    "    ->  CharNo = end_of_file-Skipped\n"
+    "    ;   type_error(lazy_list, Here)\n"
+    "    ).\n"
+    "stream_to_lazy_list(Stream, List) :-\n"
+    "    (   stream_property(Stream, buffer(false))\n"
+    "    ->  permission_error(create, lazy_list, Stream)\n"
+    "    ;   true\n"
+    "    ),\n"
+    "    '$pure_input_stream_to_lazy_list'(Stream, -, List).\n"
+    "'$pure_input_stream_to_lazy_list'(Stream, PrevPos, List) :-\n"
+    "    stream_property(Stream, position(Pos)),\n"
+    "    put_attr(List, pure_input, lazy_input(Stream, PrevPos, Pos, _)).\n"
+    "pure_input:attr_unify_hook(State, Value) :-\n"
+    "    '$notrace'('$pure_input_attr_unify_hook_ndebug'(State, Value)).\n"
+    "'$pure_input_attr_unify_hook_ndebug'(State, Value) :-\n"
+    "    State = lazy_input(Stream, _PrevPos, Pos, Read),\n"
+    "    (   var(Read)\n"
+    "    ->  fill_buffer(Stream),\n"
+    "        read_pending_codes(Stream, NewList, Tail),\n"
+    "        (   Tail == []\n"
+    "        ->  nb_setarg(4, State, []),\n"
+    "            Value = []\n"
+    "        ;   '$pure_input_stream_to_lazy_list'(Stream, Pos, Tail),\n"
+    "            nb_linkarg(4, State, NewList),\n"
+    "            Value = NewList\n"
+    "        )\n"
+    "    ;   Value = Read\n"
+    "    ).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
     { "unix", 1 },
     { "abs", 2 },
     { "sin", 2 },
@@ -13707,16 +13808,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
     { "on_exception", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_15_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_15_SRC[] =
+static const char PL_PRELUDE_LIB_16_SRC[] =
     "unix(system(Command)) :-\n"
     "    shell(Command).\n"
     "unix(shell(Command)) :-\n"
@@ -13826,7 +13927,7 @@ static const char PL_PRELUDE_LIB_15_SRC[] =
     "    throw(Term).\n"
     "on_exception(Except, Goal, Recover) :-\n"
     "    catch(Goal, Except, Recover).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "rb_new", 1 },
     { "rb_empty", 1 },
     { "rb_lookup", 3 },
@@ -13857,16 +13958,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
     { "rb_in", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_16_SRC[] =
+static const char PL_PRELUDE_LIB_17_SRC[] =
     "rb_new(t(Nil,Nil)) :-\n"
     "    Nil = black('',_,_,'').\n"
     "rb_empty(t(Nil,Nil)) :-\n"
@@ -14475,7 +14576,7 @@ static const char PL_PRELUDE_LIB_16_SRC[] =
     "'$rbtrees_check_red_child'(black(_,_,_,_)) => true.\n"
     "'$rbtrees_check_red_child'(Node), Node = red(_,_,_,_) =>\n"
     "    domain_error(rb_black, Node).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "read_line_to_codes", 2 },
     { "read_line_to_codes", 3 },
     { "read_stream_to_codes", 2 },
@@ -14486,16 +14587,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "read_file_to_terms", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_17_SRC[] =
+static const char PL_PRELUDE_LIB_18_SRC[] =
     "'$readutil_link_foreign' :-\n"
     "    catch(use_foreign_library(foreign(readutil)), _, fail),\n"
     "    !.\n"
@@ -14605,7 +14706,7 @@ static const char PL_PRELUDE_LIB_17_SRC[] =
     "        open(Path, read, Stream, Options),\n"
     "        '$readutil_read_stream_to_terms'(Stream, Terms, Tail, Options),\n"
     "        close(Stream)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "dedent_lines", 3 },
     { "indent_lines", 3 },
     { "indent_lines", 4 },
@@ -14613,16 +14714,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "string_lines", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_18_SRC[] =
+static const char PL_PRELUDE_LIB_19_SRC[] =
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
     "interpolate_string(Module:In, Out, Map, Options) :-\n"
     "    '$strings_comp_interpolate'(In, Compiled, Map, [module(Module)|Options]),\n"
@@ -14832,23 +14933,23 @@ static const char PL_PRELUDE_LIB_18_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_19_SRC[] =
+static const char PL_PRELUDE_LIB_20_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -14999,10 +15100,11 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "ordsets", PL_PRELUDE_LIB_12_EXPORTS, PL_PRELUDE_LIB_12_OPS, PL_PRELUDE_LIB_12_SHADOWS, PL_PRELUDE_LIB_12_QUIET, PL_PRELUDE_LIB_12_SRC },
     { "pairs", PL_PRELUDE_LIB_13_EXPORTS, PL_PRELUDE_LIB_13_OPS, PL_PRELUDE_LIB_13_SHADOWS, PL_PRELUDE_LIB_13_QUIET, PL_PRELUDE_LIB_13_SRC },
     { "pcre", PL_PRELUDE_LIB_14_EXPORTS, PL_PRELUDE_LIB_14_OPS, PL_PRELUDE_LIB_14_SHADOWS, PL_PRELUDE_LIB_14_QUIET, PL_PRELUDE_LIB_14_SRC },
-    { "quintus", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC },
-    { "rbtrees", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
-    { "readutil", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
-    { "strings", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
-    { "writef", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
+    { "pure_input", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC },
+    { "quintus", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
+    { "rbtrees", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
+    { "readutil", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
+    { "strings", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
+    { "writef", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC },
     { 0, 0, 0, 0, 0, 0 }
 };

@@ -2192,6 +2192,21 @@ static const char * const PL_PRELUDE_SRC =
     "variant_sha1(T, H) :- ( attvar(T) -> throw(error(instantiation_error, variant_sha1/2)) ; \\+ acyclic_term(T) -> throw(error(type_error(acyclic_term, T), variant_sha1/2)) ; term_attvars(T, "
     "[_|_]) -> throw(error(type_error(free_of_attvar, T), variant_sha1/2)) ; true ), '$variant_key'(T, K), format(atom(A), '~k', [K]), string_bytes(A, Bs, utf8), '$sha1_hex'(Bs, H).\n"
     "variant_hash(T, H) :- '$variant_key'(T, K), term_hash(K, H).\n"
+    "'$notrace'(G) :- call(G).\n"
+    "getenv(N, V) :- ( var(N) -> throw(error(instantiation_error, getenv/2)) ; true ), environ(N, V0), !, V = V0.\n"
+    "fill_buffer(S) :- ( var(S) -> throw(error(instantiation_error, fill_buffer/1)) ; true ).\n"
+    "read_pending_codes(S, Cs, T) :- get_code(S, C), ( C == -1 -> Cs = [], T = [] ; Cs = [C|R], '$rp_codes'(4095, S, R, T) ).\n"
+    "'$rp_codes'(0, _, T, T) :- !.\n"
+    "'$rp_codes'(N, S, Cs, T) :- peek_code(S, C), ( C == -1 -> Cs = T ; get_code(S, C), Cs = [C|R], N1 is N - 1, '$rp_codes'(N1, S, R, T) ).\n"
+    "read_pending_chars(S, Cs, T) :- get_char(S, C), ( C == end_of_file -> Cs = [], T = [] ; Cs = [C|R], '$rp_chars'(4095, S, R, T) ).\n"
+    "'$rp_chars'(0, _, T, T) :- !.\n"
+    "'$rp_chars'(N, S, Cs, T) :- peek_char(S, C), ( C == end_of_file -> Cs = T ; get_char(S, C), Cs = [C|R], N1 is N - 1, '$rp_chars'(N1, S, R, T) ).\n"
+    "nb_linkarg(N, T, V) :- nb_setarg(N, T, V).\n"
+    "tmp_file(Base, Name) :- ( var(Base) -> throw(error(instantiation_error, tmp_file/2)) ; true ), prolog_pid(P), ( nb_current('$tmp_file_n', N0) -> true ; N0 = 0 ), N is N0 + 1, "
+    "nb_setval('$tmp_file_n', N), ( getenv('TMPDIR', D) -> true ; D = '/tmp' ), atomic_list_concat([D, '/swipl_', Base, '_', P, '_', N], Name).\n"
+    "tmp_file_stream(A, B, C) :- ( var(A), is_list(C) -> File = A, Stream = B, Opts = C ; File = B, Stream = C, Opts = [encoding(A)] ), ( memberchk(extension(Ext), Opts) -> true ; Ext = '' ), "
+    "tmp_file(tmp, F0), ( Ext == '' -> File = F0 ; file_name_extension(F0, Ext, File) ), ( memberchk(encoding(E), Opts) -> true ; E = utf8 ), ( E == binary -> open(File, write, Stream, "
+    "[type(binary)]) ; open(File, write, Stream, [encoding(E)]) ).\n"
     "read_string(S, Len, Str) :- ( var(Len) -> '$rs_all'(S, Cs), length(Cs, Len) ; '$rs_nonneg'(Len), '$rs_n'(Len, S, Cs) ), string_codes(Str, Cs).\n"
     "'$rs_all'(S, Cs) :- get_code(S, C), ( C == -1 -> Cs = [] ; Cs = [C|T], '$rs_all'(S, T) ).\n"
     "'$rs_nonneg'(L) :- ( integer(L) -> ( L >= 0 -> true ; throw(error(type_error(nonneg, L), read_string/3)) ) ; throw(error(type_error(integer, L), read_string/3)) ).\n"
@@ -2711,6 +2726,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "write_canonical")) pl_cv_add(referenced, "$write_canonical_swi");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "display")) pl_cv_add(referenced, "$display_swi");
+        if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "put_attr") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "freeze")) pl_cv_add(referenced, "$wakeup");
         PlClause *nextc = NULL;
         for (PlClause *cl = lp[i]->head; cl; cl = nextc) {
             nextc = cl->next;

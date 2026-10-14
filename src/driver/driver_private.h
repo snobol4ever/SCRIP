@@ -76,6 +76,7 @@ void fh_set_encoding(int idx, const char *nm);
 const char *fh_encoding(int idx);
 void fh_set_bom(int idx, int v);
 int fh_transcode(int idx, int kind, const char *mode);
+int fh_untranscode(int idx);
 int fh_bom(int idx);
 void fh_set_repos(int idx, int v);
 int fh_repos(int idx);
