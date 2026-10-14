@@ -748,6 +748,7 @@ test_gate_pl_swi_every_shipped_case_is_graded_by_path.sh	WIRED	-	-	-
 test_gate_pl_swi_library_modules_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_swi_shim_grades_all_by_each_plunit_comparison.sh	WIRED	-	-	-
 test_gate_pl_swi_shim_calls_a_condition_it_does_not_recognise.sh	WIRED	-	-	-
+test_gate_pl_swi_shim_grades_an_error_expectation_as_plunit_does.sh	WIRED	-	-	-
 test_gate_pl_swi_shim_runs_a_forall_test_per_instance.sh	WIRED	-	-	-
 test_gate_pl_tabling_phase_1_answers_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_term_inspection_iso_errors.sh	WIRED	-	-	-
