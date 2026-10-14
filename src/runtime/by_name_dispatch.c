@@ -6654,6 +6654,7 @@ static void *pl_format_body(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     lst = pl_nil();
     if (nargs == 2) {
         DESCR_t cur = rt_pl_deref_val(args[1]);
+        if (pl_swi_dialect() && !pl_is_cons(cur) && !pl_is_nil(cur)) return rt_pl_format_run(fmt, (lst = pl_cons(args[1], pl_nil()), &lst), cx);
         while (pl_is_cons(cur)) cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]);
         if (pl_val_unbound(cur)) return rt_pl_ball_instantiation();
         if (!pl_is_nil(cur)) return rt_pl_ball_kind2("type_error", "list", rt_pl_deref_val(args[1]));
