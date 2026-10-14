@@ -60,7 +60,7 @@ def stem(n):
 # ⛔ PACKAGES WITH NO OUTSIDE FILE WHOSE ROW IS STILL THEIR SHIPPED POPULATION (ceo CEO-1272, coo 2026-09-25): IPL publishes the
 # inventory's shipped count since SCRIP e6120e5ba, so its UNGRADED/UNGRADABLE sidecars are part of the row's denominator exactly as
 # they are for the packages above; without the fold the audit read IPL's 843 against a DB population of 194.
-PKG_SIDECARS = {"ipl": "packages/icon/ipl"}
+PKG_SIDECARS = {"ipl": "packages/icon/ipl", "puzzles": "packages/prolog/puzzles"}
 
 
 def container_stems(corpus, key):
