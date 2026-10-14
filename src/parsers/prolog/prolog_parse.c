@@ -1220,7 +1220,7 @@ static PlClause *parse_clause(Parser *p) {
     TreeScope *ts = &p->ts; ts->e.len = 0;
     PlClause *cl = ct_zalloc(1, sizeof(PlClause));
     cl->lineno = pk.line;
-    if (pk.kind == TK_NECK) {
+    if (pk.kind == TK_NECK || pk.kind == TK_QUERY) {
         lexer_next(&p->lx);
         Token pa = lexer_peek(&p->lx);
         if (pa.kind == TK_LPAREN && pa.adj) {
@@ -2235,6 +2235,13 @@ static const char * const PL_PRELUDE_SRC =
     "'$mod_split'(N,M,R):-atom(N),sub_atom(N,Bf,1,Af,':'),!,Bf>0,Af>0,sub_atom(N,0,Bf,_,M),sub_atom(N,_,Af,0,R),atom_codes(M,[C|Cs]),C>=0'a,C=<0'z,'$mod_idc'(Cs).\n"
     "'$mod_idc'([]).\n"
     "'$mod_idc'([C|Cs]):-(C>=0'a,C=<0'z;C>=0'A,C=<0'Z;C>=0'0,C=<0'9;C=:=0'_),!,'$mod_idc'(Cs).\n"
+    "findnsols(N,_,_,_):-var(N),!,throw(error(instantiation_error,_)).\n"
+    "findnsols(N,_,_,_):- \\+integer(N),!,throw(error(type_error(integer,N),_)).\n"
+    "findnsols(N,_,_,L):-N=<0,!,L=[].\n"
+    "findnsols(N,T0,G0,L):-copy_term(T0-G0,T-G),S='$fns'(0,[],no),(call(G),arg(2,S,A0),nb_setarg(2,S,[T|A0]),arg(1,S,C0),C is C0+1,nb_setarg(1,S,C),C>=N,arg(2,S,A),nb_setarg(1,S,0),nb_setarg(2,S,[]),nb_setarg(3,S,yes),reverse(A,L);arg(2,S,A),arg(3,S,Y),(A==[]->Y==no;true),reverse(A,L)).\n"
+    "divmod(A,B,Q,R):-Q is A div B,R is A mod B.\n"
+    "lazy_list(Next,S0,L):-freeze(L,'$lazy_list_next'(Next,S0,L)).\n"
+    "'$lazy_list_next'(Next,S0,L):-(call(Next,S0,S1,H)->L=[H|T],lazy_list(Next,S1,T);L=[]).\n"
     "'$at_ctx'(V):-var(V),!,throw(error(instantiation_error,_)).\n"
     "'$at_ctx'(_).\n"
     "@(G,M):-'$at_ctx'(G),'$at_ctx'(M),(G=Q:_->'$at_ctx'(Q);true),call(G).\n"
@@ -2905,6 +2912,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "meta_predicate")) pl_cv_add(&referenced, "$mq_arg");
     if (pl_cv_has(&referenced, "clause")) pl_cv_add(&referenced, "$clause_unmangle");
     if (pl_cv_has(&referenced, "@")) pl_cv_add(&referenced, "$at_ctx");
+    if (pl_cv_has(&referenced, "lazy_list")) pl_cv_add(&referenced, "$wakeup");
     {
         int napi = 0;
         while (pl_attv_api[napi]) napi++;

@@ -787,6 +787,13 @@ static void pl_mod_meta_collect(tree_t *e, cv_t *metas) {
     if (e->t == TT_FNC && e->v.sval && !strcmp(e->v.sval, ":") && e->n == 2) e = e->c[1];
     if (e && e->t == TT_FNC && e->v.sval && e->n > 0) CV_PUSH(*metas, const tree_t *) = e;
 }
+static void pl_mod_strip_head(PlClause *cl) {
+    tree_t *h = (cl->tr && cl->tr->t == TT_CLAUSE && cl->tr->n >= 1) ? cl->tr->c[0] : (tree_t *)0, *in;
+    if (!h || h->t != TT_FNC || !h->v.sval || strcmp(h->v.sval, ":") || h->n != 2 || !pl_mod_atomish(h->c[0]) || !(in = h->c[1]) || !in->v.sval) return;
+    if (in->t != TT_FNC && !pl_mod_atomish(in)) return;
+    if (in->t == TT_FNC && in->n == 2 && (!strcmp(in->v.sval, ":-") || !strcmp(in->v.sval, ",") || !strcmp(in->v.sval, ";") || !strcmp(in->v.sval, "->") || !strcmp(in->v.sval, ":"))) return;
+    cl->tr->c[0] = in;
+}
 static void pl_module_flatten(PlProgram *pl_prog) {
     pl_mods_t ms;
     int n = 0, ci = 0, any = 0;
@@ -843,7 +850,10 @@ static void pl_module_flatten(PlProgram *pl_prog) {
             }
         }
     }
-    if (!any) return;
+    if (!any) {
+        if (g_stage2.pl_dialect_swi) for (PlClause *cl = pl_prog->head; cl; cl = cl->next) if (cl->lineno) pl_mod_strip_head(cl);
+        return;
+    }
     {
         cv_t keep = { 0 };
         for (uint32_t i = 0; i < ms.defs.len; i++) {
@@ -891,6 +901,7 @@ static void pl_module_flatten(PlProgram *pl_prog) {
                 if (!in || !in->v.sval || pl_mod_never_renamed(in->v.sval, in->t == TT_FNC ? in->n : 0, m1 && !strncmp(m1, "plunit_", 7)) || (in->t == TT_FNC && in->n == 2 && (!strcmp(in->v.sval, ":-")
                     || !strcmp(in->v.sval, ",") || !strcmp(in->v.sval, ";") || !strcmp(in->v.sval, "->") || !strcmp(in->v.sval, ":")))) {
                     if (cl->tr->n >= 2) pl_mod_goal(&ms, m1, m2, cl->tr->c[1], 0);
+                    pl_mod_strip_head(cl);
                     continue;
                 }
                 pl_mod_head(&ms, m1, m2, h);
