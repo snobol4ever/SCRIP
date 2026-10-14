@@ -51,6 +51,11 @@ data atoms -- in, ins, sum, chain, element, label, transpose -- so open(F, read,
 selected all of clpfd and cost ~9 s of compile (measured: f(in) 9.36 s, f(sum) 9.05 s, f(element) 8.03 s; three Logtalk
 stream_property/2 cases timed out at 10 s on alias(in)).  swipl never autoloads clpfd, and every corpus program naming a clpfd
 export as a bare closure (maplist(all_distinct, Rows), maplist(indomain, Vs)) also calls one at its full arity, which selects it.
+gnu_builtins (SCRIP's own GNU text) is quiet the same way (cfo 2026-10-14): library(error)'s type atom list_or_partial_list and the atoms
+system and shell, data in error, dicts and quintus, named its exports list_or_partial_list/1, system/1 and shell/1,2, so every program
+reaching library(error) parsed gnu_builtins and the lists and pairs it reaches (test_gate_pl_prelude_libs_cost.sh ARM 2 read 5 libraries
+for rbtrees where it wants 2, red since 43a241a77 added list_or_partial_list/1); no corpus program passes a gnu_builtins export as a
+bare closure.
 
 A library whose SWI path is not its file stem is named in LIB_PATH (dcg_basics.pl is SWI's library/dcg/basics.pl, module
 dcg_basics): the reader resolves and identity-checks it there.
@@ -105,7 +110,7 @@ RENAME_AS_DATA = {"clpfd": {"selection", "order", "choice", "bare_integer", "cir
 LOCAL = {"gnu_fd", "gnu_builtins", "dicts", "pcre"}
 SHADOWS = {"gnu_fd": {("fd_dom", 2): "GNU's fd_dom/2 answers the list of the domain's values where SWI's answers the domain term (measured on gprolog 1.6.0 and swipl 9.0.4, 2026-10-10)"}}
 QUIET = {"gnu_fd": {("fd_dom", 2)}}
-QUIET_BARE = {"dcg_basics", "clpfd"}
+QUIET_BARE = {"dcg_basics", "clpfd", "gnu_builtins"}
 WRAPS = {"gnu_fd": {"clpfd": {("#=", 2), ("#\\=", 2), ("#<", 2), ("#>", 2), ("#=<", 2), ("#>=", 2), ("#/\\", 2), ("#\\/", 2), ("#\\", 1), ("#==>", 2)}}}
 EXPAND_PL = os.path.join(HERE, "util_gen_prolog_prelude_libs_expand.pl")
 INIT_DROPS = {"clpfd": {"warn_if_bounded_arithmetic": "only prints a warning when the integer flag bounded is true"}}

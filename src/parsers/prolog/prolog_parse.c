@@ -2503,6 +2503,36 @@ static int pl_pk_has(const pl_pk_t *t, uint32_t cap, const char *s, int ar) {
         if (t[i].n == n && t[i].ar == ar && !memcmp(t[i].s, s, (size_t)n)) return 1;
     }
 }
+typedef struct { pl_pk_t *t; uint32_t cap, n; } pl_pk_set_t;
+static void pl_pk_set_add(pl_pk_set_t *h, const char *s, int n, int ar) {
+    if (2 * (h->n + 1) > h->cap) {
+        uint32_t nc = h->cap ? h->cap * 2 : 256;
+        pl_pk_t *nt = (pl_pk_t *)ct_zalloc(nc, sizeof(pl_pk_t));
+        for (uint32_t i = 0; i < h->cap; i++) if (h->t[i].s) pl_pk_put(nt, nc, h->t[i].s, h->t[i].n, h->t[i].ar);
+        if (h->t) ct_drop(h->t);
+        h->t = nt;
+        h->cap = nc;
+    }
+    for (uint32_t i = pl_pk_hash(s, n, ar) & (h->cap - 1);; i = (i + 1) & (h->cap - 1)) {
+        if (!h->t[i].s) { h->t[i].s = s; h->t[i].n = n; h->t[i].ar = ar; h->n++; return; }
+        if (h->t[i].n == n && h->t[i].ar == ar && !memcmp(h->t[i].s, s, (size_t)n)) return;
+    }
+}
+static void pl_tree_collect_dcg_pk(const tree_t *b, pl_pk_set_t *h) {
+    if (!b) return;
+    if (pl_dcg_ctrl(b, 2, ",") || pl_dcg_ctrl(b, 2, ";") || pl_dcg_ctrl(b, 2, "->") || pl_dcg_ctrl(b, 2, "|")) { pl_tree_collect_dcg_pk(b->c[0], h); pl_tree_collect_dcg_pk(b->c[1], h); return; }
+    if (pl_dcg_ctrl(b, 1, "\\+")) { pl_tree_collect_dcg_pk(b->c[0], h); return; }
+    if (!((b->t == TT_FNC || b->t == TT_QLIT || b->t == TT_NAME) && b->v.sval)) return;
+    if (!strcmp(b->v.sval, "{}") || !strcmp(b->v.sval, ".") || !strcmp(b->v.sval, "[]") || !strcmp(b->v.sval, "!") || !strcmp(b->v.sval, "call")) return;
+    pl_pk_set_add(h, b->v.sval, (int)strlen(b->v.sval), (b->t == TT_FNC ? b->n : 0) + 2);
+}
+static void pl_tree_collect_pk(const tree_t *t, pl_pk_set_t *h) {
+    if (!t) return;
+    if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) pl_pk_set_add(h, t->v.sval, (int)strlen(t->v.sval), t->t == TT_FNC ? t->n : 0);
+    if (pl_dcg_ctrl(t, 2, "-->")) pl_tree_collect_dcg_pk(t->c[1], h);
+    if (pl_dcg_ctrl(t, 2, "phrase") || pl_dcg_ctrl(t, 3, "phrase")) pl_tree_collect_dcg_pk(t->c[0], h);
+    for (int i = 0; i < t->n; i++) pl_tree_collect_pk(t->c[i], h);
+}
 static void pl_pk_fill_cv(pl_pk_t *t, uint32_t cap, const cv_t *v) {
     for (uint32_t i = 0; v && i < v->len; i++) {
         const char *e = CV_AT(*v, char *, i), *sl = strrchr(e, '/');
@@ -2559,15 +2589,13 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     for (int changed = 1; changed;) {
         changed = 0;
         for (int i = 0; i < nlibs; i++) {
-            cv_t lk = { 0 };
+            pl_pk_set_t lh = { 0 };
             if (!lp[i] || seen[i]) continue;
-            for (PlClause *cl = lp[i]->head; cl; cl = cl->next) pl_tree_collect_keys(cl->tr, &lk);
+            for (PlClause *cl = lp[i]->head; cl; cl = cl->next) pl_tree_collect_pk(cl->tr, &lh);
             seen[i] = 1;
-            uint32_t lkc = pl_pk_cap(lk.len);
-            pl_pk_t lks[lkc];
-            memset(lks, 0, sizeof lks);
-            pl_pk_fill_cv(lks, lkc, &lk);
-            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_named(&PL_PRELUDE_LIBS[j], lks, lkc, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc)) { register_lib_ops(PL_PRELUDE_LIBS[j].lib); lp[j] = prolog_parse(PL_PRELUDE_LIBS[j].src, "<prelude>"); if (lp[j]) pl_preprocess_list(lp[j], 1); changed = 1; }
+            if (!lh.t) { lh.cap = 16; lh.t = (pl_pk_t *)ct_zalloc(lh.cap, sizeof(pl_pk_t)); }
+            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_named(&PL_PRELUDE_LIBS[j], lh.t, lh.cap, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc)) { register_lib_ops(PL_PRELUDE_LIBS[j].lib); lp[j] = prolog_parse(PL_PRELUDE_LIBS[j].src, "<prelude>"); if (lp[j]) pl_preprocess_list(lp[j], 1); changed = 1; }
+            ct_drop(lh.t);
         }
     }
     for (int i = 0; i < nlibs; i++) {
