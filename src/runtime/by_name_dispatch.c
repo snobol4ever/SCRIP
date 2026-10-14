@@ -159,6 +159,7 @@ extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);
 #include <time.h>
 #include <ctype.h>
 #include <math.h>
+#include <fenv.h>
 #include <float.h>
 #include <sys/select.h>
 #include <termios.h>
@@ -307,7 +308,7 @@ static int plw_unify_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
     if (A->v == DT_I && B->v == DT_I && !A->slen && !B->slen) return A->i == B->i;
     if (A->v == (DTYPE_t)DT_PLATOM && B->v == (DTYPE_t)DT_PLATOM) return A->i == B->i;
     { int aa = (int)A->v == DT_S || (int)A->v == DT_PLATOM, ba = (int)B->v == DT_S || (int)B->v == DT_PLATOM; if (aa || ba) { return aa && ba && rt_pl_text_eq(A, B); } }
-    if (A->v == DT_R && B->v == DT_R) return A->r == B->r && signbit(A->r) == signbit(B->r);
+    if (A->v == DT_R && B->v == DT_R) return (isnan(A->r) && isnan(B->r)) || (A->r == B->r && signbit(A->r) == signbit(B->r));
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
 PLR_WALK2(plw_unify_walk, plw_unify_leaf, plw_cell_deref) static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) { return plw_unify_walk(a, b, (void *)cx, 1); }
@@ -354,7 +355,7 @@ static int plw_unify_oc_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
     if (A->v == DT_I && B->v == DT_I && !A->slen && !B->slen) return A->i == B->i;
     if (A->v == (DTYPE_t)DT_PLATOM && B->v == (DTYPE_t)DT_PLATOM) return A->i == B->i;
     { int aa = (int)A->v == DT_S || (int)A->v == DT_PLATOM, ba = (int)B->v == DT_S || (int)B->v == DT_PLATOM; if (aa || ba) { return aa && ba && rt_pl_text_eq(A, B); } }
-    if (A->v == DT_R && B->v == DT_R) return A->r == B->r && signbit(A->r) == signbit(B->r);
+    if (A->v == DT_R && B->v == DT_R) return (isnan(A->r) && isnan(B->r)) || (A->r == B->r && signbit(A->r) == signbit(B->r));
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
 PLR_WALK2(plw_unify_oc_walk, plw_unify_oc_leaf, plw_cell_deref) static int plw_unify_cells_oc(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) { return plw_unify_oc_walk(a, b, (void *)cx, 1); }
@@ -5567,6 +5568,7 @@ static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball);
 static void *pl_ax_int_ball(DESCR_t a, DESCR_t b, int ai) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); return rt_pl_ball_kind2("type_error", "integer", ai ? b : a); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_float_flag(const char *nm, const char *val);
+static int pl_round_mode(const char *v);
 static int pl_swi_dialect(void) { return pl_float_flag("$dialect", "swi"); }
 static int pl_ax_undef(const char *fn, int arity, DESCR_t *out, void **ball) {
     extern void *rt_pl_ball_eval_error(const char *, const char *, int);
@@ -5598,7 +5600,7 @@ static double pl_big_as_real(DESCR_t d) {
     extern char *rt_big_str(DESCR_t);
     extern long rt_big_bits(DESCR_t);
     char *t;
-    if (rt_big_bits(d) > 1025) return pl_big_sign(d) < 0 ? -HUGE_VAL : HUGE_VAL;
+    if (rt_big_bits(d) >= 1025) return pl_big_sign(d) < 0 ? -HUGE_VAL : HUGE_VAL;
     t = rt_big_str(d);
     return t ? strtod(t, (char **)0) : 0.0;
 }
@@ -5707,6 +5709,15 @@ static int pl_rat_done(int qe, const char *op, int arity, DESCR_t culprit, DESCR
     return 1;
 }
 static int pl_prefer_rationals(void) { return pl_float_flag("prefer_rationals", "true"); }
+static int pl_q_odd(DESCR_t q) {
+    extern char *rt_big_str(DESCR_t);
+    char *t;
+    size_t n;
+    if (q.v == DT_I) return (int)(q.i & 1);
+    t = q.v == DT_BIG ? rt_big_str(q) : (char *)0;
+    n = t ? strlen(t) : 0;
+    return n && ((t[n - 1] - '0') & 1);
+}
 static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void **ball) {
     extern DESCR_t rt_pl_deref_val(DESCR_t);
     extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
@@ -5716,7 +5727,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "e")) { *out = REALVAL(M_E); return 1; }
         if (!strcmp(op, "eps")) { *out = REALVAL(DBL_EPSILON); return 1; }
         if (!strcmp(op, "inf")) { *out = REALVAL(HUGE_VAL); return 1; }
-        if (!strcmp(op, "nan")) { *out = REALVAL(0.0 / 0.0); return 1; }
+        if (!strcmp(op, "nan")) { *out = REALVAL(NAN); return 1; }
         if (!strcmp(op, "rflt")) { *out = REALVAL(drand48()); return 1; }
         if (!strcmp(op, "rstate")) {
             unsigned short z[3] = { 0, 0, 0 }, *o = seed48(z), s[3];
@@ -5756,10 +5767,11 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "neg")) { if (ai && a.i == LLONG_MIN) return pl_big_unop("neg", a, out); *out = ai ? INTVAL(-a.i) : REALVAL(-ad); return 1; }
         if (!strcmp(op, "pos")) { *out = a; return 1; }
         if (!strcmp(op, "abs")) { if (ai && a.i == LLONG_MIN) return pl_big_unop("abs", a, out); *out = ai ? INTVAL(a.i < 0 ? -a.i : a.i) : REALVAL(fabs(ad)); return 1; }
-        if (!strcmp(op, "sign")) { *out = ai ? INTVAL((a.i > 0) - (a.i < 0)) : REALVAL((double)((ad > 0) - (ad < 0))); return 1; }
+        if (!strcmp(op, "sign")) { *out = ai ? INTVAL((a.i > 0) - (a.i < 0)) : isnan(ad) ? a : REALVAL((double)((ad > 0) - (ad < 0))); return 1; }
         if (!strcmp(op, "trunc") || !strcmp(op, "floor") || !strcmp(op, "ceil") || !strcmp(op, "round")) {
             extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
             if (!arl && pl_swi_dialect()) { *out = a; return 1; }
+            if (arl && !isfinite(ad) && pl_swi_dialect()) { *out = a; return 1; }
             if (!arl) { if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "float", a); *out = FAILDESCR; return 1; }
             {
                 double r = !strcmp(op, "trunc") ? trunc(ad) : !strcmp(op, "floor") ? floor(ad) : !strcmp(op, "ceil") ? ceil(ad) : floor(ad) + (ad - floor(ad) >= 0.5);
@@ -5782,6 +5794,9 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "sin")) { *out = REALVAL(sin(ad)); return 1; }
         if (!strcmp(op, "cos")) { *out = REALVAL(cos(ad)); return 1; }
         if (!strcmp(op, "atan")) { *out = REALVAL(atan(ad)); return 1; }
+        if (!strcmp(op, "log") && pl_swi_dialect()) return pl_ax_float_result(log(ad), ad, 0.0, "log", 1, out, ball);
+        if (!strcmp(op, "erf")) return pl_ax_float_result(erf(ad), ad, 0.0, "erf", 1, out, ball);
+        if (!strcmp(op, "erfc")) return pl_ax_float_result(erfc(ad), ad, 0.0, "erfc", 1, out, ball);
         if (!strcmp(op, "log")) {
             if (ad < 0.0) return pl_ax_undef("log", 1, out, ball);
             if (ad == 0.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", "log", 1); return 1; }
@@ -5798,6 +5813,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
             return 1;
         }
         if (!strcmp(op, "fip")) { *out = REALVAL(trunc(ad)); return 1; }
+        if (!strcmp(op, "ffp") && pl_swi_dialect()) { double ip; if (isnan(ad)) return pl_ax_undef("float_fractional_part", 1, out, ball); *out = REALVAL(modf(ad, &ip)); return 1; }
         if (!strcmp(op, "ffp")) { *out = REALVAL(ad - trunc(ad)); return 1; }
         if (!strcmp(op, "msb")) {
             if (!ai) { if (ball && !*ball) *ball = pl_ax_int_ball(a, a, 0); *out = FAILDESCR; return 1; }
@@ -5836,6 +5852,13 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "tanh")) { *out = REALVAL(tanh(ad)); return 1; }
         if (!strcmp(op, "asinh")) { return pl_ax_float_result(asinh(ad), ad, 0.0, "asinh", 1, out, ball); }
         if (!strcmp(op, "asin") || !strcmp(op, "acos") || !strcmp(op, "acosh") || !strcmp(op, "atanh") || !strcmp(op, "log2") || !strcmp(op, "log10")) {
+            if (pl_swi_dialect()) {
+                double r = !strcmp(op, "asin") ? asin(ad) : !strcmp(op, "acos") ? acos(ad) : !strcmp(op, "acosh") ? acosh(ad) : !strcmp(op, "atanh") ? atanh(ad) : !strcmp(op, "log2") ? log2(ad) :
+                    log10(ad);
+                return pl_ax_float_result(r, ad, 0.0, op, 1, out, ball);
+            }
+        }
+        if (!strcmp(op, "asin") || !strcmp(op, "acos") || !strcmp(op, "acosh") || !strcmp(op, "atanh") || !strcmp(op, "log2") || !strcmp(op, "log10")) {
             int ok = !strcmp(op, "asin") || !strcmp(op, "acos") ? (ad >= -1.0 && ad <= 1.0) : !strcmp(op, "acosh") ? (ad >= 1.0) : !strcmp(op, "atanh") ? (ad > -1.0 && ad < 1.0) : (ad > 0.0);
             if (!ok) return pl_ax_undef(op, 1, out, ball);
             *out =
@@ -5866,6 +5889,12 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (pl_ax_eval(b, &ev, &bl)) b = ev;
         else { if (bl && ball && !*ball) *ball = bl; *out = FAILDESCR; return 1; }
     }
+    if (!strcmp(op, "div") && (pl_rat_is(a) || pl_rat_is(b)) && pl_rat_exact(b) && pl_rat_cmp(b, INTVAL(0)) == 0 && pl_float_flag("float_zero_div", "infinity")) {
+        int sg = pl_rat_cmp(a, INTVAL(0));
+        if (!sg) return pl_ax_undef("/", 2, out, ball);
+        *out = REALVAL(sg < 0 ? -INFINITY : INFINITY);
+        return 1;
+    }
     if (pl_rat_is(a) || pl_rat_is(b) || !strcmp(op, "rdiv") ||
         (pl_rat_exact(a) && pl_rat_exact(b) && pl_prefer_rationals() && (!strcmp(op, "div") || ((!strcmp(op, "fpow") || !strcmp(op, "pow")) && rt_big_sign(b) < 0)))) {
         extern int rt_big_sign(DESCR_t);
@@ -5873,11 +5902,26 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         DESCR_t cul = a;
         if (pl_rat_binop(op, a, b, out, &qe, &cul)) return pl_rat_done(qe, op, 2, cul, out, ball);
         if ((!strcmp(op, "fpow") || !strcmp(op, "pow")) && a.v == DT_R && a.r == 0.0 && pl_rat_is(b) && pl_rat_cmp(b, INTVAL(0)) < 0) return pl_rat_done(PLQ_ZDIV, op, 2, a, out, ball);
+        if (!strcmp(op, "fpow") && !pl_rat_is(a) && pl_rat_is(b) && pl_swi_dialect()) {
+            double x = a.v == DT_R ? a.r : a.v == DT_I ? (double)a.i : pl_big_as_real(a);
+            if (x != 0.0 && !isnan(x)) {
+                int m = fegetround(), neg = x < 0.0 && pl_q_odd(pl_rat_num(b));
+                double e, r;
+                if (x < 0.0 && !pl_q_odd(pl_rat_den(b))) return pl_ax_undef("**", 2, out, ball);
+                fesetround(FE_TONEAREST);
+                e = pl_rat_real(b);
+                fesetround(neg && m == FE_UPWARD ? FE_DOWNWARD : neg && m == FE_DOWNWARD ? FE_UPWARD : m);
+                r = pow(fabs(x), e);
+                fesetround(m);
+                return pl_ax_float_result(neg ? -r : r, x, 0.0, "**", 2, out, ball);
+            }
+        }
         if (pl_rat_is(a) || pl_rat_is(b)) { DESCR_t fa[2] = { pl_rat_is(a) ? REALVAL(pl_rat_real(a)) : a, pl_rat_is(b) ? REALVAL(pl_rat_real(b)) : b }; return dop_ax(op, fa, 2, out, ball); }
     }
     int bi = (b.v == DT_I), brl = (b.v == DT_R);
     double bd = brl ? b.r : (b.v == DT_BIG ? pl_big_as_real(b) : (double)b.i);
     if ((a.v == DT_BIG || b.v == DT_BIG) && !arl && !brl && pl_big_binop(op, a, b, out, ball)) return 1;
+    if ((!strcmp(op, "fpow") || !strcmp(op, "pow")) && pl_swi_dialect() && ((bi && b.i == 0) || (brl && bd == 0.0))) { *out = INTVAL(1); return 1; }
     if (!strcmp(op, "fpow") || !strcmp(op, "pow")) {
         if (ai && bi && b.i >= 0) {
             long long r = 1, bs = a.i, e = b.i;
@@ -5906,13 +5950,14 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
             if (ad == 0.0 && bd < 0.0) {
                 if (pl_float_flag("float_zero_div", "infinity")) { *out = REALVAL(pow(ad, bd)); return 1; }
                 *out = FAILDESCR;
-                if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", pn, 2);
+                if (ball && !*ball) *ball = rt_pl_ball_eval_error(pl_swi_dialect() ? "zero_divisor" : "undefined", pn, 2);
                 return 1;
             }
             if (ad < 0.0 && bd != floor(bd)) return pl_ax_undef(pn, 2, out, ball);
             return pl_ax_float_result(pow(ad, bd), ad, bd, pn, 2, out, ball);
         }
     }
+    if (!strcmp(op, "atan2") && pl_swi_dialect()) return pl_ax_float_result(atan2(ad, bd), ad, bd, "atan2", 2, out, ball);
     if (!strcmp(op, "atan2")) {
         if (ad == 0.0 && bd == 0.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", "atan2", 2); return 1; }
         *out = REALVAL(atan2(ad, bd));
@@ -5924,6 +5969,11 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         return 1;
     }
     if ((!strcmp(op, "min") || !strcmp(op, "max")) && (arl && isnan(ad)) != (brl && isnan(bd))) { *out = (arl && isnan(ad)) ? b : a; return 1; }
+    if ((!strcmp(op, "min") || !strcmp(op, "max")) && !(ai && bi) && ad == bd && pl_swi_dialect()) {
+        int c = arl != brl ? (arl ? -1 : 1) : (arl && signbit(ad) != signbit(bd)) ? (signbit(ad) ? -1 : 1) : 0;
+        *out = !strcmp(op, "min") ? (c <= 0 ? a : b) : (c >= 0 ? a : b);
+        return 1;
+    }
     if (!strcmp(op, "min")) { *out = (ai && bi) ? INTVAL(a.i < b.i ? a.i : b.i) : (ad < bd ? a : ad > bd ? b : arl ? a : b); return 1; }
     if (!strcmp(op, "max")) { *out = (ai && bi) ? INTVAL(a.i > b.i ? a.i : b.i) : (ad > bd ? a : ad < bd ? b : arl ? a : b); return 1; }
     if (!strcmp(op, "copysign")) { if (ai) { long long m = a.i < 0 ? -a.i : a.i; *out = INTVAL(signbit(bd) ? -m : m); } else *out = REALVAL(copysign(ad, bd)); return 1; }
@@ -6075,6 +6125,17 @@ static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) {
                     if (a && a[0]) { long long cp = (long long)rt_pl_u8_get(a, &adv); if (a[adv] == '\0') { *out = INTVAL(cp); return 1; } }
                 }
             }
+        }
+        if (ar == 2 && nm && !strcmp(nm, "roundtoward") && kids) {
+            extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+            DESCR_t md = rt_pl_deref_val(kids[1]);
+            int mode = pl_round_mode(pl_atom_str(md)), saved = fegetround(), r;
+            if (md.v == (DTYPE_t)DT_PLVAR) { *ball = rt_pl_ball_instantiation(); return 0; }
+            if (mode < 0) { *ball = rt_pl_ball_kind2(pl_atom_str(md) ? "domain_error" : "type_error", pl_atom_str(md) ? "round_toward" : "atom", md); return 0; }
+            fesetround(mode);
+            r = pl_ax_eval(kids[0], out, ball);
+            fesetround(saved);
+            return r;
         }
         if (!sfx || ar < 1 || ar > 3 || !kids) { *ball = rt_pl_ball_type_pi("type_error", "evaluable", nm ? nm : "?", ar); return 0; }
         for (int k = 0; k < ar; k++) if (!pl_ax_eval(kids[k], &ev[k], ball)) { *out = ev[k]; return 0; }
@@ -8733,7 +8794,9 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     { "true", "false", "error", 0 } }, { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", "UTF-16BE", "UTF-16LE", "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0,
     { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on",
     "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on", "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } },
-    { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "threads", "false", 0, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural",
+    { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "threads", "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore",
+    0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } }, { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "min_tagged_integer",
+    "-72057594037927936", 0, { 0 } }, { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural",
     "compatibility", 0 } }, { 0, "", 0, { 0 } } };
 static cv_t g_pl_flags;
 #define pl_flags ((pl_flag_t *)g_pl_flags.p)
@@ -8787,7 +8850,12 @@ static pl_flag_t * pl_flag_find_or_create(const char *nm) {
     return &pl_flags[i];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_round_mode(const char *v) {
+    if (!v) return -1;
+    return !strcmp(v, "to_nearest") ? FE_TONEAREST : !strcmp(v, "to_positive") ? FE_UPWARD : !strcmp(v, "to_negative") ? FE_DOWNWARD : !strcmp(v, "to_zero") ? FE_TOWARDZERO : -1;
+}
 static void pl_flag_effects(const pl_flag_t *fl, pl_tr_ctx_t *cx) {
+    if (!strcmp(fl->nm, "float_rounding") && pl_round_mode(fl->val) >= 0) { fesetround(pl_round_mode(fl->val)); return; }
     if (strcmp(fl->nm, "occurs_check") || !cx || !cx->tr) return;
     *pl_tr_ocheck_slot(pl_tr_base_of(cx->tr)) = !strcmp(fl->val, "true") ? 1 : (!strcmp(fl->val, "error") ? 2 : 0);
 }
@@ -8826,7 +8894,7 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
         } else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) || !pl_cell_text(args[0], fb, sizeof fb, &fn)) {
             cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
         } else if (!(fl = pl_flag_find(fn))) {
-            cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f);
+            if (!pl_swi_dialect()) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f);
         } else if (fl->is_term) {
             DESCR_t o = pl_flag_term_value(fl);
             ok = plw_unify_vals(args[1], o, cx);
@@ -8836,6 +8904,10 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
             ok = plw_unify_vals(args[1], INTVAL(PROLOG_MAX_ARITY), cx);
         } else if (!strcmp(fl->nm, "max_char_code")) {
             ok = plw_unify_vals(args[1], INTVAL(0x10FFFF), cx);
+        } else if (!strcmp(fl->nm, "max_tagged_integer") || !strcmp(fl->nm, "min_tagged_integer")) {
+            ok = plw_unify_vals(args[1], INTVAL(fl->nm[1] == 'a' ? 72057594037927935LL : -72057594037927936LL), cx);
+        } else if (!strcmp(fl->nm, "float_max") || !strcmp(fl->nm, "float_min") || !strcmp(fl->nm, "float_max_integer")) {
+            ok = plw_unify_vals(args[1], REALVAL(!strcmp(fl->nm, "float_max") ? DBL_MAX : !strcmp(fl->nm, "float_min") ? DBL_MIN : 9007199254740992.0), cx);
         } else if (!strcmp(fl->nm, "version_data")) {
             extern int prolog_atom_intern(const char *);
             DESCR_t *kk = (DESCR_t *)rt_ws_alloc_descr(4), c;

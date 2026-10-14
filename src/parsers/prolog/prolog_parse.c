@@ -1990,6 +1990,16 @@ static const char * const PL_PRELUDE_SRC =
     "term_string(T,S,O):-read_term_from_atom(S,T,O).\n"
     "garbage_collect.\n"
     "prolog_load_context(module,user).\n"
+    "'$flag_member'(X,[X|_]).\n"
+    "'$flag_member'(X,[_|T]):-'$flag_member'(X,T).\n"
+    "float_class(F,C):-(var(F)->throw(error(instantiation_error,float_class/2));float(F)->true;throw(error(type_error(float,F),float_class/2))),"
+    "(F=\\=F->C0=nan;abs(F)=:=inf->C0=infinite;F=:=0.0->C0=zero;abs(F)<2.2250738585072014e-308->C0=subnormal;C0=normal),C=C0.\n"
+    "bounded_number(L,H,N):-(var(N)->throw(error(instantiation_error,bounded_number/3));number(N)->true;throw(error(type_error(number,N),bounded_number/3))),"
+    "'$bn_low'(L,N),'$bn_high'(H,N).\n"
+    "'$bn_low'(L,N):-var(L),!,(integer(N)->L is N-1;F is float(N),F=:=F,abs(F)=\\=inf,L is nexttoward(F,-inf)).\n"
+    "'$bn_low'(L,N):-L<N.\n"
+    "'$bn_high'(H,N):-var(H),!,(integer(N)->H is N+1;F is float(N),F=:=F,abs(F)=\\=inf,H is nexttoward(F,inf)).\n"
+    "'$bn_high'(H,N):-N<H.\n"
     "format_time(Out,Fmt,T):-format_time(Out,Fmt,T,posix).\n"
     "format_time(Out,Fmt,T,_):-'$ft_fmt'(Fmt,F),'$format_time_text'(F,T,A),'$ft_out'(Out,A).\n"
     "'$ft_fmt'(F,F):-atom(F),!.\n"
@@ -2845,6 +2855,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     pl_cv_add(&referenced, "$arg_swi");
     pl_cv_add(&referenced, "$conj_nocut");
     pl_cv_add(&referenced, "$retract_target");
+    if (pl_cv_has(&referenced, "current_prolog_flag")) pl_cv_add(&referenced, "$flag_member");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");

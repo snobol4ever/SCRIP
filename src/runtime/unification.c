@@ -327,7 +327,7 @@ static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numberva
     if (!d) return '[';
     if (pl_cell_unbound(d)) return '_';
     if ((int)d->v == DT_I) return d->i < 0 ? '-' : '0';
-    if ((int)d->v == DT_R) return d->r < 0 ? '-' : '0';
+    if ((int)d->v == DT_R) return signbit(d->r) && !isnan(d->r) ? '-' : '0';
     if ((int)d->v == DT_BIG) { extern int rt_big_sign(DESCR_t); return rt_big_sign(*d) < 0 ? '-' : '0'; }
     if (pl_rat_is(*d)) return pl_rat_cmp(*d, pl_make_int(0)) < 0 ? '-' : '0';
     if ((int)d->v == DT_PLATOM || (int)d->v == DT_S) {
@@ -1909,6 +1909,7 @@ static int rt_pl_cell_class(pl_cell_t *d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rt_pl_cell_name(pl_cell_t *d) { if ((int)d->v == DT_S) return d->s ? d->s : ""; const char *n = prolog_atom_name((int)d->i); return n ? n : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static double plc_big_real(pl_cell_t *d) { extern char *rt_big_str(DESCR_t); char *t = rt_big_str(*d); return t ? strtod(t, (char **)0) : 0.0; }
 static int rt_pl_cell_compare_leaf(pl_cell_t *a, pl_cell_t *b, void *ctx) {
     if ((int)a->v == DT_PLREF && (int)b->v == DT_PLREF && a->slen == b->slen) return PLR_DESCEND;
     if ((int)a->v == DT_I && (int)b->v == DT_I) return a->i < b->i ? -1 : (a->i > b->i ? 1 : 0);
@@ -1923,10 +1924,15 @@ static int rt_pl_cell_compare_leaf(pl_cell_t *a, pl_cell_t *b, void *ctx) {
         }
         { int c = pl_rat_cmp(*a, *b); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
     }
-    if (cla == 1 && ((int)a->v == DT_R) != ((int)b->v == DT_R)) return ((int)a->v == DT_R) ? -1 : 1;
-    if (cla == 1 && ((int)a->v == DT_BIG || (int)b->v == DT_BIG)) { extern int rt_big_cmp(DESCR_t, DESCR_t); int rc = rt_big_cmp(*a, *b); return rc < 0 ? -1 : (rc > 0 ? 1 : 0); }
+    if (cla == 1 && ((int)a->v == DT_R) != ((int)b->v == DT_R) && !rt_pl_dialect_swi()) return ((int)a->v == DT_R) ? -1 : 1;
+    if (cla == 1 && ((int)a->v == DT_BIG || (int)b->v == DT_BIG) && (int)a->v != DT_R && (int)b->v != DT_R) {
+        extern int rt_big_cmp(DESCR_t, DESCR_t);
+        int rc = rt_big_cmp(*a, *b);
+        return rc < 0 ? -1 : (rc > 0 ? 1 : 0);
+    }
     if (cla == 1) {
-        double x = ((int)a->v == DT_I) ? (double)a->i : a->r, y = ((int)b->v == DT_I) ? (double)b->i : b->r;
+        double x = ((int)a->v == DT_I) ? (double)a->i : (int)a->v == DT_BIG ? plc_big_real(a) : a->r, y = ((int)b->v == DT_I) ? (double)b->i : (int)b->v == DT_BIG ? plc_big_real(b) : b->r;
+        if (isnan(x) || isnan(y)) return isnan(x) && isnan(y) ? 0 : isnan(x) ? -1 : 1;
         if (x < y) return -1;
         if (x > y) return 1;
         if ((int)a->v == DT_R && (int)b->v == DT_R && signbit(x) != signbit(y)) return signbit(x) ? -1 : 1;
@@ -1974,7 +1980,7 @@ static int plc_unify_leaf(pl_cell_t *A, pl_cell_t *B, void *ctx) {
     if (((int)A->v == DT_S || (int)A->v == DT_PLATOM) && ((int)B->v == DT_S || (int)B->v == DT_PLATOM)) return rt_pl_text_eq(A, B);
     if (A->v != B->v) return 0;
     if ((int)A->v == DT_I) return A->i == B->i;
-    if ((int)A->v == DT_R) return A->r == B->r;
+    if ((int)A->v == DT_R) return (isnan(A->r) && isnan(B->r)) || !memcmp(&A->r, &B->r, sizeof A->r);
     if ((int)A->v == DT_PLREF) return A->slen == B->slen ? PLR_DESCEND : 0;
     return 0;
 }

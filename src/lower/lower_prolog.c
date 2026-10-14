@@ -2895,13 +2895,10 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             }
             if (!strcmp(nm, "current_prolog_flag") && t->n == 2 && t->c[0] && t->c[0]->t == TT_VAR && !pl_file_defines(nm, 2)) {
                 extern const char *rt_pl_flag_name(int);
-                tree_t * alt = (tree_t *) 0;
-                for (int i = 63; i >= 0; i--) {
-                    const char * fnm = rt_pl_flag_name(i);
-                    if (!fnm || fnm[0] == '$') continue;
-                    tree_t * u = pl_cc_fnc2("=", (tree_t *) t->c[0], (tree_t *) pl_atom_goal(fnm));
-                    alt = alt ? pl_cc_fnc2(";", u, alt) : u;
-                }
+                tree_t * names = ast_node_new(TT_MAKELIST);
+                tree_t * alt;
+                for (int i = 0; i < 128; i++) { const char * fnm = rt_pl_flag_name(i); if (!fnm) break; if (fnm[0] != '$') ast_push(names, (tree_t *) pl_atom_goal(fnm)); }
+                alt = names->n ? pl_cc_fnc2("$flag_member", (tree_t *) t->c[0], names) : (tree_t *) 0;
                 if (alt)
                     return goal(cx,
                     pl_cc_fnc2(",", pl_cc_ite(pl_cc_fnc1("var", (tree_t *) t->c[0]), alt, (tree_t *) pl_atom_goal("true")), pl_cc_fnc2("$current_prolog_flag", (tree_t *) t->c[0], (tree_t *) t->c[1])),

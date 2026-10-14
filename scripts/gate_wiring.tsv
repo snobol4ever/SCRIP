@@ -686,6 +686,7 @@ test_gate_pl_gnu_fd_spelling_answers_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_global_variables_answer_as_gprolog_and_b_setval_links_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_gnu_terms_to_and_from_text_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gz6b.sh	WIRED	-	-	-
+test_gate_pl_ieee754_float_flags_special_values_and_number_order_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_ieee_float_flags_and_ceil_lgamma_powm_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_include_splices_in_place_and_ensure_loaded_loads_once.sh	WIRED	-	-	-
 test_gate_pl_integer_division_floors_and_int64_overflow_promotes.sh	WIRED	-	-	-
