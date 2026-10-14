@@ -190,11 +190,12 @@ static std::string pl_tag_in(const char * tags, int l_yes) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PL_ARM_RAT (!strcmp(kind, "number") || !strcmp(kind, "atomic") || !strcmp(kind, "rational"))
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_arm_type(const char * kind, int argbase, int resoff) {
     int var = !strcmp(kind, "var"), nonvar = !strcmp(kind, "nonvar");
     const char * tags = !strcmp(kind, "atom") ? "A" : !strcmp(kind, "string") ? "S" : !strcmp(kind, "number") ? "IRB" : !strcmp(kind, "integer") ? "IB" : !strcmp(kind, "float") ? "R" : !strcmp(kind,
         "atomic") ? "SAIRB" : !strcmp(kind, "compound") ? "P" : !strcmp(kind, "callable") ? "AP" : !strcmp(kind, "rational") ? "IB" : "";
-    int rat = !strcmp(kind, "number") || !strcmp(kind, "atomic") || !strcmp(kind, "rational");
     std::string s = x86("comment", (std::string("PL-R7 $") + kind + ": deref and one tag compare inline, rt_pl_type_cold behind it").c_str());
     s += x86("lea", "rdi", FRQ(argbase)) + pl_deref("rdi", 100, 130, PL_L_COLD, 1);
     if (var) s += x86("jmp", L(PL_L_FAIL))
@@ -203,8 +204,11 @@ static std::string pl_arm_type(const char * kind, int argbase, int resoff) {
     else if (nonvar) s += x86("jmp", L(PL_L_OK))
                         + x86("def", L(130))
                         + x86("jmp", L(PL_L_FAIL));
-    else s += pl_tag_in(tags, PL_L_OK) + IF(rat, x86("cmp", "al", (long)DT_DATA) + x86("je", L(PL_L_COLD))) + x86("def", L(130))
-                                       + x86("jmp", L(PL_L_FAIL));
+    else s += pl_tag_in(tags, PL_L_OK)
+            + IF(PL_ARM_RAT, x86("cmp", "al", (long)DT_DATA))
+            + IF(PL_ARM_RAT, x86("je", L(PL_L_COLD)))
+            + x86("def", L(130))
+            + x86("jmp", L(PL_L_FAIL));
     s += pl_ok_store(resoff) + pl_fail_store(resoff)
        + x86("def", L(PL_L_COLD)) + pl_cold_call("rt_pl_type_cold", (void *)rt_pl_type_cold, 1, argbase, resoff, kind) + pl_tail();
     return s;
