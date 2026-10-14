@@ -4882,14 +4882,14 @@ static int r_statement_control(RkP *p, int pos) {
         int q = r_xblock(p, e, 0);
         const char **kws = NULL; RkList **cs = NULL; tree_t **bs = NULL; int n = 0, ck = 0, cc = 0, cb = 0; tree_t *els = NULL;
         RK_GROW(kws, n, ck, const char *); RK_GROW(cs, n, cc, RkList *); RK_GROW(bs, n, cb, tree_t *);
-        kws[n] = "if"; cs[n] = p->xb_cond; bs[n] = p->xb_blk; n++;
+        kws[n] = at_lit(p, pos, "with") ? "with" : "if"; cs[n] = p->xb_cond; bs[n] = p->xb_blk; n++;
         for (;;) {
             int t = ws(p, q);
             int f;
             if (at_lit(p, t, "else") && (f = hs(p, t + 4)) && at_lit(p, f, "if") && !wordch_at(p, f + 2)) panic_at(p, t, "In Raku, please use \"elsif\" instead of \"else if\"");
             if ((f = kw(p, t, "elif")) >= 0) panic_at(p, t, "In Raku, please use \"elsif\" instead of \"elif\"");
             if ((f = kok(p, t, "elsif")) >= 0 || (f = kok(p, t, "orwith")) >= 0) { q = r_xblock(p, f, 0); RK_GROW(kws, n, ck, const char *); RK_GROW(cs, n, cc, RkList *);
-                RK_GROW(bs, n, cb, tree_t *); kws[n] = "elsif"; cs[n] = p->xb_cond; bs[n] = p->xb_blk; n++; continue; }
+                RK_GROW(bs, n, cb, tree_t *); kws[n] = at_lit(p, t, "orwith") ? "orwith" : "elsif"; cs[n] = p->xb_cond; bs[n] = p->xb_blk; n++; continue; }
             if ((f = kw(p, t, "else")) >= 0) { int g = ws(p, f); int h = r_pblock(p, g, 0); els = p->tv; if (p->build) p->tv = rkb_if(p->B, n, kws, cs, bs, els); return h; }
             if (p->build) p->tv = rkb_if(p->B, n, kws, cs, bs, NULL);
             return q;
@@ -4897,7 +4897,7 @@ static int r_statement_control(RkP *p, int pos) {
     }
     if ((e = kok(p, pos, "unless")) >= 0 || (e = kok(p, pos, "without")) >= 0) {
         int q = r_xblock(p, e, 0);
-        if (p->build) p->tv = rkb_unless(p->B, p->xb_cond, p->xb_blk);
+        if (p->build) p->tv = rkb_unless(p->B, p->xb_cond, p->xb_blk, at_lit(p, pos, "without"));
         int t = ws(p, q);
         if (kw(p, t, "else") >= 0 || kw(p, t, "elsif") >= 0 || kw(p, t, "orwith") >= 0) panic_at(p, t, "\"%s\" does not take \"%.*s\", please rewrite using \"if\"", at_lit(p, pos,
             "unless") ? "unless" : "without", 4, p->s + t);

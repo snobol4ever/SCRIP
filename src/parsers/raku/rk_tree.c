@@ -2823,16 +2823,31 @@ static tree_t *rk_pointy_cond(RkB *b, tree_t *blk, tree_t *cond) {
     return cond;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_defined_cond(RkB *b, tree_t *blk, tree_t *c) {
+    tree_t *a = rk_pointy_cond(b, blk, c);
+    if (a == c) { tree_t *t = leaf_sval(TT_VAR, "_"); a = expr_binary(TT_ASSIGN, t, c); }
+    tree_t *call = make_call("__rk_defined");
+    expr_add_child(call, a);
+    return call;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_if(RkB *b, int n, const char **kw, RkList **cond, tree_t **blk, tree_t *els) {
-    (void) kw;
     tree_t **cs = (tree_t **) ct_alloc(sizeof(tree_t *) * (size_t) (n ? n : 1));
-    for (int i = 0; i < n; i++) cs[i] = rk_pointy_cond(b, blk[i], rkb_expr(b, cond[i]));
+    for (int i = 0; i < n; i++) {
+        int def = kw && kw[i] && (!strcmp(kw[i], "with") || !strcmp(kw[i], "orwith"));
+        cs[i] = def ? rk_defined_cond(b, blk[i], rkb_expr(b, cond[i])) : rk_pointy_cond(b, blk[i], rkb_expr(b, cond[i]));
+    }
     tree_t *acc = els;
     for (int i = n - 1; i >= 0; i--) { tree_t *e = ast_node_new(TT_IF); expr_add_child(e, cs[i]); expr_add_child(e, blk[i]); if (acc) expr_add_child(e, acc); acc = e; }
     return acc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *rkb_unless(RkB *b, RkList *cond, tree_t *blk) { tree_t *e = ast_node_new(TT_UNLESS); ast_push(e, rk_pointy_cond(b, blk, rkb_expr(b, cond))); ast_push(e, blk); return e; }
+tree_t *rkb_unless(RkB *b, RkList *cond, tree_t *blk, int defined) {
+    tree_t *e = ast_node_new(TT_UNLESS);
+    ast_push(e, defined ? rk_defined_cond(b, blk, rkb_expr(b, cond)) : rk_pointy_cond(b, blk, rkb_expr(b, cond)));
+    ast_push(e, blk);
+    return e;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_while(RkB *b, int until, RkList *cond, tree_t *blk) {
     tree_t *c = rk_pointy_cond(b, blk, rkb_expr(b, cond));

@@ -111,7 +111,7 @@ tree_t  *rkb_constant(RkB *b, const char *name, int namelen, RkList *init);
 tree_t  *rkb_use(RkB *b, const char *name, int namelen, RkList *args);
 tree_t  *rkb_if(RkB *b, int n, const char **kw, RkList **cond, tree_t **blk, tree_t *els);
 void     rkb_pointy(RkB *b, tree_t *blk, tree_t *sig);
-tree_t  *rkb_unless(RkB *b, RkList *cond, tree_t *blk);
+tree_t  *rkb_unless(RkB *b, RkList *cond, tree_t *blk, int defined);
 tree_t  *rkb_while(RkB *b, int until, RkList *cond, tree_t *blk);
 tree_t  *rkb_repeat(RkB *b, int until, tree_t *blk, RkList *cond);
 tree_t  *rkb_loop(RkB *b, RkList *e1, RkList *e2, RkList *e3, int parens, tree_t *blk);
