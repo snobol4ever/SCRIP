@@ -18,3 +18,5 @@ src/runtime/rtx/rtx_str_test.c	a unit test battery compiled into its own binary 
 src/tools/demo_template_productions.c	a demo with its own main(); no Makefile rule or script compiles it
 src/tools/emit_per_kind_audit.c	a tool; its entry emit_per_kind_audit_run is called from no shipped unit and nm finds it in neither libscrip_rt.so nor scrip (2026-09-24, cb1bc6d1b)
 src/tools/test_template_byte_identity.c	a test tool with its own main(); its driver script scripts/build_and_run_test_template_byte_identity.sh names src/runtime/x86/test_template_byte_identity.c, a path the tree no longer has, so nothing compiles this copy
+src/runtime/rtx/rtx_tins_test.c	a unit test battery compiled into its own binary by scripts/test_rtx_unit.sh
+src/runtime/rtx/rtx_sval_test.c	a unit test battery compiled into its own binary by scripts/test_rtx_unit.sh
