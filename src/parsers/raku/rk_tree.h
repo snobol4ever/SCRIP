@@ -29,6 +29,8 @@ struct RkList {
     tree_t *rg_lo, *rg_hi; const char *rg_op; int rg_nitem;
 };
 typedef struct { const char *word; const char *name; } RkTrait;
+#define RK_PV_COPY 1024
+#define RK_PV_RW 2048
 struct RkDecl {
     int scope, sigil;
     const char *name, *type, *init_op;

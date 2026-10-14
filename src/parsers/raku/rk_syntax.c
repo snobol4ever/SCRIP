@@ -3801,6 +3801,14 @@ static int r_default_value(RkP *p, int pos) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *param_var_of(tree_t *tv) { if (tv && tv->t == TT_ASSIGN && tv->n) tv = tv->c[0]; return tv && tv->t == TT_VAR ? tv : NULL; }
+static void mark_param_traits(tree_t *tv, const RkTrait *tr, int n, int pref) {
+    tree_t *v = param_var_of(tv);
+    if (!v) return;
+    for (int i = 0; i < n; i++) if (tr[i].word && tr[i].name && !strcmp(tr[i].word, "is")) { if (!strcmp(tr[i].name, "copy")) v->slen |= RK_PV_COPY; if (!strcmp(tr[i].name, "rw")) v->slen |= RK_PV_RW; }
+    if (pref == '\\') v->slen |= RK_PV_RW;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_parameter(RkP *p, int pos) {
     int q = pos; int e = -1; int ntc = 0;
     int *tf = NULL, *tt = NULL, ctf = 0, ctt = 0; int pref = 0, vfrom = -1, vto = -1, suffix = 0, named = 0;
@@ -3842,10 +3850,11 @@ static int r_parameter(RkP *p, int pos) {
     if (e < 0) return -1;
     q = ws(p, e);
     q = r_traits(p, q); q = ws(p, q);
+    RkTrait *ptr = p->tr; int nptr = p->ntr;
     for (;;) { int t = r_post_constraint(p, q); if (t < 0) break; q = ws(p, t); }
     int d = r_default_value(p, q);
     RkList *dflt = d >= 0 ? takelst(p) : NULL;
-    if (p->build) p->tv = rkb_param(p->B, pref, vfrom >= 0 ? p->s + vfrom : NULL, vfrom >= 0 ? vto - vfrom : 0, tf, tt, ntc, dflt, suffix, named);
+    if (p->build) { p->tv = rkb_param(p->B, pref, vfrom >= 0 ? p->s + vfrom : NULL, vfrom >= 0 ? vto - vfrom : 0, tf, tt, ntc, dflt, suffix, named); mark_param_traits(p->tv, ptr, nptr, pref); }
     if (d >= 0) {
         q = ws(p, d);
         int t = r_trait(p, q);
@@ -3904,6 +3913,7 @@ static int r_pblock(RkP *p, int pos, int implicit) {
         int sg = p->goal; p->goal = GOAL_BLOCK;
         int s = r_signature(p, q, 0);
         tree_t *sig = p->sig;
+        if (sig && at_lit(p, pos, "<->")) for (int i = 0; i < sig->n; i++) { tree_t *v = param_var_of(sig->c[i]); if (v) v->slen |= RK_PV_RW; }
         p->goal = sg;
         s = ws(p, s);
         if (ch(p, s) != '{') panic_at(p, s, "Missing block");

@@ -2913,7 +2913,7 @@ tree_t *rkb_for(RkB *b, RkList *list, tree_t *sig, tree_t *blk) {
         if (rk_unpack_scalars(b, sig->c[0]->v.sval, &vars) >= 1) return rk_for_multi(b, &vars, lst, blk, 1);
     }
     tree_t *gen = expr_unary(TT_ITERATE, lst);
-    if (np == 1 && sig->c[0]) gen->v.sval = sig->c[0]->v.sval;
+    if (np == 1 && sig->c[0]) { gen->v.sval = sig->c[0]->v.sval; gen->slen |= sig->c[0]->slen & (RK_PV_COPY | RK_PV_RW); }
     return expr_binary(TT_EVERY, gen, blk);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
