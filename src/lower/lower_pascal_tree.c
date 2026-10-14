@@ -134,6 +134,7 @@ static const char *pas_with_sel_rtype(tree_t *sel);
 static const char *pas_rectype_field_typename(const char *rn, long idx);
 static int pas_dyn_depth(tree_t *e, const char **elem);
 static int pas_dyn_elem_is_string(tree_t *base);
+static long long pas_wrap_mask_of_type(const char *t);
 static tree_t *mk_set_ctor(PNodeList *elems);
 static const char *pas_recvar_field_rectype(const char *vn, long idx);
 static int pas_rectype_nf(const char *rn);
@@ -4039,7 +4040,22 @@ static tree_t *pas_region_elem(tree_t *f, tree_t *idx) {
     ast_push(d, ilit(rsz));
     return d;
 }
+static long long pas_wrap_mask_of_type(const char *t) {
+    for (int g = 0; t && g < 8; g++) {
+        if (!strcmp(t, "byte") || !strcmp(t, "uint8")) return 0xFFLL;
+        if (!strcmp(t, "word") || !strcmp(t, "uint16")) return 0xFFFFLL;
+        if (!strcmp(t, "longword") || !strcmp(t, "cardinal") || !strcmp(t, "uint32") || !strcmp(t, "dword")) return 0xFFFFFFFFLL;
+        const char *al = pas_typealias_get(t);
+        if (!al || !strcmp(al, t)) break;
+        t = al;
+    }
+    return 0;
+}
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
+    if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_ILIT && !pas_array_isdyn(sel->v.sval)) {
+        long long _wm = pas_wrap_mask_of_type(pas_scalarvartype_get(sel->v.sval));
+        if (_wm) rhs = mk_fnc2("iand", rhs, ilit(_wm));
+    }
     if (sel && sel->t == TT_FNC && sel->n == 5 && sel->c[0] && sel->c[0]->v.sval && !strcmp(sel->c[0]->v.sval, "__pas_rdecode") && sel->c[1]) {
         tree_t *e0 = sel->c[1];
         tree_t *pt = ast_node_new(TT_FNC);
@@ -4621,7 +4637,7 @@ static void pas_formal_strtypes(const char *sig, PNodeList *params) {
         tree_t *id = params->items[i];
         if (!id || !id->v.sval || !strncmp(id->v.sval, "__pas_pe", 8)) continue;
         const char *t = pas_sig_value_type(sig, fi++, 1);
-        if (t && (pas_string_type_kind(t) || !strcmp(t, "currency"))) pas_scalarvartype_add(id->v.sval, t);
+        if (t && (pas_string_type_kind(t) || !strcmp(t, "currency") || pas_wrap_mask_of_type(t))) pas_scalarvartype_add(id->v.sval, t);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
