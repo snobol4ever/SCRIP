@@ -27,8 +27,8 @@ static __attribute__((unused)) int sn4_is_system_fn(const char *name) {
 static __attribute__((unused)) int sn4_sysfn_protected(const char *name) { return sn4_is_system_fn(name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * const g_sn4_leaf_fns[] = { "ANY","ARBNO","ARRAY","ATAN","BREAK","BREAKX","CHAR","CHOP","CONVERT","COPY","COS","DATATYPE","DATE","DIFFER","DUPL","EQ","EXP","FENCE","GE","GT",
-    "IDENT","INTEGER","ITEM","LE","LEN","LEQ","LGE","LGT","LLE","LLT","LN","LNE","LPAD","LT","NE","NOTANY","POS","PROTOTYPE","REMDR","REPLACE","REVERSE","RPAD","RPOS","RTAB","SIN","SIZE","SNO$MKEXPR",
-    "SNO$MKPAT","SNO$NAME","SNO$WANTNM","SPAN","SQRT","SUBSTR","TAB","TABLE","TAN","TIME","TRIM" };
+    "IDENT","INTEGER","ITEM","LE","LEN","LEQ","LGE","LGT","LLE","LLT","LN","LNE","LPAD","LT","NE","NOTANY","POS","PROTOTYPE","REMDR","REPLACE","REVERSE","RPAD","RPOS","RTAB","SIN","SIZE","SNO$CHKNM",
+    "SNO$MKEXPR", "SNO$MKPAT","SNO$NAME","SNO$WANTNM","SPAN","SQRT","SUBSTR","TAB","TABLE","TAN","TIME","TRIM" };
 #define SN4_LEAF_FN_COUNT (sizeof(g_sn4_leaf_fns) / sizeof(g_sn4_leaf_fns[0]))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((unused)) int sn4_direct_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SN4_DIRECT"); v = (e && *e == '0') ? 0 : 1; } return v; }

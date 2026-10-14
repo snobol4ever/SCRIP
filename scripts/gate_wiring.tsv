@@ -1340,6 +1340,7 @@ test_gate_scrip_polyglot_demo_segfaults.sh	TASK	-	-	-
 test_gate_send_refuses_a_shell_substituted_body.sh	TASK	-	-	-
 test_gate_sn7_beauty_self_host.sh	TASK	-	-	-
 test_gate_sno_a_bare_fence_last_in_an_arbno_body_aborts_the_match_as_sbl_does.sh	WIRED	-	-	-
+test_gate_sno_a_function_called_by_name_that_returns_by_value_raises_error_21.sh	WIRED	-	-	-
 test_gate_sno_byname_goto_call_args_after_failure.sh	TASK	-	-	-
 test_gate_sno_charset_dynamic_operand_null_alt.sh	TASK	-	-	-
 test_gate_sno_data_protect_mode4.sh	TASK	-	-	-

@@ -40,6 +40,7 @@ typedef struct {
     IR_t * seq_rlast;
     IR_t * seq_rlast_for;
     IR_t * seq_rtail;
+    const tree_t * wn_tree;
 } scx_t;
 #define SNO_DEF_NAMES_MAX 64
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; int nformals; } sno_def_t;
@@ -577,13 +578,33 @@ static IR_t * sx_ident_differ(scx_t * cx, const tree_t * t, int argbase, int is_
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int argbase, IR_t * γ, IR_t * ω, IR_t ** res) {
-    IR_t * call = lc_build(cx->g, IR_CALL, γ, ω);
+    int bn = (t && cx->wn_tree == t);
+    if (bn) cx->wn_tree = NULL;
+    IR_t * after = γ;
+    IR_t * chk = NULL;
+    IR_t * nlit = NULL;
+    if (bn) {
+        chk = lc_build(cx->g, IR_CALL, γ, ω);
+        IR_LIT(chk).sval = (char *) "SNO$CHKNM";
+        nlit = lc_build(cx->g, IR_LIT_STRING, chk, ω);
+        IR_LIT(nlit).sval = (char *) lp_strdup(name);
+        after = nlit;
+    }
+    IR_t * call = lc_build(cx->g, IR_CALL, after, ω);
     IR_LIT(call).sval = (char *) lp_strdup(name);
     call->strict = 2;
     IR_t * sr0 = NULL;
     if (g_lower.sno.sx_call_named_c2bb < 0) { const char * e2 = getenv("SCRIP_CALL2BB"); g_lower.sno.sx_call_named_c2bb = (e2 && *e2 == '1') ? 1 : 0; }
     if (g_lower.sno.sx_call_named_c2bb) { sr0 = lc_build(cx->g, IR_DEFINE, call, ω); IR_LIT(sr0).sval = IR_LIT(call).sval; }
     IR_t * tail = sr0 ? sr0 : call;
+    if (bn) {
+        IR_t * wm = lc_build(cx->g, IR_CALL, tail, ω);
+        IR_LIT(wm).sval = (char *) "SNO$WANTNM";
+        IR_t * wl = lc_build(cx->g, IR_LIT_STRING, wm, ω);
+        IR_LIT(wl).sval = (char *) "";
+        ir_operand_push(wm, wl);
+        tail = wl;
+    }
     int nargs = t ? (t->n - argbase) : 0;
     IR_t * prev = NULL;
     IR_t * entry = tail;
@@ -595,8 +616,24 @@ static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int
         prev = ar;
         if (ar) { ir_operand_push(call, ar); if (sr0) ir_operand_push(sr0, ar); }
     }
-    if (res) *res = call;
+    if (chk) { ir_operand_push(chk, call); ir_operand_push(chk, nlit); }
+    if (res) *res = chk ? chk : call;
     return entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sno_lower_byname(scx_t * cx, const tree_t * expr, IR_t * γ, IR_t * ω, IR_t ** res) {
+    cx->wn_tree = expr;
+    IR_t * e1 = sx_lower(cx, expr, γ, ω, res);
+    if (cx->wn_tree != expr) return e1;
+    cx->wn_tree = NULL;
+    IR_t * wl = lc_build(cx->g, IR_LIT_STRING, NULL, ω);
+    IR_LIT(wl).sval = (char *) "";
+    IR_t * mk = lc_build(cx->g, IR_CALL, NULL, ω);
+    IR_LIT(mk).sval = (char *) "SNO$WANTNM";
+    lc_γ_to(wl, mk);
+    ir_operand_push(mk, wl);
+    lc_γ_to(mk, e1);
+    return wl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_cursor_target(const tree_t * tgt);
@@ -811,17 +848,10 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                     if (res) *res = fv;
                     return ea;
                 }
-                IR_t * wl = lc_build(cx->g, IR_LIT_STRING, NULL, ω);
-                IR_LIT(wl).sval = (char *) "";
-                IR_t * mk = lc_build(cx->g, IR_CALL, NULL, ω);
-                IR_LIT(mk).sval = (char *) "SNO$WANTNM";
-                lc_γ_to(wl, mk);
-                ir_operand_push(mk, wl);
                 IR_t * cv = NULL;
-                IR_t * e1 = sx_lower(cx, t->c[0], γ, ω, &cv);
-                lc_γ_to(mk, e1);
+                IR_t * e1 = sno_lower_byname(cx, t->c[0], γ, ω, &cv);
                 if (res) *res = cv;
-                return wl;
+                return e1;
             }
             if (t->c[0]->t == TT_KEYWORD && t->c[0]->v.sval) {
                 const char * kn = t->c[0]->v.sval;
@@ -925,17 +955,10 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 lc_γ_to(nv, es);
                 nl = nv;
             } else if (tgt && tgt->t == TT_FNC) {
-                IR_t * wl = lc_build(cx->g, IR_LIT_STRING, NULL, ω);
-                IR_LIT(wl).sval = (char *) "";
-                IR_t * wm = lc_build(cx->g, IR_CALL, NULL, ω);
-                IR_LIT(wm).sval = (char *) "SNO$WANTNM";
-                lc_γ_to(wl, wm);
-                ir_operand_push(wm, wl);
                 IR_t * nv = NULL;
-                IR_t * en = sx_lower(cx, tgt, NULL, ω, &nv);
-                lc_γ_to(wm, en);
+                IR_t * en = sno_lower_byname(cx, tgt, NULL, ω, &nv);
                 es = sx_lower(cx, t->c[0], NULL, ω, &vs);
-                lc_γ_to(kt, wl);
+                lc_γ_to(kt, en);
                 lc_γ_to(nv, es);
                 nl = nv;
             } else {
@@ -1379,15 +1402,8 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                     }
                 }
                 {
-                    IR_t * wl = lc_build(cx->g, IR_LIT_STRING, NULL, ω);
-                    IR_LIT(wl).sval = (char *) "";
-                    IR_t * mk = lc_build(cx->g, IR_CALL, NULL, ω);
-                    IR_LIT(mk).sval = (char *) "SNO$WANTNM";
-                    lc_γ_to(wl, mk);
-                    ir_operand_push(mk, wl);
                     IR_t * cv = NULL;
-                    IR_t * e1 = sx_lower(cx, L, NULL, ω, &cv);
-                    lc_γ_to(mk, e1);
+                    IR_t * e1 = sno_lower_byname(cx, L, NULL, ω, &cv);
                     IR_t * vv = NULL;
                     IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
                     lc_γ_to(cv, e2);
@@ -1396,7 +1412,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                     ir_operand_push(asn, cv);
                     ir_operand_push(asn, vv);
                     if (res) *res = asn;
-                    return wl;
+                    return e1;
                 }
             }
             if (L->t == TT_KEYWORD && L->v.sval && sno_kw_static_slot(L->v.sval) >= 0) {
@@ -1770,17 +1786,9 @@ static IR_t * sno_goto_computed_target(IR_graph_t * g, scx_t * cx, const tree_t 
     IR_t * asn = lc_build(g, IR_ASSIGN, chain, gd);
     IR_LIT(asn).sval = tmpn;
     IR_t * vr = NULL;
-    IR_t * ec = sx_lower(cx, expr, asn, gd, &vr);
+    IR_t * ec = by_name ? sno_lower_byname(cx, expr, asn, gd, &vr) : sx_lower(cx, expr, asn, gd, &vr);
     ir_operand_push(asn, vr);
-    if (!by_name) return ec;
-    IR_t * wn_lit = lc_build(g, IR_LIT_STRING, NULL, gd);
-    IR_LIT(wn_lit).sval = (char *) "";
-    IR_t * wn_call = lc_build(g, IR_CALL, NULL, gd);
-    IR_LIT(wn_call).sval = (char *) "SNO$WANTNM";
-    lc_γ_to(wn_lit, wn_call);
-    lc_γ_to(wn_call, ec);
-    ir_operand_push(wn_call, wn_lit);
-    return wn_lit;
+    return ec;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_goto_direct_target(IR_graph_t * g, scx_t * cx, const tree_t * expr, IR_t * exitnd) {
@@ -3258,6 +3266,7 @@ static int sno_mkpat_here(const tree_t * t) {
     IR_graph_t * tg = IR_alloc(256);
     scx_t tx;
     tx.g = tg;
+    tx.wn_tree = NULL;
     tx.loop_exit = NULL;
     tx.loop_next = NULL;
     tx.result_name = NULL;
@@ -3314,6 +3323,7 @@ static IR_t * sno_mkpat_emit(scx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
     IR_graph_t * tg = IR_alloc(256);
     scx_t tx;
     tx.g = tg;
+    tx.wn_tree = NULL;
     tx.loop_exit = NULL;
     tx.loop_next = NULL;
     tx.result_name = NULL;
@@ -3620,6 +3630,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
     scx_t cx;
     cx.g = g;
+    cx.wn_tree = NULL;
     cx.kw_chain = NULL;
     cx.loop_exit = NULL;
     cx.loop_next = NULL;
@@ -3978,15 +3989,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             continue;
         }
         if (subj->t == TT_FNC) {
-            IR_t * wl = lc_build(g, IR_LIT_STRING, NULL, fA);
-            IR_LIT(wl).sval = (char *) "";
-            IR_t * mk = lc_build(g, IR_CALL, sJ, fA);
-            IR_LIT(mk).sval = (char *) "SNO$WANTNM";
-            lc_γ_to(wl, mk);
-            ir_operand_push(mk, wl);
             IR_t * cv = NULL;
-            IR_t * e1 = sx_lower(&cx, subj, NULL, fA, &cv);
-            lc_γ_to(mk, e1);
+            IR_t * e1 = sno_lower_byname(&cx, subj, NULL, fA, &cv);
             IR_t * vv = NULL;
             IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
             lc_γ_to(cv, e2);
@@ -3994,7 +3998,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             lc_γ_to(vv, asn);
             ir_operand_push(asn, cv);
             ir_operand_push(asn, vv);
-            lc_γ_to(anchor[i], wl);
+            lc_γ_to(anchor[i], e1);
             continue;
         }
         sno_fatal("assignment subject form not in the landed subset", NULL);
@@ -4219,6 +4223,7 @@ void sno_expr_thunks_build(int x0) {
         IR_graph_t * gx = IR_alloc(256);
         scx_t ex;
         ex.g = gx;
+        ex.wn_tree = NULL;
         ex.loop_exit = NULL;
         ex.loop_next = NULL;
         ex.result_name = CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).name;
@@ -4344,6 +4349,7 @@ void sno_pat_thunks_build(int p0) {
         IR_graph_t * gp = IR_alloc(512);
         scx_t px;
         px.g = gp;
+        px.wn_tree = NULL;
         px.loop_exit = NULL;
         px.loop_next = NULL;
         px.result_name = NULL;
@@ -4866,6 +4872,7 @@ IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
     IR_graph_t * gp = IR_alloc(512);
     scx_t px;
     px.g = gp;
+    px.wn_tree = NULL;
     px.loop_exit = NULL;
     px.loop_next = NULL;
     px.result_name = NULL;
