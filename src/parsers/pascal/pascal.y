@@ -360,6 +360,7 @@ lo_bound:
     ;
 lo_term:
     scalar_constant { $$ = $1; }
+    |IDENT LPARENT b_expr RPARENT { $$ = pt_add(pt_add(pt_new(TT_FNC), $1), $3); }
     |lo_term MUL b_factor { $$ = pt_add(pt_add(pt_new(TT_MUL), $1), $3); }
     |lo_term IDIV b_factor { $$ = pt_add(pt_add(pt_new(TT_IDIV), $1), $3); }
     |lo_term IMOD b_factor { $$ = pt_add(pt_add(pt_new(TT_MOD), $1), $3); }
@@ -381,6 +382,7 @@ b_term:
     ;
 b_factor:
     scalar_constant { $$ = $1; }
+    |IDENT LPARENT b_expr RPARENT { $$ = pt_add(pt_add(pt_new(TT_FNC), $1), $3); }
     |LPARENT b_expr RPARENT { $$ = $2; }
     ;
 record_body:

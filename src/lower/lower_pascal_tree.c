@@ -590,11 +590,9 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         return mk_assign(v, f);
     }
     if (name && !strcmp(name, "length") && args && args->count >= 1 && pas_is_dynexpr(args->items[0])) return mk_fnc1("__pas_dynlen", args->items[0]);
-    if (name && !strcmp(name, "length") && !pas_is_func(name) && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_VAR && pas_is_strelem_arr(args->items[0]->v.sval) &&
-        !pas_array_isdyn(args->items[0]->v.sval)) {
+    if (name && !strcmp(name, "length") && !pas_is_func(name) && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_VAR && !pas_var_string_kind(args->items[0]->v.sval)) {
         long long hi = 0;
-        pas_array_high_get(args->items[0]->v.sval, &hi);
-        return ilit(hi - pas_array_low(args->items[0]->v.sval) + 1);
+        if (pas_array_high_get(args->items[0]->v.sval, &hi)) return ilit(hi - pas_array_low(args->items[0]->v.sval) + 1);
     }
     if (name && !pas_is_func(name) && !pas_is_proc(name) && g_lower.pas.sem.pas_seen_mode_directive && !g_lower.pas.sem.pas_mode_iso) {
         if (!strcmp(name, "random")) return (args && args->count >= 1) ? mk_fnc1("__pas_random", args->items[0]) : mk_fnc0("__pas_random");
@@ -3566,7 +3564,8 @@ static int pas_is_realtypename(const char *t) { return t && (!strcmp(t, "real") 
 static int pas_is_int_typename(const char *t) {
     return t &&
         (!strcmp(t, "integer") || !strcmp(t, "longint") || !strcmp(t, "shortint") || !strcmp(t, "byte") || !strcmp(t, "word") || !strcmp(t, "cardinal") || !strcmp(t, "int64") || !strcmp(t, "qword") ||
-        !strcmp(t, "smallint") || !strcmp(t, "longword"));
+        !strcmp(t, "smallint") || !strcmp(t, "longword") || !strcmp(t, "uint8") || !strcmp(t, "uint16") || !strcmp(t, "uint32") || !strcmp(t, "uint64") || !strcmp(t, "int8") || !strcmp(t, "int16") ||
+        !strcmp(t, "int32") || !strcmp(t, "nativeint") || !strcmp(t, "nativeuint") || !strcmp(t, "sizeint") || !strcmp(t, "sizeuint") || !strcmp(t, "ptrint") || !strcmp(t, "ptruint"));
 }
 static int pas_var_typename_is(const char *name, int (*pred)(const char *)) {
     const char *t = name ? pas_scalarvartype_get(name) : NULL;
@@ -5353,6 +5352,32 @@ static int pas_fold_const(const tree_t *e, int *k, long long *iv, double *dv, co
         if (!pas_fold_const(e->c[1], &ka, &ia, &da, &sa) || !pas_fold_const(e->c[2], &kb, &ib, &db, &sb) || ka != 1 || kb != 1) return 0;
         *k = 1;
         *iv = !strcmp(e->c[0]->v.sval, "xor") ? (ia ^ ib) : !strcmp(e->c[0]->v.sval, "shl") ? (long long)((unsigned long long)ia << (ib & 63)) : (long long)((unsigned long long)ia >> (ib & 63));
+        return 1;
+    }
+    if (e->t == TT_FNC && e->n == 2 && e->c[0] && e->c[0]->v.sval && e->c[1] && !pas_is_func(e->c[0]->v.sval) && !pas_is_proc(e->c[0]->v.sval)) {
+        const char *f = e->c[0]->v.sval, *a = e->c[1]->t == TT_VAR ? e->c[1]->v.sval : NULL;
+        if (!strcmp(f, "sizeof") && a) return pas_sizeof_lookup(a, iv) && *iv >= 0 ? (*k = 1, 1) : 0;
+        if ((!strcmp(f, "high") || !strcmp(f, "low")) && a) {
+            long long h = pas_subtype_high(a), eh = pas_enumtype_high(a);
+            if (h >= 0) { *k = 1; *iv = f[0] == 'h' ? h : pas_subtype_low(a); return 1; }
+            if (eh >= 0) { *k = 1; *iv = f[0] == 'h' ? eh : 0; g_lower.pas.sem.pas_last_const_enum = 1; return 1; }
+            static const char *const P[] = { "byte", "shortint", "smallint", "word", "longint", "longword", "cardinal", "int64", "char", "boolean" };
+            static const long long PL[] = { 0, -128, -32768, 0, -2147483647LL - 1, 0, 0, INT64_MIN, 0, 0 };
+            static const long long PH[] = { 255, 127, 32767, 65535, 2147483647LL, 4294967295LL, 4294967295LL, INT64_MAX, 255, 1 };
+            for (int j = 0; j < 10; j++) if (!strcmp(a, P[j]) && !pas_scope_uid(a)) { *k = j == 8 ? 4 : 1; *iv = f[0] == 'h' ? PH[j] : PL[j]; return 1; }
+            return 0;
+        }
+        static const char *const F[] = { "ord", "chr", "succ", "pred", "abs" };
+        int fi = -1;
+        for (int j = 0; j < 5; j++) if (!strcmp(f, F[j])) fi = j;
+        int en = a && pas_const_isenum(a) && pas_const_get(a, iv);
+        if (fi < 0 || (en ? (*k = 1, 0) : (!pas_fold_const(e->c[1], k, iv, dv, sv) || (*k != 1 && *k != 4)))) return 0;
+        g_lower.pas.sem.pas_last_const_enum = en && (fi == 2 || fi == 3);
+        if (fi == 0) *k = 1;
+        else if (fi == 1) *k = 4;
+        else if (fi == 2) *iv += 1;
+        else if (fi == 3) *iv -= 1;
+        else if (*iv < 0) *iv = -*iv;
         return 1;
     }
     return 0;
