@@ -782,6 +782,14 @@ static int pl_mod_at(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g, i
     const char *q;
     if (!G || !M || (M->t != TT_VAR && !pl_mod_atomish(M))) return 0;
     if (G->t == TT_FNC && G->v.sval && !strcmp(G->v.sval, ":") && G->n == 2) { qm = G->c[0]; in = G->c[1]; }
+    if (qm && ms->trans.len && pl_mod_ctl(in) && pl_mod_qualified(ms, G)) {
+        chk = pl_mod_at_check(M);
+        if (qm->t == TT_VAR) { conj = ast_node_new(TT_FNC); conj->v.sval = ct_strdup(","); ast_push(conj, pl_mod_at_check(qm)); ast_push(conj, chk); chk = conj; }
+        g->v.sval = ct_strdup(",");
+        g->c[0] = chk;
+        g->c[1] = G;
+        return 1;
+    }
     if (!in || in->t == TT_VAR || !(in->t == TT_FNC || pl_mod_atomish(in)) || (qm && qm->t != TT_VAR && !pl_mod_atomish(qm))) return 0;
     if (in->t == TT_FNC && in->v.sval) pl_mod_args(ms, m1, m2, in, trans, in->v.sval, M);
     if (!qm || pl_mod_atomish(qm)) {

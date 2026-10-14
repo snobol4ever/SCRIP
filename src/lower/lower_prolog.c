@@ -3640,6 +3640,7 @@ void * pl_runtime_define_goal_wrapper(const char * wkey, const char * nm, int ar
     nm = ct_strdup(nm);
     char wname[fmt_len("$mc:%s", nm)];
     snprintf(wname, sizeof wname, "$mc:%s", nm);
+    if (!strcmp(nm, ":") && ar == 2 && rt_proc_is_registered("$mod_call/2")) return pl_mc_define(wkey, wname, ar, pl_mc_wrapper_term("$mod_call", 2), NULL);
     fn = pl_mc_define(wkey, wname, ar, pl_mc_wrapper_term(nm, ar), &g);
     if (!fn) return (void *)0;
     if (!pl_mc_graph_fell_back(g, nm, ar)) return fn;

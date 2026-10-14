@@ -1768,6 +1768,16 @@ static const char * const PL_PRELUDE_SRC =
     "'$cp_mq1'(Pre,N,A):-current_predicate(N/A),\\+sub_atom(N,_,_,_,':'),atom_concat(Pre,N,QN),\\+current_predicate(QN/A).\n"
     "'$mod_head'(M,T,QT):-atom(M),M\\==user,nonvar(T),(T=(H:-B)->'$mod_q1'(M,H,QH),QT=(QH:-B);'$mod_q1'(M,T,QT)),!.\n"
     "'$mod_head'(_,T,T).\n"
+    "'$mod_call'(M,G):-'$mod_qb'(M,G,Q),call(Q).\n"
+    "'$mod_qb'(_,V,V):-var(V),!.\n"
+    "'$mod_qb'(M,(A,B),(QA,QB)):-!,'$mod_qb'(M,A,QA),'$mod_qb'(M,B,QB).\n"
+    "'$mod_qb'(M,(A;B),(QA;QB)):-!,'$mod_qb'(M,A,QA),'$mod_qb'(M,B,QB).\n"
+    "'$mod_qb'(M,(A->B),(QA->QB)):-!,'$mod_qb'(M,A,QA),'$mod_qb'(M,B,QB).\n"
+    "'$mod_qb'(M,(A*->B),(QA*->QB)):-!,'$mod_qb'(M,A,QA),'$mod_qb'(M,B,QB).\n"
+    "'$mod_qb'(M,\\+A,\\+QA):-!,'$mod_qb'(M,A,QA).\n"
+    "'$mod_qb'(_,Q:G,Q:G):-var(Q),!.\n"
+    "'$mod_qb'(_,Q:G,QG):-!,'$mod_qb'(Q,G,QG).\n"
+    "'$mod_qb'(M,G,QG):-'$mod_head'(M,G,QG).\n"
     "'$mod_q1'(M,H,QH):-callable(H),functor(H,F,N),atom(F),atom_concat(M,':',P),atom_concat(P,F,QF),current_predicate(QF/N),H=..[_|As],QH=..[QF|As].\n"
     "'$mod_cl'(M,G,E,G2):-atom(M),M\\==user,callable(G),functor(G,F,N),atom(F),atom_concat(M,':',P),atom_concat(P,F,QF),N2 is N+E,current_predicate(QF/N2),G=..[_|As],"
         "G2=..[QF|As].\n"
@@ -2971,7 +2981,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (armed) pl_cv_add(&referenced, "$wakeup");
         for (int i = 0; pl_attv_api[i]; i++) if (!seen[i]) { const char *sl = strchr(pl_attv_api[i], '/'); char nm[sl - pl_attv_api[i] + 1]; memcpy(nm, pl_attv_api[i], (size_t)(sl - pl_attv_api[i])); nm[sl - pl_attv_api[i]] = 0; pl_cv_add(&attv_off, ct_strdup(nm)); }
     }
-    if (pl_cv_has(&referenced, ":")) pl_cv_add(&referenced, "$mod_head");
+    if (pl_cv_has(&referenced, ":")) { pl_cv_add(&referenced, "$mod_head"); pl_cv_add(&referenced, "$mod_call"); pl_cv_add(&referenced, "$mod_qb"); }
     for (PlClause *cl = prog->head; cl; cl = cl->next) if (cl->tr && pl_tree_has_fn(cl->tr, "$dot")) { pl_cv_add(&referenced, "$dict_eval"); pl_cv_add(&refkeys, pl_pred_key("$dict_eval", 3)); break; }
     if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$load_item");
     if (pl_word_referenced(user_src, "reset") || pl_word_referenced(user_src, "shift")) pl_cv_add(&referenced, "$co_body");
