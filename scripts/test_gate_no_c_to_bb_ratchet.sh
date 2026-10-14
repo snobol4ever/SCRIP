@@ -69,10 +69,10 @@ fi
 # file sanctioned, not because two conversions landed.  If Lon's INITIAL START is per-run rather than per-stack,
 # the sanction is withdrawn, the two return as conversions on the cfo's row, and this pin goes back to 7.
 # runtime_eval.c and by_name_dispatch.c are the ceo's row gc-the-five-c-to-bb-entries-outside-rt-c-....
+# ⭐ 10 -> 0 ON 2026-10-14 (cto, CEO-1749): the sweep on SCRIP 0bd04f618 reads no transfer left in rt.c, by_name_dispatch.c
+# or runtime_eval.c, so all three pins drop; the one transfer the sweep sees is rt_sc_module.c's, whose pin or cure is
+# hq_snocone's rank-0 row under CEO-1749.
 PINS="
-5 src/runtime/rt/rt.c
-3 src/runtime/by_name_dispatch.c
-2 src/runtime/runtime_eval.c
 "
 PIN_TOTAL=$(echo "$PINS" | awk 'NF{t+=$1} END{print t+0}')
 # The site lines the gate prints are indented and shaped `    <file>:<line>  (<fn>, <shape>)`; the ledger-group
