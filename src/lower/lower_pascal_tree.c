@@ -711,6 +711,11 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "fillchar") && args && args->count >= 5) {
         tree_t *dst = args->items[0];
         tree_t *val = args->items[4];
+        tree_t *cnt = args->items[2];
+        long long _wsz = -1;
+        if (dst && dst->t == TT_VAR && dst->v.sval && cnt &&
+            ((cnt->t == TT_FNC && cnt->n == 2 && cnt->c[0] && cnt->c[0]->v.sval && !strcmp(cnt->c[0]->v.sval, "sizeof") && cnt->c[1] && cnt->c[1]->t == TT_VAR && cnt->c[1]->v.sval &&
+            !strcmp(cnt->c[1]->v.sval, dst->v.sval)) || (cnt->t == TT_ILIT && pas_sizeof_lookup(dst->v.sval, &_wsz) && _wsz == cnt->v.ival))) return mk_fnc2("__pas_fill", dst, val);
         long long fhi = -1, flo = 0;
         tree_t *fdst = NULL;
         if (dst && dst->t == TT_VAR && dst->v.sval && pas_array_high_get(dst->v.sval, &fhi)) {

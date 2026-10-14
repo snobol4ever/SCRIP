@@ -3975,6 +3975,20 @@ static DESCR_t pas_agg_copy(DESCR_t v) {
     d.arr = b;
     return d;
 }
+static void pas_fill(DESCR_t v, long long c) {
+    if (v.v != DT_A || !v.arr) return;
+    ARBLK_t *s = (ARBLK_t *) v.arr;
+    long long n = (long long)s->hi - s->lo + 1;
+    if (s->ndim == 2) n *= (long long)s->hi2 - s->lo2 + 1;
+    for (long long k = 0; k < n; k++) {
+        DESCR_t *e = &s->data[k];
+        if (e->v == DT_A) pas_fill(*e, c);
+        else if (e->v == DT_R) *e = REALVAL((double)c);
+        else if (e->v == DT_I) *e = INTVAL(c);
+        else if (c == 0 && e->v == DT_S) *e = STRVAL("");
+        else if (c != 0 && e->v == DT_SNUL) *e = INTVAL(c);
+    }
+}
 static void pas_real_str_exp(double r, char *buf, int bufsz, int prec, int expdig, int upper);
 static DESCR_t pas_dyn_block(long long n) {
     ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
@@ -15131,6 +15145,7 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
         return 1;
     }
     if (!strcmp(fn, "__pas_dynlen") && nargs == 1) { ARBLK_t *b = (args[0].v == DT_A && args[0].arr) ? (ARBLK_t *) args[0].arr : NULL; *out = INTVAL(b ? (long long)b->hi - b->lo + 1 : 0); return 1; }
+    if (!strcmp(fn, "__pas_fill") && nargs == 2) { pas_fill(args[0], IS_INT_fn(args[1]) ? (long long)args[1].i : 0); *out = args[0]; return 1; }
     if (!strcmp(fn, "__pas_format") && nargs >= 1) {
         const char *f = VARVAL_fn(args[0]);
         if (!f) f = "";
