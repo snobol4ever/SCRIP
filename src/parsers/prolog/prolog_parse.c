@@ -2235,6 +2235,9 @@ static const char * const PL_PRELUDE_SRC =
     "'$mod_split'(N,M,R):-atom(N),sub_atom(N,Bf,1,Af,':'),!,Bf>0,Af>0,sub_atom(N,0,Bf,_,M),sub_atom(N,_,Af,0,R),atom_codes(M,[C|Cs]),C>=0'a,C=<0'z,'$mod_idc'(Cs).\n"
     "'$mod_idc'([]).\n"
     "'$mod_idc'([C|Cs]):-(C>=0'a,C=<0'z;C>=0'A,C=<0'Z;C>=0'0,C=<0'9;C=:=0'_),!,'$mod_idc'(Cs).\n"
+    "'$at_ctx'(V):-var(V),!,throw(error(instantiation_error,_)).\n"
+    "'$at_ctx'(_).\n"
+    "@(G,M):-'$at_ctx'(G),'$at_ctx'(M),(G=Q:_->'$at_ctx'(Q);true),call(G).\n"
     "'$mgt_vars'([],_).\n"
     "'$mgt_vars'([V|Vs],Seen):-var(V),\\+ memberchk_eq(V,Seen),'$mgt_vars'(Vs,[V|Seen]).\n"
     "apply(G,As):-G=..L0,'$yall_app'(L0,As,L1),G1=..L1,call(G1).\n"
@@ -2899,6 +2902,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "setup_call_catcher_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&referenced, "meta_predicate")) pl_cv_add(&referenced, "$mq_arg");
     if (pl_cv_has(&referenced, "clause")) pl_cv_add(&referenced, "$clause_unmangle");
+    if (pl_cv_has(&referenced, "@")) pl_cv_add(&referenced, "$at_ctx");
     {
         int napi = 0;
         while (pl_attv_api[napi]) napi++;
