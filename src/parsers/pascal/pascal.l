@@ -233,6 +233,7 @@ static void pascal_cond(const char *text) {
         if (!*skip) pascal_def_set(word, 0);
     }
 }
+static void pascal_cond_paren(const char *text) { size_t n = strlen(text); char b[n + 1]; snprintf(b, n + 1, "{$%.*s}", (int)(n - 5), text + 3); pascal_cond(b); }
 int pascal_seen_decl_start = 0;
 static int pascal_context_keyword(const char *w) {
     static const char *K[] = { "unit", "uses", "interface", "implementation", "initialization", "finalization" };
@@ -332,7 +333,9 @@ ALNUM    [A-Za-z0-9_]
 <COMMENT>\n             { }
 "//"[^\n]*              { }
 "{$"(ifdef|ifndef|if|elseif|else|endif|ifend|define|undef|ifc|elsec|endc|setc)([ \t\r\n][^}]*)?"}" { pascal_cond(pascal_yytext); if (*pascal_cond_skip_p()) BEGIN SKIPC; }
+"(*$"(ifdef|ifndef|if|elseif|else|endif|ifend|define|undef|ifc|elsec|endc|setc)([ \t\r\n][^*]*)?"*)" { pascal_cond_paren(pascal_yytext); if (*pascal_cond_skip_p()) BEGIN SKIPC; }
 <SKIPC>"{$"(ifdef|ifndef|if|elseif|else|endif|ifend|define|undef|ifc|elsec|endc|setc)([ \t\r\n][^}]*)?"}" { pascal_cond(pascal_yytext); if (!*pascal_cond_skip_p()) BEGIN INITIAL; }
+<SKIPC>"(*$"(ifdef|ifndef|if|elseif|else|endif|ifend|define|undef|ifc|elsec|endc|setc)([ \t\r\n][^*]*)?"*)" { pascal_cond_paren(pascal_yytext); if (!*pascal_cond_skip_p()) BEGIN INITIAL; }
 <SKIPC>"{"[^}]*"}"        { }
 <SKIPC>"(*"([^*]|"*"+[^*)])*"*"+")" { }
 <SKIPC>"'"[^'\n]*"'"     { pascal_cond_code_in_unknown(); }
