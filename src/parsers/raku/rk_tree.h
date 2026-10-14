@@ -31,6 +31,9 @@ struct RkList {
 typedef struct { const char *word; const char *name; tree_t *args; } RkTrait;
 #define RK_PV_COPY 1024
 #define RK_PV_RW 2048
+#define RK_PV_NAMED 4096
+#define RK_PV_REQ 8192
+#define RK_PV_OPT 16384
 struct RkDecl {
     int scope, sigil;
     const char *name, *type, *init_op;
@@ -104,6 +107,7 @@ void     rkb_control(RkB *b, tree_t *list, int bk, int from, tree_t *t, int ns, 
 void     rkb_empty(RkB *b, tree_t *list, int bk);
 tree_t  *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, int prefix, tree_t *sig, int has_parens, tree_t *body, RkTrait *tr, int ntr);
 tree_t  *rkb_package(RkB *b, const char *kind, const char *name, int namelen, RkTrait *tr, int ntr, tree_t *body, tree_t *rsig);
+tree_t  *rkb_subset(RkB *b, const char *name, int namelen, const char *base, tree_t *where);
 tree_t  *rkb_regex_decl(RkB *b, int kind, const char *name, int namelen, int brace);
 void     rkb_decl(RkB *b, RkTerm *it, int from, int to, RkDecl *d);
 tree_t  *rkb_enum(RkB *b, const char *text, int n);

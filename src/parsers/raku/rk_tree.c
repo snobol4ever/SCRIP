@@ -2322,7 +2322,6 @@ static void rk_pcv_release(RkB *b, tree_t *sig) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_param(RkB *b, int prefix, const char *var, int varlen, int *tf, int *tt, int ntypes, RkList *dflt, int suffix, int named) {
-    (void) suffix; (void) named;
     char *v = trimdup(var ? var : "", var ? varlen : 0);
     tree_t *p;
     if (v[0] == '&' && v[1] && prefix != '*' && prefix != 'L') { const char *bare = intern(v + 1); if (!ns_has(&b->codev, bare)) { GROW(b->pcv, b->npcv, b->cpcv, const char *); b->pcv[b->npcv++] = bare; } rkb_codevar(b, v); }
@@ -2330,6 +2329,9 @@ tree_t *rkb_param(RkB *b, int prefix, const char *var, int varlen, int *tf, int 
     else if (v[0] == '@' && !ntypes) { p = var_node(b, v); expr_add_child(p, leaf_sval(TT_QLIT, "@")); }
     else if (ntypes) p = rk_typed_param(b, spn(b, tf[0], tt[0]), v);
     else p = var_node(b, v);
+    if (named) p->slen |= RK_PV_NAMED;
+    if (suffix == '!') p->slen |= RK_PV_REQ;
+    if (suffix == '?' || dflt) p->slen |= RK_PV_OPT;
     if (dflt) p = expr_binary(TT_ASSIGN, p, rkb_expr(b, dflt));
     return p;
 }
@@ -2767,6 +2769,44 @@ tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, 
     for (int i = 0; i < rkbody->n; i++) expr_add_child(e, rkbody->c[i]);
     (void) b;
     return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *rkb_subset(RkB *b, const char *name, int namelen, const char *base, tree_t *where) {
+    (void) b;
+    char *nm = trimdup(name, namelen);
+    tree_t *sd = leaf_sval(TT_SUB_DECL, intern(fmt("__ssf_%s", nm)));
+    sd->v.ival = 1;
+    expr_add_child(sd, leaf_sval(TT_VAR, intern(fmt("__ssf_%s", nm))));
+    expr_add_child(sd, leaf_sval(TT_VAR, "__sv"));
+    expr_add_child(sd, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, "_"), leaf_sval(TT_VAR, "__sv")));
+    tree_t *ret = ast_node_new(TT_RETURN);
+    expr_add_child(ret, mkbool_lit(1));
+    tree_t *inner = ret;
+    if (where) {
+        tree_t *thn = ast_node_new(TT_SEQ_EXPR);
+        expr_add_child(thn, ret);
+        tree_t *ifw = ast_node_new(TT_IF);
+        expr_add_child(ifw, call2("__rk_smartmatch", leaf_sval(TT_VAR, "_"), where));
+        expr_add_child(ifw, thn);
+        inner = ifw;
+    }
+    if (base && *base && strcmp(base, "Any") && strcmp(base, "Mu")) {
+        tree_t *dm = ast_node_new(TT_METHCALL);
+        ast_push(dm, leaf_sval(TT_VAR, "__sv"));
+        ast_push(dm, leaf_sval(TT_QLIT, "does"));
+        ast_push(dm, leaf_sval(TT_QLIT, intern(base)));
+        tree_t *thn = ast_node_new(TT_SEQ_EXPR);
+        expr_add_child(thn, inner);
+        tree_t *ifb = ast_node_new(TT_IF);
+        expr_add_child(ifb, dm);
+        expr_add_child(ifb, thn);
+        inner = ifb;
+    }
+    expr_add_child(sd, inner);
+    tree_t *rf = ast_node_new(TT_RETURN);
+    expr_add_child(rf, mkbool_lit(0));
+    expr_add_child(sd, rf);
+    return sd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_package(RkB *b, const char *kind, const char *name, int namelen, RkTrait *tr, int ntr, tree_t *body, tree_t *rsig) {

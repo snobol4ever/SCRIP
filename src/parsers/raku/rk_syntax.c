@@ -41,7 +41,7 @@ typedef struct RkP {
     const char *ustop; int ustop_len;
     int p5isms;
     char **libs; int nlibs; int clibs; int load_depth;
-    struct RkP *top; tree_t **mtrees; int nmtrees; int cmtrees; const char **modpaths; int nmodpaths; int cmodpaths;
+    tree_t *pwhere; struct RkP *top; tree_t **mtrees; int nmtrees; int cmtrees; const char **modpaths; int nmodpaths; int cmodpaths;
     char **decls; int ndecls; int cdecls;
     RkHere *here; int nhere; int chere;
     StackOp *ops; int nops; int cops;
@@ -3719,7 +3719,12 @@ static int r_post_constraint(RkP *p, int pos) {
         if (ch(p, s) != close) panic_at(p, s, "Unable to parse signature; couldn't find final '%c'", close);
         e = s + 1;
     }
-    else if ((q = kw(p, pos, "where")) >= 0) { int t = ws(p, q); e = r_EXPR(p, t, PR('i')); if (e < 0) panic_at(p, t, "Missing expression after 'where'"); }
+    else if ((q = kw(p, pos, "where")) >= 0) {
+        int t = ws(p, q);
+        e = r_EXPR(p, t, PR('i'));
+        if (e < 0) panic_at(p, t, "Missing expression after 'where'");
+        if (p->build) { tree_t *wx = rkb_expr(p->B, takelst(p)); if (!p->pwhere) p->pwhere = wx; }
+    }
     p->in_decl = sd;
     return e;
 }
@@ -3860,10 +3865,13 @@ static int r_parameter(RkP *p, int pos) {
     q = ws(p, e);
     q = r_traits(p, q); q = ws(p, q);
     RkTrait *ptr = p->tr; int nptr = p->ntr;
+    p->pwhere = NULL;
     for (;;) { int t = r_post_constraint(p, q); if (t < 0) break; q = ws(p, t); }
+    tree_t *pw = p->pwhere;
+    p->pwhere = NULL;
     int d = r_default_value(p, q);
     RkList *dflt = d >= 0 ? takelst(p) : NULL;
-    if (p->build) { p->tv = rkb_param(p->B, pref, vfrom >= 0 ? p->s + vfrom : NULL, vfrom >= 0 ? vto - vfrom : 0, tf, tt, ntc, dflt, suffix, named); mark_param_traits(p->tv, ptr, nptr, pref); }
+    if (p->build) { p->tv = rkb_param(p->B, pref, vfrom >= 0 ? p->s + vfrom : NULL, vfrom >= 0 ? vto - vfrom : 0, tf, tt, ntc, dflt, suffix, named); mark_param_traits(p->tv, ptr, nptr, pref); if (pw) { tree_t *wv = param_var_of(p->tv); if (wv) { tree_t *wc = ast_node_new(TT_FNC); tree_t *wn = ast_node_new(TT_VAR); wc->v.sval = (char *) "__rk_where"; wn->v.sval = (char *) "__rk_where"; ast_push(wc, wn); ast_push(wc, pw); ast_push(wv, wc); } } }
     if (d >= 0) {
         q = ws(p, d);
         int t = r_trait(p, q);
@@ -4544,12 +4552,17 @@ static int r_type_declarator(RkP *p, int pos) {
     if ((e = kok(p, pos, "subset")) >= 0) {
         int q = e;
         int n = r_longname(p, q);
-        if (n >= 0) { add_name_all(p, p->s + q, name_part_len(p, q, n)); q = ws(p, n); }
+        const char *sname = NULL; int snlen = 0;
+        if (n >= 0) { sname = p->s + q; snlen = name_part_len(p, q, n); add_name_all(p, sname, snlen); q = ws(p, n); }
         q = r_traits(p, q); q = ws(p, q);
+        const char *sbase = NULL;
+        for (int i = 0; i < p->ntr; i++) if (p->tr[i].word && p->tr[i].name && !strcmp(p->tr[i].word, "of")) sbase = p->tr[i].name;
         int w = kw(p, q, "where");
         if (p->build) { memset(&p->tm, 0, sizeof p->tm); p->tm.kind = TK_TREE; p->tm.t = ast_node_new(TT_NUL); }
-        if (w >= 0) { int t = ws(p, w); int x = r_EXPR(p, t, PR('e')); if (x < 0) panic_at(p, t, "Malformed subset"); if (p->build) { p->tm.kind = TK_TREE; p->tm.t = ast_node_new(TT_NUL); }
+        if (w >= 0) { int t = ws(p, w); int x = r_EXPR(p, t, PR('e')); if (x < 0) panic_at(p, t, "Malformed subset");
+            if (p->build) { tree_t *ex = rkb_expr(p->B, takelst(p)); p->tm.kind = TK_TREE; p->tm.t = sname ? rkb_subset(p->B, sname, snlen, sbase, ex) : ast_node_new(TT_NUL); }
             return x; }
+        if (p->build && sname) { p->tm.kind = TK_TREE; p->tm.t = rkb_subset(p->B, sname, snlen, sbase, NULL); }
         return q;
     }
     if ((e = kok(p, pos, "constant")) >= 0) {
