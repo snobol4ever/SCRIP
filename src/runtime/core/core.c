@@ -4542,6 +4542,38 @@ void DEFINE_fn(const char *spec, FNCPTR_t fn) {
     _func_count_one();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void core_fn_register_plain(const char *name, FNCPTR_t fn, int min_args, int max_args) {
+    _func_init();
+    unsigned h = _func_hash(name);
+    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
+        if (strcmp(e->name, name) == 0) {
+            e->spec = rt_heap_strdup_c(name);
+            e->fn = fn;
+            e->nparams = 0;
+            e->params = NULL;
+            e->nlocals = 0;
+            e->locals = NULL;
+            e->min_args = min_args > 0 ? min_args : 0;
+            e->max_args = max_args;
+            e->max_set = max_args >= 0;
+            return;
+        }
+    }
+    FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
+    fe->name = fe->spec = fe->entry_label = rt_heap_strdup_c(name);
+    fe->fn = fn;
+    fe->nparams = 0;
+    fe->params = NULL;
+    fe->nlocals = 0;
+    fe->locals = NULL;
+    fe->min_args = min_args > 0 ? min_args : 0;
+    fe->max_args = max_args;
+    fe->max_set = max_args >= 0;
+    fe->next = _func_buckets[h];
+    _func_buckets[h] = fe;
+    _func_count_one();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label) {
     DEFINE_fn(spec, fn);
     if (!entry_label) return;

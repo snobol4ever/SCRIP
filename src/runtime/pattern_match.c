@@ -530,6 +530,10 @@ int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) { return subs
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, int max_args) {
+    extern void core_fn_register_plain(const char *, FNCPTR_t, int, int);
+    int plain = 1;
+    for (const char *p = name; *p; p++) if (*p == '(' || *p == ',') { plain = 0; break; }
+    if (plain) { core_fn_register_plain(name, fn, min_args, max_args); return; }
     DEFINE_fn(name, fn);
     { extern void core_fn_set_arity(const char *name, int min_args, int max_args); core_fn_set_arity(name, min_args, max_args); }
 }
