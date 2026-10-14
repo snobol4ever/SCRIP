@@ -8273,8 +8273,11 @@ PL_CX_LEAF_TAIL
 PL_OUT_CX_LEAF(put_char_c, 2)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_var_name_ok(const char *n) {
-    if (!n || !(isupper((unsigned char)n[0]) || n[0] == '_')) return 0;
-    for (const char *q = n + 1; *q; q++) if (!(isalnum((unsigned char)*q) || *q == '_')) return 0;
+    extern int prolog_u_letter(const char *, int *);
+    int adv = 1;
+    if (!n || !n[0]) return 0;
+    if ((unsigned char)n[0] >= 0x80 ? prolog_u_letter(n, &adv) != 1 : !(isupper((unsigned char)n[0]) || n[0] == '_')) return 0;
+    for (const char *q = n + adv; *q; q += adv) { adv = 1; if ((unsigned char)*q >= 0x80 ? !prolog_u_letter(q, &adv) : !(isalnum((unsigned char)*q) || *q == '_')) return 0; }
     return 1;
 }
 static int pl_write_opt_bad(const char *on, DESCR_t a, DESCR_t *culprit) {
