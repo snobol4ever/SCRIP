@@ -4568,6 +4568,7 @@ static tree_t * pl_dot_take(const tree_t * t, lc_vec * ev, int * next) {
     return c;
 }
 static tree_t * pl_dot_goal(const tree_t * g, int * next);
+static int pl_dot_is(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "$dot") && t->n == 2; }
 static tree_t * pl_dot_goal_arg(const tree_t * a, char spec, lc_vec * ev, int * next) {
     if (spec == '0') return pl_dot_goal(a, next);
     if (spec != '^') return pl_dot_take(a, ev, next);
@@ -4590,6 +4591,11 @@ static tree_t * pl_dot_goal(const tree_t * g, int * next) {
         c->v = g->v;
         c->line = g->line;
         for (int i = 0; i < g->n; i++) ast_push(c, tmpl ? pl_dot_goal_arg(g->c[i], tmpl[i], &ev, next) : pl_dot_goal(g->c[i], next));
+    } else if ((g->t == TT_UNIFY || (g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "="))) && g->n == 2 && (pl_dot_is(g->c[0]) != pl_dot_is(g->c[1]))) {
+        const tree_t * d = pl_dot_is(g->c[0]) ? g->c[0] : g->c[1];
+        tree_t * o = pl_dot_take(d->c[0], &ev, next);
+        tree_t * f = pl_dot_take(d->c[1], &ev, next);
+        c = pl_cc_fnc3("$dict_eval", o, f, pl_dot_take(d == g->c[0] ? g->c[1] : g->c[0], &ev, next));
     } else c = pl_dot_take(g, &ev, next);
     for (int i = ev.n - 1; i >= 0; i--) c = pl_cc_fnc2(",", ((tree_t **) ev.data)[i], c);
     return c;
