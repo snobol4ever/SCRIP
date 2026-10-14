@@ -27,30 +27,41 @@
                           shell/1, shell/2, system/1, system/2, spawn/2, spawn/3, unlink/1, rename_file/2, delete_directory/1, copy_file/2,
                           file_permission/2, sleep/1, host_name/1, os_version/1, architecture/1, date_time/1, send_signal/2, temporary_name/2,
                           temporary_file/3, is_absolute_file_name/1, cpu_time/1, real_time/1, user_time/1, system_time/1 ]).
-write_to_atom(A, T) :- with_output_to(atom(A), write(T)).
-writeq_to_atom(A, T) :- with_output_to(atom(A), writeq(T)).
-print_to_atom(A, T) :- with_output_to(atom(A), print(T)).
-display_to_atom(A, T) :- with_output_to(atom(A), display(T)).
-write_canonical_to_atom(A, T) :- with_output_to(atom(A), write_canonical(T)).
-write_to_codes(C, T) :- with_output_to(codes(C), write(T)).
-writeq_to_codes(C, T) :- with_output_to(codes(C), writeq(T)).
-print_to_codes(C, T) :- with_output_to(codes(C), print(T)).
-display_to_codes(C, T) :- with_output_to(codes(C), display(T)).
-write_canonical_to_codes(C, T) :- with_output_to(codes(C), write_canonical(T)).
-write_to_chars(C, T) :- with_output_to(chars(C), write(T)).
-writeq_to_chars(C, T) :- with_output_to(chars(C), writeq(T)).
-print_to_chars(C, T) :- with_output_to(chars(C), print(T)).
-display_to_chars(C, T) :- with_output_to(chars(C), display(T)).
-write_canonical_to_chars(C, T) :- with_output_to(chars(C), write_canonical(T)).
-write_term_to_atom(A, T, O) :- with_output_to(atom(A), write_term(T, O)).
-write_term_to_codes(C, T, O) :- with_output_to(codes(C), write_term(T, O)).
-write_term_to_chars(C, T, O) :- with_output_to(chars(C), write_term(T, O)).
-format_to_atom(A, F, Args) :- with_output_to(atom(A), format(F, Args)).
-format_to_codes(C, F, Args) :- with_output_to(codes(C), format(F, Args)).
-format_to_chars(C, F, Args) :- with_output_to(chars(C), format(F, Args)).
-read_from_atom(A, T) :- read_term_from_atom(A, T, []).
-read_from_codes(C, T) :- atom_codes(A, C), read_term_from_atom(A, T, []).
-read_from_chars(C, T) :- atom_chars(A, C), read_term_from_atom(A, T, []).
+write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).
+writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).
+print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).
+display_to_atom(A, T) :- '$gnu_b_oa'(A, display_to_atom/2), with_output_to(atom(A), display(T)).
+write_canonical_to_atom(A, T) :- '$gnu_b_oa'(A, write_canonical_to_atom/2), with_output_to(atom(A), write_canonical(T)).
+write_to_codes(C, T) :- '$gnu_b_ol'(C, write_to_codes/2), with_output_to(codes(C), write(T)).
+writeq_to_codes(C, T) :- '$gnu_b_ol'(C, writeq_to_codes/2), with_output_to(codes(C), writeq(T)).
+print_to_codes(C, T) :- '$gnu_b_ol'(C, print_to_codes/2), with_output_to(codes(C), print(T)).
+display_to_codes(C, T) :- '$gnu_b_ol'(C, display_to_codes/2), with_output_to(codes(C), display(T)).
+write_canonical_to_codes(C, T) :- '$gnu_b_ol'(C, write_canonical_to_codes/2), with_output_to(codes(C), write_canonical(T)).
+write_to_chars(C, T) :- '$gnu_b_ol'(C, write_to_chars/2), with_output_to(chars(C), write(T)).
+writeq_to_chars(C, T) :- '$gnu_b_ol'(C, writeq_to_chars/2), with_output_to(chars(C), writeq(T)).
+print_to_chars(C, T) :- '$gnu_b_ol'(C, print_to_chars/2), with_output_to(chars(C), print(T)).
+display_to_chars(C, T) :- '$gnu_b_ol'(C, display_to_chars/2), with_output_to(chars(C), display(T)).
+write_canonical_to_chars(C, T) :- '$gnu_b_ol'(C, write_canonical_to_chars/2), with_output_to(chars(C), write_canonical(T)).
+write_term_to_atom(A, T, O) :- '$gnu_b_oa'(A, write_term_to_atom/3), with_output_to(atom(A), write_term(T, O)).
+write_term_to_codes(C, T, O) :- '$gnu_b_ol'(C, write_term_to_codes/3), with_output_to(codes(C), write_term(T, O)).
+write_term_to_chars(C, T, O) :- '$gnu_b_ol'(C, write_term_to_chars/3), with_output_to(chars(C), write_term(T, O)).
+format_to_atom(A, F, Args) :- '$gnu_b_oa'(A, format_to_atom/3), with_output_to(atom(A), format(F, Args)).
+format_to_codes(C, F, Args) :- '$gnu_b_ol'(C, format_to_codes/3), with_output_to(codes(C), format(F, Args)).
+format_to_chars(C, F, Args) :- '$gnu_b_ol'(C, format_to_chars/3), with_output_to(chars(C), format(F, Args)).
+read_from_atom(A, T) :- ( var(A) -> throw(error(instantiation_error, read_from_atom/2)) ; '$gnu_b_read'(A, T) ).
+read_from_codes(C, T) :- atom_codes(A, C), '$gnu_b_read'(A, T).
+read_from_chars(C, T) :- atom_chars(A, C), '$gnu_b_read'(A, T).
+'$gnu_b_oa'(A, _) :- ( var(A) ; atom(A) ), !.
+'$gnu_b_oa'(A, PI) :- throw(error(type_error(atom, A), PI)).
+'$gnu_b_ol'(L, _) :- '$gnu_b_pl'(L), !.
+'$gnu_b_ol'(L, PI) :- throw(error(type_error(list, L), PI)).
+'$gnu_b_pl'(L) :- var(L), !.
+'$gnu_b_pl'([]).
+'$gnu_b_pl'([_|T]) :- '$gnu_b_pl'(T).
+'$gnu_b_read'(A, T) :- atom_codes(A, Cs), '$gnu_b_blank'(Cs), !, T = end_of_file.
+'$gnu_b_read'(A, T) :- read_term_from_atom(A, T, []).
+'$gnu_b_blank'([]).
+'$gnu_b_blank'([C|Cs]) :- code_type(C, space), '$gnu_b_blank'(Cs).
 number_atom(N, A) :- ( var(A) -> number_codes(N, C), atom_codes(A, C) ; atom_codes(A, C), number_codes(N, C) ).
 lower_upper(L, U) :- nonvar(L), !, '$gnu_b_char'(L), upcase_atom(L, U0), U = U0.
 lower_upper(L, U) :- '$gnu_b_char'(U), downcase_atom(U, L0), L = L0.
