@@ -3311,6 +3311,29 @@ static void gc_assert_check(void) {
 }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *gc_heap_mark_moved(const char *hb, rt_hblk_t *const *lo, const uint64_t *lf, long n, char *top) {
+    long a = 0, b = n;
+    if (hb < g_hp_arena || hb > g_hp_cap_end) {
+        fprintf(stderr, "[GC-TRAIL] REFUSED: a heap-mark sentinel on the Prolog trail names %p, outside the heap reservation %p..%p -- a choice point's HB is the frontier at its creation\n",
+            (const void *)hb, (const void *)g_hp_arena, (const void *)g_hp_cap_end);
+        abort();
+    }
+    while (a < b) { long m = a + (b - a) / 2; if ((const char *)lo[m] < hb) a = m + 1; else b = m; }
+    return a < n ? (char *)(uintptr_t)lf[a] : top;
+}
+static void gc_trail_marks_relocate(rt_hblk_t *const *lo, const uint64_t *lf, long n, char *top) {
+    for (long i = 0; i < g_gc_rrng_n; i++) {
+        if (g_gc_rrng[i].hi) continue;
+        {
+            const char *tt = *(const char * const *)g_gc_rrng[i].lo;
+            for (char *e = (char *)g_gc_rrng[i].lo + PL_TR_HEADER_BYTES; e + PL_TR_ENTRY_BYTES <= tt; e += PL_TR_ENTRY_BYTES) {
+                pl_tr_entry_t *t = (pl_tr_entry_t *)e;
+                if (!t->cell && t->pad) t->pad = (uint64_t)(uintptr_t)gc_heap_mark_moved((const char *)(uintptr_t)t->pad, lo, lf, n, top);
+            }
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_collect_ex(const gc_ent_t *ent) {
     extern void kw_cset_gc_roots(void);
     extern void core_gc_roots(void);
@@ -3354,6 +3377,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
 #endif
     rt_hblk_t *lomove = (rt_hblk_t *)0;
     uint32_t mxs = 0;
+    long n_hb = 0;
     g_sxt_owner = (char *)0;
     if (g_gc_in || !g_hp_arena) return 0;
     g_gc_in = 1;
@@ -3433,6 +3457,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
                 const char **cell = (const char **)e;
                 DESCR_t *old = (DESCR_t *)(e + 16);
                 if (*cell) rt_gc_visit_raw(cell);
+                else if (((const pl_tr_entry_t *)e)->pad) n_hb++;
                 rt_gc_visit_descr(old);
             }
         }
@@ -3852,6 +3877,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     g_hp_live = (long)(dest - g_hp_arena);
     rt_gcheap_line_reset((long)mxs);
 #endif
+    if (n_hb) gc_trail_marks_relocate(liveo, livef, li, g_hp_top);
     { extern void rt_gc_reset_run(uint64_t *, long); rt_gc_reset_run(livef, li); }
     after_b = (long)(g_hp_top - g_hp_arena);
 #if RT_DIAG
