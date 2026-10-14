@@ -3756,6 +3756,16 @@ static const char * icn_trace_intern(const char * s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string flat_zero_fill(int lo, int len) {
+    if (len <= 0) return std::string();
+    if (len > 1200 || (len & 7)) return x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)len) + x86("rep_stosb");
+    std::string s = x86("mov", "rdi", "rsp") + x86("xorps", "xmm0", "xmm0") + x86("xor", "eax", "eax");
+    int o = lo;
+    for (; o + 16 <= lo + len; o += 16) s += x86("movups", RDQ("rdi", o), "xmm0");
+    if (o < lo + len) s += x86("mov", RDQ("rdi", o), "rax");
+    return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icn_entry_gva(void) {
     return x86("comment", "entry: r9 (the global-cell base the RTCC bank keeps live across Icon code) is reloaded from its home -- a C road (a generator "
                            "entered on its coroutine thread, a by-name or apply entry) hands over whatever C left in it, and no call precedes the first read")
@@ -4345,10 +4355,10 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
           int _rg = (g_emitter.codegen_flat_chain_body__en && g_emit_cfg) ? zls_g_region(g_emit_cfg) : -1;
           if (_lo >= 0 && _rg > 0) _lo = 0;
           if (_lo >= 0 && _rg > _lo && _rg <= frame_total)
-              _gseed = x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_rg - _lo)) + x86("rep_stosb");
+              _gseed = flat_zero_fill(_lo, _rg - _lo);
           if (_use_zframe_install && _gseed.empty() && _rg > 0 && _rg <= frame_total)
               _gseed = x86("comment", "the block protocol: no C install runs, so the value region is zeroed here -- every local reads a null DESCR")
-                     + x86("mov", "rdi", "rsp") + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)_rg) + x86("rep_stosb");
+                     + flat_zero_fill(0, _rg);
           }
         extern int zls_g_block_args(const IR_graph_t *); extern int zls_g_block_base(const IR_graph_t *);
         int _gblk = (_use_zframe_install && zls_g_block_args(g_emit_cfg)) ? 1 : 0, _gw = _gblk ? 16 * np : 0;
@@ -4404,10 +4414,10 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   x86("comment",
                   "LCL-SEED: NULVCL the value region AND the header up to the saved rbp [___+0, ___+hz), so no dead activation's pointer survives inside this frame, the header's unwritten words "
                       "are DT_SNUL cells (ARCH-GC section 13), and lexical locals read unbound")
-                     + x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_hz - _lo)) + x86("rep_stosb");
+                     + flat_zero_fill(_lo, _hz - _lo);
           if (_use_zframe_install && _lseed.empty() && _hz > 0)
               _lseed = x86("comment", "the block protocol: no C install runs, so the frame [0, hz) is zeroed here -- every local reads a null DESCR")
-                     + x86("mov", "rdi", "rsp") + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)_hz) + x86("rep_stosb");
+                     + flat_zero_fill(0, _hz);
           }
         extern int zls_g_block_args(const IR_graph_t *); extern int zls_g_block_base(const IR_graph_t *);
         int _blk = (_use_zframe_install && zls_g_block_args(g_emit_cfg)) ? 1 : 0;

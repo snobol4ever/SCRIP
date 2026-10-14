@@ -147,7 +147,7 @@ def asm_regions(path, wanted=None):
                 mm = SUBRSP.search(s)
                 if mm and not cur['carve']:
                     cur['carve'] = int(mm.group(1))
-                if re.search(r'\brep\s+stos', s):
+                if re.search(r'\brep\s+stos|\bxorps\s+xmm0, xmm0', s):
                     cur['zero'] = 1
             if SEED.search(s):
                 cur['seed'] += 1
