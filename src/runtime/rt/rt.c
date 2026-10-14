@@ -395,31 +395,19 @@ void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
     int en = (int)((codes >> 16) & 0xffff);
     DESCR_t v = *in;
     int64_t r = 0;
+    int64_t si = 0;
+    double sr = 0;
+    int sreal = 0;
     int ok = 0;
-    if (v.v == DT_I) {
-        r = v.i;
+    int big = 0;
+    if (rt_parse_num_d(&v, &si, &sr, &sreal)) {
         ok = 1;
-    } else if (v.v == DT_R) {
-        double d = v.r;
-        if (d == floor(d) && d >= -9.2e18 && d <= 9.2e18) { r = (int64_t)d; ok = 1; }
-    } else if (v.v == DT_SNUL) {
-        r = 0;
-        ok = 1;
-    } else if (v.v == DT_S && v.s) {
-        const char *s0 = rt_cstr_d(v);
-        if (!s0[0]) {
-            r = 0;
-            ok = 1;
-        } else {
-            const char *p = s0;
-            while (*p == ' ') p++;
-            char *ep = NULL;
-            long long t = strtoll(p, &ep, 10);
-            if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) { r = (int64_t)t; ok = 1; } }
-        }
+        if (!sreal) r = si;
+        else if (!isfinite(sr)) { if (v.v == DT_R && !isnan(sr)) big = 1; else ok = 0; } else if (sr >= 9.2233720368547758e18 || sr <= -9.2233720368547758e18) big = 1;
+        else r = (int64_t)sr;
     }
     if (!ok && ec) core_runtime_error(ec, rt_coerce_errmsg(ec));
-    if (r < 0 && en) core_runtime_error(en, rt_coerce_errmsg(en));
+    if ((r < 0 || big) && en) core_runtime_error(en, rt_coerce_errmsg(en));
     out->v = DT_I;
     out->slen = 0;
     out->i = r;
@@ -458,27 +446,13 @@ void rt_pat_prim_land_ω(long word) { g_prim_val = rt_call_land_ω(word); rt_eva
 long rt_pat_prim_int_take(void) {
     DESCR_t v = g_prim_val;
     int64_t r = 0;
-    if (v.v == DT_I) {
-        r = v.i;
-    } else if (v.v == DT_R) {
-        double d = v.r;
-        r = (int64_t)d;
-    } else if (v.v == DT_SNUL) {
-        r = 0;
-    } else if (v.v == DT_S && v.s) {
-        const char *s0 = rt_cstr_d(v);
-        if (!s0[0]) {
-            r = 0;
-        } else {
-            const char *p = s0;
-            while (*p == ' ') p++;
-            char *ep = NULL;
-            long long t = strtoll(p, &ep, 10);
-            if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) r = (int64_t)t; else return -1; } else return -1;
-        }
-    } else {
-        return -1;
-    }
+    int64_t si = 0;
+    double sr = 0;
+    int sreal = 0;
+    if (!rt_parse_num_d(&v, &si, &sr, &sreal)) return -1;
+    if (!sreal) r = si;
+    else if (!isfinite(sr) || sr >= 9.2233720368547758e18 || sr <= -9.2233720368547758e18) return -1;
+    else r = (int64_t)sr;
     if (r < 0) return -1;
     return r;
 }
