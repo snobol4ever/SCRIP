@@ -103,9 +103,9 @@ declared_memory_begin "$DCSV" "$DTBL" >/dev/null || { echo "⛔ REFUSING (rc=2):
 ROAST_UNDECL=""; RSW=()
 # ⛔⭐ THE ROAST FILES WITH NO ORACLE ANSWER LEAVE THE DENOMINATOR (CEO-1696; hq_raku's census, corpus tests/raku/config/ROAST-PARSE-CLASSES.tsv,
 # CEO-1713): a file Rakudo itself refuses (raku -c on the unfudged file) has no oracle answer, so it is an EXCLUDED row of the package's
-# EXCLUDED.tsv beside its ALL.csv, read through the ONE reader (lib_inventory.sh inventory_excluded_names), graded never, shown in Excl.
+# EXCLUDED.tsv beside its ALL.csv, read through the ONE reader (lib_excluded.sh inventory_excluded_names), graded never, shown in Excl.
 ROAST_PKG="$(dirname "$DCSV")"
-. "$ROOT/scripts/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSING (rc=2): lib_inventory.sh unloadable -- the one EXCLUDED reader" >&2; exit 2; }
+. "$ROOT/scripts/lib_excluded.sh" 2>/dev/null || { echo "⛔ REFUSING (rc=2): lib_excluded.sh unloadable -- the one EXCLUDED reader" >&2; exit 2; }
 ROAST_EXCL="$(inventory_excluded_names "$ROAST_PKG")" || { echo "⛔ REFUSING (rc=2): $ROAST_PKG/EXCLUDED.tsv carries a row the one reader refuses" >&2; exit 2; }
 declare -A ROAST_IS_EXCL; for _x in $ROAST_EXCL; do ROAST_IS_EXCL[$_x]=1; done
 roast_sw() {  # <rel or pname> -> RSW, the test's declared switches; a test with no row joins ROAST_UNDECL
