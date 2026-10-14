@@ -36,6 +36,7 @@ int g_call_fastpath_off = 0;
 #include <inttypes.h>
 #include <unistd.h>
 #include <unwind.h>
+#include <dlfcn.h>
 #include <sys/resource.h>
 #include <signal.h>
 #include <time.h>
@@ -832,6 +833,14 @@ static const sno_stno_rec_t * stno_rec_static_table(uint32_t * np) {
     *np = (uint32_t)((size_t)(__stop_scrip_stno_map - __start_scrip_stno_map) / sizeof(sno_stno_rec_t));
     return *np ? (const sno_stno_rec_t *)(const void *)__start_scrip_stno_map : (const sno_stno_rec_t *)0;
 }
+static const sno_stno_rec_t * stno_rec_exe_table(uint32_t * np) {
+    const char * b = (const char *)dlsym(RTLD_DEFAULT, "__start_scrip_stno_map");
+    const char * e = (const char *)dlsym(RTLD_DEFAULT, "__stop_scrip_stno_map");
+    *np = 0;
+    if (!(b && e && e > b)) return (const sno_stno_rec_t *)0;
+    *np = (uint32_t)((size_t)(e - b) / sizeof(sno_stno_rec_t));
+    return *np ? (const sno_stno_rec_t *)(const void *)b : (const sno_stno_rec_t *)0;
+}
 static const sno_stno_rec_t * stno_rec_search(const sno_stno_rec_t * base, uint32_t n, uint64_t ra) {
     uint32_t lo = 0, hi = n;
     if (!base || !n) return (const sno_stno_rec_t *)0;
@@ -845,6 +854,9 @@ static const sno_stno_rec_t * stno_rec_find(uint64_t ra) {
     const sno_stno_rec_t * r = stno_rec_search(base, n, ra);
     if (r) return r;
     base = stno_rec_static_table(&n);
+    r = stno_rec_search(base, n, ra);
+    if (r) return r;
+    base = stno_rec_exe_table(&n);
     return stno_rec_search(base, n, ra);
 }
 void rt_icn_line_of_pc(uint64_t pc, long *line, const char **file) {
