@@ -101,6 +101,13 @@ DCSV="${RAKU_ROAST_DCSV:-$ROOT/../corpus/packages/raku/roast/ALL.csv}"; DTBL="$T
 [ -f "$DCSV" ] || { echo "⛔ REFUSING (rc=2): no roast attribute table at $DCSV -- every test's heap and stack are read from it (CEO-1353)" >&2; exit 2; }
 declared_memory_begin "$DCSV" "$DTBL" >/dev/null || { echo "⛔ REFUSING (rc=2): $DCSV carries a cell the reader refuses (it said why above)" >&2; exit 2; }
 ROAST_UNDECL=""; RSW=()
+# ⛔⭐ THE ROAST FILES WITH NO ORACLE ANSWER LEAVE THE DENOMINATOR (CEO-1696; hq_raku's census, corpus tests/raku/config/ROAST-PARSE-CLASSES.tsv,
+# CEO-1713): a file Rakudo itself refuses (raku -c on the unfudged file) has no oracle answer, so it is an EXCLUDED row of the package's
+# EXCLUDED.tsv beside its ALL.csv, read through the ONE reader (lib_inventory.sh inventory_excluded_names), graded never, shown in Excl.
+ROAST_PKG="$(dirname "$DCSV")"
+. "$ROOT/scripts/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSING (rc=2): lib_inventory.sh unloadable -- the one EXCLUDED reader" >&2; exit 2; }
+ROAST_EXCL="$(inventory_excluded_names "$ROAST_PKG")" || { echo "⛔ REFUSING (rc=2): $ROAST_PKG/EXCLUDED.tsv carries a row the one reader refuses" >&2; exit 2; }
+declare -A ROAST_IS_EXCL; for _x in $ROAST_EXCL; do ROAST_IS_EXCL[$_x]=1; done
 roast_sw() {  # <rel or pname> -> RSW, the test's declared switches; a test with no row joins ROAST_UNDECL
   local e="${1%.t}" w; RSW=()
   declared_row_in_table "$DTBL" "$e" 2>/dev/null || ROAST_UNDECL="$ROAST_UNDECL $e"
@@ -219,7 +226,7 @@ if [ "$DO_RUN" = 1 ]; then
   ROAST_COMMIT="unversioned-tree"
   [ -d "$ROAST/.git" ] && ROAST_COMMIT="$(cd "$ROAST" && git rev-parse --short=9 HEAD 2>/dev/null || echo unversioned-tree)"
   RT_DIR="$ROOT/out"
-  m3p=0; m3f=0; m4p=0; m4f=0; bothp=0; compiled_ok=0; n=0; t0=$(date +%s)
+  m3p=0; m3f=0; m4p=0; m4f=0; bothp=0; compiled_ok=0; n=0; n_excl=0; t0=$(date +%s); declare -A EXCL_SEEN
   TREE_T=$(find -L "$ROAST" -name '*.t' | wc -l)
   MAN_ALL=0; MAN_TIER=0; MAN_MISSING=0; MAN_MISSING_LIST=""
   if [ -f "$MANIFEST" ]; then
@@ -235,6 +242,8 @@ if [ "$DO_RUN" = 1 ]; then
   FAILED_M3=""; FAILED_M4=""
   roast_outcome() { case "$1" in PASS) echo PASS ;; FAIL) echo FAIL ;; PARSE-FAIL) echo REJECT ;; CRASH) echo CRASH ;; NO-TAP) echo UNPROVEN ;; *) echo UNPROVEN ;; esac; }
   while IFS= read -r -d '' src; do
+    _xn="${src#$ROAST/}"; _xn="${_xn%.t}"
+    if [ -n "${ROAST_IS_EXCL[$_xn]:-}" ]; then n_excl=$((n_excl+1)); EXCL_SEEN[$_xn]=1; continue; fi
     n=$((n+1)); [ "$LIMIT" -gt 0 ] && [ "$n" -gt "$LIMIT" ] && { n=$((n-1)); break; }
     stage=$(roast_stage "$ROAST" "$TMP" "$src") || { echo "⛔ REFUSING (rc=2): could not stage $src" >&2; exit 2; }
     so="$TMP/o"; se="$TMP/e"
@@ -247,9 +256,10 @@ if [ "$DO_RUN" = 1 ]; then
     if [ "$v3" = PASS ]; then m3p=$((m3p+1)); else m3f=$((m3f+1)); FAILED_M3="$FAILED_M3 $pname:$v3"; fi
     s4="$TMP/c.s"; o4="$TMP/c.o"; b4="$TMP/c.bin"
     _t0="$(progress_clock)"
-    if "$TIMEOUT_RETRY" 20 "$SCRIP" --compile --target=x86 "$stage" > "$s4" 2>/dev/null \
-       && "$TIMEOUT_RETRY" 20 gcc -c "$s4" -o "$o4" 2>/dev/null \
-       && "$TIMEOUT_RETRY" 20 gcc "$o4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$b4" 2>/dev/null; then
+    : > "$TMP/ce4"
+    if "$TIMEOUT_RETRY" 20 "$SCRIP" --compile --target=x86 "$stage" > "$s4" 2>"$TMP/ce4" \
+       && "$TIMEOUT_RETRY" 20 gcc -c "$s4" -o "$o4" 2>"$TMP/ce4" \
+       && "$TIMEOUT_RETRY" 20 gcc "$o4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$b4" 2>"$TMP/ce4"; then
       compiled_ok=$((compiled_ok+1))
       incwd "$TIMEOUT_RETRY" 10 "$b4" "${RSW[@]}" > "$TMP/o4" 2> "$TMP/e4" < /dev/null; rc4=$?; _s4="$(progress_secs_since "$_t0")"
       v4="$(classify "$TMP/o4" "$TMP/e4" "$rc4")"
@@ -258,7 +268,9 @@ if [ "$DO_RUN" = 1 ]; then
       [ "$v3" = PASS ] && [ "$v4" = PASS ] && bothp=$((bothp+1))
     else
       m4f=$((m4f+1)); FAILED_M4="$FAILED_M4 $pname:CC"
-      progress_append package roast raku "$pname" m4 REJECT "$(progress_secs_since "$_t0")" "mode-4 compile or link failed" >/dev/null 2>&1 || true
+      # the stage that refused names itself in its first stderr line (hq_raku 2026-10-14: ~290 files pass mode 3 and fail only here)
+      _ce="$(grep -m1 -v '^[[:space:]]*$' "$TMP/ce4" 2>/dev/null | tr '\t' ' ' | cut -c1-120)"
+      progress_append package roast raku "$pname" m4 REJECT "$(progress_secs_since "$_t0")" "mode-4 compile or link failed${_ce:+: $_ce}" >/dev/null 2>&1 || true
     fi
     if [ $((n % 100)) -eq 0 ]; then
       printf '  ...%d files (%ds elapsed): m3 %d/%d  m4 %d/%d\n' "$n" "$(( $(date +%s) - t0 ))" "$m3p" "$n" "$m4p" "$n" >&2
@@ -266,6 +278,8 @@ if [ "$DO_RUN" = 1 ]; then
   done < <(find -L "$ROAST" -name '*.t' -print0 | sort -z)
   roast_undecl_report
   compile_only=$((compiled_ok - m4p))
+  _stale=""; for _x in $ROAST_EXCL; do [ -n "${EXCL_SEEN[$_x]:-}" ] || _stale="$_stale $_x"; done
+  printf 'ROAST_EXCLUDED %d file(s) out of the denominator, NO_ORACLE_ANSWER (CEO-1696) from %s/EXCLUDED.tsv%s\n' "$n_excl" "$ROAST_PKG" "$( [ -n "$_stale" ] && [ "$LIMIT" -eq 0 ] && printf ' -- STALE (no such file in the tree):%s' "$_stale")"
   elapsed=$(( $(date +%s) - t0 ))
   # ⛔ THE AND PER PROGRAM, NEVER THE SMALLER COUNT (ceo-372; the coo 2026-10-10): this line read min(m3p, m4p), which counts a program
   # green in one mode beside a different program green in the other. Measured: pass 45 on fcff46d90 read 164 here against the progress
@@ -321,8 +335,8 @@ if [ "$DO_RUN" = 1 ]; then
   # ⛔ THE BOARD LINE IS NAMED LIKE EVERY OTHER RUNNER'S AND RIDES IN THE CELL (coo 2026-09-28): util_score_row archives the
   # verbatim <NAME>_SUITE_BOARD line it is handed into .github/board-lines/ so two readings of one suite stay diffable (CEO-827).
   # This line was ROAST_BOARD and never reached --text, so the 170/1464 publish of 2026-09-28 wrote its row and archived nothing.
-  BOARD_LINE=$(printf 'ROAST_SUITE_BOARD total=%d m3_run_pass=%d m3_run_fail=%d m4_run_pass=%d m4_run_fail=%d both_modes_pass=%d compile_only=%d roast_commit=%s elapsed=%ds' \
-    "$n" "$m3p" "$m3f" "$m4p" "$m4f" "$both" "$compile_only" "$ROAST_COMMIT" "$elapsed")
+  BOARD_LINE=$(printf 'ROAST_SUITE_BOARD total=%d m3_run_pass=%d m3_run_fail=%d m4_run_pass=%d m4_run_fail=%d both_modes_pass=%d compile_only=%d excluded=%d roast_commit=%s elapsed=%ds' \
+    "$n" "$m3p" "$m3f" "$m4p" "$m4f" "$both" "$compile_only" "$n_excl" "$ROAST_COMMIT" "$elapsed")
   printf '%s\n' "$BOARD_LINE"
   [ "$LIMIT" -gt 0 ] && { printf 'ROAST_PARTIAL: --limit %d was in force, so this is a SMOKE OF THE INSTRUMENT and NOT a board; no SCORE row is written.\n' "$LIMIT"; exit 0; }
   # ⛔ --suite/--suite-key ARE NOT OPTIONAL HERE AND THEIR ABSENCE WAS A SILENT NO-OP FOR THIS BOARD (hq_raku
@@ -337,7 +351,7 @@ if [ "$DO_RUN" = 1 ]; then
   PC_TEXT="$(printf '%s' "$PC_LINE" | sed -E 's#PARSED ([0-9]+)/([0-9]+)#PARSED \1 of \2#')"
   python3 "$ROOT/scripts/util_score_row.py" write --lang raku --column vendor --modes m3,m4 \
       --suite roast --suite-key roast \
-      --suite-pass "$both" --suite-total "$n" \
+      --suite-pass "$both" --suite-total "$n" --excluded "$n_excl" \
       --measurer "${S4E_SEAT:-}" \
       --text "roast run-graded both-modes $both/$n · PARSE COVERAGE: $PC_TEXT (measured by scripts/util_raku_parse_census.sh, --dump-ast rc=0 per file over this same population -- NEVER derived by subtracting buckets) · m3 $m3p/$n · m4 $m4p/$n · compile_only=$compile_only · roast=$ROAST_COMMIT · ⛔ THE DENOMINATOR IS THE POPULATION THIS RUNNER WALKS, every .t file under the vendored tree — ruled by the ceo as THE published roast basis (CEO-784, 2026-09-16, on hq_raku's ask: every shipped .t, CEO-749 shape, the manifest demoted to an inventory column). The 6.c manifest in-tier subset ($MAN_TIER of $MAN_ALL manifest lines, $MAN_MISSING named-but-absent) is a DIFFERENT POPULATION over the same suite, not a disagreement, and it is reported beside this board rather than instead of it. ⛔ THIS NOTE USED TO SAY THE SUBSET WAS ONE NO RUNNER MEASURED. That was FALSE and is corrected here on the ceo's order: the default mode of THIS script measures it and writes RAKU-COVERAGE.md, most recently by hq_raku on 2026-09-16. A runner asserting that nobody measured a number IT ITSELF computes is the worst kind of standing note — it reads as provenance and is self-refuting. · $BOARD_LINE" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
