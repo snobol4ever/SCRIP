@@ -1383,6 +1383,11 @@ def main(argv):
         root = argv[argv.index("--dir") + 1]
     if "--tsv" in argv:
         out = argv[argv.index("--tsv") + 1]
+        # --tsv names the OUTPUT table; an existing file that is not a .tsv is refused, never overwritten (coo 2026-10-14: the gate's
+        # hint read "--tsv FILE" and two source files of the cto's were overwritten with the whole-tree table)
+        if os.path.exists(out) and not out.endswith(".tsv"):
+            print(f"REFUSED (rc 2): --tsv names the OUTPUT table, and {out} exists and is not a .tsv -- nothing written; name a new or .tsv path", file=sys.stderr)
+            return 2
     if "--top" in argv:
         top = int(argv[argv.index("--top") + 1])
     files = []

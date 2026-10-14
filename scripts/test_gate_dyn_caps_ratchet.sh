@@ -141,7 +141,7 @@ n=$(sed -n 's/^fixed-bound declarations[^:]*: \([0-9]*\) (baseline \([0-9]*\)).*
 u=$(sed -n 's/.*never compared in its file: \([0-9]*\)$/\1/p' <<<"$line")
 echo "  census: $n fixed-bound declarations at file, static or field scope, baseline $b; $u with no capacity guard at a fill, macro or literal bound (never compared, or compared only as an index or an iteration) -- CEO-1231, printed, not graded here"
 ck "2 the tree reads EXACTLY the baseline ($n vs $b)" '[ -n "$n" ] && [ "$n" = "$b" ]'
-[ -n "$n" ] && [ "$n" -gt "$b" ] && echo "      a new fixed table landed ($b -> $n): make it dynamic, or declare it class A/B on the page -- list them: python3 scripts/audit_fixed_caps_census.py --tsv FILE"
+[ -n "$n" ] && [ "$n" -gt "$b" ] && echo "      a new fixed table landed ($b -> $n): make it dynamic, or declare it class A/B on the page -- list them: python3 scripts/audit_fixed_caps_census.py --tsv /tmp/caps.tsv (an OUTPUT path)"
 [ -n "$n" ] && [ "$n" -lt "$b" ] && echo "      the population FELL ($b -> $n): lower scripts/fixtures/dyn_caps/BASELINE to $n in this landing, so the ratchet keeps the gain"
 d=$(sed -n 's/^guards that drop or truncate at the cap: \([0-9]*\)$/\1/p' <<<"$out")
 [ -n "$d" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the witness printed no drop line -- $(printf '%s\n' "$out" | head -3 | tr '\n' ' ')"; gate_stamp; exit 2; }
@@ -184,7 +184,7 @@ pu=$(sed -n 's/.*never compared in its file: \([0-9]*\)$/\1/p' <<<"$po"); pd=$(s
 ck "3 FAIL-ONCE: three planted file-scope tables read RED, grown from the unplanted count ($n -> $((n + 3)))" '[ "$prc" != 0 ] && grep -q "grew from $n to $((n + 3))" <<<"$po"'
 ck "4 the guard classifier can red, and a declared table leaves its line: of two never-compared plants only the undeclared one raises the no-guard count ($u -> ${pu:-?}) and the dropping plant the drop count by one ($d -> ${pd:-?})" '[ "$pu" = "$((u + 1))" ] && [ "$pd" = "$((d + 1))" ]'
 ck "5 the function-scope population reads EXACTLY its baseline ($fn vs $fb)" '[ "$fn" = "$fb" ]'
-[ "$fn" -gt "$fb" ] && echo "      a new fixed local that a program fills landed ($fb -> $fn): make it grow -- list them: python3 scripts/audit_fixed_caps_census.py --tsv FILE, column fill"
+[ "$fn" -gt "$fb" ] && echo "      a new fixed local that a program fills landed ($fb -> $fn): make it grow -- list them: python3 scripts/audit_fixed_caps_census.py --tsv /tmp/caps.tsv (an OUTPUT path), column fill"
 [ "$fn" -lt "$fb" ] && echo "      the function-scope population FELL ($fb -> $fn): lower scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE to $fn in this landing"
 pfn=$(sed -n 's/^function-scope arrays a program fills: \([0-9]*\) (baseline.*/\1/p' <<<"$po"); pfu=$(sed -n 's/^function-scope arrays a program fills, unguarded: \([0-9]*\)$/\1/p' <<<"$po")
 pfa=$(sed -n 's/^function-scope arrays a program fills: .* declared class A or B by [^ ]* \([0-9]*\); fixed by construction.*/\1/p' <<<"$po"); fa=$(sed -n 's/^function-scope arrays a program fills: .* declared class A or B by [^ ]* \([0-9]*\); fixed by construction.*/\1/p' <<<"$out")
