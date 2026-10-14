@@ -200,12 +200,13 @@ def split_db(db, supported=None):
     """(plain-Prolog clauses, names dropped). A helper clause in Logtalk-only syntax that the case-goal rewrites cannot express
     (express_helper_clause; never tried when `supported` is None) is DROPPED rather than emitted -- and its name is returned,
     because a case that calls it must become UNGRADED-and-named rather than a silent existence_error red. The file's setup/0 and
-    cleanup/0 hooks are never expressed here: running a Logtalk-syntax hook that was dropped until now would move fifteen groups
-    (write_term_3, the syntax groups, builtins) at once, an instrument question of its own (named to the coo, CEO-1689)."""
+    cleanup/0 hooks are expressed the same way (cfo 2026-10-14, the coo's ruling on CEO-1689: running them is upstream lgtunit
+    behaviour): fifteen files define cleanup/0 with ^^clean_text_input and kin, and until this landing every one was dropped, so
+    lgtunit's cleanup never ran after their cases."""
     keep, dropped = [], set()
     for cl in db:
         if LOGTALK_ONLY_SYNTAX.search(cl):
-            g = express_helper_clause(cl, supported) if supported is not None and _clause_head_name(cl) not in ("setup", "cleanup") else None
+            g = express_helper_clause(cl, supported) if supported is not None else None
             if g is not None:
                 keep.append(g)
                 continue
