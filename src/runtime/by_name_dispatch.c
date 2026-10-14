@@ -3975,19 +3975,25 @@ static DESCR_t pas_agg_copy(DESCR_t v) {
     d.arr = b;
     return d;
 }
+static void pas_fill(DESCR_t v, long long c);
+static void pas_fill_cell(DESCR_t *e, long long c) {
+    if (e->v == DT_A) pas_fill(*e, c);
+    else if (e->v == DT_R) *e = REALVAL((double)c);
+    else if (e->v == DT_I) *e = INTVAL(c);
+    else if (c == 0 && e->v == DT_S) *e = STRVAL("");
+    else if (c != 0 && e->v == DT_SNUL) *e = INTVAL(c);
+}
+static long long pas_fill_count(const ARBLK_t *s) { long long n = (long long)s->hi - s->lo + 1; if (s->ndim == 2) n *= (long long)s->hi2 - s->lo2 + 1; return n; }
 static void pas_fill(DESCR_t v, long long c) {
     if (v.v != DT_A || !v.arr) return;
     ARBLK_t *s = (ARBLK_t *) v.arr;
-    long long n = (long long)s->hi - s->lo + 1;
-    if (s->ndim == 2) n *= (long long)s->hi2 - s->lo2 + 1;
-    for (long long k = 0; k < n; k++) {
-        DESCR_t *e = &s->data[k];
-        if (e->v == DT_A) pas_fill(*e, c);
-        else if (e->v == DT_R) *e = REALVAL((double)c);
-        else if (e->v == DT_I) *e = INTVAL(c);
-        else if (c == 0 && e->v == DT_S) *e = STRVAL("");
-        else if (c != 0 && e->v == DT_SNUL) *e = INTVAL(c);
-    }
+    for (long long k = 0, n = pas_fill_count(s); k < n; k++) pas_fill_cell(&s->data[k], c);
+}
+static void pas_fill_from(DESCR_t v, long long idx, long long bytes, long long esz, long long c) {
+    if (v.v != DT_A || !v.arr) return;
+    ARBLK_t *s = (ARBLK_t *) v.arr;
+    long long n = pas_fill_count(s), k = idx - s->lo, end = esz > 0 ? k + bytes / esz : n;
+    for (k = k < 0 ? 0 : k; k < end && k < n; k++) pas_fill_cell(&s->data[k], c);
 }
 static void pas_real_str_exp(double r, char *buf, int bufsz, int prec, int expdig, int upper);
 static DESCR_t pas_dyn_block(long long n) {
@@ -15149,6 +15155,22 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
         int cap = 24;
         char *o = rt_wsb_alloc((size_t)cap);
         snprintf(o, (size_t)cap, "%llu", IS_INT_fn(args[0]) ? (unsigned long long)args[0].i : 0ULL);
+        *out = STRVAL(o);
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_fill_from") && nargs == 5) {
+        pas_fill_from(args[0], IS_INT_fn(args[1]) ? (long long)args[1].i : 0, IS_INT_fn(args[2]) ? (long long)args[2].i : 0, IS_INT_fn(args[4]) ? (long long)args[4].i : 0,
+            IS_INT_fn(args[3]) ? (long long)args[3].i : 0);
+        *out = args[0];
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_strfill") && nargs == 4) {
+        const char *sv = VARVAL_fn(args[0]);
+        if (!sv) sv = "";
+        long long len = (long long)strlen(sv), idx = IS_INT_fn(args[1]) ? (long long)args[1].i : 1, cnt = IS_INT_fn(args[2]) ? (long long)args[2].i : 0;
+        char *o = rt_wsb_alloc((size_t)len + 1);
+        memcpy(o, sv, (size_t)len + 1);
+        for (long long i = idx; i < idx + cnt && i <= len; i++) if (i >= 1) o[i - 1] = (char)(IS_INT_fn(args[3]) ? args[3].i : 0);
         *out = STRVAL(o);
         return 1;
     }

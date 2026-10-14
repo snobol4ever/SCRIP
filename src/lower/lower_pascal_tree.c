@@ -716,6 +716,32 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         if (dst && dst->t == TT_VAR && dst->v.sval && cnt &&
             ((cnt->t == TT_FNC && cnt->n == 2 && cnt->c[0] && cnt->c[0]->v.sval && !strcmp(cnt->c[0]->v.sval, "sizeof") && cnt->c[1] && cnt->c[1]->t == TT_VAR && cnt->c[1]->v.sval &&
             !strcmp(cnt->c[1]->v.sval, dst->v.sval)) || (cnt->t == TT_ILIT && pas_sizeof_lookup(dst->v.sval, &_wsz) && _wsz == cnt->v.ival))) return mk_fnc2("__pas_fill", dst, val);
+        if (dst && dst->t == TT_IDX && dst->n == 2 && dst->c[0] && dst->c[0]->t == TT_VAR && dst->c[0]->v.sval && cnt) {
+            const char *an = dst->c[0]->v.sval;
+            long long ah = -1, tot = -1, esz = 0;
+            if (pas_var_string_kind(an)) {
+                tree_t *f = ast_node_new(TT_FNC);
+                ast_push(f, leaf_s(TT_VAR, "__pas_strfill"));
+                ast_push(f, leaf_s(TT_VAR, an));
+                ast_push(f, dst->c[1]);
+                ast_push(f, cnt);
+                ast_push(f, val);
+                return mk_assign(leaf_s(TT_VAR, an), f);
+            }
+            if (pas_array_isdyn(an) || pas_array_high_get(an, &ah)) {
+                const char *et = pas_scalarvartype_get(an);
+                if (ah >= 0 && pas_sizeof_lookup(an, &tot) && tot > 0) esz = tot / (ah - pas_array_low(an) + 1);
+                else if (et && !pas_sizeof_builtin_size(et, &esz)) esz = 0;
+                tree_t *f = ast_node_new(TT_FNC);
+                ast_push(f, leaf_s(TT_VAR, "__pas_fill_from"));
+                ast_push(f, leaf_s(TT_VAR, an));
+                ast_push(f, dst->c[1]);
+                ast_push(f, cnt);
+                ast_push(f, val);
+                ast_push(f, ilit(esz > 0 ? esz : 0));
+                return f;
+            }
+        }
         long long fhi = -1, flo = 0;
         tree_t *fdst = NULL;
         if (dst && dst->t == TT_VAR && dst->v.sval && pas_array_high_get(dst->v.sval, &fhi)) {
