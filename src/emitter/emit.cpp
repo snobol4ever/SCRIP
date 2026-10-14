@@ -1301,7 +1301,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_LIT_ATOM:
     case IR_LIT_CHARSET:
     case IR_LIT_NAME:
-    case IR_LIT_REAL: { g_emit.op_seal = nd->seal; { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_lit_scalar()); } return 0;
+    case IR_LIT_REAL: { g_emit.op_seal = nd->seal; { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off;
+        } } bb_emit_x86(bb_lit_scalar()); } return 0;
     case IR_KW_ICON:
     case IR_KW_ICON_GEN: g_emit.op_var_form = nd->pat_static; g_emit.op_name2 = kw_bare(g_emit.op_sval); bb_emit_x86(bb_keyword_icon()); g_emit.op_var_form = 0; return 0;
     case IR_KW_SNOBOL4: kw_snobol4_prepare(); bb_emit_x86(bb_keyword_snobol4()); return 0;
@@ -6045,6 +6046,7 @@ DESCR_t rt_pl_dop_skip_list(DESCR_t *, int); DESCR_t rt_pl_dop_argv(DESCR_t *, i
 DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, int); DESCR_t rt_pl_dop_arg(DESCR_t *, int); DESCR_t rt_pl_dop_univ(DESCR_t *, int);
 DESCR_t rt_pl_dop_attv_set(DESCR_t *, int); DESCR_t rt_pl_dop_setarg(DESCR_t *, int); DESCR_t rt_pl_dop_nb_setarg(DESCR_t *, int); DESCR_t rt_pl_dop_create_prolog_flag(DESCR_t *, int);
     DESCR_t rt_pl_dop_attv_atts(DESCR_t *, int); DESCR_t rt_pl_dop_attv_take(DESCR_t *, int); DESCR_t rt_pl_dop_unifiable(DESCR_t *, int);
+    DESCR_t rt_pl_dop_crv_enter(DESCR_t *, int); DESCR_t rt_pl_dop_crv_adj(DESCR_t *, int); DESCR_t rt_pl_dop_crv_collect(DESCR_t *, int);
 DESCR_t rt_pl_dop_scc_bnew(DESCR_t *, int); DESCR_t rt_pl_dop_scc_take(DESCR_t *, int); DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_copy_term_nat(DESCR_t *, int);
     DESCR_t rt_pl_dop_term_variables(DESCR_t *, int);
     DESCR_t rt_pl_dop_numbervars3(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars1(DESCR_t *,
@@ -6173,6 +6175,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$attv_set", 2, "rt_pl_dop_attv_set", rt_pl_dop_attv_set }, { "$setarg", 3, "rt_pl_dop_setarg", rt_pl_dop_setarg }, { "$nb_setarg", 3, "rt_pl_dop_nb_setarg", rt_pl_dop_nb_setarg },
         { "$create_prolog_flag", 2, "rt_pl_dop_create_prolog_flag", rt_pl_dop_create_prolog_flag }, { "$attv_atts", 2, "rt_pl_dop_attv_atts", rt_pl_dop_attv_atts },
         { "$attv_take", 1, "rt_pl_dop_attv_take", rt_pl_dop_attv_take }, { "$unifiable", 3, "rt_pl_dop_unifiable", rt_pl_dop_unifiable },
+        { "$crv_enter", 1, "rt_pl_dop_crv_enter", rt_pl_dop_crv_enter }, { "$crv_adj", 1, "rt_pl_dop_crv_adj", rt_pl_dop_crv_adj },
+        { "$crv_collect", 2, "rt_pl_dop_crv_collect", rt_pl_dop_crv_collect },
         { "$wall_us", 1, "rt_pl_dop_wall_us", rt_pl_dop_wall_us }, { "$wall_ms", 1, "rt_pl_dop_wall_ms", rt_pl_dop_wall_ms },
         { "$sort", 2, "rt_pl_dop_sort", rt_pl_dop_sort }, { "$msort", 2, "rt_pl_dop_msort", rt_pl_dop_msort }, { "$char_type", 2, "rt_pl_dop_char_type", rt_pl_dop_char_type },
         { "$pl_big", 1, "rt_pl_dop_big", rt_pl_dop_big }, { "$findall_new", 0, "rt_pl_dop_findall_new", rt_pl_dop_findall_new }, { "$findall_add", 2, "rt_pl_dop_findall_add", rt_pl_dop_findall_add },

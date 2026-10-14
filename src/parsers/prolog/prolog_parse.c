@@ -1330,6 +1330,8 @@ static const char * const PL_PRELUDE_SRC =
     "nth_integer_root_and_remainder(N,I,R,M):-integer(N),integer(I),N>=1,(I>=0->'$nth_root_bs'(N,I,0,I,R);N mod 2=:=1,J is -I,'$nth_root_bs'(N,J,0,J,R0),R is -R0),M is I-R^N.\n"
     "'$nth_root_bs'(_,_,L,H,R):-H-L=<1,!,R=L.\n"
     "'$nth_root_bs'(N,I,L,H,R):-M is (L+H)//2,(M^N=<I->'$nth_root_bs'(N,I,M,H,R);'$nth_root_bs'(N,I,L,M,R)).\n"
+    "call_residue_vars(G,Vs):-'$crv_enter'(M),'$crv_call'(G),'$crv_collect'(M,Vs).\n"
+    "'$crv_call'(G):-(true;'$crv_adj'(-1),fail),catch(G,E,('$crv_adj'(-1),throw(E))),('$crv_adj'(-1);'$crv_adj'(1),fail).\n"
     "term_attvars(T,Vs):-term_variables(T,Vs0),'$attv_filter'(Vs0,Vs).\n"
     "'$attv_filter'([],[]).\n"
     "'$attv_filter'([V|T],R):-(attvar(V)->R=[V|R2];R=R2),'$attv_filter'(T,R2).\n"

@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2644
-#define GC_ALLOC_TAB_N_VOID 311
-#define GC_ALLOC_TAB_N_DESCR 1263
-#define GC_ALLOC_TAB_N_OTHER 1053
+#define GC_ALLOC_TAB_N 2654
+#define GC_ALLOC_TAB_N_VOID 312
+#define GC_ALLOC_TAB_N_DESCR 1270
+#define GC_ALLOC_TAB_N_OTHER 1055
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1131,6 +1131,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_compare_walk_run", GC_RET_OTHER },
     { "plc_cons", GC_RET_DESCR },
     { "plc_copy", GC_RET_DESCR },
+    { "plc_copy_cx", GC_RET_DESCR },
     { "plc_copy_run", GC_RET_OTHER },
     { "plc_copy_x", GC_RET_DESCR },
     { "plc_factorize", GC_RET_DESCR },
@@ -1817,6 +1818,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_compound_cell", GC_RET_OTHER },
     { "rt_pl_copy_term_cell", GC_RET_OTHER },
     { "rt_pl_copy_term_nat_cell", GC_RET_OTHER },
+    { "rt_pl_crv_collect_cell", GC_RET_OTHER },
+    { "rt_pl_crv_enter_cell", GC_RET_OTHER },
     { "rt_pl_db_abolish", GC_RET_OTHER },
     { "rt_pl_db_assert", GC_RET_OTHER },
     { "rt_pl_db_assert_ref", GC_RET_OTHER },
@@ -1930,6 +1933,12 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_cpu_ms_c", GC_RET_DESCR },
     { "rt_pl_dop_create_prolog_flag", GC_RET_DESCR },
     { "rt_pl_dop_create_prolog_flag_c", GC_RET_DESCR },
+    { "rt_pl_dop_crv_adj", GC_RET_DESCR },
+    { "rt_pl_dop_crv_adj_c", GC_RET_DESCR },
+    { "rt_pl_dop_crv_collect", GC_RET_DESCR },
+    { "rt_pl_dop_crv_collect_c", GC_RET_DESCR },
+    { "rt_pl_dop_crv_enter", GC_RET_DESCR },
+    { "rt_pl_dop_crv_enter_c", GC_RET_DESCR },
     { "rt_pl_dop_current_input", GC_RET_DESCR },
     { "rt_pl_dop_current_input_c", GC_RET_DESCR },
     { "rt_pl_dop_current_output", GC_RET_DESCR },
@@ -2344,6 +2353,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_numbervars_cell", GC_RET_OTHER },
     { "rt_pl_pairs_keys_values_cell", GC_RET_OTHER },
     { "rt_pl_parse_number", GC_RET_OTHER },
+    { "rt_pl_residue_recopy", GC_RET_VOID },
     { "rt_pl_root_omega", GC_RET_VOID },
     { "rt_pl_scc_bnew_cell", GC_RET_OTHER },
     { "rt_pl_scc_take_cell", GC_RET_OTHER },

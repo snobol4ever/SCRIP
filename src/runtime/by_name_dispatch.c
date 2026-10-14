@@ -7043,7 +7043,8 @@ static int rt_pl_attv_set_cell(DESCR_t *av, DESCR_t *aa, pl_tr_ctx_t *cx) {
     char *floor_ = &probe;
     DESCR_t w = pl_attv_word(aa, cx);
     DESCR_t *c = plw_cell_deref(plw_entry(av));
-    if (pl_attv_is(c)) { if (pl_tr_needs_log(cx, c + 1, floor_)) pl_tr_push(cx, c + 1); c[1] = w; return 1; }
+    int rs = pl_tr_residue_on(cx);
+    if (pl_attv_is(c)) { if (rs) pl_tr_push_residue(cx, c + 1); else if (pl_tr_needs_log(cx, c + 1, floor_)) pl_tr_push(cx, c + 1); c[1] = w; return 1; }
     if (!plw_unbound_tag(c)) return 0;
     {
         DESCR_t *blk = (DESCR_t *)rt_ws_alloc_descr(2);
@@ -7051,6 +7052,7 @@ static int rt_pl_attv_set_cell(DESCR_t *av, DESCR_t *aa, pl_tr_ctx_t *cx) {
         blk[0].v = (DTYPE_t)DT_PLVAR;
         blk[0].slen = PL_ATTV_SLEN;
         blk[0].p = (void *)blk;
+        if (rs) { memset(&blk[1], 0, sizeof blk[1]); pl_tr_push_residue(cx, blk + 1); }
         blk[1] = w;
         r.v = (DTYPE_t)DT_PLVAR;
         r.p = (void *)blk;
@@ -7090,6 +7092,40 @@ static int rt_pl_attv_take_cell(DESCR_t *al, pl_tr_ctx_t *cx) {
     }
     if (lo && !cx->b && base + lo < cx->tr) { cx->tr = base + lo; *(char **)base = cx->tr; }
     return plw_unify_cell_val(plw_entry(al), acc, cx);
+}
+static int rt_pl_crv_enter_cell(DESCR_t *am, pl_tr_ctx_t *cx) {
+    char *base = pl_tr_base_of(cx->tr);
+    (*pl_tr_residue_slot(base))++;
+    return plw_unify_cell_val(plw_entry(am), INTVAL((int64_t)(cx->tr - base)), cx);
+}
+static int rt_pl_crv_adj_cell(DESCR_t *ad, pl_tr_ctx_t *cx) {
+    DESCR_t *d = plw_cell_deref(plw_entry(ad));
+    uint64_t *rs = pl_tr_residue_slot(pl_tr_base_of(cx->tr));
+    if (d->v != DT_I) return 0;
+    if (d->i < 0 && *rs < (uint64_t)-d->i) {
+        extern void rt_bomb(const char *msg);
+        rt_bomb("$crv_adj: the call_residue_vars depth would fall below zero -- a goal left it more times than it entered");
+    }
+    *rs += (uint64_t)d->i;
+    return 1;
+}
+static int rt_pl_crv_collect_cell(DESCR_t *am, DESCR_t *av, pl_tr_ctx_t *cx) {
+    char *base = pl_tr_base_of(cx->tr);
+    DESCR_t *m = plw_cell_deref(plw_entry(am));
+    DESCR_t nil = pl_nil(), head = nil, *tail = &head;
+    if (m->v != DT_I || m->i < PL_TR_HEADER_BYTES || base + m->i > cx->tr) return 0;
+    for (char *p = base + m->i; p + PL_TR_ENTRY_BYTES <= cx->tr; p += PL_TR_ENTRY_BYTES) {
+        pl_tr_entry_t *e = (pl_tr_entry_t *)p;
+        DESCR_t *blk = e->cell - 1, r = {0};
+        if (e->pad != PL_TR_PAD_RESIDUE || !pl_attv_is(blk) || (blk[1].v == nil.v && blk[1].i == nil.i)) continue;
+        blk[0].slen = PL_ATTV_SEEN;
+        r.v = (DTYPE_t)DT_PLVAR;
+        r.p = (void *)blk;
+        *tail = pl_cons(r, nil);
+        tail = &((DESCR_t *)tail->p)[1];
+    }
+    for (DESCR_t l = head; l.v == (DTYPE_t)DT_PLREF; l = ((DESCR_t *)l.p)[1]) ((DESCR_t *)((DESCR_t *)l.p)[0].p)->slen = PL_ATTV_SLEN;
+    return plw_unify_cell_val(plw_entry(av), head, cx);
 }
 static DESCR_t pl_unif_global(DESCR_t *c, const char *floor_, pl_tr_ctx_t *cx) {
     DESCR_t r = {0};
@@ -7157,6 +7193,9 @@ PL_CX_LEAF_HEAD(attv_set, 2) ok = rt_pl_attv_set_cell(&args[0], &args[1], cx); P
 PL_CX_LEAF_HEAD(unifiable, 3) ok = rt_pl_unifiable_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(attv_atts, 2) ok = rt_pl_attv_atts_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(attv_take, 1) ok = rt_pl_attv_take_cell(&args[0], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(crv_enter, 1) ok = rt_pl_crv_enter_cell(&args[0], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(crv_adj, 1) ok = rt_pl_crv_adj_cell(&args[0], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(crv_collect, 2) ok = rt_pl_crv_collect_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
 static int rt_pl_setarg_cell(DESCR_t *na, DESCR_t *ta, DESCR_t *va, pl_tr_ctx_t *cx, int trail) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_instantiation(void);
@@ -7427,6 +7466,7 @@ DESCR_t rt_pl_dop_findall_add(DESCR_t *args, int nargs) {
         return pl_ok();
     }
 }
+void rt_pl_residue_recopy(DESCR_t *el, int n, pl_tr_ctx_t *cx);
 static int rt_pl_all_solutions_cell(DESCR_t *args, pl_tr_ctx_t *cx, int mode) {
     extern int rt_pl_findall_count(void *);
     extern void rt_pl_findall_item(void *, int, void *);
@@ -7441,6 +7481,7 @@ static int rt_pl_all_solutions_cell(DESCR_t *args, pl_tr_ctx_t *cx, int mode) {
         if (mode != 0 && n == 0) return 0;
         DESCR_t el[n > 0 ? n : 1];
         for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
+        rt_pl_residue_recopy(el, n, cx);
         lst = pl_list_from_arr(el, n);
         if (mode == 2) return rt_pl_sort_cell(0, (void *)&lst, (void *)&args[1], cx);
         return plw_unify_vals(args[1], lst, cx);
@@ -7467,6 +7508,7 @@ static int rt_pl_all_solutions_tail_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
         tref.p = (void *)tv;
         lst = tref;
         for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
+        rt_pl_residue_recopy(el, n, cx);
         for (i = n - 1; i >= 0; i--) lst = pl_cons(el[i], lst);
         return plw_unify_vals(args[1], lst, cx) && plw_unify_vals(tref, args[2], cx);
     }

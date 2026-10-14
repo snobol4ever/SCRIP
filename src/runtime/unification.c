@@ -2556,7 +2556,7 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell, int as_str, pl_tr_ct
     return plc_text_out(str_cell, buf ? buf : "", as_str, cx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { plr_stk_t ag, lg; pl_cell_t *s; pl_cell_t *d; int atts; } plc_cp_t;
+typedef struct { plr_stk_t ag, lg; pl_cell_t *s; pl_cell_t *d; int atts; pl_tr_ctx_t *cx; } plc_cp_t;
 static int plc_copy_run(void *wv) {
     plc_cp_t *w = (plc_cp_t *)wv;
     for (;;) {
@@ -2574,6 +2574,7 @@ static int plc_copy_run(void *wv) {
             if (!fresh) *w->d = *d;
             else {
                 if (at) { fresh[0].v = (DTYPE_t)DT_PLVAR; fresh[0].slen = PL_ATTV_SLEN; fresh[0].p = (void *)fresh; } else pl_init_var(fresh, -1);
+                if (at && pl_tr_residue_on(w->cx)) { memset(&fresh[1], 0, sizeof fresh[1]); pl_tr_push_residue(w->cx, fresh + 1); }
                 memcpy(&w0, d, 8);
                 plr_push(&w->lg, d, d->p, w0);
                 d->v = PLR_VCOPY;
@@ -2604,7 +2605,7 @@ static int plc_copy_run(void *wv) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static pl_cell_t plc_copy_x(pl_cell_t *c, int atts) {
+static pl_cell_t plc_copy_cx(pl_cell_t *c, int atts, pl_tr_ctx_t *cx) {
     pl_cell_t out;
     plc_cp_t w;
     memset(&out, 0, sizeof out);
@@ -2613,9 +2614,11 @@ static pl_cell_t plc_copy_x(pl_cell_t *c, int atts) {
     w.s = c;
     w.d = &out;
     w.atts = atts;
+    w.cx = cx;
     (void)plc_copy_run(&w);
     return out;
 }
+static pl_cell_t plc_copy_x(pl_cell_t *c, int atts) { return plc_copy_cx(c, atts, (pl_tr_ctx_t *)0); }
 static pl_cell_t plc_copy(pl_cell_t *c) { return plc_copy_x(c, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 pl_cell_t rt_pl_cell_snapshot(void *cell) { return plc_copy((pl_cell_t *)cell); }
@@ -2858,10 +2861,11 @@ static int pl_cell_atom_id(pl_cell_t *c) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_copy_term_cell(void *term_cell, void *copy_cell, pl_tr_ctx_t *cx) {
-    pl_cell_t copy = plc_copy_x((pl_cell_t *)term_cell, 1);
+    pl_cell_t copy = plc_copy_cx((pl_cell_t *)term_cell, 1, cx);
     if (!plc_unify_cells_cx((pl_cell_t *)copy_cell, &copy, cx)) { return 0; }
     return 1;
 }
+void rt_pl_residue_recopy(DESCR_t *el, int n, pl_tr_ctx_t *cx) { if (pl_tr_residue_on(cx)) for (int i = 0; i < n; i++) el[i] = plc_copy_cx((pl_cell_t *)&el[i], 1, cx); }
 int rt_pl_copy_term_nat_cell(void *term_cell, void *copy_cell, pl_tr_ctx_t *cx) {
     pl_cell_t copy = plc_copy_x((pl_cell_t *)term_cell, 0);
     if (!plc_unify_cells_cx((pl_cell_t *)copy_cell, &copy, cx)) { return 0; }

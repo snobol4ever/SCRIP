@@ -12,7 +12,10 @@
 #define PL_TR_CLEANUP_OFF 32
 #define PL_TR_PROBE_B_OFF 40
 #define PL_TR_WAKE_OFF 48
+#define PL_TR_RESIDUE_OFF 56
+#define PL_TR_PAD_RESIDUE 0x45445352u
 #define PL_ATTV_SLEN 0x56545441u
+#define PL_ATTV_SEEN 0x4E454553u
 #define PL_TR_FRAME_HEADER_BYTES 64
 #define CLEANUP_DONE 0
 #define CLEANUP_ACTIVE 1
@@ -37,6 +40,7 @@ static inline uint64_t *pl_tr_ocheck_slot(const char *base) { return (uint64_t *
 static inline char **pl_tr_cleanup_slot(const char *base) { return (char **)((char *)base + PL_TR_CLEANUP_OFF); }
 static inline uint64_t *pl_tr_probe_b_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_PROBE_B_OFF); }
 static inline uint64_t *pl_tr_wake_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_WAKE_OFF); }
+static inline uint64_t *pl_tr_residue_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_RESIDUE_OFF); }
 static inline int pl_attv_is(const DESCR_t *c) { return c->v == (DTYPE_t)DT_PLVAR && c->p == (const void *)c && c->slen == PL_ATTV_SLEN; }
 static inline uint64_t pl_tr_ocheck_mode(const pl_tr_ctx_t *cx) { return (cx && cx->tr) ? *pl_tr_ocheck_slot(pl_tr_base_of(cx->tr)) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -53,6 +57,9 @@ static inline void pl_tr_push(pl_tr_ctx_t *cx, DESCR_t *cell) {
     if (((uintptr_t)cx->tr & (PL_TR_ARENA_BYTES - 1)) >= PL_TR_ARENA_BYTES - PL_TR_ENTRY_BYTES) rt_pl_tr_refuse(cx->tr);
     { pl_tr_entry_t *e = (pl_tr_entry_t *)cx->tr; e->cell = cell; e->pad = 0; e->old = *cell; cx->tr += PL_TR_ENTRY_BYTES; *(char **)pl_tr_base_of(cx->tr) = cx->tr; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int pl_tr_residue_on(const pl_tr_ctx_t *cx) { return cx && cx->tr && *pl_tr_residue_slot(pl_tr_base_of(cx->tr)) != 0; }
+static inline void pl_tr_push_residue(pl_tr_ctx_t *cx, DESCR_t *cell) { pl_tr_push(cx, cell); ((pl_tr_entry_t *)(cx->tr - PL_TR_ENTRY_BYTES))->pad = PL_TR_PAD_RESIDUE; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void pl_tr_push_attv(pl_tr_ctx_t *cx, DESCR_t *cell) {
     char *base = pl_tr_base_of(cx->tr);

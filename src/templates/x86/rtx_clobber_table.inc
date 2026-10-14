@@ -1,5 +1,5 @@
-#define RTX_CLOB_TAB_N 300
-#define RTX_CLOB_TAB_N_CLOBBERING 272
+#define RTX_CLOB_TAB_N 303
+#define RTX_CLOB_TAB_N_CLOBBERING 275
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "dat_field_get", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
@@ -85,6 +85,9 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_copy_term_nat", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_cpu_ms", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_create_prolog_flag", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_crv_adj", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_crv_collect", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_crv_enter", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_current_input", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_current_output", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_current_prolog_flag", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },

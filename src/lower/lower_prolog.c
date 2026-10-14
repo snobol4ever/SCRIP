@@ -1341,7 +1341,8 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     "$gnu_last_read_start" }, { "absolute_file_name", 2, "$gnu_absolute_file_name" }, { "prolog_file_name", 2, "$gnu_prolog_file_name" }, { "$gnu_builtin", 2, "$gnu_builtin" }, { "working_directory",
     1, "$gnu_working_directory" }, { "change_directory", 1, "$gnu_change_directory" }, { "make_directory", 1, "$gnu_make_directory" }, { "$gnu_os", 3, "$gnu_os" }, { "delete_file", 1,
     "$gnu_delete_file" }, { "file_exists", 1, "$gnu_file_exists" }, { "directory_files", 2, "$gnu_directory_files" }, { "term_hash", 2, "$gnu_term_hash" }, { "prolog_pid", 1, "$gnu_prolog_pid" },
-    { "$gnu_environ_list", 1, "$gnu_environ_list" }, { "$gnu_file_props", 2, "$gnu_file_props" }, { "$trie_slice", 4, "$trie_slice" }, { "$cpu_ms", 1, "$cpu_ms" }, { 0, 0, 0 } };
+    { "$gnu_environ_list", 1, "$gnu_environ_list" }, { "$gnu_file_props", 2, "$gnu_file_props" }, { "$trie_slice", 4, "$trie_slice" }, { "$cpu_ms", 1, "$cpu_ms" }, { "$crv_enter", 1, "$crv_enter" },
+    { "$crv_adj", 1, "$crv_adj" }, { "$crv_collect", 2, "$crv_collect" }, { 0, 0, 0 } };
 static int pl_det_leaf_name_wired(const char * nm) { for (int i = 0; pl_det_leaves[i].nm; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_det_leaf_sym(const char * nm, int ar) {
