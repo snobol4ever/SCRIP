@@ -1354,6 +1354,7 @@ test_gate_sno_goto_field_call_parses.sh	TASK	-	-	-
 test_gate_sno_goto_special_transfer_target.sh	TASK	-	-	-
 test_gate_sno_immediate_capture_non_name_target.sh	TASK	-	-	-
 test_gate_sno_lastno_across_call_return.sh	TASK	-	-	-
+test_gate_sno_mode_4_fatal_error_names_its_line_after_a_kept_runtime_chain.sh	WIRED	-	-	-
 test_gate_sno_pat_reg.sh	TASK	-	-	-
 test_gate_sno_proc_own_name_byname_mid_return.sh	TASK	-	-	-
 test_gate_sno_system_fn_protection_matches_spitbol.sh	TASK	-	-	-

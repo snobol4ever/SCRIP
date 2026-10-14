@@ -824,29 +824,28 @@ void core_icn_traceback(void) {
 }
 #define SCRIP_STNO_WALK_MAX_FRAMES 64
 #define SCRIP_STNO_MAX_STMT_SPAN (1 << 20)
-static const sno_stno_rec_t * stno_rec_table(uint32_t * np) {
-    const sno_stno_rec_t * base = 0;
-    uint32_t n = 0;
-    if (scrip_emit_stno_table) base = scrip_emit_stno_table(&n);
-    if (!base || n == 0) {
-        extern const char __start_scrip_stno_map[] __attribute__((weak));
-        extern const char __stop_scrip_stno_map[] __attribute__((weak));
-        if (__start_scrip_stno_map && __stop_scrip_stno_map && __stop_scrip_stno_map > __start_scrip_stno_map) {
-            base = (const sno_stno_rec_t *)(const void *)__start_scrip_stno_map;
-            n = (uint32_t)((size_t)(__stop_scrip_stno_map - __start_scrip_stno_map) / sizeof(sno_stno_rec_t));
-        }
-    }
-    *np = (base && n) ? n : 0;
-    return (base && n) ? base : (const sno_stno_rec_t *)0;
+static const sno_stno_rec_t * stno_rec_static_table(uint32_t * np) {
+    extern const char __start_scrip_stno_map[] __attribute__((weak));
+    extern const char __stop_scrip_stno_map[] __attribute__((weak));
+    *np = 0;
+    if (!(__start_scrip_stno_map && __stop_scrip_stno_map && __stop_scrip_stno_map > __start_scrip_stno_map)) return (const sno_stno_rec_t *)0;
+    *np = (uint32_t)((size_t)(__stop_scrip_stno_map - __start_scrip_stno_map) / sizeof(sno_stno_rec_t));
+    return *np ? (const sno_stno_rec_t *)(const void *)__start_scrip_stno_map : (const sno_stno_rec_t *)0;
 }
-static const sno_stno_rec_t * stno_rec_find(uint64_t ra) {
-    uint32_t n = 0;
-    const sno_stno_rec_t * base = stno_rec_table(&n);
+static const sno_stno_rec_t * stno_rec_search(const sno_stno_rec_t * base, uint32_t n, uint64_t ra) {
     uint32_t lo = 0, hi = n;
-    if (!base) return (const sno_stno_rec_t *)0;
+    if (!base || !n) return (const sno_stno_rec_t *)0;
     while (lo < hi) { uint32_t mid = lo + (hi - lo) / 2; if (base[mid].pc <= ra) lo = mid + 1; else hi = mid; }
     if (lo > 0) { uint32_t idx = lo - 1; uint64_t span_end = (idx + 1 < n) ? base[idx + 1].pc : base[idx].pc + SCRIP_STNO_MAX_STMT_SPAN; if (ra < span_end) return &base[idx]; }
     return (const sno_stno_rec_t *)0;
+}
+static const sno_stno_rec_t * stno_rec_find(uint64_t ra) {
+    uint32_t n = 0;
+    const sno_stno_rec_t * base = scrip_emit_stno_table ? scrip_emit_stno_table(&n) : (const sno_stno_rec_t *)0;
+    const sno_stno_rec_t * r = stno_rec_search(base, n, ra);
+    if (r) return r;
+    base = stno_rec_static_table(&n);
+    return stno_rec_search(base, n, ra);
 }
 void rt_icn_line_of_pc(uint64_t pc, long *line, const char **file) {
     const sno_stno_rec_t * r = pc ? stno_rec_find(pc) : (const sno_stno_rec_t *)0;
