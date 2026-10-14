@@ -14498,6 +14498,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             if (!strcmp(mname0, "Str")) { *out = STRVAL((char *) rk_tbl_text(_recv0)); return 1; }
             if (!strcmp(mname0, "raku") || !strcmp(mname0, "perl")) { *out = STRVAL((char *) rk_raku_str(_recv0, 0)); return 1; }
             if (!strcmp(mname0, "WHAT")) { *out = rk_typeobj("Hash"); return 1; }
+            if (nargs == 2 && (!strcmp(mname0, "item") || !strcmp(mname0, "self"))) { *out = _recv0; return 1; }
             _recv0 = rk_hash_list(_recv0, 'p');
         }
         if (nargs >= 2 && _recv0.v != DT_DATA && rt_str_method(mname0, _recv0, &args[2], nargs - 2, out)) return 1;

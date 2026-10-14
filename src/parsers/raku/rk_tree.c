@@ -990,8 +990,13 @@ static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to) {
             sb_c(&buf, c); i++; continue;
         }
         if (c == '{') {
-            int e = closure_at(cl, ncl, i) ? dq_closure_end(s, i, to) : -1;
+            RkClosure *cc = closure_at(cl, ncl, i);
+            int e = cc ? (cc->end > i ? cc->end : dq_closure_end(s, i, to)) : -1;
             if (e > 0) { GROW(mk, nmk, cmk, Mk); mk[nmk].at = buf.n; mk[nmk].pos = i; nmk++; i = e; continue; }
+        }
+        if (c == '$' || c == '@') {
+            RkClosure *cc = closure_at(cl, ncl, i);
+            if (cc && cc->end > i && cc->end <= to) { GROW(mk, nmk, cmk, Mk); mk[nmk].at = buf.n; mk[nmk].pos = i; nmk++; i = cc->end; continue; }
         }
         sb_c(&buf, c); i++;
     }
@@ -2665,6 +2670,21 @@ void rkb_statement(RkB *b, tree_t *list, int bk, int from, int to, RkList *L, in
     else tr = stmt_plain(b, L);
     app(b, list, tr, from);
     if (tail) { b->tail_list = list; b->tail_tree = tr; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_items_for(RkB *b, RkList *L, int nmods, const char **modk, RkList **modx) {
+    if (!L || !L->nitem || !L->n || nmods != 1 || strcmp(modk[0], "for")) return;
+    tree_t *tr = assign_forms(b, L, 0, BK_MAIN);
+    if (!tr) tr = el_tree(b, &L->v[0]);
+    tree_t *src = rkb_paren(b, modx[0], 1), *blk = ast_node_new(TT_ANON_BLOCK), *sq = ast_node_new(TT_SEQ_EXPR), *mc = ast_node_new(TT_METHCALL);
+    expr_add_child(sq, tr);
+    expr_add_child(blk, sq);
+    ast_push(mc, src);
+    ast_push(mc, leaf_sval(TT_QLIT, "map"));
+    ast_push(mc, blk);
+    RkEl e; memset(&e, 0, sizeof e); e.t = mc; e.nitem = 1; e.t0.kind = TK_TREE; e.t0.t = mc;
+    L->v[0] = e; L->n = 1; L->nitem = 1; L->op1 = NULL; L->trailing = 0;
+    L->rg_lo = L->rg_hi = NULL; L->rg_op = NULL; L->rg_nitem = 0; memset(&L->t1, 0, sizeof L->t1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_control(RkB *b, tree_t *list, int bk, int from, tree_t *t, int ns, int semi, int last) {

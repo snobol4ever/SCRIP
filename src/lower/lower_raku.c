@@ -542,6 +542,7 @@ static const tree_t * rk_catch_handler(const tree_t * c) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_arm_chain(const tree_t * const * st, int n, const char * subj);
+static void rk_arm_body(tree_t * seq, int from);
 static int rk_block_has_arm(const tree_t * t);
 static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** last_res) {
     if (t && (t->t == TT_SEQ || t->t == TT_SEQ_EXPR || t->t == TT_PROGRAM) && t->slen != 78) {
@@ -745,6 +746,7 @@ static tree_t * rk_case_match(const tree_t * subj, const tree_t * cond) {
         return an;
     }
     { int ok = 0; tree_t * bc = rk_code_call1(NULL, cond, subj, &ok); if (ok) return rk_fnc2("__rk_mkbool", bc, NULL); }
+    if (cond->t != TT_VAR && cond->t != TT_ILIT && cond->t != TT_FLIT) return rk_fnc2("__rk_smartmatch", subj, cond);
     if (cond->t == TT_VAR) {
         tree_t * mc = ast_node_new(TT_FNC);
         mc->v.sval = (char *) intern("__rk_when_match");
@@ -775,6 +777,7 @@ static tree_t * rk_arm_chain(const tree_t * const * st, int n, const char * subj
         if (u->n == 1) { rest = (tree_t *) u->c[0]; continue; }
         tree_t * gate = ast_node_new(TT_IF);
         ast_push(gate, rk_case_match(leaf_sval2(TT_VAR, subj), u->c[0]));
+        if (u->c[1] && u->c[1]->t == TT_SEQ_EXPR) rk_arm_body((tree_t *) u->c[1], 0);
         ast_push(gate, (tree_t *) u->c[1]);
         if (rest) ast_push(gate, rest);
         rest = gate;
@@ -3048,12 +3051,29 @@ static int rk_var_nodes(const tree_t * t) { int n; if (!t) return 0; n = (t->t =
 static void rk_scan_implicit_params(const tree_t * t, int * topic, const char ** ph, int * nph, int max) {
     if (!t) return;
     if (t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return;
+    if (t->t == TT_ARM) *topic |= 2;
     if (t->t == TT_VAR && t->v.sval) {
         const char * v = t->v.sval;
-        if (!strcmp(v, "_")) *topic = 1;
+        if (!strcmp(v, "_")) *topic |= 1;
         else if (v[0] == '^') { int seen = 0; for (int i = 0; i < *nph; i++) if (!strcmp(ph[i], v)) seen = 1; if (!seen && *nph < max) ph[(*nph)++] = v; }
     }
     for (int i = 0; i < t->n; i++) rk_scan_implicit_params(t->c[i], topic, ph, nph, max);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_topic_default(tree_t * seq) {
+    tree_t * def = ast_node_new(TT_METHCALL);
+    ast_push(def, leaf_sval2(TT_VAR, "_"));
+    ast_push(def, leaf_sval2(TT_QLIT, "defined"));
+    tree_t * set = ast_node_new(TT_ASSIGN);
+    ast_push(set, leaf_sval2(TT_VAR, "_"));
+    ast_push(set, rk_fnc2("__rk_undef", NULL, NULL));
+    tree_t * arm = ast_node_new(TT_SEQ_EXPR);
+    ast_push(arm, set);
+    tree_t * un = ast_node_new(TT_UNLESS);
+    ast_push(un, def);
+    ast_push(un, arm);
+    ast_push(seq, un);
+    for (int i = seq->n - 1; i > 0; i--) { tree_t * x = seq->c[i]; seq->c[i] = seq->c[i - 1]; seq->c[i - 1] = x; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_block_tail_is_value(const tree_t * s) {
@@ -3598,22 +3618,109 @@ static tree_t * rk_tail_if(tree_t * st) {
     nd->line = st->line;
     nd->v = st->v;
     nd->slen = st->slen;
-    for (int i = 0; i < st->n; i++) { tree_t * ch = st->c[i]; ast_push(nd, (i >= 1 && ch && (ch->t == TT_SEQ_EXPR || ch->t == TT_IF || ch->t == TT_UNLESS)) ? rk_tail_return(ch) : ch); }
+    for (int i = 0; i < st->n; i++) {
+        tree_t * ch = st->c[i];
+        ast_push(nd, (i >= 1 && ch && (ch->t == TT_SEQ_EXPR || ch->t == TT_IF || ch->t == TT_UNLESS || ch->t == TT_CASE)) ? rk_tail_return(ch) : ch);
+    }
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_tail_ifs(tree_t * t) {
+static tree_t * rk_set_tail(tree_t * st, const char * tmp) {
+    if (!st) return st;
+    if (st->t == TT_SEQ_EXPR && st->n > 0) { st->c[st->n - 1] = rk_set_tail(st->c[st->n - 1], tmp); return st; }
+    if (st->t == TT_IF || st->t == TT_UNLESS || st->t == TT_CASE) {
+        if (st->n < 2) return st;
+        for (int i = (st->t == TT_CASE ? 1 : 1); i < st->n; i++) {
+            tree_t * ch = st->c[i];
+            if (st->t == TT_CASE && ch && ch->t == TT_ARM && ch->n >= 1) { ch->c[ch->n - 1] = rk_set_tail(ch->c[ch->n - 1], tmp); continue; }
+            if (ch && (ch->t == TT_SEQ_EXPR || ch->t == TT_IF || ch->t == TT_UNLESS || ch->t == TT_CASE)) st->c[i] = rk_set_tail(ch, tmp);
+        }
+        return st;
+    }
+    if (!rk_block_tail_is_value(st)) return st;
+    tree_t * as = ast_node_new(TT_ASSIGN);
+    as->line = st->line;
+    ast_push(as, leaf_sval2(TT_VAR, tmp));
+    ast_push(as, st);
+    return as;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_value_wrap(tree_t * st) {
+    char nb[48];
+    snprintf(nb, sizeof nb, "__vf_%d", g_lower.rk.rk_case_desugar_cid++);
+    const char * tmp = intern(nb);
+    tree_t * seq = ast_node_new(TT_SEQ);
+    seq->line = st->line;
+    tree_t * as = ast_node_new(TT_ASSIGN);
+    ast_push(as, leaf_sval2(TT_VAR, tmp));
+    ast_push(as, rk_fnc2("__rk_undef", NULL, NULL));
+    ast_push(seq, as);
+    ast_push(seq, rk_set_tail(st, tmp));
+    ast_push(seq, leaf_sval2(TT_VAR, tmp));
+    return seq;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_value_form(const tree_t * t) { return t && (t->t == TT_IF || t->t == TT_UNLESS || (t->t == TT_CASE && t->n > 1)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_value_forms(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_value_forms(t->c[i]);
+    if (t->t == TT_ASSIGN && t->n == 2 && rk_is_value_form(t->c[1])) t->c[1] = rk_value_wrap(t->c[1]);
+    if (t->t == TT_ITERATE && t->n > 0 && rk_is_value_form(t->c[0])) t->c[0] = rk_value_wrap(t->c[0]);
+    if (t->t == TT_FNC && t->n == 2 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "__rk_phaser_do") && t->c[1] && t->c[1]->t == TT_SEQ_EXPR && t->c[1]->n > 0 &&
+        rk_is_value_form(t->c[1]->c[t->c[1]->n - 1])) t->c[1]->c[t->c[1]->n - 1] = rk_value_wrap(t->c[1]->c[t->c[1]->n - 1]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_tail_case(tree_t * st);
+static int rk_block_has_arm(const tree_t * t);
+static tree_t * rk_arm_chain(const tree_t * const * st, int n, const char * subj);
+static void rk_arm_body(tree_t * seq, int from) {
+    if (!seq || from >= seq->n) return;
+    tree_t tmp = *seq;
+    tmp.c = seq->c + from;
+    tmp.n = seq->n - from;
+    if (!rk_block_has_arm(&tmp)) return;
+    tree_t * ch = rk_arm_chain((const tree_t * const *) seq->c + from, seq->n - from, "_");
+    seq->n = from;
+    while (ch && ch->t == TT_SEQ_EXPR && ch->n > 0) { for (int i = 0; i < ch->n - 1; i++) ast_push(seq, ch->c[i]); ch = ch->c[ch->n - 1]; }
+    if (ch) ast_push(seq, ch);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_tail_ifs(tree_t * t, int in_pkg) {
     if (!t) return;
     if (t->t == TT_SUB_DECL && t->n > 1) {
+        rk_arm_body(t, in_pkg ? (int) t->v.ival : (int) t->v.ival + 1);
         int li = t->n - 1;
         tree_t * ls = t->c[li];
         if (ls && ls->t == TT_STMT) { const tree_t * sub = stmt_subj(ls); if (sub) ls = (tree_t *) sub; }
         if (ls && (ls->t == TT_IF || ls->t == TT_UNLESS)) t->c[li] = rk_tail_if(ls);
+        else if (ls && ls->t == TT_CASE && ls->n > 1) t->c[li] = rk_tail_case(ls);
     }
-    for (int i = 0; i < t->n; i++) rk_tail_ifs(t->c[i]);
+    for (int i = 0; i < t->n; i++) rk_tail_ifs(t->c[i], t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_tail_case(tree_t * st) {
+    tree_t * nd = ast_node_new(TT_CASE);
+    nd->line = st->line;
+    nd->v = st->v;
+    nd->slen = st->slen;
+    for (int i = 0; i < st->n; i++) {
+        tree_t * ch = st->c[i];
+        if (i >= 1 && ch && ch->t == TT_ARM && ch->n >= 1) {
+            tree_t * arm = ast_node_new(TT_ARM);
+            arm->line = ch->line;
+            arm->v = ch->v;
+            arm->slen = ch->slen;
+            for (int k = 0; k < ch->n; k++) ast_push(arm, k == ch->n - 1 ? rk_tail_return(ch->c[k]) : ch->c[k]);
+            ch = arm;
+        }
+        ast_push(nd, ch);
+    }
+    return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_tail_return(tree_t * st) {
+    if (st && st->t == TT_CASE && st->n > 1) return rk_tail_case(st);
     if (st && (st->t == TT_IF || st->t == TT_UNLESS)) return rk_tail_if(st);
     if (st && st->t == TT_SEQ_EXPR && st->n > 0) { st->c[st->n - 1] = rk_tail_return(st->c[st->n - 1]); return st; }
     if (!rk_block_tail_is_value(st)) return st;
@@ -3722,8 +3829,10 @@ static void rk_hoist_anon_blocks(tree_t * prog) {
                 pv->v.sval = (char *) intern("_");
                 ast_push(sd, pv);
                 sd->v.ival = 1;
+                if (body && (topic & 2)) rk_topic_default((tree_t *) body);
             }
         }
+        if (body) rk_arm_body((tree_t *) body, 0);
         if (body) { for (int k = 0; k < body->n; k++) { tree_t * st = body->c[k]; if (k == body->n - 1 && !(blk->slen & 64)) st = rk_tail_return(st); ast_push(sd, st); } ((tree_t *) body)->n = 0; }
         if (blk->slen & 64) sd->slen |= 64;
         blk->n = 0;
@@ -5835,7 +5944,8 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_hoist_nested_types((tree_t *) prog);
     rk_hoist_nested_multis((tree_t *) prog);
     rk_class_default_tweaks((tree_t *) prog);
-    rk_tail_ifs((tree_t *) prog);
+    rk_value_forms((tree_t *) prog);
+    rk_tail_ifs((tree_t *) prog, 0);
     rk_typed_vars((tree_t *) prog);
     rk_sprintf_names((tree_t *) prog, rk_uses_v6e(prog));
     rk_user_terms((tree_t *) prog);

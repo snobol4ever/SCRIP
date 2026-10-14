@@ -1054,6 +1054,17 @@ static int interp_sigil(RkP *p, int pos, int sigil) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void interp_call(RkP *p, int pos, int sigil) {
+    int sq = p->qsigil;
+    p->qsigil = sigil;
+    int e = r_EXPR(p, pos, PR('y'));
+    p->qsigil = sq;
+    RkList *X = takelst(p);
+    if (e < 0 || !X) return;
+    RK_GROW(p->qc, p->nqc, p->cqc, RkClosure);
+    p->qc[p->nqc].pos = pos; p->qc[p->nqc].last = X; p->qc[p->nqc].cnt = 1; p->qc[p->nqc].end = e; p->nqc++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_quote_escape(RkP *p, int pos, RkLang *L) {
     int c = cp_at(p, pos);
     if (c == '\\') {
@@ -1063,15 +1074,16 @@ static int r_quote_escape(RkP *p, int pos, RkLang *L) {
     }
     if (c == '{' && L->clos) {
         p->quote_block = 1; int e = r_block(p, pos);
-        if (e >= 0 && p->build) { RK_GROW(p->qc, p->nqc, p->cqc, RkClosure); p->qc[p->nqc].pos = pos; p->qc[p->nqc].last = p->blk_last; p->qc[p->nqc].cnt = p->blk_n; p->nqc++; }
+        if (e >= 0 && p->build) { RK_GROW(p->qc, p->nqc, p->cqc, RkClosure); p->qc[p->nqc].pos = pos; p->qc[p->nqc].last = p->blk_last; p->qc[p->nqc].cnt = p->blk_n; p->qc[p->nqc].end = e; p->nqc++; }
         return e;
     }
     if (c == '$' && L->sc) {
         int e = interp_sigil(p, pos, '$');
         if (e < 0) panic_at(p, pos, "Non-variable $ must be backslashed");
+        if (p->build && memchr(p->s + pos, '(', (size_t) (e - pos))) interp_call(p, pos, '$');
         return e;
     }
-    if (c == '@' && L->ar) return interp_sigil(p, pos, '@');
+    if (c == '@' && L->ar) { int e = interp_sigil(p, pos, '@'); if (e >= 0 && p->build && memchr(p->s + pos, '(', (size_t) (e - pos))) interp_call(p, pos, '@'); return e; }
     if (c == '%' && L->hs) return interp_sigil(p, pos, '%');
     if (c == '&' && L->fn) return interp_sigil(p, pos, '&');
     if (L->ww) {
@@ -2073,6 +2085,7 @@ static int r_termish(RkP *p, int pos) {
         while (k >= base && !bracket_ending_at(p, p->ends[k])) k--;
         int res = k >= base ? p->ends[k] : (p->qsigil == '$' ? t : -1);
         p->nends = base;
+        if (p->build && res >= 0) { int r2 = t; for (;;) { int e = r_postfixish(p, r2); if (e < 0 || e > res) break; rkb_postfix(p->B, &it, &p->pf); r2 = e; } p->tm = it; }
         return res;
     }
     int tq = q;
@@ -3568,6 +3581,7 @@ static int r_term(RkP *p, int pos) {
             return e;
         }
         e = r_variable(p, pos);
+        if (e >= 0 && p->build && c == '$' && ch(p, pos + 1) == '{' && !p->in_decl && !p->qsigil) { rkb_contextualize(p->B, &p->tm, "item"); p->tm.from = pos; return e; }
         if (e >= 0 && p->build) { if ((c == '$' || c == '@') && ch(p, pos + 1) == '<') rkb_var(p->B, &p->tm, pos, e, p->s + pos + 2, e - pos - 3); else rkb_var(p->B, &p->tm, pos, e, NULL, 0); }
         if (e >= 0 && p->build && p->tm.kind == TK_VAR && p->tm.t && p->tm.t->t == TT_VAR) { int ni = user_name_index(p, p->s + pos, e - pos); if (ni >= 0 && p->names[ni].st) rkb_rename_var(p->B, &p->tm, p->names[ni].st); }
         return e;
@@ -4712,6 +4726,7 @@ static int r_statement(RkP *p, int pos) {
         if (p->build) {
             p->stmt_list = X;
             if (p->bk != BK_ITEMS) { int semi, last; stmt_end_info(p, end, &semi, &last); rkb_statement(p->B, p->cur_list, p->bk, pos, end, X, nm, mk, mx, semi, last); }
+            else if (nm) rkb_items_for(p->B, X, nm, mk, mx);
         }
         return end;
     }

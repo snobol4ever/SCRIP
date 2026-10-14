@@ -42,7 +42,7 @@ struct RkDecl {
     RkTrait *tr; int ntr;
 };
 typedef struct { int k; int from, to; const char *txt; int form, mod, hyper; RkList *inner; RkList *args; } RkPf;
-typedef struct { int pos; RkList *last; int cnt; } RkClosure;
+typedef struct { int pos; RkList *last; int cnt; int end; } RkClosure;
 RkB     *rkb_new(const char *src, int len);
 RkList  *rkb_list_new(void);
 RkEl    *rkb_list_el(RkList *L);
@@ -103,6 +103,7 @@ tree_t  *rkb_param(RkB *b, int prefix, const char *var, int varlen, int *tf, int
 tree_t  *rkb_block_seq(RkB *b, tree_t *list, int bk, int yada);
 void     rkb_block_term(RkB *b, RkTerm *it, int from, int to, tree_t *seq, tree_t *sig, int sub, RkList *last, int nstmts);
 void     rkb_statement(RkB *b, tree_t *list, int bk, int from, int to, RkList *L, int nmods, const char **modk, RkList **modx, int semi, int last);
+void     rkb_items_for(RkB *b, RkList *L, int nmods, const char **modk, RkList **modx);
 void     rkb_control(RkB *b, tree_t *list, int bk, int from, tree_t *t, int ns, int semi, int last);
 void     rkb_empty(RkB *b, tree_t *list, int bk);
 tree_t  *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, int prefix, tree_t *sig, int has_parens, tree_t *body, RkTrait *tr, int ntr);
