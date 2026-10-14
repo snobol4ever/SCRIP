@@ -110,6 +110,15 @@ if [ -f "$K.sc" ] && [ -f "$K.input" ] && [ -f "$K.ref" ]; then
   if cmp -s "$W/pp.o3" "$K.ref" && [ "$r3" = 0 ]; then ck ok "(5) parser_pascal mode 3 prints its ref"; else ck no "(5) parser_pascal mode 3 rc=$r3 or the output differs from the ref ($(head -c 20 "$W/pp.o3" | head -1))"; fi
   if cmp -s "$W/pp.o4" "$K.ref" && [ "$r4" = 0 ]; then ck ok "(5) parser_pascal mode 4 prints its ref"; else ck no "(5) parser_pascal mode 4 rc=$r4 or the output differs from the ref: $(grep -a -m1 -E 'REFUSED|fatal signal' "$W/pp.e4" | cut -c1-200)"; fi
 else ck no "(5) parser_pascal is missing from $CORPUS/benchmarks/snocone/parsers"; fi
+K="$CORPUS/benchmarks/snocone/parsers/parser_snobol4"
+if [ -f "$K.sc" ] && [ -f "$K.input" ] && [ -f "$K.ref" ]; then
+  sed 's/MATCHAT()/VDIFFER()/g' "$K.sc" > "$W/k0.sc"
+  if grep -q 'VDIFFER()' "$W/k0.sc"; then
+    ( cd "$W" && SCRIP_GC_CHAIN_CHECK=1 timeout 600 "$SCRIP" -d4194304k -s2097152k k0.sc < "$K.input" > k0.o3 2> k0.e3 ); r0=$?
+    if [ "$r0" = 0 ] && cmp -s "$W/k0.o3" "$K.ref" && ! grep -aq 'GC-CHAIN\] REFUSED' "$W/k0.e3"; then ck ok "(6) parser_snobol4 with its MATCHAT() stamps as the zero-argument unknown callee VDIFFER() prints its ref in mode 3 under the chain check: a Snocone procedure's frame is hopped by its own SIG record, never by a leftover tiny-glue word above its top (CEO-1746; rc 139 on 0e4313bfc)"
+    else ck no "(6) parser_snobol4/VDIFFER() mode 3 rc=$r0 $(grep -ao 'stops short ([a-z-]*)' "$W/k0.e3" | head -1) -- the walker took a word above the frame top as the tiny-glue road"; fi
+  else ck no "(6) the parser_snobol4 copy carries no MATCHAT() stamp to replace"; fi
+else ck no "(6) parser_snobol4 is missing from $CORPUS/benchmarks/snocone/parsers"; fi
 echo "population: $checks arm(s) graded, $fails FAIL"
 if [ "$fails" = 0 ]; then echo "GATE PASS(0) [$G]"; exit 0; fi
 echo "⛔ GATE RED [$G]: $fails of $checks arms FAIL"; exit 1

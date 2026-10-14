@@ -2359,7 +2359,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
                 if (fbm + b->ckt + 16 <= seg_top) {
                     const char *a0 = fbm + b->ckt;
                     uint64_t tw = *(const uint64_t *)(a0 + 8);
-                    if (tw == (uint64_t)(uintptr_t)rt_tge_gamma_ret || tw == (uint64_t)(uintptr_t)rt_tge_omega_ret) { pc = tw; r = a0; rbp = rbm; g_gc_chain_roadhops++; goto again; }
+                    if (g == (uint64_t)(uintptr_t)a0 && tw == (uint64_t)(uintptr_t)rt_tge_gamma_ret) { pc = tw; r = a0; rbp = rbm; g_gc_chain_roadhops++; goto again; }
                     const gc_site_ent_t *x3 = (const gc_site_ent_t *)0;
                     const gc_site_blk_t *xb3 = gc_site_find(*(const uint64_t *)a0, &x3);
                     if (xb3 && x3 && (x3->kind & 255) == 6) {
@@ -2910,9 +2910,13 @@ static int gc_sw_links(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char *g
                 if (!xb || !e || xb->map != m) why = "the target's return word is not a site of the frame that links it";
             }
             if (why) {
-                if (gc_chain_check_on() && g_gc_chw.said_link++ < 4)
-                    fprintf(stderr, "[CHAIN-WALK] FRAME-LINK REFUSED: %s (linking frame %s base=%p slot +%ld holds %p, beta %p)\n", why, m->graph_name ? m->graph_name : "?", (const void *)f->base,
-                    (long)(c - f->base), (const void *)v, (const void *)(uintptr_t)beta);
+                if (gc_chain_check_on() && g_gc_chw.said_link++ < 4) {
+                    const gc_site_ent_t *xe = (const gc_site_ent_t *)0;
+                    const gc_site_blk_t *xb = (b && v >= s->lo && v + 16 <= s->hi && GC_LINK_SET(b->link)) ? gc_site_find(*(const uint64_t *)(v + GC_LINK_PC(b->link)), &xe) : (const gc_site_blk_t *)0;
+                    fprintf(stderr, "[CHAIN-WALK] FRAME-LINK REFUSED: %s (linking frame %s base=%p slot +%ld holds %p, beta %p names %s, its return word lands in %s)\n", why,
+                        m->graph_name ? m->graph_name : "?", (const void *)f->base, (long)(c - f->base), (const void *)v, (const void *)(uintptr_t)beta,
+                        (b && b->map && b->map->graph_name) ? b->map->graph_name : "?", (xb && xb->map && xb->map->graph_name) ? xb->map->graph_name : "no site");
+                }
                 s->stop = 9;
                 return 0;
             }
