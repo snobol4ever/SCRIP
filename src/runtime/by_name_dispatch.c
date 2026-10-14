@@ -8847,6 +8847,8 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
             c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("scrip"), 4);
             c.p = (void *)kk;
             ok = plw_unify_vals(args[1], c, cx);
+        } else if (!strcmp(fl->nm, "debug") && pl_swi_dialect()) {
+            ok = plw_unify_vals(args[1], pl_mk_atom(strcmp(fl->val, "on") ? "false" : "true"), cx);
         } else {
             ok = plw_unify_vals(args[1], pl_mk_atom_dup(fl->val, strlen(fl->val)), cx);
         }
@@ -8893,6 +8895,7 @@ PL_CX_LEAF_HEAD(set_prolog_flag, 2)
             cx->ball = rt_pl_ball_permission3("modify", "flag", f);
         } else {
             int good = !fl->allow[0];
+            if (!strcmp(fl->nm, "debug") && (!strcmp(vn, "true") || !strcmp(vn, "false"))) vn = vn[0] == 't' ? "on" : "off";
             for (int i = 0; fl->allow[i]; i++) if (!strcmp(vn, fl->allow[i])) good = 1;
             if (!good) {
                 DESCR_t *kk = (DESCR_t *)rt_ws_alloc_descr(2);
