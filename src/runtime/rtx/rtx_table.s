@@ -18,6 +18,17 @@
 #define TBBLK_BUCKETS     0
 #define TBBLK_NBUCK       8
 #define TBBLK_DFLT       32
+#define DATINST_TYPE      0
+#define DATINST_FIELDS    8
+#define DATBLK_NFIELDS    8
+#define DATBLK_FIELDS    16
+#define DATA_ELEMS_SLEN   1
+#define FIELD0_V          0
+#define FIELD0_SLEN       4
+#define FIELD0_P          8
+#define FIELD1_P         24
+#define FIELD2_V         32
+#define FIELD2_P         40
 #define ARBLK_LO          0
 #define ARBLK_HI          4
 #define ARBLK_NDIM        8
@@ -657,6 +668,145 @@ RTX_FUNC(rt_subscript_val)
 .Lsvv_c:
     RTX_DECLINE
 RTX_ENDF(rt_subscript_val)
+RTX_FUNC(rt_subscript_val_strict)
+    RTX_GATE(table, .Lsvs_c)
+    mov     r10, rdi
+    mov     r11, rsi
+    cmp     dil, DT_N
+    jne     .Lsvs_b
+    mov     rax, rdi
+    shr     rax, 32
+    cmp     eax, 1
+    jne     .Lsvs_b
+    test    rsi, rsi
+    je      .Lsvs_b
+    mov     r10, qword ptr [rsi]
+    mov     r11, qword ptr [rsi + 8]
+.Lsvs_b:
+    cmp     r10b, DT_T
+    je      .Lsvs_tbl
+    cmp     dl, DT_I
+    jne     .Lsvs_c
+    cmp     r10b, DT_A
+    je      .Lsvs_arr
+    cmp     r10b, DT_DATA
+    jne     .Lsvs_c
+    mov     rax, r10
+    shr     rax, 32
+    test    eax, eax
+    jne     .Lsvs_c
+    test    r11, r11
+    je      .Lsvs_c
+    mov     r8, qword ptr [r11 + DATINST_TYPE]
+    test    r8, r8
+    je      .Lsvs_c
+    cmp     dword ptr [r8 + DATBLK_NFIELDS], 3
+    jl      .Lsvs_c
+    mov     r9, qword ptr [r8 + DATBLK_FIELDS]
+    test    r9, r9
+    je      .Lsvs_c
+    mov     r8, qword ptr [r9]
+    test    r8, r8
+    je      .Lsvs_c
+    mov     rax, 0x6c655f656d617266
+    cmp     qword ptr [r8], rax
+    jne     .Lsvs_c
+    cmp     dword ptr [r8 + 8], 0x00736d65
+    jne     .Lsvs_c
+    mov     r9, qword ptr [r11 + DATINST_FIELDS]
+    test    r9, r9
+    je      .Lsvs_c
+    cmp     dword ptr [r9 + FIELD2_V], DT_S
+    jne     .Lsvs_c
+    mov     r8, qword ptr [r9 + FIELD2_P]
+    test    r8, r8
+    je      .Lsvs_c
+    cmp     dword ptr [r8], 0x7473696c
+    jne     .Lsvs_c
+    cmp     byte ptr [r8 + 4], 0
+    jne     .Lsvs_c
+    cmp     dword ptr [r9 + FIELD0_V], DT_DATA
+    jne     .Lsvs_c
+    cmp     dword ptr [r9 + FIELD0_SLEN], DATA_ELEMS_SLEN
+    jne     .Lsvs_c
+    mov     r8, qword ptr [r9 + FIELD0_P]
+    test    r8, r8
+    je      .Lsvs_c
+    movsxd  rax, dword ptr [r9 + FIELD1_P]
+    mov     r9, rcx
+    test    r9, r9
+    jns     .Lsvs_nowrap
+    lea     r9, [r9 + rax + 1]
+.Lsvs_nowrap:
+    cmp     r9, 1
+    jl      .Lsvs_c
+    cmp     r9, rax
+    jg      .Lsvs_c
+    dec     r9
+    shl     r9, 4
+    mov     rax, qword ptr [r8 + r9]
+    mov     rdx, qword ptr [r8 + r9 + 8]
+    RTX_GVA_R9
+    ret
+.Lsvs_arr:
+    test    r11, r11
+    je      .Lsvs_c
+    cmp     dword ptr [r11 + ARBLK_NDIM], 1
+    jne     .Lsvs_c
+    mov     r8, qword ptr [r11 + ARBLK_DATA]
+    test    r8, r8
+    je      .Lsvs_c
+    movsxd  rax, dword ptr [r11 + ARBLK_LO]
+    mov     r9, rcx
+    sub     r9, rax
+    movsxd  r10, dword ptr [r11 + ARBLK_HI]
+    sub     r10, rax
+    js      .Lsvs_c
+    cmp     r9, r10
+    ja      .Lsvs_c
+    shl     r9, 4
+    mov     rax, qword ptr [r8 + r9]
+    mov     rdx, qword ptr [r8 + r9 + 8]
+    RTX_GVA_R9
+    ret
+.Lsvs_tbl:
+    test    r11, r11
+    je      .Lsvs_c
+    RTX_PUSH(r11)
+    RTX_PUSH(rdx)
+    RTX_PUSH(rcx)
+    RTX_PUSH(rsi)
+    RTX_PUSH(rdi)
+    mov     rdi, r11
+    mov     rsi, rdx
+    mov     rdx, rcx
+    RTX_CALL(table_find_pair_d)
+    test    rax, rax
+    je      .Lsvs_miss
+    mov     rdx, qword ptr [rax + 24]
+    mov     rax, qword ptr [rax + 16]
+    jmp     .Lsvs_have
+.Lsvs_miss:
+    mov     rdi, qword ptr [rsp + 32]
+    movzx   eax, byte ptr [rdi + TBBLK_DFLT]
+    cmp     al, DT_FAIL
+    je      .Lsvs_null
+    test    al, al
+    je      .Lsvs_null
+    mov     rdx, qword ptr [rdi + TBBLK_DFLT + 8]
+    mov     rax, qword ptr [rdi + TBBLK_DFLT]
+    jmp     .Lsvs_have
+.Lsvs_null:
+    xor     eax, eax
+    lea     rdx, [rip + .Lsvco_empty]
+.Lsvs_have:
+    RTX_ADD_RSP(40)
+    RTX_GVA_R9
+    ret
+.Lsvs_c:
+    RTX_CFA(8)
+    RTX_DECLINE
+RTX_ENDF(rt_subscript_val_strict)
 .section .rodata
 .Lsvco_empty:
     .byte 0

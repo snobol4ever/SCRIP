@@ -2595,7 +2595,7 @@ DESCR_t c_rt_subscript_val(DESCR_t base, DESCR_t idx) {
     { DESCR_t r = c_rt_subscript_var_container_only(base, idx); return (r.v == DT_N && r.slen != 0) ? rt_deref(r) : r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_subscript_val_strict(DESCR_t base, DESCR_t idx) {
+DESCR_t c_rt_subscript_val_strict(DESCR_t base, DESCR_t idx) {
     DESCR_t declined = { .v = RTX_NOT_HANDLED };
     if (base.v == DT_N && base.slen == 1 && base.ptr) base = *(DESCR_t *)base.ptr;
     if (IS_VARREF_fn(base)) return declined;
