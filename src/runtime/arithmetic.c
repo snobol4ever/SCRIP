@@ -422,9 +422,9 @@ static inline int rt_int_str_operand(DESCR_t d, int64_t *out) {
     }
 }
 #define RT_BINOP_ENTRY_S(fn, code, fast, strict) DESCR_t fn(DESCR_t a, DESCR_t b) { extern int g_core_errjmp_n; if (a.v == DT_I && b.v == DT_I) { fast } { int64_t _x, _y; if (rt_int_str_operand(a, & \
-    _x) && rt_int_str_operand(b, &_y)) { DESCR_t a = INTVAL(_x), b = INTVAL(_y); { fast } } } if (a.v == DT_DATA || b.v == DT_DATA) { DESCR_t ov; if (rt_binop_overload(a, b, code, &ov)) return ov; } \
-    core_errjmp_t ej; int my = g_core_errjmp_n; if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); return FAILDESCR; } core_errjmp_push(&ej); g_core_errjmp_n = my + 1; DESCR_t r \
-    = rt_num_arith_impl_s(a, b, code, strict); core_errjmp_pop(&ej, my); return r; }
+    _x) && rt_int_str_operand(b, &_y)) { DESCR_t a = INTVAL(_x), b = INTVAL(_y); { fast } } } if (a.v == DT_DATA || b.v == DT_DATA) { extern int rk_rat_binop(DESCR_t, DESCR_t, int, DESCR_t *); \
+    DESCR_t ov; if (rk_rat_binop(a, b, code, &ov)) return ov; } core_errjmp_t ej; int my = g_core_errjmp_n; if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); return FAILDESCR; \
+    } core_errjmp_push(&ej); g_core_errjmp_n = my + 1; DESCR_t r = rt_num_arith_impl_s(a, b, code, strict); core_errjmp_pop(&ej, my); return r; }
 #define RT_BINOP_ENTRY(fn, code, fast) RT_BINOP_ENTRY_S(fn, code, fast, 0) RT_BINOP_ENTRY_S(fn##_strict, code, fast, 1) RT_BINOP_ENTRY_S(fn##_sno, code, fast, 2)
 RT_BINOP_ENTRY(c_rt_add, BINOP_ADD, { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
     RT_BINOP_ENTRY(c_rt_sub, BINOP_SUB, { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
