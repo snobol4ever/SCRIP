@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export SCRIP_DIAG=0   # benchmarks run with every diagnostic off (Lon 2026-09-25): the census reads the kernels' mode-4 text as a bench compiles it
 # bench_prolog_text_census.sh '<extended regex>' -- COUNT THE LINES OF THE 23 PROLOG KERNELS' MODE-4 TEXT THAT MATCH A PATTERN.
 # hq_prolog 2026-10-04 (the call-box row, ARCH-PROLOG-C-OUT-OF-THE-BOX section 9). The sibling of bench_prolog_call_census.sh, which
 # counts CALL instructions into named runtime helpers; this one counts any instruction line (a registry jump's load of g_rt_gen_procs,

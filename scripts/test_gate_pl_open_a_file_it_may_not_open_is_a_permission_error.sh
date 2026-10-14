@@ -19,7 +19,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 B="$HERE/.."
 G=test_gate_pl_open_a_file_it_may_not_open_is_a_permission_error
 refuse() { echo "⛔ REFUSED(2) [$G]: $*"; exit 2; }
-command -v gprolog >/dev/null 2>&1 || refuse "no gprolog on PATH -- the oracle"
+. "$HERE/lib_oracle_flags.sh" || refuse "lib_oracle_flags.sh unloadable -- the one accessor of the oracle binaries"
+GP="$(gprolog_bin)"; [ -x "$GP" ] || refuse "no gprolog at $GP -- the oracle (gprolog_bin, ORACLES.md: a bare gprolog on PATH is the retired 1.4.5)"
 [ "$(id -u)" != 0 ] || refuse "running as root: chmod cannot take a permission away, so no arm would measure anything"
 [ -x "$B/scrip" ] || refuse "$B/scrip is not built"
 [ -f "$B/out/libscrip_rt.so" ] || refuse "out/libscrip_rt.so is not built -- mode 4 cannot link"
@@ -34,7 +35,7 @@ t(N, F, M) :- catch((open(F, M, S), close(S), R = ok), error(E, _), R = E), writ
 main :- t(noread, nr, read), t(nowrite, nw, write), t(noappend, nw, append), t(rootwrite, '/no_write_permission', write),
     t(missing_dir, 'no/such/dir/x', write), t(missing_file, nosuchfile, read).
 PL
-want="$(cd "$D" && timeout 20 gprolog --consult-file w.pl --query-goal halt < /dev/null 2>&1 | grep '^@ ')"
+want="$(cd "$D" && timeout 20 "$GP" --consult-file w.pl --query-goal halt < /dev/null 2>&1 | grep '^@ ')"
 [ "$(printf '%s\n' "$want" | grep -c '^@ ')" = 6 ] || refuse "gprolog did not answer the six shapes: [$want]"
 ( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
 ( cd "$D" && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || refuse "mode 4 link failed"
