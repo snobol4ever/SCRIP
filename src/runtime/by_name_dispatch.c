@@ -17016,11 +17016,118 @@ static int bn_identical(DESCR_t a, DESCR_t b) {
     return a.ptr == b.ptr;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bn_icn_trim(DESCR_t *args, int nargs, DESCR_t *out) {
+    const char *s=VARVAL_fn(args[0]);
+    if(!s)s="";
+    const char *cset = " ";
+    int cl = 1;
+    if (nargs >= 2) { DESCR_t cv = args[1]; if (cv.v != DT_SNUL) { const char *cp; int cn; if (cset_resolve(cv, &cp, &cn)) { cset = cp; cl = cn; } } }
+    int sl=icn_true_len(args[0], s);
+    while (sl > 0 && cl > 0 && memchr(cset, (unsigned char)s[sl-1], (size_t)cl)) sl--;
+    char *buf=rt_wsb_alloc(sl+1);
+    memcpy(buf,s,sl);
+    buf[sl]='\0';
+    *out = BSTRVAL(buf, sl);
+    return 1;
+}
+static int bn_icn_put(DESCR_t *args, int nargs, DESCR_t *out) {
+    DESCR_t ld = args[0];
+    if (ld.v != DT_DATA) return 0;
+    {
+        DESCR_t *_a=0;
+        int _n=0;
+        if (rt_lv_is_list(ld,&_a,&_n)) {
+            int _nv2 = (nargs > 1) ? nargs - 1 : 1;
+            for (int _pi = 0; _pi < _nv2; _pi++) {
+                DESCR_t _vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
+                long _c = rt_lv_cap(ld);
+                if(_a && _c>=0 && _n<_c){ _a[_n]=_vd; _n++; rt_lv_set_size(ld,_n); continue; }
+                long _ncap=(_n>0)?(long)_n*2:8;
+                if(_ncap<_n+1)_ncap=_n+1;
+                DESCR_t *_nb=rt_ws_alloc_descr((size_t)_ncap);
+                if(_a&&_n>0) memcpy(_nb,_a,_n*sizeof(DESCR_t));
+                _nb[_n]=_vd;
+                _a=_nb;
+                _n++;
+                rt_lv_set_elems(ld,DATA_ELEMS(_nb));
+                rt_lv_set_size(ld,_n);
+                rt_lv_set_cap(ld,_ncap);
+            }
+            *out = ld;
+            return 1;
+        }
+    }
+    return 0;
+}
+static int bn_icn_get(DESCR_t ld, DESCR_t *out) {
+    if (ld.v != DT_DATA) return 0;
+    {
+        DESCR_t *_a=0;
+        int _n=0;
+        if (rt_lv_is_list(ld,&_a,&_n)) {
+            if(!_a||_n<=0) { *out=FAILDESCR; return 1; }
+            DESCR_t _r=_a[0];
+            rt_lv_set_elems(ld,DATA_ELEMS(_a+1));
+            rt_lv_set_size(ld,_n-1);
+            { long _c=rt_lv_cap(ld); if(_c>0) rt_lv_set_cap(ld,_c-1); }
+            *out=_r;
+            return 1;
+        }
+    }
+    return 0;
+}
+static int bn_icn_read_fh(DESCR_t a0, DESCR_t *out) {
+    int _fi = (a0.v == DT_SNUL) ? 0 : (IS_FH_fn(a0) || IS_INT_fn(a0)) ? (int)a0.i : -1;
+    if (_fi >= 0 && _fi < FH_N && g_fh[_fi].closed) { core_icn_error(212, a0.v == DT_SNUL ? FHVAL(0) : a0); *out = FAILDESCR; return 1; }
+    FILE *fp = (_fi >= 0) ? fh_get(_fi) : NULL;
+    if (!fp) { *out = FAILDESCR; return 1; }
+    extern int fh_is_untranslated(int);
+    int _un = fh_is_untranslated(_fi);
+    size_t cap = 128, len = 0;
+    char *ln = (char *)ct_alloc(cap);
+    if (!ln) { *out = FAILDESCR; return 1; }
+    int c, any = 0;
+    while ((c = getc(fp)) != EOF) {
+        any = 1;
+        if (c == '\n') break;
+        if (!_un && c == '\r') { int d = getc(fp); if (d != '\n' && d != EOF) ungetc(d, fp); break; }
+        if (len + 1 >= cap) { cap *= 2; char *nb = (char *)ct_grow(ln, cap); if (!nb) { ct_drop(ln); *out = FAILDESCR; return 1; } ln = nb; }
+        ln[len++] = (char)c;
+    }
+    if (!any) { ct_drop(ln); *out = FAILDESCR; return 1; }
+    char *r = rt_wsb_alloc(len + 1);
+    memcpy(r, ln, len);
+    r[len] = '\0';
+    ct_drop(ln);
+    DESCR_t rs = {0};
+    rs.v = DT_S;
+    rs.slen = (uint32_t)len;
+    rs.s = r;
+    *out = rs;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_bi_direct_list_io(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
+    extern int rt_g_want_name;
+    if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
+    if (bid == BID_trim) {
+        if (nargs < 1 || nargs > 2 || args[0].v != DT_S || IS_CSET_fn(args[0])) return 0;
+        if (nargs == 2 && args[1].v != DT_SNUL && args[1].v != DT_S) return 0;
+        core_icn_op_ctx_clear();
+        return bn_icn_trim(args, nargs, out);
+    }
+    if (bid == BID_put) { if (nargs < 1 || !rt_lv_is_list(args[0], (DESCR_t **)0, (int *)0)) return 0; core_icn_op_ctx_clear(); return bn_icn_put(args, nargs, out); }
+    if (bid == BID_get) { if (nargs != 1 || rt_g_want_name || !rt_lv_is_list(args[0], (DESCR_t **)0, (int *)0)) return 0; core_icn_op_ctx_clear(); return bn_icn_get(args[0], out); }
+    if (nargs != 1 || !IS_FH_fn(args[0]) || args[0].i < 0 || args[0].i >= FH_N || g_fh[args[0].i].closed || !fh_get((int)args[0].i)) return 0;
+    core_icn_op_ctx_clear();
+    return bn_icn_read_fh(args[0], out);
+}
 static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
     const int bid = bidlen & BID_BAKE_MASK;
     const unsigned fnlen = (unsigned)bidlen >> 16;
-    if (bid != BID_string && bid != BID_IDENTICAL) return 0;
+    if (bid != BID_string && bid != BID_IDENTICAL && bid != BID_trim && bid != BID_put && bid != BID_get && bid != BID_read) return 0;
     if (!fnlen || fnlen >= 14 || dtax_off() || g_dtax_bid[bid].gen != rt_dtax_gen) return 0;
+    if (bid == BID_trim || bid == BID_put || bid == BID_get || bid == BID_read) return icn_bi_direct_list_io(bid, args, nargs, out);
     if (bid == BID_IDENTICAL) { if (nargs != 2 || (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3)) return 0; *out = bn_identical(args[0], args[1]) ? args[1] : FAILDESCR; return 1; }
     if (nargs != 1 || g_dtax_bid[bid].kind != 0) return 0;
     if (args[0].v == DT_I) return icn_bi_string_of_int(args[0], out);
@@ -19054,20 +19161,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_5567:
     ;
-    if ((_bid == BID_trim) && nargs >= 1) {
-        const char *s=VARVAL_fn(args[0]);
-        if(!s)s="";
-        const char *cset = " ";
-        int cl = 1;
-        if (nargs >= 2) { DESCR_t cv = args[1]; if (cv.v != DT_SNUL) { const char *cp; int cn; if (cset_resolve(cv, &cp, &cn)) { cset = cp; cl = cn; } } }
-        int sl=icn_true_len(args[0], s);
-        while (sl > 0 && cl > 0 && memchr(cset, (unsigned char)s[sl-1], (size_t)cl)) sl--;
-        char *buf=rt_wsb_alloc(sl+1);
-        memcpy(buf,s,sl);
-        buf[sl]='\0';
-        *out = BSTRVAL(buf, sl);
-        return 1;
-    }
+    if ((_bid == BID_trim) && nargs >= 1) return bn_icn_trim(args, nargs, out);
     L_bidjmp_5576:
     ;
     if ((_bid == BID_getenv) && nargs == 1) {
@@ -19937,55 +20031,10 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_6182:
     ;
-    if ((_bid == BID_put) && nargs >= 1) {
-        DESCR_t ld = args[0];
-        if (ld.v != DT_DATA) return 0;
-        {
-            DESCR_t *_a=0;
-            int _n=0;
-            if (rt_lv_is_list(ld,&_a,&_n)) {
-                int _nv2 = (nargs > 1) ? nargs - 1 : 1;
-                for (int _pi = 0; _pi < _nv2; _pi++) {
-                    DESCR_t _vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
-                    long _c = rt_lv_cap(ld);
-                    if(_a && _c>=0 && _n<_c){ _a[_n]=_vd; _n++; rt_lv_set_size(ld,_n); continue; }
-                    long _ncap=(_n>0)?(long)_n*2:8;
-                    if(_ncap<_n+1)_ncap=_n+1;
-                    DESCR_t *_nb=rt_ws_alloc_descr((size_t)_ncap);
-                    if(_a&&_n>0) memcpy(_nb,_a,_n*sizeof(DESCR_t));
-                    _nb[_n]=_vd;
-                    _a=_nb;
-                    _n++;
-                    rt_lv_set_elems(ld,DATA_ELEMS(_nb));
-                    rt_lv_set_size(ld,_n);
-                    rt_lv_set_cap(ld,_ncap);
-                }
-                *out = ld;
-                return 1;
-            }
-        }
-        return 0;
-    }
+    if ((_bid == BID_put) && nargs >= 1) return bn_icn_put(args, nargs, out);
     L_bidjmp_6206:
     ;
-    if ((_bid == BID_get) && nargs == 1) {
-        DESCR_t ld = args[0];
-        if (ld.v != DT_DATA) return 0;
-        {
-            DESCR_t *_a=0;
-            int _n=0;
-            if (rt_lv_is_list(ld,&_a,&_n)) {
-                if(!_a||_n<=0) { *out=FAILDESCR; return 1; }
-                DESCR_t _r=_a[0];
-                rt_lv_set_elems(ld,DATA_ELEMS(_a+1));
-                rt_lv_set_size(ld,_n-1);
-                { long _c=rt_lv_cap(ld); if(_c>0) rt_lv_set_cap(ld,_c-1); }
-                *out=_r;
-                return 1;
-            }
-        }
-        return 0;
-    }
+    if ((_bid == BID_get) && nargs == 1) return bn_icn_get(args[0], out);
     L_bidjmp_6221:
     ;
     if ((_bid == BID_pop) && nargs == 1) {
@@ -20203,36 +20252,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     L_bidjmp_9999:
     ;
     if ((_bid == BID_flush) && nargs == 1) { if (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) { int idx = (int)args[0].i; FILE *fp = fh_get(idx); if (fp) fflush(fp); } *out = args[0]; return 1; }
-    if ((_bid == BID_read) && nargs == 1) {
-        int _fi = (args[0].v == DT_SNUL) ? 0 : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? (int)args[0].i : -1;
-        if (_fi >= 0 && _fi < FH_N && g_fh[_fi].closed) { core_icn_error(212, args[0].v == DT_SNUL ? FHVAL(0) : args[0]); *out = FAILDESCR; return 1; }
-        FILE *fp = (_fi >= 0) ? fh_get(_fi) : NULL;
-        if (!fp) { *out = FAILDESCR; return 1; }
-        extern int fh_is_untranslated(int);
-        int _un = fh_is_untranslated(_fi);
-        size_t cap = 128, len = 0;
-        char *ln = (char *)ct_alloc(cap);
-        if (!ln) { *out = FAILDESCR; return 1; }
-        int c, any = 0;
-        while ((c = getc(fp)) != EOF) {
-            any = 1;
-            if (c == '\n') break;
-            if (!_un && c == '\r') { int d = getc(fp); if (d != '\n' && d != EOF) ungetc(d, fp); break; }
-            if (len + 1 >= cap) { cap *= 2; char *nb = (char *)ct_grow(ln, cap); if (!nb) { ct_drop(ln); *out = FAILDESCR; return 1; } ln = nb; }
-            ln[len++] = (char)c;
-        }
-        if (!any) { ct_drop(ln); *out = FAILDESCR; return 1; }
-        char *r = rt_wsb_alloc(len + 1);
-        memcpy(r, ln, len);
-        r[len] = '\0';
-        ct_drop(ln);
-        DESCR_t rs = {0};
-        rs.v = DT_S;
-        rs.slen = (uint32_t)len;
-        rs.s = r;
-        *out = rs;
-        return 1;
-    }
+    if ((_bid == BID_read) && nargs == 1) return bn_icn_read_fh(args[0], out);
     if ((_bid == BID_reads) && nargs >= 1) {
         {
             int _ri = (args[0].v == DT_SNUL) ? 0 : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? (int)args[0].i : -1;
