@@ -498,7 +498,7 @@ def _param_literals(own_text, site_line, ident):
         hd = re.search(r"\b" + re.escape(name) + r"\s*\(", own_text.split("\n")[first - 1])
         if not hd:
             return [], ""
-        params = _top_args(own_text.split("\n")[first - 1], hd.end())
+        params = _top_args(own_text, len("\n".join(own_text.split("\n")[:first - 1])) + (1 if first > 1 else 0) + hd.end())
         idx = next((k for k, pa in enumerate(params) if re.search(r"\b" + re.escape(ident) + r"\s*$", pa.strip())), None)
         if idx is None:
             return [], ""
@@ -520,13 +520,34 @@ def _param_literals(own_text, site_line, ident):
                     for ini in re.finditer(r"\b" + re.escape(av) + r"\s*=\s*([^;]*);", own_text):
                         lits += LIT_RX.findall(ini.group(1))
                         via = f" via the initializers of {av}"
+                mc = re.match(r"([A-Za-z_]\w*)\s*\(", av)
+                if not found and mc:
+                    md = re.search(r"^[ \t]*#[ \t]*define[ \t]+" + re.escape(mc.group(1)) + r"\([^)]*\)(.*(?:\\\n.*)*)$", own_text, re.M)
+                    if md:
+                        lits += LIT_RX.findall(md.group(1))
+                        via = f" via the macro {mc.group(1)}()"
         return (sorted(set(lits)), f"parameter {ident} of {name}(){via}") if lits else ([], "")
     return [], ""
+
+
+def _rtx_twin_map():
+    """leaf -> C twin from rtx_twin_table.inc (RTX_TWIN(kind, ret, leaf, twin, args)): emit_rtx_twin_sym(leaf) is the twin when the leaf has
+    one and the leaf otherwise, so a site calling through it may reach either name; {} when the table is absent (a selftest fixture root)."""
+    try:
+        t = open(os.path.join(ROOT, "src", "templates", "x86", "rtx_twin_table.inc"), encoding="utf-8").read()
+    except OSError:
+        return {}
+    return {m.group(1): m.group(2) for m in re.finditer(r"RTX_TWIN\(\s*\w+\s*,[^,]+,\s*(\w+)\s*,\s*(\w+)\s*,", t)}
 
 
 def resolve_computed(expr, own_text, all_text, site_line=None):
     """(candidates, rule) for a computed call target the census has been told how to read; ([], "") otherwise"""
     e = _first_arg(expr).strip()
+    mt = re.match(r"emit_rtx_twin_sym\s*\((.*)\)\s*$", e)
+    if mt:
+        lits, rule = resolve_computed(mt.group(1), own_text, all_text, site_line)
+        tw = _rtx_twin_map()
+        return (sorted(set(lits) | {tw[x] for x in lits if x in tw}), f"{rule} through emit_rtx_twin_sym()") if lits else ([], "")
     m = re.match(r"([A-Za-z_]\w*)\s*\[", e)
     if m and re.search(r"\b" + m.group(1) + r"\s*\[[^\]]*\]\s*=\s*\{", own_text):
         d = re.search(r"\b" + m.group(1) + r"\s*\[[^\]]*\]\s*=\s*\{", own_text)
@@ -698,7 +719,14 @@ def expansion_lines(unit, own_file, texts):
             if f == own_file and lo <= ln <= hi:
                 continue                                  # its own body, including recursion
             src = fl[ln - 1]
-            if PROTO_RX.match(src) or src.lstrip().startswith(("#define", "extern ")):
+            stmt = src
+            k = ln
+            while k < len(fl) and not stmt.rstrip().endswith((";", "{", "}")) and k - ln < 6:
+                stmt = stmt + " " + fl[k].strip()
+                k += 1
+            prefix = src[:m.start() - (t.rfind("\n", 0, m.start()) + 1)]
+            wrapped_proto = re.fullmatch(r"\s*(?:extern\s+|static\s+|inline\s+)*[A-Za-z_][\w:<>,\s\*&]*?\s+", prefix) and not prefix.lstrip().startswith("return") and PROTO_RX.match(stmt)
+            if PROTO_RX.match(src) or wrapped_proto or src.lstrip().startswith(("#define", "extern ")):
                 continue
             hits.append((f, ln))
     return sorted(set(hits))
@@ -2282,6 +2310,31 @@ def selftest():
        "safe-points PARAMETER TARGET: a call on a parameter of its helper resolves to the literals the helper's callers pass there")
     ck(_sp_has(o5, allocating_call_sites=1, polled=1) and any("rt_concat" in x and "rt_gcheap_alloc" in x for x in o5),
        "safe-points TERNARY OF CALLS: both arms of a ternary of x86(\"call\") on one line are the site's candidates")
+    # THREE READINGS THE 200-COLUMN RULE AND THE RTX TWINS BROKE (hq_templates 2026-10-14, the ratchet read unresolved 0 -> 5): a helper whose
+    # signature wraps over two lines, a caller that passes a function-like macro of the file, and the twin wrapper around a table row.
+    t_wr = os.path.join(w, "wr.cpp"); t_mc = os.path.join(w, "mc.cpp"); t_tw = os.path.join(w, "tw.cpp")
+    open(t_wr, "w").write('static std::string h(const char * sym,\n                     void * fp)\n{\n    std::string s = x86("call", sym, fp) + x86_rt_gc_poll();\n'
+                          '    return s;\n}\nstd::string a(){ return h("rt_concat", fp); }\n')
+    open(t_mc, "w").write('#define SYM2(k) ((k) ? "rt_concat" : "rt_gcheap_alloc")\nstatic std::string h(const char * sym, void * fp) {\n'
+                          '    std::string s = x86("call", sym, fp) + x86_rt_gc_poll();\n    return s;\n}\nstd::string a(){ return h(SYM2(1), fp); }\n')
+    open(t_tw, "w").write('static const struct { const char * name; } tab[] = { {"rt_concat"}, {"rt_gcheap_alloc"} };\n'
+                          'std::string a(){\n    return x86("call", emit_rtx_twin_sym(tab[I()].name), fp) + x86_rt_gc_poll();\n}\n')
+    o6 = []; o7 = []; o8 = []
+    census_safe_points("", [t_wr], out=o6.append, allocating=alloc, list_polled=True)
+    census_safe_points("", [t_mc], out=o7.append, allocating=alloc, list_polled=True)
+    census_safe_points("", [t_tw], out=o8.append, allocating=alloc, list_polled=True)
+    ck(_sp_has(o6, allocating_call_sites=1, polled=1, unresolved=0) and any("parameter sym of h()" in x for x in o6),
+       "safe-points WRAPPED SIGNATURE: a helper whose parameter list wraps over two lines still resolves its parameter target to its callers' literals")
+    ck(_sp_has(o7, allocating_call_sites=1, polled=1, unresolved=0) and any("via the macro SYM2()" in x and "rt_concat" in x and "rt_gcheap_alloc" in x for x in o7),
+       "safe-points MACRO ARGUMENT: a caller passing a function-like macro of the file names the macro's literals as the parameter target's candidates")
+    ck(_sp_has(o8, allocating_call_sites=1, polled=1, unresolved=0) and any("through emit_rtx_twin_sym()" in x for x in o8),
+       "safe-points TWIN WRAPPER: emit_rtx_twin_sym() around a table row reads as the row's own candidates")
+    t_pr = os.path.join(w, "pr.cpp")
+    pr_text = 'std::string h(const char * sym,\n              void * fp);\nstd::string h(const char * sym, void * fp) {\n    return x86("call", sym, fp);\n}\nstd::string a(){ return h("rt_concat", fp); }\n'
+    open(t_pr, "w").write(pr_text)
+    pr_unit = next(u for u in emission_units(pr_text) if u[0] == "func" and u[1] == "h")
+    ck(expansion_lines(pr_unit, t_pr, {t_pr: pr_text}) == [(t_pr, 6)],
+       "safe-points WRAPPED PROTOTYPE: a prototype whose parameter list wraps over two lines is not an expansion of its function -- only the call is")
     # THE WINDOW'S BUDGET COUNTS ONLY THE SITE'S OWN PATH (the cto 2026-10-08, bb_match_defer.cpp:307): the call heads the first of three
     # ternary arms, the two others hold sixteen x86 tokens, and the one poll follows the ternary's close -- POLLED on every arm. The same
     # sixteen tokens written on the call's own path (the control) still spend the window before the poll -- UNPOLLED.
