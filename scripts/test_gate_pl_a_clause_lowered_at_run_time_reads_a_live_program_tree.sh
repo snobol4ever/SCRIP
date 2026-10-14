@@ -27,7 +27,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 B="$HERE/.."
 G=test_gate_pl_a_clause_lowered_at_run_time_reads_a_live_program_tree
 refuse() { echo "⛔ REFUSED(2) [$G]: $*"; exit 2; }
-command -v swipl >/dev/null 2>&1 || refuse "no swipl on PATH -- the oracle"
+. "$HERE/lib_oracle_flags.sh" || refuse "lib_oracle_flags.sh unloadable -- the one accessor of the oracle binaries"
+SW="$(swipl_bin)"; [ -x "$SW" ] || refuse "no swipl at $SW -- the oracle (swipl_bin)"
 [ -x "$B/scrip" ] || refuse "$B/scrip is not built"
 [ -f "$B/out/libscrip_rt.so" ] || refuse "out/libscrip_rt.so is not built -- mode 4 cannot link"
 "$HERE/util_require_fresh.sh" --gate "$G" || exit $?
@@ -39,7 +40,7 @@ p(X) :- clause('$s'(X), true).
 :- initialization(main).
 main :- G = p(_), clause(G, B), write(B), nl, findall(X, p(X), L), write(L), nl.
 PL
-want="$(cd "$D" && timeout 20 swipl -q w.pl -t halt < /dev/null 2>&1 | sed 's/_[0-9][0-9]*/_V/g; s/_G[0-9][0-9]*/_V/g')"
+want="$(cd "$D" && timeout 20 "$SW" -q w.pl -t halt < /dev/null 2>&1 | sed 's/_[0-9][0-9]*/_V/g; s/_G[0-9][0-9]*/_V/g')"
 [ -n "$want" ] || refuse "swipl printed nothing for the witness"
 ( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
 ( cd "$D" && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || refuse "mode 4 link failed"

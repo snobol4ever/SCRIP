@@ -18,7 +18,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 B="$HERE/.."
 G=test_gate_pl_write_term_variable_names_take_unicode_uppercase_names
 refuse() { echo "⛔ REFUSED(2) [$G]: $*"; exit 2; }
-command -v swipl >/dev/null 2>&1 || refuse "no swipl on PATH -- the oracle"
+. "$HERE/lib_oracle_flags.sh" || refuse "lib_oracle_flags.sh unloadable -- the one accessor of the oracle binaries"
+SW="$(swipl_bin)"; [ -x "$SW" ] || refuse "no swipl at $SW -- the oracle (swipl_bin)"
 [ -x "$B/scrip" ] || refuse "$B/scrip is not built"
 [ -f "$B/out/libscrip_rt.so" ] || refuse "out/libscrip_rt.so is not built -- mode 4 cannot link"
 "$HERE/util_require_fresh.sh" --gate "$G" || exit $?
@@ -29,7 +30,7 @@ cat > "$D/w.pl" <<'PL'
 t(N) :- catch((write_term(f(V), [variable_names([N=V])]), nl), error(E, _), (writeq(ex(E)), nl)).
 main :- t('Γβα'), t('_x'), t('Ab'), t(ab), t('Ölçü'), t('ǅx').
 PL
-want="$(cd "$D" && timeout 20 swipl -q w.pl -t halt < /dev/null 2>/dev/null)"
+want="$(cd "$D" && timeout 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null)"
 [ "$(printf '%s\n' "$want" | grep -c .)" = 6 ] || refuse "swipl did not answer the six shapes: [$want]"
 ( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
 ( cd "$D" && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || refuse "mode 4 link failed"
