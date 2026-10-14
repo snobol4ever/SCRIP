@@ -17215,6 +17215,33 @@ static int bn_icn_read_fh(DESCR_t a0, DESCR_t *out) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bn_icn_right(DESCR_t *args, int nargs, DESCR_t *out) {
+    char _pb[64];
+    const char *s=icn_pad_str(args[0],_pb,sizeof _pb);
+    if(!s)s="";
+    int sl=icn_true_len(args[0], s);
+    int n = 1;
+    if (nargs >= 2) { DESCR_t nv = args[1]; if (!IS_FAIL_fn(nv) && nv.v != DT_SNUL) n = (int)to_int(nv); }
+    if (n < 0) n = 0;
+    const char *fill=" ";
+    int fl=1;
+    if (nargs >= 3) {
+        DESCR_t fd = args[2];
+        if (!IS_FAIL_fn(fd) && fd.v != DT_SNUL) { const char *fs = VARVAL_fn(fd); { int _fl = fs ? icn_true_len(fd, fs) : 0; if (_fl > 0) { fill = fs; fl = _fl; } } }
+    }
+    char *buf=rt_wsb_alloc(n+1);
+    int pad = n - sl;
+    if (pad < 0) pad = 0;
+    for (int i = 0; i < pad; i++) buf[i] = fill[i % fl];
+    int srcoff = (sl > n) ? (sl - n) : 0;
+    int copy = sl - srcoff;
+    if (pad + copy > n) copy = n - pad;
+    for (int i = 0; i < copy; i++) buf[pad + i] = s[srcoff + i];
+    buf[n]='\0';
+    *out = BSTRVAL(buf, n);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_bi_direct_list_io(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     extern int rt_g_want_name;
     if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
@@ -17230,11 +17257,42 @@ static int icn_bi_direct_list_io(int bid, DESCR_t *args, int nargs, DESCR_t *out
     core_icn_op_ctx_clear();
     return bn_icn_read_fh(args[0], out);
 }
+static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+static int icn_bi_direct_scalar(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
+    extern int rt_g_want_name;
+    if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
+    if (bid == BID_type) { if (nargs != 1 || rt_g_want_name) return 0; core_icn_op_ctx_clear(); return bn_type_datatype("type", args, nargs, out); }
+    if (bid == BID_integer) {
+        if (nargs != 1) return 0;
+        if (args[0].v == DT_I) { core_icn_op_ctx_clear(); *out = args[0]; return 1; }
+        if (args[0].v == DT_R && fabs(args[0].r) < 9223372036854775807.0) { core_icn_op_ctx_clear(); *out = INTVAL((long long)args[0].r); return 1; }
+        return 0;
+    }
+    if (bid == BID_abs) {
+        if (nargs != 1) return 0;
+        if (args[0].v == DT_R) { core_icn_op_ctx_clear(); *out = REALVAL(fabs(args[0].r)); return 1; }
+        if (args[0].v == DT_I && args[0].i != (-9223372036854775807LL - 1)) { core_icn_op_ctx_clear(); *out = INTVAL(args[0].i < 0 ? -args[0].i : args[0].i); return 1; }
+        return 0;
+    }
+    if (bid == BID_atan) {
+        if (nargs < 1 || nargs > 2 || (args[0].v != DT_I && args[0].v != DT_R) || (nargs == 2 && args[1].v != DT_SNUL && args[1].v != DT_I && args[1].v != DT_R)) return 0;
+        core_icn_op_ctx_clear();
+        double v = args[0].v == DT_R ? args[0].r : (double)args[0].i;
+        if (nargs == 2 && args[1].v != DT_SNUL) { double v2 = args[1].v == DT_R ? args[1].r : (double)args[1].i; *out = REALVAL(atan2(v, v2)); } else *out = REALVAL(atan(v));
+        return 1;
+    }
+    if (nargs < 2 || nargs > 3 || args[0].v != DT_S || IS_CSET_fn(args[0]) || args[1].v != DT_I || args[1].i < 0) return 0;
+    if (nargs == 3 && args[2].v != DT_SNUL && (args[2].v != DT_S || IS_CSET_fn(args[2]))) return 0;
+    core_icn_op_ctx_clear();
+    return bn_icn_right(args, nargs, out);
+}
 static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
     const int bid = bidlen & BID_BAKE_MASK;
     const unsigned fnlen = (unsigned)bidlen >> 16;
-    if (bid != BID_string && bid != BID_IDENTICAL && bid != BID_trim && bid != BID_put && bid != BID_get && bid != BID_read) return 0;
+    if (bid != BID_string && bid != BID_IDENTICAL && bid != BID_trim && bid != BID_put && bid != BID_get && bid != BID_read && bid != BID_type && bid != BID_integer && bid != BID_abs &&
+        bid != BID_atan && bid != BID_right) return 0;
     if (!fnlen || fnlen >= 14 || dtax_off() || g_dtax_bid[bid].gen != rt_dtax_gen) return 0;
+    if (bid == BID_type || bid == BID_integer || bid == BID_abs || bid == BID_atan || bid == BID_right) return icn_bi_direct_scalar(bid, args, nargs, out);
     if (bid == BID_trim || bid == BID_put || bid == BID_get || bid == BID_read) return icn_bi_direct_list_io(bid, args, nargs, out);
     if (bid == BID_IDENTICAL) { if (nargs != 2 || (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3)) return 0; *out = bn_identical(args[0], args[1]) ? args[1] : FAILDESCR; return 1; }
     if (nargs != 1 || g_dtax_bid[bid].kind != 0) return 0;
@@ -19314,32 +19372,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_5613:
     ;
-    if ((_bid == BID_right) && nargs >= 1) {
-        char _pb[64];
-        const char *s=icn_pad_str(args[0],_pb,sizeof _pb);
-        if(!s)s="";
-        int sl=icn_true_len(args[0], s);
-        int n = 1;
-        if (nargs >= 2) { DESCR_t nv = args[1]; if (!IS_FAIL_fn(nv) && nv.v != DT_SNUL) n = (int)to_int(nv); }
-        if (n < 0) n = 0;
-        const char *fill=" ";
-        int fl=1;
-        if (nargs >= 3) {
-            DESCR_t fd = args[2];
-            if (!IS_FAIL_fn(fd) && fd.v != DT_SNUL) { const char *fs = VARVAL_fn(fd); { int _fl = fs ? icn_true_len(fd, fs) : 0; if (_fl > 0) { fill = fs; fl = _fl; } } }
-        }
-        char *buf=rt_wsb_alloc(n+1);
-        int pad = n - sl;
-        if (pad < 0) pad = 0;
-        for (int i = 0; i < pad; i++) buf[i] = fill[i % fl];
-        int srcoff = (sl > n) ? (sl - n) : 0;
-        int copy = sl - srcoff;
-        if (pad + copy > n) copy = n - pad;
-        for (int i = 0; i < copy; i++) buf[pad + i] = s[srcoff + i];
-        buf[n]='\0';
-        *out = BSTRVAL(buf, n);
-        return 1;
-    }
+    if ((_bid == BID_right) && nargs >= 1) return bn_icn_right(args, nargs, out);
     L_bidjmp_5639:
     ;
     if ((_bid == BID_center) && nargs >= 1) {
