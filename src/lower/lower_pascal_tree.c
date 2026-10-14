@@ -443,6 +443,8 @@ static int pas_is_unsigned_inttypename(const char *n) {
 static int pas_with_holds_pointee_of(tree_t *ptr);
 static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "fini.mute")) return mk_fnc0("__pas_std_mute");
+    if (name && !g_lower.pas.sem.pas_dialect_fpc && (!strcmp(name, "random") || !strcmp(name, "randomize") || !strcmp(name, "stringofchar")) && !pas_is_func(name) && !pas_is_proc(name) &&
+        !pas_scalarvartype_get(name)) pas_scope_require(name);
     if (name && !strcmp(name, "ord") && args && args->count >= 1) {
         tree_t *a = args->items[0];
         if (a && a->t == TT_FNC && a->n >= 2 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_chrlit")) return a->c[1];
@@ -689,6 +691,8 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         return ilit(managed ? 1 : 0);
     }
     if (name && !strcmp(name, "boolean") && args && args->count >= 1) return bin(TT_NE, mk_fnc2("iand", args->items[0], ilit(255)), ilit(0));
+    if (name && (!strcmp(name, "char") || !strcmp(name, "ansichar") || !strcmp(name, "widechar")) && args && args->count >= 1 && !pas_is_func(name) && !pas_is_proc(name) && !pas_scope_uid(name) &&
+        g_lower.pas.sem.pas_dialect_fpc) return mk_fnc1("__pas_chrlit", args->items[0]);
     if (name && strcmp(name, "char") && strcmp(name, "widechar") && strcmp(name, "ansichar") && strcmp(name, "boolean") && args && args->count >= 1) {
         long long _tsz;
         int _isboolfam = !strcmp(name, "bytebool") || !strcmp(name, "wordbool") || !strcmp(name, "longbool") || !strcmp(name, "qwordbool");

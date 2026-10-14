@@ -20,8 +20,9 @@
 # ARMS, both modes, expectations cut LIVE from fpc -Mfpc: sysrt and mathfns. Two ISO controls, each refused with no output:
 #   - iso_random: a bare random, refused at compile time with 6.2.2.1, as ISO_EXPECTED_REFUSALS.tsv records for
 #     test_units_system_trandom;
-#   - iso_stringofchar: a call, which SCRIP refuses at run time as an undefined function. It checks no call name at compile time, an
-#     older gap this gate does not widen. FAIL_ONCE=1 corrupts arm sysrt.
+#   - iso_stringofchar: a call, refused at compile time with 6.2.2.1 since 2026-10-14 (hq_pascal, PasRosetta, ceo CEO-1709): mk_call reports the
+#     identifier of random, randomize and stringofchar when the whole program is ISO and no routine of that name is declared -- until then it
+#     was refused at run time as an undefined function ("an older gap this gate does not widen"). FAIL_ONCE=1 corrupts arm sysrt.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -69,7 +70,7 @@ for m in m3 m4; do chk $m sysrt; chk $m mathfns; done
 refuse() { local p="$1"; ( cd "$T" && timeout 60s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); local rc=$?; N=$((N + 1))
   if [ "$rc" != 0 ] && [ ! -s "$T/o" ] && grep -q "$2" "$T/e"; then echo "  $p: refused, rc=$rc, with: $(head -1 "$T/e" | cut -c1-80)"
   else echo "  ⛔ $p FAILED: rc=$rc, want a refusal naming [$2]: stdout=[$(head -c 60 "$T/o" | tr '\n' '|')] err=[$(head -c 140 "$T/e")]"; RC=1; fi; }
-refuse iso_random '6\.2\.2\.1'; refuse iso_stringofchar 'undefined function'
+refuse iso_random '6\.2\.2\.1'; refuse iso_stringofchar '6\.2\.2\.1'
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: FPC's System and math routines answer as fpc and stay refused in ISO, $N of $N arms"
 else echo "GATE FAIL(1) [$G]: see the arms above"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)" \
