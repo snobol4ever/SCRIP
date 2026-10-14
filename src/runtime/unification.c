@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <limits.h>
+#include <locale.h>
+#include <wctype.h>
 #include <sys/mman.h>
 #include "../parsers/prolog/pl_cell.h"
 #include "rt/rt_pl_trail.h"
@@ -1824,6 +1826,17 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_format_cell(const char *fmt, void *list_cell) { (void)rt_pl_format_run(fmt, list_cell, (pl_tr_ctx_t *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ct_print(const char *cs) {
+    int adv, cp = rt_pl_u8_get(cs, &adv), ok;
+    locale_t l;
+    if (cp < 0x80) return cp >= 32 && cp != 127;
+    l = newlocale(LC_CTYPE_MASK, "C.UTF-8", (locale_t)0);
+    if (!l) return cp >= 0xA0;
+    ok = iswprint_l((wint_t)cp, l) != 0;
+    freelocale(l);
+    return ok;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell, pl_tr_ctx_t *cx) {
     pl_cell_t *tc = char_cell ? pl_deref((pl_cell_t *)char_cell) : (pl_cell_t *)0;
     if (!tc || !type_cell) return 0;
@@ -1884,6 +1897,7 @@ int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell, pl_tr
     else if (!strcmp(ty, "lower")) ok = islower(ch);
     else if (!strcmp(ty, "punct")) ok = ispunct(ch);
     else if (!strcmp(ty, "graph")) ok = isgraph(ch);
+    else if (!strcmp(ty, "print")) ok = pl_ct_print(cs);
     else if (!strcmp(ty, "csym")) ok = (isalnum(ch) || ch == '_');
     else if (!strcmp(ty, "csymf")) ok = (isalpha(ch) || ch == '_');
     else if (!strcmp(ty, "end_of_line")) ok = (ch == '\n' || ch == '\r');
