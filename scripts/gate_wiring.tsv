@@ -752,6 +752,7 @@ test_gate_pl_trail_mechanism.sh	WIRED	-	-	-
 test_gate_pl_tries_and_table_inspection_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_two_variables_compare_one_way_only.sh	WIRED	-	-	-
 test_gate_pl_utf16_and_utf32_text_streams_read_and_write.sh	WIRED	-	-	-
+test_gate_pl_variant_sha1_and_variant_hash_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_wall_us_arity1.sh	WIRED	-	-	-
 test_gate_pl_wildcard_match_answers_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_write_1_never_silently_drops_a_term_shape.sh	WIRED	-	-	-
