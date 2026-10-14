@@ -78,6 +78,8 @@ static int rk_name_is_byref(rcx_t * cx, const char * name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RK_VF_BOXED 8
+#define RK_VF_RAW 512
+static int rk_is_scalar_bind(const tree_t * t);
 static int rk_var_byref(rcx_t * cx, const tree_t * v) { return v && v->v.sval && ((v->slen & RK_VF_BOXED) || rk_name_is_byref(cx, v->v.sval)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static uint64_t rk_callee_byref_mask(const char * nm) {
@@ -3133,6 +3135,7 @@ static int rk_cap_synchronous(const tree_t * parent, int idx) {
 static void rk_cap_assign_through(tree_t * t, const rk_ns_t * F) {
     if (!t || t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return;
     for (int i = 0; i < t->n; i++) rk_cap_assign_through(t->c[i], F);
+    if (rk_is_scalar_bind(t)) return;
     if (t->t == TT_ASSIGN && t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && t->c[1]->v.sval && rk_ns_has(F, t->c[1]->v.sval)) {
         tree_t * rd = ast_node_new(TT_FNC);
         rd->v.sval = (char *) "__rk_deref";
@@ -3324,7 +3327,7 @@ static void rk_cap_flag_boxed(tree_t * t, const rk_ns_t * Bx) {
 static void rk_cap_box_decls(tree_t * t, const rk_ns_t * Bx) {
     if (!t || t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return;
     for (int i = 0; i < t->n; i++) rk_cap_box_decls(t->c[i], Bx);
-    if (t->t == TT_ASSIGN && t->n > 1 && t->c[0] && t->c[0]->t == TT_VAR && (t->c[0]->slen & 4) && rk_ns_has(Bx, t->c[0]->v.sval)) {
+    if (t->t == TT_ASSIGN && t->v.ival != 2 && t->n > 1 && t->c[0] && t->c[0]->t == TT_VAR && (t->c[0]->slen & 4) && rk_ns_has(Bx, t->c[0]->v.sval)) {
         const char * v = t->c[0]->v.sval;
         rk_ns_t ru = { 0 };
         rk_cap_uses_deep(t->c[1], &ru);
@@ -3362,6 +3365,8 @@ static void rk_cap_walk(tree_t * t, const rk_ns_t * encl);
 static void rk_cap_block(tree_t * parent, int idx, const rk_ns_t * encl);
 static int rk_cap_is_package(const tree_t * t) { return t && (t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL); }
 static void rk_cap_proc_m(tree_t * sd, int mth);
+static void rk_bind_names(const tree_t * t, rk_ns_t * out, const rk_ns_t * skip);
+static void rk_bind_unbox(tree_t * t, const rk_ns_t * Bx);
 static void rk_cap_proc(tree_t * sd) { rk_cap_proc_m(sd, 0); }
 static void rk_cap_proc_m(tree_t * sd, int mth) {
     rk_ns_t d = { 0 };
@@ -3373,6 +3378,7 @@ static void rk_cap_proc_m(tree_t * sd, int mth) {
     for (int k = 0; k < np && 1 + k < sd->n; k++) { const char * pn = rk_cap_pname(sd->c[1 + k]); if (pn) rk_ns_add(&boxable, pn); }
     for (int i = 1 + np; i < sd->n; i++) rk_cap_decl_assigns(sd->c[i], &boxable);
     rk_cap_boxes(sd, sd, np, &d, &boxable, &Bx);
+    for (int i = 1 + np; i < sd->n; i++) rk_bind_names(sd->c[i], &Bx, NULL);
     for (int i = 0; i < Bx.n; i++) rk_ns_addf(&d, Bx.v[i], 1);
     rk_cap_nested_find(sd, sd, np, &d);
     for (int i = 1 + np; i < sd->n; i++) {
@@ -3383,7 +3389,7 @@ static void rk_cap_proc_m(tree_t * sd, int mth) {
         else rk_cap_walk(c, &d);
     }
     if (!Bx.n) return;
-    for (int i = 1 + np; i < sd->n; i++) { rk_cap_assign_through(sd->c[i], &Bx); rk_cap_flag_boxed(sd->c[i], &Bx); rk_cap_box_decls(sd->c[i], &Bx); }
+    for (int i = 1 + np; i < sd->n; i++) { rk_cap_assign_through(sd->c[i], &Bx); rk_cap_flag_boxed(sd->c[i], &Bx); rk_cap_box_decls(sd->c[i], &Bx); rk_bind_unbox(sd->c[i], &Bx); }
     int added = 0;
     for (int k = 0; k < np && 1 + k < sd->n; k++) {
         const char * pn = rk_cap_pname(sd->c[1 + k]);
@@ -3525,12 +3531,14 @@ static void rk_cap_file_scope(tree_t * prog) {
     rk_cap_decl_assigns(prog, &boxable);
     for (int i = 0; i < boxable.n; ) { if (rk_ns_has(&lvs, boxable.v[i])) { boxable.v[i] = boxable.v[boxable.n - 1]; boxable.n--; } else i++; }
     rk_cap_boxes(prog, prog, -1, &own, &boxable, &Bx);
+    rk_bind_names(prog, &Bx, &subn);
     for (int i = 0; i < Bx.n; i++) rk_ns_addf(&own, Bx.v[i], 1);
     rk_cap_walk(prog, &own);
-    if (!Bx.n) return;
+    if (!Bx.n) { rk_bind_unbox(prog, &Bx); return; }
     rk_cap_assign_through(prog, &Bx);
     rk_cap_flag_boxed(prog, &Bx);
     rk_cap_box_decls(prog, &Bx);
+    rk_bind_unbox(prog, &Bx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_gw_boxed(const tree_t * t, rk_ns_t * out) {
@@ -5077,6 +5085,61 @@ static void rk_elem_store_values(tree_t * t) {
     for (int i = from; i < t->n; i++) t->c[i] = rk_elem_store_value(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_scalar_name(const tree_t * v) {
+    return v && v->t == TT_VAR && v->v.sval && !(v->slen & 1) && v->v.sval[0] != '@' && v->v.sval[0] != '%' && v->v.sval[0] != '&' && strncmp(v->v.sval, "__", 2);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_scalar_bind(const tree_t * t) { return t && t->t == TT_ASSIGN && t->v.ival == 2 && t->n > 1 && rk_is_scalar_name(t->c[0]); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_fnc_of(const char * fn, int line) { tree_t * f = ast_node_new(TT_FNC); f->line = line; f->v.sval = (char *) fn; ast_push(f, leaf_sval2(TT_VAR, fn)); return f; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_bind_ref(tree_t * r) {
+    if (rk_is_scalar_name(r) && r->n == 0) { r->slen |= RK_VF_RAW; return r; }
+    int el = r && r->t == TT_ARR_GET && r->n >= 2;
+    tree_t * f = rk_fnc_of(el ? "__rk_elem_ref" : "__rk_box", r ? r->line : 0);
+    if (el) { ast_push(f, r->c[0]); ast_push(f, r->c[1]); } else ast_push(f, r);
+    return f;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_bind_refs(tree_t * t, int in_blk) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_bind_refs(t->c[i], in_blk || (t->c[i] && t->c[i]->t == TT_ANON_BLOCK));
+    int ebind = t->t == TT_ARR_SET && t->v.ival == 2 && t->n == 3;
+    if (in_blk) { if (rk_is_scalar_bind(t) || ebind) t->v.ival = 0; return; }
+    if (rk_is_scalar_bind(t)) { t->c[0]->slen |= RK_VF_RAW; t->c[1] = rk_bind_ref(t->c[1]); return; }
+    if (ebind) {
+        tree_t * c0 = t->c[0], * c1 = t->c[1], * c2 = rk_bind_ref(t->c[2]);
+        tree_t * f = rk_fnc_of("__rk_elem_bind", t->line);
+        ast_push(f, c0);
+        ast_push(f, c1);
+        ast_push(f, c2);
+        t->n = 0;
+        if (c0->t == TT_VAR && c0->v.sval && c0->v.sval[0] == '@') {
+            t->t = TT_ASSIGN;
+            t->v.ival = 2;
+            ast_push(t, rk_clone_tree(c0));
+            ast_push(t, f);
+        } else {
+            t->t = TT_SEQ_EXPR;
+            t->v.ival = 0;
+            ast_push(t, f);
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_bind_names(const tree_t * t, rk_ns_t * out, const rk_ns_t * skip) {
+    if (!t || t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return;
+    if (t->t == TT_VAR && (t->slen & RK_VF_RAW) && t->v.sval && !(skip && rk_ns_has(skip, t->v.sval))) rk_ns_add(out, t->v.sval);
+    for (int i = 0; i < t->n; i++) rk_bind_names(t->c[i], out, skip);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_bind_unbox(tree_t * t, const rk_ns_t * Bx) {
+    if (!t || t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return;
+    for (int i = 0; i < t->n; i++) rk_bind_unbox(t->c[i], Bx);
+    if (t->t == TT_VAR && (t->slen & RK_VF_RAW)) t->slen &= ~RK_VF_BOXED;
+    if (rk_is_scalar_bind(t) && !rk_ns_has(Bx, t->c[0]->v.sval)) { tree_t * d = rk_fnc_of("__rk_deref", t->line); ast_push(d, t->c[1]); t->c[1] = d; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     rk_hoist_nested_types((tree_t *) prog);
     rk_hoist_nested_multis((tree_t *) prog);
@@ -5090,6 +5153,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_array_single_arg((tree_t *) prog);
     rk_range_values((tree_t *) prog);
     rk_exclusive_ranges((tree_t *) prog);
+    rk_bind_refs((tree_t *) prog, 0);
     rk_elem_store_values((tree_t *) prog);
     rk_nonint_ranges((tree_t *) prog);
     rk_nested_elem_sets((tree_t *) prog);

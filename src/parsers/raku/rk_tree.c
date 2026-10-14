@@ -2363,7 +2363,7 @@ static tree_t *build_decl_raw(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
         tree_t *var = var_node(b, name);
         if (sig != '$') return rk_container_bind(var, e);
         tree_t *bd = rk_bind(var, rk_scalar_rhs(e));
-        if (!bd) bd = expr_binary(TT_ASSIGN, var, e);
+        if (!bd) bd = rk_container_bind(var, e);
         if (type) return decl_node(b, type, var_node(b, name), bd->c[1]);
         return bd;
     }
@@ -2456,7 +2456,7 @@ static tree_t *assign_forms(RkB *b, RkList *L, int tail, int bk) {
     if (!strcmp(op1, ":=") && plain(t0, 'S')) {
         tree_t *e = el_rest(b, e0);
         tree_t *bd = rk_bind(var_node(b, t0->name), rk_scalar_rhs(e));
-        return bd ? bd : expr_binary(TT_ASSIGN, var_node(b, t0->name), e);
+        return bd ? bd : rk_container_bind(var_node(b, t0->name), e);
     }
     if (eq && t0->npost && !t0->npre && t0->t && t0->t->t == TT_METHCALL && t0->t->n == 2 && L->n == 1) {
         tree_t *rhs = el_rest(b, e0);
@@ -2470,8 +2470,15 @@ static tree_t *assign_forms(RkB *b, RkList *L, int tail, int bk) {
     }
     if (eq && t0->kind == TK_VAR && t0->npost >= 1 && !t0->npre && t0->t && L->n == 1) {
         tree_t *g = t0->t;
-        if (g->t == TT_ARR_GET) { tree_t *rhs = el_rest(b, e0); tree_t *c = ast_node_new(TT_ARR_SET); ast_push(c, g->c[0]); ast_push(c, g->c[1]); ast_push(c, rhs);
-            return c; }
+        if (g->t == TT_ARR_GET) {
+            tree_t *rhs = el_rest(b, e0);
+            tree_t *c = ast_node_new(TT_ARR_SET);
+            ast_push(c, g->c[0]);
+            ast_push(c, g->c[1]);
+            ast_push(c, rhs);
+            if (!strcmp(op1, ":=")) c->v.ival = 2;
+            return c;
+        }
         if (g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "__rk_arr_slice") && (g->n == 4 || g->n == 5)) {
             tree_t *rhs = el_rest(b, e0); tree_t *c = ast_node_new(TT_ARR_SET); ast_push(c, g->c[1]); ast_push(c, rk_range_op(g->c[2], g->c[3], g->n == 5 ? (int) g->c[4]->v.ival : 0));
             ast_push(c, rhs);

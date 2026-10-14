@@ -418,10 +418,11 @@ int rt_builtin_is_known(const char *name) {
         "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists", "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any",
         "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "__rk_new_alloc", "__rk_new_check", "__rk_new_defaults", "meth_call", "field_set", "field_set_pub", "field_get_pub",
         "__rk_say_capture", "__rk_say_named_capture", "__rk_gist_capture", "__rk_gist_named_capture", "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die",
-        "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box", "TIME", "DATE", "IDENTICAL", "getenv",
-        "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR",
-        "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET",
-        "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", NULL };
+        "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box", "__rk_elem_ref", "__rk_elem_bind", "TIME",
+        "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM",
+        "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE",
+        "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call", "__trace_return", "__trace_value",
+        "__trace_tap_off", NULL };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
     { if (dat_find_type(name)) return 1; }
     { extern int rt_dat_field_of_any(const char *); if (rt_dat_field_of_any(name)) return 1; }
@@ -1078,10 +1079,25 @@ typedef struct { int n; const DESCR_t *el; } rk_av_t;
 static const char rk_proto_seq[] = "Seq";
 static int rk_is_seq(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_seq; }
 static void rk_seq_reify(DESCR_t *sp, long need);
+#define RK_ARR_BOUND 16
+static int rk_is_cell(DESCR_t d) { return d.v == DT_N && d.slen == 1 && d.ptr; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_slot(const ARBLK_t *b, long k) { DESCR_t d = b->data[k]; return ((b->proto_bare & RK_ARR_BOUND) && !b->proto && rk_is_cell(d)) ? *(DESCR_t *) d.ptr : d; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rk_av_t rk_av(DESCR_t v) {
     rk_av_t a = { 0, NULL };
     if (rk_is_seq(v)) { rk_seq_reify(&v, -1L); v = ((ARBLK_t *) v.arr)->data[3]; }
-    if (v.v == DT_A && v.arr) { ARBLK_t *b = (ARBLK_t *) v.arr; a.n = b->hi - b->lo + 1; if (a.n < 0) a.n = 0; a.el = b->data; return a; }
+    if (v.v == DT_A && v.arr) {
+        ARBLK_t *b = (ARBLK_t *) v.arr;
+        a.n = b->hi - b->lo + 1;
+        if (a.n < 0) a.n = 0;
+        a.el = b->data;
+        if (!(b->proto_bare & RK_ARR_BOUND) || b->proto || !a.n) return a;
+        DESCR_t *d = (DESCR_t *) rt_ws_alloc_descr((size_t) a.n);
+        for (int i = 0; i < a.n; i++) d[i] = rk_is_cell(b->data[i]) ? *(DESCR_t *) b->data[i].ptr : b->data[i];
+        a.el = d;
+        return a;
+    }
     if (v.v == DT_SNUL || v.v == DT_FAIL || (IS_STR_fn(v) && !*rk_cstr(v))) return a;
     DESCR_t *d = (DESCR_t *) rt_ws_alloc_descr(1);
     d[0] = v;
@@ -1220,15 +1236,17 @@ static DESCR_t rk_meta_list(const char *cn, char what, int local) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_unmark(DESCR_t d) { if (d.v == DT_A && d.arr) ((ARBLK_t *) d.arr)->proto = (const char *) 0; return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_arr_store_in_place(DESCR_t a, long idx, DESCR_t v) {
+static int rk_arr_put(DESCR_t a, long idx, DESCR_t v, int through) {
     if (a.v != DT_A || !a.arr) return 0;
     ARBLK_t *b = (ARBLK_t *) a.arr;
     if (b->proto || b->ndim != 1 || b->lo != 0) return 0;
     long n = b->hi + 1 > 0 ? b->hi + 1 : 0;
+    if (through && (b->proto_bare & RK_ARR_BOUND) && idx >= 0 && idx < n && rk_is_cell(b->data[idx])) { *(DESCR_t *) b->data[idx].ptr = v; return 1; }
     if (idx >= n) { DESCR_t *d = (DESCR_t *) rt_ws_alloc_descr((size_t) (idx + 1)); for (long i = 0; i < idx; i++) d[i] = i < n ? b->data[i] : rk_typeobj("Any"); b->data = d; b->hi = (int) idx; }
     b->data[idx] = v;
     return 1;
 }
+static int rk_arr_store_in_place(DESCR_t a, long idx, DESCR_t v) { return rk_arr_put(a, idx, v, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char rk_proto_pair[] = "Pair";
 static const char rk_proto_jct_any[] = "any";
@@ -12058,7 +12076,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             ARBLK_t *b = (ARBLK_t *) args[0].arr;
             rk_av_t ix = rk_av(args[1]);
             DESCR_t *r = ix.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) ix.n) : NULL;
-            for (int k = 0; k < ix.n; k++) { long i = rk_ival(ix.el[k]); r[k] = (i < b->lo || i > b->hi) ? rk_typeobj("Any") : b->data[i - b->lo]; }
+            for (int k = 0; k < ix.n; k++) { long i = rk_ival(ix.el[k]); r[k] = (i < b->lo || i > b->hi) ? rk_typeobj("Any") : rk_slot(b, i - b->lo); }
             *out = rk_mk_arr(r, ix.n);
             return 1;
         }
@@ -12066,7 +12084,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             ARBLK_t *b = (ARBLK_t *) args[0].arr;
             long i = rk_ival(args[1]);
             if (i < b->lo || i > b->hi) { *out = rk_typeobj("Any"); return 1; }
-            *out = b->data[i - b->lo];
+            *out = rk_slot(b, i - b->lo);
             return 1;
         }
         rk_av_t sc = rk_av(args[0]);
@@ -12445,6 +12463,36 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (args[0].v == DT_N) { DESCR_t rv = rtx_try_rt_assign_var(args[0], args[1]); *out = IS_FAIL_fn(rv) ? args[1] : rv; } else *out = args[1];
         return 1;
     }
+    if (!strcmp(fn, "__rk_elem_ref") && nargs == 2) {
+        extern ARBLK_t *array_new(int lo, int hi);
+        DESCR_t c = args[0];
+        long idx = IS_INT_fn(args[1]) ? (long) args[1].i : IS_REAL_fn(args[1]) ? (long) args[1].r : -1L;
+        ARBLK_t *b = (c.v == DT_A && c.arr && !rk_is_seq(c)) ? (ARBLK_t *) c.arr : NULL;
+        int own = b && !b->proto && b->ndim == 1 && b->lo == 0 && idx >= 0 && idx <= b->hi;
+        if (own && rk_is_cell(b->data[idx])) { *out = b->data[idx]; return 1; }
+        ARBLK_t *bx = array_new(0, 0);
+        bx->data[0] = own ? b->data[idx] : rk_typeobj("Any");
+        DESCR_t cell = (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *) &bx->data[0] };
+        if (own) { b->data[idx] = cell; b->proto_bare |= RK_ARR_BOUND; }
+        *out = cell;
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_elem_bind") && nargs == 3) {
+        DESCR_t c = args[0], r = args[2];
+        long idx = IS_INT_fn(args[1]) ? (long) args[1].i : IS_REAL_fn(args[1]) ? (long) args[1].r : -1L;
+        if (idx < 0) { *out = c; return 1; }
+        if (!rk_arr_put(c, idx, r, 0)) {
+            ARBLK_t *b0 = (c.v == DT_A && c.arr && !rk_is_seq(c)) ? (ARBLK_t *) c.arr : NULL;
+            long n0 = (b0 && !b0->proto && b0->hi >= b0->lo) ? b0->hi - b0->lo + 1 : 0;
+            long n = idx + 1 > n0 ? idx + 1 : n0;
+            DESCR_t *d = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
+            for (long i = 0; i < n; i++) d[i] = i == idx ? r : i < n0 ? b0->data[i] : rk_typeobj("Any");
+            c = rk_unmark(rk_mk_arr(d, (int) n));
+        }
+        if (rk_is_cell(r)) ((ARBLK_t *) c.arr)->proto_bare |= RK_ARR_BOUND;
+        *out = c;
+        return 1;
+    }
     if (!strcmp(fn, "__rk_box") && nargs == 1) {
         extern ARBLK_t *array_new(int lo, int hi);
         ARBLK_t *bx = array_new(0, 0);
@@ -12634,6 +12682,14 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         memcpy(r + a + rl, str + e, n - e);
         r[a + rl + (n - e)] = '\0';
         *out = STRVAL(r);
+        return 1;
+    }
+    if ((!strcmp(fn, "__rk_ident") || !strcmp(fn, "__rk_eqv")) && nargs == 2 && (rk_is_jct(args[0]) || rk_is_jct(args[1]))) {
+        int j = rk_is_jct(args[0]) ? 0 : 1;
+        rk_av_t a = rk_av(args[j]);
+        DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) (a.n ? a.n : 1));
+        for (int k = 0; k < a.n; k++) { DESCR_t pa[2] = { args[0], args[1] }; pa[j] = a.el[k]; if (!script_try_call_builtin_by_name(fn, pa, 2, &r[k])) r[k] = (DESCR_t){ .v = DT_BOOL, .i = 0 }; }
+        *out = rk_mk_jct(((ARBLK_t *) args[j].arr)->proto, r, a.n);
         return 1;
     }
     if ((!strcmp(fn, "__rk_ident") || !strcmp(fn, "__rk_eqv")) && nargs == 2 && rk_qh_is(args[0]) && rk_qh_is(args[1])) {
