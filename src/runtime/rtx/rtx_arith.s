@@ -424,9 +424,9 @@ RTX_ENTRY(rt_div_strict)
 RTX_ENTRY(rt_div_sno)
     RTX_GATE(arith, .Ldiv_slow)
     cmp     dil, DT_I
-    jne     .Ldiv_try
+    jne     .Ldiv_mixed
     cmp     dl, DT_I
-    jne     .Ldiv_try
+    jne     .Ldiv_mixed
     lea     rax, [rcx + 1]
     cmp     rax, 1
     jbe     .Ldiv_slow
@@ -435,6 +435,33 @@ RTX_ENTRY(rt_div_sno)
     idiv    rcx
     mov     rdx, rax
     mov     eax, DT_I
+    ret
+.Ldiv_mixed:
+    cmp     dil, DT_R
+    je      .Ldiv_a_r
+    cmp     dil, DT_I
+    jne     .Ldiv_try
+    cvtsi2sd xmm0, rsi
+    jmp     .Ldiv_b
+.Ldiv_a_r:
+    movq    xmm0, rsi
+.Ldiv_b:
+    cmp     dl, DT_R
+    je      .Ldiv_b_r
+    cmp     dl, DT_I
+    jne     .Ldiv_try
+    cvtsi2sd xmm1, rcx
+    jmp     .Ldiv_go
+.Ldiv_b_r:
+    movq    xmm1, rcx
+.Ldiv_go:
+    xorpd   xmm2, xmm2
+    ucomisd xmm1, xmm2
+    je      .Ldiv_slow
+    divsd   xmm0, xmm1
+    RTX_REAL_FINITE_OR(.Ldiv_slow)
+    movq    rdx, xmm0
+    mov     eax, DT_R
     ret
     RTX_ARITH_INTSTR_DIV(div, 0)
 .Ldiv_slow:

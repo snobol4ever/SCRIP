@@ -73,6 +73,12 @@ static int expect_handled(DESCR_t a, DESCR_t b, int op) {
     int64_t z;
     double r;
     int64_t x, y;
+    if (op == 3 && (a.v == DT_I || a.v == DT_R) && (b.v == DT_I || b.v == DT_R) && !(a.v == DT_I && b.v == DT_I)) {
+        double dx = a.v == DT_I ? (double)a.i : a.r, dy = b.v == DT_I ? (double)b.i : b.r;
+        if (dy == 0.0) return 0;
+        r = dx / dy;
+        return isfinite(r);
+    }
     if (op >= 3) { if (!model_int(a, &x) || !model_int(b, &y)) return 0; return y != 0 && y != -1; }
     if (a.v == DT_R && b.v == DT_R) { r = op == 0 ? a.r + b.r : op == 1 ? a.r - b.r : a.r * b.r; return isfinite(r); }
     if (!model_int(a, &x) || !model_int(b, &y)) return 0;
