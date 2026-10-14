@@ -4682,6 +4682,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             const tree_t *gt = subj->c[0];
             if (gt && ((gt->t == TT_QLIT || gt->t == TT_NAME || gt->t == TT_FNC) && gt->v.sval)) {
                 int iv_scope0 = dvc;
+                if (subj->n == 1) { init_goals[ninit++] = pl_dir_catch_wrap((tree_t *) gt, dvn, &dvc); continue; }
                 pl_dir_number_vars((tree_t *) gt, dvn, &dvc, iv_scope0);
                 init_goals[ninit++] = gt;
                 continue;
