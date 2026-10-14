@@ -134,8 +134,11 @@ typedef struct {
     int       col;
 } IcnToken;
 typedef struct {
-    const char *src;
+    char       *src;
     size_t      src_len;
+    size_t      src_cap;
+    void       *pp;
+    int         pp_eof;
     size_t      pos;
     int         line;
     int         col;

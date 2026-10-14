@@ -8,17 +8,30 @@
 #include <errno.h>
 #include <unistd.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char lex_cur(const IcnLexer *lx) {
+static void lex_pull_line(IcnLexer *lx);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void lex_need(IcnLexer *lx, size_t k) {
+    while (lx->pos + k >= lx->src_len && !lx->pp_eof) lex_pull_line(lx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void lex_need_eol(IcnLexer *lx) {
+    while (!lx->pp_eof && !memchr(lx->src + lx->pos, '\n', lx->src_len - lx->pos)) lex_pull_line(lx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char lex_cur(IcnLexer *lx) {
+    lex_need(lx, 0);
     if (lx->pos >= lx->src_len) return '\0';
     return lx->src[lx->pos];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char lex_peek1(const IcnLexer *lx) {
+static char lex_peek1(IcnLexer *lx) {
+    lex_need(lx, 1);
     if (lx->pos + 1 >= lx->src_len) return '\0';
     return lx->src[lx->pos + 1];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char lex_advance(IcnLexer *lx) {
+    lex_need(lx, 0);
     if (lx->pos >= lx->src_len) return '\0';
     char c = lx->src[lx->pos++];
     if (c == '\n') { lx->line++; lx->col = 1; } else { lx->col++; }
@@ -94,6 +107,7 @@ static void skip_ws(IcnLexer *lx) {
         while (lex_cur(lx) && isspace((unsigned char)lex_cur(lx)))
             lex_advance(lx);
         if (lex_cur(lx) == '#') {
+            if (lx->col == 1) lex_need_eol(lx);
             if (lx->col == 1 && lx->pos + 5 <= lx->src_len && !strncmp(lx->src + lx->pos, "#line", 5)) {
                 size_t q = lx->pos + 5; long n = 0;
                 while (q < lx->src_len && (lx->src[q] == ' ' || lx->src[q] == '\t')) q++;
@@ -114,6 +128,7 @@ static void skip_ws(IcnLexer *lx) {
             size_t save = lx->pos;
             lex_advance(lx);
             while (lex_cur(lx) == ' ' || lex_cur(lx) == '\t') lex_advance(lx);
+            lex_need(lx, 6);
             const char *rest = lx->src + lx->pos;
             if (strncmp(rest, "IMPORT", 6) == 0 || strncmp(rest, "EXPORT", 6) == 0) {
                 while (lex_cur(lx) && lex_cur(lx) != '\n') lex_advance(lx);
@@ -571,7 +586,7 @@ typedef struct IcnPpFile { struct IcnPpFile *prev; char *fname; long lno; FILE *
 typedef struct IcnPpBuf { struct IcnPpBuf *prev; IcnPpDef *defn; char *ptr, *stop, *lim; } IcnPpBuf;
 typedef struct {
     IcnPpFile nofile, *curfile; IcnPpBuf *bstack, *bfree; char *buf, *bnxt, *bstop, *blim; IcnPpDef **cbin;
-    char *lbuf; size_t llen; char *tbuf; size_t tcap; int ifdepth, fatals;
+    char *lbuf; size_t llen; char *tbuf; size_t tcap; int ifdepth, fatals; char *srcpath;
 } IcnPp;
 static char icn_pp_src[1024] = "";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -722,7 +737,7 @@ static char *ipp_tryfile(const char *dir, const char *name) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *ipp_pathfind(const char *name) {
+static char *ipp_pathfind(IcnPp *pp, const char *name) {
     char *hit = ipp_tryfile(NULL, name);
     if (hit) return hit;
     const char *lp = getenv("LPATH");
@@ -749,8 +764,8 @@ static char *ipp_pathfind(const char *name) {
     }
     ct_drop(exe);
     if (hit) return hit;
-    const char *sl = strrchr(icn_pp_src, '/');
-    if (sl && name[0] != '/') { char *dir = ct_strndup(icn_pp_src, (size_t)(sl - icn_pp_src)); hit = ipp_tryfile(dir, name); ct_drop(dir); if (hit) return hit; }
+    const char *sl = strrchr(pp->srcpath, '/');
+    if (sl && name[0] != '/') { char *dir = ct_strndup(pp->srcpath, (size_t)(sl - pp->srcpath)); hit = ipp_tryfile(dir, name); ct_drop(dir); if (hit) return hit; }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -786,7 +801,7 @@ static const char *ipp_include(IcnPp *pp, char *s) {
     s = ipp_getfnm(fname = s - 1, s);
     if (*fname == '\0') return "$include: invalid file name";
     if (*ipp_wskip(s) != '\0') return "$include: too many arguments";
-    char *full = ipp_pathfind(fname);
+    char *full = ipp_pathfind(pp, fname);
     if (!full || !ipp_ppopen(pp, full)) ipp_pfatal(pp, "cannot open", fname);
     return NULL;
 }
@@ -931,19 +946,8 @@ static void ipp_init(IcnPp *pp) {
     memset(pp, 0, sizeof *pp);
     pp->cbin = (IcnPpDef **)ct_zalloc(256, sizeof *pp->cbin);
     pp->curfile = &pp->nofile;
+    pp->srcpath = ct_strdup(icn_pp_src);
     for (int k = 0; k < (int)(sizeof pre / sizeof *pre); k++) ipp_dlookup(pp, (char *)pre[k], -1, (char *)"1");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *icn_pp_text(const char *src, int *fatals) {
-    IcnPp pp; ipp_init(&pp);
-    IcnPpFile *fs = (IcnPpFile *)ct_zalloc(1, sizeof *fs);
-    fs->mem = src; fs->mlen = strlen(src);
-    ipp_push_file(&pp, fs, icn_pp_src[0] ? icn_pp_src : "stdin");
-    char *out = NULL; int olen = 0, ocap = 0, c;
-    while ((c = ipp_ppch(&pp)) != EOF) buf_push(&out, &olen, &ocap, (char)c);
-    if (!out) out = ct_strdup("");
-    if (fatals) *fatals = pp.fatals;
-    return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int icn_pp_echo(const char *path) {
@@ -960,17 +964,35 @@ int icn_pp_echo(const char *path) {
     return pp.fatals;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void lex_pull_line(IcnLexer *lx) {
+    IcnPp *pp = (IcnPp *)lx->pp;
+    int c;
+    do {
+        c = ipp_ppch(pp);
+        if (c == EOF) { lx->pp_eof = 1; break; }
+        if (lx->src_len + 2 > lx->src_cap) { lx->src_cap = lx->src_cap ? 2 * lx->src_cap : 256; lx->src = (char *)ct_grow(lx->src, lx->src_cap); }
+        lx->src[lx->src_len++] = (char)c;
+        lx->src[lx->src_len] = '\0';
+    } while (c != '\n');
+    lx->pp_fatals = pp->fatals;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icn_lex_init(IcnLexer *lx, const char *src) {
     memset(lx, 0, sizeof(*lx));
-    if (src) src = icn_pp_text(src, &lx->pp_fatals);
-    lx->src     = src;
-    lx->src_len = strlen(src);
-    lx->pos     = 0;
+    IcnPp *pp = (IcnPp *)ct_zalloc(1, sizeof *pp);
+    ipp_init(pp);
+    IcnPpFile *fs = (IcnPpFile *)ct_zalloc(1, sizeof *fs);
+    fs->mem = src ? src : ""; fs->mlen = strlen(fs->mem);
+    ipp_push_file(pp, fs, icn_pp_src[0] ? icn_pp_src : "stdin");
+    lx->pp      = pp;
+    lx->src     = (char *)ct_zalloc(1, 1);
+    lx->src_cap = 1;
     lx->line    = 1;
     lx->col     = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IcnToken icn_lex_next(IcnLexer *lx) {
+    if (lx->pos > 0) { memmove(lx->src, lx->src + lx->pos, lx->src_len - lx->pos + 1); lx->src_len -= lx->pos; lx->pos = 0; }
     if (lx->had_error == -1) {
     }
     return lex_one(lx);

@@ -91,11 +91,11 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             char path[pneed + strlen(nm) + sizeof "/.icn"]; char tried[tneed]; char * src = icn_link_open(dir, nm, path, sizeof path, tried, sizeof tried);
             if (!src) { fprintf(stderr, "icon: link: cannot open %s.icn (linked from %s); tried: %s\n", nm, filename, tried); exit(1); }
             IcnLexer lx2; icn_pp_set_source_path(path); icn_lex_init(&lx2, src);
-            if (lx2.pp_fatals) { fprintf(stderr, "icon: %d preprocessing error%s in linked file %s\n", lx2.pp_fatals, lx2.pp_fatals == 1 ? "" : "s", path); exit(1); }
             IcnParser p2; icn_parse_init(&p2, &lx2);
             tree_t * sub_ast = NULL;
             CODE_t * sp = icn_parse_file(&p2, &sub_ast);
             if (p2.had_error) { fprintf(stderr, "icon: parse error in linked file %s: %s\n", path, p2.errmsg); exit(1); }
+            if (lx2.pp_fatals) { fprintf(stderr, "icon: %d preprocessing error%s in linked file %s\n", lx2.pp_fatals, lx2.pp_fatals == 1 ? "" : "s", path); exit(1); }
             ct_drop(sp);
             { const char * lb = strrchr(path, '/'); lb = lb ? lb + 1 : path;
               if (sub_ast) for (int j = 0; j < sub_ast->n; j++) if (sub_ast->c[j]) { if (sub_ast->c[j]->t == TT_STMT) ast_push(sub_ast->c[j], ast_attr_leaf(":file", lb)); ast_push(prog, sub_ast->c[j]); } }
@@ -141,7 +141,6 @@ void *icon_compile_parse(const char *source, const char *filename) {
     IcnLexer lx;
     icn_pp_set_source_path(filename);
     icn_lex_init(&lx, source);
-    if (lx.pp_fatals) { fprintf(stderr, "icon: %d preprocessing error%s in %s\n", lx.pp_fatals, lx.pp_fatals == 1 ? "" : "s", filename); exit(1); }
     IcnParser parser;
     icn_parse_init(&parser, &lx);
     CODE_t *prog = icn_parse_file(&parser, out_ast);
@@ -151,6 +150,7 @@ void *icon_compile_parse(const char *source, const char *filename) {
         if (out_ast) *out_ast = NULL;
         exit(1);
     }
+    if (lx.pp_fatals) { fprintf(stderr, "icon: %d preprocessing error%s in %s\n", lx.pp_fatals, lx.pp_fatals == 1 ? "" : "s", filename); exit(1); }
     (void)prog;
     return ast;
 }
