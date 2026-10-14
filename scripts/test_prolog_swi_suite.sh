@@ -147,6 +147,28 @@ work, files, modes, swit, name_reds = sys.argv[1], sys.argv[2], sys.argv[3].spli
 tot = {m: collections.Counter() for m in modes}
 declared = 0; ungraded_reason = collections.Counter(); ungraded_cases = 0
 both = 0; graded_cases = 0; noref = []
+# ⛔⭐ EXCLUDED_CASES.tsv -- ONE CASE OUT OF THE DENOMINATOR BY RULING, NAMED (ceo CEO-1710, Lon 2026-10-14 13:3x CDT, verbatim: "We want
+# dynamic growing everything. So if another oracle has fixed and we can do better and go longer. That we should."; and CEO-1696). A row is
+# file<TAB>case<TAB>class<TAB>measurement: file as the board prints it (db/test_db.pl), case the board's label (unit:test#k for one
+# instance, unit:test for every instance), class SCRIP_EXCEEDS_ORACLE (the oracle's answer comes from a fixed limit SCRIP grows past, or
+# from an oracle defect its own upstream has fixed) or NO_ORACLE_ANSWER. Such a case writes no progress row and leaves the denominator
+# as Excl, counted under its class beside the oracle's own NO_ORACLE_ANSWER cases. A row with another class refuses rc 2; a row naming a
+# case the file does not declare is STALE and reads the run red, so a declaration can never outlive what it names.
+EXCL_CLASSES = ('SCRIP_EXCEEDS_ORACLE', 'NO_ORACLE_ANSWER')
+excl_cases = {}; excl_used = set()
+_ex = os.path.join(swit, 'EXCLUDED_CASES.tsv')
+if os.path.exists(_ex):
+    for _n, _l in enumerate(open(_ex, encoding='utf-8').read().split('\n'), 1):
+        if not _l.strip() or _l.startswith('#'): continue
+        _c = _l.split('\t')
+        if len(_c) < 4 or _c[2] not in EXCL_CLASSES or not _c[3].strip():
+            print('⛔ REFUSED (rc 2): %s line %d is not file<TAB>case<TAB>%s<TAB>measurement: %r' % (_ex, _n, '|'.join(EXCL_CLASSES), _l[:160]))
+            sys.exit(2)
+        excl_cases[(_c[0], _c[1])] = _c[2]
+def excluded_class(rel, label):
+    for k in ((rel, label), (rel, label.rsplit('#', 1)[0])):
+        if k in excl_cases: excl_used.add(k); return excl_cases[k]
+    return None
 rows = []; reds = []; perfile = []
 for f in open(files).read().split('\n'):
     if not f: continue
@@ -188,6 +210,10 @@ for f in open(files).read().split('\n'):
             _why = row[2].split(' ')[0] if len(row) > 2 else '?'
             ungraded_cases += 1; ungraded_reason[_why] += 1
             continue
+        _cls = excluded_class(rel, label)
+        if _cls:
+            ungraded_cases += 1; ungraded_reason[_cls + '(EXCLUDED_CASES.tsv)'] += 1
+            continue
         fgraded += 1; graded_cases += 1
         ok_all = True
         for m in modes:
@@ -206,18 +232,22 @@ for rel, p, g, u in perfile:
     print('  %-48s %4d/%-4d agree (AND per case)%s' % (rel, p, g, ('  ungraded=%d' % u) if u else ''))
 print('SWI_BOARD declared=%d graded=%d %s ungraded=%d' % (declared, graded_cases,
       ' '.join('%s_pass=%d %s_fail=%d %s_agree_fail=%d %s_crash=%d %s_hang=%d' % (m, tot[m]['PASS'], m, tot[m]['FAIL'], m, tot[m]['agree_fail'], m, tot[m]['CRASH'], m, tot[m]['HANG']) for m in modes), ungraded_cases))
-print('  AND per case (agrees with the oracle in EVERY mode graded, the number the suite row states): %d/%d graded (%d declared, %d EXCLUDED NO_ORACLE_ANSWER, CEO-1696)' % (both, graded_cases, declared, ungraded_cases))
+print('  AND per case (agrees with the oracle in EVERY mode graded, the number the suite row states): %d/%d graded (%d declared, %d EXCLUDED: NO_ORACLE_ANSWER CEO-1696, EXCLUDED_CASES.tsv CEO-1710)' % (both, graded_cases, declared, ungraded_cases))
 print('  identity: graded %d + ungraded %d == declared %d %s' % (graded_cases, ungraded_cases, declared, '✓' if graded_cases + ungraded_cases == declared else '⛔ DOES NOT SUM'))
-print('  EXCLUDED NO_ORACLE_ANSWER (CEO-1696) by the oracle\'s reason -- named, never a pass, out of the denominator: ' + ', '.join('%s=%d' % kv for kv in sorted(ungraded_reason.items(), key=lambda kv: -kv[1])))
+print('  EXCLUDED (CEO-1696 NO_ORACLE_ANSWER by the oracle\'s reason; CEO-1710 EXCLUDED_CASES.tsv by class) -- named, never a pass, out of the denominator: ' + ', '.join('%s=%d' % kv for kv in sorted(ungraded_reason.items(), key=lambda kv: -kv[1])))
+graded_files = {pf[0] for pf in perfile}
+stale = sorted(k for k in set(excl_cases) - excl_used if k[0] in graded_files)   # a row for a file this run did not grade is not judged
+if excl_cases: print('  EXCLUDED_CASES.tsv: %d row(s), %d applied, %d STALE%s' % (len(excl_cases), len(excl_used), len(stale), (' -- ' + ' '.join('%s:%s' % k for k in stale)) if stale else ''))
 if noref: print('  ⛔ %d file(s) with no .ref beside them (UNGRADED, REF_NOT_CUT): %s' % (len(noref), ' '.join(noref)))
 cap = int(os.environ.get('SWI_NAME_REDS_MAX', '0') or '0')
 shown = reds if cap <= 0 else reds[:cap]
 print('    RED-NAME-SET total=%d shown=%d%s' % (len(reds), len(shown), '' if len(shown) == len(reds) else ' ⛔ TRUNCATED by SWI_NAME_REDS_MAX=%d -- a base-vs-head diff over a truncated window shows cures ENTERING it, not regressions' % cap))
 for r in shown: print('    ' + r)
 open(os.path.join(work, 'rows.tsv'), 'w').write('\n'.join(rows) + ('\n' if rows else ''))
-open(os.path.join(work, 'summary.txt'), 'w').write('%d %d %d %d\n' % (both, declared, graded_cases, len(noref)))
+open(os.path.join(work, 'summary.txt'), 'w').write('%d %d %d %d %d\n' % (both, declared, graded_cases, len(noref), len(stale)))
 PY
-read -r BOTH DECLARED GRADED NOREF < "$WORK/summary.txt"
+_aggrc=$?; [ "$_aggrc" = 0 ] || exit "$_aggrc"   # a refusal inside the aggregation (rc 2: a malformed EXCLUDED_CASES.tsv) is the run's; checked here, not on the heredoc's line, which test_gate_swi_runner_grades_a_signal_death_crash_never_fail lifts by its exact text
+read -r BOTH DECLARED GRADED NOREF STALE < "$WORK/summary.txt"
 if command -v progress_append_rows_tsv >/dev/null 2>&1 && [ -s "$WORK/rows.tsv" ] && [ -z "$ONLY_FILE" ]; then
     progress_append_rows_tsv "$WORK/rows.tsv" >/dev/null || echo "⚠ progress rows NOT recorded"
 fi
@@ -232,8 +262,9 @@ else
     printf 'SUITE_BOARD suite=swi lang=prolog tier=run pass=%s total=%s excluded=%s runner=test_prolog_swi_suite.sh\n' "$BOTH" "$GRADED" "$((DECLARED - GRADED))"
     python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite SWI \
         --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$GRADED" --excluded "$((DECLARED - GRADED))" \
-        --text "swi_tests (swipl-devel src/Tests, every plunit case, agreement with swipl 9.0.4 per case) $BOTH/$GRADED by the AND PER CASE, $((DECLARED - GRADED)) case(s) EXCLUDED NO_ORACLE_ANSWER (CEO-1696) over modes $MODES (\`test_prolog_swi_suite.sh\`)${_iv:+ · $_iv (\`test_prolog_swi_suite.sh\`)}" \
+        --text "swi_tests (swipl-devel src/Tests, every plunit case, agreement with swipl 9.0.4 per case) $BOTH/$GRADED by the AND PER CASE, $((DECLARED - GRADED)) case(s) EXCLUDED, NO_ORACLE_ANSWER (CEO-1696) and EXCLUDED_CASES.tsv's SCRIP_EXCEEDS_ORACLE (CEO-1710), over modes $MODES (\`test_prolog_swi_suite.sh\`)${_iv:+ · $_iv (\`test_prolog_swi_suite.sh\`)}" \
         || echo "⚠ SUITES.tsv NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 fi
+[ "${STALE:-0}" -eq 0 ] || { echo "⛔ $STALE EXCLUDED_CASES.tsv row(s) name a case no graded file declares -- STALE (named above); a declaration may not outlive what it names"; exit 1; }
 [ "$NOREF" -eq 0 ] || { echo "⛔ $NOREF shipped test file(s) carry no oracle ref: cut them with scripts/util_swi_cut_refs.sh --write"; exit 1; }
 exit 0
