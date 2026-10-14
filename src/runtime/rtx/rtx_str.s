@@ -137,7 +137,7 @@ RTX_ENTRY(sno_concat_d)
     ret
 .Lsc_nb:
     test    edx, edx
-    jne     .Lsc_slow
+    jne     .Lsc_chk_int
     mov     r8, rdi
     shr     r8, 32
     jne     .Lsc_nb_ok
@@ -153,6 +153,89 @@ RTX_ENTRY(sno_concat_d)
     mov     rax, rdi
     mov     rdx, rsi
     RTX_GVA_R9
+    ret
+.Lsc_chk_int:
+    cmp     dl, DT_I
+    je      .Lsc_int_r
+    cmp     dil, DT_I
+    je      .Lsc_int_l
+    jmp     .Lsc_slow
+.Lsc_int_r:
+    cmp     dil, DT_S
+    jne     .Lsc_slow
+    test    rsi, rsi
+    je      .Lsc_slow
+    mov     r8, rdi
+    shr     r8, 32
+    je      .Lsc_slow
+    cmp     r8d, -1
+    je      .Lsc_slow
+    mov     rax, rcx
+    mov     r8d, 1
+    jmp     .Lsc_int_conv
+.Lsc_int_l:
+    cmp     dl, DT_S
+    jne     .Lsc_slow
+    test    rcx, rcx
+    je      .Lsc_slow
+    mov     r8, rdx
+    shr     r8, 32
+    je      .Lsc_slow
+    cmp     r8d, -1
+    je      .Lsc_slow
+    mov     rax, rsi
+    xor     r8d, r8d
+.Lsc_int_conv:
+    RTX_SUB_RSP(56)
+    mov     qword ptr [rsp + 24], rdi
+    mov     qword ptr [rsp + 32], rsi
+    mov     qword ptr [rsp + 40], rdx
+    mov     qword ptr [rsp + 48], rcx
+    mov     r10, rax
+    sar     r10, 63
+    xor     rax, r10
+    sub     rax, r10
+    lea     r11, [rsp + 24]
+    mov     ecx, 10
+.Lsc_ic_dig:
+    xor     edx, edx
+    div     rcx
+    add     dl, 48
+    dec     r11
+    mov     byte ptr [r11], dl
+    test    rax, rax
+    jnz     .Lsc_ic_dig
+    test    r10, r10
+    jz      .Lsc_ic_nosign
+    dec     r11
+    mov     byte ptr [r11], 45
+.Lsc_ic_nosign:
+    lea     r9, [rsp + 24]
+    sub     r9, r11
+    shl     r9, 32
+    or      r9, DT_S
+    test    r8d, r8d
+    jz      .Lsc_ic_left
+    mov     rdx, r9
+    mov     rcx, r11
+    mov     rdi, qword ptr [rsp + 24]
+    mov     rsi, qword ptr [rsp + 32]
+    jmp     .Lsc_ic_call
+.Lsc_ic_left:
+    mov     rdi, r9
+    mov     rsi, r11
+    mov     rdx, qword ptr [rsp + 40]
+    mov     rcx, qword ptr [rsp + 48]
+.Lsc_ic_call:
+    RTX_CALL(str_concat_d)
+    cmp     al, RTX_NOT_HANDLED
+    jne     .Lsc_ic_ret
+    mov     rdi, qword ptr [rsp + 24]
+    mov     rsi, qword ptr [rsp + 32]
+    mov     rdx, qword ptr [rsp + 40]
+    mov     rcx, qword ptr [rsp + 48]
+.Lsc_ic_ret:
+    RTX_ADD_RSP(56)
     ret
 .Lsc_ext:
     cmp     r8, qword ptr [rax + 8]

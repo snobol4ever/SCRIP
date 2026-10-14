@@ -88,6 +88,35 @@ int main(void) {
     both("SNUL + slen0 right", NUL(), Sraw("hello", 0));
     both("CSET + SNUL", Sraw("abc", 0xFFFFFFFFu), NUL());
     both("SNUL + CSET", NUL(), Sraw("abc", 0xFFFFFFFFu));
+    {
+        static const int64_t iv[] = { 0, 1, -1, 9, 10, 11, 99, 100, -10, -100, 65535, 1234567890123LL, 9223372036854775807LL, -9223372036854775807LL - 1 };
+        for (unsigned i = 0; i < sizeof iv / sizeof iv[0]; i++) {
+            char nm[64];
+            snprintf(nm, sizeof nm, "int right %lld", (long long)iv[i]);
+            both(nm, S("key"), I(iv[i]));
+            both(nm, Sraw(big, 40), I(iv[i]));
+            snprintf(nm, sizeof nm, "int left %lld", (long long)iv[i]);
+            both(nm, I(iv[i]), S("key"));
+            both(nm, I(iv[i]), Sraw(big2, 40));
+            snprintf(nm, sizeof nm, "int both %lld", (long long)iv[i]);
+            both(nm, I(iv[i]), I(iv[i]));
+            snprintf(nm, sizeof nm, "int and empty %lld", (long long)iv[i]);
+            both(nm, I(iv[i]), Sraw("", 0));
+            both(nm, Sraw("", 0), I(iv[i]));
+            both(nm, I(iv[i]), Sraw(big, 0xFFFFFFFFu));
+            both(nm, Sraw(big, 0xFFFFFFFFu), I(iv[i]));
+        }
+        for (int rep = 0; rep < 3; rep++) {
+            DESCR_t acc = S("n");
+            for (int k = 0; k < 30; k++) {
+                DESCR_t x = box_str_concat_d(acc, I(k * 37 - 400));
+                DESCR_t y = c_str_concat_d(acc, I(k * 37 - 400));
+                n++;
+                if (x.v != y.v || x.slen != y.slen || strcmp(x.s, y.s) != 0) { fails++; printf("  MISMATCH int-append k=%d asm{%u \"%s\"} c{%u \"%s\"}\n", k, x.slen, x.s, y.slen, y.s); }
+                acc = x;
+            }
+        }
+    }
     both("real left (coerce)", R(0.5), S("x"));
     both("real right", S("x"), R(100.0));
     both("FAIL left", FL(), S("x"));
