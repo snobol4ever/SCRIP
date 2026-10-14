@@ -16902,10 +16902,23 @@ static int icn_bi_string_of_int(DESCR_t av, DESCR_t *out) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bn_identical(DESCR_t a, DESCR_t b) {
+    if (a.v != b.v) return 0;
+    if (a.v == DT_SNUL) return 1;
+    if (a.v == DT_I) return a.i == b.i;
+    if (a.v == DT_R) return a.r == b.r;
+    if (a.v == DT_S) { int acs = (a.slen == 0xFFFFFFFFu), bcs = (b.slen == 0xFFFFFFFFu); return (acs == bcs) && (a.s == b.s || (a.s && b.s && strcmp(a.s, b.s) == 0)); }
+    if (IS_PROCVAL_fn(a) && IS_PROCVAL_fn(b)) return rt_procval_same(a, b);
+    return a.ptr == b.ptr;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
     const int bid = bidlen & BID_BAKE_MASK;
     const unsigned fnlen = (unsigned)bidlen >> 16;
-    if (nargs != 1 || bid != BID_string || !fnlen || fnlen >= 14 || dtax_off() || g_dtax_bid[bid].gen != rt_dtax_gen || g_dtax_bid[bid].kind != 0) return 0;
+    if (bid != BID_string && bid != BID_IDENTICAL) return 0;
+    if (!fnlen || fnlen >= 14 || dtax_off() || g_dtax_bid[bid].gen != rt_dtax_gen) return 0;
+    if (bid == BID_IDENTICAL) { if (nargs != 2 || (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3)) return 0; *out = bn_identical(args[0], args[1]) ? args[1] : FAILDESCR; return 1; }
+    if (nargs != 1 || g_dtax_bid[bid].kind != 0) return 0;
     if (args[0].v == DT_I) return icn_bi_string_of_int(args[0], out);
     if (args[0].v == DT_S && !IS_CSET_fn(args[0])) { *out = args[0]; return 1; }
     return 0;
@@ -20154,22 +20167,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_6411:
     ;
-    if ((_bid == BID_IDENTICAL) && nargs == 2) {
-        DESCR_t a = args[0], b = args[1];
-        int same = (a.v == b.v);
-        if (same) {
-            if (a.v == DT_SNUL) same = 1;
-            else if (a.v == DT_I) same = (a.i == b.i);
-            else if (a.v == DT_R) same = (a.r == b.r);
-            else if (a.v == DT_S || a.v == DT_SNUL) {
-                int acs = (a.v == DT_S && a.slen == 0xFFFFFFFFu), bcs = (b.v == DT_S && b.slen == 0xFFFFFFFFu);
-                same = (acs == bcs) && (a.s == b.s || (a.s && b.s && strcmp(a.s,b.s)==0));
-            } else if (IS_PROCVAL_fn(a) && IS_PROCVAL_fn(b)) same = rt_procval_same(a, b);
-            else same = (a.ptr == b.ptr);
-        }
-        *out = same ? b : FAILDESCR;
-        return 1;
-    }
+    if ((_bid == BID_IDENTICAL) && nargs == 2) { *out = bn_identical(args[0], args[1]) ? args[1] : FAILDESCR; return 1; }
     L_bidjmp_6423:
     ;
     if ((_bid == BID_set) && nargs <= 1) {
