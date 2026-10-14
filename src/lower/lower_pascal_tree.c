@@ -4022,6 +4022,7 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
 static tree_t *mk_ident(const char *name) {
     if (pas_pf_is_formal(name) && pas_pf_lookup(name)->sig[0] == 'F') return pas_pf_callthrough(name, NULL);
     if (name && !strcmp(name, "result") && !pas_is_declared_local_here(name)) { const char *cf = pas_curfunc_name(); if (cf) return leaf_s(TT_VAR, cf); }
+    if (name && g_lower.pas.sem.pas_dialect_fpc && pas_curfunc_name() && !strcmp(name, pas_curfunc_name())) return leaf_s(TT_VAR, name);
     if (name && !strcmp(name, "true")) return bin(TT_EQ, ilit(1), ilit(1));
     if (name && !strcmp(name, "false")) return bin(TT_EQ, ilit(0), ilit(1));
     if (name && !strcmp(name, "nil")) return ilit(0);
@@ -5081,7 +5082,8 @@ static pval E_assignment(const tree_t *n) {
         if (n->n == 3 && n->c[2] && n->c[2]->t == TT_KEYWORD && n->c[2]->v.sval) {
             const char *op = n->c[2]->v.sval;
             tree_t *cur = E_expression(n->c[0]).node;
-            v[3].node = bin(op[0] == '+' ? TT_ADD : op[0] == '-' ? TT_SUB : op[0] == '*' ? TT_MUL : TT_DIV, cur, v[3].node);
+            v[3].node = op[0] == '+' ? pas_arith_or_set(TT_ADD, "__pas_setuni", cur, v[3].node) : op[0] == '-' ? pas_arith_or_set(TT_SUB, "__pas_setdif", cur, v[3].node) : op[0] == '*' ?
+                pas_arith_or_set(TT_MUL, "__pas_setint", cur, v[3].node) : pas_rdiv(cur, v[3].node);
         }
         {
             if (v[1].node && v[1].node->t == TT_VAR && v[1].node->v.sval) {
