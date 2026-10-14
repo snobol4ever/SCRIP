@@ -147,6 +147,7 @@ static tree_t *mk_rec_init_type(const char *rt);
 static tree_t *pas_new_target_init(const char *rt);
 static tree_t *mk_rec_init_type_d(const char *rt, int depth);
 static long long pas_array_low(const char *name);
+static int pas_arrtype_ischar(const char *name);
 static long long pas_arrtype_high(const char *name);
 static long long pas_arrtype_lo(const char *name);
 static long long pas_index_bound(long long v, int want_hi);
@@ -707,6 +708,11 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             }
         }
     }
+    if (name && (!strcmp(name, "low") || !strcmp(name, "high")) && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_FNC && args->items[0]->n == 2 && args->items[0]->c[0] &&
+        args->items[0]->c[0]->v.sval && !strcmp(args->items[0]->c[0]->v.sval, "__pas_deref")) {
+        const char *dt = pas_ptrexpr_target(args->items[0]->c[1]);
+        if (dt && !pas_arrtype_isdyn(dt) && pas_arrtype_high(dt) >= 0 && pas_arrtype_ncols(dt) < 0) return ilit(!strcmp(name, "low") ? pas_arrtype_lo(dt) : pas_arrtype_high(dt));
+    }
     if (name && (!strcmp(name, "low") || !strcmp(name, "high") || !strcmp(name, "length")) && !pas_is_func(name) && !pas_is_proc(name) && args && args->count >= 1 && args->items[0] &&
         args->items[0]->t == TT_IDX && args->items[0]->n == 2) return name[0] == 'l' &&
         name[1] == 'e' ? mk_fnc1("__pas_len", args->items[0]) : mk_fnc2("__pas_bound", args->items[0], ilit(name[0] == 'h'));
@@ -1100,6 +1106,22 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         }
         return as;
     }
+    if (name && !strcmp(name, "getmem") && !pas_is_proc(name) && !pas_is_func(name) && args && args->count >= 3) {
+        tree_t *pv0 = args->items[0], *pv = pas_vt_unwrap_read(pv0);
+        const char *rt = pas_ptrexpr_target(pv);
+        tree_t *alloc = ast_node_new(TT_FNC);
+        int open_arr = rt && pas_arrtype_high(rt) >= 0 && pas_arrtype_high(rt) == pas_arrtype_lo(rt) && pas_arrtype_ncols(rt) < 0 && !pas_arrtype_ischar(rt);
+        if (rt && !open_arr) {
+            ast_push(alloc, leaf_s(TT_VAR, "__pas_alloc_rec"));
+            ast_push(alloc, pas_new_target_init(rt));
+        } else {
+            long long lo = open_arr ? pas_arrtype_lo(rt) : 0;
+            ast_push(alloc, leaf_s(TT_VAR, "__pas_alloc_rec"));
+            ast_push(alloc, mk_fnc2("arr_make", ilit(lo), bin(TT_SUB, bin(TT_ADD, args->items[2], ilit(lo)), ilit(1))));
+        }
+        return mk_assign(pv, alloc);
+    }
+    if (name && !strcmp(name, "freemem") && !pas_is_proc(name) && !pas_is_func(name) && args && args->count >= 1) return mk_fnc1("__pas_dispose", args->items[0]);
     if (name && !strcmp(name, "mark") && args && args->count >= 1) { tree_t *mk = ast_node_new(TT_FNC); ast_push(mk, leaf_s(TT_VAR, "__pas_mark")); return mk_assign(args->items[0], mk); }
     if (name && !strcmp(name, "release") && args && args->count >= 1) { return mk_fnc1("__pas_release", args->items[0]); }
     if (name && !strcmp(name, "dispose") && args && args->count >= 1) {

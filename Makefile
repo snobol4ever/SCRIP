@@ -1291,6 +1291,7 @@ test-sequential: scrip parsers  # ⛔⭐ THE DECLARATION OF THE BLOCKING SET, AN
 	bash scripts/test_gate_pas_a_program_using_a_unit_keeps_its_typed_constants_and_fpc_rounds_halves_to_even.sh   # ~5s MEASURED 2026-10-14 (three programs both modes against fpc -Mobjfpc / -Miso), needs the build; hermetic
 	bash scripts/test_gate_pas_include_exclude_assignfile_array_constructors_trystrtoint_and_fileexists.sh   # ~3s MEASURED 2026-10-14 (one program both modes against fpc -Mobjfpc), needs the build; hermetic
 	bash scripts/test_gate_pas_function_result_record_fields_assign_through_the_name.sh   # ~4s MEASURED 2026-10-14 (two programs both modes against fpc -Mobjfpc), needs the build; hermetic
+	bash scripts/test_gate_pas_getmem_freemem_and_high_of_a_dereferenced_array_pointer.sh   # ~4s MEASURED 2026-10-14 (two programs both modes against fpc -Mobjfpc), needs the build; hermetic
 	bash scripts/test_gate_pas_a_method_call_may_carry_an_empty_argument_list.sh   # ~2s MEASURED 2026-10-14 (one program both modes against fpc -Mobjfpc), needs the build; hermetic
 	bash scripts/test_gate_pas_an_unsigned_byte_word_or_longword_variable_wraps_on_assignment.sh   # ~2s MEASURED 2026-10-14 (one program both modes against fpc -Mobjfpc), needs the build; hermetic
 	bash scripts/test_gate_pas_sysutils_now_date_time_and_the_tick_counters_answer_in_range.sh   # ~2s MEASURED 2026-10-14 (one program both modes against fpc -Mobjfpc), needs the build; hermetic

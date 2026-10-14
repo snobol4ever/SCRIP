@@ -574,6 +574,7 @@ test_gate_pas_fpc_dialect_strings_case_else_and_builtins_answer_as_fpc.sh	WIRED	
 test_gate_pas_fpc_suite_grades_against_a_corrected_ref_and_refuses_a_stale_or_missing_one.sh	WIRED	-	-	-
 test_gate_pas_fpc_system_and_math_routines_answer_as_fpc_and_stay_refused_in_iso.sh	WIRED	-	-	-
 test_gate_pas_function_result_record_fields_assign_through_the_name.sh	WIRED	-	-	-
+test_gate_pas_getmem_freemem_and_high_of_a_dereferenced_array_pointer.sh	WIRED	-	-	-
 test_gate_pas_heap_table_is_a_movable_root.sh	WIRED	-	-	-
 test_gate_pas_include_exclude_assignfile_array_constructors_trystrtoint_and_fileexists.sh	WIRED	-	-	-
 test_gate_pas_inline_record_char_fields_print_as_chars.sh	WIRED	-	-	-
