@@ -6,6 +6,8 @@ function Ceil(x: real): integer;
 function Log10(x: real): real;
 function Max(a, b: integer): integer;
 function Min(a, b: integer): integer;
+function FpcMaxDouble(a, b: double): double;
+function FpcMinDouble(a, b: double): double;
 function IntPower(base: real; exponent: integer): real;
 implementation
 function Power(base, exponent: real): real;
@@ -40,6 +42,14 @@ end;
 function Min(a, b: integer): integer;
 begin
   if a < b then Min := a else Min := b
+end;
+function FpcMaxDouble(a, b: double): double;
+begin
+  if a > b then FpcMaxDouble := a else FpcMaxDouble := b
+end;
+function FpcMinDouble(a, b: double): double;
+begin
+  if a < b then FpcMinDouble := a else FpcMinDouble := b
 end;
 function IntPower(base: real; exponent: integer): real;
 var r: real; i: integer;

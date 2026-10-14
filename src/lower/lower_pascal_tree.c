@@ -235,6 +235,7 @@ static int pas_is_stringexpr(tree_t *e);
 static tree_t *pas_concat_operand(tree_t *e);
 static int pas_is_charvar(const char *name);
 static int pas_var_is_real(const char *name);
+static int pas_is_realtypename(const char *t);
 static int pas_is_setvar(const char *name);
 static int pas_is_singlevar(const char *name);
 static int pas_is_currencyexpr(tree_t *e);
@@ -459,6 +460,18 @@ static int pas_dyn_depth(tree_t *e, const char **elem) {
 static int pas_dyn_elem_is_string(tree_t *base) {
     const char *el = NULL;
     return base && base->t == TT_IDX && pas_dyn_depth(base, &el) == 1 && el && (pas_string_type_kind(el) || !strcmp(el, "string"));
+}
+static int pas_expr_is_real(tree_t *e) {
+    if (!e) return 0;
+    if (e->t == TT_FLIT || e->t == TT_DIV) return 1;
+    if (e->t == TT_VAR && e->v.sval) return pas_var_is_real(e->v.sval);
+    if ((e->t == TT_ADD || e->t == TT_SUB || e->t == TT_MUL) && e->n == 2) return pas_expr_is_real(e->c[0]) || pas_expr_is_real(e->c[1]);
+    if ((e->t == TT_MNS || e->t == TT_PLS) && e->n == 1) return pas_expr_is_real(e->c[0]);
+    if (e->t == TT_IDX && e->n == 2 && e->c[1] && e->c[1]->t == TT_ILIT) {
+        const char *rt = pas_with_sel_rtype(e->c[0]), *tn = rt ? pas_rectype_field_typename(rt, e->c[1]->v.ival) : NULL;
+        return tn && pas_is_realtypename(tn);
+    }
+    return 0;
 }
 static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "fini.mute")) return mk_fnc0("__pas_std_mute");
@@ -823,7 +836,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     }
     if (name && !strcmp(name, "trunc") && args && args->count >= 1) return mk_fnc2("__pas_trunc", args->items[0], ilit(1));
     if (name && !strcmp(name, "int") && args && args->count >= 1) return mk_fnc1("__pas_trunc", args->items[0]);
-    if (name && !strcmp(name, "round") && args && args->count >= 1) return mk_fnc1("__pas_round", args->items[0]);
+    if (name && !strcmp(name, "round") && args && args->count >= 1) return mk_fnc1(g_lower.pas.sem.pas_dialect_fpc ? "__pas_rounde" : "__pas_round", args->items[0]);
     if (name && !strcmp(name, "halt") && (!args || args->count == 0)) return mk_fnc0("__pas_halt");
     if (name && !strcmp(name, "halt") && args && args->count >= 1) return mk_fnc1("__pas_halt", args->items[0]);
     if (name && !strcmp(name, "frac") && args && args->count >= 1) return mk_fnc1("__pas_frac", args->items[0]);
@@ -5299,6 +5312,8 @@ static pval E_call_with_args(const tree_t *n) {
         v[1].str = pas_alias_resolve(tok_s(n->c[0]));
         if (v[1].str && !strcmp(v[1].str, "format") && n->n == 3 && IS(n->c[2], TT_SET) && !pas_is_func(v[1].str) && !pas_is_proc(v[1].str) && (out.node = pas_format_call(n))) return out;
         v[3] = E_argument_list(n, 1, n->n);
+        if (v[1].str && (!strcmp(v[1].str, "max") || !strcmp(v[1].str, "min")) && v[3].list && v[3].list->count >= 4 && pas_is_func("fpcmaxdouble") &&
+            (pas_expr_is_real(v[3].list->items[0]) || pas_expr_is_real(v[3].list->items[2]))) v[1].str = v[1].str[1] == 'a' ? "fpcmaxdouble" : "fpcmindouble";
         v[3].list = pas_defaults_extend(v[1].str, v[3].list);
         {
             v[3].list = pas_pf_actuals(v[1].str, v[3].list);
@@ -7397,15 +7412,13 @@ static tree_t *pas_flatten_units(tree_t *prog) {
     tree_t *nb = ast_node_new(TT_BLOCK), *lab = NULL, *con = NULL, *typ = NULL, *var = NULL, *body = ast_node_new(TT_SEQ_EXPR);
     pu_merge_part(&lab, "label", block);
     for (int k = 0; k < nu; k++) for (int s = 1; s <= 2; s++) pu_merge_part(&con, "const", forest->c[k]->c[s]);
-    pu_merge_part(&con, "const", block);
     for (int k = 0; k < nu; k++) for (int s = 1; s <= 2; s++) pu_merge_part(&typ, "type", forest->c[k]->c[s]);
-    pu_merge_part(&typ, "type", block);
     for (int k = 0; k < nu; k++) for (int s = 1; s <= 2; s++) pu_merge_part(&var, "var", forest->c[k]->c[s]);
-    pu_merge_part(&var, "var", block);
     if (lab) ast_push(nb, lab);
     if (con) ast_push(nb, con);
     if (typ) ast_push(nb, typ);
     if (var) ast_push(nb, var);
+    for (int i = 0; i < block->n - 1; i++) if (pu_is_part(block->c[i], "const") || pu_is_part(block->c[i], "type") || pu_is_part(block->c[i], "var")) ast_push(nb, block->c[i]);
     for (int k = 0; k < nu; k++) {
         tree_t *intf = forest->c[k]->c[1];
         for (int i = 0; i < intf->n; i++) {
