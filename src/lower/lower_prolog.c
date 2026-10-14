@@ -4551,11 +4551,16 @@ static tree_t * pl_dot_var(int k, int named) {
     v->v.sval = ct_strdup(b);
     return v;
 }
+static tree_t * pl_dot_take(const tree_t * t, lc_vec * ev, int * next);
+static tree_t * pl_dot_fn(const tree_t * f, lc_vec * ev, int * next) {
+    if (f && f->t == TT_FNC && f->n == 0 && f->v.sval) return pl_cc_fnc1("$dict_m0", (tree_t *) pl_atom_goal(f->v.sval));
+    return pl_dot_take(f, ev, next);
+}
 static tree_t * pl_dot_take(const tree_t * t, lc_vec * ev, int * next) {
     if (!t) return NULL;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "$dot") && t->n == 2) {
         tree_t * o = pl_dot_take(t->c[0], ev, next);
-        tree_t * f = pl_dot_take(t->c[1], ev, next);
+        tree_t * f = pl_dot_fn(t->c[1], ev, next);
         int named = *next < 0, k = named ? -((*next)--) : (*next)++;
         tree_t * g = pl_cc_fnc3("$dict_eval", o, f, pl_dot_var(k, named));
         lc_vec_push(ev, &g);
@@ -4594,7 +4599,7 @@ static tree_t * pl_dot_goal(const tree_t * g, int * next) {
     } else if ((g->t == TT_UNIFY || (g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "="))) && g->n == 2 && (pl_dot_is(g->c[0]) != pl_dot_is(g->c[1]))) {
         const tree_t * d = pl_dot_is(g->c[0]) ? g->c[0] : g->c[1];
         tree_t * o = pl_dot_take(d->c[0], &ev, next);
-        tree_t * f = pl_dot_take(d->c[1], &ev, next);
+        tree_t * f = pl_dot_fn(d->c[1], &ev, next);
         c = pl_cc_fnc3("$dict_eval", o, f, pl_dot_take(d == g->c[0] ? g->c[1] : g->c[0], &ev, next));
     } else c = pl_dot_take(g, &ev, next);
     for (int i = ev.n - 1; i >= 0; i--) c = pl_cc_fnc2(",", ((tree_t **) ev.data)[i], c);
@@ -4625,6 +4630,30 @@ static tree_t * pl_dict_clause(const tree_t * cl, int goal_arg) {
     }
     return nc;
 }
+static const char * pl_dict_def_mod(const tree_t * subj) {
+    const char * k = subj && subj->t == TT_CHOICE ? subj->v.sval : NULL;
+    size_t n = k ? strlen(k) : 0;
+    if (n < 4 || strcmp(k + n - 4, ":=/2")) return NULL;
+    if (n == 4) return "user";
+    if (n < 6 || k[n - 5] != ':') return NULL;
+    return ct_strndup(k, n - 5);
+}
+static tree_t * pl_dict_method_clause(const tree_t * cl, const char * mod) {
+    if (!cl || cl->t != TT_CLAUSE || cl->n < 2) return NULL;
+    const tree_t * h = cl->c[0];
+    if (h && h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && h->c[0] && (h->c[0]->t == TT_QLIT || h->c[0]->t == TT_NAME)) { mod = h->c[0]->v.sval; h = h->c[1]; }
+    if (!pl_dot_is(h)) return NULL;
+    tree_t * f = h->c[1] && h->c[1]->t == TT_FNC && h->c[1]->n == 0 && h->c[1]->v.sval ? pl_cc_fnc1("$dict_m0", (tree_t *) pl_atom_goal(h->c[1]->v.sval)) : (tree_t *) h->c[1];
+    tree_t * nc = ast_node_new(TT_CLAUSE);
+    nc->v = cl->v;
+    nc->v.dval = 4;
+    nc->line = cl->line;
+    ast_push(nc, (tree_t *) pl_atom_goal(mod));
+    ast_push(nc, f);
+    ast_push(nc, (tree_t *) h->c[0]);
+    for (int i = 1; i < cl->n; i++) ast_push(nc, (tree_t *) cl->c[i]);
+    return pl_dict_clause(nc, -1);
+}
 static const tree_t * pl_dict_rewrite(const tree_t * prog) {
     int any = 0;
     for (int i = 0; i < prog->n && !any; i++) { const tree_t * s = prog->c[i]; any = pl_dict_any((s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL); }
@@ -4632,9 +4661,23 @@ static const tree_t * pl_dict_rewrite(const tree_t * prog) {
     tree_t * np = ast_node_new(prog->t);
     np->v = prog->v;
     np->line = prog->line;
+    tree_t * meth = NULL;
+    const tree_t * meth_s = NULL;
     for (int i = 0; i < prog->n; i++) {
         const tree_t * s = prog->c[i];
         const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        const char * dm = pl_dict_def_mod(subj);
+        if (dm) {
+            int took = 0;
+            for (int k = 0; k < subj->n; k++) {
+                tree_t * mc = pl_dict_method_clause(subj->c[k], dm);
+                if (!mc) continue;
+                if (!meth) { meth = ast_node_new(TT_CHOICE); meth->v.sval = (char *) "$dict_method/4"; meth->line = subj->line; meth_s = s; }
+                ast_push(meth, mc);
+                took = 1;
+            }
+            if (took) continue;
+        }
         if (!pl_dict_any(subj)) { ast_push(np, (tree_t *) s); continue; }
         tree_t * ns;
         if (subj->t == TT_CHOICE) {
@@ -4647,6 +4690,7 @@ static const tree_t * pl_dict_rewrite(const tree_t * prog) {
         else { int next = -1; ns = pl_dot_goal(pl_dict_canon(subj), &next); }
         ast_push(np, pl_table_stmt(s, ns));
     }
+    if (meth) ast_push(np, pl_table_stmt(meth_s, meth));
     return np;
 }
 stage2_t *lower_pl_stage2(const tree_t *prog) {

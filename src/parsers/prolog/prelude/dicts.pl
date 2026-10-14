@@ -17,7 +17,11 @@
 
     MEASURED AGAINST swipl 9.0.4 (2026-10-11): printing and dict_pairs/3 order keys as here; get_dict/3 with an unbound key
     enumerates in SWI's internal atom order (a, z, m for z, a, m), here in standard order (a, m, z) -- the one named difference.
-    NOT HERE: user-defined dict methods (Tag:Func := Body), the :< and >:< operators, dicts in read_term at run time.
+    METHODS (cfo 2026-10-14, CEO-1709). Self.f() := V [:- Body] is lowered to '$dict_method'(Module, F, Self, V) :- Body (lower_prolog.c
+    pl_dict_method_clause; the module is the definition's own or an Other: on its head); a call Dict.f() carries the method key
+    '$dict_m0'(f), Dict.f(Args) the compound, and '$dict_fn'/3 dispatches either on the dict's tag. select_dict/3, :< and >:< (the
+    reader's 700 xfx operators), b_set_dict/3 and nb_set_dict/3 answer as swipl 9.0.4's.
+    NOT HERE: a method of a tag no module defines fails where swipl raises existence_error; dicts in read_term at run time.
 */
 :- module(dicts, [ get_dict/3, get_dict/5, put_dict/3, put_dict/4, del_dict/4, dict_pairs/3, dict_create/3, select_dict/3, (:<)/2, (>:<)/2,
                    b_set_dict/3, nb_set_dict/3, '$dict_eval'/3 ]).
@@ -86,4 +90,5 @@ nb_set_dict(K, D, V) :- '$dict_need'(D), '$dict_slot'(K, D, I), nb_setarg(I, D, 
 '$dict_fn'(put(N), D, V) :- !, put_dict(N, D, V).
 '$dict_fn'(put(K, X), D, V) :- !, put_dict(K, D, X, V).
 '$dict_fn'(K, D, V) :- atomic(K), !, ( get_dict(K, D, V0) -> V = V0 ; throw(error(existence_error(key, K, D), context(system:'$get_dict_ex'/3, _))) ).
+'$dict_fn'(F, D, V) :- ( F = '$dict_m0'(_) -> true ; compound(F) ), is_dict(D, T), atom(T), current_predicate('$dict_method'/4), !, '$dict_method'(T, F, D, V).
 '$dict_fn'(F, D, _) :- throw(error(existence_error(dict_function, F), D)).
