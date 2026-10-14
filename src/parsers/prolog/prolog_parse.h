@@ -14,6 +14,7 @@ struct PlClause {
     int       nvar;
     int       is_dcg;
     int       dq_forced;
+    const char *file;
 };
 typedef struct {
     PlClause *head;

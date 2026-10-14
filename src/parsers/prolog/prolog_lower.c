@@ -42,6 +42,12 @@ static int pl_pred_slot(cv_t *keys, cv_t *choices, PredKey k) {
     return pl_pred_add(keys, choices, k);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_pred_slot_f(cv_t *keys, cv_t *choices, cv_t *files, PredKey k, const char *file) {
+    int found = pl_pred_slot(keys, choices, k);
+    if (files->len < keys->len) CV_PUSH(*files, const char *) = file;
+    return found;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_flatten_conj(tree_t *t, tree_t *prog) {
     if (!t) return;
     if (t->t == TT_FNC && t->v.sval && strcmp(t->v.sval, ",") == 0) {
@@ -1214,7 +1220,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
             }
         }
     }
-    cv_t     keys = {0}, choices = {0};
+    cv_t     keys = {0}, choices = {0}, files = {0};
     TRSlotMap csm; trslot_reset(&csm);
     int      clause_idx = 0;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next, clause_idx++) {
@@ -1277,7 +1283,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
                         tree_t *syn = ast_node_new(TT_CLAUSE);
                         expr_add_child(syn, pj_head);
                         PredKey pk2 = { prolog_atom_intern("pj_test"), 4 };
-                        int found = pl_pred_slot(&keys, &choices, pk2);
+                        int found = pl_pred_slot_f(&keys, &choices, &files, pk2, cl->file ? cl->file : pl_prog->filename);
                         {
                             tree_t *ec = lower_clause_from_tree(syn, pk2, 0, &csm);
                             ec->line = cl->lineno;
@@ -1287,7 +1293,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
                 }
             }
         }
-        int found = pl_pred_slot(&keys, &choices, k);
+        int found = pl_pred_slot_f(&keys, &choices, &files, k, cl->file ? cl->file : pl_prog->filename);
         tree_t *ec = ssu ? lower_ssu_clause_from_tree(ssu, k, &csm) : lower_clause_from_tree(cl->tr, k, cl->is_dcg, &csm);
         ec->line = cl->lineno;
         expr_add_child(CV_AT(choices, tree_t *, found), ec);
@@ -1323,7 +1329,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
                     const char *aknm = prolog_atom_name(ak.functor);
                     if (aknm && pl_dyn_is_marked(aknm, ak.arity)) { (void) pld_seed; (void) pld_seed_n; }
                     else {
-                    int found = pl_pred_slot(&keys, &choices, ak);
+                    int found = pl_pred_slot_f(&keys, &choices, &files, ak, cl->file ? cl->file : pl_prog->filename);
                     {
                         tree_t *ec = lower_clause_from_tree(syn, ak, 0, &csm);
                         tree_t *fc = CV_AT(choices, tree_t *, found);
@@ -1343,7 +1349,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
         }
         if (is_assert) continue;
         if (goal_tr && goal_tr->t == TT_FNC && goal_tr->v.sval && strcmp(goal_tr->v.sval, "export") == 0 && goal_tr->n == 1) continue;
-        pl_stmt_push(prog, goal_tr, cl->lineno, pl_prog->filename);
+        pl_stmt_push(prog, goal_tr, cl->lineno, cl->file ? cl->file : pl_prog->filename);
     }
     if (pld_seed_n > 0) {
         for (uint32_t i = 0; i < keys.len; i++) {
@@ -1362,6 +1368,6 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
             break;
         }
     }
-    for (uint32_t i = 0; i < keys.len; i++) pl_stmt_push(prog, CV_AT(choices, tree_t *, i), 0, pl_prog->filename);
+    for (uint32_t i = 0; i < keys.len; i++) pl_stmt_push(prog, CV_AT(choices, tree_t *, i), 0, i < files.len ? CV_AT(files, const char *, i) : pl_prog->filename);
     return prog;
 }

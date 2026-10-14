@@ -4291,6 +4291,54 @@ typedef struct { const tree_t * t; const char * pn; const char * file; int ar; i
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_stmt_file(const tree_t * s) { const char * v = stmt_attr_str(stmt_attr_find(s, ":file")); return v ? v : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_tree_calls(const tree_t * t, const char * f, int n) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->v.sval && t->n == n && !strcmp(t->v.sval, f)) return 1;
+    for (int i = 0; i < t->n; i++) if (pl_tree_calls(t->c[i], f, n)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_src_file_rewrite(const tree_t * prog) {
+    int any = 0, nk = 0;
+    for (int i = 0; i < prog->n && !any; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && pl_tree_calls(subj, "source_file", 2)) any = 1;
+    }
+    if (!any) return prog;
+    const char * seen[prog->n + 1];
+    tree_t * np = ast_node_new(prog->t);
+    np->v = prog->v;
+    np->line = prog->line;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        const char * key = (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE)) ? subj->v.sval : NULL;
+        const char * file = pl_stmt_file(s);
+        const char * sl = key ? strrchr(key, '/') : NULL;
+        int dup = 0;
+        ast_push(np, (tree_t *) s);
+        if (!sl || sl == key || key[0] == '$' || !file[0]) continue;
+        for (int k = 0; k < nk; k++) if (!strcmp(seen[k], key)) dup = 1;
+        if (dup) continue;
+        seen[nk++] = key;
+        {
+            char * rp = realpath(file, NULL);
+            char * nm = (char *) ct_alloc((size_t) (sl - key) + 1);
+            tree_t * g = ast_node_new(TT_FNC);
+            memcpy(nm, key, (size_t) (sl - key));
+            nm[sl - key] = 0;
+            g->v.sval = (char *) "$src_file_add";
+            ast_push(g, (tree_t *) pl_atom_goal(nm));
+            ast_push(g, pl_cc_ilit(atoi(sl + 1)));
+            ast_push(g, (tree_t *) pl_atom_goal(rp ? lp_strdup(rp) : file));
+            free(rp);
+            ast_push(np, pl_table_stmt(s, g));
+        }
+    }
+    return np;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_load_hook_key(const char * k) { return k && (!strcmp(k, "term_expansion/2") || !strcmp(k, "goal_expansion/2")); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_load_nclauses(const tree_t * subj) { return subj->t == TT_CHOICE ? subj->n : 1; }
@@ -4697,6 +4745,7 @@ static const tree_t * pl_dict_rewrite(const tree_t * prog) {
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_ssu_rewrite(prog);
     prog = pl_dict_rewrite(prog);
+    prog = pl_src_file_rewrite(prog);
     prog = pl_table_rewrite(prog);
     prog = pl_scc_rewrite(prog);
     prog = pl_mq_rewrite(prog);
