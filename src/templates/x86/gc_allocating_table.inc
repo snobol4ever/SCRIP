@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2716
+#define GC_ALLOC_TAB_N 2718
 #define GC_ALLOC_TAB_N_VOID 314
-#define GC_ALLOC_TAB_N_DESCR 1299
-#define GC_ALLOC_TAB_N_OTHER 1085
+#define GC_ALLOC_TAB_N_DESCR 1300
+#define GC_ALLOC_TAB_N_OTHER 1086
 #define GC_ALLOC_TAB_N_UNKNOWN 18
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -930,6 +930,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_anum_elems", GC_RET_OTHER },
     { "pl_anum_guard_n", GC_RET_OTHER },
     { "pl_anum_number_syntax", GC_RET_OTHER },
+    { "pl_anum_swi_list", GC_RET_OTHER },
     { "pl_anum_text_list_pair", GC_RET_OTHER },
     { "pl_arith2", GC_RET_DESCR },
     { "pl_atom_cell", GC_RET_DESCR },
@@ -1093,6 +1094,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_rat_pow", GC_RET_OTHER },
     { "pl_rat_rationalize", GC_RET_OTHER },
     { "pl_rat_real", GC_RET_OTHER },
+    { "pl_rat_scaled", GC_RET_DESCR },
     { "pl_rat_text", GC_RET_OTHER },
     { "pl_rat_unop", GC_RET_OTHER },
     { "pl_rb_room", GC_RET_OTHER },

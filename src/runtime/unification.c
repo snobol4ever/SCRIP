@@ -1263,6 +1263,14 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { if (swi && cx && !cx->ball) cx->ball = rt_pl_ball_kind2("type_error", "text", *t0); return 0; }
             if (t1 && (int)t1->v == DT_S) return !strcmp(plc_atom_text(t1), s);
+            if (rt_pl_dialect_swi() && t1 && (int)t1->v == DT_PLREF && plc_fid_name(t1->slen) == ATOM_DOT && plc_fid_arity(t1->slen) == 2 && t1->p) {
+                pl_cell_t *c = t1, *e0 = pl_deref(&((pl_cell_t *)t1->p)[0]);
+                while (c && (int)c->v == DT_PLREF && plc_fid_name(c->slen) == ATOM_DOT && plc_fid_arity(c->slen) == 2 && c->p) {
+                    if (pl_cell_unbound(pl_deref(&((pl_cell_t *)c->p)[0]))) break;
+                    c = pl_deref(&((pl_cell_t *)c->p)[1]);
+                }
+                if (c && plc_is_atomlike(c) && plc_atom_id_of(c) == ATOM_NIL) as_codes = (int)e0->v == DT_I;
+            }
             int *cps = (int *)rt_wsb_alloc((strlen(s) + 1) * sizeof(int));
             int cn = 0, adv;
             for (const char *q = s; *q; q += adv) { cps[cn] = rt_pl_u8_get(q, &adv); cn++; }
@@ -1280,7 +1288,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             return 1;
         }
         if (t1 && (int)t1->v == DT_S) return plc_text_out(a0_cell, plc_atom_text(t1), fn[0] == 's', cx);
-        if (swi) {
+        if (swi || rt_pl_dialect_swi()) {
             int mode = -1;
             size_t cap = 64, oi = 0;
             char *o = (char *)rt_wsb_alloc(cap);
@@ -1302,7 +1310,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             }
             if (b) { if (cx && !cx->ball) cx->ball = b; return 0; }
             o[oi] = '\0';
-            return plc_text_out(a0_cell, o, 1, cx);
+            return plc_text_out(a0_cell, o, swi, cx);
         }
         pl_cell_t *cur = t1;
         size_t ocap = 256;

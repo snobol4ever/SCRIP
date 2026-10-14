@@ -21387,6 +21387,24 @@ static void * pl_anum_number_syntax(DESCR_t lst, int codes) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void * pl_anum_swi_list(DESCR_t a, DESCR_t l, const char *atom_type) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_instantiation(void);
+    int mode = -1;
+    DESCR_t m = rt_pl_deref_val(l);
+    for (; pl_is_cons(m); m = rt_pl_deref_val(((DESCR_t *)m.p)[1])) {
+        DESCR_t e = rt_pl_deref_val(((DESCR_t *)m.p)[0]);
+        int is_code = e.v == DT_I && pl_anum_code_ok((long)e.i), is_char = pl_anum_one_char(pl_atom_str(e));
+        if (pl_iso_unbound(e)) return pl_iso_unbound(a) ? rt_pl_ball_instantiation() : (void *)0;
+        if (mode < 0) mode = is_code ? 1 : is_char ? 0 : 1;
+        if (mode == 1 && !is_code) return rt_pl_ball_kind2("type_error", "character_code", e);
+        if (mode == 0 && !is_char) return rt_pl_ball_kind2("type_error", "character", e);
+    }
+    if (pl_iso_unbound(m)) return pl_iso_unbound(a) ? rt_pl_ball_instantiation() : (void *)0;
+    if (!pl_is_nil(m)) return rt_pl_ball_kind2("type_error", "list", l);
+    return strcmp(atom_type, "number") ? (void *)0 : pl_anum_number_syntax(l, mode == 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void * pl_anum_text_list_pair(DESCR_t a, DESCR_t l, int codes, const char *atom_type) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_instantiation(void);
@@ -21402,6 +21420,7 @@ static void * pl_anum_text_list_pair(DESCR_t a, DESCR_t l, int codes, const char
         const char *p = pl_skip_layout(l.s ? l.s : "");
         return (strcmp(atom_type, "number") || (*p && pl_parse_number(p, &num))) ? (void *)0 : rt_pl_ball_kind1("syntax_error", "illegal_number");
     }
+    if (pl_swi_dialect()) return pl_anum_swi_list(a, l, atom_type);
     if (pl_iso_unbound(a)) {
         for (DESCR_t m = rt_pl_deref_val(l); pl_is_cons(m); m = rt_pl_deref_val(((DESCR_t *)m.p)[1])) if (pl_iso_unbound(rt_pl_deref_val(((DESCR_t *)m.p)[0]))) return rt_pl_ball_instantiation();
         if (lk == 0 && pl_swi_dialect()) return rt_pl_ball_instantiation();
