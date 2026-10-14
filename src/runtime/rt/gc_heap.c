@@ -2701,21 +2701,27 @@ static const char *gc_chain_stopname(int k) {
         return "no-entry";
         case 11:
         return "top-above-segment";
+        case 12:
+        return "link-below-gap";
         default:
         return "?";
     }
 }
-#define GC_GAP_FIX 24
-typedef struct { gc_chf_t fix[GC_GAP_FIX]; gc_chf_t *v; long n, cap; } gc_gap_t;
-typedef struct { const char *lo, *hi, *p, *prevbase, *lastname, *roottop; long n; int run, visit, stop, plant; rt_gc_frame_fn fn; void *a; gc_chf_t f8[8], lastf; } gc_sw_t;
-static void gc_gap_init(gc_gap_t *g) { g->v = g->fix; g->n = 0; g->cap = GC_GAP_FIX; }
-static void gc_gap_free(gc_gap_t *g) { if (g->v != g->fix) gcbk_drop((void *)g->v); g->v = g->fix; g->n = 0; g->cap = GC_GAP_FIX; }
+typedef struct { gc_chf_t *v; long n, cap; } gc_gap_t;
+typedef struct { const char *lo, *hi, *p, *prevbase, *lastname, *roottop; long n; int run, visit, stop, plant; rt_gc_frame_fn fn; void *a; gc_chf_t lastf; gc_gap_t gap; } gc_sw_t;
+static void gc_gap_open(gc_gap_t *g) {
+    g->cap = 24;
+    g->v = (gc_chf_t *)gcbk_alloc((size_t)g->cap * sizeof *g->v);
+    g->n = 0;
+    if (!g->v) { fprintf(stderr, "[ZGC] the retained-frame set of a chain gap could not be opened\n"); abort(); }
+}
+static void gc_gap_close(gc_gap_t *g) { if (g->v) gcbk_drop((void *)g->v); g->v = (gc_chf_t *)0; g->n = 0; g->cap = 0; }
 static void gc_gap_push(gc_gap_t *g, const char *base, const gc_frame_map_t *m, uint64_t link) {
     if (g->n == g->cap) {
         gc_chf_t *nv = (gc_chf_t *)gcbk_alloc((size_t)(2 * g->cap) * sizeof *nv);
         if (!nv) { fprintf(stderr, "[ZGC] the retained-frame set of one chain gap could not grow past %ld entries\n", g->cap); abort(); }
         memcpy(nv, g->v, (size_t)g->n * sizeof *nv);
-        if (g->v != g->fix) gcbk_drop((void *)g->v);
+        gcbk_drop((void *)g->v);
         g->v = nv;
         g->cap *= 2;
     }
@@ -2767,6 +2773,9 @@ static void gc_chain_tally(const gc_sw_t *s) {
         case 11:
         g_gc_chw.s_topabove++;
         break;
+        case 12:
+        g_gc_chw.s_badlink++;
+        break;
         default:
         g_gc_chw.s_left++;
         break;
@@ -2792,9 +2801,9 @@ static void gc_chain_refuse(const gc_sw_t *s, const gc_ent_t *ent, const char *l
             dladdr((const void *)(uintptr_t)lpc, &di) && di.dli_saddr ? (long)(lpc - (uint64_t)(uintptr_t)di.dli_saddr) : 0L, lb && lb->map && lb->map->graph_name ? lb->map->graph_name : "",
             (const void *)lr, (const void *)lrbp);
     }
-    for (long i = 0; i < s->n && i < 8; i++)
-        fprintf(stderr, "[GC-CHAIN]   frame %ld base=%p map=%s flags=%u rule=%d fb=%u hb=%u\n", i, (const void *)s->f8[i].base, s->f8[i].map->graph_name ? s->f8[i].map->graph_name : "?",
-        s->f8[i].map->flags, s->f8[i].rule, s->f8[i].map->frame_bytes, s->f8[i].map->header_bytes);
+    if (s->n > 0)
+        fprintf(stderr, "[GC-CHAIN]   last frame %ld base=%p map=%s flags=%u rule=%d fb=%u hb=%u\n", s->n - 1, (const void *)s->lastf.base, s->lastf.map->graph_name ? s->lastf.map->graph_name : "?",
+        s->lastf.map->flags, s->lastf.rule, s->lastf.map->frame_bytes, s->lastf.map->header_bytes);
     rt_bomb("gc: the chain over the maps stopped short -- see the [GC-CHAIN] lines; ARCH-GC-COMPILE-TIME-FRAME-MAPS.md 13.9 ONE");
 }
 static void gc_sw_frame(gc_sw_t *s, const gc_chf_t *f) {
@@ -2804,7 +2813,6 @@ static void gc_sw_frame(gc_sw_t *s, const gc_chf_t *f) {
     gc_walk_t *g = &g_gw[g_gc_rep_pop];
     int k = g_gc_rep_pop;
 #endif
-    if (s->n < 8) s->f8[s->n] = *f;
     s->lastf = *f;
     if (s->fn) s->fn((const void *)m, base, s->a);
     if (s->visit) {
@@ -2903,7 +2911,15 @@ static int gc_sw_links(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char *g
                 return 0;
             }
             if (v == s->prevbase) continue;
-            if (v < glo) { g_gc_chw.links_below++; continue; }
+            if (v < glo) {
+                if (gc_chain_check_on() && g_gc_chw.said_link++ < 4)
+                    fprintf(stderr,
+                    "[CHAIN-WALK] FRAME-LINK REFUSED: the target lies below the gap of the frame that links it and is not the chain frame just below (linking frame %s base=%p slot +%ld holds %p)\n",
+                    m->graph_name ? m->graph_name : "?", (const void *)f->base, (long)(c - f->base), (const void *)v);
+                g_gc_chw.links_below++;
+                s->stop = 12;
+                return 0;
+            }
             for (d = 0; d < g->n && g->v[d].base != v; d++) ;
             if (d < g->n) continue;
             gc_gap_push(g, v, b->map, b->link);
@@ -2913,15 +2929,14 @@ static int gc_sw_links(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char *g
     return 1;
 }
 static int gc_sw_chain_frame(gc_sw_t *s, const gc_chf_t *f) {
-    gc_gap_t g;
+    gc_gap_t *g = &s->gap;
     const char *glo = s->p;
     long i;
-    gc_gap_init(&g);
-    if (!gc_sw_links(s, &g, f, glo)) { gc_gap_free(&g); return 0; }
-    for (i = 0; i < g.n; i++) { gc_chf_t e = g.v[i]; if (!gc_sw_links(s, &g, &e, glo)) { gc_gap_free(&g); return 0; } }
-    if (g.n > 1) qsort(g.v, (size_t)g.n, sizeof *g.v, gc_chf_cmp);
-    for (i = 0; i < g.n; i++) gc_sw_frame(s, &g.v[i]);
-    gc_gap_free(&g);
+    g->n = 0;
+    if (!gc_sw_links(s, g, f, glo)) return 0;
+    for (i = 0; i < g->n; i++) { gc_chf_t e = g->v[i]; if (!gc_sw_links(s, g, &e, glo)) return 0; }
+    if (g->n > 1) qsort(g->v, (size_t)g->n, sizeof *g->v, gc_chf_cmp);
+    for (i = 0; i < g->n; i++) gc_sw_frame(s, &g->v[i]);
     gc_sw_frame(s, f);
     s->prevbase = f->base;
     return 1;
@@ -2978,6 +2993,7 @@ static void gc_sw_go(gc_sw_t *s, const char *lo0, const char *hi0, const gc_ent_
     s->a = a;
     s->lastname = "-";
     s->plant = gc_chain_check_on() && getenv("SCRIP_GC_PLANT_FRAME_LINK") != (char *)0;
+    gc_gap_open(&s->gap);
     if (ent) gc_sw_run(s, ent, sc);
     if (img && img >= s->lo && img < s->hi && (!s->n || s->prevbase < img) && s->stop != 9) { gc_chf_t f = { img, (const gc_frame_map_t *)sc->image_map, 0, -1 }; gc_sw_chain_frame(s, &f); }
     if (visit) {
@@ -2987,6 +3003,7 @@ static void gc_sw_go(gc_sw_t *s, const char *lo0, const char *hi0, const gc_ent_
         if (s->n == 0) g_gw[g_gc_rep_pop].nomap++;
 #endif
     }
+    gc_gap_close(&s->gap);
 }
 static long gc_sw_segment_fn(const char *lo0, const char *hi0, const gc_ent_t *ent, const scrip_coctx_t *sc, int run, rt_gc_frame_fn fn, void *a) {
     gc_sw_t s;
