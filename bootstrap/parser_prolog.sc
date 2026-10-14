@@ -51,6 +51,7 @@ $'div' = *$' ' 'div' @wq *(~(Src ? (TAB(wq) ANY(&LCASE &UCASE '0123456789_')))) 
 $'rdiv' = *$' ' 'rdiv' @wq *(~(Src ? (TAB(wq) ANY(&LCASE &UCASE '0123456789_')))) . op_name_ *$' ';
 $'\'   = *$' ' '\' . op_name_;
 $'->'  = *$' ' '->' *$' ';
+$'?-'  = *$' ' '?-' *$' ';
 Graphic_first = ANY('\\@#^~?=<>+\-*/:.$&`');
 Graphic_rest  = SPAN('\\+\-*/^<>=~?@#&:.$`');
 Graphic_atom  = (*Graphic_first FENCE(*Graphic_rest | epsilon));
@@ -330,6 +331,14 @@ list = (    *$'['
 compound_args = ( epsilon . *PushCounter() FENCE(*args | epsilon) *$')' . *Reduce('TT_FNC', nTop(), PopVal()) . *PopCounter() );
 /* primary: atoms, variables, numbers, compound terms, parenthesised terms, lists, curly terms */
 /* a fenced level above never retries a primary once one has matched, so a quoted form stands before the graphic-atom forms */
+/* an operator as an atom operand (R = <, q  R = - ; ..  f(+)): what follows cannot start a term, so the next character closes the term or is an end dot before layout */
+OpEndT = TABLE(15);
+OpEndT[','] = 1; OpEndT[';'] = 1; OpEndT[')'] = 1; OpEndT[']'] = 1; OpEndT['}'] = 1; OpEndT['|'] = 1;
+LayT = TABLE(7);
+LayT[' '] = 1; LayT[CHAR(9)] = 1; LayT[CHAR(10)] = 1; LayT[CHAR(13)] = 1;
+OpEnd  = *$' ' ( @oq *DIFFER(OpEndT[SUBSTR(Src, oq + 1, 1)])
+               | @oq *IDENT(SUBSTR(Src, oq + 1, 1), '.') *DIFFER(LayT[SUBSTR(Src, oq + 2, 1)])
+               | @oq *IDENT(SUBSTR(Src, oq + 1, 1), '.') *EQ(SIZE(Src), oq + 1) );
 primary0 = (   *BqStr
           |   *Str
           |   (*Atom) . p_name *$'(' . *PushVal(p_name) *compound_args
@@ -361,6 +370,7 @@ primary0 = (   *BqStr
           |   *$'\' *$' ' *pow_expr            . *Reduce('TT_FNC', 1, '\')
           |   *$' ' '-' *$' ' *pow_expr   . *Reduce('TT_FNC', 1, '-')
           |   *$' ' '+' *$' ' *pow_expr   . *Reduce('TT_FNC', 1, '+')
+          |   *$' ' (*Graphic_atom) . thx *OpEnd . *Shift('TT_QLIT', thx)
           );
 /* SWI dicts, as the C reads them: a tag glued to a brace is $dict_lit(Tag, K1, V1, ...), a dot glued to the term before it and followed by a letter or */
 /* an underscore is $dot(Obj, Func) with Func a variable, an atom or a compound, chaining left to right; the end dot is followed by layout and is neither */
@@ -374,15 +384,16 @@ dot_func   = (   (*Var) . thx . *Shift('TT_VAR', thx)
 dot_chain  = FENCE( '.' *dot_func . *Reduce('TT_FNC', 2, '$dot') *dot_chain | epsilon );
 primary   = ( *primary0 FENCE( *dict_lit | epsilon ) *dot_chain );
 pow_expr  = (   *primary
-                FENCE( *$'^'  *pow_expr  . *Reduce('TT_FNC', 2, '^')
-                     | *$'**' *primary   . *Reduce('TT_FNC', 2, '**')
-                     | *uop_on *IDENT(uop_band['in' uop_tx], 'in200') *pow_expr . *Reduce('TT_FNC', 2, PopVal())
+                FENCE( *uop_on *IDENT(uop_band['in' uop_tx], 'in200') *pow_expr . *Reduce('TT_FNC', 2, PopVal())
                      | *uop_on *IDENT(uop_band['post' uop_tx], 'post') . *Reduce('TT_FNC', 1, PopVal())
+                     | *$'^'  *pow_expr  . *Reduce('TT_FNC', 2, '^')
+                     | *$'**' *primary   . *Reduce('TT_FNC', 2, '**')
                      | epsilon
                      )
             );
 mul_expr  = (   *pow_expr *mul_tail );
-mul_tail  = FENCE( FENCE( *$'mod' *pow_expr  . *Reduce('TT_FNC', 2, 'mod')
+mul_tail  = FENCE( FENCE( *uop_on *IDENT(uop_band['in' uop_tx], 'in400') *pow_expr . *Reduce('TT_FNC', 2, PopVal())
+                         | *$'mod' *pow_expr  . *Reduce('TT_FNC', 2, 'mod')
                          | *$'rem' *pow_expr  . *Reduce('TT_FNC', 2, 'rem')
                          | *$'div' *pow_expr  . *Reduce('TT_FNC', 2, 'div')
                          | *$'rdiv' *pow_expr . *Reduce('TT_FNC', 2, 'rdiv')
@@ -392,23 +403,23 @@ mul_tail  = FENCE( FENCE( *$'mod' *pow_expr  . *Reduce('TT_FNC', 2, 'mod')
                          | *$'//'  *pow_expr  . *Reduce('TT_FNC', 2, '//')
                          | *$'/'   *pow_expr  . *Reduce('TT_FNC', 2, '/')
                          | *$'xor' *pow_expr  . *Reduce('TT_FNC', 2, 'xor')
-                         | *uop_on *IDENT(uop_band['in' uop_tx], 'in400') *pow_expr . *Reduce('TT_FNC', 2, PopVal())
                          ) *mul_tail | epsilon );
 add_expr  = (   *mul_expr *add_tail );
-add_tail  = FENCE( FENCE( *$'+' *mul_expr  . *Reduce('TT_FNC', 2, '+')
+add_tail  = FENCE( FENCE( *uop_on *IDENT(uop_band['in' uop_tx], 'in500') *mul_expr . *Reduce('TT_FNC', 2, PopVal())
+                         | *$'+' *mul_expr  . *Reduce('TT_FNC', 2, '+')
                          | *$'-' *mul_expr  . *Reduce('TT_FNC', 2, '-')
                          | *$'/\' *mul_expr . *Reduce('TT_FNC', 2, '/\')
                          | *$'\/' *mul_expr . *Reduce('TT_FNC', 2, '\/')
-                         | *uop_on *IDENT(uop_band['in' uop_tx], 'in500') *mul_expr . *Reduce('TT_FNC', 2, PopVal())
                          ) *add_tail | epsilon );
 colon_expr = (  *add_expr
-                FENCE( *$':' *colon_expr  . *Reduce('TT_FNC', 2, ':')
-                     | *uop_on *IDENT(uop_band['in' uop_tx], 'in600') *colon_expr . *Reduce('TT_FNC', 2, PopVal())
+                FENCE( *uop_on *IDENT(uop_band['in' uop_tx], 'in600') *colon_expr . *Reduce('TT_FNC', 2, PopVal())
+                     | *$':' *colon_expr  . *Reduce('TT_FNC', 2, ':')
                      | epsilon
                      )
              );
 cmp_expr  = (   *colon_expr
-                FENCE( *$'is'  *colon_expr  . *Reduce('TT_FNC', 2, 'is')
+                FENCE( *uop_on *IDENT(uop_band['in' uop_tx], 'in700') *colon_expr . *Reduce('TT_FNC', 2, PopVal())
+                     | *$'is'  *colon_expr  . *Reduce('TT_FNC', 2, 'is')
                      | *$'as'  *colon_expr  . *Reduce('TT_FNC', 2, 'as')
                      | *$'=@=' *colon_expr  . *Reduce('TT_FNC', 2, '=@=')
                      | *$'\=@=' *colon_expr . *Reduce('TT_FNC', 2, '\=@=')
@@ -427,7 +438,6 @@ cmp_expr  = (   *colon_expr
                      | *$'=..' *colon_expr  . *Reduce('TT_FNC', 2, '=..')
                      | *$'=='  *colon_expr  . *Reduce('TT_FNC', 2, '==')
                      | *$'='   *colon_expr  . *Reduce('TT_FNC', 2, '=')
-                     | *uop_on *IDENT(uop_band['in' uop_tx], 'in700') *colon_expr . *Reduce('TT_FNC', 2, PopVal())
                      | epsilon
                      )
             );
@@ -472,11 +482,18 @@ clause    = (   *head
                 )
                 *$'.'
             );
-directive = (   *$':-' . *Reduce('TT_NUL', 0)
+directive = (   ( *$':-' | *$'?-' ) . *Reduce('TT_NUL', 0)
                 *body *$'.'
                                      . *Reduce('TT_CLAUSE', 2)
             );
-top_form  = ((*LibScan) (*directive | *clause | *dcg_rule | *ssu_rule));
+/* a clause whose term is a control construct (a ; b.  a , b.  a -> b.): prolog_parse.c takes any term of priority 1200 as a clause, so the head is a whole body, tried last */
+clause_t  = (   *body
+                ( *$':-' *body         . *Reduce('TT_CLAUSE', 2)
+                | epsilon            . *Reduce('TT_CLAUSE', 1)
+                )
+                *$'.'
+            );
+top_form  = ((*LibScan) (*directive | *clause | *dcg_rule | *ssu_rule | *clause_t));
 /* ==================================================================================================================== */
 Compiland = epsilon . *PushCounter()
             POS(0) ARBNO( FENCE(*$' ' *top_form . *IncCounter()) FLUSH ) *$' ' RPOS(0)
