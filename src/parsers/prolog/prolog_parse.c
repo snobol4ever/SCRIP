@@ -24,6 +24,7 @@ typedef struct {
     int         nerrors;
     int         clause_errs;
     int         in_args;
+    int         in_list;
     int         quiet;
     int         prec;
     cv_t        ifst;
@@ -432,7 +433,9 @@ static tree_t *pt_list(Parser *p, TreeScope *ts) {
     }
     tree_t *lst = ast_node_new(TT_MAKELIST);
     lst->v.ival = 0;
+    int saved_list = p->in_list;
     p->in_args++;
+    p->in_list = 1;
     for (;;) {
         tree_t *elem = pt_term(p, ts, p->iso ? 999 : 1200);
         if (elem) ast_push(lst, elem);
@@ -454,6 +457,7 @@ static tree_t *pt_list(Parser *p, TreeScope *ts) {
         break;
     }
     p->in_args--;
+    p->in_list = saved_list;
     return lst;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -461,7 +465,9 @@ static int pt_args(Parser *p, TreeScope *ts, tree_t *parent) {
     Token pk0 = lexer_peek(&p->lx);
     if (pk0.kind == TK_RPAREN) return 0;
     int n = 0;
+    int saved_list = p->in_list;
     p->in_args++;
+    p->in_list = 0;
     for (;;) {
         tree_t *a = pt_term(p, ts, p->iso ? 999 : 1200);
         if (!a) break;
@@ -472,6 +478,7 @@ static int pt_args(Parser *p, TreeScope *ts, tree_t *parent) {
         lexer_next(&p->lx);
     }
     p->in_args--;
+    p->in_list = saved_list;
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -627,10 +634,12 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
             return pt_stamp(n, ln);
         }
         case TK_LPAREN: {
-            int saved = p->in_args;
+            int saved = p->in_args, saved_list = p->in_list;
             p->in_args = 0;
+            p->in_list = 0;
             tree_t *inner = pt_term(p, ts, 1200);
             p->in_args = saved;
+            p->in_list = saved_list;
             Token rp = lexer_peek(&p->lx);
             if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
             else perror_at(p, rp.line, "expected )");
@@ -770,7 +779,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                 return pt_stamp(n, ln);
             }
             tree_t *inner;
-            { int saved = p->in_args; p->in_args = 0; inner = pt_term(p, ts, 1200); p->in_args = saved; }
+            { int saved = p->in_args, saved_list = p->in_list; p->in_args = 0; p->in_list = 0; inner = pt_term(p, ts, 1200); p->in_args = saved; p->in_list = saved_list; }
             Token rb = lexer_peek(&p->lx);
             if (rb.kind == TK_RBRACE) lexer_next(&p->lx);
             else perror_at(p, rb.line, "expected } to close term");
@@ -861,7 +870,7 @@ static tree_t *pt_term(Parser *p, TreeScope *ts, int max_prec) {
         else if (pk.kind == TK_COMMA && p->in_args > 0)         break;
         else if (pk.kind == TK_COMMA && max_prec >= 1000)       optext = ",";
         else if (pk.kind == TK_SEMI  && max_prec >= 1100)       optext = ";";
-        else if (pk.kind == TK_PIPE  && p->in_args == 0 && max_prec >= 1105) optext = "|";
+        else if (pk.kind == TK_PIPE  && !p->in_list && max_prec >= 1105) optext = "|";
         else if (pk.kind == TK_NECK  && max_prec >= 1200)       optext = ":-";
         else break;
         const OpEntry *op = optext ? find_binop(optext) : NULL;
@@ -3107,6 +3116,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.nerrors  = 0;
     p.clause_errs = 0;
     p.in_args  = 0;
+    p.in_list  = 0;
     p.quiet    = quiet;
     p.prec     = 0;
     p.incl_depth = 0;
