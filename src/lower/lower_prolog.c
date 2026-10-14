@@ -4299,6 +4299,63 @@ static int pl_tree_calls(const tree_t * t, const char * f, int n) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_meta_real_name(const tree_t * prog, const char * name, int ar) {
+    size_t nl = strlen(name);
+    char want[nl + 24];
+    snprintf(want, sizeof want, "%s/%d", name, ar);
+    size_t wl = strlen(want);
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        const char * key = (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE)) ? subj->v.sval : NULL;
+        size_t kl = key ? strlen(key) : 0;
+        if (!key) continue;
+        if (!strcmp(key, want)) return name;
+        if (kl > wl && key[kl - wl - 1] == ':' && !strcmp(key + kl - wl, want)) {
+            char * rn = (char *) ct_alloc(kl - (wl - nl) + 1);
+            memcpy(rn, key, kl - (wl - nl));
+            rn[kl - (wl - nl)] = 0;
+            return rn;
+        }
+    }
+    return name;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_meta_rt_specs(const tree_t * prog, const tree_t * s, const tree_t * spec, tree_t * np) {
+    if (!spec) return;
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_meta_rt_specs(prog, s, spec->c[0], np); pl_meta_rt_specs(prog, s, spec->c[1], np); return; }
+    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_meta_rt_specs(prog, s, spec->c[i], np); return; }
+    if (spec->t != TT_FNC || !spec->v.sval || spec->n <= 0) return;
+    {
+        tree_t * cp = pl_tree_copy(spec);
+        tree_t * g = ast_node_new(TT_FNC);
+        cp->v.sval = (char *) pl_meta_real_name(prog, spec->v.sval, spec->n);
+        g->v.sval = (char *) "$meta_add";
+        ast_push(g, cp);
+        ast_push(np, pl_table_stmt(s, g));
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_meta_rt_rewrite(const tree_t * prog) {
+    int any = 0;
+    for (int i = 0; i < prog->n && !any; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && pl_tree_calls(subj, "@", 2)) any = 1;
+    }
+    if (!any) return prog;
+    tree_t * np = ast_node_new(prog->t);
+    np->v = prog->v;
+    np->line = prog->line;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        ast_push(np, (tree_t *) s);
+        if (subj && subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "meta_predicate")) for (int k = 0; k < subj->n; k++) pl_meta_rt_specs(prog, s, subj->c[k], np);
+    }
+    return np;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_src_file_rewrite(const tree_t * prog) {
     int any = 0, nk = 0;
     for (int i = 0; i < prog->n && !any; i++) {
@@ -4747,6 +4804,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_ssu_rewrite(prog);
     prog = pl_dict_rewrite(prog);
     prog = pl_src_file_rewrite(prog);
+    prog = pl_meta_rt_rewrite(prog);
     prog = pl_table_rewrite(prog);
     prog = pl_scc_rewrite(prog);
     prog = pl_mq_rewrite(prog);
