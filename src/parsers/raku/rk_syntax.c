@@ -3404,8 +3404,6 @@ static int r_term_name(RkP *p, int pos) {
     int nl = name_part_len(p, pos, e);
     int starts_colons = at_lit(p, pos, "::");
     int is_n = starts_colons || is_name_n(p, p->s + pos, nl);
-    if (is_n && !starts_colons && (at_lit(p, pos + nl, ":D") || at_lit(p, pos + nl, ":U")) && !wordch_at(p, pos + nl + 2) && is_capture(p, p->s + pos, nl))
-        panic_at(p, pos, "Type too complex to form a definite type");
     if (is_n) {
         int is_t = (is_type_n(p, p->s + pos, nl) || starts_colons) && !(nl >= 2 && p->s[pos + nl - 1] == ':' && p->s[pos + nl - 2] == ':');
         int q = e; int u;
@@ -4046,11 +4044,6 @@ static int r_variable_declarator(RkP *p, int pos) {
     RkTrait *vtr = p->tr; int nvtr = p->ntr;
     static const char *const vtraits[] = { "default", "dynamic", "export", 0 };
     if (p->scope != 3 && p->scope != 4) check_is_traits(p, e, q, vtraits, " variable");
-    else for (int t = e; t + 10 <= q; t++) if (!memcmp(p->s + t, "default(", 8) && !(t > 0 && asc_word((unsigned char) p->s[t - 1]))) {
-        int a = ws(p, t + 8); int b = r_identifier(p, a);
-        if (b > a && ch(p, ws(p, b)) == ')' && is_capture(p, p->s + a, b - a))
-            panic_at(p, t, "Attribute definition of type Mu (implicit : by pragma) needs to be marked as required or given an initializer");
-    }
     if ((p->scope == 3 || p->scope == 4) && p->npkgs) for (int t = e; t + 2 <= q; t++) {
         if (memcmp(p->s + t, "is", 2) || wordch_at(p, t + 2) || (t > 0 && asc_word((unsigned char) p->s[t - 1]))) continue;
         int a = ws(p, t + 2); int b = r_identifier(p, a);
