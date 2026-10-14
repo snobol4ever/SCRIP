@@ -15145,6 +15145,13 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
         return 1;
     }
     if (!strcmp(fn, "__pas_dynlen") && nargs == 1) { ARBLK_t *b = (args[0].v == DT_A && args[0].arr) ? (ARBLK_t *) args[0].arr : NULL; *out = INTVAL(b ? (long long)b->hi - b->lo + 1 : 0); return 1; }
+    if (!strcmp(fn, "__pas_ustr") && nargs == 1) {
+        int cap = 24;
+        char *o = rt_wsb_alloc((size_t)cap);
+        snprintf(o, (size_t)cap, "%llu", IS_INT_fn(args[0]) ? (unsigned long long)args[0].i : 0ULL);
+        *out = STRVAL(o);
+        return 1;
+    }
     if (!strcmp(fn, "__pas_fill") && nargs == 2) { pas_fill(args[0], IS_INT_fn(args[1]) ? (long long)args[1].i : 0); *out = args[0]; return 1; }
     if (!strcmp(fn, "__pas_format") && nargs >= 1) {
         const char *f = VARVAL_fn(args[0]);
@@ -18373,7 +18380,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         for (int _pi = _start; _pi + 1 < nargs; _pi += 2) {
             DESCR_t av = args[_pi];
             DESCR_t aw = args[_pi + 1];
-            int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i == -6 ? -6 : (aw.i == -7 ? -7 : (aw.i >= 0 ? (int)aw.i : -1)))))) : -1;
+            int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i == -6 ? -6 : (aw.i == -7 ? -7 : (aw.i == -8 ? -8 : (aw.i >= 0 ? (int)aw.i : -1))))))) : -1;
             int _upper = 0;
             if (IS_INT_fn(aw) && aw.i == -10 && _pi + 3 < nargs) { _upper = 1; w = (IS_INT_fn(args[_pi + 2]) && args[_pi + 2].i >= 0) ? (int)args[_pi + 2].i : -1; _pi += 2; }
             if (w == -6) { double _cv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0); int _cn = 32; char _cb[_cn]; pas_currency_str(_cv, _cb, _cn); fputs(_cb, _dest); continue; }
@@ -18391,9 +18398,9 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             if (IS_INT_fn(av)) {
                 int _pbn = 32;
                 char _pbq[_pbn];
-                int _pfmtlen = (w == -7) ? snprintf(_pbq, sizeof _pbq, "%llu", (unsigned long long)av.i) : snprintf(_pbq, sizeof _pbq, "%lld", (long long)av.i);
-                if (w < 0 && w != -4 && _pfmtlen > 11) { _pbq[11] = '\0'; _pfmtlen = 11; }
-                int _fw = (w == -4) ? _pfmtlen : (w < 0) ? 11 : (w > _pfmtlen ? w : _pfmtlen);
+                int _pfmtlen = (w == -7 || w == -8) ? snprintf(_pbq, sizeof _pbq, "%llu", (unsigned long long)av.i) : snprintf(_pbq, sizeof _pbq, "%lld", (long long)av.i);
+                if (w < 0 && w != -4 && w != -8 && _pfmtlen > 11) { _pbq[11] = '\0'; _pfmtlen = 11; }
+                int _fw = (w == -4 || w == -8) ? _pfmtlen : (w < 0) ? 11 : (w > _pfmtlen ? w : _pfmtlen);
                 fprintf(_dest, "%*s", _fw, _pbq);
             } else if (IS_REAL_fn(av)) {
                 char _rb[64];

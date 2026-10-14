@@ -572,6 +572,7 @@ test_gate_pas_an_fpc_dialect_case_with_no_matching_constant_does_nothing.sh	WIRE
 test_gate_pas_not_of_a_signed_integer_is_bitwise.sh	WIRED	-	-	-
 test_gate_pas_bounds_fold_calls_and_fpc_integer_types.sh	WIRED	-	-	-
 test_gate_pas_fillchar_of_a_whole_variable_fills_every_scalar.sh	WIRED	-	-	-
+test_gate_pas_a_qword_writes_unsigned_at_its_dialects_width.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_and_text_get_put.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_stays_inside_the_unpacked_arrays_index_type.sh	WIRED	-	-	-
 test_gate_pas_packed_component_is_not_a_var_parameter.sh	WIRED	-	-	-

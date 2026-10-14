@@ -11,7 +11,7 @@ static const char * const g_pas_bi_name[] = { "__pas_abs", "__pas_alloc", "__pas
     "__pas_round", "__pas_rpatch", "__pas_rterr", "__pas_s2wide", "__pas_set", "__pas_setdif", "__pas_seteq", "__pas_setint", "__pas_setlength", "__pas_setne", "__pas_setrange", "__pas_setuni",
     "__pas_sin", "__pas_sqr", "__pas_sqrt", "__pas_std_mute", "__pas_stdfile", "__pas_str_delete", "__pas_str_insert", "__pas_str_to_int", "__pas_strcmp", "__pas_strf", "__pas_stringofchar",
     "__pas_subset", "__pas_super", "__pas_swapendian", "__pas_tagmark", "__pas_tagset_chk", "__pas_tagwhole", "__pas_tbuf_get", "__pas_tbuf_set", "__pas_tget", "__pas_tput", "__pas_treset",
-    "__pas_trewrite", "__pas_trunc", "__pas_udiv", "__pas_umod", "__pas_undefined_value", "__pas_unhandled", "__pas_unresolved_target", "__pas_upcase", "__pas_vcheck", "__pas_view", "__pas_wide2s",
-    "__pas_write", "__pas_writeln", };
+    "__pas_trewrite", "__pas_trunc", "__pas_udiv", "__pas_umod", "__pas_undefined_value", "__pas_unhandled", "__pas_unresolved_target", "__pas_upcase", "__pas_ustr", "__pas_vcheck", "__pas_view",
+    "__pas_wide2s", "__pas_write", "__pas_writeln", };
 #define PAS_BI_COUNT (sizeof(g_pas_bi_name) / sizeof(g_pas_bi_name[0]))
 #endif

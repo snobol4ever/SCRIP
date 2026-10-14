@@ -1030,7 +1030,8 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                 } else if (pas_is_currencyexpr(val)) {
                     if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-6);
                 } else if (pas_is_qword(val) && val->t == TT_VAR) {
-                    if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-7);
+                    if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(g_lower.pas.sem.pas_seen_mode_directive ? -8 : -7);
+                    else val = mk_fnc1("__pas_ustr", val);
                 } else if (val && val->t == TT_VAR && val->v.sval && pas_is_chararr(val->v.sval)) {
                     val = pas_alpha_wrap(val);
                 } else if (pas_ca_is_read(val)) {
