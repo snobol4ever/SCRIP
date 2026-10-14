@@ -1,10 +1,10 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
 #define GC_ALLOC_TAB_N 2760
-#define GC_ALLOC_TAB_N_VOID 322
+#define GC_ALLOC_TAB_N_VOID 323
 #define GC_ALLOC_TAB_N_DESCR 1322
-#define GC_ALLOC_TAB_N_OTHER 1099
-#define GC_ALLOC_TAB_N_UNKNOWN 17
+#define GC_ALLOC_TAB_N_OTHER 1101
+#define GC_ALLOC_TAB_N_UNKNOWN 14
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
     { "APPLY_fn_rq", GC_RET_DESCR },
@@ -165,18 +165,15 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_UNLOAD_", GC_RET_DESCR },
     { "_VALUE_", GC_RET_DESCR },
     { "_Z13bb_lit_scalarB5cxx11v", GC_RET_UNKNOWN },
-    { "_Z14bb_call_fn_strB5cxx11P4IR_t", GC_RET_UNKNOWN },
     { "_Z15bb_main_floaterB5cxx11i", GC_RET_UNKNOWN },
-    { "_Z16marshal_call_argB5cxx11P4IR_tP10IR_graph_tiS0_i", GC_RET_UNKNOWN },
     { "_Z17xa_flat_sig_namesPKcPiS1_S1_S1_", GC_RET_UNKNOWN },
-    { "_Z23bb_call_proc_staged_strB5cxx11P4IR_t", GC_RET_UNKNOWN },
-    { "_Z7bb_callB5cxx11P4IR_t", GC_RET_UNKNOWN },
+    { "_Z19bb_call_proc_stagedB5cxx11v", GC_RET_UNKNOWN },
+    { "_Z7bb_callB5cxx11v", GC_RET_UNKNOWN },
     { "_Z9bb_defineB5cxx11v", GC_RET_UNKNOWN },
     { "_ZL12bb_define_srv", GC_RET_UNKNOWN },
     { "_ZL12bcps_det_armv", GC_RET_UNKNOWN },
     { "_ZL14bb_define_bindv", GC_RET_UNKNOWN },
-    { "_ZL18bb_call_byname_strP4IR_t", GC_RET_UNKNOWN },
-    { "_ZL22bb_call_byname_gen_strP4IR_t", GC_RET_UNKNOWN },
+    { "_ZL14call_marg_planiP4IR_tiS0_", GC_RET_UNKNOWN },
     { "_ZL26xa_flat_chain_prologue_strPKcPi", GC_RET_UNKNOWN },
     { "_ZL30xa_flat_chain_epilogue_sig_striPKc", GC_RET_UNKNOWN },
     { "_b_MON_OPEN", GC_RET_DESCR },
@@ -462,6 +459,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "bn_dupl", GC_RET_OTHER },
     { "bn_icn_put", GC_RET_OTHER },
     { "bn_icn_read_fh", GC_RET_OTHER },
+    { "bn_icn_right", GC_RET_OTHER },
     { "bn_icn_trim", GC_RET_OTHER },
     { "bn_integer", GC_RET_OTHER },
     { "bn_lexrel", GC_RET_OTHER },
@@ -528,6 +526,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "c_str_concat_d", GC_RET_DESCR },
     { "c_str_concat_fracdigit_d", GC_RET_DESCR },
     { "c_table_find_pair_d", GC_RET_OTHER },
+    { "call_prepare", GC_RET_VOID },
     { "call_rule", GC_RET_OTHER },
     { "call_user_function", GC_RET_DESCR },
     { "caplist_add", GC_RET_VOID },
@@ -675,6 +674,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "icn_argtype_raise", GC_RET_OTHER },
     { "icn_bi_direct", GC_RET_OTHER },
     { "icn_bi_direct_list_io", GC_RET_OTHER },
+    { "icn_bi_direct_scalar", GC_RET_OTHER },
     { "icn_bi_string_of_int", GC_RET_OTHER },
     { "icn_call_value_deref_args", GC_RET_VOID },
     { "icn_call_value_name_invocable", GC_RET_OTHER },
