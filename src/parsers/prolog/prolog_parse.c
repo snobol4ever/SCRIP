@@ -2201,7 +2201,6 @@ static const char * const PL_PRELUDE_SRC =
     "read_pending_chars(S, Cs, T) :- get_char(S, C), ( C == end_of_file -> Cs = [], T = [] ; Cs = [C|R], '$rp_chars'(4095, S, R, T) ).\n"
     "'$rp_chars'(0, _, T, T) :- !.\n"
     "'$rp_chars'(N, S, Cs, T) :- peek_char(S, C), ( C == end_of_file -> Cs = T ; get_char(S, C), Cs = [C|R], N1 is N - 1, '$rp_chars'(N1, S, R, T) ).\n"
-    "nb_linkarg(N, T, V) :- nb_setarg(N, T, V).\n"
     "tmp_file(Base, Name) :- ( var(Base) -> throw(error(instantiation_error, tmp_file/2)) ; true ), prolog_pid(P), ( nb_current('$tmp_file_n', N0) -> true ; N0 = 0 ), N is N0 + 1, "
     "nb_setval('$tmp_file_n', N), ( getenv('TMPDIR', D) -> true ; D = '/tmp' ), atomic_list_concat([D, '/swipl_', Base, '_', P, '_', N], Name).\n"
     "tmp_file_stream(A, B, C) :- ( var(A), is_list(C) -> File = A, Stream = B, Opts = C ; File = B, Stream = C, Opts = [encoding(A)] ), ( memberchk(extension(Ext), Opts) -> true ; Ext = '' ), "

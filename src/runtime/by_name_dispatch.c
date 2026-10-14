@@ -7361,7 +7361,7 @@ static int rt_pl_setarg_cell(DESCR_t *na, DESCR_t *ta, DESCR_t *va, pl_tr_ctx_t 
     {
         DESCR_t *cell = &((DESCR_t *)t->p)[n->i - 1];
         DESCR_t w;
-        if (trail) w = pl_attv_word(va, cx);
+        if (trail != 0) w = pl_attv_word(va, cx);
         else {
             DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1), *d;
             j->v = (DTYPE_t)DT_PLVAR;
@@ -7371,13 +7371,14 @@ static int rt_pl_setarg_cell(DESCR_t *na, DESCR_t *ta, DESCR_t *va, pl_tr_ctx_t 
             d = plw_cell_deref(j);
             if (plw_unbound_tag(d)) { w.v = (DTYPE_t)DT_PLVAR; w.slen = 0; w.p = (void *)d; } else w = *d;
         }
-        if (trail && pl_tr_needs_log(cx, cell, floor_)) pl_tr_push(cx, cell);
+        if (trail == 1 && pl_tr_needs_log(cx, cell, floor_)) pl_tr_push(cx, cell);
         *cell = w;
     }
     return 1;
 }
 PL_CX_LEAF_HEAD(setarg, 3) ok = rt_pl_setarg_cell(&args[0], &args[1], &args[2], cx, 1); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(nb_setarg, 3) ok = rt_pl_setarg_cell(&args[0], &args[1], &args[2], cx, 0); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(nb_linkarg, 3) ok = rt_pl_setarg_cell(&args[0], &args[1], &args[2], cx, 2); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(wall_us, 1) ok = rt_pl_wall_clock_cell(0, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(wall_ms, 1) ok = rt_pl_wall_clock_cell(1, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(cpu_ms, 1) ok = rt_pl_wall_clock_cell(2, &args[0], cx); PL_CX_LEAF_TAIL
