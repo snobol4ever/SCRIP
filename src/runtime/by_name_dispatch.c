@@ -9350,6 +9350,161 @@ PL_CX_LEAF_HEAD(gnu_file_props, 2)
         pl_gnu_ctx(cx, "file_property", 2);
     }
 PL_CX_LEAF_TAIL
+static int pl_dt_num(DESCR_t a, double *out) { DESCR_t d = rt_pl_deref_val(a); if (d.v == DT_I) { *out = (double)d.i; return 1; } if (d.v == DT_R) { *out = d.r; return 1; } return 0; }
+static int pl_dt_int(DESCR_t a, long long *out) { DESCR_t d = rt_pl_deref_val(a); if (d.v != DT_I) return 0; *out = (long long)d.i; return 1; }
+static long long pl_dt_days(long long y, long long m, long long d) {
+    long long mm = y * 12 + (m - 1), yy = mm >= 0 ? mm / 12 : -((-mm + 11) / 12), mo = mm - yy * 12 + 1, era, yoe, doy;
+    yy -= mo <= 2;
+    era = (yy >= 0 ? yy : yy - 399) / 400;
+    yoe = yy - era * 400;
+    doy = (153 * (mo > 2 ? mo - 3 : mo + 9) + 2) / 5;
+    return era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468 + (d - 1);
+}
+static void *pl_dt_bad(DESCR_t a, const char *ty) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_instantiation(void);
+    DESCR_t d = rt_pl_deref_val(a);
+    return pl_val_unbound(d) ? rt_pl_ball_instantiation() : rt_pl_ball_kind2("type_error", ty, d);
+}
+static int pl_dt_stamp(DESCR_t a, double *st, long long *off, const char **zone, int *local, void **ball) {
+    DESCR_t d = rt_pl_deref_val(a);
+    int ar = d.v == (DTYPE_t)DT_PLREF ? plc_fid_arity(d.slen) : -1;
+    const char *fn = ar > 0 ? prolog_atom_name(plc_fid_name(d.slen)) : (const char *)0;
+    long long f[5] = { 0, 0, 0, 0, 0 };
+    double sec = 0;
+    *off = 0;
+    *zone = (const char *)0;
+    *local = 1;
+    if (pl_dt_num(d, st)) return 1;
+    if (!fn || strcmp(fn, "date") || (ar != 9 && ar != 3)) { *ball = pl_dt_bad(d, "date"); return 0; }
+    {
+        DESCR_t *k = (DESCR_t *)d.p;
+        for (int i = 0; i < (ar == 9 ? 5 : 3); i++) if (!pl_dt_int(k[i], &f[i])) { *ball = pl_dt_bad(k[i], "integer"); return 0; }
+        if (ar == 3) {
+            struct tm tm;
+            memset(&tm, 0, sizeof tm);
+            tm.tm_year = (int)f[0] - 1900;
+            tm.tm_mon = (int)f[1] - 1;
+            tm.tm_mday = (int)f[2];
+            tm.tm_isdst = -1;
+            *st = (double)mktime(&tm);
+            return 1;
+        }
+        if (!pl_dt_num(k[5], &sec)) { *ball = pl_dt_bad(k[5], "number"); return 0; }
+        if (!pl_dt_int(k[6], off)) { *ball = pl_dt_bad(k[6], "integer"); return 0; }
+        *zone = pl_atom_str(rt_pl_deref_val(k[7]));
+        *local = 0;
+        *st = (double)(pl_dt_days(f[0], f[1], f[2]) * 86400 + f[3] * 3600 + f[4] * 60 + *off) + sec;
+        return 1;
+    }
+}
+PL_CX_LEAF_HEAD(date_time_stamp, 2)
+    {
+        double st = 0;
+        long long off;
+        const char *zone;
+        int local;
+        void *ball = (void *)0;
+        ok = 0;
+        if (pl_dt_num(args[0], &st)) cx->ball = pl_dt_bad(args[0], "date");
+        else if (pl_dt_stamp(args[0], &st, &off, &zone, &local, &ball)) ok = plw_unify_vals(args[1], REALVAL(st), cx);
+        else cx->ball = ball;
+        pl_gnu_ctx(cx, "date_time_stamp", 2);
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(stamp_date_time, 3)
+    {
+        DESCR_t z = rt_pl_deref_val(args[2]);
+        const char *zs = pl_atom_str(z);
+        int mode = z.v == DT_I ? 1 : (zs && !strcmp(zs, "UTC")) ? 2 : (zs && !strcmp(zs, "local")) ? 3 : 0;
+        double st = 0;
+        ok = 0;
+        if (!pl_dt_num(args[0], &st)) cx->ball = pl_dt_bad(args[0], "number");
+        else if (!mode) cx->ball = pl_dt_bad(z, "atom");
+        else {
+            double fl = floor(st);
+            time_t t = (time_t)fl;
+            struct tm tm;
+            long long off = 0;
+            DESCR_t a[9];
+            a[7] = pl_mk_atom_dup("-", 1);
+            a[8] = pl_mk_atom_dup("-", 1);
+            if (mode == 1) {
+                off = (long long)z.i;
+                t -= (time_t)off;
+                gmtime_r(&t, &tm);
+            } else if (mode == 2) {
+                gmtime_r(&t, &tm);
+                a[7] = pl_mk_atom_dup("UTC", 3);
+            } else {
+                localtime_r(&t, &tm);
+                off = -(long long)tm.tm_gmtoff;
+                a[7] = tm.tm_zone ? pl_mk_atom_dup(tm.tm_zone, strlen(tm.tm_zone)) : a[7];
+                a[8] = tm.tm_isdst > 0 ? pl_mk_atom_dup("true", 4) : pl_mk_atom_dup("false", 5);
+            }
+            a[0] = INTVAL(tm.tm_year + 1900);
+            a[1] = INTVAL(tm.tm_mon + 1);
+            a[2] = INTVAL(tm.tm_mday);
+            a[3] = INTVAL(tm.tm_hour);
+            a[4] = INTVAL(tm.tm_min);
+            a[5] = REALVAL((double)tm.tm_sec + (st - fl));
+            a[6] = INTVAL(off);
+            ok = plw_unify_vals(args[1], pl_gnu_fn("date", 9, a), cx);
+        }
+        pl_gnu_ctx(cx, "stamp_date_time", 3);
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(format_time_text, 3)
+    {
+        const char *fm = pl_atom_str(rt_pl_deref_val(args[0]));
+        double st = 0;
+        long long off;
+        const char *zone;
+        int local;
+        void *ball = (void *)0;
+        ok = 0;
+        if (!fm) cx->ball = pl_dt_bad(args[0], "text");
+        else if (!pl_dt_stamp(args[1], &st, &off, &zone, &local, &ball)) cx->ball = ball;
+        else {
+            size_t cap = strlen(fm) * 64 + 64, n = 0;
+            char out[cap];
+            double fl = floor(st), frac = fabs(st - trunc(st));
+            time_t t = (time_t)fl;
+            struct tm tm;
+            if (local) localtime_r(&t, &tm);
+            else { t -= (time_t)off; gmtime_r(&t, &tm); tm.tm_gmtoff = -(long)off; tm.tm_zone = (zone && strcmp(zone, "-")) ? zone : ""; }
+            for (const char *p = fm; *p && n + 64 < cap; p++) {
+                int w = 0;
+                if (*p != '%') { out[n++] = *p; continue; }
+                p++;
+                while (*p >= '0' && *p <= '9') w = w * 10 + (*p++ - '0');
+                if (*p == 'f') {
+                    long long us = llround(frac * 1e6), v = us > 999999 ? 999999 : us;
+                    if (!w) w = 6;
+                    if (w > 15) w = 15;
+                    for (int i = w; i < 6; i++) v /= 10;
+                    for (int i = 6; i < w; i++) v *= 10;
+                    n += (size_t)snprintf(out + n, cap - n, "%0*lld", w, v);
+                } else if (*p == ':' && p[1] == 'z') {
+                    long g = tm.tm_gmtoff, a = g < 0 ? -g : g;
+                    p++;
+                    n += (size_t)snprintf(out + n, cap - n, "%c%02ld:%02ld", g < 0 ? '-' : '+', a / 3600, a / 60 % 60);
+                } else if (*p == 's') n += (size_t)snprintf(out + n, cap - n, "%lld", (long long)fl);
+                else if (*p == '+') n += strftime(out + n, cap - n, "%a %b %e %H:%M:%S %Y", &tm);
+                else if (*p) {
+                    char f2[5] = { '%', 0, 0, 0, 0 };
+                    int k = 1;
+                    if (*p == '-' || *p == '_' || *p == 'E' || *p == 'O') f2[k++] = *p++;
+                    f2[k] = *p;
+                    if (*p) n += strftime(out + n, cap - n, f2, &tm);
+                    else p--;
+                } else p--;
+            }
+            ok = plw_unify_vals(args[2], pl_mk_atom_dup(out, n), cx);
+        }
+        pl_gnu_ctx(cx, "format_time", 3);
+    }
+PL_CX_LEAF_TAIL
 static uint32_t pl_gnu_rotl(uint32_t x, int r) { return (x << r) | (x >> (32 - r)); }
 static uint32_t pl_gnu_hblock(uint32_t k, uint32_t h) { k *= 0xcc9e2d51u; k = pl_gnu_rotl(k, 15); k *= 0x1b873593u; h ^= k; h = pl_gnu_rotl(h, 13); return h * 5 + 0xe6546b64u; }
 static uint32_t pl_gnu_hfinal(uint32_t h, uint32_t len) { h ^= len; h ^= h >> 16; h *= 0x85ebca6bu; h ^= h >> 13; h *= 0xc2b2ae35u; h ^= h >> 16; return h; }

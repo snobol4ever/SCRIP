@@ -6045,6 +6045,7 @@ DESCR_t rt_sno_name_dl(DESCR_t *, int); DESCR_t rt_sno_pbk_d(DESCR_t *, int); DE
 DESCR_t rt_pl_dop_skip_list(DESCR_t *, int); DESCR_t rt_pl_dop_argv(DESCR_t *, int);
 DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, int); DESCR_t rt_pl_dop_arg(DESCR_t *, int); DESCR_t rt_pl_dop_univ(DESCR_t *, int);
 DESCR_t rt_pl_dop_attv_set(DESCR_t *, int); DESCR_t rt_pl_dop_setarg(DESCR_t *, int); DESCR_t rt_pl_dop_nb_setarg(DESCR_t *, int); DESCR_t rt_pl_dop_nb_linkarg(DESCR_t *, int);
+DESCR_t rt_pl_dop_stamp_date_time(DESCR_t *, int); DESCR_t rt_pl_dop_date_time_stamp(DESCR_t *, int); DESCR_t rt_pl_dop_format_time_text(DESCR_t *, int);
     DESCR_t rt_pl_dop_create_prolog_flag(DESCR_t *, int);
     DESCR_t rt_pl_dop_attv_atts(DESCR_t *, int); DESCR_t rt_pl_dop_attv_take(DESCR_t *, int); DESCR_t rt_pl_dop_unifiable(DESCR_t *, int);
     DESCR_t rt_pl_dop_crv_enter(DESCR_t *, int); DESCR_t rt_pl_dop_crv_adj(DESCR_t *, int); DESCR_t rt_pl_dop_crv_collect(DESCR_t *, int);
@@ -6177,6 +6178,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
             rt_pl_dop_scc_take }, { "$succ", 2, "rt_pl_dop_succ", rt_pl_dop_succ }, { "$plus", 3, "rt_pl_dop_plus", rt_pl_dop_plus },
         { "$attv_set", 2, "rt_pl_dop_attv_set", rt_pl_dop_attv_set }, { "$setarg", 3, "rt_pl_dop_setarg", rt_pl_dop_setarg }, { "$nb_setarg", 3, "rt_pl_dop_nb_setarg", rt_pl_dop_nb_setarg },
             { "$nb_linkarg", 3, "rt_pl_dop_nb_linkarg", rt_pl_dop_nb_linkarg },
+            { "$stamp_date_time", 3, "rt_pl_dop_stamp_date_time", rt_pl_dop_stamp_date_time }, { "$date_time_stamp", 2, "rt_pl_dop_date_time_stamp", rt_pl_dop_date_time_stamp },
+            { "$format_time_text", 3, "rt_pl_dop_format_time_text", rt_pl_dop_format_time_text },
         { "$create_prolog_flag", 2, "rt_pl_dop_create_prolog_flag", rt_pl_dop_create_prolog_flag }, { "$attv_atts", 2, "rt_pl_dop_attv_atts", rt_pl_dop_attv_atts },
         { "$attv_take", 1, "rt_pl_dop_attv_take", rt_pl_dop_attv_take }, { "$unifiable", 3, "rt_pl_dop_unifiable", rt_pl_dop_unifiable },
         { "$crv_enter", 1, "rt_pl_dop_crv_enter", rt_pl_dop_crv_enter }, { "$crv_adj", 1, "rt_pl_dop_crv_adj", rt_pl_dop_crv_adj },

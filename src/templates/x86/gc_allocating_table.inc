@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2704
-#define GC_ALLOC_TAB_N_VOID 313
-#define GC_ALLOC_TAB_N_DESCR 1293
-#define GC_ALLOC_TAB_N_OTHER 1080
+#define GC_ALLOC_TAB_N 2714
+#define GC_ALLOC_TAB_N_VOID 314
+#define GC_ALLOC_TAB_N_DESCR 1299
+#define GC_ALLOC_TAB_N_OTHER 1083
 #define GC_ALLOC_TAB_N_UNKNOWN 18
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -980,6 +980,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_db_enum_ref", GC_RET_OTHER },
     { "pl_db_fragment", GC_RET_OTHER },
     { "pl_db_key_current", GC_RET_OTHER },
+    { "pl_db_key_set_file", GC_RET_VOID },
     { "pl_db_leaf2", GC_RET_OTHER },
     { "pl_db_leaf2_tree", GC_RET_OTHER },
     { "pl_db_leaf_seed", GC_RET_OTHER },
@@ -994,6 +995,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_db_store", GC_RET_OTHER },
     { "pl_det_fail_road", GC_RET_OTHER },
     { "pl_dollar_user", GC_RET_OTHER },
+    { "pl_dt_bad", GC_RET_OTHER },
+    { "pl_dt_stamp", GC_RET_OTHER },
     { "pl_dyn_index_or_add", GC_RET_OTHER },
     { "pl_dynamic_one", GC_RET_OTHER },
     { "pl_edin_switch", GC_RET_OTHER },
@@ -1874,6 +1877,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_db_get_by_key", GC_RET_OTHER },
     { "rt_pl_db_key_cell", GC_RET_OTHER },
     { "rt_pl_db_key_cell_na", GC_RET_OTHER },
+    { "rt_pl_db_key_file", GC_RET_OTHER },
     { "rt_pl_db_key_is_declared", GC_RET_OTHER },
     { "rt_pl_db_key_is_dynamic", GC_RET_OTHER },
     { "rt_pl_db_key_is_dynamic_na", GC_RET_OTHER },
@@ -1988,6 +1992,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_curstream_guard_c", GC_RET_OTHER },
     { "rt_pl_dop_cutcall", GC_RET_DESCR },
     { "rt_pl_dop_cutcall_c", GC_RET_DESCR },
+    { "rt_pl_dop_date_time_stamp", GC_RET_DESCR },
+    { "rt_pl_dop_date_time_stamp_c", GC_RET_DESCR },
     { "rt_pl_dop_db_abolish", GC_RET_DESCR },
     { "rt_pl_dop_db_abolish_c", GC_RET_DESCR },
     { "rt_pl_dop_db_abolish_t", GC_RET_DESCR },
@@ -2052,6 +2058,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_format3", GC_RET_DESCR },
     { "rt_pl_dop_format3_c", GC_RET_DESCR },
     { "rt_pl_dop_format_c", GC_RET_DESCR },
+    { "rt_pl_dop_format_time_text", GC_RET_DESCR },
+    { "rt_pl_dop_format_time_text_c", GC_RET_DESCR },
     { "rt_pl_dop_functor", GC_RET_DESCR },
     { "rt_pl_dop_functor_c", GC_RET_DESCR },
     { "rt_pl_dop_get_byte", GC_RET_DESCR },
@@ -2260,6 +2268,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_skip_list_c", GC_RET_DESCR },
     { "rt_pl_dop_sort", GC_RET_DESCR },
     { "rt_pl_dop_sort_c", GC_RET_DESCR },
+    { "rt_pl_dop_stamp_date_time", GC_RET_DESCR },
+    { "rt_pl_dop_stamp_date_time_c", GC_RET_DESCR },
     { "rt_pl_dop_stream_guard", GC_RET_DESCR },
     { "rt_pl_dop_stream_guard_c", GC_RET_OTHER },
     { "rt_pl_dop_string_chars", GC_RET_DESCR },
