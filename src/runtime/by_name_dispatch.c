@@ -9287,8 +9287,11 @@ PL_CX_LEAF_HEAD(gnu_directory_files, 2)
         el.esz = 0;
         el.kind = 0;
         el.pad = 0;
-        if (p && !(dh = rt_dir_open(p))) ok = pl_gnu_os_fail(cx);
-        else if (p) {
+        if (p && !(dh = rt_dir_open(p))) {
+            extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+            if (pl_swi_dialect() && (errno == ENOENT || errno == ENOTDIR)) cx->ball = rt_pl_ball_kind2("existence_error", errno == ENOENT ? "file" : "directory", rt_pl_deref_val(args[0]));
+            else pl_gnu_os_fail(cx);
+        } else if (p) {
             while ((e = rt_dir_next(dh))) { *pl_gnu_vec_push(&el) = pl_mk_atom_dup(e, strlen(e)); n++; }
             rt_dir_close(dh);
             ok = plw_unify_vals(args[1], pl_list_from_arr((DESCR_t *)el.p, n), cx);
@@ -20562,17 +20565,30 @@ DESCR_t rt_pl_dop_pl_cp_nth_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *r
     rt_pl_tr_gc_sync(cx->tr);
     return ok ? pl_ok() : FAILDESCR;
 }
-static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i) {
+static DESCR_t pl_pp_head(DESCR_t h, DESCR_t *mod) {
+    extern const char *prolog_atom_name(int);
+    h = rt_pl_deref_val(h);
+    while (h.v == (DTYPE_t)DT_PLREF && plc_fid_arity(h.slen) == 2 && !strcmp(prolog_atom_name(plc_fid_name(h.slen)), ":")) {
+        if (mod) *mod = ((DESCR_t *)h.p)[0];
+        h = rt_pl_deref_val(((DESCR_t *)h.p)[1]);
+    }
+    return h;
+}
+static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **file) {
     extern int rt_pl_db_key_kind(void *, const char *);
+    extern const char *rt_pl_db_key_file(void *, const char *);
     extern int pl_pi_is_builtin(const char *, int);
     extern const char *prolog_atom_name(int);
-    const char *nm;
+    const char *nm, *fp = (const char *)0;
     int ar = 0, kind;
+    h = pl_pp_head(h, (DESCR_t *)0);
     if (h.v == (DTYPE_t)DT_PLREF) { nm = prolog_atom_name(plc_fid_name(h.slen)); ar = plc_fid_arity(h.slen); } else nm = pl_atom_str(h);
-    if (!nm || i < 1 || i > 2) return (const char *)0;
-    { size_t nl = strlen(nm); char key[nl + 24]; snprintf(key, sizeof key, "%s/%d", nm, ar); kind = rt_pl_db_key_kind(root, key); }
-    if (kind) return i == 1 ? (kind == 2 ? "dynamic" : "static") : "defined";
-    if (pl_pi_is_builtin(nm, ar)) return i == 1 ? "built_in" : "defined";
+    if (!nm || i < 1 || i > 3) return (const char *)0;
+    { size_t nl = strlen(nm); char key[nl + 24]; snprintf(key, sizeof key, "%s/%d", nm, ar); kind = rt_pl_db_key_kind(root, key); if (kind == 1) fp = rt_pl_db_key_file(root, key); }
+    if (kind && i == 1) return kind == 2 ? "dynamic" : "static";
+    if (kind && fp && i == 2) { *file = fp; return "file"; }
+    if (kind) return i == (fp ? 3 : 2) ? "defined" : (const char *)0;
+    if (pl_pi_is_builtin(nm, ar) && i < 3) return i == 1 ? "built_in" : "defined";
     return (const char *)0;
 }
 DESCR_t rt_pl_dop_pl_pp_count_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
@@ -20580,7 +20596,7 @@ DESCR_t rt_pl_dop_pl_pp_count_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void 
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
     rt_pl_tr_gc_sync(cx->tr);
-    { DESCR_t h = rt_pl_deref_val(args[0]); long long n = 0; while (pl_pp_prop(h, root, n + 1)) n++; ok = plw_unify_vals(args[1], INTVAL(n), cx); }
+    { DESCR_t h = rt_pl_deref_val(args[0]); const char *fp; long long n = 0; while (pl_pp_prop(h, root, n + 1, &fp)) n++; ok = plw_unify_vals(args[1], INTVAL(n), cx); }
     rt_pl_tr_gc_sync(cx->tr);
     return ok ? pl_ok() : FAILDESCR;
 }
@@ -20591,8 +20607,10 @@ DESCR_t rt_pl_dop_pl_pp_nth_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *r
     rt_pl_tr_gc_sync(cx->tr);
     {
         DESCR_t iv = rt_pl_deref_val(args[0]);
-        const char *pr = iv.v == DT_I ? pl_pp_prop(rt_pl_deref_val(args[1]), root, iv.i) : (const char *)0;
-        if (pr) ok = plw_unify_vals(args[2], pl_mk_atom_dup(pr, strlen(pr)), cx);
+        const char *fp = (const char *)0;
+        const char *pr = iv.v == DT_I ? pl_pp_prop(rt_pl_deref_val(args[1]), root, iv.i, &fp) : (const char *)0;
+        if (pr && fp) ok = plw_unify_vals(args[2], pl_gnu_fn1("file", pl_mk_atom_dup(fp, strlen(fp))), cx);
+        else if (pr) ok = plw_unify_vals(args[2], pl_mk_atom_dup(pr, strlen(pr)), cx);
     }
     rt_pl_tr_gc_sync(cx->tr);
     return ok ? pl_ok() : FAILDESCR;
@@ -20601,10 +20619,12 @@ PL_CX_LEAF_HEAD(pl_pp_guard, 1)
     {
         extern void *rt_pl_ball_kind2_pi(const char *, const char *, DESCR_t, const char *, int);
         extern void *rt_pl_ball_instantiation(void);
-        DESCR_t h = rt_pl_deref_val(args[0]);
+        DESCR_t m = NULVCL;
+        DESCR_t h = pl_pp_head(args[0], &m);
         ok = 1;
         if (pl_iso_unbound(h)) { cx->ball = rt_pl_ball_instantiation(); ok = 0; }
         if (h.v == DT_I || h.v == DT_R) { cx->ball = rt_pl_ball_kind2_pi("type_error", "callable", h, "predicate_property", 2); ok = 0; }
+        if (ok && m.v != (DTYPE_t)DT_SNUL && pl_val_unbound(rt_pl_deref_val(m))) ok = plw_unify_vals(m, pl_mk_atom_dup("user", 4), cx);
     }
 PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_cp_guard, 1)

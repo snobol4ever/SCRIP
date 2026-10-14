@@ -9,7 +9,7 @@
 #define STAGE2_LABEL_MAX 4096
 #define STAGE2_PROC_TABLE_MAX 256
 #define STAGE2_PL_PRED_TABLE_SIZE 256
-typedef struct Resolve_PredEntry_t { const char *key; tree_t *choice; struct Resolve_PredEntry_t *next; int entry_pc; } Resolve_PredEntry;
+typedef struct Resolve_PredEntry_t { const char *key; tree_t *choice; struct Resolve_PredEntry_t *next; int entry_pc; const char *file; } Resolve_PredEntry;
 #define STAGE2_FRAME_SLOT_MAX 64
 typedef struct LabelEntry { const char *name; const tree_t *stmt; } LabelEntry;
 typedef struct ScopeEnt { const char *name; int slot; } ScopeEnt;
@@ -82,7 +82,7 @@ void stage2_reset(void);
 void ir_delete_all(stage2_t *s2);
 int stage2_label_grow(stage2_t *s2);
 int stage2_proc_grow (stage2_t *s2);
-void resolve_pred_table_insert(Resolve_PredTable *pt, const char *key, tree_t *choice);
+Resolve_PredEntry *resolve_pred_table_insert(Resolve_PredTable *pt, const char *key, tree_t *choice);
 tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
 typedef struct { void (*before)(void *ctx, int pi, int bb_idx); void (*after)(void *ctx, int pi, int bb_idx, void *fn); void *ctx; } emit_install_hooks_t;
 #ifdef __cplusplus

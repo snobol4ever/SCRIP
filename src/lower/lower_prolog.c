@@ -2,6 +2,7 @@
 #include "ct_arena.h"
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <stdint.h>
 #include "lower.h"
 #include "emit.h"
@@ -22,14 +23,16 @@ typedef struct { const char * name; int arity; int bb_idx; } pl_bb_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned resolve_pred_hash(const char *s) { unsigned h = 5381; while (*s) h = h * 33 ^ (unsigned char)*s++; return h % STAGE2_PL_PRED_TABLE_SIZE; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void resolve_pred_table_insert(Resolve_PredTable *pt, const char *key, tree_t *choice) {
+Resolve_PredEntry *resolve_pred_table_insert(Resolve_PredTable *pt, const char *key, tree_t *choice) {
     unsigned h = resolve_pred_hash(key);
     Resolve_PredEntry *e = (Resolve_PredEntry *) ct_alloc(sizeof(Resolve_PredEntry));
     e->key = key;
     e->choice = choice;
     e->entry_pc = -1;
+    e->file = NULL;
     e->next = pt->buckets[h];
     pt->buckets[h] = e;
+    return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key) {
@@ -1486,6 +1489,16 @@ static int pl_file_defines(const char * nm, int ar) {
     return (ch && ch->t == TT_CHOICE && ch->n > 0) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_pred_file(const char * nm, int ar) {
+    char key[fmt_len("%s/%d", nm, ar)];
+    snprintf(key, sizeof key, "%s/%d", nm, ar);
+    for (Resolve_PredEntry * e = g_stage2.resolve_pred_table.buckets[resolve_pred_hash(key)]; e; e = e->next) {
+        if (strcmp(e->key, key)) continue;
+        return (e->choice && e->choice->t == TT_CHOICE && e->choice->n > 0 && e->choice->c[0] && e->choice->c[0]->line > 0 && e->file && e->file[0] != '<') ? e->file : (const char *) 0;
+    }
+    return (const char *) 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_owned(const char * nm, int ar) {
     if (pl_rt_is_dynamic(nm, ar)) return 1;
     if (pl_decl_dyn_is(nm, ar)) return 1;
@@ -2896,6 +2909,11 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 γnext, ωfail, entry_out);
             if (!strcmp(nm, "predicate_property") && t->n == 2 && !pl_file_defines(nm, 2)) {
                 const tree_t * h = t->c[0];
+                if (h && h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && h->c[0] && h->c[1]) {
+                    tree_t * pg = pl_cc_fnc2("predicate_property", (tree_t *) h->c[1], (tree_t *) t->c[1]);
+                    if (h->c[0]->t == TT_QLIT || h->c[0]->t == TT_NAME) return goal(cx, pg, γnext, ωfail, entry_out);
+                    return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("ignore", pl_cc_fnc2("=", (tree_t *) h->c[0], (tree_t *) pl_atom_goal("user"))), pg), γnext, ωfail, entry_out);
+                }
                 const char * pn = (h && (h->t == TT_FNC || h->t == TT_QLIT || h->t == TT_NAME)) ? h->v.sval : (const char *) 0;
                 int ar = (h && h->t == TT_FNC) ? h->n : 0;
                 const tree_t * pp = t->c[1];
@@ -2908,7 +2926,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     int def = dyn || pl_file_defines(pn, ar);
                     const char * meta = def ? (const char *) 0 : pl_meta_template(pn, ar);
                     int bi = !def && (meta || pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
-                    const tree_t * props[7];
+                    const tree_t * props[8];
+                    const char * pf = (def && !dyn) ? pl_pred_file(pn, ar) : (const char *) 0;
+                    char rp[PATH_MAX];
                     int np = 0;
                     const tree_t * um = def ? pl_decl_meta_of(pn, ar) : (const tree_t *) 0;
                     int portray1 = !strcmp(pn, "portray") && ar == 1;
@@ -2917,6 +2937,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     if (portray1) { if (!dyn) props_pt[npt++] = pl_atom_goal("dynamic"); props_pt[npt++] = pl_atom_goal("multifile"); }
                     if (dyn) props[np++] = pl_atom_goal("dynamic");
                     else if (def && !portray1) props[np++] = pl_atom_goal("static");
+                    if (pf && realpath(pf, rp)) props[np++] = pl_cc_fnc1("file", (tree_t *) pl_atom_goal(lp_strdup(rp)));
                     if (def) props[np++] = pl_atom_goal("defined");
                     if (bi) { props[np++] = pl_atom_goal("built_in"); props[np++] = pl_atom_goal("defined"); }
                     if (!portray1 && pl_decl_mf_is(pn, ar)) props[np++] = pl_atom_goal("multifile");
@@ -2935,7 +2956,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                         }
                         props[np++] = pl_cc_fnc1("meta_predicate", tm);
                     }
-                    for (int i = 0; i < npt && np < 7; i++) props[np++] = props_pt[i];
+                    for (int i = 0; i < npt && np < 8; i++) props[np++] = props_pt[i];
                     if (!np) return goal(cx, pl_pp_runtime(h, pp), γnext, ωfail, entry_out);
                     {
                         tree_t * alt = pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[np - 1]);
@@ -3595,7 +3616,7 @@ static void pl_register_program(stage2_t * s2, const tree_t * prog) {
         tree_t * sub = lp_s_expr(s, ":subj");
         if (!sub) continue;
         if ((sub->t == TT_CHOICE || sub->t == TT_CLAUSE) && sub->v.sval) {
-            resolve_pred_table_insert(&s2->resolve_pred_table, sub->v.sval, sub);
+            resolve_pred_table_insert(&s2->resolve_pred_table, sub->v.sval, sub)->file = stmt_attr_str(stmt_attr_find(s, ":file"));
             if (strcmp(sub->v.sval, "main/0") == 0 && s2->module_registry.main_mod < 0) s2->module_registry.main_mod = mod_idx;
         }
     }
@@ -3747,6 +3768,7 @@ static void pl_db_decls_capture(void) {
             PL_DW(ar);
             PL_DW(1);
             PL_DW(-1);
+            { const char * pf = pl_pred_file(nm, ar); char rp[PATH_MAX]; if (pf && realpath(pf, rp)) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(4); PL_DW(prolog_atom_intern(rp)); } }
         }
     }
     for (int i = 0; i < g_lower.pl.decl_other_n; i++) if (!pl_name_is_scrip_own(g_lower.pl.decl_other_name[i], g_lower.pl.decl_other_arity[i])) {

@@ -676,6 +676,7 @@ test_gate_pl_current_op_enumerates_newest_first_over_the_table_of_its_call.sh	WI
 test_gate_pl_cyclic_terms_every_walker_terminates_and_writes_as_swipl_does.sh	WIRED	-	-	-
 test_gate_pl_cyclic_terms_unify_compare_copy_and_survive_a_collection_as_swipl_does.sh	WIRED	-	-	-
 test_gate_pl_debug_0_and_the_swi_debug_flag_answer_as_swipl.sh	WIRED	-	-	-
+test_gate_pl_directory_files_agc_file_property_and_max_path_length_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_findall_4_serves_a_bound_tail_and_an_unbound_one.sh	WIRED	-	-	-
 test_gate_pl_format_column_fill_is_a_character_not_a_byte.sh	WIRED	-	-	-
 test_gate_pl_gnu_all_solutions_dec10_io_for_and_name_answer_as_gprolog.sh	WIRED	-	-	-

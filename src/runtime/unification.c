@@ -3271,7 +3271,7 @@ int rt_pl_nb_is_set(void *root, int64_t k) { if (!root || k < 0) return 0; { pl_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_DB_REGISTRY_CELL 0
 #define PL_DB_KEY_VLA(buf, nm, ar) char buf[fmt_len("%s/%d", (nm), (int)(ar))]; snprintf(buf, sizeof buf, "%s/%d", (nm), (int)(ar))
-typedef struct { char *key; int k; pl_db_t *db; int stat; int decl; } pl_db_key_t;
+typedef struct { char *key; int k; pl_db_t *db; int stat; int decl; int file; } pl_db_key_t;
 typedef struct { pl_db_key_t *e; int n; int cap; int next_cell; int ovf_cap; void **ovf; void **tries; int ntries; int tcap; int tbl_vt; } pl_db_reg_t;
 _Static_assert(__builtin_offsetof(pl_db_reg_t, ovf) == 24,
     "xa_flat.cpp's packet road loads a root cell numbered PL_DB_FRAME_CELLS or more through [registry + 24], the overflow vector -- the cells past the root frame live there, in an HB_PVEC that grows"
@@ -3357,7 +3357,7 @@ static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key) {
         r->e = ne;
         r->cap = nc;
     }
-    { char *ks = rt_str_dup(key); if (!ks) return (pl_db_key_t *)0; pl_db_key_t *e = &r->e[r->n++]; e->key = ks; e->k = -1; e->db = (pl_db_t *)0; e->stat = 0; e->decl = 0; return e; }
+    { char *ks = rt_str_dup(key); if (!ks) return (pl_db_key_t *)0; pl_db_key_t *e = &r->e[r->n++]; e->key = ks; e->k = -1; e->db = (pl_db_t *)0; e->stat = 0; e->decl = 0; e->file = -1; return e; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct pl_trie_node_s { DESCR_t tok; DESCR_t val; struct pl_trie_node_s *parent; void **kids; int nkids; int kcap; int kind; int has_val; int ent; int depth; } pl_trie_node_t;
@@ -3678,6 +3678,11 @@ int rt_pl_db_term_cell(void *root, void *term_cell) {
 int rt_pl_db_frame_cells(void) { return PL_DB_FRAME_CELLS; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_decl(void *root, const char *name, int64_t arity, int64_t kind);
+static void pl_db_key_set_file(void *root, const char *name, int64_t arity, int64_t file) {
+    PL_DB_KEY_VLA(key, name, arity);
+    pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
+    if (e) e->file = (int)file;
+}
 int rt_pl_db_cells_base(void *root, int64_t n);
 void rt_pl_db_decls_install(const long *tab, void *root) {
     extern const char *prolog_atom_name(int);
@@ -3689,8 +3694,12 @@ void rt_pl_db_decls_install(const long *tab, void *root) {
     cells = tab[1];
     e = tab + 2;
     rt_pl_db_cells_base(root, cells);
-    for (long i = 0; i < n; i++) { const char *nm = prolog_atom_name((int)e[4 * i]); if (nm && e[4 * i + 3] >= 0) rt_pl_db_bind(root, e[4 * i + 3], nm, e[4 * i + 1]); }
-    for (long i = 0; i < n; i++) { const char *nm = prolog_atom_name((int)e[4 * i]); if (nm && e[4 * i + 2] > 0) rt_pl_db_decl(root, nm, e[4 * i + 1], e[4 * i + 2]); }
+    for (long i = 0; i < n; i++) { const char *nm = prolog_atom_name((int)e[4 * i]); if (nm && e[4 * i + 2] != 4 && e[4 * i + 3] >= 0) rt_pl_db_bind(root, e[4 * i + 3], nm, e[4 * i + 1]); }
+    for (long i = 0; i < n; i++) {
+        const char *nm = prolog_atom_name((int)e[4 * i]);
+        if (nm && e[4 * i + 2] == 4) pl_db_key_set_file(root, nm, e[4 * i + 1], e[4 * i + 3]);
+        else if (nm && e[4 * i + 2] > 0) rt_pl_db_decl(root, nm, e[4 * i + 1], e[4 * i + 2]);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_cells_base(void *root, int64_t n) { pl_db_reg_t *r = pl_db_registry(root, 1); if (!r) return 0; if ((int)n > r->next_cell) r->next_cell = (int)n; return 1; }
@@ -3698,6 +3707,11 @@ int rt_pl_db_key_is_dynamic(void *root, const char *key) { pl_db_key_t *e = pl_d
 int rt_pl_db_key_is_static(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); return (e && e->stat) ? 1 : 0; }
 int rt_pl_db_key_is_declared(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); return (e && e->decl) ? 1 : 0; }
 static int pl_db_key_current(void *root, pl_db_key_t *e);
+const char *rt_pl_db_key_file(void *root, const char *key) {
+    extern const char *prolog_atom_name(int);
+    pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
+    return (e && e->stat && e->file >= 0 && pl_db_key_current(root, e)) ? prolog_atom_name(e->file) : (const char *)0;
+}
 int rt_pl_db_key_kind(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); if (!e || !pl_db_key_current(root, e)) return 0; return e->stat ? 1 : 2; }
 int rt_pl_db_decl(void *root, const char *name, int64_t arity, int64_t kind) {
     if (!root || !name) return 0;
