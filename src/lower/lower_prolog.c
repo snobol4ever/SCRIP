@@ -1131,6 +1131,23 @@ static IR_t * pl_lower_det_goal(lcx_t * cx, const tree_t * G, IR_t * γnext, IR_
     if (entry_out) *entry_out = bank;
     return out;
 }
+static int pl_tree_is_inf(const tree_t * t) { return t && (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && (!strcmp(t->v.sval, "inf") || !strcmp(t->v.sval, "infinite")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_between_split(const tree_t * t) {
+    tree_t * lo = (tree_t *) t->c[0];
+    tree_t * hi = (tree_t *) t->c[1];
+    tree_t * x = (tree_t *) t->c[2];
+    tree_t * gen;
+    if (pl_tree_is_inf(hi)) gen = pl_cc_fnc3("$between_gen", lo, pl_cc_ilit(9223372036854775807LL), x);
+    else if (hi && hi->t == TT_VAR) {
+        tree_t * isinf = pl_cc_fnc2(";", pl_cc_fnc2("==", hi, (tree_t *) pl_atom_goal("inf")), pl_cc_fnc2("==", hi, (tree_t *) pl_atom_goal("infinite")));
+        gen = pl_cc_ite(isinf, pl_cc_fnc3("$between_gen", lo, pl_cc_ilit(9223372036854775807LL), x), pl_cc_fnc3("$between_gen", lo, hi, x));
+    } else gen = pl_cc_fnc3("$between_gen", lo, hi, x);
+    if (x && x->t == TT_ILIT) return pl_cc_fnc3("$between_test", lo, hi, x);
+    if (x && x->t != TT_VAR) return gen;
+    return pl_cc_ite(pl_cc_fnc1("nonvar", x), pl_cc_fnc3("$between_test", lo, hi, x), gen);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_scc_why(const tree_t * K, const tree_t * C, tree_t * why) { return K ? pl_cc_fnc2(",", pl_cc_fnc2("=", (tree_t *) K, why), (tree_t *) C) : C; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const tree_t * K, const tree_t * C, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
@@ -2575,7 +2592,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 }
                 return nd;
             }
-            if ((!strcmp(nm, "between") || !strcmp(nm, "for")) && t->n == 3) {
+            if (!strcmp(nm, "between") && t->n == 3 && !pl_file_defines(nm, 3)) return goal(cx, pl_between_split(t), γnext, ωfail, entry_out);
+            if ((!strcmp(nm, "$between_gen") || !strcmp(nm, "for")) && t->n == 3) {
                 int forarg = !strcmp(nm, "for");
                 const tree_t * lo_t = forarg ? t->c[1] : t->c[0];
                 const tree_t * hi_t = forarg ? t->c[2] : t->c[1];

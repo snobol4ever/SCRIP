@@ -2242,6 +2242,12 @@ static const char * const PL_PRELUDE_SRC =
     "findnsols(N,_,_,L):-N=<0,!,L=[].\n"
     "findnsols(N,T0,G0,L):-copy_term(T0-G0,T-G),S='$fns'(0,[],no),(call(G),arg(2,S,A0),nb_setarg(2,S,[T|A0]),arg(1,S,C0),C is C0+1,nb_setarg(1,S,C),C>=N,arg(2,S,A),nb_setarg(1,S,0),nb_setarg(2,S,[]),nb_setarg(3,S,yes),reverse(A,L);arg(2,S,A),arg(3,S,Y),(A==[]->Y==no;true),reverse(A,L)).\n"
     "divmod(A,B,Q,R):-Q is A div B,R is A mod B.\n"
+    "'$between_test'(L,_,_):-var(L),!,throw(error(instantiation_error,context(between/3,_))).\n"
+    "'$between_test'(L,_,_):- \\+integer(L),!,throw(error(type_error(integer,L),context(between/3,_))).\n"
+    "'$between_test'(_,H,_):-var(H),!,throw(error(instantiation_error,context(between/3,_))).\n"
+    "'$between_test'(_,H,_):- \\+integer(H),H\\==inf,H\\==infinite,!,throw(error(type_error(integer,H),context(between/3,_))).\n"
+    "'$between_test'(_,_,X):- \\+integer(X),!,throw(error(type_error(integer,X),context(between/3,_))).\n"
+    "'$between_test'(L,H,X):-X>=L,(integer(H)->X=<H;true).\n"
     "lazy_list(Next,S0,L):-freeze(L,'$lazy_list_next'(Next,S0,L)).\n"
     "'$lazy_list_next'(Next,S0,L):-(call(Next,S0,S1,H)->L=[H|T],lazy_list(Next,S1,T);L=[]).\n"
     "'$at_ctx'(V):-var(V),!,throw(error(instantiation_error,_)).\n"
@@ -2920,6 +2926,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "clause")) pl_cv_add(&referenced, "$clause_unmangle");
     if (pl_cv_has(&referenced, "@")) pl_cv_add(&referenced, "$at_ctx");
     if (pl_cv_has(&referenced, "lazy_list")) pl_cv_add(&referenced, "$wakeup");
+    if (pl_cv_has(&referenced, "between")) pl_cv_add(&referenced, "$between_test");
     {
         int napi = 0;
         while (pl_attv_api[napi]) napi++;
@@ -3001,6 +3008,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
                 pl_tree_collect_calls(pl_clause_body(pc[i]), &calls[i]);
                 if (pl_cv_has(&calls[i], "call_cleanup") || pl_cv_has(&calls[i], "setup_call_cleanup") || pl_cv_has(&calls[i], "setup_call_catcher_cleanup")) pl_cv_add(&calls[i], "$scc_cut");
                 if (pl_cv_has(&calls[i], "string_concat")) pl_cv_add(&calls[i], "$string_concat_split");
+                if (pl_cv_has(&calls[i], "between")) pl_cv_add(&calls[i], "$between_test");
                 if (pl_cv_has(&calls[i], "erase")) { pl_cv_add(&calls[i], "$rec_ref"); pl_cv_add(&calls[i], "$rec_erase"); }
                 if (pl_cv_has(&calls[i], "current_predicate")) pl_cv_add(&calls[i], "$cp_mq");
                 cdone[i] = 1;
