@@ -18,6 +18,16 @@
 #define TBBLK_BUCKETS     0
 #define TBBLK_NBUCK       8
 #define TBBLK_DFLT       32
+#define TBBLK_SIZE       12
+#define TBBLK_INIT       16
+#define HB_AGGB         211
+#define TBBLK_ORD        56
+#define TBBLK_ORD_LEN    64
+#define TBBLK_ORD_CAP    68
+#define TBBLK_ICN_MASK   72
+#define TBBLK_ORD_DEAD  104
+#define TBBUCK_CAP        4
+#define TBL_LOAD_MAX      4
 #define TBL_LINEAR_MAX   12
 RTX_GATE_DEF(table)
 RTX_FUNC(rt_table_assign_fast)
@@ -50,6 +60,8 @@ RTX_FUNC(rt_table_assign_fast)
     mov     rdx, rcx
     RTX_CALL(table_find_pair_d)
     RTX_ADD_RSP(8)
+    mov     r10, rdx
+    mov     r11, rcx
     RTX_POP(rcx)
     RTX_POP(rdx)
     RTX_POP(rsi)
@@ -76,6 +88,165 @@ RTX_FUNC(rt_table_assign_fast)
     ret
 .Lta_miss:
     RTX_CFA(24)
+    test    r10, r10
+    je      .Lta_decl
+    cmp     dword ptr [rsi + TBBLK_ORD_DEAD], 0
+    jne     .Lta_decl
+    mov     eax, dword ptr [rsi + TBBLK_ORD_LEN]
+    cmp     eax, dword ptr [rsi + TBBLK_ORD_CAP]
+    jae     .Lta_decl
+    mov     eax, dword ptr [rsi + TBBLK_SIZE]
+    inc     eax
+    mov     r8, qword ptr [rsi + TBBLK_ICN_MASK]
+    inc     r8
+    lea     r8, [r8 + r8*4]
+    cmp     rax, r8
+    ja      .Lta_decl
+    mov     r8d, dword ptr [rsi + TBBLK_NBUCK]
+    mov     r9d, r8d
+    shl     r9d, 2
+    cmp     eax, r9d
+    ja      .Lta_decl
+    dec     r8d
+    and     r8d, r11d
+    mov     rax, qword ptr [rsi + TBBLK_BUCKETS]
+    lea     rax, [rax + r8*8]
+    mov     r8, qword ptr [rax]
+    test    r8, r8
+    je      .Lta_newb
+    mov     r9d, dword ptr [r8 + TBBUCK_LEN]
+    cmp     r9d, dword ptr [r8 + TBBUCK_CAP]
+    jae     .Lta_growb
+    mov     rax, r8
+    jmp     .Lta_place
+.Lta_newb:
+    cmp     dword ptr [rsi + TBBLK_INIT], 0
+    jl      .Lta_decl
+    RTX_PUSH(rsi)
+    RTX_PUSH(rdx)
+    RTX_PUSH(rcx)
+    RTX_PUSH(r10)
+    RTX_PUSH(r11)
+    mov     r10d, 1
+    mov     eax, dword ptr [rsi + TBBLK_INIT]
+    test    eax, eax
+    jle     .Lta_nb_nc
+    xor     edx, edx
+    div     dword ptr [rsi + TBBLK_NBUCK]
+.Lta_nb_loop:
+    cmp     r10d, eax
+    jae     .Lta_nb_nc
+    cmp     r10d, 64
+    jae     .Lta_nb_nc
+    shl     r10d, 1
+    jmp     .Lta_nb_loop
+.Lta_nb_nc:
+    RTX_PUSH(r10)
+    RTX_PUSH(r8)
+    jmp     .Lta_alloc
+.Lta_growb:
+    RTX_CFA(24)
+    RTX_PUSH(rsi)
+    RTX_PUSH(rdx)
+    RTX_PUSH(rcx)
+    RTX_PUSH(r10)
+    RTX_PUSH(r11)
+    mov     eax, dword ptr [r8 + TBBUCK_CAP]
+    lea     r10d, [rax + rax]
+    cmp     eax, 128
+    jb      .Lta_gb_nc
+    lea     r10d, [rax + 128]
+.Lta_gb_nc:
+    RTX_PUSH(r10)
+    RTX_PUSH(r8)
+.Lta_alloc:
+    mov     eax, dword ptr [rsp + 8]
+    imul    eax, eax, TBPAIR_SIZE
+    add     eax, TBBUCK_ENT
+    mov     esi, eax
+    mov     edi, HB_AGGB
+    RTX_CALL(rt_gcheap_alloc)
+    mov     r8, qword ptr [rsp]
+    mov     ecx, dword ptr [rsp + 8]
+    mov     dword ptr [rax + TBBUCK_CAP], ecx
+    mov     dword ptr [rax + TBBUCK_LEN], 0
+    test    r8, r8
+    je      .Lta_al_new
+    mov     ecx, dword ptr [r8 + TBBUCK_LEN]
+    mov     dword ptr [rax + TBBUCK_LEN], ecx
+    imul    rcx, rcx, TBPAIR_SIZE
+    shr     rcx, 3
+    lea     rsi, [r8 + TBBUCK_ENT]
+    lea     rdi, [rax + TBBUCK_ENT]
+    rep movsq
+    mov     r10, qword ptr [rsp + 24]
+    sub     r10, r8
+    add     r10, rax
+    jmp     .Lta_al_done
+.Lta_al_new:
+    lea     r10, [rax + TBBUCK_ENT]
+.Lta_al_done:
+    mov     rsi, qword ptr [rsp + 48]
+    mov     r11, qword ptr [rsp + 16]
+    mov     ecx, dword ptr [rsi + TBBLK_NBUCK]
+    dec     ecx
+    and     ecx, r11d
+    mov     rdx, qword ptr [rsi + TBBLK_BUCKETS]
+    mov     qword ptr [rdx + rcx*8], rax
+    mov     rcx, qword ptr [rsp + 32]
+    mov     rdx, qword ptr [rsp + 40]
+    RTX_ADD_RSP(56)
+.Lta_place:
+    mov     r8d, dword ptr [rax + TBBUCK_LEN]
+    imul    r8, r8, TBPAIR_SIZE
+    lea     r8, [rax + r8 + TBBUCK_ENT]
+.Lta_shift:
+    cmp     r8, r10
+    jbe     .Lta_shifted
+    sub     r8, TBPAIR_SIZE
+    mov     r9, qword ptr [r8]
+    mov     qword ptr [r8 + 40], r9
+    mov     r9, qword ptr [r8 + 8]
+    mov     qword ptr [r8 + 48], r9
+    mov     r9, qword ptr [r8 + 16]
+    mov     qword ptr [r8 + 56], r9
+    mov     r9, qword ptr [r8 + 24]
+    mov     qword ptr [r8 + 64], r9
+    mov     r9, qword ptr [r8 + 32]
+    mov     qword ptr [r8 + 72], r9
+    jmp     .Lta_shift
+.Lta_shifted:
+    mov     r8, qword ptr [rsp + 8]
+    mov     r9, qword ptr [rsp]
+    mov     qword ptr [r10], rdx
+    mov     qword ptr [r10 + 8], rcx
+    mov     qword ptr [r10 + 16], r8
+    mov     qword ptr [r10 + 24], r9
+    mov     qword ptr [r10 + 32], r11
+    inc     dword ptr [rax + TBBUCK_LEN]
+    inc     dword ptr [rsi + TBBLK_SIZE]
+    mov     eax, dword ptr [rsi + TBBLK_ORD_LEN]
+    mov     r10, qword ptr [rsi + TBBLK_ORD]
+    shl     rax, 4
+    mov     qword ptr [r10 + rax], rdx
+    mov     qword ptr [r10 + rax + 8], rcx
+    inc     dword ptr [rsi + TBBLK_ORD_LEN]
+    cmp     r8b, DT_S
+    jne     .Lta_ins_done
+    mov     r10, qword ptr [rip + g_sxt_fr@GOTPCREL]
+    cmp     qword ptr [r10], r9
+    jne     .Lta_ins_done
+    mov     qword ptr [r10], 0
+.Lta_ins_done:
+    mov     rax, r8
+    mov     rdx, r9
+    RTX_ADD_RSP(16)
+    RTX_GVA_R9
+    ret
+.Lta_decl:
+    RTX_CFA(24)
+    mov     r8, qword ptr [rsp + 8]
+    mov     r9, qword ptr [rsp]
     RTX_ADD_RSP(16)
     RTX_DECLINE
 .Lta_c:
@@ -215,11 +386,11 @@ RTX_FUNC(table_find_pair_d)
     mov     rcx, [rdi + TBBLK_BUCKETS]
     mov     rcx, [rcx + rax*8]
     test    rcx, rcx
-    je      .Ltf_null
+    je      .Ltf_null_nobucket
     lea     r8, [rcx + TBBUCK_ENT]
     mov     ecx, [rcx + TBBUCK_LEN]
     test    ecx, ecx
-    je      .Ltf_null
+    je      .Ltf_null_empty
     mov     rdi, rdx
     mov     rax, rcx
     imul    rax, rax, TBPAIR_SIZE
@@ -229,7 +400,7 @@ RTX_FUNC(table_find_pair_d)
     mov     r10, r8
 .Ltf_lin:
     cmp     r10, r9
-    jae     .Ltf_null
+    jae     .Ltf_null_slot
     cmp     [r10 + TBPAIR_HKEY], r11
     jae     .Ltf_scan
     add     r10, TBPAIR_SIZE
@@ -260,10 +431,10 @@ RTX_FUNC(table_find_pair_d)
     lea     r10, [r8 + rax]
 .Ltf_scan:
     cmp     r10, r9
-    jae     .Ltf_null
+    jae     .Ltf_null_slot
     mov     rax, [r10 + TBPAIR_HKEY]
     cmp     rax, r11
-    jne     .Ltf_null
+    jne     .Ltf_null_slot
     movzx   eax, byte ptr [r10 + TBPAIR_KEYD_V]
     cmp     al, sil
     jne     .Ltf_next
@@ -337,14 +508,30 @@ RTX_FUNC(table_find_pair_d)
     mov     rax, r10
     RTX_GVA_R9
     ret
+.Ltf_null_empty:
+    mov     r10, r8
+.Ltf_null_slot:
+    mov     rdx, r10
+    mov     rcx, r11
+    xor     eax, eax
+    RTX_GVA_R9
+    ret
+.Ltf_null_nobucket:
+    mov     edx, 1
+    mov     rcx, r11
+    xor     eax, eax
+    RTX_GVA_R9
+    ret
 .Ltf_null:
     xor     eax, eax
+    xor     edx, edx
     RTX_GVA_R9
     ret
 .Ltf_c:
     RTX_SUB_RSP(8)
     call    c_table_find_pair_d
     RTX_ADD_RSP(8)
+    xor     edx, edx
     RTX_GVA_R9
     ret
 RTX_ENDF(table_find_pair_d)

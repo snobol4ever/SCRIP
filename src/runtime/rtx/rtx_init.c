@@ -111,6 +111,10 @@ _Static_assert(offsetof(TBBLK_t, buckets) == 0 && offsetof(TBBLK_t, nbuck) == 8 
     " the wrong word.  "
     "⛔ THE BUCKET COUNT IS PER-TABLE SINCE s263, sized from the program's TABLE(n) estimate, so the .S MUST load the mask and must never bake one: a literal was correct only while every table had "
     "256 buckets");
+_Static_assert(offsetof(TBBLK_t, size) == 12 && offsetof(TBBLK_t, init) == 16 && HB_AGGB == 211 && offsetof(TBBLK_t, ord) == 56 && offsetof(TBBLK_t, ord_len) == 64 &&
+    offsetof(TBBLK_t, ord_cap) == 68 && offsetof(TBBLK_t, icn_mask) == 72 && offsetof(TBBLK_t, ord_dead) == 104,
+    "rtx_table.s rt_table_assign_fast inserts a new key in place (TBBLK_ SIZE 12, ORD 56, ORD_LEN 64, ORD_CAP 68, ICN_MASK 72, ORD_DEAD 104); core.h drifted -- the insertion would bump the wrong cou"
+    "nter or " "write the order array through the wrong pointer, which links fine and corrupts the table silently");
 _Static_assert(DT_A == 0x10,
     "rtx_icnsub.s RTX-28 array arm guards on DT_A AND branches on it AHEAD of the DT_N varref gate; descr.h drifted -- the arm would admit the wrong datatype and index a non-array, which links fine "
     "and corrupts silently");
