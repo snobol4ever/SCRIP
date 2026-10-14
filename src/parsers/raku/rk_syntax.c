@@ -41,6 +41,7 @@ typedef struct RkP {
     const char *ustop; int ustop_len;
     int p5isms;
     char **libs; int nlibs; int clibs; int load_depth;
+    struct RkP *top; tree_t **mtrees; int nmtrees; int cmtrees; const char **modpaths; int nmodpaths; int cmodpaths;
     char **decls; int ndecls; int cdecls;
     RkHere *here; int nhere; int chere;
     StackOp *ops; int nops; int cops;
@@ -4736,6 +4737,7 @@ static int r_statementlist(RkP *p, int pos) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_check_into(RkP *p, const char *src, int len, const char *path, RkP *out);
+static void rk_build_module(RkP *p, const char *src, int len, const char *path);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_use_lib(RkP *p, int from, int to) {
     int q = from;
@@ -4795,6 +4797,7 @@ static int import_module(RkP *p, const char *name) {
             m->load_depth = p->load_depth + 1;
             for (int i = 0; i < p->nlibs; i++) { RK_GROW(m->libs, m->nlibs, m->clibs, char *); m->libs[m->nlibs++] = p->libs[i]; }
             if (rk_check_into(m, src, (int) got, path, m) != 0) return 0;
+            if (p->build) rk_build_module(p, src, (int) got, path);
             for (int i = 0; i < m->nexports; i++) add_name_n(p, m->exports[i], (int) strlen(m->exports[i]));
             for (int i = 0; i < m->nnames; i++) if (m->names[i].depth <= 1 && m->names[i].name[0] == '&' && !strcmp(m->names[i].name, "&EXPORT")) p->myst_off = 1;
             for (int i = 0; i < m->nnames; i++) {
@@ -5075,6 +5078,96 @@ int rk_syntax_check(const char *src, int len, const char *path, char **err) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_build_module(RkP *p, const char *src, int len, const char *path) {
+    RkP *top = p->top ? p->top : p;
+    for (int i = 0; i < top->nmodpaths; i++) if (!strcmp(top->modpaths[i], path)) return;
+    RK_GROW(top->modpaths, top->nmodpaths, top->cmodpaths, const char *);
+    top->modpaths[top->nmodpaths++] = path;
+    RkP *m = (RkP *) ct_alloc(sizeof(RkP));
+    memset(m, 0, sizeof *m);
+    m->s = src; m->n = len; m->file = path; m->build = 1; m->B = rkb_new(src, len); rkb_set_st_lookup(m->B, state_name_of, m);
+    m->myst_off = 1; m->lax = 1; m->load_depth = p->load_depth + 1; m->top = top;
+    for (int i = 0; i < p->nlibs; i++) { RK_GROW(m->libs, m->nlibs, m->clibs, char *); m->libs[m->nlibs++] = p->libs[i]; }
+    m->wsmark = (int *) ct_alloc(sizeof(int) * ((size_t) len + 2));
+    memset(m->wsmark, 0, sizeof(int) * ((size_t) len + 2));
+    m->endmark = (unsigned char *) ct_alloc((size_t) len + 2);
+    memset(m->endmark, 0, (size_t) len + 2);
+    if (setjmp(m->jb)) return;
+    r_comp_unit(m);
+    if (!m->tv) return;
+    RK_GROW(top->mtrees, top->nmtrees, top->cmtrees, tree_t *);
+    top->mtrees[top->nmtrees++] = m->tv;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_mod_names(const tree_t *t, char ***v, int *n, int *c) {
+    if (!t) return;
+    if ((t->t == TT_VAR || t->t == TT_FNC || t->t == TT_QLIT) && t->v.sval && t->v.sval[0]) { RK_GROW(*v, *n, *c, char *); (*v)[(*n)++] = t->v.sval; }
+    for (int i = 0; i < t->n; i++) rk_mod_names(t->c[i], v, n, c);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_mod_decl_name(const tree_t *d) {
+    if (!d || d->n < 1 || !d->c[0] || d->c[0]->t != TT_VAR) return NULL;
+    if (d->t != TT_SUB_DECL && d->t != TT_CLASS_DECL && d->t != TT_ROLE_DECL && d->t != TT_GRAMMAR_DECL) return NULL;
+    return d->c[0]->v.sval;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_mod_subj(tree_t *s) {
+    if (!s || s->t != TT_STMT) return s;
+    for (int i = 0; i < s->n; i++) { tree_t *a = s->c[i]; if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj")) return a->n > 0 ? a->c[0] : NULL; }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_mod_decls(tree_t *t, tree_t ***v, int *n, int *c) {
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t *d = rk_mod_subj(t->c[i]);
+        if (!d) continue;
+        if (d->t == TT_MODULE_DECL) { rk_mod_decls(d, v, n, c); continue; }
+        if (rk_mod_decl_name(d)) { RK_GROW(*v, *n, *c, tree_t *); (*v)[(*n)++] = t->c[i]; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_mod_named(char **v, int n, const char *nm) {
+    size_t l = strlen(nm);
+    const char *dl = strchr(nm, '$');
+    if (dl) l = (size_t) (dl - nm);
+    for (int i = 0; i < n; i++) if (!strncmp(v[i], nm, l) && (v[i][l] == 0 || v[i][l] == '$')) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_splice_modules(RkP *p, tree_t *t) {
+    if (!t || !p->nmtrees) return t;
+    tree_t **cand = NULL; int nc = 0, cc = 0;
+    for (int k = 0; k < p->nmtrees; k++) rk_mod_decls(p->mtrees[k], &cand, &nc, &cc);
+    if (!nc) return t;
+    char **names = NULL; int nn = 0, cn = 0;
+    rk_mod_names(t, &names, &nn, &cn);
+    char *taken = (char *) ct_alloc((size_t) nc + 1);
+    memset(taken, 0, (size_t) nc + 1);
+    for (int grew = 1; grew; ) {
+        grew = 0;
+        for (int i = 0; i < nc; i++) {
+            if (taken[i]) continue;
+            const tree_t *d = rk_mod_subj(cand[i]);
+            if (!rk_mod_named(names, nn, rk_mod_decl_name(d))) continue;
+            taken[i] = 1; grew = 1;
+            rk_mod_names(d, &names, &nn, &cn);
+        }
+    }
+    tree_t *nt = ast_node_new(t->t);
+    nt->v = t->v; nt->line = t->line; nt->slen = t->slen;
+    extern tree_t *ast_stmt_new(tree_e kind);
+    extern tree_t *ast_attr_int(const char *tag, int ival);
+    extern tree_t *ast_attr_expr(const char *tag, tree_t *expr);
+    for (int i = 0; i < nc; i++) {
+        if (!taken[i]) continue;
+        tree_t *st = cand[i];
+        if (st->t != TT_STMT) { st = ast_stmt_new(TT_STMT); ast_push(st, ast_attr_int(":line", 0)); ast_push(st, ast_attr_int(":stno", 0)); ast_push(st, ast_attr_expr(":subj", cand[i])); }
+        ast_push(nt, st);
+    }
+    for (int i = 0; i < t->n; i++) ast_push(nt, t->c[i]);
+    return nt;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rk_parse_tree(const char *src, int len, const char *path, char **errmsg) {
     RkP *p = (RkP *) ct_alloc(sizeof(RkP));
     memset(p, 0, sizeof *p);
@@ -5095,7 +5188,7 @@ tree_t *rk_parse_tree(const char *src, int len, const char *path, char **errmsg)
     }
     r_comp_unit(p);
     if (errmsg) *errmsg = NULL;
-    return p->tv;
+    return rk_splice_modules(p, p->tv);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_syntax_file(const char *path) {
