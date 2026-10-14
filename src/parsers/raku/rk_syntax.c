@@ -2864,7 +2864,7 @@ static void check_lexical_variable(RkP *p, int pos, int e, int twig) {
         RkPkg *k = &p->pkgs[p->npkgs - 1];
         RK_GROW(k->uses, k->nuses, k->cuses, RkMyst); k->uses[k->nuses].pos = pos; k->uses[k->nuses].len = e - pos; k->uses[k->nuses].depth = 0; k->nuses++;
     }
-    if ((twig == '^' || twig == ':') && e - pos == 3 && p->s[pos + 2] >= 'A' && p->s[pos + 2] <= 'Z') panic_at(p, pos, "Unsupported use of %.3s variable", p->s + pos);
+    if ((twig == '^' || twig == ':') && e - pos == 3 && p->s[pos + 2] >= 'A' && p->s[pos + 2] <= 'Z' && !p->p5isms) panic_at(p, pos, "Unsupported use of %.3s variable", p->s + pos);
     if (twig == '=' && !p->in_decl && !(e - pos == 5 && !memcmp(p->s + pos + 2, "pod", 3)) && !(e - pos == 8 && !memcmp(p->s + pos + 2, "finish", 6)))
         panic_at(p, pos, "Pod variable %.*s not yet implemented. Sorry.", e - pos, p->s + pos);
     if (twig == '^' || twig == ':') { int n = e - pos - 1; if (n < 1) return; char *buf = (char *) ct_alloc((size_t) n); buf[0] = (char) c; memcpy(buf + 1, p->s + pos + 2, (size_t) n - 1);
