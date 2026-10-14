@@ -19,13 +19,20 @@ Every rip-relative or absolute memory operand in the .s is a runtime cell, a key
 cell, never a BB operand's or local's home; the base-register view is printed beside the compiler view (BB_PLACEMENT_ASM) so
 the ceo's measurement of 2026-10-14 reproduces next to the classification that answers it.
 
-FORCING, per cell, over the box graph (`scrip --dump-bb`, the same analysis as util_rbp_placement_census.py):
-  a RESULT cell P is FORCED off the spine iff the graph is RETAINED (an Icon generator; a Prolog predicate with more than one
-  SUCCEED, whose frame a choice point keeps across its return -- the conservative bound of the rbp census, so determinate-by-
-  indexing predicates read as retained and MISPLACED is a floor), or P itself retains, or for some reader O a retaining box
-  (SUSPEND, PROC_GEN, CREATE, ACTIVATE, CORET, COFAIL, CALL_VALUE, a call whose callee retains) lies on a gamma path strictly
-  between P and O;
-  a LOCAL is FORCED iff the graph is a generator or a retaining box can run before a box that touches it (or is it).
+THE TWO TESTS (CEO-1750, Lon 2026-10-14: "first assumption is RSP-spine, but if a BB operand can not be reached by fixed RSP
+offset, or a BB local can not be reached by same RSP relative address for ALPHA and BETA ... ONLY these two cases go to an RBP
+ACTIVATION FRAME. ALL the rest/remaining must be RSP SPINE CELLS."), per cell, over the box graph (`scrip --dump-bb` edges) and the
+compiler's own rsp facts (`scrip --dump-homes`):
+  [RSPFX] rsp=dynamic why=W  a box whose gamma leaves rsp at a distance from its alpha the compiler cannot state: suspend,
+                             coexpression, unknown-callee (CALL_VALUE), generator-callee, retaining-callee (a call whose callee
+                             graph retains: more than one SUCCEED or any dynamic box of its own, closed transitively);
+  [RSPFX] rsp=renormal       a cut, which restores rsp to the frame base;
+  [LOCALUSE] local=V         a box that touches local V (the compiler's own name, VAR_REF included);
+  [HOMES] standing=K         the root graph's standing cells (global-type, STANDING, CEO-1751).
+  OPERAND TEST: result cell P fails iff for some consumer O a control path P ... O (not through P again) crosses a dynamic box
+  with no cut after it, or P is itself dynamic; LOCAL TEST: local V fails iff some box touching it can be entered, at alpha or
+  beta, on a path from a dynamic box with no cut between.  No graph-level proxy (generator, retained graph, more than one SUCCEED)
+  forces anything by itself.
 STATES per cell: SPINE; RBP_FORCED; RBP_MISPLACED (behind rbp, the criterion admits the spine); CARVED_FORCED (printed, owed to
 the rbp audit's UNSAFE question, never counted here); CARVED_MISPLACED (pre-carved, the planner could push it where first
 used); NONE.  misplaced = RBP_MISPLACED + CARVED_MISPLACED, each printed apart so neither share hides behind the other.
@@ -35,6 +42,8 @@ OUTPUT (stdout; the row's DONE-WHEN greps ^BB_PLACEMENT):
   BB_PLACEMENT total operands=N locals=M spine=S rbp_misplaced=.. carved_misplaced=.. misplaced=..
   BB_PLACEMENT_ASM <lang> mem_operands=N rsp=.. rbp=.. rip=.. r12=.. r13=.. other=..
   BB_PLACEMENT_CLASS <lang> <state>:<cause> <A|L> <kind> count=..
+  BB_PLACEMENT_TESTS <lang>|total offspine=.. operand_test=.. local_test=.. standing=.. other=..   (other = off the spine, no test fails)
+  BB_PLACEMENT_TESTS_WHY <lang> <test>:<why> count=..
   --tsv PATH writes one row per misplaced (lang state cause table graph@sig kind count).
 rc 0 = measured; rc 2 = the instrument did not measure (a program unmeasured).
 """
@@ -46,11 +55,11 @@ ROOT = os.environ.get('S4E_HOME') or os.path.dirname(SC)
 SCRIP = os.path.join(SC, 'scrip')
 CORPUS = os.path.join(ROOT, 'corpus')
 EXT = {'.sno': 'snobol4', '.icn': 'icon', '.pl': 'prolog', '.sc': 'snocone', '.reb': 'rebus'}
-RET_KINDS = {'SUSPEND', 'PROC_GEN', 'CREATE', 'ACTIVATE', 'CORET', 'COFAIL', 'CALL_VALUE'}
 GEN_KINDS = {'SUSPEND', 'PROC_GEN', 'CREATE', 'ACTIVATE', 'CORET', 'COFAIL'}
-CALL_KINDS = {'CALL_PROC_STAGED', 'CALL_ICON', 'CALL'}
-LOCAL_KINDS = {'VAR', 'VAR_REF', 'ASSIGN_VAR', 'REV_ASSIGN_VAR', 'NULLTEST_VAR', 'FIELD_VAR', 'ASSIGN', 'UNIFY_FIRST', 'UNIFY_VALUE'}
 HOMES = re.compile(r'^\[HOMES\] g=(-?\d+) graph=(\S+) (all|local)=(\S+) (?:kind=(\S+) )?home=(\S+) off=(-?\d+)$')
+RSPFX = re.compile(r'^\[RSPFX\] g=(-?\d+) graph=(\S+) all=(\d+) kind=(\S+) rsp=(dynamic|renormal) why=(\S+) callee=(\S+)$')
+LOCALUSE = re.compile(r'^\[LOCALUSE\] g=(-?\d+) graph=(\S+) all=(\d+) kind=(\S+) local=(\S+)$')
+STANDING = re.compile(r'^\[HOMES\] g=(-?\d+) graph=(\S+) standing=(\d+) home=STANDING why=(\S+)$')
 MEM = re.compile(r'\[\s*([a-z0-9]+)')
 
 
@@ -77,9 +86,25 @@ def homes_of(lang, src, tmp):
     args = [SCRIP, '--dump-homes', '--compile'] + (['--target=x86'] if lang == 'prolog' else []) + ['-o', tmp, base]
     r = run(args, cwd)
     if r.returncode != 0 or not os.path.isfile(tmp) or os.path.getsize(tmp) == 0:
-        return None, None
-    nodes, locs = {}, {}
+        return None, None, None
+    nodes, locs, fx = {}, {}, {'dyn': {}, 'renorm': set(), 'standing': [], 'uses': {}}
     for ln in r.stderr.decode('utf-8', 'replace').splitlines():
+        m = RSPFX.match(ln)
+        if m:
+            k = (int(m.group(1)), int(m.group(3)))
+            if m.group(5) == 'dynamic':
+                fx['dyn'][k] = m.group(6)
+            else:
+                fx['renorm'].add(k)
+            continue
+        m = LOCALUSE.match(ln)
+        if m:
+            fx['uses'][(int(m.group(1)), int(m.group(3)))] = m.group(5)
+            continue
+        m = STANDING.match(ln)
+        if m:
+            fx['standing'].append((m.group(2), int(m.group(3)), m.group(4)))
+            continue
         m = HOMES.match(ln)
         if not m:
             continue
@@ -88,7 +113,7 @@ def homes_of(lang, src, tmp):
             nodes[(gi, int(m.group(4)))] = (m.group(5), m.group(6), int(m.group(7)))
         else:
             locs[(gi, m.group(4))] = (m.group(6), int(m.group(7)))
-    return nodes, locs
+    return nodes, locs, fx
 
 
 def asm_bases(path):
@@ -120,7 +145,7 @@ def zeta_names(src, lang):
 
 
 def analyse(lang, src, tmp, seen):
-    nodes, locs = homes_of(lang, src, tmp)
+    nodes, locs, fx = homes_of(lang, src, tmp)
     if nodes is None:
         return None
     bases = asm_bases(tmp)
@@ -146,14 +171,8 @@ def analyse(lang, src, tmp, seen):
                                            sorted((e['from'].split('_', 1)[1], e.get('fp', ''), e['to'].split('_', 1)[1], e.get('tp', ''), e.get('rel', ''), e.get('slot', ''))
                                                   for e in gedges[g])]).encode()).hexdigest()[:10]
 
-    def retains(bid):
-        b = boxes[bid]
-        if b['kind'] in RET_KINDS:
-            return True
-        if b['kind'] in CALL_KINDS:
-            lab = b.get('label', '')
-            return susp_graph.get(lab, False) if lang == 'icon' else (multi.get(lab, False) if lang == 'prolog' else False)
-        return False
+    def bkey(bid):
+        return (int(bid.split('_')[0][1:]), int(bid.split('_')[1]))
 
     out = []
     for g in sorted(by):
@@ -163,79 +182,74 @@ def analyse(lang, src, tmp, seen):
         seen.add(key)
         ids = by[g]
         emitted = any((g, int(i.split('_')[1])) in nodes for i in ids)
-        rset = {i for i in ids if retains(i)}
-        gen = gen_graph[gname[g]] or (lang == 'prolog' and multi[gname[g]])
-        gam, rgam, allf, ops = collections.defaultdict(list), collections.defaultdict(list), collections.defaultdict(list), []
+        dyn = {i: fx['dyn'][bkey(i)] for i in ids if bkey(i) in fx['dyn']}
+        renorm = {i for i in ids if bkey(i) in fx['renorm']}
+        succ, ops = collections.defaultdict(list), []
         for e in gedges[g]:
             if e.get('rel') == 'op':
                 ops.append((e['from'], e['to']))
-            elif e.get('fp') == 'gamma':
-                allf[e['from']].append(e['to'])
-                if e.get('tp') == 'alpha':
-                    gam[e['from']].append(e['to'])
-                    rgam[e['to']].append(e['from'])
-        forced = {i: (gen or i in rset) for i in ids}
+            else:
+                succ[e['from']].append(e['to'])
+        test = {}
         for (o, p) in ops:
-            if forced[p]:
+            if p in test:
                 continue
-            fwd, st = set(), [p]
+            seen_s, st = set(), [(y, p in dyn, dyn.get(p)) for y in succ[p]]
             while st:
-                x = st.pop()
-                for y in gam[x]:
-                    if y != o and y not in fwd:
-                        fwd.add(y)
-                        st.append(y)
-            bwd, st = set(), [o]
-            while st:
-                x = st.pop()
-                for y in rgam[x]:
-                    if y != p and y not in bwd:
-                        bwd.add(y)
-                        st.append(y)
-            if ((fwd & bwd) - {p, o}) & rset:
-                forced[p] = True
-        rall = collections.defaultdict(list)
-        for x in ids:
-            for y in allf[x]:
-                rall[y].append(x)
-        lforced = collections.defaultdict(lambda: gen)
+                x, dirty, why = st.pop()
+                if x == p or (x, dirty) in seen_s:
+                    continue
+                seen_s.add((x, dirty))
+                if x == o:
+                    if dirty:
+                        test[p] = 'operand:' + (why or 'dynamic')
+                        break
+                    continue
+                if x in renorm:
+                    dirty, why = False, None
+                elif x in dyn:
+                    dirty, why = True, dyn[x]
+                for y in succ[x]:
+                    st.append((y, dirty, why))
+        tainted, st = {}, []
+        for d in dyn:
+            for y in succ[d]:
+                st.append((y, dyn[d]))
+            st.append((d, dyn[d]))
+        while st:
+            x, why = st.pop()
+            if x in tainted or x in renorm:
+                continue
+            tainted[x] = why
+            for y in succ[x]:
+                st.append((y, why))
+        ltest = {}
         for i in ids:
-            b = boxes[i]
-            lab = b.get('label', '')
-            if b['kind'] not in LOCAL_KINDS or lab not in vslots.get(g, ()):
+            lab = fx['uses'].get(bkey(i))
+            if lab is None or lab not in vslots.get(g, ()) or lab in ltest:
                 continue
-            if gen or i in rset:
-                lforced[lab] = True
-                continue
-            seen_b, st = set(), [i]
-            while st:
-                x = st.pop()
-                for y in rall[x]:
-                    if y not in seen_b:
-                        seen_b.add(y)
-                        st.append(y)
-            if seen_b & rset:
-                lforced[lab] = True
+            if i in tainted:
+                ltest[lab] = 'local:' + tainted[i]
         kinds = [boxes[i]['kind'] for i in ids]
         if lang == 'icon':
-            cause = 'icn-generator' if gen else ('icn-retaining-call' if rset else 'icn-plain')
+            cause = 'icn-generator' if gen_graph[gname[g]] else ('icn-dynamic-rsp' if dyn else 'icn-static-rsp')
         elif lang == 'prolog':
-            cause = 'pl-choice-point-retained' if multi[gname[g]] else ('pl-determinate-retaining-callee' if rset else 'pl-determinate-no-retaining-callee')
+            cause = ('pl-multi-exit' if multi[gname[g]] else 'pl-one-exit') + ('-dynamic-rsp' if dyn else '-static-rsp')
         else:
-            cause = lang + ('-generator' if gen else '-plain')
+            cause = lang + ('-dynamic-rsp' if dyn else '-static-rsp')
         cells = []
         for i in ids:
             h = nodes.get((g, int(i.split('_')[1])))
             if h is None:
                 continue
-            cells.append(('A', boxes[i]['kind'], h[1], forced[i]))
+            cells.append(('A', boxes[i]['kind'], h[1], test.get(i)))
         for vn in sorted(vslots.get(g, ())):
             h = locs.get((g, vn))
             if h is None:
                 continue
-            cells.append(('L', vn, h[0], lforced[vn]))
+            cells.append(('L', vn, h[0], ltest.get(vn)))
         out.append({'name': gname[g], 'sig': sigs[g], 'cause': cause, 'emitted': emitted, 'cells': cells, 'n': len(ids)})
-    return {'graphs': out, 'bases': bases}
+    return {'graphs': out, 'bases': bases, 'standing': fx['standing']}
 
 
 def main():
@@ -256,6 +270,8 @@ def main():
     tot = {l: collections.Counter() for l in langs}
     bases = {l: collections.Counter() for l in langs}
     rows, seen, unmeasured = collections.Counter(), set(), []
+    tests = {l: collections.Counter() for l in langs}
+    seen_standing = set()
     with tempfile.TemporaryDirectory() as td:
         tmp = os.path.join(td, 'p.s')
         for pi, (lang, src) in enumerate(progs):
@@ -270,6 +286,11 @@ def main():
                 unmeasured.append(src)
                 continue
             bases[lang].update(r['bases'])
+            for (gname_s, ncell, why) in r['standing']:
+                if (lang, gname_s) not in seen_standing:
+                    seen_standing.add((lang, gname_s))
+                    tests[lang]['standing'] += ncell
+                    tests[lang]['why:standing:' + why] += ncell
             t = tot[lang]
             for gr in r['graphs']:
                 t['graphs'] += 1
@@ -278,6 +299,14 @@ def main():
                     continue
                 for (tb, kind, home, forced) in gr['cells']:
                     t['operands' if tb == 'A' else 'locals'] += 1
+                    if home in ('RBP', 'RSP_CARVED'):
+                        tt = tests[lang]
+                        tt['offspine'] += 1
+                        if forced:
+                            tt[forced.split(':', 1)[0] + '_test'] += 1
+                            tt['why:' + forced] += 1
+                        else:
+                            tt['other'] += 1
                     if home == 'SPINE':
                         t['spine'] += 1
                     elif home == 'NONE':
@@ -311,6 +340,16 @@ def main():
             gt[k] += t[k]
     print('BB_PLACEMENT total operands=%d locals=%d spine=%d rbp_misplaced=%d carved_misplaced=%d misplaced=%d' %
           (gt['operands'], gt['locals'], gt['spine'], gt['rbp_misplaced'], gt['carved_misplaced'], gt['misplaced']))
+    tg = collections.Counter()
+    for lang in langs:
+        tt = tests[lang]
+        print('BB_PLACEMENT_TESTS %s offspine=%d operand_test=%d local_test=%d standing=%d other=%d' % (lang, tt['offspine'], tt['operand_test'], tt['local_test'], tt['standing'], tt['other']))
+        for k in ('offspine', 'operand_test', 'local_test', 'standing', 'other'):
+            tg[k] += tt[k]
+        for k, v in sorted(tt.items()):
+            if k.startswith('why:'):
+                print('BB_PLACEMENT_TESTS_WHY %s %s count=%d' % (lang, k[4:], v))
+    print('BB_PLACEMENT_TESTS total offspine=%d operand_test=%d local_test=%d standing=%d other=%d' % (tg['offspine'], tg['operand_test'], tg['local_test'], tg['standing'], tg['other']))
     for lang in langs:
         b = bases[lang]
         n = sum(b.values())

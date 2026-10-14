@@ -4083,6 +4083,61 @@ extern "C" int emit_gc_map_names_n(void) { return g_emitter.g_gc_map_names_n; }
 extern "C" const char * emit_gc_map_name(int i) { return (i >= 0 && i < g_emitter.g_gc_map_names_n) ? CV_AT(g_emitter.g_gc_map_names_v, char *, i) : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void emit_dump_homes_on(void) { g_emitter.dump_homes = 1; }
+static int dh_callee_graph(const IR_t * nd) {
+    if (!ir_is_call_kind(ir_kind0(nd)) || ir_kind0(nd) == IR_CALL_VALUE || !IR_LIT(nd).sval) return -1;
+    auto it = g_emitter.dh_gidx.find(IR_LIT(nd).sval);
+    return it == g_emitter.dh_gidx.end() ? -1 : it->second;
+}
+static const char * dh_box_dyn(const IR_t * nd) {
+    switch ((int)ir_kind0(nd)) {
+        case IR_SUSPEND:
+        return "suspend";
+        case IR_CREATE:
+        case IR_ACTIVATE:
+        case IR_CORET:
+        case IR_COFAIL:
+        return "coexpression";
+        case IR_CALL_VALUE:
+        return "unknown-callee";
+        case IR_CALL_GEN:
+        case IR_PROC_GEN:
+        return "generator-callee";
+        default:
+        break;
+    }
+    int h = dh_callee_graph(nd);
+    return (h >= 0 && g_emitter.dh_rt[h]) ? "retaining-callee" : (const char *)0;
+}
+static void dh_retains_build(void) {
+    extern const char * zls_graph_name_get(const IR_graph_t *);
+    int G = g_stage2.bbp.count;
+    if ((int)g_emitter.dh_rt.size() == G) return;
+    g_emitter.dh_gidx.clear();
+    for (int k = 0; k < G; k++) { const char * nm = g_stage2.bbp.table[k] ? zls_graph_name_get(g_stage2.bbp.table[k]) : (const char *)0; if (nm) g_emitter.dh_gidx.emplace(nm, k); }
+    g_emitter.dh_rt.assign((size_t)G, 0);
+    for (int k = 0; k < G; k++) {
+        const IR_graph_t * g = g_stage2.bbp.table[k];
+        int nsucc = 0;
+        for (int i = 0; g && i < g->n; i++) {
+            const IR_t * nd = g->all[i];
+            if (!nd) continue;
+            if (nd->op == IR_SUCCEED) nsucc++;
+            int o = (int)ir_kind0(nd);
+            if (o == IR_SUSPEND || o == IR_CREATE || o == IR_ACTIVATE || o == IR_CORET || o == IR_COFAIL || o == IR_CALL_VALUE || o == IR_CALL_GEN || o == IR_PROC_GEN) g_emitter.dh_rt[k] = 1;
+        }
+        if (nsucc > 1) g_emitter.dh_rt[k] = 1;
+    }
+    for (int changed = 1; changed;) {
+        changed = 0;
+        for (int k = 0; k < G; k++) {
+            const IR_graph_t * g = g_stage2.bbp.table[k];
+            for (int i = 0; g && !g_emitter.dh_rt[k] && i < g->n; i++) {
+                int h = g->all[i] ? dh_callee_graph(g->all[i]) : -1;
+                if (h >= 0 && g_emitter.dh_rt[h]) { g_emitter.dh_rt[k] = 1; changed = 1; }
+            }
+        }
+    }
+}
 static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
     extern const char * zls_graph_name_get(const IR_graph_t *); extern int zls_g_vslot_count(const IR_graph_t *); extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
     const IR_graph_t * g = g_emit_cfg;
@@ -4106,6 +4161,27 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
         const char * vn = zls_g_vslot_get(g, k, &off);
         fprintf(stderr, "[HOMES] g=%d graph=%s local=%s home=%s off=%d\n", gi, gn ? gn : "?", vn ? vn : "?", off < 0 ? "NONE" : pinned ? "RBP" : "RSP_CARVED", off);
     }
+    dh_retains_build();
+    for (int k = 0; g && k < g->n; k++) {
+        const IR_t * nd = g->all[k];
+        if (!nd) continue;
+        int lo = (int)nd->op;
+        int names_local = lo == IR_VAR || lo == IR_VAR_REF || lo == IR_ASSIGN || lo == IR_ASSIGN_VAR || lo == IR_REV_ASSIGN_VAR || lo == IR_NULLTEST_VAR || lo == IR_FIELD_VAR ||
+            lo == IR_UNIFY_FIRST || lo == IR_UNIFY_VALUE;
+        if (names_local && IR_LIT(nd).sval) {
+            for (int v = 0; v < nv; v++) {
+                int voff = -1;
+                const char * vn = zls_g_vslot_get(g, v, &voff);
+                if (vn && !strcmp(vn, IR_LIT(nd).sval)) { fprintf(stderr, "[LOCALUSE] g=%d graph=%s all=%d kind=%s local=%s\n", gi, gn ? gn : "?", k, bb_op_name(nd->op), vn); break; }
+            }
+        }
+        const char * why = dh_box_dyn(nd);
+        if (why) fprintf(stderr, "[RSPFX] g=%d graph=%s all=%d kind=%s rsp=dynamic why=%s callee=%s\n", gi, gn ? gn : "?", k, bb_op_name(nd->op), why,
+            (ir_is_call_kind(ir_kind0(nd)) && IR_LIT(nd).sval) ? IR_LIT(nd).sval : "-");
+        else if (nd->op == IR_CUT) fprintf(stderr, "[RSPFX] g=%d graph=%s all=%d kind=%s rsp=renormal why=cut-restores-the-frame-base callee=-\n", gi, gn ? gn : "?", k, bb_op_name(nd->op));
+    }
+    if (g && g->root_graph && g->standing_cells > 0)
+        fprintf(stderr, "[HOMES] g=%d graph=%s standing=%d home=STANDING why=dynamic-predicate-root\n", gi, gn ? gn : "?", g->standing_cells);
 }
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
