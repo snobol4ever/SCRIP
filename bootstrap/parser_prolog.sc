@@ -116,7 +116,7 @@ EscNone = ( 'c' FENCE(SPAN(' ' CHAR(9) CHAR(10)) | epsilon) | CHAR(10) FENCE(SPA
 /* first quote of a doubled one and the expression fences above never let it extend                                       */
 QatomIn = FENCE( ( "''" *DIFFER((qacc = qacc "'") 'x')
                  | '\' ( *Escape *Utf8App | *EscNone )
-                 | ((NOTANY("'\" CHAR(10) CHAR(9)) FENCE(BREAK("'\" CHAR(10) CHAR(9)) | epsilon)) $ qc) *DIFFER((qacc = qacc qc) 'x')
+                 | ((NOTANY("'\" CHAR(10)) FENCE(BREAK("'\" CHAR(10)) | epsilon)) $ qc) *DIFFER((qacc = qacc qc) 'x')
                  ) *QatomIn | epsilon );
 Qatom   = ( "'" *DIFFER((qacc = '') 'x') ((*QatomIn) $ q_raw . q_txt *DIFFER((qesc[q_raw] = qacc) 'x')) "'" );
 /* a quoted atom as a term, and a double-quoted text as one TT_DQLIT node, are what the pattern reads (the ceo 2026-09-30 */
@@ -131,14 +131,14 @@ qa_skip  = FENCE( '\' *EscNone *qa_skip | epsilon );
 qa_piece = FENCE( "''" . *Shift('TT_QLIT', "'")
                 | '\' (ANY('abfnrtvesd\' "'" '"`')) . thx . *Shift('TT_QLIT', esc_chr[thx])
                 | ('\' *Escape) . thx . *Shift('TT_ESC', thx)
-                | (NOTANY("'\" CHAR(10) CHAR(9)) FENCE(BREAK("'\" CHAR(10) CHAR(9)) | epsilon)) . thx . *Shift('TT_QLIT', thx)
+                | (NOTANY("'\" CHAR(10)) FENCE(BREAK("'\" CHAR(10)) | epsilon)) . thx . *Shift('TT_QLIT', thx)
                 );
 qa_more  = FENCE( *qa_skip *qa_piece . *Reduce('TT_CAT', 2) *qa_more | *qa_skip );
 QatomP   = "'" *qa_skip FENCE( *qa_piece *qa_more | epsilon . *Shift('TT_QLIT', '') ) "'";
 sa_piece = FENCE( '""' . *Shift('TT_QLIT', '"')
                 | '\' (ANY('abfnrtvesd\' "'" '"`')) . thx . *Shift('TT_QLIT', esc_chr[thx])
                 | ('\' *Escape) . thx . *Shift('TT_ESC', thx)
-                | (NOTANY('"\' CHAR(10) CHAR(9)) FENCE(BREAK('"\' CHAR(10) CHAR(9)) | epsilon)) . thx . *Shift('TT_QLIT', thx)
+                | (NOTANY('"\' CHAR(10)) FENCE(BREAK('"\' CHAR(10)) | epsilon)) . thx . *Shift('TT_QLIT', thx)
                 );
 sa_more  = FENCE( *qa_skip *sa_piece . *Reduce('TT_CAT', 2) *sa_more | *qa_skip );
 StrEsc  = ( ('\' *Escape) $ ec . ech *Utf8Bytes );
@@ -149,7 +149,7 @@ CodeEsc = ( *StrEsc *IDENT(ebn[ec], 1) . *Shift('TT_ILIT', eb1[ech]) . *IncCount
           );
 /* a Shift with a null value takes the matched text as the value (ShiftReduce.sc), so an empty atom's Shift sits on an empty match */
 Str     = ( '"' *qa_skip FENCE( *sa_piece *sa_more | epsilon . *Shift('TT_QLIT', '') ) '"' . *Reduce('TT_DQLIT', 1) );
-BqIn    = FENCE( ( (NOTANY('`\' CHAR(10) CHAR(9)) . sch) . *Shift('TT_ILIT', ascii_table[sch]) . *IncCounter()
+BqIn    = FENCE( ( (NOTANY('`\' CHAR(10)) . sch) . *Shift('TT_ILIT', ascii_table[sch]) . *IncCounter()
                  | '``' . *Shift('TT_ILIT', 96) . *IncCounter()
                  | *CodeEsc
                  | '\' *EscNone
@@ -220,6 +220,92 @@ op_goal = (   *$' ' 'op' *$'(' . *PushVal('op') . *PushCounter()
               . *Reduce('TT_FNC', nTop(), PopVal()) . *PopCounter()
           );
 /* ==================================================================================================================== */
+/* library operators (prolog_parse.c register_lib_ops over prolog_prelude_libs.inc, generated from it): a clause that opens with        */
+/* :- use_module(library(L)) declares L's operators, in the bands op/3 uses, for the clauses that follow                                 */
+function UopReg(p, t, n, k, b) {
+    k = op_kind[t];
+    b = '900';
+    if (LE(p, 200)) { b = '200'; } else if (LE(p, 400)) { b = '400'; } else if (LE(p, 500)) { b = '500'; } else if (LE(p, 600)) { b = '600'; } else if (LE(p, 700)) { b = '700'; }
+    uop_band[k n] = band_key[k b];
+    uop_on = uop_tok;
+    return;
+}
+/* the operators prolog_parse.c has built in beyond the ISO ladder (BIN_OPS and PREFIX_OPS entries named #..., generated from them): declared when the source has a # */
+function FdOps() {
+    UopReg(750, 'xfy', '#<=>');
+    UopReg(750, 'xfy', '#\<=>');
+    UopReg(740, 'xfy', '#==>');
+    UopReg(740, 'xfy', '#\==>');
+    UopReg(730, 'xfy', '##');
+    UopReg(730, 'yfx', '#\/');
+    UopReg(730, 'yfx', '#\\/');
+    UopReg(720, 'yfx', '#/\');
+    UopReg(720, 'yfx', '#\/\');
+    UopReg(700, 'xfx', '#=');
+    UopReg(700, 'xfx', '#\=');
+    UopReg(700, 'xfx', '#<');
+    UopReg(700, 'xfx', '#=<');
+    UopReg(700, 'xfx', '#>');
+    UopReg(700, 'xfx', '#>=');
+    UopReg(700, 'xfx', '#=#');
+    UopReg(700, 'xfx', '#\=#');
+    UopReg(700, 'xfx', '#<#');
+    UopReg(700, 'xfx', '#=<#');
+    UopReg(700, 'xfx', '#>#');
+    UopReg(700, 'xfx', '#>=#');
+    UopReg(710, 'fy', '#\');
+    return;
+}
+/* ==================================================================================================================== */
+/* ==================================================================================================================== */
+function LibOps(lib) {
+    if (IDENT(lib, 'clpfd')) {
+        UopReg(760, 'yfx', '#<==>');
+        UopReg(750, 'xfy', '#==>');
+        UopReg(750, 'yfx', '#<==');
+        UopReg(740, 'yfx', '#\/');
+        UopReg(730, 'yfx', '#\');
+        UopReg(720, 'yfx', '#/\');
+        UopReg(710, 'fy', '#\');
+        UopReg(700, 'xfx', '#>');
+        UopReg(700, 'xfx', '#<');
+        UopReg(700, 'xfx', '#>=');
+        UopReg(700, 'xfx', '#=<');
+        UopReg(700, 'xfx', '#=');
+        UopReg(700, 'xfx', '#\=');
+        UopReg(700, 'xfx', 'in');
+        UopReg(700, 'xfx', 'ins');
+        UopReg(700, 'xfx', 'in_set');
+        UopReg(450, 'xfx', '..');
+    }
+    else if (IDENT(lib, 'gnu_fd')) {
+        UopReg(700, 'xfx', '#=#');
+        UopReg(700, 'xfx', '#\=#');
+        UopReg(700, 'xfx', '#<#');
+        UopReg(700, 'xfx', '#>#');
+        UopReg(700, 'xfx', '#=<#');
+        UopReg(700, 'xfx', '#>=#');
+        UopReg(750, 'xfy', '#<=>');
+        UopReg(750, 'xfy', '#\<=>');
+        UopReg(740, 'xfy', '#\==>');
+        UopReg(730, 'xfy', '##');
+        UopReg(730, 'yfx', '#\\/');
+        UopReg(720, 'yfx', '#\/\');
+    }
+    else if (IDENT(lib, 'record')) {
+        UopReg(1150, 'fx', 'record');
+    }
+    return;
+}
+/* ==================================================================================================================== */
+function LibPeek(p, t, lib) {
+    Src ? (TAB(p) (LEN(160) | REM) . t);
+    if (t ? (POS(0) ':-' SPAN(' ' CHAR(9) CHAR(10) CHAR(13)) 'use_module' FENCE(SPAN(' ') | epsilon) '(' FENCE(SPAN(' ') | epsilon) 'library' FENCE(SPAN(' ') | epsilon) '(' FENCE(SPAN(' ') | epsilon)
+                SPAN('abcdefghijklmnopqrstuvwxyz_0123456789') . lib)) { LibOps(lib); }
+    return;
+}
+LibScan   = @lbp *LibPeek(lbp);
+/* ==================================================================================================================== */
 arg       = ( *arg_top | (*Graphic_atom | ';') . b_name . *Shift('TT_QLIT', b_name) );
 arg_ite   = ( *unify_expr FENCE( *$'->' *arg_ite  . *Reduce('TT_FNC', 2, '->') | epsilon ) );
 arg_disj  = ( *arg_ite    FENCE( *$';'  *arg_disj . *Reduce('TT_FNC', 2, ';') | epsilon ) );
@@ -272,9 +358,9 @@ primary0 = (   *BqStr
           |   *$'{' *body *$'}'       . *Reduce('TT_FNC', 1, '{}')
           |   *$'{' (*Graphic_atom | ';') . b_name *$'}' . *Shift('TT_QLIT', b_name) . *Reduce('TT_FNC', 1, '{}')
           |   *list
-          |   *$'\' *$' ' *primary            . *Reduce('TT_FNC', 1, '\')
-          |   *$' ' '-' *$' ' *primary   . *Reduce('TT_FNC', 1, '-')
-          |   *$' ' '+' *$' ' *primary   . *Reduce('TT_FNC', 1, '+')
+          |   *$'\' *$' ' *pow_expr            . *Reduce('TT_FNC', 1, '\')
+          |   *$' ' '-' *$' ' *pow_expr   . *Reduce('TT_FNC', 1, '-')
+          |   *$' ' '+' *$' ' *pow_expr   . *Reduce('TT_FNC', 1, '+')
           );
 /* SWI dicts, as the C reads them: a tag glued to a brace is $dict_lit(Tag, K1, V1, ...), a dot glued to the term before it and followed by a letter or */
 /* an underscore is $dot(Obj, Func) with Func a variable, an atom or a compound, chaining left to right; the end dot is followed by layout and is neither */
@@ -390,7 +476,7 @@ directive = (   *$':-' . *Reduce('TT_NUL', 0)
                 *body *$'.'
                                      . *Reduce('TT_CLAUSE', 2)
             );
-top_form  = (*directive | *clause | *dcg_rule | *ssu_rule);
+top_form  = ((*LibScan) (*directive | *clause | *dcg_rule | *ssu_rule));
 /* ==================================================================================================================== */
 Compiland = epsilon . *PushCounter()
             POS(0) ARBNO( FENCE(*$' ' *top_form . *IncCounter()) FLUSH ) *$' ' RPOS(0)
@@ -421,6 +507,7 @@ while (LE(0, 1)) {
     InitStack();
     uop_on = FAIL;
     uop_band = TABLE(64);
+    if (Src ? '#') { FdOps(); }
     if (Src ? *Compiland) {
         ptree = Pop();
         pf_parse = pf_parse + (TIME() - pf_a);
