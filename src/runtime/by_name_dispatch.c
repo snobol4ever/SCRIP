@@ -6487,11 +6487,19 @@ static const char *pl_list_text_heap(DESCR_t v) {
     while (pl_is_cons(d)) {
         DESCR_t *kids = (DESCR_t *)d.p;
         DESCR_t h = rt_pl_deref_val(kids[0]);
-        char c;
-        if (h.v == DT_I) c = (char)h.i;
-        else { const char *hs = pl_atom_str(h); if (!hs || strlen(hs) != 1) return (const char *)0; c = hs[0]; }
-        if (k + 2 > cap) { cap *= 2; buf = (char *)rt_wsb_realloc(buf, cap); }
-        buf[k++] = c;
+        if (k + 5 > cap) { cap *= 2; buf = (char *)rt_wsb_realloc(buf, cap); }
+        if (h.v == DT_I) {
+            if (h.i < 0 || h.i > 0x10FFFF) return (const char *)0;
+            k += (size_t)rt_pl_u8_put(buf + k, (int)h.i);
+        } else {
+            const char *hs = pl_atom_str(h);
+            int adv = 0;
+            if (!hs || !hs[0]) return (const char *)0;
+            (void)rt_pl_u8_get(hs, &adv);
+            if (hs[adv]) return (const char *)0;
+            memcpy(buf + k, hs, (size_t)adv);
+            k += (size_t)adv;
+        }
         d = rt_pl_deref_val(kids[1]);
     }
     if (!pl_is_nil(d)) return (const char *)0;
@@ -6539,7 +6547,7 @@ static int pl_parse_number_radix(const char *s, DESCR_t *out) {
             *out = INTVAL(c);
             return 1;
         }
-        if (s[2] && !s[3]) { *out = INTVAL((unsigned char)s[2]); return 1; }
+        if (s[2]) { int adv = 0; int cp = rt_pl_u8_get(s + 2, &adv); if (adv > 0 && !s[2 + adv]) { *out = INTVAL(cp); return 1; } }
         return 0;
     }
     if (s[0] == '0' && s[1] == 'x') base = 16;
@@ -8350,10 +8358,22 @@ static int pl_text_is_unbalanced(const char *s) {
     return sp != 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_text_is_blank(const char *s) {
+    for (;;) {
+        s = pl_skip_layout(s);
+        if (!*s) return 1;
+        if (*s == '%') { while (*s && *s != '\n') s++; continue; }
+        if (s[0] == '/' && s[1] == '*') { const char *c = strstr(s + 2, "*/"); if (!c) return 0; s = c + 2; continue; }
+        return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlProgram **pg_out) {
     size_t L = strlen(txt);
-    char *text = (char *)rt_wsb_alloc(L + 20);
+    char *text;
     size_t e;
+    if (pl_text_is_blank(txt)) { vt->n = 0; if (pg_out) *pg_out = (PlProgram *)0; *out = pl_mk_atom("end_of_file"); return 1; }
+    text = (char *)rt_wsb_alloc(L + 20);
     if (pl_text_is_unbalanced(txt)) return 0;
     memcpy(text, "'$rd'((", 7);
     memcpy(text + 7, txt, L);
