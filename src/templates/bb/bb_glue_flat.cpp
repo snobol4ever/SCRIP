@@ -218,6 +218,7 @@ std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char 
     const std::string & tweak_out_lea)
     {
     return x86("call", try_sym, try_fp)
+         + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", val_id)
          + IF(!tweak_out_lea.empty(),
@@ -235,7 +236,6 @@ std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char 
              + x86("add", "rsp", 112L)
              + x86_jmp_id(val_id)
              + x86_deflabel_id(base + 9))
-         + x86_rt_gc_poll_rec_sigma_word(1)
          + IF(stno, bb_glue_stno_unit_push())
          + bb_glue_enter_c2bb(base, base + 5, base + 6, in_shim ? base + 7 : -1)
          + x86_deflabel_id(base + 5)
