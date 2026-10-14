@@ -236,7 +236,12 @@ S_INT:
                                                                         c = digval(PEEK(1)); if (radix >= 2 && radix <= 36 && c >= 0 && c < radix) { ADV(1); s = p; goto S_RDIGITS; } goto LX_INT; }
     if (!lx->iso && (PEEK(0) == 'e' || PEEK(0) == 'E') && (is_digit(PEEK(1)) || ((PEEK(1) == '+' || PEEK(1) == '-') && is_digit(PEEK(2))))) { ADV(1); goto S_EXP_SIGN; }
     if (PEEK(0) == '.' && is_digit(PEEK(1)))                         {  ADV(1);                                                                goto S_FRAC;        }
+    if (!lx->iso && PEEK(0) == 'r' && is_digit(PEEK(1)) && is_digit(p[-1])) {  ADV(1);                                                             goto S_RAT;         }
                                                                                                                                                goto LX_INT;
+S_RAT:
+    if (is_digit(PEEK(0)))                                           {  ADV(1);                                                                goto S_RAT;         }
+    if (PEEK(0) == '_' && is_digit(PEEK(1)))                         {  seps = 1; ADV(1);                                                      goto S_RAT;         }
+                                                                     {  t = tok(TK_INT, span_text(s, p, seps), line); t.big = 1; SYNC(); return t;                }
 S_RDIGITS:
     c = digval(PEEK(0)); if (c >= 0 && c < radix)                    {  ADV(1);                                                                goto S_RDIGITS;     }
                                                                      {  t = tok(TK_INT, ct_strndup(s, (size_t)(p - s)), line); t.ival = (long)(unsigned long long)strtoull(t.text, NULL, radix);

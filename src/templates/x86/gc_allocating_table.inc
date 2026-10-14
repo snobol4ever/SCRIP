@@ -1,10 +1,10 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2665
-#define GC_ALLOC_TAB_N_VOID 312
-#define GC_ALLOC_TAB_N_DESCR 1276
-#define GC_ALLOC_TAB_N_OTHER 1060
-#define GC_ALLOC_TAB_N_UNKNOWN 17
+#define GC_ALLOC_TAB_N 2700
+#define GC_ALLOC_TAB_N_VOID 313
+#define GC_ALLOC_TAB_N_DESCR 1289
+#define GC_ALLOC_TAB_N_OTHER 1080
+#define GC_ALLOC_TAB_N_UNKNOWN 18
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
     { "APPLY_fn_rq", GC_RET_DESCR },
@@ -1070,6 +1070,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_parse_loop", GC_RET_VOID },
     { "pl_parse_number", GC_RET_OTHER },
     { "pl_parse_number_radix", GC_RET_OTHER },
+    { "pl_parse_rational", GC_RET_OTHER },
     { "pl_parse_term_text", GC_RET_OTHER },
     { "pl_past_eos_ball", GC_RET_OTHER },
     { "pl_pp_prop", GC_RET_OTHER },
@@ -1077,6 +1078,19 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_prelude_defines", GC_RET_OTHER },
     { "pl_preprocess_list", GC_RET_VOID },
     { "pl_probe_before", GC_RET_OTHER },
+    { "pl_rat_binop", GC_RET_OTHER },
+    { "pl_rat_cmp", GC_RET_OTHER },
+    { "pl_rat_done", GC_RET_OTHER },
+    { "pl_rat_eq", GC_RET_OTHER },
+    { "pl_rat_fput", GC_RET_VOID },
+    { "pl_rat_from_double", GC_RET_OTHER },
+    { "pl_rat_make", GC_RET_DESCR },
+    { "pl_rat_parse", GC_RET_DESCR },
+    { "pl_rat_pow", GC_RET_OTHER },
+    { "pl_rat_rationalize", GC_RET_OTHER },
+    { "pl_rat_real", GC_RET_OTHER },
+    { "pl_rat_text", GC_RET_OTHER },
+    { "pl_rat_unop", GC_RET_OTHER },
     { "pl_rb_room", GC_RET_OTHER },
     { "pl_read_esc_body", GC_RET_OTHER },
     { "pl_read_opts_ball", GC_RET_OTHER },
@@ -1177,6 +1191,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_wsref_set", GC_RET_VOID },
     { "plc_wt", GC_RET_VOID },
     { "plc_wt_lv", GC_RET_VOID },
+    { "plu_leaf", GC_RET_OTHER },
+    { "plu_walk", GC_RET_OTHER },
+    { "plu_walk_run", GC_RET_OTHER },
     { "plw_bind", GC_RET_VOID },
     { "plw_bind_x", GC_RET_VOID },
     { "plw_det_cell", GC_RET_OTHER },
@@ -1195,6 +1212,20 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plw_unify_walk_run", GC_RET_OTHER },
     { "polyglot_init", GC_RET_VOID },
     { "pos", GC_RET_DESCR },
+    { "pq_abs", GC_RET_DESCR },
+    { "pq_add", GC_RET_DESCR },
+    { "pq_cmp", GC_RET_OTHER },
+    { "pq_divt", GC_RET_DESCR },
+    { "pq_floordiv", GC_RET_DESCR },
+    { "pq_gcd", GC_RET_DESCR },
+    { "pq_ipow", GC_RET_OTHER },
+    { "pq_iroot", GC_RET_DESCR },
+    { "pq_modt", GC_RET_DESCR },
+    { "pq_mul", GC_RET_DESCR },
+    { "pq_neg", GC_RET_DESCR },
+    { "pq_pow", GC_RET_DESCR },
+    { "pq_sub", GC_RET_DESCR },
+    { "pq_text", GC_RET_OTHER },
     { "prescan_defines", GC_RET_VOID },
     { "prolog_atom_init", GC_RET_VOID },
     { "prolog_atom_intern", GC_RET_OTHER },
@@ -2395,7 +2426,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_type_cold_c", GC_RET_DESCR },
     { "rt_pl_type_test_cell", GC_RET_OTHER },
     { "rt_pl_unifiable_cell", GC_RET_OTHER },
+    { "rt_pl_unify_atomic_cold", GC_RET_OTHER },
     { "rt_pl_unify_cyc_plain", GC_RET_OTHER },
+    { "rt_pl_unify_deep", GC_RET_UNKNOWN },
+    { "rt_pl_unify_deep_c", GC_RET_OTHER },
     { "rt_pl_univ_cell", GC_RET_OTHER },
     { "rt_pl_variant_cells", GC_RET_OTHER },
     { "rt_pl_wall_clock_cell", GC_RET_OTHER },
@@ -2554,6 +2588,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_ws_alloc_descr", GC_RET_OTHER },
     { "rt_wsb_alloc", GC_RET_OTHER },
     { "rt_wsb_realloc", GC_RET_OTHER },
+    { "rtx_pl_unify", GC_RET_OTHER },
     { "rx_alloc0", GC_RET_OTHER },
     { "rx_compile", GC_RET_OTHER },
     { "rx_exec", GC_RET_OTHER },

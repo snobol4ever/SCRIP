@@ -1523,6 +1523,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/rt_runtime.c \
     $(SRC)/runtime/rx.c \
     $(SRC)/runtime/rk_rat.c \
+    $(SRC)/runtime/pl_rat.c \
     $(SRC)/driver/driver_globals.c \
     $(SRC)/driver/driver_label.c \
     $(SRC)/driver/driver_hooks.c \

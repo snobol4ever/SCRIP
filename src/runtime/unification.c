@@ -4,6 +4,7 @@
 #include "ct_arena.h"
 #include "rt/rt.h"
 #include "rt/gc_heap.h"
+#include "pl_rat.h"
 #include "core.h"
 #include "core/utf8.h"
 #include "bb_pool.h"
@@ -328,6 +329,7 @@ static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numberva
     if ((int)d->v == DT_I) return d->i < 0 ? '-' : '0';
     if ((int)d->v == DT_R) return d->r < 0 ? '-' : '0';
     if ((int)d->v == DT_BIG) { extern int rt_big_sign(DESCR_t); return rt_big_sign(*d) < 0 ? '-' : '0'; }
+    if (pl_rat_is(*d)) return pl_rat_cmp(*d, pl_make_int(0)) < 0 ? '-' : '0';
     if ((int)d->v == DT_PLATOM || (int)d->v == DT_S) {
         const char *n = plc_atom_text(d);
         if (!n || !n[0]) return quoted ? '\'' : ' ';
@@ -457,6 +459,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
     if (tg == DT_I) { fprintf(fp, "%ld", (long)d->i); return; }
     if (tg == DT_R) { plc_wt_num(fp, d); return; }
     if (tg == DT_BIG) { extern char *rt_big_str(DESCR_t); char *bs = rt_big_str(*d); fputs(bs ? bs : "0", fp); return; }
+    if (pl_rat_is(*d)) { pl_rat_fput(*d, fp); return; }
     if (tg != DT_PLREF) { { const char *vn = plc_vname(m, d); if (vn) fputs(vn, fp); else fprintf(fp, "_G%d", plc_vindex(m, d)); } return; }
     int fnid = plc_fid_name(d->slen), ar = plc_fid_arity(d->slen);
     pl_cell_t *aa = (pl_cell_t *)d->p;
@@ -908,14 +911,16 @@ int rt_pl_type_test_cell(void *cell_term, const char *fn) {
     int isint = (d && !isvar && ((int)d->v == DT_I || (int)d->v == DT_BIG));
     int isfloat = (d && !isvar && (int)d->v == DT_R);
     int iscomp = (d && !isvar && (int)d->v == DT_PLREF);
+    int israt = (d && !isvar && pl_rat_is(*d));
     if (!fn) return 0;
     if (strcmp(fn, "var") == 0) return isvar ? 1 : 0;
     if (strcmp(fn, "nonvar") == 0) return !isvar ? 1 : 0;
     if (strcmp(fn, "atom") == 0) return isatom ? 1 : 0;
     if (strcmp(fn, "integer") == 0) return isint ? 1 : 0;
     if (strcmp(fn, "float") == 0) return isfloat ? 1 : 0;
-    if (strcmp(fn, "number") == 0) return (isint || isfloat) ? 1 : 0;
-    if (strcmp(fn, "atomic") == 0) return (isatom || isstr || isint || isfloat) ? 1 : 0;
+    if (strcmp(fn, "number") == 0) return (isint || isfloat || israt) ? 1 : 0;
+    if (strcmp(fn, "rational") == 0) return (isint || israt) ? 1 : 0;
+    if (strcmp(fn, "atomic") == 0) return (isatom || isstr || isint || isfloat || israt) ? 1 : 0;
     if (strcmp(fn, "string") == 0) return isstr ? 1 : 0;
     if (strcmp(fn, "compound") == 0) return iscomp ? 1 : 0;
     if (strcmp(fn, "callable") == 0) return (isatom || iscomp) ? 1 : 0;
@@ -943,6 +948,9 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell, pl_tr_c
             arityV = pl_make_int(0);
         } else if ((int)d0->v == DT_R) {
             nameV = pl_make_float(d0->r);
+            arityV = pl_make_int(0);
+        } else if ((int)d0->v == DT_BIG || pl_rat_is(*d0)) {
+            nameV = *d0;
             arityV = pl_make_int(0);
         } else {
             return 0;
@@ -1098,6 +1106,7 @@ static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz) {
     if ((int)d->v == DT_PLATOM || (int)d->v == DT_S) return plc_atom_text(d);
     if ((int)d->v == DT_I) { snprintf(buf, bufsz, "%ld", (long)d->i); return buf; }
     if ((int)d->v == DT_BIG) { extern char *rt_big_str(DESCR_t); return rt_big_str(*d); }
+    if (pl_rat_is(*d)) { size_t n = pl_rat_text(*d, (char *)0, 0) + 1; char *o = n <= bufsz ? buf : (char *)rt_wsb_alloc(n); (void)pl_rat_text(*d, o, n); return o; }
     if ((int)d->v == DT_R) { extern const char *pl_real_iso_str(double, char *, int); return pl_real_iso_str(d->r, buf, (int)bufsz); }
     if ((int)d->v == DT_PLREF) { const char *lt = plc_atom_op_list_text_heap(d); if (lt) return lt; }
     return (const char *)0;
@@ -1883,7 +1892,7 @@ int rt_pl_text_eq(const DESCR_t *A, const DESCR_t *B) {
 static int rt_pl_cell_class(pl_cell_t *d) {
     int t = (int)d->v;
     if (pl_cell_unbound(d)) return 0;
-    if (t == DT_I || t == DT_R || t == DT_BIG) return 1;
+    if (t == DT_I || t == DT_R || t == DT_BIG || pl_rat_is(*d)) return 1;
     if (t == DT_S) return 2;
     if (t == DT_PLATOM) return 3;
     if (t == DT_PLREF) return 4;
@@ -1898,6 +1907,14 @@ static int rt_pl_cell_compare_leaf(pl_cell_t *a, pl_cell_t *b, void *ctx) {
     int cla = rt_pl_cell_class(a), clb = rt_pl_cell_class(b);
     if (cla != clb) return cla < clb ? -1 : 1;
     if (cla == 0) return a == b ? 0 : ((uintptr_t)a < (uintptr_t)b ? -1 : 1);
+    if (cla == 1 && (pl_rat_is(*a) || pl_rat_is(*b))) {
+        if ((int)a->v == DT_R || (int)b->v == DT_R) {
+            double x = (int)a->v == DT_R ? a->r : pl_rat_real(*a), y = (int)b->v == DT_R ? b->r : pl_rat_real(*b);
+            if (x != y) return x < y ? -1 : 1;
+            return (int)a->v == DT_R ? -1 : 1;
+        }
+        { int c = pl_rat_cmp(*a, *b); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
+    }
     if (cla == 1 && ((int)a->v == DT_R) != ((int)b->v == DT_R)) return ((int)a->v == DT_R) ? -1 : 1;
     if (cla == 1 && ((int)a->v == DT_BIG || (int)b->v == DT_BIG)) { extern int rt_big_cmp(DESCR_t, DESCR_t); int rc = rt_big_cmp(*a, *b); return rc < 0 ? -1 : (rc > 0 ? 1 : 0); }
     if (cla == 1) {

@@ -58,6 +58,7 @@ static inline const char * pl_ax_suffix_ext(const char * s, int ar) {
         if (!strcmp(s, "log")) return "logb";
         if (!strcmp(s, "copysign")) return "copysign";
         if (!strcmp(s, "nexttoward")) return "nexttoward";
+        if (!strcmp(s, "rdiv")) return "rdiv";
         if (!strcmp(s, "truncate")) return (const char *)0;
         return (const char *)0;
     }
@@ -77,6 +78,10 @@ static inline const char * pl_ax_suffix_ext(const char * s, int ar) {
         if (!strcmp(s, "popcount")) return "popc";
         if (!strcmp(s, "ceil")) return "ceil";
         if (!strcmp(s, "lgamma")) return "lgamma";
+        if (!strcmp(s, "rational")) return "rat";
+        if (!strcmp(s, "rationalize")) return "ratz";
+        if (!strcmp(s, "numerator")) return "numer";
+        if (!strcmp(s, "denominator")) return "denom";
         if (!strcmp(s, "random")) return "rand";
         if (!strcmp(s, "$rand_set")) return "rset";
         if (!strcmp(s, "$rand_seed")) return "rseed";

@@ -148,6 +148,7 @@ extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);
 #include "rt/rt.h"
 #include "rt/rt_list_view.h"
 #include "rt/rt_protected.h"
+#include "pl_rat.h"
 #include "gc_frame_map.h"
 #include <stdio.h>
 #include <string.h>
@@ -5092,6 +5093,12 @@ static int pl_is_op_code(const char *s) {
 static int pl_num_cmp(const char *s, DESCR_t a, DESCR_t b) {
     extern int rt_big_cmp(DESCR_t, DESCR_t);
     extern char *rt_big_str(DESCR_t);
+    if ((pl_rat_is(a) || pl_rat_is(b)) && !IS_REAL_fn(a) && !IS_REAL_fn(b)) {
+        int c = pl_rat_cmp(a, b);
+        return !strcmp(s, "lt") ? c < 0 : !strcmp(s, "gt") ? c > 0 : !strcmp(s, "le") ? c <= 0 : !strcmp(s, "ge") ? c >= 0 : !strcmp(s, "eq") ? c == 0 : !strcmp(s, "ne") ? c != 0 : 0;
+    }
+    if (pl_rat_is(a)) a = REALVAL(pl_rat_real(a));
+    if (pl_rat_is(b)) b = REALVAL(pl_rat_real(b));
     if ((a.v == DT_BIG || b.v == DT_BIG) && !IS_REAL_fn(a) && !IS_REAL_fn(b)) {
         int c = rt_big_cmp(a, b);
         if (!strcmp(s, "lt")) return c < 0;
@@ -5689,6 +5696,17 @@ static int pl_ax_shift(const char *op, DESCR_t a, DESCR_t b, DESCR_t *out, void 
     { DESCR_t t = rt_big_pow(INTVAL(2), n); if (t.v == DT_FAIL) return 0; *out = rt_big_mul(a, t); return 1; }
 }
 static int pl_ax_powm(DESCR_t *args, DESCR_t *out, void **ball);
+static const char *pl_rat_fn(const char *op) { return !strcmp(op, "fpow") ? "**" : !strcmp(op, "pow") ? "^" : !strcmp(op, "div") ? "/" : op; }
+static int pl_rat_done(int qe, const char *op, int arity, DESCR_t culprit, DESCR_t *out, void **ball) {
+    extern void *rt_pl_ball_eval_error(const char *, const char *, int);
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    if (!qe) return 1;
+    if (qe == PLQ_UNDEF) return pl_ax_undef(pl_rat_fn(op), arity, out, ball);
+    *out = FAILDESCR;
+    if (ball && !*ball) *ball = qe == PLQ_ZDIV ? rt_pl_ball_eval_error("zero_divisor", pl_rat_fn(op), arity) : rt_pl_ball_kind2("type_error", qe == PLQ_TYPE_INT ? "integer" : "rational", culprit);
+    return 1;
+}
+static int pl_prefer_rationals(void) { return pl_float_flag("prefer_rationals", "true"); }
 static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void **ball) {
     extern DESCR_t rt_pl_deref_val(DESCR_t);
     extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
@@ -5719,6 +5737,11 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         DESCR_t ev;
         if (pl_ax_eval(a, &ev, &bl)) a = ev;
         else { if (bl && ball && !*ball) *ball = bl; *out = FAILDESCR; return 1; }
+    }
+    if (nargs == 1 && (pl_rat_is(a) || !strcmp(op, "rat") || !strcmp(op, "ratz") || !strcmp(op, "numer") || !strcmp(op, "denom"))) {
+        int qe = 0;
+        if (pl_rat_unop(op, a, out, &qe)) return pl_rat_done(qe, op, 1, a, out, ball);
+        if (pl_rat_is(a)) { DESCR_t fa = REALVAL(pl_rat_real(a)); return dop_ax(op, &fa, 1, out, ball); }
     }
     int ai = (a.v == DT_I), arl = (a.v == DT_R);
     double ad = arl ? a.r : (a.v == DT_BIG ? pl_big_as_real(a) : (double)a.i);
@@ -5842,6 +5865,15 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         DESCR_t ev;
         if (pl_ax_eval(b, &ev, &bl)) b = ev;
         else { if (bl && ball && !*ball) *ball = bl; *out = FAILDESCR; return 1; }
+    }
+    if (pl_rat_is(a) || pl_rat_is(b) || !strcmp(op, "rdiv") ||
+        (pl_rat_exact(a) && pl_rat_exact(b) && pl_prefer_rationals() && (!strcmp(op, "div") || ((!strcmp(op, "fpow") || !strcmp(op, "pow")) && rt_big_sign(b) < 0)))) {
+        extern int rt_big_sign(DESCR_t);
+        int qe = 0;
+        DESCR_t cul = a;
+        if (pl_rat_binop(op, a, b, out, &qe, &cul)) return pl_rat_done(qe, op, 2, cul, out, ball);
+        if ((!strcmp(op, "fpow") || !strcmp(op, "pow")) && a.v == DT_R && a.r == 0.0 && pl_rat_is(b) && pl_rat_cmp(b, INTVAL(0)) < 0) return pl_rat_done(PLQ_ZDIV, op, 2, a, out, ball);
+        if (pl_rat_is(a) || pl_rat_is(b)) { DESCR_t fa[2] = { pl_rat_is(a) ? REALVAL(pl_rat_real(a)) : a, pl_rat_is(b) ? REALVAL(pl_rat_real(b)) : b }; return dop_ax(op, fa, 2, out, ball); }
     }
     int bi = (b.v == DT_I), brl = (b.v == DT_R);
     double bd = brl ? b.r : (b.v == DT_BIG ? pl_big_as_real(b) : (double)b.i);
@@ -6015,7 +6047,7 @@ static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) {
     extern void *rt_pl_ball_instantiation(void);
     extern void *rt_pl_ball_type_pi(const char *, const char *, const char *, int);
     DESCR_t d = rt_pl_deref_val(t);
-    if (d.v == DT_I || d.v == DT_R || d.v == DT_BIG) { *out = d; return 1; }
+    if (d.v == DT_I || d.v == DT_R || d.v == DT_BIG || pl_rat_is(d)) { *out = d; return 1; }
     *out = d;
     if (d.v == (DTYPE_t)DT_PLVAR || d.v == DT_SNUL || d.v == DT_FAIL) { *ball = rt_pl_ball_instantiation(); return 0; }
     if (d.v == DT_S) { const char *one = pl_atom_str(d); int adv = 0; if (one && one[0]) { long long cp = (long long)rt_pl_u8_get(one, &adv); if (one[adv] == '\0') { *out = INTVAL(cp); return 1; } } }
@@ -6152,9 +6184,10 @@ int rt_pl_unify_const_cold(const DESCR_t *c, int64_t k, int atom) { if (atom) re
 int rt_pl_unify_atomic_cold(DESCR_t *A, DESCR_t *B) {
     int av = (int)A->v, bv = (int)B->v;
     if (av == DT_I && bv == DT_I) return A->i == B->i;
-    if (av == DT_R && bv == DT_R) return A->r == B->r && signbit(A->r) == signbit(B->r);
+    if (av == DT_R && bv == DT_R) return (A->r == B->r && signbit(A->r) == signbit(B->r)) || (isnan(A->r) && isnan(B->r));
     if (av == DT_BIG || bv == DT_BIG) { extern int rt_big_eq(DESCR_t, DESCR_t); return rt_big_eq(*A, *B); }
     { int as = av == DT_S || av == DT_PLATOM, bs = bv == DT_S || bv == DT_PLATOM; if (as && bs) { return rt_pl_text_eq(A, B); } }
+    if (pl_rat_is(*A) && pl_rat_is(*B)) return pl_rat_eq(*A, *B);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6204,7 +6237,7 @@ DESCR_t rt_pl_is_cold_c(DESCR_t *args, int nargs, void **ball) {
     {
         DESCR_t v = rt_pl_deref_val(args[1]);
         if (v.v != DT_I && v.v != DT_R && v.v != DT_BIG) { void *bl = (void *)0; DESCR_t ev; if (pl_ax_eval(v, &ev, &bl)) v = ev; else { if (ball && bl) *ball = bl; return FAILDESCR; } }
-        if (v.v != DT_I && v.v != DT_R && v.v != DT_BIG) { pl_iso_evaluable(v); return FAILDESCR; }
+        if (v.v != DT_I && v.v != DT_R && v.v != DT_BIG && !pl_rat_is(v)) { pl_iso_evaluable(v); return FAILDESCR; }
         return v;
     }
 }
@@ -6250,7 +6283,8 @@ DESCR_t dop_write(DESCR_t *args, int nargs) {
         } else if (v.v == DT_R) {
             char fb[64];
             fputs(pl_real_iso_str(v.r, fb, sizeof fb), wd);
-        } else out_write_descr(wd, v, 0);
+        } else if (pl_rat_is(v)) pl_rat_fput(v, wd);
+        else out_write_descr(wd, v, 0);
     }
     { DESCR_t r = {0}; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
 }
@@ -6382,9 +6416,26 @@ const char * pl_skip_layout(const char *s) { if (!s) return s; while (*s == ' ' 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_parse_number(const char *s, DESCR_t *out);
 int rt_pl_parse_number(const char *s, DESCR_t *out) { return pl_parse_number(s, out); }
+static int pl_parse_rational(const char *s, DESCR_t *out) {
+    const char *p = pl_skip_layout(s), *q = p + (*p == '-');
+    char b[strlen(p) + 1];
+    size_t k = 0;
+    int r = 0, dig = 0;
+    if (*p == '-') b[k++] = '-';
+    for (; *q; q++) {
+        if (*q >= '0' && *q <= '9') { b[k++] = *q; dig = 1; continue; }
+        if (*q == '_' && dig && q[1] >= '0' && q[1] <= '9') continue;
+        if (*q == 'r' && dig && !r && q[1] >= '0' && q[1] <= '9') { b[k++] = 'r'; r = 1; dig = 0; continue; }
+        return 0;
+    }
+    if (!r || !dig) return 0;
+    b[k] = 0;
+    { DESCR_t v = pl_rat_parse(b); if (v.v == DT_FAIL) return 0; *out = v; return 1; }
+}
 static int pl_parse_number(const char *s, DESCR_t *out) {
     char *e = 0;
     if (!s) return 0;
+    if (pl_parse_rational(s, out)) return 1;
     {
         const char *p = pl_skip_layout(s);
         if (*p && pl_parse_number_radix(p, out)) return 1;
@@ -7446,6 +7497,7 @@ DESCR_t rt_pl_dop_big(DESCR_t *args, int nargs) {
         extern DESCR_t rt_big_from_str(const char *);
         DESCR_t d = rt_pl_deref_val(args[0]);
         if (!IS_STR_fn(d) || !d.s) return FAILDESCR;
+        if (strchr(d.s, 'r')) return pl_rat_parse(d.s);
         {
             const char *q = d.s + (*d.s == '-');
             extern DESCR_t rt_big_from_str_base(const char *, int);
@@ -8590,7 +8642,7 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", "UTF-16BE", "UTF-16LE", "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0,
     { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } },
     { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on", "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect",
-    "iso", 1, { "iso", "swi", 0 } }, { 0, "", 0, { 0 } } };
+    "iso", 1, { "iso", "swi", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { 0, "", 0, { 0 } } };
 static cv_t g_pl_flags;
 #define pl_flags ((pl_flag_t *)g_pl_flags.p)
 static void pl_flags_ready(void) { if (g_pl_flags.len) return; for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; } }
@@ -9530,7 +9582,7 @@ static int pl_term_text_leaf(DESCR_t *args, int as_str, pl_tr_ctx_t *cx) {
     const char *txt;
     DESCR_t t;
     pl_vtab_t vt;
-    if (pl_val_unbound(rt_pl_deref_val(args[0])) && pl_cell_text(args[1], b, sizeof b, &txt)) {
+    if (pl_cell_text(args[1], b, sizeof b, &txt)) {
         if (!pl_parse_term_text(txt, &t, &vt, (PlProgram **)0)) {
             extern void *rt_pl_ball_kind1(const char *, const char *);
             cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term");
@@ -20922,7 +20974,7 @@ static int pl_anum_list_kind(DESCR_t d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_anum_is_text(DESCR_t d) { return pl_atom_str(d) != (const char *)0; }
-static int pl_anum_is_num(DESCR_t d) { return d.v == DT_I || d.v == DT_R || d.v == DT_BIG; }
+static int pl_anum_is_num(DESCR_t d) { return d.v == DT_I || d.v == DT_R || d.v == DT_BIG || pl_rat_is(d); }
 static int pl_anum_is_compound(DESCR_t d) { return d.v == (DTYPE_t)DT_PLREF && plc_fid_arity(d.slen) > 0; }
 static int pl_anum_code_ok(long c) { return c >= 0 && c <= 0x10FFFF; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -21166,6 +21218,16 @@ static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
     }
     if ((int)d->v == DT_I) { tree_t *t = ast_node_new(TT_ILIT); t->v.ival = d->i; return t; }
     if ((int)d->v == DT_R) { tree_t *t = ast_node_new(TT_FLIT); t->v.dval = d->r; return t; }
+    if (pl_rat_is(*d)) {
+        size_t n = pl_rat_text(*d, (char *)0, 0) + 1;
+        char rb[n];
+        tree_t *t = ast_node_new(TT_FNC), *q = ast_node_new(TT_QLIT);
+        (void)pl_rat_text(*d, rb, n);
+        t->v.sval = pl_tree_name("$pl_big");
+        q->v.sval = pl_tree_name(rb);
+        ast_push(t, q);
+        return t;
+    }
     if ((int)d->v == DT_BIG) {
         extern char *rt_big_str(DESCR_t);
         char *bs = rt_big_str(*d);
