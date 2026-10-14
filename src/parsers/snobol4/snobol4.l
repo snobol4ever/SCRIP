@@ -40,6 +40,7 @@ static int g_list_nevents = 0;
 static int g_list_cap = 0;
 static int g_list_nends = 0;
 static int g_list_ever_on = 0;
+static int incl_stack_depth = 0;
 static void sno_list_record(int kind, int arg, const char *text, int tlen) {
     if (g_list_nevents >= g_list_cap) {
         int newcap = g_list_cap ? g_list_cap * 2 : 8;
@@ -95,7 +96,7 @@ static void sno_list_card(const char *line, int len) {
         if (buf[p] != ',') break;
         p++;
     }
-    if (g_list_ever_on) sno_list_record('X', 0, buf, n);
+    if (g_list_ever_on) sno_list_record('X', incl_stack_depth, buf, n);
     ct_drop(buf);
 }
 int snobol4_list_event_count(void) { return g_list_nevents; }
@@ -106,11 +107,10 @@ const char *snobol4_list_event_text(int idx) { return g_list_events[idx].text ? 
 int snobol4_get_stmt_lineno(void) { return g_stmt_pos.lineno; }
 int snobol4_get_stmt_lline(void) { return g_stmt_pos.lline; }
 const char *snobol4_get_stmt_file(void) { return g_stmt_pos.fname ? g_stmt_pos.fname : ""; }
-extern void stmt_src_mark_include_range(int start_line, int end_line);
+extern void stmt_src_include_open(const char *name, const char *rpath, int depth);
 #define MAX_INCL_NEST 64
 typedef struct { int start_line; int line_delta; char *fname; } SNO_SRC_FRAME_t;
 static SNO_SRC_FRAME_t incl_start_stack[MAX_INCL_NEST + 1];
-static int incl_stack_depth = 0;
 int snobol4_incl_depth(void) { return incl_stack_depth; }
 extern const char *stmt_src_get_file(void);
 static const char *sno_frame_file(void) {
@@ -165,7 +165,7 @@ G       ({WS}|{CONT})*
 <INITIAL>\n             { lineno++; BEGIN(AFTER_BLANK); return T_STMT_END; }
 <INITIAL>[*!|][^\n]*    {
     sno_stmt_comment_latch();
-    if (g_list_ever_on) { int _cn = yyleng; while (_cn > 0 && (yytext[_cn-1] == ' ' || yytext[_cn-1] == '\t' || yytext[_cn-1] == '\r')) _cn--; sno_list_record('C', 0, yytext, _cn); }
+    if (g_list_ever_on) { int _cn = yyleng; while (_cn > 0 && (yytext[_cn-1] == ' ' || yytext[_cn-1] == '\t' || yytext[_cn-1] == '\r')) _cn--; sno_list_record('C', incl_stack_depth, yytext, _cn); }
     BEGIN(SKIP);
 }
 <INITIAL>";"            { BEGIN(AFTER_SEMI); return T_STMT_END; }
@@ -192,6 +192,7 @@ G       ({WS}|{CONT})*
             char *sl=strrchr(rpath,'/');
             if(sl){char *d=ct_strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
+            stmt_src_include_open(iname, rpath, incl_stack_depth + 1);
             sno_frame_push(iname);
             }
         }
@@ -220,6 +221,7 @@ G       ({WS}|{CONT})*
             char *sl=strrchr(rpath,'/');
             if(sl){char *d=ct_strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
+            stmt_src_include_open(iname, rpath, incl_stack_depth + 1);
             sno_frame_push(iname);
             }
         }
@@ -245,6 +247,7 @@ G       ({WS}|{CONT})*
             char *sl=strrchr(rpath,'/');
             if(sl){char *d=ct_strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
+            stmt_src_include_open(iname, rpath, incl_stack_depth + 1);
             sno_frame_push(iname);
         }
     }
@@ -480,7 +483,6 @@ G       ({WS}|{CONT})*
 <<EOF>>             {
     if (incl_stack_depth > 0) {
         int _incl_start = incl_start_stack[incl_stack_depth--].start_line;
-        stmt_src_mark_include_range(_incl_start, lineno);
         lineno = _incl_start;
     }
     if (YY_CURRENT_BUFFER) yypop_buffer_state(yyscanner);

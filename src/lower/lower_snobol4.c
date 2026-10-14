@@ -4578,6 +4578,7 @@ extern int snobol4_list_event_kind(int);
 extern int snobol4_list_event_arg(int);
 extern const char *snobol4_list_event_text(int);
 extern const char * stmt_src_image(int);
+extern const char * stmt_src_file_image(const char *, int);
 typedef struct { char *buf; size_t len; size_t cap; } sno_list_sb_t;
 static void sno_list_sb_append(sno_list_sb_t * sb, const char * s, size_t n) {
     if (sb->len + n + 1 > sb->cap) {
@@ -4653,9 +4654,13 @@ static void sno_list_one(sno_list_t * L, const char * field, const char * s, siz
     if (L->cswdb) { sno_list_sb_append(&L->sb, "\n", 1); L->lstlc++; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_list_blank_field(char * field, int depth) { if (depth > 0) snprintf(field, 24, "%5s%d  ", "", depth); else snprintf(field, 24, "        "); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_list_stmt(sno_list_t * L, const tree_t * snode) {
-    int line = lp_s_int(snode, ":line");
-    const char * raw = stmt_src_image(line);
+    int depth = lp_s_int(snode, ":depth");
+    const char * fname = sfind_str(snode, ":file");
+    int line = lp_s_int(snode, depth > 0 ? ":lline" : ":line");
+    const char * raw = depth > 0 ? stmt_src_file_image(fname, line) : stmt_src_image(line);
     const char * txt = (snode->t == TT_STMT) ? sfind_str(snode, ":src") : NULL;
     const char * ent = (snode->t == TT_END) ? sfind_str(snode, ":entry") : NULL;
     char endbuf[(ent && ent[0]) ? fmt_len("END %s", ent) : 4];
@@ -4667,10 +4672,12 @@ static void sno_list_stmt(sno_list_t * L, const tree_t * snode) {
     }
     if (!txt) txt = "";
     n = strcspn(txt, "\n");
-    snprintf(field, sizeof field, "%-8d", lp_s_int(snode, ":stno"));
+    if (depth > 0) snprintf(field, sizeof field, "%-5d%d  ", lp_s_int(snode, ":stno"), depth);
+    else snprintf(field, sizeof field, "%-8d", lp_s_int(snode, ":stno"));
     sno_list_one(L, field, txt, n);
     if (snode->t != TT_STMT || !n || !raw || strlen(raw) != n || memcmp(raw, txt, n)) return;
-    for (int k = line + 1; (raw = stmt_src_image(k)) && (raw[0] == '+' || raw[0] == '.'); k++) sno_list_one(L, "        ", raw, strlen(raw));
+    sno_list_blank_field(field, depth);
+    for (int k = line + 1; (raw = depth > 0 ? stmt_src_file_image(fname, k) : stmt_src_image(k)) && (raw[0] == '+' || raw[0] == '.'); k++) sno_list_one(L, field, raw, strlen(raw));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_list_event(sno_list_t * L, int kind, int arg, const char * text) {
@@ -4709,10 +4716,10 @@ static void sno_list_event(sno_list_t * L, int kind, int arg, const char * text)
         L->cnttl = 1;
         break;
         case 'C':
-        if (L->cswls) sno_list_one(L, "        ", text, strlen(text));
+        if (L->cswls) { char field[24]; sno_list_blank_field(field, arg); sno_list_one(L, field, text, strlen(text)); }
         break;
         case 'X':
-        if (L->cswls && L->cswpr) sno_list_one(L, "        ", text, strlen(text));
+        if (L->cswls && L->cswpr) { char field[24]; sno_list_blank_field(field, arg); sno_list_one(L, field, text, strlen(text)); }
         break;
         default:
         break;
@@ -4726,15 +4733,18 @@ static char * sno_list_build_listing(const tree_t * prog) {
     L.lstlc = SNO_LIST_NP;
     L.cswpr = 1;
     int ei = 0, j = 0, prev_line = -1, prev_text = 0;
+    const char * prev_file = NULL;
     for (int i = 0; i < prog->n; i++) {
         const tree_t * snode = prog->c[i];
         if (!snode || (snode->t != TT_STMT && snode->t != TT_END)) continue;
         while (ei < nev && snobol4_list_event_nend(ei) <= j) { sno_list_event(&L, snobol4_list_event_kind(ei), snobol4_list_event_arg(ei), snobol4_list_event_text(ei)); ei++; }
         const char * src = (snode->t == TT_STMT) ? sfind_str(snode, ":src") : NULL;
         int line = lp_s_int(snode, ":line");
-        int same_image = (src && src[0] && prev_text && line == prev_line);
+        const char * file = sfind_str(snode, ":file");
+        int same_image = (src && src[0] && prev_text && line == prev_line && ((!file && !prev_file) || (file && prev_file && !strcmp(file, prev_file))));
         if (L.cswls && !same_image) sno_list_stmt(&L, snode);
         prev_line = line;
+        prev_file = file;
         prev_text = (src && src[0]) ? 1 : 0;
         j++;
         if (snode->t == TT_END) break;

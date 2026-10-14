@@ -7,10 +7,14 @@
 # (sbl -bf) and by SCRIP's mode 3 and mode 4; each output drops the 'x86-64 ' banner lines and stops at the END statement line of the listing.
 # WITNESSES: SourceLines001 (dotnet), hide (csnobol4_suite), debug.sno with -LIST in place of its -NOLIST, and generated probes: -TITLE -STITL
 # -SPACE -EJECT -DOUBLE -SINGLE, -PRINT/-NOPRINT/-NOLIST, a comma chain, a tab-indented line, and programs of 119 and 1199 statements that cross
-# the 49-53 line page boundary and the 1200 line mark. KNOWN GAPS (not witnessed here, each its own landing): an -INCLUDEd file's images carry
-# their depth in column 5; a blank statement with a whitespace-only continuation lists the continuation; -SPACE x is ERROR 247.
+# the 49-53 line page boundary and the 1200 line mark. AN -INCLUDEd FILE'S IMAGES (statements, comments, control cards, continuation lines, a blank statement)
+# are listed with their include depth in column 6, and the main file's statements after it keep their images (p_inc, p_inc2 nested two deep, p_inc3).
+# KNOWN GAPS (not witnessed here, each its own landing): a blank statement with a whitespace-only continuation lists the continuation; -SPACE x is
+# ERROR 247; includes nested past nine are ERROR 284 in sbl (SCRIP nests to 64).
 # FAIL_ONCE (recorded 2026-10-14, a worktree of 2bbadd1c9^ = 539cc4a3d, the commit before the cure): 16 of 16 listings RED (banner 1.0, comments and page
 # breaks missing, debug_list 273 and 214 lines against sbl's 619); this tree reads 16 of 16 SAME.
+# FAIL_ONCE for the include witnesses (recorded 2026-10-14, the tree before the include-depth cure, src stashed): p_inc, p_inc2, p_inc3 RED in both modes (the
+# placeholder where the image belongs, the continuation line and the depth column missing); with the cure all 22 listings SAME.
 # EXIT 0 every witness in both modes; 1 a red (named, with the first differing line); 2 REFUSED (oracle, build, or sbl printed no listing).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
@@ -59,9 +63,16 @@ SNO
 printf -- '-LIST,-EJECT\n A = 1\n-TITLE x,-LIST\n\tB = 2\n OUTPUT = A + B\nEND\n' > p_chain.sno
 { echo '-LIST'; for i in $(seq 1 119); do echo " V$i = $i"; done; printf ' OUTPUT = V1\nEND\n'; } > p_page50.sno
 { echo '-LIST'; for i in $(seq 1 1199); do echo " V = $i"; done; printf ' OUTPUT = V\nEND\n'; } > p_page1200.sno
+printf '* inc comment\n Y = 2\n Z = Y + 1\n' > inc1.sno
+printf -- '-LIST\n X = 1\n-INCLUDE '"'"'inc1.sno'"'"'\n OUTPUT = X + Y + Z\nEND\n' > p_inc.sno
+printf '* deep comment\n B = '"'"'deep'"'"'\n' > inc_b.sno
+printf '* top of a\n-EJECT\n A = '"'"'a'"'"'\n-INCLUDE '"'"'inc_b.sno'"'"'\n C = A +\n+  1\n-TITLE in a\n D = 1\n\n E = 2\n' > inc_a.sno
+printf -- '-LIST\n X = 1\n-INCLUDE '"'"'inc_a.sno'"'"'\n OUTPUT = X\n OUTPUT = B\nEND\n' > p_inc2.sno
+printf ' C = 1 +\n+  2\n D = 3\n' > inc_c.sno
+printf -- '-LIST\n-INCLUDE '"'"'inc_c.sno'"'"'\n OUTPUT = 1\nEND\n' > p_inc3.sno
 cut_at_end() { grep -v '^x86-64 ' | awk '{print} /^[0-9]+ +END( |$)/{exit}'; }
 rc=0; n=0
-for src in SourceLines001 hide debug_list p_title p_print p_chain p_page50 p_page1200; do
+for src in SourceLines001 hide debug_list p_title p_print p_chain p_page50 p_page1200 p_inc p_inc2 p_inc3; do
     timeout 60 "$SBL" -bf $src.sno < /dev/null 2>/dev/null | cut_at_end > $src.o
     [ "$(grep -c 'spitbol version' $src.o)" -ge 1 ] || { echo "REFUSED(2): sbl printed no listing for $src"; exit 2; }
     timeout 60 "$ROOT/scrip" --stlimit $src.sno < /dev/null 2>/dev/null | cut_at_end > $src.m3
@@ -75,5 +86,5 @@ for src in SourceLines001 hide debug_list p_title p_print p_chain p_page50 p_pag
         rc=1
     done
 done
-[ $rc = 0 ] && echo "PASS: $n listings (8 witnesses x 2 modes) byte-identical to sbl through the END line"
+[ $rc = 0 ] && echo "PASS: $n listings (11 witnesses x 2 modes) byte-identical to sbl through the END line"
 exit $rc
