@@ -45,8 +45,14 @@
 #      the nodes SCRIP_ZD_DIAG reports claimed ([ZD-FINAL] rows) over w7's compile: the killswitch must claim FEWER (Q's
 #      i=25 VAR and i=26 CALL drop out of every run under SCRIP_ZD_TESTFAM=0 on fc306f22a), never the same.
 # EVERY ARM IS GRADED AGAINST THE ORACLE: the witness's --transpile run on sbl -bf (a Snocone program's oracle), both modes, stdout.
-# FAIL-ONCE, BUILT IN: witness 1 must go red under SCRIP_ZD_BLOBBACK=0, witness 3 under SCRIP_ZD_5B=1 and witness 6 under
-# SCRIP_ZD_JOIN_CUT=0 -- a gate that cannot see
+# FAIL-ONCE, BUILT IN: witness 1 must go red under SCRIP_ZD_BLOBBACK=0, witness 3 under SCRIP_ZD_5B=1 and w5.sno under
+# SCRIP_ZD_OMEGA_STMTLAND=0. w6 (D) and w7 (E) have NO per-run control since 2026-10-14 (hq_zetas, row spine-zd-omega-test-kind-
+# ...-ceo-1389, the cto's road (a)): their fail-once needed SCRIP_ZD_TESTFAM=0, which selected the test family's members per op at
+# run time and is deleted -- the family is ir_decides_own_failure_kind in src/ir/IR.h, a definition, not a switch, and CEO-1680
+# allows no seam in SCRIP for a test. PROVEN ONCE, at that landing, on a local uncommitted build whose family lacked IR_CALL and
+# IR_BINOP_TEST (exactly what the switch selected): w6 m3 under SCRIP_ZD_JOIN_CUT=0 printed only [ab ] against the oracle's four
+# lines (green with the family alone, as before), and w7's plan claimed 50 nodes against 53 shipped. Both stay graded against the
+# oracle in both modes below -- a gate that cannot see
 # its own defect is not measuring it.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
@@ -169,7 +175,6 @@ fo() {  # fo <witness> <ENV=V...> -- the killswitch must make the witness differ
   if [ "$got" != "$want" ]; then echo "  fail-once $w under $*: RED as it must be"; else echo "  fail-once $w under $*: STILL GREEN -- this gate cannot see the defect it names"; RC=1; fi; }
 fo w1 SCRIP_ZD_BLOBBACK=0
 fo w3 SCRIP_ZD_5B=1
-fo w6 SCRIP_ZD_JOIN_CUT=0 SCRIP_ZD_TESTFAM=0
 fos() {  # fos <witness> <ENV=V...> -- the same, on the witness's TRANSPILED form
   local w="$1"; shift; local want got; want=$("$SBL" -bf "$T/$w.sno" </dev/null 2>/dev/null); got=$(run_mode m3 "$T/$w.sno" "$@")
   if [ "$got" != "$want" ]; then echo "  fail-once $w.sno under $*: RED as it must be"; else echo "  fail-once $w.sno under $*: STILL GREEN -- this gate cannot see the defect it names"; RC=1; fi; }
@@ -180,8 +185,7 @@ fzd() {  # fzd <witness> <ENV=V...> -- the killswitch must leave nodes of the wi
   off=$(env "$@" SCRIP_ZD_DIAG=1 "$SCRIP" --compile "$T/$w.sno" </dev/null 2>&1 >/dev/null | grep -c '^\[ZD-FINAL\]')
   if [ "$on" -gt 0 ] && [ "$off" -lt "$on" ]; then echo "  fail-once $w.sno under $* (structural): RED as it must be -- $off claimed nodes against $on shipped"
   else echo "  fail-once $w.sno under $* (structural): STILL GREEN -- $off claimed nodes against $on shipped, this gate cannot see the defect it names"; RC=1; fi; }
-fzd w7 SCRIP_ZD_TESTFAM=0
-if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $N arms (6 witnesses x m3+m4, plus w5's transpiled form x m3+m4) print the SPITBOL oracle's output, and all four killswitches red their witness"
+if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $N arms (6 witnesses x m3+m4, plus w5's transpiled form x m3+m4) print the SPITBOL oracle's output, and the three remaining killswitches red their witness (w6 and w7: proven once at their landing, see the header)"
 else echo "GATE FAIL(1) [$G]: see the arms above"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  oracle: $SBL -bf  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC

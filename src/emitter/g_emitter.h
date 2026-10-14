@@ -187,8 +187,6 @@ struct g_emitter_t {
     int blob_first_guard_seq = 0;
     int x86_diag_regs_on_c_v = -1;
     int zd_map_on__m = -1;
-    int zd_omega_test_kind__tf = -1;
-    int zd_omega_test_kind__mb = -1;
     cv_t g_zdo;
     uint32_t g_zdo_gen = 0, g_zdo_cnt = 0;
     IR_t **g_zdo_nodes = 0;

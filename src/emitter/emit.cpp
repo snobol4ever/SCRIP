@@ -3404,11 +3404,7 @@ static int zd_k(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO) ret
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_map_on(void) { if (g_emitter.zd_map_on__m < 0) { const char * e = getenv("SCRIP_ZD_MAP"); g_emitter.zd_map_on__m = (e && *e == '1') ? 1 : 0; } return g_emitter.zd_map_on__m; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zd_omega_test_kind(IR_e op) { if (g_emitter.zd_omega_test_kind__tf < 0) { const char * e = getenv("SCRIP_ZD_TESTFAM"); g_emitter.zd_omega_test_kind__tf = (e && *e == '0') ? 0 : 1; }
-    if (g_emitter.zd_omega_test_kind__mb < 0) { const char * e = getenv("SCRIP_ZD_MATCHDIAMOND"); g_emitter.zd_omega_test_kind__mb = (e && *e == '0') ? 0 : 1;
-    }
-        return (op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || (g_emitter.zd_omega_test_kind__tf && (op == IR_BINOP_TEST || op == IR_CALL)) ||
-        (g_emitter.zd_omega_test_kind__mb && op == IR_MATCH_BEGIN)) ? 1 : 0; }
+static int zd_omega_test_kind(const IR_t * nd) { return (nd && nd->ω.node && ir_decides_own_failure_kind(nd->op)) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static zdo_slot_t *zdo_probe(const IR_t *k) { uint64_t h = (((uint64_t)(uintptr_t)k >> 4) * 11400714819323198485ull) & (g_emitter.g_zdo.len - 1);
     for (;;) { zdo_slot_t *q = &CV_AT(g_emitter.g_zdo, zdo_slot_t, h); if (q->gen != g_emitter.g_zdo_gen || q->k == k) return q; h = (h + 1) & (g_emitter.g_zdo.len - 1); } }
@@ -3417,18 +3413,18 @@ static void zdo_build(IR_t **nodes, int n) {
     uint32_t need = 64; while (need < (uint32_t)n * 2 + 2) need <<= 1;
     if (g_emitter.g_zdo.len < need) { if (g_emitter.g_zdo.p) ct_drop(g_emitter.g_zdo.p); g_emitter.g_zdo.p = ct_zalloc(need, sizeof(zdo_slot_t)); g_emitter.g_zdo.len = need;
         g_emitter.g_zdo.cap = need; g_emitter.g_zdo.esz = (uint32_t)sizeof(zdo_slot_t); }
-    for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op)) { IR_t *t = zd_chase(nodes[k]->ω.node); if (!t) continue; zdo_slot_t *q = zdo_probe(t);
+    for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k])) { IR_t *t = zd_chase(nodes[k]->ω.node); if (!t) continue; zdo_slot_t *q = zdo_probe(t);
         if (q->gen != g_emitter.g_zdo_gen) { q->k = t;
         q->v = k; q->gen = g_emitter.g_zdo_gen; g_emitter.g_zdo_cnt++; } }
 }
 static int zdo_first(IR_t **nodes, int n, IR_t *t) {
     if (t && nodes == g_emitter.g_zdo_nodes && n == g_emitter.g_zdo_n && g_emitter.g_zdo.len) { zdo_slot_t *q = zdo_probe(t); return q->gen == g_emitter.g_zdo_gen ? q->v : -1; }
-    for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op) && zd_chase(nodes[k]->ω.node) == t) return k; return -1;
+    for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]) && zd_chase(nodes[k]->ω.node) == t) return k; return -1;
 }
 static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t) >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *zout, const int *claim) { int k = zdo_first(nodes, n, t); if (k < 0) return 0; int s = zon[k] ? zout[k] : 0;
-    for (int j = k + 1; j < n; j++) if (zon[j] && claim[j] == claim[k] && zout[j] > s && zd_omega_test_kind(nodes[j]->op) && zd_chase(nodes[j]->ω.node) == t) s = zout[j]; return s; }
+    for (int j = k + 1; j < n; j++) if (zon[j] && claim[j] == claim[k] && zout[j] > s && zd_omega_test_kind(nodes[j]) && zd_chase(nodes[j]->ω.node) == t) s = zout[j]; return s; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_omega_test_idx(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

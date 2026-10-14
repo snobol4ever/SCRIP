@@ -119,6 +119,10 @@ static inline int ir_is_scan_kind(IR_e t) { (void) t; return 0; }
 static inline int ir_is_call_kind(IR_e t) { return t == IR_CALL_PROC_STAGED || t == IR_CALL_BUILTIN || t == IR_CALL_BUILTIN_GEN || t == IR_CALL_ICON || t == IR_CALL_SNOBOL4 || t == IR_CALL_VALUE; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_e ir_norm_call_kind(IR_e t) { return ir_is_call_kind(t) ? IR_CALL : t; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int ir_decides_own_failure_kind(IR_e t) {
+    switch (ir_norm_call_kind(t)) { case IR_CALL: case IR_CMP_TEST: case IR_IDENT: case IR_DIFFER: case IR_BINOP_TEST: case IR_MATCH_BEGIN: return 1; default: return 0; }
+}
 typedef enum { BINOP_CAT_ARITH = 0, BINOP_CAT_RELOP = 1, BINOP_CAT_CONCAT = 2, BINOP_CAT_XREP = 3 } binop_cat_t;
 typedef struct IR_t IR_t;
 typedef struct IR_graph_t IR_graph_t;
