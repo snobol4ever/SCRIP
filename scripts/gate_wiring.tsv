@@ -582,6 +582,7 @@ test_gate_pas_sizeof_of_an_array_element_folds.sh	WIRED	-	-	-
 test_gate_pas_an_iso_call_to_an_fpc_system_routine_is_refused_at_compile_time.sh	WIRED	-	-	-
 test_gate_pas_char_ansichar_and_widechar_typecasts_in_the_fpc_dialects.sh	WIRED	-	-	-
 test_gate_pas_dynamic_array_fields_of_records_and_classes_and_a_methods_own_name.sh	WIRED	-	-	-
+test_gate_pas_the_classes_unit_tstringlist_and_tlist_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_and_text_get_put.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_stays_inside_the_unpacked_arrays_index_type.sh	WIRED	-	-	-
 test_gate_pas_packed_component_is_not_a_var_parameter.sh	WIRED	-	-	-

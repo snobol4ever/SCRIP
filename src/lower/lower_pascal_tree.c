@@ -133,6 +133,7 @@ static const char *pas_elem_rectype(tree_t *e);
 static const char *pas_with_sel_rtype(tree_t *sel);
 static const char *pas_rectype_field_typename(const char *rn, long idx);
 static int pas_dyn_depth(tree_t *e, const char **elem);
+static int pas_dyn_elem_is_string(tree_t *base);
 static const char *pas_recvar_field_rectype(const char *vn, long idx);
 static int pas_rectype_nf(const char *rn);
 static int pas_array_high_get(const char *name, long long *out);
@@ -454,6 +455,10 @@ static int pas_dyn_depth(tree_t *e, const char **elem) {
     }
     int d = pas_dyn_depth(e->c[0], elem);
     return d > 1 ? d - 1 : 0;
+}
+static int pas_dyn_elem_is_string(tree_t *base) {
+    const char *el = NULL;
+    return base && base->t == TT_IDX && pas_dyn_depth(base, &el) == 1 && el && (pas_string_type_kind(el) || !strcmp(el, "string"));
 }
 static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "fini.mute")) return mk_fnc0("__pas_std_mute");
@@ -3090,6 +3095,7 @@ static int pas_is_strval(tree_t *e) {
     if (e->t == TT_VAR && e->v.sval && (pas_is_chararr(e->v.sval) || pas_is_strarr(e->v.sval))) return 1;
     if (e->t == TT_IDX && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_strarr(e->c[0]->v.sval)) return 1;
     if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && pas_is_strelem_arr(e->c[0]->v.sval)) return 1;
+    if (e->t == TT_IDX && e->n == 2 && pas_dyn_elem_is_string(e->c[0])) return 1;
     if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_func_returns_stringish(e->c[0]->v.sval)) return 1;
     return 0;
 }
@@ -3415,6 +3421,7 @@ static int pas_is_stringexpr(tree_t *e) {
     if (e->t == TT_QLIT) return !(e->v.sval && strlen(e->v.sval) == 1);
     if (e->t == TT_VAR && e->v.sval) return pas_var_string_kind(e->v.sval) != 0;
     if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_strelem_arr(e->c[0]->v.sval)) return 1;
+    if (e->t == TT_IDX && e->n == 2 && pas_dyn_elem_is_string(e->c[0])) return 1;
     if (e->t == TT_IDX && e->n >= 2 && e->c[0] && e->c[1] && e->c[1]->t == TT_ILIT) {
         const char *rt = pas_with_sel_rtype(e->c[0]);
         const char *tn = rt ? pas_rectype_field_typename(rt, e->c[1]->v.ival) : NULL;

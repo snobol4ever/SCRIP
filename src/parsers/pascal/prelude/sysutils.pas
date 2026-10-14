@@ -41,7 +41,10 @@ function TrimLeft(s: string): string;
 function TrimRight(s: string): string;
 function Trim(s: string): string;
 function StrToIntDef(s: string; d: integer): integer;
+function CompareStr(a, b: string): integer;
 function CompareText(a, b: string): integer;
+function AnsiCompareStr(a, b: string): integer;
+function AnsiCompareText(a, b: string): integer;
 function SameText(a, b: string): boolean;
 function QuotedStr(s: string): string;
 implementation
@@ -143,6 +146,24 @@ begin
   if not ok or (i <= length(s)) then StrToIntDef := d
   else if neg then StrToIntDef := -v
   else StrToIntDef := v
+end;
+function CompareStr(a, b: string): integer;
+var i, n: integer;
+begin
+  n := length(a);
+  if length(b) < n then n := length(b);
+  i := 1;
+  while (i <= n) and (a[i] = b[i]) do i := i + 1;
+  if i <= n then CompareStr := ord(a[i]) - ord(b[i])
+  else CompareStr := length(a) - length(b)
+end;
+function AnsiCompareStr(a, b: string): integer;
+begin
+  AnsiCompareStr := CompareStr(a, b)
+end;
+function AnsiCompareText(a, b: string): integer;
+begin
+  AnsiCompareText := CompareText(a, b)
 end;
 function CompareText(a, b: string): integer;
 var x, y: string; i, n: integer;
