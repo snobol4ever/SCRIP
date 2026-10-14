@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2722
-#define GC_ALLOC_TAB_N_VOID 317
-#define GC_ALLOC_TAB_N_DESCR 1302
+#define GC_ALLOC_TAB_N 2728
+#define GC_ALLOC_TAB_N_VOID 320
+#define GC_ALLOC_TAB_N_DESCR 1305
 #define GC_ALLOC_TAB_N_OTHER 1086
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -1284,8 +1284,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_agg_truth", GC_RET_OTHER },
     { "rk_apply_actions", GC_RET_VOID },
     { "rk_arr_append", GC_RET_VOID },
+    { "rk_arr_at_impl", GC_RET_VOID },
     { "rk_arr_of_texts", GC_RET_DESCR },
     { "rk_arr_put", GC_RET_OTHER },
+    { "rk_arr_set_impl", GC_RET_VOID },
     { "rk_arr_store_in_place", GC_RET_OTHER },
     { "rk_arr_text", GC_RET_OTHER },
     { "rk_attr_defaults", GC_RET_DESCR },
@@ -1315,6 +1317,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_dyn_obj", GC_RET_DESCR },
     { "rk_dyn_str", GC_RET_DESCR },
     { "rk_dyn_text", GC_RET_OTHER },
+    { "rk_elem_put_impl", GC_RET_VOID },
     { "rk_emit_new_procs", GC_RET_OTHER },
     { "rk_exc_adhoc", GC_RET_DESCR },
     { "rk_exc_current", GC_RET_DESCR },
@@ -2504,6 +2507,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_relop_descr2", GC_RET_OTHER },
     { "rt_relop_overload", GC_RET_OTHER },
     { "rt_relop_val_coerce", GC_RET_VOID },
+    { "rt_rk_arr_at", GC_RET_DESCR },
+    { "rt_rk_arr_set", GC_RET_DESCR },
+    { "rt_rk_elem_put", GC_RET_DESCR },
     { "rt_scan_enter", GC_RET_OTHER },
     { "rt_scan_lit", GC_RET_OTHER },
     { "rt_scan_needle", GC_RET_OTHER },
