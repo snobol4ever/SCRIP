@@ -1709,9 +1709,13 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
             else if (*p == 'k') plc_fb_term(&f, h, 2, 0, 0);
             else if (*p == 'i') {
             } else if (*p == 'a') {
+                char ab[96];
+                const char *as = (const char *)0;
                 if (pl_cell_unbound(h)) { ball = rt_pl_ball_instantiation(); break; }
-                if (!plc_fmt_is_atom(h)) { ball = rt_pl_ball_kind2("type_error", "atom", *h); break; }
-                { const char *s = plc_atom_text(h); plc_fb_add(&f, s, strlen(s)); }
+                if (plc_fmt_is_atom(h)) as = plc_atom_text(h);
+                else if (rt_pl_dialect_swi() && (int)h->v != DT_PLREF) as = plc_atom_op_text(h, ab, sizeof ab);
+                if (!as) { ball = rt_pl_ball_kind2("type_error", "atom", *h); break; }
+                plc_fb_add(&f, as, strlen(as));
             } else if (*p == 'c') {
                 long cv;
                 if (!plc_fmt_int(h, &cv, &ball)) break;
