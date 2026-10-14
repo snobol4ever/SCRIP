@@ -18778,6 +18778,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         *out = NULVCL;
         return 1;
     }
+    if ((_bid == BID_MATCHAT) && nargs == 0) { extern DESCR_t _MATCHAT_(DESCR_t *, int); *out = _MATCHAT_(args, nargs); return 1; }
     if ((_bid == BID___pas_mkdir) && nargs == 1) { char sb[256]; const char *d = to_cstring(args[0], sb, sizeof sb); mkdir(d, 0777); *out = NULVCL; return 1; }
     if ((_bid == BID___pas_rmdir) && nargs == 1) { char sb[256]; const char *d = to_cstring(args[0], sb, sizeof sb); rmdir(d); *out = NULVCL; return 1; }
     if ((_bid == BID___pas_swapendian) && nargs == 2) {

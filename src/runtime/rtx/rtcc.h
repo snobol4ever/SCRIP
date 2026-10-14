@@ -19,6 +19,7 @@ extern "C" {
 #define RTCC_SLOT_R9 6
 #define RTCC_SLOT_R10 7
 #define RTCC_SLOT_R11 8
+#define RTCC_SLOT_MATCHAT 31
 #ifndef RTCC_GLOBAL_R8_ANCHOR
 #define RTCC_GLOBAL_R8_ANCHOR 1
 #endif
@@ -37,6 +38,11 @@ _Static_assert(RTCC_SLOT_R8 == 5 && RTCC_SLOT_R9 == 6 && RTCC_SLOT_R10 == 7 && R
     "EO-1053, a convention enforced by nothing will drift): test_gate_gc_the_caller_saved_spill_block_never_holds_a_heap_reference.sh grades every witness that collects and proves its own detect"
     "or fires by planting a heap pointer in slot 7 or 8, which read a measured zero. Slot 5 does NOT read zero today -- 806 heap references over eight SNOBOL4 witnesses -- and that gate names th"
     "em.");
+_Static_assert(RTCC_SLOT_MATCHAT == 31,
+    "THE OTHER 23 WORDS ARE SPOKEN FOR AND A NEW USE TAKES A FREE ONE BY NAME HERE, NEVER A LITERAL INDEX (hq_snocone 2026-10-14, the coo's SncBench red bisected to 6a3ff25a9): slots 9..24 are th"
+    "e XMM half of the spill block (RTCC_XMM_BYTES past the nine GPR words); slots 25..30 are SETEXIT's -- 25 the pending handler, 26..29 the resume label, rsp, rbp and r12 for CONTINUE, 30 the e"
+    "rror code rt_setexit_abort reads; slot 31 is the start offset of the capture whose deferred call is being pumped (rt_dcap_pump writes it, the MATCHAT builtin reads it, an integer never a he"
+    "ap pointer). 6a3ff25a9 wrote that offset into slot 30 and every capture pump overwrote SETEXIT's error code: parser_snobol4.sc as a mode-3 program then died SIGSEGV in the chain walk.");
 #endif
 extern unsigned char g_rtcc_on;
 void rtcc_coexpr_save(uint64_t *dst_256);

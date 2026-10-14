@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include "dtp.h"
 #include "core.h"
+#include "rtx/rtcc.h"
 #include "ast.h"
 #include "../parsers/snobol4/scrip_cc.h"
 #include "sil_macros.h"
@@ -1089,7 +1090,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
 #endif
             c->pending = d;
             c->star = srec ? (const char *)(const void *)srec : star;
-            { extern uint64_t rtccb[32]; rtccb[30] = e->saved_delta; }
+            rtccb[RTCC_SLOT_MATCHAT] = e->saved_delta;
             c->wsv = rt_g_want_name;
             c->asv = g_cap_abort_gen;
             c->how = 0;

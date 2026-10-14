@@ -8,12 +8,23 @@
 #define BB_DEFINE_NAMES 1
 #include "ast.h"
 #include "pin_va.h"
-#define SC_MOD_POS_SLOT 30
-typedef struct { void *module_init; void *main_alpha; const char **gva_names; long n_gva; void **alpha_tab; const void *gc_maps; const void *gc_sites; int64_t *proc_tab; const char **proc_names; long n_proc; const char *name; } sc_module_desc_t;
+typedef struct {
+    void *module_init;
+    void *main_alpha;
+    const char **gva_names;
+    long n_gva;
+    void **alpha_tab;
+    const void *gc_maps;
+    const void *gc_sites;
+    int64_t *proc_tab;
+    const char **proc_names;
+    long n_proc;
+    const char *name;
+} sc_module_desc_t;
 typedef struct { const sc_module_desc_t *d; DESCR_t *base; int inited; int busy; int i_src; int i_path; int i_lang; int i_linked; int i_tree; int i_inited; int i_errpos; int i_incl; } sc_module_t;
 static sc_module_t g_sc_mod;
 extern const sc_module_desc_t scparsers_sc_module __attribute__((weak));
-extern uint64_t rtccb[32];
+#include "../rtx/rtcc.h"
 extern int64_t kw_anchor, kw_trim, kw_fullscan, kw_maxlngth, kw_stlimit, kw_stcount, kw_trace, kw_ftrace;
 extern void core_lib_init(void);
 extern DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
@@ -44,7 +55,7 @@ void rt_sc_include_dir_add(const char *d) {
 }
 const char *rt_sc_include_dirs_joined(void) { return g_sc_inc_dirs ? g_sc_inc_dirs : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t _MATCHAT_(DESCR_t *args, int nargs) { (void)args; (void)nargs; return (DESCR_t){ .v = DT_I, .slen = 0, .i = (int64_t)rtccb[SC_MOD_POS_SLOT] }; }
+DESCR_t _MATCHAT_(DESCR_t *args, int nargs) { (void)args; (void)nargs; return (DESCR_t){ .v = DT_I, .slen = 0, .i = (int64_t)rtccb[RTCC_SLOT_MATCHAT] }; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_sc_gva_reserve(void) { return &scparsers_sc_module ? scparsers_sc_module.n_gva : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -68,7 +79,10 @@ static sc_module_t *sc_module_get(void) {
     m->i_inited = sc_slot_of(m->d, "ModInited");
     m->i_errpos = sc_slot_of(m->d, "ModErrPos");
     m->i_incl = sc_slot_of(m->d, "ModIncl");
-    if (m->i_src < 0 || m->i_path < 0 || m->i_lang < 0 || m->i_linked < 0 || m->i_tree < 0 || m->i_inited < 0) { fprintf(stderr, "rt_sc_module: the linked parser module lacks the mod_head/mod_tail cells\n"); abort(); }
+    if (m->i_src < 0 || m->i_path < 0 || m->i_lang < 0 || m->i_linked < 0 || m->i_tree < 0 || m->i_inited < 0) {
+        fprintf(stderr, "rt_sc_module: the linked parser module lacks the mod_head/mod_tail cells\n");
+        abort();
+    }
     return m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -76,11 +90,26 @@ static void sc_module_run(sc_module_t *m) {
     int64_t s_anchor = kw_anchor, s_trim = kw_trim, s_full = kw_fullscan, s_max = kw_maxlngth, s_stl = kw_stlimit, s_stc = kw_stcount, s_tr = kw_trace, s_ftr = kw_ftrace;
     char *save_top = rt_gc_program_top_get();
     int nested = save_top != (char *)0;
-    kw_anchor = 0; kw_trim = 0; kw_fullscan = 1; kw_maxlngth = 16777216; kw_stlimit = -1; kw_trace = 0; kw_ftrace = 0;
-    if (nested) rt_gc_inhibit_push(); else rt_gc_program_top_set((char *)0);
+    kw_anchor = 0;
+    kw_trim = 0;
+    kw_fullscan = 1;
+    kw_maxlngth = 16777216;
+    kw_stlimit = -1;
+    kw_trace = 0;
+    kw_ftrace = 0;
+    if (nested) rt_gc_inhibit_push();
+    else rt_gc_program_top_set((char *)0);
     rt_sc_outer_call(m->d->main_alpha);
-    if (nested) rt_gc_inhibit_pop(); else rt_gc_program_top_set(save_top);
-    kw_anchor = s_anchor; kw_trim = s_trim; kw_fullscan = s_full; kw_maxlngth = s_max; kw_stlimit = s_stl; kw_stcount = s_stc; kw_trace = s_tr; kw_ftrace = s_ftr;
+    if (nested) rt_gc_inhibit_pop();
+    else rt_gc_program_top_set(save_top);
+    kw_anchor = s_anchor;
+    kw_trim = s_trim;
+    kw_fullscan = s_full;
+    kw_maxlngth = s_max;
+    kw_stlimit = s_stl;
+    kw_stcount = s_stc;
+    kw_trace = s_tr;
+    kw_ftrace = s_ftr;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_module_init(sc_module_t *m) {
@@ -109,7 +138,11 @@ static void sc_module_init(sc_module_t *m) {
     m->inited = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sc_field_index(const DATINST_t *u, const char *nm) { const DATBLK_t *t = u ? u->type : (DATBLK_t *)0; for (int i = 0; t && i < t->nfields; i++) if (t->fields[i] && !strcmp(t->fields[i], nm)) return i; return -1; }
+static int sc_field_index(const DATINST_t *u, const char *nm) {
+    const DATBLK_t *t = u ? u->type : (DATBLK_t *)0;
+    for (int i = 0; t && i < t->nfields; i++) if (t->fields[i] && !strcmp(t->fields[i], nm)) return i;
+    return -1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sc_kind_of(const char *nm) {
     static int built = 0;
@@ -122,7 +155,12 @@ static int sc_kind_of(const char *nm) {
         }
         built = 1;
     }
-    { unsigned h = 2166136261u; for (const char *p = nm; *p; p++) { h ^= (unsigned char)*p; h *= 16777619u; } h &= 1023u; while (bucket[h] >= 0) { if (!strcmp(tt_e_name[bucket[h]], nm)) return bucket[h]; h = (h + 1) & 1023u; } }
+    {
+        unsigned h = 2166136261u;
+        for (const char *p = nm; *p; p++) { h ^= (unsigned char)*p; h *= 16777619u; }
+        h &= 1023u;
+        while (bucket[h] >= 0) { if (!strcmp(tt_e_name[bucket[h]], nm)) return bucket[h]; h = (h + 1) & 1023u; }
+    }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -157,11 +195,17 @@ static tree_t *sc_export(sc_export_t *x, DESCR_t d, long *first_off, int root) {
         if (k < 0) { fprintf(stderr, "rt_sc_module: the tree names an unknown kind '%s'\n", tn); return (tree_t *)0; }
         e = ast_node_new((tree_e)k);
         x->nodes++;
-        if (root) { }
-        else if (k == TT_ILIT) { DESCR_t v = f[x->fv]; e->v.ival = v.v == DT_I ? v.i : (long long)strtoll(sc_text_of(v, &vl), (char **)0, 10); }
-        else if (k == TT_FLIT) { DESCR_t v = f[x->fv]; e->v.dval = v.v == DT_R ? v.r : v.v == DT_I ? (double)v.i : strtod(sc_text_of(v, &vl), (char **)0); }
-        else if (k == TT_CHRLIT) { DESCR_t v = f[x->fv]; e->v.ival = v.v == DT_I ? v.i : (long long)strtoll(sc_text_of(v, &vl), (char **)0, 10); }
-        else {
+        if (root) {
+        } else if (k == TT_ILIT) {
+            DESCR_t v = f[x->fv];
+            e->v.ival = v.v == DT_I ? v.i : (long long)strtoll(sc_text_of(v, &vl), (char **)0, 10);
+        } else if (k == TT_FLIT) {
+            DESCR_t v = f[x->fv];
+            e->v.dval = v.v == DT_R ? v.r : v.v == DT_I ? (double)v.i : strtod(sc_text_of(v, &vl), (char **)0);
+        } else if (k == TT_CHRLIT) {
+            DESCR_t v = f[x->fv];
+            e->v.ival = v.v == DT_I ? v.i : (long long)strtoll(sc_text_of(v, &vl), (char **)0, 10);
+        } else {
             DESCR_t v = f[x->fv];
             const char *vt = sc_text_of(v, &vl);
             if (vl > 0 || k == TT_QLIT || k == TT_CSET) { char *s = (char *)ct_alloc(vl + 1); memcpy(s, vt, vl); s[vl] = 0; e->v.sval = s; e->slen = (int)vl; }
@@ -215,16 +259,31 @@ tree_t *rt_sc_module_parse(const char *lang, const char *src, size_t len, const 
             sc_export_t x;
             int *ls = (int *)malloc(sizeof(int) * (len + 2));
             long off0 = -1;
-            x.src = src; x.len = len; x.nlines = 0; x.nodes = 0;
+            x.src = src;
+            x.len = len;
+            x.nlines = 0;
+            x.nodes = 0;
             ls[x.nlines++] = 0;
             for (size_t i = 0; i < len; i++) if (src[i] == '\n') ls[x.nlines++] = (int)(i + 1);
             x.line_starts = ls;
-            x.ft = sc_field_index(t.u, "sc_t"); x.fv = sc_field_index(t.u, "sc_v"); x.fn = sc_field_index(t.u, "sc_n"); x.fc = sc_field_index(t.u, "sc_c"); x.fp = sc_field_index(t.u, "sc_p");
-            if (x.ft < 0 || x.fv < 0 || x.fn < 0 || x.fc < 0) { fprintf(stderr, "rt_sc_module: the %s parser returned a record that is not a tree\n", lang); free(ls); m->busy = 0; return (tree_t *)0; }
+            x.ft = sc_field_index(t.u, "sc_t");
+            x.fv = sc_field_index(t.u, "sc_v");
+            x.fn = sc_field_index(t.u, "sc_n");
+            x.fc = sc_field_index(t.u, "sc_c");
+            x.fp = sc_field_index(t.u, "sc_p");
+            if (x.ft < 0 || x.fv < 0 || x.fn < 0 || x.fc < 0) {
+                fprintf(stderr, "rt_sc_module: the %s parser returned a record that is not a tree\n", lang);
+                free(ls);
+                m->busy = 0;
+                return (tree_t *)0;
+            }
             root = sc_export(&x, t, &off0, 1);
             if (nodes_out) *nodes_out = x.nodes;
             free(ls);
-        } else if (m->i_errpos >= 0 && errpos_out) { DESCR_t ep = m->base[m->i_errpos]; *errpos_out = ep.v == DT_I ? (long)ep.i : -1; }
+        } else if (m->i_errpos >= 0 && errpos_out) {
+            DESCR_t ep = m->base[m->i_errpos];
+            *errpos_out = ep.v == DT_I ? (long)ep.i : -1;
+        }
     }
     m->base[m->i_src] = (DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" };
     m->base[m->i_tree] = (DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" };
@@ -253,13 +312,12 @@ static tree_t *sc_attr(const char *tag, const char *text) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *sc_attr_int(const char *tag, long v) { char b[32]; snprintf(b, sizeof b, "%ld", v); return sc_attr(tag, b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const tree_t *sc_stmt_attr(const tree_t *st, const char *tag) { for (int i = 0; i < st->n; i++) if (st->c[i] && st->c[i]->t == TT_ATTR && st->c[i]->v.sval && !strcmp(st->c[i]->v.sval, tag)) return st->c[i]; return (const tree_t *)0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sc_stmt_insert(tree_t *st, int at, tree_t *a) {
-    ast_push(st, a);
-    for (int i = st->n - 1; i > at; i--) st->c[i] = st->c[i - 1];
-    st->c[at] = a;
+static const tree_t *sc_stmt_attr(const tree_t *st, const char *tag) {
+    for (int i = 0; i < st->n; i++) if (st->c[i] && st->c[i]->t == TT_ATTR && st->c[i]->v.sval && !strcmp(st->c[i]->v.sval, tag)) return st->c[i];
+    return (const tree_t *)0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sc_stmt_insert(tree_t *st, int at, tree_t *a) { ast_push(st, a); for (int i = st->n - 1; i > at; i--) st->c[i] = st->c[i - 1]; st->c[at] = a; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char **lines; int *lens; int n; } sc_lines_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -299,7 +357,14 @@ static char *sc_src_slice(const sc_lines_t *L, int n1, int n2, const char *label
     {
         size_t tot = 0;
         for (int i = n1; i < n2; i++) tot += (size_t)L->lens[i - 1] + 1;
-        { char *out = (char *)ct_alloc(tot + 1); size_t o = 0; for (int i = n1; i < n2; i++) { memcpy(out + o, L->lines[i - 1], (size_t)L->lens[i - 1]); o += (size_t)L->lens[i - 1]; out[o++] = '\n'; } if (o) o--; out[o] = 0; return out; }
+        {
+            char *out = (char *)ct_alloc(tot + 1);
+            size_t o = 0;
+            for (int i = n1; i < n2; i++) { memcpy(out + o, L->lines[i - 1], (size_t)L->lens[i - 1]); o += (size_t)L->lens[i - 1]; out[o++] = '\n'; }
+            if (o) o--;
+            out[o] = 0;
+            return out;
+        }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -314,11 +379,7 @@ static tree_t *sc_sno_bookkeep(tree_t *root, const char *src, size_t len, const 
     int ordinal = 0, prev_line = 0;
     (void)path;
     sc_lines_build(src, len, &L);
-    for (int i = 0; i < root->n; i++) {
-        tree_t *st = root->c[i];
-        if (!st || (st->t != TT_STMT && st->t != TT_END)) continue;
-        ast_push(prog, st);
-    }
+    for (int i = 0; i < root->n; i++) { tree_t *st = root->c[i]; if (!st || (st->t != TT_STMT && st->t != TT_END)) continue; ast_push(prog, st); }
     for (int i = 0; i < prog->n; i++) {
         tree_t *st = prog->c[i];
         const tree_t *lbl = sc_stmt_attr(st, ":lbl");
@@ -335,7 +396,11 @@ static tree_t *sc_sno_bookkeep(tree_t *root, const char *src, size_t len, const 
         if (st->t == TT_STMT) {
             int next_line = i + 1 < prog->n && prog->c[i + 1]->line > line ? prog->c[i + 1]->line : line + 1;
             char *ssrc = is_null ? ct_strdup("") : sc_src_slice(&L, line, next_line, label);
-            if (!ssrc) { char b[fmt_len("%s%s<stmt %d, line %d: source not resolvable>", label ? label : "", label ? "  " : "        ", ordinal, line)]; snprintf(b, sizeof b, "%s%s<stmt %d, line %d: source not resolvable>", label ? label : "", label ? "  " : "        ", ordinal, line); ssrc = ct_strdup(b); }
+            if (!ssrc) {
+                char b[fmt_len("%s%s<stmt %d, line %d: source not resolvable>", label ? label : "", label ? "  " : "        ", ordinal, line)];
+                snprintf(b, sizeof b, "%s%s<stmt %d, line %d: source not resolvable>", label ? label : "", label ? "  " : "        ", ordinal, line);
+                ssrc = ct_strdup(b);
+            }
             sc_stmt_insert(st, at++, sc_attr(":src", ssrc));
         } else sno_end_lineno = line;
         prev_line = line;
@@ -349,7 +414,11 @@ tree_t *sno_parse_stage_buf(const char *src, size_t len, const char *path) {
     if (rt_sc_module_linked() && sc_stage_wants_module()) {
         long nodes = 0, errpos = -1;
         tree_t *root = rt_sc_module_parse("snobol4", src, len, path, rt_sc_include_dirs_joined(), &nodes, &errpos);
-        if (!root) { sno_nerrors = 1; fprintf(stderr, "scrip: parse error in '%s'%s\n", path ? path : "<stdin>", errpos >= 0 ? " (the linked SNOBOL4 parser refused a statement)" : ""); return (tree_t *)0; }
+        if (!root) {
+            sno_nerrors = 1;
+            fprintf(stderr, "scrip: parse error in '%s'%s\n", path ? path : "<stdin>", errpos >= 0 ? " (the linked SNOBOL4 parser refused a statement)" : "");
+            return (tree_t *)0;
+        }
         sno_nerrors = 0;
         return sc_sno_bookkeep(root, src, len, path);
     }
