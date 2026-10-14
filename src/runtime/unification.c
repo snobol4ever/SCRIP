@@ -3840,10 +3840,7 @@ static void pl_db_rc_frame(const void *map, const char *base, void *a) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((noreturn, force_align_arg_pointer)) static void pl_db_reclaimed_entry(void) {
-    rt_bomb("a reclaimed run-time Prolog fragment was entered -- its clause was erased and the assertz reclaim found no live activation that could still reach it (unification.c pl_db_reclaim)");
-    abort();
-}
+extern void rt_pl_db_reclaimed_entry(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_reclaim_one(pl_db_t *db, int i) {
     extern void rt_gc_frame_maps_drop_range(const void *, const void *);
@@ -3862,9 +3859,9 @@ static int pl_db_reclaim_one(pl_db_t *db, int i) {
         PL_DB_KEY_VLA(key, nm, ar);
         char fkey[fmt_len("%s@%d", key, i)];
         snprintf(fkey, sizeof fkey, "%s@%d", key, i);
-        rt_proc_set_fn_at(db->s[i].ridx, (bb_box_fn)pl_db_reclaimed_entry);
-        rt_proc_set_dcfn(fkey, (void *)pl_db_reclaimed_entry);
-        bb_ab_seal_alpha(fkey, (void *)pl_db_reclaimed_entry);
+        rt_proc_set_fn_at(db->s[i].ridx, (bb_box_fn)rt_pl_db_reclaimed_entry);
+        rt_proc_set_dcfn(fkey, (void *)rt_pl_db_reclaimed_entry);
+        bb_ab_seal_alpha(fkey, (void *)rt_pl_db_reclaimed_entry);
     }
     db->s[i].chain_off = 0;
     db->s[i].frag = (f & ~PL_DB_FRAG_HELD) | PL_DB_FRAG_GONE;

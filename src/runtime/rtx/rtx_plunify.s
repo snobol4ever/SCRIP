@@ -774,4 +774,16 @@ RTX_FUNC(rt_pl_dop_curstream_guard)
     mov     edx, 1
     ret
 RTX_ENDF(rt_pl_dop_curstream_guard)
+RTX_FUNC(rt_pl_db_reclaimed_entry)
+    RTX_PUSHS(rbp)
+    mov     rbp, rsp
+    .cfi_def_cfa_register rbp
+    and     rsp, -16
+    lea     rdi, [rip + .Lpl_db_reclaimed_msg]
+    call    rt_bomb@PLT
+    ud2
+RTX_ENDF(rt_pl_db_reclaimed_entry)
+.section .rodata
+.Lpl_db_reclaimed_msg:
+    .string "a reclaimed run-time Prolog fragment was entered -- its clause was erased and the assertz reclaim found no live activation that could still reach it (unification.c pl_db_reclaim)"
 .section .note.GNU-stack,"",@progbits

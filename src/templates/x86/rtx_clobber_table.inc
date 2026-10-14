@@ -1,4 +1,4 @@
-#define RTX_CLOB_TAB_N 303
+#define RTX_CLOB_TAB_N 304
 #define RTX_CLOB_TAB_N_CLOBBERING 275
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
@@ -43,6 +43,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_ball_take", 0 },
     { "rt_pl_catch_handle", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_cmp_cold", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_db_reclaimed_entry", 0 },
     { "rt_pl_dop_aggregate_reduce", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_append1", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_arg", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
