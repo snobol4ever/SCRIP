@@ -3700,9 +3700,13 @@ TASKEOF
          # suite table in four (ceo, snocone, prolog, pascal). handoff_status.sh took 107 s on a clean tree at load 9 against the
          # Stop hook's 120 s: 29 s with the seven-language slot-kind sweep (timeout 300) skipped, 11 s with the GC acceptance
          # display skipped too. Both are WARN-ONLY with their own honest skip switches (each prints SKIPPED, never a green). The
-         # banner skips the sweep (it runs on a direct handoff_status.sh invocation, the boundary it was wired for), keeps the
-         # acceptance display, and bounds the whole call at 75 s; a timeout is a REFUSAL that names the load, never a lost banner.
-         if [ -f "$hs" ]; then hout="$(SKIP_S_ARTIFACT_CHECK=1 SKIP_ZLS_ALL=1 timeout 75 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
+         # banner skips the sweep (it runs on a direct handoff_status.sh invocation, the boundary it was wired for) and bounds
+         # the whole call at 75 s; a timeout is a REFUSAL that names the load, never a lost banner.
+         # ⛔ THE BANNER SKIPS THE GC ACCEPTANCE DISPLAY TOO (ceo 2026-10-14 CEO-1705, the coo's load reading 38 on 16 cores at
+         # 12:21): util_gc_acceptance.py spawned util_gc_census.py for 40-70 s at every Stop of every seat, fourteen seats, and
+         # `timeout 75` kills only the bash, so the census outlived the banner -- the per-response class CEO-1671 removed. The
+         # four numbers still print on a direct handoff_status.sh invocation, the handoff boundary Lon's 09-21 order names.
+         if [ -f "$hs" ]; then hout="$(SKIP_S_ARTIFACT_CHECK=1 SKIP_ZLS_ALL=1 SKIP_GC_ACCEPTANCE=1 timeout 75 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
          if [ "$hrc" = 124 ]; then hout="$hout"$'\n'"⛔ handoff_status.sh NOT MEASURED — timed out at the banner's 75 s budget (load $(cut -d' ' -f1 /proc/loadavg)); this is a refusal, not a red: run bash scripts/handoff_status.sh by hand"; hrc=2; fi
          # ⭐ fix-dispatch-bus-two-failure-modes (s266, seat07's q-s4e-msg-banner-attribution-undercount):
          # `held` used to be "whichever of my OPEN claims sorts first ALPHABETICALLY" -- a seat holding two
