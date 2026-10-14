@@ -472,6 +472,7 @@ ALNUM    [A-Za-z0-9_]
                           pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); return IDENT; }
 ":="                    { return BECOMES; }
 ".."                    { return DOTDOT; }
+"><"                    { pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); return XOROP; }
 "<="                    { return LEOP; }
 ">="                    { return GEOP; }
 "<>"                    { return NEOP; }

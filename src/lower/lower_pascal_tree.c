@@ -610,6 +610,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             return mk_assign(dst, f);
         }
     }
+    if (name && !strcmp(name, "><") && args && args->count >= 3) {
+        tree_t *x = args->items[0], *y = args->items[2];
+        return mk_set_bin("__pas_setuni", mk_set_bin("__pas_setdif", x, y), mk_set_bin("__pas_setdif", pas_tree_clone(y), pas_tree_clone(x)));
+    }
     if (name && (!strcmp(name, "shl") || !strcmp(name, "shr") || !strcmp(name, "xor")) && args && args->count >= 3 && !pas_is_func(name) && !pas_is_proc(name)) {
         tree_t *x = args->items[0], *y = args->items[2];
         if (!strcmp(name, "xor")) return (pas_is_boolexpr(x) && pas_is_boolexpr(y)) ? bin(TT_NE, x, y) : mk_fnc2("ixor", x, y);
