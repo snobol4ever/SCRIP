@@ -157,24 +157,21 @@ void fh_set_output(int idx){ fh_cur_ensure(); if(idx>=0&&idx<FH_N&&g_fh[idx].fp)
 FILE *fh_cur_out_fp(void){ fh_cur_ensure(); FILE *fp=fh_get(fh_cur_out); return fp?fp:stdout; }
 FILE *fh_cur_in_fp(void){ fh_cur_ensure(); FILE *fp=fh_get(fh_cur_in); return fp?fp:stdin; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fh_x_utf8(unsigned long c, unsigned char *o){
-    if(c<0x80){ o[0]=(unsigned char)c; return 1; }
-    if(c<0x800){ o[0]=(unsigned char)(0xC0|(c>>6)); o[1]=(unsigned char)(0x80|(c&0x3F)); return 2; }
-    if(c<0x10000){ o[0]=(unsigned char)(0xE0|(c>>12)); o[1]=(unsigned char)(0x80|((c>>6)&0x3F)); o[2]=(unsigned char)(0x80|(c&0x3F)); return 3; }
-    o[0]=(unsigned char)(0xF0|(c>>18));
-    o[1]=(unsigned char)(0x80|((c>>12)&0x3F));
-    o[2]=(unsigned char)(0x80|((c>>6)&0x3F));
-    o[3]=(unsigned char)(0x80|(c&0x3F));
+static int fh_x_utf8(unsigned long c, unsigned int *o){
+    if(c<0x80){ *o=(unsigned int)c; return 1; }
+    if(c<0x800){ *o=(0xC0|(unsigned int)(c>>6))|(0x80|(unsigned int)(c&0x3F))<<8; return 2; }
+    if(c<0x10000){ *o=(0xE0|(unsigned int)(c>>12))|(0x80|(unsigned int)((c>>6)&0x3F))<<8|(0x80|(unsigned int)(c&0x3F))<<16; return 3; }
+    *o=(0xF0|(unsigned int)(c>>18))|(0x80|(unsigned int)((c>>12)&0x3F))<<8|(0x80|(unsigned int)((c>>6)&0x3F))<<16|(0x80|(unsigned int)(c&0x3F))<<24;
     return 4;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fh_x_unit(FILE *r, int k, unsigned long *u){
-    unsigned char b[4];
+    unsigned long x=0;
     int w=k==5?1:k<=2?2:4;
-    if(fread(b,1,(size_t)w,r)!=(size_t)w) return 0;
-    if(w==1) *u=b[0];
-    else if(w==2) *u=k==1?((unsigned long)b[0]<<8|b[1]):((unsigned long)b[1]<<8|b[0]);
-    else *u=k==3?((unsigned long)b[0]<<24|(unsigned long)b[1]<<16|(unsigned long)b[2]<<8|b[3]):((unsigned long)b[3]<<24|(unsigned long)b[2]<<16|(unsigned long)b[1]<<8|b[0]);
+    for(int m=0;m<w;m++){ int ch=fgetc(r); if(ch==EOF) return 0; x|=(unsigned long)(unsigned char)ch<<(8*m); }
+    if(w==1) *u=x;
+    else if(w==2) *u=k==1?((x&0xFF)<<8|x>>8):x;
+    else *u=k==3?((x&0xFF)<<24|((x>>8)&0xFF)<<16|((x>>16)&0xFF)<<8|x>>24):x;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -184,11 +181,11 @@ static ssize_t fh_x_read(void *c, char *buf, size_t n){
     while(o<n){
         fh_slot_t *s=&g_fh[i];
         unsigned long u, v;
-        if(s->xout_n){ int m=0; while(m<s->xout_n&&o<n) buf[o++]=(char)s->xout[m++]; memmove(s->xout,s->xout+m,(size_t)(s->xout_n-m)); s->xout_n=(char)(s->xout_n-m); continue; }
+        if(s->xout_n){ while(s->xout_n&&o<n){ buf[o++]=(char)(s->xout&0xFF); s->xout>>=8; s->xout_n--; } continue; }
         if(!s->xk) return (ssize_t)(o+fread(buf+o,1,n-o,s->raw));
         if(!fh_x_unit(s->raw,s->xk,&u)) break;
         if(s->xk<=2&&u>=0xD800&&u<=0xDBFF&&fh_x_unit(s->raw,s->xk,&v)&&v>=0xDC00&&v<=0xDFFF) u=0x10000+((u-0xD800)<<10)+(v-0xDC00);
-        s->xout_n=(char)fh_x_utf8(u,s->xout);
+        s->xout_n=(char)fh_x_utf8(u,&s->xout);
     }
     return (ssize_t)o;
 }
@@ -215,13 +212,14 @@ static ssize_t fh_x_write(void *c, const char *p, size_t n){
         unsigned char b0;
         int need;
         unsigned long u;
-        s->xin[(int)s->xin_n]=(unsigned char)p[k];
+        if(!s->xin_n) s->xin=0;
+        s->xin|=(unsigned int)(unsigned char)p[k]<<(8*s->xin_n);
         s->xin_n++;
-        b0=s->xin[0];
+        b0=(unsigned char)(s->xin&0xFF);
         need=b0<0x80?1:(b0&0xE0)==0xC0?2:(b0&0xF0)==0xE0?3:(b0&0xF8)==0xF0?4:1;
         if(s->xin_n<need) continue;
         u=need==1?b0:need==2?(unsigned long)(b0&0x1F):need==3?(unsigned long)(b0&0x0F):(unsigned long)(b0&0x07);
-        for(int m=1;m<need;m++) u=(u<<6)|(unsigned long)(s->xin[m]&0x3F);
+        for(int m=1;m<need;m++) u=(u<<6)|(unsigned long)((s->xin>>(8*m))&0x3F);
         s->xin_n=0;
         fh_x_put(s->raw,s->xk,u);
     }

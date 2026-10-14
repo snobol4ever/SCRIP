@@ -2859,21 +2859,23 @@ static int pl_tree_has_fn(const tree_t *t, const char *fn) {
     for (int i = 0; i < t->n; i++) if (pl_tree_has_fn(t->c[i], fn)) return 1;
     return 0;
 }
-static size_t pl_lib_path_name(const tree_t *t, char *out, size_t n) {
+static size_t pl_lib_path_name(const tree_t *t, char *out) {
     size_t a, b;
-    if (!t || n < 2) return 0;
-    if ((t->t == TT_NAME || t->t == TT_QLIT) && t->v.sval) { a = strlen(t->v.sval); if (a + 1 > n) return 0; memcpy(out, t->v.sval, a + 1); return a; }
-    if (t->t != TT_FNC || !t->v.sval || strcmp(t->v.sval, "/") || t->n != 2 || !(a = pl_lib_path_name(t->c[0], out, n)) || a + 2 > n) return 0;
-    out[a] = '_';
-    if (!(b = pl_lib_path_name(t->c[1], out + a + 1, n - a - 1))) return 0;
+    if (!t) return 0;
+    if ((t->t == TT_NAME || t->t == TT_QLIT) && t->v.sval) { a = strlen(t->v.sval); if (out) memcpy(out, t->v.sval, a + 1); return a; }
+    if (t->t != TT_FNC || !t->v.sval || strcmp(t->v.sval, "/") || t->n != 2 || !(a = pl_lib_path_name(t->c[0], out))) return 0;
+    if (out) out[a] = '_';
+    if (!(b = pl_lib_path_name(t->c[1], out ? out + a + 1 : out))) return 0;
     return a + 1 + b;
 }
 static void pl_collect_imported_libs(PlProgram *prog, cv_t *imported) {
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
         const tree_t *g = pl_clause_is_directive(cl) ? cl->tr->c[1] : (const tree_t *)0;
-        char nm[256];
+        size_t nl;
         if (!g || g->t != TT_FNC || !g->v.sval || strcmp(g->v.sval, "use_module") || (g->n != 1 && g->n != 2) || !g->c[0] || g->c[0]->t != TT_FNC || !g->c[0]->v.sval) continue;
-        if (strcmp(g->c[0]->v.sval, "library") || g->c[0]->n != 1 || !pl_lib_path_name(g->c[0]->c[0], nm, sizeof nm)) continue;
+        if (strcmp(g->c[0]->v.sval, "library") || g->c[0]->n != 1 || !(nl = pl_lib_path_name(g->c[0]->c[0], (char *)0))) continue;
+        char nm[nl + 1];
+        pl_lib_path_name(g->c[0]->c[0], nm);
         pl_cv_add(imported, nm);
         if (!strcmp(nm, "pio")) pl_cv_add(imported, "pure_input");
     }

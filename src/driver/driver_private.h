@@ -61,8 +61,8 @@ typedef struct {
     char xk;
     char xin_n;
     char xout_n;
-    unsigned char xin[4];
-    unsigned char xout[4];
+    unsigned int xin;
+    unsigned int xout;
 } fh_slot_t;
 extern cv_t g_fhv;
 void fh_ensure_init(void);
