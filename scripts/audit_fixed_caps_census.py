@@ -1384,8 +1384,9 @@ def main(argv):
     if "--tsv" in argv:
         out = argv[argv.index("--tsv") + 1]
         # --tsv names the OUTPUT table; an existing file that is not a .tsv is refused, never overwritten (coo 2026-10-14: the gate's
-        # hint read "--tsv FILE" and two source files of the cto's were overwritten with the whole-tree table)
-        if os.path.exists(out) and not out.endswith(".tsv"):
+        # hint read "--tsv FILE" and two source files of the cto's were overwritten with the whole-tree table); an existing EMPTY file
+        # (a mktemp product, the idiom of every row's DONE-WHEN that reads this table) holds nothing to lose and is admitted
+        if os.path.exists(out) and not out.endswith(".tsv") and os.path.getsize(out) > 0:
             print(f"REFUSED (rc 2): --tsv names the OUTPUT table, and {out} exists and is not a .tsv -- nothing written; name a new or .tsv path", file=sys.stderr)
             return 2
     if "--top" in argv:
