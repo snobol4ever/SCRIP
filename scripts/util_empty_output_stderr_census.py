@@ -15,6 +15,7 @@ rc 0 measured, 2 could not measure.
 import collections, os, re, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+REFUSED = []   # a suite the harness would not grade is named and skipped, never read as "0 red", and the run ends rc 2
 DB = os.environ.get("S4E_PROGRESS_DB", "/home/resources/progress/results.tsv")
 BANNER = re.compile(r"^(?:%|\{)-{10,} (\d+) (\S+?)\}?\s*$")
 EXT = {"prolog": "pl", "pascal": "pas"}
@@ -66,11 +67,14 @@ def census(key, pkg, lang, outdir):
     shutil.copytree(pkg, copy, symlinks=True)
     nset = set(names)
     open(os.path.join(copy, "ALL." + ext), "w").write(cut(src, nset))
+    # the sidecars keep only the entries the cut ACTUALLY holds: a progress name with no banner (a container fragment, an older corpus's
+    # name) is not an entry, and a sidecar row naming it makes the harness refuse the whole mini-container
+    nset = {m.group(2) for m in (BANNER.match(l.rstrip("\n")) for l in open(os.path.join(copy, "ALL." + ext), encoding="utf-8", errors="replace")) if m}
     open(os.path.join(copy, "ALL.ref"), "w").write(cut(os.path.join(pkg, "ALL.ref"), nset))
-    for side in ("ALL.wantrc", "ALL.argv", "ALL.in"):
+    for side in ("ALL.wantrc", "ALL.argv", "ALL.in", "ISO_EXPECTED_REFUSALS.tsv"):   # every sidecar the harness checks against the entries
         p = os.path.join(pkg, side)
         if os.path.isfile(p):
-            rows = [l for l in open(p, encoding="utf-8", errors="replace") if l.split("\t")[0].strip() in nset]
+            rows = [l for l in open(p, encoding="utf-8", errors="replace") if l.startswith("#") or l.split("\t")[0].strip() in nset]
             open(os.path.join(copy, side), "w").write("".join(rows))
     csvp = os.path.join(pkg, "ALL.csv")
     if os.path.isfile(csvp):
@@ -82,6 +86,12 @@ def census(key, pkg, lang, outdir):
     r = subprocess.run([sys.executable, os.path.join(HERE, "corpus_suite_harness.py"), "run", os.path.join(copy, "ALL." + ext),
                         os.path.join(copy, "ALL.ref"), "--lang", lang, "--modes", "m3"], env=env, capture_output=True, text=True)
     open(os.path.join(outdir, f"{key}.harness.out"), "w").write(r.stdout + r.stderr)
+    # ⛔ A HARNESS THAT DID NOT GRADE IS A REFUSAL, NEVER "0 red": the first draft read a harness traceback as every program cured
+    if r.returncode not in (0, 1) or "SUITE_BOARD " not in (r.stdout + r.stderr):
+        REFUSED.append(key)
+        print("⛔ REFUSED (this suite only): " + f"{key}: the harness did not grade the mini-container (rc {r.returncode}); its output is in {outdir}/{key}.harness.out: "
+               + (r.stdout + r.stderr).strip().split("\n")[-1][:200])
+        return []
     rows = []
     red = re.compile(r"^\s+([A-Z]+) m3 (\S+): .*\[fp=(\w+) rc=(\S+)\] err1=(.*)$")
     for ln in (r.stdout + r.stderr).split("\n"):
@@ -89,8 +99,8 @@ def census(key, pkg, lang, outdir):
         if m:
             rows.append((key, m.group(2), m.group(1), m.group(3), m.group(4), m.group(5)))
     passed = len(names) - len(rows)
-    print(f"== {key}: {len(names)} empty-output program(s) on progress trees {dict(trees)}; {got} cut into the mini-container; "
-          f"graded now in mode 3: {len(rows)} red, {passed} no longer red (the tree moved since their row)")
+    print(f"== {key}: {len(names)} empty-output program(s) on progress trees {dict(trees)}; {got} cut into the mini-container ({len(names) - got} name(s) with no banner); "
+          f"graded now in mode 3: {len(rows)} red, {got - len(rows)} no longer red (the tree moved since their row)")
     return rows
 
 
@@ -124,8 +134,8 @@ def main(argv):
         print(f"-- {key}: {sum(c.values())} red, {len(c)} class(es) by first stderr line")
         for k, n in c.most_common(25):
             print(f"   {n:4d}  {k}   (e.g. {ex[k]})")
-    print(f"EMPTY_OUTPUT_CENSUS suites={len(suites)} red={len(allrows)} table={os.path.join(outdir, 'census.tsv')}")
-    return 0
+    print(f"EMPTY_OUTPUT_CENSUS suites={len(suites)} refused={len(REFUSED)}{(' (' + ' '.join(REFUSED) + ')') if REFUSED else ''} red={len(allrows)} table={os.path.join(outdir, 'census.tsv')}")
+    return 2 if REFUSED else 0
 
 
 if __name__ == "__main__":
