@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2723
+#define GC_ALLOC_TAB_N 2724
 #define GC_ALLOC_TAB_N_VOID 315
 #define GC_ALLOC_TAB_N_DESCR 1300
-#define GC_ALLOC_TAB_N_OTHER 1090
+#define GC_ALLOC_TAB_N_OTHER 1091
 #define GC_ALLOC_TAB_N_UNKNOWN 18
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1277,6 +1277,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_apply_actions", GC_RET_VOID },
     { "rk_arr_append", GC_RET_VOID },
     { "rk_arr_of_texts", GC_RET_DESCR },
+    { "rk_arr_put", GC_RET_OTHER },
     { "rk_arr_store_in_place", GC_RET_OTHER },
     { "rk_arr_text", GC_RET_OTHER },
     { "rk_attr_defaults", GC_RET_DESCR },
