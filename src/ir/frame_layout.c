@@ -19,7 +19,7 @@ int zls_g_block_base(const IR_graph_t * g);
 static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sval; return fn && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn); }
 #define FL_FC_SYNTH 0x7F000
 typedef struct { const IR_t * nd; int scope_id; int off; int loff; int live; int aoff; } zls_entry_t;
-typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; } zls_pfield_t;
+typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; int next; } zls_pfield_t;
 typedef struct { const char * name; int off; } zls_vslot_t;
 typedef struct { const IR_graph_t * g; const char * name; int start_n; const IR_t * anchor; } zls_mark_t;
 typedef struct {
@@ -43,12 +43,22 @@ typedef struct {
 } zls_graph_t;
 #define ze ((zls_entry_t *)g_lower.ir.ze_v.p)
 #define zf ((zls_pfield_t *)g_lower.ir.zf_v.p)
-typedef struct { const IR_t * nd; int scope; int end; uint32_t gen; } znb_slot_t;
+typedef struct { const IR_t * nd; int scope; int end; uint32_t gen; int head; int tail; } znb_slot_t;
 static znb_slot_t * znb_probe(cv_t * v, const IR_t * nd, int scope) {
     uint64_t h = ((((uint64_t)(uintptr_t)nd >> 4) ^ ((uint64_t)(uint32_t)scope * 0x9e3779b97f4a7c15ull)) * 0xff51afd7ed558ccdull) & (v->len - 1);
     for (;;) { znb_slot_t * t = &CV_AT(*v, znb_slot_t, h); if (t->gen != g_lower.ir.znb_gen || (t->nd == nd && t->scope == scope)) return t; h = (h + 1) & (v->len - 1); }
 }
-static void znb_note(const IR_t * nd, int scope, int end) {
+static int zfc_ok(int f, const IR_t * nd, int scope) { return f >= 0 && f < g_lower.ir.zf_n && zf[f].nd == nd && zf[f].scope_id == scope; }
+static int zfc_next(int f) { int n = zf[f].next; return n > f && zfc_ok(n, zf[f].nd, zf[f].scope_id) ? n : -1; }
+static void zfc_link(znb_slot_t * t, int f) {
+    int last = zfc_ok(t->head, t->nd, t->scope) && t->head < f ? t->head : -1;
+    if (zfc_ok(t->tail, t->nd, t->scope) && t->tail < f) last = t->tail;
+    else while (last >= 0 && zfc_next(last) >= 0 && zfc_next(last) < f) last = zfc_next(last);
+    if (last < 0) t->head = f;
+    else zf[last].next = f;
+    t->tail = f;
+}
+static void znb_note(const IR_t * nd, int scope, int end, int f) {
     if ((uint64_t)(g_lower.ir.znb_n + 1) * 2 > g_lower.ir.znb.len) {
         uint32_t nc = g_lower.ir.znb.len ? g_lower.ir.znb.len * 2 : 256;
         cv_t o = g_lower.ir.znb, n = { 0, 0, 0, 0 };
@@ -60,7 +70,17 @@ static void znb_note(const IR_t * nd, int scope, int end) {
         for (uint32_t i = 0; i < o.len; i++) { znb_slot_t q = CV_AT(o, znb_slot_t, i); if (q.gen == g_lower.ir.znb_gen) *znb_probe(&g_lower.ir.znb, q.nd, q.scope) = q; }
     }
     znb_slot_t * t = znb_probe(&g_lower.ir.znb, nd, scope);
-    if (t->gen != g_lower.ir.znb_gen) { t->nd = nd; t->scope = scope; t->end = end; t->gen = g_lower.ir.znb_gen; g_lower.ir.znb_n++; } else if (end > t->end) t->end = end;
+    if (t->gen != g_lower.ir.znb_gen) {
+        t->nd = nd;
+        t->scope = scope;
+        t->end = end;
+        t->gen = g_lower.ir.znb_gen;
+        t->head = t->tail = f;
+        g_lower.ir.znb_n++;
+    } else {
+        if (end > t->end) t->end = end;
+        zfc_link(t, f);
+    }
 }
 #define zs ((zls_scope_t *)g_lower.ir.zs_v.p)
 #define zg ((zls_graph_t *)g_lower.ir.zg_v.p)
@@ -171,6 +191,12 @@ static void zx_settle(void) {
     g_lower.ir.zx_sorted = g_lower.ir.zx_n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zfc_first(const IR_t * nd, int scope) {
+    const znb_slot_t * t;
+    if (!nd || !g_lower.ir.znb.len) return -1;
+    t = znb_probe(&g_lower.ir.znb, nd, scope);
+    return t->gen == g_lower.ir.znb_gen && zfc_ok(t->head, nd, scope) ? t->head : -1;
+}
 static const zls_entry_t * zx_find(const IR_t * nd) {
     int lo = 0, hi = g_lower.ir.zx_n - 1;
     while (lo <= hi) { int m = (lo + hi) / 2; if (ze[zx[m]].nd == nd) return &ze[zx[m]]; if (ze[zx[m]].nd < nd) lo = m + 1; else hi = m - 1; }
@@ -179,8 +205,8 @@ static const zls_entry_t * zx_find(const IR_t * nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_field(int scope_id, int off, int size, int kind, int audit, const char * what, const IR_t * nd) {
     cv_reserve(&g_lower.ir.zf_v, (uint32_t)sizeof(zls_pfield_t), (uint64_t)g_lower.ir.zf_n + 1, "zf");
-    zf[g_lower.ir.zf_n++] = (zls_pfield_t){ scope_id, off, size, (unsigned char)kind, (unsigned char)audit, what, nd };
-    if (nd) znb_note(nd, scope_id, off + size);
+    zf[g_lower.ir.zf_n++] = (zls_pfield_t){ scope_id, off, size, (unsigned char)kind, (unsigned char)audit, what, nd, -1 };
+    if (nd) znb_note(nd, scope_id, off + size, g_lower.ir.zf_n - 1);
 }
 static int zls_fence_widen(const IR_graph_t * g) { return g && g->zframe_pinned_base && g->zframe_graph; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1637,7 +1663,7 @@ int zls_result_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); retur
 int zls_act_off(const IR_t * nd) {
     const zls_entry_t * e = zx_find(nd);
     if (!e) return -1;
-    for (int i = 0; i < g_lower.ir.zf_n; i++) if (zf[i].nd == nd && zf[i].scope_id == e->scope_id && zf[i].what && !strncmp(zf[i].what, "callgen.act +0", 14)) return zf[i].off;
+    for (int i = zfc_first(nd, e->scope_id); i >= 0; i = zfc_next(i)) if (zf[i].what && !strncmp(zf[i].what, "callgen.act +0", 14)) return zf[i].off;
     return -1;
 }
 int zls_argv_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->aoff >= 0 ? e->aoff : e->off + 16; }
@@ -1759,7 +1785,7 @@ int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int kind
             const IR_t * x = g->all[k];
             const zls_entry_t * e;
             if (!x || (x->op != IR_CALL_PROC_STAGED && x->op != IR_CALL_VALUE && x->op != IR_PROC_GEN) || !(e = zx_find(x))) continue;
-            for (int f = 0; f < g_lower.ir.zf_n; f++) if (zf[f].nd == x && zf[f].scope_id == e->scope_id && zls_slot_matches(f, kind)) { tmp[n++] = zf[f].off; break; }
+            for (int f = zfc_first(x, e->scope_id); f >= 0; f = zfc_next(f)) if (zls_slot_matches(f, kind)) { tmp[n++] = zf[f].off; break; }
         }
         if (n > 1) { int w = 1; qsort(tmp, (size_t)n, sizeof tmp[0], zls_int_cmp); for (int i = 1; i < n; i++) if (tmp[i] != tmp[w - 1]) tmp[w++] = tmp[i]; n = w; }
         for (int i = 0; out && i < n && i < cap; i++) out[i] = tmp[i];
