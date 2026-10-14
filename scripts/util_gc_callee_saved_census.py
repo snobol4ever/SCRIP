@@ -81,6 +81,23 @@ for _r in ("r12", "r13", "r14", "r15"):
 NARROW = set(a for a, r in ALIAS.items() if a != r)
 
 SUBJECT_SEEDS = ("rt_match_enter", "rt_scan_enter", "rt_scan_reenter", "rt_scan_reenter_live")
+def _rtx_twins():
+    """\u26d4 A SEED'S REGISTERED C TWIN IS THE SEED (hq_collector 2026-10-14, row gc-blocking-gate-spill-record-red-arm-3-...-ceo-1697,
+    measured on the spill-record gate's deferred witness at SCRIP ff95bdb59): since the rtx verdict road (a3e8864e0) a match
+    opens as `call qword ptr [rip + rt_match_enter@GOTPCREL]; cmp rax, -1; jne L; call c_rt_match_enter@PLT; L:` -- the asm
+    leaf answers -1 to hand the C twin the case it does not take -- and the walk back from the seeding `mov r13, rax` meets
+    the twin's call first, so every subject seeding read a copy, the heap tally read 0 and arm 3 of the gate reddened on a
+    tree where the class is present. The twin is NOT a prefix match (the planted rt_scan_enter_shadow stays refused): it is
+    the exact pair src/templates/x86/rtx_twin_table.inc declares, RTX_TWIN(class, ret, leaf, c_leaf, args), read here once;
+    a tree without the table reads as before."""
+    tw = {}
+    try:
+        for ln in open(os.path.join(ROOT, "src", "templates", "x86", "rtx_twin_table.inc")):
+            m = re.match(r'\s*RTX_TWIN\(\s*\w+\s*,\s*[^,]+,\s*([A-Za-z_][A-Za-z0-9_]*)\s*,\s*([A-Za-z_][A-Za-z0-9_]*)\s*,', ln)
+            if m: tw[m.group(2)] = m.group(1)
+    except OSError: pass
+    return tw
+RTX_TWIN_OF = _rtx_twins()
 _RET_ALIAS = {"rax": ("rax", "eax", "ax", "al", "ah"), "rdx": ("rdx", "edx", "dx", "dl", "dh")}
 def _call_target(text):
     """the callee of a call in EITHER spelling the emitter uses (cto 2026-09-24, the seventeen-red row): `call SYM@PLT`
@@ -115,7 +132,7 @@ def _return_seed(insns, i, r, hops=0):
     if hops > 3: return None
     for k in range(i - 1, max(-1, i - 80), -1):
         ins = insns[k]
-        if ins.mnem == "call": return _call_target(ins.text)
+        if ins.mnem == "call": return RTX_TWIN_OF.get(_call_target(ins.text), _call_target(ins.text))
         if not _defines_ret(ins, r): continue
         if ins.mnem == "pop" and ins.ops and ins.ops[0].strip() == r: return _pushed_seed(insns, k, r, hops)
         if ins.mnem == "mov" and len(ins.ops) == 2 and "[" in ins.ops[1]:
@@ -830,6 +847,42 @@ def selftest():
     tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
     ck(classes.get("r13", {}).get("SUBJECT", 0) == 0 and any(u[3] == "r13" for u in unc),
        f"PLANTED: a pop rax whose balancing push saved rbx is refused the SUBJECT class, got {dict(classes.get('r13',{}))} unclassified={unc}")
+    open(p, "w").write(
+        " .text\n"
+        "kt_\u03b1:\n"
+        " call qword ptr [rip + rt_match_enter@GOTPCREL]\n"
+        " cmp rax, -1\n"
+        " jne 2f\n"
+        " call c_rt_match_enter@PLT\n"
+        "2: push rax\n"
+        " mov rax, qword ptr [rip + g_gc_pending@GOTPCREL]\n"
+        " mov eax, dword ptr [rax + 0]\n"
+        " test eax, eax\n"
+        " pop rax\n"
+        " je 1f\n"
+        " sub rsp, 32\n"
+        " mov qword ptr [rsp + 8], rax\n"
+        " call rt_gc_point_arr_c\n"
+        " mov rax, qword ptr [rsp + 8]\n"
+        " add rsp, 32\n"
+        "1: mov r13, rax\n"
+        " call rt_alloc_thing\n"
+        " mov rdi, r13\n"
+        " ret\n")
+    tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+    ck(classes.get("r13", {}).get("SUBJECT", 0) == 1 and RTX_TWIN_OF.get("c_rt_match_enter") == "rt_match_enter",
+       f"the rtx verdict road: the leaf's registered C twin c_rt_match_enter (rtx_twin_table.inc) seeds r13 as SUBJECT exactly like the leaf, through the record's reload and the push/pop, got {dict(classes.get('r13',{}))} unclassified={unc}")
+    open(p, "w").write(
+        " .text\n"
+        "kts_\u03b1:\n"
+        " call c_rt_match_enter_shadow@PLT\n"
+        " mov r13, rax\n"
+        " call rt_alloc_thing\n"
+        " mov rdi, r13\n"
+        " ret\n")
+    tot, la, owned, passed, classes, unc, cop, heaps, pg, unk, unattr = census([p], alloc)
+    ck(classes.get("r13", {}).get("SUBJECT", 0) == 0 and any(u[3] == "r13" for u in unc),
+       f"PLANTED: a name that merely extends a registered twin (c_rt_match_enter_shadow) is not in the twin table and is refused the SUBJECT class, got {dict(classes.get('r13',{}))} unclassified={unc}")
     open(p, "w").write(
         " .text\n"
         "kv_\u03b1:\n"
