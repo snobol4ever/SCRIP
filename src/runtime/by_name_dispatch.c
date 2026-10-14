@@ -5893,6 +5893,16 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         }
         if (!strcmp(op, "rand")) {
             extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+            if (a.v == DT_BIG) {
+                extern int rt_big_sign(DESCR_t);
+                extern long rt_big_bits(DESCR_t);
+                extern DESCR_t rt_big_add(DESCR_t, DESCR_t), rt_big_mul(DESCR_t, DESCR_t), rt_big_mod(DESCR_t, DESCR_t);
+                DESCR_t r = INTVAL(0);
+                if (rt_big_sign(a) < 1) { if (ball && !*ball) *ball = rt_pl_ball_kind2("domain_error", "not_less_than_one", a); *out = FAILDESCR; return 1; }
+                for (long k = rt_big_bits(a) + 64; k > 0; k -= 31) r = rt_big_add(rt_big_mul(r, INTVAL(1L << 31)), INTVAL(lrand48()));
+                *out = rt_big_mod(r, a);
+                return 1;
+            }
             if (!ai) { if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "integer", a); *out = FAILDESCR; return 1; }
             if (a.i < 1) { if (ball && !*ball) *ball = rt_pl_ball_kind2("domain_error", "not_less_than_one", a); *out = FAILDESCR; return 1; }
             *out = INTVAL((long long)(drand48() * (double)a.i));
