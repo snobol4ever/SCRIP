@@ -1476,6 +1476,8 @@ void rt_gc_frame_maps_drop_range(const void *lo, const void *hi) {
     g_gc_maps_n = w;
 }
 typedef struct { uint64_t pc; uint16_t kind, rule; int32_t depth; } gc_site_ent_t;
+#define GC_SITE_RULE(e) ((int)((e)->rule & 255u))
+#define GC_SITE_EXT(e) ((int)((e)->rule >> 8))
 _Static_assert(sizeof(gc_site_ent_t) == 16 && __builtin_offsetof(gc_site_ent_t, kind) == 8 && __builtin_offsetof(gc_site_ent_t, rule) == 10 && __builtin_offsetof(gc_site_ent_t, depth) == 12,
     "A SITE ENTRY IS LAID OUT EXACTLY AS THE EMITTED (pc, word) PAIR, word = kind | rule << 16 | depth << 32 little-endian (cto, row gc-a-registered-site-table-costs-its-entries-not-an-mmapped-page-"
     "per-blo" "ck): a table the emitter wrote sorted by pc with no skipped entry is searched in place in the fragment's own data, so registering it costs no page; any other table is copied as before")
@@ -2226,7 +2228,7 @@ static void gc_visit_frame_cells_x(const char *anchor, const gc_frame_map_t *m, 
 #endif
     gc_visit_frame_cells(anchor, m, lo, hi);
 }
-typedef struct { const char *base; const gc_frame_map_t *map; uint64_t link; int rule; } gc_chf_t;
+typedef struct { const char *base; const gc_frame_map_t *map; uint64_t link; int rule, ext; } gc_chf_t;
 typedef struct { int st; uint64_t pc; const gc_site_ent_t *e; const gc_site_blk_t *b; const char *base, *r, *rbp; } gc_chx_t;
 static struct {
     long runs, whole, frames, offchain, said, missing, mapdiff, xblob, xgen, xroot, xplain, beyond, shrt, s_root, s_nosite, s_frameless, s_unknown, s_cycle, s_nolink, s_rise, s_left, s_costart,
@@ -2304,7 +2306,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
     if (!b || !e) { cx->st = 2; return; }
     cx->e = e;
     cx->b = b;
-    if (e->rule == 9) {
+    if (GC_SITE_RULE(e) == 9) {
         const char *fb = r + 8 * ((e->kind >> 8) & 255);
         int loff = (int)((uint32_t)e->depth & 0xffffu), carve = (int)(((uint32_t)e->depth >> 16) & 0xffffu);
         const char *L = *(const char *const *)(fb + loff);
@@ -2315,8 +2317,8 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
     }
     if (!b->map) {
         const char *fbm = (const char *)0, *rbm = rbp;
-        if (e->rule == 0) fbm = r + e->depth;
-        else if (e->rule == 6 && ((e->kind >> 12) & 15) == 0) {
+        if (GC_SITE_RULE(e) == 0) fbm = r + e->depth;
+        else if (GC_SITE_RULE(e) == 6 && ((e->kind >> 12) & 15) == 0) {
             const char *fp = rbp;
             for (int k = 1; k < ((e->kind >> 8) & 15); k++) fp = *(const char *const *)fp;
             fbm = fp + 8 + e->depth;
@@ -2330,7 +2332,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
                 int loff = (int)(x->depth & 0xffff), carve = (int)((x->depth >> 16) & 0xffff);
                 const char *L = *(const char *const *)(fbm + loff);
                 pc = *(const uint64_t *)(L + 8);
-                r = (x->rule == 8) ? L : fbm + 16 + carve;
+                r = (GC_SITE_RULE(x) == 8) ? L : fbm + 16 + carve;
                 rbp = rbm;
                 g_gc_chain_fnhops++;
                 goto again;
@@ -2346,7 +2348,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
                     int loff = (int)(x2->depth & 0xffff), carve = (int)((x2->depth >> 16) & 0xffff);
                     const char *lrec = *(const char *const *)(a0 + loff);
                     pc = *(const uint64_t *)(lrec + 8);
-                    r = (x2->rule == 8) ? lrec : a0 + 16 + carve;
+                    r = (GC_SITE_RULE(x2) == 8) ? lrec : a0 + 16 + carve;
                     rbp = rbm;
                     g_gc_chain_fnhops++;
                     goto again;
@@ -2361,7 +2363,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
                         int loff = (int)(x3->depth & 0xffff), carve = (int)((x3->depth >> 16) & 0xffff);
                         const char *lrec = *(const char *const *)(a0 + loff);
                         pc = *(const uint64_t *)(lrec + 8);
-                        r = (x3->rule == 8) ? lrec : a0 + 16 + carve;
+                        r = (GC_SITE_RULE(x3) == 8) ? lrec : a0 + 16 + carve;
                         rbp = rbm;
                         g_gc_chain_fnhops++;
                         goto again;
@@ -2382,19 +2384,19 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
     }
     if (!b->map) { cx->st = 3; return; }
     const char *rbm6 = (const char *)0;
-    if (e->rule == 6) {
+    if (GC_SITE_RULE(e) == 6) {
         int nl = (e->kind >> 8) & 15, ek = (e->kind >> 12) & 15;
         const char *fp = rbp;
         for (int k = 1; k < nl; k++) fp = *(const char *const *)fp;
         base = (ek == 1 || ek == 3) ? *(const char *const *)fp : fp + 8 + e->depth;
         if (ek == 0) rbm6 = *(const char *const *)fp;
-    } else if (e->rule == 0) base = r + e->depth;
-    else if (e->rule == 1) base = rbp;
-    else if (e->rule == 2) base = rbp - e->depth;
-    else if (e->rule == 3) base = rbp;
-    else if (e->rule == 4) base = *(const char *const *)r + e->depth;
+    } else if (GC_SITE_RULE(e) == 0) base = r + e->depth;
+    else if (GC_SITE_RULE(e) == 1) base = rbp;
+    else if (GC_SITE_RULE(e) == 2) base = rbp - e->depth;
+    else if (GC_SITE_RULE(e) == 3) base = rbp;
+    else if (GC_SITE_RULE(e) == 4) base = *(const char *const *)r + e->depth;
     else base = (const char *)0;
-    if (e->rule == 0 || rbm6) {
+    if (GC_SITE_RULE(e) == 0 || rbm6) {
         uint64_t w = *(const uint64_t *)base;
         const gc_site_ent_t *x = (const gc_site_ent_t *)0;
         const gc_site_blk_t *xb = gc_site_find(w, &x);
@@ -2402,7 +2404,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
             int loff = (int)(x->depth & 0xffff), carve = (int)((x->depth >> 16) & 0xffff);
             const char *L = *(const char *const *)(base + loff);
             pc = *(const uint64_t *)(L + 8);
-            r = (x->rule == 8) ? L : base + 16 + carve;
+            r = (GC_SITE_RULE(x) == 8) ? L : base + 16 + carve;
             if (rbm6) rbp = rbm6;
             g_gc_chain_fnhops++;
             goto again;
@@ -2410,7 +2412,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
         if (xb && x && (x->kind & 255) == 2) { pc = w; r = base; if (rbm6) rbp = rbm6; g_gc_chain_landhops++; goto again; }
     }
     cx->base = base;
-    cx->st = (e->rule == 5) ? 4 : 1;
+    cx->st = (GC_SITE_RULE(e) == 5) ? 4 : 1;
 }
 static void gc_chain_resolve_in(gc_chx_t *cx, const gc_ent_t *ent, const char *seg_top) {
     memset(cx, 0, sizeof *cx);
@@ -2729,6 +2731,7 @@ static void gc_gap_push(gc_gap_t *g, const char *base, const gc_frame_map_t *m, 
     g->v[g->n].map = m;
     g->v[g->n].link = link;
     g->v[g->n].rule = -1;
+    g->v[g->n].ext = 0;
     g->n++;
 }
 static void gc_chain_tally(const gc_sw_t *s) {
@@ -2853,7 +2856,7 @@ static void gc_sw_frame(gc_sw_t *s, const gc_chf_t *f) {
 #else
             gc_walk_words_x(s->p, slo, 0, lo, m->graph_name, base);
 #endif
-            if (m->flags & GC_FRAME_MAP_LAYOUT) gc_visit_frame_cells_x(base, m, lo, hi);
+            if (m->flags & GC_FRAME_MAP_LAYOUT) gc_visit_frame_cells_x(base, m, lo, (f->ext > 0 && base + 16L * f->ext < hi) ? base + 16L * f->ext : hi);
 #if RT_DIAG
             else g->notab++;
 #endif
@@ -2959,6 +2962,7 @@ static void gc_sw_run(gc_sw_t *s, const gc_ent_t *ent, const scrip_coctx_t *sc) 
             f.map = bb->map;
             f.link = bb->link;
             f.rule = -1;
+            f.ext = 0;
             if (!gc_sw_chain_frame(s, &f)) return;
             last = gb;
             if (!gc_chain_link(gb, bb->link, &pc, &r, &rbp)) { s->stop = 5; return; }
@@ -2969,7 +2973,8 @@ static void gc_sw_run(gc_sw_t *s, const gc_ent_t *ent, const scrip_coctx_t *sc) 
         f.base = w.base;
         f.map = w.b->map;
         f.link = w.b->link;
-        f.rule = w.e->rule;
+        f.rule = GC_SITE_RULE(w.e);
+        f.ext = GC_SITE_EXT(w.e);
         if (!gc_sw_chain_frame(s, &f)) return;
         last = w.base;
         if (w.b->map->flags & GC_FRAME_MAP_ROOT) {
@@ -2995,7 +3000,7 @@ static void gc_sw_go(gc_sw_t *s, const char *lo0, const char *hi0, const gc_ent_
     s->plant = gc_chain_check_on() && getenv("SCRIP_GC_PLANT_FRAME_LINK") != (char *)0;
     gc_gap_open(&s->gap);
     if (ent) gc_sw_run(s, ent, sc);
-    if (img && img >= s->lo && img < s->hi && (!s->n || s->prevbase < img) && s->stop != 9) { gc_chf_t f = { img, (const gc_frame_map_t *)sc->image_map, 0, -1 }; gc_sw_chain_frame(s, &f); }
+    if (img && img >= s->lo && img < s->hi && (!s->n || s->prevbase < img) && s->stop != 9) { gc_chf_t f = { img, (const gc_frame_map_t *)sc->image_map, 0, -1, 0 }; gc_sw_chain_frame(s, &f); }
     if (visit) {
         int root = s->roottop != (const char *)0 || (s->n > 0 && (s->lastf.map->flags & GC_FRAME_MAP_ROOT));
         if (!root && s->p + 8 <= s->hi) gc_walk_words_x(s->p, s->hi, 0, s->lo, s->lastname, s->p);
