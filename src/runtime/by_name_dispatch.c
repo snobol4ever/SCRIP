@@ -6791,6 +6791,11 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
         if (pl_val_unbound(opt)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
         if (opt.v != (DTYPE_t)DT_PLREF || plc_fid_arity(opt.slen) != 1) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
         on = prolog_atom_name(plc_fid_name(opt.slen));
+        if (on && strcmp(on, "alias") && strcmp(on, "type") && strcmp(on, "reposition") && strcmp(on, "eof_action") && strcmp(on, "bom") && strcmp(on, "encoding") && pl_swi_dialect()
+            && !pl_float_flag("iso", "true")) {
+            o = rt_pl_deref_val(kids[1]);
+            continue;
+        }
         {
             DESCR_t a = rt_pl_deref_val(((DESCR_t *)opt.p)[0]);
             const char *as = pl_atom_str(a);

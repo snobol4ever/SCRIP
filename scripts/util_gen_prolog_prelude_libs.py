@@ -114,6 +114,16 @@ QUIET_BARE = {"dcg_basics", "clpfd", "gnu_builtins"}
 WRAPS = {"gnu_fd": {"clpfd": {("#=", 2), ("#\\=", 2), ("#<", 2), ("#>", 2), ("#=<", 2), ("#>=", 2), ("#/\\", 2), ("#\\/", 2), ("#\\", 1), ("#==>", 2)}}}
 EXPAND_PL = os.path.join(HERE, "util_gen_prolog_prelude_libs_expand.pl")
 INIT_DROPS = {"clpfd": {"warn_if_bounded_arithmetic": "only prints a warning when the integer flag bounded is true"}}
+# An initialization directive whose only effect, with no foreign library, is to ASSERT clauses: the directive's text is replaced by those
+# clauses, verbatim from the library's own fallback branch, before the file is read and keyed, so they are keyed, renamed and exported
+# like any other clause (cfo 2026-10-14, row prolog-swi-library-test-pio-...-ceo-1664): readutil's link_foreign/0 tries
+# use_foreign_library(foreign(readutil)) and otherwise assertz's read_line_to_codes/2,3 and read_stream_to_codes/2,3 over the Prolog
+# pl_read_* predicates; SCRIP has no foreign readutil, so those four clauses are what the library means here.
+INIT_AS_CLAUSES = {"readutil": {"link_foreign": ("with no foreign readutil, link_foreign/0's second clause asserts these four clauses over the Prolog pl_read_* predicates", [
+    "read_line_to_codes(Stream, Line) :- pl_read_line_to_codes(Stream, Line).",
+    "read_line_to_codes(Stream, Line, Tail) :- pl_read_line_to_codes(Stream, Line, Tail).",
+    "read_stream_to_codes(Stream, Content) :- pl_read_stream_to_codes(Stream, Content).",
+    "read_stream_to_codes(Stream, Content, Tail) :- pl_read_stream_to_codes(Stream, Content, Tail)."])}}
 ATTR_HOOKS = {("attr_unify_hook", 2), ("attribute_goals", 3)}
 LIB_FLAGS = {"clpfd": [("clpfd_propagation", "default", "read by the propagation loop and never created by 9.0.4's library: swipl fails on an absent flag where "
                                                            "SCRIP's ISO current_prolog_flag/2 raises domain_error, so the flag is declared at its documented default")]}
@@ -411,6 +421,15 @@ def process(path):
         src = expanded_text(path, lib)
         read_path = os.path.join(os.environ.get("TMPDIR", "/tmp"), "pl_prelude_expanded_%s_%d.pl" % (lib, os.getpid()))
         open(read_path, "w", encoding="utf-8").write(src)
+    init_drops = {}
+    for g, (why, clauses) in INIT_AS_CLAUSES.get(lib, {}).items():
+        m = re.search(r":-\s*initialization\(\s*%s\s*(?:,\s*[a-z_]+\s*)?\)\s*\." % re.escape(g), src)
+        if not m:
+            raise Refuse("%s: INIT_AS_CLAUSES names initialization(%s), which the library does not carry" % (path, g))
+        src = src[:m.start()] + "\n".join(clauses) + src[m.end():]
+        init_drops["directive initialization(%s) replaced by the %d clauses it asserts: %s" % (g, len(clauses), why)] = 1
+        read_path = os.path.join(os.environ.get("TMPDIR", "/tmp"), "pl_prelude_initclauses_%s_%d.pl" % (lib, os.getpid()))
+        open(read_path, "w", encoding="utf-8").write(src)
     toks = tokenize(src, path)
     for no, cl in enumerate(split_clauses(toks), 1):
         s = sig(cl)
@@ -424,7 +443,7 @@ def process(path):
         heads, refs = reader_refs(path, lib, read_path)
     if read_path:
         os.unlink(read_path)
-    mod, exports, ops, kept, drops, keyed, hooks, libops = None, [], [], [], {}, [], [], set()
+    mod, exports, ops, kept, drops, keyed, hooks, libops = None, [], [], [], dict(init_drops), [], [], set()
     off = 0
     for no, cl in enumerate(split_clauses(toks), 1):
         start = off

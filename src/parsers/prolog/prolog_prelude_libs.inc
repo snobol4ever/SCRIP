@@ -14476,11 +14476,14 @@ static const char PL_PRELUDE_LIB_16_SRC[] =
     "'$rbtrees_check_red_child'(Node), Node = red(_,_,_,_) =>\n"
     "    domain_error(rb_black, Node).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
-    { "dedent_lines", 3 },
-    { "indent_lines", 3 },
-    { "indent_lines", 4 },
-    { "interpolate_string", 4 },
-    { "string_lines", 2 },
+    { "read_line_to_codes", 2 },
+    { "read_line_to_codes", 3 },
+    { "read_stream_to_codes", 2 },
+    { "read_stream_to_codes", 3 },
+    { "read_file_to_codes", 3 },
+    { "read_line_to_string", 2 },
+    { "read_file_to_string", 3 },
+    { "read_file_to_terms", 3 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
@@ -14493,6 +14496,133 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_17_SRC[] =
+    "'$readutil_link_foreign' :-\n"
+    "    catch(use_foreign_library(foreign(readutil)), _, fail),\n"
+    "    !.\n"
+    "'$readutil_link_foreign' :-\n"
+    "    assertz((read_line_to_codes(Stream, Line) :-\n"
+    "            '$readutil_pl_read_line_to_codes'(Stream, Line))),\n"
+    "    assertz((read_line_to_codes(Stream, Line, Tail) :-\n"
+    "            '$readutil_pl_read_line_to_codes'(Stream, Line, Tail))),\n"
+    "    assertz((read_stream_to_codes(Stream, Content) :-\n"
+    "            '$readutil_pl_read_stream_to_codes'(Stream, Content))),\n"
+    "    assertz((read_stream_to_codes(Stream, Content, Tail) :-\n"
+    "            '$readutil_pl_read_stream_to_codes'(Stream, Content, Tail))),\n"
+    "    compile_predicates([ read_line_to_codes/2,\n"
+    "                         read_line_to_codes/3,\n"
+    "                         read_stream_to_codes/2,\n"
+    "                         read_stream_to_codes/3\n"
+    "                       ]).\n"
+    "read_line_to_codes(Stream, Line) :- '$readutil_pl_read_line_to_codes'(Stream, Line).\n"
+    "read_line_to_codes(Stream, Line, Tail) :- '$readutil_pl_read_line_to_codes'(Stream, Line, Tail).\n"
+    "read_stream_to_codes(Stream, Content) :- '$readutil_pl_read_stream_to_codes'(Stream, Content).\n"
+    "read_stream_to_codes(Stream, Content, Tail) :- '$readutil_pl_read_stream_to_codes'(Stream, Content, Tail).\n"
+    "'$readutil_pl_read_line_to_codes'(Stream, Codes) :-\n"
+    "    get_code(Stream, C0),\n"
+    "    (   C0 == -1\n"
+    "    ->  Codes0 = end_of_file\n"
+    "    ;   '$readutil_read_1line_to_codes'(C0, Stream, Codes0)\n"
+    "    ),\n"
+    "    Codes = Codes0.\n"
+    "'$readutil_read_1line_to_codes'(-1, _, []) :- !.\n"
+    "'$readutil_read_1line_to_codes'(10, _, []) :- !.\n"
+    "'$readutil_read_1line_to_codes'(13, Stream, L) :-\n"
+    "    !,\n"
+    "    get_code(Stream, C2),\n"
+    "    '$readutil_read_1line_to_codes'(C2, Stream, L).\n"
+    "'$readutil_read_1line_to_codes'(C, Stream, [C|T]) :-\n"
+    "    get_code(Stream, C2),\n"
+    "    '$readutil_read_1line_to_codes'(C2, Stream, T).\n"
+    "'$readutil_pl_read_line_to_codes'(Stream, Codes, Tail) :-\n"
+    "    get_code(Stream, C0),\n"
+    "    '$readutil_read_line_to_codes'(C0, Stream, Codes0, Tail),\n"
+    "    Codes = Codes0.\n"
+    "'$readutil_read_line_to_codes'(-1, _, Tail, Tail) :-\n"
+    "    !,\n"
+    "    Tail = [].\n"
+    "'$readutil_read_line_to_codes'(10, _, [10|Tail], Tail) :- !.\n"
+    "'$readutil_read_line_to_codes'(C, Stream, [C|T], Tail) :-\n"
+    "    get_code(Stream, C2),\n"
+    "    '$readutil_read_line_to_codes'(C2, Stream, T, Tail).\n"
+    "read_line_to_string(Stream, String) :-\n"
+    "    read_string(Stream, '\\n', '\\r', Sep, String0),\n"
+    "    (   Sep \\== -1\n"
+    "    ->  String = String0\n"
+    "    ;   String0 == \"\"\n"
+    "    ->  String = end_of_file\n"
+    "    ;   String = String0\n"
+    "    ).\n"
+    "'$readutil_pl_read_stream_to_codes'(Stream, Codes) :-\n"
+    "    '$readutil_pl_read_stream_to_codes'(Stream, Codes, []).\n"
+    "'$readutil_pl_read_stream_to_codes'(Stream, Codes, Tail) :-\n"
+    "    get_code(Stream, C0),\n"
+    "    '$readutil_read_stream_to_codes'(C0, Stream, Codes0, Tail),\n"
+    "    Codes = Codes0.\n"
+    "'$readutil_read_stream_to_codes'(-1, _, Tail, Tail) :- !.\n"
+    "'$readutil_read_stream_to_codes'(C, Stream, [C|T], Tail) :-\n"
+    "    get_code(Stream, C2),\n"
+    "    '$readutil_read_stream_to_codes'(C2, Stream, T, Tail).\n"
+    "'$readutil_read_stream_to_terms'(Stream, Terms, Tail, Options) :-\n"
+    "    read_term(Stream, C0, Options),\n"
+    "    '$readutil_read_stream_to_terms'(C0, Stream, Terms0, Tail, Options),\n"
+    "    Terms = Terms0.\n"
+    "'$readutil_read_stream_to_terms'(end_of_file, _, Tail, Tail, _) :- !.\n"
+    "'$readutil_read_stream_to_terms'(C, Stream, [C|T], Tail, Options) :-\n"
+    "    read_term(Stream, C2, Options),\n"
+    "    '$readutil_read_stream_to_terms'(C2, Stream, T, Tail, Options).\n"
+    "read_file_to_codes(Spec, Codes, Options) :-\n"
+    "    must_be(list, Options),\n"
+    "    option(tail(Tail), Options, []),\n"
+    "    absolute_file_name(Spec,\n"
+    "                       [ access(read)\n"
+    "                       | Options\n"
+    "                       ],\n"
+    "                       Path),\n"
+    "    setup_call_cleanup(\n"
+    "        open(Path, read, Stream, Options),\n"
+    "        read_stream_to_codes(Stream, Codes, Tail),\n"
+    "        close(Stream)).\n"
+    "read_file_to_string(Spec, Codes, Options) :-\n"
+    "    must_be(list, Options),\n"
+    "    absolute_file_name(Spec,\n"
+    "                       [ access(read)\n"
+    "                       | Options\n"
+    "                       ],\n"
+    "                       Path),\n"
+    "    setup_call_cleanup(\n"
+    "        open(Path, read, Stream, Options),\n"
+    "        read_string(Stream, _Len, Codes),\n"
+    "        close(Stream)).\n"
+    "read_file_to_terms(Spec, Terms, Options) :-\n"
+    "    must_be(list, Options),\n"
+    "    option(tail(Tail), Options, []),\n"
+    "    absolute_file_name(Spec,\n"
+    "                       [ access(read)\n"
+    "                       | Options\n"
+    "                       ],\n"
+    "                       Path),\n"
+    "    setup_call_cleanup(\n"
+    "        open(Path, read, Stream, Options),\n"
+    "        '$readutil_read_stream_to_terms'(Stream, Terms, Tail, Options),\n"
+    "        close(Stream)).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
+    { "dedent_lines", 3 },
+    { "indent_lines", 3 },
+    { "indent_lines", 4 },
+    { "interpolate_string", 4 },
+    { "string_lines", 2 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_18_SRC[] =
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
     "interpolate_string(Module:In, Out, Map, Options) :-\n"
     "    '$strings_comp_interpolate'(In, Compiled, Map, [module(Module)|Options]),\n"
@@ -14702,23 +14832,23 @@ static const char PL_PRELUDE_LIB_17_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_18_SRC[] =
+static const char PL_PRELUDE_LIB_19_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -14871,7 +15001,8 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "pcre", PL_PRELUDE_LIB_14_EXPORTS, PL_PRELUDE_LIB_14_OPS, PL_PRELUDE_LIB_14_SHADOWS, PL_PRELUDE_LIB_14_QUIET, PL_PRELUDE_LIB_14_SRC },
     { "quintus", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC },
     { "rbtrees", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
-    { "strings", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
-    { "writef", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
+    { "readutil", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
+    { "strings", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
+    { "writef", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
     { 0, 0, 0, 0, 0, 0 }
 };
