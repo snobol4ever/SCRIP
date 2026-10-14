@@ -1,5 +1,5 @@
-#define RTX_CLOB_TAB_N 312
-#define RTX_CLOB_TAB_N_CLOBBERING 283
+#define RTX_CLOB_TAB_N 318
+#define RTX_CLOB_TAB_N_CLOBBERING 289
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "dat_field_get", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
@@ -18,6 +18,9 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_dcap_end_ok_open", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_dcap_fast_run", 0 },
     { "rt_defer_close", 0 },
+    { "rt_div", RTCC_C_R8 },
+    { "rt_div_sno", RTCC_C_R8 },
+    { "rt_div_strict", RTCC_C_R8 },
     { "rt_faildescr", 0 },
     { "rt_gc_fix_slots", 0 },
     { "rt_gc_forward_run", 0 },
@@ -34,6 +37,9 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_match_ctx_restore", 0 },
     { "rt_match_enter", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_match_replace", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_mod", RTCC_C_R8 },
+    { "rt_mod_sno", RTCC_C_R8 },
+    { "rt_mod_strict", RTCC_C_R8 },
     { "rt_mul", 0 },
     { "rt_mul_sno", 0 },
     { "rt_patstk_lazy_init", 0 },

@@ -4621,8 +4621,8 @@ static int icn_opproc_typed(const char *nm, DESCR_t *argv, int n, DESCR_t *out) 
     extern void c_rt_coerce_num2_d(const DESCR_t *, const DESCR_t *, DESCR_t *, long);
     extern DESCR_t str_concat_fracdigit_d(DESCR_t, DESCR_t);
     extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);
-    extern DESCR_t rt_div_strict(DESCR_t, DESCR_t);
-    extern DESCR_t rt_mod_strict(DESCR_t, DESCR_t);
+    extern DESCR_t c_rt_div_strict(DESCR_t, DESCR_t);
+    extern DESCR_t c_rt_mod_strict(DESCR_t, DESCR_t);
     extern DESCR_t rt_pow_strict(DESCR_t, DESCR_t);
     if (icn_opproc_arity(nm) != n) return 0;
     if (n == 2 && !strcmp(nm, "||")) { *out = RT_GC_CALLBACK(str_concat_fracdigit_d(argv[0], argv[1])); return 1; }
@@ -4639,7 +4639,7 @@ static int icn_opproc_typed(const char *nm, DESCR_t *argv, int n, DESCR_t *out) 
     if (IS_FAIL_fn(l)) { *out = FAILDESCR; return 1; }
     c_rt_coerce_num2_d(&argv[1], &argv[0], &r, 102 | COERCE_ERR_FAILURE_CONVERTIBLE | (bc == BINOP_POW ? COERCE_KEEP_INT : 0) | COERCE_OP_TAG(bc) | COERCE_OP_SELF_RIGHT);
     if (IS_FAIL_fn(r)) { *out = FAILDESCR; return 1; }
-    *out = RT_GC_CALLBACK(bc == BINOP_DIV ? rt_div_strict(l, r) : bc == BINOP_MOD ? rt_mod_strict(l, r) : bc == BINOP_POW ? rt_pow_strict(l, r) : rt_num_arith_strict(l, r, bc));
+    *out = RT_GC_CALLBACK(bc == BINOP_DIV ? c_rt_div_strict(l, r) : bc == BINOP_MOD ? c_rt_mod_strict(l, r) : bc == BINOP_POW ? rt_pow_strict(l, r) : rt_num_arith_strict(l, r, bc));
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

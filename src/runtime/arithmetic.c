@@ -418,7 +418,7 @@ static inline int rt_int_str_operand(DESCR_t d, int64_t *out) {
 RT_BINOP_ENTRY(c_rt_add, BINOP_ADD, { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
     RT_BINOP_ENTRY(c_rt_sub, BINOP_SUB, { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
     RT_BINOP_ENTRY(c_rt_mul, BINOP_MUL, { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
-    RT_BINOP_ENTRY(rt_div, BINOP_DIV, if (b.i != 0 && b.i != -1) return INTVAL(a.i / b.i);) RT_BINOP_ENTRY(rt_mod, BINOP_MOD, if (b.i != 0 && b.i != -1) return INTVAL(a.i % b.i);)
+    RT_BINOP_ENTRY(c_rt_div, BINOP_DIV, if (b.i != 0 && b.i != -1) return INTVAL(a.i / b.i);) RT_BINOP_ENTRY(c_rt_mod, BINOP_MOD, if (b.i != 0 && b.i != -1) return INTVAL(a.i % b.i);)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_big_add(DESCR_t, DESCR_t);
 DESCR_t rt_big_sub(DESCR_t, DESCR_t);

@@ -17,6 +17,18 @@ DESCR_t c_rt_mul(DESCR_t, DESCR_t);
 DESCR_t c_rt_add_sno(DESCR_t, DESCR_t);
 DESCR_t c_rt_sub_sno(DESCR_t, DESCR_t);
 DESCR_t c_rt_mul_sno(DESCR_t, DESCR_t);
+DESCR_t rt_div(DESCR_t, DESCR_t);
+DESCR_t rt_div_strict(DESCR_t, DESCR_t);
+DESCR_t rt_div_sno(DESCR_t, DESCR_t);
+DESCR_t rt_mod(DESCR_t, DESCR_t);
+DESCR_t rt_mod_strict(DESCR_t, DESCR_t);
+DESCR_t rt_mod_sno(DESCR_t, DESCR_t);
+DESCR_t c_rt_div(DESCR_t, DESCR_t);
+DESCR_t c_rt_div_strict(DESCR_t, DESCR_t);
+DESCR_t c_rt_div_sno(DESCR_t, DESCR_t);
+DESCR_t c_rt_mod(DESCR_t, DESCR_t);
+DESCR_t c_rt_mod_strict(DESCR_t, DESCR_t);
+DESCR_t c_rt_mod_sno(DESCR_t, DESCR_t);
 typedef DESCR_t (*binop_fn)(DESCR_t, DESCR_t);
 static const struct {
     const char *name;
@@ -24,7 +36,8 @@ static const struct {
     binop_fn twin;
     int op;
 } leaves[] = { { "rt_add", rt_add, c_rt_add, 0 }, { "rt_sub", rt_sub, c_rt_sub, 1 }, { "rt_mul", rt_mul, c_rt_mul, 2 }, { "rt_add_sno", rt_add_sno, c_rt_add_sno, 0 }, { "rt_sub_sno", rt_sub_sno,
-    c_rt_sub_sno, 1 }, { "rt_mul_sno", rt_mul_sno, c_rt_mul_sno, 2 }, };
+    c_rt_sub_sno, 1 }, { "rt_mul_sno", rt_mul_sno, c_rt_mul_sno, 2 }, { "rt_div", rt_div, c_rt_div, 3 }, { "rt_div_strict", rt_div_strict, c_rt_div_strict, 3 }, { "rt_div_sno", rt_div_sno,
+    c_rt_div_sno, 3 }, { "rt_mod", rt_mod, c_rt_mod, 4 }, { "rt_mod_strict", rt_mod_strict, c_rt_mod_strict, 4 }, { "rt_mod_sno", rt_mod_sno, c_rt_mod_sno, 4 }, };
 static int fails = 0, n = 0, handled = 0, declined = 0, d_ovf = 0, d_real = 0, d_data = 0, d_other = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static uint64_t lo(DESCR_t d) { uint64_t w; memcpy(&w, &d, 8); return w; }
@@ -60,6 +73,7 @@ static int expect_handled(DESCR_t a, DESCR_t b, int op) {
     int64_t z;
     double r;
     int64_t x, y;
+    if (op >= 3) { if (!model_int(a, &x) || !model_int(b, &y)) return 0; return y != 0 && y != -1; }
     if (a.v == DT_R && b.v == DT_R) { r = op == 0 ? a.r + b.r : op == 1 ? a.r - b.r : a.r * b.r; return isfinite(r); }
     if (!model_int(a, &x) || !model_int(b, &y)) return 0;
     return !(op == 0 ? __builtin_add_overflow(x, y, &z) : op == 1 ? __builtin_sub_overflow(x, y, &z) : __builtin_mul_overflow(x, y, &z));
@@ -78,7 +92,8 @@ static void check(int k, DESCR_t a, DESCR_t b, int ia, int ib) {
             int64_t x, y, z;
             int op = leaves[k].op;
             if (a.v == DT_DATA || b.v == DT_DATA) d_data++;
-            else if (model_int(a, &x) && model_int(b, &y) && (op == 0 ? __builtin_add_overflow(x, y, &z) : op == 1 ? __builtin_sub_overflow(x, y, &z) : __builtin_mul_overflow(x, y, &z))) d_ovf++;
+            else if (model_int(a, &x) && model_int(b, &y) &&
+                (op >= 3 ? (y == 0 || y == -1) : op == 0 ? __builtin_add_overflow(x, y, &z) : op == 1 ? __builtin_sub_overflow(x, y, &z) : __builtin_mul_overflow(x, y, &z))) d_ovf++;
             else if (a.v == DT_R || b.v == DT_R || (a.v == DT_S && a.s && strtod(a.s, NULL) != 0 && !model_int(a, &x)) || (b.v == DT_S && b.s && strtod(b.s, NULL) != 0 && !model_int(b, &y))) d_real++;
             else d_other++;
         }
@@ -112,7 +127,7 @@ int main(void) {
         di(-((int64_t)1 << 62)), di(3037000499LL), di(3037000500LL), dr(0.0), dr(-0.0), dr(1.5), dr(2.5), dr(1e300), dr(-1e300), dr(DBL_MAX), dr(INFINITY), dr(-INFINITY), dr(NAN), dr(5e-324), ds(s12),
         ds(sempty), ds(sabc), dtag(DT_SNUL), dtag(DT_FAIL), dtag(DT_N), dtag(DT_DATA), };
     int nc = (int)(sizeof cases / sizeof cases[0]);
-    printf("RTX ARITH verdict battery (the six arith leaves against their C twins, the verdict road of ARCH-RT-CALL-PROTOCOL.md section 15)\n");
+    printf("RTX ARITH verdict battery (the twelve arith leaves, six add/sub/mul and six div/mod, against their C twins, the verdict road of ARCH-RT-CALL-PROTOCOL.md section 15)\n");
     for (int k = 0; k < (int)(sizeof leaves / sizeof leaves[0]); k++) for (int i = 0; i < nc; i++) for (int j = 0; j < nc; j++) check(k, cases[i], cases[j], i, j);
     printf("RTX ARITH: %d cases, %d handled, %d declined, %d mismatches\n", n, handled, declined, fails);
     printf("RTX ARITH DECLINES overflow=%d real=%d data=%d other=%d (the arms the leaf hands the box; each is a row until the leaf or the box owns it)\n", d_ovf, d_real, d_data, d_other);

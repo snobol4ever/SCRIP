@@ -20,6 +20,21 @@ RTX_GATE_DEF(arith)
     .cfi_adjust_cfa_offset 8; RTX_ADD_RSP(8); \
 .L##p##_rst: \
     movq rdi, xmm2; movq rsi, xmm3; movq rdx, xmm4; movq rcx, xmm5;
+#define RTX_ARITH_INTSTR_DIV(p, wantmod) \
+.L##p##_try: \
+    movq xmm2, rdi; movq xmm3, rsi; movq xmm4, rdx; movq xmm5, rcx; \
+    RTX_SUB_RSP(8); \
+    call qword ptr [rip + rtx_int_str_operand@GOTPCREL]; test ecx, ecx; jz .L##p##_fail; \
+    movq xmm6, rax; movq rdi, xmm4; movq rsi, xmm5; \
+    call qword ptr [rip + rtx_int_str_operand@GOTPCREL]; test ecx, ecx; jz .L##p##_fail; \
+    RTX_ADD_RSP(8); \
+    mov rcx, rax; movq rax, xmm6; lea r8, [rcx + 1]; cmp r8, 1; jbe .L##p##_rst; cqo; idiv rcx; \
+    .if wantmod; mov rax, rdx; .endif; \
+    mov rdx, rax; mov eax, DT_I; ret; \
+.L##p##_fail: \
+    .cfi_adjust_cfa_offset 8; RTX_ADD_RSP(8); \
+.L##p##_rst: \
+    movq rdi, xmm2; movq rsi, xmm3; movq rdx, xmm4; movq rcx, xmm5;
 .section .rodata
 .align 1
 .Lcd_empty:
@@ -404,4 +419,45 @@ RTX_FUNC(rt_mul_sno)
 .Lmulsno_slow:
     RTX_DECLINE
 RTX_ENDF(rt_mul_sno)
+RTX_FUNC(rt_div)
+RTX_ENTRY(rt_div_strict)
+RTX_ENTRY(rt_div_sno)
+    RTX_GATE(arith, .Ldiv_slow)
+    cmp     dil, DT_I
+    jne     .Ldiv_try
+    cmp     dl, DT_I
+    jne     .Ldiv_try
+    lea     rax, [rcx + 1]
+    cmp     rax, 1
+    jbe     .Ldiv_slow
+    mov     rax, rsi
+    cqo
+    idiv    rcx
+    mov     rdx, rax
+    mov     eax, DT_I
+    ret
+    RTX_ARITH_INTSTR_DIV(div, 0)
+.Ldiv_slow:
+    RTX_DECLINE
+RTX_ENDF(rt_div)
+RTX_FUNC(rt_mod)
+RTX_ENTRY(rt_mod_strict)
+RTX_ENTRY(rt_mod_sno)
+    RTX_GATE(arith, .Lmod_slow)
+    cmp     dil, DT_I
+    jne     .Lmod_try
+    cmp     dl, DT_I
+    jne     .Lmod_try
+    lea     rax, [rcx + 1]
+    cmp     rax, 1
+    jbe     .Lmod_slow
+    mov     rax, rsi
+    cqo
+    idiv    rcx
+    mov     eax, DT_I
+    ret
+    RTX_ARITH_INTSTR_DIV(mod, 1)
+.Lmod_slow:
+    RTX_DECLINE
+RTX_ENDF(rt_mod)
 .section .note.GNU-stack,"",@progbits
