@@ -3892,12 +3892,43 @@ extern "C++" int emit_gc_site_raw(int kind, int rule, int depth) {
         e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node;
     return (int)g_emitter.g_gc_sites_v.len - 1;
 }
+static int emit_gc_match_reaches(const IR_t * b, const IR_t * nd) {
+    int cap = (g_emit_cfg && g_emit_cfg->n > 0) ? g_emit_cfg->n : 0, n = 0, h = 0;
+    if (!cap || !b || !nd || !b->γ.node) return 0;
+    const IR_t * q[cap + 1];
+    q[n++] = b->γ.node;
+    while (h < n) {
+        const IR_t * x = q[h++];
+        if (x == nd) return 1;
+        if (x->op == IR_MATCH_END || !ir_is_matcher(x->op)) continue;
+        const IR_t * nx[2] = { x->γ.node, x->ω.node };
+        for (int k = 0; k < 2 + x->n_operands; k++) {
+            const IR_t * y = k < 2 ? nx[k] : x->operands[k - 2];
+            int seen = 0;
+            if (!y || (k >= 2 && !ir_is_matcher(y->op))) continue;
+            for (int i = 0; i < n && !seen; i++) seen = (q[i] == y);
+            if (!seen && n < cap) q[n++] = y;
+        }
+    }
+    return 0;
+}
+static const gc_site_t * emit_gc_match_owner(const IR_t * nd, int * levels) {
+    const gc_site_t * outer = (const gc_site_t *)0;
+    *levels = 0;
+    for (uint32_t i = 0; i < g_emitter.g_gc_sites_v.len; i++) {
+        const gc_site_t * m = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i);
+        if (m->kind != X86_SITE_MATCH_ENTER || !m->mn || !m->nd || !emit_gc_match_reaches(m->nd, nd)) continue;
+        (*levels)++;
+        if (!outer) outer = m;
+    }
+    return outer;
+}
 extern "C++" void emit_gc_site_play(int idx, const void * pc, int delta, int aligned, int unknown) {
     if (idx < 0 || (uint32_t)idx >= g_emitter.g_gc_sites_v.len) return;
     gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, idx);
     if (pc) e->pc = (uint64_t)(uintptr_t)pc;
     if (e->kind == X86_SITE_MATCH_ENTER) { int ek = e->rule == 3 ? 3 : (e->rule == 1 ? 1 : (e->rule == 0 && !aligned && !unknown ? 0 : 5)); int ed = e->rule == 0 ? e->depth + delta : 0;
-        if (g_emitter.g_gc_match_n == 0) { g_emitter.g_gc_match_out.enc_kind = ek; g_emitter.g_gc_match_out.enc_depth = ed; } g_emitter.g_gc_match_n++; e->depth = ed; return; }
+        if (g_emitter.g_gc_match_n == 0) { g_emitter.g_gc_match_out.enc_kind = ek; g_emitter.g_gc_match_out.enc_depth = ed; } g_emitter.g_gc_match_n++; e->depth = ed; e->mn = ek + 1; return; }
     if (e->kind == X86_SITE_MATCH_LEAVE) { if (g_emitter.g_gc_match_n > 0) g_emitter.g_gc_match_n--; return; }
     if (e->rule == 9) {
         const x86_rsp_st_t & K = x86_rsp_S();
@@ -3915,6 +3946,16 @@ extern "C++" void emit_gc_site_play(int idx, const void * pc, int delta, int ali
     if (e->rule == 0) { e->depth += delta; if (aligned) e->rule = 4; if (unknown) e->rule = 5; }
     if (g_emitter.g_gc_match_n > 0 && (e->rule == 0 || e->rule == 1 || e->rule == 3 || e->rule == 5)) { const gc_match_lvl_t & o = g_emitter.g_gc_match_out;
         if (o.enc_kind == 5) e->rule = 5; else { e->rule = 6; e->kind = (uint16_t)((e->kind & 255) | ((g_emitter.g_gc_match_n & 15) << 8) | ((o.enc_kind & 15) << 12)); e->depth = o.enc_depth; } }
+    else if (g_emitter.g_gc_match_n == 0 && e->nd && ir_is_matcher(e->nd->op) && e->nd->op != IR_MATCH_BEGIN && e->nd->op != IR_MATCH_END
+        && (e->rule == 0 || e->rule == 1 || e->rule == 3 || e->rule == 5)) {
+        int lv = 0;
+        const gc_site_t * o = emit_gc_match_owner(e->nd, &lv);
+        if (o) {
+            int ek = o->mn - 1;
+            if (ek == 5) e->rule = 5;
+            else { e->rule = 6; e->kind = (uint16_t)((e->kind & 255) | ((lv & 15) << 8) | ((ek & 15) << 12)); e->depth = o->depth; }
+        }
+    }
     if (gc_sites_report_on())
         fprintf(stderr, "[GC-SITE] %s #%d kind=%d rule=%d zdepth=%d fc=%d/%d zrun=%d delta=%d al=%d unk=%d -> depth=%d off=%ld buf=%p box=%s matchn=%d pc=%p nd_op=%d nd_idx=%d \n",
         g_emit.flat_fam ? g_emit.flat_fam : "chain", idx, (int)e->kind, (int)e->rule, (int)e->zdepth, (int)e->fcb, (int)e->fcbase, (int)e->demit, delta, aligned, unknown, (int)e->depth,
