@@ -25,7 +25,8 @@
 #       heap pointer that the chain leaves for dead; the mode-4 choice and throw witnesses, 1203 and 100). A walk that stops short refuses
 #       the pass (rt_gc_frames_visit returns 0).
 #   (3) THE PLANT: SCRIP_GC_PLANT_PL_RECLAIM=1 reclaims what a frame holds or a live walk can still see. Under stress the later-clauses
-#       witness dies on the named bomb (the walk enters a reclaimed slot through the chain), the erased-choice witness dies, and both
+#       witness dies on the named bomb (the walk enters a reclaimed slot through the chain), the erased-choice witness dies (by the reclaim's own bomb, or by the collector's chain
+#       refusing the reclaimed fragment's frame: its site block left the registry with its code, so the pc names no site, or a link's beta names no graph), and both
 #       print the plant's [PL-RECLAIM-PLANT] applied banner -- the two protections are what keep arm (2) green.
 # FAIL_ONCE=1 requires the throw witness to reclaim nothing, so arm (2) must red.
 set -u
@@ -90,7 +91,7 @@ run w7 m3 w7.plant SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_PLANT_PL_RECLAIM=
 run w3 m3 w3.plant SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_PLANT_PL_RECLAIM=1
 if grep -q '^\[PL-RECLAIM-PLANT\] applied' "$W/w7.plant.err" && grep -q 'a reclaimed run-time Prolog fragment was entered' "$W/w7.plant.err" && [ "$(cat "$W/w7.plant.rc")" != 0 ]; then echo "  ok  (3) the plant reclaims what a live walk can still see: the later-clauses witness dies on the named bomb"
 else echo "  RED (3) the planted early reclaim of a slot a live walk can see did not die on the named bomb: rc=$(cat "$W/w7.plant.rc") $(grep -o 'BOMB.*\|fatal signal.*\|PL-RECLAIM-PLANT.*' "$W/w7.plant.err" | head -2 | tr '\n' ' ' | cut -c1-240)"; bad=1; fi
-if grep -q '^\[PL-RECLAIM-PLANT\] applied' "$W/w3.plant.err" && [ "$(cat "$W/w3.plant.rc")" != 0 ] && grep -q 'in the code pool\|a frame holds a reclaimed run-time Prolog fragment\|a reclaimed run-time Prolog fragment was entered' "$W/w3.plant.err"; then echo "  ok  (3) the plant reclaims what a frame holds: the erased-choice witness dies, named"
+if grep -q '^\[PL-RECLAIM-PLANT\] applied' "$W/w3.plant.err" && [ "$(cat "$W/w3.plant.rc")" != 0 ] && grep -q 'in the code pool\|a frame holds a reclaimed run-time Prolog fragment\|a reclaimed run-time Prolog fragment was entered\|REFUSED: the chain over the maps stops short (nosite)\|REFUSED: the chain over the maps stops short (bad-link)' "$W/w3.plant.err"; then echo "  ok  (3) the plant reclaims what a frame holds: the erased-choice witness dies, named"
 else echo "  RED (3) the planted early reclaim of a held fragment did not die by name: rc=$(cat "$W/w3.plant.rc") $(grep -o 'BOMB.*\|fatal signal.*\|PL-RECLAIM-PLANT.*' "$W/w3.plant.err" | head -2 | tr '\n' ' ' | cut -c1-240)"; bad=1; fi
 TREE="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)"
 if [ $bad -eq 0 ]; then echo "GATE PASS(0) [$G]: an erased clause's code is reclaimed once no activation can reach it, in both modes, and the plant shows each protection holds (tree SCRIP=$TREE)"; exit 0; fi

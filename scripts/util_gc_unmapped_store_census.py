@@ -32,7 +32,7 @@ cfo's file; this is an ASK with a measurement, never a cure cut from here.
 THE DECISION PROCEDURE, and every term in it is read from the tree rather than assumed:
   * A graph's map cell is written by its prologue as `lea rX,[rip+.Lgcmap_<g>]` / `mov [base + D], rX`, with the
     DT_MAP tag stored at [base + D-8].  The cell therefore starts at D-8.
-  * gc_heap.c's gc_walk_range computes `base = cell - map_off` and walks [base, base+map_off) through the static
+  * gc_heap.c's gc_walk_range computes `base = cell - value_bytes` and walks [base, base+value_bytes) through the static
     layout table.  Below that it walks [p, base) as WORDS: gc_walk_words tries gc_cell_visit on each one first and
     only counts what that recognizer REFUSES into s_raw_heap, printed as [GC-WALK-SPINE].  So REGION BASE = the
     value of the cell's base register at the cell store.
@@ -68,7 +68,7 @@ VERDICTS a store target k (relative to the region base) can take:
   RAW-SLOT       -- inside a GC_LAY_RAW entry: the map tells the collector this word is never a pointer.  A heap
                     pointer stored here is a LIE to the collector, not merely an omission.
   BELOW-REGION   -- k < 0.  Class 1 of section 3c: a call result in a spine scratch cell below the region base.
-  ABOVE-REGION   -- k >= map_off: the map cell, the wire header and the return address.
+  ABOVE-REGION   -- k >= value_bytes: the map cell, the wire header and the return address.
   GAP            -- inside the region but covered by no layout entry.
   NO-MAP         -- the graph has no map at all.  Class 2, and NOT this row's residual: it is reported as ONE
                     whole-graph entry attributed to the owning language's row (hq_raku, hq_prolog, hq_snobol4).
@@ -118,22 +118,21 @@ def read_layouts(text):
 
 
 def find_anchors(insns):
-    """each graph's map-cell store: {graph: (insn index, base register, cell offset from that register)}"""
+    """each graph's frame anchor: {graph: (insn index, base register, cell offset from that register)}.
+
+    The emitter (emit_gc_map_register) stores nothing at the frame's reserved cell since ARCH-GC section 13 STEP B; it leaves a
+    text-only note `GCANCHOR <.Lgcmap_label> <operand of the cell's pointer word>` on the next instruction, and the cell starts
+    8 below that word, exactly where the old marker store's pointer half sat."""
     anchors = {}
     for i, ins in enumerate(insns):
-        if ins.mnem != "lea" or len(ins.ops) < 2:
+        if not ins.note.startswith("GCANCHOR "):
             continue
-        m = LEA_MAP_RX.search(ins.ops[1])
-        if not m or m.group(1).endswith("_s"):
+        parts = ins.note.split(None, 2)
+        if len(parts) < 3 or not parts[1].startswith(".Lgcmap_"):
             continue
-        graph_label = m.group(1)[len(".Lgcmap_"):]
-        for j in range(i + 1, min(i + 8, len(insns))):
-            n = insns[j]
-            if n.mnem == "mov" and len(n.ops) == 2 and n.ops[1] == ins.ops[0]:
-                base, d = disp_of(n.ops[0])
-                if base is not None:
-                    anchors.setdefault(graph_label, (i, base, d - 8))
-                break
+        base, d = disp_of(parts[2].replace("$", ""))
+        if base is not None:
+            anchors.setdefault(parts[1][len(".Lgcmap_"):], (i, base, d - 8))
     return anchors
 
 
@@ -719,7 +718,7 @@ def _static_store_of(ins):
     return [(m.group(1), int(m.group(2) or 0), ins.ops[1])]
 
 
-def classify(k, layout, map_off, blob):
+def classify(k, layout, value_bytes, blob):
     """the verdict for a store target at byte offset k from the frame's layout anchor"""
     for off, kind, size in layout:
         if off <= k < off + size:
@@ -728,7 +727,7 @@ def classify(k, layout, map_off, blob):
         return "OUTSIDE-LAYOUT"
     if k < 0:
         return "BELOW-REGION"
-    if k >= map_off:
+    if k >= value_bytes:
         return "ABOVE-REGION"
     return "GAP"
 
@@ -767,7 +766,7 @@ def owner_of(base, d, i, frames):
     vals = set()
     for rsp, rbp, *_shadows in states:
         anchor_rel = rsp if base == "rsp" else rbp
-        vals.add(None if anchor_rel is None else anchor_rel + d - f["cell"] + f["map_off"])
+        vals.add(None if anchor_rel is None else anchor_rel + d - f["cell"] + f["value_bytes"])
     if None in vals:
         return g, 0, ("SPINE-DEPTH-UNKNOWN" if base == "rsp" else "RBP-NOT-A-FRAME-BASE-HERE")
     if len(vals) != 1:
@@ -794,7 +793,7 @@ def owner_ks(base, d, i, frames):
         anchor_rel = rsp if base == "rsp" else rbp
         if anchor_rel is None:
             return g, ()
-        vals.add(anchor_rel + d - f["cell"] + f["map_off"])
+        vals.add(anchor_rel + d - f["cell"] + f["value_bytes"])
     return g, tuple(sorted(vals))
 
 
@@ -907,7 +906,7 @@ def grid_sites(insns, frames):
             if f["blob"]:
                 rows.append((g, i, None, "BLOB-FRAME-RBP-ANCHORED"))
                 continue
-            vals = {None if rsp is None else rsp - f["cell"] + f["map_off"] for rsp, *_ in st}
+            vals = {None if rsp is None else rsp - f["cell"] + f["value_bytes"] for rsp, *_ in st}
             if None in vals:
                 rows.append((g, i, None, "SPINE-DEPTH-UNKNOWN"))
             elif len(vals) != 1:
@@ -958,7 +957,7 @@ def build_frames(asm_path, report_text, tag):
             unmatched.append(lbl)
             continue
         m = maps[g]
-        frames[g] = {"base": base, "cell": cell, "map_off": m["map_off"], "frame_bytes": m["frame_bytes"],
+        frames[g] = {"base": base, "cell": cell, "value_bytes": m["value_bytes"], "frame_bytes": m["frame_bytes"],
                      "blob": bool(m["flags"] & 4), "layout": layouts.get(g, []),
                      "frame": frame_fixpoint(insns, succ, ai, seed_rbp(insns, ai), symbase)}
     if unmatched:
@@ -991,7 +990,7 @@ def census_asm(asm_path, report_text, tag, out=print):
                         spill_cells.append((tag, g or "-", lbl, ins.line, f"[{base}{d:+d}]", "UNDECIDABLE", why, src))
                     else:
                         f = frames[g]
-                        spill_cells.append((tag, g, lbl, ins.line, f"{k:+d}", classify(k, f["layout"], f["map_off"], f["blob"]), "", src))
+                        spill_cells.append((tag, g, lbl, ins.line, f"{k:+d}", classify(k, f["layout"], f["value_bytes"], f["blob"]), "", src))
         frame_st, static_st = shielded_stores(insns, i, sp or frozenset())
         for sym, off, _src in static_st:
             unread[(sym, off)] += 1
@@ -1004,7 +1003,7 @@ def census_asm(asm_path, report_text, tag, out=print):
                 undecidable.append((tag, g or "-", lbl, ins.line, f"[{base}{d:+d}]", why))
                 continue
             f = frames[g]
-            v = classify(k, f["layout"], f["map_off"], f["blob"])
+            v = classify(k, f["layout"], f["value_bytes"], f["blob"])
             if v != "MAPPED":
                 members.append((tag, g, lbl, ins.line, k, v, src))
     join = []
@@ -1013,7 +1012,7 @@ def census_asm(asm_path, report_text, tag, out=print):
             continue
         reached = g in frames
         n = shield_by_graph[g] if reached else 0
-        join.append((tag, g, reached, n, m["map_off"], join_verdict(reached, n)))
+        join.append((tag, g, reached, n, m["value_bytes"], join_verdict(reached, n)))
     graded = grid_sites(insns, frames)
     grid = [(tag, g, site_label(insns, i), insns[i].line, k,
              grid_verdict(k, alignment_pad_at(insns, i, k)) if k is not None else None, why)
@@ -1268,8 +1267,7 @@ def _selftest_frame_whack():
     asm = (".text\n"
            "main_bx:\n"
            "        sub rsp, 64\n"
-           "        lea r11, [rip + .Lgcmap_main]\n"
-           "        mov qword ptr [rsp + 24], r11\n"
+           "        mov eax, 0 # GCANCHOR .Lgcmap_main qword ptr [rsp + 24]\n"
            "        push rbp\n"
            "        mov rbp, rsp\n"
            "        sub rsp, 32\n"
@@ -1277,7 +1275,7 @@ def _selftest_frame_whack():
            "        pop rbp\n"
            "        call rt_gc_poll@PLT\n"
            "        ret\n")
-    rep = ("[GC-MAP] graph=main frame_bytes=64 header_bytes=0 map_off=16 flags=9\n"
+    rep = ("[GC-MAP] graph=main frame_bytes=64 header_bytes=0 value_bytes=16 flags=9\n"
            "[GC-MAP-LAYOUT] graph=main n=1 0:0:16 gaps=0 conflicts=0\n")
     with tempfile.TemporaryDirectory() as wd:
         path = os.path.join(wd, "whack.s")
@@ -1303,8 +1301,7 @@ def _selftest_align_window(alias):
     asm = (".text\n"
            "main_bx:\n"
            "        sub rsp, 64\n"
-           "        lea r11, [rip + .Lgcmap_main]\n"
-           "        mov qword ptr [rsp + 24], r11\n"
+           "        mov eax, 0 # GCANCHOR .Lgcmap_main qword ptr [rsp + 24]\n"
            "        mov r11, rsp\n"
            "        and rsp, -16\n"
            "        sub rsp, 16\n"
@@ -1314,7 +1311,7 @@ def _selftest_align_window(alias):
            "        mov rsp, qword ptr [rsp + 0]\n"
            "        call rt_gc_poll@PLT\n"
            "        ret\n")
-    rep = ("[GC-MAP] graph=main frame_bytes=64 header_bytes=0 map_off=16 flags=9\n"
+    rep = ("[GC-MAP] graph=main frame_bytes=64 header_bytes=0 value_bytes=16 flags=9\n"
            "[GC-MAP-LAYOUT] graph=main n=1 0:0:16 gaps=0 conflicts=0\n")
     with tempfile.TemporaryDirectory() as wd:
         path = os.path.join(wd, "align.s")
@@ -1343,8 +1340,7 @@ def _selftest_rbp_park_window(mid):
     asm = (".text\n"
            "main_bx:\n"
            "        sub rsp, 64\n"
-           "        lea r11, [rip + .Lgcmap_main]\n"
-           "        mov qword ptr [rsp + 24], r11\n"
+           "        mov eax, 0 # GCANCHOR .Lgcmap_main qword ptr [rsp + 24]\n"
            "        mov rbp, rsp\n"
            "        mov qword ptr [rbp + 16], rsp\n"
            "        and rsp, -16\n"
@@ -1353,7 +1349,7 @@ def _selftest_rbp_park_window(mid):
            "        mov rsp, qword ptr [rbp + 16]\n"
            "        call rt_gc_poll@PLT\n"
            "        ret\n")
-    rep = ("[GC-MAP] graph=main frame_bytes=64 header_bytes=0 map_off=16 flags=9\n"
+    rep = ("[GC-MAP] graph=main frame_bytes=64 header_bytes=0 value_bytes=16 flags=9\n"
            "[GC-MAP-LAYOUT] graph=main n=1 0:0:16 gaps=0 conflicts=0\n")
     with tempfile.TemporaryDirectory() as wd:
         path = os.path.join(wd, "rbppark.s")
@@ -1366,17 +1362,16 @@ def _selftest_rbp_park_window(mid):
         return (got[0], got[-1]) if got else ("NO-CALL-GRADED", "NO-CALL-GRADED")
 
 
-def _selftest_pad_window(body, store_disp=24, map_off=16):
+def _selftest_pad_window(body, store_disp=24, value_bytes=16):
     """a hand-built graph whose call sits under a planted rsp adjustment; returns (floor, verdict)."""
     import tempfile
     asm = (".text\n"
            "main_bx:\n"
            "        sub rsp, 64\n"
-           "        lea r11, [rip + .Lgcmap_main]\n"
-           f"        mov qword ptr [rsp + {store_disp}], r11\n"
+           f"        mov eax, 0 # GCANCHOR .Lgcmap_main qword ptr [rsp + {store_disp}]\n"
            + body +
            "        ret\n")
-    rep = (f"[GC-MAP] graph=main frame_bytes=64 header_bytes=0 map_off={map_off} flags=9\n"
+    rep = (f"[GC-MAP] graph=main frame_bytes=64 header_bytes=0 value_bytes={value_bytes} flags=9\n"
            "[GC-MAP-LAYOUT] graph=main n=1 0:0:16 gaps=0 conflicts=0\n")
     with tempfile.TemporaryDirectory() as wd:
         path = os.path.join(wd, "pad.s")
@@ -1409,12 +1404,12 @@ def selftest():
     arm("classify: a PTR_GC entry is MAPPED", classify(152, lay, 416, False) == "MAPPED")
     arm("classify: a RAW entry is a LIE, not a miss", classify(144, lay, 416, False) == "RAW-SLOT")
     arm("classify: below the region base is the witness class", classify(-24, lay, 416, False) == "BELOW-REGION")
-    arm("classify: at or above map_off is the header", classify(416, lay, 416, False) == "ABOVE-REGION")
+    arm("classify: at or above value_bytes is the header", classify(416, lay, 416, False) == "ABOVE-REGION")
     arm("classify: a hole inside the region is a GAP", classify(200, [(0, 0, 16)], 416, False) == "GAP")
     arm("read_layouts parses the emitter's line",
         read_layouts("[GC-MAP-LAYOUT] graph=main n=2 0:0:16 16:1:8 gaps=0 conflicts=0")["main"] == [(0, 0, 16), (16, 1, 8)])
     arm("read_gcmaps is the harness's reader, not a copy",
-        GCC.read_gcmaps("[GC-MAP] graph=main frame_bytes=432 header_bytes=0 map_off=416 flags=9")["main"]["map_off"] == 416)
+        GCC.read_gcmaps("[GC-MAP] graph=main frame_bytes=432 header_bytes=0 value_bytes=416 flags=9")["main"]["value_bytes"] == 416)
     arm("report REFUSES an empty population", report("/nonexistent", [], "/tmp") == 2)
     arm("grid: a floor 32 bytes below the base is ON-GRID", grid_verdict(-32) == "ON-GRID")
     arm("grid: the witness's own pointer word at -24 is OFF-GRID as a floor", grid_verdict(-24) == "OFF-GRID")
@@ -1565,16 +1560,15 @@ def selftest():
         _asm = os.path.join(_d, "plant.s")
         with open(_asm, "w", encoding="utf-8") as _fh:
             _fh.write("main:\n"
-                      "\tlea rax, qword ptr [rip + .Lgcmap_main]\n"
-                      "\tmov qword ptr [rsp + 8], rax\n"
+                      "\tmov eax, 0 # GCANCHOR .Lgcmap_main qword ptr [rsp + 8]\n"
                       "\tmov qword ptr [rsp + 16], rdx\n"
                       "\tcall rt_gc_poll\n"
                       "\tret\n")
-        _rep = "[GC-MAP] graph=main frame_bytes=64 header_bytes=48 map_off=0 flags=1\n"
+        _rep = "[GC-MAP] graph=main frame_bytes=64 header_bytes=48 value_bytes=0 flags=1\n"
         _j = census_asm(_asm, _rep, "plant.s", out=lambda *_a, **_k: None)[6]
         arm("JOIN PLANTED END TO END: a hand-built graph with a zero-entry map and a shielded store reads MEMBER, "
             "so every BENIGN above comes from a road whose MEMBER arm has fired",
-            _j == [("plant.s", "main", True, 2, 0, "MEMBER")])
+            _j == [("plant.s", "main", True, 1, 0, "MEMBER")])
         _rep2 = _rep + "[GC-MAP-LAYOUT] graph=main n=1 0:0:64 gaps=0 conflicts=0\n"
         _j2 = census_asm(_asm, _rep2, "plant.s", out=lambda *_a, **_k: None)[6]
         arm("JOIN PLANTED NEGATIVE: the same asm with ONE layout entry leaves the join population empty, so the "

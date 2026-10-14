@@ -479,7 +479,7 @@ def grade_site(insns, pred, i, frames):
         if undec == "FRAME-DEPTH-MULTI-VALUED" and g in frames and (g, src) in multi:
             ks = multi[(g, src)]
             f = frames[g]
-            vs = {UC.classify(k2, f["layout"], f["map_off"], f["blob"]) for k2 in ks}
+            vs = {UC.classify(k2, f["layout"], f["value_bytes"], f["blob"]) for k2 in ks}
             kss = ",".join("%+d" % k2 for k2 in ks)
             if vs == {"BELOW-REGION"} and spine_cell_pair_multi(multi, g, src, ks):
                 out.append(("K3", "SPINE-CELL", "BELOW-REGION k in {%s} src=%s graph=%s -- a tagged DESCR cell on the "
@@ -494,7 +494,7 @@ def grade_site(insns, pred, i, frames):
                         % (undec or "NO-FRAME", b, d, src, poll_res_tag(insns, n))))
             continue
         f = frames[g]
-        v = UC.classify(k, f["layout"], f["map_off"], f["blob"])
+        v = UC.classify(k, f["layout"], f["value_bytes"], f["blob"])
         if v == "MAPPED":
             continue
         if v == "BELOW-REGION" and spine_cell_pair({(s2, k2) for (g2, s2, k2) in placed if g2 == g}, src, k):
@@ -862,14 +862,13 @@ def report(scrip, progs, workdir, out=print, name_cap=48):
 
 def _plant(body):
     """a hand-built asm + report pair, so every verdict below comes from a road whose MEMBER arm has fired"""
-    rep = ("[GC-MAP] graph=main frame_bytes=64 header_bytes=0 map_off=16 flags=9\n"
+    rep = ("[GC-MAP] graph=main frame_bytes=64 header_bytes=0 value_bytes=16 flags=9\n"
            "[GC-MAP-LAYOUT] graph=main n=1 0:0:16 gaps=0 conflicts=0\n")
     asm = (".text\n"
            "main_bx:\n"
            "        push rbp\n"
            "        sub rsp, 64\n"
-           "        lea r11, [rip + .Lgcmap_main]\n"
-           "        mov qword ptr [rsp + 24], r11\n"
+           "        mov eax, 0 # GCANCHOR .Lgcmap_main qword ptr [rsp + 24]\n"
            + body +
            "        add rsp, 64\n"
            "        pop rbp\n"

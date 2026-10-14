@@ -2,6 +2,8 @@
 #define GC_FRAME_MAP_H
 #include <stdint.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
 #define GC_FRAME_MAP_MAGIC 0x50414D5Au
 #define GC_FRAME_MAP_ROOT 1u
 #define GC_FRAME_MAP_GEN_ANCHOR 2u
@@ -20,20 +22,22 @@
 #define GC_LAY_OFF(q) ((int)(int32_t)(uint32_t)(q))
 #define GC_LAY_KIND(q) ((unsigned)(((q) >> 32) & 0xFFu))
 #define GC_LAY_SIZE(q) ((int)(((q) >> 40) & 0xFFFFu))
-typedef struct gc_frame_map_t { uint32_t magic; uint32_t frame_bytes; uint32_t header_bytes; uint32_t flags; const char * graph_name; uint64_t map_off; } gc_frame_map_t;
+typedef struct gc_frame_map_t { uint32_t magic; uint32_t frame_bytes; uint32_t header_bytes; uint32_t flags; const char * graph_name; uint64_t value_bytes; } gc_frame_map_t;
 typedef struct rt_icn_frame_t { const gc_frame_map_t * map; const char * base; uint64_t caller_pc; } rt_icn_frame_t;
 #ifdef __cplusplus
 static_assert(sizeof(gc_frame_map_t) == 32,
-    "gc_frame_map_t is four sealed quads beside the code in both media (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.3): magic|frame_bytes, header_bytes|flags, graph_name, map_off -- the emitter wri"
-    "tes them as four quads and the collector reads them through this struct, so the size is the contract; map_off is the cell's offset from the frame's region base (the value-region size), so the w"
-    "alker finds the region as cell - map_off in every regime (ARCH-GC section 6.2h)");
-static_assert(offsetof(gc_frame_map_t, graph_name) == 16 && offsetof(gc_frame_map_t, header_bytes) == 8, "the quad order is magic|frame_bytes, header_bytes|flags, graph_name, map_off");
+    "gc_frame_map_t is four sealed quads beside the code in both media (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.3): magic|frame_bytes, header_bytes|flags, graph_name, value_bytes -- the emitter"
+    " wri"
+    "tes them as four quads and the collector reads them through this struct, so the size is the contract; value_bytes is the size of the value region from the frame's base, the 16 bytes after it ar"
+    "e reserved and stored by nobody, and the header follows (the frame's base is the chain's, ARCH-GC section 13.4)");
+static_assert(offsetof(gc_frame_map_t, graph_name) == 16 && offsetof(gc_frame_map_t, header_bytes) == 8, "the quad order is magic|frame_bytes, header_bytes|flags, graph_name, value_bytes");
 #else
 _Static_assert(sizeof(gc_frame_map_t) == 32,
-    "gc_frame_map_t is four sealed quads beside the code in both media (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.3): magic|frame_bytes, header_bytes|flags, graph_name, map_off -- the emitter wri"
-    "tes them as four quads and the collector reads them through this struct, so the size is the contract; map_off is the cell's offset from the frame's region base (the value-region size), so the w"
-    "alker finds the region as cell - map_off in every regime (ARCH-GC section 6.2h)");
-_Static_assert(offsetof(gc_frame_map_t, graph_name) == 16 && offsetof(gc_frame_map_t, header_bytes) == 8, "the quad order is magic|frame_bytes, header_bytes|flags, graph_name, map_off");
+    "gc_frame_map_t is four sealed quads beside the code in both media (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.3): magic|frame_bytes, header_bytes|flags, graph_name, value_bytes -- the emitter"
+    " wri"
+    "tes them as four quads and the collector reads them through this struct, so the size is the contract; value_bytes is the size of the value region from the frame's base, the 16 bytes after it ar"
+    "e reserved and stored by nobody, and the header follows (the frame's base is the chain's, ARCH-GC section 13.4)");
+_Static_assert(offsetof(gc_frame_map_t, graph_name) == 16 && offsetof(gc_frame_map_t, header_bytes) == 8, "the quad order is magic|frame_bytes, header_bytes|flags, graph_name, value_bytes");
 #endif
 #ifdef __cplusplus
 static_assert(GC_LAY_OFF(GC_LAY_Q(-72, GC_LAY_PTR_GC, 8)) == -72 && GC_LAY_KIND(GC_LAY_Q(-72, GC_LAY_PTR_GC, 8)) == GC_LAY_PTR_GC && GC_LAY_SIZE(GC_LAY_Q(-72, GC_LAY_PTR_GC, 8)) == 8,
@@ -48,13 +52,20 @@ _Static_assert(GC_LAY_OFF(GC_LAY_Q(-72, GC_LAY_PTR_GC, 8)) == -72 && GC_LAY_KIND
 #endif
 #define GC_LINK_RBP_KEPT 1u
 #define GC_LINK_R_IND 2u
-#define GC_LINK_Q(pc, rbp, r, fl) ((uint64_t)(uint32_t)(int32_t)(pc) | ((uint64_t)(uint16_t)(int16_t)((rbp) - (pc)) << 32) | ((uint64_t)(uint8_t)(int8_t)((r) - (pc)) << 48) | ((uint64_t)((fl) & \
-    0x7Fu) << 56) | (1ull << 63))
+#define GC_LINK_PC_BITS 28
+static inline uint64_t gc_link_pack(long pc, long rbp, long r, unsigned fl) {
+    if (pc < 0 || pc >= (1l << GC_LINK_PC_BITS) || rbp - pc < -32768 || rbp - pc > 32767 || r - pc < -32768 || r - pc > 32767 || fl > 7u) {
+        fprintf(stderr, "FATAL gc_link_pack: pc %ld rbp %ld r %ld flags %u do not fit the packed link word (28-bit pc, 16-bit signed rbp-pc and r-pc, 3 flag bits)\n", pc, rbp, r, fl);
+        abort();
+    }
+    return ((uint64_t)pc & 0xFFFFFFFull) | (((uint64_t)(rbp - pc) & 0xFFFFull) << 28) | (((uint64_t)(r - pc) & 0xFFFFull) << 44) | ((uint64_t)fl << 60) | (1ull << 63);
+}
+#define GC_LINK_Q(pc, rbp, r, fl) gc_link_pack((long)(pc), (long)(rbp), (long)(r), (unsigned)(fl))
 #define GC_LINK_SET(q) ((unsigned)(((q) >> 63) & 1u))
-#define GC_LINK_PC(q) ((int)(int32_t)(uint32_t)(q))
-#define GC_LINK_RBP(q) (GC_LINK_PC(q) + (int)(int16_t)(uint16_t)((q) >> 32))
-#define GC_LINK_R(q) (GC_LINK_PC(q) + (int)(int8_t)(uint8_t)((q) >> 48))
-#define GC_LINK_FL(q) ((unsigned)(((q) >> 56) & 0x7Fu))
+#define GC_LINK_PC(q) ((int)((q) & 0xFFFFFFFull))
+#define GC_LINK_RBP(q) (GC_LINK_PC(q) + (int)(int16_t)(uint16_t)((q) >> 28))
+#define GC_LINK_R(q) (GC_LINK_PC(q) + (int)(int16_t)(uint16_t)((q) >> 44))
+#define GC_LINK_FL(q) ((unsigned)(((q) >> 60) & 7u))
 #define RK_REDISP_REC_BYTES 72
 #define RK_REDISP_REC_SLOTS ((RK_REDISP_REC_BYTES + 15) / 16)
 #define FLAT_FRAME_ALLOWANCE 64

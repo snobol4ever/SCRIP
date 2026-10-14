@@ -144,7 +144,6 @@ test_gate_gc_a_callee_saved_register_at_an_allocating_return_is_named_not_assume
 test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh	WIRED	-	-	-
 test_gate_gc_a_collection_over_a_small_live_set_stays_under_its_instruction_budget.sh	WIRED	-	-	-
 test_gate_gc_a_fault_names_its_block.sh	WIRED	-	-	-
-test_gate_gc_a_frame_never_inherits_a_dead_siblings_map_cell.sh	WIRED	-	-	-
 test_gate_gc_a_nested_match_restores_a_moved_outer_subject.sh	WIRED	-	-	-
 test_gate_gc_a_no_layout_entry_names_which_of_the_two_populations_it_is_in.sh	WIRED	-	-	-
 test_gate_gc_a_nul_leading_cset_is_interned_once.sh	WIRED	-	-	-
@@ -191,7 +190,6 @@ test_gate_gc_mark_worklist_visits_typed_layouts_not_words.sh	WIRED	-	-	-
 test_gate_gc_no_collection_inside_a_runtime_call.sh	WIRED	-	-	-
 test_gate_gc_no_pinned_lifetime_class.sh	WIRED	-	-	-
 test_gate_gc_nv_cell_caches_honour_the_memo_generation.sh	WIRED	-	-	-
-test_gate_gc_one_stack_the_walker_sweeps_tagged_cells.sh	WIRED	-	-	-
 test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
 test_gate_gc_pas_every_frame_slot_has_a_kind.sh	WIRED	-	-	-
 test_gate_gc_pas_heap_cells_survive_forced_movement.sh	WIRED	-	-	-
@@ -207,6 +205,7 @@ test_gate_gc_the_birth_ledger_names_a_line_not_a_two_thousand_line_symbol.sh	WIR
 test_gate_gc_the_blob_frame_interior_is_a_static_layout.sh	WIRED	-	-	-
 test_gate_gc_the_caller_saved_spill_block_never_holds_a_heap_reference.sh	WIRED	-	-	-
 test_gate_gc_the_chain_hops_a_function_body_nested_in_a_match_in_the_mapped_main_block.sh	WIRED	-	-	-
+test_gate_gc_the_chain_over_the_maps_finds_every_frame_by_return_pc.sh	WIRED	-	-	-
 test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh	WIRED	-	-	-
 test_gate_gc_the_cset_registry_is_rooted.sh	WIRED	-	-	-
 test_gate_gc_the_decidable_test.sh	WIRED	-	-	-
@@ -226,7 +225,6 @@ test_gate_gc_the_pending_prolog_ball_is_a_rooted_cell.sh	WIRED	-	-	-
 test_gate_gc_the_plant_says_whether_it_applied.sh	WIRED	-	-	-
 test_gate_gc_the_poll_is_a_register_preserving_asm_leaf.sh	WIRED	-	-	-
 test_gate_gc_the_prolog_root_cells_live_inside_the_value_region_and_are_visited_by_type.sh	WIRED	-	-	-
-test_gate_gc_the_root_map_cell_is_stored_at_its_map_offset_whatever_graph_was_emitted_before_main.sh	WIRED	-	-	-
 test_gate_gc_the_safe_point_census_counts_emitted_paths_not_source_proximity.sh	WIRED	-	-	-
 test_gate_gc_the_scan_enter_poll_never_roots_an_unestablished_subject_base.sh	WIRED	-	-	-
 test_gate_gc_the_scan_subject_base_is_reloaded_after_a_call_inside_a_scan.sh	WIRED	-	-	-

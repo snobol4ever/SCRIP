@@ -213,7 +213,7 @@ struct g_emitter_t {
     int zd_depth_census__on = -1;
     std::unordered_set<std::string> icn_trace_intern_pool;
     bb_label_t g_gc_map_lbl;
-    int g_gc_map_pending = 0, g_gc_map_off = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;
+    int g_gc_map_pending = 0, g_gc_value_bytes = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;
     unsigned g_gc_map_flags = 0;
     uint64_t g_gc_map_link = 0;
     cv_t g_gc_map_names_v;
@@ -225,11 +225,8 @@ struct g_emitter_t {
     int g_gc_match_n = 0;
     cv_t g_gc_sites_offs_v;
     int emit_gc_sites_data_seq = 0;
-    int gc_maps_check_on_v = -1;
-    int gc_maps_plant_on_v = -1;
     int gc_maps_report_on_v = -1;
     int gc_maptab_plant_on_v = -1;
-    int gc_plant_stale_frame_v = -1, gc_plant_stale_frame_said = 0;
     bb_label_t **codegen_flat_chain_body_alt_tr = 0;
     bb_label_t **codegen_flat_chain_body_ret_tr = 0;
     int codegen_flat_chain_body_alt_tr_cap = 0;

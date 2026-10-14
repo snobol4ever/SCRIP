@@ -122,7 +122,7 @@ with tempfile.TemporaryDirectory() as wd:
     lines, out, done = open(asm, encoding="utf-8").read().split("\n"), [], False
     for ln in lines:
         out.append(ln)
-        if not done and "+ .Lgcmap_main]" in ln.replace("rip ", "rip"):
+        if not done and "GCANCHOR .Lgcmap_main" in ln:
             done = True
         elif done and ln.strip().startswith("mov") and "rsp" in ln and "]," in ln:
             out.append("                        push             rax"); done = False
@@ -150,7 +150,7 @@ bad=0; seen=0
 while read -r line; do
   [ -z "$line" ] && continue
   cell="$(printf '%s\n' "$line" | sed -n 's/.* cell=0x\([0-9a-f]*\) .*/\1/p')"
-  moff="$(printf '%s\n' "$line" | sed -n 's/.* map_off=\([0-9]*\) .*/\1/p')"
+  moff="$(printf '%s\n' "$line" | sed -n 's/.* value_bytes=\([0-9]*\) .*/\1/p')"
   [ -z "$cell" ] && continue
   seen=$((seen+1))
   r="$(python3 -c "import sys; print((int(sys.argv[1],16)-int(sys.argv[2]))%16)" "$cell" "$moff")"
@@ -159,7 +159,7 @@ done <<EOF
 $rt
 EOF
 if [ "$seen" -gt 0 ] && [ "$bad" = 0 ]; then
-  ck ok "(d) THE SECOND ROAD AGREES: $seen live region base(s) read from the running collector (cell - map_off) are 16-aligned, so the grid the static census measures is the grid the walker would step"
+  ck ok "(d) THE SECOND ROAD AGREES: $seen live region base(s) read from the running collector (cell - value_bytes) are 16-aligned, so the grid the static census measures is the grid the walker would step"
 else
   ck no "(d) the runtime road did not confirm the anchor: $seen [GC-WALK-CELL] line(s) read, $bad with a region base that is not 16-aligned -- a static grid anchored at an address the collector cannot share is not a licence for anything"
 fi

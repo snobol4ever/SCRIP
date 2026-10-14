@@ -12,8 +12,7 @@
 #define RTX_NOT_HANDLED_PTR 0xFFFFFFFFFFFFFFFF
 typedef enum {
     DT_SNUL = 0x00, DT_S = 0x02, DT_I = 0x03, DT_R = 0x05, DT_P = 0x08, DT_A = 0x10, DT_T = 0x18, DT_C = 0x20, DT_N = 0x28, DT_K = 0x30, DT_E = 0x38, DT_FH = 0x40, DT_PLVAR = 0x48, DT_PLREF = 0x50,
-        DT_X = 0x58, DT_BLK = 0x60, DT_FAIL = 0x68, DT_DATA = 0x70, DT_BIG = 0x78, DT_CO = 0x80, DT_BOOL = 0x88, DT_ORDER = 0x90, DT_RAW = 0x98, DT_MAP = 0xA0, DT_CPLX = 0xA8, DT_PLATOM = 0xB0,
-        DT_EXTL = 0xB8,
+        DT_X = 0x58, DT_BLK = 0x60, DT_FAIL = 0x68, DT_DATA = 0x70, DT_BIG = 0x78, DT_CO = 0x80, DT_BOOL = 0x88, DT_ORDER = 0x90, DT_RAW = 0x98, DT_CPLX = 0xA8, DT_PLATOM = 0xB0, DT_EXTL = 0xB8,
 } DTYPE_t;
 #ifdef __cplusplus
 #define DESCR_SASSERT(c, m) static_assert(c, m)
@@ -38,11 +37,11 @@ DESCR_SASSERT(!(DT_DATA & DT_NUMERIC_BIT) && !(DT_DATA_STRIDE & DT_NUMERIC_BIT),
 DESCR_SASSERT((RTX_NOT_HANDLED & 7) == 7 && (DT_DATA_STRIDE & 7) == 0 && (DT_DATA & 7) == 0,
     "RTX_NOT_HANDLED is the byte a verdict-road leaf returns in al and never the low byte of a tag: every tag's low three bits read 0, 2, 3 or 5");
 DESCR_SASSERT(DT_FAIL < DT_DATA, "the v >= DT_DATA range tests require every fixed tag below DT_DATA");
-DESCR_SASSERT(DT_RAW > DT_ORDER && DT_MAP > DT_RAW,
-    "DT_RAW and DT_MAP are the two value-never-a-pointer stack-cell codes of ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.1 (CTO-65): every code above DT_ORDER is a cell the collector never visits a"
-    "s a value, and the three open-ended v >= DT_DATA tests (driver_data.c, core.c, by_name_dispatch.c) carry a v < DT_RAW bound for that reason");
-DESCR_SASSERT(!(DT_RAW & DT_NUMERIC_BIT) && (DT_RAW & (DT_NOTSTR_MASK & 0xFF)) && !(DT_MAP & DT_NUMERIC_BIT) && (DT_MAP & (DT_NOTSTR_MASK & 0xFF)),
-    "DT_RAW and DT_MAP read as neither numeric nor string under the 8-bit mask, like DT_FAIL");
+DESCR_SASSERT(DT_RAW > DT_ORDER,
+    "DT_RAW is the value-never-a-pointer stack-cell code of ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.1 (CTO-65; its twin, the frame-marker tag, went with the marker scan at STEP B): every code a"
+    "bove DT_ORDER is a cell the collector never visits a" "s a value, and the three open-ended v >= DT_DATA tests (driver_data.c, core.c, by_name_dispatch.c) carry a v < DT_RAW bound for that reason"
+    );
+DESCR_SASSERT(!(DT_RAW & DT_NUMERIC_BIT) && (DT_RAW & (DT_NOTSTR_MASK & 0xFF)), "DT_RAW reads as neither numeric nor string under the 8-bit mask, like DT_FAIL");
 DESCR_SASSERT(DT_T - DT_A == 8, "rtx_icnsub.s array+table share one subscript range guard");
 DESCR_SASSERT(DT_PLATOM > DT_CPLX && DT_PLATOM < 0x100 && !(DT_PLATOM & DT_NUMERIC_BIT) && (DT_PLATOM & (DT_NOTSTR_MASK & 0xFF)),
     "DT_PLATOM is the Prolog atom, {v, slen 0, i = atom id} (ARCH-PROLOG-BB-REWRITE.md section 3, rung R1): it replaced the builder form that wore DT_A, "

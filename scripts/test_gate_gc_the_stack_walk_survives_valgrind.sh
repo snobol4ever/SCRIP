@@ -38,6 +38,9 @@
 # witness.  FAIL_ONCE switches the ceiling off too, since arm (a) is the plain witness.  The masking itself is REPORTED, never
 # graded here: test_gate_gc_the_stack_walk_stops_at_the_outermost_emitted_frame.sh grades the ceiling.  In mode 4 the plant never
 # applies (no banner: a compiled program runs on a stack it maps itself and adopts its top), so every plant arm is mode 3.
+# RE-CUT at ARCH-GC section 13 STEP B (hq_collector 2026-10-11): the ceiling (rt_gc_emit_ceiling_adopt, SCRIP_GC_CEILING) is gone with the marker scan; the main segment is
+# bounded by the program top recorded at entry (rt_program_top_adopt) and the chain ends at the ROOT frame, so the fallback arm (c2) that switched the ceiling off and the
+# SCRIP_GC_CEILING=0 half of the FAIL_ONCE plant are deleted. Arms (a), (b), (c) and (d) stand.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -47,7 +50,7 @@ command -v valgrind >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: valgrind
 W="$ROOT/scripts/gc_witnesses/stack_top_under_valgrind"
 [ -s "$W.icn" ] && [ -s "$W.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: witness or .ref missing under gc_witnesses"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
-RC=0; plant=""; [ "${FAIL_ONCE:-0}" = 1 ] && plant="SCRIP_GC_PLANT_STACK_LABEL=1 SCRIP_GC_CEILING=0"
+RC=0; plant=""; [ "${FAIL_ONCE:-0}" = 1 ] && plant="SCRIP_GC_PLANT_STACK_LABEL=1"
 LD="-L$ROOT/out -lscrip_rt -lm -Wl,-rpath,$ROOT/out"
 vgrun() { local tag="$1"; shift; ( cd "$T" && env -u SCRIP_HEAP_MB $plant SCRIP_HEAP_KB=128 timeout 600s valgrind --tool=none -q "$@" > "$tag.out" 2> "$tag.err" ); echo $?; }
 r3=$(vgrun m3 "$SCRIP" --run "$W.icn")
@@ -67,8 +70,6 @@ CW="$ROOT/scripts/gc_witnesses/hb_coexpr_genp_scan"; CIN=/dev/null; [ -f "$CW.in
 ( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_GC_CEILING SCRIP_GC_PLANT_STACK_LABEL=1 SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=1 timeout 600s valgrind --tool=none -q "$SCRIP" --run "$CW.icn" < "$CIN" > pc.out 2> pc.err ); rpc=$?
 ( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_GC_CEILING SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=1 timeout 600s valgrind --tool=none -q "$SCRIP" --run "$CW.icn" < "$CIN" > nc.out 2> nc.err ); rnc=$?
 if { [ "$rpc" != 0 ] || ! cmp -s "$T/pc.out" "$CW.ref"; } && grep -q '^\[GC-STACKLABEL\] plant:' "$T/pc.err" && [ "$rnc" = 0 ] && cmp -s "$T/nc.out" "$CW.ref"; then echo "  arm (c) PASS: THE PARKED-MAIN SEGMENT, shipped configuration (ceiling on): under the plant the coexpression witness reds (rc=$rpc) with the GC-STACKLABEL banner, and without the plant it answers its ref"; else echo "  arm (c) FAIL: plant rc=$rpc banner=$(grep -c '^\[GC-STACKLABEL\] plant:' "$T/pc.err") $(cmp -s "$T/pc.out" "$CW.ref" && echo ref || echo DIFF) | no plant rc=$rnc $(cmp -s "$T/nc.out" "$CW.ref" && echo ref || echo DIFF) -- the stack top is no longer read on the parked-main segment, or the plant is inert, or the witness no longer parks main during a collection"; RC=1; fi
-( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_STACK_LABEL=1 SCRIP_GC_CEILING=0 SCRIP_HEAP_KB=128 timeout 600s valgrind --tool=none -q "$SCRIP" --run "$W.icn" > p3.out 2> p3.err ); rpl=$?
-if { [ "$rpl" != 0 ] || ! cmp -s "$T/p3.out" "$W.ref"; } && grep -q '^\[GC-STACKLABEL\] plant:' "$T/p3.err"; then echo "  arm (c2) PASS: THE FALLBACK, ceiling off: under the plant the plain mode-3 witness reds (rc=$rpl) and the GC-STACKLABEL banner is on stderr"; else echo "  arm (c2) FAIL: rc=$rpl banner=$(grep -c '^\[GC-STACKLABEL\] plant:' "$T/p3.err") -- the plant no longer brings the loss back on the main segment with the ceiling off"; RC=1; fi
 ( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_GC_CEILING SCRIP_GC_PLANT_STACK_LABEL=1 SCRIP_HEAP_KB=128 timeout 600s valgrind --tool=none -q "$SCRIP" --run "$W.icn" > pm.out 2> pm.err ); rpm=$?
 echo "  note THE SECOND DEFENSE (reported, never graded here): under the plant with the ceiling ON the plain witness reads rc=$rpm $(cmp -s "$T/pm.out" "$W.ref" && echo ref || echo DIFF) -- the recorded ceiling bounds the main segment at the root frame, so the planted top is not walked there"
 if grep -q '__libc_stack_end' "$ROOT/src/runtime/rt/gc_heap.c"; then echo "  arm (d) PASS: gc_heap.c consults __libc_stack_end"; else echo "  arm (d) FAIL: gc_heap.c no longer consults __libc_stack_end"; RC=1; fi

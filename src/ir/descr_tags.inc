@@ -27,7 +27,6 @@
 #define DT_BOOL 0x88
 #define DT_ORDER 0x90
 #define DT_RAW 0x98
-#define DT_MAP 0xA0
 #define DT_CPLX 0xA8
 #define DT_PLATOM 0xB0
 #define DT_EXTL 0xB8

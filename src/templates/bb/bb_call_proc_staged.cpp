@@ -1254,7 +1254,7 @@ static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t **
     int n = (int)_.op_ival; long bias = (wires ? 16L : 0L) + 16L * nb;
     auto zop = [&](int i, int w) -> std::string { int in = i >= 0 && i < _.op_zcap; if (in && _.op_zread_xf[i] != -1) return RDQ("rbp", _.op_zread_xf[i]
         + w); return x86_zref((in ? _.op_zread[i] : 0) + w + (int)bias, 1); };
-    std::string s = x86_alpha() + x86_scan_sync_out() + x86_anchor_enter()
+    std::string s = x86_alpha() + x86_scan_sync_out() + x86_anchor_enter() + x86_rsp_mark_save()
          + x86("note",
              "the block protocol for a deterministic Pascal callee (CEO-1491): the two wire cells, then the argument block "
                  "on this spine, then a jump; no staged medium, no registry call, no C prologue or epilogue")
@@ -1274,10 +1274,14 @@ static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t **
          + x86_lea_id("rcx", 3) + x86_lea_id("rdx", 4)
          + bcps_jmp_proc_fn(idx)
          + x86("def", L(3))
+         + x86_rsp_land(0)
+         + x86_gc_site(X86_SITE_LANDING)
          + x86("mov", "rax", "rdi")
          + x86("mov", "rdx", "rsi")
          + x86("jmp", L(2))
          + x86("def", L(4))
+         + x86_rsp_land(0)
+         + x86_gc_site(X86_SITE_LANDING)
          + x86("mov32", "eax", (long)DT_FAIL)
          + x86("xor", "edx", "edx")
          + x86("def", L(2))

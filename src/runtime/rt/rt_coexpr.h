@@ -25,6 +25,9 @@ typedef struct scrip_coctx_t {
     struct scrip_coctx_t *gc_next;
     char *park_sp;
     char *park_rbp;
+    uint64_t park_pc;
+    char *park_r;
+    char *park_srbp;
     int sigma_live;
     char *image;
     const char *image_src;

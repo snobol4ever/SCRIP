@@ -3,13 +3,15 @@
 # safe point, under SCRIP_GC_CHAIN_CHECK=3, one line per witness and mode from the [CHAIN-WALK] SUMMARY, then the totals. A BOARD: the coo runs it on a row that asks (CEO-1671); a seat runs one witness by hand.
 # CLEAN means whole == runs and offchain-swept, missing, bad-link, frameless, nosite, no-link, cycle, unknown-depth, visitor differ all 0. rc 0 = every line clean, rc 1 = one or more not, rc 2 = could not measure.
 #   usage: util_gc_chain_matrix.sh [witness-name-substring ...]     MATRIX_STRESS=1 (default) MATRIX_KB=64 (default)
-#   MATRIX_PLANT="SCRIP_GC_PLANT_POISON=1" (the cto's off-chain falsifier: every marker-scan frame the chain list lacks has its arena-pointing cells rewritten dead) adds a PLANT-DIFF check: the
-#   planted run's output in each mode must equal the unplanted run's; MATRIX_PLANT=SCRIP_GC_PLANT_POISON=2 is the control (the on-chain frames poisoned at collection 10: outputs MUST differ for most).
+#   MATRIX_PLANT="<KNOB>=<v>" runs every witness a second time under that plant and adds a PLANT-DIFF check (the planted run's output in each mode must equal the unplanted run's). The poison
+#   falsifier SCRIP_GC_PLANT_POISON went with the marker scan (STEP B): naming it REFUSES rc 2, since a plant the runtime does not carry grades nothing. The fail-once of the chain is the
+#   commit-before form test_gate_gc_the_chain_over_the_maps_finds_every_frame_by_return_pc.sh names (CEO-1680).
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIP="$ROOT/scrip"; WD="$ROOT/scripts/gc_witnesses"
 [ -x "$SCRIP" ] && [ -f "$ROOT/out/libscrip_rt.so" ] && [ -d "$WD" ] || { echo "REFUSE(2): no scrip, runtime library or gc_witnesses directory under $ROOT"; exit 2; }
 ST="${MATRIX_STRESS:-1}"; KB="${MATRIX_KB:-64}"
+case "${MATRIX_PLANT:-}" in *SCRIP_GC_PLANT_POISON*) echo "REFUSE(2): MATRIX_PLANT names SCRIP_GC_PLANT_POISON, a plant the runtime no longer carries (deleted with the marker scan, STEP B) -- it would grade nothing"; exit 2;; esac
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 num() { printf '%s\n' "$1" | sed -n "s/.* $2=\([0-9]*\).*/\1/p"; }
 run_env() { env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB="$KB" SCRIP_GC_CHAIN_CHECK=3 SCRIP_GC_STRESS="$ST" ${MATRIX_PLANT:-} "$@"; }
@@ -27,9 +29,9 @@ for f in "$WD"/*; do
     if [ -x "$W/$b.x" ]; then ( cd "$W" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB="$KB" SCRIP_GC_STRESS="$ST" timeout 300 "./$b.x" > "$b.u4" 2> /dev/null < "$i" ); fi
     for m in 3 4; do
       [ -f "$W/$b.u$m" ] || continue
-      ap="$(grep -a '^\[GC-PLANT\] poison' "$W/$b.e$m" | tail -1)"
-      if cmp -s "$W/$b.o$m" "$W/$b.u$m"; then printf '%-72s m%s plant-same   %s\n' "$w" "$m" "${ap:-no-poison-applied}"
-      else printf '%-72s m%s PLANT-DIFF   %s\n' "$w" "$m" "${ap:-no-poison-applied}"; bad=$((bad+1)); unclean="$unclean $w/plant-m$m"; fi
+      ap="$(grep -a '^\[GC-[A-Z]*\] *plant' "$W/$b.e$m" | tail -1)"
+      if cmp -s "$W/$b.o$m" "$W/$b.u$m"; then printf '%-72s m%s plant-same   %s\n' "$w" "$m" "${ap:-no-plant-banner}"
+      else printf '%-72s m%s PLANT-DIFF   %s\n' "$w" "$m" "${ap:-no-plant-banner}"; bad=$((bad+1)); unclean="$unclean $w/plant-m$m"; fi
     done
   fi
   for m in 3 4; do

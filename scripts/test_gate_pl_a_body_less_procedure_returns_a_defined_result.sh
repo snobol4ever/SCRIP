@@ -72,23 +72,18 @@ for w in a b; do
   if cmp -s "$W/$w.ref" "$W/$w.m4"; then echo "  ok   $w m4"; else echo "  RED  $w m4: $(head -c 120 "$W/$w.m4" | tr '\n' ' ')"; fails=$((fails+1)); fi
 done
 [ "$compiled" -eq 2 ] || refuse "only $compiled of 2 witnesses compiled"
-# (C) every `lea rax, [rip + .Lgcmap_...]` is followed only by the map cell's own stores (mov ... ptr [...]) and then
-# `mov eax, 0`; any other instruction first means the map address is still in the result register.
-struct(){ awk '
-  /lea +rax, \[rip \+ \.Lgcmap_/ { if (open) bad++; open=1; n++; next }
-  open && /^[[:space:]]*mov +eax, 0[[:space:]]*$/ { open=0; next }
-  open && /^[[:space:]]*mov +(qword|dword) ptr \[/ { next }
-  open && /^[[:space:]]*(#|$)/ { next }
-  open { bad++; open=0 }
-  END { if (open) bad++; printf "%d %d\n", n, bad }' "$1"; }
-read -r cnr cbad < <(sed '/^[[:space:]]*mov  *eax, 0[[:space:]]*$/d' "$W/a.s" | tee "$W/canary.s" >/dev/null; struct "$W/canary.s")
-[ "${cnr:-0}" -gt 0 ] && [ "${cbad:-0}" -gt 0 ] || refuse "canary: witness A with every 'mov eax, 0' deleted did NOT read red (maps=$cnr bad=$cbad) -- an arm that cannot say no certifies nothing"
+# (C) every prologue anchor note (`# GCANCHOR .Lgcmap_...`, the zero-byte successor of the old `lea rax, [rip + .Lgcmap_...]` map-cell store, ARCH-GC section 13 STEP B)
+# rides the prologue's `mov eax, 0`: the null descriptor a body of IR_SUCCEED alone forwards as its result. The map address can no longer reach rax (no `lea` exists), but the
+# register would then hold whatever the caller left in it, so the instruction stays and this arm holds it.
+struct(){ awk '/# GCANCHOR \.Lgcmap_/ { n++; if ($0 !~ /mov +eax, 0/) bad++ } END { printf "%d %d\n", n, bad }' "$1"; }
+read -r cnr cbad < <(sed -E 's/^([[:space:]]*)mov +eax, 0( +#.*)$/\1nop\2/' "$W/a.s" | tee "$W/canary.s" >/dev/null; struct "$W/canary.s")
+[ "${cnr:-0}" -gt 0 ] && [ "${cbad:-0}" -gt 0 ] || refuse "canary: witness A with every anchor's 'mov eax, 0' replaced by a nop did NOT read red (maps=$cnr bad=$cbad) -- an arm that cannot say no certifies nothing"
 for w in a b; do
   read -r nmap nbad < <(struct "$W/$w.s")
-  [ "${nmap:-0}" -gt 0 ] || refuse "witness $w's .s carries no frame-map load -- the structural arm has nothing to examine"
-  if [ "$nbad" -eq 0 ]; then echo "  ok   $w structural: $nmap frame-map loads, each followed by mov eax, 0"
-  else echo "  RED  $w structural: $nbad of $nmap frame-map loads leave the map address in rax"; fails=$((fails+1)); fi
+  [ "${nmap:-0}" -gt 0 ] || refuse "witness $w's .s carries no prologue anchor note -- the structural arm has nothing to examine"
+  if [ "$nbad" -eq 0 ]; then echo "  ok   $w structural: $nmap prologue anchors, each riding mov eax, 0"
+  else echo "  RED  $w structural: $nbad of $nmap prologue anchors do not ride mov eax, 0"; fails=$((fails+1)); fi
 done
-echo "canary: every 'mov eax, 0' deleted from witness A reads RED ($cbad of $cnr) ok"
+echo "canary: every anchor's 'mov eax, 0' replaced by a nop in witness A reads RED ($cbad of $cnr) ok"
 if [ "$fails" -eq 0 ]; then echo "GATE PASS(0) [$G]: body-less procedures return a defined result, both modes, 2 witnesses + structural"; exit 0; fi
 echo "GATE FAIL(1) [$G]: $fails red arm(s)"; exit 1

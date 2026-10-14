@@ -3947,44 +3947,19 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
 }
 static const char * gc_map_entry_fam(const char * fam) { return (fam && !strcmp(fam, "pat_flat")) ? "main" : fam; }
 static int gc_maps_knob(const char * k) { const char * e = getenv(k); return (e && *e == '1') ? 1 : 0; }
-static int gc_maps_check_on(void) { if (g_emitter.gc_maps_check_on_v < 0) g_emitter.gc_maps_check_on_v = gc_maps_knob("SCRIP_GC_MAPS_CHECK"); return g_emitter.gc_maps_check_on_v; }
-static int gc_maps_plant_on(void) { if (g_emitter.gc_maps_plant_on_v < 0) g_emitter.gc_maps_plant_on_v = gc_maps_knob("SCRIP_GC_MAPS_PLANT"); return g_emitter.gc_maps_plant_on_v; }
 static int gc_maps_report_on(void) { if (g_emitter.gc_maps_report_on_v < 0) g_emitter.gc_maps_report_on_v = gc_maps_knob("SCRIP_GC_MAPS_REPORT"); return g_emitter.gc_maps_report_on_v; }
 static int gc_maptab_plant_on(void) { if (g_emitter.gc_maptab_plant_on_v < 0) g_emitter.gc_maptab_plant_on_v = gc_maps_knob("SCRIP_GC_MAPTAB_PLANT"); return g_emitter.gc_maptab_plant_on_v; }
-extern "C" void rt_gc_frame_map_check(const DESCR_t * cell);
-static_assert(sizeof(void *) == 8,
-    "A PROCEDURE OR GENERATOR PROLOGUE CLEARS ITS WHOLE VALUE REGION, NOT ONLY ITS LOCALS (cto 2026-09-23, CTO-157): the collector finds a frame by the first valid DT_MAP cell scanning up from the f"
-    "loor, and when main calls p4 then p5 (same caller rsp, so both frames end at the same top) p4's dead cell survives sixteen bytes below p5's live cell inside p5's larger region -- the walker too"
-    "k it, applied p4's layout to p5's frame and stepped over p5's live cell, so p5's value cells were never visited (procedure_record_every_replace_14: write's image() argument read vacated ground "
-    "at line 62 under the flip plant). A geometric rule in the walker cannot tell which of two sibling cells is live (the dead one sits below the live one or above it depending on header sizes); cle"
-    "aring the region at entry makes a dead cell inside a live frame impossible. SCRIP_GC_PLANT_STALE_FRAME=1 restores the locals-only clear at emission");
-static int gc_plant_stale_frame(void) { if (g_emitter.gc_plant_stale_frame_v < 0) { const char * e = getenv("SCRIP_GC_PLANT_STALE_FRAME"); g_emitter.gc_plant_stale_frame_v = (e && *e == '1') ? 1 : 0;
-    } if (g_emitter.gc_plant_stale_frame_v && !g_emitter.gc_plant_stale_frame_said) { g_emitter.gc_plant_stale_frame_said = 1;
-    fprintf(stderr,
-    "[GC-STALEFRAME] plant: procedure and generator prologues clear only their locals again, so a dead activation's map cell can survive inside a live frame (SCRIP_GC_PLANT_STALE_FRAME=1). THIS LINE"
-    " IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS at the first prologue emitted under it.\n"); } return g_emitter.gc_plant_stale_frame_v; }
-extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int header_bytes, unsigned flags, int frame_rel, uint64_t link) {
-    if (frame_rel == 2 ? (map_off < 16 || map_off != frame_bytes || (flags & GC_FRAME_MAP_BLOB) == 0) : (map_off < 0 || (map_off & 15) || map_off + 16 > frame_bytes))
+extern "C++" std::string emit_gc_map_register(int value_bytes, int frame_bytes, int header_bytes, unsigned flags, int frame_rel, uint64_t link) {
+    if (frame_rel == 2 ? (value_bytes < 16 || value_bytes != frame_bytes || (flags & GC_FRAME_MAP_BLOB) == 0) : (value_bytes < 0 || (value_bytes & 15) || value_bytes + 16 > frame_bytes))
         { fprintf(stderr,
-        "FATAL emit_gc_map_cell: map_off=%d frame_bytes=%d frame_rel=%d (the map cell must be a 16-aligned cell inside the frame; a blob's cell is the frame's bottom cell at [rbp - frame_bytes] and "
-        "carries GC_FRAME_MAP_BLOB)\n", map_off, frame_bytes, frame_rel); abort(); }
-    g_emitter.g_gc_map_pending = 1; g_emitter.g_gc_map_off = map_off; g_emitter.g_gc_map_link = link; g_emitter.g_gc_map_fb = frame_bytes; g_emitter.g_gc_map_hdr = header_bytes;
+        "FATAL emit_gc_map_register: value_bytes=%d frame_bytes=%d frame_rel=%d (the value region is 16-aligned and the 16 reserved bytes after it lie inside the frame; a blob's region is the wh"
+            "ole frame below its base "
+        "and carries GC_FRAME_MAP_BLOB)\n", value_bytes, frame_bytes, frame_rel); abort(); }
+    g_emitter.g_gc_map_pending = 1; g_emitter.g_gc_value_bytes = value_bytes; g_emitter.g_gc_map_link = link; g_emitter.g_gc_map_fb = frame_bytes; g_emitter.g_gc_map_hdr = header_bytes;
         g_emitter.g_gc_map_flags = flags;
     emit_label_initf(&g_emitter.g_gc_map_lbl, ".Lgcmap_%s", g_emit.flat_fam ? g_emit.flat_fam : "chain");
-    long slen = (long)frame_bytes + (gc_maps_plant_on() ? 16L : 0L);
-    std::string s = x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)&g_emitter.g_gc_map_lbl);
-    if (frame_rel == 2) s += x86("mov", RDQ("rbp", -map_off + 8), "rax") + x86("mov", RDD("rbp", -map_off), (long)DT_MAP) + x86("mov", RDD("rbp", -map_off + 4), slen);
-    else if (frame_rel) s += x86("mov", FRQ(map_off + 8), "rax") + x86("mov", FR(map_off), (long)DT_MAP) + x86("mov", FR(map_off + 4), slen);
-    else s += x86("mov", RDQ("rsp", map_off + 8), "rax") + x86("mov", RDD("rsp", map_off), (long)DT_MAP) + x86("mov", RDD("rsp", map_off + 4), slen);
-    if (gc_maps_check_on()) {
-        uint64_t fp = (uint64_t)(uintptr_t)(void *)rt_gc_frame_map_check;
-        s += (frame_rel == 2 ? x86("lea", "rax", RDQ("rbp", -map_off)) : frame_rel ? x86("lea", "rax", FRQ(map_off)) : x86("lea", "rax", RDQ("rsp", map_off)))
-           + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx") + x86("push", "r8") + x86("push", "r9") + x86("push", "r10") + x86("push", "r11")
-           + x86("mov", "rdi", "rax")
-           + x86("call", "rt_gc_frame_map_check", fp)
-           + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8") + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi");
-    }
-    return s + IF(frame_rel != 2 || blob_cont_copy(), x86("mov", "eax", 0L));
+    return x86("note", std::string("GCANCHOR ") + g_emitter.g_gc_map_lbl.name + " " + (frame_rel == 2 ? RDQ("rbp", -value_bytes + 8) : frame_rel ? FRQ(value_bytes + 8) : RDQ("rsp", value_bytes + 8)))
+         + IF(frame_rel != 2 || blob_cont_copy(), x86("mov", "eax", 0L));
 }
 static void emit_gc_map_data(const char * fam) {
     { extern const char * zls_graph_name_get(const IR_graph_t *); const char * ef = gc_map_entry_fam(fam);
@@ -4000,11 +3975,12 @@ static void emit_gc_map_data(const char * fam) {
         while (n > (int)g_emitter.g_zls_lay_v.cap - 2) { cv_reserve(&g_emitter.g_zls_lay_v, (uint32_t)sizeof(uint64_t), (uint64_t)g_emitter.g_zls_lay_v.cap * 2, "g_zls_lay");
             n = zls_g_layout_q(g_emit_cfg, (uint64_t *)g_emitter.g_zls_lay_v.p, (int)g_emitter.g_zls_lay_v.cap - 2, &gaps, &conf); }
         uint64_t * g_zls_lay = (uint64_t *)g_emitter.g_zls_lay_v.p;
-        if (n >= 0 && g_emit_cfg->root_graph) { int rg = zls_g_region(g_emit_cfg), nc = g_emit_cfg->standing_cells, clo = g_emitter.g_gc_map_off - 8 * nc;
+        if (n >= 0 && g_emit_cfg->root_graph) { int rg = zls_g_region(g_emit_cfg), nc = g_emit_cfg->standing_cells, clo = g_emitter.g_gc_value_bytes - 8 * nc;
             if (rg < 0 || clo < rg || nc < 0)
                 { fprintf(stderr,
-                "FATAL emit_gc_map_data: root graph %s region=%d cells=%d cells_lo=%d map_off=%d -- the standing cells must lie between the value region and the map cell (gc_frame_map.h FLAT_FRAME_A"
-                "LLOWANCE_ROOT)\n", fam ? fam : "?", rg, nc, clo, g_emitter.g_gc_map_off); abort(); }
+                "FATAL emit_gc_map_data: root graph %s region=%d cells=%d cells_lo=%d value_bytes=%d -- the standing cells must lie between the value region and the reserved cell (gc_frame_map.h"
+                    " FLAT_FRAME_A"
+                "LLOWANCE_ROOT)\n", fam ? fam : "?", rg, nc, clo, g_emitter.g_gc_value_bytes); abort(); }
             if (clo > rg) g_zls_lay[n++] = GC_LAY_Q(rg, GC_LAY_RAW, clo - rg);
             if (nc > 0) g_zls_lay[n++] = GC_LAY_Q(clo, GC_LAY_PTR_GC, 8 * nc); }
         if (n >= 0) { lay = g_zls_lay; lay_n = n; g_emitter.g_gc_map_flags |= GC_FRAME_MAP_LAYOUT; g_emitter.g_zls_lay_gaps = gaps; g_emitter.g_zls_lay_conf = conf; } }
@@ -4014,19 +3990,20 @@ static void emit_gc_map_data(const char * fam) {
     const int anon = g_emit.flat_pat ? 1 : 0;
     if (g_is_text) {
         char eb[2 * strlen(fam ? fam : "?") + 1]; { int ei = 0; for (const char * q = fam ? fam : "?"; *q; q++) { if (*q == '\\' || *q == '"') eb[ei++] = '\\'; eb[ei++] = *q; } eb[ei] = 0; }
-        char b[fmt_len(" .quad %llu\n .quad %llu\n .quad %s_s\n .quad %d\n%s_s: .string \"%s\"\n", (unsigned long long)q0, (unsigned long long)q1, g_emitter.g_gc_map_lbl.name, g_emitter.g_gc_map_off,
+        char b[fmt_len(" .quad %llu\n .quad %llu\n .quad %s_s\n .quad %d\n%s_s: .string \"%s\"\n", (unsigned long long)q0, (unsigned long long)q1, g_emitter.g_gc_map_lbl.name,
+            g_emitter.g_gc_value_bytes,
             g_emitter.g_gc_map_lbl.name,
-            eb)]; int n = anon ? snprintf(b, sizeof b, " .quad %llu\n .quad %llu\n .quad 0\n .quad %d\n", (unsigned long long)q0, (unsigned long long)q1, g_emitter.g_gc_map_off)
+            eb)]; int n = anon ? snprintf(b, sizeof b, " .quad %llu\n .quad %llu\n .quad 0\n .quad %d\n", (unsigned long long)q0, (unsigned long long)q1, g_emitter.g_gc_value_bytes)
                                    :
                                        snprintf(b, sizeof b, " .quad %llu\n .quad %llu\n .quad %s_s\n .quad %d\n", (unsigned long long)q0, (unsigned long long)q1, g_emitter.g_gc_map_lbl.name,
-                                       g_emitter.g_gc_map_off);
+                                       g_emitter.g_gc_value_bytes);
         emit_text_n(b, (size_t)n);
         if (lay) { n = snprintf(b, sizeof b, " .quad %d\n", lay_n); emit_text_n(b, (size_t)n); for (int i = 0; i < lay_n; i++) { n = snprintf(b, sizeof b, " .quad %llu\n", (unsigned long long)lay[i]);
             emit_text_n(b, (size_t)n); } }
         if (!anon) { n = snprintf(b, sizeof b, "%s_s: .string \"%s\"\n", g_emitter.g_gc_map_lbl.name, eb); emit_text_n(b, (size_t)n); }
         g_emitter.g_gc_map_last_off = 0;
     } else {
-        bb_emit_u64(q0); bb_emit_u64(q1); bb_emit_u64(anon ? (uint64_t)0 : (uint64_t)(uintptr_t)ct_strdup(fam ? fam : "?")); bb_emit_u64((uint64_t)(uint32_t)g_emitter.g_gc_map_off);
+        bb_emit_u64(q0); bb_emit_u64(q1); bb_emit_u64(anon ? (uint64_t)0 : (uint64_t)(uintptr_t)ct_strdup(fam ? fam : "?")); bb_emit_u64((uint64_t)(uint32_t)g_emitter.g_gc_value_bytes);
         if (lay) { bb_emit_u64((uint64_t)lay_n); for (int i = 0; i < lay_n; i++) bb_emit_u64(lay[i]); }
         g_emitter.g_gc_map_last_off = g_emitter.g_gc_map_lbl.offset;
     }
@@ -4036,7 +4013,7 @@ static void emit_gc_map_data(const char * fam) {
     if (g_emitter.g_gc_map_flags & GC_FRAME_MAP_BLOB) g_emitter.g_blob_lay.len = 0;
     CV_PUSH(g_emitter.g_gc_map_names_v, char *) = ct_strdup(g_emitter.g_gc_map_lbl.name); g_emitter.g_gc_map_names_n++;
     if (gc_maps_report_on())
-        fprintf(stderr, "[GC-MAP] graph=%s frame_bytes=%d header_bytes=%d map_off=%d flags=%u map=%s\n", fam ? fam : "?", g_emitter.g_gc_map_fb, g_emitter.g_gc_map_hdr, g_emitter.g_gc_map_off,
+        fprintf(stderr, "[GC-MAP] graph=%s frame_bytes=%d header_bytes=%d value_bytes=%d flags=%u map=%s\n", fam ? fam : "?", g_emitter.g_gc_map_fb, g_emitter.g_gc_map_hdr, g_emitter.g_gc_value_bytes,
             g_emitter.g_gc_map_flags, g_emitter.g_gc_map_lbl.name);
     emit_gc_sites_data(fam, 0);
 }
@@ -4341,7 +4318,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         !g_emit.flat_pat) { int _rg = g_emit_cfg->jcon_value_region;
         if (_rg >= 0 && !(_rg & 15)) { if (g_is_text && _rg + 32 > g_m4_main_frame_bytes)
         { fprintf(stderr, "FATAL emit: main's value region %d + the map cell exceeds the mode-4 main frame (%d), which the driver sizes from that same region -- the two readings disagree\n", _rg,
-        g_m4_main_frame_bytes); abort(); } bb_emit_x86(emit_gc_map_cell(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1, 0u)); } }
+        g_m4_main_frame_bytes); abort(); } bb_emit_x86(emit_gc_map_register(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1, 0u)); } }
     g_emit.flat_pkt = (g_emit.zframe_graph && g_emit_cfg && g_emit_cfg->pkt_fragment) ? 1 : 0; g_emit.flat_pkt_cell = g_emit.flat_pkt ? g_emit_cfg->pkt_cell : -1;
         g_emit.flat_pkt_slot = g_emit.flat_pkt ? g_emit_cfg->pkt_slot : -1; g_emit.flat_pkt_chain_off = -1;
     g_emit.flat_pkt_walk_p = (bb_label_t *)0; g_emit.flat_pkt_chainω_p = (bb_label_t *)0;
@@ -4366,13 +4343,13 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
            if (g_emitter.codegen_flat_chain_body__en < 0) { const char * _e = getenv("SCRIP_LCL_SEED"); g_emitter.codegen_flat_chain_body__en = (_e && *_e == '0') ? 0 : 1; }
           int _lo = (g_emitter.codegen_flat_chain_body__en && g_emit_cfg) ? zls_g_locals(g_emit_cfg) : -1;
           int _rg = (g_emitter.codegen_flat_chain_body__en && g_emit_cfg) ? zls_g_region(g_emit_cfg) : -1;
-          if (_lo >= 0 && _rg > 0 && !gc_plant_stale_frame()) _lo = 0;
+          if (_lo >= 0 && _rg > 0) _lo = 0;
           if (_lo >= 0 && _rg > _lo && _rg <= frame_total)
               _gseed = x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_rg - _lo)) + x86("rep_stosb");
           if (_use_zframe_install && _gseed.empty() && _rg > 0 && _rg <= frame_total)
               _gseed = x86("comment", "the block protocol: no C install runs, so the value region is zeroed here -- every local reads a null DESCR")
                      + x86("mov", "rdi", "rsp") + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)_rg) + x86("rep_stosb");
-          if (_use_zframe_install && gc_plant_stale_frame()) _gseed.clear(); }
+          }
         extern int zls_g_block_args(const IR_graph_t *); extern int zls_g_block_base(const IR_graph_t *);
         int _gblk = (_use_zframe_install && zls_g_block_args(g_emit_cfg)) ? 1 : 0, _gw = _gblk ? 16 * np : 0;
         if (_gblk && zls_g_block_base(g_emit_cfg) != carve)
@@ -4390,7 +4367,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   + x86("lea", "rbp", RDQ("rax", frame_total))
                   + x86("mov", "rsp", "rax")
                   +
-                      emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16 + 32,
+                      emit_gc_map_register(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16 + 32,
                       GC_FRAME_MAP_GEN_ANCHOR | GC_FRAME_MAP_ICN_PROC | (_gblk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (g_emit_cfg && g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 0,
                       GC_LINK_Q(frame_total + 8, frame_total, frame_total + 24, GC_LINK_R_IND))
                   + _gseed
@@ -4421,17 +4398,17 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
            if (g_emitter.codegen_flat_chain_body__en_0 < 0) { const char * _e = getenv("SCRIP_LCL_SEED"); g_emitter.codegen_flat_chain_body__en_0 = (_e && *_e == '0') ? 0 : 1; }
           int _lo = (g_emitter.codegen_flat_chain_body__en_0 && g_emit_cfg) ? zls_g_locals(g_emit_cfg) : -1;
           int _rg = (g_emitter.codegen_flat_chain_body__en_0 && g_emit_cfg) ? zls_g_region(g_emit_cfg) : -1, _hz = frame_total - (g_emitter.codegen_flat_chain_body__iws ? 8 : 24);
-          if (_lo >= 0 && _rg > 0 && !gc_plant_stale_frame()) _lo = 0;
+          if (_lo >= 0 && _rg > 0) _lo = 0;
           if (_lo >= 0 && _rg > _lo && _rg <= frame_total - 32)
               _lseed =
                   x86("comment",
-                  "LCL-SEED: NULVCL the value region AND the header up to the saved rbp [___+0, ___+hz) BEFORE the map cell is stored, so no dead activation's map cell or pointer survives inside thi"
-                  "s frame, the header's unwritten words are DT_SNUL cells (row gc-one-stack, ARCH-GC section 12), and lexical locals read unbound")
+                  "LCL-SEED: NULVCL the value region AND the header up to the saved rbp [___+0, ___+hz), so no dead activation's pointer survives inside this frame, the header's unwritten words "
+                      "are DT_SNUL cells (ARCH-GC section 13), and lexical locals read unbound")
                      + x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_hz - _lo)) + x86("rep_stosb");
           if (_use_zframe_install && _lseed.empty() && _hz > 0)
               _lseed = x86("comment", "the block protocol: no C install runs, so the frame [0, hz) is zeroed here -- every local reads a null DESCR")
                      + x86("mov", "rdi", "rsp") + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)_hz) + x86("rep_stosb");
-          if (_use_zframe_install && gc_plant_stale_frame()) _lseed.clear(); }
+          }
         extern int zls_g_block_args(const IR_graph_t *); extern int zls_g_block_base(const IR_graph_t *);
         int _blk = (_use_zframe_install && zls_g_block_args(g_emit_cfg)) ? 1 : 0;
         int _aoff = _blk ? frame_total : 16;
@@ -4445,7 +4422,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                         : snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\n", frame_total, frame_total - 24, frame_total - 16);
             emit_text_n(_lp, strlen(_lp));
             if (!_lseed.empty()) bb_emit_x86(_lseed);
-                bb_emit_x86(emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
+                bb_emit_x86(emit_gc_map_register(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
                 ((g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u) |
                 (_use_zframe_install ? (GC_FRAME_MAP_ICN_PROC | (_blk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (icn_host_pinned() ? GC_FRAME_MAP_ICN_PINNED : 0u)) : 0u), 0,
                 GC_LINK_Q(g_emitter.codegen_flat_chain_body__iws ? frame_total + (_blk ? 16 * np : 0) : frame_total - 24, frame_total - 8,
@@ -4464,7 +4441,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                 if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } } }
             }
             if (!_lseed.empty()) bb_emit_x86(_lseed);
-                bb_emit_x86(emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
+                bb_emit_x86(emit_gc_map_register(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
                 ((g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u) |
                 (_use_zframe_install ? (GC_FRAME_MAP_ICN_PROC | (_blk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (icn_host_pinned() ? GC_FRAME_MAP_ICN_PINNED : 0u)) : 0u), 0,
                 GC_LINK_Q(g_emitter.codegen_flat_chain_body__iws ? frame_total + (_blk ? 16 * np : 0) : frame_total - 24, frame_total - 8,
@@ -4501,7 +4478,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     if (!bare && blob_frame_scope()) blob_first_guard();
     { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb);
         bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) +
-        emit_gc_map_cell(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2, GC_LINK_Q(8, 0, 8, 0u)) + blob_zero_fill(_bfb) +
+        emit_gc_map_register(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2, GC_LINK_Q(8, 0, 8, 0u)) + blob_zero_fill(_bfb) +
         IF(blob_cont_copy(), x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx")) +
         x86("mov", RDQ("rbp", -32), (long)DT_P) + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -40), "r12"))); } else if (blob_frame_scope()) { _spf = 1;
         int _need = sn4_blob_casmark(); for (int _q = 0; _q < n; _q++) if (blob_patv_reader(g_emitter.codegen_flat_chain_body_nodes[_q])) _need = 1; _sph = _need ? (sn4_blob_casmark() ? 32 : 16) : 0;

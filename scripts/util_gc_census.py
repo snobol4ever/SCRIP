@@ -1250,7 +1250,7 @@ def _ternary_sibling_offsets(lines, i, window_lines, counts=None):
 #     call rt_pl_dop_unify_cs@PLT | 3 rtccb reloads | mov [rbp+64], rax | mov [rbp+72], rdx |
 #     cmp al, 104 ; je p$2F1_step | 3 rtccb writebacks | call rt_gc_poll_asm@PLT
 # -- the poll is SIX instructions after the call, and [rbp+64] is inside `.Lgcmap_p$2F1`'s `[0 .. 80) GC_LAY_DESCR`
-# run (frame_bytes 192, header 80, map_off 96, flags GC_FRAME_MAP_LAYOUT), which gc_walk_interior visits by KIND at
+# run (frame_bytes 192, header 80, value_bytes 96, flags GC_FRAME_MAP_LAYOUT), which gc_walk_interior visits by KIND at
 # every 16 bytes with no reference to the slot's declared role -- the role text is --dump-zeta commentary and
 # frame_layout.c MERGES adjacent same-kind runs, so it cannot survive into the map at all.  :210 and :216 (the
 # latter reached with SCRIP_NO_CU=1) are byte-identical in shape.
@@ -1826,7 +1826,7 @@ ZLS_RX = re.compile(r"^ZLS-MAP lang=(\S+) graphs=(\d+) words=(\d+) unkinded=(\d+
 ZLS_KIND_RX = re.compile(r"no_layout_never_emitted=(\d+) no_layout_emitted_no_layout=(\d+) no_layout_unmeasured=(\d+)")
 ZLS_LANGS_ALL = ["rebus", "snocone", "pascal", "icon", "raku", "snobol4", "prolog"]   # ~32 s for the seven
 ZLS_LANGS_FAST = ["rebus", "snocone", "pascal"]                                       # ~2.7 s; the wired gate's default
-GCMAP_RX = re.compile(r"\[GC-MAP\] graph=(\S+) frame_bytes=(\d+) header_bytes=(\d+) map_off=(\d+) flags=(\d+)")
+GCMAP_RX = re.compile(r"\[GC-MAP\] graph=(\S+) frame_bytes=(\d+) header_bytes=(\d+) value_bytes=(\d+) flags=(\d+)")
 MAP_MAGIC = 0x50414D5A   # 'ZMAP', section 6.3
 ENTRY_ALIAS = ("pat_flat", "main")   # the mode-3 emitter names the entry graph pat_flat, mode 4 and --dump-zeta name it main
 MAPS_SYMBOLS = ("rt_gc_frame_maps_install", "rt_gc_frame_maps")   # section 6.4: the one exported symbol and its reader
@@ -1914,7 +1914,7 @@ def read_gcmap_labels(text):
 def read_gcmaps(text):
     d = {}
     for m in GCMAP_RX.finditer(text):
-        d[m.group(1)] = {"frame_bytes": int(m.group(2)), "header_bytes": int(m.group(3)), "map_off": int(m.group(4)), "flags": int(m.group(5))}
+        d[m.group(1)] = {"frame_bytes": int(m.group(2)), "header_bytes": int(m.group(3)), "value_bytes": int(m.group(4)), "flags": int(m.group(5))}
     return d
 
 
@@ -1963,7 +1963,7 @@ def census_maps_table(root, scrip, witnesses, out=print):
         m4lab = read_gcmap_labels(r4.stderr)
         asm = r4.stdout
         labels = set(re.findall(r"^(\.Lgcmap_[A-Za-z0-9_$.]+):", asm, re.M)) - set(re.findall(r"^(\.Lgcmap_[A-Za-z0-9_$.]+_s):", asm, re.M))
-        leas = collections.Counter(re.findall(r"lea\s+\S+,\s*\[rip \+ (\.Lgcmap_[A-Za-z0-9_$.]+)\]", asm))
+        leas = collections.Counter(re.findall(r"#\s*GCANCHOR\s+(\.Lgcmap_[A-Za-z0-9_$.]+)", asm))
         tbl = re.search(r"^__gc_frame_maps:\s*\.quad\s+(\d+)\s*\n((?:\s*\.quad\s+\.Lgcmap_[A-Za-z0-9_$.]+\s*\n)+)", asm, re.M)
         if not (laid and m3 and m4):
             out(f"CENSUS maps/table REFUSED(2): {tag}: a producer printed nothing (dump-zeta graphs={len(laid)} m3 maps={len(m3)} m4 maps={len(m4)}) -- not measured"); return 2
@@ -1985,7 +1985,7 @@ def census_maps_table(root, scrip, witnesses, out=print):
         for g in sorted(m4):
             lab = m4lab.get(g, ".Lgcmap_" + g)
             if lab not in labels: bad.append(f"'{g}' reports a map cell but the .s has no {lab}")
-            elif leas[lab] != 1:  bad.append(f"{lab} is referenced by {leas[lab]} prologue lea(s), want exactly 1")
+            elif leas[lab] != 1:  bad.append(f"{lab} is anchored by {leas[lab]} prologue note(s), want exactly 1")
             elif lab not in entries: bad.append(f"{lab} is not in the __gc_frame_maps table")
             else:
                 q = decode_map_quads(asm, lab)
@@ -2360,7 +2360,7 @@ def selftest():
     ck(rc == 1 and _sp_has(buf, allocating_call_sites=2, polled=0, unpolled=2, unresolved=0)
        and any("UNPOLLED" in l and "rt_epilogue_\u03b3" in l for l in buf),
        "safe-points: a call target spelled with a Greek port letter is a LITERAL, counted and named -- never UNRESOLVED (32 of 39 were this, 2026-09-17)")
-    ck(read_gcmap_labels("[GC-MAP] graph=PAT$0 frame_bytes=88 header_bytes=16 map_off=0 flags=2 map=.Lgcmap_.LTp0\n[GC-MAP] graph=main frame_bytes=64 header_bytes=0 map_off=16 flags=9\n") == {"PAT$0": ".Lgcmap_.LTp0"},
+    ck(read_gcmap_labels("[GC-MAP] graph=PAT$0 frame_bytes=88 header_bytes=16 value_bytes=0 flags=2 map=.Lgcmap_.LTp0\n[GC-MAP] graph=main frame_bytes=64 header_bytes=0 value_bytes=16 flags=9\n") == {"PAT$0": ".Lgcmap_.LTp0"},
        "maps/table: a graph's map label is read from the report, so a thunk whose label is its assembler-local stem joins its own graph; a report with no map= field names no label")
     ck(blob_class_visible({"main", "fn", "PAT$0"}) and blob_class_visible({"main", ".LTp0"}) and not blob_class_visible({"main", "fn", "pattern_helper"}),
        "maps/table: the blob-frame class is VISIBLE only when a stored-pattern graph is in the witness set -- otherwise the census refuses rather than printing a zero by never looking (cto, ARCH-GC 6.2b)")

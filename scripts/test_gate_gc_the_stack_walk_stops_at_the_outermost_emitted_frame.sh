@@ -11,36 +11,17 @@
 # 67992 -- 62.0x, of which the carve is 99.4 percent. Cost: bench_icnstr_concat_table.icn read 1614 collections /
 # 5.72 s at 1 MB against 6 / 0.13 s at the default, i.e. 3.47 ms per collection to trace 88448 live bytes.
 #
-# WHAT HOLDS NOW. gc_walk_range already knows where the emitted stack ends: `above` goes to 1 at the top of the
-# ROOT frame when no further DT_MAP cell lies above it. At that point the walker LOWERS the cached g_gc_stktop to
-# that address -- no new state, the existing cache corrected -- so every later collection's segment is bounded
-# there, and in the shipped path (SCRIP_GC_MAPS off) the above-region scan is skipped in the first collection too.
-# ⛔ THE SAFETY ARGUMENT IS MEASURED, NOT ASSERTED: the above region was ALREADY report-only -- gc_walk_words takes
-# cls=2 there and never calls gc_cell_visit -- so no word in it was ever a root. The a_heap counter measures exactly
-# that population and read 1 (Icon) and 0 (SNOBOL4) before the change; those words were counted and never visited.
-# Driver roots are reached through the registered root ranges and the *_gc_roots() walks, never off the driver stack.
-# ⭐ AND IT MAKES THE DIVERGENCE CENSUS HONEST RATHER THAN NARROWER: sniff_only=0 used to be computed over a region
-# gc_walk_range never visits, which inflated the denominator with words the sniff could not have decided; bounded,
-# the census measures exactly the region where gc_cell_visit still decides. SCRIP_GC_CEILING=0 restores the old
-# unbounded walk (an inert cached-getenv seam, CEO-554) and is this gate's plant.
+# WHAT HOLDS NOW (re-cut at ARCH-GC section 13 STEP B, hq_collector 2026-10-11). The chain ends at the ROOT frame by construction, and the program top is recorded at entry:
+# rt_outer_call hands rt_program_top_adopt the rsp it enters emitted code at, the runtime resolves the top through the ROOT map (entry rsp + value_bytes + 16 + header_bytes) and
+# every collection that walks the chain to its ROOT frame re-derives the same value from the frame the chain found. gc_seg_next bounds the running main segment there, so the
+# segment the collector and the reporter see ends at the outermost emitted frame in mode 3 as it does in mode 4, and a wrong record can only make the chain stop short, which
+# the walker refuses by name (never skips). The ceiling the marker scan needed (rt_gc_emit_ceiling_adopt, the learned bound, SCRIP_GC_CEILING=0) is gone; its planted arms went
+# with it. The property is read from the reporter's per-collection stack bytes, and its proof that it can fail is the commit before this one: mode 3 read 4208208 bytes on the
+# first collection and 4213168 steady-state (the 4 MB rt_outer_call carve) against 65616 / 65679 in mode 4.
 #
-# ARMS. (1) m3 and m4 agree on the STEADY-STATE bytes per collection (the reporter's cumulative bytes/ranges delta
-# after the ceiling is learned) within 2x and under 64 KB each. (2) PLANTED: SCRIP_GC_CEILING=0 takes m3's
-# steady-state per-collection range OVER 1 MB -- the arm that proves this gate can still see the old defect.
-# (3) the witness's output is byte-identical across ceiling on/off and across both arenas. (4) the saving is
-# REPORTED and not dark: [GC-COV] carries ceiling_bytes_skipped and a ceiling address.
-#
-# SINCE 2026-09-28 (cfo, the row's close): THE CEILING IS RECORDED AT ENTRY, NOT LEARNED BY THE FIRST WALK. The learned
-# bound above only took effect from the SECOND collection: the reporter counts the segment before the walk, so the FIRST
-# collection still read 4225560 bytes in mode 3 against 65656 in mode 4 (measured on origin fcae697bb). Now rt_outer_call
-# hands rt_gc_emit_ceiling_adopt the rsp it enters emitted code at, the runtime resolves the ceiling through the
-# registered ROOT map (entry rsp + map_off + 16 + header_bytes: measured on hb_arr.sno the ROOT cell sits at entry+624
-# and the frame top at entry+640, the exact value the first walk used to learn), and gc_seg_next verifies at EVERY
-# collection that the ROOT map's own cell sits 16+header_bytes under the ceiling before bounding -- a stale or wrong
-# record is dropped and that collection walks unbounded, so the record can never cut a live frame. Mode 4 keeps the
-# learned bound (no trampoline) and the same check verifies it. (5) the FIRST collection's segment is bounded in both
-# modes: both under 131072 bytes (mode 4's residue is libc's frames above main, ~64 KB). (6) PLANTED: SCRIP_GC_CEILING=0
-# takes mode 3's first-collection segment over 4 MB, so arm 5 can still see the defect this row names.
+# ARMS. (1) m3 and m4 agree on the STEADY-STATE bytes per collection within 2x and under 64 KB each. (2) the witness's output is byte-identical across both arenas and both modes.
+# (3) the bound is REPORTED: [GC-COV] carries a program_top address. (4) the FIRST collection's segment is bounded in both modes: both under 131072 bytes (mode 4's residue is
+# libc's frames above main, ~64 KB).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -62,25 +43,20 @@ steady() {
 }
 M3=$(steady env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 "$SCRIP" "$W" < /dev/null)
 M4=$(steady env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 "$T/w" < /dev/null)
-OFF=$(steady env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 SCRIP_GC_CEILING=0 "$SCRIP" "$W" < /dev/null)
-for v in "$M3" "$M4" "$OFF"; do [ "$v" = "REFUSE" ] && { echo "⛔ GATE REFUSE(2) [$G]: fewer than 3 collections seen -- the witness did not exercise the walker"; exit 2; }; done
-echo "  steady-state stack bytes per collection: m3=$M3 m4=$M4 plant(SCRIP_GC_CEILING=0,m3)=$OFF"
+for v in "$M3" "$M4"; do [ "$v" = "REFUSE" ] && { echo "⛔ GATE REFUSE(2) [$G]: fewer than 3 collections seen -- the witness did not exercise the walker"; exit 2; }; done
+echo "  steady-state stack bytes per collection: m3=$M3 m4=$M4"
 if [ "$M3" -lt 65536 ] && [ "$M4" -lt 65536 ] && [ "$M3" -lt $((M4 * 2 + 64)) ] && [ "$M4" -lt $((M3 * 2 + 64)) ]; then echo "  arm 1 PASS (the two modes read the same bounded region)"; else echo "  arm 1 FAIL (m3=$M3 m4=$M4; want both under 65536 and within 2x)"; RC=1; fi
-if [ "$OFF" -gt 1048576 ]; then echo "  arm 2 PASS (planted: the unbounded walk still reads $OFF bytes per collection, so this gate can see the defect it was built for)"; else echo "  arm 2 FAIL (SCRIP_GC_CEILING=0 read $OFF bytes per collection, want over 1048576 -- the plant no longer reproduces the old walk and arm 1 proves nothing)"; RC=1; fi
 h1=$(env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 "$SCRIP" "$W" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
-h2=$(env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_CEILING=0 "$SCRIP" "$W" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
 h3=$("$SCRIP" "$W" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
 h4=$(env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 "$T/w" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
-if [ "$h1" = "$h2" ] && [ "$h1" = "$h3" ] && [ "$h1" = "$h4" ]; then echo "  arm 3 PASS (output byte-identical across ceiling on/off, both arenas, both modes)"; else echo "  arm 3 FAIL (on=$h1 off=$h2 default-arena=$h3 m4=$h4)"; RC=1; fi
-cov=$(env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_COVERAGE=1 "$SCRIP" "$W" < /dev/null 2>&1 | grep -m1 '^\[GC-COV\]' | sed -n 's/.*ceiling_bytes_skipped=\([0-9]*\).*/\1/p')
-if [ -n "$cov" ] && [ "$cov" -gt 0 ]; then echo "  arm 4 PASS (the saving is reported: ceiling_bytes_skipped=$cov)"; else echo "  arm 4 FAIL (no ceiling_bytes_skipped on the coverage line -- a saving nobody can read is dark)"; RC=1; fi
+if [ "$h1" = "$h3" ] && [ "$h1" = "$h4" ]; then echo "  arm 2 PASS (output byte-identical across both arenas and both modes)"; else echo "  arm 2 FAIL (small-arena=$h1 default-arena=$h3 m4=$h4)"; RC=1; fi
+cov=$(env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_COVERAGE=1 "$SCRIP" "$W" < /dev/null 2>&1 | grep -m1 '^\[GC-COV\]' | sed -n 's/.*program_top=\(0x[0-9a-f]*\).*/\1/p')
+if [ -n "$cov" ] && [ "$cov" != "0x0" ] && [ "$cov" != "(nil)" ]; then echo "  arm 3 PASS (the bound is reported: program_top=$cov)"; else echo "  arm 3 FAIL (no program_top on the coverage line -- a bound nobody can read is dark)"; RC=1; fi
 first() { "$@" 2>&1 | grep -m1 '^\[GC-MAPS\] pop=cstack' | sed -n 's/.*bytes=\([0-9]*\).*/\1/p'; }
 F3=$(first env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 "$SCRIP" "$W" < /dev/null)
 F4=$(first env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 "$T/w" < /dev/null)
-FOFF=$(first env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 SCRIP_GC_CEILING=0 "$SCRIP" "$W" < /dev/null)
-for v in "$F3" "$F4" "$FOFF"; do [ -n "$v" ] || { echo "⛔ GATE REFUSE(2) [$G]: no first-collection [GC-MAPS] pop=cstack line -- the witness did not reach a collection"; exit 2; }; done
-echo "  first-collection stack bytes: m3=$F3 m4=$F4 plant(SCRIP_GC_CEILING=0,m3)=$FOFF"
-if [ "$F3" -lt 131072 ] && [ "$F4" -lt 131072 ]; then echo "  arm 5 PASS (the first collection is bounded in both modes: the ceiling is recorded at entry, not learned by the first walk)"; else echo "  arm 5 FAIL (m3=$F3 m4=$F4; want both under 131072 -- a first collection that walks the 4 MB reserve is the defect this row names)"; RC=1; fi
-if [ "$FOFF" -gt 4194304 ]; then echo "  arm 6 PASS (planted: with the record off the first collection reads $FOFF bytes, so arm 5 can see the defect)"; else echo "  arm 6 FAIL (SCRIP_GC_CEILING=0 read $FOFF bytes on the first collection, want over 4194304 -- the plant no longer reproduces the old walk)"; RC=1; fi
+for v in "$F3" "$F4"; do [ -n "$v" ] || { echo "⛔ GATE REFUSE(2) [$G]: no first-collection [GC-MAPS] pop=cstack line -- the witness did not reach a collection"; exit 2; }; done
+echo "  first-collection stack bytes: m3=$F3 m4=$F4"
+if [ "$F3" -lt 131072 ] && [ "$F4" -lt 131072 ]; then echo "  arm 4 PASS (the first collection is bounded in both modes: the top is recorded at entry, not learned by the first walk)"; else echo "  arm 4 FAIL (m3=$F3 m4=$F4; want both under 131072 -- a first collection that walks the 4 MB reserve is the defect this row names)"; RC=1; fi
 [ $RC -eq 0 ] && echo "GATE PASS [$G]" || echo "GATE FAIL [$G]"
 exit $RC

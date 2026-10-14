@@ -194,8 +194,8 @@ long gc_audit_b_collect(const gc_audit_b_t *v) {
         "[GC-AUDIT-B] PASS B IS AN AUDITOR AND NEVER A COLLECTOR: pass A (the exact typed walk) has already decided this collection and pass B cannot mark, forward, free or influence it -- it is han"
         "ded a const block lookup and nothing else. IT NAMES CANDIDATES, NEVER DEFECTS: a dead word that looks like a heap pointer reads identically to a live root, so every line below is a CANDIDAT"
         "E to be cured or declared. WHAT IT CANNOT SEE, DECLARED IN THREE PARTS BECAUSE THE THIRD IS THE ONE THAT BITES: (1) a pointer that at the instant of collection lives only in a REGISTER; (2)"
-        " the C stack above the emitted-stack ceiling SCRIP_GC_CEILING draws (98.4%% of mode 3's stack, dead compiler frames by measurement, CEO-1030) -- set SCRIP_GC_CEILING=0 and pass B scans that"
-        " too; and (3) ⛔ ANY REGION PASS A DOES NOT ENUMERATE, because pass B's territory IS pass A's territory: the libc malloc heap, the compile-time arena and the collector's own mmap'd bookkee"
+        " the C stack above the program top the chain ends at (98.4%% of mode 3's stack, dead compiler frames by measurement, CEO-1030); and (3) ⛔ ANY REGION PASS A DOES NOT ENUMERATE, because pas"
+        "s B's territory IS pass A's territory: the libc malloc heap, the compile-time arena and the collector's own mmap'd bookkee"
         "ping are NOT scanned, so THIS AUDITOR FINDS AN UNVISITED WORD INSIDE A VISITED REGION AND CANNOT FIND AN UNVISITED REGION. A findings=0 therefore bounds the probe and never clears the colle"
         "ctor. SUCCESS IS SILENCE, and the findings=0 line is PRINTED so its silence is a statement rather than an absence.\n");
     for (i = 0; i < v->nrgn; i++) {
