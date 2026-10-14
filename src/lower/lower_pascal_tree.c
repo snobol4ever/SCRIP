@@ -4188,6 +4188,21 @@ static void pas_for_const_bounds(const char *cv, tree_t *from, tree_t *to, int d
         " control-variable's type is not assignment-compatible with it\n", cv, lo, hi, a, b);
     g_lower.pas.sem.pas_iso_errors++;
 }
+static int pas_is_signed_intexpr(tree_t *e) {
+    static const char *const T[] = { "integer", "longint", "int64", "smallint", "shortint" };
+    if (!e) return 0;
+    if (e->t == TT_ILIT) return 1;
+    if (e->t == TT_VAR && e->v.sval && !pas_array_isdyn(e->v.sval)) {
+        long long hi;
+        const char *t = pas_array_high_get(e->v.sval, &hi) ? NULL : pas_scalarvartype_get(e->v.sval);
+        for (int k = 0; t && k < 5; k++) if (!strcmp(t, T[k])) return 1;
+        return 0;
+    }
+    if ((e->t == TT_ADD || e->t == TT_SUB || e->t == TT_MUL || e->t == TT_MOD) && e->n == 2) return pas_is_signed_intexpr(e->c[0]) && pas_is_signed_intexpr(e->c[1]);
+    if (e->t == TT_FNC && e->n == 3 && e->c[0] && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "iand") || !strcmp(e->c[0]->v.sval, "ior") || !strcmp(e->c[0]->v.sval, "ixor")))
+        return pas_is_signed_intexpr(e->c[1]) && pas_is_signed_intexpr(e->c[2]);
+    return 0;
+}
 static tree_t *pas_cond(tree_t *e) { return (pas_is_rel(e) || (e && (e->t == TT_CONJ || e->t == TT_ALT || e->t == TT_NOT))) ? e : bin(TT_NE, e, ilit(0)); }
 static const char *pas_cond_var_nonbool_type(tree_t *e) {
     if (!e || e->t != TT_VAR || !e->v.sval || pas_is_boolvar(e->v.sval)) return NULL;
@@ -5548,7 +5563,7 @@ static pval E_expression(const tree_t *n) {
         return out;
     }
     if (IS(n, TT_CHRLIT)) { v[1].ival = tok_i(n); { tree_t *_cl = ast_node_new(TT_FNC); ast_push(_cl, leaf_s(TT_VAR, "__pas_chrlit")); ast_push(_cl, ilit(v[1].ival)); out.node = _cl; } return out; }
-    if (IS(n, TT_NOT)) { v[2] = E_expression(n->c[0]); { out.node = pas_flip_rel(pas_cond(v[2].node)); } return out; }
+    if (IS(n, TT_NOT)) { v[2] = E_expression(n->c[0]); { out.node = pas_is_signed_intexpr(v[2].node) ? bin(TT_SUB, ilit(-1), v[2].node) : pas_flip_rel(pas_cond(v[2].node)); } return out; }
     if (IS(n, TT_ADDR)) { v[2] = E_expression(n->c[0]); { out.node = pas_addr_of_proc(v[2].node); } return out; }
     if (IS(n, TT_SET) && n->n == 0) { { out.node = mk_set_ctor(NULL); } return out; }
     if (IS(n, TT_SET)) { v[2] = E_set_member_list(n, 0, n->n); { out.node = v[2].node; } return out; }
