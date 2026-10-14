@@ -295,8 +295,12 @@ fi
 . "$HERE/lib_outside_shape.sh" || exit 2
 _cc="${S4E_CRITERION_CHANGED:-}"
 if [ -z "$_cc" ]; then _cc="$(outside_shape_stamp pat "$TOTAL" "$OUTSIDE")" || exit 2; _cc="${_cc//OUTSIDE_SPITBOL_BASELINE/OUTSIDE_ISO_BASELINE}"; fi
+# ⭐ Excl IS THE EXCLUDED.tsv ROWS (ceo CEO-1696, Lon: "Exclude any program in which we have no way to get output from an oracle"): the two
+# acceptance tests fpc -Miso never builds (UNGRADABLE.tsv's ORACLE_REFUSES, re-probed above) were already outside TOTAL; their NO_ORACLE_ANSWER rows
+# now name them on the row, so shipped = denominator + Excl reads as every other package's does. Counted through lib_inventory.sh's one reader.
+_pat_excl="$(inventory_excluded_names "$SUITE" | grep -c . || true)"
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite PAT --modes m3,m4 \
-    --suite-pass "$BOTH" --suite-total "$TOTAL" \
+    --suite-pass "$BOTH" --suite-total "$TOTAL" --excluded "${_pat_excl:-0}" \
     ${_cc:+--criterion-changed "$_cc"} \
     --measurer "${S4E_SEAT:-}" \
     --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): both-modes $BOTH/$TOTAL shipped OUTSIDE=$OUTSIDE · m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (crash m3 ${C[m3]}, m4 ${C[m4]}) — $TOTAL programs, of which 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \

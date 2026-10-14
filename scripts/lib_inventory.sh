@@ -266,18 +266,25 @@ inventory_refuse() { echo "⛔ INVENTORY REFUSES(2): $*" >&2; return 2; }
 # class OUTSIDE_CLPFD, a program whose load closure reaches library(clpfd); it is graded and its verdicts named, and it leaves pass, fail and the
 # denominator until the FD rows of ARCH-PROLOG-CLPFD.md close. Admitted here 2026-10-10 by the coo: hq_pascal measured inventory_line refusing
 # puzzles/EXCLUDED.tsv on every row since the package landed (corpus 0a2d4118d), because the vocabulary did not carry the class the ceo ruled.
+# ⭐ AND THE PROGRAMS NO ORACLE ANSWERS (Lon 2026-10-11 16:0x CDT, in-chat to the ceo, verbatim: "Exclude any program in which we have no way to get
+# output from an oracle, or in which we do not know the answer."; ceo CEO-1696, RULES.md FACT RULE A PROGRAM WITH NO ORACLE ANSWER IS EXCLUDED, NEVER
+# DEBT): class NO_ORACLE_ANSWER, a program the oracle gives no output for (it refuses, crashes, aborts, hangs past its declared time, or cannot run it at
+# all) or whose answer is not known (no ref was ever cut, or the output depends on a clock, a seed or the environment). The package's UNGRADABLE.tsv row
+# stays as the oracle's measurement -- the inventory's ungradable bucket still counts the program, so the buckets sum to shipped -- and its EXCLUDED.tsv
+# row of this class carries that measurement verbatim and takes the program out of the denominator, shown as Excl.
 # inventory_excluded_names [<pkgdir>] -- echo column 1 of <pkgdir>/EXCLUDED.tsv (default $INV_DIR); nothing when the file is absent;
 # rc 2 on a row that is not name<TAB>CLASS<TAB>evidence with CLASS one of NOT_SPITBOL_DIALECT (Lon's SPITBOL test, one outcome),
-# NEEDS_GRAPHICS_FACILITY (Lon's graphics word), NEEDS_TERMINAL, NEEDS_NETWORK or NEEDS_LOADFUNC (Lon's words below) or DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27 (Lon's EXIT() word, CEO-1345).
+# NEEDS_GRAPHICS_FACILITY (Lon's graphics word), NEEDS_TERMINAL, NEEDS_NETWORK or NEEDS_LOADFUNC (Lon's words below), DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27
+# (Lon's EXIT() word, CEO-1345), OUTSIDE_CLPFD (CEO-1593) or NO_ORACLE_ANSWER (CEO-1696).
 inventory_excluded_names() {
     local d="${1:-${INV_DIR:-}}" f
     f="$d/EXCLUDED.tsv"
     [ -f "$f" ] || return 0
     awk -F'\t' '
         $0 ~ /^#/ || NF == 0 { next }
-        NF < 3 || ($2 != "NOT_SPITBOL_DIALECT" && $2 != "NEEDS_GRAPHICS_FACILITY" && $2 != "NEEDS_TERMINAL" && $2 != "NEEDS_NETWORK" && $2 != "NEEDS_LOADFUNC" && $2 != "DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27" && $2 != "OUTSIDE_CLPFD") || length($3) < 60 { bad = bad " " $1 "(" NF " fields, class " $2 ")"; next }
+        NF < 3 || ($2 != "NOT_SPITBOL_DIALECT" && $2 != "NEEDS_GRAPHICS_FACILITY" && $2 != "NEEDS_TERMINAL" && $2 != "NEEDS_NETWORK" && $2 != "NEEDS_LOADFUNC" && $2 != "DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27" && $2 != "OUTSIDE_CLPFD" && $2 != "NO_ORACLE_ANSWER") || length($3) < 60 { bad = bad " " $1 "(" NF " fields, class " $2 ")"; next }
         { print $1 }
-        END { if (bad != "") { print "MALFORMED:" bad > "/dev/stderr"; exit 2 } }' "$f" || { inventory_refuse "$f carries a malformed row (name<TAB>NOT_SPITBOL_DIALECT, NEEDS_GRAPHICS_FACILITY, NEEDS_TERMINAL, NEEDS_NETWORK, NEEDS_LOADFUNC, DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27 or OUTSIDE_CLPFD<TAB>evidence of 60+ chars naming the feature and the oracle's verdict)"; return 2; }
+        END { if (bad != "") { print "MALFORMED:" bad > "/dev/stderr"; exit 2 } }' "$f" || { inventory_refuse "$f carries a malformed row (name<TAB>NOT_SPITBOL_DIALECT, NEEDS_GRAPHICS_FACILITY, NEEDS_TERMINAL, NEEDS_NETWORK, NEEDS_LOADFUNC, DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27, OUTSIDE_CLPFD or NO_ORACLE_ANSWER<TAB>evidence of 60+ chars naming the feature and the oracle's verdict)"; return 2; }
 }
 # inventory_is_excluded <pkgdir> <name> -- 0 when EXCLUDED.tsv names <name> (bare or package-relative), 1 otherwise.
 inventory_is_excluded() {

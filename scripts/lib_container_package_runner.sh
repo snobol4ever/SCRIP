@@ -44,30 +44,58 @@ container_package_run() {
   conts="$(inventory_container_names "$suite")" && xc="$(container_package_excl "$suite" "$ext")" \
     || { echo "⛔ REFUSE(rc=2): $suite/CONTAINERS.tsv or EXCLUDED.tsv is refused (the reader said why above) -- no row over an unread exclusion"; return 2; }
   excl="${xc% *}"; ncont="${xc#* }"
-  out="$(cd "$sd" && python3 scripts/corpus_suite_harness.py run "$suite/ALL.$ext" "$suite/ALL.ref" --lang "$lang" --modes m3,m4 2>&1)"; rc=$?
+  out="$(cd "$sd" && SUITE_LIST_ALL=1 python3 scripts/corpus_suite_harness.py run "$suite/ALL.$ext" "$suite/ALL.ref" --lang "$lang" --modes m3,m4 2>&1)"; rc=$?
   printf '%s\n' "$out"
   board="$(printf '%s\n' "$out" | grep -m1 '^SUITE_BOARD ')"
   [ -n "$board" ] || { echo "⛔ REFUSE(rc=2): corpus_suite_harness.py printed no SUITE_BOARD line (above) -- nothing measured, no row written"; return 2; }
   field_() { printf '%s\n' "$board" | grep -oE " $1=[0-9]+" | head -1 | cut -d= -f2; }
   scored="$(field_ total)"; bothp="$(field_ all_pass)"; m3p="$(field_ m3_pass)"; m4p="$(field_ m4_pass)"
+  # ⛔⭐ THE NUMERATOR IS TAKEN OVER THE SAME POPULATION AS THE DENOMINATOR (the coo 2026-10-14, CEO-1696): an EXCLUDED.tsv program the container
+  # still grades (puzzles' 251 OUTSIDE_CLPFD, CEO-1593: "graded and its verdicts named, and it leaves pass, fail and the denominator") was counted in
+  # the harness's all_pass while the denominator left it out -- puzzles read 26 over a population holding 16 graded programs. The harness lists every
+  # non-PASS entry per mode (SUITE_LIST_ALL=1); the passes are the graded entries outside EXCLUDED.tsv that no line names, in each mode and in both.
+  local _gl _ex popg
+  _gl="$(cd "$sd" && S4E_PROGRESS_OFF=1 python3 scripts/corpus_suite_harness.py list "$suite/ALL.$ext" "$suite/ALL.ref" --lang "$lang" 2>/dev/null)"
+  _ex="$(inventory_excluded_names "$suite")" || { echo "⛔ REFUSE(rc=2): $suite/EXCLUDED.tsv is refused (the reader said why above)"; return 2; }
+  if [ -n "$_ex" ] && [ -n "$(comm -12 <(printf '%s\n' "$_gl" | sort -u) <(printf '%s\n' "$_ex" | sed "s/\.$ext\$//" | sort -u))" ]; then
+    read -r popg bothp m3p m4p < <(python3 - "$ext" <(printf '%s\n' "$_gl") <(printf '%s\n' "$_ex") <(printf '%s\n' "$out") <<'PYEX'
+import re, sys
+ext, gl, ex, out = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+graded = [l.strip() for l in open(gl) if l.strip()]
+excl = {re.sub(r"\.%s$" % re.escape(ext), "", l.strip()) for l in open(ex) if l.strip()}
+red = {"m3": set(), "m4": set()}
+for l in open(out, errors="replace"):
+    m = re.match(r"^  (\S+?)(?:\([^)]*\))? (m3|m4) (\S+): ", l)
+    if m and not m.group(1).startswith("XPASS"):
+        red[m.group(2)].add(m.group(3))
+pop = [g for g in graded if g not in excl]
+print(len(pop), sum(1 for g in pop if g not in red["m3"] and g not in red["m4"]), sum(1 for g in pop if g not in red["m3"]), sum(1 for g in pop if g not in red["m4"]))
+PYEX
+)
+    echo "NUMERATOR OVER THE DENOMINATOR'S POPULATION: $popg graded program(s) outside EXCLUDED.tsv (of $(field_ total) the container grades): both $bothp, m3 $m3p, m4 $m4p (the board's all_pass $(field_ all_pass) counted the excluded ones too)"
+  fi
   # ⭐ THE POPULATION IS SHIPPED TOO (CEO-749/1286, test_gate_score_row_denominator_includes_xfails.sh): every shipped program the container does
   # not grade gets one UNGRADED progress row per mode, its class from UNGRADABLE.tsv or UNGRADED.tsv, before the row is written
   . "$here/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_progress.sh unloadable"; return 2; }
-  local graded_list ung_rows n cls cfg
+  local graded_list ung_rows n cls cfg exnames
   # ⛔ AND EACH DECLARES ITS CONFIGURATION, as the harness's graded rows do (the coo 2026-10-10: these rows went in `undeclared` 2-3 s after
   # the lane's declared rows, and test_gate_progress_configuration_declarations_do_not_regress.sh read rosetta-pascal, rosetta-prolog,
   # puzzles and trealla as lanes that stopped declaring); rows-tsv's ninth column, from the ONE reader of the environment
   cfg="$(progress_config_of_env)"
   graded_list="$(cd "$sd" && S4E_PROGRESS_OFF=1 python3 scripts/corpus_suite_harness.py list "$suite/ALL.$ext" "$suite/ALL.ref" --lang "$lang" 2>/dev/null)"
+  # ⭐ AN EXCLUDED PROGRAM THE CONTAINER DOES NOT GRADE WRITES NO ROW (ceo CEO-1696: a program with no oracle answer is EXCLUDED, never debt): it is out
+  # of the denominator as a CONTAINERS.tsv fragment is, so an UNGRADED row for it would put it back into the population the audit tallies
+  exnames="$(inventory_excluded_names "$suite")" || { echo "⛔ REFUSE(rc=2): $suite/EXCLUDED.tsv is refused (the reader said why above)"; return 2; }
   ( ung_rows="$(mktemp)"; trap 'rm -f "$ung_rows"' EXIT   # a subshell trap: this library is sourced, so an EXIT trap here must not replace the caller's
   while IFS= read -r f; do
     n="$(basename "$f" ".$ext")"; grep -qxF "$n" <<<"$graded_list" && continue; grep -qxF -- "$n.$ext" <<<"$conts" && continue
+    grep -qxF -- "$n.$ext" <<<"$exnames" && continue
     cls="$(awk -F'\t' -v k="$n.$ext" '$1==k {print $2; exit}' "$suite/UNGRADABLE.tsv" "$suite/UNGRADED.tsv" 2>/dev/null)"
     printf 'package\t%s\t%s\t%s\tm3\tUNGRADED\t0\t%s\t%s\npackage\t%s\t%s\t%s\tm4\tUNGRADED\t0\t%s\t%s\n' "$key" "$lang" "$n" "${cls:-unclassed}" "$cfg" "$key" "$lang" "$n" "${cls:-unclassed}" "$cfg" >> "$ung_rows"
   done < <(find "$suite" -maxdepth 1 -name "*.$ext" ! -name "ALL.$ext" | sort)
   [ -s "$ung_rows" ] && { progress_append_rows_tsv "$ung_rows" || echo "⚠ the UNGRADED progress rows were not appended (reason above) -- the row write's cross-check reads the graded population only" >&2; } )
-  # the denominator is SHIPPED (CEO-1286): a program the container does not grade is named in UNGRADABLE.tsv or UNGRADED.tsv and stays
-  # in as debt; only a program a ruled EXCLUDED.tsv class names, or a CONTAINERS.tsv fragment, leaves it, shown as Excl
+  # the denominator is SHIPPED (CEO-1286): a program the container does not grade is named in UNGRADED.tsv and stays in as debt; a program a
+  # ruled EXCLUDED.tsv class names (NO_ORACLE_ANSWER for every UNGRADABLE.tsv row since CEO-1696), or a CONTAINERS.tsv fragment, leaves it, shown as Excl
   denom=$((shipped - excl))
   echo "$(printf '%s' "$key" | tr 'a-z-' 'A-Z_')_BOARD shipped=$shipped graded=$scored excluded=$excl containers=$ncont denominator=$denom both_pass=$bothp m3_pass=$m3p m4_pass=$m4p"
   INV_PACKAGE="$key"; INV_DIR="$suite"; INV_EXT=".$ext"
@@ -76,7 +104,7 @@ container_package_run() {
   cc="${S4E_CRITERION_CHANGED:-}"
   python3 "$here/util_score_row.py" write --lang "$lang" --column vendor --suite "$key" --suite-key "$key" --modes m3,m4 \
       ${cc:+--criterion-changed "$cc"} --suite-pass "$bothp" --suite-total "$denom" --excluded "$excl" --measurer "${S4E_SEAT:-}" \
-      --text "$key both-modes $bothp/$denom · m3 $m3p/$denom · m4 $m4p/$denom ($scored graded of $shipped shipped, the rest named in UNGRADABLE.tsv/UNGRADED.tsv as debt, EXCLUDED=$excl of which $ncont CONTAINERS.tsv fragments${inv:+ · $inv} (\`$gate.sh\`))" \
+      --text "$key both-modes $bothp/$denom · m3 $m3p/$denom · m4 $m4p/$denom ($scored graded of $shipped shipped, the rest named in UNGRADED.tsv as debt, EXCLUDED=$excl of which $ncont CONTAINERS.tsv fragments and the rest ruled classes -- NO_ORACLE_ANSWER (CEO-1696) for every program the oracle gives no answer${inv:+ · $inv} (\`$gate.sh\`))" \
       || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
   return "$rc"
 }

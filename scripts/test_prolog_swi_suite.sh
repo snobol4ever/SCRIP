@@ -180,11 +180,13 @@ for f in open(files).read().split('\n'):
             # The vocabulary already carries both words (util_progress_append.py OUTCOMES), so nothing is invented here:
             # the 45 the ORACLE refuses are UNGRADABLE -- its reason, never ours -- and the 30 EMPTY plus 2 BLOCKED are
             # UNGRADED. The reason travels in the note column so the class stays checkable case by case.
+            # ⛔⭐ SINCE CEO-1696 THEY ARE EXCLUDED, NEVER DEBT (Lon 2026-10-11 16:0x CDT, in-chat to the ceo, verbatim: "Exclude any program in
+            # which we have no way to get output from an oracle, or in which we do not know the answer."): every one of the 77 is the oracle's
+            # (it refuses the unit, runs it to an EMPTY unit, or plunit BLOCKS the case), so each is NO_ORACLE_ANSWER -- named on the board by
+            # its reason, out of the denominator as Excl, and, like a container's fragment, it writes no row: the identity the DB checks is
+            # PASS+FAIL+... == the graded cases the row now divides by.
             _why = row[2].split(' ')[0] if len(row) > 2 else '?'
             ungraded_cases += 1; ungraded_reason[_why] += 1
-            _cls = 'UNGRADABLE' if _why == 'UNGRADABLE' else 'UNGRADED'
-            for m in modes:
-                rows.append('package\tswi\tprolog\t%s:%s\t%s\t%s\t%s\t%s' % (rel, label, m, _cls, csecs[m], ((row[2] if len(row) > 2 else _why) or _why)[:60]))
             continue
         fgraded += 1; graded_cases += 1
         ok_all = True
@@ -204,9 +206,9 @@ for rel, p, g, u in perfile:
     print('  %-48s %4d/%-4d agree (AND per case)%s' % (rel, p, g, ('  ungraded=%d' % u) if u else ''))
 print('SWI_BOARD declared=%d graded=%d %s ungraded=%d' % (declared, graded_cases,
       ' '.join('%s_pass=%d %s_fail=%d %s_agree_fail=%d %s_crash=%d %s_hang=%d' % (m, tot[m]['PASS'], m, tot[m]['FAIL'], m, tot[m]['agree_fail'], m, tot[m]['CRASH'], m, tot[m]['HANG']) for m in modes), ungraded_cases))
-print('  AND per case (agrees with the oracle in EVERY mode graded, the number the suite row states): %d/%d declared (%d graded, %d ungraded)' % (both, declared, graded_cases, ungraded_cases))
+print('  AND per case (agrees with the oracle in EVERY mode graded, the number the suite row states): %d/%d graded (%d declared, %d EXCLUDED NO_ORACLE_ANSWER, CEO-1696)' % (both, graded_cases, declared, ungraded_cases))
 print('  identity: graded %d + ungraded %d == declared %d %s' % (graded_cases, ungraded_cases, declared, '✓' if graded_cases + ungraded_cases == declared else '⛔ DOES NOT SUM'))
-print('  UNGRADED by the oracle\'s reason -- named, never a pass: ' + ', '.join('%s=%d' % kv for kv in sorted(ungraded_reason.items(), key=lambda kv: -kv[1])))
+print('  EXCLUDED NO_ORACLE_ANSWER (CEO-1696) by the oracle\'s reason -- named, never a pass, out of the denominator: ' + ', '.join('%s=%d' % kv for kv in sorted(ungraded_reason.items(), key=lambda kv: -kv[1])))
 if noref: print('  ⛔ %d file(s) with no .ref beside them (UNGRADED, REF_NOT_CUT): %s' % (len(noref), ' '.join(noref)))
 cap = int(os.environ.get('SWI_NAME_REDS_MAX', '0') or '0')
 shown = reds if cap <= 0 else reds[:cap]
@@ -226,10 +228,11 @@ _iv="$(inventory_line "$((_shipped_tests - NOREF))" 0)"; _ivrc=$?
 if [ -n "$ONLY_FILE" ]; then
     echo "SUITES.tsv NOT UPDATED (by design): --file grades one file and cannot produce a suite-wide number."
 else
-    printf 'SUITE_BOARD suite=swi lang=prolog tier=run pass=%s total=%s runner=test_prolog_swi_suite.sh\n' "$BOTH" "$DECLARED"
+    # the denominator is the GRADED cases (CEO-1696): DECLARED - GRADED are NO_ORACLE_ANSWER cases, shown as Excl
+    printf 'SUITE_BOARD suite=swi lang=prolog tier=run pass=%s total=%s excluded=%s runner=test_prolog_swi_suite.sh\n' "$BOTH" "$GRADED" "$((DECLARED - GRADED))"
     python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite SWI \
-        --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$DECLARED" \
-        --text "swi_tests (swipl-devel src/Tests, every plunit case, agreement with swipl 9.0.4 per case) $BOTH/$DECLARED by the AND PER CASE over modes $MODES (\`test_prolog_swi_suite.sh\`)${_iv:+ · $_iv (\`test_prolog_swi_suite.sh\`)}" \
+        --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$GRADED" --excluded "$((DECLARED - GRADED))" \
+        --text "swi_tests (swipl-devel src/Tests, every plunit case, agreement with swipl 9.0.4 per case) $BOTH/$GRADED by the AND PER CASE, $((DECLARED - GRADED)) case(s) EXCLUDED NO_ORACLE_ANSWER (CEO-1696) over modes $MODES (\`test_prolog_swi_suite.sh\`)${_iv:+ · $_iv (\`test_prolog_swi_suite.sh\`)}" \
         || echo "⚠ SUITES.tsv NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 fi
 [ "$NOREF" -eq 0 ] || { echo "⛔ $NOREF shipped test file(s) carry no oracle ref: cut them with scripts/util_swi_cut_refs.sh --write"; exit 1; }

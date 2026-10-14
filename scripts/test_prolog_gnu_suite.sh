@@ -115,7 +115,7 @@ mapfile -t FILES < <(find "$PKG" -name "*.pl" ! -name "*_driver.pl" | sort)
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE: zero .pl files found under $PKG"; exit 2; }
 
-LIB=0; OK_TOTAL=0; OK_PASS=0; OK_FAIL=0; OK_TIMEOUT=0; REJECT=0; UNEXPECTED=0; LADDER=0; EMPTY=0; CON_N=0; DRIVEN=0; UGB=0
+LIB=0; OK_TOTAL=0; OK_PASS=0; OK_FAIL=0; OK_TIMEOUT=0; REJECT=0; UNEXPECTED=0; LADDER=0; EMPTY=0; CON_N=0; DRIVEN=0; UGB=0; EXN=0
 UNEXPECTED_NAMES=(); REJECT_NAMES=(); OK_FAIL_NAMES=(); OK_TIMEOUT_NAMES=(); EMPTY_NAMES=(); SIDE_ERR=()
 # ⛔⭐ THE ROW IS PUBLISHED OVER THE SHIPPED POPULATION, AND AN EMPTY OUTPUT GRADES NOTHING (Lon 2026-10-05, in-chat to the ceo, verbatim:
 # "What's up with \"GNU source\" test suite entry? Is that real? Did you write drivers for all those?"; ceo CEO-1523). The row read 11/11:
@@ -124,7 +124,7 @@ UNEXPECTED_NAMES=(); REJECT_NAMES=(); OK_FAIL_NAMES=(); OK_TIMEOUT_NAMES=(); EMP
 # less the CONTAINERS.tsv rows (excluded, the Excl column, CEO-1288); a program PASSES only when m3 = m4 = gprolog AND that output is not
 # empty; an empty three-way agreement and a library are UNGRADED and must each be NAMED in UNGRADED.tsv -- the board refuses an unnamed one
 # and a stale row (a named program that now grades, or names no shipped file).
-declare -A CON_SET=() UNG_SET=() UGB_SET=()
+declare -A CON_SET=() UNG_SET=() UGB_SET=() EX_SET=()
 if [ -f "$PKG/CONTAINERS.tsv" ]; then
     while IFS=$'\t' read -r _cn _rest; do case "$_cn" in ''|'#'*) continue;; esac
         [ -f "$PKG/$_cn" ] || { echo "⛔ REFUSED-TO-GRADE: CONTAINERS.tsv names $_cn, which this package does not ship"; exit 2; }
@@ -145,6 +145,15 @@ if [ -f "$PKG/UNGRADABLE.tsv" ]; then
         [ -f "$PKG/$_gn" ] || { echo "⛔ REFUSED-TO-GRADE: UNGRADABLE.tsv names $_gn, which this package does not ship"; exit 2; }
         UGB_SET[$_gn]="$_gc"; done < "$PKG/UNGRADABLE.tsv"
 fi
+# ⛔⭐ ... AND SINCE CEO-1696 IT LEAVES THE DENOMINATOR (Lon 2026-10-11 16:0x CDT, in-chat to the ceo, verbatim: "Exclude any program in which we
+# have no way to get output from an oracle, or in which we do not know the answer."; RULES.md FACT RULE A PROGRAM WITH NO ORACLE ANSWER IS
+# EXCLUDED, NEVER DEBT): each UNGRADABLE.tsv row keeps the oracle's measurement and an EXCLUDED.tsv row of class NO_ORACLE_ANSWER carries it
+# verbatim; a file EXCLUDED.tsv names is out of the population as a container is, shown in Excl beside the containers, and writes no row.
+# Read through lib_inventory.sh's one reader, which refuses a malformed row or an unknown class.
+_exn="$(inventory_excluded_names "$PKG")" || { echo "⛔ REFUSED-TO-GRADE: $PKG/EXCLUDED.tsv is refused (the reader said why above)"; exit 2; }
+while IFS= read -r _en; do [ -n "$_en" ] || continue
+    [ -f "$PKG/$_en" ] || { echo "⛔ REFUSED-TO-GRADE: EXCLUDED.tsv names $_en, which this package does not ship"; exit 2; }
+    EX_SET[$_en]=1; done <<< "$_exn"
 declare -A LADDER_RUNG_COUNT LADDER_RUNG_NAMES
 # ⛔⭐ AN EXCLUDED LINE IS NAMED, WITH ITS RULING (ceo CEO-1527 (a), 2026-10-06: SCRIP's integers are unbounded like SWI's, so
 # current_prolog_flag(bounded, false) is the answer and gprolog's `true` differs by ruling, not defect: "Name it an excluded line with that
@@ -176,6 +185,11 @@ for f in "${FILES[@]}"; do
 
     if [ -n "${CON_SET[$rel]:-}" ]; then
         [ "$VERBOSE" -eq 1 ] && echo "  CONTAINER (CONTAINERS.tsv, excluded) $rel"
+        continue
+    fi
+    if [ -n "${EX_SET[$rel]:-}" ]; then
+        EXN=$((EXN+1))
+        [ "$VERBOSE" -eq 1 ] && echo "  EXCLUDED (EXCLUDED.tsv, NO_ORACLE_ANSWER -- ${UGB_SET[$rel]:-no UNGRADABLE.tsv row}) $rel"
         continue
     fi
     # ⛔⭐ A LIBRARY IS GRADED THROUGH ITS DRIVER (Lon 2026-09-27 via the ceo, CEO-1312: "So then create drivers for all the Prolog
@@ -402,7 +416,7 @@ if [ "$UNEXPECTED" -gt 0 ]; then
     for n in "${UNEXPECTED_NAMES[@]}"; do echo "   $n"; done
 fi
 
-POP=$((TOTAL - CON_N))
+POP=$((TOTAL - CON_N - EXN))
 echo ""
 echo "-- EMPTY (m3 = m4 = gprolog = 0 bytes: the file loads and prints nothing, so it grades nothing -- UNGRADED, owed its driver): $EMPTY --"
 for n in "${EMPTY_NAMES[@]:-}"; do [ -n "$n" ] && echo "   $n"; done
@@ -415,7 +429,7 @@ if [ "$OK_TIMEOUT" -gt 0 ]; then
     echo "-- TIMEOUT UNDER LOAD (could not measure, CEO-1686 -- outside pass and fail; the suite row is not written from this pass): $OK_TIMEOUT --"
     for n in "${OK_TIMEOUT_NAMES[@]}"; do echo "   $n"; done
 fi
-echo "GNU_SUITE_BOARD population=$POP pass=$OK_PASS driven=$DRIVEN excluded=$CON_N empty=$EMPTY ungradable=$UGB total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(subset of ok_fail) unexpected=$UNEXPECTED timeout_under_load=$OK_TIMEOUT"
+echo "GNU_SUITE_BOARD population=$POP pass=$OK_PASS driven=$DRIVEN excluded=$((CON_N + EXN)) containers=$CON_N no_oracle_answer=$EXN empty=$EMPTY ungradable=$UGB total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(subset of ok_fail) unexpected=$UNEXPECTED timeout_under_load=$OK_TIMEOUT"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. LIB (bootstrap/library files, no independent behavior) is a ruling about what the
 # file IS, so it is UNGRADABLE/CONTAINER_OR_LIBRARY; REJECT (hang after parse error, a known, filed,
@@ -434,8 +448,8 @@ if [ "$OK_TIMEOUT" -gt 0 ]; then
     echo "SUITES.tsv NOT UPDATED: $OK_TIMEOUT driver(s) timed out under load (CEO-1686: a timeout under load is could-not-measure, so this pass is not a reading of the suite) -- re-read on a quieter box"
 else
 python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite GNU --modes m3,m4 \
-    --suite-pass "$OK_PASS" --suite-total "$POP" --excluded "$CON_N" ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
-    --measurer "${S4E_SEAT:-}" --text "PASS $OK_PASS over $POP shipped programs (Excl $CON_N containers) -- a program passes when m3 = m4 = gprolog and the output is not empty · ungraded $((LIB + EMPTY)) named in UNGRADED.tsv ($LIB libraries, $EMPTY that print nothing) · ungradable $UGB named in UNGRADABLE.tsv with the oracle's reason · ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(of ok_fail) unexpected=$UNEXPECTED of total=$TOTAL${INV_LINE:+ · $INV_LINE (\`test_prolog_gnu_suite.sh\`)}" \
+    --suite-pass "$OK_PASS" --suite-total "$POP" --excluded "$((CON_N + EXN))" ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
+    --measurer "${S4E_SEAT:-}" --text "PASS $OK_PASS over $POP shipped programs (Excl $((CON_N + EXN)): $CON_N containers, $EXN NO_ORACLE_ANSWER) -- a program passes when m3 = m4 = gprolog and the output is not empty · ungraded $((LIB + EMPTY)) named in UNGRADED.tsv ($LIB libraries, $EMPTY that print nothing) · ungradable $UGB named in UNGRADABLE.tsv with the oracle's reason · ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(of ok_fail) unexpected=$UNEXPECTED of total=$TOTAL${INV_LINE:+ · $INV_LINE (\`test_prolog_gnu_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 fi
 
@@ -444,6 +458,6 @@ fi
 # vacuously, hq_T 2026-09-04): the bucket-sum check just below PASSES vacuously at TOTAL=0 (0==0),
 # and OK_FAIL/UNEXPECTED read 0 too when nothing was discovered -- refuse first.
 "$HERE/util_require_population.sh" --gate test_prolog_gnu_suite "$TOTAL" 1 "prolog GNU source files discovered" || exit 2
-[ "$((CON_N + UGB + LIB + OK_TOTAL + REJECT + UNEXPECTED))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
+[ "$((CON_N + EXN + UGB + LIB + OK_TOTAL + REJECT + UNEXPECTED))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
 [ "$OK_FAIL" -eq 0 ] && [ "$UNEXPECTED" -eq 0 ] || exit 1
 [ "$OK_TIMEOUT" -eq 0 ] || exit 2   # a pass with a timeout under load and no red is could-not-measure (CEO-1686)
