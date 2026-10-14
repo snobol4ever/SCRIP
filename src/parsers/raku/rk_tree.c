@@ -2167,6 +2167,7 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
         }
     }
     if (!first && pf->k == 'P' && pf->txt && (!strcmp(pf->txt, "++") || !strcmp(pf->txt, "--")) && rk_is_elem(e)) { it->t = rkb_elem_incdec(b, e, pf->txt[0] == '+', 1); return; }
+    if (first && it->kind == TK_NAME && it->name && e && e->t == TT_VAR && pf->k == 'P' && pf->txt && (!strcmp(pf->txt, "++") || !strcmp(pf->txt, "--"))) { it->t = rk_post_incdec(b, it->name, pf->txt[0] == '+'); return; }
     if (first && it->kind == TK_VAR && pf->hyper && pf->k == 'P' && pf->txt && it->cls == 'A' && (!strcmp(pf->txt, "++") || !strcmp(pf->txt, "--"))) {
         tree_t *c = make_call("__rk_hyper_incdec"); expr_add_child(c, var_node(b, it->name)); expr_add_child(c, rk_ilit(pf->txt[0] == '+' ? 1 : -1));
         it->t = expr_binary(TT_ASSIGN, var_node(b, it->name), c); return;
@@ -2452,6 +2453,7 @@ static tree_t *assign_forms(RkB *b, RkList *L, int tail, int bk) {
     RkEl *e0 = &L->v[0]; RkTerm *t0 = &e0->t0;
     const char *op1 = L->nitem > 1 ? L->op1 : NULL;
     if (!op1) return NULL;
+    if (!strcmp(op1, "=") && t0->kind == TK_NAME && !t0->npost && !t0->npre && t0->t && t0->t->t == TT_VAR && t0->name && L->n == 1) return expr_binary(TT_ASSIGN, var_node(b, t0->name), el_rest(b, e0));
     int eq = !strcmp(op1, "=") || (!strcmp(op1, ":=") && !plain(t0, 'S'));
     if (!strcmp(op1, ":=") && plain(t0, 'S')) {
         tree_t *e = el_rest(b, e0);
