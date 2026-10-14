@@ -46,6 +46,7 @@ typedef struct { uint64_t pc; int32_t depth; uint16_t kind; uint16_t rule; int32
 typedef struct { int enc_kind, enc_depth; } gc_match_lvl_t;
 typedef struct { const IR_t * nd; uint32_t gen; } ocr_slot_t;
 struct g_emitter_t {
+    int dump_homes = 0;
     std::unordered_set<std::string> g_port_exit_promoting_labels;
     bb_label_t ** g_label_pool = NULL;
     std::unordered_map<std::string, bb_label_t *> g_label_map;

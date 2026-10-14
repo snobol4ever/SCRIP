@@ -4078,6 +4078,28 @@ extern "C" void emit_gc_tables_register(const void *fn) { if (!fn) return;
 extern "C" int emit_gc_map_names_n(void) { return g_emitter.g_gc_map_names_n; }
 extern "C" const char * emit_gc_map_name(int i) { return (i >= 0 && i < g_emitter.g_gc_map_names_n) ? CV_AT(g_emitter.g_gc_map_names_v, char *, i) : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void emit_dump_homes_on(void) { g_emitter.dump_homes = 1; }
+static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
+    extern const char * zls_graph_name_get(const IR_graph_t *); extern int zls_g_vslot_count(const IR_graph_t *); extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
+    const IR_graph_t * g = g_emit_cfg;
+    const char * gn = g ? zls_graph_name_get(g) : (const char *)0;
+    for (int i = 0; i < n; i++) {
+        IR_t * nd = nodes[i];
+        if (!nd) continue;
+        int ai = -1;
+        for (int k = 0; g && k < g->n; k++) if (g->all[k] == nd) { ai = k; break; }
+        int off = bb_slot_get(nd); if (off < 0) off = nd_slot(nd);
+        int rbp = xop_frame_slot(nd) != -1 || icn_gen_zeta_ft() > 0 || x86_fb_pinned() || icn_host_pinned();
+        const char * home = zon[i] ? "SPINE" : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
+        fprintf(stderr, "[HOMES] graph=%s all=%d kind=%s home=%s off=%d\n", gn ? gn : "?", ai, bb_op_name(nd->op), home, off);
+    }
+    int nv = g ? zls_g_vslot_count(g) : 0;
+    for (int k = 0; k < nv; k++) {
+        int off = -1;
+        const char * vn = zls_g_vslot_get(g, k, &off);
+        fprintf(stderr, "[HOMES] graph=%s local=%s home=%s off=%d\n", gn ? gn : "?", vn ? vn : "?", off < 0 ? "NONE" : (x86_fb_pinned() || icn_host_pinned()) ? "RBP" : "RSP_CARVED", off);
+    }
+}
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
     bb_label_t * lbl_α_orig_p = (bb_label_t *)0;
@@ -4262,6 +4284,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         } } if (!_add) break; zd_plan(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, _zw); } } int _sph = 0, _spgd = 0, _spf = 0, _wpn = 0;
         bb_label_t ** _wpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); int * _wpd = (int *)alloca(sizeof(int) * (size_t)(n + 1));
     zd_depth_census(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, prefix);
+    if (g_emitter.dump_homes) emit_dump_homes(g_emitter.codegen_flat_chain_body_nodes, n, zd_on);
     {
     if (g_emitter.codegen_flat_chain_body__zk0_on < 0) { const char * _e = getenv("SCRIP_ZD_CENSUS"); g_emitter.codegen_flat_chain_body__zk0_on = (_e && *_e == '1') ? 1 : 0; }
     if (g_emitter.codegen_flat_chain_body__zk0_on && g_emit_cfg && g_emit_cfg->icn_cells_graph) {
