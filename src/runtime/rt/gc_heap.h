@@ -67,6 +67,8 @@ char *rt_sxt_extend(char *s, long al, long bl);
 long rt_gcheap_verify(void);
 int rt_gc_stale_addr_report(void *fault, void *ip);
 long rt_gc_collect(void);
+typedef struct { uint64_t ra, sp, rbx, rbp, r12, r13, r14, r15, rax, rdx; } rt_emitted_regs_t;
+int rt_emitted_caller_of_descr_call(rt_emitted_regs_t *r);
 typedef void (*rt_gc_frame_fn)(const void *map, const char *base, void *a);
 int rt_gc_frames_visit(rt_gc_frame_fn fn, void *a);
 long rt_gcheap_free(void);

@@ -2434,18 +2434,19 @@ __asm__( ".text\n" ".globl rt_return_to_emitted\n" ".type rt_return_to_emitted,@
 void rt_setexit_abort(void);
 void rt_setexit_fire_now(void) {
     extern uint64_t rtccb[32];
-    extern int rt_emitted_caller_of_descr_call(uint64_t r[8]);
-    extern void rt_return_to_emitted(const uint64_t *r) __attribute__((noreturn));
+    extern void rt_return_to_emitted(const rt_emitted_regs_t *r) __attribute__((noreturn));
     extern void rt_eval_unwind_to(const void *);
-    uint64_t r[10];
+    rt_emitted_regs_t r;
     DESCR_t f = FAILDESCR;
-    _Static_assert(sizeof(DESCR_t) == 16, "the FAIL answer rides rax:rdx as two quads");
+    _Static_assert(sizeof(DESCR_t) == 16 && offsetof(rt_emitted_regs_t, ra) == 0 && offsetof(rt_emitted_regs_t, sp) == 8 && offsetof(rt_emitted_regs_t, rbx) == 16 &&
+        offsetof(rt_emitted_regs_t, rbp) == 24 && offsetof(rt_emitted_regs_t, r12) == 32 && offsetof(rt_emitted_regs_t, r15) == 56 && offsetof(rt_emitted_regs_t, rax) == 64 &&
+        offsetof(rt_emitted_regs_t, rdx) == 72, "rt_return_to_emitted reads the snapshot at these offsets and the FAIL answer rides rax:rdx as two quads");
     if (!rtccb[25]) return;
-    if (!rt_emitted_caller_of_descr_call(r)) { rtccb[25] = 0; rt_setexit_abort(); }
-    while (g_core_errjmp_stk && (uint64_t)(uintptr_t)g_core_errjmp_stk < r[1]) { g_core_errjmp_stk = g_core_errjmp_stk->prev; g_core_errjmp_n--; }
-    rt_eval_unwind_to((const void *)(uintptr_t)r[1]);
-    memcpy(&r[8], &f, sizeof f);
-    rt_return_to_emitted(r);
+    if (!rt_emitted_caller_of_descr_call(&r)) { rtccb[25] = 0; rt_setexit_abort(); }
+    while (g_core_errjmp_stk && (uint64_t)(uintptr_t)g_core_errjmp_stk < r.sp) { g_core_errjmp_stk = g_core_errjmp_stk->prev; g_core_errjmp_n--; }
+    rt_eval_unwind_to((const void *)(uintptr_t)r.sp);
+    memcpy(&r.rax, &f, sizeof f);
+    rt_return_to_emitted(&r);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_setexit_abort(void) {

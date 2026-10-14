@@ -503,7 +503,7 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes) {
 #define GC_RET_OTHER 2
 #define GC_RET_UNKNOWN 3
 #include "../../templates/x86/gc_allocating_table.inc"
-typedef struct { uint64_t r[8]; uint64_t callee; int hit; } rt_uw_caller_t;
+typedef struct { rt_emitted_regs_t r; uint64_t callee; int hit; } rt_uw_caller_t;
 static _Unwind_Reason_Code rt_uw_caller_step(struct _Unwind_Context *c, void *a) {
     extern void rt_icn_line_of_pc(uint64_t pc, long *line, const char **file);
     rt_uw_caller_t *u = (rt_uw_caller_t *)a;
@@ -512,23 +512,26 @@ static _Unwind_Reason_Code rt_uw_caller_step(struct _Unwind_Context *c, void *a)
     const char *file = (const char *)0;
     if (ip) rt_icn_line_of_pc(ip, &line, &file);
     if (line <= 0) { u->callee = (uint64_t)_Unwind_GetRegionStart(c); return _URC_NO_REASON; }
-    u->r[0] = ip;
-    u->r[1] = (uint64_t)_Unwind_GetCFA(c);
-    u->r[2] = (uint64_t)_Unwind_GetGR(c, 3);
-    u->r[3] = (uint64_t)_Unwind_GetGR(c, 6);
-    for (int k = 0; k < 4; k++) u->r[4 + k] = (uint64_t)_Unwind_GetGR(c, 12 + k);
+    u->r.ra = ip;
+    u->r.sp = (uint64_t)_Unwind_GetCFA(c);
+    u->r.rbx = (uint64_t)_Unwind_GetGR(c, 3);
+    u->r.rbp = (uint64_t)_Unwind_GetGR(c, 6);
+    u->r.r12 = (uint64_t)_Unwind_GetGR(c, 12);
+    u->r.r13 = (uint64_t)_Unwind_GetGR(c, 13);
+    u->r.r14 = (uint64_t)_Unwind_GetGR(c, 14);
+    u->r.r15 = (uint64_t)_Unwind_GetGR(c, 15);
     u->hit = 1;
     return _URC_END_OF_STACK;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_emitted_caller_of_descr_call(uint64_t r[8]) {
+int rt_emitted_caller_of_descr_call(rt_emitted_regs_t *r) {
     extern int rtx_entry_is(const char *sym);
     rt_uw_caller_t u;
     Dl_info di;
     memset(&u, 0, sizeof u);
     _Unwind_Backtrace(rt_uw_caller_step, &u);
     if (!u.hit || !u.callee || !dladdr((void *)(uintptr_t)u.callee, &di) || !di.dli_sname || rtx_entry_is(di.dli_sname)) return 0;
-    for (int i = 0; i < GC_ALLOC_TAB_N; i++) if (!strcmp(GC_ALLOC_TAB[i].n, di.dli_sname)) { if (GC_ALLOC_TAB[i].rc != GC_RET_DESCR) return 0; memcpy(r, u.r, sizeof u.r); return 1; }
+    for (int i = 0; i < GC_ALLOC_TAB_N; i++) if (!strcmp(GC_ALLOC_TAB[i].n, di.dli_sname)) { if (GC_ALLOC_TAB[i].rc != GC_RET_DESCR) return 0; *r = u.r; return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
