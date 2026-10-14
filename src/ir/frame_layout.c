@@ -201,7 +201,7 @@ static int zls_act_kind(const IR_graph_t * g, const IR_t * nd) {
     return ZK_RAW;
 }
 static int zls_act8_kind(const IR_graph_t * g, const IR_t * nd) {
-    if (g && g->icn_cells_graph) return (nd->op == IR_PROC_GEN || nd->op == IR_CALL_PROC_STAGED) ? ZK_PTR_FRAME_H : ZK_RAW;
+    if (g && g->icn_cells_graph) return (nd->op == IR_PROC_GEN || nd->op == IR_CALL_PROC_STAGED || nd->op == IR_CALL_VALUE) ? ZK_PTR_FRAME_H : ZK_RAW;
     return ZK_PTR_CODE;
 }
 static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
@@ -486,7 +486,8 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
             "callgen.act +0 (ZK_RAW, or ZK_PTR_FRAME on a pinned caller's Prolog arm: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that opened a"
             " NON-RESUMABLE callee -- a plain procedure return"
             "s once and releases, so beta fails forward on 2 instead of resuming (ceo 2026-09-19, CVSPINE_t in descr.h); at the gamma landing it holds the callee's RETAINED frame base (rax) or 0 whe"
-            "n the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp)", nd);
+            "n the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp; an Icon value call's n2 road banks 3 | cells<<8 | ftc<<32 and turns"
+            " it to 4 at its first gamma, its +8 then the callee's H -- bb_call_value.cpp)", nd);
         zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, zls_act8_kind(g, nd), 0,
             "callgen.act +8 (WRITTEN, not a pad: ZK_PTR_FRAME_H on an Icon cells graph -- H, the callee's retained generator frame, and ZERO on every other landing and at alpha; else the callee's gr"
             "aph beta at the gamma landing, or the saved rsp on the LCO/forwarding arms; read back on beta to resume the callee -- bb_call_proc_staged.cpp)", nd);

@@ -134,7 +134,8 @@ DESCR_SASSERT(sizeof(CVSPINE_t) == 16,
     "r unchanged) and 2 when it may not (a plain procedure returns once, so beta fails forward instead of resuming a frame the callee already released). MEASURED (ceo 2026-09-19, row gc-the-five-c-t"
     "o-bb-entries-outside-rt-c-go-to-zero): opening a plain procedure on the spine WITHOUT this word hangs every redo -- `every x := f()` and a failing comparison each loop forever at 10 s timeout i"
     "n both modes -- because beta's `cmp rax,1` cannot tell a suspended generator from a returned procedure, while a SINGLE call is byte-correct. That is why the old rt_proc_is_generator refusal was"
-    " not a policy. Two longs so the pair rides rax:rdx with no memory traffic, the shape rt_call_next_t and rt_prim_next_t already use.");
+    " not a policy. Two longs so the pair rides rax:rdx with no memory traffic, the shape rt_call_next_t and rt_prim_next_t already use. 3 | cells<<8 | ftc<<32 is a region-frame (n2)"
+    " generator the Icon block prep opened for bb_call_value's n2 road (hq_icon 2026-10-14): before it every such call ran on a pthread of its own.");
 static inline __attribute__((always_inline)) int IS_PROCVAL_EXTERNAL_fn(DESCR_t v) { return v.v == DT_E && v.slen == PROCVAL_EXTERNAL_SLEN; }
 #define PROCVAL_EXTERNAL(blk_) ((DESCR_t){ .v = DT_E, .slen = PROCVAL_EXTERNAL_SLEN, .s = (blk_)->name })
 #define PROCVAL_EXT_FN(v_) (((EXTFN_t *)(void *)((char *)(v_).s - offsetof(EXTFN_t, name)))->fn)

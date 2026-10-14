@@ -4912,13 +4912,19 @@ static CVSPINE_t rt_call_value_spine_prep_x(DESCR_t callee, DESCR_t *argv, int n
     if (!rt_proc_is_registered(nm)) return cvprep_decline("unregistered", nm);
     if (!rt_proc_jmp_entry(nm)) return cvprep_decline("nojmpentry", nm);
     { extern int rt_proc_pinned(const char *); if (!blk_ok && rt_proc_pinned(nm)) return cvprep_decline("block", nm); }
-    { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(nm) > 0) return cvprep_decline("genregionft", nm); }
+    {
+        extern int rt_proc_gen_region_ft(const char *);
+        extern int rt_proc_pinned(const char *);
+        if (rt_proc_gen_region_ft(nm) > 0 && (!blk_ok || !rt_proc_pinned(nm))) return cvprep_decline("genregionft", nm);
+    }
     { rt_call_args_need(n); for (int k = 0; k < n; k++) CALL_ARGS[k] = argv[k]; rt_call_args_clear_from(n); }
     if (!rt_proc_call_open(nm, n)) return cvprep_decline("openfailed", nm);
     {
         extern int rt_proc_pinned(const char *);
         int gen = rt_proc_is_generator(nm), blk = rt_proc_pinned(nm) ? rt_proc_nparams(nm) : 0;
-        cvprep_say("open", gen ? "spine" : "spinedet", nm);
+        long ftc = ((long)rt_proc_gen_region_ft(nm) + 15L) & ~15L;
+        cvprep_say("open", ftc > 0 ? "spinen2" : gen ? "spine" : "spinedet", nm);
+        if (ftc > 0) return (CVSPINE_t){ (long)(intptr_t)rt_proc_fn(nm), 3L | ((long)blk << 8) | (ftc << 32) };
         return (CVSPINE_t){ (long)(intptr_t)rt_proc_fn(nm), (gen ? 0 : 2) | ((long)(blk > 0 ? blk : 0) << 8) | ((long)((gen || rt_proc_dyn_scope(nm)) ? 1 : 0) << 16) };
     }
 }
