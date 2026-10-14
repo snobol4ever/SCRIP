@@ -333,8 +333,17 @@ PASCAL_NAME_FEATURES = [
     ("mod", "mod"), ("writeln", "writeln"), ("readln", "readln"), ("new", "new"), ("dispose", "dispose"),
     ("sqrt", "sqrt"), ("trunc", "trunc"), ("round", "round"), ("eof", "eof"), ("odd", "odd"),
 ]
+# -- the snobol4 master alone gains an arithmetic column (CEO-1683: a binop template cure had no named handful). A binary + - * / ** is a SNOBOL4
+# operator only between blanks (no blank is concatenation, and *X is a deferred reference), so the scan reads code lines only (a column-1 * is a
+# comment), takes the quoted literals out first, and wants blank or tab on both sides of the operator. snocone and rebus keep COLS: their
+# operators do not need the blanks, so this scan would read them wrong.
+ARITH_STR = re.compile(r"'[^']*'|\"[^\"]*\"")
+ARITH_OP = re.compile(r"[ \t](?:\*\*|[-+*/])[ \t]")
+def _arith(t):
+    return 1 if ARITH_OP.search(ARITH_STR.sub("''", "\n".join(l for l in t.split("\n") if not l.startswith("*")))) else 0
+SNO_COLS = COLS + [("arith", _arith)]
 LANG_TABLES = {
-    "snobol4": (COLS, NAME_FEATURES),   # unchanged -- byte-identity control arm
+    "snobol4": (SNO_COLS, NAME_FEATURES),   # the 39 shared columns, then arith
     "snocone": (COLS, NAME_FEATURES),   # SNOBOL-family: same pattern vocabulary, deliberately shared
     "rebus":   (COLS, NAME_FEATURES),   # SNOBOL-family: same pattern vocabulary, deliberately shared
     "prolog":  (PROLOG_COLS, PROLOG_NAME_FEATURES),

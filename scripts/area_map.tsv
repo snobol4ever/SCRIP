@@ -215,6 +215,7 @@ assign	src/templates/bb/bb_rev_assign.cpp
 assign	src/templates/bb/bb_rev_assign_global.cpp
 assign	src/templates/bb/bb_rev_assign_var.cpp
 aug_assign	src/templates/bb/bb_binop_arith.cpp
+arith	src/templates/bb/bb_binop_arith.cpp
 list	src/templates/bb/bb_make_list.cpp
 list	src/runtime/rtx/rtx_icnagg.s
 table	src/runtime/rtx/rtx_icnagg.s
