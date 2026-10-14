@@ -1,6 +1,7 @@
 #include "descr.h"
 #include "core.h"
 #include "gc_heap.h"
+#include "gen.h"
 #include "rt_diag.h"
 #include "pin_va.h"
 #include <stdlib.h>
@@ -115,6 +116,9 @@ _Static_assert(offsetof(TBBLK_t, size) == 12 && offsetof(TBBLK_t, init) == 16 &&
     offsetof(TBBLK_t, ord_cap) == 68 && offsetof(TBBLK_t, icn_mask) == 72 && offsetof(TBBLK_t, ord_dead) == 104,
     "rtx_table.s rt_table_assign_fast inserts a new key in place (TBBLK_ SIZE 12, ORD 56, ORD_LEN 64, ORD_CAP 68, ICN_MASK 72, ORD_DEAD 104); core.h drifted -- the insertion would bump the wrong cou"
     "nter or " "write the order array through the wrong pointer, which links fine and corrupts the table silently");
+_Static_assert(BINOP_LT == 5 && BINOP_LE == 6 && BINOP_GT == 7 && BINOP_GE == 8 && BINOP_EQ == 9 && BINOP_NE == 10 && BINOP_SLT == 12 && BINOP_SNE == 17 && BINOP_EQV == 22 && BINOP_NEQV == 23,
+    "rtx_icnrel.s rt_jct_relop hardcodes the BINOP numbers (the numeric relops 5 to 10 in the order LT LE GT GE EQ NE, the string relops 12 to 17, EQV 22, NEQV 23); gen.h drifted -- the numeric arm "
+    "would answer the wrong comparison, which links fine and corrupts silently");
 _Static_assert(DT_A == 0x10,
     "rtx_icnsub.s RTX-28 array arm guards on DT_A AND branches on it AHEAD of the DT_N varref gate; descr.h drifted -- the arm would admit the wrong datatype and index a non-array, which links fine "
     "and corrupts silently");
