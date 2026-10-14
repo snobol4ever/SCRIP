@@ -599,6 +599,20 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
             tree_t *var = leaf_sval(TT_VAR, st ? st + 1 : vs);
             result = result ? expr_binary(TT_CAT, result, var) : var;
         }
+        else if (s[i] == '$' && i + 2 < len && (s[i + 1] == '!' || s[i + 1] == '.') && (s[i + 2] == '_' || isalpha((unsigned char) s[i + 2]))) {
+            if (lit.n > 0) { tree_t *lq = leaf_sval(TT_QLIT, sb_str(&lit)); result = result ? expr_binary(TT_CAT, result, lq) : lq; lit.n = 0; }
+            i += 2;
+            SB vn = { 0 };
+            while (i < len && (s[i] == '_' || isalnum((unsigned char) s[i]))) { sb_c(&vn, s[i]); i++; }
+            while (i + 1 < len && (s[i] == '-' || s[i] == '\'') && isalpha((unsigned char) s[i + 1])) {
+                sb_c(&vn, s[i]);
+                i++;
+                while (i < len && (s[i] == '_' || isalnum((unsigned char) s[i]))) { sb_c(&vn, s[i]); i++; }
+            }
+            tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
+            fe->v.sval = (char *) intern(sb_str(&vn));
+            result = result ? expr_binary(TT_CAT, result, fe) : fe;
+        }
         else if (s[i] == '$' && i + 1 < len && (s[i + 1] == '/' || (s[i + 1] == '!' && !(i + 2 < len && (s[i + 2] == '_' || isalpha((unsigned char) s[i + 2])))) || (s[i + 1] >= '0' && s[i + 1] <= '9') || (s[i + 1] == '<' && strchr(s + i + 2, '>')))) {
             if (lit.n > 0) { tree_t *lq = leaf_sval(TT_QLIT, sb_str(&lit)); result = result ? expr_binary(TT_CAT, result, lq) : lq; lit.n = 0; }
             tree_t *cp;
