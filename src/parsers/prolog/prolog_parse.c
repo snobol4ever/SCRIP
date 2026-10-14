@@ -2262,7 +2262,7 @@ static const char * const PL_PRELUDE_SRC =
     "apply(G,As):-G=..L0,'$yall_app'(L0,As,L1),G1=..L1,call(G1).\n"
     "collation_key(A,K):-(var(A)->throw(error(instantiation_error,context(collation_key/2,_)));atom(A)->atom_string(A,K);string(A)->K=A;throw(error(type_error(atom,A),context(collation_key/2,_)))).\n"
     "'$write_canonical_swi'(T):-current_output(S),'$write_canonical_swi'(S,T).\n"
-    "'$write_canonical_swi'(S,T):-term_variables(T,Vs),term_singletons(T,Ss),'$wcs_names'(Vs,Ss,0,VN),write_term(S,T,[quoted(true),ignore_ops(true),quote_non_ascii(true),variable_names(VN)]).\n"
+    "'$write_canonical_swi'(S,T):-term_variables(T,Vs),term_singletons(T,Ss),'$wcs_names'(Vs,Ss,0,VN),write_term(S,T,[quoted(true),ignore_ops(true),quote_non_ascii(true),character_escapes_unicode(false),variable_names(VN)]).\n"
     "'$sha1_hex'(Bs, Hex) :- length(Bs, L), '$sha1_pad'(Bs, L, P), '$sha1_blocks'(P, 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0, H0, H1, H2, H3, H4), '$sha1_hex8'([H0, H1, H2, "
     "H3, H4], Cs), atom_codes(Hex, Cs).\n"
     "'$sha1_pad'(Bs, L, P) :- Z is (55 - L) mod 64, length(Zs, Z), '$sha1_zeros'(Zs), N is L * 8, '$sha1_be'(8, N, Ln), append(Bs, [0x80|Zs], P0), append(P0, Ln, P).\n"

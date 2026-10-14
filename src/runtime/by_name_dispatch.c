@@ -5634,6 +5634,17 @@ static void *pl_ax_int_ball(DESCR_t a, DESCR_t b, int ai) { extern void *rt_pl_b
 static int pl_float_flag(const char *nm, const char *val);
 static int pl_round_mode(const char *v);
 static int pl_swi_dialect(void) { return pl_float_flag("$dialect", "swi"); }
+int rt_pl_flag_true(const char *nm) { return pl_float_flag(nm, "true"); }
+int rt_pl_fp_max_code(FILE *fp) {
+    for (int i = 0; fp && i < FH_N; i++) {
+        const char *e = g_fh[i].fp == fp ? g_fh[i].enc : (const char *)0;
+        if (g_fh[i].fp != fp) continue;
+        if (e && !strcmp(e, "US-ASCII")) return 0x7F;
+        if (e && (!strcmp(e, "ISO-8859-1") || !strcmp(e, "octet"))) return 0xFF;
+        break;
+    }
+    return 0x10FFFF;
+}
 static int pl_ax_undef(const char *fn, int arity, DESCR_t *out, void **ball) {
     extern void *rt_pl_ball_eval_error(const char *, const char *, int);
     if (pl_float_flag("float_undefined", "nan")) { *out = REALVAL(NAN); return 1; }

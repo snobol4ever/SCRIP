@@ -60,6 +60,7 @@ static FILE *plc_out(void) { extern FILE *fh_cur_out_fp(void); FILE *f = fh_cur_
 typedef struct plc_vmap plc_vmap;
 #define PLC_WQ_NOESC 2
 #define PLC_WQ_NONASCII 4
+#define PLC_WQ_XESC 8
 struct plc_vmap {
     pl_cell_t *seen[1024];
     int n;
@@ -186,10 +187,14 @@ static int plc_utf8_run(const char *q) {
 static int plc_has_non_ascii(const char *s) { for (; *s; s++) if ((unsigned char)*s >= 0x80) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_dialect_swi(void);
+int rt_pl_u8_get(const char *s, int *adv);
+extern int rt_pl_flag_true(const char *nm);
 static void plc_wt_atom(FILE *fp, const char *name, int quoted) {
-    int noesc = quoted & PLC_WQ_NOESC, qna = quoted & PLC_WQ_NONASCII;
+    extern int rt_pl_fp_max_code(FILE *);
+    int noesc = quoted & PLC_WQ_NOESC, qna = quoted & PLC_WQ_NONASCII, xesc = quoted & PLC_WQ_XESC, maxc = -1;
     quoted &= 1;
     if (!name) name = "?";
+    if (quoted && plc_has_non_ascii(name)) { int adv; maxc = rt_pl_fp_max_code(fp); for (const char *q = name; *q && maxc < 0x10FFFF; q += adv) if (rt_pl_u8_get(q, &adv) > maxc) { qna = 1; break; } }
     if (quoted && (plc_atom_needs_quoting(name) || (qna && plc_has_non_ascii(name)))) {
         fputc('\'', fp);
         for (const char *q = name; *q; q++) {
@@ -227,8 +232,16 @@ static void plc_wt_atom(FILE *fp, const char *name, int quoted) {
                 break;
                 default:
                 {
-                    int _sl = plc_utf8_run(q);
-                    if (_sl > 1) { for (int _k = 0; _k < _sl; _k++) fputc(q[_k], fp); q += _sl - 1; } else if (!isprint((unsigned char)*q)) fprintf(fp, "\\x%x\\", (unsigned)(unsigned char)*q);
+                    int _sl = plc_utf8_run(q), _adv, _cp = _sl > 1 ? rt_pl_u8_get(q, &_adv) : 0;
+                    if (_sl > 1 && maxc < 0) maxc = rt_pl_fp_max_code(fp);
+                    if (_sl > 1 && _cp > maxc) {
+                        if (xesc) fprintf(fp, "\\x%X\\", (unsigned)_cp);
+                        else fprintf(fp, _cp > 0xFFFF ? "\\U%08X" : "\\u%04X", (unsigned)_cp);
+                        q += _sl - 1;
+                    } else if (_sl > 1) {
+                        for (int _k = 0; _k < _sl; _k++) fputc(q[_k], fp);
+                        q += _sl - 1;
+                    } else if (!isprint((unsigned char)*q)) fprintf(fp, "\\x%x\\", (unsigned)(unsigned char)*q);
                     else fputc(*q, fp);
                     break;
                 }
@@ -816,7 +829,7 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell) {
     m.cx = (pl_tr_ctx_t *)0;
     m.pheld = 0;
     m.space_args = 0;
-    int quoted = 0, ignore_ops = 0, numbervars = 0, prio = 1200, noesc = 0, qna = 0, partial = 0;
+    int quoted = 0, ignore_ops = 0, numbervars = 0, prio = 1200, noesc = 0, qna = 0, partial = 0, xesc = !rt_pl_flag_true("character_escapes_unicode");
     long max_depth = 0;
     pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
     while (lst && (int)lst->v == DT_PLREF && plc_fid_arity(lst->slen) == 2) {
@@ -828,6 +841,7 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell) {
             if (on && !strcmp(on, "quoted")) quoted = plc_opt_is_true(o);
             else if (on && !strcmp(on, "character_escapes")) noesc = !plc_opt_is_true(o);
             else if (on && !strcmp(on, "quote_non_ascii")) qna = plc_opt_is_true(o);
+            else if (on && !strcmp(on, "character_escapes_unicode")) xesc = !plc_opt_is_true(o);
             else if (on && !strcmp(on, "partial")) partial = plc_opt_is_true(o);
             else if (on && !strcmp(on, "priority")) {
                 pl_cell_t *a = pl_deref(&oa[0]);
@@ -862,7 +876,7 @@ void rt_pl_write_term_cell(void *term_cell, void *opts_cell) {
     int br = 0, p1 = 0, p2 = 0, lm, rm;
     if (partial && (int)tt->v == DT_PLATOM) { const char *an = plc_atom_text(tt); br = (plc_op_info(an, 1, &p1, &lm, &rm) && p1 > prio) || (plc_op_info(an, 2, &p2, &lm, &rm) && p2 > prio); }
     if (br) fputc('(', m.fp);
-    plc_wt((pl_cell_t *)term_cell, quoted ? (1 | (noesc ? PLC_WQ_NOESC : 0) | (qna ? PLC_WQ_NONASCII : 0)) : 0, ignore_ops, numbervars, max_depth, 0, prio, &m);
+    plc_wt((pl_cell_t *)term_cell, quoted ? (1 | (noesc ? PLC_WQ_NOESC : 0) | (qna ? PLC_WQ_NONASCII : 0) | (xesc ? PLC_WQ_XESC : 0)) : 0, ignore_ops, numbervars, max_depth, 0, prio, &m);
     if (br) fputc(')', m.fp);
 }
 extern const char *prolog_atom_name(int id);
