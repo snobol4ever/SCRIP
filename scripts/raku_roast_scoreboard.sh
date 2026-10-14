@@ -90,6 +90,7 @@ TMP=$(mktemp -d)
 # a whole Roast run (96/1464 both modes) published nothing. incwd empties $TMP/cwd and runs the command there; every path it is
 # handed is absolute, and no case sees the files an earlier case wrote.
 incwd() { rm -rf "$TMP/cwd" && mkdir -p "$TMP/cwd" && ( cd "$TMP/cwd" && "$@" ); }
+. "$(dirname "$0")/lib_raku_roast_stage.sh" || { echo "⛔ REFUSING (rc=2): cannot load lib_raku_roast_stage.sh -- the ONE way a roast test is staged" >&2; exit 2; }
 # ⛔ EACH TEST'S DECLARED HEAP AND STACK RIDE ITS OWN COMMAND LINE (ceo CEO-1353; RULES.md 8 (f)): the attribute table keyed by pname,
 # read through lib_declared_arena.sh, as -d<kb>k -s<kb>k after --run in mode 3 and at the head of the binary's arguments in mode 4 --
 # never SCRIP_HEAP_KB (the collector's window), never a ulimit. A test with no row is NAMED (ROAST_UNDECLARED), never run silently at a default.
@@ -148,7 +149,7 @@ if [ "$DO_INV" = 1 ]; then
   n=0
   while IFS= read -r -d '' src; do
     n=$((n+1)); [ "$LIMIT" -gt 0 ] && [ "$n" -gt "$LIMIT" ] && { n=$((n-1)); break; }
-    stage="$TMP/case.raku"; cp "$src" "$stage"
+    stage=$(roast_stage "$ROAST" "$TMP" "$src") || { echo "⛔ REFUSING (rc=2): could not stage $src" >&2; exit 2; }
     so="$TMP/o"; se="$TMP/e"
     rel="${src#$ROAST/}"; roast_sw "$rel"
     incwd "$TIMEOUT_RETRY" 10 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
@@ -235,7 +236,7 @@ if [ "$DO_RUN" = 1 ]; then
   roast_outcome() { case "$1" in PASS) echo PASS ;; FAIL) echo FAIL ;; PARSE-FAIL) echo REJECT ;; CRASH) echo CRASH ;; NO-TAP) echo UNPROVEN ;; *) echo UNPROVEN ;; esac; }
   while IFS= read -r -d '' src; do
     n=$((n+1)); [ "$LIMIT" -gt 0 ] && [ "$n" -gt "$LIMIT" ] && { n=$((n-1)); break; }
-    stage="$TMP/case.raku"; cp "$src" "$stage"
+    stage=$(roast_stage "$ROAST" "$TMP" "$src") || { echo "⛔ REFUSING (rc=2): could not stage $src" >&2; exit 2; }
     so="$TMP/o"; se="$TMP/e"
     pname="${src#$ROAST/}"; pname="${pname%.t}"; roast_sw "$pname"
     export S4E_TIMEOUT_KEY="$pname"   # the unit a retried timeout's stamp names (CEO-1335)
@@ -353,8 +354,7 @@ while read -r rel _rest; do
   SEC_TOT[$sec]=$(( ${SEC_TOT[$sec]:-0} + 1 ))
   SEC_PASS[$sec]=${SEC_PASS[$sec]:-0}
   if [ ! -f "$src" ]; then n_missing=$((n_missing+1)); continue; fi
-  stage="$TMP/case.raku"
-  cp "$src" "$stage"
+  stage=$(roast_stage "$ROAST" "$TMP" "$src") || { echo "⛔ REFUSING (rc=2): could not stage $src" >&2; exit 2; }
   so="$TMP/o"; se="$TMP/e"; roast_sw "$rel"
   incwd "$TIMEOUT_RETRY" 5 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null
   rc=$?
