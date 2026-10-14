@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2721
-#define GC_ALLOC_TAB_N_VOID 316
+#define GC_ALLOC_TAB_N 2722
+#define GC_ALLOC_TAB_N_VOID 317
 #define GC_ALLOC_TAB_N_DESCR 1302
 #define GC_ALLOC_TAB_N_OTHER 1086
 #define GC_ALLOC_TAB_N_UNKNOWN 17
@@ -552,6 +552,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "core_apply_target", GC_RET_OTHER },
     { "core_error_voice", GC_RET_VOID },
     { "core_fn_entry_label_set", GC_RET_VOID },
+    { "core_fn_register_plain", GC_RET_VOID },
     { "core_icn_argtype_check", GC_RET_OTHER },
     { "core_icn_builtin_argcheck", GC_RET_OTHER },
     { "core_icn_by_zero_check", GC_RET_OTHER },
