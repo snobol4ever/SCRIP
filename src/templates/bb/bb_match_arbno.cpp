@@ -112,14 +112,14 @@ static std::string bb_match_arbno_frame() {
          + x86("mov", "rdx", RDQ("rcx", 16))
          + x86("mov", AFCQ(0), "rdx")
          + x86("cmp", "r14d", "eax")
-         + IF(!(_.op_tail_seal && sn4_arbno_seal_omega()), x86("je", L(3))
-              + x86("comment",
-                  "RECEDE into the instance below's body beta.  r12 is left where the body's own beta expects it: the body rolls "
-                      "back its own pend entries, and a second rollback here emptied a deferred capture (COO-62)")
-              + arbno_win_restore("rcx", 32)
-              + x86("lea", "rsp", RDQ("rcx", (int)ARB_CS()))
-              + x86("jmp", ARB_BODYBETA())
-              + x86("def", L(3)))
+         + x86("je", L(3))
+         + x86("comment",
+             "RECEDE into the instance below's body beta (a body ending in a bare FENCE: its beta is the FENCE's abort).  r12 is left where the "
+                 "body's own beta expects it: the body rolls back its own pend entries, and a second rollback here emptied a deferred capture (COO-62)")
+         + arbno_win_restore("rcx", 32)
+         + x86("lea", "rsp", RDQ("rcx", (int)ARB_CS()))
+         + x86("jmp", ARB_BODYBETA())
+         + x86("def", L(3))
          + x86("lea", "rsp", RDQ("rcx", (int)ARB_CS()))
          + x86_omega();
 }
