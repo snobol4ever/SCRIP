@@ -913,6 +913,7 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
          + x86("test", "rax", "rax")
          + x86("je", L(22))
          + x86("mov", "rcx", FRQ(act + 8))
+         + x86("mov", FRQ(act), 0L)
          + x86("mov", x86_fb(), "rax")
          + bcps_lvl_add(1L)
          + x86_jmp_reg("rcx")

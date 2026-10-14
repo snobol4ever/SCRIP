@@ -23,6 +23,9 @@
 # ARMS: (5) hb_coexpr_parked and hb_coexpr_genp_scan, both modes, stress 1: offchain-swept=0, bad-link=0, frame-links > 0; (6) PLANTED: SCRIP_GC_PLANT_FRAME_LINK=1 displaces the followed H word
 # and the walker refuses it by name. The release half: bb_bound.cpp's unmark arms zero the slots below the restored rsp.
 # Red on SCRIP 7fd180c09 (before the landing): arm (1) reads offchain-swept=26700, arm (2) 627 over 5 witnesses.
+# (7) the redo road (hq_prolog's xsb basics abort, 2026-10-14): a call box resumed through its act word into a dynamic predicate whose
+# next clause runs in a different frame left the act word naming the released clause frame until the callee returned; the chain
+# refused it link-below-gap. The block arm now zeroes the act word before the jump. Red on the parent 0ac9b9b04 (rc 134, both modes).
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 "$ROOT/scripts/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -110,6 +113,20 @@ else ck no "(6) PLANTED: Icon rc=$prc and no named refusal -- a displaced H word
 planted "" "$ROOT/scripts/gc_witnesses/hb_coexpr_parked.icn"; urc=$?
 if [ "$urc" = 0 ] && ! grep -aq 'FRAME-LINK REFUSED' "$W/ep"; then ck ok "(6) the same Icon run without the plant is whole (rc 0, no refusal), so the planted arm can fail"
 else ck no "(6) the same Icon run without the plant refuses (rc $urc): the planted arm would read red for another reason"; fi
+rw="$ROOT/scripts/gc_witnesses/hb_pl_a_redo_into_a_later_clause_leaves_no_stale_frame_link"
+[ -f "$rw.pl" ] && [ -f "$rw.ref" ] || refuse "no redo witness $rw.pl/.ref"
+build4 "$rw.pl" rw
+for st in 1 3; do
+  for m in 3 4; do
+    if [ "$m" = 3 ]; then ( cd "$W" && run_env SCRIP_GC_STRESS=$st timeout 300 "$SCRIP" "$rw.pl" > o 2> e < /dev/null ); else ( cd "$W" && run_env SCRIP_GC_STRESS=$st timeout 300 ./rw.x > o 2> e < /dev/null ); fi
+    rrc=$?
+    if [ "$rrc" = 0 ] && cmp -s "$W/o" "$rw.ref" && ! grep -aq 'FRAME-LINK REFUSED\|REFUSED: the chain over the maps' "$W/e"; then
+      ck ok "(7) mode $m stress $st: a call box redone into a dynamic predicate's later clause (a larger frame) answers swipl's $(head -c 20 "$rw.ref" | tr -d '\n') with no stale act word refused"
+    else
+      ck no "(7) mode $m stress $st: rc=$rrc answer $(head -c 30 "$W/o" | tr '\n' ' ')$(grep -ao 'link-below-gap\|bad-link' "$W/e" | head -1) -- the redo path left the act word naming the released clause frame"
+    fi
+  done
+done
 z="$(cd "$W" && "$SCRIP" --dump-zeta w.pl < /dev/null 2>/dev/null | grep -c 'PTR_FRAME callgen.act +0')"
 if [ "${z:-0}" -gt 0 ]; then ck ok "(4) the witness's --dump-zeta types callgen.act +0 PTR_FRAME at $z call site(s)"
 else ck no "(4) no callgen.act +0 is typed PTR_FRAME in the witness's frames"; fi

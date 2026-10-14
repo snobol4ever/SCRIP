@@ -2923,8 +2923,9 @@ static int gc_sw_links(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char *g
             if (v < glo) {
                 if (gc_chain_check_on() && g_gc_chw.said_link++ < 4)
                     fprintf(stderr,
-                    "[CHAIN-WALK] FRAME-LINK REFUSED: the target lies below the gap of the frame that links it and is not the chain frame just below (linking frame %s base=%p slot +%ld holds %p)\n",
-                    m->graph_name ? m->graph_name : "?", (const void *)f->base, (long)(c - f->base), (const void *)v);
+                    "[CHAIN-WALK] FRAME-LINK REFUSED: the target lies below the gap of the frame that links it and is not the chain frame just below (linking frame %s base=%p slot +%ld holds %p, bet"
+                    "a " "%p names %s fb=%u, the chain frame just below is %p)\n", m->graph_name ? m->graph_name : "?", (const void *)f->base, (long)(c - f->base), (const void *)v,
+                    (const void *)(uintptr_t)beta, b->map->graph_name ? b->map->graph_name : "?", b->map->frame_bytes, (const void *)s->prevbase);
                 g_gc_chw.links_below++;
                 s->stop = 12;
                 return 0;
