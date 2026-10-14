@@ -12176,6 +12176,9 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_EXPORTS[] = {
     { "real_time", 1 },
     { "user_time", 1 },
     { "system_time", 1 },
+    { "read_token_from_atom", 2 },
+    { "read_token_from_chars", 2 },
+    { "read_token_from_codes", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_SHADOWS[] = {
@@ -12219,6 +12222,9 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_QUIET[] = {
     { "read_from_atom", 0 },
     { "read_from_chars", 0 },
     { "read_from_codes", 0 },
+    { "read_token_from_atom", 0 },
+    { "read_token_from_chars", 0 },
+    { "read_token_from_codes", 0 },
     { "real_time", 0 },
     { "rename_file", 0 },
     { "send_signal", 0 },
@@ -12492,7 +12498,54 @@ static const char PL_PRELUDE_LIB_9_SRC[] =
     "system_time(T) :- '$gnu_b_clock'(T, system_time/1), statistics(system_time, [T0, _]), T = T0.\n"
     "'$gnu_b_clock'(T, _) :- var(T), !.\n"
     "'$gnu_b_clock'(T, _) :- integer(T), !.\n"
-    "'$gnu_b_clock'(T, PI) :- throw(error(type_error(integer, T), PI)).\n";
+    "'$gnu_b_clock'(T, PI) :- throw(error(type_error(integer, T), PI)).\n"
+    "read_token_from_atom(A, T) :- var(A), !, throw(error(instantiation_error, read_token_from_atom/2)).\n"
+    "read_token_from_atom(A, T) :- \\+ atom(A), !, throw(error(type_error(atom, A), read_token_from_atom/2)).\n"
+    "read_token_from_atom(A, T) :- atom_codes(A, Cs), '$gnu_b_tok'(Cs, T0), T = T0.\n"
+    "read_token_from_chars(L, T) :- atom_chars(A, L), atom_codes(A, Cs), '$gnu_b_tok'(Cs, T0), T = T0.\n"
+    "read_token_from_codes(Cs, T) :- atom_codes(A, Cs), atom_codes(A, Cs1), '$gnu_b_tok'(Cs1, T0), T = T0.\n"
+    "'$gnu_b_tok'(Cs0, T) :- '$gnu_b_layout'(Cs0, Cs), '$gnu_b_tok1'(Cs, T).\n"
+    "'$gnu_b_layout'([C|Cs], R) :- code_type(C, space), !, '$gnu_b_layout'(Cs, R).\n"
+    "'$gnu_b_layout'([0'%|Cs], R) :- !, '$gnu_b_eol'(Cs, Cs1), '$gnu_b_layout'(Cs1, R).\n"
+    "'$gnu_b_layout'([0'/, 0'*|Cs], R) :- !, '$gnu_b_eoc'(Cs, Cs1), '$gnu_b_layout'(Cs1, R).\n"
+    "'$gnu_b_layout'(Cs, Cs).\n"
+    "'$gnu_b_eol'([], []).\n"
+    "'$gnu_b_eol'([0'\\n|Cs], Cs) :- !.\n"
+    "'$gnu_b_eol'([_|Cs], R) :- '$gnu_b_eol'(Cs, R).\n"
+    "'$gnu_b_eoc'([], []).\n"
+    "'$gnu_b_eoc'([0'*, 0'/|Cs], Cs) :- !.\n"
+    "'$gnu_b_eoc'([_|Cs], R) :- '$gnu_b_eoc'(Cs, R).\n"
+    "'$gnu_b_tok1'([], punct(end_of_file)) :- !.\n"
+    "'$gnu_b_tok1'([C|Cs], T) :- code_type(C, digit(_)), !, '$gnu_b_num'([C|Cs], T).\n"
+    "'$gnu_b_tok1'([C|Cs], T) :- ( code_type(C, upper) ; C == 0'_ ), !, '$gnu_b_alnum'(Cs, Ns), atom_codes(N, [C|Ns]), T = var(N).\n"
+    "'$gnu_b_tok1'([C|Cs], T) :- code_type(C, lower), !, '$gnu_b_alnum'(Cs, Ns), atom_codes(T, [C|Ns]).\n"
+    "'$gnu_b_tok1'([0'\"|Cs], string(A)) :- !, '$gnu_b_quoted'(Cs, 0'\", Q), append([0'\"|Q], [0'\"], L), atom_codes(LA, L), read_term_from_atom(LA, S, [double_quotes(codes)]), atom_codes(A, S).\n"
+    "'$gnu_b_tok1'([0'`|Cs], back_quotes(A)) :- !, '$gnu_b_quoted'(Cs, 0'`, Q), append([0''|Q], [0''], L), atom_codes(LA, L), read_term_from_atom(LA, A, []).\n"
+    "'$gnu_b_tok1'([0''|Cs], A) :- !, '$gnu_b_quoted'(Cs, 0'', Q), append([0''|Q], [0''], L), atom_codes(LA, L), read_term_from_atom(LA, A, []).\n"
+    "'$gnu_b_tok1'([C|_], punct(P)) :- '$gnu_b_in'(C, '()[]{}|'), !, atom_codes(P, [C]).\n"
+    "'$gnu_b_tok1'([0',|_], ',') :- !.\n"
+    "'$gnu_b_tok1'([0'!|_], !) :- !.\n"
+    "'$gnu_b_tok1'([0';|_], ;) :- !.\n"
+    "'$gnu_b_tok1'([0'.|Cs], punct(full_stop)) :- ( Cs == [] ; Cs = [C|_], ( code_type(C, space) ; C == 0'% ) ), !.\n"
+    "'$gnu_b_tok1'([C|Cs], T) :- '$gnu_b_sym'(C), !, '$gnu_b_syms'(Cs, Ss), atom_codes(T, [C|Ss]).\n"
+    "'$gnu_b_alnum'([C|Cs], [C|Ns]) :- ( code_type(C, alnum) ; C == 0'_ ), !, '$gnu_b_alnum'(Cs, Ns).\n"
+    "'$gnu_b_alnum'(_, []).\n"
+    "'$gnu_b_sym'(C) :- '$gnu_b_in'(C, '+-*/\\\\^<>=~:.?@#&$').\n"
+    "'$gnu_b_syms'([C|Cs], [C|Ss]) :- '$gnu_b_sym'(C), !, '$gnu_b_syms'(Cs, Ss).\n"
+    "'$gnu_b_syms'(_, []).\n"
+    "'$gnu_b_quoted'([Q, Q|Cs], Q, [Q, Q|R]) :- !, '$gnu_b_quoted'(Cs, Q, R).\n"
+    "'$gnu_b_quoted'([Q|_], Q, []) :- !.\n"
+    "'$gnu_b_quoted'([0'\\\\, C|Cs], Q, [0'\\\\, C|R]) :- !, '$gnu_b_quoted'(Cs, Q, R).\n"
+    "'$gnu_b_quoted'([C|Cs], Q, [C|R]) :- '$gnu_b_quoted'(Cs, Q, R).\n"
+    "'$gnu_b_num'(Cs, T) :- '$gnu_b_numlex'(Cs, L), atom_codes(A, L), atom_number(A, T).\n"
+    "'$gnu_b_numlex'([0'0, 0'', C|_], [0'0, 0'', C]) :- !.\n"
+    "'$gnu_b_numlex'([0'0, X|Cs], [0'0, X|Ds]) :- '$gnu_b_in'(X, xob), Cs = [D|_], code_type(D, xdigit(_)), !, '$gnu_b_alnum'(Cs, Ds).\n"
+    "'$gnu_b_numlex'(Cs, L) :- '$gnu_b_digits'(Cs, Ds, R), ( R = [0'., D|R1], code_type(D, digit(_)) -> '$gnu_b_digits'([D|R1], Fs, R2), '$gnu_b_exp'(R2, Es), append(Ds, [0'.|Fs], L0), append(L0, Es, L) ; L = Ds ).\n"
+    "'$gnu_b_digits'([C|Cs], [C|Ds], R) :- code_type(C, digit(_)), !, '$gnu_b_digits'(Cs, Ds, R).\n"
+    "'$gnu_b_digits'(R, [], R).\n"
+    "'$gnu_b_exp'([E|Cs], [E|Es]) :- '$gnu_b_in'(E, eE), ( Cs = [S|Cs1], '$gnu_b_in'(S, '+-') -> Es = [S|Ds], Cs2 = Cs1 ; Es = Ds, Cs2 = Cs ), Cs2 = [D|_], code_type(D, digit(_)), !, '$gnu_b_digits'(Cs2, Ds, _).\n"
+    "'$gnu_b_exp'(_, []).\n"
+    "'$gnu_b_in'(C, A) :- atom_codes(A, L), memberchk(C, L).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },

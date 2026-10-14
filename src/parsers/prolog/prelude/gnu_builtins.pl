@@ -26,7 +26,8 @@
                           term_hash/4, term_ref/2,
                           shell/1, shell/2, system/1, system/2, spawn/2, spawn/3, unlink/1, rename_file/2, delete_directory/1, copy_file/2,
                           file_permission/2, sleep/1, host_name/1, os_version/1, architecture/1, date_time/1, send_signal/2, temporary_name/2,
-                          temporary_file/3, is_absolute_file_name/1, cpu_time/1, real_time/1, user_time/1, system_time/1 ]).
+                          temporary_file/3, is_absolute_file_name/1, cpu_time/1, real_time/1, user_time/1, system_time/1,
+                          read_token_from_atom/2, read_token_from_chars/2, read_token_from_codes/2 ]).
 write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).
 writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).
 print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).
@@ -267,3 +268,50 @@ system_time(T) :- '$gnu_b_clock'(T, system_time/1), statistics(system_time, [T0,
 '$gnu_b_clock'(T, _) :- var(T), !.
 '$gnu_b_clock'(T, _) :- integer(T), !.
 '$gnu_b_clock'(T, PI) :- throw(error(type_error(integer, T), PI)).
+read_token_from_atom(A, T) :- var(A), !, throw(error(instantiation_error, read_token_from_atom/2)).
+read_token_from_atom(A, T) :- \+ atom(A), !, throw(error(type_error(atom, A), read_token_from_atom/2)).
+read_token_from_atom(A, T) :- atom_codes(A, Cs), '$gnu_b_tok'(Cs, T0), T = T0.
+read_token_from_chars(L, T) :- atom_chars(A, L), atom_codes(A, Cs), '$gnu_b_tok'(Cs, T0), T = T0.
+read_token_from_codes(Cs, T) :- atom_codes(A, Cs), atom_codes(A, Cs1), '$gnu_b_tok'(Cs1, T0), T = T0.
+'$gnu_b_tok'(Cs0, T) :- '$gnu_b_layout'(Cs0, Cs), '$gnu_b_tok1'(Cs, T).
+'$gnu_b_layout'([C|Cs], R) :- code_type(C, space), !, '$gnu_b_layout'(Cs, R).
+'$gnu_b_layout'([0'%|Cs], R) :- !, '$gnu_b_eol'(Cs, Cs1), '$gnu_b_layout'(Cs1, R).
+'$gnu_b_layout'([0'/, 0'*|Cs], R) :- !, '$gnu_b_eoc'(Cs, Cs1), '$gnu_b_layout'(Cs1, R).
+'$gnu_b_layout'(Cs, Cs).
+'$gnu_b_eol'([], []).
+'$gnu_b_eol'([0'\n|Cs], Cs) :- !.
+'$gnu_b_eol'([_|Cs], R) :- '$gnu_b_eol'(Cs, R).
+'$gnu_b_eoc'([], []).
+'$gnu_b_eoc'([0'*, 0'/|Cs], Cs) :- !.
+'$gnu_b_eoc'([_|Cs], R) :- '$gnu_b_eoc'(Cs, R).
+'$gnu_b_tok1'([], punct(end_of_file)) :- !.
+'$gnu_b_tok1'([C|Cs], T) :- code_type(C, digit(_)), !, '$gnu_b_num'([C|Cs], T).
+'$gnu_b_tok1'([C|Cs], T) :- ( code_type(C, upper) ; C == 0'_ ), !, '$gnu_b_alnum'(Cs, Ns), atom_codes(N, [C|Ns]), T = var(N).
+'$gnu_b_tok1'([C|Cs], T) :- code_type(C, lower), !, '$gnu_b_alnum'(Cs, Ns), atom_codes(T, [C|Ns]).
+'$gnu_b_tok1'([0'"|Cs], string(A)) :- !, '$gnu_b_quoted'(Cs, 0'", Q), append([0'"|Q], [0'"], L), atom_codes(LA, L), read_term_from_atom(LA, S, [double_quotes(codes)]), atom_codes(A, S).
+'$gnu_b_tok1'([0'`|Cs], back_quotes(A)) :- !, '$gnu_b_quoted'(Cs, 0'`, Q), append([0''|Q], [0''], L), atom_codes(LA, L), read_term_from_atom(LA, A, []).
+'$gnu_b_tok1'([0''|Cs], A) :- !, '$gnu_b_quoted'(Cs, 0'', Q), append([0''|Q], [0''], L), atom_codes(LA, L), read_term_from_atom(LA, A, []).
+'$gnu_b_tok1'([C|_], punct(P)) :- '$gnu_b_in'(C, '()[]{}|'), !, atom_codes(P, [C]).
+'$gnu_b_tok1'([0',|_], ',') :- !.
+'$gnu_b_tok1'([0'!|_], !) :- !.
+'$gnu_b_tok1'([0';|_], ;) :- !.
+'$gnu_b_tok1'([0'.|Cs], punct(full_stop)) :- ( Cs == [] ; Cs = [C|_], ( code_type(C, space) ; C == 0'% ) ), !.
+'$gnu_b_tok1'([C|Cs], T) :- '$gnu_b_sym'(C), !, '$gnu_b_syms'(Cs, Ss), atom_codes(T, [C|Ss]).
+'$gnu_b_alnum'([C|Cs], [C|Ns]) :- ( code_type(C, alnum) ; C == 0'_ ), !, '$gnu_b_alnum'(Cs, Ns).
+'$gnu_b_alnum'(_, []).
+'$gnu_b_sym'(C) :- '$gnu_b_in'(C, '+-*/\\^<>=~:.?@#&$').
+'$gnu_b_syms'([C|Cs], [C|Ss]) :- '$gnu_b_sym'(C), !, '$gnu_b_syms'(Cs, Ss).
+'$gnu_b_syms'(_, []).
+'$gnu_b_quoted'([Q, Q|Cs], Q, [Q, Q|R]) :- !, '$gnu_b_quoted'(Cs, Q, R).
+'$gnu_b_quoted'([Q|_], Q, []) :- !.
+'$gnu_b_quoted'([0'\\, C|Cs], Q, [0'\\, C|R]) :- !, '$gnu_b_quoted'(Cs, Q, R).
+'$gnu_b_quoted'([C|Cs], Q, [C|R]) :- '$gnu_b_quoted'(Cs, Q, R).
+'$gnu_b_num'(Cs, T) :- '$gnu_b_numlex'(Cs, L), atom_codes(A, L), atom_number(A, T).
+'$gnu_b_numlex'([0'0, 0'', C|_], [0'0, 0'', C]) :- !.
+'$gnu_b_numlex'([0'0, X|Cs], [0'0, X|Ds]) :- '$gnu_b_in'(X, xob), Cs = [D|_], code_type(D, xdigit(_)), !, '$gnu_b_alnum'(Cs, Ds).
+'$gnu_b_numlex'(Cs, L) :- '$gnu_b_digits'(Cs, Ds, R), ( R = [0'., D|R1], code_type(D, digit(_)) -> '$gnu_b_digits'([D|R1], Fs, R2), '$gnu_b_exp'(R2, Es), append(Ds, [0'.|Fs], L0), append(L0, Es, L) ; L = Ds ).
+'$gnu_b_digits'([C|Cs], [C|Ds], R) :- code_type(C, digit(_)), !, '$gnu_b_digits'(Cs, Ds, R).
+'$gnu_b_digits'(R, [], R).
+'$gnu_b_exp'([E|Cs], [E|Es]) :- '$gnu_b_in'(E, eE), ( Cs = [S|Cs1], '$gnu_b_in'(S, '+-') -> Es = [S|Ds], Cs2 = Cs1 ; Es = Ds, Cs2 = Cs ), Cs2 = [D|_], code_type(D, digit(_)), !, '$gnu_b_digits'(Cs2, Ds, _).
+'$gnu_b_exp'(_, []).
+'$gnu_b_in'(C, A) :- atom_codes(A, L), memberchk(C, L).
