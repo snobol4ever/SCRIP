@@ -926,7 +926,7 @@ static void pl_module_flatten(PlProgram *pl_prog) {
         }
         if (!cl->tr || cl->tr->t != TT_CLAUSE || cl->tr->n < 1 || !cl->tr->c[0] || cl->tr->c[0]->t == TT_NUL) continue;
         {
-            tree_t *h = cl->tr->c[0];
+            tree_t *h = pl_ssu_arrow(cl->tr) ? pl_ssu_head(pl_ssu_arrow(cl->tr)) : cl->tr->c[0];
             const char *dm = m1v[ci];
             int foreign = 0;
             if (h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && pl_mod_atomish(h->c[0])) { dm = h->c[0]->v.sval; h = h->c[1]; foreign = 1; }
@@ -982,6 +982,13 @@ static void pl_module_flatten(PlProgram *pl_prog) {
             continue;
         }
         if (!cl->tr || cl->tr->t != TT_CLAUSE || cl->tr->n < 1 || !cl->tr->c[0]) continue;
+        if (pl_ssu_arrow(cl->tr)) {
+            tree_t *arrow = pl_ssu_arrow(cl->tr), *sh = pl_ssu_head(arrow);
+            pl_mod_head(&ms, m1, m2, sh);
+            if (sh != arrow->c[0]) pl_mod_goal(&ms, m1, m2, arrow->c[0]->c[1], 0);
+            pl_mod_goal(&ms, m1, m2, arrow->c[1], 0);
+            continue;
+        }
         {
             tree_t *h = cl->tr->c[0];
             int trans;

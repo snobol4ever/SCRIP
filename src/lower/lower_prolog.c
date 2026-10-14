@@ -4584,11 +4584,15 @@ static tree_t * pl_ssu_nomatch(const tree_t * proto, const char * key, int ar) {
     nc->v = proto->v;
     nc->line = proto->line;
     for (int i = 0; i < ar; i++) ast_push(nc, pl_ssu_var(i));
+    const char * colon = strchr(nm, ':');
+    int qual = colon && colon > nm && colon[1] && colon[1] != ':';
     tree_t * g = ast_node_new(ar ? TT_FNC : TT_QLIT);
-    g->v.sval = lp_strdup(nm);
+    g->v.sval = lp_strdup(qual ? colon + 1 : nm);
     for (int i = 0; i < ar; i++) ast_push(g, pl_ssu_var(i));
+    tree_t * pi = pl_cc_pi_ar(lp_strdup(qual ? colon + 1 : nm), ar);
+    if (qual) { const char * mod = ct_strndup(nm, (size_t)(colon - nm)); g = pl_cc_fnc2(":", (tree_t *) pl_atom_goal(mod), g); pi = pl_cc_fnc2(":", (tree_t *) pl_atom_goal(mod), pi); }
     tree_t * ex = pl_cc_fnc2("existence_error", (tree_t *) pl_atom_goal("matching_rule"), g);
-    ast_push(nc, pl_cc_fnc1("throw", pl_cc_fnc2("error", ex, pl_ssu_var(ar))));
+    ast_push(nc, pl_cc_fnc1("throw", pl_cc_fnc2("error", ex, pl_cc_fnc2("context", pi, pl_ssu_var(ar)))));
     return nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
