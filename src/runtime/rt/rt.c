@@ -364,6 +364,14 @@ void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out,
     int sreal = 0, oreal = 0;
     int sok = rt_parse_num_d(self, &si, &sr, &sreal);
     if (sok && (codes & COERCE_ERR_FAILURE_CONVERTIBLE) && rt_num_is_blank_d(self)) sok = 0;
+    if (!sok && (codes & COERCE_ERR_FAILURE_CONVERTIBLE) && self->v == DT_S && self->s && !rt_num_is_blank_d(self)) {
+        extern int icon_radix_int(const char *, long long *);
+        extern DESCR_t icon_radix_big(const char *);
+        long long rv;
+        int rr = icon_radix_int(rt_cstr_d(*self), &rv);
+        if (rr < 0) { DESCR_t bg = icon_radix_big(rt_cstr_d(*self)); if (!IS_FAIL_fn(bg)) { *out = bg; return; } }
+        if (rr > 0) { si = (int64_t)rv; sreal = 0; sok = 1; }
+    }
     if (!sok) {
         if (ec && (codes & COERCE_ERR_FAILURE_CONVERTIBLE)) {
             extern int core_icn_error(int code, DESCR_t val);

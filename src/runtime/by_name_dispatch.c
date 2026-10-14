@@ -520,7 +520,7 @@ static const char *to_cstring(DESCR_t v, char *scratch, size_t scap) {
     return s ? s : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icon_radix_int(const char *s, long long *out) {
+int icon_radix_int(const char *s, long long *out) {
     const char *p = s;
     while (*p == ' ' || *p == '\t') p++;
     int neg = 0;
@@ -548,7 +548,7 @@ static int icon_radix_int(const char *s, long long *out) {
     *out = neg ? -v : v;
     return 1;
 }
-static DESCR_t icon_radix_big(const char *s) {
+DESCR_t icon_radix_big(const char *s) {
     extern DESCR_t rt_big_from_str_base(const char *, int);
     extern DESCR_t rt_big_neg(DESCR_t);
     const char *p = s;
@@ -16340,6 +16340,17 @@ static int relop_num_coerce(DESCR_t v, DESCR_t *out, int blank0) {
     *out = (endd > endi) ? REALVAL(dv) : INTVAL((int64_t)iv);
     return 1;
 }
+static int relop_radix_coerce(DESCR_t v, DESCR_t *out) {
+    if (!IS_STR_fn(v) || IS_CSET_fn(v) || !v.s || v.slen == 0) return 0;
+    char nb[128];
+    const char *s = v.s;
+    if (v.slen != 0xFFFFFFFFu) { char *cp = (v.slen < sizeof nb) ? nb : (char *)rt_wsb_alloc((size_t)v.slen + 1); memcpy(cp, v.s, v.slen); cp[v.slen] = '\0'; s = cp; }
+    long long rv;
+    int rr = icon_radix_int(s, &rv);
+    if (rr > 0) { *out = INTVAL(rv); return 1; }
+    if (rr < 0) { DESCR_t b = icon_radix_big(s); if (IS_FAIL_fn(b)) return 0; *out = b; return 1; }
+    return 0;
+}
 DESCR_t c_rt_str_coerce(DESCR_t d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_str_coerce(DESCR_t d) {
@@ -16424,8 +16435,8 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0) {
     }
     if (num_rel) {
         DESCR_t L, R;
-        int _relop_lok = relop_num_coerce(lhs, &L, blank0);
-        if (_relop_lok && relop_num_coerce(rhs, &R, blank0)) {
+        int _relop_lok = relop_num_coerce(lhs, &L, blank0) || (!blank0 && relop_radix_coerce(lhs, &L));
+        if (_relop_lok && (relop_num_coerce(rhs, &R, blank0) || (!blank0 && relop_radix_coerce(rhs, &R)))) {
             if (IS_REAL_fn(L) || IS_REAL_fn(R)) {
                 double a = to_real(L), b = to_real(R);
                 switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b; case BINOP_LE: return a<=b; case BINOP_GT: return a>b; case BINOP_GE: return a>=b; }

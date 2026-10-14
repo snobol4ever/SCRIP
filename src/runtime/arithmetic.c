@@ -154,6 +154,17 @@ void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out) {
     if (b.v == DT_BIG) { *out = b; return; }
     { DESCR_t bs = big_str_operand(b); if (bs.v == DT_BIG) { *out = bs; return; } }
     if (is_numeric_like(b)) { *out = INTVAL(to_int(b)); return; }
+    if (b.v == DT_S && b.s && b.slen != 0xFFFFFFFFu) {
+        extern int icon_radix_int(const char *, long long *);
+        extern DESCR_t icon_radix_big(const char *);
+        char nb[128];
+        const char *s = b.s;
+        if (b.slen < sizeof nb) { memcpy(nb, b.s, b.slen); nb[b.slen] = '\0'; s = nb; }
+        long long rv;
+        int rr = (b.slen < sizeof nb) ? icon_radix_int(s, &rv) : 0;
+        if (rr > 0) { *out = INTVAL(rv); return; }
+        if (rr < 0) { DESCR_t bg = icon_radix_big(s); if (!IS_FAIL(bg)) { *out = bg; return; } }
+    }
     *out = b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
