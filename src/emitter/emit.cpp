@@ -5226,7 +5226,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                 } }
         if (g_emit_cfg && g_emit_cfg->body_root)
             { int i = nidx(g_emitter.codegen_flat_chain_body_nodes, n, g_emit_cfg->body_root);
-                if (i >= 0 && (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_CALL_BUILTIN_GEN)) { resume_tgt = betas[i]; } }
+                if (i >= 0 && (ir_kind0(g_emitter.codegen_flat_chain_body_nodes[i]) == IR_CALL_BUILTIN_GEN)) { resume_tgt = betas[i]; } }
         { extern int sn4_defer_resume(void); const int _dres = sn4_defer_resume();
           if (getenv("SCRIP_RESUME_WHY"))
               fprintf(stderr, "[RESUME-GATE] dres=%d flat_pat=%d cfg=%d body_root=%p\n", _dres, g_emit.flat_pat, g_emit_cfg ? 1 : 0, (void *)(g_emit_cfg ? g_emit_cfg->body_root : (IR_t *)0));
