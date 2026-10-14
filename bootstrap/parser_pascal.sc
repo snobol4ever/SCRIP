@@ -26,8 +26,9 @@ reserved          = POS(0) ( 'and' | 'array' | 'begin' | 'case' | 'const' | 'div
 white       =   (  SPAN(' ' CHAR(9) CHAR(10) CHAR(13))
                 |  '{' BREAK('}') '}'
                 |  '(*' FENCE(BREAKX('*') '*)')
+                |  '//' FENCE(BREAK(CHAR(10)) | REM)
                 );
-White       =   *white FENCE(*White | epsilon);
+White      =   *white FENCE(*White | epsilon);
 Gray        =   FENCE(*White | epsilon);
 $'  '       =   White;
 $' '        =   Gray;
@@ -90,6 +91,48 @@ function Unq(s, r, p) {
     return;
 }
 String      =   "'" (*StrChars) . thx . *Shift('TT_QLIT', Unq(thx)) "'";
+/* An integer literal's value is strtoull's, read as a signed 64-bit: $hex in base 16, leading zeros gone, 2^63 .. 2^64-1 negative; beyond 2^64-1 it is -1 and carries the iso_error pragma (pascal.l). */
+function IntVal(t, d, n, i, p, hi, lo, h, l) {
+    iv_err = '';
+    if (t ? (POS(0) '$' REM . d)) {
+        d ? (POS(0) SPAN('0')) = ;
+        d = REPLACE(d, 'abcdef', 'ABCDEF');
+        n = SIZE(d);
+        if (GT(n, 16)) { IntVal = '-1'; return; }
+        hi = 0;
+        lo = 0;
+        i = 0;
+        while (i = LT(i, n) i + 1) {
+            '0123456789ABCDEF' ? (BREAK(SUBSTR(d, i, 1)) @p);
+            if (LT(n - i, 8)) { lo = lo * 16 + p; } else { hi = hi * 16 + p; }
+        }
+        if (GT(hi, 2147483647)) { hi = hi - 4294967296; }
+        IntVal = '' (hi * 4294967296 + lo);
+        return;
+    }
+    d = t;
+    d ? (POS(0) SPAN('0')) = ;
+    if (IDENT(d)) { d = '0'; }
+    n = SIZE(d);
+    if (LT(n, 19)) { IntVal = d; return; }
+    if (GT(n, 20)) { iv_err = 1; IntVal = '-1'; return; }
+    if (EQ(n, 20) LGT(d, '18446744073709551615')) { iv_err = 1; IntVal = '-1'; return; }
+    if (EQ(n, 19) LLT(d, '9223372036854775808')) { IntVal = d; return; }
+    d ? (LEN(n - 10) . h REM . l);
+    IntVal = '' ((h - 1844674406) * 10000000000 + (l - 13709551616));
+    return;
+}
+/* ==================================================================================================================== */
+function LitInt(t, v) {
+    LitInt = .dummy;
+    v = IntVal(t);
+    if (DIFFER(iv_err)) {
+        Shift('TT_QLIT', 'iso_error');
+        Reduce('TT_ATTR', 1, ':pragma');
+        Reduce('TT_ILIT', 1, v);
+    } else { Shift('TT_ILIT', v); }
+    nreturn;
+}
 ResT        =   TABLE(35);
 ResT['and'] = 1; ResT['array'] = 1; ResT['begin'] = 1; ResT['case'] = 1; ResT['const'] = 1; ResT['div'] = 1; ResT['do'] = 1; ResT['downto'] = 1;
 ResT['else'] = 1; ResT['end'] = 1; ResT['file'] = 1; ResT['for'] = 1; ResT['function'] = 1; ResT['goto'] = 1; ResT['if'] = 1; ResT['in'] = 1;
@@ -152,10 +195,10 @@ Postfix         =   ( epsilon . *PushCounter() *IdxTail . *Reduce('TT_IDX', nTop
 PostStar        =   FENCE(*Postfix *PostStar | epsilon);
 /* true, false and nil are identifiers; #n is a character literal with no value of its own in the dump.  */
 Primary         =   ( *$'(' *Expr0 *$')'
-                    | '#' (*Integer) . *Shift('TT_CHRLIT', '')
+                    | '#' *Integer epsilon . *Shift('TT_CHRLIT', '')
                     | *SetCtor
                     | (*Real) . thx . *Shift('TT_FLIT', thx)
-                    | (*Integer) . thx . *Shift('TT_ILIT', thx)
+                    | (*Integer) . thx . *LitInt(thx)
                     | *String
                     | *FuncCall
                     | (*Ident) . thx . *Shift('TT_VAR', lwr(thx))
@@ -234,8 +277,8 @@ with_cmd_rest   =   epsilon . *PushCounter() *$' '
                     *Expr0 . *IncCounter() ARBNO(*$',' *Expr0 . *IncCounter()) *$'do' *Command . *IncCounter()
                     . *Reduce('TT_WITH', nTop()) . *PopCounter();
 /* goto 20 -> (TT_GOTO_U 20); 10: S -> TT_LABEL_DEF(TT_ILIT 10, S)                          */
-goto_cmd_rest   =   *$' ' (*Integer) . thx . *Shift('TT_ILIT', thx) . *Reduce('TT_GOTO_U', 1);
-label_cmd       =   (*Integer) . thx . *Shift('TT_ILIT', thx) *$':' *Command . *Reduce('TT_LABEL_DEF', 2);
+goto_cmd_rest   =   *$' ' (*Integer) . thx . *LitInt(thx) . *Reduce('TT_GOTO_U', 1);
+label_cmd       =   (*Integer) . thx . *LitInt(thx) *$':' *Command . *Reduce('TT_LABEL_DEF', 2);
 /* an empty statement is legal Pascal wherever a statement may appear: the oracle's TT_SUCCEED */
 empty_cmd       =   *$' ' *IDENT(epsilon, epsilon) . *Shift('TT_SUCCEED', '');
 CmdT            =   TABLE(8);
@@ -280,8 +323,8 @@ TypeSpec        =   ( *Structured
                     | *SimpleType
                     );
 /* label, const, type and var parts.  */
-label_part      =   epsilon . *PushCounter() *$'label' (*Integer) . thx . *Shift('TT_ILIT', thx) . *IncCounter()
-                    ARBNO(*$',' (*Integer) . thx . *Shift('TT_ILIT', thx) . *IncCounter()) *$';'
+label_part      =   epsilon . *PushCounter() *$'label' (*Integer) . thx . *LitInt(thx) . *IncCounter()
+                    ARBNO(*$',' (*Integer) . thx . *LitInt(thx) . *IncCounter()) *$';'
                     . *Reduce('TT_PART', nTop(), 'label') . *PopCounter();
 ConstDecl       =   *Name *$'=' *Expr0 *$';' . *Reduce('TT_DECL', 2, 'const') . *IncCounter();
 ConstDecls      =   FENCE(*ConstDecl *ConstDecls | epsilon);
@@ -314,11 +357,9 @@ ProcTail        =   ( *$'forward' *$';' . *Shift('TT_KEYWORD', 'forward') . *Inc
 proc_decl       =   epsilon . *PushCounter() *$'procedure' *Name . *IncCounter() *ParamsOpt *$';' *ProcTail . *Reduce('TT_PROCEDURE', nTop()) . *PopCounter();
 func_decl       =   epsilon . *PushCounter() *$'function' *Name . *IncCounter() *ParamsOpt FENCE(*$':' *Name . *IncCounter() | epsilon) *$';' *ProcTail
                     . *Reduce('TT_FUNCTION', nTop()) . *PopCounter();
-/* A block's declaration parts in ISO 7185 6.2.1's order: label, const, type, var, then the   */
-/* procedures and functions; the C frontend refuses any other order, and so does this.          */
-ProcDecls       =   FENCE((*proc_decl | *func_decl) . *IncCounter() FLUSH *ProcDecls | epsilon);
-Decls           =   FENCE(*label_part . *IncCounter() | epsilon) FENCE(*const_part . *IncCounter() | epsilon) FENCE(*type_part . *IncCounter() | epsilon)
-                    FENCE(*var_part . *IncCounter() | epsilon) *ProcDecls;
+/* A block's declaration parts in any order, as pascal.y's decl_part_list takes them: each part, a procedure or a function is one child in source order.  */
+DeclPart        =   ( *label_part | *const_part | *type_part | *var_part | *proc_decl | *func_decl ) . *IncCounter() FLUSH;
+Decls           =   FENCE(*DeclPart *Decls | epsilon);
 /* ==================================================================================================================== */
 /* Compiland — program header, then the block: TT_VAR <name>, the program parameters as a TT_VLIST, TT_BLOCK.  */
 /* ==================================================================================================================== */
