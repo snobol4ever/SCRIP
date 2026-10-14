@@ -4996,6 +4996,8 @@ static int rt_pl_goal_stage(DESCR_t *kids, int ar, DESCR_t *argv, int n) {
     return k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *pl_goal_arity_ball(void) { extern void *rt_pl_ball_kind1(const char *, const char *); return rt_pl_ball_kind1("representation_error", "max_procedure_arity"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 CVSPINE_t rt_pl_goal_resolve_c(DESCR_t goal, int n, void **ball) {
     extern int rt_proc_jmp_entry(const char *name);
     extern void *rt_proc_fn(const char *name);
@@ -5012,6 +5014,7 @@ CVSPINE_t rt_pl_goal_resolve_c(DESCR_t goal, int n, void **ball) {
     char key[gnm ? fmt_len("$mc:%s/%d", gnm, ar + n) : 1];
     if (gnm) snprintf(key, sizeof key, "%s/%d", gnm, ar + n);
     if (!gnm) { DESCR_t gg = goal; void *gb = rt_pl_dop_goal_guard_c(&gg, 1); if (ball) *ball = gb ? gb : rt_pl_ball_type_pi("type_error", "callable", "?", 0); return no; }
+    if (ar + n > PROLOG_MAX_PROCEDURE_ARITY) { if (ball) *ball = pl_goal_arity_ball(); return no; }
     { void *cb = pl_goal_body_conv_ball(goal, key, n); if (cb) { if (ball) *ball = cb; return no; } }
     if (!pl_goal_key_live(key, sizeof key) || !rt_proc_jmp_entry(key) || !rt_proc_is_generator(key) || !rt_proc_pinned(key) || rt_proc_gen_region_ft(key) > 0) {
         if (ball) *ball = rt_pl_ball_existence_key(key);
@@ -5057,6 +5060,7 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
         }
         return FAILDESCR;
     }
+    if (ar + n > PROLOG_MAX_PROCEDURE_ARITY && ball) { *ball = pl_goal_arity_ball(); return FAILDESCR; }
     { void *cb = pl_goal_body_conv_ball(goal, key, n); if (cb && ball) { *ball = cb; return FAILDESCR; } }
     if (!pl_goal_key_live(key, kcap)) { if (ball) { *ball = rt_pl_ball_existence_key(key); return FAILDESCR; } rt_pl_iso_throw_existence_key(key); return FAILDESCR; }
     rt_pl_goal_stage(kids, ar, argv, n);
@@ -8817,17 +8821,17 @@ static int pl_edin_revert(int is_out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *nm; const char *val; int mod; const char *allow[6]; int is_term; DESCR_t term; } pl_flag_t;
-static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "integer_rounding_function", "toward_zero", 0, { 0 } }, { "max_arity", "2147483647", 0, { 0 } }, { "max_char_code",
-    "1114111", 0, { 0 } }, { "float_overflow", "error", 1, { "error", "infinity", 0 } }, { "float_zero_div", "error", 1, { "error", "infinity", 0 } }, { "float_undefined", "error", 1, { "error",
-    "nan", 0 } }, { "char_conversion", "off", 1, { "on", "off", 0 } }, { "debug", "off", 1, { "on", "off", 0 } }, { "unknown", "error", 1, { "error", "fail", "warning", 0 } }, { "double_quotes",
-    "codes", 1, { "atom", "chars", "codes", "string", 0 } }, { "protect_static_code", "false", 1, { "true", "false", 0 } }, { "iso", "false", 1, { "true", "false", 0 } }, { "occurs_check", "false", 1,
-    { "true", "false", "error", 0 } }, { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", "UTF-16BE", "UTF-16LE", "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0,
-    { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on",
-    "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on", "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } },
-    { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "threads", "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore",
-    0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } }, { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "min_tagged_integer",
-    "-72057594037927936", 0, { 0 } }, { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural",
-    "compatibility", 0 } }, { 0, "", 0, { 0 } } };
+static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "integer_rounding_function", "toward_zero", 0, { 0 } }, { "max_arity", "2147483647", 0, { 0 } }, { "max_procedure_arity",
+    "1024", 0, { 0 } }, { "max_char_code", "1114111", 0, { 0 } }, { "float_overflow", "error", 1, { "error", "infinity", 0 } }, { "float_zero_div", "error", 1, { "error", "infinity", 0 } },
+    { "float_undefined", "error", 1, { "error", "nan", 0 } }, { "char_conversion", "off", 1, { "on", "off", 0 } }, { "debug", "off", 1, { "on", "off", 0 } }, { "unknown", "error", 1, { "error",
+    "fail", "warning", 0 } }, { "double_quotes", "codes", 1, { "atom", "chars", "codes", "string", 0 } }, { "protect_static_code", "false", 1, { "true", "false", 0 } }, { "iso", "false", 1, { "true",
+    "false", 0 } }, { "occurs_check", "false", 1, { "true", "false", "error", 0 } }, { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", "UTF-16BE", "UTF-16LE",
+    "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0,
+    { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on", "off", 0 } },
+    { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "threads", "false",
+    0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } },
+    { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "min_tagged_integer", "-72057594037927936", 0, { 0 } }, { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } },
+    { "float_max_integer", "", 0, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { 0, "", 0, { 0 } } };
 static cv_t g_pl_flags;
 #define pl_flags ((pl_flag_t *)g_pl_flags.p)
 static void pl_flags_ready(void) { if (g_pl_flags.len) return; for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; } }
@@ -8932,6 +8936,8 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
             ok = plw_unify_vals(args[1], pl_nil(), cx);
         } else if (!strcmp(fl->nm, "max_arity")) {
             ok = plw_unify_vals(args[1], INTVAL(PROLOG_MAX_ARITY), cx);
+        } else if (!strcmp(fl->nm, "max_procedure_arity")) {
+            ok = plw_unify_vals(args[1], INTVAL(PROLOG_MAX_PROCEDURE_ARITY), cx);
         } else if (!strcmp(fl->nm, "max_char_code")) {
             ok = plw_unify_vals(args[1], INTVAL(0x10FFFF), cx);
         } else if (!strcmp(fl->nm, "max_tagged_integer") || !strcmp(fl->nm, "min_tagged_integer")) {

@@ -11,6 +11,7 @@ int prolog_atom_count(void);
 void rt_pl_atom_table_install(const long *tab);
 int prolog_functor_intern(int name, int arity);
 #define PROLOG_MAX_ARITY INT_MAX
+#define PROLOG_MAX_PROCEDURE_ARITY 1024
 int prolog_functor_name(int fid);
 int prolog_functor_arity(int fid);
 int prolog_functor_count(void);

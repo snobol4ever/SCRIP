@@ -1753,6 +1753,8 @@ static const char * const PL_PRELUDE_SRC =
     "':'(M,G,A,B,C,D,E):-('$mod_cl'(M,G,5,G2)->call(G2,A,B,C,D,E);call(G,A,B,C,D,E)).\n"
     "':'(M,G,A,B,C,D,E,F):-('$mod_cl'(M,G,6,G2)->call(G2,A,B,C,D,E,F);call(G,A,B,C,D,E,F)).\n"
     "':'(M,G,A,B,C,D,E,F,H):-('$mod_cl'(M,G,7,G2)->call(G2,A,B,C,D,E,F,H);call(G,A,B,C,D,E,F,H)).\n"
+    "':'(M,G,A,B,C,D,E,F,H,I):-('$mod_cl'(M,G,8,G2)->call(G2,A,B,C,D,E,F,H,I);call(G,A,B,C,D,E,F,H,I)).\n"
+    "':'(M,G,A,B,C,D,E,F,H,I,J):-('$mod_cl'(M,G,9,G2)->call(G2,A,B,C,D,E,F,H,I,J);call(G,A,B,C,D,E,F,H,I,J)).\n"
     "'$cp_mq'(M,P):-var(M),!,current_predicate(P),M=user.\n"
     "'$cp_mq'(M,_):- \\+atom(M),!,throw(error(type_error(atom,M),current_predicate/1)).\n"
     "'$cp_mq'(M,P):-nonvar(P),\\+P=_/_,!,throw(error(type_error(predicate_indicator,M:P),current_predicate/1)).\n"
