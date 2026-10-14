@@ -44,6 +44,9 @@ OUTPUT (stdout; the row's DONE-WHEN greps ^BB_PLACEMENT):
   BB_PLACEMENT_CLASS <lang> <state>:<cause> <A|L> <kind> count=..
   BB_PLACEMENT_TESTS <lang>|total offspine=.. operand_test=.. local_test=.. standing=.. other=..   (other = off the spine, no test fails)
   BB_PLACEMENT_TESTS_WHY <lang> <test>:<why> count=..
+  BB_UNWIND <lang>|total rsp_restore=.. multi_pop=..   (CEO-1755, from the emitted .s: see asm_unwind)
+  BB_UNWIND_RSPLOAD <lang> <class> count=..   every rsp load by the label it sits under (restore_beta/omega/redo count)
+  BB_UNWIND_MULTIPOP <lang> into=<box kind> count=..
   --tsv PATH writes one row per misplaced (lang state cause table graph@sig kind count).
 rc 0 = measured; rc 2 = the instrument did not measure (a program unmeasured).
 """
@@ -128,6 +131,99 @@ def asm_bases(path):
     return c
 
 
+LABEL = re.compile(r'^([^\s#][^\s:]*):')
+RSPLOAD = re.compile(r'^(?:mov|lea|xchg|pop|cmov\w+)\s+rsp\s*,\s*(\S.*)$|^pop\s+rsp\s*$|^leave\b')
+ADDRSP = re.compile(r'^add\s+rsp\s*,\s*(-?\d+)\s*$')
+SUBRSP = re.compile(r'^sub\s+rsp\s*,\s*(-?\d+)\s*$')
+JUMP = re.compile(r'^j\w*\s+(\S+)\s*$')
+
+
+def port_of(lab):
+    for ch, nm in (('β', 'beta'), ('ω', 'omega'), ('γ', 'gamma'), ('α', 'alpha')):
+        if ch in lab:
+            return nm
+    return 'none'
+
+
+def asm_unwind(path, seen_sec):
+    """BB_UNWIND (CEO-1755) from the emitted code: every rsp load and every failure-edge pop, by the port of the label it sits under.
+    rsp_restore = an rsp load (mov/lea/xchg/pop rsp, leave) under a box's beta or omega label; multi_pop = a jump to a beta label preceded
+    in its straight line by more than one add rsp, or by one that differs from the box's own carve (sub rsp at its alpha).  Graph exits
+    (the procedure's own gamma/omega label), alpha and gamma roads, the gc site and the program's startup are counted apart by class."""
+    c = collections.Counter()
+    secs, cur = [], []
+    for ln in open(path, encoding='utf-8', errors='replace'):
+        if '.type' in ln and '@function' in ln and cur:
+            secs.append(cur)
+            cur = []
+        cur.append(ln)
+    secs.append(cur)
+    for sec in secs:
+        key = hashlib.sha1(re.sub(r'\d+', 'N', ''.join(sec)).encode()).hexdigest()
+        if key in seen_sec:
+            continue
+        seen_sec.add(key)
+        lab, box, carve, adds = '', '', 0, []
+        for ln in sec:
+            code = ln.split('#')[0].rstrip('\n')
+            m = LABEL.match(code)
+            if m:
+                lab = m.group(1)
+                code = code[m.end():]
+                adds = []
+                bm = re.match(r'^(n\d+_[a-z_0-9]+?)_(α|β|γ|ω)$', lab)
+                if bm:
+                    if bm.group(1) != box:
+                        box, carve = bm.group(1), 0
+            for ins in (x.strip() for x in code.split(';')):
+                if not ins or ins.startswith('.'):
+                    continue
+                ins = re.sub(r'\s+', ' ', ins)
+                if RSPLOAD.match(ins):
+                    pt = port_of(lab)
+                    if lab == 'main' or lab.endswith('_stack_kept'):
+                        cls = 'startup'
+                    elif lab.startswith('.Lgcsite'):
+                        cls = 'gcsite'
+                    elif pt in ('beta', 'omega') and (re.match(r'^n\d+_', lab) or lab.startswith('.L')):
+                        cls = 'restore_' + pt
+                    elif pt in ('gamma', 'omega'):
+                        cls = 'exit_' + pt
+                    elif lab.endswith('_res'):
+                        cls = 'restore_redo'
+                    elif lab.endswith('_altdet'):
+                        cls = 'exit_altdet'
+                    else:
+                        cls = pt
+                    c['rspload:' + cls] += 1
+                    if os.environ.get('BB_UNWIND_DIAG') and (cls.startswith('restore_') or cls == os.environ.get('BB_UNWIND_DIAG')):
+                        print('[UNWIND] %s %s | %s' % (cls, lab, ins), file=sys.stderr)
+                    if cls.startswith('restore_'):
+                        c['rsp_restore'] += 1
+                    adds = []
+                    continue
+                sm = SUBRSP.match(ins)
+                if sm and port_of(lab) == 'alpha' and box and carve == 0:
+                    carve = int(sm.group(1))
+                am = ADDRSP.match(ins)
+                if am:
+                    adds.append(int(am.group(1)))
+                    continue
+                jm = JUMP.match(ins)
+                if jm:
+                    tgt = jm.group(1)
+                    if port_of(tgt) == 'beta' and adds and (len(adds) > 1 or adds[0] != carve):
+                        tk = re.sub(r'^n\d+_|_β.*$|\d+', '', tgt)
+                        c['multipop:' + tk] += 1
+                        c['multi_pop'] += 1
+                    if ins.startswith('jmp'):
+                        adds = []
+                    continue
+                if not ins.startswith('add') and not ins.startswith('mov qword ptr [rax') and not ins.startswith('mov rax'):
+                    adds = []
+    return c
+
+
 def zeta_names(src, lang):
     cwd, base = os.path.dirname(src), os.path.basename(src)
     names, vslots, cur = {}, collections.defaultdict(set), None
@@ -144,11 +240,12 @@ def zeta_names(src, lang):
     return names, vslots
 
 
-def analyse(lang, src, tmp, seen):
+def analyse(lang, src, tmp, seen, seen_sec):
     nodes, locs, fx = homes_of(lang, src, tmp)
     if nodes is None:
         return None
     bases = asm_bases(tmp)
+    unwind = asm_unwind(tmp, seen_sec)
     names, vslots = zeta_names(src, lang)
     raw = run([SCRIP, '--dump-bb', os.path.basename(src)], os.path.dirname(src)).stdout
     dump = json.loads(raw.decode('utf-8', 'replace'))
@@ -249,7 +346,7 @@ def analyse(lang, src, tmp, seen):
                 continue
             cells.append(('L', vn, h[0], ltest.get(vn)))
         out.append({'name': gname[g], 'sig': sigs[g], 'cause': cause, 'emitted': emitted, 'cells': cells, 'n': len(ids)})
-    return {'graphs': out, 'bases': bases, 'standing': fx['standing']}
+    return {'graphs': out, 'bases': bases, 'standing': fx['standing'], 'unwind': unwind}
 
 
 def main():
@@ -271,13 +368,15 @@ def main():
     bases = {l: collections.Counter() for l in langs}
     rows, seen, unmeasured = collections.Counter(), set(), []
     tests = {l: collections.Counter() for l in langs}
+    unw = {l: collections.Counter() for l in langs}
+    seen_sec = set()
     seen_standing = set()
     with tempfile.TemporaryDirectory() as td:
         tmp = os.path.join(td, 'p.s')
         for pi, (lang, src) in enumerate(progs):
             print('  [%d/%d] %s %s' % (pi + 1, len(progs), lang, os.path.relpath(src, CORPUS)), file=sys.stderr, flush=True)
             try:
-                r = analyse(lang, src, tmp, seen)
+                r = analyse(lang, src, tmp, seen, seen_sec)
             except Exception as ex:
                 r = None
                 if a.verbose:
@@ -286,6 +385,7 @@ def main():
                 unmeasured.append(src)
                 continue
             bases[lang].update(r['bases'])
+            unw[lang].update(r['unwind'])
             for (gname_s, ncell, why) in r['standing']:
                 if (lang, gname_s) not in seen_standing:
                     seen_standing.add((lang, gname_s))
@@ -350,6 +450,18 @@ def main():
             if k.startswith('why:'):
                 print('BB_PLACEMENT_TESTS_WHY %s %s count=%d' % (lang, k[4:], v))
     print('BB_PLACEMENT_TESTS total offspine=%d operand_test=%d local_test=%d standing=%d other=%d' % (tg['offspine'], tg['operand_test'], tg['local_test'], tg['standing'], tg['other']))
+    ug = collections.Counter()
+    for lang in langs:
+        u = unw[lang]
+        print('BB_UNWIND %s rsp_restore=%d multi_pop=%d' % (lang, u['rsp_restore'], u['multi_pop']))
+        for k, v in sorted(u.items()):
+            if k.startswith('rspload:'):
+                print('BB_UNWIND_RSPLOAD %s %s count=%d' % (lang, k[8:], v))
+            if k.startswith('multipop:'):
+                print('BB_UNWIND_MULTIPOP %s into=%s count=%d' % (lang, k[9:], v))
+        ug['rsp_restore'] += u['rsp_restore']
+        ug['multi_pop'] += u['multi_pop']
+    print('BB_UNWIND total rsp_restore=%d multi_pop=%d' % (ug['rsp_restore'], ug['multi_pop']))
     for lang in langs:
         b = bases[lang]
         n = sum(b.values())
