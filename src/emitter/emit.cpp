@@ -6211,6 +6211,10 @@ extern "C" {
 DESCR_t rt_pas_resundef(DESCR_t *, int); DESCR_t rt_pas_sin(DESCR_t *, int); DESCR_t rt_pas_cos(DESCR_t *, int); DESCR_t rt_pas_exp(DESCR_t *, int); DESCR_t rt_pas_sqrt(DESCR_t *, int);
 DESCR_t rt_pas_ln(DESCR_t *, int); DESCR_t rt_pas_arctan(DESCR_t *, int); DESCR_t rt_pas_sqr(DESCR_t *, int);
 DESCR_t rt_rk_arr_at(DESCR_t *, int); DESCR_t rt_rk_arr_set(DESCR_t *, int); DESCR_t rt_rk_elem_put(DESCR_t *, int);
+DESCR_t rt_rk_param_check(DESCR_t *, int); DESCR_t rt_rk_assign_check(DESCR_t *, int); DESCR_t rt_rk_bindattr(DESCR_t *, int); DESCR_t rt_rk_box(DESCR_t *, int); DESCR_t rt_rk_blk_ref(DESCR_t *, int);
+DESCR_t rt_rk_undef(DESCR_t *, int); DESCR_t rt_rk_range_arr(DESCR_t *, int); DESCR_t rt_rk_iter_src(DESCR_t *, int); DESCR_t rt_rk_map_append(DESCR_t *, int);
+    DESCR_t rt_rk_grep_append(DESCR_t *, int);
+DESCR_t rt_rk_byref_assign(DESCR_t *, int);
 }
 void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
     static const struct { const char * nm; int ar; const char * sy; DESCR_t (*fp)(DESCR_t *, int); } t[] = {
@@ -6381,6 +6385,13 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "__pas_exp", 1, "rt_pas_exp", rt_pas_exp }, { "__pas_sqrt", 1, "rt_pas_sqrt", rt_pas_sqrt }, { "__pas_ln", 1, "rt_pas_ln", rt_pas_ln }, { "__pas_arctan", 1, "rt_pas_arctan", rt_pas_arctan },
         { "__pas_sqr", 1, "rt_pas_sqr", rt_pas_sqr },
         { "__rk_arr_at", 2, "rt_rk_arr_at", rt_rk_arr_at }, { "__rk_arr_set", 3, "rt_rk_arr_set", rt_rk_arr_set }, { "__rk_elem_put", 4, "rt_rk_elem_put", rt_rk_elem_put },
+        { "__param_check", -1, "rt_rk_param_check", rt_rk_param_check }, { "__rk_assign_check", 4, "rt_rk_assign_check", rt_rk_assign_check },
+        { "nqp::bindattr", 4, "rt_rk_bindattr", rt_rk_bindattr }, { "nqp::bindattr_n", 4, "rt_rk_bindattr", rt_rk_bindattr }, { "nqp::bindattr_i", 4, "rt_rk_bindattr", rt_rk_bindattr },
+        { "nqp::bindattr_s", 4, "rt_rk_bindattr", rt_rk_bindattr }, { "__rk_box", 1, "rt_rk_box", rt_rk_box }, { "__blk_ref", 1, "rt_rk_blk_ref", rt_rk_blk_ref },
+        { "__rk_undef", 0, "rt_rk_undef", rt_rk_undef }, { "__rk_undef", -1, "rt_rk_undef", rt_rk_undef }, { "__rk_range_arr", 2, "rt_rk_range_arr", rt_rk_range_arr },
+        { "__rk_range_arr", 3, "rt_rk_range_arr", rt_rk_range_arr }, { "__rk_iter_src", 0, "rt_rk_iter_src", rt_rk_iter_src }, { "__rk_iter_src", 1, "rt_rk_iter_src", rt_rk_iter_src },
+        { "__rk_map_append", 2, "rt_rk_map_append", rt_rk_map_append }, { "__rk_grep_append", 2, "rt_rk_grep_append", rt_rk_grep_append },
+        { "__rk_byref_assign", 2, "rt_rk_byref_assign", rt_rk_byref_assign },
         { 0, 0, 0, 0 } };
     for (int i = 0; t[i].nm; i++) if (!strcmp(fn, t[i].nm) && (t[i].ar < 0 ? narg >= 1 : narg == t[i].ar)) {
         const char * nd = getenv("SCRIP_NO_DOP"); if (nd && nd[0] == '1') return (void *)0;

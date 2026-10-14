@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "descr.h"
 #include "core.h"
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen);
@@ -17,6 +20,17 @@ DESCR_t rt_pas_sqr(DESCR_t *, int);
 DESCR_t rt_rk_arr_at(DESCR_t *, int);
 DESCR_t rt_rk_arr_set(DESCR_t *, int);
 DESCR_t rt_rk_elem_put(DESCR_t *, int);
+DESCR_t rt_rk_param_check(DESCR_t *, int);
+DESCR_t rt_rk_assign_check(DESCR_t *, int);
+DESCR_t rt_rk_bindattr(DESCR_t *, int);
+DESCR_t rt_rk_box(DESCR_t *, int);
+DESCR_t rt_rk_blk_ref(DESCR_t *, int);
+DESCR_t rt_rk_undef(DESCR_t *, int);
+DESCR_t rt_rk_range_arr(DESCR_t *, int);
+DESCR_t rt_rk_iter_src(DESCR_t *, int);
+DESCR_t rt_rk_map_append(DESCR_t *, int);
+DESCR_t rt_rk_grep_append(DESCR_t *, int);
+DESCR_t rt_rk_byref_assign(DESCR_t *, int);
 static int fails = 0, ncase = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int same(DESCR_t a, DESCR_t b);
@@ -31,6 +45,8 @@ static int same(DESCR_t a, DESCR_t b) {
         for (int i = 0; i <= x->hi - x->lo; i++) if (!same(x->data[i], y->data[i])) return 0;
         return 1;
     }
+    if (a.v == DT_N && a.slen == 1 && b.slen == 1 && a.ptr && b.ptr) return same(*(DESCR_t *) a.ptr, *(DESCR_t *) b.ptr);
+    if (a.v == DT_BLK && a.s && b.s) return !strcmp(a.s, b.s);
     if (a.v != DT_I && a.v != DT_R && a.v != DT_S && a.v != DT_SNUL && a.v == b.v && a.slen == b.slen) return 1;
     return memcmp(&a, &b, sizeof a) == 0;
 }
@@ -44,6 +60,64 @@ static void cmp1(const char *fn, DESCR_t (*direct)(DESCR_t *, int), DESCR_t x) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static ARBLK_t *mk(int n, int base) { ARBLK_t *a = array_new(0, n - 1); for (int i = 0; i < n; i++) a->data[i] = INTVAL(base + i); return a; }
 static DESCR_t darr(ARBLK_t *a) { DESCR_t d = { .v = DT_A }; d.arr = a; return d; }
+static void cmpn(const char *fn, DESCR_t (*direct)(DESCR_t *, int), const DESCR_t *x, int n) {
+    DESCR_t a1[8], a2[8];
+    for (int i = 0; i < n; i++) { a1[i] = x[i]; a2[i] = x[i]; }
+    DESCR_t d = direct(a1, n), r = rt_call_arr_bl(fn, a2, n, -1);
+    ncase++;
+    if (!same(d, r)) { fails++; printf("  FAIL %s/%d: direct %02x/%016llx by-name %02x/%016llx\n", fn, n, d.v & 0xff, (unsigned long long) d.i, r.v & 0xff, (unsigned long long) r.i); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void dump(DESCR_t d, int depth) {
+    printf("%02x", d.v & 0xff);
+    if (d.v == DT_I) printf(":%lld", (long long) d.i);
+    else if (d.v == DT_R) printf(":%a", d.r);
+    else if (d.v == DT_S && d.s) printf(":%.*s", (int) d.slen, d.s);
+    else if (d.v == DT_A && d.arr && depth < 3) {
+        ARBLK_t *x = d.arr;
+        printf("[");
+        for (int i = 0; i <= x->hi - x->lo && i < 64; i++) { dump(x->data[i], depth + 1); printf(","); }
+        printf("]");
+    } else if (d.v == DT_N && d.slen == 1 && d.ptr && depth < 3) {
+        printf("&");
+        dump(*(DESCR_t *) d.ptr, depth + 1);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int run_side(int via_road, const char *fn, DESCR_t (*direct)(DESCR_t *, int), const DESCR_t *x, int n, char *buf, int cap) {
+    int fd[2];
+    fflush(stdout);
+    if (pipe(fd)) return -1;
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(fd[0]);
+        dup2(fd[1], 1);
+        dup2(fd[1], 2);
+        DESCR_t a[8];
+        for (int i = 0; i < n; i++) a[i] = x[i];
+        DESCR_t r = via_road ? rt_call_arr_bl(fn, a, n, -1) : direct(a, n);
+        printf("RESULT ");
+        dump(r, 0);
+        printf("\n");
+        fflush(stdout);
+        _exit(0);
+    }
+    close(fd[1]);
+    int len = 0, k;
+    while (len < cap - 1 && (k = (int) read(fd[0], buf + len, (size_t) (cap - 1 - len))) > 0) len += k;
+    buf[len] = 0;
+    close(fd[0]);
+    int st = 0;
+    waitpid(pid, &st, 0);
+    return st;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void cmpfork(const char *fn, DESCR_t (*direct)(DESCR_t *, int), const DESCR_t *x, int n) {
+    char b1[4096], b2[4096];
+    int s1 = run_side(0, fn, direct, x, n, b1, sizeof b1), s2 = run_side(1, fn, direct, x, n, b2, sizeof b2);
+    ncase++;
+    if (s1 != s2 || strcmp(b1, b2)) { fails++; printf("  FAIL %s/%d (forked): status %d vs %d\n--- direct\n%s--- by-name\n%s", fn, n, s1, s2, b1, b2); }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(void) {
     core_lib_init();
@@ -79,6 +153,79 @@ int main(void) {
         r = rt_call_arr_bl("__rk_elem_put", e2, 4, -1);
         ncase++;
         if (!same(d, r) || !same(darr(c1), darr(c2))) { fails++; printf("  FAIL __rk_elem_put idx %d\n", k); }
+    }
+    {
+        const char *pts[] = { "Any", "Mu", "Cool", "Int", "Int:D", "Num", "Numeric", "Real", "Str", "Str:D" };
+        int okt[10][3] = { {1,1,1}, {1,1,1}, {1,1,1}, {1,0,0}, {1,0,0}, {0,1,0}, {1,1,0}, {1,1,0}, {0,0,1}, {0,0,1} };
+        DESCR_t vs[] = { INTVAL(7), REALVAL(2.5), STRVAL("x") };
+        for (int p = 0; p < 10; p++) for (int v = 0; v < 3; v++) {
+            DESCR_t a3[3] = { STRVAL(pts[p]), vs[v], STRVAL("n") }, a2[2] = { STRVAL(pts[p]), vs[v] };
+            if (okt[p][v]) {
+                cmpn("__param_check", rt_rk_param_check, a3, 3);
+                cmpn("__param_check", rt_rk_param_check, a2, 2);
+            } else {
+                cmpfork("__param_check", rt_rk_param_check, a3, 3);
+                cmpfork("__param_check", rt_rk_param_check, a2, 2);
+            }
+        }
+        const char *tys[] = { "Any", "Mu", "Cool", "Int", "Num", "Str", "Real", "Numeric" };
+        int oka[8][5] = { {1,1,1,1,1}, {1,1,1,1,1}, {1,1,1,1,1}, {1,0,0,1,1}, {0,1,0,1,1}, {0,0,1,1,1}, {1,1,0,1,1}, {1,1,0,1,1} };
+        DESCR_t av[] = { INTVAL(7), REALVAL(2.5), STRVAL("x"), NULVCL, FAILDESCR };
+        for (int t = 0; t < 8; t++) for (int v = 0; v < 5; v++) for (int el = 0; el < 2; el++) {
+            DESCR_t a4[4] = { STRVAL(tys[t]), av[v], STRVAL("nm"), INTVAL(el) };
+            if (oka[t][v]) cmpn("__rk_assign_check", rt_rk_assign_check, a4, 4);
+            else cmpfork("__rk_assign_check", rt_rk_assign_check, a4, 4);
+        }
+    }
+    {
+        DEFDAT_fn("rkpt(x,y)");
+        const char *bn[] = { "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s" };
+        const char *an[] = { "$!x", "$.y", "x", "$!z", "" };
+        DESCR_t bv[] = { INTVAL(5), REALVAL(1.5), STRVAL("s"), NULVCL };
+        for (int f = 0; f < 4; f++) for (int a = 0; a < 5; a++) for (int b = 0; b < 4; b++) for (int notinst = 0; notinst < 2; notinst++) {
+            DESCR_t i1 = notinst ? INTVAL(3) : DATCON_fn("rkpt", INTVAL(1), INTVAL(2)), i2 = notinst ? INTVAL(3) : DATCON_fn("rkpt", INTVAL(1), INTVAL(2));
+            DESCR_t a1[4] = { i1, STRVAL("Pt"), STRVAL(an[a]), bv[b] }, a2[4] = { i2, STRVAL("Pt"), STRVAL(an[a]), bv[b] };
+            DESCR_t d = rt_rk_bindattr(a1, 4), r = rt_call_arr_bl(bn[f], a2, 4, -1);
+            ncase++;
+            int ok = same(d, r) && (notinst || (same(FIELD_GET_fn(i1, "x"), FIELD_GET_fn(i2, "x")) && same(FIELD_GET_fn(i1, "y"), FIELD_GET_fn(i2, "y"))));
+            if (!ok) { fails++; printf("  FAIL %s attr '%s' value %d notinst %d\n", bn[f], an[a], b, notinst); }
+        }
+    }
+    {
+        for (int i = 0; i < nx; i++) { cmpn("__rk_box", rt_rk_box, &xs[i], 1); cmpn("__rk_undef", rt_rk_undef, &xs[i], 1); cmpn("__rk_iter_src", rt_rk_iter_src, &xs[i], 1); }
+        cmpn("__rk_undef", rt_rk_undef, xs, 0);
+        cmpn("__rk_iter_src", rt_rk_iter_src, xs, 0);
+        DESCR_t bs[] = { STRVAL("blk1"), STRVAL(""), NULVCL };
+        for (int i = 0; i < 3; i++) cmpn("__blk_ref", rt_rk_blk_ref, &bs[i], 1);
+        DESCR_t rl[] = { INTVAL(1), INTVAL(5), INTVAL(3), INTVAL(3), INTVAL(5), INTVAL(1), INTVAL(0), INTVAL(-2), REALVAL(2.5), STRVAL("a"), STRVAL("e") };
+        for (int i = 0; i < 11; i++) for (int j = 0; j < 11; j++) {
+            DESCR_t r2[2] = { rl[i], rl[j] }, r3[3] = { rl[i], rl[j], INTVAL(1) };
+            cmpfork("__rk_range_arr", rt_rk_range_arr, r2, 2);
+            cmpfork("__rk_range_arr", rt_rk_range_arr, r3, 3);
+        }
+        ARBLK_t *ia = mk(4, 10);
+        DESCR_t ar[1] = { darr(ia) };
+        cmpn("__rk_iter_src", rt_rk_iter_src, ar, 1);
+        const char *an2[] = { "__rk_map_append", "__rk_grep_append" };
+        DESCR_t (*af[2])(DESCR_t *, int) = { rt_rk_map_append, rt_rk_grep_append };
+        for (int w = 0; w < 2; w++) for (int k = 0; k < nx; k++) {
+            ARBLK_t *p1 = mk(3, 1), *p2 = mk(3, 1);
+            DESCR_t a1[2] = { darr(p1), xs[k] }, a2[2] = { darr(p2), xs[k] };
+            DESCR_t d = af[w](a1, 2), r = rt_call_arr_bl(an2[w], a2, 2, -1);
+            ncase++;
+            if (!same(d, r) || !same(darr(p1), darr(p2)) || p1->hi != 3) { fails++; printf("  FAIL %s item %d\n", an2[w], k); }
+            DESCR_t nb[2] = { xs[k], INTVAL(2) };
+            cmpfork(an2[w], af[w], nb, 2);
+        }
+        DESCR_t z = INTVAL(0);
+        DESCR_t bv2[] = { INTVAL(5), REALVAL(1.5), STRVAL("s"), NULVCL };
+        for (int b = 0; b < 4; b++) for (int cellv = 0; cellv < 2; cellv++) {
+            DESCR_t c1 = cellv ? rt_rk_box(&z, 1) : INTVAL(4), c2 = cellv ? rt_rk_box(&z, 1) : INTVAL(4);
+            DESCR_t p[2] = { c1, bv2[b] }, q[2] = { c2, bv2[b] };
+            DESCR_t d = rt_rk_byref_assign(p, 2), r = rt_call_arr_bl("__rk_byref_assign", q, 2, -1);
+            ncase++;
+            if (!same(d, r) || (cellv && !same(*(DESCR_t *) c1.ptr, *(DESCR_t *) c2.ptr))) { fails++; printf("  FAIL __rk_byref_assign value %d cell %d\n", b, cellv); }
+        }
     }
     printf("RTX DIRECT: %d cases, %d mismatches (the direct builtin entries against the by-name road)\n", ncase, fails);
     printf("RTX DIRECT UNIT: %s\n", fails ? "FAIL" : "PASS");

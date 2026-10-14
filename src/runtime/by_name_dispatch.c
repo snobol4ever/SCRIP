@@ -12096,6 +12096,65 @@ static void rk_arr_at_impl(DESCR_t *args, DESCR_t *out) {
 }
 DESCR_t rt_rk_arr_at(DESCR_t *args, int nargs) { DESCR_t out = NULVCL; (void) nargs; rk_arr_at_impl(args, &out); return out; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_param_ok(DESCR_t *args) { const char *ptype = VARVAL_fn(args[0]); return rt_mc_accepts(ptype ? ptype : "Any", args[1]); }
+DESCR_t rt_rk_param_check(DESCR_t *args, int nargs) { return nargs >= 2 && rk_param_ok(args) ? args[1] : rt_call_arr_bl("__param_check", args, nargs, -1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_assign_ok(DESCR_t *args) { return args[1].v == DT_SNUL || args[1].v == DT_FAIL || rk_type_isa(rk_value_type(args[1]), rk_cstr(args[0])); }
+DESCR_t rt_rk_assign_check(DESCR_t *args, int nargs) { return nargs == 4 && rk_assign_ok(args) ? args[1] : rt_call_arr_bl("__rk_assign_check", args, nargs, -1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_bindattr_impl(DESCR_t *args) {
+    extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
+    const char *an = VARVAL_fn(args[2]);
+    if (!an) an = "";
+    if (an[0] && (an[1] == '!' || an[1] == '.')) an += 2;
+    DESCR_t *cell = data_field_ptr(an, args[0]);
+    if (!cell) return FAILDESCR;
+    *cell = args[3];
+    return args[3];
+}
+DESCR_t rt_rk_bindattr(DESCR_t *args, int nargs) { (void) nargs; return rk_bindattr_impl(args); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_box_impl(DESCR_t *args) {
+    extern ARBLK_t *array_new(int lo, int hi);
+    ARBLK_t *bx = array_new(0, 0);
+    bx->data[0] = args[0];
+    return (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *) &bx->data[0] };
+}
+DESCR_t rt_rk_box(DESCR_t *args, int nargs) { (void) nargs; return rk_box_impl(args); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_blk_ref_impl(DESCR_t *args) { const char *bn = VARVAL_fn(args[0]); DESCR_t b = {0}; b.v = DT_BLK; b.slen = 0; b.s = (char *)(bn ? bn : ""); return b; }
+DESCR_t rt_rk_blk_ref(DESCR_t *args, int nargs) { (void) nargs; return rk_blk_ref_impl(args); }
+DESCR_t rt_rk_undef(DESCR_t *args, int nargs) { (void) args; (void) nargs; return NULVCL; }
+DESCR_t rt_rk_range_arr(DESCR_t *args, int nargs) { return rk_range_arr_make_fl(args[0], args[1], nargs == 3 ? (int) args[2].i : 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_iter_src_impl(DESCR_t *args, int nargs) {
+    extern ARBLK_t *array_new(int lo, int hi);
+    if (nargs && args[0].v == DT_A && args[0].arr) return args[0];
+    if (nargs && args[0].v == DT_T && args[0].tbl) return rk_hash_list(args[0], 'p');
+    rk_av_t a = { 0, NULL };
+    if (nargs) a = rk_av(args[0]);
+    ARBLK_t *b = array_new(0, a.n - 1);
+    for (int i = 0; i < a.n; i++) b->data[i] = a.el[i];
+    DESCR_t d = {0};
+    d.v = DT_A;
+    d.slen = 0;
+    d.arr = b;
+    return d;
+}
+DESCR_t rt_rk_iter_src(DESCR_t *args, int nargs) { return rk_iter_src_impl(args, nargs); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_append_ok(DESCR_t *args, int nargs) { return nargs == 2 && args[0].v == DT_A && args[0].arr; }
+static DESCR_t rk_append_impl(DESCR_t *args, int is_map) {
+    ARBLK_t *b = (ARBLK_t *) args[0].arr;
+    if (is_map && rk_is_slip(args[1])) { rk_av_t v = rk_av(args[1]); for (int i = 0; i < v.n; i++) rk_arr_append(b, v.el[i]); } else rk_arr_append(b, args[1]);
+    return args[0];
+}
+DESCR_t rt_rk_map_append(DESCR_t *args, int nargs) { return rk_append_ok(args, nargs) ? rk_append_impl(args, 1) : rt_call_arr_bl("__rk_map_append", args, nargs, -1); }
+DESCR_t rt_rk_grep_append(DESCR_t *args, int nargs) { return rk_append_ok(args, nargs) ? rk_append_impl(args, 0) : rt_call_arr_bl("__rk_grep_append", args, nargs, -1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_byref_assign_impl(DESCR_t *args) { if (args[0].v != DT_N) return args[1]; DESCR_t rv = rtx_try_rt_assign_var(args[0], args[1]); return IS_FAIL_fn(rv) ? args[1] : rv; }
+DESCR_t rt_rk_byref_assign(DESCR_t *args, int nargs) { (void) nargs; return rk_byref_assign_impl(args); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
     if (fn[0] == '_' && fn[1] == '_' && fn[2] == 'r' && fn[3] == 'k' && fn[4] == '_' && rk_fast_rat_builtin(fn, args, nargs, out)) return 1;
 #if RT_DIAG
@@ -12586,11 +12645,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "__rk_deref") && nargs == 1) { extern DESCR_t rt_deref(DESCR_t d); *out = rt_deref(args[0]); return 1; }
-    if (!strcmp(fn, "__rk_byref_assign") && nargs == 2) {
-        extern DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
-        if (args[0].v == DT_N) { DESCR_t rv = rtx_try_rt_assign_var(args[0], args[1]); *out = IS_FAIL_fn(rv) ? args[1] : rv; } else *out = args[1];
-        return 1;
-    }
+    if (!strcmp(fn, "__rk_byref_assign") && nargs == 2) { *out = rk_byref_assign_impl(args); return 1; }
     if (!strcmp(fn, "__rk_elem_ref") && nargs == 2) {
         extern ARBLK_t *array_new(int lo, int hi);
         DESCR_t c = args[0];
@@ -12622,13 +12677,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "__rk_cell_of") && nargs == 1 && rk_is_cell(args[0])) { *out = args[0]; return 1; }
-    if ((!strcmp(fn, "__rk_box") || !strcmp(fn, "__rk_cell_of")) && nargs == 1) {
-        extern ARBLK_t *array_new(int lo, int hi);
-        ARBLK_t *bx = array_new(0, 0);
-        bx->data[0] = args[0];
-        *out = (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *) &bx->data[0] };
-        return 1;
-    }
+    if ((!strcmp(fn, "__rk_box") || !strcmp(fn, "__rk_cell_of")) && nargs == 1) { *out = rk_box_impl(args); return 1; }
     if (!strcmp(fn, "__rk_seq_new") && (nargs == 1 || nargs == 2)) {
         DESCR_t sq = rk_mk_arr(NULL, 0);
         rk_arr_append((ARBLK_t *) sq.arr, args[0]);
@@ -12663,7 +12712,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "__rk_seq_stop") && nargs == 5) { *out = INTVAL(rk_seq_stop(args[0], args[1], (int) rk_ival(args[2]), (int) rk_ival(args[3]), (int) rk_ival(args[4]))); return 1; }
     if (!strcmp(fn, "__rk_seq_arity") && nargs == 1) { *out = INTVAL(rk_is_code(args[0]) ? rk_code_arity(args[0]) : 0); return 1; }
     if (!strcmp(fn, "__blk_close") && nargs >= 1) { DESCR_t cl = rk_mk_arr(args, nargs); ((ARBLK_t *) cl.arr)->proto = rk_proto_closure; *out = cl; return 1; }
-    if (!strcmp(fn, "__blk_ref") && nargs == 1) { const char *bn = VARVAL_fn(args[0]); DESCR_t b = {0}; b.v = DT_BLK; b.slen = 0; b.s = (char *)(bn ? bn : ""); *out = b; return 1; }
+    if (!strcmp(fn, "__blk_ref") && nargs == 1) { *out = rk_blk_ref_impl(args); return 1; }
     if (!strcmp(fn, "__blk_invoke") && nargs >= 1) {
         DESCR_t blk = args[0];
         if (!rk_is_code(blk)) { const char *vn = VARVAL_fn(blk); if (!vn || !*vn) { *out = FAILDESCR; return 1; } blk = (DESCR_t){ 0 }; blk.v = DT_BLK; blk.s = (char *) vn; }
@@ -12678,7 +12727,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (!ptype) ptype = "Any";
         const char *pname = (nargs >= 3) ? VARVAL_fn(args[2]) : "?";
         if (!pname) pname = "?";
-        if (!rt_mc_accepts(ptype, args[1])) {
+        if (!rk_param_ok(args)) {
             extern void rt_script_die_surface(const char *msg);
             char m[fmt_len("Type check failed in binding to parameter '$%s'; expected %s", pname, ptype)];
             snprintf(m, sizeof m, "Type check failed in binding to parameter '$%s'; expected %s", pname, ptype);
@@ -12779,9 +12828,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         const char *ty = rk_cstr(args[0]), *nm = rk_cstr(args[2]);
         DESCR_t v = args[1];
         *out = v;
-        if (v.v == DT_SNUL || v.v == DT_FAIL) return 1;
+        if (rk_assign_ok(args)) return 1;
         const char *vt = rk_value_type(v);
-        if (rk_type_isa(vt, ty)) return 1;
         rk_exc_init();
         const char *got = rk_raku_str(v, 0);
         int el = IS_INT_fn(args[3]) && args[3].i;
@@ -13360,27 +13408,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (args[0].v == DT_A && args[0].arr && !((ARBLK_t *) args[0].arr)->proto) *out = rk_unmark(*out);
         return 1;
     }
-    if (!strcmp(fn, "__rk_iter_src") && nargs <= 1) {
-        if (nargs && args[0].v == DT_A && args[0].arr) { *out = args[0]; return 1; }
-        if (nargs && args[0].v == DT_T && args[0].tbl) { *out = rk_hash_list(args[0], 'p'); return 1; }
-        extern ARBLK_t *array_new(int lo, int hi);
-        rk_av_t a = { 0, NULL };
-        if (nargs) a = rk_av(args[0]);
-        ARBLK_t *b = array_new(0, a.n - 1);
-        for (int i = 0; i < a.n; i++) b->data[i] = a.el[i];
-        DESCR_t d = {0};
-        d.v = DT_A;
-        d.slen = 0;
-        d.arr = b;
-        *out = d;
-        return 1;
-    }
-    if ((!strcmp(fn, "__rk_map_append") || !strcmp(fn, "__rk_grep_append")) && nargs == 2 && args[0].v == DT_A && args[0].arr) {
-        ARBLK_t *b = (ARBLK_t *) args[0].arr;
-        if (fn[5] == 'm' && rk_is_slip(args[1])) { rk_av_t v = rk_av(args[1]); for (int i = 0; i < v.n; i++) rk_arr_append(b, v.el[i]); } else rk_arr_append(b, args[1]);
-        *out = args[0];
-        return 1;
-    }
+    if (!strcmp(fn, "__rk_iter_src") && nargs <= 1) { *out = rk_iter_src_impl(args, nargs); return 1; }
+    if ((!strcmp(fn, "__rk_map_append") || !strcmp(fn, "__rk_grep_append")) && rk_append_ok(args, nargs)) { *out = rk_append_impl(args, fn[5] == 'm'); return 1; }
     if (!strcmp(fn, "__rk_sort_by_keys") && nargs == 2) {
         rk_av_t a = rk_av(args[0]), k = rk_av(args[1]);
         int n = a.n < k.n ? a.n : k.n, m = n ? n : 1;
@@ -14018,17 +14047,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = dat_construct_rq(dt, fvals, dt->nfields, rq);
         return 1;
     }
-    if (!strncmp(fn, "nqp::bindattr", 13) && nargs == 4 && (!fn[13] || !strcmp(fn + 13, "_n") || !strcmp(fn + 13, "_i") || !strcmp(fn + 13, "_s"))) {
-        extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
-        const char *an = VARVAL_fn(args[2]);
-        if (!an) an = "";
-        if (an[0] && (an[1] == '!' || an[1] == '.')) an += 2;
-        DESCR_t *cell = data_field_ptr(an, args[0]);
-        if (!cell) { *out = FAILDESCR; return 1; }
-        *cell = args[3];
-        *out = args[3];
-        return 1;
-    }
+    if (!strncmp(fn, "nqp::bindattr", 13) && nargs == 4 && (!fn[13] || !strcmp(fn + 13, "_n") || !strcmp(fn + 13, "_i") || !strcmp(fn + 13, "_s"))) { *out = rk_bindattr_impl(args); return 1; }
     if (!strcmp(fn, "obj_new") && nargs >= 1) {
         extern DESCR_t rk_attr_defaults(DatType *dt, DESCR_t inst);
         { const char *xc = VARVAL_fn(args[0]); if (xc && ((xc[0] == 'X' && xc[1] == ':') || !strcmp(xc, "Exception"))) rk_exc_init(); }

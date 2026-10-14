@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2737
-#define GC_ALLOC_TAB_N_VOID 321
-#define GC_ALLOC_TAB_N_DESCR 1306
-#define GC_ALLOC_TAB_N_OTHER 1093
+#define GC_ALLOC_TAB_N 2760
+#define GC_ALLOC_TAB_N_VOID 322
+#define GC_ALLOC_TAB_N_DESCR 1322
+#define GC_ALLOC_TAB_N_OTHER 1099
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1290,6 +1290,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_actions_plan", GC_RET_DESCR },
     { "rk_actions_plan_rec", GC_RET_VOID },
     { "rk_agg_truth", GC_RET_OTHER },
+    { "rk_append_impl", GC_RET_DESCR },
     { "rk_apply_actions", GC_RET_VOID },
     { "rk_arr_append", GC_RET_VOID },
     { "rk_arr_at_impl", GC_RET_VOID },
@@ -1298,6 +1299,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_arr_set_impl", GC_RET_VOID },
     { "rk_arr_store_in_place", GC_RET_OTHER },
     { "rk_arr_text", GC_RET_OTHER },
+    { "rk_assign_ok", GC_RET_OTHER },
     { "rk_attr_defaults", GC_RET_DESCR },
     { "rk_av", GC_RET_OTHER },
     { "rk_av_args", GC_RET_OTHER },
@@ -1305,8 +1307,12 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_av_joined", GC_RET_OTHER },
     { "rk_av_minmax", GC_RET_DESCR },
     { "rk_av_text", GC_RET_OTHER },
+    { "rk_bindattr_impl", GC_RET_DESCR },
+    { "rk_blk_ref_impl", GC_RET_DESCR },
     { "rk_block_cmp_d", GC_RET_OTHER },
+    { "rk_box_impl", GC_RET_DESCR },
     { "rk_box_match_build", GC_RET_VOID },
+    { "rk_byref_assign_impl", GC_RET_DESCR },
     { "rk_call_block", GC_RET_DESCR },
     { "rk_call_block_rq", GC_RET_DESCR },
     { "rk_call_snap", GC_RET_DESCR },
@@ -1381,6 +1387,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_is_truthy", GC_RET_OTHER },
     { "rk_item", GC_RET_OTHER },
     { "rk_item_count", GC_RET_OTHER },
+    { "rk_iter_src_impl", GC_RET_DESCR },
     { "rk_ival", GC_RET_OTHER },
     { "rk_jct_text", GC_RET_OTHER },
     { "rk_join_gists", GC_RET_OTHER },
@@ -1425,6 +1432,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_order_cmp_str", GC_RET_OTHER },
     { "rk_os_release", GC_RET_OTHER },
     { "rk_pair_text", GC_RET_OTHER },
+    { "rk_param_ok", GC_RET_OTHER },
     { "rk_pre_args", GC_RET_DESCR },
     { "rk_pre_env", GC_RET_DESCR },
     { "rk_pre_value", GC_RET_OTHER },
@@ -2517,7 +2525,18 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_relop_val_coerce", GC_RET_VOID },
     { "rt_rk_arr_at", GC_RET_DESCR },
     { "rt_rk_arr_set", GC_RET_DESCR },
+    { "rt_rk_assign_check", GC_RET_DESCR },
+    { "rt_rk_bindattr", GC_RET_DESCR },
+    { "rt_rk_blk_ref", GC_RET_DESCR },
+    { "rt_rk_box", GC_RET_DESCR },
+    { "rt_rk_byref_assign", GC_RET_DESCR },
     { "rt_rk_elem_put", GC_RET_DESCR },
+    { "rt_rk_grep_append", GC_RET_DESCR },
+    { "rt_rk_iter_src", GC_RET_DESCR },
+    { "rt_rk_map_append", GC_RET_DESCR },
+    { "rt_rk_param_check", GC_RET_DESCR },
+    { "rt_rk_range_arr", GC_RET_DESCR },
+    { "rt_sc_module_parse", GC_RET_OTHER },
     { "rt_scan_enter", GC_RET_OTHER },
     { "rt_scan_lit", GC_RET_OTHER },
     { "rt_scan_needle", GC_RET_OTHER },
@@ -2630,6 +2649,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rx_alloc0", GC_RET_OTHER },
     { "rx_compile", GC_RET_OTHER },
     { "rx_exec", GC_RET_OTHER },
+    { "sc_module_init", GC_RET_VOID },
     { "scrip_co_trace_term", GC_RET_VOID },
     { "scrip_co_trace_xmit", GC_RET_VOID },
     { "scrip_coexpr_activate", GC_RET_OTHER },
@@ -2654,6 +2674,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "sno_parse_ast", GC_RET_OTHER },
     { "sno_parse_ast_buf", GC_RET_OTHER },
     { "sno_parse_lexed", GC_RET_OTHER },
+    { "sno_parse_stage_buf", GC_RET_OTHER },
+    { "sno_parse_stage_file", GC_RET_OTHER },
+    { "sno_parse_stage_string", GC_RET_OTHER },
     { "sno_parse_string", GC_RET_OTHER },
     { "sno_parse_string_ast", GC_RET_OTHER },
     { "sno_pe_op", GC_RET_OTHER },
