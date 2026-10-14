@@ -34,6 +34,7 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 #include "sil_macros.h"
 #include "runtime_shim.h"
 #include "lower.h"
+#include "lower_snobol4.h"
 #include "emit.h"
 #include "bb_build.h"
 #include "scrip_sm.h"
@@ -254,7 +255,9 @@ typedef struct { const char **names; const char **pfx; int n, cap; } sc_qual_tab
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sc_qual_prefixed(const char *nm) { for (int i = 0; i < SC_QUAL_NPFX; i++) if (!strncmp(nm, sc_qual_pfx[i], strlen(sc_qual_pfx[i]))) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sc_qual_exempt_var(const char *nm) { return !strcmp(nm, "OUTPUT") || !strcmp(nm, "INPUT") || !strcmp(nm, "TERMINAL") || !strncmp(nm, "Mod", 3) || sc_qual_prefixed(nm); }
+static int sc_qual_exempt_var(const char *nm) {
+    return !strcmp(nm, "OUTPUT") || !strcmp(nm, "INPUT") || !strcmp(nm, "TERMINAL") || !strncmp(nm, "Mod", 3) || sc_qual_prefixed(nm) || sno_predef_pattern_name(nm);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_qual_tab_add(sc_qual_tab_t *t, const char *nm, const char *pfx) {
     for (int i = 0; i < t->n; i++) if (!strcmp(t->names[i], nm) && !strcmp(t->pfx[i], pfx)) return;
@@ -1966,11 +1969,12 @@ int main(int argc, char **argv) {
                     if (hit) { sno_add_include_dir(ct_strdup(probe)); rt_sc_include_dir_add(probe); }
                 }
                 snprintf(probe, sizeof probe, "%s/include", walk);
-                if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) { hit = 1; sno_add_include_dir(ct_strdup(probe)); }
-                if (hit) sno_add_include_dir(ct_strdup(walk));
+                if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) { hit = 1; sno_add_include_dir(ct_strdup(probe)); rt_sc_include_dir_add(probe); }
+                if (hit) { sno_add_include_dir(ct_strdup(walk)); rt_sc_include_dir_add(walk); }
                 p = strrchr(walk, '/');
             }
             sno_add_include_dir(".");
+            rt_sc_include_dir_add(".");
         }
         const char *dot = strrchr(input_path, '.');
         int lang_snocone = dot && strcasecmp(dot, ".sc") == 0;

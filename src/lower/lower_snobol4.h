@@ -4,4 +4,5 @@
 #include <stdio.h>
 struct tree_t;
 int tree_to_sno(const struct tree_t *ast, FILE *out);
+int sno_predef_pattern_name(const char *s);
 #endif

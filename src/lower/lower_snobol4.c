@@ -187,6 +187,12 @@ typedef struct { int code; const char * msg; } sno_pe_t;
 static int sno_pe_patname(const char * s) {
     return s && (!strcmp(s, "ARB") || !strcmp(s, "BAL") || !strcmp(s, "REM") || !strcmp(s, "FAIL") || !strcmp(s, "SUCCEED") || !strcmp(s, "ABORT") || !strcmp(s, "FENCE"));
 }
+static const char * const sno_predef_pat_names[] = { "ABORT", "ARB", "BAL", "FAIL", "FENCE", "FLUSH", "REM", "SUCCEED" };
+int sno_predef_pattern_name(const char * s) {
+    if (!s) return 0;
+    for (size_t i = 0; i < sizeof sno_predef_pat_names / sizeof sno_predef_pat_names[0]; i++) if (!strcmp(s, sno_predef_pat_names[i])) return 1;
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pe_csetcode(tree_e k) { return k == TT_ANY ? 59 : k == TT_NOTANY ? 151 : k == TT_SPAN ? 188 : k == TT_BREAK ? 69 : k == TT_BREAKX ? 70 : 0; }
 static int sno_pe_patfn(tree_e k) {
