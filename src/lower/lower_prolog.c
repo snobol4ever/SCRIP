@@ -4575,7 +4575,7 @@ static tree_t * pl_dot_goal(const tree_t * g, int * next) {
     for (int i = ev.n - 1; i >= 0; i--) c = pl_cc_fnc2(",", ((tree_t **) ev.data)[i], c);
     return c;
 }
-static tree_t * pl_dict_clause(const tree_t * cl) {
+static tree_t * pl_dict_clause(const tree_t * cl, int goal_arg) {
     if (!cl || cl->t != TT_CLAUSE || !pl_dict_any(cl)) return (tree_t *) cl;
     tree_t * k = pl_dict_canon(cl);
     int ar = (int) cl->v.dval;
@@ -4587,7 +4587,7 @@ static tree_t * pl_dict_clause(const tree_t * cl) {
     nc->line = cl->line;
     lc_vec hev;
     lc_vec_init(&hev, (int) sizeof(tree_t *));
-    for (int i = 0; i < ar; i++) ast_push(nc, pl_dot_take(k->c[i], &hev, &next));
+    for (int i = 0; i < ar; i++) ast_push(nc, i == goal_arg ? pl_dot_goal(k->c[i], &next) : pl_dot_take(k->c[i], &hev, &next));
     for (int i = 0; i < hev.n; i++) ast_push(nc, ((tree_t **) hev.data)[i]);
     for (int i = ar; i < k->n; i++) {
         const tree_t * g = k->c[i];
@@ -4616,8 +4616,9 @@ static const tree_t * pl_dict_rewrite(const tree_t * prog) {
             ns = ast_node_new(TT_CHOICE);
             ns->v = subj->v;
             ns->line = subj->line;
-            for (int k = 0; k < subj->n; k++) ast_push(ns, pl_dict_clause(subj->c[k]));
-        } else if (subj->t == TT_CLAUSE) ns = pl_dict_clause(subj);
+            int ga = subj->v.sval && !strcmp(subj->v.sval, "pj_test/4") ? 3 : -1;
+            for (int k = 0; k < subj->n; k++) ast_push(ns, pl_dict_clause(subj->c[k], ga));
+        } else if (subj->t == TT_CLAUSE) ns = pl_dict_clause(subj, subj->v.sval && !strcmp(subj->v.sval, "pj_test/4") ? 3 : -1);
         else { int next = -1; ns = pl_dot_goal(pl_dict_canon(subj), &next); }
         ast_push(np, pl_table_stmt(s, ns));
     }
