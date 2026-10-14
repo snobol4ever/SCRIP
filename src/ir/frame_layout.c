@@ -2127,6 +2127,44 @@ int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int fl_icn_op_keeps_pin(const IR_t * c) {
+    switch ((int)c->op) {
+        case IR_SUSPEND:
+        case IR_PROC_GEN:
+        case IR_CREATE:
+        case IR_ACTIVATE:
+        case IR_CORET:
+        case IR_COFAIL:
+        case IR_CALL_VALUE:
+        case IR_SCAN:
+        case IR_SCAN_ENTER:
+        case IR_SCAN_ALTERNATE:
+        case IR_SCAN_SEQUENCE:
+        case IR_SCAN_UPTO:
+        case IR_SCAN_FIND:
+        case IR_SCAN_MANY:
+        case IR_SCAN_ANY:
+        case IR_SCAN_BAL:
+        case IR_SCAN_MATCH:
+        case IR_SCAN_MOVE:
+        case IR_SCAN_TAB:
+        case IR_SCAN_POS:
+        case IR_REV_ASSIGN:
+        case IR_REV_ASSIGN_VAR:
+        case IR_REV_SWAP:
+        case IR_CUT:
+        case IR_GATE:
+        case IR_MATCH:
+        return 1;
+        case IR_CALL:
+        case IR_CALL_ICON:
+        case IR_CALL_PROC_STAGED:
+        return zls_callee_is_gen(c);
+        default:
+        return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fl_derive_tier(IR_graph_t * g) {
     if (!g || !g->all) return;
     int window = 0, callee = 0, statements = 0, resumed = 0, matchers = 0, others = 0;
@@ -2242,7 +2280,7 @@ void fl_derive_tier(IR_graph_t * g) {
             break;
         }
     }
-    if (g->icn_cells_graph) { g->zframe_pinned_base = (window || callee) ? 1 : 0; return; }
+    if (g->icn_cells_graph) { int keep = 0; for (int i = 0; i < g->n && !keep; i++) if (g->all[i] && fl_icn_op_keeps_pin(g->all[i])) keep = 1; g->zframe_pinned_base = keep; return; }
     if (statements || (matchers > 0 && others == 0)) return;
     if (g->root_graph) { g->zframe_graph = 1; g->zframe_pinned_base = 1; return; }
     int host = (window || callee) ? 1 : 0;
