@@ -13,7 +13,7 @@ graph of every program it is pointed at and reports every word the table does NO
   overlap           a byte two fields of one scope both claim (two kinds for one word)
   vslot-unmapped    a named variable slot (vslot) not covered by exactly one field
   provisional-kind  a field printed with `(audit)` -- a kind nobody verified against the template
-  unknown-kind      a kind name outside the four the enum defines
+  unknown-kind      a kind name outside the ZK_ enum of src/ir/frame_layout.h (read from it, never a copied list)
 
 WHAT IT DOES NOT SEE, SAID HERE SO NOBODY READS A CLEAN CENSUS AS A CLEAN FRAME: the emitter's wire header
 beyond region_end (the saved gamma/omega continuations and the saved rsp the prologue stores, 48 or 80 bytes;
@@ -75,7 +75,25 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-KINDS = {"DESCR", "RAW", "PTR_GC", "PTR_CODE", "PTR_FRAME"}
+FRAME_LAYOUT_H = HERE.parent / "src" / "ir" / "frame_layout.h"
+
+
+def kinds_of_the_enum():
+    """The kind names the ZK_ enum defines, read from frame_layout.h so a kind added there is known here the same landing
+    (a hard-coded set went stale at 50f4604e6: ZK_PTR_FRAME_H = 5 read as unknown-kind on a Raku generator graph, hq_raku
+    2026-10-14, CEO-1697).  An enum this cannot read REFUSES rc=2: an empty set would call every field a hole."""
+    try:
+        text = FRAME_LAYOUT_H.read_text()
+    except OSError as e:
+        print(f"REFUSE(2): cannot read the ZK_ enum in {FRAME_LAYOUT_H}: {e}", file=sys.stderr); sys.exit(2)
+    m = re.search(r"enum\s*\{([^}]*\bZK_DESCR\b[^}]*)\}", text)
+    names = set(re.findall(r"\bZK_([A-Z_]+)\s*=", m.group(1))) if m else set()
+    if not {"DESCR", "RAW"} <= names:
+        print(f"REFUSE(2): no ZK_ enum with DESCR and RAW found in {FRAME_LAYOUT_H}", file=sys.stderr); sys.exit(2)
+    return names
+
+
+KINDS = kinds_of_the_enum()
 RE_GRAPH = re.compile(r"^; graph (\d+) '(.*)' \S+ slots=(\d+) region_end=(\d+) resume=(-?\d+) vslots=(\d+) scopes=(\d+)")
 RE_SCOPE = re.compile(r"^;   scope (\d+)\s+(\S+)\s+(\S+)\s+parent=(-?\d+)\s+(?:\[(\d+)\.\.(\d+)\)|\(no frame fields\))")
 RE_FIELD = re.compile(r"^;     \+(\d+)\s+(\d+)\s+(\S+)\s+(.*?)\s*$")
