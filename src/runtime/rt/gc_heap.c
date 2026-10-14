@@ -494,6 +494,40 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes) {
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define GC_RET_VOID 0
+#define GC_RET_DESCR 1
+#define GC_RET_OTHER 2
+#define GC_RET_UNKNOWN 3
+#include "../../templates/x86/gc_allocating_table.inc"
+typedef struct { uint64_t r[8]; uint64_t callee; int hit; } rt_uw_caller_t;
+static _Unwind_Reason_Code rt_uw_caller_step(struct _Unwind_Context *c, void *a) {
+    extern void rt_icn_line_of_pc(uint64_t pc, long *line, const char **file);
+    rt_uw_caller_t *u = (rt_uw_caller_t *)a;
+    uint64_t ip = (uint64_t)_Unwind_GetIP(c);
+    long line = 0;
+    const char *file = (const char *)0;
+    if (ip) rt_icn_line_of_pc(ip, &line, &file);
+    if (line <= 0) { u->callee = (uint64_t)_Unwind_GetRegionStart(c); return _URC_NO_REASON; }
+    u->r[0] = ip;
+    u->r[1] = (uint64_t)_Unwind_GetCFA(c);
+    u->r[2] = (uint64_t)_Unwind_GetGR(c, 3);
+    u->r[3] = (uint64_t)_Unwind_GetGR(c, 6);
+    for (int k = 0; k < 4; k++) u->r[4 + k] = (uint64_t)_Unwind_GetGR(c, 12 + k);
+    u->hit = 1;
+    return _URC_END_OF_STACK;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_emitted_caller_of_descr_call(uint64_t r[8]) {
+    extern int rtx_entry_is(const char *sym);
+    rt_uw_caller_t u;
+    Dl_info di;
+    memset(&u, 0, sizeof u);
+    _Unwind_Backtrace(rt_uw_caller_step, &u);
+    if (!u.hit || !u.callee || !dladdr((void *)(uintptr_t)u.callee, &di) || !di.dli_sname || rtx_entry_is(di.dli_sname)) return 0;
+    for (int i = 0; i < GC_ALLOC_TAB_N; i++) if (!strcmp(GC_ALLOC_TAB[i].n, di.dli_sname)) { if (GC_ALLOC_TAB[i].rc != GC_RET_DESCR) return 0; memcpy(r, u.r, sizeof u.r); return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *c_rt_str_alloc(long n) {
 #if RT_DIAG
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)DT_S, 0);

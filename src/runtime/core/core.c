@@ -2428,13 +2428,24 @@ void sno_setexit_fire_on_end(void) {
     _setexit_resume = outer;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+__asm__( ".text\n" ".globl rt_return_to_emitted\n" ".type rt_return_to_emitted,@function\n" "rt_return_to_emitted:\n" "  movq 16(%rdi), %rbx\n" "  movq 24(%rdi), %rbp\n" "  movq 32(%rdi), %r12\n"
+    "  movq 40(%rdi), %r13\n" "  movq 48(%rdi), %r14\n" "  movq 56(%rdi), %r15\n" "  movq 64(%rdi), %rax\n" "  movq 72(%rdi), %rdx\n" "  movq 0(%rdi), %rcx\n" "  movq 8(%rdi), %rsp\n"
+    "  movq rtccb@GOTPCREL(%rip), %r9\n" "  movq 48(%r9), %r9\n" "  jmp *%rcx\n" );
+void rt_setexit_abort(void);
 void rt_setexit_fire_now(void) {
     extern uint64_t rtccb[32];
-    void (*fn)(void) = (void (*)(void))(uintptr_t)rtccb[25];
-    if (!fn) return;
-    rtccb[25] = 0;
-    { extern DESCR_t rt_c2bb_bomb(const char *, const char *); (void)fn; (void)rt_c2bb_bomb("rt_setexit_fire_now", "the SETEXIT handler after an out-of-memory or code-pool error"); }
-    exit(0);
+    extern int rt_emitted_caller_of_descr_call(uint64_t r[8]);
+    extern void rt_return_to_emitted(const uint64_t *r) __attribute__((noreturn));
+    extern void rt_eval_unwind_to(const void *);
+    uint64_t r[10];
+    DESCR_t f = FAILDESCR;
+    _Static_assert(sizeof(DESCR_t) == 16, "the FAIL answer rides rax:rdx as two quads");
+    if (!rtccb[25]) return;
+    if (!rt_emitted_caller_of_descr_call(r)) { rtccb[25] = 0; rt_setexit_abort(); }
+    while (g_core_errjmp_stk && (uint64_t)(uintptr_t)g_core_errjmp_stk < r[1]) { g_core_errjmp_stk = g_core_errjmp_stk->prev; g_core_errjmp_n--; }
+    rt_eval_unwind_to((const void *)(uintptr_t)r[1]);
+    memcpy(&r[8], &f, sizeof f);
+    rt_return_to_emitted(r);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_setexit_abort(void) {
