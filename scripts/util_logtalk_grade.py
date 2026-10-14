@@ -126,9 +126,11 @@ EXCLUDED_CLASSES = {
     # structure no declared heap holds, and expects a representation_error where an engine raises resource_error (the cfo, 4f612be5d).
     "BOUNDED_MAX_ARITY_ONLY": "a condition(...) that holds only where max_arity is not unbounded, written for a system whose max_arity is small",
     # Lon via the ceo, CEO-1696 (2026-10-11, RULES.md section Oracles): "Exclude any program in which we have no way to get output from an
-    # oracle, or in which we do not know the answer." The evidence checked on the case: its goal calls a Logtalk SYSTEM predicate
-    # (LOGTALK_SYSTEM below), which the oracle answers with existence_error -- no oracle answers the case.
-    "NO_ORACLE_ANSWER": "no oracle answers the case: its goal calls a Logtalk system predicate (logtalk_compile, logtalk_load, ...) no Prolog oracle has",
+    # oracle, or in which we do not know the answer." The evidence checked on the case, either form: its goal calls a Logtalk SYSTEM
+    # predicate (LOGTALK_SYSTEM below), which the oracle answers with existence_error; or (ceo CEO-1697) it builds a term by functor/3
+    # with an arity literal of 20 or more digits (beyond 2^64) -- unbounded's functor_01/02 and arg_02/03 assert that a term of arity
+    # ~1.8e45 is built, and swipl, whose max_arity is unbounded, raises representation_error(size_t): no run reproduces the answer.
+    "NO_ORACLE_ANSWER": "no oracle answers the case: its goal calls a Logtalk system predicate no Prolog oracle has, or builds a term of an arity beyond 2^64 that no run builds",
 }
 
 
@@ -159,7 +161,8 @@ def _dotless_float_read(case):
 
 
 def _no_oracle_answer(case):
-    return any(k in LOGTALK_SYSTEM for k in called_predicates(case.goal or ""))
+    g = case.goal or ""
+    return any(k in LOGTALK_SYSTEM for k in called_predicates(g)) or bool(re.search(r"(?<![A-Za-z0-9_])functor\s*\([^()]*,\s*\d{20,}\s*\)", g))
 
 
 def _bounded_max_arity_only(case):
@@ -1030,8 +1033,8 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
                 continue
             if xr is not None and xr[0] == "NO_ORACLE_ANSWER":
                 if not _no_oracle_answer(c):
-                    exerr.append((xk, "is excluded NO_ORACLE_ANSWER and its goal %r calls no Logtalk system predicate -- the row is "
-                                      "stale or names the wrong case" % ((c.goal or "")[:80],)))
+                    exerr.append((xk, "is excluded NO_ORACLE_ANSWER and its goal %r neither calls a Logtalk system predicate nor builds a "
+                                      "term of an arity beyond 2^64 -- the row is stale or names the wrong case" % ((c.goal or "")[:80],)))
                     continue
                 excl_hits.append((xk, xr[0], xr[1]))
                 continue
