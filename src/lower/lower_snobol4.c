@@ -843,6 +843,13 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 const char * fname = fn->v.sval;
                 int argbase = 0;
                 if (!fname && fn->n > 0 && fn->c[0] && fn->c[0]->t == TT_VAR) { fname = fn->c[0]->v.sval; argbase = 1; }
+                if (fname && !strcmp(fname, "ITEM") && (fn->n - argbase) >= 2) {
+                    IR_t * vr = NULL;
+                    IR_t * entry = sx_subscript_lv(cx, fn->c[argbase], (const tree_t * const *) &fn->c[argbase + 1], fn->n - argbase - 1, ω, &vr);
+                    if (γ) lc_γ_to(vr, γ);
+                    if (res) *res = vr;
+                    return entry;
+                }
                 extern int rt_dat_field_of_any(const char *);
                 if (fname && (fn->n - argbase) == 1 && rt_dat_field_of_any(fname)) {
                     IR_t * br = NULL;
