@@ -730,6 +730,7 @@ test_gate_pl_gnu_expand_term_and_phrase_translate_dcg_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_fd_spelling_answers_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_get_print_stream_inside_portray_answers_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_global_variables_answer_as_gprolog_and_b_setval_links_as_swipl.sh	WIRED	-	-	-
+test_gate_pl_gnu_leash_spy_and_the_debugger_mode_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_linedit_prompt_and_completion_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_popen_exec_wait_and_create_pipe_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_predicate_property_and_current_predicate_answer_as_gprolog.sh	WIRED	-	-	-

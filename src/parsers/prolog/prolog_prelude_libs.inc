@@ -13002,6 +13002,13 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "set_linedit_prompt", 1 },
     { "add_linedit_completion", 1 },
     { "find_linedit_completion", 2 },
+    { "leash", 1 },
+    { "spy", 1 },
+    { "nospy", 1 },
+    { "nospyall", 0 },
+    { "spypoint_condition", 3 },
+    { "debugging", 0 },
+    { "notrace", 0 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
@@ -13020,6 +13027,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "current_atom", 0 },
     { "current_bip_name", 0 },
     { "date_time", 0 },
+    { "debugging", 0 },
     { "delete_directory", 0 },
     { "display_to_atom", 0 },
     { "display_to_chars", 0 },
@@ -13037,6 +13045,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "get_print_stream", 0 },
     { "host_name", 0 },
     { "is_absolute_file_name", 0 },
+    { "leash", 0 },
     { "list_or_partial_list", 0 },
     { "lower_upper", 0 },
     { "name_query_vars", 0 },
@@ -13044,6 +13053,9 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "new_atom", 0 },
     { "non_fd_var", 0 },
     { "non_generic_var", 0 },
+    { "nospy", 0 },
+    { "nospyall", 0 },
+    { "notrace", 0 },
     { "number_atom", 0 },
     { "os_version", 0 },
     { "partial_list", 0 },
@@ -13071,6 +13083,8 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "shell", 0 },
     { "sleep", 0 },
     { "spawn", 0 },
+    { "spy", 0 },
+    { "spypoint_condition", 0 },
     { "syntax_error_info", 0 },
     { "system", 0 },
     { "system_time", 0 },
@@ -13439,7 +13453,69 @@ static const char PL_PRELUDE_LIB_11_SRC[] =
     "'$gnu_b_ia'(A, PI) :- \\+ atom(A), !, throw(error(type_error(atom, A), PI)).\n"
     "'$gnu_b_ia'(_, _).\n"
     "'$gnu_b_wordcs'([]).\n"
-    "'$gnu_b_wordcs'([C|Cs]) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C >= 0'0, C =< 0'9 ; C =:= 0'_ ), !, '$gnu_b_wordcs'(Cs).\n";
+    "'$gnu_b_wordcs'([C|Cs]) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C >= 0'0, C =< 0'9 ; C =:= 0'_ ), !, '$gnu_b_wordcs'(Cs).\n"
+    "notrace :- nodebug.\n"
+    "leash(L) :- var(L), !, throw(error(instantiation_error, leash/1)).\n"
+    "leash(full) :- !, leash([call, exit, redo, fail, exception]).\n"
+    "leash(half) :- !, leash([call, redo]).\n"
+    "leash(loose) :- !, leash([call]).\n"
+    "leash(none) :- !, leash([]).\n"
+    "leash(tight) :- !, leash([call, redo, fail, exception]).\n"
+    "leash(L) :- '$gnu_b_lmask'(L, M), !, nb_setval('$gnu_b_leash', M), '$gnu_b_show_leash'.\n"
+    "leash(L) :- throw(error(domain_error(leash_ports, L), leash/1)).\n"
+    "'$gnu_b_lmask'([], 0).\n"
+    "'$gnu_b_lmask'([P|L], M1) :- '$gnu_b_lmask'(L, M), '$gnu_b_port'(P, B), M1 is M \\/ B.\n"
+    "'$gnu_b_port'(call, 1).\n"
+    "'$gnu_b_port'(exit, 2).\n"
+    "'$gnu_b_port'(redo, 4).\n"
+    "'$gnu_b_port'(fail, 8).\n"
+    "'$gnu_b_port'(exception, 16).\n"
+    "'$gnu_b_show_leash' :- ( nb_current('$gnu_b_leash', M) -> true ; M = 31 ),\n"
+    "    ( M =:= 0 -> write(user_output, 'No leashing')\n"
+    "    ; write(user_output, 'Using leashing stopping at '), findall(P, ( '$gnu_b_port'(P, B), M /\\ B > 0 ), Ps), '$gnu_b_ports'(Ps, 0'[), write(user_output, '] ports') ),\n"
+    "    nl(user_output).\n"
+    "'$gnu_b_ports'([], _).\n"
+    "'$gnu_b_ports'([P|Ps], C) :- format(user_output, '~c~a', [C, P]), '$gnu_b_ports'(Ps, 0',).\n"
+    "'$gnu_b_show_mode' :- ( current_prolog_flag(debug, on) -> write(user_output, 'The debugger will first leap -- showing spypoints (debug)') ; write(user_output, 'The debugger is switched off') ), nl(user_output).\n"
+    "debugging :- '$gnu_b_show_mode', '$gnu_b_show_leash', current_prolog_flag(unknown, A), write(user_output, 'Undefined predicates will '),\n"
+    "    ( A == error -> write(user_output, 'raise an existence_error') ; A == warning -> write(user_output, 'display a warning message and fail') ; write(user_output, fail) ), nl(user_output),\n"
+    "    write(user_output, 'Spypoints:'), nl(user_output), '$gnu_b_spies'(S), forall(member(N/Ar, S), format(user_output, '   ~a/~d~n', [N, Ar])).\n"
+    "'$gnu_b_spies'(S) :- ( nb_current('$gnu_b_spy', S) -> true ; S = [] ).\n"
+    "spy(Spec) :- '$gnu_b_preds'(Spec, spy/1, L), '$gnu_b_spy_set'(L), L \\== [], current_prolog_flag(debug, off), debug, fail.\n"
+    "spy(_).\n"
+    "nospy(Spec) :- '$gnu_b_preds'(Spec, nospy/1, L), '$gnu_b_spy_reset'(L), fail.\n"
+    "nospy(_).\n"
+    "nospyall :- nb_setval('$gnu_b_spy', []), write(user_output, 'All spypoints removed'), nl(user_output).\n"
+    "spypoint_condition(G, _, _) :- var(G), !, throw(error(instantiation_error, spypoint_condition/3)).\n"
+    "spypoint_condition(G, P, T) :- callable(G), !, '$gnu_b_spc'(G, P, T).\n"
+    "spypoint_condition(G, _, _) :- throw(error(type_error(callable, G), spypoint_condition/3)).\n"
+    "'$gnu_b_spc'(G, _, _) :- functor(G, N, A),\n"
+    "    ( current_predicate(N/A) -> '$gnu_b_spy_set'([N/A]), current_prolog_flag(debug, off), debug ; format(user_output, 'Warning: The predicate ~a/~d is undefined~n', [N, A]) ), fail.\n"
+    "'$gnu_b_spc'(_, _, _).\n"
+    "'$gnu_b_spy_set'([]).\n"
+    "'$gnu_b_spy_set'([N/A|L]) :- '$gnu_b_spies'(S), ( select(N/A, S, S1) -> Msg = 'There is already a spypoint on' ; S1 = S, Msg = 'Spypoint placed on' ), append(S1, [N/A], S2),\n"
+    "    nb_setval('$gnu_b_spy', S2), format(user_output, '~a ~a/~d~n', [Msg, N, A]), '$gnu_b_spy_set'(L).\n"
+    "'$gnu_b_spy_reset'([]).\n"
+    "'$gnu_b_spy_reset'([N/A|L]) :- '$gnu_b_spies'(S), ( select(N/A, S, S1) -> Msg = 'Spypoint removed from' ; S1 = S, Msg = 'There is no spypoint on' ),\n"
+    "    nb_setval('$gnu_b_spy', S1), format(user_output, '~a ~a/~d~n', [Msg, N, A]), '$gnu_b_spy_reset'(L).\n"
+    "'$gnu_b_preds'(Spec, PI, _) :- var(Spec), !, throw(error(instantiation_error, PI)).\n"
+    "'$gnu_b_preds'([], _, []) :- !.\n"
+    "'$gnu_b_preds'([S1|S2], PI, L) :- !, '$gnu_b_preds'(S1, PI, L1), '$gnu_b_preds'(S2, PI, L2), append(L1, L2, L).\n"
+    "'$gnu_b_preds'(N/A1-A2, PI, L) :- !, '$gnu_b_preds1'(N, A1, A2, PI, L).\n"
+    "'$gnu_b_preds'(N, PI, L) :- atom(N), !, current_prolog_flag(max_arity, Max), '$gnu_b_preds1'(N, 0, Max, PI, L).\n"
+    "'$gnu_b_preds'(S, PI, L) :- '$gnu_b_pi'(S, PI, N, A), '$gnu_b_preds1'(N, A, A, PI, L).\n"
+    "'$gnu_b_pi'(S, PI, _, _) :- S \\= _/_, !, throw(error(type_error(predicate_indicator, S), PI)).\n"
+    "'$gnu_b_pi'(N/_, PI, _, _) :- var(N), !, throw(error(instantiation_error, PI)).\n"
+    "'$gnu_b_pi'(_/A, PI, _, _) :- var(A), !, throw(error(instantiation_error, PI)).\n"
+    "'$gnu_b_pi'(N/_, PI, _, _) :- \\+ atom(N), !, throw(error(type_error(atom, N), PI)).\n"
+    "'$gnu_b_pi'(_/A, PI, _, _) :- \\+ integer(A), !, throw(error(type_error(integer, A), PI)).\n"
+    "'$gnu_b_pi'(_/A, PI, _, _) :- A < 0, !, throw(error(domain_error(not_less_than_zero, A), PI)).\n"
+    "'$gnu_b_pi'(N/A, _, N, A).\n"
+    "'$gnu_b_preds1'(N, A1, A2, PI, _) :- ( var(N) ; var(A1) ; var(A2) ), !, throw(error(instantiation_error, PI)).\n"
+    "'$gnu_b_preds1'(N, A1, A2, _, L) :- atom(N), current_prolog_flag(max_arity, Max), integer(A1), integer(A2), A1 >= 0, A1 =< Max, A2 >= 0, A2 =< Max,\n"
+    "    findall(Ln-(N/A), ( current_predicate(N/A), A >= A1, A =< A2, functor(H, N, A), ( predicate_property(H, prolog_line(Ln)) -> true ; Ln = 0 ) ), K0), keysort(K0, K1),\n"
+    "    findall(P, member(_-P, K1), L0), reverse(L0, L),\n"
+    "    ( L == [] -> ( A1 == A2 -> Z = A1 ; A1 =:= 0, A2 =:= Max -> Z = any ; Z = A1-A2 ), format(user_output, 'Warning: spy ~a/~w - no matching predicate~n', [N, Z]) ; true ).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },
