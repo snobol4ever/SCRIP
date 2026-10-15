@@ -3917,8 +3917,8 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             if (!zon[i] || nodes[i]->op != IR_UNMARK || nodes[i]->n_operands < 1) continue;
             int b = nidx(nodes, n, nodes[i]->operands[0]);
             if (b < 0 || !zon[b] || zd_unmark_acts(nodes[i]) > 0) continue;
-            if (zchn[2 * i] < 0) zgpop[i] = zout[i] - zout[b];
-            if (zchn[2 * i + 1] < 0) zwpop[i] = zout[i] - zout[b];
+            if (zchn[2 * i] < 0) { zgpop[i] = zout[i] - zout[b]; zchn[2 * i + 1] = b; zwpop[i] = 0; }
+            else if (zchn[2 * i + 1] < 0) zwpop[i] = zout[i] - zout[b];
             if (zchn[2 * i] < 0) {
                 IR_t * t = zd_chase(nodes[i]->γ.node);
                 int g4 = 0;
