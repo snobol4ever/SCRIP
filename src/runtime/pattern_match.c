@@ -29,6 +29,7 @@ void pm_lf_type_invalidate(void) { g_lf_type = (DATBLK_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pm_lf_type_is(DATBLK_t *t) { if (!t) return 0; if (t == g_lf_type) return 1; if (t->nfields < 3 || !t->fields[0] || strcmp(t->fields[0], "frame_elems") != 0) return 0; g_lf_type = t; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline DESCR_t *pm_nil_elems(void) { static DESCR_t nil[1]; return nil; }
 static inline int rt_list_view(DESCR_t o, DESCR_t **elems, int *n) {
     if (!IS_DATA_INST_fn(o) || !o.u) return 0;
     DATBLK_t *t = o.u->type;
@@ -37,7 +38,7 @@ static inline int rt_list_view(DESCR_t o, DESCR_t **elems, int *n) {
     if (gt.v != DT_S || !gt.s) return 0;
     if (!(gt.s[0] == 'l' && gt.s[1] == 'i' && gt.s[2] == 's' && gt.s[3] == 't' && gt.s[4] == '\0')) return 0;
     DESCR_t ea = o.u->fields[0];
-    *elems = IS_DATA_ELEMS_fn(ea) ? (DESCR_t *)ea.ptr : NULL;
+    *elems = IS_DATA_ELEMS_fn(ea) ? (ea.ptr ? (DESCR_t *)ea.ptr : pm_nil_elems()) : NULL;
     *n = (int)o.u->fields[1].i;
     return 1;
 }
