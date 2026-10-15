@@ -149,6 +149,7 @@ static int plc_op_is_postfix(const char *name) { return name ? plc_op_is_postfix
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_is_nil(pl_cell_t *d) { extern int ATOM_NIL; if ((int)d->v == DT_PLATOM) return (int)d->i == ATOM_NIL; if ((int)d->v == DT_S) return d->s && strcmp(d->s, "[]") == 0; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_u8_get(const char *s, int *adv);
 static int plc_atom_needs_quoting(const char *name) {
     static const char *const graphic = "#$&*+-./:<=>?@\\^~";
     if (!name || !name[0]) return 1;
@@ -168,8 +169,19 @@ static int plc_atom_needs_quoting(const char *name) {
         if (k == 1) return 1;
     }
     {
+        extern int prolog_u_letter(const char *, int *);
         int all_graphic = 1;
-        for (const char *q = name; *q; q++) if (!strchr(graphic, *q)) { all_graphic = 0; break; }
+        for (const char *q = name; *q; ) {
+            int adv = 1, cp;
+            if ((unsigned char)*q < 0x80) { if (!strchr(graphic, *q)) { all_graphic = 0; break; } q++; continue; }
+            if (prolog_u_letter(q, &adv) ||
+                (cp = rt_pl_u8_get(q, &adv), cp < 0xA0 || cp == 0xA0 || cp == 0x1680 || (cp >= 0x2000 && cp <= 0x200A) || cp == 0x2028 || cp == 0x2029 || cp == 0x202F || cp == 0x205F || cp == 0x3000))
+                {
+                all_graphic = 0;
+                break;
+            }
+            q += adv;
+        }
         if (all_graphic) { if (!strcmp(name, ".")) return 1; if (name[0] == '/' && name[1] == '*') return 1; return 0; }
     }
     return 1;

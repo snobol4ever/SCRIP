@@ -141,6 +141,7 @@ int prolog_escape_bytes(const char *raw, char *out, int cap) {
     sb_utf8(&lx, code); n = lx.slen < cap ? lx.slen : cap; memcpy(out, buf, (size_t)n); return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int lx_u_space(int cp) { return cp == 0xA0 || cp == 0x1680 || (cp >= 0x2000 && cp <= 0x200A) || cp == 0x2028 || cp == 0x2029 || cp == 0x202F || cp == 0x205F || cp == 0x3000; }
 int prolog_u_letter(const char *s, int *adv) {
     const unsigned char *u = (const unsigned char *)s; int cp, n;
     if (u[0] < 0x80) { *adv = 1; return 0; }
@@ -206,6 +207,9 @@ S_HI:
     uk = prolog_u_letter(p, &n);
     if (uk == 1)                                                     {  ADV(n);                                                                goto S_VAR;         }
     if (uk == 2)                                                     {  ADV(n);                                                                goto S_WORD;        }
+                                                                     {  n = u8_decode((const unsigned char *)p, &code);                        }
+    if (n > 1 && lx_u_space(code))                                   {  ADV(n);                                                                goto S_START;       }
+    if (n > 1 && code >= 0xA0)                                       {  ADV(n);                                                                goto S_GRAPHIC;     }
                                                                      {  ADV(1);                                                                goto LX_UNEXPECTED; }
 S_LCOMMENT:
     if (PEEK(0) == '\0')                                                                                                                       goto S_START;
@@ -297,11 +301,13 @@ S_QUOTED:
                                                                         if (st < 0) { SYNC(); return err_tok(line, kind == TK_ATOM ? "invalid escape sequence in quoted atom"
                                                                                                                                          : "invalid escape sequence in double-quoted token"); }
                                                                                                                                                goto S_QUOTED;      }
-    if (PEEK(0) == '\n' || (PEEK(0) == '\t' && lx->iso))           {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unescaped layout character in quoted atom"
+    if ((PEEK(0) == '\n' && !lx->swi) || (PEEK(0) == '\t' && lx->iso)) {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unescaped layout character in quoted atom"
                                                                                                                     : "unescaped layout character in double-quoted token"); }
-                                                                     {  sb_put(lx, PEEK(0)); ADV(1);                                           goto S_QUOTED;      }
+                                                                     {  if (PEEK(0) == '\n') NL(); sb_put(lx, PEEK(0)); ADV(1);                goto S_QUOTED;      }
 S_GRAPHIC:
     if (is_graphic(PEEK(0)))                                         {  ADV(1);                                                                goto S_GRAPHIC;     }
+    if (PEEK(0) >= 0x80 && !prolog_u_letter(p, &n))                  {  n = u8_decode((const unsigned char *)p, &code);
+                                                                        if (n > 1 && code >= 0xA0 && !lx_u_space(code))                    {  ADV(n);                                                                goto S_GRAPHIC;     } }
     if (p - s == 2 && s[0] == ':' && s[1] == '-')                    {  SYNC(); return tok(TK_NECK,  (char *)":-", line);                                          }
     if (p - s == 2 && s[0] == '?' && s[1] == '-')                    {  SYNC(); return tok(TK_QUERY, (char *)"?-", line);                                          }
     if (!lx->iso && p - s == 1 && s[0] == '.' && s > lx->src && !is_layout((unsigned char)s[-1]) && (DC[PEEK(0)] == D_LOWER || DC[PEEK(0)] == D_UPPER || DC[PEEK(0)] == D_USCORE)) {  t = tok(TK_OP, (char *)".", line); t.adj = 1; SYNC(); return t; }
@@ -328,6 +334,7 @@ Token lexer_peek(Lexer *lx) {
     return lx->peek;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int lx_dialect_marker(const char *s) { return strstr(s, ":- use_module(") || strstr(s, ":-use_module(") || strstr(s, ":- module(") || strstr(s, ":-module("); }
 void lexer_init(Lexer *lx, const char *src) {
     lx->src      = src ? src : "";
     lx->pos      = 0;
@@ -336,6 +343,7 @@ void lexer_init(Lexer *lx, const char *src) {
     lx->last_kind = TK_EOF;
     lx->fenced = 0;
     lx->iso = 0;
+    lx->swi = lx_dialect_marker(lx->src);
     lx->sbuf = NULL; lx->slen = 0; lx->scap = 0;
     memset(&lx->peek, 0, sizeof lx->peek);
 }

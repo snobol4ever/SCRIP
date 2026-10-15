@@ -586,6 +586,17 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
             return pt_stamp(n, ln);
         }
         case TK_CUT: {
+            Token pkc = lexer_peek(&p->lx);
+            if (pkc.kind == TK_LPAREN && pkc.adj && !p->iso) {
+                lexer_next(&p->lx);
+                tree_t *fnc = ast_node_new(TT_FNC);
+                fnc->v.sval = ct_strdup("!");
+                pt_args(p, ts, fnc);
+                Token rp = lexer_peek(&p->lx);
+                if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
+                else perror_at(p, rp.line, "expected ) to close argument list");
+                return pt_stamp(fnc, ln);
+            }
             return pt_stamp(ast_node_new(TT_CUT), ln);
         }
         case TK_NECK: {
@@ -1703,8 +1714,14 @@ static const char * const PL_PRELUDE_SRC =
     "argument_value(I,_):-I<0,!,throw(error(domain_error(not_less_than_zero,I),argument_value/2)).\n"
     "argument_value(_,A):-nonvar(A),\\+ atom(A),!,throw(error(type_error(atom,A),argument_value/2)).\n"
     "argument_value(I,A):-'$argv'(L),nth0(I,L,A0),!,A=A0.\n"
-    "nth0(N,L,E):-'$nth_'(L,0,N,E).\n"
-    "nth1(N,L,E):-'$nth_'(L,1,N,E).\n"
+    "nth0(N,L,E):-integer(N),!,'$nth_det'(N,L,E).\n"
+    "nth0(N,L,E):-var(N),!,'$nth_'(L,0,N,E).\n"
+    "nth0(N,_,_):-throw(error(type_error(integer,N),context(nth0/3,_))).\n"
+    "nth1(N,L,E):-integer(N),!,N0 is N-1,'$nth_det'(N0,L,E).\n"
+    "nth1(N,L,E):-var(N),!,'$nth_'(L,1,N,E).\n"
+    "nth1(N,_,_):-throw(error(type_error(integer,N),context(nth1/3,_))).\n"
+    "'$nth_det'(0,[X|_],E):-!,E=X.\n"
+    "'$nth_det'(N,[_|T],E):-N>0,N1 is N-1,'$nth_det'(N1,T,E).\n"
     "'$nth_'([H|_],I,I,H).\n"
     "'$nth_'([_|T],I,N,E):-I1 is I+1,'$nth_'(T,I1,N,E).\n"
     "is_dict(D):-compound(D),functor(D,'$dict',A),A mod 2=:=1.\n"
@@ -1721,6 +1738,11 @@ static const char * const PL_PRELUDE_SRC =
     "'$fill_array_'(0,_,_):-!.\n"
     "'$fill_array_'(I,T,V):-arg(I,T,V),I1 is I-1,'$fill_array_'(I1,T,V).\n"
     "duplicate_term(T,C):-copy_term(T,C).\n"
+    "on_signal(S,Old,New):-atomic(S),atomic_list_concat(['$signal_',S],K),(nb_current(K,H)->true;H=default),Old=H,(var(New)->New=H;nb_setval(K,New)).\n"
+    "nb_linkval(K,V):-nb_setval(K,V).\n"
+    "catch_with_backtrace(G,E,R):-catch(G,E,R).\n"
+    "get_single_char(C):-get_code(user_input,C).\n"
+    "ansi_format(_,F,A):-format(F,A).\n"
     "functor(T,N,A,Ty):-nonvar(T),!,'$f4_kind'(T,N,A,K),'$f4_accept'(Ty,K).\n"
     "functor(T,N,A,Ty):-'$f4_build'(T,N,A,Ty).\n"
     "'$f4_kind'(T,N,A,compound):-compound(T),!,compound_name_arity(T,N,A).\n"
@@ -2503,6 +2525,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$meta_qspec'('//').\n"
     "'$mgt_vars'([],_).\n"
     "'$mgt_vars'([V|Vs],Seen):-var(V),\\+ memberchk_eq(V,Seen),'$mgt_vars'(Vs,[V|Seen]).\n"
+    "apply(G,_):-nonvar(G),\\+ callable(G),!,throw(error(type_error(callable,G),_)).\n"
     "apply(G,As):-G=..L0,'$yall_app'(L0,As,L1),G1=..L1,call(G1).\n"
     "collation_key(A,K):-(var(A)->throw(error(instantiation_error,context(collation_key/2,_)));atom(A)->atom_string(A,K);string(A)->K=A;throw(error(type_error(atom,A),context(collation_key/2,_)))).\n"
     "'$write_canonical_swi'(T):-current_output(S),'$write_canonical_swi'(S,T).\n"
@@ -3417,6 +3440,13 @@ static int pl_body_has_list_goal(const tree_t *b) {
     if (b->n >= 1 && !strcmp(b->v.sval, "call")) return pl_body_has_list_goal(b->c[0]);
     return b->n == 1 && (!strcmp(b->v.sval, "\\+") || !strcmp(b->v.sval, "once") || !strcmp(b->v.sval, "ignore") || !strcmp(b->v.sval, "not")) && pl_body_has_list_goal(b->c[0]);
 }
+static int pl_dcg_body_var_goal(const tree_t *b) {
+    if (!b) return 0;
+    if (b->t == TT_VAR) return 1;
+    if (b->t != TT_FNC || !b->v.sval) return 0;
+    if (b->n == 2 && (!strcmp(b->v.sval, ",") || !strcmp(b->v.sval, ";") || !strcmp(b->v.sval, "|") || !strcmp(b->v.sval, "->") || !strcmp(b->v.sval, "*->"))) return pl_dcg_body_var_goal(b->c[0]) || pl_dcg_body_var_goal(b->c[1]);
+    return b->n == 1 && !strcmp(b->v.sval, "\\+") && pl_dcg_body_var_goal(b->c[0]);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *nm; int i; } pl_ckey_t;
 static int pl_ckey_cmp(const void *a, const void *b) { const pl_ckey_t *x = (const pl_ckey_t *)a, *y = (const pl_ckey_t *)b; int c = strcmp(x->nm, y->nm); return c ? c : (x->i > y->i) - (x->i < y->i); }
@@ -3431,6 +3461,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             pl_tree_collect_declared(cl->tr->c[1], &user_defined);
         if (cl->tr) { pl_tree_collect_calls(cl->tr, &referenced); pl_tree_collect_keys(cl->tr, &refkeys); }
         if (!pl_clause_dcg(cl) && pl_body_has_list_goal(pl_clause_body(cl))) pl_cv_add(&referenced, "consult");
+        if (pl_clause_dcg(cl) && pl_dcg_body_var_goal(pl_clause_body(cl))) pl_cv_add(&referenced, "phrase");
     }
     if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
     if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&referenced, "$pl_pp_pcheck");

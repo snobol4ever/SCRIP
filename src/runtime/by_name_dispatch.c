@@ -389,7 +389,27 @@ __attribute__((visibility("hidden"))) int plw_unify_cell_val(DESCR_t *dst, DESCR
 __attribute__((visibility("hidden"))) void plw_bind_x(DESCR_t *cell, DESCR_t word, pl_tr_ctx_t *cx) { plw_bind(cell, word, cx); }
 __attribute__((visibility("hidden"))) int plw_unify_vals_oc(DESCR_t va, DESCR_t vb, pl_tr_ctx_t *cx) { DESCR_t ta = va, tb = vb; return plw_unify_cells_oc(plw_entry(&ta), plw_entry(&tb), cx); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_catch_handle_c(DESCR_t *a, int n, void *ball, pl_tr_ctx_t *cx) { if (!a || n < 1 || !ball) return 0; return plw_unify_cells(plw_entry(&a[0]), (DESCR_t *)ball, cx) ? 1 : 0; }
+int rt_pl_catch_handle_c(DESCR_t *a, int n, void *ball, pl_tr_ctx_t *cx) {
+    char fakeb[PL_TR_FRAME_HEADER_BYTES];
+    char *base, *mark;
+    uint64_t wake0;
+    pl_tr_ctx_t c2;
+    int ok;
+    if (!a || n < 1 || !ball) return 0;
+    base = pl_tr_base_of(cx->tr);
+    mark = cx->tr;
+    wake0 = *pl_tr_wake_slot(base);
+    c2 = *cx;
+    memset(fakeb, 0, sizeof fakeb);
+    pl_tr_frame_hi_set(fakeb, (const void *)0);
+    c2.b = fakeb;
+    ok = plw_unify_cells(plw_entry(&a[0]), (DESCR_t *)ball, &c2);
+    if (ok) { cx->tr = c2.tr; cx->ball = c2.ball; return 1; }
+    cx->tr = rt_pl_tr_unwind_to(c2.tr, mark);
+    *pl_tr_wake_slot(base) = wake0;
+    cx->ball = c2.ball;
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *plw_det_cell(DESCR_t *tmp) {
     { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT < 0) prolog_atom_init(); }
@@ -9172,7 +9192,11 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
             DESCR_t o = pl_flag_term_value(fl);
             ok = plw_unify_vals(args[1], o, cx);
         } else if (!strcmp(fl->nm, "argv")) {
-            ok = plw_unify_vals(args[1], pl_nil(), cx);
+            extern int rt_main_args_count(void);
+            extern const char *rt_main_arg_at(int);
+            DESCR_t l = pl_nil();
+            for (int i = rt_main_args_count() - 1; i >= 0; i--) { const char *a = rt_main_arg_at(i); if (!a) a = ""; l = pl_cons(pl_mk_atom_dup(a, strlen(a)), l); }
+            ok = plw_unify_vals(args[1], l, cx);
         } else if (!strcmp(fl->nm, "max_arity")) {
             ok = plw_unify_vals(args[1], INTVAL(PROLOG_MAX_ARITY), cx);
         } else if (!strcmp(fl->nm, "max_procedure_arity")) {
@@ -10116,7 +10140,9 @@ PL_CX_LEAF_HEAD(pl_op_check, 3)
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
         DESCR_t p = rt_pl_deref_val(args[0]), t = rt_pl_deref_val(args[1]), o = rt_pl_deref_val(args[2]);
         ok = 1;
-        if (!pl_val_unbound(p) && (p.v != DT_I || p.i < 0 || p.i > 1200)) cx->ball = rt_pl_ball_kind2("domain_error", "operator_priority", p);
+        if (!pl_val_unbound(p) && p.v != DT_I && pl_swi_dialect()) cx->ball = rt_pl_ball_kind2("type_error", "integer", p);
+        else if (!pl_val_unbound(p) && (p.v != DT_I || p.i < 0 || p.i > 1200)) cx->ball = rt_pl_ball_kind2("domain_error", "operator_priority", p);
+        else if (!pl_val_unbound(t) && !pl_atom_str(t) && !pl_is_nil(t) && pl_swi_dialect()) cx->ball = rt_pl_ball_kind2("type_error", "atom", t);
         else if (!pl_val_unbound(t) && (!pl_atom_str(t) || pl_is_nil(t) || !pl_op_spec_ok(pl_atom_str(t)))) cx->ball = rt_pl_ball_kind2("domain_error", "operator_specifier", t);
         else if (!pl_val_unbound(o) && !pl_op_name(o)) cx->ball = rt_pl_ball_kind2("type_error", "atom", o);
         if (cx->ball) ok = 0;

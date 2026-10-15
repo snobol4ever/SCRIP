@@ -52,6 +52,7 @@ typedef struct {
     struct tree_t *pc;
     int         run0;
     int         iso;
+    int         swi;
 } Lexer;
 void lexer_init(Lexer *lx, const char *src);
 Token lexer_next(Lexer *lx);

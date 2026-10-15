@@ -426,6 +426,7 @@ static int prolog_dq_flag_mode(const char *v) {
 }
 static int pl_dq_directive_mode(const tree_t *g) {
     const tree_t *f, *v;
+    while (g && g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, ":") && g->n == 2 && g->c[1]) g = g->c[1];
     if (!g || g->t != TT_FNC || !g->v.sval || strcmp(g->v.sval, "set_prolog_flag") || g->n != 2) return -1;
     f = g->c[0]; v = g->c[1];
     if (!f || !v || f->t != TT_QLIT || v->t != TT_QLIT || !f->v.sval || strcmp(f->v.sval, "double_quotes")) return -1;
