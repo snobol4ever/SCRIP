@@ -3583,11 +3583,11 @@ static DATBLK_t *_udef_lookup(const char *name) { for (DATBLK_t *t = _udef_types
 DESCR_t DATCON_fn(const char *typename, ...) {
     DATBLK_t *t = _udef_lookup(typename);
     if (!t) return NULVCL;
-    DATINST_t *u = rt_gcheap_alloc(HB_DINST, sizeof(DATINST_t));
+    DATINST_t *u = rt_gcheap_alloc(HB_DINST, sizeof(DATINST_t) + (size_t)(t->nfields > 0 ? t->nfields : 1) * sizeof(DESCR_t));
     u->type = t;
     u->id = t->serial_next++;
     u->dumpno = rt_sno_dumpno_next();
-    u->fields = rt_ws_alloc_descr((size_t)t->nfields);
+    u->fields = (DESCR_t *)(u + 1);
     for (int i = 0; i < t->nfields; i++) u->fields[i] = NULVCL;
     va_list ap;
     va_start(ap, typename);

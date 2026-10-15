@@ -473,7 +473,7 @@ void dat_gc_roots(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
-    DATINST_t *inst = rt_gcheap_alloc(HB_DINST, sizeof(DATINST_t));
+    DATINST_t *inst = rt_gcheap_alloc(HB_DINST, sizeof(DATINST_t) + (size_t)(t->nfields > 0 ? t->nfields : 1) * sizeof(DESCR_t));
     { extern long rt_sno_dumpno_next(void); inst->dumpno = rt_sno_dumpno_next(); }
     DATBLK_t *blk = (DATBLK_t *)t->blk;
     if (!blk) {
@@ -488,7 +488,7 @@ static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
     }
     inst->type = blk;
     inst->id = blk->serial_next++;
-    { extern void *rt_ws_alloc_descr(size_t); inst->fields = rt_ws_alloc_descr((size_t)(t->nfields > 0 ? t->nfields : 0)); }
+    inst->fields = (DESCR_t *)(inst + 1);
     for (int i = 0; i < t->nfields; i++) { inst->fields[i] = (i < nargs) ? args[i] : NULVCL; if (t->has_default[i] && inst->fields[i].v == DT_SNUL) inst->fields[i] = t->defaults[i]; }
     for (int i = 0; i < t->nfields; i++) { if ((t->sigil[i] == '@' || t->sigil[i] == '%') && inst->fields[i].v == DT_SNUL && !t->required[i]) inst->fields[i] = STRVAL(rt_heap_strdup_c("")); }
     return (DESCR_t){ .v = DT_DATA, .slen = DATA_INST_SLEN, .u = inst };
