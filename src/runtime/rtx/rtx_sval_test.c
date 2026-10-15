@@ -34,6 +34,7 @@ static int leaf(DESCR_t b, DESCR_t k, DESCR_t *out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int same(DESCR_t a, DESCR_t b) {
     if (a.v == DT_SNUL && b.v == DT_SNUL) return a.slen == b.slen && a.s && b.s && a.s[0] == 0 && b.s[0] == 0;
+    if (a.v == DT_S && b.v == DT_S && a.slen == b.slen && a.slen != 0xFFFFFFFFu && a.s && b.s && a.s != b.s) return memcmp(a.s, b.s, a.slen) == 0 && !a.s[a.slen] && !b.s[b.slen];
     uint64_t wa[2], wb[2];
     words(a, wa);
     words(b, wb);
@@ -128,7 +129,21 @@ int main(void) {
         check("strict name of a non-container", nv, INTVAL(1), 0);
         check("strict name of a name", nn, INTVAL(1), 0);
         check("strict integer base", INTVAL(4), INTVAL(1), 0);
-        check("strict string base", STRVAL("abc"), INTVAL(1), 0);
+        {
+            DESCR_t sc = STRVAL("hello, world"), ns = { .v = DT_N, .slen = 1 }, es = STRVAL("");
+            ns.ptr = &sc;
+            for (int i = -15; i <= 15; i++) check("strict string base", sc, INTVAL(i), (i >= 1 && i <= 12) || (i < 0 && i >= -12) ? 1 : 0);
+            for (int i = -15; i <= 15; i++) check("strict string through a name", ns, INTVAL(i), (i >= 1 && i <= 12) || (i < 0 && i >= -12) ? 1 : 0);
+            check("strict string, huge index", sc, INTVAL(4294967297LL), 0);
+            check("strict string, huge negative index", sc, INTVAL(-4294967297LL), 0);
+            check("strict string, real index", sc, REALVAL(2.0), 0);
+            check("strict string, string index", sc, STRVAL("2"), 0);
+            check("strict string, null index", sc, NULVCL, 0);
+            check("strict empty string", es, INTVAL(1), 0);
+            check("strict empty string, zero", es, INTVAL(0), 0);
+            check("strict cset base", CSETVAL("abc"), INTVAL(1), 0);
+            check("strict string with an embedded high byte", STRVAL("a\xe9z"), INTVAL(2), 1);
+        }
         {
             static DESCR_t elems[8];
             for (int i = 0; i < 8; i++) elems[i] = INTVAL(100 + i);

@@ -2638,6 +2638,15 @@ DESCR_t c_rt_subscript_val_strict(DESCR_t base, DESCR_t idx) {
     DESCR_t *elems = 0;
     int n = 0;
     if (base.v == DT_DATA && rt_list_view(base, &elems, &n)) { long i = (long)idx.i; if (i < 0) i = n + i + 1; return (elems && i >= 1 && i <= n) ? elems[i - 1] : declined; }
+    if (base.v == DT_S && base.slen != 0xFFFFFFFFu && base.s && idx.i == (long)(int)idx.i) {
+        long i = (long)idx.i, slen = (long)base.slen;
+        if (i < 0) i = slen + i + 1;
+        if (i < 1 || i > slen) return declined;
+        char *buf = rt_str_alloc(1);
+        buf[0] = base.s[i - 1];
+        buf[1] = '\0';
+        return BSTRVAL(buf, 1);
+    }
     return declined;
 }
 DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 0); }

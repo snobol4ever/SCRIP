@@ -689,6 +689,8 @@ RTX_FUNC(rt_subscript_val_strict)
     jne     .Lsvs_c
     cmp     r10b, DT_A
     je      .Lsvs_arr
+    cmp     r10b, DT_S
+    je      .Lsvs_str
     cmp     r10b, DT_DATA
     jne     .Lsvs_c
     mov     rax, r10
@@ -746,6 +748,37 @@ RTX_FUNC(rt_subscript_val_strict)
     shl     r9, 4
     mov     rax, qword ptr [r8 + r9]
     mov     rdx, qword ptr [r8 + r9 + 8]
+    RTX_GVA_R9
+    ret
+.Lsvs_str:
+    mov     rax, r10
+    shr     rax, 32
+    cmp     eax, -1
+    je      .Lsvs_c
+    test    r11, r11
+    je      .Lsvs_c
+    movsxd  r8, ecx
+    cmp     r8, rcx
+    jne     .Lsvs_c
+    mov     r9, rcx
+    test    r9, r9
+    jns     .Lsvs_snowrap
+    lea     r9, [r9 + rax + 1]
+.Lsvs_snowrap:
+    cmp     r9, 1
+    jl      .Lsvs_c
+    cmp     r9, rax
+    jg      .Lsvs_c
+    movzx   r8d, byte ptr [r11 + r9 - 1]
+    RTX_PUSH(r8)
+    mov     edi, 1
+    RTX_CALL(rt_str_alloc)
+    RTX_POP(r8)
+    mov     byte ptr [rax], r8b
+    mov     byte ptr [rax + 1], 0
+    mov     rdx, rax
+    mov     rax, 0x100000000
+    or      rax, DT_S
     RTX_GVA_R9
     ret
 .Lsvs_arr:
