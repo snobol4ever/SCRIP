@@ -6,6 +6,7 @@
 #include "coerce.h"
 #include "string_ops.h"
 #include "rt/gc_heap.h"
+#include "core/core_errjmp.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -71,11 +72,25 @@ DESCR_t c_sno_concat_d(DESCR_t a, DESCR_t b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_str_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_BOOL || d.v == DT_R || d.v == DT_BIG || IS_CSET_fn(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t so_icn_op_error(const char *op, int code, DESCR_t a, DESCR_t b, DESCR_t bad) {
+    extern int core_icn_error(int code, DESCR_t val);
+    core_errjmp_t ej;
+    int my = g_core_errjmp_n;
+    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); return FAILDESCR; }
+    core_errjmp_push(&ej);
+    g_core_errjmp_n = my + 1;
+    core_icn_op_ctx(op, 2, a, b);
+    core_icn_error(code, bad);
+    core_icn_op_ctx_clear();
+    core_errjmp_pop(&ej, my);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_icn_lconcat_d(DESCR_t a, DESCR_t b) {
     extern int core_icn_error(int code, DESCR_t val);
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
-    if (!so_is_list(a)) { core_icn_op_ctx("|||", 2, a, b); core_icn_error(108, a); core_icn_op_ctx_clear(); return FAILDESCR; }
-    if (!so_is_list(b)) { core_icn_op_ctx("|||", 2, a, b); core_icn_error(108, b); core_icn_op_ctx_clear(); return FAILDESCR; }
+    if (!so_is_list(a)) return so_icn_op_error("|||", 108, a, b, a);
+    if (!so_is_list(b)) return so_icn_op_error("|||", 108, a, b, b);
     return rtx_try_str_concat_d(a, b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -87,10 +102,7 @@ DESCR_t c_str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
         DESCR_t bad = core_icn_str_ok(a) ? b : a, sa = a;
         if (core_icn_str_ok(a) && (a.v == DT_R || a.v == DT_I || a.v == DT_BOOL)) sa = descr_to_str_fracdigit(a);
         else if (core_icn_str_ok(a) && a.v == DT_BIG && a.p) sa = STRVAL(rt_big_str(a));
-        core_icn_op_ctx("||", 2, sa, b);
-        core_icn_error(103, bad);
-        core_icn_op_ctx_clear();
-        return FAILDESCR;
+        return so_icn_op_error("||", 103, sa, b, bad);
     }
     if (a.v == DT_R || a.v == DT_BOOL || (a.v == DT_I && IS_NULL_fn(b))) a = descr_to_str_fracdigit(a);
     if (b.v == DT_R || b.v == DT_BOOL || (b.v == DT_I && IS_NULL_fn(a))) b = descr_to_str_fracdigit(b);
