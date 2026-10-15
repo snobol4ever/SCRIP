@@ -145,6 +145,7 @@ typedef struct {
     int * valias;
     int nvalias;
     const char * cur_key;
+    const char * umod;
     int tail;
     int tail_pop;
     lc_vec * pop_ok;
@@ -2032,7 +2033,16 @@ static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int na
         const tree_t * ch = pl_db_live ? (const tree_t *) 0 : resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
         int file_def = ch && ch->t == TT_CHOICE && ch->n > 0;
         int bbhit = (pl_db_live || file_def) ? 0 : (pl_bb_lookup(key, nargs) != 0);
-        if (!ch && !pl_db_live && !bbhit) return pl_meta_call_dyn(cx, t, NULL, 0, γnext, ωfail, entry_out);
+        if (!ch && !pl_db_live && !bbhit) {
+            const char * ck = cx ? cx->cur_key : (const char *) 0;
+            const char * colon = (ck && !strncmp(ck, "plunit_", 7)) ? strchr(ck, ':') : (const char *) 0;
+            if (colon && g_stage2.pl_dialect_swi && !(cx->umod && !cx->umod[0])) {
+                tree_t * mq = ast_node_new(TT_QLIT);
+                mq->v.sval = cx->umod ? (char *) cx->umod : ct_strndup(ck, (size_t) (colon - ck));
+                return goal(cx, pl_cc_fnc2("$mctx_call", mq, (tree_t *) t), γnext, ωfail, entry_out);
+            }
+            return pl_meta_call_dyn(cx, t, NULL, 0, γnext, ωfail, entry_out);
+        }
         if (ch && ch->t == TT_FNC && !g_stage2.rt_lowering) { IR_t * nd = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nd; return nd; }
         st = pl_callee_static(cx, nm, nargs, key, pl_db_live, file_def || bbhit);
     }
@@ -2177,7 +2187,15 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
         case TT_FNC:
         {
             const char * nm = t->v.sval ? t->v.sval : "?";
-            if (!strcmp(nm, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[1]) { cx->tail_pop = tpop; return goal(cx, t->c[1], γnext, ωfail, entry_out); }
+            if (!strcmp(nm, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[1]) {
+                const char * sv = cx->umod;
+                IR_t * qr;
+                cx->tail_pop = tpop;
+                cx->umod = (t->c[0]->v.sval && strcmp(t->c[0]->v.sval, "user")) ? t->c[0]->v.sval : "";
+                qr = goal(cx, t->c[1], γnext, ωfail, entry_out);
+                cx->umod = sv;
+                return qr;
+            }
             if (!strcmp(nm, "$") && t->n == 1 && !pl_dollar_user(1)) return pl_lower_det_goal(cx, t->c[0], γnext, ωfail, entry_out);
             if (!strcmp(nm, "$det_prop") && t->n == 3) return pl_lower_det_prop(cx, t->c[0], t->c[1], t->c[2], γnext, ωfail, entry_out);
             if (!strcmp(nm, "string_concat") && t->n == 3 && !pl_file_defines(nm, 3)) {

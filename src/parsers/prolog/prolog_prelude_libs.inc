@@ -15191,6 +15191,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "$mctx_retractall", 3 },
     { "$mctx_clause", 4 },
     { "$mctx_clause", 5 },
+    { "$mctx_call", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
@@ -15221,7 +15222,23 @@ static const char PL_PRELUDE_LIB_17_SRC[] =
     "'$mctx_retract'(M1,M2,C):-(var(C)->retract(C1),'$mctx_un'(M1,M2,C1,C);'$mctx_term'(M1,M2,C,C1),retract(C1)).\n"
     "'$mctx_retractall'(M1,M2,H0):-'$mctx_head'(M1,M2,H0,H),retractall(H).\n"
     "'$mctx_clause'(M1,M2,H0,B):-(var(H0)->clause(H1,B),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B)).\n"
-    "'$mctx_clause'(M1,M2,H0,B,R):-(var(H0)->clause(H1,B,R),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B,R)).\n";
+    "'$mctx_clause'(M1,M2,H0,B,R):-(var(H0)->clause(H1,B,R),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B,R)).\n"
+    "'$mctx_call'(M,G):-catch(G,error(existence_error(procedure,PI),Ctx),'$mctx_unk'(M,G,PI,Ctx)).\n"
+    "'$mctx_unk'(M,G,N/A,Ctx):-atom(N),'$mctx_lf'(M,G,Q,E),callable(E),functor(E,N,A),Q\\==user,!,throw(error(existence_error(procedure,Q:N/A),Ctx)).\n"
+    "'$mctx_lf'(M,G,Q,E):-nonvar(G),G=(A,B),!,('$mctx_lf'(M,A,Q,E);'$mctx_lf'(M,B,Q,E)).\n"
+    "'$mctx_lf'(M,G,Q,E):-nonvar(G),G=(A;B),!,('$mctx_lf'(M,A,Q,E);'$mctx_lf'(M,B,Q,E)).\n"
+    "'$mctx_lf'(M,G,Q,E):-nonvar(G),G=(A->B),!,('$mctx_lf'(M,A,Q,E);'$mctx_lf'(M,B,Q,E)).\n"
+    "'$mctx_lf'(M,G,Q,E):-nonvar(G),G=(A*->B),!,('$mctx_lf'(M,A,Q,E);'$mctx_lf'(M,B,Q,E)).\n"
+    "'$mctx_lf'(M,G,Q,E):-nonvar(G),G=(\\+A),!,'$mctx_lf'(M,A,Q,E).\n"
+    "'$mctx_lf'(M,G,Q,E):-'$mctx_eff'(M,G,Q,E).\n"
+    "'$mctx_unk'(_,_,PI,Ctx):-throw(error(existence_error(procedure,PI),Ctx)).\n"
+    "'$mctx_eff'(M,G,Q,E):-nonvar(G),G=..[call,C|As],!,'$mctx_eff1'(M,C,As,Q,E).\n"
+    "'$mctx_eff'(M,G,Q,E):-nonvar(G),G=Q0:G1,atom(Q0),!,Q=Q0,E=G1.\n"
+    "'$mctx_eff'(M,G,M,G).\n"
+    "'$mctx_eff1'(M,C,As,Q,E):-nonvar(C),C=Q0:C1,atom(Q0),!,Q=Q0,'$mctx_ext'(C1,As,E).\n"
+    "'$mctx_eff1'(M,C,As,M,E):-'$mctx_ext'(C,As,E).\n"
+    "'$mctx_ext'(C,As,E):-nonvar(C),callable(C),C=..L0,append(L0,As,L1),E=..L1,!.\n"
+    "'$mctx_ext'(C,_,C).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "empty_nb_set", 1 },
     { "add_nb_set", 2 },

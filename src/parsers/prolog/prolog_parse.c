@@ -3522,6 +3522,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "clause")) pl_cv_add(&referenced, "$clause_unmangle");
     int mq_hit = 0;
     if (pl_cv_has(&referenced, "module") || pl_cv_has(&referenced, "begin_tests")) for (PlClause *cl = prog->head; cl && !mq_hit; cl = cl->next) mq_hit = cl->tr && pl_tree_var_clause_goal(cl->tr);
+    if (pl_cv_has(&referenced, "begin_tests")) { pl_cv_add(&referenced, "$mctx_call"); pl_cv_add(&refkeys, pl_pred_key("$mctx_call", 2)); }
     if (mq_hit) {
         static const struct { const char * nm; int ar; } mq[] = { { "$mctx_assert", 3 }, { "$mctx_asserta", 3 }, { "$mctx_assertz", 3 }, { "$mctx_assert", 4 }, { "$mctx_asserta", 4 }, { "$mctx_assertz", 4 },
             { "$mctx_retract", 3 }, { "$mctx_retractall", 3 }, { "$mctx_clause", 4 }, { "$mctx_clause", 5 }, { 0, 0 } };
