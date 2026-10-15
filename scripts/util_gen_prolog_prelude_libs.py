@@ -102,7 +102,7 @@ DROP_DIRECTIVES = {"module", "use_module", "autoload", "meta_predicate", "multif
                    "$clausable", "noprofile", "license", "discontiguous", "module_transparent", "predicate_options",
                    "reexport", "type", "pred", "quasi_quotation_syntax", "volatile", "encoding", "$hide"}
 KEEP_DIRECTIVES = {"if", "elif", "else", "endif", "op", "create_prolog_flag", "dynamic"}
-EXPANDED = {"clpfd"}
+EXPANDED = {"clpfd", "csv"}
 LIB_PATH = {"dcg_basics": "dcg/basics"}
 RENAME_TERMS_AS_DATA = {"clpfd": {"neq_num"}, "pure_input": {"attr_unify_hook_ndebug"}}
 RENAME_AS_DATA = {"clpfd": {"selection", "order", "choice", "bare_integer", "circuit_successors", "g0_successors", "gcc_successors", "clear_parent", "fd_variable",
@@ -113,7 +113,8 @@ QUIET = {"gnu_fd": {("fd_dom", 2)}}
 QUIET_BARE = {"dcg_basics", "clpfd", "gnu_builtins"}
 WRAPS = {"gnu_fd": {"clpfd": {("#=", 2), ("#\\=", 2), ("#<", 2), ("#>", 2), ("#=<", 2), ("#>=", 2), ("#/\\", 2), ("#\\/", 2), ("#\\", 1), ("#==>", 2)}}}
 EXPAND_PL = os.path.join(HERE, "util_gen_prolog_prelude_libs_expand.pl")
-INIT_DROPS = {"clpfd": {"warn_if_bounded_arithmetic": "only prints a warning when the integer flag bounded is true"}}
+INIT_DROPS = {"clpfd": {"warn_if_bounded_arithmetic": "only prints a warning when the integer flag bounded is true"},
+              "random": {"check_gmp": "only prints a warning when SWI is built without GMP; SCRIP's integers are unbounded"}}
 # An initialization directive whose only effect, with no foreign library, is to ASSERT clauses: the directive's text is replaced by those
 # clauses, verbatim from the library's own fallback branch, before the file is read and keyed, so they are keyed, renamed and exported
 # like any other clause (cfo 2026-10-14, row prolog-swi-library-test-pio-...-ceo-1664): readutil's link_foreign/0 tries
@@ -511,7 +512,7 @@ def process(path):
         s = sig(cl)
         if s and atom_value(s[0]) == ":-" and len(s) > 1:
             d = directive_name(s)
-            if d not in KEEP_DIRECTIVES and d not in DROP_DIRECTIVES and d != "module" and d != "initialization":
+            if d not in KEEP_DIRECTIVES and d not in DROP_DIRECTIVES and d != "module" and d != "initialization" and not (d == "record" and lib in EXPANDED):
                 raise Refuse("%s clause %d: the directive :- %s is neither dropped nor kept by this generator -- decide what it means for SCRIP first" % (path, no, d))
     if lib in LOCAL:
         heads, refs = local_heads(toks, path), []
@@ -561,6 +562,9 @@ def process(path):
                 kept.append((start, off)); continue
             if d in DROP_DIRECTIVES:
                 drops["directive " + d] = drops.get("directive " + d, 0) + 1
+                continue
+            if d == "record" and lib in EXPANDED:
+                drops["directive record('<compiled>') (library(record)'s marker for xref; the accessors it stands for are expanded clauses above)"] = 1
                 continue
             raise Refuse("%s clause %d: the directive :- %s is neither dropped nor kept by this generator -- decide what it means for SCRIP first" % (path, no, d))
         if kind == "unkeyable":

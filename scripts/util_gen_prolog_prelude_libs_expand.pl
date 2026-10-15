@@ -42,6 +42,10 @@ expand_all(S, M) :-
     (   T == end_of_file -> true
     ;   emit(T, M), expand_all(S, M)
     ).
+emit((:- record(R)), M) :- !,
+    @(expand_term((:- record(R)), Ts), M),
+    (   is_list(Ts) -> Cs = Ts ; Cs = [Ts] ),
+    forall(member(C, Cs), emit_clause(C, M)).
 emit((:- D), M) :- !,
     (   D = op(P, Ty, N) -> note_restore(P, Ty, N), op(P, Ty, M:N) ; true ),
     portray_clause(current_output, (:- D), [module(M), quoted(true)]).

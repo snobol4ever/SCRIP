@@ -11335,11 +11335,17 @@ static const char PL_PRELUDE_LIB_3_SRC[] =
     "                                           1))\n"
     "    ).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_4_EXPORTS[] = {
-    { "date_time_value", 3 },
-    { "parse_time", 2 },
-    { "parse_time", 3 },
-    { "day_of_the_week", 2 },
-    { "day_of_the_year", 2 },
+    { "csv", 3 },
+    { "csv", 4 },
+    { "csv_read_file", 2 },
+    { "csv_read_file", 3 },
+    { "csv_read_stream", 3 },
+    { "csv_read_file_row", 3 },
+    { "csv_read_row", 3 },
+    { "csv_options", 2 },
+    { "csv_write_file", 2 },
+    { "csv_write_file", 3 },
+    { "csv_write_stream", 3 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_4_SHADOWS[] = {
@@ -11352,6 +11358,557 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_4_OPS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_4_SRC[] =
+    "'$csv_default_csv_options'(csv_options(44, false, false, true, preserve, row, _, true, _)).\n"
+    "'$csv_csv_options_separator'(csv_options(A, _, _, _, _, _, _, _, _), A).\n"
+    "'$csv_csv_options_strip'(csv_options(_, A, _, _, _, _, _, _, _), A).\n"
+    "'$csv_csv_options_ignore_quotes'(csv_options(_, _, A, _, _, _, _, _, _), A).\n"
+    "'$csv_csv_options_convert'(csv_options(_, _, _, A, _, _, _, _, _), A).\n"
+    "'$csv_csv_options_case'(csv_options(_, _, _, _, A, _, _, _, _), A).\n"
+    "'$csv_csv_options_functor'(csv_options(_, _, _, _, _, A, _, _, _), A).\n"
+    "'$csv_csv_options_arity'(csv_options(_, _, _, _, _, _, A, _, _), A).\n"
+    "'$csv_csv_options_match_arity'(csv_options(_, _, _, _, _, _, _, A, _), A).\n"
+    "'$csv_csv_options_skip_header'(csv_options(_, _, _, _, _, _, _, _, A), A).\n"
+    "'$csv_csv_options_data'(separator, csv_options(A, _, _, _, _, _, _, _, _), A).\n"
+    "'$csv_csv_options_data'(strip, csv_options(_, A, _, _, _, _, _, _, _), A).\n"
+    "'$csv_csv_options_data'(ignore_quotes, csv_options(_, _, A, _, _, _, _, _, _), A).\n"
+    "'$csv_csv_options_data'(convert, csv_options(_, _, _, A, _, _, _, _, _), A).\n"
+    "'$csv_csv_options_data'(case, csv_options(_, _, _, _, A, _, _, _, _), A).\n"
+    "'$csv_csv_options_data'(functor, csv_options(_, _, _, _, _, A, _, _, _), A).\n"
+    "'$csv_csv_options_data'(arity, csv_options(_, _, _, _, _, _, A, _, _), A).\n"
+    "'$csv_csv_options_data'(match_arity, csv_options(_, _, _, _, _, _, _, A, _), A).\n"
+    "'$csv_csv_options_data'(skip_header, csv_options(_, _, _, _, _, _, _, _, A), A).\n"
+    "'$csv_set_separator_of_csv_options'(A, csv_options(_, B, C, D, E, F, G, H, I), csv_options(A, B, C, D, E, F, G, H, I)) :-\n"
+    "    must_be(integer, A).\n"
+    "'$csv_set_separator_of_csv_options'(A, B) :-\n"
+    "    must_be(integer, A),\n"
+    "    setarg(1, B, A).\n"
+    "'$csv_nb_set_separator_of_csv_options'(A, B) :-\n"
+    "    must_be(integer, A),\n"
+    "    nb_setarg(1, B, A).\n"
+    "'$csv_set_strip_of_csv_options'(A, csv_options(B, _, C, D, E, F, G, H, I), csv_options(B, A, C, D, E, F, G, H, I)) :-\n"
+    "    must_be(boolean, A).\n"
+    "'$csv_set_strip_of_csv_options'(A, B) :-\n"
+    "    must_be(boolean, A),\n"
+    "    setarg(2, B, A).\n"
+    "'$csv_nb_set_strip_of_csv_options'(A, B) :-\n"
+    "    must_be(boolean, A),\n"
+    "    nb_setarg(2, B, A).\n"
+    "'$csv_set_ignore_quotes_of_csv_options'(A, csv_options(B, C, _, D, E, F, G, H, I), csv_options(B, C, A, D, E, F, G, H, I)) :-\n"
+    "    must_be(boolean, A).\n"
+    "'$csv_set_ignore_quotes_of_csv_options'(A, B) :-\n"
+    "    must_be(boolean, A),\n"
+    "    setarg(3, B, A).\n"
+    "'$csv_nb_set_ignore_quotes_of_csv_options'(A, B) :-\n"
+    "    must_be(boolean, A),\n"
+    "    nb_setarg(3, B, A).\n"
+    "'$csv_set_convert_of_csv_options'(A, csv_options(B, C, D, _, E, F, G, H, I), csv_options(B, C, D, A, E, F, G, H, I)) :-\n"
+    "    must_be(boolean, A).\n"
+    "'$csv_set_convert_of_csv_options'(A, B) :-\n"
+    "    must_be(boolean, A),\n"
+    "    setarg(4, B, A).\n"
+    "'$csv_nb_set_convert_of_csv_options'(A, B) :-\n"
+    "    must_be(boolean, A),\n"
+    "    nb_setarg(4, B, A).\n"
+    "'$csv_set_case_of_csv_options'(A, csv_options(B, C, D, E, _, F, G, H, I), csv_options(B, C, D, E, A, F, G, H, I)) :-\n"
+    "    must_be(oneof([down, preserve, up]), A).\n"
+    "'$csv_set_case_of_csv_options'(A, B) :-\n"
+    "    must_be(oneof([down, preserve, up]), A),\n"
+    "    setarg(5, B, A).\n"
+    "'$csv_nb_set_case_of_csv_options'(A, B) :-\n"
+    "    must_be(oneof([down, preserve, up]), A),\n"
+    "    nb_setarg(5, B, A).\n"
+    "'$csv_set_functor_of_csv_options'(A, csv_options(B, C, D, E, F, _, G, H, I), csv_options(B, C, D, E, F, A, G, H, I)) :-\n"
+    "    must_be(atom, A).\n"
+    "'$csv_set_functor_of_csv_options'(A, B) :-\n"
+    "    must_be(atom, A),\n"
+    "    setarg(6, B, A).\n"
+    "'$csv_nb_set_functor_of_csv_options'(A, B) :-\n"
+    "    must_be(atom, A),\n"
+    "    nb_setarg(6, B, A).\n"
+    "'$csv_set_arity_of_csv_options'(A, csv_options(B, C, D, E, F, G, _, H, I), csv_options(B, C, D, E, F, G, A, H, I)) :-\n"
+    "    must_be(integer, A).\n"
+    "'$csv_set_arity_of_csv_options'(A, B) :-\n"
+    "    must_be(integer, A),\n"
+    "    setarg(7, B, A).\n"
+    "'$csv_nb_set_arity_of_csv_options'(A, B) :-\n"
+    "    must_be(integer, A),\n"
+    "    nb_setarg(7, B, A).\n"
+    "'$csv_set_match_arity_of_csv_options'(A, csv_options(B, C, D, E, F, G, H, _, I), csv_options(B, C, D, E, F, G, H, A, I)) :-\n"
+    "    must_be(boolean, A).\n"
+    "'$csv_set_match_arity_of_csv_options'(A, B) :-\n"
+    "    must_be(boolean, A),\n"
+    "    setarg(8, B, A).\n"
+    "'$csv_nb_set_match_arity_of_csv_options'(A, B) :-\n"
+    "    must_be(boolean, A),\n"
+    "    nb_setarg(8, B, A).\n"
+    "'$csv_set_skip_header_of_csv_options'(A, csv_options(B, C, D, E, F, G, H, I, _), csv_options(B, C, D, E, F, G, H, I, A)) :-\n"
+    "    must_be(atom, A).\n"
+    "'$csv_set_skip_header_of_csv_options'(A, B) :-\n"
+    "    must_be(atom, A),\n"
+    "    setarg(9, B, A).\n"
+    "'$csv_nb_set_skip_header_of_csv_options'(A, B) :-\n"
+    "    must_be(atom, A),\n"
+    "    nb_setarg(9, B, A).\n"
+    "'$csv_set_csv_options_field'(separator(A), csv_options(_, B, C, D, E, F, G, H, I), csv_options(A, B, C, D, E, F, G, H, I)) :-\n"
+    "    must_be(integer, A).\n"
+    "'$csv_set_csv_options_field'(strip(A), csv_options(B, _, C, D, E, F, G, H, I), csv_options(B, A, C, D, E, F, G, H, I)) :-\n"
+    "    must_be(boolean, A).\n"
+    "'$csv_set_csv_options_field'(ignore_quotes(A), csv_options(B, C, _, D, E, F, G, H, I), csv_options(B, C, A, D, E, F, G, H, I)) :-\n"
+    "    must_be(boolean, A).\n"
+    "'$csv_set_csv_options_field'(convert(A), csv_options(B, C, D, _, E, F, G, H, I), csv_options(B, C, D, A, E, F, G, H, I)) :-\n"
+    "    must_be(boolean, A).\n"
+    "'$csv_set_csv_options_field'(case(A), csv_options(B, C, D, E, _, F, G, H, I), csv_options(B, C, D, E, A, F, G, H, I)) :-\n"
+    "    must_be(oneof([down, preserve, up]), A).\n"
+    "'$csv_set_csv_options_field'(functor(A), csv_options(B, C, D, E, F, _, G, H, I), csv_options(B, C, D, E, F, A, G, H, I)) :-\n"
+    "    must_be(atom, A).\n"
+    "'$csv_set_csv_options_field'(arity(A), csv_options(B, C, D, E, F, G, _, H, I), csv_options(B, C, D, E, F, G, A, H, I)) :-\n"
+    "    must_be(integer, A).\n"
+    "'$csv_set_csv_options_field'(match_arity(A), csv_options(B, C, D, E, F, G, H, _, I), csv_options(B, C, D, E, F, G, H, A, I)) :-\n"
+    "    must_be(boolean, A).\n"
+    "'$csv_set_csv_options_field'(skip_header(A), csv_options(B, C, D, E, F, G, H, I, _), csv_options(B, C, D, E, F, G, H, I, A)) :-\n"
+    "    must_be(atom, A).\n"
+    "'$csv_make_csv_options'(A, B) :-\n"
+    "    '$csv_make_csv_options'(A, B, []).\n"
+    "'$csv_make_csv_options'(A, B, C) :-\n"
+    "    '$csv_default_csv_options'(D),\n"
+    "    '$csv_set_csv_options_fields'(A, D, B, C).\n"
+    "'$csv_set_csv_options_fields'(A, B, C) :-\n"
+    "    '$csv_set_csv_options_fields'(A, B, C, []).\n"
+    "'$csv_set_csv_options_fields'([], A, A, []).\n"
+    "'$csv_set_csv_options_fields'([A|B], C, D, E) :-\n"
+    "    (   '$csv_set_csv_options_field'(A, C, F)\n"
+    "    ->  '$csv_set_csv_options_fields'(B, F, D, E)\n"
+    "    ;   E=[A|G],\n"
+    "        '$csv_set_csv_options_fields'(B, C, D, G)\n"
+    "    ).\n"
+    "'$csv_is_csv_options'(A) :-\n"
+    "    var(A),\n"
+    "    !,\n"
+    "    fail.\n"
+    "'$csv_is_csv_options'(csv_options(A, B, C, D, E, F, G, H, I)) :-\n"
+    "    integer(A),\n"
+    "    (   B==true\n"
+    "    ;   B==false\n"
+    "    ),\n"
+    "    !,\n"
+    "    (   C==true\n"
+    "    ;   C==false\n"
+    "    ),\n"
+    "    !,\n"
+    "    (   D==true\n"
+    "    ;   D==false\n"
+    "    ),\n"
+    "    !,\n"
+    "    ground(E),\n"
+    "    \\+ \\+ memberchk(E, [down, preserve, up]),\n"
+    "    atom(F),\n"
+    "    integer(G),\n"
+    "    (   H==true\n"
+    "    ;   H==false\n"
+    "    ),\n"
+    "    !,\n"
+    "    atom(I).\n"
+    "csv_read_file(A, B) :-\n"
+    "    csv_read_file(A, B, []).\n"
+    "csv_read_file(A, B, C) :-\n"
+    "    '$csv_default_separator'(A, C, D),\n"
+    "    '$csv_make_csv_options'(D, E, F),\n"
+    "    phrase_from_file('$csv_csv_roptions'(B, E), A, F).\n"
+    "'$csv_default_separator'(A, B, C) :-\n"
+    "    (   option(separator(_), B)\n"
+    "    ->  C=B\n"
+    "    ;   file_name_extension(_, D, A),\n"
+    "        downcase_atom(D, E),\n"
+    "        '$csv_ext_separator'(E, F)\n"
+    "    ->  C=[separator(F)|B]\n"
+    "    ;   C=B\n"
+    "    ).\n"
+    "'$csv_ext_separator'(csv, 44).\n"
+    "'$csv_ext_separator'(tsv, 9).\n"
+    "csv_read_stream(A, B, C) :-\n"
+    "    '$csv_make_csv_options'(C, D, _),\n"
+    "    phrase_from_stream('$csv_csv_roptions'(B, D), A).\n"
+    "csv(A, B, C) :-\n"
+    "    csv(A, [], B, C).\n"
+    "csv(A, B, C, D) :-\n"
+    "    '$csv_make_csv_options'(B, E, _),\n"
+    "    F=C,\n"
+    "    '$csv_csv_roptions'(A, E, F, D).\n"
+    "'$csv_csv_roptions'(A, B, C, D) :-\n"
+    "    ground(A),\n"
+    "    E=C,\n"
+    "    !,\n"
+    "    F=E,\n"
+    "    '$csv_emit_csv'(A, B, F, D).\n"
+    "'$csv_csv_roptions'(A, B, C, D) :-\n"
+    "    '$csv_skip_header'(B, C, E),\n"
+    "    '$csv_csv_data'(A, B, E, D).\n"
+    "'$csv_skip_header'(A, B, C) :-\n"
+    "    ( '$csv_csv_options_skip_header'(A, D),\n"
+    "      nonvar(D),\n"
+    "      atom_codes(D, E)\n"
+    "    ),\n"
+    "    F=B,\n"
+    "    !,\n"
+    "    G=F,\n"
+    "    '$csv_skip_header_lines'(E, G, H),\n"
+    "    '$csv_skip_blank_lines'(H, C).\n"
+    "'$csv_skip_header'(_, A, B) :-\n"
+    "    A=B.\n"
+    "'$csv_skip_header_lines'(A, B, C) :-\n"
+    "    string(A, B, D),\n"
+    "    !,\n"
+    "    E=D,\n"
+    "    (   string(_, E, F),\n"
+    "        '$csv_end_of_record'(F, G)\n"
+    "    ->  '$csv_skip_header_lines'(A, G, C)\n"
+    "    ).\n"
+    "'$csv_skip_header_lines'(_, A, B) :-\n"
+    "    A=B.\n"
+    "'$csv_skip_blank_lines'(A, B) :-\n"
+    "    eos(A, C),\n"
+    "    !,\n"
+    "    B=C.\n"
+    "'$csv_skip_blank_lines'(A, B) :-\n"
+    "    '$csv_end_of_record'(A, C),\n"
+    "    !,\n"
+    "    D=C,\n"
+    "    '$csv_skip_blank_lines'(D, B).\n"
+    "'$csv_skip_blank_lines'(A, B) :-\n"
+    "    A=B.\n"
+    "'$csv_csv_data'([], _, A, B) :-\n"
+    "    eos(A, C),\n"
+    "    !,\n"
+    "    B=C.\n"
+    "'$csv_csv_data'([A|B], C, D, E) :-\n"
+    "    '$csv_row'(A, C, D, F),\n"
+    "    !,\n"
+    "    G=F,\n"
+    "    debug(csv, 'Row: ~p', [A]),\n"
+    "    H=G,\n"
+    "    '$csv_csv_data'(B, C, H, E).\n"
+    "'$csv_row'(A, B, C, D) :-\n"
+    "    '$csv_fields'(E, B, C, F),\n"
+    "    '$csv_csv_options_functor'(B, G),\n"
+    "    A=..[G|E],\n"
+    "    functor(A, _, H),\n"
+    "    '$csv_check_arity'(B, H),\n"
+    "    D=F.\n"
+    "'$csv_check_arity'(A, B) :-\n"
+    "    '$csv_csv_options_arity'(A, B),\n"
+    "    !.\n"
+    "'$csv_check_arity'(A, _) :-\n"
+    "    '$csv_csv_options_match_arity'(A, false),\n"
+    "    !.\n"
+    "'$csv_check_arity'(A, B) :-\n"
+    "    '$csv_csv_options_arity'(A, C),\n"
+    "    domain_error(row_arity(C), B).\n"
+    "'$csv_fields'([A|B], C, D, E) :-\n"
+    "    '$csv_field'(A, C, D, F),\n"
+    "    (   '$csv_separator'(C, F, G)\n"
+    "    ->  '$csv_fields'(B, C, G, E)\n"
+    "    ;   '$csv_end_of_record'(F, H)\n"
+    "    ->  B=[],\n"
+    "        E=H\n"
+    "    ).\n"
+    "'$csv_field'(A, B, C, D) :-\n"
+    "    C=[34|E],\n"
+    "    '$csv_csv_options_ignore_quotes'(B, false),\n"
+    "    F=E,\n"
+    "    !,\n"
+    "    G=F,\n"
+    "    '$csv_string_codes'(H, G, I),\n"
+    "    '$csv_make_value'(H, A, B),\n"
+    "    D=I.\n"
+    "'$csv_field'(A, B, C, D) :-\n"
+    "    '$csv_csv_options_strip'(B, true),\n"
+    "    E=C,\n"
+    "    !,\n"
+    "    F=E,\n"
+    "    '$csv_stripped_field'(A, B, F, D).\n"
+    "'$csv_field'(A, B, C, D) :-\n"
+    "    '$csv_csv_options_separator'(B, E),\n"
+    "    F=C,\n"
+    "    '$csv_field_codes'(G, E, F, H),\n"
+    "    '$csv_make_value'(G, A, B),\n"
+    "    D=H.\n"
+    "'$csv_stripped_field'(A, B, C, D) :-\n"
+    "    '$csv_ws'(C, E),\n"
+    "    (   E=[34|F],\n"
+    "        '$csv_csv_options_strip'(B, false),\n"
+    "        G=F\n"
+    "    ->  '$csv_string_codes'(H, G, I),\n"
+    "        '$csv_ws'(I, J)\n"
+    "    ;   '$csv_csv_options_separator'(B, K),\n"
+    "        L=E,\n"
+    "        '$csv_field_codes'(M, K, L, N),\n"
+    "        '$csv_strip_trailing_ws'(M, H),\n"
+    "        J=N\n"
+    "    ),\n"
+    "    '$csv_make_value'(H, A, B),\n"
+    "    D=J.\n"
+    "'$csv_ws'(A, B) :-\n"
+    "    A=[32|C],\n"
+    "    !,\n"
+    "    D=C,\n"
+    "    '$csv_ws'(D, B).\n"
+    "'$csv_ws'(A, B) :-\n"
+    "    A=[9|C],\n"
+    "    !,\n"
+    "    D=C,\n"
+    "    '$csv_ws'(D, B).\n"
+    "'$csv_ws'(A, B) :-\n"
+    "    A=B.\n"
+    "'$csv_strip_trailing_ws'(A, B) :-\n"
+    "    append(B, C, A),\n"
+    "    '$csv_all_ws'(C).\n"
+    "'$csv_all_ws'([]).\n"
+    "'$csv_all_ws'([32|A]) :-\n"
+    "    '$csv_all_ws'(A).\n"
+    "'$csv_all_ws'([9|A]) :-\n"
+    "    '$csv_all_ws'(A).\n"
+    "'$csv_string_codes'(A, B, C) :-\n"
+    "    B=[D|E],\n"
+    "    (   D==34,\n"
+    "        F=E\n"
+    "    ->  (   F=[34|G]\n"
+    "        ->  A=[D|H],\n"
+    "            I=G,\n"
+    "            '$csv_string_codes'(H, I, C)\n"
+    "        ;   A=[],\n"
+    "            C=F\n"
+    "        )\n"
+    "    ;   A=[D|H],\n"
+    "        J=E,\n"
+    "        '$csv_string_codes'(H, J, C)\n"
+    "    ).\n"
+    "'$csv_field_codes'([], A, B, C) :-\n"
+    "    B=[A|D],\n"
+    "    !,\n"
+    "    E=D,\n"
+    "    C=[A|E].\n"
+    "'$csv_field_codes'([], _, A, B) :-\n"
+    "    A=[13, 10|C],\n"
+    "    !,\n"
+    "    D=C,\n"
+    "    B=[10|D].\n"
+    "'$csv_field_codes'([], _, A, B) :-\n"
+    "    A=[10|C],\n"
+    "    !,\n"
+    "    D=C,\n"
+    "    B=[10|D].\n"
+    "'$csv_field_codes'([], _, A, B) :-\n"
+    "    A=[13|C],\n"
+    "    !,\n"
+    "    D=C,\n"
+    "    B=[10|D].\n"
+    "'$csv_field_codes'([A|B], C, D, E) :-\n"
+    "    D=[A|F],\n"
+    "    !,\n"
+    "    G=F,\n"
+    "    '$csv_field_codes'(B, C, G, E).\n"
+    "'$csv_field_codes'([], _, A, B) :-\n"
+    "    A=B.\n"
+    "'$csv_make_value'(A, B, C) :-\n"
+    "    '$csv_csv_options_convert'(C, D),\n"
+    "    '$csv_csv_options_case'(C, E),\n"
+    "    '$csv_make_value'(D, E, A, B).\n"
+    "'$csv_make_value'(true, preserve, A, B) :-\n"
+    "    !,\n"
+    "    name(B, A).\n"
+    "'$csv_make_value'(true, A, B, C) :-\n"
+    "    !,\n"
+    "    (   number_string(C, B)\n"
+    "    ->  true\n"
+    "    ;   '$csv_make_value'(false, A, B, C)\n"
+    "    ).\n"
+    "'$csv_make_value'(false, preserve, A, B) :-\n"
+    "    !,\n"
+    "    atom_codes(B, A).\n"
+    "'$csv_make_value'(false, down, A, B) :-\n"
+    "    !,\n"
+    "    string_codes(C, A),\n"
+    "    downcase_atom(C, B).\n"
+    "'$csv_make_value'(false, up, A, B) :-\n"
+    "    string_codes(C, A),\n"
+    "    upcase_atom(C, B).\n"
+    "'$csv_separator'(A, B, C) :-\n"
+    "    '$csv_csv_options_separator'(A, D),\n"
+    "    E=B,\n"
+    "    E=[D|C].\n"
+    "'$csv_end_of_record'(A, B) :-\n"
+    "    A=[10|B].\n"
+    "'$csv_end_of_record'(A, B) :-\n"
+    "    A=[13, 10|B].\n"
+    "'$csv_end_of_record'(A, B) :-\n"
+    "    A=[13|B].\n"
+    "'$csv_end_of_record'(A, B) :-\n"
+    "    eos(A, B).\n"
+    "csv_read_file_row(A, B, C) :-\n"
+    "    '$csv_default_separator'(A, C, D),\n"
+    "    '$csv_make_csv_options'(D, E, F),\n"
+    "    select_option(line(G), F, H, _),\n"
+    "    setup_call_cleanup(open(A, read, I, H),\n"
+    "                       '$csv_csv_read_stream_row'(I,\n"
+    "                                           B,\n"
+    "                                           G,\n"
+    "                                           E),\n"
+    "                       close(I)).\n"
+    "'$csv_csv_read_stream_row'(A, B, C, D) :-\n"
+    "    between(1, infinite, C),\n"
+    "    (   csv_read_row(A, E, D),\n"
+    "        E\\==end_of_file\n"
+    "    ->  B=E\n"
+    "    ;   !,\n"
+    "        fail\n"
+    "    ).\n"
+    "csv_read_row(A, B, _) :-\n"
+    "    at_end_of_stream(A),\n"
+    "    !,\n"
+    "    B=end_of_file.\n"
+    "csv_read_row(A, B, C) :-\n"
+    "    '$csv_read_lines_to_codes'(A, D, C, even),\n"
+    "    phrase('$csv_row'(E, C), D),\n"
+    "    !,\n"
+    "    B=E.\n"
+    "'$csv_read_lines_to_codes'(A, B, C, D) :-\n"
+    "    read_line_to_codes(A, E),\n"
+    "    E\\==end_of_file,\n"
+    "    (   (   '$csv_csv_options_ignore_quotes'(C, true)\n"
+    "        ;   '$csv_check_quotes'(E, D, even)\n"
+    "        )\n"
+    "    ->  B=E\n"
+    "    ;   append(E, [10|F], B),\n"
+    "        '$csv_read_lines_to_codes'(A, F, C, odd)\n"
+    "    ).\n"
+    "'$csv_check_quotes'([], A, A) :-\n"
+    "    !.\n"
+    "'$csv_check_quotes'([34|A], odd, B) :-\n"
+    "    !,\n"
+    "    '$csv_check_quotes'(A, even, B).\n"
+    "'$csv_check_quotes'([34|A], even, B) :-\n"
+    "    !,\n"
+    "    '$csv_check_quotes'(A, odd, B).\n"
+    "'$csv_check_quotes'([_|A], B, C) :-\n"
+    "    '$csv_check_quotes'(A, B, C).\n"
+    "csv_options(A, B) :-\n"
+    "    '$csv_make_csv_options'(B, A, _).\n"
+    "csv_write_file(A, B) :-\n"
+    "    csv_write_file(A, B, []).\n"
+    "csv_write_file(A, B, C) :-\n"
+    "    must_be(list, B),\n"
+    "    '$csv_default_separator'(A, C, D),\n"
+    "    '$csv_make_csv_options'(D, E, F),\n"
+    "    setup_call_cleanup(open(A, write, G, F),\n"
+    "                       maplist('$csv_csv_write_row'(G, E), B),\n"
+    "                       close(G)).\n"
+    "'$csv_csv_write_row'(A, B, C) :-\n"
+    "    phrase('$csv_emit_row'(C, B), D),\n"
+    "    format(A, '~s', [D]).\n"
+    "'$csv_emit_csv'([], _, A, B) :-\n"
+    "    A=B.\n"
+    "'$csv_emit_csv'([A|B], C, D, E) :-\n"
+    "    '$csv_emit_row'(A, C, D, F),\n"
+    "    '$csv_emit_csv'(B, C, F, E).\n"
+    "'$csv_emit_row'(A, B, C, D) :-\n"
+    "    A=..[_|E],\n"
+    "    F=C,\n"
+    "    '$csv_emit_fields'(E, B, F, G),\n"
+    "    G=[13, 10|D].\n"
+    "'$csv_emit_fields'([], _, A, B) :-\n"
+    "    A=B.\n"
+    "'$csv_emit_fields'([A|B], C, D, E) :-\n"
+    "    '$csv_emit_field'(A, C, D, F),\n"
+    "    (   B==[],\n"
+    "        G=F\n"
+    "    ->  G=E\n"
+    "    ;   '$csv_csv_options_separator'(C, H),\n"
+    "        I=F,\n"
+    "        I=[H|J],\n"
+    "        '$csv_emit_fields'(B, C, J, E)\n"
+    "    ).\n"
+    "'$csv_emit_field'(A, B, C, D) :-\n"
+    "    (   atom(A)\n"
+    "    ->  atom_codes(A, E)\n"
+    "    ;   string(A)\n"
+    "    ->  string_codes(A, E)\n"
+    "    ),\n"
+    "    F=C,\n"
+    "    !,\n"
+    "    G=F,\n"
+    "    (   '$csv_needs_quotes'(A, B),\n"
+    "        H=G\n"
+    "    ->  H=[34|I],\n"
+    "        '$csv_emit_string'(E, I, J),\n"
+    "        J=[34|D]\n"
+    "    ;   '$csv_emit_codes'(E, G, D)\n"
+    "    ).\n"
+    "'$csv_emit_field'([], _, A, B) :-\n"
+    "    !,\n"
+    "    C=A,\n"
+    "    atom_codes('[]', D),\n"
+    "    E=C,\n"
+    "    '$csv_emit_codes'(D, E, B).\n"
+    "'$csv_emit_field'(A, _, B, C) :-\n"
+    "    number_codes(A, D),\n"
+    "    E=B,\n"
+    "    '$csv_emit_codes'(D, E, C).\n"
+    "'$csv_needs_quotes'(A, _) :-\n"
+    "    sub_atom(A, _, _, _, '\"'),\n"
+    "    !.\n"
+    "'$csv_needs_quotes'(A, _) :-\n"
+    "    sub_atom(A, _, _, _, '\\n'),\n"
+    "    !.\n"
+    "'$csv_needs_quotes'(A, _) :-\n"
+    "    sub_atom(A, _, _, _, '\\r'),\n"
+    "    !.\n"
+    "'$csv_needs_quotes'(A, B) :-\n"
+    "    '$csv_csv_options_separator'(B, C),\n"
+    "    char_code(D, C),\n"
+    "    sub_atom(A, _, _, _, D),\n"
+    "    !.\n"
+    "'$csv_emit_string'([], A, B) :-\n"
+    "    A=B.\n"
+    "'$csv_emit_string'([34|A], B, C) :-\n"
+    "    !,\n"
+    "    D=B,\n"
+    "    D=[34, 34|E],\n"
+    "    '$csv_emit_string'(A, E, C).\n"
+    "'$csv_emit_string'([A|B], C, D) :-\n"
+    "    C=[A|E],\n"
+    "    '$csv_emit_string'(B, E, D).\n"
+    "'$csv_emit_codes'([], A, B) :-\n"
+    "    A=B.\n"
+    "'$csv_emit_codes'([34|A], B, C) :-\n"
+    "    !,\n"
+    "    D=B,\n"
+    "    D=[34, 34|E],\n"
+    "    '$csv_emit_codes'(A, E, C).\n"
+    "'$csv_emit_codes'([A|B], C, D) :-\n"
+    "    C=[A|E],\n"
+    "    '$csv_emit_codes'(B, E, D).\n"
+    "csv_write_stream(A, B, C) :-\n"
+    "    must_be(list, B),\n"
+    "    '$csv_make_csv_options'(C, D, _),\n"
+    "    maplist('$csv_csv_write_row'(A, D), B).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_EXPORTS[] = {
+    { "date_time_value", 3 },
+    { "parse_time", 2 },
+    { "parse_time", 3 },
+    { "day_of_the_week", 2 },
+    { "day_of_the_year", 2 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_5_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_5_SRC[] =
     "date_time_value(year,            date(Y,_,_,_,_,_,_,_,_), Y).\n"
     "date_time_value(month,           date(_,M,_,_,_,_,_,_,_), M).\n"
     "date_time_value(day,             date(_,_,D,_,_,_,_,_,_), D).\n"
@@ -11529,7 +12086,7 @@ static const char PL_PRELUDE_LIB_4_SRC[] =
     "day_of_the_year(date(Year, Mon, Day), DotY) :-\n"
     "    format_time(atom(A), '%j', date(Year, Mon, Day, 0, 0, 0, 0, -, -)),\n"
     "    atom_number(A, DotY).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_EXPORTS[] = {
     { "white", 2 },
     { "whites", 2 },
     { "blank", 2 },
@@ -11555,10 +12112,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_EXPORTS[] = {
     { "atom", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_QUIET[] = {
     { "alpha_to_lower", 0 },
     { "atom", 0 },
     { "blank", 0 },
@@ -11584,10 +12141,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_5_QUIET[] = {
     { "xinteger", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_5_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_6_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_5_SRC[] =
+static const char PL_PRELUDE_LIB_6_SRC[] =
     "string_without(End, Codes) -->\n"
     "\t{ string(End), !,\n"
     "\t  string_codes(End, EndCodes)\n"
@@ -11759,7 +12316,7 @@ static const char PL_PRELUDE_LIB_5_SRC[] =
     "atom(Atom, Head, Tail) :-\n"
     "\tmust_be(ground, Atom),\n"
     "\tformat(codes(Head, Tail), '~w', [Atom]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_EXPORTS[] = {
     { "get_dict", 3 },
     { "get_dict", 5 },
     { "put_dict", 3 },
@@ -11775,16 +12332,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_EXPORTS[] = {
     { "$dict_eval", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_6_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_6_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_7_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_6_SRC[] =
+static const char PL_PRELUDE_LIB_7_SRC[] =
     "'$dict_need'(D) :- is_dict(D), !.\n"
     "'$dict_need'(D) :- var(D), !, throw(error(instantiation_error, _)).\n"
     "'$dict_need'(D) :- throw(error(type_error(dict, D), _)).\n"
@@ -11852,7 +12409,7 @@ static const char PL_PRELUDE_LIB_6_SRC[] =
     "'$dict_fn'(K, D, V) :- atomic(K), !, ( get_dict(K, D, V0) -> V = V0 ; throw(error(existence_error(key, K, D), context(system:'$get_dict_ex'/3, _))) ).\n"
     "'$dict_fn'(F, D, V) :- ( F = '$dict_m0'(_) -> true ; compound(F) ), is_dict(D, T), atom(T), current_predicate('$dict_method'/4), !, '$dict_method'(T, F, D, V).\n"
     "'$dict_fn'(F, D, _) :- throw(error(existence_error(dict_function, F), D)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_EXPORTS[] = {
     { "instantiation_error", 1 },
     { "uninstantiation_error", 1 },
     { "type_error", 2 },
@@ -11868,16 +12425,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_EXPORTS[] = {
     { "current_type", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_7_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_7_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_8_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_7_SRC[] =
+static const char PL_PRELUDE_LIB_8_SRC[] =
     "type_error(ValidType, Culprit) :-\n"
     "    throw(error(type_error(ValidType, Culprit), _)).\n"
     "domain_error(ValidDomain, Culprit) :-\n"
@@ -12057,22 +12614,22 @@ static const char PL_PRELUDE_LIB_7_SRC[] =
     "    !,\n"
     "    G = G0.\n"
     "'$error_qualify'(G, error:G).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_EXPORTS[] = {
     { "reset_gensym", 0 },
     { "reset_gensym", 1 },
     { "gensym", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_8_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_8_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_9_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_8_SRC[] =
+static const char PL_PRELUDE_LIB_9_SRC[] =
     "gensym(Base, Atom) :-\n"
     "    atom_concat('$gs_', Base, Key),\n"
     "    flag(Key, Old, Old+1),\n"
@@ -12095,7 +12652,7 @@ static const char PL_PRELUDE_LIB_8_SRC[] =
     "reset_gensym(Base) :-\n"
     "    atom_concat('$gs_', Base, Key),\n"
     "    set_flag(Key, 0).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_EXPORTS[] = {
     { "write_to_atom", 2 },
     { "writeq_to_atom", 2 },
     { "print_to_atom", 2 },
@@ -12182,10 +12739,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_EXPORTS[] = {
     { "get_print_stream", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_QUIET[] = {
     { "architecture", 0 },
     { "atom_property", 0 },
     { "bind_variables", 0 },
@@ -12257,10 +12814,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_QUIET[] = {
     { "writeq_to_codes", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_9_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_10_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_9_SRC[] =
+static const char PL_PRELUDE_LIB_10_SRC[] =
     "write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).\n"
     "writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).\n"
     "print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).\n"
@@ -12549,7 +13106,7 @@ static const char PL_PRELUDE_LIB_9_SRC[] =
     "'$gnu_b_exp'(_, []).\n"
     "'$gnu_b_in'(C, A) :- atom_codes(A, L), memberchk(C, L).\n"
     "get_print_stream(S) :- ( var(S) -> true ; is_stream(S) -> true ; atom(S), stream_property(_, alias(S)) -> true ; throw(error(domain_error(stream, S), get_print_stream/1)) ), current_output(P), ( atom(S) -> stream_property(P, alias(S)) ; S = P ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },
     { "#<#", 2 },
@@ -12607,7 +13164,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_EXPORTS[] = {
     { "#==>", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
     { "#/\\", 2 },
     { "#<", 2 },
     { "#=", 2 },
@@ -12621,7 +13178,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_SHADOWS[] = {
     { "fd_dom", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "#/\\", 2 },
     { "#<", 2 },
     { "#=", 2 },
@@ -12635,7 +13192,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_QUIET[] = {
     { "fd_dom", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_10_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_11_OPS[] = {
     { 700, "xfx", "#=#" },
     { 700, "xfx", "#\\=#" },
     { 700, "xfx", "#<#" },
@@ -12650,7 +13207,7 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_10_OPS[] = {
     { 720, "yfx", "#\\/\\" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_10_SRC[] =
+static const char PL_PRELUDE_LIB_11_SRC[] =
     "'#='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#='(X1, Y1).\n"
     "'#\\\\='(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#\\\\='(X1, Y1).\n"
     "'#<'(X, Y) :- '$gnu_expr'(X, X1), '$gnu_expr'(Y, Y1), '$clpfd_wrapped_#<'(X1, Y1).\n"
@@ -12802,7 +13359,227 @@ static const char PL_PRELUDE_LIB_10_SRC[] =
     "'$gnu_is_prime'(N, D) :- D * D > N, !.\n"
     "'$gnu_is_prime'(N, D) :- N mod D =\\= 0, D1 is D + 1, '$gnu_is_prime'(N, D1).\n"
     "fd_reified_in(X, L, U, B) :- '#<==>'(B, in(X, '..'(L, U))).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
+    { "ht_new", 1 },
+    { "ht_is_hashtable", 1 },
+    { "ht_size", 2 },
+    { "ht_put", 3 },
+    { "ht_update", 4 },
+    { "ht_put_new", 3 },
+    { "ht_put", 5 },
+    { "ht_del", 3 },
+    { "ht_get", 3 },
+    { "ht_gen", 3 },
+    { "ht_pairs", 2 },
+    { "ht_keys", 2 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_12_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_12_SRC[] =
+    "ht_new(ht(0,0,[](_))).\n"
+    "ht_is_hashtable(HT) :-\n"
+    "    nonvar(HT),\n"
+    "    HT = ht(Load, Size, Buckets),\n"
+    "    integer(Load),\n"
+    "    integer(Size),\n"
+    "    compound_name_arity(Buckets, [], Arity),\n"
+    "    Arity =:= Size*2+1.\n"
+    "ht_size(ht(Count, _Size, _Buckets), Count).\n"
+    "ht_put(HT, Key, Value) :-\n"
+    "    must_be(nonvar, Key),\n"
+    "    '$hashtable_ht_put'(HT, Key, Value, _, _, _).\n"
+    "ht_put_new(HT, Key, Value) :-\n"
+    "    must_be(nonvar, Key),\n"
+    "    '$hashtable_ht_put'(HT, Key, Value, _, _, true).\n"
+    "ht_update(HT, Key, Old, New) :-\n"
+    "    must_be(nonvar, Key),\n"
+    "    '$hashtable_ht_put'(HT, Key, New, _, Old, false).\n"
+    "ht_put(HT, Key, Value, IfNew, Old) :-\n"
+    "    must_be(nonvar, Key),\n"
+    "    '$hashtable_ht_put'(HT, Key, Value, IfNew, Old, _).\n"
+    "'$hashtable_ht_put'(HT, Key, Value, IfNew, Old, IsNew) :-\n"
+    "    HT = ht(Load, Size, Buckets),\n"
+    "    (   Load >= Size//2\n"
+    "    ->  '$hashtable_ht_resize'(HT),\n"
+    "        '$hashtable_ht_put'(HT, Key, Value, IfNew, Old, IsNew)\n"
+    "    ;   variant_hash(Key, I0),\n"
+    "        I is I0 mod Size,\n"
+    "        '$hashtable_put_'(Buckets, I, Size, Key, Old, IfNew, Value, IsNew),\n"
+    "        (   IsNew == true\n"
+    "        ->  Load2 is Load+1,\n"
+    "            setarg(1, HT, Load2)\n"
+    "        ;   true\n"
+    "        )\n"
+    "    ).\n"
+    "'$hashtable_put_'(Buckets, I, Size, Key, Old, IfNew, Value, IsNew) :-\n"
+    "    '$hashtable_ht_kv'(Buckets, I, K, V),\n"
+    "    (   var(K)\n"
+    "    ->  IsNew = true,\n"
+    "        Old = IfNew,\n"
+    "        K = Key,\n"
+    "        V = Value\n"
+    "    ;   K == Key\n"
+    "    ->  IsNew = false,\n"
+    "        Old = V,\n"
+    "        '$hashtable_ht_put_v'(Buckets, I, Value)\n"
+    "    ;   I2 is (I+1) mod Size,\n"
+    "        '$hashtable_put_'(Buckets, I2, Size, Key, Old, IfNew, Value, IsNew)\n"
+    "    ).\n"
+    "'$hashtable_ht_resize'(HT) :-\n"
+    "    HT = ht(_Load, Size, Buckets),\n"
+    "    NewSize is max(4, Size*2),\n"
+    "    NewArity is NewSize*2+1,\n"
+    "    compound_name_arity(NewBuckets, [], NewArity),\n"
+    "    '$hashtable_copy_members'(0, Size, Buckets, NewSize, NewBuckets),\n"
+    "    setarg(2, HT, NewSize),\n"
+    "    setarg(3, HT, NewBuckets).\n"
+    "'$hashtable_copy_members'(I, OSize, OBuckets, NSize, NBuckets) :-\n"
+    "    I < OSize,\n"
+    "    !,\n"
+    "    '$hashtable_ht_kv'(OBuckets, I, K, V),\n"
+    "    (   nonvar(K)\n"
+    "    ->  variant_hash(K, I0),\n"
+    "        NI is I0 mod NSize,\n"
+    "        '$hashtable_copy_'(NBuckets, NI, NSize, K, V)\n"
+    "    ;   true\n"
+    "    ),\n"
+    "    I2 is I+1,\n"
+    "    '$hashtable_copy_members'(I2, OSize, OBuckets, NSize, NBuckets).\n"
+    "'$hashtable_copy_members'(_, _, _, _, _).\n"
+    "'$hashtable_copy_'(Buckets, I, Size, Key, Value) :-\n"
+    "    '$hashtable_ht_kv'(Buckets, I, K, V),\n"
+    "    (   var(K)\n"
+    "    ->  K = Key,\n"
+    "        V = Value\n"
+    "    ;   I2 is (I+1) mod Size,\n"
+    "        '$hashtable_copy_'(Buckets, I2, Size, Key, Value)\n"
+    "    ).\n"
+    "ht_del(HT, Key, Value) :-\n"
+    "    must_be(nonvar, Key),\n"
+    "    HT = ht(Load, Size, Buckets),\n"
+    "    Load > 0,\n"
+    "    variant_hash(Key, I0),\n"
+    "    I is I0 mod Size,\n"
+    "    '$hashtable_del_'(Buckets, I, Size, Key, Value),\n"
+    "    Load2 is Load - 1,\n"
+    "    setarg(1, HT, Load2).\n"
+    "'$hashtable_del_'(Buckets, I, Size, Key, Value) :-\n"
+    "    '$hashtable_ht_kv'(Buckets, I, K, V),\n"
+    "    (   var(K)\n"
+    "    ->  fail\n"
+    "    ;   K == Key\n"
+    "    ->  V = Value,\n"
+    "        '$hashtable_ht_put_kv'(Buckets, I, _, _),\n"
+    "        '$hashtable_del_shift'(Buckets, I, I, Size)\n"
+    "    ;   I2 is (I+1) mod Size,\n"
+    "        '$hashtable_del_'(Buckets, I2, Size, Key, Value)\n"
+    "    ).\n"
+    "'$hashtable_del_shift'(Buckets, I0, J, Size) :-\n"
+    "    I is (I0+1) mod Size,\n"
+    "    '$hashtable_ht_kv'(Buckets, I, K, V),\n"
+    "    (   var(K)\n"
+    "    ->  true\n"
+    "    ;   variant_hash(K, Hash),\n"
+    "        R is Hash mod Size,\n"
+    "        (   (   I >= R, R > J\n"
+    "            ;   R > J, J > I\n"
+    "            ;   J > I, I >= R\n"
+    "            )\n"
+    "        ->  '$hashtable_del_shift'(Buckets, I, J, Size)\n"
+    "        ;   '$hashtable_ht_put_kv'(Buckets, J, K, V),\n"
+    "            '$hashtable_ht_put_kv'(Buckets, I, _, _),\n"
+    "            '$hashtable_del_shift'(Buckets, I, I, Size)\n"
+    "        )\n"
+    "    ).\n"
+    "ht_get(ht(Load, Size, Buckets), Key, Value) :-\n"
+    "    Load > 0,\n"
+    "    must_be(nonvar, Key),\n"
+    "    variant_hash(Key, I0),\n"
+    "    I is I0 mod Size,\n"
+    "    '$hashtable_get_'(Buckets, I, Size, Key, Value).\n"
+    "'$hashtable_get_'(Buckets, I, Size, Key, Value) :-\n"
+    "    '$hashtable_ht_kv'(Buckets, I, K, V),\n"
+    "    (   Key == K\n"
+    "    ->  Value = V\n"
+    "    ;   nonvar(K)\n"
+    "    ->  I2 is (I+1) mod Size,\n"
+    "        '$hashtable_get_'(Buckets, I2, Size, Key, Value)\n"
+    "    ).\n"
+    "'$hashtable_ht_k'(Buckets, I, K) :-\n"
+    "    IK is I*2+1,\n"
+    "    arg(IK, Buckets, K).\n"
+    "'$hashtable_ht_kv'(Buckets, I, K, V) :-\n"
+    "    IK is I*2+1,\n"
+    "    IV is IK+1,\n"
+    "    arg(IK, Buckets, K),\n"
+    "    arg(IV, Buckets, V).\n"
+    "'$hashtable_ht_put_kv'(Buckets, I, K, V) :-\n"
+    "    IK is I*2+1,\n"
+    "    IV is IK+1,\n"
+    "    setarg(IK, Buckets, K),\n"
+    "    setarg(IV, Buckets, V).\n"
+    "'$hashtable_ht_put_v'(Buckets, I, V) :-\n"
+    "    IV is I*2+2,\n"
+    "    setarg(IV, Buckets, V).\n"
+    "ht_gen(HT, Key, Value) :-\n"
+    "    HT = ht(_, Size, Buckets),\n"
+    "    End is Size - 1,\n"
+    "    between(0, End, I),\n"
+    "    '$hashtable_ht_kv'(Buckets, I, K, V),\n"
+    "    nonvar(K),\n"
+    "    K = Key,\n"
+    "    V = Value.\n"
+    "ht_pairs(HT, Pairs) :-\n"
+    "    ht_is_hashtable(HT),\n"
+    "    !,\n"
+    "    HT = ht(_Load, Size, Buckets),\n"
+    "    '$hashtable_pairs_'(0, Size, Buckets, Pairs0),\n"
+    "    sort(Pairs0, Pairs).\n"
+    "ht_pairs(HT, Pairs) :-\n"
+    "    must_be(list(pair), Pairs),\n"
+    "    ht_new(HT),\n"
+    "    '$hashtable_ht_fill'(Pairs, HT).\n"
+    "'$hashtable_pairs_'(I, Size, Buckets, Pairs) :-\n"
+    "    (   I < Size\n"
+    "    ->  '$hashtable_ht_kv'(Buckets, I, K, V),\n"
+    "        (   nonvar(K)\n"
+    "        ->  Pairs = [K-V|T],\n"
+    "            I2 is I+1,\n"
+    "            '$hashtable_pairs_'(I2, Size, Buckets, T)\n"
+    "        ;   I2 is I+1,\n"
+    "            '$hashtable_pairs_'(I2, Size, Buckets, Pairs)\n"
+    "        )\n"
+    "    ;   Pairs = []\n"
+    "    ).\n"
+    "'$hashtable_ht_fill'([], _).\n"
+    "'$hashtable_ht_fill'([K-V|T], HT) :-\n"
+    "    ht_put(HT, K, V),\n"
+    "    '$hashtable_ht_fill'(T, HT).\n"
+    "ht_keys(HT, Keys) :-\n"
+    "    HT = ht(_Load, Size, Buckets),\n"
+    "    '$hashtable_keys_'(0, Size, Buckets, Keys0),\n"
+    "    sort(Keys0, Keys).\n"
+    "'$hashtable_keys_'(I, Size, Buckets, Keys) :-\n"
+    "    (   I < Size\n"
+    "    ->  '$hashtable_ht_k'(Buckets, I, K),\n"
+    "        (   nonvar(K)\n"
+    "        ->  Keys = [K|T],\n"
+    "            I2 is I+1,\n"
+    "            '$hashtable_keys_'(I2, Size, Buckets, T)\n"
+    "        ;   I2 is I+1,\n"
+    "            '$hashtable_keys_'(I2, Size, Buckets, Keys)\n"
+    "        )\n"
+    "    ;   Keys = []\n"
+    "    ).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_EXPORTS[] = {
     { "add_to_heap", 4 },
     { "delete_from_heap", 4 },
     { "empty_heap", 1 },
@@ -12817,16 +13594,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "singleton_heap", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_11_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_13_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_11_SRC[] =
+static const char PL_PRELUDE_LIB_13_SRC[] =
     "add_to_heap(heap(Q0,M),P,X,heap(Q1,N)) :-\n"
     "    '$heaps_meld'(Q0,t(X,P,[]),Q1),\n"
     "    N is M+1.\n"
@@ -12905,7 +13682,7 @@ static const char PL_PRELUDE_LIB_11_SRC[] =
     "    '$heaps_meld'(Q0, Q1, Q2),\n"
     "    '$heaps_pairing'(Qs, Q3),\n"
     "    '$heaps_meld'(Q2, Q3, Q).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_EXPORTS[] = {
     { "member", 2 },
     { "append", 2 },
     { "append", 3 },
@@ -12943,16 +13720,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
     { "subtract", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_12_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_14_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_12_SRC[] =
+static const char PL_PRELUDE_LIB_14_SRC[] =
     "member(El, [H|T]) :-\n"
     "    '$lists_member_'(T, El, H).\n"
     "'$lists_member_'(_, El, El).\n"
@@ -13243,7 +14020,7 @@ static const char PL_PRELUDE_LIB_12_SRC[] =
     "    ;   R = [E|R1],\n"
     "        subtract(T, D, R1)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
     { "main", 0 },
     { "argv_options", 3 },
     { "argv_options", 4 },
@@ -13252,16 +14029,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_EXPORTS[] = {
     { "cli_enable_development_system", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_13_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_13_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_15_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_13_SRC[] =
+static const char PL_PRELUDE_LIB_15_SRC[] =
     ":- dynamic\n"
     "    interactive/0.\n"
     "main :-\n"
@@ -13824,7 +14601,87 @@ static const char PL_PRELUDE_LIB_13_SRC[] =
     "    set_prolog_flag(xpce_threaded, true),\n"
     "    set_prolog_flag(message_ide, true),\n"
     "    set_prolog_flag(toplevel_goal, prolog).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
+    { "empty_nb_set", 1 },
+    { "add_nb_set", 2 },
+    { "add_nb_set", 3 },
+    { "gen_nb_set", 2 },
+    { "size_nb_set", 2 },
+    { "nb_set_to_list", 2 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_16_SRC[] =
+    "'$nb_set_initial_size'(32).\n"
+    "empty_nb_set(nb_set(Buckets, 0)) :-\n"
+    "    '$nb_set_initial_size'(Size),\n"
+    "    '$filled_array'(Buckets, buckets, Size, []).\n"
+    "add_nb_set(Key, Set) :-\n"
+    "    add_nb_set(Key, Set, _).\n"
+    "add_nb_set(Key, Set, New) :-\n"
+    "    arg(1, Set, Buckets),\n"
+    "    compound_name_arity(Buckets, _, BCount),\n"
+    "    '$nb_set_hash_key'(Key, BCount, Hash),\n"
+    "    arg(Hash, Buckets, Bucket),\n"
+    "    (   member(X, Bucket),\n"
+    "        Key =@= X\n"
+    "    ->  New = false\n"
+    "    ;   New = true,\n"
+    "        duplicate_term(Key, Copy),\n"
+    "        nb_linkarg(Hash, Buckets, [Copy|Bucket]),\n"
+    "        arg(2, Set, Size0),\n"
+    "        Size is Size0+1,\n"
+    "        nb_setarg(2, Set, Size),\n"
+    "        (   Size > BCount\n"
+    "        ->  '$nb_set_rehash'(Set)\n"
+    "        ;   true\n"
+    "        )\n"
+    "    ).\n"
+    ":- if(catch((A = f(A), variant_hash(A,_)), _, fail)).\n"
+    "'$nb_set_hash_key'(Term, BCount, Key) :-\n"
+    "    variant_hash(Term, IntHash),\n"
+    "    Key is (IntHash mod BCount)+1.\n"
+    ":- else.\n"
+    "'$nb_set_hash_key'(Term, BCount, Key) :-\n"
+    "    acyclic_term(Key),\n"
+    "    !,\n"
+    "    variant_hash(Term, IntHash),\n"
+    "    Key is (IntHash mod BCount)+1.\n"
+    "'$nb_set_hash_key'(Term, BCount, Key) :-\n"
+    "    term_factorized(Term, Skeleton, Substiution),\n"
+    "    variant_hash(Skeleton+Substiution, IntHash),\n"
+    "    Key is (IntHash mod BCount)+1.\n"
+    ":- endif.\n"
+    "'$nb_set_rehash'(Set) :-\n"
+    "    arg(1, Set, Buckets0),\n"
+    "    compound_name_arity(Buckets0, Name, Arity0),\n"
+    "    Arity is Arity0*2,\n"
+    "    '$filled_array'(Buckets, Name, Arity, []),\n"
+    "    nb_setarg(1, Set, Buckets),\n"
+    "    nb_setarg(2, Set, 0),\n"
+    "    (  arg(_, Buckets0, Chain),\n"
+    "       member(Key, Chain),\n"
+    "       add_nb_set(Key, Set, _),\n"
+    "       fail\n"
+    "    ;  true\n"
+    "    ).\n"
+    "nb_set_to_list(nb_set(Buckets, _Size), OrdSet) :-\n"
+    "    compound_name_arguments(Buckets, _, Args),\n"
+    "    append(Args, List),\n"
+    "    sort(List, OrdSet).\n"
+    "gen_nb_set(Set, Key) :-\n"
+    "    nb_set_to_list(Set, OrdSet),\n"
+    "    member(Key, OrdSet).\n"
+    "size_nb_set(nb_set(_, Size), Size).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "option", 2 },
     { "option", 3 },
     { "select_option", 3 },
@@ -13834,16 +14691,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_EXPORTS[] = {
     { "dict_options", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_14_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_14_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_14_SRC[] =
+static const char PL_PRELUDE_LIB_17_SRC[] =
     "option(Opt, Options, Default) :-\n"
     "    is_dict(Options),\n"
     "    !,\n"
@@ -14018,23 +14875,23 @@ static const char PL_PRELUDE_LIB_14_SRC[] =
     "    !.\n"
     "'$option_key_name'(Opt, _) :-\n"
     "    domain_error(option, Opt).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "opt_parse", 5 },
     { "opt_parse", 4 },
     { "opt_arguments", 3 },
     { "opt_help", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_15_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_15_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_15_SRC[] =
+static const char PL_PRELUDE_LIB_18_SRC[] =
     "opt_arguments(OptsSpec, Opts, PositionalArgs) :-\n"
     "    current_prolog_flag(argv, Argv),\n"
     "    opt_parse(OptsSpec, Argv, Opts, PositionalArgs).\n"
@@ -14414,7 +15271,7 @@ static const char PL_PRELUDE_LIB_15_SRC[] =
     "'$optparse_flags'(OptSpec, Flags) :- memberchk(longflags(Flags), OptSpec).\n"
     "'$optparse_is_list_of_atoms'([]).\n"
     "'$optparse_is_list_of_atoms'([X|Xs]) :- atom(X), '$optparse_is_list_of_atoms'(Xs).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "is_ordset", 1 },
     { "list_to_ord_set", 2 },
     { "ord_add_element", 3 },
@@ -14437,16 +15294,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
     { "ord_intersection", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_16_SRC[] =
+static const char PL_PRELUDE_LIB_19_SRC[] =
     "is_ordset(Term) :-\n"
     "    is_list(Term),\n"
     "    '$ordsets_is_ordset2'(Term).\n"
@@ -14665,7 +15522,7 @@ static const char PL_PRELUDE_LIB_16_SRC[] =
     "    ord_symdiff(T1, T2, Difference).\n"
     "'$ordsets_ord_symdiff'(>, H1, T1, H2, Set2, [H2|Difference]) :-\n"
     "    '$ordsets_ord_symdiff'(Set2, H1, T1, Difference).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
     { "pairs_keys_values", 3 },
     { "pairs_values", 2 },
     { "pairs_keys", 2 },
@@ -14674,16 +15531,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "map_list_to_pairs", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_17_SRC[] =
+static const char PL_PRELUDE_LIB_20_SRC[] =
     "pairs_keys_values(Pairs, Keys, Values) :-\n"
     "    (   nonvar(Pairs) ->\n"
     "        '$pairs_pairs_keys_values_'(Pairs, Keys, Values)\n"
@@ -14727,7 +15584,7 @@ static const char PL_PRELUDE_LIB_17_SRC[] =
     "'$pairs_map_list_to_pairs2'([H|T0], Pred, [K-H|T]) :-\n"
     "    call(Pred, H, K),\n"
     "    '$pairs_map_list_to_pairs2'(T0, Pred, T).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
     { "re_match", 2 },
     { "re_match", 3 },
     { "re_matchsub", 3 },
@@ -14739,16 +15596,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "re_replace", 5 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_21_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_18_SRC[] =
+static const char PL_PRELUDE_LIB_21_SRC[] =
     "re_match(Re, S) :- re_match(Re, S, []).\n"
     "re_match(Re, S, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_search'(R, W, 0, W, _, _), !.\n"
     "re_matchsub(Re, S, Sub) :- re_matchsub(Re, S, Sub, []).\n"
@@ -14972,7 +15829,7 @@ static const char PL_PRELUDE_LIB_18_SRC[] =
     "'$re_conv'(_, Cs, V) :- string_codes(V, Cs).\n"
     "'$re_take'(0, _, []) :- !.\n"
     "'$re_take'(N, [C|Cs], [C|Ts]) :- N1 is N - 1, '$re_take'(N1, Cs, Ts).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
     { "phrase_from_file", 2 },
     { "phrase_from_file", 3 },
     { "phrase_from_stream", 2 },
@@ -14982,16 +15839,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "lazy_list_character_count", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_22_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_19_SRC[] =
+static const char PL_PRELUDE_LIB_22_SRC[] =
     "phrase_from_file(Grammar, File) :-\n"
     "    phrase_from_file(Grammar, File, []).\n"
     "phrase_from_file(Grammar, File, Options) :-\n"
@@ -15073,7 +15930,7 @@ static const char PL_PRELUDE_LIB_19_SRC[] =
     "        )\n"
     "    ;   Value = Read\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
     { "unix", 1 },
     { "abs", 2 },
     { "sin", 2 },
@@ -15111,16 +15968,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
     { "on_exception", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_23_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_20_SRC[] =
+static const char PL_PRELUDE_LIB_23_SRC[] =
     "unix(system(Command)) :-\n"
     "    shell(Command).\n"
     "unix(shell(Command)) :-\n"
@@ -15230,7 +16087,205 @@ static const char PL_PRELUDE_LIB_20_SRC[] =
     "    throw(Term).\n"
     "on_exception(Except, Goal, Recover) :-\n"
     "    catch(Goal, Except, Recover).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
+    { "random", 1 },
+    { "random_between", 3 },
+    { "getrand", 1 },
+    { "setrand", 1 },
+    { "maybe", 0 },
+    { "maybe", 1 },
+    { "maybe", 2 },
+    { "random_perm2", 4 },
+    { "random_member", 2 },
+    { "random_select", 3 },
+    { "random_subseq", 3 },
+    { "randseq", 3 },
+    { "randset", 3 },
+    { "random_permutation", 2 },
+    { "random_numlist", 4 },
+    { "random", 3 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_24_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_24_SRC[] =
+    "'$random_check_gmp' :-\n"
+    "    current_arithmetic_function(random_float),\n"
+    "    !.\n"
+    "'$random_check_gmp' :-\n"
+    "    print_message(warning, random(no_gmp)).\n"
+    "random(R) :-\n"
+    "    R is random_float.\n"
+    "random_between(L, U, R) :-\n"
+    "    integer(L), integer(U),\n"
+    "    !,\n"
+    "    U >= L,\n"
+    "    R is L+random((U+1)-L).\n"
+    "random_between(L, U, _) :-\n"
+    "    must_be(integer, L),\n"
+    "    must_be(integer, U).\n"
+    "random(L, U, R) :-\n"
+    "    integer(L), integer(U),\n"
+    "    !,\n"
+    "    R is L+random(U-L).\n"
+    "random(L, U, R) :-\n"
+    "    number(L), number(U),\n"
+    "    !,\n"
+    "    R is L+((U-L)*random_float).\n"
+    "random(L, U, _) :-\n"
+    "    must_be(number, L),\n"
+    "    must_be(number, U).\n"
+    "setrand(rand(A,B,C)) :-\n"
+    "    !,\n"
+    "    Seed is A<<30+B<<15+C,\n"
+    "    set_random(seed(Seed)).\n"
+    "setrand(State) :-\n"
+    "    set_random(state(State)).\n"
+    ":- if(current_predicate(random_property/1)).\n"
+    "getrand(State) :-\n"
+    "    random_property(state(State)).\n"
+    ":- else.\n"
+    "getrand(State) :-\n"
+    "    existence_error(random_state, State).\n"
+    ":- endif.\n"
+    "maybe :-\n"
+    "    random(2) =:= 0.\n"
+    "maybe(P) :-\n"
+    "    must_be(between(0.0,1.0), P),\n"
+    "    random_float < P.\n"
+    "maybe(K, N) :-\n"
+    "    integer(K), integer(N),\n"
+    "    between(0, N, K),\n"
+    "    !,\n"
+    "    random(N) < K.\n"
+    "maybe(K, N) :-\n"
+    "    must_be(nonneg, K),\n"
+    "    must_be(nonneg, N),\n"
+    "    domain_error(not_less_than_zero,N-K).\n"
+    "random_perm2(A,B, X,Y) :-\n"
+    "    (   maybe\n"
+    "    ->  X = A, Y = B\n"
+    "    ;   X = B, Y = A\n"
+    "    ).\n"
+    "random_member(X, List) :-\n"
+    "    must_be(list, List),\n"
+    "    length(List, Len),\n"
+    "    Len > 0,\n"
+    "    N is random(Len),\n"
+    "    nth0(N, List, X).\n"
+    "random_select(X, List, Rest) :-\n"
+    "    (   '$skip_list'(Len, List, Tail),\n"
+    "        Tail == []\n"
+    "    ->  true\n"
+    "    ;   '$skip_list'(RLen, Rest, Tail),\n"
+    "        Tail == []\n"
+    "    ->  Len is RLen+1\n"
+    "    ),\n"
+    "    !,\n"
+    "    Len > 0,\n"
+    "    N is random(Len),\n"
+    "    nth0(N, List, X, Rest).\n"
+    "random_select(_, List, Rest) :-\n"
+    "    '$random_partial_list'(List), '$random_partial_list'(Rest),\n"
+    "    instantiation_error(List+Rest).\n"
+    "random_select(_, List, Rest) :-\n"
+    "    must_be(list, List),\n"
+    "    must_be(list, Rest).\n"
+    "random_subseq([], [], []).\n"
+    "random_subseq([Head|Tail], Subseq, Complement) :-\n"
+    "    (   maybe\n"
+    "    ->  Subseq = [Head|SubTail],\n"
+    "        Complement = CompTail\n"
+    "    ;   Subseq = SubTail,\n"
+    "        Complement = [Head|CompTail]\n"
+    "    ),\n"
+    "    random_subseq(Tail, SubTail, CompTail).\n"
+    "randset(K, N, S) :-\n"
+    "    must_be(nonneg, K),\n"
+    "    K =< N,\n"
+    "    (   K < N//7\n"
+    "    ->  '$random_randsetn'(K, N, [], S)\n"
+    "    ;   '$random_randset'(K, N, [], S)\n"
+    "    ).\n"
+    "'$random_randset'(0, _, S, S) :- !.\n"
+    "'$random_randset'(K, N, Si, So) :-\n"
+    "    random(N) < K,\n"
+    "    !,\n"
+    "    J is K-1,\n"
+    "    M is N-1,\n"
+    "    '$random_randset'(J, M, [N|Si], So).\n"
+    "'$random_randset'(K, N, Si, So) :-\n"
+    "    M is N-1,\n"
+    "    '$random_randset'(K, M, Si, So).\n"
+    "'$random_randsetn'(K, N, Sofar, S) :-\n"
+    "    length(Sofar, Len),\n"
+    "    (   Len =:= K\n"
+    "    ->  S = Sofar\n"
+    "    ;   Needed is K-Len,\n"
+    "        length(New, Needed),\n"
+    "        maplist('$random_srand'(N), New),\n"
+    "        (   Sofar == []\n"
+    "        ->  sort(New, Sorted)\n"
+    "        ;   append(New, Sofar, Sofar2),\n"
+    "            sort(Sofar2, Sorted)\n"
+    "        ),\n"
+    "        '$random_randsetn'(K, N, Sorted, S)\n"
+    "    ).\n"
+    "'$random_srand'(N, E) :-\n"
+    "    E is random(N)+1.\n"
+    "randseq(K, N, Seq) :-\n"
+    "    randset(K, N, Set),\n"
+    "    '$random_random_permutation_'(Set, Seq).\n"
+    "random_permutation(List1, List2) :-\n"
+    "    is_list(List1),\n"
+    "    !,\n"
+    "    '$random_random_permutation_'(List1, List2).\n"
+    "random_permutation(List1, List2) :-\n"
+    "    is_list(List2),\n"
+    "    !,\n"
+    "    '$random_random_permutation_'(List2, List1).\n"
+    "random_permutation(List1, List2) :-\n"
+    "    '$random_partial_list'(List1), '$random_partial_list'(List2),\n"
+    "    !,\n"
+    "    instantiation_error(List1+List2).\n"
+    "random_permutation(List1, List2) :-\n"
+    "    must_be(list, List1),\n"
+    "    must_be(list, List2).\n"
+    "'$random_random_permutation_'(List, RandomPermutation) :-\n"
+    "    '$random_key_random'(List, Keyed),\n"
+    "    keysort(Keyed, Sorted),\n"
+    "    pairs_values(Sorted, RandomPermutation).\n"
+    "'$random_key_random'([], []).\n"
+    "'$random_key_random'([H|T0], [K-H|T]) :-\n"
+    "    random(K),\n"
+    "    '$random_key_random'(T0, T).\n"
+    "random_numlist(P, L, U, List) :-\n"
+    "    must_be(between(0.0, 1.0), P),\n"
+    "    must_be(integer, L),\n"
+    "    must_be(integer, U),\n"
+    "    '$random_random_numlist_'(P, L, U, List).\n"
+    "'$random_random_numlist_'(_P, L, U, List) :-\n"
+    "    L > U,\n"
+    "    !,\n"
+    "    List = [].\n"
+    "'$random_random_numlist_'(P, L, U, List) :-\n"
+    "    (   maybe(P)\n"
+    "    ->  List = [L|Tail]\n"
+    "    ;   List = Tail\n"
+    "    ),\n"
+    "    L1 is L + 1,\n"
+    "    '$random_random_numlist_'(P, L1, U, Tail).\n"
+    "'$random_partial_list'(List) :-\n"
+    "    '$skip_list'(_, List, Tail),\n"
+    "    var(Tail).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_EXPORTS[] = {
     { "rb_new", 1 },
     { "rb_empty", 1 },
     { "rb_lookup", 3 },
@@ -15261,16 +16316,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
     { "rb_in", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_21_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_25_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_21_SRC[] =
+static const char PL_PRELUDE_LIB_25_SRC[] =
     "rb_new(t(Nil,Nil)) :-\n"
     "    Nil = black('',_,_,'').\n"
     "rb_empty(t(Nil,Nil)) :-\n"
@@ -15879,7 +16934,7 @@ static const char PL_PRELUDE_LIB_21_SRC[] =
     "'$rbtrees_check_red_child'(black(_,_,_,_)) => true.\n"
     "'$rbtrees_check_red_child'(Node), Node = red(_,_,_,_) =>\n"
     "    domain_error(rb_black, Node).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_EXPORTS[] = {
     { "read_line_to_codes", 2 },
     { "read_line_to_codes", 3 },
     { "read_stream_to_codes", 2 },
@@ -15890,16 +16945,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
     { "read_file_to_terms", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_22_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_26_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_22_SRC[] =
+static const char PL_PRELUDE_LIB_26_SRC[] =
     "'$readutil_link_foreign' :-\n"
     "    catch(use_foreign_library(foreign(readutil)), _, fail),\n"
     "    !.\n"
@@ -16009,23 +17064,23 @@ static const char PL_PRELUDE_LIB_22_SRC[] =
     "        open(Path, read, Stream, Options),\n"
     "        '$readutil_read_stream_to_terms'(Stream, Terms, Tail, Options),\n"
     "        close(Stream)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_EXPORTS[] = {
     { "record", 1 },
     { "current_record", 2 },
     { "current_record_predicate", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_23_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_27_OPS[] = {
     { 1150, "fx", "record" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_23_SRC[] =
+static const char PL_PRELUDE_LIB_27_SRC[] =
     "'$error_has_type'(record(M:Name), X) :-\n"
     "    '$record_is_record'(Name, M, X).\n"
     "'$record_is_record'(Name, M, X) :-\n"
@@ -16317,7 +17372,186 @@ static const char PL_PRELUDE_LIB_23_SRC[] =
     "'$record_types'([Name|T0], [Name|TN], [any|TT]) :-\n"
     "    must_be(atom, Name),\n"
     "    '$record_types'(T0, TN, TT).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
+    { "distinct", 1 },
+    { "distinct", 2 },
+    { "reduced", 1 },
+    { "reduced", 3 },
+    { "limit", 2 },
+    { "offset", 2 },
+    { "call_nth", 2 },
+    { "order_by", 2 },
+    { "group_by", 4 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_28_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_28_SRC[] =
+    "distinct(Goal) :-\n"
+    "    distinct(Goal, Goal).\n"
+    "distinct(Witness, Goal) :-\n"
+    "    term_variables(Witness, Vars),\n"
+    "    Witness1 =.. [v|Vars],\n"
+    "    empty_nb_set(Set),\n"
+    "    call(Goal),\n"
+    "    add_nb_set(Witness1, Set, true).\n"
+    "reduced(Goal) :-\n"
+    "    reduced(Goal, Goal, []).\n"
+    "reduced(Witness, Goal, Options) :-\n"
+    "    option(size_limit(SizeLimit), Options, 10_000),\n"
+    "    term_variables(Witness, Vars),\n"
+    "    Witness1 =.. [v|Vars],\n"
+    "    empty_nb_set(Set),\n"
+    "    State = state(Set),\n"
+    "    call(Goal),\n"
+    "    '$solution_sequences_reduced_'(State, Witness1, SizeLimit).\n"
+    "'$solution_sequences_reduced_'(State, Witness1, SizeLimit) :-\n"
+    "    arg(1, State, Set),\n"
+    "    add_nb_set(Witness1, Set, true),\n"
+    "    size_nb_set(Set, Size),\n"
+    "    (   Size > SizeLimit\n"
+    "    ->  empty_nb_set(New),\n"
+    "        nb_setarg(1, State, New)\n"
+    "    ;   true\n"
+    "    ).\n"
+    "limit(Count, Goal) :-\n"
+    "    Count == infinite,\n"
+    "    !,\n"
+    "    call(Goal).\n"
+    "limit(Count, Goal) :-\n"
+    "    Count > 0,\n"
+    "    State = count(0),\n"
+    "    call(Goal),\n"
+    "    arg(1, State, N0),\n"
+    "    N is N0+1,\n"
+    "    (   N =:= Count\n"
+    "    ->  !\n"
+    "    ;   nb_setarg(1, State, N)\n"
+    "    ).\n"
+    "offset(Count, Goal) :-\n"
+    "    Count > 0,\n"
+    "    !,\n"
+    "    State = count(0),\n"
+    "    call(Goal),\n"
+    "    arg(1, State, N0),\n"
+    "    (   N0 >= Count\n"
+    "    ->  true\n"
+    "    ;   N is N0+1,\n"
+    "        nb_setarg(1, State, N),\n"
+    "        fail\n"
+    "    ).\n"
+    "offset(Count, Goal) :-\n"
+    "    Count =:= 0,\n"
+    "    !,\n"
+    "    call(Goal).\n"
+    "offset(Count, _) :-\n"
+    "    domain_error(not_less_than_zero, Count).\n"
+    "call_nth(Goal, Nth) :-\n"
+    "    integer(Nth),\n"
+    "    !,\n"
+    "    (   Nth > 0\n"
+    "    ->  (   call_nth(Goal, Sofar),\n"
+    "            Sofar =:= Nth\n"
+    "        ->  true\n"
+    "        )\n"
+    "    ;   domain_error(not_less_than_one, Nth)\n"
+    "    ).\n"
+    "call_nth(Goal, Nth) :-\n"
+    "    var(Nth),\n"
+    "    !,\n"
+    "    State = count(0),\n"
+    "    call(Goal),\n"
+    "    arg(1, State, N0),\n"
+    "    Nth is N0+1,\n"
+    "    nb_setarg(1, State, Nth).\n"
+    "call_nth(_Goal, Bad) :-\n"
+    "    must_be(integer, Bad).\n"
+    "order_by(Spec, Goal) :-\n"
+    "    must_be(list, Spec),\n"
+    "    '$solution_sequences_non_empty_list'(Spec),\n"
+    "    maplist('$solution_sequences_order_witness', Spec, Witnesses0),\n"
+    "    '$solution_sequences_join_orders'(Witnesses0, Witnesses),\n"
+    "    '$solution_sequences_non_witness_template'(Goal, Witnesses, Others),\n"
+    "    reverse(Witnesses, RevWitnesses),\n"
+    "    maplist('$solution_sequences_x_vars', RevWitnesses, WitnessVars),\n"
+    "    Template =.. [v,Others|WitnessVars],\n"
+    "    findall(Template, Goal, Results),\n"
+    "    '$solution_sequences_order'(RevWitnesses, 2, Results, OrderedResults),\n"
+    "    member(Template, OrderedResults).\n"
+    "'$solution_sequences_order'([], _, Results, Results).\n"
+    "'$solution_sequences_order'([H|T], N, Results0, Results) :-\n"
+    "    '$solution_sequences_order1'(H, N, Results0, Results1),\n"
+    "    N2 is N + 1,\n"
+    "    '$solution_sequences_order'(T, N2, Results1, Results).\n"
+    "'$solution_sequences_order1'(asc(_), N, Results0, Results) :-\n"
+    "    sort(N, @=<, Results0, Results).\n"
+    "'$solution_sequences_order1'(desc(_), N, Results0, Results) :-\n"
+    "    sort(N, @>=, Results0, Results).\n"
+    "'$solution_sequences_non_empty_list'([]) :-\n"
+    "    !,\n"
+    "    domain_error(non_empty_list, []).\n"
+    "'$solution_sequences_non_empty_list'(_).\n"
+    "'$solution_sequences_order_witness'(Var, _) :-\n"
+    "    var(Var),\n"
+    "    !,\n"
+    "    instantiation_error(Var).\n"
+    "'$solution_sequences_order_witness'(asc(Term), asc(Witness)) :-\n"
+    "    !,\n"
+    "    '$solution_sequences_witness'(Term, Witness).\n"
+    "'$solution_sequences_order_witness'(desc(Term), desc(Witness)) :-\n"
+    "    !,\n"
+    "    '$solution_sequences_witness'(Term, Witness).\n"
+    "'$solution_sequences_order_witness'(Term, _) :-\n"
+    "    domain_error(order_specifier, Term).\n"
+    "'$solution_sequences_x_vars'(asc(Vars), Vars).\n"
+    "'$solution_sequences_x_vars'(desc(Vars), Vars).\n"
+    "'$solution_sequences_witness'(Term, Witness) :-\n"
+    "    term_variables(Term, Vars),\n"
+    "    Witness =.. [v|Vars].\n"
+    "'$solution_sequences_join_orders'([], []).\n"
+    "'$solution_sequences_join_orders'([asc(O1)|T0], [asc(O)|T]) :-\n"
+    "    !,\n"
+    "    '$solution_sequences_ascs'(T0, OL, T1),\n"
+    "    '$solution_sequences_join_witnesses'(O1, OL, O),\n"
+    "    '$solution_sequences_join_orders'(T1, T).\n"
+    "'$solution_sequences_join_orders'([desc(O1)|T0], [desc(O)|T]) :-\n"
+    "    !,\n"
+    "    '$solution_sequences_descs'(T0, OL, T1),\n"
+    "    '$solution_sequences_join_witnesses'(O1, OL, O),\n"
+    "    '$solution_sequences_join_orders'(T1, T).\n"
+    "'$solution_sequences_ascs'([asc(A)|T0], [A|AL], T) :-\n"
+    "    !,\n"
+    "    '$solution_sequences_ascs'(T0, AL, T).\n"
+    "'$solution_sequences_ascs'(L, [], L).\n"
+    "'$solution_sequences_descs'([desc(A)|T0], [A|AL], T) :-\n"
+    "    !,\n"
+    "    '$solution_sequences_descs'(T0, AL, T).\n"
+    "'$solution_sequences_descs'(L, [], L).\n"
+    "'$solution_sequences_join_witnesses'(O, [], O) :- !.\n"
+    "'$solution_sequences_join_witnesses'(O, OL, R) :-\n"
+    "    term_variables([O|OL], VL),\n"
+    "    R =.. [v|VL].\n"
+    "'$solution_sequences_non_witness_template'(Goal, Witness, Template) :-\n"
+    "    '$solution_sequences_ordered_term_variables'(Goal, AllVars),\n"
+    "    '$solution_sequences_ordered_term_variables'(Witness, WitnessVars),\n"
+    "    ord_subtract(AllVars, WitnessVars, TemplateVars),\n"
+    "    Template =.. [t|TemplateVars].\n"
+    "'$solution_sequences_ordered_term_variables'(Term, Vars) :-\n"
+    "    term_variables(Term, Vars0),\n"
+    "    sort(Vars0, Vars).\n"
+    "group_by(By, Template, Goal, Bag) :-\n"
+    "    '$solution_sequences_ordered_term_variables'(Goal, GVars),\n"
+    "    '$solution_sequences_ordered_term_variables'(By+Template, UVars),\n"
+    "    ord_subtract(GVars, UVars, ExVars),\n"
+    "    bagof(Template, ExVars^Goal, Bag).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_EXPORTS[] = {
     { "dedent_lines", 3 },
     { "indent_lines", 3 },
     { "indent_lines", 4 },
@@ -16325,16 +17559,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
     { "string_lines", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_24_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_29_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_24_SRC[] =
+static const char PL_PRELUDE_LIB_29_SRC[] =
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
     "interpolate_string(Module:In, Out, Map, Options) :-\n"
     "    '$strings_comp_interpolate'(In, Compiled, Map, [module(Module)|Options]),\n"
@@ -16544,23 +17778,258 @@ static const char PL_PRELUDE_LIB_24_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
+    { "term_size", 2 },
+    { "variant", 2 },
+    { "subsumes", 2 },
+    { "subsumes_chk", 2 },
+    { "term_subsumer", 3 },
+    { "term_factorized", 3 },
+    { "mapargs", 3 },
+    { "mapsubterms", 3 },
+    { "mapsubterms_var", 3 },
+    { "foldsubterms", 4 },
+    { "foldsubterms", 5 },
+    { "same_functor", 2 },
+    { "same_functor", 3 },
+    { "same_functor", 4 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_30_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_30_SRC[] =
+    "term_size(Term, Size) :-\n"
+    "    '$term_size'(Term, _, Size).\n"
+    "variant(X, Y) :-\n"
+    "    X =@= Y.\n"
+    "subsumes_chk(Generic, Specific) :-\n"
+    "    subsumes_term(Generic, Specific).\n"
+    "subsumes(Generic, Specific) :-\n"
+    "    subsumes_term(Generic, Specific),\n"
+    "    Generic = Specific.\n"
+    "term_subsumer(S1, S2, G) :-\n"
+    "    cyclic_term(S1),\n"
+    "    cyclic_term(S2),\n"
+    "    !,\n"
+    "    rb_empty(Map),\n"
+    "    '$terms_lgg_safe'(S1, S2, G, Map, _).\n"
+    "term_subsumer(S1, S2, G) :-\n"
+    "    rb_empty(Map),\n"
+    "    '$terms_lgg'(S1, S2, G, Map, _).\n"
+    "'$terms_lgg'(S1, S2, G, Map0, Map) :-\n"
+    "    (   S1 == S2\n"
+    "    ->  G = S1,\n"
+    "        Map = Map0\n"
+    "    ;   compound(S1),\n"
+    "        compound(S2),\n"
+    "        functor(S1, Name, Arity),\n"
+    "        functor(S2, Name, Arity)\n"
+    "    ->  functor(G, Name, Arity),\n"
+    "        '$terms_lgg'(0, Arity, S1, S2, G, Map0, Map)\n"
+    "    ;   rb_lookup(S1+S2, G0, Map0)\n"
+    "    ->  G = G0,\n"
+    "        Map = Map0\n"
+    "    ;   rb_insert(Map0, S1+S2, G, Map)\n"
+    "    ).\n"
+    "'$terms_lgg'(Arity, Arity, _, _, _, Map, Map) :- !.\n"
+    "'$terms_lgg'(I0, Arity, S1, S2, G, Map0, Map) :-\n"
+    "    I is I0 + 1,\n"
+    "    arg(I, S1, Sa1),\n"
+    "    arg(I, S2, Sa2),\n"
+    "    arg(I, G, Ga),\n"
+    "    '$terms_lgg'(Sa1, Sa2, Ga, Map0, Map1),\n"
+    "    '$terms_lgg'(I, Arity, S1, S2, G, Map1, Map).\n"
+    "'$terms_lgg_safe'(S1, S2, G, Map0, Map) :-\n"
+    "    (   S1 == S2\n"
+    "    ->  G = S1,\n"
+    "        Map = Map0\n"
+    "    ;   rb_lookup(S1+S2, G0, Map0)\n"
+    "    ->  G = G0,\n"
+    "        Map = Map0\n"
+    "    ;   compound(S1),\n"
+    "        compound(S2),\n"
+    "        functor(S1, Name, Arity),\n"
+    "        functor(S2, Name, Arity)\n"
+    "    ->  functor(G, Name, Arity),\n"
+    "        rb_insert(Map0, S1+S2, G, Map1),\n"
+    "        '$terms_lgg_safe'(0, Arity, S1, S2, G, Map1, Map)\n"
+    "    ;   rb_insert(Map0, S1+S2, G, Map)\n"
+    "    ).\n"
+    "'$terms_lgg_safe'(Arity, Arity, _, _, _, Map, Map) :- !.\n"
+    "'$terms_lgg_safe'(I0, Arity, S1, S2, G, Map0, Map) :-\n"
+    "    I is I0 + 1,\n"
+    "    arg(I, S1, Sa1),\n"
+    "    arg(I, S2, Sa2),\n"
+    "    arg(I, G, Ga),\n"
+    "    '$terms_lgg_safe'(Sa1, Sa2, Ga, Map0, Map1),\n"
+    "    '$terms_lgg_safe'(I, Arity, S1, S2, G, Map1, Map).\n"
+    "term_factorized(Term, Skeleton, Substitutions) :-\n"
+    "    rb_new(Map0),\n"
+    "    '$terms_add_map'(Term, Map0, Map),\n"
+    "    rb_visit(Map, Counts),\n"
+    "    '$terms_common_terms'(Counts, Common),\n"
+    "    (   Common == []\n"
+    "    ->  Skeleton = Term,\n"
+    "        Substitutions = []\n"
+    "    ;   ord_list_to_rbtree(Common, SubstAssoc),\n"
+    "        '$terms_insert_vars'(Term, Skeleton, SubstAssoc),\n"
+    "        '$terms_mk_subst'(Common, Substitutions, SubstAssoc)\n"
+    "    ).\n"
+    "'$terms_add_map'(Term, Map0, Map) :-\n"
+    "    (   '$terms_primitive'(Term)\n"
+    "    ->  Map = Map0\n"
+    "    ;   rb_update(Map0, Term, Old, New, Map)\n"
+    "    ->  New is Old+1\n"
+    "    ;   rb_insert(Map0, Term, 1, Map1),\n"
+    "        '$terms_assoc_arg_map'(1, Term, Map1, Map)\n"
+    "    ).\n"
+    "'$terms_assoc_arg_map'(I, Term, Map0, Map) :-\n"
+    "    arg(I, Term, Arg),\n"
+    "    !,\n"
+    "    '$terms_add_map'(Arg, Map0, Map1),\n"
+    "    I2 is I + 1,\n"
+    "    '$terms_assoc_arg_map'(I2, Term, Map1, Map).\n"
+    "'$terms_assoc_arg_map'(_, _, Map, Map).\n"
+    "'$terms_primitive'(Term) :-\n"
+    "    var(Term),\n"
+    "    !.\n"
+    "'$terms_primitive'(Term) :-\n"
+    "    atomic(Term),\n"
+    "    !.\n"
+    "'$terms_primitive'('$VAR'(_)).\n"
+    "'$terms_common_terms'([], []).\n"
+    "'$terms_common_terms'([H-Count|T], List) :-\n"
+    "    !,\n"
+    "    (   Count == 1\n"
+    "    ->  '$terms_common_terms'(T, List)\n"
+    "    ;   List = [H-_NewVar|Tail],\n"
+    "        '$terms_common_terms'(T, Tail)\n"
+    "    ).\n"
+    "'$terms_insert_vars'(T0, T, _) :-\n"
+    "    '$terms_primitive'(T0),\n"
+    "    !,\n"
+    "    T = T0.\n"
+    "'$terms_insert_vars'(T0, T, Subst) :-\n"
+    "    rb_lookup(T0, S, Subst),\n"
+    "    !,\n"
+    "    T = S.\n"
+    "'$terms_insert_vars'(T0, T, Subst) :-\n"
+    "    functor(T0, Name, Arity),\n"
+    "    functor(T,  Name, Arity),\n"
+    "    '$terms_insert_arg_vars'(1, T0, T, Subst).\n"
+    "'$terms_insert_arg_vars'(I, T0, T, Subst) :-\n"
+    "    arg(I, T0, A0),\n"
+    "    !,\n"
+    "    arg(I, T,  A),\n"
+    "    '$terms_insert_vars'(A0, A, Subst),\n"
+    "    I2 is I + 1,\n"
+    "    '$terms_insert_arg_vars'(I2, T0, T, Subst).\n"
+    "'$terms_insert_arg_vars'(_, _, _, _).\n"
+    "'$terms_mk_subst'([], [], _).\n"
+    "'$terms_mk_subst'([Val0-Var|T0], [Var=Val|T], Subst) :-\n"
+    "    functor(Val0, Name, Arity),\n"
+    "    functor(Val,  Name, Arity),\n"
+    "    '$terms_insert_arg_vars'(1, Val0, Val, Subst),\n"
+    "    '$terms_mk_subst'(T0, T, Subst).\n"
+    "mapargs(Goal, Term1, Term2) :-\n"
+    "    same_functor(Term1, Term2, Arity),\n"
+    "    '$terms_mapargs_'(1, Arity, Goal, Term1, Term2).\n"
+    "'$terms_mapargs_'(I, Arity, Goal, Term1, Term2) :-\n"
+    "    I =< Arity,\n"
+    "    !,\n"
+    "    arg(I, Term1, A1),\n"
+    "    arg(I, Term2, A2),\n"
+    "    call(Goal, A1, A2),\n"
+    "    I2 is I+1,\n"
+    "    '$terms_mapargs_'(I2, Arity, Goal, Term1, Term2).\n"
+    "'$terms_mapargs_'(_, _, _, _, _).\n"
+    "mapsubterms(Goal, Term1, Term2) :-\n"
+    "    foldsubterms('$terms_map2'(Goal), Term1, Term2, _, _).\n"
+    "mapsubterms_var(Goal, Term1, Term2) :-\n"
+    "    foldsubterms('$terms_map2_var'(Goal), Term1, Term2, _, _).\n"
+    "'$terms_map2'(Goal, Term1, Term2, _, _) :-\n"
+    "    nonvar(Term1),\n"
+    "    call(Goal, Term1, Term2).\n"
+    "'$terms_map2_var'(Goal, Term1, Term2, _, _) :-\n"
+    "    call(Goal, Term1, Term2).\n"
+    "foldsubterms(Goal, Term1, State0, State) :-\n"
+    "    foldsubterms('$terms_fold1'(Goal), Term1, _, State0, State).\n"
+    "'$terms_fold1'(Goal, Term1, _Term2, State0, State) :-\n"
+    "    call(Goal, Term1, State0, State).\n"
+    "foldsubterms(Goal, Term1, Term2, State0, State) :-\n"
+    "    call(Goal, Term1, Term2, State0, State),\n"
+    "    !.\n"
+    "foldsubterms(Goal, Term1, Term2, State0, State) :-\n"
+    "    is_dict(Term1),\n"
+    "    !,\n"
+    "    dict_pairs(Term1, Tag, Pairs1),\n"
+    "    '$terms_fold_dict_pairs'(Pairs1, Pairs2, Goal, State0, State),\n"
+    "    dict_pairs(Term2, Tag, Pairs2).\n"
+    "foldsubterms(Goal, Term1, Term2, State0, State) :-\n"
+    "    is_list(Term1),\n"
+    "    !,\n"
+    "    '$terms_fold_some'(Term1, Term2, Goal, State0, State).\n"
+    "foldsubterms(Goal, Term1, Term2, State0, State) :-\n"
+    "    compound(Term1),\n"
+    "    !,\n"
+    "    same_functor(Term1, Term2, Arity),\n"
+    "    '$terms_foldsubterms_'(1, Arity, Goal, Term1, Term2, State0, State).\n"
+    "foldsubterms(_, Term, Term, State, State).\n"
+    "'$terms_fold_dict_pairs'([], [], _, State, State).\n"
+    "'$terms_fold_dict_pairs'([K-V0|T0], [K-V|T], Goal, State0, State) :-\n"
+    "    foldsubterms(Goal, V0, V, State0, State1),\n"
+    "    '$terms_fold_dict_pairs'(T0, T, Goal, State1, State).\n"
+    "'$terms_fold_some'([], [], _, State, State).\n"
+    "'$terms_fold_some'([H0|T0], [H|T], Goal, State0, State) :-\n"
+    "    foldsubterms(Goal, H0, H, State0, State1),\n"
+    "    '$terms_fold_some'(T0, T, Goal, State1, State).\n"
+    "'$terms_foldsubterms_'(I, Arity, Goal, Term1, Term2, State0, State) :-\n"
+    "    I =< Arity,\n"
+    "    !,\n"
+    "    arg(I, Term1, A1),\n"
+    "    arg(I, Term2, A2),\n"
+    "    foldsubterms(Goal, A1, A2, State0, State1),\n"
+    "    I2 is I+1,\n"
+    "    '$terms_foldsubterms_'(I2, Arity, Goal, Term1, Term2, State1, State).\n"
+    "'$terms_foldsubterms_'(_, _, _, _, _, State, State).\n"
+    "same_functor(Term1, Term2) :-\n"
+    "    same_functor(Term1, Term2, _Name, _Arity).\n"
+    "same_functor(Term1, Term2, Arity) :-\n"
+    "    same_functor(Term1, Term2, _Name, Arity).\n"
+    "same_functor(Term1, Term2, Name, Arity) :-\n"
+    "    (   nonvar(Term1)\n"
+    "    ->  functor(Term1, Name, Arity, Type),\n"
+    "        functor(Term2, Name, Arity, Type)\n"
+    "    ;   nonvar(Term2)\n"
+    "    ->  functor(Term2, Name, Arity, Type),\n"
+    "        functor(Term1, Name, Arity, Type)\n"
+    "    ;   functor(Term2, Name, Arity),\n"
+    "        functor(Term1, Name, Arity)\n"
+    "    ).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_25_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_31_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_25_SRC[] =
+static const char PL_PRELUDE_LIB_31_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -16700,27 +18169,33 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "apply", PL_PRELUDE_LIB_1_EXPORTS, PL_PRELUDE_LIB_1_OPS, PL_PRELUDE_LIB_1_SHADOWS, PL_PRELUDE_LIB_1_QUIET, PL_PRELUDE_LIB_1_SRC },
     { "assoc", PL_PRELUDE_LIB_2_EXPORTS, PL_PRELUDE_LIB_2_OPS, PL_PRELUDE_LIB_2_SHADOWS, PL_PRELUDE_LIB_2_QUIET, PL_PRELUDE_LIB_2_SRC },
     { "clpfd", PL_PRELUDE_LIB_3_EXPORTS, PL_PRELUDE_LIB_3_OPS, PL_PRELUDE_LIB_3_SHADOWS, PL_PRELUDE_LIB_3_QUIET, PL_PRELUDE_LIB_3_SRC },
-    { "date", PL_PRELUDE_LIB_4_EXPORTS, PL_PRELUDE_LIB_4_OPS, PL_PRELUDE_LIB_4_SHADOWS, PL_PRELUDE_LIB_4_QUIET, PL_PRELUDE_LIB_4_SRC },
-    { "dcg_basics", PL_PRELUDE_LIB_5_EXPORTS, PL_PRELUDE_LIB_5_OPS, PL_PRELUDE_LIB_5_SHADOWS, PL_PRELUDE_LIB_5_QUIET, PL_PRELUDE_LIB_5_SRC },
-    { "dicts", PL_PRELUDE_LIB_6_EXPORTS, PL_PRELUDE_LIB_6_OPS, PL_PRELUDE_LIB_6_SHADOWS, PL_PRELUDE_LIB_6_QUIET, PL_PRELUDE_LIB_6_SRC },
-    { "error", PL_PRELUDE_LIB_7_EXPORTS, PL_PRELUDE_LIB_7_OPS, PL_PRELUDE_LIB_7_SHADOWS, PL_PRELUDE_LIB_7_QUIET, PL_PRELUDE_LIB_7_SRC },
-    { "gensym", PL_PRELUDE_LIB_8_EXPORTS, PL_PRELUDE_LIB_8_OPS, PL_PRELUDE_LIB_8_SHADOWS, PL_PRELUDE_LIB_8_QUIET, PL_PRELUDE_LIB_8_SRC },
-    { "gnu_builtins", PL_PRELUDE_LIB_9_EXPORTS, PL_PRELUDE_LIB_9_OPS, PL_PRELUDE_LIB_9_SHADOWS, PL_PRELUDE_LIB_9_QUIET, PL_PRELUDE_LIB_9_SRC },
-    { "gnu_fd", PL_PRELUDE_LIB_10_EXPORTS, PL_PRELUDE_LIB_10_OPS, PL_PRELUDE_LIB_10_SHADOWS, PL_PRELUDE_LIB_10_QUIET, PL_PRELUDE_LIB_10_SRC },
-    { "heaps", PL_PRELUDE_LIB_11_EXPORTS, PL_PRELUDE_LIB_11_OPS, PL_PRELUDE_LIB_11_SHADOWS, PL_PRELUDE_LIB_11_QUIET, PL_PRELUDE_LIB_11_SRC },
-    { "lists", PL_PRELUDE_LIB_12_EXPORTS, PL_PRELUDE_LIB_12_OPS, PL_PRELUDE_LIB_12_SHADOWS, PL_PRELUDE_LIB_12_QUIET, PL_PRELUDE_LIB_12_SRC },
-    { "main", PL_PRELUDE_LIB_13_EXPORTS, PL_PRELUDE_LIB_13_OPS, PL_PRELUDE_LIB_13_SHADOWS, PL_PRELUDE_LIB_13_QUIET, PL_PRELUDE_LIB_13_SRC },
-    { "option", PL_PRELUDE_LIB_14_EXPORTS, PL_PRELUDE_LIB_14_OPS, PL_PRELUDE_LIB_14_SHADOWS, PL_PRELUDE_LIB_14_QUIET, PL_PRELUDE_LIB_14_SRC },
-    { "optparse", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC },
-    { "ordsets", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
-    { "pairs", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
-    { "pcre", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
-    { "pure_input", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
-    { "quintus", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC },
-    { "rbtrees", PL_PRELUDE_LIB_21_EXPORTS, PL_PRELUDE_LIB_21_OPS, PL_PRELUDE_LIB_21_SHADOWS, PL_PRELUDE_LIB_21_QUIET, PL_PRELUDE_LIB_21_SRC },
-    { "readutil", PL_PRELUDE_LIB_22_EXPORTS, PL_PRELUDE_LIB_22_OPS, PL_PRELUDE_LIB_22_SHADOWS, PL_PRELUDE_LIB_22_QUIET, PL_PRELUDE_LIB_22_SRC },
-    { "record", PL_PRELUDE_LIB_23_EXPORTS, PL_PRELUDE_LIB_23_OPS, PL_PRELUDE_LIB_23_SHADOWS, PL_PRELUDE_LIB_23_QUIET, PL_PRELUDE_LIB_23_SRC },
-    { "strings", PL_PRELUDE_LIB_24_EXPORTS, PL_PRELUDE_LIB_24_OPS, PL_PRELUDE_LIB_24_SHADOWS, PL_PRELUDE_LIB_24_QUIET, PL_PRELUDE_LIB_24_SRC },
-    { "writef", PL_PRELUDE_LIB_25_EXPORTS, PL_PRELUDE_LIB_25_OPS, PL_PRELUDE_LIB_25_SHADOWS, PL_PRELUDE_LIB_25_QUIET, PL_PRELUDE_LIB_25_SRC },
+    { "csv", PL_PRELUDE_LIB_4_EXPORTS, PL_PRELUDE_LIB_4_OPS, PL_PRELUDE_LIB_4_SHADOWS, PL_PRELUDE_LIB_4_QUIET, PL_PRELUDE_LIB_4_SRC },
+    { "date", PL_PRELUDE_LIB_5_EXPORTS, PL_PRELUDE_LIB_5_OPS, PL_PRELUDE_LIB_5_SHADOWS, PL_PRELUDE_LIB_5_QUIET, PL_PRELUDE_LIB_5_SRC },
+    { "dcg_basics", PL_PRELUDE_LIB_6_EXPORTS, PL_PRELUDE_LIB_6_OPS, PL_PRELUDE_LIB_6_SHADOWS, PL_PRELUDE_LIB_6_QUIET, PL_PRELUDE_LIB_6_SRC },
+    { "dicts", PL_PRELUDE_LIB_7_EXPORTS, PL_PRELUDE_LIB_7_OPS, PL_PRELUDE_LIB_7_SHADOWS, PL_PRELUDE_LIB_7_QUIET, PL_PRELUDE_LIB_7_SRC },
+    { "error", PL_PRELUDE_LIB_8_EXPORTS, PL_PRELUDE_LIB_8_OPS, PL_PRELUDE_LIB_8_SHADOWS, PL_PRELUDE_LIB_8_QUIET, PL_PRELUDE_LIB_8_SRC },
+    { "gensym", PL_PRELUDE_LIB_9_EXPORTS, PL_PRELUDE_LIB_9_OPS, PL_PRELUDE_LIB_9_SHADOWS, PL_PRELUDE_LIB_9_QUIET, PL_PRELUDE_LIB_9_SRC },
+    { "gnu_builtins", PL_PRELUDE_LIB_10_EXPORTS, PL_PRELUDE_LIB_10_OPS, PL_PRELUDE_LIB_10_SHADOWS, PL_PRELUDE_LIB_10_QUIET, PL_PRELUDE_LIB_10_SRC },
+    { "gnu_fd", PL_PRELUDE_LIB_11_EXPORTS, PL_PRELUDE_LIB_11_OPS, PL_PRELUDE_LIB_11_SHADOWS, PL_PRELUDE_LIB_11_QUIET, PL_PRELUDE_LIB_11_SRC },
+    { "hashtable", PL_PRELUDE_LIB_12_EXPORTS, PL_PRELUDE_LIB_12_OPS, PL_PRELUDE_LIB_12_SHADOWS, PL_PRELUDE_LIB_12_QUIET, PL_PRELUDE_LIB_12_SRC },
+    { "heaps", PL_PRELUDE_LIB_13_EXPORTS, PL_PRELUDE_LIB_13_OPS, PL_PRELUDE_LIB_13_SHADOWS, PL_PRELUDE_LIB_13_QUIET, PL_PRELUDE_LIB_13_SRC },
+    { "lists", PL_PRELUDE_LIB_14_EXPORTS, PL_PRELUDE_LIB_14_OPS, PL_PRELUDE_LIB_14_SHADOWS, PL_PRELUDE_LIB_14_QUIET, PL_PRELUDE_LIB_14_SRC },
+    { "main", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC },
+    { "nb_set", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
+    { "option", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
+    { "optparse", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
+    { "ordsets", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
+    { "pairs", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC },
+    { "pcre", PL_PRELUDE_LIB_21_EXPORTS, PL_PRELUDE_LIB_21_OPS, PL_PRELUDE_LIB_21_SHADOWS, PL_PRELUDE_LIB_21_QUIET, PL_PRELUDE_LIB_21_SRC },
+    { "pure_input", PL_PRELUDE_LIB_22_EXPORTS, PL_PRELUDE_LIB_22_OPS, PL_PRELUDE_LIB_22_SHADOWS, PL_PRELUDE_LIB_22_QUIET, PL_PRELUDE_LIB_22_SRC },
+    { "quintus", PL_PRELUDE_LIB_23_EXPORTS, PL_PRELUDE_LIB_23_OPS, PL_PRELUDE_LIB_23_SHADOWS, PL_PRELUDE_LIB_23_QUIET, PL_PRELUDE_LIB_23_SRC },
+    { "random", PL_PRELUDE_LIB_24_EXPORTS, PL_PRELUDE_LIB_24_OPS, PL_PRELUDE_LIB_24_SHADOWS, PL_PRELUDE_LIB_24_QUIET, PL_PRELUDE_LIB_24_SRC },
+    { "rbtrees", PL_PRELUDE_LIB_25_EXPORTS, PL_PRELUDE_LIB_25_OPS, PL_PRELUDE_LIB_25_SHADOWS, PL_PRELUDE_LIB_25_QUIET, PL_PRELUDE_LIB_25_SRC },
+    { "readutil", PL_PRELUDE_LIB_26_EXPORTS, PL_PRELUDE_LIB_26_OPS, PL_PRELUDE_LIB_26_SHADOWS, PL_PRELUDE_LIB_26_QUIET, PL_PRELUDE_LIB_26_SRC },
+    { "record", PL_PRELUDE_LIB_27_EXPORTS, PL_PRELUDE_LIB_27_OPS, PL_PRELUDE_LIB_27_SHADOWS, PL_PRELUDE_LIB_27_QUIET, PL_PRELUDE_LIB_27_SRC },
+    { "solution_sequences", PL_PRELUDE_LIB_28_EXPORTS, PL_PRELUDE_LIB_28_OPS, PL_PRELUDE_LIB_28_SHADOWS, PL_PRELUDE_LIB_28_QUIET, PL_PRELUDE_LIB_28_SRC },
+    { "strings", PL_PRELUDE_LIB_29_EXPORTS, PL_PRELUDE_LIB_29_OPS, PL_PRELUDE_LIB_29_SHADOWS, PL_PRELUDE_LIB_29_QUIET, PL_PRELUDE_LIB_29_SRC },
+    { "terms", PL_PRELUDE_LIB_30_EXPORTS, PL_PRELUDE_LIB_30_OPS, PL_PRELUDE_LIB_30_SHADOWS, PL_PRELUDE_LIB_30_QUIET, PL_PRELUDE_LIB_30_SRC },
+    { "writef", PL_PRELUDE_LIB_31_EXPORTS, PL_PRELUDE_LIB_31_OPS, PL_PRELUDE_LIB_31_SHADOWS, PL_PRELUDE_LIB_31_QUIET, PL_PRELUDE_LIB_31_SRC },
     { 0, 0, 0, 0, 0, 0 }
 };
