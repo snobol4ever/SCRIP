@@ -86,10 +86,10 @@ main :-
     t(S64, term_size(1152921504606846976, S64)), t(S65, term_size(4611686018427387904, S65)), t(S66, term_size(-9223372036854775807, S66)),
     t(S67, term_size("abcdefg", S67)), t(S68, term_size("abcdefgh", S68)), t(S69, term_size(g(f(a, b), "x", 2.5), S69)).
 PL
-( cd "$D" && timeout 30 swipl -q -t halt w.pl < /dev/null > want 2> /dev/null )
+( cd "$D" && timeout -k 5 30 swipl -q -t halt w.pl < /dev/null > want 2> /dev/null )
 [ -s "$D/want" ] || refuse "swipl printed nothing for the witness"
-( cd "$D" && timeout 30 "$B/scrip" --run w.pl < /dev/null > m3 2> m3.err )
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null 2> m4.err && gcc -no-pie w.s -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" -o w 2>> m4.err && timeout 30 ./w < /dev/null > m4 2>> m4.err )
+( cd "$D" && timeout -k 5 30 "$B/scrip" --run w.pl < /dev/null > m3 2> m3.err )
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null 2> m4.err && gcc -no-pie w.s -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" -o w 2>> m4.err && timeout -k 5 30 ./w < /dev/null > m4 2>> m4.err )
 n=$(wc -l < "$D/want"); red=0
 for m in m3 m4; do
     if cmp -s "$D/want" "$D/$m"; then echo "  $m GREEN: $n of $n lines as swipl"

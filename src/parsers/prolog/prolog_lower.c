@@ -49,12 +49,13 @@ static int pl_pred_slot_f(cv_t *keys, cv_t *choices, cv_t *files, PredKey k, con
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_flatten_conj(tree_t *t, tree_t *prog) {
-    if (!t) return;
-    if (t->t == TT_FNC && t->v.sval && strcmp(t->v.sval, ",") == 0) {
-        for (int i = 0; i < t->n; i++)
+    while (t && t->t == TT_FNC && t->v.sval && strcmp(t->v.sval, ",") == 0 && t->n > 0) {
+        for (int i = 0; i + 1 < t->n; i++)
             pl_flatten_conj(t->c[i], prog);
-        return;
+        t = t->c[t->n - 1];
     }
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && strcmp(t->v.sval, ",") == 0) return;
     ast_push(prog, t);
 }
 static tree_t *pl_rewrite_control(tree_t *t);
@@ -105,37 +106,73 @@ static tree_t *pl_rewrite_control(tree_t *t) {
         return iff;
     }
     if (t->t == TT_FNC && t->v.sval && (strcmp(t->v.sval, ";") == 0 || strcmp(t->v.sval, ",") == 0)) {
-        for (int i = 0; i < t->n; i++) t->c[i] = pl_rewrite_control(t->c[i]);
+        tree_t *cur = t;
+        for (;;) {
+            for (int i = 0; i + 1 < cur->n; i++) cur->c[i] = pl_rewrite_control(cur->c[i]);
+            if (cur->n == 0) break;
+            tree_t *last = cur->c[cur->n - 1];
+            if (last && last->t == TT_FNC && last->v.sval && (strcmp(last->v.sval, ",") == 0 || (strcmp(last->v.sval, ";") == 0 && !(last->n >= 2 && pl_is_arrow(last->c[0]))))) { cur = last; continue; }
+            cur->c[cur->n - 1] = pl_rewrite_control(last);
+            break;
+        }
         return t;
     }
     return t;
 }
 typedef struct { const char *name; int slot; } TRSlot;
-typedef struct { cv_t e; int next; } TRSlotMap;
+typedef struct { cv_t e; int next; int *hs; uint32_t hn; uint32_t hfill; } TRSlotMap;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void trslot_reset(TRSlotMap *m) { memset(m, 0, sizeof *m); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void trslot_put(TRSlotMap *m, const char *name, int slot) { TRSlot t; t.name = name; t.slot = slot; CV_PUSH(m->e, TRSlot) = t; }
+static uint32_t trslot_hash(const char *s) { uint32_t h = 2166136261u; for (; *s; s++) { h ^= (unsigned char)*s; h *= 16777619u; } return h; }
+static void trslot_hash_add(TRSlotMap *m, uint32_t idx) {
+    uint32_t h = trslot_hash(CV_AT(m->e, TRSlot, idx).name) & (m->hn - 1);
+    while (m->hs[h]) h = (h + 1) & (m->hn - 1);
+    m->hs[h] = (int)idx + 1;
+    m->hfill = idx + 1;
+}
+static void trslot_hash_build(TRSlotMap *m) {
+    uint32_t hn = 64;
+    while (hn < 2 * (m->e.len + 1)) hn <<= 1;
+    m->hs = (int *)ct_zalloc(hn, sizeof(int));
+    m->hn = hn;
+    m->hfill = 0;
+    for (uint32_t i = 0; i < m->e.len; i++) trslot_hash_add(m, i);
+}
+static void trslot_put(TRSlotMap *m, const char *name, int slot) {
+    TRSlot t; t.name = name; t.slot = slot; CV_PUSH(m->e, TRSlot) = t;
+    if (m->hs) { if (2 * (m->e.len + 1) > m->hn) trslot_hash_build(m); else trslot_hash_add(m, m->e.len - 1); }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int trslot_get(TRSlotMap *m, const char *name) {
     if (!name || strcmp(name, "_") == 0)
         return m->next++;
-    for (uint32_t i = 0; i < m->e.len; i++)
-        if (strcmp(CV_AT(m->e, TRSlot, i).name, name) == 0)
-            return CV_AT(m->e, TRSlot, i).slot;
+    if (m->e.len < 24) {
+        for (uint32_t i = 0; i < m->e.len; i++)
+            if (strcmp(CV_AT(m->e, TRSlot, i).name, name) == 0)
+                return CV_AT(m->e, TRSlot, i).slot;
+    } else {
+        if (!m->hs) trslot_hash_build(m);
+        for (uint32_t h = trslot_hash(name) & (m->hn - 1); m->hs[h]; h = (h + 1) & (m->hn - 1))
+            if (strcmp(CV_AT(m->e, TRSlot, (uint32_t)m->hs[h] - 1).name, name) == 0)
+                return CV_AT(m->e, TRSlot, (uint32_t)m->hs[h] - 1).slot;
+    }
     int s = m->next++;
     trslot_put(m, name, s);
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void tr_assign_slots(tree_t *t, TRSlotMap *m) {
-    if (!t) return;
-    if (t->t == TT_VAR) {
-        t->v.ival = trslot_get(m, t->v.sval);
-        return;
+    while (t) {
+        if (t->t == TT_VAR) {
+            t->v.ival = trslot_get(m, t->v.sval);
+            return;
+        }
+        if (t->n == 0) return;
+        for (int i = 0; i + 1 < t->n; i++)
+            tr_assign_slots(t->c[i], m);
+        t = t->c[t->n - 1];
     }
-    for (int i = 0; i < t->n; i++)
-        tr_assign_slots(t->c[i], m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_clause_assign_dense_slots(tree_t *ec, int arity) {
@@ -216,11 +253,11 @@ static void pb_expand_bagof(tree_t *t) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pb_expand_goal(tree_t *t) {
+    while (t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ",") || !strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "->")) && t->n == 2) { pb_expand_goal(t->c[0]); t = t->c[1]; }
     if (!t) return;
     if (t->t == TT_FNC && t->v.sval) {
         const char *f = t->v.sval;
         if ((!strcmp(f, "bagof") || !strcmp(f, "setof")) && t->n == 3) { pb_expand_bagof(t); return; }
-        if ((!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "->")) && t->n == 2) { pb_expand_goal(t->c[0]); pb_expand_goal(t->c[1]); return; }
         if ((!strcmp(f, "\\+") || !strcmp(f, "not") || !strcmp(f, "once") || !strcmp(f, "ignore") || !strcmp(f, "call")) && t->n >= 1) { pb_expand_goal(t->c[0]); return; }
         if ((!strcmp(f, "findall") || !strcmp(f, "aggregate_all")) && t->n == 3) { pb_expand_goal(t->c[1]); return; }
         if (!strcmp(f, "forall") && t->n == 2) { pb_expand_goal(t->c[0]); pb_expand_goal(t->c[1]); return; }
@@ -234,7 +271,7 @@ static void pb_expand_goal(tree_t *t) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key, int skip_rewrite, TRSlotMap *smp) {
-    TRSlotMap sm = *smp; sm.e.len = 0; sm.next = 0;
+    TRSlotMap sm = *smp; sm.e.len = 0; sm.next = 0; sm.hs = NULL; sm.hn = 0; sm.hfill = 0;
     if (!skip_rewrite && tr->n > 1) pb_expand_goal(tr->c[1]);
     {
         tree_t *hd = (tr->n > 0) ? tr->c[0] : NULL;

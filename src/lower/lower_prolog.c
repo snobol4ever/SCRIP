@@ -580,10 +580,16 @@ static IR_t * lower_arith_val(lcx_t * cx, const tree_t * t, IR_t * ωfail, IR_t 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void collect_conj(const tree_t * t, lc_vec * out) {
-    if (!t) return;
-    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ",")) { for (int i = 0; i < t->n; i++) collect_conj(t->c[i], out); return; }
-    if (t->t == TT_PROGRAM) { for (int i = 0; i < t->n; i++) collect_conj(t->c[i], out); return; }
-    lc_vec_push(out, &t);
+    while (t) {
+        if ((t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ",")) || t->t == TT_PROGRAM) {
+            if (t->n == 0) return;
+            for (int i = 0; i + 1 < t->n; i++) collect_conj(t->c[i], out);
+            t = t->c[t->n - 1];
+            continue;
+        }
+        lc_vec_push(out, &t);
+        return;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_goal_is_dollar(const tree_t * g);

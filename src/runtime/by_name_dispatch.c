@@ -22564,20 +22564,21 @@ DESCR_t rt_pl_dop_halt_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
 }
 static int pl_db_body_ill_typed(DESCR_t b) {
     extern const char *prolog_atom_name(int);
-    DESCR_t d = rt_pl_deref_val(b);
-    if (d.v == DT_I || d.v == DT_R) return 1;
-    if (d.v == (DTYPE_t)DT_PLREF && plc_fid_arity(d.slen) == 2) {
-        const char *f = prolog_atom_name(plc_fid_name(d.slen));
-        if (f && (!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "->") || !strcmp(f, "*->") || !strcmp(f, "|"))) {
-            DESCR_t *kids = (DESCR_t *)d.p;
-            return pl_db_body_ill_typed(kids[0]) || pl_db_body_ill_typed(kids[1]);
+    for (;;) {
+        DESCR_t d = rt_pl_deref_val(b);
+        if (d.v == DT_I || d.v == DT_R) return 1;
+        if (d.v == (DTYPE_t)DT_PLREF && plc_fid_arity(d.slen) == 2) {
+            const char *f = prolog_atom_name(plc_fid_name(d.slen));
+            if (f && (!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "->") || !strcmp(f, "*->") || !strcmp(f, "|"))) {
+                DESCR_t *kids = (DESCR_t *)d.p;
+                if (pl_db_body_ill_typed(kids[0])) return 1;
+                b = kids[1];
+                continue;
+            }
         }
+        if (d.v == (DTYPE_t)DT_PLREF && plc_fid_arity(d.slen) == 1) { const char *f = prolog_atom_name(plc_fid_name(d.slen)); if (f && !strcmp(f, "\\+")) { b = ((DESCR_t *)d.p)[0]; continue; } }
+        return 0;
     }
-    if (d.v == (DTYPE_t)DT_PLREF && plc_fid_arity(d.slen) == 1) {
-        const char *f = prolog_atom_name(plc_fid_name(d.slen));
-        if (f && !strcmp(f, "\\+")) return pl_db_body_ill_typed(((DESCR_t *)d.p)[0]);
-    }
-    return 0;
 }
 static int bnd_db_key_need(void *cell) {
     extern const char *prolog_atom_name(int);
@@ -23251,7 +23252,12 @@ void * rt_pl_dop_curstream_guard_c(DESCR_t *args, int nargs) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { void **addr; char **nm; int n; int cap; } pl_ctv_t;
+typedef struct { void **addr; char **nm; int n; int cap; int *hs; int hmask; } pl_ctv_t;
+static int pl_ctv_find(pl_ctv_t *vt, void *d) {
+    unsigned h = (unsigned)(((uintptr_t)d >> 4) * 2654435761u) & (unsigned)vt->hmask;
+    while (vt->hs[h] >= 0) { if (vt->addr[vt->hs[h]] == d) return vt->hs[h]; h = (h + 1) & (unsigned)vt->hmask; }
+    return -(int)h - 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * pl_tree_name(const char *s) { char *q = ct_strdup(s ? s : ""); return q ? q : (char *)""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -23259,12 +23265,13 @@ static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
     extern const char *prolog_atom_name(int);
     DESCR_t *d = (DESCR_t *)pl_deref((pl_cell_t *)c);
     if (pl_cell_unbound(d)) {
-        for (int i = 0; i < vt->n; i++) if (vt->addr[i] == (void *)d) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = vt->nm[i]; return v; }
+        int fi = pl_ctv_find(vt, (void *)d);
+        if (fi >= 0) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = vt->nm[fi]; return v; }
         {
             char b[24];
             tree_t *v = ast_node_new(TT_VAR);
             snprintf(b, sizeof b, "_A%d", vt->n);
-            if (vt->n < vt->cap) { vt->addr[vt->n] = (void *)d; vt->nm[vt->n] = pl_tree_name(b); v->v.sval = vt->nm[vt->n]; vt->n++; } else v->v.sval = pl_tree_name(b);
+            if (vt->n < vt->cap) { vt->hs[-fi - 1] = vt->n; vt->addr[vt->n] = (void *)d; vt->nm[vt->n] = pl_tree_name(b); v->v.sval = vt->nm[vt->n]; vt->n++; } else v->v.sval = pl_tree_name(b);
             return v;
         }
     }
@@ -23319,7 +23326,23 @@ static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
             }
             return lst;
         }
-        { tree_t *t = ast_node_new(TT_FNC); t->v.sval = pl_tree_name(nm ? nm : "?"); for (int i = 0; i < ar; i++) ast_push(t, pl_cell_tree(&aa[i], vt)); return t; }
+        {
+            tree_t *root = ast_node_new(TT_FNC);
+            tree_t *t = root;
+            t->v.sval = pl_tree_name(nm ? nm : "?");
+            for (;;) {
+                DESCR_t *ld;
+                const char *ln;
+                for (int i = 0; i + 1 < ar; i++) ast_push(t, pl_cell_tree(&aa[i], vt));
+                if (ar < 1) return root;
+                ld = (DESCR_t *)pl_deref((pl_cell_t *)&aa[ar - 1]);
+                ln = (int)ld->v == DT_PLREF && !pl_rat_is(*ld) ? prolog_atom_name(plc_functor((pl_cell_t *)ld)) : (const char *)0;
+                if (!ln || (!strcmp(ln, ".") && pl_arity((pl_cell_t *)ld) == 2)) { ast_push(t, pl_cell_tree(&aa[ar - 1], vt)); return root; }
+                ar = pl_arity((pl_cell_t *)ld);
+                aa = (DESCR_t *)ld->p;
+                { tree_t *n = ast_node_new(TT_FNC); n->v.sval = pl_tree_name(ln); ast_push(t, n); t = n; }
+            }
+        }
     }
     { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = pl_tree_name("?"); return t; }
 }
@@ -23330,10 +23353,16 @@ tree_t * rt_pl_clause_tree(void *clause_cell) {
     void *ab[occ];
     char *nb[occ];
     pl_ctv_t vt;
+    int hn = 16;
+    while (hn < 2 * occ) hn <<= 1;
+    int hs[hn];
+    for (int i = 0; i < hn; i++) hs[i] = -1;
     vt.addr = ab;
     vt.nm = nb;
     vt.n = 0;
     vt.cap = occ;
+    vt.hs = hs;
+    vt.hmask = hn - 1;
     return pl_cell_tree((DESCR_t *)clause_cell, &vt);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
