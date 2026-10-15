@@ -431,9 +431,12 @@ void rt_trace_label_hook_p(const char *name, trace_pend_t *pend) {
             pend->args[2] = cbargs[1];
             pend->saved_trace = INTVAL(saved_trace);
             pend->saved_ftrace = INTVAL(0);
+            rt_pl_port_trace_cb(e->cbfn, 0);
             return;
         }
+        rt_pl_port_trace_cb(e->cbfn, 0);
         (void)RT_GC_CALLBACK(APPLY_fn(e->cbfn, cbargs, 2));
+        rt_pl_port_trace_cb(e->cbfn, 2);
         trace_recursion_depth--;
         g_trace = saved_trace;
         return;
@@ -466,9 +469,12 @@ void rt_trace_keyword_write_p(const char *kw, int64_t v, long long stno, trace_p
             pend->saved_ftrace = INTVAL(0);
             pend->val = NULVCL;
             pend->hook = INTVAL(0);
+            rt_pl_port_trace_cb(e->cbfn, 0);
             return;
         }
+        rt_pl_port_trace_cb(e->cbfn, 0);
         (void)RT_GC_CALLBACK(APPLY_fn(e->cbfn, cbargs, 2));
+        rt_pl_port_trace_cb(e->cbfn, 2);
         trace_recursion_depth--;
         g_trace = saved_trace;
         return;
@@ -526,13 +532,16 @@ void rt_trace_event_args_ip(int kind, const char *name, DESCR_t *args, int nargs
                 trace_banner_str(bb, bn + 1, name, args, nargs, value, stno, kind);
                 pend->saved_ftrace = STRVAL(rt_heap_strdup_c(bb));
             }
+            rt_pl_port_trace_cb(e->cbfn, 0);
             return;
         }
         extern int64_t kw_fnclevel;
         extern int rt_k_level;
         int lowered = (kind == TRK_CALL || kind == TRK_RETURN) && kw_fnclevel > 0;
         if (lowered) { kw_fnclevel--; rt_k_level--; }
+        rt_pl_port_trace_cb(e->cbfn, 0);
         (void)RT_GC_CALLBACK(island ? rt_trace_apply_island(e->cbfn, cbargs, 2, island) : APPLY_fn(e->cbfn, cbargs, 2));
+        rt_pl_port_trace_cb(e->cbfn, 2);
         if (lowered) { kw_fnclevel++; rt_k_level++; }
         trace_recursion_depth--;
         g_trace = saved_trace;
@@ -1541,6 +1550,7 @@ long rt_value_trace_open(const char *name, trace_pend_t *pend) {
 void rt_trace_pend_run(trace_pend_t *pend) { (void)RT_GC_CALLBACK(APPLY_fn(VARVAL_fn(pend->args[0]), &pend->args[1], 2)); }
 void rt_trace_pend_close(trace_pend_t *pend) {
     if (!pend->args[0].v) return;
+    rt_pl_port_trace_cb(pend->args[0].s, 2);
     g_trace = pend->saved_trace.i;
     if (pend->saved_trace.slen == 1) { extern int64_t kw_fnclevel; extern int rt_k_level; kw_fnclevel++; rt_k_level++; }
     pend->saved_trace.slen = 0;

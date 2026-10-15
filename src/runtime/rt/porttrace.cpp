@@ -45,8 +45,17 @@ extern "C" __attribute__((force_align_arg_pointer)) void rt_pl_port_trace(const 
     else if (target) fprintf(stderr, "(%lu) %ld %s: %s -> %s\n", n, depth, pn, stem ? stem : "?", target);
     else fprintf(stderr, "(%lu) %ld %s: %s\n", n, depth, pn, stem ? stem : "?");
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" __attribute__((force_align_arg_pointer)) void rt_pl_port_trace_cb(const char * name, long port) {
+    int mode = plt_mode(); if (mode < 0 || !(mode & 1)) return;
+    unsigned long n = 0; long depth = g_emit.pl_trace_depth;
+    if (port == 0) { n = ++g_emit.pl_trace_n; g_emit.pl_trace_depth++; }
+    else { n = g_emit.pl_trace_n; if (g_emit.pl_trace_depth > 0) depth = --g_emit.pl_trace_depth; }
+    fprintf(stderr, "(%lu) %ld %s: runtime_call %s\n", n, depth, port == 0 ? "Call" : "Exit", name ? name : "?");
+}
 #else
 extern "C" __attribute__((force_align_arg_pointer)) void rt_pl_port_trace(const char * stem, const char * target, long ev, long uid, long ball) {
     (void)stem; (void)target; (void)ev; (void)uid; (void)ball;
 }
+extern "C" void rt_pl_port_trace_cb(const char * name, long port) { (void)name; (void)port; }
 #endif

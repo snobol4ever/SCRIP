@@ -43,6 +43,7 @@ export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrum
 #
 # REF: corpus/tests/snobol4/ALL.trace.oracle -- deliberately NOT ALL.trace, which the self-pin sibling
 # above already owns; the two gates' --cut must never collide.
+# runtime_call NAME is the port event of a DEFINE'd function the RUNTIME enters, a TRACE callback (rt_pl_port_trace_cb, core.c): it has no call-site box, and sbl's &FTRACE traces it as a call.
 # TWO MEASURED CORRECTIONS (hq_snobol4 2026-10-15): (1) oracle_map read RETURN and FRETURN but not NRETURN, so `NRETURN NM = .M` was dropped and every
 # witness with a name-returning function read ONE event short (rung18 value_traces..., rung19 ftrace_return_types, rung32 ...); NRETURN is a gamma.
 # (2) a witness that sets its own `&FTRACE = N` (rung19 ftrace_decrements_and_stops_at_zero sets 2) truncates the ORACLE to N events while SCRIP's
@@ -92,8 +93,8 @@ define_names_of() {  # $1 = source file -> NAME1|NAME2|... (DEFINE'd function na
   grep -oE "DEFINE\([\"'][A-Za-z_][A-Za-z0-9_]*" "$1" | sed -E "s/^DEFINE\([\"']//" | sort -u | paste -sd'|' -
 }
 scrip_trace_norm() {  # $1=raw trace file  $2=NAME1|NAME2|... (DEFINE'd names only, from define_names_of)
-  grep -E ': n[0-9]+_call ' "$1" \
-    | sed -E 's/^.*(Call|Exit|Fail): n[0-9]+_call ([^ ]+).*$/\1 \2/' \
+  grep -E ': (n[0-9]+_call|runtime_call) ' "$1" \
+    | sed -E 's/^.*(Call|Exit|Fail): (n[0-9]+_call|runtime_call) ([^ ]+).*$/\1 \3/' \
     | sed -E 's/^Call /alpha /; s/^Exit /gamma /; s/^Fail /omega /' \
     | grep -E "^(alpha|gamma|omega) ($2)\$"
 }
