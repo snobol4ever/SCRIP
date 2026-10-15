@@ -7,7 +7,8 @@
 # '$mctx_assertz'(M1, M2, C) (assert, asserta, assertz in both arities, retract, retractall, clause) and the prelude's '$mctx_head' renames the head to M1:name or M2:name
 # when that predicate is declared or defined, else leaves it - the context-module semantics of swipl for the unit's goals.
 # THE ARM: the unit below runs under swipl -g run_tests (the W: lines its bodies print) and under SCRIP's plunit shim (corpus/tests/prolog/plunit.pl) in mode 3 and mode 4.
-# RED BEFORE (the parent): tests a to d print nothing (their calls found no clause).
+# RED BEFORE (the parent): tests a to d print nothing (their calls found no clause); test i is the core/test_arith bigint:clause_1 shape (clause/3 on a head the call
+# renamed to plunit_mq:cnt answers the renamed head, so the unit's clause comparison fails).
 # rc=0 both modes print swipl's lines - rc=1 a divergence - rc=2 REFUSAL (no swipl, no build, no shim).  ~4 s.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -35,6 +36,7 @@ test(e) :- H5 = tmp(7, _), retractall(H5), findall(X-Y, tmp(X, Y), L5), format("
 test(f) :- H6 = cnt(_), assertz(cnt(1)), clause(H6, B6), format("W:~q~n", [B6]).
 test(g) :- forall(member(N, [1, 2, 3]), (C7 = cnt(N), assertz(C7))), findall(M, cnt(M), L7), format("W:~q~n", [L7]).
 test(h) :- H = cnt(1), ( retract(H) -> format("W:retracted~n") ; format("W:none~n") ), findall(M, cnt(M), L), format("W:~q~n", [L]).
+test(i) :- Cl = (cnt(77) :- true), assertz(Cl, R), clause(H, B, R), erase(R), format("W:~q ~q ~q~n", [H, B, H =@= cnt(77)]).
 :- end_tests(mq).
 PL
 printf 'main :- run_tests.\n:- initialization(main).\n' > "$D/wrap.pl"

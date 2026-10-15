@@ -859,7 +859,7 @@ static int pl_mod_rt_clause(const pl_mods_t *ms, const char *m1, const char *m2,
     const char *nm = g->v.sval;
     int ar = g->n;
     char b[strlen(nm) + 8];
-    int cl = ((ar == 1 || ar == 2) && (!strcmp(nm, "assert") || !strcmp(nm, "asserta") || !strcmp(nm, "assertz"))) || (ar == 1 && (!strcmp(nm, "retract") || !strcmp(nm, "retractall"))) || (ar == 2 && !strcmp(nm, "clause"));
+    int cl = ((ar == 1 || ar == 2) && (!strcmp(nm, "assert") || !strcmp(nm, "asserta") || !strcmp(nm, "assertz"))) || (ar == 1 && (!strcmp(nm, "retract") || !strcmp(nm, "retractall"))) || ((ar == 2 || ar == 3) && !strcmp(nm, "clause"));
     if (!cl || g->t != TT_FNC || !g->c[0] || g->c[0]->t != TT_VAR || !m1 || !strcmp(m1, "user") || !ms->defs.len) return 0;
     snprintf(b, sizeof b, "$mctx_%s", nm);
     (void)prolog_atom_intern(b);
