@@ -553,6 +553,11 @@ if [ -n "$SHARDS" ]; then
         # line threw the arm's output away.  The tail of a non-green serial arm travels with its name.
         [ "$ARM_RC" -eq 0 ] || printf '%s\n' "$ARM_OUT" | tail -8 | sed 's/^/       | /'
     done
+    # ⛔ A GRADER INSIDE A SHARD TAKES ITS SHARE OF THE CORES, NOT ITS OWN DEFAULT (ceo 2026-10-15 16:25 health check: load 21 on 16 cores with the
+    # set at 4 shards and two pl_iso_rung gates each grading Logtalk at --jobs 8 -- about 16 compile workers from two arms). The eight rung gates read
+    # PL_RUNG_JOBS (default 8); under fan-out it defaults to cores / shards, at least 1, unless the caller set it.
+    export PL_RUNG_JOBS="${PL_RUNG_JOBS:-$(( $(nproc) / SHARDS > 0 ? $(nproc) / SHARDS : 1 ))}"
+    echo "fanout: graders inside a shard take PL_RUNG_JOBS=$PL_RUNG_JOBS worker(s) ($(nproc) cores / $SHARDS shards)"
     for k in $(seq 1 "$SHARDS"); do
         ( echo "shardpid=$BASHPID" > "$WORK/shard.$k.pid"; bash "${BASH_SOURCE[0]}" --shard "$k/$SHARDS" --target "$DECL_TARGET" --makefile "$MAKEFILE" \
               ${ARMS_FILE:+--arms-from "$ARMS_FILE"} --serial-arms "$SERIAL_FILE" --shared-surfaces "$SURFACE_FILE" > "$WORK/shard.$k.out" 2>&1; echo $? > "$WORK/shard.$k.rc" ) &
