@@ -185,6 +185,11 @@ extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);
 #include <signal.h>
 #include <fcntl.h>
 #include <sys/time.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_generator(const char *name) {
     if (!name) return 0;
@@ -10245,6 +10250,87 @@ static int pl_gs_read(const char *op, DESCR_t res, pl_tr_ctx_t *cx) {
     fn = pl_gs_msg(fn, s.tl, s.tc, s.err);
     return plw_unify_vals(res, pl_gnu_fn1("err", pl_mk_atom_dup(fn, strlen(fn))), cx);
 }
+static DESCR_t pl_gs_arg(DESCR_t t, int i, int n) { DESCR_t z = FAILDESCR; if (t.v != (DTYPE_t)DT_PLREF || plc_fid_arity(t.slen) != n) return z; return rt_pl_deref_val(((DESCR_t *)t.p)[i]); }
+static DESCR_t pl_gs_fdstream(int fd, const char *m) { extern int fh_alloc(FILE *); int idx = fh_alloc(fdopen(fd, m)); g_fh[idx].mode = m[0]; return pl_mk_stream(idx); }
+static int pl_gs_unix_addr(struct sockaddr_un *u, const char *p) {
+    memset(u, 0, sizeof *u);
+    u->sun_family = AF_UNIX;
+    if (!p || strlen(p) >= sizeof u->sun_path) { errno = ENAMETOOLONG; return -1; }
+    memcpy(u->sun_path, p, strlen(p) + 1);
+    return 0;
+}
+static int pl_gs_inet_addr(struct sockaddr_in *in, const char *host, long port) {
+    struct addrinfo hints, *res = (struct addrinfo *)0;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;
+    if (!host || getaddrinfo(host, (const char *)0, &hints, &res) != 0 || !res) return -1;
+    memcpy(in, res->ai_addr, sizeof *in);
+    freeaddrinfo(res);
+    in->sin_port = htons((unsigned short)port);
+    return 0;
+}
+static int pl_gs_sock(const char *op, DESCR_t a, DESCR_t res, pl_tr_ctx_t *cx) {
+    if (!strcmp(op, "socket")) {
+        const char *d = pl_atom_str(a);
+        int fd = socket(d && !strcmp(d, "AF_UNIX") ? AF_UNIX : AF_INET, SOCK_STREAM, 0), one = 1;
+        if (fd < 0 || setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one) != 0) return pl_gnu_os_fail(cx);
+        return plw_unify_vals(res, INTVAL(fd), cx);
+    }
+    if (!strcmp(op, "sclose")) { if (a.v != (DTYPE_t)DT_I || a.i < 2) { errno = EBADF; return pl_gnu_os_fail(cx); } return close((int)a.i) == 0 ? 1 : pl_gnu_os_fail(cx); }
+    if (!strcmp(op, "sbind_unix")) {
+        DESCR_t fd = pl_gs_arg(a, 0, 2);
+        const char *p = pl_atom_str(pl_gs_arg(a, 1, 2));
+        struct sockaddr_un u;
+        if (pl_gs_unix_addr(&u, p) != 0) return pl_gnu_os_fail(cx);
+        unlink(p);
+        return bind((int)fd.i, (struct sockaddr *)&u, sizeof u) == 0 ? 1 : pl_gnu_os_fail(cx);
+    }
+    if (!strcmp(op, "sbind_inet")) {
+        DESCR_t fd = pl_gs_arg(a, 0, 2), pt = pl_gs_arg(a, 1, 2);
+        struct sockaddr_in in;
+        socklen_t l = sizeof in;
+        memset(&in, 0, sizeof in);
+        in.sin_family = AF_INET;
+        in.sin_addr.s_addr = htonl(INADDR_ANY);
+        in.sin_port = htons((unsigned short)pt.i);
+        if (bind((int)fd.i, (struct sockaddr *)&in, sizeof in) != 0 || getsockname((int)fd.i, (struct sockaddr *)&in, &l) != 0) return pl_gnu_os_fail(cx);
+        return plw_unify_vals(res, INTVAL(ntohs(in.sin_port)), cx);
+    }
+    if (!strcmp(op, "slisten")) { DESCR_t fd = pl_gs_arg(a, 0, 2), n = pl_gs_arg(a, 1, 2); return listen((int)fd.i, (int)n.i) == 0 ? 1 : pl_gnu_os_fail(cx); }
+    if (!strcmp(op, "saccept")) {
+        struct sockaddr_storage ss;
+        socklen_t l = sizeof ss;
+        int c = accept((int)a.i, (struct sockaddr *)&ss, &l), c2;
+        const char *who = "";
+        char hb[INET_ADDRSTRLEN];
+        DESCR_t v[3];
+        if (c < 0 || (c2 = dup(c)) < 0) return pl_gnu_os_fail(cx);
+        if (ss.ss_family == AF_INET && inet_ntop(AF_INET, &((struct sockaddr_in *)&ss)->sin_addr, hb, sizeof hb)) who = hb;
+        v[0] = pl_gs_fdstream(c, "r");
+        v[1] = pl_gs_fdstream(c2, "w");
+        v[2] = pl_mk_atom_dup(who, strlen(who));
+        return plw_unify_vals(res, pl_gnu_fn("acc", 3, v), cx);
+    }
+    if (!strcmp(op, "sconn_unix") || !strcmp(op, "sconn_inet")) {
+        int unx = op[6] == 'u', c2;
+        DESCR_t fd = pl_gs_arg(a, 0, unx ? 2 : 3), v[2];
+        struct sockaddr_un u;
+        struct sockaddr_in in;
+        int rc = unx ? pl_gs_unix_addr(&u, pl_atom_str(pl_gs_arg(a, 1, 2))) : pl_gs_inet_addr(&in, pl_atom_str(pl_gs_arg(a, 1, 3)), (long)pl_gs_arg(a, 2, 3).i);
+        if (rc != 0) return unx ? pl_gnu_os_fail(cx) : 0;
+        if (connect((int)fd.i, unx ? (struct sockaddr *)&u : (struct sockaddr *)&in, unx ? sizeof u : sizeof in) != 0 || (c2 = dup((int)fd.i)) < 0) return pl_gnu_os_fail(cx);
+        v[0] = pl_gs_fdstream((int)fd.i, "r");
+        v[1] = pl_gs_fdstream(c2, "w");
+        return plw_unify_vals(res, pl_gnu_fn("st", 2, v), cx);
+    }
+    if (!strcmp(op, "hostaddr")) {
+        struct sockaddr_in in;
+        char hb[INET_ADDRSTRLEN];
+        if (pl_gs_inet_addr(&in, pl_atom_str(a), 0) != 0 || !inet_ntop(AF_INET, &in.sin_addr, hb, sizeof hb)) return 0;
+        return plw_unify_vals(res, pl_mk_atom_dup(hb, strlen(hb)), cx);
+    }
+    return 0;
+}
 PL_CX_LEAF_HEAD(gnu_os, 3)
     {
         const char *op = pl_atom_str(rt_pl_deref_val(args[0]));
@@ -10321,6 +10407,7 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
             else ok = plw_unify_vals(args[2], INTVAL(WIFEXITED(ws) ? WEXITSTATUS(ws) : 128 + WTERMSIG(ws)), cx);
         } else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
         else if (!strcmp(op, "read_token") || !strcmp(op, "read_atom") || !strcmp(op, "read_integer") || !strcmp(op, "read_number")) ok = pl_gs_read(op, args[2], cx);
+        else if (!strncmp(op, "sk_", 3)) ok = pl_gs_sock(op + 3, a, args[2], cx);
         else if (!strcmp(op, "compl")) ok = pl_atom_str(a) && plw_unify_vals(args[2], pl_gs_compl(pl_atom_str(a)), cx);
         else if (!strcmp(op, "get_key")) {
             extern FILE *fh_cur_in_fp(void);

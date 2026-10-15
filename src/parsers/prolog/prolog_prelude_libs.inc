@@ -13009,6 +13009,14 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "spypoint_condition", 3 },
     { "debugging", 0 },
     { "notrace", 0 },
+    { "socket", 2 },
+    { "socket_close", 1 },
+    { "socket_bind", 2 },
+    { "socket_listen", 2 },
+    { "socket_accept", 3 },
+    { "socket_accept", 4 },
+    { "socket_connect", 4 },
+    { "hostname_address", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
@@ -13044,6 +13052,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "get_linedit_prompt", 0 },
     { "get_print_stream", 0 },
     { "host_name", 0 },
+    { "hostname_address", 0 },
     { "is_absolute_file_name", 0 },
     { "leash", 0 },
     { "list_or_partial_list", 0 },
@@ -13082,6 +13091,12 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "setarg", 0 },
     { "shell", 0 },
     { "sleep", 0 },
+    { "socket", 0 },
+    { "socket_accept", 0 },
+    { "socket_bind", 0 },
+    { "socket_close", 0 },
+    { "socket_connect", 0 },
+    { "socket_listen", 0 },
     { "spawn", 0 },
     { "spy", 0 },
     { "spypoint_condition", 0 },
@@ -13515,7 +13530,30 @@ static const char PL_PRELUDE_LIB_11_SRC[] =
     "'$gnu_b_preds1'(N, A1, A2, _, L) :- atom(N), current_prolog_flag(max_arity, Max), integer(A1), integer(A2), A1 >= 0, A1 =< Max, A2 >= 0, A2 =< Max,\n"
     "    findall(Ln-(N/A), ( current_predicate(N/A), A >= A1, A =< A2, functor(H, N, A), ( predicate_property(H, prolog_line(Ln)) -> true ; Ln = 0 ) ), K0), keysort(K0, K1),\n"
     "    findall(P, member(_-P, K1), L0), reverse(L0, L),\n"
-    "    ( L == [] -> ( A1 == A2 -> Z = A1 ; A1 =:= 0, A2 =:= Max -> Z = any ; Z = A1-A2 ), format(user_output, 'Warning: spy ~a/~w - no matching predicate~n', [N, Z]) ; true ).\n";
+    "    ( L == [] -> ( A1 == A2 -> Z = A1 ; A1 =:= 0, A2 =:= Max -> Z = any ; Z = A1-A2 ), format(user_output, 'Warning: spy ~a/~w - no matching predicate~n', [N, Z]) ; true ).\n"
+    "socket(D, S) :- '$gnu_b_ia'(D, socket/2), ( D == 'AF_UNIX' ; D == 'AF_INET' ), !, '$gnu_b_unbound'(S, socket/2), '$gnu_os'(sk_socket, D, S).\n"
+    "socket(D, _) :- throw(error(domain_error(socket_domain, D), socket/2)).\n"
+    "socket_close(S) :- '$gnu_b_int'(S, socket_close/1), '$gnu_os'(sk_sclose, S, _).\n"
+    "socket_bind(S, A) :- '$gnu_b_int'(S, socket_bind/2), ( var(A) -> throw(error(instantiation_error, socket_bind/2)) ; '$gnu_b_sbind'(A, S) ).\n"
+    "'$gnu_b_sbind'('AF_UNIX'(P), S) :- !, '$gnu_b_ia'(P, socket_bind/2), '$gnu_os'(sk_sbind_unix, u(S, P), _).\n"
+    "'$gnu_b_sbind'('AF_INET'(H, P), S) :- !, ( var(H) -> '$gnu_os'(hostname, x, H) ; '$gnu_b_ia'(H, socket_bind/2) ),\n"
+    "    ( var(P) -> '$gnu_os'(sk_sbind_inet, i(S, 0), P) ; '$gnu_b_int'(P, socket_bind/2), '$gnu_os'(sk_sbind_inet, i(S, P), _) ).\n"
+    "'$gnu_b_sbind'(A, _) :- throw(error(domain_error(socket_address, A), socket_bind/2)).\n"
+    "socket_listen(S, N) :- '$gnu_b_int'(S, socket_listen/2), '$gnu_b_int'(N, socket_listen/2), '$gnu_os'(sk_slisten, l(S, N), _).\n"
+    "socket_accept(S, I, O) :- '$gnu_b_unbound'(I, socket_accept/3), '$gnu_b_unbound'(O, socket_accept/3), '$gnu_b_int'(S, socket_accept/3),\n"
+    "    '$gnu_os'(sk_saccept, S, acc(I0, O0, _)), I = I0, O = O0.\n"
+    "socket_accept(S, C, I, O) :- '$gnu_b_unbound'(C, socket_accept/4), '$gnu_b_unbound'(I, socket_accept/4), '$gnu_b_unbound'(O, socket_accept/4), '$gnu_b_int'(S, socket_accept/4),\n"
+    "    '$gnu_os'(sk_saccept, S, acc(I0, O0, C0)), C = C0, I = I0, O = O0.\n"
+    "socket_connect(S, A, I, O) :- '$gnu_b_unbound'(I, socket_connect/4), '$gnu_b_unbound'(O, socket_connect/4), '$gnu_b_int'(S, socket_connect/4),\n"
+    "    ( var(A) -> throw(error(instantiation_error, socket_connect/4)) ; '$gnu_b_sconn'(A, S, st(I0, O0)) ), I = I0, O = O0.\n"
+    "'$gnu_b_sconn'('AF_UNIX'(P), S, St) :- !, '$gnu_b_ia'(P, socket_connect/4), '$gnu_os'(sk_sconn_unix, c(S, P), St).\n"
+    "'$gnu_b_sconn'('AF_INET'(H, P), S, St) :- !, '$gnu_b_ia'(H, socket_connect/4), '$gnu_b_int'(P, socket_connect/4), '$gnu_os'(sk_sconn_inet, c(S, H, P), St).\n"
+    "'$gnu_b_sconn'(A, _, _) :- throw(error(domain_error(socket_address, A), socket_connect/4)).\n"
+    "hostname_address(N, A) :- '$gnu_b_ia'(N, hostname_address/2), '$gnu_b_oa'(A, hostname_address/2), '$gnu_os'(sk_hostaddr, N, A0), A = A0.\n"
+    "'$gnu_b_unbound'(X, PI) :- ( var(X) -> true ; throw(error(uninstantiation_error(X), PI)) ).\n"
+    "'$gnu_b_int'(X, PI) :- var(X), !, throw(error(instantiation_error, PI)).\n"
+    "'$gnu_b_int'(X, PI) :- \\+ integer(X), !, throw(error(type_error(integer, X), PI)).\n"
+    "'$gnu_b_int'(_, _).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },

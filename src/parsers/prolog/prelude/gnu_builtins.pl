@@ -32,7 +32,8 @@
                           read_token/1, read_token/2, read_atom/1, read_atom/2, read_integer/1, read_integer/2, read_number/1, read_number/2,
                           get_key/1, get_key/2, get_key_no_echo/1, get_key_no_echo/2,
                           get_linedit_prompt/1, set_linedit_prompt/1, add_linedit_completion/1, find_linedit_completion/2,
-                          leash/1, spy/1, nospy/1, nospyall/0, spypoint_condition/3, debugging/0, notrace/0 ]).
+                          leash/1, spy/1, nospy/1, nospyall/0, spypoint_condition/3, debugging/0, notrace/0,
+                          socket/2, socket_close/1, socket_bind/2, socket_listen/2, socket_accept/3, socket_accept/4, socket_connect/4, hostname_address/2 ]).
 write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).
 writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).
 print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).
@@ -435,3 +436,26 @@ spypoint_condition(G, _, _) :- throw(error(type_error(callable, G), spypoint_con
     findall(Ln-(N/A), ( current_predicate(N/A), A >= A1, A =< A2, functor(H, N, A), ( predicate_property(H, prolog_line(Ln)) -> true ; Ln = 0 ) ), K0), keysort(K0, K1),
     findall(P, member(_-P, K1), L0), reverse(L0, L),
     ( L == [] -> ( A1 == A2 -> Z = A1 ; A1 =:= 0, A2 =:= Max -> Z = any ; Z = A1-A2 ), format(user_output, 'Warning: spy ~a/~w - no matching predicate~n', [N, Z]) ; true ).
+socket(D, S) :- '$gnu_b_ia'(D, socket/2), ( D == 'AF_UNIX' ; D == 'AF_INET' ), !, '$gnu_b_unbound'(S, socket/2), '$gnu_os'(sk_socket, D, S).
+socket(D, _) :- throw(error(domain_error(socket_domain, D), socket/2)).
+socket_close(S) :- '$gnu_b_int'(S, socket_close/1), '$gnu_os'(sk_sclose, S, _).
+socket_bind(S, A) :- '$gnu_b_int'(S, socket_bind/2), ( var(A) -> throw(error(instantiation_error, socket_bind/2)) ; '$gnu_b_sbind'(A, S) ).
+'$gnu_b_sbind'('AF_UNIX'(P), S) :- !, '$gnu_b_ia'(P, socket_bind/2), '$gnu_os'(sk_sbind_unix, u(S, P), _).
+'$gnu_b_sbind'('AF_INET'(H, P), S) :- !, ( var(H) -> '$gnu_os'(hostname, x, H) ; '$gnu_b_ia'(H, socket_bind/2) ),
+    ( var(P) -> '$gnu_os'(sk_sbind_inet, i(S, 0), P) ; '$gnu_b_int'(P, socket_bind/2), '$gnu_os'(sk_sbind_inet, i(S, P), _) ).
+'$gnu_b_sbind'(A, _) :- throw(error(domain_error(socket_address, A), socket_bind/2)).
+socket_listen(S, N) :- '$gnu_b_int'(S, socket_listen/2), '$gnu_b_int'(N, socket_listen/2), '$gnu_os'(sk_slisten, l(S, N), _).
+socket_accept(S, I, O) :- '$gnu_b_unbound'(I, socket_accept/3), '$gnu_b_unbound'(O, socket_accept/3), '$gnu_b_int'(S, socket_accept/3),
+    '$gnu_os'(sk_saccept, S, acc(I0, O0, _)), I = I0, O = O0.
+socket_accept(S, C, I, O) :- '$gnu_b_unbound'(C, socket_accept/4), '$gnu_b_unbound'(I, socket_accept/4), '$gnu_b_unbound'(O, socket_accept/4), '$gnu_b_int'(S, socket_accept/4),
+    '$gnu_os'(sk_saccept, S, acc(I0, O0, C0)), C = C0, I = I0, O = O0.
+socket_connect(S, A, I, O) :- '$gnu_b_unbound'(I, socket_connect/4), '$gnu_b_unbound'(O, socket_connect/4), '$gnu_b_int'(S, socket_connect/4),
+    ( var(A) -> throw(error(instantiation_error, socket_connect/4)) ; '$gnu_b_sconn'(A, S, st(I0, O0)) ), I = I0, O = O0.
+'$gnu_b_sconn'('AF_UNIX'(P), S, St) :- !, '$gnu_b_ia'(P, socket_connect/4), '$gnu_os'(sk_sconn_unix, c(S, P), St).
+'$gnu_b_sconn'('AF_INET'(H, P), S, St) :- !, '$gnu_b_ia'(H, socket_connect/4), '$gnu_b_int'(P, socket_connect/4), '$gnu_os'(sk_sconn_inet, c(S, H, P), St).
+'$gnu_b_sconn'(A, _, _) :- throw(error(domain_error(socket_address, A), socket_connect/4)).
+hostname_address(N, A) :- '$gnu_b_ia'(N, hostname_address/2), '$gnu_b_oa'(A, hostname_address/2), '$gnu_os'(sk_hostaddr, N, A0), A = A0.
+'$gnu_b_unbound'(X, PI) :- ( var(X) -> true ; throw(error(uninstantiation_error(X), PI)) ).
+'$gnu_b_int'(X, PI) :- var(X), !, throw(error(instantiation_error, PI)).
+'$gnu_b_int'(X, PI) :- \+ integer(X), !, throw(error(type_error(integer, X), PI)).
+'$gnu_b_int'(_, _).
