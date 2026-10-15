@@ -42,10 +42,28 @@ _Static_assert(GC_FREE_PCT == 15,
 #include "gc_audit_b.h"
 #include "../rtx/rtcc.h"
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
-typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; char *line; long alloc_total; long alloc_str; } rt_hp_fr_t;
-rt_hp_fr_t g_hp_fr = { (char *)0, (char *)0, 0, 0, 0, (char *)0, -1, 0, (char *)0, 0, 0 };
-_Static_assert(sizeof(rt_hp_fr_t) == 72,
-    "RTX-2 extends the PL-SINK-3 cell; 0/8/16/24 stay put; the pacing line rides at 48; the two allocation counters ride at 56 and 64 so emitted code reaches them on the base it already holds");
+typedef struct rt_hp_fr_t {
+    char *top;
+    char *end;
+    long blocks;
+    int armed;
+    int _pad;
+    char *virgin;
+    int zfull;
+    int _pad2;
+    char *line;
+    long alloc_total;
+    long alloc_str;
+    uint64_t *live, *start_abs, *vis, *start, *ssum, *prefix;
+    long ngran;
+} rt_hp_fr_t;
+rt_hp_fr_t g_hp_fr = { (char *)0, (char *)0, 0, 0, 0, (char *)0, -1, 0, (char *)0, 0, 0, (uint64_t *)0, (uint64_t *)0, (uint64_t *)0, (uint64_t *)0, (uint64_t *)0, (uint64_t *)0, 0 };
+_Static_assert(__builtin_offsetof(rt_hp_fr_t, live) == 72 && __builtin_offsetof(rt_hp_fr_t, start_abs) == 80 && __builtin_offsetof(rt_hp_fr_t, vis) == 88 &&
+    __builtin_offsetof(rt_hp_fr_t, start) == 96 && __builtin_offsetof(rt_hp_fr_t, ssum) == 104 && __builtin_offsetof(rt_hp_fr_t, prefix) == 112 && __builtin_offsetof(rt_hp_fr_t, ngran) == 120,
+    "the collector's granule bitmaps ride the frontier record at these offsets (ARCH-GC section 15; rtx_alloc.s sets the START bit through start_abs at 80)");
+_Static_assert(sizeof(rt_hp_fr_t) == 128,
+    "RTX-2 extends the PL-SINK-3 cell; 0/8/16/24 stay put; the pacing line rides at 48; the two allocation counters ride at 56 and 64 so emitted code reaches them on the base it already holds; the c"
+    "ollector's bitmaps follow at 72..120");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, top) == 0, "PL-SINK-3 bakes g_hp_fr.top @0");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, end) == 8, "PL-SINK-3 bakes g_hp_fr.end @8");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, blocks) == 16, "PL-SINK-3 bakes g_hp_fr.blocks @16");
@@ -171,16 +189,38 @@ char *rt_sxt_extend(char *s, long al, long bl) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 long rt_gcheap_verify(void) {
-    long n = 0;
+    long n = 0, bits = 0;
     char *p = g_hp_arena;
+    size_t topg = (size_t)(g_hp_top - g_hp_arena) >> 4, nw = (topg + 63) >> 6;
     while (p && p < g_hp_top) {
         rt_hblk_t *h = (rt_hblk_t *)p;
+        size_t g = (size_t)(p - g_hp_arena) >> 4;
         if (!(h->flags & HBF_TTL) || (h->size & 15u) || h->size < 2 * sizeof(rt_hblk_t) || p + h->size > g_hp_top) {
             fprintf(stderr, "[ZHP] heap verify FAILED at +%ld: flags=%x size=%u type=%u (corrupt title)\n", (long)(p - g_hp_arena), (unsigned)h->flags, (unsigned)h->size, (unsigned)h->type);
             abort();
         }
+        if (!((g_hp_fr.start[g >> 6] >> (g & 63)) & 1u)) {
+            fprintf(stderr, "[ZHP] heap verify FAILED at +%ld: a block header without its START bit (size=%u type=%u) -- the START map is exact or it is nothing (ARCH-GC section 15, CEO-1794)\n",
+                (long)(p - g_hp_arena), (unsigned)h->size, (unsigned)h->type);
+            abort();
+        }
         n++;
         p += h->size;
+    }
+    for (size_t w = 0; w < nw; w++) bits += __builtin_popcountll(w + 1 == nw && (topg & 63) ? g_hp_fr.start[w] & ((1ull << (topg & 63)) - 1u) : g_hp_fr.start[w]);
+    if (bits != n) {
+        fprintf(stderr, "[ZHP] heap verify FAILED: %ld START bits below the top against %ld block headers -- a START bit that is no header (ARCH-GC section 15, CEO-1794)\n", bits, n);
+        abort();
+    }
+    {
+        size_t hig = (size_t)((g_hp_virgin > g_hp_top ? g_hp_virgin : g_hp_top) - g_hp_arena) >> 4, hw = (hig + 63) >> 6;
+        uint64_t above = (topg & 63) ? g_hp_fr.start[nw - 1] & ~((1ull << (topg & 63)) - 1u) : 0;
+        for (size_t w = nw; w < hw; w++) above |= g_hp_fr.start[w];
+        if (above) { fprintf(stderr, "[ZHP] heap verify FAILED: a START bit at or above the top (ARCH-GC 15.11 (3))\n"); abort(); }
+        if (g_gc_in) for (size_t w = 0; w < nw; w++) if (((g_hp_fr.ssum[w >> 6] >> (w & 63)) & 1u) != (g_hp_fr.start[w] != 0)) {
+            fprintf(stderr, "[ZHP] heap verify FAILED: the START summary disagrees with START at word %ld (ARCH-GC 15.11 (3))\n", (long)w);
+            abort();
+        }
     }
     return n;
 }
@@ -275,6 +315,27 @@ static void rt_gcheap_cap_hit(uint64_t need) {
 }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *gcbk_alloc(size_t n);
+static inline void gc_start_set(const char *at) __attribute__((always_inline));
+static inline void gc_start_set(const char *at) { size_t g = (size_t)(at - g_hp_arena) >> 4; g_hp_fr.start[g >> 6] |= 1ull << (g & 63); g_hp_fr.ssum[g >> 12] |= 1ull << ((g >> 6) & 63); }
+static inline int gc_blk_marked(const rt_hblk_t *h) __attribute__((always_inline));
+static inline int gc_blk_marked(const rt_hblk_t *h) { size_t g = (size_t)((const char *)h - g_hp_arena) >> 4; return (int)((g_hp_fr.live[g >> 6] >> (g & 63)) & 1u); }
+static inline int gc_vis_test_set(const rt_hblk_t *h) __attribute__((always_inline));
+static inline int gc_vis_test_set(const rt_hblk_t *h) {
+    size_t g = (size_t)((const char *)h - g_hp_arena) >> 4;
+    uint64_t bit = 1ull << (g & 63);
+    int old = (g_hp_fr.vis[g >> 6] & bit) != 0;
+    g_hp_fr.vis[g >> 6] |= bit;
+    return old;
+}
+static inline uint64_t gc_rank(const char *p) __attribute__((always_inline));
+static inline uint64_t gc_rank(const char *p) {
+    size_t o = (size_t)(p - g_hp_arena), g = o >> 4, w = g >> 6;
+    return g_hp_fr.prefix[w] + 16u * (uint64_t)__builtin_popcountll(g_hp_fr.live[w] & ((1ull << (g & 63)) - 1u)) + (o & 15u);
+}
+static inline char *gc_dest(const rt_hblk_t *h) __attribute__((always_inline));
+static inline char *gc_dest(const rt_hblk_t *h) { return g_hp_arena + gc_rank((const char *)h); }
+int rt_gc_blk_marked(const rt_hblk_t *h) { return gc_blk_marked(h); }
 static void rt_gcheap_init(void) {
     long mb = (long)GC_HEAP_MB, cap_mb, cap_kb, kb = (long)GC_HEAP_KB;
     { extern void rt_cmdline_switches_apply(void); rt_cmdline_switches_apply(); }
@@ -331,6 +392,16 @@ static void rt_gcheap_init(void) {
         if (rv == MAP_FAILED) { fprintf(stderr, "[ZHP] heap mmap failed at the %ld KB hard cap\n", cap_kb); abort(); }
         g_hp_arena = (char *)rv;
         g_hp_cap_end = g_hp_arena + rsv;
+        {
+            size_t ng = rsv >> 4, nw = (ng + 63) >> 6, ns = (nw + 63) >> 6;
+            g_hp_fr.ngran = (long)ng;
+            g_hp_fr.live = (uint64_t *)gcbk_alloc(nw * sizeof(uint64_t));
+            g_hp_fr.vis = (uint64_t *)gcbk_alloc(nw * sizeof(uint64_t));
+            g_hp_fr.start = (uint64_t *)gcbk_alloc(nw * sizeof(uint64_t));
+            g_hp_fr.ssum = (uint64_t *)gcbk_alloc(ns * sizeof(uint64_t));
+            g_hp_fr.prefix = (uint64_t *)gcbk_alloc(nw * sizeof(uint64_t));
+            g_hp_fr.start_abs = g_hp_fr.start - ((uintptr_t)g_hp_arena >> 10);
+        }
     }
     g_hp_chunk = (((size_t)kb << 10) + 4095u) & ~(size_t)4095u;
     if (mprotect(g_hp_arena, g_hp_chunk, PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZHP] heap window commit failed (%ld KB of a %ld MB reserve)\n", kb, cap_mb); abort(); }
@@ -351,6 +422,7 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type) {
     h->size = (uint32_t)total;
     h->type = type;
     h->flags = HBF_TTL;
+    gc_start_set(at);
     g_hp_fr.alloc_total += (long)total;
     if (type == (uint16_t)DT_S) g_hp_fr.alloc_str += (long)total;
     uint64_t pay = total - sizeof(rt_hblk_t);
@@ -419,9 +491,7 @@ void rt_alloc_hist_ra(void *ra, uint16_t type, uint64_t bytes) {
     e->n += 1;
     e->b += (long)bytes;
 }
-static long gc_plant_pin_skip(void) { static long n = -2; if (n == -2) { const char *e = getenv("SCRIP_GC_PLANT_PIN_SKIP"); n = (e && *e) ? atol(e) : -1; } return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long gc_plant_pin_type(void) { static long t = -2; if (t == -2) { const char *e = getenv("SCRIP_GC_PLANT_PIN_TYPE"); t = (e && *e) ? atol(e) : -1; } return t; }
 #else
 void rt_alloc_hist_ra(void *ra, uint16_t type, uint64_t bytes) { (void)ra; (void)type; (void)bytes; }
 #endif
@@ -478,7 +548,7 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes) {
         if (avail - total == sizeof(rt_hblk_t)) total += sizeof(rt_hblk_t);
         r = rt_gcheap_carve(g_hp_win, total, type);
         g_hp_win += total;
-        if (g_hp_win < g_hp_wend) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_win; fl->fwd = 0; fl->size = (uint32_t)(g_hp_wend - g_hp_win); fl->type = HB_FILL; fl->flags = HBF_TTL; }
+        if (g_hp_win < g_hp_wend) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_win; fl->fwd = 0; fl->size = (uint32_t)(g_hp_wend - g_hp_win); fl->type = HB_FILL; fl->flags = HBF_TTL; gc_start_set(g_hp_win); }
         return r;
     }
     if (g_hp_end + GC_ERR_RESERVE == g_hp_cap_end && mprotect(g_hp_end, GC_ERR_RESERVE, PROT_READ | PROT_WRITE) == 0) { g_hp_end = g_hp_cap_end; rt_gcheap_line_reset(0); }
@@ -696,20 +766,13 @@ static rt_hblk_t **g_gc_idx = (rt_hblk_t **)0;
 static rt_hblk_t **g_gc_idxbuf = (rt_hblk_t **)0;
 static long g_gc_icap = 0;
 static rt_hblk_t *g_gc_mhead = (rt_hblk_t *)0;
-static rt_hblk_t **g_gc_liveo = (rt_hblk_t **)0;
-static uint64_t *g_gc_livef = (uint64_t *)0;
-static long g_gc_lcap = 0;
 static long g_gc_nblk = 0;
-static uint32_t *g_gc_pmap = (uint32_t *)0;
 static void **g_gc_hs = (void **)0;
 static long g_gc_hcap = 0, g_gc_hn = 0;
-typedef struct gc_slot_t { const char **loc; rt_hblk_t *tgt; uintptr_t toff; } gc_slot_t;
-typedef struct gc_ix_t { char *p; char *top; char *arena; rt_hblk_t **idx; long i; long cap; uint32_t *pmap; long pmg; } gc_ix_t;
-_Static_assert(__builtin_offsetof(gc_slot_t, loc) == 0 && __builtin_offsetof(gc_slot_t, tgt) == 8 && __builtin_offsetof(gc_slot_t, toff) == 16 && sizeof(gc_slot_t) == 24,
-    "rt_gc_fix_slots (rtx_alloc.s) reads a slot record at these offsets and steps it by 24");
-_Static_assert(__builtin_offsetof(gc_ix_t, p) == 0 && __builtin_offsetof(gc_ix_t, top) == 8 && __builtin_offsetof(gc_ix_t, arena) == 16 && __builtin_offsetof(gc_ix_t, idx) == 24 &&
-    __builtin_offsetof(gc_ix_t, i) == 32 && __builtin_offsetof(gc_ix_t, cap) == 40 && __builtin_offsetof(gc_ix_t, pmap) == 48 && __builtin_offsetof(gc_ix_t, pmg) == 56,
-    "rt_gc_index_run (rtx_alloc.s) reads and writes the index cursor at these offsets");
+typedef struct gc_slot_t { const char **loc; const char *val; } gc_slot_t;
+_Static_assert(__builtin_offsetof(gc_slot_t, loc) == 0 && __builtin_offsetof(gc_slot_t, val) == 8 && sizeof(gc_slot_t) == 16,
+    "the slot record is two words (ARCH-GC section 15.11 (1)): the slot's address and the pointer value read at registration, so the fix is arena plus the rank of that value, idempotent under a doub"
+    "le" " registration, with no header read and no slot read; the fix run reads it at these offsets and steps it by 16");
 _Static_assert(__builtin_offsetof(rt_hblk_t, fwd) == 0 && __builtin_offsetof(rt_hblk_t, size) == 8 && __builtin_offsetof(rt_hblk_t, flags) == 14 && sizeof(rt_hblk_t) == 16 && HBF_TTL == 1 &&
     HBF_MARK == 2 && HBF_VIS == 0x10, "the collector leaves in rtx_alloc.s read a block header at these offsets and clear MARK|VIS with the mask 0xFFED");
 static gc_slot_t *g_gc_slots = (gc_slot_t *)0;
@@ -915,7 +978,7 @@ static char *gc_chain_back(long hit, long *hops) {
     return a;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_vac_record(char *vlo) {
+static void gc_vac_record(char *base, char *vlo) {
     long i, need = 0;
     if (!gc_trap_on()) return;
     if (!gc_vac_ledger()) return;
@@ -928,7 +991,7 @@ static void gc_vac_record(char *vlo) {
         {
             gc_vac_t *v = &g_gc_vac[g_gc_vacn++];
             v->at = (char *)h;
-            v->fwd = h->fwd ? (char *)(uintptr_t)h->fwd : (char *)0;
+            v->fwd = gc_blk_marked(h) ? base + gc_rank((const char *)h) : (char *)0;
             v->size = h->size;
             v->gen = (uint32_t)g_gc_vacgen;
             v->type = h->type;
@@ -1069,14 +1132,6 @@ static void *gcbk_reserve(void *p, size_t need) {
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_live_grow(long need) {
-    if (need < g_gc_lcap) return;
-    g_gc_lcap = g_gc_lcap ? g_gc_lcap : 4096;
-    while (g_gc_lcap <= need) g_gc_lcap *= 2;
-    g_gc_liveo = (rt_hblk_t **)gcbk_grow((void *)g_gc_liveo, (size_t)g_gc_lcap * sizeof(*g_gc_liveo));
-    g_gc_livef = (uint64_t *)gcbk_grow((void *)g_gc_livef, (size_t)g_gc_lcap * sizeof(*g_gc_livef));
-    if (!g_gc_liveo || !g_gc_livef) abort();
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 static double gc_walk_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (double)t.tv_sec * 1e9 + (double)t.tv_nsec; }
@@ -1159,7 +1214,6 @@ static inline int gc_hins(void *p) {
         return 1;
     }
 }
-static char *g_gc_pmap_top = (char *)0;
 #if RT_DIAG
 static long g_gc_dvec_elems = 0;
 static long g_gc_dvec_nondvec = 0;
@@ -1167,17 +1221,34 @@ static long g_gc_dvec_nondvec = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline rt_hblk_t *gc_blk_of(const char *p) __attribute__((always_inline));
 static inline rt_hblk_t *gc_blk_of(const char *p) {
-    if (!p || p < g_hp_arena || p >= g_hp_top || !g_gc_idx) return (rt_hblk_t *)0;
-    if (p < g_gc_pmap_top) {
-        rt_hblk_t *h = (rt_hblk_t *)(g_hp_arena + ((size_t)g_gc_pmap[(size_t)(p - g_hp_arena) >> 6] << 3));
-        while (h->size && (char *)h + h->size <= p) h = (rt_hblk_t *)((char *)h + h->size);
-        if (h->size) return h;
+    size_t g, w;
+    uint64_t m;
+    if (!p || p < g_hp_arena || p >= g_hp_top) return (rt_hblk_t *)0;
+    g = (size_t)(p - g_hp_arena) >> 4;
+    w = g >> 6;
+    m = g_hp_fr.start[w] & ((2ull << (g & 63)) - 1u);
+    if (!m) {
+        size_t sw;
+        if (!w) return (rt_hblk_t *)0;
+        w--;
+        sw = w >> 6;
+        m = g_hp_fr.ssum[sw] & ((2ull << (w & 63)) - 1u);
+        while (!m) { if (!sw) return (rt_hblk_t *)0; sw--; m = g_hp_fr.ssum[sw]; }
+        w = (sw << 6) + (63 - (size_t)__builtin_clzll(m));
+        m = g_hp_fr.start[w];
     }
-    {
-        long lo = 0, hi = g_gc_nblk - 1;
-        while (lo <= hi) { long m = (lo + hi) >> 1; char *b = (char *)g_gc_idx[m]; if (p < b) hi = m - 1; else if (p >= b + g_gc_idx[m]->size) lo = m + 1; else return g_gc_idx[m]; }
-        return (rt_hblk_t *)0;
-    }
+    { rt_hblk_t *h = (rt_hblk_t *)(g_hp_arena + (((w << 6) + (63 - (size_t)__builtin_clzll(m))) << 4)); return (p < (char *)h + h->size) ? h : (rt_hblk_t *)0; }
+}
+static long g_gc_nmk = 0, g_gc_mxs = 0;
+static inline void gc_live_set(size_t g, size_t n) __attribute__((always_inline));
+static inline void gc_live_set(size_t g, size_t n) {
+    uint64_t *w = g_hp_fr.live + (g >> 6);
+    size_t b = g & 63;
+    if (b + n <= 64) { *w |= (n == 64 ? ~0ull : ((1ull << n) - 1u)) << b; return; }
+    *w++ |= ~0ull << b;
+    n -= 64 - b;
+    while (n >= 64) { *w++ = ~0ull; n -= 64; }
+    if (n) *w |= (1ull << n) - 1u;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int gc_type_moves(uint16_t t) __attribute__((always_inline));
@@ -1185,10 +1256,15 @@ static inline int gc_type_moves(uint16_t t) __attribute__((always_inline));
 static inline int gc_type_moves(uint16_t t) { return GC_TYPE_MOVES(t) ? 1 : 0; }
 static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) __attribute__((always_inline));
 static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) {
+    size_t g = (size_t)((char *)h - g_hp_arena) >> 4;
     if (h->type == HB_FILL) return;
-    uint16_t old = h->flags;
-    h->flags = (uint16_t)(old | HBF_MARK | addf);
-    if (!(old & HBF_MARK) && gc_type_moves(h->type)) { h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; }
+    if (!((g_hp_fr.live[g >> 6] >> (g & 63)) & 1u)) {
+        gc_live_set(g, (size_t)h->size >> 4);
+        g_gc_nmk++;
+        if ((long)h->size > g_gc_mxs) g_gc_mxs = (long)h->size;
+        if (gc_type_moves(h->type)) { h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; }
+    }
+    if (addf) g_hp_fr.vis[g >> 6] |= 1ull << (g & 63);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_visit_segment(const char *lo0, const char *hi0, const gc_ent_t *ent, const scrip_coctx_t *sc, int run);
@@ -1204,8 +1280,8 @@ static inline void gc_slot_reg_tgt(void *loc, rt_hblk_t *tgt) __attribute__((alw
 static inline void gc_slot_reg_tgt(void *loc, rt_hblk_t *tgt) {
     if (g_gc_nslot == g_gc_scap) gc_slot_grow();
     g_gc_slots[g_gc_nslot].loc = (const char **)loc;
-    g_gc_slots[g_gc_nslot].tgt = tgt;
-    g_gc_slots[g_gc_nslot].toff = (uintptr_t)(*(const char *const *)loc - (const char *)(tgt + 1));
+    g_gc_slots[g_gc_nslot].val = *(const char *const *)loc;
+    (void)tgt;
     g_gc_nslot++;
 }
 static inline void gc_slot_reg(void *loc) __attribute__((always_inline));
@@ -1213,7 +1289,7 @@ static inline void gc_slot_reg(void *loc) { const char *v = *(const char *const 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_visit_raw(const char **loc) { rt_hblk_t *h = gc_blk_of(*loc); if (!h) return; gc_mark_blk(h, 0); gc_slot_reg_tgt((void *)loc, h); }
 void rt_gc_visit_raw_in(const char **loc, const void *holder) { (void)holder; rt_gc_visit_raw(loc); }
-int rt_gc_weak_keep(const char **loc) { rt_hblk_t *h = gc_blk_of(*loc); if (!h) return 1; if (!(h->flags & HBF_MARK)) return 0; gc_slot_reg((void *)loc); return 1; }
+int rt_gc_weak_keep(const char **loc) { rt_hblk_t *h = gc_blk_of(*loc); if (!h) return 1; if (!gc_blk_marked(h)) return 0; gc_slot_reg((void *)loc); return 1; }
 int rt_gc_ptr_in_heap_slot(const char *p) { return gc_blk_of(p) != (rt_hblk_t *)0; }
 int rt_gc_in_arena(const char *p) { return (g_hp_arena && p >= g_hp_arena && p < g_hp_top) ? 1 : 0; }
 int rt_gc_slot_registered(const void *loc) { for (long i = 0; i < g_gc_nslot; i++) if ((const void *)g_gc_slots[i].loc == loc) return 1; return 0; }
@@ -1253,7 +1329,14 @@ static void gc_visit_arblk(ARBLK_t *a);
 static void gc_visit_datinst(DATINST_t *u);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline uint16_t gc_mark_vis(rt_hblk_t *h) __attribute__((always_inline));
-static inline uint16_t gc_mark_vis(rt_hblk_t *h) { uint16_t old = h->flags; h->flags = (uint16_t)(old | HBF_MARK | HBF_VIS); return old; }
+static inline uint16_t gc_mark_vis(rt_hblk_t *h) {
+    size_t g = (size_t)((char *)h - g_hp_arena) >> 4;
+    uint64_t bit = 1ull << (g & 63);
+    uint16_t old = (uint16_t)(((g_hp_fr.live[g >> 6] & bit) ? HBF_MARK : 0) | ((g_hp_fr.vis[g >> 6] & bit) ? HBF_VIS : 0));
+    if (!(old & HBF_MARK)) { gc_live_set(g, (size_t)h->size >> 4); g_gc_nmk++; if ((long)h->size > g_gc_mxs) g_gc_mxs = (long)h->size; }
+    g_hp_fr.vis[g >> 6] |= bit;
+    return old;
+}
 static inline void gc_dvec_push(rt_hblk_t *h) __attribute__((always_inline));
 static inline void gc_dvec_push(rt_hblk_t *h) {
     DESCR_t *v = (DESCR_t *)(h + 1);
@@ -1288,10 +1371,7 @@ static void gc_visit_vcell(VCELL_t *vc) {
     gc_slot_reg((void *)&vc->tbl);
     gc_slot_reg((void *)&vc->cellp);
     if (vc->cellp) gc_mark_agg((const void *)vc->cellp);
-    if (vc->tbl && gc_hins((void *)vc->tbl)) {
-        rt_hblk_t *tb = gc_block_exact_h((const char *)vc->tbl, HB_AGGT);
-        if (!tb || !(tb->flags & HBF_VIS)) { if (tb) tb->flags |= HBF_VIS; gc_visit_tbblk(vc->tbl); }
-    }
+    if (vc->tbl && gc_hins((void *)vc->tbl)) { rt_hblk_t *tb = gc_block_exact_h((const char *)vc->tbl, HB_AGGT); if (!tb || !gc_vis_test_set(tb)) gc_visit_tbblk(vc->tbl); }
     rt_gc_visit_descr(&vc->key_d);
     rt_gc_visit_descr(&vc->sv);
     if (vc->cellp) rt_gc_visit_descr(vc->cellp);
@@ -1345,8 +1425,7 @@ static void gc_visit_one(DESCR_t *d) {
             rt_hblk_t *th = gc_block_exact_h((const char *)t, HB_AGGT);
             if (!th) return;
             gc_slot_reg_tgt((void *)&d->tbl, th);
-            if (th->flags & HBF_VIS) return;
-            th->flags |= HBF_VIS;
+            if (gc_vis_test_set(th)) return;
             gc_visit_tbblk(t);
             return;
         }
@@ -1378,8 +1457,7 @@ static void gc_visit_one(DESCR_t *d) {
                 rt_hblk_t *vh = gc_block_exact_h((const char *)vc, HB_AGGV);
                 if (!vh) return;
                 gc_slot_reg_tgt((void *)&d->p, vh);
-                if (vh->flags & HBF_VIS) return;
-                vh->flags |= HBF_VIS;
+                if (gc_vis_test_set(vh)) return;
                 gc_visit_vcell(vc);
                 return;
             }
@@ -1460,12 +1538,10 @@ _Static_assert(HB_AGGV == 206 && HB_FILL == 202 && HB_DINST == 213 && HB_DVEC ==
 static void gc_wl_drain(void) {
     extern DESCR_t *rt_gc_mark_run(gc_mk_t *);
     gc_mk_t m;
-    if (!g_gc_idx) { while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); return; }
+    { while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); return; }
     memset(&m, 0, sizeof m);
     m.arena = g_hp_arena;
     m.top = g_hp_top;
-    m.pmap_top = g_gc_pmap_top;
-    m.pmap = g_gc_pmap;
     m.idx = g_gc_idx;
     m.nblk = g_gc_nblk;
     for (;;) {
@@ -1773,7 +1849,7 @@ static char *gc_stack_top(void) { if (g_gc_stktop) return g_gc_stktop; { char *l
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct gc_seg_it_t { int stage; pthread_t self, mainthr; int co; scrip_coctx_t *c; char *floor; char *run_hi; char *prbp; const scrip_coctx_t *sc, *run_c; } gc_seg_it_t;
 #if RT_DIAG
-static long g_gc_co_ctxs, g_gc_co_sigma, g_gc_co_parked, g_gc_shift_now, g_gc_shift_prefix;
+static long g_gc_co_ctxs, g_gc_co_sigma, g_gc_co_parked;
 static int g_gc_rep_pop;
 #endif
 static void gc_coexpr_records(void) {
@@ -2694,7 +2770,7 @@ static void gc_spine_lost_check(void) {
     if (!gc_maps_on()) { g_gc_spine_recn = 0; g_gc_spine_seen = 0; return; }
     for (int i = 0; i < g_gc_spine_recn; i++) {
         rt_hblk_t *h = g_gc_spine_rec[i].h;
-        if (h->flags & HBF_MARK) continue;
+        if (gc_blk_marked(h)) continue;
         g_gc_spine_lost++;
         nlost++;
         {
@@ -3095,79 +3171,11 @@ static void gc_root_cas(void) {
 static void gc_root_gva(void) { DESCR_t *gv = (DESCR_t *)RT_GVA_VA; for (int k = 0; k < g_sxt_gva_n; k++) rt_gc_visit_descr(&gv[k]); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-static long gc_plant_shift_bytes(void) {
-    static long v = -1;
-    static int said = 0;
-    if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_SHIFT"); v = (e && *e) ? atol(e) : 0; if (v < 0) v = 0; v &= ~15L; if (v > (1L << 20)) v = 1L << 20; }
-    if (!v) return 0;
-    if ((long)(g_hp_end - g_hp_top) > v) return v;
-    if (!said) {
-        said = 1;
-        fprintf(stderr,
-            "[GC-SHIFT] plant DECLINED at this collection: SCRIP_GC_PLANT_SHIFT=%ld was asked for and the arena has only %ld bytes of headroom, so THIS collection displaced nothing. The decline is p"
-            "er-collection and this line is printed ONCE per process, so it does not by itself mean the plant never ran -- LOOK FOR A LINE MATCHING '^\\[GC-SHIFT\\] plant:' (ANCHORED, and this decli"
-            "ne deliberately does not spell that literal anywhere in itself: an unanchored grep for it matched THIS LINE and counted a DECLINE as an APPLICATION, which is exactly backwards -- measur"
-            "ed by the coo 2026-09-21, applied=1 read off a shift=1048576 run that planted nothing). That line prints ONCE PER PROCESS with no telemetry asked for, so its ABSENCE means the plant nev"
-            "er applied and every gate reading this run graded an UNPLANTED collection while passing. Measured by the cto 2026-09-21 on the cfo's flag, one pasrec run at SCRIP_HEAP_MB=1 and stress 3"
-            ": a 4096-byte shift applies 495 times, 65536 applies 466, 262144 applies 373, and 1048576 applies ZERO with rc=0 and byte-identical stdout. A silent decline is indistinguishable from a "
-            "plant that ran and proved the property, which is why it is no longer silent.\n", v, (long)(g_hp_end - g_hp_top));
-    }
-    return 0;
-}
-static long gc_plant_shift_prefix(void) {
-    long prefix = 0;
-    char *p = g_hp_arena;
-    while (p < g_hp_top && ((rt_hblk_t *)p)->type == HB_FILL && ((rt_hblk_t *)p)->size) { prefix += ((rt_hblk_t *)p)->size; p += ((rt_hblk_t *)p)->size; }
-    return prefix;
-}
-static int gc_plant_rtccb_slot(void) {
-    static int s = -2;
-    if (s != -2) return s;
-    {
-        const char *e = getenv("SCRIP_GC_PLANT_RTCCB");
-        long v = (e && *e) ? atol(e) : -1;
-        if (v < 0) { s = -1; return s; }
-        if (v > 31 || v == RTCC_SLOT_R8 || v == RTCC_SLOT_R9) {
-            fprintf(stderr,
-                "[GC-RTCCB] plant DECLINED for the whole process: SCRIP_GC_PLANT_RTCCB=%ld names a slot this plant refuses. Slot %d is RTCC_SLOT_R8, the word rtcc.h declares as the ANCHOR, and it ca"
-                "rries a STANDING population of heap references -- 806 of them over eight SNOBOL4 witnesses at arena 1 MB stress 3, measured by the cto 2026-09-20 and again 2026-09-21 -- so a plant "
-                "there is INDISTINGUISHABLE FROM THE DEFECT IT EXISTS TO CATCH and could pass by accident on the very population it grades. Slot %d is RTCC_SLOT_R9, the GVA base every emitted progra"
-                "m addresses its globals through, and overwriting it across a collection does not plant a defect, it breaks the program. A slot above 31 is outside the block. THE PLANT GOES IN SLOT "
-                "7 (r10) OR SLOT 8 (r11), which read a measured ZERO over all 52 witnesses in four languages at stress 3 and 5. This line does not spell the applied banner's literal, so a reader cou"
-                "nting applications never counts a decline as one.\\n", v, RTCC_SLOT_R8, RTCC_SLOT_R9);
-            s = -1;
-            return s;
-        }
-        s = (int)v;
-    }
-    return s;
-}
 _Static_assert(sizeof(long) == 8,
     "THE FORCED-RELOCATION PLANT ADDS A GAP ONLY WHILE EVERY REMAINING LIVE BYTE STILL FITS THE COMMITTED WINDOW (cto 2026-09-23, CTO-156): the gap was checked against the ONE block it displaced, so"
     " on a mostly-live heap the gaps accumulated and the last blocks were forwarded past g_hp_end into uncommitted reserve -- the up-mover memmove faulted inside the collection (benchmark_nrev, benc"
     "hmark_nreverse, last_call_nreverse_large_1 and benchmark_meta_qsort read CRASH under SCRIP_GC_RELOC=1 in mode 4 on every tree, red under the plant and green without it and under the flip plant)"
     "; rel_rem is the live bytes not yet forwarded, this block included");
-static int gc_reloc_forced(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_RELOC"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
-static void gc_displace_census(rt_hblk_t **liveo, uint64_t *livef, long li, long run, int forced) {
-    static int dis = -1;
-    if (dis < 0) { const char *e = getenv("SCRIP_GC_DISPLACE"); dis = (e && *e && *e != '0') ? 1 : 0; }
-    long i, un = 0, dn = 0, up = 0, h0 = 0, h1 = 0, h2 = 0, h3 = 0, h4 = 0, mn = -1, mx = 0, sum = 0;
-    if (!dis) return;
-    for (i = 0; i < li; i++) {
-        long d = (long)((char *)livef[i] - (char *)liveo[i]), a = d < 0 ? -d : d;
-        if (d == 0) un++;
-        else if (d < 0) dn++;
-        else up++;
-        if (a == 0) h0++;
-        else if (a < 4096) h1++;
-        else if (a < 65536) h2++;
-        else if (a < (1L << 20)) h3++;
-        else h4++;
-        if (a) { if (mn < 0 || a < mn) mn = a; if (a > mx) mx = a; sum += a; }
-    }
-    fprintf(stderr, "[GC-DISPLACE] run=%ld forced=%d live=%ld unmoved=%ld moved=%ld down=%ld up=%ld dmin=%ld dmax=%ld dmean=%ld hist zero=%ld lt4K=%ld lt64K=%ld lt1M=%ld ge1M=%ld\n", run, forced, li,
-        un, dn + up, dn, up, mn < 0 ? 0L : mn, mx, (dn + up) ? sum / (dn + up) : 0L, h0, h1, h2, h3, h4);
-}
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifdef SCRIP_GC_AUDIT_B
@@ -3300,10 +3308,6 @@ static long gc_audit_b_shim(char *floor) {
     sk[k].bytes = (long)sizeof g_hp_qhi;
     sk[k].name = "g_hp_qhi";
     k++;
-    sk[k].at = (const void *)&g_gc_pmap_top;
-    sk[k].bytes = (long)sizeof g_gc_pmap_top;
-    sk[k].name = "g_gc_pmap_top";
-    k++;
     sk[k].at = (const void *)&g_gc_mhead;
     sk[k].bytes = (long)sizeof g_gc_mhead;
     sk[k].name = "g_gc_mhead";
@@ -3337,11 +3341,11 @@ static void gc_assert_report_done(void) {
 }
 static void gc_assert_check(void) {
     long nd = 0, ni = 0;
-    for (long i = 0; i < g_gc_nblk; i++) { uint16_t f = g_gc_idx[i]->flags; if (!(f & HBF_MARK)) continue; nd += (f & HBF_ASSERT_DEAD) ? 1 : 0; ni += (f & HBF_ASSERT_INST) ? 1 : 0; }
+    for (long i = 0; i < g_gc_nblk; i++) { uint16_t f = g_gc_idx[i]->flags; if (!gc_blk_marked(g_gc_idx[i])) continue; nd += (f & HBF_ASSERT_DEAD) ? 1 : 0; ni += (f & HBF_ASSERT_INST) ? 1 : 0; }
     if (!nd && !ni) return;
     for (long i = 0; i < g_gc_nblk; i++) {
         rt_hblk_t *h = g_gc_idx[i];
-        if (!(h->flags & HBF_MARK)) continue;
+        if (!gc_blk_marked(h)) continue;
         if (h->flags & HBF_ASSERT_DEAD) {
             fprintf(stderr, "[ZGC-ASSERT] DEAD-ASSERTED block kind=%u/%s size=%u at arena+%ld is REACHABLE at collection #%ld: a root or a live block still holds what the program asserted dead\n",
                 (unsigned)h->type, HB_KIND_NAME(h->type), h->size, (long)((char *)h - g_hp_arena), g_gc_runs + 1);
@@ -3351,7 +3355,7 @@ static void gc_assert_check(void) {
             const DESCR_t *v = (const DESCR_t *)(h + 1);
             long want = (long)v[1].i, found = 0;
             uint16_t t = (uint16_t)v[0].i;
-            for (long j = 0; j < g_gc_nblk; j++) if ((g_gc_idx[j]->flags & HBF_MARK) && g_gc_idx[j]->type == t) found++;
+            for (long j = 0; j < g_gc_nblk; j++) if (gc_blk_marked(g_gc_idx[j]) && g_gc_idx[j]->type == t) found++;
             if (found != want) {
                 fprintf(stderr, "[ZGC-ASSERT] INSTANCES kind=%u/%s expected %ld live, the trace found %ld at collection #%ld\n", (unsigned)t, HB_KIND_NAME(t), want, found, g_gc_runs + 1);
                 gc_assert_report_done();
@@ -3361,27 +3365,117 @@ static void gc_assert_check(void) {
 }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *gc_heap_mark_moved(const char *hb, rt_hblk_t *const *lo, const uint64_t *lf, long n, char *top) {
-    long a = 0, b = n;
-    if (hb < g_hp_arena || hb > g_hp_cap_end) {
-        fprintf(stderr, "[GC-TRAIL] REFUSED: a heap-mark sentinel on the Prolog trail names %p, outside the heap reservation %p..%p -- a choice point's HB is the frontier at its creation\n",
-            (const void *)hb, (const void *)g_hp_arena, (const void *)g_hp_cap_end);
-        abort();
-    }
-    while (a < b) { long m = a + (b - a) / 2; if ((const char *)lo[m] < hb) a = m + 1; else b = m; }
-    return a < n ? (char *)(uintptr_t)lf[a] : top;
+static void gc_trail_refuse(const char *hb) {
+    fprintf(stderr, "[GC-TRAIL] REFUSED: a heap-mark sentinel on the Prolog trail names %p, outside the heap reservation %p..%p -- a choice point's HB is the frontier at its creation\n",
+        (const void *)hb, (const void *)g_hp_arena, (const void *)g_hp_cap_end);
+    abort();
 }
-static void gc_trail_marks_relocate(rt_hblk_t *const *lo, const uint64_t *lf, long n, char *top) {
+static void gc_index_c(void) {
+    long n = 0;
+    for (char *q = g_hp_arena; q < g_hp_top; q += ((rt_hblk_t *)q)->size) {
+        if (n == g_gc_icap) {
+            g_gc_icap = g_gc_icap ? g_gc_icap * 2 : 4096;
+            g_gc_idxbuf = (rt_hblk_t **)gcbk_grow((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf));
+            if (!g_gc_idxbuf) abort();
+        }
+        g_gc_idxbuf[n++] = (rt_hblk_t *)q;
+    }
+    g_gc_idx = g_gc_idxbuf;
+    g_gc_nblk = n;
+}
+static long gc_first_dead_granule(void) {
+    size_t topg = (size_t)(g_hp_top - g_hp_arena) >> 4, nw = (topg + 63) >> 6, w;
+    for (w = 0; w < nw; w++) if (g_hp_fr.live[w] != ~0ull) { size_t g = (w << 6) + (size_t)__builtin_ctzll(~g_hp_fr.live[w]); return g < topg ? (long)g : (long)topg; }
+    return (long)topg;
+}
+static void gc_prefix_c(void) {
+    size_t topg = (size_t)(g_hp_top - g_hp_arena) >> 4, nw = (topg + 63) >> 6, w;
+    uint64_t acc = 0;
+    for (w = 0; w < nw; w++) { g_hp_fr.prefix[w] = acc; acc += 16u * (uint64_t)__builtin_popcountll(g_hp_fr.live[w]); }
+}
+static void gc_fix_c(char *base, size_t logran) {
+    for (long i = 0; i < g_gc_nslot; i++) {
+        const char *val = g_gc_slots[i].val;
+        size_t g = (size_t)(val - g_hp_arena) >> 4;
+        if (g < logran || !((g_hp_fr.live[g >> 6] >> (g & 63)) & 1u)) continue;
+#if RT_DIAG
+        if (gc_diag_on() && *g_gc_slots[i].loc != val && *g_gc_slots[i].loc != base + gc_rank(val)) {
+            fprintf(stderr, "[ZGC] FIX REFUSED: slot %p was written between mark and fix (holds %p, registered %p) -- a slot the collector rewrites is untouched between the two (ARCH-GC 15.11 (1))\n",
+                (const void *)g_gc_slots[i].loc, (const void *)*g_gc_slots[i].loc, (const void *)val);
+            abort();
+        }
+#endif
+        *g_gc_slots[i].loc = base + gc_rank(val);
+    }
+}
+static void gc_ssum_rebuild_to(const char *top);
+static void gc_start_compact(const char *base, const char *oldtop, const char *newtop) {
+    size_t topg = (size_t)(oldtop - g_hp_arena) >> 4, nw = (topg + 63) >> 6, off = (size_t)(base - g_hp_arena) >> 4, ow = off >> 6, ob = off & 63;
+    uint64_t acc = 0;
+    for (size_t w = 0; w < nw; w++) {
+        uint64_t l = g_hp_fr.live[w], st = g_hp_fr.start[w], c = 0;
+        size_t n = (size_t)__builtin_popcountll(l), k = 0;
+        for (uint64_t m = l; m; m &= m - 1) { if (st & (m & -m)) c |= 1ull << k; k++; }
+        if (!n) continue;
+        acc |= c << ob;
+        if (ob + n >= 64) { g_hp_fr.start[ow++] = acc; acc = (ob + n > 64 && ob) ? c >> (64 - ob) : 0; }
+        ob = (ob + n) & 63;
+    }
+    if (ob) g_hp_fr.start[ow++] = acc;
+    for (size_t w = ow; w < nw; w++) g_hp_fr.start[w] = 0;
+    for (size_t w = 0; w < (off >> 6); w++) g_hp_fr.start[w] = 0;
+    gc_ssum_rebuild_to(newtop > oldtop ? newtop : oldtop);
+}
+static char *gc_slide_c(char *base, long fd, int count_unmoved, long *unm_out, long *mov_out) {
+    size_t topg = (size_t)(g_hp_top - g_hp_arena) >> 4, nw = (topg + 63) >> 6, g = base == g_hp_arena ? (size_t)fd : 0, w;
+    char *dest = base + (g << 4), *oldtop = g_hp_top;
+    long unm = 0, mov = 0;
+    if (count_unmoved && base == g_hp_arena) for (char *q = g_hp_arena; q < dest; q += ((rt_hblk_t *)q)->size) unm++;
+    while (g < topg) {
+        size_t a, b;
+        uint64_t m, z;
+        w = g >> 6;
+        m = g_hp_fr.live[w] & (~0ull << (g & 63));
+        while (!m) { w++; if (w >= nw) { g = topg; break; } m = g_hp_fr.live[w]; }
+        if (g >= topg) break;
+        a = (w << 6) + (size_t)__builtin_ctzll(m);
+        z = ~g_hp_fr.live[w] & (~0ull << (a & 63));
+        while (!z) { w++; if (w >= nw) break; z = ~g_hp_fr.live[w]; }
+        b = (w >= nw) ? topg : (w << 6) + (size_t)__builtin_ctzll(z);
+        if (b > topg) b = topg;
+        { size_t bytes = (b - a) << 4; char *src = g_hp_arena + (a << 4); if (dest != src) memmove(dest, src, bytes); mov += (long)bytes; dest += bytes; }
+        g = b;
+    }
+    gc_start_compact(base, oldtop, dest);
+    *unm_out = unm;
+    *mov_out = mov;
+    return dest;
+}
+static uint64_t gc_trail_c(char *base, const char *oldtop, char *newtop) {
     for (long i = 0; i < g_gc_rrng_n; i++) {
+        const char *tt;
         if (g_gc_rrng[i].hi) continue;
-        {
-            const char *tt = *(const char * const *)g_gc_rrng[i].lo;
-            for (char *e = (char *)g_gc_rrng[i].lo + PL_TR_HEADER_BYTES; e + PL_TR_ENTRY_BYTES <= tt; e += PL_TR_ENTRY_BYTES) {
-                pl_tr_entry_t *t = (pl_tr_entry_t *)e;
-                if (!t->cell && t->pad) t->pad = (uint64_t)(uintptr_t)gc_heap_mark_moved((const char *)(uintptr_t)t->pad, lo, lf, n, top);
-            }
+        tt = *(const char *const *)g_gc_rrng[i].lo;
+        for (char *e = (char *)g_gc_rrng[i].lo + PL_TR_HEADER_BYTES; e + PL_TR_ENTRY_BYTES <= tt; e += PL_TR_ENTRY_BYTES) {
+            pl_tr_entry_t *t = (pl_tr_entry_t *)e;
+            const char *hb;
+            if (t->cell || !t->pad) continue;
+            hb = (const char *)(uintptr_t)t->pad;
+            if (hb < g_hp_arena || hb > g_hp_cap_end) return t->pad;
+            t->pad = (uint64_t)(uintptr_t)(hb >= oldtop ? newtop : base + gc_rank(hb));
         }
     }
+    return 0;
+}
+static void gc_ssum_rebuild_to(const char *top) {
+    size_t nw = (((size_t)(top - g_hp_arena) >> 4) + 63) >> 6, ns = (nw + 63) >> 6;
+    memset(g_hp_fr.ssum, 0, ns * sizeof(uint64_t));
+    for (size_t w = 0; w < nw; w++) if (g_hp_fr.start[w]) g_hp_fr.ssum[w >> 6] |= 1ull << (w & 63);
+}
+static void gc_clear_c(const char *oldtop) {
+    size_t topg = (size_t)(oldtop - g_hp_arena) >> 4, nw = (topg + 63) >> 6;
+    memset(g_hp_fr.live, 0, nw * sizeof(uint64_t));
+    memset(g_hp_fr.vis, 0, nw * sizeof(uint64_t));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_collect_ex(const gc_ent_t *ent) {
@@ -3400,34 +3494,22 @@ static long gc_collect_ex(const gc_ent_t *ent) {
 #if RT_DIAG
     char anchor;
     long words = 0, interior = 0;
-    long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0;
+    long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0;
     char *dest;
-    rt_hblk_t **liveo;
-    uint64_t *livef;
-    long li = 0;
     long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0, w_unm = 0;
     int w_tel = gc_telem_on();
-    long n_rfz = 0;
-    int reloc = gc_reloc_forced();
     int st_n = 0, st_slot[32];
     uint64_t st_word[32], st_fwd[32];
     rt_hblk_t *st_blk[32];
-    int pl_slot = gc_plant_rtccb_slot(), pl_mark = 0;
-    rt_hblk_t *pl_blk = (rt_hblk_t *)0;
-    char *pl_addr = (char *)0;
-    uint64_t pl_save = 0, pl_fwd = 0;
     double n_cnt = 0, n_idx = 0, n_mrk = 0, n_fwd = 0, n_liv = 0, n_sld = 0, n_vfy = 0, n_fix = 0, n_t0 = 0, n_all = w_tel ? gc_walk_ns() : 0;
 #else
     char anchor;
     long before_b, after_b;
     char *dest;
-    rt_hblk_t **liveo;
-    uint64_t *livef;
-    long li = 0;
 #endif
-    rt_hblk_t *lomove = (rt_hblk_t *)0;
     uint32_t mxs = 0;
-    long n_hb = 0;
+    long n_hb = 0, fd = 0, lt = 0;
+    char *base;
     g_sxt_owner = (char *)0;
     if (g_gc_in || !g_hp_arena) return 0;
     g_gc_in = 1;
@@ -3455,33 +3537,16 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     g_hp_wend = (char *)0;
     g_gc_nblk = 0;
 #endif
-    if (g_gc_nblk > g_gc_icap) {
-        g_gc_icap = g_gc_icap ? g_gc_icap : 4096;
-        while (g_gc_icap < g_gc_nblk) g_gc_icap *= 2;
-        g_gc_idxbuf = (rt_hblk_t **)gcbk_grow((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf));
-        if (!g_gc_idxbuf) abort();
-    }
-    g_gc_idx = g_gc_idxbuf;
-    {
-        extern void rt_gc_index_run(gc_ix_t *);
-        if (!g_gc_pmap) { g_gc_pmap = (uint32_t *)gcbk_alloc((((size_t)(g_hp_cap_end - g_hp_arena)) >> 6) * sizeof(uint32_t)); if (!g_gc_pmap) abort(); }
-        gc_ix_t x = { g_hp_arena, g_hp_top, g_hp_arena, g_gc_idx, 0, g_gc_icap, g_gc_pmap, 0 };
-        for (;;) {
-            rt_gc_index_run(&x);
-            if (x.p >= x.top) break;
-            g_gc_icap = g_gc_icap ? g_gc_icap * 2 : 4096;
-            g_gc_idxbuf = (rt_hblk_t **)gcbk_grow((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf));
-            if (!g_gc_idxbuf) abort();
-            g_gc_idx = g_gc_idxbuf;
-            x.idx = g_gc_idx;
-            x.cap = g_gc_icap;
-        }
+    g_gc_nmk = 0;
+    g_gc_mxs = 0;
+    g_gc_idx = (rt_hblk_t **)0;
+    gc_ssum_rebuild_to(g_hp_top);
 #if RT_DIAG
-        if (w_tel) w_pmg += x.pmg;
+    if (gc_diag_on() || gc_trap_on() || w_tel || gc_plant_flip()) gc_index_c();
+#ifdef SCRIP_GC_AUDIT_B
+    if (!g_gc_idx && getenv("SCRIP_GC_AUDIT_B")) gc_index_c();
 #endif
-        g_gc_nblk = x.i;
-        g_gc_pmap_top = g_hp_top;
-    }
+#endif
 #if RT_DIAG
     if (w_tel) { w_idx = g_gc_nblk; n_idx = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     g_gc_mhead = (rt_hblk_t *)0;
@@ -3491,7 +3556,6 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_nslot = 0;
     g_gc_interior = 0;
-    if (pl_slot >= 0 && g_gc_nblk > 0) { pl_blk = g_gc_idx[g_gc_nblk - 1]; pl_addr = (char *)(pl_blk + 1); pl_save = rtccb[pl_slot]; rtccb[pl_slot] = (uint64_t)(uintptr_t)pl_addr; }
 #else
     g_gc_mhead = (rt_hblk_t *)0;
     g_gc_hn = 0;
@@ -3531,24 +3595,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     eval_gc_roots();
     lower_gc_roots();
     bnd_gc_roots();
-#ifdef SCRIP_GC_AUDIT_B
-#if RT_DIAG
-    {
-        const char *pu = getenv("SCRIP_GC_PLANT_UNROOT");
-        if (pu && *pu && *pu != '0') {
-            if (g_gc_runs == 0)
-                fprintf(stderr,
-                "[GC-UNROOT] plant: the file-handle table's root walk (drv_gc_roots) is SKIPPED at every collection, so g_fh's name, alias and encoding strings go unmarked while g_fh still holds the"
-                "m -- a lost root made on purpose for pass B to name (SCRIP_GC_PLANT_UNROOT=1, auditor build only). THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS at th"
-                "e first collection.\n");
-        } else drv_gc_roots();
-    }
-#else
     drv_gc_roots();
-#endif
-#else
-    drv_gc_roots();
-#endif
 #if RT_DIAG
     if (gc_maps_on()) for (int k = 0; k < GC_REP_POPS; k++) if (g_gc_rep_ranges[k])
         fprintf(stderr, "[GC-MAPS] pop=%-7s ranges=%ld bytes=%ld agree=%ld map_only=%ld sniff_only=%ld divergence=%ld raw_hits=%ld\n", g_gc_rep_popname[k], g_gc_rep_ranges[k], g_gc_rep_bytes[k],
@@ -3615,9 +3662,9 @@ static long gc_collect_ex(const gc_ent_t *ent) {
                     walked++;
                     nscan++;
 #endif
-                    if (h->type == HB_DVEC) { if (!(h->flags & HBF_VIS)) { h->flags |= HBF_VIS; gc_dvec_push(h); } continue; }
-                    if (h->type == HB_ARR) { if (!(h->flags & HBF_VIS)) { h->flags |= HBF_VIS; gc_visit_arblk((ARBLK_t *)(h + 1)); } continue; }
-                    if (h->type == HB_DINST) { if (!(h->flags & HBF_VIS)) { h->flags |= HBF_VIS; gc_visit_datinst((DATINST_t *)(h + 1)); } continue; }
+                    if (h->type == HB_DVEC) { if (!gc_vis_test_set(h)) { gc_dvec_push(h); } continue; }
+                    if (h->type == HB_ARR) { if (!gc_vis_test_set(h)) { gc_visit_arblk((ARBLK_t *)(h + 1)); } continue; }
+                    if (h->type == HB_DINST) { if (!gc_vis_test_set(h)) { gc_visit_datinst((DATINST_t *)(h + 1)); } continue; }
                     if (h->type >= HB_PLDB && h->type <= HB_PLDBK) {
                         extern void pl_db_gc_visit(uint16_t, void *, size_t);
                         pl_db_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t));
@@ -3635,10 +3682,10 @@ static long gc_collect_ex(const gc_ent_t *ent) {
                         for (long i = 0; i < n; i++) if (v[i]) rt_gc_visit_raw(&v[i]);
                         continue;
                     }
-                    if (h->type == HB_AGGV) { if (!(h->flags & HBF_VIS)) { h->flags |= HBF_VIS; gc_visit_vcell((VCELL_t *)(h + 1)); } continue; }
+                    if (h->type == HB_AGGV) { if (!gc_vis_test_set(h)) { gc_visit_vcell((VCELL_t *)(h + 1)); } continue; }
                     if (h->type == HB_AGGB) continue;
                     if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
-                    if (h->type == HB_AGGT) { if (!(h->flags & HBF_VIS)) { h->flags |= HBF_VIS; gc_visit_tbblk((struct _TBBLK_t *)(h + 1)); } continue; }
+                    if (h->type == HB_AGGT) { if (!gc_vis_test_set(h)) { gc_visit_tbblk((struct _TBBLK_t *)(h + 1)); } continue; }
 #if RT_DIAG
                     if (h->type <= HB_ZCOL || h->type == HB_FILL || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_WSB) continue;
                     interior += (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *));
@@ -3677,140 +3724,64 @@ static long gc_collect_ex(const gc_ent_t *ent) {
         if (cov)
             fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld words_scanned=%ld interior_words=%ld program_top=%p\n", g_gc_rrng_n, g_gc_cas_bytes, words, interior, (void *)g_gc_program_top);
     }
-    {
-        long shift = gc_plant_shift_bytes();
-        long prefix = shift ? gc_plant_shift_prefix() : 0;
-        if (shift) {
-            long live_total = 0;
-            for (long i = 0; i < g_gc_nblk; i++) if (g_gc_idx[i]->flags & HBF_MARK) live_total += (long)g_gc_idx[i]->size;
-            if (g_hp_arena + prefix + shift + live_total > g_hp_end) {
-                static int said_room = 0;
-                if (!said_room) {
-                    said_room = 1;
-                    fprintf(stderr,
-                        "[GC-SHIFT] plant DECLINED at this collection: the fill prefix of %ld bytes left by earlier shifts plus the %ld-byte shift plus %ld live bytes would put the compacted live se"
-                        "t past the committed window end at arena+%ld, and the plant moves nothing it cannot commit. Printed ONCE per process.\n", prefix, shift, live_total,
-                        (long)(g_hp_end - g_hp_arena));
-                }
-                shift = 0;
-                prefix = 0;
-            }
-        }
-        g_gc_shift_prefix = prefix;
-        dest = g_hp_arena + prefix + shift;
-        g_gc_shift_now = shift;
-    }
-    if (gc_plant_flip() && !g_gc_shift_now) {
-        long lt = 0;
-        char *fl0 = (char *)0;
+#endif
+    fd = gc_first_dead_granule();
+    gc_prefix_c();
+    { size_t tw = (((size_t)(g_hp_top - g_hp_arena) >> 4) + 63) >> 6; lt = tw ? (long)(g_hp_fr.prefix[tw - 1] + 16u * (uint64_t)__builtin_popcountll(g_hp_fr.live[tw - 1])) : 0; }
+    base = g_hp_arena;
+#if RT_DIAG
+    if (gc_plant_flip()) {
         size_t pg = gc_pg();
-        for (long i = 0; i < g_gc_nblk; i++) if (g_gc_idx[i]->flags & HBF_MARK) { lt += (long)g_gc_idx[i]->size; if (!fl0) fl0 = (char *)g_gc_idx[i]; }
-        {
-            char *up = (char *)(((uintptr_t)g_hp_top + pg - 1) & ~(uintptr_t)(pg - 1));
-            if (up + lt <= g_hp_end && (size_t)(up - g_hp_arena) < (size_t)0xFFFFFFF0u) g_gc_flip_to = up;
-            else if (!fl0 || g_hp_arena + lt <= fl0) g_gc_flip_to = g_hp_arena;
-            else {
-                static int said_flip = 0;
-                g_gc_flip_declined++;
-                if (!said_flip) {
-                    said_flip = 1;
-                    fprintf(stderr,
-                        "[GC-FLIP] plant DECLINED at a collection: %ld live bytes fit neither above the page-rounded top (arena+%ld, committed end arena+%ld) nor below the first live block (arena+%l"
-                        "d), so THAT collection compacted in place and its stale copies were not trapped; the count is flip_declined= on the GC-EXERCISE line. Printed ONCE per process.\n", lt,
-                        (long)(up - g_hp_arena), (long)(g_hp_end - g_hp_arena), (long)(fl0 - g_hp_arena));
-                }
+        char *up = (char *)(((uintptr_t)g_hp_top + pg - 1) & ~(uintptr_t)(pg - 1));
+        size_t fw = 0, tw = (((size_t)(g_hp_top - g_hp_arena) >> 4) + 63) >> 6;
+        while (fw < tw && !g_hp_fr.live[fw]) fw++;
+        if (up + lt <= g_hp_end && (size_t)(up - g_hp_arena) < (size_t)0xFFFFFFF0u) g_gc_flip_to = up;
+        else if (fw >= tw || g_hp_arena + lt <= g_hp_arena + (((fw << 6) + (size_t)__builtin_ctzll(g_hp_fr.live[fw])) << 4)) g_gc_flip_to = g_hp_arena;
+        else {
+            static int said_flip = 0;
+            g_gc_flip_declined++;
+            if (!said_flip) {
+                said_flip = 1;
+                fprintf(stderr,
+                    "[GC-FLIP] plant DECLINED at a collection: %ld live bytes fit neither above the page-rounded top (arena+%ld, committed end arena+%ld) nor below the first live block (arena+%l"
+                    "d), so THAT collection compacted in place and its stale copies were not trapped; the count is flip_declined= on the GC-EXERCISE line. Printed ONCE per process.\n", lt,
+                    (long)(up - g_hp_arena), (long)(g_hp_end - g_hp_arena), fw < tw ? (long)(((fw << 6) + (size_t)__builtin_ctzll(g_hp_fr.live[fw])) << 4) : 0L);
             }
         }
-        if (g_gc_flip_to) { dest = g_gc_flip_to; g_gc_flip_live = lt; }
+        if (g_gc_flip_to) { base = g_gc_flip_to; g_gc_flip_live = lt; }
     }
-#else
-    dest = g_hp_arena;
-#endif
-    {
-        int fold = 1;
-#if RT_DIAG
-        long rel_rem = 0;
-        if (reloc && !g_gc_flip_to) for (long i = 0; i < g_gc_nblk; i++) if (g_gc_idx[i]->flags & HBF_MARK) rel_rem += (long)g_gc_idx[i]->size;
-#endif
-        if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
-        {
-#if RT_DIAG
-            const long ppt = gc_plant_pin_type(), pps = gc_plant_pin_skip();
-            const int fcen = gc_diag_on() || reloc || ppt >= 0 || w_tel;
+    nlive = g_gc_nmk;
+    n_mk = n_fw = g_gc_nmk;
+    if (w_tel) { w_fwd = g_gc_nblk; n_fwd = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
+    gc_vac_record(base, g_gc_flip_to ? g_hp_arena : g_hp_arena + lt);
 #endif
 #if RT_DIAG
-            if (fcen) for (long i = 0; i < g_gc_nblk; i++) {
-                rt_hblk_t *h = g_gc_idx[i];
-                {
-                    if (h->flags & HBF_MARK) {
-                        n_mk++;
-                        {
-                            int _pt = (ppt < 0 || (long)h->type == ppt) ? 1 : 0;
-                            if (_pt) n_plant++;
-                            if (n_plant == pps && _pt) {
-                                h->fwd = 0;
-                                dest += h->size;
-                            } else {
-                                if (reloc && !g_gc_flip_to && (char *)dest == (char *)h) {
-                                    if (dest + 2 * (long)sizeof(rt_hblk_t) + rel_rem <= g_hp_end) dest += 2 * (long)sizeof(rt_hblk_t);
-                                    else n_rfz++;
-                                }
-                                if (reloc) rel_rem -= (long)h->size;
-                                h->fwd = (uint64_t)dest;
-                                dest += h->size;
-                                nlive++;
-                            }
-                        }
-                    } else h->fwd = 0;
-                    if (h->fwd) n_fw++;
-                    if (!lomove && h->fwd && h->fwd != (uint64_t)(uintptr_t)h) lomove = h;
-                }
-                if (fold && h->fwd) { if (li >= g_gc_lcap) { gc_live_grow(li); liveo = g_gc_liveo; livef = g_gc_livef; } liveo[li] = h; livef[li] = h->fwd; li++; }
-            } else
+    for (int z = 0; z < st_n; z++) st_fwd[z] = gc_blk_marked(st_blk[z]) ? (uint64_t)(uintptr_t)(base + gc_rank((const char *)st_blk[z])) : 0;
 #endif
-            {
-                extern long rt_gc_forward_run(rt_hblk_t **, long, char **, rt_hblk_t **, uint64_t *);
-                char *dl[2] = { dest, (char *)0 };
-                gc_live_grow(g_gc_nblk);
-                liveo = g_gc_liveo;
-                livef = g_gc_livef;
-                li = rt_gc_forward_run(g_gc_idx, g_gc_nblk, dl, liveo, livef);
-                dest = dl[0];
-                lomove = (rt_hblk_t *)(void *)dl[1];
-            }
-        }
-#if RT_DIAG
-        if (w_tel) { w_fwd = g_gc_nblk; n_fwd = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
-        gc_displace_census(liveo, livef, li, g_gc_runs + 1, reloc);
-        if (reloc && n_rfz)
-            fprintf(stderr,
-            "[GC-RELOC] REFUSED to displace %ld live block(s): no room for a minimum legal block (32 bytes) of gap, so they kept their address and THIS COLLECTION IS NOT A FORCED-RELOCATION MEASUREM"
-            "ENT\n", n_rfz);
-        gc_vac_record(g_gc_flip_to ? g_hp_arena : dest);
-#endif
-    }
-#if RT_DIAG
-    if (pl_blk) { pl_mark = (pl_blk->flags & HBF_MARK) ? 1 : 0; pl_fwd = pl_blk->fwd; }
-    for (int z = 0; z < st_n; z++) st_fwd[z] = st_blk[z]->fwd;
-    if (n_mk != n_fw)
-        fprintf(stderr,
-        "[ZGC-PIN] VIOLATION marked=%ld forwarded=%ld skipped=%ld -- a marked block was not given a forwarding address, so it keeps its address while the heap slides around it: that is PINNING under"
-        " another name, and no pinning mechanism returns in any form (Lon 2026-09-17, CEO-831)\n", n_mk, n_fw, n_mk - n_fw);
-#endif
-    { extern void rt_gc_fix_slots(gc_slot_t *, long, const rt_hblk_t *); rt_gc_fix_slots(g_gc_slots, g_gc_nslot, lomove ? lomove : (rt_hblk_t *)(void *)g_hp_top); }
+    gc_fix_c(base, base == g_hp_arena ? (size_t)fd : 0);
 #if RT_DIAG
     if (w_tel) { w_cel = g_gc_nslot; w_raw = 0; n_fix = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     if (w_tel) n_t0 = gc_walk_ns();
 #endif
-    dest = g_hp_arena;
+    {
+        long unm = 0, mov = 0;
+        dest = gc_slide_c(base, fd, w_tel, &unm, &mov);
+        mxs = (uint32_t)g_gc_mxs;
 #if RT_DIAG
-    if (g_gc_flip_to) {
-        for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if (sz > mxs) mxs = sz; memcpy((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; }
-        dest = g_gc_flip_to + g_gc_flip_live;
-        if (g_gc_flip_to > g_hp_arena) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_arena; fl->fwd = 0; fl->size = (uint32_t)(g_gc_flip_to - g_hp_arena); fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++; }
-        g_gc_flips++;
-        {
+        w_unm += unm;
+        if (w_tel) w_mov += mov;
+        if (g_gc_flip_to) {
             static int said_applied = 0;
+            if (base > g_hp_arena) {
+                rt_hblk_t *fl = (rt_hblk_t *)g_hp_arena;
+                fl->fwd = 0;
+                fl->size = (uint32_t)(base - g_hp_arena);
+                fl->type = HB_FILL;
+                fl->flags = HBF_TTL;
+                gc_start_set(g_hp_arena);
+                nfill++;
+            }
+            g_gc_flips++;
             if (w_tel || gc_maps_on() || !said_applied) {
                 said_applied = 1;
                 fprintf(stderr,
@@ -3819,101 +3790,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
                     "sked for.\n", g_gc_flip_live, (long)(g_gc_flip_to - g_hp_arena));
             }
         }
-    } else if (g_gc_shift_now) {
-        if (li > 0) gc_quar_release((char *)livef[li - 1] + liveo[li - 1]->size);
-        for (long i = 0; i < li; i++) {
-            rt_hblk_t *h = liveo[i];
-            uint32_t sz = h->size;
-            if (sz > mxs) mxs = sz;
-            if ((char *)livef[i] == (char *)h) w_unm++;
-            if ((char *)livef[i] < (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; }
-        }
-        for (long i = li - 1; i >= 0; i--) {
-            rt_hblk_t *h = liveo[i];
-            uint32_t sz = h->size;
-            if ((char *)livef[i] > (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; }
-        }
-        {
-            rt_hblk_t *fl = (rt_hblk_t *)(g_hp_arena + g_gc_shift_prefix);
-            fl->fwd = 0;
-            fl->size = (uint32_t)g_gc_shift_now;
-            fl->type = HB_FILL;
-            fl->flags = HBF_TTL;
-            nfill++;
-            for (char *q = g_hp_arena; q < g_hp_arena + g_gc_shift_prefix; q += ((rt_hblk_t *)q)->size) nfill++;
-        }
-        dest = li ? (char *)livef[li - 1] + ((rt_hblk_t *)livef[li - 1])->size : g_hp_arena + g_gc_shift_prefix + g_gc_shift_now;
-        {
-            static int said_applied = 0;
-            if (w_tel || gc_maps_on() || !said_applied) {
-                said_applied = 1;
-                fprintf(stderr,
-                    "[GC-SHIFT] plant: every live block forwarded %ld bytes up, over %ld bytes of kept fill at the arena start -- a stale copy of any heap address is wrong after every collection. TH"
-                    "IS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS with nothing asked for, and once per collection under SCRIP_ZETA_TELEM or SCRIP_GC_MAPS. It was teleme"
-                    "try-gated until 2026-09-21, so a reader following the decline line's own advice without telemetry counted ZERO applications on EVERY run and could conclude the plant never fires"
-                    " when it fires at every collection: measured by the cto on the coo's flag, hb_coexpr_create.icn at SCRIP_HEAP_MB=1 stress 3 shift 4096 applies 199 times and showed 0 of them.\n",
-                    g_gc_shift_now, g_gc_shift_prefix + g_gc_shift_now);
-            }
-        }
-    } else if (reloc) {
-        for (long i = 0; i < li; i++) {
-            rt_hblk_t *h = liveo[i];
-            uint32_t sz = h->size;
-            if (sz > mxs) mxs = sz;
-            if ((char *)livef[i] == (char *)h) w_unm++;
-            if ((char *)livef[i] < (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; }
-        }
-        for (long i = li - 1; i >= 0; i--) {
-            rt_hblk_t *h = liveo[i];
-            uint32_t sz = h->size;
-            if ((char *)livef[i] > (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; }
-        }
-        {
-            char *q = g_hp_arena;
-            for (long i = 0; i < li; i++) {
-                char *nb = (char *)livef[i];
-                if (nb > q) {
-                    rt_hblk_t *fl = (rt_hblk_t *)q;
-                    fl->fwd = 0;
-                    fl->size = (uint32_t)(nb - q);
-                    fl->type = HB_FILL;
-                    fl->flags = HBF_TTL;
-                    nfill++;
-                    if ((long)fl->size > (long)(g_hp_wend - g_hp_win)) { g_hp_win = q; g_hp_wend = nb; }
-                }
-                q = nb + ((rt_hblk_t *)nb)->size;
-            }
-            dest = q;
-        }
-    } else
 #endif
-    for (long i = 0; i < li; i++) {
-        rt_hblk_t *h = liveo[i];
-        uint32_t sz = h->size;
-        if (sz > mxs) mxs = sz;
-        if ((char *)livef[i] == (char *)h) {
-#if RT_DIAG
-            w_unm++;
-#endif
-            if (dest < (char *)h) {
-                rt_hblk_t *fl = (rt_hblk_t *)dest;
-                fl->fwd = 0;
-                fl->size = (uint32_t)((char *)h - dest);
-                fl->type = HB_FILL;
-                fl->flags = HBF_TTL;
-#if RT_DIAG
-                nfill++;
-#endif
-                if ((long)fl->size > (long)(g_hp_wend - g_hp_win)) { g_hp_win = dest; g_hp_wend = (char *)h; }
-            }
-            dest = (char *)h + sz;
-        } else {
-            memmove((void *)livef[i], (void *)h, (size_t)sz);
-            dest = (char *)livef[i] + sz;
-#if RT_DIAG
-            if (w_tel) w_mov += (long)sz;
-#endif
-        }
     }
 #if RT_DIAG
     g_hp_top = dest;
@@ -3926,8 +3803,8 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     g_hp_live = (long)(dest - g_hp_arena);
     rt_gcheap_line_reset((long)mxs);
 #endif
-    if (n_hb) gc_trail_marks_relocate(liveo, livef, li, g_hp_top);
-    { extern void rt_gc_reset_run(uint64_t *, long); rt_gc_reset_run(livef, li); }
+    if (n_hb) { uint64_t bad = gc_trail_c(base, g_hp_arena + before_b, g_hp_top); if (bad) gc_trail_refuse((const char *)(uintptr_t)bad); }
+    gc_clear_c(g_hp_arena + before_b);
     after_b = (long)(g_hp_top - g_hp_arena);
 #if RT_DIAG
     if (st_n) {
@@ -3954,27 +3831,6 @@ static long gc_collect_ex(const gc_ent_t *ent) {
                 "ED and SWEPT are the two ways it stops being merely necessary, and they are counted here rather than argued.\n", g_gc_runs + 1, st_n, mv, un, sw);
         }
     }
-    if (pl_blk) {
-        static int said_rtccb = 0;
-        uint64_t now = rtccb[pl_slot];
-        char *nw = pl_fwd ? (char *)((rt_hblk_t *)(uintptr_t)pl_fwd + 1) : (char *)0;
-        int moved = (pl_fwd && pl_fwd != (uint64_t)(uintptr_t)pl_blk) ? 1 : 0, kept = (now == (uint64_t)(uintptr_t)pl_addr) ? 1 : 0;
-        if (w_tel || gc_maps_on() || !said_rtccb) {
-            said_rtccb = 1;
-            fprintf(stderr,
-                "[GC-RTCCB] plant: slot=%d word=%p block=type%d/%ldB live=%d moved=%d forwarded-payload=%p slot-after-collection=%p unrepaired=%d swept=%d. THIS LINE IS THE ONLY PROOF THE PLANT APPL"
-                "IED and it prints ONCE PER PROCESS with nothing asked for, then once per collection under SCRIP_ZETA_TELEM or SCRIP_GC_MAPS. WHAT IT PLANTS: the payload address of the most recently"
-                " carved block -- which is what a call result live across a safe point IS -- written into a caller-saved spill slot at the top of a collection and RESTORED BYTE FOR BYTE at the end o"
-                "f it, so the program answers identically with the plant on and off. WHAT IT PROVES: the detector is looking (the run prints a GC-WALK-RTCCB line naming this slot under SCRIP_GC_MAPS"
-                ", so a green reading of the invariant is a measurement and not a silence), and a line whose unrepaired and moved fields are BOTH SET is the STALENESS half measured rather than argue"
-                "d (this sentence deliberately spells neither field with its value, because a decline or an explanation that spells the literal a reader is told to count is counted AS one, which is "
-                "the defect cured at CTO-113 in this same file) -- no root walk visits this block, so nothing rewrites the slot when the collector forwards the value it holds, and the emitted reload"
-                " after the poll restores a word that names ground the collector has already given away. WHAT IT IS NOT: this is not the emitter road. The real road is the spill at x86_asm.h 386-398"
-                ", and its standing population lives in slot %d.\\n", pl_slot, (const void *)pl_addr, (int)pl_blk->type, (long)pl_blk->size, pl_mark, moved, (const void *)nw,
-                (const void *)(uintptr_t)now, (moved && kept) ? 1 : 0, (!pl_mark && kept) ? 1 : 0, RTCC_SLOT_R8);
-        }
-        rtccb[pl_slot] = pl_save;
-    }
     {
         static int psn = -1;
         if (psn < 0) { const char *e = getenv("SCRIP_GC_POISON"); psn = (e && *e) ? (*e != '0') : gc_diag_on(); }
@@ -3985,7 +3841,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
             if (w_tel) fprintf(stderr, "[ZGC-POISON] vacated=%ldB filled=0xDB top=%p oldtop=%p\n", pb, (void *)g_hp_top, (void *)ot);
         }
     }
-    if (w_tel) { w_sld = li; n_sld = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
+    if (w_tel) { w_sld = g_gc_nmk; n_sld = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
 #endif
     { extern void rt_nv_memo_invalidate(void); extern void pm_lf_type_invalidate(void); rt_nv_memo_invalidate(); pm_lf_type_invalidate(); }
 #if RT_DIAG

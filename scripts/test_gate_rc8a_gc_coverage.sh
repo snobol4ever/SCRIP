@@ -93,7 +93,7 @@ FF      OUTPUT = 'F'
 END
 SNO
 WANT2='S q'   # sbl -bf prints "S q" (the coo 2026-10-07)
-for E in "" "SCRIP_GC_RELOC=1"; do
+for E in ""; do
     ( cd "$T" && env SCRIP_GC_COVERAGE=1 SCRIP_GC_STRESS=1 $E timeout 60s "$SCRIP" --run "$W2" < /dev/null 2> "$T/err2" > "$T/out2"; echo "rc=$?" > "$T/rc2" )
     G2=$(cat "$T/out2" 2>/dev/null); N2=$(grep -c "GC-COV" "$T/err2"); K="${E:-plain}"
     [ "$(cat "$T/rc2")" = rc=124 ] && { echo "GATE RC-8a: REFUSE(2) — the spine witness ran past 60 s ($K), so nothing was measured"; exit 2; }

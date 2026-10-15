@@ -97,7 +97,7 @@ ORACLE="${ICONT:-/home/resources/icon-build/bin/icont}"
 if [ -x "$ORACLE" ]; then
     ( cd "$W" && "$ORACLE" -s g.icn -x >ref.txt 2>&1 )
     z=$(SCRIP_HEAP_MB=512 timeout 60 ./scrip "$W/g.icn" 2>/dev/null)
-    t=$(SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=3 SCRIP_GC_RELOC=1 timeout 60 ./scrip "$W/g.icn" 2>/dev/null)
+    t=$(SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=3 timeout 60 ./scrip "$W/g.icn" 2>/dev/null)
     r=$(cat "$W/ref.txt")
     if [ "$z" = "$r" ] && [ "$t" = "$r" ]; then
         echo "  ok   (d) the witness answers its icont oracle identically at a 512 MB arena (the zero-collection arm, CEO-1137) and at a 64 KB arena under stress 3 with forced relocation"

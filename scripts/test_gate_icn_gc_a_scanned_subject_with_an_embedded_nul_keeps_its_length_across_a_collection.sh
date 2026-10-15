@@ -20,7 +20,7 @@
 #
 # ARMS. (1) STRUCTURE, both directions: rt_scan_subj_len has no strlen and aborts on a miss; gen_gc_roots registers the cache
 # slot under the alias test; no strlen(g_scan_subj) is left anywhere under src/runtime. (2) BAND, both media: the witness matches
-# its iconx-cut ref at stress 0,1,3,5 under SCRIP_GC_RELOC=1 in a 128 KB arena, and EVERY arm reports collections>0 from the
+# its iconx-cut ref at stress 0,1,3,5 under in a 128 KB arena, and EVERY arm reports collections>0 from the
 # run's own report. (3) NO COLLECTION: in a 64 MB arena the same witness matches in both media -- the tab() arm's own path.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
@@ -46,8 +46,8 @@ else echo "  arm 1 FAIL: body_found=$([ -n "$body" ] && echo 1 || echo 0) strlen
 want="$(cat "$REF")"; band=""; bad=0
 for st in 0 1 3 5; do
   for md in m3 m4; do
-    if [ "$md" = m3 ]; then out="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_RELOC=1 SCRIP_GC_STRESS=$st SCRIP_GC_EXERCISE=1 timeout 120 "$SCRIP" "$WIT" 2>"$T/e" </dev/null)"
-    else out="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_RELOC=1 SCRIP_GC_STRESS=$st SCRIP_GC_EXERCISE=1 timeout 120 "$T/w4" 2>"$T/e" </dev/null)"; fi
+    if [ "$md" = m3 ]; then out="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_EXERCISE=1 timeout 120 "$SCRIP" "$WIT" 2>"$T/e" </dev/null)"
+    else out="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_EXERCISE=1 timeout 120 "$T/w4" 2>"$T/e" </dev/null)"; fi
     n=$(grep -m1 -oE 'collections=[0-9]+' "$T/e" | head -1 | cut -d= -f2)
     if [ "$out" = "$want" ] && [ "${n:-0}" -gt 0 ]; then band="$band @$st$md:ok($n)"; else band="$band @$st$md:RED(collections=${n:-0})"; bad=1; fi
   done

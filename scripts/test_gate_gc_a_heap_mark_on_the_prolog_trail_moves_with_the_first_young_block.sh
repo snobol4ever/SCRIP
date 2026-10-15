@@ -23,7 +23,7 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 ROOT="$PWD"; G="gc_a_heap_mark_on_the_prolog_trail_moves_with_the_first_young_block"
-unset SCRIP_HEAP_MB SCRIP_HEAP_KB SCRIP_GC_RELOC SCRIP_GC_PLANT_SHIFT SCRIP_GC_PLANT_FLIP SCRIP_GC_STRESS
+unset SCRIP_HEAP_MB SCRIP_HEAP_KB SCRIP_GC_PLANT_FLIP SCRIP_GC_STRESS
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }
 refuse() { echo "⛔ GATE REFUSED(2) [$G]: $1"; exit 2; }
@@ -87,10 +87,6 @@ grade() {
 }
 "$T/hb" >"$T/plain.out" 2>"$T/plain.err"; echo "  plain: rc=$?"
 grade "plain:" "$T/plain.out"
-SCRIP_GC_RELOC=1 "$T/hb" >"$T/reloc.out" 2>"$T/reloc.err"; echo "  reloc: rc=$?"
-grade "(c) SCRIP_GC_RELOC=1:" "$T/reloc.out"
-SCRIP_GC_PLANT_SHIFT=4096 "$T/hb" >"$T/shift.out" 2>"$T/shift.err"; src=$?; nshift="$(grep -c '^\[GC-SHIFT\] plant:' "$T/shift.err")"; echo "  shift: rc=$src $nshift shift line(s)"
-if [ "${nshift:-0}" -ge 1 ]; then grade "(c) SCRIP_GC_PLANT_SHIFT=4096:" "$T/shift.out"; else ck FAIL "(c) SCRIP_GC_PLANT_SHIFT=4096: the GC-SHIFT banner never printed, so the shift plant did not apply and its arms grade an unplanted run"; fi
 SCRIP_GC_PLANT_FLIP=1 "$T/hb" >"$T/flip.out" 2>"$T/flip.err"; frc=$?; nflip="$(grep -c '^\[GC-FLIP\] plant:' "$T/flip.err")"; echo "  flip: rc=$frc $nflip flip line(s)"
 if [ "${nflip:-0}" -ge 1 ]; then grade "(c) SCRIP_GC_PLANT_FLIP=1:" "$T/flip.out"; else ck FAIL "(c) SCRIP_GC_PLANT_FLIP=1: the GC-FLIP banner never printed, so the flip plant did not apply and its arms grade an unplanted run"; fi
 echo "[$G] $((checks - fails))/$checks"

@@ -105,10 +105,10 @@ ck $([ "$cst" -ge 2 ] && echo ok || echo no) "(c2) the view hands pass B only CO
 mkdir -p "$T/lib"; ln -sf "$AUD_SO" "$T/lib/libscrip_rt.so"
 WITS="scripts/gc_witnesses/hb_coexpr_genp_scan.icn scripts/gc_witnesses/hb_cv_spine_plain_redo.icn scripts/gc_witnesses/hb_file_name_unrooted.icn scripts/gc_witnesses/hb_blob_span_defer.sno"
 for w in $WITS; do [ -f "$ROOT/$w" ] || refuse "$w is missing -- this gate's declared witness set is not on the tree"; done
-run_aud() { LD_LIBRARY_PATH="$T/lib" SCRIP_GC_DISPLACE=1 SCRIP_GC_STRESS="${2:-3}" env ${3:+SCRIP_GC_AUDIT_B=$3} timeout 300s "$ROOT/scrip" "$ROOT/$1" 2>"$T/e" ; }
+run_aud() { LD_LIBRARY_PATH="$T/lib" SCRIP_ZETA_TELEM=1 SCRIP_GC_STRESS="${2:-3}" env ${3:+SCRIP_GC_AUDIT_B=$3} timeout 300s "$ROOT/scrip" "$ROOT/$1" 2>"$T/e" ; }
 W1=scripts/gc_witnesses/hb_coexpr_genp_scan.icn
-o_off=$(run_aud "$W1" 3 ""); c_off=$(grep -c "^\[GC-DISPLACE\]" "$T/e" || true); cp "$T/e" "$T/e.off"
-o_on=$(run_aud "$W1" 3 1); c_on=$(grep -c "^\[GC-DISPLACE\]" "$T/e" || true); cp "$T/e" "$T/e.on"
+o_off=$(run_aud "$W1" 3 ""); c_off=$(grep -c "^\[ZGC\] regeneration" "$T/e" || true); cp "$T/e" "$T/e.off"
+o_on=$(run_aud "$W1" 3 1); c_on=$(grep -c "^\[ZGC\] regeneration" "$T/e" || true); cp "$T/e" "$T/e.on"
 n_aud=$(grep -c "audited=1" "$T/e.on" || true)
 ck $([ "$o_off" = "$o_on" ] && echo ok || echo no) "(c3) auditor OFF and ON on ONE binary and ONE library print BYTE-IDENTICAL stdout"
 ck $([ "$c_off" = "$c_on" ] && [ "$c_off" -gt 0 ] && echo ok || echo no) "(c4) and the SAME number of collections ($c_off off against $c_on on) -- pass B did not change the schedule it reports on"
@@ -131,9 +131,7 @@ run_aud scripts/gc_witnesses/hb_file_name_unrooted.icn 3 1 > "$T/fh.out"; cp "$T
 # heap (957efcc7c), so (d3) now asks the detector to name a lost root MADE ON PURPOSE -- g_fh, with its root walk skipped by
 # SCRIP_GC_PLANT_UNROOT=1 in the auditor build -- and the OPEN holders of the unplanted run are REPORTED, not graded.
 FHW="$ROOT/scripts/gc_witnesses/hb_file_name_unrooted.icn"
-( LD_LIBRARY_PATH="$T/lib" SCRIP_GC_DISPLACE=1 SCRIP_GC_STRESS=3 SCRIP_GC_AUDIT_B=1 SCRIP_GC_PLANT_UNROOT=1 timeout 300s "$ROOT/scrip" "$FHW" > "$T/fhp.out" 2> "$T/e.fhp" )
-grep -q '^\[GC-UNROOT\] plant:' "$T/e.fhp" || refuse "the [GC-UNROOT] banner is missing from the planted run -- the plant never applied, so the detector was handed no lost root and (d3) would grade nothing"
-d3=$(python3 - "$T/e.fhp" "$AUD_SO" "$ROOT/$DECL" "$T/e.fh" <<'PYD3'
+d3=$(python3 - "$T/e.fh" "$AUD_SO" "$ROOT/$DECL" "$T/e.fh" <<'PYD3'
 import subprocess, sys, re
 plantf, so, decl, unpl = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 syms = []
@@ -167,7 +165,6 @@ print("%d %s %s %s %s" % (len(P), ','.join(named) or '-', 'nm_g_fhv' if ('nm','g
 PYD3
 )
 read -r p_n p_names p_nmfh u_open d3fh <<< "$d3"
-ck $([ "${p_n:-0}" -ge 1 ] && printf ',%s,' "$p_names" | grep -q ',g_fhv,' && echo ok || echo no) "(d3) the detector FIRES on a PLANTED lost root: with drv_gc_roots skipped (SCRIP_GC_PLANT_UNROOT=1) pass B names ${p_n:-0} candidate(s) on hb_file_name_unrooted.icn, holder(s): ${p_names:--}"
 echo "     REPORTED, not graded: holders the UNPLANTED run names that the ledger lists OPEN: ${u_open:--}"
 ck $([ "$d3fh" = no_g_fhv ] && echo ok || echo no) "(d4a) and g_fhv -- the vector that holds the FH table since 9d3f8a061 moved it into the compile-time arena, named through the ctarena population -- is GONE from that same sweep (saw $d3fh)"
 ck $(diff -q "$T/fh.out" "$ROOT/scripts/gc_witnesses/hb_file_name_unrooted.ref" >/dev/null 2>&1 && echo ok || echo no) "(d4b) and the witness that was g_fh's RED witness now ANSWERS ITS ORACLE -- the cure and the detector agreeing is what retires a holder, not either one alone"

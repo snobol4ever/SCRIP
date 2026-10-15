@@ -40,7 +40,7 @@ gate_require_exec "$SCRIP" "the scrip compiler"
 FPC=/usr/bin/fpc
 [ -x "$FPC" ] || { echo "REFUSE(2) [$(basename "$0" .sh)]: the Pascal oracle $FPC is absent -- a missing oracle does not blank a board, it prints a full and entirely false one"; exit 2; }
 BAND="${PAS_GC_BAND:-3 16}"
-SHIFTS="${PAS_GC_SHIFTS:-4096}"
+SHIFTS="${PAS_GC_SHIFTS:-1}"
 W=$(mktemp -d) || exit 2
 KEEP=0
 cat > "$W/pasrec.pas" <<'FIX'
@@ -124,17 +124,17 @@ for w in $WITNESSES; do
   for st in $BAND; do
     for sh in $SHIFTS; do
       for mode in m3 m4; do
-        if [ "$mode" = m3 ]; then out=$( cd "$W" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS="$st" SCRIP_GC_PLANT_SHIFT="$sh" SCRIP_ZETA_TELEM=1 timeout 300 "$SCRIP" "$w.pas" < /dev/null 2>"$W/err.txt" ); rc=$?
-        else out=$( cd "$W" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS="$st" SCRIP_GC_PLANT_SHIFT="$sh" SCRIP_ZETA_TELEM=1 timeout 300 "./${w}_m4" < /dev/null 2>"$W/err.txt" ); rc=$?; fi
+        if [ "$mode" = m3 ]; then out=$( cd "$W" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_STRESS="$st" SCRIP_GC_PLANT_FLIP="$sh" SCRIP_ZETA_TELEM=1 timeout 300 "$SCRIP" "$w.pas" < /dev/null 2>"$W/err.txt" ); rc=$?
+        else out=$( cd "$W" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_STRESS="$st" SCRIP_GC_PLANT_FLIP="$sh" SCRIP_ZETA_TELEM=1 timeout 300 "./${w}_m4" < /dev/null 2>"$W/err.txt" ); rc=$?; fi
         col=$(grep -c 'regeneration #' "$W/err.txt"); col=${col:-0}
         mv=$(grep -o 'moved=[0-9]*B' "$W/err.txt" | grep -o '[0-9]*' | awk '{s+=$1} END{print s+0}')
         GRADED=$((GRADED+1))
-        tag="$w/$mode/stress:$st/shift:$sh"
+        tag="$w/$mode/stress:$st/flip:$sh"
         if [ "$rc" -eq 127 ]; then echo "NOSTART $tag -- rc=127: the runner never started, so this point measured nothing. It is NOT a red and NOT an inert population -- naming the two apart is the whole point (a variable expansion cannot serve as an env-assignment prefix; bash resolves assignments at parse time, so a VAR=val built at runtime becomes a COMMAND NAME. Measured in this lane 2026-09-20: it turned a working census into a plausible PASS=0 FAIL=246 board)"; NOSTART=$((NOSTART+1)); continue; fi
         if [ "$col" -eq 0 ]; then echo "INERT   $tag -- collections=0: this point never ran a collector, so its answer is a statement about the program and not about the collector"; INERT=$((INERT+1)); continue; fi
         if [ "$mv" -eq 0 ]; then echo "NO-MOVE $tag -- collections=$col but moved=0B: nothing relocated, so forwarding was never exercised"; NOMOVE=$((NOMOVE+1)); continue; fi
-        pl=$(grep -c '^\[GC-SHIFT\] plant:' "$W/err.txt"); pl=${pl:-0}
-        if [ "$sh" -ne 0 ] && [ "$pl" -eq 0 ]; then echo "UNPLANTED $tag -- collections=$col moved=${mv}B but the shift plant applied ZERO times: gc_plant_shift_bytes() returns 0 whenever the arena headroom is not strictly greater than the shift, and it used to do so SILENTLY. This point relocated blocks by ordinary compaction alone, which is the very thing the plant exists to go beyond, so it is NOT a green and NOT a no-move. Measured by the cto 2026-09-21 on the cfo's flag, pasrec at a 1024 KB window (the MB-spelled pin of the day, which the CEO-1146 sweep retired; this figure is CITED at the configuration it was measured under and not re-measured here) stress 3: shift 4096 applies 495 times, 65536 applies 466, 262144 applies 373, 1048576 applies ZERO with rc=0 and byte-identical stdout -- so before this arm existed, a big-enough shift under the mandated tiny arena made this gate PASS having planted nothing at all"; UNPLANTED=$((UNPLANTED+1)); continue; fi
+        pl=$(grep -c '^\[GC-FLIP\] plant:' "$W/err.txt"); pl=${pl:-0}
+        if [ "$sh" -ne 0 ] && [ "$pl" -eq 0 ]; then echo "UNPLANTED $tag -- collections=$col moved=${mv}B but the flip plant applied ZERO times: gc_plant_shift_bytes() returns 0 whenever the arena headroom is not strictly greater than the shift, and it used to do so SILENTLY. This point relocated blocks by ordinary compaction alone, which is the very thing the plant exists to go beyond, so it is NOT a green and NOT a no-move. Measured by the cto 2026-09-21 on the cfo's flag, pasrec at a 1024 KB window (the MB-spelled pin of the day, which the CEO-1146 sweep retired; this figure is CITED at the configuration it was measured under and not re-measured here) stress 3: shift 4096 applies 495 times, 65536 applies 466, 262144 applies 373, 1048576 applies ZERO with rc=0 and byte-identical stdout -- so before this arm existed, a big-enough shift under the mandated tiny arena made this gate PASS having planted nothing at all"; UNPLANTED=$((UNPLANTED+1)); continue; fi
         if [ "$rc" -ne 0 ]; then echo "RED     $tag -- rc=$rc collections=$col moved=${mv}B"; RED=$((RED+1)); continue; fi
         if [ "$out" = "$REF" ]; then MATCH=$((MATCH+1)); else echo "RED     $tag -- ORACLE DIFF, collections=$col moved=${mv}B"; echo "$out" | head -3 | sed 's/^/          got: /'; echo "$REF" | head -3 | sed 's/^/          want:/'; RED=$((RED+1)); fi
       done

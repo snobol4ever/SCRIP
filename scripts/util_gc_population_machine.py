@@ -46,10 +46,10 @@ while a:
     else: print('unknown argument %s' % k); sys.exit(2)
 if ctl == '-': single = True
 def arm_env(n):
-    if n == 'nogc': return {'SCRIP_HEAP_KB': '524288', 'SCRIP_GC_STRESS': '0', 'SCRIP_GC_RELOC': '0', 'SCRIP_GC_PLANT_FLIP': '0'}
+    if n == 'nogc': return {'SCRIP_HEAP_KB': '524288', 'SCRIP_GC_STRESS': '0', 'SCRIP_GC_PLANT_FLIP': '0'}
     m = re.fullmatch(r'([srf])(\d+)', n)
     if not m: print('REFUSED(2): arm %r is not nogc, sN, rN or fN' % n); sys.exit(2)
-    return {'SCRIP_HEAP_KB': '128', 'SCRIP_GC_STRESS': m.group(2), 'SCRIP_GC_RELOC': '1' if m.group(1) == 'r' else '0', 'SCRIP_GC_PLANT_FLIP': '1' if m.group(1) == 'f' else '0'}
+    return {'SCRIP_HEAP_KB': '128', 'SCRIP_GC_STRESS': m.group(2), 'SCRIP_GC_PLANT_FLIP': '1' if m.group(1) in 'rf' else '0'}
 ARMS = [(n, arm_env(n)) for n in arm_names]
 roots = [cure] if single else [ctl, cure]
 for r in roots:

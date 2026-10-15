@@ -21,7 +21,7 @@
 #
 # ARMS: (a) THE PROPERTY: the witness answers its iconx-cut ref at the shipped 128 KB window in mode 3 at stress 3 and 11
 # and in mode 4 at stress 4, 8 and 16 (the levels hq_icon measured as the diverging ones), and under the flip plant at
-# stress 3 (mode 3) and 4 (mode 4), stdin fed from its .in; (b) FORCED DISPLACEMENT: under SCRIP_GC_PLANT_SHIFT=1024 (the
+# stress 3 (mode 3) and 4 (mode 4), stdin fed from its .in; (b) FORCED DISPLACEMENT: under SCRIP_GC_PLANT_FLIP=1 (the
 # collector's own instrument, which moves every survivor by construction) the witness answers its ref at mode-3 stress 1..8,
 # so the subject the callee's collection moved is read from where it went; (c) the source carries the reload in both sync-in
 # helpers and the emitter reads no SCRIP_GC_PLANT_STALE_SIGMA. FAIL_ONCE=1 grades arms (a) and (b) against a CORRUPTED copy of
@@ -53,12 +53,12 @@ if [ "$bad" = 0 ]; then echo "  ok   (a) THE PROPERTY: the scan witness answers 
 else echo "  FAIL (a) the subject base read after a call inside a scan is stale --$band"; RC=1; fi
 cband=""; chit=0; cdecl=0
 for pst in 1 2 3 4 5 6 7 8; do
-  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_SHIFT=1024 SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$pst timeout 60s "$SCRIP" --run "$W.icn" < "$W.in" > c$pst.out 2> c$pst.err ); cr=$?
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=1 SCRIP_HEAP_KB=512 SCRIP_GC_STRESS=$pst timeout 60s "$SCRIP" --run "$W.icn" < "$W.in" > c$pst.out 2> c$pst.err ); cr=$?
   grep -q "^\[GC-SHIFT\] plant DECLINED" "$T/c$pst.err" && cdecl=$((cdecl+1))
   if [ $cr != 0 ] || ! cmp -s "$T/c$pst.out" "$REF"; then cband="$cband s$pst:LOSS"; chit=$((chit+1)); else cband="$cband s$pst:ref"; fi
 done
 [ $cdecl -gt 0 ] && { echo "⛔ GATE REFUSE(2) [$G]: the shift plant DECLINED at $cdecl of 8 points (no arena headroom), so arm (b) could not force the displacement -- CANNOT MEASURE is not a red"; exit 2; }
-if [ $chit -eq 0 ]; then echo "  ok   (b) FORCED DISPLACEMENT: under SCRIP_GC_PLANT_SHIFT=1024 the witness answers its ref at all 8 stress points --$cband -- the subject the callee's collection moved is read where it went"
+if [ $chit -eq 0 ]; then echo "  ok   (b) FORCED DISPLACEMENT: under SCRIP_GC_PLANT_FLIP=1 the witness answers its ref at all 8 stress points --$cband -- the subject the callee's collection moved is read where it went"
 else echo "  FAIL (b) under forced displacement the witness loses at $chit of 8 points ($cband) -- the subject base read after a call inside a scan is stale"; RC=1; fi
 n=$(grep -c 'x86_scan_sigma_reload()' "$ROOT/src/templates/x86/x86_asm.h")
 if [ "$n" -ge 3 ] && grep -q 'rt_scan_live_subj' "$ROOT/src/templates/x86/x86_asm.h" && ! grep -rq 'SCRIP_GC_PLANT_STALE_SIGMA' "$ROOT/src"; then echo "  ok   (c) both scan sync-in helpers emit the sigma reload from rt_scan_live_subj (x86_asm.h, $n mentions)"

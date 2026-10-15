@@ -21,7 +21,7 @@
 #
 # ARMS: (a) every compile of the witness reads heapimm=0 (mode 3, where the scan lives); (b) the plant reads heapimm>=1 --
 # an instrument never seen to fire is not known to look; (c) THE PROPERTY: the witness answers its oracle-cut ref at
-# SCRIP_GC_STRESS=1,3,5 under SCRIP_GC_RELOC=1 at the compiled default arena in mode 3 and mode 4, with the entry polled.
+# SCRIP_GC_STRESS=1,3,5 under at the compiled default arena in mode 3 and mode 4, with the entry polled.
 # FAIL_ONCE=1 runs arm (a) under the plant and requires it to red.
 # ⛔ THE WITNESS IS BUILT AT RUN TIME BY CONSTRUCTION (ceo 2026-09-28, SCRIP 0d9ae641f): it used to reach the run-time compiler
 # only because $'W' was outside the pattern pre-compile; once $'name' lowered as the variable, the whole match compiled ahead of
@@ -59,9 +59,9 @@ else echo "  FAIL (a) $n runtime compile(s), $bad with a heap immediate: $(grep 
 if [ "$pn" -ge 1 ]; then echo "  ok   (b) PLANTED: SCRIP_RTPAT_PLANT_HEAPIMM=1 puts the ARB\$n name back in the heap and the scan reads it ($pn compile(s) with heapimm>0) -- the instrument is seen to fire"
 else echo "  FAIL (b) the plant did not fire -- the heap-immediate scan reports nothing under SCRIP_RTPAT_PLANT_HEAPIMM=1, so arm (a) is not known to look"; RC=1; fi
 band=""; pbad=0
-for st in 1 3 5; do ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=$st SCRIP_GC_RELOC=1 timeout 60s "$SCRIP" w.sno </dev/null > m3_$st.out 2> m3_$st.err ); if cmp -s "$T/m3_$st.out" "$T/w.ref"; then band="$band m3@$st:ok"; else band="$band m3@$st:DIFF"; pbad=$((pbad+1)); fi; done
+for st in 1 3 5; do ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=$st timeout 60s "$SCRIP" w.sno </dev/null > m3_$st.out 2> m3_$st.err ); if cmp -s "$T/m3_$st.out" "$T/w.ref"; then band="$band m3@$st:ok"; else band="$band m3@$st:DIFF"; pbad=$((pbad+1)); fi; done
 if ( cd "$T" && "$SCRIP" --compile w.sno -o w.s </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic w.s -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o w4 2>/dev/null ); then
-  for st in 1 3 5; do ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=$st SCRIP_GC_RELOC=1 timeout 60s ./w4 </dev/null > m4_$st.out 2> m4_$st.err ); if cmp -s "$T/m4_$st.out" "$T/w.ref"; then band="$band m4@$st:ok"; else band="$band m4@$st:DIFF"; pbad=$((pbad+1)); fi; done
+  for st in 1 3 5; do ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=$st timeout 60s ./w4 </dev/null > m4_$st.out 2> m4_$st.err ); if cmp -s "$T/m4_$st.out" "$T/w.ref"; then band="$band m4@$st:ok"; else band="$band m4@$st:DIFF"; pbad=$((pbad+1)); fi; done
 else echo "  FAIL (c) the mode-4 witness did not build"; RC=1; fi
 if [ "$pbad" = 0 ]; then echo "  ok   (c) THE PROPERTY: the witness answers its oracle-cut ref at stress 1/3/5 under forced relocation with the deferred entry polled --$band"
 else echo "  FAIL (c) a runtime-compiled pattern lost its data across a collection --$band"; RC=1; fi

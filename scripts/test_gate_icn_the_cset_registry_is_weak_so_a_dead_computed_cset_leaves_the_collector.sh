@@ -52,12 +52,12 @@ gcc -O0 -o "$T/ru" "$ROOT/tools/bench_rusage.c" >/dev/null 2>&1 || { echo "⛔ G
 ( cd "$T" && ./deal.x -h 1000 </dev/null >want 2>/dev/null ); [ -s "$T/want" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing"; exit 2; }
 ( cd "$T" && "$SCRIP" --compile -o d.s deal.icn </dev/null >/dev/null 2>&1 && gcc -no-pie -o d4 d.s -L"$ROOT/out" -lscrip_rt -lm -lstdc++ -lpthread -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) \
   || { echo "⛔ GATE FAIL [$G]: deal does not build in mode 4"; exit 1; }
-run() { ( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB -u SCRIP_GC_STRESS -u SCRIP_GC_RELOC -u SCRIP_GC_PLANT_FLIP \
+run() { ( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB -u SCRIP_GC_STRESS -u SCRIP_GC_PLANT_FLIP \
             SCRIP_HEAP_KB=128 SCRIP_GC_EXERCISE=1 SCRIP_GC_PLANT_CSET_STRONG="$1" timeout 120 ./ru ./d4 -h 1000 </dev/null >"out.$1" 2>"err.$1" ); }
 field() { sed -n "s/.*\[GC-EXERCISE\].* $2=\([0-9]*\).*/\1/p" "$T/err.$1" | tail -1; }
 cpu() { sed -n 's/.*user_us=\([0-9]*\) sys_us=\([0-9]*\).*/\1 \2/p' "$T/err.$1" | awk '{print int(($1+$2)/1000)}' | tail -1; }
 run 0; run 1
-rx() { ( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB -u SCRIP_GC_RELOC -u SCRIP_GC_PLANT_FLIP \
+rx() { ( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB -u SCRIP_GC_PLANT_FLIP \
             SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=1 SCRIP_GC_EXERCISE=1 SCRIP_GC_PLANT_CSET_STRONG="$1" timeout 120 ./d4 -h "$2" </dev/null 2>&1 >/dev/null ) \
         | sed -n 's/.*\[GC-EXERCISE\].* blocks=\([0-9]*\).*/\1/p' | tail -1; }
 rw50=$(rx 0 50); rw100=$(rx 0 100); rs50=$(rx 1 50); rs100=$(rx 1 100)
@@ -92,7 +92,7 @@ EOF
 wwant="$( cd "$T" && ./w.x </dev/null 2>/dev/null )"; [ -n "$wwant" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing for the flip witness"; exit 2; }
 ( cd "$T" && "$SCRIP" --compile -o w.s w.icn </dev/null >/dev/null 2>&1 && gcc -no-pie -o w4 w.s -L"$ROOT/out" -lscrip_rt -lm -lstdc++ -lpthread -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) \
   || { echo "⛔ GATE FAIL [$G]: the flip witness does not build in mode 4"; exit 1; }
-flip() { ( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB -u SCRIP_GC_RELOC -u SCRIP_GC_PLANT_CSET_STRONG \
+flip() { ( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB -u SCRIP_GC_PLANT_CSET_STRONG \
              SCRIP_HEAP_KB=128 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=1 timeout 120 "$@" </dev/null ); }
 fo3="$(flip "$SCRIP" w.icn 2>"$T/f3.err")"; fo4="$(flip ./w4 2>"$T/f4.err")"
 o3="$( cd "$T" && env -u SCRIP_GC_STRESS -u SCRIP_GC_PLANT_CSET_STRONG SCRIP_HEAP_KB=128 timeout 120 "$SCRIP" deal.icn -- -h 1000 </dev/null 2>/dev/null )"

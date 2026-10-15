@@ -65,6 +65,7 @@ void rt_sxt_note(char *s, long len);
 long rt_sxt_match(const char *s);
 char *rt_sxt_extend(char *s, long al, long bl);
 long rt_gcheap_verify(void);
+int rt_gc_blk_marked(const rt_hblk_t *h);
 int rt_gc_stale_addr_report(void *fault, void *ip);
 long rt_gc_collect(void);
 typedef struct { uint64_t ra, sp, rbx, rbp, r12, r13, r14, r15, rax, rdx; } rt_emitted_regs_t;

@@ -13,7 +13,7 @@
 # THE EXPERIMENT.  SCRIP_GC_NO_SPINE_CELL=1 makes gc_walk_words skip gc_cell_visit for the spine class ALONE --
 # the mapped interior, the header words and the above-root range are untouched, so the only thing removed is the
 # mechanism under test.  MEASURED over the declared 52-witness contract floor at SCRIP_HEAP_MB=1,
-# SCRIP_GC_STRESS=3, SCRIP_GC_RELOC=1: 16 witnesses change their answer, 15 of them from the 23 that carry a
+# SCRIP_GC_STRESS=3,: 16 witnesses change their answer, 15 of them from the 23 that carry a
 # BELOW-REGION store.  hb_datblk dumps core, hb_nv trips the ZGC-STALE trap on a stale pointer, and
 # hb_mkexpr_unmapped_spine_store -- the witness ARCH-GC section 3b is named after -- goes match to nomatch.
 #
@@ -75,7 +75,7 @@ fi
 # two that reach tens of gigabytes in the B leg, and a landing gate is a shared resource.
 # ⭐ AND ONE EXCLUSION RESTORED BY THE CURE THAT EARNED IT, KEPT HERE AS THE RECORD RATHER THAN DELETED.
 # hb_coexpr_sigma.icn was excluded on 2026-09-22 because it could not pass arm (a): at SCRIP_HEAP_MB=1 with
-# SCRIP_GC_STRESS=3 it answered its ref exactly at 14 lines, and adding SCRIP_GC_RELOC=1 alone took it to
+# SCRIP_GC_STRESS=3 it answered its ref exactly at 14 lines, and adding alone took it to
 # 7 LINES AT rc=0 -- half a co-expression's output lost with a zero exit, and a witness whose CONTROL leg is
 # red proves nothing about a B leg.  That was the ceo's r13 row and the exclusion said in its own text that
 # it went back the moment the row landed.  IT LANDED: SCRIP e42cc0909 turned the bare polls at bb_deref.cpp:39
@@ -85,7 +85,7 @@ fi
 # spine knob still changes its answer, so it qualifies for arm (b) as well and is a member again -- which is a
 # reading of the ceo's board taken from the enforcement side and independent of it.
 # ⛔ AND ONE HELD OUT, NAMED HERE WITH ITS ROW, REPORTED ON EVERY RUN AND NEVER SILENTLY DROPPED (cto 2026-09-22, evening).
-# hb_nested_match_outer_subject.sno prints NO for OK-3-y2y under SCRIP_GC_RELOC=1 at stress 1, 3, 4, 6 and 8 and answers
+# hb_nested_match_outer_subject.sno prints NO for OK-3-y2y under at stress 1, 3, 4, 6 and 8 and answers
 # right at 0, 2, 5, 10 and 16 and at every stress WITHOUT relocation, at MB=1 and at the shipped 128 KB alike.  Bisected
 # twice with a build per step: on main the first bad commit is the cfo's 58820a280 (the concat-slot bare poll REMOVED),
 # and with that poll patched out at every step it is fa1dc84a5 (the asm poll's r13 probe) -- yet REVERTING fa1dc84a5 on
@@ -109,7 +109,7 @@ echo "POPULATION (declared): $(printf '%s\n' $POP | wc -w) witness(es) NAMED abo
 
 run_leg() { # $1 witness path, $2 knob value ("" or 1)
     ( if [ -n "$2" ]; then k=1; else k=0; fi
-      cap_run env SCRIP_GC_NO_SPINE_CELL="$k" SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS=3 SCRIP_GC_RELOC=1 \
+      cap_run env SCRIP_GC_NO_SPINE_CELL="$k" SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS=3 \
         setarch -R timeout 60s "$SCRIP" "$1" 2>&1; echo "rc=$?" )
 }
 

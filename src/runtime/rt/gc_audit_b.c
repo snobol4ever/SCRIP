@@ -93,7 +93,7 @@ static long gc_audit_b_words(const gc_audit_b_t *v, const char *lo, const char *
         if (!h) continue;
         c->inheap++;
         if (h->type == HB_FILL) { c->fill++; continue; }
-        if (h->flags & HBF_MARK) { c->marked++; continue; }
+        if (rt_gc_blk_marked(h)) { c->marked++; continue; }
         c->found++;
         if (c->shown >= cap) { c->suppressed++; continue; }
         c->shown++;
@@ -208,7 +208,7 @@ long gc_audit_b_collect(const gc_audit_b_t *v) {
     }
     for (i = 0; strstr(ps, "heapint") && i < v->nblk; i++) {
         const rt_hblk_t *h = v->blk_at(i);
-        if (!h || !(h->flags & HBF_MARK) || !gc_audit_b_opaque(h->type)) continue;
+        if (!h || !rt_gc_blk_marked(h) || !gc_audit_b_opaque(h->type)) continue;
         nop++;
         nhw += gc_audit_b_words(v, (const char *)(h + 1), (const char *)h + h->size, "heapint", "-", &c, cap, (const gc_audit_b_xr_t *)0, 0);
     }

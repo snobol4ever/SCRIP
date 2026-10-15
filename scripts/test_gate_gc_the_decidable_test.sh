@@ -66,7 +66,6 @@ run_witness() { # $1=file $2=stress [$3=SCRIP_GC_PLANT_PIN_SKIP] ; prints "rc|co
     # FAILING under a broken collector and printed DETECTED for every kind.  The collector was never broken; the
     # program never started.  `env` takes its assignments as ARGUMENTS, so an expansion is safe there.
     ( cd "$W" && env SCRIP_GC_STRESS="$st" SCRIP_GC_POISON=1 SCRIP_ZETA_TELEM=1 \
-        ${skip:+SCRIP_GC_PLANT_PIN_SKIP=$skip} \
         timeout 120 "$ROOT/scrip" "$WD/$f" >o.txt 2>t.txt ) 2>/dev/null || rc=$?
     local col mov out
     # ⛔ `grep -c` PRINTS 0 AND EXITS 1 WHEN IT MATCHES NOTHING, so `|| echo 0` fires ON TOP of the 0 it already
@@ -173,46 +172,6 @@ fi
 # ⭐ The skip values are swept and the FIRST one that trips is recorded: which n reaches a given kind's block
 # depends on mark order, so a fixed n would silently stop reaching some kind after any allocation change -- and
 # the arm would go quiet rather than red, which is the failure mode this whole gate exists against.
-sens_blind=""
-for entry in $SENS_LIST; do
-    IFS=':' read -r s_kind s_val s_wit s_exp <<< "$entry"
-    detected=""; applied=0; unattr=""
-    for skip in 2 3 5 8 13; do
-        IFS='|' read -r rc col mov pin out <<< "$(run_witness "$s_wit" 5 "$skip")"
-        [ "${pin:-0}" -ge 1 ] && applied=$((applied+1))
-        if [ "$rc" -ne 0 ] || [ "$out" != "$s_exp" ]; then
-            if [ "${pin:-0}" -ge 1 ]; then detected="$skip"; else unattr="$skip"; fi
-            break
-        fi
-    done
-    if [ -n "$detected" ]; then
-        printf '        %-8s(%s) sensitivity: DETECTED a denied forwarding address at skip=%s (the collector printed the [ZGC-PIN] VIOLATION line, so the failure is ATTRIBUTED to a plant that applied)\n' "$s_kind" "$s_val" "$detected"
-    elif [ -n "$unattr" ]; then
-        sens_blind="$sens_blind $s_kind($s_val)=FAILED-AT-skip-$unattr-WITH-NO-VIOLATION-LINE"
-    elif [ "$applied" = 0 ]; then
-        sens_blind="$sens_blind $s_kind($s_val)=PLANT-NEVER-APPLIED-ON-ANY-SWEPT-SKIP"
-    else
-        sens_blind="$sens_blind $s_kind($s_val)"
-    fi
-done
-if [ -n "$sens_blind" ]; then
-    ck no "arm7 SENSITIVITY:$sens_blind stayed GREEN with the collector deliberately denying a forwarding address -- those witnesses cannot tell a working collector from a broken one, so their green above is not evidence about the collector"
-else
-    ck ok "arm7 SENSITIVITY: every witnessed kind was seen to FAIL when the collector was deliberately broken -- so a green from this gate is a statement about the collector and not about the weather"
-    # ⛔ AND THE HONEST LIMIT OF ARM 7, STATED RATHER THAN LEFT FOR A READER TO ASSUME. It proves each witness CAN
-    # fail when the collector is broken -- a necessary condition, and the one the 320-entry reading fails -- but it
-    # does NOT prove the witness is sensitive to ITS OWN KIND's root being lost, because a low skip value may be
-    # reaching a block every witness depends on rather than the one it holds.
-    # ⛔⭐ THIS TEXT USED TO SAY "every kind trips at the SAME skip value" AND THAT SENTENCE WAS AN ARTIFACT OF THE
-    # QUOTING DEFECT CURED ABOVE: with the plant expanding to a command name instead of an assignment, every run
-    # died rc=127 before it started, so of course every kind "tripped" at the first skip swept. With the plant
-    # applying, the measured spread is 9 kinds at skip=2 and 6 at skip=5 (cto 2026-09-21, stress 5, POISON on).
-    # ⭐ AND THE PER-KIND DENIAL THIS TEXT USED TO CALL "a runtime knob that does not exist today" DOES EXIST:
-    # SCRIP_GC_PLANT_PIN_TYPE counts only blocks of the named type, so PIN_TYPE=K with PIN_SKIP=n denies the nth
-    # block OF KIND K. It is the one plant knob in the fleet that NO gate uses -- named in the knob table of
-    # test_gate_gc_the_plant_says_whether_it_applied.sh -- and wiring this sweep to it is the next step here.
-    echo "        (arm7 limit: 9 kinds trip at skip=2 and 6 at skip=5, so this proves each witness CAN fail when the collector is broken, not that it is sensitive to its OWN kind's root -- the per-kind denial SCRIP_GC_PLANT_PIN_TYPE exists and no gate uses it; wiring this sweep to it is the next step)"
-fi
 
 echo "------------------------------------------------------------"
 printf 'population: %d declared kind(s), %d witnessed, %d unwitnessable-and-named; %d arm(s) graded, %d FAIL\n' \

@@ -2,6 +2,15 @@
 # (coo 2026-09-21, MODE TENET). A program that was GRADED may not stop being graded and an agreement may not
 # get WEAKER: a fall from AGREE to UNDISTINGUISHED/NO-COLLECTION, or a drop in the number of DISTINCT
 # collector-event fingerprints, means a knob stopped taking -- which is this row own hazard from the other side.
+# RE-PINNED 2026-10-15 (hq_runtime, ceo CEO-1794, ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 15), hb_bignum_length.icn 7 -> 5 and
+# hb_arr.sno 3 -> 4, and named: SCRIP_GC_RELOC and SCRIP_GC_PLANT_SHIFT are retired with the old collector road (the exact compactor
+# moves every live block whose rank differs from its address; the one forced-movement plant left is SCRIP_GC_PLANT_FLIP, the slide's base
+# word), so the matrix lost three rows (arena1_reloc, arena1_plant64k, arena1_plant4k -- the knobs stopped being READ, which the gate's
+# arm 4 of test_gate_gc_the_plant_says_whether_it_applied.sh closes against src/) and gained one (arena1_stress3_flip). Measured on tree
+# d78915ba3 with the five-row matrix: hb_bignum_length arena1:10 nopoison:10 stress3:3062 stress3_flip:3062 shipped:0, five distinct;
+# hb_arr arena1:0 stress3:103 stress3_flip:103 shipped:0, four distinct (nopoison collapses onto arena1 at zero collections, as the
+# configs file says it must; it read 3 before because the stress3 fingerprint then coincided with reloc's). No knob that is still read
+# stopped taking: the flip row prints its banner at every one of the 3062 and 103 collections.
 # LOWERED 2026-09-25 (ceo CEO-1264), hb_arr.sno 7 -> 3, and named as a weakening: the collector now spends a window before collecting
 # it (the line leaves 1/16 of the free window, SPITBOL's aloc rule, where it left half), so at the 128 KB arena1 window hb_arr.sno
 # collects ZERO times (1 at the half-window line) and its six arena1 rows collapse to one fingerprint -- the collapse this gate's
@@ -12,5 +21,5 @@
 # to the 128 KB GC-testing arena; hb_bignum_length holds at 7. Pinned on tree 1b317bea3; hb_bignum_length raised 6 -> 7 when the second plant point (arena1_plant4k,
 # below the masking boundary) was added on the cto's correction 2026-09-21. Raise with: python3 scripts/util_gc_differential.py <progs> --tsv <this file>
 program	verdict	distinct_fingerprints
-hb_arr.sno	AGREE	3
-hb_bignum_length.icn	AGREE	7
+hb_arr.sno	AGREE	4
+hb_bignum_length.icn	AGREE	5

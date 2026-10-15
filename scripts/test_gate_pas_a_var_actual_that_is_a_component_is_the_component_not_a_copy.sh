@@ -91,9 +91,9 @@ chk() { local m="$1" p="$2" frc="$3"; run $m $p; local rc=$?; N=$((N + 1))
 want wit; wrc=$?; want ctl; crc=$?; want chu; hrc=$?
 if [ -n "${FAIL_ONCE:-}" ]; then echo "corrupted by FAIL_ONCE" >> "$T/wit.want"; fi
 for m in m3 m4; do chk $m wit $wrc; chk $m ctl $crc; done
-export SCRIP_GC_STRESS=1 SCRIP_GC_RELOC=1 SCRIP_GC_VERIFY=1
+export SCRIP_GC_STRESS=1 SCRIP_GC_VERIFY=1
 for m in m3 m4; do chk $m chu $hrc; done
-unset SCRIP_GC_STRESS SCRIP_GC_RELOC SCRIP_GC_VERIFY
+unset SCRIP_GC_STRESS SCRIP_GC_VERIFY
 for m in m3 m4; do run $m oor; rc=$?; N=$((N + 1))
   if [ "$rc" != 0 ] && [ "$(cat "$T/o")" = before ] && grep -q 6.5.3.2 "$T/e"; then echo "  oor $m: stopped with 6.5.3.2 after printing before (rc=$rc)"
   else echo "  ⛔ oor $m FAILED: rc=$rc stdout=[$(head -c 60 "$T/o" | tr '\n' '|')] err=[$(head -c 100 "$T/e")]"; RC=1; fi

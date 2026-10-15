@@ -59,7 +59,7 @@ num() { printf '%s\n' "$1" | sed -n "s/.* $2=\([0-9]*\).*/\1/p"; }
 bad=0
 run_w() {
     local lbl="$1"; shift
-    env SCRIP_GC_STRESS=2 SCRIP_GC_RELOC=1 SCRIP_GC_VERIFY=1 SCRIP_GC_CHAIN_CHECK=3 timeout 120 "$@" </dev/null >"$W/o" 2>"$W/e"; local rc=$?
+    env SCRIP_GC_STRESS=2 SCRIP_GC_VERIFY=1 SCRIP_GC_CHAIN_CHECK=3 timeout 120 "$@" </dev/null >"$W/o" 2>"$W/e"; local rc=$?
     local got; got="$(head -1 "$W/o")"; local s; s="$(grep -a '^\[CHAIN-WALK\] SUMMARY ' "$W/e" | tail -1)"
     local runs whole off miss; runs="$(num "$s" runs)"; whole="$(num "$s" whole)"; off="$(num "$s" offchain-swept)"; miss="$(num "$s" missing)"
     if [ -z "$s" ] || [ "${runs:-0}" -lt 1 ]; then echo "⛔ GATE REFUSE(2) [$G]: $lbl took no collection under stress 2 -- nothing about a saved subject was measured"; exit 2; fi
@@ -68,7 +68,7 @@ run_w() {
 }
 run_c() {
     local lbl="$1"; shift
-    env SCRIP_GC_AUDIT_SLOTS=1 SCRIP_GC_STRESS=2 SCRIP_GC_RELOC=1 SCRIP_GC_VERIFY=1 timeout 120 "$@" </dev/null >"$W/o" 2>"$W/e"; local rc=$?
+    env SCRIP_GC_AUDIT_SLOTS=1 SCRIP_GC_STRESS=2 SCRIP_GC_VERIFY=1 timeout 120 "$@" </dev/null >"$W/o" 2>"$W/e"; local rc=$?
     local got; got="$(head -1 "$W/o")"
     local c hi un; c="$(grep -ac '^\[GC-AUDIT\] scan-save' "$W/e")"
     hi=$(awk '/^\[GC-AUDIT\] scan-save/{for(i=1;i<=NF;i++){if($i~/^heap=/){split($i,a,"=");if(a[2]+0>m)m=a[2]+0}}} END{print m+0}' "$W/e")

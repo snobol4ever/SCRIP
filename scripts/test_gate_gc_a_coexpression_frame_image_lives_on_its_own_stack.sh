@@ -53,8 +53,8 @@ m4build() { "$SCRIP" --compile "$1" > "$2.s" 2>/dev/null && gcc "$2.s" -o "$2" -
 ref="$(cat "$REF")"; band=""; bad=0
 m4build "$WIT" "$T/rf" || { echo "  arm 2 FAIL: the refresh witness does not build in mode 4"; RC=1; bad=1; }
 for st in 1 3 5 8; do
-    o3="$( cd "$T" && SCRIP_GC_PLANT_SHIFT=4096 SCRIP_GC_STRESS=$st timeout 120 "$SCRIP" "$WIT" 2>/dev/null </dev/null | tr -d '\0' )"
-    o4="$( cd "$T" && SCRIP_GC_PLANT_SHIFT=4096 SCRIP_GC_STRESS=$st timeout 120 "$T/rf" 2>/dev/null </dev/null | tr -d '\0' )"
+    o3="$( cd "$T" && SCRIP_GC_PLANT_FLIP=1 SCRIP_HEAP_KB=512 SCRIP_GC_STRESS=$st timeout 120 "$SCRIP" "$WIT" 2>/dev/null </dev/null | tr -d '\0' )"
+    o4="$( cd "$T" && SCRIP_GC_PLANT_FLIP=1 SCRIP_HEAP_KB=512 SCRIP_GC_STRESS=$st timeout 120 "$T/rf" 2>/dev/null </dev/null | tr -d '\0' )"
     if [ "$o3" = "$ref" ] && [ "$o4" = "$ref" ]; then band="$band @$st:ok"; else band="$band @$st:m3=$([ "$o3" = "$ref" ] && echo ok || echo RED),m4=$([ "$o4" = "$ref" ] && echo ok || echo RED)"; bad=1; fi
 done
 if [ "$bad" = 0 ]; then echo "  arm 2 PASS: ^e restarts from the on-stack image while every block moves; the refresh witness matches its iconx ref at stress 1,3,5,8 in both modes --$band"
@@ -73,15 +73,15 @@ GW="$WD/hb_coexpr_genp_scan.icn"; GR="$WD/hb_coexpr_genp_scan.ref"; [ -f "$GW" ]
 gref="$(cat "$GR")"; a6=""; a6bad=0
 m4build "$GW" "$T/gp" || { echo "  arm 6 FAIL: the generator-in-scan witness does not build in mode 4"; RC=1; a6bad=1; }
 for st in 0 1 3 5; do
-    g3="$( cd "$T" && SCRIP_GC_PLANT_SHIFT=4096 SCRIP_GC_STRESS=$st timeout 120 "$SCRIP" "$GW" 2>/dev/null </dev/null | tr -d '\0' )"; g4="$( cd "$T" && SCRIP_GC_PLANT_SHIFT=4096 SCRIP_GC_STRESS=$st timeout 120 "$T/gp" 2>/dev/null </dev/null | tr -d '\0' )"
+    g3="$( cd "$T" && SCRIP_GC_PLANT_FLIP=1 SCRIP_HEAP_KB=512 SCRIP_GC_STRESS=$st timeout 120 "$SCRIP" "$GW" 2>/dev/null </dev/null | tr -d '\0' )"; g4="$( cd "$T" && SCRIP_GC_PLANT_FLIP=1 SCRIP_HEAP_KB=512 SCRIP_GC_STRESS=$st timeout 120 "$T/gp" 2>/dev/null </dev/null | tr -d '\0' )"
     if [ "$g3" = "$gref" ] && [ "$g4" = "$gref" ]; then a6="$a6 @$st:ok"; else a6="$a6 @$st:m3=$([ "$g3" = "$gref" ] && echo ok || echo RED),m4=$([ "$g4" = "$gref" ] && echo ok || echo RED)"; a6bad=1; fi
 done
 if [ "$a6bad" = 0 ]; then echo "  arm 6 PASS: a generator called by value inside a scan (the lazily started generator thread) keeps the caller's scan environment across its first yield back to main, at stress 0,1,3,5 in both modes under the shift plant --$a6 (the fail-once: rung 2's first cut reset it and IcnRungs read 825/826)"
 else echo "  arm 6 FAIL: the generator thread's first yield disturbed the caller's scan environment --$a6"; RC=1; fi
 if bash "$HERE/test_gate_coexpr_stack_of_uncreated_thread.sh" >"$T/u.txt" 2>&1; then echo "  arm 5 PASS: $(grep '^PASS:' "$T/u.txt" | head -1 | cut -c1-150)"; else echo "  arm 5 FAIL: $(tail -2 "$T/u.txt" | tr '\n' ' ' | cut -c1-160)"; RC=1; fi
-pl=$( ( cd "$T" && SCRIP_GC_PLANT_SHIFT=4096 SCRIP_GC_STRESS=3 timeout 120 "$SCRIP" "$WIT" 2>&1 >/dev/null </dev/null ) | grep -c "^\[GC-SHIFT\] plant:" ); pl=${pl:-0}
-if [ "$pl" -ge 1 ]; then echo "  arm 7 PASS: the forced motion this gate grades under is REAL -- the shift plant announced $pl application(s) at SCRIP_GC_PLANT_SHIFT=4096 with nothing asked for, so arms 2 and 6 moved every block rather than relying on ordinary compaction"
-else echo "⛔ GATE REFUSE(2) [$G]: the shift plant applied ZERO times at SCRIP_GC_PLANT_SHIFT=4096 and SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-default} -- gc_plant_shift_bytes() declines whenever arena headroom is not strictly greater than the shift, so arms 2 and 6 graded ordinary compaction while claiming every block moves. Nothing is graded and nothing is red: this is a configuration statement (cto 2026-09-21, held by test_gate_gc_the_plant_says_whether_it_applied)"; exit 2; fi
+pl=$( ( cd "$T" && SCRIP_GC_PLANT_FLIP=1 SCRIP_HEAP_KB=512 SCRIP_GC_STRESS=3 timeout 120 "$SCRIP" "$WIT" 2>&1 >/dev/null </dev/null ) | grep -c "^\[GC-FLIP\] plant:" ); pl=${pl:-0}
+if [ "$pl" -ge 1 ]; then echo "  arm 7 PASS: the forced motion this gate grades under is REAL -- the flip plant announced $pl application(s) at SCRIP_GC_PLANT_FLIP=1 with nothing asked for, so arms 2 and 6 moved every block rather than relying on ordinary compaction"
+else echo "⛔ GATE REFUSE(2) [$G]: the flip plant applied ZERO times at SCRIP_GC_PLANT_FLIP=1 and SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-default} -- gc_plant_shift_bytes() declines whenever arena headroom is not strictly greater than the shift, so arms 2 and 6 graded ordinary compaction while claiming every block moves. Nothing is graded and nothing is red: this is a configuration statement (cto 2026-09-21, held by test_gate_gc_the_plant_says_whether_it_applied)"; exit 2; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: no frame image leaves the stack -- the eager thread holds the creator's image on its own stack, refresh reads it back under forced motion in both modes, Arizona agrees with icont (examined 7 arms)"
 else echo "GATE FAIL(1) [$G]: a frame image is off the stack, the refresh path lost it, or a generator's first yield disturbed the scan (examined 7 arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"

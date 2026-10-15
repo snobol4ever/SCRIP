@@ -13,7 +13,7 @@
 # which is too slow to iterate a hundred-site conversion against.  This sweep is the instrument in between.
 #
 # HOW IT GETS ITS TEETH, and neither half is optional:
-#   SCRIP_GC_RELOC=1  every live block relocates on EVERY collection, so a surviving reference to an old address
+#    every live block relocates on EVERY collection, so a surviving reference to an old address
 #                     is wrong IMMEDIATELY rather than eventually.  Measured at 3e1b04476: 84.7% of live-block
 #                     forwardings normally leave the block exactly where it was, which is why a lost root so
 #                     often prints a plausible answer -- stale in principle and, five times in six, valid in fact.
@@ -53,7 +53,7 @@ for src in "$WITDIR"/*.icn "$WITDIR"/*.sno "$WITDIR"/*.pl "$WITDIR"/*.raku; do
   base="$(basename "$src")"; stdin_f="${src%.*}.in"; [ -r "$stdin_f" ] || stdin_f=/dev/null
   for st in $BAND; do
     graded=$((graded+1))
-    ( SCRIP_HEAP_KB="$ARENA_KB" SCRIP_GC_RELOC=1 SCRIP_GC_STRESS="$st" \
+    ( SCRIP_HEAP_KB="$ARENA_KB" SCRIP_GC_STRESS="$st" \
       timeout 25s "$SCRIP" "$src" < "$stdin_f" > "$T/out" 2>"$T/err" ) 2>/dev/null; rc=$?
     if [ "$rc" = 124 ]; then hang=$((hang+1)); names="$names $base:s$st:HANG"; continue; fi
     if [ "$rc" -ge 128 ]; then crash=$((crash+1)); names="$names $base:s$st:CRASH(rc=$rc)"; continue; fi

@@ -201,17 +201,20 @@ examined=$((examined + 1))
 # window is 128 KB and hb_arr.sno COLLECTS there, so "shipped" and RELOC=1 are two configurations in effect and the
 # tool graded them (rc=0) -- the arm read that truthful reading as a regression.  The collapse this arm exists to
 # catch needs zero collections on both sides, which a 512 MB window gives and the shipped one no longer does.
-printf 'shipped\tSCRIP_HEAP_KB=524288\ta window nothing fills, no other knob\nreloc_only\tSCRIP_HEAP_KB=524288 SCRIP_GC_RELOC=1\tforces relocation but nothing forces a collection\n' > "$T/eff.tsv"
+printf 'shipped\tSCRIP_HEAP_KB=524288\ta window nothing fills, no other knob\nflip_only\tSCRIP_HEAP_KB=524288 SCRIP_GC_PLANT_FLIP=1\tasks for a flip but nothing forces a collection\n' > "$T/eff.tsv"
+fb="$(cd "$T" && env SCRIP_HEAP_KB=524288 SCRIP_GC_PLANT_FLIP=1 timeout 60 "$SCRIP" --run "$HERE/gc_witnesses/hb_arr.sno" </dev/null 2>&1 >/dev/null | grep -c "^\[GC-FLIP\] plant:")"; fb=${fb:-0}
 p3b="$(cd "$ROOT" && timeout 600 python3 "$U" "$HERE/gc_witnesses/hb_arr.sno" --configs "$T/eff.tsv" \
        --timeout 60 2>&1)"; rc3b=$?
-if [ "$rc3b" != 2 ]; then
-  echo "  RED  ARM 3b: shipped vs SCRIP_GC_RELOC=1 exited rc=$rc3b, expected 2 -- two DIFFERENT declarations"
+if [ "$fb" != 0 ]; then
+  echo "  RED  ARM 3b: the flip_only side printed the [GC-FLIP] plant: banner $fb time(s) at a 512 MB window -- the pair is DISTINCT in effect and this arm's collapse premise is unmet"; RC=1
+elif [ "$rc3b" != 2 ]; then
+  echo "  RED  ARM 3b: shipped vs SCRIP_GC_PLANT_FLIP=1 exited rc=$rc3b, expected 2 -- two DIFFERENT declarations"
   echo "       that both collect zero times were read as a real differential"; RC=1
 elif ! printf '%s\n' "$p3b" | grep -qE '^DIFFERENTIAL: .*(no_collection|undistinguished)=[1-9]'; then
   echo "  RED  ARM 3b: a pair that collapses BY EFFECT was not counted as no_collection or undistinguished"
   printf '%s\n' "$p3b" | tail -4 | sed 's/^/           /'; RC=1
 else
-  echo "  ok   ARM 3b: a pair that collapses by EFFECT (shipped vs reloc_only, 0 collections each) refused,"
+  echo "  ok   ARM 3b: a pair that collapses by EFFECT (shipped vs flip_only, 0 collections each, 0 flip banners) refused,"
   echo "       caught from the collector's events and not from the declaration"
 fi
 

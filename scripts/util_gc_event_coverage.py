@@ -147,7 +147,7 @@ PROBES = [
     ("hb_arena_grow.sno",                "3", "1", {}),   # the ONLY probe that reaches arena_grow: a LIVE set
                                                           # larger than the window, so the collector cannot
                                                           # reclaim its way out and the soft end must advance
-    ("hb_nv.sno",                        "3", "1", {"SCRIP_GC_PLANT_SHIFT": "4096"}),  # reaches
+    ("hb_nv.sno",                        "3", "1", {"SCRIP_GC_PLANT_FLIP": "1", "SCRIP_HEAP_KB": "512"}),  # reaches
                                                           # fill_block_insertion: the plant lays HB_FILL at the
                                                           # arena start (gc_heap.c:1405) every collection
     ("hb_dvec_sort_match.sno",           "3", "1", {}),   # the quarantine_arm probe (cfo 2026-09-26): the five

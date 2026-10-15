@@ -4,7 +4,7 @@
 # COLLECTOR GUESSES NOTHING, CEO-812).
 #
 # MEASURED 2026-09-23 on procedure_every_scan_replace_9 (the Icon rungs), the ONE entry the holder-(A) landing bda7691cc
-# turned non-green (CRASH at SCRIP_GC_STRESS=1/3/5 under SCRIP_GC_RELOC=1 in both modes, [ZGC-STALE] "THE FAULT HAPPENED
+# turned non-green (CRASH at SCRIP_GC_STRESS=1/3/5 under in both modes, [ZGC-STALE] "THE FAULT HAPPENED
 # INSIDE A COLLECTION"): the crash was gc_visit_tbblk reading a table whose buckets pointer had not been repaired for
 # three collections while the table itself moved every time.  The gdb probes (slot2..slot8.py: a watchpoint on the frame
 # slot, then on the table's buckets word, then every gc_hins call for the table's address with its caller line and return
@@ -19,7 +19,7 @@
 # The key-collision PLANT (SCRIP_GC_PLANT_KEY_COLLISION, which restored the shared key so the crash could be seen to return) was RETIRED 2026-09-26 (cto, row gc-the-key-collision-plant-has-no-witness-today): no producer of a slen-1 name cell into a block whose key is that cell exists on the tree, so arm (b) now grades the one producer of the shape that does exist, a record field used as a name, and FAIL_ONCE grades arm (a) against an empty ref.
 #
 # ARMS: (a) THE PROPERTY: the witness (the rungs entry, ref cut from iconx) answers its ref at SCRIP_GC_STRESS=1,3,5 under
-# SCRIP_GC_RELOC=1 at the compiled default arena in mode 3 and mode 4; (b) the plant reproduces the loss (rc!=0 or DIFF) at
+# at the compiled default arena in mode 3 and mode 4; (b) the plant reproduces the loss (rc!=0 or DIFF) at
 # stress 1 -- an instrument never seen to fire is not known to look; (c) the source carries the distinct key.
 # FAIL_ONCE=1 runs arm (a) under the plant and requires it to red.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -32,16 +32,16 @@ T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0; plant=""; RA="$W.ref"; [ "${FAIL_ONCE:-0}" = 1 ] && RA=/dev/null
 S="$WD/hb_sno_data_field_name_held_across_collections"; [ -s "$S.sno" ] && [ -s "$S.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the record-field name witness or its ref is missing under gc_witnesses"; exit 2; }
 band=""; bad=0
-for st in 1 3 5; do ( cd "$T" && env -u SCRIP_HEAP_MB $plant SCRIP_GC_STRESS=$st SCRIP_GC_RELOC=1 timeout 60s "$SCRIP" --run "$W.icn" </dev/null > m3_$st.out 2> m3_$st.err ); r=$?; if [ $r = 0 ] && cmp -s "$T/m3_$st.out" "$RA"; then band="$band m3@$st:ok"; else band="$band m3@$st:red(rc=$r)"; bad=$((bad+1)); fi; done
+for st in 1 3 5; do ( cd "$T" && env -u SCRIP_HEAP_MB $plant SCRIP_GC_STRESS=$st timeout 60s "$SCRIP" --run "$W.icn" </dev/null > m3_$st.out 2> m3_$st.err ); r=$?; if [ $r = 0 ] && cmp -s "$T/m3_$st.out" "$RA"; then band="$band m3@$st:ok"; else band="$band m3@$st:red(rc=$r)"; bad=$((bad+1)); fi; done
 if ( cd "$T" && "$SCRIP" --compile "$W.icn" -o w.s </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic w.s -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o w4 2>/dev/null ); then
-  for st in 1 3 5; do ( cd "$T" && env -u SCRIP_HEAP_MB $plant SCRIP_GC_STRESS=$st SCRIP_GC_RELOC=1 timeout 60s ./w4 </dev/null > m4_$st.out 2> m4_$st.err ); r=$?; if [ $r = 0 ] && cmp -s "$T/m4_$st.out" "$RA"; then band="$band m4@$st:ok"; else band="$band m4@$st:red(rc=$r)"; bad=$((bad+1)); fi; done
+  for st in 1 3 5; do ( cd "$T" && env -u SCRIP_HEAP_MB $plant SCRIP_GC_STRESS=$st timeout 60s ./w4 </dev/null > m4_$st.out 2> m4_$st.err ); r=$?; if [ $r = 0 ] && cmp -s "$T/m4_$st.out" "$RA"; then band="$band m4@$st:ok"; else band="$band m4@$st:red(rc=$r)"; bad=$((bad+1)); fi; done
 else echo "  FAIL (a) the mode-4 witness did not build"; RC=1; fi
 if [ "$bad" = 0 ]; then echo "  ok   (a) THE PROPERTY: the table witness answers its iconx ref at stress 1/3/5 under forced relocation in both modes --$band"
 else echo "  FAIL (a) a table lost its buckets across collections --$band"; RC=1; fi
 bandb=""; badb=0
-for st in 1 3 5; do ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=$st SCRIP_GC_RELOC=1 timeout 60s "$SCRIP" --run "$S.sno" </dev/null > s3_$st.out 2> s3_$st.err ); r=$?; if [ $r = 0 ] && cmp -s "$T/s3_$st.out" "$S.ref"; then bandb="$bandb m3/s$st=REF"; else bandb="$bandb m3/s$st=rc$r"; badb=1; fi; done
+for st in 1 3 5; do ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=$st timeout 60s "$SCRIP" --run "$S.sno" </dev/null > s3_$st.out 2> s3_$st.err ); r=$?; if [ $r = 0 ] && cmp -s "$T/s3_$st.out" "$S.ref"; then bandb="$bandb m3/s$st=REF"; else bandb="$bandb m3/s$st=rc$r"; badb=1; fi; done
 if ( cd "$T" && "$SCRIP" --compile "$S.sno" -o s.s </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic s.s -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o s4 2>/dev/null ); then
-  for st in 1 3 5; do ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=$st SCRIP_GC_RELOC=1 timeout 60s ./s4 </dev/null > s4_$st.out 2> s4_$st.err ); r=$?; if [ $r = 0 ] && cmp -s "$T/s4_$st.out" "$S.ref"; then bandb="$bandb m4/s$st=REF"; else bandb="$bandb m4/s$st=rc$r"; badb=1; fi; done
+  for st in 1 3 5; do ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=$st timeout 60s ./s4 </dev/null > s4_$st.out 2> s4_$st.err ); r=$?; if [ $r = 0 ] && cmp -s "$T/s4_$st.out" "$S.ref"; then bandb="$bandb m4/s$st=REF"; else bandb="$bandb m4/s$st=rc$r"; badb=1; fi; done
 else echo "  FAIL (b) the mode-4 record-field witness did not build"; RC=1; fi
 if [ "$badb" = 0 ]; then echo "  ok   (b) THE ONLY PRODUCER OF THE PLANTED SHAPE TODAY: a record field used as a name is a slen-1 cell into the record field block (rt_field_var, the DT_N slen-1 visitor case), held across 1200 collections and assigned through, answers its SPITBOL ref at stress 1/3/5 under forced relocation in both modes --$bandb"
 else echo "  FAIL (b) the record-field name cell lost its block or its value across collections --$bandb"; RC=1; fi

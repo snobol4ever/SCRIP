@@ -11,7 +11,7 @@
 # (every live block forwarded at every collection), the plant that showed the heap-resident vector was the defect.
 # Arms, each in m3 and m4: A a 70000-character atom through read/1 and a 200000-character one through read_term/2, value
 # equal to swipl's; B 4100 functions defined at run time through CODE (127 builtins + 4100 > the first table of 4096 buckets, so the table regrows) called through APPLY and directly, stream byte-identical to sbl -bf, and m4 again under
-# the shift plant. FAIL_ONCE=1 corrupts arm A's reading.
+# the flip plant. FAIL_ONCE=1 corrupts arm A's reading.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -45,9 +45,9 @@ for M in m3 m4; do
   rb=$(run f.sno 2>&1 | tr '\n' ';')
   if [ "$rb" = "8407050;4100 1 2053;" ]; then echo "  $M arm B PASS (4100 run-time functions past the first table, byte-identical to sbl)"; else echo "  $M arm B FAIL (got '$(echo "$rb" | cut -c1-120)')"; RC=1; fi
 done
-rs=$( cd "$T" && SCRIP_HEAP_KB=1024 SCRIP_GC_PLANT_SHIFT=4096 LD_LIBRARY_PATH="$ROOT/out" timeout 300 ./f.bin </dev/null 2>"$T/shift.err" | tr '\n' ';' )
-grep -q '^\[GC-SHIFT\] plant:' "$T/shift.err" || { echo "  m4 arm B under the shift plant FAIL (the plant printed no applied banner, so nothing moved)"; RC=1; }
-if [ "$rs" = "8407050;4100 1 2053;" ]; then echo "  m4 arm B under SCRIP_GC_PLANT_SHIFT=4096 PASS"; else echo "  m4 arm B under the shift plant FAIL (got '$(echo "$rs" | cut -c1-120)')"; RC=1; fi
+rs=$( cd "$T" && SCRIP_HEAP_KB=1024 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=3 LD_LIBRARY_PATH="$ROOT/out" timeout 300 ./f.bin </dev/null 2>"$T/shift.err" | tr '\n' ';' )
+grep -q '^\[GC-FLIP\] plant:' "$T/shift.err" || { echo "  m4 arm B under the flip plant FAIL (the plant printed no applied banner, so nothing moved)"; RC=1; }
+if [ "$rs" = "8407050;4100 1 2053;" ]; then echo "  m4 arm B under SCRIP_GC_PLANT_FLIP=1 PASS"; else echo "  m4 arm B under the flip plant FAIL (got '$(echo "$rs" | cut -c1-120)')"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS [$(basename "${BASH_SOURCE[0]}" .sh)]: a term past the old read buffer and 4100 run-time functions past the first function table read and run as the oracles do"
 else echo "GATE FAIL(1) [$(basename "${BASH_SOURCE[0]}" .sh)]: an old runtime bound still cuts a program"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  oracles: $SWIPL, $SBL  measured $(date -u +%Y-%m-%dT%H:%MZ)"
