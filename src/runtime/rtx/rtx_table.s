@@ -805,7 +805,9 @@ RTX_FUNC(rt_subscript_val_strict)
     ret
 .Lsvs_c:
     RTX_CFA(8)
-    RTX_DECLINE
+    mov     eax, RTX_NOT_HANDLED
+    RTX_GVA_R9
+    ret
 RTX_ENDF(rt_subscript_val_strict)
 .section .rodata
 .Lsvco_empty:
