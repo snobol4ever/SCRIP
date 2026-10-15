@@ -465,6 +465,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "bn_icn_read_fh", GC_RET_OTHER },
     { "bn_icn_right", GC_RET_OTHER },
     { "bn_icn_trim", GC_RET_OTHER },
+    { "bn_icn_upto_resume", GC_RET_OTHER },
     { "bn_integer", GC_RET_OTHER },
     { "bn_lexrel", GC_RET_OTHER },
     { "bn_lpad", GC_RET_OTHER },

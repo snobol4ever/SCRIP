@@ -16528,9 +16528,12 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_bal_gen(DESCR_t *args, int nargs, DESCR_t *out, int64_t *state);
 static int bn_str_anal(DESCR_t *args, int nargs, int si, const char **out_s, int *out_i, int *out_j);
+static int bn_icn_upto_resume(DESCR_t *args, int nargs, int64_t *resume, DESCR_t *out);
+static int icn_dtax_plain(int bid);
 static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int strict);
 static DESCR_t rt_call_arr_gen_s(const char *fn, DESCR_t *args, int nargs, int64_t *resume, int strict) {
     DESCR_t out = FAILDESCR;
+    if (fn && resume && fn[0] == 'u' && nargs >= 2 && nargs <= 3 && !strcmp(fn, "upto") && icn_dtax_plain(BID_upto) && bn_icn_upto_resume(args, nargs, resume, &out)) return out;
     if (fn && resume && nargs <= 6 && !strcmp(fn, "bal")) {
         if (*resume == (0x7FFFFFFFll << 32)) return FAILDESCR;
         if (*resume == 0) { icn_bi_rec_t bi; core_icn_bi_push(&bi, fn, args, nargs); int bad = icn_argtype_gate(BID_bal, args, nargs, &out, strict); core_icn_bi_pop(&bi); if (bad) return FAILDESCR; }
@@ -17589,6 +17592,23 @@ static int bn_icn_center(DESCR_t *args, int nargs, DESCR_t *out) {
     for (int k = 0; k < rpad; k++) { int idx = ((k + fl - rpad) % fl + fl) % fl; buf[lpad + copy + k] = fill[idx]; }
     buf[n]='\0';
     *out = BSTRVAL(buf, n);
+    return 1;
+}
+static int icn_dtax_plain(int bid) { return !dtax_off() && g_dtax_bid[bid].gen == rt_dtax_gen && (g_dtax_bid[bid].kind == 0 || g_dtax_bid[bid].kind == 3); }
+static int bn_icn_upto_resume(DESCR_t *args, int nargs, int64_t *resume, DESCR_t *out) {
+    const char *s;
+    int i1, i2;
+    if (args[0].v != DT_S || !bn_scan_span(args, nargs, &s, &i1, &i2)) return 0;
+    const char *cv = VARVAL_fn(args[0]);
+    if (!cv) { *out = FAILDESCR; return 1; }
+    long cvn = (args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
+    const unsigned char *bits = kw_cset_bits(cv);
+    int p = (*resume > i1) ? (int)*resume : i1;
+    if (bits) while (p < i2 && !((bits[(unsigned char)s[p - 1] >> 3] >> ((unsigned char)s[p - 1] & 7)) & 1)) p++;
+    else while (p < i2 && !rt_icn_cset_member_n(cv, cvn, s[p - 1])) p++;
+    if (p >= i2) { *out = FAILDESCR; return 1; }
+    *out = INTVAL(p);
+    *resume = (int64_t)p + 1;
     return 1;
 }
 static int bn_icn_any(DESCR_t *args, int nargs, DESCR_t *out) {
