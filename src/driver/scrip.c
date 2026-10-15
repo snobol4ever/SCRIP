@@ -1631,10 +1631,14 @@ static int m4_icn_name_tables_data(int i, IR_graph_t *g) {
 }
 static void m4_icn_name_tables_calls(int i, const char *namelbl, IR_graph_t *g) {
     if (!g || !g->icn_cells_graph) return;
-    if (g->pnames && g->nparams > 0) emit_textf("  lea rdi, [rip + %s]\n  lea rsi, [rip + .Lstartup_ipnames%d]\n  mov edx, %d\n  call rt_proc_set_loc_params@PLT\n", namelbl, i, g->nparams);
-    if (!g->lnames || g->nlocals <= 0) return;
-    emit_textf("  lea rdi, [rip + %s]\n  lea rsi, [rip + .Lstartup_ilnames%d]\n  mov edx, %d\n  call rt_proc_set_locals@PLT\n", namelbl, i, g->nlocals);
-    emit_textf("  lea rdi, [rip + %s]\n  lea rsi, [rip + .Lstartup_iloffs%d]\n  mov edx, %d\n  call rt_proc_set_local_offs@PLT\n", namelbl, i, g->nlocals);
+    int hp = (g->pnames && g->nparams > 0), hl = (g->lnames && g->nlocals > 0);
+    if (!hp && !hl) return;
+    emit_textf("  lea rdi, [rip + %s]\n", namelbl);
+    if (hp) emit_textf("  lea rsi, [rip + .Lstartup_ipnames%d]\n  mov edx, %d\n", i, g->nparams);
+    else emit_textf("  xor esi, esi\n  xor edx, edx\n");
+    if (hl) emit_textf("  lea rcx, [rip + .Lstartup_ilnames%d]\n  mov r8d, %d\n  lea r9, [rip + .Lstartup_iloffs%d]\n", i, g->nlocals, i);
+    else emit_textf("  xor ecx, ecx\n  xor r8d, r8d\n  xor r9d, r9d\n");
+    emit_textf("  call rt_proc_loc_add@PLT\n");
 }
 static void icn_register_locals(const char *pname, IR_graph_t *g) {
     extern void rt_proc_set_locals(const char *, const char **, int);

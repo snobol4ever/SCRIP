@@ -960,6 +960,10 @@ void rt_proc_set_loc_params(const char *name, const char **pnames, int nparams) 
     { int i = ploc_find(name); if (i >= 0) { PLOC(i).pnames = pnames; PLOC(i).nparams = nparams; return; } }
     { rt_proc_loc_t *e = &CV_PUSH(g_proc_loc, rt_proc_loc_t); e->name = name; e->pnames = pnames; e->nparams = nparams; }
 }
+void rt_proc_loc_add(const char *name, const char **pnames, int nparams, const char **lnames, int nlocals, const int *loffs) {
+    if (!name) return;
+    { rt_proc_loc_t *e = &CV_PUSH(g_proc_loc, rt_proc_loc_t); e->name = name; e->pnames = pnames; e->nparams = nparams; e->lnames = lnames; e->nlocals = nlocals; e->loffs = loffs; }
+}
 const char *rt_proc_loc_pname(const char *name, int k) {
     if (!name || k < 0) return (const char *)0;
     { int i = ploc_find(name); if (i >= 0) return (PLOC(i).pnames && k < PLOC(i).nparams) ? PLOC(i).pnames[k] : (const char *)0; }

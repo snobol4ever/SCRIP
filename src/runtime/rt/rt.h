@@ -151,6 +151,7 @@ DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi);
 void rt_proc_set_local_offs(const char *name, const int *loffs, int nlocals);
 int rt_proc_loff(const char *name, int k);
 void rt_proc_set_loc_params(const char *name, const char **pnames, int nparams);
+void rt_proc_loc_add(const char *name, const char **pnames, int nparams, const char **lnames, int nlocals, const int *loffs);
 const char *rt_proc_loc_pname(const char *name, int k);
 int rt_field_get(const char *fname);
 int rt_field_set(const char *fname);
