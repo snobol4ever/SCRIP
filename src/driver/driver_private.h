@@ -68,6 +68,7 @@ typedef struct {
     int *mir;
     int nmir;
     char tsk;
+    char buf;
 } fh_slot_t;
 extern cv_t g_fhv;
 void fh_ensure_init(void);

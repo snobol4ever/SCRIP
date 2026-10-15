@@ -143,6 +143,7 @@ static void fh_slot_init(fh_slot_t *s, FILE *fp) {
     s->mir=NULL;
     s->nmir=0;
     s->tsk=0;
+    s->buf=0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fh_alloc(FILE *fp) {
@@ -164,7 +165,7 @@ FILE *fh_get(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_N) return NULL; retur
 void fh_free(int idx){
     if(fh_init&&idx>=3&&idx<FH_N) fh_pos_reset(idx);
     if(fh_init&&idx>=3&&idx<FH_N){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; g_fh[idx].enc=NULL; g_fh[idx].bom=0; g_fh[idx].repos=1; g_fh[idx].eof=0; }
-    if(fh_init&&idx>=3&&idx<FH_N){ g_fh[idx].xal=NULL; g_fh[idx].nxal=0; g_fh[idx].mir=NULL; g_fh[idx].nmir=0; g_fh[idx].tsk=0; }
+    if(fh_init&&idx>=3&&idx<FH_N){ g_fh[idx].xal=NULL; g_fh[idx].nxal=0; g_fh[idx].mir=NULL; g_fh[idx].nmir=0; g_fh[idx].tsk=0; g_fh[idx].buf=0; }
     for(int i=0;fh_init&&i<FH_N;i++){ int w=0; for(int k=0;k<g_fh[i].nmir;k++) if(g_fh[i].mir[k]!=idx) g_fh[i].mir[w++]=g_fh[i].mir[k]; g_fh[i].nmir=w; }
 }
 int fh_cur_in = 0;

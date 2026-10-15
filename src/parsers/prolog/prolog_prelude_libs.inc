@@ -13085,6 +13085,13 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "remove_stream_mirror", 2 },
     { "current_mirror", 2 },
     { "current_stream", 1 },
+    { "set_stream_type", 2 },
+    { "set_stream_eof_action", 2 },
+    { "set_stream_buffering", 2 },
+    { "stream_position", 2 },
+    { "stream_line_column", 3 },
+    { "set_stream_line_column", 3 },
+    { "seek", 4 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
@@ -13171,9 +13178,14 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "real_time", 0 },
     { "remove_stream_mirror", 0 },
     { "rename_file", 0 },
+    { "seek", 0 },
     { "send_signal", 0 },
     { "set_bip_name", 0 },
     { "set_linedit_prompt", 0 },
+    { "set_stream_buffering", 0 },
+    { "set_stream_eof_action", 0 },
+    { "set_stream_line_column", 0 },
+    { "set_stream_type", 0 },
     { "setarg", 0 },
     { "shell", 0 },
     { "sleep", 0 },
@@ -13186,6 +13198,8 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "spawn", 0 },
     { "spy", 0 },
     { "spypoint_condition", 0 },
+    { "stream_line_column", 0 },
+    { "stream_position", 0 },
     { "syntax_error_info", 0 },
     { "system", 0 },
     { "system_time", 0 },
@@ -13684,7 +13698,33 @@ static const char PL_PRELUDE_LIB_11_SRC[] =
     "'$gnu_b_ostream'(S, _) :- var(S), !.\n"
     "'$gnu_b_ostream'('$stream'(_), _) :- !.\n"
     "'$gnu_b_ostream'(S, PI) :- throw(error(domain_error(stream, S), PI)).\n"
-    "current_stream(S) :- '$gnu_b_ostream'(S, current_stream/1), catch(stream_property(S, mode(_)), error(existence_error(_, _), _), fail).\n";
+    "current_stream(S) :- '$gnu_b_ostream'(S, current_stream/1), catch(stream_property(S, mode(_)), error(existence_error(_, _), _), fail).\n"
+    "set_stream_type(S, T) :- PI = set_stream_type/2, ( var(T) -> throw(error(instantiation_error, PI)) ; T == text -> K = t ; T == binary -> K = b ; throw(error(domain_error(stream_type, T), PI)) ),\n"
+    "    '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_info, St, si(K0, _, _, IO)),\n"
+    "    ( K0 == K -> true ; IO =:= 1 -> throw(error(permission_error(modify, stream, S), PI)) ; '$gnu_os'(ts_settype, st(St, T), _) ).\n"
+    "set_stream_eof_action(S, A) :- PI = set_stream_eof_action/2,\n"
+    "    ( var(A) -> throw(error(instantiation_error, PI)) ; memberchk(A, [error, eof_code, reset]) -> true ; throw(error(domain_error(eof_action, A), PI)) ),\n"
+    "    '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_info, St, si(_, M, _, _)), ( M == w -> throw(error(permission_error(modify, stream, S), PI)) ; '$gnu_os'(ts_seteof, se(St, A), _) ).\n"
+    "set_stream_buffering(S, B) :- PI = set_stream_buffering/2,\n"
+    "    ( var(B) -> throw(error(instantiation_error, PI)) ; memberchk(B, [none, line, block]) -> true ; throw(error(domain_error(buffering_mode, B), PI)) ),\n"
+    "    '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_setbuf, sb(St, B), _).\n"
+    "stream_position(S, P) :- PI = stream_position/2, '$gnu_b_sora'(S, PI, St),\n"
+    "    ( var(P) -> true ; P = '$stream_position'(A, B, C, D), '$gnu_b_vint'([A, B, C, D]) -> true ; throw(error(domain_error(stream_position, P), PI)) ),\n"
+    "    '$gnu_os'(ts_pos, St, P0), P = P0.\n"
+    "'$gnu_b_vint'([]).\n"
+    "'$gnu_b_vint'([X|Xs]) :- ( var(X) ; integer(X) ), !, '$gnu_b_vint'(Xs).\n"
+    "stream_line_column(S, L, C) :- PI = stream_line_column/3, '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_info, St, si(K, _, _, _)),\n"
+    "    ( K == b -> throw(error(permission_error(access, binary_stream, S), PI)) ; true ), '$gnu_b_oi'(L, PI), '$gnu_b_oi'(C, PI),\n"
+    "    '$gnu_os'(ts_linecol, St, lc(L0, C0)), L = L0, C = C0.\n"
+    "set_stream_line_column(S, L, C) :- PI = set_stream_line_column/3, '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_info, St, si(K, _, R, _)),\n"
+    "    ( R == false -> throw(error(permission_error(reposition, stream, S), PI)) ; K == b -> throw(error(permission_error(reposition, binary_stream, S), PI)) ; true ),\n"
+    "    '$gnu_b_int'(L, PI), '$gnu_b_int'(C, PI), L >= 1, C >= 1, '$gnu_os'(ts_setlinecol, slc(St, L, C), _).\n"
+    "seek(S, W, O, N) :- ( current_prolog_flag('$dialect', swi) ; integer(W), atom(O) ), !, '$gnu_b_seek'(S, O, W, N, seek/4).\n"
+    "seek(S, W, O, N) :- '$gnu_b_seek'(S, W, O, N, seek/4).\n"
+    "'$gnu_b_seek'(S, W, O, N, PI) :- '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_info, St, si(K, _, R, _)),\n"
+    "    ( R == false -> throw(error(permission_error(reposition, stream, S), PI)) ; K == t -> throw(error(permission_error(reposition, text_stream, S), PI)) ; true ),\n"
+    "    '$gnu_b_ia'(W, PI), ( memberchk(W, [bof, current, eof]) -> true ; throw(error(domain_error(stream_seek_method, W), PI)) ),\n"
+    "    '$gnu_b_int'(O, PI), '$gnu_b_oi'(N, PI), '$gnu_os'(ts_seek, sk(St, W, O), N0), N = N0.\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },

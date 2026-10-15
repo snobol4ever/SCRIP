@@ -6882,7 +6882,7 @@ static DESCR_t pl_mk_cmp1(const char *f, DESCR_t a0) {
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PL_SP_NPROP 13
+#define PL_SP_NPROP 14
 void pas_file_err(const char *clause, const char *what, const char *proc) {
     fflush(stdout);
     fprintf(stderr, "scrip: pascal runtime error: ISO 7185 %s: %s", clause ? clause : "", what ? what : "");
@@ -6992,6 +6992,12 @@ static int pl_sp_xprop(int i, int j, DESCR_t *out) {
 }
 static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
     if (pidx >= PL_SP_NPROP) return pl_sp_xprop(i, pidx - PL_SP_NPROP, out);
+    if (pidx == 13) {
+        char b = g_fh[i].buf ? g_fh[i].buf : i == 2 ? 'n' : i < 3 ? 'l' : 'b';
+        if (pl_swi_dialect()) return 0;
+        *out = pl_mk_cmp1("buffering", pl_mk_atom(b == 'n' ? "none" : b == 'l' ? "line" : "block"));
+        return 1;
+    }
     switch (pidx) {
         case 0:
         if (i < 3 || !g_fh[i].name) return 0;
@@ -7166,6 +7172,9 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
                 en = pl_enc_canon(eb);
                 if (!en) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
                 fh_set_encoding(idx, en);
+            } else if (on && !strcmp(on, "buffering") && !pl_swi_dialect()) {
+                if (!as || (strcmp(as, "none") && strcmp(as, "line") && strcmp(as, "block"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
+                g_fh[idx].buf = as[0] == 'n' ? 'n' : as[0] == 'l' ? 'l' : 'b';
             } else if (on && !strcmp(on, "mirror") && !pl_swi_dialect()) {
                 int m = pl_stream_idx_ball(a, 1, 0, cx);
                 if (m < 0) return 0;
@@ -8368,7 +8377,7 @@ DESCR_t dop_pl_at_end_of_stream(DESCR_t *args, int nargs) {
     (void)args;
     if (nargs != 0) return FAILDESCR;
     c = fgetc(fh_cur_in_fp());
-    if (c == EOF) return pl_ok();
+    if (c == EOF) { clearerr(fh_cur_in_fp()); return pl_ok(); }
     ungetc(c, fh_cur_in_fp());
     return FAILDESCR;
 }
@@ -10387,6 +10396,75 @@ static int pl_gs_ts(const char *op, DESCR_t a, DESCR_t res, pl_tr_ctx_t *cx) {
         g_fh[idx].name = rt_heap_strdup_c("constant term stream");
         return plw_unify_vals(res, pl_mk_stream(idx), cx);
     }
+    if (!strcmp(op, "info")) {
+        extern int fh_repos(int);
+        int idx = pl_gs_sidx(a);
+        DESCR_t v[4];
+        char ty[2] = { 0, 0 }, md[2] = { 0, 0 };
+        long off;
+        if (idx < 0) return 0;
+        off = g_fh[idx].fp ? ftell(g_fh[idx].fp) : 0;
+        ty[0] = g_fh[idx].type == 'b' ? 'b' : 't';
+        md[0] = idx == 0 || g_fh[idx].mode == 'r' ? 'r' : 'w';
+        v[0] = pl_mk_atom(ty);
+        v[1] = pl_mk_atom(md);
+        v[2] = pl_mk_atom(idx < 3 || fh_repos(idx) ? "true" : "false");
+        v[3] = INTVAL(off > 0 ? 1 : 0);
+        return plw_unify_vals(res, pl_gnu_fn("si", 4, v), cx);
+    }
+    if (!strcmp(op, "settype") || !strcmp(op, "seteof") || !strcmp(op, "setbuf")) {
+        extern void fh_set_eof(int, int);
+        int idx = pl_gs_sidx(pl_gs_arg(a, 0, 2));
+        const char *k = pl_atom_str(pl_gs_arg(a, 1, 2));
+        if (idx < 0 || !k) return 0;
+        if (op[3] == 't') g_fh[idx].type = k[0] == 'b' ? 'b' : 't';
+        else if (op[3] == 'e') fh_set_eof(idx, k[0] == 'e' && k[1] == 'r' ? 'e' : k[0] == 'e' ? 'c' : 'r');
+        else g_fh[idx].buf = k[0] == 'n' ? 'n' : k[0] == 'l' ? 'l' : 'b';
+        return 1;
+    }
+    if (!strcmp(op, "pos")) {
+        extern int fh_in_position(int, long *, long *, long *);
+        int idx = pl_gs_sidx(a);
+        long ch = 0, ln = 0, lp = 0, off = idx >= 0 && g_fh[idx].fp ? ftell(g_fh[idx].fp) : -1;
+        DESCR_t v[4];
+        if (off < 0 || fh_in_position(idx, &ch, &ln, &lp) != 1) return 0;
+        v[0] = INTVAL(off);
+        v[1] = INTVAL(ch);
+        v[2] = INTVAL(ln);
+        v[3] = INTVAL(lp);
+        return plw_unify_vals(res, pl_gnu_fn("$stream_position", 4, v), cx);
+    }
+    if (!strcmp(op, "linecol")) {
+        extern int fh_in_position(int, long *, long *, long *);
+        int idx = pl_gs_sidx(a);
+        long ch = 0, ln = 0, lp = 0;
+        DESCR_t v[2];
+        if (idx < 0 || fh_in_position(idx, &ch, &ln, &lp) != 1) return 0;
+        v[0] = INTVAL(ln + 1);
+        v[1] = INTVAL(lp + 1);
+        return plw_unify_vals(res, pl_gnu_fn("lc", 2, v), cx);
+    }
+    if (!strcmp(op, "setlinecol")) {
+        int idx = pl_gs_sidx(pl_gs_arg(a, 0, 3));
+        long l = (long)pl_gs_arg(a, 1, 3).i - 1, c = (long)pl_gs_arg(a, 2, 3).i - 1, ln = 0, lp = 0, off;
+        FILE *fp = idx >= 0 ? g_fh[idx].fp : (FILE *)0;
+        int ch = 0;
+        if (!fp || l < 0 || c < 0 || (off = ftell(fp)) < 0 || fseek(fp, 0, SEEK_SET) != 0) return 0;
+        while (ln < l && (ch = fgetc(fp)) != EOF) if (ch == '\n') ln++;
+        while (ch != EOF && ln == l && lp < c && (ch = fgetc(fp)) != EOF && ch != '\n') lp++;
+        if (ln == l && lp == c) return 1;
+        fseek(fp, off, SEEK_SET);
+        return 0;
+    }
+    if (!strcmp(op, "seek")) {
+        int idx = pl_gs_sidx(pl_gs_arg(a, 0, 3));
+        const char *w = pl_atom_str(pl_gs_arg(a, 1, 3));
+        DESCR_t o = pl_gs_arg(a, 2, 3);
+        FILE *fp = idx >= 0 ? g_fh[idx].fp : (FILE *)0;
+        long n;
+        if (!fp || !w || fseek(fp, (long)o.i, w[0] == 'b' ? SEEK_SET : w[0] == 'c' ? SEEK_CUR : SEEK_END) != 0 || (n = ftell(fp)) < 0) return 0;
+        return plw_unify_vals(res, INTVAL(n), cx);
+    }
     if (!strcmp(op, "sp_multi")) { int idx = pl_atom_str(a) ? pl_sp_named(a) : pl_gs_sidx(a); return idx >= 3 && idx < FH_N && g_fh[idx].nxal + g_fh[idx].nmir > 0; }
     if (!strcmp(op, "unmark")) { int idx = pl_gs_sidx(a); if (idx >= 0) g_fh[idx].tsk = 0; return idx >= 0; }
     if (!strcmp(op, "kind")) { int idx = pl_gs_sidx(a); char k[2] = { idx >= 0 && g_fh[idx].tsk ? g_fh[idx].tsk : 'n', 0 }; return plw_unify_vals(res, pl_mk_atom(k), cx); }
@@ -10960,7 +11038,7 @@ PL_CX_LEAF_HEAD(set_stream_position, 2)
             return FAILDESCR;
         }
         if (pl_val_unbound(pd)) { cx->ball = rt_pl_ball_instantiation(); return FAILDESCR; }
-        if (!(pd.v == (DTYPE_t)DT_PLREF && plc_fid_name(pd.slen) == prolog_atom_intern("$stream_position") && plc_fid_arity(pd.slen) == 1)) {
+        if (!(pd.v == (DTYPE_t)DT_PLREF && plc_fid_name(pd.slen) == prolog_atom_intern("$stream_position") && (plc_fid_arity(pd.slen) == 1 || (plc_fid_arity(pd.slen) == 4 && !pl_swi_dialect())))) {
             cx->ball = rt_pl_ball_kind2("domain_error", "stream_position", pd);
             return FAILDESCR;
         }
@@ -11056,7 +11134,7 @@ PL_CX_LEAF_HEAD(pl_sp_check, 2)
             nm = pl_atom_str(p);
             if (!nm && p.v == (DTYPE_t)DT_PLREF) nm = prolog_atom_name(plc_fid_name(p.slen));
             for (i = 0; nm && pn[i]; i++) if (!strcmp(nm, pn[i])) break;
-            if ((!nm || !pn[i]) && !(nm && !strcmp(nm, "mirror") && !pl_swi_dialect())) cx->ball = rt_pl_ball_kind2("domain_error", "stream_property", p);
+            if ((!nm || !pn[i]) && !(nm && (!strcmp(nm, "mirror") || !strcmp(nm, "buffering")) && !pl_swi_dialect())) cx->ball = rt_pl_ball_kind2("domain_error", "stream_property", p);
         }
         if (cx->ball) ok = 0;
     }
@@ -11076,6 +11154,9 @@ PL_CX_LEAF_HEAD(pl_sp_nth, 3)
             k = (int)iv.i - 1;
             for (si = 0; si < FH_N && k >= pl_sp_nprops(si); si++) k -= pl_sp_nprops(si);
             pi = k;
+            DESCR_t pa = rt_pl_deref_val(args[2]);
+            int asked = pa.v == (DTYPE_t)DT_PLREF && plc_fid_arity(pa.slen) == 1 && plc_fid_name(pa.slen) == prolog_atom_intern("buffering");
+            if (pi == 13 && !asked) si = -1;
             if (si >= 0 && si < FH_N && pl_sp_stream_live(si) && (named ? si == want : plw_unify_vals(args[1], pl_mk_stream(si), cx)) && pl_sp_prop(si, pi, &pv)) ok = plw_unify_vals(args[2], pv, cx);
         }
     }

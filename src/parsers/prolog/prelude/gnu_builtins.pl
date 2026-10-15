@@ -37,7 +37,9 @@
                           open_input_atom_stream/2, open_input_chars_stream/2, open_input_codes_stream/2, open_output_atom_stream/1, open_output_chars_stream/1,
                           open_output_codes_stream/1, close_input_atom_stream/1, close_input_chars_stream/1, close_input_codes_stream/1, close_output_atom_stream/2,
                           close_output_chars_stream/2, close_output_codes_stream/2, add_stream_alias/2, current_alias/2, add_stream_mirror/2, remove_stream_mirror/2,
-                          current_mirror/2, current_stream/1 ]).
+                          current_mirror/2, current_stream/1,
+                          set_stream_type/2, set_stream_eof_action/2, set_stream_buffering/2, stream_position/2, stream_line_column/3, set_stream_line_column/3,
+                          seek/4 ]).
 write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).
 writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).
 print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).
@@ -508,3 +510,29 @@ current_mirror(S, M) :- '$gnu_b_ostream'(S, current_mirror/2), '$gnu_b_ostream'(
 '$gnu_b_ostream'('$stream'(_), _) :- !.
 '$gnu_b_ostream'(S, PI) :- throw(error(domain_error(stream, S), PI)).
 current_stream(S) :- '$gnu_b_ostream'(S, current_stream/1), catch(stream_property(S, mode(_)), error(existence_error(_, _), _), fail).
+set_stream_type(S, T) :- PI = set_stream_type/2, ( var(T) -> throw(error(instantiation_error, PI)) ; T == text -> K = t ; T == binary -> K = b ; throw(error(domain_error(stream_type, T), PI)) ),
+    '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_info, St, si(K0, _, _, IO)),
+    ( K0 == K -> true ; IO =:= 1 -> throw(error(permission_error(modify, stream, S), PI)) ; '$gnu_os'(ts_settype, st(St, T), _) ).
+set_stream_eof_action(S, A) :- PI = set_stream_eof_action/2,
+    ( var(A) -> throw(error(instantiation_error, PI)) ; memberchk(A, [error, eof_code, reset]) -> true ; throw(error(domain_error(eof_action, A), PI)) ),
+    '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_info, St, si(_, M, _, _)), ( M == w -> throw(error(permission_error(modify, stream, S), PI)) ; '$gnu_os'(ts_seteof, se(St, A), _) ).
+set_stream_buffering(S, B) :- PI = set_stream_buffering/2,
+    ( var(B) -> throw(error(instantiation_error, PI)) ; memberchk(B, [none, line, block]) -> true ; throw(error(domain_error(buffering_mode, B), PI)) ),
+    '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_setbuf, sb(St, B), _).
+stream_position(S, P) :- PI = stream_position/2, '$gnu_b_sora'(S, PI, St),
+    ( var(P) -> true ; P = '$stream_position'(A, B, C, D), '$gnu_b_vint'([A, B, C, D]) -> true ; throw(error(domain_error(stream_position, P), PI)) ),
+    '$gnu_os'(ts_pos, St, P0), P = P0.
+'$gnu_b_vint'([]).
+'$gnu_b_vint'([X|Xs]) :- ( var(X) ; integer(X) ), !, '$gnu_b_vint'(Xs).
+stream_line_column(S, L, C) :- PI = stream_line_column/3, '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_info, St, si(K, _, _, _)),
+    ( K == b -> throw(error(permission_error(access, binary_stream, S), PI)) ; true ), '$gnu_b_oi'(L, PI), '$gnu_b_oi'(C, PI),
+    '$gnu_os'(ts_linecol, St, lc(L0, C0)), L = L0, C = C0.
+set_stream_line_column(S, L, C) :- PI = set_stream_line_column/3, '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_info, St, si(K, _, R, _)),
+    ( R == false -> throw(error(permission_error(reposition, stream, S), PI)) ; K == b -> throw(error(permission_error(reposition, binary_stream, S), PI)) ; true ),
+    '$gnu_b_int'(L, PI), '$gnu_b_int'(C, PI), L >= 1, C >= 1, '$gnu_os'(ts_setlinecol, slc(St, L, C), _).
+seek(S, W, O, N) :- ( current_prolog_flag('$dialect', swi) ; integer(W), atom(O) ), !, '$gnu_b_seek'(S, O, W, N, seek/4).
+seek(S, W, O, N) :- '$gnu_b_seek'(S, W, O, N, seek/4).
+'$gnu_b_seek'(S, W, O, N, PI) :- '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_info, St, si(K, _, R, _)),
+    ( R == false -> throw(error(permission_error(reposition, stream, S), PI)) ; K == t -> throw(error(permission_error(reposition, text_stream, S), PI)) ; true ),
+    '$gnu_b_ia'(W, PI), ( memberchk(W, [bof, current, eof]) -> true ; throw(error(domain_error(stream_seek_method, W), PI)) ),
+    '$gnu_b_int'(O, PI), '$gnu_b_oi'(N, PI), '$gnu_os'(ts_seek, sk(St, W, O), N0), N = N0.
