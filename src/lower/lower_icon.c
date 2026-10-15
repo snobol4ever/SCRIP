@@ -1004,6 +1004,8 @@ static int icn_field_hint(const tree_t * prog, const char * fn) {
     return at + 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_field_var_store_only(IR_t * lv) { if (lv && lv->op == IR_FIELD_VAR && lv->seal > 0 && lv->seal < ICN_FIELD_PLAIN) lv->seal |= ICN_FIELD_PLAIN; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL;
     if (!res) res = &dummy;
@@ -1338,6 +1340,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                 IR_t * lv = NULL;
                 IR_t * lve = lhs ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
                 if (lve && lv) {
+                    icn_field_var_store_only(lv);
                     IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
                     IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
                     IR_t * rr = NULL;
@@ -1402,6 +1405,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                 IR_t * lv = NULL;
                 IR_t * lve = (lhs && rhs) ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
                 if (lve && lv) {
+                    icn_field_var_store_only(lv);
                     IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
                     IR_t * op = NULL, * ca = NULL, * cb = NULL;
                     IR_t * dr = build(cx, IR_DEREF, icn_augop_build(cx, aop, asn, ω, &op, &ca, &cb), ω);

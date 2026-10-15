@@ -80,6 +80,11 @@ static inline __attribute__((always_inline)) void descr_set_src_node(DESCR_t *d,
 typedef struct _VCELL_t { DESCR_t *cellp; struct _TBBLK_t *tbl; const char *key; DESCR_t key_d; DESCR_t sv; long pos; long len; } VCELL_t;
 #define FAILDESCR ((DESCR_t){ .v = DT_FAIL, .i = 0 })
 #define NAMETRAP(vc_) ((DESCR_t){ .v = DT_N, .slen = 2, .p = (void *)(vc_) })
+#define ICN_FIELD_PLAIN 0x10000
+DESCR_SASSERT(ICN_FIELD_PLAIN > 0xFFFF && ICN_FIELD_PLAIN < 0x7FFFFFFF,
+    "an Icon record-field variable node carries the field's 1-based position in IR_t.seal; the lowerer ORs ICN_FIELD_PLAIN into it where the variable's only consumer is a store "
+    "(an assignment or an augmented assignment), so rt_field_var_strict_at answers the bare DT_N slen 1 cell and builds no VCELL and no Rec.field name string -- name() is never asked "
+    "of such a node; the bit sits above any record's field count and inside the 32-bit mov that loads the seal.");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int IS_FAIL_fn(DESCR_t v) { return v.v == DT_FAIL; }
 static inline __attribute__((always_inline)) int IS_DATA_TAG_fn(uint8_t v) { return v >= DT_DATA && v < DT_RAW; }

@@ -2055,11 +2055,15 @@ DESCR_t rt_field_var_strict(const char *fname, DESCR_t obj) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_field_var_strict_at(const char *fname, DESCR_t obj, long at1) {
-    long at = at1 - 1;
+    int store_only = (at1 & ICN_FIELD_PLAIN) != 0;
+    long at = (at1 & ~(long)ICN_FIELD_PLAIN) - 1;
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
     if (IS_DATA_INST_fn(obj) && obj.u && obj.u->fields) {
         DATBLK_t *t = obj.u->type;
-        if (t && t->name && at < t->nfields && t->fields[at] && !strcmp(t->fields[at], fname)) return rt_field_var_cell(fname, obj, &obj.u->fields[at]);
+        if (t && t->name && at < t->nfields && t->fields[at] && !strcmp(t->fields[at], fname)) {
+            if (store_only && !comm_var_active()) return (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *)&obj.u->fields[at] };
+            return rt_field_var_cell(fname, obj, &obj.u->fields[at]);
+        }
     }
     DESCR_t declined = { .v = RTX_NOT_HANDLED };
     return declined;
