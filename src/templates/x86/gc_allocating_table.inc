@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2765
+#define GC_ALLOC_TAB_N 2764
 #define GC_ALLOC_TAB_N_VOID 323
-#define GC_ALLOC_TAB_N_DESCR 1328
-#define GC_ALLOC_TAB_N_OTHER 1100
+#define GC_ALLOC_TAB_N_DESCR 1329
+#define GC_ALLOC_TAB_N_OTHER 1098
 #define GC_ALLOC_TAB_N_UNKNOWN 14
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -2542,7 +2542,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_rk_map_append", GC_RET_DESCR },
     { "rt_rk_param_check", GC_RET_DESCR },
     { "rt_rk_range_arr", GC_RET_DESCR },
-    { "rt_sc_module_parse", GC_RET_OTHER },
+    { "rt_sc_module_parse_begin", GC_RET_DESCR },
     { "rt_scan_enter", GC_RET_OTHER },
     { "rt_scan_lit", GC_RET_OTHER },
     { "rt_scan_needle", GC_RET_OTHER },
@@ -2681,7 +2681,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "sno_parse_ast_buf", GC_RET_OTHER },
     { "sno_parse_lexed", GC_RET_OTHER },
     { "sno_parse_stage_buf", GC_RET_OTHER },
-    { "sno_parse_stage_string", GC_RET_OTHER },
     { "sno_parse_string", GC_RET_OTHER },
     { "sno_parse_string_ast", GC_RET_OTHER },
     { "sno_pe_op", GC_RET_OTHER },

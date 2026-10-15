@@ -1593,6 +1593,7 @@ RT_PIC_SRCS := \
     $(SRC)/driver/driver_call.c \
     $(SRC)/driver/scrip_sm.c \
     $(SRC)/driver/stmt_ast.c \
+    $(SRC)/driver/sno_parse_stage.c \
     $(SRC)/driver/polyglot.c \
     $(SRC)/ir/ast_print.c \
     $(SRC)/parsers/snobol4/snobol4.tab.c \
@@ -1692,9 +1693,13 @@ SC_MOD_LIB := global case assign match counter stack tree ShiftReduce tdump gen 
 sc_mod_pfx = $(if $(filter snobol4,$(1)),sno_,$(if $(filter snocone,$(1)),snc_,$(if $(filter raku,$(1)),rak_,$(if $(filter rebus,$(1)),reb_,$(if $(filter icon,$(1)),icn_,$(if $(filter prolog,$(1)),pro_,pas_))))))
 SC_MOD_OBJS := out/sc_mod/scparsers.o
 RT_SO0 := out/libscrip_rt0.so
-$(RT_SO0): $(RT_PIC_OBJS) Makefile
+# the stage-0 library links a STRONG empty descriptor in place of the module object, so no weak reference exists anywhere (test_gate_no_weak_abort_stub; CEO-1749)
+out/sc_mod/scparsers_stub.o: $(SRC)/runtime/rt/rt_sc_module_stub.c $(SRC)/runtime/rt/rt_sc_module.h
+	@mkdir -p out/sc_mod
+	$(CC) $(RT_OPT) -g -fPIC $(RT_INCS) -c $(SRC)/runtime/rt/rt_sc_module_stub.c -o $@
+$(RT_SO0): $(RT_PIC_OBJS) out/sc_mod/scparsers_stub.o Makefile
 	@mkdir -p out
-	$(CC) -shared $(RT_PIC_OBJS) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@
+	$(CC) -shared $(RT_PIC_OBJS) out/sc_mod/scparsers_stub.o -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@
 out/scrip0: $(RT_SO0) $(SRC)/driver/scrip.c
 	@mkdir -p $(OBJ)
 	$(CC) $(CRT) -c $(SRC)/driver/scrip.c -o $(OBJ)/scrip_driver0.o
