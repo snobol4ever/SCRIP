@@ -444,7 +444,7 @@ static void emit_stno_row(int32_t stno, int32_t line, const char * file) {
     if (g_is_text) {
         char fq[32]; if (file) { emit_stno_file_label(file); snprintf(fq, sizeof fq, ".Lstnof%d", g_emit.stno_file_lbl); } else snprintf(fq, sizeof fq, "0");
         const char * kn = flat_label_kind(g_emit.node->op); int uid = g_emit.x86_uid;
-        emit_textf(".L%s_α_%d_stno:\n  .pushsection scrip_stno_map,\"%s\",@progbits\n", kn, uid, g_emit_module_pic ? "aw" : "a");
+        emit_textf(".L%s_α_%d_stno:\n  .pushsection scrip_stno_map,\"aw\",@progbits; .p2align 3\n", kn, uid);
         emit_textf("  .quad .L%s_α_%d_stno\n  .long %d\n  .long %d\n  .quad %s\n  .popsection\n", kn, uid, (int)stno, (int)line, fq);
     } else {
         stno_rec_push((uint64_t)(uintptr_t)(bb_emit_buf + bb_emit_pos), stno, line, file ? icn_trace_intern(file) : (const char *)0);
@@ -4330,7 +4330,8 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
     const uint64_t ckt = frameless ? ((xa_flat_class_c_pred()) ? (uint64_t)g_emit.flat_frame_bytes : 0u) : g_emitter.g_gc_map_link;
     if (g_is_text) {
         std::string t =
-            std::string(tl.name) + ":\n .quad " + std::to_string(n) + "\n .quad " + (frameless ? std::string("0") : std::string(g_emitter.g_gc_map_lbl.name)) + "\n .quad " + std::to_string(ckt) +
+            std::string(".pushsection .data.rel.ro,\"aw\",@progbits\n .p2align 3\n") + tl.name + ":\n .quad " + std::to_string(n) + "\n .quad " +
+                (frameless ? std::string("0") : std::string(g_emitter.g_gc_map_lbl.name)) + "\n .quad " + std::to_string(ckt) +
                 "\n .quad "
             + (g_emit.gc_code_lbl.name ? std::string(g_emit.gc_code_lbl.name) : std::string("0")) + "\n";
             emit_text_n(t.data(), t.size());
@@ -4340,6 +4341,7 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
         for (int k = 0; k < n; k++) { int i = ord[k]; gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i);
             uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32);
             t = " .quad " + emit_gc_site_label(i) + "\n .quad " + std::to_string((unsigned long long)w) + "\n"; emit_text_n(t.data(), t.size()); }
+        emit_textf(".popsection\n");
         g_emitter.g_gc_sites_last_off = 0;
     } else {
         emit_label_define_bb(&tl); g_emitter.g_gc_sites_last_off = tl.offset; CV_PUSH(g_emitter.g_gc_sites_offs_v, int) = tl.offset;
@@ -4395,7 +4397,9 @@ static void emit_gc_map_data(const char * fam) {
             if (clo > rg) g_zls_lay[n++] = GC_LAY_Q(rg, GC_LAY_RAW, clo - rg);
             if (nc > 0) g_zls_lay[n++] = GC_LAY_Q(clo, GC_LAY_PTR_GC, 8 * nc); }
         if (n >= 0) { lay = g_zls_lay; lay_n = n; g_emitter.g_gc_map_flags |= GC_FRAME_MAP_LAYOUT; g_emitter.g_zls_lay_gaps = gaps; g_emitter.g_zls_lay_conf = conf; } }
-    emit_sep_rule('-'); emit_label_define_bb(&g_emitter.g_gc_map_lbl);
+    emit_sep_rule('-');
+    if (g_is_text) emit_textf(".pushsection .data.rel.ro,\"aw\",@progbits\n .p2align 3\n");
+    emit_label_define_bb(&g_emitter.g_gc_map_lbl);
     uint64_t q0 = (uint64_t)GC_FRAME_MAP_MAGIC | ((uint64_t)(uint32_t)(g_emitter.g_gc_map_fb + (gc_maptab_plant_on() ? 16 : 0)) << 32);
     uint64_t q1 = (uint64_t)(uint32_t)g_emitter.g_gc_map_hdr | ((uint64_t)g_emitter.g_gc_map_flags << 32);
     const int anon = g_emit.flat_pat ? 1 : 0;
@@ -4412,6 +4416,7 @@ static void emit_gc_map_data(const char * fam) {
         if (lay) { n = snprintf(b, sizeof b, " .quad %d\n", lay_n); emit_text_n(b, (size_t)n); for (int i = 0; i < lay_n; i++) { n = snprintf(b, sizeof b, " .quad %llu\n", (unsigned long long)lay[i]);
             emit_text_n(b, (size_t)n); } }
         if (!anon) { n = snprintf(b, sizeof b, "%s_s: .string \"%s\"\n", g_emitter.g_gc_map_lbl.name, eb); emit_text_n(b, (size_t)n); }
+        emit_textf(".popsection\n");
         g_emitter.g_gc_map_last_off = 0;
     } else {
         bb_emit_u64(q0); bb_emit_u64(q1); bb_emit_u64(anon ? (uint64_t)0 : (uint64_t)(uintptr_t)ct_strdup(fam ? fam : "?")); bb_emit_u64((uint64_t)(uint32_t)g_emitter.g_gc_value_bytes);
