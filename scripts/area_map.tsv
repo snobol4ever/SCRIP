@@ -197,6 +197,13 @@ alternation	src/templates/bb/bb_scan_alternate.cpp
 # reads_the_attribute_rows.sh arm 7a read three Icon columns unmapped. Their carriers: Icon's !x lowers to IR_ITERATE (bb_iterate.cpp, the
 # every loop's box too), and alternation in a generator is lower_alt / lower_alt_impl in src/lower/lower_icon.c.
 every	src/templates/bb/bb_iterate.cpp
+# Icon sections s[i:j], s[i+:n], s[i-:n] (the coo 2026-10-15, CEO-1679 tier 1: aeea98779 broke every string section in a small procedure and no core entry took one): the section
+# column is the 62nd attribute column; its carriers are the section templates and the runtime that answers a section (subscript_get2_s and its callers, rt_substr).
+section	subscript_get2_s
+section	subscript_get2_ext_s
+section	subscript_get2_strict
+section	rt_substr
+section	src/templates/bb/bb_subscript2.cpp
 element_gen	src/templates/bb/bb_iterate.cpp
 gen_with_alternation	lower_alt
 gen_with_alternation	lower_alt_impl

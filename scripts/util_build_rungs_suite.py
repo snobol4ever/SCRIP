@@ -257,6 +257,7 @@ RAKU_NAME_FEATURES = [
 # result sequences (every/suspend/alternation/element-generation) and the scanning environment (?/tab/move/&pos),
 # not around pattern primitives. Deliberately NOT the SNOBOL4 table: `ANY`/`TAB`/`POS` exist in both languages
 # with different meanings, and borrowing would make a cross-language profile read as agreement where there is none.
+ICON_SECTION_RE = re.compile(r"\[[^\[\]\n]*?(?<![:=<>~|\[])[+-]?:(?![=:\]])[^\[\]\n]*\]")
 ICON_COLS = [
     ("write", LOW("write")), ("writes", LOW("writes")), ("read", LOW("read")), ("reads", LOW("reads")),
     ("find", LOW("find")), ("match", LOW("match")), ("upto", LOW("upto")), ("many", LOW("many")),
@@ -286,6 +287,7 @@ ICON_COLS = [
     ("every_with_suspend", lambda t: 1 if (re.search(r"(?<![A-Za-z0-9_])every(?![A-Za-z0-9_])", t) and re.search(r"(?<![A-Za-z0-9_])suspend(?![A-Za-z0-9_])", t)) else 0),
     ("scan_with_tab", lambda t: 1 if (re.search(r"\?\s*[A-Za-z_{(\"]", t) and re.search(r"(?<![A-Za-z0-9_])tab\s*\(", t)) else 0),
     ("gen_with_alternation", lambda t: 1 if (re.search(r"(?<![A-Za-z0-9_])(every|suspend)(?![A-Za-z0-9_])", t) and re.search(r"[^|]\|[^|]", t)) else 0),
+    ("section", lambda t: ICON_SECTION_RE.search(re.sub(r'"(?:\\.|[^"\\\n])*"', '""', t)) and 1 or 0),   # s[i:j], s[i+:n], s[i-:n] -- a section, not a := or :=: inside brackets
 ]
 ICON_NAME_FEATURES = [
     ("procedure", "procedure"), ("record", "record"), ("create", "coexpr"), ("every", "every"),

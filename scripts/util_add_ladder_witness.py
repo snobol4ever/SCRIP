@@ -106,9 +106,9 @@ SIMPLE_WORDS = ["write", "writes", "read", "reads", "find", "match", "upto", "ma
     "local", "static", "global"]
 SPECIAL_ORDER = ["scan", "alternation", "element_gen", "limitation", "to_by", "assign", "swap",
     "aug_assign", "coexpr_activate", "keyword_ref", "every_with_suspend", "scan_with_tab",
-    "gen_with_alternation"]
+    "gen_with_alternation", "section"]
 FLAG_ORDER = SIMPLE_WORDS + SPECIAL_ORDER
-assert len(FLAG_ORDER) == 61, len(FLAG_ORDER)
+assert len(FLAG_ORDER) == 62, len(FLAG_ORDER)
 FIXED = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines"]
 # ⛔⭐ THE ATTRIBUTE ROW CARRIES THE TEST UNIT'S COMMAND LINE (Lon 2026-09-26, RULES.md hard-cap rule clause 8 (f), CEO-1281):
 # heap_kb, stack_kb, compile_args and run_args are declared on EVERY rungs row, and a witness this tool mints is a test unit
@@ -168,7 +168,7 @@ def strip_strings_comments(src):
 
 
 def derive_flags(sno_lines):
-    """Returns {flag_name: 0/1} for all 61 columns. See module docstring for the empirical validation
+    """Returns {flag_name: 0/1} for all 62 columns. See module docstring for the empirical validation
     this ruleset was checked against before being trusted (270 family==ladder rows, 0 mismatches in the
     rung07+rung34 population this task touches)."""
     code = strip_strings_comments("\n".join(sno_lines))
@@ -194,6 +194,7 @@ def derive_flags(sno_lines):
     f["every_with_suspend"] = 1 if (f["every"] and f["suspend"]) else 0
     f["scan_with_tab"] = 1 if (f["scan"] and f["tab"]) else 0
     f["gen_with_alternation"] = 1 if (f["alternation"] and (f["every"] or f["element_gen"] or f["to_by"])) else 0
+    f["section"] = 1 if re.search(r"\[[^\[\]\n]*?(?<![:=<>~|\[])[+-]?:(?![=:\]])[^\[\]\n]*\]", code) else 0
     missing = [k for k in FLAG_ORDER if k not in f]
     if missing:
         refuse("derive_flags() internal error -- undefined column(s): %s" % missing)
@@ -257,7 +258,7 @@ def lang_schema(lang, rows):
     rest = fields[len(FIXED):]
     if lang == "icon":
         if [f for f in rest if f in FLAG_ORDER] != FLAG_ORDER:
-            refuse("ALL.csv header does not carry this script's 61 known flag columns in order -- do not proceed blind")
+            refuse("ALL.csv header does not carry this script's 62 known flag columns in order -- do not proceed blind")
         return fields, FLAG_ORDER
     b = _builder()
     if lang not in b.LANG_TABLES:
