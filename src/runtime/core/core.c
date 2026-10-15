@@ -2,6 +2,7 @@
 #include "rtx_try.h"
 #include "dtp.h"
 #include "ct_arena.h"
+#include "ct_vec.h"
 #include "core_errjmp.h"
 #include "../rtx/rtcc.h"
 #include "../rt/rt_arena.h"
@@ -3532,6 +3533,27 @@ const char *datatype(DESCR_t v) {
     }
 }
 static DATBLK_t *_udef_types = NULL;
+static cv_t g_udef_nidx;
+static unsigned udef_nhash(const char *s) { unsigned h = 2166136261u; for (; *s; s++) h = (h ^ (unsigned char)(*s | 32)) * 16777619u; return h; }
+static void udef_nidx_ins(DATBLK_t *t) {
+    DATBLK_t **sl = (DATBLK_t **)g_udef_nidx.p;
+    unsigned m = g_udef_nidx.cap - 1, h = udef_nhash(t->name) & m;
+    while (sl[h]) { if (strcasecmp(sl[h]->name, t->name) == 0) { sl[h] = t; return; } h = (h + 1) & m; }
+    sl[h] = t;
+    g_udef_nidx.len++;
+}
+static void udef_nidx_put(DATBLK_t *t) {
+    if ((uint64_t)(g_udef_nidx.len + 1) * 2 > g_udef_nidx.cap) {
+        uint32_t oc = g_udef_nidx.cap, nc = oc ? oc * 2 : 256;
+        DATBLK_t **old = (DATBLK_t **)g_udef_nidx.p;
+        g_udef_nidx.p = rt_pvec_alloc(nc);
+        memset(g_udef_nidx.p, 0, (size_t)nc * sizeof(DATBLK_t *));
+        g_udef_nidx.cap = nc;
+        g_udef_nidx.len = 0;
+        for (uint32_t i = 0; i < oc; i++) if (old[i]) udef_nidx_ins(old[i]);
+    }
+    udef_nidx_ins(t);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int _udef_fields_same(const DATBLK_t *t, const char *fields_str) {
     char *tmp = rt_heap_strdup_c(fields_str);
@@ -3577,9 +3599,18 @@ void DEFDAT_fn(const char *spec) {
     t->next = _udef_types;
     t->serial_next = 1;
     _udef_types = t;
+    udef_nidx_put(t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DATBLK_t *_udef_lookup(const char *name) { for (DATBLK_t *t = _udef_types; t; t = t->next) if (((t->name[0] | 32) == (name[0] | 32)) && strcasecmp(t->name, name) == 0) return t; return NULL; }
+static DATBLK_t *_udef_lookup(const char *name) {
+    DATBLK_t **sl = (DATBLK_t **)g_udef_nidx.p;
+    unsigned m, h;
+    if (!g_udef_nidx.cap) return NULL;
+    m = g_udef_nidx.cap - 1;
+    h = udef_nhash(name) & m;
+    while (sl[h]) { if (strcasecmp(sl[h]->name, name) == 0) return sl[h]; h = (h + 1) & m; }
+    return NULL;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t DATCON_fn(const char *typename, ...) {
     DATBLK_t *t = _udef_lookup(typename);
@@ -5566,6 +5597,7 @@ void core_gc_roots(void) {
         }
     }
     if (_udef_types) rt_gc_visit_raw((const char **)&_udef_types);
+    if (g_udef_nidx.p) rt_gc_visit_raw((const char **)&g_udef_nidx.p);
     for (DATBLK_t *t = _udef_types; t; t = t->next) {
         if (t->name) rt_gc_visit_raw_in((const char **)&t->name, t);
         if (t->fields) { rt_gc_visit_raw_in((const char **)&t->fields, t); for (int i = 0; i < t->nfields; i++) if (t->fields[i]) rt_gc_visit_raw_in((const char **)&t->fields[i], t->fields); }

@@ -7,6 +7,38 @@ DESCR_t _builtin_print(DESCR_t *args, int nargs) { if (nargs == 0) { output_str(
 static cv_t dat_types_v;
 #define dat_types ((DatType **)dat_types_v.p)
 static int dat_ntypes = 0;
+static cv_t g_dat_nidx;
+static unsigned dat_nhash(const char *s, size_t n) { unsigned h = 2166136261u; for (size_t i = 0; i < n; i++) h = (h ^ (unsigned char)s[i]) * 16777619u; return h; }
+static void dat_nidx_ins(int k) {
+    const char *nm = dat_types[k]->name;
+    size_t n = strlen(nm);
+    int32_t *sl = (int32_t *)g_dat_nidx.p;
+    unsigned m = g_dat_nidx.cap - 1, h = dat_nhash(nm, n) & m;
+    while (sl[h]) { const char *q = dat_types[sl[h] - 1]->name; if (strncmp(q, nm, n) == 0 && q[n] == '\0') { sl[h] = k + 1; return; } h = (h + 1) & m; }
+    sl[h] = k + 1;
+    g_dat_nidx.len++;
+}
+static void dat_nidx_put(int k) {
+    if ((uint64_t)(g_dat_nidx.len + 1) * 2 > g_dat_nidx.cap) {
+        uint32_t oc = g_dat_nidx.cap, nc = oc ? oc * 2 : 256;
+        int32_t *old = (int32_t *)g_dat_nidx.p;
+        g_dat_nidx.p = rt_wsb_alloc((size_t)nc * sizeof(int32_t));
+        memset(g_dat_nidx.p, 0, (size_t)nc * sizeof(int32_t));
+        g_dat_nidx.cap = nc;
+        g_dat_nidx.len = 0;
+        for (uint32_t i = 0; i < oc; i++) if (old[i]) dat_nidx_ins(old[i] - 1);
+    }
+    dat_nidx_ins(k);
+}
+static DatType *dat_nidx_get(const char *name, size_t n) {
+    int32_t *sl = (int32_t *)g_dat_nidx.p;
+    unsigned m, h;
+    if (!g_dat_nidx.cap) return NULL;
+    m = g_dat_nidx.cap - 1;
+    h = dat_nhash(name, n) & m;
+    while (sl[h]) { DatType *t = dat_types[sl[h] - 1]; if (strncmp(t->name, name, n) == 0 && t->name[n] == '\0') return t; h = (h + 1) & m; }
+    return NULL;
+}
 unsigned rt_dtax_gen = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_nfields_byref(void *t) { return t ? ((DatType *)t)->nfields : 0; }
@@ -75,6 +107,7 @@ DatType *dat_register(const char *spec) {
     t->live = 1;
     { extern int rt_sc_module_busy(void); t->foreign = rt_sc_module_busy() ? 1 : 0; }
     dat_ntypes++;
+    dat_nidx_put(dat_ntypes - 1);
     rt_dtax_gen++;
     return t;
 }
@@ -111,14 +144,14 @@ int dat_spec_is_current(const char *spec) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_type_gen(void) { return dat_ntypes; }
 DatType *dat_find_type_n(const char *name, size_t n) {
-    for (int i = dat_ntypes - 1; i >= 0; i--) if ((n == 0 || dat_types[i]->name[0] == name[0]) && strncmp(dat_types[i]->name, name, n) == 0 && dat_types[i]->name[n] == '\0') return dat_types[i];
+    { DatType *hit = dat_nidx_get(name, n); if (hit) return hit; }
     if (n == 63) for (int i = dat_ntypes - 1; i >= 0; i--) if (strncmp(dat_types[i]->name, name, 63) == 0 && dat_types[i]->name[63] != '\0') return dat_types[i];
     return NULL;
 }
 const void *dat_type_blk(int k) { return (k >= 0 && k < dat_ntypes) ? (const void *)dat_types[k]->blk : (const void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_find_type(const char *name) {
-    for (int i = dat_ntypes - 1; i >= 0; i--) if (dat_types[i]->name[0] == name[0] && strcmp(dat_types[i]->name, name) == 0) return dat_types[i];
+    { DatType *hit = dat_nidx_get(name, strlen(name)); if (hit) return hit; }
     if (strnlen(name, 64) == 63) for (int i = dat_ntypes - 1; i >= 0; i--) if (strncmp(dat_types[i]->name, name, 63) == 0 && dat_types[i]->name[63] != '\0') return dat_types[i];
     return NULL;
 }
@@ -459,6 +492,7 @@ DatType *dat_find_field(const char *name, int *fidx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_gc_roots(void) {
+    if (g_dat_nidx.p) rt_gc_visit_raw((const char **)&g_dat_nidx.p);
     extern void rt_gc_visit_raw(const char **);
     extern void rt_gc_visit_descr(DESCR_t *);
     for (int i = 0; i < dat_ntypes; i++) {
