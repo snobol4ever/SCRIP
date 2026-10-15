@@ -114,6 +114,13 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
         const char *nm = !rec ? "*" : (rec->flags & SNO_DSTAR_VARREF) ? sno_dstar_star(rec) + 1 : sno_dstar_star(rec);
         return rcp_node(TT_DEFER, nm, (uint32_t)strlen(nm), 0, 0, 0);
     }
+    if (d.v == DT_S && d.s && d.slen && d.slen != 0xFFFFFFFFu && memchr(d.s, 0, d.slen)) {
+        static int nul_uid = 0;
+        char nb[24];
+        snprintf(nb, sizeof nb, "NULS$%d", nul_uid++);
+        NV_SET_fn(nb, d);
+        { const char *pn = rt_heap_strdup_c(nb); return rcp_node(TT_DEFER, pn, (uint32_t)strlen(pn), 0, 0, 0); }
+    }
     if (d.v == DT_S || d.v == DT_SNUL) { const char *s = d.s ? d.s : ""; return rcp_lit(s, d.slen ? d.slen : (uint32_t)strlen(s)); }
     if (IS_INT_fn(d)) { char *b = rt_str_alloc(31); snprintf(b, 32, "%lld", (long long)d.i); return rcp_lit(b, (uint32_t)strlen(b)); }
     if (IS_REAL_fn(d)) { char *b = rt_str_alloc(39); real_str(d.r, b, 40); return rcp_lit(b, (uint32_t)strlen(b)); }
