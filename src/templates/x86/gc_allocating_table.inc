@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2764
+#define GC_ALLOC_TAB_N 2769
 #define GC_ALLOC_TAB_N_VOID 323
 #define GC_ALLOC_TAB_N_DESCR 1329
-#define GC_ALLOC_TAB_N_OTHER 1098
+#define GC_ALLOC_TAB_N_OTHER 1103
 #define GC_ALLOC_TAB_N_UNKNOWN 14
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1012,7 +1012,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_db_slot_copy", GC_RET_OTHER },
     { "pl_db_static_ball", GC_RET_OTHER },
     { "pl_db_store", GC_RET_OTHER },
+    { "pl_db_writable", GC_RET_OTHER },
+    { "pl_det_chain_end", GC_RET_OTHER },
     { "pl_det_fail_road", GC_RET_OTHER },
+    { "pl_det_guard_callee", GC_RET_OTHER },
     { "pl_dollar_user", GC_RET_OTHER },
     { "pl_dt_bad", GC_RET_OTHER },
     { "pl_dt_stamp", GC_RET_OTHER },
@@ -1057,6 +1060,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_lower_conj", GC_RET_OTHER },
     { "pl_lower_conj_guard", GC_RET_OTHER },
     { "pl_lower_det_goal", GC_RET_OTHER },
+    { "pl_lower_det_prop", GC_RET_OTHER },
     { "pl_lower_disj", GC_RET_OTHER },
     { "pl_lower_ite", GC_RET_OTHER },
     { "pl_lower_scc", GC_RET_OTHER },
@@ -1124,6 +1128,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_read_opts_ball", GC_RET_OTHER },
     { "pl_read_term_options_cell", GC_RET_OTHER },
     { "pl_read_term_text", GC_RET_OTHER },
+    { "pl_rt_creatable", GC_RET_OTHER },
     { "pl_rt_is_dynamic", GC_RET_OTHER },
     { "pl_runtime_clause_tree", GC_RET_OTHER },
     { "pl_runtime_define_fragment", GC_RET_OTHER },
