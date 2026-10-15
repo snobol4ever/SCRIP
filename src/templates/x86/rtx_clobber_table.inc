@@ -23,6 +23,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {
     { "rt_gc_fix_slots", 0 },
     { "rt_gc_forward_run", 0 },
     { "rt_gc_index_run", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_gc_mark_run", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_gc_reset_run", 0 },
     { "rt_gcheap_alloc", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_gen_spine_pass_γ", 0 },

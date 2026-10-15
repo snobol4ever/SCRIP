@@ -1180,7 +1180,8 @@ static inline rt_hblk_t *gc_blk_of(const char *p) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int gc_type_moves(uint16_t t) __attribute__((always_inline));
-static inline int gc_type_moves(uint16_t t) { return (t == HB_DVEC || (t >= HB_PLDB && t <= HB_TRIEN) || t == HB_ARR || t == HB_DINST || HB_IS_AGG(t)) ? 1 : 0; }
+#define GC_TYPE_MOVES(t) ((t) == HB_DVEC || ((t) >= HB_PLDB && (t) <= HB_TRIEN) || (t) == HB_ARR || (t) == HB_DINST || HB_IS_AGG(t))
+static inline int gc_type_moves(uint16_t t) { return GC_TYPE_MOVES(t) ? 1 : 0; }
 static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) __attribute__((always_inline));
 static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) {
     if (h->type == HB_FILL) return;
@@ -1193,13 +1194,14 @@ static long gc_visit_segment(const char *lo0, const char *hi0, const gc_ent_t *e
 static int gc_frames_visit_check(uint64_t *v);
 static void gc_frames_visit_judge(const uint64_t *v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_slot_grow(void) {
+    g_gc_scap = g_gc_scap ? g_gc_scap * 2 : 4096;
+    g_gc_slots = (gc_slot_t *)gcbk_grow((void *)g_gc_slots, (size_t)g_gc_scap * sizeof(*g_gc_slots));
+    if (!g_gc_slots) abort();
+}
 static inline void gc_slot_reg_tgt(void *loc, rt_hblk_t *tgt) __attribute__((always_inline));
 static inline void gc_slot_reg_tgt(void *loc, rt_hblk_t *tgt) {
-    if (g_gc_nslot == g_gc_scap) {
-        g_gc_scap = g_gc_scap ? g_gc_scap * 2 : 4096;
-        g_gc_slots = (gc_slot_t *)gcbk_grow((void *)g_gc_slots, (size_t)g_gc_scap * sizeof(*g_gc_slots));
-        if (!g_gc_slots) abort();
-    }
+    if (g_gc_nslot == g_gc_scap) gc_slot_grow();
     g_gc_slots[g_gc_nslot].loc = (const char **)loc;
     g_gc_slots[g_gc_nslot].tgt = tgt;
     g_gc_slots[g_gc_nslot].toff = (uintptr_t)(*(const char *const *)loc - (const char *)(tgt + 1));
@@ -1229,14 +1231,15 @@ static long g_gc_wln = 0, g_gc_wlcap = 0, g_gc_wlmax = 0;
 static long g_gc_wln = 0, g_gc_wlcap = 0;
 #endif
 static int g_gc_wl_draining = 0;
+static void gc_wl_grow(void) {
+    g_gc_wlcap = g_gc_wlcap ? g_gc_wlcap * 2 : 4096;
+    g_gc_wl = (DESCR_t **)gcbk_grow((void *)g_gc_wl, (size_t)g_gc_wlcap * sizeof(*g_gc_wl));
+    if (!g_gc_wl) { fprintf(stderr, "[ZGC] mark worklist alloc failed at %ld entries\n", g_gc_wlcap); abort(); }
+}
 static inline void gc_wl_push(DESCR_t *d) __attribute__((always_inline));
 static inline void gc_wl_push(DESCR_t *d) {
     if (!d || !gc_tag_bears_ptr(d->v)) return;
-    if (g_gc_wln == g_gc_wlcap) {
-        g_gc_wlcap = g_gc_wlcap ? g_gc_wlcap * 2 : 4096;
-        g_gc_wl = (DESCR_t **)gcbk_grow((void *)g_gc_wl, (size_t)g_gc_wlcap * sizeof(*g_gc_wl));
-        if (!g_gc_wl) { fprintf(stderr, "[ZGC] mark worklist alloc failed at %ld entries\n", g_gc_wlcap); abort(); }
-    }
+    if (g_gc_wln == g_gc_wlcap) gc_wl_grow();
     g_gc_wl[g_gc_wln++] = d;
 #if RT_DIAG
     if (g_gc_wln > g_gc_wlmax) g_gc_wlmax = g_gc_wln;
@@ -1428,12 +1431,79 @@ static void gc_visit_one(DESCR_t *d) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct gc_mk_t {
+    DESCR_t **wl;
+    long wln, wlcap;
+    gc_slot_t *slots;
+    long nslot, scap;
+    const char *arena, *top, *pmap_top;
+    const uint32_t *pmap;
+    rt_hblk_t **idx;
+    long nblk;
+    rt_hblk_t *mhead;
+    DESCR_t *rng_p;
+    long rng_n, wlmax, interior, dvec_elems, dvec_nondvec, lo, hi;
+} gc_mk_t;
+_Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_t, wln) == 8 && __builtin_offsetof(gc_mk_t, wlcap) == 16 && __builtin_offsetof(gc_mk_t, slots) == 24 &&
+    __builtin_offsetof(gc_mk_t, nslot) == 32 && __builtin_offsetof(gc_mk_t, scap) == 40 && __builtin_offsetof(gc_mk_t, arena) == 48 && __builtin_offsetof(gc_mk_t, top) == 56 &&
+    __builtin_offsetof(gc_mk_t, pmap_top) == 64 && __builtin_offsetof(gc_mk_t, pmap) == 72 && __builtin_offsetof(gc_mk_t, idx) == 80 && __builtin_offsetof(gc_mk_t, nblk) == 88 &&
+    __builtin_offsetof(gc_mk_t, mhead) == 96 && __builtin_offsetof(gc_mk_t, rng_p) == 104 && __builtin_offsetof(gc_mk_t, rng_n) == 112 && __builtin_offsetof(gc_mk_t, wlmax) == 120 &&
+    __builtin_offsetof(gc_mk_t, interior) == 128 && __builtin_offsetof(gc_mk_t, dvec_elems) == 136 && __builtin_offsetof(gc_mk_t, dvec_nondvec) == 144 && __builtin_offsetof(gc_mk_t, lo) == 152 &&
+    __builtin_offsetof(gc_mk_t, hi) == 160, "rt_gc_mark_run (rtx_alloc.s) reads and writes the mark cursor at these offsets");
+#define GC_MK_BIT(k) (GC_TYPE_MOVES(HB_AGGV + (k)) ? 1u << (k) : 0u)
+_Static_assert((GC_MK_BIT(0) | GC_MK_BIT(1) | GC_MK_BIT(2) | GC_MK_BIT(3) | GC_MK_BIT(4) | GC_MK_BIT(5) | GC_MK_BIT(6) | GC_MK_BIT(7) | GC_MK_BIT(8) | GC_MK_BIT(9) | GC_MK_BIT(10) | GC_MK_BIT(11) |
+    GC_MK_BIT(12) | GC_MK_BIT(13) | GC_MK_BIT(14) | GC_MK_BIT(15) | GC_MK_BIT(16) | GC_MK_BIT(17) | GC_MK_BIT(18)) == 0x7FDE7u && !GC_TYPE_MOVES(HB_AGGV - 1) && !GC_TYPE_MOVES(HB_AGGV + 19),
+    "rt_gc_mark_run (rtx_alloc.s) tests a block type for moving as bit (type - HB_AGGV) of its MK_MOVES 0x7FDE7, so every moving type lies in HB_AGGV..HB_AGGV+18 and the set reads as that mask");
+_Static_assert(HB_AGGV == 206 && HB_FILL == 202 && HB_DINST == 213 && HB_DVEC == 214 && DATA_ELEMS_SLEN == 1 && PROCVAL_SLEN == 0xFFFFFFFEu && PROCVAL_BUILTIN_SLEN == 0xFFFFFFFCu &&
+    PROCVAL_EXTERNAL_SLEN == 0xFFFFFFFBu, "rt_gc_mark_run (rtx_alloc.s) carries these block types and descriptor lengths as its own defines");
+static void gc_wl_drain(void) {
+    extern DESCR_t *rt_gc_mark_run(gc_mk_t *);
+    gc_mk_t m;
+    if (!g_gc_idx) { while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); return; }
+    memset(&m, 0, sizeof m);
+    m.arena = g_hp_arena;
+    m.top = g_hp_top;
+    m.pmap_top = g_gc_pmap_top;
+    m.pmap = g_gc_pmap;
+    m.idx = g_gc_idx;
+    m.nblk = g_gc_nblk;
+    for (;;) {
+        DESCR_t *d;
+        m.wl = g_gc_wl;
+        m.wln = g_gc_wln;
+        m.wlcap = g_gc_wlcap;
+        m.slots = g_gc_slots;
+        m.nslot = g_gc_nslot;
+        m.scap = g_gc_scap;
+        m.mhead = g_gc_mhead;
+#if RT_DIAG
+        m.wlmax = g_gc_wlmax;
+#endif
+        d = rt_gc_mark_run(&m);
+        g_gc_wln = m.wln;
+        g_gc_nslot = m.nslot;
+        g_gc_mhead = m.mhead;
+#if RT_DIAG
+        g_gc_wlmax = m.wlmax;
+#endif
+        if (!d) break;
+        if (d != (DESCR_t *)1) gc_visit_one(d);
+        else if (m.rng_n) gc_wl_grow();
+        else gc_slot_grow();
+    }
+#if RT_DIAG
+    g_gc_interior += m.interior;
+    g_gc_dvec_elems += m.dvec_elems;
+    g_gc_dvec_nondvec += m.dvec_nondvec;
+#endif
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_visit_descr(DESCR_t *d) {
     if (!d || !gc_tag_bears_ptr(d->v)) return;
     if (g_gc_wl_draining) { gc_wl_push(d); return; }
     g_gc_wl_draining = 1;
     gc_wl_push(d);
-    while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]);
+    gc_wl_drain();
     g_gc_wl_draining = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3572,7 +3642,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
                 rounds++;
 #endif
                 g_gc_wl_draining = 1;
-                while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]);
+                gc_wl_drain();
                 g_gc_wl_draining = 0;
             }
         }

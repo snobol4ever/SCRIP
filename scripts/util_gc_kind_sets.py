@@ -33,6 +33,11 @@ import re, sys, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GC_HEAP = os.path.join(os.path.dirname(HERE), "src", "runtime", "rt", "gc_heap.c")
+RTX_ALLOC = os.path.join(os.path.dirname(HERE), "src", "runtime", "rtx", "rtx_alloc.s")
+ASM_SPELLING = "rt_gc_mark_run"
+ASM_ROLE = ("the ASM MARK RUN's class table (.Lmk_class in rtx_alloc.s) -- its push filter and its dispatch, used in place "
+            "of gc_tag_bears_ptr and gc_visit_one's switch for every entry the run drains; it has no exclusions, so it "
+            "must equal the authority")
 KIND_RX = re.compile(r"\bDT_[A-Z0-9_]+\b")
 CALL_RX = re.compile(r"\b(gc_[a-z0-9_]+)\s*\(")
 AUTHORITY = "gc_visit_one"
@@ -92,10 +97,35 @@ def kinds_of(name, bods, depth=2):
     return ks, helpers
 
 
-def report(path=GC_HEAP, out=print):
+def asm_kinds(text):
+    """the DT_* kinds the asm class table gives a nonzero class: every `.org .Lmk_class + DT_X` followed by its
+    `.byte`, from the label to the table's `.org .Lmk_class + 256`; None when the table is not there"""
+    a = text.find(".Lmk_class:")
+    b = text.find(".org .Lmk_class + 256", a)
+    if a < 0 or b < 0:
+        return None
+    ks, cur = set(), None
+    for ln in text[a:b].splitlines():
+        ln = ln.strip()
+        m = re.match(r"\.org \.Lmk_class \+ (DT_[A-Z0-9_]+)$", ln)
+        if m:
+            cur = m.group(1)
+        elif ln.startswith(".byte ") and cur:
+            if ln.split()[1] not in ("0", "MK_NONE"):
+                ks.add(cur)
+            cur = None
+    return ks
+
+
+def report(path=GC_HEAP, out=print, asm_path=RTX_ALLOC):
     """rc 0 clean, 1 an undeclared or stale divergence (named), 2 refused"""
     if not os.path.exists(path):
         out(f"KINDSETS REFUSED(2): {path} is missing -- nothing to grade")
+        return 2
+    asm = asm_kinds(open(asm_path, encoding="utf-8", errors="replace").read()) if os.path.exists(asm_path) else None
+    if asm is None:
+        out(f"KINDSETS REFUSED(2): the class table .Lmk_class of {ASM_SPELLING} is not in {asm_path} -- a moved table "
+            "reads as agreement, which is the failure this instrument exists to catch")
         return 2
     bods = bodies(open(path, encoding="utf-8", errors="replace").read())
     missing = [f for f in ROLES if f not in bods]
@@ -131,10 +161,19 @@ def report(path=GC_HEAP, out=print):
                 state = DECLARED[(fn, k)][0]
                 out(f"KINDSETS STALE {fn} HAS {k} and it is still declared {state} -- the cure landed and the "
                     "declaration did not move; remove the entry in the landing that earns it")
+    out(f"KINDSETS SPELLING {ASM_SPELLING} kinds={len(asm)} role={ASM_ROLE}")
+    for k in sorted(auth - asm):
+        bad += 1
+        out(f"KINDSETS UNDECLARED {ASM_SPELLING} lacks {k} -- the authority {AUTHORITY} has it and the asm mark run "
+            "drops every such descriptor at its push, so the block it points at is swept while the heap visitor would mark it")
+    for k in sorted(asm - auth):
+        bad += 1
+        out(f"KINDSETS NOT-A-SUBSET {ASM_SPELLING} takes {k} and the authority {AUTHORITY} does not -- a copy that goes "
+            "BEYOND its authority visits something the heap visitor cannot follow")
     out(f"KINDSETS NOT IN THIS POPULATION AND SAID SO: gc_tag_known answers a DIFFERENT question (is this byte a "
         f"plausible tag at all, including DT_I, DT_R and the DT_P..DT_MAP block) and is not a payload test; "
         f"rt_gc_visit_descr dispatches on {AUTHORITY}'s own switch and is not a second spelling.")
-    out(f"KINDSETS file={os.path.basename(path)} authority={AUTHORITY} spellings={len(ROLES)} undeclared_or_stale={bad}")
+    out(f"KINDSETS file={os.path.basename(path)} authority={AUTHORITY} spellings={len(ROLES) + 1} undeclared_or_stale={bad}")
     return 1 if bad else 0
 
 
@@ -158,9 +197,14 @@ def selftest():
     arm("kinds_of names the helper it expanded", kinds_of("gc_cell_visit", b)[1] == {"gc_helper"})
     arm("kinds_of refuses a name that is not there", kinds_of("nosuch", b)[0] is None)
     arm("report REFUSES a missing file", report("/nonexistent/gc_heap.c", out=lambda *_: None) == 2)
+    tab = (".Lmk_class:\n.org .Lmk_class + DT_SNUL\n.byte MK_PLAIN_I\n.org .Lmk_class + DT_P\n.byte 0\n"
+           ".org .Lmk_class + DT_X\n.byte MK_PLAIN_I\n.org .Lmk_class + 256\n")
+    arm("asm_kinds reads the class table and skips a zero class", asm_kinds(tab) == {"DT_SNUL", "DT_X"})
+    arm("asm_kinds refuses a table that is not there", asm_kinds("rt_gc_mark_run:\n    ret\n") is None)
     tmp = os.path.join(os.environ.get("TMPDIR", "/tmp"), "kindsets_selftest.c")
     open(tmp, "w", encoding="utf-8").write(src)
     arm("report REFUSES when a spelling is missing from the file", report(tmp, out=lambda *_: None) == 2)
+    arm("report REFUSES when the asm class table is missing", report(GC_HEAP, out=lambda *_: None, asm_path=tmp) == 2)
     os.unlink(tmp)
     print(f"SELFTEST {ok[0]}/{ok[1]} arms green")
     return 0 if ok[0] == ok[1] else 1

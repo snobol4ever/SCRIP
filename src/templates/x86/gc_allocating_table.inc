@@ -2715,6 +2715,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "sno_trace_return", GC_RET_VOID },
     { "sno_trace_value", GC_RET_VOID },
     { "snobol4_parse", GC_RET_OTHER },
+    { "so_icn_op_error", GC_RET_DESCR },
     { "sort_chars_cmp", GC_RET_OTHER },
     { "sort_chars_len", GC_RET_OTHER },
     { "sort_column", GC_RET_OTHER },
