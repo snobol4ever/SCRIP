@@ -27,8 +27,8 @@ cat > "$W/leaf.sno" <<'SNO'
         OUTPUT = w1 '|' w2 '|' w3 '|' w4
         s TAB(3) . t1 RTAB(4) . t2 ARBNO('x') . t3 FENCE('fox') . t4
         OUTPUT = t1 '|' t2 '|' t3 '|' t4
-        t = TABLE(); t<'k'> = 'v'; a = ARRAY('2,3'); a<1,2> = 7
-        OUTPUT = ITEM(t, 'k') ' ' ITEM(a, 1, 2) ' ' PROTOTYPE(a) ' ' COPY(a)<1,2> ' ' SIZE(PROTOTYPE(a))
+        t = TABLE(); t['k'] = 'v'; a = ARRAY('2,3'); a[1,2] = 7
+        OUTPUT = ITEM(t, 'k') ' ' ITEM(a, 1, 2) ' ' PROTOTYPE(a) ' ' COPY(a)[1,2] ' ' SIZE(PROTOTYPE(a))
         OUTPUT = (SQRT(16.0) + SIN(0.0) + COS(0.0) + EXP(0.0) + LN(1.0) + ATAN(0.0) + TAN(0.0)) ' ' CHOP(3.7) ' ' (DATE() ? 'date' ) ' ' (TIME() ? 'time')
         OUTPUT = EVAL('1 + 2')
 END

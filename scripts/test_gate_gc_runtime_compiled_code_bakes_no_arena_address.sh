@@ -39,8 +39,8 @@ cat > "$T/w.sno" <<'SNO'
         $'W' = FENCE(SPAN(' ') | '')
         S = '1,2,3'
         R = TABLE()
-        R<1> = ARBNO($'W' ',' ANY('123'))
-        S POS(0) ANY('123') R<1> RPOS(0)                          :S(OK)F(BAD)
+        R[1] = ARBNO($'W' ',' ANY('123'))
+        S POS(0) ANY('123') R[1] RPOS(0)                          :S(OK)F(BAD)
 OK      OUTPUT = 'MATCH'                                          :(NEXT)
 BAD     OUTPUT = 'FAIL'
 NEXT    T = 'a b  c'

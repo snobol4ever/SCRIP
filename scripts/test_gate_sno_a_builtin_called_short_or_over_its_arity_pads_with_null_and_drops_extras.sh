@@ -97,11 +97,11 @@ FE      OUTPUT = '1<' APPLY('F', 1, 2, 3, 4, 5, 6, 7, 8, 9, 0) '>'
         OUTPUT = '2<' MYSIZE() '>'
         OUTPUT = '3<' MYSIZE('abc', 'x') '>'
         A = ARRAY('2,2')
-        A<1,2> = 'q'
+        A[1,2] = 'q'
         OUTPUT = '6<' ITEM(A, 1, 2) '>'
         T = TABLE(10, 10)
-        T<'k'> = 'v'
-        OUTPUT = '7<' T<'k'> '>'
+        T['k'] = 'v'
+        OUTPUT = '7<' T['k'] '>'
         OUTPUT = 'end'
 END
 SNO

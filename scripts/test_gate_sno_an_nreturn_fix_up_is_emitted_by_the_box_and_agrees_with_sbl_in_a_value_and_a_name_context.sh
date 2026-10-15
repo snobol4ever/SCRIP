@@ -28,18 +28,18 @@ cat > "$D/n.sno" <<'SNO'
         DEFINE('F()')                           :(F.E)
 F       F = .X                                  :(NRETURN)
 F.E     DEFINE('G()')                           :(G.E)
-G       G = .A<2>                               :(NRETURN)
+G       G = .A[2]                               :(NRETURN)
 G.E     DEFINE('H()')                           :(H.E)
-H       H = .T<'k'>                             :(NRETURN)
+H       H = .T['k']                             :(NRETURN)
 H.E     DEFINE('K()')                           :(K.E)
 K       K = .&MAXLNGTH                          :(NRETURN)
 K.E     DEFINE('P(Z)')                          :(P.E)
 P       P = Z                                   :(RETURN)
 P.E     X = 'xv'
         A = ARRAY(3)
-        A<2> = 'two'
+        A[2] = 'two'
         T = TABLE()
-        T<'k'> = 'tv'
+        T['k'] = 'tv'
         Y = F()
         OUTPUT = 'F value ' Y
         F() = 'new'
@@ -47,11 +47,11 @@ P.E     X = 'xv'
         Y = G()
         OUTPUT = 'G value ' Y
         G() = 'z2'
-        OUTPUT = 'G assign ' A<2>
+        OUTPUT = 'G assign ' A[2]
         Y = H()
         OUTPUT = 'H value ' Y
         H() = 'tz'
-        OUTPUT = 'H assign ' T<'k'>
+        OUTPUT = 'H assign ' T['k']
         Y = K()
         OUTPUT = 'K value ' (Y GT 1000 'big')
         OUTPUT = 'nested ' P(F()) ' ' P(G())

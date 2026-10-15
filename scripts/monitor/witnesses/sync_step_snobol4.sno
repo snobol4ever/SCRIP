@@ -12,11 +12,11 @@ fails_end
         OUTPUT = first
         OUTPUT = rest
         t = TABLE()
-        t<'a'> = 5
-        OUTPUT = t<'a'>
+        t['a'] = 5
+        OUTPUT = t['a']
         a = ARRAY(3)
-        a<2> = 7
-        OUTPUT = a<2>
+        a[2] = 7
+        OUTPUT = a[2]
         $'ind' = 'via dollar'
         OUTPUT = ind
         z = fails()

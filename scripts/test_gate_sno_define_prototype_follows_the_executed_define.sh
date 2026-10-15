@@ -40,10 +40,10 @@ cat > "$T/w2.sno" <<'SNO'
 	DEFINE('C(L)T')                                 :(C_END)
 C	DEFINE('C(L)', 'C_1')
 	T = TABLE(10)
-	T<'seen'> = 'yes'
+	T['seen'] = 'yes'
 	C = C(L)
 	DEFINE('C(L)T')                                 :(RETURN)
-C_1	C = 'inner sees T<seen> = ' T<'seen'> ' with L = ' L   :(RETURN)
+C_1	C = 'inner sees T<seen> = ' T['seen'] ' with L = ' L   :(RETURN)
 C_END
 	OUTPUT = C('x')
 	OUTPUT = 'outer T after = [' T ']'

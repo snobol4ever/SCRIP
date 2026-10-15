@@ -31,14 +31,14 @@ SBL="$(sbl_correctness_bin)"; [ -x "$SBL" ] || { echo "GATE UNPROVEN(2) [$G]: sb
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_nsave.XXXXXX")" || { echo "GATE UNPROVEN(2) [$G]: mktemp failed"; exit 2; }
 trap 'rm -rf "$W"' EXIT
 MS=$'\tDEFINE("MS(A,OP)")\t:(MS_END)\nMS\tOPSYN("Z","LT")\n\tMS = 1\t:(RETURN)\nMS_END\n'
-FP=$'\tDEFINE("F(S)I,PAT")\t:(F_END)\nF\tF = ARRAY(SIZE(S))\n\tPAT = LEN(1) . *F<I>\nF_L\tI = I + 1\n\tS PAT =\t:S(F_L)F(RETURN)\nF_END\n'
+FP=$'\tDEFINE("F(S)I,PAT")\t:(F_END)\nF\tF = ARRAY(SIZE(S))\n\tPAT = LEN(1) . *F[I]\nF_L\tI = I + 1\n\tS PAT =\t:S(F_L)F(RETURN)\nF_END\n'
 printf '%s%s\tS = "MISSISSIPPI"\n\tC = F("MISP")\n\tOUTPUT = "S=[" S "]"\nEND\n' "$MS" "$FP" > "$W/P.sno"
 printf '%s\tS = "MISSISSIPPI"\n\tC = F("MISP")\n\tOUTPUT = "S=[" S "]"\nEND\n' "$FP" > "$W/U.sno"
 printf '%s%s\tS = "MISSISSIPPI"\n\tI = "gi"\n\tPAT = "gp"\n\tF = "gf"\n\tC = F("MISP")\n\tOUTPUT = "S=[" S "] I=[" I "] PAT=[" PAT "] F=[" DATATYPE(F) "]"\nEND\n' "$MS" "$FP" > "$W/R.sno"
-CR=$'\tDEFINE("CRACK(S,B)I,PAT")\t:(CRACK_END)\nCRACK\tCRACK = ARRAY(SIZE(S))\n\tPAT = LEN(1) . *CRACK<I>\nCRACK_2\tI = I + 1\n\tS PAT =\t:S(CRACK_2)F(RETURN)\nCRACK_END\n'
+CR=$'\tDEFINE("CRACK(S,B)I,PAT")\t:(CRACK_END)\nCRACK\tCRACK = ARRAY(SIZE(S))\n\tPAT = LEN(1) . *CRACK[I]\nCRACK_2\tI = I + 1\n\tS PAT =\t:S(CRACK_2)F(RETURN)\nCRACK_END\n'
 CN=$'\tDEFINE("COUNT(S1,S2)FIRST,REST,P")\t:(COUNT_END)\nCOUNT\tS2 LEN(1) . FIRST REM . REST\t:F(RETURN)\n\tP = POS(0) BREAKX(FIRST) S2\nCOUNT_1\tS1 P = REST\t:F(RETURN)\n\tCOUNT = COUNT + 1\t:(COUNT_1)\nCOUNT_END\n'
 printf '%s%s%s\tS = "MISSISSIPPI"\n\tC = CRACK("MISP")\n\tOUTPUT = "a=" COUNT(S,"S")\nEND\n' "$CR" "$CN" "$MS" > "$W/W.sno"
-FN=$'\tDEFINE("F(S,N)I,PAT")\t:(F_END)\nF\tF = ARRAY(10)\n\tPAT = LEN(1) . *F<I>\nF_L\tI = I + 1\n\tLE(I,N)\t:F(RETURN)\n\tS PAT\t:S(F_L)F(RETURN)\nF_END\n'
+FN=$'\tDEFINE("F(S,N)I,PAT")\t:(F_END)\nF\tF = ARRAY(10)\n\tPAT = LEN(1) . *F[I]\nF_L\tI = I + 1\n\tLE(I,N)\t:F(RETURN)\n\tS PAT\t:S(F_L)F(RETURN)\nF_END\n'
 printf '%s%s\tS = "MISSISSIPPI"\n\tC = F("MISP", 1)\n\tOUTPUT = "1:" S\n\tS = "MISSISSIPPI"\n\tC = F("MISP", 2)\n\tOUTPUT = "2:" S\n\tS = "MISSISSIPPI"\n\tC = F("MISP", 0)\n\tOUTPUT = "0:" S\nEND\n' "$MS" "$FN" > "$W/N.sno"
 PASS=0; FAIL=0; GRADED=0
 grade() { local name="$1" env="$2" o rc3 rc4

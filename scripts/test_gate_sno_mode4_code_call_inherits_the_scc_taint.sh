@@ -38,7 +38,7 @@ MS=$'\tDEFINE("MS(A,OP)")\t:(MS_END)\nMS\tOPSYN("Z","LT")\n\tMS = 1\t:(RETURN)\n
 CC=$'\tDEFINE("CNT(A,B)")\t:(CNT_END)\nCNT\tCNT = A + B\t:(RETURN)\nCNT_END\n'
 TL=$'\tX = CODE("  N = CNT(2,3)  :(END_C)")\n\t:<X>\nEND_C\tOUTPUT = "n=" N\nEND\n'
 printf '%s%s%s' "$CC" "$MS" "$TL" > "$W/T.sno"; printf '%s%s' "$CC" "$TL" > "$W/U.sno"
-printf -- '-INCLUDE "%s"\n-INCLUDE "%s"\n%s\tS = "MISSISSIPPI"\n\tC = ARRAY(2)\n\tC<1> = "S"\n\tC<2> = "M"\n\tN = ARRAY(2)\n\tSEQ("  N<I>  =  COUNT(S,C<I>) ", .I)\n\tOUTPUT = "n=" N<1> "," N<2>\nEND\n' "$COUNT_F" "$SEQ_F" "$MS" > "$W/S.sno"
+printf -- '-INCLUDE "%s"\n-INCLUDE "%s"\n%s\tS = "MISSISSIPPI"\n\tC = ARRAY(2)\n\tC[1] = "S"\n\tC[2] = "M"\n\tN = ARRAY(2)\n\tSEQ("  N[I]  =  COUNT(S,C[I]) ", .I)\n\tOUTPUT = "n=" N[1] "," N[2]\nEND\n' "$COUNT_F" "$SEQ_F" "$MS" > "$W/S.sno"
 cp "$GIM/$FRS_D" "$W/F.sno"
 PASS=0; FAIL=0; GRADED=0
 grade() { local name="$1" dir="$2" rc4 o

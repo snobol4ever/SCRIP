@@ -35,27 +35,27 @@ trap 'rm -rf "$T"' EXIT
 cat > "$T/conv.sno" <<'EOF'
         T = TABLE()
         K1 = CONVERT('ABC', 'NAME')
-        T<K1> = 'v1'
+        T[K1] = 'v1'
         K2 = CONVERT('ABC', 'NAME')
         OUTPUT = 'ident ' (IDENT(K1, K2) 'same', 'differ')
-        OUTPUT = 'second convert [' T<K2> ']'
-        OUTPUT = 'dot [' T<.ABC> ']'
+        OUTPUT = 'second convert [' T[K2] ']'
+        OUTPUT = 'dot [' T[.ABC] ']'
         OUTPUT = 'item [' ITEM(T, K2) ']'
-        T<.XYZ> = 'v2'
-        OUTPUT = 'convert of a dot key [' T<CONVERT('XYZ','NAME')> ']'
+        T[.XYZ] = 'v2'
+        OUTPUT = 'convert of a dot key [' T[CONVERT('XYZ','NAME')] ']'
 END
 EOF
 cat > "$T/dot.sno" <<'EOF'
         T = TABLE()
-        T<.ABC> = 'dotkey'
-        OUTPUT = 'dot [' T<.ABC> '] other [' T<.ABD> ']'
+        T[.ABC] = 'dotkey'
+        OUTPUT = 'dot [' T[.ABC] '] other [' T[.ABD] ']'
 END
 EOF
 cat > "$T/ctl.sno" <<'EOF'
         T = TABLE()
-        T<.ABC> = 'name'
-        T<'ABC'> = 'string'
-        OUTPUT = 'string [' T<'ABC'> '] name [' T<.ABC> ']'
+        T[.ABC] = 'name'
+        T['ABC'] = 'string'
+        OUTPUT = 'string [' T['ABC'] '] name [' T[.ABC] ']'
 END
 EOF
 for w in conv dot ctl; do ( cd "$T" && timeout 10 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ) || refuse "sbl did not run $w cleanly"; done

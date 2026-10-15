@@ -26,7 +26,7 @@ ICONT="${ICONT_BIN:-/home/resources/icon-master/bin/icont}"; [ -x "$ICONT" ] || 
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 STRESS="${GATE_GC_STRESS:-500}"
-printf "        A = ARRAY(4)\n        A<1> = 'alpha'\n        A<2> = 'beta'\n        I = 0\nLOOP    I = LT(I,60000) I + 1                     :F(SHOW)\n        X = ARRAY(50)\n        Y = 'junk' I 'more'                       :(LOOP)\nSHOW    OUTPUT = A<1> ' ' A<2>\nEND\n" > "$T/arr.sno"
+printf "        A = ARRAY(4)\n        A[1] = 'alpha'\n        A[2] = 'beta'\n        I = 0\nLOOP    I = LT(I,60000) I + 1                     :F(SHOW)\n        X = ARRAY(50)\n        Y = 'junk' I 'more'                       :(LOOP)\nSHOW    OUTPUT = A[1] ' ' A[2]\nEND\n" > "$T/arr.sno"
 printf "        DATA('NODE(VAL,NXT)')\n        P = NODE('alpha','beta')\n        I = 0\nLOOP    I = LT(I,60000) I + 1                     :F(SHOW)\n        X = ARRAY(50)\n        Y = 'junk' I 'more'                       :(LOOP)\nSHOW    OUTPUT = VAL(P) ' ' NXT(P)\nEND\n" > "$T/dat.sno"
 printf 'record pt(x, y)\nprocedure main();\n   local r, i, junk;\n   r := pt("alpha", "beta");\n   every i := 1 to 300000 do junk := [i, i+1, i+2];\n   write(r.x, " ", r.y);\nend\n' > "$T/rec.icn"
 ( cd "$T" && "$SBL" -bf arr.sno ) >"$T/arr.ref" 2>&1

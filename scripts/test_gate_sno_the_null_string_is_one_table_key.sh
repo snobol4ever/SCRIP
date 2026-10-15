@@ -35,32 +35,32 @@ T="$(mktemp -d)" || refuse "no tmpdir"
 trap 'rm -rf "$T"' EXIT
 cat > "$T/sources.sno" <<'EOF'
         T = TABLE()
-        T<> = 'x'
-        OUTPUT = 'unset[' T<NEVERSET> ']'
+        T[] = 'x'
+        OUTPUT = 'unset[' T[NEVERSET] ']'
         E =
-        OUTPUT = 'empty-asgn[' T<E> ']'
-        OUTPUT = 'lit[' T<''> ']'
+        OUTPUT = 'empty-asgn[' T[E] ']'
+        OUTPUT = 'lit[' T[''] ']'
         DEFINE('F(P,U)')                        :(FE)
-F       F = T<U>                                :(RETURN)
+F       F = T[U]                                :(RETURN)
 FE      OUTPUT = 'omitted[' F('a') ']'
         DEFINE('G()')                           :(GE)
 G                                               :(RETURN)
-GE      OUTPUT = 'fn-null[' T<G()> ']'
-        OUTPUT = 'trim[' T<TRIM('  ')> ']'
+GE      OUTPUT = 'fn-null[' T[G()] ']'
+        OUTPUT = 'trim[' T[TRIM('  ')] ']'
         S = 'ab'
         S LEN(2) =
-        OUTPUT = 'repl[' T<S> ']'
+        OUTPUT = 'repl[' T[S] ']'
         T2 = TABLE()
-        T2<NEVERSET2> = 'y'
-        OUTPUT = 'rev-lit[' T2<''> ']'
-        OUTPUT = 'rev-empty[' T2<> ']'
+        T2[NEVERSET2] = 'y'
+        OUTPUT = 'rev-lit[' T2[''] ']'
+        OUTPUT = 'rev-empty[' T2[] ']'
 END
 EOF
 cat > "$T/omitted.sno" <<'EOF'
         READ_TBL = TABLE()
-        READ_TBL<> = 'stdin-entry'
+        READ_TBL[] = 'stdin-entry'
         DEFINE('MF(P,U)D')                      :(MF_END)
-MF      D = READ_TBL<U>
+MF      D = READ_TBL[U]
         MF = IDENT(D) 'MISSED'                  :S(RETURN)
         MF = D                                  :(RETURN)
 MF_END  OUTPUT = MF('x')

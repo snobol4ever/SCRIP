@@ -14,12 +14,12 @@
         N = 0
 LOOP    N = LT(N,400) N + 1                       :F(DONE)
         S = DUPL('x',N) '@' NAME
-        T<N> = S
-        A<REMDR(N,8) + 1> = S                     :(LOOP)
+        T[N] = S
+        A[REMDR(N,8) + 1] = S                     :(LOOP)
 DONE    OUTPUT = NAME
-        OUTPUT = N ' ' SIZE(T<1>) ' ' SIZE(T<400>)
-        OUTPUT = SIZE(A<1>) ' ' SIZE(A<8>)
-        T<400> PAT                                :F(NOMATCH)
+        OUTPUT = N ' ' SIZE(T[1]) ' ' SIZE(T[400])
+        OUTPUT = SIZE(A[1]) ' ' SIZE(A[8])
+        T[400] PAT                                :F(NOMATCH)
         OUTPUT = SIZE(PRE) ' ' POST               :(END)
 NOMATCH OUTPUT = 'PATTERN LOST'
 END

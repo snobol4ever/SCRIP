@@ -22,41 +22,41 @@ T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 pass=0; fail=0; graded=0
 cat > "$T/fn.sno" <<'EOF'
         DEFINE('F()')                       :(FEND)
-F       A<1> 'A' = 'X'                      :(RETURN)
+F       A[1] 'A' = 'X'                      :(RETURN)
 FEND
         A = ARRAY(3)
-        A<1> = 'ABC'
+        A[1] = 'ABC'
         F()
-        OUTPUT = A<1>
+        OUTPUT = A[1]
 END
 EOF
 cat > "$T/fn2.sno" <<'EOF'
         DEFINE('F()')                       :(FEND)
-F       OUTPUT = 'IN1 ' A<1>
-        A<1> 'A' = 'X'
-        OUTPUT = 'IN2 ' A<1>                :(RETURN)
+F       OUTPUT = 'IN1 ' A[1]
+        A[1] 'A' = 'X'
+        OUTPUT = 'IN2 ' A[1]                :(RETURN)
 FEND
         A = ARRAY(3)
-        A<1> = 'ABC'
+        A[1] = 'ABC'
         F()
-        OUTPUT = 'OUT ' A<1>
+        OUTPUT = 'OUT ' A[1]
 END
 EOF
 cat > "$T/top.sno" <<'EOF'
         A = ARRAY(3)
-        A<1> = 'ABC'
-        A<1> 'A' = 'X'
-        OUTPUT = A<1>
+        A[1] = 'ABC'
+        A[1] 'A' = 'X'
+        OUTPUT = A[1]
 END
 EOF
 cat > "$T/loop.sno" <<'EOF'
         A = ARRAY(3)
         I = 0
-L       A<1> = 'ABC'
-        A<1> 'A' = 'X'
+L       A[1] = 'ABC'
+        A[1] 'A' = 'X'
         I = I + 1
         LT(I,200000) :S(L)
-        OUTPUT = 'done ' A<1> ' ' I
+        OUTPUT = 'done ' A[1] ' ' I
 END
 EOF
 cat > "$T/var.sno" <<'EOF'

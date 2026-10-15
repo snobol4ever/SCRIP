@@ -56,11 +56,11 @@ MEM_END
         T1 = TABLE(30)
         E = 'bcd,efg,xy,'
         E BREAK(',') . W ',' =
-        T1<'a'> = ANY(W)
+        T1['a'] = ANY(W)
         E BREAK(',') . W ',' =
-        T1<'b'> = ANY(W)
-        OUTPUT = 'ta ' MEM(T1<'a'>)
-        OUTPUT = 'tb ' MEM(T1<'b'>)
+        T1['b'] = ANY(W)
+        OUTPUT = 'ta ' MEM(T1['a'])
+        OUTPUT = 'tb ' MEM(T1['b'])
         F = 'bcd'
         F BREAK(',') . Z                        :F(FEND)
         OUTPUT = 'end ' MEM(ANY(Z))             :(FDONE)

@@ -35,7 +35,7 @@ cat > "$W/w.sno" <<'EOS'
         A = TABLE()
         N = 0
 LOOP    N = N + 1
-        A<N> = DUPL("x", 200) ":" N
+        A[N] = DUPL("x", 200) ":" N
         LT(N, 300)                                      :S(LOOP)
         OUTPUT = "DONE"
 END

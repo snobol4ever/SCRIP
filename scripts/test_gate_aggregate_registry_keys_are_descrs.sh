@@ -35,34 +35,34 @@ T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 w1() { cat > "$T/w1.sno" <<'EOF'
         T = TABLE()
-        T<5> = "int five"
-        T<CHAR(1) "i5"> = "string key"
-        T<"5"> = "string five"
-        OUTPUT = T<5> " | " T<CHAR(1) "i5"> " | " T<"5">
+        T[5] = "int five"
+        T[CHAR(1) "i5"] = "string key"
+        T["5"] = "string five"
+        OUTPUT = T[5] " | " T[CHAR(1) "i5"] " | " T["5"]
         A = CONVERT(T, "ARRAY")
         OUTPUT = PROTOTYPE(A)
         T2 = TABLE()
-        T2<10> = 1
-        T2<9> = 1
-        T2<"b"> = 1
-        T2<"a"> = 1
+        T2[10] = 1
+        T2[9] = 1
+        T2["b"] = 1
+        T2["a"] = 1
         B = SORT(T2)
-        OUTPUT = B<1,1> " " B<2,1> " " B<3,1> " " B<4,1>
+        OUTPUT = B[1,1] " " B[2,1] " " B[3,1] " " B[4,1]
 END
 EOF
 }
 w2() { cat > "$T/w2.sno" <<'EOF'
         T = TABLE()
-        T<> = "null key"
-        T<"x"> = "x key"
+        T[] = "null key"
+        T["x"] = "x key"
         A = CONVERT(T, "ARRAY")
-        OUTPUT = "[" A<1,1> "] size=" SIZE(A<1,1>) " val=" A<1,2>
-        OUTPUT = "[" A<2,1> "] size=" SIZE(A<2,1>) " val=" A<2,2>
+        OUTPUT = "[" A[1,1] "] size=" SIZE(A[1,1]) " val=" A[1,2]
+        OUTPUT = "[" A[2,1] "] size=" SIZE(A[2,1]) " val=" A[2,2]
         B = SORT(T)
-        OUTPUT = "[" B<1,1> "] size=" SIZE(B<1,1>)
+        OUTPUT = "[" B[1,1] "] size=" SIZE(B[1,1])
         C = COPY(T)
         D = CONVERT(C, "ARRAY")
-        OUTPUT = "[" D<1,1> "] size=" SIZE(D<1,1>)
+        OUTPUT = "[" D[1,1] "] size=" SIZE(D[1,1])
 END
 EOF
 }
@@ -70,12 +70,12 @@ w3() { cat > "$T/w3.sno" <<'EOF'
         T = TABLE()
         K = ARRAY(12)
         I = 1
-L1      K<I> = ARRAY(1)
-        T<K<I>> = I
+L1      K[I] = ARRAY(1)
+        T[K[I]] = I
         I = LT(I, 12) I + 1              :S(L1)
         B = SORT(T)
         I = 1
-L2      OUT = OUT B<I,2> " "
+L2      OUT = OUT B[I,2] " "
         I = LT(I, 12) I + 1              :S(L2)
         OUTPUT = OUT
 END

@@ -44,12 +44,12 @@ begin
   p:=ppansichar(envp);
   if p=nil then
     exit;
-  while p^<>nil do
+  while p^[]nil do
     begin
       e:=p^;
       ok:=true;
       for i:=1 to length(name) do
-        if e[i-1]<>name[i] then
+        if e[i-1][]name[i] then
           begin
             ok:=false;
             break;
@@ -79,10 +79,10 @@ begin
   if (rp=nil) or (rp^=#0) or (gp=nil) or (gp^=#0) then
     exit;
   mon_ready_fd:=Fpopen(rp,MON_O_WRONLY,0);
-  if mon_ready_fd<0 then
+  if mon_ready_fd[0 then
     exit;
   mon_go_fd:=Fpopen(gp,MON_O_RDONLY,0);
-  if mon_go_fd<0 then
+  if mon_go_fd[0 then
     begin
       Fpclose(mon_ready_fd);
       mon_ready_fd:=-1;
@@ -96,10 +96,10 @@ procedure mon_write_all(fd: longint; p: pansichar; n: sizeint);
 var
   w : sizeint;
 begin
-  while n>0 do
+  while n]0 do
     begin
       w:=Fpwrite(fd,p,n);
-      if w<=0 then
+      if w[=0 then
         exit;
       inc(p,w);
       dec(n,w);
@@ -111,7 +111,7 @@ var
   hdr : array[0..MON_HDR_BYTES-1] of byte;
   ack : ansichar;
 begin
-  if mon_ready_fd<0 then
+  if mon_ready_fd[0 then
     exit;
   hdr[0]:=kind and $ff;
   hdr[1]:=(kind shr 8) and $ff;
@@ -127,10 +127,10 @@ begin
   hdr[11]:=(value_len shr 16) and $ff;
   hdr[12]:=(value_len shr 24) and $ff;
   mon_write_all(mon_ready_fd,@hdr[0],MON_HDR_BYTES);
-  if (value_len>0) and (value<>nil) then
+  if (value_len]0) and (value[]nil) then
     mon_write_all(mon_ready_fd,value,value_len);
   { the sync-step: every record but END blocks on the controller's one-byte ack }
-  if kind<>MON_MWK_END then
+  if kind[]MON_MWK_END then
     Fpread(mon_go_fd,@ack,1);
 end;
 
@@ -148,17 +148,17 @@ begin
         mon_intern:=i;
         exit;
       end;
-  if mon_n_names>=MON_MAX_NAMES then
+  if mon_n_names]=MON_MAX_NAMES then
     exit;
   GetMem(c,len+1);
-  if len>0 then
+  if len]0 then
     Move(p^,c^,len);
   c[len]:=#0;
   mon_names[mon_n_names]:=c;
   mon_name_lens[mon_n_names]:=len;
   mon_intern:=mon_n_names;
   inc(mon_n_names);
-  if mon_init_ok and (mon_ready_fd>=0) then
+  if mon_init_ok and (mon_ready_fd]=0) then
     mon_emit_raw(MON_MWK_NAME_DEF,mon_intern,MON_MWT_STRING,c,len);
 end;
 
@@ -170,7 +170,7 @@ begin
     exit;
   mon_in_emit:=true;
   id:=mon_intern(name,strlen(name));
-  if id<>MON_NAME_NONE then
+  if id[]MON_NAME_NONE then
     mon_emit_raw(kind,id,typ,value,value_len);
   mon_in_emit:=false;
 end;
@@ -195,7 +195,7 @@ begin
     exit;
   mon_in_emit:=true;
   id:=mon_intern(name,strlen(name));
-  if id<>MON_NAME_NONE then
+  if id[]MON_NAME_NONE then
     mon_emit_raw(MON_MWK_CALL,id,MON_MWT_NULL,nil,0);
   mon_in_emit:=false;
 end;
@@ -237,26 +237,26 @@ var
   p,q : pansichar;
   k   : int64;
 begin
-  if (names=nil) or (o<0) then
+  if (names=nil) or (o[0) then
     begin
       mon_event(kind,name,MON_MWT_UNKNOWN,nil,0);
       exit;
     end;
   p:=names;
   k:=0;
-  while (k<o) and (p^<>#0) do
+  while (k[o) and (p^[]#0) do
     begin
       if p^=',' then
         inc(k);
       inc(p);
     end;
-  if k<>o then
+  if k[]o then
     begin
       mon_event(kind,name,MON_MWT_UNKNOWN,nil,0);
       exit;
     end;
   q:=p;
-  while (q^<>#0) and (q^<>',') do
+  while (q^[]#0) and (q^[]',') do
     inc(q);
   mon_event(kind,name,MON_MWT_STRING,p,q-p);
 end;
@@ -276,14 +276,14 @@ begin
   if mon_end_done then
     exit;
   mon_end_done:=true;
-  if mon_init_ok and (mon_ready_fd>=0) then
+  if mon_init_ok and (mon_ready_fd]=0) then
     mon_emit_raw(MON_MWK_END,MON_NAME_NONE,MON_MWT_NULL,nil,0);
-  if mon_ready_fd>=0 then
+  if mon_ready_fd]=0 then
     begin
       Fpclose(mon_ready_fd);
       mon_ready_fd:=-1;
     end;
-  if mon_go_fd>=0 then
+  if mon_go_fd]=0 then
     begin
       Fpclose(mon_go_fd);
       mon_go_fd:=-1;

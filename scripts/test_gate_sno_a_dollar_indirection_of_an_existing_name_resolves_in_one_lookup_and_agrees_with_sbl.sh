@@ -45,7 +45,7 @@ cat > "$D/d.sno" <<'SNO'
         $h2 = 1
         OUTPUT = 'kw set ' &ANCHOR
         t = TABLE()
-        t<'a'> = 'ta'
+        t['a'] = 'ta'
         h3 = 'size'
         size = 99
         OUTPUT = $h3 + 1

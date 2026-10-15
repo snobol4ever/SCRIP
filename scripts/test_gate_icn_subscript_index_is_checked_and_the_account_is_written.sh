@@ -138,20 +138,20 @@ icn_arm r1 0
 icn_arm r2 1
 cat > "$T/s1.sno" <<'SNO'
 	A = ARRAY(5)
-	A<2> = 'two'
-	OUTPUT = A<2>
-	OUTPUT = A<'3'> ':numeric-string-subscript-still-works'
-	A<'3'> = 'three'
-	OUTPUT = A<3>
+	A[2] = 'two'
+	OUTPUT = A[2]
+	OUTPUT = A['3'] ':numeric-string-subscript-still-works'
+	A['3'] = 'three'
+	OUTPUT = A[3]
 	T = TABLE()
-	T<'k'> = 'v'
-	OUTPUT = T<'k'>
+	T['k'] = 'v'
+	OUTPUT = T['k']
 	DATA('PT(X,Y)')
 	P = PT(1,2)
 	OUTPUT = X(P) Y(P)
 	B = ARRAY('1:3,1:3')
-	B<2,2> = 'mid'
-	OUTPUT = B<2,2>
+	B[2,2] = 'mid'
+	OUTPUT = B[2,2]
 	S = 'ABCDEF'
 	OUTPUT = SUBSTR(S,2,3)
 END

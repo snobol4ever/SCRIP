@@ -42,9 +42,9 @@ TD="$(mktemp -d)"; trap 'rm -rf "$TD"' EXIT
 cat > "$TD/dump.sno" <<'EOF'
 	&DUMP = 1
 	A = ARRAY(3)
-	A<1> = 7
+	A[1] = 7
 	T = TABLE()
-	T<"k"> = "v"
+	T["k"] = "v"
 	P = "ab" | "cd"
 	E = *(X + 1)
 	S = "str"
@@ -84,10 +84,10 @@ EOF
 cat > "$TD/dump3.sno" <<'EOF'
 	&DUMP = 2
 	A = ARRAY(2)
-	A<1> = "x"
+	A[1] = "x"
 	T = TABLE()
-	T<"k"> = 5
-	T<"j"> = "v"
+	T["k"] = 5
+	T["j"] = "v"
 	DATA("point(x,y)")
 	D = point(1,"z")
 	N = 3
@@ -96,38 +96,38 @@ EOF
 cat > "$TD/tord.sno" <<'EOF'
 	&DUMP = 2
 	T = TABLE(10)
-	T<"CAT"> = 1
-	T<7> = 2
-	T<"DOG"> = 3
-	T<3> = 4
-	T<12> = 5
-	T<"A"> = 6
+	T["CAT"] = 1
+	T[7] = 2
+	T["DOG"] = 3
+	T[3] = 4
+	T[12] = 5
+	T["A"] = 6
 	U = TABLE(2)
-	U<"CAT"> = 1
-	U<7> = 2
-	U<"DOG"> = 3
-	U<3> = 4
+	U["CAT"] = 1
+	U[7] = 2
+	U["DOG"] = 3
+	U[3] = 4
 END
 EOF
 cat > "$TD/hash.sno" <<'EOF'
 	&DUMP = 2
 	T = TABLE(1000)
 	I = 0
-L	T<I> = 1
+L	T[I] = 1
 	I = I + 1
 	LE(I, 999)	:S(L)
-	T<"A"> = 2
-	T<"B"> = 2
-	T<"C"> = 2
-	T<"AB"> = 2
-	T<"BA"> = 2
-	T<"CAT"> = 2
-	T<"DOG"> = 2
-	T<"ABC"> = 2
-	T<"ABCD"> = 2
-	T<"Z"> = 2
-	T<"AA"> = 2
-	T<"a"> = 2
+	T["A"] = 2
+	T["B"] = 2
+	T["C"] = 2
+	T["AB"] = 2
+	T["BA"] = 2
+	T["CAT"] = 2
+	T["DOG"] = 2
+	T["ABC"] = 2
+	T["ABCD"] = 2
+	T["Z"] = 2
+	T["AA"] = 2
+	T["a"] = 2
 END
 EOF
 GRADED=0; FAIL=0

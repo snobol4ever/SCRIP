@@ -9,12 +9,12 @@
         T = TABLE()
         N = 0
 FILL    N = LT(N,20) N + 1                                      :F(SRT)
-        T<'k' REMDR(23 * N,19)> = 'v' N                         :(FILL)
+        T['k' REMDR(23 * N,19)] = 'v' N                         :(FILL)
 SRT     S = SORT(T)
         A = ARRAY('12')
         I = 0
 AFILL   I = LT(I,12) I + 1                                      :F(ASRT)
-        A<I> = 'z' REMDR(37 * I,11)                             :(AFILL)
+        A[I] = 'z' REMDR(37 * I,11)                             :(AFILL)
 ASRT    B = SORT(A)
         SUBJ = 'alpha-beta-gamma-delta-epsilon'
         PAT = BREAK('-') . W1 '-' BREAK('-') . W2 '-' REM . W3
@@ -28,12 +28,12 @@ CHURN   M = LT(M,300) M + 1                                     :F(DONE)
 DONE    OUT = ''
         I = 0
 SC3     I = LT(I,19) I + 1                                      :F(SC4)
-        OUT = OUT S<I,1> '=' S<I,2> '|'                         :(SC3)
+        OUT = OUT S[I,1] '=' S[I,2] '|'                         :(SC3)
 SC4     OUTPUT = 'SORTT=' OUT
         OUT = ''
         I = 0
 SC5     I = LT(I,12) I + 1                                      :F(SC6)
-        OUT = OUT B<I> '|'                                      :(SC5)
+        OUT = OUT B[I] '|'                                      :(SC5)
 SC6     OUTPUT = 'SORTA=' OUT
         OUTPUT = 'W=' W1 '/' W2 '/' W3 '/' W4 '/' W5 '/' W6
 END

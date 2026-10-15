@@ -480,6 +480,7 @@ static int eval_sb_syntax(const char *s, int *code, const char **msg) {
             el = 24;
             p++;
         } else if (c == '[' || c == '<') {
+            if (c == '<') return eval_sb_fail(222, code, msg);
             el = 6;
             p++;
         } else if (c == ']' || c == '>') {

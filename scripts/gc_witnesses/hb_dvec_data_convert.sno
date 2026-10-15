@@ -12,7 +12,7 @@
         T = TABLE()
         N = 0
 FILL    N = LT(N,20) N + 1                                      :F(MK)
-        T<'k' N> = 'v' N                                        :(FILL)
+        T['k' N] = 'v' N                                        :(FILL)
 MK      P = PAIR('one','two')
         Q = COPY(P)
         A = CONVERT(T,'ARRAY')
@@ -25,8 +25,8 @@ DONE    OUTPUT = LEFT(P) ' ' RIGHT(P)
         S = ''
         I = 0
 SCAN    I = LT(I,20) I + 1                                      :F(OUT)
-        R = A<I,1> ':' A<I,2>
+        R = A[I,1] ':' A[I,2]
         S = S R '|'                                             :(SCAN)
 OUT     OUTPUT = S
-        OUTPUT = T<'k7'>
+        OUTPUT = T['k7']
 END

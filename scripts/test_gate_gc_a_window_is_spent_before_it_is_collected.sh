@@ -30,9 +30,9 @@ SNO
 cat > "$W/grow.sno" <<'SNO'
         T = TABLE()
         I = 0
-LOOP    T<I> = DUPL('y', 200) I
+LOOP    T[I] = DUPL('y', 200) I
         I = LT(I, 20000) I + 1                          :S(LOOP)
-        OUTPUT = SIZE(T<7>) ' ' SIZE(T<19999>)
+        OUTPUT = SIZE(T[7]) ' ' SIZE(T[19999])
 END
 SNO
 red=0

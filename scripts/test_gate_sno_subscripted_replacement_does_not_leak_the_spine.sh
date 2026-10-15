@@ -57,14 +57,14 @@ PASS=0; FAIL=0; GRADED=0
 # not yet reached the stack limit) and 1000000 trip ERROR 246 in ~1.4s. A count chosen below the threshold would
 # make arm 3 green on a broken tree -- a gate that cannot fail for its own reason.
 LEAKN=1000000
-w_witness() { printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\tA<2>  LEN(1) . S1  REM . S2  =  S2  S1\t:(RETURN)\nF_END\tA = ARRAY(2, 'ABC')\n\tF()\n\tOUTPUT = A<2>\nEND\n" > "$1"; }
-w_leak()    { printf "\tA = ARRAY(2, 'ABC')\n\tN = 0\nL\tN = N + 1\n\tA<2>  LEN(1) . S1  REM . S2  =  S2  S1\n\tLT(N, %s)\t\t\t\t:S(L)\n\tOUTPUT = 'SURVIVED ' N\nEND\n" "$LEAKN" > "$1"; }
+w_witness() { printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\tA[2]  LEN(1) . S1  REM . S2  =  S2  S1\t:(RETURN)\nF_END\tA = ARRAY(2, 'ABC')\n\tF()\n\tOUTPUT = A[2]\nEND\n" > "$1"; }
+w_leak()    { printf "\tA = ARRAY(2, 'ABC')\n\tN = 0\nL\tN = N + 1\n\tA[2]  LEN(1) . S1  REM . S2  =  S2  S1\n\tLT(N, %s)\t\t\t\t:S(L)\n\tOUTPUT = 'SURVIVED ' N\nEND\n" "$LEAKN" > "$1"; }
 c_plainvar(){ printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\tV  LEN(1) . S1  REM . S2  =  S2  S1\t:(RETURN)\nF_END\tV = 'ABC'\n\tF()\n\tOUTPUT = V\nEND\n" > "$1"; }
-c_matchonly(){ printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\tA<2>  LEN(1) . S1  REM . S2\t\t:(RETURN)\nF_END\tA = ARRAY(2, 'ABC')\n\tF()\n\tOUTPUT = A<2>\nEND\n" > "$1"; }
-c_plainassign(){ printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\tA<2> = 'ZZZ'\t\t\t\t:(RETURN)\nF_END\tA = ARRAY(2, 'ABC')\n\tF()\n\tOUTPUT = A<2>\nEND\n" > "$1"; }
+c_matchonly(){ printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\tA[2]  LEN(1) . S1  REM . S2\t\t:(RETURN)\nF_END\tA = ARRAY(2, 'ABC')\n\tF()\n\tOUTPUT = A[2]\nEND\n" > "$1"; }
+c_plainassign(){ printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\tA[2] = 'ZZZ'\t\t\t\t:(RETURN)\nF_END\tA = ARRAY(2, 'ABC')\n\tF()\n\tOUTPUT = A[2]\nEND\n" > "$1"; }
 w_indirect(){ printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\t\$NM  LEN(1) . S1  REM . S2  =  S2  S1\t:(RETURN)\nF_END\tNM = 'V'\n\tV = 'ABC'\n\tF()\n\tOUTPUT = V\nEND\n" > "$1"; }
 c_indirect_top(){ printf "\tNM = 'V'\n\tV = 'ABC'\n\t\$NM  LEN(1) . S1  REM . S2  =  S2  S1\n\tOUTPUT = V\nEND\n" > "$1"; }
-c_toplevel(){ printf "\tA = ARRAY(2, 'ABC')\n\tA<2>  LEN(1) . S1  REM . S2  =  S2  S1\n\tOUTPUT = A<2>\nEND\n" > "$1"; }
+c_toplevel(){ printf "\tA = ARRAY(2, 'ABC')\n\tA[2]  LEN(1) . S1  REM . S2  =  S2  S1\n\tOUTPUT = A[2]\nEND\n" > "$1"; }
 oracle_ref() {  # $1=src $2=out-ref  -- run the oracle TWICE, refuse if it is not deterministic
     ( cd "$t" && timeout 120 "$ORACLE" -bf "$1" < /dev/null > "$2.a" 2>&1 ); local ra=$?
     ( cd "$t" && timeout 120 "$ORACLE" -bf "$1" < /dev/null > "$2.b" 2>&1 ); local rb=$?

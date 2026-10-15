@@ -33,11 +33,11 @@ cat > "$W/churn.sno" <<'SNO'
         T = TABLE()
         I = 0
 LOOP    I = I + 1
-        T<REMDR(I, 100)> = DUPL('X', 50) I
+        T[REMDR(I, 100)] = DUPL('X', 50) I
         S = S 'AB'
         S = GT(SIZE(S), 2000) ''
         LT(I, 60000)                                    :S(LOOP)
-        OUTPUT = SIZE(T<REMDR(I, 100)>) ' ' SIZE(S)
+        OUTPUT = SIZE(T[REMDR(I, 100)]) ' ' SIZE(S)
 END
 SNO
 ( cd "$W" && env -u SCRIP_DIAG SCRIP_DIAG_REGS=1 "$ROOT/scrip" --compile -o on.s churn.sno < /dev/null > /dev/null 2>&1 && gcc on.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o on.bin 2>/dev/null \

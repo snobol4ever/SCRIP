@@ -15,10 +15,10 @@
           A = ARRAY(N)
           I = 0
 FILL      I = LT(I,N) I + 1                                     :F(SUM)
-          A<I> = DUPL('x',1000) I                               :(FILL)
+          A[I] = DUPL('x',1000) I                               :(FILL)
 SUM       T = 0
           I = 0
 ADD       I = LT(I,N) I + 1                                     :F(DONE)
-          T = T + SIZE(A<I>)                                    :(ADD)
-DONE      OUTPUT = 'GROW=' T ' N=' N ' FIRST=' SIZE(A<1>) ' LAST=' SIZE(A<N>)
+          T = T + SIZE(A[I])                                    :(ADD)
+DONE      OUTPUT = 'GROW=' T ' N=' N ' FIRST=' SIZE(A[1]) ' LAST=' SIZE(A[N])
 END

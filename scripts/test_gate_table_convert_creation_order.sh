@@ -36,26 +36,26 @@ grade() {  # $1 label  $2 sno file  $3 expected stdout
 }
 cat > "$W/a1.sno" <<'EOF'
 	T = TABLE()
-	T<'A'> = 1
-	T<'B'> = 2
-	T<'C'> = 3
-	T<'D'> = 4
+	T['A'] = 1
+	T['B'] = 2
+	T['C'] = 3
+	T['D'] = 4
 	C = CONVERT(T,'ARRAY')
 	I = 1
-L	OUTPUT = C<I,1> '=' C<I,2>		:F(D)
+L	OUTPUT = C[I,1] '=' C[I,2]		:F(D)
 	I = I + 1				:(L)
 D
 END
 EOF
 cat > "$W/a2.sno" <<'EOF'
 	T = TABLE()
-	T<'A'> = 1
-	T<'B'> = 2
-	T<'C'> = 3
-	T<'A'> = 99
+	T['A'] = 1
+	T['B'] = 2
+	T['C'] = 3
+	T['A'] = 99
 	C = CONVERT(T,'ARRAY')
 	I = 1
-L	OUTPUT = C<I,1> '=' C<I,2>		:F(D)
+L	OUTPUT = C[I,1] '=' C[I,2]		:F(D)
 	I = I + 1				:(L)
 D
 END

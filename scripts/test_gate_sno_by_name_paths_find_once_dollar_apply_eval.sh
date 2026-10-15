@@ -54,8 +54,8 @@ FEND    OUTPUT = F(21) ' ' GLOB
         T = TABLE()
         K = 'KEY'
         KEY = 'kv'
-        T<$K> = 'stored'
-        OUTPUT = T<'kv'>
+        T[$K] = 'stored'
+        OUTPUT = T['kv']
         INPUT(.RD, 5, 'rd.txt')
         R = 'RD'
         OUTPUT = $R
