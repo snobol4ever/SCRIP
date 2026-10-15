@@ -10191,6 +10191,24 @@ static const char *pl_gp_read_err(long off0) {
     pl_gs_record(pl_gs_file(p.s.idx), p.s.tl, p.s.tc, e);
     return pl_gs_msg(pl_gs_file(p.s.idx), p.s.tl, p.s.tc, e);
 }
+static int pl_gs_word(const char *s) { size_t n = 0; for (; s[n]; n++) if (!(isascii((unsigned char)s[n]) && (isalnum((unsigned char)s[n]) || s[n] == '_'))) return 0; return n > 1; }
+static int pl_gs_cmp(const void *a, const void *b) { return strcmp(*(const char *const *)a, *(const char *const *)b); }
+static DESCR_t pl_gs_compl(const char *pf) {
+    extern int prolog_atom_count(void);
+    extern const char *prolog_atom_name(int);
+    int n = prolog_atom_count(), k = 0;
+    size_t pn = strlen(pf);
+    DESCR_t l = pl_nil();
+    for (int i = 0; i < n; i++) { const char *w = prolog_atom_name(i); if (w && !strncmp(w, pf, pn) && pl_gs_word(w)) k++; }
+    {
+        const char *hit[k > 0 ? k : 1];
+        k = 0;
+        for (int i = 0; i < n; i++) { const char *w = prolog_atom_name(i); if (w && !strncmp(w, pf, pn) && pl_gs_word(w)) hit[k++] = w; }
+        qsort(hit, (size_t)k, sizeof hit[0], pl_gs_cmp);
+        for (int i = k - 1; i >= 0; i--) l = pl_cons(pl_mk_atom(hit[i]), l);
+    }
+    return l;
+}
 static int pl_gs_read(const char *op, DESCR_t res, pl_tr_ctx_t *cx) {
     extern FILE *fh_cur_in_fp(void);
     extern int fh_current_input(void);
@@ -10292,6 +10310,7 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
             else ok = plw_unify_vals(args[2], INTVAL(WIFEXITED(ws) ? WEXITSTATUS(ws) : 128 + WTERMSIG(ws)), cx);
         } else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
         else if (!strcmp(op, "read_token") || !strcmp(op, "read_atom") || !strcmp(op, "read_integer") || !strcmp(op, "read_number")) ok = pl_gs_read(op, args[2], cx);
+        else if (!strcmp(op, "compl")) ok = pl_atom_str(a) && plw_unify_vals(args[2], pl_gs_compl(pl_atom_str(a)), cx);
         else if (!strcmp(op, "get_key")) {
             extern FILE *fh_cur_in_fp(void);
             FILE *fp = fh_cur_in_fp();

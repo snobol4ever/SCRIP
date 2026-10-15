@@ -1063,6 +1063,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_gp_read_err", GC_RET_OTHER },
     { "pl_gp_setname", GC_RET_VOID },
     { "pl_gp_term", GC_RET_OTHER },
+    { "pl_gs_compl", GC_RET_DESCR },
     { "pl_gs_msg", GC_RET_OTHER },
     { "pl_gs_next_atom", GC_RET_VOID },
     { "pl_gs_number", GC_RET_VOID },

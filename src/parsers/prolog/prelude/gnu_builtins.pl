@@ -30,7 +30,8 @@
                           read_token_from_atom/2, read_token_from_chars/2, read_token_from_codes/2, get_print_stream/1,
                           popen/3, exec/4, exec/5, wait/2, create_pipe/2, set_bip_name/2, current_bip_name/2, syntax_error_info/4,
                           read_token/1, read_token/2, read_atom/1, read_atom/2, read_integer/1, read_integer/2, read_number/1, read_number/2,
-                          get_key/1, get_key/2, get_key_no_echo/1, get_key_no_echo/2 ]).
+                          get_key/1, get_key/2, get_key_no_echo/1, get_key_no_echo/2,
+                          get_linedit_prompt/1, set_linedit_prompt/1, add_linedit_completion/1, find_linedit_completion/2 ]).
 write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).
 writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).
 print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).
@@ -360,3 +361,14 @@ get_key_no_echo(C) :- current_input(S), '$gnu_b_key'(current_input_stream, S, C,
 get_key_no_echo(S, C) :- '$gnu_b_key'(S, S, C, get_key_no_echo/2).
 '$gnu_b_key'(W, S, C, PI) :- current_input(O), set_input(S), set_input(O), ( stream_property(S, type(binary)) -> throw(error(permission_error(input, binary_stream, W), PI)) ; true ),
     '$gnu_b_oi'(C, PI), set_input(S), '$gnu_os'(get_key, x, K), set_input(O), C = K.
+get_linedit_prompt(P) :- '$gnu_b_oa'(P, get_linedit_prompt/1), ( nb_current('$gnu_b_prompt', P0) -> true ; P0 = '' ), P = P0.
+set_linedit_prompt(P) :- '$gnu_b_ia'(P, set_linedit_prompt/1), nb_setval('$gnu_b_prompt', P).
+add_linedit_completion(W) :- '$gnu_b_ia'(W, add_linedit_completion/1), atom_codes(W, Cs), Cs \== [], '$gnu_b_wordcs'(Cs),
+    ( nb_current('$gnu_b_compl', L) -> true ; L = [] ), ( memberchk(W, L) -> true ; nb_setval('$gnu_b_compl', [W|L]) ).
+find_linedit_completion(P, C) :- '$gnu_b_ia'(P, find_linedit_completion/2), '$gnu_b_oa'(C, find_linedit_completion/2), '$gnu_os'(compl, P, L0),
+    ( nb_current('$gnu_b_compl', Ad) -> true ; Ad = [] ), atom_codes(P, Pc), findall(W, ( member(W, Ad), atom_codes(W, Wc), append(Pc, _, Wc) ), L1), append(L0, L1, L2), sort(L2, L), member(C, L).
+'$gnu_b_ia'(A, PI) :- var(A), !, throw(error(instantiation_error, PI)).
+'$gnu_b_ia'(A, PI) :- \+ atom(A), !, throw(error(type_error(atom, A), PI)).
+'$gnu_b_ia'(_, _).
+'$gnu_b_wordcs'([]).
+'$gnu_b_wordcs'([C|Cs]) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C >= 0'0, C =< 0'9 ; C =:= 0'_ ), !, '$gnu_b_wordcs'(Cs).

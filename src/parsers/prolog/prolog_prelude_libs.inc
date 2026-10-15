@@ -12998,12 +12998,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "get_key", 2 },
     { "get_key_no_echo", 1 },
     { "get_key_no_echo", 2 },
+    { "get_linedit_prompt", 1 },
+    { "set_linedit_prompt", 1 },
+    { "add_linedit_completion", 1 },
+    { "find_linedit_completion", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
+    { "add_linedit_completion", 0 },
     { "architecture", 0 },
     { "atom_property", 0 },
     { "bind_variables", 0 },
@@ -13021,12 +13026,14 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "display_to_codes", 0 },
     { "exec", 0 },
     { "file_permission", 0 },
+    { "find_linedit_completion", 0 },
     { "format_to_atom", 0 },
     { "format_to_chars", 0 },
     { "format_to_codes", 0 },
     { "generic_var", 0 },
     { "get_key", 0 },
     { "get_key_no_echo", 0 },
+    { "get_linedit_prompt", 0 },
     { "get_print_stream", 0 },
     { "host_name", 0 },
     { "is_absolute_file_name", 0 },
@@ -13059,6 +13066,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "rename_file", 0 },
     { "send_signal", 0 },
     { "set_bip_name", 0 },
+    { "set_linedit_prompt", 0 },
     { "setarg", 0 },
     { "shell", 0 },
     { "sleep", 0 },
@@ -13420,7 +13428,18 @@ static const char PL_PRELUDE_LIB_11_SRC[] =
     "get_key_no_echo(C) :- current_input(S), '$gnu_b_key'(current_input_stream, S, C, get_key_no_echo/1).\n"
     "get_key_no_echo(S, C) :- '$gnu_b_key'(S, S, C, get_key_no_echo/2).\n"
     "'$gnu_b_key'(W, S, C, PI) :- current_input(O), set_input(S), set_input(O), ( stream_property(S, type(binary)) -> throw(error(permission_error(input, binary_stream, W), PI)) ; true ),\n"
-    "    '$gnu_b_oi'(C, PI), set_input(S), '$gnu_os'(get_key, x, K), set_input(O), C = K.\n";
+    "    '$gnu_b_oi'(C, PI), set_input(S), '$gnu_os'(get_key, x, K), set_input(O), C = K.\n"
+    "get_linedit_prompt(P) :- '$gnu_b_oa'(P, get_linedit_prompt/1), ( nb_current('$gnu_b_prompt', P0) -> true ; P0 = '' ), P = P0.\n"
+    "set_linedit_prompt(P) :- '$gnu_b_ia'(P, set_linedit_prompt/1), nb_setval('$gnu_b_prompt', P).\n"
+    "add_linedit_completion(W) :- '$gnu_b_ia'(W, add_linedit_completion/1), atom_codes(W, Cs), Cs \\== [], '$gnu_b_wordcs'(Cs),\n"
+    "    ( nb_current('$gnu_b_compl', L) -> true ; L = [] ), ( memberchk(W, L) -> true ; nb_setval('$gnu_b_compl', [W|L]) ).\n"
+    "find_linedit_completion(P, C) :- '$gnu_b_ia'(P, find_linedit_completion/2), '$gnu_b_oa'(C, find_linedit_completion/2), '$gnu_os'(compl, P, L0),\n"
+    "    ( nb_current('$gnu_b_compl', Ad) -> true ; Ad = [] ), atom_codes(P, Pc), findall(W, ( member(W, Ad), atom_codes(W, Wc), append(Pc, _, Wc) ), L1), append(L0, L1, L2), sort(L2, L), member(C, L).\n"
+    "'$gnu_b_ia'(A, PI) :- var(A), !, throw(error(instantiation_error, PI)).\n"
+    "'$gnu_b_ia'(A, PI) :- \\+ atom(A), !, throw(error(type_error(atom, A), PI)).\n"
+    "'$gnu_b_ia'(_, _).\n"
+    "'$gnu_b_wordcs'([]).\n"
+    "'$gnu_b_wordcs'([C|Cs]) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C >= 0'0, C =< 0'9 ; C =:= 0'_ ), !, '$gnu_b_wordcs'(Cs).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },
