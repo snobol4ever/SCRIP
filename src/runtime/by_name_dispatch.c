@@ -9675,7 +9675,45 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
             if (uname(&u) != 0) ok = pl_gnu_os_fail(cx);
             else { const char *v = op[0] == 'o' ? u.release : u.machine; ok = plw_unify_vals(args[2], pl_mk_atom_dup(v, strlen(v)), cx); }
         } else if (!strcmp(op, "kill")) ok = a.v == (DTYPE_t)DT_I && b.v == (DTYPE_t)DT_I && (kill((pid_t)a.i, (int)b.i) == 0 ? 1 : pl_gnu_os_fail(cx));
-        else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
+        else if (!strcmp(op, "popen")) {
+            extern int fh_alloc(FILE *);
+            int pair = a.v == (DTYPE_t)DT_PLREF && plc_fid_arity(a.slen) == 2;
+            const char *cmd = pair ? pl_atom_str(rt_pl_deref_val(((DESCR_t *)a.p)[0])) : (const char *)0;
+            const char *m = pair ? pl_atom_str(rt_pl_deref_val(((DESCR_t *)a.p)[1])) : (const char *)0;
+            FILE *fp = (FILE *)0;
+            fflush(NULL);
+            if (cmd && m) fp = popen(cmd, m);
+            if (!fp) ok = pl_gnu_os_fail(cx);
+            else { int idx = fh_alloc(fp); g_fh[idx].mode = m[0]; ok = plw_unify_vals(args[2], pl_mk_stream(idx), cx); }
+        } else if (!strcmp(op, "exec")) {
+            extern int fh_alloc(FILE *);
+            const char *cmd = pl_atom_str(a);
+            int pi[2] = { -1, -1 }, po[2] = { -1, -1 }, pe[2] = { -1, -1 };
+            pid_t pid = -1;
+            fflush(NULL);
+            if (cmd && b.v == (DTYPE_t)DT_PLREF && plc_fid_arity(b.slen) == 4 && pipe2(pi, O_CLOEXEC) == 0 && pipe2(po, O_CLOEXEC) == 0 && pipe2(pe, O_CLOEXEC) == 0) pid = fork();
+            if (pid == 0) { dup2(pi[0], 0); dup2(po[1], 1); dup2(pe[1], 2); execl("/bin/sh", "sh", "-c", cmd, (char *)0); _exit(127); }
+            if (pid < 0) {
+                for (int i = 0; i < 2; i++) { if (pi[i] >= 0) close(pi[i]); if (po[i] >= 0) close(po[i]); if (pe[i] >= 0) close(pe[i]); }
+                ok = pl_gnu_os_fail(cx);
+            } else {
+                DESCR_t *k = (DESCR_t *)b.p;
+                int ii = fh_alloc(fdopen(pi[1], "w")), io = fh_alloc(fdopen(po[0], "r")), ie = fh_alloc(fdopen(pe[0], "r"));
+                close(pi[0]);
+                close(po[1]);
+                close(pe[1]);
+                g_fh[ii].mode = 'w';
+                g_fh[io].mode = 'r';
+                g_fh[ie].mode = 'r';
+                ok = plw_unify_vals(k[0], pl_mk_stream(ii), cx) && plw_unify_vals(k[1], pl_mk_stream(io), cx) && plw_unify_vals(k[2], pl_mk_stream(ie), cx) &&
+                    plw_unify_vals(k[3], INTVAL((long long)pid), cx);
+            }
+        } else if (!strcmp(op, "wait")) {
+            int ws = 0;
+            if (a.v != (DTYPE_t)DT_I) ok = 0;
+            else if (waitpid((pid_t)a.i, &ws, 0) != (pid_t)a.i) ok = pl_gnu_os_fail(cx);
+            else ok = plw_unify_vals(args[2], INTVAL(WIFEXITED(ws) ? WEXITSTATUS(ws) : 128 + WTERMSIG(ws)), cx);
+        } else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
         else if (!strcmp(op, "atoms")) {
             extern int prolog_atom_count(void);
             ok = plw_unify_vals(args[2], INTVAL(prolog_atom_count()), cx);

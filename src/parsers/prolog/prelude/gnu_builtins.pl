@@ -27,7 +27,8 @@
                           shell/1, shell/2, system/1, system/2, spawn/2, spawn/3, unlink/1, rename_file/2, delete_directory/1, copy_file/2,
                           file_permission/2, sleep/1, host_name/1, os_version/1, architecture/1, date_time/1, send_signal/2, temporary_name/2,
                           temporary_file/3, is_absolute_file_name/1, cpu_time/1, real_time/1, user_time/1, system_time/1,
-                          read_token_from_atom/2, read_token_from_chars/2, read_token_from_codes/2, get_print_stream/1 ]).
+                          read_token_from_atom/2, read_token_from_chars/2, read_token_from_codes/2, get_print_stream/1,
+                          popen/3, exec/4, exec/5, wait/2, create_pipe/2 ]).
 write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).
 writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).
 print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).
@@ -219,6 +220,18 @@ spawn(Cmd, Args) :- spawn(Cmd, Args, 0).
 spawn(Cmd, _, _) :- var(Cmd), !, throw(error(instantiation_error, spawn/3)).
 spawn(_, Args, _) :- var(Args), !, throw(error(instantiation_error, spawn/3)).
 spawn(Cmd, Args, S) :- '$gnu_b_quote'(Cmd, Q), '$gnu_b_quotes'(Args, Qs), atomic_list_concat(['exec', Q|Qs], ' ', Line), '$gnu_os'(shell, Line, S0), S = S0.
+popen(C, M, S) :- '$gnu_b_cmd'(C, popen/3), '$gnu_b_io_mode'(M, F), '$gnu_os'(popen, C-F, S0), S = S0.
+'$gnu_b_io_mode'(M, _) :- var(M), !, throw(error(instantiation_error, popen/3)).
+'$gnu_b_io_mode'(read, r) :- !.
+'$gnu_b_io_mode'(write, w) :- !.
+'$gnu_b_io_mode'(M, _) :- atom(M), !, throw(error(domain_error(io_mode, M), popen/3)).
+'$gnu_b_io_mode'(M, _) :- throw(error(type_error(atom, M), popen/3)).
+exec(C, I, O, E, P) :- '$gnu_b_cmd'(C, exec/5), '$gnu_os'(exec, C, s(I0, O0, E0, P0)), I = I0, O = O0, E = E0, P = P0.
+exec(C, I, O, E) :- '$gnu_b_cmd'(C, exec/4), '$gnu_os'(exec, C, s(I0, O0, E0, _)), I = I0, O = O0, E = E0.
+wait(P, _) :- var(P), !, throw(error(instantiation_error, wait/2)).
+wait(P, _) :- \+ integer(P), !, throw(error(type_error(integer, P), wait/2)).
+wait(P, S) :- '$gnu_os'(wait, P, S0), S = S0.
+create_pipe(R, W) :- pipe(R, W).
 '$gnu_b_quotes'([], []).
 '$gnu_b_quotes'([A|As], [Q|Qs]) :- '$gnu_b_quote'(A, Q), '$gnu_b_quotes'(As, Qs).
 '$gnu_b_quote'(A, Q) :- atom_codes(A, Cs), '$gnu_b_qcodes'(Cs, Qs), append([39|Qs], [39], QC), atom_codes(Q, QC).

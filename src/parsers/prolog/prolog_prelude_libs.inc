@@ -12737,6 +12737,11 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_EXPORTS[] = {
     { "read_token_from_chars", 2 },
     { "read_token_from_codes", 2 },
     { "get_print_stream", 1 },
+    { "popen", 3 },
+    { "exec", 4 },
+    { "exec", 5 },
+    { "wait", 2 },
+    { "create_pipe", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_SHADOWS[] = {
@@ -12750,12 +12755,14 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_QUIET[] = {
     { "call_with_args", 0 },
     { "copy_file", 0 },
     { "cpu_time", 0 },
+    { "create_pipe", 0 },
     { "current_atom", 0 },
     { "date_time", 0 },
     { "delete_directory", 0 },
     { "display_to_atom", 0 },
     { "display_to_chars", 0 },
     { "display_to_codes", 0 },
+    { "exec", 0 },
     { "file_permission", 0 },
     { "format_to_atom", 0 },
     { "format_to_chars", 0 },
@@ -12774,6 +12781,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_QUIET[] = {
     { "number_atom", 0 },
     { "os_version", 0 },
     { "partial_list", 0 },
+    { "popen", 0 },
     { "portray_clause", 0 },
     { "print_to_atom", 0 },
     { "print_to_chars", 0 },
@@ -12800,6 +12808,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_QUIET[] = {
     { "term_variables", 0 },
     { "unlink", 0 },
     { "user_time", 0 },
+    { "wait", 0 },
     { "write_canonical_to_atom", 0 },
     { "write_canonical_to_chars", 0 },
     { "write_canonical_to_codes", 0 },
@@ -13009,6 +13018,18 @@ static const char PL_PRELUDE_LIB_10_SRC[] =
     "spawn(Cmd, _, _) :- var(Cmd), !, throw(error(instantiation_error, spawn/3)).\n"
     "spawn(_, Args, _) :- var(Args), !, throw(error(instantiation_error, spawn/3)).\n"
     "spawn(Cmd, Args, S) :- '$gnu_b_quote'(Cmd, Q), '$gnu_b_quotes'(Args, Qs), atomic_list_concat(['exec', Q|Qs], ' ', Line), '$gnu_os'(shell, Line, S0), S = S0.\n"
+    "popen(C, M, S) :- '$gnu_b_cmd'(C, popen/3), '$gnu_b_io_mode'(M, F), '$gnu_os'(popen, C-F, S0), S = S0.\n"
+    "'$gnu_b_io_mode'(M, _) :- var(M), !, throw(error(instantiation_error, popen/3)).\n"
+    "'$gnu_b_io_mode'(read, r) :- !.\n"
+    "'$gnu_b_io_mode'(write, w) :- !.\n"
+    "'$gnu_b_io_mode'(M, _) :- atom(M), !, throw(error(domain_error(io_mode, M), popen/3)).\n"
+    "'$gnu_b_io_mode'(M, _) :- throw(error(type_error(atom, M), popen/3)).\n"
+    "exec(C, I, O, E, P) :- '$gnu_b_cmd'(C, exec/5), '$gnu_os'(exec, C, s(I0, O0, E0, P0)), I = I0, O = O0, E = E0, P = P0.\n"
+    "exec(C, I, O, E) :- '$gnu_b_cmd'(C, exec/4), '$gnu_os'(exec, C, s(I0, O0, E0, _)), I = I0, O = O0, E = E0.\n"
+    "wait(P, _) :- var(P), !, throw(error(instantiation_error, wait/2)).\n"
+    "wait(P, _) :- \\+ integer(P), !, throw(error(type_error(integer, P), wait/2)).\n"
+    "wait(P, S) :- '$gnu_os'(wait, P, S0), S = S0.\n"
+    "create_pipe(R, W) :- pipe(R, W).\n"
     "'$gnu_b_quotes'([], []).\n"
     "'$gnu_b_quotes'([A|As], [Q|Qs]) :- '$gnu_b_quote'(A, Q), '$gnu_b_quotes'(As, Qs).\n"
     "'$gnu_b_quote'(A, Q) :- atom_codes(A, Cs), '$gnu_b_qcodes'(Cs, Qs), append([39|Qs], [39], QC), atom_codes(Q, QC).\n"
