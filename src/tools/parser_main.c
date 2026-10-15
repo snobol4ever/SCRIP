@@ -28,7 +28,7 @@
 #define PARSER_NAME "prolog"
 #define PARSER_PARSE prolog_compile_parse
 #elif defined(PARSER_LANG_REBUS)
-#include "parsers/rebus/rebus_lower.h"
+#include "lower/lower_rebus.h"
 #include "parsers/rebus/rebus.h"
 #define PARSER_NAME "rebus"
 #define PARSER_PARSE rebus_compile_parse

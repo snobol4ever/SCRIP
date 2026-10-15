@@ -23,7 +23,7 @@
 #include "../parsers/icon/icon_driver.h"
 #include "../parsers/pascal/pascal_driver.h"
 #include "../parsers/raku/raku_driver.h"
-#include "../parsers/rebus/rebus_lower.h"
+#include "../lower/lower_rebus.h"
 #include "../runtime/builtins/gen.h"
 #include "../parsers/icon/icon_lex.h"
 #include "../ir/bb_box.h"

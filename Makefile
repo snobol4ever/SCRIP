@@ -1643,7 +1643,7 @@ RT_PIC_SRCS := \
     $(SRC)/parsers/raku/rk_regex.c \
     $(SRC)/parsers/rebus/rebus.tab.c \
     $(SRC)/parsers/rebus/lex.rebus.c \
-    $(SRC)/parsers/rebus/rebus_lower.c \
+    $(SRC)/lower/lower_rebus.c \
     $(SRC)/parsers/pascal/pascal.tab.c \
     $(SRC)/parsers/pascal/pascal.lex.c \
     $(SRC)/parsers/pascal/pascal_driver.c \

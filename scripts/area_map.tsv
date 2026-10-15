@@ -93,6 +93,8 @@ lang:snocone	src/parsers/snocone/
 lang:snocone	src/lower/lower_snobol4.c
 lang:snocone	src/lower/lower_snocone.c
 lang:rebus	src/parsers/rebus/
+lang:rebus	src/lower/lower_rebus.c
+lang:rebus	src/lower/lower_rebus.h
 lang:icon	src/parsers/icon/
 lang:icon	src/lower/lower_icon.c
 lang:prolog	src/parsers/prolog/

@@ -64,7 +64,7 @@ src/parsers/rebus/rebus.h	2	0	0	0
 src/parsers/rebus/rebus.l	3	0	0	0
 src/parsers/rebus/rebus.tab.c	17	0	0	0
 src/parsers/rebus/rebus.y	17	0	0	0
-src/parsers/rebus/rebus_lower.c	23	0	0	0
+src/lower/lower_rebus.c	23	0	0	0
 src/parsers/snobol4/scrip_cc.h	2	0	0	0
 src/parsers/snobol4/snobol4.l	4	0	0	0
 src/parsers/snobol4/snobol4.lex.c	7	0	0	0

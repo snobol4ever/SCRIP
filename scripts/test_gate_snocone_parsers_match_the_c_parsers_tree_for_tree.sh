@@ -29,7 +29,7 @@
 # line per file that is not a MATCH or a both-refused (language, kind, path under the corpus) -- the list a whole-corpus run owes the lane that cures it. GATE_LANGS="snobol4 icon"
 # grades those languages alone (a landing's own arm; the closure run grades all six).
 # THE C SIDE DUMPS WHAT ITS PARSER BUILT (the ceo's row, CEO-1364: "the C side dumps the parse tree the .sc reproduces"): Icon
-# before link resolution, Pascal before its semantic check, Rebus before rebus_lower, Prolog each clause's tree before
+# before link resolution, Pascal before its semantic check, Rebus before lower_rebus.c, Prolog each clause's tree before
 # prolog_lower (a clause list with a parse error is refused), Snocone code_to_ast of the statements its parser builds, SNOBOL4
 # its parse -- never a FINISH step.
 # VERDICT per language: files, hashes compared, MATCH, DIFF, REFUSED (by C, by .sc, by both), CRASH (by C: a signal; by .sc: a

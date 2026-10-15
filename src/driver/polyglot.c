@@ -9,7 +9,7 @@
 #include "parsers/raku/raku_driver.h"
 #include "parsers/snocone/snocone_driver.h"
 #include "parsers/pascal/pascal_driver.h"
-#include "parsers/rebus/rebus_lower.h"
+#include "lower/lower_rebus.h"
 #include "runtime/builtins/gen_runtime.h"
 #include "driver/driver.h"
 #include "driver/polyglot.h"
