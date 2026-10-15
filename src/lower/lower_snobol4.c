@@ -645,6 +645,23 @@ static IR_t * sno_lower_byname(scx_t * cx, const tree_t * expr, IR_t * γ, IR_t 
 static const char * sno_cursor_target(const tree_t * tgt);
 static const char * sno_lead_name(const char * lead, const char * nm);
 static const char * sno_capt_name(const tree_t * tgt);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_item_argbase(const tree_t * fn) {
+    if (!fn || fn->t != TT_FNC) return -1;
+    const char * fname = fn->v.sval;
+    int argbase = 0;
+    if (!fname && fn->n > 0 && fn->c[0] && fn->c[0]->t == TT_VAR) { fname = fn->c[0]->v.sval; argbase = 1; }
+    return (fname && !strcmp(fname, "ITEM") && (fn->n - argbase) >= 2) ? argbase : -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_capt_item_name(const tree_t * tgt) {
+    if (sno_item_argbase(tgt) < 0) return NULL;
+    const char * bn = sno_expr_collect_nm(tgt);
+    char pb[fmt_len("*%s", bn)];
+    snprintf(pb, sizeof pb, "*%s", bn);
+    return lp_strdup(pb);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_nameval(scx_t * cx, const tree_t * inner, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω);
     IR_LIT(mk).sval = (char *) "SNO$NAME";
@@ -843,7 +860,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 const char * fname = fn->v.sval;
                 int argbase = 0;
                 if (!fname && fn->n > 0 && fn->c[0] && fn->c[0]->t == TT_VAR) { fname = fn->c[0]->v.sval; argbase = 1; }
-                if (fname && !strcmp(fname, "ITEM") && (fn->n - argbase) >= 2) {
+                if (sno_item_argbase(fn) >= 0) {
                     IR_t * vr = NULL;
                     IR_t * entry = sx_subscript_lv(cx, fn->c[argbase], (const tree_t * const *) &fn->c[argbase + 1], fn->n - argbase - 1, ω, &vr);
                     if (γ) lc_γ_to(vr, γ);
@@ -940,6 +957,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             const tree_t * tgt = (t->n > 1) ? t->c[1] : NULL;
             const char * vn = (tgt && tgt->t == TT_VAR) ? tgt->v.sval : sno_capt_name(tgt);
             if (vn) sno_reg_var(vn);
+            if (!vn) vn = sno_capt_item_name(tgt);
             if (!vn && tgt && tgt->t == TT_DEFER) {
                 const char * bn = sno_expr_collect((tgt->n > 0) ? tgt->c[0] : NULL);
                 char pb[fmt_len("*%s", bn)];
@@ -2899,6 +2917,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         {
             const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
             if (vn) sno_reg_var(vn);
+            if (!vn && t->n > 1) vn = sno_capt_item_name(t->c[1]);
             if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) {
                 const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL;
                 if (sno_cap_name_strict() && di && di->t == TT_VAR && di->v.sval && di->v.sval[0]) { vn = lp_strdup(di->v.sval); sno_reg_var(vn); }
@@ -2932,6 +2951,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         {
             const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
             if (vn) sno_reg_var(vn);
+            if (!vn && t->n > 1) vn = sno_capt_item_name(t->c[1]);
             if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) {
                 const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL;
                 if (sno_cap_name_strict() && di && di->t == TT_VAR && di->v.sval && di->v.sval[0]) { vn = lp_strdup(di->v.sval); sno_reg_var(vn); }
@@ -3212,8 +3232,8 @@ static int sno_pat_supported(const tree_t * t) {
     if (k == TT_KEYWORD) return t->v.sval != NULL;
     if (k == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
     if (k == TT_LEN) return t->n > 0 && t->c[0] && (t->c[0]->t != TT_DEFER || t->c[0]->n > 0);
-    if (k == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER) && sno_pat_supported(t->c[0]);
-    if (k == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER) && sno_pat_supported(t->c[0]);
+    if (k == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER || sno_item_argbase(t->c[1]) >= 0) && sno_pat_supported(t->c[0]);
+    if (k == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER || sno_item_argbase(t->c[1]) >= 0) && sno_pat_supported(t->c[0]);
     if (k == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval;
     if (k == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     if (k == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
@@ -4267,6 +4287,7 @@ void sno_expr_thunks_build(int x0) {
         const tree_t * xe = CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).expr;
         if (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).want_name && xe && xe->t == TT_INDIRECT && xe->n > 0 && xe->c[0] && CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).name &&
             !strncmp(CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).name, "EXPRNM$", 7)) xe = xe->c[0];
+        if (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).want_name && sno_item_argbase(xe) >= 0) { tree_t * nmn = ast_node_new(TT_NAME); ast_push(nmn, (tree_t *) xe); xe = nmn; }
         IR_t * vr = NULL;
         int xe_is_idx_wn = CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).want_name && xe && xe->t == TT_IDX;
         IR_t * e = xe_is_idx_wn ? sx_idx_container(&ex, xe, fJ, &vr) : sx_lower(&ex, xe, asn, fJ, &vr);
