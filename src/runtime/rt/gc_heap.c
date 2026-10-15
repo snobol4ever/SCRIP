@@ -1515,35 +1515,35 @@ typedef struct gc_mk_t {
     long wln, wlcap;
     gc_slot_t *slots;
     long nslot, scap;
-    const char *arena, *top, *pmap_top;
-    const uint32_t *pmap;
-    rt_hblk_t **idx;
-    long nblk;
+    const char *arena, *top;
+    const uint64_t *ssum, *start;
+    uint64_t *live, *vis;
     rt_hblk_t *mhead;
     DESCR_t *rng_p;
-    long rng_n, wlmax, interior, dvec_elems, dvec_nondvec, lo, hi;
+    long rng_n, wlmax, interior, dvec_elems, dvec_nondvec, nmk, mxs;
 } gc_mk_t;
 _Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_t, wln) == 8 && __builtin_offsetof(gc_mk_t, wlcap) == 16 && __builtin_offsetof(gc_mk_t, slots) == 24 &&
     __builtin_offsetof(gc_mk_t, nslot) == 32 && __builtin_offsetof(gc_mk_t, scap) == 40 && __builtin_offsetof(gc_mk_t, arena) == 48 && __builtin_offsetof(gc_mk_t, top) == 56 &&
-    __builtin_offsetof(gc_mk_t, pmap_top) == 64 && __builtin_offsetof(gc_mk_t, pmap) == 72 && __builtin_offsetof(gc_mk_t, idx) == 80 && __builtin_offsetof(gc_mk_t, nblk) == 88 &&
+    __builtin_offsetof(gc_mk_t, ssum) == 64 && __builtin_offsetof(gc_mk_t, start) == 72 && __builtin_offsetof(gc_mk_t, live) == 80 && __builtin_offsetof(gc_mk_t, vis) == 88 &&
     __builtin_offsetof(gc_mk_t, mhead) == 96 && __builtin_offsetof(gc_mk_t, rng_p) == 104 && __builtin_offsetof(gc_mk_t, rng_n) == 112 && __builtin_offsetof(gc_mk_t, wlmax) == 120 &&
-    __builtin_offsetof(gc_mk_t, interior) == 128 && __builtin_offsetof(gc_mk_t, dvec_elems) == 136 && __builtin_offsetof(gc_mk_t, dvec_nondvec) == 144 && __builtin_offsetof(gc_mk_t, lo) == 152 &&
-    __builtin_offsetof(gc_mk_t, hi) == 160, "rt_gc_mark_run (rtx_alloc.s) reads and writes the mark cursor at these offsets");
+    __builtin_offsetof(gc_mk_t, interior) == 128 && __builtin_offsetof(gc_mk_t, dvec_elems) == 136 && __builtin_offsetof(gc_mk_t, dvec_nondvec) == 144 && __builtin_offsetof(gc_mk_t, nmk) == 152 &&
+    __builtin_offsetof(gc_mk_t, mxs) == 160, "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
 #define GC_MK_BIT(k) (GC_TYPE_MOVES(HB_AGGV + (k)) ? 1u << (k) : 0u)
 _Static_assert((GC_MK_BIT(0) | GC_MK_BIT(1) | GC_MK_BIT(2) | GC_MK_BIT(3) | GC_MK_BIT(4) | GC_MK_BIT(5) | GC_MK_BIT(6) | GC_MK_BIT(7) | GC_MK_BIT(8) | GC_MK_BIT(9) | GC_MK_BIT(10) | GC_MK_BIT(11) |
     GC_MK_BIT(12) | GC_MK_BIT(13) | GC_MK_BIT(14) | GC_MK_BIT(15) | GC_MK_BIT(16) | GC_MK_BIT(17) | GC_MK_BIT(18)) == 0x7FDE7u && !GC_TYPE_MOVES(HB_AGGV - 1) && !GC_TYPE_MOVES(HB_AGGV + 19),
-    "rt_gc_mark_run (rtx_alloc.s) tests a block type for moving as bit (type - HB_AGGV) of its MK_MOVES 0x7FDE7, so every moving type lies in HB_AGGV..HB_AGGV+18 and the set reads as that mask");
+    "rt_gc_mark_run (rtx_gc.s) tests a block type for moving as bit (type - HB_AGGV) of its MK_MOVES 0x7FDE7, so every moving type lies in HB_AGGV..HB_AGGV+18 and the set reads as that mask");
 _Static_assert(HB_AGGV == 206 && HB_FILL == 202 && HB_DINST == 213 && HB_DVEC == 214 && DATA_ELEMS_SLEN == 1 && PROCVAL_SLEN == 0xFFFFFFFEu && PROCVAL_BUILTIN_SLEN == 0xFFFFFFFCu &&
-    PROCVAL_EXTERNAL_SLEN == 0xFFFFFFFBu, "rt_gc_mark_run (rtx_alloc.s) carries these block types and descriptor lengths as its own defines");
+    PROCVAL_EXTERNAL_SLEN == 0xFFFFFFFBu, "rt_gc_mark_run (rtx_gc.s) carries these block types and descriptor lengths as its own defines");
 static void gc_wl_drain(void) {
     extern DESCR_t *rt_gc_mark_run(gc_mk_t *);
     gc_mk_t m;
-    { while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); return; }
     memset(&m, 0, sizeof m);
     m.arena = g_hp_arena;
     m.top = g_hp_top;
-    m.idx = g_gc_idx;
-    m.nblk = g_gc_nblk;
+    m.ssum = g_hp_fr.ssum;
+    m.start = g_hp_fr.start;
+    m.live = g_hp_fr.live;
+    m.vis = g_hp_fr.vis;
     for (;;) {
         DESCR_t *d;
         m.wl = g_gc_wl;
@@ -1568,6 +1568,8 @@ static void gc_wl_drain(void) {
         else if (m.rng_n) gc_wl_grow();
         else gc_slot_grow();
     }
+    g_gc_nmk += m.nmk;
+    if (m.mxs > g_gc_mxs) g_gc_mxs = m.mxs;
 #if RT_DIAG
     g_gc_interior += m.interior;
     g_gc_dvec_elems += m.dvec_elems;

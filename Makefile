@@ -1410,6 +1410,7 @@ RT_PIC_SRCS := \
     $(RT)/rtx/rtx_misc.s \
     $(RT)/rtx/rtx_zdp.s \
     $(RT)/rtx/rtx_alloc.s \
+    $(RT)/rtx/rtx_gc.s \
     $(RT)/rtx/rtx_str.s \
     $(RT)/rtx/rtx_arith.s \
     $(RT)/rtx/rtx_icnvar.s \
