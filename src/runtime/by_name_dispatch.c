@@ -19019,7 +19019,12 @@ static int bn_convert(DESCR_t *args, int nargs, DESCR_t *out, int op) {
             if (a.v == DT_S && a.s) a.s = (char *)rt_cstr_d(a);
             if (!strcmp(tu, "INTEGER")) { *out = rt_sno_cnv_num(a, 'I'); return 1; }
             if (!strcmp(tu, "REAL")) { *out = rt_sno_cnv_num(a, 'R'); return 1; }
-            if (!strcmp(tu, "STRING")) { const char *sv = VARVAL_fn(a); *out = STRVAL(rt_heap_strdup_c(sv ? sv : "")); return 1; }
+            if (!strcmp(tu, "STRING")) {
+                if (a.v == DT_A || a.v == DT_T || a.v == DT_P || a.v == DT_C || a.v == DT_E || a.v == DT_X || IS_DATA_INST_fn(a)) { *out = FAILDESCR; return 1; }
+                const char *sv = VARVAL_fn(a);
+                *out = STRVAL(rt_heap_strdup_c(sv ? sv : ""));
+                return 1;
+            }
             return 0;
         }
     }
