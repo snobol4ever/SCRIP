@@ -1053,6 +1053,7 @@ test_gate_sno_a_real_argument_to_a_positional_primitive_truncates_as_sbl_does.sh
 test_gate_sno_a_real_converts_to_text_and_exponentiates_by_spitbols_own_routines.sh	WIRED	-	-	-
 test_gate_sno_a_real_that_overflows_is_not_a_value.sh	WIRED	-	-	-
 test_gate_sno_a_return_trace_callback_prints_the_deferred_banner_with_the_callers_statement_number.sh	WIRED	-	-	-
+test_gate_sno_an_array_or_table_as_a_pattern_operand_raises_the_operand_errors_of_spitbol_in_both_modes.sh	WIRED	-	-	-
 test_gate_sno_a_return_trace_function_sees_the_returning_functions_names_still_bound.sh	WIRED	-	-	-
 test_gate_sno_a_runtime_error_names_the_source_file_the_line_and_the_statement_of_the_failing_statement.sh	WIRED	-	-	-
 test_gate_sno_a_runtime_error_sbl_raises_is_raised_by_number_in_both_modes.sh	WIRED	-	-	-

@@ -2613,6 +2613,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_sno_nofail_d", GC_RET_DESCR },
     { "rt_sno_operand_error", GC_RET_VOID },
     { "rt_sno_parb_d", GC_RET_DESCR },
+    { "rt_sno_patck_d", GC_RET_DESCR },
     { "rt_sno_pb0_d", GC_RET_DESCR },
     { "rt_sno_pbalt_d", GC_RET_DESCR },
     { "rt_sno_pbc_d", GC_RET_DESCR },

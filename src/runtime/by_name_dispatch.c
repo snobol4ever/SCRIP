@@ -458,8 +458,8 @@ int rt_builtin_is_known(const char *name) {
         "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box", "__rk_cell_of", "__rk_elem_ref",
         "__rk_elem_bind", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT",
         "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY",
-        "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "SNO$CHKNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call",
-        "__trace_return", "__trace_value", "__trace_tap_off", NULL };
+        "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "SNO$CHKNM", "SNO$PATCK", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt",
+        "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", NULL };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
     { if (dat_find_type(name)) return 1; }
     { extern int rt_dat_field_of_any(const char *); if (rt_dat_field_of_any(name)) return 1; }
@@ -9093,6 +9093,18 @@ static cv_t g_pl_flags;
 #define pl_flags ((pl_flag_t *)g_pl_flags.p)
 static void pl_flags_ready(void) { if (g_pl_flags.len) return; for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; } }
 DESCR_t rt_sno_wantnm_d(DESCR_t *args, int nargs) { extern int rt_g_want_name; (void)args; (void)nargs; rt_g_want_name = 1; return NULVCL; }
+static const char *rt_sno_patck_text(int code) {
+    return code == 240 ? "pattern match right operand is not pattern" : code == 5 ? "alternation right operand is not pattern" : code == 6 ? "alternation left operand is not pattern" : code == 8 ?
+        "concatenation left operand is not a string or pattern" : "concatenation right operand is not a string or pattern";
+}
+DESCR_t rt_sno_patck_d(DESCR_t *args, int nargs) {
+    extern void core_runtime_error(int, const char *);
+    DESCR_t r = nargs > 0 ? args[0] : NULVCL;
+    if (nargs < 2 || IS_FAIL_fn(r) || !(r.v == DT_A || r.v == DT_T || IS_DATA_INST_fn(r))) return r;
+    int code = (int)to_int(args[1]);
+    core_runtime_error(code, rt_sno_patck_text(code));
+    return FAILDESCR;
+}
 DESCR_t rt_sno_chknm_d(DESCR_t *args, int nargs) {
     extern int rt_g_want_name;
     extern int rt_g_ret_by_name;
@@ -18797,7 +18809,15 @@ DESCR_t rt_sno_pcur_d(DESCR_t *args, int nargs) {
     RT_HOOK_GUARD("SNO$PCUR");
     return nargs != 1 ? FAILDESCR : args[0].v == DT_I ? pat_mk_cursor((const char *)(uintptr_t)args[0].i) : pat_mk_cursor(rt_sno_target_name(args[0]));
 }
-DESCR_t rt_sno_pbalt_d(DESCR_t *args, int nargs) { extern DESCR_t pat_alt(DESCR_t, DESCR_t); RT_HOOK_GUARD("SNO$PBALT"); return nargs == 2 ? pat_alt(args[0], args[1]) : FAILDESCR; }
+DESCR_t rt_sno_pbalt_d(DESCR_t *args, int nargs) {
+    extern DESCR_t pat_alt(DESCR_t, DESCR_t);
+    RT_HOOK_GUARD("SNO$PBALT");
+    if (nargs != 2) return FAILDESCR;
+    DESCR_t lc[2] = { args[0], INTVAL(6) };
+    DESCR_t rc[2] = { args[1], INTVAL(5) };
+    if (IS_FAIL_fn(rt_sno_patck_d(lc, 2)) || IS_FAIL_fn(rt_sno_patck_d(rc, 2))) return FAILDESCR;
+    return pat_alt(args[0], args[1]);
+}
 DESCR_t rt_sno_parb_d(DESCR_t *args, int nargs) { extern DESCR_t pat_arbno(DESCR_t); RT_HOOK_GUARD("SNO$PARB"); return nargs == 1 ? pat_arbno(args[0]) : FAILDESCR; }
 DESCR_t rt_sno_pfen_d(DESCR_t *args, int nargs) { extern DESCR_t pat_fence_p(DESCR_t); RT_HOOK_GUARD("SNO$PFEN"); return nargs == 1 ? pat_fence_p(args[0]) : FAILDESCR; }
 DESCR_t rt_sno_pdef_d(DESCR_t *args, int nargs) { extern DESCR_t pat_defer(const char *); RT_HOOK_GUARD("SNO$PDEF"); return nargs == 1 ? pat_defer(rt_sno_target_name(args[0])) : FAILDESCR; }
