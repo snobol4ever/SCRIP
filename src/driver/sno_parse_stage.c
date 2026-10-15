@@ -19,36 +19,30 @@ static int sc_field_index(const DATINST_t *u, const char *nm) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sc_kind_of(const char *nm) {
-    static int built = 0;
-    static int bucket[1024];
-    if (!built) {
-        for (int i = 0; i < 1024; i++) bucket[i] = -1;
-        for (int k = 0; k < TT_KIND_COUNT; k++) {
-            if (!tt_e_name[k]) continue;
-            { unsigned h = 2166136261u; for (const char *p = tt_e_name[k]; *p; p++) { h ^= (unsigned char)*p; h *= 16777619u; } h &= 1023u; while (bucket[h] >= 0) h = (h + 1) & 1023u; bucket[h] = k; }
-        }
-        built = 1;
+typedef struct { const char *src; size_t len; const int *line_starts; int nlines; int ft, fv, fn, fc, fp; long nodes; const int *bucket; int nbucket; } sc_export_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned sc_kind_hash(const char *nm) { unsigned h = 2166136261u; for (const char *p = nm; *p; p++) { h ^= (unsigned char)*p; h *= 16777619u; } return h; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sc_kinds_build(int *bucket, int nb) {
+    for (int i = 0; i < nb; i++) bucket[i] = -1;
+    for (int k = 0; k < TT_KIND_COUNT; k++) {
+        if (!tt_e_name[k]) continue;
+        { unsigned h = sc_kind_hash(tt_e_name[k]) & (unsigned)(nb - 1); while (bucket[h] >= 0) h = (h + 1) & (unsigned)(nb - 1); bucket[h] = k; }
     }
-    {
-        unsigned h = 2166136261u;
-        for (const char *p = nm; *p; p++) { h ^= (unsigned char)*p; h *= 16777619u; }
-        h &= 1023u;
-        while (bucket[h] >= 0) { if (!strcmp(tt_e_name[bucket[h]], nm)) return bucket[h]; h = (h + 1) & 1023u; }
-    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sc_kind_of(const sc_export_t *x, const char *nm) {
+    unsigned h = sc_kind_hash(nm) & (unsigned)(x->nbucket - 1);
+    while (x->bucket[h] >= 0) { if (!strcmp(tt_e_name[x->bucket[h]], nm)) return x->bucket[h]; h = (h + 1) & (unsigned)(x->nbucket - 1); }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *sc_text_of(DESCR_t d, size_t *len_out) {
     if (d.v == DT_S) { *len_out = d.slen; return d.s ? d.s : ""; }
-    if (d.v == DT_SNUL) { *len_out = 0; return ""; }
-    if (d.v == DT_I) { static char b[32]; int n = snprintf(b, sizeof b, "%lld", (long long)d.i); *len_out = (size_t)n; return b; }
-    if (d.v == DT_R) { static char b[64]; int n = snprintf(b, sizeof b, "%.17g", d.r); *len_out = (size_t)n; return b; }
     *len_out = 0;
     return "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { const char *src; size_t len; const int *line_starts; int nlines; int ft, fv, fn, fc, fp; long nodes; } sc_export_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_pos_of(const sc_export_t *x, long off, int *line, int *col) {
     int lo = 0, hi = x->nlines - 1;
@@ -66,7 +60,7 @@ static tree_t *sc_export(sc_export_t *x, DESCR_t d, long *first_off, int root) {
         DESCR_t *f = d.u->fields;
         size_t tl, vl;
         const char *tn = sc_text_of(f[x->ft], &tl);
-        int k = root ? (int)TT_PROGRAM : sc_kind_of(tn);
+        int k = root ? (int)TT_PROGRAM : sc_kind_of(x, tn);
         if (k < 0) { fprintf(stderr, "rt_sc_module: the tree names an unknown kind '%s'\n", tn); return (tree_t *)0; }
         e = ast_node_new((tree_e)k);
         x->nodes++;
@@ -95,7 +89,7 @@ static tree_t *sc_export(sc_export_t *x, DESCR_t d, long *first_off, int root) {
                 for (long i = 0; i < n && a->lo + i <= a->hi; i++) {
                     DESCR_t kd = array_get(a, (int)(a->lo + i));
                     tree_t *c;
-                    if (root && IS_DATA_INST_fn(kd) && kd.u && kd.u->fields) { size_t kl; if (sc_kind_of(sc_text_of(kd.u->fields[x->ft], &kl)) < 0) continue; }
+                    if (root && IS_DATA_INST_fn(kd) && kd.u && kd.u->fields) { size_t kl; if (sc_kind_of(x, sc_text_of(kd.u->fields[x->ft], &kl)) < 0) continue; }
                     c = sc_export(x, kd, &kid_off, 0);
                     if (!c) return (tree_t *)0;
                     if (kid_off >= 0 && (my_off < 0 || kid_off < my_off)) my_off = kid_off;
@@ -115,6 +109,12 @@ static tree_t *sc_export_tree(DESCR_t t, const char *src, size_t len) {
     for (size_t i = 0; i < len; i++) if (src[i] == '\n') nl++;
     int ls[nl + 2];
     long off0 = -1;
+    int nb = 1;
+    while (nb < 2 * (int)TT_KIND_COUNT) nb <<= 1;
+    int bucket[nb];
+    sc_kinds_build(bucket, nb);
+    x.bucket = bucket;
+    x.nbucket = nb;
     x.src = src;
     x.len = len;
     x.nlines = 0;
