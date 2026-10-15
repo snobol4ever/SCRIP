@@ -1152,6 +1152,7 @@ test_gate_sno_rewind_on_an_unopened_unit_raises_174.sh	WIRED	-	-	-
 test_gate_sno_rtntype_is_set_by_an_asm_leaf.sh	WIRED	-	-	-
 test_gate_sno_runtime_define.sh	WIRED	-	-	-
 test_gate_sno_set_positions_a_file_as_spitbol_does.sh	WIRED	-	-	-
+test_gate_sno_set_positions_a_file_like_sbl_in_every_whence_mode_and_tell_is_undefined_in_both.sh	WIRED	-	-	-
 test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
 test_gate_sno_sort_and_rsort_answer_as_spitbol_does.sh	WIRED	-	-	-
 test_gate_sno_statement_mark_mode_releases_the_hook_residue_before_the_statement.sh	WIRED	-	-	-
