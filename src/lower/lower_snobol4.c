@@ -3263,6 +3263,14 @@ static int sno_pat_supported(const tree_t * t) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_null_lit(const tree_t * t);
+static int sno_cat_runtime_shape(const tree_t * t, int * ndefer) {
+    if (!t) return 0;
+    if (t->t == TT_DEFER) { (*ndefer)++; return 1; }
+    if (t->t == TT_VAR || sno_null_lit(t)) return 1;
+    if ((t->t == TT_SEQ || t->t == TT_CAT) && t->n > 1) return sno_cat_runtime_shape(t->c[0], ndefer) && sno_cat_runtime_shape(t->c[1], ndefer);
+    return 0;
+}
 static int sno_is_pattern_rhs(const tree_t * t) {
     if (!t) return 0;
     switch (sno_pat_eff_kind(t)) {
@@ -3293,6 +3301,7 @@ static int sno_is_pattern_rhs(const tree_t * t) {
         {
             const tree_t * a = (t->n > 0) ? t->c[0] : NULL;
             const tree_t * b = (t->n > 1) ? t->c[1] : NULL;
+            { int nd = 0; if (sno_cat_runtime_shape(t, &nd) && nd > 0) return 0; }
             if ((a && a->t == TT_DEFER) || (b && b->t == TT_DEFER)) return 1;
             return sno_is_pattern_rhs(a) || sno_is_pattern_rhs(b);
         }
