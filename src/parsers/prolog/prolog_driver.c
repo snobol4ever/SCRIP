@@ -6,12 +6,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 enum { PL_CONSULT_DEPTH_MAX = 16 };
 static cv_t g_pl_consulted_v;
 #define g_pl_consulted ((const char **)g_pl_consulted_v.p)
 static int g_pl_consulted_n = 0;
 static int g_pl_consult_depth = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_regular_file(const char *p) { struct stat st; return !stat(p, &st) && S_ISREG(st.st_mode); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * pl_consult_resolve(const char *spec, const char *from_file) {
     const char *const sfx[] = { ".pl", ".pro", ".prolog", ".plt" };
@@ -23,11 +26,12 @@ static char * pl_consult_resolve(const char *spec, const char *from_file) {
     dlen = slash ? (size_t)(slash - from_file) + 1 : 0;
     char cand[dlen + sl + sizeof ".prolog"];
     for (int at = dlen ? 0 : 1; at < 2; at++) {
-        for (int k = 0; k < (has_ext ? 1 : 4); k++) {
+        for (int k = 0; k < (has_ext ? 1 : 5); k++) {
+            int exact = has_ext || k == 4;
             size_t o = at ? 0 : dlen;
             if (o) memcpy(cand, from_file, o);
-            snprintf(cand + o, sizeof cand - o, "%s%s", spec, has_ext ? "" : sfx[k]);
-            probe = fopen(cand, "r"); if (probe) { fclose(probe); return ct_strdup(cand); } } }
+            snprintf(cand + o, sizeof cand - o, "%s%s", spec, exact ? "" : sfx[k]);
+            probe = fopen(cand, "r"); if (probe) { fclose(probe); if (!exact || has_ext || pl_regular_file(cand)) return ct_strdup(cand); } } }
     return (char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

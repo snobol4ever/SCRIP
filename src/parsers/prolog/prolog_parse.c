@@ -1859,6 +1859,13 @@ static const char * const PL_PRELUDE_SRC =
     "get_residual(G0,DL):-'$tnot_split'(G0,G),'$tbl_vt'(VT),'$trie_entries'(VT,L),member(e(_,V,T),L),'$trie_meta_get'(T,0,complete),\\+ \\+ V=G,copy_term(V,Vc),Vc=G,term_variables(Vc,Vs),Sk=..[ret|Vs],'$trie_entries'(T,As),member(e(_,Sk,Val),As),'$tbl_resid'(Val,Sk,D),'$tbl_unql'(D,DL).\n"
     "'$tbl_resid'(true,_,[]).\n"
     "'$tbl_resid'(u(P),Sk,D):-member(Sk2-D,P),Sk2=Sk.\n"
+    "sk_not(G):-not_exists(G).\n"
+    "get_calls(MG,T,R):-'$tbl_strip'(MG,M,G),'$tbl_vt'(VT),'$trie_entries'(VT,L),member(e(_,_,I),L),T='$trie'(I),'$tbl_table_status'(T,_,M:G,R).\n"
+    "get_returns(T,R):-'$trie_id'(T,I),'$trie_entries'(I,As),member(e(_,R,_),As).\n"
+    "get_returns(T,R,N):-'$trie_id'(T,I),'$trie_entries'(I,As),'$gr_idx'(As,1,R,N).\n"
+    "'$gr_idx'([e(_,R,_)|_],N,R,N).\n"
+    "'$gr_idx'([_|As],N0,R,N):-N1 is N0+1,'$gr_idx'(As,N1,R,N).\n"
+    "get_returns_for_call(MV,A):-current_table(MV,T),'$tbl_table_status'(T,_,_:A,Sk),'$trie_id'(T,I),'$trie_entries'(I,As),member(e(_,Sk,_),As).\n"
     "'$tbl_unql'([],[]).\n"
     "'$tbl_unql'([E|Es],[F|Fs]):-'$tbl_unqe'(E,F),'$tbl_unql'(Es,Fs).\n"
     "'$tbl_unqe'(tnot(G),tnot(G2)):-!,'$tbl_unqual'(G,_,G2).\n"
@@ -2779,9 +2786,10 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_dir'(D,_,_,_):-var(D),!.\n"
     "'$lfx_dir'(table(_),_,_,_):-!.\n"
     "'$lfx_dir'(op(_,_,_),_,_,_):-!.\n"
+    "'$lfx_dir'(ensure_loaded(F),M,_,A):-!,'$lf_list'(F,Fl),'$lfx_rels'(Fl,A,Ps),load_files(M:Ps,[dialect(xsb),if(not_loaded)]).\n"
     "'$lfx_dir'([F|Fs],M,_,A):-!,'$lfx_rels'([F|Fs],A,Ps),load_files(M:Ps,[dialect(xsb)]).\n"
     "'$lfx_dir'(dynamic(S),M,_,_):-!,'$lfx_dspecs'(S,Ks,[]),'$lfx_dyns'(Ks,M).\n"
-    "'$lfx_dir'(D,_,_,_):-functor(D,F,N),memberchk(F/N,[import/1,export/1,index/1,index/2,ti/1,mode/1,hilog/1,compiler_options/1,module/1,module/2,ensure_loaded/1,use_module/1,use_module/2,thread_shared/1,discontiguous/1,multifile/1,document_export/1,local/1]),!.\n"
+    "'$lfx_dir'(D,_,_,_):-functor(D,F,N),memberchk(F/N,[import/1,export/1,index/1,index/2,ti/1,mode/1,hilog/1,compiler_options/1,module/1,module/2,use_module/1,use_module/2,thread_shared/1,discontiguous/1,multifile/1,document_export/1,local/1]),!.\n"
     "'$lfx_dir'(D,M,Ks,_):-'$lfx_body'(D,M,Ks,D2),'$consult_goal'(D2).\n"
     "'$lfx_rels'([],_,[]).\n"
     "'$lfx_rels'([F|Fs],A,[P|Ps]):-'$lf_rel'(A,F,P),'$lfx_rels'(Fs,A,Ps).\n"
@@ -2797,7 +2805,9 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_body'(G,M,_,'$lfx_mca'(M,C,Xs)):-M\\==user,compound(G),G=..[call,C|Xs],Xs\\==[],var(C),!.\n"
     "'$lfx_body'(G,M,Ks,G2):-compound(G),G=..[F,C|Xs],Xs\\==[],'$lfx_clof'(F),!,length(Xs,E),'$lfx_clo'(C,E,M,Ks,C2),G2=..[F,C2|Xs].\n"
     "'$lfx_body'(G,M,Ks,G2):-'$lfx_meta'(G,Sp),!,G=..[F|As],Sp=..[_|Ms],'$lfx_margs'(Ms,As,M,Ks,As2),G2=..[F|As2].\n"
-    "'$lfx_body'(G,M,Ks,G2):-callable(G),functor(G,F,N),memberchk(F/N,Ks),!,'$lfx_q'(M,F,Q),G=..[_|As],G2=..[Q|As].\n"
+    "'$lfx_body'(G,M,Ks,G2):-callable(G),functor(G,F,N),'$lfx_def'(F,N,M,Ks),!,'$lfx_q'(M,F,Q),G=..[_|As],G2=..[Q|As].\n"
+    "'$lfx_def'(F,N,_,Ks):-memberchk(F/N,Ks),!.\n"
+    "'$lfx_def'(F,N,M,_):-M\\==user,'$lfx_q'(M,F,Q),catch('$src_file_rt'(Q,N,_),error(existence_error(_,_),_),fail),!.\n"
     "'$lfx_body'(G,_,_,G).\n"
     "'$lfx_mc'(M,G):-call(M:G).\n"
     "'$lfx_mca'(M,C,Xs):-nonvar(C),C=(M2:C2),atom(M2),!,'$lfx_mca'(M2,C2,Xs).\n"
@@ -3293,6 +3303,11 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&referenced, "call_delays");
         pl_cv_add(&referenced, "undefined");
         pl_cv_add(&referenced, "not_exists");
+        pl_cv_add(&referenced, "sk_not");
+        pl_cv_add(&referenced, "get_calls");
+        pl_cv_add(&referenced, "get_returns");
+        pl_cv_add(&referenced, "get_returns_for_call");
+        pl_cv_add(&referenced, "$src_file_add");
     }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "setup_call_catcher_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&referenced, "meta_predicate")) pl_cv_add(&referenced, "$mq_arg");

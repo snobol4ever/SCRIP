@@ -1601,12 +1601,20 @@ static const char * pl_pred_file(const char * nm, int ar) {
     return (const char *) 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_rt_creatable(const char * nm, int ar) {
+    extern int rt_pl_db_key_is_static(void *, const char *);
+    char key[fmt_len("%s/%d", nm, ar)];
+    if (!g_stage2.rt_lowering || !g_stage2.rt_root || pl_file_defines(nm, ar)) return 0;
+    snprintf(key, sizeof key, "%s/%d", nm, ar);
+    return !rt_pl_db_key_is_static(g_stage2.rt_root, key);
+}
 static int pl_db_owned(const char * nm, int ar) {
     if (pl_rt_is_dynamic(nm, ar)) return 1;
     if (pl_decl_dyn_is(nm, ar)) return 1;
     if (pl_dyn_index(nm, ar) < 0) return 0;
     return pl_file_defines(nm, ar) ? 0 : 1;
 }
+static int pl_db_writable(const char * nm, int ar) { return pl_db_owned(nm, ar) || pl_rt_creatable(nm, ar); }
 static tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar);
 static IR_t * pl_db_leaf_seed(lcx_t * cx, int k, int i, const tree_t * arg, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
 static IR_t * pl_db_seed_file(lcx_t * cx, const char * pn, int ar, IR_t * next, IR_t * ωfail, IR_t ** entry_out) {
@@ -2752,7 +2760,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     return goal(cx,
                     pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("assert")),
                     pl_cc_fnc1(!strcmp(nm, "asserta") ? "$db_asserta_t" : "$db_assertz_t", (tree_t *) t->c[0])), γnext, ωfail, entry_out);
-                if (pl_pi_is_static_builtin(pn, ar) || !pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
+                if (pl_pi_is_static_builtin(pn, ar) || !pl_db_writable(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
                 {
                     IR_t * le = NULL;
                     IR_t * nd = pl_db_leaf2(cx, !strcmp(nm, "asserta") ? "$db_asserta" : "$db_assertz", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, &le);
@@ -2819,7 +2827,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     if (entry_out) *entry_out = te ? te : tn;
                     return nd;
                 }
-                if (pl_pi_is_static_builtin(pn, ar) || !pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
+                if (pl_pi_is_static_builtin(pn, ar) || !pl_db_writable(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
                 {
                     IR_t * le = NULL;
                     IR_t * nd = pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], NULL), 1, γnext, ωfail, &le);
@@ -2837,7 +2845,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 if (!pn)
                     return goal(cx, pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("retractall")), pl_cc_fnc1("$db_retractall_t", (tree_t *) t->c[0])), γnext,
                     ωfail, entry_out);
-                if (pl_pi_is_static_builtin(pn, ar) || !pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
+                if (pl_pi_is_static_builtin(pn, ar) || !pl_db_writable(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
                 {
                     IR_t * le = NULL;
                     IR_t * nd = pl_db_leaf2(cx, "$db_retractall", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, &le);
