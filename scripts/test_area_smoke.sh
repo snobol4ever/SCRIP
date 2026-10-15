@@ -89,7 +89,17 @@ if [ ${#FEATS[@]} -eq 0 ]; then
     # a file that reaches every feature (a * row) contributes nothing else: its symbol and feature rows are the same shared node seen
     # up close, and running them is the whole population by another name (the cto 2026-09-28: core.c's ten feature rows ran 1790
     # entries for twelve minutes on a shared-node landing)
-    case " $hit " in *" * "*) hit="*";; esac
+    # ⭐ BUT A SYMBOL ROW STILL SPEAKS INSIDE A SHARED NODE (hq_icon 2026-10-15, the section column: subscript_get2_s and rt_substr sit under
+    # src/runtime/, mapped to *, so their section rows were never read and tier 2 ran the seven cores, 13 of the 45 section entries). A symbol
+    # row names the FUNCTION the diff touched, not the file, so it is not core.c's ten file rows: the feature it names is added beside the *.
+    case " $hit " in *" * "*)
+      hit="*"
+      if git -C "$ROOT" cat-file -e "$MB:$f" 2>/dev/null; then
+        for fn in $(git -C "$ROOT" diff -U0 "$MB" -- "$f" | sed -n 's/^@@[^@]*@@ *//p' | sed -n 's/.*[^A-Za-z0-9_]\([A-Za-z_][A-Za-z0-9_]*\) *(.*/\1/p;s/^\([A-Za-z_][A-Za-z0-9_]*\) *(.*/\1/p' | sort -u); do
+          hit="$hit $(awk -F'\t' -v s="$fn" '$1 !~ /^#/ && $1 != "*" && $1 != "-" && $2==s {print $1}' "$MAP" | tr '\n' ' ')"
+        done
+      fi;;
+    esac
     raw="$raw $hit"
     echo "AREA_SMOKE_MAP $f -> $(printf '%s\n' $hit | grep -v '^-$' | awk '!seen[$0]++' | tr '\n' ' ' | sed 's/ $//')"
   done <<< "$files"

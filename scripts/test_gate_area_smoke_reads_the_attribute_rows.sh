@@ -114,6 +114,16 @@ ck "6e a file mapped to - alone prints NO-AREA, rc 0" '[ "$r6e" = 0 ] && grep -q
 o6f=$(cd "$R" && AREA_SMOKE_ROOT="$R" AREA_SMOKE_BASE=HEAD S4E_HOME="$WORK" bash "$SMOKE" --list-only 2>&1); r6f=$?
 ck "6f a src/ file the landing deletes is named as deleted and does not refuse (its row left with it, its successors carry theirs)" '[ "$r6f" = 0 ] && grep -q "AREA_SMOKE no area (deleted by this landing.*): src/templates/bb/bb_match_fence0.cpp" <<<"$o6f" && grep -q "AREA_SMOKE NO-AREA" <<<"$o6f"'
 ( cd "$R" && git checkout -q -- src/templates/bb/bb_match_fence0.cpp )
+# 6g/6h: a SYMBOL row inside a shared-node file (src/runtime/ maps to *) still selects its feature beside the shared node -- only for the function the diff touched
+mkdir -p "$R/src/runtime"; printf 'int zz_fence_fn(int a) {\n    int x = 1;\n    int y = 2;\n    return a;\n}\nint zz_other_fn(int a) {\n    int x = 1;\n    int y = 2;\n    return a;\n}\n' > "$R/src/runtime/zz_shared.c"
+printf 'FENCE\tzz_fence_fn\n' >> "$R/scripts/area_map.tsv"; ( cd "$R" && git add -A && git -c user.name=g -c user.email=g@g commit -q -m shared )
+sed -i '3s/int y = 2;/int y = 3;/' "$R/src/runtime/zz_shared.c"
+o6g=$(cd "$R" && AREA_SMOKE_ROOT="$R" AREA_SMOKE_BASE=HEAD S4E_HOME="$WORK" bash "$SMOKE" --list-only 2>&1); r6g=$?
+ck "6g an edit inside zz_fence_fn (a FENCE symbol row) in a * file reads SHARED-NODE and still selects FENCE and the doctored row" '[ "$r6g" = 0 ] && grep -q "AREA_SMOKE SHARED-NODE" <<<"$o6g" && grep -q "AREA_SMOKE_MAP src/runtime/zz_shared.c -> \* FENCE" <<<"$o6g" && grep -q "AREA_SMOKE features (1): FENCE" <<<"$o6g" && grep -q ": $CHOSEN\$" <<<"$o6g"'
+( cd "$R" && git checkout -q -- src/runtime/zz_shared.c ); sed -i '8s/int y = 2;/int y = 3;/' "$R/src/runtime/zz_shared.c"
+o6h=$(cd "$R" && AREA_SMOKE_ROOT="$R" AREA_SMOKE_BASE=HEAD S4E_HOME="$WORK" bash "$SMOKE" --list-only 2>&1); r6h=$?
+ck "6h an edit inside zz_other_fn (no symbol row) in the same file is the shared node alone: NO-AREA, no feature" '[ "$r6h" = 0 ] && grep -q "AREA_SMOKE SHARED-NODE" <<<"$o6h" && grep -q "AREA_SMOKE NO-AREA" <<<"$o6h" && ! grep -q "AREA_SMOKE features" <<<"$o6h"'
+( cd "$R" && git checkout -q -- src/runtime/zz_shared.c )
 
 echo "--- ARM 7: the map covers the vocabulary and every carrier exists (real corpus, read only) ---"
 vocab=$(python3 "$H" smoke --vocabulary 2>&1); rv=$?
