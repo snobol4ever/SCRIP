@@ -973,7 +973,7 @@ static void pl_module_flatten(PlProgram *pl_prog) {
         if (d) {
             const char *f = (d->t == TT_FNC) ? d->v.sval : (const char *)0;
             if (f && !strcmp(f, "table")) { for (int k = 0; k < d->n; k++) pl_mod_table_pi(&ms, m1, m2, d->c[k]); continue; }
-            if (f && (!strcmp(f, "dynamic") || !strcmp(f, "discontiguous") || !strcmp(f, "module_transparent"))) { for (int k = 0; k < d->n; k++) pl_mod_pi(&ms, m1, m2, d->c[k]); continue; }
+            if (f && (!strcmp(f, "dynamic") || !strcmp(f, "discontiguous") || !strcmp(f, "module_transparent") || !strcmp(f, "det"))) { for (int k = 0; k < d->n; k++) pl_mod_pi(&ms, m1, m2, d->c[k]); continue; }
             if (f && !strcmp(f, "meta_predicate")) continue;
             if (f && !strcmp(f, "begin_tests") && d->n == 2) { pl_mod_opts(&ms, m1, m2, d->c[1], 0); continue; }
             if (f && (!strcmp(f, "module") || !strcmp(f, "$module_restore") || !strcmp(f, "end_tests") || !strcmp(f, "begin_tests") || !strcmp(f, "use_module") || !strcmp(f, "ensure_loaded")
