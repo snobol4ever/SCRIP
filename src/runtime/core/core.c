@@ -2753,16 +2753,17 @@ extern DESCR_t pat_flush(void);
 extern int pat_is_bare_flush(DESCR_t d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pat_cset_arg_ok(int code, DESCR_t a);
+int pat_num_arg_ok(int tt, DESCR_t a);
 static DESCR_t _PAT_SPAN_(DESCR_t *a, int n) { return n>=1 && pat_cset_arg_ok(188, a[0]) ? pat_span(rt_cstr_d(a[0])) : FAILDESCR; }
 static DESCR_t _PAT_BREAK_(DESCR_t *a, int n) { return n>=1 && pat_cset_arg_ok(69, a[0]) ? pat_break_(rt_cstr_d(a[0])) : FAILDESCR; }
 static DESCR_t _PAT_BREAKX_(DESCR_t *a, int n) { return n>=1 && pat_cset_arg_ok(70, a[0]) ? pat_breakx(rt_cstr_d(a[0])) : FAILDESCR; }
 static DESCR_t _PAT_ANY_(DESCR_t *a, int n) { return n>=1 && pat_cset_arg_ok(59, a[0]) ? pat_any_cs(rt_cstr_d(a[0])) : FAILDESCR; }
 static DESCR_t _PAT_NOTANY_(DESCR_t *a, int n) { return n>=1 && pat_cset_arg_ok(151, a[0]) ? pat_notany(rt_cstr_d(a[0])) : FAILDESCR; }
-static DESCR_t _PAT_LEN_(DESCR_t *a, int n) { return n>=1 ? pat_len(to_int(a[0])) : FAILDESCR; }
-static DESCR_t _PAT_POS_(DESCR_t *a, int n) { return n>=1 ? pat_pos(to_int(a[0])) : FAILDESCR; }
-static DESCR_t _PAT_RPOS_(DESCR_t *a, int n) { return n>=1 ? pat_rpos(to_int(a[0])) : FAILDESCR; }
-static DESCR_t _PAT_TAB_(DESCR_t *a, int n) { return n>=1 ? pat_tab(to_int(a[0])) : FAILDESCR; }
-static DESCR_t _PAT_RTAB_(DESCR_t *a, int n) { return n>=1 ? pat_rtab(to_int(a[0])) : FAILDESCR; }
+static DESCR_t _PAT_LEN_(DESCR_t *a, int n) { return n>=1 && pat_num_arg_ok(TT_LEN, a[0]) ? pat_len(to_int(a[0])) : FAILDESCR; }
+static DESCR_t _PAT_POS_(DESCR_t *a, int n) { return n>=1 && pat_num_arg_ok(TT_POS, a[0]) ? pat_pos(to_int(a[0])) : FAILDESCR; }
+static DESCR_t _PAT_RPOS_(DESCR_t *a, int n) { return n>=1 && pat_num_arg_ok(TT_RPOS, a[0]) ? pat_rpos(to_int(a[0])) : FAILDESCR; }
+static DESCR_t _PAT_TAB_(DESCR_t *a, int n) { return n>=1 && pat_num_arg_ok(TT_TAB, a[0]) ? pat_tab(to_int(a[0])) : FAILDESCR; }
+static DESCR_t _PAT_RTAB_(DESCR_t *a, int n) { return n>=1 && pat_num_arg_ok(TT_RTAB, a[0]) ? pat_rtab(to_int(a[0])) : FAILDESCR; }
 static DESCR_t _PAT_ARB_(DESCR_t *a, int n) { (void)a; (void)n; return pat_arb(); }
 static DESCR_t _PAT_REM_(DESCR_t *a, int n) { (void)a; (void)n; return pat_rem(); }
 static DESCR_t _PAT_FAIL_(DESCR_t *a, int n) { (void)a; (void)n; return pat_fail(); }

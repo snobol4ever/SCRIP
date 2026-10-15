@@ -325,6 +325,8 @@ static int rt_parse_num_d(const DESCR_t *v, int64_t *iv, double *rv, int *isreal
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_num_arg_d(const DESCR_t *v, int64_t *iv) { double rv = 0; int isreal = 0; if (!rt_parse_num_d(v, iv, &rv, &isreal)) return 0; if (isreal) *iv = (int64_t)rv; return 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_num_is_blank_d(const DESCR_t *v) {
     if (v->v == DT_SNUL) return 1;
     if ((v->v == DT_S || IS_CSET_fn(*v)) && v->s) { const char *p = rt_cstr_d(*v); while (*p == ' ') p++; return !*p; }
@@ -397,7 +399,7 @@ void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out,
     if (sreal || (oreal && !(codes & COERCE_KEEP_INT))) { out->v = DT_R; out->slen = 0; out->r = sreal ? sr : (double)si; } else { out->v = DT_I; out->slen = 0; out->i = si; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
+int rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     int ec = (int)(codes & 0xffff);
     int en = (int)((codes >> 16) & 0xffff);
@@ -408,17 +410,19 @@ void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
     int sreal = 0;
     int ok = 0;
     int big = 0;
+    int raised = 0;
     if (rt_parse_num_d(&v, &si, &sr, &sreal)) {
         ok = 1;
         if (!sreal) r = si;
         else if (!isfinite(sr)) { if (v.v == DT_R && !isnan(sr)) big = 1; else ok = 0; } else if (sr >= 9.2233720368547758e18 || sr <= -9.2233720368547758e18) big = 1;
         else r = (int64_t)sr;
     }
-    if (!ok && ec) core_runtime_error(ec, rt_coerce_errmsg(ec));
-    if ((r < 0 || big) && en) core_runtime_error(en, rt_coerce_errmsg(en));
+    if (!ok && ec) { core_runtime_error(ec, rt_coerce_errmsg(ec)); raised = 1; }
+    if ((r < 0 || big) && en) { core_runtime_error(en, rt_coerce_errmsg(en)); raised = 1; }
     out->v = DT_I;
     out->slen = 0;
     out->i = r;
+    return raised;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t g_prim_val;

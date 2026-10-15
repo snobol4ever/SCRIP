@@ -3349,7 +3349,19 @@ static IR_t * sno_mkpat_emit(scx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
         IR_t * ae = sx_lower(cx, tx.pre[api].arg, NULL, ω, &av);
         lc_γ_to(last, ae);
         last = av;
-        if (tx.pre[api].str && tx.pre[api].codes) { IR_t * co = lc_build(g, IR_COERCE_STRING, NULL, ω); IR_LIT(co).ival = tx.pre[api].codes; lc_γ_to(av, co); ir_operand_push(co, av); last = co; }
+        if (tx.pre[api].str && tx.pre[api].codes) {
+            IR_t * co = lc_build(g, IR_COERCE_STRING, NULL, ω);
+            IR_LIT(co).ival = tx.pre[api].codes;
+            lc_γ_to(av, co);
+            ir_operand_push(co, av);
+            last = co;
+        } else if (!tx.pre[api].str && tx.pre[api].codes && tx.pre[api].arg && tx.pre[api].arg->t != TT_DEFER) {
+            IR_t * co = lc_build(g, IR_COERCE_INTEGER, NULL, ω);
+            IR_LIT(co).ival = tx.pre[api].codes;
+            lc_γ_to(av, co);
+            ir_operand_push(co, av);
+            last = co;
+        }
         ir_operand_push(mk, last);
     }
     lc_γ_to(last, mk);

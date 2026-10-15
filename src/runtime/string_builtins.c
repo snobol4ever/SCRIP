@@ -119,6 +119,7 @@ DESCR_t rpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t REVERS_fn(DESCR_t s) {
+    if (s.v == DT_P || s.v == DT_A || s.v == DT_T || s.v == DT_C || s.v == DT_E) { core_runtime_error(177, "reverse argument is not a string"); return FAILDESCR; }
     const char *STRVAL_fn = VARVAL_fn(s);
     int len = (s.v == DT_S && s.slen != 0xFFFFFFFFu) ? (int)(s.slen ? s.slen : (STRVAL_fn?strlen(STRVAL_fn):0)) : (int)(STRVAL_fn?strlen(STRVAL_fn):0);
     char *r = rt_str_alloc(len);

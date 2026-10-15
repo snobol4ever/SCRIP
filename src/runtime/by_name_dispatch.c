@@ -17973,7 +17973,12 @@ DESCR_t rt_sno_pbk_d(DESCR_t *args, int nargs) {
     RT_HOOK_GUARD("SNO$PBK");
     return nargs == 2 && pat_cset_arg_ok(pat_cset_code((int)to_int(args[0])), args[1]) ? pat_mk_cset((int)to_int(args[0]), rt_cstr_d(args[1])) : FAILDESCR;
 }
-DESCR_t rt_sno_pbn_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_num(int, int64_t); RT_HOOK_GUARD("SNO$PBN"); return nargs == 2 ? pat_mk_num((int)to_int(args[0]), to_int(args[1])) : FAILDESCR; }
+DESCR_t rt_sno_pbn_d(DESCR_t *args, int nargs) {
+    extern DESCR_t pat_mk_num(int, int64_t);
+    extern int pat_num_arg_ok(int, DESCR_t);
+    RT_HOOK_GUARD("SNO$PBN");
+    return nargs == 2 && pat_num_arg_ok((int)to_int(args[0]), args[1]) ? pat_mk_num((int)to_int(args[0]), to_int(args[1])) : FAILDESCR;
+}
 DESCR_t rt_sno_pb0_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_nil(int); RT_HOOK_GUARD("SNO$PB0"); return nargs == 1 ? pat_mk_nil((int)to_int(args[0])) : FAILDESCR; }
 DESCR_t rt_sno_pbc_d(DESCR_t *args, int nargs) {
     extern DESCR_t pat_mk_capt(int, const char *, DESCR_t);
@@ -20950,7 +20955,12 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_6546:
     ;
-    if ((_bid == BID_SNOx24PBN) && nargs == 2) { extern DESCR_t pat_mk_num(int, int64_t); *out = pat_mk_num((int)to_int(args[0]), to_int(args[1])); return 1; }
+    if ((_bid == BID_SNOx24PBN) && nargs == 2) {
+        extern DESCR_t pat_mk_num(int, int64_t);
+        extern int pat_num_arg_ok(int, DESCR_t);
+        *out = pat_num_arg_ok((int)to_int(args[0]), args[1]) ? pat_mk_num((int)to_int(args[0]), to_int(args[1])) : FAILDESCR;
+        return 1;
+    }
     L_bidjmp_6547:
     ;
     if ((_bid == BID_SNOx24PB0) && nargs == 1) { extern DESCR_t pat_mk_nil(int); *out = pat_mk_nil((int)to_int(args[0])); return 1; }

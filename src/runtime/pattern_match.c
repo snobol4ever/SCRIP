@@ -292,6 +292,17 @@ int pat_cset_arg_ok(int code, DESCR_t a) {
     if (!code || a.v == DT_E) return 1;
     return !rt_coerce_str_d(&a, &o, (long)code | ((long)code << 16));
 }
+int pat_num_arg_ok(int tt, DESCR_t a) {
+    extern int rt_num_arg_d(const DESCR_t *, int64_t *);
+    extern const char * rt_coerce_errtext(int);
+    extern void core_runtime_error(int code, const char *msg);
+    int base = tt == TT_LEN ? 120 : tt == TT_POS ? 162 : tt == TT_RTAB ? 181 : tt == TT_TAB ? 183 : tt == TT_RPOS ? 185 : 0;
+    int64_t n = 0;
+    if (!base || a.v == DT_E) return 1;
+    if (!rt_num_arg_d(&a, &n)) { core_runtime_error(base, rt_coerce_errtext(base)); return 0; }
+    if (n < 0 || n > 16777216) { core_runtime_error(base + 1, rt_coerce_errtext(base + 1)); return 0; }
+    return 1;
+}
 DESCR_t pat_mk_cset(int tt, const char *cs) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, cs ? cs : "", cs ? (uint32_t)strlen(cs) : 0, 0, 0, 0)); return v; }
 DESCR_t pat_mk_num(int tt, int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, 0, 0, n, 0, 0)); return v; }
 DESCR_t pat_mk_nil(int tt) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, 0, 0, 0, 0, 0)); return v; }
