@@ -586,7 +586,9 @@ inline uint8_t x86_jcc_op(const char * mnem) {
 }
 enum { X86H_DEF = 0, X86H_JMP = 1, X86H_JCC = 2, X86H_DEF_PAIR = 3 };
 inline std::string x86_port_hook(int site, int port, const char * lbl = NULL);
-inline int x86_pl_trace_on() { const char * e = getenv("SCRIP_PL_TRACE"); return e && *e && *e != '0'; }
+inline int x86_pl_trace_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PL_TRACE"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
+inline int x86_port_exit_audit_on() { static int v = -1; if (v < 0) v = getenv("SCRIP_PORT_EXIT_AUDIT") ? 1 : 0; return v; }
+inline int x86_omega_trace_on() { static int v = -1; if (v < 0) v = getenv("SCRIP_ZETA_OMEGA_TRACE") ? 1 : 0; return v; }
 inline int x86_fc_on();
 inline std::string x86_fc_jcc_omega(const char * mnem);
 inline std::string x86_fc_jcc_gamma(const char * mnem);
@@ -1507,29 +1509,31 @@ inline void x86_parse(const xop & x, opnd & o) {
     if (x.tag == 0) return;
     if (x.tag == 2) { o.kind = XK_IMM; o.imm = (long)(int64_t)x.u; return; }
     const char * s = x.s;
+    if (x86_is_reg(s)) { o.kind = XK_REG; o.reg = x86_rnum(s); return; }
+    const int dq = (s[0] == 'd' || s[0] == 'q') && !strncmp(s + 1, "word ptr [", 10);
     int p = x86_port_of(s);
     if (p >= 0 && (s[2] == 0)) { fprintf(stderr, "x86_parse: string port operand \"%s\" is RETIRED (Lon 2026-07-08 s5) — ports go through x86_alpha/x86_beta/x86_gamma/x86_omega ONLY\n", s); abort();
         }
     if (s[0] == 'L' && s[1] >= '0' && s[1] <= '9') { int n = atoi(s + 1); o.kind = XK_ILBL; o.lbl = n; return; }
     if (s[0] == 'P' && s[1] >= '0' && s[1] <= '9') { int _pdig = 1; for (const char * q = s + 1; *q; q++) if (*q < '0' || *q > '9') { _pdig = 0; break; } if (_pdig) { int n = atoi(s + 1);
         o.kind = XK_PAIR; o.lbl = n; return; } }
-    if (!strcmp(s, "extlbl")) { o.kind = XK_EXTLBL; return; }
-    if (!strncmp(s, "dword ptr [rsp# + ", 18)) { o.kind = XK_RSP32; o.off = atoi(s + 18); return; }
-    if (!strncmp(s, "qword ptr [rsp# + ", 18)) { o.kind = XK_RSP64; o.off = atoi(s + 18); return; }
-    if (!strncmp(s, x86_fr32_prefix(), strlen(x86_fr32_prefix()))) { o.kind = XK_FR32; o.off = atoi(s + strlen(x86_fr32_prefix())); return; }
-    if (!strncmp(s, x86_fr64_prefix(), strlen(x86_fr64_prefix()))) { o.kind = XK_FR64; o.off = atoi(s + strlen(x86_fr64_prefix())); return; }
-    if (!strncmp(s, "dword ptr [rsp + ", 17)) { o.kind = XK_RSP32; o.off = atoi(s + 17); return; }
-    if (!strncmp(s, "dword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
+    if (s[0] == 'e' && !strcmp(s, "extlbl")) { o.kind = XK_EXTLBL; return; }
+    if (dq && !strncmp(s, "dword ptr [rsp# + ", 18)) { o.kind = XK_RSP32; o.off = atoi(s + 18); return; }
+    if (dq && !strncmp(s, "qword ptr [rsp# + ", 18)) { o.kind = XK_RSP64; o.off = atoi(s + 18); return; }
+    if (dq && !strncmp(s, x86_fr32_prefix(), strlen(x86_fr32_prefix()))) { o.kind = XK_FR32; o.off = atoi(s + strlen(x86_fr32_prefix())); return; }
+    if (dq && !strncmp(s, x86_fr64_prefix(), strlen(x86_fr64_prefix()))) { o.kind = XK_FR64; o.off = atoi(s + strlen(x86_fr64_prefix())); return; }
+    if (dq && !strncmp(s, "dword ptr [rsp + ", 17)) { o.kind = XK_RSP32; o.off = atoi(s + 17); return; }
+    if (dq && !strncmp(s, "dword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
       if (pl) { size_t bl = (size_t)(pl - (lb + 1)); if (bl > 7) bl = 7; memcpy(o.base, lb + 1, bl); o.base[bl] = 0;
         char * ep = 0; long d = strtol(pl + 3, &ep, 10); if (x86_is_reg(o.base) && ep && *ep == ']') { o.kind = XK_REGDISP32; o.off = (int)d; return; } } }
-    if (!strncmp(s, "qword ptr [rip + ", 17)) { o.kind = XK_ROSLOT; o.off = atoi(s + 17); return; }
-    if (!strncmp(s, "qword ptr [rsp + ", 17)) { o.kind = XK_RSP64; o.off = atoi(s + 17); return; }
-    if (!strncmp(s, "qword ptr [", 11) && s[11] >= '0' && s[11] <= '9') { char * ep = 0; unsigned long a = strtoul(s + 11, &ep, 10); if (ep && *ep == ']' && !ep[1]) { o.kind = XK_ABS64;
+    if (dq && !strncmp(s, "qword ptr [rip + ", 17)) { o.kind = XK_ROSLOT; o.off = atoi(s + 17); return; }
+    if (dq && !strncmp(s, "qword ptr [rsp + ", 17)) { o.kind = XK_RSP64; o.off = atoi(s + 17); return; }
+    if (dq && !strncmp(s, "qword ptr [", 11) && s[11] >= '0' && s[11] <= '9') { char * ep = 0; unsigned long a = strtoul(s + 11, &ep, 10); if (ep && *ep == ']' && !ep[1]) { o.kind = XK_ABS64;
         o.imm = (long)a; return; } }
-    if (!strncmp(s, "qword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
+    if (dq && !strncmp(s, "qword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
       if (pl) { size_t bl = (size_t)(pl - (lb + 1)); if (bl > 7) bl = 7; memcpy(o.base, lb + 1, bl); o.base[bl] = 0;
         char * ep = 0; long d = strtol(pl + 3, &ep, 10); if (x86_is_reg(o.base) && ep && *ep == ']') { o.kind = XK_REGDISP; o.off = (int)d; return; } } }
-    { char ns[strlen(s) + 1]; int k = 0; for (const char * q = s; *q; q++) if (*q != ' ') ns[k++] = *q; ns[k] = 0;
+    if (strchr(s, '[')) { char ns[strlen(s) + 1]; int k = 0; for (const char * q = s; *q; q++) if (*q != ' ') ns[k++] = *q; ns[k] = 0;
       if (!strncmp(ns, "[r13+rcx+", 9)) { o.kind = XK_R13RCX; o.off = atoi(ns + 9); return; }
       if (!strcmp(ns, "[r13+rcx]")) { o.kind = XK_R13RCX; o.off = 0; return; }
       { const char * pp = strchr(ns, '+'); size_t nn = strlen(ns);
@@ -1537,10 +1541,10 @@ inline void x86_parse(const xop & x, opnd & o) {
           size_t bl = (size_t)(pp - (ns + 1)); if (bl > 7) bl = 7; char bb[bl + 1]; memcpy(bb, ns + 1, bl); bb[bl] = 0;
           size_t il = (size_t)((ns + nn - 1) - (pp + 1)); if (il > 7) il = 7; char ii[il + 1]; memcpy(ii, pp + 1, il); ii[il] = 0;
           if (x86_is_reg(bb) && x86_is_reg(ii)) { memcpy(o.base, bb, bl + 1); memcpy(o.idx, ii, il + 1); o.kind = XK_MEMBI; return; } } } }
-    if (!strcmp(s, "[rip + __]")) { o.kind = XK_RIPSEAL; return; }
-    if (!strcmp(s, "[rip@got + __]")) { o.kind = XK_RIPGOT; return; }
-    if (!strcmp(s, "[rip@cell + __]")) { o.kind = XK_RIPCELL; return; }
-    if (!strncmp(s, "f64:", 4)) {
+    if (s[0] == '[' && !strcmp(s, "[rip + __]")) { o.kind = XK_RIPSEAL; return; }
+    if (s[0] == '[' && !strcmp(s, "[rip@got + __]")) { o.kind = XK_RIPGOT; return; }
+    if (s[0] == '[' && !strcmp(s, "[rip@cell + __]")) { o.kind = XK_RIPCELL; return; }
+    if (s[0] == 'f' && !strncmp(s, "f64:", 4)) {
         o.kind = XK_IMM; o.imm = 0; o.txt = s; { unsigned long long bb = strtoull(s + 4, 0, 10); memcpy(&o.imm, &bb, sizeof(long) < 8 ? sizeof(long) : 8); } o.off = 1; return;
     }
     if (s[0] == '[') {
@@ -2361,10 +2365,10 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
     if (x86_pl_trace_on()) s += x86_pl_trace_ev(site, port, lbl);
     if (site == X86H_DEF) s += x86_portcount(port);
     if (site == X86H_JMP) s += x86_port_canary();
-    if ((site == X86H_JMP || site == X86H_JCC) && x86_portname(port) && getenv("SCRIP_PORT_EXIT_AUDIT") && emit_port_exit_label_promotes(x86_portname(port)))
+    if ((site == X86H_JMP || site == X86H_JCC) && x86_portname(port) && x86_port_exit_audit_on() && emit_port_exit_label_promotes(x86_portname(port)))
         fprintf(stderr, "[PORT-EXIT-PROMOTION] target=%s port=%s site=%s uid=%d\n", x86_portname(port), port == X86P_GAMMA ? "γ" : port == X86P_OMEGA ? "ω" : "?", site == X86H_JMP ? "jmp" : "jcc",
             _.x86_uid);
-    if (site == X86H_JMP && port == X86P_OMEGA && getenv("SCRIP_ZETA_OMEGA_TRACE"))
+    if (site == X86H_JMP && port == X86P_OMEGA && x86_omega_trace_on())
         fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
     if (x86_fc_on()) {
         int zwco = _.op_fc_base < 0 && !_.op_zres;
