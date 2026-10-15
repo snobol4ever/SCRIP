@@ -306,6 +306,7 @@ CSN_PASS=0; CSN_FAIL=0; CSN_EXT=0
 REGEN=0; REGEN_LIST=""
 EXCLUDED_LIST=""
 OUTSIDE_LIST=""; RECUT_OK=0; RECUT_OUT=0
+NOA_LIST=""   # CEO-1696: a shipped program with no ref that EXCLUDED.tsv names (NO_ORACLE_ANSWER: sbl -bf prints nothing), shipped and excluded, never graded
 [ "$RECUT" != 0 ] && { : > "$OUTSIDE.tmp"; [ -f "$OUTSIDE" ] || : > "$OUTSIDE"; }
 MOD_SUMMARY=""
 
@@ -314,7 +315,10 @@ for sno in "$SUITE"/*.sno; do
     name="$(basename "$sno" .sno)"
     export S4E_TIMEOUT_KEY="$name"   # the unit a retried timeout's stamp names (CEO-1335)
     ref="$SUITE/$name.ref"
-    [ -f "$ref" ] || continue          # not a graded pair (support file) — never hand-curated
+    if [ ! -f "$ref" ]; then           # not a graded pair (support file) — never hand-curated
+        inventory_is_excluded "$SUITE" "$name.sno" && NOA_LIST="$NOA_LIST $name"   # unless EXCLUDED.tsv names it: a shipped program the oracle gives no answer for (CEO-1696)
+        continue
+    fi
     # ⛔ ALL.sno IS OUR OWN GENERATED CONCATENATION (2006 lines, every entry run together), NOT A SHIPPED
     # VENDOR PROGRAM -- lib_inventory.sh's census already excludes ALL.<ext> fleet-wide (hq_T 2026-09-06,
     # measured across ipl/aisnobol/csnobol4_suite/gimpel), and this loop must agree or `graded` counts one
@@ -455,11 +459,14 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # above counts the GRADED fixtures only (an outside one takes its `continue` first), so the row publishes PASS over SHIPPED =
 # graded plus the OUTSIDE_LIST, OUTSIDE=k named and stamped through lib_outside_shape.sh. Before this it read 71/71 with 49
 # programs listed in OUTSIDE_SPITBOL_BASELINE.tsv -- a 100% the law does not allow.
-OUT_N="$(printf '%s\n' $OUTSIDE_LIST | grep -c .)"; SHIPPED=$((TOTAL + OUT_N))
+OUT_N="$(printf '%s\n' $OUTSIDE_LIST | grep -c .)"; NOA_N="$(printf '%s\n' $NOA_LIST | grep -c .)"; SHIPPED=$((TOTAL + OUT_N + NOA_N))
 . "$HERE/lib_outside_shape.sh" || exit 2
 # ⛔⭐ CEO-1286 (Lon 2026-09-26): the programs NOT IN THE SPITBOL DIALECT (EXCLUDED.tsv beside the suite) leave the denominator; the
 # oracle-refused programs that ARE SPITBOL dialect (diag1/diag2 by origin, the lowercase ones owed their case conversion, tab, rewind1) stay.
-EXCL_D_N="$(excluded_in_outside "$SUITE" "$OUTSIDE_LIST")" || exit 2; DENOM=$((SHIPPED - EXCL_D_N))
+# ⛔⭐ CEO-1696 (Lon 2026-10-11: "Exclude any program in which we have no way to get output from an oracle, or in which we do not know the answer."): a refless
+# program EXCLUDED.tsv names NO_ORACLE_ANSWER (include2, include3, include4, noexec: sbl -bf runs them and prints nothing) is shipped and leaves the denominator too.
+EXCL_D_N="$(excluded_in_outside "$SUITE" "$OUTSIDE_LIST $NOA_LIST")" || exit 2; DENOM=$((SHIPPED - EXCL_D_N))
+[ -z "$NOA_LIST" ] || echo "EXCLUDED_NO_ORACLE_ANSWER=$NOA_N shipped with no ref and named NO_ORACLE_ANSWER in EXCLUDED.tsv (CEO-1696):$NOA_LIST"
 echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM"
 python3 "$HERE/corpus_suite_harness.py" extension-check "$SUITE" || exit 2
 _cc="${S4E_CRITERION_CHANGED:-}"; [ -n "$_cc" ] || _cc="$(excluded_shape_stamp csnobol4 "$DENOM" "$OUT_N" "$EXCL_D_N")" || exit 2
@@ -467,7 +474,7 @@ python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite C
     ${_cc:+--criterion-changed "$_cc"} \
     --suite-pass "$BOTH_PASS" --suite-total "$DENOM" --excluded "$EXCL_D_N" \
     --measurer "${S4E_SEAT:-}" \
-    --text "both_modes_pass=$BOTH_PASS/$DENOM ($SHIPPED shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect, EXCLUDED.tsv, CEO-1286) OUTSIDE=$OUT_N EXTENSION=$EXT_N (refs not cut by sbl, named in EXTENSIONS.tsv), graded $BOTH_PASS/$TOTAL · total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG · masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s) (CEO-409, excluded at the line, fixture stays in the denominator)${INV_LINE:+ · $INV_LINE (\`test_snobol4_csnobol4_suite.sh\`)} · the $(inventory_containers_of "${INV_LINE:-}") include fragments of CONTAINERS.tsv (CEO-1272) are outside this graded-pair population, so they are named here and are not Excl (CEO-1288)" \
+    --text "both_modes_pass=$BOTH_PASS/$DENOM ($SHIPPED shipped minus EXCLUDED=$EXCL_D_N not in the SPITBOL dialect or with no oracle answer, EXCLUDED.tsv, CEO-1286 and CEO-1696; NO_ORACLE_ANSWER=$NOA_N) OUTSIDE=$OUT_N EXTENSION=$EXT_N (refs not cut by sbl, named in EXTENSIONS.tsv), graded $BOTH_PASS/$TOTAL · total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG · masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s) (CEO-409, excluded at the line, fixture stays in the denominator)${INV_LINE:+ · $INV_LINE (\`test_snobol4_csnobol4_suite.sh\`)} · the $(inventory_containers_of "${INV_LINE:-}") include fragments of CONTAINERS.tsv (CEO-1272) are outside this graded-pair population, so they are named here and are not Excl (CEO-1288)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
