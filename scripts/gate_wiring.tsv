@@ -752,6 +752,7 @@ test_gate_pl_nb_linkarg_links_without_copying_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_no_new_global.sh	WIRED	-	-	-
 test_gate_pl_no_value_stack.sh	WIRED	-	-	-
 test_gate_pl_number_syntax_iso.sh	WIRED	-	-	-
+test_gate_pl_numbervars_4_scans_its_options_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_occurs_check_error_raises_on_every_unify_road.sh	WIRED	-	-	-
 test_gate_pl_only_tree_t_crosses_parser_to_lower.sh	WIRED	-	-	-
 test_gate_pl_open_a_file_it_may_not_open_is_a_permission_error.sh	WIRED	-	-	-
