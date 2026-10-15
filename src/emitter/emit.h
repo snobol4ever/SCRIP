@@ -57,6 +57,7 @@ int bb_emit_end (void);
 void bb_emit_patch_rel32(bb_label_t * lbl);
 void bb_emit_patch_abs64(bb_label_t * lbl);
 void bb_emit_byte (uint8_t b);
+void bb_emit_bytes (const uint8_t * p, size_t k);
 void bb_emit_u32 (uint32_t v);
 void bb_emit_u64 (uint64_t v);
 void bb_emit_i32 (int32_t v);

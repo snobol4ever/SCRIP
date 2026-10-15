@@ -301,8 +301,19 @@ void bb_emit_byte(uint8_t b)
     bb_emit_buf[bb_emit_pos++] = b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_emit_u32(uint32_t v) { bb_emit_byte((uint8_t)(v)); bb_emit_byte((uint8_t)(v>>8)); bb_emit_byte((uint8_t)(v>>16)); bb_emit_byte((uint8_t)(v>>24)); }
-void bb_emit_u64(uint64_t v) { bb_emit_u32((uint32_t)(v)); bb_emit_u32((uint32_t)(v >> 32)); }
+void bb_emit_bytes(const uint8_t * p, size_t k)
+{
+    if (bb_emit_mode != EMIT_BINARY_WIRED) {
+        fprintf(stderr, "bb_emit_bytes: non-BINARY-mode reach (mode=%d, n=%d) — convert caller to a named bb_insn_* helper\n", (int)bb_emit_mode, (int)k);
+        abort();
+    }
+    size_t room = bb_emit_pos < bb_emit_size ? (size_t)(bb_emit_size - bb_emit_pos) : 0, n = k < room ? k : room;
+    if (n) memcpy(bb_emit_buf + bb_emit_pos, p, n);
+    bb_emit_pos += (int)n;
+    if (n < k) g_emitter.bb_emit_overflow = 1;
+}
+void bb_emit_u32(uint32_t v) { uint8_t b[4] = { (uint8_t)(v), (uint8_t)(v >> 8), (uint8_t)(v >> 16), (uint8_t)(v >> 24) }; bb_emit_bytes(b, 4); }
+void bb_emit_u64(uint64_t v) { uint8_t b[8]; memcpy(b, &v, 8); bb_emit_bytes(b, 8); }
 void bb_emit_i32(int32_t v) { uint32_t u; memcpy(&u, &v, 4); bb_emit_u32(u); }
 int g_is_text = 0;
 int g_emit_text_mode = TEXT_MODE_INVOCATION;

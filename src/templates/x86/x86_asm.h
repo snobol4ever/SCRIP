@@ -2719,7 +2719,7 @@ inline void bb_emit_x86(const std::string & s) {
     size_t i = 0, n = s.size(); x86_rsp_st_t & RS = x86_rsp_S();
     while (i < n) {
         char tag = s[i++];
-        if (tag == 'L') { int k = (unsigned char)s[i++]; for (int j = 0; j < k; j++) bb_emit_byte((uint8_t)(unsigned char)s[i++]); if (k > 0) RS.dead = 0; }
+        if (tag == 'L') { int k = (unsigned char)s[i++]; bb_emit_bytes((const uint8_t *)s.data() + i, (size_t)k); i += (size_t)k; if (k > 0) RS.dead = 0; }
         else if (tag == 'J') { int id = (unsigned char)s[i++]; x86_rsp_jump(1, (uint64_t)id); bb_emit_patch_rel32(x86_label_for(id, internal, inm)); }
         else if (tag == 'D') { int id = (unsigned char)s[i++]; if (id == X86P_ALPHA) { RS.delta = 0; RS.dead = 0; RS.unknown = 0;
             } else if (id == X86P_BETA) { RS.delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; RS.dead = 0; RS.unknown = 0; } else x86_rsp_define(1, (uint64_t)id);
