@@ -2839,7 +2839,7 @@ static int zd_wl_kind(IR_t * nd) {
     if (op == IR_VAR || op == IR_ASSIGN) { const char * vn = IR_LIT(nd).sval; int _icn_cells = g_emit_cfg && g_emit_cfg->icn_cells_graph;
         return (vn &&
         ((is_global(vn) && !graph_has_local(g_emit_cfg, vn) && !_icn_cells) || (graph_has_local(g_emit_cfg, vn) && x86_fb_pinned()) ||
-        (graph_has_local(g_emit_cfg, vn) && _icn_cells))) ? 1 : 0; }
+        (graph_has_local(g_emit_cfg, vn) && _icn_cells && x86_fb_pinned()))) ? 1 : 0; }
     if (op == IR_COERCE_NUMERIC || op == IR_CMP_TEST) return 1;
     if (op == IR_GOTO_DEFERRED) return 1;
     if (op == IR_GOTO) return 1;
@@ -2890,7 +2890,7 @@ static int zd_wl_kind(IR_t * nd) {
     if (op == IR_TO) return 1;
     if (op == IR_ITERATE && g_emit_cfg && g_emit_cfg->icn_cells_graph && !x86_fb_pinned()) return 1;
     if (op == IR_VAR_REF) { if (g_emitter.zd_wl_kind__icnvr < 0) { const char * e = getenv("SCRIP_ZD_ICN_VR"); g_emitter.zd_wl_kind__icnvr = (e && *e == '0') ? 0 : 1;
-        } if (g_emitter.zd_wl_kind__icnvr && g_emit_cfg && g_emit_cfg->icn_cells_graph) { const char * _vn = IR_LIT(nd).sval; extern int is_global(const char *);
+        } if (g_emitter.zd_wl_kind__icnvr && g_emit_cfg && g_emit_cfg->icn_cells_graph && x86_fb_pinned()) { const char * _vn = IR_LIT(nd).sval; extern int is_global(const char *);
             if (_vn && !is_global(_vn)) return 1;
         } return 0; }
     if (op == IR_MAKE_LIST) { if (g_emitter.zd_wl_kind__icnml < 0) { const char * e = getenv("SCRIP_ZD_ICN_ML"); g_emitter.zd_wl_kind__icnml = (e && *e == '0') ? 0 : 1;
