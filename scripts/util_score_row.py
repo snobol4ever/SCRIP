@@ -1609,6 +1609,32 @@ def cmd_from_progress(a):
     if not os.path.exists(db):
         print("REFUSE(2): from-progress: the progress DB %s does not exist" % db)
         return 2
+    # ⛔⭐ A PACKAGE'S ROW IS SHIPPED MINUS EXCLUDED, AS ITS RUNNER WRITES IT (ceo CEO-1802/1803, Lon 2026-10-15 via the ceo: "Why is not the suite board a
+    # list of tests and not a list of suites?"; the coo measured 16 of 24 packages assembling a different total from ALL.csv's entry count): a package's
+    # population is its ALL.csv entries together with every shipped <name>.<ext> beside the container, less the EXCLUDED.tsv rows and the CONTAINERS.tsv
+    # fragments (CEO-1286/1288/1696), so shipped = denominator + Excl as lib_container_package_runner.sh publishes it. A shipped program the container does
+    # not grade is debt with no reading needed (the runner's UNGRADED row). A reading names its program with or without the extension (GNU writes x.pl).
+    pkg = key not in FROM_PROGRESS_MASTERS
+    ext, shipped, xnames, cnames, nex = "", set(), set(), set(), 0
+    if pkg:
+        for f in sorted(os.listdir(tdir)):
+            m = re.match(r"^ALL\.(sno|spt|sbl|icn|pl|pas|raku|sc|reb)$", f)
+            if m:
+                ext = m.group(1)
+                break
+        def _stem(n):
+            n = n.strip()
+            return n[:-len(ext) - 1] if ext and n.endswith("." + ext) else n
+        if ext:
+            shipped = {f[:-len(ext) - 1] for f in os.listdir(tdir) if f.endswith("." + ext) and f != "ALL." + ext}
+        for fn, acc in (("EXCLUDED.tsv", xnames), ("CONTAINERS.tsv", cnames)):
+            fp = os.path.join(tdir, fn)
+            if os.path.exists(fp):
+                for line in open(fp, encoding="utf-8", errors="replace"):
+                    if line.strip() and not line.startswith("#"):
+                        acc.add(_stem(line.split("\t")[0]))
+                        nex += fn == "EXCLUDED.tsv"
+        pkg_pop = (set(pop) | shipped) - xnames - cnames
     want = set(pop)
     # (program, mode) -> (outcome, note, tree, ts, secs) at the NEWEST timestamp: the table is compacted (older keys kept ahead of today's
     # appends, 380 backward steps measured 2026-10-11), so file order is not time order; a tie keeps the later line, the later append
@@ -1617,7 +1643,11 @@ def cmd_from_progress(a):
         fh.readline()
         for line in fh:
             fl = line.rstrip("\n").split("\t")
-            if len(fl) < 10 or fl[5] != dbsuite or fl[8] not in ("m3", "m4") or fl[7] not in want:
+            if len(fl) < 10 or fl[5] != dbsuite or fl[8] not in ("m3", "m4"):
+                continue
+            if pkg and ext and fl[7] not in want and fl[7].endswith("." + ext):
+                fl[7] = fl[7][:-len(ext) - 1]
+            if fl[7] not in want:
                 continue
             k = (fl[7], fl[8])
             if k not in last or fl[0] >= last[k][3]:
@@ -1636,9 +1666,25 @@ def cmd_from_progress(a):
     cnt, _pop, _xp, _labels, _bounded, _shards = _aud.tally(d, side, s_ungradable, s_ungraded)
     unread = [e for e in pop if e not in d and e not in side]
     halfread = [e for e in pop if e in d and set(d[e]) != {"m3", "m4"}]
+    excluded = None
+    if pkg:
+        def _both(e):
+            r = last_by.get(e, {})
+            return r.get("m3", ("",))[0] == "PASS" and r.get("m4", ("",))[0] == "PASS"
+        last_by = _c.defaultdict(dict)
+        for (prog, m), v in last.items():
+            last_by[prog][m] = v
+        cnt = _c.Counter(cnt)
+        cnt["PASS"] = sum(1 for e in pkg_pop if _both(e))
+        unread = [e for e in pop if e in pkg_pop and e not in last_by]
+        halfread = [e for e in pop if e in pkg_pop and e in last_by and set(last_by[e]) != {"m3", "m4"}]
+        excluded = nex + len(cnames - xnames)
     reads = sorted((v[3], v[2]) for v in last.values())
     oldest, newest = (reads[0], reads[-1]) if reads else (("-", "-"), ("-", "-"))
-    total = len(pop)
+    total = len(pkg_pop) if pkg else len(pop)
+    if pkg:
+        print("SUITE_ROW_PACKAGE suite=%s shipped=%d table=%d excluded_rows=%d containers=%d excluded=%d denominator=%d debt_unread_by_design=%d"
+              % (key, len(set(pop) | shipped), len(pop), nex, len(cnames - xnames), excluded, total, len(pkg_pop - set(pop))))
     print("SUITE_ROW suite=%s pass=%d total=%d read=%d unread=%d half_read=%d oldest_tree=%s@%s newest_tree=%s@%s secs=%d db_suite=%s table=%s "
           "(PASS %d FAIL %d OUTSIDE %d UNGRADABLE %d UNGRADED %d DEFERRED %d) timed=%d"
           % (key, cnt["PASS"], total, len(d), len(unread), len(halfread), oldest[1], oldest[0], newest[1], newest[0], wall, dbsuite,
@@ -1656,7 +1702,7 @@ def cmd_from_progress(a):
     if unread:
         print("SUITE_ROW_UNREAD %d: %s%s" % (len(unread), " ".join(unread[:30]), " ..." if len(unread) > 30 else ""))
     if a.dry_run:
-        print("from-progress --dry-run: nothing written (would set %s -> %d/%d stamped %s, the oldest reading's tree)" % (key, cnt["PASS"], total, oldest[1]))
+        print("from-progress --dry-run: nothing written (would set %s -> %d/%d%s stamped %s, the oldest reading's tree)" % (key, cnt["PASS"], total, "" if excluded is None else " excluded=%d" % excluded, oldest[1]))
         return 0
     if unread or halfread:
         print("REFUSE(2): from-progress: %d entr(y/ies) have no reading and %d only one mode's -- the row is current when every chunk has a "
@@ -1668,6 +1714,8 @@ def cmd_from_progress(a):
         cmd += ["--criterion-changed", (a.criterion_changed or os.environ.get("S4E_CRITERION_CHANGED", "")).strip()]
     # ⛔ the Wall is written only when EVERY reading carries its seconds: a sum over the few readings a subset re-took is a fraction of the
     # suite's time printed as all of it (IcnRungs read WALL=221s from one tier-2 subset, 2026-10-11 14:1x); until then the row keeps its own
+    if excluded is not None:
+        cmd += ["--excluded", str(excluded)]
     if wall > 0 and timed == len(last):
         cmd += ["--secs", str(wall)]
     elif wall > 0:

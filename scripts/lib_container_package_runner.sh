@@ -39,6 +39,19 @@ container_package_run() {
   [ -x "$sd/scrip" ] || { echo "⛔ REFUSE(rc=2): no scrip binary at $sd/scrip -- build first (make)"; return 2; }
   "$here/util_require_fresh.sh" --gate "$gate" "$sd/scrip" "${RT_DIR:-$sd/out}/libscrip_rt.so" || return 2
   [ -f "$suite/ALL.$ext" ] && [ -f "$suite/ALL.ref" ] || { echo "⛔ REFUSE(rc=2): no container at $suite/ALL.{$ext,ref} -- run: python3 scripts/util_build_package_suite.py $suite --lang $lang --twice"; return 2; }
+  # ⛔⭐ ONE CHUNK, NOT THE SUITE (ceo CEO-1802, Lon 2026-10-15 via the ceo: "Why are we running suites at a time versus sets/blocks at a time in a round
+  # robin approach?"): S4E_CHUNK=chunk:NN grades that stored PARTITION.tsv chunk of the container in both modes through the harness, which appends one
+  # progress row per program and mode stamped partition=chunk:NN, and writes NO suite row -- util_score_row.py from-progress --suite <key> assembles the
+  # row from the latest per-program readings, shipped minus EXCLUDED as below (the coo's verifier loop runs it after every chunk).
+  if [ -n "${S4E_CHUNK:-}" ]; then
+    case "$S4E_CHUNK" in chunk:[0-9]*) ;; *) echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK is not chunk:NN"; return 2;; esac
+    [ -f "$suite/PARTITION.tsv" ] || { echo "⛔ REFUSE(rc=2): no $suite/PARTITION.tsv -- build it: python3 scripts/util_suite_partition.py build $suite/ALL.csv"; return 2; }
+    out="$(cd "$sd" && SUITE_LIST_ALL=1 python3 scripts/corpus_suite_harness.py run "$suite/ALL.$ext" "$suite/ALL.ref" --lang "$lang" --modes m3,m4 --partition "$S4E_CHUNK" 2>&1)"; rc=$?
+    printf '%s\n' "$out"
+    printf '%s\n' "$out" | grep -q '^SUITE_BOARD ' || { echo "⛔ REFUSE(rc=2): corpus_suite_harness.py printed no SUITE_BOARD line for $S4E_CHUNK (above) -- nothing measured"; return 2; }
+    echo "$(printf '%s' "$key" | tr 'a-z-' 'A-Z_')_CHUNK $S4E_CHUNK graded: one progress row per program and mode; no suite row from a chunk -- the row is util_score_row.py from-progress --suite $key (CEO-1802)"
+    return "$rc"
+  fi
   shipped=$(find "$suite" -maxdepth 1 -name "*.$ext" ! -name "ALL.$ext" | wc -l)
   local conts xc ncont
   conts="$(inventory_container_names "$suite")" && xc="$(container_package_excl "$suite" "$ext")" \
