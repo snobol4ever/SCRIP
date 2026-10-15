@@ -17,6 +17,7 @@
 #   bash scripts/board_patterns_set.sh snap <tag>        # measure, write set file
 #   bash scripts/board_patterns_set.sh diff <old> <new>  # REPAIRED / BROKEN by set membership
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+TIMEOUT_RETRY="${TIMEOUT_RETRY:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_timeout_retry.sh}"   # every graded timeout is retried once, longer (Lon 2026-10-15, in-chat to the coo: "do a retry with longer timeouts")
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 SCRIP=${SCRIP_BIN:-$(cd "$(dirname "$0")/.." && pwd)/scrip}
@@ -45,7 +46,7 @@ snap() {
     local b="${s%.sno}"; local IN=/dev/null; local got; local rc; local mode
     [ -f "$b.ref" ] || continue
     [ -f "$b.input" ] && IN="$b.input"
-    got=$(timeout "$PER" "$SCRIP" --run "$s" < "$IN" 2>/dev/null); rc=$?
+    got=$("$TIMEOUT_RETRY" "$PER" "$SCRIP" --run "$s" < "$IN" 2>/dev/null); rc=$?
     if [ $rc -eq 0 ] && [ "$got" = "$(cat "$b.ref")" ]; then
       echo "$b" >> "$p"
     else

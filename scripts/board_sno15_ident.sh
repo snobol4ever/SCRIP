@@ -19,6 +19,7 @@
 # rbx crash) -- a board that cannot tell hang from crash cannot route a failure to its owner. classify_rc()
 # below turns the raw $? into HANG / CRASH(sig) / RC=<n> so the printed column carries that distinction.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+TIMEOUT_RETRY="${TIMEOUT_RETRY:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_timeout_retry.sh}"   # every graded timeout is retried once, longer (Lon 2026-10-15, in-chat to the coo: "do a retry with longer timeouts")
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 classify_rc() {  # $1 = exit code from `timeout N cmd`
@@ -56,17 +57,17 @@ for nm in "${DEMOS[@]}"; do
   sw="$(declared_switches_beside "$src")" && oa="$(declared_oracle_args_beside "$src")" || { printf '%-26s %-10s %-10s %s\n' "$nm" - - "DECLARATION REFUSED"; nfail=$((nfail+1)); continue; }
   # ---- oracle: temp-prepend the control card, never touch the corpus file ----
   printf -- '-CASE 0\n\t&TRIM = 0\n' > "$W/$nm.sbl.sno"; cat "$src" >> "$W/$nm.sbl.sno"
-  if ! timeout $TMO "$SBL" $(sbl_lang_flags) $oa "$W/$nm.sbl.sno" < "$inp" > "$W/$nm.sbl" 2>/dev/null; then
+  if ! "$TIMEOUT_RETRY" $TMO "$SBL" $(sbl_lang_flags) $oa "$W/$nm.sbl.sno" < "$inp" > "$W/$nm.sbl" 2>/dev/null; then
     printf '%-26s %-10s %-10s %s\n' "$nm" - - "SBL FAILED"; nfail=$((nfail+1)); continue; fi
   # ---- mode 3 (in-process native) ----
-  timeout $TMO "$SC/scrip" --run $sw "$src" < "$inp" > "$W/$nm.m3" 2>/dev/null; rc3=$?
+  "$TIMEOUT_RETRY" $TMO "$SC/scrip" --run $sw "$src" < "$inp" > "$W/$nm.m3" 2>/dev/null; rc3=$?
   if [ "$rc3" -eq 0 ]; then
     cmp -s "$W/$nm.sbl" "$W/$nm.m3" && m3=IDENT || m3=DIVERGE
   else m3=$(classify_rc "$rc3"); fi
   # ---- mode 4 (compile via as+gcc) ----
-  if timeout $TMO "$SC/scrip" --compile "$src" > "$W/$nm.s" 2>/dev/null \
+  if "$TIMEOUT_RETRY" $TMO "$SC/scrip" --compile "$src" > "$W/$nm.s" 2>/dev/null \
      && gcc -no-pie "$W/$nm.s" -L"$SC/out" -lscrip_rt -lm -Wl,-rpath,"$SC/out" -o "$W/$nm.prog" 2>/dev/null; then
-    timeout $TMO "$W/$nm.prog" $sw < "$inp" > "$W/$nm.m4" 2>/dev/null; rc4=$?
+    "$TIMEOUT_RETRY" $TMO "$W/$nm.prog" $sw < "$inp" > "$W/$nm.m4" 2>/dev/null; rc4=$?
     if [ "$rc4" -eq 0 ]; then
       cmp -s "$W/$nm.sbl" "$W/$nm.m4" && m4=IDENT || m4=DIVERGE
     else m4=$(classify_rc "$rc4"); fi

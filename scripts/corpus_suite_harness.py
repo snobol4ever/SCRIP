@@ -856,17 +856,22 @@ def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, 
     # the retry (the gate's fail-once arm).
     v = _classify_run(argv, timeout, expected_text, cwd=cwd, env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask,
                       out_files=out_files, merge_stderr=merge_stderr)
+    # ⛔⭐ SUPERSEDED IN PART (Lon 2026-10-15 15:3x CDT, in-chat to the coo, verbatim: "So timeout SHOULD NOT count as valid." and "The
+    # strategy should be to accumulate a list of timeouts, and do a retry with longer timeouts."): EVERY timeout is retried once,
+    # whatever the load, at lib_timeout_retry.longer(timeout) -- six times the first limit, capped at 600 s -- and only a timeout at
+    # that longer limit grades HANG. Measured: the logtalk_iso pass on 52f822b69 graded 344 m4 timeouts red at load 19-21 on 16 cores.
     if v.kind != "HANG" or os.environ.get("S4E_TIMEOUT_RETRY", "1") == "0":
         return v
     l1, n = _timeout_load()
-    if l1 <= n:
-        return v
-    v2 = _classify_run(argv, timeout, expected_text, cwd=cwd, env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask,
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import lib_timeout_retry as _ltr
+    at = _ltr.longer(timeout)
+    v2 = _classify_run(argv, at, expected_text, cwd=cwd, env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask,
                        out_files=out_files, merge_stderr=merge_stderr)
     l2, _n = _timeout_load()
-    v2.retry = "retried=1 load1=%.2f/%.2f nproc=%d" % (l1, l2, n)
+    v2.retry = "retried=1 load1=%.2f/%.2f nproc=%d at=%gs" % (l1, l2, n, at)
     if v2.kind == "HANG":
-        v2.detail = "%s twice (the first under load %.2f over %d cores was retried; the retry timed out too)" % (v2.detail, l1, n)
+        v2.detail = "timed out twice: exceeded %ss, then %gs on the retry (load %.2f then %.2f on %d cores)" % (timeout, at, l1, l2, n)
     return v2
 
 

@@ -4,6 +4,7 @@
 # oracle-baked .ref, and prints a BY-SET table. Judge BY SET, never by count.
 # Usage: bash scripts/board_earn0_set.sh [m3|m4|both]
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+TIMEOUT_RETRY="${TIMEOUT_RETRY:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_timeout_retry.sh}"   # every graded timeout is retried once, longer (Lon 2026-10-15, in-chat to the coo: "do a retry with longer timeouts")
 set -u
 SCRIP_DIR="${SCRIP_DIR:-$S4E/SCRIP}"
 # ⭐ RE-POINTED (ceo s283h, probe total-conversion): corpus/probe/earn0 is GONE -- the witnesses live in
@@ -21,9 +22,9 @@ TMO="${TMO:-8}"
 one_shot() {
   local f="$1" mode="$2" ref="$3" out rc
   if [ "$mode" = m3 ]; then
-    out="$(cd /tmp && timeout "${TMO}s" "$SCRIP_DIR/scrip" --run "$f" 2>/dev/null < /dev/null)"; rc=$?
+    out="$(cd /tmp && "$TIMEOUT_RETRY" "${TMO}s" "$SCRIP_DIR/scrip" --run "$f" 2>/dev/null < /dev/null)"; rc=$?
   else
-    out="$(cd /tmp && timeout "${TMO}s" "$SCRIP_DIR/scrip" --compile "$f" 2>/dev/null < /dev/null)"; rc=$?
+    out="$(cd /tmp && "$TIMEOUT_RETRY" "${TMO}s" "$SCRIP_DIR/scrip" --compile "$f" 2>/dev/null < /dev/null)"; rc=$?
   fi
   if   [ ! -f "$ref" ];   then echo "NO-REF"
   elif [ "$rc" -eq 124 ]; then echo "FAIL-hang"

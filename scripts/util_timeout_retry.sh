@@ -16,15 +16,26 @@
 #   * stdout and stderr are buffered and only the attempt that stands is written; when the two are one file (2>&1) they are captured
 #     as one stream, so the interleaving the caller grades is the program's own
 #   * the exit status is the standing attempt's, timeout's own (124 on a timeout, 125-127 and 128+n as timeout returns them)
-#   * a timeout with the load at or under the cores is graded at once, exactly as timeout grades it; nothing is scaled by load
+#   ⛔⭐ EVERY TIMEOUT IS RETRIED ONCE, LONGER, WHATEVER THE LOAD (Lon 2026-10-15 15:3x CDT, in-chat to the coo, verbatim: "So timeout
+#     SHOULD NOT count as valid." and "The strategy should be to accumulate a list of timeouts, and do a retry with longer timeouts.";
+#     superseding CEO-1335's "a timeout at or under the cores is graded at once" and its same-length retry). Measured: the logtalk_iso
+#     pass on 52f822b69 ran 9318 s at load 19-21 on 16 cores and 344 of its 361 m4 reds were timeouts. The retry's limit is
+#     S4E_TIMEOUT_RETRY_FACTOR (default 6) times the first, capped at S4E_TIMEOUT_RETRY_CAP seconds (default 600) unless the first is
+#     longer already; only a timeout at that longer limit stands, and the stamp lists every retried unit (the accumulated list)
 #   * S4E_TIMEOUT_RETRY=0 is plain timeout (exec'd), the gate's fail-once arm
 #   * the load and the cores are lib_fanout.py's (fanout_load1, fanout_cores), the harness's one definition; FANOUT_PROC plants a load
 #   * a retry appends one line to $S4E_TIMEOUT_STAMP (lib_progress.sh points it per runner):
-#     <key> TAB <m3|m4|oracle> TAB retried=1 load1=<first>/<second> nproc=<n> [timeout-twice]
+#     <key> TAB <m3|m4|oracle> TAB retried=1 load1=<first>/<second> nproc=<n> at=<retry limit>s [timeout-twice]
 #     <key> is $S4E_TIMEOUT_KEY when the runner names the unit it is grading, else the argv's file stems; util_progress_append.py
 #     attaches the stamp to that unit's progress row (m3 to m3, m4 to m4, an oracle's to every mode) and clears the file
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+longer() { awk -v d="$1" -v f="${S4E_TIMEOUT_RETRY_FACTOR:-6}" -v c="${S4E_TIMEOUT_RETRY_CAP:-600}" 'BEGIN {
+    if (!match(d, /^[0-9]*\.?[0-9]+[smhd]?$/)) { print d; exit }
+    u = substr(d, length(d)); m = 1; if (u == "m") m = 60; else if (u == "h") m = 3600; else if (u == "d") m = 86400
+    t = (u ~ /[smhd]/ ? substr(d, 1, length(d) - 1) : d) * m; l = t * f; k = (t > c ? t : c); if (l > k) l = k
+    printf "%gs\n", l }'; }
+[ "${1:-}" = --longer ] && { longer "${2:?util_timeout_retry.sh --longer DURATION}"; exit 0; }   # the retry limit, for a runner that retries its own timed run
 opts=()
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -56,30 +67,28 @@ load() { python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import lib_fan
 attempt "$@"; rc=$?
 if [ "$rc" = 124 ]; then
     read -r l1 n <<<"$(load)"
-    if awk -v l="$l1" -v n="$n" 'BEGIN { exit !(l > n) }'; then
-        IN="$REOPEN"; rm -f "$W/o" "$W/e"
-        attempt "$@"; rc=$?
-        read -r l2 _n <<<"$(load)"
-        if [ -n "${S4E_TIMEOUT_STAMP:-}" ]; then
-            role=m4; isscrip=0; isoracle=0; compile=0
-            for a in "$@"; do
-                case "$(basename -- "$a" 2>/dev/null)" in
-                    scrip) isscrip=1 ;;
-                    sbl|spitbol|fpc|gprolog|swipl|icont|iconx|raku|rakudo|csnobol4|snobol4|jcont|jconx) isoracle=1 ;;
-                esac
-                case "$a" in *--compile*) compile=1 ;; esac
-            done
-            if [ "$isscrip" = 1 ]; then role=m3; [ "$compile" = 1 ] && role=m4
-            elif [ "$isoracle" = 1 ]; then role=oracle
-            fi
-            key="${S4E_TIMEOUT_KEY:-}"
-            if [ -z "$key" ]; then
-                for a in "$@"; do case "$a" in -*) ;; */*|*.*) s="$(basename -- "$a")"; key="${key:+$key,}${s%.*}" ;; esac; done
-            fi
-            tw=""; [ "$rc" = 124 ] && tw=" timeout-twice"
-            [ -n "$REOPEN" ] || [ -t 0 ] || tw="$tw stdin-not-replayed"
-            printf '%s\t%s\tretried=1 load1=%s/%s nproc=%s%s\n' "$key" "$role" "$l1" "$l2" "$n" "$tw" >> "$S4E_TIMEOUT_STAMP" 2>/dev/null
+    IN="$REOPEN"; rm -f "$W/o" "$W/e"; dur="$(longer "$dur")"
+    attempt "$@"; rc=$?
+    read -r l2 _n <<<"$(load)"
+    if [ -n "${S4E_TIMEOUT_STAMP:-}" ]; then
+        role=m4; isscrip=0; isoracle=0; compile=0
+        for a in "$@"; do
+            case "$(basename -- "$a" 2>/dev/null)" in
+                scrip) isscrip=1 ;;
+                sbl|spitbol|fpc|gprolog|swipl|icont|iconx|raku|rakudo|csnobol4|snobol4|jcont|jconx) isoracle=1 ;;
+            esac
+            case "$a" in *--compile*) compile=1 ;; esac
+        done
+        if [ "$isscrip" = 1 ]; then role=m3; [ "$compile" = 1 ] && role=m4
+        elif [ "$isoracle" = 1 ]; then role=oracle
         fi
+        key="${S4E_TIMEOUT_KEY:-}"
+        if [ -z "$key" ]; then
+            for a in "$@"; do case "$a" in -*) ;; */*|*.*) s="$(basename -- "$a")"; key="${key:+$key,}${s%.*}" ;; esac; done
+        fi
+        tw=""; [ "$rc" = 124 ] && tw=" timeout-twice"
+        [ -n "$REOPEN" ] || [ -t 0 ] || tw="$tw stdin-not-replayed"
+        printf '%s\t%s\tretried=1 load1=%s/%s nproc=%s at=%s%s\n' "$key" "$role" "$l1" "$l2" "$n" "$dur" "$tw" >> "$S4E_TIMEOUT_STAMP" 2>/dev/null
     fi
 fi
 cat "$W/o"

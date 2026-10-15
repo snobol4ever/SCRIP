@@ -55,6 +55,7 @@
 # ORACLE ITSELF answers with EMPTY OUTPUT, so any verdict built on that input is meaningless.  HQ's first cut of
 # the class-B inputs had exactly this defect and was caught before dispatch.  Every ladder input ends with END.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
+TIMEOUT_RETRY="${TIMEOUT_RETRY:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_timeout_retry.sh}"   # every graded timeout is retried once, longer (Lon 2026-10-15, in-chat to the coo: "do a retry with longer timeouts")
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -83,12 +84,12 @@ rung() {
     if [ "$n" = "$TOT" ]; then
         prog="$SRC"
         if [ "$mode" = m3 ]; then
-            timeout 60 "$SCRIP" "$prog" < "$prog" > "$WORK/got.$n" 2>/dev/null; rc=$?
+            "$TIMEOUT_RETRY" 60 "$SCRIP" "$prog" < "$prog" > "$WORK/got.$n" 2>/dev/null; rc=$?
         else
-            ( cd "$BDIR" && timeout 120 "$SCRIP" --compile -o "$WORK/b.s" "$prog" ) >/dev/null 2>&1 || { echo "COMPILE-FAIL"; return; }
+            ( cd "$BDIR" && "$TIMEOUT_RETRY" 120 "$SCRIP" --compile -o "$WORK/b.s" "$prog" ) >/dev/null 2>&1 || { echo "COMPILE-FAIL"; return; }
             gcc -no-pie "$WORK/b.s" -L"$S4E/SCRIP/out" -lscrip_rt -Wl,-rpath,"$S4E/SCRIP/out" -lm -o "$WORK/b.bin" >/dev/null 2>&1 \
                 || { echo "LINK-FAIL"; return; }
-            timeout 60 "$WORK/b.bin" < "$prog" > "$WORK/got.$n" 2>/dev/null; rc=$?
+            "$TIMEOUT_RETRY" 60 "$WORK/b.bin" < "$prog" > "$WORK/got.$n" 2>/dev/null; rc=$?
         fi
         if   [ "$rc" -eq 139 ]; then tag="SEGV"
         elif [ "$rc" -eq 124 ]; then tag="HANG"
@@ -101,14 +102,14 @@ rung() {
     # cannot serve this role any more.
     prog="$CLASSIC"
     head -n "$n" "$prog" > "$WORK/in.$n"
-    timeout 60 "$SBL" -bf "$prog" < "$WORK/in.$n" > "$WORK/oracle.$n" 2>/dev/null; local orc=$?
+    "$TIMEOUT_RETRY" 60 "$SBL" -bf "$prog" < "$WORK/in.$n" > "$WORK/oracle.$n" 2>/dev/null; local orc=$?
     if [ "$mode" = m3 ]; then
-        timeout 60 "$SCRIP" "$prog" < "$WORK/in.$n" > "$WORK/got.$n" 2>/dev/null; rc=$?
+        "$TIMEOUT_RETRY" 60 "$SCRIP" "$prog" < "$WORK/in.$n" > "$WORK/got.$n" 2>/dev/null; rc=$?
     else
-        ( cd "$BDIR" && timeout 120 "$SCRIP" --compile -o "$WORK/b.s" "$prog" ) >/dev/null 2>&1 || { echo "COMPILE-FAIL"; return; }
+        ( cd "$BDIR" && "$TIMEOUT_RETRY" 120 "$SCRIP" --compile -o "$WORK/b.s" "$prog" ) >/dev/null 2>&1 || { echo "COMPILE-FAIL"; return; }
         gcc -no-pie "$WORK/b.s" -L"$S4E/SCRIP/out" -lscrip_rt -Wl,-rpath,"$S4E/SCRIP/out" -lm -o "$WORK/b.bin" >/dev/null 2>&1 \
             || { echo "LINK-FAIL"; return; }
-        timeout 60 "$WORK/b.bin" < "$WORK/in.$n" > "$WORK/got.$n" 2>/dev/null; rc=$?
+        "$TIMEOUT_RETRY" 60 "$WORK/b.bin" < "$WORK/in.$n" > "$WORK/got.$n" 2>/dev/null; rc=$?
     fi
     # ⛔ REFUSE, NEVER DIFF. rc=0 does not prove the oracle beautified anything -- measured fact on this box,
     # `sbl -bf` exits 0 on its own refusal -- so also sniff its stdout for its own error-citation shape. TWO

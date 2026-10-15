@@ -616,21 +616,21 @@ def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loade
         open(prog, "w", encoding="utf-8").write(program_text(plan, db, shim_src, loaded))
         try:
             if mode == "m3":
-                r = _ltr.run(key=key, argv=[scrip, "--run"] + list(sw) + [prog], capture_output=True, text=True, errors="replace", timeout=timeout,
+                r = _ltr.run(retry=False, key=key, argv=[scrip, "--run"] + list(sw) + [prog], capture_output=True, text=True, errors="replace", timeout=timeout,
                                    stdin=subprocess.DEVNULL, cwd=d)
             else:
                 s_out = os.path.join(d, "case.s")
                 b_out = os.path.join(d, "case.bin")
-                cp = _ltr.run(key=key, argv=[scrip, "--compile", "-o", s_out, prog], capture_output=True, text=True, errors="replace",
+                cp = _ltr.run(retry=False, key=key, argv=[scrip, "--compile", "-o", s_out, prog], capture_output=True, text=True, errors="replace",
                                     timeout=timeout, stdin=subprocess.DEVNULL, cwd=d)
                 if cp.returncode != 0:
                     return "nobuild", (cp.stderr or cp.stdout).strip()[:160]
                 rt = os.path.join(os.path.dirname(os.path.abspath(scrip)), "out")
-                g = _ltr.run(["gcc", "-m64", "-no-pie", s_out, "-o", b_out, "-L", rt, "-lscrip_rt",
+                g = _ltr.run(retry=False, argv=["gcc", "-m64", "-no-pie", s_out, "-o", b_out, "-L", rt, "-lscrip_rt",
                                     "-Wl,-rpath," + rt, "-lm"], capture_output=True, text=True, errors="replace", timeout=120, cwd=d)
                 if g.returncode != 0:
                     return "nolink", (g.stderr or "").strip()[:160]
-                r = _ltr.run(key=key, argv=[b_out] + list(sw), capture_output=True, text=True, errors="replace", timeout=timeout,
+                r = _ltr.run(retry=False, key=key, argv=[b_out] + list(sw), capture_output=True, text=True, errors="replace", timeout=timeout,
                                    stdin=subprocess.DEVNULL, cwd=d)
         except subprocess.TimeoutExpired:
             return "timeout", ""
@@ -1113,6 +1113,7 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     results = {}
     probe_results = {}
     case_secs = {}   # (work index, mode) -> the case's own wall seconds in that mode, for its progress row (CEO-1676 (c))
+    retried = {}     # mode -> (cases that timed out, the first limit, the long limit, how many timed out again)
     try:
         for mode in modes:
             # ⛔ THE POLICING ARM RUNS IN THE SAME PASS AS THE BOARD, on the same binary and the same tree. A
@@ -1120,7 +1121,7 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
             todo = [(("w", i), fc, p) for i, (fc, p) in enumerate(work)
                     if p.skip_reason is None and p.outside_reason is None]
             todo += [(("p", j), work[i][0], q) for j, (i, q) in enumerate(probes) if q.skip_reason is None]
-            def job(t):
+            def job(t, to=float(os.environ.get("LOGTALK_TIMEOUT", "10"))):
                 # ⛔ ONE CASE MUST NEVER TAKE THE RUN DOWN. A harness exception here (the unicode family
                 # writes UTF-16/32 bytes to stdout, which killed the first full run on a decode error) is
                 # the harness failing, not the case -- it is reported as such and the other 3616 still get
@@ -1128,7 +1129,7 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
                 k, fc, p = t
                 t0 = time.monotonic()
                 try:
-                    return k, run_one(p, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path),
+                    return k, run_one(p, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path), timeout=to,
                                       loaded=fc.loaded or (), sw=decl_switches(decl, fc, p), key="%s:%s" % (fc.group, p.case.name)), \
                         time.monotonic() - t0
                 except Exception as e:                      # noqa: BLE001 -- deliberately broad, see above
@@ -1138,13 +1139,29 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
                     (results if k[0] == "w" else probe_results)[(k[1], mode)] = res
                     if k[0] == "w":
                         case_secs[(k[1], mode)] = secs
+            # ⛔⭐ A TIMEOUT IS NOT A VERDICT UNTIL IT HAS BEEN RETRIED LONGER (Lon 2026-10-15 15:3x CDT, in-chat to the coo,
+            # verbatim: "So timeout SHOULD NOT count as valid." and "The strategy should be to accumulate a list of timeouts, and
+            # do a retry with longer timeouts."). Measured: the 52f822b69 pass ran 9318 s at load 19-21 on 16 cores and 344 of
+            # its 361 m4 reds were 10 s timeouts. Every case that timed out is re-run once after the pass, at LOGTALK_RETRY_TIMEOUT
+            # seconds (default lib_timeout_retry.longer: 60 s for the 10 s limit) on LOGTALK_RETRY_JOBS workers (default 2); the
+            # retry's outcome is the case's outcome, and only a case that times out again at the long limit is graded a timeout.
+            slow = [t for t in todo if (results if t[0][0] == "w" else probe_results)[(t[0][1], mode)][0] == "timeout"]
+            if slow:
+                long_to = float(os.environ.get("LOGTALK_RETRY_TIMEOUT") or _ltr.longer(float(os.environ.get("LOGTALK_TIMEOUT", "10"))))
+                with ThreadPoolExecutor(max_workers=max(1, int(os.environ.get("LOGTALK_RETRY_JOBS", "2")))) as pool:
+                    for k, res, secs in pool.map(lambda t: job(t, long_to), slow):
+                        (results if k[0] == "w" else probe_results)[(k[1], mode)] = res
+                        if k[0] == "w":
+                            case_secs[(k[1], mode)] = secs
+                still = sum(1 for t in slow if (results if t[0][0] == "w" else probe_results)[(t[0][1], mode)][0] == "timeout")
+                retried[mode] = (len(slow), os.environ.get("LOGTALK_TIMEOUT", "10"), long_to, still)
         cands = _sweep(work, results, where, builders, dbs, shim_src, scrip, modes, workroot, jobs, decl=decl) \
             if sweep else []
     finally:
         shutil.rmtree(workroot, ignore_errors=True)
     seqinfo = {"table": sequenced, "errors": seqerr, "probes": probes, "probe_results": probe_results,
                "sweep": cands, "outside_n": outside_n, "outside_unresolved": outside_unresolved,
-               "outside_off": outside_off, "excluded": excl_hits, "secs": case_secs}
+               "outside_off": outside_off, "excluded": excl_hits, "secs": case_secs, "retried": retried}
     return (work, results, seqinfo), []
 
 
@@ -1267,6 +1284,9 @@ def main(argv):
                              "-- a case is in no bucket and would be invisible in every number\n" % (mode, tot, pop))
             return 2
         board[mode] = b
+    for m, (n, first_to, long_to, still) in sorted(seqinfo.get("retried", {}).items()):
+        print("  TIMEOUT RETRY %s: %d case(s) timed out at %s s and were re-run at %g s: %d timed out again (graded a timeout), "
+              "%d answered and are graded on that answer" % (m, n, first_to, long_to, still, n - still))
     print("LOGTALK_ISO_BOARD population=%d %s" % (pop, " ".join(
         "%s_pass=%d %s_fail=%d %s_ungraded=%d" % (m, board[m]["PASS"], m, board[m]["FAIL"], m, board[m]["UNGRADED"])
         for m in modes)))

@@ -32,6 +32,10 @@
 #   ARM 14 the tool never reads a stdin its command does not: a `while read` loop over three lines that calls the tool (on a
 #          command reading nothing) once per line sees all three lines -- an eager stdin buffer swallowed the roast runner's file
 #          list on 2026-10-09 (its two-file fixture graded one)
+# ⛔⭐ AMENDED (Lon 2026-10-15 15:3x CDT, in-chat to the coo, verbatim: "So timeout SHOULD NOT count as valid." and "The strategy should
+# be to accumulate a list of timeouts, and do a retry with longer timeouts."): EVERY timeout is now retried once, whatever the load, at
+# lib_timeout_retry.longer(T) -- 6 x T capped at 600 s unless T is longer -- and the stamp carries at=<limit>s. Arms 3, 7, 10 and 11
+# read the cool load as retried too; arm 15 holds the three faces to one longer() (1 s -> 6 s, 300 s -> 600 s, 1000 s -> 1000 s).
 # EXIT: 0 all arms pass · 1 an arm failed · 2 could not measure.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -78,7 +82,7 @@ a1="$(l ARM1)"; a2="$(l ARM2)"; a3="$(l ARM3)"; a4="$(l ARM4)"; a5="$(l ARM5)"
 echo "=== gate: a timeout under load is could-not-measure, retried once, and only a second timeout grades HANG ==="
 case "$a1" in "ARM1 PASS 2 retried=1 load1=999.00/999.00 nproc="*) ck ok "load over the cores: the timeout was retried once and the retry PASSED ($a1)";; *) ck no "arm 1: $a1";; esac
 case "$a2" in "ARM2 HANG 1 -") ck ok "FAIL-ONCE: with the retry disabled the same program at the same load reads HANG ($a2)";; *) ck no "arm 2: $a2";; esac
-case "$a3" in "ARM3 HANG 1 -") ck ok "load under the cores: graded HANG at once, run once, never retried ($a3)";; *) ck no "arm 3: $a3";; esac
+case "$a3" in "ARM3 PASS 2 retried=1 load1=0.10/0.10 nproc="*" at=6s") ck ok "load under the cores: retried too, at the longer 6 s limit, and the retry PASSED ($a3)";; *) ck no "arm 3: $a3";; esac
 case "$a4" in "ARM4 HANG 2 twice retried=1"*) ck ok "a program that never answers, under load: run twice, HANG, the detail says twice";; *) ck no "arm 4: $a4";; esac
 case "$a5" in *"retried=1"*"load1=31.00/12.50"*"nproc=16"*) ck ok "the progress note carries the retry stamp ($a5)";; *) ck no "arm 5: $a5";; esac
 TR="$HERE/util_timeout_retry.sh"
@@ -93,8 +97,9 @@ if [ "$r6" = 0 ] && [ "$(printf '%s' "$o6" | tr '\n' '|')" = "in=hello|err1|out2
 else ck no "arm 6: rc=$r6 runs=$n6 out=[$(printf '%s' "$o6" | tr '\n' '|')] stamp=[$st6]"; fi
 o7="$(cd "$W/t7" && printf 'hello\n' | FANOUT_PROC="$W/cool" S4E_TIMEOUT_STAMP="$W/t7.stamp" "$TR" 1 bash -c "$P" 2>&1)"; r7=$?
 n7="$(wc -l < "$W/t7/runs" 2>/dev/null)"
-if [ "$r7" = 124 ] && [ "$n7" = 1 ] && [ ! -e "$W/t7.stamp" ]; then ck ok "the tool under a cool load: rc 124 at once, run once, no stamp"
-else ck no "arm 7: rc=$r7 runs=$n7 stamp=$([ -e "$W/t7.stamp" ] && echo written || echo none)"; fi
+st7="$(cat "$W/t7.stamp" 2>/dev/null)"
+if [ "$r7" = 0 ] && [ "$n7" = 2 ] && [[ "$st7" == *"retried=1 load1=0.10/0.10 nproc="*" at=6s" ]]; then ck ok "the tool under a cool load: retried at the longer 6 s limit, rc 0, run twice, stamped"
+else ck no "arm 7: rc=$r7 runs=$n7 stamp=[$st7]"; fi
 o8="$(cd "$W/t8" && printf 'hello\n' | FANOUT_PROC="$W/hot" S4E_TIMEOUT_RETRY=0 S4E_TIMEOUT_STAMP="$W/t8.stamp" "$TR" 1 bash -c "$P" 2>&1)"; r8=$?
 n8="$(wc -l < "$W/t8/runs" 2>/dev/null)"
 if [ "$r8" = 124 ] && [ "$n8" = 1 ] && printf '%s' "$o8" | grep -q partial; then ck ok "FAIL-ONCE: S4E_TIMEOUT_RETRY=0 is plain timeout -- rc 124, run once, the partial attempt stands"
@@ -118,8 +123,8 @@ if [ -x "$ROOT/scrip" ] && "$HERE/util_require_fresh.sh" --gate test_gate_timeou
     done
     h3="$(awk -F'\t' '$8=="spin" && $9=="m3" {print $10, $12}' "$W/fpc.hot.tsv" 2>/dev/null)"; h4="$(awk -F'\t' '$8=="spin" && $9=="m4" {print $10, $12}' "$W/fpc.hot.tsv" 2>/dev/null)"
     c3="$(awk -F'\t' '$8=="spin" && $9=="m3" {print $10, $12}' "$W/fpc.cool.tsv" 2>/dev/null)"; c4="$(awk -F'\t' '$8=="spin" && $9=="m4" {print $10, $12}' "$W/fpc.cool.tsv" 2>/dev/null)"
-    if [[ "$h3" == "FAIL timeout-at-1s retried=1 load1=999.00/999.00 nproc="*" timeout-twice" ]] && [[ "$h4" == "FAIL timeout-at-1s retried=1 load1=999.00/999.00 nproc="*" timeout-twice" ]] && [ "$c3" = "FAIL timeout-at-1s" ] && [ "$c4" = "FAIL timeout-at-1s" ]; then
-        ck ok "test_pascal_fpc_suite.sh: under load spin's m3 and m4 rows read FAIL timeout-at-1s retried=1 ... timeout-twice; under a cool load no retry"
+    if [[ "$h3" == "FAIL timeout-at-1s retried=1 load1=999.00/999.00 nproc="*" timeout-twice" ]] && [[ "$h4" == "FAIL timeout-at-1s retried=1 load1=999.00/999.00 nproc="*" timeout-twice" ]] && [[ "$c3" == "FAIL timeout-at-1s retried=1 load1=0.10/0.10 nproc="*" at=6s timeout-twice" ]] && [[ "$c4" == "FAIL timeout-at-1s retried=1 load1=0.10/0.10 nproc="*" at=6s timeout-twice" ]]; then
+        ck ok "test_pascal_fpc_suite.sh: hot and cool alike, spin's m3 and m4 rows read FAIL timeout-at-1s retried=1 ... at=6s timeout-twice"
     elif [ -z "$h3$c3" ]; then echo "GATE UNPROVEN(2): the fpc runner wrote no progress row for the fixture: $(grep -m1 -E 'REFUS|⛔' "$W/fpc.hot.out" | cut -c1-200)"; exit 2
     else ck no "arm 10: hot m3=[$h3] m4=[$h4] cool m3=[$c3] m4=[$c4]"; fi
 else
@@ -143,8 +148,8 @@ for tag, env in (("COOL", {"FANOUT_PROC": w + "/cool"}), ("OFF", {"FANOUT_PROC":
         print(tag, "raised", runs())
 PY11
 )"
-if printf '%s\n' "$o11" | grep -qx 'HOT 0 answered 2 unit11|m4|retried=1 load1=999.00/999.00 nproc=[0-9]*' && printf '%s\n' "$o11" | grep -qx 'COOL raised 1' && printf '%s\n' "$o11" | grep -qx 'OFF raised 1'; then
-    ck ok "lib_timeout_retry.run: under load the retry's result returns with a stamp naming unit11; cool and disabled raise after one run"
+if printf '%s\n' "$o11" | grep -qx 'HOT 0 answered 2 unit11|m4|retried=1 load1=999.00/999.00 nproc=[0-9]* at=6s' && printf '%s\n' "$o11" | grep -qx 'COOL returned 2' && printf '%s\n' "$o11" | grep -qx 'OFF raised 1'; then
+    ck ok "lib_timeout_retry.run: hot and cool alike the 6 s retry's result returns (a stamp names unit11); disabled raises after one run"
 else ck no "arm 11: $(printf '%s' "$o11" | tr '\n' ' ')"; fi
 c12="$(python3 "$HERE/audit_bare_timeout_census.py" 2>&1)"; r12=$?
 if [ "$r12" = 0 ] && printf '%s' "$c12" | grep -qE 'bare graded timeouts: 0;'; then ck ok "THE CENSUS: $(printf '%s' "$c12" | tail -1)"
@@ -160,6 +165,11 @@ else ck no "arm 13: rc=$r13 $(printf '%s' "$c13" | tr '\n' ' ' | cut -c1-200)"; 
 o14="$(printf 'a\nb\nc\n' | while read -r x; do FANOUT_PROC="$W/hot" "$TR" 5 true; printf 'got-%s ' "$x"; done)"
 if [ "$o14" = "got-a got-b got-c " ]; then ck ok "the tool never reads a stdin its command does not: a while-read loop around it sees all three lines"
 else ck no "arm 14: the loop saw [$o14] -- the tool consumed its caller's stdin"; fi
+o15="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import lib_timeout_retry as R; print(" ".join("%g" % R.longer(t) for t in (1, 10, 300, 1000)))' "$HERE" 2>&1)"
+b15="$(for d in 1 10s 300s 1000; do FANOUT_PROC="$W/cool" S4E_TIMEOUT_STAMP="$W/t15.stamp" S4E_TIMEOUT_RETRY_CAP=600 "$TR" "$d" true >/dev/null 2>&1; done; awk -F'\t' '{print $3}' "$W/t15.stamp" 2>/dev/null | wc -l)"
+l15="$(S4E_TIMEOUT_STAMP="$W/t15b.stamp" FANOUT_PROC="$W/cool" "$TR" 0.2 bash -c 'echo run >> '"$W"'/t15.runs; [ -e '"$W"'/t15.m ] || { touch '"$W"'/t15.m; sleep 0.5; }' >/dev/null 2>&1; grep -o 'at=[0-9.]*s' "$W/t15b.stamp" 2>/dev/null)"
+if [ "$o15" = "6 60 600 1000" ] && [ "$b15" = 0 ] && [ "$l15" = "at=1.2s" ]; then ck ok "one longer() for every face: python 1/10/300/1000 s -> $o15 s; the bash tool retried a 0.2 s limit at 1.2 s, and a command that answers in time is never retried"
+else ck no "arm 15: python=[$o15] bash-untimed-stamps=[$b15] bash-retry=[$l15]"; fi
 echo "population: $checks arm(s), $fails failed (mktemp fixtures through corpus_suite_harness.classify, util_timeout_retry.sh, lib_timeout_retry.py, util_progress_append.py and test_pascal_fpc_suite.sh, the load planted through FANOUT_PROC; the census over the runner population)"
 [ "$fails" = 0 ] && { echo "GATE PASS(0) [timeout_under_load_is_could_not_measure_and_retried_once]: $checks of $checks arms hold"; exit 0; }
 echo "GATE FAIL(1) [timeout_under_load_is_could_not_measure_and_retried_once]: $fails of $checks arms red"; exit 1

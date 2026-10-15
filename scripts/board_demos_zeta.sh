@@ -8,6 +8,7 @@
 #
 # Authors: LCherryholmes | Claude Opus 5
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+TIMEOUT_RETRY="${TIMEOUT_RETRY:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_timeout_retry.sh}"   # every graded timeout is retried once, longer (Lon 2026-10-15, in-chat to the coo: "do a retry with longer timeouts")
 
 DEMO="$S4E/corpus/demos"
 SCRIP="$S4E/SCRIP/scrip"
@@ -44,18 +45,18 @@ classify() {
   local out rc
   if [ "$MODE" = "m3" ]; then
     if [ -n "${IN[$1]}" ] && [ -f "$stdin" ]; then
-      out=$(cd "$DEMO" && timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$stdin" 2>/dev/null); rc=$?
+      out=$(cd "$DEMO" && "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --run "$sno" < "$stdin" 2>/dev/null); rc=$?
     else
-      out=$(cd "$DEMO" && timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null); rc=$?
+      out=$(cd "$DEMO" && "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null); rc=$?
     fi
   else
     local exe="/tmp/demo_board/$1.exe"
-    ( cd "$DEMO" && SCRIP_RTCC=0 timeout "$TIMEOUT" "$SCRIP" --compile "$sno" -o "$exe" ) > /dev/null 2>&1
+    ( cd "$DEMO" && SCRIP_RTCC=0 "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --compile "$sno" -o "$exe" ) > /dev/null 2>&1
     [ -x "$exe" ] || { echo "COMPILEFAIL"; return; }
     if [ -n "${IN[$1]}" ] && [ -f "$stdin" ]; then
-      out=$(cd "$DEMO" && timeout "$TIMEOUT" "$exe" < "$stdin" 2>/dev/null); rc=$?
+      out=$(cd "$DEMO" && "$TIMEOUT_RETRY" "$TIMEOUT" "$exe" < "$stdin" 2>/dev/null); rc=$?
     else
-      out=$(cd "$DEMO" && timeout "$TIMEOUT" "$exe" < /dev/null 2>/dev/null); rc=$?
+      out=$(cd "$DEMO" && "$TIMEOUT_RETRY" "$TIMEOUT" "$exe" < /dev/null 2>/dev/null); rc=$?
     fi
   fi
   case $rc in

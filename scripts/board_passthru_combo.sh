@@ -18,6 +18,7 @@
 # exactly as red as they always did -- this board's whole point is surfacing them, never suppressing them, unlike
 # test_corpus_snobol4.sh's aggregate gate which buckets them separately so they don't register as a regression.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root; S4E_HOME overrides
+TIMEOUT_RETRY="${TIMEOUT_RETRY:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_timeout_retry.sh}"   # every graded timeout is retried once, longer (Lon 2026-10-15, in-chat to the coo: "do a retry with longer timeouts")
 set -u
 SCRIP_DIR="${SCRIP_DIR:-$S4E/SCRIP}"
 # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): the passthru.{sno,ref}
@@ -46,11 +47,11 @@ done < <(rungs_origins_of_family probe_passthru)
 one_shot() {
   local f="$1" mode="$2" ref="$3" out rc
   if [ "$mode" = m3 ]; then
-    out="$(cd "$W" && timeout "${TMO}s" "$SCRIP_DIR/scrip" --run "$f" 2>/dev/null < /dev/null)"; rc=$?
+    out="$(cd "$W" && "$TIMEOUT_RETRY" "${TMO}s" "$SCRIP_DIR/scrip" --run "$f" 2>/dev/null < /dev/null)"; rc=$?
   else
-    if ! (cd "$W" && timeout 60 "$SCRIP_DIR/scrip" --compile "$f" </dev/null > "$W/p.s" 2>/dev/null) || [ ! -s "$W/p.s" ]; then echo "FAIL-compile"; return; fi
+    if ! (cd "$W" && "$TIMEOUT_RETRY" 60 "$SCRIP_DIR/scrip" --compile "$f" </dev/null > "$W/p.s" 2>/dev/null) || [ ! -s "$W/p.s" ]; then echo "FAIL-compile"; return; fi
     if ! gcc -no-pie "$W/p.s" -L"$SCRIP_DIR/out" -lscrip_rt -lm -Wl,-rpath,"$SCRIP_DIR/out" -o "$W/p.bin" 2>/dev/null; then echo "FAIL-asm"; return; fi
-    out="$(cd "$W" && timeout "${TMO}s" "$W/p.bin" 2>/dev/null < /dev/null)"; rc=$?
+    out="$(cd "$W" && "$TIMEOUT_RETRY" "${TMO}s" "$W/p.bin" 2>/dev/null < /dev/null)"; rc=$?
   fi
   if   [ ! -f "$ref" ];   then echo "NO-REF"
   elif [ "$rc" -eq 124 ]; then echo "FAIL-hang"

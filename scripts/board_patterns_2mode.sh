@@ -3,6 +3,7 @@
 # Reports per-program AGREE (both modes match .ref) / m3-fail-m4-pass / m4-fail-m3-pass / both-fail,
 # with failure-mode tags (DIFF/HANG/SIGnn/rcN). Self-contained per RULES.md.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+TIMEOUT_RETRY="${TIMEOUT_RETRY:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_timeout_retry.sh}"   # every graded timeout is retried once, longer (Lon 2026-10-15, in-chat to the coo: "do a retry with longer timeouts")
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP_BIN:-$HERE/../scrip}"
@@ -56,12 +57,12 @@ for s in *.sno; do
   exp="$(cat "$b.ref")"
   IN=/dev/null; [ -f "$b.input" ] && IN="$b.input"
 
-  got3=$(timeout "$PER" "$SCRIP" --run "$s" < "$IN" 2>/dev/null); rc3=$?
+  got3=$("$TIMEOUT_RETRY" "$PER" "$SCRIP" --run "$s" < "$IN" 2>/dev/null); rc3=$?
   if [ $rc3 -eq 0 ] && [ "$got3" = "$exp" ]; then m3=PASS; else m3=$(classify_rc $rc3); fi
 
   bin="$WORKDIR/${b}.bin"
   if compile_m4 "$s" "$bin"; then
-    got4=$(timeout "$PER" "$bin" < "$IN" 2>/dev/null); rc4=$?
+    got4=$("$TIMEOUT_RETRY" "$PER" "$bin" < "$IN" 2>/dev/null); rc4=$?
     if [ $rc4 -eq 0 ] && [ "$got4" = "$exp" ]; then m4=PASS; else m4=$(classify_rc $rc4); fi
   else
     m4=BUILDFAIL

@@ -8,7 +8,11 @@ one definition), and honour S4E_TIMEOUT_RETRY=0 the same way.
     object is rewound; input= is replayed as given), and only a second TimeoutExpired is raised. A retry appends
         <key> TAB <m3|m4|oracle> TAB retried=1 load1=<first>/<second> nproc=<n> [timeout-twice]
     to $S4E_TIMEOUT_STAMP, which util_progress_append.py attaches to the row <key> names (K, else $S4E_TIMEOUT_KEY, else the argv's
-    file stems). A timeout at or under the cores is raised at once, exactly as subprocess.run raises it.
+    file stems).
+    ⛔⭐ EVERY TIMEOUT IS RETRIED ONCE, LONGER, WHATEVER THE LOAD (Lon 2026-10-15 15:3x CDT, in-chat to the coo, verbatim: "So timeout
+    SHOULD NOT count as valid." and "The strategy should be to accumulate a list of timeouts, and do a retry with longer timeouts.";
+    superseding CEO-1335's load test and same-length retry). The retry's limit is longer(T): S4E_TIMEOUT_RETRY_FACTOR (default 6)
+    times T, capped at S4E_TIMEOUT_RETRY_CAP seconds (default 600) unless T is longer already; the stamp carries at=<limit>s.
 """
 import os
 import subprocess
@@ -51,36 +55,43 @@ def _key(key, argv):
     return ",".join(stems)
 
 
-def _stamp(key, argv, l1, l2, n, twice):
+def longer(t):
+    """The retry's limit for a first limit of t seconds (the harness, util_timeout_retry.sh and this module agree)."""
+    f = float(os.environ.get("S4E_TIMEOUT_RETRY_FACTOR", "6") or 6)
+    c = float(os.environ.get("S4E_TIMEOUT_RETRY_CAP", "600") or 600)
+    return min(t * f, max(t, c))
+
+
+def _stamp(key, argv, l1, l2, n, twice, at):
     p = os.environ.get("S4E_TIMEOUT_STAMP", "")
     if not p:
         return
     try:
         with open(p, "a") as f:
-            f.write("%s\t%s\tretried=1 load1=%.2f/%.2f nproc=%d%s\n" % (_key(key, argv), _role(argv), l1, l2, n, " timeout-twice" if twice else ""))
+            f.write("%s\t%s\tretried=1 load1=%.2f/%.2f nproc=%d at=%gs%s\n" % (_key(key, argv), _role(argv), l1, l2, n, at, " timeout-twice" if twice else ""))
     except OSError:
         pass
 
 
-def run(argv, timeout=None, key=None, **kw):
+def run(argv, timeout=None, key=None, retry=True, **kw):
+    """retry=False: a grader that keeps its own list of timeouts and retries them longer after its pass (util_logtalk_grade.py)."""
     try:
         return subprocess.run(argv, timeout=timeout, **kw)
     except subprocess.TimeoutExpired:
-        if timeout is None or os.environ.get("S4E_TIMEOUT_RETRY", "1") == "0":
+        if timeout is None or not retry or os.environ.get("S4E_TIMEOUT_RETRY", "1") == "0":
             raise
         l1, n = _load()
-        if l1 <= n:
-            raise
     stdin = kw.get("stdin")
     if hasattr(stdin, "seek"):
         try:
             stdin.seek(0)
         except (OSError, ValueError):
             pass
+    at = longer(timeout)
     try:
-        r = subprocess.run(argv, timeout=timeout, **kw)
+        r = subprocess.run(argv, timeout=at, **kw)
     except subprocess.TimeoutExpired:
-        _stamp(key, argv, l1, _load()[0], n, True)
+        _stamp(key, argv, l1, _load()[0], n, True, at)
         raise
-    _stamp(key, argv, l1, _load()[0], n, False)
+    _stamp(key, argv, l1, _load()[0], n, False, at)
     return r
