@@ -28,7 +28,7 @@
                           file_permission/2, sleep/1, host_name/1, os_version/1, architecture/1, date_time/1, send_signal/2, temporary_name/2,
                           temporary_file/3, is_absolute_file_name/1, cpu_time/1, real_time/1, user_time/1, system_time/1,
                           read_token_from_atom/2, read_token_from_chars/2, read_token_from_codes/2, get_print_stream/1,
-                          popen/3, exec/4, exec/5, wait/2, create_pipe/2 ]).
+                          popen/3, exec/4, exec/5, wait/2, create_pipe/2, set_bip_name/2, current_bip_name/2, syntax_error_info/4 ]).
 write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).
 writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).
 print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).
@@ -329,3 +329,13 @@ read_token_from_codes(Cs, T) :- atom_codes(A, Cs), atom_codes(A, Cs1), '$gnu_b_t
 '$gnu_b_exp'(_, []).
 '$gnu_b_in'(C, A) :- atom_codes(A, L), memberchk(C, L).
 get_print_stream(S) :- ( var(S) -> true ; is_stream(S) -> true ; atom(S), stream_property(_, alias(S)) -> true ; throw(error(domain_error(stream, S), get_print_stream/1)) ), current_output(P), ( atom(S) -> stream_property(P, alias(S)) ; S = P ).
+set_bip_name(F, _) :- var(F), !, throw(error(instantiation_error, set_bip_name/2)).
+set_bip_name(F, _) :- \+ atom(F), !, throw(error(type_error(atom, F), set_bip_name/2)).
+set_bip_name(_, A) :- var(A), !, throw(error(instantiation_error, set_bip_name/2)).
+set_bip_name(_, A) :- \+ integer(A), !, throw(error(type_error(integer, A), set_bip_name/2)).
+set_bip_name(F, A) :- ( A > 255 -> A1 = -1 ; A1 = A ), nb_setval('$gnu_b_bip', F/A1).
+current_bip_name(F, A) :- '$gnu_b_oa'(F, current_bip_name/2), '$gnu_b_oi'(A, current_bip_name/2), nb_current('$gnu_b_bip', F0/A0), F = F0, A = A0.
+syntax_error_info(F, L, C, M) :- '$gnu_b_oa'(F, syntax_error_info/4), '$gnu_b_oi'(L, syntax_error_info/4), '$gnu_b_oi'(C, syntax_error_info/4), '$gnu_b_oa'(M, syntax_error_info/4),
+    nb_current('$gnu_b_synerr', '$gnu_b_synerr'(F0, L0, C0, M0)), F = F0, L = L0, C = C0, M = M0.
+'$gnu_b_oi'(I, _) :- ( var(I) ; integer(I) ), !.
+'$gnu_b_oi'(I, PI) :- throw(error(type_error(integer, I), PI)).
