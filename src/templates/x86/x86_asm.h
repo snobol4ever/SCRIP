@@ -11,6 +11,8 @@
 #include "pin_va.h"
 extern "C" {
 extern uint64_t rtccb[32];
+extern struct rt_hp_fr_t g_hp_fr;
+void rt_pl_tr_refuse(const char *);
 extern unsigned char g_rtcc_on;
 long *rt_anchor_ptr(void);
 int rtx_entry_is(const char *sym);
@@ -2109,9 +2111,45 @@ inline std::string x86_arbno_rbp_unwind_at(const std::string & mark_mem, int l_l
 inline std::string x86_arbno_rbp_unwind(const char * mark_base, int mark_off, int l_loop, int l_done) { return x86_arbno_rbp_unwind_at(RDQ(mark_base, mark_off), l_loop, l_done); }
 #define X86_PL_TR_ENTRY_BYTES 32L
 #define X86_PL_TR_ARENA_MASK (-134217728L)
-inline std::string x86_pl_tr_pop_entry() { return x86("sub", "r12", X86_PL_TR_ENTRY_BYTES) + x86("mov", "rdi", RDQ("r12", 0)) + x86("mov", "rax", RDQ("r12", 16)) + x86("mov", "rdx", RDQ("r12", 24)) +
-    x86("mov", RDQ("rdi", 0), "rax") + x86("mov", RDQ("rdi", 8), "rdx"); }
+inline std::string x86_pl_tr_pop_head() { return x86("sub", "r12", X86_PL_TR_ENTRY_BYTES) + x86("mov", "rdi", RDQ("r12", 0)) + x86("test", "rdi", "rdi"); }
+inline std::string x86_pl_tr_pop_restore() { return x86("mov", "rax", RDQ("r12", 16)) + x86("mov", "rdx", RDQ("r12", 24)) + x86("mov", RDQ("rdi", 0), "rax") + x86("mov", RDQ("rdi", 8), "rdx"); }
 inline std::string x86_pl_tr_top_sync() { return x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", RDQ("rax", 0), "r12"); }
+#define X86_PL_TR_HEADER_BYTES 64L
+inline std::string x86_pl_choice_mark(const std::string & mark_mem, int l0)
+    { return x86("note",
+        "pl_choice_mark inline: sentinels at the trail top above the current B's mark are dead choices' and are dropped; then this choice's sentinel {0, HB = the heap frontier} goes under its mark")
+    + x86("def", L(l0))
+    + x86("mov", "rax", "r12")
+    + x86("and", "rax", (long)(-X86_PL_TR_ARENA_MASK - 1))
+    + x86("cmp", "rax", X86_PL_TR_HEADER_BYTES)
+    + x86("jbe", L(l0 + 1))
+    + x86("test", "r13", "r13")
+    + x86("je", L(l0 + 2))
+    + x86("cmp", "r12", RDQ("r13", 0))
+    + x86("jbe", L(l0 + 1))
+    + x86("def", L(l0 + 2))
+    + x86("cmp", RDQ("r12", -X86_PL_TR_ENTRY_BYTES), 0L)
+    + x86("jne", L(l0 + 1))
+    + x86("sub", "r12", X86_PL_TR_ENTRY_BYTES)
+    + x86("jmp", L(l0))
+    + x86("def", L(l0 + 1))
+    + x86("cmp", "rax", (long)(-X86_PL_TR_ARENA_MASK - X86_PL_TR_ENTRY_BYTES))
+    + x86("jae", L(l0 + 3))
+    + x86_load_got("rax", "g_hp_fr", (uint64_t)(uintptr_t)(void *)&g_hp_fr)
+    + x86("mov", "rax", RDQ("rax", 0))
+    + x86("mov", RDQ("r12", 0), 0L)
+    + x86("mov", RDQ("r12", 8), "rax")
+    + x86("mov", RDQ("r12", 16), 0L)
+    + x86("mov", RDQ("r12", 24), 0L)
+    + x86("add", "r12", X86_PL_TR_ENTRY_BYTES)
+    + x86_pl_tr_top_sync()
+    + x86("mov", mark_mem, "r12")
+    + x86("jmp", L(l0 + 4))
+    + x86("def", L(l0 + 3))
+    + x86("mov", "rdi", "r12")
+    + x86_call_ro("rt_pl_tr_refuse", (uint64_t)(uintptr_t)(void *)rt_pl_tr_refuse)
+    + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : x86_recn("ud2") + "\n")
+    + x86("def", L(l0 + 4)); }
 inline std::string x86_pl_header_open(const char * fb, int hoff, int prev_off)
     { return x86("mov", "rax", "rsp")
     + x86_raw_pack("rax")
@@ -2119,11 +2157,12 @@ inline std::string x86_pl_header_open(const char * fb, int hoff, int prev_off)
     + (prev_off >= 0 ? x86("mov", RDQ(fb, prev_off), "r13") : std::string())
     + x86("note", "pl_header_open inline (D1): the construct's own choice header in its op slots, its mark at +0 and rsp at the open at +32; B is banked, then B := the header")
     + x86("lea", "r13", RDQ(fb, hoff)); }
-inline std::string x86_pl_frame_choice_open(const char * fb, int kt, int l_take, int l_done)
+inline std::string x86_pl_frame_choice_open(const char * fb, int kt, int l_take, int l_done, int l_mark)
     { return x86("note",
         "pl_frame_choice_open inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): the floor word re-aimed at this frame's base; this frame becomes the youngest choice unless a younger one already is")
     + x86("mov", "rax", fb) + x86_raw_pack("rax") + x86("mov", RDQ(fb, kt - 32), "rax") + x86("lea", "rcx", RDQ(fb, kt - 64)) + x86("test", "r13", "r13") + x86("je", L(l_take)) +
-    x86("cmp", "r13", "rcx") + x86("jb", L(l_done)) + x86("def", L(l_take)) + x86("mov", "r13", "rcx") + x86("def", L(l_done)); }
+    x86("cmp", "r13", "rcx") + x86("jb", L(l_done)) + x86("def", L(l_take)) + (l_mark >= 0 ? x86_pl_choice_mark(RDQ(fb, kt - 64), l_mark) : std::string()) + x86("mov", "r13", "rcx") +
+    x86("def", L(l_done)); }
 extern "C" int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int kind, int * out, int cap);
 inline std::string x86_release_acts(bool below_rsp, int kind = 4)
 {
@@ -2164,7 +2203,8 @@ inline std::string x86_pl_ball_rule_omega(int l_go) {
         x86_omega("jae") + x86("def", L(l_go));
 }
 inline std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "pl_tr_unwind: pop the r12 trail to the mark, inline") + x86("mov", "rsi", mark_mem) +
-    x86("def", L(l_loop)) + x86("cmp", "rsi", "r12") + x86("jae", L(l_done)) + x86_pl_tr_pop_entry() + x86("jmp", L(l_loop)) + x86("def", L(l_done)) + x86_pl_tr_top_sync(); }
+    x86("def", L(l_loop)) + x86("cmp", "rsi", "r12") + x86("jae", L(l_done)) + x86_pl_tr_pop_head() + x86("je", L(l_loop)) + x86_pl_tr_pop_restore() + x86("jmp", L(l_loop)) +
+    x86("def", L(l_done)) + x86_pl_tr_top_sync(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_call_frame_enter(int gamma_ilbl, int omega_ilbl) {
     return x86_lea_rip_id("rcx", gamma_ilbl)

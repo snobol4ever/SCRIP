@@ -53,7 +53,7 @@
                     + x86("cmp", "rsi", "rdi") \
                     + x86("je", L(lbind)) \
                     + x86("def", L(lbound)))
-#define PL_TRAIL(lstore, lrefuse, larm) (IF(g_stage2.pl_attv_armed, \
+#define PL_TRAIL(lstore, lrefuse, larm, lstk) (IF(g_stage2.pl_attv_armed, \
                       x86("note", "attvar: a cell whose slen is PL_ATTV_SLEN is always trailed and lowers the wake word at the trail header +48 to this entry's offset") \
                     + x86("mov", "edx", RDD("rdi", 4)) \
                     + x86("cmp", "edx", (long)PL_ATTV_SLEN) \
@@ -75,11 +75,25 @@
                     + x86("jmp", L(lstore + 1)) \
                     + x86("def", L(larm))) \
                     + x86("note", \
-                      "trail test: no choice (B = r13 = 0) records nothing; a cell below rsp (the heap) or at or above the youngest choice's frame top [B + 32] is older than the choice") \
+                      "trail test: no choice (B = r13 = 0) records nothing; a stack cell at or above the youngest choice's frame top [B + 32] is older than the choice") \
                     + x86("test", "r13", "r13") \
                     + x86("jz", L(lstore)) \
                     + x86("cmp", "rdi", "rsp") \
-                    + x86("jbe", L(lstore + 1)) \
+                    + x86("ja", L(lstk)) \
+                    + x86("note", "a heap cell at or above B's HB (the pad of the sentinel just under B's mark) and below the frontier was made after B: not trailed") \
+                    + x86("mov", "rax", RDQ("r13", 0)) \
+                    + x86("mov", "rdx", RDQ("rax", -PL_TR_ENTRY_BYTES)) \
+                    + x86("test", "rdx", "rdx") \
+                    + x86("jne", L(lstore + 1)) \
+                    + x86("mov", "rdx", RDQ("rax", 8 - PL_TR_ENTRY_BYTES)) \
+                    + x86("cmp", "rdi", "rdx") \
+                    + x86("jb", L(lstore + 1)) \
+                    + x86_load_got("rax", "g_hp_fr", (uint64_t)(uintptr_t)(void *)&g_hp_fr) \
+                    + x86("mov", "rax", RDQ("rax", 0)) \
+                    + x86("cmp", "rdi", "rax") \
+                    + x86("jb", L(lstore)) \
+                    + x86("jmp", L(lstore + 1)) \
+                    + x86("def", L(lstk)) \
                     + x86("mov", "rax", RDQ("r13", PL_TR_FRAME_HI_OFF)) \
                     + x86_raw_unpack("rax") \
                     + x86("cmp", "rdi", "rax") \

@@ -270,7 +270,7 @@ static void plw_bind(DESCR_t *cell, DESCR_t word, pl_tr_ctx_t *cx) {
     if (pl_attv_is(cell)) {
         if (!cx || !cx->tr) { extern void rt_bomb(const char *msg); rt_bomb("plw_bind: an attributed variable bound with no trail context, so its wakeup cannot be recorded"); }
         pl_tr_push_attv(cx, cell);
-    } else if (pl_tr_needs_log(cx, cell, floor_)) pl_tr_push(cx, cell);
+    } else if (pl_tr_needs_log_bind(cx, cell, floor_)) pl_tr_push(cx, cell);
     if ((char *)cell <= floor_) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
     *cell = word;
 }
@@ -6399,7 +6399,7 @@ static int plu_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
         if (aa || ba) {
             DESCR_t r = {0};
             r.v = (DTYPE_t)DT_PLVAR;
-            if (au && bu && aa != ba) { DESCR_t *plain = aa ? B : A; r.p = (void *)(aa ? A : B); if (pl_tr_needs_log(cx, plain, floor_)) pl_tr_push(cx, plain); *plain = r; return 1; }
+            if (au && bu && aa != ba) { DESCR_t *plain = aa ? B : A; r.p = (void *)(aa ? A : B); if (pl_tr_needs_log_bind(cx, plain, floor_)) pl_tr_push(cx, plain); *plain = r; return 1; }
             if (au && bu) { DESCR_t *lo = A < B ? A : B, *hi = A < B ? B : A; r.p = (void *)lo; pl_tr_push_attv(cx, hi); *hi = r; return 1; }
             if (aa) { if (B->v == (DTYPE_t)DT_PLREF && pl_tr_ocheck_mode(cx) && plw_occurs_in(A, B)) return 0; pl_tr_push_attv(cx, A); *A = *B; return 1; }
             if (A->v == (DTYPE_t)DT_PLREF && pl_tr_ocheck_mode(cx) && plw_occurs_in(B, A)) return 0;
@@ -6411,11 +6411,17 @@ static int plu_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
             int ah = (const char *)A <= floor_, bh = (const char *)B <= floor_;
             DESCR_t *from, *to;
             if (!ah && !bh) { from = A < B ? A : B; to = A < B ? B : A; } else if (ah != bh) { from = ah ? B : A; to = ah ? A : B; } else { from = A > B ? A : B; to = A > B ? B : A; }
-            if (to->v != (DTYPE_t)DT_PLVAR || to->p != (void *)to) { DESCR_t u = {0}; u.v = (DTYPE_t)DT_PLVAR; u.p = (void *)to; if (pl_tr_needs_log(cx, to, floor_)) pl_tr_push(cx, to); *to = u; }
-            { DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.p = (void *)to; if (pl_tr_needs_log(cx, from, floor_)) pl_tr_push(cx, from); *from = r; return 1; }
+            if (to->v != (DTYPE_t)DT_PLVAR || to->p != (void *)to) {
+                DESCR_t u = {0};
+                u.v = (DTYPE_t)DT_PLVAR;
+                u.p = (void *)to;
+                if (pl_tr_needs_log_bind(cx, to, floor_)) pl_tr_push(cx, to);
+                *to = u;
+            }
+            { DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.p = (void *)to; if (pl_tr_needs_log_bind(cx, from, floor_)) pl_tr_push(cx, from); *from = r; return 1; }
         }
-        if (au) { if (B->v == (DTYPE_t)DT_PLREF && pl_tr_ocheck_mode(cx) && plw_occurs_in(A, B)) return 0; if (pl_tr_needs_log(cx, A, floor_)) pl_tr_push(cx, A); *A = *B; return 1; }
-        if (bu) { if (A->v == (DTYPE_t)DT_PLREF && pl_tr_ocheck_mode(cx) && plw_occurs_in(B, A)) return 0; if (pl_tr_needs_log(cx, B, floor_)) pl_tr_push(cx, B); *B = *A; return 1; }
+        if (au) { if (B->v == (DTYPE_t)DT_PLREF && pl_tr_ocheck_mode(cx) && plw_occurs_in(A, B)) return 0; if (pl_tr_needs_log_bind(cx, A, floor_)) pl_tr_push(cx, A); *A = *B; return 1; }
+        if (bu) { if (A->v == (DTYPE_t)DT_PLREF && pl_tr_ocheck_mode(cx) && plw_occurs_in(B, A)) return 0; if (pl_tr_needs_log_bind(cx, B, floor_)) pl_tr_push(cx, B); *B = *A; return 1; }
     }
     if (A->v == (DTYPE_t)DT_PLREF) return (B->v != (DTYPE_t)DT_PLREF || A->slen != B->slen) ? 0 : PLR_DESCEND;
     if (B->v == (DTYPE_t)DT_PLREF) return 0;

@@ -2,6 +2,9 @@
 #define RT_PL_TRAIL_H
 #include <stdint.h>
 #include "descr.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 #define PL_TR_ARENA_LG2 27
 #define PL_TR_ARENA_BYTES ((uintptr_t)1 << PL_TR_ARENA_LG2)
 #define PL_TR_HEADER_BYTES 64
@@ -53,6 +56,18 @@ static inline int pl_tr_needs_log(const pl_tr_ctx_t *cx, const DESCR_t *cell, co
     return (uintptr_t)cell >= pl_tr_frame_hi(cx->b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern struct rt_hp_fr_t g_hp_fr;
+static inline const char *pl_tr_hb_of(const pl_tr_ctx_t *cx) {
+    const char *mark = *(const char * const *)cx->b;
+    if (mark < pl_tr_base_of(cx->tr) + PL_TR_HEADER_BYTES + PL_TR_ENTRY_BYTES || mark > cx->tr) return 0;
+    { const pl_tr_entry_t *e = (const pl_tr_entry_t *)(mark - PL_TR_ENTRY_BYTES); return e->cell ? 0 : (const char *)(uintptr_t)e->pad; }
+}
+static inline int pl_tr_needs_log_bind(const pl_tr_ctx_t *cx, const DESCR_t *cell, const char *floor_) {
+    if (!cx || !cx->b) return 0;
+    if ((const char *)cell > floor_) return (uintptr_t)cell >= pl_tr_frame_hi(cx->b);
+    { const char *hb = pl_tr_hb_of(cx); return !hb || (const char *)cell < hb || (const char *)cell >= *(char * const *)(const void *)&g_hp_fr; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void pl_tr_push(pl_tr_ctx_t *cx, DESCR_t *cell) {
     if (((uintptr_t)cx->tr & (PL_TR_ARENA_BYTES - 1)) >= PL_TR_ARENA_BYTES - PL_TR_ENTRY_BYTES) rt_pl_tr_refuse(cx->tr);
     { pl_tr_entry_t *e = (pl_tr_entry_t *)cx->tr; e->cell = cell; e->pad = 0; e->old = *cell; cx->tr += PL_TR_ENTRY_BYTES; *(char **)pl_tr_base_of(cx->tr) = cx->tr; }
@@ -68,4 +83,7 @@ static inline void pl_tr_push_attv(pl_tr_ctx_t *cx, DESCR_t *cell) {
     if (!*w || *w > off) *w = off;
     pl_tr_push(cx, cell);
 }
+#ifdef __cplusplus
+}
+#endif
 #endif

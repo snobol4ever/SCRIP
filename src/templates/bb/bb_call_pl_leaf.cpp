@@ -321,7 +321,7 @@ static std::string pl_arm_mkc() {
              + x86("def", L(113))
              + x86("mov", RDQ("r10", 0), (long)DT_PLVAR)
              + x86("mov", RDQ("r10", 8), "r10")
-             + PL_TRAIL(109, 111, 160)
+             + PL_TRAIL(109, 111, 160, 170)
              + x86("mov", RDQ("rdi", 0), (long)DT_PLVAR)
              + x86("mov", RDQ("rdi", 8), "r10")
              + x86("def", L(101))

@@ -52,4 +52,4 @@ void rt_pl_tr_refuse(const char *tr) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_tr_gc_sync(const char *tr) { *(const char **)pl_tr_base_of(tr) = tr; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char *rt_pl_tr_unwind_to(char *tr, char *mark) { while (tr > mark) { tr -= PL_TR_ENTRY_BYTES; { pl_tr_entry_t *e = (pl_tr_entry_t *)tr; *e->cell = e->old; } } return tr; }
+char *rt_pl_tr_unwind_to(char *tr, char *mark) { while (tr > mark) { tr -= PL_TR_ENTRY_BYTES; { pl_tr_entry_t *e = (pl_tr_entry_t *)tr; if (e->cell) *e->cell = e->old; } } return tr; }

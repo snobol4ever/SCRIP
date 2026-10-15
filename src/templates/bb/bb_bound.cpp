@@ -22,7 +22,7 @@ std::string bb_bound() {
     return IF(BND_BOMB(), x86_alpha() + x86_bomb("bb_bound: no mark slot (op_off)"))
          + IF(!BND_BOMB() && x86_fb_pinned(),
                _.op_sb == 1
-             ? x86_alpha() + x86("mov", FRQ(_.op_off), "r12")
+             ? x86_alpha() + x86_pl_choice_mark(FRQ(_.op_off), 240)
          + IF(emit_pl_fence_on(), x86("mov", FRQ(_.op_off + 8), "rsp"))
          + x86_pl_header_open(x86_fb(), _.op_off, _.op_off + 16)
                + x86_gamma() + x86_beta_trampoline()

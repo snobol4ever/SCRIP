@@ -5163,7 +5163,9 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         emit_label_define_bb(pl_uw_top);
         bb_emit_x86(x86("cmp", "rsi", "r12"));
         emit_jmp_label(pl_uw_done, JMP_JGE);
-        bb_emit_x86(x86_pl_tr_pop_entry());
+        bb_emit_x86(x86_pl_tr_pop_head());
+        emit_jmp_label(pl_uw_top, JMP_JE);
+        bb_emit_x86(x86_pl_tr_pop_restore());
         emit_jmp_label(pl_uw_top, JMP_JMP);
         emit_label_define_bb(pl_uw_done);
         bb_emit_x86( x86_pl_tr_top_sync()
@@ -6454,7 +6456,7 @@ long emit_lit_d(const char * s, long k) { uint32_t w; memcpy(&w, s + k, 4); retu
 uint64_t emit_double_bits(double d) { uint64_t b = 0; memcpy(&b, &d, 8); return b; }
 const char * emit_rec_or_empty(void * r) { return r ? (const char *)r : ""; }
 #include "rt/rt_pl_trail.h"
-static_assert(X86_PL_TR_ENTRY_BYTES == PL_TR_ENTRY_BYTES, "x86_pl_tr_pop_entry spells the trail entry size as a literal");
+static_assert(X86_PL_TR_ENTRY_BYTES == PL_TR_ENTRY_BYTES, "x86_pl_tr_pop_head spells the trail entry size as a literal");
 static_assert(X86_PL_TR_ARENA_MASK == -(long)PL_TR_ARENA_BYTES, "x86_pl_tr_top_sync spells the trail arena mask as a literal");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_argv_off(const IR_t *);

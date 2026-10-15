@@ -9,7 +9,8 @@ int rt_pl_unify_const_cold(const DESCR_t *, int64_t, int);
 }
 #include "rt/rt_pl_trail.h"
 #include "x86_asm.h"
-static_assert(X86_PL_TR_ENTRY_BYTES == PL_TR_ENTRY_BYTES && X86_PL_TR_ARENA_MASK == -(long)PL_TR_ARENA_BYTES, "the trail push spells the entry size and the arena mask as literals");
+static_assert(X86_PL_TR_ENTRY_BYTES == PL_TR_ENTRY_BYTES && X86_PL_TR_ARENA_MASK == -(long)PL_TR_ARENA_BYTES && X86_PL_TR_HEADER_BYTES == PL_TR_HEADER_BYTES,
+              "the trail push and the choice mark spell the entry size, the arena mask and the header size as literals");
 static_assert(PL_TR_FRAME_HI_OFF == 32 && offsetof(pl_tr_entry_t, cell) == 0 && offsetof(pl_tr_entry_t, pad) == 8 && offsetof(pl_tr_entry_t, old) == 16,
               "the trail push reads [B + 32] and writes {cell, pad, old}");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -69,7 +70,7 @@ std::string bb_unify_const() {
                  + x86_omega("je")
                  + x86("jmp", L(40)))
              + x86("def", L(30))
-             + PL_TRAIL(31, 39, 80)
+             + PL_TRAIL(31, 39, 80, 90)
              + x86("mov", RDQ("rdi", 0), _.op_u_ktag)
              + x86_movabs_r64("rax", _.op_u_kval)
              + x86("mov", RDQ("rdi", 8), "rax")
