@@ -4753,12 +4753,36 @@ static char * sno_list_build_listing(const tree_t * prog) {
     return L.sb.buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int snobol4_noexec(void);
+extern tree_t * ast_attr_int(const char * tag, int ival);
+extern tree_t * ast_attr_leaf(const char * tag, const char * val);
+extern tree_t * ast_attr_expr(const char * tag, tree_t * expr);
+static tree_t * sno_noexec_program(const tree_t * prog) {
+    tree_t * np = ast_node_new(TT_PROGRAM);
+    tree_t * st = ast_node_new(TT_STMT);
+    tree_t * kw = ast_node_new(TT_KEYWORD);
+    kw->v.sval = ct_strdup("CODE");
+    tree_t * lit = ast_node_new(TT_ILIT);
+    lit->v.ival = 231;
+    ast_push(st, ast_attr_int(":line", 0));
+    ast_push(st, ast_attr_int(":stno", 1));
+    ast_push(st, ast_attr_leaf(":src", ""));
+    ast_push(st, ast_attr_expr(":subj", kw));
+    ast_push(st, ast_attr_leaf(":eq", ""));
+    ast_push(st, ast_attr_expr(":repl", lit));
+    ast_push(np, st);
+    for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_END) { ast_push(np, prog->c[i]); break; }
+    return np;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t * lower_sno_stage2(const tree_t * prog) {
     { extern void gva_keyword_refuse_seed_snobol4(void); gva_keyword_refuse_seed_snobol4(); }
     g_lower.sno.expr_define_seen = 0;
     g_lower.sno.prescan_top = NULL;
     g_lower.sno.seal_enabled = 1;
     if (!prog || prog->t != TT_PROGRAM) return NULL;
+    const tree_t * list_prog = prog;
+    if (snobol4_noexec()) prog = sno_noexec_program(prog);
     for (int i = 0; i < prog->n; i++) sno_indirect_lit_to_var((tree_t *) prog->c[i]);
     { int rsv = sno_rsv_program(prog, 0); if (rsv) { fprintf(stderr, "scrip: %d reserved-constant error(s) -- no code generated\n", rsv); exit(1); } }
     g_lower.sno.exprs.len = 0;
@@ -4857,7 +4881,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         { IR_t * qt = lc_build(g, IR_CALL, g->entry, g->entry); IR_LIT(qt).sval = (char *) "$quit_trap_320"; g->entry = qt; }
         { IR_t * fpm = lc_build(g, IR_CALL, g->entry, g->entry); IR_LIT(fpm).sval = (char *) "$fp_model_spitbol"; g->entry = fpm; }
         {
-            char * listing = sno_list_build_listing(prog);
+            char * listing = sno_list_build_listing(list_prog);
             if (listing && listing[0]) {
                 IR_t * lit = lc_build(g, IR_LIT_STRING, g->entry, g->entry);
                 IR_LIT(lit).sval = listing;

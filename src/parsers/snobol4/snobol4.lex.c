@@ -760,6 +760,8 @@ static int g_list_nevents = 0;
 static int g_list_cap = 0;
 static int g_list_nends = 0;
 static int g_list_ever_on = 0;
+static int g_noexec = 0;
+int snobol4_noexec(void) { return g_noexec; }
 static int incl_stack_depth = 0;
 static void sno_list_record(int kind, int arg, const char *text, int tlen) {
     if (g_list_nevents >= g_list_cap) {
@@ -798,6 +800,8 @@ static void sno_list_card(const char *line, int len) {
         else if (sno_list_is(w, wl, "NOLI")) sno_list_record('N', 0, (const char *)0, 0);
         else if (sno_list_is(w, wl, "PRIN")) sno_list_record('P', 0, (const char *)0, 0);
         else if (sno_list_is(w, wl, "NOPR")) sno_list_record('Q', 0, (const char *)0, 0);
+        else if (sno_list_is(w, wl, "NOEX")) g_noexec = 1;
+        else if (sno_list_is(w, wl, "EXEC")) g_noexec = 0;
         else if (sno_list_is(w, wl, "DOUB")) sno_list_record('D', 0, (const char *)0, 0);
         else if (sno_list_is(w, wl, "SING")) sno_list_record('I', 0, (const char *)0, 0);
         else if (sno_list_is(w, wl, "EJEC")) { sno_list_record('E', 0, (const char *)0, 0); stop = 1; }
