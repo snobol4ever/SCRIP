@@ -130,6 +130,34 @@ def classify(name):
     return 'data', None
 
 
+# One line can hold several statements joined by ';' (GAS's separator; the 4-column formatter joins a jump onto the line before
+# it, and a literal cell is ONE line: ".pushsection .data.rel.ro,...; .p2align 3; <cell>: .quad <target>; .popsection", cto
+# 2026-10-15, the text-relocation row): walk them in order, outside a quoted string, up to a '#' comment.
+def statements(line):
+    out, cur, q, esc = [], [], False, False
+    for ch in line:
+        if q:
+            cur.append(ch)
+            if esc:
+                esc = False
+            elif ch == '\\':
+                esc = True
+            elif ch == '"':
+                q = False
+        elif ch == '"':
+            q = True
+            cur.append(ch)
+        elif ch == ';':
+            out.append(''.join(cur))
+            cur = []
+        elif ch == '#':
+            break
+        else:
+            cur.append(ch)
+    out.append(''.join(cur))
+    return out
+
+
 def check(path):
     violations = []
     greek_missing = []
@@ -175,23 +203,25 @@ def check(path):
         # 'preserve': owner unchanged, not checked
     with open(path, encoding='utf-8') as f:
         for lineno, line in enumerate(f, 1):
-            line = line.rstrip('\n')
-            sm = SECTION_DIRECTIVE.match(line)
-            if sm:
-                section(sm)
-                continue
-            if in_text and BOX_CLOSE.match(line):
-                owner = None
-                continue
-            m = LABEL_DEF.match(line)
-            if not m:
-                continue
-            n_checked += 1
-            if in_text:
-                visit(lineno, m.group(1))
-            sm = SECTION_DIRECTIVE.match(line[m.end():])
-            if sm:
-                section(sm)                 # "label: .pushsection X" defines the label where it stands, THEN switches
+            for si, seg in enumerate(statements(line.rstrip('\n'))):
+                if si:
+                    seg = seg.lstrip()
+                sm = SECTION_DIRECTIVE.match(seg)
+                if sm:
+                    section(sm)
+                    continue
+                if in_text and BOX_CLOSE.match(seg):
+                    owner = None
+                    continue
+                m = LABEL_DEF.match(seg)
+                if not m:
+                    continue
+                n_checked += 1
+                if in_text:
+                    visit(lineno, m.group(1))
+                sm = SECTION_DIRECTIVE.match(seg[m.end():])
+                if sm:
+                    section(sm)             # "label: .pushsection X" defines the label where it stands, THEN switches
     return violations, greek_missing, n_checked
 
 

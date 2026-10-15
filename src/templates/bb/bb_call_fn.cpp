@@ -42,11 +42,9 @@ std::string pas_elem_flat_join(void);
 #define MARG(i) (((const marg_t *)_.op_marg.p)[(i)])
 #define MAOFF(i) (CF_ARG() + 16 * (i))
 #define RO_SEAL_ADDR(n, sym, addr) \
-    (x86("def", L(n)) \
-   + x86(".quad", (sym), (uint64_t)(uintptr_t)(addr)))
+    (x86(".quad_ro", L(n), (sym), (uint64_t)(uintptr_t)(addr)))
 #define RO_SEAL_STR(n, s) \
-    (x86("def", L(n)) \
-   + x86(".quad", LS(n), (s)) \
+    (x86(".quad_ro", L(n), LS(n), (s)) \
    + x86("label", LS(n)) \
    + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

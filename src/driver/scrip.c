@@ -887,7 +887,7 @@ static void m4_emit_atom_table(void) {
     extern int prolog_atom_count(void);
     extern const char *prolog_atom_name(int);
     int n = prolog_atom_count();
-    emit_textf("  .section .rodata\n  .align 8\n.Lpl_atom_tab:\n  .quad %d\n", n);
+    emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n  .align 8\n.Lpl_atom_tab:\n  .quad %d\n", n);
     for (int k = 0; k < n; k++) emit_textf("  .quad .Lpl_atom%d\n", k);
     for (int k = 0; k < n; k++) {
         const unsigned char *p = (const unsigned char *)prolog_atom_name(k);
@@ -979,7 +979,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 int cl = dat_type_emit_ordinal(ci);
                 int np = dat_type_nparents(ci);
                 if (np <= 0) continue;
-                emit_textf("  .section .rodata\n");
+                emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n");
                 emit_textf("  .Lclschild%d: .string \"%s\"\n", cl, cn);
                 for (int pj = 0; pj < np; pj++) emit_textf("  .Lclsp%d_%d: .string \"%s\"\n", cl, pj, dat_type_parent_at(ci, pj));
                 emit_textf("  .balign 8\n  .Lclsparr%d:\n", cl);
@@ -1351,7 +1351,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0;
             if (_rg && !_rg->icn_cells_graph) _rg = (IR_graph_t *)0;
             if (_rg && ((_rg->lnames && _rg->nlocals > 0) || (_rg->pnames && _rg->nparams > 0))) {
-                emit_textf("  .section .rodata\n  .Lstartup_rootnm: .string \"main\"\n");
+                emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n  .Lstartup_rootnm: .string \"main\"\n");
                 m4_icn_name_tables_data(9000, _rg);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
                 m4_icn_name_tables_calls(9000, ".Lstartup_rootnm", _rg);
@@ -1387,7 +1387,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                         if (zls_g_entry_block(_pg4)) _rkflags |= 32;
                     }
                     int _rkulex = (pe->lex_startup && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);
-                    emit_textf(g_sc_module_name ? "  .section .data.rel.ro,\"aw\",@progbits\n" : "  .section .rodata\n");
+                    emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n");
                     {
                         extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
                         char _esc[4 * strlen(proc_names_buf[i] ? proc_names_buf[i] : "") + 1];
@@ -1464,7 +1464,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                         if (_gft2 > 0) { emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i); emit_textf("  mov esi, %d\n", _gft2); emit_textf("  call rt_proc_set_gen_region_ft@PLT\n"); }
                     }
                 } else {
-                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n");
                     emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
                     if (pe->dyn_scope) {
                         for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
@@ -1575,8 +1575,8 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             if (_mpi >= 0 && icn_main_callable(s2, _rg)) {
                 ProcEntry *_mp = &s2->proc_table[_mpi];
                 emit_textf(
-                    "  .section .rodata\n  .Lstartup_rootcall: .string \"main\"\n  .align 8\n  .Lstartup_prec_root:\n  .quad .Lstartup_rootcall\n  .quad main_\xce\xb1\n  .quad 0\n  .quad 0\n  .quad "
-                    "0\n");
+                    "  .section .data.rel.ro,\"aw\",@progbits\n  .Lstartup_rootcall: .string \"main\"\n  .align 8\n  .Lstartup_prec_root:\n  .quad .Lstartup_rootcall\n  .quad main_\xce\xb1\n  .quad "
+                    "0\n  .quad 0\n  .quad " "0\n");
                 emit_textf("  .long %d\n  .long %d\n  .long 0\n  .long %d\n  .long %d\n  .long %d\n", _mp->nparams, _mp->nformals, (_mp->is_variadic ? 4 : 0) | 16, _mp->rest_kind, _mp->named_rest);
                 emit_textf("  .quad 0\n");
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n  lea rdi, [rip + .Lstartup_prec_root]\n  call rt_proc_register_rec@PLT\n");
@@ -2676,7 +2676,7 @@ int main(int argc, char **argv) {
                         x86_asm_str_escape_c(_gn, _esc, _cap);
                         emit_textf("  .Lgvan%d: .string \"%s\"\n", k, _esc);
                     }
-                    emit_textf("  .align 8\n__gva_names:\n");
+                    emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n  .align 8\n__gva_names:\n");
                     { extern const char *gva_note(int); for (int k = 0; k < n_gva_tab; k++) { if (!*gva_note(k)) emit_textf("  .quad 0\n"); else emit_textf("  .quad .Lgvan%d\n", k); } }
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
                 }
@@ -2690,7 +2690,7 @@ int main(int argc, char **argv) {
                     x86_asm_str_escape_c(_lnk, _esc, sizeof _esc);
                     emit_textf("  .Llbln%d: .string \"%s\"\n", k, _esc);
                 }
-                emit_textf("  .align 8\n__label_names:\n");
+                emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n  .align 8\n__label_names:\n");
                 for (int k = 0; k < s2->label_count; k++) emit_textf("  .quad .Llbln%d\n", k);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
             }
@@ -2699,7 +2699,7 @@ int main(int argc, char **argv) {
                 extern const char *proc_slot_name(int);
                 int _nps = proc_slot_count();
                 if (_nps > 0) {
-                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n");
                     for (int k = 0; k < _nps; k++) emit_textf("  .Lprocn%d: .string \"%s\"\n", k, proc_slot_name(k));
                     emit_textf("  .align 8\n__proc_names:\n");
                     for (int k = 0; k < _nps; k++) emit_textf("  .quad .Lprocn%d\n", k);
@@ -2734,7 +2734,7 @@ int main(int argc, char **argv) {
                     extern int emit_gc_map_names_n(void);
                     extern const char *emit_gc_map_name(int);
                     int _nm = emit_gc_map_names_n();
-                    emit_textf("  .section .rodata\n  .align 8\n__gc_frame_maps:\n  .quad %d\n", _nm);
+                    emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n  .align 8\n__gc_frame_maps:\n  .quad %d\n", _nm);
                     for (int _k = 0; _k < _nm; _k++) emit_textf("  .quad %s\n", emit_gc_map_name(_k));
                     {
                         extern int emit_gc_sites_names_n(void);

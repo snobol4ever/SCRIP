@@ -55,8 +55,7 @@ std::string bb_keyword_snobol4() {
              + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
-             + x86("def", L(0))
-             + x86(".quad", LS(0), _.op_sval)
+             + x86(".quad_ro", L(0), LS(0), _.op_sval)
              + x86("label", LS(0))
              + x86(".string", _.op_sval))
          + IF(!_.op_zres && !(_.op_off >= 0), x86_alpha() + x86_bomb("bb_keyword_snobol4: no slot"))
@@ -93,8 +92,7 @@ std::string bb_keyword_snobol4() {
              + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
-             + x86("def", L(0))
-             + x86(".quad", LS(0), _.op_sval)
+             + x86(".quad_ro", L(0), LS(0), _.op_sval)
              + x86("label", LS(0))
              + x86(".string", _.op_sval));
 }

@@ -889,16 +889,30 @@ inline std::string x86_asm_str_escape(const char * s, size_t len) {
     return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_ro_open(void) { return x86_rec(".pushsection") + ".data.rel.ro,\"aw\",@progbits; .p2align 3; "; }
+inline std::string x86_ro_cell(const std::string & name, const std::string & target) { return x86_ro_open() + name + ": .quad " + target + "; .popsection\n"; }
+inline std::string x86_ro_rec_head(const struct bb_label_t * lbl, uint64_t v) {
+    if (MEDIUM_BINARY) return x86_def_ext(lbl) + x86_Lrec(u64le(v));
+    return x86_ro_open() + (lbl && lbl->name ? lbl->name : "?") + ": .quad " + std::to_string((unsigned long long)v) + "\n";
+}
+inline std::string x86_ro_rec_tail_ilbl(int n) {
+    if (MEDIUM_BINARY) return x86_quad_ilbl(n);
+    return std::string(" .quad ") + x86_internal_name(n) + "; .popsection\n";
+}
+inline std::string x86_ro_rec_tail_q(uint64_t v) {
+    if (MEDIUM_BINARY) return x86_Lrec(u64le(v));
+    return std::string(" .quad ") + std::to_string((unsigned long long)v) + "; .popsection\n";
+}
 inline std::string x86_ro_seal_addr(int n, const char * sym, const void * addr) {
     if (MEDIUM_BINARY) return x86_Drec(X86_INTERNAL_BASE + n) + x86_Lrec(u64le((uint64_t)(uintptr_t)addr));
-    return x86_internal_name(n) + ":\n .quad " + std::string(sym ? sym : "0") + "\n";
+    return x86_ro_cell(x86_internal_name(n), std::string(sym ? sym : "0"));
 }
 inline std::string x86_ro_seal_str(int n, const char * lit) {
     const char * s = lit ? lit : "";
     if (MEDIUM_BINARY) return x86_Drec(X86_INTERNAL_BASE + n) + x86_Lrec(u64le((uint64_t)(uintptr_t)s));
     std::string slot = x86_internal_name(n);
     std::string sbuf = slot + "_s";
-    return slot + ":\n .quad " + sbuf + "\n" + sbuf + ":\n .string \"" + x86_asm_str_escape(s) + "\"\n";
+    return x86_ro_cell(slot, sbuf) + sbuf + ":\n .string \"" + x86_asm_str_escape(s) + "\"\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_and(const char * reg, long imm) {
@@ -1757,6 +1771,12 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         if (xa.tag == 1 && xb.tag == 1) return MEDIUM_BINARY ? x86_Lrec(u64le((uint64_t)(uintptr_t)(xb.s ? xb.s : ""))) : (std::string(" .quad ") + (xa.s ? xa.s : "") + "\n");
         if (xa.tag == 1 && xb.tag == 2) return MEDIUM_BINARY ? x86_Lrec(u64le(xb.u)) : (std::string(" .quad ") + (xa.s ? xa.s : "0") + "\n");
         return std::string();
+    }
+    if (X86_MEQ(mnem, ".quad_ro")) {
+        opnd a; x86_parse(xa, a);
+        if (a.kind != XK_ILBL) { fprintf(stderr, "FATAL x86: .quad_ro takes an internal label L(n) first, then the target's text name and its binary value\n"); abort(); }
+        if (MEDIUM_BINARY) return x86_deflabel_id(a.lbl) + x86_Lrec(u64le(xc.tag == 2 ? xc.u : (uint64_t)(uintptr_t)(xc.s ? xc.s : "")));
+        return x86_ro_cell(x86_internal_name(a.lbl), std::string(xb.s ? xb.s : "0"));
     }
     if (X86_MEQ(mnem, ".string")) {
         if (MEDIUM_BINARY) return std::string();

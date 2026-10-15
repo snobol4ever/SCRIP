@@ -78,8 +78,7 @@ std::string bb_scan_match() {
          + x86("mov", FRQ(_.op_off + 8), "rax")
          + x86_gamma()
          + x86_beta_trampoline()
-         + x86("def", L(0))
-         + x86(".quad", LS(0), _.op_name1)
+         + x86(".quad_ro", L(0), LS(0), _.op_name1)
          + x86("label", LS(0))
          + x86(".string", _.op_name1, (unsigned long)_.op_ival);
 }

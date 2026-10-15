@@ -19,8 +19,7 @@ std::string bb_proc_value() {
          + x86("mov", FRQ(_.op_off + 8), "rdx")
          + x86_gamma()
          + x86_beta_trampoline()
-         + x86("def", L(0))
-         + x86(".quad", LS(0), _.op_sval)
+         + x86(".quad_ro", L(0), LS(0), _.op_sval)
          + x86("label", LS(0))
          + x86(".string", _.op_sval);
 }

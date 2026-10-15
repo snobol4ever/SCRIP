@@ -25,8 +25,7 @@ std::string bb_keyword_icon() {
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_rt_gc_poll()
              + x86_gamma() + x86_beta() + x86_omega()
-             + x86("def", L(0))
-             + x86(".quad", LS(0), _.op_sval)
+             + x86(".quad_ro", L(0), LS(0), _.op_sval)
              + x86("label", LS(0))
              + x86(".string", _.op_sval))
          + IF(!KI_BOMB() && !KI_VARFORM(),
@@ -116,8 +115,7 @@ std::string bb_keyword_icon() {
             + x86_gamma()
             + x86_beta()
             + x86("jmp", L(1))
-            + x86("def", L(0))
-            + x86(".quad", LS(0), _.op_sval)
+            + x86(".quad_ro", L(0), LS(0), _.op_sval)
             + x86("label", LS(0))
             + x86(".string", _.op_sval)
           : x86("comment", "KEYWORD_read")
@@ -130,8 +128,7 @@ std::string bb_keyword_icon() {
             + x86("mov", FRQ(_.op_off + 8), "rdx")
             + x86_rt_gc_poll()
             + x86_gamma() + x86_beta() + x86_omega()
-            + x86("def", L(0))
-            + x86(".quad", LS(0), _.op_sval)
+            + x86(".quad_ro", L(0), LS(0), _.op_sval)
             + x86("label", LS(0))
             + x86(".string", _.op_sval)));
 }

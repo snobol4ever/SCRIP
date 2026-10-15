@@ -83,8 +83,7 @@ std::string bb_scan_upto() {
              + x86_beta()
              + x86("inc", FRQ(_.op_off + 16))
              + x86("jmp", L(0))
-             + x86("def", L(2))
-             + x86(".quad", LS(2), _.op_name1)
+             + x86(".quad_ro", L(2), LS(2), _.op_name1)
              + x86("label", LS(2))
              + x86(".string", _.op_name1, (unsigned long)_.op_ival)
              + RO_SEAL_Q(3, x86_cset_word(_.op_name1, _.op_ival, 0)) + RO_SEAL_Q(4, x86_cset_word(_.op_name1, _.op_ival, 1)) + RO_SEAL_Q(5, x86_cset_word(_.op_name1, _.op_ival,

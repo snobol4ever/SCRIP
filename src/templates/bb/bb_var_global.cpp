@@ -85,8 +85,7 @@ std::string bb_var_global() {
              + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
-             + x86("def", L(0))
-             + x86(".quad", LS(0), _.op_sval)
+             + x86(".quad_ro", L(0), LS(0), _.op_sval)
              + x86("label", LS(0))
              + x86(".string", _.op_sval);
 }

@@ -189,8 +189,7 @@ static std::string bb_define_bind() {
             + x86("call", "rt_define_bind_entry", _bind_fp)
             + x86_rt_gc_poll()
             + x86_scan_sync_in_rr();
-        bind_seal = x86("def", L(2))
-            + x86(".quad", LS(2), _ent)
+        bind_seal = x86(".quad_ro", L(2), LS(2), _ent)
             + x86("label", LS(2))
             + x86(".string", _ent); } }
     std::string entry_seal;
@@ -203,16 +202,13 @@ static std::string bb_define_bind() {
             + x86("call", "rt_define_site_entry", _ent_fp)
             + x86_rt_gc_poll()
             + x86_scan_sync_in_rr();
-        entry_seal = x86("def", L(3))
-            + x86(".quad", LS(3), _.op_entry)
+        entry_seal = x86(".quad_ro", L(3), LS(3), _.op_entry)
             + x86("label", LS(3))
             + x86(".string", _.op_entry); } }
-    std::string seals = x86("def", L(0))
-        + x86(".quad", LS(0), fname)
+    std::string seals = x86(".quad_ro", L(0), LS(0), fname)
         + x86("label", LS(0))
         + x86(".string", fname)
-        + x86("def", L(1))
-        + x86(".quad", LS(1), (_csv ? _csv : ""))
+        + x86(".quad_ro", L(1), LS(1), (_csv ? _csv : ""))
         + x86("label", LS(1))
         + x86(".string", (_csv ? _csv : ""))
         + bind_seal
@@ -509,8 +505,7 @@ static std::string bb_define_sr() {
                  + x86("pop", "rdi")
                  + x86_deflabel_id(238))
                  + x86_jmp_id(231)
-                 + x86("def", L(232))
-                 + x86(".quad", LS(232), fn4)
+                 + x86(".quad_ro", L(232), LS(232), fn4)
                  + x86("label", LS(232))
                  + x86(".string", fn4)
                  + x86_deflabel_id(231)
@@ -602,8 +597,7 @@ static std::string bb_define_sr() {
                  + x86("mov", "rsi", GQ(rgx, 8)))
                  + x86_deflabel_id(239))
                  + x86_jmp_id(236)
-                 + x86("def", L(237))
-                 + x86(".quad", LS(237), fn4)
+                 + x86(".quad_ro", L(237), LS(237), fn4)
                  + x86("label", LS(237))
                  + x86(".string", fn4)
                  + x86_deflabel_id(236)

@@ -71,8 +71,7 @@ std::string bb_rev_assign_global() {
                        + x86("mov", "r15", "rdx")
                        + x86("mov", "r14", (long)0))
              + x86_omega()
-             + IF((_.op_sval && !strcmp(_.op_sval, "&subject")), x86("def", L(0))
-                       + x86(".quad", LS(0), _.op_sval)
+             + IF((_.op_sval && !strcmp(_.op_sval, "&subject")), x86(".quad_ro", L(0), LS(0), _.op_sval)
                        + x86("label", LS(0))
                        + x86(".string", _.op_sval)))
          + IF(!RAG_BAD() && !RAG_KW(),
@@ -131,8 +130,7 @@ std::string bb_rev_assign_global() {
             + x86("rtcc_rl")
             + x86_rt_gc_poll()
             + x86_omega()
-            + x86("def", L(0))
-            + x86(".quad", LS(0), _.op_sval)
+            + x86(".quad_ro", L(0), LS(0), _.op_sval)
             + x86("label", LS(0))
             + x86(".string", _.op_sval)));
 }

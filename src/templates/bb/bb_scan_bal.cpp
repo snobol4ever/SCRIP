@@ -126,8 +126,7 @@ std::string bb_scan_bal() {
          + x86_beta()
          + x86("mov", "rax", FRQ(_.op_off + 16))
          + x86("jmp", L(1))
-         + x86("def", L(4))
-         + x86(".quad", LS(4), _.op_name1)
+         + x86(".quad_ro", L(4), LS(4), _.op_name1)
          + x86("label", LS(4))
          + x86(".string", _.op_name1);
 }

@@ -77,8 +77,7 @@ std::string bb_assign_global() {
                 + x86_gamma()
                 + x86_beta_trampoline()
                 + IF(mon_vars_on(),
-                     x86("def", L(0))
-                   + x86(".quad", LS(0), _.op_sval)
+                     x86(".quad_ro", L(0), LS(0), _.op_sval)
                    + x86("label", LS(0))
                    + x86(".string", _.op_sval)))
              + IF(!(g_gva_active && _.op_gva_k >= 0),
@@ -96,8 +95,7 @@ std::string bb_assign_global() {
                 + x86_rt_gc_poll_rec_res()
                 + x86_gamma()
                 + x86_beta_trampoline()
-                + x86("def", L(0))
-                + x86(".quad", LS(0), _.op_sval)
+                + x86(".quad_ro", L(0), LS(0), _.op_sval)
                 + x86("label", LS(0))
                 + x86(".string", _.op_sval)))
          + IF(AG_HAS_SLOT() && !_.op_zres,
@@ -117,8 +115,7 @@ std::string bb_assign_global() {
             + x86_gamma()
             + x86_beta_trampoline()
             + IF(mon_vars_on(),
-                 x86("def", L(0))
-               + x86(".quad", LS(0), _.op_sval)
+                 x86(".quad_ro", L(0), LS(0), _.op_sval)
                + x86("label", LS(0))
                + x86(".string", _.op_sval)))
          + IF(!(g_gva_active && _.op_gva_k >= 0),
@@ -138,8 +135,7 @@ std::string bb_assign_global() {
             + x86("rtcc_rl")
             + x86_gamma()
             + x86_beta_trampoline()
-            + x86("def", L(0))
-            + x86(".quad", LS(0), _.op_sval)
+            + x86(".quad_ro", L(0), LS(0), _.op_sval)
             + x86("label", LS(0))
             + x86(".string", _.op_sval)));
 }

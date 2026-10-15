@@ -76,8 +76,7 @@ extern "C++" int bcps_result_slot();
 extern "C++" int bcps_beta_pair_idx();
 extern "C++" void bcps_sig_tally(const char * arm, const char * fn, long n, int ok, const char * why, const char * opnd);
 #define RO_SEAL_STR(n, s) \
-    (x86("def", L(n)) \
-   + x86(".quad", LS(n), (s)) \
+    (x86(".quad_ro", L(n), LS(n), (s)) \
    + x86("label", LS(n)) \
    + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -377,11 +376,10 @@ static std::string bcps_det_arm() {
                                 std::string sz = lazd + x86_rsp_mark_save()
                                      + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl_z)
                                      + x86("jmp_cellp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), laz.c_str())
-                                     + x86_def_ext(sigl_z)
-                                     + x86(".quad", (uint64_t)_.op_ival)
+                                     + x86_ro_rec_head(sigl_z, (uint64_t)_.op_ival)
                                      + x86(".quad", L(2))
-                                     + x86(".quad", L(2));
-                                for (int i = 0; i < (int)_.op_ival; i++) sz += x86(".quad", (uint64_t)soffz[i]);
+                                     + (_.op_ival > 0 ? x86(".quad", L(2)) : x86_ro_rec_tail_ilbl(2));
+                                for (int i = 0; i < (int)_.op_ival; i++) sz += (i + 1 < (int)_.op_ival) ? x86(".quad", (uint64_t)soffz[i]) : x86_ro_rec_tail_q((uint64_t)soffz[i]);
                                 return sz + x86_rsp_land(0L);
                             }
                             return x86_bomb("bcps signature arm DECLINED and there is no safe fallthrough: the callee's role-4 SIG shim (bb_define.cpp, "
@@ -570,11 +568,10 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
                             std::string s = lad + x86_rsp_mark_save()
                                  + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl)
                                  + x86("jmp_cellp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), la.c_str())
-                                 + x86_def_ext(sigl)
-                                 + x86(".quad", (uint64_t)_.op_ival)
+                                 + x86_ro_rec_head(sigl, (uint64_t)_.op_ival)
                                  + x86(".quad", L(2))
-                                 + x86(".quad", L(2));
-                            for (int i = 0; i < (int)_.op_ival; i++) s += x86(".quad", (uint64_t)soff[i]);
+                                 + (_.op_ival > 0 ? x86(".quad", L(2)) : x86_ro_rec_tail_ilbl(2));
+                            for (int i = 0; i < (int)_.op_ival; i++) s += (i + 1 < (int)_.op_ival) ? x86(".quad", (uint64_t)soff[i]) : x86_ro_rec_tail_q((uint64_t)soff[i]);
                             return s + x86_rsp_land(0L);
                         }
                         return x86_bomb("bcps signature arm DECLINED and there is no safe fallthrough: the callee's role-4 SIG shim (bb_define.cpp, "
