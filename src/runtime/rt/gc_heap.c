@@ -1330,7 +1330,7 @@ static inline void gc_slot_reg(void *loc) { const char *v = *(const char *const 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gc_visit_raw_c(const char **loc) { rt_hblk_t *h = gc_blk_of(*loc); if (!h) return; gc_mark_blk(h, 0); gc_slot_reg_tgt((void *)loc, h); }
 void rt_gc_visit_raw(const char **loc) { extern int rt_gc_visit_raw_a(const char **); if (!rt_gc_visit_raw_a(loc)) rt_gc_visit_raw_c(loc); }
-void rt_gc_visit_raw_in(const char **loc, const void *holder) { (void)holder; rt_gc_visit_raw(loc); }
+void rt_gc_visit_raw_in(const char **loc, const void *holder) { extern int rt_gc_visit_raw_a(const char **); (void)holder; if (!rt_gc_visit_raw_a(loc)) rt_gc_visit_raw_c(loc); }
 int rt_gc_weak_keep(const char **loc) { rt_hblk_t *h = gc_blk_of(*loc); if (!h) return 1; if (!gc_blk_marked(h)) return 0; gc_slot_reg((void *)loc); return 1; }
 int rt_gc_ptr_in_heap_slot(const char *p) { return gc_blk_of(p) != (rt_hblk_t *)0; }
 int rt_gc_in_arena(const char *p) { return (g_hp_arena && p >= g_hp_arena && p < g_hp_top) ? 1 : 0; }
@@ -1509,7 +1509,19 @@ static void rt_gc_visit_descr_c(DESCR_t *d) {
     gc_wl_drain();
     g_gc_mk.draining = 0;
 }
-void rt_gc_visit_descr(DESCR_t *d) { extern int rt_gc_visit_descr_a(DESCR_t *); if (!rt_gc_visit_descr_a(d)) rt_gc_visit_descr_c(d); }
+void rt_gc_visit_descr(DESCR_t *d) {
+    extern int rt_gc_visit_descr_a(DESCR_t *);
+    int r = rt_gc_visit_descr_a(d);
+    if (r == 2) { g_gc_mk.draining = 1; gc_wl_drain(); g_gc_mk.draining = 0; } else if (!r) rt_gc_visit_descr_c(d);
+}
+void rt_gc_run_roots(gc_roots_args_t *a) {
+    extern long rt_gc_core_roots_run(gc_roots_args_t *);
+    for (;;) { long r = rt_gc_core_roots_run(a); if (!r) break; if (r == 1) gc_slot_grow(); else gc_wl_grow(); }
+}
+_Static_assert(__builtin_offsetof(gc_roots_args_t, vbk) == 0 && __builtin_offsetof(gc_roots_args_t, vnb) == 8 && __builtin_offsetof(gc_roots_args_t, fbk) == 16 &&
+    __builtin_offsetof(gc_roots_args_t, fnb) == 24 && __builtin_offsetof(gc_roots_args_t, udef) == 32 && __builtin_offsetof(gc_roots_args_t, pos_t) == 40 &&
+    __builtin_offsetof(gc_roots_args_t, pos_e) == 48 && __builtin_offsetof(gc_roots_args_t, pos_b) == 56 && __builtin_offsetof(gc_roots_args_t, tmp_end) == 64 &&
+    __builtin_offsetof(gc_roots_args_t, tmp_p) == 72, "rt_gc_core_roots_run (rtx_gc.s) reads its argument block at these offsets");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 static long g_gc_rrng_ss = 0;
@@ -3096,7 +3108,7 @@ static void gc_root_cas(void) {
 #endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_root_gva(void) { DESCR_t *gv = (DESCR_t *)RT_GVA_VA; for (int k = 0; k < g_sxt_gva_n; k++) rt_gc_visit_descr(&gv[k]); }
+static void gc_root_gva(void) { g_gc_mk.rng_p = (DESCR_t *)RT_GVA_VA; g_gc_mk.rng_n = (long)g_sxt_gva_n; g_gc_mk.draining = 1; gc_wl_drain(); g_gc_mk.draining = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 _Static_assert(sizeof(long) == 8,

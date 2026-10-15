@@ -21,6 +21,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {
     { "rt_div_strict", RTCC_C_R8 },
     { "rt_faildescr", 0 },
     { "rt_gc_clear_run", RTCC_C_R8 },
+    { "rt_gc_core_roots_run", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_gc_first_dead_run", RTCC_C_R8 },
     { "rt_gc_fix_run", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_gc_mark_run", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },

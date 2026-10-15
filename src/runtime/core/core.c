@@ -4520,6 +4520,11 @@ typedef struct _FNCBLK_t {
     int max_set;
     struct _FNCBLK_t *next;
 } FNCBLK_t;
+_Static_assert(__builtin_offsetof(NV_t, name) == 0 && __builtin_offsetof(NV_t, val) == 32 && __builtin_offsetof(NV_t, cell) == 48 && __builtin_offsetof(NV_t, next) == 72 &&
+    __builtin_offsetof(FNCBLK_t, name) == 0 && __builtin_offsetof(FNCBLK_t, spec) == 8 && __builtin_offsetof(FNCBLK_t, entry_label) == 16 && __builtin_offsetof(FNCBLK_t, nparams) == 32 &&
+    __builtin_offsetof(FNCBLK_t, params) == 40 && __builtin_offsetof(FNCBLK_t, nlocals) == 48 && __builtin_offsetof(FNCBLK_t, locals) == 56 && __builtin_offsetof(FNCBLK_t, next) == 80 &&
+    __builtin_offsetof(DATBLK_t, name) == 0 && __builtin_offsetof(DATBLK_t, nfields) == 8 && __builtin_offsetof(DATBLK_t, fields) == 16 && __builtin_offsetof(DATBLK_t, next) == 24,
+    "rt_gc_core_roots_run (rtx_gc.s) walks the variable, function and datatype tables at these offsets");
 static rt_slab_t *g_func_bslab;
 #define _func_bw ((unsigned long *)RT_SLAB_BASE(g_func_bslab))
 #define _func_buckets ((FNCBLK_t **)(_func_bw + 2))
@@ -5577,31 +5582,12 @@ void core_gc_roots(void) {
         if (_io_chan[i].prebind) rt_gc_visit_raw((const char **)&_io_chan[i].prebind);
     }
     gv_gc_root(&g_var_buckets);
-    for (unsigned b = 0; b < _var_nbuckets; b++) {
-        for (NV_t *e = VBR(b); e; e = e->next) {
-            if (e->name) rt_gc_visit_raw_in((const char **)&e->name, e);
-            if (e->next) rt_gc_visit_raw_in((const char **)&e->next, e);
-            rt_gc_visit_descr(&e->val);
-            if (e->cell) rt_gc_visit_raw_in((const char **)&e->cell, e);
-        }
-    }
-    for (unsigned b = 0; b < _func_nbuckets; b++) {
-        if (_func_buckets[b]) rt_gc_visit_raw((const char **)&_func_buckets[b]);
-        for (FNCBLK_t *e = _func_buckets[b]; e; e = (FNCBLK_t *)e->next) {
-            if (e->name) rt_gc_visit_raw_in((const char **)&e->name, e);
-            if (e->spec) rt_gc_visit_raw_in((const char **)&e->spec, e);
-            if (e->entry_label) rt_gc_visit_raw_in((const char **)&e->entry_label, e);
-            if (e->params) { rt_gc_visit_raw_in((const char **)&e->params, e); for (int i = 0; i < e->nparams; i++) if (e->params[i]) rt_gc_visit_raw_in((const char **)&e->params[i], e->params); }
-            if (e->locals) { rt_gc_visit_raw_in((const char **)&e->locals, e); for (int i = 0; i < e->nlocals; i++) if (e->locals[i]) rt_gc_visit_raw_in((const char **)&e->locals[i], e->locals); }
-            if (e->next) rt_gc_visit_raw_in((const char **)&e->next, e);
-        }
-    }
     if (_udef_types) rt_gc_visit_raw((const char **)&_udef_types);
     if (g_udef_nidx.p) rt_gc_visit_raw((const char **)&g_udef_nidx.p);
-    for (DATBLK_t *t = _udef_types; t; t = t->next) {
-        if (t->name) rt_gc_visit_raw_in((const char **)&t->name, t);
-        if (t->fields) { rt_gc_visit_raw_in((const char **)&t->fields, t); for (int i = 0; i < t->nfields; i++) if (t->fields[i]) rt_gc_visit_raw_in((const char **)&t->fields[i], t->fields); }
-        if (t->next) rt_gc_visit_raw_in((const char **)&t->next, t);
+    {
+        gc_roots_args_t a = { (void **)g_var_buckets.p, (long)_var_nbuckets, (void **)_func_buckets, (long)_func_nbuckets, (const char *)_udef_types, 0, (const char *)0, 0, (const char *)0,
+            (const char *)0 };
+        rt_gc_run_roots(&a);
     }
     rt_gc_visit_descr(&g_icn_errvalue);
 #if RT_DIAG

@@ -1177,8 +1177,6 @@ RTX_FUNC(rt_gc_visit_descr_a)
     cmp     byte ptr [rdx + rcx], 0
     je      .Lvd_ret
     lea     rdx, [rip + g_gc_mk]
-    cmp     qword ptr [rdx + 184], 0
-    je      .Lvd_no
     mov     rcx, qword ptr [rdx + 8]
     cmp     rcx, qword ptr [rdx + 16]
     jae     .Lvd_no
@@ -1188,13 +1186,261 @@ RTX_FUNC(rt_gc_visit_descr_a)
     mov     qword ptr [rdx + 8], rcx
 #if RT_DIAG
     cmp     rcx, qword ptr [rdx + 120]
-    jle     .Lvd_ret
+    jle     .Lvd_dr
     mov     qword ptr [rdx + 120], rcx
+.Lvd_dr:
 #endif
+    cmp     qword ptr [rdx + 184], 0
+    jne     .Lvd_ret
+    mov     eax, 2
 .Lvd_ret:
     ret
 .Lvd_no:
     xor     eax, eax
     ret
 RTX_ENDF(rt_gc_visit_descr_a)
+.macro MK_PTRS
+332:
+    mov     rax, qword ptr [r8 + 72]
+    cmp     rax, qword ptr [r8 + 64]
+    jae     334f
+    mov     r10, qword ptr [rax]
+    test    r10, r10
+    je      333f
+    mov     qword ptr [rdi + 176], rax
+    MK_BLK_OF r10
+    test    rax, rax
+    je      333f
+    MK_MARK_BLK
+    MK_SLOTM
+333:
+    add     qword ptr [r8 + 72], 8
+    jmp     332b
+334:
+.endm
+RTX_FUNC(rt_gc_core_roots_run)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    mov     r8, rdi
+    lea     rdi, [rip + g_gc_mk]
+    mov     r11, qword ptr [rdi + 8]
+    mov     rbx, qword ptr [rdi + 32]
+    mov     r12, qword ptr [rdi + 48]
+    mov     r14, qword ptr [rdi + 72]
+    mov     r15, qword ptr [rdi + 96]
+    mov     rax, qword ptr [r8 + 40]
+    cmp     rax, 0
+    je      .Lcr_nv
+    cmp     rax, 1
+    je      .Lcr_fn
+    cmp     rax, 2
+    je      .Lcr_dt
+    xor     eax, eax
+    jmp     .Lcr_out
+.Lcr_nv:
+    mov     rax, qword ptr [r8 + 56]
+    cmp     rax, qword ptr [r8 + 8]
+    jae     .Lcr_nv_done
+    mov     rsi, qword ptr [r8 + 48]
+    test    rsi, rsi
+    jne     .Lcr_nv_e
+    mov     rdx, qword ptr [r8]
+    test    rdx, rdx
+    je      .Lcr_nv_done
+    mov     rsi, qword ptr [rdx + rax*8]
+.Lcr_nv_e:
+    test    rsi, rsi
+    je      .Lcr_nv_nb
+    mov     qword ptr [r8 + 48], rsi
+    mov     rax, qword ptr [rdi + 40]
+    sub     rax, rbx
+    cmp     rax, 3
+    jl      .Lcr_full_slots
+    mov     rax, qword ptr [rdi + 16]
+    sub     rax, r11
+    cmp     rax, 1
+    jl      .Lcr_full_wl
+    mov     r10, qword ptr [rsi]
+    test    r10, r10
+    je      .Lcr_nv1
+    MK_RAW rsi
+.Lcr_nv1:
+    mov     r10, qword ptr [rsi + 72]
+    test    r10, r10
+    je      .Lcr_nv2
+    MK_RAW rsi+72
+.Lcr_nv2:
+    lea     r10, [rsi + 32]
+    MK_WLPUSH r10
+    mov     r10, qword ptr [rsi + 48]
+    test    r10, r10
+    je      .Lcr_nv3
+    MK_RAW rsi+48
+.Lcr_nv3:
+    mov     rsi, qword ptr [rsi + 72]
+    jmp     .Lcr_nv_e
+.Lcr_nv_nb:
+    inc     qword ptr [r8 + 56]
+    mov     qword ptr [r8 + 48], 0
+    jmp     .Lcr_nv
+.Lcr_nv_done:
+    mov     qword ptr [r8 + 40], 1
+    mov     qword ptr [r8 + 56], 0
+    mov     qword ptr [r8 + 48], 0
+.Lcr_fn:
+    mov     rax, qword ptr [r8 + 56]
+    cmp     rax, qword ptr [r8 + 24]
+    jae     .Lcr_fn_done
+    mov     rsi, qword ptr [r8 + 48]
+    test    rsi, rsi
+    jne     .Lcr_fn_e
+    mov     rax, qword ptr [rdi + 40]
+    sub     rax, rbx
+    cmp     rax, 1
+    jl      .Lcr_full_slots
+    mov     rdx, qword ptr [r8 + 16]
+    mov     rax, qword ptr [r8 + 56]
+    lea     rdx, [rdx + rax*8]
+    mov     r10, qword ptr [rdx]
+    test    r10, r10
+    je      .Lcr_fn_nb
+    mov     qword ptr [rdi + 176], rdx
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lcr_fn_h
+    MK_MARK_BLK
+    MK_SLOTM
+.Lcr_fn_h:
+    mov     rsi, qword ptr [rdi + 176]
+    mov     rsi, qword ptr [rsi]
+.Lcr_fn_e:
+    test    rsi, rsi
+    je      .Lcr_fn_nb
+    mov     qword ptr [r8 + 48], rsi
+    movsxd  rax, dword ptr [rsi + 32]
+    movsxd  rdx, dword ptr [rsi + 48]
+    add     rax, rdx
+    add     rax, 6
+    mov     rdx, qword ptr [rdi + 40]
+    sub     rdx, rbx
+    cmp     rdx, rax
+    jl      .Lcr_full_slots
+    mov     r10, qword ptr [rsi]
+    test    r10, r10
+    je      .Lcr_fn1
+    MK_RAW rsi
+.Lcr_fn1:
+    mov     r10, qword ptr [rsi + 8]
+    test    r10, r10
+    je      .Lcr_fn2
+    MK_RAW rsi+8
+.Lcr_fn2:
+    mov     r10, qword ptr [rsi + 16]
+    test    r10, r10
+    je      .Lcr_fn3
+    MK_RAW rsi+16
+.Lcr_fn3:
+    mov     r10, qword ptr [rsi + 40]
+    test    r10, r10
+    je      .Lcr_fn4
+    MK_RAW rsi+40
+    mov     rdx, qword ptr [rsi + 40]
+    mov     qword ptr [r8 + 72], rdx
+    movsxd  rax, dword ptr [rsi + 32]
+    lea     rax, [rdx + rax*8]
+    mov     qword ptr [r8 + 64], rax
+    MK_PTRS
+.Lcr_fn4:
+    mov     r10, qword ptr [rsi + 56]
+    test    r10, r10
+    je      .Lcr_fn5
+    MK_RAW rsi+56
+    mov     rdx, qword ptr [rsi + 56]
+    mov     qword ptr [r8 + 72], rdx
+    movsxd  rax, dword ptr [rsi + 48]
+    lea     rax, [rdx + rax*8]
+    mov     qword ptr [r8 + 64], rax
+    MK_PTRS
+.Lcr_fn5:
+    mov     r10, qword ptr [rsi + 80]
+    test    r10, r10
+    je      .Lcr_fn6
+    MK_RAW rsi+80
+.Lcr_fn6:
+    mov     rsi, qword ptr [rsi + 80]
+    jmp     .Lcr_fn_e
+.Lcr_fn_nb:
+    inc     qword ptr [r8 + 56]
+    mov     qword ptr [r8 + 48], 0
+    jmp     .Lcr_fn
+.Lcr_fn_done:
+    mov     qword ptr [r8 + 40], 2
+    mov     qword ptr [r8 + 56], 0
+    mov     qword ptr [r8 + 48], 0
+.Lcr_dt:
+    mov     rsi, qword ptr [r8 + 48]
+    test    rsi, rsi
+    jne     .Lcr_dt_e
+    cmp     qword ptr [r8 + 56], 0
+    jne     .Lcr_dt_done
+    mov     qword ptr [r8 + 56], 1
+    mov     rsi, qword ptr [r8 + 32]
+.Lcr_dt_e:
+    test    rsi, rsi
+    je      .Lcr_dt_done
+    mov     qword ptr [r8 + 48], rsi
+    movsxd  rax, dword ptr [rsi + 8]
+    add     rax, 3
+    mov     rdx, qword ptr [rdi + 40]
+    sub     rdx, rbx
+    cmp     rdx, rax
+    jl      .Lcr_full_slots
+    mov     r10, qword ptr [rsi]
+    test    r10, r10
+    je      .Lcr_dt1
+    MK_RAW rsi
+.Lcr_dt1:
+    mov     r10, qword ptr [rsi + 16]
+    test    r10, r10
+    je      .Lcr_dt2
+    MK_RAW rsi+16
+    mov     rdx, qword ptr [rsi + 16]
+    mov     qword ptr [r8 + 72], rdx
+    movsxd  rax, dword ptr [rsi + 8]
+    lea     rax, [rdx + rax*8]
+    mov     qword ptr [r8 + 64], rax
+    MK_PTRS
+.Lcr_dt2:
+    mov     r10, qword ptr [rsi + 24]
+    test    r10, r10
+    je      .Lcr_dt3
+    MK_RAW rsi+24
+.Lcr_dt3:
+    mov     rsi, qword ptr [rsi + 24]
+    jmp     .Lcr_dt_e
+.Lcr_dt_done:
+    mov     qword ptr [r8 + 40], 3
+    xor     eax, eax
+    jmp     .Lcr_out
+.Lcr_full_slots:
+    mov     eax, 1
+    jmp     .Lcr_out
+.Lcr_full_wl:
+    mov     eax, 2
+.Lcr_out:
+    mov     qword ptr [rdi + 8], r11
+    mov     qword ptr [rdi + 32], rbx
+    mov     qword ptr [rdi + 96], r15
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_gc_core_roots_run)
 .section .note.GNU-stack,"",@progbits
