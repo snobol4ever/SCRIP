@@ -8,7 +8,7 @@ RTX_GATE_DEF(plunify)
 #define CTX_R15          40
 #define CTX_FRAME        56
 #define CTX_SAVE mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov qword ptr [rsp + CTX_RBX], rbx; mov qword ptr [rsp + CTX_R14], r14; mov qword ptr [rsp + CTX_R15], r15
-#define PL_TR_ARENA_MASK  -134217728
+#define PL_TR_ARENA_MASK  -536870912
 #define PL_TR_BALL_SLOT   8
 #define PL_TR_OCHECK_SLOT 24
 #define PL_ATTV_SLEN      0x56545441
@@ -578,6 +578,7 @@ PL_CTX_LEAF_BALL(cutcall)
 PL_CTX_LEAF_BALL(shc)
 PL_CTX_LEAF_BALL(op)
 PL_CTX_LEAF_BALL(pl_op_check)
+PL_CTX_LEAF_BALL(heap_guard)
 PL_CTX_LEAF_BALL(pl_sp_check)
 PL_CTX_LEAF_BALL(pl_ioarg)
 PL_CTX_LEAF_BALL(pl_op_nth)

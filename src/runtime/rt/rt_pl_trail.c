@@ -28,7 +28,7 @@ _Static_assert(PL_TR_RESIDUE_OFF == PL_TR_WAKE_OFF + 8 && PL_TR_HEADER_BYTES >= 
     "the call_residue_vars/2 depth word, how many of its goals are running (0 none): while it is non-zero every attribute block made or changed is pushed on the trail with "
     "the pad PL_TR_PAD_RESIDUE and $crv_collect reads those entries from the call's mark; the prelude raises and lowers it on every exit of the goal, so it is never trailed");
 _Static_assert(PL_TR_BALL_OFF >= 8, "the trail top word owns offset 0 of the header");
-_Static_assert((uintptr_t)PL_TR_ARENA_BYTES == (uintptr_t)134217728, "rtx_plunify.s spells this arena size as the literal mask -33554432");
+_Static_assert((uintptr_t)PL_TR_ARENA_BYTES == (uintptr_t)536870912, "rtx_plunify.s and x86_asm.h spell this arena size as the literal mask -536870912");
 _Static_assert(PL_TR_BALL_OFF == 8, "rtx_plunify.s spells this offset as the literal 8");
 _Static_assert(PL_TR_OCHECK_OFF == 24 && PL_TR_HEADER_BYTES >= PL_TR_OCHECK_OFF + 8, "the occurs_check mode word (0 false, 1 true, 2 error): rtx_plunify.s and bb_unify_value.cpp read offset 24");
 _Static_assert(PL_TR_HEADER_BYTES == 64 && PL_TR_CLEANUP_OFF == 32 && PL_TR_PROBE_B_OFF == 40 && PL_TR_HEADER_BYTES >= PL_TR_PROBE_B_OFF + 8,

@@ -9088,7 +9088,7 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "threads", "false",
     0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } },
     { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "min_tagged_integer", "-72057594037927936", 0, { 0 } }, { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } },
-    { "float_max_integer", "", 0, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { 0, "", 0, { 0 } } };
+    { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { 0, "", 0, { 0 } } };
 static cv_t g_pl_flags;
 #define pl_flags ((pl_flag_t *)g_pl_flags.p)
 static void pl_flags_ready(void) { if (g_pl_flags.len) return; for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; } }
@@ -9218,6 +9218,8 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
             DESCR_t l = pl_nil();
             for (int i = rt_main_args_count() - 1; i >= 0; i--) { const char *a = rt_main_arg_at(i); if (!a) a = ""; l = pl_cons(pl_mk_atom_dup(a, strlen(a)), l); }
             ok = plw_unify_vals(args[1], l, cx);
+        } else if (!strcmp(fl->nm, "stack_limit")) {
+            ok = plw_unify_vals(args[1], INTVAL((int64_t)strtoll(fl->val ? fl->val : "0", (char **)0, 10)), cx);
         } else if (!strcmp(fl->nm, "max_arity")) {
             ok = plw_unify_vals(args[1], INTVAL(PROLOG_MAX_ARITY), cx);
         } else if (!strcmp(fl->nm, "max_procedure_arity")) {
@@ -10639,6 +10641,22 @@ PL_CX_LEAF_HEAD(op, 3)
             if (!pl_is_cons(o)) break;
         }
         ok = 1;
+    }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(heap_guard, 2)
+    {
+        extern unsigned long long rt_gcheap_cap_bytes(void);
+        extern void *rt_pl_ball_kind1(const char *, const char *);
+        DESCR_t u = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]);
+        pl_flag_t *sl;
+        unsigned long long cap = rt_gcheap_cap_bytes(), soft;
+        ok = 1;
+        if (u.v == (DTYPE_t)DT_I && b.v == (DTYPE_t)DT_I && u.i > 0 && b.i > 0) {
+            sl = pl_flag_find("stack_limit");
+            soft = sl && sl->val ? strtoull(sl->val, (char **)0, 10) : 0ULL;
+            if (soft && (!cap || soft < cap)) cap = soft;
+            if (cap && (unsigned long long)u.i > cap / (unsigned long long)b.i) { cx->ball = rt_pl_ball_kind1("resource_error", "stack"); ok = 0; }
+        }
     }
 PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_op_check, 3)

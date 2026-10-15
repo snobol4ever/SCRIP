@@ -165,6 +165,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {
     { "rt_pl_dop_gnu_working_directory", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_goal_guard", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_halt", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_heap_guard", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_keysort", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_list_guard", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_msort", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },

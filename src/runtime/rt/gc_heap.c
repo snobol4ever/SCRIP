@@ -215,6 +215,7 @@ static void gc_huge_advise(char *a0, char *e0) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 static void rt_gcheap_cap_hit(uint64_t need);
+unsigned long long rt_gcheap_cap_bytes(void) { return (g_hp_cap_end && g_hp_arena) ? (unsigned long long)(g_hp_cap_end - g_hp_arena) : 0ULL; }
 #endif
 _Static_assert(sizeof(long) == 8,
     "THE LINE FOLLOWS THE TOP AND THE WINDOW FOLLOWS THE LIVE SET (cto, 2026-09-23, row gc-heap-growth-...; hq_icon's geddump measured 128 KB timing out past 15 s against 0.115 s at the 4096 KB cap)"

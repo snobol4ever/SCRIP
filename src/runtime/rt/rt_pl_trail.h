@@ -5,7 +5,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#define PL_TR_ARENA_LG2 27
+#define PL_TR_ARENA_LG2 29
 #define PL_TR_ARENA_BYTES ((uintptr_t)1 << PL_TR_ARENA_LG2)
 #define PL_TR_HEADER_BYTES 64
 #define PL_TR_ENTRY_BYTES 32

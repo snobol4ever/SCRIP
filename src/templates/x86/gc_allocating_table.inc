@@ -2195,6 +2195,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pl_dop_goal_guard_c", GC_RET_OTHER },
     { "rt_pl_dop_halt", GC_RET_DESCR },
     { "rt_pl_dop_halt_c", GC_RET_DESCR },
+    { "rt_pl_dop_heap_guard", GC_RET_DESCR },
+    { "rt_pl_dop_heap_guard_c", GC_RET_DESCR },
     { "rt_pl_dop_keysort", GC_RET_DESCR },
     { "rt_pl_dop_keysort_c", GC_RET_DESCR },
     { "rt_pl_dop_list_guard", GC_RET_DESCR },
