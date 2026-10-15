@@ -741,6 +741,7 @@ test_gate_pl_gnu_read_token_read_atom_read_integer_and_read_number_answer_as_gpr
 test_gate_pl_gnu_set_bip_name_current_bip_name_and_syntax_error_info_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_sockets_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_statistics_stacks_and_format_errors_answer_as_gprolog.sh	WIRED	-	-	-
+test_gate_pl_gnu_term_streams_aliases_and_mirrors_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_terms_to_and_from_text_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_text_output_and_read_from_text_check_their_arguments_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_unget_get_key_and_the_implicit_stream_culprit_answer_as_gprolog.sh	WIRED	-	-	-

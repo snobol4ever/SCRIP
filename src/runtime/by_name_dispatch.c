@@ -6980,7 +6980,18 @@ static const char *pl_sp_eos_name(int i) {
     ungetc(c, fp);
     return "not";
 }
+static void pl_fh_push(int **v, int *n, int x) { int *q = (int *)rt_gcheap_grow_block((void *)*v, (uint16_t)HB_WSB, (uint64_t)(*n + 1) * sizeof(int)); if (!q) return; q[*n] = x; *v = q; (*n)++; }
+static int pl_sp_nprops(int i) { return PL_SP_NPROP + (i >= 3 ? g_fh[i].nxal + g_fh[i].nmir : 0); }
+static int pl_sp_xprop(int i, int j, DESCR_t *out) {
+    extern const char *prolog_atom_name(int);
+    if (i < 3) return 0;
+    if (j < g_fh[i].nxal) { const char *a = prolog_atom_name(g_fh[i].xal[j]); *out = pl_mk_cmp1("alias", pl_mk_atom_dup(a, strlen(a))); return 1; }
+    j -= g_fh[i].nxal;
+    if (j < g_fh[i].nmir) { *out = pl_mk_cmp1("mirror", pl_mk_stream(g_fh[i].mir[j])); return 1; }
+    return 0;
+}
 static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
+    if (pidx >= PL_SP_NPROP) return pl_sp_xprop(i, pidx - PL_SP_NPROP, out);
     switch (pidx) {
         case 0:
         if (i < 3 || !g_fh[i].name) return 0;
@@ -7155,6 +7166,10 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
                 en = pl_enc_canon(eb);
                 if (!en) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
                 fh_set_encoding(idx, en);
+            } else if (on && !strcmp(on, "mirror") && !pl_swi_dialect()) {
+                int m = pl_stream_idx_ball(a, 1, 0, cx);
+                if (m < 0) return 0;
+                pl_fh_push(&g_fh[idx].mir, &g_fh[idx].nmir, m);
             } else {
                 cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt);
                 return 0;
@@ -8157,7 +8172,21 @@ static int pl_in_is_text(void) {
     return ix >= 0 && ix < FH_N && g_fh[ix].type != 'b' && !fh_is_untranslated(ix);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_getc_mirror(FILE *f, const char *seq, int n) {
+    extern int fh_current_input(void);
+    int ix = fh_current_input();
+    if (ix < 3 || ix >= FH_N || g_fh[ix].fp != f || n <= 0) return;
+    for (int k = 0; k < g_fh[ix].nmir; k++) { FILE *m = g_fh[g_fh[ix].mir[k]].fp; if (m) fwrite(seq, 1, (size_t)n, m); }
+}
+static int pl_getc_cp_raw(FILE *f, char *seq, int *seqn);
 static int pl_getc_cp(FILE *f, char *seq, int *seqn) {
+    char sq[8];
+    int sn = 0, c = pl_getc_cp_raw(f, seq ? seq : sq, &sn);
+    if (seqn) *seqn = sn;
+    if (c != EOF) pl_getc_mirror(f, seq ? seq : sq, sn);
+    return c;
+}
+static int pl_getc_cp_raw(FILE *f, char *seq, int *seqn) {
     int b0, n, i, cp;
     if (seqn) *seqn = 0;
     b0 = fgetc(f);
@@ -9488,6 +9517,12 @@ DESCR_t rt_pl_dop_close_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     idx = pl_stream_resolve(args[0], 1, 0, &b1);
     if (idx < 0) idx = pl_stream_resolve(args[0], 0, 0, &b2);
     if (idx < 0) { cx->ball = b2 ? b2 : b1; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
+    if (idx >= 3 && g_fh[idx].tsk) {
+        extern void *rt_pl_ball_kind1(const char *, const char *);
+        cx->ball = rt_pl_ball_kind1("system_error", "special stream: needs appropriate close predicate");
+        rt_pl_tr_gc_sync(cx->tr);
+        return FAILDESCR;
+    }
     if (idx >= 3) { FILE *fp = fh_get(idx); if (fp) fclose(fp); fh_free(idx); if (fh_current_output() == idx) fh_set_output(1); if (fh_current_input() == idx) fh_set_input(0); }
     rt_pl_tr_gc_sync(cx->tr);
     return pl_ok();
@@ -10331,6 +10366,59 @@ static int pl_gs_sock(const char *op, DESCR_t a, DESCR_t res, pl_tr_ctx_t *cx) {
     }
     return 0;
 }
+static int pl_gs_sidx(DESCR_t s) {
+    DESCR_t k;
+    if (s.v != (DTYPE_t)DT_PLREF || plc_fid_arity(s.slen) != 1 || plc_fid_name(s.slen) != prolog_atom_intern("$stream")) return -1;
+    k = rt_pl_deref_val(((DESCR_t *)s.p)[0]);
+    return (k.v == (DTYPE_t)DT_I && k.i >= 0 && k.i < FH_N && g_fh[k.i].fp) ? (int)k.i : -1;
+}
+static int pl_gs_ts(const char *op, DESCR_t a, DESCR_t res, pl_tr_ctx_t *cx) {
+    extern int fh_alloc(FILE *);
+    extern void fh_set_alias(int, const char *);
+    if (!strcmp(op, "in") || !strcmp(op, "out")) {
+        const char *txt = op[0] == 'i' ? pl_atom_str(a) : "";
+        FILE *fp = tmpfile();
+        int idx;
+        if (!fp || !txt || (txt[0] && fwrite(txt, 1, strlen(txt), fp) != strlen(txt))) { if (fp) fclose(fp); return pl_gnu_os_fail(cx); }
+        rewind(fp);
+        idx = fh_alloc(fp);
+        g_fh[idx].mode = op[0] == 'i' ? 'r' : 'w';
+        g_fh[idx].tsk = op[0];
+        g_fh[idx].name = rt_heap_strdup_c("constant term stream");
+        return plw_unify_vals(res, pl_mk_stream(idx), cx);
+    }
+    if (!strcmp(op, "sp_multi")) { int idx = pl_atom_str(a) ? pl_sp_named(a) : pl_gs_sidx(a); return idx >= 3 && idx < FH_N && g_fh[idx].nxal + g_fh[idx].nmir > 0; }
+    if (!strcmp(op, "unmark")) { int idx = pl_gs_sidx(a); if (idx >= 0) g_fh[idx].tsk = 0; return idx >= 0; }
+    if (!strcmp(op, "kind")) { int idx = pl_gs_sidx(a); char k[2] = { idx >= 0 && g_fh[idx].tsk ? g_fh[idx].tsk : 'n', 0 }; return plw_unify_vals(res, pl_mk_atom(k), cx); }
+    if (!strcmp(op, "take")) {
+        int idx = pl_gs_sidx(a);
+        FILE *fp = idx >= 0 ? g_fh[idx].fp : (FILE *)0;
+        char *b = (char *)0;
+        size_t bn = 0, k = 0, got;
+        long end;
+        if (!fp || fflush(fp) != 0 || (end = ftell(fp)) < 0 || fseek(fp, 0, SEEK_SET) != 0) return pl_gnu_os_fail(cx);
+        while (pl_rb_room(&b, &bn, k + 4096) && (got = fread(b + k, 1, 4096, fp)) > 0) k += got;
+        fseek(fp, end, SEEK_SET);
+        return plw_unify_vals(res, pl_mk_atom_dup(b ? b : "", k), cx);
+    }
+    if (!strcmp(op, "alias")) {
+        int idx = pl_gs_sidx(pl_gs_arg(a, 0, 2));
+        const char *nm = pl_atom_str(pl_gs_arg(a, 1, 2));
+        if (idx < 3 || !nm) return 0;
+        if (!g_fh[idx].alias) fh_set_alias(idx, nm);
+        else pl_fh_push(&g_fh[idx].xal, &g_fh[idx].nxal, prolog_atom_intern(nm));
+        return 1;
+    }
+    if (!strcmp(op, "mir_add") || !strcmp(op, "mir_del")) {
+        int idx = pl_gs_sidx(pl_gs_arg(a, 0, 2)), m = pl_gs_sidx(pl_gs_arg(a, 1, 2)), w = 0, hit = 0;
+        if (idx < 0 || m < 0) return 0;
+        if (op[4] == 'a') { for (int k = 0; k < g_fh[idx].nmir; k++) if (g_fh[idx].mir[k] == m) return 1; pl_fh_push(&g_fh[idx].mir, &g_fh[idx].nmir, m); return 1; }
+        for (int k = 0; k < g_fh[idx].nmir; k++) { if (!hit && g_fh[idx].mir[k] == m) { hit = 1; continue; } g_fh[idx].mir[w++] = g_fh[idx].mir[k]; }
+        g_fh[idx].nmir = w;
+        return hit;
+    }
+    return 0;
+}
 PL_CX_LEAF_HEAD(gnu_os, 3)
     {
         const char *op = pl_atom_str(rt_pl_deref_val(args[0]));
@@ -10408,6 +10496,7 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
         } else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
         else if (!strcmp(op, "read_token") || !strcmp(op, "read_atom") || !strcmp(op, "read_integer") || !strcmp(op, "read_number")) ok = pl_gs_read(op, args[2], cx);
         else if (!strncmp(op, "sk_", 3)) ok = pl_gs_sock(op + 3, a, args[2], cx);
+        else if (!strncmp(op, "ts_", 3)) ok = pl_gs_ts(op + 3, a, args[2], cx);
         else if (!strcmp(op, "compl")) ok = pl_atom_str(a) && plw_unify_vals(args[2], pl_gs_compl(pl_atom_str(a)), cx);
         else if (!strcmp(op, "get_key")) {
             extern FILE *fh_cur_in_fp(void);
@@ -10967,12 +11056,12 @@ PL_CX_LEAF_HEAD(pl_sp_check, 2)
             nm = pl_atom_str(p);
             if (!nm && p.v == (DTYPE_t)DT_PLREF) nm = prolog_atom_name(plc_fid_name(p.slen));
             for (i = 0; nm && pn[i]; i++) if (!strcmp(nm, pn[i])) break;
-            if (!nm || !pn[i]) cx->ball = rt_pl_ball_kind2("domain_error", "stream_property", p);
+            if ((!nm || !pn[i]) && !(nm && !strcmp(nm, "mirror") && !pl_swi_dialect())) cx->ball = rt_pl_ball_kind2("domain_error", "stream_property", p);
         }
         if (cx->ball) ok = 0;
     }
 PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(pl_sp_count, 1) { ok = plw_unify_vals(args[0], INTVAL((long long)(FH_N * PL_SP_NPROP)), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(pl_sp_count, 1) { long long n = 0; for (int i = 0; i < FH_N; i++) n += pl_sp_nprops(i); ok = plw_unify_vals(args[0], INTVAL(n), cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_sp_nth, 3)
     {
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
@@ -10985,8 +11074,8 @@ PL_CX_LEAF_HEAD(pl_sp_nth, 3)
         if (named && (want = pl_sp_named(sd)) < 0) cx->ball = rt_pl_ball_kind2("existence_error", "stream", sd);
         else if (iv.v == DT_I) {
             k = (int)iv.i - 1;
-            si = k / PL_SP_NPROP;
-            pi = k % PL_SP_NPROP;
+            for (si = 0; si < FH_N && k >= pl_sp_nprops(si); si++) k -= pl_sp_nprops(si);
+            pi = k;
             if (si >= 0 && si < FH_N && pl_sp_stream_live(si) && (named ? si == want : plw_unify_vals(args[1], pl_mk_stream(si), cx)) && pl_sp_prop(si, pi, &pv)) ok = plw_unify_vals(args[2], pv, cx);
         }
     }

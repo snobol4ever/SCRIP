@@ -3058,6 +3058,13 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * a = pl_cc_freshvar();
                 tree_t * named = pl_cc_fnc2(",", pl_cc_fnc1("nonvar", p), pl_cc_fnc2(",", pl_cc_fnc2("=", p, pl_cc_fnc1("alias", a)), pl_cc_fnc1("atom", a)));
                 tree_t * bound = pl_cc_fnc2(";", pl_cc_fnc2(",", pl_cc_fnc1("nonvar", s), pl_cc_fnc1("nonvar", p)), named);
+                {
+                    tree_t * v = pl_cc_freshvar();
+                    tree_t * multi =
+                        pl_cc_fnc2(",", pl_cc_fnc2(";", pl_cc_fnc2("=", p, pl_cc_fnc1("alias", v)), pl_cc_fnc2("=", p, pl_cc_fnc1("mirror", v))),
+                        pl_cc_fnc2(",", pl_cc_fnc1("var", v), pl_cc_fnc3("$gnu_os", (tree_t *) pl_atom_goal("sp_multi"), s, pl_cc_freshvar())));
+                    bound = pl_cc_fnc2(";", pl_cc_fnc2(",", pl_cc_fnc2(",", pl_cc_fnc1("nonvar", s), pl_cc_fnc1("nonvar", p)), pl_cc_fnc1("\\+", multi)), named);
+                }
                 tree_t * once = pl_cc_ite(pl_cc_gen2("$pl_sp_count", "$pl_sp_nth", s, p, (tree_t *) 0), (tree_t *) pl_atom_goal("true"), (tree_t *) pl_atom_goal("fail"));
                 tree_t * all = pl_cc_gen2("$pl_sp_count", "$pl_sp_nth", s, p, (tree_t *) 0);
                 return goal(cx, pl_cc_fnc2(",", pl_cc_fnc2("$pl_sp_check", s, p), pl_cc_ite(bound, once, all)), γnext, ωfail, entry_out);

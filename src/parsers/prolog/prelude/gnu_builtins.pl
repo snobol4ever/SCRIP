@@ -33,7 +33,11 @@
                           get_key/1, get_key/2, get_key_no_echo/1, get_key_no_echo/2,
                           get_linedit_prompt/1, set_linedit_prompt/1, add_linedit_completion/1, find_linedit_completion/2,
                           leash/1, spy/1, nospy/1, nospyall/0, spypoint_condition/3, debugging/0, notrace/0,
-                          socket/2, socket_close/1, socket_bind/2, socket_listen/2, socket_accept/3, socket_accept/4, socket_connect/4, hostname_address/2 ]).
+                          socket/2, socket_close/1, socket_bind/2, socket_listen/2, socket_accept/3, socket_accept/4, socket_connect/4, hostname_address/2,
+                          open_input_atom_stream/2, open_input_chars_stream/2, open_input_codes_stream/2, open_output_atom_stream/1, open_output_chars_stream/1,
+                          open_output_codes_stream/1, close_input_atom_stream/1, close_input_chars_stream/1, close_input_codes_stream/1, close_output_atom_stream/2,
+                          close_output_chars_stream/2, close_output_codes_stream/2, add_stream_alias/2, current_alias/2, add_stream_mirror/2, remove_stream_mirror/2,
+                          current_mirror/2, current_stream/1 ]).
 write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).
 writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).
 print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).
@@ -459,3 +463,48 @@ hostname_address(N, A) :- '$gnu_b_ia'(N, hostname_address/2), '$gnu_b_oa'(A, hos
 '$gnu_b_int'(X, PI) :- var(X), !, throw(error(instantiation_error, PI)).
 '$gnu_b_int'(X, PI) :- \+ integer(X), !, throw(error(type_error(integer, X), PI)).
 '$gnu_b_int'(_, _).
+open_input_atom_stream(A, S) :- '$gnu_b_unbound'(S, open_input_atom_stream/2), '$gnu_b_ia'(A, open_input_atom_stream/2), '$gnu_os'(ts_in, A, S).
+open_input_chars_stream(L, S) :- '$gnu_b_unbound'(S, open_input_chars_stream/2), '$gnu_b_chars'(L, L, open_input_chars_stream/2), atom_chars(A, L), '$gnu_os'(ts_in, A, S).
+open_input_codes_stream(L, S) :- '$gnu_b_unbound'(S, open_input_codes_stream/2), '$gnu_b_codes'(L, L, open_input_codes_stream/2), atom_codes(A, L), '$gnu_os'(ts_in, A, S).
+open_output_atom_stream(S) :- '$gnu_b_unbound'(S, open_output_atom_stream/1), '$gnu_os'(ts_out, x, S).
+open_output_chars_stream(S) :- '$gnu_b_unbound'(S, open_output_chars_stream/1), '$gnu_os'(ts_out, x, S).
+open_output_codes_stream(S) :- '$gnu_b_unbound'(S, open_output_codes_stream/1), '$gnu_os'(ts_out, x, S).
+'$gnu_b_chars'(L, _, PI) :- var(L), !, throw(error(instantiation_error, PI)).
+'$gnu_b_chars'([], _, _) :- !.
+'$gnu_b_chars'([C|T], W, PI) :- !, ( var(C) -> throw(error(instantiation_error, PI)) ; atom(C), atom_length(C, 1) -> true ; throw(error(type_error(character, C), PI)) ), '$gnu_b_chars'(T, W, PI).
+'$gnu_b_chars'(_, W, PI) :- throw(error(type_error(list, W), PI)).
+'$gnu_b_codes'(L, _, PI) :- var(L), !, throw(error(instantiation_error, PI)).
+'$gnu_b_codes'([], _, _) :- !.
+'$gnu_b_codes'([C|T], W, PI) :- !, ( var(C) -> throw(error(instantiation_error, PI)) ; \+ integer(C) -> throw(error(type_error(integer, C), PI))
+    ; C >= 1, C =< 255 -> true ; throw(error(representation_error(character_code), PI)) ), '$gnu_b_codes'(T, W, PI).
+'$gnu_b_codes'(_, W, PI) :- throw(error(type_error(list, W), PI)).
+close_input_atom_stream(X) :- '$gnu_b_tclose'(X, close_input_atom_stream/1).
+close_input_chars_stream(X) :- '$gnu_b_tclose'(X, close_input_chars_stream/1).
+close_input_codes_stream(X) :- '$gnu_b_tclose'(X, close_input_codes_stream/1).
+'$gnu_b_tclose'(X, PI) :- '$gnu_b_sora'(X, PI, S), '$gnu_os'(ts_kind, S, K),
+    ( K == n -> throw(error(domain_error(term_stream_or_alias, X), PI)) ; K == o -> throw(error(permission_error(close, stream, X), PI)) ; '$gnu_os'(ts_unmark, S, _), close(S) ).
+close_output_atom_stream(X, A) :- '$gnu_b_tclose_out'(X, A, atom, close_output_atom_stream/2).
+close_output_chars_stream(X, A) :- '$gnu_b_tclose_out'(X, A, chars, close_output_chars_stream/2).
+close_output_codes_stream(X, A) :- '$gnu_b_tclose_out'(X, A, codes, close_output_codes_stream/2).
+'$gnu_b_tclose_out'(X, Sink, Kind, PI) :- '$gnu_b_sora'(X, PI, S), '$gnu_os'(ts_kind, S, K),
+    ( K == n -> throw(error(domain_error(term_stream_or_alias, X), PI)) ; K == i -> throw(error(permission_error(close, stream, X), PI)) ; true ),
+    ( Kind == atom -> '$gnu_b_oa'(Sink, PI) ; '$gnu_b_plist'(Sink) -> true ; throw(error(type_error(list, Sink), PI)) ),
+    '$gnu_os'(ts_take, S, T), ( Kind == atom -> V = T ; Kind == chars -> atom_chars(T, V) ; atom_codes(T, V) ), Sink = V, '$gnu_os'(ts_unmark, S, _), close(S).
+'$gnu_b_plist'(L) :- var(L), !.
+'$gnu_b_plist'([]) :- !.
+'$gnu_b_plist'([_|T]) :- '$gnu_b_plist'(T).
+'$gnu_b_sora'(X, PI, _) :- var(X), !, throw(error(instantiation_error, PI)).
+'$gnu_b_sora'(X, PI, S) :- atom(X), !, ( stream_property(S0, alias(X)) -> S = S0 ; throw(error(existence_error(stream, X), PI)) ).
+'$gnu_b_sora'(X, PI, S) :- X = '$stream'(_), !, ( catch(stream_property(X, mode(_)), _, fail) -> S = X ; throw(error(existence_error(stream, X), PI)) ).
+'$gnu_b_sora'(X, PI, _) :- throw(error(domain_error(stream_or_alias, X), PI)).
+add_stream_alias(X, A) :- '$gnu_b_sora'(X, add_stream_alias/2, S), '$gnu_b_ia'(A, add_stream_alias/2),
+    ( stream_property(S1, alias(A)) -> ( S1 == S -> true ; throw(error(permission_error(add_alias, source_sink, alias(A)), add_stream_alias/2)) ) ; '$gnu_os'(ts_alias, al(S, A), _) ).
+current_alias(S, A) :- '$gnu_b_ostream'(S, current_alias/2), '$gnu_b_oa'(A, current_alias/2), stream_property(S, alias(A)).
+add_stream_mirror(X, M) :- '$gnu_b_sora'(X, add_stream_mirror/2, S), '$gnu_b_sora'(M, add_stream_mirror/2, Ms),
+    ( stream_property(Ms, output) -> true ; throw(error(permission_error(output, stream, M), add_stream_mirror/2)) ), '$gnu_os'(ts_mir_add, mm(S, Ms), _).
+remove_stream_mirror(X, M) :- '$gnu_b_sora'(X, remove_stream_mirror/2, S), '$gnu_b_sora'(M, remove_stream_mirror/2, Ms), '$gnu_os'(ts_mir_del, mm(S, Ms), _).
+current_mirror(S, M) :- '$gnu_b_ostream'(S, current_mirror/2), '$gnu_b_ostream'(M, current_mirror/2), stream_property(S, mirror(M)).
+'$gnu_b_ostream'(S, _) :- var(S), !.
+'$gnu_b_ostream'('$stream'(_), _) :- !.
+'$gnu_b_ostream'(S, PI) :- throw(error(domain_error(stream, S), PI)).
+current_stream(S) :- '$gnu_b_ostream'(S, current_stream/1), catch(stream_property(S, mode(_)), error(existence_error(_, _), _), fail).

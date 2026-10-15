@@ -13017,6 +13017,24 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "socket_accept", 4 },
     { "socket_connect", 4 },
     { "hostname_address", 2 },
+    { "open_input_atom_stream", 2 },
+    { "open_input_chars_stream", 2 },
+    { "open_input_codes_stream", 2 },
+    { "open_output_atom_stream", 1 },
+    { "open_output_chars_stream", 1 },
+    { "open_output_codes_stream", 1 },
+    { "close_input_atom_stream", 1 },
+    { "close_input_chars_stream", 1 },
+    { "close_input_codes_stream", 1 },
+    { "close_output_atom_stream", 2 },
+    { "close_output_chars_stream", 2 },
+    { "close_output_codes_stream", 2 },
+    { "add_stream_alias", 2 },
+    { "current_alias", 2 },
+    { "add_stream_mirror", 2 },
+    { "remove_stream_mirror", 2 },
+    { "current_mirror", 2 },
+    { "current_stream", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
@@ -13024,16 +13042,27 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "add_linedit_completion", 0 },
+    { "add_stream_alias", 0 },
+    { "add_stream_mirror", 0 },
     { "architecture", 0 },
     { "atom_property", 0 },
     { "bind_variables", 0 },
     { "call_det", 0 },
     { "call_with_args", 0 },
+    { "close_input_atom_stream", 0 },
+    { "close_input_chars_stream", 0 },
+    { "close_input_codes_stream", 0 },
+    { "close_output_atom_stream", 0 },
+    { "close_output_chars_stream", 0 },
+    { "close_output_codes_stream", 0 },
     { "copy_file", 0 },
     { "cpu_time", 0 },
     { "create_pipe", 0 },
+    { "current_alias", 0 },
     { "current_atom", 0 },
     { "current_bip_name", 0 },
+    { "current_mirror", 0 },
+    { "current_stream", 0 },
     { "date_time", 0 },
     { "debugging", 0 },
     { "delete_directory", 0 },
@@ -13066,6 +13095,12 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "nospyall", 0 },
     { "notrace", 0 },
     { "number_atom", 0 },
+    { "open_input_atom_stream", 0 },
+    { "open_input_chars_stream", 0 },
+    { "open_input_codes_stream", 0 },
+    { "open_output_atom_stream", 0 },
+    { "open_output_chars_stream", 0 },
+    { "open_output_codes_stream", 0 },
     { "os_version", 0 },
     { "partial_list", 0 },
     { "popen", 0 },
@@ -13084,6 +13119,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "read_token_from_chars", 0 },
     { "read_token_from_codes", 0 },
     { "real_time", 0 },
+    { "remove_stream_mirror", 0 },
     { "rename_file", 0 },
     { "send_signal", 0 },
     { "set_bip_name", 0 },
@@ -13553,7 +13589,52 @@ static const char PL_PRELUDE_LIB_11_SRC[] =
     "'$gnu_b_unbound'(X, PI) :- ( var(X) -> true ; throw(error(uninstantiation_error(X), PI)) ).\n"
     "'$gnu_b_int'(X, PI) :- var(X), !, throw(error(instantiation_error, PI)).\n"
     "'$gnu_b_int'(X, PI) :- \\+ integer(X), !, throw(error(type_error(integer, X), PI)).\n"
-    "'$gnu_b_int'(_, _).\n";
+    "'$gnu_b_int'(_, _).\n"
+    "open_input_atom_stream(A, S) :- '$gnu_b_unbound'(S, open_input_atom_stream/2), '$gnu_b_ia'(A, open_input_atom_stream/2), '$gnu_os'(ts_in, A, S).\n"
+    "open_input_chars_stream(L, S) :- '$gnu_b_unbound'(S, open_input_chars_stream/2), '$gnu_b_chars'(L, L, open_input_chars_stream/2), atom_chars(A, L), '$gnu_os'(ts_in, A, S).\n"
+    "open_input_codes_stream(L, S) :- '$gnu_b_unbound'(S, open_input_codes_stream/2), '$gnu_b_codes'(L, L, open_input_codes_stream/2), atom_codes(A, L), '$gnu_os'(ts_in, A, S).\n"
+    "open_output_atom_stream(S) :- '$gnu_b_unbound'(S, open_output_atom_stream/1), '$gnu_os'(ts_out, x, S).\n"
+    "open_output_chars_stream(S) :- '$gnu_b_unbound'(S, open_output_chars_stream/1), '$gnu_os'(ts_out, x, S).\n"
+    "open_output_codes_stream(S) :- '$gnu_b_unbound'(S, open_output_codes_stream/1), '$gnu_os'(ts_out, x, S).\n"
+    "'$gnu_b_chars'(L, _, PI) :- var(L), !, throw(error(instantiation_error, PI)).\n"
+    "'$gnu_b_chars'([], _, _) :- !.\n"
+    "'$gnu_b_chars'([C|T], W, PI) :- !, ( var(C) -> throw(error(instantiation_error, PI)) ; atom(C), atom_length(C, 1) -> true ; throw(error(type_error(character, C), PI)) ), '$gnu_b_chars'(T, W, PI).\n"
+    "'$gnu_b_chars'(_, W, PI) :- throw(error(type_error(list, W), PI)).\n"
+    "'$gnu_b_codes'(L, _, PI) :- var(L), !, throw(error(instantiation_error, PI)).\n"
+    "'$gnu_b_codes'([], _, _) :- !.\n"
+    "'$gnu_b_codes'([C|T], W, PI) :- !, ( var(C) -> throw(error(instantiation_error, PI)) ; \\+ integer(C) -> throw(error(type_error(integer, C), PI))\n"
+    "    ; C >= 1, C =< 255 -> true ; throw(error(representation_error(character_code), PI)) ), '$gnu_b_codes'(T, W, PI).\n"
+    "'$gnu_b_codes'(_, W, PI) :- throw(error(type_error(list, W), PI)).\n"
+    "close_input_atom_stream(X) :- '$gnu_b_tclose'(X, close_input_atom_stream/1).\n"
+    "close_input_chars_stream(X) :- '$gnu_b_tclose'(X, close_input_chars_stream/1).\n"
+    "close_input_codes_stream(X) :- '$gnu_b_tclose'(X, close_input_codes_stream/1).\n"
+    "'$gnu_b_tclose'(X, PI) :- '$gnu_b_sora'(X, PI, S), '$gnu_os'(ts_kind, S, K),\n"
+    "    ( K == n -> throw(error(domain_error(term_stream_or_alias, X), PI)) ; K == o -> throw(error(permission_error(close, stream, X), PI)) ; '$gnu_os'(ts_unmark, S, _), close(S) ).\n"
+    "close_output_atom_stream(X, A) :- '$gnu_b_tclose_out'(X, A, atom, close_output_atom_stream/2).\n"
+    "close_output_chars_stream(X, A) :- '$gnu_b_tclose_out'(X, A, chars, close_output_chars_stream/2).\n"
+    "close_output_codes_stream(X, A) :- '$gnu_b_tclose_out'(X, A, codes, close_output_codes_stream/2).\n"
+    "'$gnu_b_tclose_out'(X, Sink, Kind, PI) :- '$gnu_b_sora'(X, PI, S), '$gnu_os'(ts_kind, S, K),\n"
+    "    ( K == n -> throw(error(domain_error(term_stream_or_alias, X), PI)) ; K == i -> throw(error(permission_error(close, stream, X), PI)) ; true ),\n"
+    "    ( Kind == atom -> '$gnu_b_oa'(Sink, PI) ; '$gnu_b_plist'(Sink) -> true ; throw(error(type_error(list, Sink), PI)) ),\n"
+    "    '$gnu_os'(ts_take, S, T), ( Kind == atom -> V = T ; Kind == chars -> atom_chars(T, V) ; atom_codes(T, V) ), Sink = V, '$gnu_os'(ts_unmark, S, _), close(S).\n"
+    "'$gnu_b_plist'(L) :- var(L), !.\n"
+    "'$gnu_b_plist'([]) :- !.\n"
+    "'$gnu_b_plist'([_|T]) :- '$gnu_b_plist'(T).\n"
+    "'$gnu_b_sora'(X, PI, _) :- var(X), !, throw(error(instantiation_error, PI)).\n"
+    "'$gnu_b_sora'(X, PI, S) :- atom(X), !, ( stream_property(S0, alias(X)) -> S = S0 ; throw(error(existence_error(stream, X), PI)) ).\n"
+    "'$gnu_b_sora'(X, PI, S) :- X = '$stream'(_), !, ( catch(stream_property(X, mode(_)), _, fail) -> S = X ; throw(error(existence_error(stream, X), PI)) ).\n"
+    "'$gnu_b_sora'(X, PI, _) :- throw(error(domain_error(stream_or_alias, X), PI)).\n"
+    "add_stream_alias(X, A) :- '$gnu_b_sora'(X, add_stream_alias/2, S), '$gnu_b_ia'(A, add_stream_alias/2),\n"
+    "    ( stream_property(S1, alias(A)) -> ( S1 == S -> true ; throw(error(permission_error(add_alias, source_sink, alias(A)), add_stream_alias/2)) ) ; '$gnu_os'(ts_alias, al(S, A), _) ).\n"
+    "current_alias(S, A) :- '$gnu_b_ostream'(S, current_alias/2), '$gnu_b_oa'(A, current_alias/2), stream_property(S, alias(A)).\n"
+    "add_stream_mirror(X, M) :- '$gnu_b_sora'(X, add_stream_mirror/2, S), '$gnu_b_sora'(M, add_stream_mirror/2, Ms),\n"
+    "    ( stream_property(Ms, output) -> true ; throw(error(permission_error(output, stream, M), add_stream_mirror/2)) ), '$gnu_os'(ts_mir_add, mm(S, Ms), _).\n"
+    "remove_stream_mirror(X, M) :- '$gnu_b_sora'(X, remove_stream_mirror/2, S), '$gnu_b_sora'(M, remove_stream_mirror/2, Ms), '$gnu_os'(ts_mir_del, mm(S, Ms), _).\n"
+    "current_mirror(S, M) :- '$gnu_b_ostream'(S, current_mirror/2), '$gnu_b_ostream'(M, current_mirror/2), stream_property(S, mirror(M)).\n"
+    "'$gnu_b_ostream'(S, _) :- var(S), !.\n"
+    "'$gnu_b_ostream'('$stream'(_), _) :- !.\n"
+    "'$gnu_b_ostream'(S, PI) :- throw(error(domain_error(stream, S), PI)).\n"
+    "current_stream(S) :- '$gnu_b_ostream'(S, current_stream/1), catch(stream_property(S, mode(_)), error(existence_error(_, _), _), fail).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },

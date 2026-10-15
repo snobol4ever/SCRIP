@@ -37,7 +37,14 @@ void fh_ensure_init(void) {
 int fh_is_closed(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_N) ? g_fh[idx].closed : 0; }
 int fh_is_untranslated(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_N) ? g_fh[idx].untrans : 0; }
 void fh_set_untranslated(int idx, int v){ fh_ensure_init(); if(idx>=0 && idx<FH_N) g_fh[idx].untrans=(char)(v?1:0); }
-int fh_alias_idx(const char *nm){ fh_ensure_init(); if(!nm) return -1; for(int i=3;i<FH_N;i++) if(g_fh[i].fp&&g_fh[i].alias&&!strcmp(g_fh[i].alias,nm)) return i; return -1; }
+int fh_alias_idx(const char *nm){
+    extern const char *prolog_atom_name(int);
+    fh_ensure_init();
+    if(!nm) return -1;
+    for(int i=3;i<FH_N;i++) if(g_fh[i].fp&&g_fh[i].alias&&!strcmp(g_fh[i].alias,nm)) return i;
+    for(int i=3;i<FH_N;i++) for(int k=0;g_fh[i].fp&&k<g_fh[i].nxal;k++) if(!strcmp(prolog_atom_name(g_fh[i].xal[k]),nm)) return i;
+    return -1;
+}
 void fh_set_alias(int idx, const char *nm){ extern char *rt_heap_strdup_c(const char *); fh_ensure_init(); if(idx>=3&&idx<FH_N) g_fh[idx].alias = nm ? rt_heap_strdup_c(nm) : (char *)0; }
 void fh_set_encoding(int idx, const char *nm){ extern char *rt_heap_strdup_c(const char *); fh_ensure_init(); if(idx>=0&&idx<FH_N) g_fh[idx].enc = nm ? rt_heap_strdup_c(nm) : (char *)0; }
 const char *fh_encoding(int idx){
@@ -131,6 +138,11 @@ static void fh_slot_init(fh_slot_t *s, FILE *fp) {
     s->xk=0;
     s->xin_n=0;
     s->xout_n=0;
+    s->xal=NULL;
+    s->nxal=0;
+    s->mir=NULL;
+    s->nmir=0;
+    s->tsk=0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fh_alloc(FILE *fp) {
@@ -152,6 +164,8 @@ FILE *fh_get(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_N) return NULL; retur
 void fh_free(int idx){
     if(fh_init&&idx>=3&&idx<FH_N) fh_pos_reset(idx);
     if(fh_init&&idx>=3&&idx<FH_N){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; g_fh[idx].enc=NULL; g_fh[idx].bom=0; g_fh[idx].repos=1; g_fh[idx].eof=0; }
+    if(fh_init&&idx>=3&&idx<FH_N){ g_fh[idx].xal=NULL; g_fh[idx].nxal=0; g_fh[idx].mir=NULL; g_fh[idx].nmir=0; g_fh[idx].tsk=0; }
+    for(int i=0;fh_init&&i<FH_N;i++){ int w=0; for(int k=0;k<g_fh[i].nmir;k++) if(g_fh[i].mir[k]!=idx) g_fh[i].mir[w++]=g_fh[i].mir[k]; g_fh[i].nmir=w; }
 }
 int fh_cur_in = 0;
 int fh_cur_out = 1;
@@ -365,6 +379,8 @@ void drv_gc_roots(void) {
         if (g_fh[i].name) rt_gc_visit_raw((const char **)&g_fh[i].name);
         if (g_fh[i].alias) rt_gc_visit_raw((const char **)&g_fh[i].alias);
         if (g_fh[i].enc) rt_gc_visit_raw((const char **)&g_fh[i].enc);
+        if (g_fh[i].xal) rt_gc_visit_raw((const char **)&g_fh[i].xal);
+        if (g_fh[i].mir) rt_gc_visit_raw((const char **)&g_fh[i].mir);
     }
     if (g_fh_sink_v) rt_gc_visit_raw((const char **)&g_fh_sink_v);
 }
