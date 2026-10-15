@@ -964,6 +964,7 @@ test-sequential: scrip parsers  # ⛔⭐ THE DECLARATION OF THE BLOCKING SET, AN
 	bash scripts/test_gate_pl_a_run_time_compile_indexes_the_root_cells_through_the_roots_registry.sh   # ~8s MEASURED 2026-10-04 (hq_prolog, the root-cell registry row: three witnesses in both modes)
 	bash scripts/test_gate_pl_a_traced_run_answers_as_the_untraced_run_in_both_modes.sh   # ~12s MEASURED 2026-10-04 (hq_prolog, the port-trace row: three witnesses traced and untraced in both modes)
 	bash scripts/test_gate_pl_mode_4_startup_registers_a_predicate_in_one_lookup_not_ten.sh   # ~40s MEASURED 2026-10-04 (hq_prolog, the startup-registration row: two callgrind readings of a 200-predicate witness)
+	bash scripts/test_gate_the_runtime_binds_its_own_functions_and_keeps_its_data_and_instrument_entries_interposable.sh   # ~10s MEASURED 2026-10-15 (cto, row startup-the-runtime-binds-its-own-symbols-..., ceo CEO-1795): RT_BIND binds the runtime's functions inside it (JUMP_SLOT 3,721 -> 277, mode-4 Icon hello 2,535,562 -> 1,710,925 Ir) while every datum, rt_time_ns and the parser tools' lexer entries stay interposable; seven arms (functions bound, data preemptible, the list honoured, no canonical-PLT function in any executable, no copy relocation in scrip, a preloaded rt_time_ns in both modes, the parser lexer clock); red on the parent at 3,721 and 34
 	bash scripts/test_gate_pl_a_static_call_jumps_to_its_callee_directly_and_a_last_call_stages_from_the_slot.sh   # ~70s MEASURED 2026-10-04 (hq_prolog, the call-box row: the 23 kernels' text census plus two witnesses in both modes)
 	bash scripts/test_gate_pl_a_head_structure_against_an_unbound_argument_is_built_by_the_box.sh   # ~6s MEASURED 2026-10-04 (hq_prolog, the head write-mode row, WIRED BLOCKING IN THE LANDING THAT CURES IT: three kernels' text census, the allocating-set row of the constant's cold compare, six witnesses in both modes)
 	bash scripts/test_gate_pl_a_call_whose_first_argument_selects_one_clause_enters_it_without_a_choice.sh   # ~20s MEASURED 2026-10-04 (hq_prolog, the first-argument indexing row, WIRED BLOCKING IN THE LANDING THAT CURES IT: the traced app/3 in both modes, nrev's switch in the text, five witnesses in both modes)
@@ -1755,13 +1756,24 @@ out/sc_mod/scparsers.sc: bootstrap/mod_head.sc bootstrap/mod_tail.sc $(SC_MOD_LI
 out/sc_mod/scparsers.o: out/sc_mod/scparsers.sc out/scrip0
 	./out/scrip0 --module scparsers --compile -o out/sc_mod/scparsers.s out/sc_mod/scparsers.sc < /dev/null
 	$(CC) -c out/sc_mod/scparsers.s -o $@
-$(RT_SO): $(RT_PIC_OBJS) $(SC_MOD_OBJS) $(RT_SRC_ALL) Makefile
+$(RT_SO): $(RT_PIC_OBJS) $(SC_MOD_OBJS) $(RT_SRC_ALL) $(SRC)/runtime/rt_interposable.list Makefile
 	@mkdir -p out out/attic
 	@if [ -f $@ ]; then cp -pn $@ out/attic/$(notdir $(basename $(RT_SO)))-$$(md5sum $@ | cut -c1-12).so 2>/dev/null || true; fi
 	@ls -1t out/attic/*.so 2>/dev/null | tail -n +9 | xargs -r rm -f
-	$(CC) -shared $(RT_PIC_OBJS) $(SC_MOD_OBJS) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@   # ⛔⭐ libstdc++ AND libgcc ARE LINKED INTO THE RUNTIME, HIDDEN (the coo 2026-10-04, row instruments-a-mode-4-process-spends-1-76m-of-its-3-73m-instructions-in-ld-so-..., ceo CEO-1501 on hq_prolog's finding). MEASURED on SCRIP 9557a201d, callgrind, a mode-4 hello world (OUTPUT = 'hi'), the runtime relinked from the same 259 objects (the plain relink is byte-identical to the shipped .so): shared -lstdc++ 3,732,883 Ir (ld.so 1.76M of it) | + -Bsymbolic-functions 3,284,379 | THIS LINE 1,819,873 (PIE) / 1,814,168 (-no-pie) | this line + -Bsymbolic-functions 1,370,109 | + -Bsymbolic 1,248,271. An empty C main() reads 156,840 Ir and 1,873,917 with -lstdc++ -lm -lpthread loaded: LOADING libstdc++.so IS THE COST (its own 4,300 symbolic relocations and its initialisers), not this library's relocations. scrip and every mode-4 binary NEED no libstdc++ of their own (readelf -d scrip: libscrip_rt.so, libc.so.6), so the process holds ONE copy, compiled from the same GCC 13 headers as these objects. ⛔ NO -Bsymbolic OF EITHER KIND, ON PURPOSE: -Bsymbolic binds the runtime's data to its own copy where a -no-pie executable (scrip, scrip-monitor and ~510 scripts link -no-pie) holds a COPY relocation of it, and -Bsymbolic-functions gives a runtime function one address inside the library and another (its canonical PLT stub) inside a -no-pie executable, so a pointer compare across the two splits; both also defeat the LD_PRELOAD interposition util_parser_phase_profile.sh's rt_time_ns toggle reads. A ruling can add -Bsymbolic-functions (a further 0.45M) once both are proved absent.
+	$(CC) -shared $(RT_PIC_OBJS) $(SC_MOD_OBJS) $(RT_BIND) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@   # ⛔⭐ libstdc++ AND libgcc ARE LINKED INTO THE RUNTIME, HIDDEN (the coo 2026-10-04, row instruments-a-mode-4-process-spends-1-76m-of-its-3-73m-instructions-in-ld-so-..., ceo CEO-1501 on hq_prolog's finding). MEASURED on SCRIP 9557a201d, callgrind, a mode-4 hello world (OUTPUT = 'hi'), the runtime relinked from the same 259 objects (the plain relink is byte-identical to the shipped .so): shared -lstdc++ 3,732,883 Ir (ld.so 1.76M of it) | + -Bsymbolic-functions 3,284,379 | THIS LINE 1,819,873 (PIE) / 1,814,168 (-no-pie) | this line + -Bsymbolic-functions 1,370,109 | + -Bsymbolic 1,248,271. An empty C main() reads 156,840 Ir and 1,873,917 with -lstdc++ -lm -lpthread loaded: LOADING libstdc++.so IS THE COST (its own 4,300 symbolic relocations and its initialisers), not this library's relocations. scrip and every mode-4 binary NEED no libstdc++ of their own (readelf -d scrip: libscrip_rt.so, libc.so.6), so the process holds ONE copy, compiled from the same GCC 13 headers as these objects. SUPERSEDED 2026-10-15 BY RT_BIND (cto, CEO-1795): it binds FUNCTIONS only and keeps every datum interposable, so a COPY relocation stays the one copy; no executable SCRIP builds or emits carries a canonical-PLT function (scrip, scrip-ipp, the parser tools, mode-4 programs; the 122 corpus .s artifacts take no runtime function address rip-relatively), the C test drivers take one only to call it; rt_time_ns and the lexer entries the parser tools clock stay interposable by name, and every other LD_PRELOAD instrument runs on out/interposable/libscrip_rt.so; test_gate_the_runtime_binds_its_own_functions_*.sh holds it.
 	@echo "Built: $@   RT_OPT=$(RT_OPT)"
 	@printf 'kept previous: %s   (out/attic/, 8 newest by content)\n' "$$(ls -1t out/attic/*.so 2>/dev/null | head -1 | xargs -r basename)"
+# THE RUNTIME BINDS ITS OWN FUNCTIONS (cto 2026-10-15, row startup-the-runtime-binds-its-own-symbols-..., ceo CEO-1795): --dynamic-list-data keeps
+# every datum interposable, so a copy relocation in an executable (scrip-ipp, a parser tool, every mode-4 program's rtccb) stays the one
+# copy the runtime reads; --dynamic-list names the only functions an instrument interposes (rt_time_ns for util_parser_phase_profile.sh,
+# the lexer entries parser_main.c clocks); every other function binds inside the library, and -z pack-relative-relocs packs the relative
+# relocations. MEASURED, mode-4 Icon hello under callgrind: 2,535,562 Ir shipped, 1,715,355 with these flags. An instrument that interposes
+# any other runtime function by LD_PRELOAD links out/interposable/libscrip_rt.so (every symbol preemptible, the same objects) and runs under
+# LD_LIBRARY_PATH (the executables carry RUNPATH).
+RT_BIND := -Wl,--dynamic-list-data -Wl,--dynamic-list=$(SRC)/runtime/rt_interposable.list -Wl,-z,pack-relative-relocs
+out/interposable/libscrip_rt.so: $(RT_PIC_OBJS) $(SC_MOD_OBJS) Makefile
+	@mkdir -p out/interposable
+	$(CC) -shared $(RT_PIC_OBJS) $(SC_MOD_OBJS) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@
 # out/libscrip_rt.so REMAINS THE CANONICAL PATH -- 73 scripts reference it by that exact name, so it must
 # never move. It is a symlink to whichever configuration was actually built.
 # ⛔ THE FORCE PREREQUISITE IS LOAD-BEARING, NOT A TIC: make resolves a symlink to its TARGET's timestamp,
@@ -1812,7 +1824,7 @@ FORCE:
 # RPATH baked in so the binary finds the .so at out/libscrip_rt.so relative to the repo root.
 scrip: libscrip_rt
 	@mkdir -p $(OBJ)
-	$(CC) $(CRT) -c $(SRC)/driver/scrip.c -o $(OBJ)/scrip_driver.o
+	$(CC) $(CRT) -fPIC -c $(SRC)/driver/scrip.c -o $(OBJ)/scrip_driver.o
 	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/scrip_driver.o \
 	    -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt \
 	    $(LIBS) -o scrip

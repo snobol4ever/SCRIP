@@ -15,6 +15,9 @@
  *   resulting address into the emitted blob. Taking the address of an exported
  *   global in a shared object goes through the GOT, so the dynamic linker resolves
  *   it at load time and a preloaded definition wins. The blob therefore calls US.
+ *   ONLY in out/interposable/libscrip_rt.so: the shipped runtime binds its own
+ *   functions (RT_BIND, Makefile; cto 2026-10-15, CEO-1795), so make that target
+ *   and run under LD_LIBRARY_PATH=out/interposable.
  *   (This is also why the count is trustworthy for mode 3 specifically.)
  *
  * ⚠ INCLUSIVE, NOT SELF. The cycle share covers everything the symbol reaches.
@@ -22,7 +25,8 @@
  *    (GOAL-ICON-RTX.md inbox gap #1) and this instrument does not do it.
  *
  * Build: gcc -O2 -fPIC -shared -o rtx_icn_interpose.so rtx_icn_interpose.c -ldl
- * Use:   RTXI_TAG=name LD_PRELOAD=./rtx_icn_interpose.so ./scrip --run prog.icn
+ * Use:   make out/interposable/libscrip_rt.so
+ *         RTXI_TAG=name LD_LIBRARY_PATH=out/interposable LD_PRELOAD=./rtx_icn_interpose.so ./scrip --run prog.icn
  *
  * Authors: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude
  */

@@ -1,0 +1,10 @@
+{
+  rt_time_ns;
+  snobol4_lex;
+  sc_lex;
+  icn_lex_next;
+  lexer_next;
+  lexer_peek;
+  rebus_yylex;
+  pascal_lex_wrapped;
+};

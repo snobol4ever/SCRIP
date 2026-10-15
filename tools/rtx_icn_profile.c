@@ -26,7 +26,8 @@
  *   pthreads.
  *
  * Build: gcc -O2 -fPIC -shared -o rtx_icn_profile.so rtx_icn_profile.c -ldl
- * Use:   RTXP_OUT=f.tsv LD_PRELOAD=./rtx_icn_profile.so ./scrip --run prog.icn
+ * Use:   make out/interposable/libscrip_rt.so   (the shipped runtime binds its own functions, CEO-1795)
+ *         RTXP_OUT=f.tsv LD_LIBRARY_PATH=out/interposable LD_PRELOAD=./rtx_icn_profile.so ./scrip --run prog.icn
  *
  * Authors: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude
  */
