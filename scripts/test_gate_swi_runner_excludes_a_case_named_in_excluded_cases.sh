@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # test_gate_swi_runner_excludes_a_case_named_in_excluded_cases.sh -- THE SWI RUNNER READS EXCLUDED_CASES.tsv AT CASE LEVEL (ceo CEO-1710, Lon
 # 2026-10-14 13:3x CDT: "We want dynamic growing everything. So if another oracle has fixed and we can do better and go longer. That we
-# should."). A case named there with class SCRIP_EXCEEDS_ORACLE or NO_ORACLE_ANSWER leaves the denominator as Excl, counted by class and
-# never a pass; a row naming a case the graded file does not declare is STALE and reds the run; a row with any other class refuses rc 2.
+# should."). A case named there with class SCRIP_EXCEEDS_ORACLE, NO_ORACLE_ANSWER or THREADS_EXCLUDED_BY_LON (CEO-1766: Lon 2026-10-15,
+# "Put the multi-threaded Prolog work as excluded for now.") leaves the denominator as Excl, counted by class and never a pass; a row naming a case the graded file does not declare is STALE and reds the run; a row with any other class refuses rc 2.
 # FIXTURE: a mktemp corpus holding a COPY of the real db/test_db.pl and its oracle ref (outside corpus/, CEO-547), graded with --file in
 # mode 3, so no progress row and no suite row is written. The cfo's first CEO-1710 cases are that file's assert:max_procedure_arity
 # instances (swipl caps the arity at 1024; SCRIP grows past it).
@@ -10,6 +10,7 @@
 #       (2) the same with a stale row added reads rc 1 and names the stale row
 #       (3) a row whose class is not in the vocabulary refuses rc 2 before grading
 #       (4) CONTROL: with no EXCLUDED_CASES.tsv the same file grades those cases (the graded count is higher by their number)
+#       (5) the same cases named THREADS_EXCLUDED_BY_LON leave the graded count by exactly their number, the board names that class (CEO-1766)
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"; SRC="${S4E_CORPUS:-$ROOT/corpus}/packages/prolog/swi_tests/db"
@@ -34,6 +35,11 @@ rc=$(run); [ "$rc" = 1 ] && grep -q 'STALE -- db/test_db.pl:assert:no_such_case_
 printf 'db/test_db.pl\tassert:max_procedure_arity\tNOT_A_CLASS\twhatever (gate fixture)\n' > "$S/EXCLUDED_CASES.tsv"
 rc=$(run); [ "$rc" = 2 ] && grep -q 'REFUSED (rc 2)' "$T/out" && ck ok "(3) an unknown class refuses rc 2" || ck no "(3) unknown class: rc=$rc $(grep -m1 REFUSED "$T/out")"
 rm -f "$S/EXCLUDED_CASES.tsv"; [ -n "${ex:-}" ] && [ "$g0" -gt "${g1:-$g0}" ] && ck ok "(4) CONTROL: without the file the cases grade ($g0 graded, $ex more than with it)" || ck no "(4) control: g0=$g0 g1=${g1:-?}"
-echo "population: one real SWI file (db/test_db.pl) in mode 3, 4 arms, $fails FAIL"
-[ "$fails" = 0 ] && { echo "GATE PASS [swi_runner_excludes_a_case_named_in_excluded_cases]: 4 of 4 arms hold"; exit 0; }
-echo "⛔ GATE RED [swi_runner_excludes_a_case_named_in_excluded_cases]: $fails of 4 arms FAIL"; exit 1
+printf 'db/test_db.pl\tassert:max_procedure_arity\tTHREADS_EXCLUDED_BY_LON\treaches thread_create/3 (gate fixture)\n' > "$S/EXCLUDED_CASES.tsv"
+rc=$(run); g5=$(graded); ex5=$(sed -n 's/.*THREADS_EXCLUDED_BY_LON(EXCLUDED_CASES.tsv)=\([0-9]*\).*/\1/p' "$T/out" | head -1)
+[ "$rc" = 0 ] && [ -n "$ex5" ] && [ "$ex5" -gt 0 ] && [ "$g5" = "$((g0 - ex5))" ] && grep -q '0 STALE' "$T/out" \
+  && ck ok "(5) $ex5 case(s) excluded as THREADS_EXCLUDED_BY_LON: graded $g0 -> $g5, rc 0, 0 STALE" \
+  || ck no "(5) rc=$rc graded $g0 -> ${g5:-?} excluded=${ex5:-none}: $(grep -E 'EXCLUDED_CASES|STALE|REFUSED' "$T/out" | head -2)"
+echo "population: one real SWI file (db/test_db.pl) in mode 3, 5 arms, $fails FAIL"
+[ "$fails" = 0 ] && { echo "GATE PASS [swi_runner_excludes_a_case_named_in_excluded_cases]: 5 of 5 arms hold"; exit 0; }
+echo "⛔ GATE RED [swi_runner_excludes_a_case_named_in_excluded_cases]: $fails of 5 arms FAIL"; exit 1

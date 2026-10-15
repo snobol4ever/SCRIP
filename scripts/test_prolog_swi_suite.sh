@@ -151,10 +151,12 @@ both = 0; graded_cases = 0; noref = []
 # dynamic growing everything. So if another oracle has fixed and we can do better and go longer. That we should."; and CEO-1696). A row is
 # file<TAB>case<TAB>class<TAB>measurement: file as the board prints it (db/test_db.pl), case the board's label (unit:test#k for one
 # instance, unit:test for every instance), class SCRIP_EXCEEDS_ORACLE (the oracle's answer comes from a fixed limit SCRIP grows past, or
-# from an oracle defect its own upstream has fixed) or NO_ORACLE_ANSWER. Such a case writes no progress row and leaves the denominator
+# from an oracle defect its own upstream has fixed), NO_ORACLE_ANSWER, or THREADS_EXCLUDED_BY_LON (ceo CEO-1766, Lon 2026-10-15, in-chat to
+# the ceo, verbatim: "Put the multi-threaded Prolog work as excluded for now."): a case whose body reaches a thread builtin, its measurement
+# naming the builtin; the 14 engine cases stay in the denominator. Such a case writes no progress row and leaves the denominator
 # as Excl, counted under its class beside the oracle's own NO_ORACLE_ANSWER cases. A row with another class refuses rc 2; a row naming a
 # case the file does not declare is STALE and reads the run red, so a declaration can never outlive what it names.
-EXCL_CLASSES = ('SCRIP_EXCEEDS_ORACLE', 'NO_ORACLE_ANSWER')
+EXCL_CLASSES = ('SCRIP_EXCEEDS_ORACLE', 'NO_ORACLE_ANSWER', 'THREADS_EXCLUDED_BY_LON')
 excl_cases = {}; excl_used = set()
 _ex = os.path.join(swit, 'EXCLUDED_CASES.tsv')
 if os.path.exists(_ex):
@@ -232,9 +234,9 @@ for rel, p, g, u in perfile:
     print('  %-48s %4d/%-4d agree (AND per case)%s' % (rel, p, g, ('  ungraded=%d' % u) if u else ''))
 print('SWI_BOARD declared=%d graded=%d %s ungraded=%d' % (declared, graded_cases,
       ' '.join('%s_pass=%d %s_fail=%d %s_agree_fail=%d %s_crash=%d %s_hang=%d' % (m, tot[m]['PASS'], m, tot[m]['FAIL'], m, tot[m]['agree_fail'], m, tot[m]['CRASH'], m, tot[m]['HANG']) for m in modes), ungraded_cases))
-print('  AND per case (agrees with the oracle in EVERY mode graded, the number the suite row states): %d/%d graded (%d declared, %d EXCLUDED: NO_ORACLE_ANSWER CEO-1696, EXCLUDED_CASES.tsv CEO-1710)' % (both, graded_cases, declared, ungraded_cases))
+print('  AND per case (agrees with the oracle in EVERY mode graded, the number the suite row states): %d/%d graded (%d declared, %d EXCLUDED: NO_ORACLE_ANSWER CEO-1696, EXCLUDED_CASES.tsv CEO-1710 and CEO-1766)' % (both, graded_cases, declared, ungraded_cases))
 print('  identity: graded %d + ungraded %d == declared %d %s' % (graded_cases, ungraded_cases, declared, '✓' if graded_cases + ungraded_cases == declared else '⛔ DOES NOT SUM'))
-print('  EXCLUDED (CEO-1696 NO_ORACLE_ANSWER by the oracle\'s reason; CEO-1710 EXCLUDED_CASES.tsv by class) -- named, never a pass, out of the denominator: ' + ', '.join('%s=%d' % kv for kv in sorted(ungraded_reason.items(), key=lambda kv: -kv[1])))
+print('  EXCLUDED (CEO-1696 NO_ORACLE_ANSWER by the oracle\'s reason; CEO-1710 and CEO-1766 EXCLUDED_CASES.tsv by class) -- named, never a pass, out of the denominator: ' + ', '.join('%s=%d' % kv for kv in sorted(ungraded_reason.items(), key=lambda kv: -kv[1])))
 graded_files = {pf[0] for pf in perfile}
 stale = sorted(k for k in set(excl_cases) - excl_used if k[0] in graded_files)   # a row for a file this run did not grade is not judged
 if excl_cases: print('  EXCLUDED_CASES.tsv: %d row(s), %d applied, %d STALE%s' % (len(excl_cases), len(excl_used), len(stale), (' -- ' + ' '.join('%s:%s' % k for k in stale)) if stale else ''))
@@ -262,7 +264,7 @@ else
     printf 'SUITE_BOARD suite=swi lang=prolog tier=run pass=%s total=%s excluded=%s runner=test_prolog_swi_suite.sh\n' "$BOTH" "$GRADED" "$((DECLARED - GRADED))"
     python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite SWI \
         --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$GRADED" --excluded "$((DECLARED - GRADED))" \
-        --text "swi_tests (swipl-devel src/Tests, every plunit case, agreement with swipl 9.0.4 per case) $BOTH/$GRADED by the AND PER CASE, $((DECLARED - GRADED)) case(s) EXCLUDED, NO_ORACLE_ANSWER (CEO-1696) and EXCLUDED_CASES.tsv's SCRIP_EXCEEDS_ORACLE (CEO-1710), over modes $MODES (\`test_prolog_swi_suite.sh\`)${_iv:+ · $_iv (\`test_prolog_swi_suite.sh\`)}" \
+        --text "swi_tests (swipl-devel src/Tests, every plunit case, agreement with swipl 9.0.4 per case) $BOTH/$GRADED by the AND PER CASE, $((DECLARED - GRADED)) case(s) EXCLUDED, NO_ORACLE_ANSWER (CEO-1696) and EXCLUDED_CASES.tsv's SCRIP_EXCEEDS_ORACLE (CEO-1710) and THREADS_EXCLUDED_BY_LON (CEO-1766), over modes $MODES (\`test_prolog_swi_suite.sh\`)${_iv:+ · $_iv (\`test_prolog_swi_suite.sh\`)}" \
         || echo "⚠ SUITES.tsv NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 fi
 [ "${STALE:-0}" -eq 0 ] || { echo "⛔ $STALE EXCLUDED_CASES.tsv row(s) name a case no graded file declares -- STALE (named above); a declaration may not outlive what it names"; exit 1; }
