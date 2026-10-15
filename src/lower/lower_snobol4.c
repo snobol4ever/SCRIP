@@ -959,7 +959,8 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             if (vn) sno_reg_var(vn);
             if (!vn) vn = sno_capt_item_name(tgt);
             if (!vn && tgt && tgt->t == TT_DEFER) {
-                const char * bn = sno_expr_collect((tgt->n > 0) ? tgt->c[0] : NULL);
+                const tree_t * di = (tgt->n > 0) ? tgt->c[0] : NULL;
+                const char * bn = (sno_item_argbase(di) >= 0) ? sno_expr_collect_nm(di) : sno_expr_collect(di);
                 char pb[fmt_len("*%s", bn)];
                 snprintf(pb, sizeof pb, "*%s", bn);
                 vn = lp_strdup(pb);
@@ -2593,8 +2594,8 @@ static const char * sno_cursor_target(const tree_t * tgt) {
     const tree_t * di = (tgt->n > 0) ? tgt->c[0] : NULL;
     if (!di) return NULL;
     if (di->t == TT_VAR && di->v.sval && di->v.sval[0]) { sno_reg_var(di->v.sval); return di->v.sval; }
-    const char * bn = (di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : ((di->t == TT_INDIRECT && di->n > 0 && di->c[0]) || (di->t == TT_IDX && di->n > 0)) ? sno_expr_collect_nm(di) :
-        (di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect_nm(di);
+    const char * bn = (di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : ((di->t == TT_INDIRECT && di->n > 0 && di->c[0]) || (di->t == TT_IDX && di->n > 0) || sno_item_argbase(di) >= 0) ?
+        sno_expr_collect_nm(di) : (di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect_nm(di);
     return sno_lead_name("*", bn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2923,8 +2924,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                 if (sno_cap_name_strict() && di && di->t == TT_VAR && di->v.sval && di->v.sval[0]) { vn = lp_strdup(di->v.sval); sno_reg_var(vn); }
                 if (!vn) {
                     const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval :
-                        ((di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) || (di && di->t == TT_IDX && di->n > 0)) ? sno_expr_collect_nm(di) : (di && di->t == TT_FNC && di->n > 0) ?
-                        sno_expr_collect_wn(di) : sno_expr_collect(di);
+                        ((di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) || (di && di->t == TT_IDX && di->n > 0) || sno_item_argbase(di) >= 0) ? sno_expr_collect_nm(di) :
+                        (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di);
                     char pb[fmt_len("*%s", bn)];
                     snprintf(pb, sizeof pb, "*%s", bn);
                     vn = lp_strdup(pb);
@@ -2957,8 +2958,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                 if (sno_cap_name_strict() && di && di->t == TT_VAR && di->v.sval && di->v.sval[0]) { vn = lp_strdup(di->v.sval); sno_reg_var(vn); }
                 if (!vn) {
                     const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval :
-                        ((di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) || (di && di->t == TT_IDX && di->n > 0)) ? sno_expr_collect_nm(di) : (di && di->t == TT_FNC && di->n > 0) ?
-                        sno_expr_collect_wn(di) : sno_expr_collect(di);
+                        ((di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) || (di && di->t == TT_IDX && di->n > 0) || sno_item_argbase(di) >= 0) ? sno_expr_collect_nm(di) :
+                        (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di);
                     char pb[fmt_len("*%s", bn)];
                     snprintf(pb, sizeof pb, "*%s", bn);
                     vn = lp_strdup(pb);

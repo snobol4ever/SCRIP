@@ -7,7 +7,9 @@
 # empty target and the runtime pattern compiler aborted in bb_emit_end ('n0_match_assign_save_beta' unresolved), both modes. sbl -bf assigns the element.
 # THE CURE: an ITEM capture target is the deferred NAME thunk (EXPRNM$n, the form every other computed capture target takes) over .ITEM(c, k...), which
 # the thunk body lowers through the TT_NAME arm (sx_subscript_lv); sno_pat_supported admits it, so the static and the run-time-built pattern both work.
-# NOT HERE: the t['c'] spelling of a capture target (FATAL at lower time) and . *ITEM(...) -- separate rows.
+# SECOND ARM (row snobol4-a-deferred-capture-target-over-an-item-call-star-item-assigns-nothing-where-sbl-assigns-the-element): the DEFER spelling
+# . *ITEM(c, k) / $ *ITEM(c, k) assigned nothing -- its thunk was collected without the NAME flag, so the strict capture refused it as a VALUE. Same thunk now.
+# NOT HERE: the t['c'] spelling of a capture target (FATAL at lower time) -- a separate row.
 # The expected output is cut from sbl -bf at run time and pinned: a line sbl no longer prints is a REFUSAL, never a green. Both modes.
 # rc=0 clean · rc=1 a divergence · rc=2 REFUSAL.
 set -u
@@ -48,6 +50,23 @@ grab_end
         OUTPUT = 'arbno ' a[3]
 END
 SNO
+cat > "$D/b.sno" <<'SNO'
+        t = TABLE()
+        a = ARRAY(3)
+        'abc' ? LEN(2) . *ITEM(t, 'c')
+        OUTPUT = 'cond ' t['c']
+        'xyz' ? LEN(1) $ *ITEM(a, 2)
+        OUTPUT = 'imm ' a[2]
+        k = 'dyn'
+        'hello' ? 'h' LEN(3) . *ITEM(t, k) 'o'
+        OUTPUT = 'computed key ' t['dyn']
+END
+SNO
+cat > "$D/b.want" <<'TXT'
+cond ab
+imm x
+computed key ell
+TXT
 cat > "$D/a.want" <<'TXT'
 cond ab
 imm x
@@ -59,15 +78,20 @@ in function abc
 arbno b
 TXT
 ( cd "$D" && timeout 10 "$SBL" -bf a.sno < /dev/null 2>/dev/null > a.sbl )
-cmp -s "$D/a.want" "$D/a.sbl" || refuse "sbl -bf does not answer a as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/a.sbl")]"
+( cd "$D" && timeout 10 "$SBL" -bf b.sno < /dev/null 2>/dev/null > b.sbl )
+for x in a b; do cmp -s "$D/$x.want" "$D/$x.sbl" || refuse "sbl -bf does not answer $x as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/$x.sbl")]"; done
 m4bin() { timeout 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
 red=0; n=0
 arm() { n=$((n + 1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  FAIL $1: $2"; red=$((red + 1)); fi; }
 ( cd "$D" && timeout 30 "$B/scrip" a.sno < /dev/null > a.m3 2>/dev/null )
 ( cd "$D" && m4bin a && timeout 30 ./a.bin < /dev/null > a.m4 2>/dev/null )
+( cd "$D" && timeout 30 "$B/scrip" b.sno < /dev/null > b.m3 2>/dev/null )
+( cd "$D" && m4bin b && timeout 30 ./b.bin < /dev/null > b.m4 2>/dev/null )
 for m in m3 m4; do
     if [ -f "$D/a.$m" ] && cmp -s "$D/a.want" "$D/a.$m"; then arm "a $m (. and \$ into ITEM of a table, array and 2-D array; computed key; pattern held in a variable; in a function; under ARBNO)" ok
     else arm "a $m" "got [$(tr '\n' '|' 2>/dev/null < "$D/a.$m")] want [$(tr '\n' '|' < "$D/a.want")]"; fi
+    if [ -f "$D/b.$m" ] && cmp -s "$D/b.want" "$D/b.$m"; then arm "b $m (. *ITEM(c, k) and \$ *ITEM(c, k), the deferred spelling, computed key)" ok
+    else arm "b $m" "got [$(tr '\n' '|' 2>/dev/null < "$D/b.$m")] want [$(tr '\n' '|' < "$D/b.want")]"; fi
 done
 if [ $red -eq 0 ]; then
     echo "GATE PASS(0): a capture into an ITEM(c, k...) call assigns the element in both modes -- every pinned line equals sbl -bf; $n arm(s)"
