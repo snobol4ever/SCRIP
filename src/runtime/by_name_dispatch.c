@@ -18617,14 +18617,15 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             for (int i = 0; i < gn; i++) {
                 const char *gname = rt_icn_global_name(ord[i]);
                 if (!gname || gname[0] == '&' || strstr(gname, "__STATIC__") || strstr(gname, "__icn_")) continue;
-                DESCR_t v = NV_GET_fn(gname), im;
+                DESCR_t v = NV_GET_fn(gname);
                 if ((v.v == DT_SNUL || IS_FAIL_fn(v)) && (rt_proc_is_registered(gname) || !strcmp(gname, "main") || dat_find_type(gname) || icn_builtin_arity(gname) != ICN_ARITY_UNKNOWN)) {
                     extern DESCR_t rt_proc_value(const char *);
                     DESCR_t pv = rt_proc_value(gname);
                     if (!IS_FAIL_fn(pv) && pv.v != DT_SNUL) v = pv;
                 }
+                if (v.v == DT_SNUL || IS_FAIL_fn(v)) continue;
                 fprintf(fp, "   %s = ", gname);
-                if (try_call_builtin_by_name_bl("image", &v, 1, &im, -1) && im.v == DT_S && im.s) fwrite(im.s, 1, descr_slen(im), fp);
+                core_icn_display_image(fp, v);
                 fputc('\n', fp);
             }
         }
