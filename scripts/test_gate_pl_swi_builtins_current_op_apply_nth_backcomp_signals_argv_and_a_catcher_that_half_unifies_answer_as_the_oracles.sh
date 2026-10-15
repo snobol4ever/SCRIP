@@ -12,7 +12,7 @@
 # a forced-trailing boundary and unwinds on a mismatch.  Programs write outer/outer2/ab as gprolog does.
 # RED BEFORE (the parent e6febb41a): existence_error for the new names, type_error(atom, 1) for apply, nondeterministic nth0/nth1, domain_error current_op, the
 # nested catch ends uncaught.
-# THIRD ARM: initialization(main, main) exits 1 when main/0 fails (swipl; SCRIP exited 0), 2 on an exception, the halt code on halt/1.
+# THIRD AND FOURTH ARMS: initialization(main, main) runs LAST (after directives and plain initialization goals, the later of two replacing the earlier) and exits 1 when main/0 fails (swipl; SCRIP exited 0), 2 on an exception, the halt code on halt/1.
 # rc=0 both modes agree with the oracles · rc=1 a divergence · rc=2 REFUSAL (no swipl, no gprolog, no build).  ~4 s.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -78,6 +78,21 @@ for body in 'main :- fail.' 'main :- write(a), nl, fail.' 'main :- throw(oops).'
     for m in 3 4; do
         if cmp -s "$D/iw.rc" "$D/i$m.rc" && cmp -s "$D/iw.out" "$D/i$m.out"; then echo "  m$m initialization(main, main) '$body' GREEN: rc $(cat "$D/iw.rc") as swipl"
         else echo "  m$m initialization(main, main) '$body' RED: swipl rc $(cat "$D/iw.rc") scrip rc $(cat "$D/i$m.rc" 2>/dev/null)"; red=1; fi
+    done
+done
+# FOURTH ARM, the ORDER: initialization(main, main) runs after every directive and every plain initialization goal, and a later one replaces an earlier one.
+for k in 1 2 3; do
+    case $k in
+        1) printf ':- initialization(main, main).\nmain :- write(main), nl.\n:- initialization((write(plain), nl)).\n:- write(directive), nl.\n:- initialization((write(plain2), nl)).\n' > "$D/im.pl";;
+        2) printf ':- initialization(main, main).\nmain :- write(main), nl, fail.\n:- initialization((write(plain), nl)).\n' > "$D/im.pl";;
+        3) printf ':- initialization((write(plain), nl)).\n:- initialization(main, main).\nmain :- write(main), nl.\n:- initialization(main2, main).\nmain2 :- write(main2), nl.\n' > "$D/im.pl";;
+    esac
+    ( cd "$D" && timeout -k 5 30 swipl -q im.pl < /dev/null > iw.out 2> /dev/null; echo $? > iw.rc
+      timeout -k 5 30 "$B/scrip" --run im.pl < /dev/null > i3.out 2> /dev/null; echo $? > i3.rc
+      timeout -k 5 60 "$B/scrip" --compile -o im.s im.pl < /dev/null 2> /dev/null && gcc -no-pie im.s -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" -o im 2> /dev/null && { timeout -k 5 30 ./im < /dev/null > i4.out 2> /dev/null; echo $? > i4.rc; } )
+    for m in 3 4; do
+        if cmp -s "$D/iw.rc" "$D/i$m.rc" && cmp -s "$D/iw.out" "$D/i$m.out"; then echo "  m$m initialization order shape $k GREEN: $(paste -sd, "$D/iw.out") rc $(cat "$D/iw.rc") as swipl"
+        else echo "  m$m initialization order shape $k RED: swipl [$(paste -sd, "$D/iw.out")] rc $(cat "$D/iw.rc"), scrip [$(paste -sd, "$D/i$m.out" 2>/dev/null)] rc $(cat "$D/i$m.rc" 2>/dev/null)"; red=1; fi
     done
 done
 [ "$red" = 0 ] && echo "PASS $GATE"

@@ -3064,7 +3064,21 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 if (pl_tree_number(h)) return goal(cx, g_stage2.pl_dialect_swi ? (tree_t *) pl_atom_goal("fail") : pl_cc_type_error("callable", h, nm, 2), γnext, ωfail, entry_out);
                 if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME || pp->t == TT_FNC) && pp->v.sval && !pl_name_in(pp->v.sval, pl_pred_props))
                     return goal(cx, pl_cc_throw_ar(pl_cc_fnc2("domain_error", (tree_t *) pl_atom_goal("predicate_property"), (tree_t *) pp), nm, 2), γnext, ωfail, entry_out);
-                if (!pn || (!g_stage2.pl_dialect_swi && !(!strcmp(pn, "portray") && ar == 1))) return goal(cx, pl_pp_runtime(h, pp), γnext, ωfail, entry_out);
+                if (!pn || (!g_stage2.pl_dialect_swi && !(!strcmp(pn, "portray") && ar == 1))) {
+                    int dyn0 = pn && ((pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar) || pl_rt_is_dynamic(pn, ar));
+                    int def0 = pn && (dyn0 || pl_file_defines(pn, ar));
+                    const char * meta0 = (pn && !def0) ? pl_meta_template(pn, ar) : (const char *) 0;
+                    const tree_t * um0 = (pn && def0) ? pl_decl_meta_of(pn, ar) : (const tree_t *) 0;
+                    tree_t * tm0 = (meta0 || um0) ? ast_node_new(TT_FNC) : (tree_t *) 0;
+                    if (!tm0) return goal(cx, pl_pp_runtime(h, pp), γnext, ωfail, entry_out);
+                    tm0->v.sval = (char *) pn;
+                    for (int i = 0; i < ar; i++) {
+                        const tree_t * a = um0 ? um0->c[i] : (const tree_t *) 0;
+                        if (meta0) ast_push(tm0, meta0[i] >= '0' && meta0[i] <= '9' ? pl_cc_ilit(meta0[i] - '0') : (tree_t *) pl_atom_goal(meta0[i] == '^' ? "^" : "?"));
+                        else ast_push(tm0, (a && (a->t == TT_NAME || a->t == TT_QLIT) && a->v.sval && !strcmp(a->v.sval, "*")) ? (tree_t *) pl_atom_goal("?") : (tree_t *) a);
+                    }
+                    return goal(cx, pl_cc_fnc2(";", pl_pp_runtime(h, pp), pl_cc_fnc2("=", (tree_t *) t->c[1], pl_cc_fnc1("meta_predicate", tm0))), γnext, ωfail, entry_out);
+                }
                 {
                     int dyn = (pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar) || pl_rt_is_dynamic(pn, ar);
                     int def = dyn || pl_file_defines(pn, ar);
@@ -5061,6 +5075,8 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     }
     const tree_t * init_goals[ndirs];
     int ninit = 0;
+    const tree_t * main_goals[ndirs];
+    int nmain = 0;
     const tree_t * dir_goals[ndirs];
     int ndir = 0;
     const char * dvn[ndvn];
@@ -5081,7 +5097,8 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
                 if (subj->n == 1) { init_goals[ninit++] = pl_dir_catch_wrap((tree_t *) gt, dvn, &dvc); continue; }
                 pl_dir_number_vars((tree_t *) gt, dvn, &dvc, iv_scope0);
                 if (subj->c[1] && (subj->c[1]->t == TT_QLIT || subj->c[1]->t == TT_NAME) && subj->c[1]->v.sval && !strcmp(subj->c[1]->v.sval, "main")) {
-                    init_goals[ninit++] = pl_cc_fnc2(";", pl_cc_fnc2("->", (tree_t *) gt, (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("halt", pl_cc_ilit(1)));
+                    nmain = 0;
+                    main_goals[nmain++] = pl_cc_fnc2(";", pl_cc_fnc2("->", (tree_t *) gt, (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("halt", pl_cc_ilit(1)));
                     continue;
                 }
                 init_goals[ninit++] = gt;
@@ -5111,7 +5128,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     }
     IR_graph_t * top;
     {
-        const tree_t * all_goals[ndir + ninit + 3 + (load_n + PL_SEED_CHUNK - 1) / PL_SEED_CHUNK];
+        const tree_t * all_goals[ndir + ninit + nmain + 3 + (load_n + PL_SEED_CHUNK - 1) / PL_SEED_CHUNK];
         int nall = 0;
         int nseedv = 1;
         { tree_t * dt = ast_node_new(TT_FNC); dt->v.sval = (char *) "$db_decls"; ast_push(dt, pl_cc_ilit(0)); all_goals[nall++] = dt; }
@@ -5186,6 +5203,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             ct_drop(lp.p);
         }
         for (int i = 0; i < ninit; i++) all_goals[nall++] = init_goals[i];
+        for (int i = 0; i < nmain; i++) all_goals[nall++] = main_goals[i];
         top = pl_body_graph(all_goals, nall);
     }
     top->root_graph = 1;
