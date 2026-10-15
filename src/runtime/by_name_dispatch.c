@@ -17520,6 +17520,38 @@ static int bn_icn_right(DESCR_t *args, int nargs, DESCR_t *out) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bn_icn_any(DESCR_t *args, int nargs, DESCR_t *out) {
+    const char *cv = VARVAL_fn(args[0]);
+    if (!cv) { *out = FAILDESCR; return 1; }
+    long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
+    const char *s;
+    int i1, i2;
+    if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
+    if (i1 >= i2) { *out = FAILDESCR; return 1; }
+    if (!rt_icn_cset_member_n(cv, cvn, s[i1 - 1])) { *out = FAILDESCR; return 1; }
+    *out = INTVAL(i1 + 1);
+    return 1;
+}
+static int bn_icn_many(DESCR_t *args, int nargs, DESCR_t *out) {
+    const char *cv = VARVAL_fn(args[0]);
+    if (!cv) { *out = FAILDESCR; return 1; }
+    long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
+    const char *s;
+    int i1, i2;
+    if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
+    int p = i1;
+    while (p < i2 && rt_icn_cset_member_n(cv, cvn, s[p - 1])) p++;
+    if (p == i1) { *out = FAILDESCR; return 1; }
+    *out = INTVAL(p);
+    return 1;
+}
+static int icn_bi_direct_scan(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
+    if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
+    if (nargs < 2 || nargs > 4 || args[0].v != DT_S || args[1].v != DT_S || IS_CSET_fn(args[1])) return 0;
+    for (int i = 2; i < nargs; i++) if (args[i].v != DT_I && args[i].v != DT_SNUL) return 0;
+    core_icn_op_ctx_clear();
+    return bid == BID_any ? bn_icn_any(args, nargs, out) : bn_icn_many(args, nargs, out);
+}
 static int icn_bi_direct_list_io(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     extern int rt_g_want_name;
     if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
@@ -17583,9 +17615,10 @@ static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
     const int bid = bidlen & BID_BAKE_MASK;
     const unsigned fnlen = (unsigned)bidlen >> 16;
     if (bid != BID_string && bid != BID_IDENTICAL && bid != BID_trim && bid != BID_put && bid != BID_get && bid != BID_read && bid != BID_type && bid != BID_integer && bid != BID_abs &&
-        bid != BID_atan && bid != BID_right && bid != BID_write && bid != BID_writes) return 0;
+        bid != BID_atan && bid != BID_right && bid != BID_write && bid != BID_writes && bid != BID_any && bid != BID_many) return 0;
     if (!fnlen || fnlen >= 14 || dtax_off() || g_dtax_bid[bid].gen != rt_dtax_gen) return 0;
     if (bid == BID_write || bid == BID_writes) return icn_bi_direct_write(bid, args, nargs, out);
+    if (bid == BID_any || bid == BID_many) return icn_bi_direct_scan(bid, args, nargs, out);
     if (bid == BID_type || bid == BID_integer || bid == BID_abs || bid == BID_atan || bid == BID_right) return icn_bi_direct_scalar(bid, args, nargs, out);
     if (bid == BID_trim || bid == BID_put || bid == BID_get || bid == BID_read) return icn_bi_direct_list_io(bid, args, nargs, out);
     if (bid == BID_IDENTICAL) { if (nargs != 2 || (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3)) return 0; *out = bn_identical(args[0], args[1]) ? args[1] : FAILDESCR; return 1; }
@@ -20237,33 +20270,10 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     if ((_bid == BID_ICN_SCAN_POP) && nargs == 1) { if (g_scan_depth > 0) g_scan_depth--; *out = args[0]; return 1; }
     L_bidjmp_5920:
     ;
-    if ((_bid == BID_any) && nargs >= 1 && (g_scan_pos > 0 || nargs >= 2)) {
-        const char *cv = VARVAL_fn(args[0]);
-        if (!cv) { *out = FAILDESCR; return 1; }
-        long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
-        const char *s;
-        int i1, i2;
-        if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
-        if (i1 >= i2) { *out = FAILDESCR; return 1; }
-        if (!rt_icn_cset_member_n(cv, cvn, s[i1 - 1])) { *out = FAILDESCR; return 1; }
-        *out = INTVAL(i1 + 1);
-        return 1;
-    }
+    if ((_bid == BID_any) && nargs >= 1 && (g_scan_pos > 0 || nargs >= 2)) return bn_icn_any(args, nargs, out);
     L_bidjmp_5938:
     ;
-    if ((_bid == BID_many) && nargs >= 1 && (g_scan_pos > 0 || nargs >= 2)) {
-        const char *cv = VARVAL_fn(args[0]);
-        if (!cv) { *out = FAILDESCR; return 1; }
-        long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
-        const char *s;
-        int i1, i2;
-        if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
-        int p = i1;
-        while (p < i2 && rt_icn_cset_member_n(cv, cvn, s[p - 1])) p++;
-        if (p == i1) { *out = FAILDESCR; return 1; }
-        *out = INTVAL(p);
-        return 1;
-    }
+    if ((_bid == BID_many) && nargs >= 1 && (g_scan_pos > 0 || nargs >= 2)) return bn_icn_many(args, nargs, out);
     L_bidjmp_5958:
     ;
     if ((_bid == BID_upto) && nargs >= 1 && (g_scan_pos > 0 || nargs >= 2)) {
