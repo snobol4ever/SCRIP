@@ -17522,10 +17522,10 @@ static int bn_icn_read_fh(DESCR_t a0, DESCR_t *out) {
     char *ln = (char *)ct_alloc(cap);
     if (!ln) { *out = FAILDESCR; return 1; }
     int c, any = 0;
-    while ((c = getc(fp)) != EOF) {
+    while ((c = getc_unlocked(fp)) != EOF) {
         any = 1;
         if (c == '\n') break;
-        if (!_un && c == '\r') { int d = getc(fp); if (d != '\n' && d != EOF) ungetc(d, fp); break; }
+        if (!_un && c == '\r') { int d = getc_unlocked(fp); if (d != '\n' && d != EOF) ungetc(d, fp); break; }
         if (len + 1 >= cap) { cap *= 2; char *nb = (char *)ct_grow(ln, cap); if (!nb) { ct_drop(ln); *out = FAILDESCR; return 1; } ln = nb; }
         ln[len++] = (char)c;
     }
@@ -17798,17 +17798,60 @@ static int icn_bi_direct_write(int bid, DESCR_t *args, int nargs, DESCR_t *out) 
 static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
     const int bid = bidlen & BID_BAKE_MASK;
     const unsigned fnlen = (unsigned)bidlen >> 16;
-    if (bid != BID_string && bid != BID_IDENTICAL && bid != BID_trim && bid != BID_put && bid != BID_get && bid != BID_read && bid != BID_type && bid != BID_integer && bid != BID_abs &&
-        bid != BID_atan && bid != BID_right && bid != BID_write && bid != BID_writes && bid != BID_any && bid != BID_many && bid != BID_left && bid != BID_center && bid != BID_tab && bid != BID_move)
+    switch (bid) {
+        case BID_string:
+        case BID_IDENTICAL:
+        case BID_trim:
+        case BID_put:
+        case BID_get:
+        case BID_read:
+        case BID_type:
+        case BID_integer:
+        case BID_abs:
+        case BID_atan:
+        case BID_right:
+        case BID_write:
+        case BID_writes:
+        case BID_any:
+        case BID_many:
+        case BID_left:
+        case BID_center:
+        case BID_tab:
+        case BID_move:
+        break;
+        default:
         return 0;
+    }
     if (!fnlen || fnlen >= 14 || dtax_off() || g_dtax_bid[bid].gen != rt_dtax_gen) return 0;
-    if (bid == BID_write || bid == BID_writes) return icn_bi_direct_write(bid, args, nargs, out);
-    if (bid == BID_any || bid == BID_many) return icn_bi_direct_scan(bid, args, nargs, out);
-    if (bid == BID_tab || bid == BID_move) return icn_bi_direct_scanpos(bid, args, nargs, out);
-    if (bid == BID_type || bid == BID_integer || bid == BID_abs || bid == BID_atan) return icn_bi_direct_scalar(bid, args, nargs, out);
-    if (bid == BID_right || bid == BID_left || bid == BID_center) return icn_bi_direct_pad(bid, args, nargs, out);
-    if (bid == BID_trim || bid == BID_put || bid == BID_get || bid == BID_read) return icn_bi_direct_list_io(bid, args, nargs, out);
-    if (bid == BID_IDENTICAL) { if (nargs != 2 || (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3)) return 0; *out = bn_identical(args[0], args[1]) ? args[1] : FAILDESCR; return 1; }
+    switch (bid) {
+        case BID_write:
+        case BID_writes:
+        return icn_bi_direct_write(bid, args, nargs, out);
+        case BID_any:
+        case BID_many:
+        return icn_bi_direct_scan(bid, args, nargs, out);
+        case BID_tab:
+        case BID_move:
+        return icn_bi_direct_scanpos(bid, args, nargs, out);
+        case BID_type:
+        case BID_integer:
+        case BID_abs:
+        case BID_atan:
+        return icn_bi_direct_scalar(bid, args, nargs, out);
+        case BID_right:
+        case BID_left:
+        case BID_center:
+        return icn_bi_direct_pad(bid, args, nargs, out);
+        case BID_trim:
+        case BID_put:
+        case BID_get:
+        case BID_read:
+        return icn_bi_direct_list_io(bid, args, nargs, out);
+        case BID_IDENTICAL:
+        { if (nargs != 2 || (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3)) return 0; *out = bn_identical(args[0], args[1]) ? args[1] : FAILDESCR; return 1; }
+        default:
+        break;
+    }
     if (nargs != 1 || g_dtax_bid[bid].kind != 0) return 0;
     if (args[0].v == DT_I) return icn_bi_string_of_int(args[0], out);
     if (args[0].v == DT_S && !IS_CSET_fn(args[0])) { *out = args[0]; return 1; }
