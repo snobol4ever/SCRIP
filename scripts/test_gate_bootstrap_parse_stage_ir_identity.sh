@@ -42,7 +42,10 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ -x "$SCRIP" ] || refuse "no scrip at $SCRIP (make)"
-"$HERE/util_require_fresh.sh" --gate "$G" || exit $?
+# --no-behaviour: the freshness probe --compiles pinned witnesses and hashes what the build EMITS, and under SCRIP_PARSE_STAGE=sc the emitted
+# text legitimately differs from the C stage's -- that difference is exactly what THIS gate measures, so the probe read every =sc compare as "the
+# binary moved under a tree that did not" (hq_snocone 2026-10-14: three refusals on three captures, one of them a pristine build). The mtime half stays.
+"$HERE/util_require_fresh.sh" --gate "$G" --no-behaviour || exit $?
 [ "$POP" = sample ] || [ "$POP" = corpus ] || refuse "population must be sample or corpus"
 [ -d "$CORPUS" ] || refuse "no corpus at $CORPUS"
 STORE="$ROOT/out/ir_identity"
