@@ -1169,6 +1169,7 @@ test_gate_sno_the_name_of_an_item_call_is_a_subscript_name_assignable_through_in
 test_gate_sno_the_name_operator_takes_an_indirect_or_a_keyword_and_a_cursor_capture_takes_any_target.sh	WIRED	-	-	-
 test_gate_sno_the_null_string_is_one_table_key.sh	WIRED	-	-	-
 test_gate_sno_the_real_model_is_spitbols_gtnum_reading_and_ftz_daz_arithmetic.sh	WIRED	-	-	-
+test_gate_sno_the_value_trace_of_a_multi_dimensional_array_element_fires_and_spells_a_i_j_like_sbl.sh	WIRED	-	-	-
 test_gate_sno_trace_access_fires_on_a_plain_global_read_via_compile_time_gva_demotion.sh	WIRED	-	-	-
 test_gate_sno_trace_access_fires_on_a_reference_and_is_silent_on_an_assignment.sh	WIRED	-	-	-
 test_gate_sno_trace_banner_spells_an_object_like_dump.sh	WIRED	-	-	-

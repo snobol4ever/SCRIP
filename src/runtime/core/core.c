@@ -4326,6 +4326,41 @@ static int etrace_spell_emit(char *out, size_t n, const char *nm, const char *kb
     if (out && n >= (size_t)need) snprintf(out, n, "%s<%s>", nm, kb);
     return need;
 }
+static int etrace_row_path(const ARBLK_t *a, const DESCR_t *cellp, char *out, size_t on, long *idp, int depth) {
+    if (!a || !a->data || depth > 6) return 0;
+    long rows = (long)a->hi - (long)a->lo + 1;
+    if (rows < 0) rows = 0;
+    for (long k = 0; k < rows; k++) {
+        DESCR_t d = a->data[k];
+        if (d.v != DT_A || !d.arr || !d.arr->data) continue;
+        const ARBLK_t *r = d.arr;
+        long rcols = (long)r->hi - (long)r->lo + 1;
+        if (rcols < 0) rcols = 0;
+        if (cellp >= r->data && cellp < r->data + rcols) { if (idp) *idp = r->id; return snprintf(out, on, "%ld,%ld", (long)a->lo + k, (long)r->lo + (long)(cellp - r->data)); }
+        char inner[96];
+        if (etrace_row_path(r, cellp, inner, sizeof inner, idp, depth + 1) > 0) return snprintf(out, on, "%ld,%s", (long)a->lo + k, inner);
+    }
+    return 0;
+}
+static int etrace_spell_nested(VCELL_t *vc, char *out, size_t n, long *id_out) {
+    NV_t *best = (NV_t *)0;
+    unsigned bb = 0;
+    char bk[128];
+    long bid = 0;
+    for (unsigned i = 0; i < _var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
+        if (!etrace_var_name_ok(e->name)) continue;
+        DESCR_t d = e->is_gva ? *e->cell : e->val;
+        if (d.v != DT_A || !d.arr || !d.arr->data || d.arr->ndim != 1) continue;
+        char kb[128];
+        long id = 0;
+        if (etrace_row_path(d.arr, vc->cellp, kb, sizeof kb, &id, 0) <= 0) continue;
+        unsigned b = etrace_spitbol_bucket(e);
+        if (!best || b < bb || (b == bb && e->serial < best->serial)) { best = e; bb = b; memcpy(bk, kb, sizeof bk); bid = id; }
+    }
+    if (!best) return 0;
+    if (id_out) *id_out = bid;
+    return etrace_spell_emit(out, n, best->name, bk);
+}
 static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) {
     if (!vc) return 0;
     if (vc->tbl) {
@@ -4361,7 +4396,7 @@ static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) 
         unsigned b = etrace_spitbol_bucket(e);
         if (!best || b < bb || (b == bb && e->serial < best->serial)) { best = e; bb = b; ba = a; }
     }
-    if (!best) return 0;
+    if (!best) return etrace_spell_nested(vc, out, n, id_out);
     if (id_out) *id_out = ba->id;
     {
         long rows = (long)ba->hi - (long)ba->lo + 1, cols = (ba->ndim == 2) ? ((long)ba->hi2 - (long)ba->lo2 + 1) : 1;
