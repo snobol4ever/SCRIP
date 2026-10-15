@@ -16,7 +16,7 @@ RTX_GATE_DEF(icnagg)
 RTX_FUNC(rt_size_d)
     RTX_GATE(icnagg, .Lsz_c)
     cmp     dil, DT_S
-    jne     .Lsz_c
+    jne     .Lsz_d
     mov     rax, rdi
     shr     rax, 32
     test    eax, eax
@@ -24,6 +24,46 @@ RTX_FUNC(rt_size_d)
     cmp     eax, -1
     je      .Lsz_c
     mov     rdx, rax
+    mov     eax, DT_I
+    ret
+.Lsz_d:
+    cmp     dil, DT_DATA
+    jne     .Lsz_c
+    mov     rax, rdi
+    shr     rax, 32
+    cmp     eax, DATA_INST_SLEN
+    jne     .Lsz_c
+    test    rsi, rsi
+    je      .Lsz_c
+    mov     rdx, [rsi + DATINST_TYPE]
+    test    rdx, rdx
+    je      .Lsz_c
+    cmp     dword ptr [rdx + DATBLK_NFIELDS], 3
+    jl      .Lsz_c
+    mov     rcx, [rdx + DATBLK_FIELDS]
+    test    rcx, rcx
+    je      .Lsz_c
+    mov     rcx, [rcx]
+    test    rcx, rcx
+    je      .Lsz_c
+    mov     rax, 0x6c655f656d617266
+    cmp     [rcx], rax
+    jne     .Lsz_c
+    cmp     dword ptr [rcx + 8], 0x00736d65
+    jne     .Lsz_c
+    mov     rdx, [rsi + DATINST_FIELDS]
+    test    rdx, rdx
+    je      .Lsz_c
+    cmp     dword ptr [rdx + FIELD2_V], DT_S
+    jne     .Lsz_c
+    mov     rcx, [rdx + FIELD2_P]
+    test    rcx, rcx
+    je      .Lsz_c
+    cmp     dword ptr [rcx], 0x7473696c
+    jne     .Lsz_c
+    cmp     byte ptr [rcx + 4], 0
+    jne     .Lsz_c
+    movsxd  rdx, dword ptr [rdx + FIELD1_P]
     mov     eax, DT_I
     ret
 .Lsz_c:
