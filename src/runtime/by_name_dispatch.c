@@ -21720,7 +21720,7 @@ static void *pl_db_static_ball(void *root, const char *op, const char *nm, int a
     snprintf(key, sizeof key, "%s/%d", nm, ar);
     bi = pl_pi_is_control(nm, ar) || (isclause && pl_pi_is_builtin(nm, ar) && !rt_pl_db_key_is_static(root, key));
     if (!bi && (rt_pl_db_key_is_dynamic(root, key) || !(rt_proc_is_registered(key) || (isclause && rt_pl_db_key_is_static(root, key))))) return (void *)0;
-    if (isclause) { if (!bi && !rt_pl_iso_mode() && !rt_pl_protect_static_code()) return (void *)0; return rt_pl_ball_permission_pi("access", "private_procedure", nm, ar); }
+    if (isclause) { if (!bi && !rt_pl_iso_mode() && !rt_pl_protect_static_code() && pl_swi_dialect()) return (void *)0; return rt_pl_ball_permission_pi("access", "private_procedure", nm, ar); }
     return rt_pl_ball_permission_pi("modify", "static_procedure", nm, ar);
 }
 static int pl_cell_is_clref(DESCR_t t) {
@@ -21779,7 +21779,10 @@ void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
             if (pl_iso_unbound(h)) return rt_pl_ball_instantiation();
             if (!pl_anum_is_compound(h) && !pl_anum_is_text(h)) return rt_pl_ball_kind2("type_error", "callable", h);
             if (hasbody && !strcmp(op, "assert") && pl_db_body_ill_typed(b)) return rt_pl_ball_kind2("type_error", "callable", b);
-            if (hasbody && !strcmp(op, "clause")) { DESCR_t bd = rt_pl_deref_val(b); if (bd.v == DT_I || bd.v == DT_R) return rt_pl_ball_kind2("type_error", "callable", bd); }
+            if (hasbody && (!strcmp(op, "clause") || (!strcmp(op, "retract") && !pl_swi_dialect()))) {
+                DESCR_t bd = rt_pl_deref_val(b);
+                if (bd.v == DT_I || bd.v == DT_R) return rt_pl_ball_kind2("type_error", "callable", bd);
+            }
             char key[bnd_db_key_need((void *)&args[0])];
             if (!rt_pl_db_term_key((void *)&args[0], key, sizeof key, &ar)) return (void *)0;
             { char *sl = strrchr(key, '/'); if (sl) *sl = 0; return pl_db_static_ball(root, op, key, ar); }

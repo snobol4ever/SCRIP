@@ -1765,7 +1765,7 @@ static IR_t * pl_db_enum(lcx_t * cx, int k, const tree_t * target, int erase, IR
     IR_t * er = NULL;
     if (erase) { er = build(cx, IR_CALL, γnext, ωfail); IR_LIT(er).sval = "$db_erase"; }
     IR_t * uni = build(cx, IR_CALL, er ? er : γnext, ωfail);
-    IR_LIT(uni).sval = erase ? "$unify" : "$clause_unify";
+    IR_LIT(uni).sval = "$clause_unify";
     IR_t * cp = build(cx, IR_CALL, uni, ωfail);
     IR_LIT(cp).sval = "$db_copy";
     IR_t * to = build(cx, IR_TO, cp, ωfail);
