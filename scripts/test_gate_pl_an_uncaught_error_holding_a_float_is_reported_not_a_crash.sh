@@ -10,6 +10,9 @@
 # THE CURE: mode 3's wire is the naked stub pl_root_ω (and $-16, %rsp; push $0; jmp), mode 4's omega aligns before its call.
 #
 # Four programs x two modes: the report line swipl-style SCRIP prints, rc 2, never a signal.
+# THE FIXTURE IS initialization(main, main) (hq_prolog 2026-10-15, CEO-1766): since SCRIP bb7cfbe56 a raising initialization/1 goal is a warning
+# and the program goes on at rc 0, as swipl -q and gprolog 1.6.0 both do, so it never reaches the root omega; the main/2 form still does, and
+# swipl 9.0.4 exits 2 on all four goals here as SCRIP does.
 # rc=0 clean · rc=1 a divergence · rc=2 REFUSAL.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,7 +26,7 @@ trap 'rm -rf "$D"' EXIT
 n=0; red=0
 one() {
     local name="$1" goal="$2" want="$3"
-    printf ':- initialization(main).\nmain :- %s.\n' "$goal" > "$D/$name.pl"
+    printf ':- initialization(main, main).\nmain :- %s.\n' "$goal" > "$D/$name.pl"
     ( cd "$D" && timeout 30 "$B/scrip" "$name.pl" < /dev/null > "$name.m3" 2>&1; echo $? > "$name.rc3" )
     ( cd "$D" && timeout 60 "$B/scrip" --compile -o "$name.s" "$name.pl" < /dev/null > /dev/null 2>&1 && gcc -no-pie "$name.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$name.bin" 2>/dev/null ) || refuse "$name.pl: mode 4 did not build"
     ( cd "$D" && timeout 30 "./$name.bin" < /dev/null > "$name.m4" 2>&1; echo $? > "$name.rc4" )
