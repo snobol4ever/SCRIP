@@ -414,6 +414,7 @@ static void rt_gcheap_init(void) {
 #if RT_DIAG
     { const char *b = getenv("SCRIP_GC_BIRTH_LEDGER"); if (b && *b && *b != '0') (void)gc_vac_ledger(); }
 #endif
+    (void)gc_stack_top();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type) {
@@ -766,8 +767,6 @@ static rt_hblk_t **g_gc_idx = (rt_hblk_t **)0;
 static rt_hblk_t **g_gc_idxbuf = (rt_hblk_t **)0;
 static long g_gc_icap = 0;
 static long g_gc_nblk = 0;
-static void **g_gc_hs = (void **)0;
-static long g_gc_hcap = 0, g_gc_hn = 0;
 typedef struct gc_slot_t { const char **loc; const char *val; } gc_slot_t;
 typedef struct gc_tr_args_t { const struct gc_rng_t *rr; long n; char *base; const char *oldtop; char *newtop; const rt_hp_fr_t *fr; const char *arena; const char *cap_end; } gc_tr_args_t;
 _Static_assert(__builtin_offsetof(gc_tr_args_t, rr) == 0 && __builtin_offsetof(gc_tr_args_t, n) == 8 && __builtin_offsetof(gc_tr_args_t, base) == 16 &&
@@ -799,6 +798,8 @@ typedef struct gc_mk_t {
     const char *fc_c, *fc_e;
     long fc_kind;
     const char *sw_p, *sw_hi;
+    void **hs;
+    long hcap, hn, tb_h;
 } gc_mk_t;
 _Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_t, wln) == 8 && __builtin_offsetof(gc_mk_t, wlcap) == 16 && __builtin_offsetof(gc_mk_t, slots) == 24 &&
     __builtin_offsetof(gc_mk_t, nslot) == 32 && __builtin_offsetof(gc_mk_t, scap) == 40 && __builtin_offsetof(gc_mk_t, arena) == 48 && __builtin_offsetof(gc_mk_t, top) == 56 &&
@@ -807,8 +808,10 @@ _Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_
     __builtin_offsetof(gc_mk_t, interior) == 128 && __builtin_offsetof(gc_mk_t, dvec_elems) == 136 && __builtin_offsetof(gc_mk_t, dvec_nondvec) == 144 && __builtin_offsetof(gc_mk_t, nmk) == 152 &&
     __builtin_offsetof(gc_mk_t, mxs) == 160 && __builtin_offsetof(gc_mk_t, walked) == 168 && __builtin_offsetof(gc_mk_t, pv_end) == 176 && __builtin_offsetof(gc_mk_t, draining) == 184 &&
     __builtin_offsetof(gc_mk_t, fc_anchor) == 192 && __builtin_offsetof(gc_mk_t, fc_map) == 200 && __builtin_offsetof(gc_mk_t, fc_i) == 224 && __builtin_offsetof(gc_mk_t, fc_c) == 232 &&
-    __builtin_offsetof(gc_mk_t, fc_kind) == 248 && __builtin_offsetof(gc_mk_t, sw_p) == 256 && __builtin_offsetof(gc_mk_t, sw_hi) == 264 && sizeof(gc_frame_map_t) == 32 && GC_LAY_DESCR == 0 &&
-    GC_LAY_PTR_GC == 2, "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
+    __builtin_offsetof(gc_mk_t, fc_kind) == 248 && __builtin_offsetof(gc_mk_t, sw_p) == 256 && __builtin_offsetof(gc_mk_t, sw_hi) == 264 && __builtin_offsetof(gc_mk_t, hs) == 272 &&
+    __builtin_offsetof(gc_mk_t, hcap) == 280 && __builtin_offsetof(gc_mk_t, hn) == 288 && __builtin_offsetof(gc_mk_t, tb_h) == 296 && __builtin_offsetof(VCELL_t, cellp) == 0 &&
+    __builtin_offsetof(VCELL_t, tbl) == 8 && __builtin_offsetof(VCELL_t, key) == 16 && __builtin_offsetof(VCELL_t, key_d) == 24 && __builtin_offsetof(VCELL_t, sv) == 40 &&
+    sizeof(gc_frame_map_t) == 32 && GC_LAY_DESCR == 0 && GC_LAY_PTR_GC == 2, "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
 _Static_assert(__builtin_offsetof(ARBLK_t, lo) == 0 && __builtin_offsetof(ARBLK_t, hi) == 4 && __builtin_offsetof(ARBLK_t, ndim) == 8 && __builtin_offsetof(ARBLK_t, lo2) == 12 &&
     __builtin_offsetof(ARBLK_t, hi2) == 16 && __builtin_offsetof(ARBLK_t, proto) == 24 && __builtin_offsetof(ARBLK_t, data) == 32 && __builtin_offsetof(TBBLK_t, buckets) == 0 &&
     __builtin_offsetof(TBBLK_t, nbuck) == 8 && __builtin_offsetof(TBBLK_t, dflt) == 32 && __builtin_offsetof(TBBLK_t, ord) == 56 && __builtin_offsetof(TBBLK_t, ord_len) == 64 &&
@@ -1237,27 +1240,28 @@ _Static_assert(sizeof(void *) == 8,
     "visit read it as already visited, the buckets array was never marked, and the collection after next walked reclaimed ground -- the key spaces are distinct by construction now, and gc_visit_one'"
     "s DT_N slen=1 case is the only writer of bit 1");
 static inline int gc_hins(void *p) __attribute__((always_inline));
-static inline int gc_hins(void *p) {
-    if (g_gc_hn * 10 >= g_gc_hcap * 7) {
-        long ncap = g_gc_hcap ? g_gc_hcap * 2 : 4096;
-        void **nh = (void **)gcbk_alloc((size_t)ncap * sizeof(void *));
-        if (!nh) { fprintf(stderr, "[ZGC] visited-set alloc failed\n"); abort(); }
-        for (long i = 0; i < g_gc_hcap; i++) if (g_gc_hs[i]) {
-            uint64_t h = ((uint64_t)g_gc_hs[i] >> 4) * 0x9E3779B97F4A7C15ull;
-            long s = (long)(h & (uint64_t)(ncap - 1));
-            while (nh[s]) s = (s + 1) & (ncap - 1);
-            nh[s] = g_gc_hs[i];
-        }
-        gcbk_drop(g_gc_hs);
-        g_gc_hs = nh;
-        g_gc_hcap = ncap;
+static void gc_hins_grow(void) {
+    long ncap = g_gc_mk.hcap ? g_gc_mk.hcap * 2 : 4096;
+    void **nh = (void **)gcbk_alloc((size_t)ncap * sizeof(void *));
+    if (!nh) { fprintf(stderr, "[ZGC] visited-set alloc failed\n"); abort(); }
+    for (long i = 0; i < g_gc_mk.hcap; i++) if (g_gc_mk.hs[i]) {
+        uint64_t h = ((uint64_t)g_gc_mk.hs[i] >> 4) * 0x9E3779B97F4A7C15ull;
+        long s = (long)(h & (uint64_t)(ncap - 1));
+        while (nh[s]) s = (s + 1) & (ncap - 1);
+        nh[s] = g_gc_mk.hs[i];
     }
+    gcbk_drop(g_gc_mk.hs);
+    g_gc_mk.hs = nh;
+    g_gc_mk.hcap = ncap;
+}
+static inline int gc_hins(void *p) {
+    if (g_gc_mk.hn * 10 >= g_gc_mk.hcap * 7) gc_hins_grow();
     {
         uint64_t h = ((uint64_t)p >> 4) * 0x9E3779B97F4A7C15ull;
-        long s = (long)(h & (uint64_t)(g_gc_hcap - 1));
-        while (g_gc_hs[s]) { if (g_gc_hs[s] == p) return 0; s = (s + 1) & (g_gc_hcap - 1); }
-        g_gc_hs[s] = p;
-        g_gc_hn++;
+        long s = (long)(h & (uint64_t)(g_gc_mk.hcap - 1));
+        while (g_gc_mk.hs[s]) { if (g_gc_mk.hs[s] == p) return 0; s = (s + 1) & (g_gc_mk.hcap - 1); }
+        g_gc_mk.hs[s] = p;
+        g_gc_mk.hn++;
         return 1;
     }
 }
@@ -1505,6 +1509,7 @@ static void gc_wl_drain(void) {
         DESCR_t *d = rt_gc_mark_run(&g_gc_mk);
         if (!d) break;
         if (d == (DESCR_t *)1) { if (g_gc_mk.rng_n) gc_wl_grow(); else gc_slot_grow(); } else if (d == (DESCR_t *)2) gc_wl_grow();
+        else if (d == (DESCR_t *)6) gc_hins_grow();
         else if ((uintptr_t)d & 2u) gc_visit_mblk((rt_hblk_t *)((uintptr_t)d & ~(uintptr_t)2u));
         else gc_visit_one(d);
     }
@@ -1514,6 +1519,7 @@ static void gc_run_verdicts(DESCR_t *v) {
     extern DESCR_t *rt_gc_mark_run(gc_mk_t *);
     while (v) {
         if (v == (DESCR_t *)1) { if (g_gc_mk.rng_n) gc_wl_grow(); else gc_slot_grow(); } else if (v == (DESCR_t *)2) gc_wl_grow();
+        else if (v == (DESCR_t *)6) gc_hins_grow();
         else if ((uintptr_t)v & 2u) gc_visit_mblk((rt_hblk_t *)((uintptr_t)v & ~(uintptr_t)2u));
         else gc_visit_one(v);
         v = rt_gc_mark_run(&g_gc_mk);
@@ -3444,14 +3450,14 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     g_gc_mk.mhead = (rt_hblk_t *)0;
     g_gc_spine_recn = 0;
     g_gc_top_graph = (const char *)0;
-    g_gc_hn = 0;
-    if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
+    g_gc_mk.hn = 0;
+    if (g_gc_mk.hs) memset(g_gc_mk.hs, 0, (size_t)g_gc_mk.hcap * sizeof(void *));
     g_gc_mk.nslot = 0;
     g_gc_interior = 0;
 #else
     g_gc_mk.mhead = (rt_hblk_t *)0;
-    g_gc_hn = 0;
-    if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
+    g_gc_mk.hn = 0;
+    if (g_gc_mk.hs) memset(g_gc_mk.hs, 0, (size_t)g_gc_mk.hcap * sizeof(void *));
     g_gc_mk.nslot = 0;
 #endif
     { extern void pl_tr_gc_root_ball(const char *); for (long i = 0; i < g_gc_rrng_n; i++) if (!g_gc_rrng[i].hi) pl_tr_gc_root_ball(g_gc_rrng[i].lo); }

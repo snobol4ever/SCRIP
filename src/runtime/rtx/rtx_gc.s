@@ -327,6 +327,43 @@
 335:
 #endif
 .endm
+.macro MK_HLOAD full
+    mov     rax, qword ptr [rdi + 288]
+    lea     rax, [rax + rax*4]
+    add     rax, rax
+    mov     rdx, qword ptr [rdi + 280]
+    lea     rcx, [rdx*8]
+    sub     rcx, rdx
+    cmp     rax, rcx
+    jae     \full
+.endm
+.macro MK_HINS
+    mov     rax, r10
+    shr     rax, 4
+    mov     rdx, 0x9E3779B97F4A7C15
+    imul    rax, rdx
+    mov     rcx, qword ptr [rdi + 280]
+    dec     rcx
+    and     rax, rcx
+    mov     rdx, qword ptr [rdi + 272]
+336:
+    mov     rbp, qword ptr [rdx + rax*8]
+    test    rbp, rbp
+    je      337f
+    cmp     rbp, r10
+    je      338f
+    inc     rax
+    and     rax, rcx
+    jmp     336b
+337:
+    mov     qword ptr [rdx + rax*8], r10
+    inc     qword ptr [rdi + 288]
+    mov     eax, 1
+    jmp     339f
+338:
+    xor     eax, eax
+339:
+.endm
 RTX_FUNC(rt_gc_mark_run)
     jmp     .Lmk_enter
 RTX_ENTRY(rt_gc_visit_descr_a)
@@ -435,9 +472,9 @@ RTX_ENTRY(rt_gc_walk_words_a)
 .Lmk_n:
     mov     eax, dword ptr [rsi + 4]
     cmp     eax, 2
-    je      .Lmk_slow
+    je      .Lmk_n2
     cmp     eax, 1
-    je      .Lmk_slow
+    je      .Lmk_n1
 .Lmk_plain:
     mov     r10, qword ptr [rsi + 8]
     MK_RAW rsi+8
@@ -709,6 +746,8 @@ RTX_ENTRY(rt_gc_walk_words_a)
     je      .Lmk_tbl
     cmp     edx, HB_AGGB
     je      .Lmk_loop
+    cmp     edx, HB_AGGV
+    je      .Lmk_m_aggv
     or      rax, 2
     jmp     .Lmk_out
 .Lmk_m_dvec:
@@ -758,6 +797,150 @@ RTX_ENTRY(rt_gc_walk_words_a)
     jmp     .Lmk_out
 .Lmk_blk_full_wl:
     lea     rax, [rsi - 16]
+    mov     qword ptr [rax], r15
+    mov     r15, rax
+    mov     eax, 2
+    jmp     .Lmk_out
+.Lmk_n1:
+    mov     r10, qword ptr [rsi + 8]
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lmk_loop
+    lea     rdx, [rax + 16]
+    cmp     r10, rdx
+    jb      .Lmk_loop
+    mov     edx, dword ptr [rax + 8]
+    add     rdx, rax
+    lea     rcx, [r10 + 16]
+    cmp     rcx, rdx
+    ja      .Lmk_loop
+    mov     qword ptr [rdi + 296], rax
+    MK_HLOAD .Lmk_hgrow_d
+    mov     rax, qword ptr [rdi + 16]
+    sub     rax, r11
+    cmp     rax, 1
+    jl      .Lmk_wlgrow_d
+    mov     rax, qword ptr [rdi + 296]
+    MK_SLOT rsi+8
+    MK_MARK_BLK
+    or      r10, 2
+    MK_HINS
+    test    eax, eax
+    je      .Lmk_loop
+    and     r10, -4
+    MK_WLPUSH r10
+    jmp     .Lmk_loop
+.Lmk_n2:
+    mov     r10, qword ptr [rsi + 8]
+    MK_EXACTQ HB_AGGV, .Lmk_loop
+    mov     qword ptr [rdi + 296], rax
+    mov     r10, qword ptr [r10 + 8]
+    test    r10, r10
+    je      .Lmk_n2_ok
+    MK_EXACTQ HB_AGGT, .Lmk_slow
+.Lmk_n2_ok:
+    MK_HLOAD .Lmk_hgrow_d
+    mov     rax, qword ptr [rdi + 16]
+    sub     rax, r11
+    cmp     rax, 3
+    jl      .Lmk_wlgrow_d
+    mov     rax, qword ptr [rdi + 40]
+    sub     rax, rbx
+    cmp     rax, 4
+    jl      .Lmk_slgrow_d
+    mov     r10, qword ptr [rsi + 8]
+    MK_SLOT rsi+8
+    mov     rax, qword ptr [rdi + 296]
+    MK_VIS_TEST_SET
+    test    ebp, ebp
+    jne     .Lmk_loop
+    mov     rsi, r10
+    mov     rax, qword ptr [rdi + 296]
+.Lmk_vcell:
+    MK_MARK_BLK
+    mov     r10, qword ptr [rsi + 16]
+    test    r10, r10
+    je      .Lmk_vc_tbl
+    MK_RAW rsi+16
+.Lmk_vc_tbl:
+    mov     r10, qword ptr [rsi + 8]
+    test    r10, r10
+    je      .Lmk_vc_cellp
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lmk_vc_cellp
+    MK_SLOT rsi+8
+.Lmk_vc_cellp:
+    mov     r10, qword ptr [rsi]
+    test    r10, r10
+    je      .Lmk_vc_descrs
+    MK_RAW rsi
+.Lmk_vc_descrs:
+    lea     r10, [rsi + 24]
+    MK_WLPUSH r10
+    lea     r10, [rsi + 40]
+    MK_WLPUSH r10
+    mov     r10, qword ptr [rsi]
+    test    r10, r10
+    je      .Lmk_vc_table
+    MK_WLPUSH r10
+.Lmk_vc_table:
+    mov     r10, qword ptr [rsi + 8]
+    test    r10, r10
+    je      .Lmk_loop
+    MK_HINS
+    test    eax, eax
+    je      .Lmk_loop
+    mov     rsi, r10
+    jmp     .Lmk_tbl
+.Lmk_m_aggv:
+    mov     qword ptr [rdi + 296], rax
+    mov     r10, qword ptr [rsi + 8]
+    test    r10, r10
+    je      .Lmk_m_aggv_ok
+    MK_EXACTQ HB_AGGT, .Lmk_m_slow
+.Lmk_m_aggv_ok:
+    MK_HLOAD .Lmk_hgrow_b
+    mov     rax, qword ptr [rdi + 16]
+    sub     rax, r11
+    cmp     rax, 3
+    jl      .Lmk_wlgrow_b
+    mov     rax, qword ptr [rdi + 296]
+    MK_VIS_TEST_SET
+    test    ebp, ebp
+    jne     .Lmk_loop
+    mov     rax, qword ptr [rdi + 296]
+    jmp     .Lmk_vcell
+.Lmk_m_slow:
+    mov     rax, qword ptr [rdi + 296]
+    or      rax, 2
+    jmp     .Lmk_out
+.Lmk_hgrow_d:
+    mov     rax, qword ptr [rdi]
+    mov     qword ptr [rax + r11*8], rsi
+    inc     r11
+    mov     eax, 6
+    jmp     .Lmk_out
+.Lmk_wlgrow_d:
+    mov     rax, qword ptr [rdi]
+    mov     qword ptr [rax + r11*8], rsi
+    inc     r11
+    mov     eax, 2
+    jmp     .Lmk_out
+.Lmk_slgrow_d:
+    mov     rax, qword ptr [rdi]
+    mov     qword ptr [rax + r11*8], rsi
+    inc     r11
+    mov     eax, 1
+    jmp     .Lmk_out
+.Lmk_hgrow_b:
+    mov     rax, qword ptr [rdi + 296]
+    mov     qword ptr [rax], r15
+    mov     r15, rax
+    mov     eax, 6
+    jmp     .Lmk_out
+.Lmk_wlgrow_b:
+    mov     rax, qword ptr [rdi + 296]
     mov     qword ptr [rax], r15
     mov     r15, rax
     mov     eax, 2
