@@ -2270,7 +2270,13 @@ DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi) {
     v.slen = (uint32_t)(lo >> 32);
     v.i = (int64_t)hi;
     if (IS_FAIL_fn(v)) return FAILDESCR;
-    if (v.v == DT_SNUL || IS_PROCVAL_fn(v)) { extern int core_icn_error(int code, DESCR_t val); core_icn_op_ctx("*", 1, v, v); core_icn_error(112, v); core_icn_op_ctx_clear(); return FAILDESCR; }
+    if (v.v == DT_SNUL || v.v == DT_FH || IS_PROCVAL_fn(v)) {
+        extern int core_icn_error(int code, DESCR_t val);
+        core_icn_op_ctx("*", 1, v, v);
+        core_icn_error(112, v);
+        core_icn_op_ctx_clear();
+        return FAILDESCR;
+    }
     if (v.v == DT_T) { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)(v.tbl ? v.tbl->size : 0); return r; }
     if (v.v == DT_CO) { extern long scrip_coexpr_activations_of(void *); DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)scrip_coexpr_activations_of(v.p); return r; }
     if (IS_CSET_fn(v)) {
