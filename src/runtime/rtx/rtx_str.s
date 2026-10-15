@@ -253,6 +253,47 @@ RTX_ENTRY(sno_concat_d)
     mov     edi, dword ptr [rax + 16]
     mov     r11d, RTX_GVA_VA
     xor     r10d, r10d
+    cmp     edi, 8
+    jl      .Lsc_ext_scan
+.Lsc_ext_blk:
+    cmp     qword ptr [r11 + 8], rsi
+    je      .Lsc_ext_hit8
+    cmp     qword ptr [r11 + 24], rsi
+    je      .Lsc_ext_hit8
+    cmp     qword ptr [r11 + 40], rsi
+    je      .Lsc_ext_hit8
+    cmp     qword ptr [r11 + 56], rsi
+    je      .Lsc_ext_hit8
+    cmp     qword ptr [r11 + 72], rsi
+    je      .Lsc_ext_hit8
+    cmp     qword ptr [r11 + 88], rsi
+    je      .Lsc_ext_hit8
+    cmp     qword ptr [r11 + 104], rsi
+    je      .Lsc_ext_hit8
+    cmp     qword ptr [r11 + 120], rsi
+    je      .Lsc_ext_hit8
+    add     r11, 128
+    sub     edi, 8
+    cmp     edi, 8
+    jge     .Lsc_ext_blk
+    jmp     .Lsc_ext_scan
+.Lsc_ext_hit8:
+    mov     eax, 8
+.Lsc_ext_h8:
+    cmp     qword ptr [r11 + 8], rsi
+    jne     .Lsc_ext_h8n
+    cmp     byte ptr [r11], DT_S
+    jne     .Lsc_ext_h8n
+    inc     r10d
+    cmp     r10d, 1
+    ja      .Lsc_ext_bad
+.Lsc_ext_h8n:
+    add     r11, 16
+    dec     eax
+    jnz     .Lsc_ext_h8
+    sub     edi, 8
+    cmp     edi, 8
+    jge     .Lsc_ext_blk
 .Lsc_ext_scan:
     test    edi, edi
     jle     .Lsc_ext_have
