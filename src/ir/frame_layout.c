@@ -214,7 +214,7 @@ static int zls_locals_shifted(IR_e op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_entry(const IR_t * nd, int scope_id, int off) {
     cv_reserve(&g_lower.ir.ze_v, (uint32_t)sizeof(zls_entry_t), (uint64_t)g_lower.ir.ze_n + 1, "ze");
-    ze[g_lower.ir.ze_n] = (zls_entry_t){ nd, scope_id, off, off + (zls_locals_shifted(nd->op) ? 16 : 0), 1, -1 };
+    ze[g_lower.ir.ze_n] = (zls_entry_t){ nd, scope_id, off, off + (zls_locals_shifted(ir_kind0(nd)) ? 16 : 0), 1, -1 };
     cv_reserve(&g_lower.ir.zx_v, (uint32_t)sizeof(int), (uint64_t)g_lower.ir.zx_n + 1, "zx");
     zx[g_lower.ir.zx_n++] = g_lower.ir.ze_n;
     g_lower.ir.ze_n++;
@@ -232,7 +232,7 @@ static int zls_act8_kind(const IR_graph_t * g, const IR_t * nd) {
 }
 static int zls_g_pinned_frame(const IR_graph_t * g);
 static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
-    switch (nd->op) {
+    switch (ir_kind0(nd)) {
         case IR_TO:
         case IR_TO_BY:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "to.I counter", nd);
@@ -534,8 +534,8 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
             "aph beta at the gamma landing, or the saved rsp on the LCO/forwarding arms; read back on beta to resume the callee -- bb_call_proc_staged.cpp)", nd);
         return 1 + nd->n_operands;
         default:
-        if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) {
-            if (nd->op == IR_CALL_PROC_STAGED) {
+        if (ir_kind0(nd) == IR_CALL || ir_is_call_kind(ir_kind0(nd))) {
+            if (ir_kind0(nd) == IR_CALL_PROC_STAGED) {
                 if (!zls_callee_is_gen(nd)) return 0;
                 zls_field(scope_id, off, 8, zls_act_kind(g, nd), 0,
                     "callgen.act +0 (ZK_RAW, or ZK_PTR_FRAME on a pinned caller's Prolog arm: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that "
@@ -598,7 +598,7 @@ static int zls_fc_cell(const IR_t * nd) {
     if (!fc_cells_on()) return 0;
     if (!nd) return 0;
     { extern int fc_arm_member(const IR_t *); if (fc_arm_member(nd)) return 0; }
-    switch (nd->op) {
+    switch (ir_kind0(nd)) {
         case IR_MATCH_SPAN:
         case IR_MATCH_TAB:
         case IR_MATCH_RTAB:
@@ -614,7 +614,7 @@ static int zls_fc_cell(const IR_t * nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_grant(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
-    if (zls_is_wiring(nd->op)) return 0;
+    if (zls_is_wiring(ir_kind0(nd))) return 0;
     if (nd->op == IR_CLEANUP && IR_LIT(nd).ival != CLEANUP_OPEN && IR_LIT(nd).ival != CLEANUP_BANK) return 0;
     zls_entry(nd, scope_id, off);
     zls_field(scope_id, off, 16, ZK_DESCR, 0, "result", nd);
@@ -663,7 +663,7 @@ static void zls_mark_value_refs(const IR_graph_t * g, char * live, char * uonly)
             const IR_t * p = c->operands[j];
             if (!p) continue;
             if (j == 0 && (c->op == IR_MATCH_ASSIGN_COND || c->op == IR_MATCH_ASSIGN_IMM)) continue;
-            if (uonly) { int i = zls_reuse_index(&nx, p); if (i >= 0) { if (zls_unify_kind(c->op) && p->op != IR_UNIFY_STRUCT) { if (!uonly[i]) uonly[i] = 1; } else uonly[i] = 2; } }
+            if (uonly) { int i = zls_reuse_index(&nx, p); if (i >= 0) { if (zls_unify_kind(ir_kind0(c)) && ir_kind0(p) != IR_UNIFY_STRUCT) { if (!uonly[i]) uonly[i] = 1; } else uonly[i] = 2; } }
             { int i = zls_reuse_index(&nx, p); if (i >= 0) live[i] = 1; }
         }
     }
@@ -672,8 +672,8 @@ static void zls_mark_value_refs(const IR_graph_t * g, char * live, char * uonly)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_grant_elide(const IR_graph_t * g, const IR_t * nd, int scope_id, int off, int live, int * scratch_off) {
-    if (zls_is_wiring(nd->op)) return 0;
-    if (!live && zls_elide_ok(nd->op)) {
+    if (zls_is_wiring(ir_kind0(nd))) return 0;
+    if (!live && zls_elide_ok(ir_kind0(nd))) {
         if (*scratch_off < 0) {
             *scratch_off = off;
             zls_entry(nd, scope_id, off);
@@ -685,7 +685,7 @@ static int zls_grant_elide(const IR_graph_t * g, const IR_t * nd, int scope_id, 
         ze[g_lower.ir.ze_n - 1].live = 0;
         return 0;
     }
-    if (!live && zls_s4_ok(nd->op)) {
+    if (!live && zls_s4_ok(ir_kind0(nd))) {
         zls_entry(nd, scope_id, off);
         ze[g_lower.ir.ze_n - 1].loff = off;
         ze[g_lower.ir.ze_n - 1].live = 0;
@@ -728,7 +728,7 @@ static int fct_rsp_range(IR_graph_t * g, int k0, int k1) {
     for (int j = k0; j < k1 && j < g->n; j++) {
         IR_t * x = g->all[j];
         if (!x) continue;
-        int op = (int)x->op;
+        int op = (int)ir_kind0(x);
         if (op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || (op == IR_DEFINE && ir_define_sr_citizen(x)) || op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE ||
             op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK || op == IR_SETEXIT_TEST || op == IR_LINE_MARK || op == IR_MATCH_LIT || op == IR_MATCH_LEN ||
             op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE ||
@@ -760,7 +760,7 @@ static void zls_slot_census(IR_graph_t * g) {
     int G = 0, L = 0;
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
-        if (!nd || zls_is_wiring(nd->op) || zls_result_off(nd) < 0) continue;
+        if (!nd || zls_is_wiring(ir_kind0(nd)) || zls_result_off(nd) < 0) continue;
         G++;
         int ref = 0;
         for (int k = 0; k < g->n && !ref; k++) {
@@ -886,7 +886,7 @@ static int zls_overlay(IR_graph_t * g, int base, int k0, int root, const char * 
         for (int i = lo; i < hi && !need; i++) {
             const IR_t * nd = g->all[i];
             if (!nd || !rb[i] || rec[i].pooled >= 0 || lv[i]) continue;
-            if ((dl_base >= 0 && zls_reuse_detleaf(nd)) || (!zls_is_wiring(nd->op) && zls_elide_ok(nd->op))) need = 1;
+            if ((dl_base >= 0 && zls_reuse_detleaf(nd)) || (!zls_is_wiring(ir_kind0(nd)) && zls_elide_ok(ir_kind0(nd)))) need = 1;
         }
         if (need) {
             *scratch_off = base + k0 * 16;
@@ -965,7 +965,9 @@ void zls_build(IR_graph_t * g) {
             else if ((x->op == IR_DEFINE && ir_define_sr_citizen(x))) {
                 long long v = IR_LIT(x).ival;
                 if (v == 1 || v == 2) f = 0;
-            } else if ((x->op == IR_CALL_BUILTIN || x->op == IR_CALL_SNOBOL4 || x->op == IR_CALL) && IR_LIT(x).sval && (!strcmp(IR_LIT(x).sval, "EVAL") || !strcmp(IR_LIT(x).sval, "CODE"))) f = 0;
+            }
+                else if ((ir_kind0(x) == IR_CALL_BUILTIN || ir_kind0(x) == IR_CALL_SNOBOL4 || ir_kind0(x) == IR_CALL) && IR_LIT(x).sval &&
+                (!strcmp(IR_LIT(x).sval, "EVAL") || !strcmp(IR_LIT(x).sval, "CODE"))) f = 0;
         }
         g_lower.ir.fcc_gfence = f;
     }
@@ -995,7 +997,7 @@ void zls_build(IR_graph_t * g) {
                 for (int i = 0; i + 1 < pn; i++) {
                     const IR_t * gx = post[i]->γ.node;
                     if (gx == post[i + 1]) continue;
-                    if (gx && gx->op == IR_DEFINE && gx->γ.node == post[i + 1] && (post[i + 1]->op == IR_CALL || post[i + 1]->op == IR_CALL_PROC_STAGED)) {
+                    if (gx && ir_kind0(gx) == IR_DEFINE && gx->γ.node == post[i + 1] && (ir_kind0(post[i + 1]) == IR_CALL || ir_kind0(post[i + 1]) == IR_CALL_PROC_STAGED)) {
                         long long v = IR_LIT(gx).ival;
                         if (!(v == 1 || v == 2 || v == 3)) continue;
                     }
@@ -1020,7 +1022,7 @@ void zls_build(IR_graph_t * g) {
                         } else if (x->op == IR_UNOP) {
                             fc_vbinop_register(x);
                             fc_vwpop_register(x, (long)d * 16);
-                        } else if (x->op == IR_CALL || x->op == IR_CALL_PROC_STAGED) {
+                        } else if (ir_kind0(x) == IR_CALL || ir_kind0(x) == IR_CALL_PROC_STAGED) {
                             fc_call_register(x);
                             fc_vwpop_register(x, (long)d * 16);
                         } else {
@@ -1189,9 +1191,10 @@ void zls_build(IR_graph_t * g) {
         for (int i = 0; i < g->n && !dyn; i++)
             if (g->all[i] &&
             (g->all[i]->op == IR_GOTO_DEFERRED || g->all[i]->op == IR_GATE ||
-            ((g->all[i]->op == IR_CALL || g->all[i]->op == IR_CALL_BUILTIN || g->all[i]->op == IR_CALL_SNOBOL4) && IR_LIT(g->all[i]).sval && strcmp(IR_LIT(g->all[i]).sval, "CODE") == 0))) dyn = 1;
+            ((ir_kind0(g->all[i]) == IR_CALL || ir_kind0(g->all[i]) == IR_CALL_BUILTIN || ir_kind0(g->all[i]) == IR_CALL_SNOBOL4) && IR_LIT(g->all[i]).sval &&
+            strcmp(IR_LIT(g->all[i]).sval, "CODE") == 0))) dyn = 1;
         if (dyn) { for (int i = 0; i < g->n; i++) if (g->all[i]) rb[i] = 1; wn = 0; }
-        for (int i = 0; i < g->n; i++) if (g->all[i] && !rb[i] && zls_is_wiring(g->all[i]->op)) { rb[i] = 1; wl[wn++] = i; }
+        for (int i = 0; i < g->n; i++) if (g->all[i] && !rb[i] && zls_is_wiring(ir_kind0(g->all[i]))) { rb[i] = 1; wl[wn++] = i; }
         for (int mi2 = 0; mi2 < nl; mi2++) {
             int sp0 = mstart[mi2];
             int sp1 = (mi2 + 1 < nl) ? mstart[mi2 + 1] : g->n;
@@ -1286,9 +1289,9 @@ void zls_build(IR_graph_t * g) {
                 int hit = 0;
                 for (int i = 0; i < g->n && !hit; i++) {
                     const IR_t * d = g->all[i];
-                    if (!d || !rb[i] || lv[i] || zls_is_wiring(d->op)) continue;
-                    if (!zls_reuse_detleaf(d) && !zls_elide_ok(d->op)) continue;
-                    if (rec[i].w < 0 || (nl > 0 && i >= mstart[0]) || (!zls_reuse_detleaf(d) && !zls_reuse_straight(d->op))) { hit = 1; r->scratch_hit_w = d; break; }
+                    if (!d || !rb[i] || lv[i] || zls_is_wiring(ir_kind0(d))) continue;
+                    if (!zls_reuse_detleaf(d) && !zls_elide_ok(ir_kind0(d))) continue;
+                    if (rec[i].w < 0 || (nl > 0 && i >= mstart[0]) || (!zls_reuse_detleaf(d) && !zls_reuse_straight(ir_kind0(d)))) { hit = 1; r->scratch_hit_w = d; break; }
                     int p = 2 * rec[i].w + 1;
                     for (int t = 0; t < g->n; t++) if (rec[t].pooled == q && rec[t].direct < 0 && 2 * rec[t].w + 1 <= p && p <= 2 * rec[t].last) {
                         hit = 1;
@@ -1316,11 +1319,11 @@ void zls_build(IR_graph_t * g) {
         else if (g->alt_zhi) for (int c = 0; c < g->n_alts; c++) g->alt_zhi[c] = 0;
         {
             int nr = 0;
-            for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && !zls_is_wiring(g->all[i]->op)) nr++;
+            for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && !zls_is_wiring(ir_kind0(g->all[i]))) nr++;
             if (r->reuse) ct_drop(r->reuse);
             r->reuse = (struct zls_reuse_s *)ct_alloc(sizeof(zls_reuse_t) * (size_t)(nr > 0 ? nr : 1));
             r->n_reuse = 0;
-            for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && !zls_is_wiring(g->all[i]->op)) r->reuse[r->n_reuse++] = rec[i];
+            for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && !zls_is_wiring(ir_kind0(g->all[i]))) r->reuse[r->n_reuse++] = rec[i];
         }
         ct_drop(rec);
         if (lv != lv_sbuf) ct_drop(lv);
@@ -1830,7 +1833,7 @@ static int zls_op_names_a_string(IR_e op) {
 static int zls_reuse_straight(IR_e op) {
     return op == IR_LIT_INTEGER || op == IR_LIT_REAL || op == IR_LIT_STRING || op == IR_LIT_ATOM || op == IR_VAR || op == IR_VAR_REF || op == IR_BINOP || op == IR_CMP_TEST || op == IR_LINE_MARK;
 }
-static int zls_reuse_detleaf(const IR_t * c) { return c && c->op == IR_CALL && c->seal == IR_SEAL_CALL_DET_LEAF; }
+static int zls_reuse_detleaf(const IR_t * c) { return c && ir_kind0(c) == IR_CALL && c->seal == IR_SEAL_CALL_DET_LEAF; }
 static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int nl, const int * mstart, int i, int dl_w) {
     const IR_t * c = g->all[i];
     if (dl_w <= 0 || rec[i].nread != 1 || rec[i].w < 0 || rec[i].last <= rec[i].w) return -1;
@@ -1854,7 +1857,7 @@ static int zls_reuse_dynamic(const IR_graph_t * g) {
         const IR_t * d = g->all[i];
         if (!d) continue;
         if (d->op == IR_GOTO_DEFERRED || d->op == IR_GATE || d->op == IR_MATCH_DEFER || d->op == IR_MATCH_FENCE1) return 1;
-        if ((d->op == IR_CALL || d->op == IR_CALL_BUILTIN || d->op == IR_CALL_SNOBOL4) && IR_LIT(d).sval && strcmp(IR_LIT(d).sval, "CODE") == 0) return 1;
+        if ((ir_kind0(d) == IR_CALL || ir_kind0(d) == IR_CALL_BUILTIN || ir_kind0(d) == IR_CALL_SNOBOL4) && IR_LIT(d).sval && strcmp(IR_LIT(d).sval, "CODE") == 0) return 1;
     }
     return 0;
 }
@@ -1885,8 +1888,8 @@ static void zls_reuse_plan(const IR_graph_t * g, zls_reuse_t * rec, int * ncp_ou
         const IR_t * c = g->all[i];
         if (!c) continue;
         const IR_t * t = c->ω.node;
-        if (t && !zls_is_wiring(t->op)) { int j = zls_reuse_index(&nx, t); if (j >= 0 && !cp[j]) { cp[j] = 1; ncp++; } }
-        if (pos[i] >= 0 && !zls_is_wiring(c->op) && !zls_reuse_straight(c->op) && !zls_reuse_detleaf(c) && !cp[i]) { cp[i] = 1; ncp++; }
+        if (t && !zls_is_wiring(ir_kind0(t))) { int j = zls_reuse_index(&nx, t); if (j >= 0 && !cp[j]) { cp[j] = 1; ncp++; } }
+        if (pos[i] >= 0 && !zls_is_wiring(ir_kind0(c)) && !zls_reuse_straight(ir_kind0(c)) && !zls_reuse_detleaf(c) && !cp[i]) { cp[i] = 1; ncp++; }
     }
     int * rd_n = (int *)ct_zalloc((size_t)n, sizeof(int));
     int * rd_max = (int *)ct_alloc(sizeof(int) * (size_t)n);
@@ -1907,18 +1910,18 @@ static void zls_reuse_plan(const IR_graph_t * g, zls_reuse_t * rec, int * ncp_ou
             if (t < 0) continue;
             rd_n[t]++;
             if (pos[k] < 0) rd_bad[t] = 1;
-            else { if (pos[k] > rd_max[t]) rd_max[t] = pos[k]; if (!zls_reuse_reader_ok(d->op)) rd_bop[t] = 1; }
+            else { if (pos[k] > rd_max[t]) rd_max[t] = pos[k]; if (!zls_reuse_reader_ok(ir_kind0(d))) rd_bop[t] = 1; }
         }
     }
     for (int i = 0; i < n; i++) {
         const IR_t * c = g->all[i];
-        if (!c || zls_is_wiring(c->op)) continue;
+        if (!c || zls_is_wiring(ir_kind0(c))) continue;
         rec[i].w = pos[i];
         rec[i].llo = loop_lo;
         rec[i].lhi = loop_hi;
         if (dynamic) { rec[i].cls = ZR_DYNAMIC; continue; }
         if (pos[i] < 0) { rec[i].cls = ZR_UNPLACED; continue; }
-        if (!zls_reuse_straight(c->op) && !zls_reuse_detleaf(c)) { rec[i].cls = ZR_SELF; continue; }
+        if (!zls_reuse_straight(ir_kind0(c)) && !zls_reuse_detleaf(c)) { rec[i].cls = ZR_SELF; continue; }
         int ci = zls_reuse_index(&nx, c);
         int last = pos[i] > rd_max[ci] ? pos[i] : rd_max[ci], badreader = rd_bad[ci], badop = rd_bop[ci], nread = rd_n[ci];
         rec[i].last = last;
@@ -1962,7 +1965,7 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
         int sn = 0;
         for (int i = 0; i < n; i++) {
             const IR_t * c = g->all[i];
-            if (!c || zls_is_wiring(c->op)) continue;
+            if (!c || zls_is_wiring(ir_kind0(c))) continue;
             const zls_reuse_t * q = zls_reuse_find(r, c);
             if (!q) continue;
             boxes++;
@@ -1974,13 +1977,13 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
     }
     for (int i = 0; i < n; i++) {
         const IR_t * c = g->all[i];
-        if (!c || zls_is_wiring(c->op)) continue;
+        if (!c || zls_is_wiring(ir_kind0(c))) continue;
         const zls_entry_t * e = zx_find(c);
         if (!e || e->scope_id < r->first_scope || e->scope_id >= r->first_scope + r->n_scopes) continue;
         const zls_reuse_t * q = zls_reuse_find(r, c);
         if (!q) continue;
         results++;
-        const char * on = bb_op_name(c->op);
+        const char * on = bb_op_name(ir_kind0(c));
         if (!on) on = "?";
         const char * dsv = IR_LIT(c).sval ? IR_LIT(c).sval : "?";
         int dlt = zls_reuse_detleaf(c);
@@ -2017,8 +2020,8 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
             case ZR_GUARD:
             {
                 pguard++;
-                const char * gn = q->guard ? bb_op_name(q->guard->op) : "?";
-                const char * gs = (q->guard && zls_op_names_a_string(q->guard->op) && IR_LIT(q->guard).sval) ? IR_LIT(q->guard).sval : "";
+                const char * gn = q->guard ? bb_op_name(ir_kind0(q->guard)) : "?";
+                const char * gs = (q->guard && zls_op_names_a_string(ir_kind0(q->guard)) && IR_LIT(q->guard).sval) ? IR_LIT(q->guard).sval : "";
                 fprintf(fp, ";     reuse +%-5d %-18s w=%-4d r=%-4d PINNED guard: box @%d %s%s%s can recede between the write and the read%s\n", e->off, on, q->w, q->last, q->gpos, gn ? gn : "?",
                     gs[0] ? " " : "", gs, dls);
                 continue;
@@ -2056,9 +2059,9 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
     if (r->scratch_pool >= 0) snprintf(scr, sizeof scr, "overlay(pool slot %d: no dead write lands inside a pooled interval)", r->scratch_pool);
     else if (r->scratch_hit_w && r->scratch_hit_t) {
         const zls_reuse_t * qw = zls_reuse_find(r, r->scratch_hit_w), * qt = zls_reuse_find(r, r->scratch_hit_t);
-        snprintf(scr, sizeof scr, "own(REFUSED: %s dead write at %d lands inside %s [%d..%d] on every pool slot)", bb_op_name(r->scratch_hit_w->op), qw ? 2 * qw->w + 1 : -1,
-            bb_op_name(r->scratch_hit_t->op), qt ? 2 * qt->w + 1 : -1, qt ? 2 * qt->last : -1);
-    } else if (r->scratch_hit_w) snprintf(scr, sizeof scr, "own(REFUSED: %s is a dead writer whose position or scope the plan cannot bound)", bb_op_name(r->scratch_hit_w->op));
+        snprintf(scr, sizeof scr, "own(REFUSED: %s dead write at %d lands inside %s [%d..%d] on every pool slot)", bb_op_name(ir_kind0(r->scratch_hit_w)), qw ? 2 * qw->w + 1 : -1,
+            bb_op_name(ir_kind0(r->scratch_hit_t)), qt ? 2 * qt->w + 1 : -1, qt ? 2 * qt->last : -1);
+    } else if (r->scratch_hit_w) snprintf(scr, sizeof scr, "own(REFUSED: %s is a dead writer whose position or scope the plan cannot bound)", bb_op_name(ir_kind0(r->scratch_hit_w)));
     else snprintf(scr, sizeof scr, "%s", elided ? (pool_slots ? "own(loop: a back-edge re-runs the dead writers)" : "own(no pool slot)") : "none");
     fprintf(fp,
         ";   reuse '%s' results=%d candidates=%d pooled=%d direct=%d pool_slots=%d pinned=%d (self=%d guard=%d unplaced=%d loop=%d dynamic=%d reader=%d detleaf=%d) elided=%d spine=%d/%d betacapable="
@@ -2087,7 +2090,7 @@ void zls_dump(FILE * fp) {
             for (int f = 0; f < g_lower.ir.zf_n; f++) if (zf[f].scope_id == s) {
                 const char * on = "-";
                 char onb[16];
-                if (zf[f].nd) { on = bb_op_name(zf[f].nd->op); if (!on) { snprintf(onb, sizeof onb, "op%d", (int)zf[f].nd->op); on = onb; } }
+                if (zf[f].nd) { on = bb_op_name(ir_kind0(zf[f].nd)); if (!on) { snprintf(onb, sizeof onb, "op%d", (int)ir_kind0(zf[f].nd)); on = onb; } }
                 fprintf(fp, ";     +%-5d %-3d %-8s %-36s %s%s\n", zf[f].off, zf[f].size, zk_name(zf[f].kind), zf[f].what ? zf[f].what : "", on, zf[f].audit ? "  (audit)" : "");
             }
         }
@@ -2168,7 +2171,7 @@ int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fl_icn_op_keeps_pin(const IR_t * c) {
-    switch ((int)c->op) {
+    switch ((int)ir_kind0(c)) {
         case IR_SUSPEND:
         case IR_PROC_GEN:
         case IR_CREATE:
@@ -2212,12 +2215,12 @@ void fl_derive_tier(IR_graph_t * g) {
         const IR_t * c = g->all[i];
         if (!c) continue;
         {
-            int o = (int)c->op;
+            int o = (int)ir_kind0(c);
             if (o >= IR_MATCH && o <= IR_MATCH_VALUE) matchers++;
             else if (o != IR_SUCCEED && o != IR_FAIL && o != IR_GOTO && o != IR_LIT_STRING && o != IR_LIT_ATOM && o != IR_LIT_INTEGER && o != IR_LIT_REAL && o != IR_LIT_CHARSET && o != IR_LIT_NAME)
                 others++;
         }
-        switch ((int)c->op) {
+        switch ((int)ir_kind0(c)) {
             case IR_STATEMENT:
             case IR_STATEMENT_BEGIN:
             case IR_STATEMENT_END:
@@ -2382,7 +2385,7 @@ long zw_carve_k(const IR_t * nd) {
         (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET ||
         nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
     if (_spine) return 0;
-    if (!g_lower.ir.zw_carve_k_all && ((nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) || ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_GOTO_DEFERRED)) return 0;
+    if (!g_lower.ir.zw_carve_k_all && ((ir_kind0(nd) == IR_DEFINE && ir_define_sr_citizen(nd)) || ir_norm_call_kind(ir_kind0(nd)) == IR_CALL || ir_kind0(nd) == IR_GOTO_DEFERRED)) return 0;
     if (fc_geom(nd, &_d)) return 0;
     _k = zw_node_k(nd);
     if (_k <= 0) return 0;

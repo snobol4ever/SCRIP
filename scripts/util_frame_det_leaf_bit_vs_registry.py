@@ -3,7 +3,7 @@ import re, sys, os
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 import util_frame_field_reference_census as C
 DL = re.compile(r"^;\s+reuse\s+\+\d+\s+IR_CALL\s+.*det leaf (\S+): no beta, argv dead at gamma")
-BOX = re.compile(r"^(n\d+_call_bx):")
+BOX = re.compile(r"^(n\d+_call(?:_direct|_pl_leaf|_pas_bi|_callee_rec|_field_rec|_byname|_try|_method|_redisp|_apply|_eval|_gen)?_bx):")
 CALL = re.compile(r"^\s*call\s+([A-Za-z0-9_$.@]+)")
 def main():
     a = sys.argv[1:]
