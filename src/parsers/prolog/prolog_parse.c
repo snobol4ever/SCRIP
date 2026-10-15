@@ -1656,6 +1656,11 @@ static const char * const PL_PRELUDE_SRC =
     "'$gnu_dcg_tl'(L,S0,S,O0,t,Gs0,Gs):-'$gnu_dcg_cp'(L,L,S,X),(O0==t->S0=X,Gs0=Gs;Gs0=[S0=X|Gs]).\n"
     "'$gnu_dcg_cp'([H|T],L,S,[H|R]):-(var(T)->throw(error(instantiation_error,_));T==[]->R=S;T=[_|_]->'$gnu_dcg_cp'(T,L,S,R);throw(error(type_error(list,L),_))).\n"
     "'$predicate_property1'(F,N,built_in):-'$gnu_builtin'(F,N),\\+current_predicate(F/N).\n"
+    "'$pl_pp_pcheck'(P):-(var(P);current_prolog_flag('$dialect',swi)),!.\n"
+    "'$pl_pp_pcheck'(P):-callable(P),functor(P,N,_),memberchk(N,[static,dynamic,private,public,monofile,multifile,user,built_in,built_in_fd,control_construct,native_code,"
+        "prolog_file,prolog_line,meta_predicate,defined,discontiguous,exported,imported_from,foreign,iso,number_of_clauses,native,tabled,volatile,transparent,nodebug,visible,"
+        "template,alias,declared_in,defined_in,scope,synchronized,file,line_count,notrace,thread_local,non_terminal,ssu,quasi_quotation_syntax]),!.\n"
+    "'$pl_pp_pcheck'(P):-throw(error(domain_error(predicate_property,P),predicate_property/2)).\n"
     "'$aux_name'(N):-'$gnu_aux_split'(N,_,_).\n"
     "'$pred_without_aux'(N,A,N1,A1):-('$gnu_aux_split'(N,F,FA)->N1=F,A1=FA;N1=N,A1=A).\n"
     "'$make_aux_name'(N,A,K,X):-'$pred_without_aux'(N,A,N1,A1),atom_codes(N1,NC),number_codes(A1,AC),number_codes(K,KC),"
@@ -3329,6 +3334,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             }
         }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "phrase")) pl_cv_add(referenced, "$phrase");
+        if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "predicate_property")) pl_cv_add(referenced, "$pl_pp_pcheck");
         if (strstr(PL_PRELUDE_LIBS[i].src, "=>")) pl_cv_add(referenced, "subsumes_term");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "write_canonical")) pl_cv_add(referenced, "$write_canonical_swi");
@@ -3427,6 +3433,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (!pl_clause_dcg(cl) && pl_body_has_list_goal(pl_clause_body(cl))) pl_cv_add(&referenced, "consult");
     }
     if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
+    if (pl_cv_has(&referenced, "predicate_property") || pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&referenced, "$pl_pp_pcheck");
     if (pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&refkeys, pl_pred_key("portray_clause", 1));
     if (pl_cv_has(&referenced, "string_concat")) pl_cv_add(&referenced, "$string_concat_split");
     if (pl_cv_has(&referenced, "display")) pl_cv_add(&referenced, "$display_swi");

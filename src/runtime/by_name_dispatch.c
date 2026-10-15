@@ -21810,7 +21810,16 @@ static DESCR_t pl_pp_head(DESCR_t h, DESCR_t *mod) {
     }
     return h;
 }
-static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **file) {
+static int pl_pp_ctl(const char *nm, int ar) {
+    static const char *const c[] = { ",", ";", "->", "call", "!", "catch", "throw", "true", "fail", 0 };
+    static const int ca[] = { 2, 2, 2, 1, 0, 3, 1, 0, 0 };
+    for (int i = 0; c[i]; i++) if (ca[i] == ar && !strcmp(c[i], nm)) return 1;
+    return 0;
+}
+static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **file, long *line) {
+    extern int rt_proc_is_registered(const char *);
+    extern int rt_pl_db_key_line(void *, const char *);
+    extern int rt_pl_db_key_mf(void *, const char *);
     extern int rt_pl_db_key_kind(void *, const char *);
     extern const char *rt_pl_db_key_file(void *, const char *);
     extern int pl_pi_is_builtin(const char *, int);
@@ -21819,8 +21828,41 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
     int ar = 0, kind;
     h = pl_pp_head(h, (DESCR_t *)0);
     if (h.v == (DTYPE_t)DT_PLREF) { nm = prolog_atom_name(plc_fid_name(h.slen)); ar = plc_fid_arity(h.slen); } else nm = pl_atom_str(h);
-    if (!nm || i < 1 || i > 3) return (const char *)0;
-    { size_t nl = strlen(nm); char key[nl + 24]; snprintf(key, sizeof key, "%s/%d", nm, ar); kind = rt_pl_db_key_kind(root, key); if (kind == 1) fp = rt_pl_db_key_file(root, key); }
+    if (!nm || i < 1) return (const char *)0;
+    {
+        size_t nl = strlen(nm);
+        char key[nl + 24];
+        snprintf(key, sizeof key, "%s/%d", nm, ar);
+        kind = rt_pl_db_key_kind(root, key);
+        if (kind == 1) fp = rt_pl_db_key_file(root, key);
+        if (!pl_swi_dialect()) {
+            const char *gp[10];
+            int n = 0, ln = kind ? rt_pl_db_key_line(root, key) : 0;
+            if (kind) {
+                gp[n++] = kind == 2 ? "dynamic" : "static";
+                gp[n++] = kind == 2 ? "public" : "private";
+                gp[n++] = rt_pl_db_key_mf(root, key) ? "multifile" : "monofile";
+                gp[n++] = "user";
+                if (fp) gp[n++] = "prolog_file";
+                if (ln > 0) gp[n++] = "prolog_line";
+                if (fp) gp[n++] = "file";
+                gp[n++] = "defined";
+            } else if (pl_pi_is_builtin(nm, ar) || pl_pp_ctl(nm, ar) || rt_proc_is_registered(key)) {
+                gp[n++] = "static";
+                gp[n++] = "private";
+                gp[n++] = "monofile";
+                gp[n++] = strncmp(nm, "fd_", 3) ? "built_in" : "built_in_fd";
+                gp[n++] = "native_code";
+                if (pl_pp_ctl(nm, ar)) gp[n++] = "control_construct";
+                gp[n++] = "defined";
+            }
+            if (i > n) return (const char *)0;
+            if (!strcmp(gp[i - 1], "prolog_file") || !strcmp(gp[i - 1], "file")) *file = fp;
+            if (!strcmp(gp[i - 1], "prolog_line")) *line = ln;
+            return gp[i - 1];
+        }
+    }
+    if (i > 3) return (const char *)0;
     if (kind && i == 1) return kind == 2 ? "dynamic" : "static";
     if (kind && fp && i == 2) { *file = fp; return "file"; }
     if (kind) return i == (fp ? 3 : 2) ? "defined" : (const char *)0;
@@ -21832,7 +21874,7 @@ DESCR_t rt_pl_dop_pl_pp_count_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void 
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
     rt_pl_tr_gc_sync(cx->tr);
-    { DESCR_t h = rt_pl_deref_val(args[0]); const char *fp; long long n = 0; while (pl_pp_prop(h, root, n + 1, &fp)) n++; ok = plw_unify_vals(args[1], INTVAL(n), cx); }
+    { DESCR_t h = rt_pl_deref_val(args[0]); const char *fp; long ln; long long n = 0; while (pl_pp_prop(h, root, n + 1, &fp, &ln)) n++; ok = plw_unify_vals(args[1], INTVAL(n), cx); }
     rt_pl_tr_gc_sync(cx->tr);
     return ok ? pl_ok() : FAILDESCR;
 }
@@ -21844,8 +21886,10 @@ DESCR_t rt_pl_dop_pl_pp_nth_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *r
     {
         DESCR_t iv = rt_pl_deref_val(args[0]);
         const char *fp = (const char *)0;
-        const char *pr = iv.v == DT_I ? pl_pp_prop(rt_pl_deref_val(args[1]), root, iv.i, &fp) : (const char *)0;
-        if (pr && fp) ok = plw_unify_vals(args[2], pl_gnu_fn1("file", pl_mk_atom_dup(fp, strlen(fp))), cx);
+        long ln = 0;
+        const char *pr = iv.v == DT_I ? pl_pp_prop(rt_pl_deref_val(args[1]), root, iv.i, &fp, &ln) : (const char *)0;
+        if (pr && !strcmp(pr, "prolog_line")) ok = plw_unify_vals(args[2], pl_gnu_fn1(pr, INTVAL(ln)), cx);
+        else if (pr && fp) ok = plw_unify_vals(args[2], pl_gnu_fn1(pr, pl_mk_atom_dup(fp, strlen(fp))), cx);
         else if (pr) ok = plw_unify_vals(args[2], pl_mk_atom_dup(pr, strlen(pr)), cx);
     }
     rt_pl_tr_gc_sync(cx->tr);
@@ -21859,7 +21903,8 @@ PL_CX_LEAF_HEAD(pl_pp_guard, 1)
         DESCR_t h = pl_pp_head(args[0], &m);
         ok = 1;
         if (pl_iso_unbound(h)) { cx->ball = rt_pl_ball_instantiation(); ok = 0; }
-        if (h.v == DT_I || h.v == DT_R) { cx->ball = rt_pl_ball_kind2_pi("type_error", "callable", h, "predicate_property", 2); ok = 0; }
+        if (ok && (h.v == DT_I || h.v == DT_R) && pl_swi_dialect()) ok = 0;
+        else if (h.v == DT_I || h.v == DT_R) { cx->ball = rt_pl_ball_kind2_pi("type_error", "callable", h, "predicate_property", 2); ok = 0; }
         if (ok && m.v != (DTYPE_t)DT_SNUL && pl_val_unbound(rt_pl_deref_val(m))) ok = plw_unify_vals(m, pl_mk_atom_dup("user", 4), cx);
     }
 PL_CX_LEAF_TAIL
@@ -21876,7 +21921,14 @@ PL_CX_LEAF_HEAD(pl_cp_guard, 1)
                 DESCR_t a = rt_pl_deref_val(((DESCR_t *)s.p)[1]);
                 good = (pl_iso_unbound(n) || pl_anum_is_text(n)) && (pl_iso_unbound(a) || (a.v == DT_I && (long long)a.i >= 0));
             }
-            if (!good) { cx->ball = rt_pl_ball_kind2("type_error", "predicate_indicator", s); ok = 0; }
+            if (!good && pl_swi_dialect() && s.v == (DTYPE_t)DT_PLREF && plc_fid_arity(s.slen) == 2 && plc_fid_name(s.slen) == prolog_atom_intern("/") &&
+                pl_atom_str(rt_pl_deref_val(((DESCR_t *)s.p)[0])) && rt_pl_deref_val(((DESCR_t *)s.p)[1]).v == DT_I && (long long)rt_pl_deref_val(((DESCR_t *)s.p)[1]).i < 0) {
+                cx->ball = rt_pl_ball_kind2("domain_error", "not_less_than_zero", rt_pl_deref_val(((DESCR_t *)s.p)[1]));
+                ok = 0;
+            } else if (!good) {
+                cx->ball = rt_pl_ball_kind2("type_error", "predicate_indicator", s);
+                ok = 0;
+            }
         }
     }
 PL_CX_LEAF_TAIL

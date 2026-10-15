@@ -1686,7 +1686,8 @@ static const tree_t * pl_clause_ill_typed(const tree_t * cl) {
 }
 static const char * const pl_pred_props[] = { "built_in", "dynamic", "static", "defined", "multifile", "discontiguous", "meta_predicate", "exported", "imported_from", "foreign", "iso",
     "number_of_clauses", "public", "private", "native", "tabled", "volatile", "transparent", "nodebug", "visible", "template", "alias", "declared_in", "defined_in", "scope", "synchronized", "file",
-    "line_count", "notrace", "thread_local", "non_terminal", "ssu", "quasi_quotation_syntax", NULL };
+    "line_count", "notrace", "thread_local", "non_terminal", "ssu", "quasi_quotation_syntax", "user", "monofile", "native_code", "built_in_fd", "control_construct", "prolog_file", "prolog_line",
+    NULL };
 static const char * pl_meta_template(const char * pn, int ar) {
     static const struct {
         const char * n;
@@ -2137,8 +2138,10 @@ static tree_t * pl_pp_runtime(const tree_t * h, const tree_t * pp) {
     tree_t * iv2 = pl_cc_freshvar();
     cv2->v.ival = cv->v.ival;
     iv2->v.ival = iv->v.ival;
+    tree_t * pc = g_stage2.pl_dialect_swi ? (tree_t *) pl_atom_goal("true") : pl_cc_fnc1("$pl_pp_pcheck", (tree_t *) pp);
     return pl_cc_fnc2(",", pl_cc_fnc1("$pl_pp_guard", (tree_t *) h),
-        pl_cc_fnc2(",", pl_cc_fnc2("$pl_pp_count", (tree_t *) h, cv), pl_cc_fnc2(",", pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv), pl_cc_fnc3("$pl_pp_nth", iv2, (tree_t *) h, (tree_t *) pp))));
+        pl_cc_fnc2(",", pc,
+        pl_cc_fnc2(",", pl_cc_fnc2("$pl_pp_count", (tree_t *) h, cv), pl_cc_fnc2(",", pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv), pl_cc_fnc3("$pl_pp_nth", iv2, (tree_t *) h, (tree_t *) pp)))));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
@@ -3051,10 +3054,10 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 const char * pn = (h && (h->t == TT_FNC || h->t == TT_QLIT || h->t == TT_NAME)) ? h->v.sval : (const char *) 0;
                 int ar = (h && h->t == TT_FNC) ? h->n : 0;
                 const tree_t * pp = t->c[1];
-                if (pl_tree_number(h)) return goal(cx, pl_cc_type_error("callable", h, nm, 2), γnext, ωfail, entry_out);
+                if (pl_tree_number(h)) return goal(cx, g_stage2.pl_dialect_swi ? (tree_t *) pl_atom_goal("fail") : pl_cc_type_error("callable", h, nm, 2), γnext, ωfail, entry_out);
                 if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME || pp->t == TT_FNC) && pp->v.sval && !pl_name_in(pp->v.sval, pl_pred_props))
                     return goal(cx, pl_cc_throw_ar(pl_cc_fnc2("domain_error", (tree_t *) pl_atom_goal("predicate_property"), (tree_t *) pp), nm, 2), γnext, ωfail, entry_out);
-                if (!pn) return goal(cx, pl_pp_runtime(h, pp), γnext, ωfail, entry_out);
+                if (!pn || (!g_stage2.pl_dialect_swi && !(!strcmp(pn, "portray") && ar == 1))) return goal(cx, pl_pp_runtime(h, pp), γnext, ωfail, entry_out);
                 {
                     int dyn = (pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar) || pl_rt_is_dynamic(pn, ar);
                     int def = dyn || pl_file_defines(pn, ar);
@@ -3938,12 +3941,15 @@ static void pl_db_decls_capture(void) {
             char nm[nl + 1];
             memcpy(nm, pe->key, nl);
             nm[nl] = 0;
-            if (pl_dyn_index(nm, ar) >= 0 || pl_decl_dyn_is(nm, ar) || pl_name_is_scrip_own(nm, ar)) continue;
-            PL_DW(prolog_atom_intern(nm));
-            PL_DW(ar);
-            PL_DW(1);
-            PL_DW(-1);
-            { const char * pf = pl_pred_file(nm, ar); char rp[PATH_MAX]; if (pf && realpath(pf, rp)) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(4); PL_DW(prolog_atom_intern(rp)); } }
+            if (pl_name_is_scrip_own(nm, ar)) continue;
+            if (pl_dyn_index(nm, ar) < 0 && !pl_decl_dyn_is(nm, ar)) {
+                PL_DW(prolog_atom_intern(nm));
+                PL_DW(ar);
+                PL_DW(1);
+                PL_DW(-1);
+                { const char * pf = pl_pred_file(nm, ar); char rp[PATH_MAX]; if (pf && realpath(pf, rp)) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(4); PL_DW(prolog_atom_intern(rp)); } }
+            }
+            if (pe->file && pe->file[0] != '<' && pe->choice->c[0] && pe->choice->c[0]->line > 0) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(5); PL_DW(pe->choice->c[0]->line); }
         }
     }
     for (int i = 0; i < g_lower.pl.decl_other_n; i++) if (!pl_name_is_scrip_own(g_lower.pl.decl_other_name[i], g_lower.pl.decl_other_arity[i])) {
@@ -3951,6 +3957,14 @@ static void pl_db_decls_capture(void) {
         PL_DW(g_lower.pl.decl_other_arity[i]);
         PL_DW(2);
         PL_DW(-1);
+    }
+    for (uint32_t i = 0; i < g_stage2.pl_decl_multifile.len; i++) {
+        const tree_t * m = CV_AT(g_stage2.pl_decl_multifile, const tree_t *, i);
+        if (!m || !m->c[0] || !m->c[0]->v.sval || !m->c[1] || pl_name_is_scrip_own(m->c[0]->v.sval, (int) m->c[1]->v.ival)) continue;
+        PL_DW(prolog_atom_intern(m->c[0]->v.sval));
+        PL_DW(m->c[1]->v.ival);
+        PL_DW(6);
+        PL_DW(0);
     }
 #undef PL_DW
     w[0] = n - 2;
