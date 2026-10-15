@@ -5005,6 +5005,7 @@ CVSPINE_t rt_call_apply_spine_prep_blk(DESCR_t callee, DESCR_t lv, void **hslot)
 static const char *rt_pl_goal_key(DESCR_t goal, int extra, DESCR_t **args_out, int *ar_out) {
     extern DESCR_t rt_pl_deref_val(DESCR_t);
     extern const char *prolog_atom_name(int);
+    extern int ATOM_DOT;
     DESCR_t v = rt_pl_deref_val(goal);
     const char *nm = (const char *)0;
     int ar = 0;
@@ -5012,6 +5013,7 @@ static const char *rt_pl_goal_key(DESCR_t goal, int extra, DESCR_t **args_out, i
     if ((int)v.v == DT_PLREF) { nm = prolog_atom_name(plc_fid_name(v.slen)); ar = plc_fid_arity(v.slen); kids = (DESCR_t *)v.p; } else if ((int)v.v == (int)DT_PLATOM) nm = prolog_atom_name((int)v.i);
     else if ((int)v.v == (int)DT_S) nm = v.s;
     if (!nm || extra < 0) return (const char *)0;
+    if ((int)v.v == DT_PLREF && extra == 0 && ar == 2 && plc_fid_name(v.slen) == ATOM_DOT) { kids = (DESCR_t *)rt_ws_alloc_descr(1); kids[0] = v; nm = "consult"; ar = 1; }
     *args_out = kids;
     *ar_out = ar;
     return nm;

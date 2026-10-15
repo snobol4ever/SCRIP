@@ -3358,6 +3358,18 @@ static void pl_collect_imported_libs(PlProgram *prog, cv_t *imported) {
         if (!strcmp(nm, "pio")) pl_cv_add(imported, "pure_input");
     }
 }
+static int pl_body_has_list_goal(const tree_t *b) {
+    if (!b) return 0;
+    if (b->t == TT_MAKELIST && b->n > 0) return 1;
+    if (b->t != TT_FNC || !b->v.sval) return 0;
+    if (b->n == 2 && (!strcmp(b->v.sval, ",") || !strcmp(b->v.sval, ";") || !strcmp(b->v.sval, "->") || !strcmp(b->v.sval, "*->") || !strcmp(b->v.sval, "forall")))
+        return pl_body_has_list_goal(b->c[0]) || pl_body_has_list_goal(b->c[1]);
+    if (b->n == 3 && !strcmp(b->v.sval, "catch")) return pl_body_has_list_goal(b->c[0]) || pl_body_has_list_goal(b->c[2]);
+    if ((b->n == 3 || b->n == 4) && (!strcmp(b->v.sval, "findall") || !strcmp(b->v.sval, "bagof") || !strcmp(b->v.sval, "setof"))) return pl_body_has_list_goal(b->c[1]);
+    if (b->n >= 1 && !strcmp(b->v.sval, "call")) return pl_body_has_list_goal(b->c[0]);
+    return b->n == 1 && (!strcmp(b->v.sval, "\\+") || !strcmp(b->v.sval, "once") || !strcmp(b->v.sval, "ignore") || !strcmp(b->v.sval, "not")) && pl_body_has_list_goal(b->c[0]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *nm; int i; } pl_ckey_t;
 static int pl_ckey_cmp(const void *a, const void *b) { const pl_ckey_t *x = (const pl_ckey_t *)a, *y = (const pl_ckey_t *)b; int c = strcmp(x->nm, y->nm); return c ? c : (x->i > y->i) - (x->i < y->i); }
 static int pl_ckey_lower(const pl_ckey_t *so, int nk, const char *s) { int lo = 0, hi = nk; while (lo < hi) { int m = (lo + hi) / 2; if (strcmp(so[m].nm, s) < 0) lo = m + 1; else hi = m; } return lo; }
@@ -3370,6 +3382,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (pl_clause_is_directive(cl) && cl->tr->c[1] && cl->tr->c[1]->t == TT_FNC && cl->tr->c[1]->v.sval && (!strcmp(cl->tr->c[1]->v.sval, "dynamic") || !strcmp(cl->tr->c[1]->v.sval, "discontiguous")))
             pl_tree_collect_declared(cl->tr->c[1], &user_defined);
         if (cl->tr) { pl_tree_collect_calls(cl->tr, &referenced); pl_tree_collect_keys(cl->tr, &refkeys); }
+        if (!pl_clause_dcg(cl) && pl_body_has_list_goal(pl_clause_body(cl))) pl_cv_add(&referenced, "consult");
     }
     if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
     if (pl_cv_has(&referenced, "listing") || pl_word_referenced(user_src, "listing")) pl_cv_add(&refkeys, pl_pred_key("portray_clause", 1));
