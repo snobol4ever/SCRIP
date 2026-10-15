@@ -3027,7 +3027,15 @@ def cmd_run(args):
     if getattr(args, "partition", ""):
         if shard_tag:
             refuse("--partition and --shard together: a partition is already a bounded subset; grade one or the other")
-        _pname, _psel, _pn, _ppath = select_partition(args.sno, args.partition)
+        # ⭐ <part>@<entry> RESUMES a part at that entry (CEO-1806): the round robin yields to a waiting request between two tests and picks the
+        # chunk up again where it stopped, by name, so a request waits at most one test.
+        _ppart, _, _pfrom = args.partition.partition("@")
+        _pname, _psel, _pn, _ppath = select_partition(args.sno, _ppart)
+        if _pfrom:
+            if _pfrom not in _psel:
+                refuse(f"--partition {args.partition}: {_pfrom!r} is not an entry of {_pname}")
+            _psel = _psel[_psel.index(_pfrom):]
+            print(f"PARTITION_RESUME {_pname} at {_pfrom}: {len(_psel)} entr(ies) left")
         _by = {e.name: e for e in entries}
         _gone = [n for n in _psel if n not in _by]
         if _gone:
@@ -3225,8 +3233,22 @@ def cmd_run(args):
     for _n in _out_run:
         for _m in modes:
             _progress_rows.append((_n, _m, "OUTSIDE", 0, f"{outside[_n][0]}: {outside[_n][1][:160]}"))
+    # ⛔⭐ ONE TEST AT A TIME, EACH ROW WRITTEN AS ITS TEST FINISHES (ceo CEO-1805; Lon 2026-10-15, verbatim: "Basically the COO should run one test at
+    # a time and update the test-suite database. Round robin, done and done."): under S4E_RR=1 (the coo's round-robin loop) the rows graded so far are
+    # appended before the next entry starts, so results.tsv holds every finished test while the chunk still runs; the rest go at the end as before.
+    _rr_stream = os.environ.get("S4E_RR") == "1"
+    _rr_done = [0, 0]   # rows already appended, of which recorded
     try:
-        for e in run_entries:
+        _rr_yield = Path(os.environ["S4E_RR_YIELD_DIR"]) if _rr_stream and os.environ.get("S4E_RR_YIELD_DIR") and not os.environ.get("S4E_REQ") else None
+        for _ei, e in enumerate(run_entries):
+            # ⭐ A WAITING REQUEST GOES FIRST (CEO-1806): before each next test of a round-robin run, a request file in the loop's queue stops the run here;
+            # the tests already graded are recorded, and the loop serves the request and resumes the part at this entry (RR_YIELD names it).
+            if _rr_yield is not None and _ei > 0 and any(_rr_yield.glob("*.req")):
+                print(f"RR_YIELD next={e.name} graded={_ei} of {len(run_entries)} -- a test request waits (CEO-1806); resume with --partition {PARTITION_RUN['name'] or '?'}@{e.name}")
+                break
+            if _rr_stream and len(_progress_rows) > _rr_done[0]:
+                _rr_done[1] += _progress_record(args.sno, paths, _progress_rows[_rr_done[0]:], quiet=True) or 0
+                _rr_done[0] = len(_progress_rows)
             verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext, companion_dir=Path(args.sno).parent)
             if e.name in expected_refusals:
                 for m in modes:
@@ -3310,7 +3332,7 @@ def cmd_run(args):
     print(f"OOM_PROGRAMS family={family} n={len(oom_named)}" + (": " + "; ".join(_oom_items) if _oom_items else "")
           + " (each a properly reported out-of-memory at the heap it ran under: outside the numerator, counted inside <mode>_fail on"
           " the SUITE_BOARD line and split out as <mode>_fail_oom; it wants a heap_kb declaration above its cap, or a leak cure)")
-    _progress_record(args.sno, paths, _progress_rows)
+    _progress_record(args.sno, paths, _progress_rows[_rr_done[0]:], already=_rr_done[1])
     # ⛔ the 40-line sample is a SUMMARY, not a listing: the 5 FAIL / 8 XPASS / 10 HANG entries of a 371-entry
     # board never appeared in it, so nothing could be rowed from names. SUITE_LIST_ALL=1 lists every non-PASS
     # entry (opt-in; the default output is unchanged).
@@ -3401,13 +3423,16 @@ def _progress_pin(paths):
               f"tree they graded, so the append will not be guarded. Fix the pin; never silence it.", file=sys.stderr)
 
 
-def _progress_record(sno_path, paths, rows):
+def _progress_record(sno_path, paths, rows, quiet=False, already=0):
     """Append one row per (entry, mode) graded to THE PROGRESS DATABASE through the ONE writer (util_progress_append.py).
     Loud on refusal: a board that could not be recorded is printed AND exits 2 -- progress/README.md, CEO-319."""
     where = progress_suite_for(sno_path, paths)
-    if where is None or not rows:
-        return
+    if where is None or (not rows and not already):
+        return 0
     cls, suite, lang = where
+    if not rows:
+        print(f"PROGRESS_RECORDED suite={suite} class={cls} rows={already} db=(streamed, one test at a time)")
+        return 0
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import util_progress_append as _pa
     try:
@@ -3433,8 +3458,9 @@ def _progress_record(sno_path, paths, rows):
     except _pa.ProgressGroundMoved as e:
         print(str(e), file=sys.stderr)
         sys.exit(2)
-    if n:
-        print(f"PROGRESS_RECORDED suite={suite} class={cls} rows={n} db={_pa.db_path()}")
+    if n and not quiet:
+        print(f"PROGRESS_RECORDED suite={suite} class={cls} rows={n + already} db={_pa.db_path()}")
+    return n
 
 
 def refpins_path(src_path):
@@ -4553,7 +4579,8 @@ def select_partition(suite_path, name):
             canons.append(c)
             want.update(sel)
         _p, rows = read_partition(suite_path)
-        return "+".join(canons), [r[0] for r in rows if r[0] in want], n_all, path
+        canon = "entries:%d" % len(canons) if all(c.startswith("entry:") for c in canons) else "+".join(canons)
+        return canon, [r[0] for r in rows if r[0] in want], n_all, path
     return select_one_partition(suite_path, name)
 
 
@@ -4576,6 +4603,13 @@ def select_one_partition(suite_path, name):
         if not hit:
             refuse(f"--partition {nm}: {p} has {len(chunks)} chunk(s): {', '.join(chunks)}")
         canon, sel = hit[0], [r[0] for r in rows if r[1] == hit[0]]
+    elif nm.startswith("entry:"):
+        # ⭐ ONE NAMED TEST (ceo CEO-1806, Lon 2026-10-15: "The COO will have two work inputs, the round-robin and the recently requested from other
+        # officers and HQ's."): a seat's request names its tests, and each is one entry of the stored partition (so a stale name refuses here).
+        ent = nm[len("entry:"):]
+        if ent not in {r[0] for r in rows}:
+            refuse(f"--partition {nm}: {p} has no entry {ent!r}")
+        canon, sel = nm, [ent]
     elif nm.startswith("shell:"):
         feat = nm[len("shell:"):]
         canon, sel = f"shell:{feat}", [r[0] for r in rows if feat in r[3]]
@@ -4584,7 +4618,7 @@ def select_one_partition(suite_path, name):
             refuse(f"--partition {nm}: no entry of {p} carries {feat!r} in its shells; the distinctive features ({len(vocab)}): "
                    f"{' '.join(vocab)}")
     else:
-        refuse(f"--partition wants core | shell:<feature> | chunk:NN, got {name!r}")
+        refuse(f"--partition wants core | shell:<feature> | chunk:NN | entry:<name>, got {name!r}")
     if not sel:
         refuse(f"--partition {canon}: {p} selects zero of its {len(rows)} entries")
     return canon, sel, len(rows), p

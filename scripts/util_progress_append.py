@@ -352,6 +352,15 @@ def normalize_row(r):
                   "(library: config= in the row dict). If the axis in this environment is stale and the run really was "
                   "shipped-configuration, unset it or say so with --config shipped.")
         cfg = CONFIG_UNDECLARED
+    # ⭐ rr=1: A READING OF THE coo's ROUND ROBIN (ceo CEO-1805, Lon 2026-10-15: "Basically the COO should run one test at a time and update the
+    # test-suite database. Round robin, done and done."): under S4E_RR=1 every row carries rr=1 in its config, the token the loop row's DONE-WHEN
+    # counts; like partition=, it is the shape of the run and never a configuration of the program (util_progress_flips.py drops both from its key).
+    # and req=<seat>: a test a seat REQUESTED through scripts/s4e_test_request.sh (ceo CEO-1806), served by the loop ahead of the round robin
+    _req = re.sub(r"[^A-Za-z0-9_.-]", "", os.environ.get("S4E_REQ", ""))
+    if _req and ("req=" + _req) not in cfg.split(","):
+        cfg = canonical_config(cfg + ",req=" + _req)
+    elif os.environ.get("S4E_RR") == "1" and "rr=1" not in cfg.split(","):
+        cfg = canonical_config(cfg + ",rr=1")
     out["config"] = cfg
     return out
 
