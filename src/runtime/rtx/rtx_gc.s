@@ -297,6 +297,40 @@
     jmp     .Lmk_range
 .endm
 RTX_FUNC(rt_gc_mark_run)
+    jmp     .Lmk_enter
+RTX_ENTRY(rt_gc_visit_descr_a)
+    xor     eax, eax
+    test    rdi, rdi
+    je      .Lvd_ret
+    movzx   ecx, byte ptr [rdi]
+    lea     rdx, [rip + .Lmk_class]
+    cmp     byte ptr [rdx + rcx], 0
+    je      .Lvd_ret
+    lea     rdx, [rip + g_gc_mk]
+    mov     rcx, qword ptr [rdx + 8]
+    cmp     rcx, qword ptr [rdx + 16]
+    jae     .Lvd_full
+    mov     rsi, qword ptr [rdx]
+    mov     qword ptr [rsi + rcx*8], rdi
+    inc     rcx
+    mov     qword ptr [rdx + 8], rcx
+#if RT_DIAG
+    cmp     rcx, qword ptr [rdx + 120]
+    jle     .Lvd_dr
+    mov     qword ptr [rdx + 120], rcx
+.Lvd_dr:
+#endif
+    mov     eax, 3
+    cmp     qword ptr [rdx + 184], 0
+    jne     .Lvd_ret
+    mov     qword ptr [rdx + 184], 1
+    mov     rdi, rdx
+    jmp     .Lmk_enter
+.Lvd_full:
+    mov     eax, 4
+.Lvd_ret:
+    ret
+.Lmk_enter:
     RTX_PUSHS(rbx)
     RTX_PUSHS(rbp)
     RTX_PUSHS(r12)
@@ -1168,37 +1202,6 @@ RTX_FUNC(rt_gc_visit_raw_a)
     xor     eax, eax
     ret
 RTX_ENDF(rt_gc_visit_raw_a)
-RTX_FUNC(rt_gc_visit_descr_a)
-    mov     eax, 1
-    test    rdi, rdi
-    je      .Lvd_ret
-    movzx   ecx, byte ptr [rdi]
-    lea     rdx, [rip + .Lmk_class]
-    cmp     byte ptr [rdx + rcx], 0
-    je      .Lvd_ret
-    lea     rdx, [rip + g_gc_mk]
-    mov     rcx, qword ptr [rdx + 8]
-    cmp     rcx, qword ptr [rdx + 16]
-    jae     .Lvd_no
-    mov     rsi, qword ptr [rdx]
-    mov     qword ptr [rsi + rcx*8], rdi
-    inc     rcx
-    mov     qword ptr [rdx + 8], rcx
-#if RT_DIAG
-    cmp     rcx, qword ptr [rdx + 120]
-    jle     .Lvd_dr
-    mov     qword ptr [rdx + 120], rcx
-.Lvd_dr:
-#endif
-    cmp     qword ptr [rdx + 184], 0
-    jne     .Lvd_ret
-    mov     eax, 2
-.Lvd_ret:
-    ret
-.Lvd_no:
-    xor     eax, eax
-    ret
-RTX_ENDF(rt_gc_visit_descr_a)
 .macro MK_PTRS
 332:
     mov     rax, qword ptr [r8 + 72]

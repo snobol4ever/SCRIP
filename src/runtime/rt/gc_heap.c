@@ -1501,18 +1501,22 @@ static void gc_wl_drain(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_gc_visit_descr_c(DESCR_t *d) {
-    if (!d || !gc_tag_bears_ptr(d->v)) return;
-    if (g_gc_mk.draining) { gc_wl_push(d); return; }
-    g_gc_mk.draining = 1;
-    gc_wl_push(d);
-    gc_wl_drain();
-    g_gc_mk.draining = 0;
-}
 void rt_gc_visit_descr(DESCR_t *d) {
-    extern int rt_gc_visit_descr_a(DESCR_t *);
-    int r = rt_gc_visit_descr_a(d);
-    if (r == 2) { g_gc_mk.draining = 1; gc_wl_drain(); g_gc_mk.draining = 0; } else if (!r) rt_gc_visit_descr_c(d);
+    extern DESCR_t *rt_gc_visit_descr_a(DESCR_t *);
+    extern DESCR_t *rt_gc_mark_run(gc_mk_t *);
+    for (;;) {
+        DESCR_t *v = rt_gc_visit_descr_a(d);
+        if (v == (DESCR_t *)3) return;
+        if (v == (DESCR_t *)4) { gc_wl_grow(); continue; }
+        while (v) {
+            if (v == (DESCR_t *)1) { if (g_gc_mk.rng_n) gc_wl_grow(); else gc_slot_grow(); } else if (v == (DESCR_t *)2) gc_wl_grow();
+            else if ((uintptr_t)v & 2u) gc_visit_mblk((rt_hblk_t *)((uintptr_t)v & ~(uintptr_t)2u));
+            else gc_visit_one(v);
+            v = rt_gc_mark_run(&g_gc_mk);
+        }
+        g_gc_mk.draining = 0;
+        return;
+    }
 }
 typedef struct gc_trail_roots_args_t { const struct gc_rng_t *rr; long n; long pos_i; const char *pos_e; long n_hb; const char *top; } gc_trail_roots_args_t;
 _Static_assert(__builtin_offsetof(gc_trail_roots_args_t, rr) == 0 && __builtin_offsetof(gc_trail_roots_args_t, n) == 8 && __builtin_offsetof(gc_trail_roots_args_t, pos_i) == 16 &&
