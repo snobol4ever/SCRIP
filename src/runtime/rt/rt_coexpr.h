@@ -74,6 +74,7 @@ int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi);
 long scrip_co_gc_visit_records(long *n_ctx, long *n_sigma);
 void scrip_co_gc_images(long *on_stack, long *off_stack);
 scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig);
+const char *scrip_co_body_base(const scrip_coctx_t *ctx);
 long scrip_coexpr_serial_of(void *ctx);
 long scrip_coexpr_activations_of(void *ctx);
 #ifdef __cplusplus

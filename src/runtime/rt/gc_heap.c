@@ -2950,6 +2950,7 @@ static void gc_sw_run(gc_sw_t *s, const gc_ent_t *ent, const scrip_coctx_t *sc) 
             if (s->run && rt > hi) { s->stop = 11; return; }
             s->roottop = rt;
         }
+        if (sc && w.base == scrip_co_body_base(sc)) { s->stop = 8; return; }
         if (!gc_chain_link(w.base, w.b->link, &pc, &r, &rbp)) { s->stop = (w.b->map->flags & GC_FRAME_MAP_ROOT) ? 0 : 5; return; }
         if ((w.b->map->flags & GC_FRAME_MAP_ROOT) && !gc_site_find(pc, (const gc_site_ent_t **)0)) { s->stop = 0; return; }
     }

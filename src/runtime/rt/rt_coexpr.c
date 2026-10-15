@@ -22,7 +22,7 @@ static pthread_t g_co_main_thr;
 static int g_co_main_set = 0;
 static long g_coexpr_serial = 1;
 extern int g_scan_depth;
-typedef struct scrip_coexpr_entry_pkg_t { void *body_entry_addr; uint64_t r12, r14, rbx, csav5, gva, frame_bytes, below; } scrip_coexpr_entry_pkg_t;
+typedef struct scrip_coexpr_entry_pkg_t { void *body_entry_addr; uint64_t r12, r14, rbx, csav5, gva, frame_bytes, below; char *body_rbp; } scrip_coexpr_entry_pkg_t;
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_entry_addr) == 0, "pkg layout drift: body_entry_addr");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r12) == 8, "pkg layout drift: r12");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r14) == 16,
@@ -33,6 +33,9 @@ _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, gva) == 40,
     "pkg layout drift: gva -- the GLOBAL-VARIABLE AREA base, r9. A co-expression body reads every global as [r9 + off], and r9 was not among the six registers this package carried, so on the body's "
     "own thread it held whatever the trampoline left there: EVERY GLOBAL READ INSIDE A CO-EXPRESSION RETURNED GARBAGE, which is also why activating a co-expression stored in a global segfaulted -- t"
     "he target pointer was garbage, not the co-expression.");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_rbp) == 64,
+    "pkg layout drift: body_rbp -- the trampoline stores the body frame's rbp at 64(pkg) before it jumps in; that frame's link words lie outside the copied image, so the chain over the maps stops th"
+    "ere as the coroutine start (gc_heap.c gc_sw_run, scrip_co_body_base)");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, frame_bytes) == 48, "pkg layout drift: frame_bytes -- the trampoline reads it at 48(pkg) to size the frame-snapshot restore onto the body stack");
 _Static_assert(sizeof(DESCR_t) == 16,
     "the transmitted value is one 16-byte DESCR: bb_activate stages it as rsi:rdx and bb_coret as rdi:rsi, and scrip_coret/scrip_coexpr_activate write exactly those two words");
@@ -212,8 +215,8 @@ void scrip_coexpr_trampoline_entry(void *arg) {
     const co_subj_regs_t subj = rt_scan_live_regs();
     __asm__ volatile ( "mov %1, %%r13\n\t" "mov %2, %%r15\n\t" "mov  8(%0), %%r12\n\t" "mov 16(%0), %%r14\n\t" "mov 24(%0), %%rbx\n\t" "mov 40(%0), %%r9\n\t" "mov 32(%0), %%rsi\n\t"
         "mov 48(%0), %%rcx\n\t" "mov  0(%0), %%rax\n\t" "test %%rcx, %%rcx\n\t" "jz 2f\n\t" "sub %%rcx, %%rsp\n\t" "sub $256, %%rsp\n\t" "and $-16, %%rsp\n\t" "mov %%rsp, %%rdi\n\t"
-        "mov %%rsp, %%rbp\n\t" "mov 56(%0), %%rdx\n\t" "add %%rdx, %%rbp\n\t" "cld\n\t" "rep movsb\n\t" "jmp *%%rax\n\t" "2:\n\t" "mov %%rsp, %%rbp\n\t" "jmp *%%rax\n\t" : : "r"(pkg), "r"(subj.ptr),
-        "r"(subj.len) : "rax", "rcx", "rdx", "rsi", "rdi", "r12", "r13", "r14", "r15", "rbx", "r9", "memory" );
+        "mov %%rsp, %%rbp\n\t" "mov 56(%0), %%rdx\n\t" "add %%rdx, %%rbp\n\t" "mov %%rbp, 64(%0)\n\t" "cld\n\t" "rep movsb\n\t" "jmp *%%rax\n\t" "2:\n\t" "mov %%rsp, %%rbp\n\t" "mov %%rbp, 64(%0)\n\t"
+        "jmp *%%rax\n\t" : : "r"(pkg), "r"(subj.ptr), "r"(subj.len) : "rax", "rcx", "rdx", "rsi", "rdi", "r12", "r13", "r14", "r15", "rbx", "r9", "memory" );
     fprintf(stderr, "scrip_coexpr: FATAL scrip_coexpr_trampoline_entry fell through the jmp -- bad body_entry_addr?\n");
     abort();
 }
@@ -263,6 +266,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     pkg->gva = regs[6];
     pkg->frame_bytes = frame_bytes;
     pkg->below = 0;
+    pkg->body_rbp = 0;
     ctx->image = 0;
     ctx->image_src = 0;
     ctx->image_span = 0;
@@ -460,6 +464,10 @@ long scrip_co_gc_visit_records(long *n_ctx, long *n_sigma) {
     return n;
 }
 scrip_coctx_t *scrip_co_gc_root(void) { if (g_root_ctx.serial == 0) g_root_ctx.serial = 1; return &g_root_ctx; }
+const char *scrip_co_body_base(const scrip_coctx_t *ctx) {
+    if (!ctx || ctx->entry_fn != scrip_coexpr_trampoline_entry || !ctx->entry_arg) return (const char *)0;
+    return ((const scrip_coexpr_entry_pkg_t *)ctx->entry_arg)->body_rbp;
+}
 long scrip_coexpr_serial_of(void *ctx) { return ctx ? ((scrip_coctx_t *)ctx)->serial : 0; }
 long scrip_coexpr_activations_of(void *ctx) { if (!ctx) return 0; if (ctx == (void *)&g_root_ctx) return ((scrip_coctx_t *)ctx)->activations + 1; return ((scrip_coctx_t *)ctx)->activations; }
 int scrip_co_main_known(pthread_t *out) { if (g_co_main_set && out) *out = g_co_main_thr; return g_co_main_set; }
