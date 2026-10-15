@@ -2643,6 +2643,7 @@ int main(int argc, char **argv) {
             } else {
                 emit_textf("  xor r14d, r14d\n");
                 if (bbg->icn_cells_graph) {
+                    emit_textf("  .pushsection .rodata\n.Lscan_nil:  .byte 0\n  .popsection\n  lea r13, [rip + .Lscan_nil]\n  xor r15d, r15d\n");
                     emit_textf("  mov rax, qword ptr [rip + rt_k_level_p@GOTPCREL]\n  mov rax, qword ptr [rax]\n  mov dword ptr [rax], 0\n");
                     emit_textf("  lea rax, [rip + .Lmain_icn_end]\n  push rax\n  push rax\n");
                     emit_textf("  jmp main_\xce\xb1\n");
