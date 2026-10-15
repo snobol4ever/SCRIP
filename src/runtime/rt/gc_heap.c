@@ -1337,8 +1337,6 @@ static inline void gc_wl_push(DESCR_t *d) {
 static void gc_visit_tbblk(struct _TBBLK_t *t);
 static int gc_block_exact(const char *q, uint16_t want_type);
 static rt_hblk_t *gc_block_exact_h(const char *q, uint16_t want_type);
-static void gc_visit_arblk(ARBLK_t *a);
-static void gc_visit_datinst(DATINST_t *u);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline uint16_t gc_mark_vis(rt_hblk_t *h) __attribute__((always_inline));
 static inline uint16_t gc_mark_vis(rt_hblk_t *h) {
@@ -1348,33 +1346,6 @@ static inline uint16_t gc_mark_vis(rt_hblk_t *h) {
     if (!(old & HBF_MARK)) { gc_live_set(g, (size_t)h->size >> 4); g_gc_nmk++; if ((long)h->size > g_gc_mxs) g_gc_mxs = (long)h->size; }
     g_hp_fr.vis[g >> 6] |= bit;
     return old;
-}
-static inline void gc_dvec_push(rt_hblk_t *h) __attribute__((always_inline));
-static inline void gc_dvec_push(rt_hblk_t *h) {
-    DESCR_t *v = (DESCR_t *)(h + 1);
-    long n = (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(DESCR_t));
-    for (long i = 0; i < n; i++) gc_wl_push(&v[i]);
-}
-static void gc_visit_arblk(ARBLK_t *a) {
-    if (a->proto) rt_gc_visit_raw((const char **)&a->proto);
-    if (!a->data) return;
-    {
-        rt_hblk_t *dh = gc_blk_of((const char *)a->data);
-        if (dh && dh->type == HB_DVEC) { uint16_t old = gc_mark_vis(dh); gc_slot_reg_tgt((void *)&a->data, dh); if (!(old & HBF_VIS)) gc_dvec_push(dh); return; }
-        if (dh) { gc_mark_blk(dh, 0); gc_slot_reg_tgt((void *)&a->data, dh); }
-    }
-    { long n = (long)(a->hi - a->lo + 1); if (a->ndim == 2) n *= (long)(a->hi2 - a->lo2 + 1); if (n < 0) n = 0; for (long i = 0; i < n; i++) gc_wl_push(&a->data[i]); }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_visit_datinst(DATINST_t *u) {
-    if (!u->fields || !u->type) return;
-    rt_gc_visit_raw((const char **)&u->type);
-    {
-        rt_hblk_t *fh = gc_blk_of((const char *)u->fields);
-        if (fh && fh->type == HB_DVEC) { uint16_t old = gc_mark_vis(fh); gc_slot_reg_tgt((void *)&u->fields, fh); if (!(old & HBF_VIS)) gc_dvec_push(fh); return; }
-        if (fh) { gc_mark_blk(fh, 0); gc_slot_reg_tgt((void *)&u->fields, fh); }
-    }
-    for (int i = 0; i < u->type->nfields; i++) gc_wl_push(&u->fields[i]);
 }
 static void gc_visit_vcell(VCELL_t *vc) {
     gc_mark_agg(vc);
@@ -1420,46 +1391,6 @@ static void gc_visit_one(DESCR_t *d) {
             if (d->s != (char *)(h + 1)) g_gc_interior++;
 #endif
             gc_slot_reg_tgt((void *)&d->s, h);
-            return;
-        }
-        case DT_A:
-        {
-            ARBLK_t *a = d->arr;
-            rt_hblk_t *ah = gc_block_exact_h((const char *)a, HB_ARR);
-            if (!ah) return;
-            { uint16_t old = gc_mark_vis(ah); gc_slot_reg_tgt((void *)&d->arr, ah); if (old & HBF_VIS) return; }
-            gc_visit_arblk(a);
-            return;
-        }
-        case DT_T:
-        {
-            TBBLK_t *t = d->tbl;
-            rt_hblk_t *th = gc_block_exact_h((const char *)t, HB_AGGT);
-            if (!th) return;
-            gc_slot_reg_tgt((void *)&d->tbl, th);
-            if (gc_vis_test_set(th)) return;
-            gc_visit_tbblk(t);
-            return;
-        }
-        case DT_DATA:
-        {
-#if RT_DIAG
-            if (d->slen == DATA_ELEMS_SLEN) {
-                rt_hblk_t *eh = gc_blk_of((const char *)d->ptr);
-                if (eh) { g_gc_dvec_elems++; if (eh->type != HB_DVEC) { g_gc_dvec_nondvec++; } }
-                rt_gc_visit_raw((const char **)&d->ptr);
-                return;
-            }
-#else
-            if (d->slen == DATA_ELEMS_SLEN) { rt_gc_visit_raw((const char **)&d->ptr); return; }
-#endif
-            {
-                DATINST_t *u = d->u;
-                rt_hblk_t *uh = gc_block_exact_h((const char *)u, HB_DINST);
-                if (!uh) return;
-                { uint16_t old = gc_mark_vis(uh); gc_slot_reg_tgt((void *)&d->u, uh); if (old & HBF_VIS) return; }
-                gc_visit_datinst(u);
-            }
             return;
         }
         case DT_N:
@@ -1532,21 +1463,43 @@ typedef struct gc_mk_t {
     uint64_t *live, *vis;
     rt_hblk_t *mhead;
     DESCR_t *rng_p;
-    long rng_n, wlmax, interior, dvec_elems, dvec_nondvec, nmk, mxs;
+    long rng_n, wlmax, interior, dvec_elems, dvec_nondvec, nmk, mxs, walked, pv_end;
 } gc_mk_t;
 _Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_t, wln) == 8 && __builtin_offsetof(gc_mk_t, wlcap) == 16 && __builtin_offsetof(gc_mk_t, slots) == 24 &&
     __builtin_offsetof(gc_mk_t, nslot) == 32 && __builtin_offsetof(gc_mk_t, scap) == 40 && __builtin_offsetof(gc_mk_t, arena) == 48 && __builtin_offsetof(gc_mk_t, top) == 56 &&
     __builtin_offsetof(gc_mk_t, ssum) == 64 && __builtin_offsetof(gc_mk_t, start) == 72 && __builtin_offsetof(gc_mk_t, live) == 80 && __builtin_offsetof(gc_mk_t, vis) == 88 &&
     __builtin_offsetof(gc_mk_t, mhead) == 96 && __builtin_offsetof(gc_mk_t, rng_p) == 104 && __builtin_offsetof(gc_mk_t, rng_n) == 112 && __builtin_offsetof(gc_mk_t, wlmax) == 120 &&
     __builtin_offsetof(gc_mk_t, interior) == 128 && __builtin_offsetof(gc_mk_t, dvec_elems) == 136 && __builtin_offsetof(gc_mk_t, dvec_nondvec) == 144 && __builtin_offsetof(gc_mk_t, nmk) == 152 &&
-    __builtin_offsetof(gc_mk_t, mxs) == 160, "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
+    __builtin_offsetof(gc_mk_t, mxs) == 160 && __builtin_offsetof(gc_mk_t, walked) == 168 && __builtin_offsetof(gc_mk_t, pv_end) == 176,
+    "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
+_Static_assert(__builtin_offsetof(ARBLK_t, lo) == 0 && __builtin_offsetof(ARBLK_t, hi) == 4 && __builtin_offsetof(ARBLK_t, ndim) == 8 && __builtin_offsetof(ARBLK_t, lo2) == 12 &&
+    __builtin_offsetof(ARBLK_t, hi2) == 16 && __builtin_offsetof(ARBLK_t, proto) == 24 && __builtin_offsetof(ARBLK_t, data) == 32 && __builtin_offsetof(TBBLK_t, buckets) == 0 &&
+    __builtin_offsetof(TBBLK_t, nbuck) == 8 && __builtin_offsetof(TBBLK_t, dflt) == 32 && __builtin_offsetof(TBBLK_t, ord) == 56 && __builtin_offsetof(TBBLK_t, ord_len) == 64 &&
+    __builtin_offsetof(TBBLK_t, icn_ord) == 112 && __builtin_offsetof(TBBUCK_t, len) == 0 && __builtin_offsetof(TBBUCK_t, ent) == 8 && __builtin_offsetof(TBPAIR_t, key_descr) == 0 &&
+    __builtin_offsetof(TBPAIR_t, val) == 16 && sizeof(TBPAIR_t) == 40 && __builtin_offsetof(DATINST_t, type) == 0 && __builtin_offsetof(DATINST_t, fields) == 8 &&
+    __builtin_offsetof(DATBLK_t, nfields) == 8 && HB_ARR == 212 && HB_AGGP == 207 && HB_AGGT == 208 && HB_AGGB == 211 && HB_PVEC == 220,
+    "rt_gc_mark_run (rtx_gc.s) walks arrays, tables, buckets, pairs, data instances and pointer vectors at these offsets and dispatches the move list on these types");
 #define GC_MK_BIT(k) (GC_TYPE_MOVES(HB_AGGV + (k)) ? 1u << (k) : 0u)
 _Static_assert((GC_MK_BIT(0) | GC_MK_BIT(1) | GC_MK_BIT(2) | GC_MK_BIT(3) | GC_MK_BIT(4) | GC_MK_BIT(5) | GC_MK_BIT(6) | GC_MK_BIT(7) | GC_MK_BIT(8) | GC_MK_BIT(9) | GC_MK_BIT(10) | GC_MK_BIT(11) |
     GC_MK_BIT(12) | GC_MK_BIT(13) | GC_MK_BIT(14) | GC_MK_BIT(15) | GC_MK_BIT(16) | GC_MK_BIT(17) | GC_MK_BIT(18)) == 0x7FDE7u && !GC_TYPE_MOVES(HB_AGGV - 1) && !GC_TYPE_MOVES(HB_AGGV + 19),
     "rt_gc_mark_run (rtx_gc.s) tests a block type for moving as bit (type - HB_AGGV) of its MK_MOVES 0x7FDE7, so every moving type lies in HB_AGGV..HB_AGGV+18 and the set reads as that mask");
 _Static_assert(HB_AGGV == 206 && HB_FILL == 202 && HB_DINST == 213 && HB_DVEC == 214 && DATA_ELEMS_SLEN == 1 && PROCVAL_SLEN == 0xFFFFFFFEu && PROCVAL_BUILTIN_SLEN == 0xFFFFFFFCu &&
     PROCVAL_EXTERNAL_SLEN == 0xFFFFFFFBu, "rt_gc_mark_run (rtx_gc.s) carries these block types and descriptor lengths as its own defines");
-static void gc_wl_drain(void) {
+static void gc_visit_mblk(rt_hblk_t *h) {
+    if (h->type == HB_AGGV) { if (!gc_vis_test_set(h)) gc_visit_vcell((VCELL_t *)(h + 1)); return; }
+    if (h->type >= HB_PLDB && h->type <= HB_PLDBK) { extern void pl_db_gc_visit(uint16_t, void *, size_t); pl_db_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t)); return; }
+    if (h->type == HB_TRIE || h->type == HB_TRIEN) { extern void pl_trie_gc_visit(uint16_t, void *); pl_trie_gc_visit(h->type, (void *)(h + 1)); return; }
+    if (h->type == HB_DTP || h->type == HB_DTPRCP) {
+        extern void pm_struct_gc_visit(uint16_t, void *, size_t);
+        pm_struct_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t));
+        return;
+    }
+#if RT_DIAG
+    if (h->type <= HB_ZCOL || h->type == HB_FILL || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_WSB) return;
+    g_gc_interior += (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *));
+#endif
+}
+static long gc_wl_drain(void) {
     extern DESCR_t *rt_gc_mark_run(gc_mk_t *);
     gc_mk_t m;
     memset(&m, 0, sizeof m);
@@ -1576,9 +1529,9 @@ static void gc_wl_drain(void) {
         g_gc_wlmax = m.wlmax;
 #endif
         if (!d) break;
-        if (d != (DESCR_t *)1) gc_visit_one(d);
-        else if (m.rng_n) gc_wl_grow();
-        else gc_slot_grow();
+        if (d == (DESCR_t *)1) { if (m.rng_n) gc_wl_grow(); else gc_slot_grow(); } else if (d == (DESCR_t *)2) gc_wl_grow();
+        else if ((uintptr_t)d & 2u) gc_visit_mblk((rt_hblk_t *)((uintptr_t)d & ~(uintptr_t)2u));
+        else gc_visit_one(d);
     }
     g_gc_nmk += m.nmk;
     if (m.mxs > g_gc_mxs) g_gc_mxs = m.mxs;
@@ -1587,6 +1540,7 @@ static void gc_wl_drain(void) {
     g_gc_dvec_elems += m.dvec_elems;
     g_gc_dvec_nondvec += m.dvec_nondvec;
 #endif
+    return m.walked;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_visit_descr(DESCR_t *d) {
@@ -3589,49 +3543,17 @@ static long gc_collect_ex(const gc_ent_t *ent) {
 #endif
         {
             for (;;) {
-                while (g_gc_mhead) {
-                    rt_hblk_t *h = g_gc_mhead;
-                    g_gc_mhead = (rt_hblk_t *)(uintptr_t)h->fwd;
-                    h->fwd = 0;
-#if RT_DIAG
-                    walked++;
-                    nscan++;
-#endif
-                    if (h->type == HB_DVEC) { if (!gc_vis_test_set(h)) { gc_dvec_push(h); } continue; }
-                    if (h->type == HB_ARR) { if (!gc_vis_test_set(h)) { gc_visit_arblk((ARBLK_t *)(h + 1)); } continue; }
-                    if (h->type == HB_DINST) { if (!gc_vis_test_set(h)) { gc_visit_datinst((DATINST_t *)(h + 1)); } continue; }
-                    if (h->type >= HB_PLDB && h->type <= HB_PLDBK) {
-                        extern void pl_db_gc_visit(uint16_t, void *, size_t);
-                        pl_db_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t));
-                        continue;
-                    }
-                    if (h->type == HB_TRIE || h->type == HB_TRIEN) { extern void pl_trie_gc_visit(uint16_t, void *); pl_trie_gc_visit(h->type, (void *)(h + 1)); continue; }
-                    if (h->type == HB_DTP || h->type == HB_DTPRCP) {
-                        extern void pm_struct_gc_visit(uint16_t, void *, size_t);
-                        pm_struct_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t));
-                        continue;
-                    }
-                    if (h->type == HB_PVEC) {
-                        const char **v = (const char **)(h + 1);
-                        long n = (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *));
-                        for (long i = 0; i < n; i++) if (v[i]) rt_gc_visit_raw(&v[i]);
-                        continue;
-                    }
-                    if (h->type == HB_AGGV) { if (!gc_vis_test_set(h)) { gc_visit_vcell((VCELL_t *)(h + 1)); } continue; }
-                    if (h->type == HB_AGGB) continue;
-                    if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
-                    if (h->type == HB_AGGT) { if (!gc_vis_test_set(h)) { gc_visit_tbblk((struct _TBBLK_t *)(h + 1)); } continue; }
-#if RT_DIAG
-                    if (h->type <= HB_ZCOL || h->type == HB_FILL || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_WSB) continue;
-                    interior += (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *));
-#endif
-                }
-                if (g_gc_wln == 0) break;
+                if (!g_gc_mhead && !g_gc_wln) break;
 #if RT_DIAG
                 rounds++;
 #endif
                 g_gc_wl_draining = 1;
-                gc_wl_drain();
+#if RT_DIAG
+                walked += gc_wl_drain();
+                nscan = walked;
+#else
+                (void)gc_wl_drain();
+#endif
                 g_gc_wl_draining = 0;
             }
         }
