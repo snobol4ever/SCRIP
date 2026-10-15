@@ -17516,12 +17516,28 @@ static int icn_bi_direct_scalar(int bid, DESCR_t *args, int nargs, DESCR_t *out)
     core_icn_op_ctx_clear();
     return bn_icn_right(args, nargs, out);
 }
+static int icn_bi_direct_write(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
+    if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
+    if (nargs < 1 || g_fh[1].closed) return 0;
+    for (int i = 0; i < nargs; i++) if (!((args[i].v == DT_S && !IS_CSET_fn(args[i])) || args[i].v == DT_I)) return 0;
+    core_icn_op_ctx_clear();
+    for (int i = 0; i < nargs; i++) {
+        if (args[i].v == DT_I) { out_write_descr(stdout, args[i], bid == BID_write); continue; }
+        const char *bs = VARVAL_fn(args[i]);
+        uint32_t bn = args[i].slen ? args[i].slen : (bs ? (uint32_t)strlen(bs) : 0u);
+        if (bs && bn) fwrite(bs, 1, bn, stdout);
+    }
+    if (bid == BID_write) fputc('\n', stdout);
+    *out = args[nargs - 1];
+    return 1;
+}
 static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
     const int bid = bidlen & BID_BAKE_MASK;
     const unsigned fnlen = (unsigned)bidlen >> 16;
     if (bid != BID_string && bid != BID_IDENTICAL && bid != BID_trim && bid != BID_put && bid != BID_get && bid != BID_read && bid != BID_type && bid != BID_integer && bid != BID_abs &&
-        bid != BID_atan && bid != BID_right) return 0;
+        bid != BID_atan && bid != BID_right && bid != BID_write && bid != BID_writes) return 0;
     if (!fnlen || fnlen >= 14 || dtax_off() || g_dtax_bid[bid].gen != rt_dtax_gen) return 0;
+    if (bid == BID_write || bid == BID_writes) return icn_bi_direct_write(bid, args, nargs, out);
     if (bid == BID_type || bid == BID_integer || bid == BID_abs || bid == BID_atan || bid == BID_right) return icn_bi_direct_scalar(bid, args, nargs, out);
     if (bid == BID_trim || bid == BID_put || bid == BID_get || bid == BID_read) return icn_bi_direct_list_io(bid, args, nargs, out);
     if (bid == BID_IDENTICAL) { if (nargs != 2 || (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3)) return 0; *out = bn_identical(args[0], args[1]) ? args[1] : FAILDESCR; return 1; }

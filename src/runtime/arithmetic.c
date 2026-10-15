@@ -157,11 +157,12 @@ void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out) {
     if (b.v == DT_S && b.s && b.slen != 0xFFFFFFFFu) {
         extern int icon_radix_int(const char *, long long *);
         extern DESCR_t icon_radix_big(const char *);
-        char nb[128];
-        const char *s = b.s;
-        if (b.slen < sizeof nb) { memcpy(nb, b.s, b.slen); nb[b.slen] = '\0'; s = nb; }
+        char nb[b.slen + 1u];
+        memcpy(nb, b.s, b.slen);
+        nb[b.slen] = '\0';
+        const char *s = nb;
         long long rv;
-        int rr = (b.slen < sizeof nb) ? icon_radix_int(s, &rv) : 0;
+        int rr = icon_radix_int(s, &rv);
         if (rr > 0) { *out = INTVAL(rv); return; }
         if (rr < 0) { DESCR_t bg = icon_radix_big(s); if (!IS_FAIL(bg)) { *out = bg; return; } }
     }
