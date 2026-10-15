@@ -1701,6 +1701,22 @@ DESCR_t rt_plco_resume(DESCR_t h, long cmd, long gen, char **tr, long *gen_out, 
     { scrip_coctx_t *me = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); me->pl_xtr = 0; }
     return rt_plco_settle(c, slot, rt_proc_resume_frame_h(&slot), tr, gen_out, st);
 }
+DESCR_t rt_pleng_resume(DESCR_t h, long gen, long *gen_out, int *st) {
+    scrip_coctx_t *c = (scrip_coctx_t *)h.p;
+    void *slot = (h.v == DT_CO && c) ? rt_genp_of_co(c) : (void *)0;
+    DESCR_t r;
+    *st = -1;
+    if (!slot || c->pl_gen != gen || c->pl_park != 2) return FAILDESCR;
+    c->pl_cmd = 1;
+    { scrip_coctx_t *me = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); me->pl_xtr = 0; }
+    r = rt_proc_resume_frame_h(&slot);
+    if (!slot) { *st = 0; return FAILDESCR; }
+    *gen_out = c->pl_gen;
+    *st = c->pl_park == 4 ? 0 : 1;
+    if (c->pl_park == 4 || c->pl_park == 5) rt_proc_drop_frame_h(&slot);
+    return *st ? r : FAILDESCR;
+}
+int rt_pleng_drop(DESCR_t h) { scrip_coctx_t *c = (scrip_coctx_t *)h.p; void *slot = (h.v == DT_CO && c) ? rt_genp_of_co(c) : (void *)0; if (!slot) return 0; rt_proc_drop_frame_h(&slot); return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PROC_FRAME_NEST_QWORDS 512
 #define DCR_CELL_CACHE_SIZE 2048
