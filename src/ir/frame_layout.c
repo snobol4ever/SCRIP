@@ -613,8 +613,9 @@ static int zls_fc_cell(const IR_t * nd) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zls_no_result(const IR_t * nd) { return zls_is_wiring(ir_kind0(nd)) || (nd->op == IR_DEFINE && ir_define_ch8_role(nd) >= 1 && ir_define_ch8_role(nd) <= 3); }
 static int zls_grant(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
-    if (zls_is_wiring(ir_kind0(nd))) return 0;
+    if (zls_no_result(nd)) return 0;
     if (nd->op == IR_CLEANUP && IR_LIT(nd).ival != CLEANUP_OPEN && IR_LIT(nd).ival != CLEANUP_BANK) return 0;
     zls_entry(nd, scope_id, off);
     zls_field(scope_id, off, 16, ZK_DESCR, 0, "result", nd);
@@ -672,7 +673,7 @@ static void zls_mark_value_refs(const IR_graph_t * g, char * live, char * uonly)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_grant_elide(const IR_graph_t * g, const IR_t * nd, int scope_id, int off, int live, int * scratch_off) {
-    if (zls_is_wiring(ir_kind0(nd))) return 0;
+    if (zls_no_result(nd)) return 0;
     if (!live && zls_elide_ok(ir_kind0(nd))) {
         if (*scratch_off < 0) {
             *scratch_off = off;
