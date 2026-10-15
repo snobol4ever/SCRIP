@@ -2112,8 +2112,16 @@ inline std::string x86_arbno_rbp_unwind(const char * mark_base, int mark_off, in
 inline std::string x86_pl_tr_pop_entry() { return x86("sub", "r12", X86_PL_TR_ENTRY_BYTES) + x86("mov", "rdi", RDQ("r12", 0)) + x86("mov", "rax", RDQ("r12", 16)) + x86("mov", "rdx", RDQ("r12", 24)) +
     x86("mov", RDQ("rdi", 0), "rax") + x86("mov", RDQ("rdi", 8), "rdx"); }
 inline std::string x86_pl_tr_top_sync() { return x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", RDQ("rax", 0), "r12"); }
-inline std::string x86_pl_disj_open(const char * fb, int kt, int l_take, int l_done)
-    { return x86("note", "pl_disj_open inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): the floor word re-aimed at this frame's base; this frame becomes the youngest choice unless a younger one already is")
+inline std::string x86_pl_header_open(const char * fb, int hoff, int prev_off)
+    { return x86("mov", "rax", "rsp")
+    + x86_raw_pack("rax")
+    + x86("mov", RDQ(fb, hoff + 32), "rax")
+    + (prev_off >= 0 ? x86("mov", RDQ(fb, prev_off), "r13") : std::string())
+    + x86("note", "pl_header_open inline (D1): the construct's own choice header in its op slots, its mark at +0 and rsp at the open at +32; B is banked, then B := the header")
+    + x86("lea", "r13", RDQ(fb, hoff)); }
+inline std::string x86_pl_frame_choice_open(const char * fb, int kt, int l_take, int l_done)
+    { return x86("note",
+        "pl_frame_choice_open inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): the floor word re-aimed at this frame's base; this frame becomes the youngest choice unless a younger one already is")
     + x86("mov", "rax", fb) + x86_raw_pack("rax") + x86("mov", RDQ(fb, kt - 32), "rax") + x86("lea", "rcx", RDQ(fb, kt - 64)) + x86("test", "r13", "r13") + x86("je", L(l_take)) +
     x86("cmp", "r13", "rcx") + x86("jb", L(l_done)) + x86("def", L(l_take)) + x86("mov", "r13", "rcx") + x86("def", L(l_done)); }
 extern "C" int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int kind, int * out, int cap);

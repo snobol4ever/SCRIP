@@ -849,12 +849,14 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
          + chk
          + x86("mov", "rax", RDQ(x86_fb(), kt - 40))
          + x86("cmp", "r13", "rax")
-         + (pop ? x86("note", "pop: this frame's own choice is the youngest only through a construct the lowering proved dead, so the call may also take the tail arm when r13 is this frame's "
-                      "header and no clause alternative is left; r13 returns to the caller's choice with the frame")
+         + (pop ? x86("note", "pop: this frame's own choice is the youngest only through a construct the lowering proved dead, so the call may also take the tail arm when r13 is a header "
+                      "inside this frame (H, or a construct's own D1 header in its op slots) and no clause alternative is left; r13 returns to the caller's choice with the frame")
                   + x86("je", L(lsk + 98))
                   + x86("lea", "rax", RDQ(x86_fb(), kt - 64))
                   + x86("cmp", "r13", "rax")
-                  + x86("jne", L(lsk + 99))
+                  + x86("ja", L(lsk + 99))
+                  + x86("cmp", "r13", x86_fb())
+                  + x86("jb", L(lsk + 99))
                   + x86("mov", "rax", RDQ(x86_fb(), kt - 56))
                   + x86("test", "rax", "rax")
                   + x86("jne", L(lsk + 99))

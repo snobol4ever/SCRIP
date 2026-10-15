@@ -230,6 +230,7 @@ static int zls_act8_kind(const IR_graph_t * g, const IR_t * nd) {
     if (g && g->icn_cells_graph) return (nd->op == IR_PROC_GEN || nd->op == IR_CALL_PROC_STAGED || nd->op == IR_CALL_VALUE) ? ZK_PTR_FRAME_H : ZK_RAW;
     return ZK_PTR_CODE;
 }
+static int zls_g_pinned_frame(const IR_graph_t * g);
 static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
     switch (nd->op) {
         case IR_TO:
@@ -239,9 +240,17 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         if (nd->op == IR_TO && ir_range_kind_is(nd, "db")) {
             zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "to.db G (the generation the enumeration took at alpha, ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 B)", nd);
             zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "to.db pad (unused)", nd);
-            return 2;
+            if (!zls_g_pinned_frame(g)) return 2;
+            zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "to.db prev B (D1: the header at op_off+24 banks it at +24, restored when the enumeration is exhausted)", nd);
+            zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "to.db boundary (D1: rsp at the open as a packed RAW word, the header's +32)", nd);
+            return 3;
         }
-        return 1;
+        if (!ir_range_trailed(nd) || !zls_g_pinned_frame(g)) return 1;
+        zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "to.hdr+8 (unused; D1: a trailed range's header is at op_off+24, its mark in to.limit's word)", nd);
+        zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "to.hdr+16 (unused)", nd);
+        zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "to.prev B (D1: the header's +24, restored when the range is exhausted)", nd);
+        zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "to.boundary (D1: rsp at the open as a packed RAW word, the header's +32)", nd);
+        return 3;
         case IR_MAKE_LIST:
         { for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "list.elem", nd); return 0 + nd->n_operands; }
         case IR_SCAN_ENTER:
@@ -390,10 +399,11 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
             "bound.saved rsp (Op_Mark: bounded-expression entry frontier; IR_UNMARK restores it, discarding abandoned retained-suspension FC carves — interp.r Op_Unmark rsp=efp-1)", nd);
         zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "bound.saved rsp at entry -- the gamma-fence release frontier (rung 9, CEO-690)", nd);
         if (!zls_fence_widen(g)) return 1;
-        zls_field(scope_id, off + 16, 8, ZK_RAW, 0,
-            "bound.saved B at entry, banked BEFORE rt_pl_disj_open raises it -- the gamma-fence commit target, because a fence that leaves B at this frame's own H pins the frame it just emptied", nd);
+        zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "bound.saved B at entry, banked BEFORE the header open makes B this bound -- the commit and the failure arm restore it (D1)", nd);
         zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "bound.pad (unused)", nd);
-        return 2;
+        zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "bound.boundary (D1: rsp at the open as a packed RAW word, the header's +32 the trail test reads through B)", nd);
+        zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "bound.pad2 (unused)", nd);
+        return 3;
         case IR_SCAN_UPTO:
         case IR_SCAN_FIND:
         case IR_SCAN_MATCH:
@@ -494,8 +504,13 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
             zls_field(scope_id, off, 8, ZK_RAW, 0,
                 "disj.alt_i live-alternative index (+16 from box base; nary self-state, MOVE_LABEL-ERAD: α=0, φ-glue ++, β dispatches; value DESCR = the box result slot at [base], option-B per-ar"
                 "m copy in σ-glue) (+24 pad)", nd);
-            zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "disj.pad (unused)", nd);
-            return 1;
+            zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "disj.mark (the trail mark; D1: +0 of this disjunction's own choice header)", nd);
+            if (!zls_g_pinned_frame(g)) return 1;
+            zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "disj.hdr+8 (unused)", nd);
+            zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "disj.hdr+16 (unused)", nd);
+            zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "disj.prev B (D1: the header's +24, restored when the last alternative is dispatched)", nd);
+            zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "disj.boundary (D1: rsp at the open as a packed RAW word, the header's +32 the trail test reads through B)", nd);
+            return 3;
         }
         zls_field(scope_id, off, 8, ZK_RAW, 0, "gate.live arm index (operand-less disjunction shares the gate box)", nd);
         zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "gate.pad (unused)", nd);

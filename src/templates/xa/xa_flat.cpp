@@ -452,7 +452,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
            + x86("note",
                "PACKET FRAGMENT: this frame is the youngest choice from its entry (B = its header, the floor word at its "
                    "base), as a multi-clause chain's alternation is, so every binding of a caller cell is trailed and the chain-omega's unwind undoes it before the next clause")
-           + x86_pl_disj_open(x86_fb(), kt, 236, 237); }
+           + x86_pl_frame_choice_open(x86_fb(), kt, 236, 237); }
     if (g_emit_cfg && g_emit_cfg->root_graph) s += emit_gc_map_register(kt - FLAT_FRAME_ALLOWANCE_ROOT, kt, FLAT_FRAME_ALLOWANCE_ROOT - 16, GC_FRAME_MAP_ROOT, 0, 0u);
     else s += emit_gc_map_register(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, kt, kt - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
         (!g_rt_fragment_emit && g_emit.flat_fam && (!strcmp(g_emit.flat_fam, "main") || !strcmp(g_emit.flat_fam, "pat_flat"))) ? GC_FRAME_MAP_ROOT : 0u, 0,

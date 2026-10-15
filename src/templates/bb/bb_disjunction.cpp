@@ -26,7 +26,7 @@ extern "C" {
 #define disj_choice_open() ( \
       IF(x86_fb_pinned(), \
       x86("mov", FRQ(_.op_off + 24), "r12") \
-    + x86_pl_disj_open(x86_fb(), g_emit.flat_frame_bytes, 226, 227)) \
+    + x86_pl_header_open(x86_fb(), _.op_off + 24, _.op_off + 48)) \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define disj_step_unwind() ( \
@@ -34,6 +34,15 @@ extern "C" {
           std::string()) \
     + IF(!(!x86_fb_pinned()), \
           x86_pl_tr_unwind_at(FRQ(_.op_off + 24), 200, 201)) \
+)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define disj_last_restore() ( \
+      IF(x86_fb_pinned(), \
+          x86("cmp", "eax", (int)(_.op_ival - 1)) \
+        + x86("jne", L(228)) \
+        + x86("note", "pl_choice_restore inline (D1): the last alternative runs with B back at the choice this disjunction found; nothing is left to try") \
+        + x86("mov", "r13", FRQ(_.op_off + 48)) \
+        + x86("def", L(228))) \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define disj_step_ball() ( \
@@ -66,6 +75,7 @@ std::string bb_disjunction() {
              + disj_step_ball()
              + x86("add", FR(_.op_off + 16), 1)
              + x86("mov", "eax", FR(_.op_off + 16))
+             + disj_last_restore()
              + disj_dispatch_chain(_.op_ival, 0, 1)
              + x86_omega();
 }

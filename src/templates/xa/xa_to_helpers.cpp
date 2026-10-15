@@ -17,7 +17,18 @@ int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 std::string xa_to_trail_mark() {
     return IF(x86_fb_pinned() && _.op_to_trailed,
                x86("mov", FRQ(_.op_off + 24), "r12")
-             + x86_pl_disj_open(x86_fb(), g_emit.flat_frame_bytes, 226, 227));
+             + x86_pl_header_open(x86_fb(), _.op_off + 24, _.op_off + 48));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string xa_to_trail_exhausted(const char * jcc_ok, int l_ok) {
+    return IF(!(x86_fb_pinned() && _.op_to_trailed),
+               std::string())
+         + IF(x86_fb_pinned() && _.op_to_trailed,
+               x86(jcc_ok, L(l_ok))
+             + x86("note", "pl_choice_restore inline (D1): the enumeration is exhausted, so its header is no choice: B returns to the choice it found")
+             + x86("mov", "r13", FRQ(_.op_off + 48))
+             + x86_omega()
+             + x86("def", L(l_ok)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_unwind() {

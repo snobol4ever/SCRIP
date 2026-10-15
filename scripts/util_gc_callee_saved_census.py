@@ -333,14 +333,16 @@ def liveness(insns, succ, top):
                 live[i] = new; changed = True
     return live, ud
 """----------------------------------------------------------------------------------------------------------"""
-CHOICE_NOTE = re.compile(r'\bpl_(choice_open|cut_barrier|fence_commit|disj_open) inline\b')
+CHOICE_NOTE = re.compile(r'\bpl_(choice_open|cut_barrier|fence_commit|disj_open|header_open|choice_restore) inline\b')
 def _choice_word_def(insns, i, reg):
     """THE FOUR INLINE CHOICE-WORD DEFINITIONS OF r13 (hq_prolog, SCRIP 35ed4e649, ARCH-PROLOG-C-OUT-OF-THE-BOX section 2.2;
     the cto's reading of 2026-10-03: r13 is B, the youngest choice's frame-header address, a STACK address, never a heap
     pointer). The emission DECLARES each one by name in the note it carries -- choice_open `lea r13, [rsp + kt-64]`,
     cut_barrier `mov r13, qword ptr [rbp + kt-40]` (F.B0, the saved caller's B), fence_commit `mov r13, qword ptr [frame
     slot]` (the B banked at the bound), disj_open `mov r13, rcx` where rcx is `lea rcx, [rbp + kt-64]` eight instructions
-    under the sequence's note -- and this reader takes the declaration ONLY when the instruction has the declared SHAPE:
+    under the sequence's note; D1 (the cto, 2026-10-14) adds header_open `lea r13, [rbp + op slot]` (a disjunction's, a bound's or a
+    trailed range's own header) and choice_restore `mov r13, qword ptr [rbp + op slot]` (the B that header banked) -- and this reader
+    takes the declaration ONLY when the instruction has the declared SHAPE:
     a note on a different shape, or the shape without a note (arm 7's planted form), stays UNCLASSIFIED."""
     if reg != "r13": return False
     ins = insns[i]; mn = ins.mnem; ops = ins.ops

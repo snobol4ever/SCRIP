@@ -24,9 +24,7 @@ std::string bb_bound() {
                _.op_sb == 1
              ? x86_alpha() + x86("mov", FRQ(_.op_off), "r12")
          + IF(emit_pl_fence_on(), x86("mov", FRQ(_.op_off + 8), "rsp"))
-         + IF(emit_pl_fence_on(), x86("mov", "rax", "r13")
-         + x86("mov", FRQ(_.op_off + 16), "rax"))
-         + x86_pl_disj_open(x86_fb(), g_emit.flat_frame_bytes, 226, 227)
+         + x86_pl_header_open(x86_fb(), _.op_off, _.op_off + 16)
                + x86_gamma() + x86_beta_trampoline()
              : (_.op_ival & 2)
              ? x86_alpha()
@@ -39,8 +37,9 @@ std::string bb_bound() {
              : x86_alpha() + x86_pl_tr_unwind_at(FRQ(_.op_off), 200, 201)
                + IF((_.op_ival & 1) != 0,
                       x86("test", "r15", "r15") + x86_omega("jne"))
-               + IF((_.op_ival & 4) != 0, x86("mov", "r13", FRQ(_.op_off + 16))
-               + x86("mov", "rsp", FRQ(_.op_off + 8))
+               + x86("note", "pl_choice_restore inline (D1): the condition failed, so the bound's header is no choice: B returns to the choice banked at the bound")
+               + x86("mov", "r13", FRQ(_.op_off + 16))
+               + IF((_.op_ival & 4) != 0, x86("mov", "rsp", FRQ(_.op_off + 8))
                + x86_release_acts(true))
                + x86_gamma() + x86_beta_trampoline())
          + IF(!BND_BOMB() && !x86_fb_pinned() && _.op_zres && _.op_sb == 1,

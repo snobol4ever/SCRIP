@@ -15,6 +15,7 @@ int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_mark();
+std::string xa_to_trail_exhausted(const char * jcc_ok, int l_ok);
 std::string xa_to_trail_unwind();
 std::string xa_to_int_operand_guard(int slot);
 std::string xa_to_db_load_store();
@@ -41,6 +42,7 @@ static std::string bb_to_db() {
          + x86("def", L(0))
          + x86("mov", "rsi", FRQ(_.op_off + 16))
          + x86("cmp", "esi", 0L)
+         + xa_to_trail_exhausted("jge", 5)
          + x86_omega("jl")
          + xa_to_db_load_store() + xa_to_db_slot_addr() + x86("mov", "r8", FRQ(_.op_off + 32))
          + x86("mov", "r11d", RDD("r10", 20))
@@ -173,6 +175,7 @@ std::string bb_to() {
              + x86("mov", "rax", FRQ(_.op_off + 16))
              + x86("mov", "rcx", FRQ(_.op_sb + 8))
              + x86("cmp", "rax", "rcx")
+             + xa_to_trail_exhausted("jle", 6)
              + x86_omega("jg")
              + x86("mov", FRQ(_.op_off), (long)DT_I)
              + x86("mov", FRQ(_.op_off + 8), "rax")
@@ -180,6 +183,7 @@ std::string bb_to() {
              + x86_beta()
              + xa_to_trail_unwind()
              + x86("inc", FRQ(_.op_off + 16))
+             + xa_to_trail_exhausted("jno", 7)
              + x86_omega("jo")
              + x86("jmp", L(0)));
 }
