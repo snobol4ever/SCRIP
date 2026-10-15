@@ -44,7 +44,7 @@ OUTPUT (stdout; the row's DONE-WHEN greps ^BB_PLACEMENT):
   BB_PLACEMENT_CLASS <lang> <state>:<cause> <A|L> <kind> count=..
   BB_PLACEMENT_TESTS <lang>|total offspine=.. operand_test=.. local_test=.. standing=.. other=..   (other = off the spine, no test fails)
   BB_PLACEMENT_TESTS_WHY <lang> <test>:<why> count=..
-  BB_UNWIND <lang>|total retry_restore=.. discard_restore=.. multi_pop=..   (CEO-1755/1759, from the emitted .s: see asm_unwind)
+  BB_UNWIND <lang>|total rsp_loads=.. retry_restore=.. discard_restore=.. multi_pop=..   (CEO-1755/1759, from the emitted .s: see asm_unwind)
   BB_UNWIND_RSPLOAD <lang> <class> count=..   every rsp load by the label it sits under: restore_* is a RETRY loading rsp from a saved
       value (banned), discard_* a FENCE, ARBNO, cut or statement landing dropping rsp to a saved depth (allowed, counted apart)
   BB_UNWIND_MULTIPOP <lang> into=<box kind> count=..
@@ -461,7 +461,7 @@ def main():
     ug = collections.Counter()
     for lang in langs:
         u = unw[lang]
-        print('BB_UNWIND %s retry_restore=%d discard_restore=%d multi_pop=%d' % (lang, u['retry_restore'], u['discard_restore'], u['multi_pop']))
+        print('BB_UNWIND %s rsp_loads=%d retry_restore=%d discard_restore=%d multi_pop=%d' % (lang, sum(v for k, v in u.items() if k.startswith('rspload:')), u['retry_restore'], u['discard_restore'], u['multi_pop']))
         for k, v in sorted(u.items()):
             if k.startswith('rspload:'):
                 print('BB_UNWIND_RSPLOAD %s %s count=%d' % (lang, k[8:], v))
@@ -469,7 +469,8 @@ def main():
                 print('BB_UNWIND_MULTIPOP %s into=%s count=%d' % (lang, k[9:], v))
         for k in ('retry_restore', 'discard_restore', 'multi_pop'):
             ug[k] += u[k]
-    print('BB_UNWIND total retry_restore=%d discard_restore=%d multi_pop=%d' % (ug['retry_restore'], ug['discard_restore'], ug['multi_pop']))
+        ug['rsp_loads'] += sum(v for k, v in u.items() if k.startswith('rspload:'))
+    print('BB_UNWIND total rsp_loads=%d retry_restore=%d discard_restore=%d multi_pop=%d' % (ug['rsp_loads'], ug['retry_restore'], ug['discard_restore'], ug['multi_pop']))
     for lang in langs:
         b = bases[lang]
         n = sum(b.values())
