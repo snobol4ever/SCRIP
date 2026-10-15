@@ -271,6 +271,7 @@ static std::string bb_define_sr() {
                  + x86_jmp_id(base + nf4)
                  + FOR(0, nf4, [&](int i) { return x86_deflabel_id(base + i) + ext(i); })
                  + x86_deflabel_id(base + nf4); };
+        auto DUPL = [&](int k) { int g = gk4[nf4 + k]; if (g < 0) return false; for (int i = 0; i < nf4; i++) if (gk4[i] == g) return true; return false; };
         long WNOFF = 16L * xt4 + 24;
         auto WNSAVE = [&]() {
             return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
@@ -395,7 +396,7 @@ static std::string bb_define_sr() {
                  + x86("sub", "rsp", F4)
                  + x86_rsp_mark_save()
                  + WNSAVE()
-                 + FOR(0, xt4, [&](int k) { if (gk4[nf4 + k] < 0) return std::string();
+                 + FOR(0, xt4, [&](int k) { if (gk4[nf4 + k] < 0 || DUPL(k)) return std::string();
                        return x86("note", gva_note(gk4[nf4 + k]))
                             + x86("mov", "rax", GQ(gk4[nf4 + k], 0))
                             + x86_rsp_store64(16 * k, "rax")
@@ -427,6 +428,14 @@ static std::string bb_define_sr() {
                                 + x86("mov", EXTQ(16L * i + 8).c_str(), "rax")
                                 + x86("mov", GQ(gk4[i], 0), (long)DT_SNUL)
                                 + x86("mov", GQ(gk4[i], 8), (long)0); })
+                 + FOR(0, xt4, [&](int k) { if (gk4[nf4 + k] < 0 || !DUPL(k)) return std::string();
+                       return x86("note", gva_note(gk4[nf4 + k]))
+                            + x86("mov", "rax", GQ(gk4[nf4 + k], 0))
+                            + x86_rsp_store64(16 * k, "rax")
+                            + x86("mov", "rax", GQ(gk4[nf4 + k], 8))
+                            + x86_rsp_store64(16 * k + 8, "rax")
+                            + x86("mov", GQ(gk4[nf4 + k], 0), (long)DT_SNUL)
+                            + x86("mov", GQ(gk4[nf4 + k], 8), (long)0); })
          + x86("push", "rcx")
                  + bb_fnclevel_enter()
                  + bb_stno_save((int)(16 * xt4 + 8))
