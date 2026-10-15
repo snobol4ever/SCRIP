@@ -2515,6 +2515,21 @@ static const char * const PL_PRELUDE_SRC =
     "'$between_test'(L,H,X):-X>=L,(integer(H)->X=<H;true).\n"
     "lazy_list(Next,S0,L):-freeze(L,'$lazy_list_next'(Next,S0,L)).\n"
     "'$lazy_list_next'(Next,S0,L):-(call(Next,S0,S1,H)->L=[H|T],lazy_list(Next,S1,T);L=[]).\n"
+    "'$mctx_pick'([M|_],N,A,QN):-atom_concat(M,':',P),atom_concat(P,N,Q0),functor(Q,Q0,A),(predicate_property(Q,dynamic);predicate_property(Q,defined)),!,QN=Q0.\n"
+    "'$mctx_pick'([_|Ms],N,A,QN):-'$mctx_pick'(Ms,N,A,QN).\n"
+    "'$mctx_head'(M1,M2,H0,H):-nonvar(H0),callable(H0),H0\\=(_:_),functor(H0,N,A),'$mctx_pick'([M1,M2],N,A,QN),!,H0=..[_|As],H=..[QN|As].\n"
+    "'$mctx_head'(_,_,H,H).\n"
+    "'$mctx_term'(M1,M2,T0,T):-nonvar(T0),T0=(H0:-B),!,'$mctx_head'(M1,M2,H0,H),T=(H:-B).\n"
+    "'$mctx_term'(M1,M2,T0,T):-'$mctx_head'(M1,M2,T0,T).\n"
+    "'$mctx_assert'(M1,M2,C):-'$mctx_term'(M1,M2,C,C1),assert(C1).\n"
+    "'$mctx_asserta'(M1,M2,C):-'$mctx_term'(M1,M2,C,C1),asserta(C1).\n"
+    "'$mctx_assertz'(M1,M2,C):-'$mctx_term'(M1,M2,C,C1),assertz(C1).\n"
+    "'$mctx_assert'(M1,M2,C,R):-'$mctx_term'(M1,M2,C,C1),assert(C1,R).\n"
+    "'$mctx_asserta'(M1,M2,C,R):-'$mctx_term'(M1,M2,C,C1),asserta(C1,R).\n"
+    "'$mctx_assertz'(M1,M2,C,R):-'$mctx_term'(M1,M2,C,C1),assertz(C1,R).\n"
+    "'$mctx_retract'(M1,M2,C):-'$mctx_term'(M1,M2,C,C1),retract(C1).\n"
+    "'$mctx_retractall'(M1,M2,H0):-'$mctx_head'(M1,M2,H0,H),retractall(H).\n"
+    "'$mctx_clause'(M1,M2,H0,B):-'$mctx_head'(M1,M2,H0,H),clause(H,B).\n"
     "'$at_ctx'(V):-var(V),!,throw(error(instantiation_error,_)).\n"
     "'$at_ctx'(_).\n"
     "@(G,M):-'$at_ctx'(G),'$at_ctx'(M),(G=Q:_->'$at_ctx'(Q);true),('$meta_ctx'(G,M,G2)->call(G2);call(G)).\n"
@@ -3511,6 +3526,10 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "setup_call_catcher_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&referenced, "meta_predicate")) pl_cv_add(&referenced, "$mq_arg");
     if (pl_cv_has(&referenced, "clause")) pl_cv_add(&referenced, "$clause_unmangle");
+    if (pl_cv_has(&referenced, "module") || pl_cv_has(&referenced, "begin_tests")) for (int mi = 0; mi < 9; mi++) {
+        static const char * const mq[9] = { "$mctx_pick", "$mctx_head", "$mctx_term", "$mctx_assert", "$mctx_asserta", "$mctx_assertz", "$mctx_retract", "$mctx_retractall", "$mctx_clause" };
+        pl_cv_add(&referenced, mq[mi]);
+    }
     if (pl_cv_has(&referenced, "@")) { pl_cv_add(&referenced, "$at_ctx"); pl_cv_add(&referenced, "$meta_add"); }
     if (pl_cv_has(&referenced, "lazy_list")) pl_cv_add(&referenced, "$wakeup");
     if (pl_cv_has(&referenced, "between")) pl_cv_add(&referenced, "$between_test");

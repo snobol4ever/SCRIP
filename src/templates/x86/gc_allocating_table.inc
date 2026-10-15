@@ -1122,6 +1122,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_mod_qname", GC_RET_OTHER },
     { "pl_mod_qualified", GC_RET_OTHER },
     { "pl_mod_resolve", GC_RET_OTHER },
+    { "pl_mod_rt_clause", GC_RET_OTHER },
     { "pl_mod_table_pi", GC_RET_VOID },
     { "pl_mod_trans_each", GC_RET_VOID },
     { "pl_module_flatten", GC_RET_VOID },

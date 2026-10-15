@@ -855,6 +855,19 @@ static int pl_mod_at(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g, i
     g->c[1] = G;
     return 1;
 }
+static int pl_mod_rt_clause(const pl_mods_t *ms, const char *m1, const char *m2, tree_t *g) {
+    const char *nm = g->v.sval;
+    int ar = g->n;
+    char b[strlen(nm) + 8];
+    int cl = ((ar == 1 || ar == 2) && (!strcmp(nm, "assert") || !strcmp(nm, "asserta") || !strcmp(nm, "assertz"))) || (ar == 1 && (!strcmp(nm, "retract") || !strcmp(nm, "retractall"))) || (ar == 2 && !strcmp(nm, "clause"));
+    if (!cl || g->t != TT_FNC || !g->c[0] || g->c[0]->t != TT_VAR || !m1 || !strcmp(m1, "user") || !ms->defs.len) return 0;
+    snprintf(b, sizeof b, "$mctx_%s", nm);
+    (void)prolog_atom_intern(b);
+    g->v.sval = ct_strdup(b);
+    pl_mod_prepend(g, pl_mod_ctx_node(m2 ? m2 : "user", 0));
+    pl_mod_prepend(g, pl_mod_ctx_node(m1, 0));
+    return 1;
+}
 static void pl_mod_goal(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g, int trans) {
     const char *nm, *q;
     int ar;
@@ -888,6 +901,7 @@ static void pl_mod_goal(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g
         ast_push(g, pl_mod_ctx_node(m1, trans));
         return;
     }
+    if (pl_mod_rt_clause(ms, m1, m2, g)) return;
     if ((ar == 1 || ar == 2) && (!strcmp(nm, "assert") || !strcmp(nm, "asserta") || !strcmp(nm, "assertz") || (ar == 1 && !strcmp(nm, "retract")))) { pl_mod_clause_term(ms, m1, m2, g->c[0], trans); return; }
     if (ar == 2 && !strcmp(nm, "clause")) {
         pl_mod_head(ms, m1, m2, g->c[0]);
