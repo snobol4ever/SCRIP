@@ -714,7 +714,9 @@ void rt_proc_reset(void) {
     bnd_tweak_cache_clear();
     if (g_proc_hsl) memset(g_proc_hsl, 0, (size_t)g_proc_hcap * sizeof(int));
 }
-__attribute__((noreturn)) void rt_ab_undef_fn_stub(void) { core_runtime_error(22, "undefined function called"); __builtin_unreachable(); }
+void rt_ab_undef_fn_fail(void);
+__asm__( ".text\n" ".globl rt_ab_undef_fn_stub\n" ".type rt_ab_undef_fn_stub, @function\n" "rt_ab_undef_fn_stub:\n" "  andq $-16, %rsp\n" "  call rt_ab_undef_fn_fail\n" "  ud2\n"
+    ".size rt_ab_undef_fn_stub, .-rt_ab_undef_fn_stub\n" );
 __asm__( ".text\n" ".globl rt_ab_undef_sig_stub\n" ".type rt_ab_undef_sig_stub, @function\n" "rt_ab_undef_sig_stub:\n" "  movq %rsp, %rax\n" "  andq $-16, %rsp\n" "  pushq %rax\n" "  pushq %rcx\n"
     "  call rt_ab_undef_fn_fail\n" "  call rt_ret_faildescr\n" "  popq %rcx\n" "  popq %r8\n" "  movq %r8, %rsp\n" "  jmp *16(%rcx)\n" ".size rt_ab_undef_sig_stub, .-rt_ab_undef_sig_stub\n" );
 void rt_ab_undef_sig_stub(void);

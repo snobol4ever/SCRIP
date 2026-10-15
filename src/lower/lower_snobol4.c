@@ -4242,7 +4242,7 @@ static void sno_prescan_expr(const tree_t * t, cv_t * defs, cv_t * bodies, cv_t 
         if (name && !strcmp(name, "OPSYN") && t->n - argbase == 2) {
             const char * an = sno_litname(t->c[argbase]);
             const char * on = sno_litname(t->c[argbase + 1]);
-            if (an && on) {
+            if (an && on && !sn4_sysfn_protected(an)) {
                 int fo = -1, fa = -1;
                 for (uint32_t k = 0; k < defs->len; k++) if (!strcmp(CV_AT(*defs, sno_def_t, k).fname, on)) { fo = (int) k; break; }
                 for (uint32_t k = 0; k < defs->len; k++) if (!strcmp(CV_AT(*defs, sno_def_t, k).fname, an)) { fa = (int) k; break; }
