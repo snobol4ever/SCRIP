@@ -6077,6 +6077,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     g_emitter.g_bb_slotmap_n = 0; g_emitter.g_bb_slotix_gen++;
     { extern int g_scan_regs_live; g_scan_regs_live = 0; }
     { extern void zop_audit_graph_close(void); zop_audit_graph_close(); g_emit.zop_seen = 0; }
+    g_emit.op_zres = 0; g_emit.op_icn_unpinned = 0; g_emit.op_zabs = 0;
     g_emit.flat_all_zd = 0;
     g_emit.flat_deep_arrival = emit_graph_has_deep_arrival(g_emit_cfg);
     { int _rc_own = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
