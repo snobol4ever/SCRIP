@@ -7105,7 +7105,7 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
         {
             DESCR_t a = rt_pl_deref_val(((DESCR_t *)opt.p)[0]);
             const char *as = pl_atom_str(a);
-            if (pl_val_unbound(a)) { cx->ball = on && !strcmp(on, "alias") && !pl_swi_dialect() ? rt_pl_ball_kind2("domain_error", "stream_option", opt) : rt_pl_ball_instantiation(); return 0; }
+            if (pl_val_unbound(a)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
             if (on && !strcmp(on, "alias")) {
                 extern void fh_set_alias(int, const char *);
                 if (!as) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
