@@ -1597,7 +1597,9 @@ static const char * const PL_PRELUDE_SRC =
     "'$expand_bodies'((:-B),(:-B1)):-!,expand_goal(B,B1).\n"
     "'$expand_bodies'(C,C).\n"
     "expand_goal(G,G):-var(G),!.\n"
-    "expand_goal(G,X):-current_predicate(goal_expansion/2),call(goal_expansion(G,G1)),G1\\==G,!,expand_goal(G1,X).\n"
+    "expand_goal(G,X):-current_predicate(goal_expansion/2),call(goal_expansion(G,G1)),G1\\==G,!,expand_goal(G1,X0),('$expand_wrap'(G,X0)->X=(X0,true);X=X0).\n"
+    "'$expand_wrap'(G,R):-R=(_->_),G\\=(_->_).\n"
+    "'$expand_wrap'(G,R):-R=(_*->_),G\\=(_*->_).\n"
     "expand_goal(G,X):-'$expand_ctl'(G,X).\n"
     "'$expand_ctl'((A,B),(A1,B1)):-!,expand_goal(A,A1),expand_goal(B,B1).\n"
     "'$expand_ctl'((A;B),(A1;B1)):-!,expand_goal(A,A1),expand_goal(B,B1).\n"
@@ -1605,6 +1607,9 @@ static const char * const PL_PRELUDE_SRC =
     "'$expand_ctl'((A*->B),(A1*->B1)):-!,expand_goal(A,A1),expand_goal(B,B1).\n"
     "'$expand_ctl'(\\+A,\\+A1):-!,expand_goal(A,A1).\n"
     "'$expand_ctl'(call(A),call(A1)):-!,expand_goal(A,A1).\n"
+    "'$expand_ctl'(not(A),not(A1)):-!,expand_goal(A,A1).\n"
+    "'$expand_ctl'(call_cleanup(A,B),call_cleanup(A1,B1)):-!,expand_goal(A,A1),expand_goal(B,B1).\n"
+    "'$expand_ctl'(setup_call_cleanup(S,A,B),setup_call_cleanup(S1,A1,B1)):-!,expand_goal(S,S1),expand_goal(A,A1),expand_goal(B,B1).\n"
     "'$expand_ctl'(once(A),once(A1)):-!,expand_goal(A,A1).\n"
     "'$expand_ctl'(ignore(A),ignore(A1)):-!,expand_goal(A,A1).\n"
     "'$expand_ctl'(forall(A,B),forall(A1,B1)):-!,expand_goal(A,A1),expand_goal(B,B1).\n"
@@ -1612,7 +1617,10 @@ static const char * const PL_PRELUDE_SRC =
     "'$expand_ctl'(findall(T,A,L),findall(T,A1,L)):-!,expand_goal(A,A1).\n"
     "'$expand_ctl'(findall(T,A,L,M),findall(T,A1,L,M)):-!,expand_goal(A,A1).\n"
     "'$expand_ctl'(aggregate_all(S,A,R),aggregate_all(S,A1,R)):-!,expand_goal(A,A1).\n"
+    "'$expand_ctl'(G,G1):-callable(G),G=..[F|As],As\\==[],functor(G,F,N),functor(S,F,N),catch('$meta_rt'(S),error(existence_error(_,_),_),fail),!,S=..[_|Ss],'$expand_margs'(As,Ss,As1),G1=..[F|As1].\n"
     "'$expand_ctl'(G,G).\n"
+    "'$expand_margs'([],[],[]).\n"
+    "'$expand_margs'([A|As],[S|Ss],[A1|As1]):-(S==0->expand_goal(A,A1);A1=A),'$expand_margs'(As,Ss,As1).\n"
     "dcg_translate_rule((H,P-->B),(H1:-B1,P1)):-!,'$dcgt_nt'(H,S0,S,H1),'$dcg_body'(B,S0,S1,B1),'$dcg_body'(P,S,S1,P1).\n"
     "dcg_translate_rule((H-->B),(H1:-B1)):-'$dcgt_nt'(H,S0,S,H1),'$dcg_body'(B,S0,S,B1).\n"
     "'$dcgt_nt'(NT,S0,S,G):-NT=..L,'$dcg_list'(L,[S0,S],L2),G=..L2.\n"
@@ -2026,6 +2034,8 @@ static const char * const PL_PRELUDE_SRC =
     "'$'.\n"
     "'$'(G):- $G.\n"
     "style_check(_).\n"
+    "set_module(_).\n"
+    "'$clausable'(_).\n"
     "recorda(K,T):-recorda(K,T,_).\n"
     "recordz(K,T):-recordz(K,T,_).\n"
     "recorda(K,T,R):-'$rec_key'(K,K1),'$rec_id'(I),asserta('$rec'(K1,I,T)),R='$record'(I).\n"
@@ -2878,10 +2888,13 @@ static const char * const PL_PRELUDE_SRC =
     "'$sf_name'(N,N):-!.\n"
     "'$sf_name'(Q,N):-atom_concat(P,N,Q),sub_atom(P,_,1,0,':').\n"
     "'$src_file_add'(N,A,F):-(catch('$src_file_rt'(N,A,F),error(existence_error(_,_),_),fail)->true;assertz('$src_file_rt'(N,A,F))).\n"
-    "'$load_item'(T,L,U,E):-(catch('$load_item1'(T,U,E),X,(format(user_error,'Warning: line ~w: load raised: ~q~n',[L,X]),true))->true;format(user_error,'Warning: line ~w: load failed: ~q~n',[L,T])).\n"
-    "'$load_item1'(T,U,0):-!,'$load_one'(T,U).\n"
-    "'$load_item1'(T,U,_):-U\\==0,'$load_unq'(T,U,M,T1),!,expand_term(T1,X),(X==T1->'$load_one'(T,U);'$load_mq'(X,M,Y),'$load_items'(Y,U)).\n"
-    "'$load_item1'(T,U,_):-expand_term(T,X),'$load_items'(X,U).\n"
+    "'$load_item'(T,L,U,E,M):-(catch('$load_item1'(T,U,E,M),X,(format(user_error,'Warning: line ~w: load raised: ~q~n',[L,X]),true))->true;format(user_error,'Warning: line ~w: load failed: ~q~n',[L,T])).\n"
+    "'$load_item1'(T,U,0,_):-!,'$load_one'(T,U).\n"
+    "'$load_item1'(T,U,_,_):-U\\==0,'$load_unq'(T,U,M,T1),!,expand_term(T1,X),(X==T1->'$load_one'(T,U);'$load_mq'(X,M,Y),'$load_items'(Y,U)).\n"
+    "'$load_item1'(T,U,_,M):-M\\==0,'$load_munq'(T,M,T1),!,'$expand_term1'(T1,X0,_),(X0==T1->'$expand_bodies'(T,X);'$expand_bodies'(X0,X)),'$load_items'(X,U).\n"
+    "'$load_item1'(T,U,_,_):-expand_term(T,X),'$load_items'(X,U).\n"
+    "'$load_munq'((H:-B),M,(H1:-B)):-!,'$load_munq'(H,M,H1).\n"
+    "'$load_munq'(H,M,H1):-callable(H),H=..[F|As],atom_concat(M,':',P),atom_concat(P,F1,F),H1=..[F1|As].\n"
     "'$load_unq'((H:-B),U,M,(H1:-B)):-!,'$load_unq'(H,U,M,H1).\n"
     "'$load_unq'(H,U,M,H1):-callable(H),atom_concat(plunit_,U,M),atom_concat(M,':',P),H=..[F|As],atom_concat(P,F1,F),H1=..[F1|As].\n"
     "'$load_mq'(X,_,X):-var(X),!.\n"
@@ -3334,6 +3347,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, ":")) { pl_cv_add(&referenced, "$mod_head"); pl_cv_add(&referenced, "$mod_call"); pl_cv_add(&referenced, "$mod_qb"); }
     for (PlClause *cl = prog->head; cl; cl = cl->next) if (cl->tr && pl_tree_has_fn(cl->tr, "$dot")) { pl_cv_add(&referenced, "$dict_eval"); pl_cv_add(&refkeys, pl_pred_key("$dict_eval", 3)); break; }
     if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$load_item");
+    if (pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$meta_add");
     if (pl_word_referenced(user_src, "reset") || pl_word_referenced(user_src, "shift")) pl_cv_add(&referenced, "$co_body");
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
     for (PlClause *cl = prog->head; cl; cl = cl->next) if (pl_clause_ssu(cl)) { pl_cv_add(&referenced, "subsumes_term"); break; }

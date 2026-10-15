@@ -357,6 +357,7 @@ static void pld_mark_spec(tree_t *spec) {
     }
     if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pld_mark_spec(spec->c[i]); return; }
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "as") && spec->n == 2) { pld_mark_spec(spec->c[0]); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ":") && spec->n == 2) { pld_mark_spec(spec->c[1]); return; }
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pld_mark_spec(spec->c[0]); pld_mark_spec(spec->c[1]); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

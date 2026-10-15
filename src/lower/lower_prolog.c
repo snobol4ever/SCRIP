@@ -489,6 +489,7 @@ static void pl_decl_dynamic_record(stage2_t * s2, tree_t * spec, tree_t * marker
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_decl_dynamic_record(s2, spec->c[0], marker); pl_decl_dynamic_record(s2, spec->c[1], marker); return; }
     if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_decl_dynamic_record(s2, spec->c[i], marker); return; }
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "as") && spec->n == 2) { pl_decl_dynamic_record(s2, spec->c[0], marker); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ":") && spec->n == 2) { pl_decl_dynamic_record(s2, spec->c[1], marker); return; }
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && (spec->c[0]->t == TT_QLIT || spec->c[0]->t == TT_NAME) && spec->c[0]->v.sval && spec->c[1] &&
         spec->c[1]->t == TT_ILIT) {
         char key[fmt_len("%s/%d", spec->c[0]->v.sval, (int) spec->c[1]->v.ival)];
@@ -590,6 +591,13 @@ static IR_t * pl_lower_conj_guard(lcx_t * cx, const tree_t * const * gl, int ng,
 static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t ** redo_out, IR_t ** tail_out) {
     if (cx->cur_key && cx->cutω == cx->clause_cutω) for (int k = 0; k < ng; k++) if (pl_goal_is_dollar(gl[k]))
         return pl_lower_conj_guard(cx, gl, ng, k, γtail, ωbase, entry_out, redo_out, tail_out);
+    const tree_t * gt[ng > 0 ? ng : 1];
+    if (ng > 1) {
+        int nt = 0;
+        for (int k = 0; k < ng; k++) if (!(gl[k] && (gl[k]->t == TT_QLIT || gl[k]->t == TT_NAME) && gl[k]->v.sval && !strcmp(gl[k]->v.sval, "true"))) gt[nt++] = gl[k];
+        if (nt == 0) gt[nt++] = gl[ng - 1];
+        if (nt < ng) { gl = gt; ng = nt; }
+    }
     IR_t ** gn = (IR_t **) ct_zalloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
     IR_t ** en = (IR_t **) ct_zalloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
     IR_t ** rd = (IR_t **) ct_zalloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
@@ -3091,6 +3099,18 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * a;
                 tree_t * body;
                 if (s && s->t == TT_FNC && s->v.sval && !strcmp(s->v.sval, ":") && s->n == 2) return goal(cx, pl_cc_fnc2("$cp_mq", s->c[0], s->c[1]), γnext, ωfail, entry_out);
+                if (s && s->t == TT_FNC && s->v.sval && !strcmp(s->v.sval, "//") && s->n == 2 && s->c[1]) {
+                    if (s->c[1]->t == TT_ILIT) return goal(cx, pl_cc_fnc1("current_predicate", pl_cc_fnc2("/", s->c[0], pl_cc_ilit((int) s->c[1]->v.ival + 2))), γnext, ωfail, entry_out);
+                    if (s->c[1]->t == TT_VAR) {
+                        tree_t * a2 = pl_cc_freshvar();
+                        tree_t * a2b = pl_cc_freshvar();
+                        a2b->v.ival = a2->v.ival;
+                        tree_t * both =
+                            pl_cc_fnc2(",", pl_cc_fnc1("current_predicate", pl_cc_fnc2("/", s->c[0], a2)),
+                            pl_cc_fnc2(",", pl_cc_fnc2("is", s->c[1], pl_cc_fnc2("-", a2b, pl_cc_ilit(2))), pl_cc_fnc2(">=", s->c[1], pl_cc_ilit(0))));
+                        return goal(cx, both, γnext, ωfail, entry_out);
+                    }
+                }
                 { tree_t * bad = pl_cc_spec_ill_typed(s, nm); if (bad) return goal(cx, bad, γnext, ωfail, entry_out); }
                 if (s && s->t == TT_FNC && s->v.sval && !strcmp(s->v.sval, "/") && s->n == 2) {
                     n = (tree_t *) s->c[0];
@@ -3114,7 +3134,23 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                         m2->v.ival = m->v.ival;
                         p2->v.ival = p->v.ival;
                         tree_t * qualified = pl_cc_fnc2(",", pl_cc_fnc1("nonvar", s), pl_cc_fnc2("=", s, pl_cc_fnc2(":", m, p)));
-                        return goal(cx, pl_cc_ite(qualified, pl_cc_fnc2("$cp_mq", m2, p2), pl_cc_fnc2(",", pl_cc_fnc1("$pl_cp_guard", s), body)), γnext, ωfail, entry_out);
+                        tree_t * dn = pl_cc_freshvar();
+                        tree_t * da = pl_cc_freshvar();
+                        tree_t * dn2 = pl_cc_freshvar();
+                        tree_t * da2 = pl_cc_freshvar();
+                        tree_t * da3 = pl_cc_freshvar();
+                        tree_t * da1 = pl_cc_freshvar();
+                        tree_t * da1b = pl_cc_freshvar();
+                        dn2->v.ival = dn->v.ival;
+                        da2->v.ival = da->v.ival;
+                        da3->v.ival = da->v.ival;
+                        da1b->v.ival = da1->v.ival;
+                        tree_t * dcg = pl_cc_fnc2(",", pl_cc_fnc1("nonvar", s), pl_cc_fnc2("=", s, pl_cc_fnc2("//", dn, da)));
+                        tree_t * dcg_then =
+                            pl_cc_fnc2(",", pl_cc_fnc1("current_predicate", pl_cc_fnc2("/", dn2, da1)),
+                            pl_cc_fnc2(",", pl_cc_fnc2("is", da2, pl_cc_fnc2("-", da1b, pl_cc_ilit(2))), pl_cc_fnc2(">=", da3, pl_cc_ilit(0))));
+                        tree_t * plain = pl_cc_fnc2(",", pl_cc_fnc1("$pl_cp_guard", s), body);
+                        return goal(cx, pl_cc_ite(qualified, pl_cc_fnc2("$cp_mq", m2, p2), pl_cc_ite(dcg, dcg_then, plain)), γnext, ωfail, entry_out);
                     }
                 }
                 return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("$pl_cp_guard", s), body), γnext, ωfail, entry_out);
@@ -4497,7 +4533,7 @@ static const tree_t * pl_meta_rt_rewrite(const tree_t * prog) {
     for (int i = 0; i < prog->n && !any; i++) {
         const tree_t * s = prog->c[i];
         const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
-        if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && pl_tree_calls(subj, "@", 2)) any = 1;
+        if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && (pl_tree_calls(subj, "@", 2) || (subj->v.sval && !strcmp(subj->v.sval, "goal_expansion/2")))) any = 1;
     }
     if (!any) return prog;
     tree_t * np = ast_node_new(prog->t);
@@ -4675,6 +4711,16 @@ static const char * pl_load_unit_at(const tree_t * prog, const char * file, int 
     return u;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_load_module_of(const tree_t * prog, const char * file) {
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (!subj || subj->t != TT_FNC || !subj->v.sval || strcmp(subj->v.sval, "module") || subj->n != 2 || strcmp(pl_stmt_file(s), file)) continue;
+        if (subj->c[0] && (subj->c[0]->t == TT_QLIT || subj->c[0]->t == TT_NAME) && subj->c[0]->v.sval) return subj->c[0]->v.sval;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_load_procs(const tree_t * prog, const pl_load_item_t * it, int nit, cv_t * procs) {
     for (int lo = 0; lo < nit && procs->len < PL_SEED_PROCS_MAX; lo += PL_SEED_CHUNK) {
         int hi = lo + PL_SEED_CHUNK < nit ? lo + PL_SEED_CHUNK : nit, m = 0, save_base = g_lower.pl.seed_var_base;
@@ -4686,6 +4732,7 @@ static void pl_load_procs(const tree_t * prog, const pl_load_item_t * it, int ni
             if (it[i].pn && it[i].t->t == TT_CLAUSE && it[i].t->n <= it[i].ar && t->t == TT_FNC && t->n == 2) t = t->c[0];
             tree_t * g = pl_cc_fnc3("$load_item", t, pl_cc_ilit(it[i].line), u ? (tree_t *) pl_atom_goal(u) : pl_cc_ilit(0));
             ast_push(g, pl_cc_ilit(it[i].expand));
+            { const char * mo = (it[i].expand && !u) ? pl_load_module_of(prog, it[i].file) : NULL; ast_push(g, mo ? (tree_t *) pl_atom_goal(mo) : pl_cc_ilit(0)); }
             sg[m++] = g;
         }
         g_lower.pl.seed_var_base = save_base;
