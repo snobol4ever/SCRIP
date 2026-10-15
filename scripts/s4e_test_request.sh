@@ -18,7 +18,7 @@ CORPUS="${S4E_CORPUS:-${S4E_HOME:-$(cd "$HERE/../.." && pwd)}/corpus}"
 # THE SUITES IN THE ROUND ROBIN (CEO-1802 wave 1): key|table under corpus. A suite joins this list when its runner grades one chunk and its row assembles.
 SUITES="sno-rungs|tests/snobol4 icn-rungs|tests/icon pl-rungs|tests/prolog snc-rungs|tests/snocone reb-rungs|tests/rebus pas-rungs|tests/pascal
 raku-rungs|tests/raku puzzles|packages/prolog/puzzles rosetta-prolog|packages/prolog/rosetta-prolog xsb|packages/prolog/xsb_tests
-trealla|packages/prolog/trealla_tests rosetta-pascal|packages/pascal/rosetta-pascal"
+trealla|packages/prolog/trealla_tests rosetta-pascal|packages/pascal/rosetta-pascal testpgms|packages/snobol4/spitbol_testpgms"
 refuse() { echo "⛔ TEST REQUEST REFUSED(2): $* -- nothing filed"; exit 2; }
 table_of() { local e; for e in $SUITES; do [ "${e%%|*}" = "$1" ] && { echo "${e#*|}"; return 0; }; done; return 1; }
 seat() {

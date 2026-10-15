@@ -103,6 +103,7 @@ why_red() {
 stdin_of() { if [ -f "$W/$1.in" ]; then printf '%s' "$W/$1.in"; else printf '%s' "$W/testpgms.in"; fi; }
 progs=""; for f in "$W"/test*.spt; do [ -f "$f" ] || continue; progs="$progs $(basename "$f" .spt)"; done
 [ -n "$progs" ] || { echo "⛔ REFUSE(rc=2): zero test*.spt programs found under $SUITE"; exit 2; }
+. "$HERE/lib_rr.sh" && rr_load "$SUITE" || exit 2   # the round robin's seam (CEO-1802/1805/1806): one chunk or a request's entries, rows as each test ends
 TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINES=""; PM_GRADED=0; PM_VOICE_ONLY=0; CR_GRADED=0; CR_LINES=""; MASKED_TOTAL=0; MASKED_FIX=0; MASK_LINES=""
 # ⭐ THE SPITBOL BASELINE (Lon 2026-09-08, row snobol4-every-package-runner-states-its-row-over-the-spitbol-
 # baseline-measured-live; test_snoflake_suite.sh is the shape). A program SPITBOL ITSELF cannot run is OUTSIDE
@@ -113,6 +114,9 @@ TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINE
 # BOTH is the ceo-372 AND per program: the suite row states both_modes_pass over the baseline, never a per-mode count.
 BOTH=0; OUTSIDE_LIST=""; OUTSIDE_TSV="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE.tsv"
 for p in $progs; do
+    rr_admits "$p" || continue
+    rr_yield "$p" && break
+    [ "$PROG_RECORD" = 1 ] && rr_flush "$PROG_ROWS"
     export S4E_TIMEOUT_KEY="$p"   # the unit a retried timeout's stamp names (CEO-1335)
     TOTAL=$((TOTAL+1)); ROW_S3=0; ROW_S4=0
     src="$W/$p.spt"
@@ -288,11 +292,14 @@ printf '%s' "$RED_LINES"
 # rather than silently accepting a stale ruling (this runner's own live UNSCR check still decides each
 # run; only the WRITTEN reason for a name that stays unscored is static).
 INV_PACKAGE=spitbol_testpgms; INV_DIR="$SUITE"; INV_EXT=".spt"
+if ! rr_selected; then   # a chunk grades a part of the package, and the inventory sums the whole shipped package (CEO-1802)
 INV_LINE="$(inventory_line "$SCORED" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+fi
 if [ "$PROG_RECORD" = 1 ]; then
     progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS ROWS NOT RECORDED (writer rc=$? above) -- a run that leaves the table untouched is a defect of that run (progress/README.md), not a red board" >&2
 else echo "progress: scratch suite $SUITE -- $(grep -c . "$PROG_ROWS") row(s) NOT recorded (only the canonical suite, or S4E_PROGRESS_DB, records)"; fi
+rr_selected && { rr_end testpgms; exit 0; }   # a chunk or a request writes its rows and no suite row (CEO-1802)
 # ⛔ ZERO SCORED IS UNMEASURED, NEVER GREEN. If the oracle ever dies on all four, every counter above reads 0
 # and the verdict `m3_fail=0 && m4_fail=0` would be a perfect green board over an empty population.
 if [ "$SCORED" -eq 0 ]; then

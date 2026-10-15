@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# lib_rr.sh -- THE ROUND ROBIN'S SEAM IN A BESPOKE RUNNER (ceo CEO-1802/1805/1806; Lon 2026-10-15, verbatim: "Basically the COO should run one test at a
+# time and update the test-suite database. Round robin, done and done." and "The COO will have two work inputs, the round-robin and the recently requested
+# from other officers and HQ's."). Sourced by a package runner that grades its own programs (not through corpus_suite_harness.py run). Five calls:
+#   rr_load <suite-dir>    once, before the population loop: under S4E_CHUNK (chunk:NN, chunk:NN@<entry>, or entry:<a>[,entry:<b>...]) read that selection
+#                          from <suite-dir>/PARTITION.tsv; rc 2 (the runner refuses) when the partition is missing or names no such part or entry
+#   rr_admits <name>       in the population loop: rc 0 when no selection is set, or <name> (its stem: directory and extension dropped) is selected
+#   rr_flush <rows-tsv>    after each program's rows are written to <rows-tsv>: under S4E_RR=1 or a selection, append them NOW through the one writer and
+#                          empty the file, so results.tsv holds every finished test (the row the runner would append at its end is then already there)
+#   rr_yield <name>        before grading the next program: rc 0 when a test request waits in S4E_RR_YIELD_DIR during a round-robin run (never during a
+#                          request); the runner then prints the RR_YIELD line this prints and stops, and the loop resumes the chunk at <name>
+#   rr_selected            rc 0 when a selection is set: the runner writes NO suite row and prints its <KEY>_CHUNK line (rr_end) -- the row is assembled
+#                          from the per-program readings by util_score_row.py from-progress (CEO-1802)
+#   rr_end <key>           the <KEY>_CHUNK line
+RR_SEL=""; RR_SET=""; RR_FROM=""
+rr_load() {
+  local d="${1:?rr_load <suite-dir>}" p part rest
+  [ -n "${S4E_CHUNK:-}" ] || return 0
+  p="$d/PARTITION.tsv"; [ -f "$p" ] || { echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK but no $p -- build it: python3 scripts/util_suite_partition.py build $d/ALL.csv"; return 2; }
+  part="${S4E_CHUNK%%@*}"; RR_FROM=""; [ "$part" != "$S4E_CHUNK" ] && RR_FROM="${S4E_CHUNK#*@}"
+  case "$part" in
+    chunk:[0-9]*)
+      local k="${part#chunk:}" c
+      c="$(awk -F'\t' '!/^#/ && $2 ~ /^chunk:/ {print $2}' "$p" | sort -u | awk -F: -v k="$k" '$2+0 == k+0 {print; exit}')"
+      [ -n "$c" ] || { echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK: $p has no chunk $k"; return 2; }
+      RR_SEL="$(awk -F'\t' -v c="$c" '!/^#/ && $2 == c {print $1}' "$p")";;
+    entry:*)
+      local e names; names="$(awk -F'\t' '!/^#/ {print $1}' "$p")"; RR_SEL=""
+      for e in $(printf '%s' "$part" | tr ',' ' '); do e="${e#entry:}"; grep -qxF -- "$e" <<<"$names" || { echo "⛔ REFUSE(rc=2): S4E_CHUNK: $p has no entry '$e'"; return 2; }; RR_SEL="$RR_SEL
+$e"; done;;
+    *) echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK is not chunk:NN[@entry] or entry:<name>[,entry:<name>...]"; return 2;;
+  esac
+  RR_SEL="$(printf '%s\n' "$RR_SEL" | grep .)"
+  if [ -n "$RR_FROM" ]; then
+    grep -qxF -- "$RR_FROM" <<<"$RR_SEL" || { echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK: '$RR_FROM' is not in $part"; return 2; }
+    RR_SEL="$(printf '%s\n' "$RR_SEL" | sed -n "/^$(printf '%s' "$RR_FROM" | sed 's/[][\.*^$/]/\\&/g')\$/,\$p")"
+  fi
+  RR_SET=" $(printf '%s ' $RR_SEL)"
+  echo "PARTITION $S4E_CHUNK: $(printf '%s\n' $RR_SEL | grep -c .) entr(ies) of $p (CEO-1802: one chunk, never the suite's row)"
+}
+rr_selected() { [ -n "${S4E_CHUNK:-}" ]; }
+rr_admits() {
+  [ -n "${S4E_CHUNK:-}" ] || return 0
+  local n="${1##*/}"; n="${n%.*}"
+  case "$RR_SET " in *" $n "*|*" $1 "*) return 0;; esac; return 1
+}
+rr_flush() {
+  local f="${1:?rr_flush <rows-tsv>}"
+  { [ "${S4E_RR:-}" = 1 ] || [ -n "${S4E_CHUNK:-}" ]; } || return 0
+  [ -s "$f" ] || return 0
+  progress_append_rows_tsv "$f" > /dev/null || { echo "⚠ rr_flush: the progress rows were not appended (reason above)" >&2; return 1; }
+  : > "$f"
+}
+rr_yield() {
+  [ "${S4E_RR:-}" = 1 ] && [ -z "${S4E_REQ:-}" ] && [ -n "${S4E_RR_YIELD_DIR:-}" ] || return 1
+  ls "$S4E_RR_YIELD_DIR"/*.req > /dev/null 2>&1 || return 1
+  echo "RR_YIELD next=$1 -- a test request waits (CEO-1806); resume with S4E_CHUNK=${S4E_CHUNK%%@*}@$1"
+}
+rr_end() { echo "$(printf '%s' "${1:?rr_end <key>}" | tr 'a-z-' 'A-Z_')_CHUNK ${S4E_CHUNK:-} graded: one progress row per program and mode; no suite row from a chunk -- the row is util_score_row.py from-progress --suite $1 (CEO-1802)"; }
