@@ -295,7 +295,7 @@ int lc_global_count(void) { return g_lower.lc.global_count; }
 void global_reset(void) { gset_reset(&g_lower.lc.gnames); g_lower.lc.global_count = 0; }
 void global_register_copy(const char * name) { if (name && !gset_has(&g_lower.lc.gnames, name)) global_register(lp_strdup(name)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_icn_global_note(const char * name) { if (name && name[0]) gset_add(&g_lower.lc.icn_gnames, name); }
+void rt_icn_global_note(const char * name) { extern int rt_sc_module_busy(void); if (name && name[0] && !rt_sc_module_busy()) gset_add(&g_lower.lc.icn_gnames, name); }
 int rt_icn_global_count(void) { return (int) g_lower.lc.icn_gnames.v.len; }
 const char * rt_icn_global_name(int k) { return (k >= 0 && (uint32_t) k < g_lower.lc.icn_gnames.v.len) ? CV_AT(g_lower.lc.icn_gnames.v, const char *, k) : (const char *) 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

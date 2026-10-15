@@ -15,6 +15,7 @@
 # USAGE
 #   bash scripts/test_gate_bootstrap_parse_stage_ir_identity.sh --capture [--lang snobol4] [--population sample|corpus]   record the CURRENT build as a parent
 #   bash scripts/test_gate_bootstrap_parse_stage_ir_identity.sh [--against DIR|latest] [--lang snobol4] [--population sample|corpus] [--list-diffs FILE] [--only FILE]   compare the CURRENT build to it
+#   bash scripts/test_gate_bootstrap_parse_stage_ir_identity.sh --both [--lang snobol4] [--population sample|corpus] [--list-diffs FILE] [--only FILE]   ONE BUILD: every file compiled under SCRIP_PARSE_STAGE=c and again under =sc, the two readings compared (the honest reading; the coo can run it, it sets its own stage)
 #   --list-diffs FILE writes EVERY differing corpus-relative path (the console shows the first five); --only FILE re-runs just the paths listed in FILE.
 #   A file that times out (GATE_TIMEOUT, default 120 s, a loaded machine) is re-run ALONE at GATE_TIMEOUT_ALONE (900 s) before it counts; one that still times out is recorded as rc=124
 #   with empty outputs on both sides, which compare equal -- a timeout is a measurement, never a difference.
@@ -32,6 +33,7 @@ MODE=compare; AGAINST=latest; LANGS=snobol4; POP=sample; ONLY=""; DIFFS_OUT=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --capture) MODE=capture ;;
+    --both) MODE=both ;;
     --against) AGAINST="${2:-}"; shift ;;
     --lang) LANGS="${2:-}"; shift ;;
     --population) POP="${2:-}"; shift ;;
@@ -86,6 +88,23 @@ for lang in $LANGS; do
     for f in "${FILES[@]}"; do one "$f" "$D/${f#$CORPUS/}"; total=$((total+1)); done
     printf '%s\n' "$HEAD_SHORT" > "$STORE/LATEST.$lang.$POP"
     echo "CAPTURED $total file(s) of $lang ($POP) from the build at git $HEAD_SHORT into $D"
+    continue
+  fi
+  if [ "$MODE" = both ]; then
+    T="$(mktemp -d)" || exit 2; trap 'rm -rf "$T"' EXIT
+    for f in "${FILES[@]}"; do
+      rel="${f#$CORPUS/}"; total=$((total+1))
+      export SCRIP_PARSE_STAGE=c; one "$f" "$T/c/$rel"
+      export SCRIP_PARSE_STAGE=sc; one "$f" "$T/sc/$rel"
+      if cmp -s "$T/c/$rel.ir" "$T/sc/$rel.ir" && cmp -s "$T/c/$rel.s" "$T/sc/$rel.s" && cmp -s "$T/c/$rel.rc" "$T/sc/$rel.rc"; then same=$((same+1)); rm -f "$T/c/$rel".* "$T/sc/$rel".*; continue; fi
+      diff=$((diff+1)); [ -n "$DIFFS_OUT" ] && echo "$rel" >> "$DIFFS_OUT"
+      if [ "$shown" -lt 5 ]; then
+        shown=$((shown+1)); echo "DIFF $rel"
+        for h in ir s rc; do cmp -s "$T/c/$rel.$h" "$T/sc/$rel.$h" || { echo "  first differing $h line (C stage < > module stage):"; diff "$T/c/$rel.$h" "$T/sc/$rel.$h" | sed -n '2p;4p' | cut -c1-160 | sed 's/^/    /'; }; done
+      fi
+      rm -f "$T/c/$rel".* "$T/sc/$rel".*
+    done
+    unset SCRIP_PARSE_STAGE; P="one build (C stage captured, module stage compared)"
     continue
   fi
   if [ "$AGAINST" = latest ]; then [ -f "$STORE/LATEST.$lang.$POP" ] || refuse "no capture for $lang ($POP): run with --capture on the PARENT build first"; P="$(cat "$STORE/LATEST.$lang.$POP")"; else P="$AGAINST"; fi

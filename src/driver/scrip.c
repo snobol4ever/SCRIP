@@ -929,6 +929,9 @@ static void m4_emit_proc_slot_keep(int i, const char *name) {
     emit_textf("  lea rdi, [rip + .Lstartup_pkeep%d]\n  xor esi, esi\n  xor edx, edx\n  call rt_proc_register@PLT\n", i);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int dat_type_emits(int);
+extern int dat_type_emit_count(void);
+extern int dat_type_emit_ordinal(int);
 static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs,
     int n_cls_emit, int n_gram_emit, const char *mi_name) {
     if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2)) {
@@ -942,21 +945,22 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             int n_cls = dat_type_count();
             for (int ci = 0; ci < n_cls; ci++) {
                 const char *cn = dat_type_name(ci);
-                if (!cn || !*cn) continue;
+                if (!cn || !*cn || !dat_type_emits(ci)) continue;
+                int cl = dat_type_emit_ordinal(ci);
                 emit_textf("  .section .rodata\n");
-                emit_textf("  .Lclassspec%d: .string \"%s(", ci, cn);
+                emit_textf("  .Lclassspec%d: .string \"%s(", cl, cn);
                 for (int fj = 0; fj < dat_type_nfields(ci); fj++) { if (fj) emit_textf(","); emit_textf("%s", dat_type_field(ci, fj)); }
                 emit_textf(")\"\n");
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                emit_textf("  lea rdi, [rip + .Lclassspec%d]\n", ci);
+                emit_textf("  lea rdi, [rip + .Lclassspec%d]\n", cl);
                 emit_textf("  call record_register@PLT\n");
                 {
                     extern int dat_type_live(int);
                     if (!dat_type_live(ci)) {
                         emit_textf("  .section .rodata\n");
-                        emit_textf("  .Lclassnm%d: .string \"%s\"\n", ci, cn);
+                        emit_textf("  .Lclassnm%d: .string \"%s\"\n", cl, cn);
                         emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                        emit_textf("  lea rdi, [rip + .Lclassnm%d]\n", ci);
+                        emit_textf("  lea rdi, [rip + .Lclassnm%d]\n", cl);
                         emit_textf("  xor esi, esi\n");
                         emit_textf("  call dat_set_live@PLT\n");
                     }
@@ -971,17 +975,18 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             int n_cls = dat_type_count();
             for (int ci = 0; ci < n_cls; ci++) {
                 const char *cn = dat_type_name(ci);
-                if (!cn || !*cn) continue;
+                if (!cn || !*cn || !dat_type_emits(ci)) continue;
+                int cl = dat_type_emit_ordinal(ci);
                 int np = dat_type_nparents(ci);
                 if (np <= 0) continue;
                 emit_textf("  .section .rodata\n");
-                emit_textf("  .Lclschild%d: .string \"%s\"\n", ci, cn);
-                for (int pj = 0; pj < np; pj++) emit_textf("  .Lclsp%d_%d: .string \"%s\"\n", ci, pj, dat_type_parent_at(ci, pj));
-                emit_textf("  .balign 8\n  .Lclsparr%d:\n", ci);
-                for (int pj = 0; pj < np; pj++) emit_textf("  .quad .Lclsp%d_%d\n", ci, pj);
+                emit_textf("  .Lclschild%d: .string \"%s\"\n", cl, cn);
+                for (int pj = 0; pj < np; pj++) emit_textf("  .Lclsp%d_%d: .string \"%s\"\n", cl, pj, dat_type_parent_at(ci, pj));
+                emit_textf("  .balign 8\n  .Lclsparr%d:\n", cl);
+                for (int pj = 0; pj < np; pj++) emit_textf("  .quad .Lclsp%d_%d\n", cl, pj);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                emit_textf("  lea rdi, [rip + .Lclschild%d]\n", ci);
-                emit_textf("  lea rsi, [rip + .Lclsparr%d]\n", ci);
+                emit_textf("  lea rdi, [rip + .Lclschild%d]\n", cl);
+                emit_textf("  lea rsi, [rip + .Lclsparr%d]\n", cl);
                 emit_textf("  mov rdx, %d\n", np);
                 emit_textf("  call class_inherit_multi@PLT\n");
             }
@@ -996,37 +1001,38 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             int n_cls = dat_type_count();
             for (int ci = 0; ci < n_cls; ci++) {
                 const char *cn = dat_type_name(ci);
-                if (!cn || !*cn) continue;
+                if (!cn || !*cn || !dat_type_emits(ci)) continue;
+                int cl = dat_type_emit_ordinal(ci);
                 for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
                     if (!dat_type_field_has_default(ci, fj)) continue;
                     const char *fn = dat_type_field(ci, fj);
                     if (!fn) continue;
                     DESCR_t dv = dat_type_field_default(ci, fj);
                     emit_textf("  .section .rodata\n");
-                    emit_textf("  .Ldefcls%d_%d: .byte ", ci, fj);
+                    emit_textf("  .Ldefcls%d_%d: .byte ", cl, fj);
                     for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
-                    emit_textf("  .Ldeffld%d_%d: .byte ", ci, fj);
+                    emit_textf("  .Ldeffld%d_%d: .byte ", cl, fj);
                     for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
                     if (dv.v == DT_S) {
                         const char *sv = dv.s ? dv.s : "";
-                        emit_textf("  .Ldefstr%d_%d: .byte ", ci, fj);
+                        emit_textf("  .Ldefstr%d_%d: .byte ", cl, fj);
                         for (const char *p = sv; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                         emit_textf("0\n");
                     } else if (dv.v == DT_R) {
                         union { double d; unsigned long long q; } u;
                         u.d = dv.r;
-                        emit_textf("  .Ldefdbl%d_%d: .quad %llu\n", ci, fj, u.q);
+                        emit_textf("  .Ldefdbl%d_%d: .quad %llu\n", cl, fj, u.q);
                     }
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                    emit_textf("  lea rdi, [rip + .Ldefcls%d_%d]\n", ci, fj);
-                    emit_textf("  lea rsi, [rip + .Ldeffld%d_%d]\n", ci, fj);
+                    emit_textf("  lea rdi, [rip + .Ldefcls%d_%d]\n", cl, fj);
+                    emit_textf("  lea rsi, [rip + .Ldeffld%d_%d]\n", cl, fj);
                     if (dv.v == DT_S) {
-                        emit_textf("  lea rdx, [rip + .Ldefstr%d_%d]\n", ci, fj);
+                        emit_textf("  lea rdx, [rip + .Ldefstr%d_%d]\n", cl, fj);
                         emit_textf("  call dat_set_field_default_s@PLT\n");
                     } else if (dv.v == DT_R) {
-                        emit_textf("  movsd xmm0, qword ptr [rip + .Ldefdbl%d_%d]\n", ci, fj);
+                        emit_textf("  movsd xmm0, qword ptr [rip + .Ldefdbl%d_%d]\n", cl, fj);
                         emit_textf("  call dat_set_field_default_r@PLT\n");
                     } else {
                         emit_textf("  mov rdx, %lld\n", (long long)dv.i);
@@ -1044,21 +1050,22 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             int n_cls = dat_type_count();
             for (int ci = 0; ci < n_cls; ci++) {
                 const char *cn = dat_type_name(ci);
-                if (!cn || !*cn) continue;
+                if (!cn || !*cn || !dat_type_emits(ci)) continue;
+                int cl = dat_type_emit_ordinal(ci);
                 for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
                     if (!dat_type_field_required(ci, fj)) continue;
                     const char *fn = dat_type_field(ci, fj);
                     if (!fn) continue;
                     emit_textf("  .section .rodata\n");
-                    emit_textf("  .Lreqcls%d_%d: .byte ", ci, fj);
+                    emit_textf("  .Lreqcls%d_%d: .byte ", cl, fj);
                     for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
-                    emit_textf("  .Lreqfld%d_%d: .byte ", ci, fj);
+                    emit_textf("  .Lreqfld%d_%d: .byte ", cl, fj);
                     for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                    emit_textf("  lea rdi, [rip + .Lreqcls%d_%d]\n", ci, fj);
-                    emit_textf("  lea rsi, [rip + .Lreqfld%d_%d]\n", ci, fj);
+                    emit_textf("  lea rdi, [rip + .Lreqcls%d_%d]\n", cl, fj);
+                    emit_textf("  lea rsi, [rip + .Lreqfld%d_%d]\n", cl, fj);
                     emit_textf("  call dat_set_field_required@PLT\n");
                 }
             }
@@ -1072,21 +1079,22 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             int n_cls = dat_type_count();
             for (int ci = 0; ci < n_cls; ci++) {
                 const char *cn = dat_type_name(ci);
-                if (!cn || !*cn) continue;
+                if (!cn || !*cn || !dat_type_emits(ci)) continue;
+                int cl = dat_type_emit_ordinal(ci);
                 for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
                     if (!dat_type_field_rw(ci, fj)) continue;
                     const char *fn = dat_type_field(ci, fj);
                     if (!fn) continue;
                     emit_textf("  .section .rodata\n");
-                    emit_textf("  .Lrwcls%d_%d: .byte ", ci, fj);
+                    emit_textf("  .Lrwcls%d_%d: .byte ", cl, fj);
                     for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
-                    emit_textf("  .Lrwfld%d_%d: .byte ", ci, fj);
+                    emit_textf("  .Lrwfld%d_%d: .byte ", cl, fj);
                     for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                    emit_textf("  lea rdi, [rip + .Lrwcls%d_%d]\n", ci, fj);
-                    emit_textf("  lea rsi, [rip + .Lrwfld%d_%d]\n", ci, fj);
+                    emit_textf("  lea rdi, [rip + .Lrwcls%d_%d]\n", cl, fj);
+                    emit_textf("  lea rsi, [rip + .Lrwfld%d_%d]\n", cl, fj);
                     emit_textf("  call dat_set_field_rw@PLT\n");
                 }
             }
@@ -1100,22 +1108,23 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             int n_cls = dat_type_count();
             for (int ci = 0; ci < n_cls; ci++) {
                 const char *cn = dat_type_name(ci);
-                if (!cn || !*cn) continue;
+                if (!cn || !*cn || !dat_type_emits(ci)) continue;
+                int cl = dat_type_emit_ordinal(ci);
                 for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
                     int sg = dat_type_field_sigil(ci, fj);
                     if (sg != '@' && sg != '%') continue;
                     const char *fn = dat_type_field(ci, fj);
                     if (!fn) continue;
                     emit_textf("  .section .rodata\n");
-                    emit_textf("  .Lsigcls%d_%d: .byte ", ci, fj);
+                    emit_textf("  .Lsigcls%d_%d: .byte ", cl, fj);
                     for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
-                    emit_textf("  .Lsigfld%d_%d: .byte ", ci, fj);
+                    emit_textf("  .Lsigfld%d_%d: .byte ", cl, fj);
                     for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                    emit_textf("  lea rdi, [rip + .Lsigcls%d_%d]\n", ci, fj);
-                    emit_textf("  lea rsi, [rip + .Lsigfld%d_%d]\n", ci, fj);
+                    emit_textf("  lea rdi, [rip + .Lsigcls%d_%d]\n", cl, fj);
+                    emit_textf("  lea rsi, [rip + .Lsigfld%d_%d]\n", cl, fj);
                     emit_textf("  mov rdx, %d\n", sg);
                     emit_textf("  call dat_set_field_sigil@PLT\n");
                 }
@@ -1130,21 +1139,22 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             int n_cls = dat_type_count();
             for (int ci = 0; ci < n_cls; ci++) {
                 const char *cn = dat_type_name(ci);
-                if (!cn || !*cn) continue;
+                if (!cn || !*cn || !dat_type_emits(ci)) continue;
+                int cl = dat_type_emit_ordinal(ci);
                 for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
                     if (!dat_type_field_priv(ci, fj)) continue;
                     const char *fn = dat_type_field(ci, fj);
                     if (!fn) continue;
                     emit_textf("  .section .rodata\n");
-                    emit_textf("  .Lprvcls%d_%d: .byte ", ci, fj);
+                    emit_textf("  .Lprvcls%d_%d: .byte ", cl, fj);
                     for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
-                    emit_textf("  .Lprvfld%d_%d: .byte ", ci, fj);
+                    emit_textf("  .Lprvfld%d_%d: .byte ", cl, fj);
                     for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                    emit_textf("  lea rdi, [rip + .Lprvcls%d_%d]\n", ci, fj);
-                    emit_textf("  lea rsi, [rip + .Lprvfld%d_%d]\n", ci, fj);
+                    emit_textf("  lea rdi, [rip + .Lprvcls%d_%d]\n", cl, fj);
+                    emit_textf("  lea rsi, [rip + .Lprvfld%d_%d]\n", cl, fj);
                     emit_textf("  call dat_set_field_priv@PLT\n");
                 }
             }
@@ -1157,22 +1167,23 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             int n_cls = dat_type_count();
             for (int ci = 0; ci < n_cls; ci++) {
                 const char *cn = dat_type_name(ci);
-                if (!cn || !*cn) continue;
+                if (!cn || !*cn || !dat_type_emits(ci)) continue;
+                int cl = dat_type_emit_ordinal(ci);
                 int nm = dat_type_nmethods(ci);
                 if (nm <= 0) continue;
                 for (int mj = 0; mj < nm; mj++) {
                     const char *mn = dat_type_method_at(ci, mj);
                     if (!mn || !*mn) continue;
                     emit_textf("  .section .rodata\n");
-                    emit_textf("  .Lmethcls%d_%d: .byte ", ci, mj);
+                    emit_textf("  .Lmethcls%d_%d: .byte ", cl, mj);
                     for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
-                    emit_textf("  .Lmethnm%d_%d: .byte ", ci, mj);
+                    emit_textf("  .Lmethnm%d_%d: .byte ", cl, mj);
                     for (const char *p = mn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                    emit_textf("  lea rdi, [rip + .Lmethcls%d_%d]\n", ci, mj);
-                    emit_textf("  lea rsi, [rip + .Lmethnm%d_%d]\n", ci, mj);
+                    emit_textf("  lea rdi, [rip + .Lmethcls%d_%d]\n", cl, mj);
+                    emit_textf("  lea rsi, [rip + .Lmethnm%d_%d]\n", cl, mj);
                     emit_textf("  call dat_add_method@PLT\n");
                 }
                 extern int dat_type_nmultis(int);
@@ -1181,15 +1192,15 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                     const char *mn = dat_type_multi_at(ci, mj);
                     if (!mn || !*mn) continue;
                     emit_textf("  .section .rodata\n");
-                    emit_textf("  .Lmultcls%d_%d: .byte ", ci, mj);
+                    emit_textf("  .Lmultcls%d_%d: .byte ", cl, mj);
                     for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
-                    emit_textf("  .Lmultnm%d_%d: .byte ", ci, mj);
+                    emit_textf("  .Lmultnm%d_%d: .byte ", cl, mj);
                     for (const char *p = mn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                    emit_textf("  lea rdi, [rip + .Lmultcls%d_%d]\n", ci, mj);
-                    emit_textf("  lea rsi, [rip + .Lmultnm%d_%d]\n", ci, mj);
+                    emit_textf("  lea rdi, [rip + .Lmultcls%d_%d]\n", cl, mj);
+                    emit_textf("  lea rsi, [rip + .Lmultnm%d_%d]\n", cl, mj);
                     emit_textf("  call dat_mark_method_multi@PLT\n");
                 }
             }
@@ -1203,28 +1214,29 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             int n_cls = dat_type_count();
             for (int ci = 0; ci < n_cls; ci++) {
                 const char *cn = dat_type_name(ci);
-                if (!cn || !*cn) continue;
+                if (!cn || !*cn || !dat_type_emits(ci)) continue;
+                int cl = dat_type_emit_ordinal(ci);
                 if (!dat_type_has_build(ci)) continue;
                 emit_textf("  .section .rodata\n");
-                emit_textf("  .Lbldcls%d: .byte ", ci);
+                emit_textf("  .Lbldcls%d: .byte ", cl);
                 for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                 emit_textf("0\n");
-                emit_textf("  .Lbldnull%d: .byte 0\n", ci);
+                emit_textf("  .Lbldnull%d: .byte 0\n", cl);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
-                emit_textf("  lea rsi, [rip + .Lbldnull%d]\n", ci);
+                emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", cl);
+                emit_textf("  lea rsi, [rip + .Lbldnull%d]\n", cl);
                 emit_textf("  call dat_set_build_key@PLT\n");
                 int nk = dat_type_nbuild_keys(ci);
                 for (int kj = 0; kj < nk; kj++) {
                     const char *kn = dat_type_build_key_at(ci, kj);
                     if (!kn || !*kn) continue;
                     emit_textf("  .section .rodata\n");
-                    emit_textf("  .Lbldkey%d_%d: .byte ", ci, kj);
+                    emit_textf("  .Lbldkey%d_%d: .byte ", cl, kj);
                     for (const char *p = kn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                    emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
-                    emit_textf("  lea rsi, [rip + .Lbldkey%d_%d]\n", ci, kj);
+                    emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", cl);
+                    emit_textf("  lea rsi, [rip + .Lbldkey%d_%d]\n", cl, kj);
                     emit_textf("  call dat_set_build_key@PLT\n");
                 }
             }
@@ -1238,7 +1250,8 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             int n_cls = dat_type_count();
             for (int ci = 0; ci < n_cls; ci++) {
                 const char *cn = dat_type_name(ci);
-                if (!cn || !*cn) continue;
+                if (!cn || !*cn || !dat_type_emits(ci)) continue;
+                int cl = dat_type_emit_ordinal(ci);
                 int nh = dat_type_nhandles(ci);
                 if (nh <= 0) continue;
                 for (int hj = 0; hj < nh; hj++) {
@@ -1246,19 +1259,19 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                     const char *hf = dat_type_handles_fld_at(ci, hj);
                     if (!hm || !*hm || !hf || !*hf) continue;
                     emit_textf("  .section .rodata\n");
-                    emit_textf("  .Lhndcls%d_%d: .byte ", ci, hj);
+                    emit_textf("  .Lhndcls%d_%d: .byte ", cl, hj);
                     for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
-                    emit_textf("  .Lhndmeth%d_%d: .byte ", ci, hj);
+                    emit_textf("  .Lhndmeth%d_%d: .byte ", cl, hj);
                     for (const char *p = hm; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
-                    emit_textf("  .Lhndfld%d_%d: .byte ", ci, hj);
+                    emit_textf("  .Lhndfld%d_%d: .byte ", cl, hj);
                     for (const char *p = hf; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                    emit_textf("  lea rdi, [rip + .Lhndcls%d_%d]\n", ci, hj);
-                    emit_textf("  lea rsi, [rip + .Lhndmeth%d_%d]\n", ci, hj);
-                    emit_textf("  lea rdx, [rip + .Lhndfld%d_%d]\n", ci, hj);
+                    emit_textf("  lea rdi, [rip + .Lhndcls%d_%d]\n", cl, hj);
+                    emit_textf("  lea rsi, [rip + .Lhndmeth%d_%d]\n", cl, hj);
+                    emit_textf("  lea rdx, [rip + .Lhndfld%d_%d]\n", cl, hj);
                     emit_textf("  call dat_add_handles@PLT\n");
                 }
             }
@@ -1271,22 +1284,23 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             int n_cls = dat_type_count();
             for (int ci = 0; ci < n_cls; ci++) {
                 const char *cn = dat_type_name(ci);
-                if (!cn || !*cn) continue;
+                if (!cn || !*cn || !dat_type_emits(ci)) continue;
+                int cl = dat_type_emit_ordinal(ci);
                 int nr = dat_type_nroles(ci);
                 if (nr <= 0) continue;
                 for (int rj = 0; rj < nr; rj++) {
                     const char *rn = dat_type_role_at(ci, rj);
                     if (!rn || !*rn) continue;
                     emit_textf("  .section .rodata\n");
-                    emit_textf("  .Lrolechild%d_%d: .byte ", ci, rj);
+                    emit_textf("  .Lrolechild%d_%d: .byte ", cl, rj);
                     for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
-                    emit_textf("  .Lrolename%d_%d: .byte ", ci, rj);
+                    emit_textf("  .Lrolename%d_%d: .byte ", cl, rj);
                     for (const char *p = rn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
                     emit_textf("0\n");
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                    emit_textf("  lea rdi, [rip + .Lrolechild%d_%d]\n", ci, rj);
-                    emit_textf("  lea rsi, [rip + .Lrolename%d_%d]\n", ci, rj);
+                    emit_textf("  lea rdi, [rip + .Lrolechild%d_%d]\n", cl, rj);
+                    emit_textf("  lea rsi, [rip + .Lrolename%d_%d]\n", cl, rj);
                     emit_textf("  call class_compose_role@PLT\n");
                 }
             }
@@ -2521,7 +2535,7 @@ int main(int argc, char **argv) {
                 }
             }
             int n_cls_emit = 0;
-            { extern int dat_type_count(void); n_cls_emit = dat_type_count(); }
+            n_cls_emit = dat_type_emit_count();
             int n_gram_emit = 0;
             { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
             int _pl_atoms = m4_program_has_prolog_terms(s2, bbg);

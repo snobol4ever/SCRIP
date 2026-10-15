@@ -146,6 +146,7 @@ typedef struct {
     int nhandles, handles_cap;
     struct _DATINST_tType *blk;
     char live;
+    char foreign;
     int fcap;
 } DatType;
 DatType *dat_register(const char *spec);

@@ -73,6 +73,7 @@ DatType *dat_register(const char *spec) {
         if (*p == ',') p++;
     }
     t->live = 1;
+    { extern int rt_sc_module_busy(void); t->foreign = rt_sc_module_busy() ? 1 : 0; }
     dat_ntypes++;
     rt_dtax_gen++;
     return t;
@@ -398,6 +399,9 @@ int dat_type_count(void) { return dat_ntypes; }
 const char *dat_type_name(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i]->name : (const char *)0; }
 int dat_type_nfields(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i]->nfields : 0; }
 int dat_type_live(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i]->live : 0; }
+int dat_type_emits(int i) { return (i >= 0 && i < dat_ntypes) ? !dat_types[i]->foreign : 0; }
+int dat_type_emit_ordinal(int i) { int n = 0; for (int k = 0; k < i && k < dat_ntypes; k++) if (!dat_types[k]->foreign) n++; return n; }
+int dat_type_emit_count(void) { int n = 0; for (int i = 0; i < dat_ntypes; i++) if (!dat_types[i]->foreign) n++; return n; }
 int dat_type_nparents(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i]->nparents : 0; }
 const char *dat_type_parent_at(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i]->nparents) ? dat_types[i]->parents[j] : (const char *)0; }
 int dat_type_nroles(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i]->nroles : 0; }

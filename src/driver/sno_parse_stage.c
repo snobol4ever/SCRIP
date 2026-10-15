@@ -37,11 +37,7 @@ static int sc_kind_of(const sc_export_t *x, const char *nm) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *sc_text_of(DESCR_t d, size_t *len_out) {
-    if (d.v == DT_S) { *len_out = d.slen; return d.s ? d.s : ""; }
-    *len_out = 0;
-    return "";
-}
+static const char *sc_text_of(DESCR_t d, size_t *len_out) { if (d.v == DT_S) { *len_out = d.slen; return d.s ? d.s : ""; } *len_out = 0; return ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_pos_of(const sc_export_t *x, long off, int *line, int *col) {
@@ -230,8 +226,7 @@ static tree_t *sc_sno_bookkeep(tree_t *root, const char *src, size_t len, const 
         sc_stmt_insert(st, at++, sc_attr_int(":lline", line));
         sc_stmt_insert(st, at++, sc_attr_int(":stno", ordinal));
         if (st->t == TT_STMT) {
-            int next_line = i + 1 < prog->n && prog->c[i + 1]->line > line ? prog->c[i + 1]->line : line + 1;
-            char *ssrc = is_null ? ct_strdup("") : sc_src_slice(&L, line, next_line, label);
+            char *ssrc = is_null ? ct_strdup("") : sc_src_slice(&L, line, line + 1, label);
             if (!ssrc) {
                 char b[fmt_len("%s%s<stmt %d, line %d: source not resolvable>", label ? label : "", label ? "  " : "        ", ordinal, line)];
                 snprintf(b, sizeof b, "%s%s<stmt %d, line %d: source not resolvable>", label ? label : "", label ? "  " : "        ", ordinal, line);

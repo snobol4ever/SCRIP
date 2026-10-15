@@ -268,7 +268,7 @@ Command     =  FENCE(
 /* next statement (a blank first keeps its first word from being a label); a program without END is refused by both (a bare   */
 /* label END ends it, the text after it is never parsed)                                                                     */
 Compiland   =  epsilon . *PushCounter()
-               POS(0) ARBNO(*Command FLUSH) *EndStmt . *IncCounter() (ANY(' ' CHAR(9) CHAR(10)) | RPOS(0)) ARB RPOS(0)
+               POS(0) ARBNO(*Command FLUSH) *EndStmt . *IncCounter() (ANY(' ' CHAR(9) CHAR(10) ';') | RPOS(0)) ARB RPOS(0)
                . *Reduce('Parse', nTop())
                . *PopCounter();
 /* ==================================================================================================================== */
