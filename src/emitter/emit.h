@@ -39,7 +39,7 @@ static inline void bb_label_name_set(bb_label_t * l, const char * src) {
 #define bb_label_defined(lbl) ((lbl)->offset != BB_LABEL_UNRESOLVED)
 typedef enum { JMP_JMP = 0, JMP_JE, JMP_JNE, JMP_JL, JMP_JGE, JMP_JG } jmp_kind_t;
 typedef enum { PATCH_REL8, PATCH_REL32, PATCH_ABS64 } bb_patch_kind_t;
-typedef struct { int site; bb_label_t * label; bb_patch_kind_t kind; } bb_patch_t;
+typedef struct { int site; bb_label_t * label; bb_patch_kind_t kind; int next; } bb_patch_t;
 typedef struct { struct bb_label_t * define; struct bb_label_t * jmp; } xa_pair_t;
 typedef int emitter_t;
 extern bb_emit_mode_t bb_emit_mode;

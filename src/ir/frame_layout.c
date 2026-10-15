@@ -101,6 +101,10 @@ static void zls_reuse_plan(const IR_graph_t * g, zls_reuse_t * rec, int * ncp_ou
 static int zls_reuse_detleaf(const IR_t * c);
 static int zls_reuse_straight(IR_e op);
 typedef struct { const IR_t * p; int i; } zls_pi_t;
+static const char ** zls_nix_slot(const char ** ix, int cap, const char * nm) {
+    uint32_t m = (uint32_t)cap - 1;
+    for (uint32_t i = ir_name_hash(nm) & m;; i = (i + 1) & m) if (!ix[i] || strcmp(ix[i], nm) == 0) return &ix[i];
+}
 typedef struct { int * rdk; int * rdm; int ** lw; int * nlw; int * maxlast; int dl_w; } zls_ds_t;
 static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int nl, const int * mstart, int i, int dl_w, zls_ds_t * ds);
 static void zls_ds_build(zls_ds_t * ds, const IR_graph_t * g, const char * rb, int dl_w);
@@ -1229,9 +1233,14 @@ void zls_build(IR_graph_t * g) {
         zls_field(root, 0, 16, ZK_DESCR, 0,
         "return value (IR_RETURN stores the graph result DESCR at frame +0 and the graph gamma loads it into rdi:rsi; zeroed by the prologue, a valid null DESCR until then)", (const IR_t *)0);
     int k = 0;
+    int nix_cap = 16;
+    while (nix_cap < 2 * (g->nparams + g->nlocals + 2 * g->n + 32)) nix_cap *= 2;
+    const char ** nix = (const char **)ct_alloc(sizeof(const char *) * (size_t)nix_cap);
+    memset(nix, 0, sizeof(const char *) * (size_t)nix_cap);
     r->first_vslot = g_lower.ir.zv_n;
     for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) {
         cv_reserve(&g_lower.ir.zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)g_lower.ir.zv_n + 1, "zv");
+        *zls_nix_slot(nix, nix_cap, g->pnames[i]) = g->pnames[i];
         zv[g_lower.ir.zv_n++] = (zls_vslot_t){ g->pnames[i], blk ? -1 : 16 + i * 16 };
         r->n_vslots++;
         if (!blk) zls_field(root, 16 + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
@@ -1387,9 +1396,9 @@ void zls_build(IR_graph_t * g) {
         for (int q = 0; q < nvn; q++) {
             const char * vn = vns[q];
             if (!vn || vn[0] == '&' || (is_global(vn) && !graph_has_local(g, vn))) continue;
-            int have = 0;
-            for (int v = r->first_vslot; v < r->first_vslot + r->n_vslots; v++) if (zv[v].name && strcmp(zv[v].name, vn) == 0) { have = 1; break; }
-            if (have) continue;
+            const char ** ns = zls_nix_slot(nix, nix_cap, vn);
+            if (*ns) continue;
+            *ns = vn;
             cv_reserve(&g_lower.ir.zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)g_lower.ir.zv_n + 1, "zv");
             zv[g_lower.ir.zv_n++] = (zls_vslot_t){ vn, base + k * 16 };
             r->n_vslots++;
@@ -1401,9 +1410,9 @@ void zls_build(IR_graph_t * g) {
         for (int i = 0; i < g->nlocals; i++) {
             const char * vn = g->lnames[i];
             if (!vn || vn[0] == '&') continue;
-            int have = 0;
-            for (int v = r->first_vslot; v < r->first_vslot + r->n_vslots; v++) if (zv[v].name && strcmp(zv[v].name, vn) == 0) { have = 1; break; }
-            if (have) continue;
+            const char ** ns = zls_nix_slot(nix, nix_cap, vn);
+            if (*ns) continue;
+            *ns = vn;
             cv_reserve(&g_lower.ir.zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)g_lower.ir.zv_n + 1, "zv");
             zv[g_lower.ir.zv_n++] = (zls_vslot_t){ vn, base + k * 16 };
             r->n_vslots++;
@@ -1421,6 +1430,7 @@ void zls_build(IR_graph_t * g) {
             k++;
         }
     }
+    ct_drop(nix);
     r->nslots = k;
     r->region = base + k * 16;
     if (blk) { int ab = zls_g_block_base(g), j = r->first_vslot; for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) zv[j++].off = ab + i * 16; }

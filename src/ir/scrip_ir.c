@@ -158,26 +158,63 @@ int ir_node_produces_value(IR_e op) {
         op == IR_REV_SWAP || op == IR_KW_ASSIGN || op == IR_KW_ASSIGN_SNOBOL4;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+uint32_t ir_name_hash(const char * s) { uint32_t h = 2166136261u; while (*s) h = (h ^ (uint8_t)*s++) * 16777619u; return h; }
+static int * ir_vslot_ix_find(const IR_graph_t * g, const char * name) {
+    if (!g->vslot_ix_cap) return (int *)0;
+    uint32_t m = (uint32_t)g->vslot_ix_cap - 1;
+    for (uint32_t i = ir_name_hash(name) & m;; i = (i + 1) & m) { int * e = &g->vslot_ix[i]; if (!*e || strcmp(g->vslots[*e - 1].name, name) == 0) return e; }
+}
+static void ir_vslot_ix_grow(IR_graph_t * g) {
+    int cap = g->vslot_ix_cap ? 2 * g->vslot_ix_cap : 64;
+    int * nx = (int *)ct_zalloc((size_t)cap, sizeof(int));
+    if (!nx) abort();
+    g->vslot_ix = nx;
+    g->vslot_ix_cap = cap;
+    for (int i = 0; i < g->n_vslots; i++) if (g->vslots[i].name) { int * e = ir_vslot_ix_find(g, g->vslots[i].name); if (!*e) *e = i + 1; }
+}
 static void drv_vslot_push(IR_graph_t * g, const char * name, int off) {
     if (!name) return;
-    for (int i = 0; i < g->n_vslots; i++) if (g->vslots[i].name && strcmp(g->vslots[i].name, name) == 0) return;
+    if (2 * (g->n_vslots + 1) > g->vslot_ix_cap) ir_vslot_ix_grow(g);
+    int * e = ir_vslot_ix_find(g, name);
+    if (*e) return;
     { void * nv = ct_grow(g->vslots, (size_t)(g->n_vslots + 1) * sizeof(g->vslots[0])); if (!nv) return; g->vslots = nv; }
     g->vslots[g->n_vslots].name = name;
     g->vslots[g->n_vslots].off = off;
     g->n_vslots++;
+    *e = g->n_vslots;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int ir_varslot_of(const IR_graph_t * g, const char * name) {
-    if (!g || !name) return -1;
-    for (int i = 0; i < g->n_vslots; i++) if (g->vslots[i].name && strcmp(g->vslots[i].name, name) == 0) return g->vslots[i].off;
-    return -1;
-}
+int ir_varslot_of(const IR_graph_t * g, const char * name) { if (!g || !name) return -1; int * e = ir_vslot_ix_find(g, name); return (e && *e) ? g->vslots[*e - 1].off : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char ** ir_lname_ix_find(const char ** ix, int cap, const char * name) {
+    uint32_t m = (uint32_t)cap - 1;
+    for (uint32_t i = ir_name_hash(name) & m;; i = (i + 1) & m) if (!ix[i] || strcmp(ix[i], name) == 0) return &ix[i];
+}
+static void ir_lname_ix_build(IR_graph_t * g) {
+    int need = 2 * (g->nparams + g->nlocals) + 2, cap = 16;
+    while (cap < need) cap *= 2;
+    if (cap > g->lname_ix_cap) {
+        g->lname_ix = (const char **)ct_zalloc((size_t)cap, sizeof(const char *));
+        if (!g->lname_ix) abort();
+        g->lname_ix_cap = cap;
+    } else memset(g->lname_ix, 0, (size_t)g->lname_ix_cap * sizeof(const char *));
+    for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) *ir_lname_ix_find(g->lname_ix, g->lname_ix_cap, g->pnames[i]) = g->pnames[i];
+    for (int i = 0; i < g->nlocals && g->lnames; i++) if (g->lnames[i]) *ir_lname_ix_find(g->lname_ix, g->lname_ix_cap, g->lnames[i]) = g->lnames[i];
+    g->lname_ix_pn = g->pnames;
+    g->lname_ix_ln = g->lnames;
+    g->lname_ix_np = g->nparams;
+    g->lname_ix_nl = g->nlocals;
+}
 int graph_has_local(const IR_graph_t * g, const char * name) {
     if (!g || !name) return 0;
-    for (int i = 0; i < g->nparams; i++) if (g->pnames && g->pnames[i] && strcmp(g->pnames[i], name) == 0) return 1;
-    for (int i = 0; i < g->nlocals; i++) if (g->lnames && g->lnames[i] && strcmp(g->lnames[i], name) == 0) return 1;
-    return 0;
+    if (g->nparams + g->nlocals < 8) {
+        for (int i = 0; i < g->nparams; i++) if (g->pnames && g->pnames[i] && strcmp(g->pnames[i], name) == 0) return 1;
+        for (int i = 0; i < g->nlocals; i++) if (g->lnames && g->lnames[i] && strcmp(g->lnames[i], name) == 0) return 1;
+        return 0;
+    }
+    IR_graph_t * w = (IR_graph_t *)g;
+    if (!w->lname_ix_cap || w->lname_ix_pn != g->pnames || w->lname_ix_ln != g->lnames || w->lname_ix_np != g->nparams || w->lname_ix_nl != g->nlocals) ir_lname_ix_build(w);
+    return *ir_lname_ix_find(w->lname_ix, w->lname_ix_cap, name) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void ir_drive_slot_assign(IR_graph_t * g) {
@@ -200,6 +237,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         if (zdp_mode() || x86_zdp_on_c() || zzone_on_c()) { zdp_analyze(g); zzone_plan(g); }
     }
     g->n_vslots = 0;
+    if (g->vslot_ix_cap) memset(g->vslot_ix, 0, (size_t)g->vslot_ix_cap * sizeof(int));
     for (int v = 0; v < zls_g_vslot_count(g); v++) { int off = -1; const char * vn = zls_g_vslot_get(g, v, &off); if (vn && off >= 0) drv_vslot_push(g, vn, off); }
     g->resume_slot = zls_g_resume(g);
     g->zeta_mark_slot = zls_g_zeta_mark(g);

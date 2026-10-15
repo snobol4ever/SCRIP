@@ -203,6 +203,12 @@ struct IR_graph_t {
     const char ** lnames;
     struct IR_vslot_t { const char * name; int off; } * vslots;
     int n_vslots;
+    int * vslot_ix;
+    int vslot_ix_cap;
+    const char ** lname_ix;
+    int lname_ix_cap, lname_ix_np, lname_ix_nl;
+    const char ** lname_ix_pn;
+    const char ** lname_ix_ln;
     int resume_slot;
     int resumable_callable;
     int decl_level;
@@ -255,6 +261,7 @@ struct IR_graph_t {
 IR_graph_t * IR_alloc(int max_nodes);
 void IR_release_scope_add(IR_graph_t * g, const IR_t * nd, int lo, int hi);
 int IR_release_scope_get(const IR_graph_t * g, const IR_t * nd, int * lo, int * hi);
+uint32_t ir_name_hash(const char * s);
 int ir_varslot_of(const IR_graph_t * g, const char * name);
 int graph_has_local(const IR_graph_t * g, const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

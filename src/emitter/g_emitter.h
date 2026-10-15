@@ -65,6 +65,9 @@ struct g_emitter_t {
     bb_label_t *g_lblfold_from[4096];
     bb_label_t *g_lblfold_to[4096];
     int g_lblfold_n = 0;
+    cv_t bb_patch_hix, bb_patch_hix2;
+    uint32_t bb_patch_hused = 0, bb_patch_gen = 1;
+    int bb_patch_n = 0;
     int seq_fold_on_on = -1;
     int bb_emit_overflow = 0;
     int bb_label_define_bm = -1;

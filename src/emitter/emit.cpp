@@ -160,28 +160,88 @@ bb_label_t *emit_label_intern(const char *name)
     return emit_label_alloc("%s", name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { bb_label_t * k; int head; uint32_t gen; } bb_patch_hent_t;
+static uint32_t bb_patch_hslot(const bb_label_t * l, uint32_t n) {
+    uint64_t x = (uint64_t)(uintptr_t)l;
+    x ^= x >> 33;
+    x *= 0xff51afd7ed558ccdULL;
+    x ^= x >> 33;
+    return (uint32_t)x & (n - 1);
+}
+static bb_patch_hent_t * bb_patch_hfind(cv_t * h, const bb_label_t * l, int make) {
+    if (h->len == 0) return (bb_patch_hent_t *)0;
+    for (uint32_t i = bb_patch_hslot(l, h->len);; i = (i + 1) & (h->len - 1)) {
+        bb_patch_hent_t * e = &CV_AT(*h, bb_patch_hent_t, i);
+        if (e->gen == g_emitter.bb_patch_gen && e->k == l) return e;
+        if (e->gen != g_emitter.bb_patch_gen) {
+            if (!make) return (bb_patch_hent_t *)0;
+            e->k = (bb_label_t *)l;
+            e->head = 0;
+            e->gen = g_emitter.bb_patch_gen;
+            return e;
+        }
+    }
+}
+static void bb_patch_hgrow(void) {
+    cv_t * h = &g_emitter.bb_patch_hix, * t = &g_emitter.bb_patch_hix2;
+    uint32_t n = h->len ? 2 * h->len : 256;
+    cv_reserve(t, (uint32_t)sizeof(bb_patch_hent_t), n, "bb_patch_hix");
+    memset(t->p, 0, (size_t)n * sizeof(bb_patch_hent_t));
+    t->len = n;
+    for (uint32_t i = 0; i < h->len; i++) {
+        bb_patch_hent_t * e = &CV_AT(*h, bb_patch_hent_t, i);
+        if (e->gen == g_emitter.bb_patch_gen) *bb_patch_hfind(t, e->k, 1) = *e;
+    }
+    cv_t sw = *h;
+    *h = *t;
+    *t = sw;
+}
+static void bb_patch_reset(void) {
+    bb_patch_count = 0;
+    g_emitter.bb_patch_n = 0;
+    g_emitter.bb_patch_hused = 0;
+    g_emitter.bb_patch_gen++;
+}
+static void bb_patch_add(bb_label_t * lbl, bb_patch_kind_t kind) {
+    if (2 * (g_emitter.bb_patch_hused + 1) > g_emitter.bb_patch_hix.len) bb_patch_hgrow();
+    bb_patch_hent_t * e = bb_patch_hfind(&g_emitter.bb_patch_hix, lbl, 0);
+    if (!e) {
+        e = bb_patch_hfind(&g_emitter.bb_patch_hix, lbl, 1);
+        g_emitter.bb_patch_hused++;
+    }
+    cv_reserve(&bb_patch_list, (uint32_t)sizeof(bb_patch_t), (uint64_t)g_emitter.bb_patch_n + 1, "bb_patch_list");
+    bb_patch_t * pp = &CV_AT(bb_patch_list, bb_patch_t, g_emitter.bb_patch_n);
+    pp->site = bb_emit_pos;
+    pp->label = lbl;
+    pp->kind = kind;
+    pp->next = e->head;
+    e->head = ++g_emitter.bb_patch_n;
+    bb_patch_count++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_emit_begin(bb_buf_t buf, int size)
 {
     bb_emit_buf = buf;
     bb_emit_pos = 0;
     bb_emit_size = size;
-    bb_patch_count = 0;
+    bb_patch_reset();
     emit_label_pool_reset();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_emit_end(void)
 {
     if (g_emitter.bb_emit_overflow) {
-        bb_patch_count = 0;
+        bb_patch_reset();
         return -1;
     }
     if (bb_patch_count > 0) {
         fprintf(stderr, "bb_emit_end: %d unresolved forward reference(s):\n",
                 bb_patch_count);
-        for (int i = 0; i < bb_patch_count; i++)
-            fprintf(stderr, "  site=%d label='%s'\n",
-                    CV_AT(bb_patch_list, bb_patch_t, i).site,
-                    CV_AT(bb_patch_list, bb_patch_t, i).label->name);
+        for (int i = 0; i < g_emitter.bb_patch_n; i++)
+            if (CV_AT(bb_patch_list, bb_patch_t, i).label)
+                fprintf(stderr, "  site=%d label='%s'\n",
+                        CV_AT(bb_patch_list, bb_patch_t, i).site,
+                        CV_AT(bb_patch_list, bb_patch_t, i).label->name);
         abort();
     }
     return bb_emit_pos;
@@ -212,9 +272,7 @@ void bb_emit_patch_rel32(bb_label_t *lbl)
         bb_emit_i32(disp);
         return;
     }
-    cv_reserve(&bb_patch_list, (uint32_t)sizeof(bb_patch_t), (uint64_t)bb_patch_count + 1, "bb_patch_list");
-    { bb_patch_t * pp = &CV_AT(bb_patch_list, bb_patch_t, bb_patch_count); pp->site = bb_emit_pos; pp->label = lbl; pp->kind = PATCH_REL32; }
-    bb_patch_count++;
+    bb_patch_add(lbl, PATCH_REL32);
     bb_emit_u32(0x00000000);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -223,9 +281,7 @@ void bb_emit_patch_abs64(bb_label_t *lbl)
     lbl = bb_label_fold(lbl);
     if (!MEDIUM_BINARY) { fprintf(stderr, "bb_emit_patch_abs64: TEXT-mode reach (target='%s')\n", lbl->name); abort(); }
     if (bb_label_defined(lbl)) { bb_emit_u64((uint64_t)(uintptr_t)(bb_emit_buf + lbl->offset)); return; }
-    cv_reserve(&bb_patch_list, (uint32_t)sizeof(bb_patch_t), (uint64_t)bb_patch_count + 1, "bb_patch_list");
-    { bb_patch_t * pp = &CV_AT(bb_patch_list, bb_patch_t, bb_patch_count); pp->site = bb_emit_pos; pp->label = lbl; pp->kind = PATCH_ABS64; }
-    bb_patch_count++;
+    bb_patch_add(lbl, PATCH_ABS64);
     bb_emit_u64(0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -313,9 +369,9 @@ void bb_label_define(bb_label_t *lbl)
     lbl->offset = bb_emit_pos;
     { if (g_emitter.bb_label_define_bm < 0) { const char *e = getenv("SCRIP_BLOB_MAP"); g_emitter.bb_label_define_bm = (e && *e == '1') ? 1 : 0;
         } if (g_emitter.bb_label_define_bm) fprintf(stderr, "BLOBMAP %p %s\n", (void *)(bb_emit_buf + bb_emit_pos), lbl->name); }
-    for (int i = 0; i < bb_patch_count; i++) {
+    bb_patch_hent_t * e = bb_patch_hfind(&g_emitter.bb_patch_hix, lbl, 0);
+    for (int i = e ? e->head - 1 : -1; i >= 0; i = CV_AT(bb_patch_list, bb_patch_t, i).next - 1) {
         bb_patch_t *p = &CV_AT(bb_patch_list, bb_patch_t, i);
-        if (p->label != lbl) continue;
         int target = lbl->offset;
         if (p->kind == PATCH_REL8) {
             int disp = target - (p->site + 1);
@@ -337,9 +393,10 @@ void bb_label_define(bb_label_t *lbl)
             bb_emit_buf[p->site + 2] = (uint8_t)(u >> 16);
             bb_emit_buf[p->site + 3] = (uint8_t)(u >> 24);
         }
-        CV_AT(bb_patch_list, bb_patch_t, i) = CV_AT(bb_patch_list, bb_patch_t, --bb_patch_count);
-        i--;
+        p->label = (bb_label_t *)0;
+        bb_patch_count--;
     }
+    if (e) e->head = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_label_initf(bb_label_t *lbl, const char *fmt, ...)
@@ -5079,6 +5136,13 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     for (int _r = 0; _r < n; _r++) if (g_emitter.codegen_flat_chain_body_nodes[_r]->op == IR_REPALT && g_emitter.codegen_flat_chain_body_nodes[_r]->n_operands > 0) { int _k =
         nidx(g_emitter.codegen_flat_chain_body_nodes, n, g_emitter.codegen_flat_chain_body_nodes[_r]->operands[0]); if (_k >= 0 && repalt_of[_k] < 0) repalt_of[_k] = _r;
         }
+    std::unordered_map<const IR_t *, int> repalt_by_fail, repalt_by_op0;
+    for (int _r = 0; _r < n; _r++) {
+        IR_t * _rn = g_emitter.codegen_flat_chain_body_nodes[_r];
+        if (_rn->op != IR_REPALT) continue;
+        if (_rn->n_operands > 2) repalt_by_fail.emplace(_rn->operands[2], _r);
+        if (_rn->n_operands > 0) repalt_by_op0.emplace(_rn->operands[0], _r);
+    }
     std::unordered_map<const bb_label_t *, int> beta_of; beta_of.reserve((size_t)n * 2 + 1); for (int _q = 0; _q < n; _q++) if (betas[_q]) beta_of.emplace(betas[_q], _q);
     int _hk_c = -1, _hk_upto = 0;
     for (int i = 0; i < n; i++) {
@@ -5152,10 +5216,10 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                 otgt ? bb_op_name(otgt->op) : "NULL",
             g_emit.op_omega_is_death);
         { int r = repalt_of[i]; if (r >= 0) { node_γ = ra_y[r]; if (g_emitter.codegen_flat_chain_body_nodes[r]->n_operands < 3) node_ω = ra_t[r]; } }
-        if (g_emitter.codegen_flat_chain_body_nodes[i]->ω.node && g_emitter.codegen_flat_chain_body_nodes[i]->ω.node->op == IR_FAIL) for (int r = 0; r < n; r++)
-            if (g_emitter.codegen_flat_chain_body_nodes[r]->op == IR_REPALT && g_emitter.codegen_flat_chain_body_nodes[r]->n_operands > 2 &&
-            g_emitter.codegen_flat_chain_body_nodes[r]->operands[2] == g_emitter.codegen_flat_chain_body_nodes[i]->ω.node)
-            { node_ω = ra_t[r]; break; }
+        if (g_emitter.codegen_flat_chain_body_nodes[i]->ω.node && g_emitter.codegen_flat_chain_body_nodes[i]->ω.node->op == IR_FAIL) {
+            auto _rf = repalt_by_fail.find(g_emitter.codegen_flat_chain_body_nodes[i]->ω.node);
+            if (_rf != repalt_by_fail.end()) node_ω = ra_t[_rf->second];
+        }
         if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_CONJUNCTION && g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 0 && g_emitter.codegen_flat_chain_body_nodes[i]->operands[0]) {
             IR_t * op0 = g_emitter.codegen_flat_chain_body_nodes[i]->operands[0];
             { int _s0 = nd_slot(op0); if (_s0 >= 0 && bb_slot_get(g_emitter.codegen_flat_chain_body_nodes[i]) < 0) bb_slot_register(g_emitter.codegen_flat_chain_body_nodes[i], _s0); }
@@ -5291,9 +5355,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   { int _k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, _o); if (_k >= 0) { _k2 = _k; } }
                   if (_k2 >= 0) { _next = (_ip && na_fo[_k2]) ? na_fo[_k2] : _ib ? betas[_k2] : lbls[_k2]; }
                   else _next = (_o && _o->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
-                  for (int _r = 0; _r < n; _r++)
-                      if (g_emitter.codegen_flat_chain_body_nodes[_r]->op == IR_REPALT && g_emitter.codegen_flat_chain_body_nodes[_r]->n_operands > 0 &&
-                      g_emitter.codegen_flat_chain_body_nodes[_r]->operands[0] == _c) { _next = ra_t[_r]; break; }
+                  { auto _ro = repalt_by_op0.find(_c); if (_ro != repalt_by_op0.end()) _next = ra_t[_ro->second]; }
                   node_ω = _next;
                   _fk = -1; { auto _bit = beta_of.find(_next); if (_bit != beta_of.end()) _fk = _bit->second; }
               }
