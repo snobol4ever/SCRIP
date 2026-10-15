@@ -223,7 +223,7 @@ StructFields     =  epsilon . *PushCounter() (*StructFieldFirst ARBNO(*StructFie
 struct_cmd_rest =   *$' ' (*Ident) . thx . *Shift('TT_QLIT', thx)
                     *$'{' *StructFields *$'}' . *Reduce('TT_STRUCT', 2);
 /* import_cmd → TT_IMPORT(name): a library import, resolved by the lowerer (Lon 2026-10-14: Snocone uses import, not include) */
-import_cmd_rest =   *$' ' (*Ident) . thx . *Shift('TT_QLIT', thx) *$';' . *Reduce('TT_IMPORT', 1);
+import_cmd_rest =   *$' ' ((*Ident) . thx . *Shift('TT_QLIT', thx) | *String) *$';' . *Reduce('TT_IMPORT', 1);
 /* stmt_cmd — subject/pattern decomposition removed (lower's job per PST-SC-4l) */
 stmt_body       =   *Expr0 FENCE(*$';' | epsilon);
 stmt_cmd        =   *stmt_body;

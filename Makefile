@@ -1713,9 +1713,9 @@ out/scrip0: $(RT_SO0) $(SRC)/driver/scrip.c
 	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/scrip_driver0.o -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt0 $(LIBS) -o $@
 out/sc_mod/scparsers.sc: bootstrap/mod_head.sc bootstrap/mod_tail.sc $(SC_MOD_LIB:%=bootstrap/%.sc) $(SC_MOD_LANGS:%=bootstrap/parser_%.sc) Makefile
 	@mkdir -p out/sc_mod
-	@{ printf "ModPrefix = 'mod_';\n"; cat bootstrap/mod_head.sc; printf "ModPrefix = 'sc_';\n"; cat $(SC_MOD_LIB:%=bootstrap/%.sc); \
-	   $(foreach L,$(SC_MOD_LANGS),printf "ModPrefix = '$(call sc_mod_pfx,$(L))';\n"; cat bootstrap/parser_$(L).sc;) \
-	   printf "ModPrefix = 'mod_';\n"; cat bootstrap/mod_tail.sc; } > $@
+	@{ printf "ModPrefix = 'mod_';\nimport mod_head;\nModPrefix = 'sc_';\n"; for f in $(SC_MOD_LIB); do printf "import '%s';\n" $$f; done; \
+	   $(foreach L,$(SC_MOD_LANGS),printf "ModPrefix = '$(call sc_mod_pfx,$(L))';\nimport parser_$(L);\n";) \
+	   printf "ModPrefix = 'mod_';\nimport mod_tail;\n"; } > $@
 out/sc_mod/scparsers.o: out/sc_mod/scparsers.sc out/scrip0
 	./out/scrip0 --module scparsers --compile -o out/sc_mod/scparsers.s out/sc_mod/scparsers.sc < /dev/null
 	$(CC) -c out/sc_mod/scparsers.s -o $@

@@ -245,6 +245,8 @@ matched_stmt
                                         { sc_emit_struct(st, $2, ast_node_new(TT_FIELDS)); ct_drop($2); }
             | T_IMPORT T_IDENT T_SEMICOLON
                                         { sc_emit_import(st, $2); ct_drop($2); }
+            | T_IMPORT T_STR T_SEMICOLON
+                                        { sc_emit_import(st, $2); ct_drop($2); }
             | label_decl
             ;
 unmatched_stmt
