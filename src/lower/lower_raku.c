@@ -5651,7 +5651,7 @@ static void rk_ss_rewrite(tree_t * t, const rk_ns_t * ss, int in_pkg) {
     if (t->t != TT_SUB_DECL || t->n < 1 || !t->c[0]) return;
     int multi = t->c[0]->v.sval && strchr(t->c[0]->v.sval, '$') != NULL;
     int ismeth = in_pkg, first = 1, last = ismeth ? (int) t->v.ival - 1 : (int) t->v.ival, body = last + 1;
-    tree_t * guards[32];
+    tree_t * guards[last >= first ? 3 * (last - first + 1) : 1];
     int ng = 0;
     for (int k = first; k <= last && k < t->n; k++) {
         tree_t * pv = t->c[k];
@@ -5804,8 +5804,9 @@ static void rk_ss_multi_list(tree_t * t, const rk_ns_t * ss, const rk_ns_t * cla
         char base[bl + 1];
         memcpy(base, n0, bl);
         base[bl] = 0;
-        rk_mc_t cands[16];
-        int idx[16], nc = 0, valid = 1, constrained = 0;
+        int ncmax = n - i > 0 ? n - i : 1;
+        rk_mc_t cands[ncmax];
+        int idx[ncmax], nc = 0, valid = 1, constrained = 0;
         for (int k = i; k < n && valid; k++) {
             tree_t * dk = rk_top_subj(t->c[k]);
             const char * nk = (dk && dk->t == TT_SUB_DECL && dk->n > 0 && dk->c[0]) ? dk->c[0]->v.sval : NULL;
@@ -5813,7 +5814,7 @@ static void rk_ss_multi_list(tree_t * t, const rk_ns_t * ss, const rk_ns_t * cla
             if (!strchr(nk, '$')) { if (!strcmp(nk, base)) valid = 0; continue; }
             if (strncmp(nk, base, bl) || nk[bl] != '$') continue;
             done[k] = 1;
-            if (nc >= 16) { valid = 0; break; }
+            if (nc >= ncmax) { valid = 0; break; }
             rk_mc_t * m = &cands[nc];
             m->sd = dk;
             m->rank = 0;
@@ -5836,7 +5837,7 @@ static void rk_ss_multi_list(tree_t * t, const rk_ns_t * ss, const rk_ns_t * cla
         }
         if (!valid || !constrained || nc == 0) continue;
         for (int a = 1; a < nc; a++) { rk_mc_t key = cands[a]; int b = a - 1; while (b >= 0 && cands[b].rank < key.rank) { cands[b + 1] = cands[b]; b--; } cands[b + 1] = key; }
-        char * names[16];
+        char * names[ncmax];
         for (int a = 0; a < nc; a++) { char nb[bl + 24]; snprintf(nb, sizeof nb, "__mc%d_%s", (*ctr)++, base); names[a] = (char *) intern(nb); cands[a].sd->c[0]->v.sval = names[a]; }
         tree_t * disp = ast_node_new(TT_SUB_DECL);
         disp->v.ival = 1;
