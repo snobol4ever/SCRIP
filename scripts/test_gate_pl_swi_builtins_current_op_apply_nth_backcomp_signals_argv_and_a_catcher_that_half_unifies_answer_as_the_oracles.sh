@@ -12,6 +12,7 @@
 # a forced-trailing boundary and unwinds on a mismatch.  Programs write outer/outer2/ab as gprolog does.
 # RED BEFORE (the parent e6febb41a): existence_error for the new names, type_error(atom, 1) for apply, nondeterministic nth0/nth1, domain_error current_op, the
 # nested catch ends uncaught.
+# THIRD ARM: initialization(main, main) exits 1 when main/0 fails (swipl; SCRIP exited 0), 2 on an exception, the halt code on halt/1.
 # rc=0 both modes agree with the oracles · rc=1 a divergence · rc=2 REFUSAL (no swipl, no gprolog, no build).  ~4 s.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -67,6 +68,17 @@ for m in m3 m4; do
     cf=c$m; [ $m = m3 ] && cf=cm3 || cf=cm4
     if cmp -s "$D/cwant" "$D/$cf"; then echo "  $m gprolog arm GREEN: $cn of $cn lines as gprolog"
     else echo "  $m gprolog arm RED: the catch witness differs from gprolog"; diff "$D/cwant" "$D/$cf" 2>/dev/null | head -6 | sed 's/^/    /'; red=1; fi
+done
+# THIRD ARM, the exit status of initialization(main, main): the program's own main/0 fails -> rc 1, raises -> rc 2, halts -> its code (swipl's rc, cut here).
+for body in 'main :- fail.' 'main :- write(a), nl, fail.' 'main :- throw(oops).' 'main :- write(hi), nl.' 'main :- halt(3).'; do
+    printf ':- initialization(main, main).\n%s\n' "$body" > "$D/im.pl"
+    ( cd "$D" && timeout 30 swipl -q im.pl < /dev/null > iw.out 2> /dev/null; echo $? > iw.rc
+      timeout 30 "$B/scrip" --run im.pl < /dev/null > i3.out 2> /dev/null; echo $? > i3.rc
+      timeout 60 "$B/scrip" --compile -o im.s im.pl < /dev/null 2> /dev/null && gcc -no-pie im.s -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" -o im 2> /dev/null && { timeout 30 ./im < /dev/null > i4.out 2> /dev/null; echo $? > i4.rc; } )
+    for m in 3 4; do
+        if cmp -s "$D/iw.rc" "$D/i$m.rc" && cmp -s "$D/iw.out" "$D/i$m.out"; then echo "  m$m initialization(main, main) '$body' GREEN: rc $(cat "$D/iw.rc") as swipl"
+        else echo "  m$m initialization(main, main) '$body' RED: swipl rc $(cat "$D/iw.rc") scrip rc $(cat "$D/i$m.rc" 2>/dev/null)"; red=1; fi
+    done
 done
 [ "$red" = 0 ] && echo "PASS $GATE"
 exit "$red"

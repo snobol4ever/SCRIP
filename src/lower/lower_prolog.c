@@ -5073,6 +5073,10 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
                 int iv_scope0 = dvc;
                 if (subj->n == 1) { init_goals[ninit++] = pl_dir_catch_wrap((tree_t *) gt, dvn, &dvc); continue; }
                 pl_dir_number_vars((tree_t *) gt, dvn, &dvc, iv_scope0);
+                if (subj->c[1] && (subj->c[1]->t == TT_QLIT || subj->c[1]->t == TT_NAME) && subj->c[1]->v.sval && !strcmp(subj->c[1]->v.sval, "main")) {
+                    init_goals[ninit++] = pl_cc_fnc2(";", pl_cc_fnc2("->", (tree_t *) gt, (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("halt", pl_cc_ilit(1)));
+                    continue;
+                }
                 init_goals[ninit++] = gt;
                 continue;
             }
