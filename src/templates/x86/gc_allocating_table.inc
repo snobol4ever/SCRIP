@@ -2765,6 +2765,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "to_int", GC_RET_OTHER },
     { "to_int_slow", GC_RET_OTHER },
     { "to_real", GC_RET_OTHER },
+    { "trace_banner_str", GC_RET_OTHER },
     { "trace_image_icon", GC_RET_VOID },
     { "trace_image_icon_f", GC_RET_VOID },
     { "trace_image_icon_leaf_f", GC_RET_VOID },
