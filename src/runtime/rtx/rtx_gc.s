@@ -296,6 +296,37 @@
     mov     qword ptr [rdi + 112], rdx
     jmp     .Lmk_range
 .endm
+#define HB_WSB 215
+#define DATA_INST_SLEN 0
+.macro MK_EXACTQ type, rej
+    cmp     r10, 16
+    jb      \rej
+    test    r10b, 7
+    jne     \rej
+    MK_BLK_OF r10
+    test    rax, rax
+    je      \rej
+    lea     rdx, [rax + 16]
+    cmp     rdx, r10
+    jne     \rej
+    cmp     word ptr [rax + 12], \type
+    jne     \rej
+    test    word ptr [rax + 14], HBF_TTL
+    je      \rej
+.endm
+.macro MK_PUSH_CELL p, full
+    cmp     r11, qword ptr [rdi + 16]
+    jae     \full
+    mov     rax, qword ptr [rdi]
+    mov     qword ptr [rax + r11*8], \p
+    inc     r11
+#if RT_DIAG
+    cmp     r11, qword ptr [rdi + 120]
+    jle     335f
+    mov     qword ptr [rdi + 120], r11
+335:
+#endif
+.endm
 RTX_FUNC(rt_gc_mark_run)
     jmp     .Lmk_enter
 RTX_ENTRY(rt_gc_visit_descr_a)
@@ -330,6 +361,24 @@ RTX_ENTRY(rt_gc_visit_descr_a)
     mov     eax, 4
 .Lvd_ret:
     ret
+RTX_ENTRY(rt_gc_frame_cells_a)
+    lea     rax, [rip + g_gc_mk]
+    mov     qword ptr [rax + 192], rdi
+    mov     qword ptr [rax + 200], rsi
+    mov     qword ptr [rax + 208], rdx
+    mov     qword ptr [rax + 216], rcx
+    mov     qword ptr [rax + 224], 0
+    mov     qword ptr [rax + 248], 0
+    mov     qword ptr [rax + 184], 1
+    mov     rdi, rax
+    jmp     .Lmk_enter
+RTX_ENTRY(rt_gc_walk_words_a)
+    lea     rax, [rip + g_gc_mk]
+    mov     qword ptr [rax + 256], rdi
+    mov     qword ptr [rax + 264], rsi
+    mov     qword ptr [rax + 184], 1
+    mov     rdi, rax
+    jmp     .Lmk_enter
 .Lmk_enter:
     RTX_PUSHS(rbx)
     RTX_PUSHS(rbp)
@@ -716,7 +765,246 @@ RTX_ENTRY(rt_gc_visit_descr_a)
 .Lmk_slow:
     mov     rax, rsi
     jmp     .Lmk_out
+.Lmk_prod_wl_full:
+    mov     eax, 2
+    jmp     .Lmk_out
+.Lmk_prod_slots_full:
+    mov     eax, 1
+    jmp     .Lmk_out
 .Lmk_none:
+    cmp     qword ptr [rdi + 200], 0
+    jne     .Lfc_resume
+    cmp     qword ptr [rdi + 264], 0
+    jne     .Lsw_cells
+    xor     eax, eax
+    jmp     .Lmk_out
+.Lfc_resume:
+    mov     rax, qword ptr [rdi + 248]
+    cmp     rax, 1
+    je      .Lfc_descr
+    cmp     rax, 2
+    je      .Lfc_ptr
+.Lfc_entry:
+    mov     rsi, qword ptr [rdi + 200]
+    mov     rax, qword ptr [rdi + 224]
+    cmp     rax, qword ptr [rsi + 32]
+    jae     .Lfc_done
+    mov     rdx, qword ptr [rsi + 40 + rax*8]
+    inc     rax
+    mov     qword ptr [rdi + 224], rax
+    movsxd  rax, edx
+    add     rax, qword ptr [rdi + 192]
+    mov     rcx, rdx
+    shr     rcx, 40
+    and     ecx, 0xFFFF
+    lea     r8, [rax + rcx]
+    shr     rdx, 32
+    and     edx, 0xFF
+    cmp     rax, qword ptr [rdi + 208]
+    jae     .Lfc_w_ok
+    mov     rcx, qword ptr [rdi + 208]
+    test    edx, edx
+    jne     .Lfc_w_lo
+    sub     rcx, rax
+    add     rcx, 15
+    and     rcx, -16
+    add     rax, rcx
+    jmp     .Lfc_w_ok
+.Lfc_w_lo:
+    mov     rax, rcx
+.Lfc_w_ok:
+    cmp     r8, qword ptr [rdi + 216]
+    jbe     .Lfc_e_ok
+    mov     r8, qword ptr [rdi + 216]
+.Lfc_e_ok:
+    cmp     rax, r8
+    jae     .Lfc_entry
+    mov     qword ptr [rdi + 232], rax
+    mov     qword ptr [rdi + 240], r8
+    test    edx, edx
+    je      .Lfc_set_descr
+    cmp     edx, 2
+    jne     .Lfc_entry
+    mov     qword ptr [rdi + 248], 2
+    jmp     .Lfc_ptr
+.Lfc_set_descr:
+    mov     qword ptr [rdi + 248], 1
+.Lfc_descr:
+    mov     rsi, qword ptr [rdi + 232]
+    lea     rax, [rsi + 16]
+    cmp     rax, qword ptr [rdi + 240]
+    ja      .Lfc_entry_end
+    movzx   eax, byte ptr [rsi]
+    lea     rdx, [rip + .Lmk_known]
+    cmp     byte ptr [rdx + rax], 0
+    je      .Lfc_descr_next
+    lea     rdx, [rip + .Lmk_class]
+    cmp     byte ptr [rdx + rax], 0
+    je      .Lfc_descr_next
+    MK_PUSH_CELL rsi, .Lmk_prod_wl_full
+    add     qword ptr [rdi + 232], 16
+    jmp     .Lmk_loop
+.Lfc_descr_next:
+    add     qword ptr [rdi + 232], 16
+    jmp     .Lfc_descr
+.Lfc_entry_end:
+    mov     qword ptr [rdi + 248], 0
+    jmp     .Lfc_entry
+.Lfc_ptr:
+    mov     rsi, qword ptr [rdi + 232]
+    lea     rax, [rsi + 8]
+    cmp     rax, qword ptr [rdi + 240]
+    ja      .Lfc_entry_end
+    mov     rax, qword ptr [rdi + 40]
+    sub     rax, rbx
+    cmp     rax, 1
+    jl      .Lmk_prod_slots_full
+    add     qword ptr [rdi + 232], 8
+    mov     r10, qword ptr [rsi]
+    MK_RAW rsi
+    jmp     .Lfc_ptr
+.Lfc_done:
+    mov     qword ptr [rdi + 200], 0
+    mov     qword ptr [rdi + 248], 0
+    jmp     .Lmk_none
+.Lsw_cells:
+    mov     rsi, qword ptr [rdi + 256]
+    lea     rax, [rsi + 16]
+    cmp     rax, qword ptr [rdi + 264]
+    ja      .Lsw_done
+    movzx   eax, byte ptr [rsi]
+    mov     r10, qword ptr [rsi + 8]
+    cmp     eax, DT_S
+    je      .Lsw_str
+    cmp     eax, DT_X
+    je      .Lsw_str
+    cmp     eax, DT_N
+    je      .Lsw_n
+    cmp     eax, DT_T
+    je      .Lsw_t
+    cmp     eax, DT_A
+    je      .Lsw_a
+    cmp     eax, DT_E
+    je      .Lsw_e
+    cmp     eax, DT_DATA
+    je      .Lsw_data
+    cmp     eax, DT_P
+    je      .Lsw_anyblk
+    cmp     eax, DT_PLVAR
+    je      .Lsw_anyblk
+    cmp     eax, DT_PLREF
+    je      .Lsw_anyblk
+    cmp     eax, DT_BIG
+    je      .Lsw_wsb
+    cmp     eax, DT_CPLX
+    je      .Lsw_wsb
+    cmp     eax, DT_EXTL
+    je      .Lsw_wsb
+.Lsw_reject:
+    add     qword ptr [rdi + 256], 8
+    jmp     .Lsw_cells
+.Lsw_str:
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lsw_reject
+    lea     rdx, [rax + 16]
+    cmp     r10, rdx
+    jb      .Lsw_reject
+    jmp     .Lsw_accept
+.Lsw_n:
+    mov     edx, dword ptr [rsi + 4]
+    test    edx, edx
+    je      .Lsw_str
+    cmp     edx, 2
+    je      .Lsw_aggv
+    cmp     edx, 1
+    jne     .Lsw_anyblk
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lsw_reject
+    lea     rdx, [rax + 16]
+    cmp     r10, rdx
+    jb      .Lsw_reject
+    mov     edx, dword ptr [rax + 8]
+    add     rdx, rax
+    lea     rcx, [r10 + 16]
+    cmp     rcx, rdx
+    ja      .Lsw_reject
+    jmp     .Lsw_accept
+.Lsw_aggv:
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lsw_reject
+    cmp     word ptr [rax + 12], HB_AGGV
+    jne     .Lsw_reject
+    lea     rdx, [rax + 16]
+    cmp     r10, rdx
+    jne     .Lsw_reject
+    jmp     .Lsw_accept
+.Lsw_t:
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lsw_reject
+    cmp     word ptr [rax + 12], HB_AGGT
+    jne     .Lsw_reject
+    lea     rdx, [rax + 16]
+    cmp     r10, rdx
+    jne     .Lsw_reject
+    jmp     .Lsw_accept
+.Lsw_anyblk:
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lsw_reject
+    jmp     .Lsw_accept
+.Lsw_a:
+    MK_EXACTQ HB_ARR, .Lsw_reject
+    jmp     .Lsw_accept
+.Lsw_e:
+    mov     edx, dword ptr [rsi + 4]
+    cmp     edx, PROCVAL_SLEN
+    je      .Lsw_str
+    cmp     edx, PROCVAL_BUILTIN_SLEN
+    je      .Lsw_str
+    cmp     edx, PROCVAL_EXTERNAL_SLEN
+    je      .Lsw_str
+    jmp     .Lsw_reject
+.Lsw_data:
+    mov     edx, dword ptr [rsi + 4]
+    cmp     edx, DATA_ELEMS_SLEN
+    jne     .Lsw_data_inst
+    test    r10, r10
+    je      .Lsw_reject
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lsw_reject
+    cmp     word ptr [rax + 12], HB_DVEC
+    jne     .Lsw_reject
+    mov     rdx, r10
+    sub     rdx, rax
+    sub     rdx, 16
+    test    dl, 15
+    jne     .Lsw_reject
+    jmp     .Lsw_accept
+.Lsw_data_inst:
+    cmp     edx, DATA_INST_SLEN
+    jne     .Lsw_reject
+    MK_EXACTQ HB_DINST, .Lsw_reject
+    jmp     .Lsw_accept
+.Lsw_wsb:
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lsw_reject
+    cmp     word ptr [rax + 12], HB_WSB
+    jne     .Lsw_reject
+    lea     rdx, [rax + 16]
+    cmp     r10, rdx
+    jne     .Lsw_reject
+.Lsw_accept:
+    MK_PUSH_CELL rsi, .Lmk_prod_wl_full
+    add     qword ptr [rdi + 256], 16
+    jmp     .Lmk_loop
+.Lsw_done:
+    mov     qword ptr [rdi + 264], 0
     xor     eax, eax
 .Lmk_out:
     mov     qword ptr [rdi + 8], r11
@@ -762,6 +1050,57 @@ RTX_ENDF(rt_gc_mark_run)
 .org .Lmk_class + DT_EXTL
 .byte MK_PLAIN
 .org .Lmk_class + 256
+.p2align 6
+.Lmk_known:
+.org .Lmk_known + 0
+.byte 1
+.org .Lmk_known + 2
+.byte 1
+.org .Lmk_known + 3
+.byte 1
+.org .Lmk_known + 5
+.byte 1
+.org .Lmk_known + 8
+.byte 1
+.org .Lmk_known + 16
+.byte 1
+.org .Lmk_known + 24
+.byte 1
+.org .Lmk_known + 32
+.byte 1
+.org .Lmk_known + 40
+.byte 1
+.org .Lmk_known + 48
+.byte 1
+.org .Lmk_known + 56
+.byte 1
+.org .Lmk_known + 64
+.byte 1
+.org .Lmk_known + 72
+.byte 1
+.org .Lmk_known + 80
+.byte 1
+.org .Lmk_known + 88
+.byte 1
+.org .Lmk_known + 96
+.byte 1
+.org .Lmk_known + 104
+.byte 1
+.org .Lmk_known + 112
+.byte 1
+.org .Lmk_known + 120
+.byte 1
+.org .Lmk_known + 128
+.byte 1
+.org .Lmk_known + 136
+.byte 1
+.org .Lmk_known + 144
+.byte 1
+.org .Lmk_known + 152
+.byte 1
+.org .Lmk_known + 176
+.byte 1
+.org .Lmk_known + 256
 .text
 .macro GC_POPCNT dst, src
     popcnt  \dst, \src

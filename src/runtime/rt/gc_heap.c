@@ -792,14 +792,23 @@ typedef struct gc_mk_t {
     rt_hblk_t *mhead;
     DESCR_t *rng_p;
     long rng_n, wlmax, interior, dvec_elems, dvec_nondvec, nmk, mxs, walked, pv_end, draining;
+    const char *fc_anchor;
+    const void *fc_map;
+    const char *fc_lo, *fc_hi;
+    long fc_i;
+    const char *fc_c, *fc_e;
+    long fc_kind;
+    const char *sw_p, *sw_hi;
 } gc_mk_t;
 _Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_t, wln) == 8 && __builtin_offsetof(gc_mk_t, wlcap) == 16 && __builtin_offsetof(gc_mk_t, slots) == 24 &&
     __builtin_offsetof(gc_mk_t, nslot) == 32 && __builtin_offsetof(gc_mk_t, scap) == 40 && __builtin_offsetof(gc_mk_t, arena) == 48 && __builtin_offsetof(gc_mk_t, top) == 56 &&
     __builtin_offsetof(gc_mk_t, ssum) == 64 && __builtin_offsetof(gc_mk_t, start) == 72 && __builtin_offsetof(gc_mk_t, live) == 80 && __builtin_offsetof(gc_mk_t, vis) == 88 &&
     __builtin_offsetof(gc_mk_t, mhead) == 96 && __builtin_offsetof(gc_mk_t, rng_p) == 104 && __builtin_offsetof(gc_mk_t, rng_n) == 112 && __builtin_offsetof(gc_mk_t, wlmax) == 120 &&
     __builtin_offsetof(gc_mk_t, interior) == 128 && __builtin_offsetof(gc_mk_t, dvec_elems) == 136 && __builtin_offsetof(gc_mk_t, dvec_nondvec) == 144 && __builtin_offsetof(gc_mk_t, nmk) == 152 &&
-    __builtin_offsetof(gc_mk_t, mxs) == 160 && __builtin_offsetof(gc_mk_t, walked) == 168 && __builtin_offsetof(gc_mk_t, pv_end) == 176 && __builtin_offsetof(gc_mk_t, draining) == 184,
-    "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
+    __builtin_offsetof(gc_mk_t, mxs) == 160 && __builtin_offsetof(gc_mk_t, walked) == 168 && __builtin_offsetof(gc_mk_t, pv_end) == 176 && __builtin_offsetof(gc_mk_t, draining) == 184 &&
+    __builtin_offsetof(gc_mk_t, fc_anchor) == 192 && __builtin_offsetof(gc_mk_t, fc_map) == 200 && __builtin_offsetof(gc_mk_t, fc_i) == 224 && __builtin_offsetof(gc_mk_t, fc_c) == 232 &&
+    __builtin_offsetof(gc_mk_t, fc_kind) == 248 && __builtin_offsetof(gc_mk_t, sw_p) == 256 && __builtin_offsetof(gc_mk_t, sw_hi) == 264 && sizeof(gc_frame_map_t) == 32 && GC_LAY_DESCR == 0 &&
+    GC_LAY_PTR_GC == 2, "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
 _Static_assert(__builtin_offsetof(ARBLK_t, lo) == 0 && __builtin_offsetof(ARBLK_t, hi) == 4 && __builtin_offsetof(ARBLK_t, ndim) == 8 && __builtin_offsetof(ARBLK_t, lo2) == 12 &&
     __builtin_offsetof(ARBLK_t, hi2) == 16 && __builtin_offsetof(ARBLK_t, proto) == 24 && __builtin_offsetof(ARBLK_t, data) == 32 && __builtin_offsetof(TBBLK_t, buckets) == 0 &&
     __builtin_offsetof(TBBLK_t, nbuck) == 8 && __builtin_offsetof(TBBLK_t, dflt) == 32 && __builtin_offsetof(TBBLK_t, ord) == 56 && __builtin_offsetof(TBBLK_t, ord_len) == 64 &&
@@ -1501,22 +1510,19 @@ static void gc_wl_drain(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_run_verdicts(DESCR_t *v) {
+    extern DESCR_t *rt_gc_mark_run(gc_mk_t *);
+    while (v) {
+        if (v == (DESCR_t *)1) { if (g_gc_mk.rng_n) gc_wl_grow(); else gc_slot_grow(); } else if (v == (DESCR_t *)2) gc_wl_grow();
+        else if ((uintptr_t)v & 2u) gc_visit_mblk((rt_hblk_t *)((uintptr_t)v & ~(uintptr_t)2u));
+        else gc_visit_one(v);
+        v = rt_gc_mark_run(&g_gc_mk);
+    }
+    g_gc_mk.draining = 0;
+}
 void rt_gc_visit_descr(DESCR_t *d) {
     extern DESCR_t *rt_gc_visit_descr_a(DESCR_t *);
-    extern DESCR_t *rt_gc_mark_run(gc_mk_t *);
-    for (;;) {
-        DESCR_t *v = rt_gc_visit_descr_a(d);
-        if (v == (DESCR_t *)3) return;
-        if (v == (DESCR_t *)4) { gc_wl_grow(); continue; }
-        while (v) {
-            if (v == (DESCR_t *)1) { if (g_gc_mk.rng_n) gc_wl_grow(); else gc_slot_grow(); } else if (v == (DESCR_t *)2) gc_wl_grow();
-            else if ((uintptr_t)v & 2u) gc_visit_mblk((rt_hblk_t *)((uintptr_t)v & ~(uintptr_t)2u));
-            else gc_visit_one(v);
-            v = rt_gc_mark_run(&g_gc_mk);
-        }
-        g_gc_mk.draining = 0;
-        return;
-    }
+    for (;;) { DESCR_t *v = rt_gc_visit_descr_a(d); if (v == (DESCR_t *)3) return; if (v == (DESCR_t *)4) { gc_wl_grow(); continue; } gc_run_verdicts(v); return; }
 }
 typedef struct gc_trail_roots_args_t { const struct gc_rng_t *rr; long n; long pos_i; const char *pos_e; long n_hb; const char *top; } gc_trail_roots_args_t;
 _Static_assert(__builtin_offsetof(gc_trail_roots_args_t, rr) == 0 && __builtin_offsetof(gc_trail_roots_args_t, n) == 8 && __builtin_offsetof(gc_trail_roots_args_t, pos_i) == 16 &&
@@ -2192,11 +2198,12 @@ static void gc_walk_words_census(const char *lo, const char *hi, int cls, const 
 }
 #endif
 static void gc_walk_words(const char *lo, const char *hi, int cls, const char *rlo, const char *graph, const char *base) {
+    extern DESCR_t *rt_gc_walk_words_a(const char *, const char *);
     (void)rlo;
     (void)graph;
     (void)base;
-    if (cls == 2) return;
-    for (const char *p = lo; p + 16 <= hi; p += 8) if (gc_cell_visit((DESCR_t *)p)) p += 8;
+    if (cls == 2 || lo + 16 > hi) return;
+    gc_run_verdicts(rt_gc_walk_words_a(lo, hi));
 }
 #if RT_DIAG
 static long g_gc_blob_frames, g_gc_blob_entries, g_gc_blob_descr, g_gc_blob_ptr, g_gc_blob_raw, g_gc_blob_code, g_gc_blob_raw_in_heap;
@@ -2262,19 +2269,8 @@ static void gc_visit_frame_cells_census(const char *anchor, const gc_frame_map_t
 }
 #endif
 static void gc_visit_frame_cells(const char *anchor, const gc_frame_map_t *m, const char *lo, const char *hi) {
-    const uint64_t *t = (const uint64_t *)(m + 1);
-    long n = (long)t[0];
-    for (long i = 0; i < n; i++) {
-        uint64_t q = t[1 + i];
-        int off = GC_LAY_OFF(q), size = GC_LAY_SIZE(q);
-        unsigned kind = GC_LAY_KIND(q);
-        const char *w = anchor + off, *e = w + size;
-        if (w < lo) w = (kind == GC_LAY_DESCR) ? w + (((lo - w) + 15) & ~15L) : lo;
-        if (e > hi) e = hi;
-        if (w >= e) continue;
-        if (kind == GC_LAY_DESCR) { for (const char *c = w; c + 16 <= e; c += 16) { DESCR_t *d = (DESCR_t *)c; if (gc_tag_known(d->v)) rt_gc_visit_descr(d); } continue; }
-        if (kind == GC_LAY_PTR_GC) for (const char *c = w; c + 8 <= e; c += 8) rt_gc_visit_raw((const char **)c);
-    }
+    extern DESCR_t *rt_gc_frame_cells_a(const char *, const gc_frame_map_t *, const char *, const char *);
+    gc_run_verdicts(rt_gc_frame_cells_a(anchor, m, lo, hi));
 }
 static void gc_walk_words_x(const char *lo, const char *hi, int cls, const char *rlo, const char *graph, const char *base) {
 #if RT_DIAG
@@ -2784,8 +2780,9 @@ typedef struct {
     void *a;
     gc_chf_t lastf;
     gc_gap_t gap;
-    uint64_t last_beta;
-    const gc_site_blk_t *last_blk;
+    uint64_t memo_beta[4];
+    const gc_site_blk_t *memo_blk[4];
+    int memo_at;
 } gc_sw_t;
 static void gc_gap_open(gc_gap_t *g) {
     g->cap = 24;
@@ -2969,8 +2966,11 @@ static int gc_sw_links(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char *g
                 else beta = *(const uint64_t *)(hdr + 32);
             } else beta = *(const uint64_t *)(c + 8);
             if (why) b = (const gc_site_blk_t *)0;
-            else if (beta == s->last_beta && s->last_blk) b = s->last_blk;
-            else { b = gc_code_block(beta); s->last_beta = beta; s->last_blk = b; }
+            else if (beta == s->memo_beta[0] && s->memo_blk[0]) b = s->memo_blk[0];
+            else if (beta == s->memo_beta[1] && s->memo_blk[1]) b = s->memo_blk[1];
+            else if (beta == s->memo_beta[2] && s->memo_blk[2]) b = s->memo_blk[2];
+            else if (beta == s->memo_beta[3] && s->memo_blk[3]) b = s->memo_blk[3];
+            else { b = gc_code_block(beta); s->memo_beta[s->memo_at & 3] = beta; s->memo_blk[s->memo_at & 3] = b; s->memo_at++; }
             if (why) ;
             else if (!b) why = "its beta word names no registered graph";
             else if (hdr && !(b->map->flags & GC_FRAME_MAP_GEN_ANCHOR)) why = "the generator's resume cell names no generator graph";
