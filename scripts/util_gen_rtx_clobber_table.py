@@ -79,10 +79,8 @@ def render(table):
         regs = table[name]
         mask = '|'.join(REGBIT[r] for r in ('r8', 'r9', 'r10', 'r11') if r in regs) or '0'
         rows.append('    { "%s", %s },' % (name, mask))
-    n_clob = sum(1 for v in table.values() if v)
-    body = ('#define RTX_CLOB_TAB_N %d\n#define RTX_CLOB_TAB_N_CLOBBERING %d\n'
-            'static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {\n' % (len(table), n_clob))
-    return body + '\n'.join(rows) + '\n};\n'
+    body = 'static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {\n'
+    return body + '\n'.join(rows) + '\n};\n#define RTX_CLOB_TAB_N ((int)(sizeof rtx_clob_tab / sizeof rtx_clob_tab[0]))\n'
 
 
 def main(argv):

@@ -1,11 +1,6 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2788
-#define GC_ALLOC_TAB_N_VOID 322
-#define GC_ALLOC_TAB_N_DESCR 1330
-#define GC_ALLOC_TAB_N_OTHER 1122
-#define GC_ALLOC_TAB_N_UNKNOWN 14
-static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
+static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "APPLY_fn", GC_RET_DESCR },
     { "APPLY_fn_rq", GC_RET_DESCR },
     { "ASGNIC_fn", GC_RET_OTHER },
@@ -2795,4 +2790,5 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "xa_flat_chain_epilogue_sig", GC_RET_VOID },
     { "xa_flat_chain_prologue", GC_RET_VOID },
 };
+#define GC_ALLOC_TAB_N ((int)(sizeof GC_ALLOC_TAB / sizeof GC_ALLOC_TAB[0]))
 #endif

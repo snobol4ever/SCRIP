@@ -41,6 +41,7 @@ UNKNOWN and the symbol is named, because that is a real inconsistency in the tre
 USAGE: util_gen_gc_allocating_table.py [--so PATH] [--out PATH] | --check | --selftest
 """
 import argparse, collections, importlib.util, os, re, subprocess, sys, tempfile
+import difflib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -134,18 +135,19 @@ def build_rows(so, out=print):
 BANNER = "gc_allocating_table.inc"
 
 def render(rows, so):
-    n = len(rows)
-    by = collections.Counter(c for _s, c in rows)
+    # CEO-1787: NO COUNT IN THE FILE. The table used to open with GC_ALLOC_TAB_N and four per-class counts, so
+    # every landing that added a runtime function rewrote the same five lines and any two such landings conflicted
+    # on rebase (46 regenerations in 30 hours on 10-14/15). The array is sized by its own rows and the length is one
+    # fixed line after it; a new function is ONE inserted row, which git merges beside another seat's row. The gate
+    # counts the classes from the rows.
     L = []
     L.append("#ifndef GC_ALLOCATING_TABLE_INC")
     L.append("#define GC_ALLOCATING_TABLE_INC")
-    L.append("#define GC_ALLOC_TAB_N %d" % n)
-    for k in (RC_VOID, RC_DESCR, RC_OTHER, RC_UNKNOWN):
-        L.append("#define GC_ALLOC_TAB_N_%s %d" % (k, by.get(k, 0)))
-    L.append("static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {")
+    L.append("static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {")
     for s, c in rows:
         L.append('    { "%s", %s },' % (s, RC_ENUM[c]))
     L.append("};")
+    L.append("#define GC_ALLOC_TAB_N ((int)(sizeof GC_ALLOC_TAB / sizeof GC_ALLOC_TAB[0]))")
     L.append("#endif")
     return "\n".join(L) + "\n"
 
@@ -192,10 +194,15 @@ def selftest():
         if not c: fails.append(m)
     rows = [("a_void", RC_VOID), ("b_descr", RC_DESCR), ("c_other", RC_OTHER), ("d_unknown", RC_UNKNOWN)]
     txt = render(rows, "x.so")
-    ck("GC_ALLOC_TAB_N 4" in txt, "the rendered table declares its own length")
+    ck("GC_ALLOC_TAB[] = {" in txt and "#define GC_ALLOC_TAB_N ((int)(sizeof GC_ALLOC_TAB / sizeof GC_ALLOC_TAB[0]))" in txt,
+       "the rendered table is sized by its own rows and its length is one fixed line (CEO-1787)")
+    ck(not re.search(r"#define GC_ALLOC_TAB_N\S* \d", txt), "no count is rendered -- a count line is rewritten by every landing that adds a function")
+    grown = render(sorted(rows + [("bb_new", RC_VOID)]), "x.so")
+    dl = [l for l in difflib.unified_diff(txt.split("\n"), grown.split("\n"), lineterm="", n=0) if l[:1] in "+-" and l[:3] not in ("+++", "---")]
+    ck(dl == ['+    { "bb_new", GC_RET_VOID },'], "adding one allocating function changes exactly one line, an inserted row -- two seats' additions merge on rebase")
     ck('{ "b_descr", GC_RET_DESCR },' in txt, "a DESCR-returning symbol renders with the DESCR class")
     ck('{ "d_unknown", GC_RET_UNKNOWN },' in txt, "an UNSETTLED symbol renders as UNKNOWN rather than being dropped or guessed")
-    ck("GC_ALLOC_TAB_N_UNKNOWN 1" in txt, "the UNKNOWN population is counted in the file itself, so a reader cannot miss it")
+    ck(txt.count(", GC_RET_UNKNOWN },") == 1, "the UNKNOWN population is its own rows, which the gate counts, so a reader cannot miss it")
     lines = txt.split("\n")[:-1]
     ck(all(l.strip() for l in lines) and not any(("/*" in l) or ("//" in l) for l in lines),
        "no comment and no blank line is rendered into a src/ file (RULES.md ABSOLUTE: zero comments in C, LF, and "

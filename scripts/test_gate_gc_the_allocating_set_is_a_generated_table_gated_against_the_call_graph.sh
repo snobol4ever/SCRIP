@@ -62,10 +62,10 @@ python3 "$GEN" --check --so "$SO" --out "$T/widened.inc" > "$T/plant2.txt" 2>&1
 if [ $? -ne 0 ]; then echo "  arm 2 planted-violation: a table whose OTHER returns are silently widened to DESCR is REFUSED -- that is the mutation that would spill an untagged long as a descriptor cell into the swept range"
 else echo "⛔ arm 2 PLANTED-VIOLATION DID NOT TRIP: the freshness check accepted a table with every return class widened to DESCR"; RC=1; fi
 
-NV=$(sed -n 's/^#define GC_ALLOC_TAB_N_VOID \([0-9]*\)$/\1/p' "$TAB")
-ND=$(sed -n 's/^#define GC_ALLOC_TAB_N_DESCR \([0-9]*\)$/\1/p' "$TAB")
-NO=$(sed -n 's/^#define GC_ALLOC_TAB_N_OTHER \([0-9]*\)$/\1/p' "$TAB")
-NU=$(sed -n 's/^#define GC_ALLOC_TAB_N_UNKNOWN \([0-9]*\)$/\1/p' "$TAB")
+NV=$(grep -c ', GC_RET_VOID },$' "$TAB")
+ND=$(grep -c ', GC_RET_DESCR },$' "$TAB")
+NO=$(grep -c ', GC_RET_OTHER },$' "$TAB")
+NU=$(grep -c ', GC_RET_UNKNOWN },$' "$TAB")
 if [ "${NV:-0}" -gt 0 ] && [ "${ND:-0}" -gt 0 ] && [ "${NO:-0}" -gt 0 ]; then
     echo "  arm 3 PASS: every return class the table distinguishes OCCURS in it -- VOID=$NV DESCR=$ND OTHER=$NO UNKNOWN=$NU. The column is graded by a population that contains it, which is the question CTO-78 found a gate failing."
 else echo "⛔ arm 3 RED: VOID=${NV:-0} DESCR=${ND:-0} OTHER=${NO:-0} -- a return class with no instance in the table makes that column vacuous while the gate reads green"; RC=1; fi
