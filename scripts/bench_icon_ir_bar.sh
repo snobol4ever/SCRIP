@@ -16,11 +16,26 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off (Lon 2026-09-25
 # EXIT 0 at or above the bar (GREEN), 1 below it (RED, the row is open), 2 REFUSED: no binary, no oracle, no valgrind, an unknown or ambiguous kernel,
 #   a kernel with no .ref, a build that fails, or a run that dies, times out or prints anything but the .ref (ir_measure voids a dead run; the .ref
 #   cmp voids a wrong answer -- an Ir count of a program that did not do the work is not a measurement).
-# ENV   IR_TMO seconds per callgrind run (default 1200)   ICON_BENCH_DIR the kernel tree   SCRIP the scrip binary
+# PACING (ceo CEO-1785; Lon 2026-10-15: performance by callgrind "until the machine slows down"): a callgrind run STARTS only while the one-minute load is
+#   under IR_PACE_PER_CORE (default 1.0) per core; at or above it the bar waits up to IR_PACE_WAIT seconds (default 600), then REFUSES rc 2 printing "load-guard"
+#   and the load (the zero-base sweep keeps such a row, CEO-1574). Ir itself does not move with load; the pacing keeps the bar from adding to a loaded box.
+# ENV   IR_TMO seconds per callgrind run (default 1200)   IR_PACE_PER_CORE, IR_PACE_WAIT as above   ICON_BENCH_DIR the kernel tree   SCRIP the scrip binary
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"; SCRIP="${SCRIP:-$ROOT/scrip}"; RT="$ROOT/out"; BD="${ICON_BENCH_DIR:-$S4E/corpus/benchmarks/icon}"
 refuse() { echo "⛔ bench_icon_ir_bar REFUSE(2): $*"; exit 2; }
+pace() {
+    local waited=0 la cores thr="${IR_PACE_PER_CORE:-1.0}"
+    cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null)"
+    while :; do
+        la="$(awk '{print $1}' /proc/loadavg 2>/dev/null)"
+        { [ -n "$la" ] && [ -n "$cores" ]; } || return 0
+        awk -v l="$la" -v c="$cores" -v t="$thr" 'BEGIN{exit !(l < c * t)}' && return 0
+        [ "$waited" -ge "${IR_PACE_WAIT:-600}" ] && break
+        sleep 15; waited=$((waited + 15))
+    done
+    refuse "load-guard: load $la on $cores cores ($(awk -v l="$la" -v c="$cores" 'BEGIN{printf "%.2f", l / c}')/core) at or above the ${thr}/core pacing after waiting ${waited}s -- a callgrind run starts only under it (ceo CEO-1785); the zero-base sweep keeps this row (CEO-1574)"
+}
 for L in lib_perf_fmt lib_ir_measure lib_oracle_flags lib_icon_ipl_isolation lib_declared_arena; do . "$HERE/$L.sh" 2>/dev/null || refuse "cannot load $L.sh -- the ONE authority for its job, never a private copy"; done
 kernels() { find "$BD" -name '*.icn' ! -path '*/rate/*' | LC_ALL=C sort | while IFS= read -r f; do grep -q '^[[:space:]]*procedure[[:space:]]\+main' "$f" && echo "$f"; done; }
 if [ "${1:-}" = --list ]; then kernels | while IFS= read -r f; do printf '%s\t%s\n' "$(basename "$f" .icn)" "${f#"$BD"/}"; done; exit 0; fi
@@ -39,9 +54,11 @@ if [ "$KIND" = demo ]; then
   ( cd "$T" && "$ICONT" -s -o "$T/jtran.oracle" $MODS ) > "$T/icont.log" 2>&1 || { tail -3 "$T/icont.log"; refuse "icont did not build the jtran oracle"; }
   ( cd "$D" && "$SCRIP" --compile -o "$T/jtran.s" jtran.icn < /dev/null && gcc -o "$T/jtran.m4" "$T/jtran.s" -L"$RT" -lscrip_rt -lm -lpthread -Wl,-rpath,"$RT" ) > "$T/m4.log" 2>&1 || { grep -v 'TEXTREL\|read-only section' "$T/m4.log" | tail -3; refuse "jtran did not build in mode 4"; }
   cp "$PKG/gen_bc.icn" "$T/gen_bc.icn"
+  pace
   IX="$( cd "$T" && IR_PROG_OUT="$T/ix.out" IR_PROG_ERR="$T/ix.err" ir_measure "$ICONX" "$T/jtran.oracle" preproc "$T/gen_bc.icn" : stdout < /dev/null )"
   ir_is_number "$IX" || refuse "jtran under iconx: $(ir_cell "$IX") -- $(ir_reason "$IX")"
   [ -s "$T/ix.out" ] || refuse "the iconx jtran printed nothing"
+  pace
   M4="$( cd "$T" && unset SCRIP_HEAP_KB SCRIP_HEAP_MB && IR_VG_FLAGS=--smc-check=all-non-file IR_PROG_OUT="$T/m4.out" IR_PROG_ERR="$T/m4.err" ir_measure "$T/jtran.m4" preproc "$T/gen_bc.icn" : stdout < /dev/null )"
   ir_is_number "$M4" || { tail -3 "$T/m4.err" 2>/dev/null; refuse "jtran under SCRIP mode 4: $(ir_cell "$M4") -- $(ir_reason "$M4")"; }
   cmp -s "$T/ix.out" "$T/m4.out" || refuse "jtran preproc: mode-4 output differs from iconx's (an Ir count of a wrong answer is not a measurement)"
@@ -67,9 +84,11 @@ cp "$K" "$T/$NAME.icn"
 ( cd "$T" && "$SCRIP" --compile -o w.s "$NAME.icn" < /dev/null && gcc -o w4 w.s -L"$RT" -lscrip_rt -lm -lpthread -Wl,-rpath,"$RT" ) > "$T/m4.log" 2>&1 || { grep -v 'TEXTREL\|read-only section' "$T/m4.log" | tail -3; refuse "$NAME did not build in mode 4"; }
 declare -a M4CMD=("$T/w4" ${SWA[@]+"${SWA[@]}"}); [ "${#AV[@]}" -gt 0 ] && { [ "${#SWA[@]}" -gt 0 ] && M4CMD+=(--); M4CMD+=("${AV[@]}"); }
 # one reading per engine, each from a subshell in the kernel's own directory; the status rides in the value (lib_ir_measure.sh), never in a global
+pace
 IX="$( cd "$KD" && { [ "${#OENV[@]}" -gt 0 ] && export "${OENV[@]}"; IR_PROG_OUT="$T/ix.out" IR_PROG_ERR="$T/ix.err" ir_measure "$ICONX" "$T/w.x" ${AV[@]+"${AV[@]}"} < "$IN"; } )"
 ir_is_number "$IX" || refuse "$NAME under iconx: $(ir_cell "$IX") -- $(ir_reason "$IX")"
 cmp -s "$T/ix.out" "$REF" || refuse "$NAME: iconx's output is not the .ref (the oracle and the ref disagree; no multiple over an unmatched answer)"
+pace
 M4="$( cd "$KD" && unset SCRIP_HEAP_KB SCRIP_HEAP_MB && IR_VG_FLAGS=--smc-check=all-non-file IR_PROG_OUT="$T/m4.out" IR_PROG_ERR="$T/m4.err" ir_measure "${M4CMD[@]}" < "$IN" )"
 ir_is_number "$M4" || { tail -3 "$T/m4.err" 2>/dev/null; refuse "$NAME under SCRIP mode 4: $(ir_cell "$M4") -- $(ir_reason "$M4")"; }
 cmp -s "$T/m4.out" "$REF" || refuse "$NAME: SCRIP mode 4's output is not the .ref (an Ir count of a wrong answer is not a measurement)"
