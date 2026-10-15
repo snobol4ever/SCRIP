@@ -27,6 +27,15 @@
 # the premise dies and rooting it becomes sound.  ARM (a) grades the PREMISE, so that landing turns this gate
 # red and forces the reasoning to be re-read instead of leaving a stale prohibition in force forever.
 #
+# ⭐ RE-DERIVED 2026-10-15 (hq_icon; the premise died exactly as this paragraph predicted, at SCRIP d76ca4ead, "a mode-4 program starts with the
+# empty scan subject"): the mode-4 entry now writes r13 once, lea r13, [rip + .Lscan_nil] (one rodata byte), and zeroes r15d before any scan,
+# because tab, move, many and any outside a scan read the registers. At the outermost scan r13 is therefore a VALID string pointer (non-heap,
+# like every literal) and the length is 0 -- no longer the C caller's residue -- so a rec_sigma-shaped root there would no longer hand the collector a
+# non-pointer. The form is KEPT, for the reason that is still true: rt_scan_enter returns the NEW subject in rax:rdx, the only pointer the site must
+# keep, and x86_rt_gc_poll_rec_subject_new() roots exactly it; arm (b) holds the site to that form. Arm (a) now grades the NEW premise (the nil
+# subject is established once before the first scan), with its control inside the arm, so a landing that drops the nil subject turns it red and
+# re-opens this question for the registers tab and move read.
+#
 # ⛔ THIS GATE READS THE EMITTED ASM, NOT THE TEMPLATE SOURCE (RULES.md ASM-DIFF-FIRST).  A source-shape check
 # on bb_gen_scan.cpp would pass for a form reached through a helper, an alias or a second call site, and the
 # census cannot see a FORM at all -- it counts polled against unpolled and reads the same number either way.
@@ -50,14 +59,31 @@ ICN
 grep -q 'call *rt_scan_enter' "$W/g.s" || { echo "REFUSE(2): the witness emitted no rt_scan_enter -- this gate would grade an absence"; exit 2; }
 fail=0; arms=0
 # ---------------------------------------------------------------------------------------------------------
-# (a) THE PREMISE: r13 is not established before the first rt_scan_enter, so it cannot be rooted there.
+# (a) THE PREMISE, RE-DERIVED AT SCRIP d76ca4ead (2026-10-15): the emitted entry ESTABLISHES the scan registers before any scan runs -- exactly one
+# write to r13, lea r13, [rip + .Lscan_nil] (the empty subject, one rodata byte), and xor r15d, r15d -- so at the outermost scan r13 is a valid string
+# pointer and the length is 0, no longer the C caller's residue. The control is in the arm: the SAME reader aimed at the emission with that lea deleted
+# must report the premise gone, so a pass is a reading and not a reader that cannot fail (CEO-1680: the trip is in the instrument, never in src/).
 arms=$((arms+1))
 first_enter=$(grep -n 'call *rt_scan_enter' "$W/g.s" | head -1 | cut -d: -f1)
-pre_writes=$(sed -n "1,${first_enter}p" "$W/g.s" | grep -cE '^[^#]*\b(mov|xor|lea|pop|add|sub|and|or)\b[^;#]*\br13\b *,' )
-if [ "$pre_writes" = 0 ]; then
-    echo "  ok   (a) PREMISE HOLDS: no instruction writes r13 in the $first_enter line(s) before the first rt_scan_enter, so at the outermost scan r13 is the C caller's residue and rooting it is rooting a non-pointer"
+est_nil() {
+    local f="$1" fe w l x
+    fe=$(grep -n 'call *rt_scan_enter' "$f" | head -1 | cut -d: -f1); [ -n "$fe" ] || return 2
+    sed -n "1,${fe}p" "$f" > "$W/pre.s"
+    w=$(grep -cE '^[^#]*\b(mov|xor|lea|pop|add|sub|and|or)\b[^;#]*\br13\b *,' "$W/pre.s")
+    l=$(grep -cE '^ *lea +r13, \[rip \+ \.Lscan_nil\]' "$W/pre.s")
+    x=$(grep -cE '^ *xor +r15d, r15d' "$W/pre.s")
+    [ "$w" = 1 ] && [ "$l" = 1 ] && [ "$x" -ge 1 ]
+}
+grep -vE '^ *lea +r13, \[rip \+ \.Lscan_nil\]' "$W/g.s" > "$W/g_noinit.s"
+est_nil "$W/g.s"; held=$?
+est_nil "$W/g_noinit.s"; ctl=$?
+if [ "$held" = 0 ] && [ "$ctl" != 0 ]; then
+    echo "  ok   (a) PREMISE HOLDS (re-derived at d76ca4ead): the $first_enter line(s) before the first rt_scan_enter write r13 once, lea r13, [rip + .Lscan_nil], with r15d zeroed, so at the outermost scan r13 is a valid pointer to the empty subject and not the C caller's residue; CONTROL: with that lea deleted the same reader reports the premise gone"
+elif [ "$held" != 0 ]; then
+    echo "  FAIL (a) ⛔ THE PREMISE HAS CHANGED AGAIN: the entry no longer establishes the empty scan subject once (lea r13, [rip + .Lscan_nil] and xor r15d, r15d) before the first rt_scan_enter, so at the outermost scan r13 is the C caller's residue and tab, move, many and any outside a scan read it. Restore the nil subject in the mode-4 entry (src/driver/scrip.c), or re-derive this gate's premise -- do not simply relax this arm"
+    fail=$((fail+1))
 else
-    echo "  FAIL (a) ⛔ THE PREMISE HAS CHANGED: $pre_writes instruction(s) now write r13 before the first rt_scan_enter, so r13 may be established there and this gate's prohibition must be RE-DERIVED rather than kept. Read the prologue, then decide whether rec_sigma-shaped forms are now sound at rt_scan_enter -- do not simply relax this arm"
+    echo "  FAIL (a) ⛔ THE CONTROL DID NOT TRIP: the same reader still reports the nil-subject premise on an emission with the lea deleted, so arm (a)'s pass proves nothing -- its pattern no longer matches the entry's shape"
     fail=$((fail+1))
 fi
 # ---------------------------------------------------------------------------------------------------------
@@ -71,9 +97,9 @@ while IFS=: read -r ln _; do
     if printf '%s\n' "$win" | grep -qE 'qword ptr \[rsp \+ [0-9]+\], r13'; then bad=$((bad+1)); fi
 done < <(grep -n 'call *rt_scan_enter' "$W/g.s")
 if [ "$bad" = 0 ]; then
-    echo "  ok   (b) $sites rt_scan_enter site(s) emitted: no poll between the call and its result test writes r13 into a poll cell, so no site asks the collector to forward an unestablished subject base"
+    echo "  ok   (b) $sites rt_scan_enter site(s) emitted: no poll between the call and its result test writes r13 into a poll cell, so every site roots the NEW subject rt_scan_enter returned and none roots the outer r13 (the form kept after the premise of arm (a) was re-derived)"
 else
-    echo "  FAIL (b) ⛔ $bad of $sites rt_scan_enter site(s) SPILL r13 INTO A POLL CELL. That form roots the OUTER subject base, which rt_scan_enter has not yet established at the outermost scan of the program -- the collector is handed the C caller's residue to forward. Use x86_rt_gc_poll_rec_subject_new() ({DT_S, edx, rax} with keep_rdx), never a rec_sigma-shaped form, at a call that ESTABLISHES the subject"
+    echo "  FAIL (b) ⛔ $bad of $sites rt_scan_enter site(s) SPILL r13 INTO A POLL CELL. That form roots the OUTER subject base, which rt_scan_enter is about to replace -- the NEW subject it returned in rax:rdx is the pointer this site must keep, and a rec_sigma-shaped root keeps the old one instead. Use x86_rt_gc_poll_rec_subject_new() ({DT_S, edx, rax} with keep_rdx), never a rec_sigma-shaped form, at a call that ESTABLISHES the subject"
     fail=$((fail+1))
 fi
 # ---------------------------------------------------------------------------------------------------------
