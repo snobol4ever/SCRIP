@@ -3285,9 +3285,11 @@ static void blob_first_guard(void) {
             x86("mov", "rcx", RDQ("rcx", 0)) + x86("mov", "rcx", RDQ("rcx", 0)) + x86("cmp", "rax", "rcx"));
         emit_jmp_label(ok, JMP_JNE);
         emit_jmp_label(over, JMP_JMP);
+        if (g_emit_module_pic) emit_textf("  .pushsection .data.rel.ro,\"aw\",@progbits\n");
         emit_label_define_bb(q);
         { extern const char * bb_ab_sym_name(const char *); std::string lbl = std::string(".Lthk_") + bb_ab_sym_name(dt); void * rec = bb_thunk_rec_addr(dt);
             bb_emit_x86(x86(".quad", lbl.c_str(), rec ? (const char *)rec : "")); }
+        if (g_emit_module_pic) emit_textf("  .popsection\n");
         emit_label_define_bb(over);
     }
     emit_label_define_bb(none);

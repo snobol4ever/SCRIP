@@ -1373,7 +1373,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                         if (zls_g_entry_block(_pg4)) _rkflags |= 32;
                     }
                     int _rkulex = (pe->lex_startup && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);
-                    emit_textf("  .section .rodata\n");
+                    emit_textf(g_sc_module_name ? "  .section .data.rel.ro,\"aw\",@progbits\n" : "  .section .rodata\n");
                     {
                         extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
                         char _esc[4 * strlen(proc_names_buf[i] ? proc_names_buf[i] : "") + 1];
