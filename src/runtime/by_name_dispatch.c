@@ -9179,7 +9179,7 @@ static int pl_edin_revert(int is_out) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { const char *nm; const char *val; int mod; const char *allow[6]; int is_term; DESCR_t term; } pl_flag_t;
+typedef struct { const char *nm; const char *val; int mod; const char *allow[6]; int is_term; DESCR_t term; int user; } pl_flag_t;
 static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "integer_rounding_function", "toward_zero", 0, { 0 } }, { "max_arity", "2147483647", 0, { 0 } }, { "max_procedure_arity",
     "1024", 0, { 0 } }, { "max_char_code", "1114111", 0, { 0 } }, { "float_overflow", "error", 1, { "error", "infinity", 0 } }, { "float_zero_div", "error", 1, { "error", "infinity", 0 } },
     { "float_undefined", "error", 1, { "error", "nan", 0 } }, { "char_conversion", "off", 1, { "on", "off", 0 } }, { "debug", "off", 1, { "on", "off", 0 } }, { "unknown", "error", 1, { "error",
@@ -9367,8 +9367,15 @@ PL_CX_LEAF_HEAD(set_prolog_flag, 2)
             cx->ball = rt_pl_ball_instantiation();
         } else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) || !pl_cell_text(args[0], fb, sizeof fb, &fn)) {
             cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
-        } else if (!(fl = pl_flag_find(fn))) {
+        } else if (!(fl = pl_flag_find(fn)) && !(pl_swi_dialect() && (fl = pl_flag_find_or_create(fn)) && (fl->user = 1))) {
             cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f);
+        } else if (fl->user) {
+            extern pl_cell_t rt_pl_cell_snapshot(void *);
+            fl->term = rt_pl_cell_snapshot(&args[1]);
+            fl->val = "set";
+            fl->is_term = 1;
+            fl->mod = 1;
+            ok = 1;
         } else if (fl->is_term) {
             extern pl_cell_t rt_pl_cell_snapshot(void *);
             extern void *rt_pl_ball_instantiation(void);
@@ -10517,6 +10524,24 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
         } else if (!strcmp(op, "access")) {
             const char *p = pl_gnu_path_arg(args[1], cx);
             ok = p && b.v == (DTYPE_t)DT_I && access(p, (int)b.i) == 0;
+        } else if (!strcmp(op, "st_kind") || !strcmp(op, "st_size") || !strcmp(op, "st_mtime") || !strcmp(op, "st_same")) {
+            const char *p = pl_gnu_path_arg(args[1], cx);
+            struct stat sb, sb2;
+            if (p && stat(p, &sb) == 0) {
+                if (!strcmp(op, "st_kind")) ok = plw_unify_vals(args[2], pl_mk_atom(S_ISDIR(sb.st_mode) ? "directory" : S_ISREG(sb.st_mode) ? "file" : "other"), cx);
+                else if (!strcmp(op, "st_size")) ok = plw_unify_vals(args[2], INTVAL((long long)sb.st_size), cx);
+                else if (!strcmp(op, "st_mtime")) ok = plw_unify_vals(args[2], REALVAL((double)sb.st_mtim.tv_sec + (double)sb.st_mtim.tv_nsec / 1e9), cx);
+                else { const char *q = pl_atom_str(b); ok = q && stat(q, &sb2) == 0 && sb.st_dev == sb2.st_dev && sb.st_ino == sb2.st_ino; }
+            }
+        } else if (!strcmp(op, "cwd")) {
+            char cw[4096];
+            if (getcwd(cw, sizeof cw)) ok = plw_unify_vals(args[2], pl_mk_atom_dup(cw, strlen(cw)), cx);
+        } else if (!strcmp(op, "chdir")) {
+            const char *p = pl_gnu_path_arg(args[1], cx);
+            ok = p && chdir(p) == 0;
+        } else if (!strcmp(op, "setenv") || !strcmp(op, "unsetenv")) {
+            const char *nm = pl_atom_str(a), *vv = pl_atom_str(b);
+            ok = nm && (op[0] == 'u' ? unsetenv(nm) == 0 : (vv && setenv(nm, vv, 1) == 0));
         } else if (!strcmp(op, "sleep")) {
             double sec = a.v == (DTYPE_t)DT_I ? (double)a.i : a.v == (DTYPE_t)DT_R ? a.r : -1.0;
             struct timespec ts;

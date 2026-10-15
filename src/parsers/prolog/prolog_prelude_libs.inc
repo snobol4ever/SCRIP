@@ -18457,6 +18457,56 @@ static const char PL_PRELUDE_LIB_31_SRC[] =
     "    ;   Out = Line\n"
     "    ).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
+    { "open_string", 2 },
+    { "directory_file_path", 3 },
+    { "make_directory_path", 1 },
+    { "exists_file", 1 },
+    { "exists_directory", 1 },
+    { "size_file", 2 },
+    { "time_file", 2 },
+    { "same_file", 2 },
+    { "working_directory", 2 },
+    { "setenv", 2 },
+    { "unsetenv", 1 },
+    { "text_to_string", 2 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_32_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_32_SRC[] =
+    "open_string(S, Stream) :- ( var(S) -> throw(error(instantiation_error, context(open_string/2, _))) ; true ), text_to_string(S, Str), atom_string(A, Str), open_input_atom_stream(A, Stream), '$gnu_os'(ts_unmark, Stream, _).\n"
+    "directory_file_path(Dir, File, Path) :- nonvar(Dir), nonvar(File), !, ( ( is_absolute_file_name(File) ; Dir == '.' ) -> Path = File ; sub_atom(Dir, _, _, 0, /) -> atom_concat(Dir, File, Path) ; atomic_list_concat([Dir, /, File], Path) ).\n"
+    "directory_file_path(Dir, File, Path) :- nonvar(Path), !, ( nonvar(Dir) -> ( Dir == '.', \\+ is_absolute_file_name(Path) -> File = Path ; sub_atom(Dir, _, _, 0, /) -> atom_concat(Dir, File, Path) ; atom_concat(Dir, /, TheDir) -> atom_concat(TheDir, File, Path) ) ; nonvar(File) -> atom_concat(Dir0, File, Path), '$swb_strip_slash'(Dir0, Dir) ; file_directory_name(Path, Dir), file_base_name(Path, File) ).\n"
+    "directory_file_path(_, _, _) :- throw(error(instantiation_error(_), _)).\n"
+    "'$swb_strip_slash'(Dir0, Dir) :- ( atom_concat(D, /, Dir0), D \\== '' -> Dir = D ; Dir = Dir0 ).\n"
+    "make_directory_path(Dir) :- '$swb_mdp'(Dir), !.\n"
+    "make_directory_path(Dir) :- throw(error(permission_error(create, directory, Dir), _)).\n"
+    "'$swb_mdp'(Dir) :- exists_directory(Dir), !.\n"
+    "'$swb_mdp'(Dir) :- atom_concat(RealDir, '/', Dir), RealDir \\== '', !, '$swb_mdp'(RealDir).\n"
+    "'$swb_mdp'(Dir) :- Dir \\== (/), !, file_directory_name(Dir, Parent), '$swb_mdp'(Parent), E = error(existence_error(directory, _), _), catch(make_directory(Dir), E, ( exists_directory(Dir) -> true ; throw(E) )).\n"
+    "text_to_string(T, S) :- var(T), !, throw(error(instantiation_error, context(system:text_to_string/2, _))).\n"
+    "text_to_string(T, S) :- T == [], !, S = \"\".\n"
+    "text_to_string(T, S) :- string(T), !, S = T.\n"
+    "text_to_string(T, S) :- atom(T), !, atom_string(T, S).\n"
+    "text_to_string(T, S) :- is_list(T), T = [C|_], !, ( integer(C) -> string_codes(S, T) ; string_chars(S, T) ).\n"
+    "text_to_string(T, _) :- throw(error(type_error(text, T), context(system:text_to_string/2, _))).\n"
+    "'$swb_arg'(X, P, PI) :- ( var(X) -> throw(error(instantiation_error, context(system:PI, _))) ; atom(X) -> P = X ; string(X) -> atom_string(P, X) ; throw(error(type_error(atom, X), context(system:PI, _))) ).\n"
+    "exists_file(F) :- '$swb_arg'(F, P, exists_file/1), '$gnu_os'(st_kind, P, K), K == file.\n"
+    "exists_directory(D) :- '$swb_arg'(D, P, exists_directory/1), '$gnu_os'(st_kind, P, K), K == directory.\n"
+    "size_file(F, S) :- '$swb_arg'(F, P, size_file/2), ( '$gnu_os'(st_size, P, S0) -> S = S0 ; throw(error(existence_error(file, F), context(system:size_file/2, 'No such file or directory'))) ).\n"
+    "time_file(F, T) :- '$swb_arg'(F, P, time_file/2), ( '$gnu_os'(st_mtime, P, T0) -> T = T0 ; throw(error(existence_error(file, F), context(system:time_file/2, 'No such file or directory'))) ).\n"
+    "same_file(A, B) :- '$swb_arg'(A, PA, same_file/2), '$swb_arg'(B, PB, same_file/2), ( PA == PB -> true ; '$gnu_os'(st_same, PA, PB) ).\n"
+    "working_directory(Old, New) :- '$gnu_os'(cwd, x, C0), ( atom_concat(_, /, C0) -> Old0 = C0 ; atom_concat(C0, /, Old0) ), Old = Old0, ( var(New) -> New = Old0 ; New == Old0 -> true ; '$swb_arg'(New, P, working_directory/2), ( '$gnu_os'(chdir, P, _) -> true ; throw(error(existence_error(directory, New), context(system:working_directory/2, 'No such file or directory'))) ) ).\n"
+    "setenv(N, V) :- '$swb_arg'(N, PN, setenv/2), ( var(V) -> throw(error(instantiation_error, context(system:setenv/2, _))) ; number(V) -> atom_number(PV, V) ; '$swb_arg'(V, PV, setenv/2) ), '$gnu_os'(setenv, PN, PV).\n"
+    "unsetenv(N) :- '$swb_arg'(N, PN, unsetenv/1), '$gnu_os'(unsetenv, PN, x).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
     { "term_size", 2 },
     { "variant", 2 },
     { "subsumes", 2 },
@@ -18473,16 +18523,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
     { "same_functor", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_32_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_32_SRC[] =
+static const char PL_PRELUDE_LIB_33_SRC[] =
     "term_size(Term, Size) :-\n"
     "    '$term_size'(Term, _, Size).\n"
     "variant(X, Y) :-\n"
@@ -18691,23 +18741,23 @@ static const char PL_PRELUDE_LIB_32_SRC[] =
     "    ;   functor(Term2, Name, Arity),\n"
     "        functor(Term1, Name, Arity)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_33_SRC[] =
+static const char PL_PRELUDE_LIB_34_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -18875,7 +18925,8 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "record", PL_PRELUDE_LIB_29_EXPORTS, PL_PRELUDE_LIB_29_OPS, PL_PRELUDE_LIB_29_SHADOWS, PL_PRELUDE_LIB_29_QUIET, PL_PRELUDE_LIB_29_SRC },
     { "solution_sequences", PL_PRELUDE_LIB_30_EXPORTS, PL_PRELUDE_LIB_30_OPS, PL_PRELUDE_LIB_30_SHADOWS, PL_PRELUDE_LIB_30_QUIET, PL_PRELUDE_LIB_30_SRC },
     { "strings", PL_PRELUDE_LIB_31_EXPORTS, PL_PRELUDE_LIB_31_OPS, PL_PRELUDE_LIB_31_SHADOWS, PL_PRELUDE_LIB_31_QUIET, PL_PRELUDE_LIB_31_SRC },
-    { "terms", PL_PRELUDE_LIB_32_EXPORTS, PL_PRELUDE_LIB_32_OPS, PL_PRELUDE_LIB_32_SHADOWS, PL_PRELUDE_LIB_32_QUIET, PL_PRELUDE_LIB_32_SRC },
-    { "writef", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC },
+    { "swi_builtins", PL_PRELUDE_LIB_32_EXPORTS, PL_PRELUDE_LIB_32_OPS, PL_PRELUDE_LIB_32_SHADOWS, PL_PRELUDE_LIB_32_QUIET, PL_PRELUDE_LIB_32_SRC },
+    { "terms", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC },
+    { "writef", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC },
     { 0, 0, 0, 0, 0, 0 }
 };
