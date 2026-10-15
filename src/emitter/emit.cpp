@@ -4108,7 +4108,12 @@ static const char * icn_trace_intern(const char * s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string flat_zero_fill(int lo, int len) {
     if (len <= 0) return std::string();
-    if (len > 1200 || (len & 7)) return x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)len) + x86("rep_stosb");
+    if (len > 1200 || (len & 7)) {
+        std::string s = x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)lo) + x86("xor", "eax", "eax");
+        if (len >> 3) s += x86("mov32", "ecx", (long)(len >> 3)) + x86("rep_stosq");
+        if (len & 7) s += x86("mov32", "ecx", (long)(len & 7)) + x86("rep_stosb");
+        return s;
+    }
     std::string s = x86("mov", "rdi", "rsp") + x86("xorps", "xmm0", "xmm0") + x86("xor", "eax", "eax");
     int o = lo;
     for (; o + 16 <= lo + len; o += 16) s += x86("movups", RDQ("rdi", o), "xmm0");
