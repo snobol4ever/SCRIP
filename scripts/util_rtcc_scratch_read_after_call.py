@@ -187,8 +187,9 @@ OBJ_RX = re.compile(r"^\s*([0-9a-f]+):\s+(?:[0-9a-f]{2} )+\s*(.*)$")
 
 def objdump_to_asm(text):
     """objdump -D -b binary -M intel lines to the label form parse_asm reads: every address is a label L_<hex>, and a
-    direct jump or call to an address names that label."""
-    out = []
+    direct jump or call to an address names that label. A literal word the emitter plants inline (a rip-relative load whose
+    address lies between a forward jmp and its target) is data a linear disassembly misreads as code; its lines are dropped."""
+    rows = []
     for line in text.split("\n"):
         m = OBJ_RX.match(line)
         if not m:
@@ -196,10 +197,25 @@ def objdump_to_asm(text):
         addr, ins = m.group(1), m.group(2).strip()
         if not ins or ins.startswith("(bad)"):
             continue
+        rows.append((int(addr, 16), ins))
+    skips = []
+    for i, (a, ins) in enumerate(rows):
+        j = re.match(r"^jmp\s+0x([0-9a-f]+)", ins)
+        if not j or i + 1 >= len(rows):
+            continue
+        end, tgt = rows[i + 1][0], int(j.group(1), 16)
+        for _, prev in rows[max(0, i - 3):i]:
+            r = re.search(r"#\s*0x([0-9a-f]+)", prev)
+            if r and end <= int(r.group(1), 16) < tgt:
+                skips.append((end, tgt))
+    out = []
+    for a, ins in rows:
+        if any(lo <= a < hi for lo, hi in skips):
+            continue
         ins = re.sub(r"\s+0x([0-9a-f]+)(\s*<[^>]*>)?$", lambda q: " L_" + q.group(1).lstrip("0").rjust(1, "0"), ins) \
             if re.match(r"^(j\w+|call)\s+0x[0-9a-f]+", ins) else ins
         ins = re.sub(r"\b(QWORD|DWORD|WORD|BYTE) PTR\b", lambda q: q.group(1).lower() + " ptr", ins)
-        out.append("L_%s: %s" % (addr.lstrip("0").rjust(1, "0"), ins))
+        out.append("L_%x: %s" % (a, ins))
     return (".globl L_0\n" if out else "") + "\n".join(out)
 
 
@@ -239,6 +255,10 @@ def selftest():
     od = "   0:\te8 00 00 00 00       \tcall   0x5\n   5:\t4c 89 c0             \tmov    rax,r8\n   8:\tc3                   \tret\n"
     _, reads, _ = grade(objdump_to_asm(od), "objdump")
     ck(len(reads) == 1, "an objdump slab is graded the same way")
+    isl = "   0:\t48 8b 05 01 00 00 00 \tmov    rax,QWORD PTR [rip+0x1]        # 0x8\n   7:\te9 08 00 00 00       \tjmp    0x14\n   c:\te8 00 00 00 00       \tcall   0x11\n  11:\t4c 89 c0             \tmov    rax,r8\n  14:\tc3                   \tret\n"
+    isl = isl.replace("[rip+0x1]        # 0x8", "[rip+0x1]        # 0xc")
+    _, reads, _ = grade(objdump_to_asm(isl), "island")
+    ck(not reads, "an inline literal word skipped by a forward jmp is data, not a call and a read")
     num = "f:\n  call rt_x\n  jne 1f\n  mov r10, 1\n1:  mov r10, qword ptr [rbp + 8]\n  ret\n"
     _, reads, _ = grade(num, "num")
     ck(not reads, "a GNU numeric label is a label, not a mnemonic")
