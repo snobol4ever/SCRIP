@@ -8592,9 +8592,25 @@ static int pl_read_term_options_cell(DESCR_t opts, pl_vtab_t *vt, pl_tr_ctx_t *c
     }
     return 1;
 }
-#define PL_READ_TERM_LEAF(nm) PL_CX_LEAF_HEAD(nm, 3) { const char *b; DESCR_t t; pl_vtab_t vt; extern void *rt_pl_ball_kind1(const char *, const char *); b = pl_list_text_heap(args[0]); ok = b != ( \
-    const char *)0; if (ok && !pl_parse_term_text(b, &t, &vt, (PlProgram **)0)) { cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term"); ok = 0; } else if (ok) ok = plw_unify_vals(args[1] \
-    , t, cx) && pl_read_term_options_cell(args[2], &vt, cx); } PL_CX_LEAF_TAIL
+static void *pl_read_opts_ball(DESCR_t opts);
+static int pl_read_syntax_mode(DESCR_t opts);
+static int pl_read_term_from_text(DESCR_t *args, pl_tr_ctx_t *cx) {
+    extern void *rt_pl_ball_kind1(const char *, const char *);
+    const char *b = pl_list_text_heap(args[0]);
+    DESCR_t t;
+    pl_vtab_t vt;
+    int gnu = !pl_swi_dialect(), sm = 0;
+    if (!b) return 0;
+    if (gnu) { void *ob = pl_read_opts_ball(args[2]); if (ob) { cx->ball = ob; return 0; } sm = pl_read_syntax_mode(args[2]); }
+    if (!pl_parse_term_text(b, &t, &vt, (PlProgram **)0)) {
+        if (sm == 2) printf("warning: syntax error: cannot_start_term\n");
+        if (sm == 3) fprintf(stderr, "warning: syntax error: cannot_start_term\n");
+        if (!sm) cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term");
+        return 0;
+    }
+    return plw_unify_vals(args[1], t, cx) && pl_read_term_options_cell(args[2], &vt, cx);
+}
+#define PL_READ_TERM_LEAF(nm) PL_CX_LEAF_HEAD(nm, 3) { ok = pl_read_term_from_text(args, cx); } PL_CX_LEAF_TAIL
 PL_READ_TERM_LEAF(read_term_from_atom) PL_READ_TERM_LEAF(read_term_from_chars) PL_READ_TERM_LEAF(read_term_from_codes)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *pl_read_opts_ball(DESCR_t opts) {
