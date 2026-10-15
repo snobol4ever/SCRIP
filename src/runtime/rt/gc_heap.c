@@ -1519,6 +1519,7 @@ _Static_assert(__builtin_offsetof(gc_trail_roots_args_t, rr) == 0 && __builtin_o
     __builtin_offsetof(gc_trail_roots_args_t, pos_e) == 24 && __builtin_offsetof(gc_trail_roots_args_t, n_hb) == 32 && __builtin_offsetof(gc_trail_roots_args_t, top) == 40 &&
     sizeof(pl_tr_entry_t) == 32 && PL_TR_HEADER_BYTES == 64 && __builtin_offsetof(pl_tr_entry_t, pad) == 8 && __builtin_offsetof(pl_tr_entry_t, old) == 16,
     "rt_gc_trail_roots_run (rtx_gc.s) reads its argument block and the trail at these offsets");
+void rt_gc_run_proc_roots(gc_roots_args_t *a) { extern long rt_gc_proc_roots_run(gc_roots_args_t *); while (rt_gc_proc_roots_run(a)) gc_slot_grow(); }
 void rt_gc_run_roots(gc_roots_args_t *a) {
     extern long rt_gc_core_roots_run(gc_roots_args_t *);
     for (;;) { long r = rt_gc_core_roots_run(a); if (!r) break; if (r == 1) gc_slot_grow(); else gc_wl_grow(); }

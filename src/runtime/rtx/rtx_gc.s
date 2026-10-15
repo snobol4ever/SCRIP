@@ -1523,4 +1523,87 @@ RTX_FUNC(rt_gc_trail_roots_run)
     RTX_POPS(rbx)
     ret
 RTX_ENDF(rt_gc_trail_roots_run)
+RTX_FUNC(rt_gc_proc_roots_run)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    mov     r8, rdi
+    lea     rdi, [rip + g_gc_mk]
+    mov     r11, qword ptr [rdi + 8]
+    mov     rbx, qword ptr [rdi + 32]
+    mov     r12, qword ptr [rdi + 48]
+    mov     r14, qword ptr [rdi + 72]
+    mov     r15, qword ptr [rdi + 96]
+.Lpr_loop:
+    mov     rax, qword ptr [r8 + 16]
+    cmp     rax, qword ptr [r8 + 8]
+    jae     .Lpr_done
+    shl     rax, 7
+    add     rax, qword ptr [r8]
+    mov     rsi, rax
+    movsxd  rax, dword ptr [rsi + 24]
+    lea     rax, [rax + rax + 5]
+    mov     rdx, qword ptr [rdi + 40]
+    sub     rdx, rbx
+    cmp     rdx, rax
+    jl      .Lpr_full
+    mov     r10, qword ptr [rsi]
+    test    r10, r10
+    je      .Lpr1
+    MK_RAW rsi
+.Lpr1:
+    mov     r10, qword ptr [rsi + 16]
+    test    r10, r10
+    je      .Lpr2
+    MK_RAW rsi+16
+    mov     rdx, qword ptr [rsi + 16]
+    mov     qword ptr [r8 + 72], rdx
+    movsxd  rax, dword ptr [rsi + 24]
+    lea     rax, [rdx + rax*8]
+    mov     qword ptr [r8 + 64], rax
+    MK_PTRS
+.Lpr2:
+    mov     r10, qword ptr [rsi + 56]
+    test    r10, r10
+    je      .Lpr3
+    MK_RAW rsi+56
+    mov     rdx, qword ptr [rsi + 56]
+    mov     qword ptr [r8 + 72], rdx
+    movsxd  rax, dword ptr [rsi + 24]
+    lea     rax, [rdx + rax*8]
+    mov     qword ptr [r8 + 64], rax
+    MK_PTRS
+.Lpr3:
+    mov     r10, qword ptr [rsi + 64]
+    test    r10, r10
+    je      .Lpr4
+    MK_RAW rsi+64
+.Lpr4:
+    mov     r10, qword ptr [rsi + 88]
+    test    r10, r10
+    je      .Lpr5
+    MK_RAW rsi+88
+.Lpr5:
+    inc     qword ptr [r8 + 16]
+    jmp     .Lpr_loop
+.Lpr_done:
+    xor     eax, eax
+    jmp     .Lpr_out
+.Lpr_full:
+    mov     eax, 1
+.Lpr_out:
+    mov     qword ptr [rdi + 8], r11
+    mov     qword ptr [rdi + 32], rbx
+    mov     qword ptr [rdi + 96], r15
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_gc_proc_roots_run)
 .section .note.GNU-stack,"",@progbits

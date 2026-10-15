@@ -572,6 +572,9 @@ typedef struct {
     int pnames_owned;
     int nformals;
 } rt_proc_t;
+_Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, pnames) == 16 && __builtin_offsetof(rt_proc_t, nparams) == 24 && __builtin_offsetof(rt_proc_t, pcells) == 56 &&
+    __builtin_offsetof(rt_proc_t, rcell) == 64 && __builtin_offsetof(rt_proc_t, result_name) == 88 && sizeof(rt_proc_t) == 128,
+    "rt_gc_proc_roots_run (rtx_gc.s) walks the procedure table at these offsets");
 static int rt_eval_stage_is_var(const char *name);
 _Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.s bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
 _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, is_generator) == 0x4c, "rtx_call.s bakes PROC_NAME and PROC_ISGEN");
@@ -2350,15 +2353,9 @@ void rt_gc_root_args(void) {
     rt_gc_visit_descr(&g_prim_val);
     if (g_proc_hsl) rt_gc_visit_raw((const char **)&g_proc_hsl);
     if (g_rt_gen_procs) {
+        gc_roots_args_t a = { (void **)g_rt_gen_procs, (long)g_rt_gen_proc_count, (void **)0, 0, (const char *)0, 0, (const char *)0, 0, (const char *)0, (const char *)0 };
         rt_gc_visit_raw((const char **)&g_rt_gen_procs);
-        for (int i = 0; i < g_rt_gen_proc_count; i++) {
-            rt_proc_t *pr = &g_rt_gen_procs[i];
-            if (pr->name) rt_gc_visit_raw((const char **)&pr->name);
-            if (pr->pnames) { rt_gc_visit_raw((const char **)&pr->pnames); for (int k = 0; k < pr->nparams; k++) if (pr->pnames[k]) rt_gc_visit_raw((const char **)&pr->pnames[k]); }
-            if (pr->pcells) { rt_gc_visit_raw((const char **)&pr->pcells); for (int k = 0; k < pr->nparams; k++) if (pr->pcells[k]) rt_gc_visit_raw((const char **)&pr->pcells[k]); }
-            if (pr->rcell) rt_gc_visit_raw((const char **)&pr->rcell);
-            if (pr->result_name) rt_gc_visit_raw((const char **)&pr->result_name);
-        }
+        rt_gc_run_proc_roots(&a);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

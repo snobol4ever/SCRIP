@@ -68,6 +68,7 @@ long rt_gcheap_verify(void);
 void rt_bomb(const char *msg);
 typedef struct gc_roots_args_t { void **vbk; long vnb; void **fbk; long fnb; const char *udef; long pos_t; const char *pos_e; long pos_b; const char *tmp_end; const char *tmp_p; } gc_roots_args_t;
 void rt_gc_run_roots(gc_roots_args_t *a);
+void rt_gc_run_proc_roots(gc_roots_args_t *a);
 int rt_gc_blk_marked(const rt_hblk_t *h);
 int rt_gc_stale_addr_report(void *fault, void *ip);
 long rt_gc_collect(void);
