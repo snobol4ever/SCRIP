@@ -24,6 +24,10 @@
 # result in arr[0] and hands the saved r13 to rt_gc_point_arr_probe_c. (d) the record shape reads in the Icon witness's mode-4 text and the
 # plant (lea rdx, [rsp + 16] -> xor edx, edx) edits exactly those sites; (e) the witness answers its iconx ref at stress 1..8 under the
 # displacement plant, both modes; (f) the planted text LOSES at 3 or more of the 8 points (measured 5 of 8 when the arm was cut).
+# RE-CUT 2026-10-15 (hq_icon): the witness's field store alone read 0 of 8 once 52f822b69 made a store-only field a bare cell -- it allocates nothing, so the allocation
+# that sets g_gc_pending (SCRIP_GC_STRESS counts allocations) is serviced by the poll after the record constructor's call, before the scan is entered, and the record poll
+# after the field never found a collection pending. The witness now also takes line[3] || line[4] inside the scan: the subscript builds its string inside its own
+# record-form box, so the collection lands at the record poll with r13 live (measured 7 of 8 with both; the unplanted text answers its ref at all 8, both modes).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -92,7 +96,7 @@ for st in 1 2 3 4 5 6 7 8; do
   ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout 60s ./rp.bin < /dev/null > rp_$st.out 2> /dev/null ); rp=$?
   if [ $rp != 0 ] || ! cmp -s "$T/rp_$st.out" "$RW.ref"; then rpband="$rpband s$st:LOSS"; rphit=$((rphit+1)); else rpband="$rpband s$st:ref"; fi
 done
-if [ "$rbad" = 0 ]; then echo "  ok   (e) THE PROPERTY: a field store inside an Icon scan keeps the subject at stress 1..8 under the displacement plant, both modes --$rband"
+if [ "$rbad" = 0 ]; then echo "  ok   (e) THE PROPERTY: a field store and a string subscript inside an Icon scan keep the subject at stress 1..8 under the displacement plant, both modes --$rband"
 else echo "  FAIL (e) a record poll inside a scan lost the subject --$rband"; RC=1; fi
 if [ "$rphit" -ge 3 ]; then echo "  ok   (f) PLANTED: with the record form's saved-subject argument taken away the same text loses at $rphit of 8 points --$rpband -- so (e) measures the shield"
 else echo "  FAIL (f) the unshielded record plant lost at only $rphit of 8 points ($rpband) -- the witness no longer holds a subject in r13 across a record poll, and (e) proves nothing"; RC=1; fi
