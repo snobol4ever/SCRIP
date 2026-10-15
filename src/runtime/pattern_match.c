@@ -521,7 +521,10 @@ static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict) {
         buf[len]='\0';
         return BSTRVAL(buf, len);
     }
-    { extern void core_icn_op_ctx(const char *, int, DESCR_t, DESCR_t); if ((arr.v == DT_SNUL || IS_PROCVAL_fn(arr)) && strict) { core_icn_op_ctx("[:]", 3, arr, i); core_icn_error(110, arr); } }
+    {
+        extern void core_icn_op_ctx(const char *, int, DESCR_t, DESCR_t);
+        if ((arr.v == DT_SNUL || IS_PROCVAL_fn(arr)) && strict) { core_icn_op_ctx("[:]", 3, arr, i); core_icn_error(110, arr); core_icn_op_ctx_clear(); }
+    }
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1987,8 +1990,12 @@ static int rt_data_is_record_inst(DESCR_t obj) { DESCR_t *e = 0; int n = 0; retu
 DESCR_t icn_field_get(const char *fname, DESCR_t obj) {
     extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
-    if (!rt_data_is_record_inst(obj)) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(107, obj); return FAILDESCR; }
-    { DESCR_t *cell = data_field_ptr(fname ? fname : "", obj); if (!cell) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(207, obj); return FAILDESCR; } return *cell; }
+    if (!rt_data_is_record_inst(obj)) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(107, obj); core_icn_op_ctx_clear(); return FAILDESCR; }
+    {
+        DESCR_t *cell = data_field_ptr(fname ? fname : "", obj);
+        if (!cell) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(207, obj); core_icn_op_ctx_clear(); return FAILDESCR; }
+        return *cell;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t icn_field_get_at(const char *fname, DESCR_t obj, long at1) {
@@ -2047,10 +2054,10 @@ DESCR_t rt_field_var(const char *fname, DESCR_t obj) {
 DESCR_t rt_field_var_strict(const char *fname, DESCR_t obj) {
     extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
-    if (!rt_data_is_record_inst(obj)) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(107, obj); return FAILDESCR; }
+    if (!rt_data_is_record_inst(obj)) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(107, obj); core_icn_op_ctx_clear(); return FAILDESCR; }
     {
         DESCR_t *cell = data_field_ptr(fname ? fname : "", obj);
-        if (!cell) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(207, obj); return FAILDESCR; }
+        if (!cell) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(207, obj); core_icn_op_ctx_clear(); return FAILDESCR; }
         return rt_field_var_cell(fname, obj, cell);
     }
 }
