@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2772
-#define GC_ALLOC_TAB_N_VOID 323
+#define GC_ALLOC_TAB_N 2774
+#define GC_ALLOC_TAB_N_VOID 322
 #define GC_ALLOC_TAB_N_DESCR 1329
-#define GC_ALLOC_TAB_N_OTHER 1106
+#define GC_ALLOC_TAB_N_OTHER 1109
 #define GC_ALLOC_TAB_N_UNKNOWN 14
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -933,6 +933,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pat_mk_nil", GC_RET_DESCR },
     { "pat_mk_num", GC_RET_DESCR },
     { "pat_notany", GC_RET_DESCR },
+    { "pat_num_arg_ok", GC_RET_OTHER },
     { "pat_pos", GC_RET_DESCR },
     { "pat_rem", GC_RET_DESCR },
     { "pat_rpos", GC_RET_DESCR },
@@ -1676,7 +1677,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_cinter_strict", GC_RET_DESCR },
     { "rt_code_pool_check", GC_RET_VOID },
     { "rt_code_pool_overflow", GC_RET_VOID },
-    { "rt_coerce_int_d", GC_RET_VOID },
+    { "rt_coerce_int_d", GC_RET_OTHER },
     { "rt_coerce_real_d", GC_RET_VOID },
     { "rt_coerce_shown_d", GC_RET_DESCR },
     { "rt_coerce_str_d", GC_RET_OTHER },
@@ -1816,6 +1817,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_nofail_abort", GC_RET_VOID },
     { "rt_nret_fix", GC_RET_DESCR },
     { "rt_nret_fix_tiny", GC_RET_DESCR },
+    { "rt_num_arg_d", GC_RET_OTHER },
     { "rt_num_arith", GC_RET_DESCR },
     { "rt_num_arith_body", GC_RET_DESCR },
     { "rt_num_arith_impl", GC_RET_DESCR },
