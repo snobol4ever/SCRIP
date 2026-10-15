@@ -1050,13 +1050,17 @@ s4e_lane_owner_of_language() {
       # ⛔⭐ MODE TENET (CEO-1665, 2026-10-11 11:3x CDT, Lon in-chat to the ceo, verbatim: "I suppose we can get the remaining 7 HQ's up and running all seated as Sonnet 5.5
       # with xhigh effort. Lift the ban on Pascal and Raku."): the four officers and all ten HQs; the CEO-1383/1530 TENET table again -- every language to its own HQ, rebus
       # the ceo's keep-green. The SEPTET table of CEO-1662 is the flip-back template. MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
-       icon)     printf 'hq_icon';;
-       prolog)   printf 'hq_prolog';;
-       snobol4)  printf 'hq_snobol4';;
-       pascal)   printf 'hq_pascal';;
-       snocone)  printf 'hq_snocone';;
+      # ⛔⭐ MODE QUARTET (CEO-1773, 2026-10-15 10:2x CDT, Lon in-chat to the ceo, verbatim: "The fleet has yet to start. We'll start officers only for a while."): the
+      # TENET of CEO-1665 ends before the fleet starts -- the ten HQs stay down with their claims and rows in place, nothing re-laned (the CEO-1357/1372/1396/1587/1659
+      # precedent); EVERY LANGUAGE TO THE ceo, who assigns, the table of CEO-1659; CEO-1765's focus (ORDER-OF-WORK icon prolog snobol4) stands. The TENET table of
+      # CEO-1665 is the flip-back template: every language to its own HQ, rebus the ceo's. MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
+       icon)     printf 'ceo';;
+       prolog)   printf 'ceo';;
+       snobol4)  printf 'ceo';;
+       pascal)   printf 'ceo';;
+       snocone)  printf 'ceo';;
        rebus)    printf 'ceo';;
-       raku)     printf 'hq_raku';;
+       raku)     printf 'ceo';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
