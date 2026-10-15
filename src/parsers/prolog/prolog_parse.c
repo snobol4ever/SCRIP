@@ -3308,6 +3308,10 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&referenced, "get_returns");
         pl_cv_add(&referenced, "get_returns_for_call");
         pl_cv_add(&referenced, "$src_file_add");
+        for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
+            if (strcmp(PL_PRELUDE_LIBS[li].lib, "lists") && strcmp(PL_PRELUDE_LIBS[li].lib, "apply")) continue;
+            for (const pl_prelude_lib_pi_t *le = PL_PRELUDE_LIBS[li].exports; le->nm; le++) { pl_cv_add(&referenced, le->nm); pl_cv_add(&refkeys, pl_pred_key(le->nm, le->ar)); }
+        }
     }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "setup_call_catcher_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&referenced, "meta_predicate")) pl_cv_add(&referenced, "$mq_arg");
