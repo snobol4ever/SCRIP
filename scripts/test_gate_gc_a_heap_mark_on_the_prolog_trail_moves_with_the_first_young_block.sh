@@ -89,10 +89,10 @@ grade() {
 grade "plain:" "$T/plain.out"
 SCRIP_GC_RELOC=1 "$T/hb" >"$T/reloc.out" 2>"$T/reloc.err"; echo "  reloc: rc=$?"
 grade "(c) SCRIP_GC_RELOC=1:" "$T/reloc.out"
-SCRIP_GC_PLANT_SHIFT=4096 "$T/hb" >"$T/shift.out" 2>"$T/shift.err"; echo "  shift: rc=$? $(grep -c '^\[GC-SHIFT\] plant:' "$T/shift.err") shift line(s)"
-grade "(c) SCRIP_GC_PLANT_SHIFT=4096:" "$T/shift.out"
-SCRIP_GC_PLANT_FLIP=1 "$T/hb" >"$T/flip.out" 2>"$T/flip.err"; echo "  flip: rc=$?"
-grade "(c) SCRIP_GC_PLANT_FLIP=1:" "$T/flip.out"
+SCRIP_GC_PLANT_SHIFT=4096 "$T/hb" >"$T/shift.out" 2>"$T/shift.err"; src=$?; nshift="$(grep -c '^\[GC-SHIFT\] plant:' "$T/shift.err")"; echo "  shift: rc=$src $nshift shift line(s)"
+if [ "${nshift:-0}" -ge 1 ]; then grade "(c) SCRIP_GC_PLANT_SHIFT=4096:" "$T/shift.out"; else ck FAIL "(c) SCRIP_GC_PLANT_SHIFT=4096: the GC-SHIFT banner never printed, so the shift plant did not apply and its arms grade an unplanted run"; fi
+SCRIP_GC_PLANT_FLIP=1 "$T/hb" >"$T/flip.out" 2>"$T/flip.err"; frc=$?; nflip="$(grep -c '^\[GC-FLIP\] plant:' "$T/flip.err")"; echo "  flip: rc=$frc $nflip flip line(s)"
+if [ "${nflip:-0}" -ge 1 ]; then grade "(c) SCRIP_GC_PLANT_FLIP=1:" "$T/flip.out"; else ck FAIL "(c) SCRIP_GC_PLANT_FLIP=1: the GC-FLIP banner never printed, so the flip plant did not apply and its arms grade an unplanted run"; fi
 echo "[$G] $((checks - fails))/$checks"
 [ "$fails" -eq 0 ] && echo "PASS $G" && exit 0
 echo "FAIL $G"; exit 1
