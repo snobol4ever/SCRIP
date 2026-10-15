@@ -11,7 +11,12 @@
 # THE INSTRUMENT is callgrind (load-immune: instructions, not time) over `scrip --dump-ast`, which runs the parse and the
 # prelude injection and skips emission (90% of a compile).  Two readings per program: the instructions inclusive of
 # pl_libs_append, and the calls it makes to prolog_parse (one per library parsed).
-#   ARM 1 (names nothing): 0 library parses, and pl_libs_append <= 400,000 instructions -- the scan of every vendored
+#   ARM 1 (names nothing): 0 library parses, and pl_libs_append <= 500,000 instructions -- the scan of every vendored
+#          RE-PINNED 400,000 -> 500,000 (hq_prolog 2026-10-15, row prolog-every-suite-to-100-under-tenet-ceo-1562): the selection pass scans every vendored
+#          library's export table against the program's references, and seven libraries (hashtable, nb_set, solution_sequences, csv, terms, random, backcomp)
+#          and the mctx helpers joined the set; measured 456,274 on c30687d4d (before the module-context helpers) and 478,329 on this landing; the cap keeps ~4% headroom.
+#          ARM 2 also read 3 parses once backcomp was vendored: library(error)'s has_type(proper_list, X) is the bare atom of backcomp's proper_list/1 export,
+#          so backcomp joined the generator's QUIET_BARE (dcg_basics, clpfd and gnu_builtins are there for the same reason); measured 13,162,552 with 2 parses.
 #     export against the program's name/arity references, measured 177,915 over 11 libraries (0.02% of hello world's
 #     935M compile).  FAIL-ONCE, two defects: with selection ablated (every vendored library parsed, the defect this arm
 #     exists for) it read 1 parse and 2,556,828 instructions, red; the first cut built the base prelude's key set before
@@ -105,8 +110,8 @@ read -r p4 f4 <<< "$(reading data)"
 [ "$f3" = True ] || refuse "arm 3: pl_libs_append is not in the profile -- the reader found nothing"
 [ "$f1" = True ] && [ -n "$i1" ] || refuse "arm 1: pl_libs_append is not in the profile -- the reader found nothing"
 [ "$f2" = True ] && [ -n "$i2" ] || refuse "arm 2: pl_libs_append is not in the profile -- the reader found nothing"
-if [ "$p1" = 0 ] && [ "$i1" -le 400000 ]; then echo "  ARM 1 GREEN: a program naming no library parsed $p1 libraries, pl_libs_append $i1 instructions (<= 400,000)"
-else echo "  ARM 1 RED: a program naming no library parsed $p1 libraries, pl_libs_append $i1 instructions (want 0 and <= 400,000)"; red=1; fi
+if [ "$p1" = 0 ] && [ "$i1" -le 500000 ]; then echo "  ARM 1 GREEN: a program naming no library parsed $p1 libraries, pl_libs_append $i1 instructions (<= 500,000)"
+else echo "  ARM 1 RED: a program naming no library parsed $p1 libraries, pl_libs_append $i1 instructions (want 0 and <= 500,000)"; red=1; fi
 b2=15000000
 if [ "$p2" = "$want" ] && [ "$i2" -le "$b2" ]; then echo "  ARM 2 GREEN: naming rbtrees parsed $p2 libraries (rbtrees and error: $want), pl_libs_append $i2 instructions (<= $b2)"
 else echo "  ARM 2 RED: naming rbtrees parsed $p2 libraries (want rbtrees and error, $want), pl_libs_append $i2 instructions (want <= $b2)"; red=1; fi

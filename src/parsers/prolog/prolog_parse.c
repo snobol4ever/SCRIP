@@ -2515,25 +2515,6 @@ static const char * const PL_PRELUDE_SRC =
     "'$between_test'(L,H,X):-X>=L,(integer(H)->X=<H;true).\n"
     "lazy_list(Next,S0,L):-freeze(L,'$lazy_list_next'(Next,S0,L)).\n"
     "'$lazy_list_next'(Next,S0,L):-(call(Next,S0,S1,H)->L=[H|T],lazy_list(Next,S1,T);L=[]).\n"
-    "'$mctx_pick'([M|_],N,A,QN):-atom_concat(M,':',P),atom_concat(P,N,Q0),current_predicate(Q0/A),!,QN=Q0.\n"
-    "'$mctx_pick'([_|Ms],N,A,QN):-'$mctx_pick'(Ms,N,A,QN).\n"
-    "'$mctx_head'(M1,M2,H0,H):-nonvar(H0),callable(H0),H0\\=(_:_),functor(H0,N,A),'$mctx_pick'([M1,M2],N,A,QN),!,H0=..[_|As],H=..[QN|As].\n"
-    "'$mctx_head'(_,_,H,H).\n"
-    "'$mctx_term'(M1,M2,T0,T):-nonvar(T0),T0=(H0:-B),!,'$mctx_head'(M1,M2,H0,H),T=(H:-B).\n"
-    "'$mctx_term'(M1,M2,T0,T):-'$mctx_head'(M1,M2,T0,T).\n"
-    "'$mctx_assert'(M1,M2,C):-'$mctx_term'(M1,M2,C,C1),assert(C1).\n"
-    "'$mctx_asserta'(M1,M2,C):-'$mctx_term'(M1,M2,C,C1),asserta(C1).\n"
-    "'$mctx_assertz'(M1,M2,C):-'$mctx_term'(M1,M2,C,C1),assertz(C1).\n"
-    "'$mctx_assert'(M1,M2,C,R):-'$mctx_term'(M1,M2,C,C1),assert(C1,R).\n"
-    "'$mctx_asserta'(M1,M2,C,R):-'$mctx_term'(M1,M2,C,C1),asserta(C1,R).\n"
-    "'$mctx_assertz'(M1,M2,C,R):-'$mctx_term'(M1,M2,C,C1),assertz(C1,R).\n"
-    "'$mctx_strip'([M|Ms],N,N1):-(atom_concat(M,':',P),atom_concat(P,N1,N)->true;'$mctx_strip'(Ms,N,N1)).\n"
-    "'$mctx_unh'(M1,M2,H0,H):-(nonvar(H0),callable(H0),functor(H0,N,_),atom(N),'$mctx_strip'([M1,M2],N,N1)->H0=..[_|As],H=..[N1|As];H=H0).\n"
-    "'$mctx_un'(M1,M2,T0,T):-(nonvar(T0),T0=(H0:-B)->'$mctx_unh'(M1,M2,H0,H),T=(H:-B);'$mctx_unh'(M1,M2,T0,T)).\n"
-    "'$mctx_retract'(M1,M2,C):-(var(C)->retract(C1),'$mctx_un'(M1,M2,C1,C);'$mctx_term'(M1,M2,C,C1),retract(C1)).\n"
-    "'$mctx_retractall'(M1,M2,H0):-'$mctx_head'(M1,M2,H0,H),retractall(H).\n"
-    "'$mctx_clause'(M1,M2,H0,B):-(var(H0)->clause(H1,B),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B)).\n"
-    "'$mctx_clause'(M1,M2,H0,B,R):-(var(H0)->clause(H1,B,R),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B,R)).\n"
     "'$at_ctx'(V):-var(V),!,throw(error(instantiation_error,_)).\n"
     "'$at_ctx'(_).\n"
     "@(G,M):-'$at_ctx'(G),'$at_ctx'(M),(G=Q:_->'$at_ctx'(Q);true),('$meta_ctx'(G,M,G2)->call(G2);call(G)).\n"
@@ -3541,9 +3522,10 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "clause")) pl_cv_add(&referenced, "$clause_unmangle");
     int mq_hit = 0;
     if (pl_cv_has(&referenced, "module") || pl_cv_has(&referenced, "begin_tests")) for (PlClause *cl = prog->head; cl && !mq_hit; cl = cl->next) mq_hit = cl->tr && pl_tree_var_clause_goal(cl->tr);
-    if (mq_hit) for (int mi = 0; mi < 12; mi++) {
-        static const char * const mq[12] = { "$mctx_pick", "$mctx_head", "$mctx_term", "$mctx_assert", "$mctx_asserta", "$mctx_assertz", "$mctx_retract", "$mctx_retractall", "$mctx_clause", "$mctx_unh", "$mctx_un", "$mctx_strip" };
-        pl_cv_add(&referenced, mq[mi]);
+    if (mq_hit) {
+        static const struct { const char * nm; int ar; } mq[] = { { "$mctx_assert", 3 }, { "$mctx_asserta", 3 }, { "$mctx_assertz", 3 }, { "$mctx_assert", 4 }, { "$mctx_asserta", 4 }, { "$mctx_assertz", 4 },
+            { "$mctx_retract", 3 }, { "$mctx_retractall", 3 }, { "$mctx_clause", 4 }, { "$mctx_clause", 5 }, { 0, 0 } };
+        for (int mi = 0; mq[mi].nm; mi++) { pl_cv_add(&referenced, mq[mi].nm); pl_cv_add(&refkeys, pl_pred_key(mq[mi].nm, mq[mi].ar)); }
     }
     if (pl_cv_has(&referenced, "@")) { pl_cv_add(&referenced, "$at_ctx"); pl_cv_add(&referenced, "$meta_add"); }
     if (pl_cv_has(&referenced, "lazy_list")) pl_cv_add(&referenced, "$wakeup");
