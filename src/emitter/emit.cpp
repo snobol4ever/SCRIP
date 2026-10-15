@@ -2711,6 +2711,31 @@ static int flat_unwind_beta(const IR_t *nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * zd_chase(IR_t * t) { int g = 0; while (t && t->op == IR_GOTO && g++ < 128) t = t->γ.node; return t; }
+static void zd_vdj_live(IR_t ** nodes, int n, int * live) {
+    int q[n > 0 ? n : 1];
+    unsigned char seen[n > 0 ? n : 1];
+    for (int i = 0; i < n; i++) live[i] = 0;
+    for (int d = 0; d < n; d++) {
+        IR_t * dj = nodes[d];
+        long k = 0;
+        int na = dj ? (int)IR_LIT(dj).ival : 0, qn = 0;
+        if (!dj || dj->op != IR_DISJUNCTION || na <= 0 || dj->n_operands < 2 * na || !fc_geom(dj, &k) || k <= 0) continue;
+        memset(seen, 0, (size_t)(n > 0 ? n : 1));
+        for (int a = 0; a < na; a++) { int x = nidx(nodes, n, zd_chase(dj->operands[2 * a])); if (x >= 0 && x != d && !seen[x]) { seen[x] = 1; q[qn++] = x; } }
+        for (int h = 0; h < qn; h++) {
+            IR_t * x = nodes[q[h]];
+            int m = 2 + ((x->op == IR_DISJUNCTION && (int)IR_LIT(x).ival > 0 && x->n_operands >= 2 * (int)IR_LIT(x).ival) ? (int)IR_LIT(x).ival : 0);
+            live[q[h]] += (int)k;
+            for (int e = 0; e < m; e++) {
+                IR_t * t = zd_chase(e == 0 ? x->γ.node : e == 1 ? x->ω.node : x->operands[2 * (e - 2)]);
+                int y = nidx(nodes, n, t);
+                if (y < 0 || y == d || seen[y] || t->op == IR_STATEMENT_BEGIN || t->op == IR_STATEMENT_END || t->op == IR_STATEMENT) continue;
+                seen[y] = 1;
+                q[qn++] = y;
+            }
+        }
+    }
+}
 static int port_sz_beta(const char * sz) { return sz[0] == (char)0xce && (unsigned char)sz[1] == 0xb2; }
 static int beta_is_stmt_land(const IR_t * tgt) { return tgt && tgt->op == IR_STATEMENT_BEGIN; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3885,8 +3910,8 @@ extern "C++" int emit_gc_site_new(int kind, int adj) {
     if (g_emit.flat_pat && blob_frame_bytes() > 0) { rule = 3; depth = 0; }
     else if (emit_zframe_pinned() || icn_host_pinned()) { rule = 1; depth = 0; }
     else if (icn_gen_zeta_ft() > 0) { rule = 2; depth = icn_gen_zeta_ft(); }
-    else if (adj == X86_ADJ_ALIGNED) { rule = 4; depth = g_emit.op_zdepth; }
-    else { rule = 0; depth = g_emit.op_zrun + adj; }
+    else if (adj == X86_ADJ_ALIGNED) { rule = 4; depth = g_emit.op_zdepth + g_emit.op_vdj_live; }
+    else { rule = 0; depth = g_emit.op_zrun + adj + g_emit.op_vdj_live; }
     if (g_emit.site_shim9) { rule = 9; depth = (int)(g_emit.site_shim9 - 1); }
     gc_site_t * e = &CV_PUSH(g_emitter.g_gc_sites_v, gc_site_t); e->pc = 0; e->depth = depth; e->kind = (uint16_t)kind; e->rule = (uint16_t)rule; e->zdepth = g_emit.op_zdepth;
         e->fcb = (int32_t)g_emit.op_fc_bytes; e->fcbase = (int32_t)g_emit.op_fc_base; e->demit = depth; e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node;
@@ -4344,6 +4369,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     if (!g_emit.flat_jmp_entry) g_emit.flat_pat = 0;
     nidx_build(g_emitter.codegen_flat_chain_body_nodes, n);
     zd_plan(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, (const unsigned char *)0);
+    int * zd_vl = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
+    zd_vdj_live(g_emitter.codegen_flat_chain_body_nodes, n, zd_vl);
         { if (g_emitter.codegen_flat_chain_body__jc < 0) { const char * e = getenv("SCRIP_ZD_JOIN_CUT");
         g_emitter.codegen_flat_chain_body__jc = (e && *e == '0') ? 0 : 1; } unsigned char * _zw = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
             unsigned char * _zarm = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
@@ -5044,6 +5071,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
               } } } } }
           g_emit.op_trap_drop = (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SETEXIT_TEST && zd_on[i]) ? (long)(zd_out[i] - zd_k(g_emitter.codegen_flat_chain_body_nodes[i])) : 0;
           g_emit.op_zrun = (zd_out[i] >= 0 ? (int)(zd_out[i] - (zd_on[i] ? zd_k(g_emitter.codegen_flat_chain_body_nodes[i]) : 0)) : 0) + _sigk;
+          g_emit.op_vdj_live = zd_vl[i];
           if (zd_on[i] || zd_gp[i] > 0 || zd_wp[i] > 0) { g_emitter.g_zd_stage = 1; g_emitter.g_zd_arm = zd_on[i] ? 1 : 0; g_emitter.g_zd_gpop = zd_gp[i];
               g_emitter.g_zd_wpop = (_uw_stolen ? (int)_uw_pop : ((_zw5_wpop_stolen || _endj_stolen) ? 0 : zd_wp[i])); g_emitter.g_zd_wsteal = _endj_stolen || _uw_stolen;
               g_emitter.g_zd_k = zd_on[i] ? zd_k(g_emitter.codegen_flat_chain_body_nodes[i]) : 0;
@@ -5124,6 +5152,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     g_emit.x86_uid_kind = (const char *)0;
     g_emit.op_beta_dead = 0;
     g_emit.op_wpop = 0;
+    g_emit.op_vdj_live = 0;
     if (n == 0) emit_jmp_label(flat_empty_body_fail ? &lbl_ω : &lbl_γ, JMP_JMP);
     auto pl_alt_target = [&](int ak) -> bb_label_t * {
         IR_t * _e = g_emit_cfg->alt_entry[ak];
