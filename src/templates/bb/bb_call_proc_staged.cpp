@@ -8,6 +8,7 @@ extern "C" {
 #include "stage2.h"
 #include "ab_abi.h"
 #include "bb_templates.h"
+#include "rt/rt_pl_trail.h"
 long rt_proc_call_open(const char *name, int nargs);
 void *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm); const char *bb_ab_fn_sym(const char *nm);
 void *rt_proc_call_open_det(long idx, int nargs);
@@ -890,6 +891,36 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
          + x86_gc_site(X86_SITE_LANDING)
          + x86("mov", FRQ(act), "rax")
          + x86("mov", FRQ(act + 8), "rdx")
+         + IF(bcps_pl(),
+               x86("note",
+                   "the act word names a retained frame: trail the slot when its frame is OLDER than the newest choice (the slot at or above [B+32]), so the unwind zeroes it when backtracking passes"
+                   " this box")
+             + x86("test", "rax", "rax")
+             + x86("jz", L(86))
+             + x86("test", "r13", "r13")
+             + x86("jz", L(86))
+             + x86("lea", "rcx", RDQ(x86_fb(), act))
+             + x86("mov", "r8", RDQ("r13", PL_TR_FRAME_HI_OFF))
+             + x86_raw_unpack("r8")
+             + x86("cmp", "rcx", "r8")
+             + x86("jb", L(86))
+             + x86("mov", "r8", "r12")
+             + x86("and", "r8", (long)(PL_TR_ARENA_BYTES - 1))
+             + x86("cmp", "r8", (long)(PL_TR_ARENA_BYTES - PL_TR_ENTRY_BYTES))
+             + x86("jae", L(87))
+             + x86("mov", RDQ("r12", 0), "rcx")
+             + x86("mov", RDQ("r12", 8), 0L)
+             + x86("mov", RDQ("r12", 16), 0L)
+             + x86("mov", RDQ("r12", 24), 0L)
+             + x86("add", "r12", (long)PL_TR_ENTRY_BYTES)
+             + x86("mov", "r8", "r12")
+             + x86("and", "r8", X86_PL_TR_ARENA_MASK)
+             + x86("mov", RDQ("r8", 0), "r12")
+             + x86("jmp", L(86))
+             + x86("def", L(87))
+             + x86("mov", "rdi", "r12")
+             + x86("call", "rt_pl_tr_refuse", (uint64_t)(uintptr_t)(void *)rt_pl_tr_refuse)
+             + x86("def", L(86)))
          + bcps_lvl_add(-1L)
          + x86("mov", "rax", "rdi")
          + x86("mov", "rdx", "rsi")
