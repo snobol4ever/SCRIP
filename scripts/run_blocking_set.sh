@@ -502,6 +502,19 @@ if [ "$SHARD_N" -eq 0 ]; then
         ( . "$HERE/lib_gate.sh" 2>/dev/null; GATE_NAME="blocking-set-prestart" gate_require_fresh "$ROOT" src "$ROOT/scrip" "$ROOT/out/libscrip_rt.so" ) 2>&1 | sed 's/^/    /' >&2
         exit 2
     fi
+    # ⛔⭐ THE BUILD-BEHAVIOUR LEDGER IS RECORDED ONCE, HERE, SERIALLY, BEFORE ANY SHARD EXISTS (the coo 2026-10-14, from two completed sets: 10-13 on
+    # 2781bf6e4 refused nine arms as RACED and 10-14 on 0b870cf3e six, a different handful each time, all on out/build_behaviour.sig). THE CAUSE:
+    # gate_require_built_from appends a ledger line on a tree's FIRST observation, and a set always runs on a tree the loop has just built, so the first
+    # arm of every shard observed it for the first time together and appended together -- the race detector convicted whichever arms overlapped. Naming
+    # arms in blocking_set_serial_arms.txt would chase a different handful every run; the writer is the cause. Recorded here, every arm finds the tree
+    # observed and only reads. Not on --list (which writes nothing) and not on a serial run (no concurrency to collide with).
+    PRIME_LEDGER=1              # ⛔ MUTANT ANCHOR PRIME -- 0 leaves the first observation to the first arms of the shards, which append to out/build_behaviour.sig together
+    if [ "$PRIME_LEDGER" = 1 ] && [ -n "$SHARDS" ] && [ "$LIST_ONLY" -eq 0 ]; then
+        ( . "$HERE/lib_gate.sh" 2>/dev/null || exit 0
+          command -v gate_require_built_from >/dev/null 2>&1 || exit 0
+          GATE_NAME="blocking-set-prestart" gate_require_built_from "$ROOT" "$ROOT/scrip" >/dev/null 2>&1
+        ) || true
+    fi
 fi
 
 if [ "$LIST_ONLY" -eq 1 ]; then
