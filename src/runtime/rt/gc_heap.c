@@ -765,7 +765,6 @@ static long g_gc_nseg = -1, g_gc_seg_cap = 0;
 static rt_hblk_t **g_gc_idx = (rt_hblk_t **)0;
 static rt_hblk_t **g_gc_idxbuf = (rt_hblk_t **)0;
 static long g_gc_icap = 0;
-static rt_hblk_t *g_gc_mhead = (rt_hblk_t *)0;
 static long g_gc_nblk = 0;
 static void **g_gc_hs = (void **)0;
 static long g_gc_hcap = 0, g_gc_hn = 0;
@@ -782,13 +781,40 @@ extern void rt_gc_start_compact_run(rt_hp_fr_t *fr, const char *arena, const cha
 extern void rt_gc_ssum_run(rt_hp_fr_t *fr, size_t nw);
 extern uint64_t rt_gc_trail_run(const gc_tr_args_t *a);
 extern void rt_gc_clear_run(rt_hp_fr_t *fr, size_t nw);
+typedef struct gc_mk_t {
+    DESCR_t **wl;
+    long wln, wlcap;
+    gc_slot_t *slots;
+    long nslot, scap;
+    const char *arena, *top;
+    const uint64_t *ssum, *start;
+    uint64_t *live, *vis;
+    rt_hblk_t *mhead;
+    DESCR_t *rng_p;
+    long rng_n, wlmax, interior, dvec_elems, dvec_nondvec, nmk, mxs, walked, pv_end, draining;
+} gc_mk_t;
+_Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_t, wln) == 8 && __builtin_offsetof(gc_mk_t, wlcap) == 16 && __builtin_offsetof(gc_mk_t, slots) == 24 &&
+    __builtin_offsetof(gc_mk_t, nslot) == 32 && __builtin_offsetof(gc_mk_t, scap) == 40 && __builtin_offsetof(gc_mk_t, arena) == 48 && __builtin_offsetof(gc_mk_t, top) == 56 &&
+    __builtin_offsetof(gc_mk_t, ssum) == 64 && __builtin_offsetof(gc_mk_t, start) == 72 && __builtin_offsetof(gc_mk_t, live) == 80 && __builtin_offsetof(gc_mk_t, vis) == 88 &&
+    __builtin_offsetof(gc_mk_t, mhead) == 96 && __builtin_offsetof(gc_mk_t, rng_p) == 104 && __builtin_offsetof(gc_mk_t, rng_n) == 112 && __builtin_offsetof(gc_mk_t, wlmax) == 120 &&
+    __builtin_offsetof(gc_mk_t, interior) == 128 && __builtin_offsetof(gc_mk_t, dvec_elems) == 136 && __builtin_offsetof(gc_mk_t, dvec_nondvec) == 144 && __builtin_offsetof(gc_mk_t, nmk) == 152 &&
+    __builtin_offsetof(gc_mk_t, mxs) == 160 && __builtin_offsetof(gc_mk_t, walked) == 168 && __builtin_offsetof(gc_mk_t, pv_end) == 176 && __builtin_offsetof(gc_mk_t, draining) == 184,
+    "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
+_Static_assert(__builtin_offsetof(ARBLK_t, lo) == 0 && __builtin_offsetof(ARBLK_t, hi) == 4 && __builtin_offsetof(ARBLK_t, ndim) == 8 && __builtin_offsetof(ARBLK_t, lo2) == 12 &&
+    __builtin_offsetof(ARBLK_t, hi2) == 16 && __builtin_offsetof(ARBLK_t, proto) == 24 && __builtin_offsetof(ARBLK_t, data) == 32 && __builtin_offsetof(TBBLK_t, buckets) == 0 &&
+    __builtin_offsetof(TBBLK_t, nbuck) == 8 && __builtin_offsetof(TBBLK_t, dflt) == 32 && __builtin_offsetof(TBBLK_t, ord) == 56 && __builtin_offsetof(TBBLK_t, ord_len) == 64 &&
+    __builtin_offsetof(TBBLK_t, icn_ord) == 112 && __builtin_offsetof(TBBUCK_t, len) == 0 && __builtin_offsetof(TBBUCK_t, ent) == 8 && __builtin_offsetof(TBPAIR_t, key_descr) == 0 &&
+    __builtin_offsetof(TBPAIR_t, val) == 16 && sizeof(TBPAIR_t) == 40 && __builtin_offsetof(DATINST_t, type) == 0 && __builtin_offsetof(DATINST_t, fields) == 8 &&
+    __builtin_offsetof(DATBLK_t, nfields) == 8 && HB_ARR == 212 && HB_AGGP == 207 && HB_AGGT == 208 && HB_AGGB == 211 && HB_PVEC == 220,
+    "rt_gc_mark_run (rtx_gc.s) walks arrays, tables, buckets, pairs, data instances and pointer vectors at these offsets and dispatches the move list on these types");
+_Static_assert(HB_AGGV == 206 && HB_FILL == 202 && HB_DINST == 213 && HB_DVEC == 214 && DATA_ELEMS_SLEN == 1 && PROCVAL_SLEN == 0xFFFFFFFEu && PROCVAL_BUILTIN_SLEN == 0xFFFFFFFCu &&
+    PROCVAL_EXTERNAL_SLEN == 0xFFFFFFFBu, "rt_gc_mark_run (rtx_gc.s) carries these block types and descriptor lengths as its own defines");
+__attribute__((visibility("hidden"))) gc_mk_t g_gc_mk;
 _Static_assert(__builtin_offsetof(gc_slot_t, loc) == 0 && __builtin_offsetof(gc_slot_t, val) == 8 && sizeof(gc_slot_t) == 16,
     "the slot record is two words (ARCH-GC section 15.11 (1)): the slot's address and the pointer value read at registration, so the fix is arena plus the rank of that value, idempotent under a doub"
     "le" " registration, with no header read and no slot read; the fix run reads it at these offsets and steps it by 16");
 _Static_assert(__builtin_offsetof(rt_hblk_t, fwd) == 0 && __builtin_offsetof(rt_hblk_t, size) == 8 && __builtin_offsetof(rt_hblk_t, flags) == 14 && sizeof(rt_hblk_t) == 16 && HBF_TTL == 1 &&
     HBF_MARK == 2 && HBF_VIS == 0x10, "the collector leaves in rtx_alloc.s read a block header at these offsets and clear MARK|VIS with the mask 0xFFED");
-static gc_slot_t *g_gc_slots = (gc_slot_t *)0;
-static long g_gc_nslot = 0, g_gc_scap = 0;
 static int g_gc_in = 0;
 #if RT_DIAG
 static long g_gc_runs = 0, g_gc_interior = 0;
@@ -1251,7 +1277,6 @@ static inline rt_hblk_t *gc_blk_of(const char *p) {
     }
     { rt_hblk_t *h = (rt_hblk_t *)(g_hp_arena + (((w << 6) + (63 - (size_t)__builtin_clzll(m))) << 4)); return (p < (char *)h + h->size) ? h : (rt_hblk_t *)0; }
 }
-static long g_gc_nmk = 0, g_gc_mxs = 0;
 static inline void gc_live_set(size_t g, size_t n) __attribute__((always_inline));
 static inline void gc_live_set(size_t g, size_t n) {
     uint64_t *w = g_hp_fr.live + (g >> 6);
@@ -1266,15 +1291,19 @@ static inline void gc_live_set(size_t g, size_t n) {
 static inline int gc_type_moves(uint16_t t) __attribute__((always_inline));
 #define GC_TYPE_MOVES(t) ((t) == HB_DVEC || ((t) >= HB_PLDB && (t) <= HB_TRIEN) || (t) == HB_ARR || (t) == HB_DINST || HB_IS_AGG(t))
 static inline int gc_type_moves(uint16_t t) { return GC_TYPE_MOVES(t) ? 1 : 0; }
+#define GC_MK_BIT(k) (GC_TYPE_MOVES(HB_AGGV + (k)) ? 1u << (k) : 0u)
+_Static_assert((GC_MK_BIT(0) | GC_MK_BIT(1) | GC_MK_BIT(2) | GC_MK_BIT(3) | GC_MK_BIT(4) | GC_MK_BIT(5) | GC_MK_BIT(6) | GC_MK_BIT(7) | GC_MK_BIT(8) | GC_MK_BIT(9) | GC_MK_BIT(10) | GC_MK_BIT(11) |
+    GC_MK_BIT(12) | GC_MK_BIT(13) | GC_MK_BIT(14) | GC_MK_BIT(15) | GC_MK_BIT(16) | GC_MK_BIT(17) | GC_MK_BIT(18)) == 0x7FDE7u && !GC_TYPE_MOVES(HB_AGGV - 1) && !GC_TYPE_MOVES(HB_AGGV + 19),
+    "rt_gc_mark_run (rtx_gc.s) tests a block type for moving as bit (type - HB_AGGV) of its MK_MOVES 0x7FDE7, so every moving type lies in HB_AGGV..HB_AGGV+18 and the set reads as that mask");
 static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) __attribute__((always_inline));
 static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) {
     size_t g = (size_t)((char *)h - g_hp_arena) >> 4;
     if (h->type == HB_FILL) return;
     if (!((g_hp_fr.live[g >> 6] >> (g & 63)) & 1u)) {
         gc_live_set(g, (size_t)h->size >> 4);
-        g_gc_nmk++;
-        if ((long)h->size > g_gc_mxs) g_gc_mxs = (long)h->size;
-        if (gc_type_moves(h->type)) { h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; }
+        g_gc_mk.nmk++;
+        if ((long)h->size > g_gc_mk.mxs) g_gc_mk.mxs = (long)h->size;
+        if (gc_type_moves(h->type)) { h->fwd = (uint64_t)(uintptr_t)g_gc_mk.mhead; g_gc_mk.mhead = h; }
     }
     if (addf) g_hp_fr.vis[g >> 6] |= 1ull << (g & 63);
 }
@@ -1284,17 +1313,17 @@ static int gc_frames_visit_check(uint64_t *v);
 static void gc_frames_visit_judge(const uint64_t *v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_slot_grow(void) {
-    g_gc_scap = g_gc_scap ? g_gc_scap * 2 : 4096;
-    g_gc_slots = (gc_slot_t *)gcbk_grow((void *)g_gc_slots, (size_t)g_gc_scap * sizeof(*g_gc_slots));
-    if (!g_gc_slots) abort();
+    g_gc_mk.scap = g_gc_mk.scap ? g_gc_mk.scap * 2 : 4096;
+    g_gc_mk.slots = (gc_slot_t *)gcbk_grow((void *)g_gc_mk.slots, (size_t)g_gc_mk.scap * sizeof(*g_gc_mk.slots));
+    if (!g_gc_mk.slots) abort();
 }
 static inline void gc_slot_reg_tgt(void *loc, rt_hblk_t *tgt) __attribute__((always_inline));
 static inline void gc_slot_reg_tgt(void *loc, rt_hblk_t *tgt) {
-    if (g_gc_nslot == g_gc_scap) gc_slot_grow();
-    g_gc_slots[g_gc_nslot].loc = (const char **)loc;
-    g_gc_slots[g_gc_nslot].val = *(const char *const *)loc;
+    if (g_gc_mk.nslot == g_gc_mk.scap) gc_slot_grow();
+    g_gc_mk.slots[g_gc_mk.nslot].loc = (const char **)loc;
+    g_gc_mk.slots[g_gc_mk.nslot].val = *(const char *const *)loc;
     (void)tgt;
-    g_gc_nslot++;
+    g_gc_mk.nslot++;
 }
 static inline void gc_slot_reg(void *loc) __attribute__((always_inline));
 static inline void gc_slot_reg(void *loc) { const char *v = *(const char *const *)loc; rt_hblk_t *t = gc_blk_of(v); if (!t) return; gc_slot_reg_tgt(loc, t); }
@@ -1304,7 +1333,7 @@ void rt_gc_visit_raw_in(const char **loc, const void *holder) { (void)holder; rt
 int rt_gc_weak_keep(const char **loc) { rt_hblk_t *h = gc_blk_of(*loc); if (!h) return 1; if (!gc_blk_marked(h)) return 0; gc_slot_reg((void *)loc); return 1; }
 int rt_gc_ptr_in_heap_slot(const char *p) { return gc_blk_of(p) != (rt_hblk_t *)0; }
 int rt_gc_in_arena(const char *p) { return (g_hp_arena && p >= g_hp_arena && p < g_hp_top) ? 1 : 0; }
-int rt_gc_slot_registered(const void *loc) { for (long i = 0; i < g_gc_nslot; i++) if ((const void *)g_gc_slots[i].loc == loc) return 1; return 0; }
+int rt_gc_slot_registered(const void *loc) { for (long i = 0; i < g_gc_mk.nslot; i++) if ((const void *)g_gc_mk.slots[i].loc == loc) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_mark_agg(const void *p) { rt_hblk_t *h = gc_blk_of((const char *)p); if (h) gc_mark_blk(h, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1313,25 +1342,18 @@ static inline int gc_tag_bears_ptr(uint8_t v) {
     return v == DT_S || v == DT_SNUL || v == DT_X || v == DT_A || v == DT_T || v == DT_N || v == DT_DATA || v == DT_P || v == DT_PLVAR || v == DT_PLREF || v == DT_E || v == DT_BIG || v == DT_CPLX ||
         v == DT_EXTL;
 }
-static DESCR_t **g_gc_wl = (DESCR_t **)0;
-#if RT_DIAG
-static long g_gc_wln = 0, g_gc_wlcap = 0, g_gc_wlmax = 0;
-#else
-static long g_gc_wln = 0, g_gc_wlcap = 0;
-#endif
-static int g_gc_wl_draining = 0;
 static void gc_wl_grow(void) {
-    g_gc_wlcap = g_gc_wlcap ? g_gc_wlcap * 2 : 4096;
-    g_gc_wl = (DESCR_t **)gcbk_grow((void *)g_gc_wl, (size_t)g_gc_wlcap * sizeof(*g_gc_wl));
-    if (!g_gc_wl) { fprintf(stderr, "[ZGC] mark worklist alloc failed at %ld entries\n", g_gc_wlcap); abort(); }
+    g_gc_mk.wlcap = g_gc_mk.wlcap ? g_gc_mk.wlcap * 2 : 4096;
+    g_gc_mk.wl = (DESCR_t **)gcbk_grow((void *)g_gc_mk.wl, (size_t)g_gc_mk.wlcap * sizeof(*g_gc_mk.wl));
+    if (!g_gc_mk.wl) { fprintf(stderr, "[ZGC] mark worklist alloc failed at %ld entries\n", g_gc_mk.wlcap); abort(); }
 }
 static inline void gc_wl_push(DESCR_t *d) __attribute__((always_inline));
 static inline void gc_wl_push(DESCR_t *d) {
     if (!d || !gc_tag_bears_ptr(d->v)) return;
-    if (g_gc_wln == g_gc_wlcap) gc_wl_grow();
-    g_gc_wl[g_gc_wln++] = d;
+    if (g_gc_mk.wln == g_gc_mk.wlcap) gc_wl_grow();
+    g_gc_mk.wl[g_gc_mk.wln++] = d;
 #if RT_DIAG
-    if (g_gc_wln > g_gc_wlmax) g_gc_wlmax = g_gc_wln;
+    if (g_gc_mk.wln > g_gc_mk.wlmax) g_gc_mk.wlmax = g_gc_mk.wln;
 #endif
 }
 static void gc_visit_tbblk(struct _TBBLK_t *t);
@@ -1343,7 +1365,7 @@ static inline uint16_t gc_mark_vis(rt_hblk_t *h) {
     size_t g = (size_t)((char *)h - g_hp_arena) >> 4;
     uint64_t bit = 1ull << (g & 63);
     uint16_t old = (uint16_t)(((g_hp_fr.live[g >> 6] & bit) ? HBF_MARK : 0) | ((g_hp_fr.vis[g >> 6] & bit) ? HBF_VIS : 0));
-    if (!(old & HBF_MARK)) { gc_live_set(g, (size_t)h->size >> 4); g_gc_nmk++; if ((long)h->size > g_gc_mxs) g_gc_mxs = (long)h->size; }
+    if (!(old & HBF_MARK)) { gc_live_set(g, (size_t)h->size >> 4); g_gc_mk.nmk++; if ((long)h->size > g_gc_mk.mxs) g_gc_mk.mxs = (long)h->size; }
     g_hp_fr.vis[g >> 6] |= bit;
     return old;
 }
@@ -1453,38 +1475,6 @@ static void gc_visit_one(DESCR_t *d) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct gc_mk_t {
-    DESCR_t **wl;
-    long wln, wlcap;
-    gc_slot_t *slots;
-    long nslot, scap;
-    const char *arena, *top;
-    const uint64_t *ssum, *start;
-    uint64_t *live, *vis;
-    rt_hblk_t *mhead;
-    DESCR_t *rng_p;
-    long rng_n, wlmax, interior, dvec_elems, dvec_nondvec, nmk, mxs, walked, pv_end;
-} gc_mk_t;
-_Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_t, wln) == 8 && __builtin_offsetof(gc_mk_t, wlcap) == 16 && __builtin_offsetof(gc_mk_t, slots) == 24 &&
-    __builtin_offsetof(gc_mk_t, nslot) == 32 && __builtin_offsetof(gc_mk_t, scap) == 40 && __builtin_offsetof(gc_mk_t, arena) == 48 && __builtin_offsetof(gc_mk_t, top) == 56 &&
-    __builtin_offsetof(gc_mk_t, ssum) == 64 && __builtin_offsetof(gc_mk_t, start) == 72 && __builtin_offsetof(gc_mk_t, live) == 80 && __builtin_offsetof(gc_mk_t, vis) == 88 &&
-    __builtin_offsetof(gc_mk_t, mhead) == 96 && __builtin_offsetof(gc_mk_t, rng_p) == 104 && __builtin_offsetof(gc_mk_t, rng_n) == 112 && __builtin_offsetof(gc_mk_t, wlmax) == 120 &&
-    __builtin_offsetof(gc_mk_t, interior) == 128 && __builtin_offsetof(gc_mk_t, dvec_elems) == 136 && __builtin_offsetof(gc_mk_t, dvec_nondvec) == 144 && __builtin_offsetof(gc_mk_t, nmk) == 152 &&
-    __builtin_offsetof(gc_mk_t, mxs) == 160 && __builtin_offsetof(gc_mk_t, walked) == 168 && __builtin_offsetof(gc_mk_t, pv_end) == 176,
-    "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
-_Static_assert(__builtin_offsetof(ARBLK_t, lo) == 0 && __builtin_offsetof(ARBLK_t, hi) == 4 && __builtin_offsetof(ARBLK_t, ndim) == 8 && __builtin_offsetof(ARBLK_t, lo2) == 12 &&
-    __builtin_offsetof(ARBLK_t, hi2) == 16 && __builtin_offsetof(ARBLK_t, proto) == 24 && __builtin_offsetof(ARBLK_t, data) == 32 && __builtin_offsetof(TBBLK_t, buckets) == 0 &&
-    __builtin_offsetof(TBBLK_t, nbuck) == 8 && __builtin_offsetof(TBBLK_t, dflt) == 32 && __builtin_offsetof(TBBLK_t, ord) == 56 && __builtin_offsetof(TBBLK_t, ord_len) == 64 &&
-    __builtin_offsetof(TBBLK_t, icn_ord) == 112 && __builtin_offsetof(TBBUCK_t, len) == 0 && __builtin_offsetof(TBBUCK_t, ent) == 8 && __builtin_offsetof(TBPAIR_t, key_descr) == 0 &&
-    __builtin_offsetof(TBPAIR_t, val) == 16 && sizeof(TBPAIR_t) == 40 && __builtin_offsetof(DATINST_t, type) == 0 && __builtin_offsetof(DATINST_t, fields) == 8 &&
-    __builtin_offsetof(DATBLK_t, nfields) == 8 && HB_ARR == 212 && HB_AGGP == 207 && HB_AGGT == 208 && HB_AGGB == 211 && HB_PVEC == 220,
-    "rt_gc_mark_run (rtx_gc.s) walks arrays, tables, buckets, pairs, data instances and pointer vectors at these offsets and dispatches the move list on these types");
-#define GC_MK_BIT(k) (GC_TYPE_MOVES(HB_AGGV + (k)) ? 1u << (k) : 0u)
-_Static_assert((GC_MK_BIT(0) | GC_MK_BIT(1) | GC_MK_BIT(2) | GC_MK_BIT(3) | GC_MK_BIT(4) | GC_MK_BIT(5) | GC_MK_BIT(6) | GC_MK_BIT(7) | GC_MK_BIT(8) | GC_MK_BIT(9) | GC_MK_BIT(10) | GC_MK_BIT(11) |
-    GC_MK_BIT(12) | GC_MK_BIT(13) | GC_MK_BIT(14) | GC_MK_BIT(15) | GC_MK_BIT(16) | GC_MK_BIT(17) | GC_MK_BIT(18)) == 0x7FDE7u && !GC_TYPE_MOVES(HB_AGGV - 1) && !GC_TYPE_MOVES(HB_AGGV + 19),
-    "rt_gc_mark_run (rtx_gc.s) tests a block type for moving as bit (type - HB_AGGV) of its MK_MOVES 0x7FDE7, so every moving type lies in HB_AGGV..HB_AGGV+18 and the set reads as that mask");
-_Static_assert(HB_AGGV == 206 && HB_FILL == 202 && HB_DINST == 213 && HB_DVEC == 214 && DATA_ELEMS_SLEN == 1 && PROCVAL_SLEN == 0xFFFFFFFEu && PROCVAL_BUILTIN_SLEN == 0xFFFFFFFCu &&
-    PROCVAL_EXTERNAL_SLEN == 0xFFFFFFFBu, "rt_gc_mark_run (rtx_gc.s) carries these block types and descriptor lengths as its own defines");
 static void gc_visit_mblk(rt_hblk_t *h) {
     if (h->type == HB_AGGV) { if (!gc_vis_test_set(h)) gc_visit_vcell((VCELL_t *)(h + 1)); return; }
     if (h->type >= HB_PLDB && h->type <= HB_PLDBK) { extern void pl_db_gc_visit(uint16_t, void *, size_t); pl_db_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t)); return; }
@@ -1499,57 +1489,24 @@ static void gc_visit_mblk(rt_hblk_t *h) {
     g_gc_interior += (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *));
 #endif
 }
-static long gc_wl_drain(void) {
+static void gc_wl_drain(void) {
     extern DESCR_t *rt_gc_mark_run(gc_mk_t *);
-    gc_mk_t m;
-    memset(&m, 0, sizeof m);
-    m.arena = g_hp_arena;
-    m.top = g_hp_top;
-    m.ssum = g_hp_fr.ssum;
-    m.start = g_hp_fr.start;
-    m.live = g_hp_fr.live;
-    m.vis = g_hp_fr.vis;
     for (;;) {
-        DESCR_t *d;
-        m.wl = g_gc_wl;
-        m.wln = g_gc_wln;
-        m.wlcap = g_gc_wlcap;
-        m.slots = g_gc_slots;
-        m.nslot = g_gc_nslot;
-        m.scap = g_gc_scap;
-        m.mhead = g_gc_mhead;
-#if RT_DIAG
-        m.wlmax = g_gc_wlmax;
-#endif
-        d = rt_gc_mark_run(&m);
-        g_gc_wln = m.wln;
-        g_gc_nslot = m.nslot;
-        g_gc_mhead = m.mhead;
-#if RT_DIAG
-        g_gc_wlmax = m.wlmax;
-#endif
+        DESCR_t *d = rt_gc_mark_run(&g_gc_mk);
         if (!d) break;
-        if (d == (DESCR_t *)1) { if (m.rng_n) gc_wl_grow(); else gc_slot_grow(); } else if (d == (DESCR_t *)2) gc_wl_grow();
+        if (d == (DESCR_t *)1) { if (g_gc_mk.rng_n) gc_wl_grow(); else gc_slot_grow(); } else if (d == (DESCR_t *)2) gc_wl_grow();
         else if ((uintptr_t)d & 2u) gc_visit_mblk((rt_hblk_t *)((uintptr_t)d & ~(uintptr_t)2u));
         else gc_visit_one(d);
     }
-    g_gc_nmk += m.nmk;
-    if (m.mxs > g_gc_mxs) g_gc_mxs = m.mxs;
-#if RT_DIAG
-    g_gc_interior += m.interior;
-    g_gc_dvec_elems += m.dvec_elems;
-    g_gc_dvec_nondvec += m.dvec_nondvec;
-#endif
-    return m.walked;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_visit_descr(DESCR_t *d) {
     if (!d || !gc_tag_bears_ptr(d->v)) return;
-    if (g_gc_wl_draining) { gc_wl_push(d); return; }
-    g_gc_wl_draining = 1;
+    if (g_gc_mk.draining) { gc_wl_push(d); return; }
+    g_gc_mk.draining = 1;
     gc_wl_push(d);
     gc_wl_drain();
-    g_gc_wl_draining = 0;
+    g_gc_mk.draining = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
@@ -3277,9 +3234,9 @@ static long gc_audit_b_shim(char *floor) {
     sk[k].bytes = (long)sizeof g_hp_qhi;
     sk[k].name = "g_hp_qhi";
     k++;
-    sk[k].at = (const void *)&g_gc_mhead;
-    sk[k].bytes = (long)sizeof g_gc_mhead;
-    sk[k].name = "g_gc_mhead";
+    sk[k].at = (const void *)&g_gc_mk;
+    sk[k].bytes = (long)sizeof g_gc_mk;
+    sk[k].name = "g_gc_mk";
     k++;
     sk[k].at = (const void *)g_gc_spine_rec;
     sk[k].bytes = (long)sizeof g_gc_spine_rec;
@@ -3354,13 +3311,13 @@ static void gc_index_c(void) {
 }
 #if RT_DIAG
 static void gc_fix_check(char *base, size_t logran) {
-    for (long i = 0; i < g_gc_nslot; i++) {
-        const char *val = g_gc_slots[i].val;
+    for (long i = 0; i < g_gc_mk.nslot; i++) {
+        const char *val = g_gc_mk.slots[i].val;
         size_t g = (size_t)(val - g_hp_arena) >> 4;
         if (g < logran || !((g_hp_fr.live[g >> 6] >> (g & 63)) & 1u)) continue;
-        if (*g_gc_slots[i].loc != val && *g_gc_slots[i].loc != base + gc_rank(val)) {
+        if (*g_gc_mk.slots[i].loc != val && *g_gc_mk.slots[i].loc != base + gc_rank(val)) {
             fprintf(stderr, "[ZGC] FIX REFUSED: slot %p was written between mark and fix (holds %p, registered %p) -- a slot the collector rewrites is untouched between the two (ARCH-GC 15.11 (1))\n",
-                (const void *)g_gc_slots[i].loc, (const void *)*g_gc_slots[i].loc, (const void *)val);
+                (const void *)g_gc_mk.slots[i].loc, (const void *)*g_gc_mk.slots[i].loc, (const void *)val);
             abort();
         }
     }
@@ -3426,8 +3383,18 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     g_hp_wend = (char *)0;
     g_gc_nblk = 0;
 #endif
-    g_gc_nmk = 0;
-    g_gc_mxs = 0;
+    g_gc_mk.nmk = 0;
+    g_gc_mk.mxs = 0;
+    g_gc_mk.arena = g_hp_arena;
+    g_gc_mk.top = g_hp_top;
+    g_gc_mk.ssum = g_hp_fr.ssum;
+    g_gc_mk.start = g_hp_fr.start;
+    g_gc_mk.live = g_hp_fr.live;
+    g_gc_mk.vis = g_hp_fr.vis;
+    g_gc_mk.rng_p = (DESCR_t *)0;
+    g_gc_mk.rng_n = 0;
+    g_gc_mk.interior = g_gc_mk.dvec_elems = g_gc_mk.dvec_nondvec = g_gc_mk.walked = 0;
+    g_gc_mk.mxs = 0;
     g_gc_idx = (rt_hblk_t **)0;
     rt_gc_ssum_run(&g_hp_fr, (((size_t)(g_hp_top - g_hp_arena) >> 4) + 63) >> 6);
 #if RT_DIAG
@@ -3438,18 +3405,18 @@ static long gc_collect_ex(const gc_ent_t *ent) {
 #endif
 #if RT_DIAG
     if (w_tel) { w_idx = g_gc_nblk; n_idx = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
-    g_gc_mhead = (rt_hblk_t *)0;
+    g_gc_mk.mhead = (rt_hblk_t *)0;
     g_gc_spine_recn = 0;
     g_gc_top_graph = (const char *)0;
     g_gc_hn = 0;
     if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
-    g_gc_nslot = 0;
+    g_gc_mk.nslot = 0;
     g_gc_interior = 0;
 #else
-    g_gc_mhead = (rt_hblk_t *)0;
+    g_gc_mk.mhead = (rt_hblk_t *)0;
     g_gc_hn = 0;
     if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
-    g_gc_nslot = 0;
+    g_gc_mk.nslot = 0;
 #endif
     { extern void pl_tr_gc_root_ball(const char *); for (long i = 0; i < g_gc_rrng_n; i++) if (!g_gc_rrng[i].hi) pl_tr_gc_root_ball(g_gc_rrng[i].lo); }
     for (long i = 0; i < g_gc_rrng_n; i++) {
@@ -3539,33 +3506,33 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     for (int si = 0; si < g_gc_shield_n; si++) rt_gc_visit_descr(&g_gc_shield_arr[si]);
     {
 #if RT_DIAG
-        long walked = 0, nscan = 0, rounds = 0;
+        long rounds = 0;
 #endif
         {
             for (;;) {
-                if (!g_gc_mhead && !g_gc_wln) break;
+                if (!g_gc_mk.mhead && !g_gc_mk.wln) break;
 #if RT_DIAG
                 rounds++;
 #endif
-                g_gc_wl_draining = 1;
-#if RT_DIAG
-                walked += gc_wl_drain();
-                nscan = walked;
-#else
-                (void)gc_wl_drain();
-#endif
-                g_gc_wl_draining = 0;
+                g_gc_mk.draining = 1;
+                gc_wl_drain();
+                g_gc_mk.draining = 0;
             }
         }
 #if RT_DIAG
         if (w_tel) {
             n_mrk = gc_walk_ns() - n_t0;
             n_t0 = gc_walk_ns();
-            fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", "WL", walked, nscan, rounds, g_gc_nblk);
+            fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", "WL", g_gc_mk.walked, g_gc_mk.walked, rounds, g_gc_nblk);
             n_t0 = gc_walk_ns();
         }
 #endif
     }
+#if RT_DIAG
+    g_gc_interior += g_gc_mk.interior;
+    g_gc_dvec_elems += g_gc_mk.dvec_elems;
+    g_gc_dvec_nondvec += g_gc_mk.dvec_nondvec;
+#endif
     { extern void kw_cset_gc_weak(void); kw_cset_gc_weak(); }
 #ifdef SCRIP_GC_AUDIT_B
 #if RT_DIAG
@@ -3605,8 +3572,8 @@ static long gc_collect_ex(const gc_ent_t *ent) {
         }
         if (g_gc_flip_to) { base = g_gc_flip_to; g_gc_flip_live = lt; }
     }
-    nlive = g_gc_nmk;
-    n_mk = n_fw = g_gc_nmk;
+    nlive = g_gc_mk.nmk;
+    n_mk = n_fw = g_gc_mk.nmk;
     if (w_tel) { w_fwd = g_gc_nblk; n_fwd = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     gc_vac_record(base, g_gc_flip_to ? g_hp_arena : g_hp_arena + lt);
 #endif
@@ -3616,9 +3583,9 @@ static long gc_collect_ex(const gc_ent_t *ent) {
 #if RT_DIAG
     if (gc_diag_on()) gc_fix_check(base, base == g_hp_arena ? (size_t)fd : 0);
 #endif
-    rt_gc_fix_run(g_gc_slots, g_gc_nslot, base, base == g_hp_arena ? (size_t)fd : 0, &g_hp_fr, g_hp_arena);
+    rt_gc_fix_run(g_gc_mk.slots, g_gc_mk.nslot, base, base == g_hp_arena ? (size_t)fd : 0, &g_hp_fr, g_hp_arena);
 #if RT_DIAG
-    if (w_tel) { w_cel = g_gc_nslot; w_raw = 0; n_fix = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
+    if (w_tel) { w_cel = g_gc_mk.nslot; w_raw = 0; n_fix = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     if (w_tel) n_t0 = gc_walk_ns();
 #endif
     {
@@ -3630,7 +3597,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
         dest = rt_gc_slide_run(base, fd, &g_hp_fr, g_hp_arena, oldtop);
         rt_gc_start_compact_run(&g_hp_fr, g_hp_arena, base, oldtop);
         rt_gc_ssum_run(&g_hp_fr, (((size_t)((dest > oldtop ? dest : oldtop) - g_hp_arena) >> 4) + 63) >> 6);
-        mxs = (uint32_t)g_gc_mxs;
+        mxs = (uint32_t)g_gc_mk.mxs;
 #if RT_DIAG
         if (w_tel) w_mov += (long)(dest - d0);
         if (g_gc_flip_to) {
@@ -3708,7 +3675,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
             if (w_tel) fprintf(stderr, "[ZGC-POISON] vacated=%ldB filled=0xDB top=%p oldtop=%p\n", pb, (void *)g_hp_top, (void *)ot);
         }
     }
-    if (w_tel) { w_sld = g_gc_nmk; n_sld = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
+    if (w_tel) { w_sld = g_gc_mk.nmk; n_sld = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
 #endif
     { extern void rt_nv_memo_invalidate(void); extern void pm_lf_type_invalidate(void); rt_nv_memo_invalidate(); pm_lf_type_invalidate(); }
 #if RT_DIAG
@@ -3724,7 +3691,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     if (g_gc_dvec_elems && (w_tel || gc_maps_on())) fprintf(stderr, "[GC-DVEC] elems=%ld non_dvec=%ld\n", g_gc_dvec_elems, g_gc_dvec_nondvec);
     if (w_tel)
         fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld marked=%ld forwarded=%ld\n", g_gc_runs,
-        "E", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax, n_mk, n_fw);
+        "E", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_mk.nslot, g_gc_interior, g_gc_mk.wlmax, n_mk, n_fw);
 #endif
     if (g_hp_cap_end > g_hp_end && (long)(g_hp_end - g_hp_arena - g_hp_live) * 100L < (long)(g_hp_end - g_hp_arena) * (long)GC_FREE_PCT) (void)rt_gcheap_grow(0);
     rt_gcheap_line_reset((long)mxs);
