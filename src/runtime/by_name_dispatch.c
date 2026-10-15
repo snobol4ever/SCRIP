@@ -9664,6 +9664,255 @@ static int pl_gnu_copy(const char *f, const char *t, pl_tr_ctx_t *cx) {
     errno = e;
     return n < 0 ? pl_gnu_os_fail(cx) : 1;
 }
+#define GS_LA 1
+#define GS_SC 2
+#define GS_QT 4
+#define GS_DQ 8
+#define GS_BQ 16
+#define GS_GR 32
+#define GS_PC 64
+#define GS_DI 128
+#define GS_UL 256
+#define GS_CL 512
+#define GS_SL 1024
+#define GS_CM 2048
+#define GS_EX 4096
+enum { GT_NAME, GT_VAR, GT_INT, GT_FLOAT, GT_STR, GT_BQ, GT_PUNCT, GT_IOPEN, GT_STOP, GT_EOF, GT_EXT };
+typedef struct { FILE *in; int idx; int c; int ty; int tk; int punct; int oom; long tl; long tc; const char *err; char *b; size_t bn; size_t bk; DESCR_t num; } pl_gs_t;
+static int pl_gs_class(int c) {
+    if (c == EOF) return 0;
+    if (c >= 128) return GS_EX;
+    if (c <= ' ' || c == 127) return GS_LA;
+    if (c >= '0' && c <= '9') return GS_DI;
+    if (c >= 'a' && c <= 'z') return GS_SL;
+    if (c >= 'A' && c <= 'Z') return GS_CL;
+    if (c == '_') return GS_UL;
+    if (c == '!' || c == ',' || c == ';') return GS_SC;
+    if (c == '"') return GS_DQ;
+    if (c == '\'') return GS_QT;
+    if (c == '`') return GS_BQ;
+    if (c == '%') return GS_CM;
+    if (strchr("()[]{}|", c)) return GS_PC;
+    return GS_GR;
+}
+static int pl_gs_get(pl_gs_t *s) { s->c = fgetc(s->in); s->ty = pl_gs_class(s->c); return s->c; }
+static void pl_gs_unget(pl_gs_t *s) { if (s->c != EOF) ungetc(s->c, s->in); }
+static int pl_gs_peek(pl_gs_t *s) { int d = fgetc(s->in); if (d != EOF) ungetc(d, s->in); return d; }
+static void pl_gs_put(pl_gs_t *s, int ch) { if (!pl_rb_room(&s->b, &s->bn, s->bk + 2)) { s->oom = 1; return; } s->b[s->bk++] = (char)ch; s->b[s->bk] = 0; }
+static void pl_gs_at(pl_gs_t *s, int plus) {
+    extern int fh_in_position(int, long *, long *, long *);
+    long ch = 0, ln = 0, lp = 0, off = ftell(s->in), p, n, col = 0;
+    char b[512];
+    s->tl = 0;
+    s->tc = 0;
+    if (off < 0 || fh_in_position(s->idx, &ch, &ln, &lp) != 1) return;
+    for (p = off; p > 0; p -= n) {
+        n = p > (long)sizeof b ? (long)sizeof b : p;
+        if (pread(fileno(s->in), b, (size_t)n, (off_t)(p - n)) != (ssize_t)n) break;
+        for (long i = n - 1; i >= 0; i--) { if (b[i] == '\n') { p = 0; break; } col++; }
+        if (!p) break;
+    }
+    s->tl = ln + 1;
+    s->tc = col + plus;
+}
+static void pl_gs_fail(pl_gs_t *s, const char *msg, int plus) { if (s->err) return; s->err = msg; pl_gs_at(s, plus); }
+static int pl_gs_qchar(pl_gs_t *s, int q, int noesc) {
+    const char *p;
+    long long x;
+    int rad;
+    pl_gs_get(s);
+    if (s->c == q) { if (pl_gs_peek(s) != q) return -1; pl_gs_get(s); return s->c; }
+    if (s->c == EOF) { if (!s->err) { pl_gs_unget(s); pl_gs_fail(s, "closing quote expected here", 1); } return -3; }
+    if (s->c == '\n') { if (!s->err) { pl_gs_unget(s); pl_gs_fail(s, "unexpected newline", 1); } return -4; }
+    if (s->c == '\t') { if (!s->err) { pl_gs_unget(s); pl_gs_fail(s, "unexpected tab", 1); } return -5; }
+    if (s->c != '\\' || noesc) return s->c;
+    pl_gs_get(s);
+    if (s->c == '\n') return -2;
+    if (s->c > 0 && strchr("\\'\"`", s->c)) return s->c;
+    if (s->c > 0 && (p = strchr("abfnrtv", s->c))) return "\a\b\f\n\r\t\v"[p - "abfnrtv"];
+    if (s->c != 'x' && (s->c < '0' || s->c > '7')) { pl_gs_fail(s, "unknown escape sequence", 0); return -6; }
+    rad = s->c == 'x' ? 16 : 8;
+    x = s->c == 'x' ? 0 : s->c - '0';
+    for (pl_gs_get(s); s->c > 0 && (rad == 16 ? isxdigit(s->c) : (s->c >= '0' && s->c <= '7')); pl_gs_get(s)) {
+        if (x <= 0x10FFFF) x = x * rad + (isdigit(s->c) ? s->c - '0' : (tolower(s->c) - 'a' + 10));
+    }
+    if (x < 1 || x > 255) pl_gs_fail(s, "invalid character code in \\constant\\ sequence", 0);
+    else if (s->c == '\\') return (int)x;
+    else pl_gs_fail(s, "\\ expected in \\constant\\ sequence", 0);
+    while (s->c != '\\' && s->c != q && s->c != EOF && s->c != '\n') pl_gs_get(s);
+    if (s->c == q) pl_gs_unget(s);
+    return -6;
+}
+static void pl_gs_quoted(pl_gs_t *s) {
+    int q = s->c, ef = 0, ch;
+    s->tk = s->ty == GS_QT ? GT_NAME : s->ty == GS_DQ ? GT_STR : GT_BQ;
+    s->bk = 0;
+    for (;;) {
+        ch = pl_gs_qchar(s, q, s->tk == GT_BQ);
+        if (ch == -1) { if (ef) break; return; }
+        if (ch == -2) continue;
+        if (ch == -3 || ch == -4) { s->tk = GT_STOP; return; }
+        if (ch == -5 || ch == -6) { ef = 1; continue; }
+        if (!ef) pl_gs_put(s, ch);
+    }
+    if (s->err) return;
+    pl_gs_unget(s);
+    pl_gs_fail(s, s->tk == GT_NAME ? "quote character expected here" : s->tk == GT_BQ ? "back quote character expected here" : "double quote character expected here", 1);
+}
+static void pl_gs_number(pl_gs_t *s) {
+    int rc, ch, e0, d;
+    size_t lg;
+    do { pl_gs_put(s, s->c); pl_gs_get(s); } while (s->ty == GS_DI);
+    lg = s->bk;
+    d = s->c == '.' ? pl_gs_peek(s) : EOF;
+    if (d >= '0' && d <= '9') {
+        s->tk = GT_FLOAT;
+        pl_gs_put(s, '.');
+        for (pl_gs_get(s); s->ty == GS_DI; pl_gs_get(s)) pl_gs_put(s, s->c);
+        if (s->c == 'e' || s->c == 'E') {
+            e0 = s->c;
+            pl_gs_get(s);
+            d = (s->c == '+' || s->c == '-') ? pl_gs_peek(s) : EOF;
+            if (!(s->ty == GS_DI || (d >= '0' && d <= '9'))) {
+                pl_gs_unget(s);
+                s->c = e0;
+            } else {
+                pl_gs_put(s, 'e');
+                pl_gs_put(s, s->c);
+                for (pl_gs_get(s); s->ty == GS_DI; pl_gs_get(s)) pl_gs_put(s, s->c);
+            }
+        }
+        s->num = REALVAL(strtod(s->b, (char **)0));
+        pl_gs_unget(s);
+        return;
+    }
+    s->tk = GT_INT;
+    if (!s->b || !pl_parse_number(s->b, &s->num)) s->num = INTVAL(0);
+    if (lg != 1 || s->b[0] != '0' || !(s->c == '\'' || s->c == 'b' || s->c == 'o' || s->c == 'x')) { pl_gs_unget(s); return; }
+    if (s->c == '\'') {
+        ch = pl_gs_qchar(s, '\'', 0);
+        if (ch == -1) { pl_gs_fail(s, "quote character expected here", 1); return; }
+        if (ch == -2) { pl_gs_unget(s); ungetc('\\', s->in); ungetc('\'', s->in); return; }
+        if (ch < 0) { pl_gs_unget(s); s->tk = GT_STOP; s->err = (const char *)0; pl_gs_fail(s, "character expected here", 1); return; }
+        s->num = INTVAL(ch);
+        return;
+    }
+    rc = s->c;
+    s->bk = 0;
+    pl_gs_put(s, '0');
+    pl_gs_put(s, rc);
+    for (pl_gs_get(s); s->c > 0 && (rc == 'x' ? isxdigit(s->c) : rc == 'o' ? (s->c >= '0' && s->c <= '7') : (s->c == '0' || s->c == '1')); pl_gs_get(s)) pl_gs_put(s, s->c);
+    if (s->bk == 2) { pl_gs_unget(s); ungetc(rc, s->in); return; }
+    if (!pl_parse_number(s->b, &s->num)) s->num = INTVAL(0);
+    pl_gs_unget(s);
+}
+static void pl_gs_token(pl_gs_t *s, int comma_punct) {
+    int lb = 0, c0;
+    s->err = (const char *)0;
+    for (;;) {
+        do { pl_gs_get(s); if (s->ty == GS_LA) lb = 1; } while (s->ty == GS_LA);
+        pl_gs_at(s, 0);
+        s->bk = 0;
+        if (s->c == EOF) { s->tk = GT_EOF; return; }
+        if (s->ty & (GS_SL | GS_UL | GS_CL)) {
+            s->tk = s->ty == GS_SL ? GT_NAME : GT_VAR;
+            do { pl_gs_put(s, s->c); pl_gs_get(s); } while (s->ty & (GS_UL | GS_CL | GS_SL | GS_DI));
+            pl_gs_unget(s);
+            return;
+        }
+        if (s->ty == GS_DI) { pl_gs_number(s); return; }
+        if (s->ty & (GS_QT | GS_DQ | GS_BQ)) { pl_gs_quoted(s); return; }
+        if (s->ty == GS_CM) { do pl_gs_get(s); while (s->c != '\n' && s->c != EOF); lb = 1; continue; }
+        if (s->ty == GS_PC) { s->tk = (s->c == '(' && !lb) ? GT_IOPEN : GT_PUNCT; s->punct = s->c; return; }
+        if (s->ty == GS_SC) { s->tk = (s->c == ',' && comma_punct) ? GT_PUNCT : GT_NAME; s->punct = s->c; pl_gs_put(s, s->c); return; }
+        if (s->ty == GS_EX) { s->tk = GT_EXT; pl_gs_put(s, s->c); return; }
+        c0 = s->c;
+        pl_gs_get(s);
+        if (c0 == '.' && (s->c == EOF || (s->ty & (GS_LA | GS_CM)))) { pl_gs_unget(s); s->tk = GT_STOP; return; }
+        if (c0 == '/' && s->c == '*') {
+            pl_gs_get(s);
+            if (s->c != EOF) do { c0 = s->c; pl_gs_get(s); } while (s->c != EOF && (c0 != '*' || s->c != '/'));
+            if (s->c == EOF) { s->tk = GT_EOF; pl_gs_at(s, 0); s->err = "*/ expected here for /*...*/ comment"; return; }
+            lb = 1;
+            continue;
+        }
+        s->tk = GT_NAME;
+        pl_gs_put(s, c0);
+        while (s->ty == GS_GR) { pl_gs_put(s, s->c); pl_gs_get(s); }
+        pl_gs_unget(s);
+        return;
+    }
+}
+static void pl_gs_next_atom(pl_gs_t *s) {
+    s->err = (const char *)0;
+    s->bk = 0;
+    do pl_gs_get(s);
+    while (s->ty == GS_LA);
+    pl_gs_at(s, 0);
+    s->tk = GT_NAME;
+    if (s->ty == GS_SL) {
+        do { pl_gs_put(s, s->c); pl_gs_get(s); } while (s->ty & (GS_UL | GS_CL | GS_SL | GS_DI));
+        pl_gs_unget(s);
+    } else if (s->ty & (GS_QT | GS_BQ)) {
+        pl_gs_quoted(s);
+        s->tk = GT_NAME;
+    } else if (s->ty == GS_GR) {
+        while (s->ty == GS_GR) { pl_gs_put(s, s->c); pl_gs_get(s); }
+        pl_gs_unget(s);
+    } else if (s->ty == GS_SC) pl_gs_put(s, s->c);
+    else { pl_gs_unget(s); s->err = "cannot start an atom (use quotes ?)"; }
+}
+static DESCR_t pl_gs_term(pl_gs_t *s) {
+    char p[2] = { (char)s->punct, 0 };
+    DESCR_t a;
+    if (s->tk == GT_INT || s->tk == GT_FLOAT) return s->num;
+    if (s->tk == GT_IOPEN || s->tk == GT_PUNCT) { if (s->tk == GT_IOPEN) p[0] = '('; return pl_gnu_fn1("punct", pl_mk_atom_dup(p, 1)); }
+    if (s->tk == GT_STOP) return pl_gnu_fn1("punct", pl_mk_atom_dup("full_stop", 9));
+    if (s->tk == GT_EOF) return pl_gnu_fn1("punct", pl_mk_atom_dup("end_of_file", 11));
+    a = pl_mk_atom_dup(s->b ? s->b : "", s->bk);
+    if (s->tk == GT_VAR) return pl_gnu_fn1("var", a);
+    if (s->tk == GT_STR) return pl_gnu_fn1("string", a);
+    if (s->tk == GT_BQ) return pl_gnu_fn1("back_quotes", a);
+    if (s->tk == GT_EXT) return pl_gnu_fn1("extend", a);
+    return a;
+}
+static DESCR_t pl_gs_read_number(pl_gs_t *s, int intonly) {
+    extern DESCR_t rt_num_neg(DESCR_t);
+    int neg = 0;
+    pl_gs_token(s, 0);
+    if (!s->err && s->tk == GT_NAME && s->bk == 1 && s->b[0] == '-') { neg = 1; pl_gs_token(s, 0); }
+    if (s->err) return FAILDESCR;
+    if (s->tk == GT_INT || (!intonly && s->tk == GT_FLOAT)) return neg ? rt_num_neg(s->num) : s->num;
+    s->err = "invalid start of number";
+    return FAILDESCR;
+}
+static int pl_gs_read(const char *op, DESCR_t res, pl_tr_ctx_t *cx) {
+    extern FILE *fh_cur_in_fp(void);
+    extern int fh_current_input(void);
+    extern void *rt_pl_ball_kind1(const char *, const char *);
+    pl_gs_t s;
+    DESCR_t t = FAILDESCR, a[4];
+    const char *fn;
+    int named = op[5] != 'i' && op[5] != 'n';
+    memset(&s, 0, sizeof s);
+    s.in = fh_cur_in_fp();
+    s.idx = fh_current_input();
+    if (op[5] == 't') {
+        pl_gs_token(&s, 0);
+        if (!s.err) t = pl_gs_term(&s);
+    } else if (op[5] == 'a') {
+        pl_gs_next_atom(&s);
+        if (!s.err) t = pl_mk_atom_dup(s.b ? s.b : "", s.bk);
+    } else t = pl_gs_read_number(&s, op[5] == 'i');
+    if (s.oom) { cx->ball = rt_pl_ball_kind1("resource_error", "memory"); return 0; }
+    if (!s.err) return plw_unify_vals(res, pl_gnu_fn1("ok", t), cx);
+    fn = !named ? "" : (s.idx >= 0 && g_fh[s.idx].name) ? g_fh[s.idx].name : s.idx == 0 ? "user_input" : "";
+    a[0] = pl_mk_atom_dup(fn, strlen(fn));
+    a[1] = INTVAL(s.tl);
+    a[2] = INTVAL(s.tc);
+    a[3] = pl_mk_atom_dup(s.err, strlen(s.err));
+    return plw_unify_vals(res, pl_gnu_fn("err", 4, a), cx);
+}
 PL_CX_LEAF_HEAD(gnu_os, 3)
     {
         const char *op = pl_atom_str(rt_pl_deref_val(args[0]));
@@ -9711,6 +9960,7 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
             else { int idx = fh_alloc(fp); g_fh[idx].mode = m[0]; ok = plw_unify_vals(args[2], pl_mk_stream(idx), cx); }
         } else if (!strcmp(op, "exec")) {
             extern int fh_alloc(FILE *);
+            extern int pipe2(int *, int);
             const char *cmd = pl_atom_str(a);
             int pi[2] = { -1, -1 }, po[2] = { -1, -1 }, pe[2] = { -1, -1 };
             pid_t pid = -1;
@@ -9738,6 +9988,7 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
             else if (waitpid((pid_t)a.i, &ws, 0) != (pid_t)a.i) ok = pl_gnu_os_fail(cx);
             else ok = plw_unify_vals(args[2], INTVAL(WIFEXITED(ws) ? WEXITSTATUS(ws) : 128 + WTERMSIG(ws)), cx);
         } else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
+        else if (!strcmp(op, "read_token") || !strcmp(op, "read_atom") || !strcmp(op, "read_integer") || !strcmp(op, "read_number")) ok = pl_gs_read(op, args[2], cx);
         else if (!strcmp(op, "atoms")) {
             extern int prolog_atom_count(void);
             ok = plw_unify_vals(args[2], INTVAL(prolog_atom_count()), cx);

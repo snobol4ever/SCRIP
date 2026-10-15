@@ -732,6 +732,7 @@ test_gate_pl_gnu_popen_exec_wait_and_create_pipe_answer_as_gprolog.sh	WIRED	-	-	
 test_gate_pl_gnu_predicate_property_and_current_predicate_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_read_term_from_text_validates_its_options_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_read_token_from_text_answers_as_gprolog.sh	WIRED	-	-	-
+test_gate_pl_gnu_read_token_read_atom_read_integer_and_read_number_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_set_bip_name_current_bip_name_and_syntax_error_info_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_statistics_stacks_and_format_errors_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_terms_to_and_from_text_answer_as_gprolog.sh	WIRED	-	-	-

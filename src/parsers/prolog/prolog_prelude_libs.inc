@@ -12986,6 +12986,14 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "set_bip_name", 2 },
     { "current_bip_name", 2 },
     { "syntax_error_info", 4 },
+    { "read_token", 1 },
+    { "read_token", 2 },
+    { "read_atom", 1 },
+    { "read_atom", 2 },
+    { "read_integer", 1 },
+    { "read_integer", 2 },
+    { "read_number", 1 },
+    { "read_number", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
@@ -13031,9 +13039,13 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "print_to_atom", 0 },
     { "print_to_chars", 0 },
     { "print_to_codes", 0 },
+    { "read_atom", 0 },
     { "read_from_atom", 0 },
     { "read_from_chars", 0 },
     { "read_from_codes", 0 },
+    { "read_integer", 0 },
+    { "read_number", 0 },
+    { "read_token", 0 },
     { "read_token_from_atom", 0 },
     { "read_token_from_chars", 0 },
     { "read_token_from_codes", 0 },
@@ -13383,7 +13395,21 @@ static const char PL_PRELUDE_LIB_11_SRC[] =
     "syntax_error_info(F, L, C, M) :- '$gnu_b_oa'(F, syntax_error_info/4), '$gnu_b_oi'(L, syntax_error_info/4), '$gnu_b_oi'(C, syntax_error_info/4), '$gnu_b_oa'(M, syntax_error_info/4),\n"
     "    nb_current('$gnu_b_synerr', '$gnu_b_synerr'(F0, L0, C0, M0)), F = F0, L = L0, C = C0, M = M0.\n"
     "'$gnu_b_oi'(I, _) :- ( var(I) ; integer(I) ), !.\n"
-    "'$gnu_b_oi'(I, PI) :- throw(error(type_error(integer, I), PI)).\n";
+    "'$gnu_b_oi'(I, PI) :- throw(error(type_error(integer, I), PI)).\n"
+    "read_token(T) :- current_input(S), '$gnu_b_rd'(S, read_token, T, read_token/1).\n"
+    "read_token(S, T) :- '$gnu_b_rd'(S, read_token, T, read_token/2).\n"
+    "read_atom(A) :- '$gnu_b_oa'(A, read_atom/1), current_input(S), '$gnu_b_rd'(S, read_atom, A, read_atom/1).\n"
+    "read_atom(S, A) :- '$gnu_b_oa'(A, read_atom/2), '$gnu_b_rd'(S, read_atom, A, read_atom/2).\n"
+    "read_integer(I) :- '$gnu_b_oi'(I, read_integer/1), current_input(S), '$gnu_b_rd'(S, read_integer, I, read_integer/1).\n"
+    "read_integer(S, I) :- '$gnu_b_oi'(I, read_integer/2), '$gnu_b_rd'(S, read_integer, I, read_integer/2).\n"
+    "read_number(N) :- '$gnu_b_on'(N, read_number/1), current_input(S), '$gnu_b_rd'(S, read_number, N, read_number/1).\n"
+    "read_number(S, N) :- '$gnu_b_on'(N, read_number/2), '$gnu_b_rd'(S, read_number, N, read_number/2).\n"
+    "'$gnu_b_on'(N, _) :- ( var(N) ; number(N) ), !.\n"
+    "'$gnu_b_on'(N, PI) :- throw(error(type_error(number, N), PI)).\n"
+    "'$gnu_b_rd'(S, Op, X, PI) :- current_input(O), set_input(S), '$gnu_os'(Op, S, R), set_input(O), '$gnu_b_rdres'(R, X, PI).\n"
+    "'$gnu_b_rdres'(ok(T), X, _) :- X = T.\n"
+    "'$gnu_b_rdres'(err(F, L, C, M), _, PI) :- nb_setval('$gnu_b_synerr', '$gnu_b_synerr'(F, L, C, M)),\n"
+    "    ( F == '' -> format(atom(A), '(char:~w) ~w', [C, M]) ; format(atom(A), '~w:~w (char:~w) ~w', [F, L, C, M]) ), throw(error(syntax_error(A), PI)).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },
