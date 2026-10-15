@@ -100,7 +100,7 @@ red=0
 for arm in on off; do
     if [ "$arm" = on ]; then unset SCRIP_SUB_VAL; else export SCRIP_SUB_VAL=0; fi
     ( cd "$W" && "$ROOT/scrip" --compile -o "$W/arr_$arm.s" arr.sno < /dev/null > /dev/null 2>&1 ) || { echo "RED: arr.sno did not compile (arm $arm)"; red=1; continue; }
-    nv=$(grep -c 'call *rt_subscript_val' "$W/arr_$arm.s")
+    nv=$(grep -cE 'call +(qword ptr \[rip \+ )?(c_)?rt_subscript_val@|call +rt_subscript_val( |$)' "$W/arr_$arm.s")
     if [ "$arm" = on ]; then [ "$nv" -ge 12 ] && echo "ok  arm on: $nv value-context subscript sites" || { echo "RED arm on: value sites=$nv (want >= 12)"; red=1; }
     else [ "$nv" -eq 0 ] && echo "ok  arm off: 0 value-context sites" || { echo "RED arm off: $nv value sites under SCRIP_SUB_VAL=0"; red=1; }; fi
     ( cd "$W" && timeout 20 "$ROOT/scrip" arr.sno < /dev/null > "$W/arr.$arm.m3" 2>&1 ); cmp -s "$W/arr.$arm.m3" "$W/arr.ref" && echo "ok  m3 arm $arm = oracle" || { echo "RED m3 arm $arm differs from the oracle:"; diff "$W/arr.ref" "$W/arr.$arm.m3" | head -8; red=1; }

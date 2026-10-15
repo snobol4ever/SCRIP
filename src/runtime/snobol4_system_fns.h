@@ -24,7 +24,7 @@ static __attribute__((unused)) int sn4_is_system_fn(const char *name) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static __attribute__((unused)) int sn4_sysfn_protected(const char *name) { return sn4_is_system_fn(name); }
+static __attribute__((unused)) int sn4_sysfn_protected(const char *name) { return sn4_is_system_fn(name) && strcmp(name, "MATCHAT") != 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * const g_sn4_leaf_fns[] = { "ANY","ARBNO","ARRAY","ATAN","BREAK","BREAKX","CHAR","CHOP","CONVERT","COPY","COS","DATATYPE","DATE","DIFFER","DUPL","EQ","EXP","FENCE","GE","GT",
     "IDENT","INTEGER","ITEM","LE","LEN","LEQ","LGE","LGT","LLE","LLT","LN","LNE","LPAD","LT","MATCHAT","NE","NOTANY","POS","PROTOTYPE","REMDR","REPLACE","REVERSE","RPAD","RPOS","RTAB","SIN","SIZE",
