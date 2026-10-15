@@ -27,7 +27,7 @@
                           shell/1, shell/2, system/1, system/2, spawn/2, spawn/3, unlink/1, rename_file/2, delete_directory/1, copy_file/2,
                           file_permission/2, sleep/1, host_name/1, os_version/1, architecture/1, date_time/1, send_signal/2, temporary_name/2,
                           temporary_file/3, is_absolute_file_name/1, cpu_time/1, real_time/1, user_time/1, system_time/1,
-                          read_token_from_atom/2, read_token_from_chars/2, read_token_from_codes/2 ]).
+                          read_token_from_atom/2, read_token_from_chars/2, read_token_from_codes/2, get_print_stream/1 ]).
 write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).
 writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).
 print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).
@@ -315,3 +315,4 @@ read_token_from_codes(Cs, T) :- atom_codes(A, Cs), atom_codes(A, Cs1), '$gnu_b_t
 '$gnu_b_exp'([E|Cs], [E|Es]) :- '$gnu_b_in'(E, eE), ( Cs = [S|Cs1], '$gnu_b_in'(S, '+-') -> Es = [S|Ds], Cs2 = Cs1 ; Es = Ds, Cs2 = Cs ), Cs2 = [D|_], code_type(D, digit(_)), !, '$gnu_b_digits'(Cs2, Ds, _).
 '$gnu_b_exp'(_, []).
 '$gnu_b_in'(C, A) :- atom_codes(A, L), memberchk(C, L).
+get_print_stream(S) :- ( var(S) -> true ; is_stream(S) -> true ; atom(S), stream_property(_, alias(S)) -> true ; throw(error(domain_error(stream, S), get_print_stream/1)) ), current_output(P), ( atom(S) -> stream_property(P, alias(S)) ; S = P ).

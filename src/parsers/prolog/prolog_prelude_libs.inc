@@ -12179,6 +12179,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_EXPORTS[] = {
     { "read_token_from_atom", 2 },
     { "read_token_from_chars", 2 },
     { "read_token_from_codes", 2 },
+    { "get_print_stream", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_SHADOWS[] = {
@@ -12203,6 +12204,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_9_QUIET[] = {
     { "format_to_chars", 0 },
     { "format_to_codes", 0 },
     { "generic_var", 0 },
+    { "get_print_stream", 0 },
     { "host_name", 0 },
     { "is_absolute_file_name", 0 },
     { "list_or_partial_list", 0 },
@@ -12545,7 +12547,8 @@ static const char PL_PRELUDE_LIB_9_SRC[] =
     "'$gnu_b_digits'(R, [], R).\n"
     "'$gnu_b_exp'([E|Cs], [E|Es]) :- '$gnu_b_in'(E, eE), ( Cs = [S|Cs1], '$gnu_b_in'(S, '+-') -> Es = [S|Ds], Cs2 = Cs1 ; Es = Ds, Cs2 = Cs ), Cs2 = [D|_], code_type(D, digit(_)), !, '$gnu_b_digits'(Cs2, Ds, _).\n"
     "'$gnu_b_exp'(_, []).\n"
-    "'$gnu_b_in'(C, A) :- atom_codes(A, L), memberchk(C, L).\n";
+    "'$gnu_b_in'(C, A) :- atom_codes(A, L), memberchk(C, L).\n"
+    "get_print_stream(S) :- ( var(S) -> true ; is_stream(S) -> true ; atom(S), stream_property(_, alias(S)) -> true ; throw(error(domain_error(stream, S), get_print_stream/1)) ), current_output(P), ( atom(S) -> stream_property(P, alias(S)) ; S = P ).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_10_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },

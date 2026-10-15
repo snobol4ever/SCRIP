@@ -139,6 +139,14 @@ int fh_alloc(FILE *fp) {
     { int i=FH_N; (void)CV_PUSH(g_fhv, fh_slot_t); fh_slot_init(&g_fh[i], fp); return i; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *fh_alias_name(int idx){
+    fh_ensure_init();
+    if(idx==0) return "user_input";
+    if(idx==1) return "user_output";
+    if(idx==2) return "user_error";
+    return (idx>=3&&idx<FH_N) ? g_fh[idx].alias : (const char *)0;
+}
+int fh_find_fp(FILE *fp){ fh_ensure_init(); for(int i=0;i<FH_N;i++) if(g_fh[i].fp==fp) return i; return -1; }
 FILE *fh_get(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_N) return NULL; return g_fh[idx].fp; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fh_free(int idx){

@@ -427,6 +427,7 @@ static pl_cell_t plc_atom_id_cell(int id);
 static int plc_portray_hit(pl_cell_t *d, plc_vmap *m) {
     extern DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, void **ball, pl_tr_ctx_t *cx);
     extern int fh_alloc(FILE *);
+    extern int fh_find_fp(FILE *);
     extern void fh_free(int);
     extern int fh_current_output(void);
     extern void fh_set_output(int);
@@ -437,16 +438,19 @@ static int plc_portray_hit(pl_cell_t *d, plc_vmap *m) {
         void *h = (void *)0;
         void *b = (void *)0;
         int sv = fh_current_output();
-        int slot = fh_alloc(m->fp);
+        int slot = fh_find_fp(m->fp);
+        int own = slot < 0;
         DESCR_t r;
+        if (own) slot = fh_alloc(m->fp);
         if (slot < 0) return 0;
+        if (own) { extern const char *fh_alias_name(int); extern void fh_set_alias(int, const char *); fh_set_alias(slot, fh_alias_name(sv)); }
         fflush(m->fp);
         fh_set_output(slot);
         r = rt_pl_goal_gen_h_c(g, &a, 1, &h, &b, m->cx);
         if (!b && IS_FAIL_fn(r)) { extern void *rt_pl_ball_take(void); b = rt_pl_ball_take(); }
         fflush(m->fp);
         fh_set_output(sv);
-        fh_free(slot);
+        if (own) fh_free(slot);
         if (h) { extern void rt_proc_drop_frame_h(void **hslot); m->pheld++; rt_proc_drop_frame_h(&h); }
         if (b) { m->pthrown = b; return 0; }
         return !IS_FAIL_fn(r);

@@ -84,6 +84,8 @@ void fh_set_eof(int idx, int v);
 int fh_eof(int idx);
 void fh_ensure_init(void);
 int fh_alloc(FILE *fp);
+int fh_find_fp(FILE *fp);
+const char *fh_alias_name(int idx);
 FILE *fh_get(int idx);
 void fh_free(int idx);
 int fh_current_input(void);
