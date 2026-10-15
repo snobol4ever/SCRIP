@@ -90,6 +90,18 @@ rm -f "$W/out/build_behaviour.sig"; printf '\x00\x00 garbage not a ledger\n' > "
 out="$(gate_require_built_from "$W" "$ROOT/scrip" 2>&1)"; rc=$?
 chk "12 an unreadable ledger RECORDS, it never refuses" "$rc" "0"
 
+echo "== a ledger belongs to the checkout it describes =="
+# ⛔ ARM 12b IS THE RACED-ARMS CAUSE (the coo 2026-10-15): a scratch root whose out/ is a SYMLINK to another checkout's out/ -- five gates build one -- must not append its
+# own path-signed tree line to that checkout's ledger. Fixture: L is the scratch root, REALOUT stands for the real checkout's out/ with a ledger of one known line.
+REALOUT="$W/realout"; mkdir -p "$REALOUT"; printf 'cafebabecafebabecafebabecafebabe deadbeefdeadbeefdeadbeefdeadbeef none 2026-01-01T00:00:00Z fixture\n' > "$REALOUT/build_behaviour.sig"
+L="$W/linkroot"; mkdir -p "$L/src"; printf 'int c(void){return 3;}\n' > "$L/src/c.c"; printf 'all:\n\t@true\n' > "$L/Makefile"
+ln -s "$ROOT/scripts" "$L/scripts"; ln -s "$ROOT/scrip" "$L/scrip"; ln -s "$REALOUT" "$L/out"
+before="$(md5sum < "$REALOUT/build_behaviour.sig")"
+out="$(gate_require_built_from "$L" "$ROOT/scrip" 2>&1)"; rc=$?
+chk "12b a root whose out/ links to another checkout passes (rc)" "$rc" "0"
+case "$out" in *"not recorded"*) ok "12c and says it did not record";; *) no "12c a linked-out root did not announce that it recorded nothing: $out";; esac
+chk "12d the other checkout's ledger is byte-for-byte untouched" "$(md5sum < "$REALOUT/build_behaviour.sig")" "$before"
+
 echo "== the one-copy invariant =="
 # ⛔ util_require_fresh.sh IS A SHIM AND MUST STAY ONE. The staleness rule already existed twice in this repo and a cure
 # to one copy never reached the other, so it was cured a second time nine days later (4c7253e99). The probe is a second
