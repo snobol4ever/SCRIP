@@ -62,17 +62,17 @@ main :- t(int_right, (atom_concat(a, 1, X), X == a1)), t(float_left, (atom_conca
     t(split_number, (findall(P+Q, atom_concat(P, Q, 12), L), L == [''+'12', '1'+'2', '12'+''])), t(compound_whole, atom_concat(_, _, f(x))), t(compound_part, atom_concat(a, f(1), _)),
     t(plain_atoms, (atom_concat(X5, b, ab), X5 == a)).
 PL
-want="$(cd "$D" && { timeout 20 "$SW" -q a.pl -t halt < /dev/null 2>/dev/null; timeout 20 "$SW" -q b.pl -t halt < /dev/null 2>/dev/null; } | grep .)"
+want="$(cd "$D" && { timeout -k 5 20 "$SW" -q a.pl -t halt < /dev/null 2>/dev/null; timeout -k 5 20 "$SW" -q b.pl -t halt < /dev/null 2>/dev/null; } | grep .)"
 [ "$(printf '%s\n' "$want" | grep -c .)" = 26 ] || refuse "swipl did not answer the twenty-six properties: [$want]"
 for p in a b; do
-    ( cd "$D" && timeout 60 "$B/scrip" --compile -o $p.s $p.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile of $p.pl failed"
+    ( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o $p.s $p.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile of $p.pl failed"
     ( cd "$D" && gcc -m64 -no-pie $p.s -o $p.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || refuse "mode 4 link of $p.pl failed"
 done
 red=0
 arm() {
     local label="$1" got n
-    if [ "$label" = m3 ]; then got="$(cd "$D" && { timeout 20 "$B/scrip" --run a.pl < /dev/null 2>/dev/null; timeout 20 "$B/scrip" --run b.pl < /dev/null 2>/dev/null; } | grep .)"
-    else got="$(cd "$D" && { timeout 20 ./a.bin < /dev/null 2>/dev/null; timeout 20 ./b.bin < /dev/null 2>/dev/null; } | grep .)"; fi
+    if [ "$label" = m3 ]; then got="$(cd "$D" && { timeout -k 5 20 "$B/scrip" --run a.pl < /dev/null 2>/dev/null; timeout -k 5 20 "$B/scrip" --run b.pl < /dev/null 2>/dev/null; } | grep .)"
+    else got="$(cd "$D" && { timeout -k 5 20 ./a.bin < /dev/null 2>/dev/null; timeout -k 5 20 ./b.bin < /dev/null 2>/dev/null; } | grep .)"; fi
     n="$(diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | grep -c '^>')"
     if [ "$got" = "$want" ]; then echo "  $label GREEN: 26 of 26 lines as swipl"
     else echo "  $label RED: $n of 26 lines differ from swipl"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi

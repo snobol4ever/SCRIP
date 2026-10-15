@@ -49,7 +49,7 @@ refuse() { echo "⛔ GATE REFUSED(2) [gc_the_descriptor_kind_sets_are_a_declared
 [ -f "$SRC" ] || refuse "$SRC is missing -- the collector moved and this gate is reading nothing"
 
 # (a) the instrument grades itself first
-st="$(timeout 60s python3 "$CENSUS" --selftest 2>&1)"; src=$?
+st="$(timeout -k 5 60s python3 "$CENSUS" --selftest 2>&1)"; src=$?
 n="$(printf '%s\n' "$st" | sed -n 's/^SELFTEST \([0-9]*\)\/\([0-9]*\) arms green/\1 \2/p')"
 set -- ${n:-0 0}
 if [ "$src" = 0 ] && [ "${1:-0}" -ge 7 ] && [ "${1:-0}" = "${2:-x}" ]; then
@@ -58,7 +58,7 @@ else
   ck no "(a) the kind-set census selftest did not hold (rc=$src): $(printf '%s\n' "$st" | tail -3 | tr '\n' ' ')"
 fi
 
-rep="$(timeout 60s python3 "$CENSUS" 2>&1)"; rrc=$?
+rep="$(timeout -k 5 60s python3 "$CENSUS" 2>&1)"; rrc=$?
 [ "$rrc" = 2 ] && refuse "$(printf '%s\n' "$rep" | grep -m1 REFUSED)"
 
 # (b) the authority is read from the file, never assumed
@@ -78,7 +78,7 @@ else
 fi
 
 # (d) PLANTED, BOTH DIRECTIONS: a new divergence must be NAMED and a landed cure must read STALE
-plant="$(timeout 60s python3 - "$CENSUS" "$SRC" <<'PY' 2>&1
+plant="$(timeout -k 5 60s python3 - "$CENSUS" "$SRC" <<'PY' 2>&1
 import sys, os, tempfile, importlib.util
 census_path, src = sys.argv[1], sys.argv[2]
 spec = importlib.util.spec_from_file_location("ks", census_path)

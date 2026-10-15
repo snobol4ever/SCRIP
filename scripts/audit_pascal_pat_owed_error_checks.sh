@@ -44,11 +44,11 @@ for grp in "PACK-UNPACK(ISO-7185-6.6.5.4):$PU" "FILE-STATE(the-coo-15):$FS" "FIL
   for n in $list; do
     f="$SRC/iso7185prt$n.pas"
     [ -f "$f" ] || { echo "⛔ REFUSE(2) [$A]: missing vendored witness $f -- the denominator is not what this audit names"; exit 2; }
-    o3=$( cd "$T" && timeout 10s "$SCRIP" "$f" </dev/null 2>&1 ); rc3=$?
-    o4=$( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/w.s" "$f" </dev/null 2>&1 ); rc4=$?
+    o3=$( cd "$T" && timeout -k 5 10s "$SCRIP" "$f" </dev/null 2>&1 ); rc3=$?
+    o4=$( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/w.s" "$f" </dev/null 2>&1 ); rc4=$?
     if [ "$rc4" = 0 ]; then
         if ( cd "$T" && cc -m64 -no-pie w.s -o w -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ); then
-            o4=$( cd "$T" && timeout 20s ./w </dev/null 2>&1 ); rc4=$?
+            o4=$( cd "$T" && timeout -k 5 20s ./w </dev/null 2>&1 ); rc4=$?
         else o4="link failed"; rc4=0; fi
     fi
     g3=0; g4=0

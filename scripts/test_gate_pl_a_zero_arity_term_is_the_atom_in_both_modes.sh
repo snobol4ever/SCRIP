@@ -29,7 +29,7 @@ printf 'atom\nfoo/0\ntype_error(compound,foo)\natom\nsame_as_atom\nbar/0\n' > "$
 "$ROOT/scrip" "$W/z.pl" < /dev/null > "$W/m3.out" 2>&1; r3=$?
 "$ROOT/scrip" --compile -o "$W/z.s" "$W/z.pl" < /dev/null > "$W/c.err" 2>&1 || { echo "GATE REFUSED(2) [$G]: the witness does not compile ($(head -c 120 "$W/c.err"))"; exit 2; }
 gcc -no-pie -o "$W/z.bin" "$W/z.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread > "$W/link.err" 2>&1 || { echo "GATE REFUSED(2) [$G]: the witness does not link ($(head -c 120 "$W/link.err"))"; exit 2; }
-timeout 8 "$W/z.bin" < /dev/null > "$W/m4.out" 2>&1; r4=$?
+timeout -k 5 8 "$W/z.bin" < /dev/null > "$W/m4.out" 2>&1; r4=$?
 bad=0
 for m in m3 m4; do rc=$([ $m = m3 ] && echo $r3 || echo $r4)
   if [ "$rc" -eq 0 ] && cmp -s "$W/$m.out" "$W/z.ref"; then echo "  ok  $m: rc=0, the six lines as pinned"; else echo "  RED $m: rc=$rc, output differs from the pin:"; diff "$W/z.ref" "$W/$m.out" | head -6; bad=1; fi; done

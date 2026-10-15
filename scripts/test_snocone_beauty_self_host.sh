@@ -110,7 +110,7 @@ SCR_ERR=/tmp/sb6_scr.err
 SPL_OUT=/tmp/sb6_spl.out
 
 set +e
-timeout "$TIMEOUT" "$SCRIP" "$MODE" "${LIBS[@]}" "$DRIVER" \
+timeout -k 5 "$TIMEOUT" "$SCRIP" "$MODE" "${LIBS[@]}" "$DRIVER" \
     < "$INPUT" > "$SCR_OUT" 2> "$SCR_ERR"
 SCRIP_RC=$?
 set -e

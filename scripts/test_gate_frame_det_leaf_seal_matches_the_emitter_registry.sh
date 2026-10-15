@@ -33,11 +33,11 @@ echo "prolog witness: $tot"
 [ "$d" = "0" ] || { echo "  ⛔ $d graph(s) where the seal and the registry disagree"; grep DISAGREE "$T/dl.txt" | head -5 | cut -c1-160; bad=$((bad+1)); }
 [ "$sl" -gt 100 ] || { echo "  ⛔ only $sl sealed calls on the whole prelude -- the seal is not travelling"; bad=$((bad+1)); }
 grep -qE "^; detleaf 'r/1' sealed=3 emitted_direct=3 " "$T/dl.txt" || { echo "  ⛔ r/1 does not seal exactly its three \$-leaves \$is_v \$ax_sub \$cmp_gt (five before rung 3(f) removed the head unify, four before R4.1 734797863 made r(0)'s head constant an IR_UNIFY_CONST box)"; grep "'r/1'" "$T/dl.txt"; bad=$((bad+1)); }
-r1="$(timeout 20s ./scrip --dump-zeta scripts/fixtures/frame_r1_witness.pl </dev/null 2>/dev/null | grep -E "^;   reuse 'r/1' ")"
+r1="$(timeout -k 5 20s ./scrip --dump-zeta scripts/fixtures/frame_r1_witness.pl </dev/null 2>/dev/null | grep -E "^;   reuse 'r/1' ")"
 printf '%s' "$r1" | grep -q ' guard=0 ' || { echo "  ⛔ r/1 still carries a guard pin: $r1"; bad=$((bad+1)); }
 printf '%s' "$r1" | grep -q ' detleaf=3)' || { echo "  ⛔ r/1 summary does not count 3 det leaves: $r1"; bad=$((bad+1)); }
 printf 'procedure main()\n   every write(1, 1 to 3);\nend\n' > "$T/w.icn"
-timeout 20s ./scrip --dump-zeta "$T/w.icn" </dev/null 2>/dev/null | grep -q 'PINNED guard: box @[0-9]* IR_TO' || { echo "  ⛔ the Icon generator witness lost its guard pin -- a generator was treated as a det leaf"; bad=$((bad+1)); }
+timeout -k 5 20s ./scrip --dump-zeta "$T/w.icn" </dev/null 2>/dev/null | grep -q 'PINNED guard: box @[0-9]* IR_TO' || { echo "  ⛔ the Icon generator witness lost its guard pin -- a generator was treated as a det leaf"; bad=$((bad+1)); }
 grep -q '^; detleaf MEASURES' "$T/dl.txt" || { echo "  ⛔ the MEASURES line is missing"; bad=$((bad+1)); }
 if [ "$bad" -gt 0 ]; then echo "⛔ GATE FAIL: $bad finding(s) -- the det-leaf seal does not match the emitter's registry"; exit 1; fi
 echo "GATE OK: $gr of $g graphs agree ($sl sealed calls == direct boxes), r/1 seals its three leaves with no guard pin, the Icon generator stays pinned, and the instrument states what it measures"

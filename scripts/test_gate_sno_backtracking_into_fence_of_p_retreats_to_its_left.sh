@@ -70,7 +70,7 @@ PROBES=(
 for i in "${!PROBES[@]}"; do
     pre="${PROBES[$i]%%|*}"; stmt="${PROBES[$i]#*|}"
     printf '%s\n' "          ${pre//\~/|}" "          ${stmt//\~/|}  :S(OK)F(NO)" "OK        OUTPUT = 'match ' A   :(END)" "NO        OUTPUT = 'nomatch'" END > "$T/p$i.sno"
-    ( cd "$T" && timeout 20 "$SBL" -bf "p$i.sno" < /dev/null > "p$i.oracle" 2>&1 )
+    ( cd "$T" && timeout -k 5 20 "$SBL" -bf "p$i.sno" < /dev/null > "p$i.oracle" 2>&1 )
     grep -q 'match' "$T/p$i.oracle" || refuse "the oracle did not answer probe $i: [$(head -2 "$T/p$i.oracle" | tr '\n' '|')]"
 done
 grep -qx 'nomatch' "$T/p20.oracle" && grep -qx 'match ' "$T/p2.oracle" || refuse "the oracle's FENCE answers moved: p2 [$(cat "$T/p2.oracle")] p20 [$(cat "$T/p20.oracle")]"
@@ -80,7 +80,7 @@ for e in "${ENTRIES[@]}"; do
 done
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
-run() { ( cd "$T" && if [ "$2" = m3 ]; then timeout 20 "$SCRIP" "$1.sno" < /dev/null; else timeout 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout 20 "./$1.bin" < /dev/null; fi ) 2>&1; }
+run() { ( cd "$T" && if [ "$2" = m3 ]; then timeout -k 5 20 "$SCRIP" "$1.sno" < /dev/null; else timeout -k 5 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout -k 5 20 "./$1.bin" < /dev/null; fi ) 2>&1; }
 matrix() { local bad=""
     for i in "${!PROBES[@]}"; do
         run "p$i" "$1" > "$T/p$i.$1"

@@ -15,7 +15,7 @@ gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime sha
 for name in $WITNESSES; do
     pas="$CORPUS/$name.pas"
     [ -f "$pas" ] || { echo "SKIP $name (not found)"; continue; }
-    asm=$(timeout 8s "$SCRIP" --compile "$pas" < /dev/null 2>/dev/null) || { echo "FAIL $name (compile error)"; FAIL=$((FAIL+1)); continue; }
+    asm=$(timeout -k 5 8s "$SCRIP" --compile "$pas" < /dev/null 2>/dev/null) || { echo "FAIL $name (compile error)"; FAIL=$((FAIL+1)); continue; }
     # Split by proc_* region and count push/pop/mov rbp pairs
     ok=1
     while IFS= read -r region; do

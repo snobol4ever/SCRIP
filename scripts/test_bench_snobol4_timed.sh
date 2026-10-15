@@ -90,12 +90,12 @@ run1() {
   [ -n "$sw" ] || { echo "- - - - SIZE-UNDECLARED"; return; }
   case "$eng" in
     sbl) [ -x "$SBL" ] || { echo "- - - - ORACLE-MISSING"; return; }
-         out=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) $sw "$run" 2>"$W/gc.err" <"$in") ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "$SCRIP" $sw --run "$run" 2>"$W/gc.err" <"$in") ;;
+         out=$("$WRAP" timeout -k 5 "$T" "$SBL" $(sbl_lang_flags) $sw "$run" 2>"$W/gc.err" <"$in") ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_ZETA_TELEM=1 "$WRAP" timeout -k 5 "$T" "$SCRIP" $sw --run "$run" 2>"$W/gc.err" <"$in") ;;
     m4)  "$SCRIP" --compile "$run" > "$W/$s.s" 2>/dev/null
          if [ ! -s "$W/$s.s" ] || ! gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm \
               -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then echo "- - - - BUILD-ERR"; return; fi
-         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "./$s.prog" $sw 2>"$W/gc.err" <"$in") ;;
+         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_ZETA_TELEM=1 "$WRAP" timeout -k 5 "$T" "./$s.prog" $sw 2>"$W/gc.err" <"$in") ;;
   esac
   local it ck gc rusage_line user_us sys_us nivcsw cpu_ms
   it=$(sed -n 's/^iters: //p' <<<"$out")

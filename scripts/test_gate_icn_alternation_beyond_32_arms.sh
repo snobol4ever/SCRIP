@@ -30,9 +30,9 @@ grep -q '^coex 40 "s40"$' "$T/a.ref" || { echo "⛔ REFUSE(2): the oracle's own 
 [ "$(grep -c . "$T/a.ref")" = 82 ] || { echo "⛔ REFUSE(2): the oracle's stream is not the 82 lines two 40-way arms plus two exhaustions produce"; exit 2; }
 RC=0
 for M in m3 m4; do
-  if [ "$M" = m3 ]; then ( cd "$T" && timeout 20 "$SCRIP" a.icn </dev/null ) >"$T/$M.out" 2>&1
-  else ( cd "$T" && timeout 20 "$SCRIP" --compile -o a.s a.icn </dev/null && gcc a.s -o a.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ REFUSE(2): mode-4 witness did not build"; exit 2; }
-       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout 20 ./a.bin </dev/null ) >"$T/$M.out" 2>&1
+  if [ "$M" = m3 ]; then ( cd "$T" && timeout -k 5 20 "$SCRIP" a.icn </dev/null ) >"$T/$M.out" 2>&1
+  else ( cd "$T" && timeout -k 5 20 "$SCRIP" --compile -o a.s a.icn </dev/null && gcc a.s -o a.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ REFUSE(2): mode-4 witness did not build"; exit 2; }
+       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 20 ./a.bin </dev/null ) >"$T/$M.out" 2>&1
   fi
   if [ -n "${FAIL_ONCE:-}" ]; then sed -i 's/^plain s33$/plain s32/' "$T/$M.out"; fi
   if diff -u "$T/a.ref" "$T/$M.out" >"$T/$M.diff"; then echo "  $M PASS (byte-identical to icont, 40 arms plain + in a co-expression)"

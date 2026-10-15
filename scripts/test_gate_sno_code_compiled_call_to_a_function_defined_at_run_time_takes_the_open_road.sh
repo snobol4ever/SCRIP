@@ -81,17 +81,17 @@ CATEND
         OUTPUT = TW(7)
 END
 EOS
-want() { timeout 30 "$SBL" -bf "$T/$1.sno" < /dev/null > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
+want() { timeout -k 5 30 "$SBL" -bf "$T/$1.sno" < /dev/null > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
 for p in wit main redef locals lit; do want $p; done
 grep -qx '7-7' "$T/wit.want" || refuse "sbl -bf no longer answers the witness 7-7"
 fail=0; pass=0
 arm() { local n="$1" what="$2" ok="$3"
     if [ "$ok" = 1 ]; then pass=$((pass + 1)); echo "  arm $n PASS  $what"; else fail=$((fail + 1)); echo "  arm $n FAIL  $what"; fi; }
-same_m3() { timeout 60 "$SCRIP" "$T/$1.sno" < /dev/null > "$T/$1.m3" 2>&1
+same_m3() { timeout -k 5 60 "$SCRIP" "$T/$1.sno" < /dev/null > "$T/$1.m3" 2>&1
     cmp -s "$T/$1.want" "$T/$1.m3" || { diff "$T/$1.want" "$T/$1.m3" | head -4 | cut -c1-160 | sed 's/^/      /'; return 1; }; }
-same_m4() { timeout 120 "$SCRIP" --compile -o "$T/$1.s" "$T/$1.sno" < /dev/null > /dev/null 2>&1 \
+same_m4() { timeout -k 5 120 "$SCRIP" --compile -o "$T/$1.s" "$T/$1.sno" < /dev/null > /dev/null 2>&1 \
         && gcc -no-pie "$T/$1.s" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$T/$1.bin" 2>/dev/null || { echo "      COMPILE-FAILED"; return 1; }
-    timeout 60 "$T/$1.bin" < /dev/null > "$T/$1.m4" 2>&1
+    timeout -k 5 60 "$T/$1.bin" < /dev/null > "$T/$1.m4" 2>&1
     cmp -s "$T/$1.want" "$T/$1.m4" || { diff "$T/$1.want" "$T/$1.m4" | head -4 | cut -c1-160 | sed 's/^/      /'; return 1; }; }
 n=0
 for spec in "wit|COMPUTED PROTOTYPE, the cfo's witness" "main|COMPUTED PROTOTYPE, a main-program call first" "redef|a second DEFINE of the name with another entry label" "locals|three formals and two locals, computed prototype" "lit|CONTROL: a literal DEFINE"; do

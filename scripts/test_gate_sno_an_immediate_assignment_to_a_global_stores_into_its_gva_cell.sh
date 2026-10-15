@@ -75,9 +75,9 @@ for arm in on off; do
     ng=$(grep -c 'rt_cap_open_gva' "$W/cap_$arm.s"); np=$(grep -c 'rt_cap_open_plain' "$W/cap_$arm.s")
     if [ "$arm" = on ]; then [ "$ng" -eq 10 ] && [ "$np" -eq 1 ] && echo "ok  arm on: 10 gva sites (the function local and the TRACE'd name among them), 1 by-name site (the OUTPUT-associated name)" || { echo "RED arm on: gva=$ng plain=$np (want 10 / 1)"; red=1; }
     else [ "$ng" -eq 0 ] && [ "$np" -eq 11 ] && echo "ok  arm off: 0 gva sites, 11 by-name sites" || { echo "RED arm off: gva=$ng plain=$np (want 0 / 11)"; red=1; }; fi
-    ( cd "$W" && timeout 20 "$ROOT/scrip" --stlimit cap.sno < /dev/null > "$W/cap.$arm.m3" 2>&1 ); cmp -s "$W/cap.$arm.m3" "$W/cap.ref" && echo "ok  m3 arm $arm = oracle" || { echo "RED m3 arm $arm differs from the oracle:"; diff "$W/cap.ref" "$W/cap.$arm.m3" | head -8; red=1; }
+    ( cd "$W" && timeout -k 5 20 "$ROOT/scrip" --stlimit cap.sno < /dev/null > "$W/cap.$arm.m3" 2>&1 ); cmp -s "$W/cap.$arm.m3" "$W/cap.ref" && echo "ok  m3 arm $arm = oracle" || { echo "RED m3 arm $arm differs from the oracle:"; diff "$W/cap.ref" "$W/cap.$arm.m3" | head -8; red=1; }
     if gcc "$W/cap_$arm.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/cap_$arm.bin" 2>/dev/null; then
-        ( cd "$W" && timeout 20 "./cap_$arm.bin" < /dev/null > "$W/cap.$arm.m4" 2>&1 ); cmp -s "$W/cap.$arm.m4" "$W/cap.ref" && echo "ok  m4 arm $arm = oracle" || { echo "RED m4 arm $arm differs from the oracle:"; diff "$W/cap.ref" "$W/cap.$arm.m4" | head -8; red=1; }
+        ( cd "$W" && timeout -k 5 20 "./cap_$arm.bin" < /dev/null > "$W/cap.$arm.m4" 2>&1 ); cmp -s "$W/cap.$arm.m4" "$W/cap.ref" && echo "ok  m4 arm $arm = oracle" || { echo "RED m4 arm $arm differs from the oracle:"; diff "$W/cap.ref" "$W/cap.$arm.m4" | head -8; red=1; }
     else echo "RED m4 arm $arm did not link"; red=1; fi
 done
 unset SCRIP_CAP_GVA

@@ -41,7 +41,7 @@ printf 'link "../../../packages/gate/mod"\nprocedure main();\n   greet();\nend\n
 mkdir -p "$F/f" "$T/library"; printf "\tDEFINE('CH()')\t:(CH_END)\nCH\tCH = 'chained'\t:(RETURN)\nCH_END\n" > "$T/library/gate_unit.sno"
 printf "\tOUTPUT = CH()\nEND\n" > "$F/f/chained.sno"; printf 'library/gate_unit.sno\n' > "$F/f/chained.chain"; printf 'chained\n' > "$F/f/chained.ref"
 printf '# fixture\nlib/util.sno\tLIBRARY\tincluded by nothing here (gate fixture)\n' > "$F/CONTAINERS.tsv"
-out="$(DEMOS_DIR="$F" S4E_PROGRESS_DB="$T/db.tsv" timeout 600 bash "$HERE/test_demos_suite.sh" snobol4 2>&1)"; rc=$?
+out="$(DEMOS_DIR="$F" S4E_PROGRESS_DB="$T/db.tsv" timeout -k 5 600 bash "$HERE/test_demos_suite.sh" snobol4 2>&1)"; rc=$?
 [ "$rc" = 2 ] && { echo "⛔ REFUSED(2) [$G]: the runner did not measure the fixture:"; printf '%s\n' "$out" | grep -m3 -E 'REFUS|UNPROVEN' | sed 's/^/    /'; exit 2; }
 _b="$(printf '%s\n' "$out" | grep -m1 '^DEMOS_SUITE_BOARD ')"; _ok=1
 for kv in lang=snobol4 total=6 shipped=7 all_pass=4 all_n=6 m3_pass=4 m4_pass=4 containers=1 workhorse_declared=1 chained=1; do grep -qE "(^| )$kv( |\$)" <<<"$_b" || _ok=0; done

@@ -32,11 +32,11 @@ EOP
 want="$(for n in w1 w2 q1 p1 c1 t2 t3 n1 f1 f2 mw1 mq1 mn0 mf1; do echo "$n-perm(output,binary_stream)"; done)"
 red=0
 for mode in m3 m4; do
-    if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout 20 "$SCRIP" wb.pl </dev/null 2>"$TMPD/err")"; rc=$?
+    if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout -k 5 20 "$SCRIP" wb.pl </dev/null 2>"$TMPD/err")"; rc=$?
     else
-        timeout 60 "$SCRIP" --compile -o "$TMPD/wb.s" "$TMPD/wb.pl" </dev/null 2>"$TMPD/err" || refuse "m4 compile failed: $(head -c 160 "$TMPD/err")"
+        timeout -k 5 60 "$SCRIP" --compile -o "$TMPD/wb.s" "$TMPD/wb.pl" </dev/null 2>"$TMPD/err" || refuse "m4 compile failed: $(head -c 160 "$TMPD/err")"
         gcc -m64 -no-pie "$TMPD/wb.s" -o "$TMPD/wb.bin4" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err" || refuse "m4 link failed: $(head -c 160 "$TMPD/err")"
-        got="$(cd "$TMPD" && timeout 20 ./wb.bin4 </dev/null 2>"$TMPD/err")"; rc=$?
+        got="$(cd "$TMPD" && timeout -k 5 20 ./wb.bin4 </dev/null 2>"$TMPD/err")"; rc=$?
         rm -f "$TMPD/wb.s" "$TMPD/wb.bin4"
     fi
     if [ "$rc" = 0 ] && [ "$got" = "$want" ]; then echo "  ok  $mode (14 forms)"

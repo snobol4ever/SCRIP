@@ -90,7 +90,7 @@ for f in test_icon_jcon_suite.sh test_icon_rung_suite.sh test_prolog_rung_suite.
     sed -n '2p' "$HERE/$f" | grep -qF 'one_runner_guard "${0##*/}' && sed -n '2p' "$HERE/$f" | grep -qF '"$(one_runner_population_of "$@")"' || miss="$miss $f"
 done
 mkdir -p "$W/jc"
-o="$(cd "$ROOT" && env -u S4E_HOME -u S4E_CORPUS S4E_SEAT="$PROBE" S4E_ONE_RUNNER_FIXTURE="gate $G" S4E_PROGRESS_DB="$W/jc.tsv" S4E_SCORE_NO_WRITE="gate $G" timeout 120 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$W/jc" 2>&1)"; r=$?
+o="$(cd "$ROOT" && env -u S4E_HOME -u S4E_CORPUS S4E_SEAT="$PROBE" S4E_ONE_RUNNER_FIXTURE="gate $G" S4E_PROGRESS_DB="$W/jc.tsv" S4E_SCORE_NO_WRITE="gate $G" timeout -k 5 120 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$W/jc" 2>&1)"; r=$?
 if [ -z "$miss" ] && ! grep -q 'REFUSE(2) ONE RUNNER\|FIXTURE NOT ADMITTED' <<<"$o"; then
     ok R "all seven runners hand their population to the guard; the Jcon runner on a mktemp --corpus is admitted and stops on its own (rc=$r)"
 else

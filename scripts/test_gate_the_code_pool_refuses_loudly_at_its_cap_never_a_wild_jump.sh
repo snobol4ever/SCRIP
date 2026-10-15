@@ -36,12 +36,12 @@ printf ':- initialization(main).\n:- dynamic(pi/3).\nloop(0) :- !.\nloop(N) :- (
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
 loud() { [ "$1" != 0 ] && [ "$1" -lt 128 ] && grep -q 'error 204' "$2" && grep -q 'compiled-code pool is full' "$2" && [ ! -s "$3" ] && { echo ok; return; }; echo "rc=$1 stderr=[$(head -c 160 "$2" | tr '\n' '|')]"; }
-( cd "$T" && SCRIP_CODE_POOL_MB=16 timeout 120 "$SCRIP" l.pl < /dev/null > m3.out 2> m3.err ); rc=$?
+( cd "$T" && SCRIP_CODE_POOL_MB=16 timeout -k 5 120 "$SCRIP" l.pl < /dev/null > m3.out 2> m3.err ); rc=$?
 arm "m3: a 16 MB pool stops the loop with error 204 naming the pool" "$(loud "$rc" "$T/m3.err" "$T/m3.out")"
-( cd "$T" && timeout 120 "$SCRIP" --compile -o l.s l.pl < /dev/null > /dev/null 2>&1 && gcc l.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -lpthread -o l.bin > /dev/null 2>&1 ) || refuse "the witness did not compile and link in mode 4"
-( cd "$T" && SCRIP_CODE_POOL_MB=16 timeout 120 ./l.bin < /dev/null > m4.out 2> m4.err ); rc=$?
+( cd "$T" && timeout -k 5 120 "$SCRIP" --compile -o l.s l.pl < /dev/null > /dev/null 2>&1 && gcc l.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -lpthread -o l.bin > /dev/null 2>&1 ) || refuse "the witness did not compile and link in mode 4"
+( cd "$T" && SCRIP_CODE_POOL_MB=16 timeout -k 5 120 ./l.bin < /dev/null > m4.out 2> m4.err ); rc=$?
 arm "m4: a 16 MB pool stops the compiled loop with error 204 naming the pool" "$(loud "$rc" "$T/m4.err" "$T/m4.out")"
-( cd "$T" && SCRIP_CODE_POOL_MB=64 timeout 120 "$SCRIP" l.pl < /dev/null > c.out 2> c.err ); rc=$?
+( cd "$T" && SCRIP_CODE_POOL_MB=64 timeout -k 5 120 "$SCRIP" l.pl < /dev/null > c.out 2> c.err ); rc=$?
 arm "CONTROL m3: a 64 MB pool answers 4000" "$([ "$rc" = 0 ] && [ "$(cat "$T/c.out")" = 4000 ] && echo ok || echo "rc=$rc out=[$(head -c 40 "$T/c.out")]")"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }
 echo "FAIL [$NAME]"; exit 1

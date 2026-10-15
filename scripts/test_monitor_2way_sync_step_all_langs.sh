@@ -25,7 +25,7 @@ pass=0; fail=0; refuse=0; langs=0; ungraded_total=0
 for l in icon prolog pascal raku snobol4; do
   [ -n "$want" ] && [ "$want" != "$l" ] && continue
   langs=$((langs+1)); f="$WD/${W[$l]}"; [ -f "$f" ] || { echo "REFUSE(2): witness missing for $l: $f"; refuse=$((refuse+1)); continue; }
-  log=$(mktemp); PARTICIPANTS="scr3 scr4" timeout 240 bash "$H" "$f" > "$log" 2>&1; rc=$?
+  log=$(mktemp); PARTICIPANTS="scr3 scr4" timeout -k 5 240 bash "$H" "$f" > "$log" 2>&1; rc=$?
   steps=$(grep -oE 'all reached END after [0-9]+ steps' "$log" | grep -oE '[0-9]+' | head -1)
   verdict=$(grep -aoE 'VERDICT AGREE=[0-9]+ DIVERGE=[0-9]+ UNGRADED=[0-9]+' "$log" | head -1 | sed 's/^VERDICT //')
   ungr=$(printf '%s' "$verdict" | sed -n 's/.*UNGRADED=\([0-9]*\).*/\1/p')

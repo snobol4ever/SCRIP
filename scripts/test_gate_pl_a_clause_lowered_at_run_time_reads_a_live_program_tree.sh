@@ -40,9 +40,9 @@ p(X) :- clause('$s'(X), true).
 :- initialization(main).
 main :- G = p(_), clause(G, B), write(B), nl, findall(X, p(X), L), write(L), nl.
 PL
-want="$(cd "$D" && timeout 20 "$SW" -q w.pl -t halt < /dev/null 2>&1 | sed 's/_[0-9][0-9]*/_V/g; s/_G[0-9][0-9]*/_V/g')"
+want="$(cd "$D" && timeout -k 5 20 "$SW" -q w.pl -t halt < /dev/null 2>&1 | sed 's/_[0-9][0-9]*/_V/g; s/_G[0-9][0-9]*/_V/g')"
 [ -n "$want" ] || refuse "swipl printed nothing for the witness"
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
 ( cd "$D" && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || refuse "mode 4 link failed"
 red=0
 arm() {
@@ -52,9 +52,9 @@ arm() {
     if [ "$got" = "$want" ]; then echo "  $label GREEN: as swipl ($(printf '%s' "$got" | tail -1))"
     else echo "  $label RED: got [$(printf '%s' "$got" | tr '\n' '|')] want [$(printf '%s' "$want" | tr '\n' '|')]"; red=1; fi
 }
-arm "m3" timeout 20 "$B/scrip" --run w.pl < /dev/null
-arm "m3 poisoned" env SCRIP_CT_POISON=1 timeout 20 "$B/scrip" --run w.pl < /dev/null
-arm "m4" timeout 20 ./w.bin < /dev/null
-arm "m4 poisoned" env SCRIP_CT_POISON=1 timeout 20 ./w.bin < /dev/null
+arm "m3" timeout -k 5 20 "$B/scrip" --run w.pl < /dev/null
+arm "m3 poisoned" env SCRIP_CT_POISON=1 timeout -k 5 20 "$B/scrip" --run w.pl < /dev/null
+arm "m4" timeout -k 5 20 ./w.bin < /dev/null
+arm "m4 poisoned" env SCRIP_CT_POISON=1 timeout -k 5 20 ./w.bin < /dev/null
 [ "$red" = 0 ] && echo "PASS $G"
 exit "$red"

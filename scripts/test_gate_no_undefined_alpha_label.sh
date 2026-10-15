@@ -78,7 +78,7 @@ echo "=== UNDEFINED-α GATE — an α reference with no definition and no @GOTPC
 printf '  %-26s %-8s %s\n' WITNESS VERDICT "UNDEFINED-AND-DIRECTLY-REFERENCED"
 for p in $progs; do
     b="$(basename "$p" .sno)"; s="$W/$b.s"
-    SNO_LIB="$CORPUS/include" timeout 60s "$SCRIP" --compile "$p" > "$s" 2>/dev/null || {
+    SNO_LIB="$CORPUS/include" timeout -k 5 60s "$SCRIP" --compile "$p" > "$s" 2>/dev/null || {
         printf '  %-26s %-8s (compile failed -- NOT graded)\n' "$b" "REFUSE"; bad=1; continue; }
     grep -oE '^[A-Za-z0-9_]+_α:' "$s" | tr -d ':' | sort -u > "$W/d.txt"
     grep -oE "\b[A-Za-z0-9_]+_α\b" "$s" | sort -u > "$W/r.txt"

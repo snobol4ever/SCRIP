@@ -28,8 +28,8 @@ text() { grep -v '^#line ' "$1" | grep -v '^[[:space:]]*$'; }
 same=0; sync=0; bad=0; both_err=0
 while IFS= read -r f; do
     d=$(dirname "$f"); b=$(basename "$f")
-    ( cd "$d" && timeout 20 "$TOOL" "$b" < /dev/null > "$T/a" 2> /dev/null ); ta=$?
-    ( cd "$d" && timeout 20 "$ICONT" -E "$b" < /dev/null > "$T/b" 2> /dev/null ); tb=$?
+    ( cd "$d" && timeout -k 5 20 "$TOOL" "$b" < /dev/null > "$T/a" 2> /dev/null ); ta=$?
+    ( cd "$d" && timeout -k 5 20 "$ICONT" -E "$b" < /dev/null > "$T/b" 2> /dev/null ); tb=$?
     if [ "$tb" -eq 0 ]; then
         if [ "$ta" -ne 0 ]; then bad=$((bad + 1)); echo "  FAIL ${f#$CORPUS/}: the pre-step refused (rc=$ta) where icont -E accepts"
         elif cmp -s "$T/a" "$T/b"; then same=$((same + 1))

@@ -42,7 +42,7 @@ done
 K="$(cd "$ROOT/.." && pwd)/corpus/benchmarks/rebus/string_concat"
 if [ -f "$K.reb" ] && [ -f "$K.ref" ]; then
     mkdir -p "$W/rb"; cp "$K".* "$W/rb/"
-    o="$(cd "$ROOT" && env S4E_SCORE_NO_WRITE="gate $G" S4E_PROGRESS_DB="$W/p.tsv" BENCH_REBUS_DIR="$W/rb" BENCH_BUD_MS=50 timeout 600 bash "$HERE/test_rebus_bench_suite.sh" 2>&1)"
+    o="$(cd "$ROOT" && env S4E_SCORE_NO_WRITE="gate $G" S4E_PROGRESS_DB="$W/p.tsv" BENCH_REBUS_DIR="$W/rb" BENCH_BUD_MS=50 timeout -k 5 600 bash "$HERE/test_rebus_bench_suite.sh" 2>&1)"
     # the runner's own older guard (IS_BOARD, CEO-547) stops a population outside the corpus before the rule is even asked; either
     # word is the right answer -- the pass names the scratch directory and writes nothing -- and neither may reach the writer
     if grep -qE "row write: no -- this pass graded $W/rb|population $W/rb is OUTSIDE the corpus tree .* no suite row written" <<<"$o" \

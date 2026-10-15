@@ -33,11 +33,11 @@ o="$("$SWIPL" -q -g halt "$W/bare.pl" 2>/dev/null </dev/null)"; [ -z "$o" ] && c
 o="$("$SWIPL" -q -g halt "$W/decl.pl" 2>/dev/null </dev/null)"; [ "$o" = "ran_main" ] && ck ok "oracle prints ran_main with the directive" || refuse "oracle premise moved: swipl printed [$o] with the directive"
 for m in m3 m4; do
   echo "--- $m ---"
-  run(){ if [ "$m" = m3 ]; then timeout 30 "$SCRIP" "$1" </dev/null 2>/dev/null; else
+  run(){ if [ "$m" = m3 ]; then timeout -k 5 30 "$SCRIP" "$1" </dev/null 2>/dev/null; else
            s="$W/$(basename "$1" .pl).s"; b="$W/$(basename "$1" .pl).bin"
-           timeout 60 "$SCRIP" --compile -o "$s" "$1" </dev/null >/dev/null 2>&1 || return 97
-           timeout 60 gcc -no-pie -o "$b" "$s" -L"$ROOT/out" -lscrip_rt >/dev/null 2>&1 || return 98
-           LD_LIBRARY_PATH="$ROOT/out" timeout 30 "$b" </dev/null 2>/dev/null; fi; }
+           timeout -k 5 60 "$SCRIP" --compile -o "$s" "$1" </dev/null >/dev/null 2>&1 || return 97
+           timeout -k 5 60 gcc -no-pie -o "$b" "$s" -L"$ROOT/out" -lscrip_rt >/dev/null 2>&1 || return 98
+           LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 30 "$b" </dev/null 2>/dev/null; fi; }
   out="$(run "$W/bare.pl")"; rc=$?
   [ "$rc" -eq 0 ] && ck ok "$m directive-less: rc=0" || ck no "$m directive-less: rc=$rc, expected 0"
   [ -z "$out" ] && ck ok "$m directive-less: prints NOTHING (no synthesized main)" || ck no "$m directive-less printed [$out] -- the ninit==0 fallback is synthesizing a main the oracle never runs"

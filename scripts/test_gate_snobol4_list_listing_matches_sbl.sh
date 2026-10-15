@@ -77,12 +77,12 @@ printf -- '* before include\n-LIST\n-INCLUDE '"'"'inc_e.sno'"'"'\n OUTPUT = 1\nE
 cut_at_end() { grep -v '^x86-64 ' | awk '{print} /^[0-9]+ +END( |$)/{exit}'; }
 rc=0; n=0
 for src in SourceLines001 hide debug_list p_title p_print p_chain p_page50 p_page1200 p_inc p_inc2 p_inc3 p_inc4; do
-    timeout 60 "$SBL" -bf $src.sno < /dev/null 2>/dev/null | cut_at_end > $src.o
+    timeout -k 5 60 "$SBL" -bf $src.sno < /dev/null 2>/dev/null | cut_at_end > $src.o
     [ "$(grep -c 'spitbol version' $src.o)" -ge 1 ] || { echo "REFUSED(2): sbl printed no listing for $src"; exit 2; }
-    timeout 60 "$ROOT/scrip" --stlimit $src.sno < /dev/null 2>/dev/null | cut_at_end > $src.m3
-    timeout 60 "$ROOT/scrip" --compile -o $src.s $src.sno < /dev/null > /dev/null 2>&1 \
+    timeout -k 5 60 "$ROOT/scrip" --stlimit $src.sno < /dev/null 2>/dev/null | cut_at_end > $src.m3
+    timeout -k 5 60 "$ROOT/scrip" --compile -o $src.s $src.sno < /dev/null > /dev/null 2>&1 \
         && gcc -m64 -no-pie $src.s -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o $src.bin > /dev/null 2>&1 \
-        && timeout 60 ./$src.bin --stlimit < /dev/null 2>/dev/null | cut_at_end > $src.m4 || : > $src.m4
+        && timeout -k 5 60 ./$src.bin --stlimit < /dev/null 2>/dev/null | cut_at_end > $src.m4 || : > $src.m4
     for m in m3 m4; do
         n=$((n+1))
         if cmp -s $src.o $src.$m; then continue; fi

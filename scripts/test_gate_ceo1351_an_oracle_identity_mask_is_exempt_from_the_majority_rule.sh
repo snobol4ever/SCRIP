@@ -73,9 +73,9 @@ fx() {  # fx <dir> <x32|x64> <with-mask 1|0>
     mkdir -p "$d"; cp "$src/host.$ext" "$d/"; awk -F, 'NR==1 || $2=="host"' "$src/ALL.csv" > "$d/ALL.csv"
     for f in UNGRADED.tsv EXCLUDED.tsv; do grep '^#' "$src/$f" > "$d/$f"; done; [ "$2" = x64 ] && grep '^#' "$src/NARROW.tsv" > "$d/NARROW.tsv"
     [ "$3" = 1 ] && grep -v '^#' "$src/ALL.mask" | grep '^host	' > "$d/ALL.mask"; return 0; }
-[ "$(cd "$T" && timeout 30 "$O" -bf "$PK/spitbol_x32_tests/host.spt" < /dev/null 2>/dev/null | head -1)" = "host(): x86-64:unix :Macro SPITBOL 15.01 #" ] || refuse "sbl -bf no longer answers HOST() with its identity string -- the premise moved"
-runit() { local tag="$1" d="$2"; (cd "$ROOT" && if [ "$tag" = X32 ]; then SPITBOL_X32_SUITE="$T/$d" SPITBOL_X32_SHIPPED=1 TIMEOUT=60 timeout 300 bash "$HERE/test_snobol4_spitbol_x32_suite.sh"
-    else SPITBOL_X64_SUITE="$T/$d" SPITBOL_X64_SHIPPED=1 TIMEOUT=60 timeout 300 bash "$HERE/test_snobol4_spitbol_x64_suite.sh"; fi 2>&1); }
+[ "$(cd "$T" && timeout -k 5 30 "$O" -bf "$PK/spitbol_x32_tests/host.spt" < /dev/null 2>/dev/null | head -1)" = "host(): x86-64:unix :Macro SPITBOL 15.01 #" ] || refuse "sbl -bf no longer answers HOST() with its identity string -- the premise moved"
+runit() { local tag="$1" d="$2"; (cd "$ROOT" && if [ "$tag" = X32 ]; then SPITBOL_X32_SUITE="$T/$d" SPITBOL_X32_SHIPPED=1 TIMEOUT=60 timeout -k 5 300 bash "$HERE/test_snobol4_spitbol_x32_suite.sh"
+    else SPITBOL_X64_SUITE="$T/$d" SPITBOL_X64_SHIPPED=1 TIMEOUT=60 timeout -k 5 300 bash "$HERE/test_snobol4_spitbol_x64_suite.sh"; fi 2>&1); }
 fx r1 x32 1; [ -s "$T/r1/ALL.mask" ] || refuse "spitbol_x32_tests/ALL.mask carries no host row -- the premise moved"
 out="$(runit X32 r1)"; rc=$?
 { [ "$rc" = 0 ] && [ "$(fld "$out" m3_pass SPITBOL_X32_BOARD)" = 1 ] && [ "$(fld "$out" m4_pass SPITBOL_X32_BOARD)" = 1 ] && [ "$(fld "$out" masked_lines SPITBOL_X32_MASKS)" = 1 ]; } \

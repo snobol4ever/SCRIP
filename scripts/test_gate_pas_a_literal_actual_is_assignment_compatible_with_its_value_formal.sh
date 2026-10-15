@@ -27,8 +27,8 @@ for arm in "b(c: integer)|b('c')" "b(q: integer; c: char)|b(1, 2)" "b(c: integer
   N=$((N+1)); hd=${arm%%|*}; call=${arm#*|}
   printf 'program r%d(output);\nprocedure %s;\nbegin\nend;\nbegin\n  %s\nend.\n' $N "$hd" "$call" > "$T/r$N.pas"
   for m in m3 m4; do
-    if [ "$m" = m3 ]; then ( cd "$T" && timeout 20s "$SCRIP" --run "r$N.pas" </dev/null >"$T/o" 2>"$T/e" ); rc=$?
-    else ( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/r$N.s" "r$N.pas" </dev/null >"$T/o" 2>"$T/e" ); rc=$?; fi
+    if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 20s "$SCRIP" --run "r$N.pas" </dev/null >"$T/o" 2>"$T/e" ); rc=$?
+    else ( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/r$N.s" "r$N.pas" </dev/null >"$T/o" 2>"$T/e" ); rc=$?; fi
     if [ "$rc" -ne 0 ] && [ "$rc" -lt 124 ] && grep -q 'ISO 7185 6\.6\.3\.2 violation' "$T/e"; then echo "  refusal $N ($call against $hd) $m: rc=$rc, names 6.6.3.2"
     else echo "  ⛔ refusal $N ($call against $hd) $m FAILED: rc=$rc"; echo "      err: $(head -1 "$T/e" | cut -c1-160)"; RC=1; fi
   done
@@ -44,13 +44,13 @@ begin
   a('y', -2, blue, false, 2.5)
 end.
 PAS
-( cd "$T" && "$FPC" -Miso -v0 -o"ctl.fpc" ctl.pas >/dev/null 2>&1 && timeout 20s ./ctl.fpc ) > "$T/ctl.want" 2>&1
+( cd "$T" && "$FPC" -Miso -v0 -o"ctl.fpc" ctl.pas >/dev/null 2>&1 && timeout -k 5 20s ./ctl.fpc ) > "$T/ctl.want" 2>&1
 [ -s "$T/ctl.want" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no output for the control"; exit 2; }
 if [ -n "${FAIL_ONCE:-}" ]; then echo "corrupted by FAIL_ONCE" >> "$T/ctl.want"; fi
 for m in m3 m4; do
-  if [ "$m" = m3 ]; then ( cd "$T" && timeout 20s "$SCRIP" --run ctl.pas </dev/null >"$T/o" 2>"$T/e" ); rc=$?
-  else ( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/ctl.s" ctl.pas </dev/null >/dev/null 2>&1 && cc -m64 -no-pie ctl.s -o ctl.m4 -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 \
-         && timeout 20s ./ctl.m4 </dev/null >"$T/o" 2>"$T/e" ); rc=$?; fi
+  if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 20s "$SCRIP" --run ctl.pas </dev/null >"$T/o" 2>"$T/e" ); rc=$?
+  else ( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/ctl.s" ctl.pas </dev/null >/dev/null 2>&1 && cc -m64 -no-pie ctl.s -o ctl.m4 -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 \
+         && timeout -k 5 20s ./ctl.m4 </dev/null >"$T/o" 2>"$T/e" ); rc=$?; fi
   if [ "$rc" = 0 ] && cmp -s "$T/ctl.want" "$T/o"; then echo "  control $m: byte-identical to fpc -Miso"
   else echo "  ⛔ control $m FAILED: rc=$rc"; echo "      want: $(tr '\n' '|' < "$T/ctl.want")"; echo "      got : $(tr '\n' '|' < "$T/o")"; RC=1; fi
 done

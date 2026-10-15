@@ -21,7 +21,7 @@ OK=0; ERR=0; HANG=0
 
 find "$CORPUS" -name "*.sno" | sort | while read -r sno; do
     rel="${sno#$CORPUS/}"
-    result=$(timeout "$TIMEOUT" "$SNO4" "$sno" 2>&1) || exit_code=$?
+    result=$(timeout -k 5 "$TIMEOUT" "$SNO4" "$sno" 2>&1) || exit_code=$?
     exit_code=${exit_code:-0}
 
     if [[ $exit_code -eq 124 ]]; then

@@ -102,9 +102,9 @@ run_test() {
     # run (with optional stdin)
     local actual
     if [[ -f "$input" ]]; then
-        actual=$(timeout 5 "$bin" < "$input" 2>/dev/null || true)
+        actual=$(timeout -k 5 5 "$bin" < "$input" 2>/dev/null || true)
     else
-        actual=$(timeout 5 "$bin" 2>/dev/null </dev/null || true)
+        actual=$(timeout -k 5 5 "$bin" 2>/dev/null </dev/null || true)
     fi
     local expected; expected=$(cat "$ref")
 

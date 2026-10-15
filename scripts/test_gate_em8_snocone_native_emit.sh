@@ -43,7 +43,7 @@ emit_test() {
         FAIL=$((FAIL+1)); FAILS="$FAILS $label(link)"; return
     fi
     local actual
-    actual=$(timeout "$TIMEOUT" "$TMP/${label}.prog" < /dev/null 2>/dev/null)
+    actual=$(timeout -k 5 "$TIMEOUT" "$TMP/${label}.prog" < /dev/null 2>/dev/null)
     if [ "$actual" = "$expected" ]; then
         echo "  PASS $label"; PASS=$((PASS+1))
     else

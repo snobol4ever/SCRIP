@@ -29,7 +29,7 @@ TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT
 red=0
 named=""
 for k in nrev qsort zebra; do
-    timeout 120 "$SCRIP" --compile -o "$TMPD/$k.s" "$B/$k.pl" </dev/null 2>"$TMPD/err" || refuse "$k.pl did not compile: $(head -c 200 "$TMPD/err")"
+    timeout -k 5 120 "$SCRIP" --compile -o "$TMPD/$k.s" "$B/$k.pl" </dev/null 2>"$TMPD/err" || refuse "$k.pl did not compile: $(head -c 200 "$TMPD/err")"
     c=$(grep -cE "call\s+(qword ptr \[rip \+ rt_pl_unify_struct_fresh@GOTPCREL\]|rt_pl_unify_struct_fresh(@PLT)?)\s*$" "$TMPD/$k.s"); [ "$c" = 0 ] || named="$named $k:$c"
 done
 if [ -z "$named" ]; then echo "  ok  arm 1: nrev.pl, qsort.pl and zebra.pl's mode-4 text call rt_pl_unify_struct_fresh nowhere"
@@ -107,11 +107,11 @@ yes'
 for w in w_append w_wide w_shared w_nested w_trail w_const; do
     eval "want=\$want_$w"
     for mode in m3 m4; do
-        if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout 60 "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
+        if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout -k 5 60 "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
         else
-            timeout 120 "$SCRIP" --compile -o "$TMPD/$w.s" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err" || { echo "  RED $w $mode: the compile refused: $(head -c 160 "$TMPD/err")"; red=$((red+1)); continue; }
+            timeout -k 5 120 "$SCRIP" --compile -o "$TMPD/$w.s" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err" || { echo "  RED $w $mode: the compile refused: $(head -c 160 "$TMPD/err")"; red=$((red+1)); continue; }
             gcc -m64 -no-pie "$TMPD/$w.s" -o "$TMPD/$w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err" || { echo "  RED $w $mode: the assembler or linker refused: $(grep -m1 -E 'Error|error' "$TMPD/err" | head -c 200)"; red=$((red+1)); continue; }
-            got="$(cd "$TMPD" && timeout 60 "./$w.bin" </dev/null 2>"$TMPD/err")"; rc=$?
+            got="$(cd "$TMPD" && timeout -k 5 60 "./$w.bin" </dev/null 2>"$TMPD/err")"; rc=$?
             rm -f "$TMPD/$w.s" "$TMPD/$w.bin"
         fi
         if [ "$rc" = 0 ] && [ "$got" = "$want" ]; then echo "  ok  $w $mode"

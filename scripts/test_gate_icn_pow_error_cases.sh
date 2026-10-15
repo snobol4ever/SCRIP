@@ -50,15 +50,15 @@ printf 'procedure main()\n  &error := 1;\n  write("before");\n  write((-2.0) ^ 2
 graded=0; bad=0
 for w in zero_negexp_trapped negbase_real_trapped zero_zero_trapped overflow_trapped negbase_intexp_trapped; do
     "$ICONT" -s -o "$d/$w.ora" "$d/$w.icn" >/dev/null 2>&1 || { echo "⛔ GATE REFUSES (rc=2): icont rejected $w -- cannot measure"; exit 2; }
-    want=$(timeout 20 "$ICONX" "$d/$w.ora" </dev/null 2>/dev/null); wrc=$?
+    want=$(timeout -k 5 20 "$ICONX" "$d/$w.ora" </dev/null 2>/dev/null); wrc=$?
     [ "$wrc" != 124 ] || { echo "⛔ GATE REFUSES (rc=2): the ORACLE timed out on $w -- cannot measure"; exit 2; }
-    o=$(timeout 20 ./scrip "$d/$w.icn" </dev/null 2>/dev/null); r=$?; graded=$((graded+1))
+    o=$(timeout -k 5 20 ./scrip "$d/$w.icn" </dev/null 2>/dev/null); r=$?; graded=$((graded+1))
     if [ "$o" != "$want" ] || [ "$r" != "$wrc" ]; then
         echo "  ⛔ RED m3 $w: rc=$r stdout=[$(printf '%s' "$o" | tr '\n' '|')] -- iconx rc=$wrc stdout=[$(printf '%s' "$want" | tr '\n' '|')]"; bad=1
     fi
-    if timeout 120 ./scrip --compile -o "$d/$w.s" "$d/$w.icn" </dev/null >/dev/null 2>&1 \
+    if timeout -k 5 120 ./scrip --compile -o "$d/$w.s" "$d/$w.icn" </dev/null >/dev/null 2>&1 \
        && gcc -m64 -no-pie "$d/$w.s" -o "$d/$w.m4" -L./out -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread 2>/dev/null; then
-        o=$(timeout 20 "$d/$w.m4" </dev/null 2>/dev/null); r=$?; graded=$((graded+1))
+        o=$(timeout -k 5 20 "$d/$w.m4" </dev/null 2>/dev/null); r=$?; graded=$((graded+1))
         if [ "$o" != "$want" ] || [ "$r" != "$wrc" ]; then
             echo "  ⛔ RED m4 $w: rc=$r stdout=[$(printf '%s' "$o" | tr '\n' '|')] -- iconx rc=$wrc stdout=[$(printf '%s' "$want" | tr '\n' '|')]"; bad=1
         fi
@@ -67,15 +67,15 @@ for w in zero_negexp_trapped negbase_real_trapped zero_zero_trapped overflow_tra
     fi
 done
 for w in zero_negexp negbase_real; do
-    o=$(timeout 10 ./scrip "$d/$w.icn" </dev/null 2>/dev/null); r=$?; graded=$((graded+1))
+    o=$(timeout -k 5 10 ./scrip "$d/$w.icn" </dev/null 2>/dev/null); r=$?; graded=$((graded+1))
     if [ "$o" != "before" ] || [ "$r" != 1 ]; then
         echo "  ⛔ RED m3 $w: rc=$r stdout=[$(printf '%s' "$o" | tr '\n' '|')] -- want rc=1 stdout=[before]"; bad=1
     fi
-    timeout 60 ./scrip --compile -o "$d/$w.s" "$d/$w.icn" </dev/null >/dev/null 2>&1 \
+    timeout -k 5 60 ./scrip --compile -o "$d/$w.s" "$d/$w.icn" </dev/null >/dev/null 2>&1 \
         || { echo "⛔ GATE REFUSES (rc=2): mode-4 compile failed for $w"; exit 2; }
     gcc -m64 -no-pie "$d/$w.s" -o "$d/$w.m4" -L./out -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread 2>/dev/null \
         || { echo "⛔ GATE REFUSES (rc=2): mode-4 link failed for $w"; exit 2; }
-    o=$(timeout 10 "$d/$w.m4" </dev/null 2>/dev/null); r=$?; graded=$((graded+1))
+    o=$(timeout -k 5 10 "$d/$w.m4" </dev/null 2>/dev/null); r=$?; graded=$((graded+1))
     if [ "$o" != "before" ] || [ "$r" != 1 ]; then
         echo "  ⛔ RED m4 $w: rc=$r stdout=[$(printf '%s' "$o" | tr '\n' '|')] -- want rc=1 stdout=[before]"; bad=1
     fi

@@ -43,7 +43,7 @@ ok=0; crash=0; miss=0
 for p in $PROGS; do
   [ -f "$p" ] || { miss=$((miss+1)); continue; }
   n=$(basename "$p")
-  timeout 20 "$S/scrip" --run "$p" > /tmp/ab_out.txt 2>/tmp/ab_err.txt < /dev/null
+  timeout -k 5 20 "$S/scrip" --run "$p" > /tmp/ab_out.txt 2>/tmp/ab_err.txt < /dev/null
   rc=$?
   # crash = signal death (128+n): 139 SEGV, 134 abort, 136 SIGFPE, etc.
   if [ $rc -ge 128 ]; then

@@ -45,9 +45,9 @@ grep -q '^wrong-type 41$' "$T/w.ref" || { echo "⛔ GATE REFUSE(2) [$G]: the ora
 grep -q '^non-record 41$' "$T/w.ref" || { echo "⛔ GATE REFUSE(2) [$G]: the oracle's stream does not carry the 'non-record 41' row this gate pins"; exit 2; }
 RC=0
 for M in m3 m4; do
-  if [ "$M" = m3 ]; then ( cd "$T" && timeout 20 "$SCRIP" w.sno </dev/null ) >"$T/$M.out" 2>"$T/$M.err"
-  else ( cd "$T" && timeout 20 "$SCRIP" --compile -o w.s w.sno </dev/null && gcc w.s -o w.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 witness did not build"; exit 2; }
-       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout 20 ./w.bin </dev/null ) >"$T/$M.out" 2>"$T/$M.err"
+  if [ "$M" = m3 ]; then ( cd "$T" && timeout -k 5 20 "$SCRIP" w.sno </dev/null ) >"$T/$M.out" 2>"$T/$M.err"
+  else ( cd "$T" && timeout -k 5 20 "$SCRIP" --compile -o w.s w.sno </dev/null && gcc w.s -o w.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 witness did not build"; exit 2; }
+       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 20 ./w.bin </dev/null ) >"$T/$M.out" 2>"$T/$M.err"
   fi
   if [ -n "${FAIL_ONCE:-}" ]; then sed -i '1s/^5$/6/' "$T/$M.out"; fi
   if diff -u "$T/w.ref" "$T/$M.out" >"$T/$M.diff"; then echo "  $M PASS ($(wc -l <"$T/w.ref") lines byte-identical to $SBL $FLAGS)"

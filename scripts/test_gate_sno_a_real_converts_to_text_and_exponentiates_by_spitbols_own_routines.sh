@@ -194,13 +194,13 @@ END
 SNO
 ARMS="conv pow powerr match build trace"
 run_scrip() {  # $1 name $2 mode -> stdout
-    if [ "$2" = m3 ]; then (cd "$D" && timeout 60 "$B/scrip" --stlimit "$1.sno" < /dev/null 2>/dev/null)
+    if [ "$2" = m3 ]; then (cd "$D" && timeout -k 5 60 "$B/scrip" --stlimit "$1.sno" < /dev/null 2>/dev/null)
     else "$B/scrip" --stlimit --compile -o "$D/$1.s" "$D/$1.sno" </dev/null >/dev/null 2>&1 \
            && gcc -no-pie -o "$D/$1.bin" "$D/$1.s" -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" 2>/dev/null \
            || refuse "could not build the m4 arm of $1 -- a toolchain failure, not a verdict"
-         (cd "$D" && timeout 60 "./$1.bin" < /dev/null 2>/dev/null); fi
+         (cd "$D" && timeout -k 5 60 "./$1.bin" < /dev/null 2>/dev/null); fi
 }
-for a in $ARMS; do (cd "$D" && timeout 60 "$SBL" -bf "$a.sno" < /dev/null 2>/dev/null | grep -v '^$' > "$a.sbl"); done
+for a in $ARMS; do (cd "$D" && timeout -k 5 60 "$SBL" -bf "$a.sno" < /dev/null 2>/dev/null | grep -v '^$' > "$a.sbl"); done
 [ "$(wc -l < "$D/conv.sbl")" = 34920 ] || refuse "the oracle printed $(wc -l < "$D/conv.sbl") of 34920 conversion lines -- the witness is not measuring"
 [ "$(wc -l < "$D/pow.sbl")" = 6400 ] || refuse "the oracle printed $(wc -l < "$D/pow.sbl") of 6400 power lines -- the witness is not measuring"
 grep -qx "0.694444444444445e+18" "$D/conv.sbl" || refuse "the oracle no longer prints (1/12)**2 * 10**20 as 0.694444444444445e+18 (C's rounding says ...444) -- re-read sbl.min gts10-gts28"

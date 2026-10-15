@@ -29,20 +29,20 @@ cat > "$W/cas.sno" <<'EOF'
 BAD	OUTPUT  =  'fail'
 END
 EOF
-(cd "$W" && timeout 120 "$SCRIP" --compile -o cas.s cas.sno </dev/null >/dev/null 2>&1) \
+(cd "$W" && timeout -k 5 120 "$SCRIP" --compile -o cas.s cas.sno </dev/null >/dev/null 2>&1) \
     && gcc -no-pie "$W/cas.s" -L"$SD/out" -lscrip_rt -lm -Wl,-rpath,"$SD/out" -o "$W/cas.bin" 2>/dev/null \
     || { echo "⛔ REFUSE(rc=2) [$G]: the witness did not compile and link in mode 4"; exit 2; }
 fail=0
 echo "== [$G] the CAS island follows the declared -s, graded against $SBL"
-want="$(cd "$W" && timeout 120 "$SBL" $(sbl_lang_flags) -s256m -d1024m cas.sno </dev/null 2>/dev/null)"
+want="$(cd "$W" && timeout -k 5 120 "$SBL" $(sbl_lang_flags) -s256m -d1024m cas.sno </dev/null 2>/dev/null)"
 [ "$want" = "ok 3200000 ah" ] || { echo "⛔ REFUSE(rc=2) [$G]: the oracle at -s256m printed '$want', not the witness's answer -- the arm cannot grade"; exit 2; }
-m3="$(cd "$W" && timeout 120 "$SCRIP" -s256m cas.sno </dev/null 2>&1)"
-m4="$(cd "$W" && timeout 120 "$W/cas.bin" -s256m -- </dev/null 2>&1)"
+m3="$(cd "$W" && timeout -k 5 120 "$SCRIP" -s256m cas.sno </dev/null 2>&1)"
+m4="$(cd "$W" && timeout -k 5 120 "$W/cas.bin" -s256m -- </dev/null 2>&1)"
 for m in m3 m4; do v="${!m}"; if [ "$v" = "$want" ]; then echo "  PASS arm1 $m -s256m = sbl ($want)"; else echo "  ⛔ arm1 $m -s256m RED: got '$v', sbl '$want'"; fail=1; fi; done
-osay="$(cd "$W" && timeout 120 "$SBL" $(sbl_lang_flags) -s64m -d1024m cas.sno </dev/null 2>&1 | grep -o 'ERROR 246 -- stack overflow' | head -1)"
+osay="$(cd "$W" && timeout -k 5 120 "$SBL" $(sbl_lang_flags) -s64m -d1024m cas.sno </dev/null 2>&1 | grep -o 'ERROR 246 -- stack overflow' | head -1)"
 [ -n "$osay" ] || { echo "⛔ REFUSE(rc=2) [$G]: the oracle at -s64m did not report ERROR 246 -- the arm cannot grade"; exit 2; }
 for m in m3 m4; do
-    if [ "$m" = m3 ]; then out="$(cd "$W" && timeout 120 "$SCRIP" -s64m cas.sno </dev/null 2>&1)"; rc=$?; else out="$(cd "$W" && timeout 120 "$W/cas.bin" -s64m -- </dev/null 2>&1)"; rc=$?; fi
+    if [ "$m" = m3 ]; then out="$(cd "$W" && timeout -k 5 120 "$SCRIP" -s64m cas.sno </dev/null 2>&1)"; rc=$?; else out="$(cd "$W" && timeout -k 5 120 "$W/cas.bin" -s64m -- </dev/null 2>&1)"; rc=$?; fi
     if [ "$rc" = 1 ] && printf '%s\n' "$out" | grep -q "$osay"; then echo "  PASS arm2 $m -s64m reports $osay (rc 1), as sbl does"; else echo "  ⛔ arm2 $m -s64m RED: rc=$rc, said: $(printf '%s' "$out" | head -c 200)"; fail=1; fi
 done
 [ "$fail" = 0 ] && { echo "OK [$G]: 3,200,000 pending captures run at -s256m and overrun at -s64m as ERROR 246, both modes, as sbl"; exit 0; }

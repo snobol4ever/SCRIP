@@ -62,9 +62,9 @@ for rung in "${RUNGS[@]}"; do
         [[ -f "$ref" ]] || { echo -e "  ${YELLOW}SKIP${RESET} $base (no .ref)"; skip=$((skip+1)); continue; }
 
         if [[ -f "$input" ]]; then
-            actual=$(timeout 5 bash "$ADAPTER" "$sno" < "$input" 2>/dev/null || true)
+            actual=$(timeout -k 5 5 bash "$ADAPTER" "$sno" < "$input" 2>/dev/null || true)
         else
-            actual=$(timeout 5 bash "$ADAPTER" "$sno" 2>/dev/null || true)
+            actual=$(timeout -k 5 5 bash "$ADAPTER" "$sno" 2>/dev/null || true)
         fi
         expected=$(cat "$ref")
 

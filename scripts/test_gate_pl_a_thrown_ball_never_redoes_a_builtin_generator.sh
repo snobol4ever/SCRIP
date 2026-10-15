@@ -135,15 +135,15 @@ redo_retract:
 2
 REF
 if command -v swipl >/dev/null; then
-    ( cd "$T" && timeout 30 swipl -q w.pl < /dev/null > sw.out 2>/dev/null )
+    ( cd "$T" && timeout -k 5 30 swipl -q w.pl < /dev/null > sw.out 2>/dev/null )
     cmp -s "$T/sw.out" "$T/ref" || { echo "⛔ REFUSED(2) [$GATE_NAME]: swipl no longer prints the ref this gate carries -- re-cut it from the oracle, never from SCRIP"; exit 2; }
     [ "$VERBOSE" = 1 ] && echo "  oracle: swipl re-cut agrees with the carried ref"
 fi
 fail=0
-( cd "$T" && timeout 20 "$SCRIP" w.pl < /dev/null > m3.out 2>&1 ); rc3=$?
+( cd "$T" && timeout -k 5 20 "$SCRIP" w.pl < /dev/null > m3.out 2>&1 ); rc3=$?
 if cmp -s "$T/m3.out" "$T/ref"; then echo "  ok   (m3) every generator row delivers its ball on the first answer and every redo row redoes"; else echo "  FAIL (m3) rc=$rc3, first difference:"; diff "$T/ref" "$T/m3.out" | head -6 | sed 's/^/         /'; fail=1; fi
 if ( cd "$T" && "$SCRIP" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 && gcc -o w w.s -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>/dev/null ); then
-    ( cd "$T" && timeout 20 ./w < /dev/null > m4.out 2>&1 ); rc4=$?
+    ( cd "$T" && timeout -k 5 20 ./w < /dev/null > m4.out 2>&1 ); rc4=$?
     if cmp -s "$T/m4.out" "$T/ref"; then echo "  ok   (m4) the same, from the standalone build"; else echo "  FAIL (m4) rc=$rc4, first difference:"; diff "$T/ref" "$T/m4.out" | head -6 | sed 's/^/         /'; fail=1; fi
 else echo "  FAIL (m4) the witness did not compile or link in mode 4"; fail=1; fi
 [ "$fail" = 0 ] && { echo "✅ GATE PASS [$GATE_NAME]: 18 rows x 2 modes answer as swipl and GNU Prolog 1.6.0 do"; exit 0; }

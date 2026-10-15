@@ -41,11 +41,11 @@ n3      'abd' p3                                        :S(bad3)
 bad3
 END
 SNO
-(cd "$T" && timeout 20 "$SBL" $(sbl_lang_flags) w.sno < /dev/null > ref 2>&1); [ -s "$T/ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing for the witness"; exit 2; }
-timeout 20 "$SCRIP" "$T/w.sno" < /dev/null > "$T/m3" 2>&1
-timeout 20 "$SCRIP" --compile -o "$T/w.s" "$T/w.sno" < /dev/null > "$T/cc.err" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile failed: $(head -1 "$T/cc.err" | cut -c1-120)"; exit 2; }
+(cd "$T" && timeout -k 5 20 "$SBL" $(sbl_lang_flags) w.sno < /dev/null > ref 2>&1); [ -s "$T/ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing for the witness"; exit 2; }
+timeout -k 5 20 "$SCRIP" "$T/w.sno" < /dev/null > "$T/m3" 2>&1
+timeout -k 5 20 "$SCRIP" --compile -o "$T/w.s" "$T/w.sno" < /dev/null > "$T/cc.err" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile failed: $(head -1 "$T/cc.err" | cut -c1-120)"; exit 2; }
 gcc -m64 -no-pie "$T/w.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$T/w.bin" 2>> "$T/cc.err" || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 link failed"; exit 2; }
-timeout 20 "$T/w.bin" < /dev/null > "$T/m4" 2>&1
+timeout -k 5 20 "$T/w.bin" < /dev/null > "$T/m4" 2>&1
 RC=0
 for m in m3 m4; do cmp -s "$T/ref" "$T/$m" && echo "  PASS $m = oracle" || { RC=1; echo "  FAIL $m differs from the oracle: $(diff "$T/ref" "$T/$m" | grep -m2 '^[<>]' | tr '\n' ' ' | cut -c1-160)"; }; done
 framed() { sed -n "/^\.LTp$1:/,/^\.LTp$1_ω:/p" "$T/w.s" | grep -c 'mov *rbp, *rsp'; }

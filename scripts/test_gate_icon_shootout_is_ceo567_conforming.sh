@@ -50,15 +50,15 @@ for p in "${PROGS[@]}"; do
   if grep -qE '^\$(ifdef|ifndef|endif)\b' "$T/$p.icn"; then RED+=("$p GUARD: a \$ifdef guard still wraps the entry point"); fi
   grep -qE '^procedure main\b' "$T/$p.icn" || RED+=("$p GUARD: no top-level 'procedure main'")
   # PARSE
-  ( cd "$T" && timeout 20 "$SCRIP" --dump-ast "$p.icn" </dev/null >/dev/null 2>"$T/$p.ast.err" ); prc=$?
+  ( cd "$T" && timeout -k 5 20 "$SCRIP" --dump-ast "$p.icn" </dev/null >/dev/null 2>"$T/$p.ast.err" ); prc=$?
   if [ "$prc" -ne 0 ] || grep -q 'parse error' "$T/$p.ast.err"; then RED+=("$p PARSE: $(grep -m1 'parse error' "$T/$p.ast.err" || echo "dump-ast rc=$prc")"); continue; fi
   # ORACLE compile (both graded and outside need the binary)
-  ( cd "$T" && timeout 60 "$ICONT" -s -o "$p.oracle" "$p.icn" ) >"$T/$p.icont.err" 2>&1 || { RED+=("$p ORACLE: icont refuses our copy: $(head -1 "$T/$p.icont.err")"); continue; }
+  ( cd "$T" && timeout -k 5 60 "$ICONT" -s -o "$p.oracle" "$p.icn" ) >"$T/$p.icont.err" 2>&1 || { RED+=("$p ORACLE: icont refuses our copy: $(head -1 "$T/$p.icont.err")"); continue; }
   if row=$(outside_row "$p"); then
     n_outside=$((n_outside+1)); cls="${row%%$'\t'*}"; rsn="${row#*$'\t'}"
     want=$(printf '%s' "$rsn" | grep -oE 'Run-time error [0-9]+' | head -1)
     [ -n "$want" ] || { echo "⛔ REFUSE(2) [$GATE]: the OUTSIDE row for $p quotes no 'Run-time error NNN' -- a reason that names no measurement cannot be re-asked"; exit 2; }
-    ( cd "$T" && timeout 30 "./$p.oracle" "${ARGS[@]}" <"$stdin_src" >/dev/null 2>"$T/$p.oracle.err" ); orc=$?
+    ( cd "$T" && timeout -k 5 30 "./$p.oracle" "${ARGS[@]}" <"$stdin_src" >/dev/null 2>"$T/$p.oracle.err" ); orc=$?
     if [ "$orc" -eq 0 ] || ! grep -q "$want" "$T/$p.oracle.err"; then
       echo "⛔ REFUSE(2) [$GATE]: OUTSIDE row for $p says '$want' but the oracle now exits $orc with: $(grep -m1 'Run-time error' "$T/$p.oracle.err" || echo '(no run-time error)') -- re-grade the row"; exit 2; fi
     echo "  OUTSIDE $p [$cls]: oracle still says '$want' (control arm holds); GUARD and PARSE green"
@@ -66,13 +66,13 @@ for p in "${PROGS[@]}"; do
   fi
   n_graded=$((n_graded+1))
   [ -f "$T/$p.ref" ] || { RED+=("$p REF: no $p.ref beside the kernel (CEO-567 clause 3)"); continue; }
-  ( cd "$T" && timeout 30 "./$p.oracle" "${ARGS[@]}" <"$stdin_src" >"$T/$p.oracle.out" 2>"$T/$p.oracle.err" ); orc=$?
+  ( cd "$T" && timeout -k 5 30 "./$p.oracle" "${ARGS[@]}" <"$stdin_src" >"$T/$p.oracle.out" 2>"$T/$p.oracle.err" ); orc=$?
   cmp -s "$T/$p.ref" "$T/$p.oracle.out" || { RED+=("$p ORACLE: the oracle's own binary (rc=$orc) does not reproduce $p.ref -- the ref is not the oracle's statement about this file"); continue; }
   ok=1
-  ( cd "$T" && timeout 30 "$SCRIP" "$p.icn" -- "${ARGS[@]}" <"$stdin_src" >"$T/$p.m3" 2>"$T/$p.m3.err" ); rc3=$?
+  ( cd "$T" && timeout -k 5 30 "$SCRIP" "$p.icn" -- "${ARGS[@]}" <"$stdin_src" >"$T/$p.m3" 2>"$T/$p.m3.err" ); rc3=$?
   cmp -s "$T/$p.ref" "$T/$p.m3" || { RED+=("$p SCRIP m3 (rc=$rc3): $(cmp "$T/$p.ref" "$T/$p.m3" 2>&1 | head -1)"); ok=0; }
-  if ( cd "$T" && timeout 60 "$SCRIP" --compile -o "$p.s" "$p.icn" </dev/null >/dev/null 2>"$T/$p.m4c.err" && gcc -no-pie "$p.s" -o "$p.bin" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" >>"$T/$p.m4c.err" 2>&1 ); then
-    ( cd "$T" && timeout 30 "./$p.bin" "${ARGS[@]}" <"$stdin_src" >"$T/$p.m4" 2>"$T/$p.m4.err" ); rc4=$?
+  if ( cd "$T" && timeout -k 5 60 "$SCRIP" --compile -o "$p.s" "$p.icn" </dev/null >/dev/null 2>"$T/$p.m4c.err" && gcc -no-pie "$p.s" -o "$p.bin" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" >>"$T/$p.m4c.err" 2>&1 ); then
+    ( cd "$T" && timeout -k 5 30 "./$p.bin" "${ARGS[@]}" <"$stdin_src" >"$T/$p.m4" 2>"$T/$p.m4.err" ); rc4=$?
     cmp -s "$T/$p.ref" "$T/$p.m4" || { RED+=("$p SCRIP m4 (rc=$rc4): $(cmp "$T/$p.ref" "$T/$p.m4" 2>&1 | head -1)"); ok=0; }
   else RED+=("$p SCRIP m4: would not compile or link: $(head -1 "$T/$p.m4c.err")"); ok=0; fi
   [ "$ok" = 1 ] && { n_ok=$((n_ok+1)); echo "  GRADED $p: ref $(wc -c < "$T/$p.ref") bytes, oracle and SCRIP m3+m4 byte-identical"; }

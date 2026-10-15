@@ -48,12 +48,12 @@ procedure main();
    write(*t);
 end
 EOS
-( cd "$W" && SCRIP_GC_STRESS=5 timeout 120 "$ROOT/scrip" w.sno > off.txt 2> offerr.txt ); roff=$?
+( cd "$W" && SCRIP_GC_STRESS=5 timeout -k 5 120 "$ROOT/scrip" w.sno > off.txt 2> offerr.txt ); roff=$?
 noff=$(grep -cE 'GC-MAPS|GC-SPINE-LOST' "$W/offerr.txt")
 if [ "$roff" -eq 0 ] && [ "$noff" -eq 0 ] && [ "$(tail -1 "$W/off.txt")" = "DONE" ]; then echo "  arm 1 PASS: knob off -- rc=0, correct output, 0 [GC-MAPS] and 0 [GC-SPINE-LOST] lines"
 else echo "  arm 1 RED: knob off changed the run (rc=$roff, $noff report line(s) from [GC-MAPS] or [GC-SPINE-LOST], last=[$(tail -1 "$W/off.txt")])"; bad=1; fi
 for w in w.sno g.icn; do
-    ( cd "$W" && SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=5 timeout 120 "$ROOT/scrip" "$w" > "on_$w.txt" 2> "onerr_$w.txt" ); ron=$?
+    ( cd "$W" && SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=5 timeout -k 5 120 "$ROOT/scrip" "$w" > "on_$w.txt" 2> "onerr_$w.txt" ); ron=$?
     n=$(grep -c 'GC-MAPS' "$W/onerr_$w.txt")
     so=$(grep -o 'sniff_only=[0-9]*' "$W/onerr_$w.txt" | sed 's/.*=//' | sort -rn | head -1)
     pops=$(grep -o 'pop=[a-z]*' "$W/onerr_$w.txt" | sort -u | tr '\n' ' ')
@@ -99,12 +99,12 @@ walk_arm5() {
     if [ "${ph:-0}" -lt 1 ]; then echo "  arm 5 RED [$lbl]: i_heap=${ph:-0} -- no tagged cell of the frame held a heap pointer, so this arm graded nothing"; bad=1; return; fi
     echo "  arm 5 PASS [$lbl]: $c collection(s), i_raw_heap=0, i_ptr=0, i_heap>=1, answer = icont"
 }
-walk_arm5 "m3" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 timeout 300 "$ROOT/scrip" "$NS"
+walk_arm5 "m3" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 timeout -k 5 300 "$ROOT/scrip" "$NS"
 if "$ROOT/scrip" --compile -o "$W/ns.s" "$NS" < /dev/null 2>"$W/nsc.txt" && gcc "$W/ns.s" -L "$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/ns.m4" 2>>"$W/nsc.txt"; then
-    walk_arm5 "m4" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 timeout 300 "$W/ns.m4"
+    walk_arm5 "m4" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 timeout -k 5 300 "$W/ns.m4"
 else echo "  arm 5 RED [m4]: the witness did not compile or link -- $(tail -1 "$W/nsc.txt")"; bad=1; fi
 for w in w.sno g.icn; do
-    ( cd "$W" && SCRIP_GC_MAPS_DUMP=1 timeout 60 "$ROOT/scrip" "$w" > /dev/null 2> "$W/dump_$w.txt" )
+    ( cd "$W" && SCRIP_GC_MAPS_DUMP=1 timeout -k 5 60 "$ROOT/scrip" "$w" > /dev/null 2> "$W/dump_$w.txt" )
     nm=$(grep -c '^\[GC-MAPTAB\] graph=' "$W/dump_$w.txt"); nl=$(grep -c '^\[GC-MAPTAB-LAYOUT\] ' "$W/dump_$w.txt")
     if [ "$nm" -ge 1 ] && [ "$nm" -eq "$nl" ]; then echo "  arm 6 PASS [$w]: $nm installed map(s), $nl with a kind table"
     else echo "  arm 6 RED [$w]: $nm installed map(s) but $nl kind table(s) -- a frame the walker cannot read by kind"; bad=1; fi
@@ -154,9 +154,9 @@ walk_arm7() {
 for dsn in $DSN; do
     DS="$ROOT/scripts/gc_witnesses/$dsn.sno"; DSREF="$ROOT/scripts/gc_witnesses/$dsn.ref"
     [ -f "$DS" ] && [ -f "$DSREF" ] || { echo "  arm 7 RED [$dsn]: witness or ref missing -- cannot measure"; bad=1; continue; }
-    walk_arm7 "m3 $dsn" env -u SCRIP_HEAP_MB SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 SCRIP_HEAP_KB=128 timeout 300 "$ROOT/scrip" "$DS"
+    walk_arm7 "m3 $dsn" env -u SCRIP_HEAP_MB SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 SCRIP_HEAP_KB=128 timeout -k 5 300 "$ROOT/scrip" "$DS"
     if "$ROOT/scrip" --compile -o "$W/ds.s" "$DS" < /dev/null 2>"$W/dsc.txt" && gcc "$W/ds.s" -L "$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/ds.m4" 2>>"$W/dsc.txt"; then
-        walk_arm7 "m4 $dsn" env -u SCRIP_HEAP_MB SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 SCRIP_HEAP_KB=128 timeout 300 "$W/ds.m4"
+        walk_arm7 "m4 $dsn" env -u SCRIP_HEAP_MB SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 SCRIP_HEAP_KB=128 timeout -k 5 300 "$W/ds.m4"
     else echo "  arm 7 RED [m4 $dsn]: the witness did not compile or link -- $(tail -1 "$W/dsc.txt")"; bad=1; fi
 done
 if [ "$bad" -ne 0 ]; then echo "GATE FAIL(1) [gc_maps_reporter_runs_beside_the_scan]: the step-3 reporter is not measuring"; exit 1; fi

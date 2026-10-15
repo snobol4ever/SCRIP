@@ -59,7 +59,7 @@ ANY_BB_FILES=0
 while IFS= read -r sno; do
     TOTAL_FILES=$((TOTAL_FILES + 1))
     : > "$TMP"
-    timeout "$TIMEOUT" "$SCRIP" --compile "$sno" > "$TMP" 2>/dev/null < /dev/null
+    timeout -k 5 "$TIMEOUT" "$SCRIP" --compile "$sno" > "$TMP" 2>/dev/null < /dev/null
     rc=$?
     if [ $rc -eq 124 ]; then TIMEOUT_COUNT=$((TIMEOUT_COUNT + 1)); continue; fi
     if [ $rc -eq 139 ]; then SEGFAULT_COUNT=$((SEGFAULT_COUNT + 1)); continue; fi

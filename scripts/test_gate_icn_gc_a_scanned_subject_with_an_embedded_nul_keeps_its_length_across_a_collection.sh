@@ -46,16 +46,16 @@ else echo "  arm 1 FAIL: body_found=$([ -n "$body" ] && echo 1 || echo 0) strlen
 want="$(cat "$REF")"; band=""; bad=0
 for st in 0 1 3 5; do
   for md in m3 m4; do
-    if [ "$md" = m3 ]; then out="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_EXERCISE=1 timeout 120 "$SCRIP" "$WIT" 2>"$T/e" </dev/null)"
-    else out="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_EXERCISE=1 timeout 120 "$T/w4" 2>"$T/e" </dev/null)"; fi
+    if [ "$md" = m3 ]; then out="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_EXERCISE=1 timeout -k 5 120 "$SCRIP" "$WIT" 2>"$T/e" </dev/null)"
+    else out="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_EXERCISE=1 timeout -k 5 120 "$T/w4" 2>"$T/e" </dev/null)"; fi
     n=$(grep -m1 -oE 'collections=[0-9]+' "$T/e" | head -1 | cut -d= -f2)
     if [ "$out" = "$want" ] && [ "${n:-0}" -gt 0 ]; then band="$band @$st$md:ok($n)"; else band="$band @$st$md:RED(collections=${n:-0})"; bad=1; fi
   done
 done
 if [ "$bad" = 0 ]; then echo "  arm 2 PASS: the callee reads the whole NUL-carrying subject after every block has moved, both media --$band"
 else echo "  arm 2 FAIL: the subject's length or bytes were lost across a collection, or the collector never ran --$band"; RC=1; fi
-o3="$(cd "$T" && env SCRIP_HEAP_KB=65536 timeout 120 "$SCRIP" "$WIT" 2>/dev/null </dev/null)"
-o4="$(cd "$T" && env SCRIP_HEAP_KB=65536 timeout 120 "$T/w4" 2>/dev/null </dev/null)"
+o3="$(cd "$T" && env SCRIP_HEAP_KB=65536 timeout -k 5 120 "$SCRIP" "$WIT" 2>/dev/null </dev/null)"
+o4="$(cd "$T" && env SCRIP_HEAP_KB=65536 timeout -k 5 120 "$T/w4" 2>/dev/null </dev/null)"
 if [ "$o3" = "$want" ] && [ "$o4" = "$want" ]; then echo "  arm 3 PASS: with no collection a callee's tab/move/pos keep the embedded NUL, both media"
 else echo "  arm 3 FAIL: with no collection the callee still measures the subject -- m3=[$(printf '%s' "$o3" | cat -v | tr '\n' '|')] m4=[$(printf '%s' "$o4" | cat -v | tr '\n' '|')]"; RC=1; fi
 [ "$RC" = 0 ] && echo "✅ GATE PASS [$G]: 3 of 3 arms hold" || echo "⛔ GATE FAIL [$G]"

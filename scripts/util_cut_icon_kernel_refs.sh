@@ -172,7 +172,7 @@ done
 # Pre-translate every .icn in the template so `link` resolves. Best-effort by design: a module that will
 # not translate is a finding about the program that links it, reported there, not a reason to stop here.
 while IFS= read -r m; do
-  ( cd "$(dirname "$TEMPLATE/$m")" && timeout "$TIMEOUT" "$ICONT" -s -u -c "$(basename "$m")" >/dev/null 2>&1 )
+  ( cd "$(dirname "$TEMPLATE/$m")" && timeout -k 5 "$TIMEOUT" "$ICONT" -s -u -c "$(basename "$m")" >/dev/null 2>&1 )
 done < <(cd "$TEMPLATE" && find . -name '*.icn' | sed 's|^\./||' | sort)
 
 # run_once <root-relative icn> <root> <outfile> -> combined stdout+stderr of ONE isolated run; rc via return.
@@ -195,12 +195,12 @@ run_once() {
   stdin_src="$(icn_rundir_stdin "$icn")"
   [ "$stdin_src" = /dev/null ] && [ -f "${icn%.icn}.dat" ] && stdin_src="${icn%.icn}.dat"
   : > "$outfile.link"
-  ( cd "$work/$root/$d" && timeout "$TIMEOUT" env ${envv[@]+"${envv[@]}"} "$ICONT" -s -u -o "$b.x" "$b.icn" > "$outfile.link" 2>&1 )
+  ( cd "$work/$root/$d" && timeout -k 5 "$TIMEOUT" env ${envv[@]+"${envv[@]}"} "$ICONT" -s -u -o "$b.x" "$b.icn" > "$outfile.link" 2>&1 )
   crc=$?
   if [ ! -f "$work/$root/$d/$b.x" ]; then
     cp "$outfile.link" "$outfile"; rm -rf "$work"; [ "$crc" -eq 0 ] && crc=1; return "$crc"
   fi
-  ( cd "$work/$root/$d" && timeout "$TIMEOUT" env ${envv[@]+"${envv[@]}"} "$ICONX" "$b.x" ${argv[@]+"${argv[@]}"} < "$stdin_src" > "$outfile" 2>&1 )
+  ( cd "$work/$root/$d" && timeout -k 5 "$TIMEOUT" env ${envv[@]+"${envv[@]}"} "$ICONX" "$b.x" ${argv[@]+"${argv[@]}"} < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
   rm -rf "$work"
   return "$rc"

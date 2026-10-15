@@ -65,8 +65,8 @@ for p in $PROGS; do
     if [ ! -s "$src" ] || [ ! -f "$ref" ]; then
         echo "GATE UNPROVEN(2) [$GATE_NAME]: $p is not extractable by origin from $W/ALL.icn ($(tail -1 "$T/fx/$p.extract.out" | cut -c1-120))"; gate_stamp; exit 2
     fi
-    if ( cd "$T" && timeout 30s "$ICONT" -s -o "$p.oracle" "$src" >/dev/null 2>&1 ) && [ -x "$T/$p.oracle" ]; then
-        ( cd "$T" && timeout 10s "./$p.oracle" </dev/null >"$T/$p.oref" 2>&1 )
+    if ( cd "$T" && timeout -k 5 30s "$ICONT" -s -o "$p.oracle" "$src" >/dev/null 2>&1 ) && [ -x "$T/$p.oracle" ]; then
+        ( cd "$T" && timeout -k 5 10s "./$p.oracle" </dev/null >"$T/$p.oref" 2>&1 )
         if ! cmp -s "$T/$p.oref" "$ref"; then
             echo "RED  $p: committed ref disagrees with the live icont oracle -- re-cut it (oracle/ref drift, not this class)"
             red=$((red+1)); examined=$((examined+1)); continue
@@ -76,12 +76,12 @@ for p in $PROGS; do
     fi
     is_control=0
     case "$CONTROLS" in *" $p "*) is_control=1;; esac
-    ( cd "$T" && timeout 10s "$ROOT/scrip" "$src" </dev/null >"$T/$p.m3" 2>&1 )
+    ( cd "$T" && timeout -k 5 10s "$ROOT/scrip" "$src" </dev/null >"$T/$p.m3" 2>&1 )
     ok3=0; cmp -s "$T/$p.m3" "$ref" && ok3=1
     ok4=0
-    if ( cd "$T" && timeout 30s "$ROOT/scrip" --compile -o "$p.s" "$src" </dev/null >/dev/null 2>&1 ) \
+    if ( cd "$T" && timeout -k 5 30s "$ROOT/scrip" --compile -o "$p.s" "$src" </dev/null >/dev/null 2>&1 ) \
        && ( cd "$T" && gcc -no-pie "$p.s" -o "$p.bin" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ); then
-        ( cd "$T" && timeout 10s "./$p.bin" </dev/null >"$T/$p.m4" 2>&1 )
+        ( cd "$T" && timeout -k 5 10s "./$p.bin" </dev/null >"$T/$p.m4" 2>&1 )
         cmp -s "$T/$p.m4" "$ref" && ok4=1
     fi
     examined=$((examined+1))

@@ -77,7 +77,7 @@ if [ "$p3" = 134 ] && [ "$p4" = 134 ] && grep -q 'does not tile' "$T/p3.err" && 
 else echo "  arm 3 FAIL: coverage plant not caught (rc $p3 / $p4)"; RC=1; fi
 ref="$(cat "$R1")"; a4=""; a4bad=0
 for st in 1 3 5; do
-    o3="$(SCRIP_GC_STRESS=$st timeout 60 "$SCRIP" "$W1" 2>/dev/null </dev/null)"; o4="$(SCRIP_GC_STRESS=$st timeout 60 "$T/hb" 2>/dev/null </dev/null)"
+    o3="$(SCRIP_GC_STRESS=$st timeout -k 5 60 "$SCRIP" "$W1" 2>/dev/null </dev/null)"; o4="$(SCRIP_GC_STRESS=$st timeout -k 5 60 "$T/hb" 2>/dev/null </dev/null)"
     if [ "$o3" = "$ref" ] && [ "$o4" = "$ref" ]; then a4="$a4 stress=$st:ok"; else a4="$a4 stress=$st:m3=[$o3]m4=[$o4]"; a4bad=1; fi
 done
 if [ "$a4bad" = 0 ]; then echo "  arm 4a PASS: hb_blob_span_defer matches its oracle ref '$ref' at SCRIP_GC_STRESS=1,3,5 in both modes --$a4"

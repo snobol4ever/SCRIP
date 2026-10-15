@@ -38,9 +38,9 @@ SBL="$(sbl_correctness_bin 2>/dev/null || true)"; [ -n "${SBL:-}" ] && [ -x "$SB
 D="$(mktemp -d)" || refuse "no scratch dir"
 trap 'rm -rf "$D"' EXIT
 RT="$B/out"; RC=0; n=0
-m3() { (cd "$D" && timeout 60 "$B/scrip" "$1.sno" < /dev/null 2>&1); }
+m3() { (cd "$D" && timeout -k 5 60 "$B/scrip" "$1.sno" < /dev/null 2>&1); }
 m4() { "$B/scrip" --compile -o "$D/$1.s" "$D/$1.sno" < /dev/null > /dev/null 2>&1 && gcc -no-pie -o "$D/$1.bin" "$D/$1.s" -L "$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2> /dev/null \
-      || { echo "M4-BUILD-FAILED"; return; }; (cd "$D" && timeout 60 "./$1.bin" < /dev/null 2>&1); }
+      || { echo "M4-BUILD-FAILED"; return; }; (cd "$D" && timeout -k 5 60 "./$1.bin" < /dev/null 2>&1); }
 ok()  { n=$((n + 1)); echo "  ok    $*"; }
 red() { n=$((n + 1)); RC=1; echo "  RED   $*"; }
 cat > "$D/road.sno" <<'SNO'
@@ -49,7 +49,7 @@ cat > "$D/road.sno" <<'SNO'
         OUTPUT = EVAL(*X)
 END
 SNO
-for o in 1 0; do (cd "$D" && SCRIP_EVAL_OPEN=$o SCRIP_C2BB_TRACE="$D/road$o.tr" timeout 60 "$B/scrip" road.sno < /dev/null > "$D/road$o.out" 2>&1); done
+for o in 1 0; do (cd "$D" && SCRIP_EVAL_OPEN=$o SCRIP_C2BB_TRACE="$D/road$o.tr" timeout -k 5 60 "$B/scrip" road.sno < /dev/null > "$D/road$o.out" 2>&1); done
 [ -s "$D/road1.tr" ] || refuse "the positive control EVAL(*X) wrote no C2BB line -- the trace is not honoured, so arm A cannot measure"
 grep -q 'chain\.eval' "$D/road0.tr" 2>/dev/null || refuse "with SCRIP_EVAL_OPEN=0 the program wrote no chain.eval line -- the arm cannot see the C road it grades"
 if [ "$(tr '\n' '|' < "$D/road1.out")" = "7|5|" ] && ! grep -q 'chain\.eval' "$D/road1.tr"; then ok "A road: EVAL(\"3 + 4\") prints 7 with no chain.eval crossing ($(cut -f1 "$D/road1.tr" | sort -u | tr '\n' ' ')written by the control; the switch-off run writes $(grep -c 'chain\.eval' "$D/road0.tr"))"
@@ -153,7 +153,7 @@ cat > "$D/o4.sno" <<'SNO'
 END
 SNO
 for p in u1 u2 u3 u4 u6 u7 u10 o4; do
-    w=$(cd "$D" && timeout 10 "$SBL" -bf "$p.sno" < /dev/null 2>/dev/null | grep -v '^$' | tr '\n' '|')
+    w=$(cd "$D" && timeout -k 5 10 "$SBL" -bf "$p.sno" < /dev/null 2>/dev/null | grep -v '^$' | tr '\n' '|')
     [ -n "$w" ] || refuse "sbl printed nothing for $p"
     g3=$(m3 "$p" | grep -v '^$' | tr '\n' '|'); g4=$(m4 "$p" | grep -v '^$' | tr '\n' '|')
     if [ "$w" = "$g3" ] && [ "$w" = "$g4" ]; then ok "C $p agrees with sbl: $w"; else red "C $p: sbl [$w] m3 [$g3] m4 [$g4]"; fi
@@ -194,12 +194,12 @@ LOOP    N = N + 1
         OUTPUT = 'R=' R ' B=' B ' N=' N ' D=' SIZE(D) ' Q=' Q
 END
 SNO
-w=$(cd "$D" && timeout 10 "$SBL" -bf gs.sno < /dev/null 2>/dev/null | tr '\n' '|')
+w=$(cd "$D" && timeout -k 5 10 "$SBL" -bf gs.sno < /dev/null 2>/dev/null | tr '\n' '|')
 [ "$w" = "R=7 B=beta N=40 D=81 Q=54|" ] || refuse "sbl reads the collector witness otherwise: [$w]"
-g3=$(cd "$D" && SCRIP_GC_STRESS=1 SCRIP_GC_MAPS=1 timeout 120 "$B/scrip" gs.sno < /dev/null 2> "$D/gs.maps" | tr '\n' '|')
+g3=$(cd "$D" && SCRIP_GC_STRESS=1 SCRIP_GC_MAPS=1 timeout -k 5 120 "$B/scrip" gs.sno < /dev/null 2> "$D/gs.maps" | tr '\n' '|')
 coll=$(grep -c '^\[GC-WALK\] pop=' "$D/gs.maps")
 [ "$coll" -gt 0 ] || refuse "the collector witness collected zero times at SCRIP_GC_STRESS=1 -- arm E cannot measure"
-m4 gs > /dev/null; g4=$(cd "$D" && SCRIP_GC_STRESS=1 timeout 120 ./gs.bin < /dev/null 2>/dev/null | tr '\n' '|')
+m4 gs > /dev/null; g4=$(cd "$D" && SCRIP_GC_STRESS=1 timeout -k 5 120 ./gs.bin < /dev/null 2>/dev/null | tr '\n' '|')
 if [ "$w" = "$g3" ] && [ "$w" = "$g4" ]; then ok "E collector: SCRIP_GC_STRESS=1 agrees with sbl in both modes over $coll collections: $w"; else red "E collector: sbl [$w] m3 [$g3] m4 [$g4]"; fi
 [ $RC = 0 ] && echo "GATE PASS(0) [eval_of_a_string_opens_its_chain_from_the_box_and_lands_with_no_c_frame]: $n arms"
 [ $RC = 0 ] || echo "GATE FAIL(1) [eval_of_a_string_opens_its_chain_from_the_box_and_lands_with_no_c_frame]: an EVAL site's road, its unwind or its answer differs"

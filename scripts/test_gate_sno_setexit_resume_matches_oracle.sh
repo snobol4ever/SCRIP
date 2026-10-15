@@ -32,7 +32,7 @@ W="$(mktemp -d)" || exit 2
 trap 'rm -rf "$W"' EXIT
 rc=0
 mk() { printf '%b' "$2" > "$W/$1.sno"; }
-run() { ( cd "$W" && timeout 20s "$S" "$1.sno" </dev/null 2>&1 ); }
+run() { ( cd "$W" && timeout -k 5 20s "$S" "$1.sno" </dev/null 2>&1 ); }
 face() {
     local name="$1" want="$2" got
     got="$(run "$name")"
@@ -66,8 +66,8 @@ face end_trap_needs_errlimit "MAIN
 FIN"
 n=0
 for f in continue_failure_exit continue_fallthrough continue_oneshot continue_rearm; do
-    a="$( cd "$W" && SCRIP_SETEXIT=0 timeout 20s "$S" "$f.sno" </dev/null 2>&1 )"
-    b="$( cd "$W" && timeout 20s "$S" "$f.sno" </dev/null 2>&1 )"
+    a="$( cd "$W" && SCRIP_SETEXIT=0 timeout -k 5 20s "$S" "$f.sno" </dev/null 2>&1 )"
+    b="$( cd "$W" && timeout -k 5 20s "$S" "$f.sno" </dev/null 2>&1 )"
     [ "$a" != "$b" ] && n=$((n+1))
 done
 if [ "$n" -lt 4 ]; then
@@ -85,10 +85,10 @@ echo "  killswitch SCRIP_SETEXIT=0 moves $n/4 resume faces (NON-VACUOUS)"
 m4build() {
     local n="$1" envk="${2:-}"
     rm -f "$W/$n.s" "$W/$n.bin"
-    if [ -n "$envk" ]; then ( cd "$W" && env "$envk" timeout 30s "$S" --compile -o "$n.s" "$n.sno" </dev/null >/dev/null 2>&1 )
-    else ( cd "$W" && timeout 30s "$S" --compile -o "$n.s" "$n.sno" </dev/null >/dev/null 2>&1 ); fi || return 1
+    if [ -n "$envk" ]; then ( cd "$W" && env "$envk" timeout -k 5 30s "$S" --compile -o "$n.s" "$n.sno" </dev/null >/dev/null 2>&1 )
+    else ( cd "$W" && timeout -k 5 30s "$S" --compile -o "$n.s" "$n.sno" </dev/null >/dev/null 2>&1 ); fi || return 1
     gcc -m64 -no-pie "$W/$n.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$W/$n.bin" 2>/dev/null || return 1
-    ( cd "$W" && timeout 20s "./$n.bin" </dev/null 2>&1 )
+    ( cd "$W" && timeout -k 5 20s "./$n.bin" </dev/null 2>&1 )
 }
 mk lblhandler_bare   "\t&ERRLIMIT = 1000\nSTART\tSETEXIT(.H)\n\tX = NOSUCHFN(1)\n\tOUTPUT = 'after'\n\t:(FIN)\nH\tOUTPUT = 'caught'\n\t:(CONTINUE)\nFIN\tOUTPUT = 'fin'\nEND\n"
 mk lblhandler_define "\t&ERRLIMIT = 1000\n\tDEFINE('H()')\t:(START)\nH\tOUTPUT = 'caught'\n\t:(CONTINUE)\nSTART\tSETEXIT(.H)\n\tX = NOSUCHFN(1)\n\tOUTPUT = 'after'\nFIN\tOUTPUT = 'fin'\nEND\n"

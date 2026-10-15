@@ -69,16 +69,16 @@ cat > "$T/census.sno" <<'EOF'
 END
 EOF
 printf '%s\n' 'my $s = "éé:-x";' 'say $s.substr(2, 1);' 'say $s.substr(0, 2);' > "$T/rk.raku"
-( cd "$T" && timeout 20 "$SBL" -bf census.sno < /dev/null > census.oracle 2>&1 ) || refuse "sbl did not run the census cleanly"
+( cd "$T" && timeout -k 5 20 "$SBL" -bf census.sno < /dev/null > census.oracle 2>&1 ) || refuse "sbl did not run the census cleanly"
 grep -qx 'substr5 \[:\]' "$T/census.oracle" && grep -qx 'cursor 4' "$T/census.oracle" || refuse "sbl's answer moved: [$(tr '\n' '|' < "$T/census.oracle" | head -c 160)]"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
 same() { [ "$1" = 0 ] || { echo "rc=$1"; return; }; cmp -s "$T/$2" "$T/$3" && echo ok || echo "$(diff "$T/$3" "$T/$2" | grep '^[<>]' | tr '\n' '|' | head -c 160)"; }
-m3() { ( cd "$T" && timeout 20 "$SCRIP" "$1.sno" < /dev/null > "$1.m3" 2>&1; echo $? ); }
-m4() { ( cd "$T" && timeout 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout 20 "./$1.bin" < /dev/null > "$1.m4" 2>&1; echo $? ); }
+m3() { ( cd "$T" && timeout -k 5 20 "$SCRIP" "$1.sno" < /dev/null > "$1.m3" 2>&1; echo $? ); }
+m4() { ( cd "$T" && timeout -k 5 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout -k 5 20 "./$1.bin" < /dev/null > "$1.m4" 2>&1; echo $? ); }
 rc=$(m3 census); arm "m3: 24 indexing probes on a UTF-8 subject equal sbl -bf" "$(same "$rc" census.m3 census.oracle)"
 rc=$(m4 census); arm "m4: 24 indexing probes on a UTF-8 subject equal sbl -bf" "$(same "$rc" census.m4 census.oracle)"
-got=$(cd "$T" && timeout 20 "$SCRIP" rk.raku < /dev/null 2>&1 | tr '\n' '|')
+got=$(cd "$T" && timeout -k 5 20 "$SCRIP" rk.raku < /dev/null 2>&1 | tr '\n' '|')
 arm "CONTROL m3 Raku: .substr counts characters, as rakudo does" "$([ "$got" = ":|éé|" ] && echo ok || echo "got [$got] want [:|éé|]")"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }
 echo "FAIL [$NAME]"; exit 1

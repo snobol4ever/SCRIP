@@ -75,17 +75,17 @@ errh    OUTPUT = 'ERROR ' &ERRTYPE      :(loop)
 END
 SNO
 printf "%s\n" "'0' ? t" "'ab' ? a" "LEN(2) | a" "a | LEN(2)" "a[1] ? t 'a'" "'a' | a | 'b'" "'a' | 'b' | a" "'a' ? 'a' | a" "'ab' ? ARBNO(t)" "'ab' ? FENCE(t)" "'ab' ? *t" "'ab' ? t . x" "'ab' ? a $ x" "LEN(1) | 'b'" > "$D/b.in"
-( cd "$D" && timeout 10 "$SBL" -bf a.sno < /dev/null 2>/dev/null > a.want )
-( cd "$D" && timeout 10 "$SBL" -bf b.sno < b.in 2>/dev/null > b.want )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf a.sno < /dev/null 2>/dev/null > a.want )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf b.sno < b.in 2>/dev/null > b.want )
 grep -q "ERROR 240" "$D/a.want" || refuse "sbl -bf does not raise ERROR 240 for the match operand: [$(tr '\n' '|' < "$D/a.want")]"
 grep -q "ERROR 240" "$D/b.want" || refuse "sbl -bf does not raise ERROR 240 through EVAL: [$(tr '\n' '|' < "$D/b.want")]"
-m4bin() { timeout 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc -no-pie "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
+m4bin() { timeout -k 5 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc -no-pie "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
 red=0; n=0
 arm() { n=$((n + 1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  FAIL $1: $2"; red=$((red + 1)); fi; }
-( cd "$D" && timeout 30 "$B/scrip" a.sno < /dev/null > a.m3 2>/dev/null )
-( cd "$D" && m4bin a && timeout 30 ./a.bin < /dev/null > a.m4 2>/dev/null )
-( cd "$D" && timeout 30 "$B/scrip" b.sno < b.in > b.m3 2>/dev/null )
-( cd "$D" && m4bin b && timeout 30 ./b.bin < b.in > b.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" a.sno < /dev/null > a.m3 2>/dev/null )
+( cd "$D" && m4bin a && timeout -k 5 30 ./a.bin < /dev/null > a.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" b.sno < b.in > b.m3 2>/dev/null )
+( cd "$D" && m4bin b && timeout -k 5 30 ./b.bin < b.in > b.m4 2>/dev/null )
 for m in m3 m4; do
     if [ -f "$D/a.$m" ] && cmp -s "$D/a.want" "$D/a.$m"; then arm "a $m (statement forms: match 240, alternation 5/6, concatenation 8/9, right association, value match, pattern variable control)" ok
     else arm "a $m" "got [$(tr '\n' '|' 2>/dev/null < "$D/a.$m")] want [$(tr '\n' '|' < "$D/a.want")]"; fi

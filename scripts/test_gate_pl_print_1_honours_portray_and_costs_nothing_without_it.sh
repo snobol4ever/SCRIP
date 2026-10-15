@@ -52,7 +52,7 @@ PLEOF
 echo "=== ARM 1 (FIRST, and the one that can be faked by running it last): no portray/1 costs nothing ==="
 sed 's/print(/write(/g' "$D/noportray.pl" > "$D/nowrite.pl"
 gate_emit_md5() {   # $1 = .pl to compile, $2 = .s to write -- path- AND basename-normalised, so only CODE differs
-  timeout 60 "$SCRIP" --compile -o "$2" "$1" >/dev/null 2>&1 || return 1
+  timeout -k 5 60 "$SCRIP" --compile -o "$2" "$1" >/dev/null 2>&1 || return 1
   sed "s|$D|@|g; s|noportray|@PROG@|g; s|nowrite|@PROG@|g; s|yesportray|@PROG@|g; s|yeswrite|@PROG@|g" "$2" | md5sum | cut -d' ' -f1
 }
 N=$((N+1))
@@ -84,7 +84,7 @@ if grep -qE '(^|[^A-Za-z0-9_])portray([^A-Za-z0-9_]|$)' "$D/np.s" 2>/dev/null; t
   echo "  RED  a program with no portray/1 emitted a reference to portray"; FAIL=$((FAIL+1))
 else PASS=$((PASS+1)); fi
 N=$((N+1))
-got=$(timeout 20 "$SCRIP" "$D/noportray.pl" </dev/null 2>&1)
+got=$(timeout -k 5 20 "$SCRIP" "$D/noportray.pl" </dev/null 2>&1)
 want=$'42\nfoo\na(b)\n[1,2]'
 if [ "$got" = "$want" ]; then PASS=$((PASS+1)); else printf '  RED  no-portray stdout changed: got [%s] want [%s]\n' "$got" "$want"; FAIL=$((FAIL+1)); fi
 echo "=== ARM 2: with portray/1 defined, print/1 consults it -- both modes ==="
@@ -96,12 +96,12 @@ main :- print(42), nl, print(3.14), nl, print(foo), nl, halt.
 PLEOF
 want2=$'42\n3\nfoofoo'
 N=$((N+1))
-got=$(timeout 20 "$SCRIP" "$D/portray.pl" </dev/null 2>/dev/null)
+got=$(timeout -k 5 20 "$SCRIP" "$D/portray.pl" </dev/null 2>/dev/null)
 if [ "$got" = "$want2" ]; then PASS=$((PASS+1)); else printf '  m3 RED  portray goal: got [%s] want [%s]\n' "$got" "$want2"; FAIL=$((FAIL+1)); fi
 N=$((N+1))
-if timeout 60 "$SCRIP" --compile -o "$D/p.s" "$D/portray.pl" >/dev/null 2>&1 \
+if timeout -k 5 60 "$SCRIP" --compile -o "$D/p.s" "$D/portray.pl" >/dev/null 2>&1 \
    && gcc -m64 -no-pie "$D/p.s" -o "$D/p.bin" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm >/dev/null 2>&1; then
-  got=$(timeout 20 "$D/p.bin" 2>/dev/null)
+  got=$(timeout -k 5 20 "$D/p.bin" 2>/dev/null)
   if [ "$got" = "$want2" ]; then PASS=$((PASS+1)); else printf '  m4 RED  portray goal: got [%s] want [%s]\n' "$got" "$want2"; FAIL=$((FAIL+1)); fi
 else echo "  m4 RED  portray program failed to compile or link"; FAIL=$((FAIL+1)); fi
 echo "=== ARM 3: a program that defines its OWN print/1 keeps it -- the wrapper never shadows the user ==="
@@ -112,7 +112,7 @@ print(X) :- write(mine(X)).
 main :- print(foo), nl, halt.
 PLEOF
 N=$((N+1))
-got=$(timeout 20 "$SCRIP" "$D/ownprint.pl" </dev/null 2>/dev/null)
+got=$(timeout -k 5 20 "$SCRIP" "$D/ownprint.pl" </dev/null 2>/dev/null)
 if [ "$got" = "mine(foo)" ]; then PASS=$((PASS+1)); else printf '  RED  user print/1 was shadowed: got [%s] want [mine(foo)]\n' "$got"; FAIL=$((FAIL+1)); fi
 echo "=== ARM 4: format ~p consults portray, and operator and list notation SURVIVE the hook -- both modes ==="
 cat > "$D/fp.pl" <<'PLEOF'
@@ -130,11 +130,11 @@ want4='[3]
 [[foofoo,3]]
 [1+foofoo]'
 N=$((N+1))
-got=$(cd "$D" && timeout 20 "$SCRIP" "$D/fp.pl" </dev/null 2>/dev/null)
+got=$(cd "$D" && timeout -k 5 20 "$SCRIP" "$D/fp.pl" </dev/null 2>/dev/null)
 if [ "$got" = "$want4" ]; then PASS=$((PASS+1)); else printf '  m3 RED  format ~~p: got [%s]\n       want [%s]\n' "$got" "$want4"; FAIL=$((FAIL+1)); fi
 N=$((N+1))
-if (cd "$D" && timeout 60 "$SCRIP" --compile -o "$D/fp.s" "$D/fp.pl" >/dev/null 2>&1) && gcc -m64 -no-pie "$D/fp.s" -o "$D/fp.bin" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm >/dev/null 2>&1; then
-  got=$(cd "$D" && timeout 20 "$D/fp.bin" 2>/dev/null)
+if (cd "$D" && timeout -k 5 60 "$SCRIP" --compile -o "$D/fp.s" "$D/fp.pl" >/dev/null 2>&1) && gcc -m64 -no-pie "$D/fp.s" -o "$D/fp.bin" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm >/dev/null 2>&1; then
+  got=$(cd "$D" && timeout -k 5 20 "$D/fp.bin" 2>/dev/null)
   if [ "$got" = "$want4" ]; then PASS=$((PASS+1)); else printf '  m4 RED  format ~~p: got [%s]\n       want [%s]\n' "$got" "$want4"; FAIL=$((FAIL+1)); fi
 else echo "  m4 RED  the ~~p program failed to compile or link"; FAIL=$((FAIL+1)); fi
 echo "=== ARM 7: A COLLECTING portray/1 -- the hook allocates enough to collect several times inside ONE print, and every level re-reads its cell (the cfo's arm) -- both modes ==="
@@ -158,11 +158,11 @@ PLEOF
 want8='f(<ex>,<g(ex,<ex>)>,ex)
 <<ex>>|q(ex)'
 for a in fc:want7 fn:want8; do w=${a%%:*}; eval "want=\$${a#*:}"
-  N=$((N+1)); got=$(cd "$D" && timeout 60 "$SCRIP" "$D/$w.pl" </dev/null 2>/dev/null)
+  N=$((N+1)); got=$(cd "$D" && timeout -k 5 60 "$SCRIP" "$D/$w.pl" </dev/null 2>/dev/null)
   if [ "$got" = "$want" ]; then PASS=$((PASS+1)); else printf '  m3 RED  %s: got [%s]\n       want [%s]\n' "$w" "$got" "$want"; FAIL=$((FAIL+1)); fi
   N=$((N+1))
-  if (cd "$D" && timeout 60 "$SCRIP" --compile -o "$D/$w.s" "$D/$w.pl" >/dev/null 2>&1) && gcc -m64 -no-pie "$D/$w.s" -o "$D/$w.bin" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm >/dev/null 2>&1; then
-    got=$(cd "$D" && timeout 60 "$D/$w.bin" </dev/null 2>/dev/null)
+  if (cd "$D" && timeout -k 5 60 "$SCRIP" --compile -o "$D/$w.s" "$D/$w.pl" >/dev/null 2>&1) && gcc -m64 -no-pie "$D/$w.s" -o "$D/$w.bin" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm >/dev/null 2>&1; then
+    got=$(cd "$D" && timeout -k 5 60 "$D/$w.bin" </dev/null 2>/dev/null)
     if [ "$got" = "$want" ]; then PASS=$((PASS+1)); else printf '  m4 RED  %s: got [%s]\n       want [%s]\n' "$w" "$got" "$want"; FAIL=$((FAIL+1)); fi
   else printf '  m4 RED  %s failed to compile or link\n' "$w"; FAIL=$((FAIL+1)); fi
 done
@@ -175,7 +175,7 @@ main :- catch(print(baz(3)), E, (write(caught_print(E)), nl)),
 	catch(format("~p", [qux(4)]), E2, (write(caught_format(E2)), nl)), halt.
 PLEOF
 N=$((N+1))
-got=$(cd "$D" && timeout 20 "$SCRIP" "$D/thr.pl" </dev/null 2>&1)
+got=$(cd "$D" && timeout -k 5 20 "$SCRIP" "$D/thr.pl" </dev/null 2>&1)
 case "$got" in
     caught_print\(portray_fired\)*) PASS=$((PASS+1)) ;;
     *) printf '  RED  a throwing portray/1 did not propagate through print/1: got [%s]\n' "$got"; FAIL=$((FAIL+1)) ;;
@@ -202,7 +202,7 @@ main :- loop(LOOPS), write(done), nl, halt.
 PLEOF
 slope_rss() {
   sed "s/loop(LOOPS)/loop($1)/" "$D/slope.pl" > "$D/s$1.pl"
-  /usr/bin/time -f '%M' timeout 300 "$SCRIP" "$D/s$1.pl" </dev/null >/dev/null 2>"$D/s$1.rss" || { echo ""; return; }
+  /usr/bin/time -f '%M' timeout -k 5 300 "$SCRIP" "$D/s$1.pl" </dev/null >/dev/null 2>"$D/s$1.rss" || { echo ""; return; }
   tail -1 "$D/s$1.rss"
 }
 N=$((N+1))

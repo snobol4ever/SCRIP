@@ -80,14 +80,14 @@ N12     OUTPUT = 'NO  12 ARBNO(FENCE(+) SPAN . L1): the capture ends the body' :
 Y12     OUTPUT = 'YES 12 ARBNO(FENCE(+) SPAN . L1): the capture ends the body'
 END
 EOF
-( cd "$T" && timeout 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
+( cd "$T" && timeout -k 5 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
 [ "$(grep -c '^YES' "$T/w.ref")" = 12 ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle's ref does not read twelve YES lines -- the witness is not the one this gate was minted on"; exit 2; }
 RC=0
-got="$(timeout 20s "$SCRIP" "$T/w.sno" </dev/null 2>&1)"
+got="$(timeout -k 5 20s "$SCRIP" "$T/w.sno" </dev/null 2>&1)"
 if [ "$got" = "$(cat "$T/w.ref")" ]; then echo "  m3 PASS (12/12 lines byte-identical to the oracle)"
 else echo "  m3 FAIL (diverged from the oracle on: $(diff <(echo "$got") "$T/w.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 if "$SCRIP" --compile "$T/w.sno" -o "$T/w.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/w.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/w" 2>"$T/ld.log"; then
-    got4="$(timeout 20s "$T/w" </dev/null 2>&1)"
+    got4="$(timeout -k 5 20s "$T/w" </dev/null 2>&1)"
     if [ "$got4" = "$(cat "$T/w.ref")" ]; then echo "  m4 PASS (12/12 lines byte-identical to the oracle)"
     else echo "  m4 FAIL (diverged from the oracle on: $(diff <(echo "$got4") "$T/w.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link failed, so arm 2 measured nothing"; exit 2; fi

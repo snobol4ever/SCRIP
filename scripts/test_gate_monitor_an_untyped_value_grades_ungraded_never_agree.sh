@@ -75,9 +75,9 @@ run_pair() {
     local d="$WORK/$1"; mkdir -p "$d"
     printf '%s\n' "$2" > "$d/orc.json"; printf '%s\n' "$3" > "$d/scr.json"
     local p; for p in orc scr; do mkfifo "$d/$p.ready" "$d/$p.go"; done
-    timeout 60 python3 "$WORK/participant.py" "$d/orc.ready" "$d/orc.go" "$d/orc.json" > "$d/orc.err" 2>&1 & local po=$!
-    timeout 60 python3 "$WORK/participant.py" "$d/scr.ready" "$d/scr.go" "$d/scr.json" > "$d/scr.err" 2>&1 & local ps=$!
-    out=$(timeout 60 python3 "$CTRL" "orc:$d/orc.ready:$d/orc.go" "scr:$d/scr.ready:$d/scr.go" 2>&1); rc=$?
+    timeout -k 5 60 python3 "$WORK/participant.py" "$d/orc.ready" "$d/orc.go" "$d/orc.json" > "$d/orc.err" 2>&1 & local po=$!
+    timeout -k 5 60 python3 "$WORK/participant.py" "$d/scr.ready" "$d/scr.go" "$d/scr.json" > "$d/scr.err" 2>&1 & local ps=$!
+    out=$(timeout -k 5 60 python3 "$CTRL" "orc:$d/orc.ready:$d/orc.go" "scr:$d/scr.ready:$d/scr.go" 2>&1); rc=$?
     kill "$po" "$ps" 2>/dev/null; wait "$po" "$ps" 2>/dev/null
     return 0
 }
@@ -155,7 +155,7 @@ fi
 # ARM 7 -- end to end through monitor_run.sh against the SPITBOL fork, which sends a TABLE untyped.
 examined=$((examined+1))
 printf '        T = TABLE()\n        X = "ok"\nEND\n' > "$WORK/untyped_table.sno"
-out=$(timeout 120 bash "$HERE/monitor_run.sh" "$WORK/untyped_table.sno" --oracle 2>&1); rc=$?
+out=$(timeout -k 5 120 bash "$HERE/monitor_run.sh" "$WORK/untyped_table.sno" --oracle 2>&1); rc=$?
 if refused 7; then :
 elif printf '%s\n' "$out" | grep -q '^\[monitor_run\] AGREE:'; then arm_fail 7 "monitor_run.sh printed AGREE over a run whose TABLE was never compared: $(printf '%s\n' "$out" | grep '^\[monitor_run\] AGREE:' | cut -c1-160)"
 elif [ "$rc" != 0 ]; then arm_fail 7 "rc=$rc, want 0: $(printf '%s\n' "$out" | tail -1 | cut -c1-160)"

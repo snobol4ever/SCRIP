@@ -31,7 +31,7 @@ fi
 build_tree fork "$DST" || exit 2
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 cp "$WIT/sync_step_prolog.pl" "$W/w.pl"
-fired=$(timeout 120 python3 - "$DST/bin/swipl" "$W/w.pl" "$W" <<'PY'
+fired=$(timeout -k 5 120 python3 - "$DST/bin/swipl" "$W/w.pl" "$W" <<'PY'
 import os, struct, subprocess, sys
 swipl, wit, d = sys.argv[1:4]
 r, g = os.path.join(d, 'ready'), os.path.join(d, 'go'); os.mkfifo(r); os.mkfifo(g)

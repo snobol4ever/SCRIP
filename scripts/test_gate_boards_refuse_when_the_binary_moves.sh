@@ -97,7 +97,7 @@ if [ -f "$M/ALL.sno" ] && [ -x "$HERE/../scrip" ] && [ -f "$HERE/../out/libscrip
     head -300 "$M/ALL.sno" > "$W7/tests/snobol4/ALL.sno"; head -300 "$M/ALL.ref" > "$W7/tests/snobol4/ALL.ref"   # ~300 entries in m3: several seconds of grading after the baseline is stated
     cp "$HERE/../scrip" "$W7/scrip"; cp -L "$HERE/../out/libscrip_rt.so" "$W7/out/libscrip_rt.so"; chmod +x "$W7/scrip"
     printf 'ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\tsecs\tnote\n' > "$W7/db.tsv"
-    ( cd "$HERE/.." && env -u S4E_BIN_AT_START PYTHONUNBUFFERED=1 SCRIP="$W7/scrip" RT_DIR="$W7/out" S4E_PROGRESS_DB="$W7/db.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$W7/tests/snobol4/ALL.sno" "$W7/tests/snobol4/ALL.ref" --modes m3 > "$W7/out.txt" 2> "$W7/err.txt"; echo $? > "$W7/rc" ) &
+    ( cd "$HERE/.." && env -u S4E_BIN_AT_START PYTHONUNBUFFERED=1 SCRIP="$W7/scrip" RT_DIR="$W7/out" S4E_PROGRESS_DB="$W7/db.tsv" timeout -k 5 300 python3 scripts/corpus_suite_harness.py run "$W7/tests/snobol4/ALL.sno" "$W7/tests/snobol4/ALL.ref" --modes m3 > "$W7/out.txt" 2> "$W7/err.txt"; echo $? > "$W7/rc" ) &
     _p7=$!; _i=0
     # wait for the harness to STATE its baseline (BINARY_AT_START, printed after its startup work), then mutate while the busy loop runs
     while [ $_i -lt 1200 ] && ! grep -q '^BINARY_AT_START ' "$W7/out.txt" 2>/dev/null && kill -0 $_p7 2>/dev/null; do sleep 0.05; _i=$((_i+1)); done

@@ -74,13 +74,13 @@ for w in $WITNESSES $CONTROLS; do
     want_n=$((want_n+2))
     want=$("$SBL" -bf "$sink" "$d/$w.sno" </dev/null 2>&1); orc=$?
     [ "$orc" = 0 ] && [ -n "$want" ] || { echo "⛔ GATE REFUSES (rc=2): oracle run for $w exited $orc -- cannot measure"; exit 2; }
-    o=$(timeout 20 ./scrip "$d/$w.sno" </dev/null 2>&1); r=$?; graded=$((graded+1))
+    o=$(timeout -k 5 20 ./scrip "$d/$w.sno" </dev/null 2>&1); r=$?; graded=$((graded+1))
     if [ "$r" != 0 ] || [ "$o" != "$want" ]; then
         echo "  ⛔ RED m3 $w: rc=$r out=[$(printf '%s' "$o" | tr '\n' '|' | cut -c1-90)] -- oracle rc=0 out=[$(printf '%s' "$want" | tr '\n' '|')]"; bad=1
     fi
-    if timeout 120 ./scrip --compile -o "$d/$w.s" "$d/$w.sno" </dev/null >/dev/null 2>&1 \
+    if timeout -k 5 120 ./scrip --compile -o "$d/$w.s" "$d/$w.sno" </dev/null >/dev/null 2>&1 \
        && gcc -m64 -no-pie "$d/$w.s" -o "$d/$w.m4" -L./out -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread 2>/dev/null; then
-        o=$(timeout 20 "$d/$w.m4" </dev/null 2>&1); r=$?; graded=$((graded+1))
+        o=$(timeout -k 5 20 "$d/$w.m4" </dev/null 2>&1); r=$?; graded=$((graded+1))
         if [ "$r" != 0 ] || [ "$o" != "$want" ]; then
             echo "  ⛔ RED m4 $w: rc=$r out=[$(printf '%s' "$o" | tr '\n' '|' | cut -c1-90)] -- oracle rc=0 out=[$(printf '%s' "$want" | tr '\n' '|')]"; bad=1
         fi

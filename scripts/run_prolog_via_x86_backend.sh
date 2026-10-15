@@ -23,7 +23,7 @@ PLBASE="$(basename "$PL" .pl)"
 ASM="$WORK/$PLBASE.s"
 # CORPUS-S-HYGIENE (Lon 2026-06-04): .s + bb_macros.s land in the mktemp WORK dir, never next to the source.
 # Tracked corpus *.s are frozen DEMO artifacts only (roman, wordcount, claws5, treebank, ...).
-( cd "$WORK" && timeout 8 "$SCRIP" --compile --target=x86 "$PLABS" > "$ASM" 2>"$WORK/scrip.err" < /dev/null ) || {
+( cd "$WORK" && timeout -k 5 8 "$SCRIP" --compile --target=x86 "$PLABS" > "$ASM" 2>"$WORK/scrip.err" < /dev/null ) || {
     echo "FAIL scrip emit failed:"; cat "$WORK/scrip.err"; exit 1
 }
 ( cd "$WORK" && as --64 -o "$WORK/prog.o" "$ASM" ) 2>"$WORK/as.err" || {
@@ -32,4 +32,4 @@ ASM="$WORK/$PLBASE.s"
 gcc -no-pie -o "$WORK/prog_bin" "$WORK/prog.o" "$LIBRT" -lm -lstdc++ -Wl,-rpath,"$(dirname "$LIBRT")" 2>"$WORK/ld.err" || {
     echo "FAIL link:"; cat "$WORK/ld.err" | head -20; exit 1
 }
-timeout 8 "$WORK/prog_bin" $SW < /dev/null
+timeout -k 5 8 "$WORK/prog_bin" $SW < /dev/null

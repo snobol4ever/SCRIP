@@ -60,7 +60,7 @@ red() { FAIL=$((FAIL+1)); echo "  FAIL $1: $2"; }
 # the witnesses
 printf "        DEFINE('R(N)')                    :(REND)\nR       R = EQ(N,0) 0                     :S(RETURN)\n        R = R(N - 1) + 1                  :(RETURN)\nREND    OUTPUT = 'depth=' R(50000)\nEND\n" > "$W/deep.sno"
 printf "        T = TABLE()\n        I = 0\nL       I = LT(I,30000) I + 1         :F(D)\n        T<I> = DUPL('x',100)          :(L)\nD       OUTPUT = 'built ' I\nEND\n" > "$W/live.sno"
-(cd "$W" && timeout 60 "$SBL" $SBLF deep.sno < /dev/null > deep.ref 2>&1; timeout 60 "$SBL" $SBLF live.sno < /dev/null > live.ref 2>&1)
+(cd "$W" && timeout -k 5 60 "$SBL" $SBLF deep.sno < /dev/null > deep.ref 2>&1; timeout -k 5 60 "$SBL" $SBLF live.sno < /dev/null > live.ref 2>&1)
 [ "$(cat "$W/deep.ref")" = "depth=50000" ] && [ "$(cat "$W/live.ref")" = "built 30000" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the oracle's refs moved: deep '$(head -c 60 "$W/deep.ref")' live '$(head -c 60 "$W/live.ref")'"; gate_stamp; exit 2; }
 declare -A HEAP=([deepdecl]=131072 [deepnodecl]=131072 [livedecl]=2048 [livenodecl]=131072)
 declare -A STACK=([deepdecl]=262144 [deepnodecl]=4096 [livedecl]=4096 [livenodecl]=4096)
@@ -70,16 +70,16 @@ src_of() { case "$1" in deep*) echo "$W/deep.sno";; *) echo "$W/live.sno";; esac
 ref_of() { case "$1" in deep*) echo "$W/deep.ref";; *) echo "$W/live.ref";; esac; }
 
 echo "--- W PREMISE: the four units against scrip directly, both modes, and the window mistake ---"
-m4bin() { (cd "$W" && timeout 120 "$SCRIP" --compile "$1" < /dev/null > "$2.s" 2>/dev/null && gcc -c "$2.s" -o "$2.o" && gcc "$2.o" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$2.bin") >/dev/null 2>&1; }
+m4bin() { (cd "$W" && timeout -k 5 120 "$SCRIP" --compile "$1" < /dev/null > "$2.s" 2>/dev/null && gcc -c "$2.s" -o "$2.o" && gcc "$2.o" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$2.bin") >/dev/null 2>&1; }
 m4bin "$W/deep.sno" "$W/deepbin"; m4bin "$W/live.sno" "$W/livebin"
 prem_ok=1
 for u in $UNITS; do
   s=$(src_of "$u"); r=$(ref_of "$u"); b=$W/$([ "${u#deep}" != "$u" ] && echo deepbin || echo livebin).bin
-  o3=$(cd "$W" && timeout 60 "$SCRIP" --run -d${HEAP[$u]}k -s${STACK[$u]}k "$s" < /dev/null 2>/dev/null); o4=$(timeout 60 "$b" -d${HEAP[$u]}k -s${STACK[$u]}k < /dev/null 2>/dev/null)
+  o3=$(cd "$W" && timeout -k 5 60 "$SCRIP" --run -d${HEAP[$u]}k -s${STACK[$u]}k "$s" < /dev/null 2>/dev/null); o4=$(timeout -k 5 60 "$b" -d${HEAP[$u]}k -s${STACK[$u]}k < /dev/null 2>/dev/null)
   v3=FAIL; [ "$o3" = "$(cat "$r")" ] && v3=PASS; v4=FAIL; [ "$o4" = "$(cat "$r")" ] && v4=PASS
   [ "$v3" = "${WANT[$u]}" ] && [ "$v4" = "${WANT[$u]}" ] || { prem_ok=0; echo "      $u m3=$v3 m4=$v4 want ${WANT[$u]}"; }
 done
-ow=$(cd "$W" && SCRIP_HEAP_KB=2048 timeout 60 "$SCRIP" --run "$W/live.sno" < /dev/null 2>/dev/null)
+ow=$(cd "$W" && SCRIP_HEAP_KB=2048 timeout -k 5 60 "$SCRIP" --run "$W/live.sno" < /dev/null 2>/dev/null)
 [ "$prem_ok" = 1 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: a witness no longer depends on its declared size -- the pairs below would measure nothing"; gate_stamp; exit 2; }
 ok W "deepdecl PASS / deepnodecl FAIL / livedecl FAIL / livenodecl PASS against scrip -d -s directly, m3 and m4; the declared 2 MB handed to SCRIP_HEAP_KB (the window) reads '$(head -c 20 <<<"$ow")' -- PASS, the mistake a pair catches"
 
@@ -111,7 +111,7 @@ if [ "${FAIL_ONCE:-0}" = 1 ]; then
   grep -q 'FAIL_ONCE: the reader removed' "$W/fo/scripts/corpus_suite_harness.py" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: FAIL_ONCE found no _size_switches anchor"; exit 2; }
   HSCRIPTS="$W/fo/scripts"; echo "FAIL_ONCE=1: the harness family runs with _size_switches removed"
 fi
-oh=$(SCRIP="$SCRIP" RT_DIR="$RT" S4E_PROGRESS_DB="$W/h.tsv" timeout 600 python3 "$HSCRIPTS/corpus_suite_harness.py" run "$W/h/ALL.sno" "$W/h/ALL.ref" --modes m3,m4 2>&1); rh=$?
+oh=$(SCRIP="$SCRIP" RT_DIR="$RT" S4E_PROGRESS_DB="$W/h.tsv" timeout -k 5 600 python3 "$HSCRIPTS/corpus_suite_harness.py" run "$W/h/ALL.sno" "$W/h/ALL.ref" --modes m3,m4 2>&1); rh=$?
 [ "$rh" = 2 ] && { echo "      $(grep -m1 -E 'REFUS' <<<"$oh" | cut -c1-200)"; }
 # a suite outside the corpus appends no progress rows, so the harness's own output is read: every non-PASS entry prints
 # "  <KIND> <mode> <name>: ..." and an entry absent from those lines in a graded run (SUITE_BOARD printed) passed
@@ -124,19 +124,19 @@ quad H "$W/h.tsv" "corpus_suite_harness.py run over a scratch SNOBOL4 table (rc 
 echo "--- D: test_demos_suite.sh (a standalone unit's .heap/.stack sidecars) ---"
 mkdir -p "$W/d"
 for u in $UNITS; do cp "$(src_of "$u")" "$W/d/$u.sno"; cp "$(ref_of "$u")" "$W/d/$u.ref"; printf '%s\t%s\n' "$u" "${HEAP[$u]}" > "$W/d/$u.heap"; printf '%s\t%s\n' "$u" "${STACK[$u]}" > "$W/d/$u.stack"; done
-od=$(DEMOS_DIR="$W/d" S4E_PROGRESS_DB="$W/d.tsv" timeout 600 bash "$HERE/test_demos_suite.sh" snobol4 2>&1); rd=$?
+od=$(DEMOS_DIR="$W/d" S4E_PROGRESS_DB="$W/d.tsv" timeout -k 5 600 bash "$HERE/test_demos_suite.sh" snobol4 2>&1); rd=$?
 [ "$rd" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$od" | cut -c1-200)"
 quad D "$W/d.tsv" "test_demos_suite.sh snobol4 over a scratch demos dir (rc $rd)"
 
 echo "--- P1: test_snobol4_dotnet_suite.sh (live oracle diff, the table's heap_kb/stack_kb through run_at_declared_table) ---"
 mkdir -p "$W/p1"; for u in $UNITS; do cp "$(src_of "$u")" "$W/p1/$u.sno"; done; csv4 dotnet > "$W/p1/ALL.csv"
-o1=$(DOTNET_SUITE="$W/p1" S4E_PROGRESS_DB="$W/p1.tsv" timeout 600 bash "$HERE/test_snobol4_dotnet_suite.sh" 2>&1); r1=$?
+o1=$(DOTNET_SUITE="$W/p1" S4E_PROGRESS_DB="$W/p1.tsv" timeout -k 5 600 bash "$HERE/test_snobol4_dotnet_suite.sh" 2>&1); r1=$?
 [ "$r1" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$o1" | cut -c1-200)"
 quad P1 "$W/p1.tsv" "test_snobol4_dotnet_suite.sh over a scratch package (rc $r1)"
 
 echo "--- P2: test_snobol4_csnobol4_suite.sh (the Budne runner, ref-graded, run_at_declared_table) ---"
 mkdir -p "$W/p2"; for u in $UNITS; do cp "$(src_of "$u")" "$W/p2/$u.sno"; cp "$(ref_of "$u")" "$W/p2/$u.ref"; done; csv4 csnobol4_suite > "$W/p2/ALL.csv"; : > "$W/p2/ALL.ref"
-o2=$(CSNOBOL4_SUITE="$W/p2" S4E_PROGRESS_DB="$W/p2.tsv" timeout 600 bash "$HERE/test_snobol4_csnobol4_suite.sh" 2>&1); r2=$?
+o2=$(CSNOBOL4_SUITE="$W/p2" S4E_PROGRESS_DB="$W/p2.tsv" timeout -k 5 600 bash "$HERE/test_snobol4_csnobol4_suite.sh" 2>&1); r2=$?
 [ "$r2" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$o2" | cut -c1-200)"
 quad P2 "$W/p2.tsv" "test_snobol4_csnobol4_suite.sh over a scratch package (rc $r2)"
 
@@ -156,7 +156,7 @@ if [ "${FAIL_ONCE:-0}" = 1 ]; then
   { cat "$HERE/lib_declared_arena.sh"; printf '\ndeclared_switches_beside() { return 0; }  # FAIL_ONCE: the reader removed\n'; } > "$W/fl/scripts/lib_declared_arena.sh"
   LSCRIPTS="$W/fl/scripts"; echo "FAIL_ONCE=1: the ladder family runs with declared_switches_beside removed"
 fi
-ol=$(S4E_HOME="$W/l" SCRIP="$SCRIP" RT_DIR="$RT" timeout 600 bash "$LSCRIPTS/test_snobol4_ladder.sh" 2>&1); rl=$?
+ol=$(S4E_HOME="$W/l" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 600 bash "$LSCRIPTS/test_snobol4_ladder.sh" 2>&1); rl=$?
 [ "$rl" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ol" | cut -c1-200)"
 # the ladder appends no progress rows; it prints one line per witness, "rung NN  ladder__rung00_<unit>  m3=<v> m4=<v> (...)"
 { printf 'ts\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\n'
@@ -180,29 +180,29 @@ done
 pbtab() {  # <runner output> <awk program printing the verdict of unit u in mode m> -- the quad table from a runner's printed rows
   local u m; printf 'ts\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\n'
   for u in $UNITS; do for m in m3 m4; do printf 'x\tx\tx\tx\tx\tpb\tprolog\t%s\t%s\t%s\n' "$u" "$m" "$(awk -v u="$u" -v m="$m" "$2" <<<"$1")"; done; done; }
-os=$(BENCH_PROLOG_DIR="$W/pb" S4E_PROGRESS_DB="$W/pbs.db" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_prolog_bench_suite.sh" 2>&1); rs=$?
+os=$(BENCH_PROLOG_DIR="$W/pb" S4E_PROGRESS_DB="$W/pbs.db" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_prolog_bench_suite.sh" 2>&1); rs=$?
 [ "$rs" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$os" | cut -c1-200)"
 pbtab "$os" '$1==u && $2==m {print $6; exit}' > "$W/pbs.tsv"
 quad PBS "$W/pbs.tsv" "test_prolog_bench_suite.sh over a scratch kernel dir, SCRIP_HEAP_CAP_KB and SCRIP_STACK (rc $rs)"
-om=$(BENCH_DIR="$W/pb" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$LSCRIPTS/test_bench_prolog_modes.sh" 2>&1); rmo=$?
+om=$(BENCH_DIR="$W/pb" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$LSCRIPTS/test_bench_prolog_modes.sh" 2>&1); rmo=$?
 pbtab "$om" '$1==u {print (m=="m3" ? $2 : $3); exit}' > "$W/pbm.tsv"
 quad PBM "$W/pbm.tsv" "test_bench_prolog_modes.sh over a scratch kernel dir, -d/-s switches (rc $rmo)"
-o4=$(BENCH_DIR="$W/pb" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$LSCRIPTS/test_bench_prolog_4way.sh" 2>&1); r4=$?
+o4=$(BENCH_DIR="$W/pb" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$LSCRIPTS/test_bench_prolog_4way.sh" 2>&1); r4=$?
 pbtab "$o4" '$1==u {print (m=="m3" ? $4 : $5); exit}' > "$W/pb4.tsv"
 quad PB4 "$W/pb4.tsv" "test_bench_prolog_4way.sh over a scratch kernel dir, -d/-s switches (rc $r4)"
 # THE FOUR PROLOG TIMING ANGLES (the coo 2026-10-03): the same kernels, each angle's SCRIP rate or time cell per mode -- a number is PASS, a
 # SKIP/NA/- cell (the angle's own correctness or rc refusal) is not. Each prints its grid on stdout and writes no row.
 num() { printf '$1==u {v=(m=="m3" ? $%s : $%s); print (v ~ /^[0-9][0-9.]*$/ ? "PASS" : "FAIL"); exit}' "$1" "$2"; }
 printf 'kernel\tN\tN_rival\n' > "$W/pb.ntsv"; for u in $UNITS; do printf '%s\t2\t2\n' "$u" >> "$W/pb.ntsv"; done
-ot=$(BENCH_DIR="$W/pb" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_bench_prolog_timed.sh" 2>&1); rt=$?
+ot=$(BENCH_DIR="$W/pb" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_bench_prolog_timed.sh" 2>&1); rt=$?
 [ "$rt" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ot" | cut -c1-200)"
 pbtab "$ot" "$(num 5 6)" > "$W/pbt.tsv"
 quad PBT "$W/pbt.tsv" "test_bench_prolog_timed.sh (angle 1) over a scratch kernel dir (rc $rt)"
-of=$(BENCH_DIR="$W/pb" NTSV="$W/pb.ntsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/bench_prolog_fixed_iter.sh" 2>&1); rf=$?
+of=$(BENCH_DIR="$W/pb" NTSV="$W/pb.ntsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/bench_prolog_fixed_iter.sh" 2>&1); rf=$?
 [ "$rf" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$of" | cut -c1-200)"
 pbtab "$of" "$(num 6 7)" > "$W/pbf.tsv"
 quad PBF "$W/pbf.tsv" "bench_prolog_fixed_iter.sh (angle 2) over a scratch kernel dir and N table (rc $rf)"
-op=$(BENCH_DIR="$W/pb" RUNS=1 SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/bench_prolog_perf.sh" 2>&1); rp=$?
+op=$(BENCH_DIR="$W/pb" RUNS=1 SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/bench_prolog_perf.sh" 2>&1); rp=$?
 [ "$rp" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$op" | cut -c1-200)"
 pbtab "$op" "$(num 4 5)" > "$W/pbp.tsv"
 quad PBP "$W/pbp.tsv" "bench_prolog_perf.sh over a scratch kernel dir, m3 and m4r (rc $rp)"
@@ -219,7 +219,7 @@ grep -q work_us "$PV/bench/deepdecl.pl" || { echo "GATE UNPROVEN(2) [$GATE_NAME]
 cp "$W/pb.ntsv" "$PV/fixed-iter-n.tsv"; printf '# EXCLUDED.tsv -- the gate fixture: none\n' > "$PV/EXCLUDED.tsv"
 { printf '# triangulation TSV -- the gate fixture\nkernel\tengine\tangle1_rate\tangle2_rate\tratio\tverdict\tdisk_inblock\tdisk_oublock\n'
   for u in $UNITS; do for e in gnu swi; do printf '%s\t%s\t1\t1\t1.0\tAGREE\t0\t0\n' "$u" "$e"; done; done; } > "$PV/triangulation-20261003T000000Z.tsv"
-ov=$(PROLOG_DIR="$PV" NTSV="$PV/fixed-iter-n.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/bench_prolog_vanroy.sh" --two-number 2>&1); rv=$?
+ov=$(PROLOG_DIR="$PV" NTSV="$PV/fixed-iter-n.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/bench_prolog_vanroy.sh" --two-number 2>&1); rv=$?
 [ "$rv" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ov" | cut -c1-200)"
 pbtab "$ov" '$2==u && $1 ~ /^(MEASURED|DECLARED|REFUSE)$/ {print ($4 ~ /^[0-9]+$/ ? "PASS" : "FAIL"); exit}' > "$W/pbv.tsv"
 quad PBV "$W/pbv.tsv" "bench_prolog_vanroy.sh --two-number over a scratch PROLOG_DIR, SCRIP_us (rc $rv)" m3
@@ -234,20 +234,20 @@ pkg4() {  # <dir> <ext> <package> [prefix] -- the four units as <prefix><u>.<ext
   { printf '%s\n' "$HDR"; for u in $UNITS; do printf '%s,%s,%s,%s,5,0,0,%s,%s,,\n' "$i" "$pre$u" "$pre$u" "$pk" "${HEAP[$u]}" "${STACK[$u]}"; i=$((i+1)); done; } > "$d/ALL.csv"; }
 echo "--- SF: test_snoflake_suite.sh (live sbl diff, run_at_declared_table) ---"
 pkg4 "$W/sf" sno snoflake_suite
-osf=$(SNOFLAKE_SUITE="$W/sf" S4E_PROGRESS_DB="$W/sf.tsv" timeout 600 bash "$HERE/test_snoflake_suite.sh" 2>&1); rsf=$?
+osf=$(SNOFLAKE_SUITE="$W/sf" S4E_PROGRESS_DB="$W/sf.tsv" timeout -k 5 600 bash "$HERE/test_snoflake_suite.sh" 2>&1); rsf=$?
 [ "$rsf" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$osf" | cut -c1-200)"
 quad SF "$W/sf.tsv" "test_snoflake_suite.sh over a scratch package (rc $rsf)"
 echo "--- X64 X32: the SPITBOL x64 and x32 suites (.sbl / .spt units, their shipped-count self-check set to the fixture's 4) ---"
 pkg4 "$W/x64" sbl spitbol_x64_tests; pkg4 "$W/x32" spt spitbol_x32_tests
-ox6=$(SPITBOL_X64_SUITE="$W/x64" SPITBOL_X64_SHIPPED=4 S4E_PROGRESS_DB="$W/x64.tsv" timeout 600 bash "$HERE/test_snobol4_spitbol_x64_suite.sh" 2>&1); rx6=$?
+ox6=$(SPITBOL_X64_SUITE="$W/x64" SPITBOL_X64_SHIPPED=4 S4E_PROGRESS_DB="$W/x64.tsv" timeout -k 5 600 bash "$HERE/test_snobol4_spitbol_x64_suite.sh" 2>&1); rx6=$?
 [ "$rx6" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ox6" | cut -c1-200)"
 quad X64 "$W/x64.tsv" "test_snobol4_spitbol_x64_suite.sh over a scratch package (rc $rx6)"
-ox3=$(SPITBOL_X32_SUITE="$W/x32" SPITBOL_X32_SHIPPED=4 S4E_PROGRESS_DB="$W/x32.tsv" timeout 600 bash "$HERE/test_snobol4_spitbol_x32_suite.sh" 2>&1); rx3=$?
+ox3=$(SPITBOL_X32_SUITE="$W/x32" SPITBOL_X32_SHIPPED=4 S4E_PROGRESS_DB="$W/x32.tsv" timeout -k 5 600 bash "$HERE/test_snobol4_spitbol_x32_suite.sh" 2>&1); rx3=$?
 [ "$rx3" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ox3" | cut -c1-200)"
 quad X32 "$W/x32.tsv" "test_snobol4_spitbol_x32_suite.sh over a scratch package (rc $rx3)"
 echo "--- TP: test_snobol4_spitbol_testpgms_suite.sh (test*.spt units and the testpgms.in every program reads) ---"
 pkg4 "$W/tp" spt spitbol_testpgms test; : > "$W/tp/testpgms.in"
-otp=$(SPITBOL_TESTPGMS_SUITE="$W/tp" S4E_PROGRESS_DB="$W/tp0.tsv" timeout 600 bash "$HERE/test_snobol4_spitbol_testpgms_suite.sh" 2>&1); rtp=$?
+otp=$(SPITBOL_TESTPGMS_SUITE="$W/tp" S4E_PROGRESS_DB="$W/tp0.tsv" timeout -k 5 600 bash "$HERE/test_snobol4_spitbol_testpgms_suite.sh" 2>&1); rtp=$?
 [ "$rtp" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$otp" | cut -c1-200)"
 remap "$W/tp0.tsv" 's/\ttest([a-z]+)\t(m[34])\t/\t\1\t\2\t/' > "$W/tp.tsv"
 quad TP "$W/tp.tsv" "test_snobol4_spitbol_testpgms_suite.sh over a scratch package (rc $rtp)"
@@ -255,13 +255,13 @@ echo "--- GS: test_snobol4_gimpel_suite.sh through scorecard_snobol4.sh (a scrat
 GSD="$W/gs/corpus/packages/snobol4/gimpel"; mkdir -p "$GSD" "$W/gs/corpus/include"
 for u in $UNITS; do cp "$(src_of "$u")" "$GSD/${u}_driver.sno"; cp "$(ref_of "$u")" "$GSD/${u}_driver.ref"; printf '* %s.inc -- the library the fixture driver carries\n' "$u" > "$GSD/$u.inc"; done
 { printf '%s\n' "$HDR"; i=1; for u in $UNITS; do printf '%s,%s_driver,gimpel__%s_driver,gimpel,5,0,0,%s,%s,,\n' "$i" "$u" "$u" "${HEAP[$u]}" "${STACK[$u]}"; i=$((i+1)); done; } > "$GSD/ALL.csv"
-ogs=$(CORPUS="$W/gs/corpus" S4E_PROGRESS_DB="$W/gs0.tsv" timeout 900 bash "$HERE/test_snobol4_gimpel_suite.sh" 2>&1); rgs=$?
+ogs=$(CORPUS="$W/gs/corpus" S4E_PROGRESS_DB="$W/gs0.tsv" timeout -k 5 900 bash "$HERE/test_snobol4_gimpel_suite.sh" 2>&1); rgs=$?
 [ "$rgs" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ogs" | cut -c1-200)"
 remap "$W/gs0.tsv" 's#\t[^\t]*/([a-z]+)\.inc\t(m[34])\t#\t\1\t\2\t#' > "$W/gs.tsv"
 quad GS "$W/gs.tsv" "test_snobol4_gimpel_suite.sh (scorecard_snobol4.sh) over a scratch gimpel package (rc $rgs)"
 echo "--- AIS: test_snobol4_aisnobol_suite.sh (the harness over the package's container, AISNOBOL_SUITE) ---"
 mkdir -p "$W/ais"; cp "$W/h/ALL.sno" "$W/h/ALL.ref" "$W/ais/"; csv4 aisnobol > "$W/ais/ALL.csv"
-oai=$(cd "$ROOT" && AISNOBOL_SUITE="$W/ais" S4E_PROGRESS_DB="$W/ais0.tsv" timeout 600 bash "$HERE/test_snobol4_aisnobol_suite.sh" 2>&1); rai=$?
+oai=$(cd "$ROOT" && AISNOBOL_SUITE="$W/ais" S4E_PROGRESS_DB="$W/ais0.tsv" timeout -k 5 600 bash "$HERE/test_snobol4_aisnobol_suite.sh" 2>&1); rai=$?
 [ "$rai" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$oai" | cut -c1-200)"
 { printf 'ts\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\n'
   if grep -q '^SUITE_BOARD ' <<<"$oai"; then for u in $UNITS; do for m in m3 m4; do k=$(grep -m1 -E "^  [A-Z]+ $m $u: " <<<"$oai" | awk '{print $1}'); printf 'x\tx\tx\tx\tx\tais\tsnobol4\t%s\t%s\t%s\n' "$u" "$m" "${k:-PASS}"; done; done; fi; } > "$W/ais.tsv"
@@ -284,7 +284,7 @@ echo "--- PI: test_prolog_inria_suite.sh (INRIA [Goal, Expected] files; ALL.csv 
 mkdir -p "$W/pi"
 for u in $UNITS; do printf '/* file %s */\n\n[(%s), [[X <-- %s]]].\n' "$u" "$(plgoal "$u")" "$(plwant "$u")" > "$W/pi/$u"; done
 plcsv inriasuite indexed > "$W/pi/ALL.csv"
-opi=$(INRIA_SUITE="$W/pi" S4E_PROGRESS_DB="$W/pi0.tsv" timeout 900 bash "$HERE/test_prolog_inria_suite.sh" 2>&1); rpi=$?
+opi=$(INRIA_SUITE="$W/pi" S4E_PROGRESS_DB="$W/pi0.tsv" timeout -k 5 900 bash "$HERE/test_prolog_inria_suite.sh" 2>&1); rpi=$?
 [ "$rpi" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$opi" | cut -c1-200)"
 remap "$W/pi0.tsv" 's/\t([a-z]+)#[0-9]+\t(m[34])\t/\t\1\t\2\t/' > "$W/pi.tsv"
 quad PI "$W/pi.tsv" "test_prolog_inria_suite.sh over a scratch suite (rc $rpi)"
@@ -292,7 +292,7 @@ echo "--- PG: test_prolog_gnu_suite.sh (each .pl three-way against live gprolog 
 mkdir -p "$W/pg"
 for u in $UNITS; do printf ':- initialization(main).\nmain :- %s, write(X), nl.\n' "$(plgoal "$u")" > "$W/pg/$u.pl"; done
 plcsv gnu_prolog > "$W/pg/ALL.csv"
-opg=$(GNU_PROLOG_SUITE="$W/pg" S4E_PROGRESS_DB="$W/pg0.tsv" timeout 900 bash "$HERE/test_prolog_gnu_suite.sh" 2>&1); rpg=$?
+opg=$(GNU_PROLOG_SUITE="$W/pg" S4E_PROGRESS_DB="$W/pg0.tsv" timeout -k 5 900 bash "$HERE/test_prolog_gnu_suite.sh" 2>&1); rpg=$?
 [ "$rpg" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$opg" | cut -c1-200)"
 remap "$W/pg0.tsv" 's/\t([a-z]+)\.pl\t(m[34])\t/\t\1\t\2\t/' > "$W/pg.tsv"
 quad PG "$W/pg.tsv" "test_prolog_gnu_suite.sh over a scratch suite, gprolog three-way (rc $rpg)"
@@ -300,8 +300,8 @@ echo "--- PS: test_prolog_swi_suite.sh (one plunit unit per file through SCRIP's
 PSD="$W/ps/corpus/packages/prolog/swi_tests"; mkdir -p "$PSD"
 for u in $UNITS; do printf ':- begin_tests(%s).\ntest(w) :- %s, X =:= %s.\n:- end_tests(%s).\n' "$u" "$(plgoal "$u")" "$(plwant "$u")" "$u" > "$PSD/$u.pl"; done
 plcsv swi_tests > "$PSD/ALL.csv"
-S4E_HOME="$W/ps" timeout 600 bash "$HERE/util_swi_cut_refs.sh" --write --jobs 4 > "$W/ps.cut" 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: swipl could not cut the fixture refs: $(tail -1 "$W/ps.cut" | cut -c1-160)"; gate_stamp; exit 2; }
-ops=$(S4E_CORPUS="$W/ps/corpus" S4E_PROGRESS_DB="$W/ps0.tsv" timeout 900 bash "$HERE/test_prolog_swi_suite.sh" 2>&1); rps=$?
+S4E_HOME="$W/ps" timeout -k 5 600 bash "$HERE/util_swi_cut_refs.sh" --write --jobs 4 > "$W/ps.cut" 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: swipl could not cut the fixture refs: $(tail -1 "$W/ps.cut" | cut -c1-160)"; gate_stamp; exit 2; }
+ops=$(S4E_CORPUS="$W/ps/corpus" S4E_PROGRESS_DB="$W/ps0.tsv" timeout -k 5 900 bash "$HERE/test_prolog_swi_suite.sh" 2>&1); rps=$?
 [ "$rps" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ops" | cut -c1-200)"
 remap "$W/ps0.tsv" 's/\t([a-z]+)\.pl:[^\t]*\t(m[34])\t/\t\1\t\2\t/' > "$W/ps.tsv"
 quad PS "$W/ps.tsv" "test_prolog_swi_suite.sh over a scratch suite, plunit refs cut from swipl (rc $rps)"
@@ -310,7 +310,7 @@ echo "--- PR: test_prolog_rung_suite.sh --corpus (the loose rung programs, m3 by
 mkdir -p "$W/pr"; i=1
 for u in $UNITS; do f="$W/pr/rung0${i}_$u"; sed 1d "$W/pb/$u.pl" > "$f.pl"; cp "$W/pb/$u.ref" "$f.ref"
   printf 'rung0%s_%s\t%s\n' "$i" "$u" "${PHEAP[$u]}" > "$f.heap"; printf 'rung0%s_%s\t%s\n' "$i" "$u" "${PSTACK[$u]}" > "$f.stack"; i=$((i+1)); done
-opr=$(SCRIP="$SCRIP" timeout 900 bash "$HERE/test_prolog_rung_suite.sh" --corpus "$W/pr" 2>&1); rpr=$?
+opr=$(SCRIP="$SCRIP" timeout -k 5 900 bash "$HERE/test_prolog_rung_suite.sh" --corpus "$W/pr" 2>&1); rpr=$?
 [ "$rpr" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$opr" | cut -c1-200)"
 pbtab "$opr" '{k = (m == "m3" ? "interp" : "compile")} $1 == "RED" && $2 == k && $3 ~ ("_" u ":$") {r = "FAIL"} index($0, "--- Prolog (" k "): ") == 1 && /TOTAL=4 / {t = 1} END {print (r ? r : (t ? "PASS" : ""))}' > "$W/prr.tsv"
 quad PR "$W/prr.tsv" "test_prolog_rung_suite.sh over a scratch --corpus of loose rungs (rc $rpr)"
@@ -320,7 +320,7 @@ PLD="$W/pl/corpus/packages/prolog/logtalk_iso"; mkdir -p "$PLD/fixture/w"
   for u in $UNITS; do printf '\ttest(%s, true(X == %s)) :-\n\t\t{%s}.\n' "$u" "$(plwant "$u")" "$(plgoal "$u")"; done
   printf ':- end_object.\n'; } > "$PLD/fixture/w/tests.lgt"
 plcsv logtalk_iso | awk -F, -v OFS=, 'NR==1 {print; next} {$2 = "w:" $2; $3 = "fixture/w/tests.lgt"; print}' > "$PLD/ALL.csv"
-opl=$(S4E_CORPUS="$W/pl/corpus" S4E_PROGRESS_DB="$W/pl0.tsv" timeout 900 bash "$HERE/test_prolog_logtalk_suite.sh" 2>&1); rpl=$?
+opl=$(S4E_CORPUS="$W/pl/corpus" S4E_PROGRESS_DB="$W/pl0.tsv" timeout -k 5 900 bash "$HERE/test_prolog_logtalk_suite.sh" 2>&1); rpl=$?
 [ "$rpl" = 2 ] && [ ! -s "$W/pl0.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$opl" | cut -c1-200)"
 remap "$W/pl0.tsv" 's/\tw:([a-z]+)\t(m[34])\t/\t\1\t\2\t/' > "$W/pl.tsv"
 quad PL "$W/pl.tsv" "test_prolog_logtalk_suite.sh over a scratch tests.lgt (rc $rpl)"
@@ -353,28 +353,28 @@ rlines() {  # <runner output> <mode word> <pass regex> -- the quad table from pe
 echo "--- IA: test_icon_arizona_suite.sh over a scratch S4E_HOME (general/<unit>) ---"
 IAP="$W/ia/corpus/packages/icon/arizona_tests"; mkdir -p "$IAP/special"; isides "$IAP/general"; rm -f "$IAP"/general/*.heap "$IAP"/general/*.stack "$IAP"/general/*.oracle_env
 icsv arizona_tests general/ > "$IAP/ALL.csv"
-oia=$(S4E_HOME="$W/ia" S4E_PROGRESS_DB="$W/ia.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_icon_arizona_suite.sh" 2>&1); ria=$?
+oia=$(S4E_HOME="$W/ia" S4E_PROGRESS_DB="$W/ia.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_icon_arizona_suite.sh" 2>&1); ria=$?
 [ "$ria" = 2 ] && [ ! -s "$W/ia.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$oia" | cut -c1-200)"
 quad IA "$W/ia.tsv" "test_icon_arizona_suite.sh over a scratch package (rc $ria)"
 echo "--- IJ: test_icon_jcon_suite.sh --corpus ---"
 isides "$W/ij"; rm -f "$W"/ij/*.heap "$W"/ij/*.stack "$W"/ij/*.oracle_env; icsv jcon_tests "" > "$W/ij/ALL.csv"
-oij=$(S4E_PROGRESS_DB="$W/ij.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$W/ij" 2>&1); rij=$?
+oij=$(S4E_PROGRESS_DB="$W/ij.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$W/ij" 2>&1); rij=$?
 [ "$rij" = 2 ] && [ ! -s "$W/ij.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$oij" | cut -c1-200)"
 quad IJ "$W/ij.tsv" "test_icon_jcon_suite.sh over a scratch --corpus (rc $rij)"
 echo "--- II: test_icon_ipl_suite.sh over a scratch S4E_HOME (progs/<unit>; a package shipping only progs/ and procs/) ---"
 IIP="$W/ii/corpus/packages/icon/ipl"; mkdir -p "$IIP/procs"; isides "$IIP/progs"; rm -f "$IIP"/progs/*.heap "$IIP"/progs/*.stack "$IIP"/progs/*.oracle_env
 icsv ipl progs/ > "$IIP/ALL.csv"
-oii=$(S4E_HOME="$W/ii" S4E_PROGRESS_DB="$W/ii.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_icon_ipl_suite.sh" 2>&1); rii=$?
+oii=$(S4E_HOME="$W/ii" S4E_PROGRESS_DB="$W/ii.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_icon_ipl_suite.sh" 2>&1); rii=$?
 [ "$rii" = 2 ] && [ ! -s "$W/ii.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$oii" | cut -c1-200)"
 quad II "$W/ii.tsv" "test_icon_ipl_suite.sh over a scratch package (rc $rii)"
 echo "--- IB: test_icon_bench_suite.sh over a scratch S4E_HOME (sidecars beside each kernel; iconx at each deep kernel's .oracle_env) ---"
 isides "$W/ib/corpus/benchmarks/icon"
-oib=$(S4E_HOME="$W/ib" S4E_PROGRESS_DB="$W/ib0.tsv" timeout 1500 bash "$HERE/test_icon_bench_suite.sh" 2>&1); rib=$?
+oib=$(S4E_HOME="$W/ib" S4E_PROGRESS_DB="$W/ib0.tsv" timeout -k 5 1500 bash "$HERE/test_icon_bench_suite.sh" 2>&1); rib=$?
 [ "$rib" = 2 ] && [ ! -s "$W/ib0.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$oib" | cut -c1-200)"
 remap "$W/ib0.tsv" 's/\t([a-z]+)\.icn\t(m[34])\t/\t\1\t\2\t/' > "$W/ib.tsv"
 quad IB "$W/ib.tsv" "test_icon_bench_suite.sh over scratch kernels, three angles each (rc $rib)"
 echo "--- IT: bench_triangulate_icon.sh over the same kernels (ICON_BENCH_DIR) ---"
-oit=$(ICON_BENCH_DIR="$W/ib/corpus/benchmarks/icon" BUDGET_MS=300 timeout 1500 bash "$HERE/bench_triangulate_icon.sh" 2>&1); rit=$?
+oit=$(ICON_BENCH_DIR="$W/ib/corpus/benchmarks/icon" BUDGET_MS=300 timeout -k 5 1500 bash "$HERE/bench_triangulate_icon.sh" 2>&1); rit=$?
 [ "$rit" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$oit" | cut -c1-200)"
 pbtab "$oit" '$1 == u && $2 == m {print ($NF == "PASS" ? "PASS" : "FAIL"); exit}' > "$W/it.tsv"
 quad IT "$W/it.tsv" "bench_triangulate_icon.sh over scratch kernels (rc $rit)"
@@ -386,14 +386,14 @@ nix=0; for u in $UNITS; do awk -v u="$u" '$1 == u && $2 == "iconx" && $NF == "PA
   || red ITX "bench_triangulate_icon.sh's iconx row passes $nix of 4 kernels -- the oracle ran without a kernel's .oracle_env"
 echo "--- IR: test_icon_rung_suite.sh --corpus, --mode interp and --mode compile (each names its units) ---"
 isides "$W/ir" rung
-oi3=$(SCRIP="$SCRIP" timeout 900 bash "$HERE/test_icon_rung_suite.sh" --mode interp --corpus "$W/ir" 2>&1); ri3=$?
-oi4=$(SCRIP="$SCRIP" timeout 900 bash "$HERE/test_icon_rung_suite.sh" --mode compile --corpus "$W/ir" 2>&1); ri4=$?
+oi3=$(SCRIP="$SCRIP" timeout -k 5 900 bash "$HERE/test_icon_rung_suite.sh" --mode interp --corpus "$W/ir" 2>&1); ri3=$?
+oi4=$(SCRIP="$SCRIP" timeout -k 5 900 bash "$HERE/test_icon_rung_suite.sh" --mode compile --corpus "$W/ir" 2>&1); ri4=$?
 { printf 'ts\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\n'
   for u in $UNITS; do printf 'x\tx\tx\tx\tx\tir\ticon\t%s\tm3\t%s\n' "$u" "$(awk -v u="$u" '$2 ~ ("_" u "$") {print $1; exit}' <<<"$oi3")"
                       printf 'x\tx\tx\tx\tx\tir\ticon\t%s\tm4\t%s\n' "$u" "$(awk -v u="$u" '$2 ~ ("_" u "$") {print $1; exit}' <<<"$oi4")"; done; } > "$W/ir.tsv"
 quad IR "$W/ir.tsv" "test_icon_rung_suite.sh over a scratch --corpus of loose rungs (rc $ri3/$ri4)"
 echo "--- IAR: test_icon_all_rungs.sh --corpus (mode 3 only: the runner runs --run alone) ---"
-oiar=$(SCRIP="$SCRIP" timeout 900 bash "$HERE/test_icon_all_rungs.sh" --corpus "$W/ir" 2>&1); riar=$?
+oiar=$(SCRIP="$SCRIP" timeout -k 5 900 bash "$HERE/test_icon_all_rungs.sh" --corpus "$W/ir" 2>&1); riar=$?
 rlines "$oiar" m3 '($1 == "PASS" || $1 == "FAIL" || $1 == "BADEXIT") && $2 ~ ("_" u "$") {print $1; exit}' > "$W/iar.tsv"
 quad IAR "$W/iar.tsv" "test_icon_all_rungs.sh over a scratch --corpus (rc $riar)" m3
 echo "--- IBR: board_icon_rungs.sh over a scratch ALL.icn container (CORPUS); a red is named on its own line, an OOM red included ---"
@@ -406,7 +406,7 @@ open(f"{W}/ibr/ALL.icn", "w").write("".join(src)); open(f"{W}/ibr/ALL.ref", "w")
 PY2
 { printf 'rank,entry,origin,family,kind,xfail,n_lines,heap_kb,stack_kb,compile_args,run_args\n'; i=1
   for u in $UNITS; do printf '%s,%s,gate__%s,gate,block,0,7,%s,%s,,\n' "$i" "$u" "$u" "${IHEAP[$u]}" "${ISTACK[$u]}"; i=$((i+1)); done; } > "$W/ibr/ALL.csv"
-oibr=$(CORPUS="$W/ibr" S4E_PROGRESS_DB="$W/ibr.db" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/board_icon_rungs.sh" 2>&1); ribr=$?
+oibr=$(CORPUS="$W/ibr" S4E_PROGRESS_DB="$W/ibr.db" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/board_icon_rungs.sh" 2>&1); ribr=$?
 pbtab "$oibr" '{k = (m == "m3" ? "mode-3" : "mode-4")} $1 ~ /^(FAIL|OOM|CRASH|HANG|UNPROVEN)$/ && $2 == m && $3 == (u ":") {r = "FAIL"} index($0, k " ") == 1 && / \/ 4$/ {t = 1} END {print (r ? r : (t ? "PASS" : ""))}' > "$W/ibr.tsv"
 quad IBR "$W/ibr.tsv" "board_icon_rungs.sh over a scratch container, every red named (rc $ribr)"
 
@@ -457,19 +457,19 @@ pacsv() {  # <package> <entry prefix>
 echo "--- SPF: test_pascal_fpc_suite.sh (FPC_SUITE scratch; each program at its ALL.csv row, reps 1 on stdin) ---"
 mkdir -p "$W/spf"; for u in $UNITS; do cp "$(pfile "$u")" "$W/spf/$u.pas"; echo 1 > "$W/spf/$u.in"; printf '      30000\n' > "$W/spf/$u.ref"; done
 pacsv fpc_tests "" > "$W/spf/ALL.csv"
-ospf=$(FPC_SUITE="$W/spf" S4E_PROGRESS_DB="$W/spf.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_pascal_fpc_suite.sh" 2>&1); rspf=$?
+ospf=$(FPC_SUITE="$W/spf" S4E_PROGRESS_DB="$W/spf.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_pascal_fpc_suite.sh" 2>&1); rspf=$?
 [ "$rspf" = 2 ] && [ ! -s "$W/spf.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ospf" | cut -c1-200)"
 quad SPF "$W/spf.tsv" "test_pascal_fpc_suite.sh over a scratch suite (rc $rspf)"
 echo "--- SPW: test_pascal_wirth76_suite.sh (WIRTH76_SUITE scratch; each program at its ALL.csv row, reps 1 on stdin) ---"
 mkdir -p "$W/spw"; for u in $UNITS; do cp "$(pfile "$u")" "$W/spw/$u.pas"; echo 1 > "$W/spw/$u.in"; printf '      30000\n' > "$W/spw/$u.ref"; done
 pacsv wirth1976 "" > "$W/spw/ALL.csv"
-ospw=$(WIRTH76_SUITE="$W/spw" S4E_PROGRESS_DB="$W/spw.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_pascal_wirth76_suite.sh" 2>&1); rspw=$?
+ospw=$(WIRTH76_SUITE="$W/spw" S4E_PROGRESS_DB="$W/spw.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_pascal_wirth76_suite.sh" 2>&1); rspw=$?
 [ "$rspw" = 2 ] && [ ! -s "$W/spw.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ospw" | cut -c1-200)"
 quad SPW "$W/spw.tsv" "test_pascal_wirth76_suite.sh over a scratch suite (rc $rspw)"
 echo "--- SPT: test_pascal_pat_suite.sh (PAT_SUITE scratch; the acceptance population iso7185pat*, graded live against fpc -Miso) ---"
 mkdir -p "$W/spt"; for u in $UNITS; do cp "$(pfile "$u")" "$W/spt/iso7185pat_$u.pas"; echo 1 > "$W/spt/iso7185pat_$u.inp"; done
 pacsv pat iso7185pat_ > "$W/spt/ALL.csv"
-ospt=$(PAT_SUITE="$W/spt" S4E_PROGRESS_DB="$W/spt0.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_pascal_pat_suite.sh" 2>&1); rspt=$?
+ospt=$(PAT_SUITE="$W/spt" S4E_PROGRESS_DB="$W/spt0.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_pascal_pat_suite.sh" 2>&1); rspt=$?
 [ "$rspt" = 2 ] && [ ! -s "$W/spt0.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ospt" | cut -c1-200)"
 remap "$W/spt0.tsv" 's/\tiso7185pat_([a-z]+)\t(m[34])\t/\t\1\t\2\t/' > "$W/spt.tsv"
 quad SPT "$W/spt.tsv" "test_pascal_pat_suite.sh over a scratch acceptance population (rc $rspt)"
@@ -484,11 +484,11 @@ for u in $UNITS; do cp "$(pfile "$u")" "$PB2/$u.pas"; echo 1 > "$PB2/$u.in"; pri
 printf '# SCALE -- the gate fixture: kernel, fpc reps, scrip reps\ndeepdecl\t4000\t100\ndeepnodecl\t4000\t100\nlivedecl\t500\t4\nlivenodecl\t500\t4\n' > "$PB2/SCALE.tsv"
 printf '# EXCLUDED -- the gate fixture: none\n' > "$PB2/EXCLUDED.tsv"
 echo "--- SPB: test_pascal_bench_suite.sh over a scratch S4E_HOME (three angles per kernel, both modes) ---"
-ospb=$(S4E_HOME="$W/spb" S4E_PROGRESS_DB="$W/spb.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_pascal_bench_suite.sh" 2>&1); rspb=$?
+ospb=$(S4E_HOME="$W/spb" S4E_PROGRESS_DB="$W/spb.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_pascal_bench_suite.sh" 2>&1); rspb=$?
 [ "$rspb" = 2 ] && [ ! -s "$W/spb.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ospb" | cut -c1-200)"
 quad SPB "$W/spb.tsv" "test_pascal_bench_suite.sh over scratch kernels (rc $rspb)"
 echo "--- SPTM: test_bench_pascal_timed.sh, angle 1 (BENCH_DIR, KERNELS) -- its reps=1 correctness check runs m3 at the declaration ---"
-ospm=$(BENCH_DIR="$PB2" KERNELS="$UNITS" LIN_TOL=1000000 SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_bench_pascal_timed.sh" 2>&1); rspm=$?
+ospm=$(BENCH_DIR="$PB2" KERNELS="$UNITS" LIN_TOL=1000000 SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_bench_pascal_timed.sh" 2>&1); rspm=$?
 [ "$rspm" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ospm" | cut -c1-200)"
 pbtab "$ospm" '$1 == u && $2 ~ /^([0-9.]+|NA|SKIP)$/ {print ($2 == "SKIP" ? "FAIL" : "PASS"); exit}' > "$W/spm.tsv"
 quad SPTM "$W/spm.tsv" "test_bench_pascal_timed.sh's reps=1 check over scratch kernels (rc $rspm)" m3
@@ -497,13 +497,13 @@ awk '$1 == "deepdecl" && $4 ~ /^[0-9][0-9.]*$/ {f = 1} END {exit !f}' <<<"$ospm"
   && ok SPTM4 "test_bench_pascal_timed.sh times deepdecl in m4 -- the binary ran 30000 deep, so its declared stack reached it" \
   || red SPTM4 "test_bench_pascal_timed.sh has no m4 reading for deepdecl ($(awk '$1 == "deepdecl"' <<<"$ospm" | head -1 | cut -c1-120))"
 echo "--- SPFI: bench_pascal_fixed_iter.sh, angle 2 (BENCH_DIR; reps from the scratch SCALE.tsv) ---"
-ospi=$(BENCH_DIR="$PB2" LIN_TOL=1000000 SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/bench_pascal_fixed_iter.sh" 2>&1); rspi=$?
+ospi=$(BENCH_DIR="$PB2" LIN_TOL=1000000 SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/bench_pascal_fixed_iter.sh" 2>&1); rspi=$?
 [ "$rspi" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ospi" | cut -c1-200)"
 pbtab "$ospi" "$(num 5 6)" > "$W/spi.tsv"
 quad SPFI "$W/spi.tsv" "bench_pascal_fixed_iter.sh over scratch kernels (rc $rspi)"
 
 echo "--- SPTR: bench_triangulate_pascal.sh (PASCAL_DIR handed to both angles; a cell is graded by its fixed-iteration rate) ---"
-optr=$(PASCAL_DIR="$PB2" KERNELS="$UNITS" LIN_TOL=1000000 OUT_TSV="$W/sptr.tri.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 1500 bash "$HERE/bench_triangulate_pascal.sh" 2>&1); rptr=$?
+optr=$(PASCAL_DIR="$PB2" KERNELS="$UNITS" LIN_TOL=1000000 OUT_TSV="$W/sptr.tri.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 1500 bash "$HERE/bench_triangulate_pascal.sh" 2>&1); rptr=$?
 [ "$rptr" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$optr" | cut -c1-200)"
 { printf 'ts\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\n'
   for u in $UNITS; do for m in m3 m4; do printf 'x\tx\tx\tx\tx\tptr\tpascal\t%s\t%s\t%s\n' "$u" "$m" \
@@ -528,7 +528,7 @@ for u in $UNITS; do case "$u" in
   esac > "$RRT/$u.t"; done
 { echo "# the gate fixture"; for u in $UNITS; do echo "S99-gate/$u.t"; done; } > "$W/rr/manifest"
 { printf '%s\n' "$HDR"; i=1; for u in $UNITS; do printf '%s,S99-gate/%s,roast__S99-gate/%s,roast,5,0,0,%s,%s,,\n' "$i" "$u" "$u" "${RKHEAP[$u]}" "${RKSTACK[$u]}"; i=$((i+1)); done; } > "$W/rr/ALL.csv"
-orr=$(S4E_HOME="$W/rr/home" RAKU_ROAST_TREE="$W/rr/tree" RAKU_ROAST_MANIFEST="$W/rr/manifest" RAKU_ROAST_DCSV="$W/rr/ALL.csv" S4E_PROGRESS_DB="$W/rr0.tsv" timeout 900 bash "$HERE/raku_roast_scoreboard.sh" --run 2>&1); rrr=$?
+orr=$(S4E_HOME="$W/rr/home" RAKU_ROAST_TREE="$W/rr/tree" RAKU_ROAST_MANIFEST="$W/rr/manifest" RAKU_ROAST_DCSV="$W/rr/ALL.csv" S4E_PROGRESS_DB="$W/rr0.tsv" timeout -k 5 900 bash "$HERE/raku_roast_scoreboard.sh" --run 2>&1); rrr=$?
 [ "$rrr" = 2 ] && [ ! -s "$W/rr0.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$orr" | cut -c1-200)"
 remap "$W/rr0.tsv" 's/\tS99-gate\/([a-z]+)\t(m[34])\t/\t\1\t\2\t/' > "$W/rr.tsv"
 quad RR "$W/rr.tsv" "raku_roast_scoreboard.sh --run over a scratch roast tree (rc $rrr)"
@@ -541,22 +541,22 @@ for u in $UNITS; do case "$u" in
   printf '%s\t%s\n' "$u" "${RKHEAP[$u]}" > "$RK/$u.heap"; printf '%s\t%s\n' "$u" "${RKSTACK[$u]}" > "$RK/$u.stack"; done
 { printf '# the gate fixture\nkernel\tN\n'; for u in $UNITS; do printf '%s\t1\n' "$u"; done; } > "$RK/fixed-iter-n.tsv"
 echo "--- RB: test_raku_bench_suite.sh (BENCH_RAKU_DIR; a population outside the corpus writes no rows, so its printed verdicts are read) ---"
-orb=$(BENCH_RAKU_DIR="$RK" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_raku_bench_suite.sh" 2>&1); rrb=$?
+orb=$(BENCH_RAKU_DIR="$RK" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_raku_bench_suite.sh" 2>&1); rrb=$?
 [ "$rrb" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$orb" | cut -c1-200)"
 pbtab "$orb" '$1 == u && $2 == m && $6 ~ /^(PASS|FAIL)$/ {print $6; exit}' > "$W/rb.tsv"
 quad RB "$W/rb.tsv" "test_raku_bench_suite.sh over scratch kernels (rc $rrb)"
 echo "--- RTM: test_bench_raku_timed.sh, angle 1 (RAKU_DIR, KERNELS) ---"
-ortm=$(RAKU_DIR="$RK" KERNELS="$UNITS" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_bench_raku_timed.sh" 2>&1); rrtm=$?
+ortm=$(RAKU_DIR="$RK" KERNELS="$UNITS" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_bench_raku_timed.sh" 2>&1); rrtm=$?
 [ "$rrtm" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ortm" | cut -c1-200)"
 pbtab "$ortm" "$(num 2 3)" > "$W/rtm.tsv"
 quad RTM "$W/rtm.tsv" "test_bench_raku_timed.sh over scratch kernels (rc $rrtm)"
 echo "--- RFI: bench_raku_fixed_iter.sh, angle 2 (RAKU_DIR, its fixed-iter-n.tsv) ---"
-orfi=$(RAKU_DIR="$RK" KERNELS="$UNITS" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/bench_raku_fixed_iter.sh" 2>&1); rrfi=$?
+orfi=$(RAKU_DIR="$RK" KERNELS="$UNITS" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/bench_raku_fixed_iter.sh" 2>&1); rrfi=$?
 [ "$rrfi" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$orfi" | cut -c1-200)"
 pbtab "$orfi" "$(num 3 4)" > "$W/rfi.tsv"
 quad RFI "$W/rfi.tsv" "bench_raku_fixed_iter.sh over scratch kernels (rc $rrfi)"
 echo "--- RTR: bench_triangulate_raku.sh (RAKU_DIR; a SCRIP row is graded by the reps it verified, n/3) ---"
-ortr=$(RAKU_DIR="$RK" KERNELS="$UNITS" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/bench_triangulate_raku.sh" 2>&1); rrtr=$?
+ortr=$(RAKU_DIR="$RK" KERNELS="$UNITS" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/bench_triangulate_raku.sh" 2>&1); rrtr=$?
 [ "$rrtr" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ortr" | cut -c1-200)"
 pbtab "$ortr" '$1 == u && $2 == m && $3 ~ /^[0-9]+\/[0-9]+$/ {split($3, r, "/"); print (r[1] > 0 ? "PASS" : "FAIL"); exit}' > "$W/rtr.tsv"
 quad RTR "$W/rtr.tsv" "bench_triangulate_raku.sh over scratch kernels (rc $rrtr)"
@@ -575,23 +575,23 @@ for u in $UNITS; do case "$u" in
   esac
   for d in "$CSC" "$CRB"; do printf '%s\t%s\n' "$u" "${HEAP[$u]}" > "$d/$u.heap"; printf '%s\t%s\n' "$u" "${STACK[$u]}" > "$d/$u.stack"; done; done
 echo "--- SCB: test_snocone_bench_suite.sh over a scratch S4E_HOME (three angles, both modes) ---"
-oscb=$(S4E_HOME="$CR" S4E_PROGRESS_DB="$W/scb0.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_snocone_bench_suite.sh" 2>&1); rscb=$?
+oscb=$(S4E_HOME="$CR" S4E_PROGRESS_DB="$W/scb0.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_snocone_bench_suite.sh" 2>&1); rscb=$?
 [ "$rscb" = 2 ] && [ ! -s "$W/scb0.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$oscb" | cut -c1-200)"
 remap "$W/scb0.tsv" 's/\t([a-z]+)\.sc\t(m[34])\t/\t\1\t\2\t/' > "$W/scb.tsv"
 quad SCB "$W/scb.tsv" "test_snocone_bench_suite.sh over scratch kernels (rc $rscb)"
 echo "--- RBB: test_rebus_bench_suite.sh (BENCH_REBUS_DIR; a population outside the corpus writes no rows, so its printed verdicts are read) ---"
-orbb=$(BENCH_REBUS_DIR="$CRB" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_rebus_bench_suite.sh" 2>&1); rrbb=$?
+orbb=$(BENCH_REBUS_DIR="$CRB" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_rebus_bench_suite.sh" 2>&1); rrbb=$?
 [ "$rrbb" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$orbb" | cut -c1-200)"
 pbtab "$orbb" '$1 == u && $2 == m && $6 ~ /^(PASS|FAIL)$/ {print $6; exit}' > "$W/rbb.tsv"
 quad RBB "$W/rbb.tsv" "test_rebus_bench_suite.sh over scratch kernels (rc $rrbb)"
 # the two callgrind boards: a numeric Ir cell is a run that finished; valgrind is given the declared stack plus 1 MB (--main-stacksize)
 irq() { pbtab "$1" '$1 == u {v = (m == "m3" ? $2 : $3); print (v ~ /^[0-9]+$/ ? "PASS" : "FAIL"); exit}'; }
 echo "--- RBT: bench_triangulate_rebus.sh, callgrind Ir (S4E_HOME, KERNELS) ---"
-orbt=$(S4E_HOME="$CR" KERNELS="$UNITS" IR_TMO=300 SCRIP="$SCRIP" timeout 1800 bash "$HERE/bench_triangulate_rebus.sh" 2>&1); rrbt=$?
+orbt=$(S4E_HOME="$CR" KERNELS="$UNITS" IR_TMO=300 SCRIP="$SCRIP" timeout -k 5 1800 bash "$HERE/bench_triangulate_rebus.sh" 2>&1); rrbt=$?
 [ "$rrbt" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$orbt" | cut -c1-200)"
 irq "$orbt" > "$W/rbt.tsv"; quad RBT "$W/rbt.tsv" "bench_triangulate_rebus.sh over scratch kernels (rc $rrbt)"
 echo "--- SCT: bench_triangulate_snocone.sh, callgrind Ir against SPITBOL (S4E_HOME, KERNELS with each kernel's SNOBOL4 twin) ---"
-osct=$(S4E_HOME="$CR" KERNELS="$(for u in $UNITS; do printf '%s:%s_twin ' "$u" "$u"; done)" IR_TMO=300 SCRIP="$SCRIP" timeout 1800 bash "$HERE/bench_triangulate_snocone.sh" 2>&1); rsct=$?
+osct=$(S4E_HOME="$CR" KERNELS="$(for u in $UNITS; do printf '%s:%s_twin ' "$u" "$u"; done)" IR_TMO=300 SCRIP="$SCRIP" timeout -k 5 1800 bash "$HERE/bench_triangulate_snocone.sh" 2>&1); rsct=$?
 [ "$rsct" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$osct" | cut -c1-200)"
 irq "$osct" > "$W/sct.tsv"; quad SCT "$W/sct.tsv" "bench_triangulate_snocone.sh over scratch kernels (rc $rsct)"
 
@@ -600,7 +600,7 @@ echo "--- MON: monitor_run.sh --oracle (SCRIP against the SPITBOL fork in lock-s
 mkdir -p "$W/mon"; for u in $UNITS; do case "$u" in deep*) sed 's/R(50000)/R(30000)/' "$W/deep.sno" ;; *) cat "$W/live.sno" ;; esac > "$W/mon/$u.sno"
   printf '%s\t%s\n' "$u" "${HEAP[$u]}" > "$W/mon/$u.heap"; printf '%s\t%s\n' "$u" "${STACK[$u]}" > "$W/mon/$u.stack"; done
 { printf 'ts\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\n'
-  for u in $UNITS; do omon=$(timeout 600 bash "$HERE/monitor_run.sh" "$W/mon/$u.sno" --oracle 2>&1); rmon=$?
+  for u in $UNITS; do omon=$(timeout -k 5 600 bash "$HERE/monitor_run.sh" "$W/mon/$u.sno" --oracle 2>&1); rmon=$?
     echo "      $u: rc $rmon -- $(grep -m1 -E '^\[monitor_run\] (AGREE|DIVERGE|UNGRADED)|^REFUSE' <<<"$omon" | cut -c1-110)" >&2
     printf 'x\tx\tx\tx\tx\tmon\tsnobol4\t%s\tm3\t%s\n' "$u" "$([ "$rmon" = 0 ] && echo PASS || echo FAIL)"; done; } > "$W/mon.tsv" 2> "$W/mon.notes"
 cat "$W/mon.notes"
@@ -618,12 +618,12 @@ for i, u in enumerate(H, 1):
     rows.append(f"{i},{u},gate__{u},gate,block,0,5,{H[u][0]},{H[u][1]},,,1")
 open(f"{D}/ALL.sno", "w").write("".join(src)); open(f"{D}/ALL.ref", "w").write("".join(ref)); open(f"{D}/ALL.csv", "w").write("\n".join(rows) + "\n")
 PY2
-opt=$(S4E_HOME="$W/pt" FAMILIES=gate SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_gate_sno_port_trace.sh" --cut 2>&1); rpt=$?
+opt=$(S4E_HOME="$W/pt" FAMILIES=gate SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 bash "$HERE/test_gate_sno_port_trace.sh" --cut 2>&1); rpt=$?
 [ "$rpt" = 2 ] && echo "      $(grep -m1 -E 'UNPROVEN|REFUS' <<<"$opt" | cut -c1-200)"
 pbtab "$opt" '$1 == ("gate__" u) {a = $NF; sub(/^answer=/, "", a); print (a == "ok" ? "PASS" : "FAIL"); exit}' > "$W/pt.tsv"
 quad PT "$W/pt.tsv" "lib_port_trace.sh through test_gate_sno_port_trace.sh --cut (rc $rpt)" m3
 echo "--- AS: corpus_suite_harness.py smoke (THE AREA SMOKE) over the same container's feature column ---"
-oas=$(S4E_HOME="$W/pt" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 python3 "$HERE/corpus_suite_harness.py" smoke -- snobol4:gatefeat 2>&1); ras=$?
+oas=$(S4E_HOME="$W/pt" SCRIP="$SCRIP" RT_DIR="$RT" timeout -k 5 900 python3 "$HERE/corpus_suite_harness.py" smoke -- snobol4:gatefeat 2>&1); ras=$?
 { printf 'ts\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\n'
   for u in $UNITS; do l=$(grep -m1 "^AREA_SMOKE_ENTRY .* entry=$u " <<<"$oas")
     for m in m3 m4; do printf 'x\tx\tx\tx\tx\tas\tsnobol4\t%s\t%s\t%s\n' "$u" "$m" "$(sed -nE "s/.* $m=([A-Z]+).*/\1/p" <<<"$l")"; done; done; } > "$W/as.tsv"

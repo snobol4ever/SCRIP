@@ -76,12 +76,12 @@ WORK_OPEN='$t0 = wall_us(); my $m0 = wall_ms();'
 run1() {
   local eng="$1" src="$2" rl xc user sys
   case "$eng" in
-    m3)     "$WRAP" timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
+    m3)     "$WRAP" timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
     m4)     local s="$W/$$.s" b="$W/$$.bin"
-            if ! (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$s" "$src" </dev/null >/dev/null 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
+            if ! (cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile -o "$s" "$src" </dev/null >/dev/null 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
             if ! (as --64 -o "$W/$$.o" "$s" 2>/dev/null && gcc -no-pie -o "$b" "$W/$$.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null); then echo "- LINKFAIL"; return; fi
-            "$WRAP" timeout "$T" "$b" "${DECL_SW[@]}" </dev/null >/dev/null 2>"$W/e.$$" ;;
-    rakudo) "$WRAP" timeout "$T" "$RAKU" -I"$W/prelude" -Mprelude_rakudo "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
+            "$WRAP" timeout -k 5 "$T" "$b" "${DECL_SW[@]}" </dev/null >/dev/null 2>"$W/e.$$" ;;
+    rakudo) "$WRAP" timeout -k 5 "$T" "$RAKU" -I"$W/prelude" -Mprelude_rakudo "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.$$" 2>/dev/null | tail -1)
   [ -n "$rl" ] || { echo "- DNF"; return; }
@@ -126,17 +126,17 @@ for f in "$RDIR"/*.raku; do
   # a short correctness-check timeout would kill them mid-run and misreport a real answer as DIFF.
   ckstat=ok
   DECL_SW=(); dw=$(declared_switches_beside "$f") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }; [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"; undeclared_beside_named "$f" || true
-  m3o="$W/m3o.$$"; (cd "$W" && timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$f" </dev/null >"$m3o" 2>/dev/null)
+  m3o="$W/m3o.$$"; (cd "$W" && timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$f" </dev/null >"$m3o" 2>/dev/null)
   cmp -s "$m3o" "$ref" || ckstat="m3:DIFF"
   if [ "$ckstat" = ok ]; then
     m4s="$W/m4c.$$.s"; m4b="$W/m4c.$$.bin"; m4o="$W/m4o.$$"
-    if (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$m4s" "$f" </dev/null >/dev/null 2>/dev/null) && [ -s "$m4s" ] \
+    if (cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile -o "$m4s" "$f" </dev/null >/dev/null 2>/dev/null) && [ -s "$m4s" ] \
        && as --64 -o "$m4s.o" "$m4s" 2>/dev/null && gcc -no-pie -o "$m4b" "$m4s.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null; then
-      timeout "$T" "$m4b" "${DECL_SW[@]}" </dev/null >"$m4o" 2>/dev/null; cmp -s "$m4o" "$ref" || ckstat="m4:DIFF"
+      timeout -k 5 "$T" "$m4b" "${DECL_SW[@]}" </dev/null >"$m4o" 2>/dev/null; cmp -s "$m4o" "$ref" || ckstat="m4:DIFF"
     else ckstat="m4:BUILD-ERR"; fi
   fi
   if [ "$ckstat" = ok ]; then
-    rko="$W/rko.$$"; (cd "$W" && timeout "$T" "$RAKU" -I"$W/prelude" -Mprelude_rakudo "$f" </dev/null >"$rko" 2>/dev/null)
+    rko="$W/rko.$$"; (cd "$W" && timeout -k 5 "$T" "$RAKU" -I"$W/prelude" -Mprelude_rakudo "$f" </dev/null >"$rko" 2>/dev/null)
     cmp -s "$rko" "$ref" || ckstat="rakudo:DIFF"
   fi
   if [ "$ckstat" != ok ]; then

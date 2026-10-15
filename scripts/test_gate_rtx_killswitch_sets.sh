@@ -88,9 +88,9 @@ build_set() {
   local mode="$1" dir="$2" arm="$3" target="$4" i out rc h acc=""
   for i in $(seq 1 "$N"); do
     if [ "$mode" = m3 ]; then
-      out="$( cd "$dir" && env "$GATE=$arm" timeout 30 "$ROOT/scrip" --run "$target" 2>/dev/null < /dev/null )"; rc=$?
+      out="$( cd "$dir" && env "$GATE=$arm" timeout -k 5 30 "$ROOT/scrip" --run "$target" 2>/dev/null < /dev/null )"; rc=$?
     else
-      out="$( cd "$dir" && env "$GATE=$arm" timeout 30 "$target" 2>/dev/null < /dev/null )"; rc=$?
+      out="$( cd "$dir" && env "$GATE=$arm" timeout -k 5 30 "$target" 2>/dev/null < /dev/null )"; rc=$?
     fi
     h="$(printf '%s|rc=%d' "$out" "$rc" | md5sum | cut -c1-8)"
     acc="$acc$h"$'\n'

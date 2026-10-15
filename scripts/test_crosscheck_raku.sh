@@ -18,9 +18,9 @@ xcheck() {
     local label="$1" file="$2" ref="${3:-}"
     if [ ! -f "$file" ]; then echo "  SKIP $label (no file)"; SKIP=$((SKIP+1)); return; fi
     local ir sm run_out
-    ir=$(timeout  $TIMEOUT "$SCRIP" --run  "$file" </dev/null 2>/dev/null)
-    sm=$(timeout  $TIMEOUT "$SCRIP" --run  "$file" </dev/null 2>/dev/null)
-    run_out=$(timeout $TIMEOUT "$SCRIP" --run "$file" </dev/null 2>/dev/null)
+    ir=$(timeout -k 5 $TIMEOUT "$SCRIP" --run  "$file" </dev/null 2>/dev/null)
+    sm=$(timeout -k 5 $TIMEOUT "$SCRIP" --run  "$file" </dev/null 2>/dev/null)
+    run_out=$(timeout -k 5 $TIMEOUT "$SCRIP" --run "$file" </dev/null 2>/dev/null)
     local ok=1
     if [ -n "$ref" ] && [ -f "$ref" ]; then
         local exp; exp=$(cat "$ref")

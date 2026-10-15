@@ -66,9 +66,9 @@ for f in "$W"/src/*.icn; do
     m="$(basename "$f" .icn)"
     [ -n "$WANT" ] && ! grep -qw "$m" <<<"$WANT" && continue
     ROWS=$((ROWS+1)); mkdir -p "$W/o/$m" "$W/s/$m"
-    ( cd "$W/src" && env -u HEAPSIZE -u BLOCKSIZE -u BLKSIZE -u STRSIZE -u MSTKSIZE -u QLSIZE -u COEXPSIZE "${OENV[@]}" timeout "$TMO" "$W/jtran_oracle" \
+    ( cd "$W/src" && env -u HEAPSIZE -u BLOCKSIZE -u BLKSIZE -u STRSIZE -u MSTKSIZE -u QLSIZE -u COEXPSIZE "${OENV[@]}" timeout -k 5 "$TMO" "$W/jtran_oracle" \
         preproc "$m.icn" : yylex : parse : ast2ir : optim -O : bc_File -class:"l$m" -dir:"$W/o/$m/" ) >/dev/null 2>"$W/o/$m.err"; orc=$?
-    ( cd "$W/src" && timeout "$TMO" "$W/jtran_scrip" "${SWA[@]}" -- \
+    ( cd "$W/src" && timeout -k 5 "$TMO" "$W/jtran_scrip" "${SWA[@]}" -- \
         preproc "$m.icn" : yylex : parse : ast2ir : optim -O : bc_File -class:"l$m" -dir:"$W/s/$m/" ) >/dev/null 2>"$W/s/$m.err"; src=$?
     no=$(ls "$W/o/$m" | wc -l); ns=$(ls "$W/s/$m" | wc -l); same=0
     for c in "$W/o/$m"/*; do [ -e "$c" ] || continue; TOT=$((TOT+1)); cmp -s "$c" "$W/s/$m/$(basename "$c")" && { same=$((same+1)); SAME=$((SAME+1)); }; done

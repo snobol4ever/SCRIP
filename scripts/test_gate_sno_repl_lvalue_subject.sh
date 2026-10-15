@@ -84,12 +84,12 @@ check() { # $1=engine label  $2=stream
     [ "$calls" = "1" ] && echo "  ✓ $1: subject lvalue evaluated exactly once" || { echo "  ⛔ $1: index function called '$calls' times, expected 1 -- the subject is being re-lowered for the write-back"; RED=$((RED+1)); }
     [ "$ov" = "BYE" ] && echo "  ✓ $1: single-evaluation subject still replaced" || { echo "  ⛔ $1: single-evaluation subject gave '$ov', expected 'BYE'"; RED=$((RED+1)); }
 }
-OUT_SBL="$(cd "$W" && timeout 8s "$SBL" $(sbl_lang_flags) $SINK f.sno < /dev/null 2>&1)"
+OUT_SBL="$(cd "$W" && timeout -k 5 8s "$SBL" $(sbl_lang_flags) $SINK f.sno < /dev/null 2>&1)"
 check "sbl -bf" "$OUT_SBL"
-OUT_M3="$(cd "$W" && timeout 8s "$SCRIP" --run f.sno < /dev/null 2>&1)"
+OUT_M3="$(cd "$W" && timeout -k 5 8s "$SCRIP" --run f.sno < /dev/null 2>&1)"
 check "mode-3" "$OUT_M3"
-if (cd "$W" && timeout 60s "$SCRIP" --compile f.sno) > "$W/p.s" 2>"$W/cc.err" && gcc -c "$W/p.s" -o "$W/p.o" 2>>"$W/cc.err" && gcc "$W/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$W/p.bin" 2>>"$W/cc.err"; then
-    OUT_M4="$(cd "$W" && timeout 8s ./p.bin < /dev/null 2>&1)"
+if (cd "$W" && timeout -k 5 60s "$SCRIP" --compile f.sno) > "$W/p.s" 2>"$W/cc.err" && gcc -c "$W/p.s" -o "$W/p.o" 2>>"$W/cc.err" && gcc "$W/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$W/p.bin" 2>>"$W/cc.err"; then
+    OUT_M4="$(cd "$W" && timeout -k 5 8s ./p.bin < /dev/null 2>&1)"
     check "mode-4" "$OUT_M4"
 else
     ARMS=$((ARMS+6)); RED=$((RED+6))

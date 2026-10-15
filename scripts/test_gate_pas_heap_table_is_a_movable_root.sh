@@ -97,20 +97,20 @@ end.
 PAS
 ( cd "$T" && "$FPC" -Miso -v0 w.pas >/dev/null 2>&1 && ./w ) > "$T/w.ref" 2>&1
 grep -q '^nodes 300 sum 45150 churn 20000 bad 0$' "$T/w.ref" || { echo "⛔ GATE REFUSE(2) [$G]: the oracle did not produce the kept-list line this gate pins -- the oracle moved: $(head -1 "$T/w.ref")"; exit 2; }
-( cd "$T" && timeout 60 "$SCRIP" --compile -o w.s w.pas </dev/null && gcc w.s -o w.bin -L"$RT_DIR" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the mode-4 witness did not build"; exit 2; }
+( cd "$T" && timeout -k 5 60 "$SCRIP" --compile -o w.s w.pas </dev/null && gcc w.s -o w.bin -L"$RT_DIR" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the mode-4 witness did not build"; exit 2; }
 RC=0
 for M in m3 m4; do
   for ARM in plain forced; do
     if [ "$ARM" = forced ]; then PRE=(env SCRIP_GC_STRESS=2000); else PRE=(env); fi
-    if [ "$M" = m3 ]; then ( cd "$T" && "${PRE[@]}" timeout 120 "$SCRIP" --run w.pas </dev/null ) >"$T/$M.$ARM.out" 2>&1
-    else ( cd "$T" && "${PRE[@]}" LD_LIBRARY_PATH="$RT_DIR" timeout 120 ./w.bin </dev/null ) >"$T/$M.$ARM.out" 2>&1
+    if [ "$M" = m3 ]; then ( cd "$T" && "${PRE[@]}" timeout -k 5 120 "$SCRIP" --run w.pas </dev/null ) >"$T/$M.$ARM.out" 2>&1
+    else ( cd "$T" && "${PRE[@]}" LD_LIBRARY_PATH="$RT_DIR" timeout -k 5 120 ./w.bin </dev/null ) >"$T/$M.$ARM.out" 2>&1
     fi
     if [ -n "${FAIL_ONCE:-}" ] && [ "$M" = m3 ] && [ "$ARM" = plain ]; then sed -i '1s/^nodes 300/nodes 299/' "$T/$M.$ARM.out"; fi
     if diff -u "$T/w.ref" "$T/$M.$ARM.out" >"$T/$M.$ARM.diff"; then echo "  $M $ARM PASS ($(wc -l <"$T/w.ref") lines byte-identical to fpc -Miso)"
     else echo "  $M $ARM FAIL ($(grep -c '^[-+][^-+]' "$T/$M.$ARM.diff") diff lines)"; sed -n '1,10p' "$T/$M.$ARM.diff" | sed 's/^/      /'; RC=1; fi
   done
 done
-( cd "$T" && env SCRIP_GC_STRESS=2000 SCRIP_ZETA_TELEM=1 timeout 120 "$SCRIP" --run w.pas </dev/null ) >"$T/telem.out" 2>&1
+( cd "$T" && env SCRIP_GC_STRESS=2000 SCRIP_ZETA_TELEM=1 timeout -k 5 120 "$SCRIP" --run w.pas </dev/null ) >"$T/telem.out" 2>&1
 RUNS=$(grep -c 'regeneration #' "$T/telem.out"); RUNS=${RUNS:-0}
 RECL=$(grep -o 'reclaimed [0-9]*' "$T/telem.out" | awk '{s+=$2} END {print s+0}')
 PINMAX=$(grep -o 'pinned [0-9]*' "$T/telem.out" | awk '{if ($2+0>m) m=$2+0} END {print m+0}')

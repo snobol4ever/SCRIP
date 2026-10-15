@@ -74,11 +74,11 @@ GRADED=0; FAIL=0
 for w in byname direct; do
   for m in 3 4; do
     if [ "$m" = 3 ]; then
-      out="$(timeout 20s "$SCRIP" "$TD/$w.icn" </dev/null 2>"$TD/err.$w.$m")"; rc=$?
+      out="$(timeout -k 5 20s "$SCRIP" "$TD/$w.icn" </dev/null 2>"$TD/err.$w.$m")"; rc=$?
     else
       "$SCRIP" --compile -o "$TD/$w.s" "$TD/$w.icn" </dev/null >/dev/null 2>&1 || refuse "$w: mode-4 compile failed -- cannot measure"
       gcc -no-pie "$TD/$w.s" -o "$TD/$w.bin" -L "$ROOT/out" -lscrip_rt -lm >/dev/null 2>&1 || refuse "$w: mode-4 link failed -- cannot measure"
-      out="$(LD_LIBRARY_PATH="$ROOT/out" timeout 20s "$TD/$w.bin" </dev/null 2>"$TD/err.$w.$m")"; rc=$?
+      out="$(LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 20s "$TD/$w.bin" </dev/null 2>"$TD/err.$w.$m")"; rc=$?
     fi
     GRADED=$((GRADED+1))
     if [ "$rc" -ne 0 ]; then

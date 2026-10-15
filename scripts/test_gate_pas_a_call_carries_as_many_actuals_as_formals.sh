@@ -32,15 +32,15 @@ FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]
 SRC="$S4E/corpus/packages/pascal/pat"
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0; N=0
-m4_run() { M4O=$( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/w.s" "$1" </dev/null 2>&1 ); M4RC=$?
+m4_run() { M4O=$( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/w.s" "$1" </dev/null 2>&1 ); M4RC=$?
   if [ "$M4RC" = 0 ]; then
     ( cd "$T" && cc -m64 -no-pie w.s -o w -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: $1 compiled but would not link -- cannot grade the m4 arm"; exit 2; }
-    M4O=$( cd "$T" && timeout 20s ./w </dev/null 2>&1 ); M4RC=$?
+    M4O=$( cd "$T" && timeout -k 5 20s ./w </dev/null 2>&1 ); M4RC=$?
   fi; }
 for b in iso7185prt1829 iso7185prt1830; do
   f="$SRC/$b.pas"; [ -f "$f" ] || { echo "⛔ GATE REFUSE(2) [$G]: missing vendored witness $f"; exit 2; }
   N=$((N+1)); bad=""
-  o3=$( cd "$T" && timeout 10s "$SCRIP" "$f" </dev/null 2>&1 ); rc3=$?
+  o3=$( cd "$T" && timeout -k 5 10s "$SCRIP" "$f" </dev/null 2>&1 ); rc3=$?
   if [ -n "${FAIL_ONCE:-}" ] && [ "$b" = iso7185prt1829 ]; then rc3=0; o3=""; fi
   { [ "$rc3" -ne 0 ] && [ "$rc3" -lt 124 ] && [ -n "$o3" ]; } || bad="m3 (rc=$rc3, ${#o3} bytes of diagnostic)"
   m4_run "$f"; o4="$M4O"; rc4=$M4RC
@@ -71,7 +71,7 @@ end.
 PAS
 ( cd "$T" && "$FPC" -Miso -v0 ok.pas >/dev/null 2>&1 && ./ok ) > "$T/ok.ref" 2>&1
 [ -s "$T/ok.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no control-arm output"; exit 2; }
-ok3=$( cd "$T" && timeout 20s "$SCRIP" --run ok.pas </dev/null 2>&1 ); m4_run "$T/ok.pas"; ok4="$M4O"
+ok3=$( cd "$T" && timeout -k 5 20s "$SCRIP" --run ok.pas </dev/null 2>&1 ); m4_run "$T/ok.pas"; ok4="$M4O"
 if [ "$ok3" = "$(cat "$T/ok.ref")" ] && [ "$ok4" = "$(cat "$T/ok.ref")" ]; then echo "  control arm: a forward declaration, recursion, a zero-formal function, a nested procedure and required functions run byte-identical to fpc -Miso in both modes"
 else echo "  ⛔ control arm FAILED -- the check refuses or miscompiles a LEGAL program"; echo "      want: $(tr '\n' '|' < "$T/ok.ref")"; echo "      m3  : $(printf '%s' "$ok3" | tr '\n' '|')"; echo "      m4  : $(printf '%s' "$ok4" | tr '\n' '|')"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $N calls with the wrong number of actual-parameters refused with a NAMED diagnostic in both modes, and legal calls are untouched"

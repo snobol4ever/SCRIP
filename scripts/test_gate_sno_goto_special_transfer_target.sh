@@ -48,11 +48,11 @@ for a in a1 a2 a3 a4; do
     want="$("$ORACLE" -bf "$T/$a.sno" < /dev/null 2>&1 | tr '\n' '/')"
     for m in m3 m4; do
         if [ "$m" = m3 ]; then
-            got="$(timeout 20s "$SCRIP" "$T/$a.sno" < /dev/null 2>&1 | tr '\n' '/')"
+            got="$(timeout -k 5 20s "$SCRIP" "$T/$a.sno" < /dev/null 2>&1 | tr '\n' '/')"
         else
             "$SCRIP" --compile -o "$T/$a.s" "$T/$a.sno" < /dev/null >/dev/null 2>&1
             gcc -no-pie "$T/$a.s" -o "$T/$a.x" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread >/dev/null 2>&1 || { echo "  RED  $a $m -- link failed"; bad=1; continue; }
-            got="$(timeout 20s "$T/$a.x" < /dev/null 2>&1 | tr '\n' '/')"
+            got="$(timeout -k 5 20s "$T/$a.x" < /dev/null 2>&1 | tr '\n' '/')"
         fi
         if [ "$got" = "$want" ]; then echo "  ok   $a $m -- matches SPITBOL [$want]"
         else echo "  RED  $a $m -- got [$got] want [$want]"; bad=1; fi

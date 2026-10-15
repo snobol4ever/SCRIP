@@ -55,14 +55,14 @@ mk() {     # mk <file> <how the function is reached>
       body
       printf 'B2\tOUTPUT = "convert failed"\t\t\t:(END)\nEND\n'; } > "$1"
 }
-run_m3() { timeout 30 "$S" "$1" < /dev/null 2>&1; }
+run_m3() { timeout -k 5 30 "$S" "$1" < /dev/null 2>&1; }
 run_m4() {
     rm -f "$t/p.s" "$t/p.o" "$t/f.bin"
-    timeout 60 "$S" --compile -o "$t/p.s" "$1" < /dev/null > "$t/c.log" 2>&1 \
+    timeout -k 5 60 "$S" --compile -o "$t/p.s" "$1" < /dev/null > "$t/c.log" 2>&1 \
       && gcc -c "$t/p.s" -o "$t/p.o" >> "$t/c.log" 2>&1 \
       && gcc "$t/p.o" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$t/f.bin" >> "$t/c.log" 2>&1 \
       || { echo "M4-BUILD-FAILED"; return; }
-    timeout 30 "$t/f.bin" < /dev/null 2>&1
+    timeout -k 5 30 "$t/f.bin" < /dev/null 2>&1
 }
 grade() {  # grade <label> <expected> <actual>
     GRADED=$((GRADED + 1))

@@ -95,9 +95,9 @@ one_prog() {
   d="$(dirname "$prog")"; in="$(stdin_for "$prog")"; L="$(sc_libpath "$lib" "$d")"
   [ "$name" = beauty_self ] && in="$prog"
   W="$(mktemp -d)"
-  (cd "$d" && SETL4PATH=".:$L" timeout 60 "$SBL" -b  -d512m -i64m "$prog" < "$in" > "$W/b1" 2>/dev/null); r1=$?
-  (cd "$d" && SETL4PATH=".:$L" timeout 60 "$SBL" -b  -d512m -i64m "$prog" < "$in" > "$W/b2" 2>/dev/null); r2=$?
-  (cd "$d" && SETL4PATH=".:$L" timeout 60 "$SBL" -bf -d512m -i64m "$prog" < "$in" > "$W/f"  2>/dev/null); rf=$?
+  (cd "$d" && SETL4PATH=".:$L" timeout -k 5 60 "$SBL" -b  -d512m -i64m "$prog" < "$in" > "$W/b1" 2>/dev/null); r1=$?
+  (cd "$d" && SETL4PATH=".:$L" timeout -k 5 60 "$SBL" -b  -d512m -i64m "$prog" < "$in" > "$W/b2" 2>/dev/null); r2=$?
+  (cd "$d" && SETL4PATH=".:$L" timeout -k 5 60 "$SBL" -bf -d512m -i64m "$prog" < "$in" > "$W/f"  2>/dev/null); rf=$?
   sed -i "$NRM" "$W/b1" "$W/b2" "$W/f"
   m1=$(md5sum < "$W/b1" | cut -c1-12); m2=$(md5sum < "$W/b2" | cut -c1-12); mf=$(md5sum < "$W/f" | cut -c1-12)
   if [ "$m1" != "$m2" ] || [ "$r1" != "$r2" ]; then tag=FLAKY
@@ -134,14 +134,14 @@ cmd_transition() {
     d="$(dirname "$full")"; in="$(stdin_for "$full")"; L="$(sc_libpath "$(libspec_for "$suite")" "$d")"
     [ "$suite" = beauty_self ] && in="$full"
     W="$(mktemp -d)"
-    (cd "$d" && SETL4PATH=".:$L" timeout 60 "$SBL" -b  -d512m -i64m "$full" < "$in" > "$W/b" 2>/dev/null); rcb=$?
-    (cd "$d" && SETL4PATH=".:$L" timeout 60 "$SBL" -bf -d512m -i64m "$full" < "$in" > "$W/f" 2>/dev/null); rcf=$?
+    (cd "$d" && SETL4PATH=".:$L" timeout -k 5 60 "$SBL" -b  -d512m -i64m "$full" < "$in" > "$W/b" 2>/dev/null); rcb=$?
+    (cd "$d" && SETL4PATH=".:$L" timeout -k 5 60 "$SBL" -bf -d512m -i64m "$full" < "$in" > "$W/f" 2>/dev/null); rcf=$?
     ref="${full%.sno}.ref"; hp=0; [ -f "$ref" ] && { sed "$NRM" "$ref" > "$W/pin"; hp=1; }
-    (cd "$d" && SNO_LIB="$L" timeout 30 "$SCRIP" --run "$full" < "$in" > "$W/m3" 2>/dev/null)
+    (cd "$d" && SNO_LIB="$L" timeout -k 5 30 "$SCRIP" --run "$full" < "$in" > "$W/m3" 2>/dev/null)
     m4=SKIP
-    if (cd "$d" && SNO_LIB="$L" timeout 60 "$SCRIP" --compile "$full" </dev/null > "$W/p.s" 2>/dev/null) && [ -s "$W/p.s" ] \
+    if (cd "$d" && SNO_LIB="$L" timeout -k 5 60 "$SCRIP" --compile "$full" </dev/null > "$W/p.s" 2>/dev/null) && [ -s "$W/p.s" ] \
        && gcc -no-pie "$W/p.s" -L"$SC/out" -lscrip_rt -lm -Wl,-rpath,"$SC/out" -o "$W/p.bin" 2>/dev/null; then
-         (cd "$d" && SNO_LIB="$L" timeout 30 "$W/p.bin" < "$in" > "$W/m4o" 2>/dev/null); m4=RAN; fi
+         (cd "$d" && SNO_LIB="$L" timeout -k 5 30 "$W/p.bin" < "$in" > "$W/m4o" 2>/dev/null); m4=RAN; fi
     sed -i "$NRM" "$W/b" "$W/f" "$W/m3"; [ "$m4" = RAN ] && sed -i "$NRM" "$W/m4o"
     verdict() { local o="$1" lv="$2" lrc="$3"
       { [ $hp = 1 ] && cmp -s "$o" "$W/pin"; } && { echo PASS; return; }

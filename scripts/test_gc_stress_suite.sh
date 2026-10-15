@@ -81,10 +81,10 @@ for S in 0 25 7 1; do
             ref="${sno%.sno}.ref"
             [ -f "$ref" ] || continue
             if [ "$MODE" = m3 ]; then
-                if [ "$S" = 0 ]; then out=$(timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null); else out=$(SCRIP_GC_STRESS=$S timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null); fi
+                if [ "$S" = 0 ]; then out=$(timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null); else out=$(SCRIP_GC_STRESS=$S timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null); fi
             else
                 [ -x "$WORKDIR/$b" ] || { F=$((F+1)); FL="$FL $b(nc)"; continue; }
-                if [ "$S" = 0 ]; then out=$(timeout "$TIMEOUT" "$WORKDIR/$b" < /dev/null 2>/dev/null); else out=$(SCRIP_GC_STRESS=$S timeout "$TIMEOUT" "$WORKDIR/$b" < /dev/null 2>/dev/null); fi
+                if [ "$S" = 0 ]; then out=$(timeout -k 5 "$TIMEOUT" "$WORKDIR/$b" < /dev/null 2>/dev/null); else out=$(SCRIP_GC_STRESS=$S timeout -k 5 "$TIMEOUT" "$WORKDIR/$b" < /dev/null 2>/dev/null); fi
             fi
             if [ "$out" = "$(cat "$ref")" ]; then P=$((P+1)); else F=$((F+1)); FL="$FL $b"; fi
         done

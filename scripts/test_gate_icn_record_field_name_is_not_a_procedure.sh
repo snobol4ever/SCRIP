@@ -58,10 +58,10 @@ cat > "$T/r1.want" <<'WANT'
 11 gen        8
 WANT
 fail=0
-( cd "$T" && timeout 60 "$SCRIP" r1.icn </dev/null > r1.m3 2>&1 ); rc3=$?
+( cd "$T" && timeout -k 5 60 "$SCRIP" r1.icn </dev/null > r1.m3 2>&1 ); rc3=$?
 if [ "$rc3" = 0 ] && cmp -s "$T/r1.m3" "$T/r1.want"; then echo "  PASS  m3 r1"; else echo "  FAIL  m3 r1 rc=$rc3"; diff "$T/r1.want" "$T/r1.m3" | head -8 | sed 's/^/        /'; fail=1; fi
 if ( cd "$T" && "$SCRIP" --compile r1.icn > r1.s 2>/dev/null && gcc -c r1.s -o r1.o 2>/dev/null && gcc r1.o -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o r1.bin 2>/dev/null ); then
-  ( cd "$T" && timeout 60 ./r1.bin </dev/null > r1.m4 2>&1 ); rc4=$?
+  ( cd "$T" && timeout -k 5 60 ./r1.bin </dev/null > r1.m4 2>&1 ); rc4=$?
   if [ "$rc4" = 0 ] && cmp -s "$T/r1.m4" "$T/r1.want"; then echo "  PASS  m4 r1"; else echo "  FAIL  m4 r1 rc=$rc4"; diff "$T/r1.want" "$T/r1.m4" | head -8 | sed 's/^/        /'; fail=1; fi
 else echo "  FAIL  m4 r1: no binary"; fail=1; fi
 cat > "$T/s1.sno" <<'SNO'
@@ -74,7 +74,7 @@ cat > "$T/s1.sno" <<'SNO'
 END
 SNO
 printf '3\n4\n9\n' > "$T/s1.want"
-( cd "$T" && timeout 60 "$SCRIP" s1.sno </dev/null > s1.out 2>&1 )
+( cd "$T" && timeout -k 5 60 "$SCRIP" s1.sno </dev/null > s1.out 2>&1 )
 if cmp -s "$T/s1.out" "$T/s1.want"; then echo "  PASS  snobol4 control arm: DATA field accessors are still callable and still assignable"; else echo "  FAIL  snobol4 control arm -- the Icon-side suppression reached SNOBOL4"; diff "$T/s1.want" "$T/s1.out" | head -6 | sed 's/^/        /'; fail=1; fi
 if [ "$fail" = 0 ]; then echo "✅ PASS: an Icon record field name is not a procedure -- proc() refuses it, a string call on one raises 106 carrying the STRING, field access and the constructor are untouched, and SNOBOL4's DATA accessors still work"; exit 0; fi
 echo "⛔ FAIL: see the FAIL rows -- a record field name answered proc(), or the suppression reached SNOBOL4's DATA accessors"; exit 1

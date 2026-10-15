@@ -61,8 +61,8 @@ rm -f "$W/u.oracle_args"
 printf "        DEFINE('R(N)')                    :(REND)\nR       R = EQ(N,0) 0                     :S(RETURN)\n        R = R(N - 1) + 1                  :(RETURN)\nREND    OUTPUT = 'depth=' R(100000)\nEND\n" > "$W/deep.sno"
 printf 'deep\t-s64m\n' > "$W/deep.oracle_args"
 OA="$(declared_oracle_args_beside "$W/deep.sno")" || { echo "⛔ GATE REFUSE(2) [$G]: the reader refused a well-formed fixture"; exit 2; }
-d0="$( cd "$W" && timeout 60 "$SBL" $SBLF deep.sno < /dev/null 2>&1 )"; r0=$?
-d1="$( cd "$W" && timeout 60 "$SBL" $SBLF $OA deep.sno < /dev/null 2>&1 )"; r1=$?
+d0="$( cd "$W" && timeout -k 5 60 "$SBL" $SBLF deep.sno < /dev/null 2>&1 )"; r0=$?
+d1="$( cd "$W" && timeout -k 5 60 "$SBL" $SBLF $OA deep.sno < /dev/null 2>&1 )"; r1=$?
 if [ "$r0" -eq 124 ] || [ "$r1" -eq 124 ]; then echo "⛔ GATE REFUSE(2) [$G]: the recursion fixture timed out (default rc=$r0, declared rc=$r1)"; exit 2; fi
 if grep -q 'ERROR 246' <<<"$d0" && ! grep -q '^depth=' <<<"$d0" && [ "$d1" = depth=100000 ]; then
   ok "B  at sbl's default stack the recursion dies ERROR 246; under the declared ${OA} it prints depth=100000"

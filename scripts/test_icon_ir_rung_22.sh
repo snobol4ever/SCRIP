@@ -8,9 +8,9 @@ RUNG_DIR="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/icon"
 for icn in "$RUNG_DIR"/rung22_lists_*.icn; do
   base="${icn%.icn}"; exp="$base.ref"; [ -f "$exp" ] || continue
   ${1:-/tmp/scrip-cc} -jvm "$icn" -o /tmp/t22.j 2>/dev/null
-  timeout 30 java -jar miscellaneous/jasmin.jar /tmp/t22.j -d /tmp/ 2>/dev/null
+  timeout -k 5 30 java -jar miscellaneous/jasmin.jar /tmp/t22.j -d /tmp/ 2>/dev/null
   cls=$(grep -m1 '\.class' /tmp/t22.j | awk '{print $NF}')
-  got=$(timeout 5 java -cp /tmp/ "$cls" 2>/dev/null); want=$(cat "$exp")
+  got=$(timeout -k 5 5 java -cp /tmp/ "$cls" 2>/dev/null); want=$(cat "$exp")
   if [ "$got" = "$want" ]; then PASS=$((PASS+1)); echo "PASS: $(basename $icn)"
   else FAIL=$((FAIL+1)); echo "FAIL: $(basename $icn)"; fi
 done

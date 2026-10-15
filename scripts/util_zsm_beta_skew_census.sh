@@ -40,7 +40,7 @@ n=0
 for f in "${FILES[@]}"; do
     [ -f "$f" ] || continue
     n=$((n+1))
-    SCRIP_ZSM=1 SCRIP_ZSM_ALL=1 SCRIP_ZSM_BSKEW=1 timeout 8 "$SCRIP" "$f" </dev/null 2>>"$TMP/ev" >/dev/null || true
+    SCRIP_ZSM=1 SCRIP_ZSM_ALL=1 SCRIP_ZSM_BSKEW=1 timeout -k 5 8 "$SCRIP" "$f" </dev/null 2>>"$TMP/ev" >/dev/null || true
 done
 echo "== β-SKEW EXCEPTIONS CENSUS over $n programs =="
 echo "   (β arrivals whose rsp differs from their own α rsp; most boxes require equality — Lon s196)"

@@ -68,9 +68,9 @@ for name in $progs; do
   read -ra a <<< "${ARGS[$name]}"
   read -ra ld <<< "${LINKDEPS[$name]:-}"
   ( cd "$CORPUS" && "$ICONT" -s -o "$WORK/$name.icx" "$name.icn" ) >/dev/null 2>&1
-  OUTPUT=1 timeout 120 "$ICONX" "$WORK/$name.icx" "${a[@]}" 2>/dev/null <"$sin" | head -c "$CAP" >"$WORK/$name.orc"
+  OUTPUT=1 timeout -k 5 120 "$ICONX" "$WORK/$name.icx" "${a[@]}" 2>/dev/null <"$sin" | head -c "$CAP" >"$WORK/$name.orc"
   orc_rc=${PIPESTATUS[0]}
-  ( cd "$CORPUS" && timeout 120 "$SCRIP" --compile --target=x86 "$name.icn" "${ld[@]}" \
+  ( cd "$CORPUS" && timeout -k 5 120 "$SCRIP" --compile --target=x86 "$name.icn" "${ld[@]}" \
       >"$WORK/$name.s" 2>"$WORK/$name.cerr" )
   if [ -s "$WORK/$name.s" ] && gcc -no-pie "$WORK/$name.s" -L"$RTDIR" -lscrip_rt \
         -Wl,-rpath,"$RTDIR" -o "$WORK/$name.bin" 2>"$WORK/$name.lerr"; then
@@ -80,7 +80,7 @@ for name in $progs; do
     # That is how FIVE SEGFAULTS were booked as wrong answers: concord printed 20 good lines, ipxref 17, rsg 5017,
     # every one of them discarded at the moment of death. Unbuffered, the partial output survives and the row tells
     # the truth about how far the program got before it died.
-    OUTPUT=1 timeout 120 stdbuf -o0 "$WORK/$name.bin" "${a[@]}" 2>"$WORK/$name.rerr" <"$sin" | head -c "$CAP" >"$WORK/$name.scr"
+    OUTPUT=1 timeout -k 5 120 stdbuf -o0 "$WORK/$name.bin" "${a[@]}" 2>"$WORK/$name.rerr" <"$sin" | head -c "$CAP" >"$WORK/$name.scr"
     scr_rc=${PIPESTATUS[0]}
   else
     printf "%-9s | %-9s | %-9s | %-9s | %s\n" "$name" "-" "-" "EMITFAIL" "$(grep -m1 -oE 'FATAL.{0,30}' "$WORK/$name.cerr")"

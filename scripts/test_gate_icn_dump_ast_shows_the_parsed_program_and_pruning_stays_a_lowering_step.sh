@@ -23,7 +23,7 @@ printf 'procedure f(x)\n  write(x);\nend\n'                                     
 printf 'procedure gen(n)\n    suspend n;\n    suspend n + 1;\n    return;\nend\n'         > "$T/a2.icn"
 printf 'procedure foo()\n  x := 1;\nend\nprocedure bar()\n  x := 2;\nend\n'               > "$T/a3.icn"
 for W in a1 a2 a3; do
-  ( cd "$T" && timeout 20 "$SCRIP" --dump-ast "$W.icn" </dev/null ) >"$T/$W.out" 2>&1
+  ( cd "$T" && timeout -k 5 20 "$SCRIP" --dump-ast "$W.icn" </dev/null ) >"$T/$W.out" 2>&1
   if [ -n "${FAIL_ONCE:-}" ] && [ "$W" = a1 ]; then : > "$T/$W.out"; fi
   n=$(grep -c 'TT_PROC_DECL' "$T/$W.out" 2>/dev/null || true); [ -s "$T/$W.out" ] || n=0
   want=1; [ "$W" = a3 ] && want=2
@@ -31,12 +31,12 @@ for W in a1 a2 a3; do
   else echo "  $W FAIL (--dump-ast printed $n TT_PROC_DECL, expected $want -- the parse is not what the dump shows)"; sed -n '1,4p' "$T/$W.out" | sed 's/^/      /'; RC=1; fi
 done
 printf 'procedure unused_one()\n  write("NEVER");\nend\nprocedure main()\n  write("hi");\nend\n' > "$T/p.icn"
-( cd "$T" && timeout 25 "$SCRIP" --compile -o p.s p.icn </dev/null ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the prune control witness did not compile"; exit 2; }
+( cd "$T" && timeout -k 5 25 "$SCRIP" --compile -o p.s p.icn </dev/null ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the prune control witness did not compile"; exit 2; }
 if [ "$(grep -c 'unused_one' "$T/p.s" || true)" = 0 ]; then echo "  prune PASS (a procedure unreachable from main is still absent from a single-file compiland's asm)"
 else echo "  prune FAIL (unused_one reached the emitted asm -- the lowering-step prune was lost, not moved)"; RC=1; fi
 PG="$HERE/test_smoke_polyglot.sh"
 if [ -x "$PG" ] || [ -f "$PG" ]; then
-  out=$(timeout 300 bash "$PG" 2>&1) || true
+  out=$(timeout -k 5 300 bash "$PG" 2>&1) || true
   m3=$(printf '%s\n' "$out" | grep -m1 'mode-3' || true); m4=$(printf '%s\n' "$out" | grep -m1 'mode-4' || true)
   if printf '%s %s\n' "$m3" "$m4" | grep -q 'FAIL=0.*FAIL=0'; then echo "  polyglot PASS (a procedure called from another language survives: $m3 / $m4)"
   else echo "  polyglot FAIL (a cross-language callee is still dropped: $m3 / $m4)"; RC=1; fi

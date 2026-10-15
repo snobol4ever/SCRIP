@@ -35,8 +35,8 @@ for L in $LANGS; do
     m4=0; "$SCRIP" --compile "$T/$L.chain.sc" -o "$T/$L.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/$L.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/$L.bin" 2>/dev/null && m4=1
     tc=0; t4=0; declare -A K=([cP]=0 [cR]=0 [cT]=0 [4P]=0 [4R]=0 [4T]=0)
     while IFS= read -r f; do
-        a=$(now); ( cd "$(dirname "$f")"; SNO_LIB="$CORPUS/include" timeout "$TMO" "$exe" - < "$f" > "$T/o" 2>/dev/null ); r=$?; tc=$(add "$tc" "$a" "$(now)"); k=$(tally $r "$T/o"); K[c$k]=$((K[c$k] + 1))
-        if [ $m4 = 1 ]; then a=$(now); timeout "$TMO" "$T/$L.bin" $SW < "$f" > "$T/o" 2>/dev/null; r=$?; t4=$(add "$t4" "$a" "$(now)"); k=$(tally $r "$T/o"); K[4$k]=$((K[4$k] + 1)); fi
+        a=$(now); ( cd "$(dirname "$f")"; SNO_LIB="$CORPUS/include" timeout -k 5 "$TMO" "$exe" - < "$f" > "$T/o" 2>/dev/null ); r=$?; tc=$(add "$tc" "$a" "$(now)"); k=$(tally $r "$T/o"); K[c$k]=$((K[c$k] + 1))
+        if [ $m4 = 1 ]; then a=$(now); timeout -k 5 "$TMO" "$T/$L.bin" $SW < "$f" > "$T/o" 2>/dev/null; r=$?; t4=$(add "$t4" "$a" "$(now)"); k=$(tally $r "$T/o"); K[4$k]=$((K[4$k] + 1)); fi
     done < "$T/$L.files"
     [ $m4 = 1 ] || t4="no-m4"
     note=

@@ -60,7 +60,7 @@ for l in open("/proc/%d/smaps" % pid).read().split("\n"):
         hit = (cur, f[1])
 print("RSPMAP %s lo=%x hi=%x name=[%s] THPeligible=%s" % ("found" if hit else "none", hit[0][0] if hit else 0, hit[0][1] if hit else 0, hit[0][2] if hit else "", hit[1] if hit else "?"))
 PY
-m="$( cd "$W" && timeout 120 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break rt_main_args_stage_argv' -ex 'run < /dev/null > /dev/null 2>&1' -ex "source $W/rsp.py" ./rec.bin 2>&1 | grep -m1 '^RSPMAP' )"
+m="$( cd "$W" && timeout -k 5 120 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break rt_main_args_stage_argv' -ex 'run < /dev/null > /dev/null 2>&1' -ex "source $W/rsp.py" ./rec.bin 2>&1 | grep -m1 '^RSPMAP' )"
 [ -n "$m" ] || { echo "REFUSED(2): gdb printed no RSPMAP line -- the breakpoint or the smaps read did not happen"; exit 2; }
 case "$m" in *"RSPMAP found"*"name=[]"*"THPeligible=1"*) echo "ok  (1) main runs on an anonymous, huge-page-eligible stack it mapped: $m";;
   *) echo "RED (1) main's stack is not the adopted one: $m"; red=1;; esac
@@ -68,11 +68,11 @@ ref="$( cd "$W" && "$SBL" $(sbl_lang_flags) deep.sno < /dev/null 2>/dev/null )";
 r="$( cd "$W" && { /usr/bin/time -f 'FAULTS %R' ./deep.bin -s64m < /dev/null > deep.out; } 2>&1 | grep -m1 '^FAULTS' | grep -oE '[0-9]+' )"; [ -n "$r" ] || { echo "REFUSED(2): /usr/bin/time printed no fault count"; exit 2; }
 if [ "$(cat "$W/deep.out")" = "$ref" ] && [ "$r" -le 2500 ]; then echo "ok  (2) a match keeping ~15 MB of stack takes $r minor faults at -s64m (bound 2,500) and answers the oracle"
 else echo "RED (2) the deep-stack match took $r minor faults at -s64m (bound 2,500) and printed [$(cat "$W/deep.out")] against [$ref]"; red=1; fi
-o="$( cd "$W" && timeout 60 ./rec.bin < /dev/null 2>&1 )"; rc=$?
+o="$( cd "$W" && timeout -k 5 60 ./rec.bin < /dev/null 2>&1 )"; rc=$?
 case "$o" in *"ERROR 246"*) [ "$rc" -eq 1 ] && echo "ok  (3) unbounded recursion at the default stack is ERROR 246, rc 1" || { echo "RED (3) ERROR 246 printed with rc $rc"; red=1; };;
   *) echo "RED (3) unbounded recursion did not end in ERROR 246 (rc $rc): $(echo "$o" | head -2 | tr '\n' ' ')"; red=1;; esac
 gref="$( cd "$W" && "$SBL" $(sbl_lang_flags) gcdeep.sno < /dev/null 2>/dev/null )"
-g="$( cd "$W" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB SCRIP_GC_STRESS=1 timeout 120 ./gcdeep.bin < /dev/null 2>/dev/null )"
+g="$( cd "$W" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB SCRIP_GC_STRESS=1 timeout -k 5 120 ./gcdeep.bin < /dev/null 2>/dev/null )"
 [ -n "$gref" ] && [ "$g" = "$gref" ] && echo "ok  (4) a 3,000-deep allocating recursion answers the oracle under SCRIP_GC_STRESS=1 ($g)" || { echo "RED (4) the allocating recursion under stress printed [$g] against [$gref]"; red=1; }
 [ "$red" -eq 0 ] && { echo "GATE OK: a compiled program runs on a stack it maps itself"; exit 0; }
 echo "GATE FAILED: see the RED lines above"; exit 1

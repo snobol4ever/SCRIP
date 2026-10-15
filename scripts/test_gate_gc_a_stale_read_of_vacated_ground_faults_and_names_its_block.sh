@@ -82,7 +82,7 @@ if [ -n "$qline" ] && [ -n "$qlo" ] && [ -n "$qhi" ] && [ $((qlo % pg)) = 0 ] &&
 else ck FAIL "(f) THE HONEST LIMIT HOLDS -- no page-aligned [ZGC-TRAP] quarantine line was printed under SCRIP_ZETA_TELEM=1 (got: ${qline:-none}); an unaligned or absent bound means the instrument cannot say what it does and does not cover"; fi
 W="$ROOT/scripts/gc_witnesses/hb_mkexpr_unmapped_spine_store.sno"; R="$ROOT/scripts/gc_witnesses/hb_mkexpr_unmapped_spine_store.ref"
 if [ -f "$W" ] && [ -f "$R" ]; then
-  bad=""; for s in 0 1 3 5 16; do a=$(SCRIP_GC_STRESS=$s timeout 60s "$ROOT/scrip" "$W" </dev/null 2>&1); [ "$a" = "$(cat "$R")" ] || bad="$bad $s"; done
+  bad=""; for s in 0 1 3 5 16; do a=$(SCRIP_GC_STRESS=$s timeout -k 5 60s "$ROOT/scrip" "$W" </dev/null 2>&1); [ "$a" = "$(cat "$R")" ] || bad="$bad $s"; done
   if [ -z "$bad" ]; then ck ok "(g) NO REGRESSION ON A HEALTHY PROGRAM -- the unmapped-spine-store witness still answers its oracle-cut ref with the trap ON at stress 0 1 3 5 16"
   else ck FAIL "(g) NO REGRESSION ON A HEALTHY PROGRAM -- the witness stopped answering its ref at stress:$bad with the trap on; a trap that reds a green program is a false positive and outranks the conversion it bought"; fi
 else ck FAIL "(g) NO REGRESSION ON A HEALTHY PROGRAM -- the witness or its ref is gone, so nothing graded a real program under the trap"; fi

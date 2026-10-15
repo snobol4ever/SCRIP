@@ -79,13 +79,13 @@ ICN
 sed -i "s|__IN__|$T/in.txt|" "$T/g.icn"
 ( cd "$T" && "$ICONT" -s -o orc g.icn ) > "$T/icont.log" 2>&1
 [ -x "$T/orc" ] || { echo "GATE UNPROVEN(2) [icn_list_reads_size_gate]: icont refused the witness -- measured nothing:"; sed 's/^/    /' "$T/icont.log"; exit 2; }
-timeout 60 "$ICONX" "$T/orc" < /dev/null > "$T/want" 2>&1 || true
-timeout 60 "$R/scrip" "$T/g.icn" < /dev/null > "$T/m3" 2>&1
+timeout -k 5 60 "$ICONX" "$T/orc" < /dev/null > "$T/want" 2>&1 || true
+timeout -k 5 60 "$R/scrip" "$T/g.icn" < /dev/null > "$T/m3" 2>&1
 rm -f "$T/g.s" "$T/bin"
-timeout 60 "$R/scrip" --compile -o "$T/g.s" "$T/g.icn" < /dev/null > "$T/cc.log" 2>&1
+timeout -k 5 60 "$R/scrip" --compile -o "$T/g.s" "$T/g.icn" < /dev/null > "$T/cc.log" 2>&1
 [ -s "$T/g.s" ] && gcc -m64 -no-pie "$T/g.s" -o "$T/bin" -L"$R/out" -lscrip_rt -Wl,-rpath,"$R/out" -lm -lpthread >> "$T/cc.log" 2>&1
 [ -x "$T/bin" ] || { echo "GATE UNPROVEN(2) [icn_list_reads_size_gate]: mode 4 produced no binary -- measured nothing:"; tail -3 "$T/cc.log" | sed 's/^/    /'; exit 2; }
-timeout 60 "$T/bin" < /dev/null > "$T/m4" 2>&1
+timeout -k 5 60 "$T/bin" < /dev/null > "$T/m4" 2>&1
 grep -q '^LIST_STR ' "$T/want" || { echo "GATE UNPROVEN(2) [icn_list_reads_size_gate]: the oracle named no LIST_STR row -- measured nothing:"; sed 's/^/    /' "$T/want"; exit 2; }
 grep -q '^LIST_STR n=101 ' "$T/want" || { echo "GATE UNPROVEN(2) [icn_list_reads_size_gate]: the oracle did not raise 101 for list(\"zz\") -- the population is not what this gate believes and its wants would pin a fiction:"; sed 's/^/    /' "$T/want"; exit 2; }
 bad=0

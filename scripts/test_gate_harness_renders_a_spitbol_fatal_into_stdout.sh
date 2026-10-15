@@ -38,8 +38,8 @@ MASK_RE='^(stmts executed       |execution time msec  |REGENERATIONS        |mem
 
 # THE WITNESS: output, then a run-time fatal, then output the fatal must cut off
 printf '\tOUTPUT = "before"\n\tY = 0\n\tX = 1 / Y\n\tOUTPUT = "after"\nEND\n' > "$W/fatal_witness.sno"
-( cd "$W" && timeout 20 "$SBL" $SBLF fatal_witness.sno < /dev/null > "$W/ref.stdout" 2> "$W/ref.stderr" ); rcS=$?
-( cd "$W" && timeout 20 "$SBL" $SBLF fatal_witness.sno < /dev/null > "$W/ref.merged" 2>&1 )
+( cd "$W" && timeout -k 5 20 "$SBL" $SBLF fatal_witness.sno < /dev/null > "$W/ref.stdout" 2> "$W/ref.stderr" ); rcS=$?
+( cd "$W" && timeout -k 5 20 "$SBL" $SBLF fatal_witness.sno < /dev/null > "$W/ref.merged" 2>&1 )
 grep -q ' : ERROR [0-9][0-9][0-9] -- ' "$W/ref.stdout" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the oracle printed no fatal block on stdout for the witness (rc=$rcS) -- the premise moved: $(head -3 "$W/ref.stdout" | tr '\n' '|')"; gate_stamp; exit 2; }
 # the suite pair: one banner-block entry, the ref the oracle's stdout, the mask sidecar the five run-summary lines (one source: the renderer's list)
 python3 - "$H" "$RV" "$W" <<'EOF'
@@ -61,18 +61,18 @@ listed="$(python3 "$H" list "$W/ALL.sno" "$W/ALL.ref" 2>&1)"
 [ "$listed" = "fatal_witness" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the scratch pair does not list one entry fatal_witness: $listed"; gate_stamp; exit 2; }
 
 echo "--- ARM 1: the harness grades the witness PASS in both modes (ref cut from sbl stdout, rc $rcS) ---"
-o1=$(cd "$ROOT" && S4E_PROGRESS_DB="$W/p1.tsv" timeout 120 python3 "$H" run "$W/ALL.sno" "$W/ALL.ref" --modes m3,m4 2>&1); r1=$?
+o1=$(cd "$ROOT" && S4E_PROGRESS_DB="$W/p1.tsv" timeout -k 5 120 python3 "$H" run "$W/ALL.sno" "$W/ALL.ref" --modes m3,m4 2>&1); r1=$?
 b1=$(grep -m1 '^SUITE_BOARD ' <<<"$o1")
 ck "1 rc 0, m3_pass=1 m4_pass=1 over 1 entry" '[ "$r1" = 0 ] && grep -q " m3_pass=1 " <<<"$b1" && grep -q " m4_pass=1 " <<<"$b1" && grep -q " total=1 " <<<"$b1"'
 [ "$r1" = 0 ] || printf '%s\n' "$o1" | grep -vE '^(DECLARED|RUNTIME|CEO-409)' | tail -6 | sed 's/^/      /'
 
 echo "--- ARM 2: FAIL-ONCE -- with the render off (S4E_FATAL_RENDER=0) the same witness reads FAIL in both modes ---"
-o2=$(cd "$ROOT" && S4E_FATAL_RENDER=0 S4E_PROGRESS_DB="$W/p2.tsv" timeout 120 python3 "$H" run "$W/ALL.sno" "$W/ALL.ref" --modes m3,m4 2>&1); r2=$?
+o2=$(cd "$ROOT" && S4E_FATAL_RENDER=0 S4E_PROGRESS_DB="$W/p2.tsv" timeout -k 5 120 python3 "$H" run "$W/ALL.sno" "$W/ALL.ref" --modes m3,m4 2>&1); r2=$?
 b2=$(grep -m1 '^SUITE_BOARD ' <<<"$o2")
 ck "2 rc 1, m3_fail=1 m4_fail=1 -- the render is load-bearing, not decoration" '[ "$r2" = 1 ] && grep -q " m3_fail=1 " <<<"$b2" && grep -q " m4_fail=1 " <<<"$b2"'
 
 echo "--- ARM 3: the merged capture shape (2>&1) renders byte-identical to the oracle's own merged text, masked ---"
-( cd "$W" && timeout 20 "$SCRIP" --run fatal_witness.sno < /dev/null 2>&1 | python3 "$RV" spitbol --fatal-merged | grep -vE "$MASK_RE" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' > "$W/m3.merged.rendered" )
+( cd "$W" && timeout -k 5 20 "$SCRIP" --run fatal_witness.sno < /dev/null 2>&1 | python3 "$RV" spitbol --fatal-merged | grep -vE "$MASK_RE" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' > "$W/m3.merged.rendered" )
 grep -vE "$MASK_RE" "$W/ref.merged" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' > "$W/ref.merged.masked"
 ck "3 SCRIP m3 2>&1 through --fatal-merged == sbl 2>&1, the five summary lines masked, trailing blanks dropped" 'cmp -s "$W/m3.merged.rendered" "$W/ref.merged.masked"'
 cmp -s "$W/m3.merged.rendered" "$W/ref.merged.masked" || diff "$W/m3.merged.rendered" "$W/ref.merged.masked" | head -8 | sed 's/^/      /'
@@ -82,7 +82,7 @@ mkdir -p "$W/csn"; cp "$W/fatal_witness.sno" "$W/csn/fatal_witness.sno"; cp "$W/
 : > "$W/csn/ALL.ref"   # the mask shim derives ALL.mask from ALL.ref beside it and refuses when the ref is absent (the real suite has both)
 printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args\n1,fatal_witness,fatal_witness,csnobol4_suite,5,0,0,131072,4096,,\n' > "$W/csn/ALL.csv"
 mark_before="$(suites_real_mark)"
-o4=$(cd "$ROOT" && CSNOBOL4_SUITE="$W/csn" S4E_PROGRESS_DB="$W/p4.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the Budne runner over a one-program scratch suite, not a board" timeout 300 bash "$BR" 2>&1); r4=$?
+o4=$(cd "$ROOT" && CSNOBOL4_SUITE="$W/csn" S4E_PROGRESS_DB="$W/p4.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the Budne runner over a one-program scratch suite, not a board" timeout -k 5 300 bash "$BR" 2>&1); r4=$?
 p4m3=$(awk -F'\t' '$8=="fatal_witness" && $9=="m3" {print $10}' "$W/p4.tsv" 2>/dev/null | tail -1); p4m4=$(awk -F'\t' '$8=="fatal_witness" && $9=="m4" {print $10}' "$W/p4.tsv" 2>/dev/null | tail -1)
 ck "4 the runner's progress rows read fatal_witness m3 PASS and m4 PASS (rc $r4)" '[ "$p4m3" = PASS ] && [ "$p4m4" = PASS ]'
 [ "$p4m3" = PASS ] && [ "$p4m4" = PASS ] || { printf '%s\n' "$o4" | grep -iE 'fatal_witness|REFUS|PASS|FAIL' | head -6 | sed 's/^/      /'; }
@@ -100,7 +100,7 @@ if [ -f "$DR" ]; then
   printf 'excluded_witness.sno\tNOT_SPITBOL_DIALECT\tgate fixture: a program whose fatal under sbl -bf is the CSNOBOL4 feature it uses, excluded by CEO-1286\n' > "$W/dot/EXCLUDED.tsv"
   printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args\n1,fatal_witness,fatal_witness,dotnet,5,0,0,131072,4096,,\n2,excluded_witness,excluded_witness,dotnet,5,0,0,131072,4096,,\n3,silent_fatal_witness,silent_fatal_witness,dotnet,3,0,0,131072,4096,,\n' > "$W/dot/ALL.csv"
   mkdir -p "$W/dbg"
-  o6=$(cd "$ROOT" && DOTNET_SUITE="$W/dot" DOTNET_DEBUG_DIR="$W/dbg" S4E_PROGRESS_DB="$W/p6.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the Dotnet runner over a one-program scratch suite, not a board" timeout 300 bash "$DR" 2>&1); r6=$?
+  o6=$(cd "$ROOT" && DOTNET_SUITE="$W/dot" DOTNET_DEBUG_DIR="$W/dbg" S4E_PROGRESS_DB="$W/p6.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the Dotnet runner over a one-program scratch suite, not a board" timeout -k 5 300 bash "$DR" 2>&1); r6=$?
   p6m3=$(awk -F'\t' '$8=="fatal_witness" && $9=="m3" {print $10}' "$W/p6.tsv" 2>/dev/null | tail -1); p6m4=$(awk -F'\t' '$8=="fatal_witness" && $9=="m4" {print $10}' "$W/p6.tsv" 2>/dev/null | tail -1)
   ck "6a the Dotnet runner's progress rows read fatal_witness m3 PASS and m4 PASS (rc $r6), the program named FATAL_GRADED" '[ "$p6m3" = PASS ] && [ "$p6m4" = PASS ] && grep -q "FATAL_GRADED.* fatal_witness" <<<"$o6"'
   [ "$p6m3" = PASS ] && [ "$p6m4" = PASS ] || { printf '%s\n' "$o6" | grep -iE 'fatal_witness|REFUS|DOTNET_BOARD|FATAL' | head -6 | sed 's/^/      /'; echo "      what the runner compared (oracle vs m3), first lines of the diff:"; diff "$W/dbg/fatal_witness.oracle" "$W/dbg/fatal_witness.m3" 2>&1 | head -8 | sed 's/^/        /'; echo "      m3 stderr:"; head -4 "$W/dbg/fatal_witness.err3" 2>/dev/null | sed 's/^/        /'; }
@@ -118,7 +118,7 @@ if [ -f "$DR" ]; then
   sed 's|then if \[ -n "\$1" \]; then printf .%s\\n%s. "\$1" "\$r"; else printf .%s. "\$r"; fi; else|then printf '"'"'%s\\n%s'"'"' "$1" "$r"; else|' "$DR" > "$W/pre/scripts/test_snobol4_dotnet_suite.sh"
   if cmp -s "$DR" "$W/pre/scripts/test_snobol4_dotnet_suite.sh"; then ck "6e fail-once: the pre-1957d1d0f join is plantable" 'false'
   else
-    (cd "$ROOT" && S4E_HOME="$S4E" DOTNET_SUITE="$W/dot" DOTNET_DEBUG_DIR="$W/dbg" S4E_PROGRESS_DB="$W/p6e.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the pre-cure Dotnet runner over a scratch suite, not a board" timeout 300 bash "$W/pre/scripts/test_snobol4_dotnet_suite.sh" > /dev/null 2>&1)
+    (cd "$ROOT" && S4E_HOME="$S4E" DOTNET_SUITE="$W/dot" DOTNET_DEBUG_DIR="$W/dbg" S4E_PROGRESS_DB="$W/p6e.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the pre-cure Dotnet runner over a scratch suite, not a board" timeout -k 5 300 bash "$W/pre/scripts/test_snobol4_dotnet_suite.sh" > /dev/null 2>&1)
     p6em3=$(awk -F'\t' '$8=="silent_fatal_witness" && $9=="m3" {print $10}' "$W/p6e.tsv" 2>/dev/null | tail -1)
     ck "6e fail-once: the pre-1957d1d0f join reads the silent fatal red in m3 (got ${p6em3:-nothing})" '[ -n "$p6em3" ] && [ "$p6em3" != PASS ]'
   fi

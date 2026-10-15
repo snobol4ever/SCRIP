@@ -118,7 +118,7 @@ run_arm(){ # $1 = tag
         stress:*) unset SCRIP_HEAP_MB; export SCRIP_GC_STRESS="${tag#stress:}" TIMEOUT="$STRESS_TIMEOUT" ;;
         *) exit 9 ;;
       esac
-      S4E_PROGRESS_DB="$W/$fn.db" timeout "$SHARD_TIMEOUT" python3 "$HERE/corpus_suite_harness.py" run \
+      S4E_PROGRESS_DB="$W/$fn.db" timeout -k 5 "$SHARD_TIMEOUT" python3 "$HERE/corpus_suite_harness.py" run \
         "$P/ALL.pl" "$P/ALL.ref" --lang prolog --modes m3,m4 --shard "$k/$SHARDS" ) \
       >> "$W/$fn.raw" 2>&1
     # ⛔⭐⭐ THE HONEST QUESTION IS "DID THIS SHARD RECORD ANYTHING", NOT "WHAT WAS ITS rc" -- and this gate got
@@ -175,7 +175,7 @@ run_arm(){ # $1 = tag
 collect_probe(){ # $1 = SCRIP_HEAP_MB or empty (empty = compiled default, currently GC_HEAP_KB=128 per CEO-1095), $2 = SCRIP_GC_STRESS -> prints the [GC-WALK] count
   ( [ -n "$1" ] && export SCRIP_HEAP_MB="$1"
     export SCRIP_GC_MAPS=1 SCRIP_GC_STRESS="$2"
-    timeout 120 "$SCRIP" "$W/probe.pl" < /dev/null 2>&1 >/dev/null | grep -c '^\[GC-WALK\]' || true )
+    timeout -k 5 120 "$SCRIP" "$W/probe.pl" < /dev/null 2>&1 >/dev/null | grep -c '^\[GC-WALK\]' || true )
 }
 printf ':- initialization(main).\nmk(0,[]) :- !.\nmk(N,[N|T]) :- M is N-1, mk(M,T).\nmain :- mk(2000,L), length(L,X), write(X), nl.\n' > "$W/probe.pl"
 pos=$(collect_probe "" 1)

@@ -19,7 +19,7 @@ ORDER="${ORDER:-$(ls "$B"/*.sno 2>/dev/null | xargs -r -n1 basename | sed 's/\.s
 wall() { awk "BEGIN{printf \"%.0f\",($2-$1)*1000}"; }
 selfms() { grep -i '^ms:' "$1" 2>/dev/null | grep -o '[0-9]\+' | head -1; }
 sans() { grep -vi '^ms:' "$1" 2>/dev/null; }
-run() { local t0 t1; t0=$(date +%s.%N); timeout "$T" "$@" </dev/null >"$CO" 2>"$CE"; RC=$?; t1=$(date +%s.%N); WALL=$(wall "$t0" "$t1"); }
+run() { local t0 t1; t0=$(date +%s.%N); timeout -k 5 "$T" "$@" </dev/null >"$CO" 2>"$CE"; RC=$?; t1=$(date +%s.%N); WALL=$(wall "$t0" "$t1"); }
 printf "bench\tagree\tscrip_ms\tsbl_ms\tcsn_ms\tscrip_self\tsbl_self\tcsn_self\tscrip_rc\tsbl_rc\tcsn_rc\toutput\n" > "$OUT"
 for s in $ORDER; do
   CO=/tmp/_c3.$s.o; CE=/tmp/_c3.$s.e

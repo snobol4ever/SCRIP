@@ -21,8 +21,8 @@ bad=0
 for run in natural stress; do
   for m in 3 4; do
     in="$W/w.in"; st=0; [ $run = stress ] && { in="$W/w.small.in"; st=5; }
-    if [ $m = 3 ]; then ( cd "$W" && SCRIP_GC_STRESS=$st SCRIP_GC_CHAIN_CHECK=1 timeout 300 "$SCRIP" -d131072k -s4096k --stlimit w.sno < "$in" > "o.$run.$m" 2> "e.$run.$m" ); rc=$?
-    else ( cd "$W" && SCRIP_GC_STRESS=$st SCRIP_GC_CHAIN_CHECK=1 timeout 300 ./w4 -d131072k -s4096k --stlimit -- < "$in" > "o.$run.$m" 2> "e.$run.$m" ); rc=$?; fi
+    if [ $m = 3 ]; then ( cd "$W" && SCRIP_GC_STRESS=$st SCRIP_GC_CHAIN_CHECK=1 timeout -k 5 300 "$SCRIP" -d131072k -s4096k --stlimit w.sno < "$in" > "o.$run.$m" 2> "e.$run.$m" ); rc=$?
+    else ( cd "$W" && SCRIP_GC_STRESS=$st SCRIP_GC_CHAIN_CHECK=1 timeout -k 5 300 ./w4 -d131072k -s4096k --stlimit -- < "$in" > "o.$run.$m" 2> "e.$run.$m" ); rc=$?; fi
     s="$(grep -a '^\[CHAIN-CHECK\] SUMMARY ' "$W/e.$run.$m" | tail -1)"
     [ -n "$s" ] || { echo "REFUSE(2): $run mode $m printed no [CHAIN-CHECK] SUMMARY (rc=$rc)"; exit 2; }
     mm="$(num "$s" mismatch)"; ok="$(num "$s" ok)"; gh="$(num "$s" ghost)"

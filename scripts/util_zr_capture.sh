@@ -27,7 +27,7 @@ n=0
 for p in $PROGS; do
   [ -f "$p" ] || { echo "MISS  $p"; continue; }
   b=$(basename "$p"); b=${b%.*}
-  timeout 90 "$S/scrip" --compile "$p" > "$OUT/$b.s" 2>"$OUT/$b.err"
+  timeout -k 5 90 "$S/scrip" --compile "$p" > "$OUT/$b.s" 2>"$OUT/$b.err"
   sz=$(wc -c < "$OUT/$b.s")
   [ "$sz" -gt 0 ] && { echo "OK    $b ($sz bytes)"; n=$((n+1)); } || echo "EMPTY $b"
 done

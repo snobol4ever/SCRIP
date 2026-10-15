@@ -45,11 +45,11 @@ ab        cd
 a       b       c'
 for mode in m3 m4; do
     N=$((N+1))
-    if [ "$mode" = m3 ]; then got=$(cd "$D" && timeout 20 "$SCRIP" "$D/fm.pl" </dev/null 2>&1)
+    if [ "$mode" = m3 ]; then got=$(cd "$D" && timeout -k 5 20 "$SCRIP" "$D/fm.pl" </dev/null 2>&1)
     else
-        if (cd "$D" && timeout 60 "$SCRIP" --compile -o "$D/fm.s" "$D/fm.pl" >/dev/null 2>&1) \
+        if (cd "$D" && timeout -k 5 60 "$SCRIP" --compile -o "$D/fm.s" "$D/fm.pl" >/dev/null 2>&1) \
            && gcc -m64 -no-pie "$D/fm.s" -o "$D/fm.bin" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm >/dev/null 2>&1; then
-            got=$(cd "$D" && timeout 20 "$D/fm.bin" 2>&1)
+            got=$(cd "$D" && timeout -k 5 20 "$D/fm.bin" 2>&1)
         else echo "  RED  $mode: the witness failed to compile or link"; FAIL=$((FAIL+1)); continue; fi
     fi
     if [ "$got" = "$want" ]; then PASS=$((PASS+1))
@@ -67,8 +67,8 @@ main :-	format('~`-t~10|~w~n', [end]), format('~w~t~10|~w~n', [ab, cd]),
 	format('~t~w~10|~n', [right]), format('~w~t~8|~w~t~16|~w~n', [a,b,c]), halt.
 PLEOF
 if command -v swipl >/dev/null 2>&1; then
-    N=$((N+1)); sw=$(cd "$D" && timeout 20 swipl -q -g true "$D/asc.pl" 2>/dev/null)
-    ours=$(cd "$D" && timeout 20 "$SCRIP" "$D/asc.pl" </dev/null 2>/dev/null)
+    N=$((N+1)); sw=$(cd "$D" && timeout -k 5 20 swipl -q -g true "$D/asc.pl" 2>/dev/null)
+    ours=$(cd "$D" && timeout -k 5 20 "$SCRIP" "$D/asc.pl" </dev/null 2>/dev/null)
     if [ "$sw" = "$ours" ]; then PASS=$((PASS+1)); else printf '  RED  oracle: swipl\n%s\n       ours\n%s\n' "$sw" "$ours"; FAIL=$((FAIL+1)); fi
 else echo "    swipl unavailable -- the ASCII control arm was NOT graded this run, and that is stated rather than counted as a pass"; fi
 [ "$N" -gt 0 ] || { echo "⛔ REFUSE(2) [$GATE_NAME]: graded ZERO witnesses"; exit 2; }

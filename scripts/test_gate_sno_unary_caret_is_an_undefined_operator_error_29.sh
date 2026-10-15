@@ -64,11 +64,11 @@ h3      OUTPUT = 'trapped ' &ERRTYPE
 END
 SNO
 N=$(wc -l < "$D/lines.txt")
-( cd "$D" && timeout 30 "$SBL" -bf ev.sno < lines.txt > want 2>/dev/null; timeout 30 "$SBL" -bf st.sno < /dev/null > st.want 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$SBL" -bf ev.sno < lines.txt > want 2>/dev/null; timeout -k 5 30 "$SBL" -bf st.sno < /dev/null > st.want 2>/dev/null )
 [ "$(wc -l < "$D/want")" = "$N" ] && [ -s "$D/st.want" ] || refuse "sbl -bf gave no expectation to grade against"
-( cd "$D" && timeout 30 "$B/scrip" ev.sno < lines.txt > m3 2>/dev/null; timeout 30 "$B/scrip" st.sno < /dev/null > st.m3 2>/dev/null )
-( cd "$D" && for p in ev st; do timeout 120 "$B/scrip" --compile $p.sno < /dev/null > $p.s 2>/dev/null && gcc -no-pie $p.s -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o $p.bin 2>/dev/null || exit 2; done ) || refuse "mode 4 did not build"
-( cd "$D" && timeout 30 ./ev.bin < lines.txt > m4 2>/dev/null; timeout 30 ./st.bin < /dev/null > st.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" ev.sno < lines.txt > m3 2>/dev/null; timeout -k 5 30 "$B/scrip" st.sno < /dev/null > st.m3 2>/dev/null )
+( cd "$D" && for p in ev st; do timeout -k 5 120 "$B/scrip" --compile $p.sno < /dev/null > $p.s 2>/dev/null && gcc -no-pie $p.s -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o $p.bin 2>/dev/null || exit 2; done ) || refuse "mode 4 did not build"
+( cd "$D" && timeout -k 5 30 ./ev.bin < lines.txt > m4 2>/dev/null; timeout -k 5 30 ./st.bin < /dev/null > st.m4 2>/dev/null )
 red=0; i=0
 while IFS= read -r t; do
     i=$((i + 1)); w=$(sed -n "${i}p" "$D/want")

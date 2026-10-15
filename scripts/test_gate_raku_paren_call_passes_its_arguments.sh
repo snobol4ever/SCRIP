@@ -76,18 +76,18 @@ SETARCH=""   # ⭐ ASLR STAYS ON. The setarch -R narrowing this line used to car
 _try() {
     local m="$1" f="$2" rc out
     if [ "$m" = 3 ]; then
-        out="$(timeout 60 $SETARCH "$ROOT/scrip" --run "$f" 2>&1 </dev/null)"; rc=$?
+        out="$(timeout -k 5 60 $SETARCH "$ROOT/scrip" --run "$f" 2>&1 </dev/null)"; rc=$?
         if [ "$rc" -ge 124 ]; then CRASHED=$((CRASHED + 1)); printf 'CRASH(rc=%s)\n' "$rc"; return; fi
         printf '%s\n' "$out" | md5sum | cut -d' ' -f1; return
     fi
-    timeout 60 $SETARCH "$ROOT/scrip" --compile --target=x86 "$f" > "$W/c.s" 2>/dev/null; rc=$?
+    timeout -k 5 60 $SETARCH "$ROOT/scrip" --compile --target=x86 "$f" > "$W/c.s" 2>/dev/null; rc=$?
     if [ "$rc" -ge 124 ]; then CRASHED=$((CRASHED + 1)); printf 'CRASH(rc=%s)\n' "$rc"; return; fi
     if [ "$rc" -ne 0 ] \
-       || ! timeout 60 gcc -c "$W/c.s" -o "$W/c.o" 2>/dev/null \
-       || ! timeout 60 gcc "$W/c.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/c.bin" 2>/dev/null; then
+       || ! timeout -k 5 60 gcc -c "$W/c.s" -o "$W/c.o" 2>/dev/null \
+       || ! timeout -k 5 60 gcc "$W/c.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/c.bin" 2>/dev/null; then
         printf 'BUILDFAIL\n'; return
     fi
-    out="$(timeout 60 $SETARCH "$W/c.bin" 2>&1 </dev/null)"; rc=$?
+    out="$(timeout -k 5 60 $SETARCH "$W/c.bin" 2>&1 </dev/null)"; rc=$?
     if [ "$rc" -ge 124 ]; then CRASHED=$((CRASHED + 1)); printf 'CRASH(rc=%s)\n' "$rc"; return; fi
     printf '%s\n' "$out" | md5sum | cut -d' ' -f1
 }
@@ -130,7 +130,7 @@ for t in "is \$i, 5" "ok 1" "is 'a', 'a'" "isnt 1, 2"; do
 done
 echo "--- ARM 5 — the ABSOLUTE arm: the arity that reaches the callee, so 'they agree' cannot mean 'both take one argument' ---"
 printf 'use Test;\nplan 1;\nis(1, 1, "three args reach the callee");\n' > "$W/arity.raku"
-out="$(timeout 60 $SETARCH "$ROOT/scrip" --run "$W/arity.raku" 2>&1 </dev/null)"
+out="$(timeout -k 5 60 $SETARCH "$ROOT/scrip" --run "$W/arity.raku" 2>&1 </dev/null)"
 printf '%s\n' "$out" | grep -qx 'ok 1 - three args reach the callee' \
     && ck ok "paren call delivers 3 distinct arguments" \
     || { ck fail "paren call did NOT deliver 3 arguments"; printf '%s\n' "$out" | sed 's/^/       /'; }
@@ -140,7 +140,7 @@ echo "--- ARM 6 — the AST carries no __rk_arr wrapper around a testop argument
 # __rk_arr, so the arm reported the cure present while every other arm reported it absent. A negative assertion
 # over a truncated reading is indistinguishable from the property holding, which is this whole gate's own theme
 # arriving inside the gate.
-ast="$(timeout 10 "$ROOT/scrip" --dump-ast "$W/arity.raku" 2>&1 </dev/null)"
+ast="$(timeout -k 5 10 "$ROOT/scrip" --dump-ast "$W/arity.raku" 2>&1 </dev/null)"
 if ! printf '%s' "$ast" | grep -q '__rk_test_is'; then
     ck fail "the AST dump carries no __rk_test_is node at all -- this arm proved nothing"
     printf '%s\n' "$ast" | sed 's/^/       /'
@@ -171,14 +171,14 @@ cp "$RT" "$W/until.raku"
 for m in 3 4; do
     got=""; _rt_crash=1
     for _att in 1 2 3; do
-        if [ "$m" = 3 ]; then got="$(timeout 60 $SETARCH "$ROOT/scrip" --run "$W/until.raku" 2>&1 </dev/null)"; _rc=$?
+        if [ "$m" = 3 ]; then got="$(timeout -k 5 60 $SETARCH "$ROOT/scrip" --run "$W/until.raku" 2>&1 </dev/null)"; _rc=$?
         else
             _rc=0
-            timeout 60 $SETARCH "$ROOT/scrip" --compile --target=x86 "$W/until.raku" > "$W/u.s" 2>/dev/null || _rc=$?
+            timeout -k 5 60 $SETARCH "$ROOT/scrip" --compile --target=x86 "$W/until.raku" > "$W/u.s" 2>/dev/null || _rc=$?
             if [ "$_rc" -eq 0 ] \
-               && timeout 60 gcc -c "$W/u.s" -o "$W/u.o" 2>/dev/null \
-               && timeout 60 gcc "$W/u.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/u.bin" 2>/dev/null; then
-                got="$(timeout 60 $SETARCH "$W/u.bin" 2>&1 </dev/null)"; _rc=$?
+               && timeout -k 5 60 gcc -c "$W/u.s" -o "$W/u.o" 2>/dev/null \
+               && timeout -k 5 60 gcc "$W/u.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/u.bin" 2>/dev/null; then
+                got="$(timeout -k 5 60 $SETARCH "$W/u.bin" 2>&1 </dev/null)"; _rc=$?
             elif [ "$_rc" -eq 0 ]; then got="BUILDFAIL"; fi
         fi
         if [ "$_rc" -lt 124 ]; then _rt_crash=0; break; fi

@@ -74,15 +74,15 @@ echo "=== gate: a right-sealed DEFER's β must not tear down a ζ-frame its γ a
 echo "--- every witness is graded on ITS OUTPUT against spitbol, in both modes; rc is reported, never asserted ---"
 for f in "$W"/*.sno; do
     n="$(basename "$f" .sno)"
-    want="$(timeout 20 "$ORACLE" "$f" 2>/dev/null)"; orc=$?
+    want="$(timeout -k 5 20 "$ORACLE" "$f" 2>/dev/null)"; orc=$?
     if [ "$orc" != 0 ]; then ck no "$n: the ORACLE itself did not run (rc=$orc) -- nothing can be graded against it"; continue; fi
-    got3="$(timeout 20 "$SCRIP" "$f" 2>/dev/null)"; rc3=$?
+    got3="$(timeout -k 5 20 "$SCRIP" "$f" 2>/dev/null)"; rc3=$?
     [ "$got3" = "$want" ] && ck ok "$n m3: output matches the oracle ($(printf '%s' "$want" | head -1), rc=$rc3)" \
                           || ck no "$n m3: oracle says [$(printf '%s' "$want" | tr '\n' '|')] scrip says [$(printf '%s' "$got3" | tr '\n' '|')] rc=$rc3"
     if "$SCRIP" --compile "$f" > "$W/$n.s" 2>/dev/null \
        && gcc -c "$W/$n.s" -o "$W/$n.o" 2>/dev/null \
        && gcc "$W/$n.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/$n.bin" 2>/dev/null; then
-        got4="$(timeout 20 "$W/$n.bin" 2>/dev/null)"; rc4=$?
+        got4="$(timeout -k 5 20 "$W/$n.bin" 2>/dev/null)"; rc4=$?
         [ "$got4" = "$want" ] && ck ok "$n m4: output matches the oracle (rc=$rc4)" \
                               || ck no "$n m4: oracle says [$(printf '%s' "$want" | tr '\n' '|')] scrip says [$(printf '%s' "$got4" | tr '\n' '|')] rc=$rc4"
     else

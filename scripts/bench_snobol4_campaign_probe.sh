@@ -36,8 +36,8 @@ for k in arith_loop ident_call1 string_manip table_access; do
     python3 "$HERE/bench_wrap_snobol4.py" "$K/$k.sno" --mode time --bud-ms "$BUD" -o "$W/$k.sno" >/dev/null 2>&1 || { echo "REFUSED(2): twin generation failed for $k"; exit 2; }
     ( cd "$W" && "$ROOT/scrip" --compile -o "$W/$k.s" "$k.sno" </dev/null >/dev/null 2>&1 && gcc "$W/$k.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/$k.bin" ) 2>/dev/null || { echo "REFUSED(2): mode-4 build failed for $k"; exit 2; }
     ksw="$(declared_switches_beside "$K/$k.sno")" && koa="$(declared_oracle_args_beside "$K/$k.sno")" || { echo "REFUSED(2): $k's declared sizes are refused"; exit 2; }
-    ( cd "$W" && timeout 60 "$SBL" $(sbl_lang_flags) $koa "$k.sno" </dev/null > "$W/$k.sbl.out" 2>&1 ); s=$(usrep "$W/$k.sbl.out")
-    ( cd "$W" && timeout 60 "$W/$k.bin" $ksw </dev/null > "$W/$k.m4.out" 2>&1 ); m=$(usrep "$W/$k.m4.out")
+    ( cd "$W" && timeout -k 5 60 "$SBL" $(sbl_lang_flags) $koa "$k.sno" </dev/null > "$W/$k.sbl.out" 2>&1 ); s=$(usrep "$W/$k.sbl.out")
+    ( cd "$W" && timeout -k 5 60 "$W/$k.bin" $ksw </dev/null > "$W/$k.m4.out" 2>&1 ); m=$(usrep "$W/$k.m4.out")
     [ "$s" != REFUSE ] && [ "$m" != REFUSE ] || { echo "REFUSED(2): $k did not print its ref on both engines (sbl=$s m4=$m)"; exit 2; }
     x=$(awk -v a="$s" -v b="$m" 'BEGIN{printf "%.3f", a/b}'); LOGS="$LOGS $x"
     printf "%-16s %9s us %9s us %7.2fx\n" "$k" "$s" "$m" "$x"

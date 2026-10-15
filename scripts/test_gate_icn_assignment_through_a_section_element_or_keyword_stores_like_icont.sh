@@ -106,7 +106,7 @@ end
 ICN
 for w in a1 a2 a3; do
   ( cd "$T" && "$ICONT" -s -o "$w.icx" "$w.icn" >/dev/null 2>&1 ) || { echo "⛔ REFUSE(2): icont would not translate $w.icn -- cannot cut a want"; exit 2; }
-  ( cd "$T" && timeout 20 "./$w.icx" </dev/null > "$w.want" 2>&1 ) || { echo "⛔ REFUSE(2): the oracle's own run of $w failed -- cannot cut a want"; exit 2; }
+  ( cd "$T" && timeout -k 5 20 "./$w.icx" </dev/null > "$w.want" 2>&1 ) || { echo "⛔ REFUSE(2): the oracle's own run of $w failed -- cannot cut a want"; exit 2; }
 done
 [ "$(wc -l < "$T/a1.want")" -eq 7 ] || { echo "⛔ REFUSE(2): a1 want is $(wc -l < "$T/a1.want") lines, expected 7"; exit 2; }
 [ "$(wc -l < "$T/a2.want")" -eq 6 ] || { echo "⛔ REFUSE(2): a2 want is $(wc -l < "$T/a2.want") lines, expected 6"; exit 2; }
@@ -116,11 +116,11 @@ grep -q 'resubject: second pos: 1' "$T/a2.want" || { echo "⛔ REFUSE(2): a2 wan
 grep -q 'augop-chain: Zcd' "$T/a3.want" || { echo "⛔ REFUSE(2): a3 want lost its discriminating token"; exit 2; }
 graded=0; fail=0
 for w in a1 a2 a3; do
-  ( cd "$T" && timeout 30 "$SCRIP" "$w.icn" </dev/null > "$w.m3" 2>&1 ); rc3=$?
+  ( cd "$T" && timeout -k 5 30 "$SCRIP" "$w.icn" </dev/null > "$w.m3" 2>&1 ); rc3=$?
   graded=$((graded+1))
   if cmp -s "$T/$w.m3" "$T/$w.want"; then echo "  PASS  m3 $w (rc=$rc3)"; else echo "  FAIL  m3 $w rc=$rc3"; diff "$T/$w.want" "$T/$w.m3" | head -10; fail=1; fi
-  if ( cd "$T" && timeout 60 "$SCRIP" --compile -o "$w.s" "$w.icn" </dev/null >/dev/null 2>&1 && gcc -no-pie "$w.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$w.bin" >/dev/null 2>&1 ); then
-    ( cd "$T" && timeout 30 "./$w.bin" </dev/null > "$w.m4" 2>&1 ); rc4=$?
+  if ( cd "$T" && timeout -k 5 60 "$SCRIP" --compile -o "$w.s" "$w.icn" </dev/null >/dev/null 2>&1 && gcc -no-pie "$w.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$w.bin" >/dev/null 2>&1 ); then
+    ( cd "$T" && timeout -k 5 30 "./$w.bin" </dev/null > "$w.m4" 2>&1 ); rc4=$?
     graded=$((graded+1))
     if cmp -s "$T/$w.m4" "$T/$w.want"; then echo "  PASS  m4 $w (rc=$rc4)"; else echo "  FAIL  m4 $w rc=$rc4"; diff "$T/$w.want" "$T/$w.m4" | head -10; fail=1; fi
   else echo "  FAIL  m4 $w: would not compile or link (this is the emitter abort the row named)"; fail=1; graded=$((graded+1)); fi

@@ -15,7 +15,7 @@ for sno in "$B"/*.sno; do
   "$SCRIP" --compile "$sno" > "$W/$s.s" 2>/dev/null
   if [ ! -s "$W/$s.s" ] || ! gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then
     printf "%-22s %-9s %10s  %s\n" "$s" BUILD-ERR - -; crash=$((crash+1)); continue; fi
-  t0=$(date +%s.%N); ( cd "$W" && timeout "$T" ./$s.prog </dev/null >"$s.out" 2>"$s.err" ); rc=$?; t1=$(date +%s.%N)
+  t0=$(date +%s.%N); ( cd "$W" && timeout -k 5 "$T" ./$s.prog </dev/null >"$s.out" 2>"$s.err" ); rc=$?; t1=$(date +%s.%N)
   wall=$(awk "BEGIN{printf \"%.1f\",($t1-$t0)*1000}"); head -c $CAP "$W/$s.out" >"$W/$s.cap"; mv "$W/$s.cap" "$W/$s.out"
   note=$(grep -i 'ms:' "$W/$s.out" | head -1); [ -z "$note" ] && note="(no ms)"
   if grep -q BOMB "$W/$s.err" 2>/dev/null; then st=CRASH; note=$(grep -o 'BOMB.*' "$W/$s.err"|head -1|cut -c1-46)

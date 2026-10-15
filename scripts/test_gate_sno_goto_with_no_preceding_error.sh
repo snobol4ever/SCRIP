@@ -40,10 +40,10 @@ printf "\tOUTPUT = 'a'\t:(CONTINUE)\nEND\n"  > "$W/g_continue.sno"
 printf "\tOUTPUT = 'a'\t:(SCONTINUE)\nEND\n" > "$W/g_scontinue.sno"
 printf "\tSETEXIT(.f)\n\t&ERRLIMIT = 4\n\tZ = 0\n\tX = 1 / Z\n\tOUTPUT = 'tail'\t:(END)\nf\tOUTPUT = 'caught ' &ERRTYPE\t:(CONTINUE)\nEND\n" > "$W/g_handler.sno"
 run_mode() {   # $1 = program, $2 = 3|4 -- prints the program's own stdout+stderr
-    if [ "$2" = "3" ]; then timeout 15 "$SCRIP_BIN" "$1" < /dev/null 2>&1; return 0; fi
-    timeout 15 "$SCRIP_BIN" --compile -o "$W/m4.s" "$1" < /dev/null > /dev/null 2>&1 || { echo "<compile-failed>"; return 0; }
+    if [ "$2" = "3" ]; then timeout -k 5 15 "$SCRIP_BIN" "$1" < /dev/null 2>&1; return 0; fi
+    timeout -k 5 15 "$SCRIP_BIN" --compile -o "$W/m4.s" "$1" < /dev/null > /dev/null 2>&1 || { echo "<compile-failed>"; return 0; }
     gcc -m64 -no-pie "$W/m4.s" -Wl,-rpath,"$SCRIP_DIR/out" -L"$SCRIP_DIR/out" -lscrip_rt -lm -o "$W/m4.bin" 2>/dev/null || { echo "<link-failed>"; return 0; }
-    timeout 15 "$W/m4.bin" < /dev/null 2>&1
+    timeout -k 5 15 "$W/m4.bin" < /dev/null 2>&1
 }
 FAIL=0; TOTAL=0
 check() {   # $1 = program stem, $2 = extended regex the output MUST match, $3 = english

@@ -45,11 +45,11 @@ cat > "$D/w.sno" <<'SNO'
 END
 SNO
 printf 'x\nk=x\nb\ne=b\n[]\nm=x X=x\nayb\nn=y\np=old\nq=y\nx\nr=x\nbb\n3abc\n' > "$D/w.want"
-( cd "$D" && timeout 10 "$SBL" -bf w.sno < /dev/null > w.sbl 2>/dev/null )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf w.sno < /dev/null > w.sbl 2>/dev/null )
 cmp -s "$D/w.want" "$D/w.sbl" || refuse "sbl -bf does not answer the witness as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/w.sbl")]"
 red=0; n=0
-( cd "$D" && timeout 30 "$B/scrip" w.sno < /dev/null > w.m3 2>/dev/null )
-( cd "$D" && timeout 60 "$B/scrip" --compile w.sno < /dev/null > w.s 2>/dev/null && gcc -no-pie w.s -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o w.bin 2>/dev/null && timeout 30 ./w.bin < /dev/null > w.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" w.sno < /dev/null > w.m3 2>/dev/null )
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile w.sno < /dev/null > w.s 2>/dev/null && gcc -no-pie w.s -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o w.bin 2>/dev/null && timeout -k 5 30 ./w.bin < /dev/null > w.m4 2>/dev/null )
 for m in m3 m4; do
     n=$((n + 1))
     if [ -f "$D/w.$m" ] && cmp -s "$D/w.want" "$D/w.$m"; then echo "  ok   $m"; else echo "  FAIL $m: got [$(tr '\n' '|' 2>/dev/null < "$D/w.$m")] want [$(tr '\n' '|' < "$D/w.want")]"; red=$((red + 1)); fi

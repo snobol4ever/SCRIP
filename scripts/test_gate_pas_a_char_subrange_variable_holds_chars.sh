@@ -23,10 +23,10 @@ RT_DIR="${RT_DIR:-$ROOT/out}"; [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ GA
 FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]: no fpc at $FPC -- every arm's ref is CUT FROM THE ORACLE"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0; N=0
-m4_run() { M4O=$( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/w.s" "$1" </dev/null 2>&1 ); M4RC=$?
+m4_run() { M4O=$( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/w.s" "$1" </dev/null 2>&1 ); M4RC=$?
   if [ "$M4RC" = 0 ]; then
     ( cd "$T" && cc -m64 -no-pie w.s -o w -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: $1 compiled but would not link -- cannot grade the m4 arm"; exit 2; }
-    M4O=$( cd "$T" && timeout 20s ./w </dev/null 2>&1 ); M4RC=$?
+    M4O=$( cd "$T" && timeout -k 5 20s ./w </dev/null 2>&1 ); M4RC=$?
   fi; }
 cat > "$T/ok.pas" <<'PAS'
 program charsub(output);
@@ -44,7 +44,7 @@ for p in ok; do
   ( cd "$T" && "$FPC" -Miso -v0 $p.pas >/dev/null 2>&1 && ./$p ) > "$T/$p.ref" 2>&1
   [ -s "$T/$p.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no output for arm $p"; exit 2; }
   if [ -n "${FAIL_ONCE:-}" ] && [ "$p" = ok ]; then echo "corrupted by FAIL_ONCE" >> "$T/$p.ref"; fi
-  o3=$( cd "$T" && timeout 20s "$SCRIP" --run $p.pas </dev/null 2>&1 ); m4_run "$T/$p.pas"; o4="$M4O"
+  o3=$( cd "$T" && timeout -k 5 20s "$SCRIP" --run $p.pas </dev/null 2>&1 ); m4_run "$T/$p.pas"; o4="$M4O"
   if [ "$o3" = "$(cat "$T/$p.ref")" ] && [ "$o4" = "$(cat "$T/$p.ref")" ]; then echo "  arm $p: byte-identical to fpc -Miso in both modes"
   else echo "  ⛔ arm $p FAILED"; echo "      want: $(tr '\n' '|' < "$T/$p.ref")"; echo "      m3  : $(printf '%s' "$o3" | tr '\n' '|')"; echo "      m4  : $(printf '%s' "$o4" | tr '\n' '|')"; RC=1; fi
 done

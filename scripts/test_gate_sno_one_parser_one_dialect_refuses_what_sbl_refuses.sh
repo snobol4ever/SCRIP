@@ -66,18 +66,18 @@ for body in "X = 'a''b'" 'X = "a""b"' "X = 1 , 2" "X = 99999999999999999999" "X 
 done
 printf "        X = 'a' 'b'\n        Y = (1 , 2)\n        Z = 9223372036854775807\n        OUTPUT = X ' ' Y ' ' Z\nEND\n" > "$D/good.sno"
 run_scrip() {  # $1 name $2 mode $3 stdin -> stdout; rc 3 = refused to compile
-    if [ "$2" = m3 ]; then (cd "$D" && timeout 30 "$B/scrip" "$1.sno" < "$3" 2>/dev/null)
+    if [ "$2" = m3 ]; then (cd "$D" && timeout -k 5 30 "$B/scrip" "$1.sno" < "$3" 2>/dev/null)
     else "$B/scrip" --compile -o "$D/$1.s" "$D/$1.sno" </dev/null >/dev/null 2>&1 || return 3
          gcc -no-pie -o "$D/$1.bin" "$D/$1.s" -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" 2>/dev/null || refuse "could not link the m4 arm of $1"
-         (cd "$D" && timeout 30 "./$1.bin" < "$3" 2>/dev/null); fi
+         (cd "$D" && timeout -k 5 30 "./$1.bin" < "$3" 2>/dev/null); fi
 }
-(cd "$D" && timeout 30 "$SBL" -bf ev.sno < ev.in > ev.sbl 2>/dev/null)
-(cd "$D" && timeout 30 "$SBL" -bf code.sno < /dev/null > code.sbl 2>/dev/null)
-(cd "$D" && timeout 30 "$SBL" -bf good.sno < /dev/null > good.sbl 2>/dev/null)
+(cd "$D" && timeout -k 5 30 "$SBL" -bf ev.sno < ev.in > ev.sbl 2>/dev/null)
+(cd "$D" && timeout -k 5 30 "$SBL" -bf code.sno < /dev/null > code.sbl 2>/dev/null)
+(cd "$D" && timeout -k 5 30 "$SBL" -bf good.sno < /dev/null > good.sbl 2>/dev/null)
 [ "$(wc -l < "$D/ev.sbl")" = "$(wc -l < "$D/ev.in")" ] || refuse "the oracle answered $(wc -l < "$D/ev.sbl") of $(wc -l < "$D/ev.in") EVAL lines"
 grep -qx "ERROR 220" "$D/ev.sbl" && grep -qx "ERROR 223" "$D/ev.sbl" || refuse "the oracle no longer refuses 'a''b' (220) or 1 , 2 (223) -- re-read sbl"
 grep -qx "int refused" "$D/code.sbl" && grep -qx "legal compiled" "$D/code.sbl" || refuse "the oracle's CODE arm changed -- re-read sbl"
-for k in 1 2 3 4 5; do (cd "$D" && timeout 30 "$SBL" -bf "bad$k.sno" < /dev/null > "bad$k.sbl" 2>&1); r=$?; [ "$r" -ne 0 ] && ! grep -qx "ran" "$D/bad$k.sbl" || refuse "sbl compiled bad$k.sno ($(sed -n 2p "$D/bad$k.sno")) -- the oracle no longer refuses it"; done
+for k in 1 2 3 4 5; do (cd "$D" && timeout -k 5 30 "$SBL" -bf "bad$k.sno" < /dev/null > "bad$k.sbl" 2>&1); r=$?; [ "$r" -ne 0 ] && ! grep -qx "ran" "$D/bad$k.sbl" || refuse "sbl compiled bad$k.sno ($(sed -n 2p "$D/bad$k.sno")) -- the oracle no longer refuses it"; done
 fails=0; arms=0
 for m in m3 m4; do
     for a in ev code good; do

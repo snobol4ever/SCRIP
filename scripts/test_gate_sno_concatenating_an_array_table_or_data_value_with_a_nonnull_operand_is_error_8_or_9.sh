@@ -72,19 +72,19 @@ d ''
 EOS
 mkprog "$T/bad.sno" < "$T/bad.txt"
 mkprog "$T/ctl.sno" < "$T/ctl.txt"
-want() { timeout 30 "$SBL" -bf "$T/$1.sno" < /dev/null > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
+want() { timeout -k 5 30 "$SBL" -bf "$T/$1.sno" < /dev/null > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
 want bad; want ctl
 grep -q '^1 ERROR 9$' "$T/bad.want" && grep -q '^2 ERROR 8$' "$T/bad.want" || refuse "sbl -bf no longer answers a string-ARRAY concatenation with ERROR 9 and an ARRAY-string one with ERROR 8"
 fail=0; pass=0
 arm() { local n="$1" what="$2" ok="$3"
     if [ "$ok" = 1 ]; then pass=$((pass + 1)); echo "  arm $n PASS  $what"; else fail=$((fail + 1)); echo "  arm $n FAIL  $what"; fi; }
 same_m3() { local src="$T/$1.sno" want="$T/$1.want" in="${2:-/dev/null}"
-    timeout 60 "$SCRIP" -d131072k -s4096k "$src" < "$in" > "$T/$1.m3" 2>&1
+    timeout -k 5 60 "$SCRIP" -d131072k -s4096k "$src" < "$in" > "$T/$1.m3" 2>&1
     cmp -s "$want" "$T/$1.m3" || { diff "$want" "$T/$1.m3" | head -6 | sed 's/^/      /'; return 1; }; }
 same_m4() { local src="$T/$1.sno" want="$T/$1.want" in="${2:-/dev/null}"
-    timeout 120 "$SCRIP" --compile -o "$T/$1.s" "$src" < /dev/null > /dev/null 2>&1 \
+    timeout -k 5 120 "$SCRIP" --compile -o "$T/$1.s" "$src" < /dev/null > /dev/null 2>&1 \
         && gcc -no-pie "$T/$1.s" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$T/$1.bin" 2>/dev/null || { echo "      COMPILE-FAILED"; return 1; }
-    timeout 60 "$T/$1.bin" -d131072k -s4096k -- < "$in" > "$T/$1.m4" 2>&1
+    timeout -k 5 60 "$T/$1.bin" -d131072k -s4096k -- < "$in" > "$T/$1.m4" 2>&1
     cmp -s "$want" "$T/$1.m4" || { diff "$want" "$T/$1.m4" | head -6 | sed 's/^/      /'; return 1; }; }
 cp "$INF/inf_eval.sno" "$T/inf.sno"; cp "$INF/inf_eval.ref" "$T/inf.want"
 same_m3 bad && arm 1 "m3 BAD OPERANDS: ERROR 8 on the left, ERROR 9 on the right, for ARRAY, TABLE and DATA" 1 || arm 1 "m3 BAD OPERANDS: ERROR 8 on the left, ERROR 9 on the right, for ARRAY, TABLE and DATA" 0

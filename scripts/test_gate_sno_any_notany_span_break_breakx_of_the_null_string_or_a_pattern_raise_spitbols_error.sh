@@ -104,39 +104,39 @@ printf 'STRING b\nSTRING ab\nERROR 59\nERROR 151\nERROR 188\nERROR 69\nERROR 70\
 printf "        OUTPUT = 'before'\n        X = SPAN('')\n        OUTPUT = 'after'\nEND\n" > "$D/c1.sno"
 printf "        OUTPUT = 'before'\n        X = 'abc' ? NOTANY(LEN(1))\n        OUTPUT = 'after'\nEND\n" > "$D/c2.sno"
 printf "        S = ''\n        OUTPUT = 'before'\n        X = BREAK(S)\n        OUTPUT = 'after'\nEND\n" > "$D/f1.sno"
-( cd "$D" && timeout 10 "$SBL" -bf t.sno < /dev/null > t.sbl 2>/dev/null )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf t.sno < /dev/null > t.sbl 2>/dev/null )
 cmp -s "$D/t.want" "$D/t.sbl" || refuse "sbl -bf does not answer t as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/t.sbl")]"
-( cd "$D" && timeout 10 "$SBL" -bf e.sno < e.in > e.sbl 2>/dev/null )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf e.sno < e.in > e.sbl 2>/dev/null )
 cmp -s "$D/e.want" "$D/e.sbl" || refuse "sbl -bf does not answer e as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/e.sbl")]"
 for w in c1:188 c2:151; do
     f=${w%%:*}; c=${w#*:}
-    ( cd "$D" && timeout 10 "$SBL" -bf $f.sno < /dev/null > $f.sbl 2>&1 )
+    ( cd "$D" && timeout -k 5 10 "$SBL" -bf $f.sno < /dev/null > $f.sbl 2>&1 )
     grep -q "ERROR $c --" "$D/$f.sbl" && ! grep -q '^before$' "$D/$f.sbl" || refuse "sbl -bf no longer refuses $f at compile time with $c: [$(tr '\n' '|' < "$D/$f.sbl" | cut -c1-300)]"
 done
-( cd "$D" && timeout 10 "$SBL" -bf f1.sno < /dev/null > f1.sbl 2>/dev/null )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf f1.sno < /dev/null > f1.sbl 2>/dev/null )
 [ "$(head -1 "$D/f1.sbl")" = before ] && grep -q 'ERROR 069 --' "$D/f1.sbl" && ! grep -q '^after$' "$D/f1.sbl" \
     || refuse "sbl -bf no longer stops f1 at error 69: [$(tr '\n' '|' < "$D/f1.sbl" | cut -c1-300)]"
-m4bin() { timeout 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2> "$1.m4c" && gcc -no-pie "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
+m4bin() { timeout -k 5 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2> "$1.m4c" && gcc -no-pie "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
 red=0; n=0
 arm() { n=$((n + 1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  FAIL $1: $2"; red=$((red + 1)); fi; }
-( cd "$D" && timeout 30 "$B/scrip" t.sno < /dev/null > t.m3 2>/dev/null )
-( cd "$D" && m4bin t && timeout 30 ./t.bin < /dev/null > t.m4 2>/dev/null )
-( cd "$D" && timeout 30 "$B/scrip" e.sno < e.in > e.m3 2>/dev/null )
-( cd "$D" && m4bin e && timeout 30 ./e.bin < e.in > e.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" t.sno < /dev/null > t.m3 2>/dev/null )
+( cd "$D" && m4bin t && timeout -k 5 30 ./t.bin < /dev/null > t.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" e.sno < e.in > e.m3 2>/dev/null )
+( cd "$D" && m4bin e && timeout -k 5 30 ./e.bin < e.in > e.m4 2>/dev/null )
 for p in t e; do for m in m3 m4; do
     if [ -f "$D/$p.$m" ] && cmp -s "$D/$p.want" "$D/$p.$m"; then arm "$p $m" ok; else arm "$p $m" "got [$(tr '\n' '|' 2>/dev/null < "$D/$p.$m")] want [$(tr '\n' '|' < "$D/$p.want")]"; fi
 done; done
 for w in c1:188 c2:151; do
     f=${w%%:*}; c=${w#*:}
-    ( cd "$D" && timeout 30 "$B/scrip" $f.sno < /dev/null > $f.m3 2> $f.m3e; echo $? > $f.m3rc )
+    ( cd "$D" && timeout -k 5 30 "$B/scrip" $f.sno < /dev/null > $f.m3 2> $f.m3e; echo $? > $f.m3rc )
     if [ "$(cat "$D/$f.m3rc")" != 0 ] && [ ! -s "$D/$f.m3" ] && grep -q "error $c:" "$D/$f.m3e"; then arm "$f m3" ok
     else arm "$f m3" "rc=$(cat "$D/$f.m3rc") out=[$(tr '\n' '|' < "$D/$f.m3")] err=[$(tr '\n' '|' < "$D/$f.m3e")], want a compile-time error $c and no output"; fi
-    ( cd "$D" && timeout 60 "$B/scrip" --compile $f.sno < /dev/null > $f.s 2> $f.m4e; echo $? > $f.m4rc )
+    ( cd "$D" && timeout -k 5 60 "$B/scrip" --compile $f.sno < /dev/null > $f.s 2> $f.m4e; echo $? > $f.m4rc )
     if [ "$(cat "$D/$f.m4rc")" != 0 ] && grep -q "error $c:" "$D/$f.m4e"; then arm "$f m4" ok
     else arm "$f m4" "compile rc=$(cat "$D/$f.m4rc") err=[$(tr '\n' '|' < "$D/$f.m4e")], want error $c and no code"; fi
 done
-( cd "$D" && timeout 30 "$B/scrip" f1.sno < /dev/null > f1.m3 2> f1.m3e; echo $? > f1.m3rc )
-( cd "$D" && { m4bin f1 && timeout 30 ./f1.bin < /dev/null > f1.m4 2> f1.m4e; echo $? > f1.m4rc; } )
+( cd "$D" && timeout -k 5 30 "$B/scrip" f1.sno < /dev/null > f1.m3 2> f1.m3e; echo $? > f1.m3rc )
+( cd "$D" && { m4bin f1 && timeout -k 5 30 ./f1.bin < /dev/null > f1.m4 2> f1.m4e; echo $? > f1.m4rc; } )
 for m in m3 m4; do
     if [ "$(cat "$D/f1.${m}rc" 2>/dev/null)" != 0 ] && [ "$(cat "$D/f1.$m" 2>/dev/null)" = before ] && grep -q 'error 69:' "$D/f1.${m}e" 2>/dev/null; then arm "f1 $m" ok
     else arm "f1 $m" "rc=$(cat "$D/f1.${m}rc" 2>/dev/null) out=[$(tr '\n' '|' < "$D/f1.$m" 2>/dev/null)] err=[$(tr '\n' '|' < "$D/f1.${m}e" 2>/dev/null)], want before then error 69"; fi

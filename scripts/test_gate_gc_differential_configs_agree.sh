@@ -85,7 +85,7 @@ POP=(
 
 # ---- arm 1: the declared population grades, the identity closes, and the ratchet holds -------------------
 examined=$((examined + 1))
-out="$(cd "$ROOT" && timeout 900 python3 "$U" "${POP[@]}" --timeout 60 --tsv "$T/now.tsv" 2>&1)"; rc=$?
+out="$(cd "$ROOT" && timeout -k 5 900 python3 "$U" "${POP[@]}" --timeout 60 --tsv "$T/now.tsv" 2>&1)"; rc=$?
 if ! printf '%s\n' "$out" | grep -q '^DIFFERENTIAL: '; then
   echo "  REFUSE ARM 1: the instrument printed no DIFFERENTIAL line -- it measured nothing"
   printf '%s\n' "$out" | tail -6 | sed 's/^/           /'; exit 2
@@ -154,7 +154,7 @@ fi
 
 # ---- arm 2: a PLANTED divergence is caught and REPORTED, with both names and the first differing byte -----
 examined=$((examined + 1))
-p2="$(cd "$ROOT" && timeout 600 python3 "$U" "$HERE/gc_witnesses/hb_arr.sno" --timeout 60 \
+p2="$(cd "$ROOT" && timeout -k 5 600 python3 "$U" "$HERE/gc_witnesses/hb_arr.sno" --timeout 60 \
       --plant-divergence arena1_stress3 2>&1)"; rc2=$?
 if [ "$rc2" != 2 ]; then
   echo "  RED  ARM 2: a planted divergence exited rc=$rc2, expected 2 -- a differential that cannot refuse is"
@@ -177,7 +177,7 @@ examined=$((examined + 1))
 # the arm passes for the wrong reason. hb_arr.sno collects 0 times at arena1 and was the first draft's mistake;
 # hb_bignum_length.icn collects once, so the twins genuinely collapse rather than never running.
 printf 'twinA\tSCRIP_HEAP_KB=128\tdeliberate twin\ntwinB\tSCRIP_HEAP_KB=128\tthe SAME configuration under a second name\n' > "$T/twin.tsv"
-p3="$(cd "$ROOT" && timeout 600 python3 "$U" "$HERE/gc_witnesses/hb_bignum_length.icn" --configs "$T/twin.tsv" \
+p3="$(cd "$ROOT" && timeout -k 5 600 python3 "$U" "$HERE/gc_witnesses/hb_bignum_length.icn" --configs "$T/twin.tsv" \
       --timeout 60 2>&1)"; rc3=$?
 if [ "$rc3" != 2 ]; then
   echo "  RED  ARM 3: two identical configurations under different names exited rc=$rc3, expected 2 -- this is"
@@ -202,8 +202,8 @@ examined=$((examined + 1))
 # tool graded them (rc=0) -- the arm read that truthful reading as a regression.  The collapse this arm exists to
 # catch needs zero collections on both sides, which a 512 MB window gives and the shipped one no longer does.
 printf 'shipped\tSCRIP_HEAP_KB=524288\ta window nothing fills, no other knob\nflip_only\tSCRIP_HEAP_KB=524288 SCRIP_GC_PLANT_FLIP=1\tasks for a flip but nothing forces a collection\n' > "$T/eff.tsv"
-fb="$(cd "$T" && env SCRIP_HEAP_KB=524288 SCRIP_GC_PLANT_FLIP=1 timeout 60 "$SCRIP" --run "$HERE/gc_witnesses/hb_arr.sno" </dev/null 2>&1 >/dev/null | grep -c "^\[GC-FLIP\] plant:")"; fb=${fb:-0}
-p3b="$(cd "$ROOT" && timeout 600 python3 "$U" "$HERE/gc_witnesses/hb_arr.sno" --configs "$T/eff.tsv" \
+fb="$(cd "$T" && env SCRIP_HEAP_KB=524288 SCRIP_GC_PLANT_FLIP=1 timeout -k 5 60 "$SCRIP" --run "$HERE/gc_witnesses/hb_arr.sno" </dev/null 2>&1 >/dev/null | grep -c "^\[GC-FLIP\] plant:")"; fb=${fb:-0}
+p3b="$(cd "$ROOT" && timeout -k 5 600 python3 "$U" "$HERE/gc_witnesses/hb_arr.sno" --configs "$T/eff.tsv" \
        --timeout 60 2>&1)"; rc3b=$?
 if [ "$fb" != 0 ]; then
   echo "  RED  ARM 3b: the flip_only side printed the [GC-FLIP] plant: banner $fb time(s) at a 512 MB window -- the pair is DISTINCT in effect and this arm's collapse premise is unmet"; RC=1
@@ -236,7 +236,7 @@ procedure main();
    write("up=", s);
 end
 ICN
-p4="$(cd "$ROOT" && timeout 600 python3 "$U" "$T/nd.icn" --timeout 60 2>&1)"; rc4=$?
+p4="$(cd "$ROOT" && timeout -k 5 600 python3 "$U" "$T/nd.icn" --timeout 60 2>&1)"; rc4=$?
 if ! printf '%s\n' "$p4" | grep -q 'EXCLUDED-NONDETERMINISTIC'; then
   echo "  RED  ARM 4: a program that differs from itself was not EXCLUDED-NONDETERMINISTIC (rc=$rc4) -- it would"
   echo "       otherwise be a permanent false divergence blamed on the collector"
@@ -265,7 +265,7 @@ printf 'procedure main();\n   local x;\n   x := := ;;; @@@\nend\n' > "$T/broken.
 # a reader to count, so a naive grep scores a DECLINE as an APPLICATION -- measured here the same afternoon),
 # and it landed in this gate within the hour of my diagnosing it there. A verdict is read from the
 # DIFFERENTIAL summary's counted field; prose is never a machine interface.
-p4b="$(cd "$ROOT" && timeout 300 python3 "$U" "$T/broken.icn" --timeout 60 2>&1)"; rc4b=$?
+p4b="$(cd "$ROOT" && timeout -k 5 300 python3 "$U" "$T/broken.icn" --timeout 60 2>&1)"; rc4b=$?
 if printf '%s\n' "$p4b" | grep -q '^DIFFERENTIAL: .*no_collection=[1-9]'; then
   echo "  RED  ARM 4b: a program that does not compile was COUNTED as NO-COLLECTION -- that asserts the"
   echo "       collector never fired for a program that never ran"; RC=1
@@ -291,9 +291,9 @@ fi
 # noisy fields from repeated reference runs and excludes them by name, and what must be stable is the
 # VERDICT the masked fingerprint produces. That is what this arm now grades, end to end, twice.
 examined=$((examined + 1))
-s1="$(cd "$ROOT" && timeout 600 python3 "$U" "$HERE/gc_witnesses/hb_bignum_length.icn" --timeout 60 \
+s1="$(cd "$ROOT" && timeout -k 5 600 python3 "$U" "$HERE/gc_witnesses/hb_bignum_length.icn" --timeout 60 \
       --tsv "$T/s1.tsv" 2>&1 | grep '^DIFFERENTIAL: ')"
-s2="$(cd "$ROOT" && timeout 600 python3 "$U" "$HERE/gc_witnesses/hb_bignum_length.icn" --timeout 60 \
+s2="$(cd "$ROOT" && timeout -k 5 600 python3 "$U" "$HERE/gc_witnesses/hb_bignum_length.icn" --timeout 60 \
       --tsv "$T/s2.tsv" 2>&1 | grep '^DIFFERENTIAL: ')"
 v1="$(awk -F'\t' 'NR>2{print $2"/"$3}' "$T/s1.tsv" 2>/dev/null)"
 v2="$(awk -F'\t' 'NR>2{print $2"/"$3}' "$T/s2.tsv" 2>/dev/null)"
@@ -308,9 +308,9 @@ fi
 
 # ---- arm 6: an empty or ungradable population REFUSES rather than reading as agreement -------------------
 examined=$((examined + 1))
-p6="$(cd "$ROOT" && timeout 120 python3 "$U" --pool "$T/empty-does-not-exist" 2>&1)"; rc6=$?
+p6="$(cd "$ROOT" && timeout -k 5 120 python3 "$U" --pool "$T/empty-does-not-exist" 2>&1)"; rc6=$?
 mkdir -p "$T/emptydir"
-p6b="$(cd "$ROOT" && timeout 120 python3 "$U" --pool "$T/emptydir" 2>&1)"; rc6b=$?
+p6b="$(cd "$ROOT" && timeout -k 5 120 python3 "$U" --pool "$T/emptydir" 2>&1)"; rc6b=$?
 if [ "$rc6" != 2 ] || [ "$rc6b" != 2 ]; then
   echo "  RED  ARM 6: a missing pool exited rc=$rc6 and an empty pool rc=$rc6b, expected 2 for both -- measuring"
   echo "       nothing must never read as agreement (RULES.md THE INSTRUMENT LAWS)"; RC=1
@@ -325,8 +325,8 @@ fi
 # telemetry does not change the program's answer -- otherwise the instrument perturbs what it measures.
 examined=$((examined + 1))
 w="$HERE/gc_witnesses/hb_bignum_length.icn"
-a="$(cd "$ROOT" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 timeout 90s ./scrip "$w" 2>/dev/null </dev/null | md5sum)"
-b="$(cd "$ROOT" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_ZETA_TELEM=1 timeout 90s ./scrip "$w" 2>/dev/null </dev/null | md5sum)"
+a="$(cd "$ROOT" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 timeout -k 5 90s ./scrip "$w" 2>/dev/null </dev/null | md5sum)"
+b="$(cd "$ROOT" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_ZETA_TELEM=1 timeout -k 5 90s ./scrip "$w" 2>/dev/null </dev/null | md5sum)"
 if [ "$a" != "$b" ]; then
   echo "  RED  ARM 7: SCRIP_ZETA_TELEM changes the program's stdout ($a vs $b) -- holding it on across the"
   echo "       matrix would make the instrument a variable of its own measurement"; RC=1

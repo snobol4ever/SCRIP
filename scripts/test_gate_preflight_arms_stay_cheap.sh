@@ -41,7 +41,7 @@ run_list() {
         R_N=$((R_N + 1))
         script=${arm%% *}
         case "$script" in /*) [ -e "$script" ] ;; *) [ -e "$ROOT/$script" ] ;; esac || { echo "  MISSING  $script"; R_BAD=$((R_BAD + 1)); continue; }
-        t=$( { TIMEFORMAT='%R %U %S'; time ( cd "$ROOT" && case "$arm" in *.py*) timeout 30 python3 $arm ;; *) timeout 30 bash $arm ;; esac </dev/null >/dev/null 2>&1; echo "rc=$?" ); } 2>&1 )
+        t=$( { TIMEFORMAT='%R %U %S'; time ( cd "$ROOT" && case "$arm" in *.py*) timeout -k 5 30 python3 $arm ;; *) timeout -k 5 30 bash $arm ;; esac </dev/null >/dev/null 2>&1; echo "rc=$?" ); } 2>&1 )
         rc=$(sed -n 's/^rc=//p' <<<"$t" | tail -1); read -r d u s <<<"$(grep -v '^rc=' <<<"$t" | tail -1)"
         c=$(echo "$u + $s" | bc)
         l=$(load1); [ "$(echo "$l > $R_LOAD" | bc)" = 1 ] && R_LOAD=$l

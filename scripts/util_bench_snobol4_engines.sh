@@ -34,7 +34,7 @@ ok=0; fail=0; crash=0; loaded=0
 for sno in "$B"/*.sno; do
   s=$(basename "${sno%.sno}"); ref="${sno%.sno}.ref"
   errfile="/tmp/_be.$$.err"
-  out=$("$WRAP" timeout "$T" "$@" "$sno" </dev/null 2>"$errfile"); rc=$?
+  out=$("$WRAP" timeout -k 5 "$T" "$@" "$sno" </dev/null 2>"$errfile"); rc=$?
   rusage_line=$(grep '^BENCH_RUSAGE:' "$errfile" | tail -1); rm -f "$errfile"
   elapsed_ms="-"; cpu_ms="-"; maxrss_kb="-"; nivcsw="-"
   if [ -n "$rusage_line" ]; then

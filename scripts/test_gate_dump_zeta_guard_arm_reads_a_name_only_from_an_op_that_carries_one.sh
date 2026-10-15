@@ -21,19 +21,19 @@ CORPUS="$ROOT/../corpus"; [ -d "$CORPUS/benchmarks/icon" ] || { echo "⛔ REFUSE
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 printf 'procedure main()\n  local s, t;\n  s := 0;\n  t := s + 1;\nend\n' > "$T/zw.icn"
 bad=0
-timeout 20s ./scrip --dump-zeta "$T/zw.icn" </dev/null > "$T/zw.dump" 2>/dev/null; rc=$?
+timeout -k 5 20s ./scrip --dump-zeta "$T/zw.icn" </dev/null > "$T/zw.dump" 2>/dev/null; rc=$?
 echo "witness --dump-zeta rc=$rc (want 0; 139 before the cure)"
 [ "$rc" -eq 0 ] || { echo "  ⛔ the witness does not dump"; bad=$((bad+1)); }
 grep -qE 'PINNED guard: box @[0-9]+ IR_COERCE_NUMERIC can recede' "$T/zw.dump" || { echo "  ⛔ the witness's guard line does not name IR_COERCE_NUMERIC as the guard box"; bad=$((bad+1)); }
 n=0; seg=0
-for f in "$CORPUS"/benchmarks/icon/*.icn "$CORPUS"/benchmarks/icon/*/*.icn; do [ -f "$f" ] || continue; n=$((n+1)); timeout 60s ./scrip --dump-zeta "$f" </dev/null >/dev/null 2>&1; r=$?; [ "$r" -eq 139 ] && { seg=$((seg+1)); echo "  ⛔ SIGSEGV under --dump-zeta: $f"; }; done
+for f in "$CORPUS"/benchmarks/icon/*.icn "$CORPUS"/benchmarks/icon/*/*.icn; do [ -f "$f" ] || continue; n=$((n+1)); timeout -k 5 60s ./scrip --dump-zeta "$f" </dev/null >/dev/null 2>&1; r=$?; [ "$r" -eq 139 ] && { seg=$((seg+1)); echo "  ⛔ SIGSEGV under --dump-zeta: $f"; }; done
 echo "icon benchmarks: $n dumped, $seg segfault (30 of 42 before the cure)"
 [ "$n" -gt 0 ] || { echo "⛔ REFUSE(2): the Icon benchmark population is empty"; exit 2; }
 [ "$seg" -eq 0 ] || bad=$((bad+1))
-timeout 20s ./scrip --dump-zeta scripts/fixtures/frame_r1_witness.pl </dev/null > "$T/pl.dump" 2>/dev/null || { echo "  ⛔ the Prolog witness does not dump"; bad=$((bad+1)); }
-timeout 60s ./scrip --dump-zeta "$CORPUS/reference/icon/icont-bench/micro.icn" </dev/null > "$T/micro.dump" 2>/dev/null
+timeout -k 5 20s ./scrip --dump-zeta scripts/fixtures/frame_r1_witness.pl </dev/null > "$T/pl.dump" 2>/dev/null || { echo "  ⛔ the Prolog witness does not dump"; bad=$((bad+1)); }
+timeout -k 5 60s ./scrip --dump-zeta "$CORPUS/reference/icon/icont-bench/micro.icn" </dev/null > "$T/micro.dump" 2>/dev/null
 grep -qE 'PINNED guard: box @[0-9]+ IR_CALL_ICON [a-z_]+ can recede' "$T/micro.dump" || { echo "  ⛔ micro.icn's builtin-call guard no longer prints its name -- the whitelist dropped what the dump was for"; bad=$((bad+1)); }
 printf "        S = 'abcabc'\n        S BREAK('c') . T\n        OUTPUT = T\nEND\n" > "$T/w.sno"
-timeout 20s ./scrip --dump-zeta "$T/w.sno" </dev/null >/dev/null 2>&1 || { echo "  ⛔ the SNOBOL4 witness does not dump"; bad=$((bad+1)); }
+timeout -k 5 20s ./scrip --dump-zeta "$T/w.sno" </dev/null >/dev/null 2>&1 || { echo "  ⛔ the SNOBOL4 witness does not dump"; bad=$((bad+1)); }
 if [ "$bad" -gt 0 ]; then echo "⛔ GATE FAIL: $bad finding(s)"; exit 1; fi
 echo "GATE OK: the guard arm names only ops that carry a string -- the witness and all $n Icon benchmarks dump, a call guard still prints its name, Prolog and SNOBOL4 dump"

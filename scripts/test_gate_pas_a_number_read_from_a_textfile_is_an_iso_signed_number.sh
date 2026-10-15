@@ -25,11 +25,11 @@ T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 build() { local p="$1"
   ( cd "$T" && "$FPC" -Miso -v0 -o"$p.fpc" $p.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile $p"; exit 2; }
-  ( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>&1 && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) \
+  ( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>&1 && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) \
     || { echo "  ⛔ $p m4: did not compile or link"; RC=1; }; }
 run() { local m="$1" p="$2" in="$3"
-  if [ "$m" = m3 ]; then ( cd "$T" && timeout 20s "$SCRIP" --run "$p.pas" <"$in" >"$T/o" 2>"$T/e" ); return $?; fi
-  ( cd "$T" && timeout 20s "./$p.m4" <"$in" >"$T/o" 2>"$T/e" ); return $?; }
+  if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 20s "$SCRIP" --run "$p.pas" <"$in" >"$T/o" 2>"$T/e" ); return $?; fi
+  ( cd "$T" && timeout -k 5 20s "./$p.m4" <"$in" >"$T/o" 2>"$T/e" ); return $?; }
 cat > "$T/rn.pas" <<'PAS'
 program rn(input, output);
 var i, j, k: integer; r, s, t, u: real; c: char;
@@ -46,7 +46,7 @@ printf '   12\n\n -34 +56\n 1.5 -2e3 +0.25E+02 7\n42x rest of line\n 3.14159e0\n
 printf 'program ri(input, output);\nvar i: integer;\nbegin\n  writeln(%s); read(i); writeln(%s, i)\nend.\n' "'before'" "'after '" > "$T/ri.pas"
 printf 'program rr(input, output);\nvar r: real;\nbegin\n  writeln(%s); read(r); writeln(%s, r:8:3)\nend.\n' "'before'" "'after '" > "$T/rr.pas"
 for p in rn ri rr; do build $p; done
-( cd "$T" && timeout 20s ./rn.fpc <rn.in ) > "$T/rn.want" 2>/dev/null
+( cd "$T" && timeout -k 5 20s ./rn.fpc <rn.in ) > "$T/rn.want" 2>/dev/null
 [ -s "$T/rn.want" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no output for arm 1"; exit 2; }
 if [ -n "${FAIL_ONCE:-}" ]; then echo "corrupted by FAIL_ONCE" >> "$T/rn.want"; fi
 for m in m3 m4; do
@@ -57,7 +57,7 @@ done
 N=0
 for f in 'ri: five' 'ri: +' 'ri:' 'rr: 10e ' 'rr: 10e+ '; do
   p=${f%%:*}; inp=${f#*:}; N=$((N+1)); printf '%s' "$inp" > "$T/f.in"
-  ( cd "$T" && timeout 20s ./$p.fpc <f.in ) 2>/dev/null | grep -v '^after' > "$T/f.want"
+  ( cd "$T" && timeout -k 5 20s ./$p.fpc <f.in ) 2>/dev/null | grep -v '^after' > "$T/f.want"
   for m in m3 m4; do
     run $m $p "$T/f.in"; rc=$?
     if [ "$rc" -ne 0 ] && [ "$rc" -ne 124 ] && cmp -s "$T/f.want" "$T/o" && grep -q 'ISO 7185 6\.9\.1' "$T/e"; then echo "  fault $p '$inp' $m: rc=$rc, stdout = fpc up to the fault, stderr names 6.9.1"

@@ -74,15 +74,15 @@ build_m4() {
   gcc -no-pie "$T/p.o" -Lout -lscrip_rt -lm -Wl,-rpath,"$PWD/out" -Wl,--allow-shlib-undefined -o "$2" 2>>"$T/c.err" || return 1
 }
 for prog in fn fn2 top loop var; do
-  want=$( (ulimit -s 8192; timeout 120 "$SBL" -bf "$T/$prog.sno" < /dev/null 2>&1) )
+  want=$( (ulimit -s 8192; timeout -k 5 120 "$SBL" -bf "$T/$prog.sno" < /dev/null 2>&1) )
   wrc=$?
   if [ "$wrc" -ne 0 ]; then echo "GATE SN4-REPL-SPINE: REFUSE -- oracle rc=$wrc on $prog, cannot cut a want"; exit 2; fi
   for mode in m3 m4; do
     if [ "$mode" = m3 ]; then
-      got=$( (ulimit -s 8192; timeout 120 "$SCRIP" "$T/$prog.sno" < /dev/null 2>&1) ); rc=$?
+      got=$( (ulimit -s 8192; timeout -k 5 120 "$SCRIP" "$T/$prog.sno" < /dev/null 2>&1) ); rc=$?
     else
       build_m4 "$T/$prog.sno" "$T/$prog.bin" || { echo "  FAIL m4 $prog: build failed"; fail=$((fail+1)); graded=$((graded+1)); continue; }
-      got=$( (ulimit -s 8192; timeout 120 "$T/$prog.bin" < /dev/null 2>&1) ); rc=$?
+      got=$( (ulimit -s 8192; timeout -k 5 120 "$T/$prog.bin" < /dev/null 2>&1) ); rc=$?
     fi
     graded=$((graded+1))
     if [ "$got" = "$want" ] && [ "$rc" -eq 0 ]; then

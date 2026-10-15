@@ -84,7 +84,7 @@ if [ -n "$MEAS" ]; then
 else
     MEAS="$T/progress.tsv"
     echo "running the rungs in m3+m4 (per-entry rows -> a SCRATCH progress table, never the live one) ..."
-    S4E_PROGRESS_DB="$MEAS" timeout "$BUDGET" python3 "$HARNESS" run "$CORPUS/ALL.icn" "$CORPUS/ALL.ref" \
+    S4E_PROGRESS_DB="$MEAS" timeout -k 5 "$BUDGET" python3 "$HARNESS" run "$CORPUS/ALL.icn" "$CORPUS/ALL.ref" \
         --lang icon --modes m3,m4 >"$T/out" 2>"$T/err"
     hrc=$?
     if [ "$hrc" -eq 124 ]; then

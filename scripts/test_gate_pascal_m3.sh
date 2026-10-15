@@ -40,7 +40,7 @@ for name in $STDIN_FAMILIES; do
         NOREF=$((NOREF+1)); continue
     fi
     inp="$CORPUS/$name.in"; [ -f "$inp" ] || inp=/dev/null
-    out=$(timeout 8s "$SCRIP" --run "$pas" < "$inp" 2>/dev/null)
+    out=$(timeout -k 5 8s "$SCRIP" --run "$pas" < "$inp" 2>/dev/null)
     rc=$?
     exp=$(cat "$ref")
     if [ $rc -eq 124 ]; then
@@ -69,7 +69,7 @@ if [ -f "$RUNGS_SRC" ] && [ -f "$RUNGS_REF" ]; then
     # populated, 5239 lines. hq_S measured that message, went and checked the corpus, and found it fine (relayed by the coo
     # 2026-09-13). ⭐ THE COST IS NOT THE RED, IT IS THE FALSE CAUSE: a gate that cannot measure must say so and name what
     # stopped it, never nominate a suspect it never looked at. RULES.md § a correct procedure with a false explanation.
-    HERR=$(mktemp); board=$(timeout 120s python3 "$HARNESS" run "$RUNGS_SRC" "$RUNGS_REF" --lang pascal --modes m3 2>"$HERR"); hrc=$?
+    HERR=$(mktemp); board=$(timeout -k 5 120s python3 "$HARNESS" run "$RUNGS_SRC" "$RUNGS_REF" --lang pascal --modes m3 2>"$HERR"); hrc=$?
     if [ $hrc -eq 2 ]; then
         echo "⛔ REFUSED-TO-GRADE rc=2: the harness refused the rungs, so M3 has NO rungs verdict. This gate does not know the rungs is bad and does not say so." >&2
         sed 's/^/    harness said: /' "$HERR" >&2; rm -f "$HERR"
@@ -113,7 +113,7 @@ if [ -f "$WCORPUS/uplevel2.pas" ]; then
         wname=$(basename "$wpas" .pas); wref="$WCORPUS/$wname.ref"
         [ -f "$wref" ] || continue
         W_EXAMINED=$((W_EXAMINED+1))
-        wout=$(printf '1\n' | timeout 120s "$SCRIP" --run "$wpas" 2>/dev/null); wrc=$?
+        wout=$(printf '1\n' | timeout -k 5 120s "$SCRIP" --run "$wpas" 2>/dev/null); wrc=$?
         if [ $wrc -eq 0 ] && [ "$wout" = "$(cat "$wref")" ]; then wok=1; else wok=0; fi
         case " $WITNESS_XFAIL " in
             *" $wname "*)

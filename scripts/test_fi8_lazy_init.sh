@@ -18,7 +18,7 @@ PASS=0; FAIL=0
 run_test() {
     local label="$1" input="$2" expected="$3" args="${4:---run}"
     local actual
-    actual=$(echo "$input" | timeout 8 "$SCRIP" $args /dev/stdin 2>/dev/null)
+    actual=$(echo "$input" | timeout -k 5 8 "$SCRIP" $args /dev/stdin 2>/dev/null)
     if [ "$actual" = "$expected" ]; then
         echo "  PASS $label"; PASS=$((PASS+1))
     else
@@ -57,7 +57,7 @@ procedure main()
   write("icon-ok")
 end
 ICON
-actual=$(timeout 8 "$SCRIP" --run "$TMPICN" 2>/dev/null)
+actual=$(timeout -k 5 8 "$SCRIP" --run "$TMPICN" 2>/dev/null)
 if [ "$actual" = "icon-ok" ]; then
     echo "  PASS icn_main_runs"; PASS=$((PASS+1))
 else

@@ -75,11 +75,11 @@ end.
 PAS
 ( cd "$T" && "$FPC" -Miso -v0 a.pas >/dev/null 2>&1 && ./a ) > "$T/a.ref" 2>&1
 grep -q '^ints 300 600 900 1200 1500 1800 sum 6300$' "$T/a.ref" || { echo "⛔ GATE REFUSE(2) [$G]: the oracle did not produce the integer-array line this gate pins -- the oracle moved: $(head -1 "$T/a.ref")"; exit 2; }
-( cd "$T" && timeout 60 "$SCRIP" --compile -o a.s a.pas </dev/null && gcc a.s -o a.bin -L"$RT_DIR" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the mode-4 witness did not build"; exit 2; }
+( cd "$T" && timeout -k 5 60 "$SCRIP" --compile -o a.s a.pas </dev/null && gcc a.s -o a.bin -L"$RT_DIR" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the mode-4 witness did not build"; exit 2; }
 RC=0
 for M in m3 m4; do
-  if [ "$M" = m3 ]; then ( cd "$T" && timeout 60 "$SCRIP" --run a.pas </dev/null ) >"$T/$M.out" 2>&1
-  else ( cd "$T" && LD_LIBRARY_PATH="$RT_DIR" timeout 60 ./a.bin </dev/null ) >"$T/$M.out" 2>&1
+  if [ "$M" = m3 ]; then ( cd "$T" && timeout -k 5 60 "$SCRIP" --run a.pas </dev/null ) >"$T/$M.out" 2>&1
+  else ( cd "$T" && LD_LIBRARY_PATH="$RT_DIR" timeout -k 5 60 ./a.bin </dev/null ) >"$T/$M.out" 2>&1
   fi
   if [ -n "${FAIL_ONCE:-}" ] && [ "$M" = m3 ]; then sed -i '1s/^ints 300/ints 255/' "$T/$M.out"; fi
   if diff -u "$T/a.ref" "$T/$M.out" >"$T/$M.diff"; then echo "  $M PASS ($(wc -l <"$T/a.ref") lines byte-identical to fpc -Miso)"

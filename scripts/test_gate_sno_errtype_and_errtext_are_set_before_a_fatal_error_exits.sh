@@ -30,17 +30,17 @@ W="$T/errtype_fatal.sno"
 { printf '        &DUMP = 2\n'
   printf '        DATA("SIZE(X)")\n'
   printf 'END\n'; } > "$W"
-ORA="$( cd "$T" && timeout 30s "$O" -bf errtype_fatal.sno </dev/null 2>/dev/null )"; orc=$?
+ORA="$( cd "$T" && timeout -k 5 30s "$O" -bf errtype_fatal.sno </dev/null 2>/dev/null )"; orc=$?
 ORA_ERRTYPE="$(printf '%s\n' "$ORA" | grep -m1 '^&ERRTYPE = ')"
 ORA_ERRTEXT="$(printf '%s\n' "$ORA" | grep -m1 '^&ERRTEXT = ')"
 [ -n "$ORA_ERRTYPE" ] && [ -n "$ORA_ERRTEXT" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: oracle produced no &ERRTYPE/&ERRTEXT dump line (rc=$orc) -- witness moved, re-measure"; exit 2; }
 case "$ORA_ERRTYPE" in "&ERRTYPE = 0") echo "GATE UNPROVEN(2) [$GATE_NAME]: oracle's own &ERRTYPE reads 0 -- witness no longer raises a real error"; exit 2;; esac
-M3="$( cd "$T" && timeout 30s "$ROOT/scrip" errtype_fatal.sno </dev/null 2>/dev/null )"
-( cd "$T" && timeout 30s "$ROOT/scrip" --compile -o errtype_fatal.s errtype_fatal.sno </dev/null >/dev/null 2>&1 ) \
+M3="$( cd "$T" && timeout -k 5 30s "$ROOT/scrip" errtype_fatal.sno </dev/null 2>/dev/null )"
+( cd "$T" && timeout -k 5 30s "$ROOT/scrip" --compile -o errtype_fatal.s errtype_fatal.sno </dev/null >/dev/null 2>&1 ) \
   || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mode-4 compile failed"; exit 2; }
 ( cd "$T" && gcc -no-pie errtype_fatal.s -o errtype_fatal.bin -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) \
   || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mode-4 link failed"; exit 2; }
-M4="$( cd "$T" && timeout 30s ./errtype_fatal.bin </dev/null 2>/dev/null )"
+M4="$( cd "$T" && timeout -k 5 30s ./errtype_fatal.bin </dev/null 2>/dev/null )"
 red=0; examined=0
 for tag in m3 m4; do
     eval "got=\$$(echo "$tag" | tr 'a-z' 'A-Z')"
@@ -59,7 +59,7 @@ done
 # since core_runtime_error is shared. The fatal arms now publish without a copy (rt_kw_publish_error_at_exit, kwb_error's own shape);
 # nothing runs after them but the atexit dump. The cfo's witness fills an 8 MB cap with small blocks: 307 exactly once, no 246.
 mkdir -p "$T/cap"; printf 'procedure main()\n   local i, L;\n   L := [];\n   every i := 1 to 400000 do put(L, [i, i+1, i+2]);\n   write("done ", *L);\nend\n' > "$T/cap/grow.icn"
-( cd "$T/cap" && SCRIP_HEAP_KB=128 SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=8 timeout 120 "$ROOT/scrip" grow.icn > out 2> err ); crc=$?
+( cd "$T/cap" && SCRIP_HEAP_KB=128 SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=8 timeout -k 5 120 "$ROOT/scrip" grow.icn > out 2> err ); crc=$?
 n307="$(grep -c 'error 307' "$T/cap/err")"; n246="$(grep -c 'error 246' "$T/cap/err")"
 examined=$((examined+1))
 if [ "$crc" = 1 ] && [ "$n307" = 1 ] && [ "$n246" = 0 ]; then echo "PASS cap: a heap-full fatal error is reported once (307 x1, 246 x0, rc 1)"

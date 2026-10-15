@@ -58,15 +58,15 @@ END
 SNO
 graded=0; fail=0
 arm() { graded=$((graded+1)); if [ "$2" = "$3" ]; then echo "  PASS $1  [$2]"; else echo "  FAIL $1  want[$2] got[$3]"; fail=$((fail+1)); fi; }
-( cd "$T" && timeout 30 "$SBL" -bf w.sno < /dev/null > ora.out 2>/dev/null )
+( cd "$T" && timeout -k 5 30 "$SBL" -bf w.sno < /dev/null > ora.out 2>/dev/null )
 grep -qx 'selector 8 fails 254' "$T/ora.out" || refuse "the oracle did not print 'selector 8 fails 254' on the witness -- the oracle or the witness moved, re-measure rather than score"
 grep -qx 'wordsize 8' "$T/ora.out" || refuse "the oracle did not print 'wordsize 8' -- the oracle or the witness moved"
 echo "  ARM 1 oracle expectation cut at run time: $(grep -c '' "$T/ora.out") lines, $(tr '\n' '|' < "$T/ora.out")"
 graded=$((graded+1))
-( cd "$T" && timeout 30 "$SCRIP" --run w.sno < /dev/null > m3.out 2> m3.err )
-( cd "$T" && timeout 30 "$SCRIP" --compile w.sno -o w.s > cc.log 2>&1 ) || refuse "mode-4 compile of the witness failed -- cannot measure"
+( cd "$T" && timeout -k 5 30 "$SCRIP" --run w.sno < /dev/null > m3.out 2> m3.err )
+( cd "$T" && timeout -k 5 30 "$SCRIP" --compile w.sno -o w.s > cc.log 2>&1 ) || refuse "mode-4 compile of the witness failed -- cannot measure"
 ( cd "$T" && gcc -c w.s -o w.o >> cc.log 2>&1 && gcc w.o -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o w.bin >> cc.log 2>&1 ) || refuse "mode-4 link of the witness failed -- cannot measure"
-( cd "$T" && timeout 30 ./w.bin < /dev/null > m4.out 2> m4.err )
+( cd "$T" && timeout -k 5 30 ./w.bin < /dev/null > m4.out 2> m4.err )
 arm "m3-prints-the-oracles-lines" "$(tr '\n' '|' < "$T/ora.out")" "$(tr '\n' '|' < "$T/m3.out")"
 arm "m4-prints-the-oracles-lines" "$(tr '\n' '|' < "$T/ora.out")" "$(tr '\n' '|' < "$T/m4.out")"
 arm "detector-refused-selectors-raise-254-in-both-modes" "m3=3/0 m4=3/0" "m3=$(grep -c '^selector .* fails 254$' "$T/m3.out")/$(grep -c 'a bad selector answered' "$T/m3.out") m4=$(grep -c '^selector .* fails 254$' "$T/m4.out")/$(grep -c 'a bad selector answered' "$T/m4.out")"

@@ -72,7 +72,7 @@ WORKER="$WORK/worker.sh"
 cat > "$WORKER" <<'WEOF'
 #!/usr/bin/env bash
 f="$1"; unit="$2"; out="$3"
-raw=$(cd "$(dirname "$f")" && timeout 60 "$SWIPL" -q -g main -t "halt(9)" "$DRIVER" -- "$f" "$unit" 2>/dev/null)
+raw=$(cd "$(dirname "$f")" && timeout -k 5 60 "$SWIPL" -q -g main -t "halt(9)" "$DRIVER" -- "$f" "$unit" 2>/dev/null)
 rc=$?
 line=$(printf '%s\n' "$raw" | grep -E '^(PASS|FAIL|BLOCKED|EMPTY|UNGRADABLE) ')
 if [ -z "$line" ]; then

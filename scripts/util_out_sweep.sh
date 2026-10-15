@@ -61,7 +61,7 @@ if [ -n "$LIST" ]; then cp "$LIST" "$T"; else
     find "$CORPUS/probe/kw" -name '*.sno'; find "$CORPUS/probe/arbnostore" -name '*.sno'
     find "$CORPUS/demos" -maxdepth 1 -name '*.sno'; } | sort > "$T"; fi
 run1() { local p="$1" d o rc; d="$(dirname "$p")"
-  o="$(cd "$d" && SNO_LIB="$d" timeout "$TMO" "$SCRIP" --run "$p" </dev/null 2>&1)"; rc=$?
+  o="$(cd "$d" && SNO_LIB="$d" timeout -k 5 "$TMO" "$SCRIP" --run "$p" </dev/null 2>&1)"; rc=$?
   if [ "$rc" -ne 0 ]; then printf 'RUN_RC_%s\t%s\n' "$rc" "$p"; return; fi
   printf '%s\t%s\n' "$(printf '%s' "$o" | sed -E 's/(match_ms|_ms|msec|elapsed|execution time msec)[= ]+[0-9]+/\1=<T>/g' | md5sum | cut -d' ' -f1)" "$p"; }
 export -f run1; export SCRIP TMO

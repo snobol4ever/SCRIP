@@ -81,7 +81,7 @@ for sno in "$RUNG_DIR"/*.sno; do
     fi
 
     # Step 3: run under node with timeout
-    if ! timeout "$TIMEOUT" node "$RUNNER" "$wasm" > "$got" 2>"$err"; then
+    if ! timeout -k 5 "$TIMEOUT" node "$RUNNER" "$wasm" > "$got" 2>"$err"; then
         echo -e "  ${RED}FAIL${RESET}  $base  (node runner error/timeout)"
         [[ -s "$err" ]] && sed 's/^/        /' "$err"
         (( fail++ )) || true

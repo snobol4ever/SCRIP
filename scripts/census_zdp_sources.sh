@@ -16,7 +16,7 @@ mkdir -p "$OUT"; : > "$OUT/sources.txt"; : > "$OUT/tiers.txt"
 n=0
 for f in $(find $S4E/corpus/tests/snobol4 -name '*.sno' ! -name 'ALL.sno' | sort); do
     n=$((n+1))
-    SCRIP_ZDP=2 timeout 15 ./scrip --compile "$f" < /dev/null 2>"$OUT/.err" >/dev/null
+    SCRIP_ZDP=2 timeout -k 5 15 ./scrip --compile "$f" < /dev/null 2>"$OUT/.err" >/dev/null
     grep "^\[ZDP\]   node" "$OUT/.err" | sed 's/.*op=\([A-Za-z0-9_]*\) \([A-Z-]*\) tier=\([A-Z]*\).*/\1 \2 \3/' >> "$OUT/sources.txt"
     grep "^\[ZDP\] graph" "$OUT/.err" | sed 's/.*TIER spine=\([0-9]*\) activation=\([0-9]*\) standing=\([0-9]*\)/\1 \2 \3/' >> "$OUT/tiers.txt"
 done

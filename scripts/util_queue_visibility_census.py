@@ -95,7 +95,7 @@ F  = sorted(t for t, r in rows.items() if ('PARKED' in r['state'] or r['state'] 
 # ⛔⭐ R: a DONE row with NO COMPUTED RECEIPT (coo 2026-09-16, ceo CEO-790/793) -- the state column says DONE but no claims/<topic>.claim
 # carries DONE, so it reached DONE by a path outside `done` (the verb that COMPUTES completion and, since today, writes a
 # RECEIPT line: rc, tree, elapsed, via, time, seat). 17 such rows on 2026-09-16; one, reopened by audit, was RED on origin.
-# --grade-receiptless runs each such row's DONE-WHEN (timeout 120 s) and classes it: prose (no runnable criterion / the mint
+# --grade-receiptless runs each such row's DONE-WHEN (under a 120 s timeout) and classes it: prose (no runnable criterion / the mint
 # placeholder), refuses (rc 2, 120, 126, 127), red (any other non-zero), green (rc 0 -- close it through `done` for its receipt).
 R  = sorted(t for t, r in rows.items() if r['state'].split(':')[0] == 'DONE' and not (t in claims and claims[t]['done']))
 Rh = sorted(t for t, r in done_rows.items() if r['state'].split(':')[0] == 'DONE' and not (t in claims and claims[t]['done']))

@@ -46,9 +46,9 @@ main :- t(sdt_utc, (stamp_date_time(1165591784, D, 'UTC'), writeq(D), nl)), t(sd
   t(pt_rfc, (parse_time('Fri, 08 Dec 2006 15:29:44 GMT', rfc_1123, T6), writeq(T6), nl)), t(pt_any, (parse_time('2006-12-08T15:29Z', T7), writeq(T7), nl)),
   t(dow, (day_of_the_week(date(2006,12,8), W), writeq(W), nl)), t(doy, (day_of_the_year(date(2006,12,8), Yd), writeq(Yd), nl)), t(dtv, (date_time_value(month, date(2006,12,8,0,0,0,0,-,-), Mo), writeq(Mo), nl)).
 PL
-want="$(cd "$D" && LC_ALL=C LANG=C timeout 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | grep .)"
+want="$(cd "$D" && LC_ALL=C LANG=C timeout -k 5 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | grep .)"
 [ "$(printf '%s\n' "$want" | grep -c .)" = 59 ] || refuse "swipl did not answer the fifty-nine lines: [$want]"
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
 ( cd "$D" && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || refuse "mode 4 link failed"
 red=0
 arm() {
@@ -59,7 +59,7 @@ arm() {
     if [ "$got" = "$want" ]; then echo "  $label GREEN: 59 of 59 lines as swipl"
     else echo "  $label RED: $n of 59 lines differ from swipl"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
 }
-arm m3 timeout 20 "$B/scrip" --run w.pl < /dev/null
-arm m4 timeout 20 ./w.bin < /dev/null
+arm m3 timeout -k 5 20 "$B/scrip" --run w.pl < /dev/null
+arm m4 timeout -k 5 20 ./w.bin < /dev/null
 [ "$red" = 0 ] && echo "PASS $G"
 exit "$red"

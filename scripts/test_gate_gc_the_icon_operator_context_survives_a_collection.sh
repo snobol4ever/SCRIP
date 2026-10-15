@@ -61,16 +61,16 @@ for w in $WN $WP; do [ -f "$WIT/$w.icn" ] || refuse "witness $WIT/$w.icn is miss
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 for w in $WN $WP; do
   cp "$WIT/$w.icn" "$T/"
-  ( cd "$T" && timeout 60s "$OLDPWD/scrip" --compile "$w.icn" < /dev/null > "$w.s" 2> /dev/null \
+  ( cd "$T" && timeout -k 5 60s "$OLDPWD/scrip" --compile "$w.icn" < /dev/null > "$w.s" 2> /dev/null \
       && gcc -c "$w.s" -o "$w.o" 2> "$w.ld.log" && gcc "$w.o" -L"$LIBDIR" -lscrip_rt -lm -lpthread -Wl,-rpath,"$LIBDIR" -o "$w.x4" 2>> "$w.ld.log" ) \
       || refuse "mode-4 compile or link of $w failed, so every m4 arm would measure nothing ($(head -c 160 "$T/$w.ld.log" 2>/dev/null))"
 done
 SCRIP="$(pwd)/scrip"
 raw(){ local m="$1" w="$2" lv="$3"; shift 3
   if [ "$m" = m3 ]; then ( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_GC_STRESS -u SCRIP_GC_PLANT_FLIP -u SCRIP_GC_PLANT_ICN_OP \
-        ${lv:+SCRIP_GC_PLANT_ICN_OP=$lv} "$@" timeout 60s "$SCRIP" "$w.icn" < /dev/null 2>&1 ) 2> /dev/null
+        ${lv:+SCRIP_GC_PLANT_ICN_OP=$lv} "$@" timeout -k 5 60s "$SCRIP" "$w.icn" < /dev/null 2>&1 ) 2> /dev/null
   else ( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_GC_STRESS -u SCRIP_GC_PLANT_FLIP -u SCRIP_GC_PLANT_ICN_OP \
-        ${lv:+SCRIP_GC_PLANT_ICN_OP=$lv} "$@" timeout 60s "./$w.x4" < /dev/null 2>&1 ) 2> /dev/null; fi; }
+        ${lv:+SCRIP_GC_PLANT_ICN_OP=$lv} "$@" timeout -k 5 60s "./$w.x4" < /dev/null 2>&1 ) 2> /dev/null; fi; }
 body(){ printf '%s\n' "$1" | grep -v '^\[GC-FLIP\] plant:\|^\[GC-ICNOP\] plant:\|^\[GC-EXERCISE\]'; }
 ok=0; no=0
 ck(){ if [ "$1" = ok ]; then ok=$((ok+1)); echo "  ok   $2"; else no=$((no+1)); echo "  no   $2"; fi; }

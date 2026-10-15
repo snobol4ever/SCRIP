@@ -44,9 +44,9 @@ run() {
     # and therefore already cd'd. Two numbers for one tree, one of them wrong, and the cause was the cwd.
     local _pdir _pfile; _pdir="$(dirname "${base}.icn")"; _pfile="$(basename "${base}.icn")"
     if [ -f "$stdin_f" ]; then
-        got=$(cd "$_pdir" && timeout 30 "$SCRIP" --run "$_pfile" < "$stdin_f"  2>/dev/null) || true
+        got=$(cd "$_pdir" && timeout -k 5 30 "$SCRIP" --run "$_pfile" < "$stdin_f"  2>/dev/null) || true
     else
-        got=$(cd "$_pdir" && timeout 30 "$SCRIP" --run "$_pfile" < /dev/null   2>/dev/null) || true
+        got=$(cd "$_pdir" && timeout -k 5 30 "$SCRIP" --run "$_pfile" < /dev/null   2>/dev/null) || true
     fi
     want=$(cat "${base}.ref")
     if [ "$got" = "$want" ]; then

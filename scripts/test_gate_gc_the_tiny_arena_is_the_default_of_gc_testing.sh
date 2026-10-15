@@ -80,8 +80,8 @@ else echo "  arm 1 FAIL: the tiny-arena pass is missing, does not announce a tra
 examined=$((examined + 1))
 a2=""; a2bad=0
 run_one() { # $1 = arena or "unset"; prints the harness's stdout for ONE graded entry
-    if [ "$1" = unset ]; then ( cd "$ROOT" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB S4E_PROGRESS_DB="$T/p.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --modes m3 --shard 1/43 2>&1 )
-    else ( cd "$ROOT" && SCRIP_HEAP_KB="$1" S4E_PROGRESS_DB="$T/p.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --modes m3 --shard 1/43 2>&1 ); fi
+    if [ "$1" = unset ]; then ( cd "$ROOT" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB S4E_PROGRESS_DB="$T/p.tsv" timeout -k 5 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --modes m3 --shard 1/43 2>&1 )
+    else ( cd "$ROOT" && SCRIP_HEAP_KB="$1" S4E_PROGRESS_DB="$T/p.tsv" timeout -k 5 300 python3 scripts/corpus_suite_harness.py run "$SUITE" "$SREF" --lang rebus --modes m3 --shard 1/43 2>&1 ); fi
 }
 SHIPPED=$(sed -n 's/^#define[[:space:]]\+GC_HEAP_KB[[:space:]]\+\([0-9]\+\).*/\1/p' "$ROOT/src/runtime/rt/gc_heap.c" | head -1)
 [ -n "$SHIPPED" ] || { echo "⛔ REFUSE(2) [$G]: could not read #define GC_HEAP_KB out of gc_heap.c"; exit 2; }

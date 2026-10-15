@@ -65,13 +65,13 @@ LOOP	N = N + 1
 NEXT	LT(N, 12)	:S(LOOP)
 END
 EOF
-( cd "$T" && timeout 30 "$O" -bf fx.sno < /dev/null > ora 2>/dev/null ) || { echo "GATE UNPROVEN(2) [$GATE_NAME]: sbl -bf did not run the fixture"; exit 2; }
+( cd "$T" && timeout -k 5 30 "$O" -bf fx.sno < /dev/null > ora 2>/dev/null ) || { echo "GATE UNPROVEN(2) [$GATE_NAME]: sbl -bf did not run the fixture"; exit 2; }
 grep -qx 'eval 4 0.' "$T/ora" && grep -qx 'eval 7 FAILS' "$T/ora" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: sbl no longer reads 3.0E-324 as 0. or ...317 as an overflow -- the premise moved"; exit 2; }
-( cd "$T" && timeout 30 "$ROOT/scrip" fx.sno < /dev/null > m3 2>m3.err ); r3=$?
+( cd "$T" && timeout -k 5 30 "$ROOT/scrip" fx.sno < /dev/null > m3 2>m3.err ); r3=$?
 cmp -s "$T/ora" "$T/m3" && arm "1 m3 == sbl ($(wc -l < "$T/ora") lines)" ok || arm 1 red "rc=$r3; $(diff "$T/ora" "$T/m3" | grep '^[<>]' | head -4 | tr '\n' ' ')"
-( cd "$T" && timeout 60 "$ROOT/scrip" --compile fx.sno < /dev/null > fx.s 2>/dev/null && gcc -c fx.s -o fx.o 2>/dev/null && gcc fx.o -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o fx.bin 2>/dev/null ) \
+( cd "$T" && timeout -k 5 60 "$ROOT/scrip" --compile fx.sno < /dev/null > fx.s 2>/dev/null && gcc -c fx.s -o fx.o 2>/dev/null && gcc fx.o -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o fx.bin 2>/dev/null ) \
   || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the m4 build of the fixture failed"; exit 2; }
-( cd "$T" && timeout 30 ./fx.bin < /dev/null > m4 2>m4.err ); r4=$?
+( cd "$T" && timeout -k 5 30 ./fx.bin < /dev/null > m4 2>m4.err ); r4=$?
 cmp -s "$T/ora" "$T/m4" && arm "2 m4 == sbl" ok || arm 2 red "rc=$r4; $(diff "$T/ora" "$T/m4" | grep '^[<>]' | head -4 | tr '\n' ' ')"
 { grep -qx 'eval 4 0.' "$T/m3" && grep -qx 'eval 6 0.179769313486232e+309' "$T/m3"; } && arm "3 EVAL('3.0E-324') is 0. and ...316 is finite (math_limits' witness)" ok || arm 3 red "$(grep -E '^eval (4|6) ' "$T/m3" | tr '\n' ' ')"
 cat > "$T/ar.sno" <<'EOF'
@@ -92,13 +92,13 @@ cat > "$T/ar.sno" <<'EOF'
 	OUTPUT = 'norm ' 2.2250738585072014E-308 * 1.0
 END
 EOF
-( cd "$T" && timeout 30 "$O" -bf ar.sno < /dev/null > aora 2>/dev/null ) || { echo "GATE UNPROVEN(2) [$GATE_NAME]: sbl -bf did not run the arithmetic fixture"; exit 2; }
+( cd "$T" && timeout -k 5 30 "$O" -bf ar.sno < /dev/null > aora 2>/dev/null ) || { echo "GATE UNPROVEN(2) [$GATE_NAME]: sbl -bf did not run the arithmetic fixture"; exit 2; }
 grep -qx 'quot 0.' "$T/aora" && grep -qx 'md1 pass' "$T/aora" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: sbl no longer flushes a subnormal quotient or fails its own math_diff check -- the premise moved"; exit 2; }
-( cd "$T" && timeout 30 "$ROOT/scrip" ar.sno < /dev/null > am3 2>am3.err ); r3=$?
+( cd "$T" && timeout -k 5 30 "$ROOT/scrip" ar.sno < /dev/null > am3 2>am3.err ); r3=$?
 cmp -s "$T/aora" "$T/am3" && arm "4 m3 arithmetic == sbl ($(wc -l < "$T/aora") lines: flushed quotient, folded quotient, DAZ on a coerced string, math_diff checks)" ok || arm 4 red "rc=$r3; $(diff "$T/aora" "$T/am3" | grep '^[<>]' | head -4 | tr '\n' ' ')"
-( cd "$T" && timeout 60 "$ROOT/scrip" --compile ar.sno < /dev/null > ar.s 2>/dev/null && gcc -c ar.s -o ar.o 2>/dev/null && gcc ar.o -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o ar.bin 2>/dev/null ) \
+( cd "$T" && timeout -k 5 60 "$ROOT/scrip" --compile ar.sno < /dev/null > ar.s 2>/dev/null && gcc -c ar.s -o ar.o 2>/dev/null && gcc ar.o -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o ar.bin 2>/dev/null ) \
   || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the m4 build of the arithmetic fixture failed"; exit 2; }
-( cd "$T" && timeout 30 ./ar.bin < /dev/null > am4 2>am4.err ); r4=$?
+( cd "$T" && timeout -k 5 30 ./ar.bin < /dev/null > am4 2>am4.err ); r4=$?
 cmp -s "$T/aora" "$T/am4" && arm "5 m4 arithmetic == sbl" ok || arm 5 red "rc=$r4; $(diff "$T/aora" "$T/am4" | grep '^[<>]' | head -4 | tr '\n' ' ')"
 cat > "$T/sc.sc" <<'EOF'
 x = 1.0E-300; q = x / 1.0E10; OUTPUT = 'quot ' q;
@@ -106,19 +106,19 @@ OUTPUT = 'lit ' 2.5E-310;
 s = '2.6308364999025777e-310' - 0.; OUTPUT = 'coerce ' s;
 EOF
 "$ROOT/scrip" --transpile "$T/sc.sc" > "$T/sc.sno" 2>/dev/null || { echo "GATE UNPROVEN(2) [$GATE_NAME]: scrip --transpile refused the Snocone witness"; exit 2; }
-( cd "$T" && timeout 30 "$O" -bf sc.sno < /dev/null > scora 2>/dev/null ) || { echo "GATE UNPROVEN(2) [$GATE_NAME]: sbl -bf did not run the transpiled Snocone witness"; exit 2; }
+( cd "$T" && timeout -k 5 30 "$O" -bf sc.sno < /dev/null > scora 2>/dev/null ) || { echo "GATE UNPROVEN(2) [$GATE_NAME]: sbl -bf did not run the transpiled Snocone witness"; exit 2; }
 [ "$(wc -l < "$T/scora")" = 3 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the oracle's Snocone reading is not three lines"; exit 2; }
-( cd "$T" && timeout 30 "$ROOT/scrip" sc.sc < /dev/null > scm3 2>/dev/null )
-( cd "$T" && timeout 60 "$ROOT/scrip" --compile sc.sc < /dev/null > sc.s 2>/dev/null && gcc -c sc.s -o sc.o 2>/dev/null && gcc sc.o -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o sc.bin 2>/dev/null ) \
+( cd "$T" && timeout -k 5 30 "$ROOT/scrip" sc.sc < /dev/null > scm3 2>/dev/null )
+( cd "$T" && timeout -k 5 60 "$ROOT/scrip" --compile sc.sc < /dev/null > sc.s 2>/dev/null && gcc -c sc.s -o sc.o 2>/dev/null && gcc sc.o -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o sc.bin 2>/dev/null ) \
   || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the m4 build of the Snocone witness failed"; exit 2; }
-( cd "$T" && timeout 30 ./sc.bin < /dev/null > scm4 2>/dev/null )
+( cd "$T" && timeout -k 5 30 ./sc.bin < /dev/null > scm4 2>/dev/null )
 { cmp -s "$T/scora" "$T/scm3" && cmp -s "$T/scora" "$T/scm4"; } && arm "6 Snocone m3+m4 == sbl on the transpiled form" ok || arm 6 red "m3: $(tr '\n' '|' < "$T/scm3") m4: $(tr '\n' '|' < "$T/scm4") sbl: $(tr '\n' '|' < "$T/scora")"
 IT="$(icont_bin 2>/dev/null)"; IX="$(iconx_bin 2>/dev/null)"
 [ -x "$IT" ] && [ -x "$IX" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no Icon oracle for the containment arm"; exit 2; }
 printf 'procedure main()\n   write(1.0e-300 / 1.0e10);\nend\n' > "$T/c.icn"
-( cd "$T" && "$IT" -s c.icn >/dev/null 2>&1 && timeout 30 "$IX" c > cora 2>/dev/null ) || { echo "GATE UNPROVEN(2) [$GATE_NAME]: iconx did not run the containment witness"; exit 2; }
+( cd "$T" && "$IT" -s c.icn >/dev/null 2>&1 && timeout -k 5 30 "$IX" c > cora 2>/dev/null ) || { echo "GATE UNPROVEN(2) [$GATE_NAME]: iconx did not run the containment witness"; exit 2; }
 grep -q 'e-310' "$T/cora" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: iconx no longer prints the subnormal quotient -- the containment premise moved"; exit 2; }
-( cd "$T" && timeout 30 "$ROOT/scrip" c.icn < /dev/null > cm3 2>/dev/null )
+( cd "$T" && timeout -k 5 30 "$ROOT/scrip" c.icn < /dev/null > cm3 2>/dev/null )
 cmp -s "$T/cora" "$T/cm3" && arm "7 containment: Icon's subnormal quotient is not flushed (== iconx: $(cat "$T/cora"))" ok || arm 7 red "iconx: $(cat "$T/cora") SCRIP m3: $(cat "$T/cm3")"
 if [ "$red" = 0 ]; then echo "GATE PASS(0) [$GATE_NAME]: $n arms"; exit 0; fi
 echo "GATE FAIL(1) [$GATE_NAME]: $red of $n arms red"; exit 1

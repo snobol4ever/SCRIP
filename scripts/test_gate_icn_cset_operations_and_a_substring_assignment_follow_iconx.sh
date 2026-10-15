@@ -142,12 +142,12 @@ beh=""; bad=0
 errno_of() { grep -oE '(Run-time )?error [0-9]+' "$1" | head -1 | grep -oE '[0-9]+$'; }
 for w in w1 w2 w3 w4 w5; do
   ( cd "$T" && "$ICONT" -s -o "$w.x" "$w.icn" ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: icont refuses witness $w"; exit 2; }
-  ( cd "$T" && timeout 20 "./$w.x" </dev/null >"$w.io" 2>"$w.ie" ); ir=$?
+  ( cd "$T" && timeout -k 5 20 "./$w.x" </dev/null >"$w.io" 2>"$w.ie" ); ir=$?
   [ "$ir" -le 1 ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle did not run witness $w (rc=$ir)"; exit 2; }
-  ( cd "$T" && timeout 20 "$SCRIP" "$w.icn" </dev/null >"$w.3o" 2>"$w.3e" ); r3=$?
+  ( cd "$T" && timeout -k 5 20 "$SCRIP" "$w.icn" </dev/null >"$w.3o" 2>"$w.3e" ); r3=$?
   ( cd "$T" && "$SCRIP" --compile -o "$w.s" "$w.icn" </dev/null >/dev/null 2>&1 && gcc -no-pie -o "$w.4" "$w.s" -L"$ROOT/out" -lscrip_rt -lm -lstdc++ -lpthread -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) \
     || { echo "⛔ GATE REFUSE(2) [$G]: witness $w does not build in mode 4"; exit 2; }
-  ( cd "$T" && timeout 20 "./$w.4" </dev/null >"$w.4o" 2>"$w.4e" ); r4=$?
+  ( cd "$T" && timeout -k 5 20 "./$w.4" </dev/null >"$w.4o" 2>"$w.4e" ); r4=$?
   ie="$(errno_of "$T/$w.ie")"; e3="$(errno_of "$T/$w.3e")"; e4="$(errno_of "$T/$w.4e")"
   if cmp -s "$T/$w.io" "$T/$w.3o" && cmp -s "$T/$w.io" "$T/$w.4o" && [ "$r3" = "$ir" ] && [ "$r4" = "$ir" ] && [ "$e3" = "$ie" ] && [ "$e4" = "$ie" ]; then beh="$beh $w:ok(rc=$ir${ie:+,err=$ie})"
   else beh="$beh $w:RED(iconx rc=$ir err=${ie:-none}; m3 rc=$r3 err=${e3:-none} out=$(cmp -s "$T/$w.io" "$T/$w.3o" && echo same || echo DIFF); m4 rc=$r4 err=${e4:-none} out=$(cmp -s "$T/$w.io" "$T/$w.4o" && echo same || echo DIFF))"; bad=1; fi

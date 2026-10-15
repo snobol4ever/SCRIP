@@ -77,12 +77,12 @@ fails=0; graded=0
 for w in pipe null; do
     "$SWIPL" -q -g main -t halt "$d/$w.pl" </dev/null > "$d/$w.oracle" 2>/dev/null
     cmp -s "$d/$w.want" "$d/$w.oracle" || { echo "⛔ REFUSED(2) [$GATE_NAME]: the $w expectation table is not what $SWIPL prints now"; diff "$d/$w.want" "$d/$w.oracle" | head -5; exit 2; }
-    timeout 20 "$SCRIP" "$d/$w.pl" </dev/null 2>/dev/null > "$d/$w.m3"; rc=$?; graded=$((graded + 1))
+    timeout -k 5 20 "$SCRIP" "$d/$w.pl" </dev/null 2>/dev/null > "$d/$w.m3"; rc=$?; graded=$((graded + 1))
     if [ $rc -ne 0 ] || ! cmp -s "$d/$w.want" "$d/$w.m3"; then fails=$((fails + 1)); echo "  $w m3 rc=$rc differs:"; diff "$d/$w.want" "$d/$w.m3" | head -10; fi
     graded=$((graded + 1))
-    if timeout 60 "$SCRIP" --compile -o "$d/$w.s" "$d/$w.pl" </dev/null >/dev/null 2>&1 && as --64 -o "$d/$w.o" "$d/$w.s" 2>/dev/null \
+    if timeout -k 5 60 "$SCRIP" --compile -o "$d/$w.s" "$d/$w.pl" </dev/null >/dev/null 2>&1 && as --64 -o "$d/$w.o" "$d/$w.s" 2>/dev/null \
         && gcc -no-pie -o "$d/$w.bin" "$d/$w.o" "$OUT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$OUT" 2>/dev/null; then
-        timeout 20 "$d/$w.bin" </dev/null 2>/dev/null > "$d/$w.m4"; rc=$?
+        timeout -k 5 20 "$d/$w.bin" </dev/null 2>/dev/null > "$d/$w.m4"; rc=$?
         if [ $rc -ne 0 ] || ! cmp -s "$d/$w.want" "$d/$w.m4"; then fails=$((fails + 1)); echo "  $w m4 rc=$rc differs:"; diff "$d/$w.want" "$d/$w.m4" | head -10; fi
     else fails=$((fails + 1)); echo "  $w m4 did not compile or link"; fi
 done

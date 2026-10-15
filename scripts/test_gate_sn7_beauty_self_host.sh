@@ -62,7 +62,7 @@ for sno in "$BEAUTY"/*_driver.sno; do
     ref="$BEAUTY/${name}.ref"
     [ ! -f "$ref" ] && continue
 
-    got=$(SNO_LIB="$BEAUTY" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null || true)
+    got=$(SNO_LIB="$BEAUTY" timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null || true)
     if diff <(printf '%s\n' "$got") "$ref" > /dev/null 2>&1; then
         PASS=$((PASS + 1))
     else
@@ -71,9 +71,9 @@ for sno in "$BEAUTY"/*_driver.sno; do
     fi
 
     m4ok=0
-    if SNO_LIB="$BEAUTY" timeout "$TIMEOUT" "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$name.s" 2>/dev/null && [ -s "$WORK/$name.s" ]; then
+    if SNO_LIB="$BEAUTY" timeout -k 5 "$TIMEOUT" "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$name.s" 2>/dev/null && [ -s "$WORK/$name.s" ]; then
         if gcc -no-pie "$WORK/$name.s" -L"$SCRIP_ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$SCRIP_ROOT/out" -o "$WORK/$name.bin" 2>/dev/null; then
-            got4=$(cd "$BEAUTY" && SNO_LIB="$BEAUTY" timeout "$TIMEOUT" "$WORK/$name.bin" < /dev/null 2>/dev/null || true)
+            got4=$(cd "$BEAUTY" && SNO_LIB="$BEAUTY" timeout -k 5 "$TIMEOUT" "$WORK/$name.bin" < /dev/null 2>/dev/null || true)
             if diff <(printf '%s\n' "$got4") "$ref" > /dev/null 2>&1; then
                 m4ok=1
             fi

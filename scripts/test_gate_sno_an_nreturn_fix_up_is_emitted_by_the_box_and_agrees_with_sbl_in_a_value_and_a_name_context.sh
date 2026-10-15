@@ -63,12 +63,12 @@ SNO
 h=$(grep -cE 'call[[:space:]]+(rt_nret_fix_tiny|rt_nret_fix|rt_cap_name_strict)\b' "$D/n.s"); d=$(grep -cE 'call[[:space:]]+rt_deref\b' "$D/n.s")
 [ "$d" -ge 1 ] || refuse "the witness holds no rt_deref call -- the cold path is not emitted, arm A cannot see what it grades"
 if [ "$h" = 0 ]; then ok "A census: 0 NRETURN helper call sites, $d rt_deref call site(s)"; else red "A census: $h call site(s) of rt_nret_fix_tiny / rt_nret_fix / rt_cap_name_strict remain"; fi
-want="$(cd "$D" && timeout 60 "$SBL" -bf n.sno < /dev/null 2>&1)"
+want="$(cd "$D" && timeout -k 5 60 "$SBL" -bf n.sno < /dev/null 2>&1)"
 [ -n "$want" ] || refuse "the oracle printed nothing for the witness"
-got3="$(cd "$D" && timeout 60 "$B/scrip" n.sno < /dev/null 2>&1)"
+got3="$(cd "$D" && timeout -k 5 60 "$B/scrip" n.sno < /dev/null 2>&1)"
 if [ "$got3" = "$want" ]; then ok "B m3: $(printf '%s' "$want" | tr '\n' '|' | cut -c1-80)"; else red "B m3: want [$(printf '%s' "$want" | tr '\n' '|' | cut -c1-120)] got [$(printf '%s' "$got3" | tr '\n' '|' | cut -c1-120)]"; fi
 gcc -no-pie -o "$D/n.bin" "$D/n.s" -L "$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2> /dev/null || refuse "the mode-4 witness does not link"
-got4="$(cd "$D" && timeout 60 ./n.bin < /dev/null 2>&1)"
+got4="$(cd "$D" && timeout -k 5 60 ./n.bin < /dev/null 2>&1)"
 if [ "$got4" = "$want" ]; then ok "B m4: same"; else red "B m4: want [$(printf '%s' "$want" | tr '\n' '|' | cut -c1-120)] got [$(printf '%s' "$got4" | tr '\n' '|' | cut -c1-120)]"; fi
 [ "$RC" -eq 0 ] && echo "GREEN: $n arms" || echo "RED: the NRETURN fix-up is still a C helper call, or a by-name result differs from sbl"
 exit "$RC"

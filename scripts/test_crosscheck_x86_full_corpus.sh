@@ -81,7 +81,7 @@ run_test() {
     local got
     local stdin_src="/dev/null"
     [[ -f "$input" ]] && stdin_src="$input"
-    if ! got=$(timeout "$TIMEOUT" "$bin" < "$stdin_src" 2>/dev/null); then
+    if ! got=$(timeout -k 5 "$TIMEOUT" "$bin" < "$stdin_src" 2>/dev/null); then
         local ec=$?
         if [[ $ec -eq 124 ]]; then
             echo -e "${YELLOW}TIMEOUT${RESET} $name"

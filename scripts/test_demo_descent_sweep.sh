@@ -25,11 +25,11 @@ for src in $(find $DEMO_DIRS -name '*.sno' 2>/dev/null | sort); do
   # ⛔ NOT -P: this sbl build rejects it ("Illegal option -P"), which silently makes the oracle emit
   # NOTHING and grades every no-.ref program DIFF against an empty string.  Caught by the hello.sno
   # control row.  The demo header comments quote -P 34000 from a DIFFERENT spitbol build; do not restore it.
-  if [ -f "$b.ref" ]; then ORA=$(cat "$b.ref"); else ORA=$(cd "$d" && timeout $DEMO_TIMEOUT "$SWEEP_ORACLE" $(sbl_lang_flags) "$src" < "$IN" 2>/dev/null); fi
-  if ! SNO_LIB="$d" timeout $DEMO_TIMEOUT "$ROOT/scrip" --compile "$src" </dev/null > $S 2>/dev/null; then st=COMPILE_FAIL
+  if [ -f "$b.ref" ]; then ORA=$(cat "$b.ref"); else ORA=$(cd "$d" && timeout -k 5 $DEMO_TIMEOUT "$SWEEP_ORACLE" $(sbl_lang_flags) "$src" < "$IN" 2>/dev/null); fi
+  if ! SNO_LIB="$d" timeout -k 5 $DEMO_TIMEOUT "$ROOT/scrip" --compile "$src" </dev/null > $S 2>/dev/null; then st=COMPILE_FAIL
   elif ! gcc -no-pie $S -L "$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o $X 2>/dev/null; then st=ASM_FAIL
   else
-    RO=$(cd "$d" && timeout $DEMO_TIMEOUT $X < "$IN" 2>$RE); rc=$?
+    RO=$(cd "$d" && timeout -k 5 $DEMO_TIMEOUT $X < "$IN" 2>$RE); rc=$?
     if   grep -q "BOMB-RETURN"  $RE; then case "$ORA" in "$RO"*) st=DESCENT_OK;; *) st=BOMB_RETURN_BAD;; esac
     elif grep -q "BOMB-FRETURN" $RE; then st=BOMB_FRETURN
     elif grep -q "BOMB-NRETURN" $RE; then st=BOMB_NRETURN

@@ -90,14 +90,14 @@ run1() {
   local eng="$1" k="$2" reps="$3" out rl xc user sys bin
   case "$eng" in
     fpc) bin=$(fpc_build "$B/$k.pas") || { echo "- BUILD-ERR"; return; }
-         out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$bin" >/dev/null 2>"$W/e.$$") ;;
-    m3)  out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$B/$k.pas" >/dev/null 2>"$W/e.$$") ;;
+         out=$(printf '%d\n' "$reps" | "$WRAP" timeout -k 5 "$T" "$bin" >/dev/null 2>"$W/e.$$") ;;
+    m3)  out=$(printf '%d\n' "$reps" | "$WRAP" timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$B/$k.pas" >/dev/null 2>"$W/e.$$") ;;
     m4)  local s="$W/$k.s" b="$W/$k.bin"
          if [ ! -x "$b" ]; then
-           if ! (timeout "$T" "$SCRIP" --compile "$B/$k.pas" </dev/null >"$s" 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
+           if ! (timeout -k 5 "$T" "$SCRIP" --compile "$B/$k.pas" </dev/null >"$s" 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
            if ! (as --64 -o "$W/$k.o" "$s" 2>/dev/null && gcc -no-pie -o "$b" "$W/$k.o" "$RT/libscrip_rt.so" -lm -Wl,-rpath,"$RT" 2>/dev/null); then echo "- LINKFAIL"; return; fi
          fi
-         out=$(printf '%d\n' "$reps" | "$WRAP" timeout "$T" "$b" "${DECL_SW[@]}" >/dev/null 2>"$W/e.$$") ;;
+         out=$(printf '%d\n' "$reps" | "$WRAP" timeout -k 5 "$T" "$b" "${DECL_SW[@]}" >/dev/null 2>"$W/e.$$") ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.$$" 2>/dev/null | tail -1)
   [ -n "$rl" ] || { echo "- DNF"; return; }
@@ -212,7 +212,7 @@ for k in $KERNELS; do
   want=$(cat "$ref")
   DECL_SW=(); dw=$(declared_switches_beside "$B/$k.pas") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }
   [ -n "$dw" ] && { read -r -a DECL_SW <<<"$dw"; DECLW["$k"]="$dw"; }
-  m3o=$(printf '1\n' | timeout 15 "$SCRIP" --run "${DECL_SW[@]}" "$pas" 2>/dev/null)
+  m3o=$(printf '1\n' | timeout -k 5 15 "$SCRIP" --run "${DECL_SW[@]}" "$pas" 2>/dev/null)
   if [ "$m3o" != "$want" ]; then
     printf "%-10s %14s %14s %14s  %s\n" "$k" SKIP SKIP SKIP "correctness-fail(reps=1 m3 != .ref)"; tot_skip=$((tot_skip+1)); continue
   fi

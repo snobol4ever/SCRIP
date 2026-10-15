@@ -11,7 +11,7 @@ OUT=$1
 # identity. Same known limitation as census_zdp_sources.sh: the rungs' own ~1500+ entries are not
 # walked by this manifest -- a follow-up, not solved here.
 for f in $(find $S4E/corpus/tests/snobol4 -name '*.sno' ! -name 'ALL.sno' | sort); do
-    h=$(timeout 15 ./scrip --compile "$f" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
+    h=$(timeout -k 5 15 ./scrip --compile "$f" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
     echo "$h  $f" >> "$OUT"
 done
 wc -l < "$OUT"

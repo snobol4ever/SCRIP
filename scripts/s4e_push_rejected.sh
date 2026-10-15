@@ -17,6 +17,6 @@ seat="$(bash "$here/scripts/s4e_msg.sh" whoami 2>/dev/null | tail -1 | tr -d '[:
 [ -n "$seat" ] || seat="unknown-$(id -un)"
 name="$(basename "$(git -C "$repo" rev-parse --show-toplevel 2>/dev/null)")"
 mine="$(git -C "$repo" rev-parse --short=9 HEAD 2>/dev/null)"
-theirs="$(timeout 20 git -C "$repo" ls-remote origin refs/heads/main 2>/dev/null | cut -c1-9)"
+theirs="$(timeout -k 5 20 git -C "$repo" ls-remote origin refs/heads/main 2>/dev/null | cut -c1-9)"
 printf '%s\t%s\t%s\t%s\t%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$seat" "${name:-?}" "${mine:-?}" "${theirs:-?}" >> "$po/PUSH_REJECTED.tsv" || { echo "REFUSE(2): could not append to $po/PUSH_REJECTED.tsv"; exit 2; }
 echo "recorded: rejected push by $seat in ${name:-?} (HEAD ${mine:-?}, origin ${theirs:-?}) -> $po/PUSH_REJECTED.tsv"

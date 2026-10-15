@@ -67,15 +67,15 @@ for p in $PROGS; do
   if [ "$REPS" != 0 ]; then mktape "$SRC" "$W/$p-rep.sno" "$REPS" || { echo "$p: TAPE FAIL"; continue; }; RUN="$W/$p-rep.sno"; fi
   "$SCRIP" --compile -o "$W/$p.s" "$RUN" < /dev/null > /dev/null 2>&1
   gcc -no-pie "$W/$p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$p.m4" 2>/dev/null || { echo "$p: M4 BUILD FAIL"; continue; }
-  so="$(timeout 600 "$SBL" $(sbl_lang_flags) "$RUN" < "$IN" 2>/dev/null)"
-  o3="$(timeout 600 "$SCRIP" "$RUN" < "$IN" 2>/dev/null)"
-  o4="$(timeout 600 "$W/$p.m4" < "$IN" 2>/dev/null)"
+  so="$(timeout -k 5 600 "$SBL" $(sbl_lang_flags) "$RUN" < "$IN" 2>/dev/null)"
+  o3="$(timeout -k 5 600 "$SCRIP" "$RUN" < "$IN" 2>/dev/null)"
+  o4="$(timeout -k 5 600 "$W/$p.m4" < "$IN" 2>/dev/null)"
   [ "$so" = "$o3" ] && [ "$so" = "$o4" ] || { echo "$p: IDENTITY FAIL sbl=[$so] m3=[$o3] m4=[$o4]"; continue; }
   s=(); m3=(); m4=()
   for i in $(seq 1 "$N"); do
-    t0=$(date +%s%N); timeout 600 "$SBL" $(sbl_lang_flags) "$RUN" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); s+=( $(( (t1-t0)/1000000 )) )
-    t0=$(date +%s%N); timeout 600 "$SCRIP" "$RUN" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); m3+=( $(( (t1-t0)/1000000 )) )
-    t0=$(date +%s%N); timeout 600 "$W/$p.m4" < "$IN" > /dev/null 2>&1;      t1=$(date +%s%N); m4+=( $(( (t1-t0)/1000000 )) )
+    t0=$(date +%s%N); timeout -k 5 600 "$SBL" $(sbl_lang_flags) "$RUN" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); s+=( $(( (t1-t0)/1000000 )) )
+    t0=$(date +%s%N); timeout -k 5 600 "$SCRIP" "$RUN" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); m3+=( $(( (t1-t0)/1000000 )) )
+    t0=$(date +%s%N); timeout -k 5 600 "$W/$p.m4" < "$IN" > /dev/null 2>&1;      t1=$(date +%s%N); m4+=( $(( (t1-t0)/1000000 )) )
   done
   sm=$(med "${s[@]}"); m3m=$(med "${m3[@]}"); m4m=$(med "${m4[@]}")
   r3=$(python3 -c "print(f'{$m3m/$sm:.2f}')" 2>/dev/null); r4=$(python3 -c "print(f'{$m4m/$sm:.2f}')" 2>/dev/null)

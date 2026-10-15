@@ -58,17 +58,17 @@ if [ "$n" -eq 0 ]; then echo "  census PASS (the allocator contains 0 collect-fr
 else echo "  census FAIL ($n collect call(s) inside gc_heap.c: a collection with live unmapped C frames is back)"; RC=1; fi
 examined=$((examined+1))
 printf 'procedure main()\n   local i, L;\n   L := [];\n   every i := 1 to 400000 do put(L, [i, i+1, i+2]);\n   write("done ", *L);\nend\n' > "$T/grow.icn"
-out=$(cd "$T" && SCRIP_ZETA_TELEM=1 SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=512 timeout 120 "$SCRIP" grow.icn 2>&1); g=$(printf '%s\n' "$out" | grep -c 'lazy commit ->')
+out=$(cd "$T" && SCRIP_ZETA_TELEM=1 SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=512 timeout -k 5 120 "$SCRIP" grow.icn 2>&1); g=$(printf '%s\n' "$out" | grep -c 'lazy commit ->')
 if [ "$(printf '%s\n' "$out" | grep -c '^done 400000$')" = 1 ] && [ "$g" -gt 0 ]; then echo "  reserve PASS (an 8 MB window inside a 512 MB reserve grew its soft end $g time(s) into the reserve instead of collecting, answer intact)"
 else echo "  reserve FAIL (soft-end advances=$g, answer=[$(printf '%s\n' "$out" | grep '^done' | head -1)] -- the arena did not grow when the allocator refused to collect)"; RC=1; fi
 examined=$((examined+1))
-out=$(cd "$T" && SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=8 timeout 120 "$SCRIP" grow.icn 2>&1); r=$?
+out=$(cd "$T" && SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=8 timeout -k 5 120 "$SCRIP" grow.icn 2>&1); r=$?
 n307=$(grep -c 'error 307' <<< "$out"); n246=$(grep -c 'ERROR 246' <<< "$out")
 if [ "$r" -ne 0 ] && grep -q 'heap exhausted AT THE HARD CAP' <<< "$out" && [ "$n307" = 1 ] && [ "$n246" = 0 ]; then echo "  cap PASS (growth is refused at the cap, the abort names it, and error 307 is raised once, rc=$r)"
 else echo "  cap FAIL (rc=$r, error 307 raised $n307 time(s), ERROR 246 $n246 time(s) -- the reserve is unbounded, the abort does not name the cap, or the abort's own report asked the full heap again and re-raised)"; RC=1; fi
 examined=$((examined+1))
 printf 'procedure main()\n   local i, L;\n   every i := 1 to 4000000 do L := [i, i+1, i+2];\n   write("done ", *L);\nend\n' > "$T/churn.icn"
-( cd "$T" && SCRIP_ZETA_TELEM=1 /usr/bin/time -f 'RSS=%M' timeout 180 "$SCRIP" churn.icn ) >"$T/c.out" 2>"$T/c.err"
+( cd "$T" && SCRIP_ZETA_TELEM=1 /usr/bin/time -f 'RSS=%M' timeout -k 5 180 "$SCRIP" churn.icn ) >"$T/c.out" 2>"$T/c.err"
 col=$(grep -c 'ZGC. regeneration' "$T/c.err"); rss=$(grep -o 'RSS=[0-9]*' "$T/c.err" | tail -1 | cut -d= -f2)
 if [ -n "$col" ] && [ "$col" -ge 2 ] && [ "$(head -1 "$T/c.out")" = "done 3" ]; then echo "  coverage PASS (the Icon 4M-dead-list loop reached a safe point $col time(s) at ${rss:-?} KB RSS -- it collects DURING the loop, not once at the end)"
 else echo "  coverage FAIL (the Icon 4M-dead-list loop collected ${col:-?} time(s) at ${rss:-?} KB RSS, answer [$(head -1 "$T/c.out")] -- an allocation loop that collects fewer than twice reached no safe point INSIDE itself and only collected at exit; the emitted polls have regressed)"; RC=1; fi

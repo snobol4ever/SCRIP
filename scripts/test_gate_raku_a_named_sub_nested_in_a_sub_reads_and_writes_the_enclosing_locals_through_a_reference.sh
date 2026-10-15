@@ -127,12 +127,12 @@ fails=0; GATE_EXAMINED=0
 ck() {
     local w="$1" m="$2" out rc
     GATE_EXAMINED=$((GATE_EXAMINED + 1))
-    if [ "$m" = m3 ]; then out="$(timeout 20 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"; rc=$?
+    if [ "$m" = m3 ]; then out="$(timeout -k 5 20 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"; rc=$?
     else
-        if ! timeout 60 "$ROOT/scrip" --compile -o "$W/$w.s" "$W/$w.raku" </dev/null >"$W/$w.cerr" 2>&1 \
+        if ! timeout -k 5 60 "$ROOT/scrip" --compile -o "$W/$w.s" "$W/$w.raku" </dev/null >"$W/$w.cerr" 2>&1 \
            || ! gcc -o "$W/$w.bin" "$W/$w.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread >>"$W/$w.cerr" 2>&1; then
             printf '  FAIL %-7s %s: did not build (%s)\n' "$w" "$m" "$(head -1 "$W/$w.cerr" | cut -c1-110)"; fails=$((fails + 1)); return; fi
-        out="$(timeout 20 "$W/$w.bin" 2>/dev/null </dev/null)"; rc=$?
+        out="$(timeout -k 5 20 "$W/$w.bin" 2>/dev/null </dev/null)"; rc=$?
     fi
     if [ "$rc" -ge 124 ]; then printf '  FAIL %-7s %s: died rc=%s\n' "$w" "$m" "$rc"; fails=$((fails + 1)); return; fi
     if [ "$out" = "$(cat "$W/$w.ref")" ]; then printf '  ok   %-7s %s\n' "$w" "$m"
@@ -144,7 +144,7 @@ unset SCRIP_HEAP_MB; export SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-128}" SCRIP_HEAP_MAX
 sf=0
 for w in nested; do for s in 1 3 5; do for m in m3 m4; do
     GATE_EXAMINED=$((GATE_EXAMINED + 1))
-    if [ "$m" = m3 ]; then out="$(SCRIP_GC_STRESS=$s timeout 120 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"; else out="$(SCRIP_GC_STRESS=$s timeout 120 "$W/$w.bin" 2>/dev/null </dev/null)"; fi
+    if [ "$m" = m3 ]; then out="$(SCRIP_GC_STRESS=$s timeout -k 5 120 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"; else out="$(SCRIP_GC_STRESS=$s timeout -k 5 120 "$W/$w.bin" 2>/dev/null </dev/null)"; fi
     if [ "$out" != "$(cat "$W/$w.ref")" ]; then printf '  FAIL %s %s stress=%s: wrong answer under the collector\n' "$w" "$m" "$s"; fails=$((fails + 1)); sf=1; fi
 done; done; done
 [ "$sf" -eq 0 ] && echo "  ok   nested x stress 1 3 5 x m3 m4"
@@ -156,8 +156,8 @@ say e();
 EOF
 for m in m3 m4; do
     GATE_EXAMINED=$((GATE_EXAMINED + 1))
-    if [ "$m" = m3 ]; then out="$(timeout 20 "$ROOT/scrip" --run "$W/door.raku" 2>&1 </dev/null)"; rc=$?
-    else out="$(timeout 20 "$ROOT/scrip" --compile -o "$W/door.s" "$W/door.raku" 2>&1 </dev/null)"; rc=$?; fi
+    if [ "$m" = m3 ]; then out="$(timeout -k 5 20 "$ROOT/scrip" --run "$W/door.raku" 2>&1 </dev/null)"; rc=$?
+    else out="$(timeout -k 5 20 "$ROOT/scrip" --compile -o "$W/door.s" "$W/door.raku" 2>&1 </dev/null)"; rc=$?; fi
     if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'never assigned'; then printf '  ok   door %s refused at the guard\n' "$m"
     else printf '  FAIL door %s: rc=%s [%s] -- a nested sub taken as a value must not take the stack road\n' "$m" "$rc" "$(printf '%s' "$out" | head -c 90 | tr '\n' ' ')"; fails=$((fails + 1)); fi
 done
@@ -166,6 +166,6 @@ RX="${ROAST_DIR:-/home/resources/roast-master}/S05-metasyntax/regex.t"
 [ -f "$RX" ] || { echo "⛔ REFUSE(rc=2) [$GATE_NAME]: $RX absent -- the crash witness cannot be measured"; exit 2; }
 cp "$RX" "$W/rx.raku"
 GATE_EXAMINED=$((GATE_EXAMINED + 1))
-timeout 60 "$ROOT/scrip" --compile -o "$W/rx.s" "$W/rx.raku" >/dev/null 2>&1 </dev/null; rc=$?
+timeout -k 5 60 "$ROOT/scrip" --compile -o "$W/rx.s" "$W/rx.raku" >/dev/null 2>&1 </dev/null; rc=$?
 if [ "$rc" -ge 128 ]; then printf '  FAIL regex.t: the compiler died (rc=%s)\n' "$rc"; fails=$((fails + 1)); else printf '  ok   regex.t compile rc=%s (no crash)\n' "$rc"; fi
 gate_verdict "$fails" "witness-mode pair(s) wrong: a nested sub does not read or write its enclosing sub's locals as Rakudo's does"

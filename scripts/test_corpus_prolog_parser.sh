@@ -36,7 +36,7 @@ P_PASS=0; P_EMPTY=0; P_CRASH=0
 R_PASS=0; R_EMPTY=0; R_CRASH=0
 
 for f in "${FILES[@]}"; do
-  OUT=$(timeout "$TIMEOUT" swipl -q -f "$PARSER_SRC" -t halt < "$f" 2>/dev/null); code=$?
+  OUT=$(timeout -k 5 "$TIMEOUT" swipl -q -f "$PARSER_SRC" -t halt < "$f" 2>/dev/null); code=$?
   if [ $code -eq 124 ] || [ $code -ne 0 ]; then
     ((P_CRASH++))
   elif [ -z "$OUT" ]; then
@@ -45,7 +45,7 @@ for f in "${FILES[@]}"; do
     ((P_PASS++))
   fi
 
-  OUT=$(timeout "$TIMEOUT" swipl -q -f "$RECOG_SRC" -t halt < "$f" 2>/dev/null); code=$?
+  OUT=$(timeout -k 5 "$TIMEOUT" swipl -q -f "$RECOG_SRC" -t halt < "$f" 2>/dev/null); code=$?
   if [ $code -eq 124 ] || [ $code -ne 0 ]; then
     ((R_CRASH++))
   elif [ -z "$OUT" ] || [ "$OUT" = '(compiland)' ]; then

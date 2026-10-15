@@ -67,24 +67,24 @@ done
 
 echo "== C. POSITIVE CONTROL — the ruling's reason must bear weight"
 note "scrip's implicit main/0 == swipl's explicit -g main, on a directive-less file"
-a="$(timeout 8s "$SWIPL" -q -g main -t halt "$W/nodir.pl" </dev/null 2>/dev/null)"
-b="$(timeout 8s "$SCRIP" "$W/nodir.pl" </dev/null 2>/dev/null)"
+a="$(timeout -k 5 8s "$SWIPL" -q -g main -t halt "$W/nodir.pl" </dev/null 2>/dev/null)"
+b="$(timeout -k 5 8s "$SCRIP" "$W/nodir.pl" </dev/null 2>/dev/null)"
 if [ "$a" = "$b" ] && [ -n "$a" ]; then good "byte-identical ('$a') — auto-invoke is oracle-faithful, ruling stands"
 else bad "DIVERGED: swipl -g main=[$a] scrip=[$b] — the ruling's stated reason no longer holds, RE-OPEN the row"; fi
 
 echo "== D. HAZARD CONTROL — -g main must NOT be applied fleet-wide"
 note "on a file that DOES carry the directive, -g main runs main twice"
-d="$(timeout 8s "$SWIPL" -q -g main -t halt "$W/withdir.pl" </dev/null 2>/dev/null | grep -c '^hello$')"
-h="$(timeout 8s "$SWIPL" -q -g halt        "$W/withdir.pl" </dev/null 2>/dev/null | grep -c '^hello$')"
+d="$(timeout -k 5 8s "$SWIPL" -q -g main -t halt "$W/withdir.pl" </dev/null 2>/dev/null | grep -c '^hello$')"
+h="$(timeout -k 5 8s "$SWIPL" -q -g halt        "$W/withdir.pl" </dev/null 2>/dev/null | grep -c '^hello$')"
 if [ "$d" = "2" ] && [ "$h" = "1" ]; then good "confirmed: -g main=2 runs, -g halt=1 run — invocation MUST be per-file"
 else bad "expected -g main=2 / -g halt=1, measured -g main=$d / -g halt=$h — re-derive the per-file rule"; fi
 
 echo "== E. the two defects are still the defects the cure rows describe"
-o="$(timeout 8s "$SCRIP" "$W/both.pl" </dev/null 2>&1)"
+o="$(timeout -k 5 8s "$SCRIP" "$W/both.pl" </dev/null 2>&1)"
 if [ "$o" = "frommain" ]; then good "D1 open as described: load-time directive dropped (got 'frommain', swipl gives 'fromdir')"
 elif echo "$o" | grep -q 'fromdir'; then good "D1 APPEARS CURED (got '$o') — close the cure row and lower this arm"
 else bad "D1 changed shape: scrip both.pl = [$o] — re-measure before trusting the cure row's description"; fi
-( timeout 8s "$SCRIP" "$W/nomain.pl" </dev/null >/dev/null 2>&1 ) ; rc=$?
+( timeout -k 5 8s "$SCRIP" "$W/nomain.pl" </dev/null >/dev/null 2>&1 ) ; rc=$?
 if [ "$rc" -ne 0 ]; then good "D2 open as described: directive-only file fails (rc=$rc), swipl prints 'direct'"
 else bad "D2 APPEARS CURED (rc=0) — verify and close the cure row"; fi
 
@@ -99,7 +99,7 @@ for f in $(find "$CORPUS/tests/prolog" "$CORPUS/benchmarks/prolog" -name '*.pl' 
     # silently counts ZERO on the very files it exists to count. Measured here: the piped form read
     # 0/58 against a hand-sweep's 36. The floor arm does NOT catch it, because the files ARE examined;
     # only the detection is dead. This is the vacuous-gate class, and pipefail is what hides it.
-    out="$(timeout 8s "$SCRIP" "$f" </dev/null 2>&1)"
+    out="$(timeout -k 5 8s "$SCRIP" "$f" </dev/null 2>&1)"
     case "$out" in *"main BB graph not found"*) n=$((n + 1)) ;; esac
 done
 gate_floor "$examined" 20 "directive-only Prolog files"

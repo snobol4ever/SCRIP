@@ -87,7 +87,7 @@ fi
 W="$HERE/gc_witnesses/hb_scan_nested.icn"
 [ -f "$W" ] || W="$(ls "$HERE"/gc_witnesses/*.icn 2>/dev/null | head -1)"
 [ -n "${W:-}" ] && [ -f "$W" ] || refuse "no GC witness under scripts/gc_witnesses -- arms (e) and (f) grade a live run and will not be inferred from source"
-rd() { env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB "$1"="$2" SCRIP_GC_EXERCISE=1 timeout 120s "$SCRIP" "$W" 2>&1 >/dev/null | grep -m1 '^\[GC-EXERCISE\]'; }
+rd() { env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB "$1"="$2" SCRIP_GC_EXERCISE=1 timeout -k 5 120s "$SCRIP" "$W" 2>&1 >/dev/null | grep -m1 '^\[GC-EXERCISE\]'; }
 fld() { printf '%s\n' "$1" | grep -oE "$2=[0-9]+" | head -1 | cut -d= -f2; }
 rS="$(rd SCRIP_HEAP_KB "$SWEPT_KB")"; rM="$(rd SCRIP_HEAP_MB 1)"
 cS=$(fld "$rS" collections); gS=$(fld "$rS" grew); aS=$(fld "$rS" arena_kb)

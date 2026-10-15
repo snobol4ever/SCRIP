@@ -56,13 +56,13 @@ compile)
   [ -x ./scrip ] || { echo "REFUSE(2): no ./scrip"; exit 2; }
   python3 scripts/util_dyn_caps_gen.py "$T/w" || exit 2
   SBL=/home/resources/x64/bin/sbl; [ -x "$SBL" ] || { echo "REFUSE(2): no SPITBOL oracle at $SBL"; exit 2; }
-  "$SBL" -bf "$T/w/defines200.sno" < /dev/null > "$T/a.ref" 2>&1; timeout 60 ./scrip --run "$T/w/defines200.sno" < /dev/null > "$T/a.out" 2> "$T/a.err"
+  "$SBL" -bf "$T/w/defines200.sno" < /dev/null > "$T/a.ref" 2>&1; timeout -k 5 60 ./scrip --run "$T/w/defines200.sno" < /dev/null > "$T/a.out" 2> "$T/a.err"
   if cmp -s "$T/a.ref" "$T/a.out"; then echo "PASS defines200.sno: 200 DEFINEs read $(tr -d '\n' < "$T/a.ref") in both"; else echo "RED defines200.sno: sbl -bf prints $(head -c 40 "$T/a.ref" | tr -d '\n'), scrip prints '$(head -c 40 "$T/a.out" | tr -d '\n')' -- $(head -c 140 "$T/a.err" | tr '\n' ' ')"; red=1; fi
-  "$SBL" -bf "$T/w/blobs150.sno" < /dev/null > "$T/d.ref" 2>&1; timeout 60 ./scrip --run "$T/w/blobs150.sno" < /dev/null > "$T/d.out" 2> "$T/d.err"
+  "$SBL" -bf "$T/w/blobs150.sno" < /dev/null > "$T/d.ref" 2>&1; timeout -k 5 60 ./scrip --run "$T/w/blobs150.sno" < /dev/null > "$T/d.out" 2> "$T/d.err"
   if cmp -s "$T/d.ref" "$T/d.out"; then echo "PASS blobs150.sno: a run-time pattern whose blob layout needs 608 entries reads $(tr -d '\n' < "$T/d.ref") in both"; else echo "RED blobs150.sno: sbl -bf prints $(head -c 40 "$T/d.ref" | tr -d '\n'), scrip prints '$(head -c 40 "$T/d.out" | tr -d '\n')' -- $(head -c 140 "$T/d.err" | tr '\n' ' ')"; red=1; fi
   gplc_bin >/dev/null || exit 2
-  ( cd "$T/w" && timeout 120 "$(gplc_bin)" preds600.pl -o preds600.gp > /dev/null 2>&1 ) || { echo "REFUSE(2): gplc could not compile preds600.pl"; exit 2; }
-  timeout 120 "$T/w/preds600.gp" < /dev/null > "$T/b.ref" 2> /dev/null; timeout 120 ./scrip --run "$T/w/preds600.pl" < /dev/null > "$T/b.out" 2> "$T/b.err"
+  ( cd "$T/w" && timeout -k 5 120 "$(gplc_bin)" preds600.pl -o preds600.gp > /dev/null 2>&1 ) || { echo "REFUSE(2): gplc could not compile preds600.pl"; exit 2; }
+  timeout -k 5 120 "$T/w/preds600.gp" < /dev/null > "$T/b.ref" 2> /dev/null; timeout -k 5 120 ./scrip --run "$T/w/preds600.pl" < /dev/null > "$T/b.out" 2> "$T/b.err"
   if cmp -s "$T/b.ref" "$T/b.out"; then echo "PASS preds600.pl: 600 predicates, $(wc -l < "$T/b.ref") lines identical to gprolog"; else echo "RED preds600.pl: gprolog prints $(wc -l < "$T/b.ref") lines, scrip $(wc -l < "$T/b.out") -- $(head -c 120 "$T/b.err" | tr '\n' ' ')"; red=1; fi
   L=$(count_caps '^src/(ir|emitter|lower|parsers|driver)/' "$COMPILE_CAPS"); n=$(printf '%s' "$L" | grep -c .); D=$(count_caps_declared '^src/(ir|emitter|lower|parsers|driver)/' "$COMPILE_CAPS"); d=$(printf '%s' "$D" | grep -c .); echo "compile-time tables still bound by a population cap: $n ($d declared class A/B in $(_ab_file), set aside)"; [ "$d" = 0 ] || printf '%s\n' "$D"; [ "$n" = 0 ] || { printf '%s\n' "$L"; red=1; }
   ;;
@@ -71,7 +71,7 @@ runtime)
   python3 scripts/util_dyn_caps_gen.py "$T/w" || exit 2
   ICONT=/home/resources/icon-master/bin/icont; [ -x "$ICONT" ] || { echo "REFUSE(2): no icont oracle at $ICONT"; exit 2; }
   ( cd "$T/w" && "$ICONT" -s -o args70x args70.icn > /dev/null 2>&1 && PATH=/home/resources/icon-master/bin:$PATH ./args70x > "$T/c.ref" 2>&1 ) || { echo "REFUSE(2): the oracle could not run args70.icn"; exit 2; }
-  timeout 60 ./scrip --run "$T/w/args70.icn" < /dev/null > "$T/c.out" 2> "$T/c.err"
+  timeout -k 5 60 ./scrip --run "$T/w/args70.icn" < /dev/null > "$T/c.out" 2> "$T/c.err"
   if cmp -s "$T/c.ref" "$T/c.out"; then echo "PASS args70.icn: a 70-argument call reads $(tr -d '\n' < "$T/c.ref") in both"; else echo "RED args70.icn: iconx prints $(tr -d '\n' < "$T/c.ref"), scrip prints '$(head -c 40 "$T/c.out" | tr -d '\n')' -- $(head -c 140 "$T/c.err" | tr '\n' ' ')"; red=1; fi
   L=$(count_caps '^src/runtime/' "$RUNTIME_CAPS"); n=$(printf '%s' "$L" | grep -c .); D=$(count_caps_declared '^src/runtime/' "$RUNTIME_CAPS"); d=$(printf '%s' "$D" | grep -c .); echo "runtime tables still bound by a population cap: $n ($d declared class A/B in $(_ab_file), set aside)"; [ "$d" = 0 ] || printf '%s\n' "$D"; [ "$n" = 0 ] || { printf '%s\n' "$L"; red=1; }
   ;;
@@ -143,7 +143,7 @@ witness)
     # cut, not read: tab is IFS whitespace, so `read` collapses an EMPTY switches column and shifts every field after it
     prog=$(cut -f3 <<<"$row"); sw=$(cut -f4 <<<"$row"); wrc=$(cut -f5 <<<"$row"); refusal=$(cut -f6 <<<"$row")
     [ -f "$prog" ] || { echo "  NO PROGRAM  $gf:$gn -- $prog is not there"; continue; }
-    timeout 300 "$SB" --run $sw "$prog" < /dev/null > "$T/w.out" 2> "$T/w.err"; rc=$?
+    timeout -k 5 300 "$SB" --run $sw "$prog" < /dev/null > "$T/w.out" 2> "$T/w.err"; rc=$?
     if [ "$rc" = "$wrc" ] && grep -qF -- "$refusal" "$T/w.err"; then K=$((K + 1)); echo "  READ        $gf:$gn rc=$rc: $(grep -F -- "$refusal" "$T/w.err" | head -1 | cut -c1-140)"
     elif [ "$rc" = 0 ]; then S=$((S + 1)); echo "  SILENT      $gf:$gn rc=0 -- the witness ran past the cap and nothing refused: $(head -c 100 "$T/w.out" | tr '\n' ' ')"
     else echo "  UNREAD      $gf:$gn rc=$rc (want $wrc): $(head -c 160 "$T/w.err" | tr '\n' ' ')"; fi

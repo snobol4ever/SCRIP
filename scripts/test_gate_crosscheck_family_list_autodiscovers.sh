@@ -29,7 +29,7 @@ mkdir -p "$ROOT/corpus/demos/snobol4" "$ROOT/corpus/tests/snobol4/beauty_suite" 
 printf ' OUTPUT = "GATE_PROBE_OK";END;* %s\n' "$PROBE" > "$ROOT/corpus/tests/snobol4/crosscheck/${PROBE}.sno"
 printf 'GATE_PROBE_OK\n' > "$ROOT/corpus/tests/snobol4/crosscheck/${PROBE}.ref"
 
-out="$(S4E_HOME="$ROOT" timeout 60 bash "$RUNNER" 2>&1)"
+out="$(S4E_HOME="$ROOT" timeout -k 5 60 bash "$RUNNER" 2>&1)"
 
 mentions_probe=0
 grep -q "$PROBE" <<<"$out" && mentions_probe=1

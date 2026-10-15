@@ -61,7 +61,7 @@ mkdir -p "$W/sno"; for f in indirect-real-illegal-type stlimit-nonnegative gimpe
 cp -r "$SNO/gimpel" "$W/sno/gimpel"
 printf 'gimpel-general-purpose-macro.sno\tORACLE_REFUSES\tdoes not run in SPITBOL: ERROR 285 -- include file cannot be opened; source checked 2026-09-08 (ceo)\nstlimit-nonnegative.sno\tORACLE_REFUSES\tdoes not run in SPITBOL: ERROR 244 -- statement count exceeds value of stlimit keyword; source checked 2026-09-08 (ceo)\n' > "$W/sno/OUTSIDE_SPITBOL_BASELINE.tsv"
 cp "$W/sno/OUTSIDE_SPITBOL_BASELINE.tsv" "$W/sno/UNGRADABLE.tsv"
-OUT1="$(cd "$ROOT" && S4E_PROGRESS_DB="$W/db1.tsv" SNOFLAKE_SUITE="$W/sno" ARM_CSN=0 timeout 300 bash "$HERE/test_snoflake_suite.sh" 2>&1)"
+OUT1="$(cd "$ROOT" && S4E_PROGRESS_DB="$W/db1.tsv" SNOFLAKE_SUITE="$W/sno" ARM_CSN=0 timeout -k 5 300 bash "$HERE/test_snoflake_suite.sh" 2>&1)"
 n="$(rows "$W/db1.tsv")"; [ "$n" = 6 ] && ok 1 "6 rows recorded in the scratch table" || red 1 "expected 6 rows in $W/db1.tsv, got $n"
 o3="$(outcome "$W/db1.tsv" indirect-real-illegal-type m3)"; o4="$(outcome "$W/db1.tsv" indirect-real-illegal-type m4)"
 [ "$o3" = PASS ] && [ "$o4" = PASS ] && ok 2 "byte-equal fixture PASS in both modes" || red 2 "indirect-real-illegal-type m3=$o3 m4=$o4 (want PASS/PASS)"
@@ -72,14 +72,14 @@ if printf '%s\n' "$OUT1" | grep -q 'INVENTORY REFUSES'; then red 5 "the inventor
     printf '%s\n' "$OUT1" | grep -qE '^PACKAGE_INVENTORY package=snoflake_suite .*ungradable=2( |$)' && ok 5 "PACKAGE_INVENTORY ungradable=2, no refusal" || red 5 "no PACKAGE_INVENTORY line with graded_narrow=2"; fi
 # --- the scratch suite without a scratch table must record nothing, anywhere
 before="$(mine "$LIVE_DB")"
-OUT6="$(cd "$ROOT" && env -u S4E_PROGRESS_DB SNOFLAKE_SUITE="$W/sno" ARM_CSN=0 timeout 300 bash "$HERE/test_snoflake_suite.sh" 2>&1)"
+OUT6="$(cd "$ROOT" && env -u S4E_PROGRESS_DB SNOFLAKE_SUITE="$W/sno" ARM_CSN=0 timeout -k 5 300 bash "$HERE/test_snoflake_suite.sh" 2>&1)"
 after="$(mine "$LIVE_DB")"
 if printf '%s\n' "$OUT6" | grep -q 'NOT recorded' && printf '%s\n' "$OUT6" | grep -q 'SCORE.md: scratch suite'; then ok 6 "scratch suite says NOT recorded and writes no SCORE.md cell"; else red 6 "scratch suite without S4E_PROGRESS_DB did not say NOT recorded / SCORE.md not written"; fi
 [ "$before" = "$after" ] && ok 7 "live table unchanged for this seat's snoflake rows ($before rows, measurer $ME)" || red 7 "this seat's snoflake rows in the live table grew $before -> $after during a scratch run"
 # --- dotnet scratch suite: two programs that answer byte-equal to the oracle in both modes
 mkdir -p "$W/dot"; for f in chap8_funcs pattern_demo; do
     [ -f "$DOT/$f.sno" ] || { echo "GATE UNPROVEN(2) [$G]: program $f.sno missing from $DOT"; exit 2; }; cp "$DOT/$f.sno" "$W/dot/"; for e in IN in input; do [ -f "$DOT/$f.$e" ] && cp "$DOT/$f.$e" "$W/dot/"; done; done
-OUT8="$(cd "$ROOT" && S4E_PROGRESS_DB="$W/db2.tsv" DOTNET_SUITE="$W/dot" timeout 300 bash "$HERE/test_snobol4_dotnet_suite.sh" 2>&1)"
+OUT8="$(cd "$ROOT" && S4E_PROGRESS_DB="$W/db2.tsv" DOTNET_SUITE="$W/dot" timeout -k 5 300 bash "$HERE/test_snobol4_dotnet_suite.sh" 2>&1)"
 n="$(rows "$W/db2.tsv")"; np="$(awk -F'\t' 'NR>1 && $10=="PASS"' "$W/db2.tsv" 2>/dev/null | wc -l | tr -d ' ')"
 [ "$n" = 4 ] && [ "$np" = 4 ] && ok 8 "4 dotnet rows, all PASS" || red 8 "dotnet rows=$n pass=$np (want 4/4)"
 printf '%s\n' "$OUT8" | grep -qE '^DOTNET_AND both_modes_pass=2/2( |$)' && ok 9 "DOTNET_AND both_modes_pass=2/2" || red 9 "no DOTNET_AND both_modes_pass=2/2 line"
@@ -88,7 +88,7 @@ TP="$S4E/corpus/packages/snobol4/spitbol_testpgms"; TP_RUNNER="${TESTPGMS_RUNNER
 [ -d "$TP" ] && [ -s "$TP_RUNNER" ] || { echo "GATE UNPROVEN(2) [$G]: $TP or $TP_RUNNER missing"; exit 2; }
 cp -a "$TP" "$W/tp" || { echo "GATE UNPROVEN(2) [$G]: could not copy $TP to a scratch deck"; exit 2; }
 NTP="$(ls "$W/tp"/test*.spt 2>/dev/null | wc -l | tr -d ' ')"
-OUT10="$(cd "$ROOT" && S4E_PROGRESS_DB="$W/db3.tsv" SPITBOL_TESTPGMS_SUITE="$W/tp" timeout 600 bash "$TP_RUNNER" 2>&1)"
+OUT10="$(cd "$ROOT" && S4E_PROGRESS_DB="$W/db3.tsv" SPITBOL_TESTPGMS_SUITE="$W/tp" timeout -k 5 600 bash "$TP_RUNNER" 2>&1)"
 n="$(rows "$W/db3.tsv")"; bad="$(awk -F'\t' 'NR>1 && $10 !~ /^(PASS|FAIL|CRASH|HANG|OUTSIDE)$/' "$W/db3.tsv" 2>/dev/null | wc -l | tr -d ' ')"
 both_db="$(awk -F'\t' 'NR>1 {k[$8]=k[$8] " " $9 ":" $10} END {n=0; for (p in k) if (k[p] ~ /m3:PASS/ && k[p] ~ /m4:PASS/) n++; print n}' "$W/db3.tsv" 2>/dev/null)"
 both_bd="$(printf '%s\n' "$OUT10" | sed -n 's/^SPITBOL_TESTPGMS_BASELINE .*both_modes_pass=\([0-9]*\).*/\1/p')"
@@ -100,7 +100,7 @@ out_db="$(awk -F'\t' 'NR>1 && $10=="OUTSIDE" && $12 ~ /sbl -bf/ {print $8}' "$W/
 [ "$uns" = "$out_db" ] && ok 11 "testpgms: the programs the oracle does not run [${uns:-none}] read OUTSIDE in both modes with its refusal" \
     || red 11 "UNSCORED on the board [${uns:-none}] vs OUTSIDE in both modes in the table [${out_db:-none}]"
 . "$(dirname "${BASH_SOURCE[0]}")/lib_suites_tsv.sh" || exit 2; s_mark="$(suites_real_mark)"; s_before="$(md5sum < "$S4E/.github/SCORE.md" 2>/dev/null)"
-OUT12="$(cd "$ROOT" && env -u S4E_PROGRESS_DB SPITBOL_TESTPGMS_SUITE="$W/tp" timeout 600 bash "$TP_RUNNER" 2>&1)"
+OUT12="$(cd "$ROOT" && env -u S4E_PROGRESS_DB SPITBOL_TESTPGMS_SUITE="$W/tp" timeout -k 5 600 bash "$TP_RUNNER" 2>&1)"
 s_after="$(md5sum < "$S4E/.github/SCORE.md" 2>/dev/null)"; suites_real_untouched "$s_mark" || s_after="the shared SUITES.tsv moved"
 if printf '%s\n' "$OUT12" | grep -q 'progress: scratch suite .* NOT recorded' && printf '%s\n' "$OUT12" | grep -q '^SCORE.md: scratch suite' && [ "$s_before" = "$s_after" ]; then
     ok 12 "testpgms: a scratch deck without a scratch table records nothing and leaves the live SUITES.tsv and SCORE.md byte-identical"

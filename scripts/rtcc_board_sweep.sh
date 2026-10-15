@@ -34,7 +34,7 @@ run_arm() {
         for cand in "$base.ref" "$(dirname "$sno")/$name.ref"; do
             [ -f "$cand" ] && { ref="$cand"; break; }
         done
-        out=$(timeout 30s env SCRIP_RTCC="$gate" "$SCRIP" $FLAG "$sno" < /dev/null 2>/dev/null)
+        out=$(timeout -k 5 30s env SCRIP_RTCC="$gate" "$SCRIP" $FLAG "$sno" < /dev/null 2>/dev/null)
         rc=$?
         if [ $rc -eq 124 ]; then st=TIMEOUT
         elif [ $rc -ne 0 ]; then st=ERROR

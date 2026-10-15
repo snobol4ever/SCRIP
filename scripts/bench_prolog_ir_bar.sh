@@ -36,7 +36,7 @@ ir_num() { local v; v="$(ir_measure "$@")"; ir_is_number "$v" && echo "$v"; }
 ir_m4() { local f="$1" d; d="$(mktemp -d "$W/m4.XXXXXX")"; "$SCRIP_BIN" --compile "$f" -o "$d/p.s" < /dev/null >/dev/null 2>&1 || return 0
   gcc -no-pie "$d/p.s" -o "$d/p.bin" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -lpthread >/dev/null 2>&1 || return 0; ir_num "$d/p.bin" $DECL < /dev/null; }
 ir_rival() { local f="$1" d; case "$RIVAL" in
-  gplc) d="$(mktemp -d "$W/gplc.XXXXXX")"; (cd "$d" && timeout 300 "$GPLC" --no-top-level -o "$d/p.bin" "$f" >/dev/null 2>&1) && [ -x "$d/p.bin" ] || return 0; ir_num "$d/p.bin" < /dev/null;;
+  gplc) d="$(mktemp -d "$W/gplc.XXXXXX")"; (cd "$d" && timeout -k 5 300 "$GPLC" --no-top-level -o "$d/p.bin" "$f" >/dev/null 2>&1) && [ -x "$d/p.bin" ] || return 0; ir_num "$d/p.bin" < /dev/null;;
   gnu)  ir_num "$GNU" --quiet --consult-file "$f" < /dev/null;;
   swi)  ir_num "$SWI" -q -f "$f" -t halt < /dev/null;; esac; }
 slope() { awk -v a="$1" -v b="$2" -v c="$3" -v n="$4" -v tol="$LIN_TOL" 'BEGIN{ s1=(b-a)/n; s2=(c-b)/(2*n); if (s1<=0||s2<=0) { print "0 NONLINEAR"; exit }

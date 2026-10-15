@@ -157,7 +157,7 @@ for icn in "${WITNESSES[@]}"; do
     if ! ( cd "$dir" && "$ICONT" -s -o "$obin" "$icn" ) >"$WORK/$name.icont.log" 2>&1; then
         refuse "$name: the oracle would not compile -- $(head -3 "$WORK/$name.icont.log" | tr '\n' ' ')"
     fi
-    o_out="$( cd "$dir" && timeout 60 env ${rd_env[@]+"${rd_env[@]}"} "$obin" ${rd_argv[@]+"${rd_argv[@]}"} < "$stdin_file" 2>/dev/null )"
+    o_out="$( cd "$dir" && timeout -k 5 60 env ${rd_env[@]+"${rd_env[@]}"} "$obin" ${rd_argv[@]+"${rd_argv[@]}"} < "$stdin_file" 2>/dev/null )"
     rm -f "$obin"
 
     # ---- ARM 1: the contracted answer meets its pinned floor (see header -- the only starvation-proof arm)
@@ -173,7 +173,7 @@ for icn in "${WITNESSES[@]}"; do
     else
         echo "PASS ARM1 $name (contracted answer $o_lines lines == pinned floor)"
     fi
-    s_out="$( cd "$dir" && timeout 60 env ${rd_env[@]+"${rd_env[@]}"} "$SCRIP" --run "$icn" -- ${rd_argv[@]+"${rd_argv[@]}"} < "$stdin_file" 2>/dev/null )"
+    s_out="$( cd "$dir" && timeout -k 5 60 env ${rd_env[@]+"${rd_env[@]}"} "$SCRIP" --run "$icn" -- ${rd_argv[@]+"${rd_argv[@]}"} < "$stdin_file" 2>/dev/null )"
     if [ "$s_out" = "$o_out" ]; then
         echo "PASS ARM2 $name (SCRIP == icont/iconx, $(printf '%s\n' "$o_out" | wc -l) lines, contracted rundir)"
     else
@@ -184,7 +184,7 @@ for icn in "${WITNESSES[@]}"; do
 
     # ---- ARM 3: KILLSWITCH -- suppress the contract, the answer MUST change
     bare="$(mktemp -d "$WORK/bare.XXXXXX")"
-    b_out="$( cd "$bare" && timeout 60 "$SCRIP" --run "$icn" < /dev/null 2>/dev/null )"
+    b_out="$( cd "$bare" && timeout -k 5 60 "$SCRIP" --run "$icn" < /dev/null 2>/dev/null )"
     if [ "$b_out" = "$o_out" ]; then
         echo "FAIL ARM3 $name: STARVED AND FED ANSWERS ARE IDENTICAL -- the contract is not load-bearing, so"
         echo "     ARM2's green proves nothing about it. Either the declaration is inert or the witness never"
@@ -250,10 +250,10 @@ for icn in "$CORPUS"/*.icn; do
     [ "$(icn_rundir_stdin "$icn")" = /dev/null ] || continue      # already declares one; arms 1-4 own it
     sweep=$((sweep+1))
     (cd "$WORK" && "$ICONT" -s -o "$WORK/$b.a5" "$icn") >/dev/null 2>&1 || continue
-    ( cd "$WORK" && timeout 10 "./$b.a5" </dev/null >/dev/null 2>&1 ); a5_bare=$?
+    ( cd "$WORK" && timeout -k 5 10 "./$b.a5" </dev/null >/dev/null 2>&1 ); a5_bare=$?
     fifo="$WORK/$b.fifo"; rm -f "$fifo"; mkfifo "$fifo" || { rm -f "$WORK/$b.a5"; continue; }
     sleep 12 > "$fifo" & a5_hold=$!                               # holds the write end open, sends nothing
-    ( cd "$WORK" && timeout 5 "./$b.a5" <"$fifo" >/dev/null 2>&1 ); a5_fifo=$?
+    ( cd "$WORK" && timeout -k 5 5 "./$b.a5" <"$fifo" >/dev/null 2>&1 ); a5_fifo=$?
     kill "$a5_hold" 2>/dev/null; wait "$a5_hold" 2>/dev/null; rm -f "$fifo" "$WORK/$b.a5"
     if [ "$a5_fifo" = 124 ] && [ "$a5_bare" != 124 ]; then
         echo "FAIL ARM5 $b: the ORACLE BLOCKS waiting on stdin, and this witness declares no stdin sidecar."

@@ -14,7 +14,7 @@ trap 'rm -rf "$W"' EXIT
 fail=0
 for sno in "$SRC"/*.sno; do
   b="$(basename "$sno" .sno)"
-  timeout 30 "$SCRIP" --compile "$sno" > "$W/$b.s" 2>/dev/null </dev/null || { echo "EMIT FAIL: $b"; fail=1; }
+  timeout -k 5 30 "$SCRIP" --compile "$sno" > "$W/$b.s" 2>/dev/null </dev/null || { echo "EMIT FAIL: $b"; fail=1; }
 done
 python3 "$HERE/scripts/analyze_jump_redundancy.py" --gate "$W/*.s" || fail=1
 exit $fail

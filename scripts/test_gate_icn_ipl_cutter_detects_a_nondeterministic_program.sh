@@ -103,7 +103,7 @@ printf 'steady one\nsteady two\n' > "$W/steady.expected"
 echo "── planted population: $(cd "$PKG/progs" && ls -1 *.icn | tr '\n' ' ')"
 echo "── running the cutter ONCE with --apply over all three (its minute-crossing pass sleeps up to 62s) ──"
 LOG="$W/cut.log"
-S4E_HOME="$W/home" timeout 400 bash "$CUTTER" --apply --only flaky_run --only flaky_date --only steady > "$LOG" 2>"$W/cut.err"
+S4E_HOME="$W/home" timeout -k 5 400 bash "$CUTTER" --apply --only flaky_run --only flaky_date --only steady > "$LOG" 2>"$W/cut.err"
 crc=$?
 if [ "$crc" -eq 2 ]; then
     echo "⛔ REFUSED-TO-GRADE rc=2: the cutter itself refused (rc=2) -- this gate cannot measure a detector that did not run:"

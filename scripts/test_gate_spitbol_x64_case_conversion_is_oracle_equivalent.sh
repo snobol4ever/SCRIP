@@ -76,8 +76,8 @@ for src in "$PKG"/*.sbl; do
     fi
     rm -rf "$TMP/a" "$TMP/b"
     cp -r "$TMP/orig.tree" "$TMP/a" && cp -r "$PKG" "$TMP/b" || { echo "REFUSE: cannot stage run directories"; exit 2; }
-    ( cd "$TMP/a" && timeout "$TO" "$SBL"              "$f" ) </dev/null >"$TMP/a.raw" 2>"$TMP/a.err"; rca=$?
-    ( cd "$TMP/b" && timeout "$TO" "$SBL" $LANG_FLAGS  "$f" ) </dev/null >"$TMP/b.raw" 2>"$TMP/b.err"; rcb=$?
+    ( cd "$TMP/a" && timeout -k 5 "$TO" "$SBL"              "$f" ) </dev/null >"$TMP/a.raw" 2>"$TMP/a.err"; rca=$?
+    ( cd "$TMP/b" && timeout -k 5 "$TO" "$SBL" $LANG_FLAGS  "$f" ) </dev/null >"$TMP/b.raw" 2>"$TMP/b.err"; rcb=$?
     spitbol_x64_normalize "$f" <"$TMP/a.raw" >"$TMP/a.out"
     spitbol_x64_normalize "$f" <"$TMP/b.raw" >"$TMP/b.out"
     why=""

@@ -139,12 +139,12 @@ clock_probe_scrip() {    # ask the BINARY, no prelude, in BOTH modes; cache on t
   pl="$w/w.pl"
   { echo ":- initialization(main)."
     echo "main :- wall_us(A), wall_ms(B), integer(A), integer(B), write(clockok), nl."; } > "$pl"
-  [ "$(cd "$w" && timeout 30 "$bin" --run "$pl" </dev/null 2>/dev/null | head -1)" = clockok ] || ok=0
+  [ "$(cd "$w" && timeout -k 5 30 "$bin" --run "$pl" </dev/null 2>/dev/null | head -1)" = clockok ] || ok=0
   if [ "$ok" = 1 ]; then
-    if (cd "$w" && timeout 60 "$bin" --compile --target=x86 "$pl" </dev/null >"$w/w.s" 2>/dev/null) && [ -s "$w/w.s" ] \
+    if (cd "$w" && timeout -k 5 60 "$bin" --compile --target=x86 "$pl" </dev/null >"$w/w.s" 2>/dev/null) && [ -s "$w/w.s" ] \
        && as --64 -o "$w/w.o" "$w/w.s" 2>/dev/null \
        && gcc -no-pie -o "$w/w.bin" "$w/w.o" "$rt/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$rt" 2>/dev/null; then
-      [ "$(cd "$w" && timeout 30 "$w/w.bin" </dev/null 2>/dev/null | head -1)" = clockok ] || ok=0
+      [ "$(cd "$w" && timeout -k 5 30 "$w/w.bin" </dev/null 2>/dev/null | head -1)" = clockok ] || ok=0
     else ok=0; fi
   fi
   rm -rf "$w"

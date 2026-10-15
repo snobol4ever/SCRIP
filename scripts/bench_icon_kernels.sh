@@ -153,7 +153,7 @@ engine_argv() { case "$1" in iconx) build_iconx "$2";; jcont) build_jcont "$2";;
 # subshell boundary travels as OUTPUT or as the function's own EXIT CODE; a global does not travel.
 ir_one() {  # argv... -> "<Ir>" on a clean run, or "RC:<rc>" when the run died
   local out rc
-  out="$(timeout "$IR_TMO" valgrind --tool=callgrind --callgrind-out-file=/dev/null "$@" 2>&1 </dev/null)"; rc=$?
+  out="$(timeout -k 5 "$IR_TMO" valgrind --tool=callgrind --callgrind-out-file=/dev/null "$@" 2>&1 </dev/null)"; rc=$?
   [ "$rc" = 0 ] || { echo "RC:$rc"; return 1; }
   echo "$out" | sed -n 's/.*refs:[[:space:]]*\([0-9,]*\).*/\1/p' | tr -d ',' | tail -1
 }
@@ -162,16 +162,16 @@ ir_one() {  # argv... -> "<Ir>" on a clean run, or "RC:<rc>" when the run died
 # symptom (is the number small?) -- see the header for why the magnitude floor it replaced was unfixable.
 ir_probe_children() {  # argv... -> OK | CHILD  (non-zero rc = could not probe)
   local plain nl pn tr
-  plain="$(timeout "$IR_TMO" valgrind --tool=callgrind --callgrind-out-file=/dev/null "$@" 2>&1 </dev/null)" || return 1
+  plain="$(timeout -k 5 "$IR_TMO" valgrind --tool=callgrind --callgrind-out-file=/dev/null "$@" 2>&1 </dev/null)" || return 1
   nl="$(echo "$plain" | grep -c 'refs:')"
   pn="$(echo "$plain" | sed -n 's/.*refs:[[:space:]]*\([0-9,]*\).*/\1/p' | tr -d ',' | tail -1)"
-  tr="$(timeout "$IR_TMO" valgrind --tool=callgrind --trace-children=yes --callgrind-out-file=/dev/null "$@" 2>&1 </dev/null | sed -n 's/.*refs:[[:space:]]*\([0-9,]*\).*/\1/p' | tr -d ',' | tail -1)" || return 1
+  tr="$(timeout -k 5 "$IR_TMO" valgrind --tool=callgrind --trace-children=yes --callgrind-out-file=/dev/null "$@" 2>&1 </dev/null | sed -n 's/.*refs:[[:space:]]*\([0-9,]*\).*/\1/p' | tr -d ',' | tail -1)" || return 1
   if [ "${nl:-0}" -gt 1 ] || [ "$pn" != "$tr" ]; then echo CHILD; else echo OK; fi
 }
 # ---------- instrument B, angle 3: the process wrapper ----------
 time_one() {  # argv... -> "<wall_ms> <cpu_ms> <rc>"
   local tf="$W/t.$$" rc
-  /usr/bin/time -f '%e %U %S' -o "$tf" timeout "$RUN_TMO" "$@" >"$W/run.out" 2>"$W/run.err" </dev/null; rc=$?
+  /usr/bin/time -f '%e %U %S' -o "$tf" timeout -k 5 "$RUN_TMO" "$@" >"$W/run.out" 2>"$W/run.err" </dev/null; rc=$?
   awk -v rc="$rc" '{printf "%.0f %.0f %d\n", $1*1000, ($2+$3)*1000, rc}' "$tf" 2>/dev/null || echo "0 0 $rc"
 }
 # ⛔ THE SPREAD IS NEVER AVERAGED AWAY: it is the only thing on a timed board that tells a reader
@@ -204,14 +204,14 @@ time_median() {  # argv... -> "<median_wall> <median_cpu> <spread_pct> <rc>"
 # NO fork of its own, so the only work between two readings of the clock is the run being counted.
 angle1() {  # argv... -> runs_per_s
   local n=0 start=$SECONDS
-  while [ $((SECONDS - start)) -lt "$BUDGET_A1" ]; do timeout "$RUN_TMO" "$@" >/dev/null 2>&1 </dev/null || return 1; n=$((n+1)); done
+  while [ $((SECONDS - start)) -lt "$BUDGET_A1" ]; do timeout -k 5 "$RUN_TMO" "$@" >/dev/null 2>&1 </dev/null || return 1; n=$((n+1)); done
   awk -v n="$n" -v b="$BUDGET_A1" 'BEGIN{printf "%.2f", n/b}'
 }
 # ---------- instrument B, angle 2: fixed RUN count -> runs/s ----------
 angle2() {  # argv... -> runs_per_s
   local i t0 t1
   t0=$(date +%s%N)
-  for i in $(seq 1 "$REPS_A2"); do timeout "$RUN_TMO" "$@" >/dev/null 2>&1 </dev/null || return 1; done
+  for i in $(seq 1 "$REPS_A2"); do timeout -k 5 "$RUN_TMO" "$@" >/dev/null 2>&1 </dev/null || return 1; done
   t1=$(date +%s%N)
   awk -v n="$REPS_A2" -v d="$((t1-t0))" 'BEGIN{ if(d<=0){print "0";exit} printf "%.2f", n/(d/1000000000) }'
 }
@@ -284,14 +284,14 @@ RC=0; N=0
 for k in $KERNELS; do
   ix_av="$(build_iconx "$k")"
   if [ -z "$ix_av" ]; then printf '%-34s %-8s  ORACLE-COMPILE-FAILED -- no ground truth, nothing graded\n' "$k" UNPROVEN; RC=1; continue; fi
-  timeout "$RUN_TMO" $ix_av >"$W/$k.oracle" 2>"$W/$k.oracle.err" </dev/null; orc=$?
+  timeout -k 5 "$RUN_TMO" $ix_av >"$W/$k.oracle" 2>"$W/$k.oracle.err" </dev/null; orc=$?
   if [ "$orc" != 0 ]; then printf '%-34s %-8s  ORACLE-RAN-RED rc=%s -- no ground truth, nothing graded\n' "$k" UNPROVEN "$orc"; RC=1; continue; fi
   if [ ! -s "$W/$k.oracle" ]; then printf '%-34s %-8s  ORACLE-ANSWER-EMPTY -- a green here would be two empty files agreeing\n' "$k" UNPROVEN; RC=1; continue; fi
   declare -A AV OUTOK
   AV[iconx]="$ix_av"; AV[jcont]="$(build_jcont "$k")"; AV[m4]="$(build_m4 "$k")"; AV[m3]="$(m3_argv "$k")"
   for eng in jcont m3 m4; do
     OUTOK[$eng]="-"; av="${AV[$eng]}"; [ -n "$av" ] || { OUTOK[$eng]=BUILDFAIL; continue; }
-    timeout "$RUN_TMO" $av >"$W/$k.$eng" 2>"$W/$k.$eng.err" </dev/null; erc=$?
+    timeout -k 5 "$RUN_TMO" $av >"$W/$k.$eng" 2>"$W/$k.$eng.err" </dev/null; erc=$?
     if   [ "$erc" != 0 ]; then OUTOK[$eng]="rc=$erc"
     elif cmp -s "$W/$k.$eng" "$W/$k.oracle"; then OUTOK[$eng]=PASS
     else OUTOK[$eng]=DIFF; fi

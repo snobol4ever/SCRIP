@@ -18,10 +18,10 @@ run_smoke() {
     local prog="$tmp/prog.sno"
     printf "%b" "$source" > "$prog"
     # Get oracle output
-    local oracle_out=$(timeout 8 "$ORACLE" -b "$prog" 2>/dev/null || echo "")
+    local oracle_out=$(timeout -k 5 8 "$ORACLE" -b "$prog" 2>/dev/null || echo "")
     # Compile to JVM
     local j_file="$tmp/Prog.j"
-    if ! timeout 8 "$SCRIP" --compile --target=jvm "$prog" > "$j_file" 2>/dev/null; then
+    if ! timeout -k 5 8 "$SCRIP" --compile --target=jvm "$prog" > "$j_file" 2>/dev/null; then
         echo "FAIL $label (emit)"
         FAIL=$((FAIL+1))
         rm -rf "$tmp"
@@ -30,7 +30,7 @@ run_smoke() {
     # Assemble
     local class_dir="$tmp/classes"
     mkdir -p "$class_dir"
-    if ! timeout 15 java -jar "$JASMIN" "$j_file" -d "$class_dir" > /dev/null 2>&1; then
+    if ! timeout -k 5 15 java -jar "$JASMIN" "$j_file" -d "$class_dir" > /dev/null 2>&1; then
         echo "FAIL $label (jasmin)"
         FAIL=$((FAIL+1))
         rm -rf "$tmp"
@@ -45,7 +45,7 @@ run_smoke() {
         javac -cp "$class_dir" -d "$class_dir" "$HERE/../miscellaneous/runtimes/jvm/SnoPat.java" > /dev/null 2>&1
     fi
     # Run
-    local jvm_out=$(timeout 5 java -cp "$class_dir" Prog 2>/dev/null || echo "")
+    local jvm_out=$(timeout -k 5 5 java -cp "$class_dir" Prog 2>/dev/null || echo "")
     rm -rf "$tmp"
     if [ "$expected" = "$jvm_out" ]; then
         echo "PASS $label"

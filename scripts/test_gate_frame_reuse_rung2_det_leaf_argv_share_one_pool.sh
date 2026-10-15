@@ -27,7 +27,7 @@ cp scripts/fixtures/frame_r1_witness.pl "$T/w.pl"; echo "ok" > "$T/w.pl.ref"
 printf 'procedure main()\n   every write(image(1), 1 to 3);\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
 printf "        S = 'abcabc'\n        S BREAK('c') . T\n        OUTPUT = T\nEND\n" > "$T/w.sno"; echo "ab" > "$T/w.sno.ref"
 bad=0
-timeout 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null > "$T/pl.dump"
+timeout -k 5 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null > "$T/pl.dump"
 line="$(grep -E "^; graph [0-9]+ 'r/1'" "$T/pl.dump")"
 [ -n "$line" ] || { echo "⛔ REFUSE(2): --dump-zeta printed no r/1 graph for the witness"; exit 2; }
 end="$(printf '%s\n' "$line" | sed -n 's/.*region_end=\([0-9]*\).*/\1/p')"
@@ -40,15 +40,15 @@ echo "r/1 pooled argv block slots=$ablk sealed calls pooled=$sealed sealed calls
 [ "$sealed" -ge 3 ] || { echo "  ⛔ fewer than the three sealed calls of r/1 (five before rung 3(f) removed the head unify, four before R4.1 734797863 made r(0)'s head constant an IR_UNIFY_CONST box) marshal into the pooled block ($sealed)"; bad=$((bad+1)); }
 [ "$own" -eq 0 ] || { echo "  ⛔ $own sealed call(s) of r/1 still hold their own argv"; bad=$((bad+1)); }
 [ "$ownargv" -eq 0 ] || { echo "  ⛔ $ownargv per-call argv slot(s) survive in r/1 (every IR_CALL of r/1 is sealed)"; bad=$((bad+1)); }
-timeout 20s ./scrip --dump-zeta "$T/w.icn" </dev/null 2>/dev/null > "$T/icn.dump"
+timeout -k 5 20s ./scrip --dump-zeta "$T/w.icn" </dev/null 2>/dev/null > "$T/icn.dump"
 icall="$(grep -E '^;     reuse .*IR_CALL_ICON .*PINNED' "$T/icn.dump" | wc -l)"; ipool="$(grep -cE 'IR_CALL_ICON .*(CANDIDATE|pooled)' "$T/icn.dump")"; iargv="$(grep -c 'call.argv (pooled' "$T/icn.dump")"
 echo "icon witness: IR_CALL_ICON pinned=$icall candidate/pooled=$ipool pooled argv blocks=$iargv"
 [ "$icall" -ge 2 ] && [ "$ipool" -eq 0 ] && [ "$iargv" -eq 0 ] || { echo "  ⛔ the Icon builtin call read across the generator is not PINNED, or an unsealed graph grew a pooled argv block"; bad=$((bad+1)); }
 for w in w.pl w.icn w.sno; do
-    out3="$(timeout 20s ./scrip "$T/$w" </dev/null 2>&1)"
+    out3="$(timeout -k 5 20s ./scrip "$T/$w" </dev/null 2>&1)"
     if [ "$out3" != "$(cat "$T/$w.ref")" ]; then echo "  ⛔ $w mode 3 printed [$out3], ref [$(cat "$T/$w.ref" | tr '\n' ' ')]"; bad=$((bad+1)); fi
-    if timeout 20s ./scrip --compile "$T/$w" > "$T/$w.s" 2>/dev/null && gcc -c "$T/$w.s" -o "$T/$w.o" 2>/dev/null && gcc "$T/$w.o" -Lout -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/$w.bin" 2>/dev/null; then
-        out4="$(timeout 20s "$T/$w.bin" </dev/null 2>&1)"
+    if timeout -k 5 20s ./scrip --compile "$T/$w" > "$T/$w.s" 2>/dev/null && gcc -c "$T/$w.s" -o "$T/$w.o" 2>/dev/null && gcc "$T/$w.o" -Lout -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/$w.bin" 2>/dev/null; then
+        out4="$(timeout -k 5 20s "$T/$w.bin" </dev/null 2>&1)"
         if [ "$out4" != "$(cat "$T/$w.ref")" ]; then echo "  ⛔ $w mode 4 printed [$out4], ref [$(cat "$T/$w.ref" | tr '\n' ' ')]"; bad=$((bad+1)); fi
     else echo "  ⛔ $w mode 4 did not build"; bad=$((bad+1)); fi
 done

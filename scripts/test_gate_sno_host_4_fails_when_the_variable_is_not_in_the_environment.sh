@@ -34,13 +34,13 @@ printf '%s\n' "        X = HOST(4,'S4E_HOST4_UNSET')     :S(A)" "        OUTPUT 
     "B       X = HOST(4,'S4E_HOST4_EMPTY')     :S(C)" "        OUTPUT = 'empty fails'      :(D)" "C       OUTPUT = 'empty succeeds [' X ']' DATATYPE(X)" \
     "D       X = HOST(4,'S4E_HOST4_FULL')      :S(E)" "        OUTPUT = 'full fails'       :(END)" "E       OUTPUT = 'full succeeds [' X ']' DATATYPE(X)" END > "$T/v.sno"
 printf '%s\n' "        OUTPUT = 'before'" "        X = HOST(4,'')" "        OUTPUT = 'after'" END > "$T/e.sno"
-( cd "$T" && timeout 20 "$SBL" -bf v.sno < /dev/null > v.oracle 2>&1 )
-( cd "$T" && timeout 20 "$SBL" -bf e.sno < /dev/null > e.oracle 2>&1 )
+( cd "$T" && timeout -k 5 20 "$SBL" -bf v.sno < /dev/null > v.oracle 2>&1 )
+( cd "$T" && timeout -k 5 20 "$SBL" -bf e.sno < /dev/null > e.oracle 2>&1 )
 grep -qx 'unset fails' "$T/v.oracle" && grep -qx 'full succeeds \[abc\]STRING' "$T/v.oracle" || refuse "the oracle's HOST(4) answers moved: [$(tr '\n' '|' < "$T/v.oracle")]"
 grep -q 'ERROR 254' "$T/e.oracle" && ! grep -qx 'after' "$T/e.oracle" || refuse "the oracle's empty-name answer moved: [$(head -3 "$T/e.oracle" | tr '\n' '|')]"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
-run() { ( cd "$T" && if [ "$2" = m3 ]; then timeout 20 "$SCRIP" "$1.sno" < /dev/null; else timeout 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout 20 "./$1.bin" < /dev/null; fi ); }
+run() { ( cd "$T" && if [ "$2" = m3 ]; then timeout -k 5 20 "$SCRIP" "$1.sno" < /dev/null; else timeout -k 5 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout -k 5 20 "./$1.bin" < /dev/null; fi ); }
 values() { run v "$1" > "$T/v.$1" 2> /dev/null; cmp -s "$T/v.$1" "$T/v.oracle" && echo ok || echo "got [$(tr '\n' '|' < "$T/v.$1")] want [$(tr '\n' '|' < "$T/v.oracle")]"; }
 empty() { run e "$1" > "$T/e.$1" 2> "$T/e.$1.err"; grep -qx before "$T/e.$1" && ! grep -qx after "$T/e.$1" && grep -q 'error 254' "$T/e.$1.err" && echo ok \
     || echo "got stdout [$(tr '\n' '|' < "$T/e.$1")] stderr [$(head -2 "$T/e.$1.err" | tr '\n' '|')] want before, no after, error 254"; }

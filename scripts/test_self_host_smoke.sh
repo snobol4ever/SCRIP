@@ -28,14 +28,14 @@ for case in smoke_interp sm_interp_test si_06_exp si_07_pat_lit si_08_prim_pats 
     native_sc="$SCRIP_DIR/tests/${case}_native.sc"
     [ -f "$hosted_sc" ] || { echo "SKIP $case — hosted source missing"; continue; }
     [ -f "$native_sc" ] || { echo "SKIP $case — native source missing"; continue; }
-    hosted_out="$(timeout 8 "$SCRIP" --run \
+    hosted_out="$(timeout -k 5 8 "$SCRIP" --run \
         "$SCRIP_DIR/tree.sc" \
         "$SCRIP_DIR/lower.sc" \
         "$SCRIP_DIR/lower_driver.sc" \
         "$SCRIP_DIR/sm_interp.sc" \
         "$hosted_sc" \
         < /dev/null)"
-    native_out="$(timeout 8 "$SCRIP" --run "$native_sc" < /dev/null)"
+    native_out="$(timeout -k 5 8 "$SCRIP" --run "$native_sc" < /dev/null)"
     if [ "$hosted_out" = "$native_out" ] ; then
         echo "PASS $case  (hosted == native, $(echo "$hosted_out" | wc -l) lines)"
         pass=$((pass + 1))

@@ -31,7 +31,7 @@ printf 'refusal_shared\t1\n' > "$W/ALL.wantrc"
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: a compile refusal grades through the one voice in both modes, never a SKIP (CEO-1354) ==="
 pre=""; [ -n "${FAIL_ONCE:-}" ] && pre="S4E_M4_COMPILE_REFUSAL_SKIP=1"
-out="$(env $pre S4E_PROGRESS_OFF=1 SUITE_LIST_ALL=1 timeout 300 python3 "$H" run "$W/ALL.raku" "$W/ALL.ref" --lang raku --modes m3,m4 2>&1)"; rc=$?
+out="$(env $pre S4E_PROGRESS_OFF=1 SUITE_LIST_ALL=1 timeout -k 5 300 python3 "$H" run "$W/ALL.raku" "$W/ALL.ref" --lang raku --modes m3,m4 2>&1)"; rc=$?
 [ "$rc" -le 1 ] || refuse "the harness could not grade the fixture (rc=$rc): $(tail -3 <<<"$out")"
 board="$(grep -m1 '^SUITE_BOARD ' <<<"$out")"; [ -n "$board" ] || refuse "no SUITE_BOARD line: $(tail -3 <<<"$out")"
 f(){ grep -oE "(^| )$1=[0-9]+" <<<"$board" | head -1 | sed 's/.*=//'; }

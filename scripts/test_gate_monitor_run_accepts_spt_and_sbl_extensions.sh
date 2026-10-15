@@ -26,7 +26,7 @@ printf "\tOUTPUT = 'hello'\nEND\n" > "$T/w.sbl"
 printf "\tOUTPUT = 'hello'\nEND\n" > "$T/w.sno"
 
 run_one() {   # run_one <monitor_run.sh> <file>
-    S4E_HOME="$S4E_ROOT" timeout 120 bash "$1" "$2" --oracle 2>&1
+    S4E_HOME="$S4E_ROOT" timeout -k 5 120 bash "$1" "$2" --oracle 2>&1
 }
 
 fails=0

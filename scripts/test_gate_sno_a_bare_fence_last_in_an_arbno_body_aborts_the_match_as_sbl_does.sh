@@ -38,9 +38,9 @@ prog w6 "" "'x' ? (ARBNO('a' FENCE) 'z' | 'x')"
 prog w7 " P = ARBNO('a' FENCE) 'z'" "'a' ? (P | 'a')"
 prog w8 "" "'ab' ? ((ARBNO('a' FENCE) 'z' | 'a') | 'ab')"
 for n in $names; do
-    w="$(cd "$W" && timeout 20 "$SBL" $(sbl_lang_flags) "$n.sno" </dev/null 2>/dev/null)"
+    w="$(cd "$W" && timeout -k 5 20 "$SBL" $(sbl_lang_flags) "$n.sno" </dev/null 2>/dev/null)"
     case "$w" in MATCH|FAIL) printf '%s' "$w" > "$W/$n.want";; *) echo "⛔ REFUSE(rc=2) [$G]: the oracle printed '$w' for $n, not MATCH or FAIL -- the arms cannot grade"; exit 2;; esac
-    (cd "$W" && timeout 60 "$SCRIP" --compile -o "$n.s" "$n.sno" </dev/null >/dev/null 2>&1) \
+    (cd "$W" && timeout -k 5 60 "$SCRIP" --compile -o "$n.s" "$n.sno" </dev/null >/dev/null 2>&1) \
         && gcc -no-pie "$W/$n.s" -L"$SD/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$SD/out" -o "$W/$n.bin" 2>/dev/null \
         || { echo "⛔ REFUSE(rc=2) [$G]: $n did not compile and link in mode 4"; exit 2; }
 done
@@ -52,8 +52,8 @@ echo "  PASS arm0 the comparator reads a corrupted ref ('$bad') RED"
 reached=0; fail=0
 for n in $names; do
     want="$(cat "$W/$n.want")"
-    v3="$(cd "$W" && timeout 20 "$SCRIP" "$n.sno" </dev/null 2>&1 | head -c 200)"
-    v4="$(cd "$W" && timeout 20 "$W/$n.bin" -- </dev/null 2>&1 | head -c 200)"
+    v3="$(cd "$W" && timeout -k 5 20 "$SCRIP" "$n.sno" </dev/null 2>&1 | head -c 200)"
+    v4="$(cd "$W" && timeout -k 5 20 "$W/$n.bin" -- </dev/null 2>&1 | head -c 200)"
     for m in m3 m4; do
         v="$v3"; [ "$m" = m4 ] && v="$v4"
         if grade "$v" "$want"; then echo "  PASS arm1/2 $n $m = sbl ($want)"; else echo "  ⛔ arm1/2 $n $m RED: got '$v', sbl '$want'"; fail=1; fi

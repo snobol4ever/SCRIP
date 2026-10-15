@@ -60,7 +60,7 @@ ir_measure() {
     local d cg rc ir
     d="$(mktemp -d "${TMPDIR:-/tmp}/irm.XXXXXX")" || { echo "NOMEASURE:no-workdir"; return 0; }
     cg="${IR_OUT:-$d/cg.out}"
-    timeout "${IR_TMO:-600}" "${VALGRIND:-valgrind}" --tool=callgrind ${IR_VG_FLAGS:-} --callgrind-out-file="$cg" "$@" >"${IR_PROG_OUT:-$d/prog.out}" 2>"${IR_PROG_ERR:-$d/vg.log}"
+    timeout -k 5 "${IR_TMO:-600}" "${VALGRIND:-valgrind}" --tool=callgrind ${IR_VG_FLAGS:-} --callgrind-out-file="$cg" "$@" >"${IR_PROG_OUT:-$d/prog.out}" 2>"${IR_PROG_ERR:-$d/vg.log}"
     rc=$?
     if [ "$rc" -ne 0 ]; then rm -rf "$d"; echo "RC:$rc"; return 0; fi
     ir="$(ir_reading 0 "$cg")"

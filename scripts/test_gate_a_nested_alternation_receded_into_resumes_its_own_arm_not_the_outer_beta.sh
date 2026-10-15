@@ -45,11 +45,11 @@ probe c3_plain_recede    'match'   "          'cz' ('a' | ('b' | 'c')) 'z'      
 red=0; n=0
 for src in "$W"/[wc]*.sno; do
     b="$(basename "$src" .sno)"; want="$(cat "$W/$b.want")"; n=$((n+1))
-    m3="$(cd "$W" && timeout 20 "$SCRIP" "$b.sno" </dev/null 2>/dev/null | tr '\n' '|' | sed 's/|$//')"
+    m3="$(cd "$W" && timeout -k 5 20 "$SCRIP" "$b.sno" </dev/null 2>/dev/null | tr '\n' '|' | sed 's/|$//')"
     m4="(compile/link failed)"
     if (cd "$W" && "$SCRIP" --compile "$b.sno" </dev/null > "$b.s" 2>/dev/null && gcc -c "$b.s" -o "$b.o" 2>/dev/null \
         && gcc "$b.o" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$b.m4" 2>/dev/null); then
-        m4="$(cd "$W" && timeout 20 "./$b.m4" </dev/null 2>/dev/null | tr '\n' '|' | sed 's/|$//')"
+        m4="$(cd "$W" && timeout -k 5 20 "./$b.m4" </dev/null 2>/dev/null | tr '\n' '|' | sed 's/|$//')"
     fi
     v=GREEN; { [ "$m3" = "$want" ] && [ "$m4" = "$want" ]; } || { v=RED; red=$((red+1)); }
     printf '  %-20s want=%-9s m3=%-9s m4=%-9s %s\n' "$b" "[$want]" "[$m3]" "[$m4]" "$v"

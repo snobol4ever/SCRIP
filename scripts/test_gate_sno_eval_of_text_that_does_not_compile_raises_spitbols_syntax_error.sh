@@ -106,16 +106,16 @@ B       OUTPUT = 'end'
 END
 SNO
 run_scrip() {  # $1 program $2 mode $3 stdin -> stdout
-    if [ "$2" = m3 ]; then (cd "$D" && timeout 30 "$B/scrip" --stlimit "$1.sno" < "$3" 2>/dev/null)
+    if [ "$2" = m3 ]; then (cd "$D" && timeout -k 5 30 "$B/scrip" --stlimit "$1.sno" < "$3" 2>/dev/null)
     else "$B/scrip" --stlimit --compile -o "$D/$1.s" "$D/$1.sno" </dev/null >/dev/null 2>&1 \
            && gcc -no-pie -o "$D/$1.bin" "$D/$1.s" -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" 2>/dev/null \
            || refuse "could not build the m4 arm of $1 -- a toolchain failure, not a verdict"
-         (cd "$D" && timeout 30 "./$1.bin" < "$3" 2>/dev/null); fi
+         (cd "$D" && timeout -k 5 30 "./$1.bin" < "$3" 2>/dev/null); fi
 }
-(cd "$D" && timeout 30 "$SBL" -bf ev.sno < lines.txt > ev.sbl 2>/dev/null)
-(cd "$D" && timeout 30 "$SBL" -bf ev.sno < lines2.txt > ev2.sbl 2>/dev/null)
+(cd "$D" && timeout -k 5 30 "$SBL" -bf ev.sno < lines.txt > ev.sbl 2>/dev/null)
+(cd "$D" && timeout -k 5 30 "$SBL" -bf ev.sno < lines2.txt > ev2.sbl 2>/dev/null)
 [ "$(wc -l < "$D/ev2.sbl")" = "$(wc -l < "$D/lines2.txt")" ] || refuse "the oracle answered $(wc -l < "$D/ev2.sbl") of the assignment lines -- the witness is not measuring"
-(cd "$D" && timeout 30 "$SBL" -bf lim.sno < /dev/null > lim.sbl 2>/dev/null)
+(cd "$D" && timeout -k 5 30 "$SBL" -bf lim.sno < /dev/null > lim.sbl 2>/dev/null)
 nl=$(wc -l < "$D/lines.txt")
 [ "$(wc -l < "$D/ev.sbl")" = "$nl" ] || refuse "the oracle answered $(wc -l < "$D/ev.sbl") of $nl lines -- the witness is not measuring"
 grep -qx "ERROR 221 syntax error: missing operand" "$D/ev.sbl" || refuse "the oracle no longer raises 221 for EVAL('1 +') -- re-read sbl before trusting this gate"

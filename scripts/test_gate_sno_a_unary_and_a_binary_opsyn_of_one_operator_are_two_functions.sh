@@ -74,14 +74,14 @@ B.END   OPSYN('~', .B, 2)
         OUTPUT = 'after'
 END
 EOF
-for w in two ops ctl; do ( cd "$T" && timeout 10 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ); done
+for w in two ops ctl; do ( cd "$T" && timeout -k 5 10 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ); done
 grep -qx 'bin b<3,q>' "$T/two.oracle" && grep -qx 'un2 u<v>' "$T/two.oracle" && grep -q 'ERROR 029' "$T/ctl.oracle" || refuse "sbl's answer moved: [$(cat "$T"/*.oracle | tr '\n' '|' | head -c 240)]"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
 same() { [ "$1" = 0 ] || { echo "rc=$1"; return; }; cmp -s "$T/$2" "$T/$3" && echo ok || echo "got [$(tr '\n' '|' < "$T/$2" | head -c 110)] want [$(tr '\n' '|' < "$T/$3" | head -c 110)]"; }
-m3() { ( cd "$T" && timeout 10 "$SCRIP" "$1.sno" < /dev/null > "$1.m3" 2>&1; echo $? ); }
+m3() { ( cd "$T" && timeout -k 5 10 "$SCRIP" "$1.sno" < /dev/null > "$1.m3" 2>&1; echo $? ); }
 rc=$(m3 two); arm "m3: a unary and a binary OPSYN of one symbol call their own functions" "$(same "$rc" two.m3 two.oracle)"
-rc=$( cd "$T" && timeout 20 "$SCRIP" --compile -o t.s two.sno < /dev/null > /dev/null 2>&1 && gcc t.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o t.bin > /dev/null 2>&1 && timeout 10 ./t.bin < /dev/null > two.m4 2>&1; echo $? )
+rc=$( cd "$T" && timeout -k 5 20 "$SCRIP" --compile -o t.s two.sno < /dev/null > /dev/null 2>&1 && gcc t.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o t.bin > /dev/null 2>&1 && timeout -k 5 10 ./t.bin < /dev/null > two.m4 2>&1; echo $? )
 arm "m4: a unary and a binary OPSYN of one symbol call their own functions" "$(same "$rc" two.m4 two.oracle)"
 rc=$(m3 ops); arm "m3: the ten reachable unused operators, unary and binary together" "$(same "$rc" ops.m3 ops.oracle)"
 rc=$(m3 ctl); arm "m3: a binary-only OPSYN used unary raises error 29 after 'before'" "$( { [ "$rc" != 0 ] && head -1 "$T/ctl.m3" | grep -qx before && grep -q 'error 29' "$T/ctl.m3" && ! grep -qx after "$T/ctl.m3"; } && echo ok || echo "rc=$rc [$(tr '\n' '|' < "$T/ctl.m3" | head -c 120)]")"

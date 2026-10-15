@@ -81,11 +81,11 @@ procedure main()
 end
 EOF
 ( cd "$T" && "$ICONT" -s -o w.x w.icn ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: icont refuses the witness"; exit 2; }
-want="$( cd "$T" && timeout 20 ./w.x </dev/null 2>/dev/null )" || { echo "⛔ GATE REFUSE(2) [$G]: the oracle did not run the witness"; exit 2; }
+want="$( cd "$T" && timeout -k 5 20 ./w.x </dev/null 2>/dev/null )" || { echo "⛔ GATE REFUSE(2) [$G]: the oracle did not run the witness"; exit 2; }
 [ -n "$want" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing"; exit 2; }
 build4() { ( cd "$T" && "$SCRIP" --compile -o "$1.s" "$1.icn" </dev/null >/dev/null 2>&1 && gcc -no-pie -o "$1.4" "$1.s" -L"$ROOT/out" -lscrip_rt -lm -lstdc++ -lpthread -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ); }
 build4 w || { echo "⛔ GATE REFUSE(2) [$G]: the witness does not build in mode 4"; exit 2; }
-o3="$( cd "$T" && timeout 20 "$SCRIP" w.icn </dev/null 2>/dev/null )"; o4="$( cd "$T" && timeout 20 ./w.4 </dev/null 2>/dev/null )"
+o3="$( cd "$T" && timeout -k 5 20 "$SCRIP" w.icn </dev/null 2>/dev/null )"; o4="$( cd "$T" && timeout -k 5 20 ./w.4 </dev/null 2>/dev/null )"
 if [ "$o3" = "$want" ] && [ "$o4" = "$want" ]; then echo "  arm 2 PASS: $(printf '%s\n' "$want" | wc -l) lines of swaps match iconx byte for byte in both media"
 else echo "  arm 2 FAIL: the swaps differ from iconx -- m3 $( [ "$o3" = "$want" ] && echo same || echo DIFF ), m4 $( [ "$o4" = "$want" ] && echo same || echo DIFF )"
   diff <(printf '%s\n' "$want") <(printf '%s\n' "$o3") | head -8 | sed 's/^/      m3 /'; RC=1; fi
@@ -94,8 +94,8 @@ blocks() { grep -oE 'collections=[0-9]+ blocks=[0-9]+' "$1" | head -1; }
 al=""; abad=0
 for md in m3 m4; do
   for n in 1000 3000; do
-    if [ "$md" = m3 ]; then ( cd "$T" && env SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=262144 timeout 60 "$SCRIP" "n$n.icn" </dev/null >/dev/null 2>"$md.$n" )
-    else ( cd "$T" && env SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=262144 timeout 60 "./n$n.4" </dev/null >/dev/null 2>"$md.$n" ); fi
+    if [ "$md" = m3 ]; then ( cd "$T" && env SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=262144 timeout -k 5 60 "$SCRIP" "n$n.icn" </dev/null >/dev/null 2>"$md.$n" )
+    else ( cd "$T" && env SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=262144 timeout -k 5 60 "./n$n.4" </dev/null >/dev/null 2>"$md.$n" ); fi
   done
   r1="$(blocks "$T/$md.1000")"; r2="$(blocks "$T/$md.3000")"
   c1=$(printf '%s' "$r1" | sed -n 's/collections=\([0-9]*\).*/\1/p'); c2=$(printf '%s' "$r2" | sed -n 's/collections=\([0-9]*\).*/\1/p')

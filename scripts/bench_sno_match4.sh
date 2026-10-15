@@ -70,7 +70,7 @@ _pcount=0; for _p in $PROGS; do _pcount=$((_pcount+1)); done   # ${VAR:-default}
 for p in $PROGS; do mkrep "$(resolve1 "$p.sno")" "$W/$p-rep.sno" "$REPS"; done
 for p in $PROGS; do "$SCRIP" --compile "$W/$p-rep.sno" > "$W/$p.s" 2>/dev/null; gcc -no-pie "$W/$p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$p.prog" 2>/dev/null || { echo "$p BUILD FAIL"; exit 1; }; done
 for p in $PROGS; do IN=$(input_of $p)
-  so=$(timeout 300 "$SBL" $(sbl_lang_flags) "$W/$p-rep.sno" < "$IN" 2>/dev/null); mo=$(timeout 300 "$W/$p.prog" < "$IN" 2>/dev/null)
+  so=$(timeout -k 5 300 "$SBL" $(sbl_lang_flags) "$W/$p-rep.sno" < "$IN" 2>/dev/null); mo=$(timeout -k 5 300 "$W/$p.prog" < "$IN" 2>/dev/null)
   [ "$so" = "$mo" ] || { echo "$p IDENTITY FAIL sbl=[$so] m4=[$mo]"; exit 1; }
   s=(); m=()
   for i in 1 2 3 4 5 6 7; do t0=$(date +%s%N); "$SBL" $(sbl_lang_flags) "$W/$p-rep.sno" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); s+=( $(( (t1-t0)/1000000 )) )

@@ -41,7 +41,7 @@ arm() { # arm <name> <program-text>
   total=$((total+1))
   printf '%s\n' "$src" > "$W/$name.raku"
   want="$("$RAKU" "$W/$name.raku" 2>&1)"; wrc=$?
-  got="$(timeout 20 "$SCRIP" "$W/$name.raku" 2>&1 </dev/null)"; grc=$?
+  got="$(timeout -k 5 20 "$SCRIP" "$W/$name.raku" 2>&1 </dev/null)"; grc=$?
   if [ "$got" = "$want" ] && [ "$grc" = "$wrc" ]; then
     pass=$((pass+1)); printf '  PASS  %-26s (oracle rc=%s)\n' "$name" "$wrc"
   else

@@ -51,7 +51,7 @@ RT="$(cd out && pwd)"
 bash scripts/bench_wrap.sh "$SNO" --mode=iter --n="$NITER" -o "$O/k.sno" >/dev/null 2>"$O/wrap.err" || { echo "⛔ REFUSED (rc=2): bench_wrap.sh could not build the scaled kernel:"; sed 's/^/    /' "$O/wrap.err"; exit 2; }
 ./scrip --compile -o "$O/k.s" "$O/k.sno" < /dev/null > "$O/compile.log" 2>&1 || { echo "⛔ REFUSED (rc=2): mode-4 compile of the scaled kernel failed -- see that before reading any number"; tail -5 "$O/compile.log" | sed 's/^/    /'; exit 2; }
 gcc -no-pie "$O/k.s" -o "$O/k.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread > "$O/link.log" 2>&1 || { echo "⛔ REFUSED (rc=2): link of the mode-4 kernel failed"; tail -5 "$O/link.log" | sed 's/^/    /'; exit 2; }
-timeout 900s valgrind --tool=callgrind --callgrind-out-file="$O/cg.out" "$O/k.bin" < /dev/null > "$O/run.log" 2>&1 || { echo "⛔ REFUSED (rc=2): the callgrind run itself failed -- see that before reading any number"; exit 2; }
+timeout -k 5 900s valgrind --tool=callgrind --callgrind-out-file="$O/cg.out" "$O/k.bin" < /dev/null > "$O/run.log" 2>&1 || { echo "⛔ REFUSED (rc=2): the callgrind run itself failed -- see that before reading any number"; exit 2; }
 
 # ⛔ NON-EMPTY IS NOT ALIVE. A binary that crashes early still yields a well-formed cg.out and a plausible, SMALLER Ir figure -- i.e. a spurious PASS on this ratchet. Grade the kernel's own census first.
 grep -qF "$CENSUS" "$O/run.log" || { echo "⛔ REFUSED (rc=2): the kernel did not print its census '$CENSUS' -- the profiled run did not do the work, so its Ir is of a DIFFERENT program. Output was:"; grep -v '^==' "$O/run.log" | head -5 | sed 's/^/    /'; exit 2; }

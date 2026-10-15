@@ -37,12 +37,12 @@ SBL="${SBL_BIN:-/home/resources/x64/bin/sbl}"; [ -x "$SBL" ] || { echo "⛔ GATE
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 printf " DEFINE('ID(A)') :(ID.END)\nID ID = A :(RETURN)\nID.END\n OUTPUT = '1:' 'x' ~DIFFER('a','a')\n OUTPUT = '2:' SIZE('ab') ~DIFFER('a','a')\n OUTPUT = '3:' ID('A') ~DIFFER('a','a')\n OUTPUT = '4:' ID('A') DIFFER('a','b')\n OUTPUT = '5:' ID('A') ~IDENT('a','b')\n OUTPUT = '6:' SIZE('ab') ~DIFFER('a','b')\n OUTPUT = '7:' ~DIFFER('a','a') SIZE('ab')\n X = 'q'\n OUTPUT = '8:' X ~DIFFER('a','a')\n OUTPUT = '9:' (SIZE('ab') 'z') ~DIFFER('a','a')\n OUTPUT = '10:' SIZE('ab') ~DIFFER('a','a') 'tail'\n OUTPUT = '11:' SIZE('ab') (~DIFFER('a','a'))\n OUTPUT = '12:' SIZE('ab') ~SIZE('')\n OUTPUT = '13:' SIZE('ab') 'm' ~DIFFER('a','a')\n OUTPUT = '14:' ID('A') ~DIFFER('a','a')\n OUTPUT = '15:' ID('A') ~DIFFER('a','b')\nEND\n" > "$T/w.sno"
-( cd "$T" && timeout 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
+( cd "$T" && timeout -k 5 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
 [ "$(wc -l < "$T/w.ref")" -ge 12 ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced $(wc -l < "$T/w.ref") lines, expected at least 12"; exit 2; }
-( cd "$T" && timeout 20s "$SCRIP" w.sno </dev/null > m3.out 2>/dev/null ); r=$?
+( cd "$T" && timeout -k 5 20s "$SCRIP" w.sno </dev/null > m3.out 2>/dev/null ); r=$?
 if [ "$r" -eq 0 ] && cmp -s "$T/m3.out" "$T/w.ref"; then echo "  m3 PASS (rc=0, $(wc -l < "$T/w.ref") lines byte-identical to the oracle)"; else echo "  m3 FAIL (rc=$r; $(diff "$T/m3.out" "$T/w.ref" | grep -c '^[<>]') differing lines -- a value produced before a negation is lost)"; RC=1; fi
 if "$SCRIP" --compile "$T/w.sno" -o "$T/w.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/w.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/w4" 2>"$T/ld.log"; then :; else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link refused ($(head -c 200 "$T/ld.log"))"; exit 2; fi
-( cd "$T" && timeout 20s ./w4 </dev/null > m4.out 2>/dev/null ); r=$?
+( cd "$T" && timeout -k 5 20s ./w4 </dev/null > m4.out 2>/dev/null ); r=$?
 if [ "$r" -eq 0 ] && cmp -s "$T/m4.out" "$T/w.ref"; then echo "  m4 PASS (rc=0, byte-identical to the oracle)"; else echo "  m4 FAIL (rc=$r; $(diff "$T/m4.out" "$T/w.ref" | grep -c '^[<>]') differing lines)"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "✅ GATE PASS(0) [$G]: a value produced before a negation reaches its consumer in both modes; 13 shapes byte-identical to the oracle (2 arms)"
 else echo "⛔ GATE FAIL(1) [$G]: a planned producer's value is lost to a consumer outside its run (examined 2 arms)"; fi

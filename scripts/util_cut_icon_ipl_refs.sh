@@ -148,7 +148,7 @@ run_isolated() {
   local bx="${f%.icn}.x" crc
   local -a _isoenv=(); ipl_isolation_env "$work" _isoenv
   : > "$outfile.link"
-  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env "${_isoenv[@]}" "$ICONT" -s -u -o "$bx" "$f" > "$outfile.link" 2>&1 )
+  ( cd "$work/$SUBDIR" && timeout -k 5 "$TIMEOUT" env "${_isoenv[@]}" "$ICONT" -s -u -o "$bx" "$f" > "$outfile.link" 2>&1 )
   crc=$?
   # ⛔ A LINK THAT PRODUCED NO EXECUTABLE IS REPORTED EXACTLY AS BEFORE: the link stream becomes the whole
   # evidence AND the whole "output", so every arm below sees byte-for-byte what the one-step driver gave it.

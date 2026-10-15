@@ -62,19 +62,19 @@ for d in $DIRS; do
     # under it is correct (row every-ref-cutting-path-refuses-when-the-oracle-dies-mid-cut, ceo -> hq_T, on
     # seat07's finding that `sbl -bf` SIGSEGVs on ~half its ERROR 212 runs while still printing a diagnostic).
     oa="$(declared_oracle_args_beside "$sno")" || { printf '%-26s ⛔ ORACLE-FAIL %s\n' "$b" "its .oracle_args is refused"; orfail=$((orfail+1)); ORF="$ORF $b"; continue; }
-    timeout "$T" "$SBL" $(sbl_lang_flags) $oa "$sno" >"$orc" 2>"$W/$b.orcerr" <"$in"; orc_rc=$?
+    timeout -k 5 "$T" "$SBL" $(sbl_lang_flags) $oa "$sno" >"$orc" 2>"$W/$b.orcerr" <"$in"; orc_rc=$?
     if [ "$orc_rc" -ne 0 ]; then
       orc_why="rc=$orc_rc"; [ "$orc_rc" -ge 128 ] && orc_why="KILLED BY SIGNAL $((orc_rc-128)) (rc=$orc_rc) -- output is TRUNCATED, never a ref"
       printf '%-26s ⛔ ORACLE-FAIL %s  %s\n' "$b" "$orc_why" "$(head -1 "$W/$b.orcerr")"; orfail=$((orfail+1)); ORF="$ORF $b"; continue
     fi
     if [ "$WRITE" = 1 ]; then cp "$orc" "$ref"; minted=$((minted+1)); fi
     [ -f "$ref" ] || { printf '%-26s ⛔ NO .ref (run --write to mint)\n' "$b"; continue; }
-    m3="$W/$b.m3"; timeout "$T" "$SCRIP" "$sno" >"$m3" 2>/dev/null <"$in"
+    m3="$W/$b.m3"; timeout -k 5 "$T" "$SCRIP" "$sno" >"$m3" 2>/dev/null <"$in"
     v3=DIFF; cmp -s "$m3" "$ref" && { v3=PASS; ok3=$((ok3+1)); } || { bad3=$((bad3+1)); BAD3="$BAD3 $b"; }
     v4=DIFF
     if "$SCRIP" --compile "$sno" >"$W/$b.s" 2>/dev/null && [ -s "$W/$b.s" ] \
        && gcc -no-pie "$W/$b.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$b.prog" 2>/dev/null; then
-      timeout "$T" "$W/$b.prog" >"$W/$b.m4" 2>/dev/null <"$in"
+      timeout -k 5 "$T" "$W/$b.prog" >"$W/$b.m4" 2>/dev/null <"$in"
       cmp -s "$W/$b.m4" "$ref" && { v4=PASS; ok4=$((ok4+1)); } || { bad4=$((bad4+1)); BAD4="$BAD4 $b"; }
     else v4=BUILD-ERR; bad4=$((bad4+1)); BAD4="$BAD4 $b"; fi
     printf '%-26s ref=%-7s in=%-16s m3=%-4s m4=%s\n' "$b" "$(wc -c <"$ref")B" "$(basename "$in")" "$v3" "$v4"

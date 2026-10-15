@@ -65,11 +65,11 @@ end.
 PAS
 ( cd "$T" && "$FPC" -Miso -v0 n.pas >/dev/null 2>&1 && ./n ) > "$T/n.ref" 2>&1
 grep -q '^ptr xq 4096' "$T/n.ref" || { echo "⛔ GATE REFUSE(2) [$G]: the oracle did not produce the nested-char line this gate pins -- the oracle moved: $(head -1 "$T/n.ref")"; exit 2; }
-( cd "$T" && timeout 60 "$SCRIP" --compile -o n.s n.pas </dev/null && gcc n.s -o n.bin -L"$RT_DIR" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the mode-4 witness did not build"; exit 2; }
+( cd "$T" && timeout -k 5 60 "$SCRIP" --compile -o n.s n.pas </dev/null && gcc n.s -o n.bin -L"$RT_DIR" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the mode-4 witness did not build"; exit 2; }
 RC=0
 for M in m3 m4; do
-  if [ "$M" = m3 ]; then ( cd "$T" && timeout 60 "$SCRIP" --run n.pas </dev/null ) >"$T/$M.out" 2>&1
-  else ( cd "$T" && LD_LIBRARY_PATH="$RT_DIR" timeout 60 ./n.bin </dev/null ) >"$T/$M.out" 2>&1
+  if [ "$M" = m3 ]; then ( cd "$T" && timeout -k 5 60 "$SCRIP" --run n.pas </dev/null ) >"$T/$M.out" 2>&1
+  else ( cd "$T" && LD_LIBRARY_PATH="$RT_DIR" timeout -k 5 60 ./n.bin </dev/null ) >"$T/$M.out" 2>&1
   fi
   if [ -n "${FAIL_ONCE:-}" ] && [ "$M" = m3 ]; then sed -i '1s/^ptr xq/ptr x113/' "$T/$M.out"; fi
   if diff -u "$T/n.ref" "$T/$M.out" >"$T/$M.diff"; then echo "  $M PASS ($(wc -l <"$T/n.ref") lines byte-identical to fpc -Miso)"

@@ -18,7 +18,7 @@ for T in src/runtime/rtx/rtx_unit_test.c src/runtime/rtx/rtx_alloc_test.c src/ru
   gcc -O0 -g -w -Isrc -Isrc/ir -Isrc/runtime/rt -Isrc/runtime/core -o "$B" "$T" \
       -Wl,-rpath,"$PWD/out" -L"$PWD/out" -lscrip_rt -lm -lpthread 2>&1 | head -5
   [ -x "$B" ] || { echo "  BUILD FAIL: $T"; RC=1; continue; }
-  timeout 30s "$B" < /dev/null; [ $? -eq 0 ] || RC=1
+  timeout -k 5 30s "$B" < /dev/null; [ $? -eq 0 ] || RC=1
 done
 [ $RC -eq 0 ] && echo "RTX UNIT: ALL PASS" || echo "RTX UNIT: FAILURES"
 exit $RC

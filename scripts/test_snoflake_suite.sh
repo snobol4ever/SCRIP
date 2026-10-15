@@ -398,7 +398,7 @@ for sno in "$SUITE"/*.sno; do
         else [ "$NSTD" = 1 ] && NCF=$((NCF+1)) || { FC=$((FC+1)); FLC="$FLC $name"; }; fi
     fi
 done
-echo "── snoflake_suite: $TOTAL fixtures · SCRIP $SCRIP_HASH · corpus $CORP_HASH · RT_OPT -O0 · timeout $TIMEOUT · graded vs the ORACLE sbl -bf (ceo CEO-251); @expect is informational and drives only the dialect tally"
+echo "── snoflake_suite: $TOTAL fixtures · SCRIP $SCRIP_HASH · corpus $CORP_HASH · RT_OPT -O0 · timeout -k 5 $TIMEOUT · graded vs the ORACLE sbl -bf (ceo CEO-251); @expect is informational and drives only the dialect tally"
 echo "mode-3 (--run):     PASS=$P3 FAIL=$F3  NSTD $N3P/$((N3P+N3F))  stream_equality=$SE3 error_number_only=$EN3"
 echo "mode-4 (--compile): PASS=$P4 FAIL=$F4 SKIP(cc)=$S4  NSTD $N4P/$((N4P+N4F))"
 # ⭐ THE SUITE-TABLE READING (ceo-372: the AND per program; CEO-383: the stream-equal basis -- the PASS= counts above

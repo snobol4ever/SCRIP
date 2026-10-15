@@ -32,10 +32,10 @@ RT_DIR="${RT_DIR:-$ROOT/out}"; [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ GA
 FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]: no fpc at $FPC -- every arm's expectation is CUT FROM THE ORACLE"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 run() { local m="$1" p="$2"
-  if [ "$m" = m3 ]; then ( cd "$T" && timeout 60s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); return $?; fi
-  ( cd "$T" && timeout 60s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>"$T/e" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ $p m4 did not compile or link: $(head -1 "$T/e" | cut -c1-120)" >&2; return 99; }
-  ( cd "$T" && timeout 60s "./$p.m4" </dev/null >"$T/o" 2>"$T/e" ); return $?; }
-want() { ( cd "$T" && "$FPC" -M$2 -v0 -o"$1.fpc" $1.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -M$2 would not compile $1"; exit 2; }; ( cd "$T" && timeout 60s ./$1.fpc </dev/null >"$T/$1.want" 2>/dev/null ); echo $? > "$T/$1.wrc"; }
+  if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 60s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); return $?; fi
+  ( cd "$T" && timeout -k 5 60s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>"$T/e" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ $p m4 did not compile or link: $(head -1 "$T/e" | cut -c1-120)" >&2; return 99; }
+  ( cd "$T" && timeout -k 5 60s "./$p.m4" </dev/null >"$T/o" 2>"$T/e" ); return $?; }
+want() { ( cd "$T" && "$FPC" -M$2 -v0 -o"$1.fpc" $1.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -M$2 would not compile $1"; exit 2; }; ( cd "$T" && timeout -k 5 60s ./$1.fpc </dev/null >"$T/$1.want" 2>/dev/null ); echo $? > "$T/$1.wrc"; }
 cat > "$T/sysrt.pas" <<'PAS'
 {$mode fpc}
 program rt1;
@@ -67,7 +67,7 @@ chk() { local m="$1" p="$2" frc; frc=$(cat "$T/$p.wrc"); run $m $p; local rc=$?;
 want sysrt fpc; want mathfns fpc
 if [ -n "${FAIL_ONCE:-}" ]; then echo "corrupted by FAIL_ONCE" >> "$T/sysrt.want"; fi
 for m in m3 m4; do chk $m sysrt; chk $m mathfns; done
-refuse() { local p="$1"; ( cd "$T" && timeout 60s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); local rc=$?; N=$((N + 1))
+refuse() { local p="$1"; ( cd "$T" && timeout -k 5 60s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); local rc=$?; N=$((N + 1))
   if [ "$rc" != 0 ] && [ ! -s "$T/o" ] && grep -q "$2" "$T/e"; then echo "  $p: refused, rc=$rc, with: $(head -1 "$T/e" | cut -c1-80)"
   else echo "  ⛔ $p FAILED: rc=$rc, want a refusal naming [$2]: stdout=[$(head -c 60 "$T/o" | tr '\n' '|')] err=[$(head -c 140 "$T/e")]"; RC=1; fi; }
 refuse iso_random '6\.2\.2\.1'; refuse iso_stringofchar '6\.2\.2\.1'

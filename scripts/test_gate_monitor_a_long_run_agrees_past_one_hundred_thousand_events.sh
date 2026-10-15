@@ -24,7 +24,7 @@ ck() { checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; 
 printf '        I = 0\nLOOP    I = I + 1\n        LT(I, 40000)   :S(LOOP)\n        OUTPUT = I\nEND\n' > "$T/longloop.sno"
 steps_of() { sed -n 's/.*clean termination at step \([0-9]*\).*/\1/p' "$1" | head -1; }
 for m in oracle modes; do
-  SCRIP_SNO_STMTKW=1 timeout 600 bash "$HERE/monitor_run.sh" "$T/longloop.sno" --$m > "$T/$m.out" 2>&1; rc=$?
+  SCRIP_SNO_STMTKW=1 timeout -k 5 600 bash "$HERE/monitor_run.sh" "$T/longloop.sno" --$m > "$T/$m.out" 2>&1; rc=$?
   n="$(steps_of "$T/$m.out")"
   if [ "$rc" = 2 ] && ! grep -q 'PROTOCOL ERR\|WIRE BROKE' "$T/$m.out"; then echo "⛔ REFUSED(2): monitor_run --$m could not measure the witness: $(grep -m1 REFUSE "$T/$m.out" | cut -c1-200)"; exit 2; fi
   arm=1; [ "$m" = modes ] && arm=2
@@ -38,7 +38,7 @@ printf '#!/usr/bin/env bash\necho "[ctrl] PROTOCOL ERR step 100000 on scr: insan
 printf '        OUTPUT = 1\nEND\n' > "$T/one.sno"
 # the stub enters through MONITOR_HARNESS: monitor_run.sh runs its own repository's binary and harness since CEO-1496 (the coo 2026-10-04),
 # so a scratch S4E_HOME no longer reaches it
-MONITOR_HARNESS="$S/SCRIP/scripts/test_monitor_3way_sync_step_auto.sh" SCRIP_SNO_STMTKW=1 timeout 300 bash "$HERE/monitor_run.sh" "$T/one.sno" --oracle > "$T/stub.out" 2>&1; rc=$?
+MONITOR_HARNESS="$S/SCRIP/scripts/test_monitor_3way_sync_step_auto.sh" SCRIP_SNO_STMTKW=1 timeout -k 5 300 bash "$HERE/monitor_run.sh" "$T/one.sno" --oracle > "$T/stub.out" 2>&1; rc=$?
 [ "$rc" = 2 ] && grep -q 'REFUSE(2): THE WIRE BROKE, NOT THE PROGRAM' "$T/stub.out" && grep -q 'AGREE=99999' "$T/stub.out" && ! grep -q 'DIVERGE (rc' "$T/stub.out" \
   && ck ok "(3) a controller PROTOCOL ERR reads REFUSE(2), the wire named and the agreement up to it kept -- never DIVERGE" \
   || ck no "(3) a PROTOCOL ERR read rc=$rc: $(grep -m1 'REFUSE\|DIVERGE' "$T/stub.out" | cut -c1-200)"

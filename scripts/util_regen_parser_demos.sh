@@ -27,7 +27,7 @@ for L in snobol4 snocone icon prolog rebus raku pascal; do
         [ -x "$SBL" ] || { echo "REFUSE(2): no oracle at $SBL"; exit 2; }
         "$W/scrip" --transpile "$d/parser_$L.sc" > "$T/$L.sno" 2> "$T/$L.err" && [ -s "$T/$L.sno" ] || { echo "REFUSE(2): transpile of parser_$L failed: $(head -2 "$T/$L.err")"; exit 2; }
         OARGS="$(declared_oracle_args_beside "$B/parser_$L.sc")" || { echo "REFUSE(2): bootstrap/parser_$L.oracle_args is refused"; exit 2; }
-        ( cd "$d" && timeout 300 "$SBL" -bf $OARGS "$T/$L.sno" < "parser_$L.in" > "$T/$L.ref" 2> "$T/$L.sbl.err" ); rc=$?
+        ( cd "$d" && timeout -k 5 300 "$SBL" -bf $OARGS "$T/$L.sno" < "parser_$L.in" > "$T/$L.ref" 2> "$T/$L.sbl.err" ); rc=$?
         [ $rc -eq 0 ] && [ -s "$T/$L.ref" ] && ! grep -q '^Parse Error' "$T/$L.ref" || { echo "REFUSE(2): sbl -bf did not print a tree for parser_$L on its sample (rc=$rc): $(head -2 "$T/$L.sbl.err" "$T/$L.ref" | tr '\n' ' ' | cut -c1-200)"; exit 2; }
         cp "$T/$L.ref" "$d/parser_$L.ref"
     fi

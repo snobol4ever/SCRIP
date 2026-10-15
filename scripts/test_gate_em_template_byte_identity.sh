@@ -96,13 +96,13 @@ for f in "$TMP"/*.sno; do
 
     # Run --run (the byte-identity oracle: pure interpreter, no
     # SEG_CODE involved).
-    sm_out=$(timeout "$TIMEOUT" "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
+    sm_out=$(timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
     sm_rc=$?
 
     # Run --run (mode-3: walks SEG_CODE, including the SM_HALT
     # blob produced by the template).  If the template emits bad
     # bytes, --run will either crash or produce different output.
-    jit_out=$(timeout "$TIMEOUT" "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
+    jit_out=$(timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
     jit_rc=$?
 
     if [ "$sm_rc" -eq 0 ] && [ "$jit_rc" -eq 0 ] && [ "$sm_out" = "$jit_out" ]; then

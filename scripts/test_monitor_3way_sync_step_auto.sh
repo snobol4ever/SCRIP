@@ -240,7 +240,7 @@ if [[ "$want_scr" = "1" ]]; then
         # --monitor so the inline WRITE taps + stmt/label/call taps BAKE into the .s
         # (shared codegen: identical instrumentation to m3), link against libscrip_rt.so
         # (whose core init reads MONITOR_READY_PIPE at run time), run the binary.
-        ( cd "$(dirname "$(realpath "$SNO")")" && timeout "$TIMEOUT" "$SCRIP" --trace --compile --monitor -o "$TMP/scr.s" "$(realpath "$SNO")" </dev/null ) > "$TMP/scr.cc.out" 2>&1 \
+        ( cd "$(dirname "$(realpath "$SNO")")" && timeout -k 5 "$TIMEOUT" "$SCRIP" --trace --compile --monitor -o "$TMP/scr.s" "$(realpath "$SNO")" </dev/null ) > "$TMP/scr.cc.out" 2>&1 \
             || { echo "FAIL m4 compile: $(tail -2 "$TMP/scr.cc.out")"; exit 2; }
         gcc -no-pie "$TMP/scr.s" -L"$SD/out" -lscrip_rt -Wl,-rpath,"$SD/out" -lm -o "$TMP/scr.bin" >> "$TMP/scr.cc.out" 2>&1 \
             || { echo "FAIL m4 link: $(tail -2 "$TMP/scr.cc.out")"; exit 2; }
@@ -292,7 +292,7 @@ if [[ "${want_scr3:-0}" = "1" ]]; then
     PIDS+=($!)
 fi
 if [[ "${want_scr4:-0}" = "1" ]]; then
-    ( cd "$(dirname "$(realpath "$SNO")")" && timeout "$TIMEOUT" "$SCRIP" --trace --compile --monitor -o "$TMP/scr4.s" "$(realpath "$SNO")" </dev/null ) > "$TMP/scr4.cc.out" 2>&1 \
+    ( cd "$(dirname "$(realpath "$SNO")")" && timeout -k 5 "$TIMEOUT" "$SCRIP" --trace --compile --monitor -o "$TMP/scr4.s" "$(realpath "$SNO")" </dev/null ) > "$TMP/scr4.cc.out" 2>&1 \
         || { echo "FAIL scr4 compile: $(tail -2 "$TMP/scr4.cc.out")"; exit 2; }
     gcc "$TMP/scr4.s" -L"$SD/out" -lscrip_rt -Wl,-rpath,"$SD/out" -lm -o "$TMP/scr4.bin" >> "$TMP/scr4.cc.out" 2>&1 \
         || { echo "FAIL scr4 link: $(tail -2 "$TMP/scr4.cc.out")"; exit 2; }
@@ -359,13 +359,13 @@ if [[ "${want_icx:-0}" = "1" ]]; then
         while IFS=$'\t' read -r icx_from icx_nm; do
             [ -n "$icx_nm" ] || continue; case "$icx_seen" in *" $icx_nm "*) continue ;; esac; icx_seen="$icx_seen$icx_nm "
             icx_f="$(icx_find "$icx_nm" "$icx_from")"; [ -n "$icx_f" ] || continue
-            ( cd "$ICX_LIB" && timeout "$TIMEOUT" "$ICON_MON/bin/icont" -s -c "$icx_f" ) >> "$TMP/icx.cc.out" 2>&1 \
+            ( cd "$ICX_LIB" && timeout -k 5 "$TIMEOUT" "$ICON_MON/bin/icont" -s -c "$icx_f" ) >> "$TMP/icx.cc.out" 2>&1 \
                 || { echo "FAIL icx compile of linked library $icx_f: $(tail -2 "$TMP/icx.cc.out")"; exit 2; }
             icx_next="$icx_next$(icx_links "$icx_f" | sed "s|^|$icx_f\t|")"$'\n'
         done <<< "$icx_todo"
         icx_todo="$(printf '%s' "$icx_next" | sed '/^$/d')"
     done
-    ( cd "$(dirname "$ICX_SRC")" && IPATH="$ICX_LIB" timeout "$TIMEOUT" "$ICON_MON/bin/icont" -s -o "$TMP/icx.bin" "$ICX_SRC" ) >> "$TMP/icx.cc.out" 2>&1 \
+    ( cd "$(dirname "$ICX_SRC")" && IPATH="$ICX_LIB" timeout -k 5 "$TIMEOUT" "$ICON_MON/bin/icont" -s -o "$TMP/icx.bin" "$ICX_SRC" ) >> "$TMP/icx.cc.out" 2>&1 \
         || { echo "FAIL icx compile: $(tail -2 "$TMP/icx.cc.out")"; exit 2; }
     MONITOR_READY_PIPE="$TMP/icx.ready" \
     MONITOR_GO_PIPE="$TMP/icx.go" \
@@ -383,7 +383,7 @@ fi
 # prepended; the witness is compiled into a no-top-level binary (the initialization goal runs, then the process exits).
 if [[ "${want_gpx:-0}" = "1" ]]; then
     GPX_SRC="$(realpath "$SNO")"
-    ( cd "$(dirname "$GPX_SRC")" && PATH="$GPROLOG_MON/bin:$PATH" timeout "$TIMEOUT" "$GPROLOG_MON/bin/gplc" --no-top-level -o "$TMP/gpx.bin" "$GPX_SRC" ) > "$TMP/gpx.cc.out" 2>&1 \
+    ( cd "$(dirname "$GPX_SRC")" && PATH="$GPROLOG_MON/bin:$PATH" timeout -k 5 "$TIMEOUT" "$GPROLOG_MON/bin/gplc" --no-top-level -o "$TMP/gpx.bin" "$GPX_SRC" ) > "$TMP/gpx.cc.out" 2>&1 \
         || { echo "FAIL gpx compile: $(tail -2 "$TMP/gpx.cc.out")"; exit 2; }
     MONITOR_READY_PIPE="$TMP/gpx.ready" \
     MONITOR_GO_PIPE="$TMP/gpx.go" \
@@ -419,7 +419,7 @@ fi
 # arm). The witness is compiled -Miso as the Pascal board compiles it, into the harness's scratch (-FE), never beside the source.
 if [[ "${want_fpx:-0}" = "1" ]]; then
     FPX_SRC="$(realpath "$SNO")"
-    ( cd "$TMP" && timeout "$TIMEOUT" "$FPC_MON/bin/fpc" -Miso -gi -v0 -FE"$TMP" -o"$TMP/fpx.bin" "$FPX_SRC" ) > "$TMP/fpx.cc.out" 2>&1 \
+    ( cd "$TMP" && timeout -k 5 "$TIMEOUT" "$FPC_MON/bin/fpc" -Miso -gi -v0 -FE"$TMP" -o"$TMP/fpx.bin" "$FPX_SRC" ) > "$TMP/fpx.cc.out" 2>&1 \
         || { echo "FAIL fpx compile: $(tail -2 "$TMP/fpx.cc.out")"; exit 2; }
     MONITOR_READY_PIPE="$TMP/fpx.ready" \
     MONITOR_GO_PIPE="$TMP/fpx.go" \
@@ -448,7 +448,7 @@ done
 CTRL_TIMEOUT="${MONITOR_CTRL_TIMEOUT:-$((TIMEOUT*4))}"
 MONITOR_SNO_FILE="$([[ "$SNO" == *.sno || "$SNO" == *.spt || "$SNO" == *.sbl ]] && echo "$SNO")" \
 MONITOR_INC_DIR="$(dirname "$(realpath "$SNO")"):$INC" \
-    timeout "$CTRL_TIMEOUT" python3 "$MON_DIR/monitor_sync_bin.py" "${SPECS[@]}" > "$TMP/ctrl.out" 2>&1 &
+    timeout -k 5 "$CTRL_TIMEOUT" python3 "$MON_DIR/monitor_sync_bin.py" "${SPECS[@]}" > "$TMP/ctrl.out" 2>&1 &
 CTRL_PID=$!
 
 # ── Wait + reap ────────────────────────────────────────────────────────

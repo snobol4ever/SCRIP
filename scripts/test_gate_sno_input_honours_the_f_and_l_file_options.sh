@@ -59,13 +59,13 @@ D       OUTPUT = 'eof'
 END
 SNO
 ARMS="f0 l3 reassoc inputl"
-for a in $ARMS; do (cd "$D" && timeout 20 "$SBL" -bf "$a.sno" < in.txt > "$a.sbl" 2>/dev/null); done
+for a in $ARMS; do (cd "$D" && timeout -k 5 20 "$SBL" -bf "$a.sno" < in.txt > "$a.sbl" 2>/dev/null); done
 [ "$(tail -1 "$D/f0.sbl")" = "read 2" ] && grep -qx "got \[alp\]" "$D/l3.sbl" || refuse "the oracle no longer reads two lines through -f0 or caps at -l3 -- re-read sbl"
 fails=0; arms=0
 for a in $ARMS; do
-    (cd "$D" && timeout 20 "$B/scrip" "$a.sno" < in.txt > "$a.m3" 2>/dev/null)
+    (cd "$D" && timeout -k 5 20 "$B/scrip" "$a.sno" < in.txt > "$a.m3" 2>/dev/null)
     "$B/scrip" --compile -o "$D/$a.s" "$D/$a.sno" </dev/null >/dev/null 2>&1 && gcc -no-pie -o "$D/$a.bin" "$D/$a.s" -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" 2>/dev/null || refuse "could not build the m4 arm of $a -- a toolchain failure, not a verdict"
-    (cd "$D" && timeout 20 "./$a.bin" < in.txt > "$a.m4" 2>/dev/null)
+    (cd "$D" && timeout -k 5 20 "./$a.bin" < in.txt > "$a.m4" 2>/dev/null)
     for m in m3 m4; do arms=$((arms+1))
         if cmp -s "$D/$a.sbl" "$D/$a.$m"; then echo "  ok    $m $a"
         else echo "  FAIL  $m $a"; diff "$D/$a.sbl" "$D/$a.$m" | head -6 | sed 's/^/          /'; fails=$((fails+1)); fi

@@ -36,14 +36,14 @@ printf "        DEFINE('NV()')\n        DEFINE('ID(X)')\n        DEFINE('WRAP()'
 printf "        DEFINE('A()')\n        DEFINE('B()')\n        DEFINE('C()')                   :(E)\nA       V = 'AVAL'\n        A = .V                          :(NRETURN)\nB       B = .A()                        :(NRETURN)\nC       C = .B()                        :(NRETURN)\nE\n        OUTPUT = DATATYPE(.A())\n        OUTPUT = DATATYPE(.B())\n        OUTPUT = DATATYPE(.C())\n        OUTPUT = DATATYPE(A())\n        OUTPUT = DATATYPE(B())\n        OUTPUT = DATATYPE(C())\nEND\n" > "$T/deep.sno"
 bad=0; graded=0
 for arm in sticky nested deep; do
-    want="$(cd "$T" && timeout 20s "$SBL" $(sbl_lang_flags) "$arm.sno" < /dev/null 2>&1)"
+    want="$(cd "$T" && timeout -k 5 20s "$SBL" $(sbl_lang_flags) "$arm.sno" < /dev/null 2>&1)"
     [ -n "$want" ] || { echo "  REFUSE $arm -- the oracle printed nothing; a blank expectation grades everything green"; exit 2; }
     for m in m3 m4; do
-        if [ "$m" = m3 ]; then got="$(cd "$T" && timeout 20s "$SCRIP" "$arm.sno" < /dev/null 2>&1)"
+        if [ "$m" = m3 ]; then got="$(cd "$T" && timeout -k 5 20s "$SCRIP" "$arm.sno" < /dev/null 2>&1)"
         else
             "$SCRIP" --compile -o "$T/$arm.s" "$T/$arm.sno" < /dev/null >/dev/null 2>&1 || { echo "  RED  $arm $m -- compile failed"; bad=1; continue; }
             gcc -no-pie "$T/$arm.s" -o "$T/$arm.x" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread >/dev/null 2>&1 || { echo "  RED  $arm $m -- link failed"; bad=1; continue; }
-            got="$(cd "$T" && timeout 20s "./$arm.x" < /dev/null 2>&1)"
+            got="$(cd "$T" && timeout -k 5 20s "./$arm.x" < /dev/null 2>&1)"
         fi
         graded=$((graded + 1))
         if [ "$got" = "$want" ]; then echo "  ok   $arm $m -- [$(printf '%s' "$got" | tr '\n' '/')]"

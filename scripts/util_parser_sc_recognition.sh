@@ -30,7 +30,7 @@ PY
 fi
 if [ ! -s "$OUT/c.dump" ] || [ "$X" -nt "$OUT/c.dump" ] || [ "$LIST" -nt "$OUT/c.dump" ]; then
     : > "$OUT/c.dump"
-    while IFS= read -r f; do echo "== $f" >> "$OUT/c.dump"; ( cd "$(dirname "$f")" && SNO_LIB="$C/include" timeout 60 "$X" - < "$f" >> "$OUT/c.dump" 2>/dev/null ) || echo "Parse Error" >> "$OUT/c.dump"; done < "$LIST"
+    while IFS= read -r f; do echo "== $f" >> "$OUT/c.dump"; ( cd "$(dirname "$f")" && SNO_LIB="$C/include" timeout -k 5 60 "$X" - < "$f" >> "$OUT/c.dump" 2>/dev/null ) || echo "Parse Error" >> "$OUT/c.dump"; done < "$LIST"
 fi
 SHOW="${SHOW:-3}" CHUNK="${CHUNK:-25}" bash "$here/util_parser_sc_grade.sh" "$L" "$LIST" "$OUT/c.dump" "$OUT/grade" > "$OUT/grade.out" 2>&1; g=$?
 line=$(grep -m1 '^PARSER-SC lang=' "$OUT/grade.out"); [ -n "$line" ] || { echo "PARSER-SC-RECOGNITION ⛔ REFUSE(2): the grader printed no PARSER-SC line: $(head -2 "$OUT/grade.out" | cut -c1-200)"; exit 2; }

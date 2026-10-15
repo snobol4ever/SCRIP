@@ -27,17 +27,17 @@ GEND
 END
 EOF
 SINK="$(sbl_listing_sink_flag "$W")" || { echo "GATE REFUSES(2): no writable listing sink"; exit 2; }
-EXP="$(cd "$W" && timeout 10s "$SBL" $(sbl_lang_flags) $SINK f.sno </dev/null 2>&1)"; orc=$?
+EXP="$(cd "$W" && timeout -k 5 10s "$SBL" $(sbl_lang_flags) $SINK f.sno </dev/null 2>&1)"; orc=$?
 [ "$orc" -eq 0 ] || { echo "GATE REFUSES(2): the oracle itself did not grade the witness (rc=$orc)"; exit 2; }
 printf '%s' "$EXP" | grep -q 'at-G1' || { echo "GATE REFUSES(2): oracle output does not carry the re-DEFINE'd entry -- witness or oracle changed under this gate"; exit 2; }
 bad=0
-GOT3="$(cd "$W" && timeout 10s "$SD/scrip" --run f.sno </dev/null 2>&1)"
+GOT3="$(cd "$W" && timeout -k 5 10s "$SD/scrip" --run f.sno </dev/null 2>&1)"
 if [ "$GOT3" != "$EXP" ]; then bad=1; echo "  FAIL  m3 entry rebinding"; diff <(printf '%s\n' "$GOT3") <(printf '%s\n' "$EXP") | head -6; else echo "  ok    m3 entry rebinding"; fi
 T="$(mktemp -d)" || exit 2
-if ( cd "$W" && timeout 60s "$SD/scrip" --compile f.sno ) > "$T/p.s" 2>"$T/cc.err" \
+if ( cd "$W" && timeout -k 5 60s "$SD/scrip" --compile f.sno ) > "$T/p.s" 2>"$T/cc.err" \
    && gcc -c "$T/p.s" -o "$T/p.o" 2>/dev/null \
    && gcc "$T/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$W/f.bin" 2>/dev/null; then
-    GOT4="$(cd "$W" && timeout 10s ./f.bin </dev/null 2>&1)"
+    GOT4="$(cd "$W" && timeout -k 5 10s ./f.bin </dev/null 2>&1)"
     if [ "$GOT4" != "$EXP" ]; then bad=1; echo "  FAIL  m4 entry rebinding"; diff <(printf '%s\n' "$GOT4") <(printf '%s\n' "$EXP") | head -6; else echo "  ok    m4 entry rebinding"; fi
 else
     rm -rf "$T"; echo "GATE REFUSES(2): mode-4 compile/link failed -- no program answer to grade"; exit 2

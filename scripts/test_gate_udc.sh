@@ -56,9 +56,9 @@ for w in cn_udc_declare cn_udc_reopen; do
   extract_witness "$w" || continue
   "$SCRIP" --compile "$EX_SNO" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
   gcc -no-pie "/tmp/gate_$w.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "/tmp/gate_$w.bin" 2>/dev/null
-  timeout 20 "$SCRIP" --run "$EX_SNO" < /dev/null > /tmp/gate_m3.txt 2>&1
+  timeout -k 5 20 "$SCRIP" --run "$EX_SNO" < /dev/null > /tmp/gate_m3.txt 2>&1
   diff -q /tmp/gate_m3.txt "$EX_REF" > /dev/null 2>&1; chk $? "m3 $w"
-  timeout 20 "/tmp/gate_$w.bin" < /dev/null > /tmp/gate_m4.txt 2>&1
+  timeout -k 5 20 "/tmp/gate_$w.bin" < /dev/null > /tmp/gate_m4.txt 2>&1
   diff -q /tmp/gate_m4.txt "$EX_REF" > /dev/null 2>&1; chk $? "m4 $w"
   # KW-4 deleted SCRIP_KW_STATIC, so the old `for arm in 0 1` loop ran the SAME binary path twice and
   # counted it as two passes -- the vacuous-gate class.  One arm, graded once, honest count.
@@ -66,7 +66,7 @@ done
 for w in cn_t1_eval cn_t2_eval_boundary cn_t1_scalar_fold; do   # ⭐ CN-11 added cn_t1_scalar_fold: it was pinned but only ever RUN in the default arm, and the T1=0 arm is where the shared-runtime keyword cascade shadowed a sealed &Pi with Icon's pi (3.141592653589793 vs the declared 3.14). A fold-tier witness must be swept in the arm where the fold is OFF -- that arm is the one that exercises the runtime read path the fold otherwise hides.
 extract_witness "$w" || continue
 for t1 in 0 1; do
-  SCRIP_CONST_T1=$t1 timeout 20 "$SCRIP" --run "$EX_SNO" < /dev/null > /tmp/gate_m3.txt 2>/dev/null
+  SCRIP_CONST_T1=$t1 timeout -k 5 20 "$SCRIP" --run "$EX_SNO" < /dev/null > /tmp/gate_m3.txt 2>/dev/null
   diff -q /tmp/gate_m3.txt "$EX_REF" > /dev/null 2>&1; chk $? "m3 $w CONST_T1=$t1"
   # ⛔ CN-11 -- THE m4 ARM WAS VACUOUS AND IS NOW REAL. The compile+link used to sit ABOVE this loop, so the .s was
   # produced ONCE at the DEFAULT arm and the loop then varied SCRIP_CONST_T1 on the already-built binary. T1 is a
@@ -76,7 +76,7 @@ for t1 in 0 1; do
   # Compiling INSIDE the loop with the arm's env applied is what makes the m4 column a second real medium.
   SCRIP_CONST_T1=$t1 "$SCRIP" --compile "$EX_SNO" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
   gcc -no-pie "/tmp/gate_$w.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "/tmp/gate_$w.bin" 2>/dev/null
-  SCRIP_CONST_T1=$t1 timeout 20 "/tmp/gate_$w.bin" < /dev/null > /tmp/gate_m4.txt 2>/dev/null
+  SCRIP_CONST_T1=$t1 timeout -k 5 20 "/tmp/gate_$w.bin" < /dev/null > /tmp/gate_m4.txt 2>/dev/null
   diff -q /tmp/gate_m4.txt "$EX_REF" > /dev/null 2>&1; chk $? "m4 $w CONST_T1=$t1"
 done
 done
@@ -88,12 +88,12 @@ for w in cn_t1_eval_undecl cn_eval_fails_not_aborts cn_indirect_is_ordinary_var 
 extract_witness "$w" || continue
 "$SCRIP" --compile "$EX_SNO" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
 gcc -no-pie "/tmp/gate_$w.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "/tmp/gate_$w.bin" 2>/dev/null
-timeout 20 "$SCRIP" --run "$EX_SNO" < /dev/null 2>/dev/null > /tmp/gate_u3.txt
-timeout 20 "/tmp/gate_$w.bin" < /dev/null 2>/dev/null > /tmp/gate_u4.txt
+timeout -k 5 20 "$SCRIP" --run "$EX_SNO" < /dev/null 2>/dev/null > /tmp/gate_u3.txt
+timeout -k 5 20 "/tmp/gate_$w.bin" < /dev/null 2>/dev/null > /tmp/gate_u4.txt
 diff -q /tmp/gate_u3.txt "$EX_REF" > /dev/null 2>&1; chk $? "m3 $w == ref"
 diff -q /tmp/gate_u4.txt "$EX_REF" > /dev/null 2>&1; chk $? "m4 $w == ref"
-timeout 20 "$SCRIP" --run "$EX_SNO" < /dev/null 2>/tmp/gate_ue3.txt > /dev/null
-timeout 20 "/tmp/gate_$w.bin" < /dev/null 2>/tmp/gate_ue4.txt > /dev/null
+timeout -k 5 20 "$SCRIP" --run "$EX_SNO" < /dev/null 2>/tmp/gate_ue3.txt > /dev/null
+timeout -k 5 20 "/tmp/gate_$w.bin" < /dev/null 2>/tmp/gate_ue4.txt > /dev/null
 [ -s /tmp/gate_ue3.txt ]; [ $? = 1 ]; chk $? "$w m3 stderr SILENT (a caught error is not reported)"
 [ -s /tmp/gate_ue4.txt ]; [ $? = 1 ]; chk $? "$w m4 stderr SILENT (a caught error is not reported)"
 done
@@ -108,11 +108,11 @@ done
 w=cn_udc_closed
 "$SCRIP" --compile "$CN/$w.err_sno" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
 gcc -no-pie "/tmp/gate_$w.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "/tmp/gate_$w.bin" 2>/dev/null
-timeout 20 "$SCRIP" --run "$CN/$w.err_sno" < /dev/null 2>/dev/null > /tmp/gate_o3.txt
-timeout 20 "/tmp/gate_$w.bin" < /dev/null 2>/dev/null > /tmp/gate_o4.txt
+timeout -k 5 20 "$SCRIP" --run "$CN/$w.err_sno" < /dev/null 2>/dev/null > /tmp/gate_o3.txt
+timeout -k 5 20 "/tmp/gate_$w.bin" < /dev/null 2>/dev/null > /tmp/gate_o4.txt
 diff -q /tmp/gate_o3.txt /tmp/gate_o4.txt > /dev/null 2>&1; chk $? "$w stdout m3==m4"
-timeout 20 "$SCRIP" --run "$CN/$w.err_sno" < /dev/null 2>/tmp/gate_e3.txt > /dev/null
-timeout 20 "/tmp/gate_$w.bin" < /dev/null 2>/tmp/gate_e4.txt > /dev/null
+timeout -k 5 20 "$SCRIP" --run "$CN/$w.err_sno" < /dev/null 2>/tmp/gate_e3.txt > /dev/null
+timeout -k 5 20 "/tmp/gate_$w.bin" < /dev/null 2>/tmp/gate_e4.txt > /dev/null
 diff -q /tmp/gate_e3.txt /tmp/gate_e4.txt > /dev/null 2>&1; chk $? "$w stderr m3==m4"
 grep -q "251" /tmp/gate_e3.txt; chk $? "$w raises 251 with the namespace closed"
 grep -q "keyword operand is not name of defined keyword" /tmp/gate_e3.txt; chk $? "$w 251 text is oracle-verbatim"

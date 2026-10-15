@@ -82,14 +82,14 @@ absolute: ['/a/b/d',user]
 aux_names: ['$foo/2_$aux3',foo,2,bar,1]
 REF
 if [ -x "$GP_BIN/gprolog" ]; then
-    ( cd "$T" && PATH="$GP_BIN:$PATH" timeout 30 "$GP_BIN/gprolog" --consult-file w.pl < /dev/null 2>/dev/null | sed -n '/^sort1:/,$p' > gp.out )
+    ( cd "$T" && PATH="$GP_BIN:$PATH" timeout -k 5 30 "$GP_BIN/gprolog" --consult-file w.pl < /dev/null 2>/dev/null | sed -n '/^sort1:/,$p' > gp.out )
     cmp -s "$T/gp.out" "$T/ref" || { echo "⛔ REFUSED(2) [$GATE_NAME]: GNU Prolog 1.6.0 no longer prints the carried ref -- re-cut it from the oracle, never from SCRIP"; exit 2; }
 fi
 fail=0
-( cd "$T" && timeout 20 "$SCRIP" w.pl < /dev/null > m3.out 2>&1 ); rc3=$?
+( cd "$T" && timeout -k 5 20 "$SCRIP" w.pl < /dev/null > m3.out 2>&1 ); rc3=$?
 if cmp -s "$T/m3.out" "$T/ref"; then echo "  ok   (m3) 18 rows answer as GNU Prolog 1.6.0"; else echo "  FAIL (m3) rc=$rc3, first difference:"; diff "$T/ref" "$T/m3.out" | head -6 | sed 's/^/         /'; fail=1; fi
 if ( cd "$T" && "$SCRIP" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 && gcc -o w w.s -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>/dev/null ); then
-    ( cd "$T" && timeout 20 ./w < /dev/null > m4.out 2>&1 ); rc4=$?
+    ( cd "$T" && timeout -k 5 20 ./w < /dev/null > m4.out 2>&1 ); rc4=$?
     if cmp -s "$T/m4.out" "$T/ref"; then echo "  ok   (m4) the same, from the standalone build"; else echo "  FAIL (m4) rc=$rc4, first difference:"; diff "$T/ref" "$T/m4.out" | head -6 | sed 's/^/         /'; fail=1; fi
 else echo "  FAIL (m4) the witness did not compile or link in mode 4"; fail=1; fi
 [ "$fail" = 0 ] && { echo "✅ GATE PASS [$GATE_NAME]: m3 and m4 answer as GNU Prolog 1.6.0"; exit 0; }

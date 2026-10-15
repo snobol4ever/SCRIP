@@ -162,16 +162,16 @@ for entry in $WITNESSES; do
   xfail=0; is_in "$o" "$EXPECT_FAIL" && xfail=1
 
   "$SBL" $(sbl_lang_flags) "$src" </dev/null >"$W/$o.ora" 2>/dev/null; orc=$?
-  timeout "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3out" 2>"$W/$o.m3err"; m3rc=$?
+  timeout -k 5 "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3out" 2>"$W/$o.m3err"; m3rc=$?
   if gate_oracle_stdout_match "$W/$o.ora" "$W/$o.m3out" "$W/$o.m3err" "$m3rc"; then
     if [ "$xfail" = 1 ]; then m3v="PASS(!)"; else m3v=PASS; fi   # PASS(!) on an xfail witness = news (cure landed), never a violation
   else
     if [ "$xfail" = 1 ]; then m3v="FAIL(exp)"; else m3v=FAIL; bad=$((bad+1)); fi
   fi
 
-  timeout "$T" "$SCRIP" --compile -o "$W/$o.s0" "$src" </dev/null >/dev/null 2>&1
+  timeout -k 5 "$T" "$SCRIP" --compile -o "$W/$o.s0" "$src" </dev/null >/dev/null 2>&1
   if m4build "$W/$o.s0" "$W/$o.bin0"; then
-    timeout "$T" "$W/$o.bin0" </dev/null >"$W/$o.m4out" 2>"$W/$o.m4err"; m4rc=$?
+    timeout -k 5 "$T" "$W/$o.bin0" </dev/null >"$W/$o.m4out" 2>"$W/$o.m4err"; m4rc=$?
     if gate_oracle_stdout_match "$W/$o.ora" "$W/$o.m4out" "$W/$o.m4err" "$m4rc"; then
       if [ "$xfail" = 1 ]; then m4v="PASS(!)"; else m4v=PASS; fi
     else
@@ -185,14 +185,14 @@ for entry in $WITNESSES; do
   # ⛔ MUST pass the SAME path STRING (here always "$src", absolute) as the s0 build above: the compiler
   # embeds the literal command-line path into the .file debug directive, so an absolute-vs-relative
   # mismatch (e.g. via a `cd` subshell) produces a byte diff that is a test artifact, not a real one.
-  env "$PORT_TRACE_ENV=0" timeout "$T" "$SCRIP" --compile -o "$W/$o.s0b" "$src" </dev/null >/dev/null 2>&1
-  env "$PORT_TRACE_ENV=1" timeout "$T" "$SCRIP" --compile -o "$W/$o.s1" "$src" </dev/null >/dev/null 2>&1
+  env "$PORT_TRACE_ENV=0" timeout -k 5 "$T" "$SCRIP" --compile -o "$W/$o.s0b" "$src" </dev/null >/dev/null 2>&1
+  env "$PORT_TRACE_ENV=1" timeout -k 5 "$T" "$SCRIP" --compile -o "$W/$o.s1" "$src" </dev/null >/dev/null 2>&1
   ks=OK; { [ -s "$W/$o.s0" ] && cmp -s "$W/$o.s0" "$W/$o.s0b" && ! cmp -s "$W/$o.s0" "$W/$o.s1"; } || { ks=FAIL; bad=$((bad+1)); }
 
-  env "$PORT_TRACE_ENV=1" timeout "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3out.tr" 2>"$W/$o.m3.raw"; m3rc_tr=$?
+  env "$PORT_TRACE_ENV=1" timeout -k 5 "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3out.tr" 2>"$W/$o.m3.raw"; m3rc_tr=$?
   pert3=OK; { [ "$m3rc" = "$m3rc_tr" ] && cmp -s "$W/$o.m3out" "$W/$o.m3out.tr"; } || { pert3=FAIL; bad=$((bad+1)); }
   if m4build "$W/$o.s1" "$W/$o.bin1"; then
-    env "$PORT_TRACE_ENV=1" timeout "$T" "$W/$o.bin1" </dev/null >"$W/$o.m4out.tr" 2>"$W/$o.m4.raw"; m4rc_tr=$?
+    env "$PORT_TRACE_ENV=1" timeout -k 5 "$T" "$W/$o.bin1" </dev/null >"$W/$o.m4out.tr" 2>"$W/$o.m4.raw"; m4rc_tr=$?
     pert4=OK; { [ "$m4rc" = "$m4rc_tr" ] && cmp -s "$W/$o.m4out" "$W/$o.m4out.tr"; } || { pert4=FAIL; bad=$((bad+1)); }
   else pert4=NOBUILD; bad=$((bad+1)); : >"$W/$o.m4.raw"; fi
 

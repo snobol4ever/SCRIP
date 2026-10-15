@@ -13,9 +13,9 @@ run_test() {
     local icn="$CORPUS/${t}.icn"; local exp="$CORPUS/${t}.ref"
     local jfile="$TMPDIR_OUT/${t}.j"
     "$DRIVER" -jvm "$icn" -o "$jfile" 2>/dev/null
-    timeout 30 java -jar "$JASMIN" "$jfile" -d "$TMPDIR_OUT/" 2>/dev/null
+    timeout -k 5 30 java -jar "$JASMIN" "$jfile" -d "$TMPDIR_OUT/" 2>/dev/null
     local cls; cls=$(grep '\.class' "$jfile" | awk '{print $NF}')
-    local got; got=$(timeout 5 java -cp "$TMPDIR_OUT/" "$cls" 2>/dev/null)
+    local got; got=$(timeout -k 5 5 java -cp "$TMPDIR_OUT/" "$cls" 2>/dev/null)
     local expected; expected=$(cat "$exp")
     if [ "$got" = "$expected" ]; then echo "PASS $t"; PASS=$((PASS+1))
     else echo "FAIL $t"; echo "  expected: $(echo "$expected"|tr '\n' '|')"; echo "  got:      $(echo "$got"|tr '\n' '|')"; FAIL=$((FAIL+1)); fi

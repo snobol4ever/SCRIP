@@ -132,16 +132,16 @@ END
 EOF
 GRADED=0; FAIL=0
 for p in dump dump2b dump3 tord hash; do
-  (cd "$TD" && timeout 20s "$SBL" -bf "$p.sno" </dev/null >"$p.want" 2>&1) || refuse "the oracle did not run $p.sno cleanly -- cannot measure"
+  (cd "$TD" && timeout -k 5 20s "$SBL" -bf "$p.sno" </dev/null >"$p.want" 2>&1) || refuse "the oracle did not run $p.sno cleanly -- cannot measure"
   [ -s "$TD/$p.want" ] || refuse "the oracle produced no output for $p.sno -- cannot measure"
   grep -q 'dump of natural variables' "$TD/$p.want" || refuse "the oracle printed no dump for $p.sno -- cannot measure"
   for m in 3 4; do
     if [ "$m" = 3 ]; then
-      (cd "$TD" && timeout 20s "$SCRIP" --run --stlimit "$p.sno" </dev/null >"$p.got$m" 2>&1)
+      (cd "$TD" && timeout -k 5 20s "$SCRIP" --run --stlimit "$p.sno" </dev/null >"$p.got$m" 2>&1)
     else
       (cd "$TD" && "$SCRIP" --compile --stlimit -o "$p.s" "$p.sno" </dev/null >/dev/null 2>&1) || refuse "mode-4 compile of $p.sno failed -- cannot measure"
       (cd "$TD" && gcc -no-pie "$p.s" -o "$p.bin" -L "$ROOT/out" -lscrip_rt -lm -lpthread >/dev/null 2>&1) || refuse "mode-4 link of $p.sno failed -- cannot measure"
-      (cd "$TD" && LD_LIBRARY_PATH="$ROOT/out" timeout 20s "./$p.bin" </dev/null >"$p.got$m" 2>&1)
+      (cd "$TD" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 20s "./$p.bin" </dev/null >"$p.got$m" 2>&1)
     fi
     GRADED=$((GRADED+1))
     if cmp -s "$TD/$p.want" "$TD/$p.got$m"; then echo "  PASS m$m $p ($(wc -l <"$TD/$p.want") lines byte-identical to sbl -bf)"

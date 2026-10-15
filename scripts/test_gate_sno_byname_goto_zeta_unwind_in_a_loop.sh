@@ -60,15 +60,15 @@ mk c1 "S 'ell' = 'ELL'                    :(L)"
 mk c2 "T = S                              :(\$X)"
 graded=0; bad=0
 for a in b1 b2 c1 c2; do
-    want="$(timeout 60s "$ORACLE" -bf "$T/$a.sno" < /dev/null 2>&1 | tr '\n' '/')"
+    want="$(timeout -k 5 60s "$ORACLE" -bf "$T/$a.sno" < /dev/null 2>&1 | tr '\n' '/')"
     [ -n "$want" ] || { echo "UNPROVEN(2): oracle produced no output for $a -- refusing to grade SCRIP against nothing"; exit 2; }
     for m in m3 m4; do
         if [ "$m" = m3 ]; then
-            got="$(timeout 60s "$SCRIP" "$T/$a.sno" < /dev/null 2>&1 | tr '\n' '/')"
+            got="$(timeout -k 5 60s "$SCRIP" "$T/$a.sno" < /dev/null 2>&1 | tr '\n' '/')"
         else
             "$SCRIP" --compile -o "$T/$a.s" "$T/$a.sno" < /dev/null >/dev/null 2>&1 || { echo "  RED  $a $m -- compile failed"; bad=$((bad+1)); graded=$((graded+1)); continue; }
             gcc -no-pie "$T/$a.s" -o "$T/$a.x" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread >/dev/null 2>&1 || { echo "  RED  $a $m -- link failed"; bad=$((bad+1)); graded=$((graded+1)); continue; }
-            got="$(timeout 60s "$T/$a.x" < /dev/null 2>&1 | tr '\n' '/')"
+            got="$(timeout -k 5 60s "$T/$a.x" < /dev/null 2>&1 | tr '\n' '/')"
         fi
         graded=$((graded+1))
         if [ "$got" = "$want" ]; then echo "  ok   $a $m -- matches SPITBOL [$want]"

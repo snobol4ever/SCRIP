@@ -41,7 +41,7 @@ cat > "$W/ctl.sno" <<'EOF'
 END
 EOF
 printf "        OUTPUT = 'plain'\nEND\n" > "$W/plain.sno"
-for p in ctl plain; do timeout 8 "$SBL" -bf "$W/$p.sno" < /dev/null > "$W/$p.out" 2>/dev/null || { echo "GATE UNPROVEN(2) [$GATE_NAME]: sbl -bf refused the fixture $p.sno"; exit 2; }; done
+for p in ctl plain; do timeout -k 5 8 "$SBL" -bf "$W/$p.sno" < /dev/null > "$W/$p.out" 2>/dev/null || { echo "GATE UNPROVEN(2) [$GATE_NAME]: sbl -bf refused the fixture $p.sno"; exit 2; }; done
 python3 - "$HERE" "$W" <<'PY' || { echo "GATE UNPROVEN(2) [$GATE_NAME]: could not build the scratch container"; exit 2; }
 import sys, pathlib
 sys.path.insert(0, sys.argv[1]); import corpus_suite_harness as h
@@ -56,7 +56,7 @@ premise=$(python3 -c "import sys; b=open(sys.argv[1],'rb').read(); print(all(c i
 board() { grep -o "m$2_pass=[0-9]*" <<<"$1" | head -1 | cut -d= -f2; }
 
 echo "--- ARM 1: a container carrying CR, VT, FF, FS, GS, RS grades PASS in both modes ---"
-o1=$(S4E_PROGRESS_DB="$W/db1.tsv" timeout 300 python3 "$H" run "$W/s/ALL.sno" "$W/s/ALL.ref" --modes m3,m4 2>&1); r1=$?
+o1=$(S4E_PROGRESS_DB="$W/db1.tsv" timeout -k 5 300 python3 "$H" run "$W/s/ALL.sno" "$W/s/ALL.ref" --modes m3,m4 2>&1); r1=$?
 b1=$(grep '^SUITE_BOARD' <<<"$o1" | head -1)
 [ -n "$b1" ] || { echo "$o1" | tail -8; echo "GATE UNPROVEN(2) [$GATE_NAME]: the harness printed no SUITE_BOARD line (rc $r1)"; exit 2; }
 ck "1 both entries PASS in m3 and m4 (rc $r1; m3_pass=$(board "$b1" 3) m4_pass=$(board "$b1" 4) of 2)" '[ "$r1" = 0 ] && [ "$(board "$b1" 3)" = 2 ] && [ "$(board "$b1" 4)" = 2 ]'
@@ -65,12 +65,12 @@ echo "--- ARM 2: FAIL-ONCE -- the old reader planted back ---"
 mkdir -p "$W/fo"; cp -rs "$HERE" "$W/fo/scripts" 2>/dev/null; rm -f "$W/fo/scripts/corpus_suite_harness.py"
 sed 's/^    return _lf_lines(Path(path).read_bytes().decode("utf-8"))$/    return Path(path).read_text().splitlines()  # FAIL_ONCE: the old reader/' "$H" > "$W/fo/scripts/corpus_suite_harness.py"
 grep -q 'FAIL_ONCE: the old reader' "$W/fo/scripts/corpus_suite_harness.py" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the plant found no _read_lf_lines anchor -- re-anchor"; exit 2; }
-o2=$(S4E_PROGRESS_DB="$W/db2.tsv" SCRIP="$HERE/../scrip" RT_DIR="$HERE/../out" timeout 300 python3 "$W/fo/scripts/corpus_suite_harness.py" run "$W/s/ALL.sno" "$W/s/ALL.ref" --modes m3,m4 2>&1); r2=$?
+o2=$(S4E_PROGRESS_DB="$W/db2.tsv" SCRIP="$HERE/../scrip" RT_DIR="$HERE/../out" timeout -k 5 300 python3 "$W/fo/scripts/corpus_suite_harness.py" run "$W/s/ALL.sno" "$W/s/ALL.ref" --modes m3,m4 2>&1); r2=$?
 b2=$(grep '^SUITE_BOARD' <<<"$o2" | head -1)
 ck "2 with the old reader the control entry reads FAIL in both modes and the plain one still passes (rc $r2; m3_pass=$(board "$b2" 3) m4_pass=$(board "$b2" 4) of 2)" '[ -n "$b2" ] && [ "$(board "$b2" 3)" = 1 ] && [ "$(board "$b2" 4)" = 1 ]'
 
 echo "--- ARM 3: over the real corpus only the entries whose ref carries such a byte read differently ---"
-o3=$(timeout 600 python3 - "$HERE" "$C" <<'PY' 2>&1
+o3=$(timeout -k 5 600 python3 - "$HERE" "$C" <<'PY' 2>&1
 import sys, pathlib
 sys.path.insert(0, sys.argv[1]); import corpus_suite_harness as h
 C = pathlib.Path(sys.argv[2]); SEPS = ("\r", "\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", " ", " ")

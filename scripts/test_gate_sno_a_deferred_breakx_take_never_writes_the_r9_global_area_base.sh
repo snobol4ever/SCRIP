@@ -18,9 +18,9 @@ command -v gcc >/dev/null 2>&1 || { echo "GATE REFUSED(2) [$G]: gcc absent"; exi
 SBL="${SBL:-/home/resources/x64/bin/sbl}"; [ -x "$SBL" ] || { echo "GATE REFUSED(2) [$G]: no sbl at $SBL"; exit 2; }
 W="$(mktemp -d "${TMPDIR:-/tmp}/snobx.XXXXXX")" || { echo "GATE REFUSED(2) [$G]: no workdir"; exit 2; }; trap 'rm -rf "$W"' EXIT
 printf "        'ab' ? BREAKX(*F())\n        V = 'b'\n        OUTPUT = 'next'\n        'ab' ? BREAKX(*F()) 'x'\n        V2 = 'c'\n        OUTPUT = 'again'\n        'ab' ? SPAN(*G())\n        W = 'd'\n        OUTPUT = 'after span ' V V2 W\nEND\n" > "$W/w.sno"
-( cd "$W" && timeout 10 "$SBL" -bf "$W/w.sno" < /dev/null 2>/dev/null ) | grep -v '^$' > "$W/ref"
+( cd "$W" && timeout -k 5 10 "$SBL" -bf "$W/w.sno" < /dev/null 2>/dev/null ) | grep -v '^$' > "$W/ref"
 [ -s "$W/ref" ] || { echo "GATE REFUSED(2) [$G]: sbl printed nothing"; exit 2; }
-( cd "$W" && timeout 60 "$ROOT/scrip" --compile "$W/w.sno" < /dev/null > "$W/w.s" 2>/dev/null ) && gcc -no-pie "$W/w.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/w.bin" 2>/dev/null || { echo "GATE REFUSED(2) [$G]: the witness does not compile or link"; exit 2; }
+( cd "$W" && timeout -k 5 60 "$ROOT/scrip" --compile "$W/w.sno" < /dev/null > "$W/w.s" 2>/dev/null ) && gcc -no-pie "$W/w.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/w.bin" 2>/dev/null || { echo "GATE REFUSED(2) [$G]: the witness does not compile or link"; exit 2; }
 bad=0
 arm() {
     local n="$1" label="$2"; shift 2
@@ -28,9 +28,9 @@ arm() {
     grep -v '^\[GC-' "$W/$n.out" | grep -v '^$' > "$W/$n.txt"
     if [ $rc -eq 0 ] && cmp -s "$W/$n.txt" "$W/ref"; then echo "  ok  ($n) $label: rc 0, sbl's lines"; else echo "  RED ($n) $label: rc=$rc, the output differs from sbl's"; diff "$W/ref" "$W/$n.txt" | head -4; bad=1; fi
 }
-arm 1 "mode 3" timeout 10 "$ROOT/scrip" "$W/w.sno"
-arm 2 "mode 4" timeout 10 "$W/w.bin"
-arm 3 "mode 3 under SCRIP_GC_STRESS=1" env SCRIP_GC_STRESS=1 timeout 30 "$ROOT/scrip" "$W/w.sno"
+arm 1 "mode 3" timeout -k 5 10 "$ROOT/scrip" "$W/w.sno"
+arm 2 "mode 4" timeout -k 5 10 "$W/w.bin"
+arm 3 "mode 3 under SCRIP_GC_STRESS=1" env SCRIP_GC_STRESS=1 timeout -k 5 30 "$ROOT/scrip" "$W/w.sno"
 REG='r9d?'; [ "${FAIL_ONCE:-0}" = 1 ] && REG='rsi'
 hits=$(grep -nE 'x86\("(mov|lea|pop|xor)", "'"$REG"'"' "$ROOT/src/templates/bb/bb_match_breakx.cpp" | wc -l)
 if [ "$hits" -eq 0 ]; then echo "  ok  (4) static: bb_match_breakx.cpp never writes r9"; else echo "  RED (4) static: bb_match_breakx.cpp writes $REG at $hits site(s):"; grep -nE 'x86\("(mov|lea|pop|xor)", "'"$REG"'"' "$ROOT/src/templates/bb/bb_match_breakx.cpp" | head -4; bad=1; fi

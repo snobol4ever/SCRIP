@@ -28,7 +28,7 @@ procedure main()
    write(n);
 end
 EOF
-out="$(cd "$T" && timeout 300 bash "$HERE/monitor_run.sh" csetwire.icn --oracle 2>&1)"; rc=$?
+out="$(cd "$T" && timeout -k 5 300 bash "$HERE/monitor_run.sh" csetwire.icn --oracle 2>&1)"; rc=$?
 line="$(printf '%s\n' "$out" | grep -aE '^\[monitor_run\] (AGREE|DIVERGE|UNGRADED)|REFUSE' | tail -1 | cut -c1-200)"
 if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qaE '^\[monitor_run\] UNGRADED=[1-9]' && ! printf '%s\n' "$out" | grep -qa 'WIRE BROKE'; then
     echo "  $line"

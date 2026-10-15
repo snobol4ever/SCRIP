@@ -32,7 +32,7 @@ for name in $STDIN_FAMILIES; do
     asm="$TMP/$name.s"
     obj="$TMP/$name.o"
     exe="$TMP/$name"
-    timeout 8s "$SCRIP" --compile "$pas" < /dev/null > "$asm" 2>/dev/null
+    timeout -k 5 8s "$SCRIP" --compile "$pas" < /dev/null > "$asm" 2>/dev/null
     if [ $? -ne 0 ] || [ ! -s "$asm" ]; then
         echo -e "$name\tCOMPILE_FAIL\t" >> "$RESULTS"
         FAIL=$((FAIL+1)); continue
@@ -44,7 +44,7 @@ for name in $STDIN_FAMILIES; do
         FAIL=$((FAIL+1)); continue
     fi
     inp="$CORPUS/$name.in"; [ -f "$inp" ] || inp=/dev/null
-    out=$(timeout 8s "$exe" < "$inp" 2>/dev/null)
+    out=$(timeout -k 5 8s "$exe" < "$inp" 2>/dev/null)
     rc=$?
     exp=$(cat "$ref")
     if [ $rc -eq 124 ]; then
@@ -73,7 +73,7 @@ if [ -f "$RUNGS_SRC" ] && [ -f "$RUNGS_REF" ]; then
     # populated, 5239 lines. hq_S measured that message, went and checked the corpus, and found it fine (relayed by the coo
     # 2026-09-13). ⭐ THE COST IS NOT THE RED, IT IS THE FALSE CAUSE: a gate that cannot measure must say so and name what
     # stopped it, never nominate a suspect it never looked at. RULES.md § a correct procedure with a false explanation.
-    HERR=$(mktemp); board=$(timeout 180s python3 "$HARNESS" run "$RUNGS_SRC" "$RUNGS_REF" --lang pascal --modes m4 2>"$HERR"); hrc=$?
+    HERR=$(mktemp); board=$(timeout -k 5 180s python3 "$HARNESS" run "$RUNGS_SRC" "$RUNGS_REF" --lang pascal --modes m4 2>"$HERR"); hrc=$?
     if [ $hrc -eq 2 ]; then
         echo "⛔ REFUSED-TO-GRADE rc=2: the harness refused the rungs, so M4 has NO rungs verdict. This gate does not know the rungs is bad and does not say so." >&2
         sed 's/^/    harness said: /' "$HERR" >&2; rm -f "$HERR"
@@ -109,9 +109,9 @@ if [ -f "$WCORPUS/uplevel2.pas" ]; then
         wname=$(basename "$wpas" .pas); wref="$WCORPUS/$wname.ref"
         [ -f "$wref" ] || continue
         W_EXAMINED=$((W_EXAMINED+1)); wexe="$TMP/w_$wname"
-        if timeout 60s "$SCRIP" --compile "$wpas" < /dev/null > "$wexe.s" 2>/dev/null && [ -s "$wexe.s" ] \
+        if timeout -k 5 60s "$SCRIP" --compile "$wpas" < /dev/null > "$wexe.s" 2>/dev/null && [ -s "$wexe.s" ] \
            && gcc -c -o "$wexe.o" "$wexe.s" 2>/dev/null && gcc -o "$wexe" "$wexe.o" "$RT" -no-pie -Wl,-rpath,"$(dirname $RT)" 2>/dev/null; then
-            wout=$(printf '1\n' | timeout 120s "$wexe" 2>/dev/null); wrc=$?
+            wout=$(printf '1\n' | timeout -k 5 120s "$wexe" 2>/dev/null); wrc=$?
         else wout=""; wrc=254; fi
         if [ $wrc -eq 0 ] && [ "$wout" = "$(cat "$wref")" ]; then
             echo -e "witness:$wname\tPASS\t" >> "$RESULTS"; W_PASS=$((W_PASS+1)); PASS=$((PASS+1))

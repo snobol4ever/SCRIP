@@ -43,7 +43,7 @@ loads=$(grep -c 'g_gc_pending@GOTPCREL' "$W/churn.s"); calls=$(grep -cE 'call +(
 [ "$calls" -gt 0 ] && [ "$loads" -eq "$calls" ] && [ "$lbls" -eq "$calls" ] && [ "$jes" -eq "$calls" ] && echo "ok  every poll form is gated: $calls poll calls, $loads flag loads, $jes skips, $lbls landing labels" || { echo "RED: poll calls=$calls flag loads=$loads skips=$jes labels=$lbls (want all equal and > 0)"; red=1; }
 gcc "$W/churn.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/churn.bin" 2>/dev/null || { echo "RED: churn.s did not link"; exit 1; }
 for M in m3 m4; do
-    if [ "$M" = m3 ]; then ( cd "$W" && SCRIP_GC_EXERCISE=1 timeout 60 "$ROOT/scrip" churn.sno < /dev/null > "$W/churn.$M" 2> "$W/churn.$M.err" ); else ( cd "$W" && SCRIP_GC_EXERCISE=1 timeout 60 "./churn.bin" < /dev/null > "$W/churn.$M" 2> "$W/churn.$M.err" ); fi
+    if [ "$M" = m3 ]; then ( cd "$W" && SCRIP_GC_EXERCISE=1 timeout -k 5 60 "$ROOT/scrip" churn.sno < /dev/null > "$W/churn.$M" 2> "$W/churn.$M.err" ); else ( cd "$W" && SCRIP_GC_EXERCISE=1 timeout -k 5 60 "./churn.bin" < /dev/null > "$W/churn.$M" 2> "$W/churn.$M.err" ); fi
     nc=$(grep -o 'collections=[0-9]*' "$W/churn.$M.err" | head -1 | cut -d= -f2)
     [ -n "$nc" ] && [ "$nc" -gt 0 ] && echo "ok  $M: the slow path is live -- collections=$nc at the shipped arena" || { echo "RED $M: collections=${nc:-unread} at the shipped arena -- the gate never reaches the leaf"; red=1; }
     cmp -s "$W/churn.$M" "$W/churn.ref" && echo "ok  $M = oracle" || { echo "RED $M differs from the oracle:"; diff "$W/churn.ref" "$W/churn.$M" | head -6; red=1; }

@@ -119,15 +119,15 @@ main :- det(0), det(5), nore(_), redoarm, cutarm, elseredo, nested, sc1, sc2, sc
         ite_in_findall, sc_in_findall, ite_backtrack_into.
 EOF
 strip() { sed -e 's/[[:space:]]*$//' | sed -e :a -e '/^$/{$d;N;ba' -e '}'; }
-timeout 60 swipl -q -g true "$TMP/g.pl" </dev/null 2>/dev/null | strip > "$TMP/oracle.txt"
+timeout -k 5 60 swipl -q -g true "$TMP/g.pl" </dev/null 2>/dev/null | strip > "$TMP/oracle.txt"
 orn=$(wc -l < "$TMP/oracle.txt")
 if [ "$orn" -lt 20 ]; then echo "⛔ GATE REFUSED (rc=2): oracle produced $orn lines, expected 28 -- nothing was graded" >&2; exit 2; fi
-timeout 60 "$SCRIP" "$TMP/g.pl" </dev/null 2>&1 | strip > "$TMP/m3.txt"
-( cd "$TMP" && timeout 120 "$SCRIP" --compile g.pl > g.s 2>/dev/null \
+timeout -k 5 60 "$SCRIP" "$TMP/g.pl" </dev/null 2>&1 | strip > "$TMP/m3.txt"
+( cd "$TMP" && timeout -k 5 120 "$SCRIP" --compile g.pl > g.s 2>/dev/null \
   && gcc -c g.s -o g.o 2>/dev/null \
   && gcc g.o -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o g.bin 2>/dev/null ) || {
     echo "⛔ GATE REFUSED (rc=2): the m4 witness would not compile or link -- m4 was not graded" >&2; exit 2; }
-timeout 60 "$TMP/g.bin" </dev/null 2>&1 | strip > "$TMP/m4.txt"
+timeout -k 5 60 "$TMP/g.bin" </dev/null 2>&1 | strip > "$TMP/m4.txt"
 a2=0
 for m in m3 m4; do
     if diff -q "$TMP/oracle.txt" "$TMP/$m.txt" >/dev/null 2>&1; then

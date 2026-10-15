@@ -45,12 +45,12 @@ pass=0; fail=0; failed_names=()
 # a witness may ship a .dat beside it -- that file is its stdin (kw_trim_effect needs one to
 # show that &TRIM actually trims).  Absent, stdin is /dev/null.
 stdin_for() { local d="${1%.sno}.dat"; [[ -f "$d" ]] && echo "$d" || echo /dev/null; }
-run_mode3() { timeout 30 "$SCRIP_BIN" --run "$1" < "$(stdin_for "$1")" > "$2" 2>&1; }
+run_mode3() { timeout -k 5 30 "$SCRIP_BIN" --run "$1" < "$(stdin_for "$1")" > "$2" 2>&1; }
 run_mode4() {
     local sno="$1" out="$2" s="$WORK/m4.s" exe="$WORK/m4.bin"
-    timeout 30 "$SCRIP_BIN" --compile "$sno" < /dev/null > "$s" 2>/dev/null || return 1
+    timeout -k 5 30 "$SCRIP_BIN" --compile "$sno" < /dev/null > "$s" 2>/dev/null || return 1
     gcc -no-pie -o "$exe" "$s" -L"$SCRIP_DIR/out" -lscrip_rt -lm > /dev/null 2>&1 || return 1
-    LD_LIBRARY_PATH="$SCRIP_DIR/out" timeout 30 "$exe" < "$(stdin_for "$sno")" > "$out" 2>&1
+    LD_LIBRARY_PATH="$SCRIP_DIR/out" timeout -k 5 30 "$exe" < "$(stdin_for "$sno")" > "$out" 2>&1
 }
 for ref in "$PROBE_DIR"/*.ref; do
     [[ -e "$ref" ]] || { echo "GATE BLOCKED: no .ref files in $PROBE_DIR"; exit 2; }

@@ -103,7 +103,7 @@ Y       X = CR(B)
 SNO
 
 run_sbl() {  # -> $1.sbl.out (stdout before the error), $1.sbl.fatal (FATAL/CLEAN), $1.sbl.line
-    (cd "$D" && timeout 20 "$SBL" -bf "$1.sno" </dev/null > "$1.sbl.raw" 2>/dev/null)
+    (cd "$D" && timeout -k 5 20 "$SBL" -bf "$1.sno" </dev/null > "$1.sbl.raw" 2>/dev/null)
     if grep -q "^$1.sno([0-9]*) : ERROR [0-9]" "$D/$1.sbl.raw"; then
         echo FATAL > "$D/$1.sbl.fatal"; grep -o "^$1.sno([0-9]*) : ERROR" "$D/$1.sbl.raw" | head -1 | tr -dc '0-9' > "$D/$1.sbl.line"
         sed -n "/^$1.sno([0-9]*) : ERROR/q;p" "$D/$1.sbl.raw" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' > "$D/$1.sbl.out"
@@ -111,12 +111,12 @@ run_sbl() {  # -> $1.sbl.out (stdout before the error), $1.sbl.fatal (FATAL/CLEA
 }
 run_scrip() {  # $1 name $2 mode -> $1.$2.out/.err/.fatal/.line
     local n="$1" m="$2" rc
-    if [ "$m" = m3 ]; then (cd "$D" && timeout 20 "$B/scrip" --stlimit "$n.sno" </dev/null > "$n.$m.out" 2> "$n.$m.err"); rc=$?
+    if [ "$m" = m3 ]; then (cd "$D" && timeout -k 5 20 "$B/scrip" --stlimit "$n.sno" </dev/null > "$n.$m.out" 2> "$n.$m.err"); rc=$?
     else "$B/scrip" --compile --stlimit -o "$D/$n.s" "$D/$n.sno" </dev/null >/dev/null 2>&1 \
            && as -o "$D/$n.o" "$D/$n.s" 2>/dev/null \
            && gcc -o "$D/$n.bin" "$D/$n.o" "$B/out/libscrip_rt.so" -lm -Wl,-rpath,"$B/out" 2>/dev/null \
            || refuse "could not build the m4 arm of $n -- a toolchain failure, not a verdict"
-         (cd "$D" && timeout 20 "./$n.bin" </dev/null > "$n.$m.out" 2> "$n.$m.err"); rc=$?; fi
+         (cd "$D" && timeout -k 5 20 "./$n.bin" </dev/null > "$n.$m.out" 2> "$n.$m.err"); rc=$?; fi
     [ "$rc" -ge 124 ] && refuse "$n $m timed out or died of a signal (rc=$rc) -- neither verdict"
     if [ "$rc" -ne 0 ]; then echo FATAL > "$D/$n.$m.fatal"; grep -o "$n\.sno:[0-9]*" "$D/$n.$m.err" | head -1 | sed 's/.*://' | tr -dc '0-9' > "$D/$n.$m.line"
     else echo CLEAN > "$D/$n.$m.fatal"; : > "$D/$n.$m.line"; fi

@@ -51,18 +51,18 @@ G_END
 L1      OUTPUT = 'dot-continued'
 END
 EOF
-for w in w c; do ( cd "$T" && timeout 10 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>/dev/null ) || refuse "the oracle did not run $w cleanly"; done
+for w in w c; do ( cd "$T" && timeout -k 5 10 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>/dev/null ) || refuse "the oracle did not run $w cleanly"; done
 [ "$(tr '\n' '|' < "$T/w.oracle")" = "gg4|5|dot-continued|" ] || refuse "the oracle's answer moved: [$(tr '\n' '|' < "$T/w.oracle")]"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
 same() { [ "$1" = 0 ] || { echo "rc=$1"; return; }; cmp -s "$T/$2" "$T/$3" && echo ok || echo "got [$(tr '\n' '|' < "$T/$2" | head -c 80)] want [$(tr '\n' '|' < "$T/$3" | head -c 80)]"; }
-rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout 10 "$SCRIP" w.sno < /dev/null > w.m3 2>/dev/null; echo $? )
+rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout -k 5 10 "$SCRIP" w.sno < /dev/null > w.m3 2>/dev/null; echo $? )
 arm "m3: &STCOUNT, &STNO and the '.'-continued statement answer the oracle" "$(same "$rc" w.m3 w.oracle)"
-rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout 20 "$SCRIP" --compile -o w.s w.sno < /dev/null > /dev/null 2>&1 && gcc w.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o w.bin > /dev/null 2>&1 && timeout 10 ./w.bin < /dev/null > w.m4 2>/dev/null; echo $? )
+rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout -k 5 20 "$SCRIP" --compile -o w.s w.sno < /dev/null > /dev/null 2>&1 && gcc w.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o w.bin > /dev/null 2>&1 && timeout -k 5 10 ./w.bin < /dev/null > w.m4 2>/dev/null; echo $? )
 arm "m4: &STCOUNT, &STNO and the '.'-continued statement answer the oracle" "$(same "$rc" w.m4 w.oracle)"
-ast=$( cd "$T" && timeout 10 "$SCRIP" --dump-ast w.sno < /dev/null 2>/dev/null )
+ast=$( cd "$T" && timeout -k 5 10 "$SCRIP" --dump-ast w.sno < /dev/null 2>/dev/null )
 arm "PARSE: the '+'-continued label is one statement carrying the label and the assignment" "$(printf '%s\n' "$ast" | grep -qE '^\(STMT :lbl G :eq :subj \(TT_VAR G\)' && ! printf '%s\n' "$ast" | grep -qE '^\(STMT :lbl G\)$' && echo ok || echo "dump-ast: $(printf '%s\n' "$ast" | grep -E ':lbl G[ )]' | head -2 | tr '\n' '|')")"
-rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout 10 "$SCRIP" c.sno < /dev/null > c.m3 2>/dev/null; echo $? )
+rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout -k 5 10 "$SCRIP" c.sno < /dev/null > c.m3 2>/dev/null; echo $? )
 arm "CONTROL: labels on their bodies' lines answer the oracle" "$(same "$rc" c.m3 c.oracle)"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }
 echo "FAIL [$NAME]"; exit 1

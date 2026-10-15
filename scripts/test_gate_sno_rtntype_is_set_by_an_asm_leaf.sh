@@ -38,9 +38,9 @@ red=0
 ( cd "$W" && "$ROOT/scrip" --compile -o "$W/rt.s" rt.sno < /dev/null > /dev/null 2>&1 ) || { echo "RED: rt.sno did not compile"; exit 1; }
 nc=$(grep -c 'call .*\[rip + rt_kw_set_rtntype_role@GOTPCREL\]' "$W/rt.s"); nv=$(grep -B3 'call .*\[rip + rt_kw_set_rtntype_role@GOTPCREL\]' "$W/rt.s" | grep -c 'rtccb')
 [ "$nc" -gt 0 ] && [ "$nv" -eq 0 ] && echo "ok  rt_kw_set_rtntype_role: $nc bare GOT calls, no veneer" || { echo "RED: calls=$nc veneered=$nv"; red=1; }
-( cd "$W" && timeout 20 "$ROOT/scrip" rt.sno < /dev/null > "$W/rt.m3" 2>&1 ); cmp -s "$W/rt.m3" "$W/rt.ref" && echo "ok  m3 = oracle" || { echo "RED m3 differs from the oracle:"; diff "$W/rt.ref" "$W/rt.m3" | head -8; red=1; }
+( cd "$W" && timeout -k 5 20 "$ROOT/scrip" rt.sno < /dev/null > "$W/rt.m3" 2>&1 ); cmp -s "$W/rt.m3" "$W/rt.ref" && echo "ok  m3 = oracle" || { echo "RED m3 differs from the oracle:"; diff "$W/rt.ref" "$W/rt.m3" | head -8; red=1; }
 if gcc "$W/rt.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/rt.bin" 2>/dev/null; then
-    ( cd "$W" && timeout 20 "./rt.bin" < /dev/null > "$W/rt.m4" 2>&1 ); cmp -s "$W/rt.m4" "$W/rt.ref" && echo "ok  m4 = oracle" || { echo "RED m4 differs from the oracle:"; diff "$W/rt.ref" "$W/rt.m4" | head -8; red=1; }
+    ( cd "$W" && timeout -k 5 20 "./rt.bin" < /dev/null > "$W/rt.m4" 2>&1 ); cmp -s "$W/rt.m4" "$W/rt.ref" && echo "ok  m4 = oracle" || { echo "RED m4 differs from the oracle:"; diff "$W/rt.ref" "$W/rt.m4" | head -8; red=1; }
 else echo "RED: rt.s did not link"; red=1; fi
 [ "$red" -eq 0 ] && { echo "GATE OK: &RTNTYPE is written by the asm leaf and reads the oracle's values after RETURN, FRETURN and NRETURN in both modes"; exit 0; }
 echo "GATE FAILED: see the RED lines above"; exit 1

@@ -114,7 +114,7 @@ check_lang() {
     local run_err="$TMP/${lang}.run.err"
     local actual=""
 
-    timeout 8 "$SCRIP" --compile "$src" > "$s" 2> "$compile_err"
+    timeout -k 5 8 "$SCRIP" --compile "$src" > "$s" 2> "$compile_err"
     local c_rc=$?
     if [ "$c_rc" -ne 0 ] || [ ! -s "$s" ]; then
         actual="FAIL-compile"
@@ -126,7 +126,7 @@ check_lang() {
             actual="FAIL-link"
         else
             bash -c '
-                timeout 5 "$1" > "$2" 2> "$3"
+                timeout -k 5 5 "$1" > "$2" 2> "$3"
                 exit $?
             ' _ "$bin" "$run_out" "$run_err" 2>/dev/null
             local r_rc=$?

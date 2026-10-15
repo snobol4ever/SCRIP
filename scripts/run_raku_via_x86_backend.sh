@@ -14,7 +14,7 @@ RK="${1:?Usage: run_raku_via_x86_backend.sh <file.raku>}"
 [ -f "$RK"    ] || { echo "FAIL no such file: $RK"; exit 1; }
 WORK="$(mktemp -d /tmp/rk_x86_XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
-( cd "$WORK" && timeout 8 "$SCRIP" --compile --target=x86 "$RK" > "$WORK/prog.s" 2>"$WORK/scrip.err" < /dev/null ) || {
+( cd "$WORK" && timeout -k 5 8 "$SCRIP" --compile --target=x86 "$RK" > "$WORK/prog.s" 2>"$WORK/scrip.err" < /dev/null ) || {
     echo "FAIL scrip emit failed:"; cat "$WORK/scrip.err"; exit 1
 }
 as --64 -o "$WORK/prog.o" "$WORK/prog.s" 2>"$WORK/as.err" || {
@@ -23,4 +23,4 @@ as --64 -o "$WORK/prog.o" "$WORK/prog.s" 2>"$WORK/as.err" || {
 gcc -no-pie -o "$WORK/prog_bin" "$WORK/prog.o" "$LIBRT" -lm -lstdc++ -Wl,-rpath,"$(dirname "$LIBRT")" 2>"$WORK/ld.err" || {
     echo "FAIL link:"; head -20 "$WORK/ld.err"; exit 1
 }
-timeout 8 "$WORK/prog_bin" < /dev/null 2>&1
+timeout -k 5 8 "$WORK/prog_bin" < /dev/null 2>&1

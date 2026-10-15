@@ -58,11 +58,11 @@ cat > "$D/lines.txt" <<'TXT'
 'zz' ? FAIL
 TXT
 N=$(wc -l < "$D/lines.txt")
-( cd "$D" && timeout 30 "$SBL" -bf ev.sno < lines.txt > want 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$SBL" -bf ev.sno < lines.txt > want 2>/dev/null )
 [ "$(wc -l < "$D/want")" = "$N" ] || refuse "sbl -bf answered $(wc -l < "$D/want") of $N lines -- no expectation to grade against"
-( cd "$D" && timeout 30 "$B/scrip" ev.sno < lines.txt > m3 2>/dev/null )
-( cd "$D" && timeout 120 "$B/scrip" --compile ev.sno < /dev/null > ev.s 2>/dev/null && gcc -no-pie ev.s -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" -o ev.bin 2>/dev/null ) || refuse "mode 4 did not build the evaluator"
-( cd "$D" && timeout 30 ./ev.bin < lines.txt > m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" ev.sno < lines.txt > m3 2>/dev/null )
+( cd "$D" && timeout -k 5 120 "$B/scrip" --compile ev.sno < /dev/null > ev.s 2>/dev/null && gcc -no-pie ev.s -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" -o ev.bin 2>/dev/null ) || refuse "mode 4 did not build the evaluator"
+( cd "$D" && timeout -k 5 30 ./ev.bin < lines.txt > m4 2>/dev/null )
 red=0; i=0
 while IFS= read -r t; do
     i=$((i + 1))

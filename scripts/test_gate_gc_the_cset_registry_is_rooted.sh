@@ -38,7 +38,7 @@ end
 EOS
 red=0; ran=0
 for st in 0 1 2 3 4 5 8 10 15 20 30 50 100 200; do
-    ( cd "$W" && SCRIP_GC_STRESS=$st timeout 90 "$ROOT/scrip" c.icn > o.txt 2> e.txt ); rc=$?
+    ( cd "$W" && SCRIP_GC_STRESS=$st timeout -k 5 90 "$ROOT/scrip" c.icn > o.txt 2> e.txt ); rc=$?
     ran=$((ran + 1))
     n1=$(sed -n 1p "$W/o.txt"); n2=$(sed -n 2p "$W/o.txt"); cs=$(tr -d '\0' < "$W/o.txt" | sed -n 3p)
     if [ "$rc" -ne 0 ] || [ "$n1" != "16" ] || [ "$n2" != "16" ] || [ "$cs" != "abcdefghijklmnop" ]; then

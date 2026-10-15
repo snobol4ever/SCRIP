@@ -21,7 +21,7 @@ NAMES="$( { grep -o '"[A-Z_0-9]*"' "$H" | tr -d '"'; printf '%s\n' $FREED_2026_0
 [ -n "$NAMES" ] || { echo "⛔ GATE REFUSE(2) [sno-system-fn-protection]: no names in $H"; exit 2; }
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 verdict() { # $1=binary $2=file -> PROT | FREE | ODD
-    local out; out="$(timeout 5 "$1" $3 "$2" </dev/null 2>&1)"
+    local out; out="$(timeout -k 5 5 "$1" $3 "$2" </dev/null 2>&1)"
     if printf '%s' "$out" | grep -qi 'error 248'; then echo PROT; elif printf '%s' "$out" | grep -q '^ok'; then echo FREE; else echo "ODD($(printf '%s' "$out" | grep -oi 'error [0-9]*' | head -1))"; fi
 }
 n=0; bad=0

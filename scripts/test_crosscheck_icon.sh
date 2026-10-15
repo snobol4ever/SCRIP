@@ -23,9 +23,9 @@ PASS=0; FAIL=0; SKIP=0; M4OK=0; M4BAD=0
 icn_mode4_run() {
     local file="$1" s4 bin4 out=""
     s4=$(mktemp /tmp/icn_XXXXXX.s); bin4=$(mktemp /tmp/icn_XXXXXX.bin); rm -f "$bin4"
-    if timeout "$TIMEOUT" "$SCRIP" --compile "$file" >"$s4" 2>/dev/null </dev/null && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
+    if timeout -k 5 "$TIMEOUT" "$SCRIP" --compile "$file" >"$s4" 2>/dev/null </dev/null && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
         if gcc -no-pie "$s4" -L"${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$bin4" 2>/dev/null; then
-            out=$(timeout "$TIMEOUT" "$bin4" 2>/dev/null </dev/null)
+            out=$(timeout -k 5 "$TIMEOUT" "$bin4" 2>/dev/null </dev/null)
         fi
     fi
     rm -f "$s4" "$bin4"
@@ -36,8 +36,8 @@ xcheck() {
     local label="$1" file="$2" ref="${3:-}"
     if [ ! -f "$file" ]; then echo "  SKIP $label (no file)"; SKIP=$((SKIP+1)); return; fi
     local ir run_out cmp_out
-    ir=$(timeout      $TIMEOUT "$SCRIP" --run  "$file" </dev/null 2>/dev/null)
-    run_out=$(timeout $TIMEOUT "$SCRIP" --run     "$file" </dev/null 2>/dev/null)
+    ir=$(timeout -k 5 $TIMEOUT "$SCRIP" --run  "$file" </dev/null 2>/dev/null)
+    run_out=$(timeout -k 5 $TIMEOUT "$SCRIP" --run     "$file" </dev/null 2>/dev/null)
     cmp_out=$(icn_mode4_run "$file")
     local ok=1 m4exp
     if [ -n "$ref" ] && [ -f "$ref" ]; then

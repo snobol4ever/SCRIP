@@ -56,9 +56,9 @@ for arm in on off; do
     nn=$(grep -c 'call *rt_call_name_sn4' "$W/fld_$arm.s"); nb=$(grep -cE 'call *(rt_call_fld_sn4|rt_call_callee_sn4)' "$W/fld_$arm.s")
     if [ "$arm" = on ]; then [ "$nb" -ge 10 ] && [ "$nn" -eq 0 ] && echo "ok  arm on: $nb baked callee-record sites, 0 name-entry sites" || { echo "RED arm on: baked callee-record sites=$nb (want >= 10), name-entry sites=$nn (want 0)"; red=1; }
     else [ "$nn" -eq 0 ] && [ "$nb" -eq 0 ] && echo "ok  arm off: 0 baked and 0 name-entry sites" || { echo "RED arm off: $nb baked and $nn name-entry sites under SCRIP_SN4_DIRECT=0"; red=1; }; fi
-    ( cd "$W" && timeout 20 "$ROOT/scrip" fld.sno < /dev/null > "$W/fld.$arm.m3" 2>&1 ); cmp -s "$W/fld.$arm.m3" "$W/fld.ref" && echo "ok  m3 arm $arm = oracle" || { echo "RED m3 arm $arm differs from the oracle:"; diff "$W/fld.ref" "$W/fld.$arm.m3" | head -8; red=1; }
+    ( cd "$W" && timeout -k 5 20 "$ROOT/scrip" fld.sno < /dev/null > "$W/fld.$arm.m3" 2>&1 ); cmp -s "$W/fld.$arm.m3" "$W/fld.ref" && echo "ok  m3 arm $arm = oracle" || { echo "RED m3 arm $arm differs from the oracle:"; diff "$W/fld.ref" "$W/fld.$arm.m3" | head -8; red=1; }
     if gcc "$W/fld_$arm.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/fld_$arm.bin" 2>/dev/null; then
-        ( cd "$W" && timeout 20 "./fld_$arm.bin" < /dev/null > "$W/fld.$arm.m4" 2>&1 ); cmp -s "$W/fld.$arm.m4" "$W/fld.ref" && echo "ok  m4 arm $arm = oracle" || { echo "RED m4 arm $arm differs from the oracle:"; diff "$W/fld.ref" "$W/fld.$arm.m4" | head -8; red=1; }
+        ( cd "$W" && timeout -k 5 20 "./fld_$arm.bin" < /dev/null > "$W/fld.$arm.m4" 2>&1 ); cmp -s "$W/fld.$arm.m4" "$W/fld.ref" && echo "ok  m4 arm $arm = oracle" || { echo "RED m4 arm $arm differs from the oracle:"; diff "$W/fld.ref" "$W/fld.$arm.m4" | head -8; red=1; }
     else echo "RED m4 arm $arm did not link"; red=1; fi
 done
 unset SCRIP_SN4_DIRECT

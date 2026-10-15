@@ -32,9 +32,9 @@ for icn in "$CORPUS"/rung01_paper_*.icn; do
     if [[ "$BINARY" == "oracle" ]]; then
         cp "$icn" /tmp/_icon_test_${base}.icn
         cd /tmp && "$ICONT" -s "_icon_test_${base}.icn" 2>/dev/null
-        actual=$(timeout "$TIMEOUT" "$ICONX" "/tmp/_icon_test_${base}" 2>/dev/null)
+        actual=$(timeout -k 5 "$TIMEOUT" "$ICONX" "/tmp/_icon_test_${base}" 2>/dev/null)
     else
-        actual=$(timeout "$TIMEOUT" "$BINARY" "$icn" 2>/dev/null)
+        actual=$(timeout -k 5 "$TIMEOUT" "$BINARY" "$icn" 2>/dev/null)
     fi
 
     if [[ "$actual" == "$(cat "$expected")" ]]; then

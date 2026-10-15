@@ -39,13 +39,13 @@ EOF
 RC=0
 for M in m3 m4; do
   if [ "$M" = m4 ]; then for W in r f; do ext=pl; [ $W = f ] && ext=sno; ( cd "$T" && "$SCRIP" --compile -o $W.s $W.$ext </dev/null && gcc $W.s -o $W.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ REFUSE(2): mode-4 witness $W did not build"; exit 2; }; done; fi
-  run() { if [ "$M" = m3 ]; then ( cd "$T" && timeout 120 "$SCRIP" "$1" </dev/null ); else ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout 120 "./${1%.*}.bin" </dev/null ); fi; }
+  run() { if [ "$M" = m3 ]; then ( cd "$T" && timeout -k 5 120 "$SCRIP" "$1" </dev/null ); else ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 120 "./${1%.*}.bin" </dev/null ); fi; }
   ra=$(run r.pl 2>/dev/null | tr '\n' ';'); [ -n "${FAIL_ONCE:-}" ] && ra="65528;$ra"
   if [ "$ra" = "70000;200000;A;" ]; then echo "  $M arm A PASS (read/1 70000, read_term/2 200000 with its escape, as swipl)"; else echo "  $M arm A FAIL (got '$ra', swipl 70000;200000;A;)"; RC=1; fi
   rb=$(run f.sno 2>&1 | tr '\n' ';')
   if [ "$rb" = "8407050;4100 1 2053;" ]; then echo "  $M arm B PASS (4100 run-time functions past the first table, byte-identical to sbl)"; else echo "  $M arm B FAIL (got '$(echo "$rb" | cut -c1-120)')"; RC=1; fi
 done
-rs=$( cd "$T" && SCRIP_HEAP_KB=1024 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=3 LD_LIBRARY_PATH="$ROOT/out" timeout 300 ./f.bin </dev/null 2>"$T/shift.err" | tr '\n' ';' )
+rs=$( cd "$T" && SCRIP_HEAP_KB=1024 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=3 LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 300 ./f.bin </dev/null 2>"$T/shift.err" | tr '\n' ';' )
 grep -q '^\[GC-FLIP\] plant:' "$T/shift.err" || { echo "  m4 arm B under the flip plant FAIL (the plant printed no applied banner, so nothing moved)"; RC=1; }
 if [ "$rs" = "8407050;4100 1 2053;" ]; then echo "  m4 arm B under SCRIP_GC_PLANT_FLIP=1 PASS"; else echo "  m4 arm B under the flip plant FAIL (got '$(echo "$rs" | cut -c1-120)')"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS [$(basename "${BASH_SOURCE[0]}" .sh)]: a term past the old read buffer and 4100 run-time functions past the first function table read and run as the oracles do"

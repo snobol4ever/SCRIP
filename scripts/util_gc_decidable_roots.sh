@@ -31,7 +31,7 @@ SBL="$(sbl_correctness_bin)" || refuse "no correctness oracle (sbl -bf)"
 [ -x "$SBL" ] || refuse "the oracle $SBL is not executable"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
-ORACLE="$(timeout 60s "$SBL" -bf "$W" < /dev/null 2>/dev/null)"; orc=$?
+ORACLE="$(timeout -k 5 60s "$SBL" -bf "$W" < /dev/null 2>/dev/null)"; orc=$?
 [ "$orc" = 0 ] || refuse "the oracle itself exited $orc on the witness -- ORACLE-SWAP PROCEDURE, not a collector verdict"
 echo "ORACLE    sbl -bf rc=0, $(printf '%s\n' "$ORACLE" | wc -l) line(s):"
 printf '%s\n' "$ORACLE" | sed 's/^/    /'
@@ -45,9 +45,9 @@ if ./scrip --compile "$W" > "$TMP/w.s" 2>/dev/null && gcc -c "$TMP/w.s" -o "$TMP
 run(){  # run <label> <stress> <m3|m4>
   local out rc
   if [ "$3" = m3 ]; then
-    out="$(SCRIP_GC_STRESS="$2" SCRIP_GC_POISON=1 timeout 120s ./scrip "$W" < /dev/null 2>/dev/null)"; rc=$?
+    out="$(SCRIP_GC_STRESS="$2" SCRIP_GC_POISON=1 timeout -k 5 120s ./scrip "$W" < /dev/null 2>/dev/null)"; rc=$?
   else
-    out="$(SCRIP_GC_STRESS="$2" SCRIP_GC_POISON=1 timeout 120s "$m4" < /dev/null 2>/dev/null)"; rc=$?
+    out="$(SCRIP_GC_STRESS="$2" SCRIP_GC_POISON=1 timeout -k 5 120s "$m4" < /dev/null 2>/dev/null)"; rc=$?
   fi
   printf '%s' "$out" > "$TMP/$1.$3.out"; echo "$rc" > "$TMP/$1.$3.rc"
 }

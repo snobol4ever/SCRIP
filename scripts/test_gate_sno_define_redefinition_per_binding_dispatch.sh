@@ -72,9 +72,9 @@ CONTROLS=" define_redef_two_functions define_single_no_redef "
 
 m4_run() {   # $1 = source .sno (absolute), $2 = basename (no ext), $3 = outfile, $4 = rc varname
     local src="$1" name="$2" outfile="$3" __rcvar="$4" __rc
-    ( cd "$T" && timeout 30s "$ROOT/scrip" --compile -o "$name.s" "$src" </dev/null >/dev/null 2>&1 ) || { echo "M4-COMPILE-FAILED" > "$outfile"; printf -v "$__rcvar" '%d' 1; return; }
+    ( cd "$T" && timeout -k 5 30s "$ROOT/scrip" --compile -o "$name.s" "$src" </dev/null >/dev/null 2>&1 ) || { echo "M4-COMPILE-FAILED" > "$outfile"; printf -v "$__rcvar" '%d' 1; return; }
     ( cd "$T" && gcc -no-pie "$name.s" -o "$name.bin" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) || { echo "M4-LINK-FAILED" > "$outfile"; printf -v "$__rcvar" '%d' 1; return; }
-    ( cd "$T" && timeout 10s "./$name.bin" </dev/null >"$outfile" 2>&1 ); __rc=$?
+    ( cd "$T" && timeout -k 5 10s "./$name.bin" </dev/null >"$outfile" 2>&1 ); __rc=$?
     printf -v "$__rcvar" '%d' "$__rc"
 }
 
@@ -84,7 +84,7 @@ for p in $PROGS; do
     if [ ! -f "$src" ] || [ ! -f "$ref" ]; then
         echo "GATE UNPROVEN(2) [$GATE_NAME]: missing committed fixture $p (.sno/.ref)"; gate_stamp; exit 2
     fi
-    timeout 20 "$O" -bf "$src" </dev/null >"$T/$p.oref" 2>/dev/null
+    timeout -k 5 20 "$O" -bf "$src" </dev/null >"$T/$p.oref" 2>/dev/null
     if ! cmp -s "$T/$p.oref" "$ref"; then
         echo "RED  $p: committed ref disagrees with the live oracle -- re-cut it (oracle/ref drift, not this class)"
         red=$((red+1)); examined=$((examined+1)); RED_NAMES="$RED_NAMES $p(ref-drift)"; GRADED_NAMES="$GRADED_NAMES $p"; continue
@@ -92,7 +92,7 @@ for p in $PROGS; do
     is_control=0
     case "$CONTROLS" in *" $p "*) is_control=1;; esac
     cp "$src" "$T/$p.sno"
-    ( cd "$T" && timeout 10s "$ROOT/scrip" "$p.sno" </dev/null >"$T/$p.m3" 2>&1 ); rc3=$?
+    ( cd "$T" && timeout -k 5 10s "$ROOT/scrip" "$p.sno" </dev/null >"$T/$p.m3" 2>&1 ); rc3=$?
     ok3=0; cmp -s "$T/$p.m3" "$ref" && ok3=1
     m4_run "$T/$p.sno" "$p" "$T/$p.m4" rc4
     ok4=0; cmp -s "$T/$p.m4" "$ref" && ok4=1

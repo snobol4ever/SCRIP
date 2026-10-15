@@ -36,18 +36,18 @@ main :- findall(X,(X=1;X=2),[A,B,3],T), write(unbound_tail(A,B,T)), nl,
         U4 = [9], G4 = (findall(R,(R=1;R=2),S8,U4), write(dyn_var(S8)), nl), call(G4),
         U5 = [9], run((findall(N,(N=1;N=2),[1,2|U5],T5), write(dyn_unbound(T5)), nl)).
 EOF
-exp="$(timeout 30 "$SWIPL" -q -g halt "$W/w.pl" 2>/dev/null | sed -E 's/_[0-9]+/_V/g')"
+exp="$(timeout -k 5 30 "$SWIPL" -q -g halt "$W/w.pl" 2>/dev/null | sed -E 's/_[0-9]+/_V/g')"
 [ -n "$exp" ] || { echo "⛔ REFUSE(2): the oracle printed nothing for the witness -- measured nothing, not a verdict" >&2; exit 2; }
 rc=0
 for m in 3 4; do
-  if [ "$m" = 3 ]; then got="$(timeout 20 ./scrip "$W/w.pl" </dev/null 2>&1 | sed -E 's/_G[0-9]+/_V/g')"; else
-    timeout 60 ./scrip --compile -o "$W/w.s" "$W/w.pl" </dev/null >"$W/c.log" 2>&1 || { echo "⛔ m$m: compile failed"; cat "$W/c.log"; rc=1; continue; }
+  if [ "$m" = 3 ]; then got="$(timeout -k 5 20 ./scrip "$W/w.pl" </dev/null 2>&1 | sed -E 's/_G[0-9]+/_V/g')"; else
+    timeout -k 5 60 ./scrip --compile -o "$W/w.s" "$W/w.pl" </dev/null >"$W/c.log" 2>&1 || { echo "⛔ m$m: compile failed"; cat "$W/c.log"; rc=1; continue; }
     gcc -no-pie "$W/w.s" -Lout -lscrip_rt -Wl,-rpath,"$PWD/out" -lm -lpthread -o "$W/w.bin" >>"$W/c.log" 2>&1 || { echo "⛔ m$m: link failed"; cat "$W/c.log"; rc=1; continue; }
-    got="$(timeout 20 "$W/w.bin" </dev/null 2>&1 | sed -E 's/_G[0-9]+/_V/g')"; fi
+    got="$(timeout -k 5 20 "$W/w.bin" </dev/null 2>&1 | sed -E 's/_G[0-9]+/_V/g')"; fi
   if [ "$got" = "$exp" ]; then echo "✅ m$m agrees with the oracle on all ten findall/4 tail shapes, static and dynamically meta-called"
   else echo "⛔ m$m disagrees with the oracle on a findall/4 tail"; diff <(printf '%s\n' "$exp") <(printf '%s\n' "$got") | sed 's/^/       /'; rc=1; fi
 done
-if timeout 20 ./scrip "$W/w.pl" </dev/null 2>&1 | grep -qE '\[1,2\|[a-z]'; then
+if timeout -k 5 20 ./scrip "$W/w.pl" </dev/null 2>&1 | grep -qE '\[1,2\|[a-z]'; then
   echo "⛔ control arm: a tail printed as [1,2|<atom> -- the raw frame reference was consed without a deref and read back as a later goal, the exact defect this gate pins. NOTE an OPEN tail spells itself [1,2|_G<n> and is correct; only a lowercase tail is the dangling slot."; rc=1
 else echo "✅ control arm: no bound tail read back as a dangling frame slot"; fi
 [ "$rc" = 0 ] && echo "GATE GREEN" || echo "GATE RED"

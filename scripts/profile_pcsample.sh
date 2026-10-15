@@ -11,7 +11,7 @@ ulimit -s unlimited
 sleep 0.4
 for i in $(seq "$N"); do
   P=$(cat "$OUT/pid" 2>/dev/null); [ -n "$P" ] && [ -d "/proc/$P" ] || { sleep 0.03; continue; }
-  timeout 5 gdb -q -p "$P" -batch -ex 'x/i $pc' 2>/dev/null | grep '=>' >> "$OUT/pcs.txt"
+  timeout -k 5 5 gdb -q -p "$P" -batch -ex 'x/i $pc' 2>/dev/null | grep '=>' >> "$OUT/pcs.txt"
   sleep 0.03
 done
 kill "$LOOP" 2>/dev/null; P=$(cat "$OUT/pid" 2>/dev/null); [ -n "$P" ] && kill -9 "$P" 2>/dev/null

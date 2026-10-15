@@ -97,9 +97,9 @@ time_one() {  # $1 = stdin file or empty; $2.. = argv
   local sin="$1"; shift
   local tf="$WORK/t.$$"; local rc
   if [ -n "$sin" ]; then
-    /usr/bin/time -f '%e %U %S' -o "$tf" timeout "$RUN_TMO" "$@" >"$WORK/run.out" 2>"$WORK/run.err" <"$sin"; rc=$?
+    /usr/bin/time -f '%e %U %S' -o "$tf" timeout -k 5 "$RUN_TMO" "$@" >"$WORK/run.out" 2>"$WORK/run.err" <"$sin"; rc=$?
   else
-    /usr/bin/time -f '%e %U %S' -o "$tf" timeout "$RUN_TMO" "$@" >"$WORK/run.out" 2>"$WORK/run.err" </dev/null; rc=$?
+    /usr/bin/time -f '%e %U %S' -o "$tf" timeout -k 5 "$RUN_TMO" "$@" >"$WORK/run.out" 2>"$WORK/run.err" </dev/null; rc=$?
   fi
   awk -v rc="$rc" '{printf "%.0f %.0f %d\n", $1*1000, ($2+$3)*1000, rc}' "$tf" 2>/dev/null || echo "0 0 $rc"
 }
@@ -207,7 +207,7 @@ for p in $PROGS; do
   ix_av="$(build_iconx "$p")"
   if [ -z "$ix_av" ]; then printf '%-9s %-7s  ORACLE-COMPILE-FAILED -- no ground truth, nothing graded\n' "$p" "UNPROVEN"; RC=1; continue; fi
   [ -n "${OENVS[$p]}" ] && ix_av="env ${OENVS[$p]} $ix_av"
-  timeout "$RUN_TMO" $ix_av $av_args >"$WORK/$p.oracle.out" 2>"$WORK/$p.oracle.err" <"$sin"
+  timeout -k 5 "$RUN_TMO" $ix_av $av_args >"$WORK/$p.oracle.out" 2>"$WORK/$p.oracle.err" <"$sin"
   orc=$?
   if [ "$orc" != "0" ]; then printf '%-9s %-7s  ORACLE-RAN-RED rc=%s -- no ground truth, nothing graded\n' "$p" "UNPROVEN" "$orc"; RC=1; continue; fi
   if [ ! -s "$WORK/$p.oracle.out" ]; then
@@ -224,7 +224,7 @@ for p in $PROGS; do
     OUTOK[$eng]="-"
     [ -n "$av" ] || { OUTOK[$eng]="BUILDFAIL"; continue; }
     case "$eng" in m3) run_av="$av -- $av_args";; m4) run_av="$av $m4_args";; *) run_av="$av $av_args";; esac
-    timeout "$RUN_TMO" $run_av >"$WORK/$p.$eng.out" 2>"$WORK/$p.$eng.err" <"$sin"
+    timeout -k 5 "$RUN_TMO" $run_av >"$WORK/$p.$eng.out" 2>"$WORK/$p.$eng.err" <"$sin"
     erc=$?
     if [ "$erc" != "0" ]; then OUTOK[$eng]="rc=$erc"
     elif cmp -s "$WORK/$p.$eng.out" "$WORK/$p.oracle.out"; then OUTOK[$eng]="PASS"

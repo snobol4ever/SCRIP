@@ -35,10 +35,10 @@ if [ "$marg" -lt 20 ]; then echo "  ⭐ CN-13 TARGET MET: the constant is LINKED
 for w in n1 n25; do
   gcc -no-pie "$T/$w.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "$T/$w.bin" 2>/dev/null; chk $? "link $w"
   for arm in 1 0; do
-    SCRIP_CONST_STATIC=$arm timeout 20 "$SCRIP" --run "$T/$w.sno" < /dev/null > "$T/$w.m3.$arm" 2>&1; chk $? "m3 run $w CONST_STATIC=$arm"
+    SCRIP_CONST_STATIC=$arm timeout -k 5 20 "$SCRIP" --run "$T/$w.sno" < /dev/null > "$T/$w.m3.$arm" 2>&1; chk $? "m3 run $w CONST_STATIC=$arm"
     grep -q "^matched$" "$T/$w.m3.$arm"; chk $? "m3 $w CONST_STATIC=$arm matched"
   done
-  timeout 20 "$T/$w.bin" < /dev/null > "$T/$w.m4" 2>&1; grep -q "^matched$" "$T/$w.m4"; chk $? "m4 $w matched"
+  timeout -k 5 20 "$T/$w.bin" < /dev/null > "$T/$w.m4" 2>&1; grep -q "^matched$" "$T/$w.m4"; chk $? "m4 $w matched"
   diff -q "$T/$w.m3.1" "$T/$w.m4" > /dev/null 2>&1; chk $? "$w m3 == m4 (MODE34-IDENTICAL)"
   diff -q "$T/$w.m3.1" "$T/$w.m3.0" > /dev/null 2>&1; chk $? "$w killswitch arms agree on OUTPUT"
 done

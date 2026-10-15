@@ -21,7 +21,7 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 res_of(){ grep -i 'result:' "$1" 2>/dev/null | head -1 | sed 's/^[^:]*: *//'; }
 selfms_of(){ grep -i 'ms:' "$1" 2>/dev/null | head -1 | sed 's/^[^:]*: *//'; }
 run_wall(){ local out="$1"; shift; local t0 t1; t0=$(date +%s.%N)
-  ( timeout "$T" "$@" </dev/null >"$out" 2>/dev/null ); local rc=$?
+  ( timeout -k 5 "$T" "$@" </dev/null >"$out" 2>/dev/null ); local rc=$?
   t1=$(date +%s.%N); WALL=$(awk "BEGIN{printf \"%.0f\",($t1-$t0)*1000}"); return $rc; }
 printf "%-22s | %-10s %8s | %-10s %8s | %-10s %8s | %7s %s\n" \
   BENCH SCRIP-res SCRIP-wal SBL-res SBL-wall CSNO-res CSNO-wall "S/SBL" CORRECT

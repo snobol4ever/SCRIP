@@ -26,10 +26,10 @@ FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 run() { local m="$1" p="$2"
-  if [ "$m" = m3 ]; then ( cd "$T" && timeout 20s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); return $?; fi
-  ( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >"$T/o" 2>"$T/e" ) || return $?
+  if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 20s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); return $?; fi
+  ( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >"$T/o" 2>"$T/e" ) || return $?
   ( cd "$T" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ $p m4: did not link"; return 99; }
-  ( cd "$T" && timeout 20s "./$p.m4" </dev/null >"$T/o" 2>"$T/e" ); return $?; }
+  ( cd "$T" && timeout -k 5 20s "./$p.m4" </dev/null >"$T/o" 2>"$T/e" ); return $?; }
 printf 'program na(output);\ntype q = record a, b: integer end;\nvar g: record x: integer; c: q end;\nbegin\n  g.x := 1; g.c.a := 42; g.c.b := 7;\n  writeln(g.x); writeln(g.c.a); writeln(g.c.b)\nend.\n' > "$T/na.pas"
 printf 'program nc(output);\ntype q = record c: char; n: integer end;\nvar r: record i: integer; s: q end;\nbegin\n  r.i := 5; r.s.n := 7; r.s.c := %s;\n  writeln(r.i, r.s.c, r.s.n)\nend.\n' "'x'" > "$T/nc.pas"
 printf 'program nw(output);\ntype q = record a, b: integer end;\nvar g: record x: integer; c: q end;\nbegin\n  with g do begin x := 3; c.a := 4; c.b := c.a + x end;\n  writeln(g.x, g.c.a, g.c.b)\nend.\n' > "$T/nw.pas"
@@ -37,7 +37,7 @@ printf 'program nh(output);\ntype q = record a, b: integer end;\nvar g, h: recor
 printf 'program nn(output);\ntype q = record a, b: integer end; w = record x: integer; c: q end;\nvar g: w;\nbegin\n  g.x := 1; g.c.a := 42; g.c.b := 7;\n  writeln(g.x, g.c.a, g.c.b)\nend.\n' > "$T/nn.pas"
 for p in na nc nw nh nn; do
   ( cd "$T" && "$FPC" -Miso -v0 -o$p.fpc $p.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile $p"; exit 2; }
-  ( cd "$T" && timeout 20s ./$p.fpc </dev/null >"$T/$p.want" 2>/dev/null ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso's $p did not run to rc 0"; exit 2; }
+  ( cd "$T" && timeout -k 5 20s ./$p.fpc </dev/null >"$T/$p.want" 2>/dev/null ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso's $p did not run to rc 0"; exit 2; }
   [ -n "${FAIL_ONCE:-}" ] && [ $p = nn ] && echo "corrupted by FAIL_ONCE" >> "$T/$p.want"
   for m in m3 m4; do run $m $p; rc=$?
     if [ "$rc" = 0 ] && cmp -s "$T/$p.want" "$T/o"; then echo "  arm $p $m: byte-identical to fpc -Miso"

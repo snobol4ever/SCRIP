@@ -37,7 +37,7 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 cp "$WIT/$W.icn" "$T/"
 ( cd "$T" && "$ICON" "$W.icn" < /dev/null > "$W.live" 2>&1 ) || refuse "the oracle did not run $W cleanly"
 [ -s "$T/$W.live" ] || refuse "the oracle's answer is EMPTY; an empty expectation makes every arm pass"
-( cd "$T" && timeout 60s "$OLDPWD/scrip" --compile "$W.icn" < /dev/null > "$W.s" 2> /dev/null \
+( cd "$T" && timeout -k 5 60s "$OLDPWD/scrip" --compile "$W.icn" < /dev/null > "$W.s" 2> /dev/null \
     && gcc -c "$W.s" -o "$W.o" 2> "$W.ld.log" && gcc "$W.o" -L"$LIBDIR" -lscrip_rt -lm -lpthread -Wl,-rpath,"$LIBDIR" -o "$W.x4" 2>> "$W.ld.log" ) \
     || refuse "mode-4 compile or link failed, so every m4 arm measured nothing ($(head -c 160 "$T/$W.ld.log" 2>/dev/null))"
 WANT="$(cat "$WIT/$W.ref")"
@@ -49,8 +49,8 @@ if cmp -s "$T/$W.live" "$WIT/$W.ref"; then ck ok "(o) the committed ref equals t
 else ck no "(o) the committed ref has DRIFTED from the oracle: committed [$(tr '\n' '|' < "$WIT/$W.ref")] live [$(tr '\n' '|' < "$T/$W.live")]"; fi
 arms=0; reds=""
 run(){ local m="$1" lbl="$2" got rc; shift 2
-  if [ "$m" = m3 ]; then got="$(cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB "$@" timeout 60s "$OLDPWD/scrip" "$W.icn" < /dev/null 2>&1)"; rc=$?
-  else got="$(cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB "$@" timeout 60s "./$W.x4" < /dev/null 2>&1)"; rc=$?; fi
+  if [ "$m" = m3 ]; then got="$(cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB "$@" timeout -k 5 60s "$OLDPWD/scrip" "$W.icn" < /dev/null 2>&1)"; rc=$?
+  else got="$(cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB "$@" timeout -k 5 60s "./$W.x4" < /dev/null 2>&1)"; rc=$?; fi
   arms=$((arms+1))
   if [ "$rc" = 0 ] && [ "$got" = "$WANT" ]; then return 0; fi
   reds="$reds $m/$lbl(rc=$rc:$(printf '%s' "$got" | head -1 | cut -c1-60))"; }

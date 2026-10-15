@@ -68,19 +68,19 @@ mk s "         X = 1\n         EQ(X,2)                    :S(L1)\n+             
 mk t "         X = 2\n         EQ(X,2)            :S(L1)\n.                           F(L2)\nL1       OUTPUT = 'S'    :(END)\nL2       OUTPUT = 'F'\nEND\n"
 mk u "         X = 1\n         EQ(X,2)            :S(L1)\n.                           F(L2) ;\nL1       OUTPUT = 'S'    :(END)\nL2       OUTPUT = 'F'\nEND\n"
 for c in a b c d e f g h i j k l m n o p q r s t u; do
-    ( cd "$T/L" && timeout 10 "$O" -bf "$c.sno" < /dev/null > "$c.sbl" 2>/dev/null ); orc=$?
+    ( cd "$T/L" && timeout -k 5 10 "$O" -bf "$c.sno" < /dev/null > "$c.sbl" 2>/dev/null ); orc=$?
     op="$(python3 "$H" oracle "$T/L/$c.sbl" "$orc" 2>/dev/null)"; hrc=$?
     case "$c" in
         c|d|e|g|h|i|j|l) [ "$hrc" = 0 ] && printf '%s\n' "$op" | grep -q $'\t214$' || refuse "sbl -bf no longer refuses shape $c with ERROR 214 (helper rc=$hrc, pairs [$op]) -- the oracle moved; re-measure" ;;
         a|f|m|n|o|p|q|r|s|t|u) [ "$orc" = 0 ] && [ "$hrc" = 3 ] || refuse "sbl -bf no longer accepts shape $c (rc=$orc) -- the oracle moved; re-measure" ;;
         b|k) [ "$hrc" = 0 ] || refuse "sbl -bf no longer refuses shape $c at compile (helper rc=$hrc) -- the oracle moved" ;;
     esac
-    ( cd "$T/L" && timeout 10 "$S" "$c.sno" < /dev/null > "$c.m3" 2> "$c.m3err" ); r3=$?
+    ( cd "$T/L" && timeout -k 5 10 "$S" "$c.sno" < /dev/null > "$c.m3" 2> "$c.m3err" ); r3=$?
     case "$c" in
         c|d|e|g|h|i|j|l)
             g3="$(python3 "$V" spitbol < "$T/L/$c.m3err" | python3 "$H" pairs -)"
             { [ "$r3" -ne 0 ] && [ ! -s "$T/L/$c.m3" ] && [ "$g3" = "$op" ]; } && arm "L$c m3 refused with ERROR 214 at sbl's line ($op)" ok || arm "L$c m3" red "rc=$r3 stdout=$(grep -c '' "$T/L/$c.m3") line(s), voice pairs [$g3] want [$op]"
-            ( cd "$T/L" && timeout 10 "$S" --compile "$c.sno" < /dev/null > "$c.s" 2> "$c.s.err" ); r4=$?
+            ( cd "$T/L" && timeout -k 5 10 "$S" --compile "$c.sno" < /dev/null > "$c.s" 2> "$c.s.err" ); r4=$?
             g4="$(python3 "$V" spitbol < "$T/L/$c.s.err" | python3 "$H" pairs -)"
             { [ "$r4" -ne 0 ] && [ ! -s "$T/L/$c.s" ] && [ "$g4" = "$op" ]; } && arm "L$c m4 compile refused with the same pair" ok || arm "L$c m4" red "compile rc=$r4 asm=$(grep -c '' "$T/L/$c.s") line(s), voice pairs [$g4] want [$op]" ;;
         a|f|m|n|o|p|q|r|s|t|u)
@@ -102,16 +102,16 @@ fld() { printf '%s\n' "$1" | tr ' ' '\n' | awk -F= -v k="$2" '$1==k {print $2; e
 want() { local b="$1"; shift; local kv; for kv in "$@"; do [ "$(fld "$b" "${kv%%=*}")" = "${kv#*=}" ] || return 1; done; }
 fixture() { rm -rf "$T/fx"; mkdir -p "$T/fx"; cp "$T/L/$1.sno" "$T/fx/testcr.spt"; : > "$T/fx/testpgms.in"; printf 'entry,heap_kb,stack_kb,compile_args,run_args\ntestcr,131072,4096,,\n' > "$T/fx/ALL.csv"; }
 fixture c
-out="$(cd "$ROOT" && SPITBOL_TESTPGMS_SUITE="$T/fx" timeout 300 bash "$RUNNER" 2>&1)"; rc=$?
+out="$(cd "$ROOT" && SPITBOL_TESTPGMS_SUITE="$T/fx" timeout -k 5 300 bash "$RUNNER" 2>&1)"; rc=$?
 { [ "$rc" = 0 ] && want "$(board "$out")" scored=1 unscored=0 m3_pass=1 m3_fail=0 m4_pass=1 m4_fail=0 && printf '%s\n' "$out" | grep -q '^SPITBOL_TESTPGMS_COMPILE_REFUSAL graded=1 '; } \
   && arm G ok || arm G red "rc=$rc board [$(board "$out")]; $(printf '%s\n' "$out" | grep -E 'REFUSE|RED |UNSCORED' | head -3 | tr '\n' ' ')"
 fixture b
-out="$(cd "$ROOT" && SPITBOL_TESTPGMS_SUITE="$T/fx" timeout 300 bash "$RUNNER" 2>&1)"; rc=$?
+out="$(cd "$ROOT" && SPITBOL_TESTPGMS_SUITE="$T/fx" timeout -k 5 300 bash "$RUNNER" 2>&1)"; rc=$?
 { [ "$rc" = 1 ] && want "$(board "$out")" scored=1 unscored=0 m3_pass=0 m3_fail=1 m4_pass=0 m4_fail=1 && printf '%s\n' "$out" | grep -q 'RED  testcr m3 .*sbl refuses at compile'; } \
   && arm R1 ok || arm R1 red "rc=$rc board [$(board "$out")]; $(printf '%s\n' "$out" | grep -E 'REFUSE|RED |UNSCORED' | head -2 | tr '\n' ' ')"
 fixture c; mkdir -p "$T/w1"
 printf '#!/usr/bin/env bash\nfor a in "$@"; do [ "$a" = --compile ] && exec "%s" "$@"; done\ne=$(mktemp); "%s" "$@" 2>"$e"; rc=$?; sed "s/^  at \\(.*\\):[0-9]*$/  at \\1:99/" "$e" >&2; rm -f "$e"; exit $rc\n' "$S" "$S" > "$T/w1/scrip"; chmod +x "$T/w1/scrip"
-out="$(cd "$ROOT" && SCRIP="$T/w1/scrip" SPITBOL_TESTPGMS_SUITE="$T/fx" timeout 300 bash "$RUNNER" 2>&1)"; rc=$?
+out="$(cd "$ROOT" && SCRIP="$T/w1/scrip" SPITBOL_TESTPGMS_SUITE="$T/fx" timeout -k 5 300 bash "$RUNNER" 2>&1)"; rc=$?
 { [ "$rc" = 1 ] && want "$(board "$out")" m3_pass=0 m3_fail=1 m4_pass=1 m4_fail=0 && printf '%s\n' "$out" | grep -q 'RED  testcr m3 .*99:214'; } \
   && arm R2 ok || arm R2 red "rc=$rc board [$(board "$out")]; $(printf '%s\n' "$out" | grep -E 'REFUSE|RED ' | head -2 | tr '\n' ' ')"
 

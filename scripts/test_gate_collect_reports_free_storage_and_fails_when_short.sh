@@ -59,16 +59,16 @@ check() { # $1=label $2=engine-name $3=stream
 echo "== test_gate_collect_reports_free_storage_and_fails_when_short =="
 echo "   oracle $SBL · scrip $SCRIP · one witness, three semantic arms per engine, RET numbers never compared across engines"
 
-O_SBL="$(cd "$W" && timeout 20s "$SBL" $(sbl_lang_flags) f.sno < /dev/null 2>&1)"
+O_SBL="$(cd "$W" && timeout -k 5 20s "$SBL" $(sbl_lang_flags) f.sno < /dev/null 2>&1)"
 check "oracle-agrees" "sbl -bf" "$O_SBL"
 
-O_M3="$(cd "$W" && timeout 20s "$SCRIP" --run f.sno < /dev/null 2>&1)"
+O_M3="$(cd "$W" && timeout -k 5 20s "$SCRIP" --run f.sno < /dev/null 2>&1)"
 check "mode-3" "scrip --run" "$O_M3"
 
-if (cd "$W" && timeout 60s "$SCRIP" --compile f.sno > p.s 2>/dev/null) \
+if (cd "$W" && timeout -k 5 60s "$SCRIP" --compile f.sno > p.s 2>/dev/null) \
    && (cd "$W" && gcc -c p.s -o p.o 2>/dev/null) \
    && (cd "$W" && gcc p.o -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o p.bin 2>/dev/null); then
-    O_M4="$(cd "$W" && timeout 20s ./p.bin < /dev/null 2>&1)"
+    O_M4="$(cd "$W" && timeout -k 5 20s ./p.bin < /dev/null 2>&1)"
     check "mode-4" "standalone" "$O_M4"
 else
     echo "  ⛔ REFUSE(rc=2): mode-4 toolchain failed on the witness -- could not measure, which is never green"

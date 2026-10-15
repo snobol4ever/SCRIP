@@ -75,7 +75,7 @@ if cands and f > 1:
 open(out, 'w').write(s)
 PY
 }
-run1() { local prog="$1" gv="$2"; env "$GATE=$gv" timeout 600 "$SCRIP" --run "$prog" 2>/dev/null; }
+run1() { local prog="$1" gv="$2"; env "$GATE=$gv" timeout -k 5 600 "$SCRIP" --run "$prog" 2>/dev/null; }
 msof() { sed -n 's/^ms: *//p' | head -1; }
 med()  { python3 -c "
 import sys; v=sorted(int(x) for x in sys.argv[1:] if x.strip().isdigit())

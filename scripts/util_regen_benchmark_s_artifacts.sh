@@ -29,7 +29,7 @@ fail=0
 echo "Emitting benchmark .s artifacts (mode-4 --compile)..."
 for sno in *.sno; do
     s="${sno%.sno}"
-    if timeout 30 "$SCRIP" --compile "$sno" > "$TMPD/bench_$s.s" 2>/dev/null < /dev/null && [ -s "$TMPD/bench_$s.s" ]; then
+    if timeout -k 5 30 "$SCRIP" --compile "$sno" > "$TMPD/bench_$s.s" 2>/dev/null < /dev/null && [ -s "$TMPD/bench_$s.s" ]; then
         if gcc -c "$TMPD/bench_$s.s" -o "$TMPD/bench_$s.o" 2>"$TMPD/bench_$s.aserr"; then
             mv "$TMPD/bench_$s.s" "$s.s"
             echo "  OK    $s.s"

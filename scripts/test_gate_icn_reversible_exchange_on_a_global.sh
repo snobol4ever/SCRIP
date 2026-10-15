@@ -27,13 +27,13 @@ procedure main();
     write("reached the end", "");
 end
 ICNEOF
-( cd "$TD" && "$ICN/icont" -s g.icn >/dev/null 2>&1 && timeout 30 "$ICN/iconx" g > g.ref 2>&1 ) || refuse "iconx could not run the witness -- cannot measure"
+( cd "$TD" && "$ICN/icont" -s g.icn >/dev/null 2>&1 && timeout -k 5 30 "$ICN/iconx" g > g.ref 2>&1 ) || refuse "iconx could not run the witness -- cannot measure"
 WANT="$(cat "$TD/g.ref")"
 [ -n "$WANT" ] || refuse "oracle produced no output -- cannot measure"
 case "$WANT" in *"reached the end"*) : ;; *) refuse "oracle output does not reach the end -- the witness itself is broken, not SCRIP" ;; esac
-( cd "$TD" && timeout 30 "$SCRIP" g.icn </dev/null > g.m3 2>&1 ) || true
+( cd "$TD" && timeout -k 5 30 "$SCRIP" g.icn </dev/null > g.m3 2>&1 ) || true
 grade "m3: <-> on a global (was an rc=134 TE-4 compile abort, so nothing ran at all)" "$WANT" "$(cat "$TD/g.m3")"
-( cd "$TD" && timeout 60 "$SCRIP" --compile -o g.s g.icn </dev/null >/dev/null 2>&1 && gcc -no-pie g.s -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread -o g.m4b >/dev/null 2>&1 && timeout 30 ./g.m4b </dev/null > g.m4 2>&1 ) || true
+( cd "$TD" && timeout -k 5 60 "$SCRIP" --compile -o g.s g.icn </dev/null >/dev/null 2>&1 && gcc -no-pie g.s -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread -o g.m4b >/dev/null 2>&1 && timeout -k 5 30 ./g.m4b </dev/null > g.m4 2>&1 ) || true
 grade "m4: same, through the compiled path" "$WANT" "$(cat "$TD/g.m4" 2>/dev/null)"
 cat > "$TD/l.icn" <<'ICNEOF'
 procedure main();
@@ -43,8 +43,8 @@ procedure main();
     write("a=", image(a), " b=", image(b));
 end
 ICNEOF
-( cd "$TD" && "$ICN/icont" -s l.icn >/dev/null 2>&1 && timeout 30 "$ICN/iconx" l > l.ref 2>&1 ) || refuse "iconx could not run the locals control -- cannot measure"
-( cd "$TD" && timeout 30 "$SCRIP" l.icn </dev/null > l.m3 2>&1 ) || true
+( cd "$TD" && "$ICN/icont" -s l.icn >/dev/null 2>&1 && timeout -k 5 30 "$ICN/iconx" l > l.ref 2>&1 ) || refuse "iconx could not run the locals control -- cannot measure"
+( cd "$TD" && timeout -k 5 30 "$SCRIP" l.icn </dev/null > l.m3 2>&1 ) || true
 grade "CONTROL: <-> on LOCALS stays green (the cure must not be paid for by the local path)" "$(cat "$TD/l.ref")" "$(cat "$TD/l.m3")"
 echo "$NAME: graded=$GRADED fails=$FAIL"
 [ "$FAIL" = 0 ] || { echo "⛔ GATE RED [$NAME]: $FAIL of $GRADED arm(s) failed"; exit 1; }

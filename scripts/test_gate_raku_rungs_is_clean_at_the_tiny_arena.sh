@@ -87,7 +87,7 @@ run_arm(){ # $1 = tag
         stress:*) export SCRIP_HEAP_MB="$TINY_MB" SCRIP_GC_STRESS="${tag#stress:}" TIMEOUT="$STRESS_TIMEOUT" ;;
         *) exit 9 ;;
       esac
-      S4E_PROGRESS_DB="$W/$fn.db" timeout "$SHARD_TIMEOUT" python3 "$HERE/corpus_suite_harness.py" run \
+      S4E_PROGRESS_DB="$W/$fn.db" timeout -k 5 "$SHARD_TIMEOUT" python3 "$HERE/corpus_suite_harness.py" run \
         "$P/ALL.raku" "$P/ALL.ref" --lang raku --modes m3,m4 --shard "$k/$SHARDS" ) \
       >> "$W/$fn.raw" 2>&1
     # ⛔⭐⭐ "DID THIS SHARD RECORD ANYTHING", NOT "WHAT WAS ITS rc" (ported lesson, hq_prolog -- rc conflates
@@ -112,7 +112,7 @@ run_arm(){ # $1 = tag
 # ⛔⭐⭐ DID THE POPULATION ACTUALLY COLLECT? (ported, hq_snocone design.) A suite-table cell that NAMES the arena
 # is not thereby a reading of the collector -- POSITIVE CONTROL first, so a zero below is a MEASURED zero.
 collect_probe(){ # $1 = SCRIP_HEAP_MB, $2 = SCRIP_GC_STRESS -> prints the [GC-WALK] count
-  SCRIP_GC_MAPS=1 SCRIP_HEAP_MB="$1" SCRIP_GC_STRESS="$2" timeout 120 "$SCRIP" "$W/probe.raku" < /dev/null 2>&1 >/dev/null | grep -c '^\[GC-WALK\]' || true
+  SCRIP_GC_MAPS=1 SCRIP_HEAP_MB="$1" SCRIP_GC_STRESS="$2" timeout -k 5 120 "$SCRIP" "$W/probe.raku" < /dev/null 2>&1 >/dev/null | grep -c '^\[GC-WALK\]' || true
 }
 printf 'my @a; for 1..20000 { @a.push($_) }; say @a.elems;\n' > "$W/probe.raku"
 pos=$(collect_probe "$TINY_MB" 1)

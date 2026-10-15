@@ -31,7 +31,7 @@ T="$(mktemp)"; trap 'rm -f "$T"' EXIT
 if [ -n "$LIST" ]; then cp "$LIST" "$T"; else
   { find "$CORPUS/demos" -maxdepth 1 -name '*.sno'; find "$CORPUS/crosscheck" -name '*.sno'; find "$CORPUS/library/probe_reference/bb" -name '*.sno'; } | sort > "$T"; fi
 gen() { local d n W rc; d="$(dirname "$1")"; n="$(basename "$1" .sno)"; W=$(mktemp -d)
-  (cd "$d" && SNO_LIB="$d" timeout 60 "$SCRIP" --compile "$1" </dev/null >"$W/p.s" 2>/dev/null); rc=$?
+  (cd "$d" && SNO_LIB="$d" timeout -k 5 60 "$SCRIP" --compile "$1" </dev/null >"$W/p.s" 2>/dev/null); rc=$?
   if   [ "$rc" -ne 0 ]; then printf 'COMPILE_RC_%s\t%s\n' "$rc" "$1"
   elif [ -s "$W/p.s" ]; then printf '%s\t%s\n' "$(md5sum < "$W/p.s" | cut -d' ' -f1)" "$1"
   else printf 'COMPILE_EMPTY\t%s\n' "$1"; fi

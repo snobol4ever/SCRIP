@@ -38,22 +38,22 @@ INTVAL="${CORPUS_ROOT:-$(cd "$ROOT/.." && pwd)}/corpus/packages/snobol4/csnobol4
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 printf '\t&TRIM = 1.0\n\tCOLLECT(999.9)\n\tOUTPUT = CHAR(65.0)\n\tCOLLECT(999.9)\n\tOUTPUT = CHAR(66.0)\nEND\n' > "$T/w.sno"
-( cd "$T" && timeout 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
+( cd "$T" && timeout -k 5 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
 [ -s "$T/w.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced an EMPTY ref -- an instrument that cannot measure refuses"; exit 2; }
 bad=0; first=""
 for i in $(seq 1 20); do
-    got="$(timeout 8s "$SCRIP" "$T/w.sno" </dev/null 2>&1)"
+    got="$(timeout -k 5 8s "$SCRIP" "$T/w.sno" </dev/null 2>&1)"
     if [ "$got" != "$(cat "$T/w.ref")" ]; then bad=$((bad+1)); [ -z "$first" ] && first="$got"; fi
 done
 if [ "$bad" = 0 ]; then echo "  m3 PASS (20/20 byte-identical to the oracle across two COLLECTs: $(tr '\n' '|' < "$T/w.ref"))"
 else echo "  m3 FAIL ($bad/20 diverged -- the by-name call lost its function name across COLLECT; first divergence: $(echo "$first" | tr '\n' '|'); oracle: $(tr '\n' '|' < "$T/w.ref"))"; RC=1; fi
 if "$SCRIP" --compile "$T/w.sno" -o "$T/w.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/w.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/w" 2>"$T/ld.log"; then
-    got4="$(timeout 8s "$T/w" </dev/null 2>&1)"
+    got4="$(timeout -k 5 8s "$T/w" </dev/null 2>&1)"
     if [ "$got4" = "$(cat "$T/w.ref")" ]; then echo "  m4 PASS (the .rodata copy is outside the heap and stays outside it: $(echo "$got4" | tr '\n' '|'))"
     else echo "  m4 FAIL (mode 4 diverged from the oracle: got $(echo "$got4" | tr '\n' '|'), oracle $(tr '\n' '|' < "$T/w.ref"))"; RC=1; fi
 else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link failed, so arm 2 measured nothing (see $T/ld.log)"; exit 2; fi
 if [ -f "$INTVAL" ] && [ -f "${INTVAL%.sno}.ref" ]; then
-    if timeout 8s "$SCRIP" "$INTVAL" </dev/null 2>&1 | diff -q - "${INTVAL%.sno}.ref" >/dev/null; then echo "  intval PASS (the csnobol4 package entry the row was opened on is green in mode 3)"
+    if timeout -k 5 8s "$SCRIP" "$INTVAL" </dev/null 2>&1 | diff -q - "${INTVAL%.sno}.ref" >/dev/null; then echo "  intval PASS (the csnobol4 package entry the row was opened on is green in mode 3)"
     else echo "  intval FAIL (csnobol4_suite/intval diverged from its shipped ref)"; RC=1; fi
 else echo "  intval SKIP (csnobol4_suite/intval not present at $INTVAL -- arms 1 and 2 are minted here and still bind)"; fi
 if [ "$RC" = 0 ]; then echo "✅ GATE PASS(0) [$G]: a by-name call resolves its function after two COLLECTs, in both modes, and the package entry stays green"

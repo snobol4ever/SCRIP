@@ -65,11 +65,11 @@ txt_type(text)
 plain_encoding(UTF-8)'
 for mode in m3 m4; do
     N=$((N+1))
-    if [ "$mode" = m3 ]; then got=$(cd "$D" && timeout 20 "$SCRIP" "$D/sp.pl" </dev/null 2>&1)
+    if [ "$mode" = m3 ]; then got=$(cd "$D" && timeout -k 5 20 "$SCRIP" "$D/sp.pl" </dev/null 2>&1)
     else
-        if (cd "$D" && timeout 60 "$SCRIP" --compile -o "$D/sp.s" "$D/sp.pl" >/dev/null 2>&1) \
+        if (cd "$D" && timeout -k 5 60 "$SCRIP" --compile -o "$D/sp.s" "$D/sp.pl" >/dev/null 2>&1) \
            && gcc -m64 -no-pie "$D/sp.s" -o "$D/sp.bin" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm >/dev/null 2>&1; then
-            got=$(cd "$D" && timeout 20 "$D/sp.bin" 2>&1)
+            got=$(cd "$D" && timeout -k 5 20 "$D/sp.bin" 2>&1)
         else echo "  RED  $mode: the witness failed to compile or link"; FAIL=$((FAIL+1)); continue; fi
     fi
     if [ "$got" = "$want" ]; then PASS=$((PASS+1))
@@ -84,8 +84,8 @@ main :- open('ob.bin', write, B, [type(binary)]),
 	close(B), halt.
 PLEOF
 sw="unavailable"; gp="unavailable"
-command -v swipl >/dev/null 2>&1 && sw=$(cd "$D" && timeout 20 swipl -q -g halt "$D/orc.pl" 2>&1 | tr '\n' ' ')
-gprolog_bin >/dev/null 2>&1 && gp=$(cd "$D" && timeout 20 "$(gprolog_bin)" --consult-file "$D/orc.pl" </dev/null 2>&1 | grep -o 'oracle_says=[a-z_]*\|domain_error(stream_property[^)]*)' | head -1)
+command -v swipl >/dev/null 2>&1 && sw=$(cd "$D" && timeout -k 5 20 swipl -q -g halt "$D/orc.pl" 2>&1 | tr '\n' ' ')
+gprolog_bin >/dev/null 2>&1 && gp=$(cd "$D" && timeout -k 5 20 "$(gprolog_bin)" --consult-file "$D/orc.pl" </dev/null 2>&1 | grep -o 'oracle_says=[a-z_]*\|domain_error(stream_property[^)]*)' | head -1)
 echo "    NOT GRADED, printed so the divergence cannot be mistaken for a defect: swipl [$sw] · gprolog [${gp:-domain_error(stream_property,encoding(_))}] · this engine: NO SOLUTION, which is the suite's expectation and ISO 7.10.2.13's property list"
 [ "$N" -gt 0 ] || { echo "⛔ REFUSE(2) [$GATE_NAME]: graded ZERO witnesses"; exit 2; }
 echo "PL BINARY STREAM ENCODING: PASS=$PASS FAIL=$FAIL / $N arms graded (m3+m4; binary has no encoding, text keeps the one it declared)"

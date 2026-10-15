@@ -55,8 +55,8 @@ echo "  HOLDS: the chain over the maps stops at a co-expression body's frame as 
 band=""; bad=0
 for st in 0 1 3; do
     if [ "$st" = 0 ]; then n=""; rf="$T/ref"; else n=300; rf="$T/ref300"; fi
-    o3="$( cd "$T" && SCRIP_GC_STRESS=$st timeout 120 "$SCRIP" w.icn -- $n 2>/dev/null </dev/null )"; r3=$?
-    o4="$( cd "$T" && SCRIP_GC_STRESS=$st timeout 120 ./w4 $n 2>/dev/null </dev/null )"; r4=$?
+    o3="$( cd "$T" && SCRIP_GC_STRESS=$st timeout -k 5 120 "$SCRIP" w.icn -- $n 2>/dev/null </dev/null )"; r3=$?
+    o4="$( cd "$T" && SCRIP_GC_STRESS=$st timeout -k 5 120 ./w4 $n 2>/dev/null </dev/null )"; r4=$?
     if [ "$o3" = "$(cat "$rf")" ] && [ "$o4" = "$(cat "$rf")" ]; then band="$band @$st:ok"; else band="$band @$st:m3=rc$r3,m4=rc$r4"; bad=1; fi
 done
 if [ "$bad" = 0 ]; then echo "  arm 1 PASS: icont's answers [$(cat "$T/ref")] at stress 0 and [$(cat "$T/ref300")] at stress 1,3 (300 strings) in both modes --$band"; echo "GATE PASS(0) [$G]: the chain stops at a co-expression body's frame as its coroutine start (examined 1 arm)"; RC=0

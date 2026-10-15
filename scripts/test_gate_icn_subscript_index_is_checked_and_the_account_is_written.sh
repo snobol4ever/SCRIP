@@ -126,11 +126,11 @@ WANT
 icn_arm() {
   local n="$1" wantrc="$2"
   graded=$((graded + 1))
-  ( cd "$T" && timeout 60 "$SCRIP" "$n.icn" </dev/null > "$n.m3" 2>&1 ); local rc3=$?; python3 "$ROOT/scripts/util_render_error_voice.py" icon < "$T/$n.m3" > "$T/$n.m3.r" && mv "$T/$n.m3.r" "$T/$n.m3"
+  ( cd "$T" && timeout -k 5 60 "$SCRIP" "$n.icn" </dev/null > "$n.m3" 2>&1 ); local rc3=$?; python3 "$ROOT/scripts/util_render_error_voice.py" icon < "$T/$n.m3" > "$T/$n.m3.r" && mv "$T/$n.m3.r" "$T/$n.m3"
   if [ "$rc3" = "$wantrc" ] && cmp -s "$T/$n.m3" "$T/$n.want"; then echo "  PASS  m3 $n"; else echo "  FAIL  m3 $n rc=$rc3 want rc=$wantrc"; diff "$T/$n.want" "$T/$n.m3" | head -10 | sed 's/^/        /'; fail=1; fi
   graded=$((graded + 1))
   if ( cd "$T" && "$SCRIP" --compile "$n.icn" > "$n.s" 2>/dev/null && gcc -c "$n.s" -o "$n.o" 2>/dev/null && gcc "$n.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$n.bin" 2>/dev/null ); then
-    ( cd "$T" && timeout 60 "./$n.bin" </dev/null > "$n.m4" 2>&1 ); local rc4=$?; python3 "$ROOT/scripts/util_render_error_voice.py" icon < "$T/$n.m4" > "$T/$n.m4.r" && mv "$T/$n.m4.r" "$T/$n.m4"
+    ( cd "$T" && timeout -k 5 60 "./$n.bin" </dev/null > "$n.m4" 2>&1 ); local rc4=$?; python3 "$ROOT/scripts/util_render_error_voice.py" icon < "$T/$n.m4" > "$T/$n.m4.r" && mv "$T/$n.m4.r" "$T/$n.m4"
     if [ "$rc4" = "$wantrc" ] && cmp -s "$T/$n.m4" "$T/$n.want"; then echo "  PASS  m4 $n"; else echo "  FAIL  m4 $n rc=$rc4 want rc=$wantrc"; diff "$T/$n.want" "$T/$n.m4" | head -10 | sed 's/^/        /'; fail=1; fi
   else echo "  FAIL  m4 $n: no binary"; fail=1; fi
 }
@@ -166,7 +166,7 @@ mid
 BCD
 WANT
 graded=$((graded + 1))
-( cd "$T" && timeout 60 "$SCRIP" s1.sno </dev/null > s1.out 2>&1 )
+( cd "$T" && timeout -k 5 60 "$SCRIP" s1.sno </dev/null > s1.out 2>&1 )
 if cmp -s "$T/s1.out" "$T/s1.want"; then echo "  PASS  snobol4 control arm: array/table/DATA subscripting is byte-equal to sbl -bf"; else echo "  FAIL  snobol4 control arm -- the Icon index check reached SNOBOL4"; diff "$T/s1.want" "$T/s1.out" | head -8 | sed 's/^/        /'; fail=1; fi
 [ "$graded" -gt 0 ] || { echo "⛔ REFUSE(2): graded 0 witnesses"; exit 2; }
 if [ "$fail" = 0 ]; then echo "✅ PASS: $graded/$graded arms -- a non-numeric subscript or section bound concedes, writes its own 101, and is fatal with no &error armed; a plain out-of-range index still raises nothing; SNOBOL4 subscripting untouched"; exit 0; fi

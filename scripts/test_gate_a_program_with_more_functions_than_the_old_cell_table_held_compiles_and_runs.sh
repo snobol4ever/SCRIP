@@ -31,14 +31,14 @@ n = 1100; L = []
 for i in range(n): L += ['\tDEFINE(\'F%d(X)\')\t:(F%d_END)' % (i, i), 'F%d\tF%d = X + %d\t:(RETURN)' % (i, i, i), 'F%d_END' % i]
 L.append('\tS = 0'); L += ['\tS = S + F%d(1)' % i for i in range(n)]; L += ['\tOUTPUT = S', 'END']
 open('$T/w.sno', 'w').write('\n'.join(L) + '\n')" || { echo "⛔ GATE REFUSE(2) [$G]: could not write the witness"; exit 2; }
-( cd "$T" && timeout 60 "$SBL" $(sbl_lang_flags) w.sno < /dev/null > w.ref 2> /dev/null )
+( cd "$T" && timeout -k 5 60 "$SBL" $(sbl_lang_flags) w.sno < /dev/null > w.ref 2> /dev/null )
 [ -s "$T/w.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing for the witness"; exit 2; }
 RC=0; red=""
-( cd "$T" && timeout 120 "$SCRIP" w.sno < /dev/null > m3.out 2> m3.err ); r3=$?
+( cd "$T" && timeout -k 5 120 "$SCRIP" w.sno < /dev/null > m3.out 2> m3.err ); r3=$?
 cmp -s "$T/m3.out" "$T/w.ref" && [ "$r3" = 0 ] || red="$red m3(rc=$r3 $(head -c 90 "$T/m3.err" | tr '\n' ' '))"
-( cd "$T" && timeout 180 "$SCRIP" --compile -o w.s w.sno < /dev/null > /dev/null 2> c4.err ); rc4=$?
+( cd "$T" && timeout -k 5 180 "$SCRIP" --compile -o w.s w.sno < /dev/null > /dev/null 2> c4.err ); rc4=$?
 if [ "$rc4" = 0 ] && ( cd "$T" && gcc w.s -o w.bin -L"$LIBDIR" -lscrip_rt -lm -lpthread -Wl,-rpath,"$LIBDIR" 2> /dev/null ); then
-    ( cd "$T" && timeout 60 ./w.bin < /dev/null > m4.out 2> m4.err ); r4=$?
+    ( cd "$T" && timeout -k 5 60 ./w.bin < /dev/null > m4.out 2> m4.err ); r4=$?
     cmp -s "$T/m4.out" "$T/w.ref" && [ "$r4" = 0 ] || red="$red m4(rc=$r4 $(head -c 90 "$T/m4.err" | tr '\n' ' '))"
 else red="$red m4-compile(rc=$rc4 $(head -c 90 "$T/c4.err" | tr '\n' ' '))"; fi
 if [ -z "$red" ]; then echo "  arm 1 PASS: 1100 DEFINEs print '$(cat "$T/w.ref")' like sbl -bf in mode 3 and mode 4 -- the call cells grow past the old 1024-cell table"

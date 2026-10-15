@@ -42,9 +42,9 @@ run_sno() {
     fi
     local got exp
     if [ -f "$input" ]; then
-        got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < "$input" 2>/dev/null || true)
+        got=$(SNO_LIB="$INC" timeout -k 5 "$TIMEOUT" "$bin" < "$input" 2>/dev/null || true)
     else
-        got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
+        got=$(SNO_LIB="$INC" timeout -k 5 "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
     fi
     if [ -f "$ref" ]; then
         exp=$(cat "$ref")

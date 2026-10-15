@@ -28,7 +28,7 @@ gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip 
 gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 printf "%-24s %10s %14s %12s\n" "program" "zls2_push" "zls2_bytes" "zls1_allocs"
 for f in $FILES; do
-    out=$(SCRIP_ZETA_TELEM=1 SCRIP_ZLS2_TRACE=1 timeout 60s "$SCRIP" --run "$f" < /dev/null 2>&1)
+    out=$(SCRIP_ZETA_TELEM=1 SCRIP_ZLS2_TRACE=1 timeout -k 5 60s "$SCRIP" --run "$f" < /dev/null 2>&1)
     p2=$(printf '%s\n' "$out" | grep -c '^\[ZLS2\] PUSH')
     b2=$(printf '%s\n' "$out" | awk '/^\[ZLS2\] PUSH/ {s+=$3} END {print s+0}')
     a1=$(printf '%s\n' "$out" | sed -n 's/.*allocs=\([0-9]*\).*/\1/p' | head -1); a1=${a1:-0}

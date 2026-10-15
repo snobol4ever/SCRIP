@@ -31,7 +31,7 @@ fi
 declare -A CELLS; TOTAL=0; PROGS=0
 for f in $(find "$CORPUS" -name "*.sno" | sort); do
     [ -f "$f" ] || continue
-    s=$(SCRIP_ZETA_PORT=6 timeout 8 "$SCRIP" --compile --target=x86 "$f" < /dev/null 2>/dev/null) || continue
+    s=$(SCRIP_ZETA_PORT=6 timeout -k 5 8 "$SCRIP" --compile --target=x86 "$f" < /dev/null 2>/dev/null) || continue
     PROGS=$((PROGS+1))
     kind=""
     while IFS= read -r line; do

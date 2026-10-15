@@ -52,16 +52,16 @@ PYEOF
 PRE=0; FIX=0; STILLBAD=0; NOSEED=0
 for f in "$DIR"/*.sno; do
     id="$(basename "$f" .sno)"; ref="$DIR/$id.ref"; [ -f "$ref" ] || continue
-    timeout 60s "$S" --compile "$f" </dev/null > "$W/p.s" 2>/dev/null
+    timeout -k 5 60s "$S" --compile "$f" </dev/null > "$W/p.s" 2>/dev/null
     [ -s "$W/p.s" ] || { STILLBAD=$((STILLBAD+1)); echo "  COMPILE-FAIL $id"; continue; }
     gcc "$W/p.s" -no-pie -L "$RTOUT" -lscrip_rt -Wl,-rpath,"$RTOUT" -o "$W/base" 2>/dev/null \
-        && timeout 15s env LD_LIBRARY_PATH="$RTOUT" "$W/base" </dev/null > "$W/gb" 2>/dev/null
+        && timeout -k 5 15s env LD_LIBRARY_PATH="$RTOUT" "$W/base" </dev/null > "$W/gb" 2>/dev/null
     if cmp -s "$W/gb" "$ref" 2>/dev/null; then PRE=$((PRE+1)); continue; fi
     if ! python3 "$W/seed.py" "$W/p.s" 2>/dev/null; then
         NOSEED=$((NOSEED+1)); STILLBAD=$((STILLBAD+1)); continue
     fi
     gcc "$W/p.s" -no-pie -L "$RTOUT" -lscrip_rt -Wl,-rpath,"$RTOUT" -o "$W/fx" 2>/dev/null \
-        && timeout 15s env LD_LIBRARY_PATH="$RTOUT" "$W/fx" </dev/null > "$W/gf" 2>/dev/null
+        && timeout -k 5 15s env LD_LIBRARY_PATH="$RTOUT" "$W/fx" </dev/null > "$W/gf" 2>/dev/null
     if cmp -s "$W/gf" "$ref" 2>/dev/null; then FIX=$((FIX+1)); echo "  RECOVERED $id"
     else STILLBAD=$((STILLBAD+1)); fi
 done

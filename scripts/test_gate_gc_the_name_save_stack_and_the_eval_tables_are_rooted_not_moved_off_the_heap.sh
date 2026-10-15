@@ -84,14 +84,14 @@ for fn in eval_cache_put rt_label_set_fn; do
 done
 grep -q 'rt_rk_cb_grow\|g_rk_cb_hold' "$ROOT/src/runtime/rt/rt.c" && { echo "  fact-rule FAIL (a grown Raku holder is back in rt.c: since CEO-1560 the Raku block-callback holds are rk_cbh_t cells on the builtin's own C frame, chained from g_rk_cbh_cur and visited by bnd_gc_roots, and allocate nothing)"; bad=1; }
 if [ "$bad" -eq 0 ]; then echo "  fact-rule PASS (both eval holders still allocate from the COLLECTED heap and the Raku holds are frame cells, never a grown holder -- this gate cannot be made green by taking them out of the collector's sight)"; else RC=1; fi
-( cd "$T" && timeout 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
+( cd "$T" && timeout -k 5 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
 [ -s "$T/w.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced an EMPTY ref"; exit 2; }
 if "$SCRIP" --compile "$T/w.sno" -o "$T/w.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/w.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/w4" 2>"$T/ld.log"; then :; else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link failed, so every m4 arm measured nothing (see $T/ld.log)"; exit 2; fi
 red=0; ran=0
 for st in 0 5 10 15 20 30 40 200; do
-    ( cd "$T" && SCRIP_GC_STRESS=$st timeout 20s "$SCRIP" w.sno </dev/null > m3.out 2>/dev/null ); r=$?; ran=$((ran+1))
+    ( cd "$T" && SCRIP_GC_STRESS=$st timeout -k 5 20s "$SCRIP" w.sno </dev/null > m3.out 2>/dev/null ); r=$?; ran=$((ran+1))
     if [ "$r" -eq 0 ] && cmp -s "$T/m3.out" "$T/w.ref"; then :; else echo "  m3 stress=$st FAIL (rc=$r; 139 is the stale-holder SIGSEGV, 0-with-diff the silently wrong answer)"; red=$((red+1)); fi
-    ( cd "$T" && SCRIP_GC_STRESS=$st timeout 20s ./w4 </dev/null > m4.out 2>/dev/null ); r=$?; ran=$((ran+1))
+    ( cd "$T" && SCRIP_GC_STRESS=$st timeout -k 5 20s ./w4 </dev/null > m4.out 2>/dev/null ); r=$?; ran=$((ran+1))
     if [ "$r" -eq 0 ] && cmp -s "$T/m4.out" "$T/w.ref"; then :; else echo "  m4 stress=$st FAIL (rc=$r)"; red=$((red+1)); fi
 done
 if [ "$red" -eq 0 ]; then echo "  band PASS (the DEXP witness is rc=0 and byte-identical to the oracle at every one of $ran runs across SCRIP_GC_STRESS 0 5 10 15 20 30 40 200 in BOTH modes -- a band, because origin is green at 30 and 200 and red at 5 and 10, so two sampled points are a lottery)"

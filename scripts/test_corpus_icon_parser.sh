@@ -54,7 +54,7 @@ recognizer_empty_class() {
 }
 
 for f in "${FILES[@]}"; do
-  OUT=$(timeout "$TIMEOUT" "$TMP/icon_parser" < "$f" 2>/dev/null); code=$?
+  OUT=$(timeout -k 5 "$TIMEOUT" "$TMP/icon_parser" < "$f" 2>/dev/null); code=$?
   if [ $code -eq 124 ] || [ $code -ne 0 ]; then
     ((P_CRASH++))
   elif [ -z "$OUT" ] || [ "$OUT" = '(compiland "")' ]; then
@@ -63,7 +63,7 @@ for f in "${FILES[@]}"; do
     ((P_PASS++))
   fi
 
-  OUT=$(timeout "$TIMEOUT" "$TMP/icon_recognizer" < "$f" 2>/dev/null); code=$?
+  OUT=$(timeout -k 5 "$TIMEOUT" "$TMP/icon_recognizer" < "$f" 2>/dev/null); code=$?
   if [ $code -eq 124 ] || [ $code -ne 0 ]; then
     ((R_CRASH++))
   elif [ -z "$OUT" ] || [ "$OUT" = '(compiland "")' ]; then

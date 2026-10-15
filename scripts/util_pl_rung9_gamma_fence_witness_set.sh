@@ -98,12 +98,12 @@ EOF
 runq() {
     local f="$1"
     if [ "$MODE" = m3 ]; then
-        ( ulimit -s "$PIN_KB"; timeout 180 "$SCRIP" "$f" </dev/null 2>&1 )
+        ( ulimit -s "$PIN_KB"; timeout -k 5 180 "$SCRIP" "$f" </dev/null 2>&1 )
     else
         ( ulimit -s "$PIN_KB"
-          timeout 180 "$SCRIP" --compile -o "$W/x.s" "$f" </dev/null >/dev/null 2>&1 || exit 9
+          timeout -k 5 180 "$SCRIP" --compile -o "$W/x.s" "$f" </dev/null >/dev/null 2>&1 || exit 9
           cd "$W" && gcc -no-pie x.s -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o x.bin >/dev/null 2>&1 || exit 9
-          timeout 180 ./x.bin </dev/null 2>&1 )
+          timeout -k 5 180 ./x.bin </dev/null 2>&1 )
     fi
 }
 ok_at() { emit "$W/t.pl" "$2" "$3" "${4:-}"; runq "$W/t.pl" | grep -q '^ok$'; }

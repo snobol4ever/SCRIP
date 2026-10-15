@@ -57,7 +57,7 @@ while IFS=$'\t' read -r goal want; do
   [ -n "$goal" ] || continue
   N=$((N+1))
   printf ':- initialization(main).\nmain :- write(user_output, @), %s, write(user_output, @), nl(user_output).\n' "$goal" > "$D/t.pl"
-  got=$(timeout 20 "$SCRIP" "$D/t.pl" </dev/null 2>&1)
+  got=$(timeout -k 5 20 "$SCRIP" "$D/t.pl" </dev/null 2>&1)
   rc=$?
   inner=${got#*@}; inner=${inner%@*}
   if [ $rc -ne 0 ]; then echo "  RED  [$goal] rc=$rc -- the program died before it could print"; FAIL=$((FAIL+1)); continue; fi

@@ -35,7 +35,7 @@ ROUTED_TSV="${LOGTALK_ROUTED_TSV:-$HERE/lib_logtalk_routed.tsv}"
 ALLCSV="$SUITE/ALL.csv"; [ -f "$ALLCSV" ] || { echo "⛔ REFUSE(2): no ALL.csv at $ALLCSV -- the population census a routed declaration is audited against"; exit 2; }
 RC=0; POP=0; BOTH=0; F3=0; F4=0; OUT=0; N=$#; ROUTED_TOTAL=0; UNWIT=""; MISPOP=""
 for G in "$@"; do
-  RAW=$(cd "$ROOT" && timeout 900 python3 scripts/util_logtalk_grade.py --suite "$SUITE" --scrip "$SCRIP" --modes m3,m4 --group "$G" --name-reds 2>&1) || true
+  RAW=$(cd "$ROOT" && timeout -k 5 900 python3 scripts/util_logtalk_grade.py --suite "$SUITE" --scrip "$SCRIP" --modes m3,m4 --group "$G" --name-reds 2>&1) || true
   L=$(printf '%s\n' "$RAW" | grep -m1 '^BOARD_FOR_SHELL ') || true
   out=$(printf '%s' "$L" | grep -oE 'outside=[0-9]+' | head -1); out=${out#outside=}
   set -- $L; [ "${1:-}" = BOARD_FOR_SHELL ] && [ "${2:-0}" -gt 0 ] || { echo "⛔ REFUSE(2): group $G graded nothing ($L)"; exit 2; }

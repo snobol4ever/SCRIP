@@ -78,7 +78,7 @@ export SCRIP_HEAP_MB=512   # THE PIN (CEO-931 pin rule): this gate measures the 
 unset SCRIP_HEAP_KB
 echo "ARENA SCRIP_HEAP_MB=512 PINNED inside the checker for the stress-0 arm (collections must read 0; a tiny arena would make every site NOT-ZERO by construction) -- declared in the tiny-arena gate's pinned set"
 echo "POPULATION (declared): $(grep -vc '^#' "$TABLE") credited bare-poll site(s) in $(basename "$TABLE"); ceiling on unwitnessed: $CEILING"
-st="$(timeout 300s python3 "$CHK" --selftest 2>&1)"; src=$?
+st="$(timeout -k 5 300s python3 "$CHK" --selftest 2>&1)"; src=$?
 n="$(printf '%s\n' "$st" | sed -n 's/^SELFTEST \([0-9]*\)\/\([0-9]*\) arms green/\1 \2/p')"; set -- ${n:-0 0}
 if [ "$src" = 0 ] && [ "${1:-0}" = "${2:-x}" ] && printf '%s\n' "$st" | grep -q "BARE-POLL PLANTED: a poll call WITHOUT its note"; then
   ck ok "(a) the checker's selftest holds, ${1} of ${2} arms, the bare-poll clause's plants among them"
@@ -87,7 +87,7 @@ else
 fi
 OUT="$(mktemp -t gc_bare_poll_reading.XXXXXX)"; trap 'rm -f "$OUT"' EXIT
 WIT="$(grep -v '^#' "$TABLE" | cut -f2 | grep -v '^UNWITNESSED$' | sort -u | sed "s|^|$ROOT/scripts/gc_witnesses/|")"
-timeout 900s python3 "$CHK" $WIT --bare-poll > "$OUT" 2>&1; rrc=$?
+timeout -k 5 900s python3 "$CHK" $WIT --bare-poll > "$OUT" 2>&1; rrc=$?
 summ="$(grep '^CONTRACT BARE-POLL sites=' "$OUT" | head -1)"
 notes="$(grep '^CONTRACT BARE-POLL-NOTES ' "$OUT" | head -1)"
 if [ "$rrc" = 0 ] && [ -n "$summ" ] && printf '%s\n' "$notes" | grep -q 'mismatched=0'; then

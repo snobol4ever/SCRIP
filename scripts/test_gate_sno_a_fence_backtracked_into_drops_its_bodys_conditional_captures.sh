@@ -106,21 +106,21 @@ mark_end  p1 = '' . *mark('R')
           OUTPUT = 'head [' head '] last [' last ']'
 END
 EOF
-for w in fb ctl; do ( cd "$T" && timeout 20 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ) || refuse "sbl did not run $w cleanly"; done
+for w in fb ctl; do ( cd "$T" && timeout -k 5 20 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ) || refuse "sbl did not run $w cleanly"; done
 grep -qx 'fence one \[R\]' "$T/fb.oracle" && grep -qx 'fence in fence \[RQ\]' "$T/fb.oracle" && grep -qx 'kept through \[ABC\]' "$T/ctl.oracle" || refuse "sbl's answer moved: [$(tr '\n' '|' < "$T/fb.oracle")]"
-S4E_HOME="$S4E" SCRIP="$SCRIP" timeout 300 python3 "$HERE/test_bootstrap_parsers.py" snocone --arm m3 --only library/counter.sc --no-rungs --timeout 120 --work "$T/bp" > "$T/bp.log" 2>&1
+S4E_HOME="$S4E" SCRIP="$SCRIP" timeout -k 5 300 python3 "$HERE/test_bootstrap_parsers.py" snocone --arm m3 --only library/counter.sc --no-rungs --timeout 120 --work "$T/bp" > "$T/bp.log" 2>&1
 PSNO="$T/bp/snocone/parser_snocone.sno"
 [ -s "$PSNO" ] || refuse "the snocone chain did not transpile: $(tail -2 "$T/bp.log" | tr '\n' ' ')"
-( cd "$T" && timeout 120 "$SBL" -bf -s2000m -d4000m "$PSNO" < "$SRC" > counter.oracle 2>&1 ) || refuse "sbl did not run the snocone parser on counter.sc"
+( cd "$T" && timeout -k 5 120 "$SBL" -bf -s2000m -d4000m "$PSNO" < "$SRC" > counter.oracle 2>&1 ) || refuse "sbl did not run the snocone parser on counter.sc"
 grep -q 'Parse Error\|ERROR' "$T/counter.oracle" && refuse "sbl no longer parses counter.sc cleanly"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
 same() { [ "$1" = 0 ] || { echo "rc=$1"; return; }; cmp -s "$T/$2" "$T/$3" && echo ok || echo "got [$(tr '\n' '|' < "$T/$2" | head -c 110)] want [$(tr '\n' '|' < "$T/$3" | head -c 110)]"; }
-m3() { ( cd "$T" && timeout 20 "$SCRIP" "$1.sno" < /dev/null > "$1.m3" 2>&1; echo $? ); }
-m4() { ( cd "$T" && timeout 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout 20 "./$1.bin" < /dev/null > "$1.m4" 2>&1; echo $? ); }
+m3() { ( cd "$T" && timeout -k 5 20 "$SCRIP" "$1.sno" < /dev/null > "$1.m3" 2>&1; echo $? ); }
+m4() { ( cd "$T" && timeout -k 5 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout -k 5 20 "./$1.bin" < /dev/null > "$1.m4" 2>&1; echo $? ); }
 rc=$(m3 fb); arm "m3: FENCE(P) backtracked into after ARBNO, FENCE in FENCE, FENCE of a deferred pattern" "$(same "$rc" fb.m3 fb.oracle)"
 rc=$(m4 fb); arm "m4: FENCE(P) backtracked into after ARBNO, FENCE in FENCE, FENCE of a deferred pattern" "$(same "$rc" fb.m4 fb.oracle)"
-rc=$( ( cd "$T" && timeout 120 "$SCRIP" -s4096m -d16384m "$PSNO" < "$SRC" > counter.m3 2>&1; echo $? ) ); arm "m3: parser_snocone.sno parses library/counter.sc as sbl does" "$(same "$rc" counter.m3 counter.oracle)"
+rc=$( ( cd "$T" && timeout -k 5 120 "$SCRIP" -s4096m -d16384m "$PSNO" < "$SRC" > counter.m3 2>&1; echo $? ) ); arm "m3: parser_snocone.sno parses library/counter.sc as sbl does" "$(same "$rc" counter.m3 counter.oracle)"
 rc=$(m3 ctl); arm "CONTROL m3: unbacktracked FENCE, plain/deferred/stored/EVAL forms, bare FENCE, ABORT arm, two arms" "$(same "$rc" ctl.m3 ctl.oracle)"
 rc=$(m4 ctl); arm "CONTROL m4: unbacktracked FENCE, plain/deferred/stored/EVAL forms, bare FENCE, ABORT arm, two arms" "$(same "$rc" ctl.m4 ctl.oracle)"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }

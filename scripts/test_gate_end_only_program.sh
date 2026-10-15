@@ -28,7 +28,7 @@ FAIL=0
 
 check_m3() {  # name path
     local name="$1" src="$2" out rc
-    out=$(timeout 8 "$SCRIP_BIN" "$src" < /dev/null 2>"$WORKDIR/m3.err"); rc=$?
+    out=$(timeout -k 5 8 "$SCRIP_BIN" "$src" < /dev/null 2>"$WORKDIR/m3.err"); rc=$?
     if [ "$rc" -ne 0 ] || [ -n "$out" ]; then
         echo "FAIL m3 $name: rc=$rc bytes=${#out} (want rc=0, 0 bytes)"
         [ -s "$WORKDIR/m3.err" ] && sed 's/^/    /' "$WORKDIR/m3.err"
@@ -40,7 +40,7 @@ check_m3() {  # name path
 
 check_m4() {  # name path
     local name="$1" src="$2" out rc
-    timeout 8 "$SCRIP_BIN" --compile "$src" > "$WORKDIR/p.s" 2>"$WORKDIR/emit.err" < /dev/null
+    timeout -k 5 8 "$SCRIP_BIN" --compile "$src" > "$WORKDIR/p.s" 2>"$WORKDIR/emit.err" < /dev/null
     if [ ! -s "$WORKDIR/p.s" ]; then
         echo "FAIL m4 $name: compile emitted nothing"; sed 's/^/    /' "$WORKDIR/emit.err"; FAIL=1; return
     fi
@@ -50,7 +50,7 @@ check_m4() {  # name path
     if ! gcc -no-pie "$WORKDIR/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$WORKDIR/p.bin" 2>"$WORKDIR/link.err"; then
         echo "FAIL m4 $name: link failed"; sed 's/^/    /' "$WORKDIR/link.err"; FAIL=1; return
     fi
-    out=$(timeout 8 "$WORKDIR/p.bin" < /dev/null 2>"$WORKDIR/run.err"); rc=$?
+    out=$(timeout -k 5 8 "$WORKDIR/p.bin" < /dev/null 2>"$WORKDIR/run.err"); rc=$?
     if [ "$rc" -ne 0 ] || [ -n "$out" ]; then
         echo "FAIL m4 $name: rc=$rc bytes=${#out} (want rc=0, 0 bytes)"
         [ -s "$WORKDIR/run.err" ] && sed 's/^/    /' "$WORKDIR/run.err"

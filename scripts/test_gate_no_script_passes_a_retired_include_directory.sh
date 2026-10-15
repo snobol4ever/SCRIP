@@ -80,7 +80,7 @@ if [ "$n_plant" -eq $((n_real + 2)) ] && grep -qP 'zz_planted_retired_a.sh\tsrc/
 else echo "  arm 2 FAIL: the plant read dead $n_real -> $n_plant, want +2 naming src/contracts and src/machine -- the scanner cannot see the class"; RC=1; fi
 stale=0; for f in test_census_rbp_frames.sh test_sno_pat_bb_probe.sh util_autobug.sh util_fc_conversion_map.py; do
   h=$(grep -nE 'src/(contracts|machine|interp|include)\b' "$ROOT/scripts/$f" | grep -vE '^[0-9]+:\s*#' | head -1); [ -n "$h" ] && { echo "     $f:$h"; stale=$((stale+1)); }; done
-( cd "$ROOT" && timeout 60 python3 scripts/util_fc_conversion_map.py > "$T/fc.txt" 2>&1 ); fcr=$?
+( cd "$ROOT" && timeout -k 5 60 python3 scripts/util_fc_conversion_map.py > "$T/fc.txt" 2>&1 ); fcr=$?
 if [ "$stale" -eq 0 ] && [ "$fcr" -eq 0 ] && [ -s "$T/fc.txt" ]; then echo "  arm 3 PASS: the four scripts the row named read no retired directory on a code line, and util_fc_conversion_map.py runs rc=0 ($(wc -l < "$T/fc.txt") lines)"
 else echo "  arm 3 FAIL: $stale of the four scripts still name a retired directory on a code line; util_fc_conversion_map.py rc=$fcr"; RC=1; fi
 echo "population: 3 arm(s) graded"

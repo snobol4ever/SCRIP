@@ -38,12 +38,12 @@ refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 MODES="${PL_RUNG_MODES:-m3,m4}"
 TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT
 red=0; total=0
-run_m3() { timeout 20 "$SCRIP" "$1" </dev/null 2>"$TMPD/err"; }
+run_m3() { timeout -k 5 20 "$SCRIP" "$1" </dev/null 2>"$TMPD/err"; }
 run_m4() {
     local src="$1" s="$TMPD/w.s" b="$TMPD/w.bin"
-    timeout 60 "$SCRIP" --compile -o "$s" "$src" </dev/null 2>"$TMPD/err" || { echo "  (m4: compile failed: $(head -c 160 "$TMPD/err"))"; return 97; }
+    timeout -k 5 60 "$SCRIP" --compile -o "$s" "$src" </dev/null 2>"$TMPD/err" || { echo "  (m4: compile failed: $(head -c 160 "$TMPD/err"))"; return 97; }
     gcc -m64 -no-pie "$s" -o "$b" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err" || { echo "  (m4: link failed: $(head -c 160 "$TMPD/err"))"; return 98; }
-    timeout 20 "$b" </dev/null 2>"$TMPD/err"
+    timeout -k 5 20 "$b" </dev/null 2>"$TMPD/err"
 }
 arm() {
     local name="$1" src="$2" want_out="$3" mode got rc

@@ -26,8 +26,8 @@ gcc -o "$W/r.bin" "$W/r.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -
 STRESS="SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_CHAIN_CHECK=3"
 run_arm() {
     local n="$1" mode="$2" rc k v reading=""
-    if [ "$mode" = m3 ]; then ( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB $STRESS timeout 120 "$ROOT/scrip" "$W/r.pl" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?
-    else ( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB $STRESS timeout 120 "$W/r.bin" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?; fi
+    if [ "$mode" = m3 ]; then ( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB $STRESS timeout -k 5 120 "$ROOT/scrip" "$W/r.pl" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?
+    else ( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB $STRESS timeout -k 5 120 "$W/r.bin" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?; fi
     grep -v '^\[GC-\|^\[CHAIN' "$W/$n.out" > "$W/$n.txt"
     if [ "$rc" -ne 0 ] || ! cmp -s "$W/$n.txt" "$W/r.ref"; then echo "  RED ($n) $mode: rc=$rc, the output differs from the ref:"; diff "$W/r.ref" "$W/$n.txt" | head -4; return 1; fi
     for k in bad-link offchain-swept mismatch missing; do

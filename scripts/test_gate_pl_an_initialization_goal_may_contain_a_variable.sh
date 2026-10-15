@@ -42,11 +42,11 @@ rc=0
 for m in 3 4; do
   for arm in control subject; do
     src="$W/$arm.pl"; out=""
-    if [ "$m" = 3 ]; then out="$(timeout 25 ./scrip "$src" </dev/null 2>&1)"; k=$?
+    if [ "$m" = 3 ]; then out="$(timeout -k 5 25 ./scrip "$src" </dev/null 2>&1)"; k=$?
     else
-      timeout 25 ./scrip --compile -o "$W/a.s" "$src" </dev/null >"$W/c.log" 2>&1; k=$?
+      timeout -k 5 25 ./scrip --compile -o "$W/a.s" "$src" </dev/null >"$W/c.log" 2>&1; k=$?
       if [ "$k" = 0 ] && gcc -no-pie "$W/a.s" -Lout -lscrip_rt -Wl,-rpath,"$PWD/out" -lm -lpthread -o "$W/a.bin" >>"$W/c.log" 2>&1
-      then out="$(timeout 25 "$W/a.bin" </dev/null 2>&1)"; k=$?; fi
+      then out="$(timeout -k 5 25 "$W/a.bin" </dev/null 2>&1)"; k=$?; fi
     fi
     if [ "$k" -ge 124 ]; then verdict="TIMED OUT after 25s"; else verdict="answered"; fi
     got="$(printf '%s\n' "$out" | tr '\n' ' ')"

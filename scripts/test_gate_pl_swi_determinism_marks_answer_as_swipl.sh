@@ -55,10 +55,10 @@ main :- t(a1(_)), t(a2(_)), t(a3), t(a4), t(a5), t(a6), t(a7), t2(a8), t(a9(_)),
   writeq(($p, $)), nl, writeq(f($, $a, '$'(a, b), ($) - a)), nl, writeq($ (1 + 2)), nl,
   ( current_op(P, T, $) -> writeq(op(P, T)) ; writeq(no_op) ), nl.
 PL
-( cd "$D" && timeout 60 swipl -q -t halt w.pl < /dev/null 2> /dev/null | sed -E 's/_[0-9]+/_V/g' > want )
+( cd "$D" && timeout -k 5 60 swipl -q -t halt w.pl < /dev/null 2> /dev/null | sed -E 's/_[0-9]+/_V/g' > want )
 [ -s "$D/want" ] || refuse "swipl printed nothing for the witness"
-( cd "$D" && timeout 60 "$B/scrip" -s4096k --run w.pl < /dev/null 2> m3.err | sed -E 's/_G?[0-9]+/_V/g' > m3 )
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null 2> m4.err && gcc -no-pie w.s -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" -o w 2>> m4.err && timeout 60 ./w -s4096k < /dev/null 2>> m4.err | sed -E 's/_G?[0-9]+/_V/g' > m4 )
+( cd "$D" && timeout -k 5 60 "$B/scrip" -s4096k --run w.pl < /dev/null 2> m3.err | sed -E 's/_G?[0-9]+/_V/g' > m3 )
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null 2> m4.err && gcc -no-pie w.s -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" -o w 2>> m4.err && timeout -k 5 60 ./w -s4096k < /dev/null 2>> m4.err | sed -E 's/_G?[0-9]+/_V/g' > m4 )
 n=$(wc -l < "$D/want"); red=0
 for m in m3 m4; do
     if cmp -s "$D/want" "$D/$m"; then echo "  $m GREEN: $n of $n lines as swipl"

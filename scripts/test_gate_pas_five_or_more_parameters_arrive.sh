@@ -45,10 +45,10 @@ cat > "$W/want" <<'REF'
          22         23
 REF
 PASS=0; FAIL=0
-m3=$(timeout 8s "$SCRIP" --run "$W/g.pas" < /dev/null 2>&1)
+m3=$(timeout -k 5 8s "$SCRIP" --run "$W/g.pas" < /dev/null 2>&1)
 if [ "$m3" = "$(cat "$W/want")" ]; then echo "PASS m3 (five, eight, six and nested witnesses)"; PASS=$((PASS+1)); else echo "FAIL m3"; diff <(echo "$m3") "$W/want" | head -20; FAIL=$((FAIL+1)); fi
-( cd "$W" && timeout 8s "$SCRIP" --compile g.pas < /dev/null > g.s 2>/dev/null && gcc -c g.s -o g.o 2>/dev/null && gcc g.o -L"$S4E/SCRIP/out" -lscrip_rt -lm -Wl,-rpath,"$S4E/SCRIP/out" -o g.bin 2>/dev/null ) || { echo "FAIL m4 (build)"; FAIL=$((FAIL+1)); }
-if [ -x "$W/g.bin" ]; then m4=$(cd "$W" && timeout 8s ./g.bin < /dev/null 2>&1)
+( cd "$W" && timeout -k 5 8s "$SCRIP" --compile g.pas < /dev/null > g.s 2>/dev/null && gcc -c g.s -o g.o 2>/dev/null && gcc g.o -L"$S4E/SCRIP/out" -lscrip_rt -lm -Wl,-rpath,"$S4E/SCRIP/out" -o g.bin 2>/dev/null ) || { echo "FAIL m4 (build)"; FAIL=$((FAIL+1)); }
+if [ -x "$W/g.bin" ]; then m4=$(cd "$W" && timeout -k 5 8s ./g.bin < /dev/null 2>&1)
   if [ "$m4" = "$(cat "$W/want")" ]; then echo "PASS m4 (five, eight, six and nested witnesses)"; PASS=$((PASS+1)); else echo "FAIL m4"; diff <(echo "$m4") "$W/want" | head -20; FAIL=$((FAIL+1)); fi; fi
 echo "pas-five-or-more-parameters-arrive: PASS=$PASS FAIL=$FAIL (population: 1 program x 2 modes, 9 expected lines each; the eight-parameter witness is eight(1..8))"
 if [ $FAIL -eq 0 ] && [ $PASS -eq 2 ]; then echo "GATE PASS(0) [pas_five_or_more_parameters_arrive]: 2/2 modes"; exit 0; else echo "GATE RED [pas_five_or_more_parameters_arrive]: $FAIL red of 2"; exit 1; fi

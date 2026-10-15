@@ -119,9 +119,9 @@ oracle_trace_for() {
   local src="$1" stdin_f="${2:-/dev/null}" wd base rc=0
   wd="$(mktemp -d)"; base="$(basename "$src" .icn)"
   awk '{print} /^[[:space:]]*procedure[[:space:]]+main[[:space:]]*\(/ && !done {print "&trace := -1"; done=1}' "$src" > "$wd/$base.icn"
-  ( cd "$wd" && timeout "$T" "$ICONT" -s "$base.icn" ) >/dev/null 2>&1
+  ( cd "$wd" && timeout -k 5 "$T" "$ICONT" -s "$base.icn" ) >/dev/null 2>&1
   if [ -x "$wd/$base" ]; then
-    ( cd "$wd" && timeout "$T" "$ICONX" "$base" ) <"$stdin_f" >/dev/null 2>"$wd/raw.trace"
+    ( cd "$wd" && timeout -k 5 "$T" "$ICONX" "$base" ) <"$stdin_f" >/dev/null 2>"$wd/raw.trace"
   else
     : > "$wd/raw.trace"; rc=1
   fi
@@ -149,16 +149,16 @@ for o in $origins; do
     lines+=("$(printf '%-40s SKIP (no suspend -- not a proc_gen/generator witness)' "$o")"); skip=$((skip+1)); continue
   fi
   n=$((n+1))
-  (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s0" "$src" </dev/null >/dev/null 2>&1); (cd "$W" && SCRIP_PL_TRACE=0 timeout "$T" "$SCRIP" --compile -o "$o.s0b" "$src" </dev/null >/dev/null 2>&1)
-  (cd "$W" && SCRIP_PL_TRACE=1 timeout "$T" "$SCRIP" --compile -o "$o.s1" "$src" </dev/null >/dev/null 2>&1)
+  (cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile -o "$o.s0" "$src" </dev/null >/dev/null 2>&1); (cd "$W" && SCRIP_PL_TRACE=0 timeout -k 5 "$T" "$SCRIP" --compile -o "$o.s0b" "$src" </dev/null >/dev/null 2>&1)
+  (cd "$W" && SCRIP_PL_TRACE=1 timeout -k 5 "$T" "$SCRIP" --compile -o "$o.s1" "$src" </dev/null >/dev/null 2>&1)
   ks=OK; { cmp -s "$W/$o.s0" "$W/$o.s0b" && [ -s "$W/$o.s0" ] && ! cmp -s "$W/$o.s0" "$W/$o.s1"; } || { ks=FAIL; bad=$((bad+1)); }
-  timeout "$T" "$SCRIP" --run "$src" <"$IN" >"$W/$o.m3.out0" 2>/dev/null; r30=$?
-  SCRIP_PL_TRACE=1 timeout "$T" "$SCRIP" --run "$src" <"$IN" >"$W/$o.m3.out1" 2>"$W/$o.m3.raw"; r31=$?
+  timeout -k 5 "$T" "$SCRIP" --run "$src" <"$IN" >"$W/$o.m3.out0" 2>/dev/null; r30=$?
+  SCRIP_PL_TRACE=1 timeout -k 5 "$T" "$SCRIP" --run "$src" <"$IN" >"$W/$o.m3.out1" 2>"$W/$o.m3.raw"; r31=$?
   pert3=OK; { [ "$r30" = "$r31" ] && cmp -s "$W/$o.m3.out0" "$W/$o.m3.out1"; } || { pert3=FAIL; bad=$((bad+1)); }
   pert4=OK
   if m4build "$W/$o.s0" "$W/$o.bin0" && m4build "$W/$o.s1" "$W/$o.bin1"; then
-    timeout "$T" "$W/$o.bin0" <"$IN" >"$W/$o.m4.out0" 2>/dev/null; r40=$?
-    SCRIP_PL_TRACE=1 timeout "$T" "$W/$o.bin1" <"$IN" >"$W/$o.m4.out1" 2>"$W/$o.m4.raw"; r41=$?
+    timeout -k 5 "$T" "$W/$o.bin0" <"$IN" >"$W/$o.m4.out0" 2>/dev/null; r40=$?
+    SCRIP_PL_TRACE=1 timeout -k 5 "$T" "$W/$o.bin1" <"$IN" >"$W/$o.m4.out1" 2>"$W/$o.m4.raw"; r41=$?
     { [ "$r40" = "$r41" ] && cmp -s "$W/$o.m4.out0" "$W/$o.m4.out1"; } || { pert4=FAIL; bad=$((bad+1)); }
   else pert4=NOBUILD; bad=$((bad+1)); : > "$W/$o.m4.raw"; fi
   cmp -s "$W/$o.m3.out0" "$ref" && { ans=ok; ans_ok=$((ans_ok+1)); } || { ans=RED; ans_red=$((ans_red+1)); }

@@ -38,7 +38,7 @@ cat > "$T/w.sno" <<'SNEOF'
         OUTPUT = T
 END
 SNEOF
-for w in w.pl w.icn w.sno; do timeout 20s ./scrip --dump-zeta "$T/$w" </dev/null > "$T/$w.zeta" 2>/dev/null; done
+for w in w.pl w.icn w.sno; do timeout -k 5 20s ./scrip --dump-zeta "$T/$w" </dev/null > "$T/$w.zeta" 2>/dev/null; done
 ZETA_DIR="${GATE_ZETA_DIR:-$T}"
 python3 - "$ZETA_DIR" <<'PYEOF'
 import sys, os, re

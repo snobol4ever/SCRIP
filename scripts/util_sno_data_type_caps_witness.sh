@@ -36,12 +36,12 @@ run_point() {
     pts=$((pts + 1))
     "$SBL" $(sbl_lang_flags) "$src" < /dev/null > "$W/$label.ref" 2> /dev/null
     [ -s "$W/$label.ref" ] || { echo "REFUSED(2): the oracle printed nothing for point $label"; exit 2; }
-    ( cd "$W" && timeout 30 "$ROOT/scrip" "$src" < /dev/null > "$label.m3" 2> "$label.m3e" ); rc=$?
+    ( cd "$W" && timeout -k 5 30 "$ROOT/scrip" "$src" < /dev/null > "$label.m3" 2> "$label.m3e" ); rc=$?
     if [ "$rc" -ne 0 ] || ! cmp -s "$W/$label.m3" "$W/$label.ref"; then
         echo "RED m3 $label: rc=$rc got=$(head -c 60 "$W/$label.m3" | tr '\n' '|') want=$(head -c 60 "$W/$label.ref" | tr '\n' '|') err=$(tail -c 100 "$W/$label.m3e" | tr '\n' ' ')"; red=1
     else echo "ok  m3 $label: rc=0, output = the oracle's"; fi
     if ( cd "$W" && "$ROOT/scrip" --compile -o "$W/$label.s" "$src" < /dev/null > /dev/null 2>&1 && gcc "$W/$label.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/$label.bin" 2> /dev/null ); then
-        ( cd "$W" && timeout 30 "./$label.bin" < /dev/null > "$label.m4" 2> "$label.m4e" ); rc=$?
+        ( cd "$W" && timeout -k 5 30 "./$label.bin" < /dev/null > "$label.m4" 2> "$label.m4e" ); rc=$?
         if [ "$rc" -ne 0 ] || ! cmp -s "$W/$label.m4" "$W/$label.ref"; then
             echo "RED m4 $label: rc=$rc got=$(head -c 60 "$W/$label.m4" | tr '\n' '|') want=$(head -c 60 "$W/$label.ref" | tr '\n' '|') err=$(tail -c 100 "$W/$label.m4e" | tr '\n' ' ')"; red=1
         else echo "ok  m4 $label: rc=0, output = the oracle's"; fi

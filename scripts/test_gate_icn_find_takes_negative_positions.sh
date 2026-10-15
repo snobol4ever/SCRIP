@@ -29,9 +29,9 @@ ICN
 grep -q '^4 2 2 f4 2$' "$T/f.ref" || { echo "⛔ REFUSE(2): the oracle's own first line is not the position row this gate pins -- the oracle moved: $(head -1 "$T/f.ref")"; exit 2; }
 RC=0
 for M in m3 m4; do
-  if [ "$M" = m3 ]; then ( cd "$T" && timeout 20 "$SCRIP" f.icn </dev/null ) >"$T/$M.out" 2>&1
-  else ( cd "$T" && timeout 20 "$SCRIP" --compile -o f.s f.icn </dev/null && gcc f.s -o f.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ REFUSE(2): mode-4 witness did not build"; exit 2; }
-       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout 20 ./f.bin </dev/null ) >"$T/$M.out" 2>&1
+  if [ "$M" = m3 ]; then ( cd "$T" && timeout -k 5 20 "$SCRIP" f.icn </dev/null ) >"$T/$M.out" 2>&1
+  else ( cd "$T" && timeout -k 5 20 "$SCRIP" --compile -o f.s f.icn </dev/null && gcc f.s -o f.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ REFUSE(2): mode-4 witness did not build"; exit 2; }
+       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 20 ./f.bin </dev/null ) >"$T/$M.out" 2>&1
   fi
   if [ -n "${FAIL_ONCE:-}" ]; then sed -i '1s/^4 /f1 /' "$T/$M.out"; fi
   if diff -u "$T/f.ref" "$T/$M.out" >"$T/$M.diff"; then echo "  $M PASS (byte-identical to icont, 6 lines)"

@@ -10,9 +10,9 @@ for icn in "$RUNG_DIR"/rung02_proc_*.icn; do
   base="${icn%.icn}"; exp="$base.ref"; [ -f "$exp" ] || continue
   xfail_file="$base.xfail"
   $DRIVER -jvm "$icn" -o /tmp/t02_proc.j 2>/dev/null
-  timeout 30 java -jar miscellaneous/jasmin.jar /tmp/t02_proc.j -d /tmp/ >/dev/null 2>&1
+  timeout -k 5 30 java -jar miscellaneous/jasmin.jar /tmp/t02_proc.j -d /tmp/ >/dev/null 2>&1
   cls=$(grep -m1 '\.class' /tmp/t02_proc.j | awk '{print $NF}')
-  got=$(timeout 5 java -cp /tmp/ "$cls" 2>/dev/null); want=$(cat "$exp")
+  got=$(timeout -k 5 5 java -cp /tmp/ "$cls" 2>/dev/null); want=$(cat "$exp")
   if [ -f "$xfail_file" ]; then
     XFAIL=$((XFAIL+1)); echo "XFAIL: $(basename $icn)"
   elif [ "$got" = "$want" ]; then

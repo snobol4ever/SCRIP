@@ -40,9 +40,9 @@ main :- t(hex40, (variant_sha1(this_is_an_atom, H), atom_length(H, 40), atom_cod
     t(holds_attvar, (dif(X2, 3), variant_sha1(x(a(X2)), _))),
     t(hash_attvar_plain, (freeze(Q, true), variant_hash(x(P, P), V1), variant_hash(x(Q, Q), V2), V1 == V2)), halt.
 PL
-want="$(cd "$D" && timeout 20 "$SW" -q w.pl < /dev/null 2>/dev/null)"
+want="$(cd "$D" && timeout -k 5 20 "$SW" -q w.pl < /dev/null 2>/dev/null)"
 [ "$(printf '%s\n' "$want" | grep -c .)" = 9 ] || refuse "swipl did not answer the nine properties: [$want]"
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
 ( cd "$D" && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || refuse "mode 4 link failed"
 red=0
 arm() {
@@ -53,7 +53,7 @@ arm() {
     if [ "$got" = "$want" ]; then echo "  $label GREEN: 9 of 9 lines as swipl"
     else echo "  $label RED: $n of 9 lines differ from swipl"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
 }
-arm m3 timeout 20 "$B/scrip" --run w.pl < /dev/null
-arm m4 timeout 20 ./w.bin < /dev/null
+arm m3 timeout -k 5 20 "$B/scrip" --run w.pl < /dev/null
+arm m4 timeout -k 5 20 ./w.bin < /dev/null
 [ "$red" = 0 ] && echo "PASS $G"
 exit "$red"

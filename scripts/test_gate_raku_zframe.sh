@@ -48,7 +48,7 @@ echo "=== RK-ZC-8 — Raku zframe regime pin gate ==="
 W2=$(mktemp /tmp/rk_zc8_XXXXXX.raku)
 printf 'sub f($a){return $a*2} say f(21);\n'                   > "$W2"
 echo "--- INVARIANT A1: the class-b witness is CORRECT in both modes (zframe carries the user-sub call) ---"
-M3OUT=$(timeout 8 "$SCRIP" --run "$W2" 2>/dev/null </dev/null); M3RC=$?
+M3OUT=$(timeout -k 5 8 "$SCRIP" --run "$W2" 2>/dev/null </dev/null); M3RC=$?
 if [ "$M3RC" = "0" ] && [ "$M3OUT" = "42" ]; then
     echo "  OK   m3: rc=0 out=42"
 else
@@ -56,9 +56,9 @@ else
     FAIL=1
 fi
 A4S=$(mktemp /tmp/rk_zc8_XXXXXX.s); A4B=$(mktemp /tmp/rk_zc8_XXXXXX.bin)
-if timeout 20 "$SCRIP" --compile -o "$A4S" "$W2" >/dev/null 2>&1 \
+if timeout -k 5 20 "$SCRIP" --compile -o "$A4S" "$W2" >/dev/null 2>&1 \
    && gcc -m64 -no-pie "$A4S" -L"${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -lm -lpthread -o "$A4B" >/dev/null 2>&1; then
-    M4OUT=$(timeout 8 "$A4B" 2>/dev/null </dev/null); M4RC=$?
+    M4OUT=$(timeout -k 5 8 "$A4B" 2>/dev/null </dev/null); M4RC=$?
     if [ "$M4RC" = "0" ] && [ "$M4OUT" = "42" ]; then
         echo "  OK   m4: rc=0 out=42"
     else
@@ -101,7 +101,7 @@ fi
 echo "--- INVARIANT A3: the user sub gets a real per-activation ζ-frame (--dump-zeta) ---"
 W3=$(mktemp /tmp/rk_zc8_XXXXXX.raku)
 printf 'sub f($a){return $a*2} say f(21);\n' > "$W3"
-ZOUT=$(timeout 10 "$SCRIP" --dump-zeta "$W3" 2>&1 </dev/null)
+ZOUT=$(timeout -k 5 10 "$SCRIP" --dump-zeta "$W3" 2>&1 </dev/null)
 if printf '%s' "$ZOUT" | grep -qE '^; graph [0-9]+ .f.' \
    && printf '%s' "$ZOUT" | grep -qE 'scope +[0-9]+ +FN +f' \
    && printf '%s' "$ZOUT" | grep -qE 'vslot .*a$'; then

@@ -95,14 +95,14 @@ grade() { # grade <label> <expected-file> <actual-file>
     if cmp -s "$2" "$3"; then echo "  PASS  $1"; PASS=$((PASS+1));
     else echo "  FAIL  $1"; diff "$2" "$3" | sed -n '1,8p' | sed 's/^/        /'; FAIL=$((FAIL+1)); fi
 }
-( cd "${T}" && timeout 30 "${SCRIP}" w.icn </dev/null >w.m3 2>&1 ); grade "m3 marshalling (12 arms: int real str cstr null fail image type coercion, NAME CLASH both ways)" "${T}/w.ref" "${T}/w.m3"
-if ( cd "${T}" && timeout 60 "${SCRIP}" --compile -o w.s w.icn </dev/null >/dev/null 2>&1 ) \
+( cd "${T}" && timeout -k 5 30 "${SCRIP}" w.icn </dev/null >w.m3 2>&1 ); grade "m3 marshalling (12 arms: int real str cstr null fail image type coercion, NAME CLASH both ways)" "${T}/w.ref" "${T}/w.m3"
+if ( cd "${T}" && timeout -k 5 60 "${SCRIP}" --compile -o w.s w.icn </dev/null >/dev/null 2>&1 ) \
    && gcc -no-pie "${T}/w.s" -L"${ROOT}/out" -lscrip_rt -Wl,-rpath,"${ROOT}/out" -o "${T}/w.m4b" >/dev/null 2>&1; then
-    ( cd "${T}" && timeout 30 ./w.m4b </dev/null >w.m4 2>&1 ); grade "m4 marshalling (same 12 arms)" "${T}/w.ref" "${T}/w.m4"
+    ( cd "${T}" && timeout -k 5 30 ./w.m4b </dev/null >w.m4 2>&1 ); grade "m4 marshalling (same 12 arms)" "${T}/w.ref" "${T}/w.m4"
 else
     echo "  FAIL  m4 marshalling — could not compile or link the witness"; FAIL=$((FAIL+1))
 fi
-( cd "${T}" && timeout 30 "${SCRIP}" n.icn </dev/null >n.out 2>&1 ); NRC=$?
+( cd "${T}" && timeout -k 5 30 "${SCRIP}" n.icn </dev/null >n.out 2>&1 ); NRC=$?
 # ⛔⭐ MATCH THE ERROR NUMBER AND ITS TEXT, NEVER ONE SPELLING OF THE REPORT. This arm was first written
 # grep -q 'ERROR 216' and went RED FLEET-WIDE (it is in make test) the moment the fatal-report identity
 # leak was cured and Icon errors began printing icont's own shape, "Run-time error 216 / File / Line",

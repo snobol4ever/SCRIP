@@ -34,9 +34,9 @@ FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]
 RC=0; N=0
 run() { local m="$1" p="$2" w="$3"
   rm -f "$w"/extra "$w"/hdrstdio_extra.name.that.is.never.created 2>/dev/null
-  if [ "$m" = m3 ]; then ( cd "$w" && timeout 20s env LD_LIBRARY_PATH="$RT_DIR" "$SCRIP" --run "$p.pas" </dev/null >"$w/o" 2>"$w/e" ); return $?; fi
-  ( cd "$w" && timeout 20s "$SCRIP" --compile -o "$p.s" "$p.pas" </dev/null >/dev/null 2>&1 && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ $p m4: did not compile and link"; return 125; }
-  ( cd "$w" && timeout 20s "./$p.m4" </dev/null >"$w/o" 2>"$w/e" ); return $?; }
+  if [ "$m" = m3 ]; then ( cd "$w" && timeout -k 5 20s env LD_LIBRARY_PATH="$RT_DIR" "$SCRIP" --run "$p.pas" </dev/null >"$w/o" 2>"$w/e" ); return $?; fi
+  ( cd "$w" && timeout -k 5 20s "$SCRIP" --compile -o "$p.s" "$p.pas" </dev/null >/dev/null 2>&1 && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ $p m4: did not compile and link"; return 125; }
+  ( cd "$w" && timeout -k 5 20s "./$p.m4" </dev/null >"$w/o" 2>"$w/e" ); return $?; }
 
 # --- arm (a): hdrstdio, {$mode iso}, graded live against fpc -Miso ---
 Ta=$(mktemp -d) || exit 2
@@ -56,7 +56,7 @@ begin
 end.
 PAS
 ( cd "$Ta" && "$FPC" -Miso -v0 -ohdrstdio.fpc hdrstdio.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile hdrstdio"; rm -rf "$Ta"; exit 2; }
-( cd "$Ta" && timeout 20s ./hdrstdio.fpc </dev/null >hdrstdio.want 2>/dev/null ); frc=$?
+( cd "$Ta" && timeout -k 5 20s ./hdrstdio.fpc </dev/null >hdrstdio.want 2>/dev/null ); frc=$?
 [ -n "${FAIL_ONCE:-}" ] && echo "corrupted by FAIL_ONCE" >> "$Ta/hdrstdio.want"
 for m in m3 m4; do
   run "$m" hdrstdio "$Ta"; rc=$?; N=$((N + 1))
@@ -85,13 +85,13 @@ end.
 PAS
 printf 'line from prd\n' > "$Tb/in.txt"
 ( cd "$Tb" && "$FPC" -Miso -v0 -ohdrargs.fpc hdrargs.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile hdrargs"; exit 2; }
-( cd "$Tb" && timeout 20s "$SCRIP" --compile -o hdrargs.s hdrargs.pas </dev/null >/dev/null 2>&1 && cc -m64 -no-pie hdrargs.s -o hdrargs.m4 -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ hdrargs m4: did not compile and link"; RC=1; }
+( cd "$Tb" && timeout -k 5 20s "$SCRIP" --compile -o hdrargs.s hdrargs.pas </dev/null >/dev/null 2>&1 && cc -m64 -no-pie hdrargs.s -o hdrargs.m4 -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ hdrargs m4: did not compile and link"; RC=1; }
 for args in "" "in.txt" "in.txt out.txt"; do
-  ( cd "$Tb" && rm -f out.txt && printf 'stdin text\n' | timeout 20s ./hdrargs.fpc $args > want.o 2>/dev/null; echo $? > want.rc; cat out.txt > want.f 2>/dev/null; rm -f out.txt )
+  ( cd "$Tb" && rm -f out.txt && printf 'stdin text\n' | timeout -k 5 20s ./hdrargs.fpc $args > want.o 2>/dev/null; echo $? > want.rc; cat out.txt > want.f 2>/dev/null; rm -f out.txt )
   for m in m3 m4; do
     N=$((N + 1))
-    if [ "$m" = m3 ]; then ( cd "$Tb" && printf 'stdin text\n' | timeout 20s "$SCRIP" --run hdrargs.pas -- $args > got.o 2> got.e; echo $? > got.rc )
-    else ( cd "$Tb" && printf 'stdin text\n' | timeout 20s ./hdrargs.m4 $args > got.o 2> got.e; echo $? > got.rc ); fi
+    if [ "$m" = m3 ]; then ( cd "$Tb" && printf 'stdin text\n' | timeout -k 5 20s "$SCRIP" --run hdrargs.pas -- $args > got.o 2> got.e; echo $? > got.rc )
+    else ( cd "$Tb" && printf 'stdin text\n' | timeout -k 5 20s ./hdrargs.m4 $args > got.o 2> got.e; echo $? > got.rc ); fi
     ( cd "$Tb" && cat out.txt > got.f 2>/dev/null; rm -f out.txt )
     if cmp -s "$Tb/want.o" "$Tb/got.o" && cmp -s "$Tb/want.rc" "$Tb/got.rc" && cmp -s "$Tb/want.f" "$Tb/got.f"; then
       echo "  hdrargs $m args=[$args]: stdout, rc and the file prr writes byte-identical to fpc -Miso"

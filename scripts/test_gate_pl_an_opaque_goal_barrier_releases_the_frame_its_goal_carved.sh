@@ -92,12 +92,12 @@ EOF
 run_one() {
     local mode="$1" tag="$2"
     if [ "$mode" = m3 ]; then
-        ( ulimit -s "$PIN_KB"; timeout 300 "$SCRIP" "$W/$tag.pl" </dev/null 2>&1 )
+        ( ulimit -s "$PIN_KB"; timeout -k 5 300 "$SCRIP" "$W/$tag.pl" </dev/null 2>&1 )
     else
         ( ulimit -s "$PIN_KB"
-          timeout 300 "$SCRIP" --compile -o "$W/$tag.s" "$W/$tag.pl" </dev/null >/dev/null 2>&1 || exit 9
+          timeout -k 5 300 "$SCRIP" --compile -o "$W/$tag.s" "$W/$tag.pl" </dev/null >/dev/null 2>&1 || exit 9
           cd "$W" && gcc -no-pie "$tag.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o "$tag.$mode.bin" >/dev/null 2>&1 || exit 9
-          timeout 300 "./$tag.$mode.bin" </dev/null 2>&1 )
+          timeout -k 5 300 "./$tag.$mode.bin" </dev/null 2>&1 )
     fi
 }
 echo "rung 9 -- an opaque-goal barrier releases the frame its goal carved"
@@ -113,7 +113,7 @@ for mode in m3 m4; do
         else echo "  ⛔ FAIL $mode $tag -- $body cannot reach $N; the barrier is retaining its goal's frame again (it died at $was before the fence): $(printf '%s' "$out" | head -1)"; fail=$((fail+1)); fi
     done
 done
-sc="$( ( ulimit -s "$PIN_KB"; timeout 300 "$SCRIP" "$W/safety.pl" </dev/null 2>&1 ) | head -1 )"
+sc="$( ( ulimit -s "$PIN_KB"; timeout -k 5 300 "$SCRIP" "$W/safety.pl" </dev/null 2>&1 ) | head -1 )"
 [ -n "$sc" ] || { echo "⛔ REFUSED-TO-GRADE(2): the safety control produced no output, so the depth arms above are ungraded" >&2; exit 2; }
 graded=$((graded+1))
 if [ "$sc" = "cp(8) once(1)" ]; then echo "  ✅ OK   SAFETY CONTROL -- $sc : un-fenced choicepoints are still LIVE and fenced ones are not (swipl agrees)"

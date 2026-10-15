@@ -35,28 +35,28 @@ for pl in "$B"/*.pl; do
   # --- GNU Prolog (gprolog): consult fires :- initialization(main), then halt. ---
   gnu="-"
   if [ "$HAVE_GNU" = 1 ]; then
-    go=$(cd "$W" && timeout "$T" "$(gprolog_bin)" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null \
+    go=$(cd "$W" && timeout -k 5 "$T" "$(gprolog_bin)" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null \
          | gprolog_output_filter)
     [ "$go" = "$want" ] && gnu=PASS || gnu=FAIL
   fi
   # --- SWI-Prolog (swipl): load file (runs initialization/1), then halt. ---
   swi="-"
   if [ "$HAVE_SWI" = 1 ]; then
-    so=$(cd "$W" && timeout "$T" swipl -q -g halt "$pl" 2>/dev/null </dev/null | head -200)
+    so=$(cd "$W" && timeout -k 5 "$T" swipl -q -g halt "$pl" 2>/dev/null </dev/null | head -200)
     [ "$so" = "$want" ] && swi=PASS || swi=FAIL
   fi
   # --- SCRIP mode 3 (--run): emit BINARY into RX slab, run in-process. ---
-  m3out=$(cd "$W" && timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" </dev/null 2>"$W/$s.m3err" | head -200)
+  m3out=$(cd "$W" && timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" </dev/null 2>"$W/$s.m3err" | head -200)
   if grep -q 'PL-GZ FENCE' "$W/$s.m3err" 2>/dev/null || echo "$m3out" | grep -q 'PL-GZ FENCE'; then m3=FENCE
   elif [ "$m3out" = "$want" ]; then m3=PASS; else m3=FAIL; fi
   # --- SCRIP mode 4 (--compile x86): emit TEXT asm -> as + gcc -> exec. ---
   m4=SKIP
-  asm=$(cd "$W" && timeout "$T" "$SCRIP" --compile --target=x86 "$pl" </dev/null 2>"$W/$s.m4err")
+  asm=$(cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile --target=x86 "$pl" </dev/null 2>"$W/$s.m4err")
   if echo "$asm" | grep -qE '^\s*\.(intel_syntax|text|globl)'; then
     printf '%s\n' "$asm" > "$W/$s.s"
     if (cd "$W" && as --64 -o "$s.o" "$s.s" 2>"$W/$s.aserr") \
        && gcc -no-pie -o "$W/$s.bin" "$W/$s.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>"$W/$s.lderr"; then
-      m4out=$(cd "$W" && timeout "$T" ./$s.bin "${DECL_SW[@]}" </dev/null 2>/dev/null | head -200)
+      m4out=$(cd "$W" && timeout -k 5 "$T" ./$s.bin "${DECL_SW[@]}" </dev/null 2>/dev/null | head -200)
       [ "$m4out" = "$want" ] && m4=PASS || m4=FAIL
     else m4=BUILD; fi
   elif grep -q 'PL-GZ FENCE' "$W/$s.m4err" 2>/dev/null; then m4=FENCE; else m4=NOEMIT; fi

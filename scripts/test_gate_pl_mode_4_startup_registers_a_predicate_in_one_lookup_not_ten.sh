@@ -29,12 +29,12 @@ N=200
     echo "main :- p1(a, X), p$N(b, Y), Z is X + Y, write(Z), nl."
     echo ":- initialization(main)."
 } > "$TMPD/w.pl"
-timeout 120 "$SCRIP" --compile -o "$TMPD/w.s" "$TMPD/w.pl" </dev/null 2>"$TMPD/err" || refuse "the witness did not compile: $(head -c 200 "$TMPD/err")"
+timeout -k 5 120 "$SCRIP" --compile -o "$TMPD/w.s" "$TMPD/w.pl" </dev/null 2>"$TMPD/err" || refuse "the witness did not compile: $(head -c 200 "$TMPD/err")"
 gcc -m64 -no-pie "$TMPD/w.s" -o "$TMPD/w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err" || refuse "the witness did not link: $(grep -m1 -iE 'error' "$TMPD/err" | head -c 200)"
 recs=$(grep -cE 'call\s+rt_proc_register_rec' "$TMPD/w.s"); [ "$recs" -ge "$N" ] || refuse "the mode-4 text registers $recs records for $N predicates -- the registration road changed shape; re-cut this gate"
 maps=$(grep -cE 'call\s+rt_gc_frame_maps_install_counted' "$TMPD/w.s"); [ "$maps" = 1 ] || refuse "the mode-4 text installs its frame maps $maps times, not once -- re-cut this gate"
-got="$(cd "$TMPD" && timeout 60 ./w.bin </dev/null 2>"$TMPD/err")"; [ "$got" = "201" ] || refuse "the witness answers [$got], not 201: $(head -c 160 "$TMPD/err")"
-measure() { (cd "$TMPD" && timeout 600 valgrind --tool=callgrind --toggle-collect="$1" --callgrind-out-file="$TMPD/$1.cg" ./w.bin </dev/null >/dev/null 2>"$TMPD/$1.vg"); grep -m1 'Collected' "$TMPD/$1.vg" | awk '{print $NF}'; }
+got="$(cd "$TMPD" && timeout -k 5 60 ./w.bin </dev/null 2>"$TMPD/err")"; [ "$got" = "201" ] || refuse "the witness answers [$got], not 201: $(head -c 160 "$TMPD/err")"
+measure() { (cd "$TMPD" && timeout -k 5 600 valgrind --tool=callgrind --toggle-collect="$1" --callgrind-out-file="$TMPD/$1.cg" ./w.bin </dev/null >/dev/null 2>"$TMPD/$1.vg"); grep -m1 'Collected' "$TMPD/$1.vg" | awk '{print $NF}'; }
 red=0
 ir_reg=$(measure rt_proc_register_rec); [ -n "$ir_reg" ] || refuse "callgrind printed no Collected line for rt_proc_register_rec"
 per_rec=$((ir_reg / recs))

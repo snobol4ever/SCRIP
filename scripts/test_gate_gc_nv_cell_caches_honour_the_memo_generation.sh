@@ -54,14 +54,14 @@ echo "ARM 1 -- BEHAVIOUR: no signal death under collection (arena SCRIP_HEAP_KB=
 for ST in 21 35; do
   for i in 1 2 3; do
     examined=$((examined+1))
-    ( cd "$T" && SNO_LIB="$INC" SCRIP_GC_STRESS="$ST" SCRIP_GC_TRAP=0 timeout 120 "$SCRIP" w.sno ) >"$T/o.$ST.$i" 2>"$T/e.$ST.$i"; r=$?
+    ( cd "$T" && SNO_LIB="$INC" SCRIP_GC_STRESS="$ST" SCRIP_GC_TRAP=0 timeout -k 5 120 "$SCRIP" w.sno ) >"$T/o.$ST.$i" 2>"$T/e.$ST.$i"; r=$?
     if [ "$r" -ge 128 ]; then
       echo "  FAIL stress=$ST run=$i rc=$r -- died of signal $((r-128)); a cached DESCR_t* survived a collection (md5 $(md5sum "$T/o.$ST.$i" | cut -c1-8))"; RC=1
     else
       echo "  ok   stress=$ST run=$i rc=$r (stdout md5 $(md5sum "$T/o.$ST.$i" | cut -c1-8) -- NOT graded here, see the banner)"
     fi
   done
-  ( cd "$T" && SNO_LIB="$INC" SCRIP_GC_STRESS="$ST" timeout 120 "$SCRIP" w.sno ) >"$T/t.$ST" 2>"$T/te.$ST"; tr=$?
+  ( cd "$T" && SNO_LIB="$INC" SCRIP_GC_STRESS="$ST" timeout -k 5 120 "$SCRIP" w.sno ) >"$T/t.$ST" 2>"$T/te.$ST"; tr=$?
   if [ "$tr" -ge 128 ] && grep -q ZGC-STALE "$T/te.$ST" 2>/dev/null; then
     echo "  note stress=$ST TRAP ON rc=$tr -- REPORTED, NOT GRADED: $(grep -m1 'QUARANTINED\|SIGSEGV touching' "$T/te.$ST" | sed 's/^\[ZGC-STALE\] *//' | cut -c1-140)"
     echo "       that is this entry's OTHER defect (the a84e1945 wrong answer, hq_snobol4's row) made LOUD AND LOCATED by the stale-read trap, not the cached-DESCR_t* write graded above"

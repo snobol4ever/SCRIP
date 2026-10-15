@@ -48,9 +48,9 @@ cat > "$D/w.pl" <<'PL'
 :- writeq(d2), nl.
 :- initialization((writeq(init), nl)).
 PL
-want="$(cd "$D" && timeout 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | grep .)"
+want="$(cd "$D" && timeout -k 5 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | grep .)"
 [ "$(printf '%s\n' "$want" | grep -c .)" = 8 ] || refuse "swipl did not answer the eight lines: [$want]"
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s "$PLUNIT" w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s "$PLUNIT" w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
 ( cd "$D" && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || refuse "mode 4 link failed"
 red=0
 arm() {
@@ -61,7 +61,7 @@ arm() {
     if [ "$got" = "$want" ]; then echo "  $label GREEN: 8 of 8 lines as swipl"
     else echo "  $label RED: $n of 8 swipl lines missing or different"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
 }
-arm m3 timeout 20 "$B/scrip" --run "$PLUNIT" w.pl < /dev/null
-arm m4 timeout 20 ./w.bin < /dev/null
+arm m3 timeout -k 5 20 "$B/scrip" --run "$PLUNIT" w.pl < /dev/null
+arm m4 timeout -k 5 20 ./w.bin < /dev/null
 [ "$red" = 0 ] && echo "PASS $G"
 exit "$red"

@@ -57,11 +57,11 @@ rendered_stno() { python3 "$RV" spitbol 2>/dev/null | grep -o 'in statement [0-9
 
 for w in test4 test5 test7 test8 arith1 arith2; do
     [ -f "$TPGM/$w.spt" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $TPGM/$w.spt missing -- the witness moved"; exit 2; }
-    ( cd "$TPGM" && timeout 20 "$SBL" -bf "$w.spt" < /dev/null > "$T/$w.ora" 2>/dev/null )
+    ( cd "$TPGM" && timeout -k 5 20 "$SBL" -bf "$w.spt" < /dev/null > "$T/$w.ora" 2>/dev/null )
     want="$(stno_of "$T/$w.ora")"
     [ -n "$want" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: sbl's post-mortem for $w named no STATEMENT -- the premise moved, re-measure"; exit 2; }
 
-    ( cd "$TPGM" && timeout 20 "$ROOT/scrip" "$w.spt" < /dev/null > "$T/$w.m3.out" 2> "$T/$w.m3.err" )
+    ( cd "$TPGM" && timeout -k 5 20 "$ROOT/scrip" "$w.spt" < /dev/null > "$T/$w.m3.out" 2> "$T/$w.m3.err" )
     got3="$(rendered_stno < "$T/$w.m3.err")"
     [ "$got3" = "$want" ] && arm "$w m3 loc" ok || arm "$w m3 loc" red "sbl wants statement $want, rendered SCRIP (no --stlimit) said ${got3:-<none>}"
 
@@ -69,7 +69,7 @@ for w in test4 test5 test7 test8 arith1 arith2; do
       && ( as -o "$T/$w.o" "$T/$w.s" 2>/dev/null ) \
       && ( gcc -o "$T/$w.bin" "$T/$w.o" "$ROOT/out/libscrip_rt.so" -lm -Wl,-rpath,"$ROOT/out" 2>/dev/null ) \
       || { echo "GATE UNPROVEN(2) [$GATE_NAME]: could not build the m4 arm of $w -- a toolchain failure, not a verdict"; exit 2; }
-    ( cd "$TPGM" && timeout 20 "$T/$w.bin" < /dev/null > "$T/$w.m4.out" 2> "$T/$w.m4.err" )
+    ( cd "$TPGM" && timeout -k 5 20 "$T/$w.bin" < /dev/null > "$T/$w.m4.out" 2> "$T/$w.m4.err" )
     got4="$(rendered_stno < "$T/$w.m4.err")"
     [ "$got4" = "$want" ] && arm "$w m4 loc" ok || arm "$w m4 loc" red "sbl wants statement $want, rendered SCRIP (no --stlimit) said ${got4:-<none>}"
 done

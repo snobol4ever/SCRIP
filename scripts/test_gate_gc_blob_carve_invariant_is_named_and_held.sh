@@ -46,15 +46,15 @@ RC=0
 export SNO_LIB="${SNO_LIB:-$S4E/corpus/include}"
 echo "  INVARIANT: the deferred-capture re-entry at a match's end is BOX-DRIVEN (Lon 2026-09-19: no BB is entered from C after the original program invocation; a C leaf returns the data for the jump) -- so the R-4(b) blob carve is a SIZE, not a depth: +16/+32/+48 bytes on it run clean in mode 3 where they used to kill user_function_eval_pos_replace_branch_1, the emitted match-end carries the pump's open/land calls and no rt_match_end_all, and the witness matches its ref in both modes."
 python3 "$HERE/corpus_suite_harness.py" extract "$CORPUS/ALL.sno" "$CORPUS/ALL.ref" user_function_eval_pos_replace_branch_1 "$T/w.sno" --out-ref "$T/w.ref" >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: could not extract the witness entry from the rungs"; exit 2; }
-timeout 60 "$SCRIP" "$T/w.sno" </dev/null > "$T/m3.out" 2>/dev/null; m3rc=$?
+timeout -k 5 60 "$SCRIP" "$T/w.sno" </dev/null > "$T/m3.out" 2>/dev/null; m3rc=$?
 "$SCRIP" --compile "$T/w.sno" </dev/null > "$T/base.s" 2>/dev/null && gcc "$T/base.s" -o "$T/w.x" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread 2>/dev/null
-if [ -x "$T/w.x" ]; then timeout 60 "$T/w.x" </dev/null > "$T/m4.out" 2>/dev/null; m4rc=$?; else m4rc=127; fi
+if [ -x "$T/w.x" ]; then timeout -k 5 60 "$T/w.x" </dev/null > "$T/m4.out" 2>/dev/null; m4rc=$?; else m4rc=127; fi
 if [ "$m3rc" = 0 ] && [ "$m4rc" = 0 ] && diff -q "$T/m3.out" "$T/w.ref" >/dev/null 2>&1 && diff -q "$T/m4.out" "$T/w.ref" >/dev/null 2>&1; then
     echo "  witness PASS (user_function_eval_pos_replace_branch_1 matches its ref in both modes: $(tr -d '\n' < "$T/w.ref"))"
 else echo "  witness FAIL (m3 rc=$m3rc \"$(tail -1 "$T/m3.out" 2>/dev/null)\", m4 rc=$m4rc \"$(tail -1 "$T/m4.out" 2>/dev/null)\", ref \"$(cat "$T/w.ref")\")"; RC=1; fi
 pad_bad=0; pad_seen=""
 for p in 1 2 3; do
-    prc=$(bash -c 'SCRIP_BLOB_CARVE_PAD=$0 timeout 60 "$1" "$2" </dev/null >"$3" 2>/dev/null; echo $?' "$p" "$SCRIP" "$T/w.sno" "$T/p$p.out" 2>/dev/null)
+    prc=$(bash -c 'SCRIP_BLOB_CARVE_PAD=$0 timeout -k 5 60 "$1" "$2" </dev/null >"$3" 2>/dev/null; echo $?' "$p" "$SCRIP" "$T/w.sno" "$T/p$p.out" 2>/dev/null)
     if [ "$prc" = 0 ] && diff -q "$T/p$p.out" "$T/w.ref" >/dev/null 2>&1; then pad_seen="$pad_seen pad=$p:ok"; else pad_seen="$pad_seen pad=$p:rc=$prc"; pad_bad=$((pad_bad + 1)); fi
 done
 if [ "$pad_bad" = 0 ]; then echo "  carve-is-a-size PASS (+16/+32/+48 bytes on the blob carve run clean and match the ref in mode 3 --$pad_seen -- the depth contract that killed this witness until 2026-09-19 is dissolved)"

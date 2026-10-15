@@ -75,7 +75,7 @@ for f in $GEN; do diff -q -I 'generated.*on\|\$Id' "$SNAP/$f" "$f" >/dev/null 2>
 rm -rf "$SNAP"
 [ "$FP" = OK ] || { echo "FAIL fixed point — stage-0 fingerprint suspected"; exit 1; }
 printf "        OUTPUT = 'csnobol4-ok'\nEND\n" > /tmp/_off_smoke.sno
-out=$(timeout 10 "$CSN/snobol4" /tmp/_off_smoke.sno </dev/null 2>/dev/null || true)
+out=$(timeout -k 5 10 "$CSN/snobol4" /tmp/_off_smoke.sno </dev/null 2>/dev/null || true)
 [ "$out" = "csnobol4-ok" ] || { echo "FAIL csnobol4 smoke (got: $out)"; exit 1; }
 rm -f /tmp/_off_smoke.sno
 echo "OK  FIXED-POINT CERTIFIED — official binaries:"

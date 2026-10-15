@@ -50,11 +50,11 @@ grade() {
     ck no "($arm) rc $rc answer '$(head -c 40 "$out" | tr '\n' ' ')', ok=$ok nosite=$ns (want $want) mismatch=$mm -- an asserted rule's frame is polled with its map or site table unregistered"
   fi
 }
-( cd "$W" && run_env timeout 120 "$SCRIP" w.pl > o3 2> e3 < /dev/null ); grade 1 "$W/o3" "$W/e3" $?
-( cd "$W" && timeout 120 "$SCRIP" --compile w.pl > w.s 2> c4 < /dev/null ) || refuse "mode 4 could not compile the witness: $(head -c 200 "$W/c4")"
+( cd "$W" && run_env timeout -k 5 120 "$SCRIP" w.pl > o3 2> e3 < /dev/null ); grade 1 "$W/o3" "$W/e3" $?
+( cd "$W" && timeout -k 5 120 "$SCRIP" --compile w.pl > w.s 2> c4 < /dev/null ) || refuse "mode 4 could not compile the witness: $(head -c 200 "$W/c4")"
 gcc -c "$W/w.s" -o "$W/w.o" 2> "$W/as4" || refuse "mode 4 assembly failed: $(head -c 200 "$W/as4")"
 gcc "$W/w.o" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" -o "$W/w4" 2> "$W/ld4" || refuse "mode 4 link failed: $(head -c 200 "$W/ld4")"
-( cd "$W" && run_env timeout 120 ./w4 > o4 2> e4 < /dev/null ); grade 2 "$W/o4" "$W/e4" $?
+( cd "$W" && run_env timeout -k 5 120 ./w4 > o4 2> e4 < /dev/null ); grade 2 "$W/o4" "$W/e4" $?
 others="$(grep -rlE 'rt_gc_frame_(maps|sites)_add[[:space:]]*\(' "$ROOT/src" | grep -vE '/src/runtime/rt/gc_heap\.(c|h)$|/src/emitter/emit\.cpp$' | sed "s#^$ROOT/##" | sort | tr '\n' ' ')"
 if [ -z "$others" ]; then ck ok "(3) outside the collector only emit.cpp names rt_gc_frame_maps_add / rt_gc_frame_sites_add: every installer registers through emit_gc_tables_register"
 else ck no "(3) registration copies outside the one road: $others-- call emit_gc_tables_register after emit_chain instead"; fi

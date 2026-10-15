@@ -69,7 +69,7 @@ ONE="$(mktemp "${TMPDIR:-/tmp}/run_scrip_parser.${LANG}.XXXXXX.sc")"
 trap 'rm -f "$ONE"' EXIT
 cat "${RUNTIME[@]}" "${LOWER[@]}" "${HELPERS[@]}" "$DRIVER" > "$ONE"
 if [ -n "$SRC" ]; then
-    timeout 30 "$SCRIP" --run $SW "$ONE" < "$SRC"
+    timeout -k 5 30 "$SCRIP" --run $SW "$ONE" < "$SRC"
 else
-    timeout 30 "$SCRIP" --run $SW "$ONE"
+    timeout -k 5 30 "$SCRIP" --run $SW "$ONE"
 fi

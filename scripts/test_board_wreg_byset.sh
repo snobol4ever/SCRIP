@@ -28,7 +28,7 @@ run_arm() {
     [ -f "$b.ref" ] || continue
     [ -f "$b.input" ] && IN="$b.input"
     local got rc
-    got=$(SCRIP_WREG="$val" timeout "$PER" "$SCRIP" --run "$f" < "$IN" 2>/dev/null); rc=$?
+    got=$(SCRIP_WREG="$val" timeout -k 5 "$PER" "$SCRIP" --run "$f" < "$IN" 2>/dev/null); rc=$?
     if [ $rc -eq 0 ] && [ "$got" = "$(cat "$b.ref")" ]; then echo "$b" >> "$OUT/pass.$tag"; else echo "$b rc=$rc" >> "$OUT/fail.$tag"; fi
   done
   sort -o "$OUT/pass.$tag" "$OUT/pass.$tag"

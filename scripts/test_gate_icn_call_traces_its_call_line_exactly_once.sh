@@ -45,14 +45,14 @@ for k in 1 2 3 4 5 6 7 8; do
   ps=""; as=""; i=1
   while [ "$i" -le "$k" ]; do ps="$ps${ps:+,}p$i"; as="$as${as:+,}$i"; i=$((i+1)); done
   printf 'procedure main()\n   &trace := -1;\n   f(%s);\nend\nprocedure f(%s)\n   return;\nend\n' "$as" "$ps" > "$T/a$k.icn"
-  ( cd "$T" && "$ICONT" -s -o "a$k" "a$k.icn" >/dev/null 2>&1 && timeout 30 "$ICONX" "./a$k" > "a$k.ora" 2>&1 ) || refuse "oracle could not build or run arity $k -- cannot measure"
+  ( cd "$T" && "$ICONT" -s -o "a$k" "a$k.icn" >/dev/null 2>&1 && timeout -k 5 30 "$ICONX" "./a$k" > "a$k.ora" 2>&1 ) || refuse "oracle could not build or run arity $k -- cannot measure"
   [ -s "$T/a$k.ora" ] || refuse "oracle produced ZERO BYTES for arity $k -- that is not a score"
-  ( cd "$T" && timeout 30 "$SCRIP" "a$k.icn" < /dev/null > "a$k.m3" 2>&1 )
+  ( cd "$T" && timeout -k 5 30 "$SCRIP" "a$k.icn" < /dev/null > "a$k.m3" 2>&1 )
   graded=$((graded+1))
   if cmp -s "$T/a$k.ora" "$T/a$k.m3"; then echo "  PASS m3 arity $k"; else fail=$((fail+1)); echo "  FAIL m3 arity $k: $(diff "$T/a$k.ora" "$T/a$k.m3" | grep -m1 '^[<>]' | cut -c1-80)"; fi
-  ( cd "$T" && timeout 60 "$SCRIP" --compile -o "a$k.s" "a$k.icn" </dev/null >/dev/null 2>&1 \
+  ( cd "$T" && timeout -k 5 60 "$SCRIP" --compile -o "a$k.s" "a$k.icn" </dev/null >/dev/null 2>&1 \
       && gcc -no-pie "a$k.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o "a$k.b" >/dev/null 2>&1 \
-      && timeout 30 "./a$k.b" < /dev/null > "a$k.m4" 2>&1 ) || true
+      && timeout -k 5 30 "./a$k.b" < /dev/null > "a$k.m4" 2>&1 ) || true
   graded=$((graded+1))
   if cmp -s "$T/a$k.ora" "$T/a$k.m4"; then echo "  PASS m4 arity $k"; else fail=$((fail+1)); echo "  FAIL m4 arity $k: $(diff "$T/a$k.ora" "$T/a$k.m4" 2>/dev/null | grep -m1 '^[<>]' | cut -c1-80)"; fi
 done

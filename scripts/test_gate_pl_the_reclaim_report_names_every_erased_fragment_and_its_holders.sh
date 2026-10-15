@@ -36,7 +36,7 @@ for w in w1 w2 w3; do
 done
 run() {
     local w="$1" mode="$2" knob="$3" tag="$1.$2.${3:-none}"
-    if [ "$mode" = m3 ]; then ( cd "$W" && env ${knob:+SCRIP_PL_RECLAIM_REPORT=$knob} timeout 60 "$ROOT/scrip" "$W/$w.pl" < /dev/null > "$W/$tag.out" 2> "$W/$tag.err" ); else ( cd "$W" && env ${knob:+SCRIP_PL_RECLAIM_REPORT=$knob} timeout 60 "$W/$w.bin" < /dev/null > "$W/$tag.out" 2> "$W/$tag.err" ); fi
+    if [ "$mode" = m3 ]; then ( cd "$W" && env ${knob:+SCRIP_PL_RECLAIM_REPORT=$knob} timeout -k 5 60 "$ROOT/scrip" "$W/$w.pl" < /dev/null > "$W/$tag.out" 2> "$W/$tag.err" ); else ( cd "$W" && env ${knob:+SCRIP_PL_RECLAIM_REPORT=$knob} timeout -k 5 60 "$W/$w.bin" < /dev/null > "$W/$tag.out" 2> "$W/$tag.err" ); fi
     echo $? > "$W/$tag.rc"
     grep '^\[PL-RECLAIM\]' "$W/$tag.err" > "$W/$tag.rep"
 }

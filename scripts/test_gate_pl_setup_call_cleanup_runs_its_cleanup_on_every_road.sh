@@ -30,8 +30,8 @@ for w in r c; do
 done
 run_arm() {
     local n="$1" w="$2" mode="$3" stress="$4" rc
-    if [ "$mode" = m3 ]; then ( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB $stress timeout 300 "$ROOT/scrip" "$W/$w.pl" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?
-    else ( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB $stress timeout 300 "$W/$w.bin" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?; fi
+    if [ "$mode" = m3 ]; then ( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB $stress timeout -k 5 300 "$ROOT/scrip" "$W/$w.pl" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?
+    else ( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB $stress timeout -k 5 300 "$W/$w.bin" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?; fi
     grep -v '^\[GC-' "$W/$n.out" > "$W/$n.txt"
     if [ "$rc" -ne 0 ] || ! cmp -s "$W/$n.txt" "$W/$w.ref"; then echo "  RED ($n) $mode${stress:+ $stress}: rc=$rc, the output differs from swipl's:"; diff "$W/$w.ref" "$W/$n.txt" | head -6; return 1; fi
     if [ -n "$stress" ]; then

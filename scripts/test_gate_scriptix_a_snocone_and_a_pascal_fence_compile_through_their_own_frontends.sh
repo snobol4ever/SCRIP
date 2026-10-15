@@ -51,8 +51,8 @@ MD
 printf 'snocone got ab\ntwice abab\nmatched\n' > "$D/mix.want"
 red=0; n=0
 for p in sc pas mix; do
-    ( cd "$D" && timeout 30 "$B/scrip" "$p.md" < /dev/null > "$p.m3" 2>/dev/null )
-    ( cd "$D" && timeout 60 "$B/scrip" --compile "$p.md" < /dev/null > "$p.s" 2>/dev/null && gcc -no-pie "$p.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$p.bin" 2>/dev/null && timeout 30 "./$p.bin" < /dev/null > "$p.m4" 2>/dev/null )
+    ( cd "$D" && timeout -k 5 30 "$B/scrip" "$p.md" < /dev/null > "$p.m3" 2>/dev/null )
+    ( cd "$D" && timeout -k 5 60 "$B/scrip" --compile "$p.md" < /dev/null > "$p.s" 2>/dev/null && gcc -no-pie "$p.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$p.bin" 2>/dev/null && timeout -k 5 30 "./$p.bin" < /dev/null > "$p.m4" 2>/dev/null )
     for m in m3 m4; do
         n=$((n + 1))
         if [ -f "$D/$p.$m" ] && cmp -s "$D/$p.want" "$D/$p.$m"; then echo "  ok   $p.md $m"; else echo "  FAIL $p.md $m: got [$(tr '\n' '|' < "$D/$p.$m" 2>/dev/null)] want [$(tr '\n' '|' < "$D/$p.want")]"; red=$((red + 1)); fi

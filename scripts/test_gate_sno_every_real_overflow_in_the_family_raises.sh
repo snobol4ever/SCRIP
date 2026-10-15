@@ -63,13 +63,13 @@ REF
 fails=0
 for mode in m3 m4; do
     if [ "$mode" = m3 ]; then
-        (cd "$D" && timeout 20 "$B/scrip" w.sno </dev/null > "out.$mode" 2>&1)
+        (cd "$D" && timeout -k 5 20 "$B/scrip" w.sno </dev/null > "out.$mode" 2>&1)
     else
         "$B/scrip" --compile -o "$D/w.s" "$D/w.sno" </dev/null >/dev/null 2>&1 \
           && as -o "$D/w.o" "$D/w.s" 2>/dev/null \
           && gcc -o "$D/w.bin" "$D/w.o" "$B/out/libscrip_rt.so" -Wl,-rpath,"$B/out" 2>/dev/null \
           || { echo "⛔ REFUSES rc=2: could not build the m4 arm -- a toolchain failure, not a verdict"; exit 2; }
-        (cd "$D" && timeout 20 ./w.bin </dev/null > "out.$mode" 2>&1)
+        (cd "$D" && timeout -k 5 20 ./w.bin </dev/null > "out.$mode" 2>&1)
     fi
     if diff -q "$D/w.ref" "$D/out.$mode" >/dev/null 2>&1; then
         printf '  ok    %s: all six overflow spellings raise, and ordinary arithmetic still computes\n' "$mode"

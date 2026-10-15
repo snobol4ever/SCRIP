@@ -37,13 +37,13 @@ LIST=$(find $CORPUS_DIRS -name '*.sno' ! -name 'ALL.sno' 2>/dev/null | sort)
 TOTAL=0; MOVED=0; FLAKY=0; MOVERS=""; FLAKIES=""
 for f in $LIST; do
     TOTAL=$((TOTAL + 1))
-    off=$(timeout 15 ./scrip --compile "$f" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
-    on=$(env "${ENVS[@]}" timeout 15 ./scrip --compile "$f" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
+    off=$(timeout -k 5 15 ./scrip --compile "$f" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
+    on=$(env "${ENVS[@]}" timeout -k 5 15 ./scrip --compile "$f" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
     [ "$off" = "$on" ] && continue
     # ⭐ SELF-NULL CLASSIFICATION (s137).  A program that emits different bytes on two IDENTICAL runs is nondeterministic
     # ON ITS OWN and cannot testify about the pass either way.  Counting it as a "mover" is how a real perturbation and a
     # pre-existing flake get averaged into one meaningless number -- and it is why the s136 OFF null read 1 instead of 0.
-    off2=$(timeout 15 ./scrip --compile "$f" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
+    off2=$(timeout -k 5 15 ./scrip --compile "$f" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
     if [ "$off" != "$off2" ]; then FLAKY=$((FLAKY + 1)); FLAKIES="$FLAKIES$f"$'\n'; continue; fi
     MOVED=$((MOVED + 1)); MOVERS="$MOVERS$f"$'\n'
 done

@@ -87,13 +87,13 @@ END
 SNO
 RT="$B/out"
 run() {
-    if [ "$1" = m3 ]; then (cd "$D" && timeout 20 "$B/scrip" "$2.sno" < "${3:-/dev/null}" 2>/dev/null)
+    if [ "$1" = m3 ]; then (cd "$D" && timeout -k 5 20 "$B/scrip" "$2.sno" < "${3:-/dev/null}" 2>/dev/null)
     else "$B/scrip" --compile -o "$D/$2.s" "$D/$2.sno" < /dev/null > /dev/null 2>&1 && gcc -no-pie -o "$D/$2.bin" "$D/$2.s" -L "$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2> /dev/null \
            || { echo "M4-BUILD-FAILED"; return; }
-         (cd "$D" && timeout 20 "./$2.bin" < "${3:-/dev/null}" 2>/dev/null); fi
+         (cd "$D" && timeout -k 5 20 "./$2.bin" < "${3:-/dev/null}" 2>/dev/null); fi
 }
-(cd "$D" && timeout 20 "$SBL" -bf cd.sno < lines.txt > want.cd 2>/dev/null) || true
-(cd "$D" && timeout 20 "$SBL" -bf lim.sno < /dev/null > want.lim 2>/dev/null) || true
+(cd "$D" && timeout -k 5 20 "$SBL" -bf cd.sno < lines.txt > want.cd 2>/dev/null) || true
+(cd "$D" && timeout -k 5 20 "$SBL" -bf lim.sno < /dev/null > want.lim 2>/dev/null) || true
 [ "$(grep -c '^trapped ' "$D/want.cd")" = 19 ] || refuse "sbl does not trap the 19 raising texts as measured ($(grep -c '^trapped ' "$D/want.cd") trapped)"
 [ "$(grep -c '^succeeded$' "$D/want.cd")" = 8 ] || refuse "sbl does not compile the 8 control texts as measured"
 grep -qx 'counted: failed 226 limit 9' "$D/want.lim" && grep -qx 'zero: failed 221 and the run goes on' "$D/want.lim" || refuse "sbl's &ERRLIMIT arms read otherwise: $(tr '\n' '|' < "$D/want.lim")"

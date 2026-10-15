@@ -21,14 +21,14 @@ pl() {
     local r2 r3 r4
 
     # mode 2 — --run (HARD GATE)
-    local a2; a2=$(timeout 8 "$SCRIP" --run "$tmp" 2>/dev/null </dev/null)
+    local a2; a2=$(timeout -k 5 8 "$SCRIP" --run "$tmp" 2>/dev/null </dev/null)
     if [ "$a2" = "$expected" ]; then r2="m2 PASS"; P2=$((P2+1)); else r2="m2 FAIL"; F2=$((F2+1)); fi
 
     # mode 3 — --run (tracked; REFUSED until regrown). PL-GZ-1b(d): a program the native blob does not
     # cover executes via the mode-2 interpreter and says so on stderr — output is STILL verified
     # (mismatch = FAIL); a verified fallback counts REFUSED, NOT a native PASS.
     local e3; e3=$(mktemp /tmp/pl_m3err_XXXXXX)
-    local o3; o3=$(timeout 8 "$SCRIP" --run "$tmp" 2>"$e3" </dev/null)
+    local o3; o3=$(timeout -k 5 8 "$SCRIP" --run "$tmp" 2>"$e3" </dev/null)
     if grep -q "MODE-3 INTERP-FALLBACK" "$e3"; then
         if [ "$o3" = "$expected" ]; then r3="m3 REFUSED"; X3=$((X3+1)); else r3="m3 FAIL"; F3=$((F3+1)); fi
     elif echo "$o3" | grep -qE "$SMX_SIG"; then r3="m3 REFUSED"; X3=$((X3+1))
@@ -37,11 +37,11 @@ pl() {
     rm -f "$e3"
 
     # mode 4 — --compile --target=x86 (tracked; emit→assemble→run when live)
-    local e4; e4=$(timeout 8 "$SCRIP" --compile --target=x86 "$tmp" 2>&1 </dev/null)
+    local e4; e4=$(timeout -k 5 8 "$SCRIP" --compile --target=x86 "$tmp" 2>&1 </dev/null)
     if echo "$e4" | grep -qE "$SMX_SIG"; then
         r4="m4 REFUSED"; X4=$((X4+1))
     else
-        local o4; o4=$(timeout 15 bash "$HERE/run_prolog_via_x86_backend.sh" "$tmp" 2>/dev/null </dev/null)
+        local o4; o4=$(timeout -k 5 15 bash "$HERE/run_prolog_via_x86_backend.sh" "$tmp" 2>/dev/null </dev/null)
         if [ "$o4" = "$expected" ]; then r4="m4 PASS"; P4=$((P4+1)); else r4="m4 FAIL"; F4=$((F4+1)); fi
     fi
 

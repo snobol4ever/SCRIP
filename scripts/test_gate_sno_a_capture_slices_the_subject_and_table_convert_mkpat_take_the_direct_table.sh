@@ -76,9 +76,9 @@ printf 'one two\nthree four\nfive six\n' > "$W/cap.in"
 "$SBL" $(sbl_lang_flags) "$W/cap.sno" < "$W/cap.in" > "$W/cap.ref" 2>&1 || true
 [ -s "$W/cap.ref" ] || { echo "REFUSED(2): the oracle printed nothing for the witness"; exit 2; }
 red=0
-( cd "$W" && timeout 30 "$ROOT/scrip" cap.sno < cap.in > "$W/cap.m3" 2>&1 ); cmp -s "$W/cap.m3" "$W/cap.ref" && echo "ok  (1) m3 = oracle over $(wc -l < "$W/cap.ref") lines" || { echo "RED (1) m3 differs from the oracle:"; diff "$W/cap.ref" "$W/cap.m3" | head -6; red=1; }
+( cd "$W" && timeout -k 5 30 "$ROOT/scrip" cap.sno < cap.in > "$W/cap.m3" 2>&1 ); cmp -s "$W/cap.m3" "$W/cap.ref" && echo "ok  (1) m3 = oracle over $(wc -l < "$W/cap.ref") lines" || { echo "RED (1) m3 differs from the oracle:"; diff "$W/cap.ref" "$W/cap.m3" | head -6; red=1; }
 ( cd "$W" && "$ROOT/scrip" --compile -o "$W/cap.s" cap.sno < /dev/null > /dev/null 2>&1 && gcc "$W/cap.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/cap.bin" 2>/dev/null ) || { echo "REFUSED(2): the witness did not build in mode 4"; exit 2; }
-( cd "$W" && timeout 30 ./cap.bin < cap.in > "$W/cap.m4" 2>&1 ); cmp -s "$W/cap.m4" "$W/cap.ref" && echo "ok  (1) m4 = oracle" || { echo "RED (1) m4 differs from the oracle:"; diff "$W/cap.ref" "$W/cap.m4" | head -6; red=1; }
+( cd "$W" && timeout -k 5 30 ./cap.bin < cap.in > "$W/cap.m4" 2>&1 ); cmp -s "$W/cap.m4" "$W/cap.ref" && echo "ok  (1) m4 = oracle" || { echo "RED (1) m4 differs from the oracle:"; diff "$W/cap.ref" "$W/cap.m4" | head -6; red=1; }
 cat > "$W/imm.sno" <<'SNO'
         DEFINE('g()')                                   :(g_end)
 g       g = .gv                                         :(NRETURN)
@@ -91,8 +91,8 @@ loop    s 'alpha' $ a ' ' $ b 'beta' $ c ' gamma' . *g()
 END
 SNO
 ( cd "$W" && "$ROOT/scrip" --compile -o "$W/imm.s" imm.sno < /dev/null > /dev/null 2>&1 && gcc "$W/imm.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/imm.bin" 2>/dev/null ) || { echo "REFUSED(2): the capture twin did not build"; exit 2; }
-( cd "$W" && timeout 30 ./imm.bin < /dev/null > "$W/imm.out" 2>&1 ); grep -q '^alpha| |beta| gamma|1000$' "$W/imm.out" || { echo "REFUSED(2): the capture twin did not print its line: $(head -1 "$W/imm.out")"; exit 2; }
-allocs=$( cd "$W" && timeout 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break rt_str_alloc' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./imm.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); allocs=${allocs:-0}
+( cd "$W" && timeout -k 5 30 ./imm.bin < /dev/null > "$W/imm.out" 2>&1 ); grep -q '^alpha| |beta| gamma|1000$' "$W/imm.out" || { echo "REFUSED(2): the capture twin did not print its line: $(head -1 "$W/imm.out")"; exit 2; }
+allocs=$( cd "$W" && timeout -k 5 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break rt_str_alloc' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./imm.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); allocs=${allocs:-0}
 if [ "$allocs" -le 200 ]; then echo "ok  (2) rt_str_alloc hits=$allocs <= 200 over 3,000 immediate and 1,000 deferred-call captures: every capture is a slice"
 else echo "RED (2) rt_str_alloc hits=$allocs > 200 over 4,000 captures: captures copy the subject again"; red=1; fi
 cat > "$W/tc.sno" <<'SNO'
@@ -106,9 +106,9 @@ loop    t = TABLE()
 END
 SNO
 ( cd "$W" && "$ROOT/scrip" --compile -o "$W/tc.s" tc.sno < /dev/null > /dev/null 2>&1 && gcc "$W/tc.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/tc.bin" 2>/dev/null ) || { echo "REFUSED(2): the table/convert twin did not build"; exit 2; }
-( cd "$W" && timeout 30 ./tc.bin < /dev/null > "$W/tc.out" 2>&1 ); grep -q '^1012 INTEGER 1012 STRING 1000$' "$W/tc.out" || { echo "REFUSED(2): the table/convert twin did not print its line: $(head -1 "$W/tc.out")"; exit 2; }
-ctail=$( cd "$W" && timeout 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break c_rt_call_bid_sn4' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./tc.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); ctail=${ctail:-0}
-arr=$( cd "$W" && timeout 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break rt_call_arr_impl' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./tc.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); arr=${arr:-0}
+( cd "$W" && timeout -k 5 30 ./tc.bin < /dev/null > "$W/tc.out" 2>&1 ); grep -q '^1012 INTEGER 1012 STRING 1000$' "$W/tc.out" || { echo "REFUSED(2): the table/convert twin did not print its line: $(head -1 "$W/tc.out")"; exit 2; }
+ctail=$( cd "$W" && timeout -k 5 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break c_rt_call_bid_sn4' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./tc.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); ctail=${ctail:-0}
+arr=$( cd "$W" && timeout -k 5 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break rt_call_arr_impl' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./tc.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); arr=${arr:-0}
 if [ "$ctail" -le 100 ] && [ "$arr" -le 100 ]; then echo "ok  (3) c_rt_call_bid_sn4 hits=$ctail and rt_call_arr_impl hits=$arr, both <= 100 over 1,001 TABLE() and 3,003 CONVERT calls: the direct table answers them"
 else echo "RED (3) c_rt_call_bid_sn4 hits=$ctail / rt_call_arr_impl hits=$arr over 1,001 TABLE() and 3,003 CONVERT calls: they fall to the C by-name path again"; red=1; fi
 [ "$red" -eq 0 ] && { echo "GATE OK: every capture is a slice of the subject, TABLE, CONVERT and SNO\$MKPAT take the direct table, and the capture shapes answer the oracle"; exit 0; }

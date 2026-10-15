@@ -58,8 +58,8 @@ b=open(sys.argv[1],"rb").read(); h=0
 for c in b: h=(h*256+c)%(2**55-55)
 print(h)' "$1"; }
 tree_canary() {
-    ( cd "$(dirname "$1")"; SNO_LIB="$CORPUS/include" timeout "$TMO" "$2" - < "$1" > "$T/k.cdump" 2>/dev/null )
-    sc_run "${4:-$1}" timeout "$TMO" "$3" $SW > "$T/k.sdump" 2>/dev/null
+    ( cd "$(dirname "$1")"; SNO_LIB="$CORPUS/include" timeout -k 5 "$TMO" "$2" - < "$1" > "$T/k.cdump" 2>/dev/null )
+    sc_run "${4:-$1}" timeout -k 5 "$TMO" "$3" $SW > "$T/k.sdump" 2>/dev/null
     refused "$T/k.cdump" || [ "$(tree_fold "$T/k.cdump")" = "$(cat "$T/c.hash")" ] || { echo "C hash $(cat "$T/c.hash") is not the fold of its dump (${1#$CORPUS/})"; return; }
     refused "$T/k.sdump" || [ "$(tree_fold "$T/k.sdump")" = "$(cat "$T/s.hash")" ] || { echo ".sc hash $(cat "$T/s.hash") is not the fold of its dump (${1#$CORPUS/})"; return; }
     echo LIVE; }
@@ -89,8 +89,8 @@ for L in ${GATE_LANGS:-snobol4 snocone icon prolog rebus pascal}; do
     m=0; d=0; rc_=0; rs=0; rb=0; u=0; hc=0; kc=0; ks=0; first=""; firstf=""; canary=""
     while IFS= read -r f; do
         g=$(pp_twin "$L" "$f") || { rb=$((rb + 1)); continue; }
-        ( cd "$(dirname "$f")"; SNO_LIB="$CORPUS/include" PARSER_TREE_HASH=1 timeout "$TMO" "$exe" - < "$g" > "$T/c.hash" 2>/dev/null ); crc=$?
-        sc_run "$f" env PARSER_TREE_HASH=1 timeout "$TMO" "$T/$L.bin" $SW > "$T/s.hash" 2>/dev/null; src=$?
+        ( cd "$(dirname "$f")"; SNO_LIB="$CORPUS/include" PARSER_TREE_HASH=1 timeout -k 5 "$TMO" "$exe" - < "$g" > "$T/c.hash" 2>/dev/null ); crc=$?
+        sc_run "$f" env PARSER_TREE_HASH=1 timeout -k 5 "$TMO" "$T/$L.bin" $SW > "$T/s.hash" 2>/dev/null; src=$?
         if [ $crc -eq 124 ] || [ $src -eq 124 ]; then u=$((u + 1)); red TIMEOUT; continue; fi
         if [ $crc -ge 128 ]; then kc=$((kc + 1)); red CRASH-C; [ -n "$first" ] || first="C crashed rc=$crc ${f#$CORPUS/}"; continue; fi
         if [ $src -ne 0 ] && ! refused "$T/s.hash"; then ks=$((ks + 1)); red CRASH-SC; [ -n "$first" ] || first=".sc crashed rc=$src ${f#$CORPUS/}"; continue; fi
@@ -104,8 +104,8 @@ for L in ${GATE_LANGS:-snobol4 snocone icon prolog rebus pascal}; do
     done < "$T/$L.files"
     if [ "${GATE_DETAIL:-}" = 1 ] && [ -n "$firstf" ]; then
         g=$(pp_twin "$L" "$firstf")
-        ( cd "$(dirname "$firstf")"; SNO_LIB="$CORPUS/include" timeout "$TMO" "$exe" - < "$g" > "$T/c.dump" 2>/dev/null )
-        L=$L sc_run "$firstf" timeout "$TMO" "$T/$L.bin" $SW > "$T/s.dump" 2>/dev/null
+        ( cd "$(dirname "$firstf")"; SNO_LIB="$CORPUS/include" timeout -k 5 "$TMO" "$exe" - < "$g" > "$T/c.dump" 2>/dev/null )
+        L=$L sc_run "$firstf" timeout -k 5 "$TMO" "$T/$L.bin" $SW > "$T/s.dump" 2>/dev/null
         first="$first: $(diff "$T/c.dump" "$T/s.dump" | grep -m2 '^[<>]' | cut -c1-60 | tr '\n' ' ')"
     fi
     [ "$canary" = LIVE ] || [ "$canary" = "" ] || { echo "  $L: ⛔ REFUSE(2) the hash canary: $canary"; RC=2; continue; }

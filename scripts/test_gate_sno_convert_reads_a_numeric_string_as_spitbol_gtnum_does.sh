@@ -157,16 +157,16 @@ PT      'c' ? POS(0) P RPOS(0)                           :F(PT1)
 PT1     OUTPUT = 'construction: P does not match c'
 END
 SNO
-( cd "$T" && timeout 30 "$SBL" -bf w.sno ) < /dev/null > "$T/w.sbl" 2>&1
+( cd "$T" && timeout -k 5 30 "$SBL" -bf w.sno ) < /dev/null > "$T/w.sbl" 2>&1
 n=$(wc -l < "$T/w.sbl")
 [ "$n" = 230 ] || refuse "the oracle printed $n lines, not the fixture's 230 -- the oracle moved or failed, so there is nothing to grade against"
 grep -qx 'construction: the pattern statement completes, P is PATTERN' "$T/w.sbl" || refuse "the oracle did not build the construction pattern -- not the oracle this gate was written against"
 grep -qx 'construction: P matches c' "$T/w.sbl" || refuse "the oracle's construction pattern does not match 'c' -- not the oracle this gate was written against"
-( cd "$T" && timeout 30 "$SCRIP" w.sno ) < /dev/null > "$T/w.m3" 2>&1
+( cd "$T" && timeout -k 5 30 "$SCRIP" w.sno ) < /dev/null > "$T/w.m3" 2>&1
 "$SCRIP" --compile -o "$T/w.s" "$T/w.sno" < /dev/null > /dev/null 2>&1 && as -o "$T/w.o" "$T/w.s" 2>/dev/null \
   && gcc -o "$T/w.bin" "$T/w.o" "$RT_DIR/libscrip_rt.so" -Wl,-rpath,"$RT_DIR" -lm 2>/dev/null \
   || refuse "could not build the m4 arm -- a toolchain failure, not a verdict"
-( cd "$T" && timeout 30 ./w.bin ) < /dev/null > "$T/w.m4" 2>&1
+( cd "$T" && timeout -k 5 30 ./w.bin ) < /dev/null > "$T/w.m4" 2>&1
 red=0
 for m in m3 m4; do
     if cmp -s "$T/w.sbl" "$T/w.$m"; then

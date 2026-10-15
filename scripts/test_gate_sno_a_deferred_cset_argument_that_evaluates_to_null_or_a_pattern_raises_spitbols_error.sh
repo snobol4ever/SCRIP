@@ -135,22 +135,22 @@ cat > "$D/e.tsv" <<'TXT'
 TXT
 printf "        S = ''\n        OUTPUT = 'before'\n        'abc' ? SPAN(*S)\n        OUTPUT = 'after'\nEND\n" > "$D/f.sno"
 for p in a b c d s t; do
-    ( cd "$D" && timeout 10 "$SBL" -bf $p.sno < /dev/null > $p.sbl 2>/dev/null )
+    ( cd "$D" && timeout -k 5 10 "$SBL" -bf $p.sno < /dev/null > $p.sbl 2>/dev/null )
     cmp -s "$D/$p.want" "$D/$p.sbl" || refuse "sbl -bf does not answer $p as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/$p.sbl")]"
 done
 while IFS="$(printf '\t')" read -r x want; do
-    printf '%s\n' "$x" > "$D/one.in"; o=$(cd "$D" && timeout 10 "$SBL" -bf e.sno < one.in 2>/dev/null)
+    printf '%s\n' "$x" > "$D/one.in"; o=$(cd "$D" && timeout -k 5 10 "$SBL" -bf e.sno < one.in 2>/dev/null)
     [ "$o" = "$want" ] || refuse "sbl -bf answers [$x] with [$o], pinned [$want]"
 done < "$D/e.tsv"
-( cd "$D" && timeout 10 "$SBL" -bf f.sno < /dev/null > f.sbl 2>/dev/null )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf f.sno < /dev/null > f.sbl 2>/dev/null )
 [ "$(head -1 "$D/f.sbl")" = before ] && grep -q 'ERROR 056 --' "$D/f.sbl" && ! grep -q '^after$' "$D/f.sbl" \
     || refuse "sbl -bf no longer stops f at error 56: [$(tr '\n' '|' < "$D/f.sbl" | cut -c1-300)]"
-m4bin() { timeout 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc -no-pie "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
+m4bin() { timeout -k 5 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc -no-pie "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
 red=0; n=0
 arm() { n=$((n + 1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  FAIL $1: $2"; red=$((red + 1)); fi; }
 for p in a b c d s t; do
-    ( cd "$D" && timeout 30 "$B/scrip" $p.sno < /dev/null > $p.m3 2>/dev/null )
-    ( cd "$D" && m4bin $p && timeout 30 ./$p.bin < /dev/null > $p.m4 2>/dev/null )
+    ( cd "$D" && timeout -k 5 30 "$B/scrip" $p.sno < /dev/null > $p.m3 2>/dev/null )
+    ( cd "$D" && m4bin $p && timeout -k 5 30 ./$p.bin < /dev/null > $p.m4 2>/dev/null )
     for m in m3 m4; do
         if [ -f "$D/$p.$m" ] && cmp -s "$D/$p.want" "$D/$p.$m"; then arm "$p $m" ok
         else arm "$p $m" "got [$(tr '\n' '|' 2>/dev/null < "$D/$p.$m")] want [$(tr '\n' '|' < "$D/$p.want")]"; fi
@@ -160,13 +160,13 @@ done
 e3=""; e4=""
 while IFS="$(printf '\t')" read -r x want; do
     printf '%s\n' "$x" > "$D/one.in"
-    o3=$(cd "$D" && timeout 10 "$B/scrip" e.sno < one.in 2>/dev/null); [ "$o3" = "$want" ] || e3="$e3 [$x: $o3]"
-    o4=$(cd "$D" && timeout 10 ./e.bin < one.in 2>/dev/null); [ "$o4" = "$want" ] || e4="$e4 [$x: $o4]"
+    o3=$(cd "$D" && timeout -k 5 10 "$B/scrip" e.sno < one.in 2>/dev/null); [ "$o3" = "$want" ] || e3="$e3 [$x: $o3]"
+    o4=$(cd "$D" && timeout -k 5 10 ./e.bin < one.in 2>/dev/null); [ "$o4" = "$want" ] || e4="$e4 [$x: $o4]"
 done < "$D/e.tsv"
 [ -z "$e3" ] && arm "e m3 (11 EVAL lines, one process each)" ok || arm "e m3" "$e3"
 [ -z "$e4" ] && arm "e m4 (11 EVAL lines, one process each)" ok || arm "e m4" "$e4"
-( cd "$D" && timeout 30 "$B/scrip" f.sno < /dev/null > f.m3 2> f.m3e; echo $? > f.m3rc )
-( cd "$D" && { m4bin f && timeout 30 ./f.bin < /dev/null > f.m4 2> f.m4e; echo $? > f.m4rc; } )
+( cd "$D" && timeout -k 5 30 "$B/scrip" f.sno < /dev/null > f.m3 2> f.m3e; echo $? > f.m3rc )
+( cd "$D" && { m4bin f && timeout -k 5 30 ./f.bin < /dev/null > f.m4 2> f.m4e; echo $? > f.m4rc; } )
 for m in m3 m4; do
     if [ "$(cat "$D/f.${m}rc" 2>/dev/null)" != 0 ] && [ "$(cat "$D/f.$m" 2>/dev/null)" = before ] && grep -q 'error 56:' "$D/f.${m}e" 2>/dev/null; then arm "f $m" ok
     else arm "f $m" "rc=$(cat "$D/f.${m}rc" 2>/dev/null) out=[$(tr '\n' '|' < "$D/f.$m" 2>/dev/null)] err=[$(tr '\n' '|' < "$D/f.${m}e" 2>/dev/null)], want before then error 56"; fi

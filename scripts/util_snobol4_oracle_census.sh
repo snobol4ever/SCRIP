@@ -46,7 +46,7 @@ census_one() {
     local bin="$1" flags="$2" prog="$3" dir name inp out rc v note
     dir="$(dirname "$prog")"; name="$(basename "$prog")"
     inp=/dev/null; [ -f "$dir/${name%.*}.in" ] && inp="$dir/${name%.*}.in"
-    out="$(cd "$dir" && timeout "$TIMEOUT" "$bin" $flags "$name" < "$inp" 2>&1 | tr -d '\000'; exit "${PIPESTATUS[0]}")"; rc=$?
+    out="$(cd "$dir" && timeout -k 5 "$TIMEOUT" "$bin" $flags "$name" < "$inp" 2>&1 | tr -d '\000'; exit "${PIPESTATUS[0]}")"; rc=$?
     if [ $rc -eq 0 ]; then v=OK; note=""
     elif [ $rc -eq 124 ]; then v=TIMEOUT; note=""
     elif [ $rc -gt 128 ] && [ $rc -le 160 ]; then v="CRASH($((rc-128)))"; note=""

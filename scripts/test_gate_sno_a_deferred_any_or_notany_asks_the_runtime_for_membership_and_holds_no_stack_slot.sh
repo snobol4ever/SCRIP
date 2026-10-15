@@ -47,12 +47,12 @@ F       'ab' ? ANY(*U())
 END
 SNO
 printf '%s\n' 'b deferred any' 'a deferred break' 'b deferred notany' 'b|b' 'any failed' 'notany failed at end' 'after undefined' > "$D/m.want"
-( cd "$D" && timeout 10 "$SBL" -bf m.sno < /dev/null 2>/dev/null | grep -v '^$' > m.sbl )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf m.sno < /dev/null 2>/dev/null | grep -v '^$' > m.sbl )
 cmp -s "$D/m.want" "$D/m.sbl" || refuse "sbl -bf does not answer m as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/m.sbl")]"
 red=0; n=0
-( cd "$D" && timeout 30 "$B/scrip" m.sno < /dev/null > m.m3 2>/dev/null )
-( cd "$D" && timeout 60 "$B/scrip" --compile m.sno < /dev/null > m.s 2>/dev/null && gcc -no-pie m.s -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o m.bin 2>/dev/null \
-    && timeout 30 ./m.bin < /dev/null > m.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" m.sno < /dev/null > m.m3 2>/dev/null )
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile m.sno < /dev/null > m.s 2>/dev/null && gcc -no-pie m.s -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o m.bin 2>/dev/null \
+    && timeout -k 5 30 ./m.bin < /dev/null > m.m4 2>/dev/null )
 for m in m3 m4; do
     n=$((n + 1))
     if [ -f "$D/m.$m" ] && cmp -s "$D/m.want" "$D/m.$m"; then echo "  ok   m $m"

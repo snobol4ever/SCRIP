@@ -16,7 +16,7 @@ for rk in "$TESTDIR"/*.raku; do
     exp="${rk%.raku}.expected"; name="$(basename "$rk" .raku)"
     [ -f "$exp" ] || { SKIP=$((SKIP+1)); continue; }
     WANT="$(cat "$exp")"
-    GOT="$(SCRIP_M3_NATIVE=1 timeout 12 "$SCRIP" --run "$rk" </dev/null 2>/dev/null)"; rc=$?
+    GOT="$(SCRIP_M3_NATIVE=1 timeout -k 5 12 "$SCRIP" --run "$rk" </dev/null 2>/dev/null)"; rc=$?
     if [ $rc -ge 128 ]; then echo "  CRASH $name (rc=$rc)"; CRASH=$((CRASH+1)); FAIL=$((FAIL+1)); continue; fi
     if [ "$WANT" = "$GOT" ] && [ -n "$WANT" ]; then echo "  PASS $name"; PASS=$((PASS+1));
     else echo "  FAIL $name"; FAIL=$((FAIL+1)); fi

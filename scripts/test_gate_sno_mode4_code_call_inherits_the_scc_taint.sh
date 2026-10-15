@@ -42,10 +42,10 @@ printf -- '-INCLUDE "%s"\n-INCLUDE "%s"\n%s\tS = "MISSISSIPPI"\n\tC = ARRAY(2)\n
 cp "$GIM/$FRS_D" "$W/F.sno"
 PASS=0; FAIL=0; GRADED=0
 grade() { local name="$1" dir="$2" rc4 o
-    ( cd "$dir" && timeout 10s "$SBL" -bf $SINK "$W/$name.sno" < /dev/null > "$W/$name.oracle" 2>&1 )
-    ( cd "$dir" && SNO_LIB="$GIM" timeout 10s "$ROOT/scrip" --run "$W/$name.sno" < /dev/null > "$W/$name.m3" 2>&1 )
-    if ( cd "$dir" && SNO_LIB="$GIM" timeout 10s "$ROOT/scrip" --compile "$W/$name.sno" < /dev/null > "$W/$name.s" 2> "$W/$name.cerr" ) && gcc -c "$W/$name.s" -o "$W/$name.o" 2>/dev/null && gcc "$W/$name.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/$name.bin" 2>/dev/null; then
-        ( cd "$dir" && timeout 10s "$W/$name.bin" < /dev/null > "$W/$name.m4" 2>&1 ); rc4=$?
+    ( cd "$dir" && timeout -k 5 10s "$SBL" -bf $SINK "$W/$name.sno" < /dev/null > "$W/$name.oracle" 2>&1 )
+    ( cd "$dir" && SNO_LIB="$GIM" timeout -k 5 10s "$ROOT/scrip" --run "$W/$name.sno" < /dev/null > "$W/$name.m3" 2>&1 )
+    if ( cd "$dir" && SNO_LIB="$GIM" timeout -k 5 10s "$ROOT/scrip" --compile "$W/$name.sno" < /dev/null > "$W/$name.s" 2> "$W/$name.cerr" ) && gcc -c "$W/$name.s" -o "$W/$name.o" 2>/dev/null && gcc "$W/$name.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/$name.bin" 2>/dev/null; then
+        ( cd "$dir" && timeout -k 5 10s "$W/$name.bin" < /dev/null > "$W/$name.m4" 2>&1 ); rc4=$?
     else rc4=NOBUILD; : > "$W/$name.m4"; fi
     for m in m3 m4; do GRADED=$((GRADED+1))
         if [ "$m" = m4 ] && [ "$rc4" = NOBUILD ]; then FAIL=$((FAIL+1)); echo "  ⛔ $name m4: NOBUILD -- $(head -c 100 "$W/$name.cerr")"

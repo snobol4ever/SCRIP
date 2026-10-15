@@ -37,8 +37,8 @@ if [ "${FAIL_ONCE:-0}" = 1 ]; then sed '1d' "${S1%.pl}.ref" > "$W/r.ref"; else c
 gcc -o "$W/r.bin" "$W/r.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread > "$W/r.lerr" 2>&1 || { echo "GATE REFUSED(2) [$G]: the witness does not link"; exit 2; }
 run_arm() {
     local n="$1" mode="$2" stress="$3" rc
-    if [ "$mode" = m3 ]; then ( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB $stress timeout 300 "$ROOT/scrip" "$W/r.pl" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?
-    else ( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB $stress timeout 300 "$W/r.bin" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?; fi
+    if [ "$mode" = m3 ]; then ( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB $stress timeout -k 5 300 "$ROOT/scrip" "$W/r.pl" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?
+    else ( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB $stress timeout -k 5 300 "$W/r.bin" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?; fi
     grep -v '^\[GC-' "$W/$n.out" | sed -E 's/_[A-Z]?[0-9]+/_/g' > "$W/$n.txt"
     if [ "$rc" -ne 0 ] || ! cmp -s "$W/$n.txt" "$W/r.ref"; then echo "  RED ($n) $mode${stress:+ $stress}: rc=$rc, the output differs from swipl's ($(diff "$W/r.ref" "$W/$n.txt" | grep -c '^>') shapes):"; diff "$W/r.ref" "$W/$n.txt" | head -6; return 1; fi
     if [ -n "$stress" ]; then

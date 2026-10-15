@@ -126,7 +126,7 @@ for tok in $WITNESSES; do
         echo "GATE UNPROVEN(2) [$GATE_NAME]: could not materialize witness '$w' from $RUNGS_DIR -- a population that cannot be built is not a clean reading"; exit 2; }
     t0=$(date +%s)
     ( cd "$TD" && env SCRIP_GC_MAPS=1 SCRIP_HEAP_KB="$ARENA_KB" SCRIP_GC_STRESS="$wstress" SCRIP_GC_EXERCISE=1 \
-        timeout "$CEILING" "$REPO/scrip" "$src" >/dev/null 2>>"$LOG" </dev/null )
+        timeout -k 5 "$CEILING" "$REPO/scrip" "$src" >/dev/null 2>>"$LOG" </dev/null )
     wrc=$?
     el=$(( $(date +%s) - t0 ))
     RUNPLAN="$RUNPLAN $w(stress=$wstress,${el}s,rc=$wrc)"

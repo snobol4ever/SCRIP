@@ -21,7 +21,7 @@ if [ "$n1" -eq 0 ] && [ "$n2" -eq 1 ] && [ "$n3" -eq 1 ] && python3 scripts/util
 maps=0; cells=0; tabs=0; progs=0; skipped=0
 for f in "$CORPUS"/*/*.sno "$CORPUS"/*/*.sc "$CORPUS"/*/*.icn "$CORPUS"/*/*.pl "$CORPUS"/*/*.reb "$CORPUS"/*/*.raku "$CORPUS"/*/*.pas; do
     [ -f "$f" ] || continue
-    if ! timeout 120 ./scrip --compile "$f" > "$W/p.s" 2>/dev/null; then skipped=$((skipped+1)); continue; fi
+    if ! timeout -k 5 120 ./scrip --compile "$f" > "$W/p.s" 2>/dev/null; then skipped=$((skipped+1)); continue; fi
     progs=$((progs+1))
     m=$(grep -c '^\.Lgcmap_[^ ]*:$' "$W/p.s"); c=$(grep -c '# GCANCHOR \.Lgcmap_' "$W/p.s"); t=$(awk '/^__gc_frame_maps:/{print $NF; exit}' "$W/p.s")
     maps=$((maps+m)); cells=$((cells+c)); tabs=$((tabs+${t:-0}))
@@ -34,7 +34,7 @@ blobcnt() { awk '{ if (want) { if ($0 !~ /GCANCHOR \.Lgcmap_/) c++; want = 0 } i
 blobs=0
 for f in "$CORPUS"/*/*.sno "$CORPUS"/*/*.sc "$CORPUS"/*/*.icn "$CORPUS"/*/*.pl "$CORPUS"/*/*.reb "$CORPUS"/*/*.raku "$CORPUS"/*/*.pas "$ROOT/scripts/fixtures/gc_roots_witness.sno"; do
     [ -f "$f" ] || continue
-    timeout 120 ./scrip --compile "$f" > "$W/b.s" 2>/dev/null || continue
+    timeout -k 5 120 ./scrip --compile "$f" > "$W/b.s" 2>/dev/null || continue
     blobs=$((blobs + $(blobcnt "$W/b.s")))
 done
 if [ "$blobs" -le "$BLOB_CEILING" ]; then

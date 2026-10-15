@@ -42,10 +42,10 @@ DONE	OUTPUT  =  'ok ' count ' ' V1 ' ' V1024 ' ' V1025 ' ' V1500	:(END)
 BAD	OUTPUT  =  'fail at ' i ' V=' $('V' i)
 END
 EOF
-(cd "$W" && timeout 120 "$SCRIP" --compile -o spill.s spill.sno </dev/null >/dev/null 2>&1) \
+(cd "$W" && timeout -k 5 120 "$SCRIP" --compile -o spill.s spill.sno </dev/null >/dev/null 2>&1) \
     && gcc "$W/spill.s" -L"$SD/out" -lscrip_rt -lm -Wl,-rpath,"$SD/out" -o "$W/spill.bin" 2>/dev/null \
     || { echo "⛔ REFUSE(rc=2) [$G]: the witness did not compile and link in mode 4"; exit 2; }
-want="$(cd "$W" && timeout 60 "$SBL" $(sbl_lang_flags) spill.sno </dev/null 2>/dev/null)"
+want="$(cd "$W" && timeout -k 5 60 "$SBL" $(sbl_lang_flags) spill.sno </dev/null 2>/dev/null)"
 [ "$want" = "ok 1500 c1 c1024 c1025 c1500" ] || { echo "⛔ REFUSE(rc=2) [$G]: the oracle printed '$want', not the witness's answer -- the arms cannot grade"; exit 2; }
 grade() { [ "$1" = "$2" ]; }
 bad="${want%0}9"
@@ -53,7 +53,7 @@ grade "$want" "$bad" && { echo "⛔ REFUSE(rc=2) [$G]: arm 0 -- the comparator r
 echo "== [$G] pair sites past the 1024 cap, graded against $SBL"
 echo "  PASS arm0 the comparator reads a corrupted ref ('$bad') RED"
 fail=0
-run_m() { if [ "$1" = m3 ]; then (cd "$W" && timeout 120 env ${2:+$2} "$SCRIP" spill.sno </dev/null 2>&1); else (cd "$W" && timeout 120 env ${2:+$2} "$W/spill.bin" -- </dev/null 2>&1); fi; }
+run_m() { if [ "$1" = m3 ]; then (cd "$W" && timeout -k 5 120 env ${2:+$2} "$SCRIP" spill.sno </dev/null 2>&1); else (cd "$W" && timeout -k 5 120 env ${2:+$2} "$W/spill.bin" -- </dev/null 2>&1); fi; }
 for m in m3 m4; do v="$(run_m $m)"; if grade "$v" "$want"; then echo "  PASS arm1 $m = sbl ($want)"; else echo "  ⛔ arm1 $m RED: got '$(printf '%s' "$v" | head -c 200)', sbl '$want'"; fail=1; fi; done
 cat > "$W/count.gdb" <<'EOF'
 set pagination off
@@ -74,8 +74,8 @@ run
 printf "SITES cached=%d spilled=%d\n", $pos, $neg
 EOF
 for m in m3 m4; do
-    if [ "$m" = m3 ]; then c="$(cd "$W" && timeout 300 gdb -q -batch -x count.gdb --args "$SCRIP" spill.sno </dev/null 2>&1 | grep -o 'SITES cached=[0-9]* spilled=[0-9]*')"
-    else c="$(cd "$W" && timeout 300 gdb -q -batch -x count.gdb --args "$W/spill.bin" -- </dev/null 2>&1 | grep -o 'SITES cached=[0-9]* spilled=[0-9]*')"; fi
+    if [ "$m" = m3 ]; then c="$(cd "$W" && timeout -k 5 300 gdb -q -batch -x count.gdb --args "$SCRIP" spill.sno </dev/null 2>&1 | grep -o 'SITES cached=[0-9]* spilled=[0-9]*')"
+    else c="$(cd "$W" && timeout -k 5 300 gdb -q -batch -x count.gdb --args "$W/spill.bin" -- </dev/null 2>&1 | grep -o 'SITES cached=[0-9]* spilled=[0-9]*')"; fi
     [ "$c" = "SITES cached=3072 spilled=1428" ] || { echo "⛔ REFUSE(rc=2) [$G]: arm 2 $m -- gdb read '$c', not 3072 cached and 1428 past the cap: the witness no longer reaches both roads"; exit 2; }
     echo "  PASS arm2 $m reaches both roads ($c)"
 done

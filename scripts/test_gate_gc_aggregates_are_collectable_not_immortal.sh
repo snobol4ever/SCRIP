@@ -29,14 +29,14 @@ T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 printf 'procedure main()\n   local i, L;\n   every i := 1 to 4000000 do L := [i, i+1, i+2];\n   write("done ", *L);\nend\n' > "$T/churn.icn"
 printf 'procedure main()\n   local i, L, T, R;\n   T := table(0);\n   every i := 1 to 200000 do { L := [i, i+1]; T[i %% 7] := L[1] + L[2] };\n   R := 0; every i := 0 to 6 do R +:= T[i];\n   write("sum ", R, " ", *T);\nend\n' > "$T/corr.icn"
-run_rss() { /usr/bin/time -f '%M' -o "$T/rss" timeout 300 env "$@" >"$T/out" 2>"$T/err"; echo $?; }
+run_rss() { /usr/bin/time -f '%M' -o "$T/rss" timeout -k 5 300 env "$@" >"$T/out" 2>"$T/err"; echo $?; }
 rc=$(run_rss "$SCRIP" "$T/churn.icn"); rss=$(tail -1 "$T/rss" 2>/dev/null || echo 0); got=$(cat "$T/out")
 if [ "$rc" = 0 ] && [ "$got" = "done 3" ] && [ "$rss" -lt 819200 ]; then echo "  churn PASS (4M dead lists: completed, answer \"$got\", RSS ${rss} KB under 800 MB)"
 else echo "  churn FAIL (rc=$rc answer=\"$got\" RSS=${rss} KB -- a program holding one list did not survive four million dead ones, or the 800 MB bound is back over the line the Icon polls brought it under)"; RC=1; fi
 if grep -rqE 'SCRIP_GC_PIN_AGGREGATES|hb_root_blanket' "$ROOT/src"; then echo "  control FAIL (the immortal policy is back in src/ under its old spelling -- CEO-799 deleted it 2026-09-16; test_gate_gc_no_pinned_lifetime_class holds the census)"; RC=1
 else echo "  control PASS (no immortal-policy knob exists in src/ to restore: SCRIP_GC_PIN_AGGREGATES and hb_root_blanket were deleted with the pinning mechanism, CEO-799, 2026-09-16)"; fi
 ( cd "$T" && "$ICONT" -s corr.icn -x ) >"$T/corr.ref" 2>&1
-( cd "$T" && timeout 120 "$SCRIP" corr.icn </dev/null ) >"$T/corr.out" 2>&1
+( cd "$T" && timeout -k 5 120 "$SCRIP" corr.icn </dev/null ) >"$T/corr.out" 2>&1
 if diff -q "$T/corr.ref" "$T/corr.out" >/dev/null; then echo "  correctness PASS (200000 lists through a table under heavy collection, byte-identical to icont: $(cat "$T/corr.ref"))"
 else echo "  correctness FAIL (collection changed the answer: got \"$(cat "$T/corr.out")\", icont \"$(cat "$T/corr.ref")\")"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: dead aggregates are reclaimed, no immortal-policy knob survives in src/, and collection does not change an answer"

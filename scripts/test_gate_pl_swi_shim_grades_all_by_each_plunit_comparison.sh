@@ -48,13 +48,13 @@ want="$(printf '%s\n' '  pass: al:unify' '  pass: al:pair' '  pass: al:ident' ' 
     '  FAIL: al:wrong  (all mismatch)' '  pass: al:after' '  pass: al:bare_ident' '  FAIL: al:bare_wrong  (true check failed)' \
     '  pass: al:bare_arith' '  pass: al:bare_unify' '  pass: al:bare_variant' '  FAIL: al:listed_wrong  (true check failed)')"
 red=0; total=1
-oracle="$(cd "$T" && timeout 60 "$SWIPL" -q -g run_tests -t halt w.pl 2>&1)"
+oracle="$(cd "$T" && timeout -k 5 60 "$SWIPL" -q -g run_tests -t halt w.pl 2>&1)"
 failed="$(printf '%s\n' "$oracle" | sed -n 's/^[[:space:]]*test \([a-z_]*\): .*/\1/p' | sort -u | tr '\n' ' ')"
 if [ "$failed" = "bare_wrong listed_wrong wrong " ]; then echo "  ok  premise: swipl's plunit fails exactly bare_wrong, listed_wrong and wrong on the witness"
 else echo "  RED premise: swipl's plunit failed [${failed}], want [bare_wrong listed_wrong wrong] -- the wanted verdicts are no longer the oracle's"; red=$((red+1)); fi
 run() { local mode="$1"
-    if [ "$mode" = m4 ]; then timeout 60 "$SCRIP" --compile "$PLUNIT" "$T/w.pl" "$T/wrap.pl" > "$T/p.s" 2>/dev/null && gcc -no-pie "$T/p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$T/p" 2>/dev/null && timeout 60 "$T/p" </dev/null 2>/dev/null
-    else timeout 60 "$SCRIP" --run "$PLUNIT" "$T/w.pl" "$T/wrap.pl" </dev/null 2>/dev/null; fi; }
+    if [ "$mode" = m4 ]; then timeout -k 5 60 "$SCRIP" --compile "$PLUNIT" "$T/w.pl" "$T/wrap.pl" > "$T/p.s" 2>/dev/null && gcc -no-pie "$T/p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$T/p" 2>/dev/null && timeout -k 5 60 "$T/p" </dev/null 2>/dev/null
+    else timeout -k 5 60 "$SCRIP" --run "$PLUNIT" "$T/w.pl" "$T/wrap.pl" </dev/null 2>/dev/null; fi; }
 for mode in ${MODES//,/ }; do
     total=$((total+1))
     got="$(run "$mode" | grep -E '^\s+(pass|FAIL|skip):')"

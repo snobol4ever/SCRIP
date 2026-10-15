@@ -50,14 +50,14 @@ NO      OUTPUT = 'nomatch'
 DONE
 END
 SNO
-(cd "$T" && timeout 20 "$SBL" $(sbl_lang_flags) w.sno < /dev/null > ref 2>&1); [ -s "$T/ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing for the witness"; exit 2; }
+(cd "$T" && timeout -k 5 20 "$SBL" $(sbl_lang_flags) w.sno < /dev/null > ref 2>&1); [ -s "$T/ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing for the witness"; exit 2; }
 RC=0
 for arm in dfl; do
     E="env"
-    (cd "$T" && $E timeout 20 "$SCRIP" w.sno < /dev/null > "m3.$arm" 2>&1)
-    (cd "$T" && $E timeout 20 "$SCRIP" --compile -o "w.$arm.s" w.sno < /dev/null > "cc.$arm" 2>&1) || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile failed ($arm): $(head -1 "$T/cc.$arm" | cut -c1-120)"; exit 2; }
+    (cd "$T" && $E timeout -k 5 20 "$SCRIP" w.sno < /dev/null > "m3.$arm" 2>&1)
+    (cd "$T" && $E timeout -k 5 20 "$SCRIP" --compile -o "w.$arm.s" w.sno < /dev/null > "cc.$arm" 2>&1) || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile failed ($arm): $(head -1 "$T/cc.$arm" | cut -c1-120)"; exit 2; }
     gcc -m64 "$T/w.$arm.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$T/w.$arm.bin" 2>> "$T/cc.$arm" || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 link failed ($arm)"; exit 2; }
-    (cd "$T" && timeout 20 "./w.$arm.bin" < /dev/null > "m4.$arm" 2>&1)
+    (cd "$T" && timeout -k 5 20 "./w.$arm.bin" < /dev/null > "m4.$arm" 2>&1)
     for m in m3 m4; do cmp -s "$T/ref" "$T/$m.$arm" && echo "  PASS $arm $m = oracle" || { RC=1; echo "  FAIL $arm $m differs from the oracle: $(diff "$T/ref" "$T/$m.$arm" | grep -m2 '^[<>]' | tr '\n' ' ' | cut -c1-160)"; }; done
 done
 read -r nfl nhead nbad <<< "$(awk '

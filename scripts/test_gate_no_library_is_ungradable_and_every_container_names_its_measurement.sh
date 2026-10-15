@@ -112,13 +112,13 @@ grep -qx spliced "$R/prog.ref" || { echo "⛔ REFUSED(2): icont/iconx did not bu
 printf "$hdr" > "$R/UNGRADED.tsv"; printf "$hdr" > "$R/UNGRADABLE.tsv"
 printf 'frag.icn\tINCLUDED_BY\tprog.icn -- its $include splices it (gate fixture)\n' > "$R/CONTAINERS.tsv"
 OJ="$T/oj"; mkdir -p "$OJ" && cp "$R"/prog.icn "$R"/frag.icn "$R"/prog.ref "$R"/*.tsv "$OJ/"
-S4E_PROGRESS_DB="$T/oj.tsv" timeout 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$OJ" > "$T/oj.out" 2>&1
+S4E_PROGRESS_DB="$T/oj.tsv" timeout -k 5 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$OJ" > "$T/oj.out" 2>&1
 bf "$T/oj.out" JCON_SUITE_BOARD shipped=1 graded=1 gap=0 m3_pass=1 m4_pass=1 && bf "$T/oj.out" PACKAGE_INVENTORY package=jcon shipped=1 containers=1 \
   && ck ok "(10) jcon: the \$include'd fragment is out of the runner's census and the inventory's alike (shipped=1, containers=1, both modes pass)" \
   || ck no "(10) jcon: $(grep -m1 '^JCON_SUITE_BOARD' "$T/oj.out" | cut -c1-110) :: $(grep -m1 '^PACKAGE_INVENTORY\|REFUSES' "$T/oj.out" | cut -c1-140)"
 OZ="$T/oz/corpus/packages/icon/arizona_tests"; mkdir -p "$OZ/general" "$OZ/special" && cp "$R"/prog.icn "$R"/frag.icn "$R"/prog.ref "$OZ/general/" && cp "$R"/UNGRADED.tsv "$R"/UNGRADABLE.tsv "$OZ/"
 sed 's/^frag\.icn/general\/frag.icn/; s/\tprog\.icn/\tgeneral\/prog.icn/' "$R/CONTAINERS.tsv" > "$OZ/CONTAINERS.tsv"
-S4E_HOME="$T/oz" S4E_PROGRESS_DB="$T/oz.tsv" timeout 600 bash "$HERE/test_icon_arizona_suite.sh" > "$T/oz.out" 2>&1
+S4E_HOME="$T/oz" S4E_PROGRESS_DB="$T/oz.tsv" timeout -k 5 600 bash "$HERE/test_icon_arizona_suite.sh" > "$T/oz.out" 2>&1
 bf "$T/oz.out" ARIZONA_SUITE_BOARD shipped=1 graded=1 gap=0 m3_pass=1 m4_pass=1 && bf "$T/oz.out" PACKAGE_INVENTORY package=arizona shipped=1 containers=1 \
   && ck ok "(11) arizona: the \$include'd fragment is out of the runner's census and the inventory's alike (shipped=1, containers=1, both modes pass)" \
   || ck no "(11) arizona: $(grep -m1 '^ARIZONA_SUITE_BOARD' "$T/oz.out" | cut -c1-110) :: $(grep -m1 '^PACKAGE_INVENTORY\|REFUSES' "$T/oz.out" | cut -c1-140)"

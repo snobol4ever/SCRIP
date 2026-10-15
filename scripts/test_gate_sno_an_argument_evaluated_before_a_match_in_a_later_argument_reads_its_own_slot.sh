@@ -67,15 +67,15 @@ FENCE
 '(matched [things])' ?&STLIMIT | (']' ? *']')
 TXT
 printf 'STRING ab\nSTRING abc\nSTRING k\nSTRING **ab\nERROR 233\nPATTERN\nPATTERN\n' > "$D/e.want"
-( cd "$D" && timeout 10 "$SBL" -bf w.sno < /dev/null > w.sbl 2>/dev/null )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf w.sno < /dev/null > w.sbl 2>/dev/null )
 cmp -s "$D/w.want" "$D/w.sbl" || refuse "sbl -bf does not answer w as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/w.sbl")]"
-( cd "$D" && timeout 10 "$SBL" -bf e.sno < e.in > e.sbl 2>/dev/null )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf e.sno < e.in > e.sbl 2>/dev/null )
 cmp -s "$D/e.want" "$D/e.sbl" || refuse "sbl -bf does not answer e as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/e.sbl")]"
-m4bin() { timeout 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc -no-pie "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
-( cd "$D" && timeout 30 "$B/scrip" w.sno < /dev/null > w.m3 2>/dev/null )
-( cd "$D" && m4bin w && timeout 30 ./w.bin < /dev/null > w.m4 2>/dev/null )
-( cd "$D" && timeout 30 "$B/scrip" e.sno < e.in > e.m3 2>/dev/null )
-( cd "$D" && m4bin e && timeout 30 ./e.bin < e.in > e.m4 2>/dev/null )
+m4bin() { timeout -k 5 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc -no-pie "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
+( cd "$D" && timeout -k 5 30 "$B/scrip" w.sno < /dev/null > w.m3 2>/dev/null )
+( cd "$D" && m4bin w && timeout -k 5 30 ./w.bin < /dev/null > w.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" e.sno < e.in > e.m3 2>/dev/null )
+( cd "$D" && m4bin e && timeout -k 5 30 ./e.bin < e.in > e.m4 2>/dev/null )
 red=0; n=0
 for p in w e; do for m in m3 m4; do
     n=$((n + 1))

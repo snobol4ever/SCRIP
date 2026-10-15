@@ -33,15 +33,15 @@ cat > "$TD/s.sno" <<'EOF'
 END
 EOF
 GRADED=0; FAIL=0
-WANT="$(cd "$TD" && timeout 20s "$SBL" -bf w.sno </dev/null 2>&1 | grep -v '^$')"
+WANT="$(cd "$TD" && timeout -k 5 20s "$SBL" -bf w.sno </dev/null 2>&1 | grep -v '^$')"
 [ -n "$WANT" ] || refuse "the oracle produced no output for the capture witness -- cannot measure"
 for m in 3 4; do
   if [ "$m" = 3 ]; then
-    GOT="$(cd "$TD" && timeout 20s "$SCRIP" --run w.sno </dev/null 2>&1)"
+    GOT="$(cd "$TD" && timeout -k 5 20s "$SCRIP" --run w.sno </dev/null 2>&1)"
   else
     (cd "$TD" && "$SCRIP" --compile -o w.s w.sno </dev/null >/dev/null 2>&1) || refuse "mode-4 compile failed -- cannot measure"
     (cd "$TD" && gcc -no-pie w.s -o w.bin -L "$ROOT/out" -lscrip_rt -lm -lpthread >/dev/null 2>&1) || refuse "mode-4 link failed -- cannot measure"
-    GOT="$(cd "$TD" && LD_LIBRARY_PATH="$ROOT/out" timeout 20s ./w.bin </dev/null 2>&1)"
+    GOT="$(cd "$TD" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 20s ./w.bin </dev/null 2>&1)"
   fi
   GRADED=$((GRADED+1))
   if [ "$GOT" != "$WANT" ]; then
@@ -55,8 +55,8 @@ done
 GIMPEL="$ROOT/../corpus/packages/snobol4/snoflake_suite/gimpel"
 if [ -d "$GIMPEL" ]; then
   ln -sf "$GIMPEL"/*.INC "$TD"/ 2>/dev/null || true
-  SW="$(cd "$TD" && timeout 20s "$SBL" -bf s.sno </dev/null 2>&1 | grep -v '^$' | tail -1)"
-  SG="$(cd "$TD" && SNO_LIB="$GIMPEL" timeout 20s "$SCRIP" --run s.sno </dev/null 2>&1 | tail -1)"
+  SW="$(cd "$TD" && timeout -k 5 20s "$SBL" -bf s.sno </dev/null 2>&1 | grep -v '^$' | tail -1)"
+  SG="$(cd "$TD" && SNO_LIB="$GIMPEL" timeout -k 5 20s "$SCRIP" --run s.sno </dev/null 2>&1 | tail -1)"
   GRADED=$((GRADED+1))
   if [ "$SG" != "$SW" ]; then echo "  FAIL m3 SPELL(1976): got [$SG] want [$SW]"; FAIL=$((FAIL+1));
   else echo "  PASS m3 SPELL(1976) [$SG] -- the recursive witness whose symptom was ERROR 246, two levels downstream"; fi

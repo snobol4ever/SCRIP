@@ -70,8 +70,8 @@ run1() {
   in="$(dirname "$twin")/$(sed 's/-match\(-fence\)\?$//' <<<"$s").dat"; [ -f "$in" ] || in=/dev/null
   case "$eng" in
     sbl) [ -x "$SBL" ] || { echo "- - - ORACLE-MISSING"; return; }
-         out=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) $SW "$twin" 2>"$W/gc.err" <"$in") ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "$SCRIP" $SW --run "$twin" 2>"$W/gc.err" <"$in") ;;
+         out=$("$WRAP" timeout -k 5 "$T" "$SBL" $(sbl_lang_flags) $SW "$twin" 2>"$W/gc.err" <"$in") ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_ZETA_TELEM=1 "$WRAP" timeout -k 5 "$T" "$SCRIP" $SW --run "$twin" 2>"$W/gc.err" <"$in") ;;
     m4)  "$SCRIP" --compile "$twin" > "$W/$s.s" 2>/dev/null
          # ⛔ real if/else, not `A && B || C` -- a static-link failure must REFUSE (BUILD-ERR), never
          # silently fall through to the dynamic arm (the control-arm-trap class FINDING f4f6292c warns
@@ -83,7 +83,7 @@ run1() {
            gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null
          fi
          [ -x "$W/$s.prog" ] || { echo "- - - BUILD-ERR"; return; }
-         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "./$s.prog" $SW 2>"$W/gc.err" <"$in") ;;
+         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_ZETA_TELEM=1 "$WRAP" timeout -k 5 "$T" "./$s.prog" $SW 2>"$W/gc.err" <"$in") ;;
   esac
   local ck gc rusage_line user_us sys_us nivcsw cpu_ms
   ck=$(sed -n 's/^check: //p' <<<"$out")

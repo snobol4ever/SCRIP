@@ -66,12 +66,12 @@ one() {
   d="$(dirname "$f")"; b="$(basename "$f")"
   mkdir -p "$(dirname "$out")"
   ( cd "$d" && export SNO_LIB="$CORPUS/include"
-    r=0; timeout "$TMO" nice -n 19 "$SCRIP" --dump-ir "$b" < /dev/null > "$out.ir" 2>/dev/null || r=$?
-    [ "$r" = 124 ] && { r=0; timeout "$TMO_ALONE" nice -n 19 "$SCRIP" --dump-ir "$b" < /dev/null > "$out.ir" 2>/dev/null || r=$?; }
+    r=0; timeout -k 5 "$TMO" nice -n 19 "$SCRIP" --dump-ir "$b" < /dev/null > "$out.ir" 2>/dev/null || r=$?
+    [ "$r" = 124 ] && { r=0; timeout -k 5 "$TMO_ALONE" nice -n 19 "$SCRIP" --dump-ir "$b" < /dev/null > "$out.ir" 2>/dev/null || r=$?; }
     [ "$r" = 124 ] && : > "$out.ir"
     echo "rc=$r" >> "$out.ir"
-    r=0; timeout "$TMO" nice -n 19 "$SCRIP" --compile -o "$out.s" "$b" < /dev/null > /dev/null 2>&1 || r=$?
-    [ "$r" = 124 ] && { r=0; rm -f "$out.s"; timeout "$TMO_ALONE" nice -n 19 "$SCRIP" --compile -o "$out.s" "$b" < /dev/null > /dev/null 2>&1 || r=$?; }
+    r=0; timeout -k 5 "$TMO" nice -n 19 "$SCRIP" --compile -o "$out.s" "$b" < /dev/null > /dev/null 2>&1 || r=$?
+    [ "$r" = 124 ] && { r=0; rm -f "$out.s"; timeout -k 5 "$TMO_ALONE" nice -n 19 "$SCRIP" --compile -o "$out.s" "$b" < /dev/null > /dev/null 2>&1 || r=$?; }
     [ "$r" = 124 ] && rm -f "$out.s"
     echo "rc=$r" > "$out.rc"
     [ -f "$out.s" ] || : > "$out.s"

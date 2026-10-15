@@ -72,21 +72,21 @@ grade() { local w="$1" want="$2" got="$3" code; GRADED=$((GRADED+1))
 for w in refuse_to refuse_from refuse_by refuse_seq refuse_repl refuse_strin neg_repl ok_numstr ok_realstr ok_expstr ok_negreal ok_tab ok_native ok_strinv; do
   eval "want=\$EXP_$w"
   for m in 3 4; do
-    if [ "$m" = 3 ]; then out="$(timeout 20s "$SCRIP" "$TD/$w.icn" </dev/null 2>&1)"
+    if [ "$m" = 3 ]; then out="$(timeout -k 5 20s "$SCRIP" "$TD/$w.icn" </dev/null 2>&1)"
     else
       "$SCRIP" --compile -o "$TD/$w.s" "$TD/$w.icn" </dev/null >/dev/null 2>&1 || refuse "$w: mode-4 compile failed -- cannot measure"
       gcc -no-pie "$TD/$w.s" -o "$TD/$w.bin" -L "$ROOT/out" -lscrip_rt -lm -lpthread >/dev/null 2>&1 || refuse "$w: mode-4 link failed -- cannot measure"
-      out="$(LD_LIBRARY_PATH="$ROOT/out" timeout 20s "$TD/$w.bin" </dev/null 2>&1)"
+      out="$(LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 20s "$TD/$w.bin" </dev/null 2>&1)"
     fi
     grade "m$m $w" "$want" "$out"
   done
 done
 printf 'my @a = 1 .. 5; say @a.join(",");\n' > "$TD/rk_num.raku"
 printf 'my @a = "a" .. "e"; say @a.join(",");\n' > "$TD/rk_str.raku"
-rk_num="$(timeout 20s "$SCRIP" "$TD/rk_num.raku" </dev/null 2>&1)"
+rk_num="$(timeout -k 5 20s "$SCRIP" "$TD/rk_num.raku" </dev/null 2>&1)"
 GRADED=$((GRADED+1))
 if [ "$rk_num" = "1,2,3,4,5" ]; then echo "  PASS raku numeric range (contract did not break it)"; else echo "  FAIL raku numeric range: got [$(printf '%s' "$rk_num" | tr '\n' '/')] want [1,2,3,4,5]"; FAIL=$((FAIL+1)); fi
-rk_str="$(timeout 20s "$SCRIP" "$TD/rk_str.raku" </dev/null 2>&1)"
+rk_str="$(timeout -k 5 20s "$SCRIP" "$TD/rk_str.raku" </dev/null 2>&1)"
 GRADED=$((GRADED+1))
 if printf '%s' "$rk_str" | grep -q 'scrip: error 101:'; then echo "  FAIL raku string range: the Icon operand contract LEAKED into Raku -- got [$(printf '%s' "$rk_str" | tr '\n' '/' | cut -c1-70)]"; FAIL=$((FAIL+1)); else echo "  PASS raku string range (no Icon error; its own value is not pinned here)"; fi
 [ "$GRADED" -eq 0 ] && refuse "graded zero witnesses"

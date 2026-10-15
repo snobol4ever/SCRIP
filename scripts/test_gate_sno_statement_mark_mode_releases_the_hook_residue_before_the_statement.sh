@@ -180,13 +180,13 @@ MAPCARV.END
  OUTPUT = "after"
 END
 GATEWIT
-run_m3() { timeout 60s "$SCRIP" "$T/$1.sno" < /dev/null 2>&1 | tr '\n' '/'; }
+run_m3() { timeout -k 5 60s "$SCRIP" "$T/$1.sno" < /dev/null 2>&1 | tr '\n' '/'; }
 run_m4() { "$SCRIP" --compile -o "$T/$1.s" "$T/$1.sno" < /dev/null >/dev/null 2>&1 || { echo COMPILE-FAILED; return; }
            gcc -no-pie "$T/$1.s" -o "$T/$1.x" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread >/dev/null 2>&1 || { echo LINK-FAILED; return; }
-           timeout 60s "$T/$1.x" < /dev/null 2>&1 | tr '\n' '/'; }
+           timeout -k 5 60s "$T/$1.x" < /dev/null 2>&1 | tr '\n' '/'; }
 graded=0; bad=0
 for a in a1 a2 a3 c1 w1; do
-    want="$(timeout 60s "$ORACLE" -bf "$T/$a.sno" < /dev/null 2>&1 | tr '\n' '/')"
+    want="$(timeout -k 5 60s "$ORACLE" -bf "$T/$a.sno" < /dev/null 2>&1 | tr '\n' '/')"
     [ -n "$want" ] || { echo "UNPROVEN(2): oracle produced no output for $a -- refusing to grade SCRIP against nothing"; exit 2; }
     for m in m3 m4; do
         got="$(run_$m "$a")"; graded=$((graded+1))

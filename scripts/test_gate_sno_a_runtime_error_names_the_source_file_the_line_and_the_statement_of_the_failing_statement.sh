@@ -26,18 +26,18 @@ printf '        OUTPUT = "driver start"\n-INCLUDE "fn.inc"\n        BAD()\n     
 printf 'main.sno 3 3\ninc.inc 3 4\nfn.inc 3 4\n' > "$D/pins"
 loc_of() { awk '/^in file/{f=$3} /^in line/{l=$3} /^in statement/{s=$3} END{print f, l, s}' ; }
 for p in main incl fncall; do
-    ( cd "$D" && timeout 10 "$SBL" -bf $p.sno < /dev/null 2>/dev/null | loc_of > $p.sbl )
+    ( cd "$D" && timeout -k 5 10 "$SBL" -bf $p.sno < /dev/null 2>/dev/null | loc_of > $p.sbl )
 done
 [ "$(cat "$D/main.sbl")" = "main.sno 3 3" ] || refuse "sbl -bf locates main as [$(cat "$D/main.sbl")], pinned [main.sno 3 3]"
 [ "$(cat "$D/incl.sbl")" = "inc.inc 3 4" ] || refuse "sbl -bf locates incl as [$(cat "$D/incl.sbl")], pinned [inc.inc 3 4]"
 [ "$(cat "$D/fncall.sbl")" = "fn.inc 3 4" ] || refuse "sbl -bf locates fncall as [$(cat "$D/fncall.sbl")], pinned [fn.inc 3 4]"
-m4bin() { timeout 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
+m4bin() { timeout -k 5 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
 scrip_loc() { sed -n 's/^  at \([^:]*\):\([0-9]*\); statement \([0-9]*\).*$/\1 \2 \3/p' | head -1; }
 red=0; n=0
 arm() { n=$((n + 1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  FAIL $1: $2"; red=$((red + 1)); fi; }
 for p in main incl fncall; do
-    ( cd "$D" && timeout 30 "$B/scrip" $p.sno < /dev/null 2>&1 >/dev/null | scrip_loc > $p.m3 )
-    ( cd "$D" && m4bin $p && timeout 30 ./$p.bin < /dev/null 2>&1 >/dev/null | scrip_loc > $p.m4 )
+    ( cd "$D" && timeout -k 5 30 "$B/scrip" $p.sno < /dev/null 2>&1 >/dev/null | scrip_loc > $p.m3 )
+    ( cd "$D" && m4bin $p && timeout -k 5 30 ./$p.bin < /dev/null 2>&1 >/dev/null | scrip_loc > $p.m4 )
     for m in m3 m4; do
         if [ "$(cat "$D/$p.$m")" = "$(cat "$D/$p.sbl")" ]; then arm "$p $m ($(cat "$D/$p.sbl"))" ok
         else arm "$p $m" "SCRIP locates [$(cat "$D/$p.$m")] sbl [$(cat "$D/$p.sbl")]"; fi

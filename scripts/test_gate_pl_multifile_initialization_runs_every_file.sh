@@ -34,7 +34,7 @@ printf 'two :- write(two_ran), nl.\n:- initialization(two).\n'        > "$W/two.
 cat "$W/one.pl" "$W/two.pl"                                           > "$W/cat12.pl"
 fails=0; checks=0
 ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
-oracle(){ timeout 30 "$SWIPL" -q -g true -t halt "$@" </dev/null 2>/dev/null; }
+oracle(){ timeout -k 5 30 "$SWIPL" -q -g true -t halt "$@" </dev/null 2>/dev/null; }
 echo "=== gate: multi-file prolog -- every file's directives run, in file order ==="
 echo "--- (e) the ORACLE premise, asserted on every arm ---"
 exp_12="$(oracle "$W/one.pl" "$W/two.pl")"; exp_21="$(oracle "$W/two.pl" "$W/one.pl")"
@@ -45,11 +45,11 @@ exp_q2="$(oracle "$W/quiet.pl" "$W/two.pl")"; exp_cat="$(oracle "$W/cat12.pl")"
 [ "$exp_cat" = "$exp_12" ]                      && ck ok "oracle concatenated == oracle two-file" || refuse "oracle premise moved: concatenated printed [$exp_cat] vs [$exp_12]"
 for m in m3 m4; do
   echo "--- $m ---"
-  run(){ if [ "$m" = m3 ]; then timeout 60 "$SCRIP" "$@" </dev/null 2>/dev/null; else
+  run(){ if [ "$m" = m3 ]; then timeout -k 5 60 "$SCRIP" "$@" </dev/null 2>/dev/null; else
            s="$W/out.s"; b="$W/out.bin"; rm -f "$s" "$b"
-           timeout 90 "$SCRIP" --compile -o "$s" "$@" </dev/null >/dev/null 2>&1 || return 97
-           timeout 90 gcc -no-pie -o "$b" "$s" -L"$ROOT/out" -lscrip_rt -lm >/dev/null 2>&1 || return 98
-           LD_LIBRARY_PATH="$ROOT/out" timeout 60 "$b" </dev/null 2>/dev/null; fi; }
+           timeout -k 5 90 "$SCRIP" --compile -o "$s" "$@" </dev/null >/dev/null 2>&1 || return 97
+           timeout -k 5 90 gcc -no-pie -o "$b" "$s" -L"$ROOT/out" -lscrip_rt -lm >/dev/null 2>&1 || return 98
+           LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 60 "$b" </dev/null 2>/dev/null; fi; }
   out="$(run "$W/one.pl" "$W/two.pl")"; rc=$?
   [ "$rc" -eq 0 ] && ck ok "$m (a) two directive files: rc=0" || ck no "$m (a) two directive files: rc=$rc, expected 0"
   [ "$out" = "$exp_12" ] && ck ok "$m (a) BOTH files' goals ran, in order" || ck no "$m (a) printed [$out], oracle says [$exp_12] -- a dropped file's goal is a SILENT wrong answer (rc stays 0)"

@@ -108,7 +108,7 @@ nomap="$(printf '%s\n' "$line" | grep -o 'NO-MAP=[0-9]*' | cut -d= -f2)"
 # those boxes through an INDIRECT jump so no path from the frame's own prologue reaches them in the emitted CFG).
 und="$(printf '%s\n' "$line" | grep -o 'undecidable=[0-9]*' | cut -d= -f2)"
 echo "ARM 2 undecidable=${und:-unread} -- ⛔ for icon this is the load-bearing number, NOT members: a members=0 over an undecidable remainder is a floor, never a clean reading"
-zls="$(timeout 900 python3 "$HERE/util_zls_frame_map_census.py" --lang icon 2>/dev/null | grep -m1 '^ZLS-MAP lang=icon')" \
+zls="$(timeout -k 5 900 python3 "$HERE/util_zls_frame_map_census.py" --lang icon 2>/dev/null | grep -m1 '^ZLS-MAP lang=icon')" \
     || refuse "the frame-map census could not measure icon -- no_layout cannot be split when it cannot be read"
 echo "ARM 2 $zls"
 # ⛔ measured 2026-09-21: the census now also prints no_layout_emitted_no_layout=N (CEO-1025's split), whose
@@ -130,14 +130,14 @@ for STRESS in $BAND; do
     coll=0; regens=0; to=0
     for f in "$W/e"/*.icn; do
         b="${f%.icn}"; in="$b.in"; [ -s "$in" ] || in=/dev/null
-        out=$(SCRIP_ZETA_TELEM=1 SCRIP_HEAP_MB="$ARENA" SCRIP_GC_STRESS="$STRESS" timeout 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null)
+        out=$(SCRIP_ZETA_TELEM=1 SCRIP_HEAP_MB="$ARENA" SCRIP_GC_STRESS="$STRESS" timeout -k 5 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null)
         [ $? = 124 ] && to=$((to + 1))
         n=$(printf '%s\n' "$out" | grep -c '^\[ZGC\] regeneration')
         [ "$n" -gt 0 ] && { coll=$((coll + 1)); regens=$((regens + n)); }
     done
     echo "ARM 1 DECIDABILITY arena_mb=$ARENA stress=$STRESS entries=$rows collectors=$coll non_collectors=$((rows - coll)) regenerations=$regens timeouts=$to"
     [ "$coll" -gt 0 ] || refuse "ZERO of $rows entries collected at arena_mb=$ARENA stress=$STRESS -- the board for this band point would be a statement about the icon corpus and not about the collector, so it is not reported at all"
-    out="$(SCRIP_HEAP_MB="$ARENA" SCRIP_GC_STRESS="$STRESS" timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.icn" "$M/ALL.ref" --lang icon --modes m3,m4 2>&1)"
+    out="$(SCRIP_HEAP_MB="$ARENA" SCRIP_GC_STRESS="$STRESS" timeout -k 5 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.icn" "$M/ALL.ref" --lang icon --modes m3,m4 2>&1)"
     board="$(printf '%s\n' "$out" | grep -m1 '^SUITE_BOARD')" || { printf '%s\n' "$out" | tail -5 >&2; refuse "the rungs run at stress=$STRESS printed no SUITE_BOARD line -- a run with no board is not a measurement"; }
     echo "ARM 3 stress=$STRESS $board"
     tot=$(printf '%s\n' "$board" | grep -o 'total=[0-9]*' | cut -d= -f2)

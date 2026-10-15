@@ -55,7 +55,7 @@ for g in $ALL; do
     cp "$ROOT/scripts/lib_oracle_flags.sh" "$S/SCRIP/scripts/" 2>/dev/null
     rc=0
     ( cd "$S/SCRIP" && S4E_HOME="$S" CORPUS="$S/corpus" SCRIP="$S/SCRIP/scrip" SCRIP_BIN="$S/SCRIP/scrip" \
-        RT_DIR="$S/SCRIP/out" timeout "$TIMEOUT" bash "$S/SCRIP/scripts/$g.sh" ) >"$S/out.txt" 2>&1 || rc=$?
+        RT_DIR="$S/SCRIP/out" timeout -k 5 "$TIMEOUT" bash "$S/SCRIP/scripts/$g.sh" ) >"$S/out.txt" 2>&1 || rc=$?
     if [ "$rc" -eq 0 ]; then
         echo "  ⛔ VACUOUS  $g  -- exit 0 on an EMPTY tree"
         VACUOUS=$((VACUOUS+1)); VACUOUS_LIST="$VACUOUS_LIST $g"
@@ -88,7 +88,7 @@ exit 0
 CANARY_EOF
 cp "$ROOT/scripts/lib_gate.sh" "$CANARY/SCRIP/scripts/" 2>/dev/null
 crc=0
-( cd "$CANARY/SCRIP" && S4E_HOME="$CANARY" CORPUS="$CANARY/corpus" SCRIP="$CANARY/SCRIP/scrip"     SCRIP_BIN="$CANARY/SCRIP/scrip" RT_DIR="$CANARY/SCRIP/out" timeout "$TIMEOUT"     bash "$CANARY/SCRIP/scripts/test_gate_canary_always_vacuous.sh" ) >/dev/null 2>&1 || crc=$?
+( cd "$CANARY/SCRIP" && S4E_HOME="$CANARY" CORPUS="$CANARY/corpus" SCRIP="$CANARY/SCRIP/scrip"     SCRIP_BIN="$CANARY/SCRIP/scrip" RT_DIR="$CANARY/SCRIP/out" timeout -k 5 "$TIMEOUT"     bash "$CANARY/SCRIP/scripts/test_gate_canary_always_vacuous.sh" ) >/dev/null 2>&1 || crc=$?
 if [ "$crc" -ne 0 ]; then
     echo ""
     echo "GATE UNPROVEN(2) [$GATE_NAME]: THE CANARY WAS NOT CAUGHT -- a script that examines nothing and exits 0"

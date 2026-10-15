@@ -36,12 +36,12 @@ tot=0; agree=0; div=0; s3=0; s4=0; h3=0; h4=0; bf=0; only4=0
 for f in "$D"/*.sno; do
     [ -e "$f" ] || continue
     n="$(basename "$f" .sno)"; tot=$((tot+1))
-    o3="$(cd "$SC" && timeout 15 ./scrip --run "$f" < /dev/null 2>/dev/null)"; r3=$?
+    o3="$(cd "$SC" && timeout -k 5 15 ./scrip --run "$f" < /dev/null 2>/dev/null)"; r3=$?
     m3="$(printf '%s' "$o3" | head -1)"
     [ $r3 -eq 139 ] && m3="<SEGV>"; [ $r3 -eq 124 ] && m3="<HANG>"
-    if (cd "$SC" && timeout 25 ./scrip --compile "$f" > "$W/$n.s" 2>/dev/null) \
+    if (cd "$SC" && timeout -k 5 25 ./scrip --compile "$f" > "$W/$n.s" 2>/dev/null) \
        && gcc -no-pie "$W/$n.s" -L"$SC/out" -lscrip_rt -lm -Wl,-rpath,"$SC/out" -o "$W/$n.prog" 2>/dev/null; then
-        o4="$(timeout 15 "$W/$n.prog" < /dev/null 2>/dev/null)"; r4=$?
+        o4="$(timeout -k 5 15 "$W/$n.prog" < /dev/null 2>/dev/null)"; r4=$?
         m4="$(printf '%s' "$o4" | head -1)"
         [ $r4 -eq 139 ] && m4="<SEGV>"; [ $r4 -eq 124 ] && m4="<HANG>"
     else m4="<BUILDFAIL>"; r4=-1; bf=$((bf+1)); fi

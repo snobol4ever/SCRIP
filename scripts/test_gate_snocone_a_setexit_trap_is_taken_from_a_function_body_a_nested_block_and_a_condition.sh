@@ -150,19 +150,19 @@ SC
 printf '2y\n1y\n2y\n1y\nafter\n' > "$D/lp.want"
 P="a b nf nt ct cf cn sw ei lp"
 for p in $P; do
-    ( cd "$D" && timeout 30 "$B/scrip" --transpile "$p.sc" < /dev/null > "$p.sno" 2>/dev/null && timeout 30 "$SBL" -bf "$p.sno" < /dev/null > "$p.sbl" 2>/dev/null )
+    ( cd "$D" && timeout -k 5 30 "$B/scrip" --transpile "$p.sc" < /dev/null > "$p.sno" 2>/dev/null && timeout -k 5 30 "$SBL" -bf "$p.sno" < /dev/null > "$p.sbl" 2>/dev/null )
     cmp -s "$D/$p.want" "$D/$p.sbl" || refuse "sbl -bf does not answer $p.sc's transpile as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/$p.sbl")]"
 done
 red=0; n=0
 for p in $P; do
-    ( cd "$D" && timeout 30 "$B/scrip" "$p.sc" < /dev/null > "$p.m3" 2>/dev/null )
-    ( cd "$D" && timeout 60 "$B/scrip" --compile "$p.sc" < /dev/null > "$p.s" 2>/dev/null && gcc -no-pie "$p.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$p.bin" 2>/dev/null && timeout 30 "./$p.bin" < /dev/null > "$p.m4" 2>/dev/null )
+    ( cd "$D" && timeout -k 5 30 "$B/scrip" "$p.sc" < /dev/null > "$p.m3" 2>/dev/null )
+    ( cd "$D" && timeout -k 5 60 "$B/scrip" --compile "$p.sc" < /dev/null > "$p.s" 2>/dev/null && gcc -no-pie "$p.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$p.bin" 2>/dev/null && timeout -k 5 30 "./$p.bin" < /dev/null > "$p.m4" 2>/dev/null )
     for m in m3 m4; do
         n=$((n + 1))
         if [ -f "$D/$p.$m" ] && cmp -s "$D/$p.want" "$D/$p.$m"; then echo "  ok   $p.sc $m"; else echo "  FAIL $p.sc $m: got [$(tr '\n' '|' 2>/dev/null < "$D/$p.$m")] want [$(tr '\n' '|' < "$D/$p.want")]"; red=$((red + 1)); fi
     done
 done
-( cd "$D" && SCRIP_SETEXIT=0 timeout 30 "$B/scrip" a.sc < /dev/null > a.off 2>/dev/null )
+( cd "$D" && SCRIP_SETEXIT=0 timeout -k 5 30 "$B/scrip" a.sc < /dev/null > a.off 2>/dev/null )
 n=$((n + 1))
 if cmp -s "$D/a.want" "$D/a.off"; then echo "  FAIL fail-once: with SCRIP_SETEXIT=0 witness a still reads as pinned -- the comparison cannot say no"; red=$((red + 1)); else echo "  ok   fail-once: with SCRIP_SETEXIT=0 witness a diverges [$(tr '\n' '|' < "$D/a.off")]"; fi
 if [ $red -eq 0 ]; then echo "GATE PASS(0): a Snocone SETEXIT trap is taken from a function body, a nested block and a structured condition, and CONTINUE resumes inside them, as sbl -bf answers the transpile; $n arm(s)"; exit 0; fi

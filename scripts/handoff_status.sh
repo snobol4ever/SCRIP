@@ -269,7 +269,7 @@ echo "    (Lon 2026-09-21 ordered the metrics displayed periodically; a handoff 
 echo "     number costs something, which is CEO-822's reason for putting the seven-language sweep here too."
 echo "     SKIP_GC_ACCEPTANCE=1 skips it and SAYS SO: a display that did not run prints nothing green.)"
 if [ -n "${SKIP_GC_ACCEPTANCE:-}" ]; then echo "  SKIPPED by SKIP_GC_ACCEPTANCE — the four numbers were NOT read on this handoff"; else
-  timeout 2400 python3 "$SELF_DIR/util_gc_acceptance.py" 2>&1 | sed "s/^/  /" || true
+  timeout -k 5 2400 python3 "$SELF_DIR/util_gc_acceptance.py" 2>&1 | sed "s/^/  /" || true
 fi
 echo "ALL-LANGUAGE SLOT-KIND SWEEP (util_gc_census.py maps --zls-langs all) — WARN-ONLY, does not affect the verdict below"
 echo "    (CEO-822, 2026-09-17, on the coo's ask: the FAST THREE stay wired in make test — a 35s number that moves once a"
@@ -283,7 +283,7 @@ elif [ ! -f "$SELF_DIR/util_gc_census.py" ]; then
 elif [ ! -x "$_zls_root/scrip" ]; then
   echo "  ⛔ NOT MEASURED — no ./scrip binary under $_zls_root (run make). A census that cannot compile a rung suite must never print 0."
 else
-  _zls_out="$(cd "$_zls_root" && timeout 300s python3 scripts/util_gc_census.py maps --zls-langs all 2>&1)"; _zls_rc=$?
+  _zls_out="$(cd "$_zls_root" && timeout -k 5 300s python3 scripts/util_gc_census.py maps --zls-langs all 2>&1)"; _zls_rc=$?
   if [ "$_zls_rc" = 124 ]; then
     echo "  ⛔ NOT MEASURED — the sweep timed out at 300s (load $(cut -d' ' -f1 /proc/loadavg)). No reading this run."
   else

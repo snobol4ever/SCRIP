@@ -89,18 +89,18 @@ CHAR(r)
 EOS
 mkprog "$T/err.sno" < "$T/err.txt"
 mkprog "$T/ctl.sno" < "$T/ctl.txt"
-want() { timeout 30 "$SBL" -bf "$T/$1.sno" < /dev/null > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
+want() { timeout -k 5 30 "$SBL" -bf "$T/$1.sno" < /dev/null > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
 want err; want ctl
 grep -q "^1 ERROR 90\$" "$T/err.want" || refuse "sbl -bf no longer answers DUPL(a,b) with ERROR 90 -- the oracle answer moved: $(head -3 "$T/err.want" | tr "\n" "|")"
 grep -q ' ERROR ' "$T/ctl.want" && refuse "sbl -bf now raises an error on a control argument -- the controls moved"
 fail=0; pass=0
 arm() { local n="$1" what="$2" ok="$3"
     if [ "$ok" = 1 ]; then pass=$((pass + 1)); echo "  arm $n PASS  $what"; else fail=$((fail + 1)); echo "  arm $n FAIL  $what"; fi; }
-same_m3() { timeout 60 "$SCRIP" -d131072k -s4096k "$T/$1.sno" < /dev/null > "$T/$1.m3" 2>&1
+same_m3() { timeout -k 5 60 "$SCRIP" -d131072k -s4096k "$T/$1.sno" < /dev/null > "$T/$1.m3" 2>&1
     cmp -s "$T/$1.want" "$T/$1.m3" || { diff "$T/$1.want" "$T/$1.m3" | head -8 | cut -c1-160 | sed 's/^/      /'; return 1; }; }
-same_m4() { timeout 120 "$SCRIP" --compile -o "$T/$1.s" "$T/$1.sno" < /dev/null > /dev/null 2>&1 \
+same_m4() { timeout -k 5 120 "$SCRIP" --compile -o "$T/$1.s" "$T/$1.sno" < /dev/null > /dev/null 2>&1 \
         && gcc -no-pie "$T/$1.s" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$T/$1.bin" 2>/dev/null || { echo "      COMPILE-FAILED"; return 1; }
-    timeout 60 "$T/$1.bin" -d131072k -s4096k -- < /dev/null > "$T/$1.m4" 2>&1
+    timeout -k 5 60 "$T/$1.bin" -d131072k -s4096k -- < /dev/null > "$T/$1.m4" 2>&1
     cmp -s "$T/$1.want" "$T/$1.m4" || { diff "$T/$1.want" "$T/$1.m4" | head -8 | cut -c1-160 | sed 's/^/      /'; return 1; }; }
 n=0
 for spec in "err|THE ERRORS: DUPL SUBSTR LPAD RPAD CHAR given a non-integer, a NAME, a code outside 0..255" "ctl|CONTROLS: integer, real, numeric-string and null arguments, CHAR(0) CHAR(255)"; do
@@ -111,9 +111,9 @@ done
 n=$((n + 1)); ok=1
 while IFS= read -r e; do
     printf "        OUTPUT = 'ran'\n        y = %s\n        OUTPUT = 'ran after'\nEND\n" "$e" > "$T/lit.sno"
-    (cd "$T" && timeout 30 "$SBL" -bf -o=lit.lst lit.sno < /dev/null 2>&1 | grep -q 'ERROR') || refuse "sbl -bf no longer refuses  $e  at compile time -- the oracle's answer moved"
-    (cd "$T" && timeout 30 "$SBL" -bf -o=lit.lst lit.sno < /dev/null 2>&1 | grep -q '^ran') && refuse "sbl -bf now runs the program with  $e  -- the oracle's answer moved"
-    out="$(timeout 30 "$SCRIP" "$T/lit.sno" < /dev/null 2>&1)"; rc=$?
+    (cd "$T" && timeout -k 5 30 "$SBL" -bf -o=lit.lst lit.sno < /dev/null 2>&1 | grep -q 'ERROR') || refuse "sbl -bf no longer refuses  $e  at compile time -- the oracle's answer moved"
+    (cd "$T" && timeout -k 5 30 "$SBL" -bf -o=lit.lst lit.sno < /dev/null 2>&1 | grep -q '^ran') && refuse "sbl -bf now runs the program with  $e  -- the oracle's answer moved"
+    out="$(timeout -k 5 30 "$SCRIP" "$T/lit.sno" < /dev/null 2>&1)"; rc=$?
     { [ "$rc" -ne 0 ] && ! printf '%s' "$out" | grep -q '^ran'; } || { ok=0; echo "      $e: rc=$rc out=$(printf '%s' "$out" | head -2 | tr '\n' ' ' | cut -c1-100)"; }
 done <<'EOS'
 LPAD('a', 'x')

@@ -51,14 +51,14 @@ END
 SNO
 red=0
 for w in w1 w2; do
-    ( cd "$T" && timeout 20 "$SBL" -bf $w.sno </dev/null > $w.oracle 2>&1 )
+    ( cd "$T" && timeout -k 5 20 "$SBL" -bf $w.sno </dev/null > $w.oracle 2>&1 )
     [ -s "$T/$w.oracle" ] || { echo "⛔ REFUSE(2): the oracle produced no output for $w -- cannot grade against nothing"; exit 2; }
     grep -qi 'error' "$T/$w.oracle" && { echo "⛔ REFUSE(2): the oracle itself errs on $w; the witness is wrong, not SCRIP"; cat "$T/$w.oracle"; exit 2; }
-    ( cd "$T" && timeout 20 "$SCRIP_BIN" $w.sno </dev/null > $w.m3 2>&1 ) || true
+    ( cd "$T" && timeout -k 5 20 "$SCRIP_BIN" $w.sno </dev/null > $w.m3 2>&1 ) || true
     cmp -s "$T/$w.oracle" "$T/$w.m3" || { echo "RED m3 $w: $(diff "$T/$w.oracle" "$T/$w.m3" | grep -m1 '^[<>]' | cut -c1-80)"; red=1; }
-    ( cd "$T" && timeout 60 "$SCRIP_BIN" --compile -o $w.s $w.sno </dev/null >/dev/null 2>&1 \
+    ( cd "$T" && timeout -k 5 60 "$SCRIP_BIN" --compile -o $w.s $w.sno </dev/null >/dev/null 2>&1 \
       && gcc -no-pie $w.s -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o $w.b >/dev/null 2>&1 \
-      && timeout 20 ./$w.b </dev/null > $w.m4 2>&1 ) || true
+      && timeout -k 5 20 ./$w.b </dev/null > $w.m4 2>&1 ) || true
     cmp -s "$T/$w.oracle" "$T/$w.m4" || { echo "RED m4 $w: $(diff "$T/$w.oracle" "$T/$w.m4" 2>/dev/null | grep -m1 '^[<>]' | cut -c1-80)"; red=1; }
 done
 if [ "$red" != 0 ]; then

@@ -21,14 +21,14 @@ icon() {
     cat > "$tmp"
     N=$((N+1))
     local a3 a4 r3 r4
-    a3=$(timeout 8 "$SCRIP" --run    "$tmp" 2>/dev/null </dev/null)
+    a3=$(timeout -k 5 8 "$SCRIP" --run    "$tmp" 2>/dev/null </dev/null)
     # mode 4: --compile emits standalone x86-64 asm to stdout; assemble + link libscrip_rt.so + run.
     a4=""
     local s4 bin4
     s4=$(mktemp /tmp/icn_XXXXXX.s); bin4=$(mktemp /tmp/icn_XXXXXX.bin); rm -f "$bin4"
-    if timeout 8 "$SCRIP" --compile "$tmp" >"$s4" 2>/dev/null </dev/null && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
+    if timeout -k 5 8 "$SCRIP" --compile "$tmp" >"$s4" 2>/dev/null </dev/null && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
         if gcc -no-pie "$s4" -L"${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$bin4" 2>/dev/null; then
-            a4=$(timeout 8 "$bin4" 2>/dev/null </dev/null)
+            a4=$(timeout -k 5 8 "$bin4" 2>/dev/null </dev/null)
         fi
     fi
     rm -f "$tmp" "$s4" "$bin4"

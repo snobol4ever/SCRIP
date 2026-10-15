@@ -22,10 +22,10 @@ FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0; N=0
 run_mode() { local m="$1" p="$2"
-  if [ "$m" = m3 ]; then ( cd "$T" && timeout 20s "$SCRIP" --run "$p.pas" </dev/null >"$T/$p.$m.out" 2>"$T/$p.$m.err" ); return $?; fi
-  ( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: arm $p did not compile in m4"; exit 2; }
+  if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 20s "$SCRIP" --run "$p.pas" </dev/null >"$T/$p.$m.out" 2>"$T/$p.$m.err" ); return $?; fi
+  ( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: arm $p did not compile in m4"; exit 2; }
   ( cd "$T" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: arm $p compiled but would not link"; exit 2; }
-  ( cd "$T" && timeout 20s "./$p.m4" </dev/null >"$T/$p.$m.out" 2>"$T/$p.$m.err" ); return $?; }
+  ( cd "$T" && timeout -k 5 20s "./$p.m4" </dev/null >"$T/$p.$m.out" 2>"$T/$p.$m.err" ); return $?; }
 cat > "$T/read1.pas" <<'PAS'
 program read1(output);
 var a: array [1..10] of integer; i: integer;
@@ -67,7 +67,7 @@ PAS
 for p in read1 zero chr rec bool; do
   N=$((N+1))
   ( cd "$T" && "$FPC" -Miso -Cr -v0 -o"$p.fpc" $p.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso -Cr would not compile arm $p"; exit 2; }
-  ( cd "$T" && timeout 20s "./$p.fpc" </dev/null >"$T/$p.want" 2>/dev/null ); frc=$?
+  ( cd "$T" && timeout -k 5 20s "./$p.fpc" </dev/null >"$T/$p.want" 2>/dev/null ); frc=$?
   [ "$frc" -ne 0 ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle ran arm $p to rc=0 -- the arm does not carry the range fault it claims"; exit 2; }
   for m in m3 m4; do
     run_mode $m $p; rc=$?

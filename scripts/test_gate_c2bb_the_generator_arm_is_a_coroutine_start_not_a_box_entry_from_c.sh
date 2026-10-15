@@ -90,7 +90,7 @@ run_witness() {
   [ -f "$ref" ] || { echo "⛔ GATE REFUSES (2): $ref is missing, so arm A cannot grade the answer [$stamp]"; exit 2; }
   tr="$TMP/$w.tr"; out="$TMP/$w.out"
   rm -f "$tr"
-  SCRIP_CV_PREP_TRACE=1 SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_C2BB_TRACE="$tr" timeout 120s "$ROOT/scrip" "$src" < /dev/null > "$out" 2>"$TMP/$w.err"
+  SCRIP_CV_PREP_TRACE=1 SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_C2BB_TRACE="$tr" timeout -k 5 120s "$ROOT/scrip" "$src" < /dev/null > "$out" 2>"$TMP/$w.err"
   rc=$?
   if [ "${REFUSE_ONCE:-0}" = 1 ] && [ "$plant_done" = 0 ]; then
     printf '[ZHP] HARD CAP REACHED (REFUSE_ONCE plant) -- THIS REQUEST wanted 32767 payload bytes of block kind 215\n' >> "$TMP/$w.err"

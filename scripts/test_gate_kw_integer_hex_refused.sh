@@ -20,10 +20,10 @@ SBL=/home/resources/x64/bin/sbl
 [ -x "$SBL" ] || { echo "⛔ REFUSES rc=2: correctness oracle absent at $SBL"; exit 2; }
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 mk(){ printf '\t&ANCHOR = "%s"\n\tOUTPUT = "anchor=" &ANCHOR\nEND\n' "$1" > "$W/k.sno"; }
-run3(){ timeout 8 ./scrip --run "$W/k.sno" </dev/null 2>&1 || true; }
+run3(){ timeout -k 5 8 ./scrip --run "$W/k.sno" </dev/null 2>&1 || true; }
 run4(){ ./scrip --compile -o "$W/k.s" "$W/k.sno" </dev/null >/dev/null 2>&1 || { echo COMPILEFAIL; return; }
   as -o "$W/k.o" "$W/k.s" 2>/dev/null && gcc -o "$W/k.bin" "$W/k.o" out/libscrip_rt.so -Wl,-rpath,"$PWD/out" 2>/dev/null || { echo LINKFAIL; return; }
-  timeout 8 "$W/k.bin" </dev/null 2>&1 || true; }
+  timeout -k 5 8 "$W/k.bin" </dev/null 2>&1 || true; }
 mk '0x10'; og=$("$SBL" -bf "$W/k.sno" </dev/null 2>&1 || true)
 printf '%s' "$og" | grep -q 'ERROR 208' || { echo "⛔ REFUSES rc=2 (premise gone): the oracle no longer raises ERROR 208 for &ANCHOR=\"0x10\". Re-measure before trusting this gate. Oracle said: $og"; exit 2; }
 fail=0

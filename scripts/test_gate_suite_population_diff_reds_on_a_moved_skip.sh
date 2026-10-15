@@ -26,7 +26,7 @@ fails=0; checks=0
 ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: a SKIP or graded-denominator move between two readings of one suite is a red, in either direction ==="
 
-st="$(timeout 60s python3 "$D" --selftest 2>&1)"; strc=$?
+st="$(timeout -k 5 60s python3 "$D" --selftest 2>&1)"; strc=$?
 [ "$strc" = 124 ] && refuse "the instrument's selftest timed out"
 [ -n "${FAIL_ONCE:-}" ] && st="$(printf '%s\n' "$st" | grep -v '^SELFTEST PASS')"
 arms="$(printf '%s\n' "$st" | sed -n 's/^population: \([0-9]*\) selftest arm(s).*/\1/p')"

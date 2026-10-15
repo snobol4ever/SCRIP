@@ -67,13 +67,13 @@ mkw() {  # <dir> <driver|lib> -- lib.icn and lib_driver.icn, the traced call and
     fi
     printf 'procedure main();\n  write("bare");\nend\n' > "$1/bare.icn"
     # icont links ucode, never source: the library is translated first (-c), as the ref cutters do, and its ucode leaves with the ref
-    ( cd "$1" && "$ICONT" -s -c lib.icn < /dev/null > /dev/null 2>&1 && IPATH="$1" timeout 20 "$ICON" lib_driver.icn < /dev/null > lib_driver.ref 2>&1 \
-      && timeout 20 "$ICON" bare.icn < /dev/null > bare.ref 2>&1; rm -f lib.u1 lib.u2 )
+    ( cd "$1" && "$ICONT" -s -c lib.icn < /dev/null > /dev/null 2>&1 && IPATH="$1" timeout -k 5 20 "$ICON" lib_driver.icn < /dev/null > lib_driver.ref 2>&1 \
+      && timeout -k 5 20 "$ICON" bare.icn < /dev/null > bare.ref 2>&1; rm -f lib.u1 lib.u2 )
 }
 mkw "$W/wd" driver; mkw "$W/wl" lib
 run_w() {  # <dir> <mode> <switch> <extra source> -- the witness run as the runner that uses that invocation runs it
-    if [ "$2" = m3 ]; then ( cd "$1" && IPATH="$1" timeout 20 "$SCRIP" --run $3 lib_driver.icn $4 < /dev/null 2>&1 )
-    else ( cd "$1" && IPATH="$1" "$SCRIP" --compile $3 lib_driver.icn $4 > "$1/w.s" 2>/dev/null < /dev/null && gcc -no-pie "$1/w.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$1/w.bin" 2>/dev/null && ( cd "$1" && timeout 20 ./w.bin < /dev/null 2>&1 ); rm -f "$1/w.s" "$1/w.bin" ); fi
+    if [ "$2" = m3 ]; then ( cd "$1" && IPATH="$1" timeout -k 5 20 "$SCRIP" --run $3 lib_driver.icn $4 < /dev/null 2>&1 )
+    else ( cd "$1" && IPATH="$1" "$SCRIP" --compile $3 lib_driver.icn $4 > "$1/w.s" 2>/dev/null < /dev/null && gcc -no-pie "$1/w.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$1/w.bin" 2>/dev/null && ( cd "$1" && timeout -k 5 20 ./w.bin < /dev/null 2>&1 ); rm -f "$1/w.s" "$1/w.bin" ); fi
 }
 wbad=""
 for v in "wd:" "wl:$W/wl/lib.icn"; do
@@ -120,7 +120,7 @@ fm="$(python3 "$U" missing "$W/f/jcon_tests" 2>/dev/null)"; frc=$?
 outcome() { awk -F'\t' -v p="$2" -v m="$3" 'NR>1 && $8==p && $9==m {print $10}' "$1" 2>/dev/null | tail -1; }
 runner_arm() {  # <arm> <db> <progress name of lib> <undeclared key of bare> <env...> -- <runner and args>
     local a="$1" db="$2" lk="$3" bk="$4" o r; shift 4; local -a e=(); while [ "$1" != -- ]; do e+=("$1"); shift; done; shift
-    o="$(cd "$ROOT" && env S4E_PROGRESS_DB="$db" S4E_SCORE_NO_WRITE="gate $G" "${e[@]}" timeout 300 bash "$@" 2>&1)"; r=$?
+    o="$(cd "$ROOT" && env S4E_PROGRESS_DB="$db" S4E_SCORE_NO_WRITE="gate $G" "${e[@]}" timeout -k 5 300 bash "$@" 2>&1)"; r=$?
     local l3 l4 und names
     l3="$(outcome "$db" "$lk" m3)"; l4="$(outcome "$db" "$lk" m4)"
     und="$(printf '%s\n' "$o" | sed -n 's/^-- undeclared (RULES.md 8 (f).*: \([0-9][0-9]*\) --$/\1/p' | tail -1)"

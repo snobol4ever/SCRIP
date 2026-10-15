@@ -47,12 +47,12 @@ for f in $(ls "$CORPUS"/tests/prolog/*.pl 2>/dev/null) \
          $(find "$CORPUS/snobol4" -name "*.sno" 2>/dev/null) \
          $(find "$CORPUS/snocone" -name "*.sc"  2>/dev/null); do
     PROGS=$((PROGS + 1))
-    n=$(SCRIP_FB_DIVERGE=1 timeout 15 "$SCRIP" --run "$f" < /dev/null 2>&1 | grep -c "^FB-DIVERGE #")
+    n=$(SCRIP_FB_DIVERGE=1 timeout -k 5 15 "$SCRIP" --run "$f" < /dev/null 2>&1 | grep -c "^FB-DIVERGE #")
     if [ "$n" -gt 0 ]; then
         TOTAL=$((TOTAL + n))
         HITFILES="$HITFILES $f"
         echo "  HIT ($n): $f"
-        SCRIP_FB_DIVERGE=1 timeout 15 "$SCRIP" --run "$f" < /dev/null 2>&1 | grep "^FB-DIVERGE #" | head -3 | sed 's/^/      /'
+        SCRIP_FB_DIVERGE=1 timeout -k 5 15 "$SCRIP" --run "$f" < /dev/null 2>&1 | grep "^FB-DIVERGE #" | head -3 | sed 's/^/      /'
     fi
 done
 echo "  programs swept : $PROGS"

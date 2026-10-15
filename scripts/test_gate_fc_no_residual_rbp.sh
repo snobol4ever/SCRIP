@@ -21,7 +21,7 @@
 # THAT NUMBER WAS NEVER TRUE OF THIS SCRIPT.  Three independent defects made the old headline an
 # artifact rather than a measurement, all fixed here:
 #
-#   (1) TIMEOUT COUNTED AS DATA.  The old body piped `timeout 20 $SCRIP` straight into grep -c, so
+#   (1) TIMEOUT COUNTED AS DATA.  The old body piped `timeout -k 5 20 $SCRIP` straight into grep -c, so
 #       the pipeline exit status was grep's and timeout's 124 was DISCARDED.  beauty.sno does not
 #       terminate in bounded compile time, so its contribution measured WALL-CLOCK PATIENCE, not the
 #       compiler: 3,984 misses @20s -> 26,088 @120s, still killed.  Any "total" including it is
@@ -94,7 +94,7 @@ trap 'rm -f "$tmp" "$tmp.f"' EXIT
 n=0
 while IFS= read -r f; do
   n=$((n+1))
-  err=$(SCRIP_FC_AUDIT=1 timeout "$FC_TIMEOUT" "$SCRIP" --compile "$f" 2>&1 >/dev/null); rc=$?
+  err=$(SCRIP_FC_AUDIT=1 timeout -k 5 "$FC_TIMEOUT" "$SCRIP" --compile "$f" 2>&1 >/dev/null); rc=$?
   m=$(printf '%s' "$err" | grep -c '\[FC-MISS\]')
   e=$(printf '%s' "$err" | grep -c 'error:')
   if   [ "$rc" = 124 ]; then cls=TIMEOUT

@@ -40,9 +40,9 @@ done
 [ -z "$bad" ] && ck ok "1 heap only, stack only, both and neither: the lib's two functions spell exactly the harness's _size_switches" || ck no "1 the spellings differ:$bad"
 printf '        OUTPUT = DUPL("x", 1000)\nEND\n' > "$W/p.sno"
 sw=$(declared_arena_switches "$W/ALL.csv" heap_only)
-a1=$(cd "$W" && SCRIP_GC_EXERCISE=1 timeout 60 "$ROOT/scrip" --run $sw p.sno 2>&1 >/dev/null | grep -oE '(arena_kb|cap_kb|reserve_mb)=[0-9]+' | sort | tr '\n' ' ')
+a1=$(cd "$W" && SCRIP_GC_EXERCISE=1 timeout -k 5 60 "$ROOT/scrip" --run $sw p.sno 2>&1 >/dev/null | grep -oE '(arena_kb|cap_kb|reserve_mb)=[0-9]+' | sort | tr '\n' ' ')
 win=$(sed -n 's/^#define[[:space:]]\+GC_HEAP_KB[[:space:]]\+\([0-9]\+\).*/\1/p' "$ROOT/src/runtime/rt/gc_heap.c" | head -1)
-a2=$(cd "$W" && SCRIP_GC_EXERCISE=1 SCRIP_HEAP_CAP_KB=8192 timeout 60 "$ROOT/scrip" --run p.sno 2>&1 >/dev/null | grep -oE '(arena_kb|cap_kb|reserve_mb)=[0-9]+' | sort | tr '\n' ' ')
+a2=$(cd "$W" && SCRIP_GC_EXERCISE=1 SCRIP_HEAP_CAP_KB=8192 timeout -k 5 60 "$ROOT/scrip" --run p.sno 2>&1 >/dev/null | grep -oE '(arena_kb|cap_kb|reserve_mb)=[0-9]+' | sort | tr '\n' ' ')
 [ -n "$a1" ] && [ -n "$win" ] && [ "$a1" = "$a2" ] && grep -q "arena_kb=$win " <<<"$a1" && grep -q 'cap_kb=8192' <<<"$a1" \
   && ck ok "2 heap_kb 8192 as switches ($sw) and as the SCRIP_HEAP_CAP_KB export read the same arena line, the shipped $win KB window under the declared cap: $a1" \
   || ck no "2 the arena lines differ -- switches '$sw': '$a1', export: '$a2'"

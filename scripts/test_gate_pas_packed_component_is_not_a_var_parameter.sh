@@ -28,7 +28,7 @@ PASS=0; FAIL=0
 emit() { cat > "$W/$1.pas"; }
 grade() {
     name="$1"; want="$2"
-    out="$(cd "$W" && timeout 20 "$SCRIP" "$W/$name.pas" </dev/null 2>&1)"; rc=$?
+    out="$(cd "$W" && timeout -k 5 20 "$SCRIP" "$W/$name.pas" </dev/null 2>&1)"; rc=$?
     if [ "$rc" -ge 128 ]; then got=CRASH; elif [ "$rc" -eq 124 ]; then got=HANG; elif [ "$rc" -ne 0 ]; then got=REJECT; else got=ACCEPT; fi
     ok=0
     case "$want" in

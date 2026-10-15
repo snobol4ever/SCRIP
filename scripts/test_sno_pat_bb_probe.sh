@@ -19,7 +19,7 @@ run_probe() {
          "$SRC/$name.c" -L "$OUT" -lscrip_rt -lm -lstdc++ -Wl,-rpath,"$OUT" -o "$bin" 2>/dev/null; then
         echo "  FAIL $name (compile)"; FAIL=$((FAIL+1)); return
     fi
-    local got; got="$(LD_LIBRARY_PATH="$OUT" timeout 8 "$bin" < /dev/null 2>/dev/null)"
+    local got; got="$(LD_LIBRARY_PATH="$OUT" timeout -k 5 8 "$bin" < /dev/null 2>/dev/null)"
     rm -f "$bin"
     if echo "$got" | grep -q "$expect"; then echo "  PASS $name"; PASS=$((PASS+1));
     else echo "  FAIL $name (got: $(echo "$got" | tail -1))"; FAIL=$((FAIL+1)); fi

@@ -53,7 +53,7 @@ fi
 SCRATCH="$(mktemp -d)"; trap 'rm -rf "$SCRATCH"' EXIT
 mkdir -p "$SCRATCH/probe"
 printf ' OUTPUT = "GATE_PROBE_A";* zzz_gate_e1\n' > "$SCRATCH/probe/zzz_gate_suite.sno"
-out="$(CORPUS="$SCRATCH" timeout 60 bash "$HERE/scorecard_snobol4.sh" run --suites probes_misc --out "$SCRATCH/out" --force 2>&1)"
+out="$(CORPUS="$SCRATCH" timeout -k 5 60 bash "$HERE/scorecard_snobol4.sh" run --suites probes_misc --out "$SCRATCH/out" --force 2>&1)"
 rc=$?
 if [ "$rc" -eq 2 ] && grep -q "suite-format file" <<<"$out" && grep -q "zzz_gate_suite.sno" <<<"$out"; then
     echo "✅ NEGATIVE: probes_misc refused (rc=2), naming the unenumerable suite file."

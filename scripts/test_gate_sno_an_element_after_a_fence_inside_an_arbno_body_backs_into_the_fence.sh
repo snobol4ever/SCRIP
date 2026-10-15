@@ -19,12 +19,12 @@ F="$W/scripts/fixtures/pattern/fence_inside_arbno_body_retries_its_left.sno"; R=
 [ -s "$F" ] && [ -s "$R" ] || { echo "GATE REFUSE(2) [$G]: fixture or ref missing"; exit 2; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 rc=0
-timeout 20 "$W/scrip" "$F" < /dev/null > "$T/m3.out" 2>&1; r3=$?
+timeout -k 5 20 "$W/scrip" "$F" < /dev/null > "$T/m3.out" 2>&1; r3=$?
 if [ $r3 -eq 124 ]; then echo "  m3: HANG (20 s)"; rc=1
 elif ! cmp -s "$T/m3.out" "$R"; then echo "  m3: DIFF from the oracle's answer"; diff "$T/m3.out" "$R" | head -6; rc=1
 else echo "  m3: agrees with sbl -bf"; fi
 if "$W/scrip" --compile "$F" -o "$T/w.s" < /dev/null > /dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/w.s" -Wl,-rpath,"$W/out" -L"$W/out" -lscrip_rt -lm -lpthread -o "$T/w" 2>/dev/null; then
-    timeout 20 "$T/w" < /dev/null > "$T/m4.out" 2>&1; r4=$?
+    timeout -k 5 20 "$T/w" < /dev/null > "$T/m4.out" 2>&1; r4=$?
     if [ $r4 -eq 124 ]; then echo "  m4: HANG (20 s)"; rc=1
     elif ! cmp -s "$T/m4.out" "$R"; then echo "  m4: DIFF from the oracle's answer"; diff "$T/m4.out" "$R" | head -6; rc=1
     else echo "  m4: agrees with sbl -bf"; fi

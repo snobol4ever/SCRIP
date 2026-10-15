@@ -27,9 +27,9 @@ printf "        DEFINE('f(x)')   :(fe)\nf       f = 1 / x   :(RETURN)\nfe      Z
 printf "        Z = 0\n        X = EVAL('1 + 1')\n        Y = 1 / Z\nEND\n" > "$W/k5.sno"
 norm() { sed -n -E -e 's/^[^ ]*\.sno\(([0-9]+)\) : ERROR 0*([0-9]+).*/error \2 line \1/p' -e 's/^scrip: error ([0-9]+):.*/error \1/p' -e 's/^  at [^:]*\.sno:([0-9]+);.*/line \1/p' | uniq | paste -sd' '; }
 for n in $names; do
-    w="$(cd "$W" && timeout 20 "$SBL" $(sbl_lang_flags) "$n.sno" </dev/null 2>&1 | norm)"
+    w="$(cd "$W" && timeout -k 5 20 "$SBL" $(sbl_lang_flags) "$n.sno" </dev/null 2>&1 | norm)"
     case "$w" in "error 14 line "*) printf '%s' "$w" > "$W/$n.want";; *) echo "⛔ REFUSE(rc=2) [$G]: the oracle read '$w' for $n, not 'error 14 line N' -- the arms cannot grade"; exit 2;; esac
-    (cd "$W" && timeout 60 "$SCRIP" --compile -o "$n.s" "$n.sno" </dev/null >/dev/null 2>&1) \
+    (cd "$W" && timeout -k 5 60 "$SCRIP" --compile -o "$n.s" "$n.sno" </dev/null >/dev/null 2>&1) \
         && gcc -no-pie "$W/$n.s" -L"$SD/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$SD/out" -o "$W/$n.bin" 2>/dev/null \
         || { echo "⛔ REFUSE(rc=2) [$G]: $n did not compile and link in mode 4"; exit 2; }
 done
@@ -41,8 +41,8 @@ echo "  PASS arm0 the comparator reads a corrupted ref ('$bad') RED"
 fail=0
 for n in $names; do
     want="$(cat "$W/$n.want")"
-    v3="$(cd "$W" && timeout 20 "$SCRIP" "$n.sno" </dev/null 2>&1 | norm)"
-    v4="$(cd "$W" && timeout 20 "$W/$n.bin" -- </dev/null 2>&1 | norm)"
+    v3="$(cd "$W" && timeout -k 5 20 "$SCRIP" "$n.sno" </dev/null 2>&1 | norm)"
+    v4="$(cd "$W" && timeout -k 5 20 "$W/$n.bin" -- </dev/null 2>&1 | norm)"
     for m in m3 m4; do
         v="$v3"; [ "$m" = m4 ] && v="$v4"
         if grade "$v" "$want"; then echo "  PASS $n $m = sbl ($want)"; else echo "  ⛔ $n $m RED: got '$v', sbl '$want'"; fail=1; fi

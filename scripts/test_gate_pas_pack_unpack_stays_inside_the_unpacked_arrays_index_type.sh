@@ -37,10 +37,10 @@ RC=0; N=0
 for b in iso7185prt1726 iso7185prt1728 iso7185prt1729 iso7185prt1731 iso7185prt1867 iso7185prt1868 iso7185prt1869 iso7185prt1870; do
   f="$SRC/$b.pas"; [ -f "$f" ] || { echo "⛔ GATE REFUSE(2) [$G]: missing vendored witness $f"; exit 2; }
   N=$((N+1)); bad=""
-  o3=$( cd "$T" && timeout 10s "$SCRIP" "$f" </dev/null 2>&1 ); rc3=$?
+  o3=$( cd "$T" && timeout -k 5 10s "$SCRIP" "$f" </dev/null 2>&1 ); rc3=$?
   if [ -n "${FAIL_ONCE:-}" ] && [ "$b" = iso7185prt1726 ]; then rc3=0; o3=""; fi
   { [ "$rc3" -ne 0 ] && [ "$rc3" -lt 124 ] && [ -n "$o3" ]; } || bad="m3 (rc=$rc3, ${#o3} bytes of diagnostic)"
-  o4=$( cd "$T" && timeout 20s "$SCRIP" --compile -o /dev/null "$f" </dev/null 2>&1 ); rc4=$?
+  o4=$( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o /dev/null "$f" </dev/null 2>&1 ); rc4=$?
   { [ "$rc4" -ne 0 ] && [ "$rc4" -lt 124 ] && [ -n "$o4" ]; } || bad="$bad m4 (rc=$rc4, ${#o4} bytes of diagnostic)"
   if [ -n "$bad" ]; then echo "  $b ACCEPTED where ISO 7185 6.6.5.4 requires refusal: $bad"; RC=1; else echo "  $b refused with a diagnostic in both modes"; fi
 done
@@ -58,7 +58,7 @@ end.
 PAS
 ( cd "$T" && "$FPC" -Miso -v0 ok.pas >/dev/null 2>&1 && ./ok ) > "$T/ok.ref" 2>&1
 [ -s "$T/ok.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no control-arm output"; exit 2; }
-ok3=$( cd "$T" && timeout 20s "$SCRIP" --run ok.pas </dev/null 2>&1 )
+ok3=$( cd "$T" && timeout -k 5 20s "$SCRIP" --run ok.pas </dev/null 2>&1 )
 if [ "$ok3" = "$(cat "$T/ok.ref")" ]; then echo "  control arm: a legal pack over the array's own range still runs, byte-identical to fpc -Miso"
 else echo "  ⛔ control arm FAILED -- the cure refuses or miscompiles a LEGAL pack"; echo "      want: $(cat "$T/ok.ref")"; echo "      got : $ok3"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $N pack/unpack range violations refused with a diagnostic in both modes, and a legal pack is untouched"

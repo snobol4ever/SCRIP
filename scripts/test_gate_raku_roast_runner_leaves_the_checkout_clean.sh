@@ -38,7 +38,7 @@ printf '1,S99-fixture/plain,roast__S99-fixture/plain,roast,3,0,0,131072,4096,,\n
 before="$(git -C "$ROOT" status --porcelain 2>/dev/null)"
 out="$(cd "$ROOT" && RAKU_ROAST_TREE="$W/roast" RAKU_ROAST_MANIFEST="$W/manifest" RAKU_ROAST_DCSV="$W/ALL.csv" \
        S4E_PROGRESS_DB="$W/progress.tsv" S4E_SCORE_NO_WRITE="gate test_gate_raku_roast_runner_leaves_the_checkout_clean" \
-       timeout 300 bash "$BOARD" --run --limit 2 2>&1)"; rc=$?
+       timeout -k 5 300 bash "$BOARD" --run --limit 2 2>&1)"; rc=$?
 after="$(git -C "$ROOT" status --porcelain 2>/dev/null)"
 
 echo "=== gate: a roast case that writes where it stands never writes into the checkout ==="

@@ -26,10 +26,10 @@ FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 run_mode() { local m="$1" p="$2"
-  if [ "$m" = m3 ]; then ( cd "$T" && timeout 20s "$SCRIP" --run "$p.pas" </dev/null 2>"$T/$p.$m.err" | head -c 8000 >"$T/$p.$m.out"; exit "${PIPESTATUS[0]}" ); return $?; fi
-  ( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>&1 ) || { echo "  ⛔ arm $p m4: did not compile"; return 99; }
+  if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 20s "$SCRIP" --run "$p.pas" </dev/null 2>"$T/$p.$m.err" | head -c 8000 >"$T/$p.$m.out"; exit "${PIPESTATUS[0]}" ); return $?; fi
+  ( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>&1 ) || { echo "  ⛔ arm $p m4: did not compile"; return 99; }
   ( cd "$T" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: arm $p compiled but would not link"; exit 2; }
-  ( cd "$T" && timeout 20s "./$p.m4" </dev/null 2>"$T/$p.$m.err" | head -c 8000 >"$T/$p.$m.out"; exit "${PIPESTATUS[0]}" ); return $?; }
+  ( cd "$T" && timeout -k 5 20s "./$p.m4" </dev/null 2>"$T/$p.$m.err" | head -c 8000 >"$T/$p.$m.out"; exit "${PIPESTATUS[0]}" ); return $?; }
 cat > "$T/nlg.pas" <<'PAS'
 program nlg(output);
 label 9;
@@ -114,7 +114,7 @@ begin
   writeln('done hits=', hits)
 end.
 PAS
-( cd "$T" && "$FPC" -Miso -v0 -o"nlg.fpc" nlg.pas >/dev/null 2>&1 && timeout 20s ./nlg.fpc | head -c 8000 ) > "$T/nlg.want" 2>&1
+( cd "$T" && "$FPC" -Miso -v0 -o"nlg.fpc" nlg.pas >/dev/null 2>&1 && timeout -k 5 20s ./nlg.fpc | head -c 8000 ) > "$T/nlg.want" 2>&1
 [ -s "$T/nlg.want" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no output for arm nlg"; exit 2; }
 if [ -n "${FAIL_ONCE:-}" ]; then echo "corrupted by FAIL_ONCE" >> "$T/nlg.want"; fi
 for m in m3 m4; do

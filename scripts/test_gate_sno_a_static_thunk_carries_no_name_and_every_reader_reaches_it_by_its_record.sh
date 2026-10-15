@@ -143,13 +143,13 @@ for a in a1 a2 a3 a5; do
     [ -n "$want" ] || { echo "  UNPROVEN $a -- oracle produced no output; refusing to grade SCRIP against nothing"; exit 2; }
     for m in m3 m4; do
         if [ "$m" = m3 ]; then
-            got="$(timeout 20s "$SCRIP" "$T/$a.sno" < /dev/null 2>&1 | sed '/dump of keyword values/,$d' | tr '\n' '/')"
+            got="$(timeout -k 5 20s "$SCRIP" "$T/$a.sno" < /dev/null 2>&1 | sed '/dump of keyword values/,$d' | tr '\n' '/')"
         else
             "$SCRIP" --compile -o "$T/$a.s" "$T/$a.sno" < /dev/null > /dev/null 2>&1
             n=$(grep -cE 'EXPR(NM)?\$' "$T/$a.s")
             if [ "$n" -ne 0 ]; then echo "  RED  $a $m -- the asm names a thunk on $n line(s): $(grep -m1 -E 'EXPR(NM)?\$' "$T/$a.s")"; bad=1; fi
             gcc "$T/$a.s" -o "$T/$a.x" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread > /dev/null 2>&1 || { echo "  RED  $a $m -- link failed"; bad=1; continue; }
-            got="$(timeout 20s "$T/$a.x" < /dev/null 2>&1 | sed '/dump of keyword values/,$d' | tr '\n' '/')"
+            got="$(timeout -k 5 20s "$T/$a.x" < /dev/null 2>&1 | sed '/dump of keyword values/,$d' | tr '\n' '/')"
         fi
         if [ "$got" = "$want" ]; then echo "  ok   $a $m -- matches SPITBOL"
         else echo "  RED  $a $m -- got [$got] want [$want]"; bad=1; fi

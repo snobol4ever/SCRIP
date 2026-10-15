@@ -68,7 +68,7 @@ echo ""
 echo "--- GATE-1: beauty.sno --compile baseline md5 ---"
 TMP_ASM="$(mktemp /tmp/ec_uni_beauty_XXXX.s)"
 trap 'rm -f "$TMP_ASM"' EXIT
-timeout "$TIMEOUT_LONG" "$SCRIP" --compile "$BEAUTY_SNO" > "$TMP_ASM" 2>/dev/null < /dev/null
+timeout -k 5 "$TIMEOUT_LONG" "$SCRIP" --compile "$BEAUTY_SNO" > "$TMP_ASM" 2>/dev/null < /dev/null
 rc=$?
 got_bytes=$(wc -c < "$TMP_ASM")
 got_md5=$(md5sum "$TMP_ASM" | cut -d' ' -f1)
@@ -106,7 +106,7 @@ echo ""
 
 # ---- GATE-4: icon all rungs (PASS=194 FAIL=36 XFAIL=35) ----
 echo "--- GATE-4: icon all rungs (PASS=194 FAIL=36 XFAIL=35 TOTAL=265) ---"
-out=$(timeout "$TIMEOUT_LONG" bash "$HERE/test_icon_all_rungs.sh" 2>&1 | tail -1)
+out=$(timeout -k 5 "$TIMEOUT_LONG" bash "$HERE/test_icon_all_rungs.sh" 2>&1 | tail -1)
 echo "  $out"
 if echo "$out" | grep -qE "PASS=194 FAIL=36 XFAIL=35 TOTAL=265"; then
     note_pass "gate4_icon_all_rungs"
@@ -139,7 +139,7 @@ echo ""
 echo "--- M1 oracle md5 reconciliation (report-only) ---"
 if [ -x "$ORACLE" ]; then
     TMP_ORACLE_OUT="$(mktemp /tmp/ec_uni_oracle_XXXX.out)"
-    SETL4PATH=".:$CORPUS/include" timeout "$TIMEOUT_LONG" \
+    SETL4PATH=".:$CORPUS/include" timeout -k 5 "$TIMEOUT_LONG" \
         "$ORACLE" -bf "$BEAUTY_SNO" < "$BEAUTY_SNO" > "$TMP_ORACLE_OUT" 2>/dev/null
     rc=$?
     oracle_md5=$(md5sum "$TMP_ORACLE_OUT" | cut -d' ' -f1)

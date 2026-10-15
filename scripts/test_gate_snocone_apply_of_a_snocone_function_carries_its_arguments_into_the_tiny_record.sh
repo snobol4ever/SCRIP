@@ -86,16 +86,16 @@ X1      OUTPUT = 'fact ' APPLY('FACT', 5)
 END
 SNO
 printf '%s\n' 'zfn 42' 'zfn var 2' 'two a-b' 'two short a-' 'two long a-b' 'fr ok' 'fr failed' 'fact 120' 'nr one' 'nr set uno' 'eval 10' 'end' > "$D/s.want"
-( cd "$D" && timeout 30 "$B/scrip" --transpile c.sc > c.sno 2>/dev/null && timeout 10 "$SBL" -bf c.sno < /dev/null > c.sbl 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" --transpile c.sc > c.sno 2>/dev/null && timeout -k 5 10 "$SBL" -bf c.sno < /dev/null > c.sbl 2>/dev/null )
 cmp -s "$D/c.want" "$D/c.sbl" || refuse "sbl -bf does not answer the transpiled c as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/c.sbl")]"
-( cd "$D" && timeout 10 "$SBL" -bf s.sno < /dev/null > s.sbl 2>/dev/null )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf s.sno < /dev/null > s.sbl 2>/dev/null )
 cmp -s "$D/s.want" "$D/s.sbl" || refuse "sbl -bf does not answer s as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/s.sbl")]"
 red=0; n=0
 for p in c:sc s:sno; do
     w=${p%%:*}; x=${p#*:}
-    ( cd "$D" && timeout 30 "$B/scrip" $w.$x < /dev/null > $w.m3 2>/dev/null )
-    ( cd "$D" && timeout 60 "$B/scrip" --compile $w.$x < /dev/null > $w.s 2>/dev/null && gcc -no-pie $w.s -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o $w.bin 2>/dev/null \
-        && timeout 30 ./$w.bin < /dev/null > $w.m4 2>/dev/null )
+    ( cd "$D" && timeout -k 5 30 "$B/scrip" $w.$x < /dev/null > $w.m3 2>/dev/null )
+    ( cd "$D" && timeout -k 5 60 "$B/scrip" --compile $w.$x < /dev/null > $w.s 2>/dev/null && gcc -no-pie $w.s -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o $w.bin 2>/dev/null \
+        && timeout -k 5 30 ./$w.bin < /dev/null > $w.m4 2>/dev/null )
     for m in m3 m4; do
         n=$((n + 1))
         if [ -f "$D/$w.$m" ] && cmp -s "$D/$w.want" "$D/$w.$m"; then echo "  ok   $w $m"

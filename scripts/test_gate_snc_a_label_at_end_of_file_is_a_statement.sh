@@ -48,7 +48,7 @@ RC=0
 printf 'OUTPUT = "one";\nOUTPUT = "two";\nfin:\n'   > "$T/bare.sc"
 printf 'OUTPUT = "one";\nOUTPUT = "two";\nfin: ;\n' > "$T/twin.sc"
 printf 'x = 1;\nif (LT(x, 2)) { goto fin; }\nOUTPUT = "not skipped";\nfin:\n' > "$T/jump.sc"
-run3() { ( cd "$T" && timeout 8s "$SCRIP" "$1" </dev/null 2>&1 ); }
+run3() { ( cd "$T" && timeout -k 5 8s "$SCRIP" "$1" </dev/null 2>&1 ); }
 bare3="$(run3 bare.sc)"; bare3rc=$?
 twin3="$(run3 twin.sc)"; twin3rc=$?
 if [ "$twin3rc" != 0 ]; then echo "⛔ GATE REFUSE(2) [$G]: the CONTROL spelling 'fin: ;' does not run (rc=$twin3rc) -- with no control there is nothing to diff against"; exit 2; fi
@@ -58,8 +58,8 @@ m4() { ( cd "$T" && "$SCRIP" --compile "$1.sc" -o "$1.s" </dev/null >/dev/null 2
 if ! m4 twin; then echo "⛔ GATE REFUSE(2) [$G]: the CONTROL twin would not compile or link in mode 4, so arm 2 has no baseline and measured nothing (see $T/twin.ld)"; exit 2; fi
 if ! m4 bare; then echo "  m4 FAIL (the control twin compiles in mode 4 and the trailing-label form does not -- that asymmetry IS the defect, not an inability to measure: $(head -1 "$T/bare.ld" 2>/dev/null))"; RC=1
 else
-    b4="$(timeout 8s "$T/bare.bin" </dev/null 2>&1)"; b4rc=$?
-    t4="$(timeout 8s "$T/twin.bin" </dev/null 2>&1)"; t4rc=$?
+    b4="$(timeout -k 5 8s "$T/bare.bin" </dev/null 2>&1)"; b4rc=$?
+    t4="$(timeout -k 5 8s "$T/twin.bin" </dev/null 2>&1)"; t4rc=$?
     if [ "$b4" = "$t4" ] && [ "$b4rc" = "$t4rc" ]; then echo "  m4 PASS (the same twin diff holds in mode 4, rc=$b4rc: $(printf '%s' "$t4" | tr '\n' '|'))"
     else echo "  m4 FAIL (mode 4 diverged: bare rc=$b4rc $(printf '%s' "$b4" | tr '\n' '|') vs twin rc=$t4rc $(printf '%s' "$t4" | tr '\n' '|'))"; RC=1; fi
 fi
@@ -70,7 +70,7 @@ kern=0; kbad=0
 for k in benchmarks/snocone/demo/claws5.sc benchmarks/snocone/demo/treebank-append.sc benchmarks/snocone/demo/treebank-prepend.sc; do
     [ -f "$CORPUS/$k" ] || continue
     kern=$((kern + 1))
-    if ( cd "$(dirname "$CORPUS/$k")" && timeout 20s "$SCRIP" --dump-ast "$(basename "$k")" </dev/null ) >/dev/null 2>"$T/k.err"; then :
+    if ( cd "$(dirname "$CORPUS/$k")" && timeout -k 5 20s "$SCRIP" --dump-ast "$(basename "$k")" </dev/null ) >/dev/null 2>"$T/k.err"; then :
     else if grep -q 'parse error' "$T/k.err"; then kbad=$((kbad + 1)); echo "  kernel FAIL $k: $(head -1 "$T/k.err")"; fi; fi
 done
 if [ "$kern" = 0 ]; then echo "  kernels SKIP (none of the three found under $CORPUS -- arms 1 to 3 are minted here and still bind)"

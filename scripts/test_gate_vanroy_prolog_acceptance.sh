@@ -70,7 +70,7 @@ for f in "$D"/*.pl; do
         # reported as failures, in an off-by-one that looks like a real truncation. The tell was the pattern:
         # three mismatches each exactly one short of a power of two. An instrument that damages its own
         # evidence on the way to the comparison is the same class as grading by exit code.
-        timeout 60s ./scrip "$f" < /dev/null > "$D/$b.stdout" 2>"$D/$b.err"; rc=$?
+        timeout -k 5 60s ./scrip "$f" < /dev/null > "$D/$b.stdout" 2>"$D/$b.err"; rc=$?
         out="$(cat "$D/$b.stdout" "$D/$b.err" 2>/dev/null)"
         if   printf '%s' "$out" | grep -qi 'refuses\|REFUSE'; then k=2; seen="${seen}R"
         elif [ $rc -eq 139 ] || [ $rc -eq 134 ];              then k=3; seen="${seen}C"

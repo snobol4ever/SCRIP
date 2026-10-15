@@ -126,12 +126,12 @@ not ok 1 - a
 echo 1 > "$W/p9.rc"
 fails=0; GATE_EXAMINED=0
 for w in p1 p2 p3 p4 p5 p6 p7 p8 p9; do
-    if ! timeout 60 "$ROOT/scrip" --compile -o "$W/$w.s" "$W/$w.raku" </dev/null >"$W/$w.cerr" 2>&1 \
+    if ! timeout -k 5 60 "$ROOT/scrip" --compile -o "$W/$w.s" "$W/$w.raku" </dev/null >"$W/$w.cerr" 2>&1 \
        || ! gcc -o "$W/$w.bin" "$W/$w.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread >>"$W/$w.cerr" 2>&1; then
         printf '  FAIL %-3s m4: did not build\n' "$w"; fails=$((fails + 1)); continue; fi
     for m in m3 m4; do
         GATE_EXAMINED=$((GATE_EXAMINED + 1))
-        if [ "$m" = m3 ]; then out="$(timeout 20 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"; rc=$?; else out="$(timeout 20 "$W/$w.bin" 2>/dev/null </dev/null)"; rc=$?; fi
+        if [ "$m" = m3 ]; then out="$(timeout -k 5 20 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"; rc=$?; else out="$(timeout -k 5 20 "$W/$w.bin" 2>/dev/null </dev/null)"; rc=$?; fi
         if [ "$out" = "$(cat "$W/$w.ref")" ] && [ "$rc" = "$(cat "$W/$w.rc")" ]; then printf '  ok   %-3s %s rc=%s\n' "$w" "$m" "$rc"
         else printf '  FAIL %-3s %s: rc got %s want %s, out [%s]\n' "$w" "$m" "$rc" "$(cat "$W/$w.rc")" "$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-80)"; fails=$((fails + 1)); fi
     done

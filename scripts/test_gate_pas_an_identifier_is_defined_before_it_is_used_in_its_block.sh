@@ -25,10 +25,10 @@ FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 run() { local m="$1" p="$2"
-  if [ "$m" = m3 ]; then ( cd "$T" && timeout 20s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); return $?; fi
-  ( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >"$T/o" 2>"$T/e" ) || return $?
+  if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 20s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); return $?; fi
+  ( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >"$T/o" 2>"$T/e" ) || return $?
   ( cd "$T" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ $p m4: did not link"; return 99; }
-  ( cd "$T" && timeout 20s "./$p.m4" </dev/null >"$T/o" 2>"$T/e" ); return $?; }
+  ( cd "$T" && timeout -k 5 20s "./$p.m4" </dev/null >"$T/o" 2>"$T/e" ); return $?; }
 printf 'program u17(output);\nconst one = 1;\nprocedure x;\nconst one = one;\nbegin\n  write(one)\nend;\nbegin\n  writeln(one)\nend.\n' > "$T/u17.pas"
 printf 'program u15(output);\nconst one = 1;\nprocedure x;\nconst two = one;\n      one = 2;\nbegin\n  writeln(one, two)\nend;\nbegin\n  writeln(one)\nend.\n' > "$T/u15.pas"
 printf 'program utyp(output);\ntype t = integer;\nprocedure p;\ntype u = t;\n     t = char;\nvar x: u;\nbegin\n  x := 1; writeln(x)\nend;\nbegin\n  p\nend.\n' > "$T/utyp.pas"
@@ -41,7 +41,7 @@ for p in u17 u15 utyp; do
 done
 for p in uptr ufld; do
   ( cd "$T" && "$FPC" -Miso -v0 -o$p.fpc $p.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile $p"; exit 2; }
-  ( cd "$T" && timeout 20s ./$p.fpc </dev/null >"$T/$p.want" 2>/dev/null ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso's $p did not run to rc 0"; exit 2; }
+  ( cd "$T" && timeout -k 5 20s ./$p.fpc </dev/null >"$T/$p.want" 2>/dev/null ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso's $p did not run to rc 0"; exit 2; }
   [ -n "${FAIL_ONCE:-}" ] && [ $p = ufld ] && echo "corrupted by FAIL_ONCE" >> "$T/$p.want"
   for m in m3 m4; do run $m $p; rc=$?
     if [ "$rc" = 0 ] && cmp -s "$T/$p.want" "$T/o"; then echo "  arm $p $m: byte-identical to fpc -Miso"

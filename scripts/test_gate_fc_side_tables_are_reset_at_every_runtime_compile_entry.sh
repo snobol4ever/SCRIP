@@ -118,8 +118,8 @@ LOOP    N = N + 1
         OUTPUT = 'sum ' T
 END
 EOF
-hw=$(SCRIP_FC_REG_HIGHWATER=1 timeout 300 "$SCRIP" "$T/ev.sno" 2>&1 >/dev/null | grep '^FC-REG-HW' | awk '{if($3>m[$2])m[$2]=$3} END{for(k in m) printf "%s=%d ", k, m[k]}')
-worst=$(SCRIP_FC_REG_HIGHWATER=1 timeout 300 "$SCRIP" "$T/ev.sno" 2>&1 >/dev/null | grep '^FC-REG-HW' | awk '{if($3>m)m=$3} END{print m+0}')
+hw=$(SCRIP_FC_REG_HIGHWATER=1 timeout -k 5 300 "$SCRIP" "$T/ev.sno" 2>&1 >/dev/null | grep '^FC-REG-HW' | awk '{if($3>m[$2])m[$2]=$3} END{for(k in m) printf "%s=%d ", k, m[k]}')
+worst=$(SCRIP_FC_REG_HIGHWATER=1 timeout -k 5 300 "$SCRIP" "$T/ev.sno" 2>&1 >/dev/null | grep '^FC-REG-HW' | awk '{if($3>m)m=$3} END{print m+0}')
 if [ -n "$hw" ] && [ "${worst:-0}" -gt 0 ] && [ "${worst:-0}" -le "$HW_CEILING" ]; then
     echo "  arm 3 PASS: 300 distinct runtime compiles, every table's high water bounded ($hw), worst $worst at or under the ceiling $HW_CEILING -- the cap is a per-compile budget again. Pre-cure the same witness read vlit=310 vread=305, climbing one per compile; since the node map (2026-09-25) the reporter prints one line per distinct node, 'node'."
 elif [ -z "$hw" ]; then echo "  arm 3 RED: the SCRIP_FC_REG_HIGHWATER reporter printed nothing -- the witness registered no table entry at all, so this arm measured nothing rather than measuring zero growth"; RC=1
@@ -139,10 +139,10 @@ END
 EOF
 graded=0; agreed=0
 for w in ev.sno code.sno; do
-    m3=$(timeout 300 "$SCRIP" "$T/$w" 2>/dev/null | tail -1)
+    m3=$(timeout -k 5 300 "$SCRIP" "$T/$w" 2>/dev/null | tail -1)
     s4="$T/$w.s"; b4="$T/$w.bin"; m4=""
-    if timeout 300 "$SCRIP" --compile -o "$s4" "$T/$w" >/dev/null 2>&1 && gcc "$s4" -o "$b4" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread 2>/dev/null; then m4=$(timeout 300 "$b4" 2>/dev/null | tail -1); fi
-    if [ -n "$ORACLE" ]; then orc=$(cd "$T" && timeout 300 "$ORACLE" "$T/$w" 2>/dev/null | tail -1); else orc="$m3"; fi
+    if timeout -k 5 300 "$SCRIP" --compile -o "$s4" "$T/$w" >/dev/null 2>&1 && gcc "$s4" -o "$b4" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread 2>/dev/null; then m4=$(timeout -k 5 300 "$b4" 2>/dev/null | tail -1); fi
+    if [ -n "$ORACLE" ]; then orc=$(cd "$T" && timeout -k 5 300 "$ORACLE" "$T/$w" 2>/dev/null | tail -1); else orc="$m3"; fi
     graded=$((graded+1))
     if [ "$m3" = "$orc" ] && [ "$m4" = "$orc" ]; then agreed=$((agreed+1))
     else echo "  arm 4 RED ($w: oracle '$orc' · mode 3 '$m3' · mode 4 '$m4')"; RC=1; fi

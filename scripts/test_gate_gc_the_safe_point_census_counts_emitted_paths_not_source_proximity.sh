@@ -55,7 +55,7 @@ ln -s "$ROOT/src/templates/xa"   "$D/src/templates/xa"        || exit 2
 ln -s "$ROOT/src/templates/x86"  "$D/src/templates/x86"       || exit 2
 cp -r "$ROOT/src/templates/bb"   "$D/src/templates/bb"        || exit 2
 
-run_census() { SCRIP_GC_CENSUS_LIST_ALL=1 timeout 600 python3 "$ROOT/$CENSUS" safe-points --list-polled --root "$1" 2>&1; }
+run_census() { SCRIP_GC_CENSUS_LIST_ALL=1 timeout -k 5 600 python3 "$ROOT/$CENSUS" safe-points --list-polled --root "$1" 2>&1; }
 
 # ---- ARM A: the columns exist at all, and they partition the denominator -------------------------------
 base=$(run_census "$D") || true

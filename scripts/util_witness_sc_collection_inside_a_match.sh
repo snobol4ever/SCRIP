@@ -20,8 +20,8 @@ grep -q 'StmtPosT' "$T/parser_variant.sc" || { echo "⛔ REFUSE(2): the substitu
 cat "$B/global.sc" "$B/case.sc" "$B/assign.sc" "$B/match.sc" "$B/counter.sc" "$B/stack.sc" "$B/tree.sc" "$B/ShiftReduce.sc" "$B/tdump.sc" "$B/gen.sc" "$B/qize.sc" "$B/semantic.sc" "$B/omega.sc" "$B/trace.sc" "$T/parser_variant.sc" > "$T/chain.sc"
 "$ROOT/scrip" --compile "$T/chain.sc" -o "$T/chain.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/chain.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$T/chain.bin" 2>/dev/null \
     || { echo "⛔ REFUSE(2): the TABLE variant of the chain did not compile or link"; exit 2; }
-( cd "$(dirname "$W")"; PARSER_TREE_HASH=1 timeout 300 "$T/chain.bin" $SW < "$W" > "$T/out.txt" 2> "$T/err.txt" ); rc=$?
-( cd "$(dirname "$W")"; PARSER_TREE_HASH=1 timeout 300 "$T/chain.bin" $SW -i3000m < "$W" > "$T/out_big.txt" 2> "$T/err_big.txt" ); rcb=$?
+( cd "$(dirname "$W")"; PARSER_TREE_HASH=1 timeout -k 5 300 "$T/chain.bin" $SW < "$W" > "$T/out.txt" 2> "$T/err.txt" ); rc=$?
+( cd "$(dirname "$W")"; PARSER_TREE_HASH=1 timeout -k 5 300 "$T/chain.bin" $SW -i3000m < "$W" > "$T/out_big.txt" 2> "$T/err_big.txt" ); rcb=$?
 echo "WITNESS sc-collection-inside-a-match: attr31 through the TABLE variant rc=$rc ($(head -1 "$T/err.txt" | cut -c1-70)); with a 3 GB first window rc=$rcb"
 [ $rc -eq 0 ] && { echo "✅ GREEN: a collection inside the match kept every pend"; exit 0; }
 [ $rcb -eq 0 ] && { echo "⛔ RED: the tree built after a collection inside the match carries a child that is not a node (rc $rc), and not when no collection runs (rc $rcb)"; exit 1; }

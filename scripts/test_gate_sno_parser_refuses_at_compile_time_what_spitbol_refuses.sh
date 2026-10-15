@@ -24,8 +24,8 @@ fail=0
 arm() { # arm <label> <statement>  -- compare SCRIP's parse verdict with the oracle's compile verdict
   [ -z "$ONLY" ] || [ "$1" = "$ONLY" ] || [ "${1#control-}" != "$1" ] || return 0
   printf '\t%s\nEND\n' "$2" > "$W/s.sno"
-  if timeout 5 "$PS" "$W/s.sno" >/dev/null 2>&1; then sc=ACCEPT; else sc=REFUSE; fi
-  out="$(cd "$W" && timeout 5 "$SBL" -bf s.sno </dev/null 2>&1)"
+  if timeout -k 5 5 "$PS" "$W/s.sno" >/dev/null 2>&1; then sc=ACCEPT; else sc=REFUSE; fi
+  out="$(cd "$W" && timeout -k 5 5 "$SBL" -bf s.sno </dev/null 2>&1)"
   if printf '%s\n' "$out" | grep -q 'macro spitbol version'; then sb=REFUSE; else sb=ACCEPT; fi
   if [ "$sc" = "$sb" ]; then echo "  ✅ $1: SCRIP parser $sc, SPITBOL compile $sb  [$2]"; else echo "  ⛔ $1: SCRIP parser $sc, SPITBOL compile $sb  [$2]"; fail=$((fail+1)); fi
 }

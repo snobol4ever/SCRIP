@@ -82,11 +82,11 @@ brk() {  # $1=engine $2=variant.sno $3=input $4=reps $5=stem
   local eng="$2x" v="$2" in="$3" r="$4" stem="$5" out ns
   : > "$W/$stem.err"
   case "$1" in
-    sbl) out=$(timeout 600 "$SBL" $(sbl_lang_flags) $OAD "$v" < "$in" 2>"$W/$stem.err" | tail -1) ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" timeout 600 "$SCRIP" $SWD "$v" < "$in" 2>"$W/$stem.err" | tail -1) ;;
+    sbl) out=$(timeout -k 5 600 "$SBL" $(sbl_lang_flags) $OAD "$v" < "$in" 2>"$W/$stem.err" | tail -1) ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" timeout -k 5 600 "$SCRIP" $SWD "$v" < "$in" 2>"$W/$stem.err" | tail -1) ;;
     m4)  [ -x "$W/$stem.bin" ] || m4_build "$v" "$W/$stem.bin" "$W/$stem"
          [ -x "$W/$stem.bin" ] || { echo ""; return; }
-         out=$(SCRIP_NOHUGE="$NOHUGE" timeout 600 "$W/$stem.bin" $SWD < "$in" 2>"$W/$stem.err" | tail -1) ;;
+         out=$(SCRIP_NOHUGE="$NOHUGE" timeout -k 5 600 "$W/$stem.bin" $SWD < "$in" 2>"$W/$stem.err" | tail -1) ;;
   esac
   ns=$(grep -oE 'TIME_ns=[0-9]+' "$W/$stem.err" 2>/dev/null | tail -1 | cut -d= -f2)
   case "$ns" in ''|*[!0-9]*) echo ""; return;; esac
@@ -177,11 +177,11 @@ while IFS=$'\t' read -r fam prog inp; do
     b=""
     for i in 1 2 3; do
       case "$e" in
-        sbl) "$WRAP" timeout 600 "$SBL" $(sbl_lang_flags) $OAD "$P" < "$IN" >/dev/null 2>"$W/ru" ;;
-        m3)  SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout 600 "$SCRIP" $SWD "$P" < "$IN" >/dev/null 2>"$W/ru" ;;
+        sbl) "$WRAP" timeout -k 5 600 "$SBL" $(sbl_lang_flags) $OAD "$P" < "$IN" >/dev/null 2>"$W/ru" ;;
+        m3)  SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout -k 5 600 "$SCRIP" $SWD "$P" < "$IN" >/dev/null 2>"$W/ru" ;;
         m4)  [ -x "$W/$fam.a1.bin" ] || m4_build "$P" "$W/$fam.a1.bin" "$W/$fam.a1"
              [ -x "$W/$fam.a1.bin" ] || continue
-             SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout 600 "$W/$fam.a1.bin" $SWD < "$IN" >/dev/null 2>"$W/ru" ;;
+             SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout -k 5 600 "$W/$fam.a1.bin" $SWD < "$IN" >/dev/null 2>"$W/ru" ;;
       esac
       t=$(grep -oE 'elapsed_ns=[0-9]+' "$W/ru" 2>/dev/null | tail -1 | cut -d= -f2)
       case "$t" in ''|*[!0-9]*) continue;; esac

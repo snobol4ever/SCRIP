@@ -51,7 +51,7 @@ DB="$W/results.tsv"; printf 'ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang
 echo "    fixture: 3 entries cut from the rungs; outside = $NAME"
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: the board line prints PASS over the shipped population with OUTSIDE named (CEO-749) ==="
-out="$(S4E_PROGRESS_DB="$DB" timeout 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --modes m3,m4 --outside "$W/tests/snobol4/ALL.outside.tsv" 2>&1)"; rc=$?
+out="$(S4E_PROGRESS_DB="$DB" timeout -k 5 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --modes m3,m4 --outside "$W/tests/snobol4/ALL.outside.tsv" 2>&1)"; rc=$?
 [ "$rc" -le 1 ] || refuse "the harness could not grade the fixture (rc=$rc): $(tail -3 <<<"$out")"
 board="$(grep '^SUITE_BOARD ' <<<"$out")"
 [ -n "${FAIL_ONCE:-}" ] && board="${board/shipped=3/shipped=2}"
@@ -66,7 +66,7 @@ n_out="$(awk -F'\t' -v p="$NAME" '$8==p && $10=="OUTSIDE"{print $9":"$12}' "$DB"
 [ "$n_out" = "m3:ORACLE_REFUSES: fixture: the oracle refuses this entry m4:ORACLE_REFUSES: fixture: the oracle refuses this entry " ] \
   && ck ok "(c) the progress DB carries $NAME as OUTSIDE in m3 and m4 with note = class: reason" \
   || ck no "(c) DB OUTSIDE rows for $NAME: '$n_out'"
-out2="$(S4E_PROGRESS_DB="$DB" timeout 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --modes m3,m4 2>&1)"; board2="$(grep '^SUITE_BOARD ' <<<"$out2")"
+out2="$(S4E_PROGRESS_DB="$DB" timeout -k 5 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --modes m3,m4 2>&1)"; board2="$(grep '^SUITE_BOARD ' <<<"$out2")"
 g(){ grep -oE " $1=[0-9]+" <<<"$board2" | head -1 | cut -d= -f2; }
 [ "$(g total)" = 2 ] && [ "$(g shipped)" = 3 ] && [ "$(g outside)" = 1 ] && grep -q 'OUTSIDE_BASELINE_LIST .*DERIVED from the suite directory' <<<"$out2" \
   && ck ok "(d) WITHOUT --outside the sibling list RIDES: total=2 shipped=3 outside=1, and the provenance line says DERIVED" \
@@ -78,9 +78,9 @@ for R in "$HERE/test_icon_arizona_suite.sh" "$HERE/test_icon_jcon_suite.sh"; do
     && ck ok "(e) STATIC: ${R##*/} publishes --suite-total \$SHIPPED, the shipped population (ceo CEO-1245, CEO-1268)" \
     || ck no "(e) ${R##*/} publishes a graded subset as its suite total, not \$SHIPPED (ceo CEO-1245: the shipped population is the denominator)"
 done
-out3="$(S4E_PROGRESS_DB="$DB" timeout 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --modes m3,m4 --outside-none 2>&1)"; board3="$(grep '^SUITE_BOARD ' <<<"$out3")"
+out3="$(S4E_PROGRESS_DB="$DB" timeout -k 5 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --modes m3,m4 --outside-none 2>&1)"; board3="$(grep '^SUITE_BOARD ' <<<"$out3")"
 h(){ grep -oE " $1=[0-9]+" <<<"$board3" | head -1 | cut -d= -f2; }
-S4E_PROGRESS_DB="$DB" timeout 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --outside "$W/tests/snobol4/ALL.outside.tsv" --outside-none >/dev/null 2>&1; rc_both=$?
+S4E_PROGRESS_DB="$DB" timeout -k 5 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --outside "$W/tests/snobol4/ALL.outside.tsv" --outside-none >/dev/null 2>&1; rc_both=$?
 [ "$(h total)" = 3 ] && [ "$(h shipped)" = 3 ] && [ "$(h outside)" = 0 ] \
   && grep -q "OUTSIDE_BASELINE_LIST NONE --outside-none was given and .*ALL.outside.tsv EXISTS" <<<"$out3" \
   && grep -q 'NOT comparable to a board graded against the baseline' <<<"$out3" && [ "$rc_both" = 2 ] \

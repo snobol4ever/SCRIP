@@ -20,7 +20,7 @@ gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime sha
 build_one() { # $1=src $2=outbin $3=env(0/1 SCRIP_NO_IX)
     if [ -x "$2" ] && [ "$2" -nt "$SCRIP" ]; then return 0; fi
     local W; W=$(mktemp -d /tmp/ixb_XXXXXX)
-    ( cd "$W" && SCRIP_NO_IX=$3 timeout 30 "$SCRIP" --compile --target=x86 "$1" > p.s 2> scrip.err < /dev/null ) || { echo "  EMIT-FAIL ($1 NO_IX=$3)"; sed -n '1,5p' "$W/scrip.err"; rm -rf "$W"; return 1; }
+    ( cd "$W" && SCRIP_NO_IX=$3 timeout -k 5 30 "$SCRIP" --compile --target=x86 "$1" > p.s 2> scrip.err < /dev/null ) || { echo "  EMIT-FAIL ($1 NO_IX=$3)"; sed -n '1,5p' "$W/scrip.err"; rm -rf "$W"; return 1; }
     ( cd "$W" && as --64 -o p.o p.s && gcc -no-pie -o "$2" p.o "$LIBRT" -lm -lstdc++ -Wl,-rpath,"$(dirname "$LIBRT")" ) 2> "$W/lderr" || { echo "  AS/LD-FAIL"; head -5 "$W/lderr"; rm -rf "$W"; return 1; }
     cp "$W/p.s" "$2.s"; rm -rf "$W"; return 0
 }
@@ -30,8 +30,8 @@ for b in "${BENCHES[@]}"; do
     build_one "$src" "$OUT/${b}_ix"   0 || continue
     at=(); bt=()
     for i in 1 2 3 4 5; do
-        s0=$(date +%s%N); timeout 60 "$OUT/${b}_base" > /dev/null 2>&1; s1=$(date +%s%N); ta=$(awk -v d=$((s1-s0)) 'BEGIN{printf "%.3f", d/1e9}')
-        s0=$(date +%s%N); timeout 60 "$OUT/${b}_ix"   > /dev/null 2>&1; s1=$(date +%s%N); tb=$(awk -v d=$((s1-s0)) 'BEGIN{printf "%.3f", d/1e9}')
+        s0=$(date +%s%N); timeout -k 5 60 "$OUT/${b}_base" > /dev/null 2>&1; s1=$(date +%s%N); ta=$(awk -v d=$((s1-s0)) 'BEGIN{printf "%.3f", d/1e9}')
+        s0=$(date +%s%N); timeout -k 5 60 "$OUT/${b}_ix"   > /dev/null 2>&1; s1=$(date +%s%N); tb=$(awk -v d=$((s1-s0)) 'BEGIN{printf "%.3f", d/1e9}')
         at+=("$ta"); bt+=("$tb")
     done
     ma=$(printf '%s\n' "${at[@]}" | sort -n | sed -n 3p)

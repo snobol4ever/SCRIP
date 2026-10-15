@@ -22,14 +22,14 @@ SBL="$(sbl_correctness_bin 2>/dev/null || true)"; [ -n "${SBL:-}" ] && [ -x "$SB
 D="$(mktemp -d)" || refuse "no scratch dir"
 trap 'rm -rf "$D"' EXIT
 RT="$B/out"; RC=0; n=0
-m3() { (cd "$D" && timeout 60 "$B/scrip" --stlimit "$1.sno" < /dev/null 2>&1); }
+m3() { (cd "$D" && timeout -k 5 60 "$B/scrip" --stlimit "$1.sno" < /dev/null 2>&1); }
 m4() { "$B/scrip" --stlimit --compile -o "$D/$1.s" "$D/$1.sno" < /dev/null > /dev/null 2>&1 && gcc -no-pie -o "$D/$1.bin" "$D/$1.s" -L "$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2> /dev/null \
-      || { echo "M4-BUILD-FAILED"; return; }; (cd "$D" && timeout 60 "./$1.bin" < /dev/null 2>&1); }
+      || { echo "M4-BUILD-FAILED"; return; }; (cd "$D" && timeout -k 5 60 "./$1.bin" < /dev/null 2>&1); }
 ok()  { n=$((n + 1)); echo "  ok    $*"; }
 red() { n=$((n + 1)); RC=1; echo "  RED   $*"; }
 arm() {
   local name="$1" want got
-  want="$(cd "$D" && timeout 60 "$SBL" -bf "$name.sno" < /dev/null 2>&1)"
+  want="$(cd "$D" && timeout -k 5 60 "$SBL" -bf "$name.sno" < /dev/null 2>&1)"
   [ -n "$want" ] || refuse "arm $name: the oracle printed nothing -- the expectation cannot be cut"
   printf '%s' "$want" | grep -q 'F(\|G(\|H(' || refuse "arm $name: the oracle traced no call -- the arm would grade nothing"
   for m in m3 m4; do

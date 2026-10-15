@@ -35,11 +35,11 @@ printf 'a\nb\n' > "$W/pipe.txt"
 PASS=0; FAIL=0; GRADED=0
 grade() { # $1=name $2=stdin-file
     local name="$1" inp="$2" o3 o4 rc3 rc4 ro
-    ( cd "$W" && timeout 5s "$SBL" -bf $SINK "$name.sno" < "$inp" > "$name.oracle" 2>&1 ); ro=$?
-    ( cd "$W" && SNO_LIB="$DOT" timeout 5s "$ROOT/scrip" --run "$name.sno" < "$inp" > "$name.m3" 2>&1 ); rc3=$?
-    if ( cd "$W" && SNO_LIB="$DOT" timeout 5s "$ROOT/scrip" --compile "$name.sno" < /dev/null > "$name.s" 2> "$name.cerr" ) \
+    ( cd "$W" && timeout -k 5 5s "$SBL" -bf $SINK "$name.sno" < "$inp" > "$name.oracle" 2>&1 ); ro=$?
+    ( cd "$W" && SNO_LIB="$DOT" timeout -k 5 5s "$ROOT/scrip" --run "$name.sno" < "$inp" > "$name.m3" 2>&1 ); rc3=$?
+    if ( cd "$W" && SNO_LIB="$DOT" timeout -k 5 5s "$ROOT/scrip" --compile "$name.sno" < /dev/null > "$name.s" 2> "$name.cerr" ) \
        && gcc -c "$W/$name.s" -o "$W/$name.o" 2>/dev/null && gcc "$W/$name.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/$name.bin" 2>/dev/null; then
-        ( cd "$W" && timeout 5s "./$name.bin" < "$inp" > "$name.m4" 2>&1 ); rc4=$?
+        ( cd "$W" && timeout -k 5 5s "./$name.bin" < "$inp" > "$name.m4" 2>&1 ); rc4=$?
     else rc4=NOBUILD; : > "$W/$name.m4"; fi
     for m in m3 m4; do
         GRADED=$((GRADED+1)); local rc; [ "$m" = m3 ] && rc=$rc3 || rc=$rc4
@@ -56,9 +56,9 @@ for p in palin temp; do grade "$p" /dev/null; done
 # and `BINOUT = '?'` prints the prompt without a newline; SCRIP does not honour the association (named to the
 # ceo for a row 2026-09-07). Graded here as: exits within the timeout in both modes, never rc=124.
 for m in m3 m4; do GRADED=$((GRADED+1)); done
-( cd "$W" && SNO_LIB="$DOT" timeout 5s "$ROOT/scrip" --run code.sno < /dev/null > code.m3 2>&1 ); c3=$?
-if ( cd "$W" && SNO_LIB="$DOT" timeout 5s "$ROOT/scrip" --compile code.sno < /dev/null > code.s 2> code.cerr ) && gcc -c "$W/code.s" -o "$W/code.o" 2>/dev/null && gcc "$W/code.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/code.bin" 2>/dev/null; then
-    ( cd "$W" && timeout 5s ./code.bin < /dev/null > code.m4 2>&1 ); c4=$?; else c4=NOBUILD; fi
+( cd "$W" && SNO_LIB="$DOT" timeout -k 5 5s "$ROOT/scrip" --run code.sno < /dev/null > code.m3 2>&1 ); c3=$?
+if ( cd "$W" && SNO_LIB="$DOT" timeout -k 5 5s "$ROOT/scrip" --compile code.sno < /dev/null > code.s 2> code.cerr ) && gcc -c "$W/code.s" -o "$W/code.o" 2>/dev/null && gcc "$W/code.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/code.bin" 2>/dev/null; then
+    ( cd "$W" && timeout -k 5 5s ./code.bin < /dev/null > code.m4 2>&1 ); c4=$?; else c4=NOBUILD; fi
 for m in m3 m4; do rc=$c3; [ "$m" = m4 ] && rc=$c4
     if [ "$rc" = 124 ] || [ "$rc" = NOBUILD ]; then FAIL=$((FAIL+1)); echo "  ⛔ code $m: $([ "$rc" = 124 ] && echo HANG || echo NOBUILD) (rc=$rc)"
     else PASS=$((PASS+1)); echo "  ✅ code $m: exits (rc=$rc) -- the stream's one missing byte is the unit-2 raw-record association, a named sibling defect"; fi

@@ -28,10 +28,10 @@ FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 run() { local m="$1" p="$2"
-  if [ "$m" = m3 ]; then ( cd "$T" && timeout 20s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); return $?; fi
-  ( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >"$T/o" 2>"$T/e" ) || return $?
+  if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 20s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); return $?; fi
+  ( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >"$T/o" 2>"$T/e" ) || return $?
   ( cd "$T" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ $p m4: did not link"; return 99; }
-  ( cd "$T" && timeout 20s "./$p.m4" </dev/null >"$T/o" 2>"$T/e" ); return $?; }
+  ( cd "$T" && timeout -k 5 20s "./$p.m4" </dev/null >"$T/o" 2>"$T/e" ); return $?; }
 printf 'program vint(output);\nvar c: 1..10;\nprocedure a(var b: integer);\nbegin\n  b := 1\nend;\nbegin\n  a(c); writeln(c)\nend.\n' > "$T/vint.pas"
 printf 'program vchr(output);\nvar c: %s..%s;\nprocedure a(var b: char);\nbegin\n  b := %s\nend;\nbegin\n  a(c); writeln(c)\nend.\n' "'a'" "'z'" "'q'" > "$T/vchr.pas"
 printf 'program venm(output);\ntype e = (r, g, b, y);\nvar c: g..b;\nprocedure a(var d: e);\nbegin\n  d := g\nend;\nbegin\n  a(c); writeln(ord(c))\nend.\n' > "$T/venm.pas"
@@ -45,7 +45,7 @@ for p in vint venm vfml; do
 done
 for p in vok vchr; do
   ( cd "$T" && "$FPC" -Miso -v0 -o$p.fpc $p.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile $p"; exit 2; }
-  ( cd "$T" && timeout 20s ./$p.fpc </dev/null >"$T/$p.want" 2>/dev/null ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso's $p did not run to rc 0"; exit 2; }
+  ( cd "$T" && timeout -k 5 20s ./$p.fpc </dev/null >"$T/$p.want" 2>/dev/null ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso's $p did not run to rc 0"; exit 2; }
   [ -n "${FAIL_ONCE:-}" ] && [ $p = vok ] && echo "corrupted by FAIL_ONCE" >> "$T/vok.want"
   for m in m3 m4; do run $m $p; rc=$?
     if [ "$rc" = 0 ] && cmp -s "$T/$p.want" "$T/o"; then echo "  arm $p $m: byte-identical to fpc -Miso"

@@ -29,10 +29,10 @@ RT_DIR="${RT_DIR:-$ROOT/out}"; [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ GA
 FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]: no fpc at $FPC -- every arm's expectation is CUT FROM THE ORACLE"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 run() { local m="$1" p="$2"
-  if [ "$m" = m3 ]; then ( cd "$T" && timeout 60s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); return $?; fi
-  ( cd "$T" && timeout 60s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>"$T/e" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ $p m4 did not compile or link: $(head -1 "$T/e" | cut -c1-120)" >&2; return 99; }
-  ( cd "$T" && timeout 60s "./$p.m4" </dev/null >"$T/o" 2>"$T/e" ); return $?; }
-want() { ( cd "$T" && "$FPC" -Miso -v0 -o"$1.fpc" $1.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile $1"; exit 2; }; ( cd "$T" && timeout 60s ./$1.fpc </dev/null >"$T/$1.want" 2>/dev/null ); return $?; }
+  if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 60s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); return $?; fi
+  ( cd "$T" && timeout -k 5 60s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>"$T/e" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ $p m4 did not compile or link: $(head -1 "$T/e" | cut -c1-120)" >&2; return 99; }
+  ( cd "$T" && timeout -k 5 60s "./$p.m4" </dev/null >"$T/o" 2>"$T/e" ); return $?; }
+want() { ( cd "$T" && "$FPC" -Miso -v0 -o"$1.fpc" $1.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile $1"; exit 2; }; ( cd "$T" && timeout -k 5 60s ./$1.fpc </dev/null >"$T/$1.want" 2>/dev/null ); return $?; }
 cat > "$T/rec.pas" <<'PAS'
 program rec(output);
 type lv = ^cell; cell = record n: integer; next: lv end;
@@ -130,7 +130,7 @@ for m in m3 m4; do run $m und; rc=$?; N=$((N + 1))
   if [ "$rc" != 0 ] && [ "$(cat "$T/o")" = "$(printf '          9')" ] && grep -q '6\.6\.2' "$T/e"; then echo "  und $m: stopped with 6.6.2 on the call that leaves the result unassigned, after the output before it (rc=$rc)"
   else echo "  ⛔ und $m FAILED: rc=$rc stdout=[$(head -c 60 "$T/o" | tr '\n' '|')] err=[$(head -c 120 "$T/e")]"; RC=1; fi
 done
-( cd "$T" && timeout 60s "$SCRIP" --run range.pas </dev/null >"$T/o" 2>"$T/e" ); rc=$?; N=$((N + 1))
+( cd "$T" && timeout -k 5 60s "$SCRIP" --run range.pas </dev/null >"$T/o" 2>"$T/e" ); rc=$?; N=$((N + 1))
 if [ "$rc" != 0 ] && [ ! -s "$T/o" ] && grep -q '6\.8\.3\.9' "$T/e"; then echo "  range: refused at compile time with 6.8.3.9, no output (rc=$rc)"
 else echo "  ⛔ range FAILED: rc=$rc stdout=[$(head -c 60 "$T/o" | tr '\n' '|')] err=[$(head -c 120 "$T/e")]"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: function results per activation, nested var pass-on, named pointer arrays and scoped variable types answer as fpc -Miso in both modes, $N of $N arms"

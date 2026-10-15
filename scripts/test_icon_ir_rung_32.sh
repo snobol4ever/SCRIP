@@ -19,9 +19,9 @@ run() {
     local stdin_f="${base}.stdin"; [ -f "$stdin_f" ] || stdin_f="$(dirname "$base")/config/$(basename "$base").stdin"
     local got want
     if [ -f "$stdin_f" ]; then
-        got=$(timeout 8 "$SCRIP" --run "${base}.icn" < "$stdin_f"  2>/dev/null) || true
+        got=$(timeout -k 5 8 "$SCRIP" --run "${base}.icn" < "$stdin_f"  2>/dev/null) || true
     else
-        got=$(timeout 8 "$SCRIP" --run "${base}.icn" < /dev/null   2>/dev/null) || true
+        got=$(timeout -k 5 8 "$SCRIP" --run "${base}.icn" < /dev/null   2>/dev/null) || true
     fi
     want=$(cat "${base}.ref")
     if [ "$got" = "$want" ]; then

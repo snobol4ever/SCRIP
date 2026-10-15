@@ -35,9 +35,9 @@ t(N, F, M) :- catch((open(F, M, S), close(S), R = ok), error(E, _), R = E), writ
 main :- t(noread, nr, read), t(nowrite, nw, write), t(noappend, nw, append), t(rootwrite, '/no_write_permission', write),
     t(missing_dir, 'no/such/dir/x', write), t(missing_file, nosuchfile, read).
 PL
-want="$(cd "$D" && timeout 20 "$GP" --consult-file w.pl --query-goal halt < /dev/null 2>&1 | grep '^@ ')"
+want="$(cd "$D" && timeout -k 5 20 "$GP" --consult-file w.pl --query-goal halt < /dev/null 2>&1 | grep '^@ ')"
 [ "$(printf '%s\n' "$want" | grep -c '^@ ')" = 6 ] || refuse "gprolog did not answer the six shapes: [$want]"
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
 ( cd "$D" && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || refuse "mode 4 link failed"
 red=0
 arm() {
@@ -48,7 +48,7 @@ arm() {
     if [ "$got" = "$want" ]; then echo "  $label GREEN: 6 of 6 lines as gprolog"
     else echo "  $label RED: $n of 6 lines differ from gprolog"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
 }
-arm m3 timeout 20 "$B/scrip" --run w.pl < /dev/null
-arm m4 timeout 20 ./w.bin < /dev/null
+arm m3 timeout -k 5 20 "$B/scrip" --run w.pl < /dev/null
+arm m4 timeout -k 5 20 ./w.bin < /dev/null
 [ "$red" = 0 ] && echo "PASS $G"
 exit "$red"

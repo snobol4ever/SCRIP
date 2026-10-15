@@ -26,7 +26,7 @@ refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: a folded SCORE.md tail names the superseded reading's own stamp, machine-inserted ==="
 before="$(git -C "$GH" status --porcelain -- SCORE.md 2>/dev/null)"
-out="$(env -u S4E_DONE_WHEN_RUN -u S4E_ONE_RUNNER_OVERRIDE timeout 900 python3 "$HELPER" selftest 2>&1)"; rc=$?
+out="$(env -u S4E_DONE_WHEN_RUN -u S4E_ONE_RUNNER_OVERRIDE timeout -k 5 900 python3 "$HELPER" selftest 2>&1)"; rc=$?
 [ "$rc" = 124 ] && refuse "the writer's selftest timed out (load $(cut -d' ' -f1 /proc/loadavg)) -- not measured"
 [ -n "${FAIL_ONCE:-}" ] && out="$(printf '%s\n' "$out" | grep -v "folded tail's marker names the superseded reading's own stamp")"
 grep -q "the folded tail's marker names the superseded reading's own stamp" <<<"$out" && [ "$rc" = 0 ] \

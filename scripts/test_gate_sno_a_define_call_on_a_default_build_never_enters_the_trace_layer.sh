@@ -36,7 +36,7 @@ SNO
 ( cd "$T" && "$ROOT/scrip" --compile -o w4.s w.sno < /dev/null > cc4.out 2>&1 && gcc w4.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o w4.bin > ld4.out 2>&1 ) || { echo "⛔ REFUSED(2): the witness did not build in mode 4"; cat "$T/cc4.out" "$T/ld4.out" 2>/dev/null; exit 2; }
 count() {   # count <label> <program...> : gdb hit counts of the two functions; prints "label idle=N args=N rc=R"
   local label="$1"; shift
-  ( cd "$T" && timeout 120 gdb -batch -q -ex 'set breakpoint pending on' -ex 'set pagination off' -ex 'set confirm off' -ex 'break trace_idle' -ex 'ignore 1 1000000000' -ex 'break rt_trace_event_args_ip' -ex 'ignore 2 1000000000' -ex run -ex 'info breakpoints' --args "$@" > "$T/$label.gdb" 2>&1 < /dev/null ); local rc=$?
+  ( cd "$T" && timeout -k 5 120 gdb -batch -q -ex 'set breakpoint pending on' -ex 'set pagination off' -ex 'set confirm off' -ex 'break trace_idle' -ex 'ignore 1 1000000000' -ex 'break rt_trace_event_args_ip' -ex 'ignore 2 1000000000' -ex run -ex 'info breakpoints' --args "$@" > "$T/$label.gdb" 2>&1 < /dev/null ); local rc=$?
   grep -q '^sum = 40600$' "$T/$label.gdb" || { echo "$label REFUSED: the witness did not print sum = 40600 under gdb (rc=$rc)"; tail -5 "$T/$label.gdb"; return 2; }
   local idle args
   idle=$(awk '/^1 /{f=1} /^2 /{f=0} f && /already hit/ {for(i=1;i<=NF;i++) if ($i=="hit") print $(i+1)}' "$T/$label.gdb"); args=$(awk '/^2 /{f=1} f && /already hit/ {for(i=1;i<=NF;i++) if ($i=="hit") print $(i+1); exit}' "$T/$label.gdb")

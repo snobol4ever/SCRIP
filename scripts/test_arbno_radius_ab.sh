@@ -18,8 +18,8 @@ while read -r p; do
     [ -n "$p" ] || continue
     f="$CORPUS/$p"; b=$(echo "$p" | tr '/' '_')
     "$SBL" $(sbl_lang_flags) "$f" < /dev/null > "$W/$b.ora" 2>/dev/null; orc=$?
-    SCRIP_ARBNO_RBP=1 timeout 20 "$ROOT/scrip" --run "$f" < /dev/null > "$W/$b.on" 2>/dev/null; onrc=$?
-    SCRIP_ARBNO_RBP=0 timeout 20 "$ROOT/scrip" --run "$f" < /dev/null > "$W/$b.off" 2>/dev/null; offrc=$?
+    SCRIP_ARBNO_RBP=1 timeout -k 5 20 "$ROOT/scrip" --run "$f" < /dev/null > "$W/$b.on" 2>/dev/null; onrc=$?
+    SCRIP_ARBNO_RBP=0 timeout -k 5 20 "$ROOT/scrip" --run "$f" < /dev/null > "$W/$b.off" 2>/dev/null; offrc=$?
     von=FAIL; voff=FAIL
     [ $onrc  -eq $orc ] && cmp -s "$W/$b.ora" "$W/$b.on"  && von=PASS
     [ $offrc -eq $orc ] && cmp -s "$W/$b.ora" "$W/$b.off" && voff=PASS

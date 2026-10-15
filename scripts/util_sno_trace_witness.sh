@@ -24,26 +24,26 @@ if [ "${1:-}" = "--expect-error" ]; then mode=error; errno="${2:?--expect-error 
 [ -f "$w" ] || { echo "REFUSED rc=2: no witness $w"; exit 2; }
 [ -x ./scrip ] && [ -f out/libscrip_rt.so ] || { echo "REFUSED rc=2: build first (make) -- no ./scrip or out/libscrip_rt.so"; exit 2; }
 O=$(sbl_correctness_bin) || { echo "REFUSED rc=2: no SPITBOL correctness oracle"; exit 2; }
-ref=$(timeout 8s "$O" -bf "$w" </dev/null 2>&1)
+ref=$(timeout -k 5 8s "$O" -bf "$w" </dev/null 2>&1)
 if [ "$mode" != error ] && printf '%s\n' "$ref" | grep -q 'ERROR 199 -- trace second argument'; then
   O2=$(sbl_clean_bin) || { echo "REFUSED rc=2: $O refuses TRACE types (ERROR 199) and no stock oracle is present"; exit 2; }
   echo "NOTE: $O still refuses a GOOD TRACE type with ERROR 199 -- it looks like the pre-2026-09-05T15:34Z binary (fixed md5 bc694a0cc699f91d06ff7fde01732000); ref cut from the stock oracle $O2 instead. Re-run once the swapped oracle is in place; the two lineages agreed byte-for-byte on all six exact-mode trace witnesses when hq_P checked at the swap."
-  O="$O2"; ref=$(timeout 8s "$O" -bf "$w" </dev/null 2>&1)
+  O="$O2"; ref=$(timeout -k 5 8s "$O" -bf "$w" </dev/null 2>&1)
 fi
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 m4build() { ./scrip --compile -o "$T/w.s" "$w" </dev/null >/dev/null 2>&1 && as -o "$T/w.o" "$T/w.s" 2>/dev/null && gcc -o "$T/w.bin" "$T/w.o" out/libscrip_rt.so -Wl,-rpath,"$PWD/out" 2>/dev/null; }
 rc=0
 if [ "$mode" = error ]; then
   printf '%s\n' "$ref" | grep -qiE "error 0*$errno([^0-9]|$)" || { echo "REFUSED rc=2: oracle $O did not print ERROR $errno on $w:"; printf '%s\n' "$ref" | head -8; exit 2; }
-  got=$(timeout 8s ./scrip "$w" </dev/null 2>&1); if printf '%s\n' "$got" | grep -qiE "error 0*$errno([^0-9]|$)"; then echo "PASS m3 (ERROR $errno)"; else echo "FAIL m3: no ERROR $errno; got: $(printf '%s' "$got" | head -3 | tr '\n' '|')"; rc=1; fi
-  if m4build; then got=$(timeout 8s "$T/w.bin" </dev/null 2>&1); if printf '%s\n' "$got" | grep -qiE "error 0*$errno([^0-9]|$)"; then echo "PASS m4 (ERROR $errno)"; else echo "FAIL m4: no ERROR $errno; got: $(printf '%s' "$got" | head -3 | tr '\n' '|')"; rc=1; fi
+  got=$(timeout -k 5 8s ./scrip "$w" </dev/null 2>&1); if printf '%s\n' "$got" | grep -qiE "error 0*$errno([^0-9]|$)"; then echo "PASS m3 (ERROR $errno)"; else echo "FAIL m3: no ERROR $errno; got: $(printf '%s' "$got" | head -3 | tr '\n' '|')"; rc=1; fi
+  if m4build; then got=$(timeout -k 5 8s "$T/w.bin" </dev/null 2>&1); if printf '%s\n' "$got" | grep -qiE "error 0*$errno([^0-9]|$)"; then echo "PASS m4 (ERROR $errno)"; else echo "FAIL m4: no ERROR $errno; got: $(printf '%s' "$got" | head -3 | tr '\n' '|')"; rc=1; fi
   else echo "FAIL m4: compile/assemble/link failed"; rc=1; fi
 else
   printf '%s\n' "$ref" | grep -qF -- "$must" || { echo "REFUSED rc=2: oracle $O did not print [$must] on $w -- re-measure before trusting this witness:"; printf '%s\n' "$ref" | head -12; exit 2; }
   printf '%s\n' "$ref" > "$T/ref"
-  got=$(timeout 8s ./scrip "$w" </dev/null 2>&1); printf '%s\n' "$got" > "$T/m3"
+  got=$(timeout -k 5 8s ./scrip "$w" </dev/null 2>&1); printf '%s\n' "$got" > "$T/m3"
   if cmp -s "$T/ref" "$T/m3"; then echo "PASS m3"; else echo "FAIL m3 ($w vs $O -bf; < oracle, > scrip):"; diff "$T/ref" "$T/m3" | head -24; rc=1; fi
-  if m4build; then got=$(timeout 8s "$T/w.bin" </dev/null 2>&1); printf '%s\n' "$got" > "$T/m4"
+  if m4build; then got=$(timeout -k 5 8s "$T/w.bin" </dev/null 2>&1); printf '%s\n' "$got" > "$T/m4"
     if cmp -s "$T/ref" "$T/m4"; then echo "PASS m4"; else echo "FAIL m4 ($w vs $O -bf; < oracle, > scrip):"; diff "$T/ref" "$T/m4" | head -24; rc=1; fi
   else echo "FAIL m4: compile/assemble/link failed"; rc=1; fi
 fi

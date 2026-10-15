@@ -110,7 +110,7 @@ echo "POPULATION (declared): $(printf '%s\n' $POP | wc -w) witness(es) NAMED abo
 run_leg() { # $1 witness path, $2 knob value ("" or 1)
     ( if [ -n "$2" ]; then k=1; else k=0; fi
       cap_run env SCRIP_GC_NO_SPINE_CELL="$k" SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS=3 \
-        setarch -R timeout 60s "$SCRIP" "$1" 2>&1; echo "rc=$?" )
+        setarch -R timeout -k 5 60s "$SCRIP" "$1" 2>&1; echo "rc=$?" )
 }
 
 # (a) THE CONTROL ARM.  A difference between two legs says nothing unless the A leg is RIGHT.

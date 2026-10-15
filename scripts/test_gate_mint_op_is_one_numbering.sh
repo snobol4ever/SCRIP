@@ -106,7 +106,7 @@ else echo "  RED  ARM 5: an rtx asm mint folds a provenance id into its tag imme
 # would mismatch its golden. This is the only arm here that runs code; it needs out/libscrip_rt.so.
 N=$((N+1))
 if [ -f "${RT_DIR:-$ROOT/out}/libscrip_rt.so" ]; then
-    out="$(timeout 180 bash "$HERE/test_rtx_unit.sh" 2>&1 || true)"
+    out="$(timeout -k 5 180 bash "$HERE/test_rtx_unit.sh" 2>&1 || true)"
     case "$out" in
         *"RTX UNIT: ALL PASS"*) PASS=$((PASS+1)) ;;
         *) echo "  RED  ARM 6: the RTX differential battery does not pass, so this byte is not proven in the binary:"; printf '%s\n' "$out" | tail -6; FAIL=$((FAIL+1)) ;;

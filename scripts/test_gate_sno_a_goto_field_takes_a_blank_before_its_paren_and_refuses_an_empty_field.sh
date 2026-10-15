@@ -34,11 +34,11 @@ trap 'rm -rf "$D"' EXIT
 RT="$B/out"; RC=0; n=0
 words() { grep -o 'ERROR [0-9]*\|error [0-9]*\|trapped [0-9]*\|at L1\|at L2\|fell\|in C\|compiled CODE\|before\|ran\|stno [0-9]*' | sed 's/^error /ERROR /' | awk '!seen[$0]++' | tr '\n' '|'; }
 m4run() { "$B/scrip" --compile -o "$D/$1.s" "$D/$1.sno" < /dev/null > "$D/$1.c" 2>&1 && gcc -no-pie -o "$D/$1.bin" "$D/$1.s" -L "$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2> /dev/null \
-          && (cd "$D" && timeout 10 "./$1.bin" < /dev/null 2>&1) || cat "$D/$1.c"; }
+          && (cd "$D" && timeout -k 5 10 "./$1.bin" < /dev/null 2>&1) || cat "$D/$1.c"; }
 arm() {
-    n=$((n + 1)); local w; w=$(cd "$D" && timeout 10 "$SBL" -bf "$1.sno" < /dev/null 2>&1 | words)
+    n=$((n + 1)); local w; w=$(cd "$D" && timeout -k 5 10 "$SBL" -bf "$1.sno" < /dev/null 2>&1 | words)
     [ -n "$w" ] || refuse "sbl printed none of the arm's words for $2"
-    local g3 g4; g3=$(cd "$D" && timeout 10 "$B/scrip" ${3:-} "$1.sno" < /dev/null 2>&1 | words); [ -z "${3:-}" ] && g4=$(m4run "$1" | words) || g4="$g3"
+    local g3 g4; g3=$(cd "$D" && timeout -k 5 10 "$B/scrip" ${3:-} "$1.sno" < /dev/null 2>&1 | words); [ -z "${3:-}" ] && g4=$(m4run "$1" | words) || g4="$g3"
     if [ "$w" = "$g3" ] && [ "$w" = "$g4" ]; then echo "  ok    $2 -- $w"; else RC=1; echo "  RED   $2 -- sbl [$w] m3 [$g3] m4 [$g4]"; fi
 }
 tail_lines="L1      OUTPUT = 'at L1'  :(END)\nL2      OUTPUT = 'at L2'  :(END)\nEND\n"

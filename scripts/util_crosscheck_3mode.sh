@@ -23,7 +23,7 @@ PASS=0; FAIL=0
 
 run_mode() {
     local mode="$1" label="$2"
-    timeout "$TIMEOUT" "$SCRIP" "$mode" "$FILE" < /dev/null 2>/dev/null
+    timeout -k 5 "$TIMEOUT" "$SCRIP" "$mode" "$FILE" < /dev/null 2>/dev/null
 }
 
 IR=$(run_mode --run  "--run")

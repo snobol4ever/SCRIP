@@ -75,12 +75,12 @@ for ref in "${REFS[@]}"; do
             # a shipped PROGRAM is never a link target (the runner's LIBPATH rule, the coo's 2026-09-28 ruling): general/io.icn is an
             # Arizona test program, and cfunc.icn's `link io` means the installed IPL io -- translating the program made a second main
             grep -qE '^[[:space:]]*procedure[[:space:]]+main[[:space:]]*\(' "$dir/$l.icn" && continue
-            (cd "$dir" && timeout "$TIMEOUT" "$ICONT" -s -c "$l.icn" >/dev/null 2>&1); made="$made $dir/$l"; nxt="$nxt $(link_names "$dir/$l.icn")"
+            (cd "$dir" && timeout -k 5 "$TIMEOUT" "$ICONT" -s -c "$l.icn" >/dev/null 2>&1); made="$made $dir/$l"; nxt="$nxt $(link_names "$dir/$l.icn")"
         done
         todo="$nxt"
     done
     # ARM 1 -- icont accepts our copy. -s silences informational chatter; rc is the verdict.
-    cerr="$(cd "$dir" && timeout "$TIMEOUT" "$ICONT" -s "$base.icn" 2>&1)"; crc=$?
+    cerr="$(cd "$dir" && timeout -k 5 "$TIMEOUT" "$ICONT" -s "$base.icn" 2>&1)"; crc=$?
     if [ "$crc" -ne 0 ]; then
         n_refused=$((n_refused+1))
         REFUSED+=("$base: $(printf '%s' "$cerr" | grep -E 'invalid|missing|too many|extraneous|undeclared' | head -1)")
@@ -99,7 +99,7 @@ for ref in "${REFS[@]}"; do
     if [ "$base" = keyboard ] && [ "${dir##*/}" = special ]; then
         got="$(cd "$dir" && timeout $((TIMEOUT+5)) python3 "$HERE/icn_keyboard_pty_drive.py" "$dir" "$TIMEOUT" -- "$ICONX" "$base" 2>&1)"; exp="$(cat "$ref")"
     else
-        got="$(cd "$dir" && timeout "$TIMEOUT" "$ICONX" "$base" < "$stdin_src" 2>&1)"; exp="$(cat "$ref")"
+        got="$(cd "$dir" && timeout -k 5 "$TIMEOUT" "$ICONX" "$base" < "$stdin_src" 2>&1)"; exp="$(cat "$ref")"
     fi
     # a CEO-409 mask beside the ref (env: the clock, the machine, the user) is applied to BOTH streams through the runner's own shim
     if [ -f "$dir/$base.mask" ]; then

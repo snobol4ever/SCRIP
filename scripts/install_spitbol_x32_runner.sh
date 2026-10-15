@@ -126,7 +126,7 @@ TMP=$(mktemp /tmp/x32_verify.XXXXXX.sno)
 trap "rm -f $TMP" EXIT
 printf '\toutput = %ca%c\nend\n' "'" "'" > "$TMP"
 
-if OUT=$(timeout 8 qemu-i386-static "$SBL32" -b "$TMP" 2>&1) && [ "$OUT" = "a" ]; then
+if OUT=$(timeout -k 5 8 qemu-i386-static "$SBL32" -b "$TMP" 2>&1) && [ "$OUT" = "a" ]; then
     echo "PASS sbl32 installed at $SBL32 (output=$OUT)"
 else
     echo "FAIL sbl32 verification failed"

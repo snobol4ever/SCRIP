@@ -58,7 +58,7 @@ for w in w1 w2 w3 w4 w5 w6 w7 w8; do
 done
 run() {
     local w="$1" mode="$2" tag="$3"; shift 3
-    if [ "$mode" = m3 ]; then ( cd "$W" && env "$@" timeout 300 "$ROOT/scrip" "$W/$w.pl" < /dev/null > "$W/$tag.raw" 2> "$W/$tag.err" ); else ( cd "$W" && env "$@" timeout 300 "$W/$w.bin" < /dev/null > "$W/$tag.raw" 2> "$W/$tag.err" ); fi
+    if [ "$mode" = m3 ]; then ( cd "$W" && env "$@" timeout -k 5 300 "$ROOT/scrip" "$W/$w.pl" < /dev/null > "$W/$tag.raw" 2> "$W/$tag.err" ); else ( cd "$W" && env "$@" timeout -k 5 300 "$W/$w.bin" < /dev/null > "$W/$tag.raw" 2> "$W/$tag.err" ); fi
     echo $? > "$W/$tag.rc"
     grep -v '^\[GC-' "$W/$tag.raw" > "$W/$tag.out"
 }

@@ -50,10 +50,10 @@ main2 :- t(atom, current_input(unlikely)), t(int, current_input(1)), t(comp, cur
   t(pair_in_no_in, (open_null_stream(S4), stream_pair(P4, S4, user_input))).
 PL
 norm() { sed -E "s/<stream>\\(0x[0-9a-f]+\\)/<stream>/g; s/'\\\$stream'\\([0-9]+\\)/<stream>/g; s/_G?[0-9]+/_/g" | grep .; }
-want="$(cd "$D" && timeout 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | norm)"
+want="$(cd "$D" && timeout -k 5 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | norm)"
 [ "$(printf '%s\n' "$want" | grep -c .)" = 28 ] || refuse "swipl did not answer the twenty-eight lines: [$(printf '%s\n' "$want" | grep -c .)]"
 m4ok=1   # a program SCRIP refuses to compile is this gate's red, never a refusal
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 && [ -s w.s ] \
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 && [ -s w.s ] \
   && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || m4ok=0
 red=0
 arm() {
@@ -63,7 +63,7 @@ arm() {
     if [ "$got" = "$want" ]; then echo "  $label GREEN: 28 of 28 lines as swipl"
     else echo "  $label RED: $n of 28 swipl lines missing or different"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
 }
-arm m3 timeout 30 "$B/scrip" --run w.pl < /dev/null
-if [ "$m4ok" = 1 ]; then arm m4 timeout 30 ./w.bin < /dev/null; else echo "  m4 RED: the program did not compile or link in mode 4"; red=1; fi
+arm m3 timeout -k 5 30 "$B/scrip" --run w.pl < /dev/null
+if [ "$m4ok" = 1 ]; then arm m4 timeout -k 5 30 ./w.bin < /dev/null; else echo "  m4 RED: the program did not compile or link in mode 4"; red=1; fi
 [ "$red" = 0 ] && echo "PASS $G"
 exit "$red"

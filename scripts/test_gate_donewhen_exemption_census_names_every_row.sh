@@ -48,9 +48,9 @@ if [ "$r6" = 2 ]; then echo "⛔ REFUSED(2): the live postoffice could not be re
 T7="$T/a7"; mkdir -p "$T7/tasks"
 mk7() { printf '# TASK %s\nGOAL: fixture\nDONE-WHEN: %s\n## NEXT\nx\n' "$1" "$2" > "$T7/tasks/$1.task.md"; printf '2\t%s\thq_icon\tFREE\n' "$1" >> "$T7/QUEUE.tsv"; }
 : > "$T7/QUEUE.tsv"
-mk7 smoke-ipl 'cd "$S4E_HOME/SCRIP" && S4E_AREA_SMOKE_ENTRIES="procs/hostname gprogs/when" timeout 600 bash scripts/test_icon_ipl_suite.sh'
+mk7 smoke-ipl 'cd "$S4E_HOME/SCRIP" && S4E_AREA_SMOKE_ENTRIES="procs/hostname gprogs/when" timeout -k 5 600 bash scripts/test_icon_ipl_suite.sh'
 mk7 smoke-exported 'cd "$S4E_HOME/SCRIP" && export S4E_AREA_SMOKE_ENTRIES=agt_driver; bash scripts/test_snobol4_gimpel_suite.sh'
-mk7 plain-ipl 'cd "$S4E_HOME/SCRIP" && timeout 600 bash scripts/test_icon_ipl_suite.sh'
+mk7 plain-ipl 'cd "$S4E_HOME/SCRIP" && timeout -k 5 600 bash scripts/test_icon_ipl_suite.sh'
 mk7 smoke-nosmoke-runner 'cd "$S4E_HOME/SCRIP" && S4E_AREA_SMOKE_ENTRIES="x" bash scripts/test_icon_jcon_suite.sh'
 mk7 smoke-with-corpus 'cd "$S4E_HOME/SCRIP" && S4E_AREA_SMOKE_ENTRIES="agt_driver" bash scripts/test_snobol4_gimpel_suite.sh --corpus ../corpus'
 mk7 smoke-beside-board 'cd "$S4E_HOME/SCRIP" && S4E_AREA_SMOKE_ENTRIES="procs/hostname" bash scripts/test_icon_ipl_suite.sh && bash scripts/test_icon_arizona_suite.sh'
@@ -61,7 +61,7 @@ n7=$(grep -cE '^  BOARD +hq_icon .*(plain-ipl|smoke-nosmoke-runner|smoke-with-co
   || ck no "(7) rc=$rc7 named-BOARD=$n7 :: $(tr '\n' '|' <<<"$out7" | cut -c1-400)"
 T9="$T/a9"; mkdir -p "$T9/tasks"; : > "$T9/QUEUE.tsv"
 mk9() { printf '# TASK %s\nGOAL: fixture\nDONE-WHEN: %s\n## NEXT\nx\n' "$1" "$2" > "$T9/tasks/$1.task.md"; printf '2\t%s\thq_prolog\tFREE\n' "$1" >> "$T9/QUEUE.tsv"; }
-mk9 onefile-swi 'cd "$S4E_HOME/SCRIP" && out=$(timeout 1200 bash scripts/test_prolog_swi_suite.sh --file core/test_arith.pl --modes m3,m4 2>&1); printf "%s" "$out" | grep -q "^SWI_BOARD"'
+mk9 onefile-swi 'cd "$S4E_HOME/SCRIP" && out=$(timeout -k 5 1200 bash scripts/test_prolog_swi_suite.sh --file core/test_arith.pl --modes m3,m4 2>&1); printf "%s" "$out" | grep -q "^SWI_BOARD"'
 mk9 swi-without-file 'cd "$S4E_HOME/SCRIP" && bash scripts/test_prolog_swi_suite.sh --modes m3'
 mk9 file-on-a-runner-not-listed 'cd "$S4E_HOME/SCRIP" && bash scripts/test_icon_jcon_suite.sh --file x.icn'
 mk9 swi-file-with-corpus 'cd "$S4E_HOME/SCRIP" && bash scripts/test_prolog_swi_suite.sh --file core/test_arith.pl --corpus ../corpus'

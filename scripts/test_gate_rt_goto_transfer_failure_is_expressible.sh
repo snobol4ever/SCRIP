@@ -33,7 +33,7 @@ W="$(mktemp -d)" || exit 2
 trap 'rm -rf "$W"' EXIT
 rc=0
 mk() { printf '%b' "$2" > "$W/$1.sno"; }
-run() { ( cd "$W" && timeout 20s "$S" "$1.sno" </dev/null 2>&1 ); }
+run() { ( cd "$W" && timeout -k 5 20s "$S" "$1.sno" </dev/null 2>&1 ); }
 face() {
     local name="$1" want="$2" got
     got="$(run "$name")"
@@ -58,9 +58,9 @@ AFTER"
 m4build() {
     local n="$1"
     rm -f "$W/$n.s" "$W/$n.bin"
-    ( cd "$W" && timeout 30s "$S" --compile -o "$n.s" "$n.sno" </dev/null >/dev/null 2>&1 ) || return 1
+    ( cd "$W" && timeout -k 5 30s "$S" --compile -o "$n.s" "$n.sno" </dev/null >/dev/null 2>&1 ) || return 1
     gcc -m64 -no-pie "$W/$n.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$W/$n.bin" 2>/dev/null || return 1
-    ( cd "$W" && timeout 20s "./$n.bin" </dev/null 2>&1 )
+    ( cd "$W" && timeout -k 5 20s "./$n.bin" </dev/null 2>&1 )
 }
 _m4="$(m4build setexit_undef_survives)" || { echo "⛔ GATE REFUSES: m4 build failed -- a gate that cannot BUILD proves nothing about m4"; exit 2; }
 [ "$_m4" = "FAILEXIT

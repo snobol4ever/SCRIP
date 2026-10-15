@@ -39,13 +39,13 @@ RC=0; N=0
 for b in iso7185prt1709 iso7185prt1710 iso7185prt1712 iso7185prt1714 iso7185prt1715 iso7185prt1716 iso7185prt1740 iso7185prt1757; do
   f="$SRC/$b.pas"; [ -f "$f" ] || { echo "⛔ GATE REFUSE(2) [$G]: missing vendored witness $f"; exit 2; }
   N=$((N+1)); bad=""
-  o3=$( cd "$T" && timeout 10s "$SCRIP" "$f" </dev/null 2>&1 ); rc3=$?
+  o3=$( cd "$T" && timeout -k 5 10s "$SCRIP" "$f" </dev/null 2>&1 ); rc3=$?
   if [ -n "${FAIL_ONCE:-}" ] && [ "$b" = iso7185prt1709 ]; then rc3=0; o3=""; fi
   { [ "$rc3" -ne 0 ] && [ "$rc3" -lt 124 ] && [ -n "$o3" ]; } || bad="m3 (rc=$rc3, ${#o3} bytes of diagnostic)"
-  o4=$( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/w.s" "$f" </dev/null 2>&1 ); rc4=$?
+  o4=$( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/w.s" "$f" </dev/null 2>&1 ); rc4=$?
   if [ "$rc4" = 0 ]; then
     if ( cd "$T" && cc -m64 -no-pie w.s -o w -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ); then
-      o4=$( cd "$T" && timeout 20s ./w </dev/null 2>&1 ); rc4=$?
+      o4=$( cd "$T" && timeout -k 5 20s ./w </dev/null 2>&1 ); rc4=$?
     else echo "⛔ GATE REFUSE(2) [$G]: $b compiled but would not link -- cannot grade the m4 arm"; exit 2; fi
   fi
   { [ "$rc4" -ne 0 ] && [ "$rc4" -lt 124 ] && [ -n "$o4" ]; } || bad="$bad m4 (rc=$rc4, ${#o4} bytes of diagnostic)"
@@ -66,7 +66,7 @@ end.
 PAS
 ( cd "$T" && "$FPC" -Miso -v0 ok.pas >/dev/null 2>&1 && ./ok ) > "$T/ok.ref" 2>&1
 [ -s "$T/ok.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no control-arm output"; exit 2; }
-ok3=$( cd "$T" && timeout 20s "$SCRIP" --run ok.pas </dev/null 2>&1 )
+ok3=$( cd "$T" && timeout -k 5 20s "$SCRIP" --run ok.pas </dev/null 2>&1 )
 if [ "$ok3" = "$(cat "$T/ok.ref")" ]; then echo "  control arm: a legal rewrite/write/reset/read round trip still runs, byte-identical to fpc -Miso"
 else echo "  ⛔ control arm FAILED -- the mode checks refuse or miscompile a LEGAL file round trip"; echo "      want: $(cat "$T/ok.ref")"; echo "      got : $ok3"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $N file mode/definedness violations refused with a NAMED diagnostic in both modes, and a legal round trip is untouched"

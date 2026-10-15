@@ -29,7 +29,7 @@ if [ "$KIND" = demo ]; then
   ( cd "$T" && "$ICONT" -s -o "$T/jtran.oracle" $MODS ) > "$T/icont.log" 2>&1 || refuse "icont did not build the oracle"
   ( cd "$D" && "$ROOT/scrip" --compile -o "$T/jtran.s" jtran.icn < /dev/null ) > "$T/m4c.log" 2>&1 && gcc "$T/jtran.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/jtran.m4" 2>> "$T/m4c.log" || refuse "jtran did not build in mode 4"
   cp "$PKG/gen_bc.icn" "$T/gen_bc.icn"; MODE="${BAR_MODE:-m4}"
-  best() { local tag=$1 dir=$2; shift 2; local b=999999999999 i e; for ((i=0;i<${BAR_REPS:-5};i++)); do ( cd "$dir" && "$WRAP" timeout 600 "$@" > "$T/$tag.out" 2> "$T/$tag.err" ); e=$(grep -oE 'elapsed_ns=[0-9]+' "$T/$tag.err" | tail -1 | cut -d= -f2); [ -n "$e" ] && [ "$e" -lt "$b" ] && b=$e; done; echo "$b"; }
+  best() { local tag=$1 dir=$2; shift 2; local b=999999999999 i e; for ((i=0;i<${BAR_REPS:-5};i++)); do ( cd "$dir" && "$WRAP" timeout -k 5 600 "$@" > "$T/$tag.out" 2> "$T/$tag.err" ); e=$(grep -oE 'elapsed_ns=[0-9]+' "$T/$tag.err" | tail -1 | cut -d= -f2); [ -n "$e" ] && [ "$e" -lt "$b" ] && b=$e; done; echo "$b"; }
   so=$(best oracle "$T" "$T/jtran.oracle" preproc "$T/gen_bc.icn" : stdout)
   if [ "$MODE" = m3 ]; then sm=$(best m3 "$D" "$ROOT/scrip" jtran.icn -- preproc "$T/gen_bc.icn" : stdout); cmp -s "$T/oracle.out" "$T/m3.out" || refuse "jtran preproc: mode-3 output differs from the oracle's"
   else sm=$(best m4 "$T" "$T/jtran.m4" preproc "$T/gen_bc.icn" : stdout); cmp -s "$T/oracle.out" "$T/m4.out" || refuse "jtran preproc: mode-4 output differs from the oracle's"; fi

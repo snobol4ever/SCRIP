@@ -33,13 +33,13 @@ printf '%s\n' "        id = SPAN(&LCASE)" "        'struct x' ? (id \$ tx 'q' | 
 printf '%s\n' 'program g;' 'var total: integer;' 'begin' '  total := 1;' '  total := total + 1;' '  writeln(total)' 'end.' > "$T/global.pas"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
-mon() { ( cd "$T" && timeout 300 bash "$HERE/monitor_run.sh" "$1" --oracle > "$1.mon" 2>&1 ); local r=$?
+mon() { ( cd "$T" && timeout -k 5 300 bash "$HERE/monitor_run.sh" "$1" --oracle > "$1.mon" 2>&1 ); local r=$?
     [ "$r" = 2 ] && refuse "the monitor could not measure $1: $(grep -m1 -E 'REFUSE|DIVERGE' "$T/$1.mon" | cut -c1-160)"
     local v; v=$(grep -o 'AGREE=[0-9]* DIVERGE=[0-9]* UNGRADED=[0-9]*' "$T/$1.mon" | tail -1)
     [ "$r" = 0 ] && printf '%s' "$v" | grep -q 'DIVERGE=0 ' && echo ok || echo "rc=$r [$v] $(grep -m1 '^| \*\*>' "$T/$1.mon" | cut -c1-140)"; }
 arm "SNOBOL4: one statement assigns tx = 'struct' three times" "$(mon twice.sno)"
 arm "CONTROL Pascal against fpx: a program-level variable stored twice" "$(mon global.pas)"
-c=$( (cd "$T" && timeout 60 bash "$HERE/monitor_run.sh" global.pas --trace 2>&1) | grep -c 'total = ')
+c=$( (cd "$T" && timeout -k 5 60 bash "$HERE/monitor_run.sh" global.pas --trace 2>&1) | grep -c 'total = ')
 arm "CONTROL Pascal --trace: two stores, two reports" "$([ "$c" = 2 ] && echo ok || echo "got $c 'total =' reports, want 2")"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }
 echo "FAIL [$NAME]"; exit 1

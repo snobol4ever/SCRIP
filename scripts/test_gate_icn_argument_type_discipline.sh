@@ -109,10 +109,10 @@ cat > "$T/w3.want" <<'WANT'
 WANT
 fail=0
 for w in w1 w2 w3; do
-  ( cd "$T" && timeout 60 "$SCRIP" "$w.icn" </dev/null > "$w.m3" 2>&1 ); rc3=$?
+  ( cd "$T" && timeout -k 5 60 "$SCRIP" "$w.icn" </dev/null > "$w.m3" 2>&1 ); rc3=$?
   if [ "$rc3" = 0 ] && cmp -s "$T/$w.m3" "$T/$w.want"; then echo "  PASS  m3 $w"; else echo "  FAIL  m3 $w rc=$rc3"; diff "$T/$w.want" "$T/$w.m3" | head -8 | sed 's/^/        /'; fail=1; fi
   if ( cd "$T" && "$SCRIP" --compile "$w.icn" > "$w.s" 2>/dev/null && gcc -c "$w.s" -o "$w.o" 2>/dev/null && gcc "$w.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$w.bin" 2>/dev/null ); then
-    ( cd "$T" && timeout 60 "./$w.bin" </dev/null > "$w.m4" 2>&1 ); rc4=$?
+    ( cd "$T" && timeout -k 5 60 "./$w.bin" </dev/null > "$w.m4" 2>&1 ); rc4=$?
     if [ "$rc4" = 0 ] && cmp -s "$T/$w.m4" "$T/$w.want"; then echo "  PASS  m4 $w"; else echo "  FAIL  m4 $w rc=$rc4"; diff "$T/$w.want" "$T/$w.m4" | head -8 | sed 's/^/        /'; fail=1; fi
   else echo "  FAIL  m4 $w: no binary"; fail=1; fi
 done
@@ -124,7 +124,7 @@ cat > "$T/s1.sno" <<'SNO'
 END
 SNO
 printf '0\n3\na5\n' > "$T/s1.want"
-( cd "$T" && timeout 60 "$SCRIP" s1.sno </dev/null > s1.out 2>&1 )
+( cd "$T" && timeout -k 5 60 "$SCRIP" s1.sno </dev/null > s1.out 2>&1 )
 if cmp -s "$T/s1.out" "$T/s1.want"; then echo "  PASS  snobol4 control arm: SIZE and concatenation keep their own discipline"; else echo "  FAIL  snobol4 control arm"; diff "$T/s1.want" "$T/s1.out" | head -6 | sed 's/^/        /'; fail=1; fi
 if [ "$fail" = 0 ]; then echo "✅ PASS: Icon's argument type discipline -- 24 refusals with icont's own codes (w3: the eight structure builtins, whose wants are cut from Arizona icont, not typed), 24 conversions still accepted, both modes, SNOBOL4 unaffected"; exit 0; fi
 echo "⛔ FAIL: an Icon operation coerces where iconx raises, or raises where iconx converts (see the FAIL rows)"; exit 1

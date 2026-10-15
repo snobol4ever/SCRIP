@@ -25,10 +25,10 @@ FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 run_mode() { local m="$1" p="$2"
-  if [ "$m" = m3 ]; then ( cd "$T" && timeout 20s "$SCRIP" --run "$p.pas" </dev/null >"$T/$p.$m.out" 2>"$T/$p.$m.err" ); return $?; fi
-  ( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>&1 ) || { echo "  ⛔ arm $p m4: did not compile"; return 99; }
+  if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 20s "$SCRIP" --run "$p.pas" </dev/null >"$T/$p.$m.out" 2>"$T/$p.$m.err" ); return $?; fi
+  ( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>&1 ) || { echo "  ⛔ arm $p m4: did not compile"; return 99; }
   ( cd "$T" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: arm $p compiled but would not link"; exit 2; }
-  ( cd "$T" && timeout 20s "./$p.m4" </dev/null >"$T/$p.$m.out" 2>"$T/$p.$m.err" ); return $?; }
+  ( cd "$T" && timeout -k 5 20s "./$p.m4" </dev/null >"$T/$p.$m.out" 2>"$T/$p.$m.err" ); return $?; }
 printf 'program nilrd(output);\nvar p: ^integer; b: integer;\nbegin\n  writeln(%s); p := nil; b := p^; writeln(%s, b)\nend.\n' "'before'" "'after '" > "$T/nilrd.pas"
 printf 'program undrd(output);\nvar p: ^integer; b: integer;\nbegin\n  writeln(%s); b := p^; writeln(%s, b)\nend.\n' "'before'" "'after '" > "$T/undrd.pas"
 printf 'program nilwr(output);\nvar p: ^integer;\nbegin\n  writeln(%s); p := nil; p^ := 7; writeln(%s)\nend.\n' "'before'" "'after'" > "$T/nilwr.pas"
@@ -51,7 +51,7 @@ end.
 PAS
 for p in nilrd undrd nilwr nilfld disprd ctl; do
   ( cd "$T" && "$FPC" -Miso -v0 -o"$p.fpc" $p.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile arm $p"; exit 2; }
-  ( cd "$T" && timeout 20s ./$p.fpc </dev/null >"$T/$p.want" 2>/dev/null ); echo $? > "$T/$p.frc"
+  ( cd "$T" && timeout -k 5 20s ./$p.fpc </dev/null >"$T/$p.want" 2>/dev/null ); echo $? > "$T/$p.frc"
 done
 if [ -n "${FAIL_ONCE:-}" ]; then echo "corrupted by FAIL_ONCE" >> "$T/ctl.want"; fi
 [ "$(cat "$T/disprd.frc")" = 0 ] && grep -q '^after' "$T/disprd.want" || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso no longer reads through a disposed pointer undetected -- re-cut arm disprd"; exit 2; }

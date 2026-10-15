@@ -44,7 +44,7 @@ for name in $progs; do
   [ -f "$CORPUS/$name.icn" ] && examined=$((examined+1))
 
   # mode-3
-  ( cd "$CORPUS" && timeout "$TMO" "$SCRIP" --run "$name.icn" "${ld[@]}" -- "${a[@]}" >"$WORK/$name.m3.out" 2>"$WORK/$name.m3.err" <"$sin"; echo $? >"$WORK/$name.m3.rc" )
+  ( cd "$CORPUS" && timeout -k 5 "$TMO" "$SCRIP" --run "$name.icn" "${ld[@]}" -- "${a[@]}" >"$WORK/$name.m3.out" 2>"$WORK/$name.m3.err" <"$sin"; echo $? >"$WORK/$name.m3.rc" )
   rc3=$(cat "$WORK/$name.m3.rc")
   if [ "$rc3" = 0 ] && [ -s "$WORK/$name.m3.out" ]; then s3="OK $(wc -l <"$WORK/$name.m3.out")L"; p3=$((p3+1))
   elif [ "$rc3" = 0 ]; then s3="EMPTY-OUT"
@@ -52,10 +52,10 @@ for name in $progs; do
   else s3="FAIL rc=$rc3: $(head -c40 "$WORK/$name.m3.err"|tr '\n' ' ')"; fi
 
   # mode-4
-  ( cd "$CORPUS" && timeout "$TMO" "$SCRIP" --compile --target=x86 "$name.icn" "${ld[@]}" >"$WORK/$name.s" 2>"$WORK/$name.m4c.err" )
+  ( cd "$CORPUS" && timeout -k 5 "$TMO" "$SCRIP" --compile --target=x86 "$name.icn" "${ld[@]}" >"$WORK/$name.s" 2>"$WORK/$name.m4c.err" )
   if [ -s "$WORK/$name.s" ] && ! grep -q '\[SMX\]' "$WORK/$name.m4c.err"; then
     if gcc -no-pie "$WORK/$name.s" -L"$RTDIR" -lscrip_rt -Wl,-rpath,"$RTDIR" -o "$WORK/$name.bin" 2>"$WORK/$name.m4l.err"; then
-      ( cd "$CORPUS" && timeout "$TMO" "$WORK/$name.bin" "${a[@]}" >"$WORK/$name.m4.out" 2>"$WORK/$name.m4.err" <"$sin"; echo $? >"$WORK/$name.m4.rc" )
+      ( cd "$CORPUS" && timeout -k 5 "$TMO" "$WORK/$name.bin" "${a[@]}" >"$WORK/$name.m4.out" 2>"$WORK/$name.m4.err" <"$sin"; echo $? >"$WORK/$name.m4.rc" )
       rc4=$(cat "$WORK/$name.m4.rc")
       if [ "$rc4" = 0 ] && [ -s "$WORK/$name.m4.out" ]; then s4="OK $(wc -l <"$WORK/$name.m4.out")L"; p4=$((p4+1))
       elif [ "$rc4" = 0 ]; then s4="EMPTY-OUT"

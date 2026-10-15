@@ -30,7 +30,7 @@ SW="$(declared_switches_beside "$B/parser_$L.sc")" || { echo "PARSER-SC ⛔ REFU
 # binary dies in emitted code once its dead trees pass ~2 GB (the 2026-09-30 witness, any collector window) -- a runtime defect rowed apart
 CHUNK="${CHUNK:-1}"; : > "$OUT/$L.sc.dump"; : > "$OUT/$L.sc.err"; rc=0; split -l "$CHUNK" -d -a 4 "$LIST" "$OUT/$L.chunk."
 for ck in "$OUT/$L.chunk."*; do
-    ( cd "$CORPUS" && PARSER_FILES="$ck" PARSER_TREE_HASH=0 SCRIP_DIAG=0 timeout 600 "$BIN" $SW < /dev/null >> "$OUT/$L.sc.dump" 2>> "$OUT/$L.sc.err" ); r=$?; [ "$r" -gt "$rc" ] && rc=$r
+    ( cd "$CORPUS" && PARSER_FILES="$ck" PARSER_TREE_HASH=0 SCRIP_DIAG=0 timeout -k 5 600 "$BIN" $SW < /dev/null >> "$OUT/$L.sc.dump" 2>> "$OUT/$L.sc.err" ); r=$?; [ "$r" -gt "$rc" ] && rc=$r
     # the tree gate's classes, per process: a signal is a CRASH, any other nonzero exit a refusal (with CHUNK=1 the process is the file)
     if [ "$r" -ge 128 ]; then echo "CRASH rc=$r" >> "$OUT/$L.sc.dump"; elif [ "$r" -ne 0 ]; then echo "Parse Error (rc=$r)" >> "$OUT/$L.sc.dump"; fi
     echo >> "$OUT/$L.sc.dump"

@@ -51,12 +51,12 @@ echo "=== FZ GATE -- LOCK 1: witnesses vs oracle .ref, DISARMED default, both mo
 for sno in "$FZ"/*.sno; do
     b=$(basename "$sno" .sno); ref="$FZ/$b.ref"
     [ -f "$ref" ] || { echo "  MISS   $b (no .ref)"; rc=1; continue; }
-    m3=$(SCRIP_FENCE0_WHACK=0 timeout 10s "$SCRIP" --run "$sno" < /dev/null 2>&1)
+    m3=$(SCRIP_FENCE0_WHACK=0 timeout -k 5 10s "$SCRIP" --run "$sno" < /dev/null 2>&1)
     ok3=FAIL; [ "$m3" = "$(cat "$ref")" ] && ok3=PASS
     m4=FAIL
-    if SCRIP_FENCE0_WHACK=0 timeout 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.s" 2>/dev/null \
+    if SCRIP_FENCE0_WHACK=0 timeout -k 5 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.s" 2>/dev/null \
        && gcc -no-pie -o "$WORK/$b.bin" "$WORK/$b.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" 2>/dev/null; then
-        out=$(timeout 20s "$WORK/$b.bin" < /dev/null 2>&1); [ "$out" = "$(cat "$ref")" ] && m4=PASS
+        out=$(timeout -k 5 20s "$WORK/$b.bin" < /dev/null 2>&1); [ "$out" = "$(cat "$ref")" ] && m4=PASS
     fi
     printf '  %-32s m3=%s m4=%s\n' "$b" "$ok3" "$m4"
     [ "$ok3" = PASS ] && [ "$m4" = PASS ] || rc=1
@@ -64,7 +64,7 @@ done
 echo "=== FZ GATE -- LOCK 2: no over-release (re-derived from emitted asm, ARMED) ==="
 for sno in "$FZ"/*.sno; do
     b=$(basename "$sno" .sno)
-    SCRIP_FENCE0_WHACK=1 timeout 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.armed.s" 2>/dev/null || { echo "  SKIP   $b (compile failed)"; continue; }
+    SCRIP_FENCE0_WHACK=1 timeout -k 5 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.armed.s" 2>/dev/null || { echo "  SKIP   $b (compile failed)"; continue; }
     python3 - "$WORK/$b.armed.s" "$b" <<'PY' || rc=1
 import re, sys
 path, name = sys.argv[1], sys.argv[2]
@@ -118,12 +118,12 @@ echo "=== FZ GATE -- LOCK 3: witnesses vs oracle .ref, ARMED, both modes (the FZ
 for sno in "$FZ"/*.sno; do
     b=$(basename "$sno" .sno); ref="$FZ/$b.ref"
     [ -f "$ref" ] || { echo "  MISS   $b (no .ref)"; rc=1; continue; }
-    m3=$(SCRIP_FENCE0_WHACK=1 timeout 10s "$SCRIP" --run "$sno" < /dev/null 2>&1)
+    m3=$(SCRIP_FENCE0_WHACK=1 timeout -k 5 10s "$SCRIP" --run "$sno" < /dev/null 2>&1)
     ok3=FAIL; [ "$m3" = "$(cat "$ref")" ] && ok3=PASS
     m4=FAIL
-    if SCRIP_FENCE0_WHACK=1 timeout 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.a.s" 2>/dev/null \
+    if SCRIP_FENCE0_WHACK=1 timeout -k 5 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.a.s" 2>/dev/null \
        && gcc -no-pie -o "$WORK/$b.a.bin" "$WORK/$b.a.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" 2>/dev/null; then
-        out=$(timeout 20s "$WORK/$b.a.bin" < /dev/null 2>&1); [ "$out" = "$(cat "$ref")" ] && m4=PASS
+        out=$(timeout -k 5 20s "$WORK/$b.a.bin" < /dev/null 2>&1); [ "$out" = "$(cat "$ref")" ] && m4=PASS
     fi
     printf '  %-32s m3=%s m4=%s\n' "$b" "$ok3" "$m4"
     [ "$ok3" = PASS ] && [ "$m4" = PASS ] || rc=1
@@ -131,8 +131,8 @@ done
 echo "=== FZ GATE -- LOCK 4: the cut is visible to the depth planner (armed offsets REBASE) ==="
 for sno in "$FZ"/*.sno; do
     b=$(basename "$sno" .sno)
-    SCRIP_FENCE0_WHACK=0 timeout 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.d0.s" 2>/dev/null || continue
-    SCRIP_FENCE0_WHACK=1 timeout 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.a0.s" 2>/dev/null || continue
+    SCRIP_FENCE0_WHACK=0 timeout -k 5 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.d0.s" 2>/dev/null || continue
+    SCRIP_FENCE0_WHACK=1 timeout -k 5 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.a0.s" 2>/dev/null || continue
     python3 - "$WORK/$b.d0.s" "$WORK/$b.a0.s" "$b" <<'PY' || rc=1
 import re, sys
 dis, arm, name = open(sys.argv[1]).read().split("\n"), open(sys.argv[2]).read().split("\n"), sys.argv[3]
@@ -153,8 +153,8 @@ echo "=== FZ GATE -- LOCK 5: the OTHER depth spelling (op_zpat road, SCRIP_MATCH
 for sno in "$FZ"/*.sno; do
     b=$(basename "$sno" .sno); ref="$FZ/$b.ref"
     [ -f "$ref" ] || continue
-    got=$(SCRIP_MATCH_RBP=0 SCRIP_FENCE0_WHACK=1 timeout 10s "$SCRIP" --run "$sno" < /dev/null 2>&1)
-    base=$(SCRIP_MATCH_RBP=0 SCRIP_FENCE0_WHACK=0 timeout 10s "$SCRIP" --run "$sno" < /dev/null 2>&1)
+    got=$(SCRIP_MATCH_RBP=0 SCRIP_FENCE0_WHACK=1 timeout -k 5 10s "$SCRIP" --run "$sno" < /dev/null 2>&1)
+    base=$(SCRIP_MATCH_RBP=0 SCRIP_FENCE0_WHACK=0 timeout -k 5 10s "$SCRIP" --run "$sno" < /dev/null 2>&1)
     if [ "$base" != "$(cat "$ref")" ]; then printf '  %-32s SKIP (this road is red DISARMED too -- not an FZ fact)\n' "$b"; continue; fi
     if [ "$got" = "$(cat "$ref")" ]; then printf '  %-32s PASS\n' "$b"; else printf '  %-32s FAIL (armed diverges on the non-rbp road)\n' "$b"; rc=1; fi
 done

@@ -89,10 +89,10 @@ done
 # ⛔⭐ THE ISLAND-OFF CONTROL, in m3 because SCRIP_M3_GVA is an m3 knob, on a source with NO TRACE: this is the
 # arm that isolates the slim path from anything to do with tracing. It refuses rc=2 unless the island really is
 # gone under the knob and really is present without it -- an absence arm that cannot see presence proves nothing.
-want="$(timeout 8s "$O" -bf "$T/nested.sno" </dev/null 2>&1)" || true
+want="$(timeout -k 5 8s "$O" -bf "$T/nested.sno" </dev/null 2>&1)" || true
 [ -n "$want" ] || { echo "⛔ REFUSE(2): the oracle printed nothing for the island-off control"; exit 2; }
-got="$(cd "$ROOT" && SCRIP_M3_GVA=0 timeout 8s ./scrip --run "$T/nested.sno" </dev/null 2>&1)" || true
-gotb="$(cd "$ROOT" && timeout 8s ./scrip --run "$T/nested.sno" </dev/null 2>&1)" || true
+got="$(cd "$ROOT" && SCRIP_M3_GVA=0 timeout -k 5 8s ./scrip --run "$T/nested.sno" </dev/null 2>&1)" || true
+gotb="$(cd "$ROOT" && timeout -k 5 8s ./scrip --run "$T/nested.sno" </dev/null 2>&1)" || true
 if [ "$got" != "$want" ]; then
   rc=1; echo "⛔ RED gva_off_control: with the GVA island off, a DEFINE'd call still does not track &FNCLEVEL"
   diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | head -8 | sed 's/^/    /'

@@ -22,14 +22,14 @@ SBL=/home/resources/x64/bin/sbl
 [ -x "$SBL" ] || { echo "⛔ REFUSES rc=2: correctness oracle absent at $SBL (absolute path, never command -v)"; exit 2; }
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 mk(){ printf '        X = %s\n        OUTPUT = "lit=[" X "]"\nEND\n' "$1" > "$W/r.sno"; }
-ours(){ timeout 8 ./scrip --run "$W/r.sno" </dev/null 2>&1 || true; }
-orac(){ timeout 8 "$SBL" -bf "$W/r.sno" </dev/null 2>&1 || true; }
+ours(){ timeout -k 5 8 ./scrip --run "$W/r.sno" </dev/null 2>&1 || true; }
+orac(){ timeout -k 5 8 "$SBL" -bf "$W/r.sno" </dev/null 2>&1 || true; }
 mk '1.797693135E+308'; og=$(orac)
 printf '%s' "$og" | grep -q 'ERROR 231' || { echo "⛔ REFUSES rc=2 (premise gone): the oracle no longer raises ERROR 231 for an overflowing real literal. Re-measure before trusting this gate. Oracle said: $og"; exit 2; }
 fail=0; examined=0
 arm_reject(){ examined=$((examined+1)); mk "$1"
   o=$(orac); printf '%s' "$o" | grep -q 'ERROR 231' || { echo "  FAIL oracle-premise $1: oracle did not refuse"; fail=$((fail+1)); return; }
-  u=$(ours); rc=0; timeout 8 ./scrip --run "$W/r.sno" </dev/null >/dev/null 2>&1 || rc=$?
+  u=$(ours); rc=0; timeout -k 5 8 ./scrip --run "$W/r.sno" </dev/null >/dev/null 2>&1 || rc=$?
   if printf '%s' "$u" | grep -q 'invalid numeric item' && [ "$rc" -ne 0 ] && ! printf '%s' "$u" | grep -q 'lit='; then echo "  ok   reject $1 (compile-time refusal, rc=$rc, nothing printed)"
   else echo "  FAIL reject $1: expected a compile-time refusal naming 'invalid numeric item' with rc!=0 and no lit= line; got rc=$rc and: $u"; fail=$((fail+1)); fi; }
 arm_accept(){ examined=$((examined+1)); mk "$1"

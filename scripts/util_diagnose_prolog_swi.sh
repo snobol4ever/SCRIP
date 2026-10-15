@@ -18,9 +18,9 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 printf 'main :- run_tests.\n:- initialization(main).\n' > "$T/wrap.pl"
 echo "=== raw scrip output ($MODE) for $REL ==="
 if [ "$MODE" = m4 ]; then
-    timeout 60 "$SCRIP" --compile "$PLUNIT" "$f" "$T/wrap.pl" > "$T/p.s" && gcc -no-pie "$T/p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$T/p" && timeout 60 "$T/p" </dev/null | tee "$T/act"
+    timeout -k 5 60 "$SCRIP" --compile "$PLUNIT" "$f" "$T/wrap.pl" > "$T/p.s" && gcc -no-pie "$T/p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$T/p" && timeout -k 5 60 "$T/p" </dev/null | tee "$T/act"
 else
-    timeout 60 "$SCRIP" --run "$PLUNIT" "$f" "$T/wrap.pl" </dev/null | tee "$T/act"
+    timeout -k 5 60 "$SCRIP" --run "$PLUNIT" "$f" "$T/wrap.pl" </dev/null | tee "$T/act"
 fi
 echo "=== per case vs $(basename "$ref") ==="
 python3 "$HERE/util_swi_match.py" "$f" "$ref" "$T/act"

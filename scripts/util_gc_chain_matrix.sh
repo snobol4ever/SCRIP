@@ -20,13 +20,13 @@ for f in "$WD"/*; do
   w="$(basename "$f")"; case "$w" in *.ref|*.in|*.heap|*.stack|*.tsv|*.txt) continue;; esac
   if [ $# -gt 0 ]; then keep=0; for p in "$@"; do case "$w" in *"$p"*) keep=1;; esac; done; [ $keep = 1 ] || continue; fi
   b="${w%.*}"; i=/dev/null; [ -f "$WD/$b.in" ] && i="$WD/$b.in"
-  ( cd "$W" && run_env timeout 300 "$SCRIP" "$f" > "$b.o3" 2> "$b.e3" < "$i" )
-  if ( cd "$W" && timeout 300 "$SCRIP" --compile -o "$b.s" "$f" > /dev/null 2> "$b.c4" < /dev/null ) && gcc "$W/$b.s" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" -o "$W/$b.x" 2> "$W/$b.ld4"; then
-    ( cd "$W" && run_env timeout 300 "./$b.x" > "$b.o4" 2> "$b.e4" < "$i" )
+  ( cd "$W" && run_env timeout -k 5 300 "$SCRIP" "$f" > "$b.o3" 2> "$b.e3" < "$i" )
+  if ( cd "$W" && timeout -k 5 300 "$SCRIP" --compile -o "$b.s" "$f" > /dev/null 2> "$b.c4" < /dev/null ) && gcc "$W/$b.s" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" -o "$W/$b.x" 2> "$W/$b.ld4"; then
+    ( cd "$W" && run_env timeout -k 5 300 "./$b.x" > "$b.o4" 2> "$b.e4" < "$i" )
   else : > "$W/$b.e4"; fi
   if [ -n "${MATRIX_PLANT:-}" ]; then
-    ( cd "$W" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB="$KB" SCRIP_GC_STRESS="$ST" timeout 300 "$SCRIP" "$f" > "$b.u3" 2> /dev/null < "$i" )
-    if [ -x "$W/$b.x" ]; then ( cd "$W" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB="$KB" SCRIP_GC_STRESS="$ST" timeout 300 "./$b.x" > "$b.u4" 2> /dev/null < "$i" ); fi
+    ( cd "$W" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB="$KB" SCRIP_GC_STRESS="$ST" timeout -k 5 300 "$SCRIP" "$f" > "$b.u3" 2> /dev/null < "$i" )
+    if [ -x "$W/$b.x" ]; then ( cd "$W" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB="$KB" SCRIP_GC_STRESS="$ST" timeout -k 5 300 "./$b.x" > "$b.u4" 2> /dev/null < "$i" ); fi
     for m in 3 4; do
       [ -f "$W/$b.u$m" ] || continue
       ap="$(grep -a '^\[GC-[A-Z]*\] *plant' "$W/$b.e$m" | tail -1)"

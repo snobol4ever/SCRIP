@@ -26,9 +26,9 @@ printf '        I = 0\nLOOP    I = I + 1\n        X = I * 2\n        LE(I, 20)  
 red=0
 arm() {   # arm <label> <command...> : runs the participant against a fresh acking reader and grades the wire
   local label="$1"; shift; local d="$T/$label"; mkdir -p "$d"
-  ( timeout 20 python3 "$READER" "$d/r.fifo" "$d/g.fifo" > "$d/ctrl.log" 2>&1 ) & local ctrl=$!
+  ( timeout -k 5 20 python3 "$READER" "$d/r.fifo" "$d/g.fifo" > "$d/ctrl.log" 2>&1 ) & local ctrl=$!
   local k; for k in $(seq 1 30); do [ -p "$d/r.fifo" ] && [ -p "$d/g.fifo" ] && break; sleep 0.1; done
-  ( cd "$d" && MONITOR_READY_PIPE="$d/r.fifo" MONITOR_GO_PIPE="$d/g.fifo" MONITOR_BIN=1 SCRIP_TRACE=$BUDGET timeout 8 "$@" > part.out 2> part.err < /dev/null ); local rc=$?
+  ( cd "$d" && MONITOR_READY_PIPE="$d/r.fifo" MONITOR_GO_PIPE="$d/g.fifo" MONITOR_BIN=1 SCRIP_TRACE=$BUDGET timeout -k 5 8 "$@" > part.out 2> part.err < /dev/null ); local rc=$?
   wait "$ctrl" 2> /dev/null
   local n_rec n_end last_kind
   n_rec=$(grep -c '^\[ctrl\] #[0-9]* kind=' "$d/ctrl.log"); n_end=$(grep -c 'kind=END' "$d/ctrl.log"); last_kind=$(grep -o 'kind=[A-Z_]*' "$d/ctrl.log" | tail -1)

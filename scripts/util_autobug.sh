@@ -28,7 +28,7 @@ RING="${RING:-64}"
 [ -f "$SNO" ] || { echo "no such program: $SNO"; exit 2; }
 echo "=== AUTOBUG: $SNO   stdin=$IN ==="
 export SCRIP_ZSM=1 SCRIP_ZSM_ALL=1 SCRIP_ZSM_RING=1
-STDIN_SRC="$IN" timeout "${AUTOBUG_TIMEOUT:-400}" bash "$HERE/test_monitor_2way_spitbol_vs_run.sh" "$SNO" > /tmp/autobug_run.$$ 2>&1
+STDIN_SRC="$IN" timeout -k 5 "${AUTOBUG_TIMEOUT:-400}" bash "$HERE/test_monitor_2way_spitbol_vs_run.sh" "$SNO" > /tmp/autobug_run.$$ 2>&1
 rc=$?
 ART=/tmp/monitor_auto_last
 # ---------------------------------------------------------------- (1) the bracket: last agreement -> first divergence

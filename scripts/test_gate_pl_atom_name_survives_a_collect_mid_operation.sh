@@ -146,14 +146,14 @@ main :-
 :- initialization(main).
 PL
 REF="$W/ref.txt"
-if ! timeout 60 "$SWIPL" -q -g true -t halt "$W/w.pl" </dev/null > "$REF" 2>"$W/ref.err"; then
+if ! timeout -k 5 60 "$SWIPL" -q -g true -t halt "$W/w.pl" </dev/null > "$REF" 2>"$W/ref.err"; then
     refuse "the swipl oracle did not run the witness: $(head -3 "$W/ref.err" | tr '\n' ' ')"
 fi
 [ -s "$REF" ] || refuse "the oracle produced an EMPTY ref -- an empty expectation makes every run trivially pass"
 grep -qx 'nm_22' "$REF" || refuse "the oracle's own answer is not the expected shape; witness or oracle changed"
 echo "ORACLE REF (swipl, cut at run time): $(tr '\n' ' ' < "$REF")"
 echo "POSITIVE CONTROL -- the collector must really move blocks AND really poison what it vacates"
-TEL="$(SCRIP_GC_STRESS="$STRESS" SCRIP_GC_POISON=1 SCRIP_ZETA_TELEM=1 timeout "$RUN_TIMEOUT" "$SCRIP" "$W/w.pl" </dev/null 2>&1 >/dev/null || true)"
+TEL="$(SCRIP_GC_STRESS="$STRESS" SCRIP_GC_POISON=1 SCRIP_ZETA_TELEM=1 timeout -k 5 "$RUN_TIMEOUT" "$SCRIP" "$W/w.pl" </dev/null 2>&1 >/dev/null || true)"
 MOVED="$(printf '%s' "$TEL" | grep -oE 'moved=[0-9]+B' | sed 's/[^0-9]//g' | awk '{s+=$1} END{print s+0}')"
 VACD="$(printf '%s' "$TEL" | grep -oE 'vacated=[0-9]+B' | sed 's/[^0-9]//g' | awk '{s+=$1} END{print s+0}')"
 [ "$MOVED" -gt 0 ] || refuse "moved=${MOVED}B under SCRIP_GC_STRESS=$STRESS -- nothing relocated, so a green below would prove nothing (this row's first witness died exactly here)"
@@ -163,14 +163,14 @@ echo "CLAUSE 2 -- THE REGRESSION GUARD: $ITERS runs per mode, byte-equal to the 
 M4DIR="$W/m4"; mkdir -p "$M4DIR"
 m4_build(){
     rm -f "$M4DIR/w.s" "$M4DIR/w.bin"
-    timeout 120 "$SCRIP" --compile -o "$M4DIR/w.s" "$W/w.pl" </dev/null >"$M4DIR/compile.log" 2>&1 || return 1
+    timeout -k 5 120 "$SCRIP" --compile -o "$M4DIR/w.s" "$W/w.pl" </dev/null >"$M4DIR/compile.log" 2>&1 || return 1
     [ -s "$M4DIR/w.s" ] || return 1
-    timeout 120 gcc -no-pie "$M4DIR/w.s" -o "$M4DIR/w.bin" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm >>"$M4DIR/compile.log" 2>&1 || return 1
+    timeout -k 5 120 gcc -no-pie "$M4DIR/w.s" -o "$M4DIR/w.bin" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm >>"$M4DIR/compile.log" 2>&1 || return 1
     [ -x "$M4DIR/w.bin" ] || return 1
     return 0
 }
-run_mode_m3(){ SCRIP_GC_STRESS="$STRESS" SCRIP_GC_POISON=1 timeout "$RUN_TIMEOUT" "$SCRIP" "$W/w.pl" </dev/null 2>&1; }
-run_mode_m4(){ SCRIP_GC_STRESS="$STRESS" SCRIP_GC_POISON=1 timeout "$RUN_TIMEOUT" "$M4DIR/w.bin" </dev/null 2>&1; }
+run_mode_m3(){ SCRIP_GC_STRESS="$STRESS" SCRIP_GC_POISON=1 timeout -k 5 "$RUN_TIMEOUT" "$SCRIP" "$W/w.pl" </dev/null 2>&1; }
+run_mode_m4(){ SCRIP_GC_STRESS="$STRESS" SCRIP_GC_POISON=1 timeout -k 5 "$RUN_TIMEOUT" "$M4DIR/w.bin" </dev/null 2>&1; }
 for m in ${MODES//,/ }; do
     if [ "$m" = m4 ]; then
         m4_build || refuse "mode 4 could not build the witness -- refusing rather than grading a stale or absent artifact: $(tail -3 "$M4DIR/compile.log" 2>/dev/null | tr '\n' ' ')"

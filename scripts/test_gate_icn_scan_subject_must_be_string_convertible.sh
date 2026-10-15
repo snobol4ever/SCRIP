@@ -57,8 +57,8 @@ build_m4() { "$SCRIP" --compile -o "$TD/$1.s" "$TD/$1.icn" </dev/null >/dev/null
   gcc -no-pie "$TD/$1.s" -o "$TD/$1.bin" -L "$ROOT/out" -lscrip_rt -lm -lpthread >/dev/null 2>&1 || refuse "$1: mode-4 link failed -- cannot measure"; }
 for w in $REJECTS $ACCEPTS; do
   for m in 3 4; do
-    if [ "$m" = 3 ]; then out="$(timeout 20s "$SCRIP" "$TD/$w.icn" </dev/null 2>&1)"; rc=$?
-    else build_m4 "$w"; out="$(LD_LIBRARY_PATH="$ROOT/out" timeout 20s "$TD/$w.bin" </dev/null 2>&1)"; rc=$?; fi
+    if [ "$m" = 3 ]; then out="$(timeout -k 5 20s "$SCRIP" "$TD/$w.icn" </dev/null 2>&1)"; rc=$?
+    else build_m4 "$w"; out="$(LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 20s "$TD/$w.bin" </dev/null 2>&1)"; rc=$?; fi
     GRADED=$((GRADED+1))
     [ "$rc" = 124 ] && { echo "  FAIL m$m $w: timed out"; FAIL=$((FAIL+1)); continue; }
     case " $REJECTS " in

@@ -152,7 +152,7 @@ printf '0 INDI\n' > "$TD/ged.in"
 run_named() {   # $1=label $2=dir $3=source $4=stdin-file ; extra argv in $5.. (relative to $2)
   local dir="$2" src="$3" stdin="$4"; shift 4
   local rc3 rc4 out
-  out="$(cd "$dir" && timeout 60 "$SCRIP" "$src" ${1:+--} "$@" < "$stdin" 2>&1)"; rc3=$?
+  out="$(cd "$dir" && timeout -k 5 60 "$SCRIP" "$src" ${1:+--} "$@" < "$stdin" 2>&1)"; rc3=$?
   GRADED=$((GRADED+1))
   if [ "$rc3" -ge 128 ]; then echo "  FAIL $src m3: died on signal $((rc3-128)) (rc=$rc3) -- a parity fault presents exactly this way"; FAIL=$((FAIL+1))
   else echo "  PASS $src m3: rc=$rc3, no signal death"; fi
@@ -160,7 +160,7 @@ run_named() {   # $1=label $2=dir $3=source $4=stdin-file ; extra argv in $5.. (
     refuse "$src: --compile failed -- the m4 arm CANNOT MEASURE"; fi
   if ! gcc -no-pie "$TD/$src.s" -o "$TD/$src.bin" -L "$ROOT/out" -Wl,-rpath,"$ROOT/out" -lscrip_rt -lm -lpthread >/dev/null 2>&1; then
     refuse "$src: link failed -- the m4 arm CANNOT MEASURE"; fi
-  out="$(cd "$dir" && timeout 60 "$TD/$src.bin" "$@" < "$stdin" 2>&1)"; rc4=$?
+  out="$(cd "$dir" && timeout -k 5 60 "$TD/$src.bin" "$@" < "$stdin" 2>&1)"; rc4=$?
   GRADED=$((GRADED+1))
   if [ "$rc4" -ge 128 ]; then echo "  FAIL $src m4: died on signal $((rc4-128)) (rc=$rc4) -- a parity fault presents exactly this way"; FAIL=$((FAIL+1))
   else echo "  PASS $src m4: rc=$rc4, no signal death"; fi

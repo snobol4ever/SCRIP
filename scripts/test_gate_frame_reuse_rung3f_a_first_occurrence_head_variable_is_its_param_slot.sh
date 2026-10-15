@@ -48,7 +48,7 @@ printf '3\n[h,i]\nfoo/2\n' > "$T/guard.pl.ref"
 printf 'procedure main()\n   every write(image(1), 1 to 3);\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
 printf "        S = 'abcabc'\n        S BREAK('c') . T\n        OUTPUT = T\nEND\n" > "$T/w.sno"; echo "ab" > "$T/w.sno.ref"
 bad=0
-timeout 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null > "$T/pl.dump"
+timeout -k 5 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null > "$T/pl.dump"
 line="$(grep -E "^; graph [0-9]+ 'r/1'" "$T/pl.dump")"
 [ -n "$line" ] || { echo "⛔ REFUSE(2): --dump-zeta printed no r/1 graph for the witness"; exit 2; }
 awk "/^; graph [0-9]+ 'r\/1'/{p=1;print;next} /^; graph /{p=0} p" "$T/pl.dump" > "$T/r1.dump"
@@ -59,14 +59,14 @@ echo "r/1 region_end=$end (bar < 200, the row's DONE-WHEN; rung-3(d) tree read 2
 a0="$(sed -n 's/^;   vslot +\([0-9]*\) .* A0$/\1/p' "$T/r1.dump" | head -1)"
 { [ -n "$a0" ] && [ -n "$end" ] && [ "$a0" -ge "$end" ]; } || { echo "  ⛔ r/1's param A0 is at +${a0:-absent}, not in the caller-carved argument block at or above region_end $end"; bad=$((bad+1)); }
 grep -qE '^;   vslot .* G0$' "$T/r1.dump" && { echo "  ⛔ r/1 still owns a local G0 for its head argument"; bad=$((bad+1)); }
-refs="$(timeout 120s python3 scripts/util_frame_refs_land_in_grants.py "$T/w.pl" 2>/dev/null | grep -E '^; grants TOTAL')"
+refs="$(timeout -k 5 120s python3 scripts/util_frame_refs_land_in_grants.py "$T/w.pl" 2>/dev/null | grep -E '^; grants TOTAL')"
 echo "$refs"
 printf '%s\n' "$refs" | grep -qE 'findings=0\b' || { echo "  ⛔ a body references a frame quad the layout no longer grants"; bad=$((bad+1)); }
 for w in w.pl alias.pl guard.pl w.icn w.sno; do
-    out3="$(timeout 20s ./scrip "$T/$w" </dev/null 2>&1)"
+    out3="$(timeout -k 5 20s ./scrip "$T/$w" </dev/null 2>&1)"
     if [ "$out3" != "$(cat "$T/$w.ref")" ]; then echo "  ⛔ $w mode 3 printed [$(printf '%s' "$out3" | tr '\n' ' ')], ref [$(cat "$T/$w.ref" | tr '\n' ' ')]"; bad=$((bad+1)); fi
-    if timeout 20s ./scrip --compile "$T/$w" > "$T/$w.s" 2>/dev/null && gcc -c "$T/$w.s" -o "$T/$w.o" 2>/dev/null && gcc "$T/$w.o" -Lout -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/$w.bin" 2>/dev/null; then
-        out4="$(timeout 20s "$T/$w.bin" </dev/null 2>&1)"
+    if timeout -k 5 20s ./scrip --compile "$T/$w" > "$T/$w.s" 2>/dev/null && gcc -c "$T/$w.s" -o "$T/$w.o" 2>/dev/null && gcc "$T/$w.o" -Lout -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/$w.bin" 2>/dev/null; then
+        out4="$(timeout -k 5 20s "$T/$w.bin" </dev/null 2>&1)"
         if [ "$out4" != "$(cat "$T/$w.ref")" ]; then echo "  ⛔ $w mode 4 printed [$(printf '%s' "$out4" | tr '\n' ' ')], ref [$(cat "$T/$w.ref" | tr '\n' ' ')]"; bad=$((bad+1)); fi
     else echo "  ⛔ $w mode 4 did not build"; bad=$((bad+1)); fi
 done

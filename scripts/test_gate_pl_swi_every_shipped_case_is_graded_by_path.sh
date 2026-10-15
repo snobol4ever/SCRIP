@@ -44,7 +44,7 @@ if [ -x "$SCRIP" ] && [ -f "$PLUNIT" ]; then
     T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
     printf 'main :- run_tests.\n:- initialization(main).\n' > "$T/wrap.pl"
     f="$SWIT/core/test_call.pl"
-    timeout 60 "$SCRIP" --run "$PLUNIT" "$f" "$T/wrap.pl" </dev/null > "$T/act" 2>/dev/null
+    timeout -k 5 60 "$SCRIP" --run "$PLUNIT" "$f" "$T/wrap.pl" </dev/null > "$T/act" 2>/dev/null
     line="$(python3 "$HERE/util_swi_match.py" "$f" "${f%.pl}.ref" "$T/act" | tail -1)"
     d=$(printf '%s' "$line" | sed -n 's/.*declared=\([0-9]*\).*/\1/p'); g=$(printf '%s' "$line" | sed -n 's/.* graded=\([0-9]*\).*/\1/p'); u=$(printf '%s' "$line" | sed -n 's/.*ungraded=\([0-9]*\).*/\1/p'); h=$(printf '%s' "$line" | sed -n 's/.* hit=\([0-9]*\).*/\1/p')
     [ -n "$d" ] && [ "$((g + u))" -eq "$d" ] && [ "$d" -ge 56 ] && [ "${h:-0}" -ge 34 ]; arm $? "matcher identity on core/test_call.pl: $line (floor declared>=56 hit>=34)"

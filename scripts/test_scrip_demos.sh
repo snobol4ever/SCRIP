@@ -58,7 +58,7 @@ for demo_dir in "$DEMO_DIR"/demo*/; do
     fi
 
     expected=$(cat "$exp_file")
-    actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$md" < /dev/null 2>/dev/null)
+    actual=$(timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$md" < /dev/null 2>/dev/null)
     label="$dname  ($(basename "$md"))"
     check "$label" "$expected" "$actual"
 done

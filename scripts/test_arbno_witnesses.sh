@@ -34,13 +34,13 @@ for f in $FILES; do
     b=$(basename "$f" .sno)
     [ -f "$f" ] || { printf '%-46s MISSING\n' "$b"; continue; }
     "$SBL" $(sbl_lang_flags) "$f" < /dev/null > "$W/$b.ora" 2>/dev/null; orc=$?
-    timeout 15 "$ROOT/scrip" --run "$f" < /dev/null > "$W/$b.m3" 2>/dev/null; m3rc=$?
+    timeout -k 5 15 "$ROOT/scrip" --run "$f" < /dev/null > "$W/$b.m3" 2>/dev/null; m3rc=$?
     if [ $m3rc -eq $orc ] && cmp -s "$W/$b.ora" "$W/$b.m3"; then m3="PASS"; else m3="rc=$m3rc/$orc"; cmp -s "$W/$b.ora" "$W/$b.m3" || m3="$m3,DIFF"; fi
-    s=$(timeout 15 "$ROOT/scrip" --compile "$f" < /dev/null 2>/dev/null)
+    s=$(timeout -k 5 15 "$ROOT/scrip" --compile "$f" < /dev/null 2>/dev/null)
     if [ -z "$s" ]; then m4="EMITFAIL"; else
         printf '%s' "$s" > "$W/$b.s"
         if as -o "$W/$b.o" "$W/$b.s" 2>"$W/$b.aserr" && gcc -no-pie -o "$W/$b.bin" "$W/$b.o" "$ROOT/out/libscrip_rt.so" -Wl,-rpath,"$ROOT/out" 2>"$W/$b.lderr"; then
-            timeout 15 "$W/$b.bin" < /dev/null > "$W/$b.m4" 2>/dev/null; m4rc=$?
+            timeout -k 5 15 "$W/$b.bin" < /dev/null > "$W/$b.m4" 2>/dev/null; m4rc=$?
             if [ $m4rc -eq $orc ] && cmp -s "$W/$b.ora" "$W/$b.m4"; then m4="PASS"; else m4="rc=$m4rc/$orc"; cmp -s "$W/$b.ora" "$W/$b.m4" || m4="$m4,DIFF"; fi
         else m4="ASM/LINK"; fi
     fi

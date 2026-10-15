@@ -649,7 +649,7 @@ if [ "$MISSING" -gt 0 ]; then
     # failed fetch we print both possibilities and recommend NOTHING. An instrument that cannot measure refuses.
     _stale=0; _gone=0; _undet=0
     if [ -d "$CORPUS/.git" ] && git -C "$CORPUS" rev-parse --verify -q origin/main >/dev/null 2>&1; then
-        timeout 20s git -C "$CORPUS" fetch -q origin 2>/dev/null || true  # timeout-retry: exempt -- a git fetch, not a graded unit
+        timeout -k 5 20s git -C "$CORPUS" fetch -q origin 2>/dev/null || true  # timeout-retry: exempt -- a git fetch, not a graded unit
         for _p in $(printf "$MISSING_LIST" | grep -oE "$CORPUS/[^ ]+" | sort -u); do
             _rel="${_p#$CORPUS/}"
             if git -C "$CORPUS" cat-file -e "origin/main:$_rel" 2>/dev/null; then _stale=$((_stale+1)); else _gone=$((_gone+1)); fi

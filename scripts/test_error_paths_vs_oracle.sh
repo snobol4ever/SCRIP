@@ -54,7 +54,7 @@ while IFS=$'\t' read -r name verdict why; do
     prog="$WITNESS_DIR/$name.sno"
     [ -f "$prog" ] || { echo "GATE UNPROVEN(2) [test_error_paths_vs_oracle]: witness missing: $prog"; exit 2; }
     total=$((total + 1))
-    out="$(mktemp)"; timeout "$TIMEOUT" "$SCRIP" --run "$prog" < /dev/null > "$out" 2>&1; rc=$?
+    out="$(mktemp)"; timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$prog" < /dev/null > "$out" 2>&1; rc=$?
     printf '%-20s %-12s rc=%-4s %s\n' "$name" "$verdict" "$rc" "$why"
     rm -f "$out"
     case "$verdict" in

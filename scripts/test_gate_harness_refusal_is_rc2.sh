@@ -83,7 +83,7 @@ echo "--- ARM 1: a refusal (missing suite file) exits rc=2, not rc=3 AND NOT rc=
 # for this row used `--lang snobol4`, which argparse REJECTS (snobol4 is spelled as the empty default), so it
 # exited 2 from argparse and read GREEN on a harness that was still crashing. A behavioural arm has to name a
 # form the tool actually accepts, or it grades the argument parser.
-out="$(timeout 60 python3 "$H" run "$W/none.reb" "$W/none.ref" --lang rebus --modes m3,m4 2>&1)"; rc=$?
+out="$(timeout -k 5 60 python3 "$H" run "$W/none.reb" "$W/none.ref" --lang rebus --modes m3,m4 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ck ok "missing suite file -> rc=2" || ck no "must REFUSE rc=2; got rc=$rc -- $(head -c 300 <<<"$out")"
 grep -q 'REFUSING' <<<"$out" && ck ok "the refusal says so on stderr" || ck no "refusal not announced -- $(head -c 300 <<<"$out")"
 echo "--- ARM 2: the source carries no exit-3 arm at all ---"
@@ -93,7 +93,7 @@ grep -qE '^\s*sys\.exit\(2\)' <<<"$(sed -n '/^def refuse/,/^def /p' "$H")" && ck
 echo "--- ARM 3 (the distinction that must survive): a RED board still exits 1, never 2 ---"
 # ⛔ Built from the REAL rungs so the red is a real graded failure, not a synthetic one: one entry whose ref is
 # deliberately wrong. A harness that returned 2 for everything would pass every other arm of this gate.
-out="$(timeout 300 python3 "$H" run "$W/red/ALL.reb" "$W/red/ALL.ref" --lang rebus --modes m3,m4 2>&1)"; rc=$?
+out="$(timeout -k 5 300 python3 "$H" run "$W/red/ALL.reb" "$W/red/ALL.ref" --lang rebus --modes m3,m4 2>&1)"; rc=$?
 [ "$rc" = 1 ] && ck ok "a graded board with a red exits 1 (could-not-measure did not swallow measured-and-red)" \
               || ck no "a red board must exit 1; got rc=$rc -- $(tail -c 300 <<<"$out")"
 echo "--- ARM 4: a clean graded run still exits 0 or 1 by its board, never a refusal ---"
@@ -105,7 +105,7 @@ echo "--- ARM 4: a clean graded run still exits 0 or 1 by its board, never a ref
 # NOTHING WAS COUNTED. The gate's own banner said 16 checks while it only ever performed 15, which is how it
 # went unseen. A check that cannot fail is an instrument reporting success while doing nothing (RULES.md THE
 # INSTRUMENT LAWS); it is written on one line now so no continuation can detach it again.
-out="$(timeout 300 python3 "$H" run "$W/clean/ALL.reb" "$W/clean/ALL.ref" --lang rebus --modes m3,m4 2>&1)"; rc=$?
+out="$(timeout -k 5 300 python3 "$H" run "$W/clean/ALL.reb" "$W/clean/ALL.ref" --lang rebus --modes m3,m4 2>&1)"; rc=$?
 if [ "$rc" = 0 ] || [ "$rc" = 1 ]; then ck ok "a clean rungs pair grades and returns a board verdict (rc=$rc), not a refusal"; else ck no "a runnable rungs must not refuse; got rc=$rc -- $(tail -c 300 <<<"$out")"; fi
 grep -qiE 'suite_board' <<<"$out" && ck ok "the run printed its board" || ck no "no board printed -- $(tail -c 300 <<<"$out")"
 echo "--- ARM 5: the staleness refusal (already 2) agrees -- BOTH refusal paths now return one code ---"
@@ -113,7 +113,7 @@ echo "--- ARM 5: the staleness refusal (already 2) agrees -- BOTH refusal paths 
 # every seat but the coo: it was pointed at the corpus rungs, the ONE-RUNNER guard refused it first with its own
 # rc=2, and the assertion could not tell the two apart. The arm now names the refusal it is grading.
 cp "$ROOT/scrip" "$W/scrip.old"; touch -d "2020-01-01T00:00:00" "$W/scrip.old"
-out="$(SCRIP="$W/scrip.old" timeout 120 python3 "$H" run "$W/clean/ALL.reb" "$W/clean/ALL.ref" --lang rebus --modes m3,m4 2>&1)"; rc=$?
+out="$(SCRIP="$W/scrip.old" timeout -k 5 120 python3 "$H" run "$W/clean/ALL.reb" "$W/clean/ALL.ref" --lang rebus --modes m3,m4 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ck ok "the staleness refusal is rc=2, same code as every other refusal" || ck no "staleness refusal got rc=$rc -- $(tail -c 300 <<<"$out")"
 grep -qiE 'stale|older than|rebuild|run .make.' <<<"$out" && ck ok "and it is THE STALENESS refusal, not some other rc=2" || ck no "rc=2 arrived from a refusal that never mentions staleness -- $(head -c 300 <<<"$out")"
 echo "--- ARM 6: a corpus suite pair whose suffix names a dialect REFUSES rc=2 without --lang ---"
@@ -126,7 +126,7 @@ echo "--- ARM 6: a corpus suite pair whose suffix names a dialect REFUSES rc=2 w
 # entry` naming four rebus entries that DO exist. ⛔ BOTH MESSAGES ACCUSE THE DATA, so the reader is sent to edit
 # a corpus that is fine -- the cfo was one step from filing two rung suites as unrunnable. THE DEFECT WAS THE SILENT
 # FALLBACK, NOT THE MISSING FLAG.
-out="$(timeout 120 python3 "$H" run "$W/clean/ALL.reb" "$W/clean/ALL.ref" --modes m3 2>&1)"; rc=$?
+out="$(timeout -k 5 120 python3 "$H" run "$W/clean/ALL.reb" "$W/clean/ALL.ref" --modes m3 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ck ok "a .reb pair with no --lang REFUSES rc=2 instead of regrading line-per-entry" \
               || ck no "must REFUSE rc=2; got rc=$rc -- $(tail -c 300 <<<"$out")"
 grep -qi -- '--lang' <<<"$out" && ck ok "the refusal names the flag the reader must pass" \
@@ -136,7 +136,7 @@ grep -qiE 'shorter than|no matching entry' <<<"$out" && ck no "the refusal still
 echo "--- ARM 7: pin-ref carries the same guard (it REWRITES the pair from what it read) ---"
 # pin-ref is the worse of the two callers: a pin rewrites the whole pair from whatever the reader thought it read,
 # so a mis-chosen grammar there does not merely misreport, it EDITS the corpus into the misreading.
-out="$(timeout 120 python3 "$H" pin-ref "$W/clean/ALL.reb" "$W/clean/ALL.ref" nosuchentry --ruling "gate probe, no --apply" 2>&1)"; rc=$?
+out="$(timeout -k 5 120 python3 "$H" pin-ref "$W/clean/ALL.reb" "$W/clean/ALL.ref" nosuchentry --ruling "gate probe, no --apply" 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ck ok "pin-ref on a .reb pair with no --lang REFUSES rc=2" || ck no "pin-ref must REFUSE rc=2; got rc=$rc -- $(tail -c 300 <<<"$out")"
 grep -qi -- '--lang' <<<"$out" && ck ok "pin-ref's refusal names the flag" || ck no "pin-ref refused without naming --lang -- $(head -c 300 <<<"$out")"
 echo "--- ARM 8: the line-per-entry reader stays REACHABLE when asked for explicitly ---"
@@ -148,7 +148,7 @@ echo "--- ARM 8: the line-per-entry reader stays REACHABLE when asked for explic
 # the suffix check, so on a corpus path this arm read green off a ONE-RUNNER rc=2 that proved nothing about the
 # escape hatch. It must witness the SNOBOL4 grammar actually being reached, so it grades the .sno-shaped reader
 # over a .reb pair and asserts the run got as far as reading entries by that grammar.
-out="$(timeout 120 python3 "$H" run "$W/clean/ALL.reb" "$W/clean/ALL.ref" --lang snobol4 --modes m3 2>&1)"; rc=$?
+out="$(timeout -k 5 120 python3 "$H" run "$W/clean/ALL.reb" "$W/clean/ALL.ref" --lang snobol4 --modes m3 2>&1)"; rc=$?
 grep -qi 'has suffix' <<<"$out" && ck no "--lang snobol4 was refused by the suffix guard -- the explicit escape hatch is gone" \
                                 || ck ok "--lang snobol4 still selects the SNOBOL4 grammar deliberately (rc=$rc)"
 grep -qiE 'one runner|is a board' <<<"$out" && ck no "this arm never reached the grammar -- it collected a ONE-RUNNER refusal, the false green CEO-547 part 2 removed" \
@@ -160,7 +160,7 @@ echo "--- ARM 9: a .sno pair with no --lang is UNTOUCHED (every existing caller)
 # the claim is that the SUFFIX guard does not fire on .sno, and a two-entry pair witnesses that exactly as well as
 # 1/40 of 3832 while grading something this gate owns. ⛔ AND IT MUST ACTUALLY GRADE: the board line is checked for
 # m3_n=2 as well as for existing, because a run that graded NOTHING also prints a SUITE_BOARD and also exits 0.
-out="$(timeout 300 python3 "$H" run "$W/sno/ALL.sno" "$W/sno/ALL.ref" --modes m3 2>&1)"; rc=$?
+out="$(timeout -k 5 300 python3 "$H" run "$W/sno/ALL.sno" "$W/sno/ALL.ref" --modes m3 2>&1)"; rc=$?
 if [ "$rc" = 0 ] || [ "$rc" = 1 ]; then ck ok "a .sno pair still grades with no --lang (rc=$rc)"
 else ck no "the guard caught a .sno caller -- got rc=$rc -- $(tail -c 300 <<<"$out")"; fi
 # ⛔⭐ THIS ARM READ THE BOARD BY POSITION AND WAS RED FOR A DAY OVER A CORRECT BOARD (ceo CEO-839, coo's

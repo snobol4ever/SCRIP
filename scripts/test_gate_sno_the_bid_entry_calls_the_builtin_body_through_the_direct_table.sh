@@ -50,9 +50,9 @@ red=0
 ( cd "$W" && "$ROOT/scrip" --compile -o "$W/bid.s" bid.sno < /dev/null > /dev/null 2>&1 ) || { echo "RED: bid.sno did not compile"; exit 1; }
 nc=$(grep -c 'call .*\[rip + rt_call_bid_sn4@GOTPCREL\]' "$W/bid.s"); nv=$(grep -B3 'call .*\[rip + rt_call_bid_sn4@GOTPCREL\]' "$W/bid.s" | grep -c 'rtccb')
 [ "$nc" -ge 20 ] && [ "$nv" -eq 0 ] && echo "ok  rt_call_bid_sn4: $nc bare GOT calls, no veneer" || { echo "RED: calls=$nc (want >= 20) veneered=$nv"; red=1; }
-( cd "$W" && timeout 60 "$ROOT/scrip" bid.sno < /dev/null > "$W/bid.m3" 2>&1 ); cmp -s "$W/bid.m3" "$W/bid.ref" && echo "ok  m3 = oracle" || { echo "RED m3 differs from the oracle:"; diff "$W/bid.ref" "$W/bid.m3" | head -8; red=1; }
+( cd "$W" && timeout -k 5 60 "$ROOT/scrip" bid.sno < /dev/null > "$W/bid.m3" 2>&1 ); cmp -s "$W/bid.m3" "$W/bid.ref" && echo "ok  m3 = oracle" || { echo "RED m3 differs from the oracle:"; diff "$W/bid.ref" "$W/bid.m3" | head -8; red=1; }
 if gcc "$W/bid.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/bid.bin" 2>/dev/null; then
-    ( cd "$W" && timeout 60 "./bid.bin" < /dev/null > "$W/bid.m4" 2>&1 ); cmp -s "$W/bid.m4" "$W/bid.ref" && echo "ok  m4 = oracle" || { echo "RED m4 differs from the oracle:"; diff "$W/bid.ref" "$W/bid.m4" | head -8; red=1; }
+    ( cd "$W" && timeout -k 5 60 "./bid.bin" < /dev/null > "$W/bid.m4" 2>&1 ); cmp -s "$W/bid.m4" "$W/bid.ref" && echo "ok  m4 = oracle" || { echo "RED m4 differs from the oracle:"; diff "$W/bid.ref" "$W/bid.m4" | head -8; red=1; }
 else echo "RED: bid.s did not link"; red=1; fi
 [ "$red" -eq 0 ] && { echo "GATE OK: leaf builtin calls reach their bodies through the direct table, the C body answers the errors and the field access, and the witness matches the oracle in both modes"; exit 0; }
 echo "GATE FAILED: see the RED lines above"; exit 1

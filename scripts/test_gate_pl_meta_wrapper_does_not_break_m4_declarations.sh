@@ -48,7 +48,7 @@ graded=0; m4_red=0; refused=0
 while IFS="	" read -r w rung; do
   [ -n "$w" ] || continue
   log="$TMP/rung$rung.log"
-  [ -s "$log" ] || timeout 900 bash "$RUNNER" --only "$rung" > "$log" 2>&1
+  [ -s "$log" ] || timeout -k 5 900 bash "$RUNNER" --only "$rung" > "$log" 2>&1
   line="$(grep -F "$w" "$log" | head -1)"
   if [ -z "$line" ]; then
     echo "REFUSE (rc=2): $w produced no verdict line on rung $rung -- the runner graded zero witnesses for it"

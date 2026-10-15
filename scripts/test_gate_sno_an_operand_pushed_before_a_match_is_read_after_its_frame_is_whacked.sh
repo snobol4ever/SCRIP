@@ -73,11 +73,11 @@ F2      OUTPUT = 'alt left match: fails'
 END
 SNO
 for p in alt args bounds; do
-    w=$(cd "$D" && timeout 10 "$SBL" -bf "$p.sno" < /dev/null 2>/dev/null | tr '\n' '|')
+    w=$(cd "$D" && timeout -k 5 10 "$SBL" -bf "$p.sno" < /dev/null 2>/dev/null | tr '\n' '|')
     [ -n "$w" ] || refuse "sbl printed nothing for $p"
-    g3=$(cd "$D" && timeout 10 "$B/scrip" "$p.sno" < /dev/null 2>/dev/null | tr '\n' '|')
+    g3=$(cd "$D" && timeout -k 5 10 "$B/scrip" "$p.sno" < /dev/null 2>/dev/null | tr '\n' '|')
     m4build "$p" || refuse "$p does not build in mode 4"
-    g4=$(cd "$D" && timeout 10 "./$p.bin" < /dev/null 2>/dev/null | tr '\n' '|')
+    g4=$(cd "$D" && timeout -k 5 10 "./$p.bin" < /dev/null 2>/dev/null | tr '\n' '|')
     n=$((n + 1)); if [ "$w" = "$g3" ] && [ "$w" = "$g4" ]; then echo "  ok    $p agrees with sbl, both modes: $w"; else RC=1; echo "  RED   $p: sbl [$w] m3 [$g3] m4 [$g4]"; fi
 done
 cat > "$D/ev.sno" <<'SNO'
@@ -126,12 +126,12 @@ inf_errh
 END
 SNO
 printf '%s\n' '"b" ? LEN(1)^ LEN(2)' 'FENCE' "'(matched [things])' ?&STLIMIT | (']' ? *']')" > "$D/ev.txt"
-w=$(cd "$D" && timeout 10 "$SBL" -bf ev.sno < ev.txt 2>/dev/null | tr '\n' '|')
+w=$(cd "$D" && timeout -k 5 10 "$SBL" -bf ev.sno < ev.txt 2>/dev/null | tr '\n' '|')
 [ "$w" = "ERROR 233|PATTERN|PATTERN|" ] || refuse "sbl reads the crash witness otherwise: [$w]"
 m4build ev || refuse "the crash witness's evaluator does not build in mode 4"
 for o in 1; do
-    g3=$(cd "$D" && SCRIP_EVAL_OPEN=$o timeout 20 "$B/scrip" ev.sno < ev.txt 2>&1 | tr '\n' '|')
-    g4=$(cd "$D" && SCRIP_EVAL_OPEN=$o timeout 20 ./ev.bin < ev.txt 2>&1 | tr '\n' '|')
+    g3=$(cd "$D" && SCRIP_EVAL_OPEN=$o timeout -k 5 20 "$B/scrip" ev.sno < ev.txt 2>&1 | tr '\n' '|')
+    g4=$(cd "$D" && SCRIP_EVAL_OPEN=$o timeout -k 5 20 ./ev.bin < ev.txt 2>&1 | tr '\n' '|')
     n=$((n + 1)); if [ "$w" = "$g3" ] && [ "$w" = "$g4" ]; then echo "  ok    crash witness, SCRIP_EVAL_OPEN=$o, both modes: $w (the SCRIP_EVAL_OPEN=0 arm is retired: the C road it re-armed is DELETED under CEO-1576 and bombs by design, ceo CEO-1630)"; else RC=1; echo "  RED   crash witness SCRIP_EVAL_OPEN=$o: sbl [$w] m3 [$g3] m4 [$g4]"; fi
 done
 [ $RC = 0 ] && echo "GATE PASS(0) [an_operand_pushed_before_a_match_is_read_after_its_frame_is_whacked]: $n arms agree with sbl"

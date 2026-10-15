@@ -28,16 +28,16 @@ LAYER="-INCLUDE 'global.inc'
 -INCLUDE 'io.inc'"
 printf '%s\n        OUTPUT = IDENT(REPLACE(DATATYPE(FENCE), &LCASE, &UCASE), dPATTERN) %s\n        INPUT(.IN, 5, %s)\n        OUTPUT = %s\nEND\n' "$LAYER" "'guard-skips-remap'" "'x.txt'" "'after'" > "$D/small.sno"
 { printf '%s\n' "$LAYER"; cat "$C/demos/snobol4/claws5/claws5.sno"; } > "$D/claws5.sno"
-( cd "$C/include" && timeout 20 "$SBL" -bf "$D/small.sno" < /dev/null 2>/dev/null > "$D/small.want" )
+( cd "$C/include" && timeout -k 5 20 "$SBL" -bf "$D/small.sno" < /dev/null 2>/dev/null > "$D/small.want" )
 [ "$(tr '\n' '|' < "$D/small.want")" = "guard-skips-remap|after|" ] || refuse "sbl -bf does not answer the small witness as pinned: [$(tr '\n' '|' < "$D/small.want")]"
-( cd "$C/include" && timeout 120 "$SBLB" -bf -d512m -i64m -s256m "$D/claws5.sno" < "$C/demos/snobol4/claws5/claws5.input" 2>/dev/null | cmp -s - "$C/demos/snobol4/claws5/claws5.ref" ) || refuse "the oracle itself no longer prints claws5's ref with the layer"
+( cd "$C/include" && timeout -k 5 120 "$SBLB" -bf -d512m -i64m -s256m "$D/claws5.sno" < "$C/demos/snobol4/claws5/claws5.input" 2>/dev/null | cmp -s - "$C/demos/snobol4/claws5/claws5.ref" ) || refuse "the oracle itself no longer prints claws5's ref with the layer"
 red=0; n=0
 arm() { n=$((n + 1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  FAIL $1: $2"; red=$((red + 1)); fi; }
-m4bin() { ( cd "$C/include" && timeout 90 "$B/scrip" --compile "$D/$1.sno" < /dev/null > "$D/$1.s" 2>/dev/null ) && gcc "$D/$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$D/$1.bin" 2>/dev/null; }
-( cd "$C/include" && timeout 30 "$B/scrip" "$D/small.sno" < /dev/null > "$D/small.m3" 2>"$D/small.m3e" )
-m4bin small && ( cd "$C/include" && timeout 30 "$D/small.bin" < /dev/null > "$D/small.m4" 2>"$D/small.m4e" )
-( cd "$C/include" && timeout 120 "$B/scrip" --run -d512m -i64m -s256m "$D/claws5.sno" < "$C/demos/snobol4/claws5/claws5.input" > "$D/claws5.m3" 2>/dev/null )
-m4bin claws5 && ( cd "$C/include" && timeout 120 "$D/claws5.bin" -d512m -i64m -s256m < "$C/demos/snobol4/claws5/claws5.input" > "$D/claws5.m4" 2>/dev/null )
+m4bin() { ( cd "$C/include" && timeout -k 5 90 "$B/scrip" --compile "$D/$1.sno" < /dev/null > "$D/$1.s" 2>/dev/null ) && gcc "$D/$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$D/$1.bin" 2>/dev/null; }
+( cd "$C/include" && timeout -k 5 30 "$B/scrip" "$D/small.sno" < /dev/null > "$D/small.m3" 2>"$D/small.m3e" )
+m4bin small && ( cd "$C/include" && timeout -k 5 30 "$D/small.bin" < /dev/null > "$D/small.m4" 2>"$D/small.m4e" )
+( cd "$C/include" && timeout -k 5 120 "$B/scrip" --run -d512m -i64m -s256m "$D/claws5.sno" < "$C/demos/snobol4/claws5/claws5.input" > "$D/claws5.m3" 2>/dev/null )
+m4bin claws5 && ( cd "$C/include" && timeout -k 5 120 "$D/claws5.bin" -d512m -i64m -s256m < "$C/demos/snobol4/claws5/claws5.input" > "$D/claws5.m4" 2>/dev/null )
 for m in m3 m4; do
     if [ -f "$D/small.$m" ] && cmp -s "$D/small.want" "$D/small.$m"; then arm "small $m (the guard skips the remap, INPUT stays the built-in)" ok
     else arm "small $m" "got [$(tr '\n' '|' 2>/dev/null < "$D/small.$m")] $(head -1 "$D/small.${m}e" 2>/dev/null | cut -c1-80) want [$(tr '\n' '|' < "$D/small.want")]"; fi

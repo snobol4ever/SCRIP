@@ -15,10 +15,10 @@ bash "$HERE/util_require_fresh.sh" --gate "$G" "$ROOT/scrip" "$ROOT/out/libscrip
 W="$(mktemp -d "${TMPDIR:-/tmp}/evsel.XXXXXX")" || exit 2
 trap 'rm -rf "$W"' EXIT
 want="${EVSEL_WANT:-0}"; bad=0
-got3="$(timeout 60 "$ROOT/scrip" "$FIX" < /dev/null 2>/dev/null)"; rc3=$?
+got3="$(timeout -k 5 60 "$ROOT/scrip" "$FIX" < /dev/null 2>/dev/null)"; rc3=$?
 if [ "$got3" = "$want" ] && [ "$rc3" = 0 ]; then echo "  m3: ok (prints $want)"; else echo "  m3: RED rc=$rc3 printed [$got3] want [$want]"; bad=$((bad+1)); fi
-if timeout 60 "$ROOT/scrip" --compile -o "$W/w.s" "$FIX" < /dev/null > /dev/null 2> "$W/c.err" && gcc "$W/w.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/w" 2> "$W/l.err"; then
-  got4="$(timeout 60 "$W/w" < /dev/null 2>/dev/null)"; rc4=$?
+if timeout -k 5 60 "$ROOT/scrip" --compile -o "$W/w.s" "$FIX" < /dev/null > /dev/null 2> "$W/c.err" && gcc "$W/w.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/w" 2> "$W/l.err"; then
+  got4="$(timeout -k 5 60 "$W/w" < /dev/null 2>/dev/null)"; rc4=$?
   if [ "$got4" = "$want" ] && [ "$rc4" = 0 ]; then echo "  m4: ok (prints $want)"; else echo "  m4: RED rc=$rc4 printed [$got4] want [$want]"; bad=$((bad+1)); fi
 else echo "GATE UNPROVEN(2) [$G]: the fixture did not compile or link in mode 4: $(head -2 "$W/c.err" "$W/l.err" | head -3)"; exit 2; fi
 if [ "$bad" -ne 0 ]; then echo "GATE FAIL(1) [$G]: $bad mode(s) lost the fall from a failed first alternative of a deferred selection"; exit 1; fi

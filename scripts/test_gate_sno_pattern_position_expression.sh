@@ -77,19 +77,19 @@ done
 for p in $PROGS; do
     n=$((n+1))
     case "$CONTROLS" in *" $p "*) ctl_seen=$((ctl_seen+1));; esac
-    ( cd "$T" && timeout 30s "$ROOT/scrip" "$W/$p.sno" </dev/null >"$T/$p.m3" 2>&1 )
+    ( cd "$T" && timeout -k 5 30s "$ROOT/scrip" "$W/$p.sno" </dev/null >"$T/$p.m3" 2>&1 )
     if ! diff -q "$W/$p.ref" "$T/$p.m3" >/dev/null 2>&1; then
         bad=$((bad+1)); echo "⛔ $p: mode-3 DIVERGES from its oracle-cut ref"
         diff "$W/$p.ref" "$T/$p.m3" | head -6
         continue
     fi
-    if ! ( cd "$T" && timeout 60s "$ROOT/scrip" --compile -o "$p.s" "$W/$p.sno" </dev/null >/dev/null 2>&1 ); then
+    if ! ( cd "$T" && timeout -k 5 60s "$ROOT/scrip" --compile -o "$p.s" "$W/$p.sno" </dev/null >/dev/null 2>&1 ); then
         bad=$((bad+1)); echo "⛔ $p: mode-4 COMPILE failed"; continue
     fi
     if ! ( cd "$T" && gcc -no-pie "$p.s" -o "$p.bin" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ); then
         bad=$((bad+1)); echo "⛔ $p: mode-4 LINK failed"; continue
     fi
-    ( cd "$T" && timeout 30s "./$p.bin" </dev/null >"$T/$p.m4" 2>&1 )
+    ( cd "$T" && timeout -k 5 30s "./$p.bin" </dev/null >"$T/$p.m4" 2>&1 )
     if ! diff -q "$W/$p.ref" "$T/$p.m4" >/dev/null 2>&1; then
         bad=$((bad+1)); echo "⛔ $p: mode-4 DIVERGES from its oracle-cut ref"
         diff "$W/$p.ref" "$T/$p.m4" | head -6

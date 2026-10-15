@@ -1449,7 +1449,7 @@ s4e_donewhen_is_noop() {   # $1 = raw DONE-WHEN text; rc 0 = certifies nothing
 # ⛔⭐ S4E-GUARD-COMPILER-ABSENT -- A CRITERION THAT DRIVES AN UNBUILT COMPILER CANNOT BE MEASURED, SO IT IS
 # REFUSED (rc=2), NEVER GRADED RED (rc=1). hq_P -> hq_B 2026-09-04, measured on pascal-m4-site1-forloop-backedge-
 # 64byte-excess: ~88 batons carry seat05's 09-01 template whose compile step reads
-#     timeout 300s SCRIP/scrip --compile ... || { echo "... compile failed"; exit 1; }
+#     timeout -k 5 300s SCRIP/scrip --compile ... || { echo "... compile failed"; exit 1; }
 # so a MISSING or not-yet-built ./scrip reports rc=1 -- "there is real work here", which the dispatch probe serves
 # SILENTLY -- instead of rc=2 -- "I could not measure", which it serves WITH a warning. The ceo root's binary was
 # timestamped 21 minutes AFTER the assign that read that row red. ⭐ THE CURE IS ONE GUARD AT THE TWO RUNNER SITES,
@@ -1631,7 +1631,7 @@ s4e_dispatch_probe() {
     # ⛔ S4E_HOME EXPORTED, exactly as `done` does it: 11 live rows write `cd "$S4E_HOME/SCRIP" && ...` and
     # without the export that expands to the empty string and runs `cd /SCRIP`. A probe whose verdict depended
     # on the caller's environment would be worse than no probe -- it would close rows on some seats and not others.
-    _dp_out="$(S4E_HOME="$S4E" timeout "$to" bash -c "$dw" 2>&1)"; rc=$?
+    _dp_out="$(S4E_HOME="$S4E" timeout -k 5 "$to" bash -c "$dw" 2>&1)"; rc=$?
     case "$rc" in 124|137) _dp_why="did not finish within ${to}s (probe budget, not the row's fault)"; return 2;; esac
     [ "$rc" = 0 ] && { _dp_why="exited 0"; return 0; }
     _dp_why="exited $rc"; return 1; }
@@ -1737,7 +1737,7 @@ s4e_premise_gate() {   # $1 = topic, $2 = the verb, for the message only
     # exported, so a premise written as `cd "$S4E_HOME/SCRIP" && ...` -- the idiom the batons already use --
     # resolves against the LOCKING SEAT'S OWN ROOT rather than expanding to the empty string on some seats and
     # not others. A verdict that depends on the grader's environment is not a verdict.
-    ( cd "$S4E" && S4E_HOME="$S4E" S4E_SEAT="$ME" S4E_PREMISE_WHEN_RUN=1 timeout "$to" bash -c "$pw" ) >"$log" 2>&1; rc=$?
+    ( cd "$S4E" && S4E_HOME="$S4E" S4E_SEAT="$ME" S4E_PREMISE_WHEN_RUN=1 timeout -k 5 "$to" bash -c "$pw" ) >"$log" 2>&1; rc=$?
     el="$(( $(date +%s) - t0 ))"
     case "$rc" in
       0) printf '  ✅ PREMISE-WHEN exited 0 in %ss — the row'"'"'s premise still holds on this tree.\n' "$el" >&2
@@ -2588,7 +2588,7 @@ case "$cmd" in
                 case "$dw" in
                   */*|*'$'*) : ;;                       # names a path or expands a variable — probe would be meaningless
                   *) _vac="$(mktemp -d)"
-                     ( cd "$_vac" && timeout 20 bash -c "$dw" ) >/dev/null 2>&1; _vrc=$?
+                     ( cd "$_vac" && timeout -k 5 20 bash -c "$dw" ) >/dev/null 2>&1; _vrc=$?
                      rm -rf "$_vac"
                      # ⛔⭐ A TIMEOUT IS NOT AN ANSWER (hq_P 2026-08-27, source-read; hole was real and unreached).
                      # The probe used to branch on the COMMAND SUCCEEDING, so EVERY non-zero exit counted as proof the
@@ -2668,7 +2668,7 @@ case "$cmd" in
                     printf '     The claim and the QUEUE column are UNCHANGED. Build, then re-run `done`.\n' >&2
                     exit 2; fi
                   _dwto="${S4E_DONE_TIMEOUT:-3600}"; _dwt0="$(date +%s)"
-                  ( cd "$S4E" && S4E_HOME="$S4E" S4E_SEAT="$ME" S4E_DONE_WHEN_RUN=1 timeout "$_dwto" bash -c "$dw" ) >"$_dwlog" 2>&1; rc=$?
+                  ( cd "$S4E" && S4E_HOME="$S4E" S4E_SEAT="$ME" S4E_DONE_WHEN_RUN=1 timeout -k 5 "$_dwto" bash -c "$dw" ) >"$_dwlog" 2>&1; rc=$?
                   _dwel="$(( $(date +%s) - _dwt0 ))"
                   if [ "$rc" -eq 0 ]; then
                     rm -f "$_dwlog"
@@ -3718,7 +3718,7 @@ TASKEOF
          # 12:21): util_gc_acceptance.py spawned util_gc_census.py for 40-70 s at every Stop of every seat, fourteen seats, and
          # `timeout 75` kills only the bash, so the census outlived the banner -- the per-response class CEO-1671 removed. The
          # four numbers still print on a direct handoff_status.sh invocation, the handoff boundary Lon's 09-21 order names.
-         if [ -f "$hs" ]; then hout="$(SKIP_S_ARTIFACT_CHECK=1 SKIP_ZLS_ALL=1 SKIP_GC_ACCEPTANCE=1 timeout 75 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
+         if [ -f "$hs" ]; then hout="$(SKIP_S_ARTIFACT_CHECK=1 SKIP_ZLS_ALL=1 SKIP_GC_ACCEPTANCE=1 timeout -k 5 75 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
          if [ "$hrc" = 124 ]; then hout="$hout"$'\n'"⛔ handoff_status.sh NOT MEASURED — timed out at the banner's 75 s budget (load $(cut -d' ' -f1 /proc/loadavg)); this is a refusal, not a red: run bash scripts/handoff_status.sh by hand"; hrc=2; fi
          # ⭐ fix-dispatch-bus-two-failure-modes (s266, seat07's q-s4e-msg-banner-attribution-undercount):
          # `held` used to be "whichever of my OPEN claims sorts first ALPHABETICALLY" -- a seat holding two
@@ -3971,7 +3971,7 @@ TASKEOF
          elif [ "$hrc" -eq 0 ] || [ "$onlyhere" -eq 0 ]; then printf '%s\n' "SUCCESS"
          else printf '%s\n' "IN-PROGRESS"; fi
          _sb="$S4E/.github/scripts/util_suite_banner.py"
-         if [ -f "$_sb" ]; then timeout 30 python3 "$_sb" || printf '%s\n' "⛔ SUITE GRID REFUSED (rc=$?) -- $_sb ran and did not render"
+         if [ -f "$_sb" ]; then timeout -k 5 30 python3 "$_sb" || printf '%s\n' "⛔ SUITE GRID REFUSED (rc=$?) -- $_sb ran and did not render"
          else printf '%s\n' "⛔ SUITE GRID MISSING -- no $_sb"; fi
          { [ "$hrc" -eq 0 ] || [ "$onlyhere" -eq 0 ]; } && [ -z "$diverged" ] && exit 0 || exit 1;;
   # ⭐ whoami PRINTS THE RESOLVED SEAT AND NOTHING ELSE, ON stdout, WITH NO SIDE EFFECT (hq_B 2026-09-13).
@@ -4140,7 +4140,7 @@ TASKEOF
          # LIVE verdict surfaces here, in the health view a seat runs on a cadence and the ceo reads.
          _l2g="$(dirname "${BASH_SOURCE[0]}")/test_gate_mode_line2_is_self_consistent.sh"
          if [ -x "$_l2g" ] || [ -r "$_l2g" ]; then
-           _l2o="$(timeout 20 bash "$_l2g" 2>&1)"; _l2r=$?
+           _l2o="$(timeout -k 5 20 bash "$_l2g" 2>&1)"; _l2r=$?
            case "$_l2r" in
              0) printf '  MODE line 2 vs ITSELF: ✅ every language carries one consistent owner.\n';;
              1) printf '  ⛔ MODE LINE 2 CONTRADICTS ITSELF -- the law disagrees with the law, and every lane gate we own\n'

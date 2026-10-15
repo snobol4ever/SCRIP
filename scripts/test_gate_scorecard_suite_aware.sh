@@ -42,7 +42,7 @@ printf ' OUTPUT = "GATE_ENTRY_1";END;* gatefam_e1\n OUTPUT = "GATE_ENTRY_2";END;
 printf 'GATE_ENTRY_1\nGATE_ENTRY_2\nGATE_ENTRY_3\n' > "$ROOT/corpus/tests/snobol4/probe/gatefam.ref"
 
 out="$GATE_WORK/results"
-S4E_HOME="$ROOT" timeout 120 bash "$SCORECARD" run --suites probes_misc --out "$out" --force >"$GATE_WORK/run.log" 2>&1
+S4E_HOME="$ROOT" timeout -k 5 120 bash "$SCORECARD" run --suites probes_misc --out "$out" --force >"$GATE_WORK/run.log" 2>&1
 report="$(S4E_HOME="$ROOT" bash "$SCORECARD" report "$out" 2>&1)"
 row="$(grep -E '^probes_misc ' <<<"$report" | head -1)"
 

@@ -73,21 +73,21 @@ ok()  { PASS=$((PASS+1)); echo "  ✅ $1"; }
 continued() { grep -q '^CONTINUED$' "$1" && echo yes || echo no; }
 for code in 022 038 242; do
     sno="$W/e$code.sno"
-    ( cd "$W" && timeout 20 "$SBL" $SBL_FLAGS "$sno" < /dev/null > "$W/o.$code" 2>&1 ) 2>/dev/null; orc=$?
+    ( cd "$W" && timeout -k 5 20 "$SBL" $SBL_FLAGS "$sno" < /dev/null > "$W/o.$code" 2>&1 ) 2>/dev/null; orc=$?
     [ "$orc" -ge 128 ] && { echo "GATE UNPROVEN(2) [$G]: the oracle died (sig $((orc-128))) on the $code witness -- nothing to compare against"; exit 2; }
     oc="$(continued "$W/o.$code")"
     # mode 3
     EXAMINED=$((EXAMINED+1))
-    timeout 20 bash -c 'cd "$1" || exit 2; "$2" --run "$3" < /dev/null > "$4" 2>&1' _ "$W" "$ROOT/scrip" "$sno" "$W/m3.$code" 2>/dev/null
+    timeout -k 5 20 bash -c 'cd "$1" || exit 2; "$2" --run "$3" < /dev/null > "$4" 2>&1' _ "$W" "$ROOT/scrip" "$sno" "$W/m3.$code" 2>/dev/null
     s3="$(continued "$W/m3.$code")"
     if [ "$s3" = "$oc" ]; then ok "$code m3 continued=$s3, the oracle continued=$oc"
     else red "$code m3 continued=$s3 but the oracle continued=$oc -- &ERRLIMIT survival disagrees with sbl -bf"; fi
     # mode 4
     EXAMINED=$((EXAMINED+1))
-    if timeout 60 "$ROOT/scrip" --compile "$sno" > "$W/p.s" 2>/dev/null \
+    if timeout -k 5 60 "$ROOT/scrip" --compile "$sno" > "$W/p.s" 2>/dev/null \
        && gcc -c "$W/p.s" -o "$W/p.o" 2>/dev/null \
        && gcc "$W/p.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/p.bin" 2>/dev/null; then
-        timeout 20 bash -c 'cd "$1" || exit 2; "$2" < /dev/null > "$3" 2>&1' _ "$W" "$W/p.bin" "$W/m4.$code" 2>/dev/null
+        timeout -k 5 20 bash -c 'cd "$1" || exit 2; "$2" < /dev/null > "$3" 2>&1' _ "$W" "$W/p.bin" "$W/m4.$code" 2>/dev/null
         s4="$(continued "$W/m4.$code")"
         if [ "$s4" = "$oc" ]; then ok "$code m4 continued=$s4, the oracle continued=$oc"
         else red "$code m4 continued=$s4 but the oracle continued=$oc -- &ERRLIMIT survival disagrees with sbl -bf"; fi

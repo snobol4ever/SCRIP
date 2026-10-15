@@ -96,7 +96,7 @@ if [ "${GC_BAND_FULL:-0}" = 1 ]; then PTS="0 1 2 3 4 5 6 8 10 12 16 20 25 30 35 
 for n in "$ORACLE_WIT" "$STABLE_WIT"; do
   [ -f "$WIT/$n.sno" ] || refuse "witness $WIT/$n.sno is missing -- a shorter population is not a greener gate"
   cp "$WIT/$n.sno" "$T/$n.sno"
-  ( cd "$T" && timeout 60s "$OLDPWD/scrip" --compile -o "$n.s" "$n.sno" < /dev/null > /dev/null 2>&1 \
+  ( cd "$T" && timeout -k 5 60s "$OLDPWD/scrip" --compile -o "$n.s" "$n.sno" < /dev/null > /dev/null 2>&1 \
       && gcc -m64 -no-pie -rdynamic "$n.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$n.x4" 2> "$n.ld.log" ) \
       || refuse "mode-4 compile or link failed for $n, so every m4 arm measured nothing ($(head -c 160 "$T/$n.ld.log" 2>/dev/null))"
 done
@@ -112,8 +112,8 @@ run_band(){ # $1 witness  $2 want  $3 label
   for m in m3 m4; do
     printf '    %-24s %-3s' "$n" "$m"; row=""
     for N in $PTS; do
-      if [ "$m" = m3 ]; then got="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout 60s "$OLDPWD/scrip" "$n.sno" < /dev/null 2>&1)"; rc=$?
-      else got="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout 60s "./$n.x4" < /dev/null 2>&1)"; rc=$?; fi
+      if [ "$m" = m3 ]; then got="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout -k 5 60s "$OLDPWD/scrip" "$n.sno" < /dev/null 2>&1)"; rc=$?
+      else got="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout -k 5 60s "./$n.x4" < /dev/null 2>&1)"; rc=$?; fi
       arms=$((arms+1))
       if [ "$got" = "$want" ] && [ "$rc" = 0 ]; then row="$row   ."
       else row="$row   X"; fails=$((fails+1)); redset="$redset $n/$m/$N(rc=$rc,${#got}B)"; fi
@@ -126,7 +126,7 @@ arms=0; redset=""
 ORACLE_WANT="$(cat "$WIT/$ORACLE_WIT.ref")"
 [ -n "$ORACLE_WANT" ] || refuse "the expectation for $ORACLE_WIT came back EMPTY -- an empty expectation makes every arm pass, and this guard exists because the first version of this gate read the ref from a path it had never copied to and graded 68 arms against nothing"
 run_band "$ORACLE_WIT" "$ORACLE_WANT" "ORACLE"
-STABLE_REF="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 timeout 60s "$OLDPWD/scrip" "$STABLE_WIT.sno" < /dev/null 2>&1)"
+STABLE_REF="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 timeout -k 5 60s "$OLDPWD/scrip" "$STABLE_WIT.sno" < /dev/null 2>&1)"
 [ -n "$STABLE_REF" ] || refuse "$STABLE_WIT produced an EMPTY answer with no collection forced; an empty expectation makes every stability arm pass"
 run_band "$STABLE_WIT" "$STABLE_REF" "STABILITY vs own stress-0, NOT the oracle -- see header"
 echo "------------------------------------------------------------"

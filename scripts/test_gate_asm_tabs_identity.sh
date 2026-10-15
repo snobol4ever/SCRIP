@@ -21,9 +21,9 @@ gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime sha
 for f in "$DIR"/*.sno; do
     [ -e "$f" ] || continue
     b=$(basename "$f" .sno)
-    SCRIP_ASM_TABS=0 timeout 60 "$SCRIP" --compile "$f" > "$WORK/$b.off.s" 2>"$WORK/$b.off.err" < /dev/null
+    SCRIP_ASM_TABS=0 timeout -k 5 60 "$SCRIP" --compile "$f" > "$WORK/$b.off.s" 2>"$WORK/$b.off.err" < /dev/null
     rc0=$?
-    SCRIP_ASM_TABS=1 timeout 60 "$SCRIP" --compile "$f" > "$WORK/$b.on.s"  2>"$WORK/$b.on.err"  < /dev/null
+    SCRIP_ASM_TABS=1 timeout -k 5 60 "$SCRIP" --compile "$f" > "$WORK/$b.on.s"  2>"$WORK/$b.on.err"  < /dev/null
     rc1=$?
     if [ $rc0 -ne 0 ] || [ $rc1 -ne 0 ]; then
         if [ $rc0 -eq $rc1 ]; then skip=$((skip+1)); continue; fi

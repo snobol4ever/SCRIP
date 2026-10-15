@@ -52,9 +52,9 @@ cat > "$D/eolf.want" <<'REF'
 REF
 red=0; n=0
 for p in eolc eolf; do
-    ( cd "$D" && timeout 30 "$B/scrip" "$p.pas" < in.txt > "$p.m3" 2>/dev/null )
-    ( cd "$D" && timeout 60 "$B/scrip" --compile "$p.pas" < /dev/null > "$p.s" 2>/dev/null && gcc -no-pie "$p.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$p.bin" 2>/dev/null ) || refuse "$p: mode 4 did not build"
-    ( cd "$D" && timeout 30 "./$p.bin" < in.txt > "$p.m4" 2>/dev/null )
+    ( cd "$D" && timeout -k 5 30 "$B/scrip" "$p.pas" < in.txt > "$p.m3" 2>/dev/null )
+    ( cd "$D" && timeout -k 5 60 "$B/scrip" --compile "$p.pas" < /dev/null > "$p.s" 2>/dev/null && gcc -no-pie "$p.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$p.bin" 2>/dev/null ) || refuse "$p: mode 4 did not build"
+    ( cd "$D" && timeout -k 5 30 "./$p.bin" < in.txt > "$p.m4" 2>/dev/null )
     for m in m3 m4; do
         n=$((n + 1))
         if cmp -s "$D/$p.want" "$D/$p.$m"; then echo "  ok   $p $m"; else echo "  FAIL $p $m"; diff "$D/$p.want" "$D/$p.$m" | head -6 | sed 's/^/       /'; red=$((red + 1)); fi

@@ -136,12 +136,12 @@ dyn_ok
 -9223372036854775810'
 for w in ball big cut cut2; do eval "want=\$want_$w"
     for mode in m3 m4; do
-        if [ "$mode" = m3 ]; then got=$(cd "$TMPD" && timeout 30 "$SCRIP" "$w.pl" </dev/null 2>/dev/null)
-        else got=$( (cd "$TMPD" && timeout 120 "$SCRIP" --compile -o "$w.s" "$w.pl" </dev/null >/dev/null 2>&1) && gcc -m64 -no-pie "$TMPD/$w.s" -o "$TMPD/$w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>/dev/null && cd "$TMPD" && timeout 30 "./$w.bin" </dev/null 2>/dev/null); fi
+        if [ "$mode" = m3 ]; then got=$(cd "$TMPD" && timeout -k 5 30 "$SCRIP" "$w.pl" </dev/null 2>/dev/null)
+        else got=$( (cd "$TMPD" && timeout -k 5 120 "$SCRIP" --compile -o "$w.s" "$w.pl" </dev/null >/dev/null 2>&1) && gcc -m64 -no-pie "$TMPD/$w.s" -o "$TMPD/$w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>/dev/null && cd "$TMPD" && timeout -k 5 30 "./$w.bin" </dev/null 2>/dev/null); fi
         if [ "$got" = "$want" ]; then echo "  ok  $w $mode"; else echo "  RED $w $mode: got [$(printf '%s' "$got" | tr '\n' '|' | cut -c1-160)] want [$(printf '%s' "$want" | tr '\n' '|')]"; red=$((red+1)); fi
     done
 done
-got=$(cd "$TMPD" && timeout 60 "$SCRIP" --run -d131072k -s4096k "$PLU" unit.pl wrap.pl </dev/null 2>&1)
+got=$(cd "$TMPD" && timeout -k 5 60 "$SCRIP" --run -d131072k -s4096k "$PLU" unit.pl wrap.pl </dev/null 2>&1)
 if printf '%s' "$got" | grep -q 'pass: bigint:probe' && ! printf '%s' "$got" | grep -q 'ERROR 246'; then echo "  ok  arm 3: after assert/2 + clause/3 under plunit, length(_, -1) raises its domain error"
 else echo "  RED arm 3: $(printf '%s' "$got" | grep -E 'probe|ERROR' | head -2 | tr '\n' '|' | cut -c1-160)"; red=$((red+1)); fi
 [ "$red" = 0 ] || { echo "GATE FAIL [$GATE_NAME]: $red arm(s) red"; exit 1; }

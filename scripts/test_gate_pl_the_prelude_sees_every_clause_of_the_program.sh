@@ -42,16 +42,16 @@ printf 'q1 :- member(X, [a,b]), write(X), nl, fail.\nq1.\n' > "$T/a/inc.pl"
 sed 's/^:- include(inc)\.$//' "$T/a/w.pl" > "$T/b/w.pl"; cat "$T/a/inc.pl" >> "$T/b/w.pl"
 printf 'a\nb\n[mine([a,b])]\nz\n' > "$T/ref"
 if command -v swipl >/dev/null; then
-    for arm in a b; do ( cd "$T/$arm" && timeout 30 swipl -q w.pl < /dev/null 2>/dev/null > sw.out )
+    for arm in a b; do ( cd "$T/$arm" && timeout -k 5 30 swipl -q w.pl < /dev/null 2>/dev/null > sw.out )
         cmp -s "$T/$arm/sw.out" "$T/ref" || { echo "⛔ REFUSED(2) [$GATE_NAME]: swipl no longer prints the carried ref on arm ($arm) -- re-cut it from the oracle"; exit 2; }; done
 fi
 fail=0
 for arm in a b; do
     case $arm in a) what="a prelude predicate called only from an included file is injected" ;; b) what="a user's reverse/2 defined after 600 clauses wins and nothing is appended" ;; esac
-    ( cd "$T/$arm" && timeout 20 "$SCRIP" w.pl < /dev/null > m3.out 2>&1 ); rc3=$?
+    ( cd "$T/$arm" && timeout -k 5 20 "$SCRIP" w.pl < /dev/null > m3.out 2>&1 ); rc3=$?
     if cmp -s "$T/$arm/m3.out" "$T/ref"; then echo "  ok   ($arm m3) $what"; else echo "  FAIL ($arm m3) rc=$rc3: $(tr '\n' ' ' < "$T/$arm/m3.out" | cut -c1-160)"; fail=1; fi
     if ( cd "$T/$arm" && "$SCRIP" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 && gcc -o w w.s -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>/dev/null ); then
-        ( cd "$T/$arm" && timeout 20 ./w < /dev/null > m4.out 2>&1 ); rc4=$?
+        ( cd "$T/$arm" && timeout -k 5 20 ./w < /dev/null > m4.out 2>&1 ); rc4=$?
         if cmp -s "$T/$arm/m4.out" "$T/ref"; then echo "  ok   ($arm m4) $what"; else echo "  FAIL ($arm m4) rc=$rc4: $(tr '\n' ' ' < "$T/$arm/m4.out" | cut -c1-160)"; fail=1; fi
     else echo "  FAIL ($arm m4) the witness did not compile or link in mode 4"; fail=1; fi
 done

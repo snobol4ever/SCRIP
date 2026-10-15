@@ -57,11 +57,11 @@ gcc -m64 -no-pie -rdynamic "$T/$SRC.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lsc
 gcc -m64 -no-pie -rdynamic "$T/wp.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$T/wp.bin" 2>/dev/null || { echo "⛔ GATE REFUSE(2) [$G]: the planted text did not link"; exit 2; }
 band=""; bad=0; pband=""; phit=0
 for st in 1 2 3 4 5 6; do
-  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout 60s "$SCRIP" --run "$W.sno" < /dev/null > m3_$st.out 2> m3_$st.err ); r3=$?
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout -k 5 60s "$SCRIP" --run "$W.sno" < /dev/null > m3_$st.out 2> m3_$st.err ); r3=$?
   if [ $r3 = 0 ] && cmp -s "$T/m3_$st.out" "$W.ref"; then band="$band m3_s$st:ref"; else band="$band m3_s$st:LOSS"; bad=1; fi
-  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout 60s "./$SRC.bin" < /dev/null > m4_$st.out 2> m4_$st.err ); r4=$?
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout -k 5 60s "./$SRC.bin" < /dev/null > m4_$st.out 2> m4_$st.err ); r4=$?
   if [ $r4 = 0 ] && cmp -s "$T/m4_$st.out" "$W.ref"; then band="$band m4_s$st:ref"; else band="$band m4_s$st:LOSS"; bad=1; fi
-  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout 60s ./wp.bin < /dev/null > p_$st.out 2> p_$st.err ); rp=$?
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout -k 5 60s ./wp.bin < /dev/null > p_$st.out 2> p_$st.err ); rp=$?
   if [ $rp != 0 ] || ! cmp -s "$T/p_$st.out" "$W.ref"; then pband="$pband s$st:LOSS"; phit=$((phit+1)); else pband="$pband s$st:ref"; fi
 done
 pa=$(cat "$T"/m3_*.err "$T"/m4_*.err "$T"/p_*.err 2>/dev/null | grep -c '^\[GC-FLIP\] plant:')
@@ -89,11 +89,11 @@ gcc -m64 -no-pie -rdynamic "$T/$RSRC.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -ls
 gcc -m64 -no-pie -rdynamic "$T/rp.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$T/rp.bin" 2>/dev/null || { echo "⛔ GATE REFUSE(2) [$G]: the planted record-form text did not link"; exit 2; }
 rband=""; rbad=0; rpband=""; rphit=0
 for st in 1 2 3 4 5 6 7 8; do
-  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout 60s "$SCRIP" --run "$RW.icn" < /dev/null > rm3_$st.out 2> /dev/null ); r3=$?
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout -k 5 60s "$SCRIP" --run "$RW.icn" < /dev/null > rm3_$st.out 2> /dev/null ); r3=$?
   if [ $r3 = 0 ] && cmp -s "$T/rm3_$st.out" "$RW.ref"; then rband="$rband m3_s$st:ref"; else rband="$rband m3_s$st:LOSS"; rbad=1; fi
-  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout 60s "./$RSRC.bin" < /dev/null > rm4_$st.out 2> /dev/null ); r4=$?
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout -k 5 60s "./$RSRC.bin" < /dev/null > rm4_$st.out 2> /dev/null ); r4=$?
   if [ $r4 = 0 ] && cmp -s "$T/rm4_$st.out" "$RW.ref"; then rband="$rband m4_s$st:ref"; else rband="$rband m4_s$st:LOSS"; rbad=1; fi
-  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout 60s ./rp.bin < /dev/null > rp_$st.out 2> /dev/null ); rp=$?
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout -k 5 60s ./rp.bin < /dev/null > rp_$st.out 2> /dev/null ); rp=$?
   if [ $rp != 0 ] || ! cmp -s "$T/rp_$st.out" "$RW.ref"; then rpband="$rpband s$st:LOSS"; rphit=$((rphit+1)); else rpband="$rpband s$st:ref"; fi
 done
 if [ "$rbad" = 0 ]; then echo "  ok   (e) THE PROPERTY: a field store and a string subscript inside an Icon scan keep the subject at stress 1..8 under the displacement plant, both modes --$rband"

@@ -32,7 +32,7 @@ ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; e
 echo "=== gate: the GC censuses are wired, they trip on planted violations, and their counts only fall ==="
 
 # (a) the planted-violation proof
-st="$(timeout 120s python3 "$CEN" --selftest 2>&1)"; strc=$?
+st="$(timeout -k 5 120s python3 "$CEN" --selftest 2>&1)"; strc=$?
 [ "$strc" = 124 ] && refuse "the census selftest timed out (load $(cut -d' ' -f1 /proc/loadavg))"
 [ -n "${FAIL_ONCE:-}" ] && st="$(printf '%s\n' "$st" | grep -v '^SELFTEST PASS')"
 arms="$(printf '%s\n' "$st" | sed -n 's/^population: \([0-9]*\) selftest arm(s).*/\1/p')"
@@ -43,7 +43,7 @@ else
 fi
 
 # (b)+(c)+(d) the censuses on this tree, and the ratchet
-out="$(timeout 600s python3 "$CEN" all --ratchet "$BASE" 2>&1)"; crc=$?
+out="$(timeout -k 5 600s python3 "$CEN" all --ratchet "$BASE" 2>&1)"; crc=$?
 [ "$crc" = 124 ] && refuse "the census run timed out (load $(cut -d' ' -f1 /proc/loadavg))"
 verdicts="$(printf '%s\n' "$out" | grep -cE '^CENSUS [a-z-]+ (GREEN|RED|REFUSED\(2\))|^CENSUS [a-z-]+ .*(GREEN|RED)$')"
 pop="$(printf '%s\n' "$out" | sed -n 's/^population: \([0-9]*\) census(es).*/\1/p' | head -1)"
@@ -71,7 +71,7 @@ fi
 
 # (e) the decidable test, and its consistency with the conservative census
 cons="$(printf '%s\n' "$out" | sed -n 's/^CENSUS conservative total=\([0-9]*\).*/\1/p' | head -1)"
-dec="$(timeout 600s bash "$DEC" 2>&1)"; drc=$?
+dec="$(timeout -k 5 600s bash "$DEC" 2>&1)"; drc=$?
 [ "$drc" = 124 ] && refuse "the decidable test timed out (load $(cut -d' ' -f1 /proc/loadavg))"
 decline="$(printf '%s\n' "$dec" | grep -m1 -E 'DECIDABLE-TEST rc=|REFUSED-TO-DECIDE')"
 case "$drc:${cons:-x}" in

@@ -28,7 +28,7 @@ fail=0
 # something that fires unconditionally, which is a way to be green about nothing.
 MARK='0 rungs entries examined'
 for mode in m3 m4; do
-    out="$(CORPUS="$EMPTY" timeout 600 bash "$HERE/test_gate_pascal_$mode.sh" 2>&1)"
+    out="$(CORPUS="$EMPTY" timeout -k 5 600 bash "$HERE/test_gate_pascal_$mode.sh" 2>&1)"
     rc=$?
     if [ $rc -eq 0 ]; then
         echo "⛔ REGRESSION ARM 1: test_gate_pascal_$mode.sh exited 0 on an EMPTY corpus (should refuse non-zero)" >&2
@@ -43,7 +43,7 @@ for mode in m3 m4; do
     fi
     # ARM 2 (positive control): the empty-corpus message must NOT appear against the REAL corpus. Without this, ARM 1
     # passes on a gate that prints it unconditionally, which is the state this file was in until today.
-    real="$(timeout 600 bash "$HERE/test_gate_pascal_$mode.sh" 2>&1)"
+    real="$(timeout -k 5 600 bash "$HERE/test_gate_pascal_$mode.sh" 2>&1)"
     if grep -qF "$MARK" <<<"$real"; then
         echo "⛔ REGRESSION ARM 2 (positive control): test_gate_pascal_$mode.sh prints the EMPTY-rungs refusal against the REAL, populated corpus" >&2
         echo "   -- so ARM 1 proves nothing: the message fires whatever CORPUS points at. Populated rungs:" >&2

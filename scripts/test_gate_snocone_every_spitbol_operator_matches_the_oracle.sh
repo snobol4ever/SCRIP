@@ -49,10 +49,10 @@ PY
 bad=""; n=0
 for w in binary unary undefined; do
     "$SCRIP" --transpile "$T/$w.sc" > "$T/$w.sno" 2> "$T/$w.err" || refuse "transpile of $w.sc refused: $(head -2 "$T/$w.err")"
-    timeout 60 "$SBL" -bf "$T/$w.sno" < /dev/null > "$T/$w.ref" 2>&1; [ -s "$T/$w.ref" ] || refuse "oracle printed nothing for $w"
-    timeout 60 "$SCRIP" "$T/$w.sc" < /dev/null > "$T/$w.m3" 2>&1
+    timeout -k 5 60 "$SBL" -bf "$T/$w.sno" < /dev/null > "$T/$w.ref" 2>&1; [ -s "$T/$w.ref" ] || refuse "oracle printed nothing for $w"
+    timeout -k 5 60 "$SCRIP" "$T/$w.sc" < /dev/null > "$T/$w.m3" 2>&1
     "$SCRIP" --compile -o "$T/$w.s" "$T/$w.sc" < /dev/null > /dev/null 2> "$T/$w.cerr" && gcc -m64 -no-pie "$T/$w.s" -Wl,-rpath,"$SCRIP_DIR/out" -L"$SCRIP_DIR/out" -lscrip_rt -lm -lpthread -o "$T/$w.bin" 2> "$T/$w.lerr" || refuse "mode 4 build of $w failed: $(head -2 "$T/$w.cerr" "$T/$w.lerr")"
-    timeout 60 "$T/$w.bin" < /dev/null > "$T/$w.m4" 2>&1
+    timeout -k 5 60 "$T/$w.bin" < /dev/null > "$T/$w.m4" 2>&1
     for m in m3 m4; do n=$((n + 1)); cmp -s "$T/$w.ref" "$T/$w.$m" || bad="$bad $w/$m"; done
 done
 [ -z "$bad" ] || fail "SCRIP differs from the SPITBOL oracle on:$bad ($n of $n arms graded)"

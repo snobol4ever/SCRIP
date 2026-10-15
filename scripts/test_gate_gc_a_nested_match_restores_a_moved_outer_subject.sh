@@ -36,19 +36,19 @@ SBL="$(sbl_correctness_bin)"; [ -x "$SBL" ] || { echo "⛔ GATE REFUSE(2) [$G]: 
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 export SNO_LIB="${SNO_LIB:-$ROOT/../corpus/include}"
 printf "\tDEFINE('H(s)')\t:(HE)\nH\tH = REPLACE(s, &LCASE, &UCASE)\t:(RETURN)\nHE\n\tDEFINE('G(t)')\t:(GE)\nG\t'ABS AND ANY APPEND' ? *H(t)\t:F(FRETURN)\n\tN = N + 1\n\tG = .dummy\t:(NRETURN)\nGE\n\tN = 0\n\tG1 = DUPL('x', 200000)\n\tS = DUPL('and ', 300)\n\tG1 = ''\n\tS ? ARBNO(SPAN(&LCASE) \$ tx \$ *G(tx) ' ') RPOS(0)\t:S(Y)F(N)\nY\tOUTPUT = 'S ' tx ' ' N\t:(E)\nN\tOUTPUT = 'F ' N\nE\nEND\n" > "$T/w.sno"
-( cd "$T" && timeout 30 "$SBL" $(sbl_lang_flags) w.sno < /dev/null > w.ref 2> /dev/null )
+( cd "$T" && timeout -k 5 30 "$SBL" $(sbl_lang_flags) w.sno < /dev/null > w.ref 2> /dev/null )
 [ -s "$T/w.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing for the witness"; exit 2; }
 RC=0; red=""
-( cd "$T" && timeout 60 "$SCRIP" --compile -o w.s w.sno < /dev/null > /dev/null 2>&1 && gcc w.s -o w.bin -L"$LIBDIR" -lscrip_rt -lm -lpthread -Wl,-rpath,"$LIBDIR" 2> /dev/null ) || { echo "⛔ GATE REFUSE(2) [$G]: the witness did not compile or link in mode 4"; exit 2; }
+( cd "$T" && timeout -k 5 60 "$SCRIP" --compile -o w.s w.sno < /dev/null > /dev/null 2>&1 && gcc w.s -o w.bin -L"$LIBDIR" -lscrip_rt -lm -lpthread -Wl,-rpath,"$LIBDIR" 2> /dev/null ) || { echo "⛔ GATE REFUSE(2) [$G]: the witness did not compile or link in mode 4"; exit 2; }
 for st in 1 2 5 20 100; do
-    ( cd "$T" && SCRIP_GC_STRESS=$st timeout 60 "$SCRIP" w.sno < /dev/null > m3.$st 2> m3e.$st ); r3=$?
+    ( cd "$T" && SCRIP_GC_STRESS=$st timeout -k 5 60 "$SCRIP" w.sno < /dev/null > m3.$st 2> m3e.$st ); r3=$?
     cmp -s "$T/m3.$st" "$T/w.ref" && [ "$r3" = 0 ] || red="$red m3@$st(rc=$r3 $(head -c 70 "$T/m3e.$st" | tr '\n' ' '))"
-    ( cd "$T" && SCRIP_GC_STRESS=$st timeout 60 ./w.bin < /dev/null > m4.$st 2> m4e.$st ); r4=$?
+    ( cd "$T" && SCRIP_GC_STRESS=$st timeout -k 5 60 ./w.bin < /dev/null > m4.$st 2> m4e.$st ); r4=$?
     cmp -s "$T/m4.$st" "$T/w.ref" && [ "$r4" = 0 ] || red="$red m4@$st(rc=$r4 $(head -c 70 "$T/m4e.$st" | tr '\n' ' '))"
 done
 if [ -z "$red" ]; then echo "  arm 1 PASS: the nested-match witness prints '$(tr '\n' ' ' < "$T/w.ref")' like sbl -bf in mode 3 and mode 4 at SCRIP_GC_STRESS 1 2 5 20 100 -- a collection inside the nested match leaves the outer match on its moved subject's NEW address"
 else echo "  arm 1 RED:$red -- the outer match resumed on a subject the collector moved"; RC=1; fi
-( cd "$T" && SCRIP_GC_STRESS=5 SCRIP_GC_EXERCISE=1 timeout 60 "$SCRIP" w.sno < /dev/null > /dev/null 2> ex.err )
+( cd "$T" && SCRIP_GC_STRESS=5 SCRIP_GC_EXERCISE=1 timeout -k 5 60 "$SCRIP" w.sno < /dev/null > /dev/null 2> ex.err )
 nc=$(sed -n 's/.*\[GC-EXERCISE\].*collections=\([0-9]*\).*/\1/p' "$T/ex.err" | tail -1)
 if [ "${nc:-0}" -ge 1 ]; then echo "  arm 2 PASS: the stress-5 run collected $nc time(s) -- arm 1 measured a moving heap, not a quiet one"
 else echo "  arm 2 RED: the stress-5 run reported ${nc:-no} collections, so arm 1 could have passed without the subject ever moving"; RC=1; fi

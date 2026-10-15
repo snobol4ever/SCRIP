@@ -35,14 +35,14 @@ run_one() {
     local err="$TMPD/$base.err"
     local inp="$dir/$base.input"
     # Emit
-    if ! timeout "$TIMEOUT" "$SCRIP" --target=js "$sno" > "$js" 2>"$err"; then
+    if ! timeout -k 5 "$TIMEOUT" "$SCRIP" --target=js "$sno" > "$js" 2>"$err"; then
         [[ "$VERBOSE" == "--verbose" ]] && echo -e "${RED}FAIL${RESET} $base [emit error]"
         FAIL=$((FAIL+1)); return 0
     fi
     # Run
     local stdin_arg="< /dev/null"
     [[ -f "$inp" ]] && stdin_arg="< \"$inp\""
-    if ! eval "timeout $TIMEOUT node \"$js\" $stdin_arg > \"$out\" 2>\"$err\""; then
+    if ! eval "timeout -k 5 $TIMEOUT node \"$js\" $stdin_arg > \"$out\" 2>\"$err\""; then
         [[ "$VERBOSE" == "--verbose" ]] && { echo -e "${RED}FAIL${RESET} $base [node error]"; head -3 "$err"; }
         FAIL=$((FAIL+1)); return 0
     fi

@@ -78,7 +78,7 @@ fi
 # `.` and the gate would pass while measuring nothing.  A deliberately wrong expectation must read X everywhere.
 bad=""; badn=0
 for s in $PTS; do
-  got="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$s" timeout 120s "$SCRIP" "$WIT" 2>/dev/null)"
+  got="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$s" timeout -k 5 120s "$SCRIP" "$WIT" 2>/dev/null)"
   if [ "$got" = "${live}-PLANTED-NOT-THE-ORACLE" ]; then bad="$bad ."; else bad="$bad X"; badn=$((badn+1)); fi
 done
 np="$(printf '%s\n' $PTS | wc -l)"
@@ -91,7 +91,7 @@ fi
 # (c) MODE 3, the default road.
 m3=""; d3=0
 for s in $PTS; do
-  got="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$s" timeout 120s "$SCRIP" "$WIT" 2>/dev/null)"
+  got="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$s" timeout -k 5 120s "$SCRIP" "$WIT" 2>/dev/null)"
   if [ "$got" = "$live" ]; then m3="$m3 ."; else m3="$m3 X"; d3=$((d3+1)); fi
 done
 if [ "$d3" = 0 ]; then
@@ -101,12 +101,12 @@ else
 fi
 
 # (d) MODE 4, because the two modes diverge in WHERE a band is red, never in whether the class exists.
-( cd "$T" && timeout 60s "$ROOT/scrip" --compile -o w.s w.sno < /dev/null > /dev/null 2>&1 \
+( cd "$T" && timeout -k 5 60s "$ROOT/scrip" --compile -o w.s w.sno < /dev/null > /dev/null 2>&1 \
     && gcc -m64 -no-pie -rdynamic w.s -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o w.x4 2> w.ld.log ) \
     || refuse "mode-4 compile or link failed, so the m4 arm measured nothing ($(head -c 160 "$T/w.ld.log" 2>/dev/null))"
 m4=""; d4=0
 for s in $PTS; do
-  got="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$s" timeout 120s "$T/w.x4" 2>/dev/null)"
+  got="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$s" timeout -k 5 120s "$T/w.x4" 2>/dev/null)"
   if [ "$got" = "$live" ]; then m4="$m4 ."; else m4="$m4 X"; d4=$((d4+1)); fi
 done
 if [ "$d4" = 0 ]; then

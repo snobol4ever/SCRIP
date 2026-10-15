@@ -52,13 +52,13 @@ RC=0; examined=0
 # an outer SCRIP_HEAP_CAP_KB=1024 does not merely skew arm 4, it makes the 4 MB and 512 MB RECEIPTS VANISH -- a cap below
 # its window is REFUSED at gc_heap.c:197 and the run aborts, so arms 2, 3 and 5 read "absent" and arm 4 reads a tie that
 # is the caller's and not the tree's.  Same defeat one field over, and it matters more now that arm 4 reads cap_kb.
-receipt() { env -u SCRIP_HEAP_KB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_MB="$2" SCRIP_GC_STRESS="$3" SCRIP_GC_EXERCISE=1 timeout 120s "$ROOT/scrip" "$4" 2>"$1" >/dev/null; grep -m1 '^\[GC-EXERCISE\]' "$1"; }
+receipt() { env -u SCRIP_HEAP_KB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_MB="$2" SCRIP_GC_STRESS="$3" SCRIP_GC_EXERCISE=1 timeout -k 5 120s "$ROOT/scrip" "$4" 2>"$1" >/dev/null; grep -m1 '^\[GC-EXERCISE\]' "$1"; }
 fld() { printf '%s\n' "$1" | grep -oE "$2=[0-9]+" | head -1 | cut -d= -f2; }
-receipt_kb() { env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB="$2" SCRIP_GC_STRESS="$3" SCRIP_GC_EXERCISE=1 timeout 120s "$ROOT/scrip" "$4" 2>"$1" >/dev/null; grep -m1 '^\[GC-EXERCISE\]' "$1"; }
+receipt_kb() { env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB="$2" SCRIP_GC_STRESS="$3" SCRIP_GC_EXERCISE=1 timeout -k 5 120s "$ROOT/scrip" "$4" 2>"$1" >/dev/null; grep -m1 '^\[GC-EXERCISE\]' "$1"; }
 # ARM 1 -- SILENT WHEN UNASKED.  A receipt that prints unconditionally changes the stderr of every board and witness in
 # the tree, and a gate somewhere is grading stderr byte for byte.  The knob is the whole contract.
 examined=$((examined + 1))
-env -u SCRIP_HEAP_KB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_MB=1 timeout 120s "$ROOT/scrip" "$THIN" 2>"$T/quiet.txt" >/dev/null
+env -u SCRIP_HEAP_KB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_MB=1 timeout -k 5 120s "$ROOT/scrip" "$THIN" 2>"$T/quiet.txt" >/dev/null
 if [ "$(grep -c 'GC-EXERCISE' "$T/quiet.txt")" = 0 ]; then echo "  arm 1 PASS: no receipt without SCRIP_GC_EXERCISE -- existing boards and stderr-grading gates are untouched"
 else echo "  arm 1 FAIL: the receipt printed with the knob unset, so it is spam and it changes what every other instrument reads"; RC=1; fi
 # ARM 2 -- THE ARENA FIELD TRACKS THE WINDOW.  This is the arm the pre-cure code fails: it read (int)GC_HEAP_MB, a
@@ -107,7 +107,7 @@ for p in "1:${v1:-}" "4:${v4:-}" "512:${v5:-}"; do w=${p%%:*}; v=${p#*:}
 a4_holds "${v1:-}" "${k1:-}" || a4why="$a4why at a 1MB window the reserve is ${v1:-none}MB against cap_kb ${k1:-none} -- the cap did NOT stay above the window;"
 [ "${k5:-0}" = "$(( 512 * 1024 ))" ] || a4why="$a4why at a 512MB window cap_kb is ${k5:-none}, not $(( 512 * 1024 )) -- the cap did not rise to hold the window;"
 if [ -z "$a4why" ]; then
-  pl=$(env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_MB=1 SCRIP_HEAP_CAP_KB=1024 SCRIP_GC_EXERCISE=1 timeout 120s "$ROOT/scrip" "$THIN" 2>&1 >/dev/null | grep -m1 '^\[GC-EXERCISE\]')
+  pl=$(env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_MB=1 SCRIP_HEAP_CAP_KB=1024 SCRIP_GC_EXERCISE=1 timeout -k 5 120s "$ROOT/scrip" "$THIN" 2>&1 >/dev/null | grep -m1 '^\[GC-EXERCISE\]')
   if a4_holds "$(fld "$pl" reserve_mb)" "$(fld "$pl" cap_kb)"; then echo "  arm 4 FAIL: the planted tie (SCRIP_HEAP_CAP_KB pinning the cap onto a 1 MB window) still reads as holding -- this arm is an inert seam and cannot see the tie return"; RC=1
   else echo "  arm 4 PASS: the cap does not shrink with the window -- reserve_mb is ${v1} at a 1 MB window (the whole ${k1} KB cap, strictly ABOVE the window) and ${v5} at 512 MB where cap_kb rose to ${k5} to hold it, reserve >= window at all three points, so SCRIP_HEAP_MB=1 alone is the instrument and no SCRIP_HEAP_MAX_MB is owed; the real re-tie plant reads reserve $(fld "$pl" reserve_mb) cap_kb $(fld "$pl" cap_kb) and reds this arm"; fi
 else echo "  arm 4 FAIL:$a4why A tiny arena then refuses live sets and every [ZHP] abort it causes will be misread as a collector defect."; RC=1; fi

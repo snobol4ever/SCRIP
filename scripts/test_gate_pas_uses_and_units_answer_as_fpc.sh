@@ -42,13 +42,13 @@ FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0; ARMS=0
 run_mode() { local m="$1" d="$2" p="$3"
-  if [ "$m" = m3 ]; then ( cd "$d" && timeout 20s "$SCRIP" --run "$p.pas" </dev/null 2>"$d/$p.$m.err" | head -c 8000 >"$d/$p.$m.out"; exit "${PIPESTATUS[0]}" ); return $?; fi
-  ( cd "$d" && timeout 20s "$SCRIP" --compile -o "$d/$p.s" "$p.pas" </dev/null >/dev/null 2>"$d/$p.$m.err" ) || { echo "  ⛔ arm $p m4: did not compile"; return 99; }
+  if [ "$m" = m3 ]; then ( cd "$d" && timeout -k 5 20s "$SCRIP" --run "$p.pas" </dev/null 2>"$d/$p.$m.err" | head -c 8000 >"$d/$p.$m.out"; exit "${PIPESTATUS[0]}" ); return $?; fi
+  ( cd "$d" && timeout -k 5 20s "$SCRIP" --compile -o "$d/$p.s" "$p.pas" </dev/null >/dev/null 2>"$d/$p.$m.err" ) || { echo "  ⛔ arm $p m4: did not compile"; return 99; }
   ( cd "$d" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: arm $p compiled but would not link"; exit 2; }
-  ( cd "$d" && timeout 20s "./$p.m4" </dev/null 2>"$d/$p.$m.err" | head -c 8000 >"$d/$p.$m.out"; exit "${PIPESTATUS[0]}" ); return $?; }
+  ( cd "$d" && timeout -k 5 20s "./$p.m4" </dev/null 2>"$d/$p.$m.err" | head -c 8000 >"$d/$p.$m.out"; exit "${PIPESTATUS[0]}" ); return $?; }
 grade() { local arm="$1" p="$2" mode="$3" d="$T/$1"
   mkdir -p "$d/fpc"
-  ( cd "$d" && "$FPC" $mode -v0 -B -FE"$d/fpc" -FU"$d/fpc" -o"$d/fpc/$p" "$p.pas" >/dev/null 2>&1 && timeout 20s "$d/fpc/$p" </dev/null | head -c 8000 ) > "$d/$p.want" 2>/dev/null
+  ( cd "$d" && "$FPC" $mode -v0 -B -FE"$d/fpc" -FU"$d/fpc" -o"$d/fpc/$p" "$p.pas" >/dev/null 2>&1 && timeout -k 5 20s "$d/fpc/$p" </dev/null | head -c 8000 ) > "$d/$p.want" 2>/dev/null
   [ -s "$d/$p.want" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no output for arm $arm ($p)"; exit 2; }
   if [ -n "${FAIL_ONCE:-}" ] && [ "$arm" = units ]; then echo "corrupted by FAIL_ONCE" >> "$d/$p.want"; fi
   ARMS=$((ARMS + 1))
@@ -60,7 +60,7 @@ grade() { local arm="$1" p="$2" mode="$3" d="$T/$1"
   done; }
 refuse() { local arm="$1" p="$2" want="$3" d="$T/$1"
   ARMS=$((ARMS + 1))
-  ( cd "$d" && timeout 20s "$SCRIP" --run "$p.pas" </dev/null >"$d/$p.out" 2>"$d/$p.err" ); rc=$?
+  ( cd "$d" && timeout -k 5 20s "$SCRIP" --run "$p.pas" </dev/null >"$d/$p.out" 2>"$d/$p.err" ); rc=$?
   if [ "$rc" != 0 ] && grep -qF -- "$want" "$d/$p.err"; then echo "  arm $arm/$p: refused rc=$rc naming '$want'"
   else echo "  ⛔ arm $arm/$p FAILED: rc=$rc, stderr lacks '$want': $(tr '\n' '|' < "$d/$p.err" | cut -c1-300)"; RC=1; fi; }
 mkdir -p "$T/units" "$T/shapes" "$T/clash" "$T/kw" "$T/mode" "$T/refuse"

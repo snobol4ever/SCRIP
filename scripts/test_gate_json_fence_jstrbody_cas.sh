@@ -52,16 +52,16 @@ gcc -no-pie "$T/json.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "$T
 "$SCRIP" --compile "$DEMO/json-match-fence.sno" -o "$T/jmf.s" < /dev/null > /dev/null 2>&1
 gcc -no-pie "$T/jmf.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "$T/jmf.bin" 2>/dev/null
 
-timeout 60 "$SCRIP" $JSON_SW --run "$DEMO/json.sno" < "$DEMO/citm_catalog.json" > "$T/m3_json.txt" 2>/dev/null
+timeout -k 5 60 "$SCRIP" $JSON_SW --run "$DEMO/json.sno" < "$DEMO/citm_catalog.json" > "$T/m3_json.txt" 2>/dev/null
 diff -q "$T/m3_json.txt" "$PROBE/$JFJC_JSON_REF" > /dev/null 2>&1; chk $? "m3 json.sno matches oracle on citm_catalog.json"
 
-timeout 60 "$T/json.bin" $JSON_SW < "$DEMO/citm_catalog.json" > "$T/m4_json.txt" 2>/dev/null
+timeout -k 5 60 "$T/json.bin" $JSON_SW < "$DEMO/citm_catalog.json" > "$T/m4_json.txt" 2>/dev/null
 diff -q "$T/m4_json.txt" "$PROBE/$JFJC_JSON_REF" > /dev/null 2>&1; chk $? "m4 json.sno matches oracle on citm_catalog.json"
 
-timeout 60 "$SCRIP" $MF_SW --run "$DEMO/json-match-fence.sno" < "$DEMO/citm_catalog.json" > "$T/m3_jmf.txt" 2>/dev/null
+timeout -k 5 60 "$SCRIP" $MF_SW --run "$DEMO/json-match-fence.sno" < "$DEMO/citm_catalog.json" > "$T/m3_jmf.txt" 2>/dev/null
 diff -q "$T/m3_jmf.txt" "$PROBE/$JFJC_MF_REF" > /dev/null 2>&1; chk $? "m3 json-match-fence.sno matches oracle on citm_catalog.json (at ${MF_SW:-the defaults})"
 
-timeout 60 "$T/jmf.bin" $MF_SW < "$DEMO/citm_catalog.json" > "$T/m4_jmf.txt" 2>/dev/null
+timeout -k 5 60 "$T/jmf.bin" $MF_SW < "$DEMO/citm_catalog.json" > "$T/m4_jmf.txt" 2>/dev/null
 diff -q "$T/m4_jmf.txt" "$PROBE/$JFJC_MF_REF" > /dev/null 2>&1; chk $? "m4 json-match-fence.sno matches oracle on citm_catalog.json (at ${MF_SW:-the defaults})"
 
 # ⭐ REGRESSION LOCK, NOT JUST A CORRECTNESS CHECK: jstrbody's FENCE must still be textually present at both

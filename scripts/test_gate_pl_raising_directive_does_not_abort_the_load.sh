@@ -38,7 +38,7 @@ printf 'a :- write(before), nl.\n:- fail.\nb :- write(after), nl.\n:- initializa
 printf ':- initialization(main).\nmain :- no_such_goal_at_all(z).\n'                                                          > "$W/initraise.pl"
 fails=0; checks=0
 ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
-oracle(){ timeout 30 "$SWIPL" -q -g true -t halt "$1" </dev/null 2>/dev/null; }
+oracle(){ timeout -k 5 30 "$SWIPL" -q -g true -t halt "$1" </dev/null 2>/dev/null; }
 echo "=== gate: a prolog directive that RAISES must not abort the load ==="
 echo "--- (e) the ORACLE premise, asserted before anything is graded ---"
 exp_raise="$(oracle "$W/raise.pl")"; exp_fail="$(oracle "$W/failing.pl")"
@@ -48,11 +48,11 @@ exp_raise="$(oracle "$W/raise.pl")"; exp_fail="$(oracle "$W/failing.pl")"
   || refuse "ORACLE PREMISE MOVED: swipl on a failing directive printed [$exp_fail] -- re-derive rather than grade"
 for m in m3 m4; do
   echo "--- $m ---"
-  run(){ if [ "$m" = m3 ]; then timeout 60 "$SCRIP" "$1" </dev/null 2>"$W/err.txt"; else
+  run(){ if [ "$m" = m3 ]; then timeout -k 5 60 "$SCRIP" "$1" </dev/null 2>"$W/err.txt"; else
            s="$W/out.s"; b="$W/out.bin"; rm -f "$s" "$b"
-           timeout 90 "$SCRIP" --compile -o "$s" "$1" </dev/null >/dev/null 2>&1 || return 97
-           timeout 90 gcc -no-pie -o "$b" "$s" -L"$ROOT/out" -lscrip_rt -lm >/dev/null 2>&1 || return 98
-           LD_LIBRARY_PATH="$ROOT/out" timeout 60 "$b" </dev/null 2>"$W/err.txt"; fi; }
+           timeout -k 5 90 "$SCRIP" --compile -o "$s" "$1" </dev/null >/dev/null 2>&1 || return 97
+           timeout -k 5 90 gcc -no-pie -o "$b" "$s" -L"$ROOT/out" -lscrip_rt -lm >/dev/null 2>&1 || return 98
+           LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 60 "$b" </dev/null 2>"$W/err.txt"; fi; }
   out="$(run "$W/raise.pl")"; rc=$?
   [ "$rc" -eq 0 ] && ck ok "$m (a) raising directive: rc=0" || ck no "$m (a) raising directive: rc=$rc, expected 0"
   [ "$out" = "$exp_raise" ] && ck ok "$m (a) load continued: printed [$out] == oracle" \

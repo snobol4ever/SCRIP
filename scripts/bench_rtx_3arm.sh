@@ -91,9 +91,9 @@ ratio() { awk -v a="$1" -v b="$2" 'BEGIN{ if(b+0==0){print "NA"; exit} printf "%
 run1() {
   local dir="$1" g="$2" prog="$3" out
   if [ -n "$g" ]; then
-    out=$(LD_LIBRARY_PATH="$dir" $ASLR_PRE env "$GATE=$g" timeout 300 "$SCRIP" --run "$prog" </dev/null 2>/dev/null)
+    out=$(LD_LIBRARY_PATH="$dir" $ASLR_PRE env "$GATE=$g" timeout -k 5 300 "$SCRIP" --run "$prog" </dev/null 2>/dev/null)
   else
-    out=$(LD_LIBRARY_PATH="$dir" $ASLR_PRE timeout 300 "$SCRIP" --run "$prog" </dev/null 2>/dev/null)
+    out=$(LD_LIBRARY_PATH="$dir" $ASLR_PRE timeout -k 5 300 "$SCRIP" --run "$prog" </dev/null 2>/dev/null)
   fi
   echo "$out" | awk '/^ms: /{print $2; found=1} END{if(!found) print ""}'
 }
@@ -101,7 +101,7 @@ run1() {
 # ON=OFF=PRISTINE by construction; the harness proves its own null floor (should read 1.000 ±noise).
 run1_rtcc() {
   local dir="$1" prog="$2" out
-  out=$(LD_LIBRARY_PATH="$dir" $ASLR_PRE timeout 300 "$SCRIP" --run "$prog" </dev/null 2>/dev/null)
+  out=$(LD_LIBRARY_PATH="$dir" $ASLR_PRE timeout -k 5 300 "$SCRIP" --run "$prog" </dev/null 2>/dev/null)
   echo "$out" | awk '/^ms: /{print $2; found=1} END{if(!found) print ""}'
 }
 

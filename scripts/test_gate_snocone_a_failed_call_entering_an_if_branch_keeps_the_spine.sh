@@ -50,12 +50,12 @@ for w in "${W[@]}"; do
     name="${w%%|*}"; src="${w#*|}"; id="${name%% *}"
     printf '%s\n' "$src" > "$T/$id.sc"
     "$SCRIP" --transpile "$T/$id.sc" </dev/null > "$T/$id.sno" 2>/dev/null || { echo "⛔ GATE REFUSE(2) [$G]: $id does not transpile -- no ref"; exit 2; }
-    ref="$(cd "$T" && timeout 30s "$SBL" -bf "$id.sno" </dev/null 2>&1)"; rrc=$?
+    ref="$(cd "$T" && timeout -k 5 30s "$SBL" -bf "$id.sno" </dev/null 2>&1)"; rrc=$?
     [ "$rrc" = 0 ] && [ -n "$ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle did not run $id cleanly (rc=$rrc) -- no ref"; exit 2; }
-    got3="$(timeout 30s "$SCRIP" "$T/$id.sc" </dev/null 2>&1)"; r3=$?
+    got3="$(timeout -k 5 30s "$SCRIP" "$T/$id.sc" </dev/null 2>&1)"; r3=$?
     "$SCRIP" --compile "$T/$id.sc" -o "$T/$id.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/$id.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/$id" 2>"$T/ld.log" \
         || { echo "⛔ GATE REFUSE(2) [$G]: $id mode-4 compile or link failed, so arm 2 measured nothing"; exit 2; }
-    got4="$(timeout 30s "$T/$id" </dev/null 2>&1)"; r4=$?
+    got4="$(timeout -k 5 30s "$T/$id" </dev/null 2>&1)"; r4=$?
     v3=PASS; { [ "$r3" = 0 ] && [ "$got3" = "$ref" ]; } || v3="FAIL(rc=$r3)"
     v4=PASS; { [ "$r4" = 0 ] && [ "$got4" = "$ref" ]; } || v4="FAIL(rc=$r4)"
     echo "  $name: m3 $v3  m4 $v4"

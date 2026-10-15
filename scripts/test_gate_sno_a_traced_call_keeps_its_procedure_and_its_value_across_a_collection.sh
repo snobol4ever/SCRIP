@@ -78,11 +78,11 @@ RC=0; N=0
 run() {
   local m="$1" w="$2" fl="$3" st="$4" x="$T/$2.$1.$4$3"
   if [ "$m" = m3 ]; then
-    env SCRIP_GC_STRESS="$st" SCRIP_GC_EXERCISE=1 timeout 60 "$SCRIP" $fl "$T/$w.sno" </dev/null >"$x.out" 2>"$x.err"
+    env SCRIP_GC_STRESS="$st" SCRIP_GC_EXERCISE=1 timeout -k 5 60 "$SCRIP" $fl "$T/$w.sno" </dev/null >"$x.out" 2>"$x.err"
   else
     "$SCRIP" --compile $fl -o "$x.s" "$T/$w.sno" </dev/null >/dev/null 2>&1 || { echo COMPILE-FAIL >"$x.out"; return; }
     gcc -no-pie -o "$x.bin" "$x.s" -L"$RT" -Wl,-rpath,"$RT" -lscrip_rt -lm >/dev/null 2>&1 || { echo LINK-FAIL >"$x.out"; return; }
-    env SCRIP_GC_STRESS="$st" SCRIP_GC_EXERCISE=1 timeout 60 "$x.bin" </dev/null >"$x.out" 2>"$x.err"
+    env SCRIP_GC_STRESS="$st" SCRIP_GC_EXERCISE=1 timeout -k 5 60 "$x.bin" </dev/null >"$x.out" 2>"$x.err"
   fi
 }
 grade() {

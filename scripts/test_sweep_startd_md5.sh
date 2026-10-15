@@ -17,7 +17,7 @@ CORPUS="${CORPUS:-$S4E/corpus}"
 : > "$OUT"
 n=0
 while IFS= read -r f; do
-    s=$(SCRIP_MATCH_RBP="$ARM" timeout 30s "$ROOT/scrip" --compile "$f" < /dev/null 2>/dev/null)
+    s=$(SCRIP_MATCH_RBP="$ARM" timeout -k 5 30s "$ROOT/scrip" --compile "$f" < /dev/null 2>/dev/null)
     if [ -z "$s" ]; then m="EMPTY_OR_FAIL"; else m=$(printf '%s' "$s" | md5sum | cut -d' ' -f1); fi
     printf '%s\t%s\n' "$m" "${f#$CORPUS/}" >> "$OUT"
     n=$((n+1))

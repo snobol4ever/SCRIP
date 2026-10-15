@@ -35,7 +35,7 @@ begin
   writeln(p, ' ', i:1, ' ', ord(c):1)
 end.
 PAS
-mon=$( cd "$T" && timeout 300 bash "$HERE/monitor_run.sh" "$T/plug.pas" --oracle 2>&1 ); mrc=$?
+mon=$( cd "$T" && timeout -k 5 300 bash "$HERE/monitor_run.sh" "$T/plug.pas" --oracle 2>&1 ); mrc=$?
 [ "$mrc" = 2 ] && { echo "⛔ GATE REFUSE(2) [$G]: the monitor could not measure: $(printf '%s\n' "$mon" | grep -m1 'REFUSE' | cut -c1-160)"; exit 2; }
 if [ "$mrc" = 0 ] && printf '%s\n' "$mon" | grep -q 'AGREE: participants fpx scr agree event-for-event.*UNGRADED=0'; then
      echo "  arm 1: $(printf '%s\n' "$mon" | grep -m1 -oE 'clean termination at step [0-9]+ \(AGREE=[0-9]+ DIVERGE=0 UNGRADED=0\)') against fpx"
@@ -43,10 +43,10 @@ else echo "  ⛔ arm 1 FAILED: monitor rc=$mrc"; printf '%s\n' "$mon" | grep -a 
 ( cd "$T" && "$FPC" -Miso -v0 -o"plug.fpc" plug.pas >/dev/null 2>&1 && ./plug.fpc ) > "$T/plug.ref" 2>&1
 [ -s "$T/plug.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no output for arm 2"; exit 2; }
 if [ -n "${FAIL_ONCE:-}" ]; then echo "corrupted by FAIL_ONCE" >> "$T/plug.ref"; fi
-o3=$( cd "$T" && timeout 20s "$SCRIP" --run plug.pas </dev/null 2>&1 ); c3=$?
-( cd "$T" && timeout 20s "$SCRIP" --compile -o plug.s plug.pas </dev/null >/dev/null 2>&1 && cc -m64 -no-pie plug.s -o plug.m4 -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) \
+o3=$( cd "$T" && timeout -k 5 20s "$SCRIP" --run plug.pas </dev/null 2>&1 ); c3=$?
+( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o plug.s plug.pas </dev/null >/dev/null 2>&1 && cc -m64 -no-pie plug.s -o plug.m4 -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) \
   || { echo "⛔ GATE REFUSE(2) [$G]: arm 2 would not compile or link in m4"; exit 2; }
-o4=$( cd "$T" && timeout 20s ./plug.m4 </dev/null 2>&1 ); c4=$?
+o4=$( cd "$T" && timeout -k 5 20s ./plug.m4 </dev/null 2>&1 ); c4=$?
 if [ "$c3" = 0 ] && [ "$c4" = 0 ] && [ "$o3" = "$(cat "$T/plug.ref")" ] && [ "$o4" = "$(cat "$T/plug.ref")" ]; then echo "  arm 2: byte-identical to fpc -Miso in both modes"
 else echo "  ⛔ arm 2 FAILED"; echo "      want: $(tr '\n' '|' < "$T/plug.ref")"
      echo "      m3  : rc=$c3 $(printf '%s' "$o3" | tr '\n' '|')"; echo "      m4  : rc=$c4 $(printf '%s' "$o4" | tr '\n' '|')"; RC=1; fi

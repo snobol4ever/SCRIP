@@ -56,13 +56,13 @@ END
 EOF
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
-mon() { ( cd "$T" && timeout 300 bash "$HERE/monitor_run.sh" "$1.sno" --oracle > "$1.mon" 2>&1 ); local r=$?
+mon() { ( cd "$T" && timeout -k 5 300 bash "$HERE/monitor_run.sh" "$1.sno" --oracle > "$1.mon" 2>&1 ); local r=$?
     [ "$r" = 2 ] && refuse "the monitor could not measure $1: $(grep -m1 -E 'REFUSE|DIVERGE' "$T/$1.mon" | cut -c1-160)"
     local v; v=$(grep -o 'AGREE=[0-9]* DIVERGE=[0-9]* UNGRADED=[0-9]*' "$T/$1.mon" | tail -1)
     [ "$r" = 0 ] && printf '%s' "$v" | grep -q 'DIVERGE=0 ' && echo ok || echo "rc=$r [$v] $(grep -m1 '^| \*\*>' "$T/$1.mon" | cut -c1-140)"; }
 arm "monitor --oracle: an NRETURN and a RETURN function, the row's witness" "$(mon nret)"
 arm "monitor --oracle: RETURN, NRETURN and FRETURN functions, each called twice" "$(mon kinds)"
-want=$(cd "$T" && timeout 20 "$SBL" -bf nret.sno < /dev/null 2>&1); got=$(cd "$T" && timeout 20 "$SCRIP" nret.sno < /dev/null 2>&1)
+want=$(cd "$T" && timeout -k 5 20 "$SBL" -bf nret.sno < /dev/null 2>&1); got=$(cd "$T" && timeout -k 5 20 "$SCRIP" nret.sno < /dev/null 2>&1)
 [ "$want" = "v NRETURN" ] || refuse "sbl's answer moved: [$want]"
 arm "CONTROL m3: the witness prints what sbl prints" "$([ "$got" = "$want" ] && echo ok || echo "got [$got] want [$want]")"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }

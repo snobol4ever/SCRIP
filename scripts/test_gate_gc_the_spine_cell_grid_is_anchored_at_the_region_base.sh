@@ -86,7 +86,7 @@ echo "languages -- MEASURED at 4.8s for the whole gate, which is why it is the W
 echo "(MODE TENET CONDITION 2: the landing gate is the shared resource; a cheap arm may be wide). GRID_POP= narrows it."
 
 # (a) the instrument grades itself before it grades the tree
-st="$(timeout 120s python3 "$CENSUS" --selftest 2>&1)"; src=$?
+st="$(timeout -k 5 120s python3 "$CENSUS" --selftest 2>&1)"; src=$?
 n="$(printf '%s\n' "$st" | sed -n 's/^SELFTEST \([0-9]*\)\/\([0-9]*\) arms green/\1 \2/p')"
 set -- ${n:-0 0}
 if [ "$src" = 0 ] && [ "${1:-0}" -ge 16 ] && [ "${1:-0}" = "${2:-x}" ]; then
@@ -96,7 +96,7 @@ else
 fi
 
 # (b) THE READING: every decidable call site begins its collection on the grid
-pop="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" timeout 900s python3 "$CENSUS" $POP 2>&1)"; prc=$?
+pop="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" timeout -k 5 900s python3 "$CENSUS" $POP 2>&1)"; prc=$?
 [ "$prc" = 2 ] && refuse "the census refused over the declared population: $(printf '%s\n' "$pop" | grep -m1 REFUSED)"
 gl="$(printf '%s\n' "$pop" | grep -m1 '^CENSUS unmapped-store GRID calls=')"
 ong="$(printf '%s\n' "$gl" | sed -n 's/.* on_grid=\([0-9]*\) .*/\1/p')"
@@ -110,7 +110,7 @@ else
 fi
 
 # (c) PLANTED: an odd push below the base must be NAMED off-grid, not absorbed
-plant="$(timeout 300s python3 - "$CENSUS" "$SCRIP" "$WIT" <<'PY' 2>&1
+plant="$(timeout -k 5 300s python3 - "$CENSUS" "$SCRIP" "$WIT" <<'PY' 2>&1
 import sys, tempfile, importlib.util
 census_path, scrip, wit = sys.argv[1], sys.argv[2], sys.argv[3]
 spec = importlib.util.spec_from_file_location("uc", census_path)
@@ -145,7 +145,7 @@ else
 fi
 
 # (d) THE SECOND ROAD: the anchor read from the RUNNING collector, not from the text
-rt="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_MAPS=3 SCRIP_GC_STRESS=1 timeout 180s "$SCRIP" "$WIT" 2>&1 | grep -m4 '^\[GC-WALK-CELL\]')"
+rt="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_MAPS=3 SCRIP_GC_STRESS=1 timeout -k 5 180s "$SCRIP" "$WIT" 2>&1 | grep -m4 '^\[GC-WALK-CELL\]')"
 bad=0; seen=0
 while read -r line; do
   [ -z "$line" ] && continue

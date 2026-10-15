@@ -70,7 +70,7 @@ if [ -z "$LIST" ]; then echo "  (no program list given; pass a glob dir as \$1 t
   T10=0; T11=0; NP=0
   for f in $LIST; do
     b=$(basename "$f" .sno)
-    s=$(timeout 25s "$SCRIP" --compile "$f" 2>/dev/null < /dev/null) || continue
+    s=$(timeout -k 5 25s "$SCRIP" --compile "$f" 2>/dev/null < /dev/null) || continue
     # emitted text is Intel syntax, mnemonics padded with many spaces
     n10=$(echo "$s" | grep -cE '^[[:space:]]*(mov|movabs|lea|xor|add|sub|and|or|pop|movzx|movsxd)[[:space:]]+r10(d|w|b)?[[:space:]]*,')
     n11=$(echo "$s" | grep -cE '^[[:space:]]*(mov|movabs|lea|xor|add|sub|and|or|pop|movzx|movsxd)[[:space:]]+r11(d|w|b)?[[:space:]]*,')

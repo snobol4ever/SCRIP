@@ -106,12 +106,12 @@ build_oracle() { rm -f "$T/$1.u1" "$T/$1.u2" "$T/orc_$1"
   ( cd "$T" && "$ICONT" -s -o "orc_$1" "$1.icn" ) > "$T/icont_$1.log" 2>&1
   [ -x "$T/orc_$1" ] || { echo "GATE UNPROVEN(2): icont refused $1.icn -- measured nothing:"; sed 's/^/    /' "$T/icont_$1.log"; exit 2; }
   "$ICONX" "$T/orc_$1" < /dev/null > "$T/want_$1" 2>&1 || true; }
-run_scrip() { timeout 60 "$R/scrip" "$T/$1.icn" < /dev/null > "$T/m3_$1" 2>&1
+run_scrip() { timeout -k 5 60 "$R/scrip" "$T/$1.icn" < /dev/null > "$T/m3_$1" 2>&1
   rm -f "$T/$1.s" "$T/bin_$1"
-  timeout 60 "$R/scrip" --compile -o "$T/$1.s" "$T/$1.icn" < /dev/null > "$T/cc_$1.log" 2>&1
+  timeout -k 5 60 "$R/scrip" --compile -o "$T/$1.s" "$T/$1.icn" < /dev/null > "$T/cc_$1.log" 2>&1
   [ -s "$T/$1.s" ] && gcc -m64 -no-pie "$T/$1.s" -o "$T/bin_$1" -L"$R/out" -lscrip_rt -Wl,-rpath,"$R/out" -lm -lpthread >> "$T/cc_$1.log" 2>&1
   [ -x "$T/bin_$1" ] || { echo "GATE UNPROVEN(2): mode 4 produced no binary for $1.icn -- measured nothing:"; tail -3 "$T/cc_$1.log" | sed 's/^/    /'; exit 2; }
-  timeout 60 "$T/bin_$1" < /dev/null > "$T/m4_$1" 2>&1; }
+  timeout -k 5 60 "$T/bin_$1" < /dev/null > "$T/m4_$1" 2>&1; }
 for p in g f206 f102; do build_oracle "$p"; run_scrip "$p"; done
 grep -q '^HASVALUE ' "$T/want_g" || { echo "GATE UNPROVEN(2): the oracle printed no HASVALUE row -- measured nothing:"; sed 's/^/    /' "$T/want_g"; exit 2; }
 bad=0

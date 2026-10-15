@@ -65,8 +65,8 @@ nred=0
 for ST in 0 1 2 3 4 5 8 10 13 16 20 25 30 35 45 50; do
   for M in m3 m4; do
     examined=$((examined+1))
-    if [ "$M" = m3 ]; then o=$(SCRIP_GC_STRESS="$ST" timeout 30 "$SCRIP" "$T/w.pl" 2>/dev/null); r=$?
-    else o=$(SCRIP_GC_STRESS="$ST" timeout 30 "$T/w.bin" 2>/dev/null); r=$?; fi
+    if [ "$M" = m3 ]; then o=$(SCRIP_GC_STRESS="$ST" timeout -k 5 30 "$SCRIP" "$T/w.pl" 2>/dev/null); r=$?
+    else o=$(SCRIP_GC_STRESS="$ST" timeout -k 5 30 "$T/w.bin" 2>/dev/null); r=$?; fi
     if [ "$o" = "caught_type_error" ] && [ "$r" = 0 ]; then continue; fi
     echo "  FAIL stress=$ST $M rc=$r stdout=[$o] -- the ball did not survive to the catcher"; nred=$((nred+1)); RC=1
   done

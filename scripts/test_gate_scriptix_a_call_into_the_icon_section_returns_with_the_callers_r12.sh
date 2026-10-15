@@ -64,9 +64,9 @@ MD
 printf 'abbyy\nyy y\n' > "$D/q.want"
 red=0; n=0
 for p in p q; do
-    ( cd "$D" && timeout 30 "$B/scrip" "$p.md" < /dev/null > "$p.m3" 2>/dev/null )
-    ( cd "$D" && timeout 60 "$B/scrip" --compile "$p.md" < /dev/null > "$p.s" 2>/dev/null && gcc -no-pie "$p.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$p.bin" 2>/dev/null ) || refuse "$p.md: mode 4 did not build"
-    ( cd "$D" && timeout 30 "./$p.bin" < /dev/null > "$p.m4" 2>/dev/null )
+    ( cd "$D" && timeout -k 5 30 "$B/scrip" "$p.md" < /dev/null > "$p.m3" 2>/dev/null )
+    ( cd "$D" && timeout -k 5 60 "$B/scrip" --compile "$p.md" < /dev/null > "$p.s" 2>/dev/null && gcc -no-pie "$p.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$p.bin" 2>/dev/null ) || refuse "$p.md: mode 4 did not build"
+    ( cd "$D" && timeout -k 5 30 "./$p.bin" < /dev/null > "$p.m4" 2>/dev/null )
     for m in m3 m4; do
         n=$((n + 1))
         if cmp -s "$D/$p.want" "$D/$p.$m"; then echo "  ok   $p.md $m"; else echo "  FAIL $p.md $m: got [$(tr '\n' '|' < "$D/$p.$m")] want [$(tr '\n' '|' < "$D/$p.want")]"; red=$((red + 1)); fi

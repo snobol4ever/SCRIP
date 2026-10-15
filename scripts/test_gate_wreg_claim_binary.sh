@@ -79,7 +79,7 @@ commands
 end
 continue
 GEOF
-    timeout 25 gdb -batch -x "$d/g.cmds" --args ./scrip --run "$sno" < /dev/null > /dev/null 2>&1
+    timeout -k 5 25 gdb -batch -x "$d/g.cmds" --args ./scrip --run "$sno" < /dev/null > /dev/null 2>&1
     shopt -s nullglob
     for slab in "$d"/slab_*.bin; do
         total_slabs=$((total_slabs+1))

@@ -48,11 +48,11 @@ filt() { python3 "$ROOT/scripts/util_render_error_voice.py" icon | grep -a 'Run-
 red=0; n=0
 for src in "$W"/g*.icn; do
     b="$(basename "$src" .icn)"; want="$(cat "$W/$b.want")"; n=$((n+1))
-    m3="$(cd "$W" && timeout 20 "$SCRIP" "$b.icn" </dev/null 2>&1 | filt)"
+    m3="$(cd "$W" && timeout -k 5 20 "$SCRIP" "$b.icn" </dev/null 2>&1 | filt)"
     m4="(compile/link failed)"
     if (cd "$W" && "$SCRIP" --compile "$b.icn" </dev/null > "$b.s" 2>/dev/null && gcc -c "$b.s" -o "$b.o" 2>/dev/null \
         && gcc "$b.o" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$b.m4" 2>/dev/null); then
-        m4="$(cd "$W" && timeout 20 "./$b.m4" </dev/null 2>&1 | filt)"
+        m4="$(cd "$W" && timeout -k 5 20 "./$b.m4" </dev/null 2>&1 | filt)"
     fi
     v=GREEN; { [ "$m3" = "$want" ] && [ "$m4" = "$want" ]; } || { v=RED; red=$((red+1)); }
     printf '  %-20s want=%-52s m3=%-52s m4=%-52s %s\n' "$b" "[$want]" "[$m3]" "[$m4]" "$v"
@@ -65,7 +65,7 @@ for src in "$W"/g*.icn; do
     b="$(basename "$src" .icn)"; n=$((n+1)); bad=0
     err="$(cd "$W" && "$SCRIP" --compile "$b.icn" </dev/null 2>&1 >/dev/null)"; rc=$?
     if [ $rc -eq 134 ] || printf '%s' "$err" | grep -q "REFUSED AT A GUARD"; then printf '  %-20s m4 compile TRIPPED THE GUARD SINK (rc=%s) RED\n' "$b" "$rc"; bad=1; fi
-    run="$(cd "$W" && timeout 20 "$SCRIP" "$b.icn" </dev/null 2>&1)"
+    run="$(cd "$W" && timeout -k 5 20 "$SCRIP" "$b.icn" </dev/null 2>&1)"
     if printf '%s' "$run" | grep -q "BOMB rt_assign_var\|REFUSED AT A GUARD"; then printf '  %-20s m3 run TRIPPED A SINK RED\n' "$b"; bad=1; fi
     red=$((red+bad))
 done

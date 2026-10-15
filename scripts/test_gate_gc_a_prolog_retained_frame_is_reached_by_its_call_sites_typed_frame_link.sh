@@ -56,13 +56,13 @@ printf '2020\n[k5,k6,k7,k8,k9]\n' > "$W/w.ref"
 run_env() { env -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_KB=64 SCRIP_GC_CHAIN_CHECK=3 "$@"; }
 build4() {
   local src="$1" b="$2"
-  ( cd "$W" && timeout 300 "$SCRIP" --compile -o "$b.s" "$src" > /dev/null 2> "$b.c4" < /dev/null ) || refuse "mode 4 could not compile $src: $(head -c 200 "$W/$b.c4")"
+  ( cd "$W" && timeout -k 5 300 "$SCRIP" --compile -o "$b.s" "$src" > /dev/null 2> "$b.c4" < /dev/null ) || refuse "mode 4 could not compile $src: $(head -c 200 "$W/$b.c4")"
   gcc "$W/$b.s" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" -o "$W/$b.x" 2> "$W/$b.ld4" || refuse "mode 4 link failed for $src: $(head -c 200 "$W/$b.ld4")"
 }
 build4 "$W/w.pl" w
 for st in 1 3; do
   for m in 3 4; do
-    if [ "$m" = 3 ]; then ( cd "$W" && run_env SCRIP_GC_STRESS=$st timeout 300 "$SCRIP" w.pl > o 2> e < /dev/null ); else ( cd "$W" && run_env SCRIP_GC_STRESS=$st timeout 300 ./w.x > o 2> e < /dev/null ); fi
+    if [ "$m" = 3 ]; then ( cd "$W" && run_env SCRIP_GC_STRESS=$st timeout -k 5 300 "$SCRIP" w.pl > o 2> e < /dev/null ); else ( cd "$W" && run_env SCRIP_GC_STRESS=$st timeout -k 5 300 ./w.x > o 2> e < /dev/null ); fi
     s="$(grep -a '^\[CHAIN-WALK\] SUMMARY ' "$W/e" | tail -1)"
     oc="$(num "$s" offchain-swept)"; fl="$(num "$s" frame-links)"; bl="$(num "$s" bad-link)"; di="$(num "$s" differ)"; rf="$(num "$s" refused)"
     if cmp -s "$W/o" "$W/w.ref" && [ "$oc" = 0 ] && [ "${fl:-0}" -gt 0 ] && [ "$bl" = 0 ] && [ "$di" = 0 ] && [ "$rf" = 0 ]; then
@@ -76,7 +76,7 @@ for f in "$ROOT"/scripts/gc_witnesses/*.pl; do
   b="$(basename "$f" .pl)"; i=/dev/null; [ -f "${f%.pl}.in" ] && i="${f%.pl}.in"
   build4 "$f" "$b"
   for m in 3 4; do
-    if [ "$m" = 3 ]; then ( cd "$W" && run_env SCRIP_GC_STRESS=1 timeout 300 "$SCRIP" "$f" > /dev/null 2> e < "$i" ); else ( cd "$W" && run_env SCRIP_GC_STRESS=1 timeout 300 "./$b.x" > /dev/null 2> e < "$i" ); fi
+    if [ "$m" = 3 ]; then ( cd "$W" && run_env SCRIP_GC_STRESS=1 timeout -k 5 300 "$SCRIP" "$f" > /dev/null 2> e < "$i" ); else ( cd "$W" && run_env SCRIP_GC_STRESS=1 timeout -k 5 300 "./$b.x" > /dev/null 2> e < "$i" ); fi
     s="$(grep -a '^\[CHAIN-WALK\] SUMMARY ' "$W/e" | tail -1)"
     oc="$(num "$s" offchain-swept)"; bl="$(num "$s" bad-link)"
     if [ -n "$s" ] && [ "$oc" = 0 ] && [ "$bl" = 0 ]; then ck ok "(2) $b mode $m: offchain-swept=0 bad-link=0 ($(num "$s" frame-links) link(s) followed)"
@@ -85,7 +85,7 @@ for f in "$ROOT"/scripts/gc_witnesses/*.pl; do
 done
 build4i() {
   local src="$1" b="$2"
-  ( cd "$W" && timeout 300 "$SCRIP" --compile -o "$b.s" "$src" > /dev/null 2> "$b.c4" < /dev/null ) || refuse "mode 4 could not compile $src: $(head -c 200 "$W/$b.c4")"
+  ( cd "$W" && timeout -k 5 300 "$SCRIP" --compile -o "$b.s" "$src" > /dev/null 2> "$b.c4" < /dev/null ) || refuse "mode 4 could not compile $src: $(head -c 200 "$W/$b.c4")"
   gcc "$W/$b.s" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" -o "$W/$b.x" 2> "$W/$b.ld4" || refuse "mode 4 link failed for $src: $(head -c 200 "$W/$b.ld4")"
 }
 for b in hb_coexpr_parked hb_coexpr_genp_scan; do
@@ -93,7 +93,7 @@ for b in hb_coexpr_parked hb_coexpr_genp_scan; do
   [ -f "$f" ] || refuse "no Icon witness $f"
   build4i "$f" "$b"
   for m in 3 4; do
-    if [ "$m" = 3 ]; then ( cd "$W" && run_env SCRIP_GC_STRESS=1 timeout 300 "$SCRIP" "$f" > /dev/null 2> e < /dev/null ); else ( cd "$W" && run_env SCRIP_GC_STRESS=1 timeout 300 "./$b.x" > /dev/null 2> e < /dev/null ); fi
+    if [ "$m" = 3 ]; then ( cd "$W" && run_env SCRIP_GC_STRESS=1 timeout -k 5 300 "$SCRIP" "$f" > /dev/null 2> e < /dev/null ); else ( cd "$W" && run_env SCRIP_GC_STRESS=1 timeout -k 5 300 "./$b.x" > /dev/null 2> e < /dev/null ); fi
     s="$(grep -a '^\[CHAIN-WALK\] SUMMARY ' "$W/e" | tail -1)"
     oc="$(num "$s" offchain-swept)"; bl="$(num "$s" bad-link)"; fl="$(num "$s" frame-links)"
     if [ -n "$s" ] && [ "$oc" = 0 ] && [ "$bl" = 0 ] && [ "${fl:-0}" -gt 0 ]; then ck ok "(5) Icon $b mode $m: offchain-swept=0 bad-link=0 ($fl generator frame link(s) followed through act +8 H)"

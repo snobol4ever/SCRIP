@@ -24,24 +24,24 @@ for pl in "$B"/*.pl; do
   DECL_SW=(); dw=$(declared_switches_beside "$pl") || { echo "⛔ REFUSED-TO-GRADE: $s: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }
   [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"; undeclared_beside_named "$pl" || true
   # mode 3 (--run): EMIT BINARY -> RX slab, in-process.
-  m3out=$(cd "$W" && timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" </dev/null 2>"$W/$s.m3err" | head -50)
+  m3out=$(cd "$W" && timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" </dev/null 2>"$W/$s.m3err" | head -50)
   if grep -q 'PL-GZ FENCE' "$W/$s.m3err" 2>/dev/null || echo "$m3out" | grep -q 'PL-GZ FENCE'; then m3=FENCE
   elif [ "$m3out" = "$want" ]; then m3=PASS; else m3=FAIL; fi
   # mode 4 (--compile x86): EMIT TEXT -> as+gcc -> exec, separate process.
   m4=SKIP
-  asm=$(cd "$W" && timeout "$T" "$SCRIP" --compile --target=x86 "$pl" </dev/null 2>"$W/$s.m4err")
+  asm=$(cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile --target=x86 "$pl" </dev/null 2>"$W/$s.m4err")
   if echo "$asm" | grep -qE '^\s*\.(intel_syntax|text|globl)'; then
     printf '%s\n' "$asm" > "$W/$s.s"
     if (cd "$W" && as --64 -o "$s.o" "$s.s" 2>"$W/$s.aserr") \
        && gcc -no-pie -o "$W/$s.bin" "$W/$s.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>"$W/$s.lderr"; then
-      m4out=$(cd "$W" && timeout "$T" ./$s.bin "${DECL_SW[@]}" </dev/null 2>/dev/null | head -50)
+      m4out=$(cd "$W" && timeout -k 5 "$T" ./$s.bin "${DECL_SW[@]}" </dev/null 2>/dev/null | head -50)
       if [ "$m4out" = "$want" ]; then m4=PASS; else m4=FAIL; fi
     else m4=BUILD; fi
   elif grep -q 'PL-GZ FENCE' "$W/$s.m4err" 2>/dev/null; then m4=FENCE; else m4=NOEMIT; fi
   # oracle cross-check (informational): does a real prolog agree with .ref?
   orc="-"
   if gprolog_bin >/dev/null 2>&1; then
-    go=$(timeout "$T" "$(gprolog_bin)" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null \
+    go=$(timeout -k 5 "$T" "$(gprolog_bin)" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null \
          | gprolog_output_filter)
     [ "$go" = "$want" ] && orc=ok || orc=DIFF
   fi

@@ -85,7 +85,7 @@ progress_arms() {   # progress_arms <label> <db> <pass-lib> <fail-lib>
 echo "=== gate: a package runner grades a library through its driver, never the driver as a program (CEO-1269) ==="
 # ---- arizona
 AZ="$T/az/corpus/packages/icon/arizona_tests"; mkdir -p "$AZ/general" "$AZ/special" && cp "$I"/*.icn "$I"/*.ref "$AZ/general/" && cp "$I"/*.tsv "$AZ/"
-S4E_HOME="$T/az" S4E_PROGRESS_DB="$T/az.tsv" timeout 600 bash "$HERE/test_icon_arizona_suite.sh" > "$T/az.out" 2>&1; rc=$?
+S4E_HOME="$T/az" S4E_PROGRESS_DB="$T/az.tsv" timeout -k 5 600 bash "$HERE/test_icon_arizona_suite.sh" > "$T/az.out" 2>&1; rc=$?
 if [ "$rc" = 2 ] || ! has "$T/az.out" '^ARIZONA_SUITE_BOARD '; then echo "⛔ REFUSED(2): the arizona runner did not measure the fixture (rc=$rc):"; tail -8 "$T/az.out" | sed 's/^/    /'; exit 2; fi
 has "$T/az.out" '^ARIZONA_SUITE_BOARD shipped=3 graded=2 gap=1 m3_pass=1 ' && ck ok "arizona: shipped 3, graded 2 through their drivers, m3 pass 1" || ck no "arizona: $(grep -m1 '^ARIZONA_SUITE_BOARD' "$T/az.out" | cut -c1-120)"
 has "$T/az.out" '^ARIZONA_AND_PER_PROGRAM and_pass=1 of 2 ' && ck ok "arizona: the AND per program is 1" || ck no "arizona: $(grep -m1 'AND_PER_PROGRAM' "$T/az.out" | cut -c1-120)"
@@ -94,7 +94,7 @@ has "$T/az.out" '^PACKAGE_INVENTORY package=arizona shipped=3 graded=2 ungraded=
 progress_arms arizona "$T/az.tsv" alib blib
 # ---- jcon
 JC="$T/jc"; mkdir -p "$JC" && cp "$I"/*.icn "$I"/*.ref "$I"/*.tsv "$JC/"
-S4E_PROGRESS_DB="$T/jc.tsv" timeout 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$JC" > "$T/jc.out" 2>&1; rc=$?
+S4E_PROGRESS_DB="$T/jc.tsv" timeout -k 5 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$JC" > "$T/jc.out" 2>&1; rc=$?
 if [ "$rc" = 2 ] || ! has "$T/jc.out" '^JCON_SUITE_BOARD '; then echo "⛔ REFUSED(2): the jcon runner did not measure the fixture (rc=$rc):"; tail -8 "$T/jc.out" | sed 's/^/    /'; exit 2; fi
 has "$T/jc.out" '^JCON_SUITE_BOARD shipped=3 graded=2 gap=1 total=2 m3_pass=1 m4_pass=1' && ck ok "jcon: shipped 3, graded 2 through their drivers, pass 1 in each mode" || ck no "jcon: $(grep -m1 '^JCON_SUITE_BOARD' "$T/jc.out" | cut -c1-120)"
 has "$T/jc.out" 'FAIL \(wrong output\): blib$' && has "$T/jc.out" '^UNGRADED .*clib\(' && ck ok "jcon: the failing library blib and the driverless clib are named" || ck no "jcon: blib/clib not named as non-passes"
@@ -116,10 +116,10 @@ mkdir -p "$O/cutu" && printf 'link options\nprocedure main();\n   write(*options
 grep -qx 0 "$O/usesopt.ref" || { echo "⛔ REFUSED(2): icont did not link IPL's options for the non-driver fixture -- $(tr '\n' '|' < "$O/usesopt.ref")"; exit 2; }
 printf '# fixture\n# name<TAB>CLASS<TAB>reason\n' > "$O/UNGRADED.tsv"; printf '# fixture\n# name<TAB>CLASS<TAB>reason\n' > "$O/UNGRADABLE.tsv"
 OZ="$T/oz/corpus/packages/icon/arizona_tests"; mkdir -p "$OZ/general" "$OZ/special" && cp "$O"/options.icn "$O"/options_driver.icn "$O"/options_driver.ref "$O"/usesopt.icn "$O"/usesopt.ref "$OZ/general/" && cp "$O"/*.tsv "$OZ/"
-S4E_HOME="$T/oz" S4E_PROGRESS_DB="$T/oz.tsv" timeout 600 bash "$HERE/test_icon_arizona_suite.sh" > "$T/oz.out" 2>&1
+S4E_HOME="$T/oz" S4E_PROGRESS_DB="$T/oz.tsv" timeout -k 5 600 bash "$HERE/test_icon_arizona_suite.sh" > "$T/oz.out" 2>&1
 has "$T/oz.out" '^ARIZONA_SUITE_BOARD shipped=2 graded=2 gap=0 m3_pass=2 .* m4_pass=2 ' && ck ok "arizona: a library named like an IPL procedure is linked from the suite by its driver, and a non-driver linking that name gets IPL's (m3 and m4 pass both)" || ck no "arizona: the IPL-namesake library or its non-driver user: $(grep -m1 '^ARIZONA_SUITE_BOARD' "$T/oz.out" | cut -c1-120) $(grep -m2 '^FAIL' "$T/oz.out" | tr '\n' ' ' | cut -c1-120)"
 OJ="$T/oj"; mkdir -p "$OJ" && cp "$O"/options.icn "$O"/options_driver.icn "$O"/options_driver.ref "$O"/usesopt.icn "$O"/usesopt.ref "$O"/*.tsv "$OJ/"
-S4E_PROGRESS_DB="$T/oj.tsv" timeout 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$OJ" > "$T/oj.out" 2>&1
+S4E_PROGRESS_DB="$T/oj.tsv" timeout -k 5 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$OJ" > "$T/oj.out" 2>&1
 has "$T/oj.out" '^JCON_SUITE_BOARD shipped=2 graded=2 gap=0 total=2 m3_pass=2 m4_pass=2' && ck ok "jcon: a library named like an IPL procedure is linked from the package by its driver, and a non-driver linking that name gets IPL's (m3 and m4 pass both)" || ck no "jcon: the IPL-namesake library or its non-driver user: $(grep -m1 '^JCON_SUITE_BOARD' "$T/oj.out" | cut -c1-120) $(grep -m2 'FAIL' "$T/oj.out" | tr '\n' ' ' | cut -c1-120)"
 # ---- EVERY NAME ON A link LINE, TRANSITIVELY (coo 2026-09-25, hq_icon's measurement landing the Jcon drivers): the Jcon m3 rundir
 # took only the FIRST name of `link load2, load1` and none of a library's own links, so m3 could not open the rest while m4 passed.
@@ -131,7 +131,7 @@ L="$T/lk"; mkdir -p "$L/cut" && printf 'link helper\nprocedure m();\n   return h
 grep -qx hmn "$L/mlib_driver.ref" || { echo "⛔ REFUSED(2): iconx did not answer the link-line fixture -- $(tr '\n' '|' < "$L/mlib_driver.ref")"; exit 2; }
 rm -rf "$L/cut"; printf '# fixture\n# name<TAB>CLASS<TAB>reason\nhelper.icn\tNEEDS_DRIVER\tlinked by mlib, no driver (fixture)\nnlib.icn\tNEEDS_DRIVER\tlinked by the driver, no driver of its own (fixture)\n' > "$L/UNGRADED.tsv"
 printf '# fixture\n# name<TAB>CLASS<TAB>reason\n' > "$L/UNGRADABLE.tsv"
-S4E_PROGRESS_DB="$T/lk.tsv" timeout 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$L" > "$T/lk.out" 2>&1
+S4E_PROGRESS_DB="$T/lk.tsv" timeout -k 5 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$L" > "$T/lk.out" 2>&1
 _lb="$(grep -m1 '^JCON_SUITE_BOARD ' "$T/lk.out")"; _lok=1; for _kv in shipped=3 graded=1 gap=2 m3_pass=1 m4_pass=1; do grep -qE "(^| )$_kv( |\$)" <<<"$_lb" || _lok=0; done   # each field on its own (CEO-839)
 [ -n "$_lb" ] && [ "$_lok" = 1 ] && ck ok "jcon: a driver linking two libraries on one line, one of which links a third, passes in m3 as in m4" || ck no "jcon: the link-line fixture: $(grep -m1 '^JCON_SUITE_BOARD' "$T/lk.out" | cut -c1-120) $(grep -m1 'FAIL' "$T/lk.out" | cut -c1-100)"
 # ---- ipl (coo 2026-09-25, hq_icon's ask: the 382 IPL libraries CEO-1272 made NEEDS_DRIVER are graded through NAME_driver like Arizona's
@@ -146,7 +146,7 @@ cp "$IP/procs/opt.icn" "$IP/procs/opt_driver.icn" "$T/ipl/cut/" && ( cd "$T/ipl/
 mkdir -p "$T/ipl/cut2" && cp "$IP/progs/opt.icn" "$T/ipl/cut2/" && ( cd "$T/ipl/cut2" && "$ICONT" -s -o op opt.icn && "$ICONX" ./op ) > "$IP/progs/opt.ref" 2>&1 </dev/null
 grep -qx procs "$IP/procs/opt_driver.ref" && grep -qx progs "$IP/progs/opt.ref" || { echo "⛔ REFUSED(2): iconx did not answer the IPL namesake fixture -- $(cat "$IP/procs/opt_driver.ref" "$IP/progs/opt.ref" | tr '\n' '|')"; exit 2; }
 printf '# fixture\n' > "$IP/UNGRADED.tsv"; printf '# fixture\n' > "$IP/UNGRADABLE.tsv"; ln -s "$ROOT" "$T/ipl/SCRIP"
-S4E_HOME="$T/ipl" S4E_PROGRESS_DB="$T/ipl.tsv" timeout 900 bash "$HERE/test_icon_ipl_suite.sh" > "$T/ipl.out" 2>&1; rc=$?
+S4E_HOME="$T/ipl" S4E_PROGRESS_DB="$T/ipl.tsv" timeout -k 5 900 bash "$HERE/test_icon_ipl_suite.sh" > "$T/ipl.out" 2>&1; rc=$?
 if [ "$rc" = 2 ] || ! has "$T/ipl.out" '^IPL_RUN_BOARD '; then echo "⛔ REFUSED(2): the ipl runner did not measure the fixture (rc=$rc):"; grep -m3 'REFUS\|UNPROVEN' "$T/ipl.out" | sed 's/^/    /'; exit 2; fi
 _ib="$(grep -m1 '^PACKAGE_INVENTORY package=ipl ' "$T/ipl.out")"; _iok=1; for _kv in shipped=4 graded=4 ungraded=0; do grep -qE "(^| )$_kv( |\$)" <<<"$_ib" || _iok=0; done
 [ "$_iok" = 1 ] && has "$T/ipl.out" '^IPL_AND_PER_PROGRAM and_pass=3 of 4 ' && ck ok "ipl: 3 libraries graded through their drivers and 1 program, the drivers out of shipped (4 of 4 graded, AND 3 -- blib's ref is wrong)" \
@@ -156,7 +156,7 @@ progress_arms ipl "$T/ipl.tsv" alib blib
   && ck ok "ipl: procs/opt's driver links procs/opt.icn, not the progs/opt.icn namesake ICONPATH names first (both modes pass)" \
   || ck no "ipl: the IPL-namesake driver: $(grep -E '^mode-[34]' "$T/ipl.out" | tr '\n' ' ' | cut -c1-200)"
 # ---- gimpel
-CORPUS="$T/gp/corpus" S4E_PROGRESS_DB="$T/gp.tsv" timeout 900 bash "$HERE/test_snobol4_gimpel_suite.sh" > "$T/gp.out" 2>&1; rc=$?
+CORPUS="$T/gp/corpus" S4E_PROGRESS_DB="$T/gp.tsv" timeout -k 5 900 bash "$HERE/test_snobol4_gimpel_suite.sh" > "$T/gp.out" 2>&1; rc=$?
 if has "$T/gp.out" 'whose library the package does not ship'; then ck no "gimpel: a library shipped as name.inc or name.spt (or a twice-shipped stem's x.inc, through x_lib_driver) reads as unshipped -- its driver refused as an orphan: $(grep -m1 -o 'does not ship:[^-]*' "$T/gp.out")"
 elif [ "$rc" = 2 ] || ! has "$T/gp.out" '^GIMPEL_BOARD '; then echo "⛔ REFUSED(2): the gimpel runner did not measure the fixture (rc=$rc -- another SNOBOL4 board on this box is a refusal, not a red):"; tail -8 "$T/gp.out" | sed 's/^/    /'; exit 2; fi
 has "$T/gp.out" '^GIMPEL_LIBRARIES shipped=5 graded_through_a_driver=4 no_driver=1 ' && ck ok "gimpel: shipped 5 (4 libraries and the program dlib.spt), 4 graded through their drivers, 1 with none" || ck no "gimpel: $(grep -m1 'GIMPEL_LIBRARIES' "$T/gp.out" | cut -c1-120)"

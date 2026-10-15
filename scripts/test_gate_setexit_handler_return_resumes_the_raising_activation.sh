@@ -85,12 +85,12 @@ END
 EOF
 RC=0; arms=0
 for w in w1 w2 w3 w4 w5; do
-    ( cd "$T" && timeout 20s "$SBL" -bf $w.sno </dev/null ) > "$T/$w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness $w -- no ref to grade against"; exit 2; }
+    ( cd "$T" && timeout -k 5 20s "$SBL" -bf $w.sno </dev/null ) > "$T/$w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness $w -- no ref to grade against"; exit 2; }
     [ -s "$T/$w.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing for $w"; exit 2; }
-    ( cd "$T" && timeout 20s "$SCRIP" $w.sno </dev/null > $w.m3 2>/dev/null ); r=$?; arms=$((arms + 1))
+    ( cd "$T" && timeout -k 5 20s "$SCRIP" $w.sno </dev/null > $w.m3 2>/dev/null ); r=$?; arms=$((arms + 1))
     if [ "$r" -eq 0 ] && cmp -s "$T/$w.m3" "$T/$w.ref"; then echo "  $w m3 PASS"; else echo "  $w m3 FAIL (rc=$r; $(diff "$T/$w.m3" "$T/$w.ref" | grep -c '^[<>]') differing line(s))"; RC=1; fi
     if "$SCRIP" --compile "$T/$w.sno" -o "$T/$w.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/$w.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/$w.bin" 2>"$T/ld.log"; then
-        ( cd "$T" && timeout 20s ./$w.bin </dev/null > $w.m4 2>/dev/null ); r=$?; arms=$((arms + 1))
+        ( cd "$T" && timeout -k 5 20s ./$w.bin </dev/null > $w.m4 2>/dev/null ); r=$?; arms=$((arms + 1))
         if [ "$r" -eq 0 ] && cmp -s "$T/$w.m4" "$T/$w.ref"; then echo "  $w m4 PASS"; else echo "  $w m4 FAIL (rc=$r; $(diff "$T/$w.m4" "$T/$w.ref" | grep -c '^[<>]') differing line(s))"; RC=1; fi
     else echo "  $w m4 FAIL (the witness did not compile or link in mode 4)"; RC=1; arms=$((arms + 1)); fi
 done

@@ -49,8 +49,8 @@ else echo "  arm 1 FAIL: raw_address_caches=$raw int_slot_caches=$slot index_ref
 want="$(cat "$REF")"; band=""; bad=0
 for st in 0 1 3 5; do
   for md in m3 m4; do
-    if [ "$md" = m3 ]; then out="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_EXERCISE=1 timeout 120 "$SCRIP" "$WIT" 2>"$T/e" </dev/null)"
-    else out="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_EXERCISE=1 timeout 120 "$T/w4" 2>"$T/e" </dev/null)"; fi
+    if [ "$md" = m3 ]; then out="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_EXERCISE=1 timeout -k 5 120 "$SCRIP" "$WIT" 2>"$T/e" </dev/null)"
+    else out="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_EXERCISE=1 timeout -k 5 120 "$T/w4" 2>"$T/e" </dev/null)"; fi
     n=$(grep -m1 -oE 'collections=[0-9]+' "$T/e" | head -1 | cut -d= -f2)
     if [ "$out" = "$want" ] && [ "${n:-0}" -gt 0 ]; then band="$band @$st$md:ok($n)"; else band="$band @$st$md:RED(collections=${n:-0})"; bad=1; fi
   done
@@ -62,8 +62,8 @@ printf 'procedure main()\n   local i, junk;\n   every i := 1 to 400 do junk := r
 "$SCRIP" --compile -o "$T/len.s" "$T/len.icn" >/dev/null 2>&1 && gcc "$T/len.s" -o "$T/len4" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1
 lb=""; lbad=0
 for st in 0 5; do
-  o3="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st timeout 120 "$SCRIP" "$T/len.icn" 2>/dev/null </dev/null)"
-  o4="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st timeout 120 "$T/len4" 2>/dev/null </dev/null)"
+  o3="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st timeout -k 5 120 "$SCRIP" "$T/len.icn" 2>/dev/null </dev/null)"
+  o4="$(cd "$T" && env SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st timeout -k 5 120 "$T/len4" 2>/dev/null </dev/null)"
   if [ "$o3" = "$lw" ] && [ "$o4" = "$lw" ]; then lb="$lb @$st:ok"; else lb="$lb @$st:m3=[$o3],m4=[$o4]"; lbad=1; fi
 done
 if [ "$lbad" = 0 ]; then echo "  arm 3 PASS: *&cset *&ascii *&lcase read the icont answer [$lw] after the blocks have moved, both media --$lb"

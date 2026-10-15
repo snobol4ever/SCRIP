@@ -66,27 +66,27 @@ E3      OUTPUT = 'code refused ' &ERRTYPE
 E4      OUTPUT = EVAL('A[1]')
 END
 SNO
-( cd "$D" && timeout 10 "$SBL" -bf ok.sno < /dev/null 2>/dev/null > ok.want )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf ok.sno < /dev/null 2>/dev/null > ok.want )
 [ -s "$D/ok.want" ] || refuse "sbl -bf gave no answer for the accepted forms"
-m4bin() { timeout 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc -no-pie "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
+m4bin() { timeout -k 5 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc -no-pie "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
 red=0; n=0
 arm() { n=$((n + 1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  FAIL $1: $2"; red=$((red + 1)); fi; }
-( cd "$D" && timeout 20 "$B/scrip" ok.sno < /dev/null > ok.m3 2>&1 )
-( cd "$D" && m4bin ok && timeout 20 ./ok.bin < /dev/null > ok.m4 2>&1 )
+( cd "$D" && timeout -k 5 20 "$B/scrip" ok.sno < /dev/null > ok.m3 2>&1 )
+( cd "$D" && m4bin ok && timeout -k 5 20 ./ok.bin < /dev/null > ok.m4 2>&1 )
 for m in m3 m4; do
     if cmp -s "$D/ok.want" "$D/ok.$m"; then arm "accepted forms $m (square subscripts, :S<L> :F<L> :<C>) equal sbl -bf" ok
     else arm "accepted forms $m" "got [$(tr '\n' '|' < "$D/ok.$m")] want [$(tr '\n' '|' < "$D/ok.want")]"; fi
 done
 for p in bad1 bad2 bad3; do
-    o="$( cd "$D" && timeout 20 "$B/scrip" "$p.sno" < /dev/null 2>&1 )"; rc=$?
+    o="$( cd "$D" && timeout -k 5 20 "$B/scrip" "$p.sno" < /dev/null 2>&1 )"; rc=$?
     if [ $rc -ne 0 ] && ! printf '%s' "$o" | grep -qE '^(5|v|before)$'; then arm "$p m3 refused at compile (rc $rc)" ok
     else arm "$p m3" "an angle subscript ran (rc $rc): [$(printf '%s' "$o" | head -2 | tr '\n' '|')]"; fi
-    ( cd "$D" && timeout 60 "$B/scrip" --compile "$p.sno" < /dev/null > "$p.s" 2>/dev/null ); crc=$?
+    ( cd "$D" && timeout -k 5 60 "$B/scrip" --compile "$p.sno" < /dev/null > "$p.s" 2>/dev/null ); crc=$?
     if [ $crc -ne 0 ]; then arm "$p m4 refused at compile (rc $crc)" ok
     else arm "$p m4" "an angle subscript compiled"; fi
 done
-( cd "$D" && timeout 20 "$B/scrip" ev.sno < /dev/null > ev.m3 2>&1 )
-( cd "$D" && m4bin ev && timeout 20 ./ev.bin < /dev/null > ev.m4 2>&1 )
+( cd "$D" && timeout -k 5 20 "$B/scrip" ev.sno < /dev/null > ev.m3 2>&1 )
+( cd "$D" && m4bin ev && timeout -k 5 20 ./ev.bin < /dev/null > ev.m4 2>&1 )
 for m in m3 m4; do
     if [ "$(tr '\n' '|' < "$D/ev.$m")" = "eval refused 222|code refused 222|5|" ]; then arm "EVAL and CODE $m raise the trappable left-bracket error 222" ok
     else arm "EVAL/CODE $m" "got [$(tr '\n' '|' < "$D/ev.$m")]"; fi

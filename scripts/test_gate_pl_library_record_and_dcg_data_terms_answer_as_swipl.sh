@@ -53,9 +53,9 @@ main :- t(dcg_data_eq, (phrase(d1(C1), []), C1 = (_ = [h]))), t(dcg_data_eq_in_o
     t(strip_plain, (strip_module(foo, M1, P1), M1-P1 == user-foo)), t(strip_nested, (strip_module(a:b:c, M2, Pp2), M2-Pp2 == b-c)),
     t(strip_var_module, (strip_module(Q:f, M3, P6), M3 == user, P6 == Q:f)).
 PL
-want="$(cd "$D" && timeout 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | grep .)"
+want="$(cd "$D" && timeout -k 5 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | grep .)"
 [ "$(printf '%s\n' "$want" | grep -c .)" = 22 ] || refuse "swipl did not answer the twenty-two properties: [$want]"
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
 ( cd "$D" && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || refuse "mode 4 link failed"
 red=0
 arm() {
@@ -66,7 +66,7 @@ arm() {
     if [ "$got" = "$want" ]; then echo "  $label GREEN: 22 of 22 lines as swipl"
     else echo "  $label RED: $n of 22 lines differ from swipl"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
 }
-arm m3 timeout 20 "$B/scrip" --run w.pl < /dev/null
-arm m4 timeout 20 ./w.bin < /dev/null
+arm m3 timeout -k 5 20 "$B/scrip" --run w.pl < /dev/null
+arm m4 timeout -k 5 20 ./w.bin < /dev/null
 [ "$red" = 0 ] && echo "PASS $G"
 exit "$red"

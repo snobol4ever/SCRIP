@@ -119,13 +119,13 @@ SNO
 ARMS="many absorb cont abort cgoto unload ge ulnoset"
 inp() { [ -f "$D/$1.in" ] && echo "$D/$1.in" || echo /dev/null; }
 run_scrip() {  # $1 name $2 mode -> stdout
-    if [ "$2" = m3 ]; then (cd "$D" && timeout 60 "$B/scrip" "$1.sno" < "$(inp "$1")" 2>/dev/null)
+    if [ "$2" = m3 ]; then (cd "$D" && timeout -k 5 60 "$B/scrip" "$1.sno" < "$(inp "$1")" 2>/dev/null)
     else "$B/scrip" --compile -o "$D/$1.s" "$D/$1.sno" </dev/null >/dev/null 2>&1 \
            && gcc -no-pie -o "$D/$1.bin" "$D/$1.s" -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" 2>/dev/null \
            || refuse "could not build the m4 arm of $1 -- a toolchain failure, not a verdict"
-         (cd "$D" && timeout 60 "./$1.bin" < "$(inp "$1")" 2>/dev/null); fi
+         (cd "$D" && timeout -k 5 60 "./$1.bin" < "$(inp "$1")" 2>/dev/null); fi
 }
-for a in $ARMS; do (cd "$D" && timeout 60 "$SBL" -bf "$a.sno" < "$(inp "$a")" > "$a.sbl" 2>/dev/null); done
+for a in $ARMS; do (cd "$D" && timeout -k 5 60 "$SBL" -bf "$a.sno" < "$(inp "$a")" > "$a.sbl" 2>/dev/null); done
 [ "$(wc -l < "$D/many.sbl")" = 640 ] || refuse "the oracle answered $(wc -l < "$D/many.sbl") of 640 trapped lines -- the witness is not measuring"
 grep -qx "TRAP 2" "$D/absorb.sbl" && grep -qx "FAILED" "$D/absorb.sbl" || refuse "the oracle no longer reads TRAP 2 / FAILED on the absorption witness -- re-read sbl"
 grep -qx "F" "$D/cont.sbl" || refuse "the oracle's CONTINUE no longer takes the erring statement's :F -- re-read sbl"

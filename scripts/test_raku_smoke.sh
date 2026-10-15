@@ -22,7 +22,7 @@ check() {
     local f="$TMP/t.raku"
     printf '%s' "$input" > "$f"
     local got
-    got=$(timeout 8 "$SCRIP" "$f" 2>/dev/null || true)
+    got=$(timeout -k 5 8 "$SCRIP" "$f" 2>/dev/null || true)
     if [[ "$got" == "$expected" ]]; then
         echo "  PASS  $name"
         PASS=$((PASS+1))

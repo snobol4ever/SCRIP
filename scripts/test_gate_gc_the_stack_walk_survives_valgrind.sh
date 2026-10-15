@@ -56,7 +56,7 @@ T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0; plant=""
 REF="$W.ref"; if [ "${FAIL_ONCE:-0}" = 1 ]; then { cat "$W.ref"; echo corrupted-by-fail-once; } > "$T/ref.bad"; REF="$T/ref.bad"; fi
 LD="-L$ROOT/out -lscrip_rt -lm -Wl,-rpath,$ROOT/out"
-vgrun() { local tag="$1"; shift; ( cd "$T" && env -u SCRIP_HEAP_MB $plant SCRIP_HEAP_KB=128 timeout 600s valgrind --tool=none -q "$@" > "$tag.out" 2> "$tag.err" ); echo $?; }
+vgrun() { local tag="$1"; shift; ( cd "$T" && env -u SCRIP_HEAP_MB $plant SCRIP_HEAP_KB=128 timeout -k 5 600s valgrind --tool=none -q "$@" > "$tag.out" 2> "$tag.err" ); echo $?; }
 r3=$(vgrun m3 "$SCRIP" --run "$W.icn")
 if [ "$r3" = 0 ] && cmp -s "$T/m3.out" "$REF"; then echo "  arm (a) mode 3 PASS: rc=0, ref matched under valgrind at 128 KB"; else echo "  arm (a) mode 3 FAIL: rc=$r3 $(cmp -s "$T/m3.out" "$W.ref" && echo ref || echo DIFF) -- the stack walk died or misread under valgrind"; RC=1; fi
 if "$SCRIP" --compile "$W.icn" > "$T/w.s" 2>/dev/null && gcc -c "$T/w.s" -o "$T/w.o" 2>/dev/null && gcc "$T/w.o" $LD -o "$T/w4" 2>/dev/null; then
@@ -65,7 +65,7 @@ if "$SCRIP" --compile "$W.icn" > "$T/w.s" 2>/dev/null && gcc -c "$T/w.s" -o "$T/
 else echo "  arm (a) mode 4 FAIL: the witness did not compile and link"; RC=1; fi
 printf ':- initialization(main).\nmain :- write(hello), nl, halt.\n' > "$T/hw.pl"
 if "$SCRIP" --compile "$T/hw.pl" > "$T/hw.s" 2>/dev/null && gcc -no-pie "$T/hw.s" $LD -o "$T/hw.bin" 2>/dev/null; then
-  ( cd "$T" && env -u SCRIP_HEAP_MB $plant SCRIP_HEAP_KB=128 timeout 600s valgrind -q ./hw.bin > hw.out 2> hw.err ); rp=$?
+  ( cd "$T" && env -u SCRIP_HEAP_MB $plant SCRIP_HEAP_KB=128 timeout -k 5 600s valgrind -q ./hw.bin > hw.out 2> hw.err ); rp=$?
   inv=$(grep -c 'Invalid read' "$T/hw.err"); uni=$(grep -c 'uninitialised' "$T/hw.err")
   if [ "$rp" = 0 ] && [ "$(cat "$T/hw.out")" = hello ] && [ "$inv" = 0 ]; then echo "  arm (b) PASS: the mode-4 Prolog hello world exits 0 under memcheck, no Invalid read (uninitialised-value reports: $uni, the walker's tag search, counted not graded)"; else echo "  arm (b) FAIL: rc=$rp out='$(head -c 40 "$T/hw.out")' invalid_reads=$inv"; RC=1; fi
 else echo "  arm (b) FAIL: the Prolog hello world did not compile and link"; RC=1; fi

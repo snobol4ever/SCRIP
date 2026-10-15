@@ -50,7 +50,7 @@ echo "POPULATION (declared): $(grep -vc '^#' "$FLOOR") witness(es) NAMED in $(ba
 echo "CONTRACT_POP= narrows the run; CONTRACT_PLANT= names the plant's witness."
 
 # (a) the instrument grades ITSELF before it grades the tree
-st="$(timeout 120s python3 "$CHK" --selftest 2>&1)"; src=$?
+st="$(timeout -k 5 120s python3 "$CHK" --selftest 2>&1)"; src=$?
 n="$(printf '%s\n' "$st" | sed -n 's/^SELFTEST \([0-9]*\)\/\([0-9]*\) arms green/\1 \2/p')"
 set -- ${n:-0 0}
 if [ "$src" = 0 ] && [ "${1:-0}" -ge 12 ] && [ "${1:-0}" = "${2:-x}" ]; then
@@ -62,7 +62,7 @@ fi
 # (b) THE READING against the DECLARED floor
 READ_OUT="$(mktemp -t gc_contract_reading.XXXXXX)"
 trap 'rm -f "$READ_OUT" "$READ_OUT".cmp' EXIT
-SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" timeout 900s python3 "$CHK" $POP --name-all > "$READ_OUT" 2>&1; rrc=$?
+SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" timeout -k 5 900s python3 "$CHK" $POP --name-all > "$READ_OUT" 2>&1; rrc=$?
 rd="$(cat "$READ_OUT")"
 [ "$rrc" = 2 ] && refuse "the checker refused over the declared population: $(grep -m1 REFUSED "$READ_OUT")"
 sl="$(grep -m1 '^CONTRACT SITES ' "$READ_OUT")"
@@ -73,7 +73,7 @@ sl="$(grep -m1 '^CONTRACT SITES ' "$READ_OUT")"
 # A DEFECT IN THE FLOOR, announced on the strength of a reading that never arrived.  Same class as the two plant
 # arms cured at SCRIP c9c7eefc4 the same day: a null input graded as a finding about the subject.  The REFUSAL
 # below is the guard, and it is checked rather than trusted.
-cmp_out="$(timeout 120s python3 "$ROOT/scripts/util_gc_safe_point_contract.py" --compare "$READ_OUT" "$FLOOR" 2>&1)"
+cmp_out="$(timeout -k 5 120s python3 "$ROOT/scripts/util_gc_safe_point_contract.py" --compare "$READ_OUT" "$FLOOR" 2>&1)"
 worse="$(printf '%s\n' "$cmp_out" | sed -n 's/^WORSE \([0-9]*\).*/\1/p')"
 # SPINE is a MECHANISM CENSUS and not a defect floor: a cure that turns a bare poll into a tagged-cell poll
 # RAISES it, so grading it with the defect polarity reported the ceo's e42cc0909/c60097828 as a regression.
@@ -105,7 +105,7 @@ else
 fi
 
 # (e) PLANTED ON REAL EMITTED TEXT -- an instrument that cannot fail here cannot pass here either
-plant="$(timeout 300s python3 - "$ROOT" "$SCRIP" "$PLANT_WIT" <<'PY' 2>&1
+plant="$(timeout -k 5 300s python3 - "$ROOT" "$SCRIP" "$PLANT_WIT" <<'PY' 2>&1
 import sys, os, re, tempfile
 root, scrip, wit = sys.argv[1], sys.argv[2], sys.argv[3]
 sys.path.insert(0, os.path.join(root, "scripts"))
@@ -171,7 +171,7 @@ CENSUS="$ROOT/scripts/util_refless_census.py"
 if [ ! -f "$CENSUS" ]; then
   ck no "(g) $CENSUS is missing -- this arm consults the refless census rather than re-deriving the set, and with no census there is no authority to consult"
 else
-  refless="$(timeout 300s python3 "$CENSUS" 2>/dev/null | awk '/^=== gc_witnesses /{inb=1;next} /^=== /{inb=0} inb && /REFLESS[^:]*:/{sub(/^[^:]*: */,""); gsub(/,/," "); print}')"
+  refless="$(timeout -k 5 300s python3 "$CENSUS" 2>/dev/null | awk '/^=== gc_witnesses /{inb=1;next} /^=== /{inb=0} inb && /REFLESS[^:]*:/{sub(/^[^:]*: */,""); gsub(/,/," "); print}')"
   refless="$(printf '%s ' $refless)"
   decl="$(sed -n 's/^# UNGRADEABLE:[[:space:]]*//p' "$FLOOR" | head -1)"
   if [ -z "$refless" ]; then

@@ -31,13 +31,13 @@ for arm in "no-argument|X()" "string|X('hello')" "integer|X(7)" "array|X(AR)" "t
     name="${arm%%|*}"; expr="${arm#*|}"; N=$((N+1))
     { printf "\tDATA('A(X)')\n\tDATA('B(Y)')\n\tP = A(1)\n\tQ = B(2)\n\tAR = ARRAY(3)\n\tTB = TABLE()\n"
       printf "\tRES = %s\n\tOUTPUT = 'RESULT[' RES ']'\nEND\n" "$expr"; } > "$W/w.sno"
-    want="$( ( cd "$W" && timeout 20 "$SBL" $FLAGS w.sno ) </dev/null 2>&1 | verdict )"
+    want="$( ( cd "$W" && timeout -k 5 20 "$SBL" $FLAGS w.sno ) </dev/null 2>&1 | verdict )"
     [ -n "$want" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no gradable verdict for $name ($expr)"; exit 2; }
-    got3="$( timeout 20 "$SCRIP" "$W/w.sno" </dev/null 2>&1 | verdict )"
+    got3="$( timeout -k 5 20 "$SCRIP" "$W/w.sno" </dev/null 2>&1 | verdict )"
     got4=""
     if "$SCRIP" --compile "$W/w.sno" -o "$W/w.s" </dev/null >/dev/null 2>&1 &&
        gcc -m64 -no-pie -rdynamic "$W/w.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$W/w" 2>"$W/ld.log"; then
-        got4="$( timeout 20 "$W/w" </dev/null 2>&1 | verdict )"
+        got4="$( timeout -k 5 20 "$W/w" </dev/null 2>&1 | verdict )"
     else
         echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link failed for $name ($expr) -- see $W/ld.log"; exit 2
     fi

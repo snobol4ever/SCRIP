@@ -58,12 +58,12 @@ sf=$(grep -cE 'h->fwd = \(uint64_t\)\(uintptr_t\)h;' "$ROOT/src/runtime/rt/gc_he
 if [ "$sf" -eq 0 ]; then echo "  structural PASS (gc_heap.c forwards no title to itself: no block type is exempt from the slide)"
 else echo "  structural FAIL ($sf self-forward(s) in gc_heap.c -- a block type is exempt from the slide again)"; RC=1; fi
 printf '        T = TABLE()\n        A = ARRAY(50)\n        DATA("R(F)")\n        X = R(1)\n        I = 0\nL       I = I + 1\n        T[I] = DUPL("k", 10)\n        A[1 + REMDR(I, 50)] = I\n        S = DUPL("x", 20000)\n        LT(I, 30000)   :S(L)\n        OUTPUT = T[7] A[8] F(X)\nEND\n' > "$T/w.sno"
-( cd "$T" && timeout 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
+( cd "$T" && timeout -k 5 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
 [ -s "$T/w.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced an EMPTY ref"; exit 2; }
-( cd "$T" && SCRIP_ZETA_TELEM=1 timeout 60s "$SCRIP" w.sno </dev/null > m3.out 2> m3.err ); r=$?; c=$(grep -c regeneration "$T/m3.err" || true)
+( cd "$T" && SCRIP_ZETA_TELEM=1 timeout -k 5 60s "$SCRIP" w.sno </dev/null > m3.out 2> m3.err ); r=$?; c=$(grep -c regeneration "$T/m3.err" || true)
 if [ "$r" -eq 0 ] && cmp -s "$T/m3.out" "$T/w.ref" && [ "$c" -ge 1 ]; then echo "  m3 PASS (rc=0, $c collections, byte-identical to the oracle)"; else echo "  m3 FAIL (rc=$r collections=$c; a live table, array or record did not survive the slide, or the run was vacuous)"; RC=1; fi
 if "$SCRIP" --compile "$T/w.sno" -o "$T/w.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/w.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/w4" 2>"$T/ld.log"; then
-    ( cd "$T" && SCRIP_ZETA_TELEM=1 timeout 60s ./w4 </dev/null > m4.out 2> m4.err ); r=$?; c=$(grep -c regeneration "$T/m4.err" || true)
+    ( cd "$T" && SCRIP_ZETA_TELEM=1 timeout -k 5 60s ./w4 </dev/null > m4.out 2> m4.err ); r=$?; c=$(grep -c regeneration "$T/m4.err" || true)
     if [ "$r" -eq 0 ] && cmp -s "$T/m4.out" "$T/w.ref" && [ "$c" -ge 1 ]; then echo "  m4 PASS (rc=0, $c collections, byte-identical to the oracle)"; else echo "  m4 FAIL (rc=$r collections=$c)"; RC=1; fi
 else echo "  m4 FAIL (compile or link refused: $(head -c 200 "$T/ld.log"))"; RC=1; fi
 mk=$(grep -oE "marked=[0-9]+ forwarded=[0-9]+" "$T/m3.err" || true)

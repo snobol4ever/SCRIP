@@ -90,13 +90,13 @@ rm -f "$T/oracle" "$T/g.u1" "$T/g.u2"
 [ -x "$T/oracle" ] || { echo "GATE UNPROVEN(2): icont refused the witness -- measured nothing:"; sed 's/^/    /' "$T/icont.log"; exit 2; }
 "$ICONX" "$T/oracle" < /dev/null > "$T/want" 2>&1 || true
 grep -q '^SUB n=' "$T/want" || { echo "GATE UNPROVEN(2): the oracle printed no SUB row -- measured nothing:"; sed 's/^/    /' "$T/want"; exit 2; }
-timeout 60 "$R/scrip" "$T/g.icn" < /dev/null > "$T/m3" 2>&1
-timeout 60 "$R/scrip" --compile -o "$T/g.s" "$T/g.icn" < /dev/null > "$T/cc.log" 2>&1
+timeout -k 5 60 "$R/scrip" "$T/g.icn" < /dev/null > "$T/m3" 2>&1
+timeout -k 5 60 "$R/scrip" --compile -o "$T/g.s" "$T/g.icn" < /dev/null > "$T/cc.log" 2>&1
 if [ -s "$T/g.s" ]; then
   gcc -m64 -no-pie "$T/g.s" -o "$T/m4bin" -L"$R/out" -lscrip_rt -Wl,-rpath,"$R/out" -lm -lpthread >> "$T/cc.log" 2>&1
 fi
 [ -x "$T/m4bin" ] || { echo "GATE UNPROVEN(2): mode 4 produced no binary -- measured nothing:"; tail -3 "$T/cc.log" | sed 's/^/    /'; exit 2; }
-timeout 60 "$T/m4bin" < /dev/null > "$T/m4" 2>&1
+timeout -k 5 60 "$T/m4bin" < /dev/null > "$T/m4" 2>&1
 bad=0
 for key in CTL_localsub CTL_globalsub CTL_implicitsub CTL_exprsub SUB SUBASSIGN RANDOM ITERATE SECTION; do
   k=${key/CTL_/CTL }

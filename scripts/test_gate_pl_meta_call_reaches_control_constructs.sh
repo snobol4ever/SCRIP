@@ -57,7 +57,7 @@ printf ":- initialization(main).\nmain :- X = atom(foo), call(X), write(yes), nl
 printf ":- initialization(main).\nmain :- ( X = fail, call(X) ; write(elsepath) ), nl.\n"            > "$W/bi_fail.pl"
 fails=0; checks=0
 ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
-oracle(){ timeout 30 "$SWIPL" -q -g true -t halt "$1" </dev/null 2>/dev/null; }
+oracle(){ timeout -k 5 30 "$SWIPL" -q -g true -t halt "$1" </dev/null 2>/dev/null; }
 echo "=== gate: a control construct reached through a VARIABLE goal must run (control half only) ==="
 echo "--- (e) the ORACLE premise, asserted before anything is graded ---"
 declare -A EXP
@@ -70,12 +70,12 @@ done
 ck ok "oracle: conj=[${EXP[conj]}] disj=[${EXP[disj]}] arrow=[${EXP[arrow]}] ite_t=[${EXP[ite_t]}] ite_f=[${EXP[ite_f]}] cut=[${EXP[cut]}]"
 for m in m3 m4; do
   echo "--- $m ---"
-  run_err(){ timeout 60 "$SCRIP" "$1" </dev/null 2>&1 >/dev/null; }
-  run(){ if [ "$m" = m3 ]; then timeout 60 "$SCRIP" "$1" </dev/null 2>/dev/null; else
+  run_err(){ timeout -k 5 60 "$SCRIP" "$1" </dev/null 2>&1 >/dev/null; }
+  run(){ if [ "$m" = m3 ]; then timeout -k 5 60 "$SCRIP" "$1" </dev/null 2>/dev/null; else
            s="$W/out.s"; b="$W/out.bin"; rm -f "$s" "$b"
-           timeout 90 "$SCRIP" --compile -o "$s" "$1" </dev/null >/dev/null 2>&1 || return 97
-           timeout 90 gcc -no-pie -o "$b" "$s" -L"$ROOT/out" -lscrip_rt -lm >/dev/null 2>&1 || return 98
-           LD_LIBRARY_PATH="$ROOT/out" timeout 60 "$b" </dev/null 2>/dev/null; fi; }
+           timeout -k 5 90 "$SCRIP" --compile -o "$s" "$1" </dev/null >/dev/null 2>&1 || return 97
+           timeout -k 5 90 gcc -no-pie -o "$b" "$s" -L"$ROOT/out" -lscrip_rt -lm >/dev/null 2>&1 || return 98
+           LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 60 "$b" </dev/null 2>/dev/null; fi; }
   for w in conj disj arrow; do
     o="$(run "$W/$w.pl")"; [ "$o" = "${EXP[$w]}" ] && ck ok "$m (a) $w through a variable goal -> [$o]" \
       || ck no "$m (a) $w printed [$o], oracle says [${EXP[$w]}]"

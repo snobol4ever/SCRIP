@@ -76,11 +76,11 @@ probe p25_valgen_str  'a|b|c' 'procedure main(); local p; p := proc("write", 0);
 red=0; n=0
 for src in "$W"/p*.icn; do
     b="$(basename "$src" .icn)"; want="$(cat "$W/$b.want")"; n=$((n+1))
-    m3="$(cd "$W" && timeout 20 "$SCRIP" "$b.icn" </dev/null 2>&1 | tr '\n' '|' | sed 's/|$//')"
+    m3="$(cd "$W" && timeout -k 5 20 "$SCRIP" "$b.icn" </dev/null 2>&1 | tr '\n' '|' | sed 's/|$//')"
     m4="(compile/link failed)"
     if (cd "$W" && "$SCRIP" --compile "$b.icn" </dev/null > "$b.s" 2>/dev/null && gcc -c "$b.s" -o "$b.o" 2>/dev/null \
         && gcc "$b.o" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$b.m4" 2>/dev/null); then
-        m4="$(cd "$W" && timeout 20 "./$b.m4" </dev/null 2>&1 | tr '\n' '|' | sed 's/|$//')"
+        m4="$(cd "$W" && timeout -k 5 20 "./$b.m4" </dev/null 2>&1 | tr '\n' '|' | sed 's/|$//')"
     fi
     v=GREEN; { [ "$m3" = "$want" ] && [ "$m4" = "$want" ]; } || { v=RED; red=$((red+1)); }
     printf '  %-14s want=%-5s m3=%-5s m4=%-5s %s\n' "$b" "$want" "$m3" "$m4" "$v"

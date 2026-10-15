@@ -28,8 +28,8 @@ SWEEP_LIST="$LISTF" SWEEP_JOBS="${SWEEP_JOBS:-4}" bash "$ROOT/scripts/test_rsp_d
 while IFS= read -r f; do
   tag=$(printf '%s' "$f" | md5sum | cut -c1-10)
   D="$DIAGDIR/$tag.diag"
-  { echo "# $f"; SCRIP_CLASS_DIAG=1 SNO_LIB=$S4E/corpus timeout 30 "$ROOT/scrip" --compile "$f" </dev/null >/dev/null 2>&1 | true; } > /dev/null
-  SCRIP_CLASS_DIAG=1 SNO_LIB=$S4E/corpus timeout 30 "$ROOT/scrip" --compile "$f" </dev/null >/dev/null 2>"$D"
+  { echo "# $f"; SCRIP_CLASS_DIAG=1 SNO_LIB=$S4E/corpus timeout -k 5 30 "$ROOT/scrip" --compile "$f" </dev/null >/dev/null 2>&1 | true; } > /dev/null
+  SCRIP_CLASS_DIAG=1 SNO_LIB=$S4E/corpus timeout -k 5 30 "$ROOT/scrip" --compile "$f" </dev/null >/dev/null 2>"$D"
   nf=$(grep -c '^\[CLS:NOFIX\]' "$D")
   nw=$(grep -c '^\[CLS:NOWHACK\]' "$D")
   ops=$(grep '^\[CLS:NOWHACK\]' "$D" | sed 's/.*op=\([A-Za-z0-9_]*\).*/\1/' | sort | uniq -c | awk '{printf "%s:%s,",$2,$1}' | sed 's/,$//')

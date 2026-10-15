@@ -46,6 +46,8 @@ while [ $# -gt 0 ]; do
     esac
 done
 [ $# -ge 2 ] || { echo "util_timeout_retry.sh: usage: util_timeout_retry.sh [timeout options] DURATION COMMAND [ARG]..." >&2; exit 125; }
+# ⛔ A TIMEOUT CARRIES A KILL (ceo CEO-1796): SIGTERM alone left three swipl runs burning a core each for two hours; a caller that names no -k gets -k 5.
+case " ${opts[*]-} " in *" -k "*|*" --kill-after "*|*" --kill-after="*) ;; *) opts+=(-k 5) ;; esac
 [ "${S4E_TIMEOUT_RETRY:-1}" = 0 ] && exec timeout ${opts[@]+"${opts[@]}"} "$@"
 dur="$1"; shift
 W="$(mktemp -d "${TMPDIR:-/tmp}/s4e-tretry.XXXXXX")" || exec timeout ${opts[@]+"${opts[@]}"} "$dur" "$@"

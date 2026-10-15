@@ -45,7 +45,7 @@ for f in $LIST; do
     # ⛔ CWD MATTERS: a program using -INCLUDE names its includes RELATIVE to its own directory, so a sweep
     # that compiles from elsewhere manufactures ~120 phantom "cannot open include" failures and reports them
     # as regressions.  Measured s23d: the naive sweep read 266 fails, the correct one far fewer.
-    if ! ( cd "$(dirname "$f")" && timeout 25 "$SCRIP" --compile "$(basename "$f")" ) > "$out" 2>"$TMP/err"; then
+    if ! ( cd "$(dirname "$f")" && timeout -k 5 25 "$SCRIP" --compile "$(basename "$f")" ) > "$out" 2>"$TMP/err"; then
         emitfail=$((emitfail + 1)); failed="$failed $f"; continue
     fi
     s=$(grep -c '^[[:space:]]*#@' "$out" 2>/dev/null); s=${s:-0}

@@ -36,7 +36,7 @@ T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 # invariant check any seat runs, never a lane's board (CEO-1232). The tests inline their code (no -INCLUDE), so the extract stands alone.
 S="$T/beauty_modules.sc"; R="$T/beauty_modules.ref"
 python3 "$HERE/corpus_suite_harness.py" extract-family "$M/ALL.sc" "$M/ALL.ref" "$M/ALL.csv" beauty_modules "$S" "$R" >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: could not extract family beauty_modules from the rungs"; exit 2; }
-out=$(cd "$ROOT" && S4E_PROGRESS_DB="$T/progress.tsv" timeout 1200 python3 "$HERE/corpus_suite_harness.py" run "$T/$(basename "$S")" "$T/$(basename "$R")" --lang snocone --modes m3,m4 2>&1); rc=$?
+out=$(cd "$ROOT" && S4E_PROGRESS_DB="$T/progress.tsv" timeout -k 5 1200 python3 "$HERE/corpus_suite_harness.py" run "$T/$(basename "$S")" "$T/$(basename "$R")" --lang snocone --modes m3,m4 2>&1); rc=$?
 line=$(printf '%s\n' "$out" | grep '^SUITE_BOARD family=beauty_modules' | tail -1)
 [ -n "$line" ] || { printf '%s\n' "$out" | tail -5; echo "⛔ GATE REFUSE(2) [$G]: the harness printed no SUITE_BOARD line (rc=$rc) -- nothing was graded"; exit 2; }
 field() { printf '%s' "$line" | grep -oE " $1=[0-9]+" | cut -d= -f2; }

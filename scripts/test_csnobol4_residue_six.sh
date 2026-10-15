@@ -28,7 +28,7 @@ fail=0
 for name in $GREEN_NAMES; do
     sno="$SUITE/$name.sno"; ref="$SUITE/$name.ref"
     if [ ! -f "$sno" ] || [ ! -f "$ref" ]; then echo "RESIDUE_SIX: $name MISSING sno/ref"; fail=1; continue; fi
-    got="$(SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>&1)"; rc=$?
+    got="$(SNO_LIB="$SUITE" timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>&1)"; rc=$?
     exp="$(cat "$ref")"
     if [ "$rc" = 0 ] && [ "$got" = "$exp" ]; then
         echo "RESIDUE_SIX: $name PASS (confirms resolved, not a live defect)"

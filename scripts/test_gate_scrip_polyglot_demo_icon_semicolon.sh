@@ -19,7 +19,7 @@ for d in demo05 demo07 demo08 demo09 demo10; do
     src="$(ls "$CORPUS/demos/scriptix/$d"/*.md 2>/dev/null | head -1)"
     exp="$(ls "$CORPUS/demos/scriptix/$d"/*.ref 2>/dev/null | head -1)"
     [ -f "$src" ] && [ -f "$exp" ] || fail "$d: witness or .ref not found under $CORPUS/demos/scriptix/$d"
-    actual="$(timeout 8 "$SCRIP" --run "$src" < /dev/null 2>/tmp/_scrip_demo_semi_err)"
+    actual="$(timeout -k 5 8 "$SCRIP" --run "$src" < /dev/null 2>/tmp/_scrip_demo_semi_err)"
     expected="$(cat "$exp")"
     [ "$actual" = "$expected" ] || fail "$d: output mismatch -- expected=[$expected] actual=[$actual] stderr=$(cat /tmp/_scrip_demo_semi_err)"
 done

@@ -41,16 +41,16 @@ cat > "$T/va.sno" <<'EOS'
 END
 EOS
 printf 'bee\nsame\nnull\n' > "$T/va.want"
-run_m3() { local src="$1" in="$2" out="$3"; shift 3; (cd "$T" && timeout 60 "$SCRIP" "$@" "$src" < "$in" > "$out" 2>/dev/null); }
+run_m3() { local src="$1" in="$2" out="$3"; shift 3; (cd "$T" && timeout -k 5 60 "$SCRIP" "$@" "$src" < "$in" > "$out" 2>/dev/null); }
 run_m4() { local src="$1" in="$2" out="$3"; shift 3; local b="$out.bin"; : > "$out"
-    if (cd "$T" && timeout 120 "$SCRIP" "$@" --compile -o "$out.s" "$src" < /dev/null > /dev/null 2>&1) && gcc -no-pie "$out.s" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$b" 2>/dev/null
-    then (cd "$T" && timeout 60 "$b" < "$in" > "$out" 2>/dev/null); else echo COMPILE-FAILED > "$out"; fi; }
+    if (cd "$T" && timeout -k 5 120 "$SCRIP" "$@" --compile -o "$out.s" "$src" < /dev/null > /dev/null 2>&1) && gcc -no-pie "$out.s" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$b" 2>/dev/null
+    then (cd "$T" && timeout -k 5 60 "$b" < "$in" > "$out" 2>/dev/null); else echo COMPILE-FAILED > "$out"; fi; }
 mask() { python3 "$HERE/util_apply_ceo409_mask.py" "$1" "$2" "$3.n" "--side=$4" < "$3" > "$3.masked" 2>/dev/null || refuse "the mask sidecar of $1 is refused"; }
 run_m3 "$T/va.sno" /dev/null "$T/va.m3"; arm 1 "m3 VALUE answers the variable's value and the null string for an unset name" "$(cmp -s "$T/va.want" "$T/va.m3" && echo 1 || echo 0)"
 run_m4 "$T/va.sno" /dev/null "$T/va.m4"; arm 2 "m4 VALUE: the same" "$(cmp -s "$T/va.want" "$T/va.m4" && echo 1 || echo 0)"
 cp "$D1/diag1.sno" "$T/diag1.sno"; cp "$T1/test1.spt" "$T/test1.spt"
-(cd "$T" && timeout 30 "$SBL" -bf diag1.sno < /dev/null > d1.o 2>/dev/null); grep -q 'number of errors detected  7' "$T/d1.o" || refuse "sbl -bf no longer detects diag1's 7 errors -- the oracle's answer moved"
-(cd "$T" && timeout 60 "$SBL" -bf test1.spt < "$T1/testpgms.in" > t1.o 2>/dev/null); [ -s "$T/t1.o" ] || refuse "sbl -bf produced nothing for test1"
+(cd "$T" && timeout -k 5 30 "$SBL" -bf diag1.sno < /dev/null > d1.o 2>/dev/null); grep -q 'number of errors detected  7' "$T/d1.o" || refuse "sbl -bf no longer detects diag1's 7 errors -- the oracle's answer moved"
+(cd "$T" && timeout -k 5 60 "$SBL" -bf test1.spt < "$T1/testpgms.in" > t1.o 2>/dev/null); [ -s "$T/t1.o" ] || refuse "sbl -bf produced nothing for test1"
 run_m3 diag1.sno /dev/null "$T/d1.m3" --stlimit; run_m4 diag1.sno /dev/null "$T/d1.m4" --stlimit
 run_m3 test1.spt "$T1/testpgms.in" "$T/t1.m3" --stlimit; run_m4 test1.spt "$T1/testpgms.in" "$T/t1.m4" --stlimit
 mkdir -p "$T/nod" "$T/not"; cp "$D1/ALL.ref" "$T/nod/"; grep -v '^diag1	' "$D1/ALL.mask" > "$T/nod/ALL.mask"

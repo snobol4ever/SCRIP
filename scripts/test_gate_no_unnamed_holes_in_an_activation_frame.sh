@@ -48,7 +48,7 @@ procedure main();
   write(map("ABC", "ABC", "xyz"));
 end
 ICEOF
-for w in w.pl w.sno w.icn; do timeout 20s ./scrip --dump-zeta "$T/$w" </dev/null > "$T/$w.zeta" 2>/dev/null; done
+for w in w.pl w.sno w.icn; do timeout -k 5 20s ./scrip --dump-zeta "$T/$w" </dev/null > "$T/$w.zeta" 2>/dev/null; done
 python3 - "$T" <<'PYEOF'
 import sys, os, re
 T = sys.argv[1]

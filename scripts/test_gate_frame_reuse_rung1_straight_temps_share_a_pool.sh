@@ -29,19 +29,19 @@ cp scripts/fixtures/frame_r1_witness.pl "$T/w.pl"; echo "ok" > "$T/w.pl.ref"
 printf 'procedure main()\n   every write(1, 1 to 3);\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
 printf "        S = 'abcabc'\n        S BREAK('c') . T\n        OUTPUT = T\nEND\n" > "$T/w.sno"; echo "ab" > "$T/w.sno.ref"
 bad=0
-line="$(timeout 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null | grep -E "^; graph [0-9]+ 'r/1'")"
+line="$(timeout -k 5 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null | grep -E "^; graph [0-9]+ 'r/1'")"
 [ -n "$line" ] || { echo "⛔ REFUSE(2): --dump-zeta printed no r/1 graph for the witness"; exit 2; }
 end="$(printf '%s\n' "$line" | sed -n 's/.*region_end=\([0-9]*\).*/\1/p')"
 echo "r/1 region_end=$end (bar <= 480, the emitted frame; rung-0 tree read 608 on the same dump)"
 [ -n "$end" ] && [ "$end" -le 480 ] || { echo "  ⛔ r/1 frame is $end bytes, above the rung-1 bar of 480"; bad=$((bad+1)); }
-pooled="$(timeout 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null | awk "/^; graph [0-9]+ 'r\/1'/{p=1} /^; graph [0-9]+ 'q\/1'/{p=0} p" | grep -c 'CANDIDATE.*pooled')"
+pooled="$(timeout -k 5 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null | awk "/^; graph [0-9]+ 'r\/1'/{p=1} /^; graph [0-9]+ 'q\/1'/{p=0} p" | grep -c 'CANDIDATE.*pooled')"
 echo "r/1 pooled candidates=$pooled"
 [ "$pooled" -ge 1 ] || { echo "  ⛔ no candidate in r/1 reads pooled -- the plan and the granter disagree"; bad=$((bad+1)); }
 for w in w.pl w.icn w.sno; do
-    out3="$(timeout 20s ./scrip "$T/$w" </dev/null 2>&1)"
+    out3="$(timeout -k 5 20s ./scrip "$T/$w" </dev/null 2>&1)"
     if [ "$out3" != "$(cat "$T/$w.ref")" ]; then echo "  ⛔ $w mode 3 printed [$out3], ref [$(cat "$T/$w.ref" | tr '\n' ' ')]"; bad=$((bad+1)); fi
-    if timeout 20s ./scrip --compile "$T/$w" > "$T/$w.s" 2>/dev/null && gcc -c "$T/$w.s" -o "$T/$w.o" 2>/dev/null && gcc "$T/$w.o" -Lout -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/$w.bin" 2>/dev/null; then
-        out4="$(timeout 20s "$T/$w.bin" </dev/null 2>&1)"
+    if timeout -k 5 20s ./scrip --compile "$T/$w" > "$T/$w.s" 2>/dev/null && gcc -c "$T/$w.s" -o "$T/$w.o" 2>/dev/null && gcc "$T/$w.o" -Lout -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/$w.bin" 2>/dev/null; then
+        out4="$(timeout -k 5 20s "$T/$w.bin" </dev/null 2>&1)"
         if [ "$out4" != "$(cat "$T/$w.ref")" ]; then echo "  ⛔ $w mode 4 printed [$out4], ref [$(cat "$T/$w.ref" | tr '\n' ' ')]"; bad=$((bad+1)); fi
     else echo "  ⛔ $w mode 4 did not build"; bad=$((bad+1)); fi
 done

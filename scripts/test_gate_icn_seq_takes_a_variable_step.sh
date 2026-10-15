@@ -35,9 +35,9 @@ grep -q '^neg 4$' "$T/s.ref" || { echo "⛔ REFUSE(2): the oracle's own stream d
 [ "$(grep -c . "$T/s.ref")" = 16 ] || { echo "⛔ REFUSE(2): the oracle's stream is not the 16 lines the seven shapes produce"; exit 2; }
 RC=0
 for M in m3 m4; do
-  if [ "$M" = m3 ]; then ( cd "$T" && timeout 20 "$SCRIP" s.icn </dev/null ) >"$T/$M.out" 2>&1
-  else ( cd "$T" && timeout 20 "$SCRIP" --compile -o s.s s.icn </dev/null && gcc s.s -o s.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ REFUSE(2): mode-4 witness did not build"; exit 2; }
-       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout 20 ./s.bin </dev/null ) >"$T/$M.out" 2>&1
+  if [ "$M" = m3 ]; then ( cd "$T" && timeout -k 5 20 "$SCRIP" s.icn </dev/null ) >"$T/$M.out" 2>&1
+  else ( cd "$T" && timeout -k 5 20 "$SCRIP" --compile -o s.s s.icn </dev/null && gcc s.s -o s.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ REFUSE(2): mode-4 witness did not build"; exit 2; }
+       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 20 ./s.bin </dev/null ) >"$T/$M.out" 2>&1
   fi
   if [ -n "${FAIL_ONCE:-}" ]; then sed -i 's/^neg 4$/neg 5/' "$T/$M.out"; fi
   if diff -u "$T/s.ref" "$T/$M.out" >"$T/$M.diff"; then echo "  $M PASS (byte-identical to icont, 7 seq shapes)"

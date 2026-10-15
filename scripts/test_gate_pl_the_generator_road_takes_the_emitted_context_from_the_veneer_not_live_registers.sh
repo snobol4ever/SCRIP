@@ -38,11 +38,11 @@ want='3
 f(2,x)
 7-7.9'
 for mode in m3 m4; do
-    if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout 60 "$SCRIP" w.pl </dev/null 2>"$TMPD/err")"; rc=$?
+    if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout -k 5 60 "$SCRIP" w.pl </dev/null 2>"$TMPD/err")"; rc=$?
     else
-        timeout 120 "$SCRIP" --compile -o "$TMPD/w.s" "$TMPD/w.pl" </dev/null 2>"$TMPD/err" || { echo "  RED w $mode: the compile refused: $(head -c 160 "$TMPD/err")"; red=$((red+1)); continue; }
+        timeout -k 5 120 "$SCRIP" --compile -o "$TMPD/w.s" "$TMPD/w.pl" </dev/null 2>"$TMPD/err" || { echo "  RED w $mode: the compile refused: $(head -c 160 "$TMPD/err")"; red=$((red+1)); continue; }
         gcc -m64 -no-pie "$TMPD/w.s" -o "$TMPD/w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err" || { echo "  RED w $mode: the assembler or linker refused: $(grep -m1 -E 'Error|error' "$TMPD/err" | head -c 200)"; red=$((red+1)); continue; }
-        got="$(cd "$TMPD" && timeout 60 ./w.bin </dev/null 2>"$TMPD/err")"; rc=$?
+        got="$(cd "$TMPD" && timeout -k 5 60 ./w.bin </dev/null 2>"$TMPD/err")"; rc=$?
     fi
     if [ "$rc" = 0 ] && [ "$got" = "$want" ]; then echo "  ok  arm 2 $mode: a user portray/1 under format ~p answers through the generator road"
     else echo "  RED arm 2 $mode: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-120)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi

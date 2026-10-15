@@ -107,7 +107,7 @@ oracle_trace_for() {  # $1=src.pl  $2=NAME1|NAME2|...
   local src="$1" names="$2" wd rc=0
   wd="$(mktemp -d)"
   { echo ':- leash(-all), trace.'; cat "$src"; } > "$wd/f.pl"
-  ( cd "$wd" && timeout "$T" "$SWIPL" -q f.pl ) < /dev/null > "$wd/out.txt" 2> "$wd/err.txt"; rc=$?
+  ( cd "$wd" && timeout -k 5 "$T" "$SWIPL" -q f.pl ) < /dev/null > "$wd/out.txt" 2> "$wd/err.txt"; rc=$?
   oracle_map "$names" < "$wd/err.txt"
   rm -rf "$wd"; return $rc
 }
@@ -119,16 +119,16 @@ o="$CANARY"; src="$W/$o.pl"; ref="$W/$o.ref"
 NAMES="$(user_preds_of "$src")"
 [ -n "$NAMES" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: could not parse a predicate name out of the embedded canary -- fixture is broken"; gate_stamp; exit 2; }
 n=1
-(cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s0" "$src" </dev/null >/dev/null 2>&1); (cd "$W" && SCRIP_PL_TRACE=0 timeout "$T" "$SCRIP" --compile -o "$o.s0b" "$src" </dev/null >/dev/null 2>&1)
-(cd "$W" && SCRIP_PL_TRACE=1 timeout "$T" "$SCRIP" --compile -o "$o.s1" "$src" </dev/null >/dev/null 2>&1)
+(cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile -o "$o.s0" "$src" </dev/null >/dev/null 2>&1); (cd "$W" && SCRIP_PL_TRACE=0 timeout -k 5 "$T" "$SCRIP" --compile -o "$o.s0b" "$src" </dev/null >/dev/null 2>&1)
+(cd "$W" && SCRIP_PL_TRACE=1 timeout -k 5 "$T" "$SCRIP" --compile -o "$o.s1" "$src" </dev/null >/dev/null 2>&1)
 ks=OK; { cmp -s "$W/$o.s0" "$W/$o.s0b" && [ -s "$W/$o.s0" ] && ! cmp -s "$W/$o.s0" "$W/$o.s1"; } || { ks=FAIL; bad=$((bad+1)); }
-timeout "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3.out0" 2>/dev/null; r30=$?
-SCRIP_PL_TRACE=1 timeout "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3.out1" 2>"$W/$o.m3.raw"; r31=$?
+timeout -k 5 "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3.out0" 2>/dev/null; r30=$?
+SCRIP_PL_TRACE=1 timeout -k 5 "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3.out1" 2>"$W/$o.m3.raw"; r31=$?
 pert3=OK; { [ "$r30" = "$r31" ] && cmp -s "$W/$o.m3.out0" "$W/$o.m3.out1"; } || { pert3=FAIL; bad=$((bad+1)); }
 pert4=OK
 if m4build "$W/$o.s0" "$W/$o.bin0" && m4build "$W/$o.s1" "$W/$o.bin1"; then
-  timeout "$T" "$W/$o.bin0" </dev/null >"$W/$o.m4.out0" 2>/dev/null; r40=$?
-  SCRIP_PL_TRACE=1 timeout "$T" "$W/$o.bin1" </dev/null >"$W/$o.m4.out1" 2>"$W/$o.m4.raw"; r41=$?
+  timeout -k 5 "$T" "$W/$o.bin0" </dev/null >"$W/$o.m4.out0" 2>/dev/null; r40=$?
+  SCRIP_PL_TRACE=1 timeout -k 5 "$T" "$W/$o.bin1" </dev/null >"$W/$o.m4.out1" 2>"$W/$o.m4.raw"; r41=$?
   { [ "$r40" = "$r41" ] && cmp -s "$W/$o.m4.out0" "$W/$o.m4.out1"; } || { pert4=FAIL; bad=$((bad+1)); }
 else pert4=NOBUILD; bad=$((bad+1)); : > "$W/$o.m4.raw"; fi
 cmp -s "$W/$o.m3.out0" "$ref" && { ans=ok; ans_ok=$((ans_ok+1)); } || { ans=RED; ans_red=$((ans_red+1)); }

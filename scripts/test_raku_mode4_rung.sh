@@ -26,7 +26,7 @@ for rk in "$TESTDIR"/*.raku; do
     name="$(basename "$rk" .raku)"
     [ -f "$exp" ] || { echo "  SKIP $name (no .expected)"; SKIP=$((SKIP+1)); continue; }
     WANT="$(cat "$exp")"
-    GOT="$(timeout 12 bash "$RUNNER" "$rk" 2>/dev/null)" || true
+    GOT="$(timeout -k 5 12 bash "$RUNNER" "$rk" 2>/dev/null)" || true
     if [ "$WANT" = "$GOT" ] && [ -n "$WANT" ]; then
         echo "  PASS $name"; PASS=$((PASS+1))
     else

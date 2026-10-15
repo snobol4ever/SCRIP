@@ -25,7 +25,7 @@ for f in "$CORPUS"/rung*.pl; do
     base="${f%.pl}"
 
     # Use --run as the oracle for expected output
-    ir_out=$(timeout 8 "$SCRIP" --run "$f" < /dev/null 2>&1)
+    ir_out=$(timeout -k 5 8 "$SCRIP" --run "$f" < /dev/null 2>&1)
     ir_rc=$?
 
     # Only test programs that pass --run.  PL-Z-1a INSTRUMENT NOTE: programs whose ORACLE run
@@ -34,7 +34,7 @@ for f in "$CORPUS"/rung*.pl; do
     # ORACLE_CRASH counts them visibly; PASS/FAIL/ABORT semantics and the exit code are UNCHANGED.
     if [ $ir_rc -ne 0 ]; then ocrash=$((ocrash + 1)); continue; fi
 
-    sm_out=$(timeout 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --run '$f' < /dev/null 2>&1")
+    sm_out=$(timeout -k 5 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --run '$f' < /dev/null 2>&1")
     sm_rc=$?
 
     if [ $sm_rc -eq 134 ] || echo "$sm_out" | grep -q "FATAL: .*reached from SM dispatch"; then

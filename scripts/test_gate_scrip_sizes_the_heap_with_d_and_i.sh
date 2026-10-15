@@ -35,29 +35,29 @@ fails=0; arms=0
 ck() { arms=$((arms+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else echo "  FAIL $2"; fails=$((fails+1)); fi; }
 clean() { env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_MAX_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_STACK "$@"; }
 colls() { grep -o 'collections=[0-9]*' "$1" | tail -1 | cut -d= -f2; }
-o0=$(clean timeout 60 "$C" -d4m big.sno < /dev/null 2>/dev/null); r0=$?; od=$(clean timeout 60 "$C" big.sno < /dev/null 2>/dev/null)
+o0=$(clean timeout -k 5 60 "$C" -d4m big.sno < /dev/null 2>/dev/null); r0=$?; od=$(clean timeout -k 5 60 "$C" big.sno < /dev/null 2>/dev/null)
 [ "$o0" != "done 20001" ] && [ "$od" = "done 20001" ] && ck ok "(1a) the witness does NOT fit -d4m (rc=$r0, output '$o0') and answers at the default cap" || ck no "(1a) -d4m printed '$o0' (rc=$r0), the default cap printed '$od' -- the witness must die at 4 MB and answer at SPITBOL's 128 MB"
-o1=$(clean timeout 60 "$C" -d64m big.sno < /dev/null 2>/dev/null); [ "$o1" = "done 20001" ] && ck ok "(1b) -d64m: the witness prints its answer in mode 3" || ck no "(1b) -d64m in mode 3 printed '$o1'"
+o1=$(clean timeout -k 5 60 "$C" -d64m big.sno < /dev/null 2>/dev/null); [ "$o1" = "done 20001" ] && ck ok "(1b) -d64m: the witness prints its answer in mode 3" || ck no "(1b) -d64m in mode 3 printed '$o1'"
 if clean "$C" --compile -o big.s big.sno < /dev/null > /dev/null 2>&1 && gcc -no-pie -o bigbin big.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" 2>/dev/null; then
-    o2=$(clean timeout 60 ./bigbin -d4m < /dev/null 2>/dev/null); o3=$(clean timeout 60 ./bigbin -d64m < /dev/null 2>/dev/null)
+    o2=$(clean timeout -k 5 60 ./bigbin -d4m < /dev/null 2>/dev/null); o3=$(clean timeout -k 5 60 ./bigbin -d64m < /dev/null 2>/dev/null)
     [ "$o2" != "done 20001" ] && [ "$o3" = "done 20001" ] && ck ok "(2) the mode-4 binary dies at -d4m and prints the answer with -d64m, each on its own command line" || ck no "(2) mode-4: with -d4m '$o2', with -d64m '$o3'"
 else ck no "(2) could not compile or link the witness for mode 4"; fi
-clean env SCRIP_GC_EXERCISE=1 timeout 60 "$C" -d64m -i128k churn.sno < /dev/null > c1.out 2> c1.err; c1=$(colls c1.err)
-clean env SCRIP_GC_EXERCISE=1 timeout 60 "$C" -d64m -i64m churn.sno < /dev/null > c2.out 2> c2.err; c2=$(colls c2.err)
+clean env SCRIP_GC_EXERCISE=1 timeout -k 5 60 "$C" -d64m -i128k churn.sno < /dev/null > c1.out 2> c1.err; c1=$(colls c1.err)
+clean env SCRIP_GC_EXERCISE=1 timeout -k 5 60 "$C" -d64m -i64m churn.sno < /dev/null > c2.out 2> c2.err; c2=$(colls c2.err)
 [ -n "$c1" ] && [ -n "$c2" ] && [ "$c1" -gt 10 ] && [ "$c2" = 0 ] && [ "$(cat c1.out)" = "churn 4001" ] && [ "$(cat c2.out)" = "churn 4001" ] && ck ok "(3) -i is the window: collections=$c1 at -i128k, $c2 at -i64m, same answer" || ck no "(3) -i: collections at -i128k=${c1:-?}, at -i64m=${c2:-?}, outputs '$(cat c1.out)' / '$(cat c2.out)'"
-clean env SCRIP_HEAP_KB=128 SCRIP_GC_EXERCISE=1 timeout 60 "$C" -d64m -i64m churn.sno < /dev/null > c3.out 2> c3.err; c3=$(colls c3.err)
+clean env SCRIP_HEAP_KB=128 SCRIP_GC_EXERCISE=1 timeout -k 5 60 "$C" -d64m -i64m churn.sno < /dev/null > c3.out 2> c3.err; c3=$(colls c3.err)
 [ "$c3" = 0 ] && ck ok "(4) the switch wins over the seam: SCRIP_HEAP_KB=128 with -i64m reads collections=0" || ck no "(4) with SCRIP_HEAP_KB=128 and -i64m collections=${c3:-?}"
-clean env SCRIP_HEAP_KB=128 SCRIP_GC_EXERCISE=1 timeout 60 "$C" churn.sno < /dev/null > c4.out 2> c4.err; c4=$(colls c4.err)
+clean env SCRIP_HEAP_KB=128 SCRIP_GC_EXERCISE=1 timeout -k 5 60 "$C" churn.sno < /dev/null > c4.out 2> c4.err; c4=$(colls c4.err)
 [ -n "$c4" ] && [ "$c4" -gt 10 ] && ck ok "(5) the seam alone still sizes a run: SCRIP_HEAP_KB=128 reads collections=$c4" || ck no "(5) SCRIP_HEAP_KB=128 alone reads collections=${c4:-?}"
-s1=$(clean timeout 120 "$C" deep.sno < /dev/null 2>/dev/null); rs1=$?; s2=$(clean timeout 120 "$C" -s512m deep.sno < /dev/null 2>/dev/null); rs2=$?
+s1=$(clean timeout -k 5 120 "$C" deep.sno < /dev/null 2>/dev/null); rs1=$?; s2=$(clean timeout -k 5 120 "$C" -s512m deep.sno < /dev/null 2>/dev/null); rs2=$?
 [ "$s2" = "depth 1000000" ] && { [ "$rs1" != 0 ] || [ "$s1" != "depth 1000000" ]; } && ck ok "(6a) -s: the deep witness overflows the 4 MB default (rc=$rs1) and completes at -s512m, mode 3" || ck no "(6a) -s mode 3: default rc=$rs1 '$s1', at -s512m rc=$rs2 '$s2' (if both complete, the depth is too small to measure -s)"
 if clean "$C" --compile -o deep.s deep.sno < /dev/null > /dev/null 2>&1 && gcc -no-pie -o deepbin deep.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" 2>/dev/null; then
-    s3=$(clean timeout 120 ./deepbin < /dev/null 2>/dev/null); rs3=$?; s4=$(clean timeout 120 ./deepbin -s512m < /dev/null 2>/dev/null)
+    s3=$(clean timeout -k 5 120 ./deepbin < /dev/null 2>/dev/null); rs3=$?; s4=$(clean timeout -k 5 120 ./deepbin -s512m < /dev/null 2>/dev/null)
     [ "$s4" = "depth 1000000" ] && { [ "$rs3" != 0 ] || [ "$s3" != "depth 1000000" ]; } && ck ok "(6b) -s on the mode-4 binary's command line: overflows at the 4 MB default (rc=$rs3), completes at -s512m" || ck no "(6b) -s mode 4: default rc=$rs3 '$s3', at -s512m '$s4'"
 else ck no "(6b) could not compile or link the deep witness"; fi
 u=$("$C" 2>&1 | grep -ciE '^ *-dN.*accepted'); [ "$u" = 0 ] && ck ok "(7) the usage no longer calls -d/-i accepted-and-ignored" || ck no "(7) usage lines still calling -d accepted-and-ignored: $u"
-clean timeout 60 "$C" -d1m -i2m churn.sno < /dev/null > /dev/null 2> n1.err; rn1=$?; [ "$rn1" != 0 ] && grep -qi "below" n1.err && ck ok "(8a) -d below -i is refused with its reason (rc=$rn1)" || ck no "(8a) -d1m -i2m rc=$rn1: $(head -c 120 n1.err)"
-clean timeout 60 "$C" -dbig churn.sno < /dev/null > /dev/null 2> n2.err; rn2=$?; [ "$rn2" != 0 ] && grep -qi "bad -d value" n2.err && ck ok "(8b) a malformed -d value is refused" || ck no "(8b) -dbig rc=$rn2: $(head -c 120 n2.err)"
+clean timeout -k 5 60 "$C" -d1m -i2m churn.sno < /dev/null > /dev/null 2> n1.err; rn1=$?; [ "$rn1" != 0 ] && grep -qi "below" n1.err && ck ok "(8a) -d below -i is refused with its reason (rc=$rn1)" || ck no "(8a) -d1m -i2m rc=$rn1: $(head -c 120 n1.err)"
+clean timeout -k 5 60 "$C" -dbig churn.sno < /dev/null > /dev/null 2> n2.err; rn2=$?; [ "$rn2" != 0 ] && grep -qi "bad -d value" n2.err && ck ok "(8b) a malformed -d value is refused" || ck no "(8b) -dbig rc=$rn2: $(head -c 120 n2.err)"
 [ "$c2" != 7 ] && ck ok "(8c) negative control: the -i arm can red (a planted wrong expectation reads FAIL)" || ck no "(8c) the -i arm cannot fail"
 echo "population: $arms arm(s), $fails FAIL"
 if [ "$fails" = 0 ]; then echo "GATE PASS(0) [test_gate_scrip_sizes_the_heap_with_d_and_i]: -d caps the heap, -i sets its window and step, -s the stack, in both modes; the seam is named and overridden"; exit 0; fi

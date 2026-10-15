@@ -69,11 +69,11 @@ run_one() {
     local wasm="$TMPD/$base.wasm"
     local out="$TMPD/$base.out"
     local inp="$dir/$base.input"
-    if ! timeout "$TIMEOUT" "$SCRIP" --compile --target=wasm "$sno" > "$wat" 2>/dev/null; then
+    if ! timeout -k 5 "$TIMEOUT" "$SCRIP" --compile --target=wasm "$sno" > "$wat" 2>/dev/null; then
         [[ "$VERBOSE" == "--verbose" ]] && echo "FAIL $base [emit]"
         FAIL=$((FAIL+1)); return 0
     fi
-    if ! timeout "$TIMEOUT" wat2wasm "$wat" -o "$wasm" 2>/dev/null; then
+    if ! timeout -k 5 "$TIMEOUT" wat2wasm "$wat" -o "$wasm" 2>/dev/null; then
         [[ "$VERBOSE" == "--verbose" ]] && echo "FAIL $base [wat2wasm]"
         FAIL=$((FAIL+1)); return 0
     fi
@@ -81,7 +81,7 @@ run_one() {
     [ -f "$inp" ] && stdin_arg="< \"$inp\""
     export SNO_RUNTIME_WASM="$WASM_RUNTIME_WASM"
     export SNO_BB_BOXES_WASM="$WASM_BB_WASM"
-    if ! eval "timeout $TIMEOUT node \"$HOST_MJS\" \"$wasm\" $stdin_arg > \"$out\" 2>/dev/null"; then
+    if ! eval "timeout -k 5 $TIMEOUT node \"$HOST_MJS\" \"$wasm\" $stdin_arg > \"$out\" 2>/dev/null"; then
         [[ "$VERBOSE" == "--verbose" ]] && echo "FAIL $base [node]"
         FAIL=$((FAIL+1)); return 0
     fi

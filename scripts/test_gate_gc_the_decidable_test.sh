@@ -66,7 +66,7 @@ run_witness() { # $1=file $2=stress [$3=SCRIP_GC_PLANT_PIN_SKIP] ; prints "rc|co
     # FAILING under a broken collector and printed DETECTED for every kind.  The collector was never broken; the
     # program never started.  `env` takes its assignments as ARGUMENTS, so an expansion is safe there.
     ( cd "$W" && env SCRIP_GC_STRESS="$st" SCRIP_GC_POISON=1 SCRIP_ZETA_TELEM=1 \
-        timeout 120 "$ROOT/scrip" "$WD/$f" >o.txt 2>t.txt ) 2>/dev/null || rc=$?
+        timeout -k 5 120 "$ROOT/scrip" "$WD/$f" >o.txt 2>t.txt ) 2>/dev/null || rc=$?
     local col mov out
     # ⛔ `grep -c` PRINTS 0 AND EXITS 1 WHEN IT MATCHES NOTHING, so `|| echo 0` fires ON TOP of the 0 it already
     # printed and this function returned TWO lines; `read` then parsed "0|0" as the whole result and every witness
@@ -97,7 +97,7 @@ while IFS=$'\t' read -r kind val class wit expect note; do
     witnessed=$((witnessed+1))
     [ -f "$WD/$wit" ] || { ck no "arm2 $kind($val): witness $wit is not in gc_witnesses/"; wit_red=$((wit_red+1)); continue; }
     # (1) does this witness allocate THE KIND IT CLAIMS?  Asked of the runtime, never of the table.
-    ( cd "$W" && SCRIP_GC_STRESS=5 SCRIP_ALLOC_HIST=1 timeout 120 "$ROOT/scrip" "$WD/$wit" >/dev/null 2>ah.txt ) || true
+    ( cd "$W" && SCRIP_GC_STRESS=5 SCRIP_ALLOC_HIST=1 timeout -k 5 120 "$ROOT/scrip" "$WD/$wit" >/dev/null 2>ah.txt ) || true
     ahn=$(awk -v t="$val" '$1=="[AH]" && $2=="T" && $3==t {print $4}' "$W/ah.txt" | head -1)
     if [ -z "${ahn:-}" ] || [ "${ahn:-0}" -le 0 ]; then
         ck no "arm2 $kind($val): witness $wit allocated NO block of this kind (SCRIP_ALLOC_HIST) -- it is green about something else, which is the disease not the cure"

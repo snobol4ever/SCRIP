@@ -28,7 +28,7 @@ PASS=0; FAIL=0
 check() {
     local label="$1" prog="$2"
     local out rc
-    out=$(SCRIP_ZD_CENSUS=1 timeout 8s "$SCRIP" --run "$prog" </dev/null 2>&1); rc=$?; true
+    out=$(SCRIP_ZD_CENSUS=1 timeout -k 5 8s "$SCRIP" --run "$prog" </dev/null 2>&1); rc=$?; true
     # must produce correct output (rc=0) and no globals_on_stack > 0
     local bad
     bad=$(printf '%s\n' "$out" | grep 'globals_on_stack=' | grep -v 'globals_on_stack=0' || true)

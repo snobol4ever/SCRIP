@@ -50,17 +50,17 @@ ok      OUTPUT = DATATYPE(x) ' ' SIZE(x) :(loop)
 END
 SNO
 printf "%s\n" "'z' ? (&ALPHABET | 2)" "'z' ? (&ALPHABET 1 | 2)" "'z' ? (&UCASE | 2)" > "$D/b.in"
-( cd "$D" && timeout 10 "$SBL" -bf a.sno < /dev/null 2>/dev/null > a.want )
-( cd "$D" && timeout 10 "$SBL" -bf b.sno < b.in 2>/dev/null > b.want )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf a.sno < /dev/null 2>/dev/null > a.want )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf b.sno < b.in 2>/dev/null > b.want )
 grep -q "^1 failed" "$D/a.want" || refuse "sbl -bf does not fail 'z' ? (&ALPHABET | 2): [$(tr '\n' '|' < "$D/a.want")]"
 [ "$(head -1 "$D/b.want")" = "FAIL" ] || refuse "sbl -bf does not fail through EVAL: [$(tr '\n' '|' < "$D/b.want")]"
-m4bin() { timeout 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc -no-pie "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
+m4bin() { timeout -k 5 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc -no-pie "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
 red=0; n=0
 arm() { n=$((n + 1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  FAIL $1: $2"; red=$((red + 1)); fi; }
-( cd "$D" && timeout 30 "$B/scrip" a.sno < /dev/null > a.m3 2>/dev/null )
-( cd "$D" && m4bin a && timeout 30 ./a.bin < /dev/null > a.m4 2>/dev/null )
-( cd "$D" && timeout 30 "$B/scrip" b.sno < b.in > b.m3 2>/dev/null )
-( cd "$D" && m4bin b && timeout 30 ./b.bin < b.in > b.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" a.sno < /dev/null > a.m3 2>/dev/null )
+( cd "$D" && m4bin a && timeout -k 5 30 ./a.bin < /dev/null > a.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" b.sno < b.in > b.m3 2>/dev/null )
+( cd "$D" && m4bin b && timeout -k 5 30 ./b.bin < b.in > b.m4 2>/dev/null )
 for m in m3 m4; do
     if [ -f "$D/a.$m" ] && cmp -s "$D/a.want" "$D/a.$m"; then arm "a $m (NUL arms: keyword, variable, sequence, mid-string NUL, built alternation)" ok
     else arm "a $m" "got [$(tr '\n' '|' 2>/dev/null < "$D/a.$m")] want [$(tr '\n' '|' < "$D/a.want")]"; fi

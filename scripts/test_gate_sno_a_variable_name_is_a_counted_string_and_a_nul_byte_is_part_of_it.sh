@@ -69,11 +69,11 @@ want=$("$SBL" -bf "$T/w.sno" </dev/null 2>/dev/null); [ -n "$want" ] || { echo "
 RC=0; N=0
 run() {
   local m="$1" w="$2" st="$3" x="$T/$2.$1.$3"
-  if [ "$m" = m3 ]; then env SCRIP_GC_STRESS="$st" SCRIP_GC_EXERCISE=1 timeout 60 "$SCRIP" "$T/$w.sno" </dev/null >"$x.out" 2>"$x.err"
+  if [ "$m" = m3 ]; then env SCRIP_GC_STRESS="$st" SCRIP_GC_EXERCISE=1 timeout -k 5 60 "$SCRIP" "$T/$w.sno" </dev/null >"$x.out" 2>"$x.err"
   else
     "$SCRIP" --compile -o "$x.s" "$T/$w.sno" </dev/null >/dev/null 2>&1 || { echo COMPILE-FAIL >"$x.out"; return; }
     gcc -no-pie -o "$x.bin" "$x.s" -L"$RT" -Wl,-rpath,"$RT" -lscrip_rt -lm >/dev/null 2>&1 || { echo LINK-FAIL >"$x.out"; return; }
-    env SCRIP_GC_STRESS="$st" SCRIP_GC_EXERCISE=1 timeout 60 "$x.bin" </dev/null >"$x.out" 2>"$x.err"
+    env SCRIP_GC_STRESS="$st" SCRIP_GC_EXERCISE=1 timeout -k 5 60 "$x.bin" </dev/null >"$x.out" 2>"$x.err"
   fi
 }
 cwant=$("$SBL" -bf "$T/c.sno" </dev/null 2>/dev/null); [ -n "$cwant" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing for c.sno"; exit 2; }

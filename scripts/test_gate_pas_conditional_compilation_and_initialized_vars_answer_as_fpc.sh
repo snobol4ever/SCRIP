@@ -38,13 +38,13 @@ FPC="${FPC_BIN:-/usr/bin/fpc}"; [ -x "$FPC" ] || { echo "⛔ GATE REFUSE(2) [$G]
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0; ARMS=0
 run_mode() { local m="$1" p="$2"
-  if [ "$m" = m3 ]; then ( cd "$T" && timeout 20s "$SCRIP" --run "$p.pas" </dev/null 2>"$T/$p.$m.err" | head -c 8000 >"$T/$p.$m.out"; exit "${PIPESTATUS[0]}" ); return $?; fi
-  ( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>"$T/$p.$m.err" ) || { echo "  ⛔ arm $p m4: did not compile"; return 99; }
+  if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 20s "$SCRIP" --run "$p.pas" </dev/null 2>"$T/$p.$m.err" | head -c 8000 >"$T/$p.$m.out"; exit "${PIPESTATUS[0]}" ); return $?; fi
+  ( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/$p.s" "$p.pas" </dev/null >/dev/null 2>"$T/$p.$m.err" ) || { echo "  ⛔ arm $p m4: did not compile"; return 99; }
   ( cd "$T" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: arm $p compiled but would not link"; exit 2; }
-  ( cd "$T" && timeout 20s "./$p.m4" </dev/null 2>"$T/$p.$m.err" | head -c 8000 >"$T/$p.$m.out"; exit "${PIPESTATUS[0]}" ); return $?; }
+  ( cd "$T" && timeout -k 5 20s "./$p.m4" </dev/null 2>"$T/$p.$m.err" | head -c 8000 >"$T/$p.$m.out"; exit "${PIPESTATUS[0]}" ); return $?; }
 grade() { local p="$1" mode="$2"
   mkdir -p "$T/fpc_$p"
-  ( cd "$T" && "$FPC" $mode -v0 -FE"$T/fpc_$p" -FU"$T/fpc_$p" -o"$T/fpc_$p/$p" "$p.pas" >/dev/null 2>&1 && timeout 20s "$T/fpc_$p/$p" </dev/null | head -c 8000 ) > "$T/$p.want" 2>/dev/null
+  ( cd "$T" && "$FPC" $mode -v0 -FE"$T/fpc_$p" -FU"$T/fpc_$p" -o"$T/fpc_$p/$p" "$p.pas" >/dev/null 2>&1 && timeout -k 5 20s "$T/fpc_$p/$p" </dev/null | head -c 8000 ) > "$T/$p.want" 2>/dev/null
   [ -s "$T/$p.want" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no output for arm $p"; exit 2; }
   if [ -n "${FAIL_ONCE:-}" ] && [ "$p" = cif ]; then echo "corrupted by FAIL_ONCE" >> "$T/$p.want"; fi
   ARMS=$((ARMS + 1))
@@ -115,11 +115,11 @@ grade objm ""
 printf "program u1(output);\ntype r = record a: integer end;\n{\$if sizeof(r) <> 4}\n{\$message fatal 'size'}\n{\$endif}\nbegin writeln(1) end.\n" > "$T/u1.pas"
 printf "program u2(output);\ntype r = record a: integer end;\nbegin\n{\$if sizeof(r) <> 4} writeln(1); {\$endif}\nend.\n" > "$T/u2.pas"
 ARMS=$((ARMS + 1))
-( cd "$T" && timeout 20s "$SCRIP" u1.pas </dev/null >u1.out 2>u1.err ); r1=$?
+( cd "$T" && timeout -k 5 20s "$SCRIP" u1.pas </dev/null >u1.out 2>u1.err ); r1=$?
 if [ "$r1" = 0 ] && [ "$(cat "$T/u1.out")" = "          1" ]; then echo "  arm u1: an unreadable {\$if} guarding only a directive compiles"
 else echo "  ⛔ arm u1 FAILED: rc=$r1 out=[$(cat "$T/u1.out")] err=[$(head -1 "$T/u1.err")]"; RC=1; fi
 ARMS=$((ARMS + 1))
-( cd "$T" && timeout 20s "$SCRIP" u2.pas </dev/null >u2.out 2>u2.err ); r2=$?
+( cd "$T" && timeout -k 5 20s "$SCRIP" u2.pas </dev/null >u2.out 2>u2.err ); r2=$?
 if [ "$r2" != 0 ] && grep -q "sizeof(r) <> 4" "$T/u2.err" && grep -q 'holds program text' "$T/u2.err"; then echo "  arm u2: an unreadable {\$if} guarding program text is refused by name (rc=$r2)"
 else echo "  ⛔ arm u2 FAILED: rc=$r2 err=[$(head -1 "$T/u2.err" | cut -c1-160)]"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $ARMS arms -- conditional compilation and initialized variables answer as fpc in both modes; an unreadable {\$if} is never guessed"

@@ -17,23 +17,23 @@ run_smoke() {
     local prog="$tmp/$name.sno"
     printf '%s\n' "$sno" > "$prog"
     local oracle_out
-    oracle_out=$(timeout 8 "$ORACLE" -b "$prog" < /dev/null 2>/dev/null || true)
+    oracle_out=$(timeout -k 5 8 "$ORACLE" -b "$prog" < /dev/null 2>/dev/null || true)
     local il_file="$tmp/$name.il"
-    if ! timeout 8 "$SCRIP" --compile --target=net "$prog" < /dev/null > "$il_file" 2>/dev/null; then
+    if ! timeout -k 5 8 "$SCRIP" --compile --target=net "$prog" < /dev/null > "$il_file" 2>/dev/null; then
         echo "FAIL $name (emit)"
         FAIL=$((FAIL+1))
         rm -rf "$tmp"
         return
     fi
     local exe_file="$tmp/$name.exe"
-    if ! timeout 15 ilasm /output:"$exe_file" "$il_file" "$SNORT_IL" > /dev/null 2>&1; then
+    if ! timeout -k 5 15 ilasm /output:"$exe_file" "$il_file" "$SNORT_IL" > /dev/null 2>&1; then
         echo "FAIL $name (ilasm)"
         FAIL=$((FAIL+1))
         rm -rf "$tmp"
         return
     fi
     local net_out
-    net_out=$(timeout 8 mono "$exe_file" < /dev/null 2>/dev/null || true)
+    net_out=$(timeout -k 5 8 mono "$exe_file" < /dev/null 2>/dev/null || true)
     rm -rf "$tmp"
     if [ "$oracle_out" = "$net_out" ]; then
         echo "PASS $name"

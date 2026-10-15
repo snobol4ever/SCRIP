@@ -50,9 +50,9 @@ arm_frame() {
 arm_frame 1 16 0 0
 arm_frame 2 8 8 8
 cp "$PZ/hakank_swi_nvalue.pl" "$PZ/hakank_utils.pl" "$W/"
-want=$(cd "$W" && timeout 120 swipl -q "$W/hakank_swi_nvalue.pl" < /dev/null 2>/dev/null)
+want=$(cd "$W" && timeout -k 5 120 swipl -q "$W/hakank_swi_nvalue.pl" < /dev/null 2>/dev/null)
 [ -n "$want" ] || { echo "GATE REFUSED(2) [$G]: swipl printed nothing for hakank_swi_nvalue"; exit 2; }
-got=$(cd "$W" && timeout 300 "$ROOT/scrip" -s4096k "$W/hakank_swi_nvalue.pl" < /dev/null 2>&1)
+got=$(cd "$W" && timeout -k 5 300 "$ROOT/scrip" -s4096k "$W/hakank_swi_nvalue.pl" < /dev/null 2>&1)
 if [ "$got" = "$want" ]; then echo "  ok  (3) hakank_swi_nvalue at -s4096k prints swipl's $(printf '%s\n' "$want" | wc -l) lines"
 else echo "  RED (3) hakank_swi_nvalue at -s4096k: $(printf '%s\n' "$got" | tail -1 | cut -c1-100) (swipl: $(printf '%s\n' "$want" | wc -l) lines)"; bad=1; fi
 cat > "$W/g.pl" <<'EOF'
@@ -64,12 +64,12 @@ mk(0, []) :- !.
 mk(K, [K-x|T]) :- K1 is K - 1, mk(K1, T).
 main :- forall(between(1, 200, I), ( p(I, R), ( I =:= 200 -> write(R), nl ; true ) )), halt.
 EOF
-gw=$(cd "$W" && timeout 60 swipl -q "$W/g.pl" < /dev/null 2>/dev/null | head -1)
+gw=$(cd "$W" && timeout -k 5 60 swipl -q "$W/g.pl" < /dev/null 2>/dev/null | head -1)
 [ -n "$gw" ] || { echo "GATE REFUSED(2) [$G]: swipl printed nothing for the stress witness"; exit 2; }
 ( cd "$W" && "$ROOT/scrip" --compile -o "$W/g.s" "$W/g.pl" < /dev/null > /dev/null 2>&1 ) && gcc -no-pie -o "$W/g.bin" "$W/g.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread > /dev/null 2>&1 || { echo "GATE REFUSED(2) [$G]: the stress witness does not build in mode 4"; exit 2; }
 for m in m3 m4; do
-    if [ $m = m3 ]; then r=$(cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_CHAIN_CHECK=3 timeout 300 "$ROOT/scrip" "$W/g.pl" < /dev/null 2>&1)
-    else r=$(cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_CHAIN_CHECK=3 timeout 300 "$W/g.bin" < /dev/null 2>&1); fi
+    if [ $m = m3 ]; then r=$(cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_CHAIN_CHECK=3 timeout -k 5 300 "$ROOT/scrip" "$W/g.pl" < /dev/null 2>&1)
+    else r=$(cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_CHAIN_CHECK=3 timeout -k 5 300 "$W/g.bin" < /dev/null 2>&1); fi
     out=$(printf '%s\n' "$r" | grep -v '^\[' | head -1); chain=$(printf '%s\n' "$r" | grep -o 'bad-link=[0-9]*\|offchain-swept=[0-9]*\|mismatch=[0-9]*\|missing=[0-9]*' | head -4 | sort | tr '\n' ' ')
     if [ "$out" = "$gw" ] && [ "$chain" = "bad-link=0 mismatch=0 missing=0 offchain-swept=0 " ]; then echo "  ok  (4) $m under stress: $out, $chain"; else echo "  RED (4) $m under stress: '$out' (swipl '$gw') $chain"; bad=1; fi
 done

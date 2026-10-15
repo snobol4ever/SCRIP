@@ -89,17 +89,17 @@ run3() {
     local f="$1" TO="${2:-8}"
     local IN="${f%.icn}.stdin"; [ -f "$IN" ] || IN="$(dirname "$f")/config/$(basename "$IN")"; [ -f "$IN" ] || IN=/dev/null
     local D; D="$(dirname "$f")"
-    A2=$(cd "$D" && timeout "$TO" "$SCRIP" --run "$f" 2>/dev/null <"$IN")
+    A2=$(cd "$D" && timeout -k 5 "$TO" "$SCRIP" --run "$f" 2>/dev/null <"$IN")
     local e3; e3=$(mktemp)
-    A3=$(cd "$D" && timeout "$TO" "$SCRIP" --run "$f" 2>"$e3" <"$IN"); RC3=$?
+    A3=$(cd "$D" && timeout -k 5 "$TO" "$SCRIP" --run "$f" 2>"$e3" <"$IN"); RC3=$?
     SMX3=0; grep -q '\[SMX\]' "$e3" && SMX3=1; rm -f "$e3"
     A4=""; SMX4=0
     local s4 b4 e4; s4=$(mktemp --suffix=.s); b4=$(mktemp); rm -f "$b4"; e4=$(mktemp)
-    timeout "$TO" "$SCRIP" --compile "$f" >"$s4" 2>"$e4" </dev/null || true
+    timeout -k 5 "$TO" "$SCRIP" --compile "$f" >"$s4" 2>"$e4" </dev/null || true
     grep -q '\[SMX\]' "$e4" && SMX4=1
     if [ "$SMX4" = 0 ] && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
         if gcc -no-pie "$s4" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o "$b4" 2>/dev/null; then
-            A4=$(cd "$D" && timeout "$TO" "$b4" 2>/dev/null <"$IN")
+            A4=$(cd "$D" && timeout -k 5 "$TO" "$b4" 2>/dev/null <"$IN")
         fi
     fi
     rm -f "$s4" "$b4" "$e4"

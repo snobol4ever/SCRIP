@@ -21,12 +21,12 @@ for f in "${FORMS[@]}"; do
       if [ "$side" = L ]; then e="A $op B"; else e="B $op A"; fi
       printf "        A = '%s'\n        B = 1\n        OUTPUT = %s  :S(END)\n        OUTPUT = 'FAILED'\nEND\n" "$f" "$e" > "$p"
       if [ "$f" = "3037000500" ] && [ "$op" = '*' ]; then sed -i 's/B = 1/B = 3037000500/' "$p"; fi
-      o3="$(cd "$W" && timeout 20 "$ROOT/scrip" "$p" < /dev/null 2>/dev/null)"; r3=$?
+      o3="$(cd "$W" && timeout -k 5 20 "$ROOT/scrip" "$p" < /dev/null 2>/dev/null)"; r3=$?
       o4=""; r4=99
       if (cd "$W" && "$ROOT/scrip" --compile -o "$W/t.s" "$p" < /dev/null >/dev/null 2>&1) && gcc "$W/t.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/t" 2>/dev/null; then
-        o4="$(cd "$W" && timeout 20 "$W/t" < /dev/null 2>/dev/null)"; r4=$?
+        o4="$(cd "$W" && timeout -k 5 20 "$W/t" < /dev/null 2>/dev/null)"; r4=$?
       fi
-      os="$(cd "$W" && timeout 20 "$SBL" -bf "$p" < /dev/null 2>&1)"; rs=$?
+      os="$(cd "$W" && timeout -k 5 20 "$SBL" -bf "$p" < /dev/null 2>&1)"; rs=$?
       ks=ok; if [ $rs -ne 0 ] || printf '%s\n' "$os" | grep -qE ': ERROR [0-9]+ --'; then ks=err; os=""; fi
       k3=$([ $r3 -eq 0 ] && echo ok || echo err); k4=$([ $r4 -eq 0 ] && echo ok || echo err)
       if [ "$o3" != "$os" ] || [ "$o4" != "$os" ] || [ "$k3" != "$ks" ] || [ "$k4" != "$ks" ]; then

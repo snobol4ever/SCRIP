@@ -83,10 +83,10 @@ run1() {                               # $1=engine $2=stem $3=args $4=stream
     # digest and make every run look different. So stderr always lands in e.err, and for a
     # stderr-answering demo the ANSWER is e.err with the BENCH_RUSAGE lines filtered back out.
     case "$eng" in
-      iconx) out=$( cd "$W" && "$WRAP" timeout 300 "./$stem.oracle" $a </dev/null 2>"$W/e.err" ) ;;
-      m3)    out=$( cd "$D" && "$WRAP" timeout 300 "$SCRIP" $SWN "$D/$stem.icn" ${a:+-- $a} </dev/null 2>"$W/e.err" ) ;;
+      iconx) out=$( cd "$W" && "$WRAP" timeout -k 5 300 "./$stem.oracle" $a </dev/null 2>"$W/e.err" ) ;;
+      m3)    out=$( cd "$D" && "$WRAP" timeout -k 5 300 "$SCRIP" $SWN "$D/$stem.icn" ${a:+-- $a} </dev/null 2>"$W/e.err" ) ;;
       m4)    [ -x "$W/$stem.m4bin" ] || { echo "- - - - BUILD-ERR	BUILD-ERR"; return; }
-             out=$( cd "$D" && "$WRAP" timeout 300 "$W/$stem.m4bin" $SWN ${a:+-- $a} </dev/null 2>"$W/e.err" ) ;;
+             out=$( cd "$D" && "$WRAP" timeout -k 5 300 "$W/$stem.m4bin" $SWN ${a:+-- $a} </dev/null 2>"$W/e.err" ) ;;
     esac
     [ "$stream" = stderr ] && out="$(grep -v '^BENCH_RUSAGE:' "$W/e.err")"
     rl=$(grep '^BENCH_RUSAGE:' "$W/e.err" | tail -1)
@@ -185,7 +185,7 @@ for E in "$D"/*.icn; do
         && as --64 -o "$W/$N.o" "$W/$N.s" 2>/dev/null \
         && gcc -no-pie -o "$W/$N.m4bin" "$W/$N.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null || rm -f "$W/$N.m4bin"
     # the oracle picks the answer stream, once, for every arm
-    o1=$( cd "$W" && timeout 300 "./$N.oracle" $A </dev/null 2>"$W/$N.oe" ); STREAM=stdout
+    o1=$( cd "$W" && timeout -k 5 300 "./$N.oracle" $A </dev/null 2>"$W/$N.oe" ); STREAM=stdout
     [ -z "$o1" ] && [ -s "$W/$N.oe" ] && STREAM=stderr
     declare -A A1 A2 DG CPU IB OB
     for e in $ENGINES; do

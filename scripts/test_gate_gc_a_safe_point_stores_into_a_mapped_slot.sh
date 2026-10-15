@@ -55,7 +55,7 @@ refuse() { echo "⛔ GATE REFUSED(2) [gc_a_safe_point_stores_into_a_mapped_slot]
 echo "ARENA SCRIP_HEAP_KB=${SCRIP_HEAP_KB:-64} (the tiny arena of GC testing is the 64 KB floor -- CEO-1146: the old MB=1 knob is a 1024 KB window, eight times the shipped 128 KB, and ran the collector ZERO times on a 3000-string witness; the count of collections is read from the run, never assumed from the knob)"
 
 # (a) the instrument grades itself before it grades the tree
-st="$(timeout 120s python3 "$CENSUS" --selftest 2>&1)"; src=$?
+st="$(timeout -k 5 120s python3 "$CENSUS" --selftest 2>&1)"; src=$?
 n="$(printf '%s\n' "$st" | sed -n 's/^SELFTEST \([0-9]*\)\/\([0-9]*\) arms green/\1 \2/p')"
 set -- ${n:-0 0}
 if [ "$src" = 0 ] && [ "${1:-0}" -ge 12 ] && [ "${1:-0}" = "${2:-x}" ]; then
@@ -65,7 +65,7 @@ else
 fi
 
 # (b) the class is REAL and the instrument SEES it -- proven red on the row's witness before any cure
-w="$(timeout 300s python3 "$CENSUS" "$WIT" 2>&1)"; wrc=$?
+w="$(timeout -k 5 300s python3 "$CENSUS" "$WIT" 2>&1)"; wrc=$?
 if [ "$wrc" = 1 ] && printf '%s\n' "$w" | grep -qE '(MEMBER|SPILL-6\.5B) BELOW-REGION .* graph=main .* off=-24 '; then
   ck ok "(b) the census NAMES the row's witness (since 2026-10-04 as the 6.5b result cell it is, on its own SPILL-6.5B line): $(printf '%s\n' "$w" | grep -m1 'off=-24 ' | sed 's/^CENSUS unmapped-store //' | cut -c1-110)"
 else
@@ -73,7 +73,7 @@ else
 fi
 
 # (c) PLANTED: the mangling fact of ARCH-GC 6.2d, withheld, must REFUSE rather than read zero
-plant="$(timeout 300s python3 - "$CENSUS" "$SCRIP" "$WIT" <<'PY' 2>&1
+plant="$(timeout -k 5 300s python3 - "$CENSUS" "$SCRIP" "$WIT" <<'PY' 2>&1
 import sys, os, subprocess, tempfile, importlib.util
 census_path, scrip, wit = sys.argv[1], sys.argv[2], sys.argv[3]
 spec = importlib.util.spec_from_file_location("uc", census_path)
@@ -95,7 +95,7 @@ else
 fi
 
 # (d) an undecidable site is never folded into a green count
-pop="$(timeout 900s python3 "$CENSUS" "$ROOT"/scripts/gc_witnesses/*.icn "$ROOT"/scripts/gc_witnesses/*.sno "$ROOT"/scripts/gc_witnesses/*.pl "$ROOT"/scripts/gc_witnesses/*.raku 2>&1)"; prc=$?
+pop="$(timeout -k 5 900s python3 "$CENSUS" "$ROOT"/scripts/gc_witnesses/*.icn "$ROOT"/scripts/gc_witnesses/*.sno "$ROOT"/scripts/gc_witnesses/*.pl "$ROOT"/scripts/gc_witnesses/*.raku 2>&1)"; prc=$?
 [ "$prc" = 2 ] && refuse "the census refused over the shared witness set: $(printf '%s\n' "$pop" | grep -m1 REFUSED)"
 bad=0
 while read -r lang mem und unrd; do
@@ -123,7 +123,7 @@ fi
 # by `util_gc_unmapped_store_census.py <witnesses> --write-baseline <that file>` in the landing that earns a move.
 BASE="$ROOT/scripts/gc_unmapped_store_baseline.tsv"
 [ -f "$BASE" ] || refuse "the per-witness baseline $BASE is missing -- a ratchet with no floor is not a ratchet"
-rat="$(printf '%s\n' "$pop" | timeout 60s python3 "$ROOT/scripts/util_gc_unmapped_store_ratchet.py" "$BASE" 2>&1)"
+rat="$(printf '%s\n' "$pop" | timeout -k 5 60s python3 "$ROOT/scripts/util_gc_unmapped_store_ratchet.py" "$BASE" 2>&1)"
 rl="$(printf '%s\n' "$rat" | grep -m1 '^RATCHET ')"
 rmoved="$(printf '%s\n' "$rl" | sed -n 's/.* moved=\([0-9]*\) .*/\1/p')"
 rgone="$(printf '%s\n' "$rl" | sed -n 's/.* gone=\([0-9]*\) .*/\1/p')"
@@ -186,7 +186,7 @@ nmd="$(printf '%s\n' "$pop" | grep -c '^CENSUS unmapped-store UNREAD-ROAD symbol
 ripst=x
 if [ "${rst:-x}" = 0 ]; then
   ags="$(mktemp --suffix=.s)"
-  timeout 120 "$ROOT/scrip" --compile -o "$ags" "$ROOT/scripts/gc_witnesses/hb_aggt.icn" < /dev/null > /dev/null 2>&1 && [ -s "$ags" ] && ripst="$(grep -cE '^[[:space:]]*mov[a-z]*[[:space:]]+[a-z]+ ptr \[rip \+ [^]]+\],' "$ags")"
+  timeout -k 5 120 "$ROOT/scrip" --compile -o "$ags" "$ROOT/scripts/gc_witnesses/hb_aggt.icn" < /dev/null > /dev/null 2>&1 && [ -s "$ags" ] && ripst="$(grep -cE '^[[:space:]]*mov[a-z]*[[:space:]]+[a-z]+ ptr \[rip \+ [^]]+\],' "$ags")"
   rm -f "$ags"
 fi
 if [ "${rst:-x}" = 0 ] && [ "${wsum:-x}" = 0 ] && [ "${wn:-x}" = 0 ] && [ "${nmd:-x}" = 0 ] && [ "${rfr:-0}" -gt 0 ] && [ "$ripst" = 0 ]; then
@@ -220,7 +220,7 @@ cand="$(awk -F'\t' -v mvf="$mvf" -v rdf="$rdf" '
   /^#/ { next }
   NF>=5 && !mv[$1] && rd[$1] { print $1; exit }' "$mvf" "$rdf" "$BASE")"
 p4="$(mktemp)"; cut -f1-4 "$BASE" > "$p4"
-printf '%s\n' "$pop" | timeout 60s python3 "$ROOT/scripts/util_gc_unmapped_store_ratchet.py" "$p4" >/dev/null 2>&1; p4rc=$?
+printf '%s\n' "$pop" | timeout -k 5 60s python3 "$ROOT/scripts/util_gc_unmapped_store_ratchet.py" "$p4" >/dev/null 2>&1; p4rc=$?
 rm -f "$p4"
 if [ -z "$cand" ]; then
   ck no "(j) THE PLANT COULD NOT BE RUN AND THAT IS A REFUSAL, NOT A PASS: every baseline witness present in this reading has ALREADY MOVED (moved=${rmoved:-?} of $(grep -vc '^#' "$BASE") baseline row(s)), so there is no unmoved row to doctor and the fifth column's detector cannot be exercised on this tree at all. Cure arm (e) first -- a floor re-based while this plant is blind is how an exemption list becomes the new floor"
@@ -228,7 +228,7 @@ elif ! printf '%s' "${rmoved:-x}" | grep -q '^[0-9][0-9]*$'; then
   ck no "(j) the undoctored ratchet reading arm (e) took carries no numeric moved= count (${rmoved:-?}), so a differential plant has no base to differ from -- the ratchet REFUSED or printed no summary line"
 else
   awk -F'\t' -v w="$cand" 'BEGIN{OFS="\t"} !/^#/ && NF>=5 && $1==w {$5=$5+1} {print}' "$BASE" > "$pl5"
-  pout="$(printf '%s\n' "$pop" | timeout 60s python3 "$ROOT/scripts/util_gc_unmapped_store_ratchet.py" "$pl5" 2>&1)"
+  pout="$(printf '%s\n' "$pop" | timeout -k 5 60s python3 "$ROOT/scripts/util_gc_unmapped_store_ratchet.py" "$pl5" 2>&1)"
   pmv="$(printf '%s\n' "$pout" | grep -c '^MOVED ')"
   pnm="$(printf '%s\n' "$pout" | grep -c "^MOVED $cand ")"
   pwant="$((rmoved + 1))"
@@ -253,7 +253,7 @@ fi
 want="$(cat "$REF")"
 diffs=0; band=""
 for s in 0 1 2 3 4 5 6 8 10 12 16 20 25; do
-  got="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS=$s timeout 120s "$SCRIP" "$WIT" 2>/dev/null)"
+  got="$(SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS=$s timeout -k 5 120s "$SCRIP" "$WIT" 2>/dev/null)"
   if [ "$got" = "$want" ]; then band="$band ."; else band="$band X"; diffs=$((diffs+1)); fi
 done
 if [ "$diffs" = 0 ]; then

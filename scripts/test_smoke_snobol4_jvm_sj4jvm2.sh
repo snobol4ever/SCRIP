@@ -8,14 +8,14 @@ SNORT_MS_J="$HERE/../miscellaneous/runtimes/jvm/SnoRtMatchState.j"
 PASS=0; FAIL=0
 tmp=$(mktemp -d)
 # Step 1: assemble SnoRt.j
-if timeout 15 java -jar "$JASMIN" "$SNORT_J" -d "$tmp/" > "$tmp/asm.out" 2>&1; then
+if timeout -k 5 15 java -jar "$JASMIN" "$SNORT_J" -d "$tmp/" > "$tmp/asm.out" 2>&1; then
     echo "PASS SnoRt.j assembles"
     PASS=$((PASS+1))
 else
     echo "FAIL SnoRt.j assembly"; cat "$tmp/asm.out"; FAIL=$((FAIL+1))
 fi
 # Step 2: assemble SnoRtMatchState.j
-if timeout 15 java -jar "$JASMIN" "$SNORT_MS_J" -d "$tmp/" > "$tmp/asm2.out" 2>&1; then
+if timeout -k 5 15 java -jar "$JASMIN" "$SNORT_MS_J" -d "$tmp/" > "$tmp/asm2.out" 2>&1; then
     echo "PASS SnoRtMatchState.j assembles"
     PASS=$((PASS+1))
 else
@@ -36,7 +36,7 @@ cat > "$tmp/TestHalt.j" << 'EOF'
 .end method
 EOF
 java -jar "$JASMIN" "$tmp/TestHalt.j" -d "$tmp/" > /dev/null 2>&1
-got=$(timeout 5 java -cp "$tmp" TestHalt 2>/dev/null)
+got=$(timeout -k 5 5 java -cp "$tmp" TestHalt 2>/dev/null)
 if [ "$got" = "hello world" ]; then
     echo "PASS push_str+halt_tos"
     PASS=$((PASS+1))
@@ -59,7 +59,7 @@ cat > "$tmp/TestInt.j" << 'EOF'
 .end method
 EOF
 java -jar "$JASMIN" "$tmp/TestInt.j" -d "$tmp/" > /dev/null 2>&1
-got=$(timeout 5 java -cp "$tmp" TestInt 2>/dev/null)
+got=$(timeout -k 5 5 java -cp "$tmp" TestInt 2>/dev/null)
 if [ "$got" = "42" ]; then
     echo "PASS push_int+halt_tos"
     PASS=$((PASS+1))
@@ -83,7 +83,7 @@ cat > "$tmp/TestOut.j" << 'EOF'
 .end method
 EOF
 java -jar "$JASMIN" "$tmp/TestOut.j" -d "$tmp/" > /dev/null 2>&1
-got=$(timeout 5 java -cp "$tmp" TestOut 2>/dev/null)
+got=$(timeout -k 5 5 java -cp "$tmp" TestOut 2>/dev/null)
 if [ "$got" = "from OUTPUT" ]; then
     echo "PASS store_var(OUTPUT)"
     PASS=$((PASS+1))

@@ -91,7 +91,7 @@ for name in $DEMOS; do
       row "$name" static - - - - - NOT-ACTUALLY-STATIC; FAIL=1; continue
     fi
     size=$(stat -c%s "$bin")
-    "$WRAP" timeout 60 "$bin" < "$in" > "$W/$name.$arm.out" 2>"$W/$name.$arm.err"
+    "$WRAP" timeout -k 5 60 "$bin" < "$in" > "$W/$name.$arm.out" 2>"$W/$name.$arm.err"
     ru=$(grep '^BENCH_RUSAGE:' "$W/$name.$arm.err" | tail -1)
     maxrss=$(grep -oE 'maxrss_kb=[0-9]+' <<<"$ru" | cut -d= -f2); maxrss="${maxrss:-NA}"
     minflt=$(grep -oE 'minflt=[0-9]+'   <<<"$ru" | cut -d= -f2); minflt="${minflt:-NA}"

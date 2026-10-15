@@ -32,20 +32,20 @@ P4='count(N) :- ( N =:= 0 *-> true ; N1 is N-1, count(N1) ).'
 bad=0; i=0
 for s in "$P1" "$P2" "$P3" "$P4"; do
     i=$((i+1)); body "$s" 1000000 > "$W/a$i.pl"; body "$s" 3000 > "$W/c$i.pl"
-    want=$(cd "$W" && timeout 120 swipl -q "$W/a$i.pl" < /dev/null 2>&1 | head -1)
+    want=$(cd "$W" && timeout -k 5 120 swipl -q "$W/a$i.pl" < /dev/null 2>&1 | head -1)
     [ "$want" = done ] || { echo "GATE REFUSED(2) [$G]: swipl prints '$want' for arm $i"; exit 2; }
     [ "${FAIL_ONCE:-0}" = 1 ] && want='scrip: runtime error: ERROR 246'
-    o3=$(cd "$W" && timeout 120 "$ROOT/scrip" -s512k "$W/a$i.pl" < /dev/null 2>&1 | head -1 | cut -c1-31)
-    if m4 "a$i"; then o4=$(cd "$W" && timeout 120 "$W/a$i.bin" -s512k < /dev/null 2>&1 | head -1 | cut -c1-31); else o4='(no build)'; fi
+    o3=$(cd "$W" && timeout -k 5 120 "$ROOT/scrip" -s512k "$W/a$i.pl" < /dev/null 2>&1 | head -1 | cut -c1-31)
+    if m4 "a$i"; then o4=$(cd "$W" && timeout -k 5 120 "$W/a$i.bin" -s512k < /dev/null 2>&1 | head -1 | cut -c1-31); else o4='(no build)'; fi
     if [ "$o3" = "$want" ] && [ "$o4" = "$want" ]; then echo "  ok  ($i) count(1000000) under -s512k, m3 and m4: $o3"; else echo "  RED ($i) want '$want', m3 '$o3', m4 '$o4'"; bad=1; fi
 done
 neg() {
     local tag=$1 src=$2 want o3 o4
     printf ':- initialization(main).\n%s\n' "$src" > "$W/n$tag.pl"
-    want=$(cd "$W" && timeout 60 swipl -q "$W/n$tag.pl" < /dev/null 2>&1)
+    want=$(cd "$W" && timeout -k 5 60 swipl -q "$W/n$tag.pl" < /dev/null 2>&1)
     [ -n "$want" ] || { echo "GATE REFUSED(2) [$G]: swipl printed nothing for negative $tag"; exit 2; }
-    o3=$(cd "$W" && timeout 60 "$ROOT/scrip" "$W/n$tag.pl" < /dev/null 2>&1)
-    if m4 "n$tag"; then o4=$(cd "$W" && timeout 60 "$W/n$tag.bin" < /dev/null 2>&1); else o4='(no build)'; fi
+    o3=$(cd "$W" && timeout -k 5 60 "$ROOT/scrip" "$W/n$tag.pl" < /dev/null 2>&1)
+    if m4 "n$tag"; then o4=$(cd "$W" && timeout -k 5 60 "$W/n$tag.bin" < /dev/null 2>&1); else o4='(no build)'; fi
     if [ "$o3" = "$want" ] && [ "$o4" = "$want" ]; then echo "  ok  (5$tag) $(printf '%s' "$want" | tr '\n' ' ' | cut -c1-70)"
     else echo "  RED (5$tag) swipl '$(printf '%s' "$want" | tr '\n' ' ' | cut -c1-50)', m3 '$(printf '%s' "$o3" | tr '\n' ' ' | cut -c1-50)', m4 '$(printf '%s' "$o4" | tr '\n' ' ' | cut -c1-50)'"; bad=1; fi
 }
@@ -66,8 +66,8 @@ main :- assertz(d(_, extra)), findall(R, d(2, R), L), write(L), nl, halt.'
 for i in 1 3; do
     m4 "c$i" || { echo "GATE REFUSED(2) [$G]: stress witness $i does not build in mode 4"; exit 2; }
     for m in m3 m4; do
-        if [ $m = m3 ]; then r=$(cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_CHAIN_CHECK=3 timeout 300 "$ROOT/scrip" "$W/c$i.pl" < /dev/null 2>&1)
-        else r=$(cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_CHAIN_CHECK=3 timeout 300 "$W/c$i.bin" < /dev/null 2>&1); fi
+        if [ $m = m3 ]; then r=$(cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_CHAIN_CHECK=3 timeout -k 5 300 "$ROOT/scrip" "$W/c$i.pl" < /dev/null 2>&1)
+        else r=$(cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_CHAIN_CHECK=3 timeout -k 5 300 "$W/c$i.bin" < /dev/null 2>&1); fi
         out=$(printf '%s\n' "$r" | grep -v '^\[' | head -1); chain=$(printf '%s\n' "$r" | grep -o 'bad-link=[0-9]*\|offchain-swept=[0-9]*\|mismatch=[0-9]*\|missing=[0-9]*' | head -4 | sort | tr '\n' ' ')
         if [ "$out" = done ] && [ "$chain" = "bad-link=0 mismatch=0 missing=0 offchain-swept=0 " ]; then echo "  ok  (6.$i) $m under stress: done, $chain"; else echo "  RED (6.$i) $m under stress: '$out' $chain"; bad=1; fi
     done

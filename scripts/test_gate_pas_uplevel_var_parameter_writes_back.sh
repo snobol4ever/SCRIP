@@ -32,10 +32,10 @@ cat > "$W/want" <<'REF'
 REF
 IN=/dev/null
 PASS=0; FAIL=0
-m3=$(cd "$W" && timeout 8s "$SCRIP" --run "$W/g.pas" < "$IN" 2>&1)
+m3=$(cd "$W" && timeout -k 5 8s "$SCRIP" --run "$W/g.pas" < "$IN" 2>&1)
 if [ "$m3" = "$(cat "$W/want")" ]; then echo "PASS m3"; PASS=$((PASS+1)); else echo "FAIL m3"; diff <(echo "$m3") "$W/want" | head; FAIL=$((FAIL+1)); fi
-( cd "$W" && timeout 8s "$SCRIP" --compile g.pas < /dev/null > g.s 2>/dev/null && gcc -c g.s -o g.o 2>/dev/null && gcc g.o -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o g.bin 2>/dev/null ) || { echo "FAIL m4 (build)"; FAIL=$((FAIL+1)); }
-if [ -x "$W/g.bin" ]; then m4=$(cd "$W" && timeout 8s ./g.bin < "$IN" 2>&1)
+( cd "$W" && timeout -k 5 8s "$SCRIP" --compile g.pas < /dev/null > g.s 2>/dev/null && gcc -c g.s -o g.o 2>/dev/null && gcc g.o -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o g.bin 2>/dev/null ) || { echo "FAIL m4 (build)"; FAIL=$((FAIL+1)); }
+if [ -x "$W/g.bin" ]; then m4=$(cd "$W" && timeout -k 5 8s ./g.bin < "$IN" 2>&1)
   if [ "$m4" = "$(cat "$W/want")" ]; then echo "PASS m4"; PASS=$((PASS+1)); else echo "FAIL m4"; diff <(echo "$m4") "$W/want" | head; FAIL=$((FAIL+1)); fi; fi
 echo "upref: PASS=$PASS FAIL=$FAIL (population: 1 program x 2 modes)"
 if [ $FAIL -eq 0 ] && [ $PASS -eq 2 ]; then echo "GATE PASS(0) [pas_uplevel_var_parameter_writes_back]: 2/2 modes"; exit 0; else echo "GATE RED [pas_uplevel_var_parameter_writes_back]: $FAIL red of 2"; exit 1; fi

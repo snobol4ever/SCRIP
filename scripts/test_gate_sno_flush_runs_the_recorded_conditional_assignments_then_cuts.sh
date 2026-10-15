@@ -87,14 +87,14 @@ N14     OUTPUT = 'NO  14 FLUSH held in a variable'
 END
 EOF
 { printf '\tFLUSH = FENCE\n'; cat "$T/w.sno"; } > "$T/w_oracle.sno"
-( cd "$T" && timeout 20s "$SBL" -bf w_oracle.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
+( cd "$T" && timeout -k 5 20s "$SBL" -bf w_oracle.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
 [ "$(wc -l < "$T/w.ref")" = 14 ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle's ref does not read fourteen lines -- the witness is not the one this gate was minted on"; exit 2; }
 RC=0
-got="$(timeout 20s "$SCRIP" "$T/w.sno" </dev/null 2>&1)"
+got="$(timeout -k 5 20s "$SCRIP" "$T/w.sno" </dev/null 2>&1)"
 if [ "$got" = "$(cat "$T/w.ref")" ]; then echo "  arm 1 m3 PASS (14/14 lines byte-identical to the oracle under FLUSH = FENCE)"
 else echo "  arm 1 m3 FAIL (diverged from the oracle on: $(diff <(echo "$got") "$T/w.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 if link4 "$T/w.sno" w; then
-    got4="$(timeout 20s "$T/w" </dev/null 2>&1)"
+    got4="$(timeout -k 5 20s "$T/w" </dev/null 2>&1)"
     if [ "$got4" = "$(cat "$T/w.ref")" ]; then echo "  arm 2 m4 PASS (14/14 lines byte-identical to the oracle under FLUSH = FENCE)"
     else echo "  arm 2 m4 FAIL (diverged from the oracle on: $(diff <(echo "$got4") "$T/w.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link failed, so arm 2 measured nothing"; exit 2; fi
@@ -112,11 +112,11 @@ N2      OUTPUT = 'NO  2'
 END
 EOF
 printf 'NO  1 X=a Y=\nseen X=a\nYES 2 X=a\n' > "$T/d.def"
-gotd="$(timeout 20s "$SCRIP" "$T/d.sno" </dev/null 2>&1)"
+gotd="$(timeout -k 5 20s "$SCRIP" "$T/d.sno" </dev/null 2>&1)"
 if [ "$gotd" = "$(cat "$T/d.def")" ]; then echo "  arm 3 m3 PASS (the DEFINITION lines: X is assigned at the FLUSH though the match later fails; a target after the FLUSH sees X)"
 else echo "  arm 3 m3 FAIL (Lon's definition not met; got: $(echo "$gotd" | tr '\n' '|'))"; RC=1; fi
 if link4 "$T/d.sno" d; then
-    gotd4="$(timeout 20s "$T/d" </dev/null 2>&1)"
+    gotd4="$(timeout -k 5 20s "$T/d" </dev/null 2>&1)"
     if [ "$gotd4" = "$(cat "$T/d.def")" ]; then echo "  arm 3 m4 PASS (the DEFINITION lines)"
     else echo "  arm 3 m4 FAIL (Lon's definition not met; got: $(echo "$gotd4" | tr '\n' '|'))"; RC=1; fi
 else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link of the definition witness failed"; exit 2; fi
@@ -131,28 +131,28 @@ if ('abc' ? 'a' . x FLUSH 'b' . y FLUSH 'c' . z) OUTPUT = 'YES 4 twice ' x y z; 
 EOF
 "$SCRIP" --transpile "$T/s.sc" > "$T/s.sno" 2>/dev/null || { echo "⛔ GATE REFUSE(2) [$G]: scrip --transpile refused the Snocone witness"; exit 2; }
 grep -q '^	FLUSH = FENCE$' "$T/s.sno" || { echo "⛔ GATE FAIL(1) [$G]: the transpiled program carries no FLUSH = FENCE prelude, so the oracle cannot run it as Lon said"; exit 1; }
-( cd "$T" && timeout 20s "$SBL" -bf -s64m s.sno </dev/null ) > "$T/s.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused the transpiled Snocone witness"; exit 2; }
+( cd "$T" && timeout -k 5 20s "$SBL" -bf -s64m s.sno </dev/null ) > "$T/s.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused the transpiled Snocone witness"; exit 2; }
 [ "$(wc -l < "$T/s.ref")" = 4 ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle's Snocone ref does not read four lines"; exit 2; }
-gots="$(timeout 20s "$SCRIP" "$T/s.sc" </dev/null 2>&1)"
+gots="$(timeout -k 5 20s "$SCRIP" "$T/s.sc" </dev/null 2>&1)"
 if [ "$gots" = "$(cat "$T/s.ref")" ]; then echo "  arm 4 m3 PASS (Snocone, 4/4 lines byte-identical to the oracle on the transpiled form)"
 else echo "  arm 4 m3 FAIL (Snocone diverged: $(diff <(echo "$gots") "$T/s.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 if link4 "$T/s.sc" s; then
-    gots4="$(timeout 20s "$T/s" </dev/null 2>&1)"
+    gots4="$(timeout -k 5 20s "$T/s" </dev/null 2>&1)"
     if [ "$gots4" = "$(cat "$T/s.ref")" ]; then echo "  arm 4 m4 PASS (Snocone, 4/4 lines byte-identical to the oracle on the transpiled form)"
     else echo "  arm 4 m4 FAIL (Snocone diverged: $(diff <(echo "$gots4") "$T/s.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link of the Snocone witness failed"; exit 2; fi
-gz="$(SCRIP_GC_EXERCISE=1 SCRIP_GC_STRESS=0 timeout 20s "$SCRIP" -d16384m "$T/w.sno" </dev/null 2>"$T/gz.err")"
+gz="$(SCRIP_GC_EXERCISE=1 SCRIP_GC_STRESS=0 timeout -k 5 20s "$SCRIP" -d16384m "$T/w.sno" </dev/null 2>"$T/gz.err")"
 if [ "$gz" = "$(cat "$T/w.ref")" ] && grep -q 'collections=0' "$T/gz.err"; then echo "  arm 5 zero-collection PASS (collections=0 under -d16384m, output unchanged)"
 else echo "  arm 5 zero-collection FAIL ($(grep -o 'collections=[0-9]*' "$T/gz.err" | head -1 || echo 'no [GC-EXERCISE] line'); output $( [ "$gz" = "$(cat "$T/w.ref")" ] && echo unchanged || echo CHANGED))"; RC=1; fi
-gs="$(SCRIP_GC_STRESS=1 timeout 60s "$SCRIP" "$T/w.sno" </dev/null 2>/dev/null)"
+gs="$(SCRIP_GC_STRESS=1 timeout -k 5 60s "$SCRIP" "$T/w.sno" </dev/null 2>/dev/null)"
 if [ "$gs" = "$(cat "$T/w.ref")" ]; then echo "  arm 5 stress point PASS (SCRIP_GC_STRESS=1, output unchanged)"
 else echo "  arm 5 stress point FAIL (SCRIP_GC_STRESS=1 changed the output: $(diff <(echo "$gs") "$T/w.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 printf '        X = 1\n        &DUMP = 1\nEND\n' > "$T/u.sno"; { printf '\tFLUSH = FENCE\n'; cat "$T/u.sno"; } > "$T/p.sno"
 for dw in u p; do
-    want="$( cd "$T" && timeout 20s "$SBL" -bf $dw.sno </dev/null 2>&1 | grep '^FLUSH = ' )"
+    want="$( cd "$T" && timeout -k 5 20s "$SBL" -bf $dw.sno </dev/null 2>&1 | grep '^FLUSH = ' )"
     [ "$dw" = u ] && want=""
-    got6="$(timeout 20s "$SCRIP" "$T/$dw.sno" </dev/null 2>&1 | grep '^FLUSH = ')"
-    if link4 "$T/$dw.sno" $dw; then got64="$(timeout 20s "$T/$dw" </dev/null 2>&1 | grep '^FLUSH = ')"; else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link of the DUMP witness $dw failed"; exit 2; fi
+    got6="$(timeout -k 5 20s "$SCRIP" "$T/$dw.sno" </dev/null 2>&1 | grep '^FLUSH = ')"
+    if link4 "$T/$dw.sno" $dw; then got64="$(timeout -k 5 20s "$T/$dw" </dev/null 2>&1 | grep '^FLUSH = ')"; else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link of the DUMP witness $dw failed"; exit 2; fi
     [ "$dw" = p ] && [ -z "$want" ] && { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed no FLUSH line for FLUSH = FENCE under &DUMP -- nothing to grade the assigned case against"; exit 2; }
     if [ "$got6" = "$want" ] && [ "$got64" = "$want" ]; then echo "  arm 6 DUMP $dw PASS (m3+m4 FLUSH dump line(s) '${want:-none}', as the oracle under the prelude)"
     else echo "  arm 6 DUMP $dw FAIL (want '${want:-none}', m3 '${got6:-none}', m4 '${got64:-none}' -- the untouched preset must not dump; an assigned FLUSH must)"; RC=1; fi

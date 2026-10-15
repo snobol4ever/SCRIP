@@ -51,18 +51,18 @@ SNO
 printf '65\n65\n0\n255\n128\n54\n49\nINTEGER\nnull fails\nall 256 round-trip\n' > "$T/want"
 fails=0
 arm() { if [ "$2" = 0 ]; then echo "  ok   arm $1"; else echo "  FAIL arm $1"; fails=$((fails+1)); fi; }
-(cd "$T" && timeout 10 "$CSN" -b w.sno </dev/null >ref 2>/dev/null)
+(cd "$T" && timeout -k 5 10 "$CSN" -b w.sno </dev/null >ref 2>/dev/null)
 cmp -s "$T/ref" "$T/want" || refuse "csnobol4 no longer prints the pinned lines -- re-measure the pin: $(tr '\n' '|' < "$T/ref" | cut -c1-120)"
 arm "1 csnobol4 prints the pin" 0
 if [ -x "$SBL" ]; then
-    (cd "$T" && timeout 10 "$SBL" -bf w.sno </dev/null >ora 2>&1)
+    (cd "$T" && timeout -k 5 10 "$SBL" -bf w.sno </dev/null >ora 2>&1)
     if grep -q 'ERROR 022' "$T/ora"; then echo "  --   arm 1b sbl -bf does not know ORD (ERROR 022): not compared"
     else cmp -s "$T/ora" "$T/want"; arm "1b sbl -bf prints the pin" $?; fi
 fi
-(cd "$T" && timeout 10 "$SCRIP" w.sno </dev/null >m3 2>/dev/null)
+(cd "$T" && timeout -k 5 10 "$SCRIP" w.sno </dev/null >m3 2>/dev/null)
 cmp -s "$T/m3" "$T/want"; arm "2 m3 prints the pin" $?
-if (cd "$T" && timeout 30 "$SCRIP" --compile w.sno </dev/null >w.s 2>/dev/null) && gcc -no-pie "$T/w.s" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$T/w.bin" 2>/dev/null; then
-    (cd "$T" && timeout 10 ./w.bin </dev/null >m4 2>/dev/null); cmp -s "$T/m4" "$T/want"; arm "3 m4 prints the pin" $?
+if (cd "$T" && timeout -k 5 30 "$SCRIP" --compile w.sno </dev/null >w.s 2>/dev/null) && gcc -no-pie "$T/w.s" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$T/w.bin" 2>/dev/null; then
+    (cd "$T" && timeout -k 5 10 ./w.bin </dev/null >m4 2>/dev/null); cmp -s "$T/m4" "$T/want"; arm "3 m4 prints the pin" $?
 else arm "3 m4 compiles and links" 1; fi
 [ "$fails" = 0 ] && { echo "GATE PASS(0) [$NAME]: ORD reads the first character and fails only on null, both modes"; exit 0; }
 echo "GATE FAIL(1) [$NAME]: $fails arm(s) red"; exit 1

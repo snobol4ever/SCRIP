@@ -44,7 +44,7 @@ check_stmt() {
     local stmt="$2"
     # Feed statement + END to binary; check no "Parse Error" in output
     local out
-    out=$(printf '%s\nEND\n' "$stmt" | timeout 5 "$BIN" 2>/dev/null || true)
+    out=$(printf '%s\nEND\n' "$stmt" | timeout -k 5 5 "$BIN" 2>/dev/null || true)
     if echo "$out" | grep -q "Parse Error"; then
         echo "FAIL: $desc"
         echo "      stmt: $stmt"

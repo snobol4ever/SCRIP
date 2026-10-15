@@ -53,9 +53,9 @@ CONTROLS=" pos_dyn_lit rpos_dyn_lit pos_dyn_noarbno rpos_dyn_inline "
 
 m4_run() {   # $1 = source .sno (absolute), $2 = basename (no ext), writes stdout+stderr to $3
     local src="$1" name="$2" outfile="$3"
-    ( cd "$T" && timeout 30s "$ROOT/scrip" --compile -o "$name.s" "$src" </dev/null >/dev/null 2>&1 ) || { echo "M4-COMPILE-FAILED" > "$outfile"; return; }
+    ( cd "$T" && timeout -k 5 30s "$ROOT/scrip" --compile -o "$name.s" "$src" </dev/null >/dev/null 2>&1 ) || { echo "M4-COMPILE-FAILED" > "$outfile"; return; }
     ( cd "$T" && gcc -no-pie "$name.s" -o "$name.bin" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) || { echo "M4-LINK-FAILED" > "$outfile"; return; }
-    ( cd "$T" && timeout 10s "./$name.bin" </dev/null >"$outfile" 2>&1 )
+    ( cd "$T" && timeout -k 5 10s "./$name.bin" </dev/null >"$outfile" 2>&1 )
 }
 
 red=0; examined=0; RED_NAMES=''; GRADED_NAMES=''
@@ -64,7 +64,7 @@ for p in $PROGS; do
     if [ ! -f "$src" ] || [ ! -f "$ref" ]; then
         echo "GATE UNPROVEN(2) [$GATE_NAME]: missing committed fixture $p (.sno/.ref)"; gate_stamp; exit 2
     fi
-    timeout 20 "$O" -bf "$src" </dev/null >"$T/$p.oref" 2>/dev/null
+    timeout -k 5 20 "$O" -bf "$src" </dev/null >"$T/$p.oref" 2>/dev/null
     if ! cmp -s "$T/$p.oref" "$ref"; then
         echo "RED  $p: committed ref disagrees with the live oracle -- re-cut it (oracle/ref drift, not this class)"
         red=$((red+1)); examined=$((examined+1)); RED_NAMES="$RED_NAMES $p(ref-drift)"; GRADED_NAMES="$GRADED_NAMES $p"; continue
@@ -77,7 +77,7 @@ for p in $PROGS; do
         name="$(printf 'x%.0s' $(seq 1 "$len"))"
         fn="$T/$name.sno"
         printf '%s\n' "$body" > "$fn"
-        ( cd "$T" && timeout 10s "$ROOT/scrip" "$name.sno" </dev/null >"$T/$name.m3" 2>&1 )
+        ( cd "$T" && timeout -k 5 10s "$ROOT/scrip" "$name.sno" </dev/null >"$T/$name.m3" 2>&1 )
         cmp -s "$T/$name.m3" "$ref" && ok3=$((ok3+1))
         m4_run "$fn" "$name" "$T/$name.m4"
         cmp -s "$T/$name.m4" "$ref" && ok4=$((ok4+1))

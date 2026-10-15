@@ -37,7 +37,7 @@ SNO
 [ -s "$W/ints.ref" ] || { echo "REFUSED(2): the oracle printed nothing for the witness"; exit 2; }
 red=0
 unset SCRIP_HEAP_MB; export SCRIP_HEAP_KB=128
-( cd "$W" && SCRIP_ZETA_TELEM=1 timeout 60 "$ROOT/scrip" ints.sno < /dev/null > "$W/ints.out" 2> "$W/ints.err" )
+( cd "$W" && SCRIP_ZETA_TELEM=1 timeout -k 5 60 "$ROOT/scrip" ints.sno < /dev/null > "$W/ints.out" 2> "$W/ints.err" )
 cmp -s "$W/ints.out" "$W/ints.ref" && echo "ok  (1) m3 prints the oracle's answer at SCRIP_HEAP_KB=128: $(cat "$W/ints.ref")" || { echo "RED (1) m3 differs from the oracle:"; diff "$W/ints.ref" "$W/ints.out" | head -4; red=1; }
 coll=$(grep -c '^\[ZGC\] regeneration' "$W/ints.err"); [ "$coll" -ge 20 ] || { echo "REFUSED(2): only $coll collections at 128 KB -- the population cannot grade the mark worklist"; exit 2; }
 echo "ok  (2) collections=$coll (population)"

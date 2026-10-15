@@ -33,12 +33,12 @@ CASES=("HOST(1,'exit 3')" "HOST(1,'echo hi')" "HOST(1,'')" "HOST(1)" "HOST(1,'ki
        "HOST(1,'echo a; exit 300')" "HOST(1,'cat')" "HOST(1, 'echo x', 'ignored')")
 for i in "${!CASES[@]}"; do
     printf '%s\n' "        OUTPUT = 'before'" "        X = ${CASES[$i]}" "        OUTPUT = '[' X '] ' DATATYPE(X)" END > "$T/c$i.sno"
-    ( cd "$T" && echo IN | timeout 20 "$SBL" -bf "c$i.sno" > "c$i.oracle" 2>&1 )
+    ( cd "$T" && echo IN | timeout -k 5 20 "$SBL" -bf "c$i.sno" > "c$i.oracle" 2>&1 )
 done
 grep -qx '\[768\] INTEGER' "$T/c0.oracle" && grep -qx 'hi' "$T/c1.oracle" && grep -qx 'IN' "$T/c7.oracle" || refuse "the oracle's HOST(1) answers moved: [$(tr '\n' '|' < "$T/c0.oracle")] [$(tr '\n' '|' < "$T/c7.oracle")]"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
-run() { ( cd "$T" && if [ "$2" = m3 ]; then echo IN | timeout 20 "$SCRIP" "$1.sno"; else timeout 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && echo IN | timeout 20 "./$1.bin"; fi ) 2>&1; }
+run() { ( cd "$T" && if [ "$2" = m3 ]; then echo IN | timeout -k 5 20 "$SCRIP" "$1.sno"; else timeout -k 5 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && echo IN | timeout -k 5 20 "./$1.bin"; fi ) 2>&1; }
 matrix() { local bad=""
     for i in "${!CASES[@]}"; do
         run "c$i" "$1" > "$T/c$i.$1"

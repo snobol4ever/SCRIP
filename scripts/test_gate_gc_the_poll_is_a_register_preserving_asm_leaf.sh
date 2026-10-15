@@ -45,7 +45,7 @@ else
 fi
 W="$R/../corpus/benchmarks/icon/bench_icnstr_concat_table.icn"
 if [ -x "$R/scrip" ] && [ -r "$W" ]; then
-  OUT="$(SCRIP_HEAP_KB=128 SCRIP_GC_EXERCISE=1 timeout 300s "$R/scrip" "$W" </dev/null 2>&1 >/dev/null | grep -oE 'collections=[0-9]+' | head -1)"
+  OUT="$(SCRIP_HEAP_KB=128 SCRIP_GC_EXERCISE=1 timeout -k 5 300s "$R/scrip" "$W" </dev/null 2>&1 >/dev/null | grep -oE 'collections=[0-9]+' | head -1)"
   NCOL="${OUT#collections=}"
   [ -n "$NCOL" ] && [ "$NCOL" -gt 0 ] 2>/dev/null
   ck $? "THE SLOW PATH IS LIVE: a witness still collects through the leaf ($OUT). A poll that never reaches its slow path is green and useless"

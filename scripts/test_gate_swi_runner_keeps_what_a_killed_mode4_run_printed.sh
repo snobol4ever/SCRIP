@@ -24,7 +24,7 @@ D="$W/corpus/packages/prolog/swi_tests"; mkdir -p "$D" "$W/corpus/tests/prolog";
 printf ':- begin_tests(hangu).\ntest(a) :- true.\ntest(b) :- loop.\nloop :- loop.\n:- end_tests(hangu).\n' > "$D/hangu.pl"
 printf 'PASS hangu:a\nPASS hangu:b\n' > "$D/hangu.ref"
 printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args\n1,hangu,swi_tests__hangu,swi_tests,5,0,0,131072,4096,,\n' > "$D/ALL.csv"
-o=$(S4E_HOME="$W" S4E_CORPUS="$W/corpus" S4E_PROGRESS_DB="$W/p.tsv" SCRIP="$SCRIP" timeout 600 bash "$HERE/test_prolog_swi_suite.sh" 2>&1); r=$?
+o=$(S4E_HOME="$W" S4E_CORPUS="$W/corpus" S4E_PROGRESS_DB="$W/p.tsv" SCRIP="$SCRIP" timeout -k 5 600 bash "$HERE/test_prolog_swi_suite.sh" 2>&1); r=$?
 got=$(awk -F'\t' 'NR>1 {k=$8; sub(/^hangu\.pl:hangu:/, "", k); sub(/#.*/, "", k); print k ":" $9 "=" $10}' "$W/p.tsv" 2>/dev/null | sort | tr '\n' ' ')
 want="a:m3=PASS a:m4=PASS b:m3=HANG b:m4=HANG "
 echo "population: 1 file, 2 cases x 2 modes (runner rc $r)"

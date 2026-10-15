@@ -72,11 +72,11 @@ printf 'procedure main();\n  write(" " = 0);\nend\n' > "$W/iconb.icn"
 fails=0; GATE_EXAMINED=0
 run() {
     local src="$1" m="$2" base="${1%.*}"
-    if [ "$m" = m3 ]; then timeout 60 "$ROOT/scrip" --run "$W/$src" >"$W/$base.$m.out" 2>"$W/$base.$m.err" </dev/null; return $?; fi
-    if ! timeout 60 "$ROOT/scrip" --compile -o "$W/$base.s" "$W/$src" </dev/null >"$W/$base.cerr" 2>&1 \
+    if [ "$m" = m3 ]; then timeout -k 5 60 "$ROOT/scrip" --run "$W/$src" >"$W/$base.$m.out" 2>"$W/$base.$m.err" </dev/null; return $?; fi
+    if ! timeout -k 5 60 "$ROOT/scrip" --compile -o "$W/$base.s" "$W/$src" </dev/null >"$W/$base.cerr" 2>&1 \
        || ! gcc -o "$W/$base.bin" "$W/$base.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread >>"$W/$base.cerr" 2>&1; then
         printf '  FAIL %-7s %s: did not build (%s)\n' "$base" "$m" "$(head -1 "$W/$base.cerr" | cut -c1-110)"; return 255; fi
-    timeout 60 "$W/$base.bin" >"$W/$base.$m.out" 2>"$W/$base.$m.err" </dev/null
+    timeout -k 5 60 "$W/$base.bin" >"$W/$base.$m.out" 2>"$W/$base.$m.err" </dev/null
 }
 for m in m3 m4; do
     GATE_EXAMINED=$((GATE_EXAMINED + 1)); run relop.raku "$m"; rc=$?

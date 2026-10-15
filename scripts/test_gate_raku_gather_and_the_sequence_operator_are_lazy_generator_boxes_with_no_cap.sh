@@ -76,16 +76,16 @@ printf '2\n(1 1 2 3 5 8 13 21)\n6\n(2 20)\n7\n7\n8\nTrue\n' > "$W/w6.ref"
 fails=0; GATE_EXAMINED=0
 build4() {
     local w="$1"
-    timeout 60 "$ROOT/scrip" --compile -o "$W/$w.s" "$W/$w.raku" </dev/null >"$W/$w.cerr" 2>&1 \
+    timeout -k 5 60 "$ROOT/scrip" --compile -o "$W/$w.s" "$W/$w.raku" </dev/null >"$W/$w.cerr" 2>&1 \
       && gcc -o "$W/$w.bin" "$W/$w.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread >>"$W/$w.cerr" 2>&1
 }
 ck() {
     local w="$1" m="$2" out rc
     GATE_EXAMINED=$((GATE_EXAMINED + 1))
-    if [ "$m" = m3 ]; then out="$(timeout 30 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"; rc=$?
+    if [ "$m" = m3 ]; then out="$(timeout -k 5 30 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"; rc=$?
     else
         if ! build4 "$w"; then printf '  FAIL %-3s %s: did not build (%s)\n' "$w" "$m" "$(head -1 "$W/$w.cerr" | cut -c1-110)"; fails=$((fails + 1)); return; fi
-        out="$(timeout 30 "$W/$w.bin" 2>/dev/null </dev/null)"; rc=$?
+        out="$(timeout -k 5 30 "$W/$w.bin" 2>/dev/null </dev/null)"; rc=$?
     fi
     if [ "$rc" -ge 124 ]; then printf '  FAIL %-3s %s: died rc=%s\n' "$w" "$m" "$rc"; fails=$((fails + 1)); return; fi
     if [ "$out" = "$(cat "$W/$w.ref")" ]; then printf '  ok   %-3s %s\n' "$w" "$m"
@@ -98,8 +98,8 @@ unset SCRIP_HEAP_MB SCRIP_HEAP_KB
 sf=0
 for s in 1 3; do for m in m3 m4; do for w in w1 w2 w3 w4 w5; do
     GATE_EXAMINED=$((GATE_EXAMINED + 1))
-    if [ "$m" = m3 ]; then out="$(SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=$s timeout 300 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"
-    else out="$(SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=$s timeout 300 "$W/$w.bin" 2>/dev/null </dev/null)"; fi
+    if [ "$m" = m3 ]; then out="$(SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=$s timeout -k 5 300 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"
+    else out="$(SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=$s timeout -k 5 300 "$W/$w.bin" 2>/dev/null </dev/null)"; fi
     if [ "$out" != "$(cat "$W/$w.ref")" ]; then printf '  FAIL %s %s stress=%s: wrong answer under the collector\n' "$w" "$m" "$s"; fails=$((fails + 1)); sf=1; fi
 done; done; done
 [ "$sf" -eq 0 ] && echo "  ok   w1..w5 x stress 1 3 x m3 m4 at 64 KB"
@@ -107,7 +107,7 @@ echo "arm 3: one chain-checked run of each DONE-WHEN witness (SCRIP_GC_CHAIN_CHE
 cf=0
 for w in w1 w2 w3 w4 w5; do
     GATE_EXAMINED=$((GATE_EXAMINED + 1))
-    err="$(SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_CHAIN_CHECK=3 timeout 300 "$ROOT/scrip" --run "$W/$w.raku" 2>&1 >/dev/null </dev/null | grep 'CHAIN-WALK\] SUMMARY' | tail -1)"
+    err="$(SCRIP_HEAP_KB=64 SCRIP_GC_STRESS=1 SCRIP_GC_CHAIN_CHECK=3 timeout -k 5 300 "$ROOT/scrip" --run "$W/$w.raku" 2>&1 >/dev/null </dev/null | grep 'CHAIN-WALK\] SUMMARY' | tail -1)"
     case "$err" in *"missing=0"*"mapdiff=0"*) ;; *) printf '  FAIL %s chain check: %s\n' "$w" "$(printf '%s' "$err" | cut -c1-120)"; fails=$((fails + 1)); cf=1;; esac
 done
 [ "$cf" -eq 0 ] && echo "  ok   w1..w5 chain-checked: missing=0 mapdiff=0"

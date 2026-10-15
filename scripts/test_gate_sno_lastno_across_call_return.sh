@@ -37,14 +37,14 @@ W="$T/lastno.sno"
   printf 'START   N = G(9)\n'
   printf '        OUTPUT = "lastno=" &LASTNO\n'
   printf 'END\n'; } > "$W"
-ORA="$( cd "$T" && timeout 30s "$O" -bf lastno.sno </dev/null 2>/dev/null )"; orc=$?
+ORA="$( cd "$T" && timeout -k 5 30s "$O" -bf lastno.sno </dev/null 2>/dev/null )"; orc=$?
 case "$ORA" in *lastno=*) : ;; *) echo "GATE UNPROVEN(2) [$GATE_NAME]: oracle produced no lastno= line (rc=$orc)"; exit 2;; esac
-M3="$( cd "$T" && timeout 30s "$ROOT/scrip" lastno.sno </dev/null 2>/dev/null )"
-( cd "$T" && timeout 30s "$ROOT/scrip" --compile -o lastno.s lastno.sno </dev/null >/dev/null 2>&1 ) \
+M3="$( cd "$T" && timeout -k 5 30s "$ROOT/scrip" lastno.sno </dev/null 2>/dev/null )"
+( cd "$T" && timeout -k 5 30s "$ROOT/scrip" --compile -o lastno.s lastno.sno </dev/null >/dev/null 2>&1 ) \
   || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mode-4 compile failed"; exit 2; }
 ( cd "$T" && gcc -no-pie lastno.s -o lastno.bin -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) \
   || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mode-4 link failed"; exit 2; }
-M4="$( cd "$T" && timeout 30s ./lastno.bin </dev/null 2>/dev/null )"
+M4="$( cd "$T" && timeout -k 5 30s ./lastno.bin </dev/null 2>/dev/null )"
 red=0; examined=0
 for tag in m3 m4; do
     eval "got=\$$(echo "$tag" | tr 'a-z' 'A-Z')"

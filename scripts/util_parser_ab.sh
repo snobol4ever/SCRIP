@@ -17,7 +17,7 @@ OLD=$(readlink -f "$OLD"); NEW=$(readlink -f "$NEW")
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 find "$CORPUS" -type f -name "*.$ext" -not -name 'ALL.*' -not -path '*/.git/*' -not -path "$CORPUS/library/*" | sort > "$T/pop"
 np=$(wc -l < "$T/pop"); [ "$np" -gt 0 ] || { echo "PARSER-AB ⛔ REFUSE(2): no corpus program ends in .$ext"; exit 2; }
-one() { printf '%s\n' "$2" > "$T/one"; ( cd "$CORPUS" && PARSER_FILES="$T/one" PARSER_TREE_HASH=0 timeout 60 "$1" < /dev/null > "$3.out" 2> "$3.err" ); rc=$?; echo "rc=$rc" >> "$3.out"; grep -v '^PARSER-METRICS ' "$3.err" >> "$3.out"; return $rc; }
+one() { printf '%s\n' "$2" > "$T/one"; ( cd "$CORPUS" && PARSER_FILES="$T/one" PARSER_TREE_HASH=0 timeout -k 5 60 "$1" < /dev/null > "$3.out" 2> "$3.err" ); rc=$?; echo "rc=$rc" >> "$3.out"; grep -v '^PARSER-METRICS ' "$3.err" >> "$3.out"; return $rc; }
 ni=0; nd=0; diffs=""; : > "$T/timed"
 while IFS= read -r f; do
     one "$OLD" "$f" "$T/o"; ro=$?; one "$NEW" "$f" "$T/n"; rn=$?
@@ -27,7 +27,7 @@ done < "$T/pop"
 nt=$(wc -l < "$T/timed")
 metric() { grep '^PARSER-METRICS ' "$1" | tail -1 | grep -o " $2=[0-9]*" | cut -d= -f2; }
 med() { printf '%s\n' "$@" | sort -n | sed -n "$(( ($# + 1) / 2 ))p"; }
-timed() { ( cd "$CORPUS" && PARSER_FILES="$T/timed" PARSER_TREE_HASH=1 PARSER_LEX_CLOCK=1 timeout 600 "$1" < /dev/null > /dev/null 2> "$2" ); }
+timed() { ( cd "$CORPUS" && PARSER_FILES="$T/timed" PARSER_TREE_HASH=1 PARSER_LEX_CLOCK=1 timeout -k 5 600 "$1" < /dev/null > /dev/null 2> "$2" ); }
 po=(); pn=(); lo=(); ln=(); short=""
 for k in $(seq "$RUNS"); do
     timed "$OLD" "$T/to.err"; timed "$NEW" "$T/tn.err"

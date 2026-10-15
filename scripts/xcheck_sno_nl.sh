@@ -6,8 +6,8 @@ SAME=0; DIFF=0; SKIP=0
 DIFFLIST=""
 for f in $(find "$HERE/../../corpus/tests/scrip_test/snobol4" -name "*.sno" | sort); do
   rel="${f#$HERE/../}"
-  old_raw=$(SCRIP_NL=0 timeout 15s "$SCRIP" --run "$f" < /dev/null 2>&1); old_rc=$?
-  new_raw=$(SCRIP_NL=1 timeout 15s "$SCRIP" --run "$f" < /dev/null 2>&1); new_rc=$?
+  old_raw=$(SCRIP_NL=0 timeout -k 5 15s "$SCRIP" --run "$f" < /dev/null 2>&1); old_rc=$?
+  new_raw=$(SCRIP_NL=1 timeout -k 5 15s "$SCRIP" --run "$f" < /dev/null 2>&1); new_rc=$?
   old_out=$(printf '%s' "$old_raw" | grep -v '^\[lower\]')
   new_out=$(printf '%s' "$new_raw" | grep -v '^\[lower\]')
   if [ $old_rc -ge 124 ] && [ $new_rc -ge 124 ]; then SKIP=$((SKIP+1)); continue; fi

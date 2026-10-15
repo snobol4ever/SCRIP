@@ -51,10 +51,10 @@ mkwrap(){ p=$1; n=$2; f="$W/${p}_${n}.pl"
   printf 'main :- l__.\nl__ :- %sbench_work(_), fail.\nl__.\n' "$(conj $n)" >> "$f"; echo "$f"; }
 tdiff(){ echo $(( ($2 - $1) / 1000000 )); }
 build_m4(){ d=$1; f=$2; b=$3; xl=$4
-  (cd "$W" && timeout 90 "$d/scrip" --compile --target=x86 "$f" </dev/null 2>"$b.err" > "$b.s") || { echo BUILDFAIL; return 1; }
+  (cd "$W" && timeout -k 5 90 "$d/scrip" --compile --target=x86 "$f" </dev/null 2>"$b.err" > "$b.s") || { echo BUILDFAIL; return 1; }
   grep -q 'PL-GZ FENCE' "$b.err" && { echo FENCE; return 1; }
   (cd "$W" && as --64 -o "$b.o" "$b.s" 2>>"$b.err" && gcc -no-pie -o "$b" "$b.o" "$d/out/libscrip_rt.so" $xl -lm -lstdc++ -Wl,-rpath,"$d/out" 2>>"$b.err") || { echo LINKFAIL; return 1; }; return 0; }
-run1(){ o="$W/out.$$"; t0=$(date +%s%N); timeout 90 "$@" </dev/null >"$o" 2>/dev/null; rc=$?; t1=$(date +%s%N)
+run1(){ o="$W/out.$$"; t0=$(date +%s%N); timeout -k 5 90 "$@" </dev/null >"$o" 2>/dev/null; rc=$?; t1=$(date +%s%N)
   if [ $rc -eq 0 ]; then echo "$(tdiff $t0 $t1) $(wc -l < "$o")"; else echo "DNF$rc 0"; fi; rm -f "$o"; }
 Ns="fib:512:64:64 tak:64:64:8 qsort:32768:4096:512 nrev:32768:4096:512 deriv:262144:32768:4096 queens_8:512:512:64"
 getN(){ for e in $Ns; do case "$e" in $1:*) IFS=: read -r _ g o n <<<"$e"; case "$2" in gnu)echo $g;;old)echo $o;;new)echo $n;;esac;;esac; done; }

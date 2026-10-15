@@ -54,7 +54,7 @@ for src in "$WITDIR"/*.icn "$WITDIR"/*.sno "$WITDIR"/*.pl "$WITDIR"/*.raku; do
   for st in $BAND; do
     graded=$((graded+1))
     ( SCRIP_HEAP_KB="$ARENA_KB" SCRIP_GC_STRESS="$st" \
-      timeout 25s "$SCRIP" "$src" < "$stdin_f" > "$T/out" 2>"$T/err" ) 2>/dev/null; rc=$?
+      timeout -k 5 25s "$SCRIP" "$src" < "$stdin_f" > "$T/out" 2>"$T/err" ) 2>/dev/null; rc=$?
     if [ "$rc" = 124 ]; then hang=$((hang+1)); names="$names $base:s$st:HANG"; continue; fi
     if [ "$rc" -ge 128 ]; then crash=$((crash+1)); names="$names $base:s$st:CRASH(rc=$rc)"; continue; fi
     if diff -q "$T/out" "$ref" >/dev/null 2>&1; then pass=$((pass+1));

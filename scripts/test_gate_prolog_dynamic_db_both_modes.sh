@@ -43,19 +43,19 @@ rc=0
 for w in $names; do
   eval "src=\$w_$w"
   printf '%s\n' "$src" > "$d/$w.pl"
-  want=$(cd "$d" && timeout 20 swipl -q -g halt "$w.pl" < /dev/null 2>/dev/null)
+  want=$(cd "$d" && timeout -k 5 20 swipl -q -g halt "$w.pl" < /dev/null 2>/dev/null)
   [ -n "$want" ] || { echo "REFUSE: oracle produced nothing for $w -- cannot grade"; exit 2; }
-  g3=$(timeout 20 ./scrip "$d/$w.pl" < /dev/null 2>&1)
+  g3=$(timeout -k 5 20 ./scrip "$d/$w.pl" < /dev/null 2>&1)
   if [ "$g3" = "$want" ]; then echo "PASS m3 $w"; else echo "FAIL m3 $w: want [$want] got [$g3]"; rc=1; fi
-  if ! timeout 60 ./scrip --compile -o "$d/$w.s" "$d/$w.pl" < /dev/null > /dev/null 2>&1; then echo "FAIL m4 $w: compile refused"; rc=1; continue; fi
+  if ! timeout -k 5 60 ./scrip --compile -o "$d/$w.s" "$d/$w.pl" < /dev/null > /dev/null 2>&1; then echo "FAIL m4 $w: compile refused"; rc=1; continue; fi
   if ! gcc -no-pie "$d/$w.s" -L out -lscrip_rt -Wl,-rpath,"$here/out" -o "$d/$w.exe" > /dev/null 2>&1; then echo "FAIL m4 $w: link"; rc=1; continue; fi
-  g4=$(timeout 20 "$d/$w.exe" < /dev/null 2>&1)
+  g4=$(timeout -k 5 20 "$d/$w.exe" < /dev/null 2>&1)
   if [ "$g4" = "$want" ]; then echo "PASS m4 $w"; else echo "FAIL m4 $w: want [$want] got [$g4]"; rc=1; fi
 done
 n=$(printf '%s\n' $names | grep -c .)
 echo "dynamic-DB census: $n witnesses x 2 modes = $((n * 2)) gradings (assert, retract, clause, abolish)"
 [ "$rc" = 0 ] || { echo "rung 10b RED: the dynamic database is not correct in both modes"; exit 1; }
-c=$(timeout 900 bash scripts/test_prolog_ladder.sh --to 9 2>&1); crc=$?
+c=$(timeout -k 5 900 bash scripts/test_prolog_ladder.sh --to 9 2>&1); crc=$?
 [ "$crc" = 0 ] || { echo "FAIL: control arm rungs 0-9 red (rc=$crc)"; printf "%s\n" "$c" | tail -3; exit 1; }
 printf "%s\n" "$c" | tail -1
 echo "rung 10b GREEN: assert, retract, clause and abolish all correct in BOTH modes, rungs 0-9 green"

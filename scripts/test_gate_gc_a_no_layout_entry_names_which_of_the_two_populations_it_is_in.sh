@@ -47,7 +47,7 @@ chmod +x "$T"/stub_*.sh
 # because the tree is clean -- which is the whole defect CEO-1025 was ruling on, one level up.
 for arm in emit:EMITTED-NO-LAYOUT:no_layout_emitted_no_layout refuse:NEVER-EMITTED:no_layout_never_emitted hang:UNMEASURED:no_layout_unmeasured; do
   k="${arm%%:*}"; rest="${arm#*:}"; kind="${rest%%:*}"; field="${rest##*:}"
-  out="$(SCRIP="$T/stub_$k.sh" timeout 120s python3 "$TOOL" --files "$T/w.sno" --timeout 1 2>&1)"
+  out="$(SCRIP="$T/stub_$k.sh" timeout -k 5 120s python3 "$TOOL" --files "$T/w.sno" --timeout 1 2>&1)"
   line="$(printf '%s\n' "$out" | grep -m1 '^ZLS-MAP ')"
   tot="$(printf '%s\n' "$line" | sed -n 's/.* no_layout=\([0-9]*\) .*/\1/p')"
   got="$(printf '%s\n' "$line" | sed -n "s/.* $field=\([0-9]*\).*/\1/p")"
@@ -65,7 +65,7 @@ done
 # (d) THE ENTRY LINE CARRIES ITS KIND IN THE TAIL AND NEVER AS A LINE PREFIX.  ⛔ MEASURED BY hq_raku THE DAY
 # BEFORE: a first cut of the DECLARED field used a NO-LAYOUT-DECLARED prefix, the consumer counted 7 lines against
 # no_layout=9 and REFUSED rc=2.  It was right to.  Every NO-LAYOUT line must still begin `NO-LAYOUT `.
-out="$(SCRIP="$T/stub_refuse.sh" timeout 120s python3 "$TOOL" --files "$T/w.sno" --timeout 1 2>&1)"
+out="$(SCRIP="$T/stub_refuse.sh" timeout -k 5 120s python3 "$TOOL" --files "$T/w.sno" --timeout 1 2>&1)"
 n_pref="$(printf '%s\n' "$out" | grep -c '^NO-LAYOUT ')"
 n_kind="$(printf '%s\n' "$out" | grep -c '^NO-LAYOUT .*\[NEVER-EMITTED\]')"
 if [ "$n_pref" = 1 ] && [ "$n_kind" = 1 ]; then
@@ -91,7 +91,7 @@ print("NO-LAYOUT lang=stub entry=e (rc=2: stub)")
 sys.exit(0)
 STUB
 crc=0
-timeout 120s python3 "$CONSUMER" maps --root "$T/fakeroot" --zls-langs stub > "$T/consumer.out" 2>&1 || crc=$?
+timeout -k 5 120s python3 "$CONSUMER" maps --root "$T/fakeroot" --zls-langs stub > "$T/consumer.out" 2>&1 || crc=$?
 if [ "$crc" = 2 ] && grep -q "without the three kind fields" "$T/consumer.out"; then
   ck ok "(e) PLANTED -- a ZLS-MAP line with no kind fields makes the consumer REFUSE(2), not read the split as zero"
 else
@@ -109,7 +109,7 @@ for i in range(3):
 sys.exit(0)
 STUB
 crc=0
-timeout 120s python3 "$CONSUMER" maps --root "$T/fakeroot" --zls-langs stub > "$T/consumer2.out" 2>&1 || crc=$?
+timeout -k 5 120s python3 "$CONSUMER" maps --root "$T/fakeroot" --zls-langs stub > "$T/consumer2.out" 2>&1 || crc=$?
 if [ "$crc" = 2 ] && grep -q "kinds sum to" "$T/consumer2.out"; then
   ck ok "(f) PLANTED -- kinds that do not sum to no_layout make the consumer REFUSE(2) and name the arithmetic"
 else
@@ -125,7 +125,7 @@ print("ZLS-MAP lang=stub graphs=1 words=8 unkinded=0 holes=0 graded=1 no_layout=
 print("NO-LAYOUT lang=stub entry=e (no graph in the dump) [EMITTED-NO-LAYOUT]")
 sys.exit(0)
 STUB
-timeout 120s python3 "$CONSUMER" maps --root "$T/fakeroot" --zls-langs stub > "$T/consumer3.out" 2>&1
+timeout -k 5 120s python3 "$CONSUMER" maps --root "$T/fakeroot" --zls-langs stub > "$T/consumer3.out" 2>&1
 red_hit=$(grep -c "EMITTED-NO-LAYOUT IS THE CORRECTNESS POPULATION AND IT IS RED" "$T/consumer3.out")
 cat > "$T/fakeroot/scripts/util_zls_frame_map_census.py" <<'STUB'
 import sys
@@ -134,7 +134,7 @@ print("ZLS-MAP lang=stub graphs=1 words=8 unkinded=0 holes=0 graded=1 no_layout=
 print("NO-LAYOUT lang=stub entry=e (rc=2: stub) [NEVER-EMITTED]")
 sys.exit(0)
 STUB
-timeout 120s python3 "$CONSUMER" maps --root "$T/fakeroot" --zls-langs stub > "$T/consumer4.out" 2>&1
+timeout -k 5 120s python3 "$CONSUMER" maps --root "$T/fakeroot" --zls-langs stub > "$T/consumer4.out" 2>&1
 green_hit=$(grep -c "EMITTED-NO-LAYOUT IS THE CORRECTNESS POPULATION AND IT IS RED" "$T/consumer4.out")
 if [ "$red_hit" -ge 1 ] && [ "$green_hit" = 0 ]; then
   ck ok "(g) PLANTED BOTH DIRECTIONS -- one EMITTED-NO-LAYOUT entry is called RED and named as the correctness population; one NEVER-EMITTED entry is NOT, because a completeness debt gates nothing here"
@@ -164,7 +164,7 @@ cat > "$zr_stub/scrip" <<'STUB'
 echo "; graph 0 'zr' flat slots=0 region_end=0 resume=-1 vslots=0 scopes=0"
 STUB
 chmod +x "$zr_stub/scrip"
-out="$(SCRIP="$zr_stub/scrip" timeout 120s python3 "$TOOL" --files "$T/w.sno" --timeout 5 2>&1)"
+out="$(SCRIP="$zr_stub/scrip" timeout -k 5 120s python3 "$TOOL" --files "$T/w.sno" --timeout 5 2>&1)"
 zrn="$(printf '%s\n' "$out" | grep -m1 '^ZLS-MAP ' | sed -n 's/.* zero_region_graphs=\([0-9]*\).*/\1/p')"
 gr="$(printf '%s\n' "$out" | grep -m1 '^ZLS-MAP ' | sed -n 's/.* graded=\([0-9]*\) .*/\1/p')"
 if [ "${zrn:-0}" = 1 ] && [ "${gr:-0}" = 1 ] && printf '%s\n' "$out" | grep -q "^ZERO-REGION .*region_end=0"; then

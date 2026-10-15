@@ -147,15 +147,15 @@ run_one() {
         tdir="$(icn_rundir_make "$icn" "$WORK")" || { echo "⛔ REFUSE(2) $name: could not stage the declared fixtures" >&2; exit 2; }
     fi
     local asm="$WORK/$name.s" bin="$WORK/bin/$name"; mkdir -p "$WORK/bin"
-    if ! (cd "$sdir" && timeout "$tmo" "$SCRIP" --compile "$(basename "$icn")" < /dev/null) > "$asm" 2>"$WORK/$name.emit_err" || [ ! -s "$asm" ]; then
+    if ! (cd "$sdir" && timeout -k 5 "$tmo" "$SCRIP" --compile "$(basename "$icn")" < /dev/null) > "$asm" 2>"$WORK/$name.emit_err" || [ ! -s "$asm" ]; then
         D_EMIT=$((D_EMIT+1)); fail_one "$name" "emit"; return 0
     fi
-    if ! timeout 30 gcc -no-pie "$asm" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -o "$bin" 2>"$WORK/$name.link_err"; then
+    if ! timeout -k 5 30 gcc -no-pie "$asm" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -o "$bin" 2>"$WORK/$name.link_err"; then
         D_LINK=$((D_LINK+1)); fail_one "$name" "link"; return 0
     fi
     local got rc
     # the binary runs under its BARE STEM found on PATH (CEO-624: &progname is the stem in both modes), argv after it
-    got=$( (cd "$tdir" && PATH="$WORK/bin:$PATH" timeout "$tmo" env ${rd_env[@]+"${rd_env[@]}"} "$name" ${rd_sw[@]+"${rd_sw[@]}"} ${rd_sw[@]+--} ${rd_argv[@]+"${rd_argv[@]}"}) < "$stdin_file" 2>/dev/null); rc=$?
+    got=$( (cd "$tdir" && PATH="$WORK/bin:$PATH" timeout -k 5 "$tmo" env ${rd_env[@]+"${rd_env[@]}"} "$name" ${rd_sw[@]+"${rd_sw[@]}"} ${rd_sw[@]+--} ${rd_argv[@]+"${rd_argv[@]}"}) < "$stdin_file" 2>/dev/null); rc=$?
     local want
     want=$(cat "$exp")
     local dirty="" 

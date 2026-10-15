@@ -65,8 +65,8 @@ fi
 rc=0
 for f in "${srcs[@]}"; do
     [ -f "$f" ] || { printf '%s\tREFUSE no such file\n' "$f"; rc=2; continue; }
-    if [ "$engine" = sbl ]; then out=$(timeout "$tmo" "$SBL" -bf $OARGS "$twin" < "$f" 2>&1); r=$?
-    else out=$(timeout "$tmo" "$SCRIP_ROOT/scrip" $SW "$twin" < "$f" 2>&1); r=$?; fi
+    if [ "$engine" = sbl ]; then out=$(timeout -k 5 "$tmo" "$SBL" -bf $OARGS "$twin" < "$f" 2>&1); r=$?
+    else out=$(timeout -k 5 "$tmo" "$SCRIP_ROOT/scrip" $SW "$twin" < "$f" 2>&1); r=$?; fi
     if [ $r = 124 ]; then printf '%s\tTIMEOUT\n' "$f"; rc=1; continue; fi
     far=$(printf '%s\n' "$out" | grep -o 'Parse Error at [0-9]*' | head -1 | grep -o '[0-9]*$')
     if [ -z "$far" ]; then

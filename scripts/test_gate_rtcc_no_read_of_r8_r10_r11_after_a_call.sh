@@ -38,7 +38,7 @@ ASMS=(); n=0
 for w in "$WD"/*.sno "$WD"/*.icn "$WD"/*.pl "$WD"/*.raku "$WD"/*.pas "$WD"/*.sc; do
     [ -f "$w" ] || continue
     o="$T/m4_$(basename "$w").s"
-    timeout 60 "$SCRIP" --compile -o "$o" "$w" < /dev/null > /dev/null 2>&1 && [ -s "$o" ] && { ASMS+=(--asm "$o"); n=$((n+1)); }
+    timeout -k 5 60 "$SCRIP" --compile -o "$o" "$w" < /dev/null > /dev/null 2>&1 && [ -s "$o" ] && { ASMS+=(--asm "$o"); n=$((n+1)); }
 done
 [ "$n" -gt 0 ] || { echo "⛔ GATE REFUSE(2) [$G]: no witness compiled"; exit 2; }
 python3 "$R" "${ASMS[@]}" --entry > "$T/m4.txt" 2>&1; rc=$?
@@ -49,7 +49,7 @@ for w in hb_arr.sno hb_datblk.sno hb_coexpr_sigma.icn hb_pl_findall.pl; do
     [ -f "$WD/$w" ] || continue
     d="$T/m3_$w"; mkdir -p "$d"
     printf 'set pagination off\nstart\nset $i = 0\nbreak bb_seal\ncommands\n  silent\n  eval "dump binary memory %s/slab_%%d.bin buf buf+size", $i\n  set $i = $i + 1\n  continue\nend\ncontinue\n' "$d" > "$d/g.cmds"
-    timeout 120 gdb -batch -x "$d/g.cmds" --args "$SCRIP" "$WD/$w" < /dev/null > /dev/null 2>&1
+    timeout -k 5 120 gdb -batch -x "$d/g.cmds" --args "$SCRIP" "$WD/$w" < /dev/null > /dev/null 2>&1
     for s in "$d"/slab_*.bin; do
         [ -s "$s" ] || continue
         off=$(grep -obUaP 'ZMAP' "$s" | head -1 | cut -d: -f1)
@@ -78,13 +78,13 @@ fi
 nb=$(cat "${ASMS[@]/--asm/}" 2>/dev/null | grep -cE 'rtccb\+(40|56|64)')
 [ "$nb" -eq 0 ] && arm ok "(e) the bracket is gone: no witness .s spills or reloads r8, r10 or r11 through rtccb" || arm fail "(e) $nb rtccb+40/56/64 store or reload(s) remain in the witness .s"
 run4() { "$SCRIP" --compile -o "$1.s" "$2" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" -o "$1" 2>/dev/null \
-    && { SCRIP_GC_STRESS=1 timeout 120 "$1" < /dev/null; echo "rc=$?"; }; }
+    && { SCRIP_GC_STRESS=1 timeout -k 5 120 "$1" < /dev/null; echo "rc=$?"; }; }
 dbad=""; dn=0
 for w in hb_arr.sno hb_datblk.sno hb_coexpr_sigma.icn hb_pl_findall.pl hb_cv_spine_plain_redo.icn; do
     [ -f "$WD/$w" ] || continue
     d="$T/diag_$w"; mkdir -p "$d"
-    { SCRIP_GC_STRESS=1 timeout 120 "$SCRIP" "$WD/$w" < /dev/null; echo "rc=$?"; } > "$d/m3.plain" 2>&1
-    { SCRIP_DIAG_REGS=1 SCRIP_GC_STRESS=1 timeout 120 "$SCRIP" "$WD/$w" < /dev/null; echo "rc=$?"; } > "$d/m3.diag" 2>&1
+    { SCRIP_GC_STRESS=1 timeout -k 5 120 "$SCRIP" "$WD/$w" < /dev/null; echo "rc=$?"; } > "$d/m3.plain" 2>&1
+    { SCRIP_DIAG_REGS=1 SCRIP_GC_STRESS=1 timeout -k 5 120 "$SCRIP" "$WD/$w" < /dev/null; echo "rc=$?"; } > "$d/m3.diag" 2>&1
     run4 "$d/p" "$WD/$w" > "$d/m4.plain" 2>&1
     SCRIP_DIAG_REGS=1 run4 "$d/q" "$WD/$w" > "$d/m4.diag" 2>&1
     cmp -s "$d/m3.plain" "$d/m3.diag" || dbad="$dbad $w:m3"

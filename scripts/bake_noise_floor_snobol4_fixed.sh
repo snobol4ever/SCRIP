@@ -77,9 +77,9 @@ for sno in "$B"/*.sno; do
     for _ in $(seq 1 "$REPS"); do
       errfile="$W/r.err"
       case "$eng" in
-        sbl) o=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) $SW "$sno" 2>"$errfile" <"$W/$s.stdin") ;;
-        m3)  o=$(SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout "$T" "$SCRIP" $SW --run "$sno" 2>"$errfile" <"$W/$s.stdin") ;;
-        m4)  if [ "$m4ok" = 1 ]; then o=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout "$T" "./$s.prog" $SW 2>"$errfile" <"$W/$s.stdin")
+        sbl) o=$("$WRAP" timeout -k 5 "$T" "$SBL" $(sbl_lang_flags) $SW "$sno" 2>"$errfile" <"$W/$s.stdin") ;;
+        m3)  o=$(SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout -k 5 "$T" "$SCRIP" $SW --run "$sno" 2>"$errfile" <"$W/$s.stdin") ;;
+        m4)  if [ "$m4ok" = 1 ]; then o=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout -k 5 "$T" "./$s.prog" $SW 2>"$errfile" <"$W/$s.stdin")
              else o=""; : > "$errfile"; fi ;;
       esac
       rusage_line=$(grep '^BENCH_RUSAGE:' "$errfile" | tail -1)

@@ -139,9 +139,9 @@ disk_sample() {  # echoes "inblock oublock" (each may be empty if the BENCH_RUSA
 run1() {
   local eng="$1" k="$2" src="$RDIR/$2.raku" so="$W/so.$$" se="$W/se.$$" rl xc wu wm el
   case "$eng" in
-    m3)     "$WRAP" timeout "$T" "$SCRIP" --run $(dsw_of "$src") "$src" </dev/null >"$so" 2>"$se" ;;
-    m4)     "$WRAP" timeout "$T" "$W/$k.bin" $(dsw_of "$src") </dev/null >"$so" 2>"$se" ;;
-    rakudo) "$WRAP" timeout "$T" "$RAKU" -I"$W/prelude" -Mprelude_rakudo "$src" </dev/null >"$so" 2>"$se" ;;
+    m3)     "$WRAP" timeout -k 5 "$T" "$SCRIP" --run $(dsw_of "$src") "$src" </dev/null >"$so" 2>"$se" ;;
+    m4)     "$WRAP" timeout -k 5 "$T" "$W/$k.bin" $(dsw_of "$src") </dev/null >"$so" 2>"$se" ;;
+    rakudo) "$WRAP" timeout -k 5 "$T" "$RAKU" -I"$W/prelude" -Mprelude_rakudo "$src" </dev/null >"$so" 2>"$se" ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$se" 2>/dev/null | tail -1); [ -n "$rl" ] || { echo "- - - DNF"; return; }
   xc=$(echo "$rl" | grep -oE 'exit=[0-9-]+' | cut -d= -f2)
@@ -159,7 +159,7 @@ run1() {
 }
 build_m4() {  # compile+link once per kernel; the .s and .bin live in $W, never beside the kernel
   local k="$1" s="$W/$1.s" o="$W/$1.o" b="$W/$1.bin"
-  (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$s" "$RDIR/$k.raku" </dev/null >/dev/null 2>"$W/$k.m4build.err") && [ -s "$s" ] || return 1
+  (cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile -o "$s" "$RDIR/$k.raku" </dev/null >/dev/null 2>"$W/$k.m4build.err") && [ -s "$s" ] || return 1
   as --64 -o "$o" "$s" 2>>"$W/$k.m4build.err" && gcc -no-pie -o "$b" "$o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>>"$W/$k.m4build.err"
 }
 

@@ -34,7 +34,7 @@ var loc: integer; v: real;
 begin loc := n; v := loc / 2; x := v end;
 begin i := 1; r := 0.0; a[2] := 7; p(i, r); writeln(r:6:2, a[2]:3) end.
 PAS
-( cd "$T" && timeout 20s "$SCRIP" --dump-ast prune.pas </dev/null >"$T/ast" 2>"$T/ast.err" ); arc=$?
+( cd "$T" && timeout -k 5 20s "$SCRIP" --dump-ast prune.pas </dev/null >"$T/ast" 2>"$T/ast.err" ); arc=$?
 [ -s "$T/ast" ] || { echo "⛔ GATE REFUSE(2) [$G]: --dump-ast printed nothing (rc=$arc): $(head -1 "$T/ast.err" | cut -c1-140)"; exit 2; }
 tr -s ' \n' ' ' < "$T/ast" | sed -e 's/( */(/g' -e 's/ *)/)/g' > "$T/ast.flat"; mv "$T/ast.flat" "$T/ast"   # one line, the form the arms read (--dump-ast prints the tree one node per line)
 arm() { N=$((N + 1)); if [ "$1" = ok ]; then echo "  ($N) $2"; else echo "  ⛔ ($N) FAILED: $2"; RC=1; fi; }
@@ -49,11 +49,11 @@ grep -q '(TT_DIV (TT_VAR loc) (TT_ILIT 2))' "$T/ast" && arm ok "loc / 2 is one D
 { grep -qw integer "$T/ast" && grep -qw real "$T/ast"; } && arm ok "the declared types integer and real are in the tree" || arm bad "the declared types integer and real are not in the tree (the parser drops them)"
 grep -q '(TT_VAR r) (TT_ILIT 6) (TT_ILIT 2)' "$T/ast" && ! grep -q -- '-3' "$T/ast" && arm ok "the field widths follow r in source order, no sentinel" || arm bad "writeln(r:6:2) does not carry r, 6, 2 in source order without a sentinel"
 run() { local m="$1"
-  if [ "$m" = m3 ]; then ( cd "$T" && LD_LIBRARY_PATH="$RT_DIR" timeout 20s "$SCRIP" --run prune.pas </dev/null >"$T/o" 2>"$T/e" ); return $?; fi
-  ( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/prune.s" prune.pas </dev/null >/dev/null 2>&1 && cc -m64 -no-pie prune.s -o prune.m4 -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || return 125
-  ( cd "$T" && timeout 20s ./prune.m4 </dev/null >"$T/o" 2>"$T/e" ); return $?; }
+  if [ "$m" = m3 ]; then ( cd "$T" && LD_LIBRARY_PATH="$RT_DIR" timeout -k 5 20s "$SCRIP" --run prune.pas </dev/null >"$T/o" 2>"$T/e" ); return $?; fi
+  ( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/prune.s" prune.pas </dev/null >/dev/null 2>&1 && cc -m64 -no-pie prune.s -o prune.m4 -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || return 125
+  ( cd "$T" && timeout -k 5 20s ./prune.m4 </dev/null >"$T/o" 2>"$T/e" ); return $?; }
 ( cd "$T" && "$FPC" -Miso -v0 -oprune.fpc prune.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile the witness"; exit 2; }
-( cd "$T" && timeout 20s ./prune.fpc </dev/null >"$T/want" 2>/dev/null ); frc=$?
+( cd "$T" && timeout -k 5 20s ./prune.fpc </dev/null >"$T/want" 2>/dev/null ); frc=$?
 [ -n "${FAIL_ONCE:-}" ] && echo "corrupted by FAIL_ONCE" >> "$T/want"
 for m in m3 m4; do run $m; rc=$?
   if [ "$rc" = "$frc" ] && cmp -s "$T/want" "$T/o"; then arm ok "$m: rc=$rc, stdout byte-identical to fpc -Miso ($(tr '\n' '|' < "$T/o"))"

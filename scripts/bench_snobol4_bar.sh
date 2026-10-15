@@ -55,7 +55,7 @@ case "$KIND" in
     SWD="$(declared_switches_beside "$P")" && OAD="$(declared_oracle_args_beside "$P")" || refuse "$NAME: its declared sizes are refused"
     : > "$T/in"; for ((i=0;i<N;i++)); do cat "$IN" >> "$T/in"; done
     "$SCRIP" --compile -o "$T/d.s" "$P" < /dev/null 2> "$T/cc.err" && gcc "$T/d.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/d.prog" 2>> "$T/cc.err" || { head -3 "$T/cc.err"; refuse "$NAME did not build in mode 4"; }
-    best() { local tag=$1 b=999999999999 i e; shift; for ((i=0;i<${BAR_REPS:-3};i++)); do ( cd "$S4E/corpus/include" && "$WRAP" timeout 600 "$@" < "$T/in" > "$T/$tag.out" 2> "$T/err" ); e=$(grep -oE 'elapsed_ns=[0-9]+' "$T/err" | tail -1 | cut -d= -f2); [ -n "$e" ] || { echo ""; return; }; [ "$e" -lt "$b" ] && b=$e; done; echo "$b"; }
+    best() { local tag=$1 b=999999999999 i e; shift; for ((i=0;i<${BAR_REPS:-3};i++)); do ( cd "$S4E/corpus/include" && "$WRAP" timeout -k 5 600 "$@" < "$T/in" > "$T/$tag.out" 2> "$T/err" ); e=$(grep -oE 'elapsed_ns=[0-9]+' "$T/err" | tail -1 | cut -d= -f2); [ -n "$e" ] || { echo ""; return; }; [ "$e" -lt "$b" ] && b=$e; done; echo "$b"; }
     s=$(best sbl "$SBL" -bf $OAD "$P"); m=$(best m4 "$T/d.prog" $SWD)
     [ -n "$s" ] && [ -n "$m" ] || refuse_timing "a run printed no BENCH_RUSAGE line (sbl='$s' m4='$m')"
     cmp -s "$T/sbl.out" "$T/m4.out" && [ -s "$T/m4.out" ] || refuse "$NAME: outputs differ between sbl -bf and mode 4 (or are empty) -- no multiple over a wrong answer"

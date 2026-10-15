@@ -59,7 +59,7 @@ open(d + "/ALL.icn", "w").write(b("g/lib_driver") + "\nprocedure main()\n  write
 open(d + "/ALL.ref", "w").write(b("g/lib_driver") + "\nx\n")
 open(d + "/ALL.csv", "w").write("rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args\n1,g/lib_driver,fxpkg__g/lib_driver,fxpkg,3,0,0,131072,4096,,\n")
 PY
-S4E_PROGRESS_DB="$W/hp.tsv" timeout 120 python3 "$HERE/corpus_suite_harness.py" run "$FP/ALL.icn" "$FP/ALL.ref" --lang icon --modes m3 < /dev/null > "$W/h.out" 2>&1
+S4E_PROGRESS_DB="$W/hp.tsv" timeout -k 5 120 python3 "$HERE/corpus_suite_harness.py" run "$FP/ALL.icn" "$FP/ALL.ref" --lang icon --modes m3 < /dev/null > "$W/h.out" 2>&1
 hk="$(awk -F'\t' 'NR>1 {print $8}' "$W/hp.tsv" 2>/dev/null | sort -u | tr '\n' ' ')"
 [ "$hk" = "g/lib " ] && ck ok "the harness wrote the entry g/lib_driver under the library key g/lib" || ck no "the harness wrote key(s) [$hk], want [g/lib] -- $(tail -2 "$W/h.out" | tr '\n' ' ' | cut -c1-120)"
 

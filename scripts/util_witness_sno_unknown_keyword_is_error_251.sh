@@ -15,10 +15,10 @@ n=0; bad=0
 while IFS= read -r stmt; do
     n=$((n + 1)); printf '%b\nEND\n' "$stmt" > "$T/o.sno"; printf '\t&USER_DECLARED_CONSTANTS = 0\n%b\nEND\n' "$stmt" > "$T/w.sno"
     o=$("$SBL" -bf "$T/o.sno" </dev/null 2>&1 | grep -aoE 'ERROR [0-9]+' | head -1 | tr -d 'ERRO ')
-    m3=$(timeout 8 "$ROOT/scrip" "$T/w.sno" </dev/null 2>&1 | grep -aoE 'error [0-9]+' | head -1 | tr -d 'eror ')
+    m3=$(timeout -k 5 8 "$ROOT/scrip" "$T/w.sno" </dev/null 2>&1 | grep -aoE 'error [0-9]+' | head -1 | tr -d 'eror ')
     m4=""
-    if timeout 8 "$ROOT/scrip" --compile -o "$T/w.s" "$T/w.sno" </dev/null >/dev/null 2>&1 && gcc -m64 "$T/w.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/w" 2>/dev/null; then
-        m4=$(timeout 8 "$T/w" </dev/null 2>&1 | grep -aoE 'error [0-9]+' | head -1 | tr -d 'eror ')
+    if timeout -k 5 8 "$ROOT/scrip" --compile -o "$T/w.s" "$T/w.sno" </dev/null >/dev/null 2>&1 && gcc -m64 "$T/w.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/w" 2>/dev/null; then
+        m4=$(timeout -k 5 8 "$T/w" </dev/null 2>&1 | grep -aoE 'error [0-9]+' | head -1 | tr -d 'eror ')
     fi
     if [ "$o" = "$m3" ] && [ "$o" = "$m4" ]; then v="agree"; else v="DIFFER"; bad=$((bad + 1)); fi
     printf '  %-6s %-28s sbl=%-4s m3=%-4s m4=%-4s\n' "$v" "$(printf '%b' "$stmt" | tr '\t' ' ')" "${o:--}" "${m3:--}" "${m4:--}"

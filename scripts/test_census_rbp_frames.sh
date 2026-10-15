@@ -113,8 +113,8 @@ for d in $DIRS; do
   for f in "$D"/*.sno; do
     T_FILES=$((T_FILES+1))
     b=$(basename "$f" .sno)
-    SCRIP_EARN_DIAG=1 timeout 15 "$SCRIP" --compile "$f" > /tmp/earn2_fresh.s 2> /tmp/earn2_diag_m4.txt < /dev/null
-    SCRIP_EARN_DIAG=1 timeout 15 "$SCRIP" --run "$f" > /dev/null 2> /tmp/earn2_diag_m3.txt < /dev/null
+    SCRIP_EARN_DIAG=1 timeout -k 5 15 "$SCRIP" --compile "$f" > /tmp/earn2_fresh.s 2> /tmp/earn2_diag_m4.txt < /dev/null
+    SCRIP_EARN_DIAG=1 timeout -k 5 15 "$SCRIP" --run "$f" > /dev/null 2> /tmp/earn2_diag_m3.txt < /dev/null
     m3_rc=$?
     if [ "$m3_rc" != 0 ]; then
       T_M3CRASH=$((T_M3CRASH+1))   # pre-existing mode-3 nondeterminism (verified: identical scatter pre/post this session's fix, repeated-run 0/134/139 on the SAME binary) -- not a diag/classifier signal, not counted as divergence

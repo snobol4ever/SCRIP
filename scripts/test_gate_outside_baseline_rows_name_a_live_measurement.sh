@@ -108,7 +108,7 @@ for tsv in "$PKGROOT"/*/OUTSIDE_SPITBOL_BASELINE.tsv; do
         # `tr`'s rc -- always 0 -- so ARM 2 called SEVENTY-EIGHT rulings stale on a first run: a full, plausible,
         # entirely false table. util_snobol4_oracle_census.sh already carries the cure; this is the same one.
         t0="${EPOCHREALTIME/./}"
-        out="$(cd "$work" && timeout "$TMO" "$SBL" $FLAGS "$name" < "$inp" 2>&1 | tr -d '\000'; exit "${PIPESTATUS[0]}")"; rc=$?
+        out="$(cd "$work" && timeout -k 5 "$TMO" "$SBL" $FLAGS "$name" < "$inp" 2>&1 | tr -d '\000'; exit "${PIPESTATUS[0]}")"; rc=$?
         ds=$(( ( ${EPOCHREALTIME/./} - t0 ) / 100000 )); el="$((ds/10)).$((ds%10))"; nb="$(printf '%s' "$out" | wc -c)"
         # ARM 2a -- ⛔ THE ORACLE NEVER FINISHED, WHICH IS NOT A REFUSAL AND NOT A STALE RULING. Decided BEFORE the
         # diagnostic test below and regardless of any partial output, because a program that has not terminated has

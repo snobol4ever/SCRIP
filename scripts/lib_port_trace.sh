@@ -165,7 +165,7 @@ port_trace_main() {
     n=$((n+1)); srcbn="w$PORTTRACE_EXT"; src="$W/$srcbn"; ref="$W/$o.ref"
     rm -f "$W/$srcbn" "$W/${srcbn%.*}.in"
     rungs_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the rungs suite"; gate_stamp; exit 2; }
-    (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s0" "$srcbn" </dev/null >/dev/null 2>"$W/$o.cc.err"); crc=$?; (cd "$W" && env "$PORT_TRACE_ENV=0" timeout "$T" "$SCRIP" --compile -o "$o.s0b" "$srcbn" </dev/null >/dev/null 2>&1)
+    (cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile -o "$o.s0" "$srcbn" </dev/null >/dev/null 2>"$W/$o.cc.err"); crc=$?; (cd "$W" && env "$PORT_TRACE_ENV=0" timeout -k 5 "$T" "$SCRIP" --compile -o "$o.s0b" "$srcbn" </dev/null >/dev/null 2>&1)
     # ⛔⭐ A WITNESS THAT NEVER COMPILED HAS NOTHING TO TRACE, AND THAT IS NOT A TRACER THAT IS NOT FIRING (row
     # port-trace-zero-lines-check-cannot-tell-a-compile-time-refusal-from-a-tracer-that-is-not-firing; seat09's
     # find, hq_C's ruling, cfo 2026-09-07). The zero-trace-lines check below used to fold THREE causes into one
@@ -181,19 +181,19 @@ port_trace_main() {
       porttrace_release "$o"
       continue
     fi
-    (cd "$W" && env "$PORT_TRACE_ENV=1" timeout "$T" "$SCRIP" --compile -o "$o.s1" "$srcbn" </dev/null >/dev/null 2>&1)
+    (cd "$W" && env "$PORT_TRACE_ENV=1" timeout -k 5 "$T" "$SCRIP" --compile -o "$o.s1" "$srcbn" </dev/null >/dev/null 2>&1)
     ks=OK; { cmp -s "$W/$o.s0" "$W/$o.s0b" && [ -s "$W/$o.s0" ] && ! cmp -s "$W/$o.s0" "$W/$o.s1"; } || { ks=FAIL; bad=$((bad+1)); }
     # the m3 arms are the ones that did NOT cd into $W, so they are where the absolute path entered the trace
     # each run at the heap and stack the entry declares: extract writes them beside the witness as w.heap / w.stack, keyed by the
     # witness's own stem (ceo CEO-1353, RULES.md clause 8 (g); the coo 2026-10-03: these four runs passed no declaration)
     psw="$(declared_switches_beside "$src")" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $o: a .heap or .stack sidecar the reader refuses"; gate_stamp; exit 2; }
-    (cd "$W" && timeout "$T" "$SCRIP" --run $psw "$srcbn" </dev/null >"$W/$o.m3.out0" 2>/dev/null); r30=$?
-    (cd "$W" && env "$PORT_TRACE_ENV=1" timeout "$T" "$SCRIP" --run $psw "$srcbn" </dev/null >"$W/$o.m3.out1" 2>"$W/$o.m3.raw"); r31=$?
+    (cd "$W" && timeout -k 5 "$T" "$SCRIP" --run $psw "$srcbn" </dev/null >"$W/$o.m3.out0" 2>/dev/null); r30=$?
+    (cd "$W" && env "$PORT_TRACE_ENV=1" timeout -k 5 "$T" "$SCRIP" --run $psw "$srcbn" </dev/null >"$W/$o.m3.out1" 2>"$W/$o.m3.raw"); r31=$?
     pert3=OK; { [ "$r30" = "$r31" ] && cmp -s "$W/$o.m3.out0" "$W/$o.m3.out1"; } || { pert3=FAIL; bad=$((bad+1)); }
     pert4=OK; r40=?; r41=?
     if m4build "$W/$o.s0" "$W/$o.bin0" && m4build "$W/$o.s1" "$W/$o.bin1"; then
-      timeout "$T" "$W/$o.bin0" $psw </dev/null >"$W/$o.m4.out0" 2>/dev/null; r40=$?
-      env "$PORT_TRACE_ENV=1" timeout "$T" "$W/$o.bin1" $psw </dev/null >"$W/$o.m4.out1" 2>"$W/$o.m4.raw"; r41=$?
+      timeout -k 5 "$T" "$W/$o.bin0" $psw </dev/null >"$W/$o.m4.out0" 2>/dev/null; r40=$?
+      env "$PORT_TRACE_ENV=1" timeout -k 5 "$T" "$W/$o.bin1" $psw </dev/null >"$W/$o.m4.out1" 2>"$W/$o.m4.raw"; r41=$?
       { [ "$r40" = "$r41" ] && cmp -s "$W/$o.m4.out0" "$W/$o.m4.out1"; } || { pert4=FAIL; bad=$((bad+1)); }
     else pert4=NOBUILD; bad=$((bad+1)); : > "$W/$o.m4.raw"; fi
     cmp -s "$W/$o.m3.out0" "$ref" && { ans=ok; ans_ok=$((ans_ok+1)); } || { ans=RED; ans_red=$((ans_red+1)); }

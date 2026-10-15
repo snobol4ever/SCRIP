@@ -29,7 +29,7 @@ run_test() {
     local ref="$TESTDIR/${name}.ref"
     if [[ ! -f "$sc" ]]; then echo -e "${RED}FAIL${RESET}  $name $mode (no .sc)"; FAIL=$((FAIL+1)); return; fi
     if [[ ! -f "$ref" ]]; then echo -e "${RED}FAIL${RESET}  $name $mode (no .ref)"; FAIL=$((FAIL+1)); return; fi
-    local got; got=$(timeout "$TIMEOUT" "$SCRIP" "$mode" "$sc" < /dev/null 2>/dev/null) || true
+    local got; got=$(timeout -k 5 "$TIMEOUT" "$SCRIP" "$mode" "$sc" < /dev/null 2>/dev/null) || true
     local exp; exp=$(cat "$ref")
     if [[ "$got" == "$exp" ]]; then
         echo -e "${GREEN}PASS${RESET}  $name $mode"; PASS=$((PASS+1))

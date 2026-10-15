@@ -22,7 +22,7 @@ trap 'rm -f "$ERRF"' EXIT
 for f in demo02/wordcount demo04/palindrome demo06/sieve; do
     src="$CORPUS/demos/scriptix/$f.md"
     [ -f "$src" ] || fail "witness not found: $src"
-    timeout 8 "$SCRIP" --run "$src" < /dev/null > /dev/null 2>"$ERRF"
+    timeout -k 5 8 "$SCRIP" --run "$src" < /dev/null > /dev/null 2>"$ERRF"
     rc=$?
     [ "$rc" -lt 128 ] || fail "$f still crashes (rc=$rc): $(cat "$ERRF")"
 done

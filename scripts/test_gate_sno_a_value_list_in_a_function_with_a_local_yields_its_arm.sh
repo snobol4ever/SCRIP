@@ -111,22 +111,22 @@ for s in range(0, 4):
     bd += ["        OUTPUT = 'nf%d ' NF%d(%d)" % (s, s, s)]
 open(sys.argv[1], "w").write("\n".join(fd + bd + ["END"]) + "\n")
 PY2
-for w in vl mx ctl "$ARC_D"; do ( cd "$T" && timeout 20 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ) || refuse "sbl did not run $w cleanly"; done
+for w in vl mx ctl "$ARC_D"; do ( cd "$T" && timeout -k 5 20 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ) || refuse "sbl did not run $w cleanly"; done
 grep -qx '5 one 7' "$T/vl.oracle" && grep -qx 'fact 720' "$T/vl.oracle" && grep -qx 'lqll lsl' "$T/vl.oracle" || refuse "sbl's answer moved: [$(tr '\n' '|' < "$T/vl.oracle")]"
 [ "$(wc -l < "$T/mx.oracle")" = 44 ] && grep -qx 'Lk5s3 v3 R' "$T/mx.oracle" && grep -qx 'Fk4s0 fail' "$T/mx.oracle" || refuse "sbl's matrix answer moved: $(wc -l < "$T/mx.oracle") lines"
 grep -qx 'three-last-succeeds  7' "$T/ctl.oracle" && grep -qx 'calls c!' "$T/ctl.oracle" || refuse "sbl's control answer moved: [$(tr '\n' '|' < "$T/ctl.oracle")]"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
 same() { [ "$1" = 0 ] || { echo "rc=$1"; return; }; cmp -s "$T/$2" "$T/$3" && echo ok || echo "got [$(tr '\n' '|' < "$T/$2" | head -c 110)] want [$(tr '\n' '|' < "$T/$3" | head -c 110)]"; }
-m3() { ( cd "$T" && timeout 20 "$SCRIP" "$1.sno" < /dev/null > "$1.m3" 2>&1; echo $? ); }
-m3s() { ( cd "$T" && SCRIP_SNO_STMTKW=1 timeout 20 "$SCRIP" --stlimit "$1.sno" < /dev/null > "$1.m3" 2>&1; echo $? ); }
-m4() { ( cd "$T" && timeout 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout 20 "./$1.bin" < /dev/null > "$1.m4" 2>&1; echo $? ); }
+m3() { ( cd "$T" && timeout -k 5 20 "$SCRIP" "$1.sno" < /dev/null > "$1.m3" 2>&1; echo $? ); }
+m3s() { ( cd "$T" && SCRIP_SNO_STMTKW=1 timeout -k 5 20 "$SCRIP" --stlimit "$1.sno" < /dev/null > "$1.m3" 2>&1; echo $? ); }
+m4() { ( cd "$T" && timeout -k 5 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout -k 5 20 "./$1.bin" < /dev/null > "$1.m4" 2>&1; echo $? ); }
 rc=$(m3 vl); arm "m3: lists in functions with locals, nested lists, operands around the list" "$(same "$rc" vl.m3 vl.oracle)"
 rc=$(m4 vl); arm "m4: lists in functions with locals, nested lists, operands around the list" "$(same "$rc" vl.m4 vl.oracle)"
 rc=$(m3s "$ARC_D"); arm "m3: Gimpel ARC through its driver (under --stlimit, as the graders run it)" "$(same "$rc" "$ARC_D.m3" "$ARC_D.oracle")"
 rc=$(m3 mx); arm "MATRIX m3: 2-5 arms, every succeeding position and none, top level and in a function, nested" "$(same "$rc" mx.m3 mx.oracle)"
 rc=$(m4 mx); arm "MATRIX m4: 2-5 arms, every succeeding position and none, top level and in a function, nested" "$(same "$rc" mx.m4 mx.oracle)"
-rc=$( cd "$T" && SCRIP_GC_STRESS=5 timeout 60 "$SCRIP" mx.sno < /dev/null > mx.gc 2>&1; echo $? ); arm "MATRIX m3 under SCRIP_GC_STRESS=5" "$(same "$rc" mx.gc mx.oracle)"
+rc=$( cd "$T" && SCRIP_GC_STRESS=5 timeout -k 5 60 "$SCRIP" mx.sno < /dev/null > mx.gc 2>&1; echo $? ); arm "MATRIX m3 under SCRIP_GC_STRESS=5" "$(same "$rc" mx.gc mx.oracle)"
 rc=$(m3 ctl); arm "CONTROL m3: live operand before 3-4 arms, call/INPUT/match arms keep the disjunction" "$(same "$rc" ctl.m3 ctl.oracle)"
 rc=$(m4 ctl); arm "CONTROL m4: live operand before 3-4 arms, call/INPUT/match arms keep the disjunction" "$(same "$rc" ctl.m4 ctl.oracle)"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }

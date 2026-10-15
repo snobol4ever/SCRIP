@@ -40,10 +40,10 @@ go :- writeq(na-tm{}.test_na()), nl, writeq(aa-tm{a:2}.test_aa()), nl, writeq(a2
     writeq(key_not_method-tm{test_na:k}.test_na), nl.
 :- initialization(go).
 PL
-want="$(cd "$D" && timeout 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | grep .)"
+want="$(cd "$D" && timeout -k 5 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | grep .)"
 [ "$(printf '%s\n' "$want" | grep -c .)" = 7 ] || refuse "swipl did not answer the seven lines: [$want]"
 m4ok=1   # a program SCRIP refuses to compile is this gate's red, never a refusal
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 && [ -s w.s ] \
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 && [ -s w.s ] \
   && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || m4ok=0
 red=0
 arm() {
@@ -54,7 +54,7 @@ arm() {
     if [ "$got" = "$want" ]; then echo "  $label GREEN: 7 of 7 lines as swipl"
     else echo "  $label RED: $n of 7 swipl lines missing or different"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
 }
-arm m3 timeout 20 "$B/scrip" --run w.pl < /dev/null
-if [ "$m4ok" = 1 ]; then arm m4 timeout 20 ./w.bin < /dev/null; else echo "  m4 RED: the program did not compile or link in mode 4"; red=1; fi
+arm m3 timeout -k 5 20 "$B/scrip" --run w.pl < /dev/null
+if [ "$m4ok" = 1 ]; then arm m4 timeout -k 5 20 ./w.bin < /dev/null; else echo "  m4 RED: the program did not compile or link in mode 4"; red=1; fi
 [ "$red" = 0 ] && echo "PASS $G"
 exit "$red"

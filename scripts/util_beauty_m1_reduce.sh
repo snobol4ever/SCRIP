@@ -26,7 +26,7 @@ for a in sys.argv[2:]:
     L[i:j] = ['                  %-14s =  %s' % (name, rhs)]
 open(p, 'w').write('\n'.join(L))
 PY
-sig=""; for i in 1 2 3 4 5; do ( cd "$D" && timeout 30 "$SCRIP" beauty.sno < m1_lad_empty.in >/dev/null 2>&1 ); sig="$sig $?"; done
+sig=""; for i in 1 2 3 4 5; do ( cd "$D" && timeout -k 5 30 "$SCRIP" beauty.sno < m1_lad_empty.in >/dev/null 2>&1 ); sig="$sig $?"; done
 printf 'overrides: %s\n' "$(printf '%s | ' "${OVR[@]}")"
 printf 'rc over 5 runs:%s\n' "$sig"
 case "$sig" in *139*) echo "RED -- wild jump (rip in ld.so DATA, bt destroyed).  See FINDING-2026-08-20-s184-*.md"; exit 1;; esac

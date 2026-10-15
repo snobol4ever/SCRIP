@@ -43,7 +43,7 @@ procedure main()
    write(twice(n));
 end
 EOF
-out="$(cd "$T" && timeout 600 bash "$HERE/monitor_run.sh" gate_icx_main.icn --oracle 2>&1)"; rc=$?
+out="$(cd "$T" && timeout -k 5 600 bash "$HERE/monitor_run.sh" gate_icx_main.icn --oracle 2>&1)"; rc=$?
 line="$(printf '%s\n' "$out" | grep -E '^\[monitor_run\] (AGREE|DIVERGE)|REFUSE' | tail -1 | cut -c1-200)"
 if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^\[monitor_run\] AGREE'; then
     echo "  $line"

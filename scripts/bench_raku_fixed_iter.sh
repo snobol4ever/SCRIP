@@ -63,12 +63,12 @@ rate() { awk -v n="$1" -v us="$2" 'BEGIN{ if (us+0>0) printf "%.4f", n/(us/1e6);
 run1() {
   local eng="$1" src="$2" rl xc user sys
   case "$eng" in
-    m3)     "$WRAP" timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
+    m3)     "$WRAP" timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
     m4)     local s="$W/$$.s" b="$W/$$.bin"
-            if ! (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$s" "$src" </dev/null >/dev/null 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
+            if ! (cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile -o "$s" "$src" </dev/null >/dev/null 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
             if ! (as --64 -o "$W/$$.o" "$s" 2>/dev/null && gcc -no-pie -o "$b" "$W/$$.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null); then echo "- LINKFAIL"; return; fi
-            "$WRAP" timeout "$T" "$b" "${DECL_SW[@]}" </dev/null >/dev/null 2>"$W/e.$$" ;;
-    rakudo) "$WRAP" timeout "$T" "$RAKU" -I"$W/prelude" -Mprelude_rakudo "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
+            "$WRAP" timeout -k 5 "$T" "$b" "${DECL_SW[@]}" </dev/null >/dev/null 2>"$W/e.$$" ;;
+    rakudo) "$WRAP" timeout -k 5 "$T" "$RAKU" -I"$W/prelude" -Mprelude_rakudo "$src" </dev/null >/dev/null 2>"$W/e.$$" ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.$$" 2>/dev/null | tail -1)
   [ -n "$rl" ] || { echo "- DNF"; return; }
@@ -91,7 +91,7 @@ if [ "$CALIBRATE" -eq 1 ]; then
     if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
     # single-shot correctness on m3 first -- a kernel that cannot even run once correctly gets no N.
     DECL_SW=(); dw=$(declared_switches_beside "$f") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }; [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"; undeclared_beside_named "$f" || true
-    o="$W/cal.$$"; (cd "$W" && timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$f" </dev/null >"$o" 2>/dev/null)
+    o="$W/cal.$$"; (cd "$W" && timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$f" </dev/null >"$o" 2>/dev/null)
     if ! cmp -s "$o" "$ref"; then echo "  $k: SKIP (m3 single-shot does not match .ref)"; continue; fi
     N=1; cpu=0
     while :; do

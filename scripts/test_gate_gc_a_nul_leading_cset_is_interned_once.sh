@@ -27,7 +27,7 @@ OUT="${RT_DIR:-$HERE/../out}"
 d=$(mktemp -d) || exit 2
 trap 'rm -rf "$d"' EXIT
 blk() { printf 'procedure main()\n   local i, c, s;\n   s := %s;\n   every i := 1 to %d do c := cset(s);\n   write(*c);\nend\n' "$1" "$2" > "$d/x.icn"
-    env SCRIP_HEAP_KB=4096 SCRIP_GC_EXERCISE=1 timeout 60s "$SCRIP" "$d/x.icn" </dev/null >/dev/null 2>"$d/e"; grep -m1 -oE "blocks=[0-9]+" "$d/e" | head -1 | cut -d= -f2; }
+    env SCRIP_HEAP_KB=4096 SCRIP_GC_EXERCISE=1 timeout -k 5 60s "$SCRIP" "$d/x.icn" </dev/null >/dev/null 2>"$d/e"; grep -m1 -oE "blocks=[0-9]+" "$d/e" | head -1 | cut -d= -f2; }
 n5=$(blk '"\^@abc"' 5); n500=$(blk '"\^@abc"' 500); p5=$(blk '"abc"' 5); p500=$(blk '"abc"' 500)
 [ -n "$n5" ] && [ -n "$n500" ] && [ -n "$p5" ] && [ -n "$p500" ] || { echo "⛔ REFUSED(2) [$GATE_NAME]: no blocks= reading -- the run did not report"; exit 2; }
 [ $((p500 - p5)) -le 2 ] || { echo "⛔ REFUSED(2) [$GATE_NAME]: the control arm grew by $((p500 - p5)) blocks, so the instrument is not measuring dedupe today"; exit 2; }
@@ -61,10 +61,10 @@ cat > "$d/want" <<'WANT'
 5
 '\x00' 1 0
 WANT
-(cd "$d" && timeout 20 "$SCRIP" c.icn </dev/null 2>/dev/null) > "$d/m3"; rc=$?
+(cd "$d" && timeout -k 5 20 "$SCRIP" c.icn </dev/null 2>/dev/null) > "$d/m3"; rc=$?
 if [ $rc -ne 0 ] || ! cmp -s "$d/want" "$d/m3"; then fails=$((fails + 1)); echo "  arm B m3 rc=$rc differs:"; diff "$d/want" "$d/m3" | head -10; fi
-if (cd "$d" && timeout 60 "$SCRIP" --compile -o c.s c.icn </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie c.s -L"$OUT" -lscrip_rt -lm -lpthread -Wl,-rpath,"$OUT" -o c.bin 2>/dev/null); then
-    (cd "$d" && timeout 20 ./c.bin </dev/null 2>/dev/null) > "$d/m4"; rc=$?
+if (cd "$d" && timeout -k 5 60 "$SCRIP" --compile -o c.s c.icn </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie c.s -L"$OUT" -lscrip_rt -lm -lpthread -Wl,-rpath,"$OUT" -o c.bin 2>/dev/null); then
+    (cd "$d" && timeout -k 5 20 ./c.bin </dev/null 2>/dev/null) > "$d/m4"; rc=$?
     if [ $rc -ne 0 ] || ! cmp -s "$d/want" "$d/m4"; then fails=$((fails + 1)); echo "  arm B m4 rc=$rc differs:"; diff "$d/want" "$d/m4" | head -10; fi
 else fails=$((fails + 1)); echo "  arm B m4 did not compile or link"; fi
 [ "$(grep -c '' "$d/want")" -eq 6 ] || { echo "⛔ REFUSED(2) [$GATE_NAME]: the expectation table is not the 6-line oracle cut"; exit 2; }

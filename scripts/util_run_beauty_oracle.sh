@@ -59,7 +59,7 @@ fi
 run_oracle() {
     # Must cd to the include dir so -INCLUDE 'global.inc' etc. resolve.
     # -bf: -b suppress banner, -f case-sensitive (per RULES.md SN-30, SETL4PATH).
-    (cd "$BEAUTY_INC" && SETL4PATH=. timeout "$TIMEOUT" "$ORACLE" -bf "$BEAUTY_SRC")
+    (cd "$BEAUTY_INC" && SETL4PATH=. timeout -k 5 "$TIMEOUT" "$ORACLE" -bf "$BEAUTY_SRC")
 }
 
 if [[ -z "$INPUT_FILE" || "$INPUT_FILE" == "-" ]]; then

@@ -52,11 +52,11 @@ want() { # $1 witness, $2 mode, $3 human label, $4 exact trailing text the line 
 }
 for w in gen nongen; do
   for m in 3 4; do
-    if [ "$m" = 3 ]; then err="$(timeout 20s "$SCRIP" "$TD/$w.icn" </dev/null 2>&1 >/dev/null)"
+    if [ "$m" = 3 ]; then err="$(timeout -k 5 20s "$SCRIP" "$TD/$w.icn" </dev/null 2>&1 >/dev/null)"
     else
       "$SCRIP" --compile -o "$TD/$w.s" "$TD/$w.icn" </dev/null >/dev/null 2>&1 || refuse "$w: mode-4 compile failed -- cannot measure"
       gcc -no-pie "$TD/$w.s" -o "$TD/$w.bin" -L "$ROOT/out" -Wl,-rpath,"$ROOT/out" -lscrip_rt -lm -lpthread >/dev/null 2>&1 || refuse "$w: mode-4 link failed -- cannot measure"
-      err="$(timeout 20s "$TD/$w.bin" </dev/null 2>&1 >/dev/null)"
+      err="$(timeout -k 5 20s "$TD/$w.bin" </dev/null 2>&1 >/dev/null)"
     fi
     [ -n "$err" ] || refuse "$w m$m: &trace produced NO stderr at all -- tracing is not running, so this gate measured nothing"
     if [ "$w" = gen ]; then

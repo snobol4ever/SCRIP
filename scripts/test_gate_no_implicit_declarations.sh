@@ -22,7 +22,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 WFLAGS="-Wimplicit-function-declaration -Wint-conversion -Wincompatible-pointer-types"
 TU_FLOOR=80
-if ! timeout 180 make -n -B > "$W/cmds.raw" 2>"$W/make.err"; then echo "REFUSES rc=2: make -n -B failed -- cannot obtain the real compile commands ($(tail -1 "$W/make.err"))"; exit 2; fi
+if ! timeout -k 5 180 make -n -B > "$W/cmds.raw" 2>"$W/make.err"; then echo "REFUSES rc=2: make -n -B failed -- cannot obtain the real compile commands ($(tail -1 "$W/make.err"))"; exit 2; fi
 grep -E '^[[:space:]]*gcc ' "$W/cmds.raw" > "$W/cmds.txt" || true
 : > "$W/diag.txt"; tus=0
 while IFS= read -r line; do

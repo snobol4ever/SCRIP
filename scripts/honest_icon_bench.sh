@@ -71,7 +71,7 @@ for name in $progs; do
   ( cd "$CORPUS" && "$ICONT" -s -o "$WORK/$name.icx" "$name.icn" ) >/dev/null 2>&1
   if [ -f "$WORK/$name.icx" ]; then
     for r in $(seq $REPS); do
-      t0=$(date +%s%N); ( ulimit -f "$CAP_BLOCKS"; exec timeout 60 "$ICONX" "$WORK/$name.icx" "${a[@]}" >"$WORK/$name.orc.out" 2>/dev/null <"$sin" ); rc=$?
+      t0=$(date +%s%N); ( ulimit -f "$CAP_BLOCKS"; exec timeout -k 5 60 "$ICONX" "$WORK/$name.icx" "${a[@]}" >"$WORK/$name.orc.out" 2>/dev/null <"$sin" ); rc=$?
       t1=$(date +%s%N); ms=$(( (t1-t0)/1000000 )); [ $ms -lt $obest ] && obest=$ms
     done
     [ $rc -eq 0 ] && o="OK ${obest}ms $(wc -l <"$WORK/$name.orc.out")L" || o="rc=$rc"
@@ -79,12 +79,12 @@ for name in $progs; do
 
   # ---- SCRIP m4 ----
   m="?"; mbest=999999; verdict="-"
-  ( cd "$CORPUS" && timeout 60 "$SCRIP" --compile --target=x86 "$name.icn" "${ld[@]}" \
+  ( cd "$CORPUS" && timeout -k 5 60 "$SCRIP" --compile --target=x86 "$name.icn" "${ld[@]}" \
       >"$WORK/$name.s" 2>"$WORK/$name.cerr" )
   if [ -s "$WORK/$name.s" ] && gcc -no-pie "$WORK/$name.s" -L"$RTDIR" -lscrip_rt \
         -Wl,-rpath,"$RTDIR" -o "$WORK/$name.bin" 2>"$WORK/$name.lerr"; then
     for r in $(seq $REPS); do
-      t0=$(date +%s%N); ( ulimit -f "$CAP_BLOCKS"; exec timeout 60 "$WORK/$name.bin" "${a[@]}" >"$WORK/$name.m4.out" 2>/dev/null <"$sin" ); rc=$?
+      t0=$(date +%s%N); ( ulimit -f "$CAP_BLOCKS"; exec timeout -k 5 60 "$WORK/$name.bin" "${a[@]}" >"$WORK/$name.m4.out" 2>/dev/null <"$sin" ); rc=$?
       t1=$(date +%s%N); ms=$(( (t1-t0)/1000000 )); [ $ms -lt $mbest ] && mbest=$ms
     done
     if [ $rc -eq 0 ]; then

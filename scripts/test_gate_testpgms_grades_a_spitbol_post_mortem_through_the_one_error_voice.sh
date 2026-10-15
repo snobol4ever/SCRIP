@@ -37,10 +37,10 @@ arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  RED  $
 
 mkdir -p "$T/fx"; printf "\tOUTPUT = 'before'\n\tINPUT(.INPUT,,72)\n\tOUTPUT = 'never'\nEND\n" > "$T/fx/testpm.spt"; : > "$T/fx/testpgms.in"
 printf 'entry,heap_kb,stack_kb,compile_args,run_args\ntestpm,131072,4096,,\n' > "$T/fx/ALL.csv"
-( cd "$T/fx" && timeout 30 "$O" -bf testpm.spt < testpgms.in > "$T/ora" 2>/dev/null ) || refuse "sbl -bf did not exit 0 on the fixture -- the premise moved"
+( cd "$T/fx" && timeout -k 5 30 "$O" -bf testpm.spt < testpgms.in > "$T/ora" 2>/dev/null ) || refuse "sbl -bf did not exit 0 on the fixture -- the premise moved"
 python3 "$H" "$T/ora" "$T/body" > "$T/pm" 2>"$T/pm.err"; hrc=$?
 [ "$hrc" = 0 ] || refuse "the helper does not accept sbl's post-mortem on the fixture (rc=$hrc: $(cat "$T/pm.err")) -- re-measure the shape"
-( cd "$T/fx" && timeout 30 "$ROOT/scrip" testpm.spt < testpgms.in > "$T/m3" 2>/dev/null )
+( cd "$T/fx" && timeout -k 5 30 "$ROOT/scrip" testpm.spt < testpgms.in > "$T/m3" 2>/dev/null )
 cmp -s "$T/body" "$T/m3" || refuse "SCRIP's mode-3 stdout differs from sbl's stripped body on the fixture -- the premise moved"
 echo "  W    premise: sbl stops the fixture at statement $(awk -F'\t' '$1=="STATEMENT"{print $2}' "$T/pm") with a post-mortem; SCRIP's stdout equals the body"
 
@@ -62,7 +62,7 @@ board() { printf '%s\n' "$1" | grep -E '^SPITBOL_TESTPGMS_BOARD '; }
 # a board field is read by its NAME, never by its neighbours (util_board_field_matcher_census.py, CEO-839): fld <board> <name>
 fld() { printf '%s\n' "$1" | tr ' ' '\n' | awk -F= -v k="$2" '$1==k {print $2; exit}'; }
 want() { local b="$1"; shift; local kv; for kv in "$@"; do [ "$(fld "$b" "${kv%%=*}")" = "${kv#*=}" ] || return 1; done; }
-out="$(cd "$ROOT" && SPITBOL_TESTPGMS_SUITE="$T/fx" timeout 300 bash "$RUNNER" 2>&1)"; rc=$?
+out="$(cd "$ROOT" && SPITBOL_TESTPGMS_SUITE="$T/fx" timeout -k 5 300 bash "$RUNNER" 2>&1)"; rc=$?
 b="$(board "$out")"
 { [ "$rc" = 0 ] && want "$b" scored=1 unscored=0 m3_pass=1 m3_fail=0 m4_pass=1 m4_fail=0 && printf '%s\n' "$out" | grep -q '^SPITBOL_TESTPGMS_POST_MORTEM graded=1 '; } \
   && arm G ok || arm G red "rc=$rc board [$b]; $(printf '%s\n' "$out" | grep -E 'REFUSE|RED ' | head -3 | tr '\n' ' ')"
@@ -71,10 +71,10 @@ REAL="$ROOT/scrip"; mkdir -p "$T/w1" "$T/w2"
 printf '#!/usr/bin/env bash\nfor a in "$@"; do [ "$a" = --compile ] && exec "%s" "$@"; done\ne=$(mktemp); "%s" "$@" 2>"$e"; rc=$?; sed "s/; statement [0-9]*/; statement 999/" "$e" >&2; rm -f "$e"; exit $rc\n' "$REAL" "$REAL" > "$T/w1/scrip"
 printf '#!/usr/bin/env bash\nfor a in "$@"; do [ "$a" = --compile ] && exec "%s" "$@"; done\n"%s" "$@" | grep -v "^before$"; exit ${PIPESTATUS[0]}\n' "$REAL" "$REAL" > "$T/w2/scrip"
 chmod +x "$T/w1/scrip" "$T/w2/scrip"
-out="$(cd "$ROOT" && SCRIP="$T/w1/scrip" SPITBOL_TESTPGMS_SUITE="$T/fx" timeout 300 bash "$RUNNER" 2>&1)"; rc=$?
+out="$(cd "$ROOT" && SCRIP="$T/w1/scrip" SPITBOL_TESTPGMS_SUITE="$T/fx" timeout -k 5 300 bash "$RUNNER" 2>&1)"; rc=$?
 { [ "$rc" = 1 ] && want "$(board "$out")" m3_pass=0 m3_fail=1 m4_pass=1 m4_fail=0 && printf '%s\n' "$out" | grep -q 'RED  testpm m3 .*the error voice does not'; } \
   && arm R1 ok || arm R1 red "rc=$rc board [$(board "$out")]; $(printf '%s\n' "$out" | grep -E 'REFUSE|RED ' | head -2 | tr '\n' ' ')"
-out="$(cd "$ROOT" && SCRIP="$T/w2/scrip" SPITBOL_TESTPGMS_SUITE="$T/fx" timeout 300 bash "$RUNNER" 2>&1)"; rc=$?
+out="$(cd "$ROOT" && SCRIP="$T/w2/scrip" SPITBOL_TESTPGMS_SUITE="$T/fx" timeout -k 5 300 bash "$RUNNER" 2>&1)"; rc=$?
 { [ "$rc" = 1 ] && want "$(board "$out")" m3_pass=0 m3_fail=1 && printf '%s\n' "$out" | grep -q 'RED  testpm m3 .*first diff'; } \
   && arm R2 ok || arm R2 red "rc=$rc board [$(board "$out")]; $(printf '%s\n' "$out" | grep -E 'REFUSE|RED ' | head -2 | tr '\n' ' ')"
 

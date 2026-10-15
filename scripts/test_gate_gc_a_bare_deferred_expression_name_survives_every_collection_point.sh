@@ -107,7 +107,7 @@ for n in $NAMES; do
     refuse "the committed ref for $n has DRIFTED from the oracle -- committed [$(tr '\n' '|' < "$WIT/$n.ref")] vs live [$(tr '\n' '|' < "$T/$n.live")]; a ref is cut from the oracle, never from our output"
   fi
   cp "$WIT/$n.ref" "$T/$n.ref"
-  ( cd "$T" && timeout 60s "$OLDPWD/scrip" --compile -o "$n.s" "$n.sno" < /dev/null > /dev/null 2>&1 \
+  ( cd "$T" && timeout -k 5 60s "$OLDPWD/scrip" --compile -o "$n.s" "$n.sno" < /dev/null > /dev/null 2>&1 \
       && gcc -m64 -no-pie -rdynamic "$n.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$n.x4" 2> "$n.ld.log" ) \
       || refuse "mode-4 compile or link failed for $n, so every m4 arm measured nothing ($(head -c 160 "$T/$n.ld.log" 2>/dev/null))"
 done
@@ -120,8 +120,8 @@ for n in $NAMES; do
   for m in m3 m4; do
     printf '    %-11s %-3s' "$n" "$m"; row=""
     for N in $PTS; do
-      if [ "$m" = m3 ]; then got="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout 60s "$OLDPWD/scrip" "$n.sno" < /dev/null 2>&1)"; rc=$?
-      else got="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout 60s "./$n.x4" < /dev/null 2>&1)"; rc=$?; fi
+      if [ "$m" = m3 ]; then got="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout -k 5 60s "$OLDPWD/scrip" "$n.sno" < /dev/null 2>&1)"; rc=$?
+      else got="$(cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_HEAP_MAX_MB=512 SCRIP_GC_STRESS="$N" timeout -k 5 60s "./$n.x4" < /dev/null 2>&1)"; rc=$?; fi
       arms=$((arms+1))
       if [ "$got" = "$want" ] && [ "$rc" = 0 ]; then row="$row   ."
       else

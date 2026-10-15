@@ -52,12 +52,12 @@ expected_for() {
 
 run_m2() {
     local sno="$1" exp="$2"
-    timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null
+    timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null
 }
 
 run_m3() {
     local sno="$1" exp="$2"
-    timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null
+    timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null
 }
 
 compile_mode4() {
@@ -89,7 +89,7 @@ for sno in "$PATDIR"/*.sno; do
     else FAIL_M3=$((FAIL_M3+1)); FAIL_LIST="$FAIL_LIST\n  FAIL-M3 $base (got: $actual3)"; fi
     bin="$WORKDIR/${base}.bin"
     if compile_mode4 "$sno" "$bin"; then
-        actual4=$(timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null)
+        actual4=$(timeout -k 5 "$TIMEOUT" "$bin" < /dev/null 2>/dev/null)
         if [ "$actual4" = "$exp" ]; then PASS_M4=$((PASS_M4+1))
         else FAIL_M4=$((FAIL_M4+1)); FAIL_LIST="$FAIL_LIST\n  FAIL-M4 $base (got: $actual4)"; fi
     else

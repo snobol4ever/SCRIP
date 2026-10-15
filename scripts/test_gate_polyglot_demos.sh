@@ -47,18 +47,18 @@ declare -a fail_lines=()
 # this project has been bitten by that exact stdout-only-capture confusion more than once.
 run_m3() {
     local src="$1"
-    OUT_LAST=$(timeout "$TIMEOUT" "$SCRIP" --run "$src" < /dev/null 2>/dev/null); RC_LAST=$?
+    OUT_LAST=$(timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$src" < /dev/null 2>/dev/null); RC_LAST=$?
 }
 
 run_m4() {
     local src="$1"
     local s o bin
     s=$(mktemp /tmp/pgdemo_XXXXXX.s); o="${s%.s}.o"; bin="${s%.s}.bin"
-    if timeout "$TIMEOUT" "$SCRIP" --compile --target=x86 -o "$s" "$src" < /dev/null 2>/dev/null \
+    if timeout -k 5 "$TIMEOUT" "$SCRIP" --compile --target=x86 -o "$s" "$src" < /dev/null 2>/dev/null \
        && as "$s" -o "$o" 2>/dev/null \
        && gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" \
               -Wl,--allow-shlib-undefined -lm -o "$bin" 2>/dev/null; then
-        OUT_LAST=$(timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null); RC_LAST=$?
+        OUT_LAST=$(timeout -k 5 "$TIMEOUT" "$bin" < /dev/null 2>/dev/null); RC_LAST=$?
     else
         OUT_LAST="<mode4-build-failed>"; RC_LAST=1
     fi

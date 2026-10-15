@@ -13,13 +13,13 @@ F="$1"; TAG="${2:-run}"
 b=$(basename "$F" .sno)
 W=/tmp/onew.$TAG; mkdir -p "$W"
 "$SBL" $(sbl_lang_flags) "$F" < /dev/null > "$W/$b.ora" 2>/dev/null; orc=$?
-timeout 15 "$ROOT/scrip" --run "$F" < /dev/null > "$W/$b.m3" 2>"$W/$b.m3.err"; m3rc=$?
+timeout -k 5 15 "$ROOT/scrip" --run "$F" < /dev/null > "$W/$b.m3" 2>"$W/$b.m3.err"; m3rc=$?
 if gate_oracle_stdout_match "$W/$b.ora" "$W/$b.m3" "$W/$b.m3.err" "$m3rc"; then m3="PASS"; else m3="rc=$m3rc/$orc"; cmp -s "$W/$b.ora" "$W/$b.m3" || m3="$m3,DIFF"; fi
-s=$(timeout 15 "$ROOT/scrip" --compile "$F" < /dev/null 2>/dev/null)
+s=$(timeout -k 5 15 "$ROOT/scrip" --compile "$F" < /dev/null 2>/dev/null)
 if [ -z "$s" ]; then m4="EMITFAIL"; else
     printf '%s' "$s" > "$W/$b.s"
     if as -o "$W/$b.o" "$W/$b.s" 2>"$W/$b.aserr" && gcc -no-pie -o "$W/$b.bin" "$W/$b.o" "$ROOT/out/libscrip_rt.so" -Wl,-rpath,"$ROOT/out" 2>"$W/$b.lderr"; then
-        timeout 15 "$W/$b.bin" < /dev/null > "$W/$b.m4" 2>"$W/$b.m4.err"; m4rc=$?
+        timeout -k 5 15 "$W/$b.bin" < /dev/null > "$W/$b.m4" 2>"$W/$b.m4.err"; m4rc=$?
         if gate_oracle_stdout_match "$W/$b.ora" "$W/$b.m4" "$W/$b.m4.err" "$m4rc"; then m4="PASS"; else m4="rc=$m4rc/$orc"; cmp -s "$W/$b.ora" "$W/$b.m4" || m4="$m4,DIFF"; fi
     else m4="ASM/LINK"; fi
 fi

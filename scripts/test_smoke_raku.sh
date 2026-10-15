@@ -24,12 +24,12 @@ raku() {
     local e3 e4 s4 bin4
     local rc3=0 rc4=0
     e3=$(mktemp /tmp/rk_XXXXXX.e3); e4=$(mktemp /tmp/rk_XXXXXX.e4)
-    a3=$(timeout 8 "$SCRIP" --run    "$tmp" 2>"$e3" </dev/null); rc3=$?
+    a3=$(timeout -k 5 8 "$SCRIP" --run    "$tmp" 2>"$e3" </dev/null); rc3=$?
     a4=""
     s4=$(mktemp /tmp/rk_XXXXXX.s); bin4=$(mktemp /tmp/rk_XXXXXX.bin); rm -f "$bin4"
-    if timeout 8 "$SCRIP" --compile --target=x86 "$tmp" >"$s4" 2>"$e4" </dev/null && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
+    if timeout -k 5 8 "$SCRIP" --compile --target=x86 "$tmp" >"$s4" 2>"$e4" </dev/null && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
         if gcc -no-pie "$s4" -L"${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$bin4" 2>/dev/null; then
-            a4=$(timeout 8 "$bin4" 2>/dev/null </dev/null); rc4=$?
+            a4=$(timeout -k 5 8 "$bin4" 2>/dev/null </dev/null); rc4=$?
         fi
     fi
     # [SMX] on stderr => the native mode DELIBERATELY REFUSES this rung (its bb_*.cpp template is not built
@@ -59,14 +59,14 @@ raku_dies() {
     local e3 e4 s4 bin4
     local rc3=0 rc4=0
     e3=$(mktemp /tmp/rk_XXXXXX.e3); e4=$(mktemp /tmp/rk_XXXXXX.e4)
-    a3=$(timeout 8 "$SCRIP" --run    "$tmp" 2>"$e3" </dev/null); rc3=$?
+    a3=$(timeout -k 5 8 "$SCRIP" --run    "$tmp" 2>"$e3" </dev/null); rc3=$?
     a4=""
     local crc4=0
     s4=$(mktemp /tmp/rk_XXXXXX.s); bin4=$(mktemp /tmp/rk_XXXXXX.bin); rm -f "$bin4"
-    timeout 8 "$SCRIP" --compile --target=x86 "$tmp" >"$s4" 2>"$e4" </dev/null; crc4=$?
+    timeout -k 5 8 "$SCRIP" --compile --target=x86 "$tmp" >"$s4" 2>"$e4" </dev/null; crc4=$?
     if [ "$crc4" -eq 0 ] && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
         if gcc -no-pie "$s4" -L"${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$bin4" 2>/dev/null; then
-            a4=$(timeout 8 "$bin4" 2>/dev/null </dev/null); rc4=$?
+            a4=$(timeout -k 5 8 "$bin4" 2>/dev/null </dev/null); rc4=$?
         fi
     elif [ "$crc4" -ne 0 ]; then
         rc4="$crc4"

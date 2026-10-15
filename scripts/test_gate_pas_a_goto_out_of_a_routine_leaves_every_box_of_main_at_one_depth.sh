@@ -44,7 +44,7 @@ for a in where: Box("*0x%x" % a, internal=True)
 gdb.execute("run < /dev/null > /dev/null 2>&1")
 print("DEPTH boxes=%d twice=%d %s" % (len(seen), len(bad), " | ".join(bad)))
 PY
-fpcrun() { ( cd "$T" && "$FPC" -Miso -v0 -o"$1.fpc" $1.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile $1"; exit 2; }; ( cd "$T" && timeout 20s ./$1.fpc </dev/null >"$T/$1.want" 2>/dev/null ); echo $?; }
+fpcrun() { ( cd "$T" && "$FPC" -Miso -v0 -o"$1.fpc" $1.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile $1"; exit 2; }; ( cd "$T" && timeout -k 5 20s ./$1.fpc </dev/null >"$T/$1.want" 2>/dev/null ); echo $?; }
 cat > "$T/loop.pas" <<'PAS'
 program loop(output);
 label 1;
@@ -86,17 +86,17 @@ PAS
 for p in loop cases; do
   frc=$(fpcrun $p)
   if [ "$p" = cases ] && [ -n "${FAIL_ONCE:-}" ]; then echo "corrupted by FAIL_ONCE" >> "$T/$p.want"; fi
-  ( cd "$T" && LD_LIBRARY_PATH="$RT_DIR" timeout 20s "$SCRIP" --compile -o "$p.s" "$p.pas" </dev/null >/dev/null 2>&1 && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) \
+  ( cd "$T" && LD_LIBRARY_PATH="$RT_DIR" timeout -k 5 20s "$SCRIP" --compile -o "$p.s" "$p.pas" </dev/null >/dev/null 2>&1 && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) \
     || { echo "  ⛔ $p: did not compile and link in mode 4"; RC=1; N=$((N + 3)); continue; }
   awk '/^main:/{m=1} m && /^n[0-9]+_[a-z_]+_bx:/{sub(":", "", $1); print $1}' "$T/$p.s" > "$T/$p.boxes"
   [ -s "$T/$p.boxes" ] || { echo "⛔ GATE REFUSE(2) [$G]: no box label follows main: in $p.s -- the depth arm has nothing to watch"; exit 2; }
-  d=$(cd "$T" && BOXES="$T/$p.boxes" LD_LIBRARY_PATH="$RT_DIR" timeout 120s "$GDB" -q -batch -x "$T/depth.py" "./$p.m4" 2>/dev/null | grep '^DEPTH' | tail -1); N=$((N + 1))
+  d=$(cd "$T" && BOXES="$T/$p.boxes" LD_LIBRARY_PATH="$RT_DIR" timeout -k 5 120s "$GDB" -q -batch -x "$T/depth.py" "./$p.m4" 2>/dev/null | grep '^DEPTH' | tail -1); N=$((N + 1))
   case "$d" in "DEPTH boxes="*" twice=0 "*) [ "$(echo "$d" | sed 's/DEPTH boxes=\([0-9]*\).*/\1/')" -gt 0 ] && echo "  $p depth: every box of main entered at one rsp (${d#DEPTH })" || { echo "  ⛔ $p depth: no box of main was hit ($d)"; RC=1; } ;;
     "DEPTH "*) echo "  ⛔ $p depth FAILED: ${d#DEPTH }"; RC=1 ;;
     *) echo "⛔ GATE REFUSE(2) [$G]: gdb gave no depth line for $p"; exit 2 ;; esac
   for m in m3 m4; do N=$((N + 1))
-    if [ "$m" = m3 ]; then ( cd "$T" && LD_LIBRARY_PATH="$RT_DIR" timeout 20s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); rc=$?
-    else ( cd "$T" && timeout 20s "./$p.m4" </dev/null >"$T/o" 2>"$T/e" ); rc=$?; fi
+    if [ "$m" = m3 ]; then ( cd "$T" && LD_LIBRARY_PATH="$RT_DIR" timeout -k 5 20s "$SCRIP" --run "$p.pas" </dev/null >"$T/o" 2>"$T/e" ); rc=$?
+    else ( cd "$T" && timeout -k 5 20s "./$p.m4" </dev/null >"$T/o" 2>"$T/e" ); rc=$?; fi
     if [ "$rc" = "$frc" ] && cmp -s "$T/$p.want" "$T/o"; then echo "  $p $m: rc=$rc, stdout byte-identical to fpc -Miso ($(wc -l < "$T/o") lines)"
     else echo "  ⛔ $p $m FAILED: rc=$rc (fpc $frc)"; diff "$T/$p.want" "$T/o" | head -6 | sed 's/^/      /'; echo "      err : $(head -1 "$T/e" | cut -c1-140)"; RC=1; fi; done
 done

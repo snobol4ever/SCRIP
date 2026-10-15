@@ -65,11 +65,11 @@ test(a) :- pt(mod_f, f(a, X1), X1), pt(mod_g, g(-a, X2), X2), pt(mod_h1, h(z, X3
 PL
 printf ':- initialization(run_tests).\n' > "$D/g.pl"
 norm() { grep -E '^\.?[a-z_0-9]+-' | sed 's/^\.//'; }
-want="$(for w in w1 w2; do (cd "$D" && timeout 20 "$SW" -q -g run_tests -t halt $w.pl < /dev/null 2>/dev/null | norm); done)"
+want="$(for w in w1 w2; do (cd "$D" && timeout -k 5 20 "$SW" -q -g run_tests -t halt $w.pl < /dev/null 2>/dev/null | norm); done)"
 [ "$(printf '%s\n' "$want" | grep -c .)" = 17 ] || refuse "swipl did not answer the seventeen lines: [$want]"
 m4ok=1   # a program SCRIP refuses to compile is this gate's red, never a refusal
 for w in w1 w2; do
-    ( cd "$D" && timeout 60 "$B/scrip" --compile -o $w.s "$PLUNIT" $w.pl g.pl < /dev/null > /dev/null 2>&1 && [ -s $w.s ] \
+    ( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o $w.s "$PLUNIT" $w.pl g.pl < /dev/null > /dev/null 2>&1 && [ -s $w.s ] \
       && gcc -m64 -no-pie $w.s -o $w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || m4ok=0
 done
 red=0
@@ -80,8 +80,8 @@ arm() {
     if [ "$got" = "$want" ]; then echo "  $label GREEN: 17 of 17 lines as swipl"
     else echo "  $label RED: $n of 17 swipl lines missing or different"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
 }
-m3run() { timeout 30 "$B/scrip" --run "$PLUNIT" "$1.pl" g.pl < /dev/null 2>/dev/null; }
-m4run() { timeout 30 "./$1.bin" < /dev/null 2>/dev/null; }
+m3run() { timeout -k 5 30 "$B/scrip" --run "$PLUNIT" "$1.pl" g.pl < /dev/null 2>/dev/null; }
+m4run() { timeout -k 5 30 "./$1.bin" < /dev/null 2>/dev/null; }
 arm m3 m3run
 if [ "$m4ok" = 1 ]; then arm m4 m4run; else echo "  m4 RED: a program did not compile or link in mode 4"; red=1; fi
 [ "$red" = 0 ] && echo "PASS $G"

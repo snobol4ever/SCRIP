@@ -111,18 +111,18 @@ cat > "$T/ev.in" <<'EOF'
 'abc' ? (SUCCEED . n 'a') . m
 'abc' ? ('a' | FENCE) $ n 'b'
 EOF
-want() { timeout 30 "$SBL" -bf "$T/$1.sno" < "$2" > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
+want() { timeout -k 5 30 "$SBL" -bf "$T/$1.sno" < "$2" > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
 want st /dev/null; want ct /dev/null; want ev "$T/ev.in"; want ap /dev/null
 grep -q '^stored fence cond: \[\]$' "$T/st.want" && grep -q '^static succeed cond: \[\]$' "$T/st.want" || refuse "sbl -bf no longer answers the static witness as cut (null captures)"
 fail=0; pass=0
 arm() { local n="$1" what="$2" got="$3" err="$4" w="$5"
     if cmp -s "$w" "$got" && ! grep -q 'CORRUPT CAPTURE ENTRY' "$err"; then pass=$((pass + 1)); echo "  arm $n PASS  $what"
     else fail=$((fail + 1)); echo "  arm $n FAIL  $what"; diff "$w" "$got" | head -8 | sed 's/^/      /'; grep -m2 'CORRUPT CAPTURE ENTRY' "$err" | cut -c1-160 | sed 's/^/      stderr: /'; fi; }
-m3() { timeout 30 "$SCRIP" "$T/$1.sno" < "$2" > "$T/$1.m3$3" 2> "$T/$1.e3$3"; }
+m3() { timeout -k 5 30 "$SCRIP" "$T/$1.sno" < "$2" > "$T/$1.m3$3" 2> "$T/$1.e3$3"; }
 m4() { : > "$T/$1.m4$3"; : > "$T/$1.e4$3"
-       if [ -x "$T/$1.bin" ] || { timeout 120 "$SCRIP" --compile -o "$T/$1.s" "$T/$1.sno" < /dev/null > /dev/null 2>&1 \
+       if [ -x "$T/$1.bin" ] || { timeout -k 5 120 "$SCRIP" --compile -o "$T/$1.s" "$T/$1.sno" < /dev/null > /dev/null 2>&1 \
           && gcc -no-pie "$T/$1.s" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$T/$1.bin" 2>/dev/null; }
-       then timeout 30 "$T/$1.bin" < "$2" > "$T/$1.m4$3" 2> "$T/$1.e4$3"; else echo COMPILE-FAILED > "$T/$1.m4$3"; fi; }
+       then timeout -k 5 30 "$T/$1.bin" < "$2" > "$T/$1.m4$3" 2> "$T/$1.e4$3"; else echo COMPILE-FAILED > "$T/$1.m4$3"; fi; }
 m3 st /dev/null ""; arm 1 "m3 static + stored: captures over SUCCEED and a stored bare FENCE assign what they matched" "$T/st.m3" "$T/st.e3" "$T/st.want"
 m4 st /dev/null ""; arm 2 "m4 static + stored: the same" "$T/st.m4" "$T/st.e4" "$T/st.want"
 m3 ev "$T/ev.in" ""; arm 3 "m3 EVAL: the same shapes and backtracking through them" "$T/ev.m3" "$T/ev.e3" "$T/ev.want"

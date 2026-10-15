@@ -46,7 +46,7 @@ run_program() {
         return
     fi
     local out
-    out=$(timeout 8 "$SCRIP_MONITOR" --monitor "$file" < /dev/null 2>&1)
+    out=$(timeout -k 5 8 "$SCRIP_MONITOR" --monitor "$file" < /dev/null 2>&1)
     local rc=$?
     if echo "$out" | grep -q "^DIVERGE at stmt\|scrip --monitor: DIVERGE"; then
         local div_line

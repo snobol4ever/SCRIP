@@ -183,16 +183,16 @@ for w in $WITNESSES; do
     ( cd "$WORK" && "$ICONT" -s -o "$w.oracle" "$w.icn" ) >/dev/null 2>&1
     [ -d "$WORK" ] && [ -w "$WORK" ] || { echo "⛔ REFUSE rc=2: the scratch dir '$WORK' is gone or unwritable before witness '$w'. ⭐ CHECKED BEFORE THE ORACLE ON PURPOSE: this condition used to surface as the oracle-compile refusal below, which names two causes -- malformed witness, broken oracle -- and the true cause is NEITHER."; REFUSED=1; break; }
     [ -x "$WORK/$w.oracle" ] || { echo "⛔ REFUSE rc=2: the ORACLE would not compile witness '$w' -- the witness is malformed, or the oracle is broken. Either way this harness cannot grade and will not guess."; REFUSED=1; break; }
-    ( cd "$WORK" && timeout 10s "./$w.oracle" </dev/null >"$w.oracle.out" 2>/dev/null ); orc=$?
+    ( cd "$WORK" && timeout -k 5 10s "./$w.oracle" </dev/null >"$w.oracle.out" 2>/dev/null ); orc=$?
     [ "$orc" -lt 124 ] || { echo "⛔ REFUSE rc=2: the ORACLE itself crashed/hung on witness '$w' (rc=$orc). There is no expected output to grade against."; REFUSED=1; break; }
-    m3="$(cd "$WORK" && run_reps "$WORK/$w.oracle.out" "$REPS" "$w.m3.out" timeout 10s "$ROOT/scrip" "$w.icn"; printf ' %s' "$REP_TALLY")"
+    m3="$(cd "$WORK" && run_reps "$WORK/$w.oracle.out" "$REPS" "$w.m3.out" timeout -k 5 10s "$ROOT/scrip" "$w.icn"; printf ' %s' "$REP_TALLY")"
     t3="${m3##* }"; m3="${m3%% *}"
     case "$m3" in NOWRITE) echo "⛔ REFUSE rc=2: the harness could not create its own output file for witness '$w' (mode 3) -- scratch dir '$WORK' gone or unwritable mid-run. Runs that never executed are NOT gradeable and are NOT non-crashes."; REFUSED=1; break;; esac
     m4="REFUSED"; t4="-"   # ⛔ do NOT reset t3 here -- it was already computed by the m3 run_reps above, and clobbering it printed "CRASH (crash 0/10)", a row that contradicts itself.
-    if ( cd "$WORK" && timeout 10s "$ROOT/scrip" --compile -o "$w.s" "$w.icn" </dev/null ) >/dev/null 2>&1 \
+    if ( cd "$WORK" && timeout -k 5 10s "$ROOT/scrip" --compile -o "$w.s" "$w.icn" </dev/null ) >/dev/null 2>&1 \
        && ( cd "$WORK" && as -o "$w.o" "$w.s" ) >/dev/null 2>&1 \
        && ( cd "$WORK" && gcc -o "$w.bin" "$w.o" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" ) >/dev/null 2>&1; then
-        m4="$(cd "$WORK" && run_reps "$WORK/$w.oracle.out" "$REPS" "$w.m4.out" timeout 10s "./$w.bin"; printf ' %s' "$REP_TALLY")"
+        m4="$(cd "$WORK" && run_reps "$WORK/$w.oracle.out" "$REPS" "$w.m4.out" timeout -k 5 10s "./$w.bin"; printf ' %s' "$REP_TALLY")"
         t4="${m4##* }"; m4="${m4%% *}"
         case "$m4" in NOWRITE) echo "⛔ REFUSE rc=2: the harness could not create its own output file for witness '$w' (mode 4) -- scratch dir '$WORK' gone or unwritable mid-run. Runs that never executed are NOT gradeable and are NOT non-crashes."; REFUSED=1; break;; esac
     else

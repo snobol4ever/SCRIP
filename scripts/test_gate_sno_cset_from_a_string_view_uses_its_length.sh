@@ -69,10 +69,10 @@ FDONE
         OUTPUT = 'sp ' MEM(SPAN(U))
 END
 SNO
-timeout 60 "$SBL" -bf "$T/w.sno" </dev/null > "$T/ora" 2>&1 || refuse "the sbl oracle could not run the witness -- cannot measure"
+timeout -k 5 60 "$SBL" -bf "$T/w.sno" </dev/null > "$T/ora" 2>&1 || refuse "the sbl oracle could not run the witness -- cannot measure"
 [ -s "$T/ora" ] || refuse "the oracle produced ZERO BYTES -- that is not a score"
 grep -q '^1 bcd$' "$T/ora" || refuse "the oracle did not produce the expected shape -- the witness or the oracle moved, re-measure rather than score"
-timeout 60 "$SCRIP" "$T/w.sno" </dev/null > "$T/got" 2>&1
+timeout -k 5 60 "$SCRIP" "$T/w.sno" </dev/null > "$T/got" 2>&1
 graded=0; fail=0
 while read -r tag; do
   graded=$((graded+1))

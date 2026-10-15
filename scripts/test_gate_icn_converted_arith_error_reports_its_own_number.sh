@@ -72,13 +72,13 @@ emit() {   # $1 = expression, $2 = out path
 }
 run_oracle() {   # $1 = src -> stdout, or empty on refusal
     ( cd "$W" && "$ICONT" -s -o oracle_bin "$1" >/dev/null 2>&1 ) || return 1
-    ( cd "$W" && timeout "$T" ./oracle_bin < /dev/null 2>/dev/null ); return 0
+    ( cd "$W" && timeout -k 5 "$T" ./oracle_bin < /dev/null 2>/dev/null ); return 0
 }
-run_m3() { timeout "$T" "$SCRIP" "$1" < /dev/null 2>/dev/null; }
+run_m3() { timeout -k 5 "$T" "$SCRIP" "$1" < /dev/null 2>/dev/null; }
 run_m4() {
     "$SCRIP" --compile -o "$W/w.s" "$1" < /dev/null > /dev/null 2>&1 || return 1
     gcc -m64 -no-pie "$W/w.s" -o "$W/w_m4" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread > /dev/null 2>&1 || return 1
-    timeout "$T" "$W/w_m4" < /dev/null 2>/dev/null; return 0
+    timeout -k 5 "$T" "$W/w_m4" < /dev/null 2>/dev/null; return 0
 }
 one_line() { tr '\n' ' ' | sed 's/  */ /g; s/ $//'; }
 echo "=== Icon converted-arithmetic-error gate (oracle-cut every run, both modes) ==="

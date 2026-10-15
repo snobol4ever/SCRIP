@@ -42,11 +42,11 @@ want_assertz100='100
 red=0
 run_one() {
     local w="$1" mode="$2" want="$3" got rc
-    if [ "$mode" = m3 ]; then got="$(timeout 60 "$SCRIP" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
+    if [ "$mode" = m3 ]; then got="$(timeout -k 5 60 "$SCRIP" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
     else
-        timeout 60 "$SCRIP" --compile -o "$TMPD/$w.s" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err" || refuse "m4 compile of $w failed: $(head -c 160 "$TMPD/err")"
+        timeout -k 5 60 "$SCRIP" --compile -o "$TMPD/$w.s" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err" || refuse "m4 compile of $w failed: $(head -c 160 "$TMPD/err")"
         gcc -m64 -no-pie "$TMPD/$w.s" -o "$TMPD/$w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err" || refuse "m4 link of $w failed: $(head -c 160 "$TMPD/err")"
-        got="$(timeout 60 "$TMPD/$w.bin" </dev/null 2>"$TMPD/err")"; rc=$?
+        got="$(timeout -k 5 60 "$TMPD/$w.bin" </dev/null 2>"$TMPD/err")"; rc=$?
         rm -f "$TMPD/$w.s" "$TMPD/$w.bin"
     fi
     if [ "$rc" = 0 ] && [ "$got" = "$want" ]; then echo "  ok  $w $mode"

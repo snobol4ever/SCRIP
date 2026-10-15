@@ -29,7 +29,7 @@ main :- counter(C), write(C), nl, assertz(made(7)), made(M), write(M), nl, st(S)
         G = (1 == 1), call(G), write(G), nl.
 :- initialization(main).
 EOP
-tr="$(timeout 30 "$SCRIP" --trace --run "$TMPD/dyn.pl" </dev/null 2>&1)"; trc=$?
+tr="$(timeout -k 5 30 "$SCRIP" --trace --run "$TMPD/dyn.pl" </dev/null 2>&1)"; trc=$?
 [ "$trc" = 0 ] || refuse "the traced run exited $trc -- ARM 1 measured nothing"
 printf '%s\n' "$tr" | grep -q 'st/1()' && printf '%s\n' "$tr" | grep -q 'RETURN st/1' || { echo "  RED ARM 1: the static st/1 fired no CALL/RETURN -- the plug went silent for everything"; red=$((red+1)); }
 for p in counter/1 made/1 ==/2; do
@@ -38,7 +38,7 @@ done
 [ "$red" = 0 ] && echo "  ok  ARM 1: st/1 traced; counter/1 (dynamic), made/1 (asserted) and a meta-called ==/2 silent"
 W="$HERE/monitor/witnesses/sync_step_prolog_4.pl"
 [ -r "$W" ] || refuse "no witness at $W"
-out="$(timeout 300 bash "$HERE/monitor_run.sh" "$W" --oracle 2>&1)"; mrc=$?
+out="$(timeout -k 5 300 bash "$HERE/monitor_run.sh" "$W" --oracle 2>&1)"; mrc=$?
 [ "$mrc" = 2 ] && refuse "monitor_run.sh could not measure: $(printf '%s' "$out" | grep -m1 REFUSE | cut -c1-200)"
 if [ "$mrc" = 0 ] && printf '%s' "$out" | grep -qE 'AGREE=[0-9]+ DIVERGE=0 UNGRADED=0'; then echo "  ok  ARM 2: $(printf '%s' "$out" | grep -oE 'AGREE=[0-9]+ DIVERGE=0 UNGRADED=0')"
 else echo "  RED ARM 2 (rc=$mrc): $(printf '%s' "$out" | grep -m1 -E 'VERDICT|DIVERGE' | cut -c1-200)"; red=$((red+1)); fi

@@ -45,8 +45,8 @@ for w in $WS; do
   if awk '/^__gva_names:/{on=1;next} on&&/\.quad[ \t]+0[ \t]*$/{z=1} on&&!/\.quad/{on=0} END{exit z?0:1}' "$T/$w.s" && grep -q 'rt_defer_open_cell' "$T/$w.s"; then reach="$reach $w"; fi
   for st in 1 3; do
     for m in m3 m4; do n=$((n + 1))
-      if [ $m = m3 ]; then ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout 60s "$SCRIP" --run "$WD/$w.sno" </dev/null > o.$w.$m.$st 2> e.$w.$m.$st ); r=$?
-      else ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout 60s "./$w.4" </dev/null > o.$w.$m.$st 2> e.$w.$m.$st ); r=$?; fi
+      if [ $m = m3 ]; then ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout -k 5 60s "$SCRIP" --run "$WD/$w.sno" </dev/null > o.$w.$m.$st 2> e.$w.$m.$st ); r=$?
+      else ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=$st timeout -k 5 60s "./$w.4" </dev/null > o.$w.$m.$st 2> e.$w.$m.$st ); r=$?; fi
       grep -q '^\[GC-FLIP\] plant:' "$T/e.$w.$m.$st" || noplant="$noplant $w/$m/s$st"
       if [ $r = 0 ] && cmp -s "$T/o.$w.$m.$st" "$WD/$w.ref" && ! grep -q 'ZGC-STALE' "$T/e.$w.$m.$st"; then band="$band ${w:7:14}/$m/s$st:ok"
       else band="$band ${w:7:14}/$m/s$st:rc$r"; bad=1; fi

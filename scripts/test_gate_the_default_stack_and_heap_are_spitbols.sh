@@ -34,8 +34,8 @@ if [ "$cap" = "$sd" ] && [ "$win" = "$si" ] && [ "$stk" = "$ss" ]; then echo "ok
 else echo "RED (1) SPITBOL's defaults -d${sd}k -i${si}k -s${ss}k differ from SCRIP's GC_HEAP_CAP_KB=$cap GC_HEAP_KB=$win RT_STACK_DEFAULT=${stk}k"; red=1; fi
 printf "        OUTPUT = 'hello'\nEND\n" > "$W/h.sno"
 ( cd "$W" && "$ROOT/scrip" --compile -o h.s h.sno < /dev/null > /dev/null 2>&1 && gcc h.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o h.bin 2>/dev/null ) || { echo "REFUSED(2): hello did not build in mode 4"; exit 2; }
-r3=$( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_ZETA_TELEM=1 timeout 20 "$ROOT/scrip" h.sno < /dev/null 2>&1 | grep -o 'arena=[0-9]*KB\|cap=[0-9]*KB' | tr '\n' ' ')
-r4=$( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_ZETA_TELEM=1 timeout 20 ./h.bin < /dev/null 2>&1 | grep -o 'arena=[0-9]*KB\|cap=[0-9]*KB' | tr '\n' ' ')
+r3=$( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_ZETA_TELEM=1 timeout -k 5 20 "$ROOT/scrip" h.sno < /dev/null 2>&1 | grep -o 'arena=[0-9]*KB\|cap=[0-9]*KB' | tr '\n' ' ')
+r4=$( cd "$W" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_ZETA_TELEM=1 timeout -k 5 20 ./h.bin < /dev/null 2>&1 | grep -o 'arena=[0-9]*KB\|cap=[0-9]*KB' | tr '\n' ' ')
 want="arena=${si}KB cap=${sd}KB "
 if [ "$r3" = "$want" ] && [ "$r4" = "$want" ]; then echo "ok  (2) a running program reports ${want% } in m3 and m4"
 else echo "RED (2) the running heap is not SPITBOL's: m3 [$r3] m4 [$r4], wanted [$want]"; red=1; fi
@@ -49,9 +49,9 @@ END
 SNO
 ( cd "$W" && "$ROOT/scrip" --compile -o d$d.s d$d.sno < /dev/null > /dev/null 2>&1 && gcc d$d.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o d$d.bin 2>/dev/null ) || { echo "REFUSED(2): the recursion witness $d did not build"; exit 2; }
 done
-ok20=$( cd "$W" && env -u SCRIP_STACK timeout 30 "$ROOT/scrip" d20000.sno < /dev/null 2>/dev/null; env -u SCRIP_STACK timeout 30 ./d20000.bin < /dev/null 2>/dev/null; timeout 30 "$SBL" -bf d20000.sno < /dev/null 2>/dev/null | head -1 )
-of3=$( cd "$W" && env -u SCRIP_STACK timeout 30 "$ROOT/scrip" d200000.sno < /dev/null 2>&1 | grep -c 'ERROR 246' ); of4=$( cd "$W" && env -u SCRIP_STACK timeout 30 ./d200000.bin < /dev/null 2>&1 | grep -c 'ERROR 246' ); ofs=$( cd "$W" && timeout 30 "$SBL" -bf d200000.sno < /dev/null 2>&1 | grep -c 'ERROR 246' )
-big=$( cd "$W" && timeout 60 "$ROOT/scrip" -s256m d200000.sno < /dev/null 2>/dev/null; timeout 60 ./d200000.bin -s256m < /dev/null 2>/dev/null )
+ok20=$( cd "$W" && env -u SCRIP_STACK timeout -k 5 30 "$ROOT/scrip" d20000.sno < /dev/null 2>/dev/null; env -u SCRIP_STACK timeout -k 5 30 ./d20000.bin < /dev/null 2>/dev/null; timeout -k 5 30 "$SBL" -bf d20000.sno < /dev/null 2>/dev/null | head -1 )
+of3=$( cd "$W" && env -u SCRIP_STACK timeout -k 5 30 "$ROOT/scrip" d200000.sno < /dev/null 2>&1 | grep -c 'ERROR 246' ); of4=$( cd "$W" && env -u SCRIP_STACK timeout -k 5 30 ./d200000.bin < /dev/null 2>&1 | grep -c 'ERROR 246' ); ofs=$( cd "$W" && timeout -k 5 30 "$SBL" -bf d200000.sno < /dev/null 2>&1 | grep -c 'ERROR 246' )
+big=$( cd "$W" && timeout -k 5 60 "$ROOT/scrip" -s256m d200000.sno < /dev/null 2>/dev/null; timeout -k 5 60 ./d200000.bin -s256m < /dev/null 2>/dev/null )
 if [ "$(echo $ok20)" = "20000 20000 20000" ] && [ "$of3" -ge 1 ] && [ "$of4" -ge 1 ] && [ "$ofs" -ge 1 ] && [ "$(echo $big)" = "200000 200000" ]; then echo "ok  (3) 20,000 deep answers in m3, m4 and SPITBOL at the defaults; 200,000 deep stops with ERROR 246 in m3, m4 and SPITBOL at the defaults and answers in m3 and m4 with -s256m"
 else echo "RED (3) the stack limit is not SPITBOL's: 20,000 deep m3/m4/sbl [$(echo $ok20)], 200,000 deep ERROR 246 m3=$of3 m4=$of4 sbl=$ofs, with -s256m m3/m4 [$(echo $big)]"; red=1; fi
 miss=$(python3 - "$S4E/corpus" <<'PY'

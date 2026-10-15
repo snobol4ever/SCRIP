@@ -39,7 +39,7 @@ B="${S4E_CORPUS:-$ROOT/corpus}/benchmarks/prolog/bench"
 mkdir -p "$TMPD/k"
 for p in "$B"/*.pl; do
     k="$(basename "$p" .pl)"; [ -f "$B/$k.ref" ] || continue
-    timeout 120 "$SCRIP" --compile -o "$TMPD/k/$k.s" "$p" </dev/null 2>/dev/null || refuse "$k.pl did not compile"
+    timeout -k 5 120 "$SCRIP" --compile -o "$TMPD/k/$k.s" "$p" </dev/null 2>/dev/null || refuse "$k.pl did not compile"
     cp "$p" "$TMPD/k/$k.pl"
 done
 regjumps() {   # $1 = dir of <k>.s + <k>.pl; prints "<kernels> <static loads> <exempt loads> <per-kernel list>", rc 2 when nothing measured
@@ -151,18 +151,18 @@ want_w_dyn='[1]
 for w in w_lco w_link w_perm w_dyn; do
     eval "want=\$want_$w"
     for mode in m3 m4; do
-        if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout 60 "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
+        if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout -k 5 60 "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
         else
-            timeout 120 "$SCRIP" --compile -o "$TMPD/$w.s" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err" || { echo "  RED $w $mode: the compile refused: $(head -c 160 "$TMPD/err")"; red=$((red+1)); continue; }
+            timeout -k 5 120 "$SCRIP" --compile -o "$TMPD/$w.s" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err" || { echo "  RED $w $mode: the compile refused: $(head -c 160 "$TMPD/err")"; red=$((red+1)); continue; }
             gcc -m64 -no-pie "$TMPD/$w.s" -o "$TMPD/$w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err" || { echo "  RED $w $mode: the assembler or linker refused: $(grep -m1 -E 'Error|error' "$TMPD/err" | head -c 200)"; red=$((red+1)); continue; }
-            got="$(cd "$TMPD" && timeout 60 "./$w.bin" </dev/null 2>"$TMPD/err")"; rc=$?
+            got="$(cd "$TMPD" && timeout -k 5 60 "./$w.bin" </dev/null 2>"$TMPD/err")"; rc=$?
             rm -f "$TMPD/$w.s" "$TMPD/$w.bin"
         fi
         if [ "$rc" = 0 ] && [ "$got" = "$want" ]; then echo "  ok  $w $mode"
         else echo "  RED $w $mode: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-200)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')] want [$(printf '%s' "$want" | tr '\n' '|' | cut -c1-120)]"; red=$((red+1)); fi
     done
 done
-got="$(cd "$TMPD" && SCRIP_M4_ALPHA_SEAL=0 timeout 60 "$SCRIP" w_lco.pl </dev/null 2>"$TMPD/err")"; rc=$?
+got="$(cd "$TMPD" && SCRIP_M4_ALPHA_SEAL=0 timeout -k 5 60 "$SCRIP" w_lco.pl </dev/null 2>"$TMPD/err")"; rc=$?
 if [ "$rc" = 0 ] && [ "$got" = "$want_w_lco" ]; then echo "  ok  w_lco m3 with the seal knob off"
 else echo "  RED w_lco m3 with the seal knob off: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-120)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi
 [ "$red" = 0 ] || { echo "GATE FAIL [$GATE_NAME]: $red arm(s) red"; exit 1; }

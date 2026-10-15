@@ -22,7 +22,7 @@ hook_sh = os.path.join(seat_root, "SCRIP", "scripts", "s4e_inbox_hook.sh")
 settings = os.path.join(seat_root, ".claude", "settings.json")
 if not os.path.exists(hook_sh):
     sys.exit("REFUSED: %s does not exist -- pull SCRIP first (landed 3970f54a)." % hook_sh)
-cmd = ("out=$(timeout 20 bash %s 2>&1); printf '%%s' \"$out\" | python3 -c "
+cmd = ("out=$(timeout -k 5 20 bash %s 2>&1); printf '%%s' \"$out\" | python3 -c "
        "'import json,sys; print(json.dumps({\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\","
        "\"additionalContext\":sys.stdin.read()}}))'" % hook_sh)
 entry = {"hooks": [{"type": "command", "command": cmd, "timeout": 30,

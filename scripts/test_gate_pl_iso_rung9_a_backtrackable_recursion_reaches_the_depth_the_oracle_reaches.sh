@@ -81,12 +81,12 @@ EOF
 run_one() {
     local mode="$1" src="$2" tag="$3"
     if [ "$mode" = m3 ]; then
-        ( ulimit -s "$PIN_KB"; timeout 300 "$SCRIP" "$src" </dev/null 2>&1 )
+        ( ulimit -s "$PIN_KB"; timeout -k 5 300 "$SCRIP" "$src" </dev/null 2>&1 )
     else
         ( ulimit -s "$PIN_KB"
-          timeout 300 "$SCRIP" --compile -o "$W/$tag.s" "$src" </dev/null 2>&1 >/dev/null || exit 9
+          timeout -k 5 300 "$SCRIP" --compile -o "$W/$tag.s" "$src" </dev/null 2>&1 >/dev/null || exit 9
           cd "$W" && gcc -no-pie "$tag.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o "$tag.bin" 2>&1 >/dev/null || exit 9
-          timeout 300 "./$tag.bin" </dev/null 2>&1 )
+          timeout -k 5 300 "./$tag.bin" </dev/null 2>&1 )
     fi
 }
 echo "rung 9 -- the frame: a backtrackable recursion must reach the depth the oracle reaches"

@@ -58,20 +58,20 @@ V="$T/retval.sno"
   printf '        OUTPUT = G("ignored")\n'
   printf '        OUTPUT = "tail"\n'
   printf 'END\n'; } > "$V"
-ORA="$( cd "$T" && timeout 30s "$O" -bf ownname.sno </dev/null 2>/dev/null )"; orc=$?
+ORA="$( cd "$T" && timeout -k 5 30s "$O" -bf ownname.sno </dev/null 2>/dev/null )"; orc=$?
 case "$ORA" in *tagR*) : ;; *) echo "GATE UNPROVEN(2) [$GATE_NAME]: oracle produced no tagR line (rc=$orc)"; exit 2;; esac
-ORB="$( cd "$T" && timeout 30s "$O" -bf retval.sno </dev/null 2>/dev/null )"; brc=$?
+ORB="$( cd "$T" && timeout -k 5 30s "$O" -bf retval.sno </dev/null 2>/dev/null )"; brc=$?
 case "$ORB" in *7*) : ;; *) echo "GATE UNPROVEN(2) [$GATE_NAME]: oracle produced no return value for the discriminator (rc=$brc)"; exit 2;; esac
-M3="$( cd "$T" && timeout 30s "$ROOT/scrip" ownname.sno </dev/null 2>/dev/null )"
-B3="$( cd "$T" && timeout 30s "$ROOT/scrip" retval.sno </dev/null 2>/dev/null )"
+M3="$( cd "$T" && timeout -k 5 30s "$ROOT/scrip" ownname.sno </dev/null 2>/dev/null )"
+B3="$( cd "$T" && timeout -k 5 30s "$ROOT/scrip" retval.sno </dev/null 2>/dev/null )"
 for src in ownname retval; do
-    ( cd "$T" && timeout 30s "$ROOT/scrip" --compile -o $src.s $src.sno </dev/null >/dev/null 2>&1 ) \
+    ( cd "$T" && timeout -k 5 30s "$ROOT/scrip" --compile -o $src.s $src.sno </dev/null >/dev/null 2>&1 ) \
       || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mode-4 compile failed ($src)"; exit 2; }
     ( cd "$T" && gcc -no-pie $src.s -o $src.bin -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) \
       || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mode-4 link failed ($src)"; exit 2; }
 done
-M4="$( cd "$T" && timeout 30s ./ownname.bin </dev/null 2>/dev/null )"
-B4="$( cd "$T" && timeout 30s ./retval.bin </dev/null 2>/dev/null )"
+M4="$( cd "$T" && timeout -k 5 30s ./ownname.bin </dev/null 2>/dev/null )"
+B4="$( cd "$T" && timeout -k 5 30s ./retval.bin </dev/null 2>/dev/null )"
 red=0; examined=0
 grade() {
     examined=$((examined+1))

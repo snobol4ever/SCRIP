@@ -31,7 +31,7 @@ for tree in $TREES; do
     for src in $(find "$D" -name "*.$EXT" | sort); do
         s="${src%.*}.s"; t="$TMPD/prog_regen.s"
         [ -z "$ALL" ] && [ ! -f "$s" ] && continue   # default: refresh EXISTING artifacts only (swi_tests etc. have no .s and are runtime suites, not artifact carriers); ALL=1 to mint new ones
-        if timeout 30 "$SCRIP" --compile "$src" > "$t" 2>/dev/null < /dev/null && [ -s "$t" ]; then
+        if timeout -k 5 30 "$SCRIP" --compile "$src" > "$t" 2>/dev/null < /dev/null && [ -s "$t" ]; then
             if gcc -c "$t" -o "$TMPD/prog_regen.o" 2>"$TMPD/prog_regen.aserr"; then
                 emitted=$((emitted+1))
                 if [ -f "$s" ] && cmp -s "$t" "$s"; then same=$((same+1)); else cp "$t" "$s"; changed=$((changed+1)); fi

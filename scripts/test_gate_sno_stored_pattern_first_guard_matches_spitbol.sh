@@ -21,9 +21,9 @@ FX="$HERE/fixtures/sno_first_guard"; T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"
 RC=0; N=0
 for w in abort_and_bare_fence twelve_shapes bound_and_reassigned alternations; do
     [ -f "$FX/$w.sno" ] && [ -f "$FX/$w.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: missing fixture $FX/$w.{sno,ref}"; exit 2; }
-    timeout 20 "$SCRIP" "$FX/$w.sno" < /dev/null > "$T/$w.m3" 2>&1
-    if timeout 20 "$SCRIP" --compile -o "$T/$w.s" "$FX/$w.sno" < /dev/null > /dev/null 2>&1 && gcc -m64 -no-pie "$T/$w.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$T/$w.bin" 2>/dev/null
-    then timeout 20 "$T/$w.bin" < /dev/null > "$T/$w.m4" 2>&1; else echo "<mode-4 build failed>" > "$T/$w.m4"; fi
+    timeout -k 5 20 "$SCRIP" "$FX/$w.sno" < /dev/null > "$T/$w.m3" 2>&1
+    if timeout -k 5 20 "$SCRIP" --compile -o "$T/$w.s" "$FX/$w.sno" < /dev/null > /dev/null 2>&1 && gcc -m64 -no-pie "$T/$w.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$T/$w.bin" 2>/dev/null
+    then timeout -k 5 20 "$T/$w.bin" < /dev/null > "$T/$w.m4" 2>&1; else echo "<mode-4 build failed>" > "$T/$w.m4"; fi
     for m in m3 m4; do N=$((N + 1))
         if cmp -s "$FX/$w.ref" "$T/$w.$m"; then echo "  PASS $w $m"; else RC=1; echo "  FAIL $w $m: $(diff "$FX/$w.ref" "$T/$w.$m" | grep -m2 '^[<>]' | tr '\n' ' ' | cut -c1-160)"; fi; done
 done

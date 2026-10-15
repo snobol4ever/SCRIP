@@ -74,14 +74,14 @@ gcc -shared -fPIC -o "$D/tshim.so" "$D/tshim.c" -ldl 2> /dev/null || refuse "the
 printf "\tT1 = TIME()\n\tT2 = TIME()\n\tOUTPUT = 'ok'\nEND\n" > "$D/t.sno"
 "$B/scrip" --compile -o "$D/t.s" "$D/t.sno" < /dev/null > /dev/null 2>&1 || refuse "the TIME() witness did not compile"
 gcc "$D/t.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$D/t.m4" 2> /dev/null || refuse "the TIME() witness did not link"
-m3=$(cd "$D" && LD_PRELOAD="$D/tshim.so" timeout 30 "$B/scrip" t.sno < /dev/null 2>&1 | sed -n 's/^TSHIM //p')
-m4=$(cd "$D" && LD_PRELOAD="$D/tshim.so" timeout 30 ./t.m4 < /dev/null 2>&1 | sed -n 's/^TSHIM //p')
+m3=$(cd "$D" && LD_PRELOAD="$D/tshim.so" timeout -k 5 30 "$B/scrip" t.sno < /dev/null 2>&1 | sed -n 's/^TSHIM //p')
+m4=$(cd "$D" && LD_PRELOAD="$D/tshim.so" timeout -k 5 30 ./t.m4 < /dev/null 2>&1 | sed -n 's/^TSHIM //p')
 [ -n "$m3" ] && [ -n "$m4" ] || refuse "the shim reported nothing (m3 '$m3', m4 '$m4') -- the witness did not run"
 [ "$m3" = 2 ] && [ "$m4" = 2 ] && say "GREEN arm 6: a preloaded rt_time_ns sees both TIME() calls in mode 3 ($m3) and mode 4 ($m4)" || say "RED   arm 6: a preloaded rt_time_ns sees $m3 (mode 3) and $m4 (mode 4) of 2 TIME() calls"
 make -s -C "$B" out/parser_icon > "$D/mk.txt" 2>&1 || refuse "out/parser_icon did not build ($(tail -1 "$D/mk.txt"))"
 printf 'procedure main()\n   every write(1 to 3);\nend\n' > "$D/p.icn"
 echo "$D/p.icn" > "$D/files.txt"
-PARSER_FILES="$D/files.txt" PARSER_LEX_CLOCK=1 timeout 30 "$B/out/parser_icon" > /dev/null 2> "$D/pm.txt"
+PARSER_FILES="$D/files.txt" PARSER_LEX_CLOCK=1 timeout -k 5 30 "$B/out/parser_icon" > /dev/null 2> "$D/pm.txt"
 lc=$(sed -n 's/.*lex_calls=\([0-9]*\).*/\1/p' "$D/pm.txt")
 [ -n "$lc" ] || refuse "out/parser_icon printed no lex_calls ($(head -c 200 "$D/pm.txt"))"
 [ "$lc" -gt 0 ] && say "GREEN arm 7: out/parser_icon's lexer clock counts $lc lexer calls" || say "RED   arm 7: out/parser_icon's lexer clock counts 0 lexer calls -- icn_lex_next is bound inside the runtime"

@@ -28,7 +28,7 @@ printf 'my @list = gather { take $_ for 1..10 };\nsay @list.map({ $_ * 2 }).elem
 printf ':- initialization(main).\np(X, Y) :- between(1, 4, X), Y = f(X), X >= 3.\nq(L) :- findall(X-Y, p(X, Y), L).\nmain :- q(L), write(L), nl, ( p(A, B), A > 3 -> write(A-B) ; write(none) ), nl, halt.\n' > "$W/c.pl"
 build() { ( cd "$W" && "$ROOT/scrip" --compile -o "$W/$1.s" "$W/$1.$2" < /dev/null > "$W/$1.cerr" 2>&1 ) || { echo "GATE REFUSED(2) [$G]: $1.$2 does not compile ($(head -c 120 "$W/$1.cerr"))"; exit 2; }
           gcc -no-pie -o "$W/$1.bin" "$W/$1.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread > "$W/$1.lerr" 2>&1 || { echo "GATE REFUSED(2) [$G]: $1 does not link"; exit 2; }
-          ( cd "$W" && timeout 60 "$W/$1.bin" < /dev/null > "$W/$1.m4" 2>&1 ); echo $? > "$W/$1.rc"; }
+          ( cd "$W" && timeout -k 5 60 "$W/$1.bin" < /dev/null > "$W/$1.m4" 2>&1 ); echo $? > "$W/$1.rc"; }
 build w raku; build g raku; build m raku; build c pl
 TOU='_to_β:.*pl_tr_unwind'
 bad=0
@@ -36,11 +36,11 @@ wm=$(grep -c -- "$TOU" "$W/w.s"); wk=$(grep -c -- '-134217728' "$W/w.s"); cm=$(g
 want_none=1; [ "${FAIL_ONCE:-0}" = 1 ] && want_none=0
 if { [ "$want_none" = 1 ] && [ "$wm" = 0 ] && [ "$wk" = 0 ]; } || { [ "$want_none" = 0 ] && [ "$wm" -gt 0 ]; }; then echo "  ok  (1) the Raku witness's .s carries $wm TO-beta trail unwind(s) and $wk trail-arena mask(s)"; else echo "  RED (1) the Raku witness's .s carries $wm TO-beta trail unwind(s) ($wk trail-arena masks) -- a TO box in a pinned Raku graph runs the Prolog trail"; bad=1; fi
 o=$(head -1 "$W/w.m4" | cut -c1-80); [ "$o" = 4 ] && [ "$(cat "$W/w.rc")" = 0 ] && echo "  ok  (1) mode 4 prints 4" || { echo "  RED (1) mode 4: rc=$(cat "$W/w.rc") '$o' (wanted 4)"; bad=1; }
-o3=$(cd "$W" && timeout 60 "$ROOT/scrip" "$W/w.raku" < /dev/null 2>&1 | head -1); [ "$o3" = 4 ] && echo "  ok  (1) mode 3 prints 4" || { echo "  RED (1) mode 3 prints '$o3'"; bad=1; }
+o3=$(cd "$W" && timeout -k 5 60 "$ROOT/scrip" "$W/w.raku" < /dev/null 2>&1 | head -1); [ "$o3" = 4 ] && echo "  ok  (1) mode 3 prints 4" || { echo "  RED (1) mode 3 prints '$o3'"; bad=1; }
 o=$(head -1 "$W/g.m4" | cut -c1-80); [ "$o" = 2 ] && [ "$(cat "$W/g.rc")" = 0 ] && echo "  ok  (2) a gather with no for, walked by first, prints 2 in mode 4" || { echo "  RED (2) mode 4: rc=$(cat "$W/g.rc") '$o' (wanted 2)"; bad=1; }
 o=$(head -1 "$W/m.m4" | cut -c1-80); [ "$o" = 10 ] && [ "$(cat "$W/m.rc")" = 0 ] && echo "  ok  (3) map over a gather-filled array prints 10 in mode 4" || { echo "  RED (3) mode 4: rc=$(cat "$W/m.rc") '$o' (wanted 10)"; bad=1; }
-( cd "$W" && timeout 60 swipl -q "$W/c.pl" < /dev/null > "$W/c.ref" 2>/dev/null )
-( cd "$W" && timeout 60 "$ROOT/scrip" "$W/c.pl" < /dev/null > "$W/c.m3" 2>/dev/null )
+( cd "$W" && timeout -k 5 60 swipl -q "$W/c.pl" < /dev/null > "$W/c.ref" 2>/dev/null )
+( cd "$W" && timeout -k 5 60 "$ROOT/scrip" "$W/c.pl" < /dev/null > "$W/c.m3" 2>/dev/null )
 if [ "$cm" -gt 0 ] && [ -s "$W/c.ref" ] && cmp -s "$W/c.ref" "$W/c.m3" && cmp -s "$W/c.ref" "$W/c.m4"; then echo "  ok  (4) the Prolog control keeps its TO-beta trail unwind ($cm) and answers as swipl in both modes: $(tr '\n' ' ' < "$W/c.ref")"
 else echo "  RED (4) the Prolog control: masks=$cm swipl='$(tr '\n' ' ' < "$W/c.ref")' m3='$(tr '\n' ' ' < "$W/c.m3")' m4='$(head -2 "$W/c.m4" | tr '\n' ' ')'"; bad=1; fi
 TREE="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)"

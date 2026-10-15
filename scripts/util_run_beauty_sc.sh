@@ -54,9 +54,9 @@ done
 # Run scrip on driver.sc with given input
 run_scrip() {
     if [[ -z "$INPUT_FILE" || "$INPUT_FILE" == "-" ]]; then
-        timeout "$TIMEOUT" "$SCRIP" "$MODE" "$DRIVER" < /dev/stdin 2>/dev/null || true
+        timeout -k 5 "$TIMEOUT" "$SCRIP" "$MODE" "$DRIVER" < /dev/stdin 2>/dev/null || true
     else
-        timeout "$TIMEOUT" "$SCRIP" "$MODE" "$DRIVER" < "$INPUT_FILE" 2>/dev/null || true
+        timeout -k 5 "$TIMEOUT" "$SCRIP" "$MODE" "$DRIVER" < "$INPUT_FILE" 2>/dev/null || true
     fi
 }
 

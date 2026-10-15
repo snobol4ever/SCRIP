@@ -129,7 +129,7 @@ echo "SELF-TEST comparison logic: identical sets correctly named as no differenc
 # --- ARM 0: THE BASELINE -- shipped arena, SCRIP_GC_STRESS unset (stress=0), no knobs at all. Axis point
 # (arena=shipped, stress=0) of ceo-1040's declared grid. Every other arm below is diffed against THIS, measured
 # fresh on this pinned tree, never against a remembered number from a past sitting.
-out0="$(timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"
+out0="$(timeout -k 5 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"
 board0="$(printf '%s\n' "$out0" | grep -m1 '^SUITE_BOARD')" || { printf '%s\n' "$out0" | tail -5 >&2; refuse "ARM 0 baseline (shipped arena, no stress) printed no SUITE_BOARD line"; }
 echo "ARM 0 BASELINE arena=shipped stress=0 $board0"
 tot0=$(printf '%s\n' "$board0" | grep -o 'total=[0-9]*' | cut -d= -f2)
@@ -147,14 +147,14 @@ run_band_arm() { # $1=label(tiny|shipped) $2=KB ("" = shipped/unset, since CEO-1
     local albl="shipped(128KB compiled-in)"; [ -n "$mb" ] && albl="${mb}KB"
     for f in "$W/e"/*.sc; do
         b="${f%.sc}"; in="$b.in"; [ -f "$in" ] || in=/dev/null
-        if [ -n "$mb" ]; then n=$(SCRIP_ZETA_TELEM=1 SCRIP_HEAP_KB="$mb" SCRIP_GC_STRESS="$st" timeout 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null | grep -c '^\[ZGC\] regeneration')
-        else n=$(SCRIP_ZETA_TELEM=1 SCRIP_GC_STRESS="$st" timeout 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null | grep -c '^\[ZGC\] regeneration'); fi
+        if [ -n "$mb" ]; then n=$(SCRIP_ZETA_TELEM=1 SCRIP_HEAP_KB="$mb" SCRIP_GC_STRESS="$st" timeout -k 5 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null | grep -c '^\[ZGC\] regeneration')
+        else n=$(SCRIP_ZETA_TELEM=1 SCRIP_GC_STRESS="$st" timeout -k 5 20 "$SCRIP" "$f" < "$in" 2>&1 >/dev/null | grep -c '^\[ZGC\] regeneration'); fi
         [ "$n" -gt 0 ] && { coll=$((coll + 1)); regens=$((regens + n)); }
     done
     echo "ARM $label DECIDABILITY arena=${albl} stress=$st entries=$rows collectors=$coll non_collectors=$((rows - coll)) regenerations=$regens"
     [ "$coll" -gt 0 ] || refuse "ZERO of $rows entries collected under ARM $label (arena=${albl} stress=$st) -- not reported: this board would be a statement about the corpus, not the collector"
-    if [ -n "$mb" ]; then out="$(SCRIP_HEAP_KB="$mb" SCRIP_GC_STRESS="$st" timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"
-    else out="$(SCRIP_GC_STRESS="$st" timeout 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"; fi
+    if [ -n "$mb" ]; then out="$(SCRIP_HEAP_KB="$mb" SCRIP_GC_STRESS="$st" timeout -k 5 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"
+    else out="$(SCRIP_GC_STRESS="$st" timeout -k 5 3000 python3 "$HERE/corpus_suite_harness.py" run "$M/ALL.sc" "$M/ALL.ref" --lang snocone --modes m3,m4 2>&1)"; fi
     board="$(printf '%s\n' "$out" | grep -m1 '^SUITE_BOARD')" || { printf '%s\n' "$out" | tail -5 >&2; refuse "ARM $label at arena=${albl} stress=$st printed no SUITE_BOARD line"; }
     echo "ARM $label arena=${albl} stress=$st $board"
     tot=$(printf '%s\n' "$board" | grep -o 'total=[0-9]*' | cut -d= -f2)

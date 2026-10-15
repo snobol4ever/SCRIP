@@ -56,7 +56,7 @@ refx() { local i; : > "$2"; for ((i=0; i<$3; i++)); do cat "$1" >> "$2"; done; }
 # run MODE COUNT_OR_BUDGET TAG -> sets R_ITERS R_WORK R_CPU R_ELAPSED R_EXIT, stdout in $W/$TAG.out
 run() {
   local e
-  ( cd "$KD" && env "${HEAPENV[@]}" BENCH_MODE="$1" BENCH_N="$2" BENCH_BUDGET_MS="$2" "$WRAP" timeout "$RTO" "${CMD[@]}" <"$IN" >"$W/$3.out" 2>"$W/$3.err" )
+  ( cd "$KD" && env "${HEAPENV[@]}" BENCH_MODE="$1" BENCH_N="$2" BENCH_BUDGET_MS="$2" "$WRAP" timeout -k 5 "$RTO" "${CMD[@]}" <"$IN" >"$W/$3.out" 2>"$W/$3.err" )
   e="$(grep -m1 '^BENCH_RUSAGE:' "$W/$3.err")"
   fld() { local v; v="$(sed -n "s/.*[ :]$1=\([0-9]*\).*/\1/p" <<<"$e")"; echo "${v:-0}"; }
   R_EXIT="$(sed -n 's/.* exit=\([0-9-]*\).*/\1/p' <<<"$e")"; R_EXIT="${R_EXIT:-124}"

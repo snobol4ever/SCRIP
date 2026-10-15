@@ -54,12 +54,12 @@ begin
    undeclaredthing := 1
 end.
 PAS
-( cd "$T" && timeout 20s "$SCRIP" --compile -o "$T/w.s" w.pas </dev/null >"$T/co" 2>&1 ); crc=$?
+( cd "$T" && timeout -k 5 20s "$SCRIP" --compile -o "$T/w.s" w.pas </dev/null >"$T/co" 2>&1 ); crc=$?
 if [ "$crc" != 0 ]; then
   echo "  ⛔ GATE REFUSE(2) [$G]: the minted witness is refused AT COMPILE TIME (rc=$crc), so it cannot tell a compile-only arm from a running one"; exit 2; fi
 echo "  compile-only arm on the minted runtime-only witness: rc=$crc (blind, as expected -- this is what the old arm measured)"
 ( cd "$T" && cc -m64 -no-pie w.s -o w -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ GATE REFUSE(2) [$G]: the minted witness compiled but would not link"; exit 2; }
-( cd "$T" && timeout 20s ./w </dev/null >"$T/ro" 2>&1 ); rrc=$?
+( cd "$T" && timeout -k 5 20s ./w </dev/null >"$T/ro" 2>&1 ); rrc=$?
 if [ "$rrc" -ne 0 ] && [ -n "$(cat "$T/ro")" ]; then
   echo "  compile-link-run arm on the same witness: rc=$rrc with a diagnostic -- the shipped arm SEES what compile-only cannot"
 else

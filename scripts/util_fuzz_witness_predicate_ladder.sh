@@ -72,12 +72,12 @@ echo
 # disagreed because each quietly chose its own axis is the whole reason this row exists.
 one_run() { # $1=mode $2=sno -> "<rc> <stdout-sha>"
     local mode="$1" sno="$2" out rc
-    if [ "$mode" = m3 ]; then out="$(cd "$W" && timeout "$TIMEOUT" "$SCRIP" "$sno" </dev/null 2>/dev/null)"; rc=$?
+    if [ "$mode" = m3 ]; then out="$(cd "$W" && timeout -k 5 "$TIMEOUT" "$SCRIP" "$sno" </dev/null 2>/dev/null)"; rc=$?
     else
         local s="$W/m4.s" b="$W/m4.bin"; rm -f "$s" "$b"
-        if ! (cd "$W" && timeout "$TIMEOUT" "$SCRIP" --compile -o "$s" "$sno" </dev/null >/dev/null 2>&1); then echo "CC CC"; return; fi
+        if ! (cd "$W" && timeout -k 5 "$TIMEOUT" "$SCRIP" --compile -o "$s" "$sno" </dev/null >/dev/null 2>&1); then echo "CC CC"; return; fi
         if ! gcc -no-pie "$s" -o "$b" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm >/dev/null 2>&1; then echo "LINK LINK"; return; fi
-        out="$(cd "$W" && timeout "$TIMEOUT" "$b" </dev/null 2>/dev/null)"; rc=$?
+        out="$(cd "$W" && timeout -k 5 "$TIMEOUT" "$b" </dev/null 2>/dev/null)"; rc=$?
     fi
     printf '%s %s\n' "$rc" "$(printf '%s' "$out" | md5sum | cut -c1-12)"
 }

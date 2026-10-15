@@ -32,14 +32,14 @@ for f in $SIBS; do
     src="$P/leafsib_$f.sno"; ref="$P/leafsib_$f.ref"
     [ -f "$src" ] || continue
     tot=$((tot+1))
-    timeout 20 ./scrip --run "$src" < /dev/null > /tmp/ls_m3.out 2>/dev/null; r3=$?
+    timeout -k 5 20 ./scrip --run "$src" < /dev/null > /tmp/ls_m3.out 2>/dev/null; r3=$?
     d3="FAIL"; if [ $r3 -eq 0 ] && cmp -s /tmp/ls_m3.out "$ref"; then d3="pass"; pass3=$((pass3+1)); fi
     rm -f /tmp/ls_bin /tmp/ls.s
-    timeout 90 ./scrip --compile "$src" < /dev/null > /tmp/ls.s 2>/dev/null; rc=$?
+    timeout -k 5 90 ./scrip --compile "$src" < /dev/null > /tmp/ls.s 2>/dev/null; rc=$?
     d4="FAIL"; r4="c$rc"
     if [ $rc -eq 0 ] && [ -s /tmp/ls.s ]; then
         if gcc -no-pie -o /tmp/ls_bin /tmp/ls.s out/libscrip_rt.so > /dev/null 2>&1; then
-            timeout 20 /tmp/ls_bin < /dev/null > /tmp/ls_m4.out 2>/dev/null; r4=$?
+            timeout -k 5 20 /tmp/ls_bin < /dev/null > /tmp/ls_m4.out 2>/dev/null; r4=$?
             if [ "$r4" -eq 0 ] && cmp -s /tmp/ls_m4.out "$ref"; then d4="pass"; pass4=$((pass4+1)); fi
         else r4="gcc"; fi
     fi

@@ -58,9 +58,9 @@ while IFS= read -r sno; do
         SKIP=$((SKIP+1)); FAIL_LIST="$FAIL_LIST $slug(skip)"; continue
     fi
     if [ -f "$input" ]; then
-        got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < "$input" 2>/dev/null || true)
+        got=$(SNO_LIB="$INC" timeout -k 5 "$TIMEOUT" "$bin" < "$input" 2>/dev/null || true)
     else
-        got=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
+        got=$(SNO_LIB="$INC" timeout -k 5 "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
     fi
     exp=$(cat "$ref")
     if [ "$got" = "$exp" ]; then

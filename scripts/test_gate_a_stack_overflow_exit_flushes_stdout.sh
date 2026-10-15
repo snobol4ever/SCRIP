@@ -29,10 +29,10 @@ ICN
 ( cd "$T" && "$ICONT" -s -o so.x so.icn ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: icont refuses the witness"; exit 2; }
 ( cd "$T" && ./so.x </dev/null > want 2>/dev/null ); wrc=$?
 [ "$(wc -l < "$T/want")" -eq 50000 ] && [ "$wrc" -ne 0 ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle did not print 50,000 lines and fail (rc $wrc)"; exit 2; }
-( cd "$T" && timeout 120 "$SCRIP" so.icn </dev/null > m3 2> m3.err ); r3=$?
-( cd "$T" && timeout 120 "$SCRIP" --compile -o so.s so.icn </dev/null >/dev/null 2>&1 && gcc -no-pie -o so.4 so.s -L"$ROOT/out" -lscrip_rt -lm -lstdc++ -lpthread -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) \
+( cd "$T" && timeout -k 5 120 "$SCRIP" so.icn </dev/null > m3 2> m3.err ); r3=$?
+( cd "$T" && timeout -k 5 120 "$SCRIP" --compile -o so.s so.icn </dev/null >/dev/null 2>&1 && gcc -no-pie -o so.4 so.s -L"$ROOT/out" -lscrip_rt -lm -lstdc++ -lpthread -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) \
   || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 build of the witness failed -- cannot measure"; exit 2; }
-( cd "$T" && timeout 120 ./so.4 </dev/null > m4 2> m4.err ); r4=$?
+( cd "$T" && timeout -k 5 120 ./so.4 </dev/null > m4 2> m4.err ); r4=$?
 fail=0
 for m in m3 m4; do rc=$([ $m = m3 ] && echo $r3 || echo $r4)
   if [ "$rc" -eq 1 ] && cmp -s "$T/$m" "$T/want" && grep -q 'ERROR 246' "$T/$m.err"; then echo "  $m PASS: 50000 lines byte-identical to iconx, rc 1, ERROR 246"

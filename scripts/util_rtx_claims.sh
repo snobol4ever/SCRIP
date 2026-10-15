@@ -145,7 +145,7 @@ if [ -n "${CORPUS_ROOT:-}" ]; then
       mkdir -p "$TMP/shard_$lang"
       xargs -a "$TMP/progs_$lang" -P 8 -I{} bash -c '
           out="$1/$(echo "$2" | md5sum | cut -c1-16)"
-          timeout 25 "$3" --compile "$2" 2>/dev/null \
+          timeout -k 5 25 "$3" --compile "$2" 2>/dev/null \
             | grep -aoE "call[[:space:]]+[^[:space:],;()]+@PLT" > "$out" || true
         ' _ "$TMP/shard_$lang" {} "$SCRIP_ROOT/scrip"
       cat "$TMP/shard_$lang"/* 2>/dev/null \

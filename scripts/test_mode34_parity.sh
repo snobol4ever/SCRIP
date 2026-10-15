@@ -20,14 +20,14 @@ WORKDIR=$(mktemp -d); trap 'rm -rf "$WORKDIR"' EXIT
 
 run_m3() {  # sno -> stdout on fd1 ; returns 0 if produced output
     local sno="$1"
-    SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null
+    SNO_LIB="$INC" timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null
 }
 run_m4() {  # sno -> stdout on fd1 ; returns 1 if compile/link fails
     local sno="$1" tmp; tmp="$(mktemp -d)"
     SNO_LIB="$INC" "$SCRIP" --compile "$sno" > "$tmp/p.s" 2>/dev/null || { rm -rf "$tmp"; return 1; }
     (cd "$HERE/.." && gcc -c "$tmp/p.s" -o "$tmp/p.o" 2>/dev/null) || { rm -rf "$tmp"; return 1; }
     gcc -no-pie "$tmp/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$tmp/p.bin" 2>/dev/null || { rm -rf "$tmp"; return 1; }
-    SNO_LIB="$INC" timeout "$TIMEOUT" "$tmp/p.bin" < /dev/null 2>/dev/null; local rc=$?
+    SNO_LIB="$INC" timeout -k 5 "$TIMEOUT" "$tmp/p.bin" < /dev/null 2>/dev/null; local rc=$?
     rm -rf "$tmp"; return 0
 }
 

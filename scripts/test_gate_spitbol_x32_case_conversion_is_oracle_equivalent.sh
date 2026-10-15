@@ -50,8 +50,8 @@ for src in "$PKG"/*.spt; do
         inp=/dev/null; [ "$arm" = text ] && inp="$TMP/text.in"
         rm -rf "$TMP/a" "$TMP/b"
         cp -r "$TMP/orig.tree" "$TMP/a" && cp -r "$PKG" "$TMP/b" || { echo "REFUSE: cannot stage run directories"; exit 2; }
-        ( cd "$TMP/a" && timeout "$TO" "$SBL"             "$f" ) <"$inp" >"$TMP/a.out" 2>"$TMP/a.err"; rca=$?
-        ( cd "$TMP/b" && timeout "$TO" "$SBL" $LANG_FLAGS "$f" ) <"$inp" >"$TMP/b.out" 2>"$TMP/b.err"; rcb=$?
+        ( cd "$TMP/a" && timeout -k 5 "$TO" "$SBL"             "$f" ) <"$inp" >"$TMP/a.out" 2>"$TMP/a.err"; rca=$?
+        ( cd "$TMP/b" && timeout -k 5 "$TO" "$SBL" $LANG_FLAGS "$f" ) <"$inp" >"$TMP/b.out" 2>"$TMP/b.err"; rcb=$?
         [ "$rca" = "$rcb" ] || why="${why:+$why; }$arm: rc $rca vs $rcb"
         cmp -s "$TMP/a.out" "$TMP/b.out" || why="${why:+$why; }$arm: stdout differs ($(diff "$TMP/a.out" "$TMP/b.out" | grep -c '^[<>]') lines)"
         cmp -s "$TMP/a.err" "$TMP/b.err" || why="${why:+$why; }$arm: stderr differs"

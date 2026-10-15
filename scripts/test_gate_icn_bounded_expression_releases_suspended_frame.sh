@@ -31,10 +31,10 @@ end
 ICN
 printf '1000000\n1200000\n' > "$T/want"
 fail=0
-timeout 120 "$SCRIP" "$T/r5.icn" </dev/null > "$T/m3" 2>&1; rc3=$?
+timeout -k 5 120 "$SCRIP" "$T/r5.icn" </dev/null > "$T/m3" 2>&1; rc3=$?
 if [ $rc3 -ne 0 ] || ! cmp -s "$T/m3" "$T/want"; then echo "⛔ FAIL m3 rc=$rc3: $(head -c 160 "$T/m3" | tr '\n' ' ')"; fail=1; fi
 if "$SCRIP" --compile "$T/r5.icn" > "$T/r5.s" 2>/dev/null && gcc -c "$T/r5.s" -o "$T/r5.o" 2>/dev/null && gcc "$T/r5.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/r5.bin" 2>/dev/null; then
-  timeout 120 "$T/r5.bin" </dev/null > "$T/m4" 2>&1; rc4=$?
+  timeout -k 5 120 "$T/r5.bin" </dev/null > "$T/m4" 2>&1; rc4=$?
   if [ $rc4 -ne 0 ] || ! cmp -s "$T/m4" "$T/want"; then echo "⛔ FAIL m4 rc=$rc4: $(head -c 160 "$T/m4" | tr '\n' ' ')"; fail=1; fi
 else echo "⛔ REFUSE(2): mode-4 build of the witness failed -- cannot measure"; exit 2; fi
 cat > "$T/r6.icn" <<'ICN'
@@ -52,10 +52,10 @@ procedure main();
 end
 ICN
 printf '200000\n200000\n200000\n200000\n200000\n200001\n200000\n' > "$T/want6"
-timeout 120 "$SCRIP" "$T/r6.icn" </dev/null > "$T/m3r6" 2>&1; rc3=$?
+timeout -k 5 120 "$SCRIP" "$T/r6.icn" </dev/null > "$T/m3r6" 2>&1; rc3=$?
 if [ $rc3 -ne 0 ] || ! cmp -s "$T/m3r6" "$T/want6"; then echo "⛔ FAIL r6 m3 rc=$rc3: $(head -c 160 "$T/m3r6" | tr '\n' ' ')"; fail=1; fi
 if "$SCRIP" --compile "$T/r6.icn" > "$T/r6.s" 2>/dev/null && gcc -c "$T/r6.s" -o "$T/r6.o" 2>/dev/null && gcc "$T/r6.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/r6.bin" 2>/dev/null; then
-  timeout 120 "$T/r6.bin" </dev/null > "$T/m4r6" 2>&1; rc4=$?
+  timeout -k 5 120 "$T/r6.bin" </dev/null > "$T/m4r6" 2>&1; rc4=$?
   if [ $rc4 -ne 0 ] || ! cmp -s "$T/m4r6" "$T/want6"; then echo "⛔ FAIL r6 m4 rc=$rc4: $(head -c 160 "$T/m4r6" | tr '\n' ' ')"; fail=1; fi
 else echo "⛔ REFUSE(2): mode-4 build of the r6 witness failed -- cannot measure"; exit 2; fi
 [ $fail = 0 ] && echo "✅ PASS: a bounded expression releases its suspended callee frame at omega -- every do (1,200,000 laps) and repeat/while/until bodies, conditions, next and a resumed repeat-suspend generator (7 x 200,000 laps), both modes, no ERROR 246 (CEO-456 R5)"

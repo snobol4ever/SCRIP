@@ -44,7 +44,7 @@ DB="$W/results.tsv"; printf 'ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang
 echo "    fixture: 4 entries cut from the rungs; outside = $N2 (shard 2 of 2), $N3 (shard 1 of 2)"
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: a --shard run checks the outside list against the unsharded suite, and the shards sum to the whole ==="
-run(){ S4E_PROGRESS_DB="$DB" timeout 180 python3 "$H" run "$F" "$R" --modes m3 "$@" 2>&1; }
+run(){ S4E_PROGRESS_DB="$DB" timeout -k 5 180 python3 "$H" run "$F" "$R" --modes m3 "$@" 2>&1; }
 fld(){ grep -oE " $2=[0-9]+" <<<"$1" | head -1 | cut -d= -f2; }
 out1="$(run --shard 1/2)"; rc1=$?; b1="$(grep '^SUITE_BOARD ' <<<"$out1")"
 [ -n "${FAIL_ONCE:-}" ] && b1=""

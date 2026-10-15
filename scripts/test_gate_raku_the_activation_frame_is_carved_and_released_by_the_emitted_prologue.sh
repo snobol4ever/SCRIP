@@ -51,7 +51,7 @@ echo "arm 1: the six helpers named at no call site in the mode-4 text of the Rak
 sites=0; nk=0
 for k in rakudo-tools-02-10-000-sub-dispatches rakudo-tools-03-10-000-multi-dispatches rakudo-tools-04-10-000-method-dispatches merge-sort insertion-sort point_class_add point_class_add2 parse-json mb-for_param_sigil string-escape; do
     f="$S4E/corpus/benchmarks/raku/$k.raku"; [ -f "$f" ] || { echo "⛔ REFUSE(rc=2) [$GATE_NAME]: kernel $f absent"; exit 2; }
-    SCRIP_DIAG=0 timeout 120 "$ROOT/scrip" --compile -o "$W/$k.s" "$f" < /dev/null > /dev/null 2>&1 || { echo "⛔ REFUSE(rc=2) [$GATE_NAME]: kernel $k did not compile"; exit 2; }
+    SCRIP_DIAG=0 timeout -k 5 120 "$ROOT/scrip" --compile -o "$W/$k.s" "$f" < /dev/null > /dev/null 2>&1 || { echo "⛔ REFUSE(rc=2) [$GATE_NAME]: kernel $k did not compile"; exit 2; }
     nk=$((nk + 1)); GATE_EXAMINED=$((GATE_EXAMINED + 1))
     c=$(grep -cE 'call[[:space:]]+(qword ptr \[rip \+ )?(rt_jmp_frame_lexprep2|rt_icn_zframe_args_install|rt_arg_stage|rt_proc_drop_frame_h|rt_proc_call_open_det|rt_nret_fix_tiny)\b' "$W/$k.s")
     sites=$((sites + c))
@@ -207,16 +207,16 @@ echo "arm 2: the witnesses against Rakudo, both modes"
 ck() {
     local w="$1" m="$2" out rc
     GATE_EXAMINED=$((GATE_EXAMINED + 1))
-    if [ "$m" = m3 ]; then out="$(timeout 60 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"; rc=$?
+    if [ "$m" = m3 ]; then out="$(timeout -k 5 60 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"; rc=$?
     else
-        out="$(timeout 60 "$W/$w.bin" 2>/dev/null </dev/null)"; rc=$?
+        out="$(timeout -k 5 60 "$W/$w.bin" 2>/dev/null </dev/null)"; rc=$?
     fi
     if [ "$rc" -ge 124 ]; then printf '  FAIL %-9s %s: died rc=%s\n' "$w" "$m" "$rc"; fails=$((fails + 1)); return; fi
     if [ "$out" = "$(cat "$W/$w.ref")" ]; then printf '  ok   %-9s %s\n' "$w" "$m"
     else printf '  FAIL %-9s %s: got [%s] want [%s]\n' "$w" "$m" "$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-110)" "$(tr '\n' ' ' < "$W/$w.ref" | cut -c1-110)"; fails=$((fails + 1)); fi
 }
 for w in calls byname strings gcstress shapes; do
-    if ! timeout 60 "$ROOT/scrip" --compile -o "$W/$w.s" "$W/$w.raku" </dev/null >"$W/$w.cerr" 2>&1 \
+    if ! timeout -k 5 60 "$ROOT/scrip" --compile -o "$W/$w.s" "$W/$w.raku" </dev/null >"$W/$w.cerr" 2>&1 \
        || ! gcc -o "$W/$w.bin" "$W/$w.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread >>"$W/$w.cerr" 2>&1; then
         printf '  FAIL %-9s m4: did not build (%s)\n' "$w" "$(head -1 "$W/$w.cerr" | cut -c1-110)"; fails=$((fails + 1)); continue; fi
     for m in m3 m4; do ck "$w" "$m"; done
@@ -225,7 +225,7 @@ echo "arm 3: the collector over the argument blocks: calls and gcstress under SC
 unset SCRIP_HEAP_MB; export SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-128}" SCRIP_HEAP_MAX_MB="${SCRIP_HEAP_MAX_MB:-512}"
 for w in calls gcstress strings; do for s in 1 3 5; do for m in m3 m4; do
     GATE_EXAMINED=$((GATE_EXAMINED + 1))
-    if [ "$m" = m3 ]; then out="$(SCRIP_GC_STRESS=$s timeout 120 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"; else out="$(SCRIP_GC_STRESS=$s timeout 120 "$W/$w.bin" 2>/dev/null </dev/null)"; fi
+    if [ "$m" = m3 ]; then out="$(SCRIP_GC_STRESS=$s timeout -k 5 120 "$ROOT/scrip" --run "$W/$w.raku" 2>/dev/null </dev/null)"; else out="$(SCRIP_GC_STRESS=$s timeout -k 5 120 "$W/$w.bin" 2>/dev/null </dev/null)"; fi
     if [ "$out" = "$(cat "$W/$w.ref")" ]; then :; else printf '  FAIL %-9s %s stress=%s: wrong answer under the collector\n' "$w" "$m" "$s"; fails=$((fails + 1)); fi
 done; done; done
 [ "$fails" -eq 0 ] && echo "  ok   calls gcstress strings x stress 1 3 5 x m3 m4"

@@ -36,11 +36,11 @@ for w in w_str w_flt; do
     eval "want=\$want_$w"
     for mode in m3 m4; do
         t0=$(date +%s.%N)
-        if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout "$BOUND" "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
+        if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout -k 5 "$BOUND" "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
         else
-            timeout 120 "$SCRIP" --compile -o "$TMPD/$w.s" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err" || { echo "  RED $w $mode: the compile refused: $(head -c 160 "$TMPD/err")"; red=$((red+1)); continue; }
+            timeout -k 5 120 "$SCRIP" --compile -o "$TMPD/$w.s" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err" || { echo "  RED $w $mode: the compile refused: $(head -c 160 "$TMPD/err")"; red=$((red+1)); continue; }
             gcc -m64 -no-pie "$TMPD/$w.s" -o "$TMPD/$w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err" || { echo "  RED $w $mode: the assembler or linker refused: $(grep -m1 -E 'Error|error' "$TMPD/err" | head -c 200)"; red=$((red+1)); continue; }
-            got="$(cd "$TMPD" && timeout "$BOUND" "./$w.bin" </dev/null 2>"$TMPD/err")"; rc=$?
+            got="$(cd "$TMPD" && timeout -k 5 "$BOUND" "./$w.bin" </dev/null 2>"$TMPD/err")"; rc=$?
             rm -f "$TMPD/$w.s" "$TMPD/$w.bin"
         fi
         dur=$(awk -v a="$t0" -v b="$(date +%s.%N)" 'BEGIN{printf "%.1f", b-a}')

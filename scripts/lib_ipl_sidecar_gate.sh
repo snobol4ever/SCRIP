@@ -43,7 +43,7 @@ sg_ref() { echo "$SG_T/home.$(basename "$1")/corpus/packages/icon/ipl/progs/$2.r
 sg_verdict() {
   local sd="$1" n="$2" plant="$3" tag minted=0 v3=FAIL v4=FAIL rc3 rc4 want=""
   tag="$(basename "$sd")"; sg_fresh_pkg "$tag"; "$plant"
-  S4E_HOME="$SG_H" timeout 300 bash "$sd/util_cut_icon_ipl_refs.sh" --apply --only "$n" > "$SG_T/cut.$tag.log" 2>&1
+  S4E_HOME="$SG_H" timeout -k 5 300 bash "$sd/util_cut_icon_ipl_refs.sh" --apply --only "$n" > "$SG_T/cut.$tag.log" 2>&1
   SG_REF="$SG_PKG/progs/$n.ref"; [ -f "$SG_REF" ] && minted=1
   want="$( . "$sd/lib_icon_ipl_isolation.sh"; ipl_rc_declared "$SG_PKG/progs/$n.icn" )" || want=MALFORMED
   if [ "$minted" -eq 1 ]; then

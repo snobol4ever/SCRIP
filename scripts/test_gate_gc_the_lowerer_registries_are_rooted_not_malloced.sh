@@ -90,11 +90,11 @@ for fn in lc_vec_push bb_src_note; do
 done
 if [ "$bad" -eq 0 ]; then echo "  fact-rule PASS (lc_vec_push and bb_src_note grow through ct_grow in the compile-time arena -- never the collected heap, never a C allocator)"; else RC=1; fi
 cp "$W" "$T/w.sno"
-( cd "$T" && timeout 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
+( cd "$T" && timeout -k 5 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
 [ -s "$T/w.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced an EMPTY ref"; exit 2; }
 red=0; ran=0
 for st in 5 30 200; do
-    ( cd "$T" && SCRIP_ZETA_TELEM=1 SCRIP_GC_STRESS=$st timeout 20s "$SCRIP" w.sno </dev/null > m3.out 2> m3.err ); r=$?; ran=$((ran+1))
+    ( cd "$T" && SCRIP_ZETA_TELEM=1 SCRIP_GC_STRESS=$st timeout -k 5 20s "$SCRIP" w.sno </dev/null > m3.out 2> m3.err ); r=$?; ran=$((ran+1))
     c=$(grep -c regeneration "$T/m3.err" || true)
     if [ "$r" -eq 0 ] && cmp -s "$T/m3.out" "$T/w.ref" && [ "$c" -ge 1 ]; then :
     else echo "  m3 stress=$st FAIL (rc=$r collections=$c -- zero collections is a VACUOUS run and counts as red, because this witness exists to lower a program while the heap slides under it)"; red=$((red+1)); fi

@@ -105,7 +105,7 @@ ck $([ "$cst" -ge 2 ] && echo ok || echo no) "(c2) the view hands pass B only CO
 mkdir -p "$T/lib"; ln -sf "$AUD_SO" "$T/lib/libscrip_rt.so"
 WITS="scripts/gc_witnesses/hb_coexpr_genp_scan.icn scripts/gc_witnesses/hb_cv_spine_plain_redo.icn scripts/gc_witnesses/hb_file_name_unrooted.icn scripts/gc_witnesses/hb_blob_span_defer.sno"
 for w in $WITS; do [ -f "$ROOT/$w" ] || refuse "$w is missing -- this gate's declared witness set is not on the tree"; done
-run_aud() { LD_LIBRARY_PATH="$T/lib" SCRIP_ZETA_TELEM=1 SCRIP_GC_STRESS="${2:-3}" env ${3:+SCRIP_GC_AUDIT_B=$3} timeout 300s "$ROOT/scrip" "$ROOT/$1" 2>"$T/e" ; }
+run_aud() { LD_LIBRARY_PATH="$T/lib" SCRIP_ZETA_TELEM=1 SCRIP_GC_STRESS="${2:-3}" env ${3:+SCRIP_GC_AUDIT_B=$3} timeout -k 5 300s "$ROOT/scrip" "$ROOT/$1" 2>"$T/e" ; }
 W1=scripts/gc_witnesses/hb_coexpr_genp_scan.icn
 o_off=$(run_aud "$W1" 3 ""); c_off=$(grep -c "^\[ZGC\] regeneration" "$T/e" || true); cp "$T/e" "$T/e.off"
 o_on=$(run_aud "$W1" 3 1); c_on=$(grep -c "^\[ZGC\] regeneration" "$T/e" || true); cp "$T/e" "$T/e.on"

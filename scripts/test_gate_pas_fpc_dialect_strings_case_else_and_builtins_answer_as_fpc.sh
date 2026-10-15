@@ -38,14 +38,14 @@ T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0; ARMS=0
 grade() { local p="$1" mode="$2" args="${3:-}" d="$T/$1"
   mkdir -p "$d/fpc"; cp "$T/$p.pas" "$d/"; [ -f "$T/$p.in" ] && cp "$T/$p.in" "$d/" || : > "$d/$p.in"
-  ( cd "$d" && "$FPC" $mode -v0 -FE"$d/fpc" -FU"$d/fpc" -o"$d/fpc/$p" "$p.pas" >/dev/null 2>&1 && rm -f zz_out.txt && timeout 20s "$d/fpc/$p" $args < "$p.in" | head -c 8000 ) > "$d/want" 2>/dev/null
+  ( cd "$d" && "$FPC" $mode -v0 -FE"$d/fpc" -FU"$d/fpc" -o"$d/fpc/$p" "$p.pas" >/dev/null 2>&1 && rm -f zz_out.txt && timeout -k 5 20s "$d/fpc/$p" $args < "$p.in" | head -c 8000 ) > "$d/want" 2>/dev/null
   [ -s "$d/want" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced no output for arm $p"; exit 2; }
   if [ -n "${FAIL_ONCE:-}" ] && [ "$p" = s1 ]; then echo "corrupted by FAIL_ONCE" >> "$d/want"; fi
-  ( cd "$d" && timeout 20s "$SCRIP" --compile -o "$p.s" "$p.pas" </dev/null >/dev/null 2>"$d/m4.err" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ arm $p m4: did not compile and link"; RC=1; }
+  ( cd "$d" && timeout -k 5 20s "$SCRIP" --compile -o "$p.s" "$p.pas" </dev/null >/dev/null 2>"$d/m4.err" && cc -m64 -no-pie "$p.s" -o "$p.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 ) || { echo "  ⛔ arm $p m4: did not compile and link"; RC=1; }
   ARMS=$((ARMS + 1))
   for m in m3 m4; do
-    if [ "$m" = m3 ]; then ( cd "$d" && rm -f zz_out.txt && timeout 20s "$SCRIP" --run "$p.pas" ${args:+-- $args} < "$p.in" 2>"$d/$m.err" | head -c 8000 > "$d/$m.out" )
-    else ( cd "$d" && rm -f zz_out.txt && timeout 20s "./$p.m4" $args < "$p.in" 2>"$d/$m.err" | head -c 8000 > "$d/$m.out" ); fi
+    if [ "$m" = m3 ]; then ( cd "$d" && rm -f zz_out.txt && timeout -k 5 20s "$SCRIP" --run "$p.pas" ${args:+-- $args} < "$p.in" 2>"$d/$m.err" | head -c 8000 > "$d/$m.out" )
+    else ( cd "$d" && rm -f zz_out.txt && timeout -k 5 20s "./$p.m4" $args < "$p.in" 2>"$d/$m.err" | head -c 8000 > "$d/$m.out" ); fi
     if cmp -s "$d/want" "$d/$m.out"; then echo "  arm $p $m: byte-identical to fpc ${mode:-(default mode)}"
     else echo "  ⛔ arm $p $m FAILED"; echo "      want: $(tr '\n' '|' < "$d/want" | cut -c1-300)"; echo "      got : $(tr '\n' '|' < "$d/$m.out" | cut -c1-300)"
          echo "      err : $(tr '\n' '|' < "$d/$m.err" | cut -c1-200)"; RC=1; fi

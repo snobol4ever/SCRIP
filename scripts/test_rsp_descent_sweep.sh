@@ -37,13 +37,13 @@ classify_one() {
   case "$f" in /*) src=$f;; *) src=$ROOT/$f;; esac
   tag=$$-$(printf '%s' "$f" | md5sum | cut -c1-10)
   S=/tmp/dsw.$tag.s; X=/tmp/dsw.$tag.x; CE=/tmp/dsw.$tag.cerr; GE=/tmp/dsw.$tag.gerr; RE=/tmp/dsw.$tag.rerr
-  ORA=$(cd "$SWEEP_CORPUS" && timeout 30 "$SWEEP_ORACLE" $SWEEP_ORACLE_FLAGS "$src" </dev/null 2>/dev/null); ost=$?
+  ORA=$(cd "$SWEEP_CORPUS" && timeout -k 5 30 "$SWEEP_ORACLE" $SWEEP_ORACLE_FLAGS "$src" </dev/null 2>/dev/null); ost=$?
   ORA=$(printf '%s\n' "$ORA" | sweep_norm)
   st=
-  if ! SNO_LIB="$SWEEP_CORPUS" timeout 30 "$ROOT/scrip" --compile "$src" </dev/null > $S 2>$CE; then st=COMPILE_FAIL
+  if ! SNO_LIB="$SWEEP_CORPUS" timeout -k 5 30 "$ROOT/scrip" --compile "$src" </dev/null > $S 2>$CE; then st=COMPILE_FAIL
   elif ! gcc -no-pie $S -L "$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o $X 2>$GE; then st=ASM_FAIL
   else
-    RO=$(timeout "$SWEEP_RUN_TO" $X </dev/null 2>$RE); rc=$?
+    RO=$(timeout -k 5 "$SWEEP_RUN_TO" $X </dev/null 2>$RE); rc=$?
     RO=$(printf '%s\n' "$RO" | sweep_norm)
     if grep -q "BOMB-RETURN" $RE; then
       case "$ORA" in "$RO"*) st=DESCENT_OK;; *) st=BOMB_RETURN_BAD;; esac

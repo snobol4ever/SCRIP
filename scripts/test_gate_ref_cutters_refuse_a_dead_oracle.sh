@@ -111,7 +111,7 @@ grep -q "ora_rc is not None and ora_rc < 0" "$HERE/util_build_package_suite.py" 
     || ck no "util_build_package_suite.py no longer carries the 'ora_rc < 0' guard this arm models"
 
 echo "--- ARM 4: scorecard's cmd_oracle classifies SIG11, so util_ref_mint never reaches its LIVE mint path ---"
-out="$(SBL="$W/oracle_dead" timeout 60 bash "$HERE/scorecard_snobol4.sh" oracle feature_test "$W/probe.sno" "$W/sc.out" 2>&1)"
+out="$(SBL="$W/oracle_dead" timeout -k 5 60 bash "$HERE/scorecard_snobol4.sh" oracle feature_test "$W/probe.sno" "$W/sc.out" 2>&1)"
 st="$(printf '%s' "$out" | tail -1 | cut -f1)"
 case "$st" in
     SIG11) ck ok "cmd_oracle classifies the run SIG11 (never LIVE, so util_ref_mint mints nothing)" ;;
@@ -120,7 +120,7 @@ case "$st" in
 esac
 
 echo "--- ARM 5: util_mint_bench_refs names the signal and mints nothing ---"
-out="$(SBL="$W/oracle_dead" timeout 300 bash "$HERE/util_mint_bench_refs.sh" 2>/dev/null)"
+out="$(SBL="$W/oracle_dead" timeout -k 5 300 bash "$HERE/util_mint_bench_refs.sh" 2>/dev/null)"
 grep -q 'KILLED BY SIGNAL' <<<"$out" && ck ok "the refusal NAMES the signal (it once printed 'rc=0' for a SIGSEGV)" \
     || ck no "the refusal does not name the signal -- a refusal whose diagnostic says the oracle succeeded"
 grep -qE 'minted: 0' <<<"$out" && ck ok "and minted 0 refs" || ck no "refs were minted from a dead oracle: $(tail -2 <<<"$out")"
@@ -165,7 +165,7 @@ PY
 )"
 grep -q 'kind=RAN' <<<"$out" && ck ok "a well-behaved oracle reads RAN (so ARM 2's CRASH is a real discrimination)" \
     || ck no "even a healthy oracle is refused -- every arm above would pass on a cutter that refuses everything: $out"
-out="$(SBL="$W/oracle_live" timeout 60 bash "$HERE/scorecard_snobol4.sh" oracle feature_test "$W/probe.sno" "$W/sc2.out" 2>&1)"
+out="$(SBL="$W/oracle_live" timeout -k 5 60 bash "$HERE/scorecard_snobol4.sh" oracle feature_test "$W/probe.sno" "$W/sc2.out" 2>&1)"
 st="$(printf '%s' "$out" | tail -1 | cut -f1)"
 [ "$st" = LIVE ] && ck ok "and cmd_oracle calls the healthy run LIVE (ARM 4's SIG11 is a real discrimination)" \
     || ck no "cmd_oracle refused a healthy oracle too (status=$st) -- ARM 4 proves nothing"

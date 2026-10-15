@@ -78,10 +78,10 @@ main :-
     t(max_member(_, [3, 1, 4])), t(min_member(_, [3, 1, 4])), t(max_member(@=<, _, [b, c, a])), t(is_set([a, b])), t(proper_length([a, b], _)),
     t(foreach(member(X, [1, 2]), X > 0)), t(foreach(member(X, [1, 2]), X > 1)), t(string_code(_, "ab", 0'b)), t(string_code(a, "ab", _)).
 PL
-( cd "$D" && timeout 30 swipl -q -t halt w.pl < /dev/null > want 2> /dev/null )
+( cd "$D" && timeout -k 5 30 swipl -q -t halt w.pl < /dev/null > want 2> /dev/null )
 [ -s "$D/want" ] || refuse "swipl printed nothing for the witness"
-( cd "$D" && timeout 30 "$B/scrip" --run w.pl < /dev/null > m3 2> m3.err )
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null 2> m4.err && gcc -no-pie w.s -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" -o w 2>> m4.err && timeout 30 ./w < /dev/null > m4 2>> m4.err )
+( cd "$D" && timeout -k 5 30 "$B/scrip" --run w.pl < /dev/null > m3 2> m3.err )
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null 2> m4.err && gcc -no-pie w.s -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" -o w 2>> m4.err && timeout -k 5 30 ./w < /dev/null > m4 2>> m4.err )
 n=$(wc -l < "$D/want"); red=0
 for m in m3 m4; do
     if cmp -s "$D/want" "$D/$m"; then echo "  $m GREEN: $n of $n lines as swipl"

@@ -48,13 +48,13 @@ for pair in UTF-16BE:utf-16-be UTF-16LE:utf-16-le UTF-32BE:utf-32-be UTF-32LE:ut
 main :- open('$w.bin', write, S, [encoding('$enc'), bom(true)]), writeq(S, f('Γειά', '🀙x')), write(S, '.'), nl(S), close(S),
     open('$w.bin', read, R, []), stream_property(R, encoding(E2)), read_term(R, T, []), close(R), writeq(E2-T), nl.
 PL
-    ( cd "$D" && timeout 60 "$SCRIP" --compile -o "$w.s" "$w.pl" < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile of $w.pl failed"
+    ( cd "$D" && timeout -k 5 60 "$SCRIP" --compile -o "$w.s" "$w.pl" < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile of $w.pl failed"
     ( cd "$D" && gcc -m64 -no-pie "$w.s" -o "$w.exe" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" > /dev/null 2>&1 ) || refuse "mode 4 link of $w failed"
     python3 -c "import sys; sys.stdout.buffer.write(('\ufeff' + \"f('Γειά','🀙x').\n\").encode('$codec'))" > "$D/want.bin"
     for mode in m3 m4; do
         rm -f "$D/$w.bin"
-        if [ "$mode" = m3 ]; then got="$(cd "$D" && timeout 20 "$SCRIP" --run "$w.pl" < /dev/null 2>&1)"
-        else got="$(cd "$D" && timeout 20 "./$w.exe" < /dev/null 2>&1)"; fi
+        if [ "$mode" = m3 ]; then got="$(cd "$D" && timeout -k 5 20 "$SCRIP" --run "$w.pl" < /dev/null 2>&1)"
+        else got="$(cd "$D" && timeout -k 5 20 "./$w.exe" < /dev/null 2>&1)"; fi
         want_line="'$enc'-f('Γειά','🀙x')"
         if [ -f "$D/$w.bin" ] && cmp -s "$D/$w.bin" "$D/want.bin" && [ "$got" = "$want_line" ]; then echo "  ARM 2 GREEN: $enc $mode bytes as $codec, read back $got"
         else echo "  ARM 2 RED: $enc $mode: out=[$got] want [$want_line]; bytes $( [ -f "$D/$w.bin" ] && od -An -tx1 "$D/$w.bin" | head -1 )"; red=1; fi

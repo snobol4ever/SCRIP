@@ -42,8 +42,8 @@ mk_jcon() {  # <dir> <ref> -- a flat jcon package with the one-file contract
   printf 'pp.icn\tpp.icn\t%s\n' "$RC1" > "$1/PREPROCESS.tsv"
   printf 'frag.icn\tINCLUDED_BY\tpp.icn -- its $include splices it (gate fixture)\n' > "$1/CONTAINERS.tsv"
 }
-ariz() { S4E_HOME="$1" S4E_PROGRESS_DB="$1.tsv" timeout 600 bash "$HERE/test_icon_arizona_suite.sh" > "$1.out" 2>&1; }
-jcon() { S4E_PROGRESS_DB="$1.tsv" timeout 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$1" > "$1.out" 2>&1; }
+ariz() { S4E_HOME="$1" S4E_PROGRESS_DB="$1.tsv" timeout -k 5 600 bash "$HERE/test_icon_arizona_suite.sh" > "$1.out" 2>&1; }
+jcon() { S4E_PROGRESS_DB="$1.tsv" timeout -k 5 600 bash "$HERE/test_icon_jcon_suite.sh" --corpus "$1" > "$1.out" 2>&1; }
 
 mk_ariz "$T/a1" "$F/pp.E.ref2"; ariz "$T/a1"
 grep -q 'binary older than the tree\|GATE UNPROVEN(2)' "$T/a1.out" && { echo "⛔ REFUSED(2): the runner could not measure (stale or unbuilt binary): $(grep -m1 'UNPROVEN\|older' "$T/a1.out" | cut -c1-160) -- make, then re-run"; exit 2; }

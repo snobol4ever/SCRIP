@@ -64,9 +64,9 @@ if idx is None:
 else:
     open(sys.argv[2], 'w').write('\n'.join(lines[:idx+1]) + '\n'); open(sys.argv[3], 'w').write('\n'.join(lines[idx+1:]))
 SPLITPY
-    ( cd "$T/r" && timeout 20 "$SBL"  -bf "$stem.sno" < "$stem.in" > "$stem.sbl"  2>&1 ); rc_sbl=$?
-    ( cd "$T/r" && timeout 20 "$CSNO"      "$stem.sno" < "$stem.in" > "$stem.cs"   2>&1 ); rc_cs=$?
-    ( cd "$T/r" && timeout 20 "$SCRIP_BIN" "$stem.sno" < "$stem.in" > "$stem.scrip" 2>&1 ); rc_sc=$?
+    ( cd "$T/r" && timeout -k 5 20 "$SBL"  -bf "$stem.sno" < "$stem.in" > "$stem.sbl"  2>&1 ); rc_sbl=$?
+    ( cd "$T/r" && timeout -k 5 20 "$CSNO"      "$stem.sno" < "$stem.in" > "$stem.cs"   2>&1 ); rc_cs=$?
+    ( cd "$T/r" && timeout -k 5 20 "$SCRIP_BIN" "$stem.sno" < "$stem.in" > "$stem.scrip" 2>&1 ); rc_sc=$?
     if cmp -s "$T/r/$stem.cs" "$T/r/$stem.scrip"; then agree="SCRIP==csnobol4 BYTE-IDENTICAL"; else agree="SCRIP differs from csnobol4"; fi
     echo "── $stem"
     printf '   sbl      rc=%-3s %s\n' "$rc_sbl" "$(own_words "$T/r/$stem.sbl")"

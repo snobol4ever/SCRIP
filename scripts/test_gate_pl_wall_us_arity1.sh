@@ -32,8 +32,8 @@ EOF
 fail=0; examined=0
 for mode in m3 m4; do
   examined=$((examined+1))
-  if [ "$mode" = m3 ]; then out="$(timeout 20 "$SCRIP" "$W/w.pl" </dev/null 2>&1)"
-  else out="$(timeout 30 "$SCRIP" --compile -o "$W/w.s" "$W/w.pl" </dev/null 2>&1 && cd "$W" && gcc -no-pie w.s -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o w.bin 2>&1 && timeout 20 ./w.bin </dev/null 2>&1)"; fi
+  if [ "$mode" = m3 ]; then out="$(timeout -k 5 20 "$SCRIP" "$W/w.pl" </dev/null 2>&1)"
+  else out="$(timeout -k 5 30 "$SCRIP" --compile -o "$W/w.s" "$W/w.pl" </dev/null 2>&1 && cd "$W" && gcc -no-pie w.s -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o w.bin 2>&1 && timeout -k 5 20 ./w.bin </dev/null 2>&1)"; fi
   if printf '%s' "$out" | grep -q 'existence_error(procedure,wall_us/1)'; then
     echo "  FAIL  $mode -- wall_us/1 does not exist: Prolog cannot self-time, so the speed axis cannot be measured at all"; fail=$((fail+1))
   elif printf '%s' "$out" | grep -q 'us_ok' && printf '%s' "$out" | grep -q 'ms_ok'; then
@@ -47,7 +47,7 @@ my $a = wall_us(); my $b = wall_us(); my $m = wall_ms();
 say (($a > 0) && ($b >= $a) && ($m > 0) && ($a > $m)) ?? "rk_arity0_ok" !! "rk_arity0_bad";
 EOF
 examined=$((examined+1))
-a0rk="$(timeout 20 "$SCRIP" "$W/a0.raku" </dev/null 2>&1)"
+a0rk="$(timeout -k 5 20 "$SCRIP" "$W/a0.raku" </dev/null 2>&1)"
 if printf '%s' "$a0rk" | grep -q 'rk_arity0_ok'; then echo "  ✅ OK  arity-0 wall_us()/wall_ms() answer in Raku, positive and monotonic"
 else echo "  FAIL  the arity-0 form stopped answering in RAKU, the frontend that introduced it -- got: $(printf '%s' "$a0rk" | head -2 | tr '\n' '|')"; fail=$((fail+1)); fi
 
@@ -58,7 +58,7 @@ procedure main()
 end
 EOF
 examined=$((examined+1))
-a0ic="$(timeout 20 "$SCRIP" "$W/a0.icn" </dev/null 2>&1)"
+a0ic="$(timeout -k 5 20 "$SCRIP" "$W/a0.icn" </dev/null 2>&1)"
 if printf '%s' "$a0ic" | grep -q 'ic_arity0_ok'; then echo "  ✅ OK  arity-0 wall_us()/wall_ms() answer in Icon, positive and monotonic"
 else echo "  FAIL  the arity-0 form stopped answering in ICON -- got: $(printf '%s' "$a0ic" | head -2 | tr '\n' '|')"; fail=$((fail+1)); fi
 
@@ -68,7 +68,7 @@ procedure main()
 end
 EOF
 examined=$((examined+1))
-plant="$(timeout 20 "$SCRIP" "$W/plant.icn" </dev/null 2>&1)"
+plant="$(timeout -k 5 20 "$SCRIP" "$W/plant.icn" </dev/null 2>&1)"
 if printf '%s' "$plant" | grep -qE '[0-9]{6}'; then
 	echo "  FAIL  THE PLANT ANSWERED: an undefined wall_us_absent() produced a clock value, so these arms cannot tell answering from not answering"; fail=$((fail+1))
 else echo "  ✅ OK  plant: an undefined arity-0 name does NOT answer, so the arms above can say no"; fi

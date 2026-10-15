@@ -41,7 +41,7 @@ users="$(grep -l -E 'gprolog_output_filter|gnu_filter' "$HERE"/*.sh 2>/dev/null 
 GP="$(gprolog_bin 2>/dev/null)" || { echo "GATE UNPROVEN(2) [$G]: gprolog_bin names no oracle -- arm 6 cannot run"; exit 2; }
 T="$(mktemp -d)" || { echo "GATE UNPROVEN(2) [$G]: mktemp failed"; exit 2; }; trap 'rm -rf "$T"' EXIT
 printf ':- initialization(main).\nmain :- write(alpha), nl, nl, write(omega), nl.\n' > "$T/p.pl"
-got6="$(cd "$T" && timeout 30 "$GP" --consult-file "$T/p.pl" --query-goal halt < /dev/null 2>/dev/null | gprolog_output_filter)"
+got6="$(cd "$T" && timeout -k 5 30 "$GP" --consult-file "$T/p.pl" --query-goal halt < /dev/null 2>/dev/null | gprolog_output_filter)"
 [ "$got6" = $'alpha\n\nomega' ] && ck ok "ARM 6 LIVE: the oracle's own consult, filtered, is the program's three lines" || ck bad "ARM 6 LIVE read <$got6>"
 if [ "$fails" -eq 0 ]; then echo "GATE PASS(0) [$G]: $checks of $checks arms hold"; exit 0; fi
 echo "GATE FAIL(1) [$G]: $fails of $checks arms red"; exit 1

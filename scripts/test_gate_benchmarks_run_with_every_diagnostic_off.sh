@@ -56,8 +56,8 @@ IFS='|' read -r c1 v1 p1 <<< "$on"; IFS='|' read -r c2 v2 p2 <<< "$off"; IFS='|'
 if [ "$v1" = "$c1" ] && [ "$p1" = "$c1" ] && [ "$v2" = 0 ] && [ "$p2" = 0 ] && [ "$v3" = "$c3" ] && [ "$p3" = 0 ]; then
     echo "ok  (3) over $c1 collections: unset verifies the heap at $v1 and poisons at $p1; SCRIP_DIAG=0 at $v2 and $p2; SCRIP_DIAG=0 SCRIP_GC_VERIFY=1 verifies at $v3 and poisons at $p3"
 else echo "RED (3) the collector's diagnostics do not follow the switch (collections|verifying collections|poison lines): unset [$on], SCRIP_DIAG=0 [$off], SCRIP_DIAG=0 SCRIP_GC_VERIFY=1 [$back]"; red=1; fi
-want=$( cd "$W" && timeout 30 "$SBL" -bf churn.sno < /dev/null 2>/dev/null )
-got=$( cd "$W" && for e in "" "SCRIP_DIAG=0"; do env -u SCRIP_DIAG $e timeout 30 "$ROOT/scrip" churn.sno < /dev/null 2>/dev/null; env -u SCRIP_DIAG $e timeout 30 ./on.bin < /dev/null 2>/dev/null; env -u SCRIP_DIAG $e timeout 30 ./off.bin < /dev/null 2>/dev/null; done | sort -u )
+want=$( cd "$W" && timeout -k 5 30 "$SBL" -bf churn.sno < /dev/null 2>/dev/null )
+got=$( cd "$W" && for e in "" "SCRIP_DIAG=0"; do env -u SCRIP_DIAG $e timeout -k 5 30 "$ROOT/scrip" churn.sno < /dev/null 2>/dev/null; env -u SCRIP_DIAG $e timeout -k 5 30 ./on.bin < /dev/null 2>/dev/null; env -u SCRIP_DIAG $e timeout -k 5 30 ./off.bin < /dev/null 2>/dev/null; done | sort -u )
 if [ -n "$want" ] && [ "$got" = "$want" ]; then echo "ok  (4) the witness answers the oracle ('$want') in m3 and m4, with and without SCRIP_DIAG=0"
 else echo "RED (4) the witness does not answer the oracle ('$want') in every arm: got [$(echo $got)]"; red=1; fi
 [ "$red" -eq 0 ] && { echo "GATE OK: benchmarks run with every diagnostic off by one switch, and every test keeps them on"; exit 0; }

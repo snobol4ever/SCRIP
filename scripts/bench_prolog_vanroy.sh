@@ -77,9 +77,9 @@ tn_measured_kernels() { awk -F'\t' -v nriv="$2" 'NR>2 && $2!~/^m[0-9]+$/ && $6==
 tn_work_us() {   # tn_work_us <engine> <src> -> work_us, or "-" when the kernel did not report one
   local eng="$1" src="$2" out=""
   case "$eng" in
-    scrip) out=$( (cd "$W" && timeout "$TN_T" "$SCRIP" --run "${TN_DECL[@]}" "$src" </dev/null 2>&1 >/dev/null) ) ;;
-    gnu)   out=$( (cd "$W" && timeout "$TN_T" "$TN_GP" --consult-file "$TN_PRO/prelude_gplc.pl" --consult-file "$src" --query-goal halt </dev/null 2>&1 >/dev/null) ) ;;
-    swi)   out=$( (cd "$W" && timeout "$TN_T" "$TN_SW" -g true "$TN_PRO/prelude_swipl.pl" "$src" </dev/null 2>&1 >/dev/null) ) ;;
+    scrip) out=$( (cd "$W" && timeout -k 5 "$TN_T" "$SCRIP" --run "${TN_DECL[@]}" "$src" </dev/null 2>&1 >/dev/null) ) ;;
+    gnu)   out=$( (cd "$W" && timeout -k 5 "$TN_T" "$TN_GP" --consult-file "$TN_PRO/prelude_gplc.pl" --consult-file "$src" --query-goal halt </dev/null 2>&1 >/dev/null) ) ;;
+    swi)   out=$( (cd "$W" && timeout -k 5 "$TN_T" "$TN_SW" -g true "$TN_PRO/prelude_swipl.pl" "$src" </dev/null 2>&1 >/dev/null) ) ;;
   esac
   local v; v=$(printf '%s\n' "$out" | sed -n 's/.*work_us=\([0-9][0-9]*\).*/\1/p' | head -1)
   # ⛔⭐ A RIVAL READING OF 0 IS NOT A MEASUREMENT, IT IS "BELOW THE FLOOR" -- AND THE FIRST RUN OF THIS BOARD
@@ -185,7 +185,7 @@ two_number_board() {
     # ⛔ `2>/dev/null` on the subshell does NOT silence this: the "Segmentation fault"/"Aborted" line is printed by
     # THIS shell's job reporting about the dead child, not by the child. Wrapping the compound is what suppresses it
     # -- measured on the first run, where 11 crash notices interleaved with the rows and broke the grid's alignment.
-    { ( cd "$W" && timeout "$TN_T" "$SCRIP" --run "${TN_DECL[@]}" "$src" </dev/null >/dev/null 2>&1 ); rc=$?; } 2>/dev/null
+    { ( cd "$W" && timeout -k 5 "$TN_T" "$SCRIP" --run "${TN_DECL[@]}" "$src" </dev/null >/dev/null 2>&1 ); rc=$?; } 2>/dev/null
     us_s=-; us_g=-; us_w=-
     if printf '%s\n' "$MEAS" | grep -qx "$k"; then
       bucket=MEASURED; n_meas=$((n_meas+1)); note="AGREE from all $NRIV rivals in $(basename "$TRI")"

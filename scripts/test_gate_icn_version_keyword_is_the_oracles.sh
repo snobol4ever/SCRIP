@@ -23,10 +23,10 @@ head -1 "$T/ver.ref" | grep -q '^Icon Version ' || { echo "⛔ REFUSE(2): the or
 [ "$(wc -l < "$T/ver.ref")" -eq 3 ] || { echo "⛔ REFUSE(2): the oracle's witness stream is not three lines"; exit 2; }
 RC=0
 for M in m3 m4; do
-  if [ "$M" = m3 ]; then ( cd "$T" && timeout 30 "$SCRIP" ver.icn </dev/null ) >"$T/ver.$M" 2>&1
-  else ( cd "$T" && timeout 30 "$SCRIP" --compile -o ver.s ver.icn </dev/null && gcc -m64 -no-pie ver.s -o ver.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >"$T/build.$M" 2>&1 \
+  if [ "$M" = m3 ]; then ( cd "$T" && timeout -k 5 30 "$SCRIP" ver.icn </dev/null ) >"$T/ver.$M" 2>&1
+  else ( cd "$T" && timeout -k 5 30 "$SCRIP" --compile -o ver.s ver.icn </dev/null && gcc -m64 -no-pie ver.s -o ver.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >"$T/build.$M" 2>&1 \
          || { echo "⛔ REFUSE(2): the mode-4 witness did not build"; exit 2; }
-       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout 30 ./ver.bin </dev/null ) >"$T/ver.$M" 2>&1
+       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 30 ./ver.bin </dev/null ) >"$T/ver.$M" 2>&1
   fi
   if [ -n "${FAIL_ONCE:-}" ]; then sed -i '1s/^Icon Version/Jcon Version/' "$T/ver.$M"; fi
   if diff -q "$T/ver.ref" "$T/ver.$M" >/dev/null; then echo "  $M PASS -- &version, its length and its first sixteen characters read as iconx reads them"

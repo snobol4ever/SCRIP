@@ -107,14 +107,14 @@ W17     P17 = ':' FENCE ('a' | 'x') (LEN(1) . Q)
 Y17     OUTPUT = 'YES 17 abort through the FENCE with a capture tail: Q=' Q ' R=' R
 END
 EOF
-( cd "$T" && timeout 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
+( cd "$T" && timeout -k 5 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
 [ "$(grep -c '^YES' "$T/w.ref")" = 9 ] && [ "$(grep -c '^NO  9 ' "$T/w.ref")" = 1 ] && [ "$(grep -c '^NO  10 ' "$T/w.ref")" = 1 ] && grep -qx '12 the cto control, conditional capture tail: V=c' "$T/w.ref" && grep -qx 'NO  17 abort through the FENCE with a capture tail' "$T/w.ref" || { echo "⛔ GATE REFUSE(2) [$G]: the oracle's ref does not read nine YES lines, NO on 9, 10 and 17, and V=c on 12 -- the witness is not the one this gate was minted on"; exit 2; }
 RC=0
-got="$(cd "$T" && timeout 20s "$SCRIP" w.sno </dev/null 2>&1)"
+got="$(cd "$T" && timeout -k 5 20s "$SCRIP" w.sno </dev/null 2>&1)"
 if [ "$got" = "$(cat "$T/w.ref")" ]; then echo "  m3 PASS (17/17 lines byte-identical to the oracle)"
 else echo "  m3 FAIL (diverged from the oracle on: $(diff <(echo "$got") "$T/w.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 if "$SCRIP" --compile "$T/w.sno" -o "$T/w.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/w.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/w" 2>"$T/ld.log"; then
-    got4="$(cd "$T" && timeout 20s ./w </dev/null 2>&1)"
+    got4="$(cd "$T" && timeout -k 5 20s ./w </dev/null 2>&1)"
     if [ "$got4" = "$(cat "$T/w.ref")" ]; then echo "  m4 PASS (17/17 lines byte-identical to the oracle)"
     else echo "  m4 FAIL (diverged from the oracle on: $(diff <(echo "$got4") "$T/w.ref" | grep '^<' | cut -c3- | tr '\n' '|'))"; RC=1; fi
 else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link failed, so arm 2 measured nothing"; exit 2; fi

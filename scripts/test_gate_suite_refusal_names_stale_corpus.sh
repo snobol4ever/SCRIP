@@ -55,7 +55,7 @@ run_against() {  # $1=corpus dir -> prints runner's merged stdout+stderr; ITS ex
     local corpus="$1" root="$GATE_WORK/root-$(basename "$1")"
     mkdir -p "$root"
     ln -s "$corpus" "$root/corpus"
-    S4E_HOME="$root" timeout 60 bash "$RUNNER"
+    S4E_HOME="$root" timeout -k 5 60 bash "$RUNNER"
 }
 
 # ── Arm 1: STALE -- local behind origin, origin HAS every family ──────────────

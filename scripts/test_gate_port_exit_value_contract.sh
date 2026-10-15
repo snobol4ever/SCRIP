@@ -71,7 +71,7 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/pevc.XXXXXX")"; trap 'rm -rf "$WORK"' EXIT
 ASM=(); BUILT=0
 for f in "${PROGS[@]}"; do
     b="$(basename "$f" | tr './' '__')"
-    if SCRIP_PORT_EXIT_AUDIT=1 timeout 60s "$ROOT/scrip" --compile "$f" < /dev/null > "$WORK/$b.s" 2>"$WORK/$b.audit" && [ -s "$WORK/$b.s" ]; then
+    if SCRIP_PORT_EXIT_AUDIT=1 timeout -k 5 60s "$ROOT/scrip" --compile "$f" < /dev/null > "$WORK/$b.s" 2>"$WORK/$b.audit" && [ -s "$WORK/$b.s" ]; then
         ASM+=("$WORK/$b.s"); BUILT=$((BUILT+1))
     else
         echo "   ⚠ could not compile, excluded from the verdict: $f"

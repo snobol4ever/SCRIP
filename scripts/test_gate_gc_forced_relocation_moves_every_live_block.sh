@@ -46,9 +46,9 @@ echo "    band: $PTS · modes m3 m4 · knob SCRIP_GC_PLANT_FLIP off/on ON ONE BI
 run_one() {
   local bin="$1" src="$2" st="$3" flip="$4" out="$5" err="$6"
   if [ "$bin" = m3 ]; then
-    env -u SCRIP_HEAP_MB SCRIP_HEAP_KB="$ARENA_KB" SCRIP_ZETA_TELEM=1 SCRIP_GC_PLANT_FLIP="$flip" SCRIP_GC_STRESS="$st" timeout 120s "$SCRIP" "$src" > "$out" 2> "$err"
+    env -u SCRIP_HEAP_MB SCRIP_HEAP_KB="$ARENA_KB" SCRIP_ZETA_TELEM=1 SCRIP_GC_PLANT_FLIP="$flip" SCRIP_GC_STRESS="$st" timeout -k 5 120s "$SCRIP" "$src" > "$out" 2> "$err"
   else
-    env -u SCRIP_HEAP_MB SCRIP_HEAP_KB="$ARENA_KB" SCRIP_ZETA_TELEM=1 SCRIP_GC_PLANT_FLIP="$flip" SCRIP_GC_STRESS="$st" timeout 120s "$bin" > "$out" 2> "$err"
+    env -u SCRIP_HEAP_MB SCRIP_HEAP_KB="$ARENA_KB" SCRIP_ZETA_TELEM=1 SCRIP_GC_PLANT_FLIP="$flip" SCRIP_GC_STRESS="$st" timeout -k 5 120s "$bin" > "$out" 2> "$err"
   fi
 }
 arms=0; coll_arms=0; zero_coll=""; declined=0; idle_wits=""; tot_coll=0; tot_flip=0
@@ -60,7 +60,7 @@ for w in $WITS; do
   wit_coll=0
   ext="${w##*.}"
   cp "$src" "$T/w.$ext"
-  ( cd "$T" && timeout 90s "$ROOT/scrip" --compile -o "w_$w.s" "w.$ext" < /dev/null > /dev/null 2>&1 \
+  ( cd "$T" && timeout -k 5 90s "$ROOT/scrip" --compile -o "w_$w.s" "w.$ext" < /dev/null > /dev/null 2>&1 \
       && gcc -m64 "w_$w.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "w_$w.x4" 2> "w_$w.ld.log" ) \
       || refuse "mode-4 compile or link failed for $w, so its m4 arms measured nothing ($(head -c 160 "$T/w_$w.ld.log" 2>/dev/null))"
   for mode in m3 m4; do

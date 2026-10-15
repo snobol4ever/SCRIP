@@ -81,7 +81,7 @@ witn=0; coll=0; hits=0; named=""; slots=""; unrep=0; swept=0; movd=0; stale_name
 for f in "$WD"/*.sno "$WD"/*.icn "$WD"/*.pl "$WD"/*.raku "$WD"/*.sc; do
   [ -f "$f" ] || continue
   witn=$((witn+1))
-  err="$(env SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$STRESS" SCRIP_GC_MAPS=1 timeout 120s "$SCRIP" "$f" 2>&1 >/dev/null)"
+  err="$(env SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_GC_STRESS="$STRESS" SCRIP_GC_MAPS=1 timeout -k 5 120s "$SCRIP" "$f" 2>&1 >/dev/null)"
   n="$(printf '%s\n' "$err" | grep -c '^\[GC-WALK\]')"
   [ "${n:-0}" -gt 0 ] && coll=$((coll+1))
   h="$(printf '%s\n' "$err" | grep -c 'GC-WALK-RTCCB')"

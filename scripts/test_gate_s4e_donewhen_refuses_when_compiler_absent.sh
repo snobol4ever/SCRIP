@@ -2,7 +2,7 @@
 # test_gate_s4e_donewhen_refuses_when_compiler_absent.sh -- a DONE-WHEN that DRIVES THE COMPILER is REFUSED (rc=2),
 # never graded RED (rc=1), on a tree where ./scrip is not built. hq_P -> hq_B 2026-09-04, measured on
 # pascal-m4-site1-forloop-backedge-64byte-excess: the criterion's compile step reads
-#     timeout 300s SCRIP/scrip --compile ... || { echo "compile failed"; exit 1; }
+#     timeout -k 5 300s SCRIP/scrip --compile ... || { echo "compile failed"; exit 1; }
 # so a MISSING binary reported rc=1 -- "real work here", served SILENTLY by the dispatch probe -- instead of rc=2
 # -- "could not measure", served WITH a warning. The ceo root's scrip was built 21 minutes AFTER the assign.
 # V2-5's three exit codes apply to criteria, not only to gates; and the cure is ONE guard in s4e_msg.sh
@@ -47,7 +47,7 @@ mk_po() {
   printf '%s\n' "$FIXTURE_MODE" > "$PO/MODE"
   printf '%s\n' "$HQ" > "$PO/$ME/HQ"; printf '# gate fixture queue\n' > "$PO/QUEUE.tsv"
   # hq_P's exact shape: the compile step reports a missing binary as rc=1. $W/SCRIP exists; $W/SCRIP/scrip does not.
-  mkrow 0 t-cc    'cd "$S4E_HOME/SCRIP" && timeout 30s ./scrip --compile nothing.pas </dev/null >/dev/null 2>&1 || { echo "bubble m4 compile failed"; exit 1; }'
+  mkrow 0 t-cc    'cd "$S4E_HOME/SCRIP" && timeout -k 5 30s ./scrip --compile nothing.pas </dev/null >/dev/null 2>&1 || { echo "bubble m4 compile failed"; exit 1; }'
   mkrow 1 t-plain 'test -f "$S4E_HOME/po/NO-SUCH-FILE"'
 }
 col() { grep -P "^[0-9]+\t\Q$1\E\t" "$PO/QUEUE.tsv" 2>/dev/null | head -1 | cut -f4; }

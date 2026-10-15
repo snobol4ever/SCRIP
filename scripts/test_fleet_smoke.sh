@@ -21,7 +21,7 @@ for l in $LANGS; do [ -f "scripts/test_smoke_$l.sh" ] || { echo "FLEET_SMOKE REF
 tree="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo UNKNOWN)"; ctree="$(git -C "$ROOT/../corpus" rev-parse --short HEAD 2>/dev/null || echo UNKNOWN)"
 T0=$(date +%s.%N); green=0; red=0; refused=0; pass=0; fail=0; reds=""; W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 for l in $LANGS; do
-  t0=$(date +%s.%N); timeout 300 bash "scripts/test_smoke_$l.sh" </dev/null >"$W/$l.out" 2>&1; rc=$?; t1=$(date +%s.%N)
+  t0=$(date +%s.%N); timeout -k 5 300 bash "scripts/test_smoke_$l.sh" </dev/null >"$W/$l.out" 2>&1; rc=$?; t1=$(date +%s.%N)
   p=$(grep -oE 'PASS=[0-9]+' "$W/$l.out" | sed 's/PASS=//' | awk '{s+=$1} END{print s+0}'); f=$(grep -oE 'FAIL=[0-9]+' "$W/$l.out" | sed 's/FAIL=//' | awk '{s+=$1} END{print s+0}')
   pass=$((pass + p)); fail=$((fail + f))
   case "$rc" in 0) v=GREEN; green=$((green + 1));; 2) v=REFUSED; refused=$((refused + 1)); reds="$reds $l(refused)";; *) v=RED; red=$((red + 1)); reds="$reds $l";; esac

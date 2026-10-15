@@ -73,7 +73,7 @@ run_one() {  # $1=file to run -> sets B_BUCKET B_LINE B_KEY
   # ⛔ THE SUBSHELL IS LOAD-BEARING: a witness that dies on SIGABRT makes bash print "Aborted" to the
   # RANKER's own stderr, interleaving compiler crashes into the instrument's report. Its stderr is captured
   # in "$se" and classified either way, so silencing the job-control notice loses no information.
-  timeout 10 "$SCRIP" --run "$TMP/case.raku" > "$so" 2> "$se" < /dev/null; rc=$?
+  timeout -k 5 10 "$SCRIP" --run "$TMP/case.raku" > "$so" 2> "$se" < /dev/null; rc=$?
   B_BUCKET=$(roast_bucket "$so" "$se" "$rc")
   err1=$(head -1 "$se" 2>/dev/null)
   B_LINE=$(roast_err_line "$err1")

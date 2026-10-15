@@ -35,11 +35,11 @@ run_smoke() {
     # Oracle output
     local oracle_out=""
     if [ -x "$ORACLE" ]; then
-        oracle_out=$(timeout 8 "$ORACLE" -b "$prog" < /dev/null 2>/dev/null || true)
+        oracle_out=$(timeout -k 5 8 "$ORACLE" -b "$prog" < /dev/null 2>/dev/null || true)
     fi
     # Emit WAT
     local wat_file="$tmp/$name.wat"
-    if ! timeout 8 "$SCRIP" --compile --target=wasm "$prog" > "$wat_file" 2>/dev/null; then
+    if ! timeout -k 5 8 "$SCRIP" --compile --target=wasm "$prog" > "$wat_file" 2>/dev/null; then
         echo "FAIL $name (emit)"
         FAIL=$((FAIL+1))
         rm -rf "$tmp"
@@ -47,7 +47,7 @@ run_smoke() {
     fi
     # Assemble
     local wasm_file="$tmp/$name.wasm"
-    if ! timeout 8 wat2wasm "$wat_file" -o "$wasm_file" 2>/dev/null; then
+    if ! timeout -k 5 8 wat2wasm "$wat_file" -o "$wasm_file" 2>/dev/null; then
         echo "FAIL $name (wat2wasm)"
         FAIL=$((FAIL+1))
         rm -rf "$tmp"
@@ -55,7 +55,7 @@ run_smoke() {
     fi
     # Run
     local wasm_out
-    wasm_out=$(timeout 8 node "$HOST_MJS" "$wasm_file" < /dev/null 2>/dev/null || true)
+    wasm_out=$(timeout -k 5 8 node "$HOST_MJS" "$wasm_file" < /dev/null 2>/dev/null || true)
     rm -rf "$tmp"
     if [ "$oracle_out" = "$wasm_out" ]; then
         echo "PASS $name"

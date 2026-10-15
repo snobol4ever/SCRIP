@@ -36,7 +36,7 @@ for k in $(seq 1 "$SHARDS"); do
   # honest refusal that names nothing actionable. A refusal whose cause was on stdout and got filtered out is
   # the ABSENT-DECLARATION half of hq_B's pair -- uncertain rather than falsely confident, which is much the
   # better failure, and still a reader left guessing. The full text is kept and quoted on the refusal below.
-  timeout 900 python3 "$HERE/corpus_suite_harness.py" run "$P/ALL.pl" "$P/ALL.ref" --lang prolog --modes m3,m4 --shard "$k/$SHARDS" > "$W/raw.$k.txt" 2>&1
+  timeout -k 5 900 python3 "$HERE/corpus_suite_harness.py" run "$P/ALL.pl" "$P/ALL.ref" --lang prolog --modes m3,m4 --shard "$k/$SHARDS" > "$W/raw.$k.txt" 2>&1
   grep '^SUITE_BOARD' "$W/raw.$k.txt" >> "$W/all.txt" || true
 done
 cat "$W"/raw.*.txt > "$W/raw.txt" 2>/dev/null || : 

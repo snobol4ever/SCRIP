@@ -35,16 +35,16 @@ build4() { ( cd "$T" && env $1 "$SCRIP" --compile "$W.icn" -o "$2.s" </dev/null 
 build4 "$plant" w4 || { echo "  FAIL (a) the mode-4 witness did not build"; RC=1; }
 band=""; bad=0
 for st in 1 3 5; do for rl in 0 1; do
-  ( cd "$T" && env -u SCRIP_HEAP_MB $plant SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=$rl SCRIP_GC_STRESS=$st timeout 60s "$SCRIP" --run "$W.icn" </dev/null > m3.out 2>/dev/null ); r=$?; if [ $r = 0 ] && cmp -s "$T/m3.out" "$W.ref"; then band="$band m3@$st/$rl:ok"; else band="$band m3@$st/$rl:red"; bad=$((bad+1)); fi
-  if [ -x "$T/w4" ]; then ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=$rl SCRIP_GC_STRESS=$st timeout 60s ./w4 </dev/null > m4.out 2>/dev/null ); r=$?; if [ $r = 0 ] && cmp -s "$T/m4.out" "$W.ref"; then band="$band m4@$st/$rl:ok"; else band="$band m4@$st/$rl:red"; bad=$((bad+1)); fi; fi
+  ( cd "$T" && env -u SCRIP_HEAP_MB $plant SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=$rl SCRIP_GC_STRESS=$st timeout -k 5 60s "$SCRIP" --run "$W.icn" </dev/null > m3.out 2>/dev/null ); r=$?; if [ $r = 0 ] && cmp -s "$T/m3.out" "$W.ref"; then band="$band m3@$st/$rl:ok"; else band="$band m3@$st/$rl:red"; bad=$((bad+1)); fi
+  if [ -x "$T/w4" ]; then ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=$rl SCRIP_GC_STRESS=$st timeout -k 5 60s ./w4 </dev/null > m4.out 2>/dev/null ); r=$?; if [ $r = 0 ] && cmp -s "$T/m4.out" "$W.ref"; then band="$band m4@$st/$rl:ok"; else band="$band m4@$st/$rl:red"; bad=$((bad+1)); fi; fi
 done; done
 if [ "$bad" = 0 ] && [ -x "$T/w4" ]; then echo "  ok   (a) THE PROPERTY: the suspended scan's subject survives collections during the suspension, stress 1/3/5 x flip 0/1, both modes --$band"
 else echo "  FAIL (a) a suspended scan resumed on a stale subject --$band"; RC=1; fi
-( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=1 timeout 60s "$SCRIP" --run "$W.icn" </dev/null >/dev/null 2>a2.err ); fa=$(grep -c "^\[GC-FLIP\] plant:" "$T/a2.err"); fa=${fa:-0}
+( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=1 timeout -k 5 60s "$SCRIP" --run "$W.icn" </dev/null >/dev/null 2>a2.err ); fa=$(grep -c "^\[GC-FLIP\] plant:" "$T/a2.err"); fa=${fa:-0}
 if [ "$fa" -ge 1 ]; then echo "  ok   (a2) THE FLIP PLANT APPLIED: $fa banner line(s) at stress 1 -- the flip=1 half of (a) graded forced movement, not an unplanted run"
 else echo "  FAIL (a2) the flip plant printed its applied banner $fa time(s) at SCRIP_HEAP_KB=512 stress 1 -- the flip=1 half of (a) may have graded a run nothing moved"; RC=1; fi
 build4 "SCRIP_GC_PLANT_SCAN_BANK=1" p4 || true
-( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_SCAN_BANK=1 SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=1 timeout 60s "$SCRIP" --run "$W.icn" </dev/null > p3.out 2>p3.err ); p3=$?; ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=1 timeout 60s ./p4 </dev/null > p4.out 2>/dev/null ); p4=$?
+( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_SCAN_BANK=1 SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=1 timeout -k 5 60s "$SCRIP" --run "$W.icn" </dev/null > p3.out 2>p3.err ); p3=$?; ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=512 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=1 timeout -k 5 60s ./p4 </dev/null > p4.out 2>/dev/null ); p4=$?
 if { [ $p3 != 0 ] || ! cmp -s "$T/p3.out" "$W.ref"; } && { [ $p4 != 0 ] || ! cmp -s "$T/p4.out" "$W.ref"; } && grep -q "^\[GC-SCANBANK\] plant:" "$T/p3.err"; then echo "  ok   (b) PLANTED: SCRIP_GC_PLANT_SCAN_BANK=1 tags the bank's cell DT_I and the witness is lost in both modes at stress 1 -- the cure is load-bearing"
 else echo "  FAIL (b) the plant did not lose the answer (m3 rc=$p3, m4 rc=$p4) -- the witness no longer suspends inside a scan across a collection"; RC=1; fi
 z=$( cd "$T" && "$SCRIP" --dump-zeta "$W.icn" 2>&1 | grep -c 'DESCR    scan.suspend-leave live subject cell' || true )

@@ -37,16 +37,16 @@ printf 'procedure main()\n  &error := -1;\n  every 1 to 4 do write(&null + 1 | &
 graded=0; bad=0
 for w in by_zero_trapped runerr_trapped by_zero_untrapped runerr_untrapped by_two neg_countdown; do
     "$ICONT" -s -o "$d/$w.ora" "$d/$w.icn" >/dev/null 2>&1 || { echo "⛔ GATE REFUSES (rc=2): icont rejected $w -- cannot measure"; exit 2; }
-    want=$(timeout 20 "$ICONX" "$d/$w.ora" </dev/null 2>/dev/null); wrc=$?
+    want=$(timeout -k 5 20 "$ICONX" "$d/$w.ora" </dev/null 2>/dev/null); wrc=$?
     [ "$wrc" != 124 ] || { echo "⛔ GATE REFUSES (rc=2): the ORACLE timed out on $w -- cannot measure"; exit 2; }
-    o=$(timeout 20 ./scrip "$d/$w.icn" </dev/null 2>/dev/null); r=$?; graded=$((graded+1))
+    o=$(timeout -k 5 20 ./scrip "$d/$w.icn" </dev/null 2>/dev/null); r=$?; graded=$((graded+1))
     if [ "$r" = 124 ]; then echo "  ⛔ RED m3 $w: HANGS (SIGTERM at 20s) -- iconx rc=$wrc out=[$(printf '%s' "$want" | tr '\n' '|')]"; bad=1
     elif [ "$o" != "$want" ] || [ "$r" != "$wrc" ]; then
         echo "  ⛔ RED m3 $w: rc=$r out=[$(printf '%s' "$o" | tr '\n' '|' | cut -c1-60)] -- iconx rc=$wrc out=[$(printf '%s' "$want" | tr '\n' '|' | cut -c1-60)]"; bad=1
     fi
-    if timeout 120 ./scrip --compile -o "$d/$w.s" "$d/$w.icn" </dev/null >/dev/null 2>&1 \
+    if timeout -k 5 120 ./scrip --compile -o "$d/$w.s" "$d/$w.icn" </dev/null >/dev/null 2>&1 \
        && gcc -m64 -no-pie "$d/$w.s" -o "$d/$w.m4" -L./out -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread 2>/dev/null; then
-        o=$(timeout 20 "$d/$w.m4" </dev/null 2>/dev/null); r=$?; graded=$((graded+1))
+        o=$(timeout -k 5 20 "$d/$w.m4" </dev/null 2>/dev/null); r=$?; graded=$((graded+1))
         if [ "$r" = 124 ]; then echo "  ⛔ RED m4 $w: HANGS (SIGTERM at 20s) -- iconx rc=$wrc out=[$(printf '%s' "$want" | tr '\n' '|')]"; bad=1
         elif [ "$o" != "$want" ] || [ "$r" != "$wrc" ]; then
             echo "  ⛔ RED m4 $w: rc=$r out=[$(printf '%s' "$o" | tr '\n' '|' | cut -c1-60)] -- iconx rc=$wrc out=[$(printf '%s' "$want" | tr '\n' '|' | cut -c1-60)]"; bad=1

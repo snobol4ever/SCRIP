@@ -26,10 +26,10 @@ PAS
 count() { ls /tmp 2>/dev/null | grep -c '^scrip_pas_'; }
 fail=0; ck() { if [ "$1" = ok ]; then echo "  ✅ $2"; else echo "  ⛔ $2"; fail=$((fail+1)); fi; }
 b=$(count)
-out3="$(cd "$W" && timeout 20 "$SCRIP" -d4096k -s4096k unnamed.pas </dev/null 2>&1)"; rc3=$?
+out3="$(cd "$W" && timeout -k 5 20 "$SCRIP" -d4096k -s4096k unnamed.pas </dev/null 2>&1)"; rc3=$?
 ck "$([ "$rc3" = 0 ] && [ "$out3" = "42" ] && echo ok || echo no)" "mode 3: the unnamed typed file is written, reset and read back (rc=$rc3, out='$out3')"
-(cd "$W" && timeout 20 "$SCRIP" --compile -o unnamed.s unnamed.pas </dev/null >/dev/null 2>&1 && gcc -no-pie -o unnamed unnamed.s "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null)
-out4="$(cd "$W" && timeout 20 ./unnamed </dev/null 2>&1)"; rc4=$?
+(cd "$W" && timeout -k 5 20 "$SCRIP" --compile -o unnamed.s unnamed.pas </dev/null >/dev/null 2>&1 && gcc -no-pie -o unnamed unnamed.s "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null)
+out4="$(cd "$W" && timeout -k 5 20 ./unnamed </dev/null 2>&1)"; rc4=$?
 ck "$([ "$rc4" = 0 ] && [ "$out4" = "42" ] && echo ok || echo no)" "mode 4: the same (rc=$rc4, out='$out4')"
 a=$(count)
 ck "$([ "$a" = "$b" ] && echo ok || echo no)" "/tmp/scrip_pas_* count unchanged across both runs (before=$b after=$a) -- the temporary file is unlinked at creation"

@@ -76,16 +76,16 @@ for n, line in enumerate(sys.argv[2:]):
 EOF
 norm() { grep -vE '^\s*$|^in (file|line|statement)|^stmts|^exec|^REGEN|^memory|^  at ' | sed -E 's/^.*ERROR ([0-9]+) --.*$/error=\1/; s/^scrip: error ([0-9]+):.*$/error=\1/'; }
 for i in "${!CASES[@]}"; do
-    ( cd "$T" && timeout 20 "$SBL" -bf "c$i.sno" < /dev/null 2>/dev/null | norm > "c$i.oracle" )
+    ( cd "$T" && timeout -k 5 20 "$SBL" -bf "c$i.sno" < /dev/null 2>/dev/null | norm > "c$i.oracle" )
 done
 grep -qx 'error=256' "$T/c30.oracle" && grep -qx 'error=258' "$T/c12.oracle" && grep -qx 'fail 256' "$T/c15.oracle" || refuse "the oracle's SORT answers moved: [$(tr '\n' '|' < "$T/c30.oracle")] [$(tr '\n' '|' < "$T/c12.oracle")]"
 mkdir "$T/tab" && cp "$PKG/tab.sno" "$T/tab/" && sed -n '/^END/,$p' "$PKG/tab.sno" | tail -n +2 > "$T/tab/tab.in" || refuse "could not stage tab.sno"
-( cd "$T/tab" && timeout 20 "$SBL" -bf tab.sno < tab.in > sbl.out 2>/dev/null ); TAB_RC=$?
+( cd "$T/tab" && timeout -k 5 20 "$SBL" -bf tab.sno < tab.in > sbl.out 2>/dev/null ); TAB_RC=$?
 TAB_WANT="rc=$TAB_RC|$(head -1 "$T/tab/sbl.out")|$(wc -l < "$T/tab/sbl.out")|$(grep -c 'ERROR' "$T/tab/sbl.out")|$(sed -n 2p "$T/tab/sbl.out" | tr -s ' ')"
 [ "$TAB_WANT" = "rc=0|total words: 271|277|0|13 that" ] || refuse "the oracle's tab.sno answer moved: [$TAB_WANT]"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
-run() { ( cd "$1" && if [ "$3" = m3 ]; then timeout 20 "$SCRIP" "$2.sno"; else timeout 30 "$SCRIP" --compile -o "$2.s" "$2.sno" < /dev/null > /dev/null 2>&1 && gcc "$2.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$2.bin" > /dev/null 2>&1 && timeout 20 "./$2.bin"; fi ) 2>&1; }
+run() { ( cd "$1" && if [ "$3" = m3 ]; then timeout -k 5 20 "$SCRIP" "$2.sno"; else timeout -k 5 30 "$SCRIP" --compile -o "$2.s" "$2.sno" < /dev/null > /dev/null 2>&1 && gcc "$2.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$2.bin" > /dev/null 2>&1 && timeout -k 5 20 "./$2.bin"; fi ) 2>&1; }
 matrix() { local bad=""
     for i in "${!CASES[@]}"; do
         run "$T" "c$i" "$1" < /dev/null | norm > "$T/c$i.$1"

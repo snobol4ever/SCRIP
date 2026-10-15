@@ -36,7 +36,7 @@ emit_one() {   # $1 = source path RELATIVE TO $DEMO (cwd), $2 = committed .s pat
     # ⛔ COMPILE VIA A $DEMO-RELATIVE PATH (cwd is $DEMO), NEVER an absolute path: since perf-per-statement-loc-emission
     # the compiler emits `.file 1 "<path as given>"`, so an absolute path bakes THIS SEAT ROOT into a committed artifact
     # and every other root regenerates it back — a permanent churn war between /home/claude_P and /home/claude_C. hq_P 2026-08-28.
-    timeout 90 "$SCRIP" --compile "$rel" </dev/null >"$tmp" 2>"$TMPD/cerr.txt" || rc=$?
+    timeout -k 5 90 "$SCRIP" --compile "$rel" </dev/null >"$tmp" 2>"$TMPD/cerr.txt" || rc=$?
     if [ "$rc" -eq 124 ]; then
         echo "  SKIP  $label — --compile TIMED OUT at 90s (committed .s untouched; a timeout is NOT a refusal)"; return 0
     fi

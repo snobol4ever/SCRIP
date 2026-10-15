@@ -12,7 +12,7 @@ run_m3() {
     local label="$1" src="$2" expected="$3"
     local tmp; tmp=$(mktemp /tmp/sno_XXXXXX.sno)
     printf '%s\n' "$src" > "$tmp"
-    local actual; actual=$(timeout 8 "$SCRIP" --run "$tmp" < /dev/null 2>/dev/null)
+    local actual; actual=$(timeout -k 5 8 "$SCRIP" --run "$tmp" < /dev/null 2>/dev/null)
     rm -f "$tmp"
     if [ "$actual" = "$expected" ]; then
         P3=$((P3+1))
@@ -28,11 +28,11 @@ run_m4() {
     local s o bin
     s=$(mktemp /tmp/sno_XXXXXX.s); o="${s%.s}.o"; bin="${s%.s}.bin"
     local actual
-    if timeout 8 "$SCRIP" --compile --target=x86 "$tmp" < /dev/null > "$s" 2>/dev/null \
+    if timeout -k 5 8 "$SCRIP" --compile --target=x86 "$tmp" < /dev/null > "$s" 2>/dev/null \
        && as "$s" -o "$o" 2>/dev/null \
        && gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" \
               -Wl,--allow-shlib-undefined -lm -o "$bin" 2>/dev/null; then
-        actual=$(timeout 8 "$bin" < /dev/null 2>/dev/null)
+        actual=$(timeout -k 5 8 "$bin" < /dev/null 2>/dev/null)
     else
         actual="<mode4-build-failed>"
     fi

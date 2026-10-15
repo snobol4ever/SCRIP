@@ -32,8 +32,8 @@ for d in $DIRS; do
     [ -d "$d" ] || continue
     for f in $(find "$d" \( -name '*.sno' -o -name '*.icn' -o -name '*.pl' \) | sort); do
         b=$(echo "$f" | md5sum | cut -c1-12)
-        env "$KILLSWITCH=1" timeout 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.on.s"  2>/dev/null
-        env "$KILLSWITCH=0" timeout 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.off.s" 2>/dev/null
+        env "$KILLSWITCH=1" timeout -k 5 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.on.s"  2>/dev/null
+        env "$KILLSWITCH=0" timeout -k 5 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.off.s" 2>/dev/null
         if [ ! -s "$OUT/$b.on.s" ] || [ ! -s "$OUT/$b.off.s" ]; then failn=$((failn+1)); rm -f "$OUT/$b.on.s" "$OUT/$b.off.s"; continue; fi
         tot=$((tot+1))
         a=$(md5sum < "$OUT/$b.on.s" | cut -d' ' -f1)

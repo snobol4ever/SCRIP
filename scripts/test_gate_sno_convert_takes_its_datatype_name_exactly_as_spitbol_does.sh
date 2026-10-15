@@ -83,18 +83,18 @@ CONVERT('1.5', 'real')
 CONVERT('1.5', 'REAL')
 CONVERT('1', 'Integer')
 EOF
-want() { timeout 30 "$SBL" -bf "$T/$1.sno" < "$2" > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
+want() { timeout -k 5 30 "$SBL" -bf "$T/$1.sno" < "$2" > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
 want st /dev/null; want ct /dev/null; want ev "$T/ev.in"
 grep -q '^integer: fails$' "$T/st.want" && grep -q '^INTEGER: 1$' "$T/st.want" || refuse "sbl -bf no longer fails a lower-case datatype name"
 fail=0; pass=0
 arm() { local n="$1" what="$2" got="$3" w="$4"
     if cmp -s "$w" "$got"; then pass=$((pass + 1)); echo "  arm $n PASS  $what"
     else fail=$((fail + 1)); echo "  arm $n FAIL  $what"; diff "$w" "$got" | head -8 | sed 's/^/      /'; fi; }
-m3() { timeout 30 "$SCRIP" "$T/$1.sno" < "$2" > "$T/$1.m3" 2>/dev/null; }
+m3() { timeout -k 5 30 "$SCRIP" "$T/$1.sno" < "$2" > "$T/$1.m3" 2>/dev/null; }
 m4() { : > "$T/$1.m4"
-       if timeout 120 "$SCRIP" --compile -o "$T/$1.s" "$T/$1.sno" < /dev/null > /dev/null 2>&1 \
+       if timeout -k 5 120 "$SCRIP" --compile -o "$T/$1.s" "$T/$1.sno" < /dev/null > /dev/null 2>&1 \
           && gcc -no-pie "$T/$1.s" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$T/$1.bin" 2>/dev/null
-       then timeout 30 "$T/$1.bin" < "$2" > "$T/$1.m4" 2>/dev/null; else echo COMPILE-FAILED > "$T/$1.m4"; fi; }
+       then timeout -k 5 30 "$T/$1.bin" < "$2" > "$T/$1.m4" 2>/dev/null; else echo COMPILE-FAILED > "$T/$1.m4"; fi; }
 m3 st /dev/null; arm 1 "m3 static: a lower or mixed-case datatype name fails, upper case converts" "$T/st.m3" "$T/st.want"
 m4 st /dev/null; arm 2 "m4 static: the same" "$T/st.m4" "$T/st.want"
 m3 ev "$T/ev.in"; arm 3 "m3 EVAL: the same, EVALed" "$T/ev.m3" "$T/ev.want"

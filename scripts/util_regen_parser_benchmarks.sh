@@ -52,7 +52,7 @@ KERNEL
     if [ $CUT = 1 ]; then
         [ -x "$SBL" ] || { echo "REFUSE(2): no oracle at $SBL"; exit 2; }
         "$W/scrip" --transpile "$BD/parser_$L.sc" > "$T/$L.sno" 2> "$T/$L.err" && [ -s "$T/$L.sno" ] || { echo "REFUSE(2): transpile of parser_$L failed: $(head -2 "$T/$L.err")"; exit 2; }
-        ( timeout 300 "$SBL" -bf -d${kb}k -s${sb}k "$T/$L.sno" < "$BD/parser_$L.input" > "$T/$L.ref" 2> "$T/$L.sbl.err" ); rc=$?
+        ( timeout -k 5 300 "$SBL" -bf -d${kb}k -s${sb}k "$T/$L.sno" < "$BD/parser_$L.input" > "$T/$L.ref" 2> "$T/$L.sbl.err" ); rc=$?
         [ $rc -eq 0 ] && [ -s "$T/$L.ref" ] && ! grep -q '^Parse Error' "$T/$L.ref" || { echo "REFUSE(2): sbl -bf did not print a tree for parser_$L on its sample (rc=$rc): $(head -2 "$T/$L.sbl.err" "$T/$L.ref" | tr '\n' ' ' | cut -c1-200)"; exit 2; }
         cp "$T/$L.ref" "$BD/parser_$L.ref"
     fi

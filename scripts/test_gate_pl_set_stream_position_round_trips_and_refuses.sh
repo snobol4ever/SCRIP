@@ -55,11 +55,11 @@ permission-ball(error(permission_error(reposition,stream,$stream(N)),_G0))
 no_such_stream-ball(error(existence_error(stream,no_such_alias),_G0))'
 for mode in m3 m4; do
     N=$((N+1))
-    if [ "$mode" = m3 ]; then got=$(cd "$D" && timeout 20 "$SCRIP" "$D/sp.pl" </dev/null 2>&1)
+    if [ "$mode" = m3 ]; then got=$(cd "$D" && timeout -k 5 20 "$SCRIP" "$D/sp.pl" </dev/null 2>&1)
     else
-        if (cd "$D" && timeout 60 "$SCRIP" --compile -o "$D/sp.s" "$D/sp.pl" >/dev/null 2>&1) \
+        if (cd "$D" && timeout -k 5 60 "$SCRIP" --compile -o "$D/sp.s" "$D/sp.pl" >/dev/null 2>&1) \
            && gcc -m64 -no-pie "$D/sp.s" -o "$D/sp.bin" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm >/dev/null 2>&1; then
-            got=$(cd "$D" && timeout 20 "$D/sp.bin" 2>&1)
+            got=$(cd "$D" && timeout -k 5 20 "$D/sp.bin" 2>&1)
         else echo "  RED  $mode: the witness failed to compile or link"; FAIL=$((FAIL+1)); continue; fi
     fi
     # ⛔ TWO THINGS ARE NORMALISED AND NEITHER IS THE BEHAVIOUR. A fresh variable's printed name (_G0 vs

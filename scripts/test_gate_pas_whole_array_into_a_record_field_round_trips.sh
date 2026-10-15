@@ -65,11 +65,11 @@ PAS
 RC=0; GRADED=0
 for MODE in m3 m4; do
   if [ "$MODE" = m3 ]; then
-    ( cd "$T" && timeout 60 "$SCRIP" --run w.pas </dev/null ) >"$T/out.$MODE" 2>&1; mrc=$?
+    ( cd "$T" && timeout -k 5 60 "$SCRIP" --run w.pas </dev/null ) >"$T/out.$MODE" 2>&1; mrc=$?
   else
-    ( cd "$T" && timeout 60 "$SCRIP" --compile -o w.s w.pas </dev/null ) >"$T/c.$MODE" 2>&1 || { echo "  $MODE COMPILE-REFUSE"; RC=1; continue; }
+    ( cd "$T" && timeout -k 5 60 "$SCRIP" --compile -o w.s w.pas </dev/null ) >"$T/c.$MODE" 2>&1 || { echo "  $MODE COMPILE-REFUSE"; RC=1; continue; }
     ( cd "$T" && gcc -o w_m4 w.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" ) >>"$T/c.$MODE" 2>&1 || { echo "  $MODE LINK-REFUSE"; RC=1; continue; }
-    ( cd "$T" && timeout 60 ./w_m4 </dev/null ) >"$T/out.$MODE" 2>&1; mrc=$?
+    ( cd "$T" && timeout -k 5 60 ./w_m4 </dev/null ) >"$T/out.$MODE" 2>&1; mrc=$?
   fi
   if [ "$mrc" = 124 ]; then echo "  $MODE TIMEOUT(60s) -- NOT a wrong answer and NOT a clean run"; RC=1; continue; fi
   GRADED=$((GRADED+1))

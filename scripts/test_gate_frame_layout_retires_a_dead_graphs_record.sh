@@ -27,17 +27,17 @@ for x in "$PLUNIT" "$F" "$REF" scripts/util_swi_match.py; do [ -f "$x" ] || { ec
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 printf 'main :- run_tests.\n:- initialization(main).\n' > "$T/wrap.pl"
 bad=0
-timeout 90 ./scrip --run "$PLUNIT" "$F" "$T/wrap.pl" < /dev/null > "$T/m3.out" 2> "$T/m3.err"; rc3=$?
+timeout -k 5 90 ./scrip --run "$PLUNIT" "$F" "$T/wrap.pl" < /dev/null > "$T/m3.out" 2> "$T/m3.err"; rc3=$?
 grep -q 'FATAL' "$T/m3.err" && { echo "  ⛔ m3 aborted: $(grep -m1 FATAL "$T/m3.err" | cut -c1-120)"; bad=$((bad+1)); }
-if timeout 90 ./scrip --compile "$PLUNIT" "$F" "$T/wrap.pl" > "$T/m4.s" 2>/dev/null && gcc -no-pie "$T/m4.s" -Lout -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/m4.bin" 2>/dev/null; then
-    timeout 90 "$T/m4.bin" < /dev/null > "$T/m4.out" 2>/dev/null
+if timeout -k 5 90 ./scrip --compile "$PLUNIT" "$F" "$T/wrap.pl" > "$T/m4.s" 2>/dev/null && gcc -no-pie "$T/m4.s" -Lout -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/m4.bin" 2>/dev/null; then
+    timeout -k 5 90 "$T/m4.bin" < /dev/null > "$T/m4.out" 2>/dev/null
 else echo "⛔ REFUSE(2): mode 4 did not build the witness"; exit 2; fi
 n3="$(python3 scripts/util_swi_match.py "$F" "$REF" "$T/m3.out" | awk -F'\t' '$2=="PASS"||$2=="FAIL"' | wc -l)"
 n4="$(python3 scripts/util_swi_match.py "$F" "$REF" "$T/m4.out" | awk -F'\t' '$2=="PASS"||$2=="FAIL"' | wc -l)"
 echo "test_hash.pl verdicts: m3=$n3 m4=$n4 (m3 rc=$rc3)"
 [ "$n4" -gt 0 ] || { echo "⛔ REFUSE(2): mode 4 graded nothing -- the matcher cannot be trusted on this run"; exit 2; }
 [ "$n3" = "$n4" ] || { echo "  ⛔ m3 graded $n3 case(s) where m4 graded $n4 -- the unit stopped yielding under m3"; bad=$((bad+1)); }
-SCRIP_PL_RTASM=1 timeout 120 ./scrip --run "$PLUNIT" "$F" "$T/wrap.pl" < /dev/null > /dev/null 2> "$T/rt.err"
+SCRIP_PL_RTASM=1 timeout -k 5 120 ./scrip --run "$PLUNIT" "$F" "$T/wrap.pl" < /dev/null > /dev/null 2> "$T/rt.err"
 ng="$(grep -E '^\[RTASM\] .*: nodes=[1-9][0-9]* .*max_granted_cell=-1' "$T/rt.err" | wc -l)"
 [ "$ng" = "0" ] || { echo "  ⛔ $ng run-time fragment(s) drove with no granted cell:"; grep -E '^\[RTASM\] .*max_granted_cell=-1' "$T/rt.err" | head -3 | cut -c1-140; bad=$((bad+1)); }
 if [ "$bad" -gt 0 ]; then echo "⛔ GATE FAIL: $bad finding(s) -- a dead graph's layout record is still answering for a live graph"; exit 1; fi

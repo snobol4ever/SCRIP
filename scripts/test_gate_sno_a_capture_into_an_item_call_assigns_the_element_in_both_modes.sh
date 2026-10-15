@@ -77,16 +77,16 @@ built pattern wx
 in function abc
 arbno b
 TXT
-( cd "$D" && timeout 10 "$SBL" -bf a.sno < /dev/null 2>/dev/null > a.sbl )
-( cd "$D" && timeout 10 "$SBL" -bf b.sno < /dev/null 2>/dev/null > b.sbl )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf a.sno < /dev/null 2>/dev/null > a.sbl )
+( cd "$D" && timeout -k 5 10 "$SBL" -bf b.sno < /dev/null 2>/dev/null > b.sbl )
 for x in a b; do cmp -s "$D/$x.want" "$D/$x.sbl" || refuse "sbl -bf does not answer $x as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/$x.sbl")]"; done
-m4bin() { timeout 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
+m4bin() { timeout -k 5 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
 red=0; n=0
 arm() { n=$((n + 1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  FAIL $1: $2"; red=$((red + 1)); fi; }
-( cd "$D" && timeout 30 "$B/scrip" a.sno < /dev/null > a.m3 2>/dev/null )
-( cd "$D" && m4bin a && timeout 30 ./a.bin < /dev/null > a.m4 2>/dev/null )
-( cd "$D" && timeout 30 "$B/scrip" b.sno < /dev/null > b.m3 2>/dev/null )
-( cd "$D" && m4bin b && timeout 30 ./b.bin < /dev/null > b.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" a.sno < /dev/null > a.m3 2>/dev/null )
+( cd "$D" && m4bin a && timeout -k 5 30 ./a.bin < /dev/null > a.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" b.sno < /dev/null > b.m3 2>/dev/null )
+( cd "$D" && m4bin b && timeout -k 5 30 ./b.bin < /dev/null > b.m4 2>/dev/null )
 for m in m3 m4; do
     if [ -f "$D/a.$m" ] && cmp -s "$D/a.want" "$D/a.$m"; then arm "a $m (. and \$ into ITEM of a table, array and 2-D array; computed key; pattern held in a variable; in a function; under ARBNO)" ok
     else arm "a $m" "got [$(tr '\n' '|' 2>/dev/null < "$D/a.$m")] want [$(tr '\n' '|' < "$D/a.want")]"; fi

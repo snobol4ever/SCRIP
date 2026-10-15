@@ -48,10 +48,10 @@ main :- t(get5, (get_dict(k1, a{k1:v1}, V, D, v2), V == v1, D == a{k1:v2})),
   t(bset_missing, (DD4 = a{k1:v1}, b_set_dict(k9, DD4, v2))),
   t(dict_key, dict_pairs(_, a, ["k1"-v1])).
 PL
-want="$(cd "$D" && timeout 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | grep .)"
+want="$(cd "$D" && timeout -k 5 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | grep .)"
 [ "$(printf '%s\n' "$want" | grep -c .)" = 15 ] || refuse "swipl did not answer the fifteen lines: [$want]"
 m4ok=1   # a program SCRIP refuses to compile is this gate's red, never a refusal
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 && [ -s w.s ] \
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 && [ -s w.s ] \
   && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || m4ok=0
 red=0
 arm() {
@@ -62,7 +62,7 @@ arm() {
     if [ "$got" = "$want" ]; then echo "  $label GREEN: 15 of 15 lines as swipl"
     else echo "  $label RED: $n of 15 swipl lines missing or different"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
 }
-arm m3 timeout 20 "$B/scrip" --run w.pl < /dev/null
-if [ "$m4ok" = 1 ]; then arm m4 timeout 20 ./w.bin < /dev/null; else echo "  m4 RED: the program did not compile or link in mode 4"; red=1; fi
+arm m3 timeout -k 5 20 "$B/scrip" --run w.pl < /dev/null
+if [ "$m4ok" = 1 ]; then arm m4 timeout -k 5 20 ./w.bin < /dev/null; else echo "  m4 RED: the program did not compile or link in mode 4"; red=1; fi
 [ "$red" = 0 ] && echo "PASS $G"
 exit "$red"

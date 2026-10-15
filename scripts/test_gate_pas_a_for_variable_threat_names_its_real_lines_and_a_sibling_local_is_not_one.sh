@@ -43,16 +43,16 @@ begin for i := 1 to 3 do p; writeln('done') end.
 PAS
 RC=0; N=0
 ( cd "$T" && "$FPC" -Miso -v0 -oshape.fpc shape.pas >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: fpc -Miso would not compile the shape"; exit 2; }
-( cd "$T" && timeout 20s ./shape.fpc </dev/null >"$T/shape.want" 2>/dev/null )
+( cd "$T" && timeout -k 5 20s ./shape.fpc </dev/null >"$T/shape.want" 2>/dev/null )
 if [ -n "${FAIL_ONCE:-}" ]; then echo "corrupted by FAIL_ONCE" >> "$T/shape.want"; fi
-( cd "$T" && timeout 60s "$SCRIP" --run shape.pas </dev/null >"$T/o" 2>"$T/e" ); rc=$?; N=$((N + 1))
+( cd "$T" && timeout -k 5 60s "$SCRIP" --run shape.pas </dev/null >"$T/o" 2>"$T/e" ); rc=$?; N=$((N + 1))
 if [ "$rc" = 0 ] && cmp -s "$T/shape.want" "$T/o"; then echo "  shape m3: accepted, stdout byte-identical to fpc -Miso"; else echo "  ⛔ shape m3 FAILED: rc=$rc err=[$(head -c 120 "$T/e")]"; RC=1; fi
-( cd "$T" && timeout 60s "$SCRIP" --compile -o shape.s shape.pas </dev/null >/dev/null 2>"$T/e" && cc -m64 -no-pie shape.s -o shape.m4 -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 && timeout 20s ./shape.m4 </dev/null >"$T/o" 2>>"$T/e" ); rc=$?; N=$((N + 1))
+( cd "$T" && timeout -k 5 60s "$SCRIP" --compile -o shape.s shape.pas </dev/null >/dev/null 2>"$T/e" && cc -m64 -no-pie shape.s -o shape.m4 -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >/dev/null 2>&1 && timeout -k 5 20s ./shape.m4 </dev/null >"$T/o" 2>>"$T/e" ); rc=$?; N=$((N + 1))
 if [ "$rc" = 0 ] && cmp -s "$T/shape.want" "$T/o"; then echo "  shape m4: accepted, stdout byte-identical to fpc -Miso"; else echo "  ⛔ shape m4 FAILED: rc=$rc err=[$(head -c 120 "$T/e")]"; RC=1; fi
 chk() { local p="$1" fl="$2" tl="$3" m
   for m in m3 m4; do
-    if [ "$m" = m3 ]; then ( cd "$T" && timeout 60s "$SCRIP" --run $p.pas </dev/null >"$T/o" 2>"$T/e" ); rc=$?
-    else ( cd "$T" && timeout 60s "$SCRIP" --compile -o $p.s $p.pas </dev/null >"$T/o" 2>"$T/e" ); rc=$?; fi
+    if [ "$m" = m3 ]; then ( cd "$T" && timeout -k 5 60s "$SCRIP" --run $p.pas </dev/null >"$T/o" 2>"$T/e" ); rc=$?
+    else ( cd "$T" && timeout -k 5 60s "$SCRIP" --compile -o $p.s $p.pas </dev/null >"$T/o" 2>"$T/e" ); rc=$?; fi
     N=$((N + 1))
     if [ "$rc" != 0 ] && [ -z "$(cat "$T/o")" ] && grep -q "6.8.3.9 violation in $p.pas line $fl: .*threatened at line $tl by" "$T/e"; then echo "  $p $m: refused naming for-line $fl and threat-line $tl"
     else echo "  ⛔ $p $m FAILED: rc=$rc stdout=[$(head -c 40 "$T/o")] err=[$(head -1 "$T/e" | cut -c1-170)]"; RC=1; fi

@@ -43,17 +43,17 @@ printf 'deep\tMSTKSIZE=10000000\n' > "$W/deep.oracle_env"
 ( cd "$W" && "$ICONT" -s -o deep.x deep.icn ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: icont refused the recursion fixture"; exit 2; }
 OE="$(declared_oracle_env_beside "$W/deep.icn")" || { echo "⛔ GATE REFUSE(2) [$G]: the reader refused a well-formed fixture"; exit 2; }
 read -r -a OENV <<<"$OE"
-d0="$( cd "$W" && env -u MSTKSIZE timeout 60 ./deep.x 2>&1 )"; r0=$?
-d1="$( cd "$W" && env -u MSTKSIZE "${OENV[@]}" timeout 60 ./deep.x 2>&1 )"; r1=$?
+d0="$( cd "$W" && env -u MSTKSIZE timeout -k 5 60 ./deep.x 2>&1 )"; r0=$?
+d1="$( cd "$W" && env -u MSTKSIZE "${OENV[@]}" timeout -k 5 60 ./deep.x 2>&1 )"; r1=$?
 if [ "$r0" -eq 124 ] || [ "$r1" -eq 124 ]; then echo "⛔ GATE REFUSE(2) [$G]: the recursion fixture timed out (default rc=$r0, declared rc=$r1)"; exit 2; fi
 if [ "$r0" -ne 0 ] && grep -q 'error 301' <<<"$d0" && [ "$r1" -eq 0 ] && [ "$d1" = 200000 ]; then
   ok "B  at iconx's default the recursion dies run-time error 301 (rc=$r0); under the declared ${OE} it prints 200000"
 else bad "B  default rc=$r0 '$(head -c 80 <<<"$d0")', declared rc=$r1 '$(head -c 80 <<<"$d1")' -- the declaration is not the oracle's need"; fi
-wired() { grep -q 'declared_oracle_env_beside "$D/jtran.icn"' "$1" && grep -q '"${OENV\[@\]}" timeout "$TMO" "$W/jtran_oracle"' "$1"; }
+wired() { grep -q 'declared_oracle_env_beside "$D/jtran.icn"' "$1" && grep -q '"${OENV\[@\]}" timeout -k 5 "$TMO" "$W/jtran_oracle"' "$1"; }
 SH="$HERE/test_demo_icon_jcon_selfhost.sh"
 [ -f "$SH" ] || { echo "⛔ GATE REFUSE(2) [$G]: $SH absent"; exit 2; }
 if wired "$SH"; then ok "W  the self-host gate reads jtran.oracle_env and hands it to the oracle's env"; else bad "W  the self-host gate no longer passes jtran's declared oracle environment"; fi
-sed 's/"\${OENV\[@\]}" timeout "\$TMO" "\$W\/jtran_oracle"/timeout "$TMO" "$W\/jtran_oracle"/' "$SH" > "$W/doctored.sh"
+sed 's/"\${OENV\[@\]}" timeout "\$TMO" "\$W\/jtran_oracle"/timeout -k 5 "$TMO" "$W\/jtran_oracle"/' "$SH" > "$W/doctored.sh"
 cmp -s "$SH" "$W/doctored.sh" && { echo "⛔ GATE REFUSE(2) [$G]: the doctoring edit did not apply"; exit 2; }
 if wired "$W/doctored.sh"; then bad "W' a copy that drops the env still reads as wired"; else ok "W' a copy that drops the env reads RED (fail once)"; fi
 if [ "$RED" = 0 ]; then echo "✅ GATE PASS [$G]: the oracle's declared environment is read by the one reader, refused when malformed, needed by the oracle, and passed by the self-host gate"; exit 0; fi

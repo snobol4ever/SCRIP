@@ -24,9 +24,9 @@ grep -q '^elem 0$' "$T/b.ref" || { echo "⛔ REFUSE(2): the oracle's own stream 
 grep -q '^sum 10$' "$T/b.ref" || { echo "⛔ REFUSE(2): the oracle's own stream carries no 'sum 10' -- the rvalue control arm cannot be graded"; exit 2; }
 RC=0
 for M in m3 m4; do
-  if [ "$M" = m3 ]; then ( cd "$T" && timeout 20 "$SCRIP" b.icn </dev/null ) >"$T/$M.out" 2>&1
-  else ( cd "$T" && timeout 20 "$SCRIP" --compile -o b.s b.icn </dev/null && gcc b.s -o b.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ REFUSE(2): mode-4 witness did not build"; exit 2; }
-       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout 20 ./b.bin </dev/null ) >"$T/$M.out" 2>&1
+  if [ "$M" = m3 ]; then ( cd "$T" && timeout -k 5 20 "$SCRIP" b.icn </dev/null ) >"$T/$M.out" 2>&1
+  else ( cd "$T" && timeout -k 5 20 "$SCRIP" --compile -o b.s b.icn </dev/null && gcc b.s -o b.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ REFUSE(2): mode-4 witness did not build"; exit 2; }
+       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 20 ./b.bin </dev/null ) >"$T/$M.out" 2>&1
   fi
   if [ -n "${FAIL_ONCE:-}" ]; then sed -i 's/^elem 0$/elem 1/' "$T/$M.out"; fi
   if diff -u "$T/b.ref" "$T/$M.out" >"$T/$M.diff"; then echo "  $M PASS (byte-identical to icont)"

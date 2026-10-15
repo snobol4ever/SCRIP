@@ -103,7 +103,7 @@ fi
 # --- helpers: compile+link mirrors test_gate_pascal_m4.sh exactly (same RT, same flags) ---------------------
 compile_link() { # compile_link <pas> <exe-out> -> rc 0 on success
     local pas=$1 exe=$2 asm="$TMP/$(basename "$pas" .pas).s" obj="$TMP/$(basename "$pas" .pas).o"
-    timeout 8s "$SCRIP" --compile "$pas" < /dev/null > "$asm" 2>/dev/null || return 1
+    timeout -k 5 8s "$SCRIP" --compile "$pas" < /dev/null > "$asm" 2>/dev/null || return 1
     [ -s "$asm" ] || return 1
     gcc -c -o "$obj" "$asm" 2>/dev/null && gcc -o "$exe" "$obj" "$RT" -no-pie -Wl,-rpath,"$(dirname "$RT")" 2>/dev/null
 }
@@ -111,11 +111,11 @@ compile_link() { # compile_link <pas> <exe-out> -> rc 0 on success
 # --- 2. Named Pascal witnesses: boolptr + boolidx, BOTH modes -----------------------------------------------
 for name in boolptr boolidx; do
     pas="$TMP/$name.pas"; ref="$TMP/$name.ref"; inp="$TMP/$name.in"; [ -s "$inp" ] || inp=/dev/null
-    out3=$(timeout 8s "$SCRIP" --run "$pas" < "$inp" 2>/dev/null); rc3=$?
+    out3=$(timeout -k 5 8s "$SCRIP" --run "$pas" < "$inp" 2>/dev/null); rc3=$?
     if [ "$rc3" -eq 0 ] && [ "$out3" = "$(cat "$ref")" ]; then report "pascal-$name-m3" 0 "byte-matches .ref"; else report "pascal-$name-m3" 1 "rc=$rc3, does not match .ref"; fi
     exe="$TMP/$name.exe"
     if compile_link "$pas" "$exe"; then
-        out4=$(timeout 8s "$exe" < "$inp" 2>/dev/null); rc4=$?
+        out4=$(timeout -k 5 8s "$exe" < "$inp" 2>/dev/null); rc4=$?
         if [ "$rc4" -eq 0 ] && [ "$out4" = "$(cat "$ref")" ]; then report "pascal-$name-m4" 0 "byte-matches .ref"; else report "pascal-$name-m4" 1 "rc=$rc4, does not match .ref"; fi
     else
         report "pascal-$name-m4" 1 "compile or link failed"
@@ -135,11 +135,11 @@ inline_witness() { # inline_witness <name> <src-var> <expected>
     # witness cares which DIGIT printed, not its column width.
     local name=$1 src="$2" expected="$3" pas="$TMP/$name.pas" want; want=$(printf '%s' "$expected" | tr -d '[:space:]')
     printf '%s\n' "$src" > "$pas"
-    local out3 rc3 got3; out3=$(timeout 8s "$SCRIP" --run "$pas" < /dev/null 2>/dev/null); rc3=$?; got3=$(printf '%s' "$out3" | tr -d '[:space:]')
+    local out3 rc3 got3; out3=$(timeout -k 5 8s "$SCRIP" --run "$pas" < /dev/null 2>/dev/null); rc3=$?; got3=$(printf '%s' "$out3" | tr -d '[:space:]')
     if [ "$rc3" -eq 0 ] && [ "$got3" = "$want" ]; then report "$name-m3" 0 "matches expected"; else report "$name-m3" 1 "rc=$rc3 got=[$out3] want=[$expected]"; fi
     local exe="$TMP/$name.exe"
     if compile_link "$pas" "$exe"; then
-        local out4 rc4 got4; out4=$(timeout 8s "$exe" < /dev/null 2>/dev/null); rc4=$?; got4=$(printf '%s' "$out4" | tr -d '[:space:]')
+        local out4 rc4 got4; out4=$(timeout -k 5 8s "$exe" < /dev/null 2>/dev/null); rc4=$?; got4=$(printf '%s' "$out4" | tr -d '[:space:]')
         if [ "$rc4" -eq 0 ] && [ "$got4" = "$want" ]; then report "$name-m4" 0 "matches expected"; else report "$name-m4" 1 "rc=$rc4 got=[$out4] want=[$expected]"; fi
     else
         report "$name-m4" 1 "compile or link failed"
@@ -172,7 +172,7 @@ for name in bubble quick; do
     if compile_link "$pas" "$exe"; then
         hits=0
         for i in 1 2 3 4 5; do
-            out=$(echo 1 | setarch "$(uname -m)" -R timeout 30s "$exe" 2>/dev/null); rc=$?
+            out=$(echo 1 | setarch "$(uname -m)" -R timeout -k 5 30s "$exe" 2>/dev/null); rc=$?
             [ "$rc" -eq 0 ] && [ "$out" = "$(cat "$ref")" ] && hits=$((hits+1))
         done
         if [ "$hits" -eq 5 ]; then report "pascal-$name-m4-5x" 0 "5/5 clean under setarch -R (no crash => no observable spine drift)"; else report "pascal-$name-m4-5x" 1 "$hits/5 clean under setarch -R"; fi

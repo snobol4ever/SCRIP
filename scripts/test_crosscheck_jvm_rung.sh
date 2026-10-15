@@ -85,9 +85,9 @@ run_test() {
     # Run
     local actual
     if [[ -f "$input" ]]; then
-        actual=$(timeout "$TIMEOUT" java -cp "$classdir" "$classname" < "$input" 2>/dev/null || true)
+        actual=$(timeout -k 5 "$TIMEOUT" java -cp "$classdir" "$classname" < "$input" 2>/dev/null || true)
     else
-        actual=$(timeout "$TIMEOUT" java -cp "$classdir" "$classname" </dev/null 2>/dev/null || true)
+        actual=$(timeout -k 5 "$TIMEOUT" java -cp "$classdir" "$classname" </dev/null 2>/dev/null || true)
     fi
     local expected; expected=$(cat "$ref")
 

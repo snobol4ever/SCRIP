@@ -41,8 +41,8 @@ xcheck() {
     [ -n "$ref" ] && [ -f "$ref" ] && exp="$ref"
     [ -z "$exp" ] && [ -f "${file%.pl}.ref" ]      && exp="${file%.pl}.ref"
     local sw; sw="$(declared_switches_beside "$file")" || { echo "  REFUSE(2) $label: a .heap or .stack sidecar the reader refuses"; exit 2; }
-    m3_out=$(timeout $TIMEOUT "$SCRIP" --run $sw "$file" </dev/null 2>/dev/null); m3_rc=$?
-    m4_out=$(timeout $TIMEOUT bash "$HERE/run_prolog_via_x86_backend.sh" "$file" </dev/null 2>/dev/null); m4_rc=$?
+    m3_out=$(timeout -k 5 $TIMEOUT "$SCRIP" --run $sw "$file" </dev/null 2>/dev/null); m3_rc=$?
+    m4_out=$(timeout -k 5 $TIMEOUT bash "$HERE/run_prolog_via_x86_backend.sh" "$file" </dev/null 2>/dev/null); m4_rc=$?
     if [ -z "$exp" ]; then
         echo "  NO-ORACLE $label (m3_rc=$m3_rc m4_rc=$m4_rc — ungraded, not a pass)"; NOORACLE=$((NOORACLE+1))
     else

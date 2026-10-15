@@ -62,7 +62,7 @@ main :- gen($N), shw($N), write(done), nl.
 PL
 # ⛔ THE ORACLE RUNS FIRST AND ITS FAILURE IS A REFUSAL, NEVER A REF.
 REF="$W/ref.txt"
-if ! timeout 60 "$SWIPL" -q -g true -t halt "$W/w.pl" </dev/null > "$REF" 2>"$W/ref.err"; then
+if ! timeout -k 5 60 "$SWIPL" -q -g true -t halt "$W/w.pl" </dev/null > "$REF" 2>"$W/ref.err"; then
     refuse "the swipl oracle did not run the witness (rc=$?): $(head -3 "$W/ref.err" | tr '\n' ' ')"
 fi
 [ -s "$REF" ] || refuse "the oracle produced an EMPTY ref -- an empty expectation makes every run trivially pass"
@@ -70,20 +70,20 @@ grep -qx 'done' "$REF" || refuse "the oracle's own answer is not the expected sh
 echo "ORACLE REF (swipl, cut at run time): $(tr '\n' ' ' < "$REF")"
 fails=0; checks=0
 ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
-run_mode_m3(){ SCRIP_GC_STRESS="$STRESS" timeout 60 "$SCRIP" "$W/w.pl" </dev/null 2>&1; }
+run_mode_m3(){ SCRIP_GC_STRESS="$STRESS" timeout -k 5 60 "$SCRIP" "$W/w.pl" </dev/null 2>&1; }
 # ⛔⭐ THE M4 ARM COMPILES INTO ITS OWN DIRECTORY AND PROVES THE ARTIFACT IS FRESH BEFORE RUNNING IT. A stale
 # artifact under a refusing compile is indistinguishable from success (cto 2026-09-14): a gate that compiled two
 # arms into one scratch dir once linked and ran the CONTROL arm's leftovers and reported them as the subject's.
 M4DIR="$W/m4"; mkdir -p "$M4DIR"
 m4_build(){
     rm -f "$M4DIR/w.s" "$M4DIR/w.bin"
-    timeout 120 "$SCRIP" --compile -o "$M4DIR/w.s" "$W/w.pl" </dev/null >"$M4DIR/compile.log" 2>&1 || return 1
+    timeout -k 5 120 "$SCRIP" --compile -o "$M4DIR/w.s" "$W/w.pl" </dev/null >"$M4DIR/compile.log" 2>&1 || return 1
     [ -s "$M4DIR/w.s" ] || return 1
-    timeout 120 gcc -no-pie "$M4DIR/w.s" -o "$M4DIR/w.bin" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm >>"$M4DIR/compile.log" 2>&1 || return 1
+    timeout -k 5 120 gcc -no-pie "$M4DIR/w.s" -o "$M4DIR/w.bin" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm >>"$M4DIR/compile.log" 2>&1 || return 1
     [ -x "$M4DIR/w.bin" ] || return 1
     return 0
 }
-run_mode_m4(){ SCRIP_GC_STRESS="$STRESS" timeout 60 "$M4DIR/w.bin" </dev/null 2>&1; }
+run_mode_m4(){ SCRIP_GC_STRESS="$STRESS" timeout -k 5 60 "$M4DIR/w.bin" </dev/null 2>&1; }
 for m in ${MODES//,/ }; do
     if [ "$m" = m4 ]; then
         m4_build || refuse "mode 4 could not build the witness -- refusing rather than grading a stale or absent artifact: $(tail -3 "$M4DIR/compile.log" 2>/dev/null | tr '\n' ' ')"

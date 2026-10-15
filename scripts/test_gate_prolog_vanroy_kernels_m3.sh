@@ -32,7 +32,7 @@ bench="$root/corpus/benchmarks/prolog/bench"
 bad=0; dark=0
 for f in "$d"/*.pl; do
   b=$(basename "$f"); k="${b%.pl}"
-  (cd "$d" && timeout 30 "$here/scrip" "$b" < /dev/null > "$d/$k.stdout" 2> "$d/$k.stderr"); rc=$?
+  (cd "$d" && timeout -k 5 30 "$here/scrip" "$b" < /dev/null > "$d/$k.stdout" 2> "$d/$k.stderr"); rc=$?
   if [ "$rc" != 0 ]; then
     bad=$((bad+1)); printf 'FAIL %-16s rc=%-4s %s\n' "$b" "$rc" "$(head -1 "$d/$k.stderr" 2>/dev/null | cut -c1-72)"; continue
   fi
@@ -49,8 +49,8 @@ echo "   kernels go GREEN WHEN THE BOX IS BUSY. Witness .github/probes/prolog-he
 command -v swipl > /dev/null || { echo "REFUSE: no swipl -- cannot grade the answer arm"; exit 2; }
 for b in queens.pl queens_8.pl; do
   [ -f "$d/$b" ] || continue
-  got=$(cd "$d" && timeout 30 "$here/scrip" "$b" < /dev/null 2>/dev/null | head -1)
-  want=$(cd "$d" && timeout 30 swipl -q -g halt "$b" < /dev/null 2>/dev/null | head -1)
+  got=$(cd "$d" && timeout -k 5 30 "$here/scrip" "$b" < /dev/null 2>/dev/null | head -1)
+  want=$(cd "$d" && timeout -k 5 30 swipl -q -g halt "$b" < /dev/null 2>/dev/null | head -1)
   [ -n "$want" ] || { echo "REFUSE: oracle produced nothing for $b"; exit 2; }
   [ "$got" = "$want" ] || { echo "GATE RED: $b first answer [$got] != oracle [$want]"; exit 1; }
 done

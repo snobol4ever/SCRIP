@@ -90,7 +90,7 @@ fi
 bash "$HERE/util_require_fresh.sh" --gate "$G" "$ROOT/scrip" "$ROOT/out/libscrip_rt.so" || exit 2
 W="$(mktemp -d "${TMPDIR:-/tmp}/gc_dtdata.XXXXXX")" || exit 2
 trap 'rm -rf "$W"' EXIT
-ref="$(cd "$W" && SCRIP_GC_STRESS=0 timeout 60 "$ROOT/scrip" "$WIT" 2>/dev/null)"
+ref="$(cd "$W" && SCRIP_GC_STRESS=0 timeout -k 5 60 "$ROOT/scrip" "$WIT" 2>/dev/null)"
 case "$ref" in
     "LEN=60 TLEN=30"*) : ;;
     *) echo "GATE UNPROVEN(2) [$G]: the witness did not produce its computed header (LEN=60 TLEN=30); it was edited or it is not running -- a band compared against a wrong reference grades nothing"; exit 2 ;;
@@ -98,7 +98,7 @@ esac
 bad=0; nd_bad=0; tot_col=0; tot_mov=0; tot_elems=0; tot_nd=0; band_n=0; report=""
 for st in $BAND; do
     band_n=$((band_n+1))
-    out="$(cd "$W" && SCRIP_GC_STRESS="$st" SCRIP_GC_POISON=1 SCRIP_ZETA_TELEM=1 timeout 120 "$ROOT/scrip" "$WIT" 2>t.txt)"
+    out="$(cd "$W" && SCRIP_GC_STRESS="$st" SCRIP_GC_POISON=1 SCRIP_ZETA_TELEM=1 timeout -k 5 120 "$ROOT/scrip" "$WIT" 2>t.txt)"
     col=$(grep -c '\[ZGC-MARK\]' "$W/t.txt"); col=${col:-0}
     mov=$(grep -o 'moved=[0-9]*B' "$W/t.txt" | sed 's/[^0-9]//g' | awk '{s+=$1} END{print s+0}')
     nd=$(grep -h '\[GC-DVEC\]' "$W/t.txt" | tail -1 | sed -n 's/.*non_dvec=\([0-9]*\).*/\1/p'); nd=${nd:-0}

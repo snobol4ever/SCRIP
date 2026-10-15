@@ -55,11 +55,11 @@ case "$want" in *done*) ;; *) echo "UNPROVEN(2): the oracle did not run the witn
 bad=0
 for m in m3 m4; do
     if [ "$m" = m3 ]; then
-        got="$(timeout 30s "$SCRIP" "$T/ap.sno" < /dev/null 2>&1 | tr '\n' '/')"; rc=$?
+        got="$(timeout -k 5 30s "$SCRIP" "$T/ap.sno" < /dev/null 2>&1 | tr '\n' '/')"; rc=$?
     else
         "$SCRIP" --compile -o "$T/ap.s" "$T/ap.sno" < /dev/null >/dev/null 2>&1
         gcc -no-pie "$T/ap.s" -o "$T/ap.x" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread >/dev/null 2>&1 || { echo "  RED  $m -- link failed"; bad=1; continue; }
-        got="$(timeout 30s "$T/ap.x" < /dev/null 2>&1 | tr '\n' '/')"; rc=$?
+        got="$(timeout -k 5 30s "$T/ap.x" < /dev/null 2>&1 | tr '\n' '/')"; rc=$?
     fi
     if [ "$got" = "$want" ]; then echo "  ok   $m -- 13 arities, three short-call arms and a by-name APPLY all match SPITBOL (rc=$rc)"
     else echo "  RED  $m rc=$rc -- got [$got] want [$want]"; bad=1; fi
@@ -67,7 +67,7 @@ done
 sed 's/^\( *OUTPUT = APPLY(.F3.,1,2,3)\)$/        OUTPUT = APPLY('"'"'F3'"'"',1,2,9)/' "$T/ap.sno" > "$T/plant.sno"
 if cmp -s "$T/ap.sno" "$T/plant.sno"; then echo "  RED  P -- the plant edited nothing, so it proves nothing about this harness"; bad=1
 else
-    pgot="$(timeout 30s "$SCRIP" "$T/plant.sno" < /dev/null 2>&1 | tr '\n' '/')"
+    pgot="$(timeout -k 5 30s "$SCRIP" "$T/plant.sno" < /dev/null 2>&1 | tr '\n' '/')"
     if [ "$pgot" = "$want" ]; then echo "  RED  P -- a program that passes a DIFFERENT actual compared EQUAL to the reference: this harness cannot see a wrong binding"; bad=1
     else echo "  ok   P -- the plant is seen: one changed actual makes the measured run differ from the reference, so a green above is a comparison that discriminates"; fi
 fi

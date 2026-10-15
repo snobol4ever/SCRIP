@@ -68,7 +68,7 @@ done
 echo "--- ARM 6: the ranker WRITES NOTHING -- no SCORE row, no RAKU-COVERAGE.md (ONE RUNNER ONE BOARD) ---"
 SC="$HERE/../../.github/SCORE.md"; COV="$HERE/../../.github/RAKU-COVERAGE.md"
 before=""; for f in "$SC" "$COV"; do [ -f "$f" ] && before="$before$(stat -c '%n:%Y:%s' "$f") "; done
-out=$(timeout 600 bash "$RANKER" --limit 8 --candidates 1 2>&1); rc=$?
+out=$(timeout -k 5 600 bash "$RANKER" --limit 8 --candidates 1 2>&1); rc=$?
 after=""; for f in "$SC" "$COV"; do [ -f "$f" ] && after="$after$(stat -c '%n:%Y:%s' "$f") "; done
 if [ "$before" = "$after" ]; then ck ok "SCORE.md and RAKU-COVERAGE.md untouched across a ranker run"
 else ck no "the ranker moved a published file -- it must publish nothing: [$before] -> [$after]"; fi

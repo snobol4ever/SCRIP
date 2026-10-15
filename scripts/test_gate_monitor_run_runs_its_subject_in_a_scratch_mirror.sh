@@ -28,8 +28,8 @@ grade() {   # grade <monitor_run.sh> <label> -- one "ARM <name> ok|RED" line per
   printf 'hello companion\n' > "$d/prog/companion.txt"
   printf "\tINPUT(.C, 8, 'companion.txt')\n\tOUTPUT(.F, 7, 'made.txt')\n\tF = 'written'\n\tOUTPUT = 'read: ' C\nEND\n" > "$d/prog/w.sno"
   local tr md
-  tr="$(cd "$d/caller" && S4E_HOME="$S4E_ROOT" timeout 120 bash "$m" "$d/prog/w.sno" --trace 2>&1)"
-  md="$(cd "$d/caller" && S4E_HOME="$S4E_ROOT" timeout 300 bash "$m" "$d/prog/w.sno" --modes 2>&1)"
+  tr="$(cd "$d/caller" && S4E_HOME="$S4E_ROOT" timeout -k 5 120 bash "$m" "$d/prog/w.sno" --trace 2>&1)"
+  md="$(cd "$d/caller" && S4E_HOME="$S4E_ROOT" timeout -k 5 300 bash "$m" "$d/prog/w.sno" --modes 2>&1)"
   printf '%s\n%s\n' "$tr" "$md" > "$T/$2.out"
   grep -q '^read: hello companion$' <<<"$tr" && echo "ARM a_relative_read ok" || echo "ARM a_relative_read RED"
   grep -q '^\[monitor_run\] AGREE' <<<"$md" && echo "ARM b_verdict ok" || echo "ARM b_verdict RED"

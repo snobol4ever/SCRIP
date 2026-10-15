@@ -32,13 +32,13 @@ main :- T = f(_), V = g(X), nb_linkarg(1, T, V), X = 1, arg(1, T, A), writeq(lin
   T4 = f(a), ( setarg(1, T4, v), fail ; true ), arg(1, T4, A4), writeq(setarg_undone(A4)), nl,
   ( nb_linkarg(0, f(a), x) -> writeq(zero_yes) ; writeq(zero_no) ), nl, catch(nb_linkarg(x, f(a), y), error(E2, _), true), writeq(bad(E2)), nl.
 PL
-want="$(cd "$D" && timeout 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | sed '/^$/d')"
+want="$(cd "$D" && timeout -k 5 20 "$SW" -q w.pl -t halt < /dev/null 2>/dev/null | sed '/^$/d')"
 [ "$(printf '%s\n' "$want" | grep -c .)" = 6 ] || refuse "swipl did not answer the six lines: [$want]"
-( cd "$D" && timeout 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 ) || refuse "mode 4 compile failed"
 ( cd "$D" && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || refuse "mode 4 link failed"
 red=0
 for m in m3 m4; do
-    if [ "$m" = m3 ]; then got="$(cd "$D" && timeout 20 "$B/scrip" --run w.pl < /dev/null 2>/dev/null | sed '/^$/d')"; else got="$(cd "$D" && timeout 20 ./w.bin < /dev/null 2>/dev/null | sed '/^$/d')"; fi
+    if [ "$m" = m3 ]; then got="$(cd "$D" && timeout -k 5 20 "$B/scrip" --run w.pl < /dev/null 2>/dev/null | sed '/^$/d')"; else got="$(cd "$D" && timeout -k 5 20 ./w.bin < /dev/null 2>/dev/null | sed '/^$/d')"; fi
     if [ "$got" = "$want" ]; then echo "  $m GREEN: 6 of 6 lines as swipl"
     else echo "  $m RED: $(diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | grep -c '^>') line(s) differ from swipl"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
 done

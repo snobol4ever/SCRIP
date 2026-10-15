@@ -85,18 +85,18 @@ cat > "$T/ct.sno" <<'EOF'
         OUTPUT = $('&ANCHOR') &ANCHOR
 END
 EOF
-want() { timeout 30 "$SBL" -bf "$T/$1.sno" < /dev/null > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
+want() { timeout -k 5 30 "$SBL" -bf "$T/$1.sno" < /dev/null > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
 want st; want ct
 head -1 "$T/st.want" | grep -q '^NAME$' && grep -q '^CUR2=4$' "$T/st.want" || refuse "sbl -bf no longer answers the program as cut (first line: $(head -1 "$T/st.want"))"
 fail=0; pass=0
 arm() { local n="$1" what="$2" got="$3" w="$4"
     if cmp -s "$w" "$got"; then pass=$((pass + 1)); echo "  arm $n PASS  $what"
     else fail=$((fail + 1)); echo "  arm $n FAIL  $what"; diff "$w" "$got" | head -8 | sed 's/^/      /'; fi; }
-m3() { timeout 30 "$SCRIP" "$T/$1.sno" < /dev/null > "$T/$1.m3" 2>/dev/null; }
+m3() { timeout -k 5 30 "$SCRIP" "$T/$1.sno" < /dev/null > "$T/$1.m3" 2>/dev/null; }
 m4() { : > "$T/$1.m4"
-       if timeout 120 "$SCRIP" --compile -o "$T/$1.s" "$T/$1.sno" < /dev/null > /dev/null 2>&1 \
+       if timeout -k 5 120 "$SCRIP" --compile -o "$T/$1.s" "$T/$1.sno" < /dev/null > /dev/null 2>&1 \
           && gcc -no-pie "$T/$1.s" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$T/$1.bin" 2>/dev/null
-       then timeout 30 "$T/$1.bin" < /dev/null > "$T/$1.m4" 2>/dev/null; else echo COMPILE-FAILED > "$T/$1.m4"; fi; }
+       then timeout -k 5 30 "$T/$1.bin" < /dev/null > "$T/$1.m4" 2>/dev/null; else echo COMPILE-FAILED > "$T/$1.m4"; fi; }
 m3 st; arm 1 "m3: .\$x, .&KW stores, @*V, @*\$('CUR' N), keyword capture targets answer as sbl -bf does" "$T/st.m3" "$T/st.want"
 m4 st; arm 2 "m4: the same" "$T/st.m4" "$T/st.want"
 m3 ct; arm 3 "CONTROL m3: .x, an array element name, @C, . D, \$ E, a string \$('&ANCHOR') stays the plain variable" "$T/ct.m3" "$T/ct.want"

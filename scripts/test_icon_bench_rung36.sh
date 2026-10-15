@@ -42,8 +42,8 @@ for icn in "$CORPUS"/t*.icn; do
         continue
     fi
     stdin_f="${base}.stdin"
-    if [ -f "$stdin_f" ]; then out=$(timeout 15 java -cp /tmp "$cls" < "$stdin_f" 2>&1 | grep -v JAVA_TOOL)
-    else out=$(timeout 15 java -cp /tmp "$cls" 2>&1 | grep -v JAVA_TOOL); fi
+    if [ -f "$stdin_f" ]; then out=$(timeout -k 5 15 java -cp /tmp "$cls" < "$stdin_f" 2>&1 | grep -v JAVA_TOOL)
+    else out=$(timeout -k 5 15 java -cp /tmp "$cls" 2>&1 | grep -v JAVA_TOOL); fi
 
     if echo "$out" | grep -q "VerifyError\|LinkageError\|ClassFormatError\|Unable to initialize"; then
         [ $is_xfail -eq 1 ] && { printf "XFAIL%-26s (VE)%s\n" " $name" "$tag"; xfail=$((xfail+1)); } || { printf "VE   %-26s%s\n" "$name" "$tag"; ve=$((ve+1)); }

@@ -51,7 +51,7 @@ printf ':- consult(no_such_file_here).\n:- initialization(main).\nmain :- write(
 printf ':- [t_foo].\n:- [t_foo].\n:- initialization(main).\nmain :- findall(X, t_foo(1,X), L), write(L), nl.\n' > "$W/twice.pl"
 fails=0; checks=0
 ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
-oracle(){ ( cd "$W" && timeout 30 "$SWIPL" -q -g true -t halt "$1.pl" </dev/null 2>/dev/null ); }
+oracle(){ ( cd "$W" && timeout -k 5 30 "$SWIPL" -q -g true -t halt "$1.pl" </dev/null 2>/dev/null ); }
 echo "=== gate: consult/1 and [File] load the named file ==="
 echo "--- (g) the ORACLE premise, asserted before anything is graded ---"
 for w in direct bracket conj data missing twice; do
@@ -65,16 +65,16 @@ done
 ck ok "oracle: direct=[$EXP_direct] bracket=[$EXP_bracket] conj=[$EXP_conj] data=[$EXP_data] missing=[$EXP_missing] twice=[$EXP_twice]"
 for m in m3 m4; do
   echo "--- $m ---"
-  run(){ if [ "$m" = m3 ]; then ( cd "$W" && timeout 60 "$SCRIP" "$1.pl" </dev/null 2>/dev/null ); else
+  run(){ if [ "$m" = m3 ]; then ( cd "$W" && timeout -k 5 60 "$SCRIP" "$1.pl" </dev/null 2>/dev/null ); else
            rm -f "$W/out.s" "$W/out.bin"
-           ( cd "$W" && timeout 90 "$SCRIP" --compile -o out.s "$1.pl" </dev/null >/dev/null 2>&1 ) || return 97
-           timeout 90 gcc -no-pie -o "$W/out.bin" "$W/out.s" -L"$ROOT/out" -lscrip_rt -lm >/dev/null 2>&1 || return 98
-           ( cd "$W" && LD_LIBRARY_PATH="$ROOT/out" timeout 60 ./out.bin </dev/null 2>/dev/null ); fi; }
-  run_err(){ if [ "$m" = m3 ]; then ( cd "$W" && timeout 60 "$SCRIP" "$1.pl" </dev/null 2>&1 >/dev/null ); else
+           ( cd "$W" && timeout -k 5 90 "$SCRIP" --compile -o out.s "$1.pl" </dev/null >/dev/null 2>&1 ) || return 97
+           timeout -k 5 90 gcc -no-pie -o "$W/out.bin" "$W/out.s" -L"$ROOT/out" -lscrip_rt -lm >/dev/null 2>&1 || return 98
+           ( cd "$W" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 60 ./out.bin </dev/null 2>/dev/null ); fi; }
+  run_err(){ if [ "$m" = m3 ]; then ( cd "$W" && timeout -k 5 60 "$SCRIP" "$1.pl" </dev/null 2>&1 >/dev/null ); else
            rm -f "$W/e.s" "$W/e.bin"
-           ( cd "$W" && timeout 90 "$SCRIP" --compile -o e.s "$1.pl" </dev/null >/dev/null 2>&1 ) || return 97
-           timeout 90 gcc -no-pie -o "$W/e.bin" "$W/e.s" -L"$ROOT/out" -lscrip_rt -lm >/dev/null 2>&1 || return 98
-           ( cd "$W" && LD_LIBRARY_PATH="$ROOT/out" timeout 60 ./e.bin </dev/null 2>&1 >/dev/null ); fi; }
+           ( cd "$W" && timeout -k 5 90 "$SCRIP" --compile -o e.s "$1.pl" </dev/null >/dev/null 2>&1 ) || return 97
+           timeout -k 5 90 gcc -no-pie -o "$W/e.bin" "$W/e.s" -L"$ROOT/out" -lscrip_rt -lm >/dev/null 2>&1 || return 98
+           ( cd "$W" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 60 ./e.bin </dev/null 2>&1 >/dev/null ); fi; }
   o="$(run direct)";  [ "$o" = "$EXP_direct" ]  && ck ok "$m (a) consult/1 makes t_foo/2 callable -> [$o]" || ck no "$m (a) printed [$o], oracle says [$EXP_direct]"
   o="$(run bracket)"; [ "$o" = "$EXP_bracket" ] && ck ok "$m (b) [File] is a REAL synonym -> [$o]"         || ck no "$m (b) printed [$o], oracle says [$EXP_bracket] -- a silent no-op looks alive and dies later, elsewhere"
   o="$(run conj)";    [ "$o" = "$EXP_conj" ]    && ck ok "$m (c) consult inside a DIRECTIVE conjunction -> [$o]"  || ck no "$m (c) printed [$o], oracle says [$EXP_conj]"

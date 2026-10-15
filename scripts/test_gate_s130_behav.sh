@@ -14,7 +14,7 @@ record)
   for s in $SETS; do
     for f in $(find "$ROOT/$s" -name '*.sno' | sort); do
       r="${f%.sno}.ref"; [ -f "$r" ] || continue
-      got=$(timeout 15 $S4E/SCRIP/scrip --run "$f" < /dev/null 2>/dev/null)
+      got=$(timeout -k 5 15 $S4E/SCRIP/scrip --run "$f" < /dev/null 2>/dev/null)
       if [ "$got" = "$(cat "$r")" ]; then echo "PASS $f" >> "$out"; else echo "FAIL $f" >> "$out"; fi
     done
   done

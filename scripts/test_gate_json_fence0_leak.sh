@@ -57,10 +57,10 @@ for w in synth_perf223 synth_perf224; do
     echo "  FAIL: missing witness or ref for $w"; fail=$((fail+1)); continue
   fi
 
-  timeout 60 "$SCRIP" --run "$DEMO/json/json.sno" < "$PROBE/$w.json" > /tmp/gate_m3_$w.txt 2>/dev/null
+  timeout -k 5 60 "$SCRIP" --run "$DEMO/json/json.sno" < "$PROBE/$w.json" > /tmp/gate_m3_$w.txt 2>/dev/null
   diff -q /tmp/gate_m3_$w.txt "$PROBE/$w.ref" > /dev/null 2>&1; chk $? "m3 $w matches oracle"
 
-  timeout 60 /tmp/gate_json_fence0.bin < "$PROBE/$w.json" > /tmp/gate_m4_$w.txt 2>/dev/null
+  timeout -k 5 60 /tmp/gate_json_fence0.bin < "$PROBE/$w.json" > /tmp/gate_m4_$w.txt 2>/dev/null
   diff -q /tmp/gate_m4_$w.txt "$PROBE/$w.ref" > /dev/null 2>&1; chk $? "m4 $w matches oracle"
 done
 

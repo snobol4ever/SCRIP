@@ -99,7 +99,7 @@ echo "  LOCK 4 (Lon 2026-10-01, CEO-1392): EVERY STATEMENT IN A PROCEDURE BODY E
 L4T=$(mktemp -d); trap 'rm -rf "$L4T"' EXIT; trap 'rm -rf "$L4T"; exit 143' TERM; trap 'rm -rf "$L4T"; exit 130' INT
 l4() { # l4 <want ACCEPT|REFUSE> <source>
   printf '%b' "$2" > "$L4T/p.icn"
-  if timeout 5 "$SCRIP" "$L4T/p.icn" </dev/null >/dev/null 2>"$L4T/err"; then got=ACCEPT; else got=REFUSE; fi
+  if timeout -k 5 5 "$SCRIP" "$L4T/p.icn" </dev/null >/dev/null 2>"$L4T/err"; then got=ACCEPT; else got=REFUSE; fi
   if [ "$got" = "$1" ]; then echo "    ok   $1  $(printf '%s' "$2" | tr '\n' '~' | cut -c1-70)"; else echo "    BREACH want $1 got $got  $(printf '%s' "$2" | tr '\n' '~' | cut -c1-70)  $(head -1 "$L4T/err" | cut -c1-80)"; fail=1; fi
 }
 l4 REFUSE 'procedure main(); write(1); write(2) end\n'

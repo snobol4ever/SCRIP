@@ -22,8 +22,8 @@ for d in $DIRS; do
     [ -d "$d" ] || continue
     for f in $(find "$d" -name '*.sno' | sort); do
         b=$(echo "$f" | md5sum | cut -c1-12)
-        SCRIP_SR3_FIX=1 timeout 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.on.s"  2>/dev/null
-        SCRIP_SR3_FIX=0 timeout 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.off.s" 2>/dev/null
+        SCRIP_SR3_FIX=1 timeout -k 5 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.on.s"  2>/dev/null
+        SCRIP_SR3_FIX=0 timeout -k 5 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.off.s" 2>/dev/null
         roff=$?
         if [ -s "$OUT/$b.on.s" ] && [ $roff -eq 139 ]; then curedn=$((curedn+1)); echo "CURED  $f"; rm -f "$OUT/$b.on.s" "$OUT/$b.off.s"; continue; fi
         if [ ! -s "$OUT/$b.on.s" ] || [ ! -s "$OUT/$b.off.s" ]; then failn=$((failn+1)); rm -f "$OUT/$b.on.s" "$OUT/$b.off.s"; continue; fi

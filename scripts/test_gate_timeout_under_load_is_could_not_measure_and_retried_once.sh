@@ -119,7 +119,7 @@ if [ -x "$ROOT/scrip" ] && "$HERE/util_require_fresh.sh" --gate test_gate_timeou
     printf '0\n' > "$W/fpc/spin.ref"
     printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args\n1,spin,fpc_tests__spin,fpc_tests,7,0,0,131072,4096,,\n' > "$W/fpc/ALL.csv"
     for arm in hot cool; do
-        (cd "$W" && FANOUT_PROC="$W/$arm" FPC_SUITE="$W/fpc" FPC_SUITE_RUN_TIMEOUT=1 S4E_PROGRESS_DB="$W/fpc.$arm.tsv" S4E_TIMEOUT_STAMP="$W/fpc.$arm.stamp" timeout 300 bash "$HERE/test_pascal_fpc_suite.sh" > "$W/fpc.$arm.out" 2>&1)
+        (cd "$W" && FANOUT_PROC="$W/$arm" FPC_SUITE="$W/fpc" FPC_SUITE_RUN_TIMEOUT=1 S4E_PROGRESS_DB="$W/fpc.$arm.tsv" S4E_TIMEOUT_STAMP="$W/fpc.$arm.stamp" timeout -k 5 300 bash "$HERE/test_pascal_fpc_suite.sh" > "$W/fpc.$arm.out" 2>&1)
     done
     h3="$(awk -F'\t' '$8=="spin" && $9=="m3" {print $10, $12}' "$W/fpc.hot.tsv" 2>/dev/null)"; h4="$(awk -F'\t' '$8=="spin" && $9=="m4" {print $10, $12}' "$W/fpc.hot.tsv" 2>/dev/null)"
     c3="$(awk -F'\t' '$8=="spin" && $9=="m3" {print $10, $12}' "$W/fpc.cool.tsv" 2>/dev/null)"; c4="$(awk -F'\t' '$8=="spin" && $9=="m4" {print $10, $12}' "$W/fpc.cool.tsv" 2>/dev/null)"
@@ -156,7 +156,7 @@ if [ "$r12" = 0 ] && printf '%s' "$c12" | grep -qE 'bare graded timeouts: 0;'; t
 elif [ "$r12" = 2 ]; then echo "GATE UNPROVEN(2): the census could not read its population: $(printf '%s' "$c12" | tail -1)"; exit 2
 else ck no "arm 12: $(printf '%s' "$c12" | grep -E 'BARE|population' | head -4 | tr '\n' ' ')"; fi
 mkdir -p "$W/t13"
-printf '#!/bin/bash\nout=$(timeout "$T" "$SCRIP" --run x.sno < /dev/null)\nok=$("$TIMEOUT_RETRY" "$T" "$SCRIP" --run y.sno)\nfetch=$(timeout 20s git fetch)  # timeout-retry: exempt -- a git fetch\necho "timeout $T seconds"\n' > "$W/t13/runner.sh"
+printf '#!/bin/bash\nout=$(timeout -k 5 "$T" "$SCRIP" --run x.sno < /dev/null)\nok=$("$TIMEOUT_RETRY" "$T" "$SCRIP" --run y.sno)\nfetch=$(timeout -k 5 20s git fetch)  # timeout-retry: exempt -- a git fetch\necho "timeout -k 5 $T seconds"\n' > "$W/t13/runner.sh"
 printf 'import subprocess\nr = subprocess.run(["scrip", "x.pl"], capture_output=True,\n                   timeout=10)\nq = subprocess.run(["ls"])\n' > "$W/t13/grader.py"
 c13="$(python3 "$HERE/audit_bare_timeout_census.py" --files "$W/t13/runner.sh" "$W/t13/grader.py" 2>&1)"; r13=$?
 if [ "$r13" = 1 ] && printf '%s' "$c13" | grep -qE 'bare graded timeouts: 2;' && printf '%s' "$c13" | grep -q 'runner.sh:2' && printf '%s' "$c13" | grep -q 'grader.py:2'; then

@@ -23,7 +23,7 @@ printf '# fixture manifest\nS99-fixture/plain1.t\nS99-fixture/plain2.t\nS99-fixt
 EV='a fixture row: rakudo-local raku -c refuses this file, so it has no oracle answer (gate fixture)'
 run() { : > "$W/progress.tsv"; (cd "$ROOT" && RAKU_ROAST_TREE="$W/roast" RAKU_ROAST_MANIFEST="$W/manifest" RAKU_ROAST_DCSV="$W/pkg/ALL.csv" \
         S4E_PROGRESS_DB="$W/progress.tsv" S4E_SCORE_NO_WRITE="gate test_gate_raku_roast_runner_excludes_a_file_with_no_oracle_answer" \
-        timeout 300 bash "$BOARD" --run --limit 3 > "$W/out" 2>&1); echo $?; }
+        timeout -k 5 300 bash "$BOARD" --run --limit 3 > "$W/out" 2>&1); echo $?; }
 board() { grep -m1 '^ROAST_SUITE_BOARD ' "$W/out"; }
 rows_for() { grep -c "S99-fixture/$1" "$W/progress.tsv" 2>/dev/null; }
 echo "=== gate: the Roast runner excludes a file with no oracle answer (CEO-1696) ==="

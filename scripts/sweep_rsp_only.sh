@@ -15,14 +15,14 @@ for D in "$@"; do
     [ -e "$f" ] || continue
     ref="${f%.sno}.ref"; [ -e "$ref" ] || continue
     n="$(basename "$f" .sno)"; t=$((t+1))
-    o3="$(cd "$SC" && timeout 8 ./scrip --run "$f" < /dev/null 2>/dev/null)"; r3=$?
+    o3="$(cd "$SC" && timeout -k 5 8 ./scrip --run "$f" < /dev/null 2>/dev/null)"; r3=$?
     s3=FAIL; [ $r3 -eq 0 ] && [ "$o3" = "$(cat "$ref")" ] && s3=PASS
     c3=$r3
     dyn=0
-    if (cd "$SC" && timeout 25 ./scrip --compile "$f" > "$W/$n.s" 2>/dev/null) \
+    if (cd "$SC" && timeout -k 5 25 ./scrip --compile "$f" > "$W/$n.s" 2>/dev/null) \
        && gcc -no-pie "$W/$n.s" -L"$SC/out" -lscrip_rt -lm -Wl,-rpath,"$SC/out" -o "$W/$n.prog" 2>/dev/null; then
         grep -q 'rsp + -1\]' "$W/$n.s" && dyn=1
-        o4="$(timeout 8 "$W/$n.prog" < /dev/null 2>/dev/null)"; r4=$?
+        o4="$(timeout -k 5 8 "$W/$n.prog" < /dev/null 2>/dev/null)"; r4=$?
         s4=FAIL; [ $r4 -eq 0 ] && [ "$o4" = "$(cat "$ref")" ] && s4=PASS
         c4=$r4
     else s4=BUILDFAIL; c4=-1; fi

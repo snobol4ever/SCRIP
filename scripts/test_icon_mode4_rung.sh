@@ -81,7 +81,7 @@ run_one() {
     local stdin_file="${base}.stdin"; [ -f "$stdin_file" ] || stdin_file="$(dirname "$base")/config/$(basename "$base").stdin"
     local s="$WORK/$name.s" o="$WORK/$name.o" bin="$WORK/${name}_bin"
 
-    if ! timeout "$tmo" "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$s" 2>/dev/null; then
+    if ! timeout -k 5 "$tmo" "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$s" 2>/dev/null; then
         echo "FAIL $name (emit)"; FAIL=$((FAIL+1)); return 0
     fi
     if ! as "$s" -o "$o" 2>/dev/null; then
@@ -93,11 +93,11 @@ run_one() {
 
     local got want
     if [ -f "$stdin_file" ]; then
-        got=$(timeout "$tmo" "$bin" < "$stdin_file" 2>/dev/null) || true
-        want=$(timeout "$tmo" "$SCRIP" --run "$icn" < "$stdin_file" 2>/dev/null) || true
+        got=$(timeout -k 5 "$tmo" "$bin" < "$stdin_file" 2>/dev/null) || true
+        want=$(timeout -k 5 "$tmo" "$SCRIP" --run "$icn" < "$stdin_file" 2>/dev/null) || true
     else
-        got=$(timeout "$tmo" "$bin" < /dev/null 2>/dev/null) || true
-        want=$(timeout "$tmo" "$SCRIP" --run "$icn" < /dev/null 2>/dev/null) || true
+        got=$(timeout -k 5 "$tmo" "$bin" < /dev/null 2>/dev/null) || true
+        want=$(timeout -k 5 "$tmo" "$SCRIP" --run "$icn" < /dev/null 2>/dev/null) || true
     fi
 
     if [ "$got" = "$want" ]; then

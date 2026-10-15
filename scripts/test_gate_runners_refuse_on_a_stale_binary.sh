@@ -94,13 +94,13 @@ out="$("$SHIM" --nonesuch 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ck ok "unknown flag -> rc=2" || ck no "must REFUSE rc=2; got rc=$rc -- $out"
 
 echo "--- ARM 5: the LADDER body refuses rc=2 on a stale binary (all seven languages inherit this) ---"
-out="$(SCRIP="$OLD" timeout 120 bash "$HERE/test_snobol4_ladder.sh" --to 0 2>&1)"; rc=$?
+out="$(SCRIP="$OLD" timeout -k 5 120 bash "$HERE/test_snobol4_ladder.sh" --to 0 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ck ok "ladder --to 0 with a stale binary -> rc=2" || ck no "must REFUSE rc=2; got rc=$rc -- $out"
 grep -q "$STALE_RE" <<<"$out" && ck ok "ladder refusal names staleness (not a missing-rungs refusal)" \
                               || ck no "ladder refused for the WRONG reason -- $out"
 
 echo "--- ARM 6 (scope): --list is NOT grading, so it still works on a stale tree ---"
-out="$(SCRIP="$OLD" timeout 120 bash "$HERE/test_snobol4_ladder.sh" --list 2>&1)"; rc=$?
+out="$(SCRIP="$OLD" timeout -k 5 120 bash "$HERE/test_snobol4_ladder.sh" --list 2>&1)"; rc=$?
 [ "$rc" = 0 ] && ck ok "ladder --list with a stale binary -> rc=0 (listing consults no binary)" \
               || ck no "--list must not demand a rebuild; got rc=$rc -- $out"
 
@@ -108,13 +108,13 @@ echo "--- ARM 7: the PYTHON harness refuses rc=2 on a stale binary (same bash fu
 # ⛔ A SCRATCH FAMILY, NEVER THE RUNGS (ceo CEO-1302 (c), coo 2026-09-27): the fixture exemption no longer admits the shared corpus,
 # so over "$RUNGS/ALL.sno" the one-runner guard refused first and this arm read ITS rc 2 -- arm 12's rc check passed on it vacuously.
 SFAM="$W/stale_fam"; mkdir -p "$SFAM"; printf " OUTPUT = 'x';END\n" > "$SFAM/ALL.sno"; printf 'x\n' > "$SFAM/ALL.ref"
-out="$(SCRIP="$OLD" timeout 120 python3 "$HERE/corpus_suite_harness.py" run "$SFAM/ALL.sno" "$SFAM/ALL.ref" --modes m3 2>&1)"; rc=$?
+out="$(SCRIP="$OLD" timeout -k 5 120 python3 "$HERE/corpus_suite_harness.py" run "$SFAM/ALL.sno" "$SFAM/ALL.ref" --modes m3 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ck ok "harness run with a stale binary -> rc=2" || ck no "must REFUSE rc=2; got rc=$rc -- $(head -c 400 <<<"$out")"
 grep -q "$STALE_RE" <<<"$out" && ck ok "harness refusal names staleness" || ck no "harness refused for the wrong reason -- $(head -c 400 <<<"$out")"
 
 echo "--- ARM 8: a VENDOR-suite runner refuses rc=2 on a stale binary ---"
 mkdir -p "$W/stale_ipl/corpus/packages/icon/ipl"   # a scratch root: the guard admits it, the runner reaches its stale-binary check
-out="$(SCRIP="$OLD" S4E_HOME="$W/stale_ipl" S4E_PROGRESS_DB="$W/stale_progress.tsv" timeout 120 bash "$HERE/test_icon_ipl_suite.sh" 2>&1)"; rc=$?
+out="$(SCRIP="$OLD" S4E_HOME="$W/stale_ipl" S4E_PROGRESS_DB="$W/stale_progress.tsv" timeout -k 5 120 bash "$HERE/test_icon_ipl_suite.sh" 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ck ok "test_icon_ipl_suite.sh with a stale binary -> rc=2" || ck no "must REFUSE rc=2; got rc=$rc -- $(head -c 400 <<<"$out")"
 grep -q "$STALE_RE" <<<"$out" && ck ok "vendor refusal names staleness" || ck no "vendor runner refused for the wrong reason -- $(head -c 400 <<<"$out")"
 
@@ -184,7 +184,7 @@ grep -q 'SCRIP_STALE_PROBE_SRC probe' <<<"$out" && ck ok "refusal names the PROB
 touch -d "2020-01-01T00:00:00" "$W/older.c"
 out="$(SCRIP_STALE_PROBE_SRC="$W/older.c" "$SHIM" --gate arm12b 2>&1)"; rc=$?
 [ "$rc" = 0 ] && ck ok "a probe OLDER than the tree cannot loosen the verdict -> rc=0" || ck no "an old probe must change nothing; got rc=$rc -- $out"
-out="$(SCRIP_STALE_PROBE_SRC="$W/newer.c" timeout 120 python3 "$HERE/corpus_suite_harness.py" run "$SFAM/ALL.sno" "$SFAM/ALL.ref" --modes m3 2>&1)"; rc=$?
+out="$(SCRIP_STALE_PROBE_SRC="$W/newer.c" timeout -k 5 120 python3 "$HERE/corpus_suite_harness.py" run "$SFAM/ALL.sno" "$SFAM/ALL.ref" --modes m3 2>&1)"; rc=$?
 [ "$rc" = 2 ] && grep -q 'SCRIP_STALE_PROBE_SRC probe' <<<"$out" && ck ok "the harness honours the probe through the same shim -> rc=2, naming the probe" || ck no "harness must refuse on the probe, naming it; got rc=$rc -- $(head -c 400 <<<"$out")"
 
 echo "--- ARM 13: the deliberate stale run is LOUD -- SCRIP_ALLOW_STALE=1 passes a stale artifact with a banner on BOTH streams ---"

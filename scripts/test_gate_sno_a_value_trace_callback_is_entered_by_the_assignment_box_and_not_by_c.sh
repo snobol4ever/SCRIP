@@ -29,12 +29,12 @@ trap 'rm -rf "$D"' EXIT
 RT="$B/out"; RC=0; n=0
 ok()  { n=$((n + 1)); echo "  ok    $*"; }
 red() { n=$((n + 1)); RC=1; echo "  RED   $*"; }
-m3() { (cd "$D" && env $2 timeout 60 "$B/scrip" --stlimit "$1.sno" < /dev/null 2>/dev/null); }
+m3() { (cd "$D" && env $2 timeout -k 5 60 "$B/scrip" --stlimit "$1.sno" < /dev/null 2>/dev/null); }
 m4() { "$B/scrip" --stlimit --compile -o "$D/$1.s" "$D/$1.sno" < /dev/null > /dev/null 2>&1 && gcc -no-pie -o "$D/$1.bin" "$D/$1.s" -L "$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2> /dev/null \
-      || { echo "M4-BUILD-FAILED"; return; }; (cd "$D" && env $2 timeout 60 "./$1.bin" < /dev/null 2>/dev/null); }
+      || { echo "M4-BUILD-FAILED"; return; }; (cd "$D" && env $2 timeout -k 5 60 "./$1.bin" < /dev/null 2>/dev/null); }
 arm() {
   local name="$1" env="$2" want got
-  want="$(cd "$D" && timeout 60 "$SBL" -bf "$name.sno" < /dev/null 2>&1)"
+  want="$(cd "$D" && timeout -k 5 60 "$SBL" -bf "$name.sno" < /dev/null 2>&1)"
   [ -n "$want" ] || refuse "arm $name: the oracle printed nothing -- the expectation cannot be cut"
   for m in m3 m4; do
     got="$($m "$name" "$env")"
@@ -112,8 +112,8 @@ END
 SNO
 for mode in m3 m4; do
   tr="$D/c2bb_$mode.tr"; : > "$tr"
-  if [ "$mode" = m3 ]; then (cd "$D" && SCRIP_C2BB_TRACE="$tr" timeout 60 "$B/scrip" --stlimit a.sno < /dev/null > /dev/null 2>&1)
-  else "$B/scrip" --stlimit --compile -o "$D/a.s" "$D/a.sno" < /dev/null > /dev/null 2>&1 && gcc -no-pie -o "$D/a.bin" "$D/a.s" -L "$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2> /dev/null && (cd "$D" && SCRIP_C2BB_TRACE="$tr" timeout 60 ./a.bin < /dev/null > /dev/null 2>&1); fi
+  if [ "$mode" = m3 ]; then (cd "$D" && SCRIP_C2BB_TRACE="$tr" timeout -k 5 60 "$B/scrip" --stlimit a.sno < /dev/null > /dev/null 2>&1)
+  else "$B/scrip" --stlimit --compile -o "$D/a.s" "$D/a.sno" < /dev/null > /dev/null 2>&1 && gcc -no-pie -o "$D/a.bin" "$D/a.s" -L "$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2> /dev/null && (cd "$D" && SCRIP_C2BB_TRACE="$tr" timeout -k 5 60 ./a.bin < /dev/null > /dev/null 2>&1); fi
   [ -s "$tr" ] || refuse "the control program wrote no C2BB line in $mode -- SCRIP_C2BB_TRACE is not honoured, so arm A cannot see the road it grades"
   c=$(grep -vc '^[a-z_.]*\.open\b' "$tr"); o=$(grep -c '^apply\.open' "$tr")
   if [ "$c" = 0 ] && [ "$o" -ge 3 ]; then ok "A road $mode: $o apply.open (the box entered), $c C-entered line(s)"; else red "A road $mode: $o apply.open, $c C-entered: $(grep -v '^[a-z_.]*\.open\b' "$tr" | cut -f1-3 | sort -u | tr '\n' ' ' | cut -c1-120)"; fi

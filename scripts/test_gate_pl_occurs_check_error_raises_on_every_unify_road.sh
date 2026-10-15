@@ -29,9 +29,9 @@ gcc -no-pie -o "$W/w.bin" "$W/w.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/ou
 run_arm() {
     local n="$1" mode="$2" stress="$3" rc
     if [ "$mode" = m3 ]; then
-        ( cd "$W" && env -u SCRIP_HEAP_KB $stress timeout 60 "$ROOT/scrip" "$W/w.pl" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?
+        ( cd "$W" && env -u SCRIP_HEAP_KB $stress timeout -k 5 60 "$ROOT/scrip" "$W/w.pl" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?
     else
-        ( cd "$W" && env -u SCRIP_HEAP_KB $stress timeout 60 "$W/w.bin" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?
+        ( cd "$W" && env -u SCRIP_HEAP_KB $stress timeout -k 5 60 "$W/w.bin" < /dev/null > "$W/$n.out" 2> "$W/$n.err" ); rc=$?
     fi
     grep -v '^\[GC-' "$W/$n.out" > "$W/$n.txt"
     if [ "$rc" -ne 0 ] || ! cmp -s "$W/$n.txt" "$W/w.ref"; then echo "  RED ($n) $mode${stress:+ $stress}: rc=$rc, the output differs from swipl's:"; diff "$W/w.ref" "$W/$n.txt" | head -6; return 1; fi

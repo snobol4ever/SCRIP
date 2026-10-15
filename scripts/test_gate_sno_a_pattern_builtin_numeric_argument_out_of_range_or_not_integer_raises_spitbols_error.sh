@@ -117,18 +117,18 @@ REVERSE('abc')	STRING
 REVERSE(12)	STRING
 TXT
 for p in a; do
-    ( cd "$D" && timeout 10 "$SBL" -bf $p.sno < /dev/null 2>/dev/null | grep -v '^$' | grep -v '^[0-9]' | grep -E '^(trap|len|pos|rpos|tab|rtab|arbno|end)' > $p.sbl )
+    ( cd "$D" && timeout -k 5 10 "$SBL" -bf $p.sno < /dev/null 2>/dev/null | grep -v '^$' | grep -v '^[0-9]' | grep -E '^(trap|len|pos|rpos|tab|rtab|arbno|end)' > $p.sbl )
     cmp -s "$D/$p.want" "$D/$p.sbl" || refuse "sbl -bf does not answer $p as pinned: [$(tr '\n' '|' 2>/dev/null < "$D/$p.sbl")]"
 done
 while IFS="$(printf '\t')" read -r x want; do
-    printf '%s\n' "$x" > "$D/one.in"; o=$(cd "$D" && timeout 10 "$SBL" -bf e.sno < one.in 2>/dev/null)
+    printf '%s\n' "$x" > "$D/one.in"; o=$(cd "$D" && timeout -k 5 10 "$SBL" -bf e.sno < one.in 2>/dev/null)
     [ "$o" = "$want" ] || refuse "sbl -bf answers [$x] with [$o], pinned [$want]"
 done < "$D/e.tsv"
-m4bin() { timeout 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
+m4bin() { timeout -k 5 60 "$B/scrip" --compile "$1.sno" < /dev/null > "$1.s" 2>/dev/null && gcc "$1.s" -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o "$1.bin" 2>/dev/null; }
 red=0; n=0
 arm() { n=$((n + 1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  FAIL $1: $2"; red=$((red + 1)); fi; }
-( cd "$D" && timeout 30 "$B/scrip" a.sno < /dev/null > a.m3 2>/dev/null )
-( cd "$D" && m4bin a && timeout 30 ./a.bin < /dev/null > a.m4 2>/dev/null )
+( cd "$D" && timeout -k 5 30 "$B/scrip" a.sno < /dev/null > a.m3 2>/dev/null )
+( cd "$D" && m4bin a && timeout -k 5 30 ./a.bin < /dev/null > a.m4 2>/dev/null )
 for m in m3 m4; do
     if [ -f "$D/a.$m" ] && cmp -s "$D/a.want" "$D/a.$m"; then arm "a $m (14 statements under &ERRLIMIT)" ok
     else arm "a $m" "got [$(tr '\n' '|' 2>/dev/null < "$D/a.$m")] want [$(tr '\n' '|' < "$D/a.want")]"; fi
@@ -137,8 +137,8 @@ done
 e3=""; e4=""
 while IFS="$(printf '\t')" read -r x want; do
     printf '%s\n' "$x" > "$D/one.in"
-    o3=$(cd "$D" && timeout 10 "$B/scrip" e.sno < one.in 2>/dev/null); [ "$o3" = "$want" ] || e3="$e3 [$x: $o3]"
-    o4=$(cd "$D" && timeout 10 ./e.bin < one.in 2>/dev/null); [ "$o4" = "$want" ] || e4="$e4 [$x: $o4]"
+    o3=$(cd "$D" && timeout -k 5 10 "$B/scrip" e.sno < one.in 2>/dev/null); [ "$o3" = "$want" ] || e3="$e3 [$x: $o3]"
+    o4=$(cd "$D" && timeout -k 5 10 ./e.bin < one.in 2>/dev/null); [ "$o4" = "$want" ] || e4="$e4 [$x: $o4]"
 done < "$D/e.tsv"
 [ -z "$e3" ] && arm "e m3 (16 EVAL lines, one process each)" ok || arm "e m3" "$e3"
 [ -z "$e4" ] && arm "e m4 (16 EVAL lines, one process each)" ok || arm "e m4" "$e4"

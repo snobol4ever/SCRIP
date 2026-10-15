@@ -32,11 +32,11 @@ wit() { local b="$1"; local f; f=$(ls "$WD/$b".{icn,sno,sc,pl,raku} 2>/dev/null 
 band=""; bad=0; flips_seen=0
 for b in hb_scan_suspend_bank_across_a_collection hb_table_dump_every_key_ref hb_concat_augmented_then_subscript hb_arbno_deferred_name; do
   f=$(wit "$b") || { echo "⛔ GATE REFUSE(2) [$G]: witness $b or its ref is missing"; exit 2; }
-  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=1 SCRIP_GC_EXERCISE=1 timeout 60s "$SCRIP" --run "$f" </dev/null > a3.out 2> a3.err ); r=$?
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=1 SCRIP_GC_EXERCISE=1 timeout -k 5 60s "$SCRIP" --run "$f" </dev/null > a3.out 2> a3.err ); r=$?
   fl=$(grep -oE 'flips=[0-9]+' "$T/a3.err" | head -1 | cut -d= -f2); [ "${fl:-0}" -gt 0 ] && flips_seen=$((flips_seen+1))
   if [ $r = 0 ] && cmp -s "$T/a3.out" "$WD/$b.ref"; then band="$band $b/m3:ok(flips=${fl:-?})"; else band="$band $b/m3:RED(rc=$r)"; bad=$((bad+1)); fi
   if ( cd "$T" && "$SCRIP" --compile "$f" -o w.s </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie w.s -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o w4 2>/dev/null ); then
-    ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=1 timeout 60s ./w4 </dev/null > a4.out 2>/dev/null ); r=$?
+    ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_STRESS=1 timeout -k 5 60s ./w4 </dev/null > a4.out 2>/dev/null ); r=$?
     if [ $r = 0 ] && cmp -s "$T/a4.out" "$WD/$b.ref"; then band="$band $b/m4:ok"; else band="$band $b/m4:RED(rc=$r)"; bad=$((bad+1)); fi
   else band="$band $b/m4:NOBUILD"; bad=$((bad+1)); fi
 done
@@ -44,10 +44,10 @@ if [ "$bad" = 0 ] && [ "$flips_seen" = 4 ] && grep -q "^\[GC-FLIP\] plant:" "$T/
 else echo "  FAIL (a) a correct witness faulted or differed under the flip plant, or the plant did not apply (flips seen in $flips_seen of 4) --$band"; RC=1; fi
 S="$(wit hb_scan_suspend_bank_across_a_collection)"
 flipb="SCRIP_GC_PLANT_FLIP=1"; [ "${FAIL_ONCE:-0}" = 1 ] && flipb="SCRIP_GC_PLANT_FLIP=0"
-( cd "$T" && env -u SCRIP_HEAP_MB $flipb SCRIP_GC_PLANT_SCAN_BANK=1 SCRIP_GC_STRESS=1 timeout 60s "$SCRIP" --run "$S" </dev/null > b.out 2> b.err ); rb=$?
+( cd "$T" && env -u SCRIP_HEAP_MB $flipb SCRIP_GC_PLANT_SCAN_BANK=1 SCRIP_GC_STRESS=1 timeout -k 5 60s "$SCRIP" --run "$S" </dev/null > b.out 2> b.err ); rb=$?
 if [ $rb != 0 ] && grep -q '^\[ZGC-STALE\] SIGSEGV touching GC heap ground' "$T/b.err" && grep -q 'it was MOVED to' "$T/b.err" && grep -q "^\[GC-SCANBANK\] plant:" "$T/b.err"; then echo "  ok   (b) LOCATED: the scan-bank plant faults under the flip plant (rc=$rb) and the report names the moved block: $(grep -m1 'the block that lived here' "$T/b.err" | cut -c1-140)"
 else echo "  FAIL (b) the scan-bank plant did not fault with a located MOVED report (rc=$rb) -- a stale pointer is no longer trapped"; RC=1; fi
-( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=0 SCRIP_GC_PLANT_SCAN_BANK=1 SCRIP_GC_STRESS=1 timeout 60s "$SCRIP" --run "$S" </dev/null > d.out 2> d.err ); rd=$?
+( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_GC_PLANT_FLIP=0 SCRIP_GC_PLANT_SCAN_BANK=1 SCRIP_GC_STRESS=1 timeout -k 5 60s "$SCRIP" --run "$S" </dev/null > d.out 2> d.err ); rd=$?
 if [ $rd = 0 ] && ! cmp -s "$T/d.out" "$WD/hb_scan_suspend_bank_across_a_collection.ref"; then echo "  ok   (d) THE CONTRAST: without the flip plant the same defect is a SILENT wrong answer (rc=0, stdout differs from the ref) -- the plant is what makes it loud"
 else echo "  FAIL (d) without the flip plant the scan-bank plant read rc=$rd $(cmp -s "$T/d.out" "$WD/hb_scan_suspend_bank_across_a_collection.ref" && echo REF || echo DIFF) -- the contrast this gate is built on moved"; RC=1; fi
 echo "population: 3 arm(s) graded"

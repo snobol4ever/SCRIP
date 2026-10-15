@@ -84,15 +84,15 @@ END
 EOF
 printf '0 root\n 1 alpha\n 1 beta\n  2 beta1\n 1 gamma\n' > "$T/w2.in"
 : > "$T/w1.in"
-for w in w1 w2; do ( cd "$T" && timeout 10 "$SBL" -bf "$w.sno" < "$w.in" > "$w.oracle" 2>/dev/null ) || refuse "the oracle did not run $w cleanly"; done
+for w in w1 w2; do ( cd "$T" && timeout -k 5 10 "$SBL" -bf "$w.sno" < "$w.in" > "$w.oracle" 2>/dev/null ) || refuse "the oracle did not run $w cleanly"; done
 [ "$(cat "$T/w1.oracle")" = done ] || refuse "the oracle's W1 answer moved: [$(head -c 80 "$T/w1.oracle")]"
 [ "$(cat "$T/w2.oracle")" = "root,3,alpha,,beta,1,beta1,,gamma,," ] || refuse "the oracle's W2 answer moved: [$(head -c 80 "$T/w2.oracle")]"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
-run3() { ( cd "$T" && SCRIP_SNO_STMTKW="$2" timeout 10 "$SCRIP" "$1.sno" < "$1.in" > "$1.m3.$2" 2>/dev/null ); echo $?; }
-run4() { ( cd "$T" && SCRIP_SNO_STMTKW="$2" timeout 20 "$SCRIP" --compile -o "$1.$2.s" "$1.sno" < /dev/null > /dev/null 2>&1 ) || { echo cc; return; }
+run3() { ( cd "$T" && SCRIP_SNO_STMTKW="$2" timeout -k 5 10 "$SCRIP" "$1.sno" < "$1.in" > "$1.m3.$2" 2>/dev/null ); echo $?; }
+run4() { ( cd "$T" && SCRIP_SNO_STMTKW="$2" timeout -k 5 20 "$SCRIP" --compile -o "$1.$2.s" "$1.sno" < /dev/null > /dev/null 2>&1 ) || { echo cc; return; }
          gcc "$T/$1.$2.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$T/$1.$2.bin" > /dev/null 2>&1 || { echo link; return; }
-         ( cd "$T" && timeout 10 "./$1.$2.bin" < "$1.in" > "$1.m4.$2" 2>/dev/null ); echo $?; }
+         ( cd "$T" && timeout -k 5 10 "./$1.$2.bin" < "$1.in" > "$1.m4.$2" 2>/dev/null ); echo $?; }
 verdict() { [ "$1" = 0 ] || { echo "rc=$1"; return; }; cmp -s "$T/$2" "$T/$3" && echo ok || echo "stdout differs from the oracle: [$(head -c 60 "$T/$2" | tr '\n' '|')]"; }
 rc=$(run3 w1 1); arm "W1 m3 under the switch answers the oracle" "$(verdict "$rc" w1.m3.1 w1.oracle)"
 rc=$(run4 w1 1); arm "W1 m4 under the switch answers the oracle" "$(verdict "$rc" w1.m4.1 w1.oracle)"

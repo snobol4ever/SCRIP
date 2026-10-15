@@ -26,7 +26,7 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 python3 "$HERE/bench_wrap_snobol4.py" "$K" --mode iter --n 10 -o "$W/ta.sno" > /dev/null 2>&1 || { echo "REFUSED(2): twin generation failed"; exit 2; }
 ( cd "$W" && "$ROOT/scrip" --compile -o "$W/ta.s" ta.sno < /dev/null > /dev/null 2>&1 && gcc "$W/ta.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/ta.bin" ) 2>/dev/null || { echo "REFUSED(2): the twin did not build in mode 4"; exit 2; }
 unset SCRIP_HEAP_MB SCRIP_HEAP_KB SCRIP_HEAP_CAP_KB SCRIP_HEAP_MAX_MB
-( cd "$W" && SCRIP_GC_EXERCISE=1 timeout 300 valgrind --tool=callgrind --callgrind-out-file="$W/cg.out" ./ta.bin -i128k -d128k < /dev/null > "$W/ta.out" 2> "$W/ta.err" )
+( cd "$W" && SCRIP_GC_EXERCISE=1 timeout -k 5 300 valgrind --tool=callgrind --callgrind-out-file="$W/cg.out" ./ta.bin -i128k -d128k < /dev/null > "$W/ta.out" 2> "$W/ta.err" )
 red=0
 want=$(tail -1 "${K%.sno}.ref" | sed 's/.* = //')
 grep -q "BENCH mode=iter kernel=TABLE_ACCESS iters=10 .*mismatched=0 value=$want\$" "$W/ta.err" && echo "ok  (1) the twin computed value=$want (the fixture's own .ref) over 10 repetitions" || { echo "RED (1) the twin did not print value=$want: $(grep -o 'BENCH.*' "$W/ta.err" | head -1)"; red=1; }

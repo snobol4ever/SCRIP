@@ -45,7 +45,7 @@ pl_test() {
     local label="$1" expected="$2" tmp actual
     tmp=$(mktemp /tmp/broad_XXXXXX.pl)
     cat > "$tmp"
-    actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$tmp" < /dev/null 2>/dev/null || true)
+    actual=$(timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$tmp" < /dev/null 2>/dev/null || true)
     rm -f "$tmp"
     if [ "$actual" = "$expected" ]; then
         echo "  PASS $label"; pl_pass=$((pl_pass+1))

@@ -17,8 +17,8 @@ bash "$HERE/util_require_fresh.sh" --gate "$G" "$ROOT/scrip" "$ROOT/out/libscrip
 SC="${ICN_ACT8_SCRIP:-$ROOT/scrip}"
 W="$(mktemp -d "${TMPDIR:-/tmp}/icnact8.XXXXXX")" || exit 2
 trap 'rm -rf "$W"' EXIT
-timeout 60 "$SC" --dump-zeta "$FIX" < /dev/null > "$W/zeta.txt" 2> "$W/zeta.err"
-timeout 60 "$SC" --compile -o "$W/w.s" "$FIX" < /dev/null > /dev/null 2> "$W/c.err" || { echo "GATE UNPROVEN(2) [$G]: the fixture did not compile: $(head -2 "$W/c.err")"; exit 2; }
+timeout -k 5 60 "$SC" --dump-zeta "$FIX" < /dev/null > "$W/zeta.txt" 2> "$W/zeta.err"
+timeout -k 5 60 "$SC" --compile -o "$W/w.s" "$FIX" < /dev/null > /dev/null 2> "$W/c.err" || { echo "GATE UNPROVEN(2) [$G]: the fixture did not compile: $(head -2 "$W/c.err")"; exit 2; }
 hrows="$(grep -c 'PTR_FRAME_H *callgen.act +8' "$W/zeta.txt")"
 crows="$(grep -c 'PTR_CODE *callgen.act +8' "$W/zeta.txt")"
 bad=0
@@ -33,7 +33,7 @@ done
 want=$((sites * 2)); [ -n "${FAIL_ONCE:-}" ] && want=$((sites * 2 + 1))
 echo "  arm 2: over $sites call sites, $rspst stores of rsp into the word (want 0), $zst stores of zero (want $want: the FAIL and the omega landing)"
 [ "$sites" -eq 3 ] && [ "$rspst" -eq 0 ] && [ "$zst" -eq "$want" ] || bad=$((bad+1))
-got="$(timeout 60 "$SC" "$FIX" < /dev/null 2>/dev/null)"
+got="$(timeout -k 5 60 "$SC" "$FIX" < /dev/null 2>/dev/null)"
 if [ "$got" = "$(cat "$REF")" ]; then echo "  arm 3: the generator fixture resumes and prints its ref in mode 3"; else echo "  arm 3: RED, the generator fixture printed: $(printf '%s' "$got" | head -3 | tr '\n' ' ')"; bad=$((bad+1)); fi
 if [ "$bad" -ne 0 ]; then echo "GATE FAIL(1) [$G]: $bad arm(s) red -- the act +8 word is not fixed per arm, or a generator no longer resumes"; exit 1; fi
 echo "GATE PASS(0) [$G]: the Icon act +8 word is labelled PTR_FRAME_H on every generator call site, is never an rsp, is zeroed on the FAIL and omega landings, and a generator resumes"

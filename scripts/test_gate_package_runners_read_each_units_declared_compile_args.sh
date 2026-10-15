@@ -75,10 +75,10 @@ typed=(); [ "${FAIL_ONCE:-0}" = 1 ] && typed=(SCRIP_SNO_STMTKW=1) && echo "FAIL_
 # ── W: the witnesses, and the premise that they depend on the switch ─────────────────────────────────────────────────────────────
 printf "        X = 1\n        Y = 2\n        OUTPUT = 'count=' &STCOUNT\nEND\n" > "$W/cnt.sno"
 printf 'procedure p(x);\n  return x + 1;\nend\nprocedure main();\n  &trace := -1;\n  write(p(1));\nend\n' > "$W/tr.icn"
-m3_of() { ( cd "$W" && timeout 20 "$SCRIP" --run $2 "$1" < /dev/null 2>&1 ); }
-m4_of() { ( cd "$W" && "$SCRIP" --compile $2 "$1" > "$W/w.s" 2>/dev/null < /dev/null && gcc -no-pie "$W/w.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/w.bin" 2>/dev/null && timeout 20 "$W/w.bin" < /dev/null 2>&1 ); }
-(cd "$W" && timeout 20 "$SBL" -bf cnt.sno < /dev/null > sbl.out 2>&1)
-(cd "$W" && timeout 20 "$ICON" tr.icn < /dev/null > icon.out 2>&1)
+m3_of() { ( cd "$W" && timeout -k 5 20 "$SCRIP" --run $2 "$1" < /dev/null 2>&1 ); }
+m4_of() { ( cd "$W" && "$SCRIP" --compile $2 "$1" > "$W/w.s" 2>/dev/null < /dev/null && gcc -no-pie "$W/w.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/w.bin" 2>/dev/null && timeout -k 5 20 "$W/w.bin" < /dev/null 2>&1 ); }
+(cd "$W" && timeout -k 5 20 "$SBL" -bf cnt.sno < /dev/null > sbl.out 2>&1)
+(cd "$W" && timeout -k 5 20 "$ICON" tr.icn < /dev/null > icon.out 2>&1)
 s3y="$(m3_of cnt.sno --stlimit)"; s3n="$(m3_of cnt.sno '')"; s4y="$(m4_of cnt.sno --stlimit)"; s4n="$(m4_of cnt.sno '')"
 i3y="$(m3_of tr.icn --stlimit)"; i3n="$(m3_of tr.icn '')"; i4y="$(m4_of tr.icn --stlimit)"; i4n="$(m4_of tr.icn '')"
 sbl_o="$(cat "$W/sbl.out")"; icon_o="$(cat "$W/icon.out")"
@@ -138,20 +138,20 @@ board_pair() {  # <arm> <rc> <output> -- a harness board prints FAIL lines and a
     printf '%s\n' "$3" | grep -qE 'FAIL m4 decl:' || { [ "${b4:-x}" = "$k4" ] && d4=PASS; }
     pair "$1" "$2" "$d3" "$d4" "$n3" "$n4" || show_on_red "$3"
 }
-out="$(cd "$ROOT" && env "${typed[@]}" timeout 300 python3 "$HERE/corpus_suite_harness.py" run "$W/fam/ALL.sno" "$W/fam/ALL.ref" --modes m3,m4 2>&1)"; rc=$?
+out="$(cd "$ROOT" && env "${typed[@]}" timeout -k 5 300 python3 "$HERE/corpus_suite_harness.py" run "$W/fam/ALL.sno" "$W/fam/ALL.ref" --modes m3,m4 2>&1)"; rc=$?
 board_pair H "$rc" "$out"
 
 # ── P1..P10: the package runners ──────────────────────────────────────────────────────────────────────────────────────────────────
 run_db() {  # <arm> <db> <env...> -- <runner and args>; DBPFX names a runner's rows by path (the ipl runner: progs/decl)
     local a="$1" db="$2" o r; shift 2; local -a e=(); while [ "$1" != -- ]; do e+=("$1"); shift; done; shift
-    o="$(cd "$ROOT" && env "${typed[@]}" S4E_PROGRESS_DB="$db" "${e[@]}" timeout 300 bash "$@" 2>&1)"; r=$?
+    o="$(cd "$ROOT" && env "${typed[@]}" S4E_PROGRESS_DB="$db" "${e[@]}" timeout -k 5 300 bash "$@" 2>&1)"; r=$?
     local x="${DBPFX:-}"
     pair "$a" "$r" "$(outcome "$db" "${x}decl" m3)" "$(outcome "$db" "${x}decl" m4)" "$(outcome "$db" "${x}nodecl" m3)" "$(outcome "$db" "${x}nodecl" m4)" || show_on_red "$o"
 }
 mk_sno() {  # <dir> <ext>
     mkdir -p "$1"; for n in decl nodecl; do cp "$W/cnt.sno" "$1/$n.$2"; done; csv_pair decl nodecl > "$1/ALL.csv"; }
 mk_icn() {  # <dir> <entry prefix>
-    mkdir -p "$1"; for n in decl nodecl; do cp "$W/tr.icn" "$1/$n.icn"; ( cd "$1" && timeout 20 "$ICON" "$n.icn" < /dev/null > "$n.ref" 2>&1 ); done; }
+    mkdir -p "$1"; for n in decl nodecl; do cp "$W/tr.icn" "$1/$n.icn"; ( cd "$1" && timeout -k 5 20 "$ICON" "$n.icn" < /dev/null > "$n.ref" 2>&1 ); done; }
 
 mk_sno "$W/dot" sno
 run_db P1 "$W/p1.tsv" DOTNET_SUITE="$W/dot" -- "$HERE/test_snobol4_dotnet_suite.sh"
@@ -161,7 +161,7 @@ mk_sno "$W/x64" sbl
 run_db P3 "$W/p3.tsv" SPITBOL_X64_SUITE="$W/x64" SPITBOL_X64_SHIPPED=2 -- "$HERE/test_snobol4_spitbol_x64_suite.sh"
 # P4 spitbol_testpgms records no progress row for a scratch suite, so its RED lines and board counts are read
 mkdir -p "$W/tp"; for n in testdecl testnodecl; do cp "$W/cnt.sno" "$W/tp/$n.spt"; done; : > "$W/tp/testpgms.in"; csv_pair testdecl testnodecl > "$W/tp/ALL.csv"
-out="$(cd "$ROOT" && env "${typed[@]}" SPITBOL_TESTPGMS_SUITE="$W/tp" timeout 300 bash "$HERE/test_snobol4_spitbol_testpgms_suite.sh" 2>&1)"; rc=$?
+out="$(cd "$ROOT" && env "${typed[@]}" SPITBOL_TESTPGMS_SUITE="$W/tp" timeout -k 5 300 bash "$HERE/test_snobol4_spitbol_testpgms_suite.sh" 2>&1)"; rc=$?
 b="$(printf '%s\n' "$out" | grep -E '^SPITBOL_TESTPGMS_BOARD ')"
 d3=FAIL; d4=FAIL; n3=PASS; n4=PASS
 printf '%s\n' "$out" | grep -qE '^  RED  testnodecl m3 ' && n3=FAIL; printf '%s\n' "$out" | grep -qE '^  RED  testnodecl m4 ' && n4=FAIL
@@ -171,7 +171,7 @@ printf '%s\n' "$out" | grep -qE '^  RED  testdecl m4 ' || { printf '%s' "$b" | g
 pair P4 "$rc" "$d3" "$d4" "$n3" "$n4" || show_on_red "$out"
 mk_sno "$W/csn" sno; for n in decl nodecl; do printf '%s\n' "$sbl_o" > "$W/csn/$n.ref"; done
 run_db P5 "$W/p5.tsv" CSNOBOL4_SUITE="$W/csn" -- "$HERE/test_snobol4_csnobol4_suite.sh"
-out="$(cd "$ROOT" && env "${typed[@]}" AISNOBOL_SUITE="$W/fam" timeout 300 bash "$HERE/test_snobol4_aisnobol_suite.sh" 2>&1)"; rc=$?
+out="$(cd "$ROOT" && env "${typed[@]}" AISNOBOL_SUITE="$W/fam" timeout -k 5 300 bash "$HERE/test_snobol4_aisnobol_suite.sh" 2>&1)"; rc=$?
 board_pair P6 "$rc" "$out"
 mk_icn "$W/jcon"; csv_pair decl nodecl > "$W/jcon/ALL.csv"
 run_db P7 "$W/p7.tsv" -- "$HERE/test_icon_jcon_suite.sh" --corpus "$W/jcon"
@@ -205,7 +205,7 @@ mkdir -p "$W/xf"
 python3 "$HERE/corpus_suite_harness.py" extract-family "$W/fam/ALL.sno" "$W/fam/ALL.ref" "$W/fam/ALL.csv" fx "$W/xf/fx.sno" "$W/xf/fx.ref" >/dev/null 2>&1 \
     || red X2 "extract-family refused the scratch family"
 if [ -f "$W/xf/fx.cmdline" ] && [ ! -e "$W/xf/ALL.csv" ]; then
-    out="$(cd "$ROOT" && env "${typed[@]}" timeout 300 python3 "$HERE/corpus_suite_harness.py" run "$W/xf/fx.sno" "$W/xf/fx.ref" --modes m3,m4 2>&1)"; rc=$?
+    out="$(cd "$ROOT" && env "${typed[@]}" timeout -k 5 300 python3 "$HERE/corpus_suite_harness.py" run "$W/xf/fx.sno" "$W/xf/fx.ref" --modes m3,m4 2>&1)"; rc=$?
     board_pair X2 "$rc" "$out"
 else red X2 "extract-family wrote no fx.cmdline beside the extracted pair"; fi
 # ⛔ THE SCORECARD APPENDS ITS results.tsv TO THE PROGRESS TABLE ON EVERY run, scratch corpus or not, so S1 and S2 name a scratch table:
@@ -218,7 +218,7 @@ sc_pair() {  # <arm> <rc> <results.tsv> <decl program path> <nodecl program path
     pair "$1" "$2" "$(st "$4" 3 "$3")" "$(st "$4" 4 "$3")" "$(st "$5" 3 "$3")" "$(st "$5" 4 "$3")"; }
 G1="$W/sc1/corpus/packages/snobol4/gimpel"; mkdir -p "$G1"; sc_overlay "$W/sc1/corpus" packages
 for n in decl_driver nodecl_driver norow_driver; do cp "$W/cnt.sno" "$G1/$n.sno"; done; csv_pair decl_driver nodecl_driver > "$G1/ALL.csv"
-out="$(cd "$ROOT" && env "${typed[@]}" S4E_BOARDS="$W/boards" S4E_PROGRESS_DB="$W/s1.tsv" CORPUS="$W/sc1/corpus" timeout 300 bash "$HERE/scorecard_snobol4.sh" run --suites gimpel --out "$W/sc1/out" 2>&1)"; rc=$?
+out="$(cd "$ROOT" && env "${typed[@]}" S4E_BOARDS="$W/boards" S4E_PROGRESS_DB="$W/s1.tsv" CORPUS="$W/sc1/corpus" timeout -k 5 300 bash "$HERE/scorecard_snobol4.sh" run --suites gimpel --out "$W/sc1/out" 2>&1)"; rc=$?
 sc_pair S1 "$rc" "$W/sc1/out/results.tsv" packages/snobol4/gimpel/decl_driver.sno packages/snobol4/gimpel/nodecl_driver.sno || show_on_red "$out"
 # S1u (coo 2026-09-27, COO-205): norow_driver has no row in the suite's ALL.csv, so the scorecard names it UNDECLARED and names no other
 _ul="$(printf '%s\n' "$out" | grep -m1 'UNDECLARED (RULES.md 8 (f))')"
@@ -226,7 +226,7 @@ if printf '%s' "$_ul" | grep -q ': 1 program(s) ' && printf '%s' "$_ul" | grep -
 else red S1u "the scorecard's UNDECLARED line: [${_ul:-none printed}]"; fi
 B2="$W/sc2/corpus/benchmarks/snobol4"; mkdir -p "$B2"; sc_overlay "$W/sc2/corpus" benchmarks
 for n in decl nodecl; do cp "$W/cnt.sno" "$B2/$n.sno"; done; printf 'decl\t--stlimit\t\n' > "$B2/decl.cmdline"
-out="$(cd "$ROOT" && env "${typed[@]}" S4E_BOARDS="$W/boards" S4E_PROGRESS_DB="$W/s2.tsv" CORPUS="$W/sc2/corpus" timeout 300 bash "$HERE/scorecard_snobol4.sh" run --suites benchmarks --out "$W/sc2/out" 2>&1)"; rc=$?
+out="$(cd "$ROOT" && env "${typed[@]}" S4E_BOARDS="$W/boards" S4E_PROGRESS_DB="$W/s2.tsv" CORPUS="$W/sc2/corpus" timeout -k 5 300 bash "$HERE/scorecard_snobol4.sh" run --suites benchmarks --out "$W/sc2/out" 2>&1)"; rc=$?
 sc_pair S2 "$rc" "$W/sc2/out/results.tsv" benchmarks/snobol4/decl.sno benchmarks/snobol4/nodecl.sno || show_on_red "$out"
 mkdir -p "$W/dm"; for n in decl nodecl; do cp "$W/cnt.sno" "$W/dm/$n.sno"; printf '%s\n' "$sbl_o" > "$W/dm/$n.ref"; done; printf 'decl\t--stlimit\t\n' > "$W/dm/decl.cmdline"
 fns="$(sed -n '/^compile_mode4() {/,/^}/p; /^run_test() {/,/^}/p' "$HERE/test_corpus_snobol4.sh")"
@@ -248,8 +248,8 @@ adm="$(cd "$ROOT" && python3 -c 'import sys; sys.path.insert(0, "scripts"); impo
 if [ -z "$adm" ]; then red A "COMPILE_ARGS_ADMITTED could not be read from the harness"; else
     a_bad=""; for w in $adm; do
         [ "$(m3_of cnt.sno "$w")" = "$sbl_o" ] || a_bad="$a_bad $w:m3"; [ "$(m4_of cnt.sno "$w")" = "$sbl_o" ] || a_bad="$a_bad $w:m4"; done
-    ( cd "$W" && timeout 20 "$SCRIP" --run --nosuchswitch cnt.sno < /dev/null > /dev/null 2>&1 ); u3=$?
-    ( cd "$W" && timeout 20 "$SCRIP" --compile --nosuchswitch cnt.sno < /dev/null > "$W/u.s" 2>/dev/null ); u4=$?
+    ( cd "$W" && timeout -k 5 20 "$SCRIP" --run --nosuchswitch cnt.sno < /dev/null > /dev/null 2>&1 ); u3=$?
+    ( cd "$W" && timeout -k 5 20 "$SCRIP" --compile --nosuchswitch cnt.sno < /dev/null > "$W/u.s" 2>/dev/null ); u4=$?
     census="$(cd "$ROOT" && python3 - "$ROOT/../corpus" <<'PYC' 2>&1
 import csv, glob, os, sys
 sys.path.insert(0, "scripts"); import corpus_suite_harness as h

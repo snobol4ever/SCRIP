@@ -50,9 +50,9 @@ want_pat='[sub_atom(abc,0,0,3,),sub_atom(abc,0,1,2,a),sub_atom(abc,0,2,1,ab),sub
 [sub_atom(abc,0,3,0,abc)]
 []'
 run() { local f="$1" mode="$2" t="$3"
-    if [ "$mode" = m3 ]; then (cd "$TMPD" && timeout "$t" "$SCRIP" "$f.pl" </dev/null 2>/dev/null)
-    else (cd "$TMPD" && timeout 120 "$SCRIP" --compile -o "$f.s" "$f.pl" </dev/null >/dev/null 2>&1) && gcc -m64 -no-pie "$TMPD/$f.s" -o "$TMPD/$f.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>/dev/null \
-         && (cd "$TMPD" && timeout "$t" "./$f.bin" </dev/null 2>/dev/null); fi; }
+    if [ "$mode" = m3 ]; then (cd "$TMPD" && timeout -k 5 "$t" "$SCRIP" "$f.pl" </dev/null 2>/dev/null)
+    else (cd "$TMPD" && timeout -k 5 120 "$SCRIP" --compile -o "$f.s" "$f.pl" </dev/null >/dev/null 2>&1) && gcc -m64 -no-pie "$TMPD/$f.s" -o "$TMPD/$f.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>/dev/null \
+         && (cd "$TMPD" && timeout -k 5 "$t" "./$f.bin" </dev/null 2>/dev/null); fi; }
 for mode in m3 m4; do
     got=$(run big $mode 10); if [ "$got" = "a/99999" ]; then echo "  ok  arm 1 $mode: the 200000-character atom answers its one slice inside 10 s"
     else echo "  RED arm 1 $mode: got [$got] want [a/99999] within 10 s"; red=$((red+1)); fi

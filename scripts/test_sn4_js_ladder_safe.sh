@@ -24,7 +24,7 @@ run_one() {
     local inp="$dir/$base.input"
     
     # Emit (fresh process to avoid GC issues)
-    if ! timeout "$TIMEOUT" "$SCRIP" --target=js "$sno" > "$js" 2>/dev/null; then
+    if ! timeout -k 5 "$TIMEOUT" "$SCRIP" --target=js "$sno" > "$js" 2>/dev/null; then
         [[ "$VERBOSE" == "--verbose" ]] && echo "FAIL $base [emit]"
         FAIL=$((FAIL+1)); return 0
     fi
@@ -39,7 +39,7 @@ run_one() {
         awk '/^[Ee][Nn][Dd][ \t]*$/{found=1; next} found' "$sno" > "$post_end"
         if [ -s "$post_end" ]; then stdin_arg="< \"$post_end\""; fi
     fi
-    if ! eval "timeout $TIMEOUT node \"$js\" $stdin_arg > \"$out\" 2>/dev/null"; then
+    if ! eval "timeout -k 5 $TIMEOUT node \"$js\" $stdin_arg > \"$out\" 2>/dev/null"; then
         [[ "$VERBOSE" == "--verbose" ]] && echo "FAIL $base [node]"
         FAIL=$((FAIL+1)); return 0
     fi

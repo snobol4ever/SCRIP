@@ -33,18 +33,18 @@ printf 'record pt(x, y)\nprocedure main();\n   local r, i, junk;\n   r := pt("al
 ( cd "$T" && "$SBL" -bf dat.sno ) >"$T/dat.ref" 2>&1
 ( cd "$T" && "$ICONT" -s rec.icn -x ) >"$T/rec.ref" 2>&1
 for W in arr dat; do
-    ( cd "$T" && SCRIP_GC_STRESS="$STRESS" timeout 300 "$SCRIP" "$W.sno" </dev/null ) >"$T/$W.m3" 2>&1
+    ( cd "$T" && SCRIP_GC_STRESS="$STRESS" timeout -k 5 300 "$SCRIP" "$W.sno" </dev/null ) >"$T/$W.m3" 2>&1
     if diff -q "$T/$W.ref" "$T/$W.m3" >/dev/null; then echo "  $W m3 PASS (live aggregate held across $STRESS-allocation-spaced collections, byte-identical to sbl -bf: $(cat "$T/$W.ref"))"
     else echo "  $W m3 FAIL (rc=$? got \"$(head -2 "$T/$W.m3" | tr '\n' '|')\" sbl \"$(cat "$T/$W.ref")\" -- a live aggregate's interior was swept)"; RC=1; fi
-    ( cd "$T" && timeout 60 "$SCRIP" --compile -o "$W.s" "$W.sno" </dev/null && gcc "$W.s" -o "$W.bin" -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 witness $W did not build"; exit 2; }
-    ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" SCRIP_GC_STRESS="$STRESS" timeout 300 "./$W.bin" </dev/null ) >"$T/$W.m4" 2>&1
+    ( cd "$T" && timeout -k 5 60 "$SCRIP" --compile -o "$W.s" "$W.sno" </dev/null && gcc "$W.s" -o "$W.bin" -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 witness $W did not build"; exit 2; }
+    ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" SCRIP_GC_STRESS="$STRESS" timeout -k 5 300 "./$W.bin" </dev/null ) >"$T/$W.m4" 2>&1
     if diff -q "$T/$W.ref" "$T/$W.m4" >/dev/null; then echo "  $W m4 PASS (same witness compiled, byte-identical to sbl -bf: $(cat "$T/$W.ref"))"
     else echo "  $W m4 FAIL (got \"$(head -2 "$T/$W.m4" | tr '\n' '|')\" sbl \"$(cat "$T/$W.ref")\" -- a live aggregate's interior was swept)"; RC=1; fi
 done
-( cd "$T" && SCRIP_GC_STRESS="$STRESS" timeout 300 "$SCRIP" rec.icn </dev/null ) >"$T/rec.m3" 2>&1
+( cd "$T" && SCRIP_GC_STRESS="$STRESS" timeout -k 5 300 "$SCRIP" rec.icn </dev/null ) >"$T/rec.m3" 2>&1
 if diff -q "$T/rec.ref" "$T/rec.m3" >/dev/null; then echo "  rec m3 PASS (Icon record held across heavy collection, byte-identical to icont: $(cat "$T/rec.ref"))"
 else echo "  rec m3 FAIL (got \"$(head -2 "$T/rec.m3" | tr '\n' '|')\" icont \"$(cat "$T/rec.ref")\")"; RC=1; fi
-( cd "$T" && SCRIP_GC_STRESS="$STRESS" SCRIP_ZETA_TELEM=1 timeout 300 "$SCRIP" arr.sno </dev/null ) >/dev/null 2>"$T/telem"; trc=$?
+( cd "$T" && SCRIP_GC_STRESS="$STRESS" SCRIP_ZETA_TELEM=1 timeout -k 5 300 "$SCRIP" arr.sno </dev/null ) >/dev/null 2>"$T/telem"; trc=$?
 REGENS=$(grep -c '^\[ZGC\] regeneration' "$T/telem" 2>/dev/null || echo 0)
 if [ "$trc" = 0 ] && [ "${REGENS:-0}" -lt 2 ]; then echo "⛔ GATE REFUSE(2) [$G]: the witness ran clean and reported $REGENS regenerations -- it never collected, so this gate is measuring nothing"; exit 2; fi
 if [ "$trc" != 0 ]; then echo "  instrument PASS ($REGENS regenerations before the witness died at rc=$trc -- the collector ran, and the arms above already carry the red)"

@@ -95,18 +95,18 @@ refuse_on_clock() {  # <rc> <arm> <ceiling> <errfile>
 chain() { printf " DATA('CONS(CAR,CDR)')\n L = \n I = 0\nLP I = LT(I,%s) I + 1 :F(DN)\n L = CONS(I, L) :(LP)\nDN X = COLLECT()\n J = 0\nCT J = LT(J,3000) J + 1 :F(OUT)\n S = DUPL('x', 20000) :(CT)\nOUT K = 0\nCN L = DIFFER(L) CDR(L) :F(FIN)\n K = K + 1 :(CN)\nFIN OUTPUT = K\nEND\n" "$1" > "$2"; }
 chain 600000 "$T/w.sno"; chain 1500000 "$T/big.sno"
 examined=$((examined+1))
-SCRIP_ZETA_TELEM=1 timeout "$CEIL_CHAIN" "$SCRIP" "$T/w.sno" </dev/null >"$T/o3" 2>"$T/e3"; r3=$?; c3=$(grep -c regeneration "$T/e3")
+SCRIP_ZETA_TELEM=1 timeout -k 5 "$CEIL_CHAIN" "$SCRIP" "$T/w.sno" </dev/null >"$T/o3" 2>"$T/e3"; r3=$?; c3=$(grep -c regeneration "$T/e3")
 refuse_on_clock "$r3" "m3 600000-cell" "$CEIL_CHAIN" "$T/e3"
 if [ "$r3" = 0 ] && [ "$(cat "$T/o3")" = 600000 ] && [ "$c3" -ge 1 ]; then echo "  m3 PASS (600000-cell CONS chain live across a COLLECT(): rc=0, walked $(cat "$T/o3") cells back, $c3 collection(s))"
 else echo "  m3 FAIL (rc=$r3 out=[$(cat "$T/o3")] collections=$c3 -- $(head -1 "$T/e3" | cut -c1-90))"; RC=1; fi
 examined=$((examined+1))
-( cd "$T" && timeout "$CEIL_CHAIN" "$SCRIP" --compile -o w.s w.sno </dev/null >/dev/null 2>&1 && gcc -no-pie w.s -o w.x -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: the m4 witness did not build"; exit 2; }
-SCRIP_ZETA_TELEM=1 timeout "$CEIL_CHAIN" "$T/w.x" </dev/null >"$T/o4" 2>"$T/e4"; r4=$?; c4=$(grep -c regeneration "$T/e4")
+( cd "$T" && timeout -k 5 "$CEIL_CHAIN" "$SCRIP" --compile -o w.s w.sno </dev/null >/dev/null 2>&1 && gcc -no-pie w.s -o w.x -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: the m4 witness did not build"; exit 2; }
+SCRIP_ZETA_TELEM=1 timeout -k 5 "$CEIL_CHAIN" "$T/w.x" </dev/null >"$T/o4" 2>"$T/e4"; r4=$?; c4=$(grep -c regeneration "$T/e4")
 refuse_on_clock "$r4" "m4 600000-cell" "$CEIL_CHAIN" "$T/e4"
 if [ "$r4" = 0 ] && [ "$(cat "$T/o4")" = 600000 ] && [ "$c4" -ge 1 ]; then echo "  m4 PASS (same chain in mode 4: rc=0, walked $(cat "$T/o4") cells back, $c4 collection(s))"
 else echo "  m4 FAIL (rc=$r4 out=[$(cat "$T/o4")] collections=$c4 -- $(head -1 "$T/e4" | cut -c1-90))"; RC=1; fi
 examined=$((examined+1))
-SCRIP_ZETA_TELEM=1 timeout "$CEIL_SCALE" "$SCRIP" "$T/big.sno" </dev/null >"$T/ob" 2>"$T/eb"; rb=$?; cb=$(grep -c regeneration "$T/eb")
+SCRIP_ZETA_TELEM=1 timeout -k 5 "$CEIL_SCALE" "$SCRIP" "$T/big.sno" </dev/null >"$T/ob" 2>"$T/eb"; rb=$?; cb=$(grep -c regeneration "$T/eb")
 refuse_on_clock "$rb" "scaling 1500000-cell" "$CEIL_SCALE" "$T/eb"
 d=$(grep -oE 'wl_depth_max=[0-9]+' "$T/eb" | cut -d= -f2 | sort -n | tail -1); mk=$(grep -oE 'marked=[0-9]+' "$T/eb" | cut -d= -f2 | sort -n | tail -1)
 if [ "$rb" = 0 ] && [ "$(cat "$T/ob")" = 1500000 ] && [ "$cb" -ge 1 ] && [ -n "$mk" ] && [ "$mk" -ge 3000000 ]; then echo "  scaling PASS (1500000-cell chain: rc=0, $cb collection(s), marked=$mk blocks, two per cell, wl_depth_max=${d:-absent} -- the walk is not on the C stack, and it really walked)"

@@ -44,10 +44,10 @@ PY
 pair() {  # pair <label> <script-a> <script-b> -- run the controller between two scripted participants; prints its stderr to $T/<label>.ctrl
   local L="$1"; mkfifo "$T/$L.a.r" "$T/$L.a.g" "$T/$L.b.r" "$T/$L.b.g"
   printf '%b' "$2" > "$T/$L.a.s"; printf '%b' "$3" > "$T/$L.b.s"
-  timeout 60 python3 "$CTRL" "a:$T/$L.a.r:$T/$L.a.g" "b:$T/$L.b.r:$T/$L.b.g" > "$T/$L.ctrl" 2>&1 &
+  timeout -k 5 60 python3 "$CTRL" "a:$T/$L.a.r:$T/$L.a.g" "b:$T/$L.b.r:$T/$L.b.g" > "$T/$L.ctrl" 2>&1 &
   local cp=$!
-  timeout 60 python3 "$T/fake.py" "$T/$L.a.r" "$T/$L.a.g" "$T/$L.a.s" & local ap=$!
-  timeout 60 python3 "$T/fake.py" "$T/$L.b.r" "$T/$L.b.g" "$T/$L.b.s" & local bp=$!
+  timeout -k 5 60 python3 "$T/fake.py" "$T/$L.a.r" "$T/$L.a.g" "$T/$L.a.s" & local ap=$!
+  timeout -k 5 60 python3 "$T/fake.py" "$T/$L.b.r" "$T/$L.b.g" "$T/$L.b.s" & local bp=$!
   wait $cp; local rc=$?; wait $ap $bp 2>/dev/null; return $rc
 }
 pair p1 'HELLO\nLABEL 1\nOUT hello\\n\nLABEL 2\nEND\n' 'HELLO\nLABEL 1\nOUT hello\\n\nLABEL 2\nEND\n'; r1=$?
@@ -69,14 +69,14 @@ pair p5 'HELLO\nLABEL 1\nOUT 42\\n\nLABEL 2\nEND\n' 'LABEL 1\nOUT 41\\n\nLABEL 2
 # ---- live: the instrumented Icon oracle
 [ -x "$ICON_MON/bin/icont" ] && [ -x "$ICON_MON/bin/iconx" ] || { echo "⛔ REFUSED(2): no instrumented Icon fork at $ICON_MON (build it: bash scripts/monitor/oracles/build_icon_mon.sh)"; exit 2; }
 mkdir -p "$T/w"; printf 'procedure main();\n   x := 1;\n   write("hello ", x + 2);\nend\n' > "$T/w/hello.icn"
-MONITOR_TRACE_LOG="$T/log6" ICON_MON_ROOT="$ICON_MON" SCRIP_SNO_STMTKW=1 timeout 300 bash "$HERE/monitor_run.sh" "$T/w/hello.icn" --oracle > "$T/r6.out" 2>&1
+MONITOR_TRACE_LOG="$T/log6" ICON_MON_ROOT="$ICON_MON" SCRIP_SNO_STMTKW=1 timeout -k 5 300 bash "$HERE/monitor_run.sh" "$T/w/hello.icn" --oracle > "$T/r6.out" 2>&1
 icx_out="$(python3 -c 'import ast,re,sys; print(repr(b"".join(ast.literal_eval(m) for m in re.findall(r"OUTPUT (b.*)$", open(sys.argv[1]).read(), re.M))))' "$T/log6.icx.log" 2>/dev/null)"   # the records joined: icx cuts write() into pieces
 [ "$icx_out" = "b'hello 3\\n'" ] \
   && ck ok "(6) the icx fork says OUTPUT hello and sends the bytes its write() puts on stdout ('hello 3\\n')" \
   || ck no "(6) icx's OUTPUT records for write(\"hello \", 3) join to ${icx_out:-nothing} -- the fork at $ICON_MON predates the OUTPUT event or its fire-point is silent"
 printf 'procedure main();\n   write(&version);\nend\n' > "$T/w/ver.icn"; printf 'procedure main();\n   write("same");\nend\n' > "$T/w/same.icn"
-ICON_MON_ROOT="$ICON_MON" SCRIP_SNO_STMTKW=1 timeout 300 bash "$HERE/monitor_run.sh" "$T/w/same.icn" --oracle > "$T/r7s.out" 2>&1; r7s=$?
-ICON_MON_ROOT="$ICON_MON" SCRIP_SNO_STMTKW=1 timeout 300 bash "$HERE/monitor_run.sh" "$T/w/ver.icn" --oracle > "$T/r7v.out" 2>&1; r7v=$?
+ICON_MON_ROOT="$ICON_MON" SCRIP_SNO_STMTKW=1 timeout -k 5 300 bash "$HERE/monitor_run.sh" "$T/w/same.icn" --oracle > "$T/r7s.out" 2>&1; r7s=$?
+ICON_MON_ROOT="$ICON_MON" SCRIP_SNO_STMTKW=1 timeout -k 5 300 bash "$HERE/monitor_run.sh" "$T/w/ver.icn" --oracle > "$T/r7v.out" 2>&1; r7v=$?
 if grep -q 'OUTPUT NOT GRADED -- scr' "$T/r7s.out"; then
   wait7="the SCRIP Icon plug speaks no OUTPUT yet, so write(&version) still reads AGREE on the icx/scr pair: $(tail -1 "$T/r7v.out" | cut -c1-160)"
 elif [ "$r7s" = 0 ] && grep -q 'output graded' "$T/r7s.out" && [ "$r7v" = 1 ] && grep -q 'OUTPUT' "$T/r7v.out"; then

@@ -39,24 +39,24 @@ T="$(mktemp -d)" || refuse "no tmpdir"
 trap 'rm -rf "$T"' EXIT
 printf 'hello\nworld\nthird\n' > "$T/x.txt"
 printf '%s\n' "        INPUT(.IN,1,'x.txt')" "        OUTPUT = SET(1,0,1)" END > "$T/probe.sno"
-( cd "$T" && timeout 20 "$SBL" -bf probe.sno < /dev/null > probe.out 2>&1 )
+( cd "$T" && timeout -k 5 20 "$SBL" -bf probe.sno < /dev/null > probe.out 2>&1 )
 [ "$(head -1 "$T/probe.out")" = 0 ] || refuse "the oracle $SBL has no SET (x64 fork 012d00e or later, swap 20260927T212829Z): [$(grep -m1 ERROR "$T/probe.out")]"
 CASES=("SET(1,0,1)" "SET(1,'2',1)" "SET(1,'x',1)" "SET('1',0,1)" "SET(1,0,'1')" "SET(2,0,1)" "SET(1,0,2)" "SET(1,0,7)" "SET(1,1.5,0)" "SET(,0,0)"
        "SET(1,0,'P')" "SET(1,-100,0)" "SET(1,100,0)" "SET(.IN,0,1)" "SET(1,-6,2)" "SET(1,3,0)" "SET(1)" "SET(1,'-2',2)" "DEFINE('SET(X)')")
 for i in "${!CASES[@]}"; do
     printf '%s\n' "        INPUT(.IN,1,'x.txt')" "        L = IN" "        OUTPUT = ${CASES[$i]}" "        OUTPUT = 'next ' IN" "        OUTPUT = 'next ' IN" END > "$T/c$i.sno"
-    ( cd "$T" && timeout 20 "$SBL" -bf "c$i.sno" < /dev/null > "c$i.raw" 2>/dev/null )
+    ( cd "$T" && timeout -k 5 20 "$SBL" -bf "c$i.sno" < /dev/null > "c$i.raw" 2>/dev/null )
     { sed '/^$/,$d' "$T/c$i.raw"; echo "error=$(grep -o 'ERROR [0-9]*' "$T/c$i.raw" | head -1 | tr -dc 0-9)"; } > "$T/c$i.oracle"
 done
 grep -qx 'error=295' "$T/c5.oracle" && grep -qx '12' "$T/c14.oracle" && grep -qx 'error=293' "$T/c2.oracle" || refuse "the oracle's SET answers moved: [$(tr '\n' '|' < "$T/c14.oracle")]"
 printf '%s\n' "        OUTPUT(.O,3,'w.txt')" "        O = 'abcdef'" "        OUTPUT = SET(3,0,1)" "        OUTPUT = SET(3,2,0)" "        O = 'XY'" "        OUTPUT = SET(3,0,2)" \
     "        ENDFILE(3)" "        INPUT(.I,4,'w.txt')" "        OUTPUT = I" "        OUTPUT = I" END > "$T/w.sno"
-( cd "$T" && timeout 20 "$SBL" -bf w.sno < /dev/null > w.oracle 2>&1 && cat w.txt >> w.oracle && rm -f w.txt ) || refuse "sbl did not run the output-file witness"
+( cd "$T" && timeout -k 5 20 "$SBL" -bf w.sno < /dev/null > w.oracle 2>&1 && cat w.txt >> w.oracle && rm -f w.txt ) || refuse "sbl did not run the output-file witness"
 mkdir "$T/bo" && cp "$PKG/BUILDLIB.sno" "$PKG/BUILDLIB.IN" "$PKG/spitlib.spt" "$T/bo/" || refuse "could not stage BUILDLIB"
-( cd "$T/bo" && timeout 20 "$SBL" -bf BUILDLIB.sno < BUILDLIB.IN > out 2>&1 ) && [ -s "$T/bo/spitlib.idx" ] || refuse "sbl did not write spitlib.idx from BUILDLIB"
+( cd "$T/bo" && timeout -k 5 20 "$SBL" -bf BUILDLIB.sno < BUILDLIB.IN > out 2>&1 ) && [ -s "$T/bo/spitlib.idx" ] || refuse "sbl did not write spitlib.idx from BUILDLIB"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
-run() { ( cd "$1" && if [ "$3" = m3 ]; then timeout 20 "$SCRIP" "$2.sno"; else timeout 30 "$SCRIP" --compile -o "$2.s" "$2.sno" < /dev/null > /dev/null 2>&1 && gcc "$2.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$2.bin" > /dev/null 2>&1 && timeout 20 "./$2.bin"; fi ) }
+run() { ( cd "$1" && if [ "$3" = m3 ]; then timeout -k 5 20 "$SCRIP" "$2.sno"; else timeout -k 5 30 "$SCRIP" --compile -o "$2.s" "$2.sno" < /dev/null > /dev/null 2>&1 && gcc "$2.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$2.bin" > /dev/null 2>&1 && timeout -k 5 20 "./$2.bin"; fi ) }
 matrix() { local bad=""
     for i in "${!CASES[@]}"; do
         run "$T" "c$i" "$1" < /dev/null > "$T/c$i.$1.out" 2> "$T/c$i.$1.err"
@@ -65,7 +65,7 @@ matrix() { local bad=""
     done; [ -z "$bad" ] && echo ok || echo "$bad"; }
 arm "m3: the SET case matrix (${#CASES[@]} cases), stdout and error code" "$(matrix m3)"
 arm "m4: the SET case matrix (${#CASES[@]} cases), stdout and error code" "$(matrix m4)"
-( cd "$T" && timeout 20 "$SCRIP" w.sno < /dev/null > w.m3 2>&1 && cat w.txt >> w.m3 )
+( cd "$T" && timeout -k 5 20 "$SCRIP" w.sno < /dev/null > w.m3 2>&1 && cat w.txt >> w.m3 )
 arm "m3: SET on an output file overwrites in place and reads back" "$(cmp -s "$T/w.m3" "$T/w.oracle" && echo ok || echo "got [$(tr '\n' '|' < "$T/w.m3")] want [$(tr '\n' '|' < "$T/w.oracle")]")"
 for m in m3 m4; do
     mkdir -p "$T/b$m" && cp "$PKG/BUILDLIB.sno" "$PKG/BUILDLIB.IN" "$PKG/spitlib.spt" "$T/b$m/"

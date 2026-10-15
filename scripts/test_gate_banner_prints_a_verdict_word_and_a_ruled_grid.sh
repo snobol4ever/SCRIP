@@ -22,7 +22,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 M="$HERE/s4e_msg.sh"
 [ -f "$M" ] || { echo "⛔ REFUSE(2): no $M"; exit 2; }
 # S4E_BANNER_NO_BOARD keeps this gate from clobbering the live BOARD.md row of whoever runs it.
-out="$(S4E_BANNER_NO_BOARD=1 timeout 100 bash "$M" banner 2>&1)"; brc=$?
+out="$(S4E_BANNER_NO_BOARD=1 timeout -k 5 100 bash "$M" banner 2>&1)"; brc=$?
 [ -n "$out" ] || { echo "⛔ RED: banner printed ZERO BYTES (rc=$brc) -- this is the exact 2026-09-13 blackout"; exit 1; }
 rc=0
 if printf '%s\n' "$out" | grep -qE '^(SUCCESS|IN-PROGRESS|DRAIN|STOP)$'; then :

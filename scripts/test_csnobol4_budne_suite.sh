@@ -112,9 +112,9 @@ run_test() {
     # ── Mode 2: --run ──────────────────────────────────────────────────
     local T0m=$SECONDS; local got2
     if [ -n "$stdin_file" ]; then
-        got2=$(timeout "$TIMEOUT" "$SCRIP" --run "$prog_file" < "$stdin_file" 2>/dev/null || true)
+        got2=$(timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$prog_file" < "$stdin_file" 2>/dev/null || true)
     else
-        got2=$(timeout "$TIMEOUT" "$SCRIP" --run "$sno" 2>/dev/null || true)
+        got2=$(timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$sno" 2>/dev/null || true)
     fi
     T_M2=$((T_M2+SECONDS-T0m))
     if [ "$got2" = "$exp" ]; then PASS2=$((PASS2+1))
@@ -123,9 +123,9 @@ run_test() {
     # ── Mode 3: --run ─────────────────────────────────────────────────────
     local T0m3=$SECONDS; local got3
     if [ -n "$stdin_file" ]; then
-        got3=$(timeout "$TIMEOUT" "$SCRIP" --run "$prog_file" < "$stdin_file" 2>/dev/null || true)
+        got3=$(timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$prog_file" < "$stdin_file" 2>/dev/null || true)
     else
-        got3=$(timeout "$TIMEOUT" "$SCRIP" --run "$sno" 2>/dev/null || true)
+        got3=$(timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$sno" 2>/dev/null || true)
     fi
     T_M3=$((T_M3+SECONDS-T0m3))
     if [ "$got3" = "$exp" ]; then PASS3=$((PASS3+1))

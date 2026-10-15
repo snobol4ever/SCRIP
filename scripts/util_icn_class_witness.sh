@@ -218,14 +218,14 @@ trap 'rm -rf "$T"' EXIT
 if ! witness_for "$SLUG" > "$T/w.icn"; then
     echo "UNPROVEN(2): unknown class slug '$SLUG' -- run --list for the ones this runner knows"; exit 2
 fi
-( cd "$T" && timeout 30s "$ICONT" -s -o w.oracle w.icn >/dev/null 2>&1 ) && [ -x "$T/w.oracle" ] \
+( cd "$T" && timeout -k 5 30s "$ICONT" -s -o w.oracle w.icn >/dev/null 2>&1 ) && [ -x "$T/w.oracle" ] \
     || { echo "UNPROVEN(2) [$SLUG]: icont could not build the witness, so there is no oracle answer to grade against"; exit 2; }
-( cd "$T" && timeout 15s ./w.oracle </dev/null >ref 2>&1 )
-( cd "$T" && timeout 15s "$ROOT/scrip" w.icn </dev/null >m3 2>&1 )
+( cd "$T" && timeout -k 5 15s ./w.oracle </dev/null >ref 2>&1 )
+( cd "$T" && timeout -k 5 15s "$ROOT/scrip" w.icn </dev/null >m3 2>&1 )
 m4="(m4 not built)"
-if ( cd "$T" && timeout 30s "$ROOT/scrip" --compile -o w.s w.icn </dev/null >/dev/null 2>&1 ) \
+if ( cd "$T" && timeout -k 5 30s "$ROOT/scrip" --compile -o w.s w.icn </dev/null >/dev/null 2>&1 ) \
    && ( cd "$T" && gcc -no-pie w.s -o w.m4bin -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ); then
-    ( cd "$T" && timeout 15s ./w.m4bin </dev/null >m4 2>&1 ); m4="$(tr '\n' '|' < "$T/m4")"
+    ( cd "$T" && timeout -k 5 15s ./w.m4bin </dev/null >m4 2>&1 ); m4="$(tr '\n' '|' < "$T/m4")"
 else
     printf 'M4-BUILD-FAILED\n' > "$T/m4"; m4="M4-BUILD-FAILED"
 fi

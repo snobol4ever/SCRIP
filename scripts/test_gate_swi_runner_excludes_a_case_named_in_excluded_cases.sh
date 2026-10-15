@@ -18,7 +18,7 @@ refuse() { echo "⛔ REFUSED(2) [swi_runner_excludes_a_case_named_in_excluded_ca
 [ -f "$SRC/test_db.pl" ] && [ -f "$SRC/test_db.ref" ] || refuse "no db/test_db.pl and its ref under $SRC"
 T="$(mktemp -d)" || refuse "mktemp failed"; trap 'rm -rf "$T"' EXIT
 S="$T/packages/prolog/swi_tests"; mkdir -p "$S/db" && cp "$SRC/test_db.pl" "$SRC/test_db.ref" "$S/db/" || refuse "fixture copy failed"
-run() { S4E_CORPUS="$T" S4E_PROGRESS_OFF=1 timeout 600 bash "$HERE/test_prolog_swi_suite.sh" --file db/test_db.pl --modes m3 > "$T/out" 2>&1; echo $?; }
+run() { S4E_CORPUS="$T" S4E_PROGRESS_OFF=1 timeout -k 5 600 bash "$HERE/test_prolog_swi_suite.sh" --file db/test_db.pl --modes m3 > "$T/out" 2>&1; echo $?; }
 graded() { sed -n 's/^  db\/test_db.pl  *[0-9]*\/\([0-9]*\) .*/\1/p' "$T/out" | head -1; }
 fails=0; ck() { if [ "$1" = ok ]; then echo "  ok    $2"; else echo "  FAIL  $2"; fails=$((fails+1)); fi; }
 echo "=== gate: the SWI runner excludes a case named in EXCLUDED_CASES.tsv (CEO-1710) ==="

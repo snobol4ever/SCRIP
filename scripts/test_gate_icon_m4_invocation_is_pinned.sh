@@ -80,7 +80,7 @@ echo "CLAUSE 3 -- measured through the grading path itself: a one-entry rungs wh
 PW="$W/livepin"; mkdir -p "$PW"
 printf '#%s 1 pinwitness\nprocedure main()\n   write("&progname: ",&progname);\nend\n' "-----------------" > "$PW/ALL.icn"
 printf '#%s 1 pinwitness\n&progname: pinwitness\n' "-----------------" > "$PW/ALL.ref"
-LIVE="$(timeout 120s python3 "$HARNESS" run --lang icon --modes m3,m4 "$PW/ALL.icn" "$PW/ALL.ref" 2>&1)"
+LIVE="$(timeout -k 5 120s python3 "$HARNESS" run --lang icon --modes m3,m4 "$PW/ALL.icn" "$PW/ALL.ref" 2>&1)"
 # fields read BY NAME, never by adjacency: 'm3_n=1 m3_pass=1' asserted the board's LAYOUT, and the board
 # gained shipped=/outside= once already (CEO-749/772; the same pattern shape left arm 9 of
 # test_gate_harness_refusal_is_rc2.sh red for a day over a correct board -- CEO-839).
@@ -115,11 +115,11 @@ fi
 echo "CLAUSE 5 -- the two shipped programs that print &progname reproduce their refs in BOTH modes, run the way the graders run them"
 run_both() {  # <label> <dir> <stem> <ref>
   local label="$1" dir="$2" stem="$3" ref="$4" o3 o4
-  o3="$( cd "$dir" && SNO_LIB="$S4E/corpus/include" timeout 30s "$SCRIP" --run "$stem.icn" </dev/null 2>&1 )"
+  o3="$( cd "$dir" && SNO_LIB="$S4E/corpus/include" timeout -k 5 30s "$SCRIP" --run "$stem.icn" </dev/null 2>&1 )"
   if [ "$o3" = "$(cat "$ref")" ]; then say_ok "$label: mode 3 reproduces its ref"; else say_fail "$label: mode 3 differs from its ref on $(diff <(printf '%s\n' "$o3") "$ref" | grep -c '^[<>]') line(s)"; fi
   ( cd "$dir" && SNO_LIB="$S4E/corpus/include" "$SCRIP" --compile "$stem.icn" > "$dir/q.s" 2>/dev/null ) || { say_fail "$label: scrip --compile failed"; return; }
   gcc -c "$dir/q.s" -o "$dir/q.o" 2>/dev/null && gcc "$dir/q.o" -L "$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$dir/$stem" 2>/dev/null || { say_fail "$label: build failed"; return; }
-  o4="$( cd "$dir" && PATH="$dir:$PATH" timeout 30s "$stem" </dev/null 2>&1 )"
+  o4="$( cd "$dir" && PATH="$dir:$PATH" timeout -k 5 30s "$stem" </dev/null 2>&1 )"
   if [ "$o4" = "$(cat "$ref")" ]; then say_ok "$label: mode 4 reproduces the SAME ref"; else say_fail "$label: mode 4 differs from its ref on $(diff <(printf '%s\n' "$o4") "$ref" | grep -c '^[<>]') line(s)"; fi
 }
 EX="$W/e924"; mkdir -p "$EX"

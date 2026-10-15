@@ -57,9 +57,9 @@ for f in descr_identical rt_table_assign_fast; do
     nc=$(grep -c "call .*\[rip + $f@GOTPCREL\]" "$W/id.s"); nv=$(grep -B3 "call .*\[rip + $f@GOTPCREL\]" "$W/id.s" | grep -c 'rtccb')
     [ "$nc" -gt 0 ] && [ "$nv" -eq 0 ] && echo "ok  $f: $nc bare GOT calls, no veneer" || { echo "RED $f: calls=$nc veneered=$nv"; red=1; }
 done
-( cd "$W" && timeout 60 "$ROOT/scrip" id.sno < /dev/null > "$W/id.m3" 2>&1 ); cmp -s "$W/id.m3" "$W/id.ref" && echo "ok  m3 = oracle" || { echo "RED m3 differs from the oracle:"; diff "$W/id.ref" "$W/id.m3" | head -8; red=1; }
+( cd "$W" && timeout -k 5 60 "$ROOT/scrip" id.sno < /dev/null > "$W/id.m3" 2>&1 ); cmp -s "$W/id.m3" "$W/id.ref" && echo "ok  m3 = oracle" || { echo "RED m3 differs from the oracle:"; diff "$W/id.ref" "$W/id.m3" | head -8; red=1; }
 if gcc "$W/id.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/id.bin" 2>/dev/null; then
-    ( cd "$W" && timeout 60 "./id.bin" < /dev/null > "$W/id.m4" 2>&1 ); cmp -s "$W/id.m4" "$W/id.ref" && echo "ok  m4 = oracle" || { echo "RED m4 differs from the oracle:"; diff "$W/id.ref" "$W/id.m4" | head -8; red=1; }
+    ( cd "$W" && timeout -k 5 60 "./id.bin" < /dev/null > "$W/id.m4" 2>&1 ); cmp -s "$W/id.m4" "$W/id.ref" && echo "ok  m4 = oracle" || { echo "RED m4 differs from the oracle:"; diff "$W/id.ref" "$W/id.m4" | head -8; red=1; }
 else echo "RED: id.s did not link"; red=1; fi
 cat > "$W/tr.sno" <<'SNO'
         T = TABLE()
@@ -71,6 +71,6 @@ cat > "$W/tr.sno" <<'SNO'
 END
 SNO
 "$SBL" $(sbl_lang_flags) "$W/tr.sno" < /dev/null > "$W/tr.ref" 2>&1 || true
-( cd "$W" && timeout 20 "$ROOT/scrip" tr.sno < /dev/null > "$W/tr.m3" 2>&1 ); grep -q '^after 6$' "$W/tr.m3" && echo "ok  a store under a live trace reaches the C body and keeps the value (m3)" || { echo "RED: the traced store lost its value in m3:"; cat "$W/tr.m3" | head -4; red=1; }
+( cd "$W" && timeout -k 5 20 "$ROOT/scrip" tr.sno < /dev/null > "$W/tr.m3" 2>&1 ); grep -q '^after 6$' "$W/tr.m3" && echo "ok  a store under a live trace reaches the C body and keeps the value (m3)" || { echo "RED: the traced store lost its value in m3:"; cat "$W/tr.m3" | head -4; red=1; }
 [ "$red" -eq 0 ] && { echo "GATE OK: IDENT/DIFFER and the fused table store take the asm entries bare, and every witness line matches the oracle in both modes"; exit 0; }
 echo "GATE FAILED: see the RED lines above"; exit 1

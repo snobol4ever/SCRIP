@@ -30,7 +30,7 @@ REF=scripts/gc_witnesses/hb_concat_slot_capture_across_a_collection.ref
 TMP=$(mktemp -d) || exit 2; trap 'rm -rf "$TMP"' EXIT
 fail=0; collected=0
 for st in 0 1 3 5; do
-  env -u SCRIP_HEAP_MB SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st timeout 60 ./scrip "$W" < /dev/null > "$TMP/o.$st" 2> "$TMP/e.$st"
+  env -u SCRIP_HEAP_MB SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st timeout -k 5 60 ./scrip "$W" < /dev/null > "$TMP/o.$st" 2> "$TMP/e.$st"
   rc=$?
   col=$(grep -o 'collections=[0-9]*' "$TMP/e.$st" | tail -1); col=${col#collections=}; col=${col:-0}
   [ "${col:-0}" -gt 0 ] && collected=1
@@ -40,7 +40,7 @@ for st in 0 1 3 5; do
   else echo "ok  stress=$st PASS collections=$col"; fi
 done
 [ "$collected" = 1 ] || { echo "RED no stress point reported collections>0 -- the band measured a configuration, not an exercise"; fail=1; }
-if timeout 60 ./scrip --compile -o "$TMP/w.s" "$W" < /dev/null 2>/dev/null; then
+if timeout -k 5 60 ./scrip --compile -o "$TMP/w.s" "$W" < /dev/null 2>/dev/null; then
   n=$(grep -cE '\b(str_concat_d|str_concat_fracdigit_d|rt_icn_lconcat_d|sno_concat_d)\b' "$TMP/w.s")
   if [ "${n:-0}" -gt 0 ]; then echo "ok  POSITIVE the concat-slot road is still emitted for this witness ($n call site(s))"
   else echo "RED the witness no longer emits a concat-slot runtime call -- the band is measuring nothing"; fail=1; fi

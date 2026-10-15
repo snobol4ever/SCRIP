@@ -47,14 +47,14 @@ main :- F = 'pio_null.txt', open(F, write, S), close(S),
 PL
 red=0
 for p in data pio; do
-    want="$(cd "$D" && timeout 20 "$SW" -q $p.pl -t halt < /dev/null 2>/dev/null | grep .)"
+    want="$(cd "$D" && timeout -k 5 20 "$SW" -q $p.pl -t halt < /dev/null 2>/dev/null | grep .)"
     [ -n "$want" ] || refuse "swipl gave no answer for $p.pl"
-    wk="$(cd "$D" && timeout 120 "$B/scrip" --dump-ast $p.pl < /dev/null 2>/dev/null | grep -c 'wakeup')"
-    got3="$(cd "$D" && timeout 120 "$B/scrip" --run $p.pl < /dev/null 2>/dev/null | grep .)"
+    wk="$(cd "$D" && timeout -k 5 120 "$B/scrip" --dump-ast $p.pl < /dev/null 2>/dev/null | grep -c 'wakeup')"
+    got3="$(cd "$D" && timeout -k 5 120 "$B/scrip" --run $p.pl < /dev/null 2>/dev/null | grep .)"
     got4=""
-    if ( cd "$D" && timeout 120 "$B/scrip" --compile -o $p.s $p.pl < /dev/null > /dev/null 2>&1 && [ -s $p.s ] \
+    if ( cd "$D" && timeout -k 5 120 "$B/scrip" --compile -o $p.s $p.pl < /dev/null > /dev/null 2>&1 && [ -s $p.s ] \
          && gcc -m64 -no-pie $p.s -o $p.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ); then
-        got4="$(cd "$D" && timeout 120 ./$p.bin < /dev/null 2>/dev/null | grep .)"
+        got4="$(cd "$D" && timeout -k 5 120 ./$p.bin < /dev/null 2>/dev/null | grep .)"
     fi
     if [ "$p" = data ]; then arm="ARM 1"; wk_ok=$([ "$wk" = 0 ] && echo 1 || echo 0); else arm="ARM 2"; wk_ok=$([ "$wk" -gt 0 ] && echo 1 || echo 0); fi
     if [ "$got3" = "$want" ] && [ "$got4" = "$want" ] && [ "$wk_ok" = 1 ]; then echo "  $arm GREEN: $p.pl as swipl in m3 and m4, $wk '\$wakeup' line(s) in the injected program"

@@ -53,12 +53,12 @@ RUNDIR="$W/cwd"; mkdir -p "$RUNDIR" || { echo "REFUSE(2): no scratch cwd under $
 for _e in "$(dirname "$src")"/* "$(dirname "$src")"/.[!.]*; do [ -e "$_e" ] && ln -s "$_e" "$RUNDIR/" 2>/dev/null; done
 cd "$RUNDIR" || { echo "REFUSE(2): cannot enter the scratch cwd $RUNDIR"; exit 2; }
 if [ "$mode" = trace ]; then
-    timeout 60 "$SCRIP" --trace --run $SW "$src" < "$input"; rc=$?
+    timeout -k 5 60 "$SCRIP" --trace --run $SW "$src" < "$input"; rc=$?
     [ "$rc" = 124 ] && { echo "REFUSE(2): the traced run did not finish in 60 s -- this is not a verdict"; exit 2; }
     exit 0
 fi
-timeout 60 "$SCRIP" --run $SW "$src" < "$input" > "$W/plain.out" 2> "$W/plain.err"; prc=$?
-timeout 60 "$SCRIP" --trace --run $SW "$src" < "$input" > "$W/traced.out" 2> "$W/traced.err"; trc=$?
+timeout -k 5 60 "$SCRIP" --run $SW "$src" < "$input" > "$W/plain.out" 2> "$W/plain.err"; prc=$?
+timeout -k 5 60 "$SCRIP" --trace --run $SW "$src" < "$input" > "$W/traced.out" 2> "$W/traced.err"; trc=$?
 if [ "$prc" = 124 ] || [ "$trc" = 124 ]; then echo "REFUSE(2): the witness did not finish in 60 s (plain rc=$prc, traced rc=$trc) -- pick a shorter witness"; exit 2; fi
 perl -0pe 's/\*\*\*\*[0-9]+[^\n]*\n//g' "$W/traced.out" > "$W/traced.stripped"
 if ! cmp -s "$W/plain.out" "$W/traced.stripped" || [ "$prc" != "$trc" ]; then
@@ -67,13 +67,13 @@ if ! cmp -s "$W/plain.out" "$W/traced.stripped" || [ "$prc" != "$trc" ]; then
 fi
 nev=$(grep -oE '\*\*\*\*[0-9]+' "$W/traced.out" | wc -l); echo "[monitor_run] monitor-safe: untraced output identical under trace; $nev trace event(s) in mode 3"
 if [ "$mode" = modes ]; then
-    ( cd "$(dirname "$src")" && timeout 60 "$SCRIP" --compile -o "$W/plain4.s" "$src" < /dev/null ) > "$W/plain4.cc.out" 2>&1; pcc=$?
+    ( cd "$(dirname "$src")" && timeout -k 5 60 "$SCRIP" --compile -o "$W/plain4.s" "$src" < /dev/null ) > "$W/plain4.cc.out" 2>&1; pcc=$?
     [ "$pcc" = 0 ] || { echo "REFUSE(2): mode-4 plain compile failed (rc=$pcc): $(tail -2 "$W/plain4.cc.out")"; exit 2; }
     gcc "$W/plain4.s" -L"$SD/out" -lscrip_rt -Wl,-rpath,"$SD/out" -lm -o "$W/plain4.bin" > "$W/plain4.link.out" 2>&1
     [ -x "$W/plain4.bin" ] || { echo "REFUSE(2): mode-4 plain link failed: $(tail -2 "$W/plain4.link.out")"; exit 2; }
-    timeout 60 "$W/plain4.bin" $SW < "$input" > "$W/plain4.out" 2> "$W/plain4.err"; prc4=$?
+    timeout -k 5 60 "$W/plain4.bin" $SW < "$input" > "$W/plain4.out" 2> "$W/plain4.err"; prc4=$?
 
-    ( cd "$(dirname "$src")" && timeout 60 "$SCRIP" --trace --compile --monitor -o "$W/traced4.s" "$src" < /dev/null ) > "$W/traced4.cc.out" 2>&1; tcc=$?
+    ( cd "$(dirname "$src")" && timeout -k 5 60 "$SCRIP" --trace --compile --monitor -o "$W/traced4.s" "$src" < /dev/null ) > "$W/traced4.cc.out" 2>&1; tcc=$?
     [ "$tcc" = 0 ] || { echo "REFUSE(2): mode-4 traced compile failed (rc=$tcc): $(tail -2 "$W/traced4.cc.out")"; exit 2; }
     gcc "$W/traced4.s" -L"$SD/out" -lscrip_rt -Wl,-rpath,"$SD/out" -lm -o "$W/traced4.bin" > "$W/traced4.link.out" 2>&1
     [ -x "$W/traced4.bin" ] || { echo "REFUSE(2): mode-4 traced link failed: $(tail -2 "$W/traced4.link.out")"; exit 2; }
@@ -81,7 +81,7 @@ if [ "$mode" = modes ]; then
     # harness's -- core.c only opens the IPC pipe when MONITOR_READY_PIPE is present, so a lone traced binary run
     # without it never blocks on an ack partner and its trace hook calls execute as (intended) no-ops. That is
     # exactly the property under test: does the mere PRESENCE of the instrumentation change real behavior.
-    timeout 60 "$W/traced4.bin" $SW < "$input" > "$W/traced4.out" 2> "$W/traced4.err"; trc4=$?
+    timeout -k 5 60 "$W/traced4.bin" $SW < "$input" > "$W/traced4.out" 2> "$W/traced4.err"; trc4=$?
 
     if [ "$prc4" = 124 ] || [ "$trc4" = 124 ]; then echo "REFUSE(2): the mode-4 witness did not finish in 60 s (plain rc=$prc4, traced rc=$trc4) -- pick a shorter witness"; exit 2; fi
     if ! cmp -s "$W/plain4.out" "$W/traced4.out" || [ "$prc4" != "$trc4" ]; then
@@ -105,7 +105,7 @@ fi
 [ "$input" = /dev/null ] || export MONITOR_STDIN="$input"
 # MONITOR_HARNESS names a stand-in harness for a gate that must make the controller say something a real run cannot be made to (a
 # PROTOCOL ERR); it is never set by a seat. Until SD became this repository (CEO-1496) such a gate swapped the harness through S4E_HOME.
-PARTICIPANTS="$parts" timeout 300 bash "${MONITOR_HARNESS:-$SD/scripts/test_monitor_3way_sync_step_auto.sh}" "$src" > "$W/harness.out" 2>&1; hrc=$?
+PARTICIPANTS="$parts" timeout -k 5 300 bash "${MONITOR_HARNESS:-$SD/scripts/test_monitor_3way_sync_step_auto.sh}" "$src" > "$W/harness.out" 2>&1; hrc=$?
 steps=$(grep -oE 'all reached END after [0-9]+ steps' "$W/harness.out" | grep -oE '[0-9]+' | head -1)
 verdict=$(grep -aoE 'VERDICT AGREE=[0-9]+ DIVERGE=[0-9]+ UNGRADED=[0-9]+' "$W/harness.out" | head -1 | sed 's/^VERDICT //')
 ungraded=$(printf '%s' "$verdict" | sed -n 's/.*UNGRADED=\([0-9]*\).*/\1/p')

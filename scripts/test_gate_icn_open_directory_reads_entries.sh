@@ -77,20 +77,20 @@ graded=0; bad=0
 mkdir -p "$d/run" || exit 2
 : > "$d/run/alpha.txt"; : > "$d/run/beta.txt"; : > "$d/run/gamma_named_longer.txt"; mkdir -p "$d/run/subdir"
 for w in armA armB; do
-    want=$( cd "$d/run" && timeout 30 "$ICONX" "$d/$w.ora" </dev/null 2>/dev/null ); wrc=$?
+    want=$( cd "$d/run" && timeout -k 5 30 "$ICONX" "$d/$w.ora" </dev/null 2>/dev/null ); wrc=$?
     [ "$wrc" != 124 ] || { echo "⛔ GATE REFUSES (rc=2): the ORACLE timed out on $w -- cannot measure"; exit 2; }
     case "$w" in
       armA) printf '%s\n' "$want" | /usr/bin/grep -q '^entries=6$' || { echo "⛔ GATE REFUSES (rc=2): oracle armA reported $(printf '%s\n' "$want" | /usr/bin/grep '^entries=' ) -- expected entries=6 (. .. alpha.txt beta.txt gamma_named_longer.txt subdir); cannot measure"; exit 2; } ;;
       armB) printf '%s\n' "$want" | /usr/bin/grep -q '^chunks=6$' || { echo "⛔ GATE REFUSES (rc=2): oracle armB reported $(printf '%s\n' "$want" | /usr/bin/grep '^chunks=' ) -- expected chunks=6, one per entry; cannot measure"; exit 2; } ;;
     esac
-    got=$( cd "$d/run" && timeout 30 "$ROOT/scrip" "$d/$w.icn" </dev/null 2>/dev/null ); grc=$?
+    got=$( cd "$d/run" && timeout -k 5 30 "$ROOT/scrip" "$d/$w.icn" </dev/null 2>/dev/null ); grc=$?
     graded=$((graded+1))
     if [ "$got" != "$want" ] || [ "$grc" != "$wrc" ]; then
         echo "  ⛔ RED m3 $w: rc=$grc (oracle rc=$wrc)"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/      /'; bad=1
     fi
-    if timeout 180 "$ROOT/scrip" --compile -o "$d/$w.s" "$d/$w.icn" </dev/null >/dev/null 2>&1 \
+    if timeout -k 5 180 "$ROOT/scrip" --compile -o "$d/$w.s" "$d/$w.icn" </dev/null >/dev/null 2>&1 \
        && gcc -m64 -no-pie "$d/$w.s" -o "$d/$w.m4" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread 2>/dev/null; then
-        got=$( cd "$d/run" && timeout 30 "$d/$w.m4" </dev/null 2>/dev/null ); grc=$?
+        got=$( cd "$d/run" && timeout -k 5 30 "$d/$w.m4" </dev/null 2>/dev/null ); grc=$?
         graded=$((graded+1))
         if [ "$got" != "$want" ] || [ "$grc" != "$wrc" ]; then
             echo "  ⛔ RED m4 $w: rc=$grc (oracle rc=$wrc)"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/      /'; bad=1

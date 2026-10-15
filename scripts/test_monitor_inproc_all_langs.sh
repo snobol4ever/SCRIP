@@ -31,7 +31,7 @@ run_expect_agree() {
     local label="$1"
     local file="$2"
     local out
-    out=$(timeout 8 "$SCRIP" --monitor "$file" < /dev/null 2>&1)
+    out=$(timeout -k 5 8 "$SCRIP" --monitor "$file" < /dev/null 2>&1)
     local rc=$?
     if echo "$out" | grep -q "all.*statements agree\|stmt.*agree" && [[ $rc -eq 0 ]]; then
         echo "  PASS $label"

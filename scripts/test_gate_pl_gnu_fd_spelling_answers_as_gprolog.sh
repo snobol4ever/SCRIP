@@ -84,10 +84,10 @@ main :-
     halt.
 PL
 for w in ops fd ex; do
-    ( cd "$D" && timeout 120 "$GPLC" -o "$w.gnu" "$w.pl" > /dev/null 2>&1 && timeout 30 "./$w.gnu" < /dev/null > "$w.want" 2>&1 ) || refuse "gprolog itself fails on $w.pl"
+    ( cd "$D" && timeout -k 5 120 "$GPLC" -o "$w.gnu" "$w.pl" > /dev/null 2>&1 && timeout -k 5 30 "./$w.gnu" < /dev/null > "$w.want" 2>&1 ) || refuse "gprolog itself fails on $w.pl"
     [ -s "$D/$w.want" ] || refuse "gprolog printed nothing for $w.pl"
     stk=; [ "$w" = ex ] && stk=-s8192k
-    ( cd "$D" && timeout 120 "$B/scrip" $stk --run "$w.pl" < /dev/null > "$w.m3" 2>&1 )
+    ( cd "$D" && timeout -k 5 120 "$B/scrip" $stk --run "$w.pl" < /dev/null > "$w.m3" 2>&1 )
     n=$(wc -l < "$D/$w.want")
     if cmp -s "$D/$w.want" "$D/$w.m3"; then echo "  $w m3 GREEN: $n of $n lines as gprolog"
     else echo "  $w m3 RED: $(diff "$D/$w.want" "$D/$w.m3" 2>/dev/null | grep -c '^<') of $n lines differ from gprolog"; diff "$D/$w.want" "$D/$w.m3" 2>/dev/null | head -8 | sed 's/^/    /'; red=1; fi

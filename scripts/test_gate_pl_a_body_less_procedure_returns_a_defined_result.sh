@@ -61,14 +61,14 @@ sys.exit("clause_2/iso_clause_2_01 not found in the suite")
 PY
 fails=0; compiled=0
 for w in a b; do
-  timeout 60 "$SWIPL" -q -g true -t halt "$W/$w.pl" </dev/null >"$W/$w.ref" 2>/dev/null || refuse "swipl could not run witness $w"
+  timeout -k 5 60 "$SWIPL" -q -g true -t halt "$W/$w.pl" </dev/null >"$W/$w.ref" 2>/dev/null || refuse "swipl could not run witness $w"
   [ -s "$W/$w.ref" ] || refuse "swipl printed nothing for witness $w -- an empty ref grades nothing"
-  timeout 60 "$SCRIP" "$W/$w.pl" </dev/null >"$W/$w.m3" 2>/dev/null
+  timeout -k 5 60 "$SCRIP" "$W/$w.pl" </dev/null >"$W/$w.m3" 2>/dev/null
   if cmp -s "$W/$w.ref" "$W/$w.m3"; then echo "  ok   $w m3"; else echo "  RED  $w m3: $(head -c 120 "$W/$w.m3" | tr '\n' ' ')"; fails=$((fails+1)); fi
-  timeout 120 "$SCRIP" --compile -o "$W/$w.s" "$W/$w.pl" </dev/null >/dev/null 2>"$W/$w.cerr" && [ -s "$W/$w.s" ] || refuse "mode-4 compile of witness $w failed: $(head -1 "$W/$w.cerr")"
+  timeout -k 5 120 "$SCRIP" --compile -o "$W/$w.s" "$W/$w.pl" </dev/null >/dev/null 2>"$W/$w.cerr" && [ -s "$W/$w.s" ] || refuse "mode-4 compile of witness $w failed: $(head -1 "$W/$w.cerr")"
   gcc -m64 -no-pie "$W/$w.s" -o "$W/$w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$W/$w.lerr" || refuse "mode-4 link of witness $w failed: $(head -1 "$W/$w.lerr")"
   compiled=$((compiled+1))
-  timeout 60 "$W/$w.bin" </dev/null >"$W/$w.m4" 2>/dev/null
+  timeout -k 5 60 "$W/$w.bin" </dev/null >"$W/$w.m4" 2>/dev/null
   if cmp -s "$W/$w.ref" "$W/$w.m4"; then echo "  ok   $w m4"; else echo "  RED  $w m4: $(head -c 120 "$W/$w.m4" | tr '\n' ' ')"; fails=$((fails+1)); fi
 done
 [ "$compiled" -eq 2 ] || refuse "only $compiled of 2 witnesses compiled"

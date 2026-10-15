@@ -60,19 +60,19 @@ for f in "$DIR"/[0-9][0-9]_*.icn; do
   orc_status="-"; truth="$exp"
   if [ -n "$ICONT" ]; then
     if "$ICONT" -s -o "$W/$name.orc" "$f" >/dev/null 2>&1; then
-      orc="$(timeout 8 "$W/$name.orc" </dev/null 2>/dev/null)"; orc_rc=$?
+      orc="$(timeout -k 5 8 "$W/$name.orc" </dev/null 2>/dev/null)"; orc_rc=$?
       if [ $orc_rc -eq 124 ]; then orc_status="HANG"
       elif [ "$orc" = "${exp%$'\n'}" ] || [ "$orc"$'\n' = "$exp" ]; then orc_status="=exp"; truth="$exp"
       else orc_status="DIFF"; truth="$orc"$'\n'; fi
     else orc_status="NOCOMP"; fi
   fi
   # mode 3
-  m3="$(timeout 8 "$SCRIP" --run "$f" </dev/null 2>/dev/null)"; rc3=$?
+  m3="$(timeout -k 5 8 "$SCRIP" --run "$f" </dev/null 2>/dev/null)"; rc3=$?
   # mode 4
   m4=""; rc4=1
-  if timeout 8 "$SCRIP" --compile "$f" >"$W/$name.s" 2>/dev/null </dev/null && [ -s "$W/$name.s" ]; then
+  if timeout -k 5 8 "$SCRIP" --compile "$f" >"$W/$name.s" 2>/dev/null </dev/null && [ -s "$W/$name.s" ]; then
     if gcc -no-pie "$W/$name.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -o "$W/$name.bin" 2>/dev/null; then
-      m4="$(timeout 8 "$W/$name.bin" </dev/null 2>/dev/null)"; rc4=$?
+      m4="$(timeout -k 5 8 "$W/$name.bin" </dev/null 2>/dev/null)"; rc4=$?
     else rc4=200; fi
   else rc4=201; fi
   st3="ok"; st4="ok"; t="${truth%$'\n'}"

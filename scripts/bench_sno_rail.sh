@@ -46,8 +46,8 @@ tail = [ind + "reps           =  DUPL('x', %d)" % n,
 open(out, 'w').write('\n'.join(L[:mi] + tail) + '\n')
 PY
 }
-runsbl() { timeout 300 "$SBL" $(sbl_lang_flags) "$1" < "$IN" 2>/dev/null; }
-runscr() { timeout 300 "$1" < "$IN" 2>/dev/null; }
+runsbl() { timeout -k 5 300 "$SBL" $(sbl_lang_flags) "$1" < "$IN" 2>/dev/null; }
+runscr() { timeout -k 5 300 "$1" < "$IN" 2>/dev/null; }
 msof()   { sed -n 's/^compute_ms=//p' | head -1; }
 build()  { "$SCRIP" --compile "$1" > "$W/b.s" 2>/dev/null && gcc -no-pie "$W/b.s" -L"$SODIR" -Wl,-rpath,"$SODIR" -lscrip_rt -lm -o "$2" 2>/dev/null; }
 # ---- identity gate at N=4 (compute_ms lines stripped) ----

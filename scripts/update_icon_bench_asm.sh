@@ -89,15 +89,15 @@ for icn in "$CORPUS"/$GLOB; do
     echo "LIB      $name"; lib=$((lib + 1)); continue
   fi
   raw="$TMP/$name.raw"; can="$TMP/$name.s"
-  if ! timeout 30 "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$raw" 2>"$TMP/err"; then
+  if ! timeout -k 5 30 "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$raw" 2>"$TMP/err"; then
     if grep -q '\[SMX\]' "$TMP/err"; then echo "REFUSED  $name"; exc=$((exc + 1));
     else echo "CERR     $name"; cerr=$((cerr + 1)); fi
     continue
   fi
   if grep -q '\[SMX\]' "$TMP/err" || [ ! -s "$raw" ]; then echo "REFUSED  $name"; exc=$((exc + 1)); continue; fi
   raw2="$TMP/$name.raw2"; raw3="$TMP/$name.raw3"
-  timeout 30 "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$raw2" 2>/dev/null
-  timeout 30 "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$raw3" 2>/dev/null
+  timeout -k 5 30 "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$raw2" 2>/dev/null
+  timeout -k 5 30 "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$raw3" 2>/dev/null
   perl "$canon_pl" < "$raw"  > "$can"
   perl "$canon_pl" < "$raw2" > "$TMP/$name.s2"
   perl "$canon_pl" < "$raw3" > "$TMP/$name.s3"

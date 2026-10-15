@@ -64,7 +64,7 @@ END
 SNO
 WANT=S   # sbl -bf prints S (the coo 2026-10-01)
 # every [GC-COV] line of the run, one per collection
-cov() { ( cd "$T" && SCRIP_GC_COVERAGE=1 SCRIP_GC_STRESS="${1:-1}" timeout 60s "$SCRIP" --run "$WIT" < /dev/null 2> "$T/err" > "$T/out"; echo "rc=$?" > "$T/rc" ); grep "GC-COV" "$T/err"; }
+cov() { ( cd "$T" && SCRIP_GC_COVERAGE=1 SCRIP_GC_STRESS="${1:-1}" timeout -k 5 60s "$SCRIP" --run "$WIT" < /dev/null 2> "$T/err" > "$T/out"; echo "rc=$?" > "$T/rc" ); grep "GC-COV" "$T/err"; }
 L=$(cov 1)
 GOT=$(cat "$T/out" 2>/dev/null)
 [ "$(cat "$T/rc")" = rc=124 ] && { echo "GATE RC-8a: REFUSE(2) — the witness ran past 60 s (a timeout firing is not a verdict), so nothing was measured"; exit 2; }
@@ -94,7 +94,7 @@ END
 SNO
 WANT2='S q'   # sbl -bf prints "S q" (the coo 2026-10-07)
 for E in ""; do
-    ( cd "$T" && env SCRIP_GC_COVERAGE=1 SCRIP_GC_STRESS=1 $E timeout 60s "$SCRIP" --run "$W2" < /dev/null 2> "$T/err2" > "$T/out2"; echo "rc=$?" > "$T/rc2" )
+    ( cd "$T" && env SCRIP_GC_COVERAGE=1 SCRIP_GC_STRESS=1 $E timeout -k 5 60s "$SCRIP" --run "$W2" < /dev/null 2> "$T/err2" > "$T/out2"; echo "rc=$?" > "$T/rc2" )
     G2=$(cat "$T/out2" 2>/dev/null); N2=$(grep -c "GC-COV" "$T/err2"); K="${E:-plain}"
     [ "$(cat "$T/rc2")" = rc=124 ] && { echo "GATE RC-8a: REFUSE(2) — the spine witness ran past 60 s ($K), so nothing was measured"; exit 2; }
     [ "$(cat "$T/rc2")" = rc=0 ] && [ "$G2" = "$WANT2" ] || { echo "  [FAIL] (4, $K) the spine witness printed [$G2] with $(cat "$T/rc2"); want [$WANT2] rc=0 (sbl -bf): a collection inside the deferred call broke the capture record"; echo "GATE RC-8a: RED"; exit 1; }

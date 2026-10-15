@@ -48,18 +48,18 @@ else echo "  shape FAIL ($polled of $sites rt_make_list returns carry a poll aft
 grep -v 'call  *rt_gc_poll' "$T/churn.s" > "$T/planted.s"
 if [ "$(shape "$T/planted.s")" = 0 ]; then echo "  planted PASS (the same checker reads 0 of $sites on a copy with the poll deleted -- arm 1 discriminates in both directions)"
 else echo "  planted FAIL (the checker still reads a poll after the poll was deleted -- arm 1 is not measuring)"; RC=1; fi
-runs=$(env SCRIP_ZETA_TELEM=1 timeout 300 "$SCRIP" "$T/churn.icn" 2>&1 >/dev/null | grep -c 'regeneration')
-rss=$(/usr/bin/time -f '%M' -o "$T/rss" timeout 300 "$SCRIP" "$T/churn.icn" >"$T/out" 2>/dev/null; tail -1 "$T/rss")
+runs=$(env SCRIP_ZETA_TELEM=1 timeout -k 5 300 "$SCRIP" "$T/churn.icn" 2>&1 >/dev/null | grep -c 'regeneration')
+rss=$(/usr/bin/time -f '%M' -o "$T/rss" timeout -k 5 300 "$SCRIP" "$T/churn.icn" >"$T/out" 2>/dev/null; tail -1 "$T/rss")
 got=$(cat "$T/out")
 if [ "${runs:-0}" -ge 2 ] && [ "${rss:-0}" -lt 307200 ] && [ "$got" = "done 3" ]; then echo "  rate PASS (4M dead lists: $runs collections, RSS ${rss} KB under 300 MB, answer \"$got\" -- origin read 1 collection and 861956 KB)"
 else echo "  rate FAIL (4M dead lists: $runs collections, RSS ${rss} KB, answer \"$got\" -- a poll that does not take the pending flag is not a safe point)"; RC=1; fi
 gcc -c "$T/churn.s" -o "$T/churn.o" 2>/dev/null && gcc "$T/churn.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/churn.bin" 2>/dev/null || { echo "⛔ GATE REFUSE(2) [$G]: the witness would not assemble or link"; exit 2; }
-m4=$(timeout 300 "$T/churn.bin" 2>/dev/null)
+m4=$(timeout -k 5 300 "$T/churn.bin" 2>/dev/null)
 if [ "$m4" = "$got" ] && [ "$m4" = "done 3" ]; then echo "  media PASS (mode 3 and mode 4 both answer \"$m4\")"
 else echo "  media FAIL (mode 3 \"$got\" vs mode 4 \"$m4\" -- the poll changed an answer)"; RC=1; fi
 printf 'procedure main()\n   local i, L;\n   L := [];\n   every i := 1 to 2000 do put(L, [i, i+1, i+2]);\n   write("done ", *L);\nend\n' > "$T/live.icn"
-live=$(SCRIP_GC_STRESS=1 timeout 300 "$SCRIP" "$T/live.icn" 2>/dev/null); lrc=$?
-grow=$(SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=512 timeout 300 "$SCRIP" "$T/live.icn" 2>/dev/null); grc=$?
+live=$(SCRIP_GC_STRESS=1 timeout -k 5 300 "$SCRIP" "$T/live.icn" 2>/dev/null); lrc=$?
+grow=$(SCRIP_HEAP_MB=8 SCRIP_HEAP_MAX_MB=512 timeout -k 5 300 "$SCRIP" "$T/live.icn" 2>/dev/null); grc=$?
 if [ "$live" = "done 2000" ] && [ "$lrc" = 0 ] && [ "$grow" = "done 2000" ] && [ "$grc" = 0 ]; then echo "  live PASS (a value that is live ONLY in the emitted frame survives a collection taken at the poll: 2000 lists held by one list, at SCRIP_GC_STRESS=1 and in an 8 MB window)"
 else echo "  live FAIL (stress rc=$lrc answer=\"$live\", 8 MB window rc=$grc answer=\"$grow\" -- the collection the poll takes does not see the emitted frame; the sniff over [floor, stack top] must start on an 8-byte boundary and the floor must be the poll's own frame)"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: the Icon list box stores its result then polls, and the collection rate on an allocation loop follows"

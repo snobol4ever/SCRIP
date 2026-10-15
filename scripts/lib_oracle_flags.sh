@@ -106,7 +106,7 @@ sbl_bf_capable() {   # $1 = binary.  0 = accepts -bf, 1 = does not, 2 = could no
     local memo="${!key:-}"; [ -n "$memo" ] && return "$memo"
     local t; t="$(mktemp 2>/dev/null)" || { printf '%s' "$1" >/dev/null; return 2; }
     printf "        OUTPUT = 'sblbfok'\nEND\n" > "$t"
-    local out; out="$(timeout 30 "$1" -bf "$t" < /dev/null 2>&1)"; rm -f "$t"
+    local out; out="$(timeout -k 5 30 "$1" -bf "$t" < /dev/null 2>&1)"; rm -f "$t"
     case "$out" in *sblbfok*) eval "$key=0"; return 0 ;; esac
     eval "$key=1"; return 1
 }

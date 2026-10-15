@@ -81,15 +81,15 @@ EOF
 GRADED=0; FAIL=0
 for w in w1 w2 w3 w4 w5; do
   ( cd "$TD" && "$ICONT" -s -o "$w.ib" "$w.icn" ) >/dev/null 2>&1 || refuse "$w: icont refused this witness -- the expected value CANNOT BE MEASURED, and a witness the oracle rejects is a broken witness, not a red"
-  exp="$( cd "$TD" && timeout 20 "./$w.ib" </dev/null 2>&1 )"; erc=$?
+  exp="$( cd "$TD" && timeout -k 5 20 "./$w.ib" </dev/null 2>&1 )"; erc=$?
   [ "$erc" -eq 0 ] || refuse "$w: the oracle itself exited $erc -- no expected value, cannot measure"
   [ -n "$exp" ] || refuse "$w: the oracle printed NOTHING, and two empty outputs compare equal -- this gate refuses to grade an empty cut"
-  got3="$( timeout 20 "$SCRIP" "$TD/$w.icn" </dev/null 2>&1 )"; GRADED=$((GRADED+1))
+  got3="$( timeout -k 5 20 "$SCRIP" "$TD/$w.icn" </dev/null 2>&1 )"; GRADED=$((GRADED+1))
   if [ "$got3" = "$exp" ]; then echo "  PASS $w m3: $(printf '%s' "$exp" | tr '\n' '/')"
   else echo "  FAIL $w m3: got '$(printf '%s' "$got3" | tr '\n' '/')' want '$(printf '%s' "$exp" | tr '\n' '/')' (iconx)"; FAIL=$((FAIL+1)); fi
   "$SCRIP" --compile -o "$TD/$w.s" "$TD/$w.icn" </dev/null >/dev/null 2>&1 || refuse "$w: --compile failed -- the m4 arm CANNOT MEASURE"
   gcc -no-pie "$TD/$w.s" -o "$TD/$w.bin" -L "$ROOT/out" -Wl,-rpath,"$ROOT/out" -lscrip_rt -lm -lpthread >/dev/null 2>&1 || refuse "$w: link failed -- the m4 arm CANNOT MEASURE"
-  got4="$( timeout 20 "$TD/$w.bin" </dev/null 2>&1 )"; GRADED=$((GRADED+1))
+  got4="$( timeout -k 5 20 "$TD/$w.bin" </dev/null 2>&1 )"; GRADED=$((GRADED+1))
   if [ "$got4" = "$exp" ]; then echo "  PASS $w m4: $(printf '%s' "$exp" | tr '\n' '/')"
   else echo "  FAIL $w m4: got '$(printf '%s' "$got4" | tr '\n' '/')' want '$(printf '%s' "$exp" | tr '\n' '/')' (iconx)"; FAIL=$((FAIL+1)); fi
 done

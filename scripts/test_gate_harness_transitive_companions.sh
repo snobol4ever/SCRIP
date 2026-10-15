@@ -60,7 +60,7 @@ echo "--- ARM 1: the real witness -- fail-once (one-level copier) then pass-once
 # stopwatch on the runtime wearing a correctness arm's clothes.
 ARM1_BUDGET="${ARM1_BUDGET:-180}"
 ARM1_MINT_SECS=4.5
-out1="$(ARM1_BUDGET="$ARM1_BUDGET" timeout 900 python3 - "$H" "$FAM" <<'PY' 2>&1
+out1="$(ARM1_BUDGET="$ARM1_BUDGET" timeout -k 5 900 python3 - "$H" "$FAM" <<'PY' 2>&1
 import sys, pathlib, tempfile, os, time
 sys.path.insert(0, str(pathlib.Path(sys.argv[1]).parent))
 import corpus_suite_harness as H
@@ -156,7 +156,7 @@ if [ -n "${secs_line:-}" ]; then
 fi
 
 echo "--- ARM 2/3/4: synthetic closure depth, cycle termination, and refusal-safety ---"
-out2="$(timeout 30 python3 - "$H" <<'PY' 2>&1
+out2="$(timeout -k 5 30 python3 - "$H" <<'PY' 2>&1
 import sys, pathlib, tempfile, time
 sys.path.insert(0, str(pathlib.Path(sys.argv[1]).parent))
 import corpus_suite_harness as H

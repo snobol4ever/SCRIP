@@ -36,11 +36,11 @@ fi
 [ -n "$(ls -A "$DIR" 2>/dev/null)" ] || { echo "⛔ REFUSED-TO-GRADE no $DIR (suite missing or extraction failed)"; exit 2; }
 for f in "$DIR"/*.sno; do
   b=$(basename "$f" .sno); ref=$(cat "$DIR/$b.ref" 2>/dev/null)
-  m3=$(timeout 15 "$SCRIP" --run "$f" < /dev/null 2>/dev/null); r3=$?
+  m3=$(timeout -k 5 15 "$SCRIP" --run "$f" < /dev/null 2>/dev/null); r3=$?
   s=/tmp/clobarm_$b.s; o=/tmp/clobarm_$b.bin; m4=""; r4=1
-  if timeout 15 "$SCRIP" --compile "$f" > "$s" 2>/dev/null; then
+  if timeout -k 5 15 "$SCRIP" --compile "$f" > "$s" 2>/dev/null; then
     if gcc -no-pie -o "$o" "$s" "$RT" > /dev/null 2>&1; then
-      m4=$(timeout 15 "$o" < /dev/null 2>/dev/null); r4=$?
+      m4=$(timeout -k 5 15 "$o" < /dev/null 2>/dev/null); r4=$?
     fi
   fi
   v3=FAIL; v4=FAIL

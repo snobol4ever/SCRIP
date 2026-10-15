@@ -18,7 +18,7 @@ for k in "$@"; do
     sw=()
     [ -f "$D/$k.heap" ] && sw+=("-d$(cut -f2 "$D/$k.heap" | head -1)k")
     [ -f "$D/$k.stack" ] && sw+=("-s$(cut -f2 "$D/$k.stack" | head -1)k")
-    s=$(date +%s%N); (cd "$D" && timeout 120 "$SCRIP" "${sw[@]}" "$f" </dev/null >/dev/null 2>&1); r=$?; e=$(date +%s%N)
+    s=$(date +%s%N); (cd "$D" && timeout -k 5 120 "$SCRIP" "${sw[@]}" "$f" </dev/null >/dev/null 2>&1); r=$?; e=$(date +%s%N)
     ms=$(( (e - s) / 1000000 ))
     if [ "$ms" -gt "$max" ]; then v=RED; rc=1; else v=ok; fi
     printf '  %-36s %7d ms  rc=%-3s %s\n' "$k" "$ms" "$r" "$v"

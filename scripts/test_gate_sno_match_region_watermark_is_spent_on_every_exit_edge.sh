@@ -63,7 +63,7 @@ if (s ? "h") { OUTPUT = "yy"; }
 OUTPUT = "done";'
 grade() {  # $1 name  $2 want  $3 edge-under-test  $4 CURED|CONTROL
   local n="$1" want="$2" edge="$3" kind="$4" got rc
-  got=$(timeout 20 "$SCRIP" "$T/$n.sc" < /dev/null 2>&1); rc=$?
+  got=$(timeout -k 5 20 "$SCRIP" "$T/$n.sc" < /dev/null 2>&1); rc=$?
   graded=$((graded+1))
   if [ "$got" = "$want" ]; then
     pass=$((pass+1)); echo "  ok   $kind  $n  [$edge]"

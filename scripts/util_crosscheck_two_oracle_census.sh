@@ -35,9 +35,9 @@ cd "$S4E/corpus" || exit 2
 : > "$out"
 while IFS= read -r f; do
     rel="${f#./}"; ref="${f%.sno}.ref"; inp="${f%.sno}.input"; [ -f "$inp" ] || inp=/dev/null
-    m=$(timeout 10s "$SCRIP" "$rel" < "$inp" 2>/dev/null)
-    s=$(timeout 10s "$SBL" $(sbl_lang_flags) "$rel" < "$inp" 2>/dev/null)
-    c=$(timeout 10s "$CSN" -b   "$rel" < "$inp" 2>/dev/null)
+    m=$(timeout -k 5 10s "$SCRIP" "$rel" < "$inp" 2>/dev/null)
+    s=$(timeout -k 5 10s "$SBL" $(sbl_lang_flags) "$rel" < "$inp" 2>/dev/null)
+    c=$(timeout -k 5 10s "$CSN" -b   "$rel" < "$inp" 2>/dev/null)
     tag=""; [ "$m" = "$s" ] && tag="${tag}S" || tag="${tag}."
     [ "$m" = "$c" ] && tag="${tag}C" || tag="${tag}."
     if [ -f "$ref" ]; then [ "$m" = "$(cat "$ref")" ] && tag="${tag}R" || tag="${tag}."; else tag="${tag}-"; fi

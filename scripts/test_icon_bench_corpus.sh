@@ -157,7 +157,7 @@ for name in $progs; do
   o_status="?"
   ( cd "$CORPUS" && "$ICONT" -s -o "$WORK/$name.icx" "$name.icn" ) >"$WORK/$name.icont.err" 2>&1
   if [ -f "$WORK/$name.icx" ]; then
-    t0=$(date +%s%N); timeout 30 "$ICONX" "$WORK/$name.icx" "${a[@]}" >"$WORK/$name.iconx.out" 2>"$WORK/$name.iconx.err" <"$sin"
+    t0=$(date +%s%N); timeout -k 5 30 "$ICONX" "$WORK/$name.icx" "${a[@]}" >"$WORK/$name.iconx.out" 2>"$WORK/$name.iconx.err" <"$sin"
     rc=$?; t1=$(date +%s%N); ms=$(( (t1-t0)/1000000 ))
     if [ $rc -eq 0 ]; then o_status="OK ${ms}ms $(wc -l <"$WORK/$name.iconx.out")L"; pass_o=$((pass_o+1))
     else o_status="RUNERR rc=$rc"; fi
@@ -167,9 +167,9 @@ for name in $progs; do
   #      jcont links them into the one program) then run the standalone .jxe (timed) ----
   j_status="-"
   if [ "$HAVE_JCON" = "1" ]; then
-    ( cd "$CORPUS" && timeout 180 bash "$JCONT" -s -o "$WORK/$name.jxe" "$name.icn" ${linkdeps[@]+"${linkdeps[@]}"} ) >"$WORK/$name.jcont.err" 2>&1
+    ( cd "$CORPUS" && timeout -k 5 180 bash "$JCONT" -s -o "$WORK/$name.jxe" "$name.icn" ${linkdeps[@]+"${linkdeps[@]}"} ) >"$WORK/$name.jcont.err" 2>&1
     if [ -x "$WORK/$name.jxe" ]; then
-      t0=$(date +%s%N); timeout 60 "$WORK/$name.jxe" "${a[@]}" >"$WORK/$name.jcon.out" 2>"$WORK/$name.jcon.err" <"$sin"
+      t0=$(date +%s%N); timeout -k 5 60 "$WORK/$name.jxe" "${a[@]}" >"$WORK/$name.jcon.out" 2>"$WORK/$name.jcon.err" <"$sin"
       rc=$?; t1=$(date +%s%N); ms=$(( (t1-t0)/1000000 ))
       if [ $rc -eq 0 ]; then j_status="OK ${ms}ms $(wc -l <"$WORK/$name.jcon.out")L"; pass_j=$((pass_j+1))
       elif [ $rc -eq 124 ]; then j_status="TIMEOUT"
@@ -179,7 +179,7 @@ for name in $progs; do
 
   # ---- SCRIP mode-3 (--run): in-process, primary native mode ----
   m3_status="?"
-  out3=$( cd "$CORPUS" && timeout 30 "$SCRIP" --bench --run "$name.icn" "${linkdeps[@]}" -- "${a[@]}" >"$WORK/$name.m3.out" 2>"$WORK/$name.m3.err" <"$sin"; echo "rc=$?" )
+  out3=$( cd "$CORPUS" && timeout -k 5 30 "$SCRIP" --bench --run "$name.icn" "${linkdeps[@]}" -- "${a[@]}" >"$WORK/$name.m3.out" 2>"$WORK/$name.m3.err" <"$sin"; echo "rc=$?" )
   rc3="${out3##*rc=}"
   if [ "$rc3" = "0" ] && [ -s "$WORK/$name.m3.out" ]; then
     bench=$(grep -o 'total=[0-9.]*ms' "$WORK/$name.m3.err" | tail -1)
@@ -189,10 +189,10 @@ for name in $progs; do
 
   # ---- SCRIP mode-4 (--compile -> as/gcc + libscrip_rt.so -> run) ----
   m4_status="?"
-  ( cd "$CORPUS" && timeout 30 "$SCRIP" --compile --target=x86 "$name.icn" "${linkdeps[@]}" >"$WORK/$name.s" 2>"$WORK/$name.m4.compile.err" )
+  ( cd "$CORPUS" && timeout -k 5 30 "$SCRIP" --compile --target=x86 "$name.icn" "${linkdeps[@]}" >"$WORK/$name.s" 2>"$WORK/$name.m4.compile.err" )
   if [ -s "$WORK/$name.s" ] && ! grep -q '\[SMX\]' "$WORK/$name.m4.compile.err"; then
     if gcc -no-pie "$WORK/$name.s" -L"$RTDIR" -lscrip_rt -Wl,-rpath,"$RTDIR" -o "$WORK/$name.bin" 2>"$WORK/$name.m4.link.err"; then
-      t0=$(date +%s%N); timeout 30 "$WORK/$name.bin" "${a[@]}" >"$WORK/$name.m4.out" 2>"$WORK/$name.m4.err" <"$sin"
+      t0=$(date +%s%N); timeout -k 5 30 "$WORK/$name.bin" "${a[@]}" >"$WORK/$name.m4.out" 2>"$WORK/$name.m4.err" <"$sin"
       rc=$?; t1=$(date +%s%N); ms=$(( (t1-t0)/1000000 ))
       if [ $rc -eq 0 ] && [ -s "$WORK/$name.m4.out" ]; then m4_status="OK ${ms}ms $(wc -l <"$WORK/$name.m4.out")L"; pass4=$((pass4+1))
       elif [ $rc -eq 124 ]; then m4_status="TIMEOUT"

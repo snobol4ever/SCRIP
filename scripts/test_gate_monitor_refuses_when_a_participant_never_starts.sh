@@ -45,7 +45,7 @@ OUTER=90        # generous: if we ever hit THIS the cure has regressed to a hang
 examined=$((examined+1))
 t0=$(date +%s)
 out=$(MONITOR_OPEN_TIMEOUT=$OPEN_T MONITOR_CTRL_TIMEOUT=$((OPEN_T*3)) \
-      timeout $OUTER bash "$HERE/test_monitor_2way_spitbol_vs_run.sh" "$FIX" 2>&1); rc=$?
+      timeout -k 5 $OUTER bash "$HERE/test_monitor_2way_spitbol_vs_run.sh" "$FIX" 2>&1); rc=$?
 t1=$(date +%s); elapsed=$((t1-t0))
 
 # ARM 1 -- the verdict is a REFUSAL, never a result and never a timeout.

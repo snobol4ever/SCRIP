@@ -42,8 +42,8 @@ arm '' 0 unjudged 'sub g(Int $x) { say $x }; say "b"; g(<7>);'
 bad=0
 for i in $(seq 1 $n); do
     kind=$(cat "$W/a$i.kind"); want=$(cat "$W/a$i.out"); wrc=$(cat "$W/a$i.rc")
-    o3=$(cd "$W" && timeout 60 "$ROOT/scrip" "$W/a$i.raku" < /dev/null 2> "$W/a$i.e3"); r3=$?
-    ( cd "$W" && timeout 60 "$ROOT/scrip" --compile -o "$W/a$i.s" "$W/a$i.raku" < /dev/null > /dev/null 2> "$W/a$i.ec" ); rc=$?
+    o3=$(cd "$W" && timeout -k 5 60 "$ROOT/scrip" "$W/a$i.raku" < /dev/null 2> "$W/a$i.e3"); r3=$?
+    ( cd "$W" && timeout -k 5 60 "$ROOT/scrip" --compile -o "$W/a$i.s" "$W/a$i.raku" < /dev/null > /dev/null 2> "$W/a$i.ec" ); rc=$?
     v3=$(grep -c '^scrip: error 701: ' "$W/a$i.e3"); vc=$(grep -c '^scrip: error 701: ' "$W/a$i.ec")
     if [ "$kind" = refuse ]; then
         if [ "$o3" = "$want" ] && [ $r3 -eq 1 ] && [ "$v3" -eq 1 ] && [ $rc -eq 1 ] && [ "$vc" -eq 1 ] && [ ! -e "$W/a$i.s" ]; then echo "  ok  ($i) refused 701 before any code: m3 rc 1, no output; m4 compile rc 1, no .s"
@@ -54,7 +54,7 @@ for i in $(seq 1 $n); do
         echo "  RED ($i) a $kind arm was refused or did not build: m3 701x$v3, compile rc $rc 701x$vc"; bad=1; continue
     fi
     [ "$kind" = unjudged ] && { echo "  ok  ($i) never judged: compiled and ran without a 701 refusal"; continue; }
-    o4=$(cd "$W" && timeout 60 "$W/a$i.bin" < /dev/null 2> /dev/null); r4=$?
+    o4=$(cd "$W" && timeout -k 5 60 "$W/a$i.bin" < /dev/null 2> /dev/null); r4=$?
     if [ "$o3" = "$want" ] && [ "$o4" = "$want" ] && [ $r3 -eq "$wrc" ] && [ $r4 -eq "$wrc" ]; then echo "  ok  ($i) runs as Rakudo in m3 and m4 (rc $wrc)"
     else echo "  RED ($i) want rc $wrc '$(printf '%s' "$want" | tr '\n' '|')', m3 rc $r3 '$(printf '%s' "$o3" | tr '\n' '|' | cut -c1-40)', m4 rc $r4 '$(printf '%s' "$o4" | tr '\n' '|' | cut -c1-40)'"; bad=1; fi
 done

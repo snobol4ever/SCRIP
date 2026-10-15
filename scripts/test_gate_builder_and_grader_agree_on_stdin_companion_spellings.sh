@@ -73,7 +73,7 @@ for SUF in $SUFFIXES; do
     printf 'plain\n' > "$D/gate_plain_probe.ref"
     if [ "$WHERE" = beside ]; then CP="$D/gate_stdin_probe$SUF"; else CP="$D/config/gate_stdin_probe$SUF"; fi
     printf 'alpha\nbeta\n' > "$CP"
-    OUT="$(S4E_HOME="$T" timeout 120s python3 "$HERE/util_build_rungs_suite.py" --lang "$LANG" --write 2>&1)" || true
+    OUT="$(S4E_HOME="$T" timeout -k 5 120s python3 "$HERE/util_build_rungs_suite.py" --lang "$LANG" --write 2>&1)" || true
     CHECKED=$((CHECKED + 1))
     # ⛔⭐ THE ASSERTION MOVED FROM "THE BUILDER REFUSES IT" TO "THE BUILDER CARRIES IT", 2026-09-11 (hq_V),
     # AND THAT IS A STRENGTHENING, NOT A WEAKENING -- read this before changing it back. The defect this gate

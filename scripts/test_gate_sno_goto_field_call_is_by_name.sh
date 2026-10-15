@@ -47,8 +47,8 @@ for m in m3 m4; do
         "$SCRIP" --compile -o "$T/val.s"  "$T/val.sno"  < /dev/null >/dev/null 2>&1
         gcc -no-pie "$T/nret.s" -o "$T/nret.x" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread >/dev/null 2>&1 || { echo "  RED  nret $m -- link failed"; bad=1; continue; }
         gcc -no-pie "$T/val.s"  -o "$T/val.x"  -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread >/dev/null 2>&1 || { echo "  RED  val $m -- link failed";  bad=1; continue; }
-        g="$(timeout 20s "$T/nret.x" < /dev/null 2>/dev/null | tr '\n' '/')"
-        v="$(timeout 20s "$T/val.x"  < /dev/null 2>&1)"
+        g="$(timeout -k 5 20s "$T/nret.x" < /dev/null 2>/dev/null | tr '\n' '/')"
+        v="$(timeout -k 5 20s "$T/val.x"  < /dev/null 2>&1)"
     fi
     if [ "$g" = "go/landed/" ]; then echo "  ok   nret $m -- the returned NAME is the transfer target"; else echo "  RED  nret $m -- got [$g] want [go/landed/] (ERROR 239 here is the pre-cure inversion)"; bad=1; fi
     case "$v" in *"error 21:"*) echo "  ok   val  $m -- a value return raises ERROR 021" ;; *) echo "  RED  val  $m -- a value return must raise ERROR 021 (SPITBOL parity); got [$(echo "$v" | head -2 | tr '\n' '/')]"; bad=1 ;; esac

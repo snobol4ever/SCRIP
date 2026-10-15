@@ -80,7 +80,7 @@ int main(void) {
 }
 FIXC
 if gcc -O0 -g -rdynamic -w -I"$ROOT/src" -I"$ROOT/src/ir" -I"$ROOT/src/runtime/rt" -I"$ROOT/src/runtime/core" -o "$T/fx" "$T/fx.c" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" 2>"$T/fx.cc"; then
-  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=0 SCRIP_GC_BIRTH_LEDGER=$LEDGER timeout 120s ./fx >"$T/w.out" 2>"$T/w.err" )
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=0 SCRIP_GC_BIRTH_LEDGER=$LEDGER timeout -k 5 120s ./fx >"$T/w.out" 2>"$T/w.err" )
   grep -q 'stale read returned' "$T/w.out" && { echo "  arm 2 REFUSE: the fixture's stale read of vacated ground did not fault, so no birth line was made and nothing was graded"; RC=1; }
   line=$(grep -m1 'ZGC-BIRTH.*allocated by' "$T/w.err")
   off=$(printf '%s\n' "$line" | grep -oE 'libscrip_rt\.so\+0x[0-9a-f]+' | tail -1 | sed 's/.*+//')

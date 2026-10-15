@@ -40,9 +40,9 @@ test(dup, [condition(true)]) :- true.
 :- end_tests(cond).
 EOP
 run() { local mode="$1" shim="$2"
-    if [ "$mode" = m4 ]; then timeout 60 "$SCRIP" --compile "$shim" "$T/w.pl" "$T/wrap.pl" > "$T/p.s" 2>/dev/null < /dev/null \
-        && gcc -no-pie "$T/p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$T/p" 2>/dev/null && timeout 60 "$T/p" < /dev/null 2>/dev/null
-    else timeout 60 "$SCRIP" --run "$shim" "$T/w.pl" "$T/wrap.pl" < /dev/null 2>/dev/null; fi; }
+    if [ "$mode" = m4 ]; then timeout -k 5 60 "$SCRIP" --compile "$shim" "$T/w.pl" "$T/wrap.pl" > "$T/p.s" 2>/dev/null < /dev/null \
+        && gcc -no-pie "$T/p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$T/p" 2>/dev/null && timeout -k 5 60 "$T/p" < /dev/null 2>/dev/null
+    else timeout -k 5 60 "$SCRIP" --run "$shim" "$T/w.pl" "$T/wrap.pl" < /dev/null 2>/dev/null; fi; }
 verdict() { grep -E "^\s+(pass|FAIL|skip):\s+cond:$1\b" <<<"$2" | head -1 | awk '{print $1}' | tr -d ':'; }
 red=0; total=0; mutred=0
 for mode in ${MODES//,/ }; do

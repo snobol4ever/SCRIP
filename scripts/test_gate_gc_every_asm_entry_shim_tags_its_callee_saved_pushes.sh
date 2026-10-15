@@ -91,11 +91,11 @@ case "$VKIND" in
   HANG|UNPROVEN) printf 'GATE REFUSE(2): the witness graded %s -- COULD NOT MEASURE, never a FAIL (RULES.md FACT RULE, ceo CEO-1098). Re-run this entry. %s\n' "$VKIND" "$VDET"; exit 2 ;;
   *) printf 'ARM B RED: the witness graded %s against its ORACLE ref. %s\n' "$VKIND" "$VDET"; rc=1 ;;
 esac
-SCRIP_C2BB_TRACE="$TD/tr.tsv" timeout 300s "$ROOT/scrip" "$WIT" >/dev/null 2>&1
+SCRIP_C2BB_TRACE="$TD/tr.tsv" timeout -k 5 300s "$ROOT/scrip" "$WIT" >/dev/null 2>&1
 FIRED="$(awk -F'\t' '$1=="chain.eval.v"{n++} END{print n+0}' "$TD/tr.tsv" 2>/dev/null)"
 if [ "${FIRED:-0}" -lt 1 ]; then printf 'GATE REFUSE(2): chain.eval.v never fired -- the witness did not reach the tagged shim, so arm B measured NOTHING (non-inert clause, CEO-1044)\n'; exit 2; fi
 printf 'road: chain.eval.v fired %s time(s) -- the tagged shim was entered, so this arm is NOT inert\n' "$FIRED"
-SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 timeout 600s "$ROOT/scrip" "$WIT" >/dev/null 2>"$TD/maps.txt"
+SCRIP_GC_STRESS=3 SCRIP_GC_MAPS=1 timeout -k 5 600s "$ROOT/scrip" "$WIT" >/dev/null 2>"$TD/maps.txt"
 COLL="$(grep -c '^\[GC-WALK\] pop=' "$TD/maps.txt" 2>/dev/null)"
 if [ "${COLL:-0}" -lt 1 ]; then printf 'GATE REFUSE(2): the witness collected ZERO times -- a population that never collected refuses (CEO-1044)\n'; exit 2; fi
 printf 'collections: %s -- the walker really ran over a stack carrying this shim frame\n' "$COLL"

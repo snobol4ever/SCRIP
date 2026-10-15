@@ -163,7 +163,7 @@ if idx is None:
 else:
     open(sys.argv[2], 'w').write('\n'.join(lines[:idx+1]) + '\n'); open(sys.argv[3], 'w').write('\n'.join(lines[idx+1:]))
 SPLITPY
-    ( cd "$W/r" && timeout 20 "$SCRIP_BIN" "$stem.$srcext" < "$stem.in" > "$stem.out" 2>&1 ); rc=$?
+    ( cd "$W/r" && timeout -k 5 20 "$SCRIP_BIN" "$stem.$srcext" < "$stem.in" > "$stem.out" 2>&1 ); rc=$?
     lines=$(wc -l < "$W/r/$stem.out" 2>/dev/null || echo 0)
     case "$rc" in
       139) v=CRASH; det="SIGSEGV (rc=139) -- $lines line(s) before it";  ncrash=$((ncrash+1)) ;;

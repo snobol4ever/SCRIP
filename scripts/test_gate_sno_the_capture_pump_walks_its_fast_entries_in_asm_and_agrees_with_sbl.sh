@@ -61,12 +61,12 @@ churn   big = DUPL('x', 1000) j
         OUTPUT = q1 '|' q2
 END
 SNO
-want="$(cd "$D" && timeout 60 "$SBL" -bf c.sno < /dev/null 2>&1)"
+want="$(cd "$D" && timeout -k 5 60 "$SBL" -bf c.sno < /dev/null 2>&1)"
 [ -n "$want" ] || refuse "the oracle printed nothing for the witness"
 "$B/scrip" --compile -o "$D/c.s" "$D/c.sno" < /dev/null > /dev/null 2>&1 && gcc -no-pie -o "$D/c.bin" "$D/c.s" -L "$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2> /dev/null || refuse "the witness does not build in mode 4"
 for env in "" "SCRIP_GC_STRESS=1"; do
-  got3="$(cd "$D" && env $env timeout 120 "$B/scrip" c.sno < /dev/null 2>&1)"
-  got4="$(cd "$D" && env $env timeout 120 ./c.bin < /dev/null 2>&1)"
+  got3="$(cd "$D" && env $env timeout -k 5 120 "$B/scrip" c.sno < /dev/null 2>&1)"
+  got4="$(cd "$D" && env $env timeout -k 5 120 ./c.bin < /dev/null 2>&1)"
   if [ "$got3" = "$want" ]; then ok "m3${env:+ ($env)}: $(printf '%s' "$want" | tr '\n' '|' | cut -c1-60)"; else red "m3${env:+ ($env)}: want [$(printf '%s' "$want" | tr '\n' '|' | cut -c1-100)] got [$(printf '%s' "$got3" | tr '\n' '|' | cut -c1-100)]"; fi
   if [ "$got4" = "$want" ]; then ok "m4${env:+ ($env)}: same"; else red "m4${env:+ ($env)}: want [$(printf '%s' "$want" | tr '\n' '|' | cut -c1-100)] got [$(printf '%s' "$got4" | tr '\n' '|' | cut -c1-100)]"; fi
 done

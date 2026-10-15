@@ -59,12 +59,12 @@ for src in $(find "$PK" -name '*.icn' | sort); do
     # census that skipped any of these would report a difference it manufactured itself.
     [ -f "$d/$n.dat" ] && { IN="$d/$n.dat"; A=("$n.dat"); cp "$d/$n.dat" "$rd/"; }
     [ -f "$d/$n.args" ] && A=($(cat "$d/$n.args"))
-    if ! (cd "$rd" && timeout 60 "$ICONT" -s -o "$n.x" "$src" $mods >/dev/null 2>&1); then
+    if ! (cd "$rd" && timeout -k 5 60 "$ICONT" -s -o "$n.x" "$src" $mods >/dev/null 2>&1); then
         refuse=$((refuse+1)); R="$R $n"; continue
     fi
-    got="$(cd "$rd" && timeout 30 "$ICONX" "$n.x" ${A[@]+"${A[@]}"} < "$IN" 2>/dev/null)"
+    got="$(cd "$rd" && timeout -k 5 30 "$ICONX" "$n.x" ${A[@]+"${A[@]}"} < "$IN" 2>/dev/null)"
     if [ "$got" = "$(cat "$std")" ]; then repro=$((repro+1)); continue; fi
-    again="$(cd "$rd" && timeout 30 "$ICONX" "$n.x" ${A[@]+"${A[@]}"} < "$IN" 2>/dev/null)"
+    again="$(cd "$rd" && timeout -k 5 30 "$ICONX" "$n.x" ${A[@]+"${A[@]}"} < "$IN" 2>/dev/null)"
     if [ "$got" != "$again" ]; then nondet=$((nondet+1)); N="$N $n"
     else differ=$((differ+1)); D="$D $n"; fi
 done

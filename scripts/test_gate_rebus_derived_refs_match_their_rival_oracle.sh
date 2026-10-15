@@ -73,7 +73,7 @@ for k in $KERNELS; do
   else echo "FAIL $k: rival fixture missing at $rival"; fails=$((fails+1)); continue; fi
   # ARM 3 -- THE DERIVATION, RE-PERFORMED: the rival under the live oracle, byte-identical to the ref
   cp "$rival" "$TMP/$k.sno" || refuse "cannot stage $rival"
-  ( cd "$TMP" && timeout 120 "$SBL" $SBLFLAGS "$k.sno" < /dev/null > "$k.out" 2> "$k.err" )
+  ( cd "$TMP" && timeout -k 5 120 "$SBL" $SBLFLAGS "$k.sno" < /dev/null > "$k.out" 2> "$k.err" )
   orc=$?
   checks=$((checks+1))
   if [ $orc -ne 0 ]; then

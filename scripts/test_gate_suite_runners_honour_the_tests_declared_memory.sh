@@ -133,9 +133,9 @@ printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb\n1,hungry,p__hun
 # The premise this whole gate rests on, measured rather than assumed: hungry must genuinely NOT fit the default
 # and must genuinely fit the declaration. If either stops being true the fixture has stopped being a witness and
 # every arm below would be grading a tautology -- so this is a REFUSAL, never a red.
-( cd "$T/pkg" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/base.err" )
+( cd "$T/pkg" && env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB timeout -k 5 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/base.err" )
 base_rc=$?
-( cd "$T/pkg" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_CAP_KB="$DECL_KB" timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/decl.err" )
+( cd "$T/pkg" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_CAP_KB="$DECL_KB" timeout -k 5 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/decl.err" )
 decl_rc=$?
 # ⛔⭐ A TIMEOUT IS NOT A CAPACITY VERDICT AND IS REFUSED HERE RATHER THAN COUNTED. rc=124 says the ceiling
 # fired; it cannot tell "this program does not fit" from "this box is at load 28". Testing rc != 0 would
@@ -163,7 +163,7 @@ if [ "${FAIL_ONCE:-0}" = 1 ]; then
   declared_memory_table() { return 0; }
 fi
 b_rc=0
-( cd "$T/pkg" && run_at_declared_arena "$T/pkg/ALL.csv" hungry -- env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/b.err" ) || b_rc=$?
+( cd "$T/pkg" && run_at_declared_arena "$T/pkg/ALL.csv" hungry -- env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_HEAP_MAX_MB timeout -k 5 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/b.err" ) || b_rc=$?
 [ "$b_rc" != 124 ] || refuse "arm B TIMED OUT (rc=124) -- the ceiling fired, so this run cannot say whether the declaration was honoured"
 [ "$b_rc" -ge 1 ] && [ "$b_rc" -lt 128 ] && grep -q "(the GC heap's hard cap is ${DECL_KB} KB, -d;" "$T/b.err" && ck ok "B  the declared entry ends in the runtime's out-of-memory report at its declared ${DECL_KB} KB cap through the runner's reader (rc=$b_rc) where the same program completes rc=$base_rc at the shipped default -- the declaration is honoured, and a reader that silently did nothing could not pass this" \
   || ck bad "B  the declared entry read rc=$b_rc through the runner's reader without the report naming its ${DECL_KB} KB cap -- heap_kb=${DECL_KB} was not exported for it"
@@ -190,7 +190,7 @@ declared_arena_kb "$T/pkg/BAD.csv" hungry >/dev/null 2>"$T/bad.err"; d_rc=$?
 [ "$d_rc" = 2 ] && ck ok "D1 heap_kb=$BADKB (below the ${rt_win} KB initial window) is REFUSED rc=2 rather than read as a cap the runtime cannot honour" \
   || ck bad "D1 heap_kb=$BADKB returned rc=$d_rc -- a maximum below the window was accepted"
 grep -q "below the ${rt_win} KB initial window" "$T/bad.err" && ck ok "D1b the refusal names WHY, not just THAT" || ck bad "D1b the refusal does not say why: $(head -c 160 "$T/bad.err")"
-( cd "$T/pkg" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_CAP_KB="$BADKB" timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/d2.err" )
+( cd "$T/pkg" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_HEAP_MAX_MB SCRIP_HEAP_CAP_KB="$BADKB" timeout -k 5 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/d2.err" )
 d2=$?
 [ "$d2" != 124 ] || refuse "arm D2 TIMED OUT (rc=124) -- a ceiling is not evidence about the cap rule"
 [ "$d2" != 0 ] && grep -q "is BELOW the ${rt_win} KB window and is REFUSED" "$T/d2.err" && ck ok "D2 the runtime refuses the same cap itself (SCRIP_HEAP_CAP_KB=$BADKB under the ${rt_win} KB window: rc=$d2, its own refusal) -- the reader's rule is the runtime's" \
@@ -279,7 +279,7 @@ mkdir -p "$T/solo" "$T/solo2" && cp "$T/pkg/hungry.icn" "$T/solo/hungry.icn" && 
 printf 'hungry\t%s\n' "$DECL_KB" > "$T/solo/hungry.heap"
 h_kb=$(declared_arena_kb_beside "$T/solo/hungry.icn" 2>/dev/null); h_rc=0
 ( cd "$T/solo" && if [ -n "$h_kb" ]; then export SCRIP_HEAP_CAP_KB="$h_kb"; fi
-  env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/h1.err" ) || h_rc=$?
+  env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_HEAP_MAX_MB timeout -k 5 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/h1.err" ) || h_rc=$?
 [ "$h_rc" != 124 ] || refuse "arm H1 TIMED OUT (rc=124) -- the ceiling fired, so this run cannot say whether the sidecar was honoured"
 [ "$h_rc" -ge 1 ] && [ "$h_rc" -lt 128 ] && grep -q "(the GC heap's hard cap is ${DECL_KB} KB, -d;" "$T/h1.err" && ck ok "H1 a standalone program's hungry.heap (hungry TAB $DECL_KB) is read beside it and the run ends in the out-of-memory report at that cap (rc=$h_rc) where the shipped default completes rc=$base_rc" \
   || ck bad "H1 the standalone program read rc=$h_rc (sidecar read '$h_kb') without the report naming its ${DECL_KB} KB cap -- its .heap sidecar was not honoured"
@@ -308,14 +308,14 @@ mkdir -p "$T/stk"
 printf 'procedure f(n);\n   if n = 0 then return 0;\n   return 1 + f(n - 1);\nend\nprocedure main();\n   write(f(%d));\nend\n' "$DEPTH" > "$T/stk/deep.icn"
 printf 'procedure f(n);\n   if n = 0 then return 0;\n   return 1 + f(n - 1);\nend\nprocedure main();\n   write(f(%d));\nend\n' $((DEPTH / 25)) > "$T/stk/shallow.icn"
 printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb\n1,deep,p__deep,p,7,0,0,,%s\n2,shallow,p__shallow,p,7,0,0,,\n' "$STK_KB" > "$T/stk/ALL.csv"
-runstk() { ( cd "$T/stk" && env -u SCRIP_STACK -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB "$@" timeout 60s "$ROOT/scrip" --run "$STK_PROG" </dev/null >/dev/null 2>"$T/stk/err" ); }
+runstk() { ( cd "$T/stk" && env -u SCRIP_STACK -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB "$@" timeout -k 5 60s "$ROOT/scrip" --run "$STK_PROG" </dev/null >/dev/null 2>"$T/stk/err" ); }
 STK_PROG=deep.icn; runstk; s_base=$?; grep -q 'ERROR 246' "$T/stk/err"; s_base246=$?
 STK_PROG=deep.icn; runstk SCRIP_STACK="${STK_KB}k"; s_decl=$?
 [ "$s_base" != 124 ] && [ "$s_decl" != 124 ] || refuse "the stack witness TIMED OUT (rc=124) -- a ceiling is not a stack verdict (load: $(uptime | sed 's/.*load average: //'))"
 [ "$s_base246" = 0 ] || refuse "the stack witness at the default did not die with ERROR 246 (rc=$s_base) -- it no longer overflows the ${c_flr_kb} KB default, so it witnesses nothing; deepen it"
 [ "$s_decl" = 0 ] || refuse "the stack witness does not complete even at ${STK_KB} KB (rc=$s_decl) -- the declaration cannot be shown to buy anything"
 echo "  STACK PREMISE MEASURED: deep.icn (depth $DEPTH) rc=$s_base with ERROR 246 at the ${c_flr_kb} KB default, rc=$s_decl at SCRIP_STACK=${STK_KB}k"
-s1=0; ( cd "$T/stk" && run_at_declared_arena "$T/stk/ALL.csv" deep -- env -u SCRIP_HEAP_KB timeout 60s "$ROOT/scrip" --run deep.icn </dev/null >/dev/null 2>&1 ) || s1=$?
+s1=0; ( cd "$T/stk" && run_at_declared_arena "$T/stk/ALL.csv" deep -- env -u SCRIP_HEAP_KB timeout -k 5 60s "$ROOT/scrip" --run deep.icn </dev/null >/dev/null 2>&1 ) || s1=$?
 [ "$s1" != 124 ] || refuse "arm S1 TIMED OUT (rc=124)"
 [ "$s1" = 0 ] && ck ok "S1 the stack_kb=${STK_KB} entry COMPLETES through the runner's reader (rc=0) where it dies at the ${c_flr_kb} KB default (rc=$s_base, ERROR 246)" \
   || ck bad "S1 the stack_kb entry still fails through the runner's reader (rc=$s1) -- the stack declaration was not exported"
@@ -367,7 +367,7 @@ t1=""; for e in a b c; do t1="$t1$(run_at_declared_table "$T/tbl/t.tsv" "$e" -- 
 [ "$t1rc" = 0 ] && [ "$t1" = "a=[$DECL_KB|] b=[|262144k] c=[|] " ] && [ -z "${SCRIP_HEAP_CAP_KB:-}${SCRIP_STACK:-}" ] \
   && ck ok "T1 the table exports each entry's own heap and stack and nothing else (a heap only, b stack only, c neither), and nothing leaks into the caller" \
   || ck bad "T1 the table exported '$t1' (begin rc=$t1rc) -- want 'a=[$DECL_KB|] b=[|262144k] c=[|] '"
-t2=0; { declared_memory_begin "$T/pkg/ALL.csv" "$T/tbl/pkg.tsv" >/dev/null 2>"$T/t2.err" && ( cd "$T/pkg" && run_at_declared_table "$T/tbl/pkg.tsv" hungry -- env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_HEAP_MAX_MB timeout 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/t2.err" ); } || t2=$?
+t2=0; { declared_memory_begin "$T/pkg/ALL.csv" "$T/tbl/pkg.tsv" >/dev/null 2>"$T/t2.err" && ( cd "$T/pkg" && run_at_declared_table "$T/tbl/pkg.tsv" hungry -- env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_HEAP_MAX_MB timeout -k 5 60s "$ROOT/scrip" --run hungry.icn >/dev/null 2>"$T/t2.err" ); } || t2=$?
 [ "$t2" != 124 ] || refuse "arm T2 TIMED OUT (rc=124) -- a ceiling is not a verdict"
 [ "$t2" -ge 1 ] && [ "$t2" -lt 128 ] && grep -q "(the GC heap's hard cap is ${DECL_KB} KB, -d;" "$T/t2.err" && ck ok "T2 the declared entry ends in the out-of-memory report at its ${DECL_KB} KB cap through the table (rc=$t2) where it completes rc=$base_rc at the shipped default -- the runners' path carries the declaration to a real run" \
   || ck bad "T2 the declared entry read rc=$t2 through the table without the report naming its ${DECL_KB} KB cap -- heap_kb=${DECL_KB} did not reach the run"
@@ -455,7 +455,7 @@ for ext, lines in (("icn", src), ("ref", ref), ("csv", csv)):
 PY2
 o_env=(env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB -u RT_OPT)
 for v in $(env | sed -n 's/^\(SCRIP_GC[A-Z0-9_]*\)=.*/\1/p'); do o_env+=(-u "$v"); done
-o_out="$("${o_env[@]}" S4E_PROGRESS_DB="$T/oom/db.tsv" timeout 300 python3 "$HERE/corpus_suite_harness.py" run "$T/oom/tests/icon/ALL.icn" "$T/oom/tests/icon/ALL.ref" --lang icon --modes m3,m4 2>/dev/null)"; o_rc=$?
+o_out="$("${o_env[@]}" S4E_PROGRESS_DB="$T/oom/db.tsv" timeout -k 5 300 python3 "$HERE/corpus_suite_harness.py" run "$T/oom/tests/icon/ALL.icn" "$T/oom/tests/icon/ALL.ref" --lang icon --modes m3,m4 2>/dev/null)"; o_rc=$?
 [ "$o_rc" != 124 ] || refuse "arm O's harness run TIMED OUT (rc=124) -- a ceiling is not a verdict (load: $(uptime | sed 's/.*load average: //'))"
 [ "$o_rc" = 1 ] || refuse "arm O's harness run exited rc=$o_rc, not the rc=1 a board with non-PASS entries ends in -- it could not grade the fixture"
 [ -s "$T/oom/db.tsv" ] || refuse "arm O's harness run appended no progress rows to its scratch table -- nothing to grade"

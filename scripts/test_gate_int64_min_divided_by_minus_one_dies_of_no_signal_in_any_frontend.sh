@@ -39,10 +39,10 @@ T="$(mktemp -d)" || refuse "no tmpdir"
 trap 'rm -rf "$T"' EXIT
 run() {
     local m=$1 f=$2 b; b="$T/$(basename "$f" | tr . _)"
-    if [ "$m" = m3 ]; then (cd "$T" && timeout 30 "$SCRIP" "$f" < /dev/null > "$b.$m" 2>&1); echo $? > "$b.$m.rc"; return; fi
+    if [ "$m" = m3 ]; then (cd "$T" && timeout -k 5 30 "$SCRIP" "$f" < /dev/null > "$b.$m" 2>&1); echo $? > "$b.$m.rc"; return; fi
     rm -f "$b.bin" "$b.s"
     if "$SCRIP" --compile -o "$b.s" "$f" < /dev/null > /dev/null 2>&1 && gcc -o "$b.bin" "$b.s" -L "$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm 2> /dev/null
-    then (cd "$T" && timeout 30 "$b.bin" < /dev/null > "$b.$m" 2>&1); echo $? > "$b.$m.rc"; else echo M4-BUILD-FAILED > "$b.$m"; echo 2 > "$b.$m.rc"; fi
+    then (cd "$T" && timeout -k 5 30 "$b.bin" < /dev/null > "$b.$m" 2>&1); echo $? > "$b.$m.rc"; else echo M4-BUILD-FAILED > "$b.$m"; echo 2 > "$b.$m.rc"; fi
 }
 RC=0; n=0; ok=0
 red() { RC=1; echo "  RED $1 [$2]: $3"; }
@@ -64,14 +64,14 @@ raises14() {
 }
 PLB=':- initialization(main).\nmain :- M is -9223372036854775807 - 1, X1 is M // -1, write(X1), nl, X2 is M %s -1, write(X2), nl, X3 is M mod -1, write(X3), nl, X4 is M rem -1, write(X4), nl, X5 is M div -1, write(X5), nl, halt.\n'
 printf "$PLB" '/' > "$T/p.pl"; printf "$PLB" '//' > "$T/pref.pl"
-timeout 30 "$SWIPL" -q "$T/pref.pl" < /dev/null > "$T/p.ref" 2> /dev/null
+timeout -k 5 30 "$SWIPL" -q "$T/pref.pl" < /dev/null > "$T/p.ref" 2> /dev/null
 [ "$(head -1 "$T/p.ref")" = 9223372036854775808 ] || refuse "swipl did not print 9223372036854775808 for // -- the Prolog witness is wrong"
 same_as_ref "$T/p.pl" "$T/p.ref"
 printf 'procedure main()\n  local m;\n  m := -9223372036854775807 - 1;\n  write(m / -1);\n  write(m %% -1);\n  write(-m);\nend\n' > "$T/i.icn"
 (cd "$T" && "$ICONT" -s -o iref i.icn > /dev/null 2>&1 && ./iref > i.ref 2> /dev/null) || refuse "icont/iconx could not run the Icon witness"
 same_as_ref "$T/i.icn" "$T/i.ref"
 printf 'my $m = -9223372036854775807 - 1;\nsay $m div -1;\nsay $m / -1;\nsay $m %% -1;\nsay $m mod -1;\n' > "$T/r.raku"
-timeout 120 "$RAKU" "$T/r.raku" < /dev/null > "$T/r.ref" 2> /dev/null
+timeout -k 5 120 "$RAKU" "$T/r.raku" < /dev/null > "$T/r.ref" 2> /dev/null
 [ "$(head -1 "$T/r.ref")" = 9223372036854775808 ] || refuse "Rakudo did not print 9223372036854775808 for div -- the Raku witness is wrong"
 same_as_ref "$T/r.raku" "$T/r.ref"
 printf "        i = 9223372036854775807\n        m = 0 - i - 1\n        OUTPUT = 'before'\n        OUTPUT = m / (0 - 1)\n        OUTPUT = 'after'\nEND\n" > "$T/s.sno"

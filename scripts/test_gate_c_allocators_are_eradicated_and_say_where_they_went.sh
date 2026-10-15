@@ -52,7 +52,7 @@ fails=0; checks=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: the four C allocators leave the tree, and every converted site says where it went ==="
 
-st="$(timeout 300s python3 "$CEN" --selftest 2>&1)"; strc=$?
+st="$(timeout -k 5 300s python3 "$CEN" --selftest 2>&1)"; strc=$?
 [ "${FAIL_ONCE:-0}" = 1 ] && st="(blanked by FAIL_ONCE)"
 arms="$(printf '%s\n' "$st" | sed -n 's/^population: \([0-9]*\) selftest arm(s).*/\1/p')"
 if [ "$strc" = 0 ] && [ "${arms:-0}" -ge 28 ] 2>/dev/null && printf '%s\n' "$st" | grep -q '^SELFTEST PASS'; then
@@ -67,7 +67,7 @@ fi
 # exactly what `--by-dir` printed and fills COUNTS, then ratchet(BASE) grades those same counts -- the two functions the
 # two runs called, in the same order, so every arm below reads the lines and return codes it read before. A process that
 # dies before printing its rc marker keeps its exit status, as a crashed CLI run did.
-both="$(timeout 300s python3 - "$CEN" "$BASE" 2>&1 <<'PY'
+both="$(timeout -k 5 300s python3 - "$CEN" "$BASE" 2>&1 <<'PY'
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("c_allocator_census", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 print("@@CENSUS-RC " + str(m.census(m.ROOT, True, False)), flush=True)

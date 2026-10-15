@@ -30,7 +30,7 @@ sed -i '2s/.*/FIXTURE-BROKEN-REF: this line is not what the program prints/' "$R
 DB="$W/results.tsv"; printf 'ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\tsecs\tnote\n' > "$DB"
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: every red carries a fingerprint of our stdout, and a sharded run says so in its rows ==="
-run(){ S4E_PROGRESS_DB="$DB" timeout 180 python3 "$H" run "$F" "$R" --modes m3 "$@" 2>&1; }
+run(){ S4E_PROGRESS_DB="$DB" timeout -k 5 180 python3 "$H" run "$F" "$R" --modes m3 "$@" 2>&1; }
 outA="$(run)"; rcA=$?; [ "$rcA" -le 1 ] || refuse "run A could not grade the fixture (rc=$rcA): $(tail -3 <<<"$outA")"
 lineA="$(grep -E "^  FAIL m3 $NAME:" <<<"$outA" | head -1)"; fpA="$(grep -oE 'fp=[0-9a-f]{8}' <<<"$lineA" | head -1)"
 dbA="$(awk -F'\t' -v p="$NAME" '$8==p && $9=="m3" && $10=="FAIL"{print $12}' "$DB" | tail -1)"

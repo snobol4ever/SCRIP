@@ -84,7 +84,7 @@ if [ -n "$raw" ]; then echo "  ✗ LOCK 1: a raw truncating write into a label n
 else echo "  ✅ LOCK 1: every label-name write goes through bb_label_name_set()"; fi
 # ---- LOCK 2: the witness compiles, assembles, its labels are distinct, and it runs right in both modes ----
 S="$T/long_names.s"
-if ! (cd "$T" && timeout 120 "$ROOT/scrip" --compile "$WITNESS" < /dev/null > "$S" 2>/dev/null) || [ ! -s "$S" ]; then
+if ! (cd "$T" && timeout -k 5 120 "$ROOT/scrip" --compile "$WITNESS" < /dev/null > "$S" 2>/dev/null) || [ ! -s "$S" ]; then
     echo "  ✗ LOCK 2: witness failed to COMPILE (expected a non-empty .s)"; fail=1
 else
     if as --64 -o /dev/null "$S" 2>/dev/null; then echo "  ✅ LOCK 2a: witness assembles (as --64 rc=0)"
@@ -97,8 +97,8 @@ else
     if ! gcc "$S" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" -o "$T/long_names" > "$T/ld.txt" 2>&1; then
         echo "  ✗ LOCK 2c: the mode-4 LINK failed -- one symbol is spelled two ways:"; grep -v 'TEXTREL\|read-only section' "$T/ld.txt" | head -3 | cut -c1-200 | sed 's/^/      /'; fail=1
     else
-        g4=$(cd "$T" && timeout 30 ./long_names < /dev/null 2>&1)
-        g3=$(cd "$T" && timeout 30 "$ROOT/scrip" "$WITNESS" < /dev/null 2>&1)
+        g4=$(cd "$T" && timeout -k 5 30 ./long_names < /dev/null 2>&1)
+        g3=$(cd "$T" && timeout -k 5 30 "$ROOT/scrip" "$WITNESS" < /dev/null 2>&1)
         if [ "$g4" = "$WANT" ] && [ "$g3" = "$WANT" ]; then echo "  ✅ LOCK 2c: links, and both modes print the oracle's $WANT"
         else echo "  ✗ LOCK 2c: want $WANT; mode 4 printed '$g4', mode 3 printed '$g3'"; fail=1; fi
     fi

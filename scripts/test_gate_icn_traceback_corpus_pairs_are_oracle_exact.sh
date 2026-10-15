@@ -58,7 +58,7 @@ run_pair(){
     local o3="$T/$n.m3"
     local o4="$T/$n.m4"
     cp "$CORPUS/$n.icn" "$T/$n.icn" || return 1
-    ( cd "$T" && timeout 30 "$SCRIP" --run "$n.icn" </dev/null >"$o3" 2>&1 )
+    ( cd "$T" && timeout -k 5 30 "$SCRIP" --run "$n.icn" </dev/null >"$o3" 2>&1 )
     # ⛔⭐ THE BUILD'S EXIT STATUS AND THE PROGRAM'S ARE TWO DIFFERENT QUESTIONS, AND CHAINING THEM ATE A
     # GREEN RESULT. Both witnesses END IN A RUNTIME ERROR by design -- that IS their expected output -- so
     # the binary exits 1 every time it works. Written as one `&& ... && timeout ./bin >"$o4"` chain with a
@@ -66,10 +66,10 @@ run_pair(){
     # output that had just been captured correctly, so a perfect m4 run read as an empty one. Same class
     # the jcon suite already records ("a nonzero rc is not a failure in this suite"), met from the other
     # side: here the rc came from the thing under test, and the harness threw its own evidence away.
-    if ( cd "$T" && timeout 60 "$SCRIP" --compile --target=x86 "$n.icn" </dev/null >"$n.s" 2>/dev/null \
+    if ( cd "$T" && timeout -k 5 60 "$SCRIP" --compile --target=x86 "$n.icn" </dev/null >"$n.s" 2>/dev/null \
             && as "$n.s" -o "$n.o" 2>/dev/null \
             && gcc -no-pie "$n.o" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$n.bin" 2>/dev/null ); then
-        ( cd "$T" && timeout 30 "./$n.bin" </dev/null >"$o4" 2>&1 ); :
+        ( cd "$T" && timeout -k 5 30 "./$n.bin" </dev/null >"$o4" 2>&1 ); :
     else
         : > "$o4"   # the BUILD failed -- an empty m4 output is then the honest reading, and arm (2) says so
     fi

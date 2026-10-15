@@ -82,11 +82,11 @@ test(a) :- pt(goal_det, d(1)), pt(goal_nondet, d(2)), pt(goal_fail, d(3)), pt(go
 PL
 printf ':- initialization(run_tests).\n' > "$D/g.pl"
 norm() { grep -E '^\.?[a-z_0-9]+-' | sed 's/^\.//'; }
-want="$( (cd "$D" && timeout 20 "$SW" -q v1.pl -t halt < /dev/null 2>/dev/null | norm; timeout 20 "$SW" -q -g run_tests -t halt v2.pl < /dev/null 2>/dev/null | norm) )"
+want="$( (cd "$D" && timeout -k 5 20 "$SW" -q v1.pl -t halt < /dev/null 2>/dev/null | norm; timeout -k 5 20 "$SW" -q -g run_tests -t halt v2.pl < /dev/null 2>/dev/null | norm) )"
 [ "$(printf '%s\n' "$want" | grep -c .)" = 22 ] || refuse "swipl did not answer the twenty-two lines: [$(printf '%s\n' "$want" | grep -c .)]"
 m4ok=1   # a program SCRIP refuses to compile is this gate's red, never a refusal
-( cd "$D" && timeout 60 "$B/scrip" --compile -o v1.s v1.pl < /dev/null > /dev/null 2>&1 && [ -s v1.s ] && gcc -m64 -no-pie v1.s -o v1.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 \
-  && timeout 60 "$B/scrip" --compile -o v2.s "$PLUNIT" v2.pl g.pl < /dev/null > /dev/null 2>&1 && [ -s v2.s ] && gcc -m64 -no-pie v2.s -o v2.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || m4ok=0
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o v1.s v1.pl < /dev/null > /dev/null 2>&1 && [ -s v1.s ] && gcc -m64 -no-pie v1.s -o v1.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 \
+  && timeout -k 5 60 "$B/scrip" --compile -o v2.s "$PLUNIT" v2.pl g.pl < /dev/null > /dev/null 2>&1 && [ -s v2.s ] && gcc -m64 -no-pie v2.s -o v2.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || m4ok=0
 red=0
 arm() {
     local label="$1" got n; shift
@@ -95,8 +95,8 @@ arm() {
     if [ "$got" = "$want" ]; then echo "  $label GREEN: 22 of 22 lines as swipl"
     else echo "  $label RED: $n of 22 swipl lines missing or different"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
 }
-m3run() { if [ "$1" = v1 ]; then timeout 30 "$B/scrip" --run v1.pl < /dev/null 2>/dev/null; else timeout 30 "$B/scrip" --run "$PLUNIT" v2.pl g.pl < /dev/null 2>/dev/null; fi; }
-m4run() { timeout 30 "./$1.bin" < /dev/null 2>/dev/null; }
+m3run() { if [ "$1" = v1 ]; then timeout -k 5 30 "$B/scrip" --run v1.pl < /dev/null 2>/dev/null; else timeout -k 5 30 "$B/scrip" --run "$PLUNIT" v2.pl g.pl < /dev/null 2>/dev/null; fi; }
+m4run() { timeout -k 5 30 "./$1.bin" < /dev/null 2>/dev/null; }
 arm m3 m3run
 if [ "$m4ok" = 1 ]; then arm m4 m4run; else echo "  m4 RED: a program did not compile or link in mode 4"; red=1; fi
 [ "$red" = 0 ] && echo "PASS $G"

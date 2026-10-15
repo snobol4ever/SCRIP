@@ -45,8 +45,8 @@ if not hit: sys.stderr.write("⛔ grammar name %r not found in beauty.sno — no
 open(os.path.join(w,'ovr.sno'),'w').write('\n'.join(out))
 PY
 [ $? -eq 0 ] || exit 3
-( cd "$W" && timeout 60 "$SBL" -bf ovr.sno < "$IN" > oracle.out 2>/dev/null )   # ⛔ -bf: beauty needs it
-( cd "$W" && timeout 60 "$S4E/SCRIP/scrip" ovr.sno < "$IN" > scrip.out 2>/dev/null ); rc=$?
+( cd "$W" && timeout -k 5 60 "$SBL" -bf ovr.sno < "$IN" > oracle.out 2>/dev/null )   # ⛔ -bf: beauty needs it
+( cd "$W" && timeout -k 5 60 "$S4E/SCRIP/scrip" ovr.sno < "$IN" > scrip.out 2>/dev/null ); rc=$?
 case $rc in 139) v="SEGV";; 124) v="HANG";; 0) if cmp -s "$W/scrip.out" "$W/oracle.out"; then v="AGREE"; else v="DIFF"; fi;; *) v="rc$rc";; esac
 printf "%-10s = %-46s -> %-6s rc=%-4s scrip=%-18s oracle=%s\n" "$NAME" "$REPL" "$v" "$rc" \
     "$(tr '\n' '/' < "$W/scrip.out" | head -c 18)" "$(tr '\n' '/' < "$W/oracle.out" | head -c 22)"

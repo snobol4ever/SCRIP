@@ -38,8 +38,8 @@ snapshot() { (cd "$W" && ls -1 | sort); }
 oracle_error_face() {
     local name="$1" errno="$2" before after new_files want got
     before="$(snapshot)"
-    want="$(cd "$W" && timeout 10 "$SBL" $FLAGS "$name.sno" </dev/null 2>/dev/null | grep -m1 -E "ERROR [0-9]+ --")"
-    got="$(cd "$W" && timeout 10 "$S" "$name.sno" </dev/null 2>&1)"
+    want="$(cd "$W" && timeout -k 5 10 "$SBL" $FLAGS "$name.sno" </dev/null 2>/dev/null | grep -m1 -E "ERROR [0-9]+ --")"
+    got="$(cd "$W" && timeout -k 5 10 "$S" "$name.sno" </dev/null 2>&1)"
     after="$(snapshot)"; new_files="$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | grep -v "^$name\.")"
     case "$want" in
         *"ERROR $errno "*) : ;;
@@ -55,9 +55,9 @@ oracle_error_face() {
 # ── m4 (--compile) must agree with m3 -- BOTH-MEDIUM MANDATORY ──
 m4_error_face() {
     local name="$1" errno="$2" got
-    ( cd "$W" && timeout 10 "$S" --compile -o "$name.s" "$name.sno" </dev/null >/dev/null 2>&1
+    ( cd "$W" && timeout -k 5 10 "$S" --compile -o "$name.s" "$name.sno" </dev/null >/dev/null 2>&1
       gcc -no-pie "$name.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o "$name.bin" 2>/dev/null )
-    got="$(cd "$W" && timeout 10 "./$name.bin" </dev/null 2>&1)"
+    got="$(cd "$W" && timeout -k 5 10 "./$name.bin" </dev/null 2>&1)"
     case "$got" in
         *"ERROR $errno "*|*"error $((10#$errno)):"*) echo "  PASS $name  m4 matches m3 (ERROR $errno)" ;;
         *) echo "  FAIL $name  m4: got [$got] want ERROR $errno"; rc=1 ;;
@@ -67,7 +67,7 @@ m4_error_face() {
 # ── regression controls: legitimate/pre-existing shapes this row must NOT touch ──
 regress_face() {
     local name="$1" want="$2" gotS
-    gotS="$(cd "$W" && timeout 10 "$S" "$name.sno" </dev/null 2>&1)"
+    gotS="$(cd "$W" && timeout -k 5 10 "$S" "$name.sno" </dev/null 2>&1)"
     if [ "$gotS" = "$want" ]; then
         echo "  PASS $name  unaffected ($want)"
     else

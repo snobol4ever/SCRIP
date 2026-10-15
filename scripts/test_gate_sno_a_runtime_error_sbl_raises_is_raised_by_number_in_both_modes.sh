@@ -52,11 +52,11 @@ prog() {
     printf "        OUTPUT = 'before'\n        x = 'abc'\n        n = '12'\n        a = 'ab'\n        b = 'X'\n        i = 9223372036854775807\n        m = 4611686018427387904\n        z = 0\n        t = 2\n        r = 1.0E300\n%s        OUTPUT = %s   :S(ok)F(bad)\nok      OUTPUT = 'success' :(END)\nbad     OUTPUT = 'failure'\nEND\n" "${2:-}" "$1" > "$T/w.sno"
 }
 runm() {
-    if [ "$1" = m3 ]; then timeout 20 "$SCRIP" "$T/w.sno" < /dev/null 2>&1
+    if [ "$1" = m3 ]; then timeout -k 5 20 "$SCRIP" "$T/w.sno" < /dev/null 2>&1
     else rm -f "$T/w" "$T/w.s"
         "$SCRIP" --compile -o "$T/w.s" "$T/w.sno" < /dev/null > "$T/c.out" 2>&1 || { cat "$T/c.out"; echo "M4-COMPILE-REFUSED"; return; }
         gcc -o "$T/w" "$T/w.s" -L "$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm 2> /dev/null || { echo "M4-BUILD-FAILED"; return; }
-        (cd "$T" && timeout 20 ./w < /dev/null 2>&1); fi
+        (cd "$T" && timeout -k 5 20 ./w < /dev/null 2>&1); fi
 }
 errno_of() { grep -io 'error [0-9]*' | head -1 | awk '{print $2+0}'; }
 RC=0; n=0; ok=0

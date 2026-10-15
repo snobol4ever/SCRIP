@@ -67,20 +67,20 @@ MF_END  OUTPUT = MF('x')
 END
 EOF
 printf '%s\n' 'procedure main();' '  t := table();' '  t[&null] := 1;' '  t[""] := 2;' '  write(t[&null], " ", t[""], " ", *t);' 'end' > "$T/ctl.icn"
-for w in sources omitted; do ( cd "$T" && timeout 10 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>/dev/null ) || refuse "sbl did not run $w cleanly"; done
+for w in sources omitted; do ( cd "$T" && timeout -k 5 10 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>/dev/null ) || refuse "sbl did not run $w cleanly"; done
 grep -q '^unset\[x\]$' "$T/sources.oracle" && grep -q '^rev-lit\[y\]$' "$T/sources.oracle" || refuse "sbl's SOURCES answer moved: [$(tr '\n' '|' < "$T/sources.oracle")]"
 ( cd "$T" && "$ICONT" -s -o ctl.x ctl.icn > /dev/null 2>&1 && ./ctl.x > ctl.oracle 2>/dev/null ) || refuse "icont did not run the control"
 [ "$(cat "$T/ctl.oracle")" = "1 2 2" ] || refuse "icont's control answer moved: [$(cat "$T/ctl.oracle")]"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
 same() { [ "$1" = 0 ] || { echo "rc=$1"; return; }; cmp -s "$T/$2" "$T/$3" && echo ok || echo "got [$(tr '\n' '|' < "$T/$2" | head -c 120)] want [$(tr '\n' '|' < "$T/$3" | head -c 120)]"; }
-rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout 10 "$SCRIP" sources.sno < /dev/null > sources.m3 2>/dev/null; echo $? )
+rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout -k 5 10 "$SCRIP" sources.sno < /dev/null > sources.m3 2>/dev/null; echo $? )
 arm "SOURCES m3: nine null-string sources are one key" "$(same "$rc" sources.m3 sources.oracle)"
-rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout 20 "$SCRIP" --compile -o s.s sources.sno < /dev/null > /dev/null 2>&1 && gcc s.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o s.bin > /dev/null 2>&1 && timeout 10 ./s.bin < /dev/null > sources.m4 2>/dev/null; echo $? )
+rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout -k 5 20 "$SCRIP" --compile -o s.s sources.sno < /dev/null > /dev/null 2>&1 && gcc s.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o s.bin > /dev/null 2>&1 && timeout -k 5 10 ./s.bin < /dev/null > sources.m4 2>/dev/null; echo $? )
 arm "SOURCES m4: nine null-string sources are one key" "$(same "$rc" sources.m4 sources.oracle)"
-rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout 10 "$SCRIP" omitted.sno < /dev/null > omitted.m3 2>/dev/null; echo $? )
+rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout -k 5 10 "$SCRIP" omitted.sno < /dev/null > omitted.m3 2>/dev/null; echo $? )
 arm "OMITTED m3: an omitted parameter reads the T<> entry" "$(same "$rc" omitted.m3 omitted.oracle)"
-rc=$( cd "$T" && timeout 10 "$SCRIP" ctl.icn < /dev/null > ctl.scrip 2>/dev/null; echo $? )
+rc=$( cd "$T" && timeout -k 5 10 "$SCRIP" ctl.icn < /dev/null > ctl.scrip 2>/dev/null; echo $? )
 arm "ICON CONTROL: t[&null] and t[\"\"] stay two keys" "$(same "$rc" ctl.scrip ctl.oracle)"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }
 echo "FAIL [$NAME]"; exit 1

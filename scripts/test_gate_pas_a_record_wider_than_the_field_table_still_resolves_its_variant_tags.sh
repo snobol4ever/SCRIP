@@ -146,11 +146,11 @@ end.
 PAS
 ( cd "$T" && "$FPC" -Miso -v0 b.pas >/dev/null 2>&1 && ./b ) > "$T/b.ref" 2>&1
 grep -q '^tags compare$' "$T/b.ref" || { echo "GATE REFUSE(2) [$G]: the oracle did not produce the tag-comparison line this gate pins -- the oracle moved: $(tail -1 "$T/b.ref")"; exit 2; }
-( cd "$T" && timeout 60 "$SCRIP" --compile -o b.s b.pas </dev/null && gcc b.s -o b.bin -L"$RT_DIR" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "GATE FAIL(1) [$G]: the mode-4 witness did not build -- a record wider than the field table still loses its variant tags"; exit 1; }
+( cd "$T" && timeout -k 5 60 "$SCRIP" --compile -o b.s b.pas </dev/null && gcc b.s -o b.bin -L"$RT_DIR" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "GATE FAIL(1) [$G]: the mode-4 witness did not build -- a record wider than the field table still loses its variant tags"; exit 1; }
 RC=0
 for M in m3 m4; do
-  if [ "$M" = m3 ]; then ( cd "$T" && timeout 60 "$SCRIP" --run b.pas </dev/null ) >"$T/$M.out" 2>&1
-  else ( cd "$T" && LD_LIBRARY_PATH="$RT_DIR" timeout 60 ./b.bin </dev/null ) >"$T/$M.out" 2>&1
+  if [ "$M" = m3 ]; then ( cd "$T" && timeout -k 5 60 "$SCRIP" --run b.pas </dev/null ) >"$T/$M.out" 2>&1
+  else ( cd "$T" && LD_LIBRARY_PATH="$RT_DIR" timeout -k 5 60 ./b.bin </dev/null ) >"$T/$M.out" 2>&1
   fi
   if [ -n "${FAIL_ONCE:-}" ] && [ "$M" = m3 ]; then sed -i '1s/^sum 2842/sum 2841/' "$T/$M.out"; fi
   if diff -u "$T/b.ref" "$T/$M.out" >"$T/$M.diff"; then echo "  $M PASS ($(wc -l <"$T/b.ref") lines byte-identical to fpc -Miso)"

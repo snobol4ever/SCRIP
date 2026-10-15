@@ -43,7 +43,7 @@ for p in fit grow; do
   if [ $p = fit ]; then bound=$rg; else bound=$((2 * rg + 2)); fi
   for m in m3 m4; do
     if [ $m = m3 ]; then run=( "$ROOT/scrip" $p.sno ); else run=( ./$p.bin ); fi
-    out="$( cd "$W" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB -u SCRIP_GC_STRESS -u SCRIP_GC_LINE_MB SCRIP_GC_EXERCISE=1 timeout 60 "${run[@]}" < /dev/null 2>"$W/$p.$m.err" )"
+    out="$( cd "$W" && env -u SCRIP_HEAP_MB -u SCRIP_HEAP_KB -u SCRIP_HEAP_CAP_KB -u SCRIP_HEAP_MAX_MB -u SCRIP_GC_STRESS -u SCRIP_GC_LINE_MB SCRIP_GC_EXERCISE=1 timeout -k 5 60 "${run[@]}" < /dev/null 2>"$W/$p.$m.err" )"
     n="$(grep -m1 '^\[GC-EXERCISE\]' "$W/$p.$m.err" | grep -oE 'collections=[0-9]+' | cut -d= -f2)"; [ -n "$n" ] || { echo "REFUSED(2): $p $m printed no [GC-EXERCISE] collections= line"; exit 2; }
     [ "$out" = "$ref" ] && echo "ok  (3) $p $m answers the oracle" || { echo "RED (3) $p $m: [$out] against the oracle's [$ref]"; red=1; }
     if [ "$n" -le "$bound" ]; then echo "ok  ($([ $p = fit ] && echo 1 || echo 2)) $p $m collects $n times at the shipped window; SPITBOL at its -i1m regenerates $rg (bound $bound)"

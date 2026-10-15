@@ -63,11 +63,11 @@ for l in rebus snocone; do
 done
 run() {  # run <m3|m4> <prog> <stdin> [--trace] [ENV=V...] -> stdout; rc in $T/rc
   local m="$1" p="$2" in="$3"; shift 3; local tr=""; [ "${1:-}" = --trace ] && { tr=--trace; shift; }
-  if [ "$m" = m3 ]; then env "$@" timeout 120 "$SCRIP" $tr --run "$p" < "$in" 2>/dev/null; echo $? > "$T/rc"; return; fi
+  if [ "$m" = m3 ]; then env "$@" timeout -k 5 120 "$SCRIP" $tr --run "$p" < "$in" 2>/dev/null; echo $? > "$T/rc"; return; fi
   local x="$p.$m${tr:+.t}"
   env "$@" "$SCRIP" $tr --compile -o "$x.s" "$p" </dev/null >/dev/null 2>&1 || { echo "COMPILE-FAIL"; echo 99 > "$T/rc"; return; }
   gcc -no-pie -o "$x.bin" "$x.s" -L"$RT" -Wl,-rpath,"$RT" -lscrip_rt -lm >/dev/null 2>&1 || { echo "LINK-FAIL"; echo 99 > "$T/rc"; return; }
-  env "$@" ${tr:+SCRIP_TRACE=2000000000} timeout 120 "$x.bin" < "$in" 2>/dev/null; echo $? > "$T/rc"; }
+  env "$@" ${tr:+SCRIP_TRACE=2000000000} timeout -k 5 120 "$x.bin" < "$in" 2>/dev/null; echo $? > "$T/rc"; }
 strip_trace() { grep -v '^\*\*\*\*'; }
 RC=0; N=0
 for w in w1 w2; do

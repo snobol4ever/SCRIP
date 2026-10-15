@@ -81,13 +81,13 @@ EOF
 graded=0; bad=0
 run_both() {
     w="$1"; want="$2"; wrc="$3"
-    o=$(timeout 30 ./scrip "$d/$w.icn" </dev/null 2>/dev/null); r=$?; graded=$((graded+ROWS))
+    o=$(timeout -k 5 30 ./scrip "$d/$w.icn" </dev/null 2>/dev/null); r=$?; graded=$((graded+ROWS))
     if [ "$o" != "$want" ] || [ "$r" != "$wrc" ]; then
         echo "  ⛔ RED m3 $w: rc=$r"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$o") | sed 's/^/      /'; bad=1
     fi
-    if timeout 180 ./scrip --compile -o "$d/$w.s" "$d/$w.icn" </dev/null >/dev/null 2>&1 \
+    if timeout -k 5 180 ./scrip --compile -o "$d/$w.s" "$d/$w.icn" </dev/null >/dev/null 2>&1 \
        && gcc -m64 -no-pie "$d/$w.s" -o "$d/$w.m4" -L./out -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread 2>/dev/null; then
-        o=$(timeout 30 "$d/$w.m4" </dev/null 2>/dev/null); r=$?; graded=$((graded+ROWS))
+        o=$(timeout -k 5 30 "$d/$w.m4" </dev/null 2>/dev/null); r=$?; graded=$((graded+ROWS))
         if [ "$o" != "$want" ] || [ "$r" != "$wrc" ]; then
             echo "  ⛔ RED m4 $w: rc=$r"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$o") | sed 's/^/      /'; bad=1
         fi
@@ -96,7 +96,7 @@ run_both() {
     fi
 }
 "$ICONT" -s -o "$d/armA.ora" "$d/armA.icn" >/dev/null 2>&1 || { echo "⛔ GATE REFUSES (rc=2): icont rejected armA -- cannot measure"; exit 2; }
-wantA=$(timeout 60 "$ICONX" "$d/armA.ora" </dev/null 2>/dev/null); wrcA=$?
+wantA=$(timeout -k 5 60 "$ICONX" "$d/armA.ora" </dev/null 2>/dev/null); wrcA=$?
 [ "$wrcA" != 124 ] || { echo "⛔ GATE REFUSES (rc=2): the ORACLE timed out on armA -- the bounded rows are supposed to answer instantly, so this is a changed oracle, not a red"; exit 2; }
 [ "$(printf '%s\n' "$wantA" | grep -c '\^ v = ')" = 14 ] || { echo "⛔ GATE REFUSES (rc=2): the oracle produced $(printf '%s\n' "$wantA" | grep -c '\^ v = ') of the 14 expected armA rows -- cannot measure"; exit 2; }
 ROWS=14; run_both armA "$wantA" "$wrcA"

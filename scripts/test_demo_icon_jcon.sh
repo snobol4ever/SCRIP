@@ -89,7 +89,7 @@ for E in "$D"/*.icn; do
     # jlink's whole output is a diagnostic on stderr -- comparing stdout only would score it
     # VOID-EMPTY-ORACLE (measured, first cut of this gate) and read as a defect where there is none.
     # The oracle decides the stream once, and all three arms are then compared on that same stream.
-    o_out="$(cd "$W" && timeout "$TMO" "./$N.oracle" ${ARGV[@]+"${ARGV[@]}"} <"$IN" 2>"$W/$N.oracle.err")"; o_rc=$?
+    o_out="$(cd "$W" && timeout -k 5 "$TMO" "./$N.oracle" ${ARGV[@]+"${ARGV[@]}"} <"$IN" 2>"$W/$N.oracle.err")"; o_rc=$?
     STREAM=stdout
     if [ -z "$o_out" ] && [ -s "$W/$N.oracle.err" ]; then STREAM=stderr; o_out="$(cat "$W/$N.oracle.err")"; fi
 
@@ -97,16 +97,16 @@ for E in "$D"/*.icn; do
     # ⛔ mode 3 needs `--` before PROGRAM args, or the driver reads them as its own flags -- and an
     # unrecognised flag is not diagnosed, it is treated as a FILENAME (scrip: cannot open '...').
     declare -a M3ARGS=(); [ "${#ARGV[@]}" -gt 0 ] && M3ARGS=(-- "${ARGV[@]}")
-    if [ "$STREAM" = stderr ]; then m3_out="$(cd "$D" && timeout "$TMO" "$SCRIP" ${SWA[@]+"${SWA[@]}"} "$E" ${M3ARGS[@]+"${M3ARGS[@]}"} <"$IN" 2>&1 >/dev/null)"
-    else m3_out="$(cd "$D" && timeout "$TMO" "$SCRIP" ${SWA[@]+"${SWA[@]}"} "$E" ${M3ARGS[@]+"${M3ARGS[@]}"} <"$IN" 2>"$W/$N.m3.err")"; fi; m3_rc=$?
+    if [ "$STREAM" = stderr ]; then m3_out="$(cd "$D" && timeout -k 5 "$TMO" "$SCRIP" ${SWA[@]+"${SWA[@]}"} "$E" ${M3ARGS[@]+"${M3ARGS[@]}"} <"$IN" 2>&1 >/dev/null)"
+    else m3_out="$(cd "$D" && timeout -k 5 "$TMO" "$SCRIP" ${SWA[@]+"${SWA[@]}"} "$E" ${M3ARGS[@]+"${M3ARGS[@]}"} <"$IN" 2>"$W/$N.m3.err")"; fi; m3_rc=$?
 
     # ---- SCRIP mode 4 (--compile -> as -> ld -> run) ------------------------------------------
     m4_out=""; m4_rc=""
     if ( cd "$D" && "$SCRIP" --compile -o "$W/$N.s" "$E" </dev/null ) >"$W/$N.m4c.log" 2>&1 \
        && as --64 -o "$W/$N.o" "$W/$N.s" 2>>"$W/$N.m4c.log" \
        && gcc -no-pie -o "$W/$N.m4bin" "$W/$N.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>>"$W/$N.m4c.log"; then
-        if [ "$STREAM" = stderr ]; then m4_out="$(cd "$D" && timeout "$TMO" "$W/$N.m4bin" ${SWA[@]+"${SWA[@]}"} ${M3ARGS[@]+"${M3ARGS[@]}"} <"$IN" 2>&1 >/dev/null)"
-        else m4_out="$(cd "$D" && timeout "$TMO" "$W/$N.m4bin" ${SWA[@]+"${SWA[@]}"} ${M3ARGS[@]+"${M3ARGS[@]}"} <"$IN" 2>/dev/null)"; fi; m4_rc=$?
+        if [ "$STREAM" = stderr ]; then m4_out="$(cd "$D" && timeout -k 5 "$TMO" "$W/$N.m4bin" ${SWA[@]+"${SWA[@]}"} ${M3ARGS[@]+"${M3ARGS[@]}"} <"$IN" 2>&1 >/dev/null)"
+        else m4_out="$(cd "$D" && timeout -k 5 "$TMO" "$W/$N.m4bin" ${SWA[@]+"${SWA[@]}"} ${M3ARGS[@]+"${M3ARGS[@]}"} <"$IN" 2>/dev/null)"; fi; m4_rc=$?
     else m4_rc="BUILD-ERR"; fi
 
     # ---- verdict: the ANSWER is the signal ----------------------------------------------------

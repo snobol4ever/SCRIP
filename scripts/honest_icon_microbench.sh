@@ -48,7 +48,7 @@ for src in "$CORPUS_SRC"/bench_icn*.icn; do
     "$ICONX" "$WORK/$name.icx" > "$WORK/$name.ora" 2>/dev/null < /dev/null
 
     # --- SCRIP mode 4: --compile emits x86 TEXT asm on stdout, then gcc -no-pie + libscrip_rt ---
-    ( cd "$WORK" && timeout 120 "$SCRIP" --compile --target=x86 "$name.icn" \
+    ( cd "$WORK" && timeout -k 5 120 "$SCRIP" --compile --target=x86 "$name.icn" \
         > "$WORK/$name.s" 2> "$WORK/$name.cerr" < /dev/null )
     BIN="$WORK/$name.bin"
     if [ ! -s "$WORK/$name.s" ] || ! gcc -no-pie "$WORK/$name.s" -L"$SCRIPDIR/out" -lscrip_rt \
@@ -57,7 +57,7 @@ for src in "$CORPUS_SRC"/bench_icn*.icn; do
         printf "%-38s | %-9s | %-9s | %-9s | %s\n" "$name" "-" "-" "-" "EMITFAIL ${why}"
         continue
     fi
-    LD_LIBRARY_PATH="$SCRIPDIR/out" timeout 120 "$BIN" > "$WORK/$name.scr" 2>/dev/null < /dev/null
+    LD_LIBRARY_PATH="$SCRIPDIR/out" timeout -k 5 120 "$BIN" > "$WORK/$name.scr" 2>/dev/null < /dev/null
     rc=$?
 
     # --- correctness gate ---

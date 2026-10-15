@@ -43,12 +43,12 @@ SNO
 gcc "$W/churn.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/churn.bin" 2>/dev/null || { echo "REFUSED(2): the witness did not link"; exit 2; }
 red=0
 unset SCRIP_HEAP_MB; export SCRIP_HEAP_KB=128
-( cd "$W" && SCRIP_GC_EXERCISE=1 timeout 60 ./churn.bin < /dev/null > "$W/churn.out" 2> "$W/churn.err" )
+( cd "$W" && SCRIP_GC_EXERCISE=1 timeout -k 5 60 ./churn.bin < /dev/null > "$W/churn.out" 2> "$W/churn.err" )
 cmp -s "$W/churn.out" "$W/churn.ref" && echo "ok  (1) the witness prints the oracle's answer at SCRIP_HEAP_KB=128: $(cat "$W/churn.ref")" || { echo "RED (1) the witness differs from the oracle:"; diff "$W/churn.ref" "$W/churn.out" | head -4; red=1; }
 coll=$(grep -o 'collections=[0-9]*' "$W/churn.err" | head -1 | cut -d= -f2); coll=${coll:-0}
 [ "$coll" -ge 50 ] || { echo "REFUSED(2): only $coll collections at 128 KB -- the population cannot grade an after-collection allocator"; exit 2; }
 echo "ok  (2) collections=$coll (population)"
-hits=$( cd "$W" && timeout 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break c_rt_gcheap_alloc' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./churn.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 )
+hits=$( cd "$W" && timeout -k 5 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break c_rt_gcheap_alloc' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./churn.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 )
 [ -n "$hits" ] || { echo "REFUSED(2): gdb did not report a hit count for c_rt_gcheap_alloc"; exit 2; }
 bound=$((8 * coll + 64))
 if [ "$hits" -le "$bound" ]; then echo "ok  (3) c_rt_gcheap_alloc hits=$hits <= 8*collections+64=$bound: after a collection the armed asm carve serves the allocations"

@@ -80,8 +80,8 @@ for w in parked sigma create; do for x in icn ref; do [ -f "$WD/hb_coexpr_$w.$x"
 [ -f "$ROOT/src/runtime/rt/rt.c" ] || { echo "⛔ GATE REFUSE(2) [$G]: rt.c missing"; exit 2; }
 export SHIFT=1
 m4build() { "$SCRIP" --compile "$1" > "$2.s" 2>/dev/null && gcc "$2.s" -o "$2" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" 2>/dev/null; }
-run3() { local st="$1"; shift; ( cd "$T" && env SCRIP_GC_PLANT_FLIP="$SHIFT" SCRIP_HEAP_KB=512 SCRIP_GC_STRESS="$st" "$@" timeout 120 "$SCRIP" "$WIT" 2>/dev/null </dev/null | tr -d '\0' ); }
-run4() { local st="$1" bin="$2"; shift 2; ( cd "$T" && env SCRIP_GC_PLANT_FLIP="$SHIFT" SCRIP_HEAP_KB=512 SCRIP_GC_STRESS="$st" "$@" timeout 120 "$bin" 2>/dev/null </dev/null | tr -d '\0' ); }
+run3() { local st="$1"; shift; ( cd "$T" && env SCRIP_GC_PLANT_FLIP="$SHIFT" SCRIP_HEAP_KB=512 SCRIP_GC_STRESS="$st" "$@" timeout -k 5 120 "$SCRIP" "$WIT" 2>/dev/null </dev/null | tr -d '\0' ); }
+run4() { local st="$1" bin="$2"; shift 2; ( cd "$T" && env SCRIP_GC_PLANT_FLIP="$SHIFT" SCRIP_HEAP_KB=512 SCRIP_GC_STRESS="$st" "$@" timeout -k 5 120 "$bin" 2>/dev/null </dev/null | tr -d '\0' ); }
 echo "  HOLDS: the seven coexpression sweeps are typed visits or one segment walk (gc_zeta_frame_calls <= 4); the transmitted value is a DESCR visited by tag; the two switch boxes reload r13/r15 from the rooted global subject and the Icon package holds no subject word; every fail-once is run live under SCRIP_GC_PLANT_SHIFT=$SHIFT, where every block moves at every collection"
 n=$(python3 "$HERE/util_gc_census.py" conservative 2>/dev/null | grep -oE 'gc_zeta_frame_calls=[0-9]+' | cut -d= -f2)
 spill=$(grep -rl 'gc_spill' "$ROOT/src" 2>/dev/null | wc -l)
@@ -125,14 +125,14 @@ for st in 1 3 5 8; do
 done
 if [ "$a5bad" = 0 ]; then echo "  arm 5 PASS: the Icon create package holds no subject word (struct fields=$pk, readers=$pv); a co-expression created inside a scan reads its inherited subject from the global at every stress, and SCRIP_GC_COEXPR_PLANT=3 loses it at some stress in both modes --$a5"
 else echo "  arm 5 FAIL: struct subject fields=$pk readers=$pv --$a5"; RC=1; fi
-rc6=$( ( cd "$T" && SCRIP_GC_MAPS=1 SCRIP_GC_PLANT_FLIP=1 SCRIP_HEAP_KB=512 SCRIP_GC_STRESS=3 timeout 120 "$SCRIP" "$WD/hb_coexpr_create.icn" 2>&1 >/dev/null </dev/null ) | grep '^\[GC-COEXPR\]' | grep -oE 'sigma=[0-9]+' | sort -u | tr '\n' ' ')
-rs6=$( ( cd "$T" && SCRIP_GC_MAPS=1 SCRIP_GC_PLANT_FLIP=1 SCRIP_HEAP_KB=512 SCRIP_GC_STRESS=3 timeout 120 "$SCRIP" "$WD/hb_coexpr_sigma.icn" 2>&1 >/dev/null </dev/null ) | grep -E '^\[GC-COEXPR\]|pop=parked' | grep -oE 'sigma=[0-9]+|pop=parked' | sort -u | tr '\n' ' ')
+rc6=$( ( cd "$T" && SCRIP_GC_MAPS=1 SCRIP_GC_PLANT_FLIP=1 SCRIP_HEAP_KB=512 SCRIP_GC_STRESS=3 timeout -k 5 120 "$SCRIP" "$WD/hb_coexpr_create.icn" 2>&1 >/dev/null </dev/null ) | grep '^\[GC-COEXPR\]' | grep -oE 'sigma=[0-9]+' | sort -u | tr '\n' ' ')
+rs6=$( ( cd "$T" && SCRIP_GC_MAPS=1 SCRIP_GC_PLANT_FLIP=1 SCRIP_HEAP_KB=512 SCRIP_GC_STRESS=3 timeout -k 5 120 "$SCRIP" "$WD/hb_coexpr_sigma.icn" 2>&1 >/dev/null </dev/null ) | grep -E '^\[GC-COEXPR\]|pop=parked' | grep -oE 'sigma=[0-9]+|pop=parked' | sort -u | tr '\n' ' ')
 if [ "$rc6" = "sigma=0 " ] && echo "$rs6" | grep -q 'sigma=0' && ! echo "$rs6" | grep -qE 'sigma=[1-9]' && echo "$rs6" | grep -q 'pop=parked'; then echo "  arm 6 PASS: the reporter counts no Icon package subject word (create: $rc6) and reports the parked population (sigma: $rs6)"
 else echo "  arm 6 FAIL: reporter create=[$rc6] sigma=[$rs6]"; RC=1; fi
 p1=$(grep -c 'offsetof(rt_genp_s, regs) == 8' "$ROOT/src/runtime/rt/rt.c"); p2=$(grep -c 'movq 24(%rdi), %r13' "$ROOT/src/runtime/rt/rt.c"); p3=$(grep -c 'c->entry_arg + 24' "$ROOT/src/runtime/rt/rt_coexpr.c")
 if [ "$p1" -ge 1 ] && [ "$p2" -ge 1 ] && [ "$p3" -ge 1 ]; then echo "  arm 7 PASS: the generator record's r13 word is +24 in rt.c (static assert on regs at +8, the entry asm loads r13 from 24(%rdi)) and rt_coexpr.c visits exactly that word"
 else echo "  arm 7 FAIL: cross-file pin broken (assert=$p1 asm=$p2 visitor=$p3)"; RC=1; fi
-pl=$( ( cd "$T" && env SCRIP_GC_PLANT_FLIP="$SHIFT" SCRIP_HEAP_KB=512 SCRIP_GC_STRESS=3 timeout 120 "$SCRIP" "$WD/hb_coexpr_create.icn" 2>&1 >/dev/null </dev/null ) | grep -c "^\[GC-FLIP\] plant:" ); pl=${pl:-0}
+pl=$( ( cd "$T" && env SCRIP_GC_PLANT_FLIP="$SHIFT" SCRIP_HEAP_KB=512 SCRIP_GC_STRESS=3 timeout -k 5 120 "$SCRIP" "$WD/hb_coexpr_create.icn" 2>&1 >/dev/null </dev/null ) | grep -c "^\[GC-FLIP\] plant:" ); pl=${pl:-0}
 if [ "$pl" -ge 1 ]; then echo "  arm 8 PASS: the forced motion this gate grades under is REAL -- the flip plant announced $pl application(s) at SCRIP_GC_PLANT_FLIP=1 SCRIP_HEAP_KB=512 with nothing asked for, so arms 2-6 moved every block rather than relying on ordinary compaction"
 else echo "⛔ GATE REFUSE(2) [$G]: the flip plant applied ZERO times at SCRIP_GC_PLANT_FLIP=1 SCRIP_HEAP_KB=512 and SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-default} -- the flip declines whenever the live set has no ground disjoint from itself (neither above the old top nor below the first live block), so EVERY arm here graded ordinary compaction while claiming forced movement. Nothing is graded and nothing is red: this is a configuration statement (cto 2026-09-21, held by test_gate_gc_the_plant_says_whether_it_applied)"; exit 2; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the coexpression roots are typed, the parked stacks are one segment population, the switch reloads the rooted global and its visit is load-bearing under forced motion (examined 8 arms, two with planted violations)"

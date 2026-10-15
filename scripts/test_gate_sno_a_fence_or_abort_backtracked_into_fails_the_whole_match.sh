@@ -103,15 +103,15 @@ Y8      OUTPUT = 'inline-abort: yes'            :(END)
 N8      OUTPUT = 'inline-abort: no'
 END
 EOF
-for w in fa ctl; do ( cd "$T" && timeout 20 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ) || refuse "sbl did not run $w cleanly"; done
-for p in kalah-opening-search fullscan-palindrome; do ( cd "$T" && timeout 20 "$SBL" -bf "$p.sno" < "$p.in" > "$p.oracle" 2>&1 ) || refuse "sbl did not run $p cleanly"; done
+for w in fa ctl; do ( cd "$T" && timeout -k 5 20 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ) || refuse "sbl did not run $w cleanly"; done
+for p in kalah-opening-search fullscan-palindrome; do ( cd "$T" && timeout -k 5 20 "$SBL" -bf "$p.sno" < "$p.in" > "$p.oracle" 2>&1 ) || refuse "sbl did not run $p cleanly"; done
 grep -qx 'arm-ending-fence: no' "$T/fa.oracle" && grep -qx 'stored-abort: no' "$T/fa.oracle" && grep -qx 'end' "$T/fa.oracle" || refuse "sbl's answer moved: [$(tr '\n' '|' < "$T/fa.oracle")]"
 grep -q 'I pick pot' "$T/kalah-opening-search.oracle" || refuse "sbl's kalah answer moved"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
 same() { [ "$1" = 0 ] || { echo "rc=$1"; return; }; cmp -s "$T/$2" "$T/$3" && echo ok || echo "got [$(tr '\n' '|' < "$T/$2" | head -c 110)] want [$(tr '\n' '|' < "$T/$3" | head -c 110)]"; }
-m3() { ( cd "$T" && timeout 20 "$SCRIP" "$1.sno" < "${2:-/dev/null}" > "$1.m3" 2>&1; echo $? ); }
-m4() { ( cd "$T" && timeout 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout 20 "./$1.bin" < /dev/null > "$1.m4" 2>&1; echo $? ); }
+m3() { ( cd "$T" && timeout -k 5 20 "$SCRIP" "$1.sno" < "${2:-/dev/null}" > "$1.m3" 2>&1; echo $? ); }
+m4() { ( cd "$T" && timeout -k 5 30 "$SCRIP" --compile -o "$1.s" "$1.sno" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$1.bin" > /dev/null 2>&1 && timeout -k 5 20 "./$1.bin" < /dev/null > "$1.m4" 2>&1; echo $? ); }
 rc=$(m3 fa); arm "m3: a FENCE ending an arm, stored/deferred/nested-thunk FENCE and ABORT, a recursive FENCE-led pattern" "$(same "$rc" fa.m3 fa.oracle)"
 rc=$(m4 fa); arm "m4: a FENCE ending an arm, stored/deferred/nested-thunk FENCE and ABORT, a recursive FENCE-led pattern" "$(same "$rc" fa.m4 fa.oracle)"
 rc=$(m3 kalah-opening-search "$T/kalah-opening-search.in"); arm "m3: Flake kalah-opening-search" "$(same "$rc" kalah-opening-search.m3 kalah-opening-search.oracle)"

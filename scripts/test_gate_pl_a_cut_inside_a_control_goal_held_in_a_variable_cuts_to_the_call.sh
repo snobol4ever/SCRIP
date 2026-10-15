@@ -30,13 +30,13 @@ main :-
     G7 = (member(F, [1,2,3]), true ; F = 0), findall(F, G7, L7), writeq(cut_free_keeps_all(L7)), nl,
     halt.
 EOP
-want="$(timeout 30 "$SWIPL" -q "$T/w.pl" < /dev/null 2>&1)" || refuse "swipl did not run the witness"
+want="$(timeout -k 5 30 "$SWIPL" -q "$T/w.pl" < /dev/null 2>&1)" || refuse "swipl did not run the witness"
 [ -n "$want" ] || refuse "swipl printed nothing for the witness"
 red=0
-m3="$(timeout 60 "$SCRIP" "$T/w.pl" < /dev/null 2>&1)"
+m3="$(timeout -k 5 60 "$SCRIP" "$T/w.pl" < /dev/null 2>&1)"
 if [ "$m3" = "$want" ]; then echo "  ok  m3 equals swipl"; else echo "  RED m3 differs from swipl:"; diff <(echo "$want") <(echo "$m3") | sed 's/^/      /'; red=$((red+1)); fi
-if timeout 60 "$SCRIP" --compile "$T/w.pl" -o "$T/w.s" < /dev/null > "$T/c.err" 2>&1 && gcc -m64 "$T/w.s" -o "$T/w4" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" > /dev/null 2>&1; then
-    m4="$(timeout 60 "$T/w4" < /dev/null 2>&1)"
+if timeout -k 5 60 "$SCRIP" --compile "$T/w.pl" -o "$T/w.s" < /dev/null > "$T/c.err" 2>&1 && gcc -m64 "$T/w.s" -o "$T/w4" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" > /dev/null 2>&1; then
+    m4="$(timeout -k 5 60 "$T/w4" < /dev/null 2>&1)"
     if [ "$m4" = "$want" ]; then echo "  ok  m4 equals swipl"; else echo "  RED m4 differs from swipl:"; diff <(echo "$want") <(echo "$m4") | sed 's/^/      /'; red=$((red+1)); fi
 else echo "  RED m4 did not compile/link:"; sed -n '1,5p' "$T/c.err" | sed 's/^/      /'; red=$((red+1)); fi
 if [ "$red" -eq 0 ]; then echo "✅ GATE GREEN [$GATE_NAME]: a cut under , ; -> *-> in a variable goal cuts to the call, both modes (7 arms)"; exit 0; fi

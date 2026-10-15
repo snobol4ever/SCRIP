@@ -67,7 +67,7 @@ for f in $(find "$S4E/corpus/demos/prolog" "$S4E/corpus/benchmarks/prolog" -name
 compiled=0; refused=0; other=0; : > "$W/refused.txt"; : > "$W/other.txt"
 for f in "${srcs[@]}"; do
   b=$(printf '%s' "$f" | sed 's#^.*/corpus/##; s#^.*/src/##' | tr '/' '_')
-  if timeout "$T" "$SCRIP" --compile -o "$W/s/$b.s" "$f" </dev/null >/dev/null 2>"$W/s/$b.err" && [ -s "$W/s/$b.s" ]; then compiled=$((compiled+1))
+  if timeout -k 5 "$T" "$SCRIP" --compile -o "$W/s/$b.s" "$f" </dev/null >/dev/null 2>"$W/s/$b.err" && [ -s "$W/s/$b.s" ]; then compiled=$((compiled+1))
   else rm -f "$W/s/$b.s"
     if grep -q 'not on the ladder yet' "$W/s/$b.err" 2>/dev/null; then refused=$((refused+1)); printf '%s: %s\n' "$b" "$(head -1 "$W/s/$b.err" | cut -c1-110)" >> "$W/refused.txt"
     else other=$((other+1)); printf '%s: %s\n' "$b" "$(head -1 "$W/s/$b.err" | cut -c1-110)" >> "$W/other.txt"; fi

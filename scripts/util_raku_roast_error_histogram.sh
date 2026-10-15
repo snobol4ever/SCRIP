@@ -44,7 +44,7 @@ while read -r rel _rest; do
   src="$ROAST/$rel"; [ -f "$src" ] || continue
   n_intier=$((n_intier+1))
   cp "$src" "$TMP/case.raku"
-  timeout 5 "$SCRIP" --run "$TMP/case.raku" > "$TMP/o" 2> "$TMP/e" < /dev/null
+  timeout -k 5 5 "$SCRIP" --run "$TMP/case.raku" > "$TMP/o" 2> "$TMP/e" < /dev/null
   grep -qa "parse error\|lex error" "$TMP/e" || continue
   n_fail=$((n_fail+1))
   err=$(grep -am1 "parse error\|lex error" "$TMP/e")

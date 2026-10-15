@@ -137,7 +137,7 @@ run_rungs() {  # $1=lang $2=stdout-file $3=stderr-file ; returns the harness's o
     local args=(); read -ra args <<<"$(lang_args "$lang")"
     [ -n "${SHARD:-}" ] && args+=(--shard "$SHARD")
     local rc=0
-    SUITE_LIST_ALL=1 timeout 1800 python3 "$HARNESS" run "$src" "$ref" "${args[@]}" >"$out" 2>"$err" || rc=$?
+    SUITE_LIST_ALL=1 timeout -k 5 1800 python3 "$HARNESS" run "$src" "$ref" "${args[@]}" >"$out" 2>"$err" || rc=$?
     return "$rc"
 }
 
@@ -162,7 +162,7 @@ check_measured() {
 # stale-binary refusal inside corpus_suite_harness.py's check_scrip()/require_fresh() is what makes
 # trusting the incremental build safe -- a build that silently under-rebuilt is caught downstream, not
 # reimplemented here.
-build_tree() { ( cd "$SCRIP_ROOT" && timeout 900 make ) >"$1" 2>&1; }
+build_tree() { ( cd "$SCRIP_ROOT" && timeout -k 5 900 make ) >"$1" 2>&1; }
 
 artifact_md5() { md5sum "$SCRIP_ROOT/scrip" "$SCRIP_ROOT"/out/*.so 2>/dev/null | md5sum | cut -d' ' -f1; }
 

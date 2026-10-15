@@ -79,9 +79,9 @@ SNO
 "$SBL" $(sbl_lang_flags) "$W/data.sno" < /dev/null > "$W/data.ref" 2>&1 || true
 [ -s "$W/data.ref" ] || { echo "REFUSED(2): the oracle printed nothing for the witness"; exit 2; }
 red=0
-( cd "$W" && timeout 30 "$ROOT/scrip" data.sno < /dev/null > "$W/data.m3" 2>&1 ); cmp -s "$W/data.m3" "$W/data.ref" && echo "ok  (1) m3 = oracle over $(wc -l < "$W/data.ref") lines" || { echo "RED (1) m3 differs from the oracle:"; diff "$W/data.ref" "$W/data.m3" | head -6; red=1; }
+( cd "$W" && timeout -k 5 30 "$ROOT/scrip" data.sno < /dev/null > "$W/data.m3" 2>&1 ); cmp -s "$W/data.m3" "$W/data.ref" && echo "ok  (1) m3 = oracle over $(wc -l < "$W/data.ref") lines" || { echo "RED (1) m3 differs from the oracle:"; diff "$W/data.ref" "$W/data.m3" | head -6; red=1; }
 ( cd "$W" && "$ROOT/scrip" --compile -o "$W/data.s" data.sno < /dev/null > /dev/null 2>&1 && gcc "$W/data.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/data.bin" 2>/dev/null ) || { echo "REFUSED(2): the witness did not build in mode 4"; exit 2; }
-( cd "$W" && timeout 30 ./data.bin < /dev/null > "$W/data.m4" 2>&1 ); cmp -s "$W/data.m4" "$W/data.ref" && echo "ok  (1) m4 = oracle" || { echo "RED (1) m4 differs from the oracle:"; diff "$W/data.ref" "$W/data.m4" | head -6; red=1; }
+( cd "$W" && timeout -k 5 30 ./data.bin < /dev/null > "$W/data.m4" 2>&1 ); cmp -s "$W/data.m4" "$W/data.ref" && echo "ok  (1) m4 = oracle" || { echo "RED (1) m4 differs from the oracle:"; diff "$W/data.ref" "$W/data.m4" | head -6; red=1; }
 cat > "$W/tweak.sno" <<'SNO'
         DATA('pair(n,a)')
         DEFINE('pair__TWEAK(self)')                     :(tw_end)
@@ -103,7 +103,7 @@ tw2_end
         OUTPUT = fired ' ' v(c) ' ' v(d) ' ' v(e)
 END
 SNO
-( cd "$W" && timeout 30 "$ROOT/scrip" tweak.sno < /dev/null > "$W/tweak.m3" 2>&1 )
+( cd "$W" && timeout -k 5 30 "$ROOT/scrip" tweak.sno < /dev/null > "$W/tweak.m3" 2>&1 )
 if [ "$(sed -n '1p' "$W/tweak.m3")" = "2 100 300" ] && [ "$(sed -n '3p' "$W/tweak.m3")" = "32 8 9 10" ]; then echo "ok  (2) the __TWEAK hook fires on every constructor call, a later-defined hook included (SCRIP-only arm)"
 else echo "RED (2) the __TWEAK hook did not fire as before:"; head -3 "$W/tweak.m3"; red=1; fi
 cat > "$W/store.sno" <<'SNO'
@@ -117,8 +117,8 @@ loop    n(p) = n(p) + 1
 END
 SNO
 ( cd "$W" && "$ROOT/scrip" --compile -o "$W/store.s" store.sno < /dev/null > /dev/null 2>&1 && gcc "$W/store.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/store.bin" 2>/dev/null ) || { echo "REFUSED(2): the store twin did not build"; exit 2; }
-( cd "$W" && timeout 30 ./store.bin < /dev/null > "$W/store.out" 2>&1 ); grep -q '^1501 1500$' "$W/store.out" || { echo "REFUSED(2): the store twin did not print 1501 1500: $(head -1 "$W/store.out")"; exit 2; }
-hits=$( cd "$W" && timeout 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break rt_agg_alloc' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./store.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); hits=${hits:-0}
+( cd "$W" && timeout -k 5 30 ./store.bin < /dev/null > "$W/store.out" 2>&1 ); grep -q '^1501 1500$' "$W/store.out" || { echo "REFUSED(2): the store twin did not print 1501 1500: $(head -1 "$W/store.out")"; exit 2; }
+hits=$( cd "$W" && timeout -k 5 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break rt_agg_alloc' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./store.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); hits=${hits:-0}
 if [ "$hits" -le 200 ]; then echo "ok  (3) rt_agg_alloc hits=$hits <= 200 over 3,000 field stores: a field store allocates no trap"
 else echo "RED (3) rt_agg_alloc hits=$hits > 200 over 3,000 field stores: a field used as a variable allocates a name trap again"; red=1; fi
 cat > "$W/read.sno" <<'SNO'
@@ -131,8 +131,8 @@ loop    s = a(p) + n(p)
 END
 SNO
 ( cd "$W" && "$ROOT/scrip" --compile -o "$W/read.s" read.sno < /dev/null > /dev/null 2>&1 && gcc "$W/read.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/read.bin" 2>/dev/null ) || { echo "REFUSED(2): the read twin did not build"; exit 2; }
-( cd "$W" && timeout 30 ./read.bin < /dev/null > "$W/read.out" 2>&1 ); grep -q '^10$' "$W/read.out" || { echo "REFUSED(2): the read twin did not print 10"; exit 2; }
-walks=$( cd "$W" && timeout 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break dat_field_get' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./read.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); walks=${walks:-0}
+( cd "$W" && timeout -k 5 30 ./read.bin < /dev/null > "$W/read.out" 2>&1 ); grep -q '^10$' "$W/read.out" || { echo "REFUSED(2): the read twin did not print 10"; exit 2; }
+walks=$( cd "$W" && timeout -k 5 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break dat_field_get' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./read.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); walks=${walks:-0}
 if [ "$walks" -le 100 ]; then echo "ok  (4) dat_field_get hits=$walks <= 100 over 6,000 field reads: the inline cache answers a read without the second walk"
 else echo "RED (4) dat_field_get hits=$walks > 100 over 6,000 field reads: a field read walks the field list twice again"; red=1; fi
 cat > "$W/ctor.sno" <<'SNO'
@@ -145,8 +145,8 @@ loop    p = pair(i, i + 1)
 END
 SNO
 ( cd "$W" && "$ROOT/scrip" --compile -o "$W/ctor.s" ctor.sno < /dev/null > /dev/null 2>&1 && gcc "$W/ctor.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/ctor.bin" 2>/dev/null ) || { echo "REFUSED(2): the constructor twin did not build"; exit 2; }
-( cd "$W" && timeout 30 ./ctor.bin < /dev/null > "$W/ctor.out" 2>&1 ); grep -q '^1500 1501 pair null$' "$W/ctor.out" || { echo "REFUSED(2): the constructor twin did not print 1500 1501 pair null: $(head -1 "$W/ctor.out")"; exit 2; }
-slow=$( cd "$W" && timeout 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break rt_call_arr_impl' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./ctor.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); slow=${slow:-0}
+( cd "$W" && timeout -k 5 30 ./ctor.bin < /dev/null > "$W/ctor.out" 2>&1 ); grep -q '^1500 1501 pair null$' "$W/ctor.out" || { echo "REFUSED(2): the constructor twin did not print 1500 1501 pair null: $(head -1 "$W/ctor.out")"; exit 2; }
+slow=$( cd "$W" && timeout -k 5 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break rt_call_arr_impl' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./ctor.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); slow=${slow:-0}
 if [ "$slow" -le 100 ]; then echo "ok  (5) rt_call_arr_impl hits=$slow <= 100 over 3,002 record constructions: the constructor site constructs directly after its first call"
 else echo "RED (5) rt_call_arr_impl hits=$slow > 100 over 3,002 record constructions: every constructor call walks the full by-name path again"; red=1; fi
 cat > "$W/proto.sno" <<'SNO'
@@ -159,8 +159,8 @@ loop    s = PROTOTYPE(a)
 END
 SNO
 ( cd "$W" && "$ROOT/scrip" --compile -o "$W/proto.s" proto.sno < /dev/null > /dev/null 2>&1 && gcc "$W/proto.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/proto.bin" 2>/dev/null ) || { echo "REFUSED(2): the prototype twin did not build"; exit 2; }
-( cd "$W" && timeout 30 ./proto.bin < /dev/null > "$W/proto.out" 2>&1 ); grep -q '^0:3 1:2$' "$W/proto.out" || { echo "REFUSED(2): the prototype twin did not print 0:3 1:2: $(head -1 "$W/proto.out")"; exit 2; }
-ctail=$( cd "$W" && timeout 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break c_rt_call_bid_sn4' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./proto.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); ctail=${ctail:-0}
+( cd "$W" && timeout -k 5 30 ./proto.bin < /dev/null > "$W/proto.out" 2>&1 ); grep -q '^0:3 1:2$' "$W/proto.out" || { echo "REFUSED(2): the prototype twin did not print 0:3 1:2: $(head -1 "$W/proto.out")"; exit 2; }
+ctail=$( cd "$W" && timeout -k 5 300 gdb -q -batch -ex 'set breakpoint pending on' -ex 'break c_rt_call_bid_sn4' -ex 'ignore 1 100000000' -ex 'run < /dev/null > /dev/null 2>&1' -ex 'info breakpoints' ./proto.bin 2>&1 | grep -o 'already hit [0-9]* time' | grep -o '[0-9]*' | head -1 ); ctail=${ctail:-0}
 if [ "$ctail" -le 100 ]; then echo "ok  (6) c_rt_call_bid_sn4 hits=$ctail <= 100 over 1,501 PROTOTYPE and 1,501 ARRAY calls: both take the direct table"
 else echo "RED (6) c_rt_call_bid_sn4 hits=$ctail > 100 over 1,501 PROTOTYPE and 1,501 ARRAY calls: they fall to the C by-name path again"; red=1; fi
 [ "$red" -eq 0 ] && { echo "GATE OK: a field access takes one lookup, a field store allocates nothing, a constructor site constructs directly, PROTOTYPE and ARRAY take the direct table, the hook still fires, and every shape answers the oracle"; exit 0; }

@@ -84,8 +84,8 @@ for w in asg swp lst lit err mut; do
   want="$( cd "$T" && ./"$w.x" </dev/null 2>/dev/null )"; wrc=$?
   ( cd "$T" && "$SCRIP" --compile -o "$w.s" "$w.icn" </dev/null >/dev/null 2>&1 && gcc -no-pie -o "$w.4" "$w.s" -L"$ROOT/out" -lscrip_rt -lm -lstdc++ -lpthread -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) \
     || { echo "  $w FAIL: does not build in mode 4"; fail=$((fail+1)); continue; }
-  o3="$( cd "$T" && timeout 20 "$SCRIP" "$w.icn" </dev/null 2>/dev/null )"; r3=$?
-  o4="$( cd "$T" && timeout 20 ./"$w.4" </dev/null 2>/dev/null )"; r4=$?
+  o3="$( cd "$T" && timeout -k 5 20 "$SCRIP" "$w.icn" </dev/null 2>/dev/null )"; r3=$?
+  o4="$( cd "$T" && timeout -k 5 20 ./"$w.4" </dev/null 2>/dev/null )"; r4=$?
   if [ "$o3" = "$want" ] && [ "$r3" = "$wrc" ] && [ "$o4" = "$want" ] && [ "$r4" = "$wrc" ]; then pass=$((pass+1)); lines="$lines $w"
   else fail=$((fail+1)); echo "  $w FAIL: iconx rc=$wrc [$(printf '%s' "$want" | tr '\n' '|')] m3 rc=$r3 [$(printf '%s' "$o3" | tr '\n' '|')] m4 rc=$r4 [$(printf '%s' "$o4" | tr '\n' '|')]"; fi
 done

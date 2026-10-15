@@ -43,10 +43,10 @@ main :- Vs = [A,B,C], Vs ins 1..3, all_different(Vs), labeling([ff, down], Vs), 
     [R1,R2,R3] ins 0..1, R1 #\/ R2 #<==> R3, R1 #= 0, R3 #= 1, label([R1,R2,R3]), writeq([R1,R2,R3]), nl,
     tuples_in([[T1,T2]], [[1,2],[2,3],[3,1]]), T1 #= 2, writeq(T1-T2), nl, halt.
 PL
-( cd "$D" && timeout 60 swipl -q -t halt w.pl < /dev/null 2> /dev/null | sed -E 's/_[0-9]+/_V/g' > want )
+( cd "$D" && timeout -k 5 60 swipl -q -t halt w.pl < /dev/null 2> /dev/null | sed -E 's/_[0-9]+/_V/g' > want )
 [ -s "$D/want" ] || refuse "swipl printed nothing for the witness"
-( cd "$D" && timeout 60 "$B/scrip" -s8192k --run w.pl < /dev/null 2> m3.err | sed -E 's/_G?[0-9]+/_V/g' > m3 )
-( cd "$D" && timeout 300 "$B/scrip" --compile -o w.s w.pl < /dev/null 2> m4.err && gcc -no-pie w.s -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" -o w 2>> m4.err && timeout 60 ./w -s8192k < /dev/null 2>> m4.err | sed -E 's/_G?[0-9]+/_V/g' > m4 )
+( cd "$D" && timeout -k 5 60 "$B/scrip" -s8192k --run w.pl < /dev/null 2> m3.err | sed -E 's/_G?[0-9]+/_V/g' > m3 )
+( cd "$D" && timeout -k 5 300 "$B/scrip" --compile -o w.s w.pl < /dev/null 2> m4.err && gcc -no-pie w.s -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" -o w 2>> m4.err && timeout -k 5 60 ./w -s8192k < /dev/null 2>> m4.err | sed -E 's/_G?[0-9]+/_V/g' > m4 )
 n=$(wc -l < "$D/want"); red=0
 for m in m3 m4; do
     if cmp -s "$D/want" "$D/$m"; then echo "  $m GREEN: $n of $n lines as swipl"

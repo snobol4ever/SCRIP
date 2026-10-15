@@ -17,7 +17,7 @@ EXPECTED=$'TRI: mainline alive\nTRI: DOUBLE(21) = 42'
 
 run_m3() {
     local label="$1"; shift
-    local actual; actual=$(timeout 8 "$SCRIP" --run "$@" < /dev/null 2>/dev/null)
+    local actual; actual=$(timeout -k 5 8 "$SCRIP" --run "$@" < /dev/null 2>/dev/null)
     if [ "$actual" = "$EXPECTED" ]; then
         P3=$((P3+1)); echo "  [m3 PASS] $label"
     else
@@ -29,11 +29,11 @@ run_m4() {
     local label="$1"; shift
     local s o bin actual
     s=$(mktemp /tmp/poly_XXXXXX.s); o="${s%.s}.o"; bin="${s%.s}.bin"
-    if timeout 8 "$SCRIP" --compile --target=x86 "$@" < /dev/null > "$s" 2>/dev/null \
+    if timeout -k 5 8 "$SCRIP" --compile --target=x86 "$@" < /dev/null > "$s" 2>/dev/null \
        && as "$s" -o "$o" 2>/dev/null \
        && gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" \
               -Wl,--allow-shlib-undefined -lm -o "$bin" 2>/dev/null; then
-        actual=$(timeout 8 "$bin" < /dev/null 2>/dev/null)
+        actual=$(timeout -k 5 8 "$bin" < /dev/null 2>/dev/null)
     else
         actual="<mode4-build-failed>"
     fi

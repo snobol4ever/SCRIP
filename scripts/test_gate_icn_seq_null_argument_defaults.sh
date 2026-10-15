@@ -39,14 +39,14 @@ procedure main()
 end
 EOF
 ( cd "$W" && "$ICONT" -s -o o.ico s.icn >/dev/null 2>&1 ) || { echo "⛔ REFUSE(rc=2): the oracle would not compile its own witness"; exit 2; }
-ora="$( cd "$W" && timeout 20s "$ICONX" ./o.ico < /dev/null 2>&1 )"
+ora="$( cd "$W" && timeout -k 5 20s "$ICONX" ./o.ico < /dev/null 2>&1 )"
 [ -n "$ora" ] || { echo "⛔ REFUSE(rc=2): the oracle produced no output -- nothing to grade against"; exit 2; }
 forms=$(printf '%s\n' "$ora" | grep -c '^[A-G]:') || true
 [ "${forms:-0}" -ge 7 ] || { echo "⛔ REFUSE(rc=2): oracle emitted $forms graded lines, want at least 7"; exit 2; }
-m3="$( cd "$W" && timeout 20s "$SCRIP" s.icn < /dev/null 2>&1 )"; r3=$?
-if ( cd "$W" && timeout 30s "$SCRIP" --compile -o s.s s.icn >/dev/null 2>&1 ) \
+m3="$( cd "$W" && timeout -k 5 20s "$SCRIP" s.icn < /dev/null 2>&1 )"; r3=$?
+if ( cd "$W" && timeout -k 5 30s "$SCRIP" --compile -o s.s s.icn >/dev/null 2>&1 ) \
    && ( cd "$W" && gcc -no-pie s.s -o s.bin -L"$RT_DIR" -Wl,-rpath,"$RT_DIR" -lscrip_rt -lm -lpthread >/dev/null 2>&1 ); then
-     m4="$( cd "$W" && timeout 20s ./s.bin < /dev/null 2>&1 )"; r4=$?
+     m4="$( cd "$W" && timeout -k 5 20s ./s.bin < /dev/null 2>&1 )"; r4=$?
 else m4="<compile/link failed>"; r4=99; fi
 P=0; F=0; BAD=""
 [ "$m3" = "$ora" ] && P=$((P+1)) || { F=$((F+1)); BAD="$BAD m3(rc=$r3)"; }

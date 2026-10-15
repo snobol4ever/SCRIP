@@ -35,7 +35,7 @@ record "$CLS" "an endless loop standing in for a 50 s kernel (the gate's fixture
 fails=0; n=0
 ck() { n=$((n+1)); if eval "$2"; then echo "  ok   $1"; else fails=$((fails+1)); echo "  FAIL $1"; fi; }
 has() { grep -qE "$1" <<<"$out"; }
-t0=$(date +%s); out=$(BENCH_RAKU_DIR="$F" BENCH_ANGLES=process BENCH_BUD_MS=50 timeout 90 bash "$R" 2>&1); rc=$?; t1=$(date +%s)
+t0=$(date +%s); out=$(BENCH_RAKU_DIR="$F" BENCH_ANGLES=process BENCH_BUD_MS=50 timeout -k 5 90 bash "$R" 2>&1); rc=$?; t1=$(date +%s)
 ck "arm 1: with the record the runner exits 0 in $((t1-t0)) s, never its 90 s timeout (rc=$rc)" '[ "$rc" = 0 ]'
 ck "arm 1: good reads PASS - - PASS in m3 and m4" 'has "^good +m3 +PASS +- +- +PASS" && has "^good +m4 +PASS +- +- +PASS"'
 ck "arm 1: slow reads OUT on its own line and carries no verdict" 'has "^slow +both +OUT OUTSIDE_SLOW" && ! has "^slow +m[34] "'
@@ -43,16 +43,16 @@ ck "arm 1: the board line reads total=1 shipped=2 excluded=1 all_pass=1 all_n=1"
 ck "arm 1: the not-run line names slow(OUTSIDE_SLOW)" 'has "not run, out of the denominator \(OUTSIDE.tsv.*: slow\(OUTSIDE_SLOW\)"'
 ck "arm 1: nothing of slow was built or scouted" '! has "scouting slow" && ! has "^slow .*FAIL"'
 rm -f "$F/OUTSIDE.tsv"
-t0=$(date +%s); out=$(BENCH_RAKU_DIR="$F" BENCH_ANGLES=process BENCH_BUD_MS=50 timeout 20 bash "$R" 2>&1); rc=$?; t1=$(date +%s)
+t0=$(date +%s); out=$(BENCH_RAKU_DIR="$F" BENCH_ANGLES=process BENCH_BUD_MS=50 timeout -k 5 20 bash "$R" 2>&1); rc=$?; t1=$(date +%s)
 ck "arm 2 FAIL-ONCE: without the record the runner is still running slow when the 20 s timeout fires (rc=$rc after $((t1-t0)) s)" '[ "$rc" = 124 ]'
 record OUTSIDE_CLPFD "the Prolog class, which this runner does not take"
-out=$(BENCH_RAKU_DIR="$F" BENCH_ANGLES=process timeout 60 bash "$R" 2>&1); rc=$?
+out=$(BENCH_RAKU_DIR="$F" BENCH_ANGLES=process timeout -k 5 60 bash "$R" 2>&1); rc=$?
 ck "arm 3: another class refuses rc 2 naming it (rc=$rc)" '[ "$rc" = 2 ] && has "OUTSIDE.tsv names slow with class .OUTSIDE_CLPFD."'
 printf '# fixture\nnobody\tOUTSIDE_SLOW\tnamed but no kernel\n' > "$F/OUTSIDE.tsv"
-out=$(BENCH_RAKU_DIR="$F" BENCH_ANGLES=process timeout 60 bash "$R" 2>&1); rc=$?
+out=$(BENCH_RAKU_DIR="$F" BENCH_ANGLES=process timeout -k 5 60 bash "$R" 2>&1); rc=$?
 ck "arm 4: a name that is no kernel refuses rc 2 (rc=$rc)" '[ "$rc" = 2 ] && has "OUTSIDE.tsv names nobody, which is no kernel"'
 printf '# fixture\nslow\tOUTSIDE_SLOW\t \n' > "$F/OUTSIDE.tsv"
-out=$(BENCH_RAKU_DIR="$F" BENCH_ANGLES=process timeout 60 bash "$R" 2>&1); rc=$?
+out=$(BENCH_RAKU_DIR="$F" BENCH_ANGLES=process timeout -k 5 60 bash "$R" 2>&1); rc=$?
 ck "arm 5: a row with no evidence refuses rc 2 (rc=$rc)" '[ "$rc" = 2 ] && has "OUTSIDE.tsv names slow with no evidence"'
 if [ "$fails" = 0 ]; then echo "GATE PASS(0) [$GATE_NAME]: $n checks over a 2-kernel fixture -- an OUTSIDE_SLOW kernel is named, not run, and out of the denominator"; gate_stamp; exit 0; fi
 echo "GATE FAIL(1) [$GATE_NAME]: $fails of $n checks red"; gate_stamp; exit 1

@@ -63,10 +63,10 @@ printf '%s\n' "$cv" | grep -q "^C3 FAIL " && arm C3 ok || arm C3 red "$(printf '
 fx() { local tail="\tOUTPUT = 'done'\n\tOUTPUT = 'more 1'\n\tOUTPUT = 'more 2'\t:(END)"; [ "${2:-}" = small ] && tail="\tOUTPUT = 'done'\t:(END)"
       rm -rf "$T/$1"; mkdir -p "$T/$1"; printf "\t&ERRLIMIT = 10\n\tSETEXIT(.ERRORS)\n\tX = 'hi'\n\tY = VALUE('X')\nCONT$tail\nERRORS\tOUTPUT = 'TRAP ' &ERRTYPE\n\tSETEXIT(.ERRORS)\t:(CONT)\nEND\n" > "$T/$1/testval.spt"
       : > "$T/$1/testpgms.in"; printf 'entry,heap_kb,stack_kb,compile_args,run_args\ntestval,131072,4096,,\n' > "$T/$1/ALL.csv"; }
-fx r1; [ "$(cd "$T/r1" && timeout 30 "$O" -bf testval.spt < testpgms.in 2>/dev/null)" = $'TRAP 22\ndone\nmore 1\nmore 2' ] || refuse "sbl -bf no longer prints 'TRAP 22' before its three lines on the fixture -- the premise moved"
-[ "$(cd "$T/r1" && timeout 30 "$ROOT/scrip" testval.spt < testpgms.in 2>/dev/null)" = $'done\nmore 1\nmore 2' ] || refuse "SCRIP no longer prints the three lines alone on the fixture -- the premise moved"
+fx r1; [ "$(cd "$T/r1" && timeout -k 5 30 "$O" -bf testval.spt < testpgms.in 2>/dev/null)" = $'TRAP 22\ndone\nmore 1\nmore 2' ] || refuse "sbl -bf no longer prints 'TRAP 22' before its three lines on the fixture -- the premise moved"
+[ "$(cd "$T/r1" && timeout -k 5 30 "$ROOT/scrip" testval.spt < testpgms.in 2>/dev/null)" = $'done\nmore 1\nmore 2' ] || refuse "SCRIP no longer prints the three lines alone on the fixture -- the premise moved"
 fld() { printf '%s\n' "$1" | grep -E "^$3 " | tr ' ' '\n' | awk -F= -v k="$2" '$1==k {print $2; exit}'; }
-runit() { (cd "$ROOT" && SPITBOL_TESTPGMS_SUITE="$T/$1" timeout 300 bash "$RUNNER" 2>&1); }
+runit() { (cd "$ROOT" && SPITBOL_TESTPGMS_SUITE="$T/$1" timeout -k 5 300 bash "$RUNNER" 2>&1); }
 printf 'testval\t%s\n' "$ROW" > "$T/r1/ALL.mask"; out="$(runit r1)"; rc=$?
 { [ "$rc" = 0 ] && [ "$(fld "$out" m3_pass SPITBOL_TESTPGMS_BOARD)" = 1 ] && [ "$(fld "$out" m4_pass SPITBOL_TESTPGMS_BOARD)" = 1 ] && [ "$(fld "$out" masked_lines SPITBOL_TESTPGMS_MASKS)" = 1 ]; } \
   && arm R1 ok || arm R1 red "rc=$rc; $(printf '%s\n' "$out" | grep -E '^SPITBOL_TESTPGMS_(BOARD|MASKS)|RED |REFUSE' | head -3 | tr '\n' ' ')"

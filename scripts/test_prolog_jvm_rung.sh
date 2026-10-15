@@ -75,7 +75,7 @@ run_test() {
 
     # Run
     local actual
-    actual=$(timeout "$TIMEOUT" java -cp "$classdir" "$classname" </dev/null 2>/dev/null || true)
+    actual=$(timeout -k 5 "$TIMEOUT" java -cp "$classdir" "$classname" </dev/null 2>/dev/null || true)
     local exp; exp=$(cat "$expected")
 
     if [[ "$actual" == "$exp" ]]; then

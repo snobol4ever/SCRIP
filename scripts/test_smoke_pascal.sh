@@ -35,13 +35,13 @@ pascal() {
     cat > "$tmp"
     N=$((N+1))
     local a3 a4 r3 r4
-    a3=$(printf '%s\n' "$stdin_data" | timeout 8 "$SCRIP" --run "$tmp" 2>/dev/null)
+    a3=$(printf '%s\n' "$stdin_data" | timeout -k 5 8 "$SCRIP" --run "$tmp" 2>/dev/null)
     a4=""
     local s4 bin4
     s4=$(mktemp /tmp/pas_XXXXXX.s); bin4=$(mktemp /tmp/pas_XXXXXX.bin); rm -f "$bin4"
-    if timeout 8 "$SCRIP" --compile "$tmp" -o "$s4" </dev/null >/dev/null 2>&1 && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
+    if timeout -k 5 8 "$SCRIP" --compile "$tmp" -o "$s4" </dev/null >/dev/null 2>&1 && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
         if gcc -no-pie "$s4" -L"${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$bin4" 2>/dev/null; then
-            a4=$(printf '%s\n' "$stdin_data" | timeout 8 "$bin4" 2>/dev/null)
+            a4=$(printf '%s\n' "$stdin_data" | timeout -k 5 8 "$bin4" 2>/dev/null)
         fi
     fi
     rm -f "$tmp" "$s4" "$bin4"

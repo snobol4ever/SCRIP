@@ -82,9 +82,9 @@ run_arm() {
     for i in $(seq 1 "$N"); do
         s=$(date +%s%N)
         if [ -n "$gate" ]; then
-            env $gate SNO_LIB="$SNO_LIB_DIR" $PRE timeout "$TIMEOUT" "$SCRIP" --run "$prog" </dev/null >/dev/null 2>&1
+            env $gate SNO_LIB="$SNO_LIB_DIR" $PRE timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$prog" </dev/null >/dev/null 2>&1
         else
-            env SNO_LIB="$SNO_LIB_DIR" $PRE timeout "$TIMEOUT" "$SCRIP" --run "$prog" </dev/null >/dev/null 2>&1
+            env SNO_LIB="$SNO_LIB_DIR" $PRE timeout -k 5 "$TIMEOUT" "$SCRIP" --run "$prog" </dev/null >/dev/null 2>&1
         fi
         e=$(date +%s%N); ms=$(( (e-s)/1000000 )); times+=("$ms")
     done

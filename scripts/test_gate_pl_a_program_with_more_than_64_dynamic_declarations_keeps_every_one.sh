@@ -27,16 +27,16 @@ genv() { local n=$1 f=$2 vs ns; vs=$(seq -s ", " 1 $n | sed "s/\([0-9]\+\)/V\1/g
 genv 300 "$TMPD/v300.pl"
 want="$(printf '[0]\n[69]\n35\n')"
 red=0
-got="$(cd "$TMPD" && timeout 30 "$SCRIP" w70.pl </dev/null 2>"$TMPD/err")"; rc=$?
+got="$(cd "$TMPD" && timeout -k 5 30 "$SCRIP" w70.pl </dev/null 2>"$TMPD/err")"; rc=$?
 if [ "$rc" = 0 ] && [ "$got" = "$want" ]; then echo "  ok  70 declarations m3"; else echo "  RED 70 declarations m3: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-80)] err=[$(head -c 120 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi
-if timeout 120 "$SCRIP" --compile -o "$TMPD/w70.s" "$TMPD/w70.pl" </dev/null 2>"$TMPD/err" && gcc -m64 -no-pie "$TMPD/w70.s" -o "$TMPD/w70.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err"; then
-    got="$(cd "$TMPD" && timeout 30 ./w70.bin </dev/null 2>"$TMPD/err")"; rc=$?
+if timeout -k 5 120 "$SCRIP" --compile -o "$TMPD/w70.s" "$TMPD/w70.pl" </dev/null 2>"$TMPD/err" && gcc -m64 -no-pie "$TMPD/w70.s" -o "$TMPD/w70.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err"; then
+    got="$(cd "$TMPD" && timeout -k 5 30 ./w70.bin </dev/null 2>"$TMPD/err")"; rc=$?
     if [ "$rc" = 0 ] && [ "$got" = "$want" ]; then echo "  ok  70 declarations m4"; else echo "  RED 70 declarations m4: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-80)] err=[$(head -c 120 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi
 else echo "  RED 70 declarations m4: the compile or link refused: $(head -c 160 "$TMPD/err" | tr '\n' '|')"; red=$((red+1)); fi
-got="$(cd "$TMPD" && timeout 30 "$SCRIP" v300.pl </dev/null 2>"$TMPD/err")"; rc=$?
+got="$(cd "$TMPD" && timeout -k 5 30 "$SCRIP" v300.pl </dev/null 2>"$TMPD/err")"; rc=$?
 if [ "$rc" = 0 ] && [ "$got" = ok ]; then echo "  ok  a file clause with 300 variables matches m3"; else echo "  RED 300-variable file clause m3: rc=$rc out=[$(printf '%s' "$got" | cut -c1-40)]"; red=$((red+1)); fi
-if timeout 120 "$SCRIP" --compile -o "$TMPD/v300.s" "$TMPD/v300.pl" </dev/null 2>"$TMPD/err" && gcc -m64 -no-pie "$TMPD/v300.s" -o "$TMPD/v300.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err"; then
-    got="$(cd "$TMPD" && timeout 30 ./v300.bin </dev/null 2>"$TMPD/err")"; rc=$?
+if timeout -k 5 120 "$SCRIP" --compile -o "$TMPD/v300.s" "$TMPD/v300.pl" </dev/null 2>"$TMPD/err" && gcc -m64 -no-pie "$TMPD/v300.s" -o "$TMPD/v300.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err"; then
+    got="$(cd "$TMPD" && timeout -k 5 30 ./v300.bin </dev/null 2>"$TMPD/err")"; rc=$?
     if [ "$rc" = 0 ] && [ "$got" = ok ]; then echo "  ok  a file clause with 300 variables matches m4"; else echo "  RED 300-variable file clause m4: rc=$rc out=[$(printf '%s' "$got" | cut -c1-40)]"; red=$((red+1)); fi
 else echo "  RED 300-variable file clause m4: the compile or link refused"; red=$((red+1)); fi
 printf ':- initialization(main).\nnm(P, K, F) :- number_codes(K, Cs), atom_codes(A, Cs), atom_concat(P, A, F).\nmain :- forall(between(0, 299, K), (nm(r, K, F), T =.. [F, K], assertz(T))), nm(r, 0, F0), G0 =.. [F0, A], call(G0), write(A), nl, nm(r, 299, F9), G9 =.. [F9, B], call(G9), write(B), nl, aggregate_all(count, (between(0, 299, K2), nm(r, K2, Fk), Gk =.. [Fk, _], call(Gk)), C), write(C), nl.\n' > "$TMPD/r300.pl"
@@ -44,10 +44,10 @@ printf ':- initialization(main).\nnm(P, K, F) :- number_codes(K, Cs), atom_codes
 want300="$(printf '[0]\n[299]\n150\n')"; wantr="$(printf '0\n299\n300\n')"; wantg="$(printf '0\n299\n150\n')"
 for w in w300 r300 g300; do
     case "$w" in w300) wantw="$want300";; r300) wantw="$wantr";; g300) wantw="$wantg";; esac
-    got="$(cd "$TMPD" && timeout 60 "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
+    got="$(cd "$TMPD" && timeout -k 5 60 "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
     if [ "$rc" = 0 ] && [ "$got" = "$wantw" ]; then echo "  ok  $w m3 keeps all 300"; else echo "  RED $w m3: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-80)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi
-    if timeout 120 "$SCRIP" --compile -o "$TMPD/$w.s" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err" && gcc -m64 -no-pie "$TMPD/$w.s" -o "$TMPD/$w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err"; then
-        got="$(cd "$TMPD" && timeout 60 "./$w.bin" </dev/null 2>"$TMPD/err")"; rc=$?
+    if timeout -k 5 120 "$SCRIP" --compile -o "$TMPD/$w.s" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err" && gcc -m64 -no-pie "$TMPD/$w.s" -o "$TMPD/$w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err"; then
+        got="$(cd "$TMPD" && timeout -k 5 60 "./$w.bin" </dev/null 2>"$TMPD/err")"; rc=$?
         if [ "$rc" = 0 ] && [ "$got" = "$wantw" ]; then echo "  ok  $w m4 keeps all 300"; else echo "  RED $w m4: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-80)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi
     else echo "  RED $w m4: the compile or link refused: $(head -c 160 "$TMPD/err" | tr '\n' '|')"; red=$((red+1)); fi
 done

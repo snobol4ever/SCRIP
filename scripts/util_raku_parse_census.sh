@@ -72,7 +72,7 @@ while IFS= read -r -d '' src; do
   [ -n "$SECTION" ] && case "$rel" in "$SECTION"*) : ;; *) continue ;; esac
   n=$((n+1)); [ "$LIMIT" -gt 0 ] && [ "$n" -gt "$LIMIT" ] && { n=$((n-1)); break; }
   cp "$src" "$TMP/case.raku"
-  timeout 10 "$SCRIP" --dump-ast "$TMP/case.raku" > "$TMP/o" 2> "$TMP/e" < /dev/null; rc=$?
+  timeout -k 5 10 "$SCRIP" --dump-ast "$TMP/case.raku" > "$TMP/o" 2> "$TMP/e" < /dev/null; rc=$?
   err1=$(head -1 "$TMP/e" 2>/dev/null)
   # ⛔⭐ THREE VERDICTS, NOT TWO, AND THE THIRD IS THE WHOLE REASON SUBTRACTION FAILED. PARSED is rc=0 and
   # nothing else. PARSE-FAIL is the parser SAYING SO. Everything else -- a signal death, a timeout, an

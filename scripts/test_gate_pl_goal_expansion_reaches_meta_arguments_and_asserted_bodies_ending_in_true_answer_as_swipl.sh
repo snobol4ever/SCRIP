@@ -70,10 +70,10 @@ main :- ( e_not -> writeq(e_not-yes) ; writeq(e_not-no) ), nl,
 PL
 red=0
 for w in w1 w2; do
-    want="$(cd "$D" && timeout 20 "$SW" -q $w.pl -t halt < /dev/null 2>/dev/null | grep .)"
+    want="$(cd "$D" && timeout -k 5 20 "$SW" -q $w.pl -t halt < /dev/null 2>/dev/null | grep .)"
     [ -n "$want" ] || refuse "swipl did not answer $w"
     m4ok=1
-    ( cd "$D" && timeout 60 "$B/scrip" --compile -o $w.s $w.pl < /dev/null > /dev/null 2>&1 && [ -s $w.s ] \
+    ( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o $w.s $w.pl < /dev/null > /dev/null 2>&1 && [ -s $w.s ] \
       && gcc -m64 -no-pie $w.s -o $w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || m4ok=0
     arm() {
         local label="$1"; shift
@@ -83,8 +83,8 @@ for w in w1 w2; do
         if [ "$got" = "$want" ]; then echo "  $w $label GREEN: $(printf '%s\n' "$want" | grep -c .) of $(printf '%s\n' "$want" | grep -c .) lines as swipl"
         else echo "  $w $label RED: $n swipl lines missing or different"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
     }
-    arm m3 timeout 20 "$B/scrip" --run $w.pl < /dev/null
-    if [ "$m4ok" = 1 ]; then arm m4 timeout 20 ./$w.bin < /dev/null; else echo "  $w m4 RED: the program did not compile or link in mode 4"; red=1; fi
+    arm m3 timeout -k 5 20 "$B/scrip" --run $w.pl < /dev/null
+    if [ "$m4ok" = 1 ]; then arm m4 timeout -k 5 20 ./$w.bin < /dev/null; else echo "  $w m4 RED: the program did not compile or link in mode 4"; red=1; fi
 done
 [ "$red" = 0 ] && echo "PASS $G"
 exit "$red"

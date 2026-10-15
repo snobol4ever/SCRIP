@@ -54,7 +54,7 @@ gate_floor "$(ls "$(dirname "$0")"/../src/emitter/*.cpp "$(dirname "$0")"/../src
 if [ -x "$SCRIP" ] && [ -f "$RUNG" ]; then
     W="$(mktemp -d /tmp/plcoup_XXXXXX)"
     cp "$RUNG" "$W/prog.pl"
-    ( cd "$W" && timeout 8 "$SCRIP" --compile --target=x86 prog.pl > prog.s 2>/dev/null < /dev/null )
+    ( cd "$W" && timeout -k 5 8 "$SCRIP" --compile --target=x86 prog.pl > prog.s 2>/dev/null < /dev/null )
     sn=$(grep -oE "($SYMS)@PLT" "$W/prog.s" 2>/dev/null | wc -l)
     printf "%-34s %6d %8d\n" "rung05_backtrack emitted .s" "$sn" "$S_CEIL"
     if [ "$sn" -gt "$S_CEIL" ]; then

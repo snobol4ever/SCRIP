@@ -18,7 +18,7 @@ record)
   for s in $SETS; do
     for f in $(find "$ROOT/$s" -name '*.sno' | sort); do
       o=/tmp/s130_one.s
-      timeout 15 $S4E/SCRIP/scrip --compile "$f" > "$o" 2>/dev/null; rc=$?
+      timeout -k 5 15 $S4E/SCRIP/scrip --compile "$f" > "$o" 2>/dev/null; rc=$?
       echo "$(md5sum < "$o" | cut -d' ' -f1) rc=$rc $f" >> "$out"
     done
   done

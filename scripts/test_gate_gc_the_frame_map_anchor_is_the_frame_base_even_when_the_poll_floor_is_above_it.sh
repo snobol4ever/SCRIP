@@ -46,7 +46,7 @@ fail=0; exercised=0
 # 12023 walks out of phase in one run and 0 in the next; the slot is a map-declaration finding with its own row, and
 # this gate grades the anchor's phase under one layout so its verdict is the tree's, not the draw's.
 for st in 1 5; do
-  env -u SCRIP_HEAP_MB SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_MAPS=3 timeout 60 setarch -R ./scrip "$W" < /dev/null > "$TMP/o.$st" 2> "$TMP/e.$st"
+  env -u SCRIP_HEAP_MB SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=$st SCRIP_GC_MAPS=3 timeout -k 5 60 setarch -R ./scrip "$W" < /dev/null > "$TMP/o.$st" 2> "$TMP/e.$st"
   rc=$?
   col=$(grep -o 'collections=[0-9]*' "$TMP/e.$st" | tail -1); col=${col#collections=}; col=${col:-0}
   walks=$(grep -c 'GC-WALK\] pop=cstack' "$TMP/e.$st"); nofield=$(grep 'GC-WALK\] pop=cstack' "$TMP/e.$st" | grep -vc 'i_phase='); phased=$(grep 'GC-WALK\] pop=cstack' "$TMP/e.$st" | grep -vc 'i_phase=0 '); above=$(grep 'GC-WALK\] pop=cstack' "$TMP/e.$st" | grep -c ' s_words=0 ')
@@ -59,8 +59,8 @@ for st in 1 5; do
   else echo "ok  stress=$st PASS collections=$col walks=$walks phase=0 floor_above_base=$above"; fi
 done
 [ "$exercised" = 1 ] || { echo "RED no collection had its poll floor above the frame's declared base (s_words=0) -- the band never reached the shape this gate grades"; fail=1; }
-if timeout 60 ./scrip --compile -o "$TMP/m.s" "$M.icn" < /dev/null 2>"$TMP/m.cerr" && gcc -c "$TMP/m.s" -o "$TMP/m.o" 2>/dev/null && gcc "$TMP/m.o" -Lout -lscrip_rt -lm -lpthread -Wl,-rpath,"$R/out" -o "$TMP/m" 2>/dev/null; then
-  env -u SCRIP_HEAP_MB SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=128 timeout 60 "$TMP/m" < "$M.in" > "$TMP/m.out" 2> "$TMP/m.err"; rc=$?
+if timeout -k 5 60 ./scrip --compile -o "$TMP/m.s" "$M.icn" < /dev/null 2>"$TMP/m.cerr" && gcc -c "$TMP/m.s" -o "$TMP/m.o" 2>/dev/null && gcc "$TMP/m.o" -Lout -lscrip_rt -lm -lpthread -Wl,-rpath,"$R/out" -o "$TMP/m" 2>/dev/null; then
+  env -u SCRIP_HEAP_MB SCRIP_GC_EXERCISE=1 SCRIP_HEAP_KB=128 timeout -k 5 60 "$TMP/m" < "$M.in" > "$TMP/m.out" 2> "$TMP/m.err"; rc=$?
   col=$(grep -o 'collections=[0-9]*' "$TMP/m.err" | tail -1); col=${col#collections=}; col=${col:-0}
   if [ $rc -ne 0 ]; then echo "RED mode4 marklists rc=$rc collections=$col"; fail=1
   elif ! diff -q "$TMP/m.out" "$M.ref" > /dev/null 2>&1; then echo "RED mode4 marklists WRONG ANSWER collections=$col ($(diff "$TMP/m.out" "$M.ref" | grep -c '^[<>]') line(s) differ)"; fail=1

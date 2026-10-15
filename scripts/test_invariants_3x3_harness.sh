@@ -321,7 +321,7 @@ run_snobol4_wasm() {
       if ! wat2wasm --enable-tail-call "$wat" -o "$wasm" 2>/dev/null; then
         fail=$((fail+1)); echo "  FAIL $cell $base [wat2wasm]"; continue
       fi
-      if ! timeout "$TIMEOUT_X86" node "$WASM_RUNNER" "$wasm" > "$got" 2>/dev/null; then
+      if ! timeout -k 5 "$TIMEOUT_X86" node "$WASM_RUNNER" "$wasm" > "$got" 2>/dev/null; then
         fail=$((fail+1)); echo "  FAIL $cell $base [run/timeout]"; continue
       fi
       if diff -q "$ref" "$got" > /dev/null 2>&1; then
@@ -374,7 +374,7 @@ run_snobol4_js() {
       fi
       save_artifact "$js" "$sno"
       if ! SNO_RUNTIME="$SNO_RT" SNO_ENGINE="$SNO_ENG" \
-           timeout "$TIMEOUT_X86" node "$JS_RUNNER" "$js" > "$got" 2>/dev/null; then
+           timeout -k 5 "$TIMEOUT_X86" node "$JS_RUNNER" "$js" > "$got" 2>/dev/null; then
         fail=$((fail+1)); echo "  FAIL $cell $base [run/timeout]"
         csv_row FAIL "$cell" "$base" "run"; continue
       fi
@@ -483,12 +483,12 @@ run_snobol4_jvm() {
 
   # Step 2: BATCH jasmin — one JVM startup for all .j files; 60s hard ceiling
   if [[ ${#jfiles[@]} -gt 0 ]]; then
-    timeout 60 java -jar "$JASMIN" "${jfiles[@]}" -d "$W/" 2>/dev/null || true
+    timeout -k 5 60 java -jar "$JASMIN" "${jfiles[@]}" -d "$W/" 2>/dev/null || true
   fi
 
   # Step 3: One JVM via SnoHarness; per-test timeout inside (3s), plus 120s suite ceiling
   local harness_out
-  harness_out=$(timeout 120 java -cp "$W" SnoHarness "$W" "$W" "$W" 2>/dev/null) || true
+  harness_out=$(timeout -k 5 120 java -cp "$W" SnoHarness "$W" "$W" "$W" 2>/dev/null) || true
   while IFS= read -r line; do
     case "$line" in
       PASS*)    pass=$((pass+1)); csv_row PASS "$cell" "${line#PASS }"; [[ $VERBOSE -eq 1 ]] && echo "  $cell $line" ;;
@@ -561,7 +561,7 @@ run_icon_x86() {
            -I"$ICN_INC" -I"$RT_H/snobol4" -I"$RT_H" \
            -o "$bin" -lm 2>/dev/null; then
       save_artifact "$asm" "$icn"
-      local got; got=$(timeout "$TIMEOUT_X86" "$bin" 2>/dev/null) || got="__TIMEOUT__"
+      local got; got=$(timeout -k 5 "$TIMEOUT_X86" "$bin" 2>/dev/null) || got="__TIMEOUT__"
       if [[ "$got" == "$(cat "$exp")" ]]; then
         pass=$((pass+1)); csv_row PASS "$cell" "$base"
       else
@@ -610,11 +610,11 @@ run_icon_jvm() {
 
   # Batch jasmin — one JVM startup
   [[ ${#jfiles[@]} -gt 0 ]] && \
-    timeout 60 java -jar "$JASMIN" "${jfiles[@]}" -d "$W/" 2>/dev/null || true
+    timeout -k 5 60 java -jar "$JASMIN" "${jfiles[@]}" -d "$W/" 2>/dev/null || true
 
   # One SnoHarness run for all icon JVM tests
   local harness_out
-  harness_out=$(timeout 120 java -cp "$W" SnoHarness "$W" "$W" "$W" 2>/dev/null) || true
+  harness_out=$(timeout -k 5 120 java -cp "$W" SnoHarness "$W" "$W" "$W" 2>/dev/null) || true
   while IFS= read -r line; do
     case "$line" in
       PASS*)    pass=$((pass+1)); csv_row PASS "$cell" "${line#PASS }" ;;
@@ -666,7 +666,7 @@ run_icon_wasm() {
       fail=$((fail+1)); echo "  FAIL $cell $base [wat2wasm]"; continue
     fi
     # run
-    if ! timeout "$TIMEOUT_X86" node "$WASM_RUNNER" "$wasm" > "$got" 2>/dev/null; then
+    if ! timeout -k 5 "$TIMEOUT_X86" node "$WASM_RUNNER" "$wasm" > "$got" 2>/dev/null; then
       fail=$((fail+1)); echo "  FAIL $cell $base [run/timeout]"; continue
     fi
     if diff -q "$exp" "$got" > /dev/null 2>&1; then
@@ -705,7 +705,7 @@ run_prolog_x86() {
     if "$SCRIP_CC" -pl -x86 -o "$asm" "$pl" 2>/dev/null &&
        nasm -f elf64 "$asm" -o "$obj" 2>/dev/null &&
        gcc -O0 -no-pie "$obj" "$PL_LIB" -lm -o "$bin" 2>/dev/null; then
-      local got; got=$(timeout "$TIMEOUT_X86" "$bin" 2>/dev/null) || got="__FAIL__"
+      local got; got=$(timeout -k 5 "$TIMEOUT_X86" "$bin" 2>/dev/null) || got="__FAIL__"
       if [[ "$got" == "$(cat "$expected")" ]]; then
         rpass=$((rpass+1)); csv_row PASS "$cell" "$base"; [[ $VERBOSE -eq 1 ]] && echo "  PASS $cell $base"
       else
@@ -753,12 +753,12 @@ run_prolog_jvm() {
 
   # Batch jasmin — 60s hard ceiling
   if [[ ${#jfiles[@]} -gt 0 ]]; then
-    timeout 60 java -jar "$JASMIN" "${jfiles[@]}" -d "$W/" 2>/dev/null || true
+    timeout -k 5 60 java -jar "$JASMIN" "${jfiles[@]}" -d "$W/" 2>/dev/null || true
   fi
 
   # One SnoHarness for all prolog JVM tests; per-test 3s inside, 120s suite ceiling
   local harness_out
-  harness_out=$(timeout 120 java -cp "$W" SnoHarness "$W" "$W" "$W" 2>/dev/null) || true
+  harness_out=$(timeout -k 5 120 java -cp "$W" SnoHarness "$W" "$W" "$W" 2>/dev/null) || true
   while IFS= read -r line; do
     case "$line" in
       PASS*) pass=$((pass+1)); csv_row PASS "$cell" "${line#PASS }"; [[ $VERBOSE -eq 1 ]] && echo "  $cell $line" ;;
@@ -896,7 +896,7 @@ run_prolog_wasm() {
       fail=$((fail+1)); echo "  FAIL $cell $base [wat2wasm]"
       csv_row COMPILE_FAIL "$cell" "$base" "wat2wasm"; continue
     fi
-    local got; got=$(timeout "$TIMEOUT_X86" node "$PL_RUNNER" "$wasm" "$PL_RUNTIME" 2>/dev/null) || got="__FAIL__"
+    local got; got=$(timeout -k 5 "$TIMEOUT_X86" node "$PL_RUNNER" "$wasm" "$PL_RUNTIME" 2>/dev/null) || got="__FAIL__"
     if [[ "$got" == "$(cat "$expected")" ]]; then
       pass=$((pass+1)); csv_row PASS "$cell" "$base"
       [[ $VERBOSE -eq 1 ]] && echo "  PASS $cell $base"

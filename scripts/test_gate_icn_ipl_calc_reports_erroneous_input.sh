@@ -29,13 +29,13 @@ nf=$(grep -c -- '-> FAILED' "$T/contract.ref"); nv=$(grep -c -- '-> [^F]' "$T/co
 [ "$nf" -ge 10 ] && [ "$nv" -ge 8 ] || { echo "⛔ REFUSE(2): the oracle's own stream no longer carries both outcomes -- FAILED=$nf (want >=10) value=$nv (want >=8); a gate that sees only refusals is satisfied by a variable()/numeric() that never succeeds"; exit 2; }
 RC=0
 for M in m3 m4; do
-  if [ "$M" = m3 ]; then ( cd "$T" && timeout 30 "$SCRIP" calc.icn < calc.dat ) >"$T/calc.$M" 2>&1
-                          ( cd "$T" && timeout 30 "$SCRIP" contract.icn </dev/null ) >"$T/contract.$M" 2>&1
-  else ( cd "$T" && timeout 30 "$SCRIP" --compile -o calc.s calc.icn </dev/null && gcc -m64 -no-pie calc.s -o calc.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread \
-                 && timeout 30 "$SCRIP" --compile -o contract.s contract.icn </dev/null && gcc -m64 -no-pie contract.s -o contract.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 \
+  if [ "$M" = m3 ]; then ( cd "$T" && timeout -k 5 30 "$SCRIP" calc.icn < calc.dat ) >"$T/calc.$M" 2>&1
+                          ( cd "$T" && timeout -k 5 30 "$SCRIP" contract.icn </dev/null ) >"$T/contract.$M" 2>&1
+  else ( cd "$T" && timeout -k 5 30 "$SCRIP" --compile -o calc.s calc.icn </dev/null && gcc -m64 -no-pie calc.s -o calc.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread \
+                 && timeout -k 5 30 "$SCRIP" --compile -o contract.s contract.icn </dev/null && gcc -m64 -no-pie contract.s -o contract.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 \
          || { echo "⛔ REFUSE(2): a mode-4 witness did not build"; exit 2; }
-       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout 30 ./calc.bin < calc.dat ) >"$T/calc.$M" 2>&1
-       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout 30 ./contract.bin </dev/null ) >"$T/contract.$M" 2>&1
+       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 30 ./calc.bin < calc.dat ) >"$T/calc.$M" 2>&1
+       ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout -k 5 30 ./contract.bin </dev/null ) >"$T/contract.$M" 2>&1
   fi
   if [ -n "${FAIL_ONCE:-}" ]; then sed -i '5d' "$T/calc.$M"; sed -i 's/^variable("nosuchname") -> FAILED/variable("nosuchname") -> \&null/' "$T/contract.$M"; fi
   for pair in "calc.ref:calc.$M:calc.icn against its own .ref" "contract.ref:contract.$M:the variable()/numeric() contract against icont"; do

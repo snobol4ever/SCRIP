@@ -488,8 +488,8 @@ ipl_head_declared() {
 ipl_capped_run() {
   local cap="$1" dir="$2" to="$3" in="$4" out="$5" arr="$6" rc; shift 6
   local -a _e; eval '_e=("${'"$arr"'[@]}")'
-  if [ -z "$cap" ]; then ( cd "$dir" && timeout "$to" env "${_e[@]}" "$@" < "$in" > "$out" 2>&1 ); return; fi
-  ( cd "$dir" && timeout "$to" env "${_e[@]}" "$@" < "$in" 2>&1 | head -c "$cap" > "$out"; exit "${PIPESTATUS[0]}" ); rc=$?
+  if [ -z "$cap" ]; then ( cd "$dir" && timeout -k 5 "$to" env "${_e[@]}" "$@" < "$in" > "$out" 2>&1 ); return; fi
+  ( cd "$dir" && timeout -k 5 "$to" env "${_e[@]}" "$@" < "$in" 2>&1 | head -c "$cap" > "$out"; exit "${PIPESTATUS[0]}" ); rc=$?
   [ "$rc" -ne 124 ] && [ "$(wc -c < "$out")" -ge "$cap" ] && rc=0
   return "$rc"
 }

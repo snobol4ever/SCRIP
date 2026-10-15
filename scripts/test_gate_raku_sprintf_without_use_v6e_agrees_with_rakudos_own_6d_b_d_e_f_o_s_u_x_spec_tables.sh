@@ -27,12 +27,12 @@ ck() {
     local f="$1" m="$2" out rc plan okn nok
     GATE_EXAMINED=$((GATE_EXAMINED + 1))
     cp "$R/sprintf-$f.t" "$W/sp_$f.raku"
-    if [ "$m" = m3 ]; then out="$(cd "$R" && timeout 300 "$ROOT/scrip" --run "$W/sp_$f.raku" 2>/dev/null </dev/null)"; rc=$?
+    if [ "$m" = m3 ]; then out="$(cd "$R" && timeout -k 5 300 "$ROOT/scrip" --run "$W/sp_$f.raku" 2>/dev/null </dev/null)"; rc=$?
     else
-        if ! (cd "$R" && timeout 120 "$ROOT/scrip" --compile -o "$W/sp_$f.s" "$W/sp_$f.raku" </dev/null >"$W/sp_$f.cerr" 2>&1) \
+        if ! (cd "$R" && timeout -k 5 120 "$ROOT/scrip" --compile -o "$W/sp_$f.s" "$W/sp_$f.raku" </dev/null >"$W/sp_$f.cerr" 2>&1) \
            || ! gcc -o "$W/sp_$f.bin" "$W/sp_$f.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread >>"$W/sp_$f.cerr" 2>&1; then
             printf '  FAIL %-9s %s: did not build (%s)\n' "sprintf-$f" "$m" "$(head -1 "$W/sp_$f.cerr" | cut -c1-110)"; fails=$((fails + 1)); return; fi
-        out="$(cd "$R" && timeout 300 "$W/sp_$f.bin" 2>/dev/null </dev/null)"; rc=$?
+        out="$(cd "$R" && timeout -k 5 300 "$W/sp_$f.bin" 2>/dev/null </dev/null)"; rc=$?
     fi
     plan="$(printf '%s\n' "$out" | grep -m1 -oE '^1\.\.[0-9]+' | cut -c4-)"
     okn="$(printf '%s\n' "$out" | grep -c '^ok ')"; nok="$(printf '%s\n' "$out" | grep -c '^not ok')"

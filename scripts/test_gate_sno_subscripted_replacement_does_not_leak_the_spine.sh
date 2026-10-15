@@ -66,8 +66,8 @@ w_indirect(){ printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\t\$NM  LEN(1) . S1  REM
 c_indirect_top(){ printf "\tNM = 'V'\n\tV = 'ABC'\n\t\$NM  LEN(1) . S1  REM . S2  =  S2  S1\n\tOUTPUT = V\nEND\n" > "$1"; }
 c_toplevel(){ printf "\tA = ARRAY(2, 'ABC')\n\tA[2]  LEN(1) . S1  REM . S2  =  S2  S1\n\tOUTPUT = A[2]\nEND\n" > "$1"; }
 oracle_ref() {  # $1=src $2=out-ref  -- run the oracle TWICE, refuse if it is not deterministic
-    ( cd "$t" && timeout 120 "$ORACLE" -bf "$1" < /dev/null > "$2.a" 2>&1 ); local ra=$?
-    ( cd "$t" && timeout 120 "$ORACLE" -bf "$1" < /dev/null > "$2.b" 2>&1 ); local rb=$?
+    ( cd "$t" && timeout -k 5 120 "$ORACLE" -bf "$1" < /dev/null > "$2.a" 2>&1 ); local ra=$?
+    ( cd "$t" && timeout -k 5 120 "$ORACLE" -bf "$1" < /dev/null > "$2.b" 2>&1 ); local rb=$?
     [ "$ra" = "$rb" ] || { echo "REFUSE(2): oracle rc differs between two runs of $1 ($ra vs $rb)"; exit 2; }
     cmp -s "$t/$2.a" "$t/$2.b" || { echo "REFUSE(2): oracle output is not deterministic for $1 -- cannot be a ref"; exit 2; }
     mv "$t/$2.a" "$t/$2"; rm -f "$t/$2.b"; printf '%s' "$ra"
@@ -79,15 +79,15 @@ grade() {   # grade <label> <writer> <modes>
     for m in $modes; do
         GRADED=$((GRADED+1))
         if [ "$m" = m3 ]; then
-            got="$( cd "$t" && timeout 200 "$S" --run w.sno < /dev/null 2>&1 )"; rc=$?
+            got="$( cd "$t" && timeout -k 5 200 "$S" --run w.sno < /dev/null 2>&1 )"; rc=$?
         else
             rm -f "$t/p.s" "$t/p.o" "$t/p.bin"
-            if ! ( cd "$t" && timeout 200 "$S" --compile -o p.s w.sno >/dev/null 2>&1 ) \
+            if ! ( cd "$t" && timeout -k 5 200 "$S" --compile -o p.s w.sno >/dev/null 2>&1 ) \
                || ! as --64 "$t/p.s" -o "$t/p.o" 2>/dev/null \
                || ! gcc "$t/p.o" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$t/p.bin" 2>/dev/null; then
                 FAIL=$((FAIL+1)); printf '  FAIL %-52s %s  mode-4 compile/link failed\n' "$label" "$m"; continue
             fi
-            got="$( cd "$t" && timeout 200 ./p.bin < /dev/null 2>&1 )"; rc=$?
+            got="$( cd "$t" && timeout -k 5 200 ./p.bin < /dev/null 2>&1 )"; rc=$?
         fi
         if [ "$rc" = "$want" ] && [ "$got" = "$(cat "$t/w.ref")" ]; then
             PASS=$((PASS+1)); printf '  ok   %-52s %s\n' "$label" "$m"

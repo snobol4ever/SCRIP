@@ -66,17 +66,17 @@ tot_oob=0; tot_uni=0; wit_oob=0; wit_uni=0
 fail=0
 for n in $NAMES; do
     ref="$PROBE/$n.ref"
-    m3="?"; if timeout 60s "$SCRIP" "$PROBE/$n.sno" < /dev/null > "$W/m3.out" 2>/dev/null; then
+    m3="?"; if timeout -k 5 60s "$SCRIP" "$PROBE/$n.sno" < /dev/null > "$W/m3.out" 2>/dev/null; then
         cmp -s "$W/m3.out" "$ref" && m3=PASS || m3=WRONG; else m3=CRASH; fi
     amb="?"; minr="?"; vg="?"
-    if timeout 60s "$SCRIP" --compile -o "$W/$n.s" "$PROBE/$n.sno" < /dev/null >/dev/null 2>&1 \
+    if timeout -k 5 60s "$SCRIP" --compile -o "$W/$n.s" "$PROBE/$n.sno" < /dev/null >/dev/null 2>&1 \
        && gcc -no-pie "$W/$n.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$n.bin" 2>/dev/null; then
-        if bash -c 'timeout 60s "$0" < /dev/null > "$1" 2>/dev/null' "$W/$n.bin" "$W/a.out" 2>/dev/null; then cmp -s "$W/a.out" "$ref" && amb=PASS || amb=WRONG; else amb=CRASH; fi
+        if bash -c 'timeout -k 5 60s "$0" < /dev/null > "$1" 2>/dev/null' "$W/$n.bin" "$W/a.out" 2>/dev/null; then cmp -s "$W/a.out" "$ref" && amb=PASS || amb=WRONG; else amb=CRASH; fi
         bad=0; for i in $(seq "$REPS"); do
-            if bash -c 'env -i timeout 60s "$0" < /dev/null > "$1" 2>/dev/null' "$W/$n.bin" "$W/m.out" 2>/dev/null; then cmp -s "$W/m.out" "$ref" || bad=$((bad+1)); else bad=$((bad+1)); fi
+            if bash -c 'env -i timeout -k 5 60s "$0" < /dev/null > "$1" 2>/dev/null' "$W/$n.bin" "$W/m.out" 2>/dev/null; then cmp -s "$W/m.out" "$ref" || bad=$((bad+1)); else bad=$((bad+1)); fi
         done
         [ "$bad" -eq 0 ] && minr="PASS $REPS/$REPS" || minr="FAIL $bad/$REPS"
-        bash -c 'env -i timeout 300s valgrind -q --error-exitcode=99 "$0" < /dev/null > /dev/null 2> "$1"' "$W/$n.bin" "$W/vg.txt" 2>/dev/null; vrc=$?
+        bash -c 'env -i timeout -k 5 300s valgrind -q --error-exitcode=99 "$0" < /dev/null > /dev/null 2> "$1"' "$W/$n.bin" "$W/vg.txt" 2>/dev/null; vrc=$?
         # ⛔⭐ TWO DEFECT CLASSES, COUNTED SEPARATELY (hq_P 2026-08-29, approved by hq_C who owns the witness row).
         # This used to be ONE grep folding `Invalid read/write | Access not within | uninitialised` into a single
         # count, so a red ladder said only "not clean" -- and on a row NAMED for an out-of-bounds write that reads

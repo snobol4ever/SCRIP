@@ -86,13 +86,13 @@ scaled_input() {                       # $1=name $2=srcfile $3=scale ; echoes pa
 run1() {                               # $1=engine $2=prog $3=input $4=stem $5=sblflags
   local eng="$1" prog="$2" in="$3" stem="$4" out rl u s el ib ob rc
   case "$eng" in                       # SWD and OAD: the row's program's declaration, read once per row
-    sbl) out=$("$WRAP" timeout 300 "$SBL" $(sbl_lang_flags) $OAD "$prog" <"$in" 2>"$W/e.err") ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout 300 "$SCRIP" --run $SWD "$prog" <"$in" 2>"$W/e.err") ;;
+    sbl) out=$("$WRAP" timeout -k 5 300 "$SBL" $(sbl_lang_flags) $OAD "$prog" <"$in" 2>"$W/e.err") ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout -k 5 300 "$SCRIP" --run $SWD "$prog" <"$in" 2>"$W/e.err") ;;
     m4)  [ -x "$W/$stem.prog" ] || {
            "$SCRIP" --compile "$prog" > "$W/$stem.s" 2>/dev/null
            [ -s "$W/$stem.s" ] && gcc -no-pie "$W/$stem.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$stem.prog" 2>/dev/null \
              || { echo "- - - - BUILD-ERR	BUILD-ERR"; return; }; }
-         out=$(SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout 300 "$W/$stem.prog" $SWD <"$in" 2>"$W/e.err") ;;
+         out=$(SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout -k 5 300 "$W/$stem.prog" $SWD <"$in" 2>"$W/e.err") ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.err" | tail -1)
   [ -n "$rl" ] || { echo "- - - - CRASH	CRASH"; return; }

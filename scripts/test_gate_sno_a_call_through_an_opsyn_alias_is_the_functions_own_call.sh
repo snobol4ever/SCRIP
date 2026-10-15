@@ -61,17 +61,17 @@ E       &TRACE = 100
         OUTPUT = F('a')
 END
 EOF
-for w in tr_UNCONS tr_POP ctl; do ( cd "$T" && timeout 10 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ) || refuse "sbl did not run $w cleanly"; done
+for w in tr_UNCONS tr_POP ctl; do ( cd "$T" && timeout -k 5 10 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ) || refuse "sbl did not run $w cleanly"; done
 [ "$(grep -c 'UNCONS(' "$T/tr_POP.oracle")" = 2 ] || refuse "sbl's TRACE POP answer moved: [$(tr '\n' '|' < "$T/tr_POP.oracle")]"
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
 same() { [ "$1" = 0 ] || { echo "rc=$1"; return; }; cmp -s "$T/$2" "$T/$3" && echo ok || echo "got [$(tr '\n' '|' < "$T/$2" | head -c 110)] want [$(tr '\n' '|' < "$T/$3" | head -c 110)]"; }
-m3() { ( cd "$T" && SCRIP_SNO_STMTKW=1 timeout 10 "$SCRIP" "$1.sno" < /dev/null > "$1.m3" 2>&1; echo $? ); }
+m3() { ( cd "$T" && SCRIP_SNO_STMTKW=1 timeout -k 5 10 "$SCRIP" "$1.sno" < /dev/null > "$1.m3" 2>&1; echo $? ); }
 rc=$(m3 tr_UNCONS); arm "TRACE UNCONS m3: POP() and UNCONS() both traced as UNCONS" "$(same "$rc" tr_UNCONS.m3 tr_UNCONS.oracle)"
-rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout 20 "$SCRIP" --compile -o u.s tr_UNCONS.sno < /dev/null > /dev/null 2>&1 && gcc u.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o u.bin > /dev/null 2>&1 && timeout 10 ./u.bin < /dev/null > tr_UNCONS.m4 2>&1; echo $? )
+rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout -k 5 20 "$SCRIP" --compile -o u.s tr_UNCONS.sno < /dev/null > /dev/null 2>&1 && gcc u.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o u.bin > /dev/null 2>&1 && timeout -k 5 10 ./u.bin < /dev/null > tr_UNCONS.m4 2>&1; echo $? )
 arm "TRACE UNCONS m4: POP() and UNCONS() both traced as UNCONS" "$(same "$rc" tr_UNCONS.m4 tr_UNCONS.oracle)"
 rc=$(m3 tr_POP); arm "TRACE POP m3: both calls traced, as UNCONS" "$(same "$rc" tr_POP.m3 tr_POP.oracle)"
-mout=$( cd "$T" && S4E_HOME="$(cd "$ROOT/.." && pwd)" SCRIP_SNO_STMTKW=1 timeout 200 bash "$MON" "$T/mon.sno" --oracle 2>&1 ); mrc=$?
+mout=$( cd "$T" && S4E_HOME="$(cd "$ROOT/.." && pwd)" SCRIP_SNO_STMTKW=1 timeout -k 5 200 bash "$MON" "$T/mon.sno" --oracle 2>&1 ); mrc=$?
 [ "$mrc" = 2 ] && refuse "the monitor could not measure: $(printf '%s\n' "$mout" | grep -m1 REFUSE | cut -c1-140)"
 arm "MONITOR: a call through the synonym agrees with the SPITBOL fork" "$([ "$mrc" = 0 ] && printf '%s\n' "$mout" | grep -q 'AGREE: participants' && echo ok || echo "rc=$mrc: $(printf '%s\n' "$mout" | grep -aE '^\| \*\*>' | head -1 | cut -c1-150)")"
 rc=$(m3 ctl); arm "CONTROL: DEFINE('F(X)','LBL') is traced as F" "$(same "$rc" ctl.m3 ctl.oracle)"

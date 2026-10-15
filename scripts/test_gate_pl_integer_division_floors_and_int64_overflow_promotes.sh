@@ -40,8 +40,8 @@ MODES="${PL_RUNG_MODES:-m3,m4}"; T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 printf 'main :- run_tests.\n:- initialization(main).\n' > "$T/wrap.pl"
 red=0; total=0
 run() { local mode="$1"; shift
-    if [ "$mode" = m4 ]; then timeout 60 "$SCRIP" --compile "$@" > "$T/p.s" 2>/dev/null && gcc -no-pie "$T/p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$T/p" 2>/dev/null && timeout 60 "$T/p" </dev/null 2>/dev/null
-    else timeout 60 "$SCRIP" --run "$@" </dev/null 2>/dev/null; fi; }
+    if [ "$mode" = m4 ]; then timeout -k 5 60 "$SCRIP" --compile "$@" > "$T/p.s" 2>/dev/null && gcc -no-pie "$T/p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$T/p" 2>/dev/null && timeout -k 5 60 "$T/p" </dev/null 2>/dev/null
+    else timeout -k 5 60 "$SCRIP" --run "$@" </dev/null 2>/dev/null; fi; }
 cat > "$T/w.pl" <<'EOP'
 :- initialization(main).
 ov(G) :- catch((V is G, write(V)), error(evaluation_error(int_overflow), _), write(int_overflow)), nl.

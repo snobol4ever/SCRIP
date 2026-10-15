@@ -42,10 +42,10 @@ FN=$'\tDEFINE("F(S,N)I,PAT")\t:(F_END)\nF\tF = ARRAY(10)\n\tPAT = LEN(1) . *F[I]
 printf '%s%s\tS = "MISSISSIPPI"\n\tC = F("MISP", 1)\n\tOUTPUT = "1:" S\n\tS = "MISSISSIPPI"\n\tC = F("MISP", 2)\n\tOUTPUT = "2:" S\n\tS = "MISSISSIPPI"\n\tC = F("MISP", 0)\n\tOUTPUT = "0:" S\nEND\n' "$MS" "$FN" > "$W/N.sno"
 PASS=0; FAIL=0; GRADED=0
 grade() { local name="$1" env="$2" o rc3 rc4
-    ( cd "$W" && timeout 5s "$SBL" -bf "$name.sno" < /dev/null > "$name.oracle" 2>&1 )
-    ( cd "$W" && env $env timeout 5s "$ROOT/scrip" --run "$name.sno" < /dev/null > "$name.m3" 2>&1 ); rc3=$?
-    if ( cd "$W" && timeout 5s "$ROOT/scrip" --compile "$name.sno" < /dev/null > "$name.s" 2> "$name.cerr" ) && gcc -c "$W/$name.s" -o "$W/$name.o" 2>/dev/null && gcc "$W/$name.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/$name.bin" 2>/dev/null; then
-        ( cd "$W" && env $env timeout 5s "./$name.bin" < /dev/null > "$name.m4" 2>&1 ); rc4=$?
+    ( cd "$W" && timeout -k 5 5s "$SBL" -bf "$name.sno" < /dev/null > "$name.oracle" 2>&1 )
+    ( cd "$W" && env $env timeout -k 5 5s "$ROOT/scrip" --run "$name.sno" < /dev/null > "$name.m3" 2>&1 ); rc3=$?
+    if ( cd "$W" && timeout -k 5 5s "$ROOT/scrip" --compile "$name.sno" < /dev/null > "$name.s" 2> "$name.cerr" ) && gcc -c "$W/$name.s" -o "$W/$name.o" 2>/dev/null && gcc "$W/$name.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/$name.bin" 2>/dev/null; then
+        ( cd "$W" && env $env timeout -k 5 5s "./$name.bin" < /dev/null > "$name.m4" 2>&1 ); rc4=$?
     else rc4=NOBUILD; : > "$W/$name.m4"; fi
     for m in m3 m4; do GRADED=$((GRADED+1))
         if [ "$m" = m4 ] && [ "$rc4" = NOBUILD ]; then FAIL=$((FAIL+1)); echo "  ⛔ $name m4: NOBUILD -- $(head -c 100 "$W/$name.cerr")"
