@@ -16609,8 +16609,8 @@ DESCR_t rt_call_arr_gen_strict(const char *fn, DESCR_t *args, int nargs, int64_t
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     static int list_reg3 = 0;
     if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg3 = 1; }
-    DESCR_t *elems = rt_ws_alloc_descr((size_t)(nargs>0?nargs:1));
-    for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j];
+    DESCR_t *elems = (DESCR_t *)0;
+    if (nargs > 0) { elems = rt_ws_alloc_descr((size_t)nargs); for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j]; }
     DESCR_t eptr = {0};
     eptr.v=DT_DATA;
     eptr.slen=DATA_ELEMS_SLEN;

@@ -115,11 +115,11 @@ RTX_FUNC(rt_list_bang_at)
     cmp     dword ptr [r8 + FIELD0_SLEN], DATA_ELEMS_SLEN
     jne     .Lbang_slow
     mov     r10, [r8 + FIELD0_P]
-    test    r10, r10
-    je      .Lbang_slow
     movsxd  r11, dword ptr [r8 + FIELD1_P]
     cmp     rdx, r11
     jge     .Lbang_done
+    test    r10, r10
+    je      .Lbang_slow
     shl     rdx, 4
     mov     rax, [r10 + rdx]
     mov     rdx, [r10 + rdx + 8]
