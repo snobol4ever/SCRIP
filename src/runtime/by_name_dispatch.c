@@ -1334,8 +1334,16 @@ static int rk_seq_pull(DESCR_t *sp) {
         rt_call_args_need(nr);
         for (int k = 0; k < nr; k++) CALL_ARGS[k] = ((ARBLK_t *) cl.arr)->data[1 + k];
         rt_call_args_clear_from(nr);
+#if RT_DIAG
+        rt_c2bb_hit("gen_h.rk_seq", nm);
+#endif
         v = rt_proc_call_gen_h(nm, nr, &h, (const uint64_t *) 0);
-    } else v = rt_proc_resume_frame_h(&h);
+    } else {
+#if RT_DIAG
+        rt_c2bb_hit("gen_h.rk_seq_resume", "?");
+#endif
+        v = rt_proc_resume_frame_h(&h);
+    }
     s = (ARBLK_t *) sp->arr;
     s->data[1] = (DESCR_t){ .v = DT_RAW, .ptr = h };
     if (IS_FAIL_fn(v)) { s->data[2] = INTVAL(2); return 0; }

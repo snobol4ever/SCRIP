@@ -52,12 +52,25 @@
 # REFUSE rc=2 -- that arm cannot fire naturally on this tree, which does not carry the cap yet, and an arm proven
 # only by reading it is the thing these laws exist against.
 # A gate that cannot say no is the instrument this fleet keeps re-finding.
+#
+# ⭐ RE-CUT 2026-10-15 (hq_templates, row templates-the-c2bb-generator-arm-gate-refuses-hb-coexpr-genp-scan-writes-no-trace-ceo-1758).
+# SCRIP eaa97e0c8 (hq_icon 2026-10-14, CEO-1553) put an Icon value call of a region-frame generator on the spine: the block prep
+# opens the n2 generator and bb_call_value jumps into it, so neither Icon witness reaches rt_proc_call_gen_h any more and both
+# wrote NO trace (the refusal of this row). Measured on that tree: no gc_witnesses program and no corpus tests/icon or
+# benchmarks/icon program takes the coroutine arm; a Raku sequence pulled lazily (rk_seq_pull) still does. So the population
+# is two kinds, each non-inert or REFUSE:
+#   CORO  scripts/fixtures/c2bb_raku_seq_coro.raku (ref cut from rakudo) -- arms A..E as above, the rider count now
+#         gen_h.call_value + gen_h.pl_goal + gen_h.rk_seq and the resume rider gen_h.resume_frame + gen_h.rk_seq_resume
+#         (rk_seq_pull names itself in the trace beside the three by_name_dispatch.c riders; nothing was unhooked).
+#   SPINE the two Icon witnesses -- A, and F: SCRIP_CV_PREP_TRACE shows at least one '[CV-PREP] open spinen2' and the trace
+#         holds no gen_h.coro and no gen_h.enter (the generator never left the spine for a coroutine or a C entry).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT" || exit 2
 
-WITNESSES="hb_coexpr_genp_scan hb_cv_spine_plain_redo"
+CORO_WITNESSES="scripts/fixtures/c2bb_raku_seq_coro.raku"
+SPINE_WITNESSES="scripts/gc_witnesses/hb_coexpr_genp_scan.icn scripts/gc_witnesses/hb_cv_spine_plain_redo.icn"
 TMP="${TMPDIR:-/tmp}/c2bb_genarm_$$"
 mkdir -p "$TMP" || exit 2
 trap 'rm -rf "$TMP"' EXIT
@@ -67,19 +80,17 @@ stamp="SCRIP $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')$(g
 [ -x "$ROOT/scrip" ] || { echo "⛔ GATE REFUSES (2): no ./scrip to run -- nothing was measured [$stamp]"; exit 2; }
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 
-count_site() { awk -F'\t' -v s="$2" '$1 == s { n++ } END { print n + 0 }' "$1"; }
+count_site() { [ -f "$1" ] || { echo 0; return; }; awk -F'\t' -v s="$2" '$1 == s { n++ } END { print n + 0 }' "$1"; }
 
 fails=0
 plant_done=0
-for w in $WITNESSES; do
-  src="scripts/gc_witnesses/$w.icn"
-  ref="scripts/gc_witnesses/$w.ref"
+run_witness() {
+  src="$1"; w="$(basename "${src%.*}")"; ref="${src%.*}.ref"
   [ -f "$src" ] || { echo "⛔ GATE REFUSES (2): witness $src is missing -- the population is empty, which is not a pass [$stamp]"; exit 2; }
   [ -f "$ref" ] || { echo "⛔ GATE REFUSES (2): $ref is missing, so arm A cannot grade the answer [$stamp]"; exit 2; }
-
   tr="$TMP/$w.tr"; out="$TMP/$w.out"
   rm -f "$tr"
-  SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_C2BB_TRACE="$tr" timeout 120s "$ROOT/scrip" "$src" > "$out" 2>"$TMP/$w.err"
+  SCRIP_CV_PREP_TRACE=1 SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-64}" SCRIP_C2BB_TRACE="$tr" timeout 120s "$ROOT/scrip" "$src" < /dev/null > "$out" 2>"$TMP/$w.err"
   rc=$?
   if [ "${REFUSE_ONCE:-0}" = 1 ] && [ "$plant_done" = 0 ]; then
     printf '[ZHP] HARD CAP REACHED (REFUSE_ONCE plant) -- THIS REQUEST wanted 32767 payload bytes of block kind 215\n' >> "$TMP/$w.err"
@@ -90,36 +101,35 @@ for w in $WITNESSES; do
   if [ "$rc" -ne 0 ] && grep -q 'HARD CAP REACHED' "$TMP/$w.err" 2>/dev/null; then
     echo "⛔ GATE REFUSES (2): $w hit the arena HARD CAP (rc=$rc) at SCRIP_HEAP_KB=${SCRIP_HEAP_KB:-64}, so it never finished and this gate measured NOTHING."
     sed -n '/HARD CAP REACHED/p' "$TMP/$w.err" | head -2
-    echo "   ⛔ A CAPACITY VERDICT ABOUT THE ARENA IS NOT A COLLECTOR DEFECT AND IS NOT A FAILURE OF THIS CLAIM (coo, 2026-09-21, CEO-1101: the declared size is a HARD CAP and a tiny arena CAN refuse a live set). Grading it rc=1 would publish a false red about the generator arm every time the cap bites; raising this gate's arena to dodge it would be worse, because the tiny arena is the mandatory instrument. Re-run at a larger SCRIP_HEAP_MB to measure the claim, and row the capacity separately."
+    echo "   ⛔ A CAPACITY VERDICT ABOUT THE ARENA IS NOT A COLLECTOR DEFECT AND IS NOT A FAILURE OF THIS CLAIM (coo, 2026-09-21, CEO-1101). The cure is a ROW, never a bigger default here (CEO-934)."
     exit 2
   fi
-  [ -f "$tr" ] || { echo "⛔ GATE REFUSES (2): $w produced NO trace file at all (rc=$rc) -- the build carries no rt_c2bb_hit or the run died before one [$stamp]"; exit 2; }
-
-  if [ "${FAIL_ONCE:-0}" = 1 ] && [ "$plant_done" = 0 ]; then
-    printf 'gen_h.enter\tPLANT_FAIL_ONCE\t?\t?\n' >> "$tr"
-    plant_done=1
-    echo "   FAIL_ONCE: planted one synthetic gen_h.enter record into $w's trace"
-  fi
-
-  coro=$(count_site "$tr" gen_h.coro)
-  coro_res=$(count_site "$tr" gen_h.coro_resume)
-  spine=$(( $(count_site "$tr" genp.spine) + $(count_site "$tr" genp.spine.n2) ))
-  enter=$(count_site "$tr" gen_h.enter)
-  rider=$(( $(count_site "$tr" gen_h.call_value) + $(count_site "$tr" gen_h.pl_goal) ))
-  rider_res=$(count_site "$tr" gen_h.resume_frame)
-
-  if [ "$coro" -eq 0 ]; then
-    echo "⛔ GATE REFUSES (2): $w never took the generator arm (gen_h.coro=0), so it is INERT for this claim and its silence is not evidence [$stamp]"
-    exit 2
-  fi
-
-  echo "-- $w  rc=$rc  coro=$coro coro_resume=$coro_res spine=$spine enter=$enter rider=$rider rider_resume=$rider_res"
-
   if [ "$rc" -ne 0 ] || ! diff -q "$out" "$ref" >/dev/null 2>&1; then
     echo "   ⛔ A: $w does not answer its .ref (rc=$rc) -- a trace claim over a wrong answer is worthless"
     diff "$ref" "$out" | head -6
     fails=$((fails + 1))
   fi
+}
+
+for src in $CORO_WITNESSES; do
+  run_witness "$src"
+  [ -f "$tr" ] || { echo "⛔ GATE REFUSES (2): $w produced NO trace file at all (rc=$rc) -- the build carries no rt_c2bb_hit or the run died before one [$stamp]"; exit 2; }
+  if [ "${FAIL_ONCE:-0}" = 1 ] && [ "$plant_done" = 0 ]; then
+    printf 'gen_h.enter\tPLANT_FAIL_ONCE\t?\t?\n' >> "$tr"
+    plant_done=1
+    echo "   FAIL_ONCE: planted one synthetic gen_h.enter record into $w's trace"
+  fi
+  coro=$(count_site "$tr" gen_h.coro)
+  coro_res=$(count_site "$tr" gen_h.coro_resume)
+  spine=$(( $(count_site "$tr" genp.spine) + $(count_site "$tr" genp.spine.n2) ))
+  enter=$(count_site "$tr" gen_h.enter)
+  rider=$(( $(count_site "$tr" gen_h.call_value) + $(count_site "$tr" gen_h.pl_goal) + $(count_site "$tr" gen_h.rk_seq) ))
+  rider_res=$(( $(count_site "$tr" gen_h.resume_frame) + $(count_site "$tr" gen_h.rk_seq_resume) ))
+  if [ "$coro" -eq 0 ]; then
+    echo "⛔ GATE REFUSES (2): $w never took the generator arm (gen_h.coro=0), so it is INERT for this claim and its silence is not evidence [$stamp]"
+    exit 2
+  fi
+  echo "-- CORO $w  rc=$rc  coro=$coro coro_resume=$coro_res spine=$spine enter=$enter rider=$rider rider_resume=$rider_res"
   if [ "$enter" -ne 0 ]; then
     echo "   ⛔ B: gen_h.enter fired $enter time(s) -- a rider DID reach the jmp_entry arm, which IS a C->BB entry from the caller's stack. This gate's whole claim is that arm stays untaken here; re-measure before believing any attribution built on it."
     fails=$((fails + 1))
@@ -133,7 +143,23 @@ for w in $WITNESSES; do
     fails=$((fails + 1))
   fi
   if [ "$rider_res" -ne "$coro_res" ]; then
-    echo "   ⛔ E: gen_h.resume_frame=$rider_res but gen_h.coro_resume=$coro_res -- the resume rider reached something other than an existing coroutine."
+    echo "   ⛔ E: resume riders=$rider_res but gen_h.coro_resume=$coro_res -- the resume rider reached something other than an existing coroutine."
+    fails=$((fails + 1))
+  fi
+done
+
+for src in $SPINE_WITNESSES; do
+  run_witness "$src"
+  n2=$(grep -c '^\[CV-PREP\] open spinen2 ' "$TMP/$w.err")
+  coro=$(count_site "$tr" gen_h.coro)
+  enter=$(count_site "$tr" gen_h.enter)
+  if [ "$n2" -eq 0 ]; then
+    echo "⛔ GATE REFUSES (2): $w opened no n2 generator on the spine ('[CV-PREP] open spinen2' absent), so it is INERT for arm F [$stamp]"
+    exit 2
+  fi
+  echo "-- SPINE $w  rc=$rc  spinen2=$n2 coro=$coro enter=$enter"
+  if [ "$coro" -ne 0 ] || [ "$enter" -ne 0 ]; then
+    echo "   ⛔ F: $w's value-call generator left the spine (gen_h.coro=$coro gen_h.enter=$enter) -- since eaa97e0c8 it runs as an n2 generator on the spine"
     fails=$((fails + 1))
   fi
 done
@@ -142,5 +168,5 @@ if [ "$fails" -gt 0 ]; then
   echo "⛔ GATE FAILED: $fails assertion(s) red [$stamp]"
   exit 1
 fi
-echo "✅ the generator arm of rt_proc_call_gen_h is a SANCTIONED coroutine start, not a C->BB box entry, and every rider record on the witness population is accounted for by it [$stamp]"
+echo "✅ the generator arm of rt_proc_call_gen_h is a SANCTIONED coroutine start, not a C->BB box entry, every rider record on the coroutine witness is accounted for by it, and the Icon value-call generators stay on the spine [$stamp]"
 exit 0
