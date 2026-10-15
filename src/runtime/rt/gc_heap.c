@@ -1328,7 +1328,8 @@ static inline void gc_slot_reg_tgt(void *loc, rt_hblk_t *tgt) {
 static inline void gc_slot_reg(void *loc) __attribute__((always_inline));
 static inline void gc_slot_reg(void *loc) { const char *v = *(const char *const *)loc; rt_hblk_t *t = gc_blk_of(v); if (!t) return; gc_slot_reg_tgt(loc, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gc_visit_raw(const char **loc) { rt_hblk_t *h = gc_blk_of(*loc); if (!h) return; gc_mark_blk(h, 0); gc_slot_reg_tgt((void *)loc, h); }
+static void rt_gc_visit_raw_c(const char **loc) { rt_hblk_t *h = gc_blk_of(*loc); if (!h) return; gc_mark_blk(h, 0); gc_slot_reg_tgt((void *)loc, h); }
+void rt_gc_visit_raw(const char **loc) { extern int rt_gc_visit_raw_a(const char **); if (!rt_gc_visit_raw_a(loc)) rt_gc_visit_raw_c(loc); }
 void rt_gc_visit_raw_in(const char **loc, const void *holder) { (void)holder; rt_gc_visit_raw(loc); }
 int rt_gc_weak_keep(const char **loc) { rt_hblk_t *h = gc_blk_of(*loc); if (!h) return 1; if (!gc_blk_marked(h)) return 0; gc_slot_reg((void *)loc); return 1; }
 int rt_gc_ptr_in_heap_slot(const char *p) { return gc_blk_of(p) != (rt_hblk_t *)0; }
@@ -1500,7 +1501,7 @@ static void gc_wl_drain(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gc_visit_descr(DESCR_t *d) {
+static void rt_gc_visit_descr_c(DESCR_t *d) {
     if (!d || !gc_tag_bears_ptr(d->v)) return;
     if (g_gc_mk.draining) { gc_wl_push(d); return; }
     g_gc_mk.draining = 1;
@@ -1508,6 +1509,7 @@ void rt_gc_visit_descr(DESCR_t *d) {
     gc_wl_drain();
     g_gc_mk.draining = 0;
 }
+void rt_gc_visit_descr(DESCR_t *d) { extern int rt_gc_visit_descr_a(DESCR_t *); if (!rt_gc_visit_descr_a(d)) rt_gc_visit_descr_c(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 static long g_gc_rrng_ss = 0;

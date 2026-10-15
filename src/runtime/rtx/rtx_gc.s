@@ -1136,4 +1136,65 @@ RTX_FUNC(rt_gc_clear_run)
     rep stosq
     ret
 RTX_ENDF(rt_gc_clear_run)
+RTX_FUNC(rt_gc_visit_raw_a)
+    mov     rsi, rdi
+    lea     rdi, [rip + g_gc_mk]
+    mov     rax, qword ptr [rdi + 40]
+    sub     rax, qword ptr [rdi + 32]
+    jle     .Lvr_no
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    mov     rbx, qword ptr [rdi + 32]
+    mov     r12, qword ptr [rdi + 48]
+    mov     r14, qword ptr [rdi + 72]
+    mov     r15, qword ptr [rdi + 96]
+    mov     r10, qword ptr [rsi]
+    MK_RAW rsi
+    mov     qword ptr [rdi + 32], rbx
+    mov     qword ptr [rdi + 96], r15
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    mov     eax, 1
+    ret
+.Lvr_no:
+    xor     eax, eax
+    ret
+RTX_ENDF(rt_gc_visit_raw_a)
+RTX_FUNC(rt_gc_visit_descr_a)
+    mov     eax, 1
+    test    rdi, rdi
+    je      .Lvd_ret
+    movzx   ecx, byte ptr [rdi]
+    lea     rdx, [rip + .Lmk_class]
+    cmp     byte ptr [rdx + rcx], 0
+    je      .Lvd_ret
+    lea     rdx, [rip + g_gc_mk]
+    cmp     qword ptr [rdx + 184], 0
+    je      .Lvd_no
+    mov     rcx, qword ptr [rdx + 8]
+    cmp     rcx, qword ptr [rdx + 16]
+    jae     .Lvd_no
+    mov     rsi, qword ptr [rdx]
+    mov     qword ptr [rsi + rcx*8], rdi
+    inc     rcx
+    mov     qword ptr [rdx + 8], rcx
+#if RT_DIAG
+    cmp     rcx, qword ptr [rdx + 120]
+    jle     .Lvd_ret
+    mov     qword ptr [rdx + 120], rcx
+#endif
+.Lvd_ret:
+    ret
+.Lvd_no:
+    xor     eax, eax
+    ret
+RTX_ENDF(rt_gc_visit_descr_a)
 .section .note.GNU-stack,"",@progbits

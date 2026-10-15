@@ -29,6 +29,8 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {
     { "rt_gc_ssum_run", RTCC_C_R10|RTCC_C_R11 },
     { "rt_gc_start_compact_run", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_gc_trail_run", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_gc_visit_descr_a", 0 },
+    { "rt_gc_visit_raw_a", RTCC_C_R10 },
     { "rt_gcheap_alloc", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_gen_spine_pass_γ", 0 },
     { "rt_gen_spine_pass_ω", 0 },
