@@ -3,8 +3,9 @@ RTX_GATE_DEF(misc)
 RTX_FUNC(rt_call_bid_sn4)
     RTX_GATE(misc, .Lcb_c)
     mov     rax, qword ptr [rip + g_error@GOTPCREL]
-    cmp     qword ptr [rax], 0
-    jne     .Lcb_c
+    mov     rax, qword ptr [rax]
+    add     rax, rax
+    jnz     .Lcb_c
     mov     rax, qword ptr [rip + kw_errlimit@GOTPCREL]
     cmp     qword ptr [rax], 0
     jne     .Lcb_c
