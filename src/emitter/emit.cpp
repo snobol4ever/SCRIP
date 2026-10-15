@@ -14,6 +14,7 @@ extern "C" int prolog_functor_arity(int);
 #include <unordered_set>
 #include <vector>
 #include <algorithm>
+#include <algorithm>
 #endif
 #ifdef __cplusplus
 extern "C" {
@@ -4207,6 +4208,7 @@ extern "C++" void emit_gc_site_play(int idx, const void * pc, int delta, int ali
     if (idx < 0 || (uint32_t)idx >= g_emitter.g_gc_sites_v.len) return;
     gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, idx);
     if (pc) e->pc = (uint64_t)(uintptr_t)pc;
+    else e->pc = ++g_emitter.g_gc_site_play_seq;
     if (e->kind == X86_SITE_MATCH_ENTER) { int ek = e->rule == 3 ? 3 : (e->rule == 1 ? 1 : (e->rule == 0 && !aligned && !unknown ? 0 : 5)); int ed = e->rule == 0 ? e->depth + delta : 0;
         if (g_emitter.g_gc_match_n == 0) { g_emitter.g_gc_match_out.enc_kind = ek; g_emitter.g_gc_match_out.enc_depth = ed; } g_emitter.g_gc_match_n++; e->depth = ed; e->mn = ek + 1; return; }
     if (e->kind == X86_SITE_MATCH_LEAVE) { if (g_emitter.g_gc_match_n > 0) g_emitter.g_gc_match_n--; return; }
@@ -4258,7 +4260,11 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
                 "\n .quad "
             + (g_emit.gc_code_lbl.name ? std::string(g_emit.gc_code_lbl.name) : std::string("0")) + "\n";
             emit_text_n(t.data(), t.size());
-        for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32);
+        int ord[n > 0 ? n : 1];
+        for (int i = 0; i < n; i++) ord[i] = i;
+        std::stable_sort(ord, ord + n, [](int a, int b) { return CV_AT(g_emitter.g_gc_sites_v, gc_site_t, a).pc < CV_AT(g_emitter.g_gc_sites_v, gc_site_t, b).pc; });
+        for (int k = 0; k < n; k++) { int i = ord[k]; gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i);
+            uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32);
             t = " .quad " + emit_gc_site_label(i) + "\n .quad " + std::to_string((unsigned long long)w) + "\n"; emit_text_n(t.data(), t.size()); }
         g_emitter.g_gc_sites_last_off = 0;
     } else {

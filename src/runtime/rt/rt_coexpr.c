@@ -113,7 +113,7 @@ static void scrip_co_thread_start(scrip_coctx_t *new_ctx) {
     new_ctx->alive = 1;
 }
 void scrip_coexpr_trampoline_entry(void *arg);
-void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
+void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first, uint64_t epc, char *efp) {
     scrip_co_init_once(old);
     const int _inh_ctx = new_ctx && new_ctx->inherit_scan;
     { extern void *rt_scan_state_capture(void *); old->scan_state = rt_scan_state_capture(old->scan_state); }
@@ -128,7 +128,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
         }
     }
     __asm__ volatile ("mov %%rsp, %0\n\tmov %%rbp, %1" : "=m"(old->park_sp), "=m"(old->park_rbp));
-    { extern void rt_gc_park_site(uint64_t *, char **, char **); rt_gc_park_site(&old->park_pc, &old->park_r, &old->park_srbp); }
+    { extern void rt_gc_park_site_at(uint64_t *, char **, char **, uint64_t, char *, char *); rt_gc_park_site_at(&old->park_pc, &old->park_r, &old->park_srbp, epc, efp + 16, *(char **)efp); }
     { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }
     sem_post(new_ctx->semp);
     while (sem_wait(old->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in scrip_coswitch");
@@ -192,7 +192,7 @@ void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
     scrip_co_trace_term(me, back, d0, d1, 0);
 #endif
     scrip_co_current = back;
-    scrip_coswitch(me, back, 1);
+    scrip_coswitch(me, back, 1, (uint64_t)(uintptr_t)__builtin_return_address(0), (char *)__builtin_frame_address(0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_cofail(void) {
@@ -205,7 +205,7 @@ void scrip_cofail(void) {
     scrip_co_trace_term(me, back, 0, 0, 1);
 #endif
     scrip_co_current = back;
-    scrip_coswitch(me, back, 1);
+    scrip_coswitch(me, back, 1, (uint64_t)(uintptr_t)__builtin_return_address(0), (char *)__builtin_frame_address(0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_coexpr_trampoline_entry(void *arg) {
@@ -363,7 +363,7 @@ int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint6
     co_xmit_set(&target->xmit, x0, x1);
     { extern long g_line; self->cur_line = g_line; if (!target->alive && target->create_line > 0) g_line = target->create_line; }
     scrip_co_current = target;
-    scrip_coswitch(self, target, first);
+    scrip_coswitch(self, target, first, (uint64_t)(uintptr_t)__builtin_return_address(0), (char *)__builtin_frame_address(0));
     scrip_co_current = prev;
     { extern long g_line; if (self->cur_line > 0) g_line = self->cur_line; }
     if (target->dead) return 0;

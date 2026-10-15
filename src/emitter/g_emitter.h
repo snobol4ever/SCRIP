@@ -234,6 +234,7 @@ struct g_emitter_t {
     int g_gc_match_n = 0;
     cv_t g_gc_sites_offs_v;
     int emit_gc_sites_data_seq = 0;
+    uint64_t g_gc_site_play_seq = 0;
     int gc_maps_report_on_v = -1;
     int gc_maptab_plant_on_v = -1;
     bb_label_t **codegen_flat_chain_body_alt_tr = 0;

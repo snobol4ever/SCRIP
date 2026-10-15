@@ -2424,6 +2424,11 @@ void rt_gc_park_site(uint64_t *pc, char **r, char **rbp) {
     *r = (char *)(uintptr_t)cr;
     *rbp = (char *)(uintptr_t)crbp;
 }
+void rt_gc_park_site_at(uint64_t *pc, char **r, char **rbp, uint64_t epc, char *er, char *erbp) {
+    const gc_site_ent_t *e = (const gc_site_ent_t *)0;
+    if (epc && gc_site_find(epc, &e) && e) { *pc = epc; *r = er; *rbp = erbp; return; }
+    rt_gc_park_site(pc, r, rbp);
+}
 static gc_ent_t gc_park_ent(const scrip_coctx_t *sc, const char *lo, const char *prbp) {
     if (sc && sc->park_pc) return (gc_ent_t){ (const void *)(uintptr_t)sc->park_pc, sc->park_r, sc->park_srbp };
     return (gc_ent_t){ (const void *)0, lo, prbp };
