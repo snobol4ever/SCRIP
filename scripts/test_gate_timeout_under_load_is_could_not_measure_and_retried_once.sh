@@ -64,7 +64,7 @@ a, d = once_then_answer(w + "/a3"); v = h.classify(a, 1, "ok", cwd=d)
 print("ARM3", v.kind, runs(d), getattr(v, "retry", "") or "-")
 os.environ["FANOUT_PROC"] = w + "/hot"
 os.makedirs(w + "/a4", exist_ok=True)
-v = h.classify(["bash", "-c", "echo run >> runs; sleep 5"], 1, "ok", cwd=w + "/a4")
+v = h.classify(["bash", "-c", "echo run >> runs; sleep 8"], 1, "ok", cwd=w + "/a4")   # longer than the retry's limit, lib_timeout_retry.longer(1) = 6 s
 print("ARM4", v.kind, runs(w + "/a4"), "twice" if "twice" in v.detail else "once", getattr(v, "retry", "") or "-")
 v5 = h.Verdict("FAIL", b"x", b"", 1)
 try:
@@ -98,7 +98,7 @@ else ck no "arm 6: rc=$r6 runs=$n6 out=[$(printf '%s' "$o6" | tr '\n' '|')] stam
 o7="$(cd "$W/t7" && printf 'hello\n' | FANOUT_PROC="$W/cool" S4E_TIMEOUT_STAMP="$W/t7.stamp" "$TR" 1 bash -c "$P" 2>&1)"; r7=$?
 n7="$(wc -l < "$W/t7/runs" 2>/dev/null)"
 st7="$(cat "$W/t7.stamp" 2>/dev/null)"
-if [ "$r7" = 0 ] && [ "$n7" = 2 ] && [[ "$st7" == *"retried=1 load1=0.10/0.10 nproc="*" at=6s" ]]; then ck ok "the tool under a cool load: retried at the longer 6 s limit, rc 0, run twice, stamped"
+if [ "$r7" = 0 ] && [ "$n7" = 2 ] && [[ "$st7" == *"retried=1 load1=0.10/0.10 nproc="*" at=6s stdin-not-replayed" ]]; then ck ok "the tool under a cool load: retried at the longer 6 s limit, rc 0, run twice, stamped (a piped stdin is named as not replayed)"
 else ck no "arm 7: rc=$r7 runs=$n7 stamp=[$st7]"; fi
 o8="$(cd "$W/t8" && printf 'hello\n' | FANOUT_PROC="$W/hot" S4E_TIMEOUT_RETRY=0 S4E_TIMEOUT_STAMP="$W/t8.stamp" "$TR" 1 bash -c "$P" 2>&1)"; r8=$?
 n8="$(wc -l < "$W/t8/runs" 2>/dev/null)"
