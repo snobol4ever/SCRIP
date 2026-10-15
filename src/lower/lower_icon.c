@@ -3066,6 +3066,14 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_progname_used(const tree_t * n);
+static int icn_progname_used_once(const tree_t * prog) {
+    if (prog != g_lower.icn.icn_progname_as_global_done_prog) {
+        g_lower.icn.icn_progname_as_global_done_prog = prog;
+        g_lower.icn.icn_progname_as_global_used = icn_progname_used(prog);
+        if (g_lower.icn.icn_progname_as_global_used) global_register("__icn_progname");
+    }
+    return g_lower.icn.icn_progname_as_global_used;
+}
 static void icn_collect_own_globals(const tree_t * prog, lc_vec * out) {
     for (int i = 0; prog && i < prog->n; i++) {
         const tree_t * s = prog->c[i];
@@ -3074,7 +3082,7 @@ static void icn_collect_own_globals(const tree_t * prog, lc_vec * out) {
         if (!s) continue;
         if (s->t == TT_GLOBAL) for (int k = 0; k < s->n; k++) if (s->c[k] && s->c[k]->v.sval) lc_vec_push(out, &s->c[k]->v.sval);
     }
-    if (icn_progname_used(prog)) { const char * pg = "__icn_progname"; lc_vec_push(out, &pg); }
+    if (icn_progname_used_once(prog)) { const char * pg = "__icn_progname"; lc_vec_push(out, &pg); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_collect_implicit_locals(const tree_t * n, const char ** excl, int nexcl, lc_vec * out) {
@@ -3107,12 +3115,7 @@ static void icn_rewrite_progname(tree_t * n) {
     for (int i = 0; i < n->n; i++) icn_rewrite_progname(n->c[i]);
 }
 static void icn_progname_as_global(const tree_t * prog, const tree_t * pd) {
-    if (prog != g_lower.icn.icn_progname_as_global_done_prog) {
-        g_lower.icn.icn_progname_as_global_done_prog = prog;
-        g_lower.icn.icn_progname_as_global_used = icn_progname_used(prog);
-        if (g_lower.icn.icn_progname_as_global_used) global_register("__icn_progname");
-    }
-    if (!g_lower.icn.icn_progname_as_global_used || !pd || pd->n < 3 || !pd->c[2]) return;
+    if (!icn_progname_used_once(prog) || !pd || pd->n < 3 || !pd->c[2]) return;
     tree_t * body = (tree_t *) pd->c[2];
     icn_rewrite_progname(body);
     if (!pd->v.sval || strcmp(pd->v.sval, "main")) return;
