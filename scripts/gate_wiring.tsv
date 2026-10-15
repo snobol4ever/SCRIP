@@ -225,6 +225,7 @@ test_gate_gc_the_keyword_csets_survive_a_collection.sh	WIRED	-	-	-
 test_gate_gc_the_lowerer_registries_are_rooted_not_malloced.sh	WIRED	-	-	-
 test_gate_gc_the_mark_walk_is_a_worklist_not_recursion_per_cell.sh	WIRED	-	-	-
 test_gate_gc_the_name_save_stack_and_the_eval_tables_are_rooted_not_moved_off_the_heap.sh	WIRED	-	-	-
+test_gate_gc_the_parser_module_and_the_user_program_each_adopt_their_own_program_top.sh	WIRED	-	-	-
 test_gate_gc_the_pending_prolog_ball_is_a_rooted_cell.sh	WIRED	-	-	-
 test_gate_gc_the_plant_says_whether_it_applied.sh	WIRED	-	-	-
 test_gate_gc_the_poll_is_a_register_preserving_asm_leaf.sh	WIRED	-	-	-

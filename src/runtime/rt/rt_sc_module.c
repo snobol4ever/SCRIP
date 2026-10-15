@@ -140,7 +140,7 @@ void rt_sc_module_parse_end(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __asm__(".globl rt_sc_outer_call\n.type rt_sc_outer_call, @function\n" "rt_sc_outer_call:\n" "  push %rbp\n  mov %rsp, %rbp\n  push %rbx\n  push %r12\n  push %r13\n  push %r14\n  push %r15\n"
-    "  sub $8, %rsp\n  sub $1048576, %rsp\n  and $-16, %rsp\n  mov %rdi, %rax\n  push %rax\n  push %rax\n  lea 16(%rsp), %rdi\n  call rt_program_top_adopt@PLT\n  pop %rax\n  pop %rax\n"
+    "  sub $8, %rsp\n  sub $1048576, %rsp\n  and $-16, %rsp\n  mov %rdi, %rax\n  push %rax\n  push %rax\n  mov %rsp, %rdi\n  call rt_program_top_adopt@PLT\n  pop %rax\n  pop %rax\n"
     "  mov 0x70000000, %r12\n  movq rtccb@GOTPCREL(%rip), %r10\n  movq 48(%r10), %r9\n  leaq 1f(%rip), %rcx\n  push %rcx\n  push %rcx\n  xor %esi, %esi\n  xor %r13d, %r13d\n  xor %r14d, %r14d\n"
     "  xor %r15d, %r15d\n  jmp *%rax\n" "1:\n" "  leaq 1b(%rip), %rcx\n  mov (%rsp), %rax\n  cmp %rax, %rcx\n  jne 2f\n  add $8, %rsp\n" "2:\n"
     "  lea -40(%rbp), %rsp\n  pop %r15\n  pop %r14\n  pop %r13\n  pop %r12\n  pop %rbx\n  pop %rbp\n  ret\n" ".size rt_sc_outer_call, .-rt_sc_outer_call\n");

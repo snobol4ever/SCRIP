@@ -1896,7 +1896,7 @@ char *rt_gc_program_top_get(void) { return g_gc_program_top; }
 void rt_gc_program_top_set(char *top) { g_gc_program_top = top; }
 static int g_gc_seg_main = 0;
 static const gc_frame_map_t *gc_root_map(void) {
-    for (int i = 0; i < g_gc_maps_n; i++) if (g_gc_maps[i] && (g_gc_maps[i]->flags & GC_FRAME_MAP_ROOT)) return g_gc_maps[i];
+    for (int i = g_gc_maps_n - 1; i >= 0; i--) if (g_gc_maps[i] && (g_gc_maps[i]->flags & GC_FRAME_MAP_ROOT)) return g_gc_maps[i];
     return (const gc_frame_map_t *)0;
 }
 void rt_program_top_adopt(char *entry_sp) {
@@ -2380,7 +2380,8 @@ static const gc_site_blk_t *gc_code_block_of(uint64_t pc) {
     return (const gc_site_blk_t *)0;
 }
 static const gc_site_blk_t *gc_root_block(void) {
-    for (int i = 0; i < g_gc_sblk_n; i++) if (g_gc_sblk[i].map && (g_gc_sblk[i].map->flags & GC_FRAME_MAP_ROOT)) return &g_gc_sblk[i];
+    const gc_frame_map_t *r = gc_root_map();
+    for (int i = 0; r && i < g_gc_sblk_n; i++) if (g_gc_sblk[i].map == r) return &g_gc_sblk[i];
     return (const gc_site_blk_t *)0;
 }
 static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *rbp, const char *seg_top) {
