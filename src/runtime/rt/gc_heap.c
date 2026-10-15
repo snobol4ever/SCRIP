@@ -1659,30 +1659,14 @@ static int gc_phdr_cb(struct dl_phdr_info *info, size_t sz, void *data) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_static_segs_init(void) { if (g_gc_nseg >= 0) return; g_gc_nseg = 0; dl_iterate_phdr(gc_phdr_cb, (void *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#if RT_DIAG
-static void gc_platom_plant(void);
-#endif
-void rt_gcheap_warmup(void) {
-    gc_static_segs_init();
-#if RT_DIAG
-    if (gc_diag_on()) gc_platom_plant();
-#endif
-}
+void rt_gcheap_warmup(void) { gc_static_segs_init(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void *__libc_stack_end;
-#if RT_DIAG
-static int gc_plant_stack_label(void) {
-    static int v = -1, said = 0;
-    if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_STACK_LABEL"); v = (e && *e && *e != '0') ? 1 : 0; }
-    if (v && !said) { said = 1; fprintf(stderr, "[GC-STACKLABEL] plant: the main stack's top is read from the [stack] label alone and never from the mapping holding __libc_stack_end\n"); }
-    return v;
-}
-#endif
 _Static_assert(sizeof(void *) == 8,
     "THE MAIN STACK IS THE MAPPING HOLDING __libc_stack_end, NOT THE MAPPING LABELLED [stack] (cto, 2026-09-24, row gc-the-main-stack-top-is-the-mapping-holding-libc-stack-end-...; hq_icon's and hq_"
     "prolog's findings): under valgrind the [stack] line of /proc/self/maps is the HOST's stack while the client's frames live in an unlabelled mapping, so a walk from the mutator's floor to the lab"
     "elled top crossed unmapped ground and every collecting run died rc=139 in the frame walk; glibc's __libc_stack_end is the entry rsp in both settings and the mapping containing it is the real st"
-    "ac" "k in both; the label is the fallback only when no mapping contains it; SCRIP_GC_PLANT_STACK_LABEL=1 restores the label-only read as the plant");
+    "ac" "k in both; the label is the fallback only when no mapping contains it");
 static int gc_maps_line(FILE *f, unsigned long *a, unsigned long *b, char *pm, int *is_stack) {
     static const char want[] = "[stack]";
     int c, k = 0;
@@ -1694,7 +1678,7 @@ static int gc_maps_line(FILE *f, unsigned long *a, unsigned long *b, char *pm, i
 static void gc_stack_region(char **lo, char **hi) {
 #if RT_DIAG
     FILE *f = fopen("/proc/self/maps", "r");
-    unsigned long a = 0, b = 0, la = 0, lb = 0, e = gc_plant_stack_label() ? 0 : g_gc_stktop ? (unsigned long)(g_gc_stktop - 1) : (unsigned long)__libc_stack_end;
+    unsigned long a = 0, b = 0, la = 0, lb = 0, e = g_gc_stktop ? (unsigned long)(g_gc_stktop - 1) : (unsigned long)__libc_stack_end;
 #else
     FILE *f = fopen("/proc/self/maps", "r");
     unsigned long a = 0, b = 0, la = 0, lb = 0, e = g_gc_stktop ? (unsigned long)(g_gc_stktop - 1) : (unsigned long)__libc_stack_end;
@@ -1764,13 +1748,8 @@ char *rt_gc_program_stack_top(void) { return g_gc_program_top ? g_gc_program_top
 _Static_assert(sizeof(void *) == 8,
     "A PARKED STACK IS A SEGMENT FROM ITS RECORDED STACK POINTER, NOT FROM ITS MAPPING (cto, 2026-09-23, row gc-heap-growth-...; law CEO-812 THE COLLECTOR GUESSES NOTHING): scrip_coswitch records rs"
     "p in park_sp before it posts the semaphore, every word of the mutator's lives at or above it, and the words below it are glibc's sem_wait frames -- the whole-mapping walk read those raw words a"
-    "s cells (the accident test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh names) and cost geddump 5.5 s per collection walking 8 MB per parked co-expression; SCR"
-    "IP_GC_COEXPR_PLANT=3 restores the whole-mapping walk as the plant");
-#if RT_DIAG
-static char *gc_seg_parked_lo(scrip_coctx_t *c, char *lo) { return (scrip_co_gc_plant() != 3 && c->park_sp && c->park_sp > lo) ? c->park_sp : lo; }
-#else
+    "s cells (the accident test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh names) and cost geddump 5.5 s per collection walking 8 MB per parked co-expression");
 static char *gc_seg_parked_lo(scrip_coctx_t *c, char *lo) { return (c->park_sp && c->park_sp > lo) ? c->park_sp : lo; }
-#endif
 static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop) {
     if (it->stage == 0) {
         it->stage = 1;
@@ -1939,24 +1918,6 @@ static int gc_sniff_would_take(const DESCR_t *d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gc_tag_known(uint8_t v);
 #if RT_DIAG
-static void gc_platom_plant(void) {
-    DESCR_t a;
-    char probe;
-    int bad = 0;
-    memset(&a, 0, sizeof a);
-    a.v = (uint8_t)DT_PLATOM;
-    a.i = 0x8e;
-    if (gc_type_says_ref(&a) || gc_sniff_would_take(&a)) bad |= 1;
-    a.p = (void *)&probe;
-    if (gc_type_says_ref(&a) || gc_sniff_would_take(&a)) bad |= 2;
-    if (!gc_tag_known((uint8_t)DT_PLATOM)) bad |= 4;
-    if (bad) {
-        fprintf(stderr,
-            "[GC-PLATOM-PLANT] RED %d: a DT_PLATOM cell (a Prolog atom id, ARCH-PROLOG-BB-REWRITE.md section 3) read as a reference or as an unknown tag -- the collector would follow an atom id as a"
-            " pointer\n", bad);
-        abort();
-    }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_maps_report_range(const char *lo0, const char *hi0) {
     char *lo = (char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = (char *)hi0;
@@ -2713,7 +2674,7 @@ static const char *gc_chain_stopname(int k) {
     }
 }
 typedef struct { gc_chf_t *v; long n, cap; } gc_gap_t;
-typedef struct { const char *lo, *hi, *p, *prevbase, *lastname, *roottop; long n; int run, visit, stop, plant; rt_gc_frame_fn fn; void *a; gc_chf_t lastf; gc_gap_t gap; } gc_sw_t;
+typedef struct { const char *lo, *hi, *p, *prevbase, *lastname, *roottop; long n; int run, visit, stop; rt_gc_frame_fn fn; void *a; gc_chf_t lastf; gc_gap_t gap; } gc_sw_t;
 static void gc_gap_open(gc_gap_t *g) {
     g->cap = 24;
     g->v = (gc_chf_t *)gcbk_alloc((size_t)g->cap * sizeof *g->v);
@@ -2890,7 +2851,6 @@ static int gc_sw_links(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char *g
             long d;
             if (!v) continue;
             if (f->rule == -1 && !f->link && (v < s->lo || v >= s->hi)) continue;
-            if (s->plant) { v += 16; s->plant = 0; }
             if (lk == GC_LAY_PTR_FRAME_H) {
                 hdr = v;
                 if (hdr < s->lo || hdr + 48 > s->hi || hdr >= f->base) why = "the generator header lies outside the segment or not below the frame that links it";
@@ -3005,7 +2965,6 @@ static void gc_sw_go(gc_sw_t *s, const char *lo0, const char *hi0, const gc_ent_
     s->fn = fn;
     s->a = a;
     s->lastname = "-";
-    s->plant = gc_chain_check_on() && getenv("SCRIP_GC_PLANT_FRAME_LINK") != (char *)0;
     gc_gap_open(&s->gap);
     if (ent) gc_sw_run(s, ent, sc);
     if (img && img >= s->lo && img < s->hi && (!s->n || s->prevbase < img) && s->stop != 9) { gc_chf_t f = { img, (const gc_frame_map_t *)sc->image_map, 0, -1, 0 }; gc_sw_chain_frame(s, &f); }
@@ -3518,8 +3477,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
         {
             long ion = 0, ioff = 0;
             scrip_co_gc_images(&ion, &ioff);
-            fprintf(stderr, "[GC-COEXPR] ctxs=%ld parked=%ld sigma=%ld images_on_stack=%ld images_off_stack=%ld plant=%d\n", g_gc_co_ctxs, g_gc_co_parked, g_gc_co_sigma, ion, ioff,
-                scrip_co_gc_plant());
+            fprintf(stderr, "[GC-COEXPR] ctxs=%ld parked=%ld sigma=%ld images_on_stack=%ld images_off_stack=%ld\n", g_gc_co_ctxs, g_gc_co_parked, g_gc_co_sigma, ion, ioff);
         }
     }
     g_gc_blob_frames = g_gc_blob_entries = g_gc_blob_descr = g_gc_blob_ptr = g_gc_blob_raw = g_gc_blob_code = g_gc_blob_raw_in_heap = 0;

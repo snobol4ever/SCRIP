@@ -14,14 +14,15 @@
 # ARMS: (1) the witness (q/2 holds a heap term across a pending member/2 choice while its caller churns, then backtracks
 # into it), mode 3 and mode 4, at SCRIP_GC_STRESS=1 and 3 under SCRIP_GC_CHAIN_CHECK=3: swipl's answer, offchain-swept=0,
 # frame-links > 0, bad-link=0, the visitor differ=0 refused=0; (2) every Prolog gc_witness, both modes, stress 1:
-# offchain-swept=0 and bad-link=0; (3) PLANTED: SCRIP_GC_PLANT_FRAME_LINK=1 displaces a followed link by 16 bytes and the
-# walker REFUSES it by name ("is not a site of the frame that links it") and the collection dies on the chain's refusal (the chain is the only walk, ARCH-GC 13.9 ONE: a refusal is a fatal, so
-# the run prints no summary; the same run without the plant is whole); (4) the witness's --dump-zeta
+# offchain-swept=0 and bad-link=0; (3) RETIRED (hq_collector 2026-10-14, CEO-1680, the seams row): it displaced a followed link through the runtime plant
+# SCRIP_GC_PLANT_FRAME_LINK and read the refusal -- a seam in SCRIP that existed only so this arm could trip. The refusal road's proper
+# fail-once is a witness red on the commit before its cure: vmin.pl (tasks/gc_prolog_act_word_trailed_past_an_older_choice.witness.sh)
+# died by FRAME-LINK REFUSED bad-link on 19f0479c4, the parent of 8d632491b, in both modes; (4) the witness's --dump-zeta
 # types callgen.act +0 PTR_FRAME.
 # ICON (hq_collector 2026-10-11, the cto's H-form condition met by hq_zetas' 50f4604e6): the callgen act +8 word of an Icon generator call is zero or H, the callee's retained generator frame
 # (GC_LAY_PTR_FRAME_H); the walker takes the resume cell at H+32, requires a generator graph, derives the base as H minus the map's frame_bytes, and validates it like a Prolog link.
-# ARMS: (5) hb_coexpr_parked and hb_coexpr_genp_scan, both modes, stress 1: offchain-swept=0, bad-link=0, frame-links > 0; (6) PLANTED: SCRIP_GC_PLANT_FRAME_LINK=1 displaces the followed H word
-# and the walker refuses it by name. The release half: bb_bound.cpp's unmark arms zero the slots below the restored rsp.
+# ARMS: (5) hb_coexpr_parked and hb_coexpr_genp_scan, both modes, stress 1: offchain-swept=0, bad-link=0, frame-links > 0; (6) RETIRED with (3) (the same plant on the H word);
+# arm (5) reads red on the parent of 35d99ead0, where no H link was followed. The release half: bb_bound.cpp's unmark arms zero the slots below the restored rsp.
 # Red on SCRIP 7fd180c09 (before the landing): arm (1) reads offchain-swept=26700, arm (2) 627 over 5 witnesses.
 # (7) the redo road (hq_prolog's xsb basics abort, 2026-10-14): a call box resumed through its act word into a dynamic predicate whose
 # next clause runs in a different frame left the act word naming the released clause frame until the callee returned; the chain
@@ -82,14 +83,6 @@ for f in "$ROOT"/scripts/gc_witnesses/*.pl; do
     else ck no "(2) $b mode $m: offchain-swept=${oc:-?} bad-link=${bl:-?} -- a Prolog frame is off the chain and off every typed link"; fi
   done
 done
-planted() { ( cd "$W" && run_env SCRIP_GC_STRESS=1 ${1:+SCRIP_GC_PLANT_FRAME_LINK=1} timeout 300 "$SCRIP" "$2" > /dev/null 2> ep < /dev/null ); }
-planted 1 w.pl; prc=$?
-if [ "$prc" != 0 ] && grep -aq 'FRAME-LINK REFUSED: the target.s return word is not a site of the frame that links it' "$W/ep" && grep -aq 'REFUSED: the chain over the maps stops short (bad-link)' "$W/ep"; then
-  ck ok "(3) PLANTED: a link displaced by 16 bytes is refused by name and the collection dies on it (rc $prc), never followed"
-else ck no "(3) PLANTED: rc=$prc and no named refusal -- a link that does not name a frame was followed or skipped"; fi
-planted "" w.pl; urc=$?
-if [ "$urc" = 0 ] && ! grep -aq 'FRAME-LINK REFUSED' "$W/ep"; then ck ok "(3) the same run without the plant is whole (rc 0, no refusal), so the planted arm can fail"
-else ck no "(3) the same run without the plant refuses (rc $urc): the planted arm would read red for another reason"; fi
 build4i() {
   local src="$1" b="$2"
   ( cd "$W" && timeout 300 "$SCRIP" --compile -o "$b.s" "$src" > /dev/null 2> "$b.c4" < /dev/null ) || refuse "mode 4 could not compile $src: $(head -c 200 "$W/$b.c4")"
@@ -105,26 +98,6 @@ for b in hb_coexpr_parked hb_coexpr_genp_scan; do
     oc="$(num "$s" offchain-swept)"; bl="$(num "$s" bad-link)"; fl="$(num "$s" frame-links)"
     if [ -n "$s" ] && [ "$oc" = 0 ] && [ "$bl" = 0 ] && [ "${fl:-0}" -gt 0 ]; then ck ok "(5) Icon $b mode $m: offchain-swept=0 bad-link=0 ($fl generator frame link(s) followed through act +8 H)"
     else ck no "(5) Icon $b mode $m: offchain-swept=${oc:-?} bad-link=${bl:-?} frame-links=${fl:-?} -- a retained Icon generator frame is off the chain and off every typed H link"; fi
-  done
-done
-planted 1 "$ROOT/scripts/gc_witnesses/hb_coexpr_parked.icn"; prc=$?
-if [ "$prc" != 0 ] && grep -aq 'FRAME-LINK REFUSED' "$W/ep" && grep -aq 'REFUSED: the chain over the maps stops short (bad-link)' "$W/ep"; then ck ok "(6) PLANTED: an Icon H link displaced by 16 bytes is refused by name and the collection dies on it (rc $prc), never followed"
-else ck no "(6) PLANTED: Icon rc=$prc and no named refusal -- a displaced H word was followed or skipped"; fi
-planted "" "$ROOT/scripts/gc_witnesses/hb_coexpr_parked.icn"; urc=$?
-if [ "$urc" = 0 ] && ! grep -aq 'FRAME-LINK REFUSED' "$W/ep"; then ck ok "(6) the same Icon run without the plant is whole (rc 0, no refusal), so the planted arm can fail"
-else ck no "(6) the same Icon run without the plant refuses (rc $urc): the planted arm would read red for another reason"; fi
-rw="$ROOT/scripts/gc_witnesses/hb_pl_a_redo_into_a_later_clause_leaves_no_stale_frame_link"
-[ -f "$rw.pl" ] && [ -f "$rw.ref" ] || refuse "no redo witness $rw.pl/.ref"
-build4 "$rw.pl" rw
-for st in 1 3; do
-  for m in 3 4; do
-    if [ "$m" = 3 ]; then ( cd "$W" && run_env SCRIP_GC_STRESS=$st timeout 300 "$SCRIP" "$rw.pl" > o 2> e < /dev/null ); else ( cd "$W" && run_env SCRIP_GC_STRESS=$st timeout 300 ./rw.x > o 2> e < /dev/null ); fi
-    rrc=$?
-    if [ "$rrc" = 0 ] && cmp -s "$W/o" "$rw.ref" && ! grep -aq 'FRAME-LINK REFUSED\|REFUSED: the chain over the maps' "$W/e"; then
-      ck ok "(7) mode $m stress $st: a call box redone into a dynamic predicate's later clause (a larger frame) answers swipl's $(head -c 20 "$rw.ref" | tr -d '\n') with no stale act word refused"
-    else
-      ck no "(7) mode $m stress $st: rc=$rrc answer $(head -c 30 "$W/o" | tr '\n' ' ')$(grep -ao 'link-below-gap\|bad-link' "$W/e" | head -1) -- the redo path left the act word naming the released clause frame"
-    fi
   done
 done
 z="$(cd "$W" && "$SCRIP" --dump-zeta w.pl < /dev/null 2>/dev/null | grep -c 'PTR_FRAME callgen.act +0')"

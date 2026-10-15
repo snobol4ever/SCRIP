@@ -38,6 +38,9 @@
 # witness.  FAIL_ONCE switches the ceiling off too, since arm (a) is the plain witness.  The masking itself is REPORTED, never
 # graded here: test_gate_gc_the_stack_walk_stops_at_the_outermost_emitted_frame.sh grades the ceiling.  In mode 4 the plant never
 # applies (no banner: a compiled program runs on a stack it maps itself and adopts its top), so every plant arm is mode 3.
+# RE-CUT AGAIN (hq_collector 2026-10-14, CEO-1680, the seams row): the plant SCRIP_GC_PLANT_STACK_LABEL is DELETED from the runtime -- it restored the label-only read so arm (c) could
+# watch the loss return, a seam in SCRIP that existed only so a test could trip. Arm (c) and its note are retired; FAIL_ONCE=1 now grades arm (a) against a corrupted ref. The property's own
+# commit-before reading stands in the header above: on 47fe713dd both modes died rc=139 under valgrind. Arms (a), (b) and (d) stand.
 # RE-CUT at ARCH-GC section 13 STEP B (hq_collector 2026-10-11): the ceiling (rt_gc_emit_ceiling_adopt, SCRIP_GC_CEILING) is gone with the marker scan; the main segment is
 # bounded by the program top recorded at entry (rt_program_top_adopt) and the chain ends at the ROOT frame, so the fallback arm (c2) that switched the ceiling off and the
 # SCRIP_GC_CEILING=0 half of the FAIL_ONCE plant are deleted. Arms (a), (b), (c) and (d) stand.
@@ -50,14 +53,15 @@ command -v valgrind >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: valgrind
 W="$ROOT/scripts/gc_witnesses/stack_top_under_valgrind"
 [ -s "$W.icn" ] && [ -s "$W.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: witness or .ref missing under gc_witnesses"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
-RC=0; plant=""; [ "${FAIL_ONCE:-0}" = 1 ] && plant="SCRIP_GC_PLANT_STACK_LABEL=1"
+RC=0; plant=""
+REF="$W.ref"; if [ "${FAIL_ONCE:-0}" = 1 ]; then { cat "$W.ref"; echo corrupted-by-fail-once; } > "$T/ref.bad"; REF="$T/ref.bad"; fi
 LD="-L$ROOT/out -lscrip_rt -lm -Wl,-rpath,$ROOT/out"
 vgrun() { local tag="$1"; shift; ( cd "$T" && env -u SCRIP_HEAP_MB $plant SCRIP_HEAP_KB=128 timeout 600s valgrind --tool=none -q "$@" > "$tag.out" 2> "$tag.err" ); echo $?; }
 r3=$(vgrun m3 "$SCRIP" --run "$W.icn")
-if [ "$r3" = 0 ] && cmp -s "$T/m3.out" "$W.ref"; then echo "  arm (a) mode 3 PASS: rc=0, ref matched under valgrind at 128 KB"; else echo "  arm (a) mode 3 FAIL: rc=$r3 $(cmp -s "$T/m3.out" "$W.ref" && echo ref || echo DIFF) -- the stack walk died or misread under valgrind"; RC=1; fi
+if [ "$r3" = 0 ] && cmp -s "$T/m3.out" "$REF"; then echo "  arm (a) mode 3 PASS: rc=0, ref matched under valgrind at 128 KB"; else echo "  arm (a) mode 3 FAIL: rc=$r3 $(cmp -s "$T/m3.out" "$W.ref" && echo ref || echo DIFF) -- the stack walk died or misread under valgrind"; RC=1; fi
 if "$SCRIP" --compile "$W.icn" > "$T/w.s" 2>/dev/null && gcc -c "$T/w.s" -o "$T/w.o" 2>/dev/null && gcc "$T/w.o" $LD -o "$T/w4" 2>/dev/null; then
   r4=$(vgrun m4 "$T/w4")
-  if [ "$r4" = 0 ] && cmp -s "$T/m4.out" "$W.ref"; then echo "  arm (a) mode 4 PASS: rc=0, ref matched under valgrind at 128 KB"; else echo "  arm (a) mode 4 FAIL: rc=$r4 $(cmp -s "$T/m4.out" "$W.ref" && echo ref || echo DIFF)"; RC=1; fi
+  if [ "$r4" = 0 ] && cmp -s "$T/m4.out" "$REF"; then echo "  arm (a) mode 4 PASS: rc=0, ref matched under valgrind at 128 KB"; else echo "  arm (a) mode 4 FAIL: rc=$r4 $(cmp -s "$T/m4.out" "$W.ref" && echo ref || echo DIFF)"; RC=1; fi
 else echo "  arm (a) mode 4 FAIL: the witness did not compile and link"; RC=1; fi
 printf ':- initialization(main).\nmain :- write(hello), nl, halt.\n' > "$T/hw.pl"
 if "$SCRIP" --compile "$T/hw.pl" > "$T/hw.s" 2>/dev/null && gcc -no-pie "$T/hw.s" $LD -o "$T/hw.bin" 2>/dev/null; then
@@ -65,13 +69,6 @@ if "$SCRIP" --compile "$T/hw.pl" > "$T/hw.s" 2>/dev/null && gcc -no-pie "$T/hw.s
   inv=$(grep -c 'Invalid read' "$T/hw.err"); uni=$(grep -c 'uninitialised' "$T/hw.err")
   if [ "$rp" = 0 ] && [ "$(cat "$T/hw.out")" = hello ] && [ "$inv" = 0 ]; then echo "  arm (b) PASS: the mode-4 Prolog hello world exits 0 under memcheck, no Invalid read (uninitialised-value reports: $uni, the walker's tag search, counted not graded)"; else echo "  arm (b) FAIL: rc=$rp out='$(head -c 40 "$T/hw.out")' invalid_reads=$inv"; RC=1; fi
 else echo "  arm (b) FAIL: the Prolog hello world did not compile and link"; RC=1; fi
-CW="$ROOT/scripts/gc_witnesses/hb_coexpr_genp_scan"; CIN=/dev/null; [ -f "$CW.in" ] && CIN="$CW.in"
-[ -s "$CW.icn" ] && [ -s "$CW.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the parked-main witness hb_coexpr_genp_scan.icn or its .ref is missing"; exit 2; }
-( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_GC_CEILING SCRIP_GC_PLANT_STACK_LABEL=1 SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=1 timeout 600s valgrind --tool=none -q "$SCRIP" --run "$CW.icn" < "$CIN" > pc.out 2> pc.err ); rpc=$?
-( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_GC_CEILING SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=1 timeout 600s valgrind --tool=none -q "$SCRIP" --run "$CW.icn" < "$CIN" > nc.out 2> nc.err ); rnc=$?
-if { [ "$rpc" != 0 ] || ! cmp -s "$T/pc.out" "$CW.ref"; } && grep -q '^\[GC-STACKLABEL\] plant:' "$T/pc.err" && [ "$rnc" = 0 ] && cmp -s "$T/nc.out" "$CW.ref"; then echo "  arm (c) PASS: THE PARKED-MAIN SEGMENT, shipped configuration (ceiling on): under the plant the coexpression witness reds (rc=$rpc) with the GC-STACKLABEL banner, and without the plant it answers its ref"; else echo "  arm (c) FAIL: plant rc=$rpc banner=$(grep -c '^\[GC-STACKLABEL\] plant:' "$T/pc.err") $(cmp -s "$T/pc.out" "$CW.ref" && echo ref || echo DIFF) | no plant rc=$rnc $(cmp -s "$T/nc.out" "$CW.ref" && echo ref || echo DIFF) -- the stack top is no longer read on the parked-main segment, or the plant is inert, or the witness no longer parks main during a collection"; RC=1; fi
-( cd "$T" && env -u SCRIP_HEAP_MB -u SCRIP_GC_CEILING SCRIP_GC_PLANT_STACK_LABEL=1 SCRIP_HEAP_KB=128 timeout 600s valgrind --tool=none -q "$SCRIP" --run "$W.icn" > pm.out 2> pm.err ); rpm=$?
-echo "  note THE SECOND DEFENSE (reported, never graded here): under the plant with the ceiling ON the plain witness reads rc=$rpm $(cmp -s "$T/pm.out" "$W.ref" && echo ref || echo DIFF) -- the recorded ceiling bounds the main segment at the root frame, so the planted top is not walked there"
 if grep -q '__libc_stack_end' "$ROOT/src/runtime/rt/gc_heap.c"; then echo "  arm (d) PASS: gc_heap.c consults __libc_stack_end"; else echo "  arm (d) FAIL: gc_heap.c no longer consults __libc_stack_end"; RC=1; fi
-[ $RC = 0 ] && echo "GATE PASS [$G]: the collector's stack walk stays inside the real stack under valgrind in both modes and the plant brings the loss back on the parked-main segment (shipped) and on the main segment with the ceiling off" || echo "GATE FAIL [$G]"
+[ $RC = 0 ] && echo "GATE PASS [$G]: the collector's stack walk stays inside the real stack under valgrind in both modes" || echo "GATE FAIL [$G]: $RC arm(s) red"
 exit $RC

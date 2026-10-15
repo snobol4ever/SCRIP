@@ -51,12 +51,13 @@
 # (2) the three witnesses match their iconx-cut refs at SCRIP_GC_STRESS=1,3,5,8 under the shift plant in BOTH modes
 # (band printed). (3) EMISSION: every `call scrip_coexpr_activate` and `call scrip_coret` in the sigma witness's
 # mode-4 asm is followed by the global reload (call rt_scan_live_regs, then mov r13, rax and mov r15, rdx) and
-# carries no r13 spill before it. (4) THE GLOBAL'S VISIT IS LOAD-BEARING: with the parked sweep bounded at park_sp
-# (SCRIP_GC_COEXPR_PLANT=2 -- glibc's words excluded, the accident switched off) the sigma witness matches its ref,
-# and with gen_gc_roots' scan_subj visit dropped (SCRIP_GC_COEXPR_PLANT=3) it does not, both modes. (5) THE PACKAGE
-# HOLDS NO SUBJECT WORD: scrip_coexpr_entry_pkg_t has no r13/r15 field and no visitor reads one; hb_coexpr_create
-# (a co-expression created inside a scan, first activated after collections) matches its ref at every stress and
-# loses it at some stress per mode under SCRIP_GC_COEXPR_PLANT=3, so its inherited subject rides on the global.
+# carries no r13 spill before it. (4) THE GLOBAL'S VISIT IS LOAD-BEARING: the sigma witness matches its ref at every
+# stress in both modes (the parked sweep bounded at park_sp, glibc's words excluded). (5) THE PACKAGE HOLDS NO SUBJECT
+# WORD: scrip_coexpr_entry_pkg_t has no r13/r15 field and no visitor reads one; hb_coexpr_create (a co-expression created
+# inside a scan, first activated after collections) matches its ref at every stress. RE-CUT (hq_collector 2026-10-14, CEO-1680,
+# the seams row): arms 4 and 5 used to contrast with SCRIP_GC_COEXPR_PLANT=2/3, runtime switches that hid the contexts or dropped
+# the visit so the loss could be watched -- seams in SCRIP that existed only so these arms could trip; the plant is deleted and the
+# contrasts with it. FAIL_ONCE=1 grades arms 2, 4 and 5 against a corrupted ref.
 # (6) the reporter prints [GC-COEXPR] with sigma=0 on both witnesses (no Icon package holds a subject word; only the
 # generator record can) and reports the parked population. (7) the cross-file pin for the generator record's r13 word.
 #
@@ -88,7 +89,7 @@ rng=$(grep -c 'rt_gc_root_range_add((const char \*)new_ctx->stk_lo' "$ROOT/src/r
 if [ -n "$n" ] && [ "$n" -le 4 ] && [ "$spill" = 0 ] && [ "$rng" = 0 ]; then echo "  arm 1 PASS: gc_zeta_frame_calls=$n (11 at acbb36b00), gc_spill in 0 files, the coexpression stack is no longer a registered root range"
 else echo "  arm 1 FAIL: gc_zeta_frame_calls=${n:-unread} gc_spill_files=$spill stack_root_range_lines=$rng"; RC=1; fi
 band=""; bad=0
-for w in parked sigma create; do WIT="$WD/hb_coexpr_$w.icn"; ref="$(cat "$WD/hb_coexpr_$w.ref")"
+for w in parked sigma create; do WIT="$WD/hb_coexpr_$w.icn"; ref="$(cat "$WD/hb_coexpr_$w.ref")"; [ "${FAIL_ONCE:-0}" = 1 ] && ref="$ref corrupted-by-fail-once"
     m4build "$WIT" "$T/$w" || { echo "  arm 2 FAIL: $w does not build in mode 4"; RC=1; bad=1; continue; }
     for st in 1 3 5 8; do o3="$(run3 "$st")"; o4="$(run4 "$st" "$T/$w")"
         if [ "$o3" = "$ref" ] && [ "$o4" = "$ref" ]; then band="$band $w@$st:ok"; else band="$band $w@$st:m3=$([ "$o3" = "$ref" ] && echo ok || echo RED),m4=$([ "$o4" = "$ref" ] && echo ok || echo RED)"; bad=1; fi
@@ -104,29 +105,24 @@ while IFS= read -r ln; do
 done < <(grep -nE 'call +(scrip_coexpr_activate|scrip_coret)@PLT' "$T/sigma.s" | cut -d: -f1)
 if [ "$rec_ok" -gt 0 ] && [ "$rec_bad" = 0 ]; then echo "  arm 3 PASS: $rec_ok switch site(s) reload r13/r15 from the rooted global after the call (rt_scan_live_regs) and spill no r13 record before it"
 else echo "  arm 3 FAIL: sites with the global reload=$rec_ok without=$rec_bad"; RC=1; fi
-WIT="$WD/hb_coexpr_sigma.icn"; ref="$(cat "$WD/hb_coexpr_sigma.ref")"
+WIT="$WD/hb_coexpr_sigma.icn"; ref="$(cat "$WD/hb_coexpr_sigma.ref")"; [ "${FAIL_ONCE:-0}" = 1 ] && ref="$ref corrupted-by-fail-once"
 a4=""; a4bad=0; seen4_3=0; seen4_4=0
 for st in 1 3 5 8; do
-    w3="$(run3 "$st" SCRIP_GC_COEXPR_PLANT=2)"; w4="$(run4 "$st" "$T/sigma" SCRIP_GC_COEXPR_PLANT=2)"
-    n3="$(run3 "$st" SCRIP_GC_COEXPR_PLANT=3)"; n4="$(run4 "$st" "$T/sigma" SCRIP_GC_COEXPR_PLANT=3)"
+    w3="$(run3 "$st")"; w4="$(run4 "$st" "$T/sigma")"
     [ "$w3" = "$ref" ] && [ "$w4" = "$ref" ] || a4bad=1
-    [ "$n3" != "$ref" ] && seen4_3=1; [ "$n4" != "$ref" ] && seen4_4=1
-    a4="$a4 @$st:bounded=$([ "$w3" = "$ref" ] && echo ok || echo RED)/$([ "$w4" = "$ref" ] && echo ok || echo RED),novisit=$([ "$n3" != "$ref" ] && echo red || echo GREEN)/$([ "$n4" != "$ref" ] && echo red || echo GREEN)"
+    a4="$a4 @$st:$([ "$w3" = "$ref" ] && echo ok || echo RED)/$([ "$w4" = "$ref" ] && echo ok || echo RED)"
 done
-[ "$seen4_3" = 1 ] && [ "$seen4_4" = 1 ] || a4bad=1
 if [ "$a4bad" = 0 ]; then echo "  arm 4 PASS: with the parked sweep bounded at park_sp (glibc's words excluded) the subject survives the switch through the global's visit, and is lost when SCRIP_GC_COEXPR_PLANT=3 drops that visit, both modes --$a4"
 else echo "  arm 4 FAIL: the global's visit is not what keeps the subject right across the switch --$a4"; RC=1; fi
-WIT="$WD/hb_coexpr_create.icn"; ref="$(cat "$WD/hb_coexpr_create.ref")"
+WIT="$WD/hb_coexpr_create.icn"; ref="$(cat "$WD/hb_coexpr_create.ref")"; [ "${FAIL_ONCE:-0}" = 1 ] && ref="$ref corrupted-by-fail-once"
 pk=$(grep -cE 'typedef struct scrip_coexpr_entry_pkg_t \{[^}]*\b(r13|r15)\b' "$ROOT/src/runtime/rt/rt_coexpr.c"); pv=$(grep -c 'pkg->r13\|pkg->r15\|opkg->r13\|opkg->r15' "$ROOT/src/runtime/rt/rt_coexpr.c")
 a5=""; a5bad=0; seen_p3=0; seen_p4=0
 [ "$pk" = 0 ] && [ "$pv" = 0 ] || a5bad=1
 for st in 1 3 5 8; do
-    t3="$(run3 "$st")"; t4="$(run4 "$st" "$T/create")"; p3="$(run3 "$st" SCRIP_GC_COEXPR_PLANT=3)"; p4="$(run4 "$st" "$T/create" SCRIP_GC_COEXPR_PLANT=3)"
+    t3="$(run3 "$st")"; t4="$(run4 "$st" "$T/create")"
     [ "$t3" = "$ref" ] && [ "$t4" = "$ref" ] || a5bad=1
-    [ "$p3" != "$ref" ] && seen_p3=1; [ "$p4" != "$ref" ] && seen_p4=1
-    a5="$a5 @$st:global=$([ "$t3" = "$ref" ] && echo ok || echo RED)/$([ "$t4" = "$ref" ] && echo ok || echo RED),novisit=$([ "$p3" != "$ref" ] && echo red || echo GREEN)/$([ "$p4" != "$ref" ] && echo red || echo GREEN)"
+    a5="$a5 @$st:$([ "$t3" = "$ref" ] && echo ok || echo RED)/$([ "$t4" = "$ref" ] && echo ok || echo RED)"
 done
-[ "$seen_p3" = 1 ] && [ "$seen_p4" = 1 ] || a5bad=1
 if [ "$a5bad" = 0 ]; then echo "  arm 5 PASS: the Icon create package holds no subject word (struct fields=$pk, readers=$pv); a co-expression created inside a scan reads its inherited subject from the global at every stress, and SCRIP_GC_COEXPR_PLANT=3 loses it at some stress in both modes --$a5"
 else echo "  arm 5 FAIL: struct subject fields=$pk readers=$pv --$a5"; RC=1; fi
 rc6=$( ( cd "$T" && SCRIP_GC_MAPS=1 SCRIP_GC_PLANT_SHIFT=$SHIFT SCRIP_GC_STRESS=3 timeout 120 "$SCRIP" "$WD/hb_coexpr_create.icn" 2>&1 >/dev/null </dev/null ) | grep '^\[GC-COEXPR\]' | grep -oE 'sigma=[0-9]+' | sort -u | tr '\n' ' ')

@@ -37,11 +37,6 @@ _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, frame_bytes) == 48, "pkg layou
 _Static_assert(sizeof(DESCR_t) == 16,
     "the transmitted value is one 16-byte DESCR: bb_activate stages it as rsi:rdx and bb_coret as rdi:rsi, and scrip_coret/scrip_coexpr_activate write exactly those two words");
 static void co_xmit_set(DESCR_t *x, uint64_t d0, uint64_t d1) { uint64_t w[2]; w[0] = d0; w[1] = d1; memcpy(x, w, sizeof *x); }
-#if RT_DIAG
-int scrip_co_gc_plant(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_COEXPR_PLANT"); v = (e && *e) ? atoi(e) : 0; } return v; }
-#else
-int scrip_co_gc_plant(void) { return 0; }
-#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_uerror(const char *msg) { perror(msg); fprintf(stderr, "scrip_coexpr: fatal error, aborting\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -457,9 +452,6 @@ void scrip_co_gc_images(long *on_stack, long *off_stack) { if (on_stack) *on_sta
 long scrip_co_gc_visit_records(long *n_ctx, long *n_sigma) {
     long n = 0, ns = 0;
     scrip_coctx_t *c;
-#if RT_DIAG
-    if (scrip_co_gc_plant() == 1) { if (n_ctx) *n_ctx = 0; if (n_sigma) *n_sigma = 0; return 0; }
-#endif
     rt_gc_visit_descr(&g_root_ctx.xmit);
     n++;
     for (c = g_co_gc_head; c; c = c->gc_next) { rt_gc_visit_descr(&c->xmit); co_gc_visit_record(c, &ns); n++; }

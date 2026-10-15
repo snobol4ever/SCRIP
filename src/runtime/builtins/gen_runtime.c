@@ -413,10 +413,8 @@ DESCR_t rt_keyword_dump_set(DESCR_t v) {
 void gen_gc_roots(void) {
     extern void rt_gc_visit_descr(DESCR_t *d);
     extern void rt_gc_visit_raw(const char **loc);
-    extern int scrip_co_gc_plant(void);
-    const int drop_subj = scrip_co_gc_plant() == 3;
-    if (!drop_subj && g_scan_subj_ptr == g_scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);
-    if (!drop_subj) rt_gc_visit_raw(&g_scan_subj);
+    if (g_scan_subj_ptr == g_scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);
+    rt_gc_visit_raw(&g_scan_subj);
     { extern void rt_coexpr_gc_scan_states(void); rt_coexpr_gc_scan_states(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
