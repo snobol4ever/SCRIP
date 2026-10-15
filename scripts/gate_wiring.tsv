@@ -722,6 +722,7 @@ test_gate_pl_gnu_dialect_value_builtins_answer_as_gnu_prolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_fd_spelling_answers_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_global_variables_answer_as_gprolog_and_b_setval_links_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_gnu_read_token_from_text_answers_as_gprolog.sh	WIRED	-	-	-
+test_gate_pl_gnu_statistics_stacks_and_format_errors_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_terms_to_and_from_text_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_text_output_and_read_from_text_check_their_arguments_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_goal_expansion_reaches_meta_arguments_and_asserted_bodies_ending_in_true_answer_as_swipl.sh	WIRED	-	-	-

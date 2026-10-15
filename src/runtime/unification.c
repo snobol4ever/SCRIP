@@ -1659,6 +1659,11 @@ static void plc_fmt_radix(plc_fb *f, long long iv, int base, int upper) {
     plc_fb_add(f, outb, (size_t)oi);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *plc_fmt_exhausted(pl_cell_t all) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    return rt_pl_dialect_swi() ? rt_pl_ball_kind2("domain_error", "format_arguments", all) : rt_pl_ball_kind2("domain_error", "non_empty_list", pl_make_atom(ATOM_NIL));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
     extern void *rt_pl_ball_instantiation(void);
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
@@ -1692,7 +1697,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
         } else if (*p == '*') {
             pl_cell_t *h = plc_fmt_next_arg(&args);
             p++;
-            if (!h) { ball = rt_pl_ball_kind2("domain_error", "format_arguments", all); break; }
+            if (!h) { ball = plc_fmt_exhausted(all); break; }
             if (!plc_fmt_int(h, &nval, &ball)) break;
             have_n = 1;
             fill = (int)nval;
@@ -1701,16 +1706,17 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
             if (have_n) fill = (int)nval;
         }
         if (*p == ':') { colon = 1; p++; }
-        if (!*p) break;
+        if (!*p) { if (!rt_pl_dialect_swi()) ball = rt_pl_ball_kind2("domain_error", "format_control_sequence", plc_make_atom_cell("")); break; }
         if (*p == '~') { plc_fb_add(&f, "~", 1); continue; }
         if (*p == 'n') { long r = have_n ? nval : 1; for (long i = 0; i < r; i++) plc_fb_add(&f, "\n", 1); continue; }
         if (*p == 'N') { if (plc_fb_colat(&f, f.n)) plc_fb_add(&f, "\n", 1); continue; }
         if (*p == 't') { plc_fb_tab(&f, have_n ? fill : ' '); continue; }
         if (*p == '|') { plc_fb_stop(&f, have_n ? nval : (long)plc_fb_colat(&f, f.n)); continue; }
         if (*p == '+') { plc_fb_stop(&f, (long)plc_fb_colat(&f, f.seg) + (have_n ? nval : 8)); continue; }
+        if (!rt_pl_dialect_swi() && !strchr("acdDeEfgGikpqrRswW", *p)) { char cb[2] = { *p, 0 }; ball = rt_pl_ball_kind2("domain_error", "format_control_sequence", plc_make_atom_cell(cb)); break; }
         {
             pl_cell_t *h = plc_fmt_next_arg(&args);
-            if (!h) { ball = rt_pl_ball_kind2("domain_error", "format_arguments", all); break; }
+            if (!h) { ball = plc_fmt_exhausted(all); break; }
             if (*p == 'w') plc_fb_term(&f, h, 0, 0, 0);
             else if (*p == 'p') {
                 void *tb;
@@ -1733,6 +1739,11 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
             } else if (*p == 'c') {
                 long cv;
                 if (!plc_fmt_int(h, &cv, &ball)) break;
+                if (!rt_pl_dialect_swi() && (cv < 0 || cv > 0x10FFFF)) {
+                    extern void *rt_pl_ball_kind1(const char *, const char *);
+                    ball = rt_pl_ball_kind1("representation_error", "character_code");
+                    break;
+                }
                 { long r = have_n ? nval : 1; char c = (char)cv; for (long i = 0; i < r; i++) plc_fb_add(&f, &c, 1); }
             } else if (*p == 'd' || *p == 'D') {
                 long iv;
@@ -1817,7 +1828,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
                 pl_cell_t *o = plc_fmt_next_arg(&args);
                 int quoted = 0, iops = 0;
                 pl_cell_t *lst;
-                if (!o) { ball = rt_pl_ball_kind2("domain_error", "format_arguments", all); break; }
+                if (!o) { ball = plc_fmt_exhausted(all); break; }
                 if (pl_cell_unbound(o)) { ball = rt_pl_ball_instantiation(); break; }
                 for (lst = pl_deref(o); lst && (int)lst->v == DT_PLREF && pl_arity(lst) == 2; ) {
                     pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(lst);
@@ -1836,7 +1847,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
         }
     }
     if (!ball && args && !pl_cell_unbound(args) && !plc_is_nil(args)) ball = rt_pl_ball_kind2("domain_error", "format_arguments", all);
-    if (!ball) { fd = plc_out(); if (f.n) fwrite(f.b, 1, f.n, fd); }
+    if (!ball || !rt_pl_dialect_swi()) { fd = plc_out(); if (f.n) fwrite(f.b, 1, f.n, fd); }
     ct_drop(f.b);
     plc_ws_end(cx, mark);
     return ball;

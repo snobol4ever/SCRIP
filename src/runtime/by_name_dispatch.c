@@ -1,4 +1,5 @@
 #include <sys/utsname.h>
+#include <sys/resource.h>
 #include "rtx_try.h"
 #include "dtp.h"
 #include "by_name_dispatch.h"
@@ -9619,7 +9620,33 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
             else { const char *v = op[0] == 'o' ? u.release : u.machine; ok = plw_unify_vals(args[2], pl_mk_atom_dup(v, strlen(v)), cx); }
         } else if (!strcmp(op, "kill")) ok = a.v == (DTYPE_t)DT_I && b.v == (DTYPE_t)DT_I && (kill((pid_t)a.i, (int)b.i) == 0 ? 1 : pl_gnu_os_fail(cx));
         else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
-        else if (!strcmp(op, "atoms")) { extern int prolog_atom_count(void); ok = plw_unify_vals(args[2], INTVAL(prolog_atom_count()), cx); }
+        else if (!strcmp(op, "atoms")) {
+            extern int prolog_atom_count(void);
+            ok = plw_unify_vals(args[2], INTVAL(prolog_atom_count()), cx);
+        } else if (!strcmp(op, "stack_used") || !strcmp(op, "stack_free")) {
+            extern void * __libc_stack_end;
+            extern long rt_gc_bytes_in_use(void);
+            extern long rt_gcheap_free(void);
+            const char * k = pl_atom_str(a);
+            long used = 0, avail = 0;
+            char here;
+            struct rlimit rl;
+            if (k && !strcmp(k, "local_stack")) {
+                used = (char *) __libc_stack_end - &here;
+                if (used < 0) used = 0;
+                avail = (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY) ? (long) rl.rlim_cur - used : (8L << 20) - used;
+                ok = 1;
+            } else if (k && !strcmp(k, "global_stack")) {
+                used = rt_gc_bytes_in_use();
+                avail = rt_gcheap_free();
+                ok = 1;
+            } else if (k && !strcmp(k, "trail_stack")) {
+                used = (long) ((uintptr_t) cx->tr & (PL_TR_ARENA_BYTES - 1));
+                avail = (long) PL_TR_ARENA_BYTES - used;
+                ok = 1;
+            } else if (k && !strcmp(k, "cstr_stack")) ok = 1;
+            if (ok) ok = plw_unify_vals(args[2], INTVAL(op[6] == 'f' ? (avail > 0 ? avail : 0) : used), cx);
+        }
     }
 PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_file_exists, 1) { const char *p = pl_gnu_path_arg(args[0], cx); ok = p && access(p, F_OK) == 0; pl_gnu_ctx(cx, "file_exists", 1); } PL_CX_LEAF_TAIL
