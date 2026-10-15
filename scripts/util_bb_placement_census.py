@@ -44,8 +44,9 @@ OUTPUT (stdout; the row's DONE-WHEN greps ^BB_PLACEMENT):
   BB_PLACEMENT_CLASS <lang> <state>:<cause> <A|L> <kind> count=..
   BB_PLACEMENT_TESTS <lang>|total offspine=.. operand_test=.. local_test=.. standing=.. other=..   (other = off the spine, no test fails)
   BB_PLACEMENT_TESTS_WHY <lang> <test>:<why> count=..
-  BB_UNWIND <lang>|total rsp_restore=.. multi_pop=..   (CEO-1755, from the emitted .s: see asm_unwind)
-  BB_UNWIND_RSPLOAD <lang> <class> count=..   every rsp load by the label it sits under (restore_beta/omega/redo count)
+  BB_UNWIND <lang>|total retry_restore=.. discard_restore=.. multi_pop=..   (CEO-1755/1759, from the emitted .s: see asm_unwind)
+  BB_UNWIND_RSPLOAD <lang> <class> count=..   every rsp load by the label it sits under: restore_* is a RETRY loading rsp from a saved
+      value (banned), discard_* a FENCE, ARBNO, cut or statement landing dropping rsp to a saved depth (allowed, counted apart)
   BB_UNWIND_MULTIPOP <lang> into=<box kind> count=..
   --tsv PATH writes one row per misplaced (lang state cause table graph@sig kind count).
 rc 0 = measured; rc 2 = the instrument did not measure (a program unmeasured).
@@ -136,6 +137,7 @@ RSPLOAD = re.compile(r'^(?:mov|lea|xchg|pop|cmov\w+)\s+rsp\s*,\s*(\S.*)$|^pop\s+
 ADDRSP = re.compile(r'^add\s+rsp\s*,\s*(-?\d+)\s*$')
 SUBRSP = re.compile(r'^sub\s+rsp\s*,\s*(-?\d+)\s*$')
 JUMP = re.compile(r'^j\w*\s+(\S+)\s*$')
+BOXLAB = re.compile(r'^(?:n\d+_([a-z_0-9]+?)_(?:α|β|γ|ω)$|\.L([a-z_0-9]+?)_(?:α|β|γ|ω)_\d+)')
 
 
 def port_of(lab):
@@ -147,7 +149,8 @@ def port_of(lab):
 
 def asm_unwind(path, seen_sec):
     """BB_UNWIND (CEO-1755) from the emitted code: every rsp load and every failure-edge pop, by the port of the label it sits under.
-    rsp_restore = an rsp load (mov/lea/xchg/pop rsp, leave) under a box's beta or omega label; multi_pop = a jump to a beta label preceded
+    retry_restore = an rsp load (mov/lea/xchg/pop rsp, leave) under a box's beta or omega label or a redo entry; discard_restore = the same
+    under a FENCE, ARBNO, cut or statement label (CEO-1759: a discard may drop rsp to a saved depth); multi_pop = a jump to a beta label preceded
     in its straight line by more than one add rsp, or by one that differs from the box's own carve (sub rsp at its alpha).  Graph exits
     (the procedure's own gamma/omega label), alpha and gamma roads, the gc site and the program's startup are counted apart by class."""
     c = collections.Counter()
@@ -185,7 +188,7 @@ def asm_unwind(path, seen_sec):
                         cls = 'startup'
                     elif lab.startswith('.Lgcsite'):
                         cls = 'gcsite'
-                    elif pt in ('beta', 'omega') and (re.match(r'^n\d+_', lab) or lab.startswith('.L')):
+                    elif pt in ('beta', 'omega') and BOXLAB.match(lab):
                         cls = 'restore_' + pt
                     elif pt in ('gamma', 'omega'):
                         cls = 'exit_' + pt
@@ -195,11 +198,16 @@ def asm_unwind(path, seen_sec):
                         cls = 'exit_altdet'
                     else:
                         cls = pt
+                    bk = BOXLAB.match(lab)
+                    if cls.startswith('restore_') and bk and re.match(r'^(match_fence|match_arbno|cut|statement)', bk.group(1) or bk.group(2)):
+                        cls = 'discard_' + cls[len('restore_'):]
                     c['rspload:' + cls] += 1
                     if os.environ.get('BB_UNWIND_DIAG') and (cls.startswith('restore_') or cls == os.environ.get('BB_UNWIND_DIAG')):
                         print('[UNWIND] %s %s | %s' % (cls, lab, ins), file=sys.stderr)
                     if cls.startswith('restore_'):
-                        c['rsp_restore'] += 1
+                        c['retry_restore'] += 1
+                    elif cls.startswith('discard_'):
+                        c['discard_restore'] += 1
                     adds = []
                     continue
                 sm = SUBRSP.match(ins)
@@ -453,15 +461,15 @@ def main():
     ug = collections.Counter()
     for lang in langs:
         u = unw[lang]
-        print('BB_UNWIND %s rsp_restore=%d multi_pop=%d' % (lang, u['rsp_restore'], u['multi_pop']))
+        print('BB_UNWIND %s retry_restore=%d discard_restore=%d multi_pop=%d' % (lang, u['retry_restore'], u['discard_restore'], u['multi_pop']))
         for k, v in sorted(u.items()):
             if k.startswith('rspload:'):
                 print('BB_UNWIND_RSPLOAD %s %s count=%d' % (lang, k[8:], v))
             if k.startswith('multipop:'):
                 print('BB_UNWIND_MULTIPOP %s into=%s count=%d' % (lang, k[9:], v))
-        ug['rsp_restore'] += u['rsp_restore']
-        ug['multi_pop'] += u['multi_pop']
-    print('BB_UNWIND total rsp_restore=%d multi_pop=%d' % (ug['rsp_restore'], ug['multi_pop']))
+        for k in ('retry_restore', 'discard_restore', 'multi_pop'):
+            ug[k] += u[k]
+    print('BB_UNWIND total retry_restore=%d discard_restore=%d multi_pop=%d' % (ug['retry_restore'], ug['discard_restore'], ug['multi_pop']))
     for lang in langs:
         b = bases[lang]
         n = sum(b.values())
