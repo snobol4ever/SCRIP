@@ -3,6 +3,12 @@
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int c_descr_identical(DESCR_t a, DESCR_t b);
+static int vcell_same(const VCELL_t *x, const VCELL_t *y) {
+    if (x == y) return 1;
+    if (x->cellp || y->cellp) return x->cellp == y->cellp;
+    if (x->tbl || y->tbl) return x->tbl == y->tbl && c_descr_identical(x->key_d, y->key_d);
+    return x->pos == y->pos && x->len == y->len && c_descr_identical(x->sv, y->sv);
+}
 int c_descr_identical(DESCR_t a, DESCR_t b) {
     if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return 0;
     int an = (a.v == DT_SNUL) || (a.v == DT_S && (!a.s || (a.slen == 0xFFFFFFFFu ? !*a.s : a.slen == 0)));
@@ -22,7 +28,12 @@ int c_descr_identical(DESCR_t a, DESCR_t b) {
     int b_cset = (b.v == DT_S && b.slen == 0xFFFFFFFFu);
     if (a_cset != b_cset) return 0;
     if (a.v != b.v) return 0;
-    if (a.v == DT_N) { if (a.slen == 0 && b.slen == 0) return (a.s && b.s) ? (strcmp(a.s, b.s) == 0) : (a.s == b.s); if (a.slen != b.slen) return 0; return a.p == b.p; }
+    if (a.v == DT_N) {
+        if (a.slen == 0 && b.slen == 0) return (a.s && b.s) ? (strcmp(a.s, b.s) == 0) : (a.s == b.s);
+        if (a.slen != b.slen) return 0;
+        if (a.slen == 2 && a.p && b.p) return vcell_same((const VCELL_t *)a.p, (const VCELL_t *)b.p);
+        return a.p == b.p;
+    }
     if (a.v == DT_I) return a.i == b.i;
     if (a.v == DT_R) return a.r == b.r;
     if (a.v == DT_CO) return a.p == b.p;
