@@ -2790,7 +2790,7 @@ static int zd_wl_kind(IR_t * nd) {
     if (op == IR_COERCE_STRING || op == IR_COERCE_INTEGER) return 1;
     if (op == IR_DEREF || op == IR_ASSIGN_VAR) return 1;
     if (op == IR_FIELD_VAR || op == IR_FIELD_GET) return 1;
-    if (op == IR_SUBSCRIPT) return 1;
+    if (op == IR_SUBSCRIPT) return (nd->n_operands == 2 || (nd->n_operands == 3 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "nd2") || !strcmp(IR_LIT(nd).sval, "nd2-lv")))) ? 1 : 0;
     if (ir_kind0(nd) == IR_CALL) { extern int rt_proc_is_registered(const char *); extern int rt_proc_is_generator(const char *); const char * fn = IR_LIT(nd).sval;
         if (g_emitter.zd_wl_kind__zp < 0) { const char *e = getenv("SCRIP_ZD_PROC"); g_emitter.zd_wl_kind__zp = (e && *e == '0') ? 0 : 1;
             } if (fn && rt_proc_is_registered(fn)) { if (!g_emitter.zd_wl_kind__zp) return 0; return (rt_proc_is_generator(fn)) ? 0 : 1;
@@ -3619,6 +3619,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
     int * djn = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     unsigned char * djok = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
     for (int i = 0; i < n; i++) { zarmj[i] = -1; djn[i] = 0; djok[i] = 0; if (zcps) zcps[i] = -1; if (zcpd) zcpd[i] = -1; if (zchn) { zchn[2 * i] = -1; zchn[2 * i + 1] = -1; } }
+    if (icn_gen_zeta_ft() > 0) return;
     const int zdj_on = zarm && zcps && g_emit_cfg && g_emit_cfg->icn_cells_graph && !x86_fb_pinned();
     { if(g_emitter.zd_plan__lp<0){const char*e=getenv("SCRIP_ZDLOCAL");g_emitter.zd_plan__lp=(e&&*e=='1')?1:0;} if(g_emitter.zd_plan__lp){ extern int is_global(const char *);
         for (int i=0;i<n;i++){ int o=(int)nodes[i]->op;
