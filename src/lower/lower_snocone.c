@@ -1,7 +1,10 @@
 #include "ct_arena.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "lower.h"
+#include "parsers/snocone/snocone_driver.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_e lsc_prim_kind(const char *s) {
     if (!s) return TT_VAR;
@@ -106,11 +109,106 @@ static STMT_t *lsc_row(CODE_t *code, tree_t *node) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static CODE_t *lsc_desugar(tree_t *prog) {
-    CODE_t *code = ct_zalloc(1, sizeof *code);
-    for (int i = 0; i < prog->n; i++) { STMT_t *s = lsc_row(code, prog->c[i]); if (!code->head) code->head = s; else code->tail->next = s; code->tail = s; }
-    return code;
+typedef struct { const char **paths; int n, cap; } lsc_imports_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int lsc_import_seen(lsc_imports_t *im, const char *real) {
+    for (int i = 0; i < im->n; i++) if (!strcmp(im->paths[i], real)) return 1;
+    if (im->n == im->cap) {
+        int nc = im->cap ? im->cap * 2 : 8;
+        const char **np = ct_alloc(sizeof *np * (size_t)nc);
+        if (im->n) memcpy(np, im->paths, sizeof *np * (size_t)im->n);
+        im->paths = np;
+        im->cap = nc;
+    }
+    im->paths[im->n++] = ct_strdup(real);
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *lower_snocone_tree(tree_t *pruned) { if (!pruned) return NULL; return code_to_ast(lsc_desugar(pruned)); }
+static char *lsc_read_file(const char *path, size_t *len) {
+    FILE *f = fopen(path, "r");
+    long n;
+    char *s;
+    if (!f) return (char *)0;
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return (char *)0; }
+    n = ftell(f);
+    rewind(f);
+    if (n < 0) { fclose(f); return (char *)0; }
+    s = ct_alloc((size_t)n + 2);
+    if (fread(s, 1, (size_t)n, f) != (size_t)n) { fclose(f); ct_drop(s); return (char *)0; }
+    fclose(f);
+    s[n] = 0;
+    s[n + 1] = 0;
+    *len = (size_t)n;
+    return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *lsc_dirname(const char *path) {
+    const char *sl = strrchr(path, '/');
+    size_t n = sl ? (size_t)(sl - path) : 1;
+    char *d = ct_alloc(n + 1);
+    memcpy(d, sl ? path : ".", n);
+    d[n] = 0;
+    return d;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *lsc_try_path(const char *dir, const char *sub, const char *name) {
+    size_t n = strlen(dir) + strlen(sub) + strlen(name) + 5;
+    char *out = ct_alloc(n);
+    snprintf(out, n, "%s%s/%s.sc", dir, sub, name);
+    if (access(out, R_OK) == 0) return out;
+    ct_drop(out);
+    return (char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *lsc_exe_dir(void) {
+    for (size_t cap = 256; cap <= 1u << 20; cap *= 2) {
+        char buf[cap];
+        ssize_t n = readlink("/proc/self/exe", buf, cap);
+        if (n < 0) return (char *)0;
+        if ((size_t)n < cap) { buf[n] = 0; return lsc_dirname(buf); }
+    }
+    return (char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *lsc_import_locate(const char *name, const char *base) {
+    char *hit = base && *base ? lsc_try_path(base, "", name) : (char *)0;
+    char *exe = hit ? (char *)0 : lsc_exe_dir();
+    if (!hit && exe) hit = lsc_try_path(exe, "/bootstrap", name);
+    if (!hit && exe) hit = lsc_try_path(exe, "/../corpus/library", name);
+    return hit;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void lsc_rows(CODE_t *code, tree_t *prog, lsc_imports_t *im, const char *base);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void lsc_import(CODE_t *code, tree_t *node, lsc_imports_t *im, const char *base) {
+    const char *nm = node->c[0]->v.sval;
+    char *path = lsc_import_locate(nm, base);
+    size_t len = 0;
+    char *src;
+    tree_t *sub = (tree_t *)0;
+    if (!path) { fprintf(stderr, "snocone:%d: error: cannot locate import '%s' (looked beside the importer, then bootstrap/ and corpus/library/ beside scrip)\n", node->line, nm); exit(1); }
+    if (lsc_import_seen(im, path)) return;
+    src = lsc_read_file(path, &len);
+    if (!src) { fprintf(stderr, "snocone:%d: error: cannot read import '%s'\n", node->line, path); exit(1); }
+    snocone_compile(src, path, &sub);
+    if (!sub) { fprintf(stderr, "snocone:%d: error: import '%s' did not parse\n", node->line, path); exit(1); }
+    lsc_rows(code, sub, im, lsc_dirname(path));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void lsc_rows(CODE_t *code, tree_t *prog, lsc_imports_t *im, const char *base) {
+    for (int i = 0; i < prog->n; i++) {
+        tree_t *node = prog->c[i];
+        if (node && node->t == TT_IMPORT && node->n == 1 && node->c[0] && node->c[0]->v.sval) { lsc_import(code, node, im, base); continue; }
+        { STMT_t *s = lsc_row(code, node); if (!code->head) code->head = s; else code->tail->next = s; code->tail = s; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static CODE_t *lsc_desugar(tree_t *prog, const char *base) { CODE_t *code = ct_zalloc(1, sizeof *code); lsc_imports_t im = { (const char **)0, 0, 0 }; lsc_rows(code, prog, &im, base); return code; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *lower_snocone_tree_at(tree_t *pruned, const char *path) {
+    if (!pruned) return NULL;
+    return code_to_ast(lsc_desugar(pruned, path && *path ? lsc_dirname(path) : "."));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *lower_snocone_tree(tree_t *pruned) { return lower_snocone_tree_at(pruned, (const char *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

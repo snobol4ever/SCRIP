@@ -142,6 +142,7 @@ static void     sc_switch_case_label   (ScParseState *st, tree_t *value);
 static void     sc_switch_default_label(ScParseState *st);
 static void     sc_finalize_switch_pst (ScParseState *st, struct SwitchHead *h);
 static void     sc_emit_struct         (ScParseState *st, char *name, tree_t *fields);
+static void     sc_emit_import         (ScParseState *st, char *name);
 static tree_t  *sc_qlit                (const char *txt);
 static tree_t  *sc_list_one            (tree_e k, char *ident);
 static tree_t  *sc_list_add            (tree_t *l, char *ident);
@@ -195,7 +196,7 @@ static tree_t  *sc_list_add            (tree_t *l, char *ident);
 %token T_DO T_FOR
 %token T_SWITCH T_CASE T_DEFAULT
 %token T_BREAK T_CONTINUE T_GOTO
-%token T_DEFINE T_RETURN T_FRETURN T_NRETURN T_STRUCT
+%token T_DEFINE T_RETURN T_FRETURN T_NRETURN T_STRUCT T_IMPORT
 %token T_UNKNOWN
 %token T_LBRACE T_RBRACE
 %token T_IF T_ELSE T_WHILE
@@ -242,6 +243,8 @@ matched_stmt
                                         { sc_emit_struct(st, $2, $4); ct_drop($2); }
             | T_STRUCT T_IDENT T_LBRACE T_RBRACE
                                         { sc_emit_struct(st, $2, ast_node_new(TT_FIELDS)); ct_drop($2); }
+            | T_IMPORT T_IDENT T_SEMICOLON
+                                        { sc_emit_import(st, $2); ct_drop($2); }
             | label_decl
             ;
 unmatched_stmt
@@ -795,6 +798,12 @@ static void sc_emit_struct(ScParseState *st, char *name, tree_t *fields) {
     tree_t *node = ast_node_new(TT_STRUCT);
     ast_push(node, sc_qlit(name));
     ast_push(node, fields);
+    sc_append_stmt(st, node);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sc_emit_import(ScParseState *st, char *name) {
+    tree_t *node = ast_node_new(TT_IMPORT);
+    ast_push(node, sc_qlit(name));
     sc_append_stmt(st, node);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

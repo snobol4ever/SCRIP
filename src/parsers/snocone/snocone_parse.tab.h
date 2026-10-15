@@ -153,12 +153,13 @@ typedef struct ScParseState {
     T_FRETURN = 317,               /* T_FRETURN  */
     T_NRETURN = 318,               /* T_NRETURN  */
     T_STRUCT = 319,                /* T_STRUCT  */
-    T_UNKNOWN = 320,               /* T_UNKNOWN  */
-    T_LBRACE = 321,                /* T_LBRACE  */
-    T_RBRACE = 322,                /* T_RBRACE  */
-    T_IF = 323,                    /* T_IF  */
-    T_ELSE = 324,                  /* T_ELSE  */
-    T_WHILE = 325                  /* T_WHILE  */
+    T_IMPORT = 320,                /* T_IMPORT  */
+    T_UNKNOWN = 321,               /* T_UNKNOWN  */
+    T_LBRACE = 322,                /* T_LBRACE  */
+    T_RBRACE = 323,                /* T_RBRACE  */
+    T_IF = 324,                    /* T_IF  */
+    T_ELSE = 325,                  /* T_ELSE  */
+    T_WHILE = 326                  /* T_WHILE  */
   };
   typedef enum sc_tokentype sc_token_kind_t;
 #endif
@@ -167,7 +168,7 @@ typedef struct ScParseState {
 #if ! defined SC_STYPE && ! defined SC_STYPE_IS_DECLARED
 union SC_STYPE
 {
-#line 153 "snocone_parse.y"
+#line 154 "snocone_parse.y"
 
     tree_t *expr;
     char   *str;
@@ -181,7 +182,7 @@ union SC_STYPE
     struct FuncHead  *funchead;
     struct SwitchHead *switchhead;
 
-#line 185 "snocone_parse.tab.h"
+#line 186 "snocone_parse.tab.h"
 
 };
 typedef union SC_STYPE SC_STYPE;

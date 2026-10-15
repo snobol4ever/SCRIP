@@ -2065,7 +2065,7 @@ int main(int argc, char **argv) {
             else if (lang_pascal) pascal_compile(src, input_path, &sub_ast);
             else snocone_compile(src, input_path, &sub_ast);
             if (lang_snocone && g_sc_module_name && sub_ast) { extern void emit_module_mode(int); sc_module_qualify(sub_ast); emit_module_mode(1); }
-            if (lang_snocone) sub_ast = lower_snocone_tree(sub_ast);
+            if (lang_snocone) sub_ast = lower_snocone_tree_at(sub_ast, input_path);
             ct_drop(src);
             tree_t *parsed_ast = sub_ast;
             if (lang_pascal) sub_ast = lower_pascal_tree(sub_ast, input_path);
