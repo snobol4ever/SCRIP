@@ -72,10 +72,12 @@ fi
 # accumulator is the only shape that survives two loops; a post-hoc min() of P[m3] and P[m4] would not even be
 # wrong in a detectable way, since it is not a count of any set of programs.
 BOTH=0
+. "$HERE/lib_rr.sh" && rr_load "$SUITE" || exit 2   # the round robin's seam (CEO-1802/1805/1806): one part or a request's entries, rows as each test ends
 # ---- rejection population -------------------------------------------------------------------------------------------
 for f in "$SUITE"/iso7185prt*.pas; do
     [ -e "$f" ] || continue
-    b="$(basename "$f" .pas)"; [ -n "${ACCEPT_SET[$b]:-}" ] && continue; TOTAL=$((TOTAL+1)); okboth=1
+    b="$(basename "$f" .pas)"; rr_admits "$b" || continue; rr_yield "$b" && { RR_STOP=1; break; }; rr_flush "$PROG_ROWS"
+    [ -n "${ACCEPT_SET[$b]:-}" ] && continue; TOTAL=$((TOTAL+1)); okboth=1
     export S4E_TIMEOUT_KEY="$b"   # the unit a retried timeout's stamp names (CEO-1335)
     if [ -n "${OUTSIDE_SET[$b]:-}" ]; then
         _oerr="$(cd "$TMP" && "$TIMEOUT_RETRY" 8s "$SCRIP" --dump-ast "$f" </dev/null 2>&1 >/dev/null)"; _orc=$?
@@ -158,8 +160,9 @@ FPC="$(command -v fpc || true)"
 INV_PACKAGE=pat; INV_DIR="$SUITE"; INV_EXT=".pas"
 RULED_UNGRADABLE="$(_inv_names "$(_inv_tsv UNGRADABLE.tsv)" UNGRADABLE 2>/dev/null || true)"
 for f in "$SUITE"/iso7185pat*.pas "${ACCEPT_FILES[@]}"; do
+    [ -n "${RR_STOP:-}" ] && break
     [ -e "$f" ] || continue
-    b="$(basename "$f" .pas)"
+    b="$(basename "$f" .pas)"; rr_admits "$b" || continue; rr_yield "$b" && break; rr_flush "$PROG_ROWS"
     export S4E_TIMEOUT_KEY="$b"   # the unit a retried timeout's stamp names (CEO-1335)
     [ -n "$FPC" ] || { echo "note: fpc absent -- acceptance test $b not graded (its oracle is fpc -Miso); rejection population unaffected"; break; }
     in="$SUITE/$b.inp"; [ -f "$in" ] || in=/dev/null
@@ -228,8 +231,10 @@ if [ "${#STALE_NAMES[@]}" -gt 0 ]; then echo "⚠ OUTSIDE_ISO_BASELINE.tsv STALE
 # UNGRADED.tsv beside $SUITE (the two acceptance-population fixtures fpc -Miso cannot build this run)
 # rather than trusting this script's own $UNGRADABLE counter.
 INV_PACKAGE=pat; INV_DIR="$SUITE"; INV_EXT=".pas"   # the same stanza as above the acceptance loop, restated so the inventory reads beside its call
+if ! rr_selected; then   # a part of the package; the inventory sums the whole shipped package (CEO-1802)
 INV_LINE="$(inventory_line "$TOTAL" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+fi
 echo "  diagnosis (counted INSIDE fail, never beside it): m3 crash-or-ran-to-bound=${C[m3]} of m4 crash-or-ran-to-bound=${C[m4]} — the verdict is REFUSED-WITH-A-DIAGNOSTIC or not, which does not vary with machine load; this split does"
 # ⛔⭐ THE CAP IS A DISPLAY CHOICE AND MUST NOT BE THE ONLY LISTING. 40 keeps a board readable, but this
 # suite is THE Pascal denominator and its reds are the lane's whole work pool -- at 127 m3 reds the cap hid
@@ -258,6 +263,7 @@ if [ -s "$PROG_ROWS" ]; then
         echo "⚠ PROGRESS DB NOT UPDATED -- the score write below cannot cross-check and will refuse (reason above)" >&2
     fi
 fi
+rr_selected && { rr_end pat; exit 0; }   # a part or a request writes its rows and no suite row (CEO-1802)
 # ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED (hq_T 2026-09-06, ceo CEO-363; the coo had to set
 # this row BY HAND after a clean run because util_score_row correctly REFUSED to guess). The --text below
 # carries several fractions over the same denominator -- so there is no fact of the matter about which one a

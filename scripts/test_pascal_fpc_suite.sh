@@ -104,7 +104,9 @@ PROG_ROWS="$TMP/progress.tsv"; : >"$PROG_ROWS"
 
 echo "=== FPC vendored-suite grade ($TOTAL pairs, $SUITE) ==="
 
+. "$HERE/lib_rr.sh" && rr_load "$SUITE" || exit 2   # the round robin's seam (CEO-1802/1805/1806): one part or a request's entries, rows as each test ends
 for name in "${PAIRS[@]}"; do
+    rr_admits "$name" || continue; rr_yield "$name" && break; rr_flush "$PROG_ROWS"
     export S4E_TIMEOUT_KEY="$name"
     pas="$SUITE/$name.pas"; ref="$SUITE/$name.ref"
     inp="$SUITE/$name.in"; [ -f "$inp" ] || inp=/dev/null
@@ -216,8 +218,10 @@ echo "FPC_SUITE_BOARD total=$TOTAL both_pass=$BOTH_PASS m3_pass=$M3_PASS m3_fail
 # rather than being silently folded into ungradable the way the old ad hoc line did.
 FPC_GRADED=$((TOTAL - REJECT))
 INV_PACKAGE=fpc; INV_DIR="$SUITE"; INV_EXT=".pas"
+if ! rr_selected; then   # a part of the package; the inventory sums the whole shipped package (CEO-1802)
 INV_LINE="$(inventory_line "$FPC_GRADED" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+fi
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
@@ -270,6 +274,7 @@ if [ -s "$PROG_ROWS" ]; then
         echo "⚠ PROGRESS DB NOT UPDATED -- the score write below cannot cross-check and will refuse (reason above)" >&2
     fi
 fi
+rr_selected && { rr_end fpc; exit 0; }   # a part or a request writes its rows and no suite row (CEO-1802)
 # ⭐ THE ROW'S CRITERION IS STAMPED WHEN IT MOVES: the banner renders the LAST OUTSIDE=N token of SUITES.tsv column 12, and this row
 # carried OUTSIDE=15 for one run under the CEO-749 reading, so the first run under CEO-1228 records OUTSIDE=0 with its reason.
 _cc="${S4E_CRITERION_CHANGED:-}"

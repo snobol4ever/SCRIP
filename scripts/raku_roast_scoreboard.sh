@@ -241,8 +241,10 @@ if [ "$DO_RUN" = 1 ]; then
     "$TREE_T" "$MAN_ALL" "$MAN_TIER" "$MAN_MISSING"
   FAILED_M3=""; FAILED_M4=""
   roast_outcome() { case "$1" in PASS) echo PASS ;; FAIL) echo FAIL ;; PARSE-FAIL) echo REJECT ;; CRASH) echo CRASH ;; NO-TAP) echo UNPROVEN ;; *) echo UNPROVEN ;; esac; }
+  . "$ROOT/scripts/lib_rr.sh" && rr_load "$ROAST_PKG" || exit 2   # the round robin's seam (CEO-1802/1805/1806): one part or a request's entries
   while IFS= read -r -d '' src; do
     _xn="${src#$ROAST/}"; _xn="${_xn%.t}"
+    rr_admits "$_xn" || continue; rr_yield "$_xn" && break
     if [ -n "${ROAST_IS_EXCL[$_xn]:-}" ]; then n_excl=$((n_excl+1)); EXCL_SEEN[$_xn]=1; continue; fi
     n=$((n+1)); [ "$LIMIT" -gt 0 ] && [ "$n" -gt "$LIMIT" ] && { n=$((n-1)); break; }
     stage=$(roast_stage "$ROAST" "$TMP" "$src") || { echo "⛔ REFUSING (rc=2): could not stage $src" >&2; exit 2; }
@@ -339,6 +341,7 @@ if [ "$DO_RUN" = 1 ]; then
   BOARD_LINE=$(printf 'ROAST_SUITE_BOARD total=%d m3_run_pass=%d m3_run_fail=%d m4_run_pass=%d m4_run_fail=%d both_modes_pass=%d compile_only=%d excluded=%d roast_commit=%s elapsed=%ds' \
     "$n" "$m3p" "$m3f" "$m4p" "$m4f" "$both" "$compile_only" "$n_excl" "$ROAST_COMMIT" "$elapsed")
   printf '%s\n' "$BOARD_LINE"
+  rr_selected && { rr_end roast; exit 0; }   # a part or a request wrote each file's rows as it went, and writes no suite row (CEO-1802)
   [ "$LIMIT" -gt 0 ] && { printf 'ROAST_PARTIAL: --limit %d was in force, so this is a SMOKE OF THE INSTRUMENT and NOT a board; no SCORE row is written.\n' "$LIMIT"; exit 0; }
   # ⛔ --suite/--suite-key ARE NOT OPTIONAL HERE AND THEIR ABSENCE WAS A SILENT NO-OP FOR THIS BOARD (hq_raku
   # 2026-09-16): --column vendor writes ONE measurement inside a SHARED cell, so util_score_row cannot infer
