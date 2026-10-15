@@ -43,6 +43,12 @@ export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrum
 #
 # REF: corpus/tests/snobol4/ALL.trace.oracle -- deliberately NOT ALL.trace, which the self-pin sibling
 # above already owns; the two gates' --cut must never collide.
+# TWO MEASURED CORRECTIONS (hq_snobol4 2026-10-15): (1) oracle_map read RETURN and FRETURN but not NRETURN, so `NRETURN NM = .M` was dropped and every
+# witness with a name-returning function read ONE event short (rung18 value_traces..., rung19 ftrace_return_types, rung32 ...); NRETURN is a gamma.
+# (2) a witness that sets its own `&FTRACE = N` (rung19 ftrace_decrements_and_stops_at_zero sets 2) truncates the ORACLE to N events while SCRIP's
+# port trace is unbudgeted, so the oracle run rewrites the witness's budget to the prepended 100000 -- the budget is the rungs suite's, graded by ref.
+# A witness whose oracle trace is empty is cut as `total=0` when sbl ran it (rung17_trace_types_all defines F and never calls it); the cut refuses
+# only when sbl traced nothing across the whole population.
 # EXIT: 0 every witness's alpha/gamma/omega sequence matches the oracle in both modes; 1 a mismatch or a
 # perturbation/killswitch failure; 2 REFUSED (cannot measure).
 set -u
@@ -105,7 +111,7 @@ scrip_trace_norm() {  # $1=raw trace file  $2=NAME1|NAME2|... (DEFINE'd names on
 # rebuild changes it again, a recursive witness's total dropping back to 2 is the tripwire.
 oracle_map() {
   sed -E '
-    s/^\*+[0-9]+\*+[[:space:]]*[iI]*[[:space:]]*RETURN[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*$/gamma \1/
+    s/^\*+[0-9]+\*+[[:space:]]*[iI]*[[:space:]]*N?RETURN[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*$/gamma \1/
     s/^\*+[0-9]+\*+[[:space:]]*[iI]*[[:space:]]*FRETURN[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*$/omega \1/
     s/^\*+[0-9]+\*+[[:space:]]*[iI]*[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)\(.*\)[[:space:]]*$/alpha \1/
   ' | sed -nE '/^(alpha|gamma|omega) /p'
@@ -113,7 +119,7 @@ oracle_map() {
 oracle_trace_for() {
   local src="$1" wd rc=0
   wd="$(mktemp -d)"
-  { echo "        &FTRACE = 100000"; cat "$src"; } > "$wd/f.sno"
+  { echo "        &FTRACE = 100000"; sed -E 's/&FTRACE[[:space:]]*=[[:space:]]*[0-9]+/\&FTRACE = 100000/' "$src"; } > "$wd/f.sno"
   ( cd "$wd" && timeout "$T" "$SBL" $LANGFLAGS f.sno ) < /dev/null > "$wd/raw.out" 2>&1; rc=$?
   oracle_map < "$wd/raw.out"
   rm -rf "$wd"; return $rc
@@ -121,7 +127,7 @@ oracle_trace_for() {
 m4build() { [ -s "$1" ] && as --64 -o "$1.o" "$1" 2>/dev/null && gcc -no-pie -o "$2" "$1.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null; }
 refblock() { awk -v o="$1" '$0 ~ "^%---- " o " " {on=1; next} /^%---- /{on=0} on' "$REF"; }
 refmeta()  { grep -E "^%---- $1 " "$REF" | head -1 | sed -E 's/.* total=([0-9]+).*/\1/'; }
-n=0; bad=0; ans_ok=0; ans_red=0; declare -a lines
+n=0; bad=0; ans_ok=0; ans_red=0; oracle_sum=0; declare -a lines
 [ "$CUT" = 1 ] && : > "$W/ALL.trace.oracle"
 for o in $origins; do
   n=$((n+1)); src="$W/$o.sno"; ref="$W/$o.ref"
@@ -144,13 +150,14 @@ for o in $origins; do
   scrip_trace_norm "$W/$o.m3.raw" "$NAMES" > "$W/$o.m3.norm"
   scrip_trace_norm "$W/$o.m4.raw" "$NAMES" > "$W/$o.m4.norm"
   for m in m3 m4; do
-    total=$(wc -l < "$W/$o.$m.norm")
-    [ "$total" -gt 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $o $m: source contains DEFINE( but SCRIP_PL_TRACE=1 produced ZERO call-box lines -- the instrument is not firing, this is not 'no ports'"; gate_stamp; exit 2; }
+    fired=$(grep -cE '^\([0-9]+\) [0-9]+ (Call|Redo|Exit|Fail): ' "$W/$o.$m.raw")
+    [ "$fired" -gt 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $o $m: SCRIP_PL_TRACE=1 produced ZERO port events of any box -- the instrument is not firing, this is not 'no ports'"; gate_stamp; exit 2; }
   done
   if [ "$CUT" = 1 ]; then
-    oracle_trace_for "$src" > "$W/$o.oracle.norm"
+    oracle_trace_for "$src" > "$W/$o.oracle.norm"; orc=$?
     otot=$(wc -l < "$W/$o.oracle.norm")
-    [ "$otot" -gt 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $o: &FTRACE produced ZERO normalised trace lines -- cannot cut a ref from nothing"; gate_stamp; exit 2; }
+    [ "$otot" -gt 0 ] || [ "$orc" -eq 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $o: sbl exited rc=$orc with ZERO normalised &FTRACE lines -- it did not run the witness, cannot cut a ref from that"; gate_stamp; exit 2; }
+    oracle_sum=$((oracle_sum + otot))
     { echo "%---- $o total=$otot"; cat "$W/$o.oracle.norm"; } >> "$W/ALL.trace.oracle"
     tr3=CUT; tr4=CUT
   else
@@ -168,6 +175,6 @@ for o in $origins; do
   for m in m3 m4; do [ -f "$W/$o.$m.diff" ] && lines+=("$(cat "$W/$o.$m.diff")"); done
 done
 printf '%s\n' "${lines[@]}"
-if [ "$CUT" = 1 ]; then cp "$W/ALL.trace.oracle" "$REF"; echo "refs CUT -> $REF ($(grep -c '^%---- ' "$REF") blocks)"; fi
+if [ "$CUT" = 1 ]; then [ "$oracle_sum" -gt 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: sbl's &FTRACE traced ZERO calls across the whole population -- the oracle instrument is not firing, no ref is cut"; gate_stamp; exit 2; }; cp "$W/ALL.trace.oracle" "$REF"; echo "refs CUT -> $REF ($(grep -c '^%---- ' "$REF") blocks)"; fi
 echo "witnesses=$n (DEFINE-containing ladder origins) modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational: the rungs suite owns answers) . oracle=SPITBOL &FTRACE, Call/RETURN/FRETURN -> alpha/gamma/omega, statement numbers and nesting depth stripped, never beta (DEFINE'd functions call/return exactly once)"
 GATE_EXAMINED=$((n*2)); gate_verdict "$bad" "failed checks across killswitch/perturbation/trace"
