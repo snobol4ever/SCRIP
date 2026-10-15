@@ -943,35 +943,35 @@ void rt_sno_runtime_define(const char *name, const char **pnames, int nparams, i
 typedef struct { const char *name; const char **lnames; int nlocals; const int *loffs; const char **pnames; int nparams; } rt_proc_loc_t;
 static cv_t g_proc_loc;
 #define PLOC(i) CV_AT(g_proc_loc, rt_proc_loc_t, (i))
+static int ploc_find(const char *name) {
+    for (int i = (int)g_proc_loc.len - 1; i >= 0; i--) { const char *q = PLOC(i).name; if (q && (q == name || (q[0] == name[0] && !strcmp(q, name)))) return i; }
+    return -1;
+}
 void rt_proc_set_locals(const char *name, const char **lnames, int nlocals) {
     if (!name) return;
-    for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) { PLOC(i).lnames = lnames; PLOC(i).nlocals = nlocals; return; }
+    { int i = ploc_find(name); if (i >= 0) { PLOC(i).lnames = lnames; PLOC(i).nlocals = nlocals; return; } }
     { rt_proc_loc_t *e = &CV_PUSH(g_proc_loc, rt_proc_loc_t); e->name = name; e->lnames = lnames; e->nlocals = nlocals; }
 }
 void rt_proc_set_loc_params(const char *name, const char **pnames, int nparams) {
     if (!name) return;
-    for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) { PLOC(i).pnames = pnames; PLOC(i).nparams = nparams; return; }
+    { int i = ploc_find(name); if (i >= 0) { PLOC(i).pnames = pnames; PLOC(i).nparams = nparams; return; } }
     { rt_proc_loc_t *e = &CV_PUSH(g_proc_loc, rt_proc_loc_t); e->name = name; e->pnames = pnames; e->nparams = nparams; }
 }
 const char *rt_proc_loc_pname(const char *name, int k) {
     if (!name || k < 0) return (const char *)0;
-    for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) return (PLOC(i).pnames && k < PLOC(i).nparams) ? PLOC(i).pnames[k] : (const char *)0;
+    { int i = ploc_find(name); if (i >= 0) return (PLOC(i).pnames && k < PLOC(i).nparams) ? PLOC(i).pnames[k] : (const char *)0; }
     return (const char *)0;
 }
 void rt_proc_set_local_offs(const char *name, const int *loffs, int nlocals) {
     if (!name) return;
-    for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) { PLOC(i).loffs = loffs; if (nlocals > 0) PLOC(i).nlocals = nlocals; return; }
+    { int i = ploc_find(name); if (i >= 0) { PLOC(i).loffs = loffs; if (nlocals > 0) PLOC(i).nlocals = nlocals; return; } }
     { rt_proc_loc_t *e = &CV_PUSH(g_proc_loc, rt_proc_loc_t); e->name = name; e->lnames = (const char **)0; e->nlocals = nlocals; e->loffs = loffs; }
 }
-int rt_proc_loff(const char *name, int k) {
-    if (!name || k < 0) return -1;
-    for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) return (PLOC(i).loffs && k < PLOC(i).nlocals) ? PLOC(i).loffs[k] : -1;
-    return -1;
-}
-int rt_proc_nlocals(const char *name) { if (!name) return 0; for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) return PLOC(i).nlocals; return 0; }
+int rt_proc_loff(const char *name, int k) { if (!name || k < 0) return -1; { int i = ploc_find(name); if (i >= 0) return (PLOC(i).loffs && k < PLOC(i).nlocals) ? PLOC(i).loffs[k] : -1; } return -1; }
+int rt_proc_nlocals(const char *name) { if (!name) return 0; { int i = ploc_find(name); if (i >= 0) return PLOC(i).nlocals; } return 0; }
 const char *rt_proc_lname(const char *name, int k) {
     if (!name) return (const char *)0;
-    for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) return (PLOC(i).lnames && k >= 0 && k < PLOC(i).nlocals) ? PLOC(i).lnames[k] : (const char *)0;
+    { int i = ploc_find(name); if (i >= 0) return (PLOC(i).lnames && k >= 0 && k < PLOC(i).nlocals) ? PLOC(i).lnames[k] : (const char *)0; }
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

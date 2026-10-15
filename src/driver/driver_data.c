@@ -111,14 +111,14 @@ int dat_spec_is_current(const char *spec) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_type_gen(void) { return dat_ntypes; }
 DatType *dat_find_type_n(const char *name, size_t n) {
-    for (int i = dat_ntypes - 1; i >= 0; i--) if (strncmp(dat_types[i]->name, name, n) == 0 && dat_types[i]->name[n] == '\0') return dat_types[i];
+    for (int i = dat_ntypes - 1; i >= 0; i--) if ((n == 0 || dat_types[i]->name[0] == name[0]) && strncmp(dat_types[i]->name, name, n) == 0 && dat_types[i]->name[n] == '\0') return dat_types[i];
     if (n == 63) for (int i = dat_ntypes - 1; i >= 0; i--) if (strncmp(dat_types[i]->name, name, 63) == 0 && dat_types[i]->name[63] != '\0') return dat_types[i];
     return NULL;
 }
 const void *dat_type_blk(int k) { return (k >= 0 && k < dat_ntypes) ? (const void *)dat_types[k]->blk : (const void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_find_type(const char *name) {
-    for (int i = dat_ntypes - 1; i >= 0; i--) if (strcmp(dat_types[i]->name, name) == 0) return dat_types[i];
+    for (int i = dat_ntypes - 1; i >= 0; i--) if (dat_types[i]->name[0] == name[0] && strcmp(dat_types[i]->name, name) == 0) return dat_types[i];
     if (strnlen(name, 64) == 63) for (int i = dat_ntypes - 1; i >= 0; i--) if (strncmp(dat_types[i]->name, name, 63) == 0 && dat_types[i]->name[63] != '\0') return dat_types[i];
     return NULL;
 }

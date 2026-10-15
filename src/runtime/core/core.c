@@ -3568,7 +3568,7 @@ void DEFDAT_fn(const char *spec) {
     _udef_types = t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DATBLK_t *_udef_lookup(const char *name) { for (DATBLK_t *t = _udef_types; t; t = t->next) if (strcasecmp(t->name, name) == 0) return t; return NULL; }
+static DATBLK_t *_udef_lookup(const char *name) { for (DATBLK_t *t = _udef_types; t; t = t->next) if (((t->name[0] | 32) == (name[0] | 32)) && strcasecmp(t->name, name) == 0) return t; return NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t DATCON_fn(const char *typename, ...) {
     DATBLK_t *t = _udef_lookup(typename);
