@@ -2515,7 +2515,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$between_test'(L,H,X):-X>=L,(integer(H)->X=<H;true).\n"
     "lazy_list(Next,S0,L):-freeze(L,'$lazy_list_next'(Next,S0,L)).\n"
     "'$lazy_list_next'(Next,S0,L):-(call(Next,S0,S1,H)->L=[H|T],lazy_list(Next,S1,T);L=[]).\n"
-    "'$mctx_pick'([M|_],N,A,QN):-atom_concat(M,':',P),atom_concat(P,N,Q0),functor(Q,Q0,A),(predicate_property(Q,dynamic);predicate_property(Q,defined)),!,QN=Q0.\n"
+    "'$mctx_pick'([M|_],N,A,QN):-atom_concat(M,':',P),atom_concat(P,N,Q0),current_predicate(Q0/A),!,QN=Q0.\n"
     "'$mctx_pick'([_|Ms],N,A,QN):-'$mctx_pick'(Ms,N,A,QN).\n"
     "'$mctx_head'(M1,M2,H0,H):-nonvar(H0),callable(H0),H0\\=(_:_),functor(H0,N,A),'$mctx_pick'([M1,M2],N,A,QN),!,H0=..[_|As],H=..[QN|As].\n"
     "'$mctx_head'(_,_,H,H).\n"
@@ -2527,7 +2527,8 @@ static const char * const PL_PRELUDE_SRC =
     "'$mctx_assert'(M1,M2,C,R):-'$mctx_term'(M1,M2,C,C1),assert(C1,R).\n"
     "'$mctx_asserta'(M1,M2,C,R):-'$mctx_term'(M1,M2,C,C1),asserta(C1,R).\n"
     "'$mctx_assertz'(M1,M2,C,R):-'$mctx_term'(M1,M2,C,C1),assertz(C1,R).\n"
-    "'$mctx_unh'(M1,M2,H0,H):-(nonvar(H0),callable(H0),functor(H0,N,_),atom(N),sub_atom(N,K,1,_,':'),sub_atom(N,0,K,_,M),(M==M1;M==M2),K1 is K+1,sub_atom(N,K1,_,0,N1)->H0=..[_|As],H=..[N1|As];H=H0).\n"
+    "'$mctx_strip'([M|Ms],N,N1):-(atom_concat(M,':',P),atom_concat(P,N1,N)->true;'$mctx_strip'(Ms,N,N1)).\n"
+    "'$mctx_unh'(M1,M2,H0,H):-(nonvar(H0),callable(H0),functor(H0,N,_),atom(N),'$mctx_strip'([M1,M2],N,N1)->H0=..[_|As],H=..[N1|As];H=H0).\n"
     "'$mctx_un'(M1,M2,T0,T):-(nonvar(T0),T0=(H0:-B)->'$mctx_unh'(M1,M2,H0,H),T=(H:-B);'$mctx_unh'(M1,M2,T0,T)).\n"
     "'$mctx_retract'(M1,M2,C):-(var(C)->retract(C1),'$mctx_un'(M1,M2,C1,C);'$mctx_term'(M1,M2,C,C1),retract(C1)).\n"
     "'$mctx_retractall'(M1,M2,H0):-'$mctx_head'(M1,M2,H0,H),retractall(H).\n"
@@ -3431,6 +3432,15 @@ static int pl_tree_has_fn(const tree_t *t, const char *fn) {
     for (int i = 0; i < t->n; i++) if (pl_tree_has_fn(t->c[i], fn)) return 1;
     return 0;
 }
+static int pl_tree_var_clause_goal(const tree_t *t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->v.sval && t->n >= 1 && t->c[0] && t->c[0]->t == TT_VAR) {
+        const char *f = t->v.sval;
+        if (((t->n == 1 || t->n == 2) && (!strcmp(f, "assert") || !strcmp(f, "asserta") || !strcmp(f, "assertz"))) || (t->n == 1 && (!strcmp(f, "retract") || !strcmp(f, "retractall"))) || ((t->n == 2 || t->n == 3) && !strcmp(f, "clause"))) return 1;
+    }
+    for (int i = 0; i < t->n; i++) if (pl_tree_var_clause_goal(t->c[i])) return 1;
+    return 0;
+}
 static size_t pl_lib_path_name(const tree_t *t, char *out) {
     size_t a, b;
     if (!t) return 0;
@@ -3529,8 +3539,10 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "setup_call_catcher_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&referenced, "meta_predicate")) pl_cv_add(&referenced, "$mq_arg");
     if (pl_cv_has(&referenced, "clause")) pl_cv_add(&referenced, "$clause_unmangle");
-    if (pl_cv_has(&referenced, "module") || pl_cv_has(&referenced, "begin_tests")) for (int mi = 0; mi < 11; mi++) {
-        static const char * const mq[11] = { "$mctx_pick", "$mctx_head", "$mctx_term", "$mctx_assert", "$mctx_asserta", "$mctx_assertz", "$mctx_retract", "$mctx_retractall", "$mctx_clause", "$mctx_unh", "$mctx_un" };
+    int mq_hit = 0;
+    if (pl_cv_has(&referenced, "module") || pl_cv_has(&referenced, "begin_tests")) for (PlClause *cl = prog->head; cl && !mq_hit; cl = cl->next) mq_hit = cl->tr && pl_tree_var_clause_goal(cl->tr);
+    if (mq_hit) for (int mi = 0; mi < 12; mi++) {
+        static const char * const mq[12] = { "$mctx_pick", "$mctx_head", "$mctx_term", "$mctx_assert", "$mctx_asserta", "$mctx_assertz", "$mctx_retract", "$mctx_retractall", "$mctx_clause", "$mctx_unh", "$mctx_un", "$mctx_strip" };
         pl_cv_add(&referenced, mq[mi]);
     }
     if (pl_cv_has(&referenced, "@")) { pl_cv_add(&referenced, "$at_ctx"); pl_cv_add(&referenced, "$meta_add"); }
