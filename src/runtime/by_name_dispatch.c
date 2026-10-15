@@ -9094,8 +9094,9 @@ static cv_t g_pl_flags;
 static void pl_flags_ready(void) { if (g_pl_flags.len) return; for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; } }
 DESCR_t rt_sno_wantnm_d(DESCR_t *args, int nargs) { extern int rt_g_want_name; (void)args; (void)nargs; rt_g_want_name = 1; return NULVCL; }
 static const char *rt_sno_patck_text(int code) {
-    return code == 240 ? "pattern match right operand is not pattern" : code == 5 ? "alternation right operand is not pattern" : code == 6 ? "alternation left operand is not pattern" : code == 8 ?
-        "concatenation left operand is not a string or pattern" : "concatenation right operand is not a string or pattern";
+    return code == 240 ? "pattern match right operand is not pattern" : code == 5 ? "alternation right operand is not pattern" : code == 6 ? "alternation left operand is not pattern" : code == 61 ?
+        "arbno argument is not pattern" : code == 259 ? "fence argument is not pattern" : code == 30 ? "pattern assignment left operand is not pattern" : code == 25 ?
+        "immediate assignment left operand is not pattern" : code == 8 ? "concatenation left operand is not a string or pattern" : "concatenation right operand is not a string or pattern";
 }
 DESCR_t rt_sno_patck_d(DESCR_t *args, int nargs) {
     extern void core_runtime_error(int, const char *);

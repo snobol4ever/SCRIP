@@ -7,7 +7,9 @@
 # and concatenated it away. THE CURE: every pattern operand variable is validated where its value is snapshotted for the match (and where the value-context pattern is built) by
 # SNO$PATCK, which raises the operand's number for a DT_A, DT_T or record value and passes anything else through; the lowerer threads the operand's position (root 240, sequence 8/9,
 # alternation 6/5) down the pattern tree. The expected output is cut from sbl -bf at run time; a run sbl does not answer is a REFUSAL. Both modes.
-# NOT HERE: the aggregate under ARBNO (61), FENCE (259), * (46), . (30) and $ (25) -- separate numbers, separate rows; a value-context concatenation chain 'a' a 'b' (SCRIP numbers it 9).
+# SECOND LANDING (row snobol4-an-array-or-table-under-arbno-fence-deferral-and-the-capture-operators-...): the aggregate under ARBNO is ERROR 61, FENCE 259, a * deferral 46, a conditional
+# capture's pattern 30 and an immediate capture's 25.
+# NOT HERE: a value-context concatenation chain 'a' a 'b' (SCRIP numbers it 9, sbl 8: SCRIP's tree is left-nested).
 # rc=0 clean · rc=1 a divergence · rc=2 REFUSAL.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -49,7 +51,13 @@ C17     'ab' ? p 'b'                    :(ok)
 C18     'ab' ? p | 'b'                  :(ok)
 C19     x = p | 'b'                     :(ok)
 C20     x = 'ab' ? p                    :(ok)
-C21     :(END)
+C21     'ab' ? ARBNO(t)                 :(ok)
+C22     'ab' ? FENCE(t)                 :(ok)
+C23     'ab' ? *t                       :(ok)
+C24     'ab' ? t . x                    :(ok)
+C25     'ab' ? a $ x                    :(ok)
+C26     x = ('ab' ? t . y)              :(ok)
+C27     :(END)
 ok      OUTPUT = i ' ok'                :(nxt)
 errh    OUTPUT = i ' ERROR ' &ERRTYPE   :(nxt)
 END
@@ -66,7 +74,7 @@ ok      OUTPUT = DATATYPE(x)            :(loop)
 errh    OUTPUT = 'ERROR ' &ERRTYPE      :(loop)
 END
 SNO
-printf "%s\n" "'0' ? t" "'ab' ? a" "LEN(2) | a" "a | LEN(2)" "a[1] ? t 'a'" "'a' | a | 'b'" "'a' | 'b' | a" "'a' ? 'a' | a" "LEN(1) | 'b'" > "$D/b.in"
+printf "%s\n" "'0' ? t" "'ab' ? a" "LEN(2) | a" "a | LEN(2)" "a[1] ? t 'a'" "'a' | a | 'b'" "'a' | 'b' | a" "'a' ? 'a' | a" "'ab' ? ARBNO(t)" "'ab' ? FENCE(t)" "'ab' ? *t" "'ab' ? t . x" "'ab' ? a $ x" "LEN(1) | 'b'" > "$D/b.in"
 ( cd "$D" && timeout 10 "$SBL" -bf a.sno < /dev/null 2>/dev/null > a.want )
 ( cd "$D" && timeout 10 "$SBL" -bf b.sno < b.in 2>/dev/null > b.want )
 grep -q "ERROR 240" "$D/a.want" || refuse "sbl -bf does not raise ERROR 240 for the match operand: [$(tr '\n' '|' < "$D/a.want")]"
@@ -85,7 +93,7 @@ for m in m3 m4; do
     else arm "b $m" "got [$(tr '\n' '|' 2>/dev/null < "$D/b.$m")] want [$(tr '\n' '|' < "$D/b.want")]"; fi
 done
 if [ $red -eq 0 ]; then
-    echo "GATE PASS(0): an ARRAY or TABLE as a pattern operand raises the operand error SPITBOL raises -- 240, 5, 6, 8, 9 -- as a statement and through EVAL, both modes; $n arm(s)"
+    echo "GATE PASS(0): an ARRAY or TABLE as a pattern operand raises the operand error SPITBOL raises -- 240, 5, 6, 8, 9, 61, 259, 46, 30, 25 -- as a statement and through EVAL, both modes; $n arm(s)"
     exit 0
 fi
 echo "GATE FAIL(1): $red of $n arm(s) diverge"; exit 1

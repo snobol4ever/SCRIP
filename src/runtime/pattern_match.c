@@ -1604,6 +1604,12 @@ static rt_dcap_next_t rt_defer_resolve(rt_dfx_t *s, DESCR_t r) {
             }
         }
         if (r.v == DT_P && r.p) { dtp_fn_of(r.p); if (*(void **)r.p) return (rt_dcap_next_t){ (long)(uintptr_t)r.p, 4 }; s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
+        if (r.v == DT_A || r.v == DT_T || IS_DATA_INST_fn(r)) {
+            extern void core_runtime_error(int, const char *);
+            core_runtime_error(46, "expression does not evaluate to pattern");
+            s->failed = 1;
+            return (rt_dcap_next_t){ 0, 0 };
+        }
         s->val = r;
         return (rt_dcap_next_t){ 0, 0 };
     }
@@ -1749,6 +1755,7 @@ static int rt_defer_close_v(int cur_delta, DESCR_t val) {
         if (llen == 1) { if (Σ[cur_delta] != lit[0]) return -1; } else if (llen > 0 && strncmp(Σ + cur_delta, lit, (size_t)llen) != 0) return -1;
         return cur_delta + llen;
     }
+    if (val.v == DT_A || val.v == DT_T || IS_DATA_INST_fn(val)) { extern void core_runtime_error(int, const char *); core_runtime_error(46, "expression does not evaluate to pattern"); return -1; }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
