@@ -15,6 +15,7 @@
 # breaks missing, debug_list 273 and 214 lines against sbl's 619); this tree reads 16 of 16 SAME.
 # FAIL_ONCE for the include witnesses (recorded 2026-10-14, the tree before the include-depth cure, src stashed): p_inc, p_inc2, p_inc3 RED in both modes (the
 # placeholder where the image belongs, the continuation line and the depth column missing); with the cure all 22 listings SAME.
+# FAIL_ONCE p_inc4 (2026-10-15, src stashed): RED in both modes (the nested include's first statement listed at the parent file's depth); with the cure all 24 listings SAME.
 # EXIT 0 every witness in both modes; 1 a red (named, with the first differing line); 2 REFUSED (oracle, build, or sbl printed no listing).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
@@ -70,9 +71,12 @@ printf '* top of a\n-EJECT\n A = '"'"'a'"'"'\n-INCLUDE '"'"'inc_b.sno'"'"'\n C =
 printf -- '-LIST\n X = 1\n-INCLUDE '"'"'inc_a.sno'"'"'\n OUTPUT = X\n OUTPUT = B\nEND\n' > p_inc2.sno
 printf ' C = 1 +\n+  2\n D = 3\n' > inc_c.sno
 printf -- '-LIST\n-INCLUDE '"'"'inc_c.sno'"'"'\n OUTPUT = 1\nEND\n' > p_inc3.sno
+printf '* nested pol\nPOL\tOUTPUT = '"'"'pol'"'"'\n' > inc_d.sno
+printf '* before nested\n-INCLUDE '"'"'inc_d.sno'"'"'\n' > inc_e.sno
+printf -- '* before include\n-LIST\n-INCLUDE '"'"'inc_e.sno'"'"'\n OUTPUT = 1\nEND\n' > p_inc4.sno
 cut_at_end() { grep -v '^x86-64 ' | awk '{print} /^[0-9]+ +END( |$)/{exit}'; }
 rc=0; n=0
-for src in SourceLines001 hide debug_list p_title p_print p_chain p_page50 p_page1200 p_inc p_inc2 p_inc3; do
+for src in SourceLines001 hide debug_list p_title p_print p_chain p_page50 p_page1200 p_inc p_inc2 p_inc3 p_inc4; do
     timeout 60 "$SBL" -bf $src.sno < /dev/null 2>/dev/null | cut_at_end > $src.o
     [ "$(grep -c 'spitbol version' $src.o)" -ge 1 ] || { echo "REFUSED(2): sbl printed no listing for $src"; exit 2; }
     timeout 60 "$ROOT/scrip" --stlimit $src.sno < /dev/null 2>/dev/null | cut_at_end > $src.m3
@@ -86,5 +90,5 @@ for src in SourceLines001 hide debug_list p_title p_print p_chain p_page50 p_pag
         rc=1
     done
 done
-[ $rc = 0 ] && echo "PASS: $n listings (11 witnesses x 2 modes) byte-identical to sbl through the END line"
+[ $rc = 0 ] && echo "PASS: $n listings (12 witnesses x 2 modes) byte-identical to sbl through the END line"
 exit $rc

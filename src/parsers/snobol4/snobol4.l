@@ -132,8 +132,10 @@ static void sno_stmt_pos_mark(void) {
 static void sno_stmt_comment_latch(void) {
     if (!g_stmt_pos.pend_fname) g_stmt_pos.pend_fname = ct_strdup(sno_frame_file());
 }
+static void sno_stmt_latch_drop(void) { ct_drop(g_stmt_pos.pend_fname); g_stmt_pos.pend_fname = (char *)0; }
 static void sno_frame_push(const char *name) {
     if (incl_stack_depth >= MAX_INCL_NEST) return;
+    sno_stmt_latch_drop();
     { SNO_SRC_FRAME_t *f = &incl_start_stack[++incl_stack_depth];
       f->start_line = lineno; f->line_delta = 1 - lineno;
       ct_drop(f->fname); f->fname = ct_strdup(name ? name : ""); }
@@ -487,6 +489,7 @@ G       ({WS}|{CONT})*
 <<EOF>>             {
     if (incl_stack_depth > 0) {
         int _incl_start = incl_start_stack[incl_stack_depth--].start_line;
+        sno_stmt_latch_drop();
         lineno = _incl_start;
     }
     if (YY_CURRENT_BUFFER) yypop_buffer_state(yyscanner);

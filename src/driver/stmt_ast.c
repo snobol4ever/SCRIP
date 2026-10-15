@@ -215,6 +215,7 @@ static char * stmt_src_slice(const STMT_t * s, const stmt_inc_t * inc) {
     if (!s) return NULL;
     if (inc) {
         int n1 = s->lline ? s->lline : s->lineno;
+        if (n1 < 1) return NULL;
         int n2 = n1 + 1;
         if (s->next && s->next->file && strcmp(s->next->file, inc->name) == 0 && s->next->lline > n1) n2 = s->next->lline;
         else while (n2 <= inc->n && (inc->lines[n2 - 1][0] == '+' || inc->lines[n2 - 1][0] == '.')) n2++;
