@@ -328,7 +328,9 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
              fi;;
         csn) GOT="$(cd "$RUN" && "$TIMEOUT_RETRY" "$TIMEOUT" "$CSN" "$2" < "$inp" 2>&1)"; RC=$?;;
     esac; }
+. "$HERE/lib_rr.sh" && rr_load "$SUITE" || exit 2   # the round robin's seam (CEO-1802/1805/1806): one chunk or a request's entries, rows as each test ends
 for sno in "$SUITE"/*.sno; do
+    _rrn="$(basename "$sno")"; _rrn="${_rrn%.*}"; rr_admits "$_rrn" || continue; rr_yield "$_rrn" && break; [ "$PROG_RECORD" = 1 ] && rr_flush "$PROG_ROWS"
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
     name="$(basename "$sno" .sno)"; TOTAL=$((TOTAL+1)); ROW_S3=0; ROW_S4=0
     export S4E_TIMEOUT_KEY="$name"   # the unit a retried timeout's stamp names (CEO-1335)
@@ -429,8 +431,10 @@ echo "dialect tally (NOT in the score): $DIA fixture(s) pass against SPITBOL whi
 # named per-entry in NARROW.tsv beside the package; everything else that went through full comparison
 # (SE3 stream-equal passes, F3 fails, and the NSTD-flagged N3P/N3F) is graded_stream.
 INV_PACKAGE=snoflake_suite; INV_DIR="$SUITE"; INV_EXT=".sno"
+if ! rr_selected; then   # a chunk grades a part of the package, and the inventory sums the whole shipped package (CEO-1802)
 INV_LINE="$(inventory_line "$BASE" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+fi
 [ -n "$OPTS_LIST" ] && echo "OPTS not honored:$OPTS_LIST"
 [ -n "$ENL3" ] && echo "ERROR-NUMBER-ONLY (m3, ungraded-by-a-narrower-instrument, not a red and not a stream-equal pass):$ENL3"
 [ -n "$FL3" ] && echo "FAIL-M3:$FL3"
@@ -450,6 +454,7 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 if [ "$PROG_RECORD" = 1 ]; then
     progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS ROWS NOT RECORDED (writer rc=$? above) -- a run that leaves the table untouched is a defect of that run (progress/README.md), not a red board" >&2
 else echo "progress: scratch suite $SUITE -- $(grep -c . "$PROG_ROWS") row(s) NOT recorded (only the canonical suite, or S4E_PROGRESS_DB, records)"; fi
+rr_selected && { rr_end snoflake; exit 0; }   # a chunk or a request writes its rows and no suite row (CEO-1802)
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
 # measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
 # turn a real measurement into a red board. Matches the other package suites (Arizona/JCON/fpc/GNU/SWI);

@@ -1565,6 +1565,8 @@ def db_crosscheck(key, p, t):
 # ASSEMBLED: every entry of the suite's table at its LATEST reading in each mode, whatever tree read it; the AND per program over m3 and m4 is
 # the numerator, the table's entries the denominator. The row is CURRENT at a tree when every entry has a reading at or after it -- so it names
 # the OLDEST reading's tree beside the newest, per chunk too, and a write stamps the oldest (the tree every reading is at or after).
+# the packages whose suite key is not their directory's progress key (the coo's measurement of 2026-10-15: from-progress could not reach them)
+FROM_PROGRESS_PACKAGES = {"x64tests": "packages/snobol4/spitbol_x64_tests", "x32tests": "packages/snobol4/spitbol_x32_tests", "logtalk": "packages/prolog/logtalk_iso"}
 FROM_PROGRESS_MASTERS = {"sno-rungs": "tests/snobol4", "icn-rungs": "tests/icon", "pl-rungs": "tests/prolog", "pas-rungs": "tests/pascal",
                          "raku-rungs": "tests/raku", "snc-rungs": "tests/snocone", "reb-rungs": "tests/rebus"}
 
@@ -1576,6 +1578,8 @@ def from_progress_table(corpus, key):
     import util_suite_rows_vs_progress as _aud
     if key in FROM_PROGRESS_MASTERS:
         return os.path.join(corpus, FROM_PROGRESS_MASTERS[key]), _aud.DBNAME.get(key, key)
+    if key in FROM_PROGRESS_PACKAGES and os.path.exists(os.path.join(corpus, FROM_PROGRESS_PACKAGES[key], "ALL.csv")):
+        return os.path.join(corpus, FROM_PROGRESS_PACKAGES[key]), _aud.DBNAME.get(key, key)
     import corpus_suite_harness as _h
     for lang in sorted(os.listdir(os.path.join(corpus, "packages"))) if os.path.isdir(os.path.join(corpus, "packages")) else []:
         ld = os.path.join(corpus, "packages", lang)
@@ -1617,14 +1621,21 @@ def cmd_from_progress(a):
     pkg = key not in FROM_PROGRESS_MASTERS
     ext, shipped, xnames, cnames, nex = "", set(), set(), set(), 0
     if pkg:
+        _EXTS = ("sno", "spt", "sbl", "icn", "pl", "pas", "raku", "sc", "reb")
         for f in sorted(os.listdir(tdir)):
             m = re.match(r"^ALL\.(sno|spt|sbl|icn|pl|pas|raku|sc|reb)$", f)
             if m:
                 ext = m.group(1)
                 break
+        if not ext:   # a package with no container (Flake, Dotnet, x64, x32): the extension its shipped programs carry most
+            _ec = _c.Counter(f.rsplit(".", 1)[1] for f in os.listdir(tdir) if "." in f and f.rsplit(".", 1)[1] in _EXTS and not f.startswith("ALL."))
+            ext = _ec.most_common(1)[0][0] if _ec else ""
         def _stem(n):
             n = n.strip()
-            return n[:-len(ext) - 1] if ext and n.endswith("." + ext) else n
+            for e in ((ext,) if ext else ()) + _EXTS:
+                if n.endswith("." + e):
+                    return n[:-len(e) - 1]
+            return n
         if ext:
             shipped = {f[:-len(ext) - 1] for f in os.listdir(tdir) if f.endswith("." + ext) and f != "ALL." + ext}
         for fn, acc in (("EXCLUDED.tsv", xnames), ("CONTAINERS.tsv", cnames)):

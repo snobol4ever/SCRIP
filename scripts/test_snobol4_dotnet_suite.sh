@@ -140,7 +140,9 @@ mask_dot() { # $1=text $2=name $3=side -> the text masked per ALL.mask (the harn
     local out; out="$(printf '%s' "$1" | python3 "$HERE/util_apply_ceo409_mask.py" "$SUITE/ALL.mask" "$2" "$W/mask_n" "--side=$3" 2>"$W/mask_err")" || { echo "⛔ REFUSE(rc=2): the CEO-409 masker refused on $2 (side $3): $(head -1 "$W/mask_err")"; exit 2; }
     printf '%s' "$out"
 }
+. "$HERE/lib_rr.sh" && rr_load "$SUITE" || exit 2   # the round robin's seam (CEO-1802/1805/1806): one chunk or a request's entries, rows as each test ends
 for sno in "$SUITE"/*.sno; do
+    _rrn="$(basename "$sno")"; _rrn="${_rrn%.*}"; rr_admits "$_rrn" || continue; rr_yield "$_rrn" && break; [ "$PROG_RECORD" = 1 ] && rr_flush "$PROG_ROWS"
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
     name="$(basename "$sno" .sno)"; ROW_S3=0; ROW_S4=0
     export S4E_TIMEOUT_KEY="$name"   # the unit a retried timeout's stamp names (CEO-1335)
@@ -233,12 +235,15 @@ else echo "⚠ no OUTSIDE_SPITBOL_BASELINE.tsv beside the suite -- the outside-b
 # recomputes ungradable itself from UNGRADABLE.tsv beside $SUITE (a static declaration of exactly the
 # UNSCR names above, with the oracle's own per-program reason) rather than trusting $UNSCR as a number.
 INV_PACKAGE=dotnet; INV_DIR="$SUITE"; INV_EXT=".sno"
+if ! rr_selected; then   # a chunk grades a part of the package, and the inventory sums the whole shipped package (CEO-1802)
 INV_LINE="$(inventory_line "$SCORED" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+fi
 # ⭐ THE PROGRESS ROWS, written once (see PROG_ROWS above). Said aloud either way; never a red board.
 if [ "$PROG_RECORD" = 1 ]; then
     progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS ROWS NOT RECORDED (writer rc=$? above) -- a run that leaves the table untouched is a defect of that run (progress/README.md), not a red board" >&2
 else echo "progress: scratch suite $SUITE -- $(grep -c . "$PROG_ROWS") row(s) NOT recorded (only the canonical suite, or S4E_PROGRESS_DB, records)"; fi
+rr_selected && { rr_end dotnet; exit 0; }   # a chunk or a request writes its rows and no suite row (CEO-1802)
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04): F3/F4/S4 all read 0 over zero SCORED entries too (empty corpus dir,
 # every witness oracle-crashed/died) -- refuse before the vacuous-clean verdict below can be reached.

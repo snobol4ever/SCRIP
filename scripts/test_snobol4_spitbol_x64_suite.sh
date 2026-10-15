@@ -185,7 +185,9 @@ compile_m4() {  # compile_m4 <src> <out> [<compile_args>]; on failure echoes "<O
     rm -f "$W/p.s" "$W/p.o"
     return 0
 }
+. "$HERE/lib_rr.sh" && rr_load "$SUITE" || exit 2   # the round robin's seam (CEO-1802/1805/1806): one chunk or a request's entries, rows as each test ends
 for sno in "$SUITE"/*.sbl; do
+    _rrn="$(basename "$sno")"; _rrn="${_rrn%.*}"; rr_admits "$_rrn" || continue; rr_yield "$_rrn" && break; [ "$PROG_RECORD" = 1 ] && rr_flush "$PROG_ROWS"
     name="$(basename "$sno" .sbl)"; base="$(basename "$sno")"; ROW_S3=0; ROW_S4=0   # each mode's own wall for its row (CEO-1676 (c))
     export S4E_TIMEOUT_KEY="$name"   # the unit a retried timeout's stamp names (CEO-1335)
     # ⛔ THE ORACLE FIRST, AND IT DECIDES BOTH WHETHER AND HOW.  Whether: a program our mandated -bf arm
@@ -305,11 +307,14 @@ elif [ "$SELF" -gt 0 ]; then echo "⚠ no NARROW.tsv beside the suite -- $SELF p
 # program is in no bucket at all and appears in no number.  lib_inventory.sh recomputes every bucket
 # itself from the sidecars rather than trusting this runner's counters.
 INV_PACKAGE=spitbol_x64; INV_DIR="$SUITE"; INV_EXT=".sbl"
+if ! rr_selected; then   # a chunk grades a part of the package, and the inventory sums the whole shipped package (CEO-1802)
 INV_LINE="$(inventory_line "$STREAM" "$SELF")"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+fi
 if [ "$PROG_RECORD" = 1 ]; then
     progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS ROWS NOT RECORDED (writer rc=$? above) -- a run that leaves the table untouched is a defect of that run (progress/README.md), not a red board" >&2
 else echo "progress: scratch suite $SUITE -- $(grep -c . "$PROG_ROWS") row(s) NOT recorded (only the canonical suite, or S4E_PROGRESS_DB, records)"; fi
+rr_selected && { rr_end x64tests; exit 0; }   # a chunk or a request writes its rows and no suite row (CEO-1802)
 # ⛔⭐ AN EXCLUSION NOBODY SIGNED IS NOT AN EXCLUSION -- THE DEFERRAL DECLARATION, RE-ASKED BOTH WAYS.  The
 # split above stopped a DEFERRED program from redding the board, which is right (WE chose not to measure it)
 # and is ALSO a loosening: without this block, a deferral is a silent exclusion that keeps a green rc, the
