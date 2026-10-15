@@ -790,6 +790,7 @@ test_gate_pl_sort_4_answers_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_ssu_rules_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_ssu_rules_in_a_module_or_unit_and_their_no_match_error_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_stream_arg_errors_are_catchable.sh	WIRED	-	-	-
+test_gate_pl_stream_property_of_a_bound_stream_or_a_named_alias_is_deterministic.sh	WIRED	-	-	-
 test_gate_pl_stream_property_sees_the_standard_streams_before_any_file_operation.sh	WIRED	-	-	-
 test_gate_pl_sub_atom_with_two_bound_numbers_computes_its_one_slice.sh	WIRED	-	-	-
 test_gate_pl_swi_determinism_marks_answer_as_swipl.sh	WIRED	-	-	-
