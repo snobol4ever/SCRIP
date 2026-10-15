@@ -1443,4 +1443,84 @@ RTX_FUNC(rt_gc_core_roots_run)
     RTX_POPS(rbx)
     ret
 RTX_ENDF(rt_gc_core_roots_run)
+RTX_FUNC(rt_gc_trail_roots_run)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    mov     r8, rdi
+    lea     rdi, [rip + g_gc_mk]
+    mov     r11, qword ptr [rdi + 8]
+    mov     rbx, qword ptr [rdi + 32]
+    mov     r12, qword ptr [rdi + 48]
+    mov     r14, qword ptr [rdi + 72]
+    mov     r15, qword ptr [rdi + 96]
+.Ltr2_range:
+    mov     rax, qword ptr [r8 + 16]
+    cmp     rax, qword ptr [r8 + 8]
+    jae     .Ltr2_done
+    shl     rax, 4
+    add     rax, qword ptr [r8]
+    cmp     qword ptr [rax + 8], 0
+    jne     .Ltr2_next
+    mov     rdx, qword ptr [rax]
+    mov     rcx, qword ptr [rdx]
+    mov     qword ptr [r8 + 40], rcx
+    mov     rsi, qword ptr [r8 + 24]
+    test    rsi, rsi
+    jne     .Ltr2_entry
+    lea     rsi, [rdx + 64]
+.Ltr2_entry:
+    lea     rax, [rsi + 32]
+    cmp     rax, qword ptr [r8 + 40]
+    ja      .Ltr2_next
+    mov     qword ptr [r8 + 24], rsi
+    mov     rax, qword ptr [rdi + 40]
+    sub     rax, rbx
+    cmp     rax, 1
+    jl      .Ltr2_full_slots
+    mov     rax, qword ptr [rdi + 16]
+    sub     rax, r11
+    cmp     rax, 1
+    jl      .Ltr2_full_wl
+    mov     r10, qword ptr [rsi]
+    test    r10, r10
+    je      .Ltr2_pad
+    MK_RAW rsi
+    jmp     .Ltr2_old
+.Ltr2_pad:
+    cmp     qword ptr [rsi + 8], 0
+    je      .Ltr2_old
+    inc     qword ptr [r8 + 32]
+.Ltr2_old:
+    lea     r10, [rsi + 16]
+    MK_WLPUSH r10
+    add     rsi, 32
+    jmp     .Ltr2_entry
+.Ltr2_next:
+    inc     qword ptr [r8 + 16]
+    mov     qword ptr [r8 + 24], 0
+    jmp     .Ltr2_range
+.Ltr2_done:
+    xor     eax, eax
+    jmp     .Ltr2_out
+.Ltr2_full_slots:
+    mov     eax, 1
+    jmp     .Ltr2_out
+.Ltr2_full_wl:
+    mov     eax, 2
+.Ltr2_out:
+    mov     qword ptr [rdi + 8], r11
+    mov     qword ptr [rdi + 32], rbx
+    mov     qword ptr [rdi + 96], r15
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_gc_trail_roots_run)
 .section .note.GNU-stack,"",@progbits

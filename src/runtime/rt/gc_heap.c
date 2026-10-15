@@ -1514,6 +1514,11 @@ void rt_gc_visit_descr(DESCR_t *d) {
     int r = rt_gc_visit_descr_a(d);
     if (r == 2) { g_gc_mk.draining = 1; gc_wl_drain(); g_gc_mk.draining = 0; } else if (!r) rt_gc_visit_descr_c(d);
 }
+typedef struct gc_trail_roots_args_t { const struct gc_rng_t *rr; long n; long pos_i; const char *pos_e; long n_hb; const char *top; } gc_trail_roots_args_t;
+_Static_assert(__builtin_offsetof(gc_trail_roots_args_t, rr) == 0 && __builtin_offsetof(gc_trail_roots_args_t, n) == 8 && __builtin_offsetof(gc_trail_roots_args_t, pos_i) == 16 &&
+    __builtin_offsetof(gc_trail_roots_args_t, pos_e) == 24 && __builtin_offsetof(gc_trail_roots_args_t, n_hb) == 32 && __builtin_offsetof(gc_trail_roots_args_t, top) == 40 &&
+    sizeof(pl_tr_entry_t) == 32 && PL_TR_HEADER_BYTES == 64 && __builtin_offsetof(pl_tr_entry_t, pad) == 8 && __builtin_offsetof(pl_tr_entry_t, old) == 16,
+    "rt_gc_trail_roots_run (rtx_gc.s) reads its argument block and the trail at these offsets");
 void rt_gc_run_roots(gc_roots_args_t *a) {
     extern long rt_gc_core_roots_run(gc_roots_args_t *);
     for (;;) { long r = rt_gc_core_roots_run(a); if (!r) break; if (r == 1) gc_slot_grow(); else gc_wl_grow(); }
@@ -2766,7 +2771,17 @@ static const char *gc_chain_stopname(int k) {
     }
 }
 typedef struct { gc_chf_t *v; long n, cap; } gc_gap_t;
-typedef struct { const char *lo, *hi, *p, *prevbase, *lastname, *roottop; long n; int run, visit, stop; rt_gc_frame_fn fn; void *a; gc_chf_t lastf; gc_gap_t gap; } gc_sw_t;
+typedef struct {
+    const char *lo, *hi, *p, *prevbase, *lastname, *roottop;
+    long n;
+    int run, visit, stop;
+    rt_gc_frame_fn fn;
+    void *a;
+    gc_chf_t lastf;
+    gc_gap_t gap;
+    uint64_t last_beta;
+    const gc_site_blk_t *last_blk;
+} gc_sw_t;
 static void gc_gap_open(gc_gap_t *g) {
     g->cap = 24;
     g->v = (gc_chf_t *)gcbk_alloc((size_t)g->cap * sizeof *g->v);
@@ -2948,7 +2963,9 @@ static int gc_sw_links(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char *g
                 if (hdr < s->lo || hdr + 48 > s->hi || hdr >= f->base) why = "the generator header lies outside the segment or not below the frame that links it";
                 else beta = *(const uint64_t *)(hdr + 32);
             } else beta = *(const uint64_t *)(c + 8);
-            b = why ? (const gc_site_blk_t *)0 : gc_code_block(beta);
+            if (why) b = (const gc_site_blk_t *)0;
+            else if (beta == s->last_beta && s->last_blk) b = s->last_blk;
+            else { b = gc_code_block(beta); s->last_beta = beta; s->last_blk = b; }
             if (why) ;
             else if (!b) why = "its beta word names no registered graph";
             else if (hdr && !(b->map->flags & GC_FRAME_MAP_GEN_ANCHOR)) why = "the generator's resume cell names no generator graph";
@@ -3433,19 +3450,15 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     g_gc_mk.nslot = 0;
 #endif
     { extern void pl_tr_gc_root_ball(const char *); for (long i = 0; i < g_gc_rrng_n; i++) if (!g_gc_rrng[i].hi) pl_tr_gc_root_ball(g_gc_rrng[i].lo); }
-    for (long i = 0; i < g_gc_rrng_n; i++) {
-        if (g_gc_rrng[i].hi) continue;
-        {
-            const char *top = *(const char * const *)g_gc_rrng[i].lo;
-            for (char *e = (char *)g_gc_rrng[i].lo + PL_TR_HEADER_BYTES; e + PL_TR_ENTRY_BYTES <= top; e += PL_TR_ENTRY_BYTES) {
-                const char **cell = (const char **)e;
-                DESCR_t *old = (DESCR_t *)(e + 16);
-                if (*cell) rt_gc_visit_raw(cell);
-                else if (((const pl_tr_entry_t *)e)->pad) n_hb++;
-                rt_gc_visit_descr(old);
-            }
-        }
+    g_gc_mk.draining = 1;
+    {
+        gc_trail_roots_args_t ta = { g_gc_rrng, g_gc_rrng_n, 0, (const char *)0, 0, (const char *)0 };
+        extern long rt_gc_trail_roots_run(gc_trail_roots_args_t *);
+        for (;;) { long r = rt_gc_trail_roots_run(&ta); if (!r) break; if (r == 1) gc_slot_grow(); else gc_wl_grow(); }
+        n_hb = ta.n_hb;
     }
+    g_gc_mk.draining = 0;
+    gc_wl_drain();
 #if RT_DIAG
     gc_coexpr_records();
     words += gc_stack_segments(g_gc_seam_sp ? g_gc_seam_sp : &anchor, ent);
@@ -3453,6 +3466,8 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     gc_coexpr_records();
     gc_stack_segments(g_gc_seam_sp ? g_gc_seam_sp : &anchor, ent);
 #endif
+    g_gc_mk.draining = 0;
+    gc_wl_drain();
     gc_root_cas();
     gc_root_gva();
     kw_cset_gc_roots();
