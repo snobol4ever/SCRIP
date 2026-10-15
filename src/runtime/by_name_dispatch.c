@@ -6309,8 +6309,40 @@ DESCR_t rt_pl_dop_unify_raise_c(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_clause_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+static int pl_body_ctl(DESCR_t v, int swi) {
     extern int prolog_atom_intern(const char *);
+    uint32_t f = v.slen;
+    if (plc_fid_arity(f) == 1) return swi && f == (uint32_t)prolog_functor_intern(prolog_atom_intern("\\+"), 1);
+    if (plc_fid_arity(f) != 2) return 0;
+    if (f == (uint32_t)prolog_functor_intern(prolog_atom_intern(","), 2) || f == (uint32_t)prolog_functor_intern(prolog_atom_intern(";"), 2)) return 1;
+    return f == (uint32_t)prolog_functor_intern(prolog_atom_intern("->"), 2) || (swi && f == (uint32_t)prolog_functor_intern(prolog_atom_intern("*->"), 2));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t pl_body_call_vars(DESCR_t b, int swi) {
+    extern int prolog_atom_intern(const char *);
+    DESCR_t *bp = plw_cell_deref(plw_entry(&b));
+    DESCR_t r = *bp;
+    if (plw_unbound_tag(bp)) {
+        DESCR_t *k = (DESCR_t *)rt_ws_alloc_descr(1);
+        DESCR_t c = {0};
+        k[0] = *bp;
+        c.v = (DTYPE_t)DT_PLREF;
+        c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("call"), 1);
+        c.p = (void *)k;
+        return c;
+    }
+    if (r.v != (DTYPE_t)DT_PLREF || !pl_body_ctl(r, swi)) return r;
+    {
+        int ar = plc_fid_arity(r.slen);
+        DESCR_t *a = (DESCR_t *)r.p;
+        DESCR_t *k = (DESCR_t *)rt_ws_alloc_descr((size_t)ar);
+        for (int i = 0; i < ar; i++) k[i] = pl_body_call_vars(a[i], swi);
+        r.p = (void *)k;
+        return r;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_clause_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     if (nargs != 2) return FAILDESCR;
     rt_pl_tr_gc_sync(cx->tr);
     {
@@ -6322,20 +6354,8 @@ DESCR_t rt_pl_dop_clause_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
         else {
             DESCR_t *ra = (DESCR_t *)rc.p;
             DESCR_t *ta = (DESCR_t *)tc.p;
-            if (!plw_unify_vals(ra[0], ta[0], cx)) out = FAILDESCR;
-            else {
-                DESCR_t bt = ra[1];
-                DESCR_t *rbp = plw_cell_deref(plw_entry(&bt));
-                DESCR_t bodyv = {0};
-                if (plw_unbound_tag(rbp)) {
-                    DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(1);
-                    kids[0] = *rbp;
-                    bodyv.v = (DTYPE_t)DT_PLREF;
-                    bodyv.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("call"), 1);
-                    bodyv.p = (void *)kids;
-                } else bodyv = *rbp;
-                out = plw_unify_vals(bodyv, ta[1], cx) ? rt_pl_deref_val(args[0]) : FAILDESCR;
-            }
+            DESCR_t bodyv = pl_body_call_vars(ra[1], pl_swi_dialect());
+            out = plw_unify_vals(ra[0], ta[0], cx) && plw_unify_vals(bodyv, ta[1], cx) ? rt_pl_deref_val(args[0]) : FAILDESCR;
         }
         if (out.v == DT_FAIL) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
         rt_pl_tr_gc_sync(cx->tr);
@@ -7057,7 +7077,7 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
         {
             DESCR_t a = rt_pl_deref_val(((DESCR_t *)opt.p)[0]);
             const char *as = pl_atom_str(a);
-            if (pl_val_unbound(a)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
+            if (pl_val_unbound(a)) { cx->ball = on && !strcmp(on, "alias") && !pl_swi_dialect() ? rt_pl_ball_kind2("domain_error", "stream_option", opt) : rt_pl_ball_instantiation(); return 0; }
             if (on && !strcmp(on, "alias")) {
                 extern void fh_set_alias(int, const char *);
                 if (!as) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
@@ -9319,6 +9339,10 @@ DESCR_t rt_pl_dop_close_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
         for (cur = o; pl_is_cons(cur); cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) {
             e = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
             if (pl_val_unbound(e)) { cx->ball = rt_pl_ball_instantiation(); return FAILDESCR; }
+            if (e.v == (DTYPE_t)DT_PLREF && plc_fid_arity(e.slen) == 1 && plc_fid_name(e.slen) == prolog_atom_intern("force") && pl_val_unbound(rt_pl_deref_val(((DESCR_t *)e.p)[0]))) {
+                cx->ball = rt_pl_ball_instantiation();
+                return FAILDESCR;
+            }
             if (!(e.v == (DTYPE_t)DT_PLREF && plc_fid_name(e.slen) == prolog_atom_intern("force") && plc_fid_arity(e.slen) == 1 && (vs = pl_atom_str(v = rt_pl_deref_val(((DESCR_t *)e.p)[0]))) &&
                 (!strcmp(vs, "true") || !strcmp(vs, "false")))) {
                 cx->ball = rt_pl_ball_kind2("domain_error", "close_option", e);
