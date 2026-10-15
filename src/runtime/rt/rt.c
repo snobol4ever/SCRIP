@@ -593,6 +593,7 @@ static const char rt_proc_thunk_name[] = "(expression)";
 static unsigned g_proc_hcap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned rt_proc_fnv(const char *s) { unsigned h = 2166136261u; while (*s) { h ^= (unsigned char)*s++; h *= 16777619u; } return h; }
+int rt_proc_index_of(const char *name);
 static int rt_proc_hash_lookup_h(const char *name, unsigned h0) {
     if (!name || !g_proc_hcap) return -1;
     {
@@ -692,7 +693,7 @@ const char *rt_proc_trace_canon(const char *name) { return name; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_dyn_scope(const char *name, int v) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].dyn_scope = v ? 1 : 0; return; } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_dyn_scope(const char *name) { if (!name) return 0; { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].dyn_scope; } return 0; }
+int rt_proc_dyn_scope(const char *name) { if (!name) return 0; { int i = rt_proc_index_of(name); if (i >= 0) return g_rt_gen_procs[i].dyn_scope; } return 0; }
 int rt_proc_entry_pending(const char *name) {
     extern const char *core_define_entry_label(const char *);
     if (!name) return 0;
@@ -889,14 +890,14 @@ int rt_proc_is_defined(const char *name) { rt_proc_t *p = name ? rt_proc_find(na
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_jmp_entry(const char *name) {
     if (!name) return 0;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].jmp_entry; }
+    { int i = rt_proc_index_of(name); if (i >= 0) return g_rt_gen_procs[i].jmp_entry; }
     { rt_proc_t *p = rt_proc_find_alias(name); if (p) return p->jmp_entry; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_proc_fn(const char *name) {
     if (!name) return (void *)0;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) return (void *)g_rt_gen_procs[i].fn; }
+    { int i = rt_proc_index_of(name); if (i >= 0) return (void *)g_rt_gen_procs[i].fn; }
     { rt_proc_t *p = rt_proc_find_alias(name); if (p) return (void *)p->fn; }
     return (void *)0;
 }
@@ -990,7 +991,7 @@ void rt_proc_set_pname(const char *name, int k, const char *pname) {
     ((const char **)p->pnames)[k] = pname;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_nparams(const char *name) { if (!name) return -1; { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].nparams; } return -1; }
+int rt_proc_nparams(const char *name) { if (!name) return -1; { int i = rt_proc_index_of(name); if (i >= 0) return g_rt_gen_procs[i].nparams; } return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_has_native_fn(const char *name) { if (!name) return 0; { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].fn != (bb_box_fn)0; } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1036,7 +1037,7 @@ void rt_proc_set_pinned(const char *name, int v) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_pinned(const char *name) { if (!name) return 0; { int i = rt_proc_hash_lookup(name); return (i >= 0) ? g_rt_gen_procs[i].pinned : 0; } }
+int rt_proc_pinned(const char *name) { if (!name) return 0; { int i = rt_proc_index_of(name); return (i >= 0) ? g_rt_gen_procs[i].pinned : 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_generator(const char *name, int is_gen) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].is_generator = is_gen ? 1 : 0; return; } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1053,7 +1054,7 @@ int rt_proc_named_rest(const char *name) { { int i = rt_proc_hash_lookup(name); 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_jmpentry(const char *name, int on) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].jmp_entry = on ? 1 : 0; return; } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_is_generator(const char *name) { if (!name) return 0; { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].is_generator; } return 0; }
+int rt_proc_is_generator(const char *name) { if (!name) return 0; { int i = rt_proc_index_of(name); if (i >= 0) return g_rt_gen_procs[i].is_generator; } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_fn_at(int idx, bb_box_fn fn) { if (idx >= 0 && idx < g_rt_gen_proc_count) g_rt_gen_procs[idx].fn = fn; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
