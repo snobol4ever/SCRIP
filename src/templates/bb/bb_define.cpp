@@ -29,8 +29,8 @@ void rt_trace_call_hook(const char *fname);
 void rt_trace_return_hook(const char *fname, DESCR_t retval);
 void rt_trace_fail_hook(const char *fname);
 void rt_trace_call_hook_p(const char *fname, trace_pend_t *pend);
-void rt_trace_return_hook_p(const char *fname, DESCR_t retval, trace_pend_t *pend);
-void rt_trace_fail_hook_p(const char *fname, trace_pend_t *pend);
+void rt_trace_return_hook_p(const char *fname, DESCR_t retval, trace_pend_t *pend, long long rstno);
+void rt_trace_fail_hook_p(const char *fname, trace_pend_t *pend, long long rstno);
 extern long g_trace;
 extern int64_t kw_ftrace;
 const char *rt_define_query(const char *, int *, int *, int *, void **);
@@ -550,6 +550,7 @@ static std::string bb_define_sr() {
                  + x86("mov", "rdi", ROQ(237))
                  + x86_rsp_load64("rsi", 48)
                  + x86_rsp_load64("rdx", 56)
+                 + x86_rsp_load64("r8", 64 + 16 * xt4 + 8)
                  + IF(BD_PEND_FIT(), x86("sub", "rsp", 112L))
                  + IF(BD_PEND_FIT(), x86("mov", RDQ("rsp", 0), 0L))
                  + IF(BD_PEND_FIT(), x86("mov", "rcx", "rsp")
@@ -646,6 +647,7 @@ static std::string bb_define_sr() {
                  + IF(BD_PEND_FIT(), x86("mov", RDQ("rsp", 0), 0L))
                  + x86("mov", "rdi", ROQ(237))
                  + IF(BD_PEND_FIT(), x86("mov", "rsi", "rsp")
+                 + x86_rsp_load64("rdx", 112 + 64 + 16 * xt4 + 8)
                  + S9([&]() { return x86("call", "rt_trace_fail_hook_p", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook_p)
                  + x86_rt_gc_poll(); })
                  + S9([&]() { return bb_glue_trace_pend_run(BB_SHIM_ID_OMEGA + nf4 + 2 + 2 * BB_SHIM_TRACE_IDS, std::string(), 1); })
