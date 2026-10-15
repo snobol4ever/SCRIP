@@ -1054,7 +1054,7 @@ s4e_lane_owner_of_language() {
       # TENET of CEO-1665 ends before the fleet starts -- the ten HQs stay down with their claims and rows in place, nothing re-laned (the CEO-1357/1372/1396/1587/1659
       # precedent); EVERY LANGUAGE TO THE ceo, who assigns, the table of CEO-1659; CEO-1765's focus (ORDER-OF-WORK icon prolog snobol4) stands. The TENET table of
       # CEO-1665 is the flip-back template: every language to its own HQ, rebus the ceo's. MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
-      # ⛔⭐ MODE SEPTET (CEO-1777, 2026-10-15 11:0x CDT, Lon in-chat to the ceo, verbatim: "Would we benefit from having HQ-SNOBOL4, HQ-ICON, and HQ-PROLOG join us? I'd
+      # ⛔⭐ MODE SEPTET (CEO-1777, 2026-10-15 10:5x CDT, Lon in-chat to the ceo, verbatim: "Would we benefit from having HQ-SNOBOL4, HQ-ICON, and HQ-PROLOG join us? I'd
       # start them as Sonnet 5.5 xhigh." then "We can have HQ-ICON work calgrind and optimize based on instruction count."): the SEPTET of CEO-1662 again -- the four
       # officers, hq_snobol4, hq_icon and hq_prolog; ICON to hq_icon, SNOBOL4 to hq_snobol4, PROLOG to hq_prolog, the other four to the ceo, who assigns; rows with an
       # owner cell keep their owner. The QUARTET table of CEO-1773 is the flip-back template (every language the ceo). MOVED AND COMMITTED BEFORE THE MODE FILE.
