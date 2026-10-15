@@ -1812,7 +1812,7 @@ static const gc_frame_map_t *gc_root_map(void) {
 void rt_program_top_adopt(char *entry_sp) {
     const gc_frame_map_t *r = gc_root_map();
     if (!r || !entry_sp || g_gc_program_top) return;
-    g_gc_program_top = entry_sp + (long)r->value_bytes + 16 + (long)r->header_bytes;
+    g_gc_program_top = entry_sp + ((r->flags & GC_FRAME_MAP_ICN_PROC) ? 0L : (long)r->value_bytes + 16 + (long)r->header_bytes);
 }
 void rt_program_top_adopt_top(char *top) { if (!gc_root_map() || !top || g_gc_program_top) return; g_gc_program_top = top; }
 char *rt_gc_program_stack_top(void) { return g_gc_program_top ? g_gc_program_top : gc_stack_top(); }
@@ -3060,6 +3060,12 @@ static long gc_sw_segment_fn(const char *lo0, const char *hi0, const gc_ent_t *e
     if (ent && s.stop != 0 && (run || (s.stop != 7 && s.stop != 8))) return -1;
     return s.n;
 }
+static void gc_program_top_refuse(const gc_ent_t *ent, const char *root_top, const char *lo, const char *hi) {
+    fprintf(stderr, "[GC-CHAIN] REFUSED: the walk from entry pc=%p R=%p over [%p,%p) found the root frame ending at %p; the adopted program top is %p (%+ld bytes)\n", ent ? ent->pc : (const void *)0,
+        ent ? (const void *)ent->r : (const void *)0, (const void *)lo, (const void *)hi, (const void *)root_top, (const void *)g_gc_program_top,
+        g_gc_program_top ? (long)(root_top - g_gc_program_top) : 0L);
+    rt_bomb("gc: a walk found the root frame away from the adopted program top -- an adoption road named the wrong top; the collector learns nothing from a walk");
+}
 static long gc_visit_segment(const char *lo0, const char *hi0, const gc_ent_t *ent, const scrip_coctx_t *sc, int run) {
     gc_sw_t s;
 #if RT_DIAG
@@ -3069,7 +3075,7 @@ static long gc_visit_segment(const char *lo0, const char *hi0, const gc_ent_t *e
     if (!ent && run && g_gc_program_top && lo0 < g_gc_program_top) s.stop = 10;
     gc_chain_tally(&s);
     if ((ent || s.stop == 10) && s.stop != 0 && (run || (s.stop != 7 && s.stop != 8))) gc_chain_refuse(&s, ent, lo0, hi0);
-    if (run && s.roottop) g_gc_program_top = (char *)(uintptr_t)s.roottop;
+    if (run && s.roottop && (const char *)(uintptr_t)s.roottop != g_gc_program_top) gc_program_top_refuse(ent, (const char *)(uintptr_t)s.roottop, lo0, hi0);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
