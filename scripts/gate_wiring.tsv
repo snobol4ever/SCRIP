@@ -1022,6 +1022,7 @@ test_gate_snc_two_nreturn_functions_link_in_m4.sh	WIRED	-	-	-
 test_gate_sno_a_bare_fence_as_an_alternation_arm_matches_null_and_seals_its_backtrack.sh	WIRED	-	-	-
 test_gate_sno_a_bare_fence_in_a_pattern_thunk_releases_the_cells_to_its_left.sh	WIRED	-	-	-
 test_gate_sno_a_bare_fence_last_in_an_arbno_body_aborts_the_match_as_sbl_does.sh	WIRED	-	-	-
+test_gate_sno_a_break_of_one_or_two_characters_scans_a_word_at_a_time.sh	WIRED	-	-	-
 test_gate_sno_a_builtin_called_short_or_over_its_arity_pads_with_null_and_drops_extras.sh	WIRED	-	-	-
 test_gate_sno_a_builtin_integer_argument_that_is_not_an_integer_is_the_spitbol_fatal_error.sh	WIRED	-	-	-
 test_gate_sno_a_by_name_call_survives_collect.sh	WIRED	-	-	-
