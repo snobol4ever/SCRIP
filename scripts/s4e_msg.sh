@@ -1062,9 +1062,11 @@ s4e_lane_owner_of_language() {
       # start them as Sonnet 5.5 xhigh." then "We can have HQ-ICON work calgrind and optimize based on instruction count."): the SEPTET of CEO-1662 again -- the four
       # officers, hq_snobol4, hq_icon and hq_prolog; ICON to hq_icon, SNOBOL4 to hq_snobol4, PROLOG to hq_prolog, the other four to the ceo, who assigns; rows with an
       # owner cell keep their owner. The QUARTET table of CEO-1773 is the flip-back template (every language the ceo). MOVED AND COMMITTED BEFORE THE MODE FILE.
-       icon)     printf 'hq_icon';;
-       prolog)   printf 'hq_prolog';;
-       snobol4)  printf 'hq_snobol4';;
+      # ⛔ MODE QUARTET AGAIN (CEO-1809, 2026-10-15 18:5x CDT, Lon in-chat to the ceo, verbatim: "Let bring the fleet to idle and go to QUARTET mode."): the four officers
+      # only; every language to the ceo, who assigns, as CEO-1773's table; the SEPTET/OCTET/NONET table above is the flip-back template. MOVED AND COMMITTED BEFORE THE MODE FILE.
+       icon)     printf 'ceo';;
+       prolog)   printf 'ceo';;
+       snobol4)  printf 'ceo';;
        pascal)   printf 'ceo';;
        snocone)  printf 'ceo';;
        rebus)    printf 'ceo';;
