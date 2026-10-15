@@ -52,29 +52,44 @@ else echo "  arm 1 FAIL: $total kind(s) declared, these carry no name:${missing:
 # ARM 2 -- THE LEDGER NAMES A RESOLVABLE OFFSET, AND IT RESOLVES TO THE RIGHT FILE.  A symbol alone cannot
 # discriminate 26 call sites in one function; module+offset can, and addr2line is the reader.
 examined=$((examined + 1))
-# THE BIRTH LINE IS MADE BY A PLANT, NOT AWAITED FROM A DEFECT (cto 2026-09-24, the seventeen-red row): this arm was cut
-# on procedure_coexpr_suspend_replace_3 faulting under the ledger, and once that entry was cured no birth line printed
-# and every field read [none] -- a gate that needs a live defect to grade its instrument goes red the day the defect
-# is cured.  SCRIP_GC_PLANT_STALE_SIGMA=1 leaves the scan subject base unreloaded after a call inside a scan and
-# SCRIP_GC_PLANT_FLIP=1 makes the stale read fault where it is used (and since CEO-1348, cfo 2026-09-28, the stale-sigma
-# plant requests the collection itself at the scan sync-out, so at SCRIP_GC_STRESS=0 that forced collection is the ONLY
-# one, the flip's PROT_NONE ground holds until the stale read, and the fault no longer rides on the allocation phase of
-# one stress point -- at stress 3 a later collection inside the callee unprotected the ground first and no fault was made;
-# the flip and shift plants exclude each other, gc_heap.c gc_plant_flip() && !g_gc_shift_now, so no shift here), so the witness of CTO-165 faults on purpose and
-# the ledger names the block (HB_WSB) and its allocating site in by_name_dispatch.c; both banners are required.
-W="$ROOT/scripts/gc_witnesses/hb_scan_subject_across_a_failing_callee.icn"; WIN="${W%.icn}.in"
-if [ -s "$W" ] && [ -s "$WIN" ]; then
-  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=0 SCRIP_GC_PLANT_STALE_SIGMA=1 SCRIP_GC_PLANT_FLIP=1 SCRIP_GC_BIRTH_LEDGER=4096 timeout 120s "$ROOT/scrip" "$W" <"$WIN" >/dev/null 2>"$T/w.err" )
-  grep -q "^\[GC-STALESIGMA\] plant:" "$T/w.err" || { echo "  arm 2 REFUSE: the GC-STALESIGMA banner is missing -- the plant never applied, so no fault was made and nothing was graded"; RC=1; }
-  grep -q "^\[GC-FLIP\] plant:" "$T/w.err" || { echo "  arm 2 REFUSE: the GC-FLIP banner is missing -- the plant never applied, so no fault was made and nothing was graded"; RC=1; }
+# THE BIRTH LINE IS MADE BY THIS GATE'S OWN FIXTURE, NEVER BY A SEAM IN SCRIP (hq_collector 2026-10-14, CEO-1680; row
+# gc-blocking-gate-birth-ledger-names-a-line-red-no-resolvable-site-ceo-1697).  This arm used to drive an Icon witness under two
+# runtime plants (SCRIP_GC_PLANT_STALE_SIGMA=1 left the scan subject unreloaded after a call, SCRIP_GC_PLANT_FLIP=1 poisoned the
+# old ground) so a stale read would fault and the ledger would print.  STEP B (SCRIP d51164383) made the subject a typed cell the
+# chain over the maps visits and forwards, the planted read no longer reached poisoned ground, no line printed, and the arm read
+# red on a CURED collector.  Lon 2026-10-11 (CEO-1680): no broken code planted so a test can trip; a seam stays allowed only inside
+# an INSTRUMENT.  So the fault is made by the test's own code: the fixture calls rt_pl_fresh_var_ref (by_name_dispatch.c, a direct
+# rt_ws_alloc_descr caller whose name the ledger's allocator walk does not skip; a C road, since the rtx asm leaf rt_str_alloc carves
+# no frame and the ledger then names the leaf's caller's caller) 3000 times, keeps the 1500th cell, collects, and reads it -- the
+# quarantine faults, the handler prints the birth line, and the site must resolve to by_name_dispatch.c, outside the allocator
+# family and outside gc_heap.c.  FAIL_ONCE=1 runs the fixture with the ledger OFF (the instrument's own switch): no line, arm 2 reds.
+LEDGER=4096; [ "${FAIL_ONCE:-0}" = 1 ] && LEDGER=0
+cat > "$T/fx.c" <<'FIXC'
+#include <stdio.h>
+#include <stdint.h>
+#include "descr.h"
+DESCR_t rt_pl_fresh_var_ref(void);
+long rt_gc_collect(void);
+int main(void) {
+    const char *stale = (const char *)0;
+    int i;
+    for (i = 0; i < 3000; i++) { DESCR_t r = rt_pl_fresh_var_ref(); if (i == 1500) stale = (const char *)r.p; }
+    printf("reclaimed=%ld\n", rt_gc_collect()); fflush(stdout);
+    { volatile char c = stale[0]; printf("stale read returned 0x%02x\n", (unsigned char)c); }
+    return 0;
+}
+FIXC
+if gcc -O0 -g -rdynamic -w -I"$ROOT/src" -I"$ROOT/src/ir" -I"$ROOT/src/runtime/rt" -I"$ROOT/src/runtime/core" -o "$T/fx" "$T/fx.c" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" 2>"$T/fx.cc"; then
+  ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_STRESS=0 SCRIP_GC_BIRTH_LEDGER=$LEDGER timeout 120s ./fx >"$T/w.out" 2>"$T/w.err" )
+  grep -q 'stale read returned' "$T/w.out" && { echo "  arm 2 REFUSE: the fixture's stale read of vacated ground did not fault, so no birth line was made and nothing was graded"; RC=1; }
   line=$(grep -m1 'ZGC-BIRTH.*allocated by' "$T/w.err")
   off=$(printf '%s\n' "$line" | grep -oE 'libscrip_rt\.so\+0x[0-9a-f]+' | tail -1 | sed 's/.*+//')
   nm=$(printf '%s\n' "$line" | grep -oE 'kind=[0-9]+/HB_[A-Z0-9_]+' | head -1)
   src=""; [ -n "${off:-}" ] && src=$(addr2line -e "$ROOT/out/libscrip_rt.so" "$off" 2>/dev/null | head -1)
   if [ -n "${off:-}" ] && [ -n "${nm:-}" ] && printf '%s' "$src" | grep -q 'src/.*\.c:[0-9]' && ! printf '%s' "$src" | grep -q 'gc_heap\.c:[0-9]'; then
-    echo "  arm 2 PASS: the ledger printed $nm and a module-relative offset that addr2line resolves to ${src##*/} -- one line, not a 2125-line symbol"
-  else echo "  arm 2 FAIL: the birth line does not carry a resolvable site OUTSIDE the allocator family -- offset [${off:-none}] kindname [${nm:-none}] resolved [${src:-none}]. A bare symbol cannot tell 26 call sites apart, an absolute %p dies with the process, and a line inside gc_heap.c names the allocator that carved the block, never the caller that asked for it (cto 2026-09-26: the HB_WSB block was born through rt_wsb_realloc, one allocator frame deeper than the fixed two-frame pair reached, and the ledger printed gc_heap.c:405)."; RC=1; fi
-else echo "  arm 2 UNPROVEN: could not extract the witness from the Icon rungs -- reported, not counted as green"; fi
+    echo "  arm 2 PASS: the ledger printed $nm and a module-relative offset that addr2line resolves to ${src##*/} -- one line of rt_pl_fresh_var_ref's file, not a symbol, with no plant in SCRIP"
+  else echo "  arm 2 FAIL: the birth line does not carry a resolvable site OUTSIDE the allocator family -- offset [${off:-none}] kindname [${nm:-none}] resolved [${src:-none}]. A bare symbol cannot discriminate the 26 call sites of one dispatcher, and gc_heap.c names the allocator, not the allocation."; RC=1; fi
+else echo "  arm 2 UNPROVEN: the fixture did not build -- $(head -c 200 "$T/fx.cc")"; RC=1; fi
 # ARM 3 -- NO ABSOLUTE RUNTIME POINTER IN THE BIRTH LINE.  An absolute address is a fact about ONE RUN under
 # ASLR; a module-relative offset is a fact about the BUILD and survives being pasted into a mail or a FINDING.
 examined=$((examined + 1))
