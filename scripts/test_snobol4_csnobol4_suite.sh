@@ -310,9 +310,11 @@ NOA_LIST=""   # CEO-1696: a shipped program with no ref that EXCLUDED.tsv names 
 [ "$RECUT" != 0 ] && { : > "$OUTSIDE.tmp"; [ -f "$OUTSIDE" ] || : > "$OUTSIDE"; }
 MOD_SUMMARY=""
 
+. "$HERE/lib_rr.sh" && rr_load "$SUITE" || exit 2   # the round robin's seam (CEO-1802/1805/1806); this runner appends each program's rows as it grades it
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero .sno files in $SUITE"; exit 2; }
     name="$(basename "$sno" .sno)"
+    rr_admits "$name" || continue; rr_yield "$name" && break
     export S4E_TIMEOUT_KEY="$name"   # the unit a retried timeout's stamp names (CEO-1335)
     ref="$SUITE/$name.ref"
     if [ ! -f "$ref" ]; then           # not a graded pair (support file) — never hand-curated
@@ -441,8 +443,10 @@ if [ "$RECUT" != 0 ]; then U="$SUITE/UNGRADABLE.tsv"; { [ -f "$U" ] && awk -F"\t
 # is the right "graded" figure for a census of $SUITE itself. graded_narrow=0: grading is byte-exact
 # against .ref, never by error-number-only.
 INV_PACKAGE=csnobol4; INV_DIR="$SUITE"; INV_EXT=".sno"
+if ! rr_selected; then   # a chunk grades a part of the package, and the inventory sums the whole shipped package (CEO-1802)
 INV_LINE="$(inventory_line "$TOTAL" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+fi
 
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
 # measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
@@ -459,6 +463,7 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # above counts the GRADED fixtures only (an outside one takes its `continue` first), so the row publishes PASS over SHIPPED =
 # graded plus the OUTSIDE_LIST, OUTSIDE=k named and stamped through lib_outside_shape.sh. Before this it read 71/71 with 49
 # programs listed in OUTSIDE_SPITBOL_BASELINE.tsv -- a 100% the law does not allow.
+rr_selected && { rr_end csnobol4; exit 0; }   # a chunk or a request wrote its rows as it went, and writes no suite row (CEO-1802)
 OUT_N="$(printf '%s\n' $OUTSIDE_LIST | grep -c .)"; NOA_N="$(printf '%s\n' $NOA_LIST | grep -c .)"; SHIPPED=$((TOTAL + OUT_N + NOA_N))
 . "$HERE/lib_outside_shape.sh" || exit 2
 # ⛔⭐ CEO-1286 (Lon 2026-09-26): the programs NOT IN THE SPITBOL DIALECT (EXCLUDED.tsv beside the suite) leave the denominator; the

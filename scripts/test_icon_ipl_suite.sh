@@ -150,6 +150,12 @@ trap 'rm -rf "$TMP"' EXIT; trap 'rm -rf "$TMP"; exit 143' TERM; trap 'rm -rf "$T
 # ⛔ AND A DRIVER IS NOT A PROGRAM (CEO-1269): NAME_driver.icn is its library's grading vehicle, never one of the shipped programs this
 # tier compiles or the container accounts for -- lib_inventory.sh drops it from shipped by the same name.
 mapfile -t FILES < <(find "$PKG" -name "*.icn" ! -name "ALL.icn" ! -name "*_driver.icn" ! -path "*.fixtures/*" | sort)
+# ⭐ THE ROUND ROBIN'S SEAM (ceo CEO-1802/1805/1806): under S4E_CHUNK both tiers grade only the selected entries (keyed subdir/stem, as ALL.csv and
+# PARTITION.tsv key them), each program's rows are appended as it is graded (ipl_progress), and no suite row is written (rr_end below).
+. "$HERE/lib_rr.sh" && rr_load "$PKG" || exit 2
+if rr_selected; then
+    _rf=(); for f in "${FILES[@]}"; do rr_admits "$(basename "$(dirname "$f")")/$(basename "$f" .icn)" && _rf+=("$f"); done; FILES=(${_rf[@]+"${_rf[@]}"})
+fi
 if [ -n "$SMOKE_KEYS" ]; then
     _sf=(); for f in "${FILES[@]}"; do smoke_wants "$(basename "$(dirname "$f")")/$(basename "$f" .icn)" && _sf+=("$f"); done; FILES=(${_sf[@]+"${_sf[@]}"})
 fi
@@ -159,7 +165,7 @@ TOTAL=${#FILES[@]}
 # The container machinery accounts for every upstream file exactly once: graded entries + named exclusions.
 # If that disagrees with what this runner walks, the two instruments in ONE package disagree and NEITHER
 # number can be published, so we REFUSE rather than print a plausible one (rc=2 = could not measure).
-if [ -z "$SMOKE_KEYS" ] && [ -f "$PKG/ALL.csv" ] && [ -f "$PKG/ALL.excluded.txt" ]; then
+if [ -z "$SMOKE_KEYS" ] && ! rr_selected && [ -f "$PKG/ALL.csv" ] && [ -f "$PKG/ALL.excluded.txt" ]; then
     # ⛔ A ROW IS A CONTAINER ENTRY ONLY WHEN ALL.excluded.txt DOES NOT NAME IT (ceo CEO-1261): since Lon's word of 2026-09-25 every
     # graded program carries its settings in ALL.csv, so an excluded program the runner still RUNS has a settings row too, and
     # counting it as a container entry would count it twice.
@@ -175,6 +181,9 @@ if [ -z "$SMOKE_KEYS" ] && [ -f "$PKG/ALL.csv" ] && [ -f "$PKG/ALL.excluded.txt"
 fi
 
 mapfile -t STDFILES < <(find "$PKG" -name "*.ref" ! -name ALL.ref)
+if rr_selected; then
+    _rs=(); for f in "${STDFILES[@]}"; do _b="$(basename "$f" .ref)"; rr_admits "$(basename "$(dirname "$f")")/${_b%_driver}" && _rs+=("$f"); done; STDFILES=(${_rs[@]+"${_rs[@]}"})
+fi
 if [ -n "$SMOKE_KEYS" ]; then
     _ss=(); for f in "${STDFILES[@]}"; do _b="$(basename "$f" .ref)"; smoke_wants "$(basename "$(dirname "$f")")/${_b%_driver}" && _ss+=("$f"); done; STDFILES=(${_ss[@]+"${_ss[@]}"})
 fi
@@ -342,6 +351,7 @@ MAX_BYTES=1048576
 
 for std in "${STDFILES[@]}"; do
     base="$(basename "$std" .ref)"
+    rr_yield "$(basename "$(dirname "$std")")/${base%_driver}" && break   # a test request waits: stop between two tests (CEO-1806)
     icn="$(dirname "$std")/$base.icn"
     [ -f "$icn" ] || continue
     # ⛔ Each entry runs with ITS OWN package subdirectory as cwd -- refs are no longer progs-only
@@ -503,6 +513,7 @@ ipl_isolation_verify_clean "$S4E/corpus" || true
 # discovery is package-wide by construction and lib_icon_ipl_isolation.sh is now subdirectory-aware
 # (IPL_ISO_SUBDIR), so a future non-progs ref grades from its own directory instead of silently from progs/.
 # ⛔ graded_narrow=0: this suite diffs FULL output against the oracle ref, never by error-number only.
+rr_selected && { rr_end ipl; exit 0; }   # a chunk or a request wrote each program's rows as it went, and writes no suite row (CEO-1802)
 INV_PACKAGE=ipl; INV_DIR="$PKG"; INV_EXT=".icn"
 INV_LINE="$(inventory_line "$RUN_GRADED" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board lines still stand; the inventory does not" >&2; fi

@@ -42,9 +42,16 @@ fi
 # ⭐ THE DECLARED HEAP AND STACK are honoured INSIDE the harness: corpus_suite_harness.py reads the ALL.csv beside ALL.sno (heap_kb,
 # stack_kb -- heap_declarations(), stack_declarations()) and runs each entry in both modes at its own declaration (CEO-1167, CEO-1225;
 # proven for this runner on a fixture by the coo on CEO-1229). Line 2 hands the guard the suite this runner grades (AISNOBOL_SUITE).
-OUT="$(python3 scripts/corpus_suite_harness.py run "$SUITE/ALL.sno" "$SUITE/ALL.ref" --modes m3,m4 2>&1)"
+# ⭐ S4E_CHUNK (ceo CEO-1802/1806): the round robin's part (core, chunk:NN, either @<entry>) or a request's entry:<a>[,entry:<b>...] -- the harness
+# grades that selection, appends each test's rows as it ends, and no suite row is written; util_score_row.py from-progress --suite aisnobol assembles it.
+OUT="$(python3 scripts/corpus_suite_harness.py run "$SUITE/ALL.sno" "$SUITE/ALL.ref" --modes m3,m4 ${S4E_CHUNK:+--partition "$S4E_CHUNK"} 2>&1)"
 rc=$?
 printf '%s\n' "$OUT"
+if [ -n "${S4E_CHUNK:-}" ]; then
+  printf '%s\n' "$OUT" | grep -q '^SUITE_BOARD ' || { echo "⛔ REFUSE(rc=2): the harness printed no SUITE_BOARD line for $S4E_CHUNK (above) -- nothing measured"; exit 2; }
+  echo "AISNOBOL_CHUNK $S4E_CHUNK graded: one progress row per program and mode; no suite row from a chunk -- the row is util_score_row.py from-progress --suite aisnobol (CEO-1802)"
+  exit "$rc"
+fi
 
 board="$(printf '%s\n' "$OUT" | grep '^SUITE_BOARD ')"
 if [ -z "$board" ]; then

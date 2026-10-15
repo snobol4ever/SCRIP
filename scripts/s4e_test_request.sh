@@ -19,7 +19,8 @@ CORPUS="${S4E_CORPUS:-${S4E_HOME:-$(cd "$HERE/../.." && pwd)}/corpus}"
 SUITES="sno-rungs|tests/snobol4 icn-rungs|tests/icon pl-rungs|tests/prolog snc-rungs|tests/snocone reb-rungs|tests/rebus pas-rungs|tests/pascal
 raku-rungs|tests/raku puzzles|packages/prolog/puzzles rosetta-prolog|packages/prolog/rosetta-prolog xsb|packages/prolog/xsb_tests
 trealla|packages/prolog/trealla_tests rosetta-pascal|packages/pascal/rosetta-pascal testpgms|packages/snobol4/spitbol_testpgms
-x64tests|packages/snobol4/spitbol_x64_tests x32tests|packages/snobol4/spitbol_x32_tests dotnet|packages/snobol4/dotnet snoflake|packages/snobol4/snoflake_suite"
+x64tests|packages/snobol4/spitbol_x64_tests x32tests|packages/snobol4/spitbol_x32_tests dotnet|packages/snobol4/dotnet snoflake|packages/snobol4/snoflake_suite
+aisnobol|packages/snobol4/aisnobol ipl|packages/icon/ipl"
 refuse() { echo "⛔ TEST REQUEST REFUSED(2): $* -- nothing filed"; exit 2; }
 table_of() { local e; for e in $SUITES; do [ "${e%%|*}" = "$1" ] && { echo "${e#*|}"; return 0; }; done; return 1; }
 seat() {
