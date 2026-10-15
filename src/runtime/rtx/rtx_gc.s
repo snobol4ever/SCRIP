@@ -732,9 +732,6 @@ RTX_ENDF(rt_gc_mark_run)
 .macro GC_POPCNT dst, src
     popcnt  \dst, \src
 .endm
-.macro GC_PEXT dst, src, mask
-    pext    \dst, \src, \mask
-.endm
 RTX_FUNC(rt_gc_first_dead_run)
     xor     ecx, ecx
     lea     r8, [rsi + 63]
@@ -946,11 +943,27 @@ RTX_FUNC(rt_gc_start_compact_run)
     cmp     rbp, r11
     jae     .Lsc_flush
     mov     r14, qword ptr [r8 + rbp*8]
-    GC_POPCNT r15, r14
-    test    r15, r15
+    test    r14, r14
     je      .Lsc_next
     mov     rax, qword ptr [r10 + rbp*8]
-    GC_PEXT r14, rax, r14
+    mov     rsi, r14
+    xor     ecx, ecx
+    xor     edx, edx
+.Lsc_bits:
+    test    rsi, rsi
+    je      .Lsc_bits_done
+    bsf     r15, rsi
+    bt      rax, r15
+    jnc     .Lsc_bits_next
+    bts     rdx, rcx
+.Lsc_bits_next:
+    inc     ecx
+    lea     r15, [rsi - 1]
+    and     rsi, r15
+    jmp     .Lsc_bits
+.Lsc_bits_done:
+    mov     r15, rcx
+    mov     r14, rdx
     mov     rcx, r13
     mov     rax, r14
     shl     rax, cl
