@@ -42,6 +42,12 @@ _Static_assert(sizeof(DESCR_t) == 16,
 static void co_xmit_set(DESCR_t *x, uint64_t d0, uint64_t d1) { uint64_t w[2]; w[0] = d0; w[1] = d1; memcpy(x, w, sizeof *x); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_uerror(const char *msg) { perror(msg); fprintf(stderr, "scrip_coexpr: fatal error, aborting\n"); abort(); }
+static void scrip_co_exhausted(int err, const char *msg) {
+    errno = err;
+    perror(msg);
+    fprintf(stderr, "scrip_coexpr: no thread or memory left for another co-expression (pthread_create failed), stopping\n");
+    exit(1);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_makesem(scrip_coctx_t *ctx) { if (sem_init(&ctx->sema, 0, 0) == -1) scrip_co_uerror("scrip_coexpr: sem_init failed"); ctx->semp = &ctx->sema; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -97,7 +103,11 @@ static void scrip_co_thread_start(scrip_coctx_t *new_ctx) {
             if (pthread_attr_setstacksize(&big, need) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize (image-sized) failed");
             ap = &big;
         }
-        if (pthread_create(&new_ctx->thread, ap, scrip_co_trampoline, new_ctx) != 0) scrip_co_uerror("scrip_coexpr: pthread_create failed");
+        {
+            int pce = pthread_create(&new_ctx->thread, ap, scrip_co_trampoline, new_ctx);
+            if (pce == EAGAIN || pce == ENOMEM) scrip_co_exhausted(pce, "scrip_coexpr: pthread_create failed");
+            if (pce != 0) scrip_co_uerror("scrip_coexpr: pthread_create failed");
+        }
         if (ap == &big) pthread_attr_destroy(&big);
     }
     {
