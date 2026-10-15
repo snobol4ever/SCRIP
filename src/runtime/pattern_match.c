@@ -1519,6 +1519,15 @@ static DESCR_t rt_defer_nv_read(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_defer_expr_value(DESCR_t val) { if (val.v != DT_E) return val; val = EXPVAL_fn(val); return val; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_defer_name_as_string(DESCR_t *val) {
+    const char *nm = (val->slen == 0 && val->s) ? val->s : (val->slen == 1 && val->ptr) ? NV_name_from_ptr((const DESCR_t *)val->ptr) : (const char *)0;
+    if (!nm) return 0;
+    val->v = DT_S;
+    val->slen = (uint32_t)strlen(nm);
+    val->s = nm;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int c_rt_defer_close(int cur_delta, rt_dfx_t *sp) {
     if (!sp) return -1;
     rt_dfx_t s = *sp;
@@ -1537,6 +1546,8 @@ int c_rt_defer_close(int cur_delta, rt_dfx_t *sp) {
         val.v = DT_S;
         val.slen = (uint32_t)strlen(nb);
         val.s = nb;
+    } else if (val.v == DT_N) {
+        if (!rt_defer_name_as_string(&val)) return -1;
     }
     if (val.v == DT_S || val.v == DT_SNUL) {
         const char *lit = val.s ? val.s : "";
@@ -1713,6 +1724,8 @@ static int rt_defer_close_v(int cur_delta, DESCR_t val) {
         val.v = DT_S;
         val.slen = (uint32_t)strlen(nb);
         val.s = nb;
+    } else if (val.v == DT_N) {
+        if (!rt_defer_name_as_string(&val)) return -1;
     }
     if (val.v == DT_S || val.v == DT_SNUL) {
         const char *lit = val.s ? val.s : "";
