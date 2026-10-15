@@ -1185,6 +1185,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_stream_resolve", GC_RET_OTHER },
     { "pl_term_text_leaf", GC_RET_OTHER },
     { "pl_text_cur_ball", GC_RET_OTHER },
+    { "pl_text_dlist", GC_RET_DESCR },
     { "pl_text_list", GC_RET_DESCR },
     { "pl_tree_cell", GC_RET_DESCR },
     { "pl_trie_at", GC_RET_OTHER },

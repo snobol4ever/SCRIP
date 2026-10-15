@@ -2333,7 +2333,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$wc_m'([alt(As)|O],S):-member(A,As),append(A,O,AO),'$wc_m'(AO,S).\n"
     "'$wc_in'([X|_],C):-(X=L-H->C>=L,C=<H;X==C),!.\n"
     "'$wc_in'([_|T],C):-'$wc_in'(T,C).\n"
-    "'$bagof_var'(T,G,R):-'$bag_goal_ok'(G),'$pl_list_guard'(R),'$bag_wit'(T,G,W,G1),(W=='$w'->findall(T,G1,R0),R0\\==[],R=R0;findall(W-T,G1,Ps),Ps\\==[],'$bag_pick'(Ps,W,R)).\n"
+    "'$bagof_var'(T,G,R):-'$bag_goal_ok'(G),'$pl_list_guard'(R),'$bag_wit'(T,G,W,G1),(W=='$w'->findall(T,G1,R0),R0\\==[],R=R0;findall(W-T,G1,Ps0),Ps0\\==[],keysort(Ps0,Ps),'$bag_pick'(Ps,W,R)).\n"
     "'$setof_var'(T,G,R):-'$bag_goal_ok'(G),'$pl_list_guard'(R),'$bag_wit'(T,G,W,G1),(W=='$w'->findall(T,G1,R0),R0\\==[],sort(R0,R);findall(W-T,G1,Ps0),Ps0\\==[],keysort(Ps0,Ps),'$bag_pick'(Ps,W,R1),sort(R1,R)).\n"
     "'$bag_wit'(T,G,W,G1):-'$bag_strip'(G,[T],Bs,G1),term_variables(Bs,BV),term_variables(G1,GV),'$bag_sub'(GV,BV,FV),W=..['$w'|FV].\n"
     "'$bag_goal_ok'(G):-'$bag_strip'(G,[],_,G0),(var(G0)->throw(error(instantiation_error,_));callable(G0)->true;throw(error(type_error(callable,G0),_))).\n"

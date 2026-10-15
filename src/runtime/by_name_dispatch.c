@@ -6613,6 +6613,11 @@ static DESCR_t pl_text_list(const char *s, int codes) {
     }
     return pl_list_from_arr((DESCR_t *)el.p, n);
 }
+static DESCR_t pl_text_dlist(const char *s, size_t len, int codes, DESCR_t tail) {
+    DESCR_t acc = tail;
+    for (size_t i = len; i > 0; i--) { DESCR_t e; if (codes) e = INTVAL((long long)(unsigned char)s[i - 1]); else { char c2[2] = { s[i - 1], 0 }; e = pl_mk_atom_dup(c2, 1); } acc = pl_cons(e, acc); }
+    return acc;
+}
 static int pl_parse_number_radix(const char *s, DESCR_t *out) {
     char *e = 0;
     int base = 0;
@@ -8998,6 +9003,12 @@ PL_CX_LEAF_HEAD(wot_capture, 4)
                     size_t len = 0;
                     char *buf = fh_memsink_take((int)hv.i, &len);
                     DESCR_t sink = rt_pl_deref_val(args[3]);
+                    if (sink.v == (DTYPE_t)DT_PLREF && plc_fid_arity(sink.slen) == 2) {
+                        int fid = plc_fid_name(sink.slen);
+                        DESCR_t *sa = (DESCR_t *)sink.p;
+                        if (fid == prolog_atom_intern("codes") || fid == prolog_atom_intern("chars")) ok =
+                            plw_unify_vals(sa[0], pl_text_dlist(buf ? buf : "", len, fid == prolog_atom_intern("codes"), sa[1]), cx);
+                    }
                     if (sink.v == (DTYPE_t)DT_PLREF && plc_fid_arity(sink.slen) == 1) {
                         int fid = plc_fid_name(sink.slen);
                         DESCR_t *sa = (DESCR_t *)sink.p;
@@ -10908,6 +10919,7 @@ PL_CX_LEAF_HEAD(format3, 3)
             int f = plc_fid_name(d.slen);
             kind = f == prolog_atom_intern("atom") ? 1 : f == prolog_atom_intern("string") ? 4 : f == prolog_atom_intern("codes") ? 2 : f == prolog_atom_intern("chars") ? 3 : 0;
         }
+        if (d.v == (DTYPE_t)DT_PLREF && plc_fid_arity(d.slen) == 2) { int f = plc_fid_name(d.slen); kind = f == prolog_atom_intern("codes") ? 5 : f == prolog_atom_intern("chars") ? 6 : 0; }
         idx = kind ? -1 : pl_stream_idx_ball(args[0], 1, 1, cx);
         if (idx >= 0) {
             int sv = fh_current_output();
@@ -10923,7 +10935,8 @@ PL_CX_LEAF_HEAD(format3, 3)
                 if (cap >= 0) {
                     DESCR_t r = rt_pl_dop_format_c(args + 1, 2, cx);
                     fh_capture_end(cap, sv);
-                    if (r.v == (DTYPE_t)DT_I) ok =
+                    if (r.v == (DTYPE_t)DT_I && kind >= 5) ok = plw_unify_vals(((DESCR_t *)d.p)[0], pl_text_dlist(buf ? buf : "", sz, kind == 5, ((DESCR_t *)d.p)[1]), cx);
+                    else if (r.v == (DTYPE_t)DT_I) ok =
                         plw_unify_vals(((DESCR_t *)d.p)[0],
                         kind == 1 ? pl_mk_atom_dup(buf ? buf : "", sz) : kind == 4 ? rt_pl_make_string_cell(buf ? buf : "") : pl_text_list(buf ? buf : "", kind == 2), cx);
                 }

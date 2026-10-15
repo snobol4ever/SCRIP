@@ -1616,6 +1616,17 @@ static const char * pl_pred_file(const char * nm, int ar) {
     return (const char *) 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_swi_library_leaf(const char * nm, int ar) {
+    static const struct {
+        const char * nm;
+        int ar;
+    } lib[] = { { "display", 1 }, { "display", 2 }, { "numbervars", 1 }, { "string_to_atom", 2 }, { "concat_atom", 2 }, { "concat_atom", 3 }, { "read_term_from_chars", 3 }, { "read_term_from_codes",
+        3 }, { "unget_char", 1 }, { "unget_char", 2 }, { "unget_code", 1 }, { "unget_byte", 1 }, { "unget_byte", 2 }, { "wall_us", 1 }, { "wall_ms", 1 }, { "sort", 1 }, { "msort", 1 }, { "keysort",
+        1 }, { "last_read_start_line_column", 2 }, { "working_directory", 1 }, { "change_directory", 1 }, { "file_exists", 1 }, { "prolog_pid", 1 }, { "pipe", 2 }, { 0, 0 } };
+    for (int i = 0; lib[i].nm; i++) if (lib[i].ar == ar && !strcmp(lib[i].nm, nm)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_rt_creatable(const char * nm, int ar) {
     extern int rt_pl_db_key_is_static(void *, const char *);
     char key[fmt_len("%s/%d", nm, ar)];
@@ -3214,6 +3225,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             }
             {
                 const char * ls = pl_det_leaf_sym(nm, t->n);
+                if (ls && g_stage2.pl_dialect_swi && pl_swi_library_leaf(nm, t->n) && pl_pred_file(nm, t->n)) ls = (const char *) 0;
                 if (ls && !strcmp(nm, "print") && t->n == 1 && (pl_file_defines("portray", 1) || pl_db_owned("portray", 1))) ls = (const char *) 0;
                 if (ls && (pl_file_defines("portray", 1) || pl_db_owned("portray", 1))) {
                     if (!strcmp(nm, "print") && t->n == 2) return goal(cx, pl_cc_print_via_format((tree_t *) t->c[0], (tree_t *) t->c[1]), γnext, ωfail, entry_out);
