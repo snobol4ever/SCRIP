@@ -81,6 +81,8 @@ extern "C++" void bcps_sig_tally(const char * arm, const char * fn, long n, int 
    + x86("label", LS(n)) \
    + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_beta_leave(int bidx) { return bidx < 0 ? x86_omega() : x86_port_hook(X86H_JMP, X86P_OMEGA) + x86_zdp_rbp_omega_at(X86P_OMEGA) + x86_pair_jmp(bidx); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define icn_wire_stack_on() emit_knob_unless_zero("SCRIP_ICN_WIRE_STACK")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define icn_wire_stack_for(fname) (icn_wire_stack_on() && !bb_proc_target_zframe_graph((fname)))
@@ -506,7 +508,7 @@ static std::string bcps_det_arm() {
              + x86_omega("je")
              + x86_gamma()
              + x86_beta()
-             + (bidx_z < 0 ? x86_omega() : x86_pair_jmp(bidx_z))
+             + bcps_beta_leave(bidx_z)
              + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
     }
     int bidx = bcps_beta_pair_idx(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
@@ -682,7 +684,7 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
          + x86_omega("je")
          + x86_gamma()
          + x86_beta()
-         + (bidx < 0 ? x86_omega() : x86_pair_jmp(bidx))
+         + bcps_beta_leave(bidx)
          + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1090,7 +1092,7 @@ static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t *
                    + x86("mov", "rax", FRQ(act + 8))
                    + x86("mov", "rsp", RDQ("rax", 40))
                    + x86_jmp_mem("rax", 32)
-                 : (bcps_beta_pair_idx() < 0 ? x86_omega() : x86_pair_jmp(bcps_beta_pair_idx())))
+                 : bcps_beta_leave(bcps_beta_pair_idx()))
          + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1331,7 +1333,7 @@ static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t **
          + x86_omega("je")
          + x86_gamma()
          + x86_beta()
-         + (bidx < 0 ? x86_omega() : x86_pair_jmp(bidx))
+         + bcps_beta_leave(bidx)
          + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
     return s;
 }

@@ -593,7 +593,7 @@ inline std::string x86_fc_jcc_gamma(const char * mnem);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc(const char * mnem, int port) {
     if (port == X86P_OMEGA && (x86_fc_on() || _.op_wpop != 0 || x86_pl_trace_on())) return x86_fc_jcc_omega(mnem);
-    if (port == X86P_GAMMA && ((x86_fc_on() && _.op_fc_base < 0) || _.op_zgpop != 0 || x86_pl_trace_on())) return x86_fc_jcc_gamma(mnem);
+    if (port == X86P_GAMMA && ((x86_fc_on() && _.op_fc_base < 0) || _.op_zgpop != 0 || _.op_zcp_dst >= 0 || x86_pl_trace_on())) return x86_fc_jcc_gamma(mnem);
     return x86_port_hook(X86H_JCC, port)
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
                           : x86_rec(mnem) + x86_portname(port) + "\n");
@@ -1044,6 +1044,7 @@ inline const char * x86_zop(int off, int q, int bump) {
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }
     else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { eff = x86_frame_off(off) + bump; spine = 1; }
+    else if (_.op_icn_unpinned && _.op_zres && !x86_fb_data() && !_.op_stmt_dyn) { eff = off + _.op_zabs; spine = 1; }
     else { eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
     { int ft = icn_gen_zeta_ft(); if (ft > 0) return q ? RDQ("rbp", eff - ft) : RDD("rbp", eff - ft); }
     if (spine && r != 2 && x86_fb_pinned()) return q ? RDQ(x86_fb(), eff) : RDD(x86_fb(), eff);
@@ -1852,6 +1853,7 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         if (a.kind == XK_FR64) return x86_frame_inc64(a.off);
         if (a.kind == XK_REG) return x86_inc_r(a.txt);
         if (a.kind == XK_REGDISP) return x86_reg_disp32_inc64(a.base, a.off);
+        if (a.kind == XK_RSP64) return x86_reg_disp32_inc64("rsp", a.off);
         return x86_bomb(
             "x86: inc operand kind unencodable -- an encoder that cannot encode must refuse loudly, never emit nothing (the silent empty here deleted the to-box increment from every armed generator "
             "graph; ceo s283)");
@@ -2372,6 +2374,11 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
         if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += bb_glue_flat_leave();
         if (site == X86H_JMP && port == X86P_OMEGA && !_.op_wsteal) s += bb_glue_flat_leave();
     }
+    if (site == X86H_JMP && port == X86P_GAMMA && _.op_zcp_dst >= 0)
+        s += x86("mov", "rax", x86_zref(_.op_zcp_src, 1))
+           + x86("mov", x86_zref(_.op_zcp_dst, 1), "rax")
+           + x86("mov", "rax", x86_zref(_.op_zcp_src + 8, 1))
+           + x86("mov", x86_zref(_.op_zcp_dst + 8, 1), "rax");
     if (site == X86H_JMP && port == X86P_GAMMA && _.op_zgpop != 0) s += x86_add("rsp", (long)_.op_zgpop);
     if (site == X86H_JMP && port == X86P_OMEGA && _.op_wpop != 0) s += x86_add("rsp", (long)_.op_wpop);
     if (site == X86H_DEF && port == X86P_ALPHA) {

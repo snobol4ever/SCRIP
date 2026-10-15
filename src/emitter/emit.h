@@ -338,6 +338,12 @@ typedef struct {
     int op_arbno_chain;
     int x86_fc_synth;
     int op_selfload;
+    int op_icn_unpinned;
+    int op_zabs;
+    int op_zcp_src;
+    int op_zcp_dst;
+    int op_dj_bfail;
+    int op_unmark_chain;
     int op_beta_dead;
     int op_wpop;
     int op_phase;

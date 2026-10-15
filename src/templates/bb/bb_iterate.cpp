@@ -12,8 +12,32 @@ DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t idx);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define IT_IS(k) (_.op_sval && std::string(_.op_sval) == k)
+#define IT_CALL() (IT_IS("key") ? x86("call", "rt_list_bang_key_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_key_at) \
+                  : IT_IS("lvv") ? x86("call", "rt_list_bang_elem_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_elem_at) \
+                  : IT_IS("lv") ? x86("call", "rt_list_bang_var_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_var_at) \
+                  : x86("call", "rt_list_bang_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_at))
+static std::string bb_iterate_zd() {
+    return x86("comment", "IR_ITERATE zd")
+         + x86_alpha()
+         + x86("mov", FRQ(_.op_sb), 0L)
+         + x86("def", L(0))
+         + x86("mov", "rdi", ZOPQ(0, 0))
+         + x86("mov", "rsi", ZOPQ(0, 8))
+         + x86("mov", "rdx", FRQ(_.op_sb))
+         + IT_CALL()
+         + x86("mov", ZRES(0), "rax")
+         + x86("mov", ZRES(8), "rdx")
+         + x86("cmp", "al", (long)DT_FAIL)
+         + x86_omega("je")
+         + x86_rt_gc_poll()
+         + x86_gamma()
+         + x86_beta()
+         + x86("inc", FRQ(_.op_sb))
+         + x86("jmp", L(0));
+}
 std::string bb_iterate() {
     x86_begin();
+    if (_.op_zres && _.op_sb >= 0) return bb_iterate_zd();
     return IF(_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0,
                x86_alpha() + x86_bomb("bb_iterate: IR_LIST_BANG — operand/idx/out slot missing"))
          + IF(!(_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0),

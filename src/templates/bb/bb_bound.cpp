@@ -9,6 +9,11 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define BND_BOMB() (_.op_off < 0)
 static std::string bound_unmark_zd() {
+    if (_.op_unmark_chain && x86_release_acts(true, 5).empty())
+        return x86("comment", "IR_UNMARK chain arm -- the bounded body's carves unwind box by box")
+             + x86_alpha()
+             + x86_gamma()
+             + x86_beta_trampoline();
     _.op_zgpop = 0;
     return x86("comment", "IR_UNMARK cells arm -- restore rsp from BOUND frame slot (depth-immune FRQ)")
          + x86_alpha()
