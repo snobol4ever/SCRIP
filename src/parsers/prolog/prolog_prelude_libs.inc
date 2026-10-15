@@ -12994,6 +12994,10 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "read_integer", 2 },
     { "read_number", 1 },
     { "read_number", 2 },
+    { "get_key", 1 },
+    { "get_key", 2 },
+    { "get_key_no_echo", 1 },
+    { "get_key_no_echo", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_SHADOWS[] = {
@@ -13021,6 +13025,8 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_QUIET[] = {
     { "format_to_chars", 0 },
     { "format_to_codes", 0 },
     { "generic_var", 0 },
+    { "get_key", 0 },
+    { "get_key_no_echo", 0 },
     { "get_print_stream", 0 },
     { "host_name", 0 },
     { "is_absolute_file_name", 0 },
@@ -13408,7 +13414,13 @@ static const char PL_PRELUDE_LIB_11_SRC[] =
     "'$gnu_b_on'(N, PI) :- throw(error(type_error(number, N), PI)).\n"
     "'$gnu_b_rd'(S, Op, X, PI) :- current_input(O), set_input(S), '$gnu_os'(Op, S, R), set_input(O), '$gnu_b_rdres'(R, X, PI).\n"
     "'$gnu_b_rdres'(ok(T), X, _) :- X = T.\n"
-    "'$gnu_b_rdres'(err(A), _, PI) :- throw(error(syntax_error(A), PI)).\n";
+    "'$gnu_b_rdres'(err(A), _, PI) :- throw(error(syntax_error(A), PI)).\n"
+    "get_key(C) :- current_input(S), '$gnu_b_key'(current_input_stream, S, C, get_key/1).\n"
+    "get_key(S, C) :- '$gnu_b_key'(S, S, C, get_key/2).\n"
+    "get_key_no_echo(C) :- current_input(S), '$gnu_b_key'(current_input_stream, S, C, get_key_no_echo/1).\n"
+    "get_key_no_echo(S, C) :- '$gnu_b_key'(S, S, C, get_key_no_echo/2).\n"
+    "'$gnu_b_key'(W, S, C, PI) :- current_input(O), set_input(S), set_input(O), ( stream_property(S, type(binary)) -> throw(error(permission_error(input, binary_stream, W), PI)) ; true ),\n"
+    "    '$gnu_b_oi'(C, PI), set_input(S), '$gnu_os'(get_key, x, K), set_input(O), C = K.\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_12_EXPORTS[] = {
     { "#=#", 2 },
     { "#\\=#", 2 },

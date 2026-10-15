@@ -29,7 +29,8 @@
                           temporary_file/3, is_absolute_file_name/1, cpu_time/1, real_time/1, user_time/1, system_time/1,
                           read_token_from_atom/2, read_token_from_chars/2, read_token_from_codes/2, get_print_stream/1,
                           popen/3, exec/4, exec/5, wait/2, create_pipe/2, set_bip_name/2, current_bip_name/2, syntax_error_info/4,
-                          read_token/1, read_token/2, read_atom/1, read_atom/2, read_integer/1, read_integer/2, read_number/1, read_number/2 ]).
+                          read_token/1, read_token/2, read_atom/1, read_atom/2, read_integer/1, read_integer/2, read_number/1, read_number/2,
+                          get_key/1, get_key/2, get_key_no_echo/1, get_key_no_echo/2 ]).
 write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).
 writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).
 print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).
@@ -353,3 +354,9 @@ read_number(S, N) :- '$gnu_b_on'(N, read_number/2), '$gnu_b_rd'(S, read_number, 
 '$gnu_b_rd'(S, Op, X, PI) :- current_input(O), set_input(S), '$gnu_os'(Op, S, R), set_input(O), '$gnu_b_rdres'(R, X, PI).
 '$gnu_b_rdres'(ok(T), X, _) :- X = T.
 '$gnu_b_rdres'(err(A), _, PI) :- throw(error(syntax_error(A), PI)).
+get_key(C) :- current_input(S), '$gnu_b_key'(current_input_stream, S, C, get_key/1).
+get_key(S, C) :- '$gnu_b_key'(S, S, C, get_key/2).
+get_key_no_echo(C) :- current_input(S), '$gnu_b_key'(current_input_stream, S, C, get_key_no_echo/1).
+get_key_no_echo(S, C) :- '$gnu_b_key'(S, S, C, get_key_no_echo/2).
+'$gnu_b_key'(W, S, C, PI) :- current_input(O), set_input(S), set_input(O), ( stream_property(S, type(binary)) -> throw(error(permission_error(input, binary_stream, W), PI)) ; true ),
+    '$gnu_b_oi'(C, PI), set_input(S), '$gnu_os'(get_key, x, K), set_input(O), C = K.

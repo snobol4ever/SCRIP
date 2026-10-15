@@ -739,6 +739,7 @@ test_gate_pl_gnu_set_bip_name_current_bip_name_and_syntax_error_info_answer_as_g
 test_gate_pl_gnu_statistics_stacks_and_format_errors_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_terms_to_and_from_text_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_text_output_and_read_from_text_check_their_arguments_as_gprolog.sh	WIRED	-	-	-
+test_gate_pl_gnu_unget_get_key_and_the_implicit_stream_culprit_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_goal_expansion_reaches_meta_arguments_and_asserted_bodies_ending_in_true_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_gz6b.sh	WIRED	-	-	-
 test_gate_pl_ieee754_float_flags_special_values_and_number_order_answer_as_swipl.sh	WIRED	-	-	-

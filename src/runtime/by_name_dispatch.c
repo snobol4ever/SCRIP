@@ -8235,7 +8235,8 @@ static void *pl_byte_cur_ball(int out) {
     extern int fh_current_input(void);
     extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     int ix = out ? fh_current_output() : fh_current_input();
-    return (ix >= 0 && ix < FH_N && g_fh[ix].type != 'b') ? rt_pl_ball_permission3(out ? "output" : "input", "text_stream", pl_mk_stream(ix)) : (void *)0;
+    DESCR_t who = pl_swi_dialect() ? pl_mk_stream(ix) : pl_mk_atom(out ? "current_output_stream" : "current_input_stream");
+    return (ix >= 0 && ix < FH_N && g_fh[ix].type != 'b') ? rt_pl_ball_permission3(out ? "output" : "input", "text_stream", who) : (void *)0;
 }
 static void *pl_past_eos_ball(void) {
     extern int fh_current_input(void);
@@ -8244,13 +8245,15 @@ static void *pl_past_eos_ball(void) {
     extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     int ix = fh_current_input();
     FILE *fp = fh_cur_in_fp();
-    return (ix >= 3 && ix < FH_N && fp && feof(fp) && fh_eof(ix) == 'e') ? rt_pl_ball_permission3("input", "past_end_of_stream", pl_mk_stream(ix)) : (void *)0;
+    DESCR_t who = pl_swi_dialect() ? pl_mk_stream(ix) : pl_mk_atom("current_input_stream");
+    return (ix >= 3 && ix < FH_N && fp && feof(fp) && fh_eof(ix) == 'e') ? rt_pl_ball_permission3("input", "past_end_of_stream", who) : (void *)0;
 }
 static void *pl_text_cur_ball(void) {
     extern int fh_current_input(void);
     extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     int ix = fh_current_input();
-    return (ix >= 0 && ix < FH_N && g_fh[ix].type == 'b') ? rt_pl_ball_permission3("input", "binary_stream", pl_mk_stream(ix)) : (void *)0;
+    DESCR_t who = pl_swi_dialect() ? pl_mk_stream(ix) : pl_mk_atom("current_input_stream");
+    return (ix >= 0 && ix < FH_N && g_fh[ix].type == 'b') ? rt_pl_ball_permission3("input", "binary_stream", who) : (void *)0;
 }
 PL_CX_LEAF_HEAD(get_byte, 1)
     {
@@ -8275,15 +8278,49 @@ PL_CX_LEAF_HEAD(peek_byte, 1)
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(unget_char, 1)
-    { extern FILE *fh_cur_in_fp(void); char b[64]; const char *t; ok = 0; if (pl_cell_text(args[0], b, sizeof b, &t) && t && t[0]) { ungetc((unsigned char)t[0], fh_cur_in_fp()); ok = 1; } }
+    {
+        extern FILE *fh_cur_in_fp(void);
+        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        extern void *rt_pl_ball_instantiation(void);
+        DESCR_t v = rt_pl_deref_val(args[0]);
+        const char *cs = pl_val_unbound(v) ? (const char *)0 : pl_atom_str(v);
+        int n = cs && cs[0] && !pl_is_nil(v) ? utf8_seqlen((unsigned char)cs[0]) : 0;
+        ok = 0;
+        if ((cx->ball = pl_text_cur_ball())) ok = 0;
+        else if (pl_val_unbound(v)) cx->ball = rt_pl_ball_instantiation();
+        else if (!n || n != (int)strlen(cs)) cx->ball = rt_pl_ball_kind2("type_error", "character", v);
+        else { for (int i = n - 1; i >= 0; i--) ungetc((unsigned char)cs[i], fh_cur_in_fp()); ok = 1; }
+    }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(unget_code, 1)
-    { extern FILE *fh_cur_in_fp(void); DESCR_t v = rt_pl_deref_val(args[0]); ok = 0; if (v.v == (DTYPE_t)DT_I && v.i >= 0) { ungetc((int)v.i, fh_cur_in_fp()); ok = 1; } }
+    {
+        extern FILE *fh_cur_in_fp(void);
+        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        extern void *rt_pl_ball_kind1(const char *, const char *);
+        extern void *rt_pl_ball_instantiation(void);
+        DESCR_t v = rt_pl_deref_val(args[0]);
+        ok = 0;
+        if ((cx->ball = pl_text_cur_ball())) ok = 0;
+        else if (pl_val_unbound(v)) cx->ball = rt_pl_ball_instantiation();
+        else if (v.v != (DTYPE_t)DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", v);
+        else if (v.i < 1 || v.i > 255) cx->ball = rt_pl_ball_kind1("representation_error", "character_code");
+        else { ungetc((int)v.i, fh_cur_in_fp()); ok = 1; }
+    }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(unget_byte, 1)
-    { extern FILE *fh_cur_in_fp(void); DESCR_t v = rt_pl_deref_val(args[0]); ok = 0; if (v.v == (DTYPE_t)DT_I && v.i >= 0 && v.i <= 255) { ungetc((int)v.i, fh_cur_in_fp()); ok = 1; } }
+    {
+        extern FILE *fh_cur_in_fp(void);
+        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        extern void *rt_pl_ball_instantiation(void);
+        DESCR_t v = rt_pl_deref_val(args[0]);
+        ok = 0;
+        if ((cx->ball = pl_byte_cur_ball(0))) ok = 0;
+        else if (pl_val_unbound(v)) cx->ball = rt_pl_ball_instantiation();
+        else if (v.v != (DTYPE_t)DT_I || v.i < 0 || v.i > 255) cx->ball = rt_pl_ball_kind2("type_error", "byte", v);
+        else { ungetc((int)v.i, fh_cur_in_fp()); ok = 1; }
+    }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t dop_pl_at_end_of_stream(DESCR_t *args, int nargs) {
@@ -8768,8 +8805,19 @@ PL_CX_LEAF_TAIL
 #define PL_TEXTOP_get_byte (-1)
 #define PL_TEXTOP_peek_byte (-1)
 #define PL_TEXTOP_unget_byte (-1)
+static void *pl_ball_sora(void *ball, DESCR_t sora) {
+    extern const char *prolog_atom_name(int);
+    DESCR_t *e = (DESCR_t *)ball, f, w;
+    if (!ball || pl_swi_dialect() || e->v != (DTYPE_t)DT_PLREF || plc_fid_arity(e->slen) != 2) return ball;
+    f = rt_pl_deref_val(((DESCR_t *)e->p)[0]);
+    if (f.v != (DTYPE_t)DT_PLREF || plc_fid_arity(f.slen) != 3 || strcmp(prolog_atom_name(plc_fid_name(f.slen)), "permission_error")) return ball;
+    w = rt_pl_deref_val(((DESCR_t *)f.p)[2]);
+    if (w.v == (DTYPE_t)DT_PLATOM && !strcmp(prolog_atom_name((int)w.i), "current_input_stream")) ((DESCR_t *)f.p)[2] = rt_pl_deref_val(sora);
+    return ball;
+}
 #define PL_IN_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm##_s, ar) { extern int fh_current_input(void); extern void fh_set_input(int); int idx = pl_stream_idx_ball(args[0], 0, PL_TEXTOP_##nm, cx); ok = 0; if ( \
-    idx >= 0) { int sv = fh_current_input(); fh_set_input(idx); DESCR_t r = rt_pl_dop_##nm##_c(args + 1, ar - 1, cx); fh_set_input(sv); ok = (r.v == (DTYPE_t)DT_I); } } PL_CX_LEAF_TAIL
+    idx >= 0) { int sv = fh_current_input(); fh_set_input(idx); DESCR_t r = rt_pl_dop_##nm##_c(args + 1, ar - 1, cx); fh_set_input(sv); ok = (r.v == (DTYPE_t)DT_I); cx->ball = pl_ball_sora(cx->ball, \
+    args[0]); } } PL_CX_LEAF_TAIL
 PL_IN_LEAF(read, 2) PL_IN_LEAF(read_term_opts, 3)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(put_byte, 1)
@@ -10244,7 +10292,13 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
             else ok = plw_unify_vals(args[2], INTVAL(WIFEXITED(ws) ? WEXITSTATUS(ws) : 128 + WTERMSIG(ws)), cx);
         } else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
         else if (!strcmp(op, "read_token") || !strcmp(op, "read_atom") || !strcmp(op, "read_integer") || !strcmp(op, "read_number")) ok = pl_gs_read(op, args[2], cx);
-        else if (!strcmp(op, "synerr")) {
+        else if (!strcmp(op, "get_key")) {
+            extern FILE *fh_cur_in_fp(void);
+            FILE *fp = fh_cur_in_fp();
+            int c = fgetc(fp);
+            if (c != '\n') while (fgetc(fp) >= ' ') ;
+            ok = plw_unify_vals(args[2], INTVAL(c == EOF ? -1LL : (long long)c), cx);
+        } else if (!strcmp(op, "synerr")) {
             pl_flag_t *fl = pl_flag_find("$gnu_synerr");
             ok = fl && fl->is_term && plw_unify_vals(args[2], fl->term, cx);
         } else if (!strcmp(op, "atoms")) {
@@ -10757,8 +10811,10 @@ PL_CX_LEAF_HEAD(pl_ioarg, 2)
         sx = out ? fh_current_output() : fh_current_input();
         if (!strncmp(k, "in_byte", 7)) {
             if (!pl_val_unbound(c) && (c.v != DT_I || c.i < -1 || c.i > 255)) cx->ball = rt_pl_ball_kind2("type_error", "in_byte", c);
-        } else if (k[strlen(k) - 1] == '1' && sx >= 0 && sx < FH_N && g_fh[sx].type == 'b') cx->ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", pl_mk_stream(sx));
-        else if (!strncmp(k, "put_code", 8)) {
+        } else if (k[strlen(k) - 1] == '1' && sx >= 0 && sx < FH_N && g_fh[sx].type == 'b') {
+            DESCR_t who = pl_swi_dialect() ? pl_mk_stream(sx) : pl_mk_atom(out ? "current_output_stream" : "current_input_stream");
+            cx->ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", who);
+        } else if (!strncmp(k, "put_code", 8)) {
             if (pl_val_unbound(c)) cx->ball = rt_pl_ball_instantiation();
             else if (c.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", c);
             else if (c.i < 0 || c.i > 0x10FFFF) cx->ball = rt_pl_ball_kind1("representation_error", "character_code");
