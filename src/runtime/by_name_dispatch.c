@@ -18414,6 +18414,23 @@ static int bn_icn_read_fh(DESCR_t a0, DESCR_t *out) {
     if (!fp) { *out = FAILDESCR; return 1; }
     extern int fh_is_untranslated(int);
     int _un = fh_is_untranslated(_fi);
+    {
+        const char *rp = fp->_IO_read_ptr, *re = fp->_IO_read_end;
+        const char *nl = (rp && re > rp) ? (const char *)memchr(rp, '\n', (size_t)(re - rp)) : (const char *)0;
+        if (nl && (_un || !memchr(rp, '\r', (size_t)(nl - rp)))) {
+            size_t fl = (size_t)(nl - rp);
+            char *fr = rt_wsb_alloc(fl + 1);
+            memcpy(fr, rp, fl);
+            fr[fl] = '\0';
+            fp->_IO_read_ptr = (char *)nl + 1;
+            DESCR_t fs = {0};
+            fs.v = DT_S;
+            fs.slen = (uint32_t)fl;
+            fs.s = fr;
+            *out = fs;
+            return 1;
+        }
+    }
     size_t cap = 128, len = 0;
     char *ln = (char *)ct_alloc(cap);
     if (!ln) { *out = FAILDESCR; return 1; }
