@@ -3,6 +3,8 @@
 #define BY_NAME_DISPATCH_H
 #include "ast.h"
 #include "core.h"
+int rt_proc_dyn_scope(const char *name);
+int rt_big_sign(DESCR_t d);
 int script_try_call_builtin(tree_t *call, DESCR_t *out);
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
 int script_try_mutating_builtin_by_name(const char *fn, const char *vname, DESCR_t *args, int nargs, DESCR_t *out);
