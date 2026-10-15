@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2783
+#define GC_ALLOC_TAB_N 2788
 #define GC_ALLOC_TAB_N_VOID 322
 #define GC_ALLOC_TAB_N_DESCR 1330
-#define GC_ALLOC_TAB_N_OTHER 1117
+#define GC_ALLOC_TAB_N_OTHER 1122
 #define GC_ALLOC_TAB_N_UNKNOWN 14
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -461,9 +461,11 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "bn_icn_center", GC_RET_OTHER },
     { "bn_icn_left", GC_RET_OTHER },
     { "bn_icn_many", GC_RET_OTHER },
+    { "bn_icn_move", GC_RET_OTHER },
     { "bn_icn_put", GC_RET_OTHER },
     { "bn_icn_read_fh", GC_RET_OTHER },
     { "bn_icn_right", GC_RET_OTHER },
+    { "bn_icn_tab", GC_RET_OTHER },
     { "bn_icn_trim", GC_RET_OTHER },
     { "bn_icn_upto_resume", GC_RET_OTHER },
     { "bn_integer", GC_RET_OTHER },
@@ -682,6 +684,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "icn_bi_direct_pad", GC_RET_OTHER },
     { "icn_bi_direct_scalar", GC_RET_OTHER },
     { "icn_bi_direct_scan", GC_RET_OTHER },
+    { "icn_bi_direct_scanpos", GC_RET_OTHER },
     { "icn_bi_direct_write", GC_RET_OTHER },
     { "icn_bi_string_of_int", GC_RET_OTHER },
     { "icn_call_value_deref_args", GC_RET_VOID },

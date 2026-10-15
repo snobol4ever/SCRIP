@@ -17638,9 +17638,56 @@ static int bn_icn_many(DESCR_t *args, int nargs, DESCR_t *out) {
     *out = INTVAL(p);
     return 1;
 }
-static int icn_bi_direct_scan(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
+static int bn_icn_tab(DESCR_t *args, DESCR_t *out) {
+    extern const char *g_scan_subj;
+    extern int g_scan_pos;
+    if (!g_scan_subj) { *out = FAILDESCR; return 1; }
+    int slen;
+    { extern long rt_scan_subj_len(void); slen = (int)rt_scan_subj_len(); }
+    int target = (int)to_int(args[0]);
+    if (target <= 0) target = slen + 1 + target;
+    if (target < 1 || target > slen + 1) { *out = FAILDESCR; return 1; }
+    int old = g_scan_pos;
+    g_scan_pos = target;
+    int lo = old < target ? old : target, hi = old < target ? target : old;
+    int len = hi - lo;
+    char *buf = rt_wsb_alloc(len + 1);
+    memcpy(buf, g_scan_subj + lo - 1, len);
+    buf[len] = '\0';
+    *out = BSTRVAL(buf, len);
+    return 1;
+}
+static int bn_icn_move(DESCR_t *args, DESCR_t *out) {
+    extern const char *g_scan_subj;
+    extern int g_scan_pos;
+    if (!g_scan_subj) { *out = FAILDESCR; return 1; }
+    int slen;
+    { extern long rt_scan_subj_len(void); slen = (int)rt_scan_subj_len(); }
+    int n = (int)to_int(args[0]);
+    int target = g_scan_pos + n;
+    if (target < 1 || target > slen + 1) { *out = FAILDESCR; return 1; }
+    int old = g_scan_pos;
+    g_scan_pos = target;
+    int lo = old < target ? old : target, hi = old < target ? target : old;
+    int len = hi - lo;
+    char *buf = rt_wsb_alloc(len + 1);
+    memcpy(buf, g_scan_subj + lo - 1, len);
+    buf[len] = '\0';
+    *out = BSTRVAL(buf, len);
+    return 1;
+}
+static int icn_bi_direct_scanpos(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
+    extern int g_scan_pos;
     if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
-    if (nargs < 2 || nargs > 4 || args[0].v != DT_S || args[1].v != DT_S || IS_CSET_fn(args[1])) return 0;
+    if (nargs != 1 || args[0].v != DT_I || g_scan_pos <= 0) return 0;
+    core_icn_op_ctx_clear();
+    return bid == BID_tab ? bn_icn_tab(args, out) : bn_icn_move(args, out);
+}
+static int icn_bi_direct_scan(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
+    extern int g_scan_pos;
+    if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
+    if (nargs < 1 || nargs > 4 || args[0].v != DT_S) return 0;
+    if (nargs == 1) { if (g_scan_pos <= 0) return 0; } else if (args[1].v != DT_S || IS_CSET_fn(args[1])) return 0;
     for (int i = 2; i < nargs; i++) if (args[i].v != DT_I && args[i].v != DT_SNUL) return 0;
     core_icn_op_ctx_clear();
     return bid == BID_any ? bn_icn_any(args, nargs, out) : bn_icn_many(args, nargs, out);
@@ -17714,10 +17761,12 @@ static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
     const int bid = bidlen & BID_BAKE_MASK;
     const unsigned fnlen = (unsigned)bidlen >> 16;
     if (bid != BID_string && bid != BID_IDENTICAL && bid != BID_trim && bid != BID_put && bid != BID_get && bid != BID_read && bid != BID_type && bid != BID_integer && bid != BID_abs &&
-        bid != BID_atan && bid != BID_right && bid != BID_write && bid != BID_writes && bid != BID_any && bid != BID_many && bid != BID_left && bid != BID_center) return 0;
+        bid != BID_atan && bid != BID_right && bid != BID_write && bid != BID_writes && bid != BID_any && bid != BID_many && bid != BID_left && bid != BID_center && bid != BID_tab && bid != BID_move)
+        return 0;
     if (!fnlen || fnlen >= 14 || dtax_off() || g_dtax_bid[bid].gen != rt_dtax_gen) return 0;
     if (bid == BID_write || bid == BID_writes) return icn_bi_direct_write(bid, args, nargs, out);
     if (bid == BID_any || bid == BID_many) return icn_bi_direct_scan(bid, args, nargs, out);
+    if (bid == BID_tab || bid == BID_move) return icn_bi_direct_scanpos(bid, args, nargs, out);
     if (bid == BID_type || bid == BID_integer || bid == BID_abs || bid == BID_atan) return icn_bi_direct_scalar(bid, args, nargs, out);
     if (bid == BID_right || bid == BID_left || bid == BID_center) return icn_bi_direct_pad(bid, args, nargs, out);
     if (bid == BID_trim || bid == BID_put || bid == BID_get || bid == BID_read) return icn_bi_direct_list_io(bid, args, nargs, out);
@@ -20342,42 +20391,10 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_5978:
     ;
-    if ((_bid == BID_tab) && nargs == 1 && g_scan_pos > 0) {
-        if (!g_scan_subj) { *out = FAILDESCR; return 1; }
-        int slen;
-        { extern long rt_scan_subj_len(void); slen = (int)rt_scan_subj_len(); }
-        int target = (int)to_int(args[0]);
-        if (target <= 0) target = slen + 1 + target;
-        if (target < 1 || target > slen + 1) { *out = FAILDESCR; return 1; }
-        int old = g_scan_pos;
-        g_scan_pos = target;
-        int lo = old < target ? old : target, hi = old < target ? target : old;
-        int len = hi - lo;
-        char *buf = rt_wsb_alloc(len + 1);
-        memcpy(buf, g_scan_subj + lo - 1, len);
-        buf[len] = '\0';
-        *out = BSTRVAL(buf, len);
-        return 1;
-    }
+    if ((_bid == BID_tab) && nargs == 1 && g_scan_pos > 0) return bn_icn_tab(args, out);
     L_bidjmp_5991:
     ;
-    if ((_bid == BID_move) && nargs == 1 && g_scan_pos > 0) {
-        if (!g_scan_subj) { *out = FAILDESCR; return 1; }
-        int slen;
-        { extern long rt_scan_subj_len(void); slen = (int)rt_scan_subj_len(); }
-        int n = (int)to_int(args[0]);
-        int target = g_scan_pos + n;
-        if (target < 1 || target > slen + 1) { *out = FAILDESCR; return 1; }
-        int old = g_scan_pos;
-        g_scan_pos = target;
-        int lo = old < target ? old : target, hi = old < target ? target : old;
-        int len = hi - lo;
-        char *buf = rt_wsb_alloc(len + 1);
-        memcpy(buf, g_scan_subj + lo - 1, len);
-        buf[len] = '\0';
-        *out = BSTRVAL(buf, len);
-        return 1;
-    }
+    if ((_bid == BID_move) && nargs == 1 && g_scan_pos > 0) return bn_icn_move(args, out);
     L_bidjmp_6004:
     ;
     if ((_bid == BID_pos) && nargs == 1 && g_scan_pos > 0) {
