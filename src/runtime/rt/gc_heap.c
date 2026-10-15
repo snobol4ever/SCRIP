@@ -770,6 +770,18 @@ static long g_gc_nblk = 0;
 static void **g_gc_hs = (void **)0;
 static long g_gc_hcap = 0, g_gc_hn = 0;
 typedef struct gc_slot_t { const char **loc; const char *val; } gc_slot_t;
+typedef struct gc_tr_args_t { const struct gc_rng_t *rr; long n; char *base; const char *oldtop; char *newtop; const rt_hp_fr_t *fr; const char *arena; const char *cap_end; } gc_tr_args_t;
+_Static_assert(__builtin_offsetof(gc_tr_args_t, rr) == 0 && __builtin_offsetof(gc_tr_args_t, n) == 8 && __builtin_offsetof(gc_tr_args_t, base) == 16 &&
+    __builtin_offsetof(gc_tr_args_t, oldtop) == 24 && __builtin_offsetof(gc_tr_args_t, newtop) == 32 && __builtin_offsetof(gc_tr_args_t, fr) == 40 && __builtin_offsetof(gc_tr_args_t, arena) == 48 &&
+    __builtin_offsetof(gc_tr_args_t, cap_end) == 56 && sizeof(struct gc_rng_t) == 16, "rt_gc_trail_run (rtx_gc.s) reads its argument block and the root ranges at these offsets");
+extern long rt_gc_first_dead_run(const uint64_t *live, size_t topg);
+extern uint64_t rt_gc_prefix_run(uint64_t *prefix, const uint64_t *live, size_t nw);
+extern void rt_gc_fix_run(gc_slot_t *slots, long nslot, char *base, size_t logran, const rt_hp_fr_t *fr, const char *arena);
+extern char *rt_gc_slide_run(char *base, long fd, const rt_hp_fr_t *fr, const char *arena, const char *top);
+extern void rt_gc_start_compact_run(rt_hp_fr_t *fr, const char *arena, const char *base, const char *oldtop);
+extern void rt_gc_ssum_run(rt_hp_fr_t *fr, size_t nw);
+extern uint64_t rt_gc_trail_run(const gc_tr_args_t *a);
+extern void rt_gc_clear_run(rt_hp_fr_t *fr, size_t nw);
 _Static_assert(__builtin_offsetof(gc_slot_t, loc) == 0 && __builtin_offsetof(gc_slot_t, val) == 8 && sizeof(gc_slot_t) == 16,
     "the slot record is two words (ARCH-GC section 15.11 (1)): the slot's address and the pointer value read at registration, so the fix is arena plus the rank of that value, idempotent under a doub"
     "le" " registration, with no header read and no slot read; the fix run reads it at these offsets and steps it by 16");
@@ -3385,100 +3397,20 @@ static void gc_index_c(void) {
     g_gc_idx = g_gc_idxbuf;
     g_gc_nblk = n;
 }
-static long gc_first_dead_granule(void) {
-    size_t topg = (size_t)(g_hp_top - g_hp_arena) >> 4, nw = (topg + 63) >> 6, w;
-    for (w = 0; w < nw; w++) if (g_hp_fr.live[w] != ~0ull) { size_t g = (w << 6) + (size_t)__builtin_ctzll(~g_hp_fr.live[w]); return g < topg ? (long)g : (long)topg; }
-    return (long)topg;
-}
-static void gc_prefix_c(void) {
-    size_t topg = (size_t)(g_hp_top - g_hp_arena) >> 4, nw = (topg + 63) >> 6, w;
-    uint64_t acc = 0;
-    for (w = 0; w < nw; w++) { g_hp_fr.prefix[w] = acc; acc += 16u * (uint64_t)__builtin_popcountll(g_hp_fr.live[w]); }
-}
-static void gc_fix_c(char *base, size_t logran) {
+#if RT_DIAG
+static void gc_fix_check(char *base, size_t logran) {
     for (long i = 0; i < g_gc_nslot; i++) {
         const char *val = g_gc_slots[i].val;
         size_t g = (size_t)(val - g_hp_arena) >> 4;
         if (g < logran || !((g_hp_fr.live[g >> 6] >> (g & 63)) & 1u)) continue;
-#if RT_DIAG
-        if (gc_diag_on() && *g_gc_slots[i].loc != val && *g_gc_slots[i].loc != base + gc_rank(val)) {
+        if (*g_gc_slots[i].loc != val && *g_gc_slots[i].loc != base + gc_rank(val)) {
             fprintf(stderr, "[ZGC] FIX REFUSED: slot %p was written between mark and fix (holds %p, registered %p) -- a slot the collector rewrites is untouched between the two (ARCH-GC 15.11 (1))\n",
                 (const void *)g_gc_slots[i].loc, (const void *)*g_gc_slots[i].loc, (const void *)val);
             abort();
         }
+    }
+}
 #endif
-        *g_gc_slots[i].loc = base + gc_rank(val);
-    }
-}
-static void gc_ssum_rebuild_to(const char *top);
-static void gc_start_compact(const char *base, const char *oldtop, const char *newtop) {
-    size_t topg = (size_t)(oldtop - g_hp_arena) >> 4, nw = (topg + 63) >> 6, off = (size_t)(base - g_hp_arena) >> 4, ow = off >> 6, ob = off & 63;
-    uint64_t acc = 0;
-    for (size_t w = 0; w < nw; w++) {
-        uint64_t l = g_hp_fr.live[w], st = g_hp_fr.start[w], c = 0;
-        size_t n = (size_t)__builtin_popcountll(l), k = 0;
-        for (uint64_t m = l; m; m &= m - 1) { if (st & (m & -m)) c |= 1ull << k; k++; }
-        if (!n) continue;
-        acc |= c << ob;
-        if (ob + n >= 64) { g_hp_fr.start[ow++] = acc; acc = (ob + n > 64 && ob) ? c >> (64 - ob) : 0; }
-        ob = (ob + n) & 63;
-    }
-    if (ob) g_hp_fr.start[ow++] = acc;
-    for (size_t w = ow; w < nw; w++) g_hp_fr.start[w] = 0;
-    for (size_t w = 0; w < (off >> 6); w++) g_hp_fr.start[w] = 0;
-    gc_ssum_rebuild_to(newtop > oldtop ? newtop : oldtop);
-}
-static char *gc_slide_c(char *base, long fd, int count_unmoved, long *unm_out, long *mov_out) {
-    size_t topg = (size_t)(g_hp_top - g_hp_arena) >> 4, nw = (topg + 63) >> 6, g = base == g_hp_arena ? (size_t)fd : 0, w;
-    char *dest = base + (g << 4), *oldtop = g_hp_top;
-    long unm = 0, mov = 0;
-    if (count_unmoved && base == g_hp_arena) for (char *q = g_hp_arena; q < dest; q += ((rt_hblk_t *)q)->size) unm++;
-    while (g < topg) {
-        size_t a, b;
-        uint64_t m, z;
-        w = g >> 6;
-        m = g_hp_fr.live[w] & (~0ull << (g & 63));
-        while (!m) { w++; if (w >= nw) { g = topg; break; } m = g_hp_fr.live[w]; }
-        if (g >= topg) break;
-        a = (w << 6) + (size_t)__builtin_ctzll(m);
-        z = ~g_hp_fr.live[w] & (~0ull << (a & 63));
-        while (!z) { w++; if (w >= nw) break; z = ~g_hp_fr.live[w]; }
-        b = (w >= nw) ? topg : (w << 6) + (size_t)__builtin_ctzll(z);
-        if (b > topg) b = topg;
-        { size_t bytes = (b - a) << 4; char *src = g_hp_arena + (a << 4); if (dest != src) memmove(dest, src, bytes); mov += (long)bytes; dest += bytes; }
-        g = b;
-    }
-    gc_start_compact(base, oldtop, dest);
-    *unm_out = unm;
-    *mov_out = mov;
-    return dest;
-}
-static uint64_t gc_trail_c(char *base, const char *oldtop, char *newtop) {
-    for (long i = 0; i < g_gc_rrng_n; i++) {
-        const char *tt;
-        if (g_gc_rrng[i].hi) continue;
-        tt = *(const char *const *)g_gc_rrng[i].lo;
-        for (char *e = (char *)g_gc_rrng[i].lo + PL_TR_HEADER_BYTES; e + PL_TR_ENTRY_BYTES <= tt; e += PL_TR_ENTRY_BYTES) {
-            pl_tr_entry_t *t = (pl_tr_entry_t *)e;
-            const char *hb;
-            if (t->cell || !t->pad) continue;
-            hb = (const char *)(uintptr_t)t->pad;
-            if (hb < g_hp_arena || hb > g_hp_cap_end) return t->pad;
-            t->pad = (uint64_t)(uintptr_t)(hb >= oldtop ? newtop : base + gc_rank(hb));
-        }
-    }
-    return 0;
-}
-static void gc_ssum_rebuild_to(const char *top) {
-    size_t nw = (((size_t)(top - g_hp_arena) >> 4) + 63) >> 6, ns = (nw + 63) >> 6;
-    memset(g_hp_fr.ssum, 0, ns * sizeof(uint64_t));
-    for (size_t w = 0; w < nw; w++) if (g_hp_fr.start[w]) g_hp_fr.ssum[w >> 6] |= 1ull << (w & 63);
-}
-static void gc_clear_c(const char *oldtop) {
-    size_t topg = (size_t)(oldtop - g_hp_arena) >> 4, nw = (topg + 63) >> 6;
-    memset(g_hp_fr.live, 0, nw * sizeof(uint64_t));
-    memset(g_hp_fr.vis, 0, nw * sizeof(uint64_t));
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_collect_ex(const gc_ent_t *ent) {
     extern void kw_cset_gc_roots(void);
@@ -3542,7 +3474,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     g_gc_nmk = 0;
     g_gc_mxs = 0;
     g_gc_idx = (rt_hblk_t **)0;
-    gc_ssum_rebuild_to(g_hp_top);
+    rt_gc_ssum_run(&g_hp_fr, (((size_t)(g_hp_top - g_hp_arena) >> 4) + 63) >> 6);
 #if RT_DIAG
     if (gc_diag_on() || gc_trap_on() || w_tel || gc_plant_flip()) gc_index_c();
 #ifdef SCRIP_GC_AUDIT_B
@@ -3727,9 +3659,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
             fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld words_scanned=%ld interior_words=%ld program_top=%p\n", g_gc_rrng_n, g_gc_cas_bytes, words, interior, (void *)g_gc_program_top);
     }
 #endif
-    fd = gc_first_dead_granule();
-    gc_prefix_c();
-    { size_t tw = (((size_t)(g_hp_top - g_hp_arena) >> 4) + 63) >> 6; lt = tw ? (long)(g_hp_fr.prefix[tw - 1] + 16u * (uint64_t)__builtin_popcountll(g_hp_fr.live[tw - 1])) : 0; }
+    { size_t topg = (size_t)(g_hp_top - g_hp_arena) >> 4; fd = rt_gc_first_dead_run(g_hp_fr.live, topg); lt = (long)rt_gc_prefix_run(g_hp_fr.prefix, g_hp_fr.live, (topg + 63) >> 6); }
     base = g_hp_arena;
 #if RT_DIAG
     if (gc_plant_flip()) {
@@ -3760,18 +3690,26 @@ static long gc_collect_ex(const gc_ent_t *ent) {
 #if RT_DIAG
     for (int z = 0; z < st_n; z++) st_fwd[z] = gc_blk_marked(st_blk[z]) ? (uint64_t)(uintptr_t)(base + gc_rank((const char *)st_blk[z])) : 0;
 #endif
-    gc_fix_c(base, base == g_hp_arena ? (size_t)fd : 0);
+#if RT_DIAG
+    if (gc_diag_on()) gc_fix_check(base, base == g_hp_arena ? (size_t)fd : 0);
+#endif
+    rt_gc_fix_run(g_gc_slots, g_gc_nslot, base, base == g_hp_arena ? (size_t)fd : 0, &g_hp_fr, g_hp_arena);
 #if RT_DIAG
     if (w_tel) { w_cel = g_gc_nslot; w_raw = 0; n_fix = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     if (w_tel) n_t0 = gc_walk_ns();
 #endif
     {
-        long unm = 0, mov = 0;
-        dest = gc_slide_c(base, fd, w_tel, &unm, &mov);
+        char *oldtop = g_hp_top;
+#if RT_DIAG
+        char *d0 = base + ((base == g_hp_arena ? (size_t)fd : 0) << 4);
+        if (w_tel && base == g_hp_arena) for (char *q = g_hp_arena; q < d0; q += ((rt_hblk_t *)q)->size) w_unm++;
+#endif
+        dest = rt_gc_slide_run(base, fd, &g_hp_fr, g_hp_arena, oldtop);
+        rt_gc_start_compact_run(&g_hp_fr, g_hp_arena, base, oldtop);
+        rt_gc_ssum_run(&g_hp_fr, (((size_t)((dest > oldtop ? dest : oldtop) - g_hp_arena) >> 4) + 63) >> 6);
         mxs = (uint32_t)g_gc_mxs;
 #if RT_DIAG
-        w_unm += unm;
-        if (w_tel) w_mov += mov;
+        if (w_tel) w_mov += (long)(dest - d0);
         if (g_gc_flip_to) {
             static int said_applied = 0;
             if (base > g_hp_arena) {
@@ -3805,8 +3743,12 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     g_hp_live = (long)(dest - g_hp_arena);
     rt_gcheap_line_reset((long)mxs);
 #endif
-    if (n_hb) { uint64_t bad = gc_trail_c(base, g_hp_arena + before_b, g_hp_top); if (bad) gc_trail_refuse((const char *)(uintptr_t)bad); }
-    gc_clear_c(g_hp_arena + before_b);
+    if (n_hb) {
+        gc_tr_args_t ta = { g_gc_rrng, g_gc_rrng_n, base, g_hp_arena + before_b, g_hp_top, &g_hp_fr, g_hp_arena, g_hp_cap_end };
+        uint64_t bad = rt_gc_trail_run(&ta);
+        if (bad) gc_trail_refuse((const char *)(uintptr_t)bad);
+    }
+    rt_gc_clear_run(&g_hp_fr, (((size_t)before_b >> 4) + 63) >> 6);
     after_b = (long)(g_hp_top - g_hp_arena);
 #if RT_DIAG
     if (st_n) {

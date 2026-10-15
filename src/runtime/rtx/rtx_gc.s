@@ -434,4 +434,398 @@ RTX_ENDF(rt_gc_mark_run)
 .byte MK_PLAIN
 .org .Lmk_class + 256
 .text
+.macro GC_POPCNT dst, src
+    popcnt  \dst, \src
+.endm
+.macro GC_PEXT dst, src, mask
+    pext    \dst, \src, \mask
+.endm
+RTX_FUNC(rt_gc_first_dead_run)
+    xor     ecx, ecx
+    lea     r8, [rsi + 63]
+    shr     r8, 6
+.Lfd_loop:
+    cmp     rcx, r8
+    jae     .Lfd_top
+    mov     rax, qword ptr [rdi + rcx*8]
+    not     rax
+    test    rax, rax
+    jne     .Lfd_hit
+    inc     rcx
+    jmp     .Lfd_loop
+.Lfd_hit:
+    bsf     rax, rax
+    shl     rcx, 6
+    add     rax, rcx
+    cmp     rax, rsi
+    jb      .Lfd_out
+.Lfd_top:
+    mov     rax, rsi
+.Lfd_out:
+    ret
+RTX_ENDF(rt_gc_first_dead_run)
+RTX_FUNC(rt_gc_prefix_run)
+    xor     eax, eax
+    xor     ecx, ecx
+.Lpf_loop:
+    cmp     rcx, rdx
+    jae     .Lpf_out
+    mov     qword ptr [rdi + rcx*8], rax
+    mov     r8, qword ptr [rsi + rcx*8]
+    GC_POPCNT r8, r8
+    shl     r8, 4
+    add     rax, r8
+    inc     rcx
+    jmp     .Lpf_loop
+.Lpf_out:
+    ret
+RTX_ENDF(rt_gc_prefix_run)
+RTX_FUNC(rt_gc_fix_run)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    mov     r12, rdx
+    mov     rbp, rcx
+    mov     r10, qword ptr [r8 + 72]
+    mov     r11, qword ptr [r8 + 112]
+    shl     rsi, 4
+    add     rsi, rdi
+.Lfx_loop:
+    cmp     rdi, rsi
+    jae     .Lfx_out
+    mov     rax, qword ptr [rdi + 8]
+    sub     rax, r9
+    mov     r8, rax
+    shr     r8, 4
+    cmp     r8, rbp
+    jb      .Lfx_next
+    mov     ecx, r8d
+    and     ecx, 63
+    shr     r8, 6
+    mov     rbx, qword ptr [r10 + r8*8]
+    bt      rbx, rcx
+    jnc     .Lfx_next
+    mov     rdx, -1
+    shl     rdx, cl
+    not     rdx
+    and     rdx, rbx
+    GC_POPCNT rdx, rdx
+    shl     rdx, 4
+    add     rdx, qword ptr [r11 + r8*8]
+    and     eax, 15
+    add     rdx, rax
+    add     rdx, r12
+    mov     rbx, qword ptr [rdi]
+    mov     qword ptr [rbx], rdx
+.Lfx_next:
+    add     rdi, 16
+    jmp     .Lfx_loop
+.Lfx_out:
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    RTX_GVA_R9
+    ret
+RTX_ENDF(rt_gc_fix_run)
+RTX_FUNC(rt_gc_slide_run)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    mov     r12, rcx
+    mov     r13, qword ptr [rdx + 72]
+    mov     r14, r8
+    sub     r14, r12
+    shr     r14, 4
+    lea     r15, [r14 + 63]
+    shr     r15, 6
+    xor     ebx, ebx
+    cmp     rdi, r12
+    jne     .Lsl_g0
+    mov     rbx, rsi
+.Lsl_g0:
+    mov     rbp, rbx
+    shl     rbp, 4
+    add     rbp, rdi
+.Lsl_loop:
+    cmp     rbx, r14
+    jae     .Lsl_done
+    mov     r8, rbx
+    shr     r8, 6
+    mov     ecx, ebx
+    and     ecx, 63
+    mov     rdx, -1
+    shl     rdx, cl
+    and     rdx, qword ptr [r13 + r8*8]
+    jne     .Lsl_a
+.Lsl_skipz:
+    inc     r8
+    cmp     r8, r15
+    jae     .Lsl_done
+    mov     rdx, qword ptr [r13 + r8*8]
+    test    rdx, rdx
+    je      .Lsl_skipz
+.Lsl_a:
+    bsf     rdx, rdx
+    mov     r11, r8
+    shl     r11, 6
+    add     r11, rdx
+    mov     ecx, r11d
+    and     ecx, 63
+    mov     rdx, -1
+    shl     rdx, cl
+    mov     rax, qword ptr [r13 + r8*8]
+    not     rax
+    and     rdx, rax
+    jne     .Lsl_b
+.Lsl_skipo:
+    inc     r8
+    cmp     r8, r15
+    jae     .Lsl_btop
+    mov     rdx, qword ptr [r13 + r8*8]
+    not     rdx
+    test    rdx, rdx
+    je      .Lsl_skipo
+.Lsl_b:
+    bsf     rdx, rdx
+    mov     r10, r8
+    shl     r10, 6
+    add     r10, rdx
+    cmp     r10, r14
+    jbe     .Lsl_copy
+.Lsl_btop:
+    mov     r10, r14
+.Lsl_copy:
+    mov     rcx, r10
+    sub     rcx, r11
+    shl     rcx, 1
+    mov     rsi, r11
+    shl     rsi, 4
+    add     rsi, r12
+    mov     rdi, rbp
+    cmp     rdi, rsi
+    je      .Lsl_adv
+    rep movsq
+.Lsl_adv:
+    mov     rax, r10
+    sub     rax, r11
+    shl     rax, 4
+    add     rbp, rax
+    mov     rbx, r10
+    jmp     .Lsl_loop
+.Lsl_done:
+    mov     rax, rbp
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_gc_slide_run)
+RTX_FUNC(rt_gc_start_compact_run)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    mov     r8, qword ptr [rdi + 72]
+    mov     r10, qword ptr [rdi + 96]
+    sub     rcx, rsi
+    shr     rcx, 4
+    lea     r11, [rcx + 63]
+    shr     r11, 6
+    sub     rdx, rsi
+    shr     rdx, 4
+    mov     r12, rdx
+    shr     r12, 6
+    mov     rdi, r12
+    and     edx, 63
+    mov     r13, rdx
+    xor     ebx, ebx
+    xor     ebp, ebp
+.Lsc_loop:
+    cmp     rbp, r11
+    jae     .Lsc_flush
+    mov     r14, qword ptr [r8 + rbp*8]
+    GC_POPCNT r15, r14
+    test    r15, r15
+    je      .Lsc_next
+    mov     rax, qword ptr [r10 + rbp*8]
+    GC_PEXT r14, rax, r14
+    mov     rcx, r13
+    mov     rax, r14
+    shl     rax, cl
+    or      rbx, rax
+    lea     rax, [r13 + r15]
+    cmp     rax, 64
+    jb      .Lsc_ob
+    mov     qword ptr [r10 + rdi*8], rbx
+    inc     rdi
+    xor     ebx, ebx
+    cmp     rax, 64
+    je      .Lsc_ob
+    test    r13, r13
+    je      .Lsc_ob
+    mov     ecx, 64
+    sub     ecx, r13d
+    mov     rbx, r14
+    shr     rbx, cl
+.Lsc_ob:
+    lea     rax, [r13 + r15]
+    and     eax, 63
+    mov     r13, rax
+.Lsc_next:
+    inc     rbp
+    jmp     .Lsc_loop
+.Lsc_flush:
+    test    r13, r13
+    je      .Lsc_zero
+    mov     qword ptr [r10 + rdi*8], rbx
+    inc     rdi
+.Lsc_zero:
+    cmp     rdi, r11
+    jae     .Lsc_low
+    mov     qword ptr [r10 + rdi*8], 0
+    inc     rdi
+    jmp     .Lsc_zero
+.Lsc_low:
+    xor     ebp, ebp
+.Lsc_low_loop:
+    cmp     rbp, r12
+    jae     .Lsc_out
+    mov     qword ptr [r10 + rbp*8], 0
+    inc     rbp
+    jmp     .Lsc_low_loop
+.Lsc_out:
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_gc_start_compact_run)
+RTX_FUNC(rt_gc_ssum_run)
+    mov     r10, qword ptr [rdi + 96]
+    mov     r11, qword ptr [rdi + 104]
+    lea     rcx, [rsi + 63]
+    shr     rcx, 6
+    xor     eax, eax
+    xor     edx, edx
+.Lss_zero:
+    cmp     rdx, rcx
+    jae     .Lss_set
+    mov     qword ptr [r11 + rdx*8], rax
+    inc     rdx
+    jmp     .Lss_zero
+.Lss_set:
+    xor     edx, edx
+.Lss_loop:
+    cmp     rdx, rsi
+    jae     .Lss_out
+    cmp     qword ptr [r10 + rdx*8], 0
+    je      .Lss_next
+    bts     qword ptr [r11], rdx
+.Lss_next:
+    inc     rdx
+    jmp     .Lss_loop
+.Lss_out:
+    ret
+RTX_ENDF(rt_gc_ssum_run)
+RTX_FUNC(rt_gc_trail_run)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    mov     rsi, qword ptr [rdi + 0]
+    mov     rax, qword ptr [rdi + 8]
+    shl     rax, 4
+    mov     r12, qword ptr [rdi + 16]
+    mov     r13, qword ptr [rdi + 24]
+    mov     r14, qword ptr [rdi + 32]
+    mov     rdx, qword ptr [rdi + 40]
+    mov     r10, qword ptr [rdx + 72]
+    mov     r11, qword ptr [rdx + 112]
+    mov     r15, qword ptr [rdi + 48]
+    mov     rbp, qword ptr [rdi + 56]
+    lea     rdi, [rsi + rax]
+.Ltr_range:
+    cmp     rsi, rdi
+    jae     .Ltr_ok
+    cmp     qword ptr [rsi + 8], 0
+    jne     .Ltr_rnext
+    mov     rbx, qword ptr [rsi]
+    add     rbx, 64
+.Ltr_entry:
+    mov     r8, qword ptr [rsi]
+    mov     r8, qword ptr [r8]
+    lea     rax, [rbx + 32]
+    cmp     rax, r8
+    ja      .Ltr_rnext
+    cmp     qword ptr [rbx], 0
+    jne     .Ltr_enext
+    mov     rax, qword ptr [rbx + 8]
+    test    rax, rax
+    je      .Ltr_enext
+    cmp     rax, r15
+    jb      .Ltr_bad
+    cmp     rax, rbp
+    ja      .Ltr_bad
+    cmp     rax, r13
+    jb      .Ltr_rank
+    mov     qword ptr [rbx + 8], r14
+    jmp     .Ltr_enext
+.Ltr_rank:
+    sub     rax, r15
+    mov     rdx, rax
+    shr     rdx, 4
+    mov     ecx, edx
+    and     ecx, 63
+    shr     rdx, 6
+    mov     r8, -1
+    shl     r8, cl
+    not     r8
+    and     r8, qword ptr [r10 + rdx*8]
+    GC_POPCNT r8, r8
+    shl     r8, 4
+    add     r8, qword ptr [r11 + rdx*8]
+    and     eax, 15
+    add     rax, r8
+    add     rax, r12
+    mov     qword ptr [rbx + 8], rax
+.Ltr_enext:
+    add     rbx, 32
+    jmp     .Ltr_entry
+.Ltr_rnext:
+    add     rsi, 16
+    jmp     .Ltr_range
+.Ltr_ok:
+    xor     eax, eax
+.Ltr_bad:
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_gc_trail_run)
+RTX_FUNC(rt_gc_clear_run)
+    mov     r8, rdi
+    mov     rdx, rsi
+    xor     eax, eax
+    mov     rdi, qword ptr [r8 + 72]
+    mov     rcx, rdx
+    rep stosq
+    mov     rdi, qword ptr [r8 + 88]
+    mov     rcx, rdx
+    rep stosq
+    ret
+RTX_ENDF(rt_gc_clear_run)
 .section .note.GNU-stack,"",@progbits
