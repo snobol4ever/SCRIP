@@ -100,7 +100,12 @@ typedef struct zls_reuse_s { const IR_t * nd; int cls; int w; int last; int gpos
 static void zls_reuse_plan(const IR_graph_t * g, zls_reuse_t * rec, int * ncp_out, int * nloop_out);
 static int zls_reuse_detleaf(const IR_t * c);
 static int zls_reuse_straight(IR_e op);
-static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int nl, const int * mstart, int i, int dl_w);
+typedef struct { const IR_t * p; int i; } zls_pi_t;
+typedef struct { int * rdk; int * rdm; int ** lw; int * nlw; int * maxlast; int dl_w; } zls_ds_t;
+static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int nl, const int * mstart, int i, int dl_w, zls_ds_t * ds);
+static void zls_ds_build(zls_ds_t * ds, const IR_graph_t * g, const char * rb, int dl_w);
+static void zls_ds_drop(zls_ds_t * ds);
+static int zls_wi_cmp(const void * a, const void * b);
 typedef struct { const IR_t * nd; int min_off; int span; int * zq; int nzq; } zls_ageom_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_reset(void) {
@@ -1256,11 +1261,19 @@ void zls_build(IR_graph_t * g) {
                 if (g_lower.ir.zls_build_eon && lv[i] && rec[i].cls == ZR_CANDIDATE && nd->op != IR_LINE_MARK && !zls_fc_cell(nd) && !fc_vlit_active(nd) && fc_vread_fp(nd) < 0 &&
                     !fc_vbinop_active(nd) && !fc_vdj_active(nd)) order[on++] = i;
             }
-            for (int a = 1; a < on; a++) { int v = order[a]; int b = a - 1; while (b >= 0 && rec[order[b]].w > rec[v].w) { order[b + 1] = order[b]; b--; } order[b + 1] = v; }
+            {
+                zls_pi_t * ow = (zls_pi_t *)ct_alloc(sizeof(zls_pi_t) * (size_t)(on > 0 ? on : 1));
+                for (int a = 0; a < on; a++) { ow[a].p = (const IR_t *)(intptr_t)rec[order[a]].w; ow[a].i = order[a]; }
+                qsort(ow, (size_t)on, sizeof(zls_pi_t), zls_wi_cmp);
+                for (int a = 0; a < on; a++) order[a] = ow[a].i;
+                ct_drop(ow);
+            }
+            zls_ds_t ds;
+            zls_ds_build(&ds, g, rb, dl_w);
             for (int a = 0; a < on; a++) {
                 int i = order[a];
-                int j = zls_direct_slot(g, rec, rb, nl, mstart, i, dl_w);
-                if (j >= 0) { rec[i].direct = j; continue; }
+                int j = zls_direct_slot(g, rec, rb, nl, mstart, i, dl_w, &ds);
+                if (j >= 0) { rec[i].direct = j; if (rec[i].last > ds.maxlast[j]) ds.maxlast[j] = rec[i].last; continue; }
                 int p = -1;
                 for (int q = 0; q < pool_n && p < 0; q++) if (pool_free[q] < rec[i].w) p = q;
                 if (p < 0 && pool_n < 64) { p = pool_n++; }
@@ -1268,6 +1281,7 @@ void zls_build(IR_graph_t * g) {
                 pool_free[p] = rec[i].last;
                 rec[i].pooled = p;
             }
+            zls_ds_drop(&ds);
             ct_drop(order);
             if (pool_n > 0) {
                 pool_base = base + k * 16;
@@ -1286,22 +1300,35 @@ void zls_build(IR_graph_t * g) {
             r->scratch_pool = -1;
             r->scratch_hit_w = (const IR_t *)0;
             r->scratch_hit_t = (const IR_t *)0;
-            for (int q = 0; g_lower.ir.zls_build_eon && nloop == 0 && q < pool_n && r->scratch_pool < 0; q++) {
-                int hit = 0;
-                for (int i = 0; i < g->n && !hit; i++) {
-                    const IR_t * d = g->all[i];
-                    if (!d || !rb[i] || lv[i] || zls_is_wiring(ir_kind0(d))) continue;
-                    if (!zls_reuse_detleaf(d) && !zls_elide_ok(ir_kind0(d))) continue;
-                    if (rec[i].w < 0 || (nl > 0 && i >= mstart[0]) || (!zls_reuse_detleaf(d) && !zls_reuse_straight(ir_kind0(d)))) { hit = 1; r->scratch_hit_w = d; break; }
-                    int p = 2 * rec[i].w + 1;
-                    for (int t = 0; t < g->n; t++) if (rec[t].pooled == q && rec[t].direct < 0 && 2 * rec[t].w + 1 <= p && p <= 2 * rec[t].last) {
-                        hit = 1;
-                        r->scratch_hit_w = d;
-                        r->scratch_hit_t = g->all[t];
-                        break;
-                    }
+            if (g_lower.ir.zls_build_eon && nloop == 0 && pool_n > 0) {
+                int pc[64], po[65];
+                for (int q = 0; q < pool_n; q++) pc[q] = 0;
+                for (int t = 0; t < g->n; t++) if (rec[t].pooled >= 0 && rec[t].pooled < pool_n && rec[t].direct < 0) pc[rec[t].pooled]++;
+                po[0] = 0;
+                for (int q = 0; q < pool_n; q++) po[q + 1] = po[q] + pc[q];
+                zls_pi_t * pv = (zls_pi_t *)ct_alloc(sizeof(zls_pi_t) * (size_t)(po[pool_n] > 0 ? po[pool_n] : 1));
+                for (int q = 0; q < pool_n; q++) pc[q] = po[q];
+                for (int t = 0; t < g->n; t++) if (rec[t].pooled >= 0 && rec[t].pooled < pool_n && rec[t].direct < 0) {
+                    pv[pc[rec[t].pooled]].p = (const IR_t *)(intptr_t)(2 * rec[t].w + 1);
+                    pv[pc[rec[t].pooled]].i = t;
+                    pc[rec[t].pooled]++;
                 }
-                if (!hit) r->scratch_pool = q;
+                for (int q = 0; q < pool_n; q++) qsort(pv + po[q], (size_t)(po[q + 1] - po[q]), sizeof(zls_pi_t), zls_wi_cmp);
+                for (int q = 0; q < pool_n && r->scratch_pool < 0; q++) {
+                    int hit = 0;
+                    for (int i = 0; i < g->n && !hit; i++) {
+                        const IR_t * d = g->all[i];
+                        if (!d || !rb[i] || lv[i] || zls_is_wiring(ir_kind0(d))) continue;
+                        if (!zls_reuse_detleaf(d) && !zls_elide_ok(ir_kind0(d))) continue;
+                        if (rec[i].w < 0 || (nl > 0 && i >= mstart[0]) || (!zls_reuse_detleaf(d) && !zls_reuse_straight(ir_kind0(d)))) { hit = 1; r->scratch_hit_w = d; break; }
+                        int p = 2 * rec[i].w + 1, lo = po[q], hi = po[q + 1], t = -1;
+                        while (lo < hi) { int mid = lo + (hi - lo) / 2; if ((intptr_t)pv[mid].p <= p) lo = mid + 1; else hi = mid; }
+                        if (lo > po[q]) t = pv[lo - 1].i;
+                        if (t >= 0 && p <= 2 * rec[t].last) { hit = 1; r->scratch_hit_w = d; r->scratch_hit_t = g->all[t]; }
+                    }
+                    if (!hit) r->scratch_pool = q;
+                }
+                ct_drop(pv);
             }
             if (r->scratch_pool >= 0) scratch_off = pool_base + r->scratch_pool * 16;
             for (int i = 0; i < g->n; i++) { if (rec[i].direct >= 0) rec[i].pooled = dl_base + rec[i].direct * 16; else if (rec[i].pooled >= 0) rec[i].pooled = pool_base + rec[i].pooled * 16; }
@@ -1835,19 +1862,70 @@ static int zls_reuse_straight(IR_e op) {
     return op == IR_LIT_INTEGER || op == IR_LIT_REAL || op == IR_LIT_STRING || op == IR_LIT_ATOM || op == IR_VAR || op == IR_VAR_REF || op == IR_BINOP || op == IR_CMP_TEST || op == IR_LINE_MARK;
 }
 static int zls_reuse_detleaf(const IR_t * c) { return c && ir_kind0(c) == IR_CALL && c->seal == IR_SEAL_CALL_DET_LEAF; }
-static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int nl, const int * mstart, int i, int dl_w) {
-    const IR_t * c = g->all[i];
-    if (dl_w <= 0 || rec[i].nread != 1 || rec[i].w < 0 || rec[i].last <= rec[i].w) return -1;
-    int rd = -1, j = -1;
-    for (int k = 0; k < g->n && rd < 0; k++) { const IR_t * d = g->all[k]; if (!d || !rb[k]) continue; for (int m = 0; m < d->n_operands; m++) if (d->operands[m] == c) { rd = k; j = m; break; } }
-    if (rd < 0 || !zls_reuse_detleaf(g->all[rd]) || (nl > 0 && rd >= mstart[0]) || rec[rd].w != rec[i].last || j >= dl_w) return -1;
-    int lo = 2 * rec[i].w + 1, hi = 2 * rec[i].last;
-    for (int k = 0; k < g->n; k++) {
+static int zls_wi_cmp(const void * a, const void * b) {
+    intptr_t x = (intptr_t)((const zls_pi_t *)a)->p, y = (intptr_t)((const zls_pi_t *)b)->p;
+    if (x != y) return x < y ? -1 : 1;
+    return ((const zls_pi_t *)a)->i - ((const zls_pi_t *)b)->i;
+}
+static int zls_pi_cmp(const void * a, const void * b) {
+    uintptr_t x = (uintptr_t)((const zls_pi_t *)a)->p, y = (uintptr_t)((const zls_pi_t *)b)->p;
+    if (x != y) return x < y ? -1 : 1;
+    return ((const zls_pi_t *)a)->i - ((const zls_pi_t *)b)->i;
+}
+static void zls_ds_build(zls_ds_t * ds, const IR_graph_t * g, const char * rb, int dl_w) {
+    int n = g->n;
+    zls_pi_t * pi = (zls_pi_t *)ct_alloc(sizeof(zls_pi_t) * (size_t)(n > 0 ? n : 1));
+    ds->rdk = (int *)ct_alloc(sizeof(int) * (size_t)(n > 0 ? n : 1));
+    ds->rdm = (int *)ct_alloc(sizeof(int) * (size_t)(n > 0 ? n : 1));
+    ds->dl_w = dl_w;
+    ds->lw = (int **)ct_alloc(sizeof(int *) * (size_t)(dl_w > 0 ? dl_w : 1));
+    ds->nlw = (int *)ct_alloc(sizeof(int) * (size_t)(dl_w > 0 ? dl_w : 1));
+    ds->maxlast = (int *)ct_alloc(sizeof(int) * (size_t)(dl_w > 0 ? dl_w : 1));
+    for (int j = 0; j < dl_w; j++) { ds->lw[j] = (int *)0; ds->nlw[j] = -1; ds->maxlast[j] = -1; }
+    for (int i = 0; i < n; i++) { pi[i].p = g->all[i]; pi[i].i = i; ds->rdk[i] = -1; ds->rdm[i] = -1; }
+    qsort(pi, (size_t)n, sizeof(zls_pi_t), zls_pi_cmp);
+    for (int k = 0; k < n; k++) {
         const IR_t * d = g->all[k];
-        if (!d || !rb[k] || k == i) continue;
-        if (k != rd && zls_reuse_detleaf(d) && d->n_operands > j && rec[k].w >= 0 && 2 * rec[k].w >= lo && 2 * rec[k].w <= hi) return -1;
-        if (rec[k].direct == j && 2 * rec[k].w + 1 <= hi && 2 * rec[k].last >= lo) return -1;
+        if (!d || !rb[k]) continue;
+        for (int m = 0; m < d->n_operands; m++) {
+            const IR_t * o = d->operands[m];
+            int lo = 0, hi = n;
+            if (!o) continue;
+            while (lo < hi) { int mid = lo + (hi - lo) / 2; if ((uintptr_t)pi[mid].p < (uintptr_t)o) lo = mid + 1; else hi = mid; }
+            for (; lo < n && pi[lo].p == o; lo++) if (ds->rdk[pi[lo].i] < 0) { ds->rdk[pi[lo].i] = k; ds->rdm[pi[lo].i] = m; }
+        }
     }
+    ct_drop(pi);
+}
+static void zls_ds_leaves(zls_ds_t * ds, const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int j) {
+    int c = 0;
+    for (int k = 0; k < g->n; k++) { const IR_t * d = g->all[k]; if (d && rb[k] && zls_reuse_detleaf(d) && d->n_operands > j && rec[k].w >= 0) c++; }
+    ds->lw[j] = (int *)ct_alloc(sizeof(int) * (size_t)(c > 0 ? c : 1));
+    ds->nlw[j] = 0;
+    for (int k = 0; k < g->n; k++) { const IR_t * d = g->all[k]; if (d && rb[k] && zls_reuse_detleaf(d) && d->n_operands > j && rec[k].w >= 0) ds->lw[j][ds->nlw[j]++] = rec[k].w; }
+    qsort(ds->lw[j], (size_t)ds->nlw[j], sizeof(int), zls_int_cmp);
+}
+static int zls_ds_count(const int * v, int n, int a, int b) {
+    int lo = 0, hi = n, l2 = 0, h2 = n;
+    while (lo < hi) { int mid = lo + (hi - lo) / 2; if (v[mid] < a) lo = mid + 1; else hi = mid; }
+    while (l2 < h2) { int mid = l2 + (h2 - l2) / 2; if (v[mid] <= b) l2 = mid + 1; else h2 = mid; }
+    return l2 - lo;
+}
+static void zls_ds_drop(zls_ds_t * ds) {
+    for (int j = ds->dl_w - 1; j >= 0; j--) if (ds->lw[j]) ct_drop(ds->lw[j]);
+    ct_drop(ds->maxlast);
+    ct_drop(ds->nlw);
+    ct_drop(ds->lw);
+    ct_drop(ds->rdm);
+    ct_drop(ds->rdk);
+}
+static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int nl, const int * mstart, int i, int dl_w, zls_ds_t * ds) {
+    if (dl_w <= 0 || rec[i].nread != 1 || rec[i].w < 0 || rec[i].last <= rec[i].w) return -1;
+    int rd = ds->rdk[i], j = ds->rdm[i];
+    if (rd < 0 || !zls_reuse_detleaf(g->all[rd]) || (nl > 0 && rd >= mstart[0]) || rec[rd].w != rec[i].last || j >= dl_w) return -1;
+    if (ds->nlw[j] < 0) zls_ds_leaves(ds, g, rec, rb, j);
+    if (zls_ds_count(ds->lw[j], ds->nlw[j], rec[i].w + 1, rec[i].last) > 1) return -1;
+    if (ds->maxlast[j] >= rec[i].w + 1) return -1;
     return j;
 }
 static int zls_reuse_reader_ok(IR_e op) {
