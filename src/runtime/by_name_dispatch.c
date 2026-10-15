@@ -8557,22 +8557,28 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
         return 1;
     }
 }
+static const char *pl_gp_read_err(long off0);
 PL_CX_LEAF_HEAD(read, 1)
     {
+        extern FILE *fh_cur_in_fp(void);
         char *text = (char *)0;
         size_t tn = 0;
+        long off0;
         int got;
         DESCR_t t;
         pl_vtab_t vt;
         extern void *rt_pl_ball_kind1(const char *, const char *);
         if ((cx->ball = pl_text_cur_ball())) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
+        off0 = ftell(fh_cur_in_fp());
         got = pl_read_term_text(&text, &tn);
         if (got == 0) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);
         else if (got != 1) {
-            cx->ball = rt_pl_ball_kind1("syntax_error", got < 0 ? "term_too_long" : "end_of_file");
+            const char *g = got < 0 ? (const char *)0 : pl_gp_read_err(off0);
+            cx->ball = rt_pl_ball_kind1("syntax_error", g ? g : got < 0 ? "term_too_long" : "end_of_file");
             ok = 0;
         } else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) {
-            cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term");
+            const char *g = pl_gp_read_err(off0);
+            cx->ball = rt_pl_ball_kind1("syntax_error", g ? g : "cannot_start_term");
             ok = 0;
         } else ok = plw_unify_vals(args[0], t, cx);
     }
@@ -8730,9 +8736,11 @@ PL_CX_LEAF_HEAD(read_term_opts, 2)
         pl_vtab_t vt;
         void *ob = pl_read_opts_ball(args[1]);
         extern void *rt_pl_ball_kind1(const char *, const char *);
+        extern FILE *fh_cur_in_fp(void);
         if (ob || (ob = pl_text_cur_ball())) { cx->ball = ob; ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
         sm = pl_read_syntax_mode(args[1]);
         for (;;) {
+            long off0 = ftell(fh_cur_in_fp());
             got = pl_read_term_text(&text, &tn);
             se = (const char *)0;
             if (got == 0) { vt.n = 0; ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx) && pl_read_term_options_cell(args[1], &vt, cx); break; }
@@ -8740,6 +8748,7 @@ PL_CX_LEAF_HEAD(read_term_opts, 2)
             if (got != 1) se = "end_of_file";
             else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) se = "cannot_start_term";
             if (!se) { ok = plw_unify_vals(args[0], t, cx) && pl_read_term_options_cell(args[1], &vt, cx); break; }
+            { const char *g = pl_gp_read_err(off0); if (g) se = g; }
             if (sm == 2) printf("warning: syntax error: %s\n", se);
             if (sm == 3) { fprintf(stderr, "warning: syntax error: %s\n", se); continue; }
             if (!sm) cx->ball = rt_pl_ball_kind1("syntax_error", se);
@@ -9678,7 +9687,7 @@ static int pl_gnu_copy(const char *f, const char *t, pl_tr_ctx_t *cx) {
 #define GS_CM 2048
 #define GS_EX 4096
 enum { GT_NAME, GT_VAR, GT_INT, GT_FLOAT, GT_STR, GT_BQ, GT_PUNCT, GT_IOPEN, GT_STOP, GT_EOF, GT_EXT };
-typedef struct { FILE *in; int idx; int c; int ty; int tk; int punct; int oom; long tl; long tc; const char *err; char *b; size_t bn; size_t bk; DESCR_t num; } pl_gs_t;
+typedef struct { FILE *in; int idx; int c; int ty; int tk; int punct; int q; int oom; int eofn; long tl; long tc; const char *err; char *b; size_t bn; size_t bk; DESCR_t num; } pl_gs_t;
 static int pl_gs_class(int c) {
     if (c == EOF) return 0;
     if (c >= 128) return GS_EX;
@@ -9695,8 +9704,8 @@ static int pl_gs_class(int c) {
     if (strchr("()[]{}|", c)) return GS_PC;
     return GS_GR;
 }
-static int pl_gs_get(pl_gs_t *s) { s->c = fgetc(s->in); s->ty = pl_gs_class(s->c); return s->c; }
-static void pl_gs_unget(pl_gs_t *s) { if (s->c != EOF) ungetc(s->c, s->in); }
+static int pl_gs_get(pl_gs_t *s) { s->c = fgetc(s->in); s->ty = pl_gs_class(s->c); s->eofn = s->c == EOF ? s->eofn + 1 : 0; return s->c; }
+static void pl_gs_unget(pl_gs_t *s) { if (s->c != EOF) ungetc(s->c, s->in); else if (s->eofn > 0) s->eofn--; }
 static int pl_gs_peek(pl_gs_t *s) { int d = fgetc(s->in); if (d != EOF) ungetc(d, s->in); return d; }
 static void pl_gs_put(pl_gs_t *s, int ch) { if (!pl_rb_room(&s->b, &s->bn, s->bk + 2)) { s->oom = 1; return; } s->b[s->bk++] = (char)ch; s->b[s->bk] = 0; }
 static void pl_gs_at(pl_gs_t *s, int plus) {
@@ -9713,7 +9722,7 @@ static void pl_gs_at(pl_gs_t *s, int plus) {
         if (!p) break;
     }
     s->tl = ln + 1;
-    s->tc = col + plus;
+    s->tc = col + plus + s->eofn;
 }
 static void pl_gs_fail(pl_gs_t *s, const char *msg, int plus) { if (s->err) return; s->err = msg; pl_gs_at(s, plus); }
 static int pl_gs_qchar(pl_gs_t *s, int q, int noesc) {
@@ -9746,6 +9755,7 @@ static int pl_gs_qchar(pl_gs_t *s, int q, int noesc) {
 static void pl_gs_quoted(pl_gs_t *s) {
     int q = s->c, ef = 0, ch;
     s->tk = s->ty == GS_QT ? GT_NAME : s->ty == GS_DQ ? GT_STR : GT_BQ;
+    s->q = s->ty == GS_QT;
     s->bk = 0;
     for (;;) {
         ch = pl_gs_qchar(s, q, s->tk == GT_BQ);
@@ -9809,6 +9819,7 @@ static void pl_gs_number(pl_gs_t *s) {
 static void pl_gs_token(pl_gs_t *s, int comma_punct) {
     int lb = 0, c0;
     s->err = (const char *)0;
+    s->q = 0;
     for (;;) {
         do { pl_gs_get(s); if (s->ty == GS_LA) lb = 1; } while (s->ty == GS_LA);
         pl_gs_at(s, 0);
@@ -9886,12 +9897,243 @@ static DESCR_t pl_gs_read_number(pl_gs_t *s, int intonly) {
     s->err = "invalid start of number";
     return FAILDESCR;
 }
+#define GP_GENERAL 0
+#define GP_PREFIX 1
+#define GP_INSIDE 2
+typedef struct { pl_gs_t s; int have; int utk; int upunct; int uq; long utl; long utc; char *ub; size_t ubn; size_t ubk; DESCR_t unum; } pl_gp_t;
+static void pl_gp_swap(pl_gp_t *p) { char *b = p->s.b; size_t n = p->s.bn; p->s.b = p->ub; p->s.bn = p->ubn; p->ub = b; p->ubn = n; }
+static void pl_gp_unget(pl_gp_t *p) {
+    size_t k = p->s.bk;
+    pl_gp_swap(p);
+    p->ubk = k;
+    p->utk = p->s.tk;
+    p->upunct = p->s.punct;
+    p->uq = p->s.q;
+    p->utl = p->s.tl;
+    p->utc = p->s.tc;
+    p->unum = p->s.num;
+    p->have = 1;
+}
+static void pl_gp_setname(pl_gp_t *p, const char *nm) { p->s.bk = 0; for (; *nm; nm++) pl_gs_put(&p->s, *nm); }
+static void pl_gp_fail(pl_gp_t *p, const char *msg) { if (!p->s.err) p->s.err = msg; }
+static int pl_gp_is(pl_gp_t *p, int pc) { return p->s.tk == GT_PUNCT && p->s.punct == pc; }
+static void pl_gp_next(pl_gp_t *p, int cp) {
+    if (!p->have) { pl_gs_token(&p->s, cp); return; }
+    pl_gp_swap(p);
+    p->s.bk = p->ubk;
+    p->s.tk = p->utk;
+    p->s.punct = p->upunct;
+    p->s.q = p->uq;
+    p->s.tl = p->utl;
+    p->s.tc = p->utc;
+    p->s.num = p->unum;
+    p->have = 0;
+    if (cp && p->s.tk == GT_NAME && !p->s.q && p->s.bk == 1 && p->s.b[0] == ',') {
+        p->s.tk = GT_PUNCT;
+        p->s.punct = ',';
+    } else if (!cp && p->s.tk == GT_PUNCT && p->s.punct == ',') {
+        p->s.tk = GT_NAME;
+        p->s.q = 0;
+        pl_gp_setname(p, ",");
+    }
+}
+static int pl_gp_op(const char *nm, int fix, int *prec, int *left, int *right) {
+    extern int prolog_op_col_get(int, int, int *, int *);
+    extern int prolog_atom_intern(const char *);
+    int pr = 0, ty = 0;
+    if (!prolog_op_col_get(prolog_atom_intern(nm), fix, &pr, &ty)) return 0;
+    *prec = pr;
+    *left = (ty == 3 || ty == 6) ? pr : pr - 1;
+    *right = (ty == 2 || ty == 4) ? pr : pr - 1;
+    return 1;
+}
+static int pl_gp_term(pl_gp_t *p, int cur, int ctx, int cp);
+static int pl_gp_list(pl_gp_t *p, int can_be_empty) {
+    int car = pl_gp_term(p, 999, GP_GENERAL, 1);
+    if (p->s.err) return 0;
+    pl_gp_next(p, 1);
+    if (p->s.err) return 0;
+    if (!car) { if (!can_be_empty) pl_gp_fail(p, "expression expected in list"); else if (!pl_gp_is(p, ']')) pl_gp_fail(p, "expression or ] expected in list"); return 0; }
+    if (!pl_gp_is(p, ',') && !pl_gp_is(p, '|') && !pl_gp_is(p, ']')) { pl_gp_fail(p, ", | ] or operator expected in list"); return 0; }
+    if (pl_gp_is(p, ',')) { pl_gp_list(p, 0); return 1; }
+    if (pl_gp_is(p, '|')) {
+        if (!pl_gp_term(p, 999, GP_GENERAL, 0)) { pl_gp_fail(p, "expression expected in list"); return 0; }
+        pl_gp_next(p, 1);
+        if (!p->s.err && !pl_gp_is(p, ']')) pl_gp_fail(p, "] or operator expected in list");
+    }
+    return 1;
+}
+static int pl_gp_bracketed(pl_gp_t *p, int pc) {
+    int t;
+    if (pc == '[') return pl_gp_list(p, 1);
+    t = pl_gp_term(p, 1200, GP_GENERAL, 0);
+    if (p->s.err) return 0;
+    if (pc == '(' && !t) { pl_gp_fail(p, "expression expected"); return 0; }
+    pl_gp_next(p, 0);
+    if (!p->s.err && !pl_gp_is(p, pc == '(' ? ')' : '}')) pl_gp_fail(p, pc == '(' ? ") or operator expected" : "} or operator expected");
+    return pc == '(' ? 1 : t;
+}
+static int pl_gp_args(pl_gp_t *p) {
+    int n = 0;
+    pl_gp_next(p, 0);
+    do {
+        if (p->s.err) return 0;
+        if (n++ >= 255) { pl_gp_fail(p, "too big compound term (exceeds max_arity)"); return 0; }
+        if (!pl_gp_term(p, 999, GP_GENERAL, 1)) { pl_gp_fail(p, "expression expected"); return 0; }
+        pl_gp_next(p, 1);
+    } while (!p->s.err && pl_gp_is(p, ','));
+    if (!p->s.err && !pl_gp_is(p, ')')) pl_gp_fail(p, ", or ) expected");
+    return 1;
+}
+static int pl_gp_name(pl_gp_t *p, int cur, int ctx, int cp, int *cur_left, int *left_is_op) {
+    char nm[p->s.bk + 1];
+    int pr, lf, rt, t;
+    long sl, sc;
+    memcpy(nm, p->s.b ? p->s.b : "", p->s.bk);
+    nm[p->s.bk] = 0;
+    if (pl_gs_peek(&p->s) == '(' && (strcmp(nm, ",") || p->s.q)) return pl_gp_args(p);
+    if (!strcmp(nm, "-")) {
+        sl = p->s.tl;
+        sc = p->s.tc;
+        pl_gp_next(p, 0);
+        if (p->s.err) return 0;
+        if (p->s.tk == GT_INT || p->s.tk == GT_FLOAT) return 1;
+        pl_gp_unget(p);
+        p->s.tk = GT_NAME;
+        pl_gp_setname(p, "-");
+        p->s.tl = sl;
+        p->s.tc = sc;
+    }
+    if (pl_gp_op(nm, 0, &pr, &lf, &rt) && cur >= pr) {
+        *cur_left = pr;
+        t = pl_gp_term(p, rt, GP_PREFIX, cp);
+        if (p->s.err) return 0;
+        if (t) return 1;
+        if (ctx != GP_GENERAL) { pl_gp_fail(p, "expression expected or previous operator needs brackets"); return 0; }
+    }
+    *left_is_op = pl_gp_op(nm, 0, &pr, &lf, &rt) || pl_gp_op(nm, 1, &pr, &lf, &rt) || pl_gp_op(nm, 2, &pr, &lf, &rt);
+    if (*left_is_op && ctx != GP_GENERAL) {
+        pl_gp_fail(p, (pl_gp_op(nm, 1, &pr, &lf, &rt) || pl_gp_op(nm, 2, &pr, &lf, &rt)) ? "current or previous operator needs brackets" : "current operator needs brackets");
+        return 0;
+    }
+    return 1;
+}
+static int pl_gp_term(pl_gp_t *p, int cur, int ctx, int cp) {
+    int t = 0, pr = 0, lf = 0, rt = 0, infix, cur_left = 0, left_is_op = 0, pc;
+    pl_gp_next(p, ctx != GP_PREFIX || cp);
+    if (p->s.err) return 0;
+    if (p->s.tk == GT_VAR || p->s.tk == GT_INT || p->s.tk == GT_FLOAT || p->s.tk == GT_STR) t = 1;
+    else if (p->s.tk == GT_NAME || p->s.tk == GT_BQ) t = pl_gp_name(p, cur, ctx, cp, &cur_left, &left_is_op);
+    else if (p->s.tk == GT_IOPEN || (p->s.tk == GT_PUNCT && (p->s.punct == '(' || p->s.punct == '{' || p->s.punct == '['))) {
+        pc = p->s.tk == GT_IOPEN ? '(' : p->s.punct;
+        t = pl_gp_bracketed(p, pc);
+        if (!t && !p->s.err) { p->s.tk = GT_NAME; p->s.q = 0; pl_gp_setname(p, pc == '{' ? "{}" : "[]"); t = pl_gp_name(p, cur, ctx, cp, &cur_left, &left_is_op); }
+    } else {
+        pl_gp_unget(p);
+        return 0;
+    }
+    if (p->s.err) return 0;
+    for (;;) {
+        pl_gp_next(p, cp);
+        if (p->s.err) return 0;
+        if (pl_gp_is(p, '|') && pl_gp_op("|", 1, &pr, &lf, &rt) && pr > 1000 && cur >= pr) infix = 1;
+        else {
+            char nm[p->s.bk + 1];
+            if (p->s.tk != GT_NAME) break;
+            memcpy(nm, p->s.b ? p->s.b : "", p->s.bk);
+            nm[p->s.bk] = 0;
+            if (pl_gp_op(nm, 1, &pr, &lf, &rt)) infix = 1;
+            else if (pl_gp_op(nm, 2, &pr, &lf, &rt)) infix = 0;
+            else break;
+        }
+        if (left_is_op) { pl_gp_fail(p, "previous operator needs brackets"); return 0; }
+        if (cur < pr || cur_left > lf) break;
+        if (infix && !pl_gp_term(p, rt, GP_INSIDE, cp)) { pl_gp_fail(p, "right operand expected for infix operator"); return 0; }
+        cur_left = pr;
+    }
+    pl_gp_unget(p);
+    return t;
+}
+static const char *pl_gp_locate(pl_gp_t *p) {
+    int t = pl_gp_term(p, 1200, GP_GENERAL, 0);
+    if (!p->s.err) pl_gp_next(p, 0);
+    if (p->s.err) return p->s.err;
+    if (!t && p->s.tk == GT_EOF) return (const char *)0;
+    if (!t) pl_gp_fail(p, "expression expected");
+    else if (p->s.tk != GT_STOP) pl_gp_fail(p, ". or operator expected after expression");
+    return p->s.err;
+}
+static void pl_gp_recover(pl_gs_t *s) {
+    int c0, dot, out;
+    if (feof(s->in)) return;
+    for (;;) {
+        if (pl_gs_get(s) == EOF) return;
+        if (s->c == '.') { if (pl_gs_get(s) == EOF) return; if (s->ty & (GS_LA | GS_CM)) { pl_gs_unget(s); return; } }
+        if (!(s->ty & (GS_QT | GS_DQ | GS_BQ))) continue;
+        c0 = s->c;
+        dot = 0;
+        out = 0;
+        while (!out) {
+            if (pl_gs_get(s) == EOF) return;
+            if (s->c == c0) break;
+            if (s->c == '.') dot = 1;
+            else if (!(s->ty & (GS_LA | GS_CM))) dot = 0;
+            if (s->c == '\n') { if (dot) return; break; }
+            if (s->c != '\\') continue;
+            if (pl_gs_get(s) == EOF) return;
+            if (s->c == '\n') continue;
+            if (s->c == '.') dot = 1;
+            if (s->c > 0 && strchr("\\'\"`abfnrtv", s->c)) continue;
+            if (s->c != 'x' && (s->c < '0' || s->c > '7')) continue;
+            for (;;) { if (pl_gs_get(s) == EOF) return; if (s->c == c0) { out = 1; break; } if (s->c == '\\' || !isxdigit(s->c)) break; }
+        }
+    }
+}
+static const char *pl_gs_msg(const char *fn, long l, long c, const char *e) {
+    extern int prolog_atom_intern(const char *);
+    extern const char *prolog_atom_name(int);
+    int n = *fn ? snprintf((char *)0, 0, "%s:%ld (char:%ld) %s", fn, l, c, e) : snprintf((char *)0, 0, "(char:%ld) %s", c, e);
+    char b[n + 1];
+    if (*fn) snprintf(b, sizeof b, "%s:%ld (char:%ld) %s", fn, l, c, e);
+    else snprintf(b, sizeof b, "(char:%ld) %s", c, e);
+    return prolog_atom_name(prolog_atom_intern(b));
+}
+static void pl_gs_record(const char *fn, long l, long c, const char *e) {
+    pl_flag_t *fl = pl_flag_find_or_create("$gnu_synerr");
+    DESCR_t a[4];
+    if (!fl) return;
+    a[0] = pl_mk_atom_dup(fn, strlen(fn));
+    a[1] = INTVAL(l);
+    a[2] = INTVAL(c);
+    a[3] = pl_mk_atom_dup(e, strlen(e));
+    fl->term = pl_gnu_fn("$gnu_b_synerr", 4, a);
+    fl->is_term = 1;
+    fl->val = "$gnu_b_synerr";
+}
+static const char *pl_gs_file(int idx) { return (idx >= 0 && g_fh[idx].name) ? g_fh[idx].name : idx == 0 ? "user_input" : ""; }
+static const char *pl_gp_read_err(long off0) {
+    extern FILE *fh_cur_in_fp(void);
+    extern int fh_current_input(void);
+    FILE *in = fh_cur_in_fp();
+    long off1 = ftell(in);
+    pl_gp_t p;
+    const char *e;
+    if (pl_swi_dialect() || off0 < 0 || off1 < 0 || fseek(in, off0, SEEK_SET) != 0) return (const char *)0;
+    memset(&p, 0, sizeof p);
+    p.s.in = in;
+    p.s.idx = fh_current_input();
+    e = pl_gp_locate(&p);
+    if (!e || p.s.oom) { fseek(in, off1, SEEK_SET); return (const char *)0; }
+    if (p.s.tk != GT_STOP) pl_gp_recover(&p.s);
+    pl_gs_record(pl_gs_file(p.s.idx), p.s.tl, p.s.tc, e);
+    return pl_gs_msg(pl_gs_file(p.s.idx), p.s.tl, p.s.tc, e);
+}
 static int pl_gs_read(const char *op, DESCR_t res, pl_tr_ctx_t *cx) {
     extern FILE *fh_cur_in_fp(void);
     extern int fh_current_input(void);
     extern void *rt_pl_ball_kind1(const char *, const char *);
     pl_gs_t s;
-    DESCR_t t = FAILDESCR, a[4];
+    DESCR_t t = FAILDESCR;
     const char *fn;
     int named = op[5] != 'i' && op[5] != 'n';
     memset(&s, 0, sizeof s);
@@ -9906,12 +10148,10 @@ static int pl_gs_read(const char *op, DESCR_t res, pl_tr_ctx_t *cx) {
     } else t = pl_gs_read_number(&s, op[5] == 'i');
     if (s.oom) { cx->ball = rt_pl_ball_kind1("resource_error", "memory"); return 0; }
     if (!s.err) return plw_unify_vals(res, pl_gnu_fn1("ok", t), cx);
-    fn = !named ? "" : (s.idx >= 0 && g_fh[s.idx].name) ? g_fh[s.idx].name : s.idx == 0 ? "user_input" : "";
-    a[0] = pl_mk_atom_dup(fn, strlen(fn));
-    a[1] = INTVAL(s.tl);
-    a[2] = INTVAL(s.tc);
-    a[3] = pl_mk_atom_dup(s.err, strlen(s.err));
-    return plw_unify_vals(res, pl_gnu_fn("err", 4, a), cx);
+    fn = named ? pl_gs_file(s.idx) : "";
+    pl_gs_record(fn, s.tl, s.tc, s.err);
+    fn = pl_gs_msg(fn, s.tl, s.tc, s.err);
+    return plw_unify_vals(res, pl_gnu_fn1("err", pl_mk_atom_dup(fn, strlen(fn))), cx);
 }
 PL_CX_LEAF_HEAD(gnu_os, 3)
     {
@@ -9989,7 +10229,10 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
             else ok = plw_unify_vals(args[2], INTVAL(WIFEXITED(ws) ? WEXITSTATUS(ws) : 128 + WTERMSIG(ws)), cx);
         } else if (!strcmp(op, "date_time")) ok = plw_unify_vals(args[2], pl_gnu_dt(time((time_t *)0)), cx);
         else if (!strcmp(op, "read_token") || !strcmp(op, "read_atom") || !strcmp(op, "read_integer") || !strcmp(op, "read_number")) ok = pl_gs_read(op, args[2], cx);
-        else if (!strcmp(op, "atoms")) {
+        else if (!strcmp(op, "synerr")) {
+            pl_flag_t *fl = pl_flag_find("$gnu_synerr");
+            ok = fl && fl->is_term && plw_unify_vals(args[2], fl->term, cx);
+        } else if (!strcmp(op, "atoms")) {
             extern int prolog_atom_count(void);
             ok = plw_unify_vals(args[2], INTVAL(prolog_atom_count()), cx);
         } else if (!strcmp(op, "stack_used") || !strcmp(op, "stack_free")) {

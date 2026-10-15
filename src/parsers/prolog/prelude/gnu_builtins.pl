@@ -337,7 +337,7 @@ set_bip_name(_, A) :- \+ integer(A), !, throw(error(type_error(integer, A), set_
 set_bip_name(F, A) :- ( A > 255 -> A1 = -1 ; A1 = A ), nb_setval('$gnu_b_bip', F/A1).
 current_bip_name(F, A) :- '$gnu_b_oa'(F, current_bip_name/2), '$gnu_b_oi'(A, current_bip_name/2), nb_current('$gnu_b_bip', F0/A0), F = F0, A = A0.
 syntax_error_info(F, L, C, M) :- '$gnu_b_oa'(F, syntax_error_info/4), '$gnu_b_oi'(L, syntax_error_info/4), '$gnu_b_oi'(C, syntax_error_info/4), '$gnu_b_oa'(M, syntax_error_info/4),
-    nb_current('$gnu_b_synerr', '$gnu_b_synerr'(F0, L0, C0, M0)), F = F0, L = L0, C = C0, M = M0.
+    '$gnu_os'(synerr, x, '$gnu_b_synerr'(F0, L0, C0, M0)), F = F0, L = L0, C = C0, M = M0.
 '$gnu_b_oi'(I, _) :- ( var(I) ; integer(I) ), !.
 '$gnu_b_oi'(I, PI) :- throw(error(type_error(integer, I), PI)).
 read_token(T) :- current_input(S), '$gnu_b_rd'(S, read_token, T, read_token/1).
@@ -352,5 +352,4 @@ read_number(S, N) :- '$gnu_b_on'(N, read_number/2), '$gnu_b_rd'(S, read_number, 
 '$gnu_b_on'(N, PI) :- throw(error(type_error(number, N), PI)).
 '$gnu_b_rd'(S, Op, X, PI) :- current_input(O), set_input(S), '$gnu_os'(Op, S, R), set_input(O), '$gnu_b_rdres'(R, X, PI).
 '$gnu_b_rdres'(ok(T), X, _) :- X = T.
-'$gnu_b_rdres'(err(F, L, C, M), _, PI) :- nb_setval('$gnu_b_synerr', '$gnu_b_synerr'(F, L, C, M)),
-    ( F == '' -> format(atom(A), '(char:~w) ~w', [C, M]) ; format(atom(A), '~w:~w (char:~w) ~w', [F, L, C, M]) ), throw(error(syntax_error(A), PI)).
+'$gnu_b_rdres'(err(A), _, PI) :- throw(error(syntax_error(A), PI)).
