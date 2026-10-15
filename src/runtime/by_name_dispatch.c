@@ -19075,6 +19075,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             }
             if (av.v == DT_SNUL) continue;
             if (_wdi == 1 && g_fh[1].closed) { core_icn_error(213, FAILDESCR); *out = FAILDESCR; return 1; }
+            if (strict && av.v != DT_S && av.v != DT_I && av.v != DT_R && av.v != DT_BIG) { core_icn_error(109, av); *out = FAILDESCR; return 1; }
             if (IS_STR_fn(av) && !IS_CSET_fn(av)) {
                 const char *_bs = VARVAL_fn(av);
                 uint32_t _bn = av.slen ? av.slen : (_bs ? (uint32_t)strlen(_bs) : 0u);
