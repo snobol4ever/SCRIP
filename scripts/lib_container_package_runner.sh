@@ -44,7 +44,7 @@ container_package_run() {
   # progress row per program and mode stamped partition=chunk:NN, and writes NO suite row -- util_score_row.py from-progress --suite <key> assembles the
   # row from the latest per-program readings, shipped minus EXCLUDED as below (the coo's verifier loop runs it after every chunk).
   if [ -n "${S4E_CHUNK:-}" ]; then
-    case "$S4E_CHUNK" in chunk:[0-9]*|entry:*) ;; *) echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK is not chunk:NN[@entry] or entry:<name>[,entry:<name>...] (a request, CEO-1806)"; return 2;; esac
+    case "$S4E_CHUNK" in core|core@*|chunk:[0-9]*|entry:*) ;; *) echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK is not core[@entry], chunk:NN[@entry] or entry:<name>[,entry:<name>...] (a request, CEO-1806)"; return 2;; esac
     [ -f "$suite/PARTITION.tsv" ] || { echo "⛔ REFUSE(rc=2): no $suite/PARTITION.tsv -- build it: python3 scripts/util_suite_partition.py build $suite/ALL.csv"; return 2; }
     out="$(cd "$sd" && SUITE_LIST_ALL=1 python3 scripts/corpus_suite_harness.py run "$suite/ALL.$ext" "$suite/ALL.ref" --lang "$lang" --modes m3,m4 --partition "$S4E_CHUNK" 2>&1)"; rc=$?
     printf '%s\n' "$out"

@@ -2,7 +2,7 @@
 # lib_rr.sh -- THE ROUND ROBIN'S SEAM IN A BESPOKE RUNNER (ceo CEO-1802/1805/1806; Lon 2026-10-15, verbatim: "Basically the COO should run one test at a
 # time and update the test-suite database. Round robin, done and done." and "The COO will have two work inputs, the round-robin and the recently requested
 # from other officers and HQ's."). Sourced by a package runner that grades its own programs (not through corpus_suite_harness.py run). Five calls:
-#   rr_load <suite-dir>    once, before the population loop: under S4E_CHUNK (chunk:NN, chunk:NN@<entry>, or entry:<a>[,entry:<b>...]) read that selection
+#   rr_load <suite-dir>    once, before the population loop: under S4E_CHUNK (core, chunk:NN, either @<entry>, or entry:<a>[,entry:<b>...]) read that selection
 #                          from <suite-dir>/PARTITION.tsv; rc 2 (the runner refuses) when the partition is missing or names no such part or entry
 #   rr_admits <name>       in the population loop: rc 0 when no selection is set, or <name> (its stem: directory and extension dropped) is selected
 #   rr_flush <rows-tsv>    after each program's rows are written to <rows-tsv>: under S4E_RR=1 or a selection, append them NOW through the one writer and
@@ -19,6 +19,9 @@ rr_load() {
   p="$d/PARTITION.tsv"; [ -f "$p" ] || { echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK but no $p -- build it: python3 scripts/util_suite_partition.py build $d/ALL.csv"; return 2; }
   part="${S4E_CHUNK%%@*}"; RR_FROM=""; [ "$part" != "$S4E_CHUNK" ] && RR_FROM="${S4E_CHUNK#*@}"
   case "$part" in
+    core)   # the core is in no chunk, so the round robin gives it a turn of its own
+      RR_SEL="$(awk -F'\t' '!/^#/ && $2 == "core" {print $1}' "$p")"
+      [ -n "$RR_SEL" ] || { echo "⛔ REFUSE(rc=2): S4E_CHUNK=core: $p has no core entries"; return 2; };;
     chunk:[0-9]*)
       local k="${part#chunk:}" c
       c="$(awk -F'\t' '!/^#/ && $2 ~ /^chunk:/ {print $2}' "$p" | sort -u | awk -F: -v k="$k" '$2+0 == k+0 {print; exit}')"
@@ -28,7 +31,7 @@ rr_load() {
       local e names; names="$(awk -F'\t' '!/^#/ {print $1}' "$p")"; RR_SEL=""
       for e in $(printf '%s' "$part" | tr ',' ' '); do e="${e#entry:}"; grep -qxF -- "$e" <<<"$names" || { echo "⛔ REFUSE(rc=2): S4E_CHUNK: $p has no entry '$e'"; return 2; }; RR_SEL="$RR_SEL
 $e"; done;;
-    *) echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK is not chunk:NN[@entry] or entry:<name>[,entry:<name>...]"; return 2;;
+    *) echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK is not core[@entry], chunk:NN[@entry] or entry:<name>[,entry:<name>...]"; return 2;;
   esac
   RR_SEL="$(printf '%s\n' "$RR_SEL" | grep .)"
   if [ -n "$RR_FROM" ]; then
