@@ -92,8 +92,8 @@ DESCR_t c_str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
         core_icn_op_ctx_clear();
         return FAILDESCR;
     }
-    if (a.v == DT_R || a.v == DT_BOOL) a = descr_to_str_fracdigit(a);
-    if (b.v == DT_R || b.v == DT_BOOL) b = descr_to_str_fracdigit(b);
+    if (a.v == DT_R || a.v == DT_BOOL || (a.v == DT_I && IS_NULL_fn(b))) a = descr_to_str_fracdigit(a);
+    if (b.v == DT_R || b.v == DT_BOOL || (b.v == DT_I && IS_NULL_fn(a))) b = descr_to_str_fracdigit(b);
     if (a.v == DT_BIG && a.p) a = STRVAL(rt_big_str(a));
     if (b.v == DT_BIG && b.p) b = STRVAL(rt_big_str(b));
     return rtx_try_str_concat_d(a, b);
