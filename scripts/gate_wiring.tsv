@@ -144,6 +144,7 @@ test_gate_gc_a_bignum_held_only_in_a_heap_aggregate_survives.sh	WIRED	-	-	-
 test_gate_gc_a_board_can_say_whether_the_collector_ran.sh	WIRED	-	-	-
 test_gate_gc_a_callee_saved_register_at_an_allocating_return_is_named_not_assumed.sh	WIRED	-	-	-
 test_gate_gc_a_coexpression_frame_image_lives_on_its_own_stack.sh	WIRED	-	-	-
+test_gate_gc_a_collection_inside_a_snocone_procedure_finds_its_frame_in_both_modes.sh	WIRED	-	-	-
 test_gate_gc_a_collection_over_a_small_live_set_stays_under_its_instruction_budget.sh	WIRED	-	-	-
 test_gate_gc_a_fault_names_its_block.sh	WIRED	-	-	-
 test_gate_gc_a_heap_mark_on_the_prolog_trail_moves_with_the_first_young_block.sh	WIRED	-	-	-
