@@ -2781,3 +2781,771 @@ RTX_FUNC(rt_gc_sw_links_a)
     ret
 RTX_ENDF(rt_gc_sw_links_a)
 .section .note.GNU-stack,"",@progbits
+#define SW_LO 0
+#define SW_HI 8
+#define SW_P 16
+#define SW_PREV 24
+#define SW_LASTNAME 32
+#define SW_ROOTTOP 40
+#define SW_N 48
+#define SW_RUN 56
+#define SW_STOP 64
+#define SW_LASTF 88
+#define SW_GAPV 120
+#define SW_GAPN 128
+#define SW_GAPCAP 136
+#define LA_BASE 144
+#define LA_FBASE 144
+#define LA_FMAP 152
+#define LA_FLINK 160
+#define LA_FRULE 168
+#define LA_PREV 192
+#define LA_GLO 200
+#define LA_GAPV 208
+#define LA_GAPN 216
+#define LA_GAPCAP 224
+#define LA_SBLK 232
+#define LA_SBLKN 240
+#define LA_POSJ 328
+#define LA_POSK 336
+#define X_PC 408
+#define X_R 416
+#define X_RBP 424
+#define X_LAST 432
+#define X_F 440
+#define X_CUR 472
+#define X_PHASE 504
+#define X_I 512
+#define X_SUB 520
+#define X_COBODY 528
+#define X_GLO 536
+#define X_W1LO 544
+#define X_W1HI 552
+#define X_CLO 560
+#define X_CHI 568
+#define X_W2LO 576
+#define X_W2HI 584
+#define X_PNEW 592
+#define X_CELLS 600
+#define X_E 608
+#define X_DPC 616
+#define X_DR 624
+#define X_DRBP 632
+#define X_LAM 640
+#define X_PW 648
+#define X_GW 656
+#define X_TOPG 664
+.macro SW_SITE_FIND pc, eo
+    mov     rdi, \pc
+    mov     rsi, \eo
+    mov     rdx, qword ptr [r12 + LA_SBLK]
+    mov     rcx, qword ptr [r12 + LA_SBLKN]
+    RTX_CALL(rt_gc_site_find_a)
+.endm
+.macro SW_LINKS_CALL
+    mov     rax, qword ptr [r12 + SW_PREV]
+    mov     qword ptr [r12 + LA_PREV], rax
+    mov     rax, qword ptr [r12 + X_GLO]
+    mov     qword ptr [r12 + LA_GLO], rax
+    mov     rax, qword ptr [r12 + SW_GAPV]
+    mov     qword ptr [r12 + LA_GAPV], rax
+    mov     rax, qword ptr [r12 + SW_GAPN]
+    mov     qword ptr [r12 + LA_GAPN], rax
+    mov     rax, qword ptr [r12 + SW_GAPCAP]
+    mov     qword ptr [r12 + LA_GAPCAP], rax
+    lea     rdi, [r12 + LA_BASE]
+    RTX_CALL(rt_gc_sw_links_a)
+    mov     rdx, qword ptr [r12 + LA_GAPN]
+    mov     qword ptr [r12 + SW_GAPN], rdx
+.endm
+.macro SW_DRAIN_CLEAR
+    lea     rax, [rip + g_gc_mk]
+    mov     qword ptr [rax + 184], 0
+.endm
+.macro SW_COPY_CHF dst, src
+    mov     rax, qword ptr [\src]
+    mov     qword ptr [\dst], rax
+    mov     rax, qword ptr [\src + 8]
+    mov     qword ptr [\dst + 8], rax
+    mov     rax, qword ptr [\src + 16]
+    mov     qword ptr [\dst + 16], rax
+    mov     rax, qword ptr [\src + 24]
+    mov     qword ptr [\dst + 24], rax
+.endm
+RTX_FUNC(rt_gc_sw_step_a)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    RTX_SUB_RSP(8)
+    mov     r12, rdi
+    mov     rax, qword ptr [r12 + X_PHASE]
+    cmp     rax, 1
+    je      .Lsw_p1
+    cmp     rax, 2
+    je      .Lsw_p2
+    cmp     rax, 4
+    je      .Lsw_p4
+    cmp     rax, 5
+    je      .Lsw_p5
+    mov     r14, qword ptr [r12 + X_R]
+    cmp     r14, qword ptr [r12 + SW_HI]
+    ja      .Lsw_stop7
+    mov     rax, qword ptr [r12 + X_LAST]
+    test    rax, rax
+    je      .Lsw_find
+    cmp     r14, rax
+    jb      .Lsw_stop7
+.Lsw_find:
+    mov     rbx, qword ptr [r12 + X_PC]
+    mov     r15, qword ptr [r12 + X_RBP]
+    test    r14, r14
+    je      .Lsw_stop1
+    mov     qword ptr [r12 + X_LAM], 0
+    mov     qword ptr [r12 + X_PW], 1
+    mov     qword ptr [r12 + X_DPC], 0
+    mov     qword ptr [r12 + X_DR], 0
+    mov     qword ptr [r12 + X_DRBP], 0
+.Lsw_again:
+    cmp     rbx, qword ptr [r12 + X_DPC]
+    jne     .Lsw_nocyc
+    cmp     r14, qword ptr [r12 + X_DR]
+    jne     .Lsw_nocyc
+    cmp     r15, qword ptr [r12 + X_DRBP]
+    je      .Lsw_stop4
+.Lsw_nocyc:
+    mov     rax, qword ptr [r12 + X_LAM]
+    inc     rax
+    mov     qword ptr [r12 + X_LAM], rax
+    cmp     rax, qword ptr [r12 + X_PW]
+    jne     .Lsw_brent_done
+    shl     qword ptr [r12 + X_PW], 1
+    mov     qword ptr [r12 + X_LAM], 0
+    mov     qword ptr [r12 + X_DPC], rbx
+    mov     qword ptr [r12 + X_DR], r14
+    mov     qword ptr [r12 + X_DRBP], r15
+.Lsw_brent_done:
+    mov     rax, qword ptr [rip + rt_tge_gamma_ret@GOTPCREL]
+    cmp     rbx, rax
+    je      .Lsw_gamma
+    mov     rax, qword ptr [rip + rt_tge_omega_ret@GOTPCREL]
+    cmp     rbx, rax
+    je      .Lsw_omega
+    mov     rax, qword ptr [rip + rt_genp_n2_conts@GOTPCREL]
+    cmp     rbx, qword ptr [rax]
+    je      .Lsw_stop8
+    cmp     rbx, qword ptr [rax + 8]
+    je      .Lsw_stop8
+    mov     rax, qword ptr [rip + rt_genp_conts@GOTPCREL]
+    cmp     rbx, qword ptr [rax]
+    je      .Lsw_stop8
+    cmp     rbx, qword ptr [rax + 8]
+    je      .Lsw_stop8
+    cmp     rbx, qword ptr [rax + 16]
+    je      .Lsw_stop8
+    lea     rsi, [r12 + X_E]
+    SW_SITE_FIND rbx, rsi
+    mov     r13, rax
+    test    r13, r13
+    je      .Lsw_noent
+    mov     rbp, qword ptr [r12 + X_E]
+    test    rbp, rbp
+    je      .Lsw_noent
+    movzx   eax, word ptr [rbp + 8]
+    and     eax, 255
+    cmp     eax, 7
+    jne     .Lsw_have_site
+    movsxd  rax, dword ptr [rbp + 12]
+    mov     rbx, qword ptr [r14 + rax]
+    lea     r14, [r14 + rax + 8]
+    jmp     .Lsw_again
+.Lsw_gamma:
+    mov     rcx, qword ptr [r14]
+    lea     rax, [rcx*8 + 39]
+    and     rax, -16
+    shl     rcx, 4
+    add     rax, rcx
+    add     r14, rax
+    mov     rbx, qword ptr [r14 + 8]
+    jmp     .Lsw_again
+.Lsw_omega:
+    mov     rcx, qword ptr [r14]
+    lea     rax, [rcx*8 + 39]
+    and     rax, -16
+    shl     rcx, 4
+    add     rax, rcx
+    add     r14, rax
+    mov     rbx, qword ptr [r14 + 16]
+    jmp     .Lsw_again
+.Lsw_noent:
+    mov     r13, r15
+.Lsw_scan_l:
+    test    r13, r13
+    je      .Lsw_stop1
+    cmp     r13, r14
+    jbe     .Lsw_stop1
+    lea     rax, [r13 + 16]
+    cmp     rax, qword ptr [r12 + SW_HI]
+    ja      .Lsw_stop1
+    mov     rbp, qword ptr [r13 + 8]
+    mov     rax, qword ptr [rip + rt_genp_n2_deliver_ret@GOTPCREL]
+    cmp     rbp, rax
+    je      .Lsw_decline
+    lea     rsi, [r12 + X_E]
+    SW_SITE_FIND rbp, rsi
+    test    rax, rax
+    je      .Lsw_scan_next
+    cmp     qword ptr [r12 + X_E], 0
+    je      .Lsw_scan_next
+    mov     rbx, rbp
+    lea     r14, [r13 + 16]
+    mov     r15, qword ptr [r13]
+    mov     r13, rax
+    mov     rbp, qword ptr [r12 + X_E]
+    jmp     .Lsw_have_site
+.Lsw_scan_next:
+    mov     rax, qword ptr [r13]
+    cmp     rax, r13
+    jbe     .Lsw_stop1
+    mov     r13, rax
+    jmp     .Lsw_scan_l
+.Lsw_have_site:
+    movzx   eax, word ptr [rbp + 10]
+    and     eax, 255
+    cmp     eax, 9
+    jne     .Lsw_not9
+    movzx   ecx, word ptr [rbp + 8]
+    shr     ecx, 8
+    and     ecx, 255
+    lea     rcx, [r14 + rcx*8]
+    mov     edx, dword ptr [rbp + 12]
+    mov     eax, edx
+    and     eax, 0xffff
+    shr     edx, 16
+    and     edx, 0xffff
+    mov     rax, qword ptr [rcx + rax]
+    mov     rbx, qword ptr [rax + 8]
+    lea     r14, [rcx + rdx + 16]
+    jmp     .Lsw_again
+.Lsw_not9:
+    cmp     qword ptr [r13 + 8], 0
+    je      .Lsw_decline
+    mov     qword ptr [r12 + X_CLO], 0
+    cmp     eax, 6
+    jne     .Lsw_r_not6
+    movzx   ecx, word ptr [rbp + 8]
+    mov     edx, ecx
+    shr     ecx, 8
+    and     ecx, 15
+    shr     edx, 12
+    and     edx, 15
+    mov     rsi, r15
+    mov     edi, 1
+.Lsw_r6_l:
+    cmp     edi, ecx
+    jge     .Lsw_r6_d
+    mov     rsi, qword ptr [rsi]
+    inc     edi
+    jmp     .Lsw_r6_l
+.Lsw_r6_d:
+    cmp     edx, 1
+    je      .Lsw_r6_ind
+    cmp     edx, 3
+    je      .Lsw_r6_ind
+    movsxd  rax, dword ptr [rbp + 12]
+    lea     rax, [rsi + rax + 8]
+    jmp     .Lsw_r6_b
+.Lsw_r6_ind:
+    mov     rax, qword ptr [rsi]
+.Lsw_r6_b:
+    test    edx, edx
+    jne     .Lsw_base_done
+    mov     rcx, qword ptr [rsi]
+    mov     qword ptr [r12 + X_CLO], rcx
+    test    rcx, rcx
+    je      .Lsw_base_done
+    jmp     .Lsw_chk0
+.Lsw_r_not6:
+    test    eax, eax
+    jne     .Lsw_r1
+    movsxd  rax, dword ptr [rbp + 12]
+    add     rax, r14
+    jmp     .Lsw_chk0
+.Lsw_r1:
+    cmp     eax, 1
+    je      .Lsw_r_rbp
+    cmp     eax, 3
+    je      .Lsw_r_rbp
+    cmp     eax, 2
+    jne     .Lsw_r4
+    movsxd  rax, dword ptr [rbp + 12]
+    mov     rcx, r15
+    sub     rcx, rax
+    mov     rax, rcx
+    jmp     .Lsw_base_done
+.Lsw_r_rbp:
+    mov     rax, r15
+    jmp     .Lsw_base_done
+.Lsw_r4:
+    cmp     eax, 4
+    jne     .Lsw_r_none
+    movsxd  rax, dword ptr [rbp + 12]
+    add     rax, qword ptr [r14]
+    jmp     .Lsw_base_done
+.Lsw_r_none:
+    xor     eax, eax
+    jmp     .Lsw_base_done
+.Lsw_chk0:
+    mov     qword ptr [r12 + X_CHI], rax
+    mov     rdi, qword ptr [rax]
+    mov     qword ptr [r12 + X_W1LO], rdi
+    lea     rsi, [r12 + X_W1HI]
+    SW_SITE_FIND rdi, rsi
+    test    rax, rax
+    je      .Lsw_chk_none
+    mov     rcx, qword ptr [r12 + X_W1HI]
+    test    rcx, rcx
+    je      .Lsw_chk_none
+    movzx   edx, word ptr [rcx + 8]
+    and     edx, 255
+    cmp     edx, 6
+    je      .Lsw_chk_fn
+    cmp     edx, 2
+    jne     .Lsw_chk_none
+    mov     rbx, qword ptr [r12 + X_W1LO]
+    mov     r14, qword ptr [r12 + X_CHI]
+    jmp     .Lsw_chk_rbm
+.Lsw_chk_fn:
+    mov     edx, dword ptr [rcx + 12]
+    mov     eax, edx
+    and     eax, 0xffff
+    shr     edx, 16
+    and     edx, 0xffff
+    mov     rsi, qword ptr [r12 + X_CHI]
+    mov     rax, qword ptr [rsi + rax]
+    mov     rbx, qword ptr [rax + 8]
+    movzx   edi, word ptr [rcx + 10]
+    and     edi, 255
+    cmp     edi, 8
+    jne     .Lsw_chk_fn_r
+    mov     r14, rax
+    jmp     .Lsw_chk_rbm
+.Lsw_chk_fn_r:
+    lea     r14, [rsi + rdx + 16]
+.Lsw_chk_rbm:
+    mov     rax, qword ptr [r12 + X_CLO]
+    test    rax, rax
+    je      .Lsw_again
+    mov     r15, rax
+    jmp     .Lsw_again
+.Lsw_chk_none:
+    mov     rax, qword ptr [r12 + X_CHI]
+.Lsw_base_done:
+    movzx   ecx, word ptr [rbp + 10]
+    and     ecx, 255
+    cmp     ecx, 5
+    je      .Lsw_stop3
+    mov     rdx, qword ptr [r12 + X_LAST]
+    test    rdx, rdx
+    je      .Lsw_f_ok
+    cmp     rax, rdx
+    jbe     .Lsw_stop6
+.Lsw_f_ok:
+    mov     qword ptr [r12 + X_F], rax
+    mov     rdx, qword ptr [r13 + 8]
+    mov     qword ptr [r12 + X_F + 8], rdx
+    mov     rdx, qword ptr [r13 + 56]
+    mov     qword ptr [r12 + X_F + 16], rdx
+    movzx   edx, word ptr [rbp + 10]
+    mov     ecx, edx
+    and     ecx, 255
+    mov     dword ptr [r12 + X_F + 24], ecx
+    shr     edx, 8
+    mov     dword ptr [r12 + X_F + 28], edx
+    mov     qword ptr [r12 + SW_GAPN], 0
+    mov     rax, qword ptr [r12 + SW_P]
+    mov     qword ptr [r12 + X_GLO], rax
+    mov     qword ptr [r12 + X_SUB], 0
+    mov     qword ptr [r12 + X_PHASE], 1
+.Lsw_p1:
+    mov     rax, qword ptr [r12 + X_F]
+    mov     qword ptr [r12 + LA_FBASE], rax
+    mov     rax, qword ptr [r12 + X_F + 8]
+    mov     qword ptr [r12 + LA_FMAP], rax
+    mov     rax, qword ptr [r12 + X_F + 16]
+    mov     qword ptr [r12 + LA_FLINK], rax
+    movsxd  rax, dword ptr [r12 + X_F + 24]
+    mov     qword ptr [r12 + LA_FRULE], rax
+    cmp     qword ptr [r12 + X_SUB], 0
+    jne     .Lsw_p1_call
+    mov     qword ptr [r12 + LA_POSJ], 0
+    mov     qword ptr [r12 + LA_POSK], 0
+    mov     qword ptr [r12 + X_SUB], 1
+.Lsw_p1_call:
+    SW_LINKS_CALL
+    cmp     rax, 1
+    je      .Lsw_p1_ok
+    cmp     rax, 4
+    je      .Lsw_gapgrow
+    jmp     .Lsw_decline
+.Lsw_p1_ok:
+    mov     qword ptr [r12 + X_I], 0
+    mov     qword ptr [r12 + X_SUB], 0
+    mov     qword ptr [r12 + X_PHASE], 2
+.Lsw_p2:
+    mov     rax, qword ptr [r12 + X_I]
+    cmp     rax, qword ptr [r12 + SW_GAPN]
+    jge     .Lsw_p3
+    shl     rax, 5
+    add     rax, qword ptr [r12 + SW_GAPV]
+    mov     rdx, qword ptr [rax]
+    mov     qword ptr [r12 + LA_FBASE], rdx
+    mov     rdx, qword ptr [rax + 8]
+    mov     qword ptr [r12 + LA_FMAP], rdx
+    mov     rdx, qword ptr [rax + 16]
+    mov     qword ptr [r12 + LA_FLINK], rdx
+    movsxd  rdx, dword ptr [rax + 24]
+    mov     qword ptr [r12 + LA_FRULE], rdx
+    cmp     qword ptr [r12 + X_SUB], 0
+    jne     .Lsw_p2_call
+    mov     qword ptr [r12 + LA_POSJ], 0
+    mov     qword ptr [r12 + LA_POSK], 0
+    mov     qword ptr [r12 + X_SUB], 1
+.Lsw_p2_call:
+    SW_LINKS_CALL
+    cmp     rax, 1
+    je      .Lsw_p2_ok
+    cmp     rax, 4
+    je      .Lsw_gapgrow
+    jmp     .Lsw_decline
+.Lsw_p2_ok:
+    inc     qword ptr [r12 + X_I]
+    mov     qword ptr [r12 + X_SUB], 0
+    jmp     .Lsw_p2
+.Lsw_p3:
+    mov     rcx, qword ptr [r12 + SW_GAPN]
+    cmp     rcx, 1
+    jle     .Lsw_p3_done
+    mov     rsi, qword ptr [r12 + SW_GAPV]
+    mov     edx, 1
+.Lsw_sort_i:
+    cmp     rdx, rcx
+    jge     .Lsw_p3_done
+    mov     rax, rdx
+.Lsw_sort_j:
+    test    rax, rax
+    je      .Lsw_sort_next
+    mov     rdi, rax
+    shl     rdi, 5
+    add     rdi, rsi
+    mov     r8, qword ptr [rdi]
+    cmp     r8, qword ptr [rdi - 32]
+    jae     .Lsw_sort_next
+    mov     r10, qword ptr [rdi - 32]
+    mov     qword ptr [rdi], r10
+    mov     qword ptr [rdi - 32], r8
+    mov     r8, qword ptr [rdi + 8]
+    mov     r10, qword ptr [rdi - 24]
+    mov     qword ptr [rdi + 8], r10
+    mov     qword ptr [rdi - 24], r8
+    mov     r8, qword ptr [rdi + 16]
+    mov     r10, qword ptr [rdi - 16]
+    mov     qword ptr [rdi + 16], r10
+    mov     qword ptr [rdi - 16], r8
+    mov     r8, qword ptr [rdi + 24]
+    mov     r10, qword ptr [rdi - 8]
+    mov     qword ptr [rdi + 24], r10
+    mov     qword ptr [rdi - 8], r8
+    dec     rax
+    jmp     .Lsw_sort_j
+.Lsw_sort_next:
+    inc     rdx
+    jmp     .Lsw_sort_i
+.Lsw_p3_done:
+    mov     qword ptr [r12 + X_I], 0
+    mov     qword ptr [r12 + X_SUB], 0
+    mov     qword ptr [r12 + X_PHASE], 4
+.Lsw_p4:
+    mov     rax, qword ptr [r12 + X_I]
+    cmp     rax, qword ptr [r12 + SW_GAPN]
+    jge     .Lsw_p4_done
+    cmp     qword ptr [r12 + X_SUB], 0
+    jne     .Lsw_visit
+    shl     rax, 5
+    add     rax, qword ptr [r12 + SW_GAPV]
+    mov     rsi, rax
+    SW_COPY_CHF r12 + X_CUR, rsi
+    jmp     .Lsw_visit
+.Lsw_p4_done:
+    mov     qword ptr [r12 + X_SUB], 0
+    mov     qword ptr [r12 + X_PHASE], 5
+.Lsw_p5:
+    cmp     qword ptr [r12 + X_SUB], 0
+    jne     .Lsw_visit
+    lea     rsi, [r12 + X_F]
+    SW_COPY_CHF r12 + X_CUR, rsi
+.Lsw_visit:
+    mov     rbx, qword ptr [r12 + X_CUR]
+    mov     r14, qword ptr [r12 + X_CUR + 8]
+    mov     r15, qword ptr [r12 + SW_HI]
+    mov     rax, qword ptr [r12 + X_SUB]
+    cmp     rax, 2
+    je      .Lsw_v2
+    cmp     rax, 3
+    je      .Lsw_v3
+    cmp     rax, 4
+    je      .Lsw_v4
+    lea     rsi, [r12 + X_CUR]
+    SW_COPY_CHF r12 + SW_LASTF, rsi
+#if RT_DIAG
+    mov     rax, qword ptr [r12 + X_GW]
+    inc     qword ptr [rax]
+    cmp     qword ptr [r12 + SW_N], 0
+    jne     .Lsw_v0_tg
+    mov     rax, qword ptr [r12 + X_TOPG]
+    cmp     qword ptr [rax], 0
+    jne     .Lsw_v0_tg
+    mov     rcx, qword ptr [r14 + 16]
+    test    rcx, rcx
+    jne     .Lsw_v0_tgs
+    lea     rcx, [rip + .Lsw_qmark]
+.Lsw_v0_tgs:
+    mov     qword ptr [rax], rcx
+.Lsw_v0_tg:
+#endif
+    test    dword ptr [r14 + 12], 4
+    je      .Lsw_v0_plain
+    mov     eax, dword ptr [r14 + 4]
+    mov     rcx, rbx
+    sub     rcx, rax
+    mov     eax, dword ptr [r14 + 8]
+    lea     rdx, [rbx + rax]
+    cmp     rdx, r15
+    jbe     .Lsw_v0_bt
+    mov     rdx, r15
+.Lsw_v0_bt:
+    mov     rax, qword ptr [r12 + SW_P]
+    mov     qword ptr [r12 + X_W1LO], rax
+    mov     qword ptr [r12 + X_W1HI], rcx
+    mov     rax, qword ptr [r12 + SW_LO]
+    mov     qword ptr [r12 + X_CLO], rax
+    mov     qword ptr [r12 + X_CHI], r15
+    mov     qword ptr [r12 + X_CELLS], 1
+    mov     qword ptr [r12 + X_W2LO], 0
+    mov     qword ptr [r12 + X_W2HI], 0
+    mov     qword ptr [r12 + X_PNEW], rdx
+    jmp     .Lsw_v1
+.Lsw_v0_plain:
+    mov     rax, qword ptr [r12 + SW_P]
+    mov     qword ptr [r12 + X_W1LO], rax
+    mov     rcx, rbx
+    cmp     rcx, rax
+    jae     .Lsw_v0_slo
+    mov     rcx, rax
+.Lsw_v0_slo:
+    mov     qword ptr [r12 + X_W1HI], rcx
+    mov     rax, qword ptr [r14 + 24]
+    lea     rcx, [rbx + rax + 16]
+    mov     qword ptr [r12 + X_W2LO], rcx
+    mov     eax, dword ptr [r14 + 8]
+    add     rcx, rax
+    cmp     rcx, r15
+    jbe     .Lsw_v0_hhi
+    mov     rcx, r15
+.Lsw_v0_hhi:
+    mov     qword ptr [r12 + X_W2HI], rcx
+    mov     qword ptr [r12 + X_PNEW], rcx
+    test    dword ptr [r14 + 12], 8
+    je      .Lsw_v0_notab
+    mov     qword ptr [r12 + X_CELLS], 1
+    mov     rax, qword ptr [r12 + SW_LO]
+    mov     qword ptr [r12 + X_CLO], rax
+    mov     rcx, r15
+    movsxd  rax, dword ptr [r12 + X_CUR + 28]
+    test    rax, rax
+    jle     .Lsw_v0_chi
+    shl     rax, 4
+    add     rax, rbx
+    cmp     rax, r15
+    jae     .Lsw_v0_chi
+    mov     rcx, rax
+.Lsw_v0_chi:
+    mov     qword ptr [r12 + X_CHI], rcx
+    jmp     .Lsw_v1
+.Lsw_v0_notab:
+    mov     qword ptr [r12 + X_CELLS], 0
+#if RT_DIAG
+    mov     rax, qword ptr [r12 + X_GW]
+    inc     qword ptr [rax + 24]
+#endif
+.Lsw_v1:
+    mov     qword ptr [r12 + X_SUB], 2
+    mov     rdi, qword ptr [r12 + X_W1LO]
+    mov     rsi, qword ptr [r12 + X_W1HI]
+    lea     rax, [rdi + 16]
+    cmp     rax, rsi
+    ja      .Lsw_v2
+    RTX_CALL(rt_gc_walk_words_a)
+    test    rax, rax
+    jne     .Lsw_out
+    SW_DRAIN_CLEAR
+.Lsw_v2:
+    mov     qword ptr [r12 + X_SUB], 3
+    cmp     qword ptr [r12 + X_CELLS], 0
+    je      .Lsw_v3
+    mov     rdi, rbx
+    mov     rsi, r14
+    mov     rdx, qword ptr [r12 + X_CLO]
+    mov     rcx, qword ptr [r12 + X_CHI]
+    RTX_CALL(rt_gc_frame_cells_a)
+    test    rax, rax
+    jne     .Lsw_out
+    SW_DRAIN_CLEAR
+.Lsw_v3:
+    mov     qword ptr [r12 + X_SUB], 4
+    mov     rdi, qword ptr [r12 + X_W2LO]
+    mov     rsi, qword ptr [r12 + X_W2HI]
+    lea     rax, [rdi + 16]
+    cmp     rax, rsi
+    ja      .Lsw_v4
+    RTX_CALL(rt_gc_walk_words_a)
+    test    rax, rax
+    jne     .Lsw_out
+    SW_DRAIN_CLEAR
+.Lsw_v4:
+    mov     rax, qword ptr [r12 + X_PNEW]
+    mov     qword ptr [r12 + SW_P], rax
+#if RT_DIAG
+    test    dword ptr [r14 + 12], 1
+    je      .Lsw_v4_nr
+    mov     rax, qword ptr [r12 + X_GW]
+    inc     qword ptr [rax + 8]
+.Lsw_v4_nr:
+#endif
+    inc     qword ptr [r12 + SW_N]
+    mov     rax, qword ptr [r14 + 16]
+    mov     qword ptr [r12 + SW_LASTNAME], rax
+    mov     qword ptr [r12 + X_SUB], 0
+    cmp     qword ptr [r12 + X_PHASE], 5
+    je      .Lsw_post
+    inc     qword ptr [r12 + X_I]
+    jmp     .Lsw_p4
+.Lsw_post:
+    mov     rbx, qword ptr [r12 + X_F]
+    mov     r14, qword ptr [r12 + X_F + 8]
+    mov     qword ptr [r12 + SW_PREV], rbx
+    mov     qword ptr [r12 + X_LAST], rbx
+    test    dword ptr [r14 + 12], 1
+    je      .Lsw_post_nr
+    mov     rax, qword ptr [r14 + 24]
+    lea     rax, [rbx + rax + 16]
+    mov     ecx, dword ptr [r14 + 8]
+    add     rax, rcx
+    cmp     dword ptr [r12 + SW_RUN], 0
+    je      .Lsw_post_rt
+    cmp     rax, qword ptr [r12 + SW_HI]
+    ja      .Lsw_stop11
+.Lsw_post_rt:
+    mov     qword ptr [r12 + SW_ROOTTOP], rax
+.Lsw_post_nr:
+    mov     rax, qword ptr [r12 + X_COBODY]
+    test    rax, rax
+    je      .Lsw_post_link
+    cmp     rax, rbx
+    je      .Lsw_stop8
+.Lsw_post_link:
+    mov     rcx, qword ptr [r12 + X_F + 16]
+    bt      rcx, 63
+    jnc     .Lsw_post_nolink
+    mov     rax, rcx
+    and     eax, 0x0FFFFFFF
+    mov     rdx, qword ptr [rbx + rax]
+    mov     qword ptr [r12 + X_PC], rdx
+    mov     rdx, rcx
+    shr     rdx, 60
+    and     edx, 7
+    test    edx, 1
+    jne     .Lsw_post_r
+    mov     rsi, rcx
+    shr     rsi, 28
+    movsx   rsi, si
+    add     rsi, rax
+    mov     rsi, qword ptr [rbx + rsi]
+    mov     qword ptr [r12 + X_RBP], rsi
+.Lsw_post_r:
+    mov     rsi, rcx
+    shr     rsi, 44
+    movsx   rsi, si
+    add     rsi, rax
+    add     rsi, rbx
+    test    edx, 2
+    je      .Lsw_post_rs
+    mov     rsi, qword ptr [rsi]
+.Lsw_post_rs:
+    mov     qword ptr [r12 + X_R], rsi
+    test    dword ptr [r14 + 12], 1
+    je      .Lsw_cont
+    mov     rdi, qword ptr [r12 + X_PC]
+    xor     esi, esi
+    SW_SITE_FIND rdi, rsi
+    test    rax, rax
+    je      .Lsw_stop0
+.Lsw_cont:
+    mov     qword ptr [r12 + X_PHASE], 0
+    xor     eax, eax
+    jmp     .Lsw_out
+.Lsw_post_nolink:
+    test    dword ptr [r14 + 12], 1
+    je      .Lsw_stop5
+.Lsw_stop0:
+    mov     dword ptr [r12 + SW_STOP], 0
+    jmp     .Lsw_stopped
+.Lsw_stop1:
+    mov     dword ptr [r12 + SW_STOP], 1
+    jmp     .Lsw_stopped
+.Lsw_stop3:
+    mov     dword ptr [r12 + SW_STOP], 3
+    jmp     .Lsw_stopped
+.Lsw_stop4:
+    mov     dword ptr [r12 + SW_STOP], 4
+    jmp     .Lsw_stopped
+.Lsw_stop5:
+    mov     dword ptr [r12 + SW_STOP], 5
+    jmp     .Lsw_stopped
+.Lsw_stop6:
+    mov     dword ptr [r12 + SW_STOP], 6
+    jmp     .Lsw_stopped
+.Lsw_stop7:
+    mov     dword ptr [r12 + SW_STOP], 7
+    jmp     .Lsw_stopped
+.Lsw_stop8:
+    mov     dword ptr [r12 + SW_STOP], 8
+    jmp     .Lsw_stopped
+.Lsw_stop11:
+    mov     dword ptr [r12 + SW_STOP], 11
+.Lsw_stopped:
+    mov     rax, -1
+    jmp     .Lsw_out
+.Lsw_decline:
+    mov     rax, -2
+    jmp     .Lsw_out
+.Lsw_gapgrow:
+    mov     rax, -3
+.Lsw_out:
+    RTX_ADD_RSP(8)
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_gc_sw_step_a)
+#if RT_DIAG
+.section .rodata
+.Lsw_qmark:
+    .asciz "?"
+.text
+#endif

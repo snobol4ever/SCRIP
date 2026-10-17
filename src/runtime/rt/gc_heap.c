@@ -2829,7 +2829,45 @@ _Static_assert(__builtin_offsetof(gc_links_args_t, f_base) == 0 && __builtin_off
     __builtin_offsetof(gc_chf_t, map) == 8 && __builtin_offsetof(gc_chf_t, link) == 16 && __builtin_offsetof(gc_chf_t, rule) == 24 && __builtin_offsetof(gc_chf_t, ext) == 28 &&
     GC_LAY_PTR_FRAME == 4 && GC_LAY_PTR_FRAME_H == 5 && GC_FRAME_MAP_GEN_ANCHOR == 2 && GC_FRAME_MAP_LAYOUT == 8,
     "rt_gc_sw_links_a (rtx_gc.s) reads its argument block, the gap entries and the layout kinds at these offsets");
-typedef struct { const char *lo, *hi, *p, *prevbase, *lastname, *roottop; long n; int run, visit, stop; rt_gc_frame_fn fn; void *a; gc_chf_t lastf; gc_gap_t gap; gc_links_args_t la; } gc_sw_t;
+typedef struct gc_swx_t {
+    uint64_t pc;
+    const char *r, *rbp, *last;
+    gc_chf_t f, cur;
+    long phase, i, sub;
+    const char *co_body, *glo, *w1lo, *w1hi, *clo, *chi, *w2lo, *w2hi, *pnew;
+    long cells;
+    const gc_site_ent_t *e;
+    uint64_t dpc;
+    const char *dr, *drbp;
+    long lam, pw;
+    void *gw;
+    const char **top_graph_p;
+} gc_swx_t;
+typedef struct {
+    const char *lo, *hi, *p, *prevbase, *lastname, *roottop;
+    long n;
+    int run, visit, stop;
+    rt_gc_frame_fn fn;
+    void *a;
+    gc_chf_t lastf;
+    gc_gap_t gap;
+    gc_links_args_t la;
+    gc_swx_t x;
+} gc_sw_t;
+_Static_assert(__builtin_offsetof(gc_sw_t, lo) == 0 && __builtin_offsetof(gc_sw_t, hi) == 8 && __builtin_offsetof(gc_sw_t, p) == 16 && __builtin_offsetof(gc_sw_t, prevbase) == 24 &&
+    __builtin_offsetof(gc_sw_t, lastname) == 32 && __builtin_offsetof(gc_sw_t, roottop) == 40 && __builtin_offsetof(gc_sw_t, n) == 48 && __builtin_offsetof(gc_sw_t, run) == 56 &&
+    __builtin_offsetof(gc_sw_t, stop) == 64 && __builtin_offsetof(gc_sw_t, lastf) == 88 && __builtin_offsetof(gc_sw_t, gap) == 120 && __builtin_offsetof(gc_gap_t, v) == 0 &&
+    __builtin_offsetof(gc_gap_t, n) == 8 && __builtin_offsetof(gc_sw_t, la) == 144 && __builtin_offsetof(gc_sw_t, x) == 408 && __builtin_offsetof(gc_swx_t, pc) == 0 &&
+    __builtin_offsetof(gc_swx_t, r) == 8 && __builtin_offsetof(gc_swx_t, rbp) == 16 && __builtin_offsetof(gc_swx_t, last) == 24 && __builtin_offsetof(gc_swx_t, f) == 32 &&
+    __builtin_offsetof(gc_swx_t, cur) == 64 && __builtin_offsetof(gc_swx_t, phase) == 96 && __builtin_offsetof(gc_swx_t, i) == 104 && __builtin_offsetof(gc_swx_t, sub) == 112 &&
+    __builtin_offsetof(gc_swx_t, co_body) == 120 && __builtin_offsetof(gc_swx_t, glo) == 128 && __builtin_offsetof(gc_swx_t, w1lo) == 136 && __builtin_offsetof(gc_swx_t, pnew) == 184 &&
+    __builtin_offsetof(gc_swx_t, cells) == 192 && __builtin_offsetof(gc_swx_t, e) == 200 && __builtin_offsetof(gc_swx_t, dpc) == 208 && __builtin_offsetof(gc_swx_t, lam) == 232 &&
+    __builtin_offsetof(gc_swx_t, pw) == 240 && __builtin_offsetof(gc_swx_t, gw) == 248 && __builtin_offsetof(gc_swx_t, top_graph_p) == 256 && __builtin_offsetof(gc_chf_t, rule) == 24 &&
+    __builtin_offsetof(gc_chf_t, ext) == 28 && __builtin_offsetof(gc_site_ent_t, kind) == 8 && __builtin_offsetof(gc_site_ent_t, rule) == 10 && __builtin_offsetof(gc_site_ent_t, depth) == 12 &&
+    __builtin_offsetof(gc_site_blk_t, map) == 8 && __builtin_offsetof(gc_site_blk_t, link) == 56 && __builtin_offsetof(gc_frame_map_t, frame_bytes) == 4 &&
+    __builtin_offsetof(gc_frame_map_t, header_bytes) == 8 && __builtin_offsetof(gc_frame_map_t, flags) == 12 && __builtin_offsetof(gc_frame_map_t, graph_name) == 16 &&
+    __builtin_offsetof(gc_frame_map_t, value_bytes) == 24 && GC_FRAME_MAP_ROOT == 1u && GC_FRAME_MAP_BLOB == 4u && GC_FRAME_MAP_LAYOUT == 8u,
+    "rt_gc_sw_step_a (rtx_gc.s) reads and writes the walk state, the link-scan arguments, the sites, the blocks and the frame maps at these offsets");
 static void gc_gap_open(gc_gap_t *g) {
     g->cap = 24;
     g->v = (gc_chf_t *)gcbk_alloc((size_t)g->cap * sizeof *g->v);
@@ -3097,47 +3135,66 @@ static int gc_sw_chain_frame(gc_sw_t *s, const gc_chf_t *f) {
     s->prevbase = f->base;
     return 1;
 }
-static void gc_sw_run(gc_sw_t *s, const gc_ent_t *ent, const scrip_coctx_t *sc) {
+static int gc_sw_c_step(gc_sw_t *s, const scrip_coctx_t *sc) {
+    gc_swx_t *x = &s->x;
     gc_chx_t w;
-    uint64_t pc = (uint64_t)(uintptr_t)ent->pc;
-    const char *r = ent->r, *rbp = (const char *)ent->rbp, *last = (const char *)0, *hi = s->hi;
+    const char *hi = s->hi;
     gc_chf_t f;
     memset(&w, 0, sizeof w);
+    if (x->r > hi || (x->last && x->r < x->last)) { s->stop = 7; return 0; }
+    gc_chain_find(&w, x->pc, x->r, x->rbp, hi);
+    if (w.st == 6) {
+        const gc_site_blk_t *bb = gc_body_block(sc);
+        const char *gb = bb ? sc->gen_h - (long)bb->map->frame_bytes : (const char *)0;
+        if (!bb || gb < w.r || gb > hi) { s->stop = 1; return 0; }
+        if (x->last && gb <= x->last) { s->stop = 6; return 0; }
+        f.base = gb;
+        f.map = bb->map;
+        f.link = bb->link;
+        f.rule = -1;
+        f.ext = 0;
+        if (!gc_sw_chain_frame(s, &f)) return 0;
+        x->last = gb;
+        if (!gc_chain_link(gb, bb->link, &x->pc, &x->r, &x->rbp)) { s->stop = 5; return 0; }
+        return 1;
+    }
+    if (w.st != 1) { s->stop = w.st == 3 ? 2 : w.st == 4 ? 3 : w.st == 5 ? 4 : w.st == 7 ? 8 : 1; return 0; }
+    if (x->last && w.base <= x->last) { s->stop = 6; return 0; }
+    f.base = w.base;
+    f.map = w.b->map;
+    f.link = w.b->link;
+    f.rule = GC_SITE_RULE(w.e);
+    f.ext = GC_SITE_EXT(w.e);
+    if (!gc_sw_chain_frame(s, &f)) return 0;
+    x->last = w.base;
+    if (w.b->map->flags & GC_FRAME_MAP_ROOT) {
+        const char *rt = w.base + (long)w.b->map->value_bytes + 16 + (long)w.b->map->header_bytes;
+        if (s->run && rt > hi) { s->stop = 11; return 0; }
+        s->roottop = rt;
+    }
+    if (x->co_body && w.base == x->co_body) { s->stop = 8; return 0; }
+    if (!gc_chain_link(w.base, w.b->link, &x->pc, &x->r, &x->rbp)) { s->stop = (w.b->map->flags & GC_FRAME_MAP_ROOT) ? 0 : 5; return 0; }
+    if ((w.b->map->flags & GC_FRAME_MAP_ROOT) && !gc_site_find(x->pc, (const gc_site_ent_t **)0)) { s->stop = 0; return 0; }
+    return 1;
+}
+static void gc_sw_run(gc_sw_t *s, const gc_ent_t *ent, const scrip_coctx_t *sc) {
+    extern long rt_gc_sw_step_a(gc_sw_t *);
+    gc_swx_t *x = &s->x;
+    int fast = s->visit && !s->fn && !g_gc_mk.maps && !g_gc_mk.census && !gc_chain_check_on();
+    x->pc = (uint64_t)(uintptr_t)ent->pc;
+    x->r = ent->r;
+    x->rbp = (const char *)ent->rbp;
+    x->last = (const char *)0;
+    x->phase = 0;
+    x->sub = 0;
+    x->co_body = sc ? scrip_co_body_base(sc) : (const char *)0;
     for (;;) {
-        if (r > hi || (last && r < last)) { s->stop = 7; return; }
-        gc_chain_find(&w, pc, r, rbp, hi);
-        if (w.st == 6) {
-            const gc_site_blk_t *bb = gc_body_block(sc);
-            const char *gb = bb ? sc->gen_h - (long)bb->map->frame_bytes : (const char *)0;
-            if (!bb || gb < w.r || gb > hi) { s->stop = 1; return; }
-            if (last && gb <= last) { s->stop = 6; return; }
-            f.base = gb;
-            f.map = bb->map;
-            f.link = bb->link;
-            f.rule = -1;
-            f.ext = 0;
-            if (!gc_sw_chain_frame(s, &f)) return;
-            last = gb;
-            if (!gc_chain_link(gb, bb->link, &pc, &r, &rbp)) { s->stop = 5; return; }
-            continue;
-        }
-        if (w.st != 1) { s->stop = w.st == 3 ? 2 : w.st == 4 ? 3 : w.st == 5 ? 4 : w.st == 7 ? 8 : 1; return; }
-        if (last && w.base <= last) { s->stop = 6; return; }
-        f.base = w.base;
-        f.map = w.b->map;
-        f.link = w.b->link;
-        f.rule = GC_SITE_RULE(w.e);
-        f.ext = GC_SITE_EXT(w.e);
-        if (!gc_sw_chain_frame(s, &f)) return;
-        last = w.base;
-        if (w.b->map->flags & GC_FRAME_MAP_ROOT) {
-            const char *rt = w.base + (long)w.b->map->value_bytes + 16 + (long)w.b->map->header_bytes;
-            if (s->run && rt > hi) { s->stop = 11; return; }
-            s->roottop = rt;
-        }
-        if (sc && w.base == scrip_co_body_base(sc)) { s->stop = 8; return; }
-        if (!gc_chain_link(w.base, w.b->link, &pc, &r, &rbp)) { s->stop = (w.b->map->flags & GC_FRAME_MAP_ROOT) ? 0 : 5; return; }
-        if ((w.b->map->flags & GC_FRAME_MAP_ROOT) && !gc_site_find(pc, (const gc_site_ent_t **)0)) { s->stop = 0; return; }
+        long rc = fast ? rt_gc_sw_step_a(s) : -2;
+        if (rc == 0) continue;
+        if (rc == -1) return;
+        if (rc == -2) { x->phase = 0; x->sub = 0; if (!gc_sw_c_step(s, sc)) return; continue; }
+        if (rc == -3) { gc_gap_grow(&s->gap); continue; }
+        gc_run_verdicts((DESCR_t *)rc);
     }
 }
 static void gc_sw_go(gc_sw_t *s, const char *lo0, const char *hi0, const gc_ent_t *ent, const scrip_coctx_t *sc, int run, int visit, rt_gc_frame_fn fn, void *a) {
@@ -3151,6 +3208,15 @@ static void gc_sw_go(gc_sw_t *s, const char *lo0, const char *hi0, const gc_ent_
     s->fn = fn;
     s->a = a;
     s->lastname = "-";
+    s->la.s_lo = s->lo;
+    s->la.s_hi = s->hi;
+    s->la.sblk = g_gc_sblk;
+    s->la.sblk_n = g_gc_sblk_n;
+    s->la.links_ctr = &g_gc_chw.links;
+#if RT_DIAG
+    s->x.gw = (void *)&g_gw[g_gc_rep_pop];
+    s->x.top_graph_p = &g_gc_top_graph;
+#endif
     gc_gap_open(&s->gap);
     if (ent) gc_sw_run(s, ent, sc);
     if (img && img >= s->lo && img < s->hi && (!s->n || s->prevbase < img) && s->stop != 9) { gc_chf_t f = { img, (const gc_frame_map_t *)sc->image_map, 0, -1, 0 }; gc_sw_chain_frame(s, &f); }
