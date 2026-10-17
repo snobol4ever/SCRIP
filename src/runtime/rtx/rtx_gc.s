@@ -2726,17 +2726,6 @@ RTX_FUNC(rt_gc_sw_links_a)
     jb      .Lln_refuse
     mov     rcx, qword ptr [r12 + 64]
     mov     rdx, qword ptr [r12 + 72]
-    xor     eax, eax
-.Lln_dd:
-    cmp     rax, rdx
-    jae     .Lln_push
-    mov     rdi, rax
-    shl     rdi, 5
-    cmp     qword ptr [rcx + rdi], rsi
-    je      .Lln_next_k
-    inc     rax
-    jmp     .Lln_dd
-.Lln_push:
     cmp     rdx, qword ptr [r12 + 80]
     jae     .Lln_grow
     mov     rdi, rdx
@@ -3333,6 +3322,41 @@ RTX_FUNC(rt_gc_sw_step_a)
     je      .Lsw_hb_next
     jmp     .Lsw_hx_next
 .Lsw_p3_done:
+    mov     rcx, qword ptr [r12 + SW_GAPN]
+    cmp     rcx, 1
+    jle     .Lsw_dd_done
+    mov     rsi, qword ptr [r12 + SW_GAPV]
+    mov     edx, 1
+    mov     eax, 1
+.Lsw_dd:
+    cmp     rdx, rcx
+    jge     .Lsw_dd_set
+    mov     rdi, rdx
+    shl     rdi, 5
+    add     rdi, rsi
+    mov     r10, rax
+    shl     r10, 5
+    add     r10, rsi
+    mov     r8, qword ptr [rdi]
+    cmp     r8, qword ptr [r10 - 32]
+    je      .Lsw_dd_next
+    cmp     rdi, r10
+    je      .Lsw_dd_keep
+    mov     qword ptr [r10], r8
+    mov     r11, qword ptr [rdi + 8]
+    mov     qword ptr [r10 + 8], r11
+    mov     r11, qword ptr [rdi + 16]
+    mov     qword ptr [r10 + 16], r11
+    mov     r11, qword ptr [rdi + 24]
+    mov     qword ptr [r10 + 24], r11
+.Lsw_dd_keep:
+    inc     rax
+.Lsw_dd_next:
+    inc     rdx
+    jmp     .Lsw_dd
+.Lsw_dd_set:
+    mov     qword ptr [r12 + SW_GAPN], rax
+.Lsw_dd_done:
     mov     qword ptr [r12 + X_I], 0
     mov     qword ptr [r12 + X_SUB], 0
     mov     qword ptr [r12 + X_PHASE], 4

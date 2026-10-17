@@ -3075,7 +3075,6 @@ static int gc_sw_links_c(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char 
             const char *hdr = (const char *)0;
             uint64_t beta = 0;
             const gc_site_blk_t *b;
-            long d;
             if (!v) continue;
             if (f->rule == -1 && !f->link && (v < s->lo || v >= s->hi)) continue;
             if (lk == GC_LAY_PTR_FRAME_H) {
@@ -3119,8 +3118,6 @@ static int gc_sw_links_c(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char 
                 s->stop = 12;
                 return 0;
             }
-            for (d = 0; d < g->n && g->v[d].base != v; d++) ;
-            if (d < g->n) continue;
             gc_gap_push(g, v, b->map, b->link);
             g_gc_chw.links++;
         }
@@ -3162,7 +3159,7 @@ static int gc_sw_chain_frame(gc_sw_t *s, const gc_chf_t *f) {
     g->n = 0;
     if (!gc_sw_links(s, g, f, glo)) return 0;
     for (i = 0; i < g->n; i++) { gc_chf_t e = g->v[i]; if (!gc_sw_links(s, g, &e, glo)) return 0; }
-    if (g->n > 1) qsort(g->v, (size_t)g->n, sizeof *g->v, gc_chf_cmp);
+    if (g->n > 1) { long u = 1; qsort(g->v, (size_t)g->n, sizeof *g->v, gc_chf_cmp); for (i = 1; i < g->n; i++) if (g->v[i].base != g->v[u - 1].base) g->v[u++] = g->v[i]; g->n = u; }
     for (i = 0; i < g->n; i++) gc_sw_frame(s, &g->v[i]);
     gc_sw_frame(s, f);
     s->prevbase = f->base;
