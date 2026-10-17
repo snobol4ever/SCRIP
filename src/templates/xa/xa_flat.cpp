@@ -350,7 +350,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
              + x86("mov", RDQ("rsp", kt - 40), "r13")
              + x86("mov", RDQ("rsp", kt - 48), 0L)
              + x86("mov", RDQ("rsp", kt - 56), 0L)
-             + (g_emit_cfg && g_emit_cfg->n_alts > 1 && g_emit.flat_alt1_p ? x86_pl_choice_mark(RDQ("rsp", kt - 64), 240) : x86("mov", RDQ("rsp", kt - 64), "r12"))
+             + (g_emit_cfg && g_emit_cfg->n_alts > 1 && g_emit.flat_alt1_p ? x86_pl_choice_mark(RDQ("rsp", kt - 64), 245) : x86("mov", RDQ("rsp", kt - 64), "r12"))
              + IF(g_emit_cfg && g_emit_cfg->n_alts > 1 && g_emit.flat_alt1_p,
                     x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_alt1_p)
                  + x86("mov", RDQ("rsp", kt - 56), "rax")
