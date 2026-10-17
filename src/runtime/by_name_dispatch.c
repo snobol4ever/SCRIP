@@ -19141,7 +19141,20 @@ static int icn_math_log(DESCR_t *args, int nargs, DESCR_t *out) {
     *out = REALVAL(log(v) / log(b));
     return 1;
 }
+static long icn_str_len_of(DESCR_t d) {
+    char b[64];
+    if (IS_INT_fn(d)) return (long)snprintf(b, sizeof b, "%lld", (long long)d.i);
+    if (IS_REAL_fn(d)) { icon_real_str(d.r, b, sizeof b); return (long)strlen(b); }
+    if (d.v == DT_BIG) return 2;
+    if (IS_CSET_fn(d)) { extern int kw_cset_len(const char *); return d.s ? (long)kw_cset_len(d.s) : 0; }
+    return d.s ? (long)descr_slen(d) : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int64_t icn_char_code(DESCR_t d) { long long rv; if (IS_INT_fn(d)) return d.i; if (d.v == DT_S && d.s && icon_radix_int(d.s, &rv) > 0) return (int64_t)rv; return to_int(d); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int strict) {
+    if (strict && nargs == 0 && (bid == BID_char || bid == BID_icom)) return icn_argtype_raise(101, NULVCL, out);
+    if (strict && nargs == 0 && bid == BID_ord) return icn_argtype_raise(103, NULVCL, out);
     if (nargs < 1 || IS_FAIL_fn(args[0])) return 0;
     switch (bid) {
         case BID_any:
@@ -19156,12 +19169,40 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int
         case BID_trim:
         case BID_reverse:
         case BID_repl:
+        return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(103, args[0], out);
         case BID_detab:
         case BID_entab:
-        return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(103, args[0], out);
+        if (!icn_cvt_chars_ok(args[0])) return icn_argtype_raise(103, args[0], out);
+        if (!strict) return 0;
+        for (int j = 1; j < nargs; j++) {
+            if (!icn_cvt_num_ok(args[j])) return icn_argtype_raise(101, args[j], out);
+            if (j > 1 && to_int(args[j]) <= to_int(args[j - 1])) return icn_argtype_raise(210, INTVAL(to_int(args[j])), out);
+        }
+        return (nargs >= 2 && to_int(args[1]) <= 1) ? icn_argtype_raise(210, INTVAL(to_int(args[1])), out) : 0;
         case BID_map:
         if (!icn_cvt_chars_ok(args[0])) return icn_argtype_raise(103, args[0], out);
         for (int i = 1; i < 3 && i < nargs; i++) if (!IS_FAIL_fn(args[i]) && args[i].v != DT_SNUL && !icn_cvt_chars_ok(args[i])) return icn_argtype_raise(103, args[i], out);
+        if (!strict) return 0;
+        {
+            long l2 = (nargs >= 2 && !IS_FAIL_fn(args[1]) && args[1].v != DT_SNUL) ? icn_str_len_of(args[1]) : 26;
+            long l3 = (nargs >= 3 && !IS_FAIL_fn(args[2]) && args[2].v != DT_SNUL) ? icn_str_len_of(args[2]) : 26;
+            return l2 != l3 ? icn_argtype_raise(208, FAILDESCR, out) : 0;
+        }
+        case BID_char:
+        if (!strict) return 0;
+        if (!icn_cvt_num_ok(args[0])) return icn_argtype_raise(101, args[0], out);
+        { int64_t c = icn_char_code(args[0]); return (c < 0 || c > 255) ? icn_argtype_raise(205, INTVAL(c), out) : 0; }
+        case BID_ord:
+        if (!strict) return 0;
+        if (!icn_cvt_chars_ok(args[0])) return icn_argtype_raise(103, args[0], out);
+        return icn_str_len_of(args[0]) != 1 ? icn_argtype_raise(205, args[0], out) : 0;
+        case BID_iand:
+        case BID_ior:
+        case BID_ixor:
+        case BID_ishift:
+        case BID_icom:
+        if (!strict) return 0;
+        for (int i = 0; i < (bid == BID_icom ? 1 : 2); i++) { DESCR_t a = i < nargs ? args[i] : NULVCL; if (IS_FAIL_fn(a) || !icn_cvt_num_ok(a)) return icn_argtype_raise(101, a, out); }
         return 0;
         case BID_left:
         case BID_right:
@@ -20545,8 +20586,9 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     ;
     if ((_bid == BID_ord) && nargs == 1) {
         DESCR_t av = args[0];
-        const char *s = VARVAL_fn(av);
-        if (!s || !descr_slen(av)) { *out = FAILDESCR; return 1; }
+        char _ob[64];
+        const char *s = IS_INT_fn(av) ? (snprintf(_ob, sizeof _ob, "%lld", (long long)av.i), _ob) : IS_REAL_fn(av) ? icon_real_str(av.r, _ob, sizeof _ob) : VARVAL_fn(av);
+        if (!s || !((IS_INT_fn(av) || IS_REAL_fn(av)) ? strlen(s) : descr_slen(av))) { *out = FAILDESCR; return 1; }
         *out = INTVAL((unsigned char)s[0]);
         return 1;
     }
@@ -21851,7 +21893,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_9997:
     ;
-    if ((_bid == BID_errorclear) && nargs == 0) { extern long g_error; extern int g_icn_err_valid; g_error = 0; g_icn_err_valid = 0; *out = NULVCL; return 1; }
+    if ((_bid == BID_errorclear) && nargs == 0) { extern int g_icn_err_valid; g_icn_err_valid = 0; *out = NULVCL; return 1; }
     L_bidjmp_9998:
     ;
     if ((_bid == BID_serial) && nargs == 1) {

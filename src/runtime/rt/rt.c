@@ -2334,7 +2334,9 @@ DESCR_t c_rt_list_bang_at(DESCR_t obj, int64_t *cur) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t *cur) {
     extern int list_bang_key_at(DESCR_t obj, int64_t idx, DESCR_t *out);
+    extern int core_icn_error(int, DESCR_t);
     DESCR_t out;
+    if (!(obj.v == DT_T && obj.tbl && !obj.tbl->is_set)) { core_icn_error(124, obj); return FAILDESCR; }
     if (list_bang_key_at(obj, *cur, &out)) return out;
     return FAILDESCR;
 }

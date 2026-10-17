@@ -436,7 +436,24 @@ RT_BINOP_ENTRY(rt_pow, BINOP_POW, ) RT_BINOP_ENTRY(rt_powreal, BINOP_POW_PROMOTE
     }
     return d;
 }
-DESCR_t rt_bitop_operand(DESCR_t d) { return big_route_operand(d); }
+DESCR_t rt_bitop_operand(DESCR_t d) {
+    DESCR_t r = big_route_operand(d);
+    if (r.v == DT_I || r.v == DT_BIG || !IS_STR_fn(d) || !d.s) return r;
+    extern int icon_radix_int(const char *, long long *);
+    extern DESCR_t icon_radix_big(const char *);
+    size_t n = d.slen != 0xFFFFFFFFu ? (size_t)d.slen : strlen(d.s);
+    char nb[n + 1];
+    memcpy(nb, d.s, n);
+    nb[n] = '\0';
+    long long rv;
+    int rr = icon_radix_int(nb, &rv);
+    if (rr > 0) return INTVAL(rv);
+    if (rr < 0) return icon_radix_big(nb);
+    char *e = 0;
+    double x = strtod(nb, &e);
+    while (e && *e == ' ') e++;
+    return (e && e != nb && !*e && x == x) ? big_route_operand(REALVAL(x)) : r;
+}
 static DESCR_t rt_big_arith_route(DESCR_t a, DESCR_t b, int op) {
     extern DESCR_t rt_big_add(DESCR_t, DESCR_t);
     extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
