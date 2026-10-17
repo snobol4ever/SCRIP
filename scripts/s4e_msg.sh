@@ -780,7 +780,9 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
                       QUARTET) _dr "an HQ" "Under QUARTET no HQ is standing -- the four officers work the rows (Lon 2026-09-19, CEO-911).";;
                       # ⛔⭐ MODE QUINTET (Lon 2026-09-28 17:2x, in-chat to the ceo, verbatim: "Bring the fleet into QUARTET mode: CEO, CTO, CFO, and COO. Leave HQ-SNOCONE alone. So QUNTET mode."; ceo CEO-1356).
                       # The four officers and ONE language HQ, hq_snocone, named here so that no other hq_* seat is admitted by falling out of the case (CEO-755b).
-                      QUINTET) case "$_seat" in hq_snocone) : ;; *) _dr "an HQ" "Under QUINTET only hq_snocone stands among the HQs -- the four officers and hq_snocone work rows, and $_seat is stood down (Lon 2026-09-28, CEO-1356).";; esac;;
+                      # ⛔⭐ MODE QUINTET REDEFINED (Lon 2026-10-17 11:4x CDT, in-chat to the ceo, verbatim: "Let's get CTO and CFO to join the fleet."; ceo CEO-1811): TRIO's ceo, coo and
+                      # hq_runtime plus the cto and the cfo -- the four officers and ONE HQ, now hq_runtime (the collector in asm); hq_snocone is refused by name. The CEO-1356 roster is history.
+                      QUINTET) case "$_seat" in hq_runtime) : ;; *) _dr "an HQ" "Under QUINTET only hq_runtime stands among the HQs -- the four officers and hq_runtime work rows, and $_seat is stood down (Lon 2026-10-17, CEO-1811).";; esac;;
                       # ⛔⭐ MODE NONET (Lon 2026-09-25, in-chat to the ceo: "Go now to NONET mode." and, asked which five HQs stand: "SNO, PL, PAS, SNOCONE, and ICON"; ceo CEO-1266).
                       # Written by name for CEO-755b's reason: before this arm every hq_* seat -- hq_raku and the lettered legacy names included -- was admitted under NONET by FALLING OUT of the case.
                       # ⛔⭐ MODE NONET REDEFINED (Lon 2026-10-15 13:3x CDT, in-chat to the ceo, verbatim: "Have the GC collection code written in ASM versus C. Should I fire up HQ-RUNTIME since that is his job?" then "I started HQ-RUNTIME."; ceo CEO-1793): OCTET's four HQs and hq_runtime, named so no other hq_* seat falls out of the case (CEO-755b). The CEO-1266 roster above is history.
@@ -1991,7 +1993,8 @@ esac
 # clone older than 3a1b8443b has no QUINTET arm, so a stood-down HQ is ADMITTED by falling out of the case (CEO-755b) -- measured:
 # hq_prolog claimed a row at 17:24:49, fifty-four seconds after MODE read QUINTET. Raising the number makes next() and clear()
 # refuse from every clone below it until it pulls, and a pulled clone refuses the stood-down seat by name.
-S4E_PROTO=6
+# ⛔ BUMPED 6 -> 7 (ceo CEO-1811, 2026-10-17, at the QUINTET redefinition): an older clone's QUINTET arm admits hq_snocone and refuses the live hq_runtime.
+S4E_PROTO=7
 case "$cmd" in
   send)  [ -n "${2:-}" ] || s4e_need send "a destination seat" "s4e_msg.sh send <to> <topic> --stdin <<'MSG' ... MSG" "A prose body must come through --stdin: a body in double quotes is expanded by YOUR shell before send ever runs."
          [ -n "${3:-}" ] || s4e_need send "a topic" "s4e_msg.sh send <to> <topic> --stdin <<'MSG' ... MSG" "The topic is the subject line the recipient sorts by; it becomes a filename, so keep it a slug."
