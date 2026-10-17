@@ -18439,7 +18439,7 @@ static int bn_icn_put(DESCR_t *args, int nargs, DESCR_t *out) {
             int _nv2 = (nargs > 1) ? nargs - 1 : 1;
             for (int _pi = 0; _pi < _nv2; _pi++) {
                 DESCR_t _vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
-                if (ld.u->type->nfields >= 5 && ld.u->fields[4].v != DT_I) rt_lvb_put(ld,_n);
+                if (ld.u->type->nfields >= 5 && !(ld.u->fields[4].v == DT_I && ld.u->fields[4].slen == 0)) rt_lvb_put(ld,_n);
                 long _c = rt_lv_cap(ld);
                 if(_a && _c>=0 && _n<_c){ _a[_n]=_vd; _n++; rt_lv_set_size(ld,_n); continue; }
                 long _ncap=(_n>0)?(long)_n*2:8;

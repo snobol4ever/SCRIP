@@ -284,26 +284,31 @@ int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_lvb_seed(DESCR_t o, int s) { if (o.u->type->nfields >= 5 && o.u->fields[4].v != DT_I && !IS_DATA_ELEMS_fn(o.u->fields[4])) o.u->fields[4] = INTVAL(s > 0 ? s : 8); }
+static long rt_lvb_c0(DESCR_t o, int s) { DESCR_t f = o.u->fields[4]; if (f.v != DT_I) return s > 0 ? s : 8; return f.slen ? (long)(f.i >> 32) : (long)f.i; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long rt_lvb_lo1(DESCR_t o) { DESCR_t f = o.u->fields[4]; return (f.v == DT_I && f.slen) ? (long)(int32_t)(uint32_t)f.i : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_lvb_mark(DESCR_t o, long c0, long lo, uint32_t one) { DESCR_t d = INTVAL(one ? (int64_t)(((uint64_t)c0 << 32) | (uint32_t)lo) : (int64_t)c0); d.slen = one; o.u->fields[4] = d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *rt_lvb_of(DESCR_t o, int s) {
     DESCR_t *b = rt_lv_blocks(o);
     if (b || o.u->type->nfields < 5) return b;
-    long c0 = o.u->fields[4].v == DT_I ? (long)o.u->fields[4].i : (s > 0 ? s : 8), nb = 1, tot = c0, at = 0, cap = c0;
+    long c0 = rt_lvb_c0(o, s), lo0 = rt_lvb_lo1(o), nb = 1, tot = c0, at = 0, cap = c0;
+    int one = o.u->fields[4].v == DT_I && o.u->fields[4].slen;
     while (tot < s) { tot += tot / 2 < 8 ? 8 : tot / 2; nb++; }
     long cb = nb < 4 ? 4 : 2 * nb;
     b = (DESCR_t *)rt_ws_alloc_descr((size_t)(5 + 3 * cb));
     b[0] = INTVAL(0);
     b[1] = INTVAL(nb);
-    b[2] = INTVAL(0);
+    b[2] = INTVAL(lo0);
     b[3] = INTVAL(cb);
-    b[4] = INTVAL(c0);
+    b[4] = INTVAL(one ? INT64_MAX : c0);
     tot = 0;
     for (long k = 0; k < nb; k++) {
         long u = s - at < cap ? s - at : cap;
         b[5 + 3 * k] = INTVAL(cap);
         b[6 + 3 * k] = INTVAL(u);
-        b[7 + 3 * k] = INTVAL(at);
+        b[7 + 3 * k] = INTVAL(lo0 + at);
         at += u;
         tot += cap;
         cap = tot / 2 < 8 ? 8 : tot / 2;
@@ -323,8 +328,9 @@ static DESCR_t *rt_lvb_room(DESCR_t o, DESCR_t *b) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_lvb_push(DESCR_t o, int s) {
-    DESCR_t *b = rt_lvb_of(o, s);
-    if (!b) return;
+    if (o.u->type->nfields < 5) return;
+    DESCR_t *b = rt_lv_blocks(o);
+    if (!b) { long c0 = rt_lvb_c0(o, s); if (s < c0) { rt_lvb_mark(o, c0, rt_lvb_lo1(o) - 1, 1); return; } b = rt_lvb_of(o, s); }
     if (b[6].i >= b[5].i) {
         b = rt_lvb_room(o, b);
         memmove(b + 8, b + 5, (size_t)(3 * b[1].i) * sizeof(DESCR_t));
@@ -340,23 +346,32 @@ void rt_lvb_push(DESCR_t o, int s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_lvb_put(DESCR_t o, int s) {
+    if (o.u->type->nfields < 5) return;
     DESCR_t *b = rt_lv_blocks(o);
-    if (!b) { rt_lvb_seed(o, s); return; }
+    if (!b) { DESCR_t f = o.u->fields[4]; if (!(f.v == DT_I && f.slen)) { if (f.v != DT_I) rt_lvb_mark(o, s > 0 ? s : 8, 0, 0); return; } if (s < rt_lvb_c0(o, s)) return; b = rt_lvb_of(o, s); }
     long t = 5 + 3 * ((long)b[1].i - 1);
     if (b[t + 1].i >= b[t].i) { b = rt_lvb_room(o, b); b[t + 3] = INTVAL(s / 2 < 8 ? 8 : s / 2); b[t + 4] = INTVAL(0); b[t + 5] = INTVAL(b[t + 2].i + b[t + 1].i); b[1].i++; t += 3; }
     b[t + 1].i++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_lvb_get(DESCR_t o, int s) {
-    DESCR_t *b = rt_lvb_of(o, s);
-    if (!b) return;
+    if (o.u->type->nfields < 5) return;
+    DESCR_t *b = rt_lv_blocks(o);
+    if (!b) { long c0 = rt_lvb_c0(o, s); DESCR_t f = o.u->fields[4]; if ((f.v == DT_I && f.slen) || s <= c0) { rt_lvb_mark(o, c0, rt_lvb_lo1(o) + 1, 1); return; } b = rt_lvb_of(o, s); }
     if (b[6].i <= 0 && b[1].i > 1) { memmove(b + 5, b + 8, (size_t)(3 * (b[1].i - 1)) * sizeof(DESCR_t)); b[1].i--; b[0].i++; }
     b[6].i--;
     b[7].i++;
     b[2].i++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_lvb_pull(DESCR_t o, int s) { DESCR_t *b = rt_lvb_of(o, s); if (!b) return; long t = 5 + 3 * ((long)b[1].i - 1); if (b[t + 1].i <= 0 && b[1].i > 1) { b[1].i--; t -= 3; } b[t + 1].i--; }
+void rt_lvb_pull(DESCR_t o, int s) {
+    if (o.u->type->nfields < 5) return;
+    DESCR_t *b = rt_lv_blocks(o);
+    if (!b) { DESCR_t f = o.u->fields[4]; if (f.v == DT_I && f.slen) return; long c0 = rt_lvb_c0(o, s); if (s <= c0) { if (f.v != DT_I) rt_lvb_mark(o, c0, 0, 0); return; } b = rt_lvb_of(o, s); }
+    long t = 5 + 3 * ((long)b[1].i - 1);
+    if (b[t + 1].i <= 0 && b[1].i > 1) { b[1].i--; t -= 3; }
+    b[t + 1].i--;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_lvb_cursor(DESCR_t o, int64_t *cur, int n) {
     DESCR_t *b = rt_lv_blocks(o);
