@@ -1613,7 +1613,7 @@ static rt_dcap_next_t rt_defer_resolve(rt_dfx_t *s, DESCR_t r) {
     return (rt_dcap_next_t){ 0, 0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t rt_defer_open_cell(DESCR_t *cell, int ival_flag, rt_dfx_t *rec) {
+rt_dcap_next_t c_rt_defer_open_cell(DESCR_t *cell, int ival_flag, rt_dfx_t *rec) {
     rt_dfx_t *s = rt_dfx_init(rec);
     DESCR_t val = cell ? *cell : NULVCL;
     if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); }

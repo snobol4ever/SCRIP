@@ -75,6 +75,55 @@ RTX_ENDF(rt_defer_close)
 .align 1
 .Lrtx_dfx_nul:
     .byte 0
+RTX_FUNC(rt_defer_open_cell)
+    RTX_GATE(match, .Ldo_c)
+    test    rdx, rdx
+    je      .Ldo_c
+    test    esi, esi
+    jne     .Ldo_c
+    test    rdi, rdi
+    je      .Ldo_c
+    mov     r8, qword ptr [rdi]
+    mov     r10, qword ptr [rdi + 8]
+    cmp     r8b, DT_P
+    je      .Ldo_pat
+    cmp     r8b, DT_S
+    je      .Ldo_plain
+    cmp     r8b, DT_SNUL
+    je      .Ldo_plain
+    cmp     r8b, DT_I
+    je      .Ldo_plain
+    cmp     r8b, DT_R
+    jne     .Ldo_c
+.Ldo_plain:
+    mov     qword ptr [rdx], r8
+    mov     qword ptr [rdx + 8], r10
+    mov     qword ptr [rdx + 16], 0
+    mov     qword ptr [rdx + 24], 0
+    xor     eax, eax
+    xor     edx, edx
+    ret
+.Ldo_pat:
+    test    r10, r10
+    je      .Ldo_c
+    mov     rax, qword ptr [r10]
+    test    rax, rax
+    je      .Ldo_c
+    mov     qword ptr [rdx], 0
+    lea     rcx, [rip + .Ldo_empty]
+    mov     qword ptr [rdx + 8], rcx
+    mov     qword ptr [rdx + 16], 0
+    mov     qword ptr [rdx + 24], 0
+    mov     rax, r10
+    mov     edx, 4
+    ret
+.Ldo_c:
+    RTX_DECLINE_PTR
+RTX_ENDF(rt_defer_open_cell)
+.section .rodata
+.Ldo_empty:
+    .asciz ""
+.text
 RTX_FUNC(rt_match_ctx_restore)
     mov     rax, rdi
     neg     rax

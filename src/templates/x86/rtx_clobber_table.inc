@@ -16,6 +16,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {
     { "rt_dcap_end_ok_open", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_dcap_fast_run", 0 },
     { "rt_defer_close", 0 },
+    { "rt_defer_open_cell", RTCC_C_R8|RTCC_C_R10 },
     { "rt_div", RTCC_C_R8 },
     { "rt_div_sno", RTCC_C_R8 },
     { "rt_div_strict", RTCC_C_R8 },

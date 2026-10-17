@@ -5847,6 +5847,7 @@ extern "C" unsigned emit_rtx_clob_mask(const char * sym) {
     return 0u;
 }
 struct rtx_ssr_t { const char * s; long n; };
+struct rt_dcap_next_t { long fn; long how; };
 #define RTX_TWIN(kind, ret, leaf, twin, args) extern "C" ret twin args;
 #include "../templates/x86/rtx_twin_table.inc"
 #undef RTX_TWIN
