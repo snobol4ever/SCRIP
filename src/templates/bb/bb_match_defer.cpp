@@ -22,19 +22,15 @@ extern "C" void *dtp_fn_of(void *headv);
 extern "C" uint64_t g_sno_defer_cells[2048];
 extern uint64_t g_scan_hit_start;
 extern int g_gva_active;
-extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
 #include "x86_asm.h"
 extern "C" int sn4_alt_carrier(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define defer_inline() emit_knob_unless_zero("SCRIP_DEFER_INLINE")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define dfrm() ((_.op_seal == 1))
-#define rspd() (getenv("SCRIP_RSPDIFF") ? 1 : 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define patv_fast_on() emit_knob_unless_zero("SCRIP_PATV_FAST")
 #define defer_ic_on() emit_knob_unless_zero("SCRIP_DEFER_IC")
-#define rspd_snap(cell, nm) IF(rspd(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)(cell),nm) \
-                                     + x86("mov",RDQ("rcx",0),"rsp"))
 #define T1_TRAP_TEST() IF(_.lbl_t1_p, \
                            x86("cmp", "r14d", -2L) \
                          + x86_jcc_tgt("je", X86T_TGT1) \
@@ -221,7 +217,6 @@ std::string bb_match_defer() {
          + IF(!DF_STAR(), x86("test", "rax", "rax")
          + x86("jz", "L0"))
          + IF(DF_STAR(), x86("jmp", "L0"))
-         + rspd_snap(&g_rspd_save, "g_rspd_save")
          + x86("def", L(48))
          + x86("mov", "r8d", (long)(_.op_scan ? 1 : 0))
          + x86_rsp_mark_save()
@@ -233,7 +228,6 @@ std::string bb_match_defer() {
          + IF(dfrm(),
                x86("mov", "rsp", "rbp")
              + x86("pop", "rbp"))
-         + rspd_snap(&g_rspd_g4, "g_rspd_g4")
          + x86_gamma()
          + x86("def", L(5))
          + x86_rsp_land(0L)
@@ -242,7 +236,6 @@ std::string bb_match_defer() {
          + IF(dfrm(),
                x86("mov", "rsp", "rbp")
              + x86("pop", "rbp"))
-         + rspd_snap(&g_rspd_g5, "g_rspd_g5")
          + T1_TRAP_TEST()
          + x86_omega()
          + x86("def", "L0")
@@ -320,7 +313,6 @@ std::string bb_match_defer() {
          + x86_omega("js")
          + IF(sn4_alt_carrier(),
                x86("comment", "IR_MATCH_DEFER pseudo-record")
-             + rspd_snap(&g_rspd_s2, "g_rspd_s2")
              + x86("mov", "ecx", "r14d")
              + x86("mov", "r14d", "eax")
              + x86_lea_id("rax", 6)
@@ -331,33 +323,28 @@ std::string bb_match_defer() {
              + x86_add("rsp", 8)
              + x86("pop", "rax")
              + x86("mov", "r14d", "eax")
-             + rspd_snap(&g_rspd_g6, "g_rspd_g6")
              + x86_omega())
          + IF(!sn4_alt_carrier(),
                x86("mov", "r14d", "eax")
              + x86_lea_id("rax", 6)
-             + rspd_snap(&g_rspd_s2, "g_rspd_s2")
              + x86_sub("rsp", 8)
              + x86("push", "rax")
              + x86_gamma()
              + x86("def", L(6))
              + x86_add("rsp", 16)
-             + rspd_snap(&g_rspd_g6, "g_rspd_g6")
              + x86_omega())
          + x86_beta()
          + ((_.op_seal == 1)
               ? x86_omega()
               : ((_.op_defer_leaf_susp > 0
-                   ? (rspd_snap(&g_rspd_beta, "g_rspd_beta")
-                      + x86("mov", "rax", RDQ("rsp", 0))
+                   ? (x86("mov", "rax", RDQ("rsp", 0))
                       + x86("test", "rax", "rax")
                       + x86("jne", L(12))
                       + x86_zrelease((long)_.op_defer_leaf_susp)
                       + x86_omega()
                       + x86("def", L(12))
                       + x86_jmp_reg("rax"))
-                   : (rspd_snap(&g_rspd_beta, "g_rspd_beta")
-                      + (emit_knob_unless_zero("SCRIP_DEFER_BETA_GUARD")
+                   : ((emit_knob_unless_zero("SCRIP_DEFER_BETA_GUARD")
                           ? (x86("cmp", RDQ("rsp", 0), 0L)
                            + x86("jne", L(12))
                            + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")

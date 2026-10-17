@@ -830,23 +830,6 @@ uint64_t g_scan_hit_start = 0;
 uint64_t g_sno_defer_cells[2048];
 static int g_sno_defer_pair_hwm = 0;
 void rt_defer_pairs_forget(void) { for (int i = 0; i < g_sno_defer_pair_hwm; i++) { g_sno_defer_cells[i * 2] = 0; g_sno_defer_cells[i * 2 + 1] = 0; } g_sno_defer_pair_hwm = 0; }
-uint64_t g_pat_main_rsp = 0;
-uint64_t g_rspd_save = 0, g_rspd_g4 = 0, g_rspd_g5 = 0, g_rspd_s2 = 0, g_rspd_g6 = 0, g_rspd_beta = 0;
-#if RT_DIAG
-static int g_rspd_active = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((constructor)) static void rt_rspd_init(void) { g_rspd_active = (getenv("SCRIP_RSPDIFF") != NULL); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((destructor)) static void rt_rspd_report(void) {
-    if (!g_rspd_active) return;
-    fprintf(stderr, "RSPDIFF raw: save=%#lx g4=%#lx g5=%#lx s2=%#lx g6=%#lx beta=%#lx\n", (unsigned long)g_rspd_save, (unsigned long)g_rspd_g4, (unsigned long)g_rspd_g5, (unsigned long)g_rspd_s2,
-        (unsigned long)g_rspd_g6, (unsigned long)g_rspd_beta);
-    if (g_rspd_save && g_rspd_g4) fprintf(stderr, "RSPDIFF gamma-retained (save-g4)   = %ld\n", (long)(g_rspd_save - g_rspd_g4));
-    if (g_rspd_save && g_rspd_g5) fprintf(stderr, "RSPDIFF omega-restored (save-g5)   = %ld\n", (long)(g_rspd_save - g_rspd_g5));
-    if (g_rspd_save && g_rspd_beta) fprintf(stderr, "RSPDIFF beta-children (save-beta)  = %ld\n", (long)(g_rspd_save - g_rspd_beta));
-    if (g_rspd_s2 && g_rspd_g6) fprintf(stderr, "RSPDIFF exhaust-delta (s2-g6)      = %ld\n", (long)(g_rspd_s2 - g_rspd_g6));
-}
-#endif
 #include "pin_va.h"
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
 const char *g_dcap_base = 0;
