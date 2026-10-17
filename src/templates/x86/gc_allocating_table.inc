@@ -1875,6 +1875,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_nofail_abort", GC_RET_VOID },
     { "rt_nret_fix", GC_RET_DESCR },
     { "rt_nret_fix_tiny", GC_RET_DESCR },
+    { "rt_nret_name", GC_RET_DESCR },
     { "rt_num_arg_d", GC_RET_OTHER },
     { "rt_num_arith", GC_RET_DESCR },
     { "rt_num_arith_body", GC_RET_DESCR },

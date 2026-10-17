@@ -45,6 +45,7 @@ int rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
 extern "C" struct gv_s g_call_args;
 extern "C" int g_gc_pending;
+extern "C" DESCR_t rt_nret_name(DESCR_t r);
 int rt_proc_is_registered(const char *name); int rt_proc_is_redefined(const char *name); int rt_proc_is_variadic(const char *name);
 int rt_proc_nformals(const char *name);
 int rt_pl_dc_ok(const char *name, int nargs);
@@ -169,6 +170,19 @@ static std::string bcps_nret_consult(const std::string & r0, const std::string &
          + x86("mov", "ecx", RDD("rcx", 0))
          + x86("cmp", "ecx", (long)0)
          + x86("je", L(29))
+         + x86("cmp", "eax", (long)DT_N)
+         + x86("je", L(25))
+         + x86("mov", "rdi", "rax")
+         + x86("mov", "rsi", "rdx")
+         + x86_rtcc_call_descr_ops("rt_nret_name", TEMPLATE_FN_ADDR(rt_nret_name), r0, r8)
+         + x86("mov", "rax", r0.c_str())
+         + x86("mov", "rdx", r8.c_str())
+         + x86("cmp", "eax", (long)DT_N)
+         + x86("je", L(25))
+         + x86("mov", "rcx", bcps_nret_got(), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
+         + x86("mov", RDD("rcx", 0), (long)0)
+         + x86("jmp", L(23))
+         + x86("def", L(25))
          + x86("mov", "rcx", bcps_nret_got(), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
          + x86("mov", "ecx", RDD("rcx", 0))
          + x86("cmp", "ecx", (long)0)
