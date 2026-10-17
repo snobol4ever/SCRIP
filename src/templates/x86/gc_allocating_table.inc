@@ -1,6 +1,6 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {
+static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "APPLY_fn", GC_RET_DESCR },
     { "APPLY_fn_rq", GC_RET_DESCR },
     { "ASGNIC_fn", GC_RET_OTHER },

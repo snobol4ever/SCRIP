@@ -134,6 +134,7 @@ def build_rows(so, out=print):
 
 BANNER = "gc_allocating_table.inc"
 
+NAME_W = 64
 def render(rows, so):
     # CEO-1787: NO COUNT IN THE FILE. The table used to open with GC_ALLOC_TAB_N and four per-class counts, so
     # every landing that added a runtime function rewrote the same five lines and any two such landings conflicted
@@ -143,7 +144,13 @@ def render(rows, so):
     L = []
     L.append("#ifndef GC_ALLOCATING_TABLE_INC")
     L.append("#define GC_ALLOCATING_TABLE_INC")
-    L.append("static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {")
+    # INLINE NAMES (cto 2026-10-17): a const char * per row was one relative relocation per row in .data.rel.ro, which
+    # ld.so applied and dirtied in every process of every language (about 2,850 rows, 45 kB); a fixed char[64] per row
+    # is clean shared .rodata. The width is a constant so the line never changes; a longer symbol refuses below.
+    long_names = [s for s, c in rows if len(s) >= NAME_W]
+    if long_names:
+        raise SystemExit("REFUSED(2): %d symbol(s) need more than %d bytes inline (first: %s) -- rename it or raise NAME_W deliberately" % (len(long_names), NAME_W - 1, long_names[0]))
+    L.append("static const struct { char n[%d]; unsigned char rc; } GC_ALLOC_TAB[] = {" % NAME_W)
     for s, c in rows:
         L.append('    { "%s", %s },' % (s, RC_ENUM[c]))
     L.append("};")
