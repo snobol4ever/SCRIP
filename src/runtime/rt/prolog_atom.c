@@ -163,7 +163,7 @@ static void op_cols_fill(void) {
         const char *ty;
         int p;
     } pre[] = { { "dynamic", "fx", 1150 }, { "discontiguous", "fx", 1150 }, { "initialization", "fx", 1150 }, { "module", "fx", 1150 }, { "multifile", "fx", 1150 }, { "public", "fx", 1150 },
-        { "meta_predicate", "fx", 1150 }, { "table", "fx", 1150 }, { "not", "fy", 900 }, { 0, 0, 0 } };
+        { "meta_predicate", "fx", 1150 }, { "table", "fx", 1150 }, { 0, 0, 0 } };
     opcols_ready = 1;
     extern int prolog_op_user_count(void);
     extern int prolog_op_user_get(int, const char **, int *, const char **);
