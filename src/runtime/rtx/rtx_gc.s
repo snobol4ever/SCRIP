@@ -298,6 +298,10 @@
 .endm
 #define HB_WSB 215
 #define HB_DTP 221
+#define HB_PLDB 216
+#define HB_PLDBS 217
+#define HB_PLDBR 218
+#define HB_PLDBK 219
 #define HB_DTPRCP 222
 #define DATA_INST_SLEN 0
 .macro MK_EXACTQ type, rej
@@ -754,8 +758,91 @@ RTX_ENTRY(rt_gc_walk_words_a)
     je      .Lmk_m_dtp
     cmp     edx, HB_DTPRCP
     je      .Lmk_m_dtprcp
+    cmp     edx, HB_PLDB
+    je      .Lmk_m_pldb
+    cmp     edx, HB_PLDBS
+    je      .Lmk_m_pldbs
+    cmp     edx, HB_PLDBR
+    je      .Lmk_m_pldbr
+    cmp     edx, HB_PLDBK
+    je      .Lmk_m_pldbk
     or      rax, 2
     jmp     .Lmk_out
+.Lmk_m_pldb:
+    mov     r10, qword ptr [rsi]
+    test    r10, r10
+    je      .Lmk_loop
+    MK_RAW rsi
+    jmp     .Lmk_loop
+.Lmk_m_pldbs:
+    mov     edx, dword ptr [rax + 8]
+    sub     rdx, 16
+    xor     ecx, ecx
+    mov     rax, rdx
+    mov     rdx, 0xCCCCCCCCCCCCCCCD
+    mul     rdx
+    shr     rdx, 5
+    mov     rcx, qword ptr [rdi + 16]
+    sub     rcx, r11
+    cmp     rcx, rdx
+    jl      .Lmk_blk_full_wl
+    lea     rdx, [rdx + rdx*4]
+    lea     rdx, [rsi + rdx*8]
+    mov     qword ptr [rdi + 176], rdx
+.Lmk_pldbs_e:
+    cmp     rsi, qword ptr [rdi + 176]
+    jae     .Lmk_loop
+    MK_WLPUSH rsi
+    add     rsi, 40
+    jmp     .Lmk_pldbs_e
+.Lmk_m_pldbr:
+    mov     r10, qword ptr [rsi]
+    test    r10, r10
+    je      .Lmk_m_pldbr1
+    MK_RAW rsi
+.Lmk_m_pldbr1:
+    mov     r10, qword ptr [rsi + 24]
+    test    r10, r10
+    je      .Lmk_m_pldbr2
+    MK_RAW rsi+24
+.Lmk_m_pldbr2:
+    mov     r10, qword ptr [rsi + 32]
+    test    r10, r10
+    je      .Lmk_loop
+    MK_RAW rsi+32
+    jmp     .Lmk_loop
+.Lmk_m_pldbk:
+    mov     edx, dword ptr [rax + 8]
+    sub     rdx, 16
+    shr     rdx, 4
+    mov     rax, rdx
+    mov     rdx, 0xAAAAAAAAAAAAAAAB
+    mul     rdx
+    shr     rdx, 1
+    lea     rcx, [rdx + rdx]
+    mov     rax, qword ptr [rdi + 40]
+    sub     rax, rbx
+    cmp     rax, rcx
+    jl      .Lmk_blk_full_slots
+    lea     rdx, [rdx + rdx*2]
+    shl     rdx, 4
+    add     rdx, rsi
+    mov     qword ptr [rdi + 176], rdx
+.Lmk_pldbk_e:
+    cmp     rsi, qword ptr [rdi + 176]
+    jae     .Lmk_loop
+    mov     r10, qword ptr [rsi + 16]
+    test    r10, r10
+    je      .Lmk_pldbk_k
+    MK_RAW rsi+16
+.Lmk_pldbk_k:
+    mov     r10, qword ptr [rsi]
+    test    r10, r10
+    je      .Lmk_pldbk_n
+    MK_RAW rsi
+.Lmk_pldbk_n:
+    add     rsi, 48
+    jmp     .Lmk_pldbk_e
 .Lmk_m_dtp:
     mov     r10, qword ptr [rsi + 8]
     test    r10, r10
@@ -2309,4 +2396,275 @@ RTX_FUNC(rt_gc_flags_roots_run)
     RTX_POPS(rbx)
     ret
 RTX_ENDF(rt_gc_flags_roots_run)
+RTX_FUNC(rt_gc_sw_links_a)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    mov     r12, rdi
+    mov     rbx, qword ptr [r12 + 8]
+    test    rbx, rbx
+    je      .Lln_ok
+    test    dword ptr [rbx + 12], 8
+    je      .Lln_ok
+    lea     r13, [rbx + 32]
+    mov     r14, qword ptr [r12]
+    mov     r15, qword ptr [r12 + 32]
+.Lln_j:
+    mov     rax, qword ptr [r12 + 184]
+    cmp     rax, qword ptr [r13]
+    jae     .Lln_ok
+    mov     rdx, qword ptr [r13 + 8 + rax*8]
+    mov     rcx, rdx
+    shr     rcx, 32
+    and     ecx, 0xFF
+    cmp     ecx, 4
+    je      .Lln_kind
+    cmp     ecx, 5
+    jne     .Lln_next_j
+.Lln_kind:
+    mov     qword ptr [r12 + 200], rcx
+    mov     rcx, rdx
+    shr     rcx, 40
+    and     ecx, 0xFFFF
+    mov     qword ptr [r12 + 208], rcx
+    movsxd  rdx, edx
+    add     rdx, r14
+    mov     qword ptr [r12 + 216], rdx
+.Lln_k:
+    mov     rax, qword ptr [r12 + 192]
+    cmp     rax, qword ptr [r12 + 208]
+    jae     .Lln_next_j
+    mov     rbp, qword ptr [r12 + 216]
+    add     rbp, rax
+    mov     rsi, qword ptr [rbp]
+    test    rsi, rsi
+    je      .Lln_next_k
+    cmp     qword ptr [r12 + 24], -1
+    jne     .Lln_rule_ok
+    cmp     qword ptr [r12 + 16], 0
+    jne     .Lln_rule_ok
+    cmp     rsi, r15
+    jb      .Lln_next_k
+    cmp     rsi, qword ptr [r12 + 40]
+    jae     .Lln_next_k
+.Lln_rule_ok:
+    mov     qword ptr [r12 + 224], 0
+    cmp     qword ptr [r12 + 200], 5
+    jne     .Lln_beta_c
+    mov     qword ptr [r12 + 224], rsi
+    cmp     rsi, r15
+    jb      .Lln_refuse
+    lea     rax, [rsi + 48]
+    cmp     rax, qword ptr [r12 + 40]
+    ja      .Lln_refuse
+    cmp     rsi, r14
+    jae     .Lln_refuse
+    mov     rdi, qword ptr [rsi + 32]
+    jmp     .Lln_beta_ok
+.Lln_beta_c:
+    mov     rdi, qword ptr [rbp + 8]
+.Lln_beta_ok:
+    mov     qword ptr [r12 + 232], rdi
+    mov     qword ptr [r12 + 240], rsi
+    cmp     qword ptr [r12 + 104], rdi
+    jne     .Lln_m1
+    mov     rax, qword ptr [r12 + 136]
+    test    rax, rax
+    jne     .Lln_have_b
+.Lln_m1:
+    cmp     qword ptr [r12 + 112], rdi
+    jne     .Lln_m2
+    mov     rax, qword ptr [r12 + 144]
+    test    rax, rax
+    jne     .Lln_have_b
+.Lln_m2:
+    cmp     qword ptr [r12 + 120], rdi
+    jne     .Lln_m3
+    mov     rax, qword ptr [r12 + 152]
+    test    rax, rax
+    jne     .Lln_have_b
+.Lln_m3:
+    cmp     qword ptr [r12 + 128], rdi
+    jne     .Lln_cb
+    mov     rax, qword ptr [r12 + 160]
+    test    rax, rax
+    jne     .Lln_have_b
+.Lln_cb:
+    lea     rax, [rip + g_gc_mk]
+    cmp     qword ptr [rax + 304], 0
+    jne     .Lln_decline
+    mov     r10, qword ptr [r12 + 88]
+    xor     eax, eax
+    mov     rdx, qword ptr [r12 + 96]
+    dec     rdx
+    mov     rcx, -1
+.Lln_bs:
+    cmp     rax, rdx
+    jg      .Lln_bs_done
+    lea     r11, [rax + rdx]
+    sar     r11, 1
+    mov     rsi, r11
+    shl     rsi, 4
+    lea     rsi, [rsi + rsi*4]
+    add     rsi, r10
+    cmp     qword ptr [rsi + 16], rdi
+    ja      .Lln_bs_hi
+    mov     rcx, r11
+    lea     rax, [r11 + 1]
+    jmp     .Lln_bs
+.Lln_bs_hi:
+    lea     rdx, [r11 - 1]
+    jmp     .Lln_bs
+.Lln_bs_done:
+    test    rcx, rcx
+    js      .Lln_cb_none
+    mov     rsi, rcx
+    shl     rsi, 4
+    lea     rsi, [rsi + rsi*4]
+    add     rsi, r10
+    cmp     qword ptr [rsi + 8], 0
+    je      .Lln_sb_prev
+    cmp     qword ptr [rsi + 72], 0
+    jne     .Lln_sb_hit
+.Lln_sb_prev:
+    dec     rcx
+    jmp     .Lln_bs_done
+.Lln_sb_hit:
+    mov     rax, rsi
+    mov     rdx, qword ptr [rsi + 72]
+    mov     r11, rcx
+.Lln_nb:
+    dec     r11
+    js      .Lln_cb_store
+    mov     rsi, r11
+    shl     rsi, 4
+    lea     rsi, [rsi + rsi*4]
+    add     rsi, r10
+    cmp     qword ptr [rsi + 16], rdx
+    jne     .Lln_cb_store
+    cmp     qword ptr [rsi + 8], 0
+    je      .Lln_nb
+    cmp     qword ptr [rsi + 72], rdx
+    jne     .Lln_nb
+    mov     rsi, qword ptr [rsi + 8]
+    cmp     rsi, qword ptr [rax + 8]
+    je      .Lln_nb
+.Lln_cb_none:
+    xor     eax, eax
+.Lln_cb_store:
+    mov     rcx, qword ptr [r12 + 168]
+    and     ecx, 3
+    mov     qword ptr [r12 + 104 + rcx*8], rdi
+    mov     qword ptr [r12 + 136 + rcx*8], rax
+    inc     qword ptr [r12 + 168]
+.Lln_have_b:
+    test    rax, rax
+    je      .Lln_refuse
+    mov     rcx, rax
+    mov     rdx, qword ptr [rcx + 8]
+    mov     rsi, qword ptr [r12 + 240]
+    cmp     qword ptr [r12 + 224], 0
+    je      .Lln_nohdr
+    test    dword ptr [rdx + 12], 2
+    je      .Lln_refuse
+    mov     rsi, qword ptr [r12 + 224]
+    mov     eax, dword ptr [rdx + 4]
+    sub     rsi, rax
+    cmp     rsi, r15
+    jb      .Lln_refuse
+    mov     qword ptr [r12 + 240], rsi
+.Lln_nohdr:
+    cmp     rsi, r15
+    jb      .Lln_refuse
+    mov     rax, qword ptr [rdx + 24]
+    add     rax, rsi
+    add     rax, 16
+    mov     edi, dword ptr [rdx + 8]
+    add     rax, rdi
+    cmp     rax, qword ptr [r12 + 40]
+    ja      .Lln_refuse
+    cmp     rsi, r14
+    jae     .Lln_refuse
+    mov     rax, qword ptr [rcx + 56]
+    bt      rax, 63
+    jnc     .Lln_refuse
+    mov     qword ptr [r12 + 248], rcx
+    and     rax, 0x0FFFFFFF
+    mov     rdi, qword ptr [rsi + rax]
+    lea     rsi, [r12 + 256]
+    mov     rdx, qword ptr [r12 + 88]
+    mov     rcx, qword ptr [r12 + 96]
+    RTX_SUB_RSP(8)
+    RTX_CALL(rt_gc_site_find_a)
+    RTX_ADD_RSP(8)
+    test    rax, rax
+    je      .Lln_refuse
+    cmp     qword ptr [r12 + 256], 0
+    je      .Lln_refuse
+    cmp     qword ptr [rax + 8], rbx
+    jne     .Lln_refuse
+    mov     rsi, qword ptr [r12 + 240]
+    cmp     rsi, qword ptr [r12 + 48]
+    je      .Lln_next_k
+    cmp     rsi, qword ptr [r12 + 56]
+    jb      .Lln_refuse
+    mov     rcx, qword ptr [r12 + 64]
+    mov     rdx, qword ptr [r12 + 72]
+    xor     eax, eax
+.Lln_dd:
+    cmp     rax, rdx
+    jae     .Lln_push
+    mov     rdi, rax
+    shl     rdi, 5
+    cmp     qword ptr [rcx + rdi], rsi
+    je      .Lln_next_k
+    inc     rax
+    jmp     .Lln_dd
+.Lln_push:
+    cmp     rdx, qword ptr [r12 + 80]
+    jae     .Lln_grow
+    mov     rdi, rdx
+    shl     rdi, 5
+    add     rdi, rcx
+    mov     qword ptr [rdi], rsi
+    mov     rax, qword ptr [r12 + 248]
+    mov     rcx, qword ptr [rax + 8]
+    mov     qword ptr [rdi + 8], rcx
+    mov     rcx, qword ptr [rax + 56]
+    mov     qword ptr [rdi + 16], rcx
+    mov     dword ptr [rdi + 24], -1
+    mov     dword ptr [rdi + 28], 0
+    inc     qword ptr [r12 + 72]
+    mov     rax, qword ptr [r12 + 176]
+    inc     qword ptr [rax]
+.Lln_next_k:
+    add     qword ptr [r12 + 192], 8
+    jmp     .Lln_k
+.Lln_next_j:
+    inc     qword ptr [r12 + 184]
+    mov     qword ptr [r12 + 192], 0
+    jmp     .Lln_j
+.Lln_ok:
+    mov     eax, 1
+    jmp     .Lln_out
+.Lln_refuse:
+    xor     eax, eax
+    jmp     .Lln_out
+.Lln_grow:
+    mov     eax, 4
+    jmp     .Lln_out
+.Lln_decline:
+    mov     eax, 5
+.Lln_out:
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_gc_sw_links_a)
 .section .note.GNU-stack,"",@progbits

@@ -3366,26 +3366,9 @@ _Static_assert(__builtin_offsetof(pl_db_reg_t, ovf) == 24,
     "xa_flat.cpp's packet road loads a root cell numbered PL_DB_FRAME_CELLS or more through [registry + 24], the overflow vector -- the cells past the root frame live there, in an HB_PVEC that grows"
     " by doubling");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void pl_db_gc_visit(uint16_t type, void *p, size_t bytes) {
-    extern void rt_gc_visit_raw(const char **);
-    extern void rt_gc_visit_descr(DESCR_t *);
-    if (type == HB_PLDB) { pl_db_t *d = (pl_db_t *)p; if (d->s) rt_gc_visit_raw((const char **)&d->s); return; }
-    if (type == HB_PLDBS) { pl_db_slot_t *s = (pl_db_slot_t *)p; size_t n = bytes / sizeof(pl_db_slot_t); for (size_t i = 0; i < n; i++) rt_gc_visit_descr(&s[i].cl); return; }
-    if (type == HB_PLDBR) {
-        pl_db_reg_t *r = (pl_db_reg_t *)p;
-        if (r->e) rt_gc_visit_raw((const char **)&r->e);
-        if (r->ovf) rt_gc_visit_raw((const char **)&r->ovf);
-        if (r->tries) rt_gc_visit_raw((const char **)&r->tries);
-        return;
-    }
-    if (type == HB_PLDBK) {
-        pl_db_key_t *k = (pl_db_key_t *)p;
-        size_t n = bytes / sizeof(pl_db_key_t);
-        for (size_t i = 0; i < n; i++) { if (k[i].db) rt_gc_visit_raw((const char **)&k[i].db); if (k[i].key) rt_gc_visit_raw((const char **)&k[i].key); }
-        return;
-    }
-    abort();
-}
+_Static_assert(__builtin_offsetof(pl_db_t, s) == 0 && __builtin_offsetof(pl_db_slot_t, cl) == 0 && sizeof(pl_db_slot_t) == 40 && __builtin_offsetof(pl_db_reg_t, e) == 0 &&
+    __builtin_offsetof(pl_db_reg_t, ovf) == 24 && __builtin_offsetof(pl_db_reg_t, tries) == 32 && __builtin_offsetof(pl_db_key_t, key) == 0 && __builtin_offsetof(pl_db_key_t, db) == 16 &&
+    sizeof(pl_db_key_t) == 48, "rt_gc_mark_run (rtx_gc.s) visits the Prolog db store, slots, registry and keys at these offsets");
 static pl_db_reg_t * pl_db_registry(void *root, int create) {
     if (!root) return (pl_db_reg_t *)0;
     {

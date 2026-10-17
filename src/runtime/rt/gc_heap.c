@@ -799,7 +799,7 @@ typedef struct gc_mk_t {
     long fc_kind;
     const char *sw_p, *sw_hi;
     void **hs;
-    long hcap, hn, tb_h, code_unsorted;
+    long hcap, hn, tb_h, code_unsorted, census, maps;
 } gc_mk_t;
 _Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_t, wln) == 8 && __builtin_offsetof(gc_mk_t, wlcap) == 16 && __builtin_offsetof(gc_mk_t, slots) == 24 &&
     __builtin_offsetof(gc_mk_t, nslot) == 32 && __builtin_offsetof(gc_mk_t, scap) == 40 && __builtin_offsetof(gc_mk_t, arena) == 48 && __builtin_offsetof(gc_mk_t, top) == 56 &&
@@ -810,8 +810,9 @@ _Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_
     __builtin_offsetof(gc_mk_t, fc_anchor) == 192 && __builtin_offsetof(gc_mk_t, fc_map) == 200 && __builtin_offsetof(gc_mk_t, fc_i) == 224 && __builtin_offsetof(gc_mk_t, fc_c) == 232 &&
     __builtin_offsetof(gc_mk_t, fc_kind) == 248 && __builtin_offsetof(gc_mk_t, sw_p) == 256 && __builtin_offsetof(gc_mk_t, sw_hi) == 264 && __builtin_offsetof(gc_mk_t, hs) == 272 &&
     __builtin_offsetof(gc_mk_t, hcap) == 280 && __builtin_offsetof(gc_mk_t, hn) == 288 && __builtin_offsetof(gc_mk_t, tb_h) == 296 && __builtin_offsetof(gc_mk_t, code_unsorted) == 304 &&
-    __builtin_offsetof(VCELL_t, cellp) == 0 && __builtin_offsetof(VCELL_t, tbl) == 8 && __builtin_offsetof(VCELL_t, key) == 16 && __builtin_offsetof(VCELL_t, key_d) == 24 &&
-    __builtin_offsetof(VCELL_t, sv) == 40 && sizeof(gc_frame_map_t) == 32 && GC_LAY_DESCR == 0 && GC_LAY_PTR_GC == 2, "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
+    __builtin_offsetof(gc_mk_t, census) == 312 && __builtin_offsetof(gc_mk_t, maps) == 320 && __builtin_offsetof(VCELL_t, cellp) == 0 && __builtin_offsetof(VCELL_t, tbl) == 8 &&
+    __builtin_offsetof(VCELL_t, key) == 16 && __builtin_offsetof(VCELL_t, key_d) == 24 && __builtin_offsetof(VCELL_t, sv) == 40 && sizeof(gc_frame_map_t) == 32 && GC_LAY_DESCR == 0 &&
+    GC_LAY_PTR_GC == 2, "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
 _Static_assert(__builtin_offsetof(ARBLK_t, lo) == 0 && __builtin_offsetof(ARBLK_t, hi) == 4 && __builtin_offsetof(ARBLK_t, ndim) == 8 && __builtin_offsetof(ARBLK_t, lo2) == 12 &&
     __builtin_offsetof(ARBLK_t, hi2) == 16 && __builtin_offsetof(ARBLK_t, proto) == 24 && __builtin_offsetof(ARBLK_t, data) == 32 && __builtin_offsetof(TBBLK_t, buckets) == 0 &&
     __builtin_offsetof(TBBLK_t, nbuck) == 8 && __builtin_offsetof(TBBLK_t, dflt) == 32 && __builtin_offsetof(TBBLK_t, ord) == 56 && __builtin_offsetof(TBBLK_t, ord_len) == 64 &&
@@ -1491,7 +1492,6 @@ static void gc_visit_one(DESCR_t *d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_visit_mblk(rt_hblk_t *h) {
     if (h->type == HB_AGGV) { if (!gc_vis_test_set(h)) gc_visit_vcell((VCELL_t *)(h + 1)); return; }
-    if (h->type >= HB_PLDB && h->type <= HB_PLDBK) { extern void pl_db_gc_visit(uint16_t, void *, size_t); pl_db_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t)); return; }
     if (h->type == HB_TRIE || h->type == HB_TRIEN) { extern void pl_trie_gc_visit(uint16_t, void *); pl_trie_gc_visit(h->type, (void *)(h + 1)); return; }
 #if RT_DIAG
     if (h->type <= HB_ZCOL || h->type == HB_FILL || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_WSB) return;
@@ -2270,13 +2270,13 @@ static void gc_visit_frame_cells(const char *anchor, const gc_frame_map_t *m, co
 }
 static void gc_walk_words_x(const char *lo, const char *hi, int cls, const char *rlo, const char *graph, const char *base) {
 #if RT_DIAG
-    if (gc_walk_census_on()) { gc_walk_words_census(lo, hi, cls, rlo, graph, base); return; }
+    if (g_gc_mk.census) { gc_walk_words_census(lo, hi, cls, rlo, graph, base); return; }
 #endif
     gc_walk_words(lo, hi, cls, rlo, graph, base);
 }
 static void gc_visit_frame_cells_x(const char *anchor, const gc_frame_map_t *m, const char *lo, const char *hi) {
 #if RT_DIAG
-    if (gc_walk_census_on()) { gc_visit_frame_cells_census(anchor, m, lo, hi); return; }
+    if (g_gc_mk.census) { gc_visit_frame_cells_census(anchor, m, lo, hi); return; }
 #endif
     gc_visit_frame_cells(anchor, m, lo, hi);
 }
@@ -2778,18 +2778,40 @@ static const char *gc_chain_stopname(int k) {
     }
 }
 typedef struct { gc_chf_t *v; long n, cap; } gc_gap_t;
-typedef struct {
-    const char *lo, *hi, *p, *prevbase, *lastname, *roottop;
-    long n;
-    int run, visit, stop;
-    rt_gc_frame_fn fn;
-    void *a;
-    gc_chf_t lastf;
-    gc_gap_t gap;
+typedef struct gc_links_args_t {
+    const char *f_base;
+    const gc_frame_map_t *f_map;
+    uint64_t f_link;
+    long f_rule;
+    const char *s_lo, *s_hi, *prevbase, *glo;
+    gc_chf_t *gap_v;
+    long gap_n, gap_cap;
+    const gc_site_blk_t *sblk;
+    long sblk_n;
     uint64_t memo_beta[4];
     const gc_site_blk_t *memo_blk[4];
-    int memo_at;
-} gc_sw_t;
+    long memo_at;
+    long *links_ctr;
+    long pos_j, pos_k, kind, size;
+    const char *cbase, *hdr;
+    uint64_t beta;
+    const char *v;
+    const gc_site_blk_t *b;
+    const gc_site_ent_t *ent;
+} gc_links_args_t;
+_Static_assert(__builtin_offsetof(gc_links_args_t, f_base) == 0 && __builtin_offsetof(gc_links_args_t, f_map) == 8 && __builtin_offsetof(gc_links_args_t, f_link) == 16 &&
+    __builtin_offsetof(gc_links_args_t, f_rule) == 24 && __builtin_offsetof(gc_links_args_t, s_lo) == 32 && __builtin_offsetof(gc_links_args_t, s_hi) == 40 &&
+    __builtin_offsetof(gc_links_args_t, prevbase) == 48 && __builtin_offsetof(gc_links_args_t, glo) == 56 && __builtin_offsetof(gc_links_args_t, gap_v) == 64 &&
+    __builtin_offsetof(gc_links_args_t, gap_n) == 72 && __builtin_offsetof(gc_links_args_t, gap_cap) == 80 && __builtin_offsetof(gc_links_args_t, sblk) == 88 &&
+    __builtin_offsetof(gc_links_args_t, sblk_n) == 96 && __builtin_offsetof(gc_links_args_t, memo_beta) == 104 && __builtin_offsetof(gc_links_args_t, memo_blk) == 136 &&
+    __builtin_offsetof(gc_links_args_t, memo_at) == 168 && __builtin_offsetof(gc_links_args_t, links_ctr) == 176 && __builtin_offsetof(gc_links_args_t, pos_j) == 184 &&
+    __builtin_offsetof(gc_links_args_t, pos_k) == 192 && __builtin_offsetof(gc_links_args_t, kind) == 200 && __builtin_offsetof(gc_links_args_t, size) == 208 &&
+    __builtin_offsetof(gc_links_args_t, cbase) == 216 && __builtin_offsetof(gc_links_args_t, hdr) == 224 && __builtin_offsetof(gc_links_args_t, beta) == 232 &&
+    __builtin_offsetof(gc_links_args_t, v) == 240 && __builtin_offsetof(gc_links_args_t, b) == 248 && __builtin_offsetof(gc_links_args_t, ent) == 256 && sizeof(gc_chf_t) == 32 &&
+    __builtin_offsetof(gc_chf_t, map) == 8 && __builtin_offsetof(gc_chf_t, link) == 16 && __builtin_offsetof(gc_chf_t, rule) == 24 && __builtin_offsetof(gc_chf_t, ext) == 28 &&
+    GC_LAY_PTR_FRAME == 4 && GC_LAY_PTR_FRAME_H == 5 && GC_FRAME_MAP_GEN_ANCHOR == 2 && GC_FRAME_MAP_LAYOUT == 8,
+    "rt_gc_sw_links_a (rtx_gc.s) reads its argument block, the gap entries and the layout kinds at these offsets");
+typedef struct { const char *lo, *hi, *p, *prevbase, *lastname, *roottop; long n; int run, visit, stop; rt_gc_frame_fn fn; void *a; gc_chf_t lastf; gc_gap_t gap; gc_links_args_t la; } gc_sw_t;
 static void gc_gap_open(gc_gap_t *g) {
     g->cap = 24;
     g->v = (gc_chf_t *)gcbk_alloc((size_t)g->cap * sizeof *g->v);
@@ -2797,15 +2819,16 @@ static void gc_gap_open(gc_gap_t *g) {
     if (!g->v) { fprintf(stderr, "[ZGC] the retained-frame set of a chain gap could not be opened\n"); abort(); }
 }
 static void gc_gap_close(gc_gap_t *g) { if (g->v) gcbk_drop((void *)g->v); g->v = (gc_chf_t *)0; g->n = 0; g->cap = 0; }
+static void gc_gap_grow(gc_gap_t *g) {
+    gc_chf_t *nv = (gc_chf_t *)gcbk_alloc((size_t)(2 * g->cap) * sizeof *nv);
+    if (!nv) { fprintf(stderr, "[ZGC] the retained-frame set of one chain gap could not grow past %ld entries\n", g->cap); abort(); }
+    memcpy(nv, g->v, (size_t)g->n * sizeof *nv);
+    gcbk_drop((void *)g->v);
+    g->v = nv;
+    g->cap *= 2;
+}
 static void gc_gap_push(gc_gap_t *g, const char *base, const gc_frame_map_t *m, uint64_t link) {
-    if (g->n == g->cap) {
-        gc_chf_t *nv = (gc_chf_t *)gcbk_alloc((size_t)(2 * g->cap) * sizeof *nv);
-        if (!nv) { fprintf(stderr, "[ZGC] the retained-frame set of one chain gap could not grow past %ld entries\n", g->cap); abort(); }
-        memcpy(nv, g->v, (size_t)g->n * sizeof *nv);
-        gcbk_drop((void *)g->v);
-        g->v = nv;
-        g->cap *= 2;
-    }
+    if (g->n == g->cap) gc_gap_grow(g);
     g->v[g->n].base = base;
     g->v[g->n].map = m;
     g->v[g->n].link = link;
@@ -2907,7 +2930,7 @@ static void gc_sw_frame(gc_sw_t *s, const gc_chf_t *f) {
             const char *c = base - (long)m->frame_bytes, *top = base + (long)m->header_bytes;
             if (top > hi) top = hi;
 #if RT_DIAG
-            if (gc_maps_on() && base + 24 <= hi) {
+            if (g_gc_mk.maps && base + 24 <= hi) {
                 const char *const *h = (const char *const *)base;
                 int up = h[0] > base && h[0] < hi, r1 = gc_code_range(h[1]), r2 = gc_code_range(h[2]);
                 if (!(up && r1 && r2)) g->ghost++;
@@ -2924,7 +2947,7 @@ static void gc_sw_frame(gc_sw_t *s, const gc_chf_t *f) {
             const char *slo = (base < s->p) ? s->p : base, *hlo = base + (long)m->value_bytes + 16, *hhi = hlo + (long)m->header_bytes;
             if (hhi > hi) hhi = hi;
 #if RT_DIAG
-            if (gc_maps_on() && gc_maps_verbose())
+            if (g_gc_mk.maps && gc_maps_verbose())
                 fprintf(gc_maps_log(), "[GC-WALK-CELL] pop=%s cell=%p graph=%s frame_bytes=%u header_bytes=%u value_bytes=%lu flags=%u\n", g_gc_rep_popname[k],
                 (const void *)(base + (long)m->value_bytes), m->graph_name ? m->graph_name : "?", m->frame_bytes, m->header_bytes, (unsigned long)m->value_bytes, m->flags);
             {
@@ -2949,7 +2972,7 @@ static void gc_sw_frame(gc_sw_t *s, const gc_chf_t *f) {
     s->n++;
     s->lastname = m->graph_name;
 }
-static int gc_sw_links(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char *glo) {
+static int gc_sw_links_c(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char *glo) {
     const gc_frame_map_t *m = f->map;
     const uint64_t *t;
     if (!m || !(m->flags & GC_FRAME_MAP_LAYOUT)) return 1;
@@ -2972,11 +2995,7 @@ static int gc_sw_links(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char *g
                 else beta = *(const uint64_t *)(hdr + 32);
             } else beta = *(const uint64_t *)(c + 8);
             if (why) b = (const gc_site_blk_t *)0;
-            else if (beta == s->memo_beta[0] && s->memo_blk[0]) b = s->memo_blk[0];
-            else if (beta == s->memo_beta[1] && s->memo_blk[1]) b = s->memo_blk[1];
-            else if (beta == s->memo_beta[2] && s->memo_blk[2]) b = s->memo_blk[2];
-            else if (beta == s->memo_beta[3] && s->memo_blk[3]) b = s->memo_blk[3];
-            else { b = gc_code_block(beta); s->memo_beta[s->memo_at & 3] = beta; s->memo_blk[s->memo_at & 3] = b; s->memo_at++; }
+            else b = gc_code_block(beta);
             if (why) ;
             else if (!b) why = "its beta word names no registered graph";
             else if (hdr && !(b->map->flags & GC_FRAME_MAP_GEN_ANCHOR)) why = "the generator's resume cell names no generator graph";
@@ -3018,6 +3037,34 @@ static int gc_sw_links(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char *g
         }
     }
     return 1;
+}
+static int gc_sw_links(gc_sw_t *s, gc_gap_t *g, const gc_chf_t *f, const char *glo) {
+    extern long rt_gc_sw_links_a(gc_links_args_t *);
+    gc_links_args_t *a = &s->la;
+    a->f_base = f->base;
+    a->f_map = f->map;
+    a->f_link = f->link;
+    a->f_rule = f->rule;
+    a->s_lo = s->lo;
+    a->s_hi = s->hi;
+    a->prevbase = s->prevbase;
+    a->glo = glo;
+    a->sblk = g_gc_sblk;
+    a->sblk_n = g_gc_sblk_n;
+    a->links_ctr = &g_gc_chw.links;
+    a->pos_j = 0;
+    a->pos_k = 0;
+    for (;;) {
+        long r;
+        a->gap_v = g->v;
+        a->gap_n = g->n;
+        a->gap_cap = g->cap;
+        r = rt_gc_sw_links_a(a);
+        g->n = a->gap_n;
+        if (r == 1) return 1;
+        if (r == 4) { gc_gap_grow(g); continue; }
+        return gc_sw_links_c(s, g, f, glo);
+    }
 }
 static int gc_sw_chain_frame(gc_sw_t *s, const gc_chf_t *f) {
     gc_gap_t *g = &s->gap;
@@ -3436,6 +3483,10 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     g_gc_mk.rng_p = (DESCR_t *)0;
     g_gc_mk.rng_n = 0;
     g_gc_mk.interior = g_gc_mk.dvec_elems = g_gc_mk.dvec_nondvec = g_gc_mk.walked = 0;
+#if RT_DIAG
+    g_gc_mk.census = gc_walk_census_on();
+    g_gc_mk.maps = gc_maps_on();
+#endif
     g_gc_mk.mxs = 0;
     g_gc_idx = (rt_hblk_t **)0;
     rt_gc_ssum_run(&g_hp_fr, (((size_t)(g_hp_top - g_hp_arena) >> 4) + 63) >> 6);
