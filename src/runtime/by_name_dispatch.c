@@ -8957,10 +8957,12 @@ static int pl_write_opt_bad(const char *on, DESCR_t a, DESCR_t *culprit) {
     if (!strcmp(on, "truncated")) return 0;
     if (pl_val_unbound(a)) {
         for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return 1;
-        if (!strcmp(on, "variable_names") || !strcmp(on, "max_depth") || !strcmp(on, "max_text")) return 1;
+        if (!strcmp(on, "variable_names") || !strcmp(on, "max_depth") || !strcmp(on, "max_text") || !strcmp(on, "portray_goal") || !strcmp(on, "blobs")) return 1;
         return 2;
     }
     as = pl_atom_str(a);
+    if (!strcmp(on, "portray_goal")) return 0;
+    if (!strcmp(on, "blobs")) return as ? 0 : 2;
     for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return (as && (!strcmp(as, "true") || !strcmp(as, "false"))) ? 0 : 2;
     if (!strcmp(on, "max_depth") || !strcmp(on, "max_text")) return (a.v == DT_I && a.i >= 0) ? 0 : 2;
     if (!strcmp(on, "priority")) return (a.v == DT_I && a.i >= 0 && a.i <= 1200) ? 0 : 2;
@@ -9010,7 +9012,7 @@ static int pl_write_opts_check(DESCR_t optlist, DESCR_t *culprit) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(write_term, 2)
     {
-        extern void rt_pl_write_term_cell(void *, void *);
+        extern void *rt_pl_write_term_cell(void *, void *, void *);
         extern void *rt_pl_ball_instantiation(void);
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
         DESCR_t bad = {0};
@@ -9021,7 +9023,7 @@ PL_CX_LEAF_HEAD(write_term, 2)
         else if (k == 3) cx->ball = rt_pl_ball_kind2("domain_error", "write_option", bad);
         else if (k == 4) cx->ball = rt_pl_ball_kind2("type_error", "atom", bad);
         else if (k == 5) cx->ball = rt_pl_ball_kind2("domain_error", "variable_name", bad);
-        else { rt_pl_write_term_cell(&args[0], &args[1]); ok = 1; }
+        else { cx->ball = rt_pl_write_term_cell(&args[0], &args[1], cx); ok = !cx->ball; }
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -9485,7 +9487,12 @@ PL_CX_LEAF_HEAD(set_prolog_flag_declare, 2)
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(print, 1)
-    { extern void rt_pl_write_term_cell(void *, void *); DESCR_t o = pl_flag_term_value(pl_flag_find("print_write_options")); rt_pl_write_term_cell(&args[0], &o); ok = 1; }
+    {
+        extern void *rt_pl_write_term_cell(void *, void *, void *);
+        DESCR_t o = pl_flag_term_value(pl_flag_find("print_write_options"));
+        cx->ball = rt_pl_write_term_cell(&args[0], &o, cx);
+        ok = !cx->ball;
+    }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_OUT_CX_LEAF(print, 2)
