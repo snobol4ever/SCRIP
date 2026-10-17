@@ -464,6 +464,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "bn_icn_tab", GC_RET_OTHER },
     { "bn_icn_trim", GC_RET_OTHER },
     { "bn_icn_upto_resume", GC_RET_OTHER },
+    { "bn_identical", GC_RET_OTHER },
     { "bn_integer", GC_RET_OTHER },
     { "bn_lexrel", GC_RET_OTHER },
     { "bn_lpad", GC_RET_OTHER },
