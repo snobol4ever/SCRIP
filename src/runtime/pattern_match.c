@@ -47,19 +47,8 @@ typedef struct DTP { void *fn; dtp_rcp_t *rcp; int64_t zsz; int32_t zstatic; int
 _Static_assert(__builtin_offsetof(DTP_t, fn) == 0, "bb_match_defer inline cache reads DTP_t.fn at offset 0");
 _Static_assert(__builtin_offsetof(DTP_t, zsz) == 16, "PS-3 ARBNO stride latch reads DTP_t.zsz at offset 16");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void pm_struct_gc_visit(uint16_t type, void *p, size_t bytes) {
-    extern void rt_gc_visit_raw(const char **);
-    (void)bytes;
-    if (type == HB_DTP) { DTP_t *h = (DTP_t *)p; if (h->rcp) rt_gc_visit_raw((const char **)&h->rcp); if (h->snap) rt_gc_visit_raw((const char **)&h->snap); return; }
-    if (type == HB_DTPRCP) {
-        dtp_rcp_t *r = (dtp_rcp_t *)p;
-        if (r->s) rt_gc_visit_raw((const char **)&r->s);
-        if (r->l) rt_gc_visit_raw((const char **)&r->l);
-        if (r->r) rt_gc_visit_raw((const char **)&r->r);
-        return;
-    }
-    abort();
-}
+_Static_assert(__builtin_offsetof(DTP_t, rcp) == 8 && __builtin_offsetof(DTP_t, snap) == 32 && __builtin_offsetof(dtp_rcp_t, s) == 8 && __builtin_offsetof(dtp_rcp_t, l) == 32 &&
+    __builtin_offsetof(dtp_rcp_t, r) == 40, "rt_gc_mark_run (rtx_gc.s) visits a pattern structure's rcp and snap and a node's s, l and r at these offsets");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 static int pstamp_trace(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PSTAMP_TRACE"); v = e ? (atoi(e) != 0) : 0; } return v; }

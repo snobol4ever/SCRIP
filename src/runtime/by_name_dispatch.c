@@ -9222,14 +9222,11 @@ DESCR_t rt_sno_chknm_d(DESCR_t *args, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_pl_flag_name(int i) { pl_flags_ready(); return (i >= 0 && i + 1 < (int)g_pl_flags.len) ? pl_flags[i].nm : (const char *)0; }
 void rt_pl_flags_gc_roots(void) {
-    extern void rt_gc_visit_raw(const char **);
-    extern void rt_gc_visit_descr(DESCR_t *);
-    for (uint32_t i = 0; i < g_pl_flags.len; i++) {
-        if (pl_flags[i].nm) rt_gc_visit_raw(&pl_flags[i].nm);
-        if (pl_flags[i].val) rt_gc_visit_raw(&pl_flags[i].val);
-        if (pl_flags[i].is_term) rt_gc_visit_descr(&pl_flags[i].term);
-    }
+    gc_roots_args_t a = { (void **)pl_flags, (long)g_pl_flags.len, (void **)0, 0, (const char *)0, 0, (const char *)0, 0, (const char *)0, (const char *)0 };
+    rt_gc_run_flags_roots(&a);
 }
+_Static_assert(__builtin_offsetof(pl_flag_t, nm) == 0 && __builtin_offsetof(pl_flag_t, val) == 8 && __builtin_offsetof(pl_flag_t, is_term) == 72 && __builtin_offsetof(pl_flag_t, term) == 80 &&
+    sizeof(pl_flag_t) == 104, "rt_gc_flags_roots_run (rtx_gc.s) walks the Prolog flags at these offsets, 104 bytes apart");
 void bnd_text_gc_roots(void) { extern void rt_gc_visit_raw(const char **); rt_gc_visit_raw(&pl_edin_out_name); rt_gc_visit_raw(&pl_edin_in_name); rt_gc_visit_raw(&g_tap_todo_reason); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_t * pl_flag_find(const char *nm) { pl_flags_ready(); for (int i = 0; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i]; return (pl_flag_t *)0; }

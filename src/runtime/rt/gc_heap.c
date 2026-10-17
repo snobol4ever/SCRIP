@@ -799,7 +799,7 @@ typedef struct gc_mk_t {
     long fc_kind;
     const char *sw_p, *sw_hi;
     void **hs;
-    long hcap, hn, tb_h;
+    long hcap, hn, tb_h, code_unsorted;
 } gc_mk_t;
 _Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_t, wln) == 8 && __builtin_offsetof(gc_mk_t, wlcap) == 16 && __builtin_offsetof(gc_mk_t, slots) == 24 &&
     __builtin_offsetof(gc_mk_t, nslot) == 32 && __builtin_offsetof(gc_mk_t, scap) == 40 && __builtin_offsetof(gc_mk_t, arena) == 48 && __builtin_offsetof(gc_mk_t, top) == 56 &&
@@ -809,9 +809,9 @@ _Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_
     __builtin_offsetof(gc_mk_t, mxs) == 160 && __builtin_offsetof(gc_mk_t, walked) == 168 && __builtin_offsetof(gc_mk_t, pv_end) == 176 && __builtin_offsetof(gc_mk_t, draining) == 184 &&
     __builtin_offsetof(gc_mk_t, fc_anchor) == 192 && __builtin_offsetof(gc_mk_t, fc_map) == 200 && __builtin_offsetof(gc_mk_t, fc_i) == 224 && __builtin_offsetof(gc_mk_t, fc_c) == 232 &&
     __builtin_offsetof(gc_mk_t, fc_kind) == 248 && __builtin_offsetof(gc_mk_t, sw_p) == 256 && __builtin_offsetof(gc_mk_t, sw_hi) == 264 && __builtin_offsetof(gc_mk_t, hs) == 272 &&
-    __builtin_offsetof(gc_mk_t, hcap) == 280 && __builtin_offsetof(gc_mk_t, hn) == 288 && __builtin_offsetof(gc_mk_t, tb_h) == 296 && __builtin_offsetof(VCELL_t, cellp) == 0 &&
-    __builtin_offsetof(VCELL_t, tbl) == 8 && __builtin_offsetof(VCELL_t, key) == 16 && __builtin_offsetof(VCELL_t, key_d) == 24 && __builtin_offsetof(VCELL_t, sv) == 40 &&
-    sizeof(gc_frame_map_t) == 32 && GC_LAY_DESCR == 0 && GC_LAY_PTR_GC == 2, "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
+    __builtin_offsetof(gc_mk_t, hcap) == 280 && __builtin_offsetof(gc_mk_t, hn) == 288 && __builtin_offsetof(gc_mk_t, tb_h) == 296 && __builtin_offsetof(gc_mk_t, code_unsorted) == 304 &&
+    __builtin_offsetof(VCELL_t, cellp) == 0 && __builtin_offsetof(VCELL_t, tbl) == 8 && __builtin_offsetof(VCELL_t, key) == 16 && __builtin_offsetof(VCELL_t, key_d) == 24 &&
+    __builtin_offsetof(VCELL_t, sv) == 40 && sizeof(gc_frame_map_t) == 32 && GC_LAY_DESCR == 0 && GC_LAY_PTR_GC == 2, "rt_gc_mark_run (rtx_gc.s) reads and writes the mark cursor at these offsets");
 _Static_assert(__builtin_offsetof(ARBLK_t, lo) == 0 && __builtin_offsetof(ARBLK_t, hi) == 4 && __builtin_offsetof(ARBLK_t, ndim) == 8 && __builtin_offsetof(ARBLK_t, lo2) == 12 &&
     __builtin_offsetof(ARBLK_t, hi2) == 16 && __builtin_offsetof(ARBLK_t, proto) == 24 && __builtin_offsetof(ARBLK_t, data) == 32 && __builtin_offsetof(TBBLK_t, buckets) == 0 &&
     __builtin_offsetof(TBBLK_t, nbuck) == 8 && __builtin_offsetof(TBBLK_t, dflt) == 32 && __builtin_offsetof(TBBLK_t, ord) == 56 && __builtin_offsetof(TBBLK_t, ord_len) == 64 &&
@@ -1493,11 +1493,6 @@ static void gc_visit_mblk(rt_hblk_t *h) {
     if (h->type == HB_AGGV) { if (!gc_vis_test_set(h)) gc_visit_vcell((VCELL_t *)(h + 1)); return; }
     if (h->type >= HB_PLDB && h->type <= HB_PLDBK) { extern void pl_db_gc_visit(uint16_t, void *, size_t); pl_db_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t)); return; }
     if (h->type == HB_TRIE || h->type == HB_TRIEN) { extern void pl_trie_gc_visit(uint16_t, void *); pl_trie_gc_visit(h->type, (void *)(h + 1)); return; }
-    if (h->type == HB_DTP || h->type == HB_DTPRCP) {
-        extern void pm_struct_gc_visit(uint16_t, void *, size_t);
-        pm_struct_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t));
-        return;
-    }
 #if RT_DIAG
     if (h->type <= HB_ZCOL || h->type == HB_FILL || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_WSB) return;
     g_gc_interior += (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *));
@@ -1536,6 +1531,10 @@ _Static_assert(__builtin_offsetof(gc_trail_roots_args_t, rr) == 0 && __builtin_o
     sizeof(pl_tr_entry_t) == 32 && PL_TR_HEADER_BYTES == 64 && __builtin_offsetof(pl_tr_entry_t, pad) == 8 && __builtin_offsetof(pl_tr_entry_t, old) == 16,
     "rt_gc_trail_roots_run (rtx_gc.s) reads its argument block and the trail at these offsets");
 void rt_gc_run_proc_roots(gc_roots_args_t *a) { extern long rt_gc_proc_roots_run(gc_roots_args_t *); while (rt_gc_proc_roots_run(a)) gc_slot_grow(); }
+void rt_gc_run_flags_roots(gc_roots_args_t *a) {
+    extern long rt_gc_flags_roots_run(gc_roots_args_t *);
+    for (;;) { long r = rt_gc_flags_roots_run(a); if (!r) break; if (r == 1) gc_slot_grow(); else gc_wl_grow(); }
+}
 void rt_gc_run_roots(gc_roots_args_t *a) {
     extern long rt_gc_core_roots_run(gc_roots_args_t *);
     for (;;) { long r = rt_gc_core_roots_run(a); if (!r) break; if (r == 1) gc_slot_grow(); else gc_wl_grow(); }
@@ -1592,6 +1591,9 @@ _Static_assert(sizeof(gc_site_ent_t) == 16 && __builtin_offsetof(gc_site_ent_t, 
     "per-blo" "ck): a table the emitter wrote sorted by pc with no skipped entry is searched in place in the fragment's own data, so registering it costs no page; any other table is copied as before")
     ;
 typedef struct { const uint64_t *tab; const gc_frame_map_t *map; uint64_t lo, hi, maxhi; int n; int ckt; int own; uint64_t link; const gc_site_ent_t *ents; uint64_t code; } gc_site_blk_t;
+_Static_assert(sizeof(gc_site_blk_t) == 80 && sizeof(gc_site_ent_t) == 16 && __builtin_offsetof(gc_site_blk_t, lo) == 16 && __builtin_offsetof(gc_site_blk_t, hi) == 24 &&
+    __builtin_offsetof(gc_site_blk_t, maxhi) == 32 && __builtin_offsetof(gc_site_blk_t, n) == 40 && __builtin_offsetof(gc_site_blk_t, ents) == 64,
+    "rt_gc_site_find_a (rtx_gc.s) searches the site blocks and their entries at these offsets");
 static gc_site_blk_t *g_gc_sblk = (gc_site_blk_t *)0;
 static int g_gc_sblk_n = 0, g_gc_sblk_cap = 0;
 static int gc_site_ent_cmp(const void *a, const void *b) { uint64_t x = ((const gc_site_ent_t *)a)->pc, y = ((const gc_site_ent_t *)b)->pc; return x < y ? -1 : x > y ? 1 : 0; }
@@ -1646,6 +1648,7 @@ void rt_gc_frame_sites_add(const void *tab) {
         g_gc_sblk[i].lo = lo;
         g_gc_sblk[i].hi = hi;
         g_gc_sblk[i].code = code;
+        if (code && lo != code) g_gc_mk.code_unsorted = 1;
         g_gc_sblk[i].n = k;
         g_gc_sblk[i].ckt = m ? 0 : (int)t[2];
         g_gc_sblk[i].link = m ? t[2] : 0u;
@@ -1669,21 +1672,8 @@ void rt_gc_frame_sites_install_counted(const void *tab) {
     if (!t) return;
     for (int i = 0; i < (int)t[0]; i++) rt_gc_frame_sites_add((const void *)(uintptr_t)t[1 + i]);
 }
-static const gc_site_blk_t *gc_site_find(uint64_t pc, const gc_site_ent_t **eo) {
-    long a = 0, z = (long)g_gc_sblk_n - 1, b = -1;
-    while (a <= z) { long mid = (a + z) >> 1; if (g_gc_sblk[mid].lo <= pc) { b = mid; a = mid + 1; } else z = mid - 1; }
-    for (; b >= 0; b--) {
-        const gc_site_blk_t *k = &g_gc_sblk[b];
-        long lo, hi;
-        if (k->maxhi <= pc) break;
-        if (pc < k->lo || pc >= k->hi) continue;
-        lo = 0;
-        hi = k->n - 1;
-        while (lo <= hi) { long mid = (lo + hi) >> 1; if (k->ents[mid].pc == pc) { if (eo) *eo = &k->ents[mid]; return k; } if (k->ents[mid].pc < pc) lo = mid + 1; else hi = mid - 1; }
-    }
-    if (eo) *eo = (const gc_site_ent_t *)0;
-    return (const gc_site_blk_t *)0;
-}
+extern const gc_site_blk_t *rt_gc_site_find_a(uint64_t pc, const gc_site_ent_t **eo, const gc_site_blk_t *blk, long n);
+#define gc_site_find(pc, eo) rt_gc_site_find_a((pc), (eo), g_gc_sblk, (long)g_gc_sblk_n)
 long rt_gc_frame_sites_count(void) { long n = 0; for (int b = 0; b < g_gc_sblk_n; b++) n += g_gc_sblk[b].n; return n; }
 void rt_gc_frame_maps_install(const gc_frame_map_t *const *maps, int n) { for (int i = 0; i < n; i++) rt_gc_frame_maps_add(maps[i]); }
 void rt_gc_frame_maps_install_counted(const void *tab) {
@@ -2608,6 +2598,16 @@ static const gc_site_blk_t *gc_body_block(const scrip_coctx_t *sc) {
 static const gc_site_blk_t *gc_code_block(uint64_t pc) {
     const gc_site_blk_t *hit = (const gc_site_blk_t *)0;
     uint64_t best = 0;
+    if (!g_gc_mk.code_unsorted) {
+        long a = 0, z = (long)g_gc_sblk_n - 1, b = -1;
+        while (a <= z) { long mid = (a + z) >> 1; if (g_gc_sblk[mid].lo <= pc) { b = mid; a = mid + 1; } else z = mid - 1; }
+        for (; b >= 0 && !(g_gc_sblk[b].map && g_gc_sblk[b].code); b--) ;
+        if (b < 0) return (const gc_site_blk_t *)0;
+        hit = &g_gc_sblk[b];
+        best = hit->code;
+        for (long i = b - 1; i >= 0 && g_gc_sblk[i].lo == best; i--) if (g_gc_sblk[i].map && g_gc_sblk[i].code == best && g_gc_sblk[i].map != hit->map) return (const gc_site_blk_t *)0;
+        return hit;
+    }
     for (int i = 0; i < g_gc_sblk_n; i++) if (g_gc_sblk[i].map && g_gc_sblk[i].code && g_gc_sblk[i].code <= pc && g_gc_sblk[i].code > best) best = g_gc_sblk[i].code;
     for (int i = 0; best && i < g_gc_sblk_n; i++) {
         const gc_site_blk_t *k = &g_gc_sblk[i];

@@ -297,6 +297,8 @@
     jmp     .Lmk_range
 .endm
 #define HB_WSB 215
+#define HB_DTP 221
+#define HB_DTPRCP 222
 #define DATA_INST_SLEN 0
 .macro MK_EXACTQ type, rej
     cmp     r10, 16
@@ -748,8 +750,39 @@ RTX_ENTRY(rt_gc_walk_words_a)
     je      .Lmk_loop
     cmp     edx, HB_AGGV
     je      .Lmk_m_aggv
+    cmp     edx, HB_DTP
+    je      .Lmk_m_dtp
+    cmp     edx, HB_DTPRCP
+    je      .Lmk_m_dtprcp
     or      rax, 2
     jmp     .Lmk_out
+.Lmk_m_dtp:
+    mov     r10, qword ptr [rsi + 8]
+    test    r10, r10
+    je      .Lmk_m_dtp1
+    MK_RAW rsi+8
+.Lmk_m_dtp1:
+    mov     r10, qword ptr [rsi + 32]
+    test    r10, r10
+    je      .Lmk_loop
+    MK_RAW rsi+32
+    jmp     .Lmk_loop
+.Lmk_m_dtprcp:
+    mov     r10, qword ptr [rsi + 8]
+    test    r10, r10
+    je      .Lmk_m_rcp1
+    MK_RAW rsi+8
+.Lmk_m_rcp1:
+    mov     r10, qword ptr [rsi + 32]
+    test    r10, r10
+    je      .Lmk_m_rcp2
+    MK_RAW rsi+32
+.Lmk_m_rcp2:
+    mov     r10, qword ptr [rsi + 40]
+    test    r10, r10
+    je      .Lmk_loop
+    MK_RAW rsi+40
+    jmp     .Lmk_loop
 .Lmk_m_dvec:
     MK_VIS_TEST_SET
     test    ebp, ebp
@@ -2131,4 +2164,149 @@ RTX_FUNC(rt_gc_proc_roots_run)
     RTX_POPS(rbx)
     ret
 RTX_ENDF(rt_gc_proc_roots_run)
+RTX_FUNC(rt_gc_site_find_a)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    mov     r10, rdx
+    xor     eax, eax
+    lea     rdx, [rcx - 1]
+    mov     rcx, -1
+.Lsf_bs:
+    cmp     rax, rdx
+    jg      .Lsf_scan
+    lea     r8, [rax + rdx]
+    sar     r8, 1
+    mov     rbx, r8
+    shl     rbx, 4
+    lea     rbx, [rbx + rbx*4]
+    add     rbx, r10
+    cmp     qword ptr [rbx + 16], rdi
+    ja      .Lsf_bs_hi
+    mov     rcx, r8
+    lea     rax, [r8 + 1]
+    jmp     .Lsf_bs
+.Lsf_bs_hi:
+    lea     rdx, [r8 - 1]
+    jmp     .Lsf_bs
+.Lsf_scan:
+    test    rcx, rcx
+    js      .Lsf_none
+    mov     rbx, rcx
+    shl     rbx, 4
+    lea     rbx, [rbx + rbx*4]
+    add     rbx, r10
+    cmp     qword ptr [rbx + 32], rdi
+    jbe     .Lsf_none
+    cmp     rdi, qword ptr [rbx + 16]
+    jb      .Lsf_next
+    cmp     rdi, qword ptr [rbx + 24]
+    jae     .Lsf_next
+    xor     eax, eax
+    movsxd  rdx, dword ptr [rbx + 40]
+    dec     rdx
+    mov     r8, qword ptr [rbx + 64]
+.Lsf_es:
+    cmp     rax, rdx
+    jg      .Lsf_next
+    lea     rbp, [rax + rdx]
+    sar     rbp, 1
+    mov     r11, rbp
+    shl     r11, 4
+    add     r11, r8
+    cmp     qword ptr [r11], rdi
+    je      .Lsf_hit
+    jb      .Lsf_es_lo
+    lea     rdx, [rbp - 1]
+    jmp     .Lsf_es
+.Lsf_es_lo:
+    lea     rax, [rbp + 1]
+    jmp     .Lsf_es
+.Lsf_hit:
+    test    rsi, rsi
+    je      .Lsf_hit_ret
+    mov     qword ptr [rsi], r11
+.Lsf_hit_ret:
+    mov     rax, rbx
+    jmp     .Lsf_out
+.Lsf_next:
+    dec     rcx
+    jmp     .Lsf_scan
+.Lsf_none:
+    test    rsi, rsi
+    je      .Lsf_none_ret
+    mov     qword ptr [rsi], 0
+.Lsf_none_ret:
+    xor     eax, eax
+.Lsf_out:
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_gc_site_find_a)
+RTX_FUNC(rt_gc_flags_roots_run)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    mov     r8, rdi
+    lea     rdi, [rip + g_gc_mk]
+    mov     r11, qword ptr [rdi + 8]
+    mov     rbx, qword ptr [rdi + 32]
+    mov     r12, qword ptr [rdi + 48]
+    mov     r14, qword ptr [rdi + 72]
+    mov     r15, qword ptr [rdi + 96]
+.Lfl_loop:
+    mov     rax, qword ptr [r8 + 16]
+    cmp     rax, qword ptr [r8 + 8]
+    jae     .Lfl_done
+    lea     rsi, [rax + rax*4]
+    lea     rsi, [rax + rsi*4]
+    shl     rsi, 3
+    add     rsi, qword ptr [r8]
+    mov     rax, qword ptr [rdi + 40]
+    sub     rax, rbx
+    cmp     rax, 2
+    jl      .Lfl_full_slots
+    mov     rax, qword ptr [rdi + 16]
+    sub     rax, r11
+    cmp     rax, 1
+    jl      .Lfl_full_wl
+    mov     r10, qword ptr [rsi]
+    test    r10, r10
+    je      .Lfl1
+    MK_RAW rsi
+.Lfl1:
+    mov     r10, qword ptr [rsi + 8]
+    test    r10, r10
+    je      .Lfl2
+    MK_RAW rsi+8
+.Lfl2:
+    cmp     dword ptr [rsi + 72], 0
+    je      .Lfl3
+    lea     r10, [rsi + 80]
+    MK_WLPUSH r10
+.Lfl3:
+    inc     qword ptr [r8 + 16]
+    jmp     .Lfl_loop
+.Lfl_done:
+    xor     eax, eax
+    jmp     .Lfl_out
+.Lfl_full_slots:
+    mov     eax, 1
+    jmp     .Lfl_out
+.Lfl_full_wl:
+    mov     eax, 2
+.Lfl_out:
+    mov     qword ptr [rdi + 8], r11
+    mov     qword ptr [rdi + 32], rbx
+    mov     qword ptr [rdi + 96], r15
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_gc_flags_roots_run)
 .section .note.GNU-stack,"",@progbits
