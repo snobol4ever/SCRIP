@@ -10507,6 +10507,7 @@ static int pl_gs_ts(const char *op, DESCR_t a, DESCR_t res, pl_tr_ctx_t *cx) {
     }
     return 0;
 }
+static DESCR_t pl_os_cwd_atom(void) { for (size_t cn = 256;; cn *= 2) { char cw[cn]; if (getcwd(cw, cn)) return pl_mk_atom_dup(cw, strlen(cw)); if (errno != ERANGE) return FAILDESCR; } }
 PL_CX_LEAF_HEAD(gnu_os, 3)
     {
         const char *op = pl_atom_str(rt_pl_deref_val(args[0]));
@@ -10537,8 +10538,8 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
                 else { const char *q = pl_atom_str(b); ok = q && stat(q, &sb2) == 0 && sb.st_dev == sb2.st_dev && sb.st_ino == sb2.st_ino; }
             }
         } else if (!strcmp(op, "cwd")) {
-            char cw[4096];
-            if (getcwd(cw, sizeof cw)) ok = plw_unify_vals(args[2], pl_mk_atom_dup(cw, strlen(cw)), cx);
+            DESCR_t cwa = pl_os_cwd_atom();
+            if (!IS_FAIL_fn(cwa)) ok = plw_unify_vals(args[2], cwa, cx);
         } else if (!strcmp(op, "chdir")) {
             const char *p = pl_gnu_path_arg(args[1], cx);
             ok = p && chdir(p) == 0;

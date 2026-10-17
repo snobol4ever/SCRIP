@@ -1146,6 +1146,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_numbervars_walk", GC_RET_OTHER },
     { "pl_open_leaf", GC_RET_OTHER },
     { "pl_open_opts", GC_RET_OTHER },
+    { "pl_os_cwd_atom", GC_RET_DESCR },
     { "pl_parse_loop", GC_RET_VOID },
     { "pl_parse_number", GC_RET_OTHER },
     { "pl_parse_number_radix", GC_RET_OTHER },

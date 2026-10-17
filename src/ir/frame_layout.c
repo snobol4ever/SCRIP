@@ -1311,7 +1311,7 @@ void zls_build(IR_graph_t * g) {
             r->scratch_hit_w = (const IR_t *)0;
             r->scratch_hit_t = (const IR_t *)0;
             if (g_lower.ir.zls_build_eon && nloop == 0 && pool_n > 0) {
-                int pc[64], po[65];
+                int pc[pool_n], po[pool_n + 1];
                 for (int q = 0; q < pool_n; q++) pc[q] = 0;
                 for (int t = 0; t < g->n; t++) if (rec[t].pooled >= 0 && rec[t].pooled < pool_n && rec[t].direct < 0) pc[rec[t].pooled]++;
                 po[0] = 0;
