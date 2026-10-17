@@ -143,6 +143,7 @@ long rt_stack_stat(int which, const char *sp) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_STACK_HUGE (2UL * 1024UL * 1024UL)
+#define RT_STACK_TOP_SMALL (256UL * 1024UL)
 _Static_assert(RT_STACK_HUGE == 2097152UL,
     "A COMPILED PROGRAM RUNS ON A STACK IT MAPS ITSELF (ceo 2026-09-25, CEO-1265; Lon 2026-09-25 10:06, in-chat to the ceo: \"continue getting all demos and benchmarks running faster than SPITBOL\")"
     ": the process stack grows down a 4 KB page at a time, each first touch a fault of about 11 K kernel cycles, and a growsdown mapping can never take a transparent huge page because its lower end "
@@ -150,24 +151,25 @@ _Static_assert(RT_STACK_HUGE == 2097152UL,
     "OL's -s4m unless the command line or SCRIP_STACK says otherwise) rounded up to 2 MB at a 2 MB boundary, MADV_HUGEPAGE, one PROT_NONE guard page below it, and main moves rsp to its top and never"
     " returns to the old stack. The collector finds the region from its own cached stack top (rt_gc_stack_top_adopt), the overflow handler from the mapping holding that top, and core_lib_init no lon"
     "ger raises RLIMIT_STACK for a program that adopted. Measured: calculator-1 58 ms -> 33 ms, 13,675 faults -> 1,459, output unchanged. A failed map returns 0 and the program stays on the stack it"
-    " was given");
+    " was given. THE TOP 256 KB SITS ABOVE THE LAST 2 MB BOUNDARY (cto 2026-10-17): a partial chunk can never take a huge page, so a program whose stack stays shallow never zero-fills 2 MB at its fi"
+    "rst touch (an Icon hello's resident set 6,916 -> about 4,900 KB), and a deep one pays 64 small faults before the huge-page region");
 char *rt_main_stack_adopt(void) {
     extern long rt_sw_stack_bytes(void);
     extern int core_stack_floor_raised;
     extern void rt_gc_stack_top_adopt(char *);
     long budget = rt_stack_budget_bytes(rt_sw_stack_bytes());
-    size_t sz = ((size_t)budget + RT_STACK_HUGE - 1) & ~(RT_STACK_HUGE - 1), pg = 4096, total = sz + RT_STACK_HUGE + pg;
+    size_t sz = ((size_t)budget + RT_STACK_HUGE - 1) & ~(RT_STACK_HUGE - 1), pg = 4096, total = sz + RT_STACK_HUGE + pg + RT_STACK_TOP_SMALL;
     char *m = (char *)mmap(NULL, total, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_STACK, -1, 0);
     if (m == (char *)MAP_FAILED) return (char *)0;
     {
-        char *lo = (char *)(((uintptr_t)m + pg + RT_STACK_HUGE - 1) & ~(uintptr_t)(RT_STACK_HUGE - 1)), *hi = lo + sz, *end = m + total;
+        char *lo = (char *)(((uintptr_t)m + pg + RT_STACK_HUGE - 1) & ~(uintptr_t)(RT_STACK_HUGE - 1)), *hi = lo + sz, *top = hi + RT_STACK_TOP_SMALL, *end = m + total;
         if (mprotect(lo - pg, pg, PROT_NONE) != 0) { munmap(m, total); return (char *)0; }
         if (lo - pg > m) munmap(m, (size_t)(lo - pg - m));
-        if (end > hi) munmap(hi, (size_t)(end - hi));
-        (void)madvise(lo, sz, MADV_HUGEPAGE);
-        rt_gc_stack_top_adopt(hi);
+        if (end > top) munmap(top, (size_t)(end - top));
+        (void)madvise(lo, (size_t)(top - lo), MADV_HUGEPAGE);
+        rt_gc_stack_top_adopt(top);
         core_stack_floor_raised = 1;
-        return hi - 8;
+        return top - 8;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
