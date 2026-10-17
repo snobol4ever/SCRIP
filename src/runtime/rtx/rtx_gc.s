@@ -2347,7 +2347,7 @@ RTX_FUNC(rt_gc_flags_roots_run)
     mov     rax, qword ptr [r8 + 16]
     cmp     rax, qword ptr [r8 + 8]
     jae     .Lfl_done
-    lea     rsi, [rax + rax*4]
+    lea     rsi, [rax + rax*2]
     lea     rsi, [rax + rsi*4]
     shl     rsi, 3
     add     rsi, qword ptr [r8]
