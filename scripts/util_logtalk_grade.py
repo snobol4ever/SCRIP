@@ -925,7 +925,7 @@ def probe_guards(root, scrip, modes, shim_src):
             print("GUARD UNDECIDED (the probe answered %s over %s): %s -- both branches stay in the population" % (seen.get(k), ",".join(modes), t[:120]))
 
 
-def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ_TABLE, sweep=False, decl=None):
+def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ_TABLE, sweep=False, decl=None, only=None):
     # ⛔ ABSOLUTE, AND CHECKED HERE. Every case runs with cwd set to its own scratch directory, so a
     # relative binary path ("./scrip", the obvious thing to type) resolves against the scratch dir and is
     # not there. Measured 2026-09-12: it does not raise anything a reader would notice -- every case comes
@@ -1105,6 +1105,29 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     if _orphan:
         return None, [(k, "ALL.csv declares a heap or stack for this case and no case of that name is graded in its group -- "
                           "the declaration would apply to nothing") for k in _orphan]
+    # ⭐ EVERY CASE'S PROGRESS KEY IS group:case, with #n in occurrence order when the population holds the name more than once -- counted over
+    # the WHOLE population before --only narrows it, so a round-robin part writes the key a whole run writes (CEO-1802). The ordinal is per-key
+    # occurrence order, not the global index, so adding or removing an unrelated case cannot renumber a survivor.
+    _kc = {}
+    for fc, p in work:
+        _k = "%s:%s" % (fc.group, p.case.name)
+        _kc[_k] = _kc.get(_k, 0) + 1
+    progkey, _seen = {}, {}
+    for i, (fc, p) in enumerate(work):
+        _k = "%s:%s" % (fc.group, p.case.name)
+        if _kc[_k] > 1:
+            _seen[_k] = _seen.get(_k, 0) + 1
+            progkey[i] = "%s#%d" % (_k, _seen[_k])
+        else:
+            progkey[i] = _k
+    if only is not None:
+        # ⭐ --only (the round robin's seam, CEO-1802/1806): grade the cases whose group:case the list names, every instance of a repeated name
+        _keep = [i for i, (fc, p) in enumerate(work) if "%s:%s" % (fc.group, p.case.name) in only]
+        _re = {o: n for n, o in enumerate(_keep)}
+        work = [work[i] for i in _keep]
+        where = {_re[i]: v for i, v in where.items() if i in _re}
+        probes = [(_re[i], q) for i, q in probes if i in _re]
+        progkey = {_re[i]: k for i, k in progkey.items() if i in _re}
     if limit:
         work = work[:limit]
         probes = [(i, q) for i, q in probes if i < limit]
@@ -1161,7 +1184,7 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
         shutil.rmtree(workroot, ignore_errors=True)
     seqinfo = {"table": sequenced, "errors": seqerr, "probes": probes, "probe_results": probe_results,
                "sweep": cands, "outside_n": outside_n, "outside_unresolved": outside_unresolved,
-               "outside_off": outside_off, "excluded": excl_hits, "secs": case_secs, "retried": retried}
+               "outside_off": outside_off, "excluded": excl_hits, "secs": case_secs, "retried": retried, "progkey": progkey}
     return (work, results, seqinfo), []
 
 
@@ -1190,6 +1213,8 @@ def main(argv):
     ap.add_argument("--modes", default="m3")
     ap.add_argument("--jobs", type=int, default=12)
     ap.add_argument("--group", default=None, help="grade one directory only (a development aid, never a board)")
+    ap.add_argument("--only", default=None, help="a file of group:case names, one per line: grade those cases only (a round-robin part, CEO-1802; "
+                                                 "its rows carry the whole population's keys, and the runner writes no suite row from it)")
     ap.add_argument("--name-reds", action="store_true")
     ap.add_argument("--decl", default=None,
                     help="the declared heap/stack table lib_declared_arena.sh wrote from ALL.csv (entry<TAB>heap_kb<TAB>stack_kb)")
@@ -1200,8 +1225,11 @@ def main(argv):
                          "ahead of it and name the ones that flip -- the candidates for a declaration")
     args = ap.parse_args(argv[1:])
     modes = [m for m in args.modes.split(",") if m]
+    only = None
+    if args.only:
+        only = {l.strip() for l in open(args.only, encoding="utf-8") if l.strip()}
     out, bad = grade(args.suite, args.scrip, modes, jobs=args.jobs, only_group=args.group,
-                     seq_table=args.sequenced, sweep=args.sweep_sequenced, decl=load_decl(args.decl) if args.decl else None)
+                     seq_table=args.sequenced, sweep=args.sweep_sequenced, decl=load_decl(args.decl) if args.decl else None, only=only)
     if bad:
         # ⛔ THE DONE-WHEN'S REFUSAL: an input this instrument cannot read -- a tests.lgt that will not parse,
         # or a malformed line in the declaration table -- is NAMED and the run publishes nothing. A partial
@@ -1212,6 +1240,13 @@ def main(argv):
             sys.stderr.write("    %s: %s\n" % (p, why))
         return 2
     work, results, seqinfo = out
+    if only is not None and not work:
+        # every name the part lists is excluded by name (EXCLUDED_CASES.tsv): nothing to grade, and that is not a refusal
+        rows = os.path.join(tempfile.gettempdir(), "logtalk_progress_rows.tsv")
+        open(rows, "w").close()
+        print("ONLY: none of the %d named case(s) is in the graded population (each is excluded by name)" % len(only))
+        print("PROGRESS_ROWS_TSV %s" % rows)
+        return 0
     # ⛔⭐ A DEVELOPMENT AID THAT GRADED NOTHING MUST REFUSE, NOT PRINT ZEROS. Measured 2026-09-12: `--group
     # predicates/sub_atom_5` (the path, where the group is the basename) matched no file and this runner
     # printed a complete board reading population=0, identity 0 == 0 ✓, AND per case 0/0 -- the success
@@ -1393,22 +1428,12 @@ def main(argv):
     # ⛔ AND IT DISAMBIGUATES ONLY THE COLLISIONS, DELIBERATELY. A uniform sequence on every key would re-identify
     # all 3600 programs at once, so the DB would read mass-VANISHED plus mass-NEW and the flip reader would show a
     # wall of false red -- the exact failure the Icon per-entry baseline gate exists to warn about, which trains
-    # its reader to re-pin without looking. 3586 keys stay byte-stable; seven gain a #n. The ordinal is per-key
-    # occurrence order, not the global index, so adding or removing an unrelated case cannot renumber a survivor.
-    _key_count = {}
-    for _fc, _p in work:
-        _k = "%s:%s" % (_fc.group, _p.case.name)
-        _key_count[_k] = _key_count.get(_k, 0) + 1
-    _key_seen = {}
+    # its reader to re-pin without looking. 3586 keys stay byte-stable; seven gain a #n. The keys are grade()'s progkey, counted over the
+    # whole population, so a part's rows carry the keys a whole run's do.
     rows = os.path.join(tempfile.gettempdir(), "logtalk_progress_rows.tsv")
     with open(rows, "w") as pf:
         for i, (fc, p) in enumerate(work):
-            _k = "%s:%s" % (fc.group, p.case.name)
-            if _key_count[_k] > 1:
-                _key_seen[_k] = _key_seen.get(_k, 0) + 1
-                _prog = "%s#%d" % (_k, _key_seen[_k])
-            else:
-                _prog = _k
+            _prog = seqinfo["progkey"][i]
             for m in modes:
                 if p.outside_reason is not None:
                     v, note = "OUTSIDE", p.outside_reason[:60]

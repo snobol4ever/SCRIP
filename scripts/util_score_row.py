@@ -1571,6 +1571,29 @@ FROM_PROGRESS_MASTERS = {"sno-rungs": "tests/snobol4", "icn-rungs": "tests/icon"
                          "raku-rungs": "tests/raku", "snc-rungs": "tests/snocone", "reb-rungs": "tests/rebus"}
 
 
+def _logtalk_case_population(tdir, names):
+    """Logtalk's population as util_logtalk_grade.py keys it: ALL.csv lists every vendored case, group:case, once per instance; an EXCLUDED_CASES.tsv
+    row of a guard class (WINDOWS_ONLY, EXCLUSIVE_BRANCH) takes out the ONE instance its :- if(...) decides false, a row of any other class takes out
+    every instance of its name; a name left with k > 1 instances is keyed name#1..name#k, else name. Returns (population keys, excluded count)."""
+    import collections
+    cnt = collections.Counter(names)
+    excl = {}
+    xp = os.path.join(tdir, "EXCLUDED_CASES.tsv")
+    if os.path.exists(xp):
+        for l in open(xp, encoding="utf-8", errors="replace"):
+            r = l.rstrip("\n").split("\t")
+            if l.strip() and not l.lstrip().startswith("#") and len(r) >= 2:
+                excl[r[0].strip()] = r[1].strip()
+    keys, nex = set(), 0
+    for n, c in cnt.items():
+        cls = excl.get(n)
+        gone = 0 if cls is None else (min(1, c) if cls in ("WINDOWS_ONLY", "EXCLUSIVE_BRANCH") else c)
+        nex += gone
+        k = c - gone
+        keys |= ({n} if k == 1 else {"%s#%d" % (n, j) for j in range(1, k + 1)})
+    return keys, nex
+
+
 def _swi_case_census(tdir, files):
     """SWI's population, case by case, as test_prolog_swi_suite.sh grades it: per table file <f> (<f>.pl beside its oracle ref <f>.ref), every case
     util_swi_match.py enumerates from the source and the ref alone (the runner's own matcher, run on no output: the case list is the oracle's), less a case
@@ -1762,6 +1785,13 @@ def cmd_from_progress(a):
                     if k not in last or fl[0] >= last[k][3]:
                         last[k] = (fl[9], fl[11] if len(fl) > 11 else "", fl[1], fl[0], fl[10])
                 continue
+            if key == "logtalk":   # a repeated case's rows are name#k (util_logtalk_grade.py's key); the table lists the name
+                _lm = re.match(r"^(.*)#\d+$", fl[7])
+                if (_lm.group(1) if _lm else fl[7]) in want:
+                    k = (fl[7], fl[8])
+                    if k not in last or fl[0] >= last[k][3]:
+                        last[k] = (fl[9], fl[11] if len(fl) > 11 else "", fl[1], fl[0], fl[10])
+                continue
             if pkg and fl[7] not in want:
                 fl[7] = _stem(fl[7])   # GNU writes BipsPl/x.pl for the table's BipsPl/x
             if fl[7] not in want:
@@ -1806,7 +1836,16 @@ def cmd_from_progress(a):
             pop, shipped = sorted(pkg_pop), set()
             print("SUITE_ROW_SWI files=%d declared=%d graded=%d excluded=%d (NO_ORACLE_ANSWER and EXCLUDED_CASES.tsv, by util_swi_match.py's enumeration)"
                   % (len(want), _swi_decl, len(pkg_pop), _swi_excl))
-        _outside = {e for e in pkg_pop if all(last_by.get(e, {}).get(m, ("",))[0] == "OUTSIDE" for m in ("m3", "m4")) and e in last_by}
+        if key == "logtalk":
+            # ⭐ LOGTALK's TABLE LISTS CASES and its rows key a repeated name name#k (_logtalk_case_population, the grader's own rule); its row is
+            # the runner's: OUTSIDE stays in the denominator (util_logtalk_grade.py's BOARD_FOR_SHELL population), Excl the EXCLUDED_CASES.tsv cases
+            # (its CONTAINERS.tsv names files, not cases)
+            pkg_pop, _swi_excl = _logtalk_case_population(tdir, pop)
+            pop, shipped, cnames = sorted(pkg_pop), set(), set()
+            print("SUITE_ROW_LOGTALK cases=%d excluded=%d graded=%d (EXCLUDED_CASES.tsv by class; OUTSIDE stays in the denominator, as the runner's row)"
+                  % (len(pop) + _swi_excl, _swi_excl, len(pkg_pop)))
+        _outside = set() if key == "logtalk" else \
+            {e for e in pkg_pop if all(last_by.get(e, {}).get(m, ("",))[0] == "OUTSIDE" for m in ("m3", "m4")) and e in last_by}
         _outside_new = _outside - xnames - cnames
         pkg_pop = pkg_pop - _outside
         cnt = _c.Counter(cnt)

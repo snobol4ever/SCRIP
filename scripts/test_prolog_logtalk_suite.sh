@@ -99,6 +99,30 @@ _decl="$(mktemp "${TMPDIR:-/tmp}/lgt_decl.XXXXXX")"
 declared_memory_begin "$SUITE/ALL.csv" "$_decl" || { rm -f "$_decl"; refuse "a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; }
 _out="$(mktemp "${TMPDIR:-/tmp}/lgt_board.XXXXXX")"
 trap 'rm -f ${_decl:+"$_decl"} ${_out:+"$_out"}' EXIT; trap 'rm -f ${_decl:+"$_decl"} ${_out:+"$_out"}; exit 143' TERM; trap 'rm -f ${_decl:+"$_decl"} ${_out:+"$_out"}; exit 130' INT
+# ⭐ THE ROUND ROBIN'S SEAM (ceo CEO-1802/1805/1806; Lon 2026-10-17, in-chat to the coo: "Get LogTalk working now that you have batches."): under
+# S4E_CHUNK the part's cases (group:case, as ALL.csv and PARTITION.tsv name them) are graded in the partition's order, LOGTALK_RR_BATCH (25) names
+# per grader call, both modes each call, and each call's rows are appended as it ends. Between two calls a waiting request or a spent S4E_RR_BUDGET
+# stops the part (RR_YIELD; the loop resumes it at the next name). No suite row is written from a part: util_score_row.py from-progress assembles it.
+. "$HERE/lib_rr.sh" && rr_load "$SUITE" || refuse "the round-robin selection S4E_CHUNK=${S4E_CHUNK:-} is refused (named above)"
+if rr_selected; then
+    . "$HERE/lib_progress.sh" || refuse "lib_progress.sh is missing -- a part's rows would go nowhere"
+    mapfile -t _sel < <(rr_entries | awk '!s[$0]++')   # a repeated name is one entry: --only grades every instance of it
+    _only="$(mktemp "${TMPDIR:-/tmp}/lgt_only.XXXXXX")"; _b="${LOGTALK_RR_BATCH:-25}"; _i=0; _graded=0
+    while [ "$_i" -lt "${#_sel[@]}" ]; do
+        { rr_yield "${_sel[$_i]}" || rr_over_budget "${_sel[$_i]}"; } && break
+        printf '%s\n' "${_sel[@]:$_i:$_b}" > "$_only"
+        python3 "$HERE/util_logtalk_grade.py" --suite "$SUITE" --scrip "$SCRIP" --modes "$MODES" --jobs "$JOBS" --decl "$_decl" --only "$_only" $NAME_REDS > "$_out" 2>&1
+        _rc=$?
+        grep -E '^(LOGTALK_ISO_BOARD|ONLY:)' "$_out"
+        [ "$_rc" -eq 0 ] || { tail -20 "$_out"; rm -f "$_only"; exit "$_rc"; }
+        _prows="$(grep -m1 '^PROGRESS_ROWS_TSV ' "$_out" | awk '{print $2}')"
+        if [ -n "${_prows:-}" ] && [ -s "$_prows" ]; then progress_append_rows_tsv "$_prows" > /dev/null || echo "⚠ progress rows NOT recorded"; fi
+        _i=$((_i + _b)); _graded=$(( _i < ${#_sel[@]} ? _i : ${#_sel[@]} ))
+    done
+    rm -f "$_only"
+    echo "graded $_graded of ${#_sel[@]} name(s) of the part"
+    rr_end logtalk; exit 0
+fi
 python3 "$HERE/util_logtalk_grade.py" --suite "$SUITE" --scrip "$SCRIP" --modes "$MODES" --jobs "$JOBS" --decl "$_decl" $NAME_REDS | tee "$_out"
 # ⛔ PIPESTATUS[0], NEVER $? -- the pipeline ends in `tee`, so $? reports the pager and a python that died
 # reads as a clean run (CLAUDE.md, measured live on this box).

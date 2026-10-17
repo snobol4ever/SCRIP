@@ -15,8 +15,14 @@
 #          oracle answer, t2 is excluded), graded 3. Readings: t1 and x PASS both modes, t3 PASS m3 / FAIL m4, and a reading of the excluded t2 that
 #          must not count. The row is 2/3 excluded=2.
 #   ARM 6  SWI's Excl comes from the corpus, never from a row: the fixture's SUITES.tsv says swi excluded 167, and the row still reads excluded=2.
+#   ARM 7  Logtalk assembles BY CASE as its grader keys them: its table lists g:a, g:b twice, g:w twice, g:x and g:o; EXCLUDED_CASES.tsv names g:w
+#          WINDOWS_ONLY (one instance out) and g:x BOUNDED_INTEGERS_ONLY (every instance out); CONTAINERS.tsv names three files, which are no cases.
+#          Population g:a g:b#1 g:b#2 g:w g:o (5), Excl 2. Readings: a, b#1 and w PASS both modes, b#2 PASS m3 / FAIL m4, o OUTSIDE both modes (it
+#          stays in the denominator, as the runner's row), and a stale bare g:b reading from before the #k keys. The row is 3/5 excluded=2.
 #   PROVEN TO FAIL: on origin c6b9a6953 arms 5 and 6 FAIL (the cases match no table entry: 0/2 excluded=0, 2 unread); on the first cut of the SWI
-#   assembly (local 5d51861a3) arms 5 and 6 FAIL: it reads 2/3 excluded=167, the fixture's SUITES.tsv number read back.
+#   assembly (local 5d51861a3) arms 5 and 6 FAIL: it reads 2/3 excluded=167, the fixture's SUITES.tsv number read back. On origin b3a834ba4 arm 7
+#   FAILS: 3/4 excluded=4 (the table's names, not the grader's keys: the #k rows are dropped, the stale bare g:b reading stands in for both, and
+#   the three container files and the OUTSIDE case count as Excl).
 # PROVEN TO FAIL on the assembler before this rule (origin 717ddfca3's util_score_row.py): arms 1 and 2 FAIL -- it reads 3/4 with no excluded= (ALL.csv's count; d.pl unmatched, so d is half read).
 # EXIT 0 every arm holds; 1 an arm failed; 2 could not measure.
 set -uo pipefail
@@ -62,6 +68,17 @@ printf 'key\tlabel\ticon\tlang\tfirst_date\tfirst_pass\tfirst_total\ttoday_date\
 o5="$(S4E_SUITES_TSV="$T/SUITES.tsv" S4E_CORPUS_ROOT="$T/corpus" S4E_PROGRESS_DB="$DB" python3 "$SR" from-progress --suite swi --dry-run 2>&1)"
 ck "5 SWI assembles by case: 2/3, declared 5, graded 3, excluded 2" 'grep -q "would set swi -> 2/3 excluded=2 " <<<"$o5" && grep -q "^SUITE_ROW_SWI files=2 declared=5 graded=3 excluded=2 " <<<"$o5"'
 ck "6 SWI's Excl is the corpus's 2, not the 167 its SUITES.tsv row says" 'grep -q " excluded=2 " <<<"$o5" && ! grep -q "excluded=167" <<<"$o5"'
-[ "$fails" = 0 ] || printf '%s\n%s\n' "$o1" "$o5" | grep -E '^SUITE_ROW|would set|REFUSE' | sed 's/^/      /'
+# arm 7: Logtalk by case (a scratch logtalk_iso table with repeated names, two exclusion classes and container files)
+L="$T/corpus/packages/prolog/logtalk_iso"; mkdir -p "$L"
+printf 'rank,entry,origin\n1,g:a,x\n2,g:b,x\n3,g:b,x\n4,g:w,x\n5,g:w,x\n6,g:x,x\n7,g:o,x\n' > "$L/ALL.csv"
+printf '# EXCLUDED_CASES.tsv\ng:w\tWINDOWS_ONLY\t:- if(windows)\ng:x\tBOUNDED_INTEGERS_ONLY\tcondition(bounded)\n' > "$L/EXCLUDED_CASES.tsv"
+printf '# CONTAINERS.tsv\nd1.lgt\tDRIVER\tx\nd2.lgt\tDRIVER\tx\nd3.lgt\tDRIVER\tx\n' > "$L/CONTAINERS.tsv"
+row 30 logtalk prolog g:b m3 PASS; row 31 logtalk prolog g:b m4 PASS
+row 41 logtalk prolog g:a m3 PASS; row 42 logtalk prolog g:a m4 PASS; row 43 logtalk prolog "g:b#1" m3 PASS; row 44 logtalk prolog "g:b#1" m4 PASS
+row 45 logtalk prolog "g:b#2" m3 PASS; row 46 logtalk prolog "g:b#2" m4 FAIL; row 47 logtalk prolog g:w m3 PASS; row 48 logtalk prolog g:w m4 PASS
+row 49 logtalk prolog g:o m3 OUTSIDE; row 50 logtalk prolog g:o m4 OUTSIDE
+o7="$(S4E_CORPUS_ROOT="$T/corpus" S4E_PROGRESS_DB="$DB" python3 "$SR" from-progress --suite logtalk --dry-run 2>&1)"
+ck "7 Logtalk assembles by case: 3/5 excluded=2 (name#k keys, a guard class takes one instance, OUTSIDE stays, containers are no cases)" 'grep -q "would set logtalk -> 3/5 excluded=2 " <<<"$o7"'
+[ "$fails" = 0 ] || printf '%s\n%s\n%s\n' "$o1" "$o5" "$o7" | grep -E '^SUITE_ROW|would set|REFUSE' | sed 's/^/      /'
 if [ "$fails" = 0 ]; then echo "✅ GATE PASS [from_progress_assembles_a_package_as_shipped_minus_excluded]: $n of $n arms hold"; exit 0; fi
 echo "⛔ GATE FAIL [from_progress_assembles_a_package_as_shipped_minus_excluded]: $fails of $n arm(s) failed"; exit 1
