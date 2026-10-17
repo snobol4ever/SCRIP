@@ -2182,6 +2182,14 @@ PLR_WALK1(plc_tv_walk, plc_tv_visit, pl_deref) static void rt_pl_tv_walk(pl_cell
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { pl_cell_t *head; int other; } plc_tv1_t;
+typedef struct { pl_cell_t *head; long st; } plc_tv1a_t;
+plc_tv1a_t rt_pl_tv1_walk_a(pl_cell_t *c, const void *functors, long nfunctors);
+const void *rt_pl_functor_entries(void);
+int prolog_functor_count(void);
+_Static_assert(PLR_LINK == (DTYPE_t)(DT_PLREF + 2) && PLR_SEEN == (DTYPE_t)(DT_PLREF + 3) && PLR_VCOPY == (DTYPE_t)(DT_PLREF + 5) && __builtin_offsetof(DESCR_t, v) == 0 &&
+    __builtin_offsetof(DESCR_t, slen) == 4 && __builtin_offsetof(DESCR_t, p) == 8 && __builtin_offsetof(VCELL_t, cellp) == 0,
+    "rt_pl_tv1_walk_a (rtx_plunify.s) is PLR_WALK1 over plc_tv1_visit in asm: it reads the tag byte at 0, the functor id at 4 and the pointer at 8, follows a DT_N name to VCELL_t.cellp at 0, marks P"
+    "LR_SEEN and PLR_VCOPY at DT_PLREF + 3 and + 5, resolves PLR_LINK at + 2, keeps its agenda (128 entries) in its frame and answers 2 when it fills, so the C walk takes the term");
 static int plc_tv1_visit(pl_cell_t *d, void *ctx) {
     plc_tv1_t *t = (plc_tv1_t *)ctx;
     if (d->v == PLR_VCOPY) return PLR_V_GO;
@@ -2202,7 +2210,16 @@ int rt_pl_term_variables_cell(void *term_cell, void *vars_cell, void *tail_cell,
     plc_tv1_t t;
     t.head = (pl_cell_t *)0;
     t.other = 0;
-    if (term_cell) (void)plc_tv1_walk((pl_cell_t *)term_cell, (void *)&t);
+    if (term_cell) {
+        plc_tv1a_t a = rt_pl_tv1_walk_a((pl_cell_t *)term_cell, rt_pl_functor_entries(), (long)prolog_functor_count());
+        t.head = a.head;
+        t.other = a.st == 1;
+        if (a.st == 2) {
+            for (pl_cell_t *v = t.head, *nx; v; v = nx) { nx = (pl_cell_t *)v->p; v->v = (DTYPE_t)DT_PLVAR; v->p = (void *)v; }
+            t.head = (pl_cell_t *)0;
+            (void)plc_tv1_walk((pl_cell_t *)term_cell, (void *)&t);
+        }
+    }
     if (t.other) {
         for (pl_cell_t *v = t.head, *nx; v; v = nx) { nx = (pl_cell_t *)v->p; v->v = (DTYPE_t)DT_PLVAR; v->p = (void *)v; }
         pl_cell_t *pool[plc_var_occ((pl_cell_t *)term_cell) + 1];

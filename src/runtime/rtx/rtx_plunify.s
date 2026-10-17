@@ -799,4 +799,108 @@ RTX_ENDF(rt_pl_db_reclaimed_entry)
 .section .rodata
 .Lpl_db_reclaimed_msg:
     .string "a reclaimed run-time Prolog fragment was entered -- its clause was erased and the assertz reclaim found no live activation that could still reach it (unification.c pl_db_reclaim)"
+#define PL_TV_LINK (DT_PLREF + 2)
+#define PL_TV_SEEN (DT_PLREF + 3)
+#define PL_TV_VCOPY (DT_PLREF + 5)
+#define PL_TV_AG_BYTES 2048
+#define PL_TV_DEREF(l, var) \
+.l##_cell: movzx eax, byte ptr [rbx]; cmp al, DT_PLVAR; jne .l##_dn; mov rcx, qword ptr [rbx + 8]; cmp rcx, rbx; je var; mov rbx, rcx; jmp .l##_cell; \
+.l##_dn: cmp al, DT_N; jne .l##_link; mov ecx, dword ptr [rbx + 4]; mov rdx, qword ptr [rbx + 8]; test rdx, rdx; jz .l##_have; cmp ecx, 1; je .l##_go; cmp ecx, 2; jne .l##_have; \
+    mov rdx, qword ptr [rdx]; test rdx, rdx; jz .l##_have; \
+.l##_go: mov rbx, rdx; jmp .l##_cell; \
+.l##_link: cmp al, PL_TV_LINK; jne .l##_have; \
+.l##_lgo: mov rbx, qword ptr [rbx + 8]; movzx eax, byte ptr [rbx]; cmp al, PL_TV_LINK; je .l##_lgo; \
+.l##_have:
+#define PL_TV_NEXT(l, done) \
+.l##_next: cmp r12, r15; je done; mov rbx, qword ptr [r12 - 16]; lea rdx, [rbx + 16]; mov qword ptr [r12 - 16], rdx; dec qword ptr [r12 - 8]; jnz .l##_cell; sub r12, 16; jmp .l##_cell;
+RTX_FUNC(rt_pl_tv1_walk_a)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    RTX_SUB_RSP(PL_TV_AG_BYTES + 16)
+    mov     qword ptr [rsp + PL_TV_AG_BYTES], rdi
+    mov     rbp, rdx
+    mov     r14, rsi
+    mov     r15, rsp
+    mov     r12, rsp
+    xor     r13d, r13d
+    mov     rbx, rdi
+    PL_TV_DEREF(Ltv, .Ltv_var)
+    cmp     al, PL_TV_SEEN
+    je      .Ltv_next
+    cmp     al, PL_TV_VCOPY
+    je      .Ltv_next
+    cmp     al, DT_PLVAR
+    je      .Ltv_var
+    cmp     al, DT_PLREF
+    je      .Ltv_cmp
+    cmp     al, DT_SNUL
+    je      .Ltv_other
+    cmp     al, DT_FAIL
+    je      .Ltv_other
+    jmp     .Ltv_next
+.Ltv_cmp:
+    mov     eax, dword ptr [rbx + 4]
+    cmp     rax, rbp
+    jae     .Ltv_next
+    mov     ecx, dword ptr [r14 + rax*8 + 4]
+    test    ecx, ecx
+    jle     .Ltv_next
+    lea     rax, [r15 + PL_TV_AG_BYTES]
+    cmp     r12, rax
+    jae     .Ltv_full
+    mov     rdx, qword ptr [rbx + 8]
+    mov     qword ptr [r12], rdx
+    mov     qword ptr [r12 + 8], rcx
+    add     r12, 16
+    mov     byte ptr [rbx], PL_TV_SEEN
+    jmp     .Ltv_next
+.Ltv_var:
+    mov     byte ptr [rbx], PL_TV_VCOPY
+    mov     qword ptr [rbx + 8], r13
+    mov     r13, rbx
+    PL_TV_NEXT(Ltv, .Ltv_done)
+.Ltv_done:
+    xor     edi, edi
+    jmp     .Ltu_start
+.Ltv_other:
+    mov     edi, 1
+    jmp     .Ltu_start
+.Ltv_full:
+    mov     edi, 2
+.Ltu_start:
+    mov     qword ptr [rsp + PL_TV_AG_BYTES + 8], rdi
+    mov     r12, r15
+    mov     rbx, qword ptr [rsp + PL_TV_AG_BYTES]
+    PL_TV_DEREF(Ltu, .Ltu_next)
+    cmp     al, PL_TV_SEEN
+    jne     .Ltu_next
+    mov     byte ptr [rbx], DT_PLREF
+    mov     eax, dword ptr [rbx + 4]
+    mov     ecx, dword ptr [r14 + rax*8 + 4]
+    lea     rax, [r15 + PL_TV_AG_BYTES]
+    cmp     r12, rax
+    jae     .Ltu_lost
+    mov     rdx, qword ptr [rbx + 8]
+    mov     qword ptr [r12], rdx
+    mov     qword ptr [r12 + 8], rcx
+    add     r12, 16
+    PL_TV_NEXT(Ltu, .Ltu_done)
+.Ltu_lost:
+    ud2
+.Ltu_done:
+    mov     rax, r13
+    mov     rdx, qword ptr [rsp + PL_TV_AG_BYTES + 8]
+    RTX_ADD_RSP(PL_TV_AG_BYTES + 16)
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_pl_tv1_walk_a)
 .section .note.GNU-stack,"",@progbits
