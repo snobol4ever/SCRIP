@@ -6245,7 +6245,17 @@ static int pl_ax_powm(DESCR_t *args, DESCR_t *out, void **ball) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { DESCR_t root; int proven; } pl_ax_cx_t;
+static int pl_ax_eval_r(DESCR_t t, DESCR_t *out, void **ball, int depth, pl_ax_cx_t *cx);
 static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) {
+    extern int rt_pl_acyclic_cell(void *);
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    pl_ax_cx_t cx = { t, 0 };
+    if (pl_ax_eval_r(t, out, ball, 0, &cx)) return 1;
+    if (!cx.proven && ball && *ball) { DESCR_t r = rt_pl_deref_val(t); if ((int)r.v == DT_PLREF && !rt_pl_acyclic_cell(&r)) *ball = rt_pl_ball_kind2("type_error", "expression", r); }
+    return 0;
+}
+static int pl_ax_eval_r(DESCR_t t, DESCR_t *out, void **ball, int depth, pl_ax_cx_t *cx) {
     extern DESCR_t rt_pl_deref_val(DESCR_t);
     extern const char *prolog_atom_name(int);
     extern void *rt_pl_ball_instantiation(void);
@@ -6268,6 +6278,13 @@ static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) {
         const char *sfx = pl_ax_suffix_any(nm, ar);
         DESCR_t *kids = (DESCR_t *)d.p;
         DESCR_t ev[3];
+        if (depth >= 256 && !cx->proven) {
+            extern int rt_pl_acyclic_cell(void *);
+            extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+            DESCR_t r = rt_pl_deref_val(cx->root);
+            if (!rt_pl_acyclic_cell(&r)) { *ball = rt_pl_ball_kind2("type_error", "expression", r); return 0; }
+            cx->proven = 1;
+        }
         if (ar == 2 && nm && !strcmp(nm, ".") && kids) {
             DESCR_t tl = rt_pl_deref_val(kids[1]), hd = rt_pl_deref_val(kids[0]);
             if ((int)tl.v == DT_PLATOM && pl_atom_str(tl) && !strcmp(pl_atom_str(tl), "[]")) {
@@ -6287,12 +6304,12 @@ static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) {
             if (md.v == (DTYPE_t)DT_PLVAR) { *ball = rt_pl_ball_instantiation(); return 0; }
             if (mode < 0) { *ball = rt_pl_ball_kind2(pl_atom_str(md) ? "domain_error" : "type_error", pl_atom_str(md) ? "round_toward" : "atom", md); return 0; }
             fesetround(mode);
-            r = pl_ax_eval(kids[0], out, ball);
+            r = pl_ax_eval_r(kids[0], out, ball, depth + 1, cx);
             fesetround(saved);
             return r;
         }
         if (!sfx || ar < 1 || ar > 3 || !kids) { *ball = rt_pl_ball_type_pi("type_error", "evaluable", nm ? nm : "?", ar); return 0; }
-        for (int k = 0; k < ar; k++) if (!pl_ax_eval(kids[k], &ev[k], ball)) { *out = ev[k]; return 0; }
+        for (int k = 0; k < ar; k++) if (!pl_ax_eval_r(kids[k], &ev[k], ball, depth + 1, cx)) { *out = ev[k]; return 0; }
         dop_ax(sfx, ev, ar, out, ball);
         return out->v != DT_FAIL;
     }
