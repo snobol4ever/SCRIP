@@ -1660,6 +1660,7 @@ static const char *pas_sconst_get(const char *name) {
 static void pas_array_add(const char *name, long long high) {
     if (g_lower.pas.sem.pas_narray < 256 && name) {
         g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].name = ct_strdup(name);
+        g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].uid = pas_scope_uid(name);
         g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].high = high;
         g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].ncols = -1;
         g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].isbool = 0;
@@ -1674,6 +1675,7 @@ static void pas_array_add(const char *name, long long high) {
 static void pas_array_add2d(const char *name, long long high, long long ncols) {
     if (g_lower.pas.sem.pas_narray < 256 && name) {
         g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].name = ct_strdup(name);
+        g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].uid = pas_scope_uid(name);
         g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].high = high;
         g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].ncols = ncols;
         g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].isbool = 0;
@@ -1688,6 +1690,7 @@ static void pas_array_add2d(const char *name, long long high, long long ncols) {
 static void pas_array_add2d_param(const char *name, long long high, long long ncols) {
     if (g_lower.pas.sem.pas_narray < 256 && name) {
         g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].name = ct_strdup(name);
+        g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].uid = pas_scope_uid(name);
         g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].high = high;
         g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].ncols = ncols;
         g_lower.pas.sem.pas_arrays[g_lower.pas.sem.pas_narray].isbool = 0;
@@ -1823,11 +1826,13 @@ static int pas_is_dynexpr(const tree_t *e) {
 }
 static int pas_array_high_get(const char *name, long long *out) {
     if (!name || pas_array_isdyn(name)) return 0;
-    for (int i = 0; i < g_lower.pas.sem.pas_narray; i++) if (g_lower.pas.sem.pas_arrays[i].name && !g_lower.pas.sem.pas_arrays[i].is_param && !strcmp(g_lower.pas.sem.pas_arrays[i].name, name)) {
-        *out = g_lower.pas.sem.pas_arrays[i].high;
-        return 1;
-    }
-    return 0;
+    int u = pas_scope_uid(name), k = -1;
+    for (int i = 0; i < g_lower.pas.sem.pas_narray; i++)
+        if (g_lower.pas.sem.pas_arrays[i].name && !g_lower.pas.sem.pas_arrays[i].is_param && !strcmp(g_lower.pas.sem.pas_arrays[i].name, name) && (k < 0 || g_lower.pas.sem.pas_arrays[i].uid == u)) k =
+        i;
+    if (k < 0) return 0;
+    *out = g_lower.pas.sem.pas_arrays[k].high;
+    return 1;
 }
 static void pas_arrtype_add(const char *name, long long high, int ndim2, long long ncols) {
     if (g_lower.pas.sem.pas_narrtype < 64 && name) {
@@ -2025,7 +2030,14 @@ static int pas_decl_string_kind(const char *name) {
         return pas_string_type_kind(g_lower.pas.sem.pas_scalarvartype[i].tname);
     return 0;
 }
-static int pas_is_strelem_arr(const char *name) { long long hi; return name && pas_decl_string_kind(name) && (pas_array_isdyn(name) || pas_array_high_get(name, &hi)); }
+static int pas_array_scoped(const char *name) {
+    int u = pas_scope_uid(name);
+    for (int i = g_lower.pas.sem.pas_narray - 1; name && i >= 0; i--)
+        if (g_lower.pas.sem.pas_arrays[i].name && !strcmp(g_lower.pas.sem.pas_arrays[i].name, name) &&
+        (g_lower.pas.sem.pas_arrays[i].is_param || !g_lower.pas.sem.pas_arrays[i].uid || g_lower.pas.sem.pas_arrays[i].uid == u)) return 1;
+    return 0;
+}
+static int pas_is_strelem_arr(const char *name) { long long hi; return name && pas_decl_string_kind(name) && pas_array_scoped(name) && (pas_array_isdyn(name) || pas_array_high_get(name, &hi)); }
 static int pas_var_string_kind(const char *name) { return pas_is_strelem_arr(name) ? 0 : pas_decl_string_kind(name); }
 static void pas_tfcomp_add(const char *n, long long lo, long long hi, int ischar) {
     if (g_lower.pas.sem.pas_ntfcomp < 128 && n) {

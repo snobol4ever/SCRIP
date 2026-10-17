@@ -93,7 +93,7 @@ typedef struct {
     struct { char *name; char *val; } pas_sconsts[64];
     int pas_nsconst;
     int pas_level;
-    struct { char *name; long long high; long long ncols; int is_param; int is_local; long long low; int isbool; int isdyn; int isopen; } pas_arrays[256];
+    struct { char *name; long long high; long long ncols; int is_param; int is_local; long long low; int isbool; int isdyn; int isopen; int uid; } pas_arrays[256];
     int pas_narray;
     long long pas_pend_arr_ncols;
     struct { char *name; } pas_assigned[512];

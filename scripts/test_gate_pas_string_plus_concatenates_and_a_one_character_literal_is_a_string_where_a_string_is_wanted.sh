@@ -11,6 +11,10 @@
 # formal; pas_is_strval counts a concatenation as a string so a comparison of two uses __pas_strcmp. The set check runs first, so a set union is never a join.
 # NOT COVERED, written in the baton: copy, concat, upcase, str, pos on a variable pattern, string indexing writes, and '' (refused by the 6.1.7 ruling).
 #
+# SCOPE (cfo 2026-10-17, row gate-pascal-string-plus-the-tctl-witness-exits-1-in-both-modes-where-fpc-exits-0-ceo-1807): tctl's f(a: string) shadows its global `a: array[1..2] of r`, and the array-of-string
+# test (pas_is_strelem_arr, 9924a117a) and the static-array high lookup (pas_array_high_get) found arrays by name alone: length(a) folded to the global's 2 and a + '!' added a char code, so tctl died rc 1 at f.
+# Array entries now carry the scope uid of their declaration: the array-of-string test counts only the array the name resolves to in scope, and the high lookup prefers it. tshadow is the second
+# control (a global array of string, a local array of string shadowing it, a string formal shadowing it), also cut LIVE from fpc.
 # ARMS, both modes: one control cut LIVE from fpc (the program's own {$mode objfpc} directive selects the dialect) with 21 lines over every shape above; it must be byte-identical. FAIL_ONCE=1 corrupts the control's ref.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
@@ -58,13 +62,37 @@ begin
   cs := ['a'..'c']; cs := cs + ['x']; if 'x' in cs then writeln('in')
 end.
 PAS
+cat > "$T/tshadow.pas" <<'PAS'
+{$mode objfpc}
+program tshadow;
+var a: array[1..3] of string; i: integer;
+procedure loc;
+var a: array[1..2] of string;
+begin
+  a[1] := 'xy'; a[2] := 'z';
+  writeln(length(a), ' ', length(a[1]), ' ', a[1] + a[2]);
+end;
+function sh(a: string): integer; begin sh := length(a) end;
+function sc(a: string): string; begin sc := a + '!' end;
+begin
+  a[1] := 'abc'; a[2] := 'de'; a[3] := 'f';
+  writeln(length(a), ' ', length(a[2]), ' ', a[1] + a[3]);
+  for i := 1 to 3 do write(length(a[i]));
+  writeln;
+  if a[2] = 'de' then writeln('eq');
+  loc;
+  writeln(sh('hello'), ' ', sc('q'));
+end.
+PAS
 RC=0; N=0
-frc=$(fpcrun tctl)
-if [ -n "${FAIL_ONCE:-}" ]; then echo "corrupted by FAIL_ONCE" >> "$T/tctl.want"; fi
-for m in m3 m4; do run $m tctl; rc=$?; N=$((N + 1))
-  if [ "$rc" = "$frc" ] && cmp -s "$T/tctl.want" "$T/o"; then echo "  tctl $m: rc=$rc, stdout byte-identical to fpc ($(wc -l < "$T/o") lines)"
-  else echo "  ⛔ tctl $m FAILED: rc=$rc (fpc $frc)"; diff "$T/tctl.want" "$T/o" | head -6 | sed 's/^/      /'; echo "      err : $(head -1 "$T/e" | cut -c1-140)"; RC=1; fi
+for p in tctl tshadow; do
+frc=$(fpcrun $p)
+if [ -n "${FAIL_ONCE:-}" ]; then echo "corrupted by FAIL_ONCE" >> "$T/$p.want"; fi
+for m in m3 m4; do run $m $p; rc=$?; N=$((N + 1))
+  if [ "$rc" = "$frc" ] && cmp -s "$T/$p.want" "$T/o"; then echo "  $p $m: rc=$rc, stdout byte-identical to fpc ($(wc -l < "$T/o") lines)"
+  else echo "  ⛔ $p $m FAILED: rc=$rc (fpc $frc)"; diff "$T/$p.want" "$T/o" | head -6 | sed 's/^/      /'; echo "      err : $(head -1 "$T/e" | cut -c1-140)"; RC=1; fi
+done
 done
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: string + concatenates and a one-character literal is a string where a string is wanted, as fpc does, $N of $N arms"
-else echo "GATE FAIL(1) [$G]: examined 1 program in 2 modes"; fi
+else echo "GATE FAIL(1) [$G]: examined 2 programs in 2 modes"; fi
 exit $RC
