@@ -39,6 +39,10 @@ refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 . "$HERE/lib_declared_arena.sh" || refuse "lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"
 _inria_decl="$(mktemp "${TMPDIR:-/tmp}/inria_decl.XXXXXX")"
 declared_memory_begin "$SUITE/ALL.csv" "$_inria_decl" || { rm -f "$_inria_decl"; refuse "a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; }
+# ⭐ THE ROUND ROBIN'S SEAM (ceo CEO-1802/1805/1806): under S4E_CHUNK the grader runs only the selected fam#index cases (and any double_quotes setter
+# they carry from), writes their rows, and no suite row is written (rr_end below)
+. "$HERE/lib_rr.sh" && rr_load "$SUITE" || exit 2
+export INRIA_RR_SEL="$(printf '%s ' ${RR_SEL:-})"
 export INRIA_SUITE="$SUITE" INRIA_SCRIP="$SCRIP" INRIA_DECL="$_inria_decl" INRIA_HERE="$HERE"
 # ⛔ THE HEREDOC DELIMITER IS QUOTED and every value crosses by ENVIRONMENT, never by interpolation. This repo has
 # measured the alternative three times in one day: an unquoted heredoc hands the shell the whole program and every
@@ -298,6 +302,17 @@ HARNESS_PRELUDE = (
 # mode, as a leading directive into the later entries of the SAME family -- the driver's own read-after-run order, and only
 # for the one flag that changes reading. A carried directive is SCRIP's own parse-time reading of it, never the runner's.
 DQ_SET = re.compile(r"^\s*set_prolog_flag\(\s*double_quotes\s*,\s*([a-z]+)\s*\)\s*$")
+# ⭐ A ROUND-ROBIN PART (INRIA_RR_SEL, the fam#index cases lib_rr.sh selected): only those cases run, together with every earlier double_quotes setter
+# of a selected case's family, so the carry below reads the same verdicts a whole run reads
+_RR = set(os.environ.get("INRIA_RR_SEL", "").split())
+if _RR:
+    for _i, (_f, _g, _e) in enumerate(tests):
+        if "%s#%d" % (_f, _i) in _RR:
+            for _j in range(_i):
+                if tests[_j][0] == _f and DQ_SET.match(tests[_j][1]):
+                    _RR.add("%s#%d" % (_f, _j))
+def rr_skip(i):
+    return bool(_RR) and ("%s#%d" % (tests[i][0], i)) not in _RR
 def dq_lead(tidx, mode):
     fam, lead = tests[tidx][0], ""
     for j in range(tidx):
@@ -307,7 +322,7 @@ def dq_lead(tidx, mode):
 tmp = tempfile.mkdtemp()
 prog = os.path.join(tmp, "t.pl")
 for _tidx, (fam, goal, exp) in enumerate(tests):
-    if _tidx in OUTSIDE: continue
+    if _tidx in OUTSIDE or rr_skip(_tidx): continue
     want, wfun = expected_class(exp)
     for mode in ("m3", "m4"):
         _cur[0] = (_tidx, mode)
@@ -480,7 +495,7 @@ bres = {"m3": [0, 0], "m4": [0, 0]}   # pass, fail -- bindings board covers ALL 
 bnamed = []
 bok = {}   # (test index, mode) -> bool: THE per-entry verdict on the published criterion, kept for the progress rows below
 for _tidx, (fam, goal, exp) in enumerate(tests):
-    if _tidx in OUTSIDE: continue
+    if _tidx in OUTSIDE or rr_skip(_tidx): continue
     want, wfun = expected_class(exp)
     sols = parse_bindings(exp) if want == "success" else None
     if sols is not None and (fam, goal) in KNOWN_SUITE_ERRATA:
@@ -561,7 +576,7 @@ if os.environ.get("INRIA_NAME_REDS"):
 _prog_rows = os.path.join(tmp, "progress_rows.tsv")
 with open(_prog_rows, "w") as _pf:
     for _i, (_fam, _goal, _exp) in enumerate(tests):
-        if _i in OUTSIDE: continue
+        if _i in OUTSIDE or rr_skip(_i): continue
         for _m in ("m3", "m4"):
             _pf.write("package\tinria\tprolog\t%s#%d\t%s\t%s\t%.3f\toutcome-class-and-bindings\n"
                       % (_fam, _i, _m, "PASS" if bok.get((_i, _m), False) else "FAIL", isecs.get((_i, _m), 0.0)))
@@ -588,6 +603,7 @@ if [ -f "$HERE/lib_progress.sh" ]; then
     . "$HERE/lib_progress.sh"
     _prows="$(grep -m1 '^PROGRESS_ROWS_TSV ' "$_inria_out" | awk '{print $2}')"
     if [ -n "${_prows:-}" ] && [ -s "$_prows" ]; then progress_append_rows_tsv "$_prows" || echo "  (progress append failed -- board stands)"; fi
+    rr_selected && { rr_end inria; exit 0; }   # a part or a request writes its cases' rows and no suite row (CEO-1802)
 fi
 _oc="$(grep -m1 '^INRIA_SUITE_BOARD ' "$_inria_out" || true)"
 _bs="$(grep -m1 '^BINDINGS_BOARD_FOR_SHELL ' "$_inria_out" || true)"
