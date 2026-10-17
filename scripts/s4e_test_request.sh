@@ -22,7 +22,9 @@ trealla|packages/prolog/trealla_tests rosetta-pascal|packages/pascal/rosetta-pas
 x64tests|packages/snobol4/spitbol_x64_tests x32tests|packages/snobol4/spitbol_x32_tests dotnet|packages/snobol4/dotnet snoflake|packages/snobol4/snoflake_suite
 aisnobol|packages/snobol4/aisnobol ipl|packages/icon/ipl
 fpc|packages/pascal/fpc_tests pat|packages/pascal/pat roast|packages/raku/roast inria|packages/prolog/inriasuite gimpel|packages/snobol4/gimpel arizona|packages/icon/arizona_tests swi|packages/prolog/swi_tests logtalk|packages/prolog/logtalk_iso
-jcon|packages/icon/jcon_tests csnobol4|packages/snobol4/csnobol4_suite prolog-bench-ref|benchmarks/prolog prolog-demos|demos/prolog scriptix-demos|demos/scriptix"
+jcon|packages/icon/jcon_tests csnobol4|packages/snobol4/csnobol4_suite prolog-bench-ref|benchmarks/prolog prolog-demos|demos/prolog scriptix-demos|demos/scriptix
+gnu|packages/prolog/gnu_prolog"
+# gnu (the cfo 2026-10-17, CEO-1810: the rotation grades it, a request was refused): test_prolog_gnu_suite.sh reads no S4E_CHUNK, so a request grades its whole table (62 entries, about two minutes) and writes its row
 refuse() { echo "⛔ TEST REQUEST REFUSED(2): $* -- nothing filed"; exit 2; }
 table_of() { local e; for e in $SUITES; do [ "${e%%|*}" = "$1" ] && { echo "${e#*|}"; return 0; }; done; return 1; }
 seat() {
