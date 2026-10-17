@@ -1070,9 +1070,13 @@ s4e_lane_owner_of_language() {
       # owner cell keep their owner. The QUARTET table of CEO-1773 is the flip-back template (every language the ceo). MOVED AND COMMITTED BEFORE THE MODE FILE.
       # ⛔ MODE QUARTET AGAIN (CEO-1809, 2026-10-15 18:5x CDT, Lon in-chat to the ceo, verbatim: "Let bring the fleet to idle and go to QUARTET mode."): the four officers
       # only; every language to the ceo, who assigns, as CEO-1773's table; the SEPTET/OCTET/NONET table above is the flip-back template. MOVED AND COMMITTED BEFORE THE MODE FILE.
-       icon)     printf 'ceo';;
-       prolog)   printf 'ceo';;
-       snobol4)  printf 'ceo';;
+      # ⛔⭐ MODE NONET AGAIN (CEO-1813, 2026-10-17 14:3x CDT, Lon in-chat to the ceo, verbatim: "We should get HQ-SNOBOL4, HQ-ICON, HQ-PROLOG, and HQ=ZETAS also working in
+      # the fleet."): QUINTET's five plus those four -- CEO-1793's NONET roster, whose guard arm already admits exactly hq_snobol4 hq_icon hq_prolog hq_zetas hq_runtime.
+      # ICON to hq_icon, SNOBOL4 to hq_snobol4, PROLOG to hq_prolog, the other four to the ceo, who assigns; hq_zetas and hq_runtime own no language. The QUINTET table
+      # (every language the ceo) is the flip-back template. MOVED AND COMMITTED BEFORE THE MODE FILE.
+       icon)     printf 'hq_icon';;
+       prolog)   printf 'hq_prolog';;
+       snobol4)  printf 'hq_snobol4';;
        pascal)   printf 'ceo';;
        snocone)  printf 'ceo';;
        rebus)    printf 'ceo';;
