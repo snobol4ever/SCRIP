@@ -29,6 +29,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {
     { "rt_gc_mark_run", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_gc_prefix_run", RTCC_C_R8 },
     { "rt_gc_proc_roots_run", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_gc_ptr_fields_run", RTCC_C_R8|RTCC_C_R10 },
     { "rt_gc_site_find_a", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_gc_slide_run", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_gc_ssum_run", RTCC_C_R10|RTCC_C_R11 },

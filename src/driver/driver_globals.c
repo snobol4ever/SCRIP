@@ -376,12 +376,10 @@ void rt_script_die_surface(const char *msg) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void drv_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **loc);
-    for (int i = 0; i < FH_N; i++) {
-        if (g_fh[i].name) rt_gc_visit_raw((const char **)&g_fh[i].name);
-        if (g_fh[i].alias) rt_gc_visit_raw((const char **)&g_fh[i].alias);
-        if (g_fh[i].enc) rt_gc_visit_raw((const char **)&g_fh[i].enc);
-        if (g_fh[i].xal) rt_gc_visit_raw((const char **)&g_fh[i].xal);
-        if (g_fh[i].mir) rt_gc_visit_raw((const char **)&g_fh[i].mir);
-    }
+    extern void rt_gc_run_ptr_fields(const void *, long, long, long, const long *);
+    static const long off[5] = { (long) __builtin_offsetof(fh_slot_t, name), (long) __builtin_offsetof(fh_slot_t, alias), (long) __builtin_offsetof(fh_slot_t, enc),
+        (long) __builtin_offsetof(fh_slot_t, xal), (long) __builtin_offsetof(fh_slot_t, mir) };
+    fh_ensure_init();
+    if (g_fhv.len > 0) rt_gc_run_ptr_fields(g_fhv.p, (long) g_fhv.len, (long) sizeof(fh_slot_t), 5, off);
     if (g_fh_sink_v) rt_gc_visit_raw((const char **)&g_fh_sink_v);
 }

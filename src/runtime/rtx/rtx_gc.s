@@ -2396,6 +2396,68 @@ RTX_FUNC(rt_gc_flags_roots_run)
     RTX_POPS(rbx)
     ret
 RTX_ENDF(rt_gc_flags_roots_run)
+RTX_FUNC(rt_gc_ptr_fields_run)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    mov     r8, rdi
+    lea     rdi, [rip + g_gc_mk]
+    mov     rbx, qword ptr [rdi + 32]
+    mov     r12, qword ptr [rdi + 48]
+    mov     r14, qword ptr [rdi + 72]
+    mov     r15, qword ptr [rdi + 96]
+.Lpfr_loop:
+    mov     rax, qword ptr [r8 + 24]
+    cmp     rax, qword ptr [r8 + 8]
+    jae     .Lpfr_done
+    imul    rax, qword ptr [r8 + 16]
+    add     rax, qword ptr [r8]
+    mov     rsi, rax
+    mov     rax, qword ptr [rdi + 40]
+    sub     rax, rbx
+    cmp     rax, qword ptr [r8 + 32]
+    jl      .Lpfr_full
+    mov     qword ptr [r8 + 80], 0
+.Lpfr_field:
+    mov     rax, qword ptr [r8 + 80]
+    cmp     rax, qword ptr [r8 + 32]
+    jae     .Lpfr_next
+    mov     r13, qword ptr [r8 + rax*8 + 40]
+    add     r13, rsi
+    mov     r10, qword ptr [r13]
+    test    r10, r10
+    je      .Lpfr_skip
+    mov     qword ptr [rdi + 176], r13
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lpfr_skip
+    MK_MARK_BLK
+    MK_SLOTM
+.Lpfr_skip:
+    inc     qword ptr [r8 + 80]
+    jmp     .Lpfr_field
+.Lpfr_next:
+    inc     qword ptr [r8 + 24]
+    jmp     .Lpfr_loop
+.Lpfr_done:
+    xor     eax, eax
+    jmp     .Lpfr_out
+.Lpfr_full:
+    mov     eax, 1
+.Lpfr_out:
+    mov     qword ptr [rdi + 32], rbx
+    mov     qword ptr [rdi + 96], r15
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_gc_ptr_fields_run)
 RTX_FUNC(rt_gc_sw_links_a)
     RTX_PUSHS(rbx)
     RTX_PUSHS(rbp)

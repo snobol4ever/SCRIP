@@ -70,6 +70,7 @@ typedef struct gc_roots_args_t { void **vbk; long vnb; void **fbk; long fnb; con
 void rt_gc_run_roots(gc_roots_args_t *a);
 void rt_gc_run_proc_roots(gc_roots_args_t *a);
 void rt_gc_run_flags_roots(gc_roots_args_t *a);
+void rt_gc_run_ptr_fields(const void *base, long n, long stride, long noff, const long *off);
 int rt_gc_blk_marked(const rt_hblk_t *h);
 int rt_gc_stale_addr_report(void *fault, void *ip);
 long rt_gc_collect(void);

@@ -1535,6 +1535,23 @@ void rt_gc_run_flags_roots(gc_roots_args_t *a) {
     extern long rt_gc_flags_roots_run(gc_roots_args_t *);
     for (;;) { long r = rt_gc_flags_roots_run(a); if (!r) break; if (r == 1) gc_slot_grow(); else gc_wl_grow(); }
 }
+typedef struct gc_ptr_fields_args_t { const char *base; long n; long stride; long pos; long noff; long off[5]; long k; } gc_ptr_fields_args_t;
+_Static_assert(__builtin_offsetof(gc_ptr_fields_args_t, base) == 0 && __builtin_offsetof(gc_ptr_fields_args_t, n) == 8 && __builtin_offsetof(gc_ptr_fields_args_t, stride) == 16 &&
+    __builtin_offsetof(gc_ptr_fields_args_t, pos) == 24 && __builtin_offsetof(gc_ptr_fields_args_t, noff) == 32 && __builtin_offsetof(gc_ptr_fields_args_t, off) == 40 &&
+    __builtin_offsetof(gc_ptr_fields_args_t, k) == 80, "rt_gc_ptr_fields_run (rtx_gc.s) reads its argument block at these offsets");
+void rt_gc_run_ptr_fields(const void *base, long n, long stride, long noff, const long *off) {
+    extern long rt_gc_ptr_fields_run(gc_ptr_fields_args_t *);
+    gc_ptr_fields_args_t a;
+    if (noff < 1 || noff > 5) rt_bomb("rt_gc_run_ptr_fields: a run visits one to five pointer fields per entry");
+    a.base = (const char *)base;
+    a.n = n;
+    a.stride = stride;
+    a.pos = 0;
+    a.noff = noff;
+    a.k = 0;
+    for (long i = 0; i < noff; i++) a.off[i] = off[i];
+    while (rt_gc_ptr_fields_run(&a)) gc_slot_grow();
+}
 void rt_gc_run_roots(gc_roots_args_t *a) {
     extern long rt_gc_core_roots_run(gc_roots_args_t *);
     for (;;) { long r = rt_gc_core_roots_run(a); if (!r) break; if (r == 1) gc_slot_grow(); else gc_wl_grow(); }
@@ -1821,11 +1838,11 @@ static void gc_seg_begin(gc_seg_it_t *it, char *floor) {
     it->c = it->co ? scrip_co_gc_head() : (scrip_coctx_t *)0;
 #if RT_DIAG
     it->floor = floor;
-    it->run_hi = gc_stack_top();
+    it->run_hi = g_gc_stktop;
     g_gc_co_parked = 0;
 #else
     it->floor = floor;
-    it->run_hi = gc_stack_top();
+    it->run_hi = g_gc_stktop;
 #endif
 }
 static char *g_gc_program_top = (char *)0;
@@ -1887,13 +1904,13 @@ static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop) {
     if (it->stage == 2) {
         it->stage = 3;
         if (it->floor < it->run_hi) {
-            char *top = (it->run_hi == gc_stack_top() && g_gc_program_top > it->floor && g_gc_program_top < it->run_hi) ? g_gc_program_top : it->run_hi;
+            char *top = (it->run_hi == g_gc_stktop && g_gc_program_top > it->floor && g_gc_program_top < it->run_hi) ? g_gc_program_top : it->run_hi;
             *lo = it->floor;
             *hi = top;
             *pop = 1;
             it->prbp = (char *)0;
             it->sc = it->run_c;
-            g_gc_seg_main = (it->run_hi == gc_stack_top()) ? 1 : 0;
+            g_gc_seg_main = (it->run_hi == g_gc_stktop) ? 1 : 0;
             return 1;
         }
     }
@@ -2342,7 +2359,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
     if (b && e && (e->kind & 255) == 7) { pc = *(const uint64_t *)(r + e->depth); r = r + e->depth + 8; g_gc_chain_roadhops++; goto again; }
     if (!b || !e) {
         extern char rt_genp_n2_deliver_ret[];
-        const char *fp = rbp, *top = seg_top ? seg_top : gc_stack_top();
+        const char *fp = rbp, *top = seg_top ? seg_top : g_gc_stktop;
         while (fp && fp > r && fp + 16 <= top) {
             uint64_t pc2 = *(const uint64_t *)(fp + 8);
             const char *fp2 = *(const char *const *)fp;
@@ -2489,7 +2506,7 @@ static _Unwind_Reason_Code gc_uw_step(struct _Unwind_Context *c, void *a) {
     return _URC_NO_REASON;
 }
 static int gc_chain_entry_core(uint64_t *pco, const char **ro, const char **rbpo, int strict) {
-    const char *top = gc_stack_top(), *fp;
+    const char *top = g_gc_stktop, *fp;
     gc_uw_t u = { 0, (const char *)0, (const char *)0, 0 };
     _Unwind_Backtrace(gc_uw_step, &u);
     if (u.hit) { *pco = u.pc; *ro = u.r; *rbpo = u.rbp; return 1; }
@@ -3568,7 +3585,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
             fprintf(stderr, "[GC-AUDIT] scan-save heap=%ld unrooted=%ld\n", hp, un);
         }
     }
-    {
+    if (w_tel || gc_maps_on() || gc_diag_on()) {
         for (int ci = 0; ci < 32; ci++) {
             rt_hblk_t *hb = gc_blk_of((const char *)rtccb[ci]);
             if (!hb) continue;

@@ -21,13 +21,10 @@ extern int junction_mirror_op(int op);
 void bb_label_registry_reset(void) { for (int i = 0; i < g_lower.lc.bb_labels.n; i++) ct_drop((void *) LC_AT(&g_lower.lc.bb_labels, bb_label_entry_t, i).name); g_lower.lc.bb_labels.n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_gc_roots(void) {
-    extern void rt_gc_visit_raw(const char **);
+    extern void rt_gc_run_ptr_fields(const void *, long, long, long, const long *);
     extern void bb_src_gc_roots(void);
-    for (int i = 0; i < g_lower.lc.bb_labels.n; i++) {
-        bb_label_entry_t * e = &LC_AT(&g_lower.lc.bb_labels, bb_label_entry_t, i);
-        if (e->name) rt_gc_visit_raw((const char **) &e->name);
-        if (e->landing) rt_gc_visit_raw((const char **) &e->landing);
-    }
+    static const long off[2] = { (long) __builtin_offsetof(bb_label_entry_t, name), (long) __builtin_offsetof(bb_label_entry_t, landing) };
+    if (g_lower.lc.bb_labels.n > 0) rt_gc_run_ptr_fields(g_lower.lc.bb_labels.data, (long) g_lower.lc.bb_labels.n, (long) sizeof(bb_label_entry_t), 2, off);
     bb_src_gc_roots();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -461,11 +458,11 @@ static void bb_src_ix_add(const IR_t * nd, int i) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_src_gc_roots(void) {
-    extern void rt_gc_visit_raw(const char **);
-    for (int i = 0; i < g_lower.lc.bb_src.n; i++) {
-        if (g_lower.lc.bb_src.nd[i]) rt_gc_visit_raw((const char **) &g_lower.lc.bb_src.nd[i]);
-        if (g_lower.lc.bb_src.src[i]) rt_gc_visit_raw((const char **) &g_lower.lc.bb_src.src[i]);
-    }
+    extern void rt_gc_run_ptr_fields(const void *, long, long, long, const long *);
+    static const long off[1] = { 0 };
+    if (g_lower.lc.bb_src.n <= 0) return;
+    rt_gc_run_ptr_fields(g_lower.lc.bb_src.nd, (long) g_lower.lc.bb_src.n, (long) sizeof(const IR_t *), 1, off);
+    rt_gc_run_ptr_fields(g_lower.lc.bb_src.src, (long) g_lower.lc.bb_src.n, (long) sizeof(const char *), 1, off);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_src_note(const IR_t * nd, const char * src, int line) {
