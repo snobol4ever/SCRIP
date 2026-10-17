@@ -5269,6 +5269,18 @@ static const char *pl_atom_str(DESCR_t v) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pl_atom_str_n(DESCR_t v, size_t *n) {
+    extern const char *prolog_atom_name(int);
+    extern size_t prolog_atom_len(int);
+    const char *nm;
+    *n = 0;
+    if (v.v == DT_S) { *n = v.s ? v.slen : 0; return v.s ? v.s : ""; }
+    if (v.v != (DTYPE_t)DT_PLATOM) return NULL;
+    nm = prolog_atom_name((int)v.i);
+    if (nm) *n = prolog_atom_len((int)v.i);
+    return nm ? nm : "";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_mk_atom(const char *s) { extern int prolog_atom_intern(const char *); DESCR_t d = {0}; d.v = DT_PLATOM; d.slen = 0; d.i = prolog_atom_intern(s); return d; }
 static DESCR_t pl_nil(void) { extern int ATOM_NIL; DESCR_t d = {0}; d.v = DT_PLATOM; d.slen = 0; d.i = ATOM_NIL; return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6617,16 +6629,18 @@ static const char *pl_list_text_heap(DESCR_t v) {
     buf[k] = 0;
     return buf;
 }
-static int pl_cell_text(DESCR_t v, char *buf, size_t n, const char **out) {
+static int pl_cell_text_n(DESCR_t v, char *buf, size_t n, const char **out, size_t *len) {
     DESCR_t d = rt_pl_deref_val(v);
-    const char *s = pl_atom_str(d);
+    const char *s = pl_atom_str_n(d, len);
     if (s) { *out = s; return 1; }
-    if (d.v == DT_I) { snprintf(buf, n, "%lld", (long long)d.i); *out = buf; return 1; }
-    if (d.v == DT_BIG) { extern char *rt_big_str(DESCR_t); *out = rt_big_str(d); return *out != (const char *)0; }
-    if (d.v == DT_R) { *out = pl_real_iso_str(d.r, buf, (int)n); return 1; }
-    if (pl_is_cons(d) || pl_is_nil(d)) { const char *t = pl_list_text_heap(d); if (!t) return 0; *out = t; return 1; }
+    if (d.v == DT_I) { snprintf(buf, n, "%lld", (long long)d.i); *out = buf; *len = strlen(buf); return 1; }
+    if (d.v == DT_BIG) { extern char *rt_big_str(DESCR_t); *out = rt_big_str(d); if (*out) *len = strlen(*out); return *out != (const char *)0; }
+    if (d.v == DT_R) { *out = pl_real_iso_str(d.r, buf, (int)n); *len = strlen(*out); return 1; }
+    if (pl_is_cons(d) || pl_is_nil(d)) { const char *t = pl_list_text_heap(d); if (!t) return 0; *out = t; *len = strlen(t); return 1; }
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_cell_text(DESCR_t v, char *buf, size_t n, const char **out) { size_t len; return pl_cell_text_n(v, buf, n, out, &len); }
 static DESCR_t pl_text_list(const char *s, int codes) {
     gv_t el;
     int n = 0;
@@ -7774,11 +7788,7 @@ PL_CX_LEAF_HEAD(msort, 2) { void *b = pl_sort_args_ball(args, 0); if (b) { cx->b
 PL_CX_LEAF_HEAD(char_type, 2) ok = rt_pl_char_type_cell(&args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
 typedef struct { const char *s; size_t blen; long n; int mode; long k0, k1; const char *sub; size_t sublen; long subn; long count; } pl_sa_t;
 static DESCR_t pl_mk_string_dup(const char *s, size_t n) { char *b = (char *)rt_wsb_alloc(n + 1); memcpy(b, s, n); b[n] = 0; return rt_pl_make_string_cell(b); }
-static const char *pl_sa_text(DESCR_t v, char *buf, size_t cap) {
-    DESCR_t d = rt_pl_deref_val(v);
-    if (d.v != DT_S && d.v != (DTYPE_t)DT_PLATOM) return (const char *)0;
-    return d.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(d) : to_cstring(d, buf, cap);
-}
+static const char *pl_sa_text(DESCR_t v, size_t *blen) { return pl_atom_str_n(rt_pl_deref_val(v), blen); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_sa_int(DESCR_t v, long *out) { DESCR_t d = rt_pl_deref_val(v); if (d.v != DT_I) return 0; *out = (long)d.i; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -7787,18 +7797,17 @@ static long pl_sa_next(const pl_sa_t *p, long b, size_t *off) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_sa_plan(DESCR_t *bla, const char *s, pl_sa_t *p) {
+static void pl_sa_plan(DESCR_t *bla, const char *s, size_t blen, pl_sa_t *p) {
     long B = 0, L = 0, A = 0;
     int hb = pl_sa_int(bla[0], &B), hl = pl_sa_int(bla[1], &L), ha = pl_sa_int(bla[2], &A);
     DESCR_t sd = rt_pl_deref_val(bla[3]);
     p->s = s;
-    p->blen = strlen(s);
-    p->n = (long)utf8_strlen(s);
+    p->blen = blen;
+    p->n = (long)utf8_strlen_n(s, blen);
     p->count = 0;
     p->k0 = p->k1 = 0;
-    p->sub = sd.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(sd) : sd.v == DT_S ? (sd.s ? sd.s : "") : (const char *)0;
-    p->sublen = p->sub ? strlen(p->sub) : 0;
-    p->subn = p->sub ? (long)utf8_strlen(p->sub) : 0;
+    p->sub = pl_atom_str_n(sd, &p->sublen);
+    p->subn = p->sub ? (long)utf8_strlen_n(p->sub, p->sublen) : 0;
     if (hb + hl + ha >= 2) { long b = hb ? B : p->n - L - A, l = hl ? L : p->n - B - A; p->mode = 1; p->k0 = b; p->k1 = l; p->count = (b >= 0 && l >= 0 && b + l <= p->n) ? 1 : 0; return; }
     if (p->sub && hb) { p->mode = 1; p->k0 = B; p->k1 = p->subn; p->count = (B >= 0 && B + p->subn <= p->n) ? 1 : 0; return; }
     if (p->sub) {
@@ -7856,26 +7865,26 @@ static int pl_sa_pick(const pl_sa_t *p, long idx, long *bo, long *lo) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *args, int nargs) {
-    char sb[8192];
     const char *s;
+    size_t blen = 0;
     pl_sa_t p;
     if (nargs != 5) return FAILDESCR;
     pl_atoms_ready();
-    s = pl_sa_text(args[0], sb, sizeof sb);
+    s = pl_sa_text(args[0], &blen);
     if (!s) return FAILDESCR;
-    pl_sa_plan(args + 1, s, &p);
+    pl_sa_plan(args + 1, s, blen, &p);
     return INTVAL(p.count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_sub_atom_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
-    char sb[8192];
+    size_t blen = 0;
     DESCR_t iv = rt_pl_deref_val(args[1]);
-    const char *s = pl_sa_text(args[0], sb, sizeof sb);
+    const char *s = pl_sa_text(args[0], &blen);
     pl_sa_t p;
     long b, l, a;
     size_t boff, bspan;
     if (!s || iv.v != DT_I) return 0;
-    pl_sa_plan(args + 2, s, &p);
+    pl_sa_plan(args + 2, s, blen, &p);
     if (!pl_sa_pick(&p, (long)iv.i, &b, &l)) return 0;
     a = p.n - b - l;
     if ((size_t)p.n == p.blen) { boff = (size_t)b; bspan = (size_t)l; } else { boff = utf8_char_offset(s, p.blen, (size_t)b + 1); bspan = utf8_char_bytes(s, p.blen, boff, (size_t)l); }
@@ -7892,10 +7901,11 @@ PL_CX_LEAF_HEAD(sub_atom_at, 6) ok = rt_pl_sub_atom_at_cell(args, cx); PL_CX_LEA
 static long pl_atom_concat_count(DESCR_t a, DESCR_t b, DESCR_t c) {
     char ba[8192], bb[8192], bc[8192];
     const char *sa = 0, *sb = 0, *sc = 0;
-    int ha = pl_cell_text(a, ba, sizeof ba, &sa), hb = pl_cell_text(b, bb, sizeof bb, &sb);
+    size_t la, lb, lc;
+    int ha = pl_cell_text_n(a, ba, sizeof ba, &sa, &la), hb = pl_cell_text_n(b, bb, sizeof bb, &sb, &lb);
     if (ha && hb) return 0;
-    if (!pl_cell_text(c, bc, sizeof bc, &sc)) return -1;
-    return (long)utf8_strlen(sc);
+    if (!pl_cell_text_n(c, bc, sizeof bc, &sc, &lc)) return -1;
+    return (long)utf8_strlen_n(sc, lc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_atom_concat_n(DESCR_t *args, int nargs) {
@@ -7907,13 +7917,13 @@ DESCR_t rt_pl_dop_atom_concat_n(DESCR_t *args, int nargs) {
 static int rt_pl_atom_concat_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
     char ba[8192], bb[8192], bc[8192];
     const char *sa = 0, *sb = 0, *sc = 0;
+    size_t la = 0, lb = 0, blen = 0;
     DESCR_t iv = rt_pl_deref_val(args[0]);
     int ha, hb;
     if (iv.v != DT_I) return 0;
-    ha = pl_cell_text(args[1], ba, sizeof ba, &sa);
-    hb = pl_cell_text(args[2], bb, sizeof bb, &sb);
+    ha = pl_cell_text_n(args[1], ba, sizeof ba, &sa, &la);
+    hb = pl_cell_text_n(args[2], bb, sizeof bb, &sb, &lb);
     if (ha && hb) {
-        size_t la = strlen(sa), lb = strlen(sb);
         char cb[la + lb + 1];
         if ((long)iv.i != 0) return 0;
         if (la) memcpy(cb, sa, la);
@@ -7921,10 +7931,9 @@ static int rt_pl_atom_concat_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
         cb[la + lb] = 0;
         return plw_unify_vals(args[3], pl_mk_atom_dup(cb, la + lb), cx);
     }
-    if (!pl_cell_text(args[3], bc, sizeof bc, &sc)) return 0;
+    if (!pl_cell_text_n(args[3], bc, sizeof bc, &sc, &blen)) return 0;
     {
-        size_t blen = strlen(sc);
-        long n = (long)utf8_strlen(sc), i = (long)iv.i;
+        long n = (long)utf8_strlen_n(sc, blen), i = (long)iv.i;
         char *tr0 = cx->tr;
         int ok;
         size_t boff;
@@ -8443,7 +8452,7 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
         return REALVAL(t->v.dval);
         case TT_QLIT:
         case TT_NAME:
-        return pl_mk_atom_dup(t->v.sval ? t->v.sval : "?", strlen(t->v.sval ? t->v.sval : "?"));
+        return pl_mk_atom_dup(t->v.sval ? t->v.sval : "?", t->v.sval && t->slen > 0 ? (size_t)t->slen : strlen(t->v.sval ? t->v.sval : "?"));
         case TT_VAR:
         {
             const char *nm = t->v.sval;
@@ -23705,7 +23714,8 @@ static int pl_ctv_find(pl_ctv_t *vt, void *d) {
     return -(int)h - 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char * pl_tree_name(const char *s) { char *q = ct_strdup(s ? s : ""); return q ? q : (char *)""; }
+static char * pl_tree_name_n(const char *s, size_t n) { char *q = (char *)ct_alloc(n + 1); if (!q) return (char *)""; if (n) memcpy(q, s, n); q[n] = 0; return q; }
+static char * pl_tree_name(const char *s) { if (!s) s = ""; return pl_tree_name_n(s, strlen(s)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
     extern const char *prolog_atom_name(int);
@@ -23742,7 +23752,14 @@ static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
         ast_push(t, q);
         return t;
     }
-    if ((int)d->v == DT_PLATOM) { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = pl_tree_name(prolog_atom_name((int)d->i)); return t; }
+    if ((int)d->v == DT_PLATOM) {
+        tree_t *t = ast_node_new(TT_QLIT);
+        const char *nm = prolog_atom_name((int)d->i);
+        size_t n = nm ? prolog_atom_len((int)d->i) : 0;
+        t->v.sval = pl_tree_name_n(nm ? nm : "", n);
+        if (memchr(t->v.sval, 0, n)) t->slen = (int)n;
+        return t;
+    }
     if ((int)d->v == DT_S) { tree_t *t = ast_node_new(TT_DQLIT), *q = ast_node_new(TT_QLIT); q->v.sval = pl_tree_name(d->s ? d->s : ""); ast_push(t, q); return t; }
     if ((int)d->v == DT_SNUL) { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = pl_tree_name(""); return t; }
     if ((int)d->v == DT_PLREF) {

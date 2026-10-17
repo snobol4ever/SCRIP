@@ -35,13 +35,15 @@ static OpCols *opcols = NULL;
 static int opcols_cap = 0;
 static int opcols_ready = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *pool_strdup(const char *s) {
-    size_t n = strlen(s) + 1;
-    if (n > name_pool_left) { size_t chunk = n > 65536 ? n : 65536; name_pool = (char *)rt_slab_region(chunk); name_pool_left = chunk; }
-    { char *p = name_pool; memcpy(p, s, n); name_pool += n; name_pool_left -= n; return p; }
+static char *pool_dup_n(const char *s, size_t n) {
+    size_t need = sizeof(uint32_t) + n + 1;
+    if (need > name_pool_left) { size_t chunk = need > 65536 ? need : 65536; name_pool = (char *)rt_slab_region(chunk); name_pool_left = chunk; }
+    { uint32_t len = (uint32_t)n; char *p = name_pool + sizeof(uint32_t); memcpy(name_pool, &len, sizeof len); if (n) memcpy(p, s, n); p[n] = 0; name_pool += need; name_pool_left -= need; return p; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static unsigned int ht_hash(const char *s) { unsigned int h = 2166136261u; while (*s) { h ^= (unsigned char)*s++; h *= 16777619u; } return h; }
+static size_t pool_len(const char *p) { uint32_t len; memcpy(&len, p - sizeof(uint32_t), sizeof len); return len; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned int ht_hash(const char *s, size_t n) { unsigned int h = 2166136261u; for (size_t i = 0; i < n; i++) { h ^= (unsigned char)s[i]; h *= 16777619u; } return h; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ht_grow(int new_size) {
     HEntry *old = ht;
@@ -50,25 +52,29 @@ static void ht_grow(int new_size) {
     memset(ht, 0, new_size * sizeof(HEntry));
     ht_size = new_size;
     ht_used = 0;
-    for (int i = 0; i < old_size; i++) { if (!old[i].key) continue; unsigned int h = ht_hash(old[i].key) & (ht_size - 1); while (ht[h].key) h = (h + 1) & (ht_size - 1); ht[h] = old[i]; ht_used++; }
+    for (int i = 0; i < old_size; i++) {
+        if (!old[i].key) continue;
+        unsigned int h = ht_hash(old[i].key, pool_len(old[i].key)) & (ht_size - 1);
+        while (ht[h].key) h = (h + 1) & (ht_size - 1);
+        ht[h] = old[i];
+        ht_used++;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int prolog_atom_intern_n(const char *s, size_t n) { char *tmp = (char *)rt_wsb_alloc(n + 1); if (n) memcpy(tmp, s, n); tmp[n] = 0; return prolog_atom_intern(tmp); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int prolog_atom_intern(const char *name) {
-    if (!name) name = "";
+int prolog_atom_intern_n(const char *s, size_t n) {
+    if (!s) { s = ""; n = 0; }
     if (!ht) { ht_size = HT_INIT_SIZE; ht = rt_wsb_alloc(ht_size * sizeof(HEntry)); memset(ht, 0, ht_size * sizeof(HEntry)); }
     if (!atom_names) { atom_cap = ATOM_INIT_CAP; atom_names = rt_wsb_alloc(atom_cap * sizeof(char *)); memset(atom_names, 0, atom_cap * sizeof(char *)); }
-    unsigned int h = ht_hash(name) & (ht_size - 1);
-    while (ht[h].key) { if (strcmp(ht[h].key, name) == 0) return ht[h].id; h = (h + 1) & (ht_size - 1); }
-    if (ht_used * 2 >= ht_size) { ht_grow(ht_size * 2); h = ht_hash(name) & (ht_size - 1); while (ht[h].key) h = (h + 1) & (ht_size - 1); }
+    unsigned int h = ht_hash(s, n) & (ht_size - 1);
+    while (ht[h].key) { if (pool_len(ht[h].key) == n && (!n || memcmp(ht[h].key, s, n) == 0)) return ht[h].id; h = (h + 1) & (ht_size - 1); }
+    if (ht_used * 2 >= ht_size) { ht_grow(ht_size * 2); h = ht_hash(s, n) & (ht_size - 1); while (ht[h].key) h = (h + 1) & (ht_size - 1); }
     if (atom_len >= atom_cap) {
         int old_cap = atom_cap;
         atom_cap *= 2;
         { char **grown = (char **)rt_wsb_alloc((size_t)atom_cap * sizeof(char *)); memcpy(grown, atom_names, (size_t)old_cap * sizeof(char *)); atom_names = grown; }
         memset(atom_names + old_cap, 0, (atom_cap - old_cap) * sizeof(char *));
     }
-    char *copy = pool_strdup(name);
+    char *copy = pool_dup_n(s, n);
     int id = atom_len++;
     atom_names[id] = copy;
     ht[h].key = copy;
@@ -76,6 +82,23 @@ int prolog_atom_intern(const char *name) {
     ht_used++;
     return id;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_atom_intern(const char *name) { if (!name) name = ""; return prolog_atom_intern_n(name, strlen(name)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_atom_intern_lit(const char *s) {
+    size_t n;
+    if (!s) s = "";
+    n = strlen(s);
+    if (!memchr(s, 0xC0, n)) return prolog_atom_intern_n(s, n);
+    {
+        char b[n + 1];
+        size_t k = 0;
+        for (size_t i = 0; i < n; i++) { if ((unsigned char)s[i] == 0xC0 && (unsigned char)s[i + 1] == 0x80) { b[k++] = 0; i++; } else b[k++] = s[i]; }
+        return prolog_atom_intern_n(b, k);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+size_t prolog_atom_len(int id) { return (id < 0 || id >= atom_len) ? 0 : pool_len(atom_names[id]); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *prolog_atom_name(int id) { if (id < 0 || id >= atom_len) return NULL; return atom_names[id]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -224,13 +247,14 @@ void rt_pl_atom_table_install(const long *tab) {
         atom_names = rt_wsb_alloc(atom_cap * sizeof(char *));
         memset(atom_names, 0, atom_cap * sizeof(char *));
     }
-    const char *const *names = (const char *const *)(tab + 1);
+    const long *rows = tab + 1;
     for (long i = 0; i < n; i++) {
-        int id = prolog_atom_intern(names[i] ? names[i] : "");
+        const char *nm = (const char *)rows[2 * i];
+        int id = nm ? prolog_atom_intern_n(nm, (size_t)rows[2 * i + 1]) : prolog_atom_intern_n("", 0);
         if (id != (int)i) {
             fprintf(stderr,
                 "scrip: the compiled atom table does not match the runtime's interner -- atom %ld '%s' took id %d (an atom was interned before the table was installed; ARCH-PROLOG-BB-REWRITE.md sect"
-                "ion 3)\n", i, names[i] ? names[i] : "", id);
+                "ion 3)\n", i, nm ? nm : "", id);
             exit(2);
         }
     }

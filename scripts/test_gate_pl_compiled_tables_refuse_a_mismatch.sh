@@ -43,8 +43,8 @@ cmp -s "$W/w.s" "$W/f.s" && { echo "GATE REFUSED(2) [$G]: the functor-table swap
 if link "$W/f.s" "$W/f.bin"; then timeout -k 5 8 "$W/f.bin" < /dev/null > "$W/f.out" 2>&1; rc=$?
   if [ $rc -eq 2 ] && grep -qE 'compiled (functor table|atom and functor tables) do(es)? not match' "$W/f.out"; then echo "  ok  (b): swapped functor rows -> exit 2, '$(grep -oE 'functor [0-9]+ \([^)]*\) took id [0-9]+|\./2 reads functor [0-9]+' "$W/f.out" | head -1)'"; else echo "  RED (b): swapped functor rows ran rc=$rc without the refusal: $(head -c 160 "$W/f.out")"; bad=1; fi
 else echo "  RED (b): the swapped .s did not link ($(head -c 120 "$W/f.bin.link"))"; bad=1; fi
-# (c) swap the atom table's first pointer row (atom 0, the runtime's '.') with its sixth (the first program atom); rows are `.quad .Lpl_atomK`
-awk 'BEGIN{s=0; n=0} /^\.Lpl_atom_tab:/{s=1; print; next} s==1 && /^[[:space:]]+\.quad[[:space:]]+\.Lpl_atom[0-9]+$/ { n++; if (n==1) { r0=$0; next } if (n==6) { print; print r0; s=2; next } print; next } {print}' "$W/w.s" > "$W/a.s"
+# (c) swap the atom table's first pointer row (atom 0, the runtime's '.') with its sixth (the first program atom); rows are `.quad .Lpl_atomK, LEN` (the text's byte length, so code 0 is an element)
+awk 'BEGIN{s=0; n=0} /^\.Lpl_atom_tab:/{s=1; print; next} s==1 && /^[[:space:]]+\.quad[[:space:]]+\.Lpl_atom[0-9]+, [0-9]+$/ { n++; if (n==1) { r0=$0; next } if (n==6) { print; print r0; s=2; next } print; next } {print}' "$W/w.s" > "$W/a.s"
 cmp -s "$W/w.s" "$W/a.s" && { echo "GATE REFUSED(2) [$G]: the atom-table swap changed nothing -- fewer than six atom rows; re-aim the witness"; exit 2; }
 if link "$W/a.s" "$W/a.bin"; then timeout -k 5 8 "$W/a.bin" < /dev/null > "$W/a.out" 2>&1; rc=$?
   if [ $rc -eq 2 ] && grep -qE 'compiled (atom table|atom and functor tables) do(es)? not match' "$W/a.out"; then echo "  ok  (c): swapped atom rows -> exit 2, '$(grep -oE "atom [0-9]+ '[^']*' took id [0-9]+|read ids [0-9 ]+" "$W/a.out" | head -1)'"; else echo "  RED (c): swapped atom rows ran rc=$rc without the refusal: $(head -c 160 "$W/a.out")"; bad=1; fi

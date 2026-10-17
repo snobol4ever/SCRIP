@@ -5,7 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 void rt_icn_cset_register(const char *ptr, int len);
-int prolog_atom_intern(const char *name);
+int prolog_atom_intern_lit(const char *s);
 const char * bb_ab_sym_name(const char * nm);
 #include "dtp.h"
 }
@@ -87,7 +87,7 @@ std::string bb_lit_scalar() {
              + x86_gamma()
              + x86_beta_trampoline()
              + x86("def", L(0))
-             + x86(".quad", (uint64_t)(unsigned)prolog_atom_intern(_.op_sval ? _.op_sval : ""))
+             + x86(".quad", (uint64_t)(unsigned)prolog_atom_intern_lit(_.op_sval ? _.op_sval : ""))
          : _.op_node_kind == (int)IR_LIT_NAME && (_.op_off >= 0 || _.op_zres)
          ? x86("comment", "IR_LIT_NAME")
              + x86_alpha()

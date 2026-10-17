@@ -373,7 +373,8 @@ static tree_t *tr_dup(const tree_t *e) {
     switch (e->t) {
         case TT_QLIT: case TT_VAR: case TT_KEYWORD: case TT_FNC:
         case TT_IDX:  case TT_CSET: case TT_ATTR:
-            c->v.sval = e->v.sval ? ct_strdup(e->v.sval) : NULL;
+            c->v.sval = e->v.sval ? (e->slen > 0 ? (char *)memcpy(ct_zalloc(1, (size_t)e->slen + 1), e->v.sval, (size_t)e->slen) : ct_strdup(e->v.sval)) : NULL;
+            c->slen = e->slen;
             break;
         default:
             break;
@@ -440,19 +441,19 @@ static int pf_pieces(const tree_t *t) {
 static int pf_len(const tree_t *t) {
     if (t->t == TT_CAT) return pf_len(t->c[0]) + pf_len(t->c[1]);
     if (t->t == TT_ESC) return 4;
-    return t->v.sval ? (int)strlen(t->v.sval) : 0;
+    return t->slen > 0 ? t->slen : t->v.sval ? (int)strlen(t->v.sval) : 0;
 }
 static int pf_put(const tree_t *t, char *o) {
     extern int prolog_escape_bytes(const char *, char *, int); int n;
     if (t->t == TT_CAT) { n = pf_put(t->c[0], o); return n + pf_put(t->c[1], o + n); }
     if (t->t == TT_ESC) return prolog_escape_bytes(t->v.sval, o, 4);
-    n = t->v.sval ? (int)strlen(t->v.sval) : 0; memcpy(o, t->v.sval, (size_t)n); return n;
+    n = t->slen > 0 ? t->slen : t->v.sval ? (int)strlen(t->v.sval) : 0; if (n) memcpy(o, t->v.sval, (size_t)n); return n;
 }
 void prolog_fold_pieces(tree_t *t) {
     if (!t) return;
     if ((t->t == TT_CAT || t->t == TT_ESC) && pf_pieces(t)) {
         char *b = (char *)ct_alloc((size_t)pf_len(t) + 1); int n = pf_put(t, b); b[n] = 0;
-        t->t = TT_QLIT; t->v.sval = b; t->n = 0; return;
+        t->t = TT_QLIT; t->v.sval = b; t->n = 0; if (memchr(b, 0, (size_t)n)) t->slen = n; return;
     }
     for (int i = 0; i < t->n; i++) prolog_fold_pieces(t->c[i]);
 }

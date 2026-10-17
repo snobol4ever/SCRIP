@@ -894,14 +894,16 @@ static void m4_emit_functor_table(void) {
 static void m4_emit_atom_table(void) {
     extern int prolog_atom_count(void);
     extern const char *prolog_atom_name(int);
+    extern size_t prolog_atom_len(int);
     int n = prolog_atom_count();
     emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n  .align 8\n.Lpl_atom_tab:\n  .quad %d\n", n);
-    for (int k = 0; k < n; k++) emit_textf("  .quad .Lpl_atom%d\n", k);
+    for (int k = 0; k < n; k++) emit_textf("  .quad .Lpl_atom%d, %zu\n", k, prolog_atom_len(k));
     for (int k = 0; k < n; k++) {
         const unsigned char *p = (const unsigned char *)prolog_atom_name(k);
+        size_t len = p ? prolog_atom_len(k) : 0;
         if (!p) p = (const unsigned char *)"";
         emit_textf(".Lpl_atom%d:\n", k);
-        for (int col = 0; ; p++, col++) { if (col % 32 == 0) emit_textf(col ? "\n  .byte %u" : "  .byte %u", (unsigned)*p); else emit_textf(",%u", (unsigned)*p); if (!*p) break; }
+        for (size_t col = 0; col <= len; col++) { unsigned b = col < len ? (unsigned)p[col] : 0u; if (col % 32 == 0) emit_textf(col ? "\n  .byte %u" : "  .byte %u", b); else emit_textf(",%u", b); }
         emit_textf("\n");
     }
     emit_textf("  .section .text\n  .intel_syntax noprefix\n");

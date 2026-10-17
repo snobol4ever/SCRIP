@@ -83,6 +83,8 @@ static int plc_vindex(plc_vmap *m, pl_cell_t *d) { for (int i = 0; i < m->n; i++
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *plc_atom_text(pl_cell_t *d) { if ((int)d->v == DT_S) return d->s ? d->s : ""; const char *n = prolog_atom_name((int)d->i); return n ? n : "?"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static size_t plc_atom_len(pl_cell_t *d) { if ((int)d->v == DT_S) return d->s ? d->slen : 0; return prolog_atom_name((int)d->i) ? prolog_atom_len((int)d->i) : 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_user_op(const char *fn, int ar, int *prec, int *ra) {
     extern int prolog_op_user_count(void);
     extern int prolog_op_user_get(int, const char **, int *, const char **);
@@ -204,15 +206,15 @@ extern int rt_pl_dialect_swi(void);
 extern int rt_pl_dialect_gnu(void);
 int rt_pl_u8_get(const char *s, int *adv);
 extern int rt_pl_flag_true(const char *nm);
-static void plc_wt_atom(FILE *fp, const char *name, int quoted) {
+static void plc_wt_atom_n(FILE *fp, const char *name, size_t len, int quoted) {
     extern int rt_pl_fp_max_code(FILE *);
     int noesc = quoted & PLC_WQ_NOESC, qna = quoted & PLC_WQ_NONASCII, xesc = quoted & PLC_WQ_XESC, maxc = -1;
     quoted &= 1;
-    if (!name) name = "?";
+    if (!name) { name = "?"; len = 1; }
     if (quoted && plc_has_non_ascii(name)) { int adv; maxc = rt_pl_fp_max_code(fp); for (const char *q = name; *q && maxc < 0x10FFFF; q += adv) if (rt_pl_u8_get(q, &adv) > maxc) { qna = 1; break; } }
-    if (quoted && (plc_atom_needs_quoting(name) || (qna && plc_has_non_ascii(name)))) {
+    if (quoted && (plc_atom_needs_quoting(name) || memchr(name, 0, len) || (qna && plc_has_non_ascii(name)))) {
         fputc('\'', fp);
-        for (const char *q = name; *q; q++) {
+        for (const char *q = name; q < name + len; q++) {
             if (noesc && *q != '\'') { fputc(*q, fp); continue; }
             switch (*q) {
                 case '\'':
@@ -243,7 +245,7 @@ static void plc_wt_atom(FILE *fp, const char *name, int quoted) {
                 fputs("\\v", fp);
                 break;
                 case '\0':
-                fputs("\\0", fp);
+                fputs("\\x0\\", fp);
                 break;
                 default:
                 {
@@ -263,8 +265,10 @@ static void plc_wt_atom(FILE *fp, const char *name, int quoted) {
             }
         }
         fputc('\'', fp);
-    } else fprintf(fp, "%s", name);
+    } else fwrite(name, 1, len, fp);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_wt_atom(FILE *fp, const char *name, int quoted) { plc_wt_atom_n(fp, name, name ? strlen(name) : 1, quoted); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_wt_string(FILE *fp, pl_cell_t *d, int quoted) {
     const char *b = d->s ? d->s : "";
@@ -489,7 +493,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
     int tg = (int)d->v;
     if (pl_cell_unbound(d)) { { const char *vn = plc_vname(m, d); if (vn) fputs(vn, fp); else fprintf(fp, "_G%d", plc_vindex(m, d)); } return; }
     if (tg == DT_S) { plc_wt_string(fp, d, quoted); return; }
-    if (tg == DT_PLATOM) { plc_wt_atom(fp, plc_atom_text(d), quoted); return; }
+    if (tg == DT_PLATOM) { plc_wt_atom_n(fp, plc_atom_text(d), plc_atom_len(d), quoted); return; }
     if (tg == DT_I) { fprintf(fp, "%ld", (long)d->i); return; }
     if (tg == DT_R) { plc_wt_num(fp, d); return; }
     if (tg == DT_BIG) { extern char *rt_big_str(DESCR_t); char *bs = rt_big_str(*d); fputs(bs ? bs : "0", fp); return; }
@@ -1152,39 +1156,62 @@ int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell, p
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *plc_atom_op_list_text_heap(pl_cell_t *d);
-static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz) {
-    if (!t) return (const char *)0;
+static const char *plc_atom_op_list_text_heap(pl_cell_t *d, size_t *len);
+static const char *plc_atom_op_text_n(pl_cell_t *t, char *buf, size_t bufsz, size_t *len) {
+    const char *r = (const char *)0;
+    *len = 0;
+    if (!t) return r;
     pl_cell_t *d = pl_deref(t);
-    if ((int)d->v == DT_PLATOM || (int)d->v == DT_S) return plc_atom_text(d);
-    if ((int)d->v == DT_I) { snprintf(buf, bufsz, "%ld", (long)d->i); return buf; }
-    if ((int)d->v == DT_BIG) { extern char *rt_big_str(DESCR_t); return rt_big_str(*d); }
-    if (pl_rat_is(*d)) { size_t n = pl_rat_text(*d, (char *)0, 0) + 1; char *o = n <= bufsz ? buf : (char *)rt_wsb_alloc(n); (void)pl_rat_text(*d, o, n); return o; }
-    if ((int)d->v == DT_R) { extern const char *pl_real_iso_str(double, char *, int); return pl_real_iso_str(d->r, buf, (int)bufsz); }
-    if ((int)d->v == DT_PLREF) { const char *lt = plc_atom_op_list_text_heap(d); if (lt) return lt; }
-    return (const char *)0;
+    if ((int)d->v == DT_PLATOM || (int)d->v == DT_S) { *len = plc_atom_len(d); return plc_atom_text(d); }
+    if ((int)d->v == DT_PLREF) return plc_atom_op_list_text_heap(d, len);
+    if ((int)d->v == DT_I) {
+        snprintf(buf, bufsz, "%ld", (long)d->i);
+        r = buf;
+    } else if ((int)d->v == DT_BIG) {
+        extern char *rt_big_str(DESCR_t);
+        r = rt_big_str(*d);
+    } else if (pl_rat_is(*d)) {
+        size_t n = pl_rat_text(*d, (char *)0, 0) + 1;
+        char *o = n <= bufsz ? buf : (char *)rt_wsb_alloc(n);
+        (void)pl_rat_text(*d, o, n);
+        r = o;
+    } else if ((int)d->v == DT_R) {
+        extern const char *pl_real_iso_str(double, char *, int);
+        r = pl_real_iso_str(d->r, buf, (int)bufsz);
+    }
+    if (r) *len = strlen(r);
+    return r;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz) { size_t n; return plc_atom_op_text_n(t, buf, bufsz, &n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_num_of_text(const char *s, pl_cell_t *out) { extern int rt_pl_parse_number(const char *, DESCR_t *); return s && rt_pl_parse_number(s, out); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_cell_t plc_make_atom_cell(const char *name) { int id = prolog_atom_intern(name ? name : ""); const char *nm = prolog_atom_name(id); (void)nm; return pl_make_atom(id); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_cell_t plc_make_atom_cell_n(const char *s, size_t n) { return pl_make_atom(prolog_atom_intern_n(s ? s : "", s ? n : 0)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_unify_into_cell(pl_cell_t *dst, pl_cell_t val) { pl_cell_t tmp = val; return pl_unify(dst, &tmp); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-pl_cell_t rt_pl_make_string_cell(const char *s) {
-    extern char *rt_heap_strdup_c(const char *);
+pl_cell_t rt_pl_make_string_cell_n(const char *s, size_t n) {
     pl_cell_t c = {0};
     c.v = (DTYPE_t)DT_S;
-    c.s = rt_heap_strdup_c(s ? s : "");
-    c.slen = (uint32_t)strlen(c.s);
+    c.s = (char *)rt_heap_alloc_c(n + 1);
+    if (n) memcpy(c.s, s, n);
+    c.s[n] = 0;
+    c.slen = (uint32_t)n;
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plc_text_out(void *cell, const char *s, int as_str, pl_tr_ctx_t *cx) {
+pl_cell_t rt_pl_make_string_cell(const char *s) { if (!s) s = ""; return rt_pl_make_string_cell_n(s, strlen(s)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_text_out_n(void *cell, const char *s, size_t n, int as_str, pl_tr_ctx_t *cx) {
     pl_cell_t *d = cell ? pl_deref((pl_cell_t *)cell) : (pl_cell_t *)0;
-    if (d && !pl_cell_unbound(d) && ((int)d->v == DT_S || (int)d->v == DT_PLATOM)) return !strcmp(plc_atom_text(d), s);
-    return plc_unify_into_cell_cx((pl_cell_t *)cell, as_str ? rt_pl_make_string_cell(s) : plc_make_atom_cell(s), cx);
+    if (d && !pl_cell_unbound(d) && ((int)d->v == DT_S || (int)d->v == DT_PLATOM)) return plc_atom_len(d) == n && (!n || !memcmp(plc_atom_text(d), s, n));
+    return plc_unify_into_cell_cx((pl_cell_t *)cell, as_str ? rt_pl_make_string_cell_n(s, n) : plc_make_atom_cell_n(s, n), cx);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_text_out(void *cell, const char *s, int as_str, pl_tr_ctx_t *cx) { return plc_text_out_n(cell, s, s ? strlen(s) : 0, as_str, cx); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_u8_get(const char *s, int *adv) {
     const unsigned char *u = (const unsigned char *)s;
@@ -1200,7 +1227,7 @@ int rt_pl_u8_get(const char *s, int *adv) {
     return (int)c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static size_t pl_u8_count(const char *s) { size_t n = 0; int a; while (*s) { (void)rt_pl_u8_get(s, &a); s += a; n++; } return n; }
+static size_t pl_u8_count_n(const char *s, size_t len) { size_t n = 0; int a; for (const char *e = s + len; s < e; s += a) { (void)rt_pl_u8_get(s, &a); n++; } return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_u8_put(char *o, int cp) {
     if (cp < 0) return 0;
@@ -1214,7 +1241,7 @@ int rt_pl_u8_put(char *o, int cp) {
     return 4;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *plc_atom_op_list_text_heap(pl_cell_t *d) {
+static const char *plc_atom_op_list_text_heap(pl_cell_t *d, size_t *len) {
     extern int ATOM_DOT, ATOM_NIL;
     extern void *rt_wsb_alloc(size_t);
     extern void *rt_wsb_realloc(void *, size_t);
@@ -1228,7 +1255,7 @@ static const char *plc_atom_op_list_text_heap(pl_cell_t *d) {
             oi += (size_t)rt_pl_u8_put(buf + oi, (int)el->i);
         } else if (plc_is_atomlike(el)) {
             const char *cn = plc_atom_text(el);
-            size_t cl = cn ? strlen(cn) : 0;
+            size_t cl = cn ? plc_atom_len(el) : 0;
             if (!cn || !cl) return (const char *)0;
             while (oi + cl + 1 > cap) cap *= 2;
             buf = (char *)rt_wsb_realloc(buf, cap);
@@ -1239,6 +1266,7 @@ static const char *plc_atom_op_list_text_heap(pl_cell_t *d) {
     }
     if (!(d && plc_is_atomlike(d) && plc_atom_id_of(d) == ATOM_NIL)) return (const char *)0;
     buf[oi] = '\0';
+    *len = oi;
     return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1248,63 +1276,56 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     pl_cell_t *t2 = a2_cell ? pl_deref((pl_cell_t *)a2_cell) : (pl_cell_t *)0;
     char buf0[512], buf1[512];
     if (!strcmp(fn, "atom_length")) {
-        const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
+        size_t sn;
+        const char *s = plc_atom_op_text_n(t0, buf0, sizeof buf0, &sn);
         if (!s) { return 0; }
-        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)pl_u8_count(s)), cx)) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)pl_u8_count_n(s, sn)), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "atomic_concat")) {
-        const char *s0 = plc_atom_op_text(t0, buf0, sizeof buf0);
-        const char *s1 = plc_atom_op_text(t1, buf1, sizeof buf1);
+        size_t l0, l1;
+        const char *s0 = plc_atom_op_text_n(t0, buf0, sizeof buf0, &l0);
+        const char *s1 = plc_atom_op_text_n(t1, buf1, sizeof buf1, &l1);
         if (!s0 || !s1) { return 0; }
         {
-            size_t l0 = strlen(s0), l1 = strlen(s1);
             char *cat = (char *)rt_wsb_alloc(l0 + l1 + 1);
             memcpy(cat, s0, l0);
             memcpy(cat + l0, s1, l1);
             cat[l0 + l1] = '\0';
-            return plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_make_atom_cell(cat), cx) ? 1 : 0;
+            return plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_make_atom_cell_n(cat, l0 + l1), cx) ? 1 : 0;
         }
     }
     if (!strcmp(fn, "atom_concat")) {
-        const char *s0 = plc_atom_op_text(t0, buf0, sizeof buf0);
-        const char *s1 = plc_atom_op_text(t1, buf1, sizeof buf1);
+        size_t l0, l1;
+        const char *s0 = plc_atom_op_text_n(t0, buf0, sizeof buf0, &l0);
+        const char *s1 = plc_atom_op_text_n(t1, buf1, sizeof buf1, &l1);
         if (!s0 || !s1) {
             char bufz[512];
-            const char *sz = plc_atom_op_text(t2, bufz, sizeof bufz);
+            size_t lz;
+            const char *sz = plc_atom_op_text_n(t2, bufz, sizeof bufz, &lz);
             if (!sz) { return 0; }
             {
-                size_t lz = strlen(sz);
-                if (s0 && !s1) {
-                    size_t la = strlen(s0);
-                    if (la > lz || memcmp(sz, s0, la)) { return 0; }
-                    return plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell(sz + la), cx) ? 1 : 0;
-                }
-                if (!s0 && s1) {
-                    size_t lb = strlen(s1);
-                    if (lb > lz || memcmp(sz + (lz - lb), s1, lb)) { return 0; }
-                    { char pre[lz - lb + 1]; memcpy(pre, sz, lz - lb); pre[lz - lb] = '\0'; return plc_unify_into_cell_cx((pl_cell_t *)a0_cell, plc_make_atom_cell(pre), cx) ? 1 : 0; }
-                }
+                if (s0 && !s1) { if (l0 > lz || memcmp(sz, s0, l0)) { return 0; } return plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell_n(sz + l0, lz - l0), cx) ? 1 : 0; }
+                if (!s0 && s1) { if (l1 > lz || memcmp(sz + (lz - l1), s1, l1)) { return 0; } return plc_unify_into_cell_cx((pl_cell_t *)a0_cell, plc_make_atom_cell_n(sz, lz - l1), cx) ? 1 : 0; }
             }
             return 0;
         }
-        size_t l0 = strlen(s0), l1 = strlen(s1);
         char cat[l0 + l1 + 1];
         memcpy(cat, s0, l0);
         memcpy(cat + l0, s1, l1);
         cat[l0 + l1] = '\0';
-        if (!plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_make_atom_cell(cat), cx)) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_make_atom_cell_n(cat, l0 + l1), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "upcase_atom") || !strcmp(fn, "downcase_atom")) {
-        const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
+        size_t n;
+        const char *s = plc_atom_op_text_n(t0, buf0, sizeof buf0, &n);
         if (!s) { return 0; }
-        size_t n = strlen(s);
         char out[n + 1];
         int up = (!strcmp(fn, "upcase_atom"));
         for (size_t i = 0; i < n; i++) out[i] = up ? (char)toupper((unsigned char)s[i]) : (char)tolower((unsigned char)s[i]);
         out[n] = '\0';
-        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell(out), cx)) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell_n(out, n), cx)) { return 0; }
         return 1;
     }
     int as_codes = (!strcmp(fn, "atom_codes") || !strcmp(fn, "string_codes"));
@@ -1313,9 +1334,10 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
         extern void *rt_pl_ball_instantiation(void);
         if (t0 && !pl_cell_unbound(t0)) {
-            const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
+            size_t sn;
+            const char *s = plc_atom_op_text_n(t0, buf0, sizeof buf0, &sn);
             if (!s) { if (swi && cx && !cx->ball) cx->ball = rt_pl_ball_kind2("type_error", "text", *t0); return 0; }
-            if (t1 && (int)t1->v == DT_S) return !strcmp(plc_atom_text(t1), s);
+            if (t1 && (int)t1->v == DT_S) return plc_atom_len(t1) == sn && (!sn || !memcmp(plc_atom_text(t1), s, sn));
             if (rt_pl_dialect_swi() && t1 && (int)t1->v == DT_PLREF && plc_fid_name(t1->slen) == ATOM_DOT && plc_fid_arity(t1->slen) == 2 && t1->p) {
                 pl_cell_t *c = t1, *e0 = pl_deref(&((pl_cell_t *)t1->p)[0]);
                 while (c && (int)c->v == DT_PLREF && plc_fid_name(c->slen) == ATOM_DOT && plc_fid_arity(c->slen) == 2 && c->p) {
@@ -1324,14 +1346,14 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
                 }
                 if (c && plc_is_atomlike(c) && plc_atom_id_of(c) == ATOM_NIL) as_codes = (int)e0->v == DT_I;
             }
-            int *cps = (int *)rt_wsb_alloc((strlen(s) + 1) * sizeof(int));
+            int *cps = (int *)rt_wsb_alloc((sn + 1) * sizeof(int));
             int cn = 0, adv;
-            for (const char *q = s; *q; q += adv) { cps[cn] = rt_pl_u8_get(q, &adv); cn++; }
+            for (const char *q = s; q < s + sn; q += adv) { cps[cn] = rt_pl_u8_get(q, &adv); cn++; }
             pl_cell_t lst = plc_make_atom_cell("[]");
             for (int i = cn; i > 0; i--) {
                 pl_cell_t el;
                 if (as_codes) el = pl_make_int((int64_t)cps[i - 1]);
-                else { char cs[8]; int bl = rt_pl_u8_put(cs, cps[i - 1]); cs[bl] = '\0'; el = plc_make_atom_cell(cs); }
+                else { char cs[8]; int bl = rt_pl_u8_put(cs, cps[i - 1]); cs[bl] = '\0'; el = plc_make_atom_cell_n(cs, (size_t)bl); }
                 pl_cell_t *pair = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
                 pair[0] = el;
                 pair[1] = lst;
@@ -1340,7 +1362,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, lst, cx)) { return 0; }
             return 1;
         }
-        if (t1 && (int)t1->v == DT_S) return plc_text_out(a0_cell, plc_atom_text(t1), fn[0] == 's', cx);
+        if (t1 && (int)t1->v == DT_S) return plc_text_out_n(a0_cell, plc_atom_text(t1), plc_atom_len(t1), fn[0] == 's', cx);
         if (swi || rt_pl_dialect_swi()) {
             int mode = -1;
             size_t cap = 64, oi = 0;
@@ -1353,17 +1375,18 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
                 pl_cell_t *el = pl_deref(&((pl_cell_t *)c->p)[0]);
                 int cp = 0, adv = 0;
                 const char *cn = ((int)el->v == DT_PLATOM || (int)el->v == DT_S) ? plc_atom_text(el) : (const char *)0;
+                size_t cnl = cn ? plc_atom_len(el) : 0;
                 if (pl_cell_unbound(el)) { b = rt_pl_ball_instantiation(); break; }
                 if (mode < 0) mode = (int)el->v == DT_I ? 0 : 1;
                 if (mode == 0 && (int)el->v != DT_I) { b = rt_pl_ball_kind2("type_error", "character_code", *el); break; }
-                if (mode == 1 && (!cn || !cn[0] || ((cp = rt_pl_u8_get(cn, &adv)), cn[adv]))) { b = rt_pl_ball_kind2("type_error", "character", *el); break; }
+                if (mode == 1 && (!cn || !cnl || ((cp = rt_pl_u8_get(cn, &adv)), (size_t)adv != cnl))) { b = rt_pl_ball_kind2("type_error", "character", *el); break; }
                 if (mode == 0) cp = (int)el->i;
                 if (oi + 8 >= cap) { cap *= 2; o = (char *)rt_wsb_realloc(o, cap); }
                 oi += (size_t)rt_pl_u8_put(o + oi, cp);
             }
             if (b) { if (cx && !cx->ball) cx->ball = b; return 0; }
             o[oi] = '\0';
-            return plc_text_out(a0_cell, o, swi, cx);
+            return plc_text_out_n(a0_cell, o, oi, swi, cx);
         }
         pl_cell_t *cur = t1;
         size_t ocap = 256;
@@ -1383,7 +1406,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
                     if (oi + 2 > ocap) { ocap *= 2; out = (char *)rt_wsb_realloc(out, ocap); }
                     out[oi++] = '?';
                 } else {
-                    size_t cl = strlen(cn);
+                    size_t cl = plc_atom_len(el);
                     while (oi + cl + 1 > ocap) ocap *= 2;
                     out = (char *)rt_wsb_realloc(out, ocap);
                     memcpy(out + oi, cn, cl);
@@ -1393,12 +1416,13 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             cur = pl_deref(&pr[1]);
         }
         out[oi] = '\0';
-        return plc_text_out(a0_cell, out, fn[0] == 's', cx);
+        return plc_text_out_n(a0_cell, out, oi, fn[0] == 's', cx);
     }
     if (!strcmp(fn, "string_length")) {
-        const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
+        size_t sn;
+        const char *s = plc_atom_op_text_n(t0, buf0, sizeof buf0, &sn);
         if (!s) { return 0; }
-        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)pl_u8_count(s)), cx)) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)pl_u8_count_n(s, sn)), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "string_upper") || !strcmp(fn, "string_lower")) {
@@ -1413,10 +1437,11 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     }
     if (!strcmp(fn, "atom_string") || !strcmp(fn, "string_to_atom")) {
         int a0_str = !strcmp(fn, "string_to_atom");
-        if (t0 && !pl_cell_unbound(t0)) { const char *s = plc_atom_op_text(t0, buf0, sizeof buf0); if (!s) { return 0; } return plc_text_out(a1_cell, s, !a0_str, cx); }
-        const char *s = plc_atom_op_text(t1, buf1, sizeof buf1);
+        size_t sn;
+        if (t0 && !pl_cell_unbound(t0)) { const char *s = plc_atom_op_text_n(t0, buf0, sizeof buf0, &sn); if (!s) { return 0; } return plc_text_out_n(a1_cell, s, sn, !a0_str, cx); }
+        const char *s = plc_atom_op_text_n(t1, buf1, sizeof buf1, &sn);
         if (!s) { return 0; }
-        return plc_text_out(a0_cell, s, a0_str, cx);
+        return plc_text_out_n(a0_cell, s, sn, a0_str, cx);
     }
     if (!strcmp(fn, "number_string")) {
         if (t0 && !pl_cell_unbound(t0) && (!t1 || pl_cell_unbound(t1))) { const char *s = plc_atom_op_text(t0, buf0, sizeof buf0); if (!s) { return 0; } return plc_text_out(a1_cell, s, 1, cx); }
@@ -2050,12 +2075,20 @@ static int rt_pl_cell_compare_leaf(pl_cell_t *a, pl_cell_t *b, void *ctx) {
         if (!c) c = a->slen < b->slen ? -1 : a->slen > b->slen ? 1 : 0;
         return c < 0 ? -1 : (c > 0 ? 1 : 0);
     }
-    if (cla == 3) { if (a->i == b->i) return 0; int c = strcmp(rt_pl_cell_name(a), rt_pl_cell_name(b)); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
+    if (cla == 3) {
+        if (a->i == b->i) return 0;
+        size_t la = plc_atom_len(a), lb = plc_atom_len(b);
+        int c = memcmp(rt_pl_cell_name(a), rt_pl_cell_name(b), la < lb ? la : lb);
+        if (!c) c = la < lb ? -1 : la > lb ? 1 : 0;
+        return c < 0 ? -1 : (c > 0 ? 1 : 0);
+    }
     int ara = plc_fid_arity(a->slen), arb = plc_fid_arity(b->slen);
     if (ara != arb) return ara < arb ? -1 : 1;
     if ((plc_fid_name(a->slen)) != (plc_fid_name(b->slen))) {
         const char *na = prolog_atom_name(plc_fid_name(a->slen)), *nb = prolog_atom_name(plc_fid_name(b->slen));
-        int c = strcmp(na ? na : "", nb ? nb : "");
+        size_t la = na ? prolog_atom_len(plc_fid_name(a->slen)) : 0, lb = nb ? prolog_atom_len(plc_fid_name(b->slen)) : 0;
+        int c = memcmp(na ? na : "", nb ? nb : "", la < lb ? la : lb);
+        if (!c) c = la < lb ? -1 : la > lb ? 1 : 0;
         if (c) return c < 0 ? -1 : 1;
     }
     (void)ctx;

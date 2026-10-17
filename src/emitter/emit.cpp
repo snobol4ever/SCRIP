@@ -2,7 +2,7 @@
 #include <unordered_map>
 #include "ct_arena.h"
 #include "ct_vec.h"
-extern "C" int prolog_atom_intern(const char *);
+extern "C" int prolog_atom_intern_lit(const char *);
 extern "C" int prolog_functor_arity(int);
 #include <string>
 #include "emit.h"
@@ -5172,7 +5172,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             if (_e && (_e->op == IR_UNIFY_CONST || _e->op == IR_UNIFY_STRUCT) && _e->n_operands >= 3 && _e->operands[0] && _e->operands[0]->op == IR_VAR_REF && IR_LIT(_e->operands[0]).sval &&
                 !strcmp(IR_LIT(_e->operands[0]).sval, _p0) && _e->operands[2]) {
                 IR_t * _k = _e->operands[2];
-                if (_e->op == IR_UNIFY_CONST && _k->op == IR_LIT_ATOM) { _ktag[_ak] = DT_PLATOM; _kval[_ak] = (int64_t)(unsigned)prolog_atom_intern(IR_LIT(_k).sval ? IR_LIT(_k).sval : ""); }
+                if (_e->op == IR_UNIFY_CONST && _k->op == IR_LIT_ATOM) { _ktag[_ak] = DT_PLATOM; _kval[_ak] = (int64_t)(unsigned)prolog_atom_intern_lit(IR_LIT(_k).sval ? IR_LIT(_k).sval : ""); }
                 else if (_e->op == IR_UNIFY_CONST && _k->op == IR_LIT_INTEGER) { _ktag[_ak] = DT_I; _kval[_ak] = (int64_t)IR_LIT(_k).ival; }
                 else if (_e->op == IR_UNIFY_STRUCT && _k->op == IR_LIT_INTEGER && prolog_functor_arity((int)IR_LIT(_k).ival) >= 1) { _ktag[_ak] = DT_PLREF; _kval[_ak] = (int64_t)IR_LIT(_k).ival; } }
             if (!_ktag[_ak]) { _nvar++; _nvc = _ak; } }
@@ -6363,7 +6363,7 @@ void kw_snobol4_prepare(void) {
     g_emit.op_addr = (uint64_t)(uintptr_t)cbase;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int prolog_atom_intern(const char *);
+extern "C" int prolog_atom_intern_lit(const char *);
 extern "C" int prolog_functor_arity(int);
 void unify_prepare(IR_t *nd) {
     IR_t * src = (nd && nd->n_operands >= 2) ? nd->operands[0] : (IR_t *)0;
@@ -6383,7 +6383,7 @@ void unify_prepare(IR_t *nd) {
         if (g_emit.op_u_why == 0) {
             g_emit.op_u_atom = (k->op == IR_LIT_ATOM);
             g_emit.op_u_ktag = g_emit.op_u_atom ? (long)DT_PLATOM : (long)DT_I;
-            g_emit.op_u_kval = g_emit.op_u_atom ? (uint64_t)(unsigned)prolog_atom_intern(IR_LIT(k).sval ? IR_LIT(k).sval : "") : (uint64_t)IR_LIT(k).ival;
+            g_emit.op_u_kval = g_emit.op_u_atom ? (uint64_t)(unsigned)prolog_atom_intern_lit(IR_LIT(k).sval ? IR_LIT(k).sval : "") : (uint64_t)IR_LIT(k).ival;
         }
     }
     if (nd && nd->op == IR_UNIFY_STRUCT) {
@@ -6919,7 +6919,7 @@ static void call_marg_plan(int i, IR_t * lf, int aoff, IR_t * owner) {
     { const char * sv = IR_LIT(lf).sval;
       if (lf->op == IR_LIT_INTEGER) { m->kind = MARG_LIT_I; m->imm = (uint64_t)IR_LIT(lf).ival; return; }
       if (lf->op == IR_LIT_REAL) { m->kind = MARG_LIT_F; m->imm = emit_double_bits(IR_LIT(lf).dval); return; }
-      if (lf->op == IR_LIT_ATOM) { m->kind = MARG_LIT_ATOM; m->imm = (uint64_t)(unsigned)prolog_atom_intern(sv ? sv : ""); return; }
+      if (lf->op == IR_LIT_ATOM) { m->kind = MARG_LIT_ATOM; m->imm = (uint64_t)(unsigned)prolog_atom_intern_lit(sv ? sv : ""); return; }
       if (lf->op == IR_LIT_STRING && lf->seal == IR_SEAL_DSTAR_REF) { std::string star = std::string("*") + (sv ? sv : ""); m->kind = MARG_DSTAR;
           m->str = ct_strdup((std::string(".Ldstar_") + bb_ab_sym_name(star.c_str())).c_str()); m->imm = (uint64_t)(uintptr_t)bb_dstar_rec_addr(star.c_str()); return; }
       if (lf->op == IR_LIT_STRING && lf->seal == IR_SEAL_THUNK_REF) { m->kind = MARG_THUNK; m->str = ct_strdup((std::string(".Lthk_") + bb_ab_sym_name(sv ? sv : "")).c_str());

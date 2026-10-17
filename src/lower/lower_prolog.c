@@ -192,12 +192,21 @@ static IR_t * mkc_node(lcx_t * cx, const char * fname, int nkids, IR_t ** kids, 
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_atom_lit_sval(const tree_t * t) {
+    if (!t->v.sval || t->slen <= 0 || !memchr(t->v.sval, 0, (size_t)t->slen)) return t->v.sval;
+    char * o = (char *)ct_alloc(2 * (size_t)t->slen + 1);
+    size_t k = 0;
+    for (int i = 0; i < t->slen; i++) { if (t->v.sval[i]) o[k++] = t->v.sval[i]; else { o[k++] = (char)0xC0; o[k++] = (char)0x80; } }
+    o[k] = 0;
+    return o;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
     if (!t) return NULL;
     switch (t->t) {
         case TT_QLIT:
-        { IR_t * nd = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(nd).sval = t->v.sval; return nd; }
+        { IR_t * nd = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(nd).sval = pl_atom_lit_sval(t); return nd; }
         case TT_ILIT:
         { IR_t * nd = build(cx, IR_LIT_INTEGER, NULL, cx->tω); IR_LIT(nd).ival = t->v.ival; return nd; }
         case TT_DQLIT:
@@ -300,7 +309,7 @@ static IR_t * pl_const_lit(lcx_t * cx, const tree_t * t) {
     if (!t) return nd;
     if (t->t == TT_QLIT || (t->t == TT_FNC && t->n == 0)) {
         nd = build(cx, IR_LIT_ATOM, NULL, NULL);
-        IR_LIT(nd).sval = t->v.sval ? t->v.sval : "?";
+        IR_LIT(nd).sval = t->v.sval ? pl_atom_lit_sval(t) : "?";
     } else if (t->t == TT_MAKELIST && t->n == 0) {
         nd = build(cx, IR_LIT_ATOM, NULL, NULL);
         IR_LIT(nd).sval = "[]";
@@ -1883,7 +1892,7 @@ static tree_t * pl_clause_target(const tree_t * c, const tree_t * body) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_tree_copy(const tree_t * t) {
     if (!t) return NULL;
-    { tree_t * c = ast_node_new(t->t); c->v = t->v; c->line = t->line; for (int i = 0; i < t->n; i++) ast_push(c, pl_tree_copy(t->c[i])); return c; }
+    { tree_t * c = ast_node_new(t->t); c->v = t->v; c->line = t->line; c->slen = t->slen; for (int i = 0; i < t->n; i++) ast_push(c, pl_tree_copy(t->c[i])); return c; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_tree_var_occ(const tree_t * t) { int c = 0; if (!t) return 0; if (t->t == TT_VAR) return 1; for (int i = 0; i < t->n; i++) c += pl_tree_var_occ(t->c[i]); return c; }
@@ -4135,6 +4144,7 @@ static tree_t * pl_scc_remap(const tree_t * t, const int * v, int n) {
     tree_t * c = ast_node_new(t->t);
     c->v = t->v;
     c->line = t->line;
+    c->slen = t->slen;
     if (t->t == TT_VAR) { for (int i = 0; i < n; i++) if (v[i] == (int) t->v.ival) c->v.ival = i; return c; }
     for (int i = 0; i < t->n; i++) ast_push(c, pl_scc_remap(t->c[i], v, n));
     return c;
@@ -4929,6 +4939,7 @@ static tree_t * pl_dict_canon(const tree_t * t) {
     tree_t * c = ast_node_new(t->t);
     c->v = t->v;
     c->line = t->line;
+    c->slen = t->slen;
     for (int i = 0; i < t->n; i++) ast_push(c, pl_dict_canon(t->c[i]));
     if (c->t != TT_FNC || !c->v.sval || strcmp(c->v.sval, "$dict_lit") || !(c->n & 1)) return c;
     int np = (c->n - 1) / 2;
@@ -4968,6 +4979,7 @@ static tree_t * pl_dot_take(const tree_t * t, lc_vec * ev, int * next) {
     tree_t * c = ast_node_new(t->t);
     c->v = t->v;
     c->line = t->line;
+    c->slen = t->slen;
     for (int i = 0; i < t->n; i++) ast_push(c, pl_dot_take(t->c[i], ev, next));
     return c;
 }
