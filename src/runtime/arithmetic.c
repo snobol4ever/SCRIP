@@ -281,7 +281,7 @@ static DESCR_t rt_ipow_promote_descr(int64_t li, int64_t ri) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int operand_is_real_str(DESCR_t v) {
     if (!IS_STR_fn(v) || !v.s) return 0;
-    const char *s = v.s;
+    const char *s = rt_cstr_d(v);
     while (*s == ' ') s++;
     if (!*s) return 0;
     if (rt_plain_int_str(s)) return 0;
@@ -428,11 +428,12 @@ RT_BINOP_ENTRY(rt_pow, BINOP_POW, ) RT_BINOP_ENTRY(rt_powreal, BINOP_POW_PROMOTE
         return FAILDESCR;
     }
     if (IS_STR_fn(d) && d.s) {
+        const char *s0 = rt_cstr_d(d);
         errno = 0;
         char *e = 0;
-        long long v = strtoll(d.s, &e, 10);
-        if (e != d.s && errno != ERANGE) { while (*e == ' ') e++; if (!*e) return INTVAL(v); }
-        { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(d.s); if (!IS_FAIL_fn(bg)) return bg; }
+        long long v = strtoll(s0, &e, 10);
+        if (e != s0 && errno != ERANGE) { while (*e == ' ') e++; if (!*e) return INTVAL(v); }
+        { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(s0); if (!IS_FAIL_fn(bg)) return bg; }
     }
     return d;
 }
@@ -496,9 +497,10 @@ static DESCR_t rt_big_arith_route(DESCR_t a, DESCR_t b, int op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t big_str_operand(DESCR_t d) {
     if (!IS_STR_fn(d) || !d.s) return d;
-    { const char *s = d.s; while (*s == ' ') s++; if (*s == '+' || *s == '-') s++; if (*s < '0' || *s > '9') return d; }
-    { errno = 0; char *e = 0; strtoll(d.s, &e, 10); if (errno != ERANGE) return d; while (*e == ' ') e++; if (*e) return d; }
-    { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(d.s); return IS_FAIL_fn(bg) ? d : bg; }
+    const char *s0 = rt_cstr_d(d);
+    { const char *s = s0; while (*s == ' ') s++; if (*s == '+' || *s == '-') s++; if (*s < '0' || *s > '9') return d; }
+    { errno = 0; char *e = 0; strtoll(s0, &e, 10); if (errno != ERANGE) return d; while (*e == ' ') e++; if (*e) return d; }
+    { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(s0); return IS_FAIL_fn(bg) ? d : bg; }
 }
 static int rt_big_arith_wanted(DESCR_t a, DESCR_t b, int op) {
     if (a.v == DT_BIG || b.v == DT_BIG) {

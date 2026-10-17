@@ -838,6 +838,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "nn", GC_RET_OTHER },
     { "nv_entry_name", GC_RET_OTHER },
     { "op_cols_fill", GC_RET_VOID },
+    { "operand_is_real_str", GC_RET_OTHER },
     { "opsyn", GC_RET_DESCR },
     { "optimizer_run", GC_RET_VOID },
     { "out_write_descr", GC_RET_VOID },
