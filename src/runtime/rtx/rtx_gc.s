@@ -2872,6 +2872,24 @@ RTX_ENDF(rt_gc_sw_links_a)
     mov     rax, qword ptr [\src + 24]
     mov     qword ptr [\dst + 24], rax
 .endm
+.macro SW_SWAP32 p, q
+    mov     r8, qword ptr [\p + 0]
+    mov     r10, qword ptr [\q + 0]
+    mov     qword ptr [\p + 0], r10
+    mov     qword ptr [\q + 0], r8
+    mov     r8, qword ptr [\p + 8]
+    mov     r10, qword ptr [\q + 8]
+    mov     qword ptr [\p + 8], r10
+    mov     qword ptr [\q + 8], r8
+    mov     r8, qword ptr [\p + 16]
+    mov     r10, qword ptr [\q + 16]
+    mov     qword ptr [\p + 16], r10
+    mov     qword ptr [\q + 16], r8
+    mov     r8, qword ptr [\p + 24]
+    mov     r10, qword ptr [\q + 24]
+    mov     qword ptr [\p + 24], r10
+    mov     qword ptr [\q + 24], r8
+.endm
 RTX_FUNC(rt_gc_sw_step_a)
     RTX_PUSHS(rbx)
     RTX_PUSHS(rbp)
@@ -3229,6 +3247,8 @@ RTX_FUNC(rt_gc_sw_step_a)
     cmp     rcx, 1
     jle     .Lsw_p3_done
     mov     rsi, qword ptr [r12 + SW_GAPV]
+    cmp     rcx, 16
+    jg      .Lsw_heap
     mov     edx, 1
 .Lsw_sort_i:
     cmp     rdx, rcx
@@ -3263,6 +3283,55 @@ RTX_FUNC(rt_gc_sw_step_a)
 .Lsw_sort_next:
     inc     rdx
     jmp     .Lsw_sort_i
+.Lsw_heap:
+    mov     rdx, rcx
+    shr     rdx, 1
+    xor     r11d, r11d
+.Lsw_hb_next:
+    test    rdx, rdx
+    je      .Lsw_hx_init
+    dec     rdx
+    mov     rax, rdx
+    jmp     .Lsw_sift
+.Lsw_hx_init:
+    mov     r11d, 1
+.Lsw_hx_next:
+    dec     rcx
+    je      .Lsw_p3_done
+    mov     r13, rcx
+    shl     r13, 5
+    add     r13, rsi
+    SW_SWAP32 rsi, r13
+    xor     eax, eax
+.Lsw_sift:
+    lea     rdi, [rax + rax + 1]
+    cmp     rdi, rcx
+    jae     .Lsw_sift_done
+    mov     r13, rdi
+    shl     r13, 5
+    add     r13, rsi
+    lea     r8, [rdi + 1]
+    cmp     r8, rcx
+    jae     .Lsw_sift_cmp
+    mov     r10, qword ptr [r13 + 32]
+    cmp     qword ptr [r13], r10
+    jae     .Lsw_sift_cmp
+    inc     rdi
+    add     r13, 32
+.Lsw_sift_cmp:
+    mov     rbx, rax
+    shl     rbx, 5
+    add     rbx, rsi
+    mov     r10, qword ptr [r13]
+    cmp     qword ptr [rbx], r10
+    jae     .Lsw_sift_done
+    SW_SWAP32 rbx, r13
+    mov     rax, rdi
+    jmp     .Lsw_sift
+.Lsw_sift_done:
+    test    r11, r11
+    je      .Lsw_hb_next
+    jmp     .Lsw_hx_next
 .Lsw_p3_done:
     mov     qword ptr [r12 + X_I], 0
     mov     qword ptr [r12 + X_SUB], 0
