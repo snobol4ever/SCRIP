@@ -4862,9 +4862,9 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (n == 1 && !strcmp(nm, "!")) { extern int list_bang_at(DESCR_t, int64_t, DESCR_t *); DESCR_t out; return list_bang_at(argv[0], 0, &out) ? out : FAILDESCR; }
     if (n == 1 && !strcmp(nm, "/")) return (argv[0].v == DT_SNUL || argv[0].v == 0) ? argv[0] : FAILDESCR;
     if (n == 2 && IS_PROCVAL_fn(callee) && icn_opproc_assigns(nm)) {
-        extern DESCR_t rt_assign_var_strict(DESCR_t, DESCR_t);
+        extern DESCR_t c_rt_assign_var_strict(DESCR_t, DESCR_t);
         extern DESCR_t rt_swap_var(DESCR_t, DESCR_t);
-        return RT_GC_CALLBACK(icn_opproc_assigns(nm) == 1 ? rt_assign_var_strict(argv[0], argv[1]) : rt_swap_var(argv[0], argv[1]));
+        return RT_GC_CALLBACK(icn_opproc_assigns(nm) == 1 ? c_rt_assign_var_strict(argv[0], argv[1]) : rt_swap_var(argv[0], argv[1]));
     }
     if (n == 1 && IS_PROCVAL_fn(callee) && icn_opproc_arity(nm) == 1) {
         if (!strcmp(nm, ".")) return argv[0];
@@ -17382,9 +17382,9 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
         }
         if (!strcmp(fn, "[]")) {
             extern DESCR_t c_rt_subscript_var(DESCR_t, DESCR_t);
-            extern DESCR_t rt_subscript_var_strict(DESCR_t, DESCR_t);
+            extern DESCR_t c_rt_subscript_var_strict(DESCR_t, DESCR_t);
             extern DESCR_t rt_deref(DESCR_t);
-            DESCR_t v = (strict ? rt_subscript_var_strict : c_rt_subscript_var)(a, b);
+            DESCR_t v = (strict ? c_rt_subscript_var_strict : c_rt_subscript_var)(a, b);
             if (IS_FAIL_fn(v)) return FAILDESCR;
             return rt_deref(v);
         }

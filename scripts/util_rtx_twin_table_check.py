@@ -73,6 +73,37 @@ def check(leaves, rows, symbols):
     return bad
 
 
+STRLIT = re.compile(r'"(?:\\.|[^"\\])*"')
+DECL = re.compile(r"^\s*(?:extern\s+)?[\w\s\*]+\b(\w+)\s*\([^()]*\)\s*;\s*$")
+
+
+def c_uses(lines, leaves):
+    out = []
+    for i, ln in enumerate(lines, 1):
+        code = STRLIT.sub('""', ln)
+        if DECL.match(code):
+            continue
+        for leaf in leaves:
+            if re.search(r"(?<!\w)" + leaf + r"\b", code):
+                out.append((i, leaf))
+    return out
+
+
+def c_callers(root, leaves):
+    bad = []
+    base = os.path.join(root, "src", "runtime")
+    for d, _, files in os.walk(base):
+        if os.path.relpath(d, base).split(os.sep)[0] == "rtx":
+            continue
+        for f in sorted(files):
+            if not f.endswith((".c", ".h")) or f == "rtx_try.h":
+                continue
+            p = os.path.join(d, f)
+            for i, leaf in c_uses(open(p, encoding="utf-8", errors="replace").read().splitlines(), leaves):
+                bad.append("%s:%d calls the declining leaf %s from C: the verdict byte would be taken for a value -- call its twin, or rtx_try_%s in rtx_try.h" % (os.path.relpath(p, root), i, leaf, leaf))
+    return bad
+
+
 def runtime_symbols(so):
     r = subprocess.run(["nm", "-D", "--defined-only", so], capture_output=True, text=True)
     if r.returncode != 0:
@@ -94,6 +125,10 @@ def selftest(leaves, rows, symbols):
         if not any("twin" in b for b in check(leaves, rows, s)): fails.append("a missing twin was not caught")
     if verdict_kinds("    cmp     al, RTX_NOT_HANDLED") or verdict_kinds("    test    rax, RTX_NOT_HANDLED_PTR"): fails.append("a leaf reading its callee's verdict was read as a decline")
     if verdict_kinds("    RTX_DECLINE") != ["AL"] or verdict_kinds("    mov     eax, RTX_NOT_HANDLED_INT") != ["INT"]: fails.append("a decline statement was not read as one")
+    planted = ["            DESCR_t v = (strict ? %s : c_rt_subscript_var)(a, b);" % some, "    return RT_GC_CALLBACK(%s(argv[0], argv[1]));" % some]
+    quiet = ["        extern DESCR_t %s(DESCR_t, DESCR_t);" % some, "        extern DESCR_t c_%s(DESCR_t, DESCR_t);" % some, '    fprintf(stderr, "BOMB %s: no");' % some, "    DESCR_t r = c_%s(a, b);" % some]
+    if [i for i, _ in c_uses(planted, [some])] != [1, 2]: fails.append("a C call of a declining leaf (a call, a function-pointer pick) was not caught")
+    if c_uses(quiet, [some]): fails.append("a declaration, a twin call or a string naming a declining leaf was read as a C call")
     return fails
 
 
@@ -113,13 +148,13 @@ def main():
     if len(leaves) < 10 or len(rows) < 10:
         print("REFUSED(2): only %d declining leaves and %d rows were read" % (len(leaves), len(rows)))
         return 2
-    bad = check(leaves, rows, symbols)
+    bad = check(leaves, rows, symbols) + c_callers(ROOT, sorted(set(leaves) | set(rows)))
     st = selftest(leaves, rows, symbols)
     for b in bad:
         print("  VIOLATION  " + b)
     for f in st:
         print("  SELF-TEST FAIL  " + f)
-    print("RTX TWIN TABLE: %d declining leaves, %d rows, %d violations, self-test %s" % (len(leaves), len(rows), len(bad), "FAIL" if st else "PASS (a leaf without a row, a row without a decline, a wrong kind and a missing twin each read red by name; a cmp or test of a callee's verdict is no decline)"))
+    print("RTX TWIN TABLE: %d declining leaves, %d rows, %d violations, self-test %s" % (len(leaves), len(rows), len(bad), "FAIL" if st else "PASS (a leaf without a row, a row without a decline, a wrong kind and a missing twin each read red by name; a cmp or test of a callee's verdict is no decline; a C call of a declining leaf reads red, its declaration, its twin and a string naming it do not)"))
     return 1 if (bad or st) else 0
 
 
