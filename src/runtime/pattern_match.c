@@ -482,12 +482,12 @@ static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict) {
             int rlen = jj - ii;
             if (rlen <= 0) {
                 static int list_empty_reg = 0;
-                if (!list_empty_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_empty_reg=1; }
+                if (!list_empty_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap,frame_blocks)"); list_empty_reg=1; }
                 DESCR_t empty_ptr = {0};
                 empty_ptr.v=DT_DATA;
                 empty_ptr.slen=DATA_ELEMS_SLEN;
                 empty_ptr.ptr=NULL;
-                return DATCON_fn("list", empty_ptr, INTVAL(0), STRVAL("list"), INTVAL(0));
+                return DATCON_fn("list", empty_ptr, INTVAL(0), STRVAL("list"), INTVAL(0), NULVCL);
             }
             DESCR_t *rbuf = rt_ws_alloc_descr((size_t)rlen);
             for (int k = 0; k < rlen; k++) rbuf[k] = (elems && ii+k-1 >= 0 && ii+k-1 < n) ? elems[ii+k-1] : NULVCL;
@@ -496,8 +496,8 @@ static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict) {
             rptr.slen=DATA_ELEMS_SLEN;
             rptr.ptr=(void*)rbuf;
             static int list_slice_reg = 0;
-            if (!list_slice_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_slice_reg=1; }
-            return DATCON_fn("list", rptr, INTVAL(rlen), STRVAL("list"), INTVAL(rlen));
+            if (!list_slice_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap,frame_blocks)"); list_slice_reg=1; }
+            return DATCON_fn("list", rptr, INTVAL(rlen), STRVAL("list"), INTVAL(rlen), NULVCL);
         }
     }
     if (arr.v == DT_S || (arr.v == DT_SNUL && arr.s)) {
@@ -2080,18 +2080,21 @@ DESCR_t rt_field_var_strict_at(const char *fname, DESCR_t obj, long at1) {
     return declined;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t idx, int elems_only);
-DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) { return rt_list_bang_var_body(obj, idx, 0); }
-static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t idx, int elems_only) {
+static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t *cur, int elems_only);
+DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t *cur) { return rt_list_bang_var_body(obj, cur, 0); }
+static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t *cur, int elems_only) {
+    extern long rt_lvb_cursor(DESCR_t, int64_t *, int);
+    int64_t idx = *cur;
     DESCR_t bvar = obj;
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
     if (obj.v == DT_DATA) {
         DESCR_t *elems;
         int n;
         if (rt_list_view(obj, &elems, &n)) {
-            if (!elems || idx < 0 || idx >= n) return FAILDESCR;
+            long f = rt_lvb_cursor(obj, cur, n);
+            if (!elems || f < 0) return FAILDESCR;
             VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
-            vc->cellp = &elems[idx];
+            vc->cellp = &elems[f];
             vc->tbl = 0;
             vc->key = 0;
             vc->key_d = FAILDESCR;
@@ -2125,7 +2128,7 @@ static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t idx, int elems_only) {
             }
             return NAMETRAP(vc);
         }
-        { extern DESCR_t rt_list_bang_at(DESCR_t, int64_t); return rt_list_bang_at(bvar, idx); }
+        { extern DESCR_t rt_list_bang_at(DESCR_t, int64_t *); return rt_list_bang_at(bvar, cur); }
     }
     if (obj.v == DT_T && obj.tbl) {
         TBBLK_t *tbl = obj.tbl;
@@ -2167,10 +2170,10 @@ static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t idx, int elems_only) {
         out[1] = 0;
         return (DESCR_t){ .v = DT_S, .slen = 1, .s = out };
     }
-    { extern DESCR_t rt_list_bang_at(DESCR_t, int64_t); return rt_list_bang_at(obj, idx); }
+    { extern DESCR_t rt_list_bang_at(DESCR_t, int64_t *); return rt_list_bang_at(obj, cur); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t idx) { return rt_list_bang_var_body(obj, idx, 1); }
+DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t *cur) { return rt_list_bang_var_body(obj, cur, 1); }
 DESCR_t rt_var_table_elem(DESCR_t d, DESCR_t *tbl_out, DESCR_t *key_out) {
     if (!IS_NAMETRAP_fn(d)) { if (tbl_out) tbl_out->v = DT_FAIL; return FAILDESCR; }
     VCELL_t *vc = (VCELL_t *)d.p;

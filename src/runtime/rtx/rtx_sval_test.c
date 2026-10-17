@@ -147,13 +147,13 @@ int main(void) {
         {
             static DESCR_t elems[8];
             for (int i = 0; i < 8; i++) elems[i] = INTVAL(100 + i);
-            DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)");
+            DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap,frame_blocks)");
             DEFDAT_fn("point3(frame_elems,frame_size,gen_type)");
             DEFDAT_fn("pair(x,y)");
             for (int n = 0; n <= 8; n += 4) {
                 DESCR_t ep = { .v = DT_DATA, .slen = 1 };
                 ep.ptr = (void *)elems;
-                DESCR_t lst = DATCON_fn("list", ep, INTVAL(n), STRVAL("list"), INTVAL(8));
+                DESCR_t lst = DATCON_fn("list", ep, INTVAL(n), STRVAL("list"), INTVAL(8), NULVCL);
                 for (int i = -n - 2; i <= n + 2; i++) check("strict list index", lst, INTVAL(i), (i >= 1 && i <= n) || (i < 0 && i >= -n) ? 1 : 0);
                 DESCR_t nl = { .v = DT_N, .slen = 1 }, lcell = lst;
                 nl.ptr = &lcell;

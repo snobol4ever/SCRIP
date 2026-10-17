@@ -4,10 +4,10 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-DESCR_t rt_list_bang_at(DESCR_t obj, int64_t idx);
-DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx);
-DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t idx);
-DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t idx);
+DESCR_t rt_list_bang_at(DESCR_t obj, int64_t *cur);
+DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t *cur);
+DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t *cur);
+DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t *cur);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -23,7 +23,7 @@ static std::string bb_iterate_zd() {
          + x86("def", L(0))
          + x86("mov", "rdi", ZOPQ(0, 0))
          + x86("mov", "rsi", ZOPQ(0, 8))
-         + x86("mov", "rdx", FRQ(_.op_sb))
+         + x86("lea", "rdx", FRQ(_.op_sb))
          + IT_CALL()
          + x86("mov", ZRES(0), "rax")
          + x86("mov", ZRES(8), "rdx")
@@ -47,7 +47,7 @@ std::string bb_iterate() {
          + x86("def", L(0))
          + x86("mov", "rdi", FRQ(_.op_sa))
          + x86("mov", "rsi", FRQ(_.op_sa + 8))
-         + x86("mov", "rdx", FRQ(_.op_sb))
+         + x86("lea", "rdx", FRQ(_.op_sb))
          + (IT_IS("key") ? x86("call", "rt_list_bang_key_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_key_at)
             : IT_IS("lvv") ? x86("call", "rt_list_bang_elem_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_elem_at)
             : IT_IS("lv") ? x86("call", "rt_list_bang_var_at", (uint64_t)(uintptr_t)(void *)rt_list_bang_var_at)

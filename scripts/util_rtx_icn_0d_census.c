@@ -6,7 +6,7 @@ typedef struct DESCR_t { int32_t v; uint32_t slen; union { char *s; int64_t i; d
 static unsigned long n_relop, n_binop, n_listbang, n_makelist, n_sized, n_datfield, n_strcoerce, n_procvalue, n_subget2, n_subset;
 static int (*r_relop)(DESCR_t, DESCR_t, int, DESCR_t *);
 static int (*r_binop)(DESCR_t, DESCR_t, int, DESCR_t *);
-static DESCR_t (*r_listbang)(DESCR_t, int64_t);
+static DESCR_t (*r_listbang)(DESCR_t, int64_t *);
 static DESCR_t (*r_makelist)(DESCR_t *, int);
 static DESCR_t (*r_sized)(uint64_t, uint64_t);
 static DESCR_t (*r_datfield)(const char *, DESCR_t);
@@ -16,7 +16,7 @@ static DESCR_t (*r_subget2)(DESCR_t, DESCR_t, DESCR_t);
 static int (*r_subset)(DESCR_t, DESCR_t, DESCR_t);
 int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) { if (!r_relop) r_relop = dlsym(RTLD_NEXT, "rt_relop_overload"); n_relop++; return r_relop(a, b, op, out); }
 int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) { if (!r_binop) r_binop = dlsym(RTLD_NEXT, "rt_binop_overload"); n_binop++; return r_binop(a, b, op, out); }
-DESCR_t rt_list_bang_at(DESCR_t o, int64_t i) { if (!r_listbang) r_listbang = dlsym(RTLD_NEXT, "rt_list_bang_at"); n_listbang++; return r_listbang(o, i); }
+DESCR_t rt_list_bang_at(DESCR_t o, int64_t *i) { if (!r_listbang) r_listbang = dlsym(RTLD_NEXT, "rt_list_bang_at"); n_listbang++; return r_listbang(o, i); }
 DESCR_t rt_make_list(DESCR_t *a, int n) { if (!r_makelist) r_makelist = dlsym(RTLD_NEXT, "rt_make_list"); n_makelist++; return r_makelist(a, n); }
 DESCR_t rt_size_d(uint64_t lo, uint64_t hi) { if (!r_sized) r_sized = dlsym(RTLD_NEXT, "rt_size_d"); n_sized++; return r_sized(lo, hi); }
 DESCR_t dat_field_get(const char *f, DESCR_t o) { if (!r_datfield) r_datfield = dlsym(RTLD_NEXT, "dat_field_get"); n_datfield++; return r_datfield(f, o); }

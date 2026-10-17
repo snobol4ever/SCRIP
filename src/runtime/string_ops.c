@@ -22,7 +22,7 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     if (IS_NULL_fn(b)) return a;
     if (so_is_list(a) && so_is_list(b)) {
         static int so_list_reg = 0;
-        if (!so_list_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); so_list_reg = 1; }
+        if (!so_list_reg) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap,frame_blocks)"); so_list_reg = 1; }
         int64_t an = a.u->fields[1].i, bn = b.u->fields[1].i;
         DESCR_t *ae = (DESCR_t *)a.u->fields[0].ptr;
         DESCR_t *be = (DESCR_t *)b.u->fields[0].ptr;
@@ -34,7 +34,7 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
         ep.v = DT_DATA;
         ep.slen = DATA_ELEMS_SLEN;
         ep.ptr = (void *)ne;
-        return DATCON_fn("list", ep, INTVAL(n), STRVAL("list"), INTVAL(n));
+        return DATCON_fn("list", ep, INTVAL(n), STRVAL("list"), INTVAL(n), NULVCL);
     }
     const char *asp, *bsp;
     long alc = -1;

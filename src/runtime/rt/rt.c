@@ -2324,19 +2324,19 @@ DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi) {
     }
     { const char *s = VARVAL_fn(v); long n = s ? (long)strlen(s) : 0; DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
 }
-extern int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t *out);
+extern int list_bang_at(DESCR_t obj, int64_t *cur, DESCR_t *out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_list_bang_at(DESCR_t obj, int64_t idx) {
+DESCR_t c_rt_list_bang_at(DESCR_t obj, int64_t *cur) {
     (void)obj;
-    (void)idx;
+    (void)cur;
     rt_bomb("c_rt_list_bang_at: DELETED (s196 Lon one-to-maintain) — rt_list_bang_at in rtx_icnagg.s is the sole spelling (zero bails, gate removed)");
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t idx) {
+DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t *cur) {
     extern int list_bang_key_at(DESCR_t obj, int64_t idx, DESCR_t *out);
     DESCR_t out;
-    if (list_bang_key_at(obj, idx, &out)) return out;
+    if (list_bang_key_at(obj, *cur, &out)) return out;
     return FAILDESCR;
 }
 extern int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);

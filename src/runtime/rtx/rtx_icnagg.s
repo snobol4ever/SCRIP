@@ -12,6 +12,14 @@ RTX_GATE_DEF(icnagg)
 #define FIELD1_P         24
 #define FIELD2_V         32
 #define FIELD2_P         40
+#define FIELD4_V         64
+#define FIELD4_SLEN      68
+#define FIELD4_P         72
+#define LVB_HEAD          8
+#define LVB_NBLK         24
+#define LVB_LO           40
+#define LVB_USED        104
+#define LVB_FIRST       120
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_size_d)
     RTX_GATE(icnagg, .Lsz_c)
@@ -80,12 +88,10 @@ RTX_FUNC(rt_list_bang_at)
     jne     .Lbang_slow
     test    rsi, rsi
     je      .Lbang_slow
-    test    rdx, rdx
-    js      .Lbang_slow
     mov     r8, [rsi + DATINST_TYPE]
     test    r8, r8
     je      .Lbang_slow
-    cmp     dword ptr [r8 + DATBLK_NFIELDS], 3
+    cmp     dword ptr [r8 + DATBLK_NFIELDS], 5
     jl      .Lbang_slow
     mov     r10, [r8 + DATBLK_FIELDS]
     test    r10, r10
@@ -116,13 +122,64 @@ RTX_FUNC(rt_list_bang_at)
     jne     .Lbang_slow
     mov     r10, [r8 + FIELD0_P]
     movsxd  r11, dword ptr [r8 + FIELD1_P]
-    cmp     rdx, r11
-    jge     .Lbang_done
     test    r10, r10
     je      .Lbang_slow
-    shl     rdx, 4
-    mov     rax, [r10 + rdx]
-    mov     rdx, [r10 + rdx + 8]
+    cmp     dword ptr [r8 + FIELD4_V], DT_DATA
+    jne     .Lbang_flat
+    cmp     dword ptr [r8 + FIELD4_SLEN], DATA_ELEMS_SLEN
+    jne     .Lbang_flat
+    mov     r8, [r8 + FIELD4_P]
+    test    r8, r8
+    jne     .Lbang_blocks
+.Lbang_flat:
+    mov     rcx, [rdx]
+    test    rcx, rcx
+    js      .Lbang_slow
+    cmp     rcx, r11
+    jge     .Lbang_done
+    shl     rcx, 4
+    mov     rax, [r10 + rcx]
+    mov     rdx, [r10 + rcx + 8]
+    ret
+.Lbang_blocks:
+    mov     rcx, [rdx]
+    test    rcx, rcx
+    je      .Lbang_start
+    test    ecx, ecx
+    jns     .Lbang_slow
+    mov     rax, rcx
+    sar     rax, 32
+    mov     esi, ecx
+    and     esi, 0x7fffffff
+    sub     rax, [r8 + LVB_HEAD]
+    jns     .Lbang_scan
+.Lbang_start:
+    xor     eax, eax
+    xor     esi, esi
+.Lbang_scan:
+    cmp     rax, [r8 + LVB_NBLK]
+    jge     .Lbang_done
+    lea     rdi, [rax + rax*2]
+    shl     rdi, 4
+    cmp     rsi, [r8 + rdi + LVB_USED]
+    jl      .Lbang_hit
+    inc     rax
+    xor     esi, esi
+    jmp     .Lbang_scan
+.Lbang_hit:
+    mov     rcx, [r8 + rdi + LVB_FIRST]
+    add     rcx, rsi
+    sub     rcx, [r8 + LVB_LO]
+    add     rax, [r8 + LVB_HEAD]
+    shl     rax, 32
+    or      rax, rsi
+    bts     rax, 31
+    mov     [rdx], rax
+    cmp     rcx, r11
+    jae     .Lbang_done
+    shl     rcx, 4
+    mov     rax, [r10 + rcx]
+    mov     rdx, [r10 + rcx + 8]
     ret
 .Lbang_done:
     mov     eax, DT_FAIL

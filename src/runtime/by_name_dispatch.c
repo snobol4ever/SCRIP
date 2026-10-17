@@ -4773,8 +4773,8 @@ static const char *icn_opgen_scan_name(const char *nm) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t icn_opgen_pump(ICN_OPGEN_t *g, DESCR_t *argv, int n) {
-    extern int list_bang_at(DESCR_t, int64_t, DESCR_t *);
-    extern DESCR_t rt_list_bang_key_at(DESCR_t, int64_t);
+    extern int list_bang_at(DESCR_t, int64_t *, DESCR_t *);
+    extern DESCR_t rt_list_bang_key_at(DESCR_t, int64_t *);
     extern DESCR_t rt_call_arr_gen_strict(const char *, DESCR_t *, int, int64_t *);
     DESCR_t out;
     if (!g) return FAILDESCR;
@@ -4783,8 +4783,8 @@ static DESCR_t icn_opgen_pump(ICN_OPGEN_t *g, DESCR_t *argv, int n) {
     if (g->kind == ICN_OPGEN_FNAMES) { const char *f = icn_builtin_nth((int)g->idx); if (!f) return FAILDESCR; g->idx++; return STRVAL(f); }
     if (g->kind == ICN_OPGEN_SCAN) { int hi = (g->nm[0] == 'b') ? 6 : 4; return RT_GC_CALLBACK(rt_call_arr_gen_strict(g->nm, argv, n > hi ? hi : n, &g->idx)); }
     if (n < 1) return FAILDESCR;
-    if (g->kind == ICN_OPGEN_KEY) { out = rt_list_bang_key_at(argv[0], g->idx); if (IS_FAIL_fn(out)) return FAILDESCR; g->idx++; return out; }
-    if (!list_bang_at(argv[0], g->idx, &out)) return FAILDESCR;
+    if (g->kind == ICN_OPGEN_KEY) { out = rt_list_bang_key_at(argv[0], &g->idx); if (IS_FAIL_fn(out)) return FAILDESCR; g->idx++; return out; }
+    if (!list_bang_at(argv[0], &g->idx, &out)) return FAILDESCR;
     g->idx++;
     return out;
 }
@@ -4859,7 +4859,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
         if (st > 0 ? lo > hi : lo < hi) return FAILDESCR;
         return INTVAL(lo);
     }
-    if (n == 1 && !strcmp(nm, "!")) { extern int list_bang_at(DESCR_t, int64_t, DESCR_t *); DESCR_t out; return list_bang_at(argv[0], 0, &out) ? out : FAILDESCR; }
+    if (n == 1 && !strcmp(nm, "!")) { extern int list_bang_at(DESCR_t, int64_t *, DESCR_t *); DESCR_t out; int64_t c0 = 0; return list_bang_at(argv[0], &c0, &out) ? out : FAILDESCR; }
     if (n == 1 && !strcmp(nm, "/")) return (argv[0].v == DT_SNUL || argv[0].v == 0) ? argv[0] : FAILDESCR;
     if (n == 2 && IS_PROCVAL_fn(callee) && icn_opproc_assigns(nm)) {
         extern DESCR_t c_rt_assign_var_strict(DESCR_t, DESCR_t);
@@ -17534,14 +17534,14 @@ DESCR_t rt_call_arr_gen_strict(const char *fn, DESCR_t *args, int nargs, int64_t
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     static int list_reg3 = 0;
-    if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg3 = 1; }
+    if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap,frame_blocks)"); list_reg3 = 1; }
     DESCR_t *elems = (DESCR_t *)0;
     if (nargs > 0) { elems = rt_ws_alloc_descr((size_t)nargs); for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j]; }
     DESCR_t eptr = {0};
     eptr.v=DT_DATA;
     eptr.slen=DATA_ELEMS_SLEN;
     eptr.ptr=(void*)elems;
-    return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"), INTVAL(nargs));
+    return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"), INTVAL(nargs), NULVCL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_args_list_from(char **v, int n) {
@@ -18401,6 +18401,7 @@ static int bn_icn_put(DESCR_t *args, int nargs, DESCR_t *out) {
             int _nv2 = (nargs > 1) ? nargs - 1 : 1;
             for (int _pi = 0; _pi < _nv2; _pi++) {
                 DESCR_t _vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
+                if (ld.u->type->nfields >= 5 && ld.u->fields[4].v != DT_I) rt_lvb_put(ld,_n);
                 long _c = rt_lv_cap(ld);
                 if(_a && _c>=0 && _n<_c){ _a[_n]=_vd; _n++; rt_lv_set_size(ld,_n); continue; }
                 long _ncap=(_n>0)?(long)_n*2:8;
@@ -18427,6 +18428,7 @@ static int bn_icn_get(DESCR_t ld, DESCR_t *out) {
         int _n=0;
         if (rt_lv_is_list(ld,&_a,&_n)) {
             if(!_a||_n<=0) { *out=FAILDESCR; return 1; }
+            rt_lvb_get(ld,_n);
             DESCR_t _r=_a[0];
             rt_lv_set_elems(ld,DATA_ELEMS(_a+1));
             rt_lv_set_size(ld,_n-1);
@@ -21234,7 +21236,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
                 eptr.v = DT_DATA;
                 eptr.slen = DATA_ELEMS_SLEN;
                 eptr.ptr = (void *)new_elems;
-                *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
+                *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n), NULVCL);
                 return 1;
             }
         }
@@ -21300,14 +21302,14 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         }
         if (nargs >= 2) { DESCR_t iv = args[1]; if (!IS_FAIL_fn(iv)) init = iv; }
         static int list_reg2 = 0;
-        if (!list_reg2) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg2 = 1; }
+        if (!list_reg2) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap,frame_blocks)"); list_reg2 = 1; }
         DESCR_t *elems = rt_ws_alloc_descr((size_t)(n>0?n:1));
         for (int i = 0; i < n; i++) elems[i] = init;
         DESCR_t eptr = {0};
         eptr.v=DT_DATA;
         eptr.slen=DATA_ELEMS_SLEN;
         eptr.ptr=(void*)elems;
-        *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
+        *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n), NULVCL);
         return 1;
     }
     L_bidjmp_5864:
@@ -21613,6 +21615,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
                 int _nv2 = (nargs > 1) ? nargs - 1 : 1;
                 for (int _pi = 0; _pi < _nv2; _pi++) {
                     DESCR_t _vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
+                    rt_lvb_push(ld,_n);
                     DESCR_t *_nb=rt_ws_alloc_descr((size_t)(_n+1));
                     _nb[0]=_vd;
                     if(_a&&_n>0) memcpy(_nb+1,_a,_n*sizeof(DESCR_t));
@@ -21644,6 +21647,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             int _n=0;
             if (rt_lv_is_list(ld,&_a,&_n)) {
                 if(!_a||_n<=0) { *out=FAILDESCR; return 1; }
+                rt_lvb_get(ld,_n);
                 DESCR_t _r=_a[0];
                 rt_lv_set_elems(ld,DATA_ELEMS(_a+1));
                 rt_lv_set_size(ld,_n-1);
@@ -21659,7 +21663,11 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     if ((_bid == BID_pull) && nargs == 1) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
-        { DESCR_t *_a=0; int _n=0; if (rt_lv_is_list(ld,&_a,&_n)) { if(!_a||_n<=0) { *out=FAILDESCR; return 1; } DESCR_t _r=_a[_n-1]; rt_lv_set_size(ld,_n-1); *out=_r; return 1; } }
+        {
+            DESCR_t *_a=0;
+            int _n=0;
+            if (rt_lv_is_list(ld,&_a,&_n)) { if(!_a||_n<=0) { *out=FAILDESCR; return 1; } rt_lvb_pull(ld,_n); DESCR_t _r=_a[_n-1]; rt_lv_set_size(ld,_n-1); *out=_r; return 1; }
+        }
         return 0;
     }
     L_bidjmp_6249:
