@@ -8,8 +8,7 @@ extern "C" {
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
 int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
-int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
-int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
+int rt_relop_rat(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 DESCR_t rt_str_coerce(DESCR_t d);
 void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out);
 }
@@ -48,7 +47,7 @@ std::string bb_binop_relop() {
              + x86("mov", "rcx", FRQ(_.op_sb + 8))
              + x86("mov", "r8d", (long)_.op_ival)
              + x86("lea", "r9", FRQ(_.op_off))
-             + x86("call", "rt_relop_overload", (uint64_t)(uintptr_t)(void*)rt_relop_overload)
+             + x86("call", "rt_relop_rat", (uint64_t)(uintptr_t)(void*)rt_relop_rat)
              + x86("test", "eax", "eax")
              + x86("je", L(2))
              + x86("cmp", "eax", (long)1)

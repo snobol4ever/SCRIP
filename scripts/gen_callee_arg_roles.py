@@ -24,12 +24,13 @@ def collect_callees():
     out = set()
     tdir = os.path.join(SRC, "templates")
     pat = re.compile(r'x86\(\s*"call"\s*,\s*"([A-Za-z_0-9]+)"')
-    for fn in os.listdir(tdir):
-        if not fn.endswith(".cpp"):
-            continue
-        with open(os.path.join(tdir, fn), "r", errors="replace") as f:
-            for m in pat.finditer(f.read()):
-                out.add(m.group(1))
+    for d, _, fns in os.walk(tdir):
+        for fn in fns:
+            if not fn.endswith(".cpp"):
+                continue
+            with open(os.path.join(d, fn), "r", errors="replace") as f:
+                for m in pat.finditer(f.read()):
+                    out.add(m.group(1))
     return sorted(out)
 
 
@@ -309,6 +310,7 @@ def main():
     return rows, skipped, len(callees)
 
 
+pos = 0
 if __name__ == "__main__":
     rows, skipped, total = main()
     mode = sys.argv[1] if len(sys.argv) > 1 else "report"
@@ -319,6 +321,35 @@ if __name__ == "__main__":
         print("--- SKIPPED (no annotation emitted; a wrong term is worse than none) ---")
         for n, why in skipped:
             print("  %-34s %s" % (n, why))
+    elif mode == "blob":
+        sep = "/*" + "-" * 196 + "*/"
+        offs = {"": 0}
+        blob = [""]
+        pos = 1
+        def off(t):
+            global pos
+            if t not in offs:
+                offs[t] = pos
+                blob.append(t)
+                pos += len(t) + 1
+            return offs[t]
+        table = []
+        for n, r in rows:
+            c = off(n)
+            cells = [off(v if v else "") for v in (r + [None] * 6)[:6]]
+            table.append((c, cells))
+        lines = [sep, '#include "x86_arg_roles.h"', "const char x86_argrole_blob[] ="]
+        lines += ['    "%s\\0"' % t for t in blob[:-1]] + ['    "%s\\0" ;' % blob[-1]]
+        lines += [sep, "const x86_argrole_t x86_argroles[%d] = {" % len(table)]
+        lines += ["    { %d, { %s } }," % (c, ", ".join(str(x) for x in cells)) for c, cells in table]
+        lines += ["};"]
+        cpp = os.path.join(SRC, "templates", "x86", "x86_arg_roles.cpp")
+        hdr = os.path.join(SRC, "templates", "x86", "x86_arg_roles.h")
+        open(cpp, "w").write("\n".join(lines) + "\n")
+        h = open(hdr).read()
+        h = re.sub(r"x86_argroles\[\d+\]", "x86_argroles[%d]" % len(table), h)
+        open(hdr, "w").write(h)
+        print("wrote %s (%d rows, blob %d bytes) and %s" % (cpp, len(table), pos, hdr))
     else:
         for n, r in rows:
             cells = ", ".join('"%s"' % (v if v else "") for v in (r + [None] * 6)[:6])

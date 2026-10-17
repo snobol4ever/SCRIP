@@ -8,7 +8,6 @@ extern "C" {
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
-int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 DESCR_t rt_add(DESCR_t a, DESCR_t b);
 DESCR_t rt_add_big(DESCR_t a, DESCR_t b);
 DESCR_t rt_sub_big(DESCR_t a, DESCR_t b);

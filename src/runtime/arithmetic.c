@@ -78,30 +78,6 @@ static const char *rk_binop_opstr(int op) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
-    if (a.v != DT_DATA && b.v != DT_DATA) return 0;
-    { extern int rk_rat_binop(DESCR_t a, DESCR_t b, int op, DESCR_t *out); if (rk_rat_binop(a, b, op, out)) return 1; }
-    const char *ops = rk_binop_opstr(op);
-    if (!ops) return 0;
-    char base[sizeof "Rinfix_" + 2 * strlen(ops)];
-    rk_op_canon_base("infix", ops, base, sizeof base);
-    extern int rt_proc_enum_count(void);
-    extern const char *rt_proc_enum_name(int i);
-    char prefix[sizeof base + 1];
-    int pl = snprintf(prefix, sizeof prefix, "%s$", base);
-    int found = 0, pcount = rt_proc_enum_count();
-    for (int pi = 0; pi < pcount; pi++) { const char *pn = rt_proc_enum_name(pi); if (pn && !strncmp(pn, prefix, (size_t)pl)) { found = 1; break; } }
-    if (!found) return 0;
-    extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
-    DESCR_t args[3];
-    args[0] = STRVAL(rt_str_dup(base));
-    args[1] = a;
-    args[2] = b;
-    DESCR_t r = FAILDESCR;
-    if (script_try_call_builtin_by_name("__multi_call", args, 3, &r)) { *out = r; return 1; }
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const int rk_binop_overloadable[] = { BINOP_ADD, BINOP_SUB, BINOP_MUL, BINOP_DIV, BINOP_MOD, BINOP_POW, BINOP_LT, BINOP_LE, BINOP_GT, BINOP_GE, BINOP_EQ, BINOP_NE, BINOP_CONCAT, BINOP_SEQ,
     BINOP_SNE, BINOP_SLT, BINOP_SLE, BINOP_SGT, BINOP_SGE, -1 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -114,6 +90,16 @@ int rt_binop_overload_armed_by(const char *pn) {
         if (!strncmp(pn, base, bl) && pn[bl] == '$') return 1;
     }
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_relop_rat(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
+    extern int rk_rat_binop(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
+    extern int rt_is_truthy(DESCR_t v);
+    DESCR_t r;
+    if (a.v != DT_DATA && b.v != DT_DATA) return 0;
+    if (!rk_rat_binop(a, b, op, &r)) return 0;
+    *out = r;
+    return rt_is_truthy(r) ? 2 : 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_call_next_t rt_binop_overload_open(DESCR_t a, DESCR_t b, int op) {
@@ -136,15 +122,6 @@ rt_call_next_t rt_binop_overload_open(DESCR_t a, DESCR_t b, int op) {
     CALL_ARGS[0] = a;
     CALL_ARGS[1] = b;
     return rt_call_open_by_name(wn, 2);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
-    if (a.v != DT_DATA && b.v != DT_DATA) return 0;
-    DESCR_t r;
-    if (!rt_binop_overload(a, b, op, &r)) return 0;
-    *out = r;
-    extern int rt_is_truthy(DESCR_t v);
-    return rt_is_truthy(r) ? 2 : 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t big_str_operand(DESCR_t d);
@@ -513,7 +490,6 @@ static int rt_big_arith_wanted(DESCR_t a, DESCR_t b, int op) {
     }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_real_overflow(int spitcode, const char *what, double lv, int strict) {
     extern long g_error;
