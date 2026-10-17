@@ -1,3 +1,0 @@
-                  s              =  TRIM('AB  ')
-                  OUTPUT         =  s
-END

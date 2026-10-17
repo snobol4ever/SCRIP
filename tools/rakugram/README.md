@@ -8,7 +8,7 @@ patching of a `.y` was an unbounded search measured at ~3 files of PARSE-FAIL pe
 
 **Rung 1: READER + CENSUS** (`nqp_read.py`) · **Rung 2: AST + TRANSLATABILITY LADDER** (`nqp_ast.py`)
 · **Rung 3: C EMITTER** (`nqp_emit.py`) · **Rung 4: PRECEDENCE / Pratt parser** (`nqp_prec.py`),
-gated by `scripts/test_gate_rakugram_precedence.sh` · **Rung 5: REACHABILITY scoping** (`nqp_reach.py`) · **Rung 6: the hand-written HLL::Grammar layer** (`rk_hll.c`) · **Rung 7: character classes, escapes, anchors and lookahead are REAL** (`nqp_cc.py`, `rk_cc_test.c`) · **Rung 8: `:my`/`{code}`/`:dba` no-ops with the consultation guard; `~` rewritten**.
+gated by `../harness/scripts/test_gate_rakugram_precedence.sh` · **Rung 5: REACHABILITY scoping** (`nqp_reach.py`) · **Rung 6: the hand-written HLL::Grammar layer** (`rk_hll.c`) · **Rung 7: character classes, escapes, anchors and lookahead are REAL** (`nqp_cc.py`, `rk_cc_test.c`) · **Rung 8: `:my`/`{code}`/`:dba` no-ops with the consultation guard; `~` rewritten**.
 
 ```bash
 python3 tools/rakugram/nqp_read.py [path/to/Grammar.nqp]   # rung 1: census of constructs
@@ -16,7 +16,7 @@ python3 tools/rakugram/nqp_ast.py  [path/to/Grammar.nqp]   # rung 2: parse bodie
 python3 tools/rakugram/nqp_emit.py [Grammar.nqp] [out.c]   # rung 3: emit C recursive descent
 gcc -c -O0 -Wall -Wextra out.c                             # rung 3 acceptance: compiles clean
 python3 tools/rakugram/nqp_prec.py [Grammar.nqp] [out.c] --emit   # rung 4: the operator table
-bash scripts/test_gate_rakugram_precedence.sh              # rung 4 acceptance (refuses rc=2 if unmeasurable)
+bash ../harness/scripts/test_gate_rakugram_precedence.sh              # rung 4 acceptance (refuses rc=2 if unmeasurable)
 ```
 
 ## Rung 9a status — `|`/`||` precedence, constant code-assertions, the lone `$` anchor: `comp_unit` and `statementlist` EMIT (hq_C 2026-09-01)

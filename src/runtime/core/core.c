@@ -44,7 +44,7 @@ int g_call_fastpath_off = 0;
 #define MON_RS "\x1e"
 #define MON_US "\x1f"
 #include <sys/uio.h>
-#include "../../../scripts/monitor/monitor_wire.h"
+#include "../../../../harness/scripts/monitor/monitor_wire.h"
 #include "gc_frame_map.h"
 #if RT_DIAG
 int monitor_fd = -1;

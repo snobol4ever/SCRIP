@@ -1,3 +1,0 @@
-                  s              =  REPLACE('ABCD','CD','AB')
-                  OUTPUT         =  s
-END

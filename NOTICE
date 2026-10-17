@@ -25,10 +25,10 @@ under the BSD 2-Clause license their headers state:
     WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
     USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-SCRIP compiles them into its Prolog prelude through scripts/util_gen_prolog_prelude_libs.py, which strips their comments
+SCRIP compiles them into its Prolog prelude through ../harness/scripts/util_gen_prolog_prelude_libs.py, which strips their comments
 and blank lines, drops their module-system directives and hook clauses, and renames each library's unexported
 predicates '$<library>_<name>' (SCRIP has no module system); the generated table is
 src/parsers/prolog/prolog_prelude_libs.inc.  library(clpfd) (clpfd.pl, Copyright (C) 2007-2017 Markus Triska, the same
 BSD 2-Clause terms) and library(csv) are embedded as SWI-Prolog itself compiles them: the generator runs SWI's own term and goal expansion
-over the vendored file (scripts/util_gen_prolog_prelude_libs_expand.pl) and embeds the expanded clauses, because those
+over the vendored file (../harness/scripts/util_gen_prolog_prelude_libs_expand.pl) and embeds the expanded clauses, because those
 libraries define part of themselves through expansion (clpfd's cis/2 and parse tables, csv's library(record) accessors).  dcg_basics.pl is SWI-Prolog's library/dcg/basics.pl (module dcg_basics), vendored verbatim under its module's name.
