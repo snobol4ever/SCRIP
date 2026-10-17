@@ -59,7 +59,7 @@ red() { FAIL=$((FAIL+1)); echo "  FAIL $1: $2"; }
 
 # the witnesses
 printf "        DEFINE('R(N)')                    :(REND)\nR       R = EQ(N,0) 0                     :S(RETURN)\n        R = R(N - 1) + 1                  :(RETURN)\nREND    OUTPUT = 'depth=' R(50000)\nEND\n" > "$W/deep.sno"
-printf "        T = TABLE()\n        I = 0\nL       I = LT(I,30000) I + 1         :F(D)\n        T<I> = DUPL('x',100)          :(L)\nD       OUTPUT = 'built ' I\nEND\n" > "$W/live.sno"
+printf "        T = TABLE()\n        I = 0\nL       I = LT(I,30000) I + 1         :F(D)\n        T[I] = DUPL('x',100)          :(L)\nD       OUTPUT = 'built ' I\nEND\n" > "$W/live.sno"
 (cd "$W" && timeout -k 5 60 "$SBL" $SBLF deep.sno < /dev/null > deep.ref 2>&1; timeout -k 5 60 "$SBL" $SBLF live.sno < /dev/null > live.ref 2>&1)
 [ "$(cat "$W/deep.ref")" = "depth=50000" ] && [ "$(cat "$W/live.ref")" = "built 30000" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the oracle's refs moved: deep '$(head -c 60 "$W/deep.ref")' live '$(head -c 60 "$W/live.ref")'"; gate_stamp; exit 2; }
 declare -A HEAP=([deepdecl]=131072 [deepnodecl]=131072 [livedecl]=2048 [livenodecl]=131072)
