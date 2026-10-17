@@ -61,6 +61,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {
     { "rt_mod_strict", RTCC_C_R8 },
     { "rt_mul", 0 },
     { "rt_mul_sno", 0 },
+    { "rt_nv_set_fast", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_patstk_lazy_init", 0 },
     { "rt_pl_anum_cold", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_atop_cold", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },

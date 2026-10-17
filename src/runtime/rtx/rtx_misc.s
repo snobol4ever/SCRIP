@@ -509,3 +509,65 @@ RTX_FUNC(rt_rk_arr_set)
 .Lrks_c:
     RTX_DECLINE
 RTX_ENDF(rt_rk_arr_set)
+RTX_FUNC(rt_nv_set_fast)
+    RTX_GATE(misc, .Lnvs_c)
+    test    rdi, rdi
+    je      .Lnvs_c
+    xor     ecx, ecx
+.Lnvs_len:
+    cmp     byte ptr [rdi + rcx], 0
+    je      .Lnvs_lend
+    inc     rcx
+    jmp     .Lnvs_len
+.Lnvs_lend:
+    test    rcx, rcx
+    je      .Lnvs_c
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_SUB_RSP(32)
+    mov     rbx, rsi
+    mov     r12, rdx
+    mov     r13, rdi
+    mov     rax, rcx
+    shl     rax, 32
+    or      rax, DT_S
+    mov     qword ptr [rsp], rax
+    mov     qword ptr [rsp + 8], rdi
+    mov     rdi, rsp
+    mov     esi, 1
+    RTX_CALL(rt_sno_name_dl)
+    cmp     al, RTX_NOT_HANDLED
+    je      .Lnvs_undo
+    cmp     bl, DT_S
+    jne     .Lnvs_store
+    mov     rcx, qword ptr [rip + g_sxt_fr@GOTPCREL]
+    cmp     qword ptr [rcx], r12
+    jne     .Lnvs_store
+    mov     qword ptr [rcx], 0
+.Lnvs_store:
+    mov     qword ptr [rdx], rbx
+    mov     qword ptr [rdx + 8], r12
+    mov     rax, rbx
+    mov     rdx, r12
+    RTX_ADD_RSP(32)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbx)
+    ret
+.Lnvs_undo:
+    RTX_CFA(64)
+    .cfi_offset rbx, -16
+    .cfi_offset r12, -24
+    .cfi_offset r13, -32
+    mov     rdi, r13
+    mov     rsi, rbx
+    mov     rdx, r12
+    RTX_ADD_RSP(32)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbx)
+.Lnvs_c:
+    RTX_CFA(8)
+    RTX_DECLINE
+RTX_ENDF(rt_nv_set_fast)

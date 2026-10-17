@@ -422,7 +422,11 @@ RTX_FUNC(rt_match_replace)
     shl     rsi, 32
     or      rsi, DT_S
     mov     rdi, qword ptr [rsp + 0]
+    RTX_CALL(rt_nv_set_fast)
+    cmp     al, RTX_NOT_HANDLED
+    jne     .Lmr_setnv_done
     call    NV_SET_fn
+.Lmr_setnv_done:
     RTX_ADD_RSP(88)
     xor     eax, eax
     RTX_GVA_R9
@@ -542,7 +546,11 @@ RTX_ENTRY(rt_cap_open_plain)
     shl     rcx, 32
     or      rsi, rcx
     mov     rdx, r8
+    RTX_CALL(rt_nv_set_fast)
+    cmp     al, RTX_NOT_HANDLED
+    jne     .Lmr2_setnv_done
     call    NV_SET_fn@PLT
+.Lmr2_setnv_done:
     RTX_CALL_UNALIGN(8)
     xor     eax, eax
     RTX_GVA_R9
