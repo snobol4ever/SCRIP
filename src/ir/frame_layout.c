@@ -636,6 +636,7 @@ static int zls_elide_ok(IR_e op) {
     return op == IR_UNIFY_CONST || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_LEN ||
         op == IR_MATCH_LIT || op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_CMP_TEST || op == IR_ASSIGN;
 }
+static int zls_writes_no_result(IR_e op) { return op == IR_UNIFY_CONST || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE; }
 static int zls_s4_ok(IR_e op) {
     return op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_BAL || op == IR_MATCH_ALTERNATE ||
         op == IR_MATCH_FENCE0 || op == IR_MATCH_FENCE1 || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE;
@@ -1329,6 +1330,7 @@ void zls_build(IR_graph_t * g) {
                         const IR_t * d = g->all[i];
                         if (!d || !rb[i] || lv[i] || zls_is_wiring(ir_kind0(d))) continue;
                         if (!zls_reuse_detleaf(d) && !zls_elide_ok(ir_kind0(d))) continue;
+                        if (zls_writes_no_result(ir_kind0(d))) continue;
                         if (rec[i].w < 0 || (nl > 0 && i >= mstart[0]) || (!zls_reuse_detleaf(d) && !zls_reuse_straight(ir_kind0(d)))) { hit = 1; r->scratch_hit_w = d; break; }
                         int p = 2 * rec[i].w + 1, lo = po[q], hi = po[q + 1], t = -1;
                         while (lo < hi) { int mid = lo + (hi - lo) / 2; if ((intptr_t)pv[mid].p <= p) lo = mid + 1; else hi = mid; }

@@ -44,6 +44,13 @@ scr="$(printf '%s\n' "$sum" | sed -n 's/.*scratch=\([a-z]*\).*/\1/p')"
 echo "r/1 region_end=$end (bar <= 208; rung-3(e) tree read 224) scratch=${scr:-absent}"
 [ -n "$end" ] && [ "$end" -le 208 ] || { echo "  ⛔ r/1 frame is $end bytes, above the rung-3(d) bar of 208"; bad=$((bad+1)); }
 [ "${scr:-}" = "overlay" ] || { echo "  ⛔ r/1's dead-result scratch does not overlay a pool slot (scratch=${scr:-absent})"; bad=$((bad+1)); }
+# NO-RESULT WRITERS (cto 2026-10-17, CEO-1807): the planner skips IR_UNIFY_CONST, IR_UNIFY_FIRST and IR_UNIFY_VALUE as dead writers
+# (frame_layout.c zls_writes_no_result) because their boxes bind through the dereferenced cell and jump to gamma or omega without
+# storing a result slot; the claim spans the planner and three templates, so this arm reads the templates: a store to the box's
+# own slot (FRQ(_.op_off ...)) in any of them reds here, and the planner must learn it before that box can write.
+nw=0; for b in bb_unify_const bb_unify_first bb_unify_value; do [ -f "src/templates/bb/$b.cpp" ] || { echo "⛔ REFUSE(2): src/templates/bb/$b.cpp is missing"; exit 2; }; k="$(grep -c 'FRQ(_.op_off' "src/templates/bb/$b.cpp")"; [ "$k" -eq 0 ] || { echo "  ⛔ $b.cpp stores its result slot ($k sites) but zls_writes_no_result skips it as a dead writer"; bad=$((bad+1)); nw=1; }; done
+grep -q 'static int zls_writes_no_result(IR_e op) { return op == IR_UNIFY_CONST || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE; }' src/ir/frame_layout.c || { echo "  ⛔ zls_writes_no_result in frame_layout.c is not the three boxes this arm reads"; bad=$((bad+1)); nw=1; }
+[ "$nw" -eq 0 ] && echo "no-result writers: bb_unify_const, bb_unify_first, bb_unify_value store no result slot, as zls_writes_no_result assumes"
 al="$(grep -E "^;   reuse 'atom_length/2'" "$T/pl.dump")"
 printf '%s\n' "$al" | grep -qE 'scratch=own\(REFUSED: IR_CALL dead write at [0-9]+ lands inside IR_VAR_REF \[[0-9]+\.\.[0-9]+\] on every pool slot\)' || { echo "  ⛔ the prelude's atom_length/2 (guard and builtin share the operand temps) is not visibly REFUSED: $al"; bad=$((bad+1)); }
 nov="$(grep -cE "^;   reuse '.*scratch=overlay\(" "$T/pl.dump")"; nref="$(grep -cE "^;   reuse '.*scratch=own\(REFUSED" "$T/pl.dump")"
