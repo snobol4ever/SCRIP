@@ -77,6 +77,10 @@ x[1;2
 1..2
 1 'a'
 1e5
+.5
+-.5
+(.5)
+.'a'
 TXT
 cat > "$D/lines2.txt" <<'TXT'
 (b = ANY('ab')^ POS(2))

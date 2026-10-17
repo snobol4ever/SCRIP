@@ -449,7 +449,7 @@ static int eval_sb_syntax(const char *s, int *code, const char **msg) {
     long n = (long)strlen(s), p = 0, nopen = 0, depth = 0, k;
     for (k = 0; k < n; k++) if (s[k] == '(' || s[k] == '[' || s[k] == '<') nopen++;
     char lev[nopen + 1];
-    int prev = 0, st = 0;
+    int prev = 0, st = 0, ndot = 0;
     for (;;) {
         int blank = 0, el;
         char c, nx;
@@ -502,6 +502,8 @@ static int eval_sb_syntax(const char *s, int *code, const char **msg) {
             else return eval_sb_fail(233, code, msg);
             p += len;
         } else return eval_sb_fail(230, code, msg);
+        if (el == 18 && ndot && !blank) return eval_sb_fail(212, code, msg);
+        ndot = el == 0 && c == '.';
         prev = el;
         switch (el) {
             case 15:

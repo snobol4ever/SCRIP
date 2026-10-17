@@ -554,6 +554,7 @@ int eval_text_takes_chain(const char *s) {
     if (!s || !*s) return 0;
     { const char *c = s; while (*c == ' ' || *c == '\t') c++; if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z')) return 1; }
     if (strpbrk(s, " \t\n\v\f\r")) return 1;
+    { const char *c = s; if (*c == '+' || *c == '-') c++; if (!(*c >= '0' && *c <= '9')) return 1; }
     { char *endp = NULL; errno = 0; (void)strtoll(s, &endp, 10); if (endp && *endp == '\0') return 0; }
     { extern int rt_str_to_real(const char *, double *); double rv; if (rt_str_to_real(s, &rv)) return 0; }
     { char *endp = NULL; (void)strtod(s, &endp); if (endp && *endp == '\0') return 0; }
