@@ -212,6 +212,7 @@ struct IR_graph_t {
     int resume_slot;
     int resumable_callable;
     int spine_tier;
+    int keeps_choice;
     int rt_redefinable;
     int decl_level;
     int caller_frame;

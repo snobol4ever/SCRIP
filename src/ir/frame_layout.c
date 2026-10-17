@@ -2378,7 +2378,7 @@ void fl_select_spine_tier(IR_graph_t ** table, int n, const char * const * pname
         int nsucc = 0;
         rt[k] = 0;
         for (int i = 0; g && i < g->n; i++) { const IR_t * nd = g->all[i]; if (!nd) continue; if (nd->op == IR_SUCCEED) nsucc++; if (fl_box_retains(nd)) rt[k] = 1; }
-        if (nsucc > 1 || (g && g->rt_redefinable)) rt[k] = 1;
+        if (nsucc > 1 || (g && (g->rt_redefinable || g->keeps_choice))) rt[k] = 1;
     }
     qsort(tab, (size_t)nt, sizeof(fl_gname_t), fl_gname_cmp);
     for (int k = 0; k < n; k++) for (int i = 0; table[k] && !rt[k] && i < table[k]->n; i++) {

@@ -975,6 +975,7 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
     cx->tail_pop = 0;
     IR_t * ig = build(cx, IR_GATE, γnext, ωfail);
     IR_t * eg = build(cx, IR_GATE, γnext, ig);
+    cx->g->keeps_choice = 1;
     IR_t * mark = build(cx, IR_BOUND, NULL, ig);
     IR_t * unmk_f = build(cx, IR_UNMARK, NULL, ig);
     ir_operand_push(unmk_f, mark);
@@ -1320,6 +1321,7 @@ static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, const tree_t * R, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * ig = build(cx, IR_GATE, γnext, ωfail);
+    cx->g->keeps_choice = 1;
     IR_t * mark = build(cx, IR_BOUND, NULL, ig);
     IR_t * unmk = build(cx, IR_UNMARK, NULL, ig);
     ir_operand_push(unmk, mark);
