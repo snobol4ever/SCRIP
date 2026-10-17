@@ -34,8 +34,20 @@ arm() { if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  FAIL $1: $2"; red=
   && timeout -k 5 60 ./m4.bin -d131072k -s4096k < in > m4.raw 2> m4.err; echo $? > m4.rc )
 for m in m3 m4; do
     mask "$D/$m.raw" > "$D/$m"
-    if cmp -s "$D/want" "$D/$m" && [ "$(cat "$D/$m.rc")" = "$(cat "$D/want.rc")" ]; then arm "$m equals sbl -bf ($(wc -l < "$D/want") lines, rc $(cat "$D/want.rc"))" ok
-    else arm "$m" "rc $(cat "$D/$m.rc") (sbl $(cat "$D/want.rc")), $(wc -l < "$D/$m") of $(wc -l < "$D/want") lines, first divergence: $(diff "$D/want" "$D/$m" | head -3 | tr '\n' '|' | cut -c1-160) $(head -1 "$D/$m.err" | cut -c1-120)"; fi
+    if cmp -s "$D/want" "$D/$m" && [ "$(cat "$D/$m.rc")" = "$(cat "$D/want.rc")" ]; then arm "ATN $m equals sbl -bf ($(wc -l < "$D/want") lines, rc $(cat "$D/want.rc"))" ok
+    else arm "ATN $m" "rc $(cat "$D/$m.rc") (sbl $(cat "$D/want.rc")), $(wc -l < "$D/$m") of $(wc -l < "$D/want") lines, first divergence: $(diff "$D/want" "$D/$m" | head -3 | tr '\n' '|' | cut -c1-160) $(head -1 "$D/$m.err" | cut -c1-120)"; fi
 done
-if [ "$red" -eq 0 ]; then echo "GATE PASS(0) [sno_atn_failed_code_deferred_freturn]: 2 of 2 modes equal sbl -bf"; exit 0; fi
-echo "GATE FAIL(1) [sno_atn_failed_code_deferred_freturn]: $red of 2 modes diverge from sbl -bf"; exit 1
+printf "        P = ('' \$ *V) FENCE 'q'\n        'xyz' P                         :S(Y)F(N)\nY       OUTPUT = 'ok'                   :(END)\nN       OUTPUT = 'failed'\nEND\n" > "$D/val.sno"
+printf "        'xyz' ('' \$ *V) FENCE 'q'        :S(Y)F(N)\nY       OUTPUT = 'ok'                   :(END)\nN       OUTPUT = 'failed'\nEND\n" > "$D/inl.sno"
+for w in val inl; do
+    ( cd "$D" && timeout -k 5 10 "$SBL" -bf $w.sno < /dev/null > $w.want 2>&1 )
+    [ "$(cat "$D/$w.want")" = failed ] || refuse "sbl -bf answered [$(tr '\n' '|' < "$D/$w.want")] for the $w witness, not failed"
+    ( cd "$D" && timeout -k 5 10 "$B/scrip" $w.sno < /dev/null > $w.m3 2> $w.m3.err )
+    ( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o $w.s $w.sno < /dev/null 2> $w.cerr && gcc $w.s -L"$B/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$B/out" -o $w.bin 2>> $w.cerr && timeout -k 5 10 ./$w.bin < /dev/null > $w.m4 2> $w.m4.err )
+    for m in m3 m4; do
+        if cmp -s "$D/$w.want" "$D/$w.$m"; then arm "the $w witness ('' \$ *V) FENCE 'q' $m prints failed as sbl -bf does" ok
+        else arm "the $w witness $m" "got [$(tr '\n' '|' < "$D/$w.$m")] $(head -1 "$D/$w.$m.err" | cut -c1-100)"; fi
+    done
+done
+if [ "$red" -eq 0 ]; then echo "GATE PASS(0) [sno_atn_failed_code_deferred_freturn]: 6 of 6 arms equal sbl -bf (ATN, the pattern-value witness and its inline control, both modes)"; exit 0; fi
+echo "GATE FAIL(1) [sno_atn_failed_code_deferred_freturn]: $red of 6 arms diverge from sbl -bf"; exit 1
