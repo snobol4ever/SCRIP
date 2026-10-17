@@ -47,8 +47,6 @@
 RTX_GATE_DEF(table)
 RTX_FUNC(rt_table_assign_fast)
     RTX_GATE(table, .Lta_c)
-    cmp     dil, DT_T
-    jne     .Lta_c
     test    rsi, rsi
     je      .Lta_c
     mov     rax, qword ptr [rip + g_gc_pending@GOTPCREL]
@@ -62,6 +60,10 @@ RTX_FUNC(rt_table_assign_fast)
     cmp     qword ptr [rax], 0
     jne     .Lta_c
 #endif
+    cmp     dil, DT_A
+    je      .Lta_arr
+    cmp     dil, DT_T
+    jne     .Lta_c
     RTX_SUB_RSP(16)
     mov     qword ptr [rsp + 8], r8
     mov     qword ptr [rsp], r9
@@ -264,6 +266,38 @@ RTX_FUNC(rt_table_assign_fast)
     mov     r9, qword ptr [rsp]
     RTX_ADD_RSP(16)
     RTX_DECLINE
+.Lta_arr:
+    RTX_CFA(8)
+    cmp     dword ptr [rsi + ARBLK_NDIM], 1
+    jne     .Lta_c
+    cmp     qword ptr [rsi + ARBLK_DATA], 0
+    je      .Lta_c
+    cmp     dl, DT_I
+    jne     .Lta_c
+    movsxd  r10, dword ptr [rsi + ARBLK_LO]
+    mov     r11, rcx
+    sub     r11, r10
+    js      .Lta_c
+    movsxd  rax, dword ptr [rsi + ARBLK_HI]
+    sub     rax, r10
+    cmp     r11, rax
+    jg      .Lta_c
+    mov     rax, qword ptr [rsi + ARBLK_DATA]
+    shl     r11, 4
+    add     rax, r11
+    cmp     r8b, DT_S
+    jne     .Lta_astore
+    mov     r10, qword ptr [rip + g_sxt_fr@GOTPCREL]
+    cmp     qword ptr [r10], r9
+    jne     .Lta_astore
+    mov     qword ptr [r10], 0
+.Lta_astore:
+    mov     qword ptr [rax], r8
+    mov     qword ptr [rax + 8], r9
+    mov     rax, r8
+    mov     rdx, r9
+    RTX_GVA_R9
+    ret
 .Lta_c:
     RTX_CFA(8)
     RTX_DECLINE

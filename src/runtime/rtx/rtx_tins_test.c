@@ -96,8 +96,52 @@ static void run(int init, const char *what) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int ahandled = 0, adeclined = 0;
+static void astep(ARBLK_t *a, ARBLK_t *b, DESCR_t k, DESCR_t v, const char *what) {
+    DESCR_t ba = { .v = DT_A }, bb = { .v = DT_A }, ra, rb;
+    ba.arr = a;
+    bb.arr = b;
+    nstep++;
+    g_gc_pending = 0;
+    if (leaf(ba, k, v, &ra)) ahandled++;
+    else { adeclined++; ra = c_rt_table_assign_fast(ba, k, v); }
+    g_gc_pending = 0;
+    rb = c_rt_table_assign_fast(bb, k, v);
+    uint64_t wa[2], wb[2];
+    words(ra, wa);
+    words(rb, wb);
+    if (wa[0] != wb[0] || wa[1] != wb[1]) {
+        fails++;
+        printf("  FAIL %s step %d: result %016llx/%016llx twin %016llx/%016llx\n", what, nstep, (unsigned long long)wa[0], (unsigned long long)wa[1], (unsigned long long)wb[0],
+            (unsigned long long)wb[1]);
+    }
+    if (memcmp(a->data, b->data, (size_t)(a->hi - a->lo + 1) * sizeof(DESCR_t))) { fails++; printf("  FAIL %s step %d: the arrays differ\n", what, nstep); }
+}
+static void arun(int lo, int hi, const char *what) {
+    ARBLK_t *a = array_new(lo, hi), *b = array_new(lo, hi);
+    uint64_t seed = 777u + (uint64_t)hi;
+    for (int i = lo; i <= hi; i++) astep(a, b, INTVAL(i), kv(i), what);
+    for (int i = 0; i < 400; i++) { int r = lo - 20 + (int)(lcg(&seed) % (uint64_t)(hi - lo + 41)); astep(a, b, INTVAL(r), kv(i), what); }
+    astep(a, b, INTVAL((long long)lo - 1), kv(3), what);
+    astep(a, b, INTVAL((long long)hi + 1), kv(4), what);
+    astep(a, b, REALVAL(lo + 0.5), kv(5), what);
+    astep(a, b, ks(3, 0), kv(6), what);
+    astep(a, b, STRVAL(""), kv(7), what);
+    for (int i = 0; i < 40; i++) {
+        char *s = vbuf[i & 63];
+        snprintf(s, sizeof vbuf[0], "x%d", i);
+        rt_sxt_fr_p->owner = s;
+        astep(a, b, INTVAL(lo + (i % (hi - lo + 1))), STRVAL(s), what);
+        if (rt_sxt_fr_p->owner == s) { fails++; printf("  FAIL %s: the extension owner survived a store of its own string\n", what); }
+    }
+}
 int main(void) {
     core_lib_init();
+    arun(1, 500, "ARRAY(500)");
+    arun(-3, 10, "ARRAY('-3:10')");
+    arun(0, 0, "ARRAY('0:0')");
+    if (ahandled < 500 || !adeclined) { printf("RTX TINS UNIT: FAIL -- the array arm saw only one verdict (%d handled, %d declined)\n", ahandled, adeclined); return 1; }
+    printf("RTX TINS arrays: %d handled by the leaf, %d declined to the twin\n", ahandled, adeclined);
     run(0, "default table");
     run(16, "TABLE(16)");
     run(64, "TABLE(64)");
