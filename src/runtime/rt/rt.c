@@ -2347,11 +2347,10 @@ extern void clear_pending_flags(void);
 void rt_gc_root_args(void) {
     extern void rt_gc_visit_descr(DESCR_t *d);
     extern void rt_gc_visit_raw(const char **loc);
-    gv_gc_root(&g_call_args);
-    gv_gc_root(&g_blob_fbv);
+    static const char *const *const words[3] = { (const char *const *)&g_call_args.p, (const char *const *)&g_blob_fbv.p, (const char *const *)&g_proc_hsl };
+    rt_gc_run_loc_list(words, 3);
     for (rt_genp_s *gp = g_genp_head; gp; gp = gp->next) if (gp->args) rt_gc_visit_raw((const char **)&gp->args);
     rt_gc_visit_descr(&g_prim_val);
-    if (g_proc_hsl) rt_gc_visit_raw((const char **)&g_proc_hsl);
     if (g_rt_gen_procs) {
         gc_roots_args_t a = { (void **)g_rt_gen_procs, (long)g_rt_gen_proc_count, (void **)0, 0, (const char *)0, 0, (const char *)0, 0, (const char *)0, (const char *)0 };
         rt_gc_visit_raw((const char **)&g_rt_gen_procs);

@@ -2420,12 +2420,13 @@ RTX_FUNC(rt_gc_ptr_fields_run)
     sub     rax, rbx
     cmp     rax, qword ptr [r8 + 32]
     jl      .Lpfr_full
-    mov     qword ptr [r8 + 80], 0
+    mov     qword ptr [r8 + 48], 0
 .Lpfr_field:
-    mov     rax, qword ptr [r8 + 80]
+    mov     rax, qword ptr [r8 + 48]
     cmp     rax, qword ptr [r8 + 32]
     jae     .Lpfr_next
-    mov     r13, qword ptr [r8 + rax*8 + 40]
+    mov     rcx, qword ptr [r8 + 40]
+    mov     r13, qword ptr [rcx + rax*8]
     add     r13, rsi
     mov     r10, qword ptr [r13]
     test    r10, r10
@@ -2437,7 +2438,7 @@ RTX_FUNC(rt_gc_ptr_fields_run)
     MK_MARK_BLK
     MK_SLOTM
 .Lpfr_skip:
-    inc     qword ptr [r8 + 80]
+    inc     qword ptr [r8 + 48]
     jmp     .Lpfr_field
 .Lpfr_next:
     inc     qword ptr [r8 + 24]
@@ -2458,6 +2459,56 @@ RTX_FUNC(rt_gc_ptr_fields_run)
     RTX_POPS(rbx)
     ret
 RTX_ENDF(rt_gc_ptr_fields_run)
+RTX_FUNC(rt_gc_loc_list_run)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    mov     r8, rdi
+    lea     rdi, [rip + g_gc_mk]
+    mov     rbx, qword ptr [rdi + 32]
+    mov     r12, qword ptr [rdi + 48]
+    mov     r14, qword ptr [rdi + 72]
+    mov     r15, qword ptr [rdi + 96]
+.Lll_loop:
+    mov     rax, qword ptr [r8 + 16]
+    cmp     rax, qword ptr [r8 + 8]
+    jae     .Lll_done
+    mov     rsi, qword ptr [r8]
+    mov     r13, qword ptr [rsi + rax*8]
+    mov     r10, qword ptr [r13]
+    test    r10, r10
+    je      .Lll_next
+    mov     rax, qword ptr [rdi + 40]
+    sub     rax, rbx
+    jle     .Lll_full
+    mov     qword ptr [rdi + 176], r13
+    MK_BLK_OF r10
+    test    rax, rax
+    je      .Lll_next
+    MK_MARK_BLK
+    MK_SLOTM
+.Lll_next:
+    inc     qword ptr [r8 + 16]
+    jmp     .Lll_loop
+.Lll_done:
+    xor     eax, eax
+    jmp     .Lll_out
+.Lll_full:
+    mov     eax, 1
+.Lll_out:
+    mov     qword ptr [rdi + 32], rbx
+    mov     qword ptr [rdi + 96], r15
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_gc_loc_list_run)
 RTX_FUNC(rt_gc_sw_links_a)
     RTX_PUSHS(rbx)
     RTX_PUSHS(rbp)

@@ -1535,22 +1535,23 @@ void rt_gc_run_flags_roots(gc_roots_args_t *a) {
     extern long rt_gc_flags_roots_run(gc_roots_args_t *);
     for (;;) { long r = rt_gc_flags_roots_run(a); if (!r) break; if (r == 1) gc_slot_grow(); else gc_wl_grow(); }
 }
-typedef struct gc_ptr_fields_args_t { const char *base; long n; long stride; long pos; long noff; long off[5]; long k; } gc_ptr_fields_args_t;
+typedef struct gc_ptr_fields_args_t { const char *base; long n; long stride; long pos; long noff; const long *off; long k; } gc_ptr_fields_args_t;
 _Static_assert(__builtin_offsetof(gc_ptr_fields_args_t, base) == 0 && __builtin_offsetof(gc_ptr_fields_args_t, n) == 8 && __builtin_offsetof(gc_ptr_fields_args_t, stride) == 16 &&
     __builtin_offsetof(gc_ptr_fields_args_t, pos) == 24 && __builtin_offsetof(gc_ptr_fields_args_t, noff) == 32 && __builtin_offsetof(gc_ptr_fields_args_t, off) == 40 &&
-    __builtin_offsetof(gc_ptr_fields_args_t, k) == 80, "rt_gc_ptr_fields_run (rtx_gc.s) reads its argument block at these offsets");
+    __builtin_offsetof(gc_ptr_fields_args_t, k) == 48, "rt_gc_ptr_fields_run (rtx_gc.s) reads its argument block at these offsets");
 void rt_gc_run_ptr_fields(const void *base, long n, long stride, long noff, const long *off) {
     extern long rt_gc_ptr_fields_run(gc_ptr_fields_args_t *);
-    gc_ptr_fields_args_t a;
+    gc_ptr_fields_args_t a = { (const char *)base, n, stride, 0, noff, off, 0 };
     if (noff < 1 || noff > 5) rt_bomb("rt_gc_run_ptr_fields: a run visits one to five pointer fields per entry");
-    a.base = (const char *)base;
-    a.n = n;
-    a.stride = stride;
-    a.pos = 0;
-    a.noff = noff;
-    a.k = 0;
-    for (long i = 0; i < noff; i++) a.off[i] = off[i];
     while (rt_gc_ptr_fields_run(&a)) gc_slot_grow();
+}
+typedef struct gc_loc_list_args_t { const char *const *const *list; long n; long pos; } gc_loc_list_args_t;
+_Static_assert(__builtin_offsetof(gc_loc_list_args_t, list) == 0 && __builtin_offsetof(gc_loc_list_args_t, n) == 8 && __builtin_offsetof(gc_loc_list_args_t, pos) == 16,
+    "rt_gc_loc_list_run (rtx_gc.s) reads its argument block at these offsets");
+void rt_gc_run_loc_list(const char *const *const *list, long n) {
+    extern long rt_gc_loc_list_run(gc_loc_list_args_t *);
+    gc_loc_list_args_t a = { list, n, 0 };
+    while (rt_gc_loc_list_run(&a)) gc_slot_grow();
 }
 void rt_gc_run_roots(gc_roots_args_t *a) {
     extern long rt_gc_core_roots_run(gc_roots_args_t *);

@@ -4179,9 +4179,12 @@ static int rd_mro_len(const char *cname) {
 void bnd_gc_roots(void) {
     extern void rt_gc_visit_descr(DESCR_t *);
     extern void rt_gc_visit_raw(const char **);
-    for (int gi = 0; gi < gram_n; gi++) { if (GRAM(gi).qname) rt_gc_visit_raw(&GRAM(gi).qname); if (GRAM(gi).body) rt_gc_visit_raw(&GRAM(gi).body); }
-    rt_gc_visit_raw((const char **)&g_match.blk);
-    rt_gc_visit_raw(&g_subject);
+    {
+        static const long off[2] = { (long)__builtin_offsetof(gram_ent_t, qname), (long)__builtin_offsetof(gram_ent_t, body) };
+        static const char *const *const words[2] = { (const char *const *)&g_match.blk, (const char *const *)&g_subject };
+        if (gram_n > 0) rt_gc_run_ptr_fields(g_gram.p, (long)gram_n, (long)sizeof(gram_ent_t), 2, off);
+        rt_gc_run_loc_list(words, 2);
+    }
     for (rk_redisp_t *r = g_redisp_cur; r; r = r->prev) if (r->local) {
         rt_gc_visit_descr(&r->self);
         rt_gc_visit_descr(&r->mname);
@@ -9227,7 +9230,10 @@ void rt_pl_flags_gc_roots(void) {
 }
 _Static_assert(__builtin_offsetof(pl_flag_t, nm) == 0 && __builtin_offsetof(pl_flag_t, val) == 8 && __builtin_offsetof(pl_flag_t, is_term) == 72 && __builtin_offsetof(pl_flag_t, term) == 80 &&
     sizeof(pl_flag_t) == 104, "rt_gc_flags_roots_run (rtx_gc.s) walks the Prolog flags at these offsets, 104 bytes apart");
-void bnd_text_gc_roots(void) { extern void rt_gc_visit_raw(const char **); rt_gc_visit_raw(&pl_edin_out_name); rt_gc_visit_raw(&pl_edin_in_name); rt_gc_visit_raw(&g_tap_todo_reason); }
+void bnd_text_gc_roots(void) {
+    static const char *const *const words[3] = { (const char *const *)&pl_edin_out_name, (const char *const *)&pl_edin_in_name, (const char *const *)&g_tap_todo_reason };
+    rt_gc_run_loc_list(words, 3);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_t * pl_flag_find(const char *nm) { pl_flags_ready(); for (int i = 0; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i]; return (pl_flag_t *)0; }
 static const char *pl_flag_encoding(void) { pl_flag_t *fl = pl_flag_find("encoding"); return fl && fl->val ? fl->val : "UTF-8"; }

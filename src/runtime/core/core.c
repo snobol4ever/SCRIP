@@ -5575,15 +5575,13 @@ void core_gc_roots(void) {
         for (int i = 0; i < g_bin_n_names; i++) if (g_bin_names[i]) rt_gc_visit_raw_in((const char **)&g_bin_names[i], g_bin_names);
     }
 #endif
-    gv_gc_root(&g_io_chan);
-    gv_gc_root(&g_setexit_label);
-    for (int i = 0; i < IO_CHAN_N; i++) {
-        if (_io_chan[i].varname) rt_gc_visit_raw((const char **)&_io_chan[i].varname);
-        if (_io_chan[i].prebind) rt_gc_visit_raw((const char **)&_io_chan[i].prebind);
+    {
+        static const char *const *const words[5] = { (const char *const *)&g_io_chan.p, (const char *const *)&g_setexit_label.p, (const char *const *)&g_var_buckets.p,
+            (const char *const *)&_udef_types, (const char *const *)&g_udef_nidx.p };
+        static const long off[2] = { (long)__builtin_offsetof(io_chan_t, varname), (long)__builtin_offsetof(io_chan_t, prebind) };
+        rt_gc_run_loc_list(words, 5);
+        if (IO_CHAN_N > 0) rt_gc_run_ptr_fields(_io_chan, (long)IO_CHAN_N, (long)sizeof(io_chan_t), 2, off);
     }
-    gv_gc_root(&g_var_buckets);
-    if (_udef_types) rt_gc_visit_raw((const char **)&_udef_types);
-    if (g_udef_nidx.p) rt_gc_visit_raw((const char **)&g_udef_nidx.p);
     {
         gc_roots_args_t a = { (void **)g_var_buckets.p, (long)_var_nbuckets, (void **)_func_buckets, (long)_func_nbuckets, (const char *)_udef_types, 0, (const char *)0, 0, (const char *)0,
             (const char *)0 };
