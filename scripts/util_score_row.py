@@ -1638,6 +1638,9 @@ def cmd_from_progress(a):
             return n
         if ext:
             shipped = {f[:-len(ext) - 1] for f in os.listdir(tdir) if f.endswith("." + ext) and f != "ALL." + ext}
+            # a table whose entries are not <name>.<ext> files beside it (INRIA's entries are tests inside family files) ships its table
+            if pop and sum(1 for e in pop if e in shipped) * 2 < len(pop):
+                shipped = set()
         for fn, acc in (("EXCLUDED.tsv", xnames), ("CONTAINERS.tsv", cnames)):
             fp = os.path.join(tdir, fn)
             if os.path.exists(fp):
@@ -1656,8 +1659,8 @@ def cmd_from_progress(a):
             fl = line.rstrip("\n").split("\t")
             if len(fl) < 10 or fl[5] != dbsuite or fl[8] not in ("m3", "m4"):
                 continue
-            if pkg and ext and fl[7] not in want and fl[7].endswith("." + ext):
-                fl[7] = fl[7][:-len(ext) - 1]
+            if pkg and fl[7] not in want:
+                fl[7] = _stem(fl[7])   # GNU writes BipsPl/x.pl for the table's BipsPl/x
             if fl[7] not in want:
                 continue
             k = (fl[7], fl[8])
@@ -1685,17 +1688,22 @@ def cmd_from_progress(a):
         last_by = _c.defaultdict(dict)
         for (prog, m), v in last.items():
             last_by[prog][m] = v
+        # ⭐ AN ENTRY THE ORACLE REFUSES IN BOTH MODES LEAVES THE DENOMINATOR (CEO-1696: no oracle answer is excluded, never debt): its latest
+        # readings are OUTSIDE in m3 and m4, the shape INRIA's three file_manip entries and every package's oracle-refused programs record
+        _outside = {e for e in pkg_pop if all(last_by.get(e, {}).get(m, ("",))[0] == "OUTSIDE" for m in ("m3", "m4")) and e in last_by}
+        _outside_new = _outside - xnames - cnames
+        pkg_pop = pkg_pop - _outside
         cnt = _c.Counter(cnt)
         cnt["PASS"] = sum(1 for e in pkg_pop if _both(e))
         unread = [e for e in pop if e in pkg_pop and e not in last_by]
         halfread = [e for e in pop if e in pkg_pop and e in last_by and set(last_by[e]) != {"m3", "m4"}]
-        excluded = nex + len(cnames - xnames)
+        excluded = nex + len(cnames - xnames) + len(_outside_new)
     reads = sorted((v[3], v[2]) for v in last.values())
     oldest, newest = (reads[0], reads[-1]) if reads else (("-", "-"), ("-", "-"))
     total = len(pkg_pop) if pkg else len(pop)
     if pkg:
-        print("SUITE_ROW_PACKAGE suite=%s shipped=%d table=%d excluded_rows=%d containers=%d excluded=%d denominator=%d debt_unread_by_design=%d"
-              % (key, len(set(pop) | shipped), len(pop), nex, len(cnames - xnames), excluded, total, len(pkg_pop - set(pop))))
+        print("SUITE_ROW_PACKAGE suite=%s shipped=%d table=%d excluded_rows=%d containers=%d outside=%d excluded=%d denominator=%d debt_unread_by_design=%d"
+              % (key, len(set(pop) | shipped), len(pop), nex, len(cnames - xnames), len(_outside_new), excluded, total, len(pkg_pop - set(pop))))
     print("SUITE_ROW suite=%s pass=%d total=%d read=%d unread=%d half_read=%d oldest_tree=%s@%s newest_tree=%s@%s secs=%d db_suite=%s table=%s "
           "(PASS %d FAIL %d OUTSIDE %d UNGRADABLE %d UNGRADED %d DEFERRED %d) timed=%d"
           % (key, cnt["PASS"], total, len(d), len(unread), len(halfread), oldest[1], oldest[0], newest[1], newest[0], wall, dbsuite,
