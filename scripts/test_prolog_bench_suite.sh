@@ -39,6 +39,10 @@ case "$ITER_N" in ''|*[!0-9]*|0) refuse "BENCH_ITER_N must be a positive integer
 case "$BUD_MS" in ''|*[!0-9]*|0) refuse "BENCH_BUD_MS must be a positive whole number of milliseconds (got '$BUD_MS')";; esac
 IS_BOARD=0; one_runner_suite_is_a_board "$BD" && IS_BOARD=1
 mapfile -t KERNELS < <(find "$BD" -maxdepth 1 -type f -name '*.pl' -printf '%f\n' | sed 's/\.pl$//' | LC_ALL=C sort)
+# ⭐ THE ROUND ROBIN'S SEAM (ceo CEO-1806/1812): under S4E_CHUNK=entry:<kernel>[,...] (a request) only those kernels are graded, their rows appended,
+# and no suite row is written (rr_end)
+. "$HERE/lib_rr.sh" && rr_load "$BD" || exit 2
+if rr_selected; then _ks=(); for k in "${KERNELS[@]}"; do rr_admits "$k" && _ks+=("$k"); done; KERNELS=(${_ks[@]+"${_ks[@]}"}); fi
 [ "${#KERNELS[@]}" -gt 0 ] || refuse "no *.pl under $BD -- a population of zero is not a green board"
 # ⭐ OUTSIDE.tsv NAMES A KERNEL OUT OF THE DENOMINATOR (hq_prolog 2026-10-10, corpus 0bc5934ce: queens_clpfd, Lon's CEO-579 "Do not count the
 # FD as failures for us", the OUTSIDE_CLPFD class of CEO-1593): kernel<TAB>CLASS<TAB>evidence. The kernel is still graded and its progress
@@ -148,6 +152,7 @@ if [ "$IS_BOARD" = 0 ]; then
   echo "  population $BD is OUTSIDE the corpus tree -- not a board (CEO-547): graded, and no progress row and no suite row written"
 else
   progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS DB NOT UPDATED -- the board above stands, its per-program rows do not (reason above)" >&2
+  rr_selected && { rr_end prolog-bench-ref; exit 0; }
   . "$HERE/lib_bench_write.sh" || refuse "lib_bench_write.sh unloadable -- the one rule for when a bench row publishes"
   read -r WRITE WRITE_WHY <<<"$(bench_row_writes "$(cd "$HERE/../.." && pwd)/corpus/benchmarks/prolog/bench" "$BD" "" "$NOWRITE")"
   echo "  row write: $([ "$WRITE" = 1 ] && echo yes || echo no) -- $WRITE_WHY"

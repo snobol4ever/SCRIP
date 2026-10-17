@@ -3,7 +3,9 @@
 # time and update the test-suite database. Round robin, done and done." and "The COO will have two work inputs, the round-robin and the recently requested
 # from other officers and HQ's."). Sourced by a package runner that grades its own programs (not through corpus_suite_harness.py run). Five calls:
 #   rr_load <suite-dir>    once, before the population loop: under S4E_CHUNK (core, chunk:NN, either @<entry>, or entry:<a>[,entry:<b>...]) read that selection
-#                          from <suite-dir>/PARTITION.tsv; rc 2 (the runner refuses) when the partition is missing or names no such part or entry
+#                          from <suite-dir>/PARTITION.tsv; rc 2 (the runner refuses) when the partition is missing or names no such part or entry.
+#                          A table with no partition (the benchmarks and the demos: each at most 100 programs, one chunk by rule) takes entry:
+#                          selections only, each name a file of the suite dir (a path, or a stem three levels deep at most; CEO-1812)
 #   rr_entries             the selection, one name per line, in the PARTITION's order (after a resume, from its entry on): a runner that grades its own
 #                          list grades in this order, so the next test an RR_YIELD names is the one the resume starts at and nothing is skipped or repeated
 #   rr_admits <name>       in the population loop: rc 0 when no selection is set, or <name> (its stem: directory and extension dropped) is selected
@@ -22,7 +24,8 @@ rr_load() {
   local d="${1:?rr_load <suite-dir>}" p part rest
   RR_T0=$SECONDS
   [ -n "${S4E_CHUNK:-}" ] || return 0
-  p="$d/PARTITION.tsv"; [ -f "$p" ] || { echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK but no $p -- build it: python3 scripts/util_suite_partition.py build $d/ALL.csv"; return 2; }
+  p="$d/PARTITION.tsv"
+  if [ ! -f "$p" ]; then case "$S4E_CHUNK" in entry:*) ;; *) echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK but no $p -- build it: python3 scripts/util_suite_partition.py build $d/ALL.csv (a table with no partition takes entry: selections only)"; return 2;; esac; fi
   part="${S4E_CHUNK%%@*}"; RR_FROM=""; [ "$part" != "$S4E_CHUNK" ] && RR_FROM="${S4E_CHUNK#*@}"
   case "$part" in
     core)   # the core is in no chunk, so the round robin gives it a turn of its own
@@ -34,8 +37,11 @@ rr_load() {
       [ -n "$c" ] || { echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK: $p has no chunk $k"; return 2; }
       RR_SEL="$(awk -F'\t' -v c="$c" '!/^#/ && $2 == c {print $1}' "$p")";;
     entry:*)
-      local e names; names="$(awk -F'\t' '!/^#/ {print $1}' "$p")"; RR_SEL=""
-      for e in $(printf '%s' "$part" | tr ',' ' '); do e="${e#entry:}"; grep -qxF -- "$e" <<<"$names" || { echo "⛔ REFUSE(rc=2): S4E_CHUNK: $p has no entry '$e'"; return 2; }; RR_SEL="$RR_SEL
+      local e names=""; [ -f "$p" ] && names="$(awk -F'\t' '!/^#/ {print $1}' "$p")"; RR_SEL=""
+      for e in $(printf '%s' "$part" | tr ',' ' '); do e="${e#entry:}"
+        if [ -f "$p" ]; then grep -qxF -- "$e" <<<"$names" || { echo "⛔ REFUSE(rc=2): S4E_CHUNK: $p has no entry '$e'"; return 2; }
+        else { [ -f "$d/$e" ] || [ -n "$(find "$d" -maxdepth 3 -type f -name "$e.*" -print -quit 2>/dev/null)" ]; } || { echo "⛔ REFUSE(rc=2): S4E_CHUNK: $d has no program '$e' (no partition: a name is a file path or a stem)"; return 2; }; fi
+        RR_SEL="$RR_SEL
 $e"; done;;
     *) echo "⛔ REFUSE(rc=2): S4E_CHUNK=$S4E_CHUNK is not core[@entry], chunk:NN[@entry] or entry:<name>[,entry:<name>...]"; return 2;;
   esac

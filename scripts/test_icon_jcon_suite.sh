@@ -363,6 +363,7 @@ run_mode() {
         case "$(basename "$icn")" in tpp.icn) continue;; esac   # tpp.ref is jcon PREPROCESSOR TEXT output, not program output (its body is deliberately-invalid Icon like `abc 11`); ungradable by execution — named exclusion, same class as the no-.ref sources above
         outfile="$WORK/out.txt"
         name=$(basename "$icn" .icn)
+        rr_admits "$name" || continue
         decl_ask "$name"
         _want="$std"
         _t0="$(progress_clock)"; kind=$(run_one "$mode" "$exe" "$_want" "$outfile"); _secs="$(progress_secs_since "$_t0")"   # the mode's own wall for its row (CEO-1676 (c))
@@ -383,6 +384,7 @@ run_mode() {
         local _pp _pargv _prc _prest _pgot _pa
         while IFS=$'\t' read -r _pp _pargv _prc _prest; do
             case "$_pp" in ''|'#'*) continue ;; esac
+            if rr_selected; then _adm=0; for _pa in $_pargv; do rr_admits "$(basename "$_pa" .icn)" && _adm=1; done; [ "$_adm" = 1 ] || continue; fi
             _t0="$(progress_clock)"
             ( cd "$CORPUS/$(dirname "$_pp")" && "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" -E $_pargv < /dev/null > "$WORK/pp.out" 2> "$WORK/pp.err" ); _pgot=$?
             _secs="$(awk -v d="$(progress_secs_since "$_t0")" -v n="$(echo $_pargv | wc -w)" 'BEGIN { printf "%.3f", d / (n > 0 ? n : 1) }')"   # one run, split over its rows
@@ -468,6 +470,9 @@ if [ "$SHIPPED" -eq 0 ] || [ "$GRADED" -eq 0 ]; then
     exit 2
 fi
 echo "=== JCON vendored suite (upstream jcon, unmodified standard Icon) — shipped=$SHIPPED graded=$GRADED gap=$GAP ==="
+# ⭐ THE ROUND ROBIN'S SEAM (ceo CEO-1802/1806/1812): under S4E_CHUNK (a request's entry: names, or a part) only the selected programs are graded, a
+# preprocess contract when one of its argv programs is selected; each program's rows are appended as it is graded, and no suite row is written (rr_end).
+. "$HERE/lib_rr.sh" && rr_load "$CORPUS" || exit 2
 
 case "$MODE" in
     all) run_mode m3; run_mode m4 ;;
@@ -478,6 +483,7 @@ esac
 
 total="${m3_TOTAL:-${m4_TOTAL:-0}}"
 m3p="${m3_PASS:-}"; m4p="${m4_PASS:-}"
+rr_selected && { echo "JCON selection graded: m3 ${m3p:-n/a}/${m3_TOTAL:-0} m4 ${m4p:-n/a}/${m4_TOTAL:-0} pass"; rr_end jcon; exit 0; }
 # ⛔ THE CENSUS AND THE GRADING LOOP MUST AGREE ON WHAT WAS GRADED, and this is the one place that can be
 # checked rather than assumed. They apply the SAME two exclusions by two independent walks; if they ever
 # diverge, one of them is wrong about the population and every rate printed here is unsound. Refuse loudly

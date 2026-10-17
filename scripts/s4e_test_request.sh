@@ -21,7 +21,8 @@ raku-rungs|tests/raku puzzles|packages/prolog/puzzles rosetta-prolog|packages/pr
 trealla|packages/prolog/trealla_tests rosetta-pascal|packages/pascal/rosetta-pascal testpgms|packages/snobol4/spitbol_testpgms
 x64tests|packages/snobol4/spitbol_x64_tests x32tests|packages/snobol4/spitbol_x32_tests dotnet|packages/snobol4/dotnet snoflake|packages/snobol4/snoflake_suite
 aisnobol|packages/snobol4/aisnobol ipl|packages/icon/ipl
-fpc|packages/pascal/fpc_tests pat|packages/pascal/pat roast|packages/raku/roast inria|packages/prolog/inriasuite gimpel|packages/snobol4/gimpel arizona|packages/icon/arizona_tests swi|packages/prolog/swi_tests logtalk|packages/prolog/logtalk_iso"
+fpc|packages/pascal/fpc_tests pat|packages/pascal/pat roast|packages/raku/roast inria|packages/prolog/inriasuite gimpel|packages/snobol4/gimpel arizona|packages/icon/arizona_tests swi|packages/prolog/swi_tests logtalk|packages/prolog/logtalk_iso
+jcon|packages/icon/jcon_tests csnobol4|packages/snobol4/csnobol4_suite prolog-bench-ref|benchmarks/prolog prolog-demos|demos/prolog scriptix-demos|demos/scriptix"
 refuse() { echo "⛔ TEST REQUEST REFUSED(2): $* -- nothing filed"; exit 2; }
 table_of() { local e; for e in $SUITES; do [ "${e%%|*}" = "$1" ] && { echo "${e#*|}"; return 0; }; done; return 1; }
 seat() {
@@ -36,9 +37,12 @@ case "${1:-}" in
 esac
 key="$1"; shift
 tab="$(table_of "$key")" || refuse "suite key '$key' is not in the round robin yet (s4e_test_request.sh --suites lists the ones that are; the rest wait for their runner's chunk seam, CEO-1802 wave 2)"
-P="$CORPUS/$tab/PARTITION.tsv"; [ -f "$P" ] || refuse "no stored partition at $P"
+P="$CORPUS/$tab/PARTITION.tsv"
+# a table with no partition (the benchmarks and the demos, each one chunk by rule): its entries are its program files, by path or stem (CEO-1812)
+has_file() { [ -f "$CORPUS/$tab/$1" ] || [ -n "$(find "$CORPUS/$tab" -maxdepth 3 -type f -name "$1.*" -print -quit 2>/dev/null)" ]; }
 who="$(seat)"; [ -n "$who" ] || refuse "no seat: set S4E_SEAT, or run from a seat root /home/claude_<seat>"
 ents=""
+if [ "${1:-}" = --part ] && [ ! -f "$P" ]; then refuse "$key has no stored partition at $P: name its programs (a path under $tab, or a stem)"; fi
 if [ "${1:-}" = --part ]; then
   part="${2:-}"; [ -n "$part" ] || refuse "--part needs core, shell:<feature> or chunk:NN"
   case "$part" in
@@ -50,8 +54,11 @@ if [ "${1:-}" = --part ]; then
   ents="$(printf '%s\n' "$ents" | grep -v '^entry$' | grep .)" || refuse "$part selects no entry of $P"
 else
   [ $# -gt 0 ] || refuse "name at least one entry of $key (or --part P)"
-  names="$(awk -F'\t' '!/^#/ {print $1}' "$P")"
-  for e in "$@"; do grep -qxF -- "$e" <<<"$names" || refuse "$key has no entry '$e' in $P"; ents="$ents $e"; done
+  names=""; [ -f "$P" ] && names="$(awk -F'\t' '!/^#/ {print $1}' "$P")"
+  for e in "$@"; do
+    if [ -f "$P" ]; then grep -qxF -- "$e" <<<"$names" || refuse "$key has no entry '$e' in $P"; else has_file "$e" || refuse "$key has no program '$e' under $tab"; fi
+    ents="$ents $e"
+  done
 fi
 n=$(printf '%s\n' $ents | grep -c .)
 mkdir -p "$REQ_DIR" || refuse "cannot create $REQ_DIR"

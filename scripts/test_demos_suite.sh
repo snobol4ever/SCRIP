@@ -35,6 +35,10 @@ IS_BOARD=0; one_runner_suite_is_a_board "$DD" && IS_BOARD=1
 CONT="$DD/CONTAINERS.tsv"
 MDX=(); [ "$L" = scriptix ] && MDX=(-o \( -name '*.md' ! -name 'README.md' \))
 mapfile -t PROGS < <(cd "$DD" && find . -maxdepth 3 -type f \( -name '*.sno' -o -name '*.icn' -o -name '*.pl' -o -name '*.sc' -o -name '*.pas' -o -name '*.raku' -o -name '*.reb' "${MDX[@]}" \) | sed 's|^\./||' | LC_ALL=C sort)
+# ⭐ THE ROUND ROBIN'S SEAM (ceo CEO-1806/1812): under S4E_CHUNK=entry:<demo>[,...] (a request: the demo's path under the tree, or its stem) only those
+# demos are graded, their rows appended, and no suite row is written (rr_end)
+. "$HERE/lib_rr.sh" && rr_load "$DD" || exit 2
+if rr_selected; then _ps=(); for r in "${PROGS[@]}"; do rr_admits "$r" && _ps+=("$r"); done; PROGS=(${_ps[@]+"${_ps[@]}"}); fi
 bash "$HERE/util_require_population.sh" --gate "$G" "${#PROGS[@]}" 1 "demo programs under $DD (a population of zero is not a green board; the ONE floor authority, lib_gate.sh gate_floor)" || exit 2
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 PROG_ROWS="$T/progress.tsv"; : > "$PROG_ROWS"
@@ -118,6 +122,7 @@ echo "$LINE (the sample input against each demo's oracle ref; both_modes_pass=al
 if [ "$IS_BOARD" = 1 ] || [ -n "${S4E_PROGRESS_DB:-}" ]; then
     progress_append_rows_tsv "$PROG_ROWS" || refuse "the progress database did not take this run's rows -- no row is written without them (CEO-750)"
 fi
+rr_selected && { rr_end "$L-demos"; exit 0; }
 if [ "$IS_BOARD" = 1 ]; then
     if [ "$NOWRITE" = 0 ]; then
         python3 "$HERE/util_score_row.py" write --lang "$L" --column demos --modes m3,m4 --measurer "${S4E_SEAT:-}" ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
