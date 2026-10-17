@@ -731,6 +731,16 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
   local _seat="$1" _m="$2"
   _REFUSE_KIND=""; _REFUSE_WHY=""
   _dr() { _REFUSE_KIND="$1"; _REFUSE_WHY="$2"; }
+  # ⛔⭐⭐ THE ROSTER LINE DECIDES (Lon 2026-10-17, in-chat to the ceo, verbatim: "You can call this mode TENET mode. You will only have 5 modes, SOLO, DUO,
+  # TRIO, QUARTET, and TENET (full with varying)."; ceo CEO-1818): the mode NAME is one of five and no longer encodes who stands; MODE's machine-read
+  # ROSTER: line names the standing seats and, when present for the mode in force, it alone admits or refuses. The per-name arms below stay only
+  # for a MODE that carries no ROSTER line (the bus gates' scratch fixtures), SOLO beside CEO.
+  local _rl; _rl="$(grep -m1 '^ROSTER:' "$PO/MODE" 2>/dev/null)"
+  if [ -n "$_rl" ] && [ "$_m" = "$(head -1 "$PO/MODE" 2>/dev/null | tr -d '[:space:]')" ]; then
+      case " ${_rl#ROSTER:} " in *" $_seat "*) return 0;; esac
+      _dr "a seat" "Under $_m the standing seats are the ones MODE's ROSTER line names --${_rl#ROSTER:} -- and $_seat is not one of them (Lon 2026-10-17, CEO-1818: five modes, SOLO DUO TRIO QUARTET TENET, the roster varies)."
+      return 1
+  fi
          case "$_seat" in
            ceo) : ;;
            # ⛔⭐ AN OFFICER IS A STOOD-DOWN IDENTITY UNDER MODE CEO, AND THE GUARD DID NOT KNOW IT (ceo CEO-755).
@@ -750,7 +760,7 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
            # suites for us and we do the fixing. Go to DUO mode, CEO + COO."; ceo CEO-1398): the coo is the testing officer, the ceo cures, and
            # the cto, the cfo and every HQ stand down. The CEO-907 DUO (ceo + cto) is history; DUO-STUPID keeps the cto, its own reason (CEO-1087).
            cto)     case "$_m" in
-                      CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
+                      CEO|SOLO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO) _dr "an officer" "Under DUO only the ceo and the coo work rows -- the coo runs the suites, the ceo cures, and the cto and the cfo are stood down (Lon 2026-10-02, CEO-1398).";;
                       TRIO) _dr "an officer" "Under TRIO the ceo, the coo and hq_runtime work rows -- hq_runtime finishes the collector in asm, the coo runs the tests, and the cto and the cfo are stood down (Lon 2026-10-15, CEO-1809).";;
                       DUO-STUPID|QUARTET|SEXTET|QUINTET|NONET|UNDECET|SEPTET|OCTET|TENET) : ;; esac;;
@@ -764,18 +774,18 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
            # the cfo work rows; the coo stays stood down. The cfo arm is split from the coo arm for CEO-755's reason again: under TRIO one of
            # the two is admitted, and a shared pattern would have to fall out of the case for it, which returns success for the other too.
            cfo)     case "$_m" in
-                      CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
+                      CEO|SOLO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO) _dr "an officer" "Under DUO only the ceo and the coo work rows -- the coo runs the suites, the ceo cures, and the cto and the cfo are stood down (Lon 2026-10-02, CEO-1398).";;
                       DUO-STUPID) _dr "an officer" "Under DUO-STUPID only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-21, CEO-1087).";;
                       TRIO) _dr "an officer" "Under TRIO the ceo, the coo and hq_runtime work rows -- hq_runtime finishes the collector in asm, the coo runs the tests, and the cto and the cfo are stood down (Lon 2026-10-15, CEO-1809).";;
                       QUARTET|SEXTET|QUINTET|NONET|UNDECET|SEPTET|OCTET|TENET) : ;; esac;;
            coo)     case "$_m" in
-                      CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
+                      CEO|SOLO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO) : ;;
                       DUO-STUPID) _dr "an officer" "Under DUO-STUPID only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-21, CEO-1087).";;
                       TRIO|QUARTET|SEXTET|QUINTET|NONET|UNDECET|SEPTET|OCTET|TENET) : ;; esac;;
            hq|hq_*) case "$_m" in   # hq_* not hq_?: a language HQ is hq_prolog, and a pattern that misses it falls out of the case, which returns success (CEO-755b's class)
-                      CEO) _dr "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
+                      CEO|SOLO) _dr "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
                       DUO) _dr "an HQ" "Under DUO no HQ is standing -- the coo runs the suites and the ceo cures (Lon 2026-10-02, CEO-1398).";;
                       DUO-STUPID) _dr "an HQ" "Under DUO-STUPID no HQ is standing -- the ceo and the cto work the rows (Lon 2026-09-21, CEO-1087).";;
                       TRIO) case "$_seat" in hq_runtime) : ;; *) _dr "an HQ" "Under TRIO only hq_runtime stands among the HQs -- the ceo, the coo and hq_runtime work rows, and $_seat is stood down (Lon 2026-10-15, CEO-1809).";; esac;;
@@ -821,7 +831,7 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
            # RE-LEARNING: a guard written as "refuse these modes" grows a hole every time Lon names a new one, and the
            # hole is silent because falling out of a case returns success. Every new mode must be added HERE by name.
            seat*)   case "$_m" in
-                      CEO|EXECUTIVE|DUO|DUO-STUPID|DUET|TRIO|QUARTET|QUINTET|SEXTET|SEPTET|OCTET|NONET|UNDECET|DECTET|TENET) _dr "a fleet seat" "There is NO FLEET in $_m -- only the ceo, the officers and the standing HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too; SEXTET and SEPTET were added 2026-09-20 after a numbered seat was found admissible under both by falling out of this case.)";; esac;;
+                      CEO|SOLO|EXECUTIVE|DUO|DUO-STUPID|DUET|TRIO|QUARTET|QUINTET|SEXTET|SEPTET|OCTET|NONET|UNDECET|DECTET|TENET) _dr "a fleet seat" "There is NO FLEET in $_m -- only the ceo, the officers and the standing HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too; SEXTET and SEPTET were added 2026-09-20 after a numbered seat was found admissible under both by falling out of this case.)";; esac;;
          esac
   [ -n "$_REFUSE_WHY" ] && return 1
   return 0; }
