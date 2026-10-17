@@ -20,6 +20,8 @@ RTX_GATE_DEF(icnagg)
 #define LVB_LO           40
 #define LVB_USED        104
 #define LVB_FIRST       120
+#define ICN_FIELD_PLAIN 0x10000
+#define DT_NCELL_LO     (((1) << 32) | DT_N)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_size_d)
     RTX_GATE(icnagg, .Lsz_c)
@@ -257,4 +259,113 @@ RTX_FUNC(dat_field_get)
     RTX_GVA_R9
     ret
 RTX_ENDF(dat_field_get)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RTX_FUNC(icn_field_get_at)
+    RTX_GATE(icnagg, .Lfga_c)
+    cmp     sil, DT_DATA
+    jne     .Lfga_c
+    mov     rax, rsi
+    shr     rax, 32
+    test    eax, eax
+    jne     .Lfga_c
+    test    rdx, rdx
+    je      .Lfga_c
+    cmp     qword ptr [rdx + DATINST_FIELDS], 0
+    je      .Lfga_c
+    mov     r8, [rdx + DATINST_TYPE]
+    test    r8, r8
+    je      .Lfga_c
+    cmp     qword ptr [r8], 0
+    je      .Lfga_c
+    lea     r10, [rcx - 1]
+    movsxd  rax, dword ptr [r8 + DATBLK_NFIELDS]
+    cmp     r10, rax
+    jae     .Lfga_c
+    mov     r8, [r8 + DATBLK_FIELDS]
+    test    r8, r8
+    je      .Lfga_c
+    mov     r8, [r8 + r10*8]
+    test    r8, r8
+    je      .Lfga_c
+    cmp     r8, rdi
+    je      .Lfga_hit
+    xor     eax, eax
+.Lfga_byte:
+    movzx   r11d, byte ptr [r8 + rax]
+    cmp     r11b, byte ptr [rdi + rax]
+    jne     .Lfga_c
+    inc     rax
+    test    r11b, r11b
+    jne     .Lfga_byte
+.Lfga_hit:
+    shl     r10, 4
+    add     r10, [rdx + DATINST_FIELDS]
+    mov     rax, [r10]
+    mov     rdx, [r10 + 8]
+    ret
+.Lfga_c:
+    RTX_DECLINE
+RTX_ENDF(icn_field_get_at)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+RTX_FUNC(rt_field_var_strict_at)
+    RTX_GATE(icnagg, .Lfva_c)
+    test    ecx, ICN_FIELD_PLAIN
+    je      .Lfva_c
+#if RT_DIAG
+    mov     rax, qword ptr [rip + g_comm_dbg@GOTPCREL]
+    cmp     dword ptr [rax], 0
+    jne     .Lfva_c
+    mov     rax, qword ptr [rip + trace_set_n@GOTPCREL]
+    cmp     dword ptr [rax], 0
+    jne     .Lfva_c
+    mov     rax, qword ptr [rip + monitor_fd@GOTPCREL]
+    cmp     dword ptr [rax], 0
+    jge     .Lfva_c
+#endif
+    cmp     sil, DT_DATA
+    jne     .Lfva_c
+    mov     rax, rsi
+    shr     rax, 32
+    test    eax, eax
+    jne     .Lfva_c
+    test    rdx, rdx
+    je      .Lfva_c
+    cmp     qword ptr [rdx + DATINST_FIELDS], 0
+    je      .Lfva_c
+    mov     r8, [rdx + DATINST_TYPE]
+    test    r8, r8
+    je      .Lfva_c
+    cmp     qword ptr [r8], 0
+    je      .Lfva_c
+    mov     r10, rcx
+    and     r10, ~ICN_FIELD_PLAIN
+    dec     r10
+    movsxd  rax, dword ptr [r8 + DATBLK_NFIELDS]
+    cmp     r10, rax
+    jae     .Lfva_c
+    mov     r8, [r8 + DATBLK_FIELDS]
+    test    r8, r8
+    je      .Lfva_c
+    mov     r8, [r8 + r10*8]
+    test    r8, r8
+    je      .Lfva_c
+    cmp     r8, rdi
+    je      .Lfva_hit
+    xor     eax, eax
+.Lfva_byte:
+    movzx   r11d, byte ptr [r8 + rax]
+    cmp     r11b, byte ptr [rdi + rax]
+    jne     .Lfva_c
+    inc     rax
+    test    r11b, r11b
+    jne     .Lfva_byte
+.Lfva_hit:
+    shl     r10, 4
+    add     r10, [rdx + DATINST_FIELDS]
+    mov     rdx, r10
+    mov     rax, DT_NCELL_LO
+    ret
+.Lfva_c:
+    RTX_DECLINE
+RTX_ENDF(rt_field_var_strict_at)
 .section .note.GNU-stack,"",@progbits

@@ -87,6 +87,48 @@ static void lv_check(const char *what, DESCR_t o) {
     { int r3 = rt_lv_is_list(o, (DESCR_t **)0, (int *)0); if (r3 != r2) { fails++; printf("  FAIL rt_lv_is_list %s with no outputs: %d vs %d\n", what, r3, r2); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t icn_field_get_at(const char *fname, DESCR_t obj, long at1);
+DESCR_t rt_field_var_strict_at(const char *fname, DESCR_t obj, long at1);
+DESCR_t c_icn_field_get_at(const char *fname, DESCR_t obj, long at1);
+DESCR_t c_rt_field_var_strict_at(const char *fname, DESCR_t obj, long at1);
+int rt_trace_idle(void);
+int comm_var_active(void);
+extern int monitor_fd;
+static int fld_cases = 0, fld_hits = 0, fld_declines = 0;
+static DESCR_t fld_call(DESCR_t (*fp)(const char *, DESCR_t, long), const char *f, DESCR_t o, long at, int *kept) {
+    uint64_t w[2];
+    memcpy(w, &o, sizeof w);
+    uint64_t rdi = (uint64_t)(uintptr_t)f, rsi = w[0], rdx = w[1], rcx = (uint64_t)at, rax;
+    __asm__ volatile ("sub $128, %%rsp\n\tcall *%[fn]\n\tadd $128, %%rsp" : "+D"(rdi), "+S"(rsi), "+d"(rdx), "+c"(rcx), "=a"(rax) : [fn] "r"(fp) : "r8", "r9", "r10", "r11", "memory", "cc");
+    *kept = rdi == (uint64_t)(uintptr_t)f && rsi == w[0] && rdx == w[1] && rcx == (uint64_t)at;
+    DESCR_t r;
+    w[0] = rax;
+    w[1] = rdx;
+    memcpy(&r, w, sizeof r);
+    return r;
+}
+static void fld_check(const char *what, int var, const char *f, DESCR_t o, long at) {
+    DESCR_t (*leaf)(const char *, DESCR_t, long) = var ? rt_field_var_strict_at : icn_field_get_at;
+    DESCR_t (*twin)(const char *, DESCR_t, long) = var ? c_rt_field_var_strict_at : c_icn_field_get_at;
+    int kept = 0;
+    DESCR_t l = fld_call(leaf, f, o, at, &kept), c = twin(f, o, at);
+    int ldecl = l.v == RTX_NOT_HANDLED, want = c.v == RTX_NOT_HANDLED || o.v == DT_N || (var && !(c.v == DT_N && c.slen == 1));
+    fld_cases++;
+    ncase++;
+    if (ldecl) fld_declines++;
+    else fld_hits++;
+    if (ldecl != want) {
+        fails++;
+        printf("  FAIL %s %s: the leaf %s and the twin answered %02x/%u\n", var ? "rt_field_var_strict_at" : "icn_field_get_at", what, ldecl ? "declined" : "answered", c.v, c.slen);
+        return;
+    }
+    if (ldecl && !kept) { fails++; printf("  FAIL %s %s: the decline did not hand back rdi rsi rdx rcx as received\n", var ? "rt_field_var_strict_at" : "icn_field_get_at", what); return; }
+    if (!ldecl && memcmp(&l, &c, sizeof l) != 0) {
+        fails++;
+        printf("  FAIL %s %s: leaf %02x/%u/%p twin %02x/%u/%p\n", var ? "rt_field_var_strict_at" : "icn_field_get_at", what, l.v, l.slen, l.ptr, c.v, c.slen, c.ptr);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_cases = 0;
 static void pas_model(const char *nm, DESCR_t (*leaf)(DESCR_t *, int), DESCR_t x, int owns, DESCR_t want) {
     DESCR_t a[1] = { x }, d = leaf(a, 1);
@@ -253,6 +295,80 @@ int main(void) {
         { DESCR_t x = INTVAL(5); lv_check("an integer", x); }
         { DESCR_t x = o; flds[2].v = DT_I; lv_check("a tag that is no string", x); flds[2].v = DT_S; }
         printf("RTX DIRECT rt_lv_is_list against the C body: %d cases, %d mismatches\n", lv_cases, fails - lfail0);
+    }
+    {
+        static char nm[] = "gednode", lv[] = "level", id[] = "id", tg[] = "tag", dt[] = "data", e0[] = "";
+        static char q_tag[] = "tag", q_taga[] = "taga", q_ta[] = "ta", q_tah[] = "tah", q_data[] = "data", q_lvl[] = "level", q_e[] = "", q_x[] = "x";
+        char *f4[] = { lv, id, tg, dt }, *fnul[] = { lv, id, 0, dt }, *fe[] = { lv, e0, tg, dt };
+        DATBLK_t ty = { 0 }, tyn = { 0 }, tyz = { 0 }, tyf = { 0 }, tye = { 0 }, tyo = { 0 };
+        ty.name = nm;
+        ty.nfields = 4;
+        ty.fields = f4;
+        tyn.nfields = 4;
+        tyn.fields = f4;
+        tyz.name = nm;
+        tyz.nfields = 0;
+        tyz.fields = f4;
+        tyf.name = nm;
+        tyf.nfields = 4;
+        tyf.fields = fnul;
+        tye.name = nm;
+        tye.nfields = 4;
+        tye.fields = fe;
+        tyo.name = nm;
+        tyo.nfields = 3;
+        tyo.fields = f4;
+        DESCR_t flds[4] = { INTVAL(-1), STRVAL("@I1@"), STRVAL("INDI"), REALVAL(2.5) };
+        flds[1].src_node1 = 7;
+        DATINST_t in = { 0 };
+        in.type = &ty;
+        in.fields = flds;
+        DESCR_t o = { 0 };
+        o.v = DT_DATA;
+        o.slen = DATA_INST_SLEN;
+        o.u = &in;
+        DESCR_t cell = o, vr = { .v = DT_N, .slen = 1 };
+        vr.ptr = &cell;
+        int ffail0 = fails, active0 = (rt_trace_idle(), comm_var_active());
+        for (int var = 0; var < 2; var++) for (int plain = 0; plain < (var ? 2 : 1); plain++) {
+            long p = plain ? 0x10000 : 0;
+            fld_check("a hit at 3", var, q_tag, o, 3 | p);
+            fld_check("a hit by the type's own pointer", var, tg, o, 3 | p);
+            fld_check("a hit at 1", var, q_lvl, o, 1 | p);
+            fld_check("a hit at 4", var, q_data, o, 4 | p);
+            fld_check("a hit at 2 on a field holding provenance bytes", var, id, o, 2 | p);
+            fld_check("a longer name", var, q_taga, o, 3 | p);
+            fld_check("a prefix", var, q_ta, o, 3 | p);
+            fld_check("a last byte that differs", var, q_tah, o, 3 | p);
+            fld_check("another field's name", var, q_data, o, 3 | p);
+            fld_check("a position past the last field", var, q_tag, o, 5 | p);
+            fld_check("a name the type does not carry", var, q_x, o, 2 | p);
+            in.type = &tyo;
+            fld_check("a position equal to nfields", var, q_data, o, 4 | p);
+            in.type = &tyz;
+            fld_check("a type with no fields", var, q_lvl, o, 1 | p);
+            in.type = &tyf;
+            fld_check("a NULL field name at the position", var, q_tag, o, 3 | p);
+            in.type = &tye;
+            fld_check("an empty field name and an empty query", var, q_e, o, 2 | p);
+            fld_check("an empty field name and a query", var, q_x, o, 2 | p);
+            in.type = &tyn;
+            fld_check("a type with no name", var, q_tag, o, 3 | p);
+            in.type = 0;
+            fld_check("a NULL type", var, q_tag, o, 3 | p);
+            in.type = &ty;
+            in.fields = 0;
+            fld_check("an instance with no fields", var, q_tag, o, 3 | p);
+            in.fields = flds;
+            { DESCR_t x = o; x.u = 0; fld_check("a NULL instance", var, q_tag, x, 3 | p); }
+            { DESCR_t x = o; x.slen = DATA_ELEMS_SLEN; fld_check("an element block", var, q_tag, x, 3 | p); }
+            { DESCR_t x = INTVAL(9); fld_check("an integer", var, q_tag, x, 3 | p); }
+            { DESCR_t x = o; x.v = DT_BIG; fld_check("a tag above DT_DATA", var, q_tag, x, 3 | p); }
+            fld_check("a variable naming the record", var, q_tag, vr, 3 | p);
+        }
+        if (!active0) { int fd0 = monitor_fd; monitor_fd = 3; fld_check("a store-only hit under the monitor", 1, q_tag, o, 3 | 0x10000); monitor_fd = fd0; }
+        printf("RTX DIRECT icn_field_get_at and rt_field_var_strict_at against their C twins: %d cases, %d answered, %d declined, %d mismatches\n", fld_cases, fld_hits, fld_declines, fails - ffail0);
+        if (active0 || fld_hits < 12 || fld_declines < 40) { fails++; printf("  FAIL field leaves: the trace state reads active (%d) or the battery saw too few of one verdict\n", active0); }
     }
     DESCR_t idx[] = { INTVAL(0), INTVAL(3), INTVAL(7), INTVAL(8), INTVAL(20), INTVAL(-1), REALVAL(2.0), STRVAL("4"), NULVCL };
     int ni = (int)(sizeof idx / sizeof idx[0]);

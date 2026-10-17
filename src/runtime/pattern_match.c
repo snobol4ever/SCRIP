@@ -1985,7 +1985,7 @@ DESCR_t icn_field_get(const char *fname, DESCR_t obj) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t icn_field_get_at(const char *fname, DESCR_t obj, long at1) {
+DESCR_t c_icn_field_get_at(const char *fname, DESCR_t obj, long at1) {
     long at = at1 - 1;
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
     if (IS_DATA_INST_fn(obj) && obj.u && obj.u->fields) { DATBLK_t *t = obj.u->type; if (t && t->name && at < t->nfields && t->fields[at] && !strcmp(t->fields[at], fname)) return obj.u->fields[at]; }
@@ -2049,7 +2049,7 @@ DESCR_t rt_field_var_strict(const char *fname, DESCR_t obj) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_field_var_strict_at(const char *fname, DESCR_t obj, long at1) {
+DESCR_t c_rt_field_var_strict_at(const char *fname, DESCR_t obj, long at1) {
     int store_only = (at1 & ICN_FIELD_PLAIN) != 0;
     long at = (at1 & ~(long)ICN_FIELD_PLAIN) - 1;
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);

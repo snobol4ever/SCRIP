@@ -130,3 +130,6 @@ _Static_assert(offsetof(DESCR_t, slen) == 4 && DATA_INST_SLEN == 0 && DATA_ELEMS
     "a discriminator is renumbered, those checks read the wrong bytes and the list fast path takes a DESCR_t array for a DATINST_t -- a silent wrong answer");
 _Static_assert(offsetof(DATBLK_t, nfields) == 8 && offsetof(DATBLK_t, fields) == 16,
     "rtx_icnsub.s hardcodes DATBLK_t.nfields/.fields; core.h drifted -- the frame_elems check would compare the wrong bytes and admit a record as a list");
+_Static_assert(ICN_FIELD_PLAIN == 0x10000 && offsetof(DATBLK_t, name) == 0 && DT_N == 0x28,
+    "rtx_icnagg.s icn_field_get_at and rt_field_var_strict_at hardcode ICN_FIELD_PLAIN 0x10000, DATBLK_t.name at 0 and the DT_N cell {DT_N, slen 1}; descr.h or core.h drifted -- a store-only field v"
+    "ar" "iable would decline every time, or a plain one would be answered as a bare cell and skip its trace");
