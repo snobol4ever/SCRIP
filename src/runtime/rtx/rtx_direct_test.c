@@ -19,6 +19,11 @@ DESCR_t rt_pas_arctan(DESCR_t *, int);
 DESCR_t rt_pas_sqr(DESCR_t *, int);
 DESCR_t rt_rk_arr_at(DESCR_t *, int);
 DESCR_t rt_rk_arr_set(DESCR_t *, int);
+DESCR_t c_rt_rk_arr_at(DESCR_t *, int);
+DESCR_t c_rt_rk_arr_set(DESCR_t *, int);
+static int rk_leaf_hits = 0, rk_leaf_declines = 0;
+static DESCR_t rk_at(DESCR_t *p) { DESCR_t d = rt_rk_arr_at(p, 2); if (d.v == RTX_NOT_HANDLED) { rk_leaf_declines++; return c_rt_rk_arr_at(p, 2); } rk_leaf_hits++; return d; }
+static DESCR_t rk_set(DESCR_t *p) { DESCR_t d = rt_rk_arr_set(p, 3); if (d.v == RTX_NOT_HANDLED) { rk_leaf_declines++; return c_rt_rk_arr_set(p, 3); } rk_leaf_hits++; return d; }
 DESCR_t rt_rk_elem_put(DESCR_t *, int);
 DESCR_t rt_rk_param_check(DESCR_t *, int);
 DESCR_t rt_rk_assign_check(DESCR_t *, int);
@@ -138,12 +143,12 @@ int main(void) {
     for (int k = 0; k < ni; k++) {
         ARBLK_t *a1 = mk(8, 100), *a2 = mk(8, 100);
         DESCR_t p[2] = { darr(a1), idx[k] }, q[2] = { darr(a2), idx[k] };
-        DESCR_t d = rt_rk_arr_at(p, 2), r = rt_call_arr_bl("__rk_arr_at", q, 2, -1);
+        DESCR_t d = rk_at(p), r = rt_call_arr_bl("__rk_arr_at", q, 2, -1);
         ncase++;
         if (!same(d, r)) { fails++; printf("  FAIL __rk_arr_at idx %d\n", k); }
         ARBLK_t *b1 = mk(8, 100), *b2 = mk(8, 100);
         DESCR_t s1[3] = { darr(b1), idx[k], INTVAL(-9) }, s2[3] = { darr(b2), idx[k], INTVAL(-9) };
-        d = rt_rk_arr_set(s1, 3);
+        d = rk_set(s1);
         r = rt_call_arr_bl("__rk_arr_set", s2, 3, -1);
         ncase++;
         if (!same(d, r) || !same(darr(b1), darr(b2))) { fails++; printf("  FAIL __rk_arr_set idx %d\n", k); }
@@ -154,6 +159,29 @@ int main(void) {
         ncase++;
         if (!same(d, r) || !same(darr(c1), darr(c2))) { fails++; printf("  FAIL __rk_elem_put idx %d\n", k); }
     }
+    for (int k = 0; k < ni; k++) {
+        DESCR_t st1[8], st2[8];
+        ARBLK_t *a1 = mk(8, 100), *a2 = mk(8, 100);
+        for (int i = 0; i < 8; i++) {
+            st1[i] = INTVAL(300 + i);
+            st2[i] = INTVAL(300 + i);
+            if (i & 1) { DESCR_t c1 = { .v = DT_N, .slen = 1 }, c2 = c1; c1.ptr = &st1[i]; c2.ptr = &st2[i]; a1->data[i] = c1; a2->data[i] = c2; }
+        }
+        a1->proto_bare |= 16;
+        a2->proto_bare |= 16;
+        DESCR_t p[2] = { darr(a1), idx[k] }, q[2] = { darr(a2), idx[k] };
+        DESCR_t d = rk_at(p), r = rt_call_arr_bl("__rk_arr_at", q, 2, -1);
+        ncase++;
+        if (!same(d, r)) { fails++; printf("  FAIL __rk_arr_at bound idx %d\n", k); }
+        DESCR_t s1[3] = { darr(a1), idx[k], INTVAL(-11) }, s2[3] = { darr(a2), idx[k], INTVAL(-11) };
+        d = rk_set(s1);
+        r = rt_call_arr_bl("__rk_arr_set", s2, 3, -1);
+        ncase++;
+        if (!same(d, r) || !same(darr(a1), darr(a2))) { fails++; printf("  FAIL __rk_arr_set bound idx %d\n", k); }
+        for (int i = 0; i < 8; i++) if (!same(st1[i], st2[i])) { fails++; printf("  FAIL __rk_arr_set bound idx %d: cell %d differs\n", k, i); break; }
+    }
+    printf("RTX DIRECT rk arrays: %d answered by the leaf, %d declined to the twin\n", rk_leaf_hits, rk_leaf_declines);
+    if (rk_leaf_hits < 8 || rk_leaf_declines < 4) { fails++; printf("  FAIL rk arrays: the battery saw too few of one verdict\n"); }
     {
         const char *pts[] = { "Any", "Mu", "Cool", "Int", "Int:D", "Num", "Numeric", "Real", "Str", "Str:D" };
         int okt[10][3] = { {1,1,1}, {1,1,1}, {1,1,1}, {1,0,0}, {1,0,0}, {0,1,0}, {1,1,0}, {1,1,0}, {0,0,1}, {0,0,1} };

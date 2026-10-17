@@ -4,6 +4,8 @@ RTX_TWIN(AL, DESCR_t, rt_table_assign_fast, c_rt_table_assign_fast, (DESCR_t, DE
 RTX_TWIN(AL, DESCR_t, rt_subscript_var_container_only, c_rt_subscript_var_container_only, (DESCR_t, DESCR_t))
 RTX_TWIN(AL, DESCR_t, rt_subscript_val, c_rt_subscript_val, (DESCR_t, DESCR_t))
 RTX_TWIN(AL, DESCR_t, rt_subscript_val_strict, c_rt_subscript_val_strict, (DESCR_t, DESCR_t))
+RTX_TWIN(AL, DESCR_t, rt_rk_arr_at, c_rt_rk_arr_at, (DESCR_t *, int))
+RTX_TWIN(AL, DESCR_t, rt_rk_arr_set, c_rt_rk_arr_set, (DESCR_t *, int))
 RTX_TWIN(AL, DESCR_t, str_concat_d, c_str_concat_d, (DESCR_t, DESCR_t))
 RTX_TWIN(AL, DESCR_t, str_concat_fracdigit_d, c_str_concat_fracdigit_d, (DESCR_t, DESCR_t))
 RTX_TWIN(AL, int, rt_jct_relop, c_rt_jct_relop, (DESCR_t, DESCR_t, int))

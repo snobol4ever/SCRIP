@@ -419,3 +419,93 @@ RTX_FUNC(rt_sno_name_dl)
     ret
 RTX_ENDF(rt_sno_name_dl)
 .section .note.GNU-stack,"",@progbits
+RTX_FUNC(rt_rk_arr_at)
+    RTX_GATE(misc, .Lrka_c)
+    cmp     byte ptr [rdi], DT_A
+    jne     .Lrka_c
+    mov     rax, qword ptr [rdi + 8]
+    test    rax, rax
+    je      .Lrka_c
+    cmp     qword ptr [rax + 24], 0
+    jne     .Lrka_c
+    cmp     byte ptr [rdi + 16], DT_I
+    jne     .Lrka_c
+    mov     rcx, qword ptr [rdi + 24]
+    movsxd  r8, dword ptr [rax]
+    sub     rcx, r8
+    js      .Lrka_c
+    movsxd  rdx, dword ptr [rax + 4]
+    sub     rdx, r8
+    cmp     rcx, rdx
+    jg      .Lrka_c
+    mov     r10, qword ptr [rax + 32]
+    shl     rcx, 4
+    add     r10, rcx
+    mov     r11, qword ptr [r10]
+    mov     rdx, qword ptr [r10 + 8]
+    test    dword ptr [rax + 20], 16
+    je      .Lrka_ret
+    cmp     r11b, DT_N
+    jne     .Lrka_ret
+    mov     rcx, r11
+    shr     rcx, 32
+    cmp     ecx, 1
+    jne     .Lrka_ret
+    test    rdx, rdx
+    je      .Lrka_ret
+    mov     r11, qword ptr [rdx]
+    mov     rdx, qword ptr [rdx + 8]
+.Lrka_ret:
+    mov     rax, r11
+    ret
+.Lrka_c:
+    RTX_DECLINE
+RTX_ENDF(rt_rk_arr_at)
+RTX_FUNC(rt_rk_arr_set)
+    RTX_GATE(misc, .Lrks_c)
+    cmp     byte ptr [rdi], DT_A
+    jne     .Lrks_c
+    mov     rax, qword ptr [rdi + 8]
+    test    rax, rax
+    je      .Lrks_c
+    cmp     qword ptr [rax + 24], 0
+    jne     .Lrks_c
+    cmp     dword ptr [rax + 8], 1
+    jne     .Lrks_c
+    cmp     dword ptr [rax], 0
+    jne     .Lrks_c
+    cmp     byte ptr [rdi + 16], DT_I
+    jne     .Lrks_c
+    mov     rcx, qword ptr [rdi + 24]
+    test    rcx, rcx
+    js      .Lrks_c
+    movsxd  rdx, dword ptr [rax + 4]
+    inc     rdx
+    cmp     rcx, rdx
+    jge     .Lrks_c
+    mov     r10, qword ptr [rax + 32]
+    shl     rcx, 4
+    add     r10, rcx
+    mov     r8, qword ptr [rdi + 32]
+    mov     r11, qword ptr [rdi + 40]
+    test    dword ptr [rax + 20], 16
+    je      .Lrks_store
+    mov     rcx, qword ptr [r10]
+    cmp     cl, DT_N
+    jne     .Lrks_store
+    shr     rcx, 32
+    cmp     ecx, 1
+    jne     .Lrks_store
+    mov     rcx, qword ptr [r10 + 8]
+    test    rcx, rcx
+    je      .Lrks_store
+    mov     r10, rcx
+.Lrks_store:
+    mov     qword ptr [r10], r8
+    mov     qword ptr [r10 + 8], r11
+    mov     rax, qword ptr [rdi]
+    mov     rdx, qword ptr [rdi + 8]
+    ret
+.Lrks_c:
+    RTX_DECLINE
+RTX_ENDF(rt_rk_arr_set)

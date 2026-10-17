@@ -13236,7 +13236,7 @@ static void rk_arr_set_impl(DESCR_t *args, DESCR_t *out) {
     for (long i = 0; i < n; i++) r[i] = (i == idx) ? args[2] : (i < a.n ? rk_av_elem(a, (int) i) : rk_typeobj("Any"));
     *out = rk_unmark(rk_mk_arr(r, (int) n));
 }
-DESCR_t rt_rk_arr_set(DESCR_t *args, int nargs) { DESCR_t out = NULVCL; (void) nargs; rk_arr_set_impl(args, &out); return out; }
+DESCR_t c_rt_rk_arr_set(DESCR_t *args, int nargs) { DESCR_t out = NULVCL; (void) nargs; rk_arr_set_impl(args, &out); return out; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_elem_put_impl(DESCR_t *args, DESCR_t *out) {
     const char *kd = VARVAL_fn(args[0]);
@@ -13292,7 +13292,7 @@ static void rk_arr_at_impl(DESCR_t *args, DESCR_t *out) {
     long idx = rk_ival(args[1]);
     *out = (idx >= 0 && idx < sc.n) ? sc.el[idx] : rk_typeobj("Any");
 }
-DESCR_t rt_rk_arr_at(DESCR_t *args, int nargs) { DESCR_t out = NULVCL; (void) nargs; rk_arr_at_impl(args, &out); return out; }
+DESCR_t c_rt_rk_arr_at(DESCR_t *args, int nargs) { DESCR_t out = NULVCL; (void) nargs; rk_arr_at_impl(args, &out); return out; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_param_ok(DESCR_t *args) { const char *ptype = VARVAL_fn(args[0]); return rt_mc_accepts(ptype ? ptype : "Any", args[1]); }
 DESCR_t rt_rk_param_check(DESCR_t *args, int nargs) { return nargs >= 2 && rk_param_ok(args) ? args[1] : rt_call_arr_bl("__param_check", args, nargs, -1); }
