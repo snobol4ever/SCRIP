@@ -332,6 +332,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {
     { "rt_subscript_val_strict", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_subscript_var", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_subscript_var_container_only", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_substr", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_table_assign_fast", RTCC_C_R10|RTCC_C_R11 },
     { "rt_translate_bytes", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_zdp_anchor", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },

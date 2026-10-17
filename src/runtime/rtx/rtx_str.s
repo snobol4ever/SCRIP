@@ -435,3 +435,41 @@ RTX_FUNC(rt_translate_bytes)
     ret
 RTX_ENDF(rt_translate_bytes)
 .section .note.GNU-stack,"",@progbits
+RTX_FUNC(rt_substr)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(r12)
+    RTX_SUB_RSP(8)
+    mov     rbx, rdi
+    test    rbx, rbx
+    jne     .Lss_sig
+    lea     rbx, [rip + .Lss_empty]
+.Lss_sig:
+    mov     rax, rsi
+    mov     rcx, rdx
+    cmp     rax, rcx
+    jle     .Lss_ord
+    xchg    rax, rcx
+.Lss_ord:
+    add     rbx, rax
+    sub     rcx, rax
+    mov     r12, rcx
+    mov     rdi, rcx
+    RTX_CALL(rt_str_alloc)
+    mov     rdi, rax
+    mov     rdx, rax
+    mov     rsi, rbx
+    mov     rcx, r12
+    rep movsb
+    mov     byte ptr [rdi], 0
+    mov     rax, r12
+    shl     rax, 32
+    or      rax, DT_S
+    RTX_ADD_RSP(8)
+    RTX_POPS(r12)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_substr)
+.section .rodata
+.Lss_empty:
+    .asciz ""
+.text

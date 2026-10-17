@@ -24,6 +24,7 @@ long rt_scan_subj_len(void);
 void rt_scan_subj_len_set(const char *p, long n);
 int g_scan_pos = 1;
 int g_scan_depth = 0;
+DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_scan_active(void) { return (g_scan_depth > 0) || (g_scan_subj && g_scan_subj[0] != 0) || (g_scan_pos != 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -220,17 +221,6 @@ DESCR_t rt_match_capture(uint64_t sigma, int64_t start, int64_t end, const char 
     DESCR_t sub = rt_substr((const char *)(uintptr_t)sigma, start, end);
     if (var && var[0]) NV_SET_fn(var, sub);
     return sub;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b) {
-    if (!sigma) sigma = "";
-    int64_t lo = a < b ? a : b;
-    int64_t hi = a < b ? b : a;
-    int64_t len = hi - lo;
-    char *buf = rt_str_alloc((long)len);
-    if (len > 0) memcpy(buf, sigma + lo, (size_t)len);
-    buf[len] = '\0';
-    return BSTRVAL(buf, (long)len);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_subject(void) { if (!g_scan_subj) return NULVCL; { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_scan_subj, n) : STRVAL(g_scan_subj); } }

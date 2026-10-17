@@ -60,6 +60,11 @@ PROG="$(cd "$(dirname "$PROG")" && pwd)/$(basename "$PROG")"
 
 . "$HERE/lib_ir_measure.sh" 2>/dev/null || refuse "cannot load lib_ir_measure.sh -- this instrument will not read Ir by hand"
 . "$HERE/lib_declared_arena.sh" 2>/dev/null || refuse "cannot load lib_declared_arena.sh -- a run at undeclared sizes is not the program's run"
+# A leaf census is a benchmark measurement: it runs with every diagnostic off unless the caller sets SCRIP_DIAG itself (Lon
+# 2026-09-25, CEO-1262: "For benchmarks turn off diagnostics"); at the default the collector's self-checks (the trap ledger,
+# the assert scan, the heap verify, the block index, the fix check) cost concord.icn 209 M of 549 M instructions and read as
+# "C runtime" on the LEAF_SHARE line (hq_runtime 2026-10-17).
+export SCRIP_DIAG="${SCRIP_DIAG:-0}"
 ir_have_valgrind || refuse "valgrind is not installed (${VALGRIND:-valgrind} or callgrind_annotate not found) -- NOT MEASURED"
 "$HERE/util_require_fresh.sh" --gate util_runtime_leaf_census "$SCRIP" "$RT/libscrip_rt.so" || exit 2
 
