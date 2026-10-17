@@ -53,6 +53,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {
     { "rt_jct_relop", 0 },
     { "rt_kw_set_rtntype_role", 0 },
     { "rt_list_bang_at", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_lv_is_list", 0 },
     { "rt_match_ctx_restore", 0 },
     { "rt_match_enter", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_match_replace", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },

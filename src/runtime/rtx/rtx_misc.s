@@ -511,6 +511,96 @@ RTX_FUNC(rt_pas_sqr)
 .Lpsr_c:
     RTX_DECLINE
 RTX_ENDF(rt_pas_sqr)
+RTX_FUNC(rt_lv_is_list)
+    cmp     dil, DT_DATA
+    jne     .Llv_no
+    mov     rax, rdi
+    shr     rax, 32
+    test    eax, eax
+    jne     .Llv_no
+    test    rsi, rsi
+    je      .Llv_no
+    mov     rax, qword ptr [rsi]
+    test    rax, rax
+    je      .Llv_no
+    cmp     dword ptr [rax + 8], 3
+    jl      .Llv_no
+    mov     rax, qword ptr [rax + 16]
+    mov     rdi, qword ptr [rax]
+    test    rdi, rdi
+    je      .Llv_no
+    cmp     byte ptr [rdi + 0], 102
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 1], 114
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 2], 97
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 3], 109
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 4], 101
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 5], 95
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 6], 101
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 7], 108
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 8], 101
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 9], 109
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 10], 115
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 11], 0
+    jne     .Llv_no
+    mov     rax, qword ptr [rsi + 8]
+    cmp     byte ptr [rax + 32], DT_S
+    jne     .Llv_no
+    mov     rdi, qword ptr [rax + 40]
+    test    rdi, rdi
+    je      .Llv_no
+    cmp     byte ptr [rdi + 0], 108
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 1], 105
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 2], 115
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 3], 116
+    jne     .Llv_no
+    cmp     byte ptr [rdi + 4], 0
+    jne     .Llv_no
+    test    rdx, rdx
+    je      .Llv_n
+    cmp     byte ptr [rax], DT_DATA
+    jne     .Llv_e0
+    cmp     dword ptr [rax + 4], 1
+    jne     .Llv_e0
+    mov     rdi, qword ptr [rax + 8]
+    test    rdi, rdi
+    jne     .Llv_es
+    lea     rdi, [rip + .Llv_nil]
+.Llv_es:
+    mov     qword ptr [rdx], rdi
+    jmp     .Llv_n
+.Llv_e0:
+    mov     qword ptr [rdx], 0
+.Llv_n:
+    test    rcx, rcx
+    je      .Llv_yes
+    mov     edi, dword ptr [rax + 24]
+    mov     dword ptr [rcx], edi
+.Llv_yes:
+    mov     eax, 1
+    ret
+.Llv_no:
+    xor     eax, eax
+    ret
+RTX_ENDF(rt_lv_is_list)
+.section .bss
+.align 16
+.Llv_nil:
+    .zero 16
+.text
 .section .note.GNU-stack,"",@progbits
 RTX_FUNC(rt_rk_arr_at)
     RTX_GATE(misc, .Lrka_c)

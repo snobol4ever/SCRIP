@@ -63,6 +63,30 @@ static void cmp1(const char *fn, DESCR_t (*direct)(DESCR_t *, int), DESCR_t x) {
     if (!same(d, r)) { fails++; printf("  FAIL %s: direct %02x/%016llx by-name %02x/%016llx\n", fn, d.v & 0xff, (unsigned long long)d.i, r.v & 0xff, (unsigned long long)r.i); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_lv_is_list(DESCR_t o, DESCR_t **elems, int *n);
+static int lv_model(DESCR_t o, DESCR_t **elems, int *n) {
+    static DESCR_t nil[1];
+    if (!(o.v == DT_DATA && o.slen == DATA_INST_SLEN) || !o.u) return 0;
+    DATBLK_t *t = o.u->type;
+    if (!t || t->nfields < 3 || !t->fields[0] || strcmp(t->fields[0], "frame_elems") != 0) return 0;
+    DESCR_t gt = o.u->fields[2];
+    if (gt.v != DT_S || !gt.s || strcmp(gt.s, "list") != 0) return 0;
+    DESCR_t ea = o.u->fields[0];
+    if (elems) *elems = (ea.v == DT_DATA && ea.slen == DATA_ELEMS_SLEN) ? (ea.ptr ? (DESCR_t *)ea.ptr : nil) : (DESCR_t *)0;
+    if (n) *n = (int)o.u->fields[1].i;
+    return 1;
+}
+static int lv_cases = 0;
+static void lv_check(const char *what, DESCR_t o) {
+    DESCR_t *e1 = (DESCR_t *)1, *e2 = (DESCR_t *)1;
+    int n1 = -7, n2 = -7, r1 = rt_lv_is_list(o, &e1, &n1), r2 = lv_model(o, &e2, &n2);
+    int nil1 = r1 && e1 && e1 != (DESCR_t *)1 && e1->v == 0 && (o.u ? o.u->fields[0].ptr == 0 : 0), nil2 = r2 && e2 && (o.u ? o.u->fields[0].ptr == 0 : 0);
+    lv_cases++;
+    ncase++;
+    if (r1 != r2 || n1 != n2 || (e1 != e2 && !(nil1 && nil2 && e1 && e2))) { fails++; printf("  FAIL rt_lv_is_list %s: leaf %d/%p/%d model %d/%p/%d\n", what, r1, (void *)e1, n1, r2, (void *)e2, n2); }
+    { int r3 = rt_lv_is_list(o, (DESCR_t **)0, (int *)0); if (r3 != r2) { fails++; printf("  FAIL rt_lv_is_list %s with no outputs: %d vs %d\n", what, r3, r2); } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_cases = 0;
 static void pas_model(const char *nm, DESCR_t (*leaf)(DESCR_t *, int), DESCR_t x, int owns, DESCR_t want) {
     DESCR_t a[1] = { x }, d = leaf(a, 1);
@@ -168,6 +192,67 @@ int main(void) {
             pas_model("rt_pas_sqr", rt_pas_sqr, x, x.v == DT_R || (iv <= 46340 && iv >= -46340), x.v == DT_R ? REALVAL(x.r * x.r) : INTVAL(iv * iv));
         }
         printf("RTX DIRECT pascal leaves against the libm model: %d cases, %d mismatches (an error arm declines with its argument untouched)\n", pas_cases, fails - mfail0);
+    }
+    {
+        static char fe[] = "frame_elems", fx[] = "frame_elemz", fl[] = "frame_elemsX", fs[] = "fr", e0[] = "", lst[] = "list", lis[] = "lis", lsts[] = "lists", tbl[] = "table";
+        char *f3[] = { fe, e0, e0 }, *f4[] = { fe, e0, e0, e0 }, *fxn[] = { fx, e0, e0 }, *fln[] = { fl, e0, e0 }, *fsn[] = { fs, e0, e0 }, *fnul[] = { 0, e0, e0 };
+        DATBLK_t ty3 = { 0 }, ty4 = { 0 }, tyx = { 0 }, tyl = { 0 }, tys = { 0 }, tyn = { 0 }, ty2 = { 0 };
+        ty3.nfields = 3;
+        ty3.fields = f3;
+        ty4.nfields = 4;
+        ty4.fields = f4;
+        tyx.nfields = 3;
+        tyx.fields = fxn;
+        tyl.nfields = 3;
+        tyl.fields = fln;
+        tys.nfields = 3;
+        tys.fields = fsn;
+        tyn.nfields = 3;
+        tyn.fields = fnul;
+        ty2.nfields = 2;
+        ty2.fields = f3;
+        DESCR_t el[3] = { INTVAL(1), INTVAL(2), INTVAL(3) };
+        DESCR_t flds[4];
+        DATINST_t in = { 0 };
+        DESCR_t o = { 0 };
+        o.v = DT_DATA;
+        o.slen = DATA_INST_SLEN;
+        o.u = &in;
+        in.fields = flds;
+        struct {
+            const char *w;
+            DATBLK_t *ty;
+            int ev;
+            uint32_t es;
+            void *ep;
+            int ok;
+            char *tag;
+        } cs[] = { { "a list", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a list with four fields", &ty4, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a list with no element block", &ty3, DT_DATA,
+            DATA_ELEMS_SLEN, 0, 1, lst }, { "a list whose elements are no block", &ty3, DT_I, 0, el, 1, lst }, { "the tag lis", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, lis }, { "the tag lists", &ty3,
+            DT_DATA, DATA_ELEMS_SLEN, el, 1, lsts }, { "the tag table", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, tbl }, { "the tag empty", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, e0 },
+            { "a type frame_elemz", &tyx, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a type frame_elemsX", &tyl, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a type fr", &tys, DT_DATA, DATA_ELEMS_SLEN,
+            el, 1, lst }, { "a type with a NULL first field", &tyn, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a type with two fields", &ty2, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a NULL type",
+            0, DT_DATA, DATA_ELEMS_SLEN, el, 1, lst }, { "a tag NULL string", &ty3, DT_DATA, DATA_ELEMS_SLEN, el, 1, 0 }, };
+        int ncs = (int)(sizeof cs / sizeof cs[0]), lfail0 = fails;
+        for (int i = 0; i < ncs; i++) {
+            in.type = cs[i].ty;
+            flds[0] = (DESCR_t){ 0 };
+            flds[0].v = (uint8_t)cs[i].ev;
+            flds[0].slen = cs[i].es;
+            flds[0].ptr = cs[i].ep;
+            flds[1] = INTVAL(3 + i);
+            flds[2] = (DESCR_t){ 0 };
+            flds[2].v = DT_S;
+            flds[2].s = cs[i].tag;
+            flds[2].slen = cs[i].tag ? (uint32_t)strlen(cs[i].tag) : 0;
+            flds[3] = INTVAL(8);
+            lv_check(cs[i].w, o);
+        }
+        { DESCR_t x = o; x.slen = DATA_ELEMS_SLEN; in.type = &ty3; lv_check("an element block, not an instance", x); }
+        { DESCR_t x = o; x.u = 0; lv_check("a NULL instance", x); }
+        { DESCR_t x = INTVAL(5); lv_check("an integer", x); }
+        { DESCR_t x = o; flds[2].v = DT_I; lv_check("a tag that is no string", x); flds[2].v = DT_S; }
+        printf("RTX DIRECT rt_lv_is_list against the C body: %d cases, %d mismatches\n", lv_cases, fails - lfail0);
     }
     DESCR_t idx[] = { INTVAL(0), INTVAL(3), INTVAL(7), INTVAL(8), INTVAL(20), INTVAL(-1), REALVAL(2.0), STRVAL("4"), NULVCL };
     int ni = (int)(sizeof idx / sizeof idx[0]);
