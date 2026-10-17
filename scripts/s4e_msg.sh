@@ -121,6 +121,8 @@ if [ -z "$ME" ]; then case "$S4E" in
     /home/claude_runtime)          ME=hq_runtime;;
     /home/claude_collector)        ME=hq_collector;;
     /home/claude_zetas)            ME=hq_zetas;;
+    /home/claude_dotnet)           ME=hq_dotnet;;
+    /home/claude_jvm)              ME=hq_jvm;;
     # the nine lettered HQ roots were renamed by language on 2026-09-16 (ceo CEO-767, Lon's word); hq_R folded into hq_prolog, hq_U into the cto, hq_V into the cfo
     /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";;
     /home/claude[1-9])      ME="seat0${S4E#/home/claude}";;
@@ -712,10 +714,10 @@ s4e_sweep_orphans() { for _o in "$PO"/.msg.*; do [ -f "$_o" ] || continue
 # that INVENTS a dead seat is worse than one that reports nothing: the ceo acts on it. The forward map gained
 # hq_T when the fourth HQ opened; this one did not, because nothing checks that two hand-written tables of the
 # same fact still agree -- the same class as the per-root digests drifting from RULES.md.
-s4e_root() { case "$1" in ceo|hq) if [ -d /home/claude_ceo ]; then echo /home/claude_ceo; else echo /home/claude; fi;; cto) echo /home/claude_cto;; coo) echo /home/claude_coo;; cfo) echo /home/claude_cfo;; hq_icon) echo /home/claude_icon;; hq_prolog) echo /home/claude_prolog;; hq_raku) echo /home/claude_raku;; hq_pascal) echo /home/claude_pascal;; hq_snocone) echo /home/claude_snocone;; hq_snobol4) echo /home/claude_snobol4;; hq_templates) echo /home/claude_templates;; hq_runtime) echo /home/claude_runtime;; hq_collector) echo /home/claude_collector;; hq_zetas) echo /home/claude_zetas;;
+s4e_root() { case "$1" in ceo|hq) if [ -d /home/claude_ceo ]; then echo /home/claude_ceo; else echo /home/claude; fi;; cto) echo /home/claude_cto;; coo) echo /home/claude_coo;; cfo) echo /home/claude_cfo;; hq_icon) echo /home/claude_icon;; hq_prolog) echo /home/claude_prolog;; hq_raku) echo /home/claude_raku;; hq_pascal) echo /home/claude_pascal;; hq_snocone) echo /home/claude_snocone;; hq_snobol4) echo /home/claude_snobol4;; hq_templates) echo /home/claude_templates;; hq_runtime) echo /home/claude_runtime;; hq_collector) echo /home/claude_collector;; hq_zetas) echo /home/claude_zetas;; hq_dotnet) echo /home/claude_dotnet;; hq_jvm) echo /home/claude_jvm;;
     seat0[1-9]|seat1[0-9]|seat20) echo "/home/claude${1#seat}";; *) echo "";; esac; }
-s4e_hqboxes() { for _h in hq hq_icon hq_prolog hq_raku hq_pascal hq_snocone hq_snobol4 hq_templates hq_runtime hq_collector hq_zetas hq_C hq_P hq_B hq_T hq_U hq_S hq_I hq_R hq_V ceo cto coo cfo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
-s4e_is_hq() { case "$1" in hq|hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_C|hq_P|hq_B|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|cto|coo|cfo) return 0;; *) return 1;; esac; }
+s4e_hqboxes() { for _h in hq hq_icon hq_prolog hq_raku hq_pascal hq_snocone hq_snobol4 hq_templates hq_runtime hq_collector hq_zetas hq_dotnet hq_jvm hq_C hq_P hq_B hq_T hq_U hq_S hq_I hq_R hq_V ceo cto coo cfo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
+s4e_is_hq() { case "$1" in hq|hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_dotnet|hq_jvm|hq_C|hq_P|hq_B|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|cto|coo|cfo) return 0;; *) return 1;; esac; }
 # ⛔⭐⭐ ONE AUTHORITY FOR "IS THIS SEAT STANDING", CALLED TWICE (coo 2026-09-20, ceo CEO-1002, row
 # instruments-claim-and-next-announce-the-start-of-work-to-every-standing-seat). This case was INLINE in `next`,
 # where it could only ever answer the question about $ME -- and the announcing cure has to ask it about EVERY OTHER
@@ -751,7 +753,7 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO) _dr "an officer" "Under DUO only the ceo and the coo work rows -- the coo runs the suites, the ceo cures, and the cto and the cfo are stood down (Lon 2026-10-02, CEO-1398).";;
                       TRIO) _dr "an officer" "Under TRIO the ceo, the coo and hq_runtime work rows -- hq_runtime finishes the collector in asm, the coo runs the tests, and the cto and the cfo are stood down (Lon 2026-10-15, CEO-1809).";;
-                      DUO-STUPID|QUARTET|SEXTET|QUINTET|NONET|SEPTET|OCTET|TENET) : ;; esac;;
+                      DUO-STUPID|QUARTET|SEXTET|QUINTET|NONET|UNDECET|SEPTET|OCTET|TENET) : ;; esac;;
            # ⛔⭐ MODE TRIO REDEFINED AGAIN (Lon 2026-10-15 17:4x CDT, in-chat to the ceo, verbatim: "Keep HQ-RUNTIME going until he finishes. Shut down all but CEO and
            # HQ-RUNTIME." then "Go to DUO mode." then "Keep COO. Make that TRIO mode."; ceo CEO-1809): the ceo, the coo and hq_runtime; the cto and the cfo are refused
            # BY NAME and every HQ but hq_runtime is refused (CEO-755b). The CEO-1403 roster below (ceo, cto, coo) is history.
@@ -766,12 +768,12 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
                       DUO) _dr "an officer" "Under DUO only the ceo and the coo work rows -- the coo runs the suites, the ceo cures, and the cto and the cfo are stood down (Lon 2026-10-02, CEO-1398).";;
                       DUO-STUPID) _dr "an officer" "Under DUO-STUPID only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-21, CEO-1087).";;
                       TRIO) _dr "an officer" "Under TRIO the ceo, the coo and hq_runtime work rows -- hq_runtime finishes the collector in asm, the coo runs the tests, and the cto and the cfo are stood down (Lon 2026-10-15, CEO-1809).";;
-                      QUARTET|SEXTET|QUINTET|NONET|SEPTET|OCTET|TENET) : ;; esac;;
+                      QUARTET|SEXTET|QUINTET|NONET|UNDECET|SEPTET|OCTET|TENET) : ;; esac;;
            coo)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO) : ;;
                       DUO-STUPID) _dr "an officer" "Under DUO-STUPID only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-21, CEO-1087).";;
-                      TRIO|QUARTET|SEXTET|QUINTET|NONET|SEPTET|OCTET|TENET) : ;; esac;;
+                      TRIO|QUARTET|SEXTET|QUINTET|NONET|UNDECET|SEPTET|OCTET|TENET) : ;; esac;;
            hq|hq_*) case "$_m" in   # hq_* not hq_?: a language HQ is hq_prolog, and a pattern that misses it falls out of the case, which returns success (CEO-755b's class)
                       CEO) _dr "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
                       DUO) _dr "an HQ" "Under DUO no HQ is standing -- the coo runs the suites and the ceo cures (Lon 2026-10-02, CEO-1398).";;
@@ -787,6 +789,8 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
                       # Written by name for CEO-755b's reason: before this arm every hq_* seat -- hq_raku and the lettered legacy names included -- was admitted under NONET by FALLING OUT of the case.
                       # ⛔⭐ MODE NONET REDEFINED (Lon 2026-10-15 13:3x CDT, in-chat to the ceo, verbatim: "Have the GC collection code written in ASM versus C. Should I fire up HQ-RUNTIME since that is his job?" then "I started HQ-RUNTIME."; ceo CEO-1793): OCTET's four HQs and hq_runtime, named so no other hq_* seat falls out of the case (CEO-755b). The CEO-1266 roster above is history.
                       NONET) case "$_seat" in hq_snobol4|hq_icon|hq_prolog|hq_zetas|hq_runtime) : ;; *) _dr "an HQ" "Under NONET five HQs stand -- hq_snobol4 hq_icon hq_prolog hq_zetas hq_runtime -- and $_seat is not one of them: the four officers and those five work rows, and $_seat is stood down (Lon 2026-10-15, CEO-1793).";; esac;;
+                      # ⛔⭐ MODE UNDECET (Lon 2026-10-17, in-chat to the ceo: "We need to create two new HQ seats ... for finishing and polishing snobol4ever/snobol4dotnet and snobol4ever/snobol4jvm. Call them HQ-DOTNET and HQ-JVM." · "These two HQ's will certainly need to be fully apart of our fleet, they just happen not to be SCRIP."; ceo CEO-1817): NONET's five HQs and hq_dotnet and hq_jvm, named here so no other hq_* seat is admitted by falling out of the case (CEO-755b). The two own no SCRIP language; their roots hold no SCRIP clone and run this bus from the ceo root's SCRIP with S4E_HOME naming their root.
+                      UNDECET) case "$_seat" in hq_snobol4|hq_icon|hq_prolog|hq_zetas|hq_runtime|hq_dotnet|hq_jvm) : ;; *) _dr "an HQ" "Under UNDECET seven HQs stand -- hq_snobol4 hq_icon hq_prolog hq_zetas hq_runtime hq_dotnet hq_jvm -- and $_seat is not one of them: the four officers and those seven work rows, and $_seat is stood down (Lon 2026-10-17, CEO-1817).";; esac;;
                       # ⛔⭐ MODE SEXTET REDEFINED (Lon 2026-10-02 19:2x, in-chat to the ceo: "Do it yourself." and "I'll fire up HQ-ICON and HQ-SNOBOL4 to help."; ceo CEO-1433): the four officers and hq_icon and hq_snobol4; the CEO-912 SEXTET (hq_prolog and hq_icon) is history.
                       # ⛔⭐ MODE SEXTET REDEFINED AGAIN (Lon 2026-10-10 09:0x CDT, in-chat to the ceo, verbatim: "Let's continue getting Prolog and Raku at 100% like SNOBOL4 and Icon." then "Let's also have HQ-PROLOG and HQ-RAKU join us."; ceo CEO-1591): the four officers and hq_prolog and hq_raku; the CEO-1433 SEXTET is history.
                       SEXTET) case "$_seat" in hq_prolog|hq_raku) : ;; *) _dr "an HQ" "Under SEXTET only hq_prolog and hq_raku stand among the HQs -- the four officers and those two work rows, and $_seat is stood down (Lon 2026-10-10, CEO-1591).";; esac;;
@@ -817,7 +821,7 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
            # RE-LEARNING: a guard written as "refuse these modes" grows a hole every time Lon names a new one, and the
            # hole is silent because falling out of a case returns success. Every new mode must be added HERE by name.
            seat*)   case "$_m" in
-                      CEO|EXECUTIVE|DUO|DUO-STUPID|DUET|TRIO|QUARTET|QUINTET|SEXTET|SEPTET|OCTET|NONET|DECTET|TENET) _dr "a fleet seat" "There is NO FLEET in $_m -- only the ceo, the officers and the standing HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too; SEXTET and SEPTET were added 2026-09-20 after a numbered seat was found admissible under both by falling out of this case.)";; esac;;
+                      CEO|EXECUTIVE|DUO|DUO-STUPID|DUET|TRIO|QUARTET|QUINTET|SEXTET|SEPTET|OCTET|NONET|UNDECET|DECTET|TENET) _dr "a fleet seat" "There is NO FLEET in $_m -- only the ceo, the officers and the standing HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too; SEXTET and SEPTET were added 2026-09-20 after a numbered seat was found admissible under both by falling out of this case.)";; esac;;
          esac
   [ -n "$_REFUSE_WHY" ] && return 1
   return 0; }
@@ -1110,7 +1114,7 @@ s4e_topic_lane() {
     # through and was re-guessed from its prefix. Under NONET four of the seven completeness owners ARE
     # executives, so "an explicit, already-made decision beats a guess" was switched off for exactly the seats
     # the fallback most often names — and the failure is invisible because a guess still returns something.
-    case "$_owner" in ceo|cto|coo|cfo|hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$_owner"; return 0;; esac
+    case "$_owner" in ceo|cto|coo|cfo|hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_dotnet|hq_jvm|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$_owner"; return 0;; esac
     _lang="${_t%%-*}"
     case " $(s4e_lane_languages) " in *" $_lang "*) s4e_lane_owner_of_language "$_lang";; esac
 }
@@ -1125,7 +1129,7 @@ s4e_topic_lane() {
 # of every row in the queue.
 s4e_my_lane() {
     case "$ME" in
-      hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$ME"; return 0;;
+      hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_dotnet|hq_jvm|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$ME"; return 0;;
       # ⭐⭐ AN EXECUTIVE'S LANE IS ITSELF, ON THE SAME LAW AS AN HQ's (ceo CEO-748, under MODE EXECUTIVE).
       # ⛔ THIS IS NOT A NEW RULE, IT IS THE OLD RULE REACHING THE SEATS THAT NOW HOLD THE LANES: the table
       # above gives all seven languages to ceo/cto/cfo, so under EXECUTIVE the set of lane-determinable
@@ -1144,7 +1148,7 @@ s4e_my_lane() {
              # above restricts the ceo IDENTITY, never a seat reporting to it, and under EXECUTIVE every
              # language lane is held by an officer -- so refusing to read an officer's name here would have
              # left every numbered seat lane-blind for the same reason the executives themselves were.
-             case "$_l" in hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|cto|cfo|coo) printf '%s' "$_l";; esac ;;
+             case "$_l" in hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_dotnet|hq_jvm|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|cto|cfo|coo) printf '%s' "$_l";; esac ;;
     esac
 }
 # ⭐⭐ THE ORDER OF WORK -- THE SET OF LIVE LANGUAGES, READ FROM A MACHINE LINE (row `snobol4-icon-postoffice-
@@ -1944,10 +1948,10 @@ s4e_backfill_owner_lane() {
   _cur="$(printf '%s' "$_row" | cut -f3)"
   case "$_cur" in ''|unassigned) : ;; *) return 0;; esac   # already set -- not this function's decision to change
   case "$_seat" in
-    hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) _lane="$_seat" ;;
+    hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_dotnet|hq_jvm|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) _lane="$_seat" ;;
     seat*) [ -f "$PO/$_seat/HQ" ] && _lane="$(head -1 "$PO/$_seat/HQ" | tr -d '[:space:]')" ;;
   esac
-  case "${_lane:-}" in hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) : ;; *) return 1;; esac   # undeterminable -- leave blank rather than guess
+  case "${_lane:-}" in hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_dotnet|hq_jvm|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) : ;; *) return 1;; esac   # undeterminable -- leave blank rather than guess
   local _lk="$PO/.mint.lock" _got=0 _i _tmp
   for _i in $(seq 1 20); do mkdir "$_lk" 2>/dev/null && { _got=1; break; }; sleep 0.1; done
   [ "$_got" = 1 ] || return 1
@@ -2992,7 +2996,7 @@ case "$cmd" in
          # language (a postoffice/tooling/meta row, this fix's own first victim) needs the flag; asking for
          # it there, once, is cheaper than another blank cell nobody catches until a seat wanders into it.
          owner=""
-         if [ "${1:-}" = "--owner" ]; then owner="${2:?--owner needs an hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V argument}"; shift 2
+         if [ "${1:-}" = "--owner" ]; then owner="${2:?--owner needs an hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_templates|hq_runtime|hq_collector|hq_zetas|hq_dotnet|hq_jvm|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V argument}"; shift 2
            # ⛔ THE EXECUTIVES WERE REFUSED HERE (hq_B 2026-09-13, CEO-672's class, found while curing it). This
            # accepted only hq_* names, so under NONET -- where FOUR of the seven completeness owners are the
            # ceo, cto, coo and cfo -- `mint --owner ceo` was rejected outright and an Icon row could not be
@@ -3715,6 +3719,7 @@ TASKEOF
              :
          fi
          hs="$S4E/SCRIP/scripts/handoff_status.sh"
+         [ -f "$hs" ] || hs="$(cd "$(dirname "$0")" && pwd)/handoff_status.sh"
          # ⛔ SKIP_S_ARTIFACT_CHECK=1 (ceo 2026-08-27, Lon's "go fix it" — the missing-banners defect, seat09/hq_P diagnosis):
          # the .s-artifact verifier runs `make pristine` (minutes; races and WIPES live builds), so every banner that reached
          # it blew the Stop hook's 100s timeout and Lon saw NO banner — precisely on SUCCESS. The check is WARN-ONLY by design
