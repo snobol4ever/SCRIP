@@ -2988,6 +2988,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_head'(H,_,_,H).\n"
     "'$lfx_body'(G,M,_,G2):-var(G),!,(M==user->G2=G;G2='$lfx_mc'(M,G)).\n"
     "'$lfx_body'(M2:G,_,_,'$lfx_mc'(M2,G)):-atom(M2),!.\n"
+    "'$lfx_body'(get_residual(G,R),M,_,'$lfx_gres'(M,G,R)):-var(G),M\\==user,!.\n"
     "'$lfx_body'(G,M,_,'$lfx_mca'(M,C,Xs)):-M\\==user,compound(G),G=..[call,C|Xs],Xs\\==[],var(C),!.\n"
     "'$lfx_body'(G,M,Ks,G2):-compound(G),G=..[F,C|Xs],Xs\\==[],'$lfx_clof'(F),!,length(Xs,E),'$lfx_clo'(C,E,M,Ks,C2),G2=..[F,C2|Xs].\n"
     "'$lfx_body'(G,M,_,'$lfx_mdb'(F,M,C)):-M\\==user,compound(G),G=..[F,C],var(C),memberchk(F,[assert,asserta,assertz,retract,retractall]),!.\n"
@@ -3014,6 +3015,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_mh'(M,H,H2):-M\\==user,callable(H),functor(H,F,N),atom(F),\\+ predicate_property(H,built_in),!,'$lfx_q'(M,F,Q),functor(H2,Q,N),H=..[_|As],H2=..[_|As].\n"
     "'$lfx_mh'(_,H,H).\n"
     "'$lfx_mc'(M,G):-call(M:G).\n"
+    "'$lfx_gres'(M,G,R):-'$mod_qb'(M,G,Q),get_residual(Q,R).\n"
     "'$lfx_mca'(M,C,Xs):-nonvar(C),C=(M2:C2),atom(M2),!,'$lfx_mca'(M2,C2,Xs).\n"
     "'$lfx_mca'(M,C,Xs):-C=..L0,append(L0,Xs,L1),G=..L1,call(M:G).\n"
     "'$lfx_clof'(call).\n"
@@ -3540,6 +3542,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&referenced, "@");
         pl_cv_add(&referenced, "$lfx_mc");
         pl_cv_add(&referenced, "$lfx_mca");
+        pl_cv_add(&referenced, "$lfx_gres");
         pl_cv_add(&referenced, "$lfx_mdb");
         pl_cv_add(&referenced, "abolish_table_pred");
         pl_cv_add(&referenced, "tnot");
