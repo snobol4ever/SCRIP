@@ -113,13 +113,23 @@ declared_memory_begin "$PKG/ALL.csv" "$DECL" || { echo "⛔ REFUSED-TO-GRADE: a 
 gprolog_out() { local _f="$1" _in="${2:-/dev/null}"; if [ $# -ge 2 ]; then shift 2; else shift $#; fi
     cd "$TMP" && "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$GPROLOG_BIN" --consult-file "$_f" --query-goal halt ${1+--} "$@" < "$_in" 2>/dev/null \
     | gprolog_output_filter --compile-diagnostics; }
+# ⛔ ONE FIXED-PATH DRIVER AT A TIME ON THE BOX (the coo 2026-10-17, on the cfo's catch, CEO-1810): ten drivers make and remove a fixed /tmp/gnu_drv_*
+# path (dec10io, char_io, consult, os_interf, pl_error, read, sockets, src_rdr, stream, utils), and two runs of one at once -- another seat's pass or gate
+# beside the coo's -- disagree with the ref for a reason that is neither program's: the loop's pass at 371ce73cc refused on os_interf "differs from live
+# gprolog" while live gprolog alone matched that ref three runs of three. drv_lock FILE holds one box-wide lock across a driver's runs (SCRIP m3, m4,
+# gprolog, or a ref cut) when FILE names such a path; a wait past GNU_DRV_LOCK_WAIT seconds (600) runs it unlocked and says so; drv_unlock releases it.
+DRV_LK=""
+drv_lock() { DRV_LK=""; grep -q '/tmp/gnu_drv' "$1" 2>/dev/null || return 0
+    exec {DRV_LK}> "${GNU_DRV_LOCK:-/tmp/gnu_drv.lock}" || { DRV_LK=""; return 0; }
+    flock -w "${GNU_DRV_LOCK_WAIT:-600}" "$DRV_LK" || echo "  GNU_DRV_LOCK not taken in ${GNU_DRV_LOCK_WAIT:-600} s -- ${1#"$PKG"/} runs unlocked"; }
+drv_unlock() { [ -n "$DRV_LK" ] && exec {DRV_LK}>&-; DRV_LK=""; }
 # ⭐ GNU_SUITE_CUT_REFS=1 CUTS EVERY DRIVER'S REF FROM gprolog AND GRADES NOTHING (no row, no progress append): NAME_driver.ref is
 # the oracle's answer as recorded evidence, cut by the same filter the board compares through; a driver gprolog answers with
 # nothing refuses, because an empty ref grades nothing (THE PACKAGE LOCKDOWN).
 if [ "${GNU_SUITE_CUT_REFS:-0}" = 1 ]; then
     n=0; while IFS= read -r d; do
         _ca=(); [ -f "${d%.pl}.argv" ] && read -r -a _ca < "${d%.pl}.argv"; _ci=/dev/null; [ -f "${d%.pl}.in" ] && _ci="${d%.pl}.in"
-        o="$(gprolog_out "$d" "$_ci" "${_ca[@]}")"; [ -n "$o" ] || { echo "⛔ REFUSED: ${d#"$PKG"/} prints nothing in gprolog -- no ref written"; exit 2; }
+        drv_lock "$d"; o="$(gprolog_out "$d" "$_ci" "${_ca[@]}")"; drv_unlock; [ -n "$o" ] || { echo "⛔ REFUSED: ${d#"$PKG"/} prints nothing in gprolog -- no ref written"; exit 2; }
         printf '%s\n' "$o" > "${d%.pl}.ref"; n=$((n+1)); echo "  cut ${d#"$PKG"/} -> $(printf '%s\n' "$o" | wc -l) line(s)"
     done < <(find "$PKG" -name "*_driver.pl" | sort)
     echo "GNU driver refs cut from gprolog: $n"; exit 0
@@ -247,7 +257,7 @@ for f in "${FILES[@]}"; do
         # ⛔ A DRIVER RUNS IN THE SCRATCH DIRECTORY, never in the tree under test: dec10io's tell(user) made a FILE named user in the cwd
         # (a SCRIP defect the driver exposed) and a dirty SCRIP skips every row this pass writes.
         # each mode's own wall for its row (CEO-1676 (c)): m3 its run, m4 the compile, link and run
-        _t0="$(progress_clock)"
+        drv_lock "$drv"; _t0="$(progress_clock)"
         "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --compile "${CA[@]}" "$drv" -o "$dout" < /dev/null > "$probe_log" 2>&1; drc=$?
         _cs="$(progress_secs_since "$_t0")"; _t0="$(progress_clock)"
         m3_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "${CA[@]}" "$drv" ${dargv[0]+--} "${dargv[@]}" < "$din" 2>/dev/null); m3rc=$?
@@ -257,7 +267,7 @@ for f in "${FILES[@]}"; do
             m4_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$dbin" "${dargv[@]}" < "$din" 2>/dev/null); m4rc=$?
         fi
         S4="$(progress_secs_sum "$(progress_secs_since "$_t0")" "$_cs")"
-        gp_out=$(gprolog_out "$drv" "$din" "${dargv[@]}")
+        gp_out=$(gprolog_out "$drv" "$din" "${dargv[@]}"); drv_unlock
         dref="${f%.pl}_driver.ref"
         if [ ! -s "$dref" ]; then SIDE_ERR+=("${dref#"$PKG"/} is missing or empty -- cut it from gprolog (GNU_SUITE_CUT_REFS=1 bash $0) before grading")
         elif [ "$(cat "$dref")" != "$gp_out" ]; then SIDE_ERR+=("${dref#"$PKG"/} differs from live gprolog -- a stale ref; re-cut it (GNU_SUITE_CUT_REFS=1 bash $0)"); fi
