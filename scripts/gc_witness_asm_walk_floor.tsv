@@ -5,5 +5,4 @@
 # so the landing that cures a witness moves its line out of this file in the same commit.
 # witness	row	reason
 hb_eval_chain_shim_saves_sigma.sno	c2bb-apply-of-eval-reaches-the-deleted-eval-chain-c-road-and-bombs-gc-witness-hb-eval-chain-shim-saves-sigma	APPLY('EVAL', ...) reaches eval_chain_run_guarded, the deleted C road into a box (CEO-1576): rt_c2bb_bomb, SIGSEGV
-hb_label_trace_hook.sno	snobol4-a-label-trace-reached-by-a-goto-prints-no-trace-line-gc-witness-hb-label-trace-hook	a LABEL trace reached by a goto prints no trace line (the ref's first line is missing)
 hb_plj_batch_b.pl	prolog-gc-witness-plj-batch-b-prints-append-where-swipl-prints-write	prints append where swipl prints write

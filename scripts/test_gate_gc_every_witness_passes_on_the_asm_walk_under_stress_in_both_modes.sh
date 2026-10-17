@@ -11,7 +11,8 @@
 #
 # ARM (a): every witness of scripts/gc_witnesses with a committed ref (refs are cut from the oracle), at SCRIP_DIAG=0
 # SCRIP_GC_STRESS=1 SCRIP_HEAP_KB=64 (a collection at every safe point in a window that forces growth), mode 3 and mode 4, at the
-# witness's declared stack (<stem>.stack), stdin from <stem>.in, its stdout with the ^GC- lines dropped against its ref with the
+# witness's declared stack (<stem>.stack) and compile switches (<stem>.cmdline, read by declared_compile_args_beside and placed after
+# scrip and after --compile: hb_label_trace_hook declares --stlimit, the switch label TRACE belongs to, Lon CEO-1243), stdin from <stem>.in, its stdout with the ^GC- lines dropped against its ref with the
 # same lines dropped. A witness that fails on every road is a line of scripts/gc_witness_asm_walk_floor.tsv naming its live row:
 # printed DECLARED, never silenced, and RED when it passes in both modes (the cure moves the line out in the same commit).
 # ARM (b): the asm step is entered -- gdb counts the hits of a breakpoint on rt_gc_sw_step_a over $STEPW in both modes at
@@ -48,10 +49,11 @@ for src in "$WITDIR"/*.icn "$WITDIR"/*.sno "$WITDIR"/*.pl "$WITDIR"/*.raku "$WIT
   w="$(basename "$src")"; ext="${w##*.}"; inp="${src%.*}.in"; [ -r "$inp" ] || inp=/dev/null
   st="$(declared_stack_kb_beside "$src")" || refuse "$w: its .stack sidecar declares nothing readable"
   stk=""; [ -n "$st" ] && stk="SCRIP_STACK=${st}k"
+  ca="$(declared_compile_args_beside "$src")" || refuse "$w: its .cmdline sidecar declares no command line readable for it"
   graded=$((graded+1))
-  ( $ENVW $stk timeout -k 5 60s "$SCRIP" "$src" < "$inp" > "$T/m3.out" 2> "$T/m3.err" ) 2> /dev/null; rc=$?; v3="$(grade "$T/m3.out" "$ref" "$rc")"
+  ( $ENVW $stk timeout -k 5 60s "$SCRIP" $ca "$src" < "$inp" > "$T/m3.out" 2> "$T/m3.err" ) 2> /dev/null; rc=$?; v3="$(grade "$T/m3.out" "$ref" "$rc")"
   rm -f "$T/w".* "$T/w.x"; cp "$src" "$T/w.$ext"
-  if ( cd "$T" && timeout -k 5 90s "$SCRIP" --compile -o w.s "w.$ext" < /dev/null > /dev/null 2> w.cerr \
+  if ( cd "$T" && timeout -k 5 90s "$SCRIP" --compile $ca -o w.s "w.$ext" < /dev/null > /dev/null 2> w.cerr \
       && gcc -m64 w.s -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o w.x 2>> w.cerr ); then
     ( $ENVW $stk timeout -k 5 60s "$T/w.x" < "$inp" > "$T/m4.out" 2> "$T/m4.err" ) 2> /dev/null; rc=$?; v4="$(grade "$T/m4.out" "$ref" "$rc")"
   else
