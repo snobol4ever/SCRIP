@@ -3992,6 +3992,7 @@ long rt_gc_cb_open(void) { return 0; }
 long rt_gc_cb_close(long mark, const char *file, int line, void *lo, void *hi) { (void)mark; (void)file; (void)line; (void)lo; (void)hi; return 0; }
 #endif
 long rt_gc_runs_count(void) { return g_gc_runs; }
+long rt_gc_heap_grows(void) { return g_hp_grows; }
 #if RT_DIAG
 void rt_gc_assert_dead(const void *payload) { if (!payload || (const char *)payload <= g_hp_arena || (const char *)payload >= g_hp_top) return; ((rt_hblk_t *)payload - 1)->flags |= HBF_ASSERT_DEAD; }
 void *rt_gc_assert_instances(uint16_t type, long n) {

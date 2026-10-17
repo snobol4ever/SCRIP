@@ -10645,6 +10645,9 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
         } else if (!strcmp(op, "atoms")) {
             extern int prolog_atom_count(void);
             ok = plw_unify_vals(args[2], INTVAL(prolog_atom_count()), cx);
+        } else if (!strcmp(op, "heap_grows")) {
+            extern long rt_gc_heap_grows(void);
+            ok = plw_unify_vals(args[2], INTVAL(rt_gc_heap_grows()), cx);
         } else if (!strcmp(op, "stack_used") || !strcmp(op, "stack_free")) {
             extern void * __libc_stack_end;
             extern long rt_gc_bytes_in_use(void);
