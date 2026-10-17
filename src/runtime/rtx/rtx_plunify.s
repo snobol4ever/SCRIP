@@ -903,4 +903,87 @@ RTX_FUNC(rt_pl_tv1_walk_a)
     RTX_POPS(rbx)
     ret
 RTX_ENDF(rt_pl_tv1_walk_a)
+#define PL_OC_DEREF(l, ncell, hopx) \
+.l##_cell: xor esi, esi; \
+.l##_hop: movzx eax, byte ptr [rbx]; cmp al, DT_N; je ncell; cmp al, DT_PLVAR; jne .l##_link; mov rcx, qword ptr [rbx + 8]; test rcx, rcx; jz .l##_have; cmp rcx, rbx; je .l##_have; \
+    inc rsi; bt rsi, 28; jc hopx; mov rbx, rcx; jmp .l##_hop; \
+.l##_link: cmp al, PL_TV_LINK; jne .l##_have; \
+.l##_lgo: mov rbx, qword ptr [rbx + 8]; movzx eax, byte ptr [rbx]; cmp al, PL_TV_LINK; je .l##_lgo; \
+.l##_have:
+RTX_FUNC(rt_pl_occurs_a)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    RTX_SUB_RSP(PL_TV_AG_BYTES + 16)
+    mov     qword ptr [rsp + PL_TV_AG_BYTES], rsi
+    mov     r13, rdi
+    mov     r14, rdx
+    mov     rbp, rcx
+    mov     r15, rsp
+    mov     r12, rsp
+    mov     rbx, rsi
+    PL_OC_DEREF(Loc, .Loc_full, .Loc_full)
+    cmp     rbx, r13
+    je      .Loc_found
+    cmp     al, PL_TV_SEEN
+    je      .Loc_next
+    cmp     al, DT_PLREF
+    jne     .Loc_next
+    mov     eax, dword ptr [rbx + 4]
+    cmp     rax, rbp
+    jae     .Loc_next
+    mov     ecx, dword ptr [r14 + rax*8 + 4]
+    test    ecx, ecx
+    jle     .Loc_next
+    lea     rax, [r15 + PL_TV_AG_BYTES]
+    cmp     r12, rax
+    jae     .Loc_full
+    mov     rdx, qword ptr [rbx + 8]
+    mov     qword ptr [r12], rdx
+    mov     qword ptr [r12 + 8], rcx
+    add     r12, 16
+    mov     byte ptr [rbx], PL_TV_SEEN
+    PL_TV_NEXT(Loc, .Loc_none)
+.Loc_none:
+    xor     edi, edi
+    jmp     .Lou_start
+.Loc_found:
+    mov     edi, 1
+    jmp     .Lou_start
+.Loc_full:
+    mov     edi, 2
+.Lou_start:
+    mov     qword ptr [rsp + PL_TV_AG_BYTES + 8], rdi
+    mov     r12, r15
+    mov     rbx, qword ptr [rsp + PL_TV_AG_BYTES]
+    PL_OC_DEREF(Lou, .Lou_next, .Lou_next)
+    cmp     al, PL_TV_SEEN
+    jne     .Lou_next
+    mov     byte ptr [rbx], DT_PLREF
+    mov     eax, dword ptr [rbx + 4]
+    mov     ecx, dword ptr [r14 + rax*8 + 4]
+    lea     rax, [r15 + PL_TV_AG_BYTES]
+    cmp     r12, rax
+    jae     .Lou_lost
+    mov     rdx, qword ptr [rbx + 8]
+    mov     qword ptr [r12], rdx
+    mov     qword ptr [r12 + 8], rcx
+    add     r12, 16
+    PL_TV_NEXT(Lou, .Lou_done)
+.Lou_lost:
+    ud2
+.Lou_done:
+    mov     rax, qword ptr [rsp + PL_TV_AG_BYTES + 8]
+    RTX_ADD_RSP(PL_TV_AG_BYTES + 16)
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbp)
+    RTX_POPS(rbx)
+    ret
+RTX_ENDF(rt_pl_occurs_a)
 .section .note.GNU-stack,"",@progbits

@@ -336,7 +336,13 @@ static int plw_unify_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
 PLR_WALK2(plw_unify_walk, plw_unify_leaf, plw_cell_deref) static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) { return plw_unify_walk(a, b, (void *)cx, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plw_occurs_visit(DESCR_t *d, void *v) { return d == (DESCR_t *)v ? PLR_V_STOP : PLR_V_GO; }
-PLR_WALK1(plw_occurs_walk, plw_occurs_visit, plw_cell_deref) static int plw_occurs_in(DESCR_t *v, DESCR_t *t) { return plw_occurs_walk(t, (void *)v); }
+PLR_WALK1(plw_occurs_walk, plw_occurs_visit, plw_cell_deref) int rt_pl_occurs_a(DESCR_t *v, DESCR_t *t, const void *functors, long nfunctors);
+static int plw_occurs_in(DESCR_t *v, DESCR_t *t) {
+    extern const void *rt_pl_functor_entries(void);
+    extern int prolog_functor_count(void);
+    int r = rt_pl_occurs_a(v, t, rt_pl_functor_entries(), (long)prolog_functor_count());
+    return r != 2 ? r : plw_occurs_walk(t, (void *)v);
+}
 static int plw_oc_refuse(DESCR_t *v, DESCR_t *t, pl_tr_ctx_t *cx) {
     extern void *rt_pl_ball_occurs(DESCR_t *, DESCR_t *);
     if (!plw_occurs_in(v, t)) return 0;

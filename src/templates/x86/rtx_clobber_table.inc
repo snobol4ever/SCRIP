@@ -325,6 +325,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {
     { "rt_pl_exist_raise", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_goal_resolve", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_is_cold", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_occurs_a", 0 },
     { "rt_pl_quad_seed", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_throw_raise", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_tv1_walk_a", 0 },
