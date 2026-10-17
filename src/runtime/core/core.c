@@ -2561,7 +2561,7 @@ static DESCR_t _TRACE_(DESCR_t *a, int n) {
     trace_register(varname, kind, tag, cbfn, 0);
     if (eid != 0) { trace_ent_t *ee = trace_find(varname, kind); if (ee) ee->eid = eid; }
     etrace_recount();
-    return STRVAL(rt_heap_strdup_c(varname));
+    return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _STOPTR_(DESCR_t *a, int n) {
@@ -2578,7 +2578,7 @@ static DESCR_t _STOPTR_(DESCR_t *a, int n) {
     if (kind == TRK_CALL || kind == TRK_RETURN || kind == TRK_FUNCTION) { extern const char *rt_proc_trace_canon(const char *); varname = rt_proc_trace_canon(varname); }
     trace_unregister(varname, kind);
     etrace_recount();
-    return STRVAL(rt_heap_strdup_c(varname));
+    return NULVCL;
 }
 #else
 static DESCR_t _TRACE_(DESCR_t *a, int n) { (void)a; (void)n; return NULVCL; }
