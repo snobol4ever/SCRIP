@@ -66,7 +66,11 @@ done
 # line per key, GIMPEL_SMOKE_ENTRY <key> m3=<V> m4=<V>, then exit 0. --force because a smoke is a correctness read, never a timing one.
 SMOKE_KEYS="${S4E_AREA_SMOKE_ENTRIES:-}"
 SMOKE_FORCE=""; [ -n "$SMOKE_KEYS" ] && SMOKE_FORCE="--force"
-SC_ONLY_PROGRAMS="$SMOKE_KEYS" CORPUS="$W/corpus" bash "$HERE/scorecard_snobol4.sh" run --suites gimpel --out "$W" $SMOKE_FORCE > "$W/run.log" 2>&1
+# ⭐ THE ROUND ROBIN'S SEAM (ceo CEO-1802/1805/1806): under S4E_CHUNK the scorecard grades only the part's drivers (its SC_ONLY_PROGRAMS filter, the smoke's
+# own road), appends their rows under their libraries' names as it always does, and this runner writes no suite row (rr_end below)
+. "$HERE/lib_rr.sh" && rr_load "$CORPUS_REAL/packages/snobol4/gimpel" || exit 2
+rr_selected && [ -z "$SMOKE_KEYS" ] && SMOKE_KEYS="" && export SC_RR_ONLY="$(printf '%s ' ${RR_SEL:-})"
+SC_ONLY_PROGRAMS="${SMOKE_KEYS:-${SC_RR_ONLY:-}}" CORPUS="$W/corpus" bash "$HERE/scorecard_snobol4.sh" run --suites gimpel --out "$W" $SMOKE_FORCE > "$W/run.log" 2>&1
 rc=$?
 TSV="$W/results.tsv"
 [ -f "$TSV" ] || { echo "⛔ REFUSE(rc=2): scorecard_snobol4.sh produced no results.tsv (rc=$rc) -- run.log:"; cat "$W/run.log"; exit 2; }
@@ -86,6 +90,10 @@ if [ "$TOTAL" -eq 0 ]; then
     echo "   not a failure -- wait for it and re-run):"
     sed 's/^/     /' "$W/run.log"
     exit 2
+fi
+if rr_selected && [ -z "$SMOKE_KEYS" ]; then
+    [ "$VEND_BEFORE" = "$(_vend_fingerprint)" ] || { echo "⛔ REFUSE(rc=2): the part's run changed the vendored gimpel directory"; exit 2; }
+    rr_end gimpel; exit 0   # the scorecard appended the part's rows under their libraries' names (progress_append_results_tsv); no suite row (CEO-1802)
 fi
 if [ -n "$SMOKE_KEYS" ]; then
     [ "$VEND_BEFORE" = "$(_vend_fingerprint)" ] || { echo "⛔ REFUSE(rc=2): the smoke run changed the vendored gimpel directory"; exit 2; }

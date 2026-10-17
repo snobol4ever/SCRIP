@@ -1571,6 +1571,26 @@ FROM_PROGRESS_MASTERS = {"sno-rungs": "tests/snobol4", "icn-rungs": "tests/icon"
                          "raku-rungs": "tests/raku", "snc-rungs": "tests/snocone", "reb-rungs": "tests/rebus"}
 
 
+def _gimpel_population(tdir):
+    """Gimpel's population is its LIBRARIES (ceo CEO-1269: the program is the library, the driver is how it is graded), keyed as its rows
+    key them (packages/snobol4/gimpel/<lib>.<ext>), by the runner's own _lib_of rule: x_driver.sno drives x.spt|x.inc|x.sno|x.INC, and
+    x_lib_driver.sno drives x.inc. Returns (every shipped library key, the keys a driver grades); the rest are owed with no reading."""
+    names = sorted(os.listdir(tdir))
+    libs = {f for f in names if f.rsplit(".", 1)[-1] in ("inc", "spt", "sno", "INC") and not f.startswith("ALL.") and not f.endswith("_driver.sno")}
+    driven = set()
+    for d in names:
+        if not d.endswith("_driver.sno"):
+            continue
+        stem = d[:-len("_driver.sno")]
+        hit = next((stem + "." + e for e in ("spt", "inc", "sno", "INC") if stem + "." + e in libs), None)
+        if hit is None and stem.endswith("_lib") and stem[:-4] + ".inc" in libs:
+            hit = stem[:-4] + ".inc"
+        if hit:
+            driven.add(hit)
+    pre = "packages/snobol4/gimpel/"
+    return sorted(pre + f for f in libs), {pre + f for f in driven}
+
+
 def from_progress_table(corpus, key):
     """(table dir, progress suite name) for a SUITES.tsv key: the seven masters by name, a package by the harness's own key rule
     (PROGRESS_PACKAGE_KEYS: a package directory's progress key, else its name), or (None, None)."""
@@ -1649,6 +1669,16 @@ def cmd_from_progress(a):
                         acc.add(_stem(line.split("\t")[0]))
                         nex += fn == "EXCLUDED.tsv"
         pkg_pop = (set(pop) | shipped) - xnames - cnames
+    _owed = set()
+    if key == "gimpel":   # its rows are keyed by library, its table by driver (CEO-1269)
+        pop, _driven = _gimpel_population(tdir)
+        _owed = set(pop) - _driven
+        shipped = set()
+        _gst = lambda k: k.rsplit("/", 1)[-1].rsplit(".", 1)[0]   # EXCLUDED.tsv and CONTAINERS.tsv name a library by file; _stem dropped its extension
+        _gx, _gc = xnames, cnames
+        xnames = {k for k in pop if _gst(k) in _gx}
+        cnames = {k for k in pop if _gst(k) in _gc}
+        pkg_pop = set(pop) - xnames - cnames
     want = set(pop)
     # (program, mode) -> (outcome, note, tree, ts, secs) at the NEWEST timestamp: the table is compacted (older keys kept ahead of today's
     # appends, 380 backward steps measured 2026-10-11), so file order is not time order; a tie keeps the later line, the later append
@@ -1695,7 +1725,7 @@ def cmd_from_progress(a):
         pkg_pop = pkg_pop - _outside
         cnt = _c.Counter(cnt)
         cnt["PASS"] = sum(1 for e in pkg_pop if _both(e))
-        unread = [e for e in pop if e in pkg_pop and e not in last_by]
+        unread = [e for e in pop if e in pkg_pop and e not in last_by and e not in _owed]
         halfread = [e for e in pop if e in pkg_pop and e in last_by and set(last_by[e]) != {"m3", "m4"}]
         excluded = nex + len(cnames - xnames) + len(_outside_new)
     reads = sorted((v[3], v[2]) for v in last.values())
