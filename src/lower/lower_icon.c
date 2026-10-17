@@ -2578,8 +2578,8 @@ static IR_t * lower_case_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
             IR_t * kn = NULL;
             IR_t * ke = lower(cx, SEL, NULL, dj, &kn);
             IR_t * kβ = cx->beta;
-            IR_t * idc = build(cx, IR_CALL_BUILTIN, aent0, dj);
-            IR_LIT(idc).sval = (char *) "IDENTICAL";
+            IR_t * idc = build(cx, IR_BINOP_TEST, aent0, dj);
+            IR_LIT(idc).ival = BINOP_EQV;
             lc_γ_to_α(idc, aent0);
             ir_operand_push(idc, sr);
             ir_operand_push(idc, kn);

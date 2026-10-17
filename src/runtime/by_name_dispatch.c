@@ -17681,8 +17681,10 @@ DESCR_t c_rt_str_coerce(DESCR_t d) {
     return BSTRVAL(b, cl);
 }
 static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0);
+static int bn_identical(DESCR_t a, DESCR_t b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
+    if ((op & ~BINOP_F_NUMIFY_BLANK) == BINOP_EQV || (op & ~BINOP_F_NUMIFY_BLANK) == BINOP_NEQV) return rt_jct_relop_impl(lhs, rhs, op & ~BINOP_F_NUMIFY_BLANK, 0);
     extern int g_core_errjmp_n;
     core_errjmp_t ej;
     int my = g_core_errjmp_n;
@@ -17697,23 +17699,7 @@ int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op, int blank0) {
     if (IS_FAIL_fn(lhs) || IS_FAIL_fn(rhs)) return 0;
-    if (op == BINOP_EQV || op == BINOP_NEQV) {
-        int eq = 0;
-        int lcs = (lhs.v == DT_S && lhs.slen == 0xFFFFFFFFu), rcs = (rhs.v == DT_S && rhs.slen == 0xFFFFFFFFu);
-        if (IS_PROCVAL_fn(lhs) && IS_PROCVAL_fn(rhs)) eq = rt_procval_same(lhs, rhs);
-        else if (lhs.v == rhs.v && lhs.i == rhs.i) eq = 1;
-        else if (lcs || rcs) {
-            if (lcs && rcs) { const char *ca, *cb; int la, lb; eq = cset_resolve(lhs, &ca, &la) && cset_resolve(rhs, &cb, &lb) && la == lb && memcmp(ca, cb, (size_t)la) == 0; }
-        } else if ((lhs.v == DT_S || lhs.v == DT_SNUL) && (rhs.v == DT_S || rhs.v == DT_SNUL)) {
-            const char *a = lhs.s ? lhs.s : "";
-            const char *b = rhs.s ? rhs.s : "";
-            long la = lhs.slen ? (long)lhs.slen : (long)strlen(a);
-            long lb = rhs.slen ? (long)rhs.slen : (long)strlen(b);
-            eq = (la == lb) && memcmp(a, b, (size_t)la) == 0;
-        } else if (lhs.v == rhs.v && lhs.v == DT_I) eq = (lhs.i == rhs.i);
-        else if (lhs.v == rhs.v && lhs.v == DT_R) eq = (lhs.r == rhs.r);
-        return (op == BINOP_EQV) ? eq : !eq;
-    }
+    if (op == BINOP_EQV || op == BINOP_NEQV) return (op == BINOP_EQV) ? bn_identical(lhs, rhs) : !bn_identical(lhs, rhs);
     if (rk_match_is(lhs)) lhs = FIELD_GET_fn(lhs, "text");
     if (rk_match_is(rhs)) rhs = FIELD_GET_fn(rhs, "text");
     int lj = junction_is(lhs), rj = junction_is(rhs);
@@ -18406,13 +18392,19 @@ static int icn_bi_string_of_int(DESCR_t av, DESCR_t *out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_identical(DESCR_t a, DESCR_t b) {
+    if (IS_PROCVAL_fn(a) && IS_PROCVAL_fn(b)) return rt_procval_same(a, b);
     if (a.v != b.v) return 0;
+    if (a.slen == b.slen && a.i == b.i) return 1;
     if (a.v == DT_SNUL) return 1;
     if (a.v == DT_I) return a.i == b.i;
     if (a.v == DT_R) return a.r == b.r;
-    if (a.v == DT_S) { int acs = (a.slen == 0xFFFFFFFFu), bcs = (b.slen == 0xFFFFFFFFu); return (acs == bcs) && (a.s == b.s || (a.s && b.s && strcmp(a.s, b.s) == 0)); }
-    if (IS_PROCVAL_fn(a) && IS_PROCVAL_fn(b)) return rt_procval_same(a, b);
-    return a.ptr == b.ptr;
+    if (a.v == DT_BIG) { extern int rt_big_eq(DESCR_t, DESCR_t); return rt_big_eq(a, b); }
+    if (a.v != DT_S) return a.ptr == b.ptr;
+    int acs = (a.slen == 0xFFFFFFFFu), bcs = (b.slen == 0xFFFFFFFFu);
+    if (acs || bcs) { const char *ca, *cb; int la, lb; return acs && bcs && cset_resolve(a, &ca, &la) && cset_resolve(b, &cb, &lb) && la == lb && memcmp(ca, cb, (size_t)la) == 0; }
+    const char *x = a.s ? a.s : "", *y = b.s ? b.s : "";
+    long la = a.slen ? (long)a.slen : (long)strlen(x), lb = b.slen ? (long)b.slen : (long)strlen(y);
+    return la == lb && memcmp(x, y, (size_t)la) == 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_icn_trim(DESCR_t *args, int nargs, DESCR_t *out) {

@@ -33,7 +33,7 @@ static void check(DESCR_t a, DESCR_t b, int op) {
     }
     handled++;
     if (!want && op >= 5 && op <= 10) { fails++; printf("  FAIL op %d case %d: handled a pair outside the numeric arm\n", op, ncase); }
-    if (want) {
+    if (want || op == 22 || op == 23) {
         int c = c_rt_jct_relop(a, b, op);
         if ((int)(rax & 0xFFFFFFFFu) != (c ? 1 : 0) || (c != 0 && c != 1)) { fails++; printf("  FAIL op %d case %d: leaf %d twin %d\n", op, ncase, (int)(rax & 0xFFFFFFFFu), c); }
     }
@@ -47,6 +47,11 @@ int main(void) {
     int nv = (int)(sizeof vals / sizeof vals[0]);
     static const int ops[] = { 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 22, 23, 5 | 0x100, 9 | 0x100 };
     for (unsigned k = 0; k < sizeof ops / sizeof ops[0]; k++) for (int i = 0; i < nv; i++) for (int j = 0; j < nv; j++) check(vals[i], vals[j], ops[k]);
+    static char sa[] = "abc", sb[] = "abc", sc[] = "abd", sd[] = "ab\0c", se[] = "ab\0d", sf[] = "abcd", sg[] = "\003bc", sh[] = "\003bc", si[] = "";
+    DESCR_t svals[] = { BSTRVAL(sa, 3), BSTRVAL(sb, 3), BSTRVAL(sc, 3), BSTRVAL(sa, 2), BSTRVAL(sf, 3), BSTRVAL(sf, 4), BSTRVAL(sd, 4), BSTRVAL(se, 4), BSTRVAL(sd, 2), BSTRVAL(sg, 3), BSTRVAL(sh, 3),
+        BSTRVAL(si, 0), BSTRVAL(sa, 0), CSETVAL("abc"), CSETVAL("abc"), NULVCL, INTVAL(3), REALVAL(3.0) };
+    int ns = (int)(sizeof svals / sizeof svals[0]);
+    for (int k = 22; k <= 23; k++) for (int i = 0; i < ns; i++) for (int j = 0; j < ns; j++) check(svals[i], svals[j], k);
     printf("RTX RELOP: %d cases, %d handled, %d declined, %d mismatches\n", ncase, handled, declined, fails);
     if (!handled || !declined) { printf("RTX RELOP UNIT: FAIL -- a battery that saw only one verdict proves nothing\n"); return 1; }
     printf("RTX RELOP UNIT: %s\n", fails ? "FAIL" : "PASS");

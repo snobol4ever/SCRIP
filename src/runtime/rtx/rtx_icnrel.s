@@ -106,21 +106,52 @@ RTX_FUNC(rt_jct_relop)
 .Leqv:
     cmp     edi, edx
     jne     .Lbail
+    cmp     dil, DT_S
+    je      .Leqv_str
+    cmp     rdi, rdx
+    jne     .Lbail
     cmp     rsi, rcx
-    je      .Leqv_equal
+    je      .Leqv_settled
     cmp     dil, DT_I
     jne     .Lbail
+.Leqv_differ:
     xor     eax, eax
     cmp     r8d, OP_NEQV
     je      .Lret1
     ret
-.Leqv_equal:
-    cmp     dil, DT_S
-    jne     .Leqv_settled
+.Leqv_str:
     mov     rax, rdi
     shr     rax, 32
     cmp     eax, -1
     je      .Lbail
+    test    eax, eax
+    jz      .Lbail
+    mov     rax, rdx
+    shr     rax, 32
+    cmp     eax, -1
+    je      .Lbail
+    test    eax, eax
+    jz      .Lbail
+    cmp     rdi, rdx
+    jne     .Leqv_differ
+    cmp     rsi, rcx
+    je      .Leqv_settled
+    test    rsi, rsi
+    jz      .Lbail
+    test    rcx, rcx
+    jz      .Lbail
+    cmp     byte ptr [rsi], 3
+    je      .Lbail
+    cmp     byte ptr [rcx], 3
+    je      .Lbail
+.Leqv_strloop:
+    movzx   edx, byte ptr [rsi]
+    cmp     dl, byte ptr [rcx]
+    jne     .Leqv_differ
+    inc     rsi
+    inc     rcx
+    dec     eax
+    jnz     .Leqv_strloop
 .Leqv_settled:
     xor     eax, eax
     cmp     r8d, OP_EQV
