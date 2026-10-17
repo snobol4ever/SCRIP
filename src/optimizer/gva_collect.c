@@ -103,10 +103,11 @@ int gva_name_eligible(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int gva_collect_reserve(void);
+int gva_collect_reserve_n(int n);
 void gva_collect_reset(void) {
     g_lower.opt.gva_n = 0;
     if (g_lower.opt.gva_hx_cap) memset(g_lower.opt.gva_hx, 0, (size_t)g_lower.opt.gva_hx_cap * sizeof(gva_hx_t));
-    { extern long rt_sc_gva_reserve(void); long r = rt_sc_gva_reserve(); for (long i = 0; i < r; i++) gva_collect_reserve(); }
+    { extern long rt_sc_gva_reserve(void); long r = rt_sc_gva_reserve(); if (r > 0) (void)gva_collect_reserve_n((int)r); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int gva_index_of(const char *name) {
@@ -153,6 +154,21 @@ int gva_collect_reserve(void) {
     g_lower.opt.gva_names[g_lower.opt.gva_n] = (const char *)0;
     g_lower.opt.gva_n++;
     return g_lower.opt.gva_n - 1;
+}
+int gva_collect_reserve_n(int n) {
+    int base = g_lower.opt.gva_n;
+    if (n <= 0) return base;
+    if (base + n > g_lower.opt.gva_max) {
+        int nm = g_lower.opt.gva_max ? g_lower.opt.gva_max : 256;
+        while (nm < base + n) nm *= 2;
+        const char **g = (const char **)ct_grow(g_lower.opt.gva_names, (size_t)nm * sizeof(const char *));
+        if (!g) return -1;
+        g_lower.opt.gva_names = g;
+        g_lower.opt.gva_max = nm;
+    }
+    memset((void *)&g_lower.opt.gva_names[base], 0, (size_t)n * sizeof(const char *));
+    g_lower.opt.gva_n = base + n;
+    return base;
 }
 int gva_collect_var_copy(const char *name) {
     if (!gva_name_eligible(name)) return -1;

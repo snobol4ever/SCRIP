@@ -728,14 +728,16 @@ void rt_ab_undef_fn_fail(void) { core_runtime_error(22, "undefined function call
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     if (!cells) return cells;
-    { extern void rt_icn_global_note(const char *); for (int k = 0; k < n; k++) if (names && names[k]) rt_icn_global_note(names[k]); }
-    for (int k = 0; k < n; k++) { const char *nm = names ? names[k] : (const char *)0; if (!nm) continue; (void)NV_bind_gva(nm, &cells[k]); }
+    int k0 = names ? 0 : n;
+    while (k0 < n && !names[k0]) k0++;
+    { extern void rt_icn_global_note(const char *); for (int k = k0; k < n; k++) if (names[k]) rt_icn_global_note(names[k]); }
+    for (int k = k0; k < n; k++) { const char *nm = names[k]; if (!nm) continue; (void)NV_bind_gva(nm, &cells[k]); }
     {
         extern int rt_is_reassigned_builtin(const char *);
         extern int rt_proc_is_registered(const char *);
         extern DESCR_t rt_proc_value(const char *);
-        for (int k = 0; k < n; k++) {
-            const char *nm = names ? names[k] : (const char *)0;
+        for (int k = k0; k < n; k++) {
+            const char *nm = names[k];
             if (!nm || !rt_is_reassigned_builtin(nm)) continue;
             if (rt_proc_is_registered(nm)) cells[k] = rt_proc_value(nm);
             else { DESCR_t bv = {0}; bv.v = DT_E; bv.slen = PROCVAL_SLEN; bv.s = (char *)nm; cells[k] = bv; }
@@ -747,10 +749,15 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
         extern int gva_count(void);
         extern int gva_collect_var(const char *);
         extern int gva_collect_reserve(void);
+        extern int gva_collect_reserve_n(int);
         extern int g_gva_active;
         if (_b1cg && n > 0 && gva_count() == 0) {
-            for (int k = 0; k < n; k++) {
-                int kk = (names && names[k]) ? gva_collect_var(names[k]) : gva_collect_reserve();
+            if (k0 > 0 && gva_collect_reserve_n(k0) != 0) {
+                fprintf(stderr, "gva_register: island slots 0..%d (<hidden>) were not collected from 0 -- the run-time island must mirror the compiled table slot for slot\n", k0 - 1);
+                abort();
+            }
+            for (int k = k0; k < n; k++) {
+                int kk = names[k] ? gva_collect_var(names[k]) : gva_collect_reserve();
                 if (kk != k) {
                     fprintf(stderr, "gva_register: island slot %d (%s) collected at %d -- the run-time island must mirror the compiled table slot for slot\n", k,
                         (names && names[k]) ? names[k] : "<hidden>", kk);

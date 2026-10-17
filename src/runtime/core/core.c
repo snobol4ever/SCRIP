@@ -4534,7 +4534,7 @@ static void _func_regrow(unsigned need) {
     rt_slab_t *ns = rt_slab_get((size_t)(need + 2) * sizeof(void *));
     unsigned long *w = (unsigned long *)RT_SLAB_BASE(ns);
     unsigned nb = 8;
-    while ((size_t)(nb * 2 + 2) * sizeof(void *) <= ns->cap) nb *= 2;
+    while (nb < need && (size_t)(nb * 2 + 2) * sizeof(void *) <= ns->cap) nb *= 2;
     memset(w, 0, (size_t)(nb + 2) * sizeof(void *));
     w[0] = nb;
     w[1] = g_func_bslab ? _func_bw[1] : 0;
@@ -4547,7 +4547,7 @@ static void _func_regrow(unsigned need) {
     }
     { rt_slab_t *old = g_func_bslab; g_func_bslab = ns; if (old) rt_slab_put(old); }
 }
-static void _func_init(void) { if (!g_func_bslab) _func_regrow(8); }
+static void _func_init(void) { if (!g_func_bslab) _func_regrow(256); }
 static void _func_count_one(void) { if (++_func_bw[1] > _func_nbuckets) _func_regrow(_func_nbuckets * 2); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned _func_hash(const char *name) { return _func_hash_raw(name) & (_func_nbuckets - 1); }
