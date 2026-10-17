@@ -1571,6 +1571,43 @@ FROM_PROGRESS_MASTERS = {"sno-rungs": "tests/snobol4", "icn-rungs": "tests/icon"
                          "raku-rungs": "tests/raku", "snc-rungs": "tests/snocone", "reb-rungs": "tests/rebus"}
 
 
+def _swi_case_census(tdir, files):
+    """SWI's population, case by case, as test_prolog_swi_suite.sh grades it: per table file <f> (<f>.pl beside its oracle ref <f>.ref), every case
+    util_swi_match.py enumerates from the source and the ref alone (the runner's own matcher, run on no output: the case list is the oracle's), less a case
+    the oracle gives no answer (UNGRADED: BLOCKED, an EMPTY or UNGRADABLE unit; NO_ORACLE_ANSWER, CEO-1696) and then a case EXCLUDED_CASES.tsv names
+    (file + unit:test#k, or unit:test for every instance; CEO-1710/1766), in the runner's order. Returns (declared, {"<f>.pl:<unit:test#k>"}, excluded),
+    or a REFUSE line when a file has no ref or the matcher refuses."""
+    match_py = os.path.join(os.path.dirname(os.path.abspath(__file__)), "util_swi_match.py")
+    excl = set()
+    xp = os.path.join(tdir, "EXCLUDED_CASES.tsv")
+    if os.path.exists(xp):
+        for l in open(xp, encoding="utf-8", errors="replace"):
+            r = l.rstrip("\n").split("\t")
+            if l.strip() and not l.startswith("#") and len(r) >= 2:
+                excl.add((r[0].strip(), r[1].strip()))
+    declared, graded, noref = 0, set(), []
+    for f in files:
+        rel = f + ".pl"
+        ref = os.path.join(tdir, f + ".ref")
+        if not os.path.exists(ref):
+            noref.append(rel)
+            continue
+        out = subprocess.run([sys.executable, match_py, os.path.join(tdir, rel), ref, os.devnull, "0"], capture_output=True, text=True)
+        if out.returncode != 0:
+            return "REFUSE(2): from-progress: util_swi_match.py refused %s (rc %d): %s" % (rel, out.returncode, (out.stderr or out.stdout).strip()[:200])
+        for line in out.stdout.split("\n"):
+            c = line.split("\t")
+            if len(c) < 2 or line.startswith("MATCH "):
+                continue
+            declared += 1
+            if c[1] == "UNGRADED" or (rel, c[0]) in excl or (rel, c[0].rsplit("#", 1)[0]) in excl:
+                continue
+            graded.add(rel + ":" + c[0])
+    if noref:
+        return "REFUSE(2): from-progress: %d SWI file(s) carry no oracle ref, so their cases are unknown: %s" % (len(noref), " ".join(noref[:10]))
+    return declared, graded, declared - len(graded)
+
+
 def _gimpel_population(tdir):
     """Gimpel's population is its LIBRARIES (ceo CEO-1269: the program is the library, the driver is how it is graded), keyed as its rows
     key them (packages/snobol4/gimpel/<lib>.<ext>), by the runner's own _lib_of rule: x_driver.sno drives x.spt|x.inc|x.sno|x.INC, and
@@ -1718,6 +1755,13 @@ def cmd_from_progress(a):
             fl = line.rstrip("\n").split("\t")
             if len(fl) < 10 or fl[5] != dbsuite or fl[8] not in ("m3", "m4"):
                 continue
+            if key == "swi":   # SWI's rows name a CASE of a table file, file.pl:unit:test#k (its table lists files)
+                _sf = fl[7].split(":", 1)[0]
+                if (_sf[:-3] if _sf.endswith(".pl") else None) in want:
+                    k = (fl[7], fl[8])
+                    if k not in last or fl[0] >= last[k][3]:
+                        last[k] = (fl[9], fl[11] if len(fl) > 11 else "", fl[1], fl[0], fl[10])
+                continue
             if pkg and fl[7] not in want:
                 fl[7] = _stem(fl[7])   # GNU writes BipsPl/x.pl for the table's BipsPl/x
             if fl[7] not in want:
@@ -1749,6 +1793,19 @@ def cmd_from_progress(a):
             last_by[prog][m] = v
         # ⭐ AN ENTRY THE ORACLE REFUSES IN BOTH MODES LEAVES THE DENOMINATOR (CEO-1696: no oracle answer is excluded, never debt): its latest
         # readings are OUTSIDE in m3 and m4, the shape INRIA's three file_manip entries and every package's oracle-refused programs record
+        _swi_excl = None
+        if key == "swi":
+            # ⭐ SWI's POPULATION IS THE ORACLE'S ENUMERATION OF ITS CASES (the row counts cases; the table lists files), less the cases with no oracle
+            # answer and the EXCLUDED_CASES.tsv rows, as the runner grades them (_swi_case_census); Excl is declared - graded, as the runner writes it,
+            # so it moves with the corpus and never with an old row (the first cut read SUITES.tsv's own today_excluded back: 167 where the corpus says 211)
+            _sc = _swi_case_census(tdir, sorted(want))
+            if isinstance(_sc, str):
+                print(_sc)
+                return 2
+            _swi_decl, pkg_pop, _swi_excl = _sc
+            pop, shipped = sorted(pkg_pop), set()
+            print("SUITE_ROW_SWI files=%d declared=%d graded=%d excluded=%d (NO_ORACLE_ANSWER and EXCLUDED_CASES.tsv, by util_swi_match.py's enumeration)"
+                  % (len(want), _swi_decl, len(pkg_pop), _swi_excl))
         _outside = {e for e in pkg_pop if all(last_by.get(e, {}).get(m, ("",))[0] == "OUTSIDE" for m in ("m3", "m4")) and e in last_by}
         _outside_new = _outside - xnames - cnames
         pkg_pop = pkg_pop - _outside
@@ -1757,6 +1814,8 @@ def cmd_from_progress(a):
         unread = [e for e in pop if e in pkg_pop and e not in last_by and e not in _owed]
         halfread = [e for e in pop if e in pkg_pop and e in last_by and set(last_by[e]) != {"m3", "m4"}]
         excluded = nex + len(cnames - xnames) + len(_outside_new)
+        if _swi_excl is not None:
+            excluded = _swi_excl
     # the row is current at the OLDEST reading of its POPULATION: an excluded or ungraded program's old reading is not one of the row's
     reads = sorted((v[3], v[2]) for (prog, _m), v in last.items() if not pkg or prog in pkg_pop)
     oldest, newest = (reads[0], reads[-1]) if reads else (("-", "-"), ("-", "-"))
@@ -1770,12 +1829,13 @@ def cmd_from_progress(a):
              os.path.relpath(tdir, corpus), cnt["PASS"], cnt["FAIL"], cnt["OUTSIDE"], cnt["UNGRADABLE"], cnt["UNGRADED"], cnt["DEFERRED"], timed))
     if part:
         byc = _c.defaultdict(list)
+        _pk = (lambda p: p.split(":", 1)[0][:-3]) if key == "swi" else (lambda p: p)   # an SWI case is in its file's part
         for (prog, m), v in last.items():
-            byc[part.get(prog, "?")].append((v[3], v[2]))
-        sizes = _c.Counter(part.get(e, "?") for e in pop)
+            byc[part.get(_pk(prog), "?")].append((v[3], v[2]))
+        sizes = _c.Counter(part.get(_pk(e), "?") for e in pop)
         for c in sorted(sizes, key=lambda c: (c != "core", c)):
             r = sorted(byc.get(c, []))
-            nread = len({prog for (prog, _m) in last if part.get(prog, "?") == c})
+            nread = len({prog for (prog, _m) in last if part.get(_pk(prog), "?") == c})
             print("SUITE_ROW_PART %s entries=%d read=%d oldest=%s newest=%s" % (c, sizes[c], nread, "%s@%s" % (r[0][1], r[0][0]) if r else "-",
                                                                               "%s@%s" % (r[-1][1], r[-1][0]) if r else "-"))
     if unread:

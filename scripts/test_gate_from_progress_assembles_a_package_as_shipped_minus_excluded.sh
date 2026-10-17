@@ -10,6 +10,13 @@
 #   ARM 2  SUITE_ROW_PACKAGE prints shipped=7 table=4 excluded=2 denominator=5 debt_unread_by_design=1.
 #   ARM 3  a master key is untouched: the rebus rungs fixture keys its total on ALL.csv alone (no SUITE_ROW_PACKAGE line).
 #   ARM 4  an entry whose latest readings are OUTSIDE in both modes leaves the denominator into excluded (CEO-1696): 2/4 excluded=3.
+#   ARM 5  SWI assembles BY CASE from the oracle's enumeration (its table lists files, its rows name cases): files u/test_a (ua:t1 PASS, ua:t2 PASS,
+#          ua:t3 FAIL in the ref, unit ub EMPTY with test t4) and u/test_b (uc:x PASS); EXCLUDED_CASES.tsv names ua:t2#1. Declared 5, Excl 2 (t4 has no
+#          oracle answer, t2 is excluded), graded 3. Readings: t1 and x PASS both modes, t3 PASS m3 / FAIL m4, and a reading of the excluded t2 that
+#          must not count. The row is 2/3 excluded=2.
+#   ARM 6  SWI's Excl comes from the corpus, never from a row: the fixture's SUITES.tsv says swi excluded 167, and the row still reads excluded=2.
+#   PROVEN TO FAIL: on origin c6b9a6953 arms 5 and 6 FAIL (the cases match no table entry: 0/2 excluded=0, 2 unread); on the first cut of the SWI
+#   assembly (local 5d51861a3) arms 5 and 6 FAIL: it reads 2/3 excluded=167, the fixture's SUITES.tsv number read back.
 # PROVEN TO FAIL on the assembler before this rule (origin 717ddfca3's util_score_row.py): arms 1 and 2 FAIL -- it reads 3/4 with no excluded= (ALL.csv's count; d.pl unmatched, so d is half read).
 # EXIT 0 every arm holds; 1 an arm failed; 2 could not measure.
 set -uo pipefail
@@ -42,6 +49,19 @@ ck "3 a master key keeps ALL.csv as its population (reb-rungs 2/2, no SUITE_ROW_
 row 13 zzpkg prolog c m3 OUTSIDE; row 14 zzpkg prolog c m4 OUTSIDE
 o4="$(S4E_CORPUS_ROOT="$T/corpus" S4E_PROGRESS_DB="$DB" python3 "$SR" from-progress --suite zzpkg --dry-run 2>&1)"
 ck "4 c refused by the oracle in both modes leaves the denominator: 2/4 excluded=3, outside=1" 'grep -q "would set zzpkg -> 2/4 excluded=3 " <<<"$o4" && grep -q " outside=1 excluded=3 denominator=4 " <<<"$o4"'
-[ "$fails" = 0 ] || printf '%s\n' "$o1" | grep -E '^SUITE_ROW|would set' | sed 's/^/      /'
+# arms 5 and 6: SWI by case (a scratch swi_tests table, refs, EXCLUDED_CASES.tsv, and a SUITES.tsv whose swi row says excluded 167)
+W="$T/corpus/packages/prolog/swi_tests"; mkdir -p "$W/u"
+printf 'rank,entry,origin\n1,u/test_a,x\n2,u/test_b,x\n' > "$W/ALL.csv"
+printf ':- begin_tests(ua).\ntest(t1) :- true.\ntest(t2) :- true.\ntest(t3) :- true.\n:- end_tests(ua).\n:- begin_tests(ub).\ntest(t4) :- true.\n:- end_tests(ub).\n' > "$W/u/test_a.pl"
+printf 'PASS ua:t1\nPASS ua:t2\nFAIL ua:t3\nEMPTY ub\n' > "$W/u/test_a.ref"
+printf ':- begin_tests(uc).\ntest(x) :- true.\n:- end_tests(uc).\n' > "$W/u/test_b.pl"; printf 'PASS uc:x\n' > "$W/u/test_b.ref"
+printf '# EXCLUDED_CASES.tsv\nu/test_a.pl\tua:t2#1\tNO_ORACLE_ANSWER\tthe fixture names it\n' > "$W/EXCLUDED_CASES.tsv"
+row 21 swi prolog u/test_a.pl:ua:t1#1 m3 PASS; row 22 swi prolog u/test_a.pl:ua:t1#1 m4 PASS; row 23 swi prolog u/test_a.pl:ua:t2#1 m3 PASS; row 24 swi prolog u/test_a.pl:ua:t2#1 m4 PASS
+row 25 swi prolog u/test_a.pl:ua:t3#1 m3 PASS; row 26 swi prolog u/test_a.pl:ua:t3#1 m4 FAIL; row 27 swi prolog u/test_b.pl:uc:x#1 m3 PASS; row 28 swi prolog u/test_b.pl:uc:x#1 m4 PASS
+printf 'key\tlabel\ticon\tlang\tfirst_date\tfirst_pass\tfirst_total\ttoday_date\ttoday_pass\ttoday_total\ttree\tcriterion_changed\ttoday_excluded\nswi\tSWI\tx\tprolog\t2026-10-01\t0\t1\t2026-10-15\t2129\t2768\tabc1234\t\t167\n' > "$T/SUITES.tsv"
+o5="$(S4E_SUITES_TSV="$T/SUITES.tsv" S4E_CORPUS_ROOT="$T/corpus" S4E_PROGRESS_DB="$DB" python3 "$SR" from-progress --suite swi --dry-run 2>&1)"
+ck "5 SWI assembles by case: 2/3, declared 5, graded 3, excluded 2" 'grep -q "would set swi -> 2/3 excluded=2 " <<<"$o5" && grep -q "^SUITE_ROW_SWI files=2 declared=5 graded=3 excluded=2 " <<<"$o5"'
+ck "6 SWI's Excl is the corpus's 2, not the 167 its SUITES.tsv row says" 'grep -q " excluded=2 " <<<"$o5" && ! grep -q "excluded=167" <<<"$o5"'
+[ "$fails" = 0 ] || printf '%s\n%s\n' "$o1" "$o5" | grep -E '^SUITE_ROW|would set|REFUSE' | sed 's/^/      /'
 if [ "$fails" = 0 ]; then echo "✅ GATE PASS [from_progress_assembles_a_package_as_shipped_minus_excluded]: $n of $n arms hold"; exit 0; fi
 echo "⛔ GATE FAIL [from_progress_assembles_a_package_as_shipped_minus_excluded]: $fails of $n arm(s) failed"; exit 1
