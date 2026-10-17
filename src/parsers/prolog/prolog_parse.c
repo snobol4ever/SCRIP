@@ -3564,6 +3564,8 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&refkeys, pl_pred_key("variant", 2));
         pl_cv_add(&referenced, "ord_setproduct");
         pl_cv_add(&refkeys, pl_pred_key("ord_setproduct", 3));
+        pl_cv_add(&referenced, "gc_tables");
+        pl_cv_add(&refkeys, pl_pred_key("gc_tables", 1));
         for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
             if (strcmp(PL_PRELUDE_LIBS[li].lib, "lists") && strcmp(PL_PRELUDE_LIBS[li].lib, "apply") && strcmp(PL_PRELUDE_LIBS[li].lib, "ordsets")) continue;
             for (const pl_prelude_lib_pi_t *le = PL_PRELUDE_LIBS[li].exports; le->nm; le++) { pl_cv_add(&referenced, le->nm); pl_cv_add(&refkeys, pl_pred_key(le->nm, le->ar)); }
