@@ -1670,6 +1670,35 @@ def cmd_from_progress(a):
                         nex += fn == "EXCLUDED.tsv"
         pkg_pop = (set(pop) | shipped) - xnames - cnames
     _owed = set()
+    if pkg and os.sep + os.path.join("packages", "icon") + os.sep in tdir + os.sep:
+        # ⭐ AN ICON PACKAGE GRADES A LIBRARY THROUGH ITS DRIVER and keys the row by the library (lib_package_keys.board_key, the harness's own rule),
+        # and a PREPROCESS.tsv contract (program<TAB>argv<TAB>rc) grades each argv program by preprocessing alone: Arizona's general/tpp and
+        # general/tpp9, JCON's tpp -- shipped programs its ALL.csv does not list
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from lib_package_keys import board_key as _bk
+        _mapped = []
+        for e in pop:
+            k_ = _bk(tdir, "icon", e)
+            if k_ not in _mapped:
+                _mapped.append(k_)
+        _pp = os.path.join(tdir, "PREPROCESS.tsv")
+        if os.path.exists(_pp):
+            for l in open(_pp, encoding="utf-8", errors="replace"):
+                _r = l.rstrip("\n").split("\t")
+                if len(_r) >= 2 and l.strip() and not l.startswith("#"):
+                    _ps = os.path.dirname(_r[0].strip())
+                    for _a in _r[1].split():
+                        k_ = (_ps + "/" if _ps not in ("", ".") else "") + (_a[:-4] if _a.endswith(".icn") else _a)
+                        if k_ not in _mapped:
+                            _mapped.append(k_)
+        pop = _mapped
+        # ALL.excluded.txt names the units the container does not grade on their own (graded through another unit, an oracle that refuses...):
+        # a shipped file it names is not debt the table forgot
+        _ae = os.path.join(tdir, "ALL.excluded.txt")
+        if os.path.exists(_ae):
+            _aen = {_stem(l.split(":", 1)[0]) for l in open(_ae, encoding="utf-8", errors="replace") if l.strip()}
+            shipped = {x for x in shipped if x in set(pop) or x not in _aen}
+        pkg_pop = (set(pop) | shipped) - xnames - cnames
     if key == "gimpel":   # its rows are keyed by library, its table by driver (CEO-1269)
         pop, _driven = _gimpel_population(tdir)
         _owed = set(pop) - _driven

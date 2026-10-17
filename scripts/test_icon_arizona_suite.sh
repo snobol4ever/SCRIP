@@ -194,8 +194,10 @@ M4_PASS=0; M4_REJECT=0; M4_FAIL=0; M4_CRASH=0; M4_HANG=0
 M3_REJECT_NAMES=""; M3_FAIL_NAMES=""; M3_CRASH_NAMES=""; M3_HANG_NAMES=""
 M4_REJECT_NAMES=""; M4_FAIL_NAMES=""; M4_CRASH_NAMES=""; M4_HANG_NAMES=""
 m3rc=0; m4rc=0
+. "$HERE/lib_rr.sh" && rr_load "$PKG" || exit 2   # the round robin's seam (CEO-1802/1805/1806): one part or a request's entries, rows as each program ends
 
 for sub in $SUITE_SUBDIRS; do
+[ -n "${RR_STOP:-}" ] && break
 SUITE="$PKG/$sub"
 [ -d "$SUITE" ] || continue
 # ⛔ A DRIVER'S IPATH NAMES THE SUITE'S LIBRARIES, NEVER ITS PROGRAMS (coo ruling 2026-09-28 on hq_icon's ask): general/ ships io.icn, an
@@ -213,6 +215,7 @@ done
 for std in "$SUITE"/*.ref; do
   [ -f "$std" ] || continue
   name=$(basename "$std" .ref)
+  rr_admits "$sub/$name" || continue; rr_yield "$sub/$name" && { RR_STOP=1; break; }   # the round robin's part (CEO-1802/1806), keyed as ALL.csv keys it
   icn="$SUITE/$name.icn"
   [ -f "$icn" ] || continue
   # ⛔⭐ THE IDENTITY IS THE LIBRARY, THE EXECUTABLE IS ITS DRIVER (ceo CEO-1269). $name stays the file that RUNS -- the ref was
@@ -380,7 +383,8 @@ done
 # so the one verdict is recorded in m3 and in m4 alike, each progress row saying so. A contract whose ref is missing, whose argv
 # names no shipped file, or whose program also carries a NAME.ref refuses: two vehicles, or none, for one program.
 PRE_TSV="$PKG/PREPROCESS.tsv"
-if [ -f "$PRE_TSV" ]; then
+# a part grades the preprocess contracts on the core's turn only: they sit in no chunk (ALL.csv does not list them), and the core turn is every lap's
+if [ -f "$PRE_TSV" ] && { ! rr_selected || [ "${S4E_CHUNK%%@*}" = core ]; } && [ -z "${RR_STOP:-}" ]; then
   while IFS=$'\t' read -r _pp _pargv _prc _prest; do
     case "$_pp" in ''|'#'*) continue ;; esac
     [ -n "$_pargv" ] && [ -n "$_prc" ] || { echo "⛔ REFUSED TO GRADE rc=2: $PRE_TSV row '$_pp' wants program<TAB>argv<TAB>rc" >&2; exit 2; }
@@ -527,6 +531,7 @@ for n in $(printf '%s\n' "${!UNDECLARED[@]}" | sort); do echo "   $n"; done
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. UNGRADABLE.tsv/UNGRADED.tsv beside $PKG (hq_I, corpus a284bcdbb) already split the
 # GAP printed above; graded_narrow=0, this suite compares full output, never by error-number-only.
+rr_selected && { rr_end arizona; exit 0; }   # a part or a request wrote each program's rows as it went, and writes no suite row (CEO-1802)
 INV_PACKAGE=arizona; INV_DIR="$PKG"; INV_EXT=".icn"
 INV_LINE="$(inventory_line "$TOTAL" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
