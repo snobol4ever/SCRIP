@@ -2884,7 +2884,20 @@ static const char * const PL_PRELUDE_SRC =
     "'$lf_ext'(O,X):-memberchk(dialect(xsb),O),!,member(X,['.P','.pl']).\n"
     "'$lf_ext'(_,X):-member(X,['.pl','.P','.pro','.prolog']).\n"
     "'$lf_load'(A,M,O):-(memberchk(dialect(xsb),O)->X=xsb;X=swi),'$lf_ops_on'(X,Sv),open(A,read,S),catch('$lf_read'(S,A,Ts),E,(close(S),'$lf_ops_off'(X,Sv),throw(E))),close(S),'$lf_ops_off'(X,Sv),catch(retractall('$lf_loaded'(A,M)),_,true),assertz('$lf_loaded'(A,M)),'$lf_install'(Ts,M,A).\n"
-    "'$lf_read'(S,A,Ts):-read_term(S,T,[]),(T==end_of_file->Ts=[];'$lf_rop'(T),'$lf_rd1'(T,A,Ts,R),'$lf_read'(S,A,R)).\n"
+    "'$lf_read'(S,A,Ts):-'$lf_rdc'(S,A,[],Ts).\n"
+    "'$lf_rdc'(S,A,C,Ts):-read_term(S,T,[]),'$lf_rdt'(T,S,A,C,Ts).\n"
+    "'$lf_rdt'(T,_,_,_,[]):-T==end_of_file,!.\n"
+    "'$lf_rdt'(T,S,A,C,Ts):-'$lf_cnd'(T,C,C1),!,'$lf_rdc'(S,A,C1,Ts).\n"
+    "'$lf_rdt'(T,S,A,C,Ts):-'$lf_on'(C),!,'$lf_rop'(T),'$lf_rd1'(T,A,Ts,R),'$lf_rdc'(S,A,C,R).\n"
+    "'$lf_rdt'(_,S,A,C,Ts):-'$lf_rdc'(S,A,C,Ts).\n"
+    "'$lf_on'([]).\n"
+    "'$lf_on'([t|_]).\n"
+    "'$lf_cd'(T,D):-nonvar(T),T=(:-D0),nonvar(D0),D0=D.\n"
+    "'$lf_cnd'(T,C,[X|C]):-'$lf_cd'(T,if(G)),!,('$lf_on'(C)->('$lf_if'(G)->X=t;X=f);X=s).\n"
+    "'$lf_cnd'(T,[X|C],[Y|C]):-'$lf_cd'(T,elif(G)),!,(X==f->('$lf_if'(G)->Y=t;Y=f);X==t->Y=d;Y=X).\n"
+    "'$lf_cnd'(T,[X|C],[Y|C]):-'$lf_cd'(T,else),!,(X==f->Y=t;X==t->Y=d;Y=X).\n"
+    "'$lf_cnd'(T,[_|C],C):-'$lf_cd'(T,endif),!.\n"
+    "'$lf_if'(G):-catch(G,_,fail),!.\n"
     "'$lf_rd1'(T,A,Ts,R):-nonvar(T),T=(:-D),nonvar(D),D=include(F),!,'$lf_rel'(A,F,P0),'$lf_path'(P0,[dialect(xsb)],P),open(P,read,S2),catch('$lf_read'(S2,P,Is),E,(close(S2),throw(E))),close(S2),append(Is,R,Ts).\n"
     "'$lf_rd1'(T,_,[T|R],R).\n"
     "'$lf_rel'(A,F,P):-atom(F),\\+ sub_atom(F,0,1,_,'/'),!,file_directory_name(A,D),atomic_list_concat([D,'/',F],P).\n"
@@ -2971,11 +2984,21 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_body'(M2:G,_,_,'$lfx_mc'(M2,G)):-atom(M2),!.\n"
     "'$lfx_body'(G,M,_,'$lfx_mca'(M,C,Xs)):-M\\==user,compound(G),G=..[call,C|Xs],Xs\\==[],var(C),!.\n"
     "'$lfx_body'(G,M,Ks,G2):-compound(G),G=..[F,C|Xs],Xs\\==[],'$lfx_clof'(F),!,length(Xs,E),'$lfx_clo'(C,E,M,Ks,C2),G2=..[F,C2|Xs].\n"
+    "'$lfx_body'(G,M,_,'$lfx_mdb'(F,M,C)):-M\\==user,compound(G),G=..[F,C],var(C),memberchk(F,[assert,asserta,assertz,retract,retractall]),!.\n"
     "'$lfx_body'(G,M,Ks,G2):-'$lfx_meta'(G,Sp),!,G=..[F|As],Sp=..[_|Ms],'$lfx_margs'(Ms,As,M,Ks,As2),G2=..[F|As2].\n"
     "'$lfx_body'(G,M,Ks,G2):-callable(G),functor(G,F,N),'$lfx_def'(F,N,M,Ks),!,'$lfx_q'(M,F,Q),G=..[_|As],G2=..[Q|As].\n"
     "'$lfx_def'(F,N,_,Ks):-memberchk(F/N,Ks),!.\n"
     "'$lfx_def'(F,N,M,_):-M\\==user,'$lfx_q'(M,F,Q),catch('$src_file_rt'(Q,N,_),error(existence_error(_,_),_),fail),!.\n"
+    "'$lfx_body'(G,M,_,'$lfx_mc'(M,G)):-M\\==user,'$lfx_unk'(G),!.\n"
     "'$lfx_body'(G,_,_,G).\n"
+    "'$lfx_unk'(G):-callable(G),functor(G,F,N),\\+ current_predicate(F/N),\\+ predicate_property(G,built_in).\n"
+    "'$lfx_mdb'(F,M,C):-'$lfx_mq'(M,C,C2),G=..[F,C2],call(G).\n"
+    "'$lfx_mq'(_,C,C):-var(C),!.\n"
+    "'$lfx_mq'(_,M:C,C2):-atom(M),!,'$lfx_mq'(M,C,C2).\n"
+    "'$lfx_mq'(M,(H:-B),(H2:-B2)):-!,'$lfx_mh'(M,H,H2),(M==user->B2=B;B2='$lfx_mc'(M,B)).\n"
+    "'$lfx_mq'(M,H,H2):-'$lfx_mh'(M,H,H2).\n"
+    "'$lfx_mh'(M,H,H2):-M\\==user,callable(H),functor(H,F,N),atom(F),\\+ predicate_property(H,built_in),!,'$lfx_q'(M,F,Q),functor(H2,Q,N),H=..[_|As],H2=..[_|As].\n"
+    "'$lfx_mh'(_,H,H).\n"
     "'$lfx_mc'(M,G):-call(M:G).\n"
     "'$lfx_mca'(M,C,Xs):-nonvar(C),C=(M2:C2),atom(M2),!,'$lfx_mca'(M2,C2,Xs).\n"
     "'$lfx_mca'(M,C,Xs):-C=..L0,append(L0,Xs,L1),G=..L1,call(M:G).\n"
@@ -2994,8 +3017,11 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_hat'(A,M,Ks,B):-nonvar(A),A=(V^G),!,B=(V^G2),'$lfx_hat'(G,M,Ks,G2).\n"
     "'$lfx_hat'(A,M,Ks,B):-'$lfx_body'(A,M,Ks,B).\n"
     "'$lfx_cl'(C,_,_,C):-var(C),!.\n"
-    "'$lfx_cl'((H:-B),M,Ks,(H2:-B2)):-!,'$lfx_body'(H,M,Ks,H2),'$lfx_body'(B,M,Ks,B2).\n"
-    "'$lfx_cl'(H,M,Ks,H2):-'$lfx_body'(H,M,Ks,H2).\n"
+    "'$lfx_cl'((H:-B),M,Ks,(H2:-B2)):-!,'$lfx_clh'(H,M,H2),'$lfx_body'(B,M,Ks,B2).\n"
+    "'$lfx_cl'(H,M,_,H2):-'$lfx_clh'(H,M,H2).\n"
+    "'$lfx_clh'(H,_,H):-var(H),!.\n"
+    "'$lfx_clh'(M:H,_,H2):-atom(M),!,'$lfx_mh'(M,H,H2).\n"
+    "'$lfx_clh'(H,M,H2):-'$lfx_mh'(M,H,H2).\n"
     "'$lfx_pi'(P,_,_,P):-var(P),!.\n"
     "'$lfx_pi'(F/N,M,Ks,Q/N):-atom(F),memberchk(F/N,Ks),!,'$lfx_q'(M,F,Q).\n"
     "'$lfx_pi'(G,M,Ks,G2):-callable(G),G\\=(_/_),!,'$lfx_body'(G,M,Ks,G2).\n"
@@ -3500,6 +3526,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&referenced, "@");
         pl_cv_add(&referenced, "$lfx_mc");
         pl_cv_add(&referenced, "$lfx_mca");
+        pl_cv_add(&referenced, "$lfx_mdb");
         pl_cv_add(&referenced, "abolish_table_pred");
         pl_cv_add(&referenced, "tnot");
         pl_cv_add(&referenced, "get_residual");
@@ -3511,6 +3538,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&referenced, "get_returns");
         pl_cv_add(&referenced, "get_returns_for_call");
         pl_cv_add(&referenced, "$src_file_add");
+        pl_cv_add(&referenced, "file_name_extension");
         for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
             if (strcmp(PL_PRELUDE_LIBS[li].lib, "lists") && strcmp(PL_PRELUDE_LIBS[li].lib, "apply")) continue;
             for (const pl_prelude_lib_pi_t *le = PL_PRELUDE_LIBS[li].exports; le->nm; le++) { pl_cv_add(&referenced, le->nm); pl_cv_add(&refkeys, pl_pred_key(le->nm, le->ar)); }

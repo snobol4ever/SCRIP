@@ -9344,9 +9344,12 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
             kk[2] = INTVAL(0);
             kk[3] = pl_nil();
             c.v = (DTYPE_t)DT_PLREF;
-            c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("scrip"), 4);
+            if (pl_swi_dialect()) { kk[0] = INTVAL(9); kk[2] = INTVAL(4); }
+            c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(pl_swi_dialect() ? "swi" : "scrip"), 4);
             c.p = (void *)kk;
             ok = plw_unify_vals(args[1], c, cx);
+        } else if (!strcmp(fl->nm, "dialect") && pl_swi_dialect()) {
+            ok = plw_unify_vals(args[1], pl_mk_atom("swi"), cx);
         } else if (!strcmp(fl->nm, "debug") && pl_swi_dialect()) {
             ok = plw_unify_vals(args[1], pl_mk_atom(strcmp(fl->val, "on") ? "false" : "true"), cx);
         } else {
