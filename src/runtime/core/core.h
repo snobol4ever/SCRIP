@@ -398,5 +398,3 @@ void sno_setexit_resume(const char *which);
 #define ARRAY_VAL(a_) ((DESCR_t){ .v = DT_A, .arr = (a_) })
 #endif
 void indirect_goto(const char *varname);
-extern int _x4_pending_parent_frame;
-extern int _command_pending_parent_frame;

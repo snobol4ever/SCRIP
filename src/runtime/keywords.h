@@ -25,5 +25,5 @@ const char *kw_cset_name(const char *ptr);
 int kw_cset_len(const char *ptr);
 const char *kw_cset_const_str(const char *kw);
 void rt_kw_publish_error(int code, const char *msg);
-void rt_kw_dump_values(void (*emit)(const char *name, DESCR_t v));
+void rt_kw_dump_values(void (*emit)(void *cx, const char *name, DESCR_t v), void *cx);
 #endif
