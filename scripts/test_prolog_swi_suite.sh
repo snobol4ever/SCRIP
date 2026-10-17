@@ -81,11 +81,11 @@ FILES="$WORK/files.txt"
 grep -rl --include='*.pl' 'begin_tests(' "$SWIT" | sort > "$FILES"
 if [ -n "$ONLY_FILE" ]; then grep -F -- "/$ONLY_FILE" "$FILES" > "$FILES.one" || refuse "--file $ONLY_FILE matches no shipped test file"; _nf=$(wc -l < "$FILES.one"); [ "$_nf" = 1 ] || refuse "--file $ONLY_FILE matches $_nf shipped test files -- it grades exactly one (CEO-1664)"; mv "$FILES.one" "$FILES"; fi
 # ⭐ THE ROUND ROBIN'S SEAM (ceo CEO-1802/1805/1806): under S4E_CHUNK only the part's files (keyed dir/test_x, as ALL.csv and PARTITION.tsv key them) are
-# graded, their cases' rows are appended as a whole run appends them, and no suite row is written (rr_end below). The jobs run under xargs, so a waiting
-# request is served after the part, not between two of its files.
+# graded, their cases' rows are appended as a whole run appends them, and no suite row is written (rr_end below). A part grades one file at a time, both
+# modes, and stops between two files when a request waits or its S4E_RR_BUDGET is spent (RR_YIELD; the loop resumes the part at the next file).
 . "$HERE/lib_rr.sh" && rr_load "$SWIT" || exit 2
 if rr_selected; then
-    while IFS= read -r _f; do _r="${_f#"$SWIT"/}"; rr_admits "${_r%.pl}" && printf '%s\n' "$_f"; done < "$FILES" > "$FILES.rr"; mv "$FILES.rr" "$FILES"
+    rr_entries | while IFS= read -r _e; do grep -xF -- "$SWIT/$_e.pl" "$FILES"; done > "$FILES.rr"; mv "$FILES.rr" "$FILES"   # the partition's order, so a resume skips nothing
 fi
 NFILES=$(wc -l < "$FILES")
 [ "$NFILES" -gt 0 ] || refuse "no plunit files found under $SWIT"
@@ -147,7 +147,18 @@ echo "grading $NFILES file(s) x modes=$MODES with $JOBS job(s), oracle refs besi
 LIB_DECL="$HERE/lib_declared_arena.sh"
 STDBUF="$(command -v stdbuf 2>/dev/null)"   # the mode-4 binary runs unbuffered when stdbuf exists, as the harness's do (grade_one.sh)
 export SCRIP RT PLUNIT WORK SWIT MATCH_PY STO_PY LIB_DECL STDBUF
-xargs -P "$JOBS" -n 2 -a "$WORK/jobs.txt" bash "$WORK/grade_one.sh"
+if rr_selected; then
+    : > "$FILES.done"
+    while IFS= read -r _f; do
+        _r="${_f#"$SWIT"/}"; _r="${_r%.pl}"
+        { rr_yield "$_r" || rr_over_budget "$_r"; } && break
+        for m in ${MODES//,/ }; do printf '%s %s\n' "$_f" "$m"; done | xargs -P "$JOBS" -n 2 bash "$WORK/grade_one.sh"
+        printf '%s\n' "$_f" >> "$FILES.done"
+    done < "$FILES"
+    mv "$FILES.done" "$FILES"; NFILES=$(wc -l < "$FILES"); echo "graded $NFILES file(s) of the part"
+else
+    xargs -P "$JOBS" -n 2 -a "$WORK/jobs.txt" bash "$WORK/grade_one.sh"
+fi
 python3 - "$WORK" "$FILES" "$MODES" "$SWIT" "$NAME_REDS" <<'PY'
 import sys, os, collections
 work, files, modes, swit, name_reds = sys.argv[1], sys.argv[2], sys.argv[3].split(','), sys.argv[4], sys.argv[5] == '1'
