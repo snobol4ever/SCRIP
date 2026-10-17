@@ -4222,7 +4222,9 @@ def oracle_args_declarations(src_path):
 # proven honoured at the COMPILE step in both modes (hq_snobol4 2026-09-26 on 6974ab821: scrip --compile --stlimit and
 # SCRIP_SNO_STMTKW=1 scrip --compile emit byte-identical .s, and neither turns counting on at a mode-4 binary's run).
 # A runtime switch (-d -i -s -m -u) placed at the compile step would reach mode 3 and never a mode-4 binary.
-COMPILE_ARGS_ADMITTED = ("--stlimit",)
+# --dialect=gnu joins 2026-10-17 (cfo, row prolog-gnu-semantics-leak-...-ceo-1810): scrip --run --dialect=gnu and a binary from scrip --compile
+# --dialect=gnu both read current_prolog_flag('$dialect', gnu) -- the lowerer bakes the directive into the program -- and the GNU tables declare it.
+COMPILE_ARGS_ADMITTED = ("--stlimit", "--dialect=gnu")
 
 
 def validate_out_files_cell(raw, where):

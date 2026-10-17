@@ -51,7 +51,7 @@ ok
 WANT
 )"
 m4ok=1
-( cd "$D" && timeout -k 5 60 "$B/scrip" --compile -o w.s w.pl < /dev/null > /dev/null 2>&1 && [ -s w.s ] \
+( cd "$D" && timeout -k 5 60 "$B/scrip" --compile --dialect=gnu -o w.s w.pl < /dev/null > /dev/null 2>&1 && [ -s w.s ] \
   && gcc -m64 -no-pie w.s -o w.bin -L"$B/out" -lscrip_rt -lm -Wl,-rpath,"$B/out" > /dev/null 2>&1 ) || m4ok=0
 red=0
 arm() {
@@ -62,7 +62,7 @@ arm() {
     if [ "$got" = "$want" ]; then echo "  $label GREEN: 11 of 11 lines as gprolog"
     else echo "  $label RED: $n of 11 gprolog lines missing or different"; diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | sed 's/^/    /'; red=1; fi
 }
-arm m3 timeout -k 5 20 "$B/scrip" --run w.pl < /dev/null
+arm m3 timeout -k 5 20 "$B/scrip" --run --dialect=gnu w.pl < /dev/null
 if [ "$m4ok" = 1 ]; then arm m4 timeout -k 5 20 ./w.bin < /dev/null; else echo "  m4 RED: the program did not compile or link in mode 4"; red=1; fi
 [ "$red" = 0 ] && echo "PASS $G"
 exit "$red"

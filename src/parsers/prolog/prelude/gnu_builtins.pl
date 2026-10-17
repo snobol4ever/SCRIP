@@ -530,7 +530,7 @@ stream_line_column(S, L, C) :- PI = stream_line_column/3, '$gnu_b_sora'(S, PI, S
 set_stream_line_column(S, L, C) :- PI = set_stream_line_column/3, '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_info, St, si(K, _, R, _)),
     ( R == false -> throw(error(permission_error(reposition, stream, S), PI)) ; K == b -> throw(error(permission_error(reposition, binary_stream, S), PI)) ; true ),
     '$gnu_b_int'(L, PI), '$gnu_b_int'(C, PI), L >= 1, C >= 1, '$gnu_os'(ts_setlinecol, slc(St, L, C), _).
-seek(S, W, O, N) :- ( current_prolog_flag('$dialect', swi) ; integer(W), atom(O) ), !, '$gnu_b_seek'(S, O, W, N, seek/4).
+seek(S, W, O, N) :- ( \+ current_prolog_flag('$dialect', gnu) ; integer(W), atom(O) ), !, '$gnu_b_seek'(S, O, W, N, seek/4).
 seek(S, W, O, N) :- '$gnu_b_seek'(S, W, O, N, seek/4).
 '$gnu_b_seek'(S, W, O, N, PI) :- '$gnu_b_sora'(S, PI, St), '$gnu_os'(ts_info, St, si(K, _, R, _)),
     ( R == false -> throw(error(permission_error(reposition, stream, S), PI)) ; K == t -> throw(error(permission_error(reposition, text_stream, S), PI)) ; true ),

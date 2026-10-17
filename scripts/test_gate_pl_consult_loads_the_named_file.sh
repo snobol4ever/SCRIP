@@ -20,11 +20,11 @@
 #   (b) the BRACKET form is a REAL synonym, not a no-op -- the shape that used to lie.
 #   (c) consult INSIDE A DIRECTIVE CONJUNCTION works (`:- consult(F), Goal.`) -- NOT the same code path as a
 #       directive whose whole subject is the consult.
-#   (h) ⛔ AND THE LIMIT IS PINNED, NOT HIDDEN: `F = t_foo, [F]` -- a VARIABLE file name -- cannot be resolved
-#       at compile time, so it must RAISE consult/1 rather than silently succeed. THIS IS THE INRIA DRIVER'S
-#       ACTUAL SPELLING (inriasuite.pl:623-624, `test(F,[G,ProgFile,Expected]) :- [ProgFile],`), which means
-#       this row does NOT win that INRIA point: that needs runtime loading, i.e. a runtime compiler, a
-#       different rung. The arm exists so nobody reads this cure as covering it.
+#   (h) A VARIABLE FILE NAME: `F = t_foo, [F]` in a clause body. This arm once pinned a limit (no run-time
+#       loading, so the call had to RAISE consult/1); SCRIP 3eb9e62e0 made a list goal consult its files at run
+#       time, directly and through call/1, so the limit is gone and the arm is RE-CUT to the oracle (cfo
+#       2026-10-17, row prolog-gnu-semantics-leak-...-ceo-1810): swipl and gprolog 1.4.5 both print 2, and so
+#       must SCRIP. This is the INRIA driver's spelling (inriasuite.pl:623-624, `[ProgFile]`).
 #   (d) ⛔ CONTROL, AND THE ONE THAT KEEPS THE CURE HONEST: a list in a DATA position is NOT a consult.
 #       `X = [a,b]` must still bind a list. A cure that scans every term for a list of atoms passes (a)-(c)
 #       and silently tries to load files named a and b.
@@ -54,11 +54,12 @@ ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; e
 oracle(){ ( cd "$W" && timeout -k 5 30 "$SWIPL" -q -g true -t halt "$1.pl" </dev/null 2>/dev/null ); }
 echo "=== gate: consult/1 and [File] load the named file ==="
 echo "--- (g) the ORACLE premise, asserted before anything is graded ---"
-for w in direct bracket conj data missing twice; do
+for w in direct bracket conj varfile data missing twice; do
   eval "EXP_$w=\"\$(oracle $w)\""
 done
 [ "$EXP_direct" = "2" ]      || refuse "ORACLE PREMISE MOVED: swipl consult(t_foo) printed [$EXP_direct], expected 2"
 [ "$EXP_bracket" = "2" ]     || refuse "ORACLE PREMISE MOVED: swipl [t_foo] printed [$EXP_bracket], expected 2"
+[ "$EXP_varfile" = "2" ]     || refuse "ORACLE PREMISE MOVED: swipl F = t_foo, [F] printed [$EXP_varfile], expected 2"
 [ "$EXP_data" = "[a,b]" ]    || refuse "ORACLE PREMISE MOVED: swipl X=[a,b] printed [$EXP_data]"
 [ "$EXP_missing" = "alive" ] || refuse "ORACLE PREMISE MOVED: swipl on a missing consult printed [$EXP_missing], expected it to warn and CONTINUE"
 [ "$EXP_twice" = "[2]" ]     || refuse "ORACLE PREMISE MOVED: swipl double-consult printed [$EXP_twice], expected [2]"
@@ -78,9 +79,7 @@ for m in m3 m4; do
   o="$(run direct)";  [ "$o" = "$EXP_direct" ]  && ck ok "$m (a) consult/1 makes t_foo/2 callable -> [$o]" || ck no "$m (a) printed [$o], oracle says [$EXP_direct]"
   o="$(run bracket)"; [ "$o" = "$EXP_bracket" ] && ck ok "$m (b) [File] is a REAL synonym -> [$o]"         || ck no "$m (b) printed [$o], oracle says [$EXP_bracket] -- a silent no-op looks alive and dies later, elsewhere"
   o="$(run conj)";    [ "$o" = "$EXP_conj" ]    && ck ok "$m (c) consult inside a DIRECTIVE conjunction -> [$o]"  || ck no "$m (c) printed [$o], oracle says [$EXP_conj]"
-  e="$(run_err varfile)"; o="$(run varfile)"
-  if [ "$o" != "2" ] && printf '%s' "$e" | grep -q 'consult/1'; then ck ok "$m (h) an UNRESOLVABLE [Var] RAISES consult/1 instead of silently succeeding"
-  else ck no "$m (h) [Var] in a clause body printed [$o] stderr=[$e] -- a compile-time consult cannot resolve a variable file name, so it must RAISE; a silent no-op looks alive"; fi
+  o="$(run varfile)"; [ "$o" = "$EXP_varfile" ] && ck ok "$m (h) [Var] in a clause body consults at run time -> [$o]" || ck no "$m (h) [Var] in a clause body printed [$o], oracle says [$EXP_varfile]"
   o="$(run data)";    [ "$o" = "$EXP_data" ]    && ck ok "$m (d) a list in DATA position is not a consult -> [$o]" || ck no "$m (d) printed [$o], oracle says [$EXP_data] -- the cure is scanning argument terms, not goals"
   o="$(run missing)"; [ "$o" = "$EXP_missing" ] && ck ok "$m (e) a missing consulted file leaves the program alive -> [$o]" || ck no "$m (e) printed [$o], oracle says [$EXP_missing]"
   o="$(run twice)";   [ "$o" = "$EXP_twice" ]   && ck ok "$m (f) consulting twice defines once -> [$o]"     || ck no "$m (f) printed [$o], oracle says [$EXP_twice] -- duplicate clauses"

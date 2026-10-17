@@ -2166,7 +2166,7 @@ static tree_t * pl_pp_runtime(const tree_t * h, const tree_t * pp) {
     tree_t * iv2 = pl_cc_freshvar();
     cv2->v.ival = cv->v.ival;
     iv2->v.ival = iv->v.ival;
-    tree_t * pc = g_stage2.pl_dialect_swi ? (tree_t *) pl_atom_goal("true") : pl_cc_fnc1("$pl_pp_pcheck", (tree_t *) pp);
+    tree_t * pc = pl_cc_fnc1("$pl_pp_pcheck", (tree_t *) pp);
     return pl_cc_fnc2(",", pl_cc_fnc1("$pl_pp_guard", (tree_t *) h),
         pl_cc_fnc2(",", pc,
         pl_cc_fnc2(",", pl_cc_fnc2("$pl_pp_count", (tree_t *) h, cv), pl_cc_fnc2(",", pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv), pl_cc_fnc3("$pl_pp_nth", iv2, (tree_t *) h, (tree_t *) pp)))));
@@ -3100,7 +3100,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 if (pl_tree_number(h)) return goal(cx, g_stage2.pl_dialect_swi ? (tree_t *) pl_atom_goal("fail") : pl_cc_type_error("callable", h, nm, 2), γnext, ωfail, entry_out);
                 if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME || pp->t == TT_FNC) && pp->v.sval && !pl_name_in(pp->v.sval, pl_pred_props))
                     return goal(cx, pl_cc_throw_ar(pl_cc_fnc2("domain_error", (tree_t *) pl_atom_goal("predicate_property"), (tree_t *) pp), nm, 2), γnext, ωfail, entry_out);
-                if (!pn || (!g_stage2.pl_dialect_swi && !(!strcmp(pn, "portray") && ar == 1))) {
+                if (!pn || (g_stage2.pl_dialect_gnu && !(!strcmp(pn, "portray") && ar == 1))) {
                     int dyn0 = pn && ((pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar) || pl_rt_is_dynamic(pn, ar));
                     int def0 = pn && (dyn0 || pl_file_defines(pn, ar));
                     const char * meta0 = (pn && !def0) ? pl_meta_template(pn, ar) : (const char *) 0;

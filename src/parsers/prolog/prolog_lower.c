@@ -512,11 +512,20 @@ static PlClause *pl_dq_string_directive(int lineno, const char *flag, const char
     c->tr = cl;
     return c;
 }
+void prolog_select_dialect_gnu(void) { g_stage2.pl_dialect_gnu = 1; }
 static void pl_dq_lower_program(PlProgram *pl_prog) {
     int marker = 0, line0 = 0, set = 0;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
         if (cl->lineno && !line0) line0 = cl->lineno;
         if (cl->lineno && (pl_dialect_marker(cl->tr) || pl_tree_has_dict(cl->tr))) marker = 1;
+    }
+    if (g_stage2.pl_dialect_gnu) {
+        PlClause *d = pl_dq_string_directive(line0 ? line0 : 1, "$dialect", "gnu");
+        d->next = pl_prog->head;
+        pl_prog->head = d;
+        if (!pl_prog->tail) pl_prog->tail = d;
+        pl_prog->nclauses++;
+        marker = 0;
     }
     for (int k = 0; k < 2; k++) {
         if (!marker || g_stage2.pl_dialect_swi || (k == 0 && g_stage2.pl_dq_mode)) continue;

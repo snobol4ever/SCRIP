@@ -246,8 +246,13 @@ else red D1 "run_test and compile_mode4 are no longer in test_corpus_snobol4.sh 
 # ── landing 5: A, the accept arm; R, the ratchet ───────────────────────────────────────────────────────────
 adm="$(cd "$ROOT" && python3 -c 'import sys; sys.path.insert(0, "scripts"); import corpus_suite_harness as h; print(" ".join(h.COMPILE_ARGS_ADMITTED))' 2>/dev/null)"
 if [ -z "$adm" ]; then red A "COMPILE_ARGS_ADMITTED could not be read from the harness"; else
+    # A word is graded on a witness in its own language (cfo 2026-10-17, CEO-1810): --stlimit on cnt.sno against sbl's output, --dialect=gnu on dia.pl,
+    # which prints the '$dialect' flag -- gnu with the switch, iso without it (the control: a switch scrip ignored would read iso).
+    printf ':- initialization(main).\nmain :- current_prolog_flag(%s, D), write(D), nl.\n' "'\$dialect'" > "$W/dia.pl"
     a_bad=""; for w in $adm; do
-        [ "$(m3_of cnt.sno "$w")" = "$sbl_o" ] || a_bad="$a_bad $w:m3"; [ "$(m4_of cnt.sno "$w")" = "$sbl_o" ] || a_bad="$a_bad $w:m4"; done
+        case "$w" in --dialect=gnu) wf=dia.pl; wo=gnu ;; *) wf=cnt.sno; wo="$sbl_o" ;; esac
+        [ "$(m3_of "$wf" "$w")" = "$wo" ] || a_bad="$a_bad $w:m3"; [ "$(m4_of "$wf" "$w")" = "$wo" ] || a_bad="$a_bad $w:m4"; done
+    [ "$(m3_of dia.pl '')" = iso ] && [ "$(m4_of dia.pl '')" = iso ] || a_bad="$a_bad dia.pl-without-the-switch-is-not-iso"
     ( cd "$W" && timeout -k 5 20 "$SCRIP" --run --nosuchswitch cnt.sno < /dev/null > /dev/null 2>&1 ); u3=$?
     ( cd "$W" && timeout -k 5 20 "$SCRIP" --compile --nosuchswitch cnt.sno < /dev/null > "$W/u.s" 2>/dev/null ); u4=$?
     census="$(cd "$ROOT" && python3 - "$ROOT/../corpus" <<'PYC' 2>&1
@@ -271,7 +276,7 @@ PYC
     if [ "$u3" = 0 ] || { [ "$u4" = 0 ] && [ -s "$W/u.s" ]; }; then
         unproven "scrip ACCEPTED --nosuchswitch (run rc $u3, compile rc $u4) -- acceptance of the admitted words cannot be told from indifference, so arm A grades nothing"
     elif [ -z "$a_bad" ] && printf '%s' "$census" | grep -qE '^cells=[1-9][0-9]* words=[0-9]+ refused=0 '; then
-        ok A "scrip accepts [$adm] at both compile steps and each switches the witness to the oracle's '$sbl_o'; --nosuchswitch is rejected (run rc $u3, compile rc $u4); the corpus declares $(printf '%s' "$census" | cut -d' ' -f1,2), every word admitted"
+        ok A "scrip accepts [$adm] at both compile steps and each switches its witness (cnt.sno to sbl's '$sbl_o', dia.pl to gnu, iso without it); --nosuchswitch is rejected (run rc $u3, compile rc $u4); the corpus declares $(printf '%s' "$census" | cut -d' ' -f1,2), every word admitted"
     else red A "not accepted:${a_bad:- none}; corpus census: $census"; fi
 fi
 # R: exactly these scripts may type the switch, each for the reason given; gates are not runners and are not censused

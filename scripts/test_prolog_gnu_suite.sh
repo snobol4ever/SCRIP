@@ -199,6 +199,9 @@ echo "=== GNU Prolog vendored suite ($TOTAL files, $PKG) ==="
 for f in "${FILES[@]}"; do
     base="$(basename "$f" .pl)"
     rel="${f#"$PKG"/}"
+    # ⭐ THE UNIT'S DECLARED COMPILE SWITCHES (clause 8 (f), CEO-1281): ALL.csv's compile_args, right after --run and --compile in both modes -- the
+    # GNU tables declare --dialect=gnu (cfo 2026-10-17, row prolog-gnu-semantics-leak-...-ceo-1810), and this runner types none of its own.
+    read -r -a CA <<< "$(declared_compile_args_from_table "$DECL" "${rel%.pl}")"
     export S4E_TIMEOUT_KEY="$rel"   # the unit a retried timeout's stamp names (CEO-1335)
     out="$TMP/${base}.s"
     probe_log="$TMP/${base}.probe"
@@ -245,9 +248,9 @@ for f in "${FILES[@]}"; do
         # (a SCRIP defect the driver exposed) and a dirty SCRIP skips every row this pass writes.
         # each mode's own wall for its row (CEO-1676 (c)): m3 its run, m4 the compile, link and run
         _t0="$(progress_clock)"
-        "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --compile "$drv" -o "$dout" < /dev/null > "$probe_log" 2>&1; drc=$?
+        "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --compile "${CA[@]}" "$drv" -o "$dout" < /dev/null > "$probe_log" 2>&1; drc=$?
         _cs="$(progress_secs_since "$_t0")"; _t0="$(progress_clock)"
-        m3_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "$drv" ${dargv[0]+--} "${dargv[@]}" < "$din" 2>/dev/null); m3rc=$?
+        m3_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "${CA[@]}" "$drv" ${dargv[0]+--} "${dargv[@]}" < "$din" 2>/dev/null); m3rc=$?
         S3="$(progress_secs_since "$_t0")"; _t0="$(progress_clock)"
         m4_out=""; m4rc=0
         if [ "$drc" -eq 0 ] && gcc -no-pie "$dout" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$dbin" 2>/dev/null; then
@@ -312,7 +315,7 @@ for f in "${FILES[@]}"; do
     fi
 
     _t0="$(progress_clock)"
-    "$TIMEOUT_RETRY" "$CLASSIFY_TIMEOUT" "$SCRIP" --compile "$f" -o "$out" < /dev/null > "$probe_log" 2>&1
+    "$TIMEOUT_RETRY" "$CLASSIFY_TIMEOUT" "$SCRIP" --compile "${CA[@]}" "$f" -o "$out" < /dev/null > "$probe_log" 2>&1
     rc=$?; _cs="$(progress_secs_since "$_t0")"   # the classify compile is mode 4's compile: its row carries it (CEO-1676 (c))
 
     if [ "$rc" -eq 124 ]; then
@@ -325,7 +328,7 @@ for f in "${FILES[@]}"; do
         OK_TOTAL=$((OK_TOTAL+1))
         # -- triangulate: SCRIP m3, SCRIP m4 (link+run the .s this classify pass already produced), gprolog --
         _t0="$(progress_clock)"
-        m3_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
+        m3_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "${CA[@]}" "$f" < /dev/null 2>/dev/null)
         S3="$(progress_secs_since "$_t0")"; _t0="$(progress_clock)"
         bin="$TMP/${base}.bin"
         m4_out=""

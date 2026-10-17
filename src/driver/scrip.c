@@ -1738,6 +1738,14 @@ int main(int argc, char **argv) {
             } else if (strcmp(argv[argi], "--stlimit") == 0) {
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
                 argi++;
+            } else if (strncmp(argv[argi], "--dialect=", 10) == 0) {
+                if (strcmp(argv[argi] + 10, "gnu")) {
+                    fprintf(stderr, "scrip: --dialect=%s refused -- gnu is the one Prolog dialect a command line selects (iso is the default; swi follows the program's own SWI markers)\n",
+                        argv[argi] + 10);
+                    return 2;
+                }
+                prolog_select_dialect_gnu();
+                argi++;
             } else if (strncmp(argv[argi], "--compat=", 9) == 0) {
                 fprintf(stderr, "scrip: --compat is retired -- SPITBOL (sbl -bf) is the one SNOBOL4 oracle and its feature list the baseline (Lon 2026-09-07)\n");
                 return 2;

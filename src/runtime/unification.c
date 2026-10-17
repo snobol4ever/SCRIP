@@ -199,6 +199,7 @@ static int plc_utf8_run(const char *q) {
 static int plc_has_non_ascii(const char *s) { for (; *s; s++) if ((unsigned char)*s >= 0x80) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_dialect_swi(void);
+extern int rt_pl_dialect_gnu(void);
 int rt_pl_u8_get(const char *s, int *adv);
 extern int rt_pl_flag_true(const char *nm);
 static void plc_wt_atom(FILE *fp, const char *name, int quoted) {
@@ -1677,7 +1678,7 @@ static void plc_fmt_radix(plc_fb *f, long long iv, int base, int upper) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *plc_fmt_exhausted(pl_cell_t all) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
-    return rt_pl_dialect_swi() ? rt_pl_ball_kind2("domain_error", "format_arguments", all) : rt_pl_ball_kind2("domain_error", "non_empty_list", pl_make_atom(ATOM_NIL));
+    return !rt_pl_dialect_gnu() ? rt_pl_ball_kind2("domain_error", "format_arguments", all) : rt_pl_ball_kind2("domain_error", "non_empty_list", pl_make_atom(ATOM_NIL));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
@@ -1722,14 +1723,14 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
             if (have_n) fill = (int)nval;
         }
         if (*p == ':') { colon = 1; p++; }
-        if (!*p) { if (!rt_pl_dialect_swi()) ball = rt_pl_ball_kind2("domain_error", "format_control_sequence", plc_make_atom_cell("")); break; }
+        if (!*p) { if (rt_pl_dialect_gnu()) ball = rt_pl_ball_kind2("domain_error", "format_control_sequence", plc_make_atom_cell("")); break; }
         if (*p == '~') { plc_fb_add(&f, "~", 1); continue; }
         if (*p == 'n') { long r = have_n ? nval : 1; for (long i = 0; i < r; i++) plc_fb_add(&f, "\n", 1); continue; }
         if (*p == 'N') { if (plc_fb_colat(&f, f.n)) plc_fb_add(&f, "\n", 1); continue; }
         if (*p == 't') { plc_fb_tab(&f, have_n ? fill : ' '); continue; }
         if (*p == '|') { plc_fb_stop(&f, have_n ? nval : (long)plc_fb_colat(&f, f.n)); continue; }
         if (*p == '+') { plc_fb_stop(&f, (long)plc_fb_colat(&f, f.seg) + (have_n ? nval : 8)); continue; }
-        if (!rt_pl_dialect_swi() && !strchr("acdDeEfgGikpqrRswW", *p)) { char cb[2] = { *p, 0 }; ball = rt_pl_ball_kind2("domain_error", "format_control_sequence", plc_make_atom_cell(cb)); break; }
+        if (rt_pl_dialect_gnu() && !strchr("acdDeEfgGikpqrRswW", *p)) { char cb[2] = { *p, 0 }; ball = rt_pl_ball_kind2("domain_error", "format_control_sequence", plc_make_atom_cell(cb)); break; }
         {
             pl_cell_t *h = plc_fmt_next_arg(&args);
             if (!h) { ball = plc_fmt_exhausted(all); break; }
@@ -1755,7 +1756,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
             } else if (*p == 'c') {
                 long cv;
                 if (!plc_fmt_int(h, &cv, &ball)) break;
-                if (!rt_pl_dialect_swi() && (cv < 0 || cv > 0x10FFFF)) {
+                if (rt_pl_dialect_gnu() && (cv < 0 || cv > 0x10FFFF)) {
                     extern void *rt_pl_ball_kind1(const char *, const char *);
                     ball = rt_pl_ball_kind1("representation_error", "character_code");
                     break;
@@ -1863,7 +1864,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
         }
     }
     if (!ball && args && !pl_cell_unbound(args) && !plc_is_nil(args)) ball = rt_pl_ball_kind2("domain_error", "format_arguments", all);
-    if (!ball || !rt_pl_dialect_swi()) { fd = plc_out(); if (f.n) fwrite(f.b, 1, f.n, fd); }
+    if (!ball || rt_pl_dialect_gnu()) { fd = plc_out(); if (f.n) fwrite(f.b, 1, f.n, fd); }
     ct_drop(f.b);
     plc_ws_end(cx, mark);
     return ball;

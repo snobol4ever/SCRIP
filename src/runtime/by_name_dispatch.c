@@ -5699,6 +5699,7 @@ static void *pl_ax_int_ball(DESCR_t a, DESCR_t b, int ai) { extern void *rt_pl_b
 static int pl_float_flag(const char *nm, const char *val);
 static int pl_round_mode(const char *v);
 static int pl_swi_dialect(void) { return pl_float_flag("$dialect", "swi"); }
+static int pl_gnu_dialect(void) { return pl_float_flag("$dialect", "gnu"); }
 int rt_pl_flag_true(const char *nm) { return pl_float_flag(nm, "true"); }
 int rt_pl_fp_max_code(FILE *fp) {
     for (int i = 0; fp && i < FH_N; i++) {
@@ -6384,7 +6385,7 @@ DESCR_t rt_pl_dop_clause_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
         else {
             DESCR_t *ra = (DESCR_t *)rc.p;
             DESCR_t *ta = (DESCR_t *)tc.p;
-            DESCR_t bodyv = pl_body_call_vars(ra[1], pl_swi_dialect());
+            DESCR_t bodyv = pl_body_call_vars(ra[1], !pl_gnu_dialect());
             out = plw_unify_vals(ra[0], ta[0], cx) && plw_unify_vals(bodyv, ta[1], cx) ? rt_pl_deref_val(args[0]) : FAILDESCR;
         }
         if (out.v == DT_FAIL) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
@@ -6997,7 +6998,7 @@ static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
     if (pidx >= PL_SP_NPROP) return pl_sp_xprop(i, pidx - PL_SP_NPROP, out);
     if (pidx == 13) {
         char b = g_fh[i].buf ? g_fh[i].buf : i == 2 ? 'n' : i < 3 ? 'l' : 'b';
-        if (pl_swi_dialect()) return 0;
+        if (!pl_gnu_dialect()) return 0;
         *out = pl_mk_cmp1("buffering", pl_mk_atom(b == 'n' ? "none" : b == 'l' ? "line" : "block"));
         return 1;
     }
@@ -7175,10 +7176,10 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
                 en = pl_enc_canon(eb);
                 if (!en) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
                 fh_set_encoding(idx, en);
-            } else if (on && !strcmp(on, "buffering") && !pl_swi_dialect()) {
+            } else if (on && !strcmp(on, "buffering") && pl_gnu_dialect()) {
                 if (!as || (strcmp(as, "none") && strcmp(as, "line") && strcmp(as, "block"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
                 g_fh[idx].buf = as[0] == 'n' ? 'n' : as[0] == 'l' ? 'l' : 'b';
-            } else if (on && !strcmp(on, "mirror") && !pl_swi_dialect()) {
+            } else if (on && !strcmp(on, "mirror") && pl_gnu_dialect()) {
                 int m = pl_stream_idx_ball(a, 1, 0, cx);
                 if (m < 0) return 0;
                 pl_fh_push(&g_fh[idx].mir, &g_fh[idx].nmir, m);
@@ -8286,7 +8287,7 @@ static void *pl_byte_cur_ball(int out) {
     extern int fh_current_input(void);
     extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     int ix = out ? fh_current_output() : fh_current_input();
-    DESCR_t who = pl_swi_dialect() ? pl_mk_stream(ix) : pl_mk_atom(out ? "current_output_stream" : "current_input_stream");
+    DESCR_t who = !pl_gnu_dialect() ? pl_mk_stream(ix) : pl_mk_atom(out ? "current_output_stream" : "current_input_stream");
     return (ix >= 0 && ix < FH_N && g_fh[ix].type != 'b') ? rt_pl_ball_permission3(out ? "output" : "input", "text_stream", who) : (void *)0;
 }
 static void *pl_past_eos_ball(void) {
@@ -8296,14 +8297,14 @@ static void *pl_past_eos_ball(void) {
     extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     int ix = fh_current_input();
     FILE *fp = fh_cur_in_fp();
-    DESCR_t who = pl_swi_dialect() ? pl_mk_stream(ix) : pl_mk_atom("current_input_stream");
+    DESCR_t who = !pl_gnu_dialect() ? pl_mk_stream(ix) : pl_mk_atom("current_input_stream");
     return (ix >= 3 && ix < FH_N && fp && feof(fp) && fh_eof(ix) == 'e') ? rt_pl_ball_permission3("input", "past_end_of_stream", who) : (void *)0;
 }
 static void *pl_text_cur_ball(void) {
     extern int fh_current_input(void);
     extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     int ix = fh_current_input();
-    DESCR_t who = pl_swi_dialect() ? pl_mk_stream(ix) : pl_mk_atom("current_input_stream");
+    DESCR_t who = !pl_gnu_dialect() ? pl_mk_stream(ix) : pl_mk_atom("current_input_stream");
     return (ix >= 0 && ix < FH_N && g_fh[ix].type == 'b') ? rt_pl_ball_permission3("input", "binary_stream", who) : (void *)0;
 }
 PL_CX_LEAF_HEAD(get_byte, 1)
@@ -8749,7 +8750,7 @@ static int pl_read_term_from_text(DESCR_t *args, pl_tr_ctx_t *cx) {
     const char *b = pl_list_text_heap(args[0]);
     DESCR_t t;
     pl_vtab_t vt;
-    int gnu = !pl_swi_dialect(), sm = 0;
+    int gnu = pl_gnu_dialect(), sm = 0;
     if (!b) return 0;
     if (gnu) { void *ob = pl_read_opts_ball(args[2]); if (ob) { cx->ball = ob; return 0; } sm = pl_read_syntax_mode(args[2]); }
     if (!pl_parse_term_text(b, &t, &vt, (PlProgram **)0)) {
@@ -8859,7 +8860,7 @@ PL_CX_LEAF_TAIL
 static void *pl_ball_sora(void *ball, DESCR_t sora) {
     extern const char *prolog_atom_name(int);
     DESCR_t *e = (DESCR_t *)ball, f, w;
-    if (!ball || pl_swi_dialect() || e->v != (DTYPE_t)DT_PLREF || plc_fid_arity(e->slen) != 2) return ball;
+    if (!ball || !pl_gnu_dialect() || e->v != (DTYPE_t)DT_PLREF || plc_fid_arity(e->slen) != 2) return ball;
     f = rt_pl_deref_val(((DESCR_t *)e->p)[0]);
     if (f.v != (DTYPE_t)DT_PLREF || plc_fid_arity(f.slen) != 3 || strcmp(prolog_atom_name(plc_fid_name(f.slen)), "permission_error")) return ball;
     w = rt_pl_deref_val(((DESCR_t *)f.p)[2]);
@@ -9190,8 +9191,8 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     "false", 0 } }, { "occurs_check", "false", 1, { "true", "false", "error", 0 } }, { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", "UTF-16BE", "UTF-16LE",
     "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0,
     { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on", "off", 0 } },
-    { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "threads", "false",
-    0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } },
+    { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", "gnu", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "threads",
+    "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } },
     { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "min_tagged_integer", "-72057594037927936", 0, { 0 } }, { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } },
     { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { 0, "", 0, { 0 } } };
 static cv_t g_pl_flags;
@@ -9281,6 +9282,7 @@ static void pl_flag_effects(const pl_flag_t *fl, pl_tr_ctx_t *cx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dialect_swi(void) { return pl_swi_dialect(); }
+int rt_pl_dialect_gnu(void) { return pl_gnu_dialect(); }
 int rt_pl_iso_mode(void) { pl_flag_t *fl = pl_flag_find("iso"); return fl && !strcmp(fl->val, "true"); }
 static int pl_float_flag(const char *nm, const char *val) { pl_flag_t *fl = pl_flag_find(nm); return fl && fl->val && !strcmp(fl->val, val); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -10254,7 +10256,7 @@ static const char *pl_gp_read_err(long off0) {
     long off1 = ftell(in);
     pl_gp_t p;
     const char *e;
-    if (pl_swi_dialect() || off0 < 0 || off1 < 0 || fseek(in, off0, SEEK_SET) != 0) return (const char *)0;
+    if (!pl_gnu_dialect() || off0 < 0 || off1 < 0 || fseek(in, off0, SEEK_SET) != 0) return (const char *)0;
     memset(&p, 0, sizeof p);
     p.s.in = in;
     p.s.idx = fh_current_input();
@@ -11070,7 +11072,7 @@ PL_CX_LEAF_HEAD(set_stream_position, 2)
             return FAILDESCR;
         }
         if (pl_val_unbound(pd)) { cx->ball = rt_pl_ball_instantiation(); return FAILDESCR; }
-        if (!(pd.v == (DTYPE_t)DT_PLREF && plc_fid_name(pd.slen) == prolog_atom_intern("$stream_position") && (plc_fid_arity(pd.slen) == 1 || (plc_fid_arity(pd.slen) == 4 && !pl_swi_dialect())))) {
+        if (!(pd.v == (DTYPE_t)DT_PLREF && plc_fid_name(pd.slen) == prolog_atom_intern("$stream_position") && (plc_fid_arity(pd.slen) == 1 || (plc_fid_arity(pd.slen) == 4 && pl_gnu_dialect())))) {
             cx->ball = rt_pl_ball_kind2("domain_error", "stream_position", pd);
             return FAILDESCR;
         }
@@ -11128,7 +11130,7 @@ PL_CX_LEAF_HEAD(pl_ioarg, 2)
         if (!strncmp(k, "in_byte", 7)) {
             if (!pl_val_unbound(c) && (c.v != DT_I || c.i < -1 || c.i > 255)) cx->ball = rt_pl_ball_kind2("type_error", "in_byte", c);
         } else if (k[strlen(k) - 1] == '1' && sx >= 0 && sx < FH_N && g_fh[sx].type == 'b') {
-            DESCR_t who = pl_swi_dialect() ? pl_mk_stream(sx) : pl_mk_atom(out ? "current_output_stream" : "current_input_stream");
+            DESCR_t who = !pl_gnu_dialect() ? pl_mk_stream(sx) : pl_mk_atom(out ? "current_output_stream" : "current_input_stream");
             cx->ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", who);
         } else if (!strncmp(k, "put_code", 8)) {
             if (pl_val_unbound(c)) cx->ball = rt_pl_ball_instantiation();
@@ -11166,7 +11168,7 @@ PL_CX_LEAF_HEAD(pl_sp_check, 2)
             nm = pl_atom_str(p);
             if (!nm && p.v == (DTYPE_t)DT_PLREF) nm = prolog_atom_name(plc_fid_name(p.slen));
             for (i = 0; nm && pn[i]; i++) if (!strcmp(nm, pn[i])) break;
-            if ((!nm || !pn[i]) && !(nm && (!strcmp(nm, "mirror") || !strcmp(nm, "buffering")) && !pl_swi_dialect())) cx->ball = rt_pl_ball_kind2("domain_error", "stream_property", p);
+            if ((!nm || !pn[i]) && !(nm && (!strcmp(nm, "mirror") || !strcmp(nm, "buffering")) && pl_gnu_dialect())) cx->ball = rt_pl_ball_kind2("domain_error", "stream_property", p);
         }
         if (cx->ball) ok = 0;
     }
@@ -22832,7 +22834,7 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
         snprintf(key, sizeof key, "%s/%d", nm, ar);
         kind = rt_pl_db_key_kind(root, key);
         if (kind == 1) fp = rt_pl_db_key_file(root, key);
-        if (!pl_swi_dialect()) {
+        if (pl_gnu_dialect()) {
             const char *gp[10];
             int n = 0, ln = kind ? rt_pl_db_key_line(root, key) : 0;
             if (kind) {
@@ -22988,7 +22990,7 @@ static void *pl_db_static_ball(void *root, const char *op, const char *nm, int a
     snprintf(key, sizeof key, "%s/%d", nm, ar);
     bi = pl_pi_is_control(nm, ar) || (isclause && pl_pi_is_builtin(nm, ar) && !rt_pl_db_key_is_static(root, key));
     if (!bi && (rt_pl_db_key_is_dynamic(root, key) || !(rt_proc_is_registered(key) || (isclause && rt_pl_db_key_is_static(root, key))))) return (void *)0;
-    if (isclause) { if (!bi && !rt_pl_iso_mode() && !rt_pl_protect_static_code()) return (void *)0; return rt_pl_ball_permission_pi("access", "private_procedure", nm, ar); }
+    if (isclause) { if (!bi && !rt_pl_iso_mode() && !rt_pl_protect_static_code() && !pl_gnu_dialect()) return (void *)0; return rt_pl_ball_permission_pi("access", "private_procedure", nm, ar); }
     return rt_pl_ball_permission_pi("modify", "static_procedure", nm, ar);
 }
 static int pl_cell_is_clref(DESCR_t t) {
@@ -23047,7 +23049,7 @@ void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
             if (pl_iso_unbound(h)) return rt_pl_ball_instantiation();
             if (!pl_anum_is_compound(h) && !pl_anum_is_text(h)) return rt_pl_ball_kind2("type_error", "callable", h);
             if (hasbody && !strcmp(op, "assert") && pl_db_body_ill_typed(b)) return rt_pl_ball_kind2("type_error", "callable", b);
-            if (hasbody && (!strcmp(op, "clause") || (!strcmp(op, "retract") && !pl_swi_dialect()))) {
+            if (hasbody && (!strcmp(op, "clause") || (!strcmp(op, "retract") && pl_gnu_dialect()))) {
                 DESCR_t bd = rt_pl_deref_val(b);
                 if (bd.v == DT_I || bd.v == DT_R) return rt_pl_ball_kind2("type_error", "callable", bd);
             }

@@ -52,7 +52,11 @@ PLEOF
 echo "=== ARM 1 (FIRST, and the one that can be faked by running it last): no portray/1 costs nothing ==="
 sed 's/print(/write(/g' "$D/noportray.pl" > "$D/nowrite.pl"
 gate_emit_md5() {   # $1 = .pl to compile, $2 = .s to write -- path- AND basename-normalised, so only CODE differs
-  timeout -k 5 60 "$SCRIP" --compile -o "$2" "$1" >/dev/null 2>&1 || return 1
+  # Every program is compiled from ONE path, $D/prog.pl (cfo 2026-10-17, row prolog-gnu-semantics-leak-...-ceo-1810): the emission
+  # carries the source path as .byte data in the atom table (a predicate's file/line properties), which the sed below cannot rewrite,
+  # so two different file names made two equal programs differ by their name alone.
+  cp "$1" "$D/prog.pl" || return 1
+  timeout -k 5 60 "$SCRIP" --compile -o "$2" "$D/prog.pl" >/dev/null 2>&1 || return 1
   sed "s|$D|@|g; s|noportray|@PROG@|g; s|nowrite|@PROG@|g; s|yesportray|@PROG@|g; s|yeswrite|@PROG@|g" "$2" | md5sum | cut -d' ' -f1
 }
 N=$((N+1))
