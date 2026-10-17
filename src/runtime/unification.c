@@ -2181,16 +2181,45 @@ PLR_WALK1(plc_tv_walk, plc_tv_visit, pl_deref) static void rt_pl_tv_walk(pl_cell
     if (c) (void)plc_tv_walk(c, (void *)&t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { pl_cell_t *head; int other; } plc_tv1_t;
+static int plc_tv1_visit(pl_cell_t *d, void *ctx) {
+    plc_tv1_t *t = (plc_tv1_t *)ctx;
+    if (d->v == PLR_VCOPY) return PLR_V_GO;
+    if ((int)d->v == DT_PLVAR) { d->v = PLR_VCOPY; d->p = (void *)t->head; t->head = d; return PLR_V_GO; }
+    if (d->v == DT_SNUL || d->v == DT_FAIL) { t->other = 1; return PLR_V_STOP; }
+    return PLR_V_GO;
+}
+PLR_WALK1(plc_tv1_walk, plc_tv1_visit, pl_deref)
+    _Static_assert(PLR_VCOPY != (DTYPE_t)DT_PLVAR,
+    "TERM_VARIABLES IN ONE WALK (hq_runtime 2026-10-17, CEO-1682; hq_prolog's go): a variable is marked PLR_VCOPY the first time the walk meets it and its pointer word threads the variables found so"
+    " far"
+    ", so the walk needs no pool, no counting walk to size one and no linear search to de-duplicate (det.pl spent 1.8 G instructions in those); copy_term's PLR_VCOPY marks never meet these, since ea"
+    "ch runtime " "call restores its marks before it returns, and an unbound DT_SNUL or DT_FAIL cell, which carries no self pointer to restore, sends the call back to the pool road");
 int rt_pl_term_variables_cell(void *term_cell, void *vars_cell, void *tail_cell, pl_tr_ctx_t *cx) {
-    pl_cell_t *pool[plc_var_occ((pl_cell_t *)term_cell) + 1];
-    int pn = 0;
-    rt_pl_tv_walk((pl_cell_t *)term_cell, pool, &pn);
     int dot_id = prolog_atom_intern(".");
     pl_cell_t nil = pl_make_atom(ATOM_NIL);
     pl_cell_t result = tail_cell ? *(pl_cell_t *)tail_cell : nil;
-    for (int i = pn - 1; i >= 0; i--) {
+    plc_tv1_t t;
+    t.head = (pl_cell_t *)0;
+    t.other = 0;
+    if (term_cell) (void)plc_tv1_walk((pl_cell_t *)term_cell, (void *)&t);
+    if (t.other) {
+        for (pl_cell_t *v = t.head, *nx; v; v = nx) { nx = (pl_cell_t *)v->p; v->v = (DTYPE_t)DT_PLVAR; v->p = (void *)v; }
+        pl_cell_t *pool[plc_var_occ((pl_cell_t *)term_cell) + 1];
+        int pn = 0;
+        rt_pl_tv_walk((pl_cell_t *)term_cell, pool, &pn);
+        for (int i = pn - 1; i >= 0; i--) {
+            pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
+            blk[0] = pl_make_ref(pool[i], (int)pool[i]->slen);
+            blk[1] = result;
+            result = pl_make_compound(dot_id, 2, blk);
+        }
+    } else for (pl_cell_t *v = t.head, *nx; v; v = nx) {
         pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
-        blk[0] = pl_make_ref(pool[i], (int)pool[i]->slen);
+        nx = (pl_cell_t *)v->p;
+        v->v = (DTYPE_t)DT_PLVAR;
+        v->p = (void *)v;
+        blk[0] = pl_make_ref(v, (int)v->slen);
         blk[1] = result;
         result = pl_make_compound(dot_id, 2, blk);
     }
