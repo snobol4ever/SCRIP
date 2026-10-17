@@ -13,6 +13,9 @@
 # THE OTHER LANGUAGES: scripts/fixtures/rat_other_languages holds 18 SNOBOL4 programs that build a DATA named RAT and 18 Icon programs that build a record named Rat and push it through every coercion the
 # landing widened (+ - * / ** unary minus, SIN SQRT ABS CHAR DUPL LPAD SUBSTR ARRAY REMDR LT SIZE INTEGER REAL, integer real numeric string repl left sqrt sin abs % < to); their expected output (stdout, stderr and
 # rc, modes 3 and 4) was cut from the BASE binary (SCRIP b01fdb21a) before the change, so a byte of difference is a behaviour the landing changed for those languages.
+# RE-CUT (cfo 2026-10-17, row gate-raku-rat-an-icon-record-is-now-taken-as-numeric-error-102-in-icn-05-ceo-1807): icn_02 (sqrt), icn_05 (abs) and icn_17 (sin) of a record printed done on the base
+# binary where iconx raises 102; SCRIP 49c2cdaee cured abs and the math-builtins landing cured sqrt and sin, and their refs are re-cut to the runs that raise 102 at line 5 on record Rat_1(1,2) as iconx
+# does. Every other Icon fixture already agrees with iconx in error number, line and offending value.
 # FAILED ONCE: the six witnesses differ from Rakudo on b01fdb21a (Num literals, no Rat).
 #
 # EXIT: 0 every pair matches; 1 a mismatch or a crash; 2 REFUSED (stale binary, no gcc, no corpus).

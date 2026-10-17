@@ -140,9 +140,9 @@ static int icn_cvt_num_ok(DESCR_t d) {
     while (*q >= '0' && *q <= '9') q++;
     if (q > p && (*q == 'r' || *q == 'R')) { q++; if (!icn_alnum_c(*q)) return 0; while (icn_alnum_c(*q)) q++; while (*q == ' ') q++; return !*q; }
     char *e;
-    strtod(p, &e);
+    double x = strtod(p, &e);
     while (*e == ' ') e++;
-    return !*e;
+    return !*e && !(isinf(x) && strpbrk(p, ".eE"));
 }
 #include "rt/rt_arena.h"
 #include "rt/gc_heap.h"
@@ -19105,6 +19105,34 @@ static int icn_scan_tail_gate(DESCR_t *args, int nargs, int subj, DESCR_t *out) 
     for (int i = subj + 1; i < subj + 3 && i < nargs; i++) if (!IS_FAIL_fn(args[i]) && args[i].v != DT_SNUL && !icn_cvt_int_ok(args[i])) return icn_argtype_raise(101, args[i], out);
     return 0;
 }
+static int icn_math_arg(DESCR_t a, double *v, DESCR_t *out) {
+    DESCR_t rv;
+    if (!icn_cvt_num_ok(a)) return icn_argtype_raise(102, a, out);
+    *v = relop_radix_coerce(a, &rv) ? to_real(rv) : to_real(a);
+    return 0;
+}
+static double icn_dtor(double x) { return x * 3.14159265358979323846 / 180.0; }
+static double icn_rtod(double x) { return x * 180.0 / 3.14159265358979323846; }
+static int icn_math1(double (*f)(double), int dom, DESCR_t a, DESCR_t *out) {
+    double v;
+    if (icn_math_arg(a, &v, out)) return 1;
+    if ((dom == 1 && (v < -1.0 || v > 1.0)) || (dom == 3 && v < 0.0)) return icn_argtype_raise(205, REALVAL(v), out);
+    errno = 0;
+    double y = f(v);
+    if (dom == 2 && errno == ERANGE) return icn_argtype_raise(204, FAILDESCR, out);
+    *out = REALVAL(y);
+    return 1;
+}
+static int icn_math_log(DESCR_t *args, int nargs, DESCR_t *out) {
+    double v, b;
+    if (icn_math_arg(args[0], &v, out)) return 1;
+    if (v <= 0.0) return icn_argtype_raise(205, REALVAL(v), out);
+    if (nargs < 2 || args[1].v == DT_SNUL) { *out = REALVAL(log(v)); return 1; }
+    if (icn_math_arg(args[1], &b, out)) return 1;
+    if (b == 1.0 || b <= 0.0) return icn_argtype_raise(205, REALVAL(b), out);
+    *out = REALVAL(log(v) / log(b));
+    return 1;
+}
 static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int strict) {
     if (nargs < 1 || IS_FAIL_fn(args[0])) return 0;
     switch (bid) {
@@ -21070,9 +21098,9 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
 #define TONUM(av) (IS_REAL_fn(av) ? (av).r : IS_INT_fn(av) ? (double)(av).i : ((av).v==DT_S && (av).s ? strtod((av).s,NULL) : rk_rat_num(av)))
     L_bidjmp_5777:
     ;
-    if ((_bid == BID_sqrt) && nargs >= 1) { DESCR_t av = args[0]; double v = TONUM(av); *out = REALVAL(sqrt(v)); return 1; }
-#define MATH1(fname, cfn) if (!strcmp(fn, fname) && nargs >= 1) { double _v = TONUM(args[0]); *out = REALVAL(cfn(_v)); return 1; }
-    MATH1("sin", sin) MATH1("cos", cos) MATH1("tan", tan) MATH1("asin", asin) MATH1("acos", acos) MATH1("exp", exp)
+    if ((_bid == BID_sqrt) && nargs >= 1) { DESCR_t av = args[0]; double v = TONUM(av); if (strict) return icn_math1(sqrt, 3, av, out); *out = REALVAL(sqrt(v)); return 1; }
+#define MATH1(fname, cfn, dom) if (!strcmp(fn, fname) && nargs >= 1) { double _v = TONUM(args[0]); if (strict) return icn_math1(cfn, dom, args[0], out); *out = REALVAL(cfn(_v)); return 1; }
+    MATH1("sin", sin, 0) MATH1("cos", cos, 0) MATH1("tan", tan, 2) MATH1("asin", asin, 1) MATH1("acos", acos, 1) MATH1("exp", exp, 2)
 #undef MATH1
     L_bidjmp_5791:
     ;
@@ -21087,16 +21115,17 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     L_bidjmp_5797:
     ;
     if ((_bid == BID_log) && nargs >= 1) {
+        if (strict) return icn_math_log(args, nargs, out);
         double v = TONUM(args[0]);
         if (nargs >= 2 && args[1].v != DT_SNUL) { double base = TONUM(args[1]); *out = REALVAL(log(v)/log(base)); } else *out = REALVAL(log(v));
         return 1;
     }
     L_bidjmp_5803:
     ;
-    if ((_bid == BID_dtor) && nargs >= 1) { double v=TONUM(args[0]); *out=REALVAL(v*3.14159265358979323846/180.0); return 1; }
+    if ((_bid == BID_dtor) && nargs >= 1) { double v=TONUM(args[0]); if (strict) return icn_math1(icn_dtor, 0, args[0], out); *out=REALVAL(v*3.14159265358979323846/180.0); return 1; }
     L_bidjmp_5804:
     ;
-    if ((_bid == BID_rtod) && nargs >= 1) { double v=TONUM(args[0]); *out=REALVAL(v*180.0/3.14159265358979323846); return 1; }
+    if ((_bid == BID_rtod) && nargs >= 1) { double v=TONUM(args[0]); if (strict) return icn_math1(icn_rtod, 0, args[0], out); *out=REALVAL(v*180.0/3.14159265358979323846); return 1; }
     L_bidjmp_5805:
     ;
     if ((_bid == BID_iand) && nargs==2) {
