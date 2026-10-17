@@ -190,6 +190,32 @@ def _ref_is_ambiguous(root, base, files):
     twins = [x for x in files if x.rsplit('.', 1)[-1] in EXT and x[:x.rfind('.')] == base]
     return len(twins) > 1 and any(os.path.exists(os.path.join(root, base + e)) for e in _REF_EXTS)
 
+# ⛔⭐ A SOURCE WITH NO ORACLE ANSWER IS EXCLUDED, NEVER DEBT (Lon 2026-10-11 16:0x CDT, in-chat to the ceo, verbatim: "Exclude any program in which
+# we have no way to get output from an oracle, or in which we do not know the answer."; ceo CEO-1696, RULES.md § Oracles). Outside tests/<lang>/ (tests/scrip_test/ is not one; tests/<lang>/'s
+# accounting is ALL.excluded.txt, the builder's), a source is accounted by a row of an EXCLUDED.tsv in its own directory or any directory above it
+# up to corpus/<tree>: <path relative to that EXCLUDED.tsv's directory> TAB NO_ORACLE_ANSWER TAB <the measurement>, the package tables' own shape.
+# A row with no measurement, or of any other class, accounts nothing (hq_icon's ASK of 2026-10-17: the Arizona icont-bench harness under
+# reference/icon, family_icon.icn twice and jcon/jlink.icn under demos/icon -- timings and &version, an $import iconx cannot load, a linker whose
+# input only jtran's pipeline makes and iconx dumps core in it). benchmarks/pascal/EXCLUDED.tsv's kernel<TAB>reason rows are another instrument's.
+_noa_cache = {}
+def _no_oracle_answer(root, f):
+    d, stop = root, os.path.join(C, os.path.relpath(root, C).split(os.sep)[0])
+    while True:
+        t = os.path.join(d, 'EXCLUDED.tsv')
+        if t not in _noa_cache:
+            rows = {}
+            if os.path.isfile(t):
+                for line in open(t, errors='replace'):
+                    c = line.rstrip('\n').split('\t')
+                    if line.startswith('#') or len(c) < 3: continue
+                    if c[1] == 'NO_ORACLE_ANSWER' and c[2].strip(): rows[c[0]] = c[2].strip()
+            _noa_cache[t] = rows
+        r = os.path.relpath(os.path.join(root, f), d)
+        if r in _noa_cache[t]: return (os.path.relpath(t, C), _noa_cache[t][r])
+        if d == stop or d == C: return None
+        d = os.path.dirname(d)
+no_oracle = collections.defaultdict(list)        # {lang: [(path, (EXCLUDED.tsv, measurement)), ...]} -- excluded, never debt (CEO-1696)
+
 
 for root, dirs, files in os.walk(C):
     rel = os.path.relpath(root, C)
@@ -300,6 +326,7 @@ for root, dirs, files in os.walk(C):
         # ⭐ THIS CENSUS ONLY ACCOUNTS IT. The derivation itself is RE-PERFORMED against the live oracle on every
         # run by test_gate_rebus_derived_refs_match_their_rival_oracle.sh -- a recorded derivation nobody
         # re-executes is a claim, and a static sidecar rots the way this tree's prose digests rot.
+        elif not (top == 'tests' and path.split(os.sep)[1] in _LANGS) and _no_oracle_answer(root, f): kind = 'no-oracle-answer'; no_oracle[lang].append((path, _no_oracle_answer(root, f)))
         elif (lang in NO_RIVAL_LANGS and top in _KERNEL_TOPS
               and any(os.path.exists(os.path.join(root, base + s)) for s in _REF_EXTS)
               and os.path.exists(os.path.join(root, base + '.derivation'))
@@ -311,10 +338,10 @@ for root, dirs, files in os.walk(C):
         elif re.search(r'(^|/)(parser|coverage)/', path) or re.match(r'parser_|probe_|coverage_', f): kind = 'fixture'; owed[lang].append(path)
         else: kind = 'loose source (no ref)'; owed[lang].append(path)
         rows[(top, lang)][kind] += 1
-print('%-12s %-8s %9s %6s %10s %10s %8s %12s %9s %7s %8s %10s %9s' % ('tree', 'lang', 'container', 'module', 'accounted', 'loose-pair', 'fixture', 'loose-noref', 'dangling', 'keeper', 'kern-ref', 'kern-noref', 'deriv-ref'))
+print('%-12s %-8s %9s %6s %10s %10s %8s %12s %9s %7s %8s %10s %9s %9s' % ('tree', 'lang', 'container', 'module', 'accounted', 'loose-pair', 'fixture', 'loose-noref', 'dangling', 'keeper', 'kern-ref', 'kern-noref', 'deriv-ref', 'no-oracle'))
 tot = collections.Counter()
 for (top, lang), c in sorted(rows.items()):
-    print('%-12s %-8s %9d %6d %10d %10d %8d %12d %9d %7d %8d %10d %9d' % (top, lang, c['container'], c['module'], c['accounted'], c['loose pair (has ref)'], c['fixture'], c['loose source (no ref)'], c['dangling ref (no source)'], c['declared-keeper'], c['kernel-with-ref'], c['kernel-owed-ref'], c['derived-ref']))
+    print('%-12s %-8s %9d %6d %10d %10d %8d %12d %9d %7d %8d %10d %9d %9d' % (top, lang, c['container'], c['module'], c['accounted'], c['loose pair (has ref)'], c['fixture'], c['loose source (no ref)'], c['dangling ref (no source)'], c['declared-keeper'], c['kernel-with-ref'], c['kernel-owed-ref'], c['derived-ref'], c['no-oracle-answer']))
     for k, v in c.items(): tot[k] += v
 d = sum(len(v) for v in dangling.values())
 # ⛔⭐ A KERNEL SOURCE WITH NO REF IS DEBT, AND IT JOINS THE rc -- the same call this file already made for a
@@ -331,17 +358,19 @@ n = sum(len(v) for v in owed.values()) + d + k
 # ⭐ It is reported as its own bucket and never folded into 'loose pair': those are sources awaiting absorption,
 # these are refs whose source is already gone. Summing them would hide a ref-side regression inside a source-side
 # backlog that is being worked down anyway -- the arithmetic would stay plausible while the meaning drained out.
-print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d declared-keepers=%d kernel-with-ref=%d derived-refs=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d, DANGLING REFS %d, KERNEL OWED A REF %d) -- an owed source is absorbed into its rungs with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output; an owed DANGLING REF is a .ref/.expected/.std whose source no longer exists and is deleted once its content is proven preserved (diff it against the rungs entry that absorbed it) or restored beside its source; a KERNEL source owed a ref is given one cut from its oracle and stays where it lives; a DERIVED REF is a kernel of a language with NO RIVAL IMPLEMENTATION (CEO-607) whose ref is derived cross-language under a real oracle with the derivation recorded beside it -- accounted, never owed, never available to a language that has an oracle, and kept a SEPARATE class from kernel-with-ref so a derived ref never reads as an oracle-cut one. Declared keepers are REPORTED BESIDE owed and never folded into it -- one rung suite per language is the order, and a keeper is a deliberate exception that is SEEN, not one that hides' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted'], tot['declared-keeper'], tot['kernel-with-ref'], tot['derived-ref'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)'], d, k))
-for lang in sorted(set(list(owed) + list(dangling) + list(kernel_owed) + list(keepers))):
+print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d declared-keepers=%d kernel-with-ref=%d derived-refs=%d no-oracle-answer=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d, DANGLING REFS %d, KERNEL OWED A REF %d) -- an owed source is absorbed into its rungs with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output; an owed DANGLING REF is a .ref/.expected/.std whose source no longer exists and is deleted once its content is proven preserved (diff it against the rungs entry that absorbed it) or restored beside its source; a KERNEL source owed a ref is given one cut from its oracle and stays where it lives; a DERIVED REF is a kernel of a language with NO RIVAL IMPLEMENTATION (CEO-607) whose ref is derived cross-language under a real oracle with the derivation recorded beside it -- accounted, never owed, never available to a language that has an oracle, and kept a SEPARATE class from kernel-with-ref so a derived ref never reads as an oracle-cut one. Declared keepers are REPORTED BESIDE owed and never folded into it -- one rung suite per language is the order, and a keeper is a deliberate exception that is SEEN, not one that hides; a NO ORACLE ANSWER source (CEO-1696) is named with its measurement in an EXCLUDED.tsv beside or above it, excluded and never owed' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted'], tot['declared-keeper'], tot['kernel-with-ref'], tot['derived-ref'], tot['no-oracle-answer'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)'], d, k))
+for lang in sorted(set(list(owed) + list(dangling) + list(kernel_owed) + list(keepers) + list(no_oracle))):
     bits = []
     if dangling[lang]: bits.append('dangling refs %d' % len(dangling[lang]))
     if kernel_owed[lang]: bits.append('kernel owed a ref %d' % len(kernel_owed[lang]))
     if keepers[lang]: bits.append('declared keepers %d, not owed' % len(keepers[lang]))
+    if no_oracle[lang]: bits.append('no oracle answer %d, excluded, not owed' % len(no_oracle[lang]))
     print('  %-8s owed %d%s' % (lang or '?', len(owed[lang]) + len(dangling[lang]) + len(kernel_owed[lang]), (' (' + '; '.join(bits) + ')') if bits else ''))
 if A.list:
-    for lang in sorted(set(list(owed) + list(dangling) + list(kernel_owed) + list(keepers))):
+    for lang in sorted(set(list(owed) + list(dangling) + list(kernel_owed) + list(keepers) + list(no_oracle))):
         for p in sorted(owed[lang]): print('    ' + p)
         for p in sorted(dangling[lang]): print('    DANGLING REF  ' + p)
         for p, why in sorted(kernel_owed[lang]): print('    KERNEL OWED A REF  ' + p + ('   <- ' + why if why else ''))
         for p, (kf, why) in sorted(keepers[lang]): print('    DECLARED KEEPER  %-58s %s (%s)' % (p, kf, why))
+        for p, (xf, why) in sorted(no_oracle[lang]): print('    NO ORACLE ANSWER  %-58s %s (%s)' % (p, xf, why[:160]))
 sys.exit(1 if n else 0)
