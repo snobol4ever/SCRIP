@@ -14,6 +14,8 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 # call of every form (rt_gc_poll_asm, rt_gc_poll, rt_gc_point_arr_c) and one numeric local label per load; (3) THE SLOW PATH IS
 # LIVE: the witness at the shipped arena reports collections > 0 on its own [GC-EXERCISE] line in m3 and m4; (4) the witness
 # prints its oracle-cut lines in both modes at the shipped arena. EXIT 0 all arms; 1 a red (named); 2 REFUSED.
+# THE WITNESS LOOPS 40,000 TIMES (cto 2026-10-17): at 4,000 it allocated 862,400 bytes under the shipped 1,024 KB window once the
+# runtime leaves got leaner, so arm (3) read collections=0 in both modes with grew=0; at 40,000 it collects 12 times, grew=0.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 . "$HERE/lib_oracle_flags.sh"
@@ -28,7 +30,7 @@ cat > "$W/churn.sno" <<'SNO'
         T = TABLE()
         S = 'the quick brown fox jumps over the lazy dog'
         N = 0
-LOOP    N = LT(N, 4000) N + 1                           :F(DONE)
+LOOP    N = LT(N, 40000) N + 1                          :F(DONE)
         S BREAK(' ') $ W1 ' ' BREAK(' ') $ W2
         T[W1] = T[W1] + 1
         X = W1 '-' W2 '-' N
