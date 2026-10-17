@@ -784,6 +784,7 @@ static std::string bcps_block_build(IR_graph_t ** argblks, int n) {
                     + x86("mov", "rax", x86_fb_pinned() ? FRQ(slot + 8) : FRQB(slot + 8, 16 * n)) + x86_rsp_store64(16 * i + 8, "rax"); }));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string xa_flat_pkt_tail_pop(const char * fb, int kt, int lsk);
 static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop) {
     int ns = g_emit_cfg ? g_emit_cfg->nparams : 0;
     const char * fb = x86_fb_pinned() ? x86_fb() : "r11";
@@ -880,6 +881,7 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
     return x86("note", "last call (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.4): the block is tested in place, then copied over this frame's own block and the frame released")
          + IF(!x86_fb_pinned(), x86("lea", "r11", RDQ("rsp", 16 * n + (_.op_zres ? _.op_zabs : 0))))
          + chk
+         + IF(g_emit.flat_pkt, xa_flat_pkt_tail_pop(fb, kt, lsk))
          + x86("mov", "rax", RDQ(fb, kt - 40))
          + x86("cmp", "r13", "rax")
          + (pop ? x86("note", "pop: this frame's own choice is the youngest only through a construct the lowering proved dead, so the call may also take the tail arm when r13 is a header "
@@ -895,10 +897,6 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
                   + x86("jne", L(lsk + 99))
                   + x86("def", L(lsk + 98))
                 : x86("jne", L(lsk + 99)))
-         + IF(!(_.op_zres && x86_fb_pinned()),
-               x86("lea", "rax", RDQ("rsp", 16 * n + (_.op_zres ? _.op_zabs : 0)))
-             + x86("cmp", "rax", fb)
-             + x86("jne", L(lsk + 99)))
          + x86("mov", "rcx", RDQ(fb, kt - 24))
          + x86("mov", "rdx", RDQ(fb, kt - 16))
          + IF(x86_fb_pinned(), x86("mov", "r8", RDQ(fb, kt - 8)))

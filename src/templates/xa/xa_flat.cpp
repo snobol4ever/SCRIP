@@ -297,6 +297,39 @@ static std::string xa_flat_pkt_cell_rax(int k) {
          + x86("mov", "rax", RDQ("rax", 8 * (k - nf)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string xa_flat_pkt_tail_pop(const char * fb, int kt, int lsk) {
+    int k = g_emit.flat_pkt_cell, i = g_emit.flat_pkt_slot;
+    if (k < 0 || i < 0) return std::string();
+    return x86("note", "packet fragment last call: when this frame's own clause choice is the youngest (r13 == its header) and no later slot of the chain is visible at the generation the call "
+                       "began in, this clause is the last alternative, so the choice is popped to F.B0 as the packet gamma's det exit pops it, and the frame-reuse test that follows passes")
+         + x86("lea", "rax", RDQ(fb, kt - 64))
+         + x86("cmp", "r13", "rax")
+         + x86("jne", L(lsk + 97))
+         + x86("mov", "r8", RDQ(fb, kt - 80)) + x86_shift_imm("shr", 5, "r8", 8)
+         + xa_flat_pkt_cell_rax(k) + x86("mov", "r9", RDQ("rax", 0))
+         + x86("mov", "r10d", RDD("r9", 40 * i + 32))
+         + x86("movsxd", "r10", "r10d")
+         + x86("def", L(lsk + 95))
+         + x86("cmp", "r10d", 0L)
+         + x86("jl", L(lsk + 96))
+         + xa_flat_pkt_slot_addr("r10", "rcx", "rax")
+         + x86("mov", "eax", RDD("rcx", 20))
+         + x86("cmp", "eax", "r8d")
+         + x86("jge", L(lsk + 94))
+         + x86("mov", "eax", RDD("rcx", 16))
+         + x86("test", "eax", "eax")
+         + x86("je", L(lsk + 99))
+         + x86("cmp", "eax", "r8d")
+         + x86("jge", L(lsk + 99))
+         + x86("def", L(lsk + 94))
+         + x86("mov", "r10d", RDD("rcx", 32))
+         + x86("movsxd", "r10", "r10d")
+         + x86("jmp", L(lsk + 95))
+         + x86("def", L(lsk + 96))
+         + x86("mov", "r13", RDQ(fb, kt - 40))
+         + x86("def", L(lsk + 97));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_pkt_fresh_entry_str(void) {
     int k = g_emit.flat_pkt_cell, i = g_emit.flat_pkt_slot;
     if (k < 0 || i < 0 || !g_emit.flat_pkt_walk_p) return x86_bomb("xa_flat_pkt_fresh_entry: a packet fragment without its cell, its slot or its walk label");
