@@ -80,6 +80,13 @@ printf 'main :- run_tests.\n:- initialization(main).\n' > "$WORK/wrap.pl"
 FILES="$WORK/files.txt"
 grep -rl --include='*.pl' 'begin_tests(' "$SWIT" | sort > "$FILES"
 if [ -n "$ONLY_FILE" ]; then grep -F -- "/$ONLY_FILE" "$FILES" > "$FILES.one" || refuse "--file $ONLY_FILE matches no shipped test file"; _nf=$(wc -l < "$FILES.one"); [ "$_nf" = 1 ] || refuse "--file $ONLY_FILE matches $_nf shipped test files -- it grades exactly one (CEO-1664)"; mv "$FILES.one" "$FILES"; fi
+# ⭐ THE ROUND ROBIN'S SEAM (ceo CEO-1802/1805/1806): under S4E_CHUNK only the part's files (keyed dir/test_x, as ALL.csv and PARTITION.tsv key them) are
+# graded, their cases' rows are appended as a whole run appends them, and no suite row is written (rr_end below). The jobs run under xargs, so a waiting
+# request is served after the part, not between two of its files.
+. "$HERE/lib_rr.sh" && rr_load "$SWIT" || exit 2
+if rr_selected; then
+    while IFS= read -r _f; do _r="${_f#"$SWIT"/}"; rr_admits "${_r%.pl}" && printf '%s\n' "$_f"; done < "$FILES" > "$FILES.rr"; mv "$FILES.rr" "$FILES"
+fi
 NFILES=$(wc -l < "$FILES")
 [ "$NFILES" -gt 0 ] || refuse "no plunit files found under $SWIT"
 cat > "$WORK/grade_one.sh" <<'GEOF'
@@ -253,6 +260,7 @@ read -r BOTH DECLARED GRADED NOREF STALE < "$WORK/summary.txt"
 if command -v progress_append_rows_tsv >/dev/null 2>&1 && [ -s "$WORK/rows.tsv" ] && [ -z "$ONLY_FILE" ]; then
     progress_append_rows_tsv "$WORK/rows.tsv" >/dev/null || echo "⚠ progress rows NOT recorded"
 fi
+rr_selected && { rr_end swi; exit 0; }   # a part or a request writes its cases' rows and no suite row (CEO-1802)
 INV_PACKAGE=swi_tests; INV_DIR="$SWIT"; INV_EXT=".pl"
 _shipped_tests=$(wc -l < "$FILES")
 _iv="$(inventory_line "$((_shipped_tests - NOREF))" 0)"; _ivrc=$?
