@@ -37,6 +37,7 @@ typedef struct {
     int want_lines;
     int end_line;
     int after_line;
+    int key_after_line;
     const tree_t * discard;
     int ret_lv;
     int var_road;
@@ -540,7 +541,12 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         IR_t * ae;
         staged[k] = 0;
         if (nstage && icn_arg_stages(cx, a)) { cx->beta = aω; ae = lower_lvalue_var(cx, a, aω, &ar); if (ae && ar) staged[k] = 1; }
-        if (!staged[k]) { if (k == nargs - 1) cx->after_line = own_line; ae = lower(cx, a, (k == nargs - 1 && !fill_scan_defaults && !nstage) ? callin : NULL, aω, &ar); }
+        if (!staged[k]) {
+            const tree_t * na = k < nargs - 1 ? t->c[argbase + k + 1] : NULL;
+            if (k == nargs - 1) cx->after_line = own_line;
+            else if (na && na->line > 0 && (na->t == TT_KEYWORD || (na->t == TT_VAR && na->v.sval && na->v.sval[0] == '&'))) cx->after_line = na->line;
+            ae = lower(cx, a, (k == nargs - 1 && !fill_scan_defaults && !nstage) ? callin : NULL, aω, &ar);
+        }
         aω = cx->beta;
         if (k == 0) entry = ae;
         if (prev) lc_γ_to(prev, ae);
@@ -893,7 +899,12 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, IR_t * ω, IR_t ** res) {
     const char * id = (kw && kw[0] == '&') ? kw + 1 : kw;
-    if (id && !strcmp(id, "line")) { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = (t && t->line > 0) ? t->line : 0; *res = nd; return nd; }
+    if (id && !strcmp(id, "line")) {
+        IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω);
+        IR_LIT(nd).ival = cx->key_after_line > 0 ? cx->key_after_line : (t && t->line > 0) ? t->line : 0;
+        *res = nd;
+        return nd;
+    }
     if (id && !strcmp(id, "file")) { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) cx->file; *res = nd; return nd; }
     if (id) {
         const char * cs = !strcmp(id, "ucase") ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : !strcmp(id, "lcase") ? "abcdefghijklmnopqrstuvwxyz" : !strcmp(id, "digits") ? "0123456789" : NULL;
@@ -1012,6 +1023,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     cx->beta = ω;
     int after_line = cx->after_line;
     cx->after_line = 0;
+    cx->key_after_line = after_line;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     if (lc_is_binop(t->t)) {
         if (t->t == TT_CAT && t->n == 2 && (icn_arg_is_scan_fn(t->c[0]) || icn_arg_is_scan_fn(t->c[1]))) {
@@ -2341,6 +2353,7 @@ static IR_t * lower_arm(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_seq_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res, int lv) {
+    int al = cx->key_after_line;
     lc_vec Sv;
     lc_vec_init(&Sv, (int) sizeof(const tree_t *));
     for (int i = 0; i < t->n; i++) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) s = stmt_subj(s); if (s) lc_vec_push(&Sv, &s); }
@@ -2396,6 +2409,7 @@ static IR_t * lower_seq_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
         IR_t * failt = ω;
         if (i > 0) { jn[i] = build(cx, IR_GOTO, ω, ω); failt = jn[i]; }
         int n0 = cx->g->n;
+        if (i == k - 1 && t->t == TT_CONJ) cx->after_line = al;
         ent[i] = lower_arm(cx, S[i], succ, failt, &val[i], i == k - 1 ? lv : 0);
         bet[i] = cx->beta;
         if (i == k - 1) last_beta = cx->beta;
