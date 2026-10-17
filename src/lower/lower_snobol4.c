@@ -4114,7 +4114,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                         extern const char * stmt_src_get_file(void);
                         int _lln = lp_s_int(st[i], ":lline");
                         if (!_lln) _lln = lp_s_int(st[i], ":line");
-                        const char * _sf = sfind_str(st[i], ":file");
+                        const char * _sf = sfind_str(st[i], ":kwfile");
+                        if (!_sf || !*_sf) _sf = sfind_str(st[i], ":file");
                         if (!_sf || !*_sf) _sf = stmt_src_get_file();
                         emit_stno_src_note((long long)IR_LIT(sbeg).ival, _lln, _sf);
                     }
@@ -4140,7 +4141,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * entry = hook;
             {
                 extern const char * stmt_src_get_file(void);
-                const char * _sf = sfind_str(st[i], ":file");
+                const char * _sf = sfind_str(st[i], ":kwfile");
+                if (!_sf || !*_sf) _sf = sfind_str(st[i], ":file");
                 if (!_sf || !*_sf) _sf = stmt_src_get_file();
                 if (!_sf) _sf = "";
                 if (!_stmtkw_cur_file || strcmp(_stmtkw_cur_file, _sf) != 0) {

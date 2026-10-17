@@ -743,7 +743,7 @@ void sno_error_quiet_begin(void) { sno_err_quiet = 1; sno_err_capture[0] = '\0';
 void sno_error_quiet_end(void) { sno_err_quiet = 0; }
 const char *sno_error_captured(void) { return sno_err_capture[0] ? sno_err_capture : NULL; }
 static int   lineno = 1;
-static struct { int lineno; int lline; char *fname; char *pend_fname; } g_stmt_pos = { 1, 1, (char *)0, (char *)0 };
+static struct { int lineno; int lline; char *fname; char *pend_fname; char *kw_fname; int after_stmt; } g_stmt_pos = { 1, 1, (char *)0, (char *)0, (char *)0, 1 };
 static int   g_nofail_mode = 0;
 int snobol4_get_nofail_mode(void) { return g_nofail_mode; }
 static int   g_case_fold = 0;
@@ -783,6 +783,7 @@ static int sno_list_is(const char *w, int wl, const char *nm) {
     return 1;
 }
 static void sno_list_card(const char *line, int len) {
+    g_stmt_pos.after_stmt = 0;
     int n = len;
     while (n > 0 && (line[n-1] == '\n' || line[n-1] == '\r' || line[n-1] == ' ' || line[n-1] == '\t')) n--;
     char *buf = ct_strndup(line, (size_t) n);
@@ -831,6 +832,7 @@ const char *snobol4_list_event_text(int idx) { return g_list_events[idx].text ? 
 int snobol4_get_stmt_lineno(void) { return g_stmt_pos.lineno; }
 int snobol4_get_stmt_lline(void) { return g_stmt_pos.lline; }
 const char *snobol4_get_stmt_file(void) { return g_stmt_pos.fname ? g_stmt_pos.fname : ""; }
+const char *snobol4_get_stmt_kwfile(void) { return g_stmt_pos.kw_fname; }
 extern void stmt_src_include_open(const char *name, const char *rpath, int depth);
 #define MAX_INCL_NEST 64
 typedef struct { int start_line; int line_delta; char *fname; } SNO_SRC_FRAME_t;
@@ -846,16 +848,18 @@ static int sno_frame_line(void) { return lineno + incl_start_stack[incl_stack_de
 static void sno_stmt_pos_mark(void) {
     g_stmt_pos.lineno = lineno; g_stmt_pos.lline = sno_frame_line();
     ct_drop(g_stmt_pos.fname);
-    g_stmt_pos.fname = g_stmt_pos.pend_fname ? g_stmt_pos.pend_fname : ct_strdup(sno_frame_file());
+    g_stmt_pos.fname = ct_strdup(sno_frame_file());
+    ct_drop(g_stmt_pos.kw_fname);
+    g_stmt_pos.kw_fname = g_stmt_pos.pend_fname;
     g_stmt_pos.pend_fname = (char *)0;
+    g_stmt_pos.after_stmt = 1;
 }
-static void sno_stmt_comment_latch(void) {
-    if (!g_stmt_pos.pend_fname) g_stmt_pos.pend_fname = ct_strdup(sno_frame_file());
+static void sno_stmt_null_line(void) { g_stmt_pos.after_stmt = 1; ct_drop(g_stmt_pos.pend_fname); g_stmt_pos.pend_fname = (char *)0; }
+static void sno_stmt_include_end_latch(void) {
+    if (!g_stmt_pos.after_stmt && !g_stmt_pos.pend_fname) g_stmt_pos.pend_fname = ct_strdup(sno_frame_file());
 }
-static void sno_stmt_latch_drop(void) { ct_drop(g_stmt_pos.pend_fname); g_stmt_pos.pend_fname = (char *)0; }
 static void sno_frame_push(const char *name) {
     if (incl_stack_depth >= MAX_INCL_NEST) return;
-    sno_stmt_latch_drop();
     { SNO_SRC_FRAME_t *f = &incl_start_stack[++incl_stack_depth];
       f->start_line = lineno; f->line_delta = 1 - lineno;
       ct_drop(f->fname); f->fname = ct_strdup(name ? name : ""); }
@@ -1211,12 +1215,12 @@ YY_RULE_SETUP
 case 2:
 /* rule 2 can match eol */
 YY_RULE_SETUP
-{ lineno++; BEGIN(AFTER_BLANK); return T_STMT_END; }
+{ lineno++; sno_stmt_null_line(); BEGIN(AFTER_BLANK); return T_STMT_END; }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
 {
-    sno_stmt_comment_latch();
+    g_stmt_pos.after_stmt = 0;
     if (g_list_ever_on) { int _cn = yyleng; while (_cn > 0 && (yytext[_cn-1] == ' ' || yytext[_cn-1] == '\t' || yytext[_cn-1] == '\r')) _cn--; sno_list_record('C', incl_stack_depth, yytext, _cn); }
     BEGIN(SKIP);
 }
@@ -1967,8 +1971,8 @@ case YY_STATE_EOF(AFTER_SEMI):
 case YY_STATE_EOF(AFTER_BLANK):
 {
     if (incl_stack_depth > 0) {
+        sno_stmt_include_end_latch();
         int _incl_start = incl_start_stack[incl_stack_depth--].start_line;
-        sno_stmt_latch_drop();
         lineno = _incl_start;
     }
     if (YY_CURRENT_BUFFER) yypop_buffer_state(yyscanner);

@@ -53,6 +53,7 @@ tree_t *stmt_to_ast(const STMT_t *s) {
         sa_add(node, attr_int(":line", s->lineno));
         sa_add(node, attr_int(":lline", s->lline ? s->lline : s->lineno));
         if (s->file && s->file[0]) sa_add(node, attr_leaf(":file", s->file));
+        if (s->kwfile && s->kwfile[0] && !(s->file && strcmp(s->kwfile, s->file) == 0)) sa_add(node, attr_leaf(":kwfile", s->kwfile));
         sa_add(node, attr_int(":stno", s->stno));
         return node;
     }
@@ -61,6 +62,7 @@ tree_t *stmt_to_ast(const STMT_t *s) {
     sa_add(node, attr_int(":line", s->lineno));
     sa_add(node, attr_int(":lline", s->lline ? s->lline : s->lineno));
     if (s->file && s->file[0]) sa_add(node, attr_leaf(":file", s->file));
+    if (s->kwfile && s->kwfile[0] && !(s->file && strcmp(s->kwfile, s->file) == 0)) sa_add(node, attr_leaf(":kwfile", s->kwfile));
     sa_add(node, attr_int(":stno", s->stno));
     {
         int sdepth = 0;

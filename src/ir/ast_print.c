@@ -153,7 +153,7 @@ static void print_head(const tree_t * e, FILE * f) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_bookkeeping_attr(const tree_t * e) {
-    static const char * const skip[] = { ":line", ":lline", ":file", ":stno", ":src", NULL };
+    static const char * const skip[] = { ":line", ":lline", ":file", ":kwfile", ":stno", ":src", NULL };
     if (!e || e->t != TT_ATTR || !e->v.sval || (uintptr_t)e->v.sval < 4096) return 0;
     for (int i = 0; skip[i]; i++) if (!strcmp(e->v.sval, skip[i])) return 1;
     return 0;

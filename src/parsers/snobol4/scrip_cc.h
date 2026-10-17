@@ -17,6 +17,7 @@ struct STMT_t {
     tree_t  *goto_s_expr, *goto_f_expr, *goto_u_expr;
     int      lineno, lline, stno, is_end, has_eq, nofail, goto_f_first;
     const char *file;
+    const char *kwfile;
     STMT_t  *next;
 };
 typedef struct ExportEntry {

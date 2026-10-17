@@ -248,8 +248,8 @@ static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,i
     { const tree_t *s0=subj; while(s0&&(s0->t==TT_SCAN||s0->t==TT_SEQ)&&s0->n>0&&s0->c[0]) s0=s0->c[0]; if(has_eq&&sno_target_value(s0)) sno_target_refuse(); }
     s->goto_f_first=sno4_goto_f_first; sno4_goto_f_first=0;
     s->lineno = lbl.lineno ? lbl.lineno : snobol4_get_stmt_lineno();
-    { extern int snobol4_get_stmt_lline(void); extern const char *snobol4_get_stmt_file(void);
-      s->lline = snobol4_get_stmt_lline(); s->file = ct_strdup(snobol4_get_stmt_file()); }
+    { extern int snobol4_get_stmt_lline(void); extern const char *snobol4_get_stmt_file(void); extern const char *snobol4_get_stmt_kwfile(void);
+      s->lline = snobol4_get_stmt_lline(); s->file = ct_strdup(snobol4_get_stmt_file()); if (snobol4_get_stmt_kwfile()) s->kwfile = ct_strdup(snobol4_get_stmt_kwfile()); }
     { extern int snobol4_get_nofail_mode(void); s->nofail = snobol4_get_nofail_mode(); }
     s->stno = ++pp->prog->nstmts;
     if(lbl.sval){s->label=ct_strdup(lbl.sval);s->is_end=lbl.ival||(strcmp(lbl.sval,"END")==0);
@@ -284,7 +284,7 @@ tree_t *parse_expr_from_str(const char *src){
     if(!src||!*src) return NULL;Lex lx={0};lex_open_str(&lx,src,(int)strlen(src),0);tree_t *r=parse_expr(&lx);flex_lex_destroy(&lx);return r;
 }
 static void sno4_stmt_shells_drop(CODE_t *prog){
-    for(STMT_t *s=prog->head,*n;s;s=n){n=s->next;ct_drop(s->file);ct_drop(s->label);ct_drop(s);}
+    for(STMT_t *s=prog->head,*n;s;s=n){n=s->next;ct_drop(s->file);ct_drop(s->kwfile);ct_drop(s->label);ct_drop(s);}
     ct_drop(prog);
 }
 tree_t *parse_expr_pat_from_str(const char *src) {
