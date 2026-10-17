@@ -2029,6 +2029,10 @@ static int pl_callee_static(lcx_t * cx, const char * nm, int ar, const char * ke
 static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     int pl_db_live = pl_db_owned(nm, nargs);
     int st = 0;
+    if (pl_db_live && g_stage2.rt_lowering) {
+        extern int rt_proc_is_registered(const char *);
+        if (!rt_proc_is_registered(pl_pi_name(nm, nargs))) return pl_meta_call_dyn(cx, t, NULL, 0, γnext, ωfail, entry_out);
+    }
     {
         char key[fmt_len("%s/%d", nm, nargs)];
         snprintf(key, sizeof key, "%s/%d", nm, nargs);
