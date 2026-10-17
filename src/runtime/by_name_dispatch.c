@@ -19397,28 +19397,11 @@ DESCR_t rt_sno_list_d(DESCR_t *args, int nargs) {
 static int bn_prototype(DESCR_t *args, int nargs, DESCR_t *out, int op) { extern DESCR_t agg_prototype(DESCR_t); (void)op; *out = agg_prototype(nargs >= 1 ? args[0] : NULVCL); return 1; }
 static int bn_wantnm(DESCR_t *args, int nargs, DESCR_t *out, int op) { extern int rt_g_want_name; (void)args; (void)nargs; (void)op; rt_g_want_name = 1; *out = NULVCL; return 1; }
 static int bn_array(DESCR_t *args, int nargs, DESCR_t *out, int op) {
-    extern DESCR_t sno_array_from_proto(const char *proto, DESCR_t init);
-    extern ARBLK_t *array_new(int lo, int hi);
+    extern DESCR_t sno_array_d(DESCR_t a, DESCR_t init);
     (void)op;
     if (nargs < 1) return 0;
-    {
-        DESCR_t init = (nargs >= 2) ? args[1] : NULVCL;
-        if (IS_INT_fn(args[0])) {
-            const long long _n = (long long)args[0].i;
-            if (_n < 1) { core_runtime_error(67, "array dimension is zero, negative or out of range"); *out = FAILDESCR; return 1; }
-            {
-                ARBLK_t *_a = array_new(1, (int)_n);
-                if (!_a) { *out = FAILDESCR; return 1; }
-                if (!(init.v == DT_SNUL && init.slen == 0)) for (long long _k = 0; _k < _n; _k++) _a->data[_k] = init;
-                { DESCR_t _r; memset(&_r, 0, sizeof _r); _r.v = DT_A; _r.slen = 0; _r.arr = _a; *out = _r; return 1; }
-            }
-        }
-        {
-            const char *proto = VARVAL_fn(args[0]);
-            if (!proto || !*proto) { core_runtime_error(67, "array dimension is zero, negative or out of range"); *out = FAILDESCR; return 1; }
-            { DESCR_t r = sno_array_from_proto(proto, init); if (r.v == DT_A && r.arr) ((ARBLK_t *)r.arr)->proto = rt_heap_strdup_c(proto); *out = r; return 1; }
-        }
-    }
+    *out = sno_array_d(args[0], nargs >= 2 ? args[1] : NULVCL);
+    return 1;
 }
 static int bn_table(DESCR_t *args, int nargs, DESCR_t *out, int op) {
     extern TBBLK_t *table_new_args(int, int);
@@ -22059,34 +22042,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     if ((_bid == BID_SNOx24NAME) && nargs == 1) return bn_sno_name(args, nargs, out);
     L_bidjmp_6469:
     ;
-    if ((_bid == BID_ARRAY) && nargs >= 1) {
-        extern DESCR_t sno_array_from_proto(const char *proto, DESCR_t init);
-        DESCR_t init = (nargs >= 2) ? args[1] : NULVCL;
-        char pb[64];
-        const char *proto;
-        if (IS_INT_fn(args[0])) {
-            const long long _n = (long long)args[0].i;
-            if (_n < 1) { core_runtime_error(67, "array dimension is zero, negative or out of range"); *out = FAILDESCR; return 1; }
-            extern ARBLK_t *array_new(int lo, int hi);
-            ARBLK_t *_a = array_new(1, (int)_n);
-            if (!_a) { *out = FAILDESCR; return 1; }
-            if (!(init.v == DT_SNUL && init.slen == 0)) for (long long _k = 0; _k < _n; _k++) _a->data[_k] = init;
-            DESCR_t _r;
-            memset(&_r, 0, sizeof _r);
-            _r.v = DT_A;
-            _r.slen = 0;
-            _r.arr = _a;
-            *out = _r;
-            return 1;
-        }
-        proto = VARVAL_fn(args[0]);
-        if (!proto || !*proto) { core_runtime_error(67, "array dimension is zero, negative or out of range"); *out = FAILDESCR; return 1; }
-        (void)pb;
-        DESCR_t r = sno_array_from_proto(proto, init);
-        if (r.v == DT_A && r.arr) ((ARBLK_t *)r.arr)->proto = rt_heap_strdup_c(proto);
-        *out = r;
-        return 1;
-    }
+    if ((_bid == BID_ARRAY) && nargs >= 1) { extern DESCR_t sno_array_d(DESCR_t a, DESCR_t init); *out = sno_array_d(args[0], nargs >= 2 ? args[1] : NULVCL); return 1; }
     L_bidjmp_6479:
     ;
     if ((_bid == BID_TABLE) && nargs <= 3) {
@@ -22563,32 +22519,72 @@ const char *rt_builtin_synonym(const char *name) {
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t sno_array_from_proto_d(const char *proto, DESCR_t init, int depth);
-DESCR_t sno_array_from_proto(const char *proto, DESCR_t init) { return sno_array_from_proto_d(proto, init, 0); }
-static DESCR_t sno_array_from_proto_d(const char *proto, DESCR_t init, int depth) {
+static int sno_array_bound(const char *p, size_t m, int64_t *v) {
+    extern int rt_num_arg_d(const DESCR_t *, int64_t *);
+    char b[m + 1];
+    memcpy(b, p, m);
+    b[m] = 0;
+    DESCR_t s = m ? (DESCR_t){ .v = DT_S, .slen = (uint32_t)m, .s = b } : NULVCL;
+    return rt_num_arg_d(&s, v);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t sno_array_nest(const int64_t *lb, const int64_t *dm, int nd, int k, DESCR_t init) {
     extern ARBLK_t *array_new(int lo, int hi);
     extern void rt_sno_dumpno_undo(void);
-    if (!proto || !*proto) return FAILDESCR;
-    char buf[strcspn(proto, ",") + 1];
-    int bn = 0;
-    for (const char *q = proto; *q && *q != ','; q++) buf[bn++] = *q;
-    buf[bn] = 0;
-    const char *rest = proto[bn] == ',' ? proto + bn + 1 : (const char *)0;
-    long lo = 1, hi;
-    char *colon = strchr(buf, ':');
-    if (colon) { *colon = 0; lo = strtol(buf, (char **)0, 10); hi = strtol(colon + 1, (char **)0, 10); } else hi = strtol(buf, (char **)0, 10);
-    if (hi < lo) { core_runtime_error(67, "array dimension is zero, negative or out of range"); return FAILDESCR; }
-    ARBLK_t *a = array_new((int)lo, (int)hi);
+    ARBLK_t *a = array_new((int)lb[k], (int)(lb[k] + dm[k] - 1));
     if (!a) return FAILDESCR;
-    if (depth > 0) { a->dumpno = 0; rt_sno_dumpno_undo(); } else a->proto = rt_heap_strdup_c(proto);
-    int n = (int)(hi - lo + 1);
-    for (int k = 0; k < n; k++) a->data[k] = rest ? sno_array_from_proto_d(rest, init, depth + 1) : init;
+    if (k > 0) { a->dumpno = 0; rt_sno_dumpno_undo(); }
+    for (int64_t j = 0; j < dm[k]; j++) a->data[j] = k + 1 < nd ? sno_array_nest(lb, dm, nd, k + 1, init) : init;
     DESCR_t d;
     memset(&d, 0, sizeof d);
     d.v = DT_A;
     d.slen = 0;
     d.arr = a;
     return d;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t sno_array_from_proto(const char *proto, DESCR_t init) {
+    int nd = 1;
+    for (const char *q = proto; *q; q++) nd += *q == ',';
+    int64_t lb[nd], dm[nd], nel = 1;
+    const char *p = proto;
+    for (int k = 0; k < nd; k++) {
+        size_t m = strcspn(p, ":,");
+        int64_t lo = 1, hi = 0;
+        if (p[m] == ':') { if (!sno_array_bound(p, m, &lo)) { core_runtime_error(65, "array first argument lower bound is not integer"); return FAILDESCR; } p += m + 1; m = strcspn(p, ","); }
+        if (!sno_array_bound(p, m, &hi)) { core_runtime_error(66, "array first argument upper bound is not integer"); return FAILDESCR; }
+        if (__builtin_sub_overflow(hi, lo, &dm[k]) || dm[k] < 0 || __builtin_add_overflow(dm[k], 1, &dm[k])) {
+            core_runtime_error(67, "array dimension is zero, negative or out of range");
+            return FAILDESCR;
+        }
+        if (lo < INT_MIN || hi > INT_MAX || __builtin_mul_overflow(nel, dm[k], &nel) || nel > INT_MAX) { core_runtime_error(68, "array size exceeds maximum permitted"); return FAILDESCR; }
+        lb[k] = lo;
+        p += m + (p[m] == ',');
+    }
+    DESCR_t r = sno_array_nest(lb, dm, nd, 0, init);
+    if (r.v == DT_A && r.arr) ((ARBLK_t *)r.arr)->proto = rt_heap_strdup_c(proto);
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t sno_array_d(DESCR_t a, DESCR_t init) {
+    extern int rt_num_arg_d(const DESCR_t *, int64_t *);
+    extern ARBLK_t *array_new(int lo, int hi);
+    int64_t n = 0;
+    if (rt_num_arg_d(&a, &n)) {
+        if (n < 1) { core_runtime_error(67, "array dimension is zero, negative or out of range"); return FAILDESCR; }
+        if (n > INT_MAX) { core_runtime_error(68, "array size exceeds maximum permitted"); return FAILDESCR; }
+        ARBLK_t *b = array_new(1, (int)n);
+        if (!b) return FAILDESCR;
+        if (!(init.v == DT_SNUL && init.slen == 0)) for (int64_t k = 0; k < n; k++) b->data[k] = init;
+        DESCR_t d;
+        memset(&d, 0, sizeof d);
+        d.v = DT_A;
+        d.slen = 0;
+        d.arr = b;
+        return d;
+    }
+    if (a.v != DT_S) { core_runtime_error(64, "array first argument is not integer or string"); return FAILDESCR; }
+    return sno_array_from_proto(rt_cstr_d(a), init);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void * rt_pl_db_get(void *, int64_t);
