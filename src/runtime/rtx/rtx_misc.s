@@ -418,6 +418,99 @@ RTX_FUNC(rt_sno_name_dl)
     RTX_GVA_R9
     ret
 RTX_ENDF(rt_sno_name_dl)
+#define PAS_REAL_ARG(l) \
+    movzx eax, byte ptr [rdi]; cmp al, DT_R; jne .l##_ni; movsd xmm0, qword ptr [rdi + 8]; jmp .l##_ok; \
+.l##_ni: xorpd xmm0, xmm0; cmp al, DT_I; jne .l##_ok; cvtsi2sd xmm0, qword ptr [rdi + 8]; \
+.l##_ok:
+#define PAS_LIBM(l, fn) \
+RTX_FUNC(rt_pas_##l); \
+    PAS_REAL_ARG(Lpas_##l); \
+    RTX_CALL_ALIGN(8); \
+    RTX_SUB_RSP_DYN(32, 40, 8); \
+    mov qword ptr [rsp + 24], r11; mov qword ptr [rsp + 16], r8; mov qword ptr [rsp + 8], r10; \
+    call fn@PLT; \
+    mov r10, qword ptr [rsp + 8]; mov r8, qword ptr [rsp + 16]; mov r11, qword ptr [rsp + 24]; \
+    RTX_ADD_RSP_DYN(32, 8, 8); \
+    RTX_CALL_UNALIGN(8); \
+    RTX_GVA_R9; \
+    movq rdx, xmm0; mov eax, DT_R; ret; \
+RTX_ENDF(rt_pas_##l)
+RTX_FUNC(rt_pas_resundef)
+    xor     edx, edx
+    cmp     byte ptr [rdi], DT_SNUL
+    sete    dl
+    mov     eax, DT_I
+    ret
+RTX_ENDF(rt_pas_resundef)
+PAS_LIBM(sin, sin)
+PAS_LIBM(cos, cos)
+PAS_LIBM(exp, exp)
+PAS_LIBM(arctan, atan)
+RTX_FUNC(rt_pas_ln)
+    RTX_GATE(misc, .Lpln_c)
+    PAS_REAL_ARG(Lpln)
+    xorpd   xmm1, xmm1
+    ucomisd xmm0, xmm1
+    jbe     .Lpln_c
+    RTX_CALL_ALIGN(8)
+    RTX_SUB_RSP_DYN(32, 40, 8)
+    mov     qword ptr [rsp + 24], r11
+    mov     qword ptr [rsp + 16], r8
+    mov     qword ptr [rsp + 8], r10
+    call    log@PLT
+    mov     r10, qword ptr [rsp + 8]
+    mov     r8, qword ptr [rsp + 16]
+    mov     r11, qword ptr [rsp + 24]
+    RTX_ADD_RSP_DYN(32, 8, 8)
+    RTX_CALL_UNALIGN(8)
+    RTX_GVA_R9
+    movq    rdx, xmm0
+    mov     eax, DT_R
+    ret
+.Lpln_c:
+    RTX_DECLINE
+RTX_ENDF(rt_pas_ln)
+RTX_FUNC(rt_pas_sqrt)
+    RTX_GATE(misc, .Lpsq_c)
+    PAS_REAL_ARG(Lpsq)
+    xorpd   xmm1, xmm1
+    ucomisd xmm0, xmm1
+    jp      .Lpsq_go
+    jb      .Lpsq_c
+.Lpsq_go:
+    sqrtsd  xmm0, xmm0
+    movq    rdx, xmm0
+    mov     eax, DT_R
+    ret
+.Lpsq_c:
+    RTX_DECLINE
+RTX_ENDF(rt_pas_sqrt)
+RTX_FUNC(rt_pas_sqr)
+    RTX_GATE(misc, .Lpsr_c)
+    movzx   eax, byte ptr [rdi]
+    cmp     al, DT_R
+    jne     .Lpsr_i
+    movsd   xmm0, qword ptr [rdi + 8]
+    mulsd   xmm0, xmm0
+    movq    rdx, xmm0
+    mov     eax, DT_R
+    ret
+.Lpsr_i:
+    xor     edx, edx
+    cmp     al, DT_I
+    jne     .Lpsr_v
+    mov     rdx, qword ptr [rdi + 8]
+.Lpsr_v:
+    cmp     rdx, 46340
+    jg      .Lpsr_c
+    cmp     rdx, -46340
+    jl      .Lpsr_c
+    imul    rdx, rdx
+    mov     eax, DT_I
+    ret
+.Lpsr_c:
+    RTX_DECLINE
+RTX_ENDF(rt_pas_sqr)
 .section .note.GNU-stack,"",@progbits
 RTX_FUNC(rt_rk_arr_at)
     RTX_GATE(misc, .Lrka_c)

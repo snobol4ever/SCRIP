@@ -4656,7 +4656,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
 static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict, long *rq);
 static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq);
 static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq);
-DESCR_t rt_pas_sqr(DESCR_t *args, int nargs);
+DESCR_t c_rt_pas_sqr(DESCR_t *args, int nargs);
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen);
 extern const char *icon_real_str(double r, char *buf, int bufsz);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -16250,7 +16250,7 @@ static size_t pas_format(const char *fmt, const DESCR_t *a, int na, char *out, s
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
-    if (!strcmp(fn, "__pas_sqr") && nargs == 1) { *out = rt_pas_sqr(args, nargs); return 1; }
+    if (!strcmp(fn, "__pas_sqr") && nargs == 1) { *out = c_rt_pas_sqr(args, nargs); return 1; }
     if (!strcmp(fn, "__pas_alloc") && nargs == 0) { long n = pas_heap_take(); DESCR_t *c = pas_heap_cell(n, 1); if (c) *c = INTVAL(0); *out = INTVAL(n); return 1; }
     if (!strcmp(fn, "__pas_alloc_rec") && nargs == 1) {
         long n = pas_heap_take();
@@ -17068,20 +17068,20 @@ int rt_pas_bi_index(const char *fn) {
     while (fn && lo <= hi) { int mid = (lo + hi) >> 1, c = strcmp(g_pas_bi_name[mid], fn); if (c == 0) return mid; if (c < 0) lo = mid + 1; else hi = mid - 1; }
     return -1;
 }
-DESCR_t rt_pas_resundef(DESCR_t *args, int nargs) { (void) nargs; return INTVAL(args[0].v == DT_SNUL ? 1L : 0L); }
+DESCR_t rt_pas_resundef(DESCR_t *args, int nargs);
+DESCR_t rt_pas_sin(DESCR_t *args, int nargs);
+DESCR_t rt_pas_cos(DESCR_t *args, int nargs);
+DESCR_t rt_pas_exp(DESCR_t *args, int nargs);
+DESCR_t rt_pas_arctan(DESCR_t *args, int nargs);
 static inline double pas_real_arg(DESCR_t d) { return IS_REAL_fn(d) ? d.r : (double)(IS_INT_fn(d) ? d.i : 0); }
-DESCR_t rt_pas_sin(DESCR_t *args, int nargs) { (void) nargs; return REALVAL(sin(pas_real_arg(args[0]))); }
-DESCR_t rt_pas_cos(DESCR_t *args, int nargs) { (void) nargs; return REALVAL(cos(pas_real_arg(args[0]))); }
-DESCR_t rt_pas_exp(DESCR_t *args, int nargs) { (void) nargs; return REALVAL(exp(pas_real_arg(args[0]))); }
-DESCR_t rt_pas_arctan(DESCR_t *args, int nargs) { (void) nargs; return REALVAL(atan(pas_real_arg(args[0]))); }
-DESCR_t rt_pas_sqrt(DESCR_t *args, int nargs) { double d = pas_real_arg(args[0]); (void) nargs; if (d < 0) pas_file_err("6.6.6.2", "sqrt(x) of a negative x", NULL); return REALVAL(sqrt(d)); }
-DESCR_t rt_pas_ln(DESCR_t *args, int nargs) {
+DESCR_t c_rt_pas_sqrt(DESCR_t *args, int nargs) { double d = pas_real_arg(args[0]); (void) nargs; if (d < 0) pas_file_err("6.6.6.2", "sqrt(x) of a negative x", NULL); return REALVAL(sqrt(d)); }
+DESCR_t c_rt_pas_ln(DESCR_t *args, int nargs) {
     double d = pas_real_arg(args[0]);
     (void) nargs;
     if (!(d > 0)) pas_file_err("6.6.6.2", "ln(x) of an x that is not greater than zero", NULL);
     return REALVAL(log(d));
 }
-DESCR_t rt_pas_sqr(DESCR_t *args, int nargs) {
+DESCR_t c_rt_pas_sqr(DESCR_t *args, int nargs) {
     (void) nargs;
     if (IS_REAL_fn(args[0])) return REALVAL(args[0].r * args[0].r);
     long v = IS_INT_fn(args[0]) ? args[0].i : 0;
@@ -17096,10 +17096,10 @@ DESCR_t rt_call_pas_bi(DESCR_t *args, int nargs, long idx) {
         const char *nm = fn + 6;
         if (nm[0] == 'r' && !strcmp(nm, "resundef")) return rt_pas_resundef(args, nargs);
         if (nm[0] == 's' && !strcmp(nm, "sin")) return rt_pas_sin(args, nargs);
-        if (nm[0] == 's' && !strcmp(nm, "sqrt")) return rt_pas_sqrt(args, nargs);
+        if (nm[0] == 's' && !strcmp(nm, "sqrt")) return c_rt_pas_sqrt(args, nargs);
         if (nm[0] == 'c' && !strcmp(nm, "cos")) return rt_pas_cos(args, nargs);
         if (nm[0] == 'e' && !strcmp(nm, "exp")) return rt_pas_exp(args, nargs);
-        if (nm[0] == 'l' && !strcmp(nm, "ln")) return rt_pas_ln(args, nargs);
+        if (nm[0] == 'l' && !strcmp(nm, "ln")) return c_rt_pas_ln(args, nargs);
         if (nm[0] == 'a' && !strcmp(nm, "arctan")) return rt_pas_arctan(args, nargs);
     }
     unsigned n = (unsigned)strlen(fn);

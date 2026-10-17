@@ -63,6 +63,18 @@ static void cmp1(const char *fn, DESCR_t (*direct)(DESCR_t *, int), DESCR_t x) {
     if (!same(d, r)) { fails++; printf("  FAIL %s: direct %02x/%016llx by-name %02x/%016llx\n", fn, d.v & 0xff, (unsigned long long)d.i, r.v & 0xff, (unsigned long long)r.i); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_cases = 0;
+static void pas_model(const char *nm, DESCR_t (*leaf)(DESCR_t *, int), DESCR_t x, int owns, DESCR_t want) {
+    DESCR_t a[1] = { x }, d = leaf(a, 1);
+    pas_cases++;
+    ncase++;
+    if (!owns) { if (d.v != RTX_NOT_HANDLED || memcmp(&a[0], &x, sizeof x)) { fails++; printf("  FAIL %s: an error arm answered %02x where it must decline\n", nm, d.v & 0xff); } return; }
+    if (d.v != want.v || memcmp((char *)&d + 8, (char *)&want + 8, 8)) {
+        fails++;
+        printf("  FAIL %s: leaf %02x/%016llx model %02x/%016llx\n", nm, d.v & 0xff, (unsigned long long)d.i, want.v & 0xff, (unsigned long long)want.i);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static ARBLK_t *mk(int n, int base) { ARBLK_t *a = array_new(0, n - 1); for (int i = 0; i < n; i++) a->data[i] = INTVAL(base + i); return a; }
 static DESCR_t darr(ARBLK_t *a) { DESCR_t d = { .v = DT_A }; d.arr = a; return d; }
 static void cmpn(const char *fn, DESCR_t (*direct)(DESCR_t *, int), const DESCR_t *x, int n) {
@@ -137,6 +149,25 @@ int main(void) {
         cmp1("__pas_sqr", rt_pas_sqr, xs[i]);
         if (xs[i].v == DT_I ? xs[i].i >= 0 : (xs[i].v == DT_R ? xs[i].r >= 0 : 1)) cmp1("__pas_sqrt", rt_pas_sqrt, xs[i]);
         if (xs[i].v == DT_I ? xs[i].i > 0 : (xs[i].v == DT_R ? xs[i].r > 0 : 0)) cmp1("__pas_ln", rt_pas_ln, xs[i]);
+    }
+    {
+        DESCR_t ms[] = { INTVAL(0), INTVAL(1), INTVAL(-3), INTVAL(7), INTVAL(46340), INTVAL(-46340), INTVAL(46341), INTVAL(-46341), INTVAL(9007199254740993LL), REALVAL(0.0), REALVAL(-0.0),
+            REALVAL(0.5), REALVAL(-2.5), REALVAL(1e10), REALVAL(1e300), REALVAL(-1e300), REALVAL(INFINITY), REALVAL(-INFINITY), REALVAL(NAN), REALVAL(5e-324), NULVCL, STRVAL("12") };
+        int nm = (int)(sizeof ms / sizeof ms[0]), mfail0 = fails;
+        for (int i = 0; i < nm; i++) {
+            DESCR_t x = ms[i];
+            double r = x.v == DT_R ? x.r : (double)(x.v == DT_I ? x.i : 0);
+            long iv = x.v == DT_I ? x.i : 0;
+            pas_model("rt_pas_resundef", rt_pas_resundef, x, 1, INTVAL(x.v == DT_SNUL ? 1 : 0));
+            pas_model("rt_pas_sin", rt_pas_sin, x, 1, REALVAL(sin(r)));
+            pas_model("rt_pas_cos", rt_pas_cos, x, 1, REALVAL(cos(r)));
+            pas_model("rt_pas_exp", rt_pas_exp, x, 1, REALVAL(exp(r)));
+            pas_model("rt_pas_arctan", rt_pas_arctan, x, 1, REALVAL(atan(r)));
+            pas_model("rt_pas_sqrt", rt_pas_sqrt, x, !(r < 0), REALVAL(sqrt(r)));
+            pas_model("rt_pas_ln", rt_pas_ln, x, r > 0, REALVAL(log(r)));
+            pas_model("rt_pas_sqr", rt_pas_sqr, x, x.v == DT_R || (iv <= 46340 && iv >= -46340), x.v == DT_R ? REALVAL(x.r * x.r) : INTVAL(iv * iv));
+        }
+        printf("RTX DIRECT pascal leaves against the libm model: %d cases, %d mismatches (an error arm declines with its argument untouched)\n", pas_cases, fails - mfail0);
     }
     DESCR_t idx[] = { INTVAL(0), INTVAL(3), INTVAL(7), INTVAL(8), INTVAL(20), INTVAL(-1), REALVAL(2.0), STRVAL("4"), NULVCL };
     int ni = (int)(sizeof idx / sizeof idx[0]);
