@@ -100,6 +100,7 @@ static void pas_scope_exit(void) {
 static int pas_is_int_typename(const char *t);
 static int pas_is_realtypename(const char *t);
 static int pas_is_settype(const char *name);
+static int pas_not_a_set(tree_t *e);
 static int pas_scope_has(const char *name) {
     const char *req[] = { "true", "false", "maxint", "input", "output", "nil", "char", "boolean", "text", "string", "widechar", "paramcount" };
     if (!name) return 1;
@@ -677,6 +678,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     }
     if (name && !strcmp(name, "><") && args && args->count >= 3) {
         tree_t *x = args->items[0], *y = args->items[2];
+        if (pas_not_a_set(x) || pas_not_a_set(y)) {
+            fprintf(stderr, "pascal: ISO 7185 6.7.2.4 violation: '><' is the set symmetric difference and takes two set operands, and an operand here is not a set\n");
+            g_lower.pas.sem.pas_iso_errors++;
+        }
         return mk_set_bin("__pas_setuni", mk_set_bin("__pas_setdif", x, y), mk_set_bin("__pas_setdif", pas_tree_clone(y), pas_tree_clone(x)));
     }
     if (name && (!strcmp(name, "shl") || !strcmp(name, "shr") || !strcmp(name, "xor")) && args && args->count >= 3 && !pas_is_func(name) && !pas_is_proc(name)) {
@@ -3484,6 +3489,13 @@ static int pas_is_setexpr(tree_t *e) {
         return !strcmp(f, "__pas_set") || !strcmp(f, "__pas_setrange") || !strcmp(f, "__pas_setuni") || !strcmp(f, "__pas_setint") || !strcmp(f, "__pas_setdif");
     }
     return 0;
+}
+static int pas_not_a_set(tree_t *e) {
+    if (!e) return 0;
+    if (e->t == TT_ILIT || e->t == TT_FLIT) return 1;
+    if (e->t != TT_VAR || !e->v.sval || pas_is_setvar(e->v.sval)) return 0;
+    const char *tn = pas_scalarvartype_get(e->v.sval);
+    return tn && !pas_is_settype(tn);
 }
 static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, name)); ast_push(e, a); ast_push(e, b); return e; }
 static tree_t *pas_rdiv(tree_t *a, tree_t *b) { return bin(TT_DIV, bin(TT_MUL, a, flit(1.0)), b); }
