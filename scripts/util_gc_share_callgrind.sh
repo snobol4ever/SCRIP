@@ -11,6 +11,11 @@ set -uo pipefail
 P="${1:-}"; IN="${2:-}"; N="${3:-}"; BAR="${4:-}"
 [ -n "$P" ] && [ -n "$IN" ] && [ -n "$N" ] && [ -n "$BAR" ] || { echo "REFUSE(2): usage: $0 PROG.sno INPUT COPIES BAR_PCT"; exit 2; }
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; S4E="$(cd "$ROOT/.." && pwd)"
+# The collector's share is a benchmark measurement: it runs with every diagnostic off unless the caller sets SCRIP_DIAG itself
+# (Lon 2026-09-25, CEO-1262: "For benchmarks turn off diagnostics"); at the default the collector's self-checks (the trap ledger,
+# the assert scan, the heap verify, the block index, the fix check) are counted inside gc_collect_ex -- on treebank at 64 copies
+# 59.7 M of 340 M instructions read as the collector where 19.0 M are the collection (hq_runtime 2026-10-17).
+export SCRIP_DIAG="${SCRIP_DIAG:-0}"
 command -v valgrind >/dev/null && command -v callgrind_annotate >/dev/null || { echo "REFUSE(2): valgrind/callgrind_annotate absent"; exit 2; }
 [ -x "$ROOT/scrip" ] || { echo "REFUSE(2): no $ROOT/scrip"; exit 2; }
 [ -f "$P" ] && [ -f "$IN" ] || { echo "REFUSE(2): missing $P or $IN"; exit 2; }
