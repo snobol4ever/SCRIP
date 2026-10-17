@@ -38,7 +38,7 @@ static const struct {
 } leaves[] = { { "rt_add", rt_add, c_rt_add, 0 }, { "rt_sub", rt_sub, c_rt_sub, 1 }, { "rt_mul", rt_mul, c_rt_mul, 2 }, { "rt_add_sno", rt_add_sno, c_rt_add_sno, 0 }, { "rt_sub_sno", rt_sub_sno,
     c_rt_sub_sno, 1 }, { "rt_mul_sno", rt_mul_sno, c_rt_mul_sno, 2 }, { "rt_div", rt_div, c_rt_div, 3 }, { "rt_div_strict", rt_div_strict, c_rt_div_strict, 3 }, { "rt_div_sno", rt_div_sno,
     c_rt_div_sno, 3 }, { "rt_mod", rt_mod, c_rt_mod, 4 }, { "rt_mod_strict", rt_mod_strict, c_rt_mod_strict, 4 }, { "rt_mod_sno", rt_mod_sno, c_rt_mod_sno, 4 }, };
-static int fails = 0, n = 0, handled = 0, declined = 0, d_ovf = 0, d_real = 0, d_data = 0, d_other = 0;
+static int fails = 0, n = 0, handled = 0, declined = 0, d_ovf = 0, d_real = 0, d_data = 0, d_other = 0, o_ovf = 0, o_real = 0, o_other = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static uint64_t lo(DESCR_t d) { uint64_t w; memcpy(&w, &d, 8); return w; }
 static uint64_t hi(DESCR_t d) { uint64_t w; memcpy(&w, (char *)&d + 8, 8); return w; }
@@ -73,38 +73,59 @@ static int expect_handled(DESCR_t a, DESCR_t b, int op) {
     int64_t z;
     double r;
     int64_t x, y;
-    if (op == 3 && (a.v == DT_I || a.v == DT_R) && (b.v == DT_I || b.v == DT_R) && !(a.v == DT_I && b.v == DT_I)) {
+    if ((a.v == DT_I || a.v == DT_R) && (b.v == DT_I || b.v == DT_R) && !(a.v == DT_I && b.v == DT_I)) {
         double dx = a.v == DT_I ? (double)a.i : a.r, dy = b.v == DT_I ? (double)b.i : b.r;
-        if (dy == 0.0) return 0;
-        r = dx / dy;
+        if (op >= 3 && dy == 0.0) return 0;
+        r = op == 0 ? dx + dy : op == 1 ? dx - dy : op == 2 ? dx * dy : op == 3 ? dx / dy : fmod(dx, dy);
         return isfinite(r);
     }
+    if (op >= 3 && a.v == DT_I && b.v == DT_I && b.i == -1) return op == 4 || a.i != INT64_MIN;
     if (op >= 3) { if (!model_int(a, &x) || !model_int(b, &y)) return 0; return y != 0 && y != -1; }
-    if (a.v == DT_R && b.v == DT_R) { r = op == 0 ? a.r + b.r : op == 1 ? a.r - b.r : a.r * b.r; return isfinite(r); }
     if (!model_int(a, &x) || !model_int(b, &y)) return 0;
     return !(op == 0 ? __builtin_add_overflow(x, y, &z) : op == 1 ? __builtin_sub_overflow(x, y, &z) : __builtin_mul_overflow(x, y, &z));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void check(int k, DESCR_t a, DESCR_t b, int ia, int ib) {
+static uint8_t leaf_call(binop_fn fp, DESCR_t a, DESCR_t b, uint64_t *word, int *kept) {
     uint64_t rdi = lo(a), rsi = hi(a), rdx = lo(b), rcx = hi(b), rax;
-    binop_fn fp = leaves[k].leaf;
-    int want = expect_handled(a, b, leaves[k].op);
     __asm__ volatile ("call *%[fn]" : "+D"(rdi), "+S"(rsi), "+d"(rdx), "+c"(rcx), "=a"(rax) : [fn] "r"(fp) : "r8", "r9", "r10", "r11", "memory", "cc", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5",
         "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15");
+    *word = rdx;
+    *kept = rdi == lo(a) && rsi == hi(a) && rdx == lo(b) && rcx == hi(b);
+    return (uint8_t)rax;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void witness(const char *what, int k, DESCR_t a, DESCR_t b, int want, DESCR_t r) {
+    uint64_t w;
+    int kept;
+    uint8_t t = leaf_call(leaves[k].leaf, a, b, &w, &kept);
+    int ok = want ? (t == r.v && w == hi(r) && expect_handled(a, b, leaves[k].op)) : (t == RTX_NOT_HANDLED && kept && !expect_handled(a, b, leaves[k].op));
+    if (ok && want) { DESCR_t c = leaves[k].twin(a, b); ok = c.v == r.v && hi(c) == hi(r); }
+    if (!ok) fails++;
+    printf("RTX ARITH WITNESS %-62s %s\n", what, ok ? "ok" : "FAIL");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void check(int k, DESCR_t a, DESCR_t b, int ia, int ib) {
+    uint64_t rdx;
+    int kept;
+    int want = expect_handled(a, b, leaves[k].op);
+    uint8_t rax = leaf_call(leaves[k].leaf, a, b, &rdx, &kept);
     n++;
-    if ((uint8_t)rax == RTX_NOT_HANDLED) {
+    if (rax == RTX_NOT_HANDLED) {
         declined++;
         {
             int64_t x, y, z;
             int op = leaves[k].op;
+            int ovf = 0, real = 0;
             if (a.v == DT_DATA || b.v == DT_DATA) d_data++;
             else if (model_int(a, &x) && model_int(b, &y) &&
-                (op >= 3 ? (y == 0 || y == -1) : op == 0 ? __builtin_add_overflow(x, y, &z) : op == 1 ? __builtin_sub_overflow(x, y, &z) : __builtin_mul_overflow(x, y, &z))) d_ovf++;
-            else if (a.v == DT_R || b.v == DT_R || (a.v == DT_S && a.s && strtod(a.s, NULL) != 0 && !model_int(a, &x)) || (b.v == DT_S && b.s && strtod(b.s, NULL) != 0 && !model_int(b, &y))) d_real++;
+                (op >= 3 ? (y == 0 || y == -1) : op == 0 ? __builtin_add_overflow(x, y, &z) : op == 1 ? __builtin_sub_overflow(x, y, &z) : __builtin_mul_overflow(x, y, &z))) d_ovf++, ovf = 1;
+            else if (a.v == DT_R || b.v == DT_R || (a.v == DT_S && a.s && strtod(a.s, NULL) != 0 && !model_int(a, &x)) || (b.v == DT_S && b.s && strtod(b.s, NULL) != 0 && !model_int(b, &y))) d_real++,
+                real = 1;
             else d_other++;
+            if (want) { if (ovf) o_ovf++; else if (real) o_real++; else o_other++; }
         }
         if (want) { fails++; printf("  FAIL %-10s case %d,%d declined a pair its fast path owns\n", leaves[k].name, ia, ib); }
-        if (rdi != lo(a) || rsi != hi(a) || rdx != lo(b) || rcx != hi(b)) { fails++; printf("  FAIL %-10s case %d,%d declined with an argument register changed\n", leaves[k].name, ia, ib); }
+        if (!kept) { fails++; printf("  FAIL %-10s case %d,%d declined with an argument register changed\n", leaves[k].name, ia, ib); }
         return;
     }
     handled++;
@@ -130,13 +151,27 @@ int main(void) {
     sunk.slen = 0xFFFFFFFFu;
     DESCR_t cases[] = { ds(sws), ds(splus), ds(sminus), ds(smin), ds(smax), ds(sover), ds(sunder), ds(sgap), ds(sp), ds(sm), ds(sblank), ds(shex), ds(sreal), ds(szeros), ds(sjunk), dsl(sslice, 3),
         dsl(sslice, 0), ds(sbig), ds(stail), ds(smneg), ds(snz), ds(spz), ds(sbz), ds(s19), ds(s20), snull, sunk, di(0), di(1), di(-1), di(7), di(INT64_MAX), di(INT64_MIN), di((int64_t)1 << 62),
-        di(-((int64_t)1 << 62)), di(3037000499LL), di(3037000500LL), dr(0.0), dr(-0.0), dr(1.5), dr(2.5), dr(1e300), dr(-1e300), dr(DBL_MAX), dr(INFINITY), dr(-INFINITY), dr(NAN), dr(5e-324), ds(s12),
-        ds(sempty), ds(sabc), dtag(DT_SNUL), dtag(DT_FAIL), dtag(DT_N), dtag(DT_DATA), };
+        di(-((int64_t)1 << 62)), di(3037000499LL), di(3037000500LL), di(9007199254740993LL), di(-9007199254740995LL), dr(7.5), dr(-7.5), dr(1e-310), dr(0.0), dr(-0.0), dr(1.5), dr(2.5), dr(1e300),
+        dr(-1e300), dr(DBL_MAX), dr(INFINITY), dr(-INFINITY), dr(NAN), dr(5e-324), ds(s12), ds(sempty), ds(sabc), dtag(DT_SNUL), dtag(DT_FAIL), dtag(DT_N), dtag(DT_DATA), };
     int nc = (int)(sizeof cases / sizeof cases[0]);
     printf("RTX ARITH verdict battery (the twelve arith leaves, six add/sub/mul and six div/mod, against their C twins, the verdict road of ARCH-RT-CALL-PROTOCOL.md section 15)\n");
     for (int k = 0; k < (int)(sizeof leaves / sizeof leaves[0]); k++) for (int i = 0; i < nc; i++) for (int j = 0; j < nc; j++) check(k, cases[i], cases[j], i, j);
+    witness("rt_add 7 + 1.5 = 8.5: a finite mixed pair, integer first", 0, di(7), dr(1.5), 1, dr(8.5));
+    witness("rt_sub 2.5 - 3 = -0.5: a finite mixed pair, real first", 1, dr(2.5), di(3), 1, dr(-0.5));
+    witness("rt_mul_sno 1.5 * 7 = 10.5: a finite mixed pair, real first", 5, dr(1.5), di(7), 1, dr(10.5));
+    witness("rt_mul DBL_MAX * 2: finite operands overflow to infinity, declined", 2, dr(DBL_MAX), di(2), 0, dr(0.0));
+    witness("rt_add_sno 2^53+1 + 0.0: the integer converts as the C cast does", 3, di(9007199254740993LL), dr(0.0), 1, dr((double)9007199254740993LL));
+    witness("rt_div 5 / -1 = -5: a -1 divisor is a pure value", 6, di(5), di(-1), 1, di(-5));
+    witness("rt_div_sno INT64_MIN / -1: the quotient overflows, declined", 8, di(INT64_MIN), di(-1), 0, di(0));
+    witness("rt_mod_strict INT64_MIN % -1 = 0: a -1 divisor is a pure value", 10, di(INT64_MIN), di(-1), 1, di(0));
+    witness("rt_mod 7.5 % 2 = 1.5: the real remainder", 9, dr(7.5), di(2), 1, dr(1.5));
+    witness("rt_mod_sno -7.5 % 2 = -1.5: the remainder takes the dividend's sign", 11, dr(-7.5), di(2), 1, dr(-1.5));
+    witness("rt_mod 1 % 0.0: a zero divisor is the language's voice, declined", 9, di(1), dr(0.0), 0, dr(0.0));
     printf("RTX ARITH: %d cases, %d handled, %d declined, %d mismatches\n", n, handled, declined, fails);
-    printf("RTX ARITH DECLINES overflow=%d real=%d data=%d other=%d (the arms the leaf hands the box; each is a row until the leaf or the box owns it)\n", d_ovf, d_real, d_data, d_other);
+    printf("RTX ARITH DECLINES overflow=%d real=%d data=%d other=%d (every arm the leaf hands the box, by family)\n", d_ovf, d_real, d_data, d_other);
+    printf(
+        "RTX ARITH OWNABLE DECLINES overflow=%d real=%d other=%d (declines of arms a leaf can own: pure, non-allocating, no voice -- CEO-985 and the cto's ruling of 2026-10-17; integer overflow, a z"
+        "ero" " divisor, a string the leaf cannot read as an integer and a non-finite result stay the box's)\n", o_ovf, o_real, o_other);
     if (!handled || !declined) { printf("RTX ARITH UNIT: FAIL -- a battery that saw only one verdict proves nothing\n"); return 1; }
     printf("RTX ARITH UNIT: %s\n", fails ? "FAIL" : "PASS");
     return fails ? 1 : 0;

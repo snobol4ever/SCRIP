@@ -8,6 +8,13 @@ FUNC = re.compile(r"^RTX_FUNC\((\w+)\)")
 ENDF = re.compile(r"^RTX_ENDF\((\w+)\)")
 ENTRY = re.compile(r"^RTX_ENTRY\((\w+)\)")
 ROW = re.compile(r"^RTX_TWIN\((AL|INT|PTR),\s*[^,]+,\s*(\w+),\s*(\w+),")
+READS = re.compile(r"^\s*(cmp|test)\b")
+
+
+def verdict_kinds(ln):
+    if READS.match(ln):
+        return []
+    return [KINDS[tok] for tok in re.findall(r"\bRTX_[A-Z_]+\b", ln) if tok in KINDS]
 
 
 def declining_leaves(rtx_dir):
@@ -32,10 +39,9 @@ def declining_leaves(rtx_dir):
                 if m:
                     names.append(m.group(1))
                     continue
-                for tok in re.findall(r"\bRTX_[A-Z_]+\b", ln):
-                    if tok in KINDS:
-                        for nm in names:
-                            out.setdefault(nm, set()).add(KINDS[tok])
+                for k in verdict_kinds(ln):
+                    for nm in names:
+                        out.setdefault(nm, set()).add(k)
     return out
 
 
@@ -86,6 +92,8 @@ def selftest(leaves, rows, symbols):
     if symbols is not None:
         s = set(symbols); s.discard(rows[some][1])
         if not any("twin" in b for b in check(leaves, rows, s)): fails.append("a missing twin was not caught")
+    if verdict_kinds("    cmp     al, RTX_NOT_HANDLED") or verdict_kinds("    test    rax, RTX_NOT_HANDLED_PTR"): fails.append("a leaf reading its callee's verdict was read as a decline")
+    if verdict_kinds("    RTX_DECLINE") != ["AL"] or verdict_kinds("    mov     eax, RTX_NOT_HANDLED_INT") != ["INT"]: fails.append("a decline statement was not read as one")
     return fails
 
 
@@ -111,7 +119,7 @@ def main():
         print("  VIOLATION  " + b)
     for f in st:
         print("  SELF-TEST FAIL  " + f)
-    print("RTX TWIN TABLE: %d declining leaves, %d rows, %d violations, self-test %s" % (len(leaves), len(rows), len(bad), "FAIL" if st else "PASS (a leaf without a row, a row without a decline, a wrong kind and a missing twin each read red by name)"))
+    print("RTX TWIN TABLE: %d declining leaves, %d rows, %d violations, self-test %s" % (len(leaves), len(rows), len(bad), "FAIL" if st else "PASS (a leaf without a row, a row without a decline, a wrong kind and a missing twin each read red by name; a cmp or test of a callee's verdict is no decline)"))
     return 1 if (bad or st) else 0
 
 

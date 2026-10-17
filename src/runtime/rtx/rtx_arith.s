@@ -7,6 +7,17 @@ RTX_GATE_DEF(arith)
     shr     rax, 53 ; \
     cmp     eax, 0x7FF ; \
     jae     slow
+#define RTX_ARITH_REAL(p, opsd) \
+.L##p##_notii: \
+    cmp dil, DT_R; je .L##p##_a_r; cmp dil, DT_I; jne .L##p##_try; cvtsi2sd xmm0, rsi; jmp .L##p##_b; \
+.L##p##_a_r: \
+    movq xmm0, rsi; \
+.L##p##_b: \
+    cmp dl, DT_R; je .L##p##_b_r; cmp dl, DT_I; jne .L##p##_try; cvtsi2sd xmm1, rcx; jmp .L##p##_go; \
+.L##p##_b_r: \
+    movq xmm1, rcx; \
+.L##p##_go: \
+    opsd xmm0, xmm1; RTX_REAL_FINITE_OR(.L##p##_slow); movq rdx, xmm0; mov eax, DT_R; ret;
 #define RTX_ARITH_INTSTR(p, opi) \
 .L##p##_try: \
     movq xmm2, rdi; movq xmm3, rsi; movq xmm4, rdx; movq xmm5, rcx; \
@@ -258,18 +269,7 @@ RTX_FUNC(rt_add)
     mov     rdx, rax
     mov     eax, DT_I
     ret
-.Ladd_notii:
-    cmp     dil, DT_R
-    jne     .Ladd_try
-    cmp     dl, DT_R
-    jne     .Ladd_try
-    movq    xmm0, rsi
-    movq    xmm1, rcx
-    addsd   xmm0, xmm1
-    RTX_REAL_FINITE_OR(.Ladd_slow)
-    movq    rdx, xmm0
-    mov     eax, DT_R
-    ret
+    RTX_ARITH_REAL(add, addsd)
     RTX_ARITH_INTSTR(add, add)
 .Ladd_slow:
     RTX_DECLINE
@@ -287,18 +287,7 @@ RTX_FUNC(rt_sub)
     mov     rdx, rax
     mov     eax, DT_I
     ret
-.Lsub_notii:
-    cmp     dil, DT_R
-    jne     .Lsub_try
-    cmp     dl, DT_R
-    jne     .Lsub_try
-    movq    xmm0, rsi
-    movq    xmm1, rcx
-    subsd   xmm0, xmm1
-    RTX_REAL_FINITE_OR(.Lsub_slow)
-    movq    rdx, xmm0
-    mov     eax, DT_R
-    ret
+    RTX_ARITH_REAL(sub, subsd)
     RTX_ARITH_INTSTR(sub, sub)
 .Lsub_slow:
     RTX_DECLINE
@@ -316,18 +305,7 @@ RTX_FUNC(rt_mul)
     mov     rdx, rax
     mov     eax, DT_I
     ret
-.Lmul_notii:
-    cmp     dil, DT_R
-    jne     .Lmul_try
-    cmp     dl, DT_R
-    jne     .Lmul_try
-    movq    xmm0, rsi
-    movq    xmm1, rcx
-    mulsd   xmm0, xmm1
-    RTX_REAL_FINITE_OR(.Lmul_slow)
-    movq    rdx, xmm0
-    mov     eax, DT_R
-    ret
+    RTX_ARITH_REAL(mul, mulsd)
     RTX_ARITH_INTSTR(mul, imul)
 .Lmul_slow:
     RTX_DECLINE
@@ -345,18 +323,7 @@ RTX_FUNC(rt_add_sno)
     mov     rdx, rax
     mov     eax, DT_I
     ret
-.Laddsno_notii:
-    cmp     dil, DT_R
-    jne     .Laddsno_try
-    cmp     dl, DT_R
-    jne     .Laddsno_try
-    movq    xmm0, rsi
-    movq    xmm1, rcx
-    addsd   xmm0, xmm1
-    RTX_REAL_FINITE_OR(.Laddsno_slow)
-    movq    rdx, xmm0
-    mov     eax, DT_R
-    ret
+    RTX_ARITH_REAL(addsno, addsd)
     RTX_ARITH_INTSTR(addsno, add)
 .Laddsno_slow:
     RTX_DECLINE
@@ -374,18 +341,7 @@ RTX_FUNC(rt_sub_sno)
     mov     rdx, rax
     mov     eax, DT_I
     ret
-.Lsubsno_notii:
-    cmp     dil, DT_R
-    jne     .Lsubsno_try
-    cmp     dl, DT_R
-    jne     .Lsubsno_try
-    movq    xmm0, rsi
-    movq    xmm1, rcx
-    subsd   xmm0, xmm1
-    RTX_REAL_FINITE_OR(.Lsubsno_slow)
-    movq    rdx, xmm0
-    mov     eax, DT_R
-    ret
+    RTX_ARITH_REAL(subsno, subsd)
     RTX_ARITH_INTSTR(subsno, sub)
 .Lsubsno_slow:
     RTX_DECLINE
@@ -403,18 +359,7 @@ RTX_FUNC(rt_mul_sno)
     mov     rdx, rax
     mov     eax, DT_I
     ret
-.Lmulsno_notii:
-    cmp     dil, DT_R
-    jne     .Lmulsno_try
-    cmp     dl, DT_R
-    jne     .Lmulsno_try
-    movq    xmm0, rsi
-    movq    xmm1, rcx
-    mulsd   xmm0, xmm1
-    RTX_REAL_FINITE_OR(.Lmulsno_slow)
-    movq    rdx, xmm0
-    mov     eax, DT_R
-    ret
+    RTX_ARITH_REAL(mulsno, mulsd)
     RTX_ARITH_INTSTR(mulsno, imul)
 .Lmulsno_slow:
     RTX_DECLINE
@@ -427,12 +372,20 @@ RTX_ENTRY(rt_div_sno)
     jne     .Ldiv_mixed
     cmp     dl, DT_I
     jne     .Ldiv_mixed
-    lea     rax, [rcx + 1]
-    cmp     rax, 1
-    jbe     .Ldiv_slow
+    cmp     rcx, -1
+    je      .Ldiv_neg
+    test    rcx, rcx
+    je      .Ldiv_slow
     mov     rax, rsi
     cqo
     idiv    rcx
+    mov     rdx, rax
+    mov     eax, DT_I
+    ret
+.Ldiv_neg:
+    mov     rax, rsi
+    neg     rax
+    jo      .Ldiv_slow
     mov     rdx, rax
     mov     eax, DT_I
     ret
@@ -472,16 +425,61 @@ RTX_ENTRY(rt_mod_strict)
 RTX_ENTRY(rt_mod_sno)
     RTX_GATE(arith, .Lmod_slow)
     cmp     dil, DT_I
-    jne     .Lmod_try
+    jne     .Lmod_mixed
     cmp     dl, DT_I
-    jne     .Lmod_try
-    lea     rax, [rcx + 1]
-    cmp     rax, 1
-    jbe     .Lmod_slow
+    jne     .Lmod_mixed
+    cmp     rcx, -1
+    je      .Lmod_m1
+    test    rcx, rcx
+    je      .Lmod_slow
     mov     rax, rsi
     cqo
     idiv    rcx
     mov     eax, DT_I
+    ret
+.Lmod_m1:
+    xor     edx, edx
+    mov     eax, DT_I
+    ret
+.Lmod_mixed:
+    cmp     dil, DT_R
+    je      .Lmod_a_r
+    cmp     dil, DT_I
+    jne     .Lmod_try
+    cvtsi2sd xmm0, rsi
+    jmp     .Lmod_b
+.Lmod_a_r:
+    movq    xmm0, rsi
+.Lmod_b:
+    cmp     dl, DT_R
+    je      .Lmod_b_r
+    cmp     dl, DT_I
+    jne     .Lmod_try
+    cvtsi2sd xmm1, rcx
+    jmp     .Lmod_go
+.Lmod_b_r:
+    movq    xmm1, rcx
+.Lmod_go:
+    xorpd   xmm2, xmm2
+    ucomisd xmm1, xmm2
+    je      .Lmod_slow
+    RTX_SUB_RSP(8)
+    movsd   qword ptr [rsp], xmm1
+    fld     qword ptr [rsp]
+    movsd   qword ptr [rsp], xmm0
+    fld     qword ptr [rsp]
+.Lmod_fprem:
+    fprem
+    fnstsw  ax
+    test    ah, 4
+    jnz     .Lmod_fprem
+    fstp    qword ptr [rsp]
+    fstp    st(0)
+    movsd   xmm0, qword ptr [rsp]
+    RTX_ADD_RSP(8)
+    RTX_REAL_FINITE_OR(.Lmod_slow)
+    movq    rdx, xmm0
+    mov     eax, DT_R
     ret
     RTX_ARITH_INTSTR_DIV(mod, 1)
 .Lmod_slow:
