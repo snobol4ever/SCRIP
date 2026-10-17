@@ -4373,7 +4373,8 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
         std::stable_sort(ord, ord + n, [](int a, int b) { return CV_AT(g_emitter.g_gc_sites_v, gc_site_t, a).pc < CV_AT(g_emitter.g_gc_sites_v, gc_site_t, b).pc; });
         for (int k = 0; k < n; k++) { int i = ord[k]; gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i);
             uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32);
-            t = " .quad " + emit_gc_site_label(i) + "\n .quad " + std::to_string((unsigned long long)w) + "\n"; emit_text_n(t.data(), t.size()); }
+            t = " .quad " + emit_gc_site_label(i) + (g_emit.gc_code_lbl.name ? std::string("-") + g_emit.gc_code_lbl.name : std::string()) + "\n .quad "
+                + std::to_string((unsigned long long)w) + "\n"; emit_text_n(t.data(), t.size()); }
         emit_textf(".popsection\n");
         g_emitter.g_gc_sites_last_off = 0;
     } else {
@@ -4385,7 +4386,7 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
                 y = ((const gc_site_t *)b)->pc;
             return (x > y) - (x < y); });
         for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_emitter.g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32);
-            bb_emit_u64(e->pc); bb_emit_u64(w); }
+            bb_emit_u64(e->pc && g_emit.gc_code_lbl.name ? e->pc - (uint64_t)(uintptr_t)(bb_emit_buf + g_emit.gc_code_lbl.offset) : e->pc); bb_emit_u64(w); }
     }
     CV_PUSH(g_emitter.g_gc_sites_names_v, char *) = ct_strdup(tl.name); g_emitter.g_gc_sites_names_n++;
     g_emitter.g_gc_sites_v.len = 0;

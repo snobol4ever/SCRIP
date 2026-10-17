@@ -1631,7 +1631,7 @@ void rt_gc_frame_maps_drop_range(const void *lo, const void *hi) {
     for (int i = 0; i < g_gc_maps_n; i++) if ((const void *)g_gc_maps[i] < lo || (const void *)g_gc_maps[i] >= hi) g_gc_maps[w++] = g_gc_maps[i];
     g_gc_maps_n = w;
 }
-typedef struct { uint64_t pc; uint16_t kind, rule; int32_t depth; } gc_site_ent_t;
+typedef struct { uint64_t off; uint16_t kind, rule; int32_t depth; } gc_site_ent_t;
 #define GC_SITE_RULE(e) ((int)((e)->rule & 255u))
 #define GC_SITE_EXT(e) ((int)((e)->rule >> 8))
 _Static_assert(sizeof(gc_site_ent_t) == 16 && __builtin_offsetof(gc_site_ent_t, kind) == 8 && __builtin_offsetof(gc_site_ent_t, rule) == 10 && __builtin_offsetof(gc_site_ent_t, depth) == 12,
@@ -1644,7 +1644,7 @@ _Static_assert(sizeof(gc_site_blk_t) == 80 && sizeof(gc_site_ent_t) == 16 && __b
     "rt_gc_site_find_a (rtx_gc.s) searches the site blocks and their entries at these offsets");
 static gc_site_blk_t *g_gc_sblk = (gc_site_blk_t *)0;
 static int g_gc_sblk_n = 0, g_gc_sblk_cap = 0;
-static int gc_site_ent_cmp(const void *a, const void *b) { uint64_t x = ((const gc_site_ent_t *)a)->pc, y = ((const gc_site_ent_t *)b)->pc; return x < y ? -1 : x > y ? 1 : 0; }
+static int gc_site_ent_cmp(const void *a, const void *b) { uint64_t x = ((const gc_site_ent_t *)a)->off, y = ((const gc_site_ent_t *)b)->off; return x < y ? -1 : x > y ? 1 : 0; }
 static void gc_site_blk_maxhi_from(int i) {
     for (int j = i < 0 ? 0 : i; j < g_gc_sblk_n; j++) g_gc_sblk[j].maxhi = (j > 0 && g_gc_sblk[j - 1].maxhi > g_gc_sblk[j].hi) ? g_gc_sblk[j - 1].maxhi : g_gc_sblk[j].hi;
 }
@@ -1671,7 +1671,7 @@ static void gc_site_blk_add1(const void *tab, int dedup_n, int fix_maxhi) {
             uint64_t pc = t[4 + 2 * i], w = t[5 + 2 * i];
             if (!pc) continue;
             if ((w & 255u) == 4u || (w & 255u) == 5u) continue;
-            c[k].pc = pc;
+            c[k].off = pc;
             c[k].kind = (uint16_t)(w & 0xFFFFu);
             c[k].rule = (uint16_t)((w >> 16) & 0xFFFFu);
             c[k].depth = (int32_t)(uint32_t)(w >> 32);
@@ -1688,7 +1688,7 @@ static void gc_site_blk_add1(const void *tab, int dedup_n, int fix_maxhi) {
     }
     {
         int i = g_gc_sblk_n;
-        uint64_t code = t[3], lo = k > 0 ? e[0].pc : code, hi = k > 0 ? e[k - 1].pc + 1 : code;
+        uint64_t code = t[3], lo = k > 0 ? code + e[0].off : code, hi = k > 0 ? code + e[k - 1].off + 1 : code;
         if (code && code < lo) lo = code;
         while (i > 0 && g_gc_sblk[i - 1].lo > lo) { g_gc_sblk[i] = g_gc_sblk[i - 1]; i--; }
         g_gc_sblk[i].tab = t;

@@ -2292,9 +2292,10 @@ RTX_FUNC(rt_gc_site_find_a)
     movsxd  rdx, dword ptr [rbx + 40]
     dec     rdx
     mov     r8, qword ptr [rbx + 64]
+    sub     rdi, qword ptr [rbx + 72]
 .Lsf_es:
     cmp     rax, rdx
-    jg      .Lsf_next
+    jg      .Lsf_es_miss
     lea     rbp, [rax + rdx]
     sar     rbp, 1
     mov     r11, rbp
@@ -2308,6 +2309,9 @@ RTX_FUNC(rt_gc_site_find_a)
 .Lsf_es_lo:
     lea     rax, [rbp + 1]
     jmp     .Lsf_es
+.Lsf_es_miss:
+    add     rdi, qword ptr [rbx + 72]
+    jmp     .Lsf_next
 .Lsf_hit:
     test    rsi, rsi
     je      .Lsf_hit_ret
