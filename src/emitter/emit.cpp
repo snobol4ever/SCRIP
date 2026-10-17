@@ -5666,10 +5666,11 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     }
     if (g_emit.flat_jmp_entry) {
         if (!bare) {
-        emit_sep_rule('-'); emit_label_define_bb(&lbl_res);
         if (g_emit.flat_pat) {
+            emit_sep_rule('-'); emit_label_define_bb(&lbl_res);
             bb_emit_x86(IF(blob_frame_bytes() > 0, x86_rsp_load64("rbp", 24)) + x86("add", "rsp", 32L));
         } else if (icn_gen_regime() && g_emit.flat_gen) {
+            emit_sep_rule('-'); emit_label_define_bb(&lbl_res);
             { extern long g_line;
               bb_emit_x86( x86("mov", "rbp", "rax")
                          +
@@ -5677,16 +5678,6 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                              x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line") + x86("mov", "rcx", RDQ("rcx", 0)) + x86("shl", "rcx", 1L) +
                              x86("mov", "rdx", RDQ("rax", 64)) + x86("and", "rdx", 1L) + x86("or", "rcx", "rdx") + x86("mov", RDQ("rax", 64), "rcx"))
                          + icn_gen_line_resume() + icn_entry_gva()); }
-        } else {
-        if (g_is_text) {
-            char _res[fmt_len("add rsp, 8\npop %s\n", emit_rec_fb())];
-            snprintf(_res, sizeof _res, "add rsp, 8\npop %s\n", emit_rec_fb());
-            emit_text_n(_res, strlen(_res));
-        } else {
-            int z = emit_rec_fb_num();
-            ef_b4(0x48, 0x83, 0xC4, 0x08);
-            if (z >= 8) ef_b2(0x41, (uint8_t)(0x58 | (z & 7))); else ef_b1((uint8_t)(0x58 | (z & 7)));
-        }
         }
         }
     }
@@ -5791,7 +5782,6 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         bb_emit_x86( icn_gen_line_save()
                   + x86("mov", "rdx", "rbp")
                   + x86_lea_ext("rax", &lbl_res) + x86("mov", RDQ("rdx", 32), "rax")
-                  + x86("mov", RDQ("rdx", 40), "rsp")
                   + x86("mov", "rcx", RDQ("rdx", 8))
                   + x86("mov", "rbp", RDQ("rdx", 0))
          + x86("mov32", "eax", (long)DT_S) + x86_jmp_reg("rcx"));

@@ -1087,7 +1087,6 @@ static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t *
          + (is_gen ? x86_scan_sync_out()
                    + x86("call", "rt_gen_spine_resume_enter", (uint64_t)(uintptr_t)(void *)rt_gen_spine_resume_enter)
                    + x86("mov", "rax", FRQ(act + 8))
-                   + x86("mov", "rsp", RDQ("rax", 40))
                    + x86_jmp_mem("rax", 32)
                  : bcps_beta_leave(bcps_beta_pair_idx()))
          + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
@@ -1261,10 +1260,9 @@ static std::string bcps_spine_gen_arm() {
                  + x86_omega()
                : icn_gen_regime()
                ? x86("mov", "rax", FRQ(act + 8))
-                 + x86("mov", "rsp", RDQ("rax", 40))
                  + x86_jmp_mem("rax", 32)
-               : x86("mov", "rsp", FRQ(act + 8))
-                 + x86_jmp_mem("rsp", 0)))
+               : x86("mov", "rax", FRQ(act + 8))
+                 + x86_jmp_mem("rax", 0)))
          + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

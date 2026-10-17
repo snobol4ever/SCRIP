@@ -79,8 +79,6 @@ std::string bb_match_begin() {
          + x86_gamma()
          + x86_beta()
          + IF(sn4_defer_beta_guard(), x86("def", L(13)))
-         + x86("note", "retry_whack")
-         + x86("lea", "rsp", RDQ("rbp", -56 - _.op_frame_extra))
          + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
          + x86("mov", "rcx", RDQ("rcx", 200))
          + x86("test", "rcx", "rcx")

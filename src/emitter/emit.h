@@ -674,8 +674,6 @@ extern "C" int emit_pl_scc_armed(void);
 int emit_pl_fence_on(void);
 int emit_pl_scc_armed(void);
 #endif
-static inline int emit_rec_fb_num(void) { return 4; }
-static inline const char * emit_rec_fb(void) { return emit_rec_fb_num() == 5 ? "rbp" : "rsp"; }
 static inline int emit_rec_rsp_arm(void) {
     static int on = -1;
     if (on < 0) { const char * e = getenv("SCRIP_REC_RSP"); on = (e && *e == '0') ? 0 : 1; }
