@@ -32,6 +32,10 @@ RTX_GATE_DEF(icnsub)
 #define ARBLK_DATA       32
 RTX_FUNC(rt_subscript_var)
     RTX_GATE(icnsub, .Lsv_c)
+    jmp     .Lsv_go
+RTX_ENTRY(rt_subscript_var_strict)
+    RTX_GATE(icnsub, .Lsv_c)
+.Lsv_go:
     cmp     dl, DT_I
     je      .Lsub_tag_ok
     cmp     dl, DT_S

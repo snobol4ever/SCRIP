@@ -3414,7 +3414,7 @@ int core_icn_num_operand_ok_d(DESCR_t d, int code) { if (core_icn_int_ok(d)) ret
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_int_operand_ok_d(DESCR_t d) { return core_icn_num_operand_ok_d(d, 101); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int core_icn_int_operand_ok(uint64_t lo, uint64_t hi) { uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t d; memcpy(&d, w, sizeof d); return core_icn_int_operand_ok_d(d); }
+int c_core_icn_int_operand_ok(uint64_t lo, uint64_t hi) { uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t d; memcpy(&d, w, sizeof d); return core_icn_int_operand_ok_d(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t core_icn_limit_count_check(uint64_t lo, uint64_t hi) {
     uint64_t w[2];

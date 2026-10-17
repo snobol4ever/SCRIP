@@ -138,3 +138,15 @@ RTX_FUNC(rt_coerce_num2_d)
     ret
 RTX_ENDF(rt_coerce_num2_d)
 .section .note.GNU-stack,"",@progbits
+RTX_FUNC(core_icn_int_operand_ok)
+    RTX_GATE(icnnum, .Lcio_c)
+    cmp     dil, DT_I
+    je      .Lcio_one
+    cmp     dil, DT_R
+    jne     .Lcio_c
+.Lcio_one:
+    mov     eax, 1
+    ret
+.Lcio_c:
+    RTX_DECLINE_INT
+RTX_ENDF(core_icn_int_operand_ok)

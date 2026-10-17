@@ -4,6 +4,10 @@ RTX_GATE_DEF(icnvar)
 #define VCELL_KEY_D      24
 RTX_FUNC(rt_assign_var)
     RTX_GATE(icnvar, .Lav_c)
+    jmp     .Lav_go
+RTX_ENTRY(rt_assign_var_strict)
+    RTX_GATE(icnvar, .Lav_c)
+.Lav_go:
     mov     rax, [rip + g_gc_pending@GOTPCREL]
     cmp     dword ptr [rax], 0
     jne     .Lav_c

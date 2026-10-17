@@ -2665,10 +2665,10 @@ DESCR_t c_rt_subscript_val_strict(DESCR_t base, DESCR_t idx) {
     return declined;
 }
 DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 0); }
-DESCR_t rt_subscript_var_strict(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 1); }
+DESCR_t c_rt_subscript_var_strict(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 1); }
 DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_container_only_s(base, idx, 0); }
 DESCR_t rt_subscript_var_container_only_strict(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_container_only_s(base, idx, 1); }
 DESCR_t rt_random_var(DESCR_t base) { return rt_random_var_s(base, 0); }
 DESCR_t rt_random_var_strict(DESCR_t base) { return rt_random_var_s(base, 1); }
 DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val) { return c_rt_assign_var_s(var, val, 0); }
-DESCR_t rt_assign_var_strict(DESCR_t var, DESCR_t val) { return c_rt_assign_var_s(var, val, 1); }
+DESCR_t c_rt_assign_var_strict(DESCR_t var, DESCR_t val) { return c_rt_assign_var_s(var, val, 1); }
