@@ -16,6 +16,9 @@
 # infinite sequence, a nested gather taken as a value, a Seq read twice, a gather's .is-lazy; both modes; then the five DONE-WHEN programs under the collector plant at a
 # 64 KB window (SCRIP_GC_STRESS 1 and 3, both modes) and one chain-checked run (SCRIP_GC_CHAIN_CHECK=3: missing=0, mapdiff=0); then the census that rk_sequence and the
 # caps are gone from by_name_dispatch.c. FAIL-ONCE: on the base tree 4f4752498 every DONE-WHEN witness read RED (the eager desugar hit the heap cap or refused).
+# RE-CUT (cfo 2026-10-17, row gate-raku-gather-witness-w6-prints-false-where-rakudo-prints-true-in-both-modes-ceo-1807): w6's last line, (gather { take 1 }).is-lazy, was typed as True; Rakudo
+# v2026.05 (rakudo-local) and v2022.12 (apt) both print False, and SCRIP has printed False since bc0390872 (a Seq is lazy only when it comes from an infinite range). The whole w6 ref now
+# equals both Rakudos' output line for line.
 # EXIT: 0 every witness-mode pair equals Rakudo's output and the census is clean; 1 one differs; 2 REFUSED (stale binary, no gcc).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -72,7 +75,7 @@ say $twice[0];
 say $twice[1];
 say (gather { take 1 }).is-lazy;
 EOF
-printf '2\n(1 1 2 3 5 8 13 21)\n6\n(2 20)\n7\n7\n8\nTrue\n' > "$W/w6.ref"
+printf '2\n(1 1 2 3 5 8 13 21)\n6\n(2 20)\n7\n7\n8\nFalse\n' > "$W/w6.ref"
 fails=0; GATE_EXAMINED=0
 build4() {
     local w="$1"
