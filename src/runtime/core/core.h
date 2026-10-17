@@ -274,6 +274,8 @@ void rt_trace_fail_hook(const char *fname);
 void rt_trace_call_hook_f(const char *fname, int np, void *base);
 typedef struct icn_bi_rec { const char *name; DESCR_t *args; int nargs; int level; struct icn_bi_rec *prev; DESCR_t callee; } icn_bi_rec_t;
 void core_icn_op_ctx(const char *sym, int arity, DESCR_t a, DESCR_t b);
+void core_icn_toby_ctx(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by);
+int core_icn_by_zero_at(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by);
 void core_icn_op_ctx_clear(void);
 const char *core_icn_binop_sym(int bcode);
 void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int nargs);

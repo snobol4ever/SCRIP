@@ -598,7 +598,7 @@ void rt_trace_call_hook_p(const char *fname, trace_pend_t *pend) { (void)fname; 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_errmsg(int n);
 static icn_bi_rec_t *g_icn_bi_top = (icn_bi_rec_t *)0;
-static struct { const char *sym; int arity; DESCR_t a, b; } g_icn_op;
+static struct { const char *sym; int arity; DESCR_t a, b, c; } g_icn_op;
 #if RT_DIAG
 static int core_icn_op_plant(void) {
     static int v = -1;
@@ -616,6 +616,7 @@ static int core_icn_op_plant(void) {
 #endif
 static const char *icn_basename(const char *f) { const char *bn = f ? strrchr(f, '/') : (const char *)0; return bn ? bn + 1 : (f ? f : ""); }
 void core_icn_op_ctx(const char *sym, int arity, DESCR_t a, DESCR_t b) { g_icn_op.sym = sym; g_icn_op.arity = arity; g_icn_op.a = a; g_icn_op.b = b; }
+void core_icn_toby_ctx(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by) { g_icn_op.sym = "to"; g_icn_op.arity = 3; g_icn_op.a = *from; g_icn_op.b = *to; g_icn_op.c = *by; }
 #if RT_DIAG
 void core_icn_op_ctx_clear(void) { if (core_icn_op_plant()) return; g_icn_op.sym = (const char *)0; }
 #else
@@ -836,6 +837,12 @@ void core_icn_traceback(void) {
         } else if (g_icn_op.sym[0] == '.' && !g_icn_op.sym[1]) {
             icn_tb_image(g_icn_op.a);
             fputs(" . field", stderr);
+        } else if (g_icn_op.arity == 3) {
+            icn_tb_image(g_icn_op.a);
+            fprintf(stderr, " %s ", g_icn_op.sym);
+            icn_tb_image(g_icn_op.b);
+            fputs(" by ", stderr);
+            icn_tb_image(g_icn_op.c);
         } else {
             icn_tb_image(g_icn_op.a);
             fprintf(stderr, " %s ", g_icn_op.sym);
@@ -3371,7 +3378,14 @@ DESCR_t rt_quit_trap_300(DESCR_t *args, int nargs) { (void)args; (void)nargs; co
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_quit_trap_320(DESCR_t *args, int nargs) { (void)args; (void)nargs; core_quit_trap_install(core_quit_trap_320_sig); return NULVCL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int core_icn_by_zero_check(int64_t by) { if (by == 0) return core_icn_error(211, INTVAL(by)); return 0; }
+int core_icn_by_zero_check(int64_t by) { int r = by == 0 ? core_icn_error(211, INTVAL(by)) : 0; core_icn_op_ctx_clear(); return r; }
+int core_icn_by_zero_at(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by) {
+    if (by->i != 0) { if (g_icn_op.sym) core_icn_op_ctx_clear(); return 0; }
+    if (!g_icn_op.sym) core_icn_toby_ctx(from, to, by);
+    int r = core_icn_error(211, INTVAL(0));
+    core_icn_op_ctx_clear();
+    return r;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_icn_chars_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_BOOL || d.v == DT_R || d.v == DT_C; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3410,7 +3424,7 @@ int64_t core_icn_to_int_d(DESCR_t d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi) { uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t d; memcpy(&d, w, sizeof d); return core_icn_to_int_d(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int core_icn_num_operand_ok_d(DESCR_t d, int code) { if (core_icn_int_ok(d)) return 1; core_icn_error(code, d); return 0; }
+int core_icn_num_operand_ok_d(DESCR_t d, int code) { if (core_icn_int_ok(d)) return 1; core_icn_error(code, d); core_icn_op_ctx_clear(); return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_int_operand_ok_d(DESCR_t d) { return core_icn_num_operand_ok_d(d, 101); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5596,7 +5610,7 @@ void core_gc_roots(void) {
     }
     rt_gc_visit_descr(&g_icn_errvalue);
 #if RT_DIAG
-    if (core_icn_op_plant() != 2) { rt_gc_visit_descr(&g_icn_op.a); rt_gc_visit_descr(&g_icn_op.b); }
+    if (core_icn_op_plant() != 2) { rt_gc_visit_descr(&g_icn_op.a); rt_gc_visit_descr(&g_icn_op.b); rt_gc_visit_descr(&g_icn_op.c); }
     gv_gc_root(&g_trace_tab);
     gv_gc_root(&g_trace_value_last);
     for (int i = 0; i < TRACE_TAB_N; i++) if (trace_tab[i].used) {
@@ -5607,6 +5621,7 @@ void core_gc_roots(void) {
 #else
     rt_gc_visit_descr(&g_icn_op.a);
     rt_gc_visit_descr(&g_icn_op.b);
+    rt_gc_visit_descr(&g_icn_op.c);
 #endif
 }
 int core_icn_int_ok_d(DESCR_t d) { return core_icn_int_ok(d); }

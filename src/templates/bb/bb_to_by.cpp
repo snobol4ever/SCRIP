@@ -11,7 +11,8 @@ int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int64_t to_int(DESCR_t v);
 int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi);
 int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
-int core_icn_by_zero_check(int64_t by);
+void core_icn_toby_ctx(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by);
+int core_icn_by_zero_at(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -80,6 +81,20 @@ std::string bb_to_by() {
              + x86("jmp", L(0)) :
                x86("comment", "IR_TO_BY")
              + x86_alpha()
+             + x86("mov", "rax", FRQ(_.op_sa))
+             + x86("cmp", "al", (long)DT_I)
+             + x86("jne", L(3))
+             + x86("mov", "rax", FRQ(_.op_sb))
+             + x86("cmp", "al", (long)DT_I)
+             + x86("jne", L(3))
+             + x86("mov", "rax", FRQ(_.op_sc))
+             + x86("cmp", "al", (long)DT_I)
+             + x86("je", L(4))
+             + x86("def", L(3))
+             + x86("lea", "rdi", FRQ(_.op_sa))
+             + x86("lea", "rsi", FRQ(_.op_sb))
+             + x86("lea", "rdx", FRQ(_.op_sc))
+             + x86("call", "core_icn_toby_ctx", (uint64_t)(uintptr_t)(void *)core_icn_toby_ctx)
              + to_by_int_operand_guard(_.op_sa)
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
@@ -104,9 +119,11 @@ std::string bb_to_by() {
              + x86("mov", FRQ(_.op_sc), (long)DT_I)
              + x86("mov", FRQ(_.op_sc + 8), "rax")
              + x86_rt_gc_poll()
-             + x86("mov", "rax", FRQ(_.op_sc + 8))
-             + x86("mov", "rdi", "rax")
-             + x86("call", "core_icn_by_zero_check", (uint64_t)(uintptr_t)(void*)core_icn_by_zero_check)
+             + x86("def", L(4))
+             + x86("lea", "rdi", FRQ(_.op_sa))
+             + x86("lea", "rsi", FRQ(_.op_sb))
+             + x86("lea", "rdx", FRQ(_.op_sc))
+             + x86("call", "core_icn_by_zero_at", (uint64_t)(uintptr_t)(void *)core_icn_by_zero_at)
              + x86("cmp", "eax", (long)0)
              + x86_omega("jne")
              + x86_rt_gc_poll()

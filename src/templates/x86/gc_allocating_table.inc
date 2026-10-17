@@ -566,6 +566,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "core_fn_register_plain", GC_RET_VOID },
     { "core_icn_argtype_check", GC_RET_OTHER },
     { "core_icn_builtin_argcheck", GC_RET_OTHER },
+    { "core_icn_by_zero_at", GC_RET_OTHER },
     { "core_icn_by_zero_check", GC_RET_OTHER },
     { "core_icn_display_image", GC_RET_VOID },
     { "core_icn_error", GC_RET_OTHER },
