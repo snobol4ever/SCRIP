@@ -1728,7 +1728,8 @@ def cmd_from_progress(a):
         unread = [e for e in pop if e in pkg_pop and e not in last_by and e not in _owed]
         halfread = [e for e in pop if e in pkg_pop and e in last_by and set(last_by[e]) != {"m3", "m4"}]
         excluded = nex + len(cnames - xnames) + len(_outside_new)
-    reads = sorted((v[3], v[2]) for v in last.values())
+    # the row is current at the OLDEST reading of its POPULATION: an excluded or ungraded program's old reading is not one of the row's
+    reads = sorted((v[3], v[2]) for (prog, _m), v in last.items() if not pkg or prog in pkg_pop)
     oldest, newest = (reads[0], reads[-1]) if reads else (("-", "-"), ("-", "-"))
     total = len(pkg_pop) if pkg else len(pop)
     if pkg:
