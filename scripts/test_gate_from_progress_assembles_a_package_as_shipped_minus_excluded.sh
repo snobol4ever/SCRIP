@@ -9,6 +9,7 @@
 #   ARM 1  the row is 3/5 with excluded=2: pass 3 (a c d), denominator {a b c d e} = 5, Excl = 1 EXCLUDED row + 1 fragment.
 #   ARM 2  SUITE_ROW_PACKAGE prints shipped=7 table=4 excluded=2 denominator=5 debt_unread_by_design=1.
 #   ARM 3  a master key is untouched: the rebus rungs fixture keys its total on ALL.csv alone (no SUITE_ROW_PACKAGE line).
+#   ARM 4  an entry whose latest readings are OUTSIDE in both modes leaves the denominator into excluded (CEO-1696): 2/4 excluded=3.
 # PROVEN TO FAIL on the assembler before this rule (origin 717ddfca3's util_score_row.py): arms 1 and 2 FAIL -- it reads 3/4 with no excluded= (ALL.csv's count; d.pl unmatched, so d is half read).
 # EXIT 0 every arm holds; 1 an arm failed; 2 could not measure.
 set -uo pipefail
@@ -35,8 +36,12 @@ o1="$(S4E_CORPUS_ROOT="$T/corpus" S4E_PROGRESS_DB="$DB" python3 "$SR" from-progr
 o3="$(S4E_CORPUS_ROOT="$T/corpus" S4E_PROGRESS_DB="$DB" python3 "$SR" from-progress --suite reb-rungs --dry-run 2>&1)"; r3=$?
 [ "$r1" = 0 ] && [ "$r3" = 0 ] || { printf '%s\n%s\n' "$o1" "$o3" | tail -6; echo "GATE REFUSE(2): from-progress --dry-run did not run (rc $r1, $r3)"; exit 2; }
 ck "1 the package row is 3/5 excluded=2 (shipped minus EXCLUDED, d.pl matched to d)" 'grep -q "would set zzpkg -> 3/5 excluded=2 " <<<"$o1"'
-ck "2 SUITE_ROW_PACKAGE shipped=7 table=4 excluded=2 denominator=5 debt_unread_by_design=1" 'grep -q "^SUITE_ROW_PACKAGE suite=zzpkg shipped=7 table=4 excluded_rows=1 containers=1 excluded=2 denominator=5 debt_unread_by_design=1$" <<<"$o1"'
+ck "2 SUITE_ROW_PACKAGE shipped=7 table=4 excluded=2 denominator=5 debt_unread_by_design=1" 'grep -q "^SUITE_ROW_PACKAGE suite=zzpkg shipped=7 table=4 excluded_rows=1 containers=1 outside=0 excluded=2 denominator=5 debt_unread_by_design=1$" <<<"$o1"'
 ck "3 a master key keeps ALL.csv as its population (reb-rungs 2/2, no SUITE_ROW_PACKAGE)" 'grep -q "would set reb-rungs -> 2/2 stamped" <<<"$o3" && ! grep -q "^SUITE_ROW_PACKAGE" <<<"$o3"'
+# arm 4: an entry the oracle refuses in BOTH modes (latest readings OUTSIDE m3 and m4) leaves the denominator and counts in excluded (CEO-1696)
+row 13 zzpkg prolog c m3 OUTSIDE; row 14 zzpkg prolog c m4 OUTSIDE
+o4="$(S4E_CORPUS_ROOT="$T/corpus" S4E_PROGRESS_DB="$DB" python3 "$SR" from-progress --suite zzpkg --dry-run 2>&1)"
+ck "4 c refused by the oracle in both modes leaves the denominator: 2/4 excluded=3, outside=1" 'grep -q "would set zzpkg -> 2/4 excluded=3 " <<<"$o4" && grep -q " outside=1 excluded=3 denominator=4 " <<<"$o4"'
 [ "$fails" = 0 ] || printf '%s\n' "$o1" | grep -E '^SUITE_ROW|would set' | sed 's/^/      /'
 if [ "$fails" = 0 ]; then echo "✅ GATE PASS [from_progress_assembles_a_package_as_shipped_minus_excluded]: $n of $n arms hold"; exit 0; fi
 echo "⛔ GATE FAIL [from_progress_assembles_a_package_as_shipped_minus_excluded]: $fails of $n arm(s) failed"; exit 1
