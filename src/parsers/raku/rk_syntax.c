@@ -396,9 +396,9 @@ static void add_name_all(RkP *p, const char *s, int n) {
     for (int i = 0; i + 1 < n; i++) if (s[i] == ':' && s[i + 1] == ':') { add_our_name(p, s, i); add_our_name(p, s + i + 2, n - i - 2); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int core_name_cmp(const void *a, const void *b) { return strcmp(*(const char *const *) a, *(const char *const *) b); }
+static int core_name_cmp(const void *a, const void *b) { return strcmp(*(const char *const *) a, rk_pool + *(const unsigned *) b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int core_has(const char *const *tab, size_t n, const char *s, int len) {
+static int core_has(const unsigned *tab, size_t n, const char *s, int len) {
     if (len <= 0) return 0;
     char *buf = (char *) ct_alloc((size_t) len + 1);
     memcpy(buf, s, (size_t) len); buf[len] = 0;
@@ -496,7 +496,7 @@ static void scope_leave(RkP *p) {
     p->nuops = k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int uniname_cmp(const void *a, const void *b) { return strcmp((const char *) a, ((const RkUniName *) b)->name); }
+static int uniname_cmp(const void *a, const void *b) { return strcmp((const char *) a, rk_pool + ((const RkUniName *) b)->name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned uniname_cp(const char *s, int n) {
     while (n > 0 && *s == ' ') { s++; n--; }
@@ -521,7 +521,7 @@ static unsigned uniname_cp(const char *s, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned rk_uniname_cp(const char *s, int n) { return uniname_cp(s, n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int uniseq_cmp(const void *a, const void *b) { return strcmp((const char *) a, ((const RkUniSeq *) b)->name); }
+static int uniseq_cmp(const void *a, const void *b) { return strcmp((const char *) a, rk_pool + ((const RkUniSeq *) b)->name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rk_uniname_seq(const char *s, int n) {
     while (n > 0 && *s == ' ') { s++; n--; }
@@ -531,7 +531,7 @@ const char *rk_uniname_seq(const char *s, int n) {
     for (int i = 0; i < n; i++) buf[i] = (char) (s[i] >= 'a' && s[i] <= 'z' ? s[i] - 32 : s[i]);
     buf[n] = 0;
     const RkUniSeq *q = (const RkUniSeq *) bsearch(buf, rk_uniseqs, sizeof rk_uniseqs / sizeof *rk_uniseqs, sizeof *rk_uniseqs, uniseq_cmp);
-    return q ? q->cps : NULL;
+    return q ? rk_pool + q->cps : NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_user_op(RkP *p, char cat, const char *sym, int len, int prec) {
@@ -4895,7 +4895,7 @@ static int r_use_like(RkP *p, int pos, const char *what) {
     if (!strcmp(what, "use") && !strcmp(name, "lib")) add_use_lib(p, ws(p, args_from), e);
     else if (!strcmp(what, "use") && !strcmp(name, "Test")) {
         for (size_t i = 0; i < sizeof rk_test_routines / sizeof *rk_test_routines; i++)
-            if (strncmp(rk_test_routines[i], "trait_mod:", 10)) add_routine_name(p, rk_test_routines[i], (int) strlen(rk_test_routines[i]));
+            if (strncmp(rk_pool + rk_test_routines[i], "trait_mod:", 10)) add_routine_name(p, rk_pool + rk_test_routines[i], (int) strlen(rk_pool + rk_test_routines[i]));
     }
     else if (!strcmp(what, "use") && !is_pragma) { if (!import_module(p, name)) p->myst_off = 1; }
     if (p->build) p->tv = rkb_use(p->B, p->s + q, name_part_len(p, q, m), uargs);

@@ -57,35 +57,37 @@ awk -F'\t' 'NR==FNR { real[$1]=1; next } !($1 in real) && $2 ~ /,/' "$T/real_key
 "$RAKU" "$T/names_e.raku" 2>/dev/null | LC_ALL=C sort -u | LC_ALL=C comm -23 - "$T/names.txt" > "$T/names_e.txt"
 "$RAKU" -e 'use v6.e.PREVIEW; say $_ for CORE::.keys.grep(/^"&"/).map(*.substr(1))' 2>/dev/null | LC_ALL=C sort -u | LC_ALL=C comm -23 - "$T/routines.txt" > "$T/routines_e.txt"
 [ -s "$T/names.txt" ] && [ -s "$T/routines.txt" ] && [ -s "$T/test.txt" ] && [ -s "$T/uninames.txt" ] || { echo "⛔ REFUSE rc=2 [util_raku_core_names_regen] -- the oracle answered nothing"; exit 2; }
+pool_rows() { LC_ALL=C awk -v k="$1" '{ print k "\t" length($0) }' "$2" > "$T/pool.len"; sed 's/\\/\\\\/g; s/"/\\"/g; s/\bTerm\b/\\124erm/g' "$2" | paste "$T/pool.len" -; }
+echo "" > "$T/empty.txt"
+cut -f1 "$T/uninames.txt" > "$T/uni_n.txt"; cut -f2 "$T/uninames.txt" > "$T/uni_cp.txt"
+cat "$T/empty.txt" > "$T/seq_n.txt"; cut -f1 "$T/uniseqs.txt" >> "$T/seq_n.txt"; cat "$T/empty.txt" > "$T/seq_c.txt"; cut -f2 "$T/uniseqs.txt" >> "$T/seq_c.txt"
+cat "$T/empty.txt" "$T/names_e.txt" > "$T/en.txt"; cat "$T/empty.txt" "$T/routines_e.txt" > "$T/er.txt"
 {
-    echo "#ifndef RK_CORE_NAMES_H"
-    echo "#define RK_CORE_NAMES_H"
-    echo "static const char *const rk_core_names[] = {"
-    sed 's/\\/\\\\/g; s/"/\\"/g; s/\bTerm\b/\\124erm/g; s/^/    "/; s/$/",/' "$T/names.txt"
-    echo "};"
-    echo "static const char *const rk_core_routines[] = {"
-    sed 's/\\/\\\\/g; s/"/\\"/g; s/^/    "/; s/$/",/' "$T/routines.txt"
-    echo "};"
-    echo "static const char *const rk_core_e_names[] = {"
-    echo '    "",'
-    sed 's/\\/\\\\/g; s/"/\\"/g; s/^/    "/; s/$/",/' "$T/names_e.txt"
-    echo "};"
-    echo "static const char *const rk_core_e_routines[] = {"
-    echo '    "",'
-    sed 's/\\/\\\\/g; s/"/\\"/g; s/^/    "/; s/$/",/' "$T/routines_e.txt"
-    echo "};"
-    echo "typedef struct { const char *name; int cp; } RkUniName;"
-    echo "static const RkUniName rk_uninames[] = {"
-    awk -F'\t' '{ printf "    { \"%s\", %s },\n", $1, $2 }' "$T/uninames.txt"
-    echo "};"
-    echo "typedef struct { const char *name; const char *cps; } RkUniSeq;"
-    echo "static const RkUniSeq rk_uniseqs[] = {"
-    echo '    { "", "" },'
-    awk -F'\t' '{ printf "    { \"%s\", \"%s\" },\n", $1, $2 }' "$T/uniseqs.txt"
-    echo "};"
-    echo "static const char *const rk_test_routines[] = {"
-    sed 's/\\/\\\\/g; s/"/\\"/g; s/^/    "/; s/$/",/' "$T/test.txt"
-    echo "};"
-    echo "#endif"
-} > "$OUT"
+    pool_rows N "$T/names.txt"; pool_rows R "$T/routines.txt"; pool_rows EN "$T/en.txt"; pool_rows ER "$T/er.txt"
+    pool_rows U "$T/uni_n.txt"; pool_rows SN "$T/seq_n.txt"; pool_rows SC "$T/seq_c.txt"; pool_rows T "$T/test.txt"
+} > "$T/pool.tsv"
+LC_ALL=C awk -F'\t' '
+    NR == FNR { cp[FNR - 1] = $1; next }
+    FNR == 1 { print "#ifndef RK_CORE_NAMES_H"; print "#define RK_CORE_NAMES_H"; print "static const char rk_pool[] ="; off = 0 }
+    { print "    \"" $3 "\\0\""; o[$1, n[$1]++] = off; off += $2 + 1 }
+    function plain(name, k,    i, line) {
+        print "static const unsigned " name "[] = {"; line = "   "
+        for (i = 0; i < n[k]; i++) { line = line " " o[k, i] ","; if (i % 16 == 15) { print line; line = "   " } }
+        if (line != "   ") print line
+        print "};"
+    }
+    END {
+        print "    ;"
+        plain("rk_core_names", "N"); plain("rk_core_routines", "R"); plain("rk_core_e_names", "EN"); plain("rk_core_e_routines", "ER")
+        print "typedef struct { unsigned name; int cp; } RkUniName;"; print "static const RkUniName rk_uninames[] = {"; line = "   "
+        for (i = 0; i < n["U"]; i++) { line = line " { " o["U", i] ", " cp[i] " },"; if (i % 8 == 7) { print line; line = "   " } }
+        if (line != "   ") print line
+        print "};"
+        print "typedef struct { unsigned name; unsigned cps; } RkUniSeq;"; print "static const RkUniSeq rk_uniseqs[] = {"; line = "   "
+        for (i = 0; i < n["SN"]; i++) { line = line " { " o["SN", i] ", " o["SC", i] " },"; if (i % 8 == 7) { print line; line = "   " } }
+        if (line != "   ") print line
+        print "};"
+        plain("rk_test_routines", "T")
+        print "#endif"
+    }' "$T/uni_cp.txt" "$T/pool.tsv" > "$OUT"
 echo "rk_core_names.h: $(wc -l < "$T/names.txt") names, $(wc -l < "$T/routines.txt") routines, $(wc -l < "$T/test.txt") Test routines, $(wc -l < "$T/names_e.txt")+$(wc -l < "$T/routines_e.txt") 6.e additions, $(wc -l < "$T/uninames.txt") character names and aliases, $(wc -l < "$T/uniseqs.txt") named sequences, cut from $("$RAKU" --version | head -1)"
