@@ -33,9 +33,6 @@ extern DatType *dat_find_type(const char *name);
 extern DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs);
 #include "bb_box.h"
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail);
-static DESCR_t g_ir_return_val;
-static const char * g_cur_func = NULL;
-IR_graph_t * g_current_cfg = NULL;
 extern int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_lit, int is_repl, const char * repl_lit) {

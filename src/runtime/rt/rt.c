@@ -2276,7 +2276,6 @@ int rt_proc_name_exists(const char *name) { return name && rt_proc_find(name) !=
 DESCR_t *rt_gvar_cell(const char *name) { return NV_PTR_fn(name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_define(const char *spec) { (void)spec; return NULVCL; }
-static int g_last_ok = 0;
 extern void rt_set_last_ok(int v);
 extern DESCR_t binop_apply(int op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
