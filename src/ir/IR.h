@@ -211,6 +211,8 @@ struct IR_graph_t {
     const char ** lname_ix_ln;
     int resume_slot;
     int resumable_callable;
+    int spine_tier;
+    int rt_redefinable;
     int decl_level;
     int caller_frame;
     int static_calls;

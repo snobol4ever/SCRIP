@@ -677,6 +677,14 @@ static void drive_slots_all(stage2_t * s2) {
     extern void ir_drive_slot_assign(IR_graph_t * g);
     extern void fl_derive_tier(IR_graph_t * g);
     int _mx = polyglot_main_bb_idx(s2);
+    {
+        extern void fl_select_spine_tier(IR_graph_t **, int, const char * const *, const int *, int);
+        int np = s2->proc_count;
+        const char * pn[np > 0 ? np : 1];
+        int pi[np > 0 ? np : 1];
+        for (int i = 0; i < np; i++) { pn[i] = s2->proc_table[i].name; pi[i] = s2->proc_table[i].bb_idx; }
+        fl_select_spine_tier(s2->bbp.table, s2->bbp.count, pn, pi, np);
+    }
     for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) {
         IR_graph_t * _g = s2->bbp.table[_gi];
         fl_derive_tier(_g);

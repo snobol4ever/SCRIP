@@ -13,19 +13,16 @@ static_assert(offsetof(VCELL_t, cellp) == 0, "the deref follows a DT_N slen 2 na
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unify_first() {
     x86_begin();
-    return IF(_.op_zres,
-               x86_alpha()
-             + x86_bomb("bb_unify_first: a Prolog head is a flat-frame graph; no ZD arm exists")
-             + x86_beta_trampoline())
-         + IF(!_.op_zres && _.op_u_why == 1,
+    return std::string()
+         + IF(_.op_u_why == 1,
                x86_alpha()
              + x86_bomb("bb_unify_first: operand 0 is the cell source, the node's ival the child index and its sval the variable's name")
              + x86_beta_trampoline())
-         + IF(!_.op_zres && _.op_u_why == 4,
+         + IF(_.op_u_why == 4,
                x86_alpha()
              + x86_bomb("bb_unify_first: the variable has no frame slot")
              + x86_beta_trampoline())
-         + IF(!_.op_zres && _.op_u_why == 0,
+         + IF(_.op_u_why == 0,
                x86("comment", "IR_UNIFY_FIRST: a bound value is copied into the variable's slot, an unbound cell is referenced from it")
              + x86_alpha()
              + PL_SRC_RDI()

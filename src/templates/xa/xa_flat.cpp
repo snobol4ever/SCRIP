@@ -334,9 +334,10 @@ static std::string xa_flat_zframe_prologue_str(void) {
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
-         + (x86_fb_pinned()
-            ? ( x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
-             + x86("mov", x86_fb(), "rsp")
+         + (x86_pl_frame()
+            ? ( (x86_fb_pinned() ? x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
+                                 + x86("mov", x86_fb(), "rsp")
+                                 : (emit_jmp_pin_legacy() ? x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp") : std::string()))
              + IF(g_emit_cfg && g_emit_cfg->root_graph, x86("lea", "rdi", RDQ("rsp", kt - 64))
                                                       + x86("call_bare", "rt_pl_quad_seed", _seed_fp))
              + IF(g_emit_cfg && g_emit_cfg->root_graph && g_emit_cfg->standing_cells > 0,
@@ -359,7 +360,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
             : (emit_jmp_pin_legacy() ? (xa_flat_zanchor_poison() ? std::string() : x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp"))
                                 + std::string("")
                                : std::string()));
-    if (x86_fb_pinned()) {
+    if (x86_pl_frame()) {
         int zb = kt - 64;
         s += x86("comment",
             "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the arguments are the caller's block at [rbp+kt+16i], "
@@ -722,8 +723,20 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "r13", RDQ(x86_fb(), kt - 40))
              + x86("xor", "eax", "eax") + zf_release(kt) + zf_pin_restore(kt)
              + x86("jmp", "rcx"); }
-    if (x86_fb_pinned() && g_emit.flat_β_p && g_emit.flat_altdet_p) {
+    if (x86_pl_frame() && g_emit.flat_β_p && g_emit.flat_altdet_p) {
         int _plretain = !(g_emit_cfg && g_emit_cfg->root_graph);
+        if (!x86_fb_pinned())
+            return x86("mov32", "edi", (long)DT_I)
+                 + x86("mov32", "esi", 1L)
+                 + x86("mov", "rcx", RDQ("rsp", kt - 24))
+                 + x86("mov", "rax", RDQ("rsp", kt - 40))
+                 + x86("cmp", "r13", "rax")
+                 + x86("je", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_altdet_p)
+                 + x86_bomb("a spine-tier predicate reached its gamma with a choice point younger than its entry: the selector admitted a retaining graph")
+                 + x86_def_ext(g_emit.flat_altdet_p)
+                 + x86("xor", "eax", "eax")
+                 + zf_release(kt)
+                 + x86("jmp", "rcx");
         return x86("comment", "PL γ: a predicate has no value -- hand the caller the definite success DESCR {DT_I, 1} the return trampolines already hand it, never the last box's leftover rax:rdx")
              + x86("comment",
                  "(a bound integer payload 104 = DT_FAIL read as failure at the caller's al test; a {small int, cell address} pair in the caller's result slot is no DESCR to the collector)")
@@ -839,7 +852,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("def", L(225)) + IF(np > 0,
              x86("add", "rsp", (long)(16 * np))) + x86_jmp_reg("rdx");
     }
-    if (x86_fb_pinned())
+    if (x86_pl_frame())
         return IF(emit_pl_scc_armed(), x86_pl_scc_release_check(x86_fb(), kt, 246))
              + x86("mov", "rcx", RDQ(x86_fb(), kt - 16))
              + x86("mov", "r13", RDQ(x86_fb(), kt - 40))

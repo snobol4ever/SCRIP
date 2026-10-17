@@ -124,7 +124,7 @@ std::string bb_call_apply();
 std::string bb_call_eval();
 std::string bb_call_gen();
 std::string pl_leaf_inline_arm();
-std::string pl_leaf_zd_cold();
+std::string pl_leaf_zd_tail();
 std::string bb_iterate();
 std::string bb_binop_relop();
 std::string bb_binop_relop_val();

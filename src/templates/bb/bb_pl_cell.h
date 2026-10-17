@@ -4,7 +4,7 @@
 #define PL_SRC_RDI() (IF(!_.op_u_kid, x86("lea", "rdi", FRQ(_.op_u_slot))) \
                     + IF(_.op_u_kid, \
                           x86("note", "the cell is child " + std::to_string((long long)_.op_u_idx) + " of the parent box's compound: [parent.p + 16j]") \
-                        + x86("mov", "rax", FRQ(_.op_u_slot + 8)) \
+                        + x86("mov", "rax", _.op_zres ? ZOPQ(0, 8) : FRQ(_.op_u_slot + 8)) \
                         + x86("lea", "rdi", RDQ("rax", 16 * _.op_u_idx))))
 #define PL_DEREF(l0, lvar, ln2, ldone) (x86("note", "deref: follow a name (slen 1: the cell; slen 2: the VCELL's cell) or a bound PLVAR to the cell that holds the value; eax = its tag word") \
                     + x86("def", L(l0)) \

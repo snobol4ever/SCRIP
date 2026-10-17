@@ -18,15 +18,12 @@ static_assert(PL_TR_FRAME_HI_OFF == 32 && offsetof(pl_tr_entry_t, cell) == 0 && 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unify_const() {
     x86_begin();
-    return IF(_.op_zres,
-               x86_alpha()
-             + x86_bomb("bb_unify_const: a Prolog head is a flat-frame graph; no ZD arm exists")
-             + x86_beta_trampoline())
-         + IF(!_.op_zres && _.op_u_why != 0,
+    return std::string()
+         + IF(_.op_u_why != 0,
                x86_alpha()
              + x86_bomb("bb_unify_const: operands are a cell source (a named IR_VAR_REF with a frame slot, or a driven parent IR_UNIFY_STRUCT), a child index and a literal")
              + x86_beta_trampoline())
-         + IF(!_.op_zres && _.op_u_why == 0,
+         + IF(_.op_u_why == 0,
                x86("comment", "IR_UNIFY_CONST: deref the cell, compare tag and value, or bind the constant (trail test and push inline)")
              + x86_alpha()
              + PL_SRC_RDI()

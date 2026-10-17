@@ -339,7 +339,7 @@ typedef struct {
     int op_arbno_chain;
     int x86_fc_synth;
     int op_selfload;
-    int op_icn_unpinned;
+    int op_zf_unpinned;
     int op_zabs;
     int op_zcp_src;
     int op_zcp_dst;
@@ -544,6 +544,7 @@ typedef struct {
     int op_stmt_dyn;
     int zframe_graph;
     int zframe_pinned_base;
+    int pl_frame;
     long op_suspend_stmt_uclaim;
     int op_ztail;
     int op_zpat;
@@ -667,6 +668,8 @@ static inline int emit_jmp_pin_legacy(void) { return g_emit.flat_deep_arrival ||
 static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; extern int g_resumable_callable_active; return g_gen_proc_active || g_resumable_callable_active; }
 static inline int emit_rec_pin(void) { return emit_jmp_pin_legacy() || emit_heap_fb_adopt(); }
 static inline int emit_zframe_pinned(void) { return (g_emit.zframe_pinned_base && g_emit.zframe_graph) ? 1 : 0; }
+static inline int emit_pl_frame(void) { return (g_emit.pl_frame && g_emit.zframe_graph) ? 1 : 0; }
+static inline const char * emit_pl_fb(void) { return emit_zframe_pinned() ? "rbp" : "rsp"; }
 #ifdef __cplusplus
 extern "C" int emit_pl_fence_on(void);
 extern "C" int emit_pl_scc_armed(void);

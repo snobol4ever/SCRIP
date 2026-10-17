@@ -25,19 +25,16 @@ DESCR_t rt_pl_dop_unify_raise(DESCR_t *, DESCR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unify_value() {
     x86_begin();
-    return IF(_.op_zres,
-               x86_alpha()
-             + x86_bomb("bb_unify_value: a Prolog head is a flat-frame graph; no ZD arm exists")
-             + x86_beta_trampoline())
-         + IF(!_.op_zres && _.op_u_why == 1,
+    return std::string()
+         + IF(_.op_u_why == 1,
                x86_alpha()
              + x86_bomb("bb_unify_value: operand 0 is the cell source, the node's ival the child index and its sval the variable's name")
              + x86_beta_trampoline())
-         + IF(!_.op_zres && _.op_u_why == 4,
+         + IF(_.op_u_why == 4,
                x86_alpha()
              + x86_bomb("bb_unify_value: the variable has no frame slot")
              + x86_beta_trampoline())
-         + IF(!_.op_zres && _.op_u_why == 0,
+         + IF(_.op_u_why == 0,
                x86("comment", "IR_UNIFY_VALUE: an unbound side binds to the other inline, two atomics compare inline, anything else goes to the general-unify leaf")
              + x86_alpha()
              + PL_SRC_RDI()

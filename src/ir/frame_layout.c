@@ -1738,12 +1738,16 @@ int zls_node_bytes(const IR_t * nd) {
 int zls_scope_of(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->scope_id : -1; }
 int zls_g_nslots(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->nslots : -1; }
 int zls_g_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->region : -1; }
-static int zls_g_pinned_frame(const IR_graph_t * g) { return (g && g->zframe_pinned_base && g->zframe_graph && !g->icn_cells_graph) ? 1 : 0; }
-int zls_g_det_block(const IR_graph_t * g) { return (g && g->static_calls && g->zframe_graph && !g->zframe_pinned_base && !g->icn_cells_graph && !g->root_graph) ? 1 : 0; }
+int zls_g_pl_frame(const IR_graph_t * g) {
+    if (!g || !g->zframe_graph || g->icn_cells_graph) return 0;
+    return (g->zframe_pinned_base || (g->resumable_callable && g->spine_tier && !g->root_graph)) ? 1 : 0;
+}
+static int zls_g_pinned_frame(const IR_graph_t * g) { return zls_g_pl_frame(g); }
+int zls_g_det_block(const IR_graph_t * g) { return (g && g->static_calls && g->zframe_graph && !zls_g_pl_frame(g) && !g->icn_cells_graph && !g->root_graph) ? 1 : 0; }
 int zls_g_block_args(const IR_graph_t * g) {
     if (g && g->icn_cells_graph && !g->root_graph) return 1;
     if (!g || !g->zframe_graph || g->icn_cells_graph) return 0;
-    if (g->zframe_pinned_base) return 1;
+    if (zls_g_pl_frame(g)) return 1;
     if (zls_g_det_block(g)) return 1;
     return (g->block_args && !g->root_graph && g->nlocals == 0 && g->nparams <= 12) ? 1 : 0;
 }
@@ -2299,6 +2303,102 @@ static int fl_icn_op_keeps_pin(const IR_t * c) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int fl_box_retains(const IR_t * nd) {
+    switch ((int)ir_kind0(nd)) {
+        case IR_PATTERN_ALT:
+        case IR_PATTERN_CAT:
+        case IR_PATTERN_CAPTURE:
+        case IR_PATTERN_DEFER:
+        case IR_SUSPEND:
+        case IR_PROC_GEN:
+        case IR_CREATE:
+        case IR_ACTIVATE:
+        case IR_CORET:
+        case IR_COFAIL:
+        case IR_SCAN:
+        case IR_SCAN_ENTER:
+        case IR_SCAN_ALTERNATE:
+        case IR_SCAN_SEQUENCE:
+        case IR_SCAN_UPTO:
+        case IR_SCAN_FIND:
+        case IR_SCAN_MANY:
+        case IR_SCAN_ANY:
+        case IR_SCAN_BAL:
+        case IR_SCAN_MATCH:
+        case IR_SCAN_MOVE:
+        case IR_SCAN_TAB:
+        case IR_SCAN_POS:
+        case IR_TO:
+        case IR_TO_BY:
+        case IR_LIMIT:
+        case IR_REPALT:
+        case IR_ITERATE:
+        case IR_DISJUNCTION:
+        case IR_CLEANUP:
+        case IR_CALL_BUILTIN_GEN:
+        case IR_KW_ICON_GEN:
+        case IR_CALL_VALUE:
+        case IR_CALL_GEN:
+        case IR_REV_ASSIGN:
+        case IR_REV_ASSIGN_VAR:
+        case IR_REV_SWAP:
+        case IR_MATCH:
+        case IR_MATCH_FENCE1:
+        case IR_MATCH_FENCE0:
+        case IR_MATCH_ABORT:
+        case IR_MATCH_ARBNO:
+        case IR_MATCH_CALLOUT:
+        case IR_MATCH_VALUE:
+        case IR_MATCH_DEFER:
+        case IR_MATCH_ALTERNATE:
+        case IR_MATCH_ARB:
+        case IR_MATCH_BAL:
+        case IR_MATCH_BREAKX:
+        return 1;
+        default:
+        return 0;
+    }
+}
+typedef struct { const char * name; int idx; } fl_gname_t;
+static int fl_gname_cmp(const void * a, const void * b) { return strcmp(((const fl_gname_t *)a)->name, ((const fl_gname_t *)b)->name); }
+static int fl_callee_idx(const IR_t * nd, const fl_gname_t * tab, int nt) {
+    if (!ir_is_call_kind(ir_kind0(nd)) || ir_kind0(nd) == IR_CALL_VALUE || !IR_LIT(nd).sval) return -1;
+    fl_gname_t key = { IR_LIT(nd).sval, -1 };
+    const fl_gname_t * h = (const fl_gname_t *)bsearch(&key, tab, (size_t)nt, sizeof(fl_gname_t), fl_gname_cmp);
+    return h ? h->idx : -1;
+}
+void fl_select_spine_tier(IR_graph_t ** table, int n, const char * const * pname, const int * pidx, int np) {
+    if (!table || n <= 0) return;
+    unsigned char rt[n];
+    fl_gname_t tab[np > 0 ? np : 1];
+    int nt = 0;
+    for (int i = 0; i < np; i++) if (pname[i] && pidx[i] >= 0 && pidx[i] < n) { tab[nt].name = pname[i]; tab[nt].idx = pidx[i]; nt++; }
+    for (int k = 0; k < n; k++) {
+        const IR_graph_t * g = table[k];
+        int nsucc = 0;
+        rt[k] = 0;
+        for (int i = 0; g && i < g->n; i++) { const IR_t * nd = g->all[i]; if (!nd) continue; if (nd->op == IR_SUCCEED) nsucc++; if (fl_box_retains(nd)) rt[k] = 1; }
+        if (nsucc > 1 || (g && g->rt_redefinable)) rt[k] = 1;
+    }
+    qsort(tab, (size_t)nt, sizeof(fl_gname_t), fl_gname_cmp);
+    for (int k = 0; k < n; k++) for (int i = 0; table[k] && !rt[k] && i < table[k]->n; i++) {
+        const IR_t * nd = table[k]->all[i];
+        if (nd && ir_kind0(nd) == IR_CALL_PROC_STAGED && fl_callee_idx(nd, tab, nt) < 0) rt[k] = 1;
+    }
+    int cnt[n + 1];
+    memset(cnt, 0, sizeof(int) * (size_t)(n + 1));
+    for (int k = 0; k < n; k++) for (int i = 0; table[k] && i < table[k]->n; i++) { int h = table[k]->all[i] ? fl_callee_idx(table[k]->all[i], tab, nt) : -1; if (h >= 0) cnt[h + 1]++; }
+    for (int h = 0; h < n; h++) cnt[h + 1] += cnt[h];
+    int fill[n];
+    int caller[cnt[n] > 0 ? cnt[n] : 1];
+    int wl[n];
+    memcpy(fill, cnt, sizeof(int) * (size_t)n);
+    for (int k = 0; k < n; k++) for (int i = 0; table[k] && i < table[k]->n; i++) { int h = table[k]->all[i] ? fl_callee_idx(table[k]->all[i], tab, nt) : -1; if (h >= 0) caller[fill[h]++] = k; }
+    int wn = 0;
+    for (int k = 0; k < n; k++) if (rt[k]) wl[wn++] = k;
+    while (wn > 0) { int h = wl[--wn]; for (int e = cnt[h]; e < cnt[h + 1]; e++) if (!rt[caller[e]]) { rt[caller[e]] = 1; wl[wn++] = caller[e]; } }
+    for (int k = 0; k < n; k++) if (table[k]) table[k]->spine_tier = rt[k] ? 0 : 1;
+}
 void fl_derive_tier(IR_graph_t * g) {
     if (!g || !g->all) return;
     int window = 0, callee = 0, statements = 0, resumed = 0, matchers = 0, others = 0;
@@ -2418,7 +2518,7 @@ void fl_derive_tier(IR_graph_t * g) {
     if (statements || (matchers > 0 && others == 0)) return;
     if (g->root_graph) { g->zframe_graph = 1; g->zframe_pinned_base = 1; return; }
     int host = (window || callee) ? 1 : 0;
-    g->zframe_pinned_base = (resumed || g->resumable_callable) ? 1 : 0;
+    g->zframe_pinned_base = (resumed || (g->resumable_callable && !g->spine_tier)) ? 1 : 0;
     g->zframe_graph = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

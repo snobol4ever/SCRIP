@@ -353,7 +353,7 @@ std::string bb_call_direct() {
 std::string bb_call_pl_leaf() {
     return x86_alpha()
          + IF(CF_REFUSED(), cf_refuse())
-         + IF(!CF_REFUSED() && _.op_zres, emit_seq({ CF_ZD_HEAD(), cf_zd_copy(), pl_leaf_zd_cold(), cf_zd_exit() }))
+         + IF(!CF_REFUSED() && _.op_zres, emit_seq({ CF_ZD_HEAD(), cf_zd_copy(), pl_leaf_inline_arm(), pl_leaf_zd_tail(), cf_zd_exit() }))
          + IF(!CF_REFUSED() && !_.op_zres, emit_seq({ cf_marshal(), pl_leaf_inline_arm() }));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

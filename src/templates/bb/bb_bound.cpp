@@ -8,6 +8,7 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define BND_BOMB() (_.op_off < 0)
+#define BND_PL() (x86_fb_pinned() || x86_pl_frame())
 static std::string bound_unmark_zd() {
     if (_.op_unmark_chain && x86_release_acts(true, 5).empty())
         return x86("comment", "IR_UNMARK chain arm -- the bounded body's carves unwind box by box")
@@ -25,7 +26,7 @@ static std::string bound_unmark_zd() {
 std::string bb_bound() {
     x86_begin();
     return IF(BND_BOMB(), x86_alpha() + x86_bomb("bb_bound: no mark slot (op_off)"))
-         + IF(!BND_BOMB() && x86_fb_pinned(),
+         + IF(!BND_BOMB() && BND_PL(),
                _.op_sb == 1
              ? x86_alpha() + x86_pl_choice_mark(FRQ(_.op_off), 245)
          + IF(emit_pl_fence_on(), x86("mov", FRQ(_.op_off + 8), "rsp"))
@@ -47,15 +48,15 @@ std::string bb_bound() {
                + IF((_.op_ival & 4) != 0, x86("mov", "rsp", FRQ(_.op_off + 8))
                + x86_release_acts(true))
                + x86_gamma() + x86_beta_trampoline())
-         + IF(!BND_BOMB() && !x86_fb_pinned() && _.op_zres && _.op_sb == 1,
+         + IF(!BND_BOMB() && !BND_PL() && _.op_zres && _.op_sb == 1,
                x86("comment", "IR_BOUND cells arm -- save rsp to frame slot (Op_Mark: bounded-expression entry frontier)")
              + x86_alpha()
              + x86("mov", FRQ(_.op_off), "rsp")
              + x86_gamma()
              + x86_beta_trampoline())
-         + IF(!BND_BOMB() && !x86_fb_pinned() && _.op_zres && _.op_sb != 1,
+         + IF(!BND_BOMB() && !BND_PL() && _.op_zres && _.op_sb != 1,
                bound_unmark_zd())
-         + IF(!BND_BOMB() && !x86_fb_pinned() && !_.op_zres,
+         + IF(!BND_BOMB() && !BND_PL() && !_.op_zres,
                x86("comment", _.op_sb == 1 ? "IR_BOUND" : "IR_UNMARK")
              + x86_alpha()
              + IF(_.op_sb == 1, x86("mov", FRQ(_.op_off), "rsp"))

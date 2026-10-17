@@ -14,7 +14,7 @@ int prolog_functor_arity(int);
 #include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_struct_arity() {
-    return (!_.op_zres && _.op_u_why == 0) ? prolog_functor_arity((int)_.op_u_fid) : 1;
+    return (_.op_u_why == 0) ? prolog_functor_arity((int)_.op_u_fid) : 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_fresh_cells(int i) {
@@ -34,25 +34,23 @@ static std::string pl_fresh_cells(int i) {
              : std::string());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define UR(w) (_.op_zres ? ZRES(w) : FRQ(_.op_off + (w)))
 std::string bb_unify_struct() {
     x86_begin();
-    return IF(_.op_zres,
-               x86_alpha()
-             + x86_bomb("bb_unify_struct: a Prolog head is a flat-frame graph; no ZD arm exists")
-             + x86_beta_trampoline())
-         + IF(!_.op_zres && _.op_u_why == 1,
+    return std::string()
+         + IF(_.op_u_why == 1,
                x86_alpha()
              + x86_bomb("bb_unify_struct: operands are a cell source, a child index and an IR_LIT_INTEGER functor id")
              + x86_beta_trampoline())
-         + IF(!_.op_zres && _.op_u_why == 2,
+         + IF(_.op_u_why == 2,
                x86_alpha()
              + x86_bomb("bb_unify_struct: no result slot granted for the compound DESCR")
              + x86_beta_trampoline())
-         + IF(!_.op_zres && _.op_u_why == 3,
+         + IF(_.op_u_why == 3,
                x86_alpha()
              + x86_bomb("bb_unify_struct: the functor id names no compound functor")
              + x86_beta_trampoline())
-         + IF(!_.op_zres && _.op_u_why == 0,
+         + IF(_.op_u_why == 0,
                x86("comment", "IR_UNIFY_STRUCT: read mode keeps the compound DESCR in this box's own slot for its children; write mode takes a fresh block and binds the cell to it")
              + x86_alpha()
              + PL_SRC_RDI()
@@ -64,8 +62,8 @@ std::string bb_unify_struct() {
              + x86_omega("jne")
              + x86("mov", "rax", RDQ("rdi", 0))
              + x86("mov", "rdx", RDQ("rdi", 8))
-             + x86("mov", FRQ(_.op_off), "rax")
-             + x86("mov", FRQ(_.op_off + 8), "rdx")
+             + x86("mov", UR(0), "rax")
+             + x86("mov", UR(8), "rdx")
              + x86_gamma()
              + x86("def", L(20))
              + PL_UNBOUND(30, 25)
@@ -78,16 +76,16 @@ std::string bb_unify_struct() {
              + x86("mov32", "esi", (long)(16 * pl_struct_arity()))
              + x86("call", "rt_gcheap_alloc", (uint64_t)(uintptr_t)(void *)rt_gcheap_alloc)
              + x86_movabs_r64("rcx", (uint64_t)DT_PLREF | ((uint64_t)(uint32_t)_.op_u_fid << 32))
-             + x86("mov", FRQ(_.op_off), "rcx")
-             + x86("mov", FRQ(_.op_off + 8), "rax")
+             + x86("mov", UR(0), "rcx")
+             + x86("mov", UR(8), "rax")
              + x86_rt_gc_poll()
-             + x86("mov", "r10", FRQ(_.op_off + 8))
+             + x86("mov", "r10", UR(8))
              + pl_fresh_cells(0)
              + PL_SRC_RDI()
              + PL_DEREF(14, 15, 16, 17)
              + PL_TRAIL(31, 39, 80, 90)
-             + x86("mov", "rax", FRQ(_.op_off))
-             + x86("mov", "rdx", FRQ(_.op_off + 8))
+             + x86("mov", "rax", UR(0))
+             + x86("mov", "rdx", UR(8))
              + x86("mov", RDQ("rdi", 0), "rax")
              + x86("mov", RDQ("rdi", 8), "rdx")
              + x86_gamma()

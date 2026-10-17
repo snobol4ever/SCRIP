@@ -5492,6 +5492,19 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         }
     }
     for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->resumable_callable = 1;
+    for (int i = 0; i < g_stage2.proc_count; i++) {
+        const char * pk = g_stage2.proc_table[i].name;
+        int bi = g_stage2.proc_table[i].bb_idx;
+        const char * sl = pk ? strrchr(pk, '/') : (const char *)0;
+        if (!sl || bi < _pl_bb0 || bi >= g_stage2.bbp.count || !g_stage2.bbp.table[bi]) continue;
+        {
+            char nm[sl - pk + 1];
+            memcpy(nm, pk, (size_t)(sl - pk));
+            nm[sl - pk] = 0;
+            int ar = atoi(sl + 1);
+            if (pl_dyn_index(nm, ar) >= 0 || pl_decl_dyn_is(nm, ar)) g_stage2.bbp.table[bi]->rt_redefinable = 1;
+        }
+    }
     { extern int rt_pl_db_frame_cells(void); top->standing_cells = rt_pl_db_frame_cells(); }
     pl_db_decls_capture();
     return &g_stage2;

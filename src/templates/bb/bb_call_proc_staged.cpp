@@ -35,6 +35,7 @@ DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
 int zls_g_resume_by_name(const char *name);
 int zls_g_block_args(const IR_graph_t * g);
+int zls_g_pl_frame(const IR_graph_t * g);
 int rt_proc_is_generator(const char *name);
 int rt_define_tiny_ok(const char *, int);
 int rt_define_returns_by_frame(const char *);
@@ -153,7 +154,7 @@ static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define c2farm() (_.op_fc_wbytes > 0)
-static inline int bcps_pl() { return x86_fb_pinned(); }
+static inline int bcps_pl() { return x86_pl_frame(); }
 #define bcps_fnsig() emit_knob_unless_zero("SCRIP_FN_SIG")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bcps_nret_got() std::string("[rip@got + __]")
@@ -202,11 +203,20 @@ extern "C" int bb_proc_multi_proto(const char *fname) { if (!fname) return 0; fo
         && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->multi_proto : 0; } return 0; }
 extern "C" int bb_proc_target_pinned_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
     || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
-        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; if (cg) return (cg->zframe_pinned_base && cg->zframe_graph
-            && !cg->icn_cells_graph) ? 1 : 0; break; } return rt_proc_pinned(fname); }
+        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; if (cg) return zls_g_pl_frame(cg); break; } return rt_proc_pinned(fname); }
+extern "C" int bb_proc_target_retains(const char *fname) {
+    if (!fname) return 0;
+    for (int i = 0; i < g_stage2.proc_count; i++) {
+        if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue;
+        int bi = g_stage2.proc_table[i].bb_idx;
+        IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0;
+        return (cg && zls_g_pl_frame(cg) && !cg->spine_tier) ? 1 : 0;
+    }
+    return 0;
+}
 extern "C" int bb_proc_target_block_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
     || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
-        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && !cg->zframe_pinned_base && zls_g_block_args(cg)) ? 1 : 0; } return 0; }
+        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && !zls_g_pl_frame(cg) && zls_g_block_args(cg)) ? 1 : 0; } return 0; }
 extern "C" int bb_proc_target_icn_block(const char *fname, int *np, int *vari) {
     int i = 0;
     while (fname && i < g_stage2.proc_count && (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname))) i++;
@@ -744,16 +754,25 @@ static std::string bcps_lvl_add(long d) {
          + x86("add", RDD("rax", 0), d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_block_zop(int i, int w, int n) {
+    int in = i >= 0 && i < _.op_zcap;
+    return (in && _.op_zread_xf[i] != -1) ? std::string(RDQ("rbp", _.op_zread_xf[i] + w)) : std::string(x86_zref((in ? _.op_zread[i] : 0) + w + 16 * n, 1));
+}
 static std::string bcps_block_build(IR_graph_t ** argblks, int n) {
     return x86("sub", "rsp", (long)(16 * n))
-         + FOR(0, n, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i);
+         + IF(_.op_zres, FOR(0, n, [&](int i) { return x86("note", ZOPN(i))
+                                                     + x86("mov", "rax", bcps_block_zop(i, 0, n)) + x86_rsp_store64(16 * i, "rax")
+                                                     + x86("note", ZOPN(i))
+                                                     + x86("mov", "rax", bcps_block_zop(i, 8, n)) + x86_rsp_store64(16 * i + 8, "rax"); }))
+         + IF(!_.op_zres, FOR(0, n, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i);
                return x86("note", std::string("block A") + std::to_string(i))
-                    + x86("mov", "rax", FRQ(slot)) + x86_rsp_store64(16 * i, "rax")
-                    + x86("mov", "rax", FRQ(slot + 8)) + x86_rsp_store64(16 * i + 8, "rax"); });
+                    + x86("mov", "rax", x86_fb_pinned() ? FRQ(slot) : FRQB(slot, 16 * n)) + x86_rsp_store64(16 * i, "rax")
+                    + x86("mov", "rax", x86_fb_pinned() ? FRQ(slot + 8) : FRQB(slot + 8, 16 * n)) + x86_rsp_store64(16 * i + 8, "rax"); }));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop) {
     int ns = g_emit_cfg ? g_emit_cfg->nparams : 0;
+    const char * fb = x86_fb_pinned() ? x86_fb() : "r11";
     auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; return bb_varslot_peek(a->sval); };
     auto arms = [&](int lb) -> std::string {
         return x86("def", L(lb + 3))
@@ -769,10 +788,10 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
              + x86("jmp", L(lb + 6))
              + x86("def", L(lb + 5))
              + x86("mov", "r8", RDQ("rdi", 8))
-             + x86("cmp", "r8", x86_fb())
+             + x86("cmp", "r8", fb)
              + x86("jb", L(lb + 9))
              + x86("mov", "rax", "r8")
-             + x86("sub", "rax", x86_fb())
+             + x86("sub", "rax", fb)
              + x86("cmp", "rax", (long)(kt + 16 * ns))
              + x86("jae", L(lb + 9))
              + x86("def", L(lb + 6))
@@ -782,7 +801,7 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
              + x86("jmp", L(lsk + 99))
              + x86("def", L(lb + 8))
              + x86("mov", "rax", "rdi")
-             + x86("sub", "rax", x86_fb())
+             + x86("sub", "rax", fb)
              + x86("cmp", "rax", (long)(kt + 16 * ns))
              + x86("jb", L(lsk + 99))
              + x86("mov", "rax", (long)((1L << 32) | (long)DT_N))
@@ -834,65 +853,70 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
     else for (int i = 0; i < n; i++) {
     int vs = var_slot(i); int lb = lsk + 10 + 10 * i;
         chk += x86("lea", "rsi", RDQ("rsp", 16 * i));
-        chk += vs < 0 ? cell_entry(lb) : x86("lea", "rdi", FRQ(vs))
+        chk += vs < 0 ? cell_entry(lb) : x86("lea", "rdi", x86_fb_pinned() ? FRQ(vs) : FRQB(vs, 16 * n))
                                        + x86("mov32", "r9d", 4L) + body(lb); ool += arms(lb); }
     int nb = kt + 16 * (ns - n);
     std::string mv = x86("note",
         "the new block's TOP is the old block's top (rbp+kt+16*nparams): a longer block grows DOWN over this frame's "
             "dead header, never up into the caller's spine; copied descending so a long block never overruns its own source");
     for (int i = n - 1; i >= 0; i--) mv += x86("mov", "rax", RDQ("rsp", 16 * i + 8))
-                                         + x86("mov", RDQ(x86_fb(), nb + 16 * i + 8), "rax")
+                                         + x86("mov", RDQ(fb, nb + 16 * i + 8), "rax")
                                          + x86("mov", "rax", RDQ("rsp", 16 * i))
-                                         + x86("mov", RDQ(x86_fb(), nb + 16 * i), "rax");
+                                         + x86("mov", RDQ(fb, nb + 16 * i), "rax");
     return x86("note", "last call (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.4): the block is tested in place, then copied over this frame's own block and the frame released")
+         + IF(!x86_fb_pinned(), x86("lea", "r11", RDQ("rsp", 16 * n + (_.op_zres ? _.op_zabs : 0))))
          + chk
-         + x86("mov", "rax", RDQ(x86_fb(), kt - 40))
+         + x86("mov", "rax", RDQ(fb, kt - 40))
          + x86("cmp", "r13", "rax")
          + (pop ? x86("note", "pop: this frame's own choice is the youngest only through a construct the lowering proved dead, so the call may also take the tail arm when r13 is a header "
                       "inside this frame (H, or a construct's own D1 header in its op slots) and no clause alternative is left; r13 returns to the caller's choice with the frame")
                   + x86("je", L(lsk + 98))
-                  + x86("lea", "rax", RDQ(x86_fb(), kt - 64))
+                  + x86("lea", "rax", RDQ(fb, kt - 64))
                   + x86("cmp", "r13", "rax")
                   + x86("ja", L(lsk + 99))
-                  + x86("cmp", "r13", x86_fb())
+                  + x86("cmp", "r13", fb)
                   + x86("jb", L(lsk + 99))
-                  + x86("mov", "rax", RDQ(x86_fb(), kt - 56))
+                  + x86("mov", "rax", RDQ(fb, kt - 56))
                   + x86("test", "rax", "rax")
                   + x86("jne", L(lsk + 99))
                   + x86("def", L(lsk + 98))
                 : x86("jne", L(lsk + 99)))
-         + x86("lea", "rax", RDQ("rsp", 16 * n))
-         + x86("cmp", "rax", x86_fb())
-         + x86("jne", L(lsk + 99))
-         + x86("mov", "rcx", RDQ(x86_fb(), kt - 24))
-         + x86("mov", "rdx", RDQ(x86_fb(), kt - 16))
-         + x86("mov", "r8", RDQ(x86_fb(), kt - 8))
-         + (pop ? x86("mov", "r13", RDQ(x86_fb(), kt - 40)) : std::string())
+         + IF(!(_.op_zres && x86_fb_pinned()),
+               x86("lea", "rax", RDQ("rsp", 16 * n + (_.op_zres ? _.op_zabs : 0)))
+             + x86("cmp", "rax", fb)
+             + x86("jne", L(lsk + 99)))
+         + x86("mov", "rcx", RDQ(fb, kt - 24))
+         + x86("mov", "rdx", RDQ(fb, kt - 16))
+         + IF(x86_fb_pinned(), x86("mov", "r8", RDQ(fb, kt - 8)))
+         + (pop ? x86("mov", "r13", RDQ(fb, kt - 40)) : std::string())
          + mv
-         + x86("lea", "rsp", RDQ(x86_fb(), nb))
-         + x86("mov", x86_fb(), "r8")
+         + x86("lea", "rsp", RDQ(fb, nb))
+         + IF(x86_fb_pinned(), x86("mov", fb, "r8"))
          + bcps_jmp_callee(idx)
          + ool
          + x86("def", L(lsk + 99));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int bb_proc_target_retains(const char *fname);
+static std::string bcps_block_beta(int act);
 static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long idx) {
     int n = (int)_.op_ival; int kt = g_emit.flat_frame_bytes;
+    const int zsp = _.op_zres && !bb_proc_target_retains(_.op_sval);
     int pl_lco_armed = (_.op_seal == 1 || _.op_seal == IR_SEAL_TAIL_POP) && !(g_emit_cfg && g_emit_cfg->root_graph);
     return x86_alpha()
          + x86("note", "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the argument block on this spine, the wires, a jump; no staged medium, no registry call, no C prologue")
-         + x86("mov", FRQ(act), 0L)
+         + IF(!zsp, x86("mov", FRQ(act), 0L))
          + bcps_block_build(argblks, n)
          + IF(pl_lco_armed, bcps_block_tail_arm(n, kt, 100, idx, _.op_seal == IR_SEAL_TAIL_POP))
          + x86_rsp_mark_save()
          + x86_lea_id("rcx", 3) + x86_lea_id("rdx", 4)
          + bcps_jmp_callee(idx)
          + x86("def", L(3))
-         + x86_rsp_land(0L)
+         + x86_rsp_land(-16L * n)
          + x86_gc_site(X86_SITE_LANDING)
-         + x86("mov", FRQ(act), "rax")
-         + x86("mov", FRQ(act + 8), "rdx")
-         + IF(bcps_pl(),
+         + IF(!zsp, x86("mov", FRQ(act), "rax"))
+         + IF(!zsp, x86("mov", FRQ(act + 8), "rdx"))
+         + IF(bcps_pl() && !zsp,
                x86("note",
                    "the act word names a retained frame: trail the slot when its frame is OLDER than the newest choice (the slot at or above [B+32]), so the unwind zeroes it when backtracking passes"
                    " this box")
@@ -900,7 +924,7 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
              + x86("jz", L(86))
              + x86("test", "r13", "r13")
              + x86("jz", L(86))
-             + x86("lea", "rcx", RDQ(x86_fb(), act))
+             + x86("lea", "rcx", FRQ(act))
              + x86("mov", "r8", RDQ("r13", PL_TR_FRAME_HI_OFF))
              + x86_raw_unpack("r8")
              + x86("cmp", "rcx", "r8")
@@ -927,31 +951,37 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
          + x86("mov", "rdx", "rsi")
          + x86("jmp", L(2))
          + x86("def", L(4))
-         + x86_rsp_land(0L)
+         + x86_rsp_land(-16L * n)
          + x86_gc_site(X86_SITE_LANDING)
-         + x86("mov", FRQ(act), 0L)
+         + IF(!zsp, x86("mov", FRQ(act), 0L))
          + bcps_lvl_add(-1L)
          + x86("mov32", "eax", (long)DT_FAIL)
          + x86("xor", "edx", "edx")
          + x86("def", L(2))
-         + x86("mov", FRQ(off), "rax")
-         + x86("mov", FRQ(off + 8), "rdx")
+         + IF(!zsp, x86("mov", FRQ(off), "rax"))
+         + IF(!zsp, x86("mov", FRQ(off + 8), "rdx"))
          + x86("cmp", "al", (long)DT_FAIL)
          + x86_omega("je")
+         + IF(zsp, x86("note", ZRESN()) + x86("mov", ZRES(0), "rax"))
+         + IF(zsp, x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx"))
          + x86_gamma()
          + x86_beta()
-         + x86_pl_ball_rule(30, 22)
+         + IF(zsp, x86_omega())
+         + IF(!zsp, bcps_block_beta(act))
+         + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
+}
+static std::string bcps_block_beta(int act) {
+    return x86_pl_ball_rule(30, 22)
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("je", L(22))
          + x86("mov", "rcx", FRQ(act + 8))
          + x86("mov", FRQ(act), 0L)
-         + x86("mov", x86_fb(), "rax")
+         + x86("mov", "rbp", "rax")
          + bcps_lvl_add(1L)
          + x86_jmp_reg("rcx")
          + x86("def", L(22))
-         + x86_omega()
-         + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
+         + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_icn_lvl(long d) {
