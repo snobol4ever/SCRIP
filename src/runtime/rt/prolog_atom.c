@@ -217,6 +217,13 @@ void rt_pl_functor_table_install(const long *tab) {
 void rt_pl_atom_table_install(const long *tab) {
     if (!tab) return;
     long n = tab[0];
+    if (!ht && n > 0) { int sz = HT_INIT_SIZE; while ((long)sz < 2 * n + 2) sz *= 2; ht_size = sz; ht = rt_wsb_alloc(ht_size * sizeof(HEntry)); memset(ht, 0, ht_size * sizeof(HEntry)); }
+    if (!atom_names && n > 0) {
+        atom_cap = ATOM_INIT_CAP;
+        while ((long)atom_cap < n + 1) atom_cap *= 2;
+        atom_names = rt_wsb_alloc(atom_cap * sizeof(char *));
+        memset(atom_names, 0, atom_cap * sizeof(char *));
+    }
     const char *const *names = (const char *const *)(tab + 1);
     for (long i = 0; i < n; i++) {
         int id = prolog_atom_intern(names[i] ? names[i] : "");

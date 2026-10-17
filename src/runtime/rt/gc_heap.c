@@ -1648,7 +1648,7 @@ static int gc_site_ent_cmp(const void *a, const void *b) { uint64_t x = ((const 
 static void gc_site_blk_maxhi_from(int i) {
     for (int j = i < 0 ? 0 : i; j < g_gc_sblk_n; j++) g_gc_sblk[j].maxhi = (j > 0 && g_gc_sblk[j - 1].maxhi > g_gc_sblk[j].hi) ? g_gc_sblk[j - 1].maxhi : g_gc_sblk[j].hi;
 }
-void rt_gc_frame_sites_add(const void *tab) {
+static void gc_site_blk_add1(const void *tab, int dedup_n, int fix_maxhi) {
     const uint64_t *t = (const uint64_t *)tab;
     int n;
     const gc_frame_map_t *m;
@@ -1657,7 +1657,7 @@ void rt_gc_frame_sites_add(const void *tab) {
     int own = 0;
     int inplace = 1;
     if (!t) return;
-    for (int i = 0; i < g_gc_sblk_n; i++) if (g_gc_sblk[i].tab == t) return;
+    for (int i = 0; i < dedup_n; i++) if (g_gc_sblk[i].tab == t) return;
     n = (int)t[0];
     m = (const gc_frame_map_t *)(uintptr_t)t[1];
     if (m && m->magic != GC_FRAME_MAP_MAGIC) { fprintf(stderr, "[GC-SITES] rt_gc_frame_sites_add: table %p names no frame map (%p)\n", tab, (const void *)m); abort(); }
@@ -1703,9 +1703,10 @@ void rt_gc_frame_sites_add(const void *tab) {
         g_gc_sblk[i].own = own;
         g_gc_sblk[i].ents = e;
         g_gc_sblk_n++;
-        gc_site_blk_maxhi_from(i);
+        if (fix_maxhi) gc_site_blk_maxhi_from(i);
     }
 }
+void rt_gc_frame_sites_add(const void *tab) { gc_site_blk_add1(tab, g_gc_sblk_n, 1); }
 void rt_gc_frame_sites_drop_range(const void *lo, const void *hi) {
     int w = 0;
     for (int i = 0; i < g_gc_sblk_n; i++) {
@@ -1717,8 +1718,10 @@ void rt_gc_frame_sites_drop_range(const void *lo, const void *hi) {
 }
 void rt_gc_frame_sites_install_counted(const void *tab) {
     const uint64_t *t = (const uint64_t *)tab;
+    int n0 = g_gc_sblk_n;
     if (!t) return;
-    for (int i = 0; i < (int)t[0]; i++) rt_gc_frame_sites_add((const void *)(uintptr_t)t[1 + i]);
+    for (int i = 0; i < (int)t[0]; i++) gc_site_blk_add1((const void *)(uintptr_t)t[1 + i], n0, 0);
+    gc_site_blk_maxhi_from(0);
 }
 extern const gc_site_blk_t *rt_gc_site_find_a(uint64_t pc, const gc_site_ent_t **eo, const gc_site_blk_t *blk, long n);
 #define gc_site_find(pc, eo) rt_gc_site_find_a((pc), (eo), g_gc_sblk, (long)g_gc_sblk_n)
