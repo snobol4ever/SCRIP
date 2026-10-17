@@ -13,6 +13,8 @@
 #     xsb/delay_tests interp1..15: permission_error(modify, static_procedure, '$lfx_mc'/2)).
 # (3b) get_residual(G, R) with G a variable in a clause loaded into M looks G up in M's tables: the loader wrapped such a goal as '$lfx_mc'(M, G),
 #     right for a goal that is CALLED, but get_residual reads a table, and the wrapper has none (xsb/sub_tests test_answer_abstraction printed nothing).
+# (3c) get_returns_for_call/2 and get_calls/3 written in a clause loaded into M look their goal up as M:Goal (current_table strips the module and answers
+#     unqualified): get_returns_for_call(b(_), R) found no table (xsb/neg_tests ldynstrat3/4 lost their "b(1) is true" line).
 # (4) file_name_extension/3 is linked for a run-time-loaded file (Driver.P calls it; existence_error before).
 # THE REFS ARE CUT FROM THE ORACLE, NEVER FROM SCRIP: the expectation below was cut 2026-10-17 from /usr/bin/swipl by absolute path and every run
 # re-cuts it from the live swipl and REFUSES rc=2 when oracle and table disagree or swipl is absent.
@@ -48,6 +50,7 @@ mk :- assert(r(1)), assert((s(X) :- r(X))).
 t(1).
 t(2).
 res(G, R) :- get_residual(G, R).
+rc(L) :- findall(R, get_returns_for_call(t(_), R), L0), msort(L0, L).
 PL
 printf ":- include('drv').\n" > "$d/a.P"
 printf ":- include('drv').\n" > "$d/b.P"
@@ -68,6 +71,7 @@ main :- load_files(m1:'a.P', [dialect(xsb)]), load_files(m2:'b.P', [dialect(xsb)
         in(m1, mk), findall(X, in(m1, s(X)), L5), write(L5), nl,
         ( catch(r(_), error(existence_error(_, _), _), fail) -> write(user_r) ; write(no_user_r) ), nl,
         ( in(m1, t(_)), fail ; true ), findall(X-R, in(m1, res(t(X), R)), L6), msort(L6, L7), write(L7), nl,
+        in(m1, rc(L8)), write(L8), nl,
         halt.
 PL
 cat > "$d/want" <<'WANT'
@@ -82,6 +86,7 @@ no_user_p
 [1]
 no_user_r
 [1-[],2-[]]
+[t(1),t(2)]
 WANT
 (cd "$d" && "$SWIPL" -q -g main -t halt w.pl </dev/null > "$d/oracle" 2>/dev/null)
 cmp -s "$d/want" "$d/oracle" || { echo "⛔ REFUSED(2) [$GATE_NAME]: the expectation table is not what $SWIPL prints now"; diff "$d/want" "$d/oracle" | head -5; exit 2; }
