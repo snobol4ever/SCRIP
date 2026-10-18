@@ -7,6 +7,7 @@ extern "C" {
 #include "descr.h"
 const char * rt_nv_cstr(const char * name);
 int rt_icn_cset_member_n(const char *needle, long len, int ch);
+const unsigned char *rt_icn_cset_bits_d(uint64_t lo, uint64_t hi);
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs_needle_t;
 ScanSubjRegs_needle_t rt_scan_needle(uint64_t lo, uint64_t hi);
 int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
@@ -34,6 +35,20 @@ std::string bb_scan_any() {
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
              + x86("sub", "rsp", (long)8)
+             + x86("call", "rt_icn_cset_bits_d", (uint64_t)(uintptr_t)(void*)rt_icn_cset_bits_d)
+             + x86("add", "rsp", (long)8)
+             + x86("test", "rax", "rax")
+             + x86("je", L(5))
+             + x86("mov", "rdi", "rax")
+             + x86("movsxd", "rcx", "r14d")
+             + x86("movzx", "esi", "[r13+rcx]")
+             + x86("bt", "[rdi]", "esi")
+             + x86_omega("jnc")
+             + x86("jmp", L(6))
+             + x86("def", L(5))
+             + x86("mov", "rdi", FRQ(_.op_sa))
+             + x86("mov", "rsi", FRQ(_.op_sa + 8))
+             + x86("sub", "rsp", (long)8)
              + x86("call", "rt_scan_needle", (uint64_t)(uintptr_t)(void*)rt_scan_needle)
              + x86("add", "rsp", (long)8)
              + x86_rt_gc_poll_rec_sigma_needle()
@@ -46,6 +61,7 @@ std::string bb_scan_any() {
              + x86("add", "rsp", (long)8)
              + x86("test", "rax", "rax")
              + x86_omega("je")
+             + x86("def", L(6))
              + x86("mov", FRQ(_.op_off), (long)DT_I)
              + x86("mov", "rax", "r14")
              + x86("add", "rax", (long)2)

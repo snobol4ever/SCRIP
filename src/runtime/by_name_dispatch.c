@@ -21516,8 +21516,10 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         const char *s;
         int i1, i2;
         if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
+        const unsigned char *bits = kw_cset_bits(cv);
         int p = i1;
-        while (p < i2 && !rt_icn_cset_member_n(cv, cvn, s[p - 1])) p++;
+        if (bits) while (p < i2 && !((bits[(unsigned char)s[p - 1] >> 3] >> ((unsigned char)s[p - 1] & 7)) & 1)) p++;
+        else while (p < i2 && !rt_icn_cset_member_n(cv, cvn, s[p - 1])) p++;
         if (p >= i2) { *out = FAILDESCR; return 1; }
         *out = INTVAL(p);
         return 1;
