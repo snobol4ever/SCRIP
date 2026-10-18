@@ -13,13 +13,17 @@ DESCR_t rt_str_coerce(DESCR_t d);
 void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out);
 }
 #include "x86_asm.h"
-#define BRV_TEST_ZD() (_.op_zres && _.op_node_kind == IR_BINOP_TEST && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
-#define BRV_VAL_ZD() (_.op_zres && _.op_node_kind == IR_BINOP_RELOP_VAL && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
+#define BRV_NUM() (_.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
+#define BRV_STR() (_.op_ival >= BINOP_SLT && _.op_ival <= BINOP_SNE)
+#define BRV_EQV() (_.op_ival == BINOP_EQV || _.op_ival == BINOP_NEQV)
+#define BRV_TEST_ZD() (_.op_zres && _.op_node_kind == IR_BINOP_TEST && (BRV_NUM() || BRV_STR() || BRV_EQV()))
+#define BRV_VAL_ZD() (_.op_zres && _.op_node_kind == IR_BINOP_RELOP_VAL && BRV_NUM())
 std::string bb_binop_relop_val() {
     return IF(BRV_TEST_ZD(),
                x86_alpha()
              + x86("comment", "IR_BINOP_TEST zd")
-             + x86("mov", "eax", ZOPD(0, 0))
+             + IF(BRV_NUM(),
+                 x86("mov", "eax", ZOPD(0, 0))
              + x86("cmp", "al", (long)DT_I)
              + x86("jne", L(2))
              + x86("mov", "eax", ZOPD(1, 0))
@@ -34,7 +38,7 @@ std::string bb_binop_relop_val() {
              + x86("mov", ZRES(0), "rcx")
              + x86("mov", "rcx", ZOPQ(1, 8))
              + x86("mov", ZRES(8), "rcx")
-             + x86_gamma()
+             + x86_gamma())
              + x86("def", L(2))
              + x86("mov", "rdi", ZOPQ(0, 0))
              + x86("mov", "rsi", ZOPQ(0, 8))
@@ -45,7 +49,11 @@ std::string bb_binop_relop_val() {
              + x86_rt_gc_poll_rec_sigma(1)
              + x86("test", "eax", "eax")
              + x86_omega(RELOP_NUMIFY_BLANK() ? "jle" : "jz")
-             + (_.op_ival == BINOP_EQV || _.op_ival == BINOP_NEQV
+             + (BRV_STR()
+                 ? x86("mov", "rdi", ZOPQ(1, 0))
+                 + x86("mov", "rsi", ZOPQ(1, 8))
+                 + x86("call_rt", "rt_str_coerce", (long)_.op_off, (uint64_t)(uintptr_t)(void*)rt_str_coerce)
+                 : BRV_EQV()
                  ? x86("mov", "rcx", ZOPQ(1, 0))
                  + x86("mov", ZRES(0), "rcx")
                  + x86("mov", "rcx", ZOPQ(1, 8))
