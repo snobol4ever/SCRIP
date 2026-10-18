@@ -1060,7 +1060,7 @@ static int rk_case_cmp(const void *k, const void *e) { unsigned a = *(const unsi
 static const char *rk_case_one(unsigned cp, int m) {
     const RkCase *e = (const RkCase *)bsearch(&cp, rk_case, sizeof rk_case / sizeof *rk_case, sizeof *rk_case, rk_case_cmp);
     if (!e) return NULL;
-    return m == 1 ? e->uc : m == 2 ? e->lc : m == 3 ? e->tc : e->fc;
+    return rk_case_at(m == 1 ? e->uc : m == 2 ? e->lc : m == 3 ? e->tc : e->fc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_wordish(unsigned cp) {
