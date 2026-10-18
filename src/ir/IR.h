@@ -211,7 +211,6 @@ struct IR_graph_t {
     const char ** lname_ix_ln;
     int resume_slot;
     int resumable_callable;
-    int spine_tier;
     int keeps_choice;
     int rt_redefinable;
     int decl_level;
@@ -245,7 +244,6 @@ struct IR_graph_t {
     int entry_frame;
     int smx;
     int icn_cells_graph;
-    int zframe_pinned_base;
     int root_graph;
     int standing_cells;
     int runtime_fragment_graph;

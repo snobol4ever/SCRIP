@@ -630,17 +630,16 @@ inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zr() { return "rsp"; }
 inline int x86_zr_num() { return 4; }
-inline int x86_fb_pinned() { return emit_zframe_pinned(); }
 inline int x86_pl_frame() { return emit_pl_frame(); }
-inline int icn_host_pinned() { return (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit_cfg->zframe_pinned_base && g_emit.flat_lcl_proc && !g_emit.flat_gen) ? 1 : 0; }
-inline int x86_fb_pinned_any() { return (x86_fb_pinned() || icn_host_pinned()) ? 1 : 0; }
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
 inline int x86_rsp_slide_known() { return 1; }
-inline int x86_frame_off(int off) { if (x86_fb_pinned()) return off; return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
-inline int x86_fb_num() { return (x86_fb_data() || x86_fb_pinned_any()) ? 5 : 4; }
-inline const char * x86_fb() { return x86_fb_num() == 5 ? "rbp" : "rsp"; }
+inline int x86_frame_off(int off) { return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
+inline int x86_hb_on() { return (g_emit.zframe_graph && !(g_emit_cfg && g_emit_cfg->icn_cells_graph)) || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_gen); }
+inline const char * x86_hb() { return "rbp"; }
+inline int x86_fb_num() { return 4; }
+inline const char * x86_fb() { return "rsp"; }
 inline const char * x86_fr32_prefix() { return "dword ptr [rsp$ + "; }
 inline const char * x86_fr64_prefix() { return "qword ptr [rsp$ + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1049,11 +1048,6 @@ inline const char * RDQ(const char * base, int off);
 inline const char * RDD(const char * base, int off);
 inline int icn_gen_regime();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_zeta_ft() {
-    if (!icn_gen_regime() || !_.flat_gen) return 0;
-    int ft = _.flat_frame_bytes + (g_emit_cfg ? (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : 0);
-    return ft > 0 ? ft : 0;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);
 extern "C" int rt_proc_is_registered(const char * name);
@@ -1065,14 +1059,14 @@ inline int x86_zop_regime(int off) { if (x86_fc_hit(off)) return 2; return x86_f
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zop(int off, int q, int bump) {
-    static char b[16][48]; static int i; i = (i + 1) & 15; int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
+    static char b[16][48]; static int i; i = (i + 1) & 15;
+    if (off >= ZST_BIAS / 2) { x86_zop_note(2); snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", _.op_zabs + (off - ZST_BIAS) + bump); return b[i]; }
+    int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }
     else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { eff = x86_frame_off(off) + bump; spine = 1; }
     else if (_.op_zf_unpinned && _.op_zres && !x86_fb_data() && !_.op_stmt_dyn) { eff = off + _.op_zabs; spine = 1; }
     else { eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
-    { int ft = icn_gen_zeta_ft(); if (ft > 0) return q ? RDQ("rbp", eff - ft) : RDD("rbp", eff - ft); }
-    if (spine && r != 2 && x86_fb_pinned()) return q ? RDQ(x86_fb(), eff) : RDD(x86_fb(), eff);
     if (spine) snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", eff);
     else snprintf(b[i], 48, "%s%d]", q ? x86_fr64_prefix() : x86_fr32_prefix(), eff);
     return b[i];
@@ -1089,8 +1083,6 @@ inline const char * ZTOSD(int off) { return x86_ztos(off, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zref(int off, int q) {
     static char b[16][48]; static int i; i = (i + 1) & 15;
-    { int ft = icn_gen_zeta_ft(); if (ft > 0) return q ? RDQ("rbp", off - ft) : RDD("rbp", off - ft); }
-    if (x86_fb_pinned() && !x86_pl_frame()) return q ? RDQ(x86_fb(), off) : RDD(x86_fb(), off);
     snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", off);
     return b[i];
 }
@@ -2405,7 +2397,8 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
         fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
     if (x86_fc_on()) {
         int zwco = _.op_fc_base < 0 && !_.op_zres;
-        if (site == X86H_DEF && port == X86P_ALPHA) s += bb_glue_flat_enter();
+        if (site == X86H_DEF && port == X86P_ALPHA) { s += bb_glue_flat_enter();
+            for (int j = 0; j < _.op_zsticky / 16; j++) s += x86("mov", RDQ("rsp", _.op_zk_own + 16 * j), (long)DT_SNUL) + x86("mov", RDQ("rsp", _.op_zk_own + 16 * j + 8), 0L); }
         if (zwco && site == X86H_DEF && port == X86P_BETA) s += bb_glue_flat_enter();
         if (zwco && site == X86H_DEF_PAIR && port == X86P_BETA && !_.op_pair_rejoin) s += bb_glue_flat_enter();
         if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += bb_glue_flat_leave();

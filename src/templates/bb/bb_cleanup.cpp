@@ -14,7 +14,7 @@ static_assert(PL_TR_CLEANUP_OFF == 32 && PL_TR_PROBE_B_OFF == 40, "bb_cleanup re
     + x86("and", (r), X86_PL_TR_ARENA_MASK) \
 )
 #define CL_NOSLOT() (_.op_off < 0 && _.op_ival != CLEANUP_PROBE && _.op_ival != CLEANUP_BANK && _.op_ival != CLEANUP_WAKE)
-#define CL_LIVE() (!CL_NOSLOT() && x86_fb_pinned())
+#define CL_LIVE() (!CL_NOSLOT() && x86_pl_frame())
 #define CL_KIND() ((int)_.op_ival)
 #define CL_KNOWN() (CL_KIND() == CLEANUP_OPEN || CL_KIND() == CLEANUP_TEST || CL_KIND() == CLEANUP_POP || CL_KIND() == CLEANUP_RESUME \
     || CL_KIND() == CLEANUP_PROBE || CL_KIND() == CLEANUP_WAKE || CL_KIND() == CLEANUP_DRAIN || CL_KIND() == CLEANUP_BANK || CL_KIND() == CLEANUP_DET)
@@ -157,7 +157,7 @@ static std::string cl_open() {
 std::string bb_cleanup() {
     x86_begin();
     return IF(CL_NOSLOT(), x86_alpha() + x86_bomb("bb_cleanup: no record slot (op_off)"))
-         + IF(!CL_NOSLOT() && !x86_fb_pinned(), x86_alpha() + x86_bomb("bb_cleanup: a setup_call_cleanup record outside a pinned RBP frame"))
+         + IF(!CL_NOSLOT() && !x86_pl_frame(), x86_alpha() + x86_bomb("bb_cleanup: a setup_call_cleanup record outside a Prolog frame"))
          + IF(CL_LIVE() && CL_KIND() == CLEANUP_OPEN, cl_open())
          + IF(CL_LIVE() && CL_KIND() == CLEANUP_TEST, cl_test())
          + IF(CL_LIVE() && CL_KIND() == CLEANUP_POP, cl_pop())

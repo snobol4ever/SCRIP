@@ -34,7 +34,7 @@ void rt_gen_spine_resume_enter(void);
 #define cv_is_apply() (_.op_sval && strcmp(_.op_sval, "apply") == 0 && _.op_arg_slot_n == 1)
 #define cv_is_goal() (_.op_sval && strcmp(_.op_sval, "goal") == 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define cv_pl_proto() (cv_is_goal() && x86_fb_pinned())
+#define cv_pl_proto() (cv_is_goal() && x86_pl_frame())
 #define cv_icn() (!cv_is_goal() && g_emit_cfg && g_emit_cfg->icn_cells_graph)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define cv_lvl_add(d) (x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p") \
@@ -329,7 +329,7 @@ std::string bb_call_value() {
               + x86("mov", "rcx", FRQ(CV_H() + 8))
               + x86("test", "rcx", "rcx")
               + x86("je", L(12))
-              + x86("mov", x86_fb(), "rax")
+              + x86("mov", x86_hb(), "rax")
               + cv_lvl_add(1L)
               + x86_jmp_reg("rcx")
               + x86("def", L(12))

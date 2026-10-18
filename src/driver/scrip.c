@@ -677,14 +677,6 @@ static void drive_slots_all(stage2_t * s2) {
     extern void ir_drive_slot_assign(IR_graph_t * g);
     extern void fl_derive_tier(IR_graph_t * g);
     int _mx = polyglot_main_bb_idx(s2);
-    {
-        extern void fl_select_spine_tier(IR_graph_t **, int, const char * const *, const int *, int);
-        int np = s2->proc_count;
-        const char * pn[np > 0 ? np : 1];
-        int pi[np > 0 ? np : 1];
-        for (int i = 0; i < np; i++) { pn[i] = s2->proc_table[i].name; pi[i] = s2->proc_table[i].bb_idx; }
-        fl_select_spine_tier(s2->bbp.table, s2->bbp.count, pn, pi, np);
-    }
     for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) {
         IR_graph_t * _g = s2->bbp.table[_gi];
         fl_derive_tier(_g);
@@ -2649,19 +2641,19 @@ int main(int argc, char **argv) {
                 "  mov rdi, qword ptr [rsp]\n  mov rdi, qword ptr [rdi]\n  call rt_main_progname_stage@PLT\n  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  "
                 "call rt_main_args_stage_argv@PLT\n");
             if (bbg->nparams >= 1) emit_textf("  call rt_main_args_bind@PLT\n");
-            int _pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
-            if (!_pinned_root) emit_textf("  mov r12, qword ptr [0x70000000]\n");
+            int _pl_root = (bbg->zframe_graph && !bbg->icn_cells_graph && bbg->root_graph) ? 1 : 0;
+            if (!_pl_root) emit_textf("  mov r12, qword ptr [0x70000000]\n");
             if (bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n  mov rdi, rsp\n  call rt_program_top_adopt_top@PLT\n");
             { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
             if (!(bbg->zframe_graph && !bbg->icn_cells_graph)) emit_textf("  lea rdi, [rsp - 16]\n  call rt_program_top_adopt@PLT\n");
             emit_textf("  xor esi, esi\n");
             if (bbg->zframe_graph && !bbg->icn_cells_graph) {
-                if (!_pinned_root) emit_textf("  xor r14d, r14d\n");
+                if (!_pl_root) emit_textf("  xor r14d, r14d\n");
                 emit_textf("  lea rcx, [rip + .Lmain_zf_γ]\n");
                 emit_textf("  lea rdx, [rip + .Lmain_zf_ω]\n");
                 emit_textf("  jmp main_\xce\xb1\n");
                 emit_textf(".Lmain_zf_γ:\n  and rsp, -16\n  xor edi, edi\n  call exit@PLT\n");
-                if (_pinned_root) emit_textf(".Lmain_zf_ω:\n  and rsp, -16\n  call rt_pl_root_omega@PLT\n");
+                if (_pl_root) emit_textf(".Lmain_zf_ω:\n  and rsp, -16\n  call rt_pl_root_omega@PLT\n");
                 else emit_textf(".Lmain_zf_ω:\n  and rsp, -16\n  mov edi, 1\n  call exit@PLT\n");
             } else {
                 emit_textf("  xor r14d, r14d\n");
@@ -2920,7 +2912,7 @@ int main(int argc, char **argv) {
             g_frame_active = 0;
             if (!fn) { fprintf(stderr, "[IBB] FATAL: mode-3 driver: emit_chain returned NULL — BB template(s) lack MEDIUM_BINARY arm\n"); abort(); }
             int _nparams = bbg->nparams, _zframe_graph = bbg->zframe_graph, _icn_cells_graph = bbg->icn_cells_graph;
-            int _zframe_pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
+            int _pl_root = (bbg->zframe_graph && !bbg->icn_cells_graph && bbg->root_graph) ? 1 : 0;
             ir_delete_all(s2);
             void *mf = NULL;
             { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
@@ -2947,7 +2939,7 @@ int main(int argc, char **argv) {
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
             if (_zframe_graph && !_icn_cells_graph) {
                 { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }
-                icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, _zframe_pinned_root ? (void *)pl_root_ω : (void *)icn_zf_exit_ω);
+                icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, _pl_root ? (void *)pl_root_ω : (void *)icn_zf_exit_ω);
             } else {
                 extern void rt_outer_call(bb_box_fn, void *, long, void *);
                 { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }

@@ -8,7 +8,7 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define BND_BOMB() (_.op_off < 0)
-#define BND_PL() (x86_fb_pinned() || x86_pl_frame())
+#define BND_PL() x86_pl_frame()
 static std::string bound_unmark_zd() {
     if (_.op_unmark_chain && x86_release_acts(true, 5).empty())
         return x86("comment", "IR_UNMARK chain arm -- the bounded body's carves unwind box by box")
