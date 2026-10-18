@@ -242,12 +242,13 @@ extern "C" int bb_proc_target_icn_block(const char *fname, int *np, int *vari) {
 extern "C" int bb_proc_target_zframe_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
     || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; return (bi >= 0 && bi < g_stage2.bbp.count
         && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->zframe_graph : 0; } return 0; }
+extern "C" int bb_scc_gk_len(const char *fname) { int np = fname ? rt_proc_nparams(fname) : 0; return (np > 0 ? np : 0) + 1; }
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
     int np = 0, nsave = 0, res_gk = -1, scc = 0;
     if (fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !bb_proc_multi_proto(fname) && !getenv("SCRIP_SCC_OFF")
         && rt_proc_is_registered(fname) && !rt_proc_is_redefined(fname)) {
         np = rt_proc_nparams(fname);
-        if (np >= 0 && np <= BB_SCC_NP_MAX && nargs <= rt_proc_nformals(fname)) {
+        if (np >= 0 && nargs <= rt_proc_nformals(fname)) {
             const char *rn = rt_proc_result_name_get(fname); int ok = rn ? 1 : 0, sh = 0;
             for (int k = 0; ok && k < np; k++) {
     const char *nm = rt_proc_pname(fname, k);
@@ -265,7 +266,7 @@ extern "C" int bb_rt_shim_probe(const char *fname, int *np_out, int *nsave_out, 
     int np = 0, nsave = 0, res_gk = -1, ok = 0;
     if (fname && rt_proc_is_registered(fname) && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname)) {
         np = rt_proc_nparams(fname);
-        if (np >= 0 && np <= BB_SCC_NP_MAX) {
+        if (np >= 0) {
             const char *rn = rt_proc_result_name_get(fname); int sh = 0; ok = rn ? 1 : 0;
             for (int k = 0; ok && k < np; k++) {
                 const char *nm = rt_proc_pname(fname, k); if (!nm) { ok = 0; break; }
@@ -283,7 +284,7 @@ extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {
 }
     if (_nt || !fname) return 0;
     if (!rt_define_tiny_ok(fname, nargs)) return 0;
-    int np = 0, ns = 0, rg = -1; int gk[BB_SCC_NP_MAX + 1];
+    int np = 0, ns = 0, rg = -1; int gk[bb_scc_gk_len(fname)];
     if (!bb_scc_probe(fname, 0, &np, &ns, gk, &rg)) return 0;
     int nf = rt_proc_nformals(fname);
     if (!(nf >= 0 && nf <= np)) return 0;
@@ -296,7 +297,7 @@ extern "C" int bb_sig_site_ok(const char *fname, int nargs) {
 }
     (void)nargs;
     if (_nt || !fname || !rt_proc_is_registered(fname) || !rt_proc_dyn_scope(fname) || rt_proc_is_generator(fname) || rt_proc_is_variadic(fname)) return 0;
-    { int np = rt_proc_nparams(fname); return (np >= 0 && np <= BB_SCC_NP_MAX) ? 1 : 0; }
+    { int np = rt_proc_nparams(fname); return (np >= 0) ? 1 : 0; }
 }
 static std::vector<std::string> g_alpha_cellp_seen, g_alpha_cellp_names, g_alpha_shim_emitted;
 std::string bcps_alpha_cellp_label(const char * fname) { return std::string("alpha_cellp$") + bb_ab_sym_name(fname); }
@@ -366,7 +367,7 @@ static std::string bcps_det_arm() {
         { void *(*f3)(long, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det3; detN_fp_z[3] = (uint64_t)(uintptr_t)(void*)f3; }
         { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp_z[4] = (uint64_t)(uintptr_t)(void*)f4; }
         static const char * const detN_nm_z[5] = { "rt_proc_call_open_det0","rt_proc_call_open_det1","rt_proc_call_open_det2","rt_proc_call_open_det3","rt_proc_call_open_det4" };
-        int scc_z = 0, scc_np_z = 0, scc_nsave_z = 0, scc_res_gk_z = -1; int scc_gk_z[BB_SCC_NP_MAX + 1];
+        int scc_z = 0, scc_np_z = 0, scc_nsave_z = 0, scc_res_gk_z = -1; int scc_gk_z[bb_scc_gk_len(_.op_sval)];
         scc_z = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np_z, &scc_nsave_z, scc_gk_z, &scc_res_gk_z);
         uint64_t dc_slot_fp_z = dc_slot_z;
         return x86_alpha()
@@ -553,7 +554,7 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
     uint64_t dc_slot = 0; char dc_name[_.op_sval ? fmt_len("%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)) : 1]; dc_name[0] = 0;
     if (dc) { void **sl = rt_pl_dc_slot(det_idx); if (!sl) dc = 0; else { dc_slot = (uint64_t)(uintptr_t)sl;
         snprintf(dc_name, sizeof dc_name, "%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)); } }
-    int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[BB_SCC_NP_MAX + 1];
+    int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[bb_scc_gk_len(_.op_sval)];
     scc = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np, &scc_nsave, scc_gk, &scc_res_gk);
     { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINYX] fn=%s nargs=%ld scc=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,scc); }
     if (c2farm() && (!scc || (int)_.op_ival != 1)) return x86_alpha()

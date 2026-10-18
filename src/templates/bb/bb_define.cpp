@@ -235,7 +235,6 @@ int rt_proc_nformals(const char *);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define S9(f) emit_shim9(32 + 16L * xt4, F4, (f))
-#define BD_PEND_FIT() (nf4 <= BB_SHIM_TRACE_NF_MAX)
 static std::string bb_define_sr() {
     x86_begin();
     long role = (long)_.op_ival;
@@ -247,7 +246,7 @@ static std::string bb_define_sr() {
     }
     if (role == 4) {
         const char * fn4 = _.op_sval; const char * en4 = _.lbl_t0 ? _.lbl_t0 : fn4; int rt4 = (_.op_define_role == 7) ? 1 : 0;
-        int np4 = 0, ns4 = 0, rg4 = -1; int gk4[BB_SCC_NP_MAX + 1];
+        int np4 = 0, ns4 = 0, rg4 = -1; int gk4[bb_scc_gk_len(fn4)];
         int ok4 = (fn4 && en4) ? (rt4 ? bb_rt_shim_probe(fn4, &np4, &ns4, gk4, &rg4) : (bb_tiny_shim_ok(fn4, 0) ? bb_scc_probe(fn4, 0, &np4, &ns4, gk4, &rg4) : 0)) : 0;
         int nf4 = ok4 ? rt_proc_nformals(fn4) : 0;
         if (ok4 && nf4 >= 0 && nf4 <= np4 && !rt4) bcps_alpha_shim_note(fn4);
@@ -403,7 +402,7 @@ static std::string bb_define_sr() {
                  + x86_rsp_store64(16 * xt4 + 16, "rcx")
                  + x86("mov", "rdx", SIGQ(0))
                  + R8AT()
-                 + CHAIN(BB_SHIM_ID_ALPHA, "rdx",
+                 + CHAIN(bb_shim_id_alpha(nf4), "rdx",
                        [&](int i) { if (gk4[i] < 0) return std::string();
                            return x86("mov", "rdi", SIGQ(24 + 8L * i))
                                 + x86("add", "rdi", "r8")
@@ -455,19 +454,14 @@ static std::string bb_define_sr() {
                  + x86("push", "r12")
                  + x86("push", "rdi")
                  + x86_align_enter()
-                 + IF(BD_PEND_FIT(), x86("sub", "rsp", 112L))
-                 + IF(BD_PEND_FIT(), x86("mov", RDQ("rsp", 0), 0L))
+                 + (x86("sub", "rsp", 112L))
+                 + (x86("mov", RDQ("rsp", 0), 0L))
                  + x86("mov", "rdi", ROQ(232))
-                 + IF(BD_PEND_FIT(), x86("mov", "rsi", "rsp")
+                 + (x86("mov", "rsi", "rsp")
                  + S9([&]() { return x86("call", "rt_trace_call_hook_p", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_p)
                  + x86_rt_gc_poll(); })
-                 + S9([&]() { return bb_glue_trace_pend_run(BB_SHIM_ID_OMEGA + nf4 + 2, std::string(), 1); })
+                 + S9([&]() { return bb_glue_trace_pend_run(bb_shim_id_omega(nf4) + nf4 + 2, std::string(), 1); })
                  + x86("add", "rsp", 112L))
-                 +
-                     IF(!BD_PEND_FIT(),
-                     x86_bomb(
-                     "bb_define: a traced DEFINE of more than 39 formals has no internal label ids left for its trace-handler glue (X86_INTERNAL_MAX 250, BB_SHIM_TRACE_NF_MAX); the C-entered hook is"
-                     " DELETED (CEO-1576) - widen the id space or move the glue to named labels"))
                  + x86_align_leave()
                  + x86("pop", "rdi")
                  + x86("pop", "r12")
@@ -546,18 +540,13 @@ static std::string bb_define_sr() {
                  + x86_rsp_load64("rsi", 48)
                  + x86_rsp_load64("rdx", 56)
                  + x86_rsp_load64("r8", 64 + 16 * xt4 + 8)
-                 + IF(BD_PEND_FIT(), x86("sub", "rsp", 112L))
-                 + IF(BD_PEND_FIT(), x86("mov", RDQ("rsp", 0), 0L))
-                 + IF(BD_PEND_FIT(), x86("mov", "rcx", "rsp")
+                 + (x86("sub", "rsp", 112L))
+                 + (x86("mov", RDQ("rsp", 0), 0L))
+                 + (x86("mov", "rcx", "rsp")
                  + S9([&]() { return x86("call", "rt_trace_return_hook_p", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook_p)
                  + x86_rt_gc_poll(); })
-                 + S9([&]() { return bb_glue_trace_pend_run(BB_SHIM_ID_OMEGA + nf4 + 2 + BB_SHIM_TRACE_IDS, std::string(), 1); })
+                 + S9([&]() { return bb_glue_trace_pend_run(bb_shim_id_omega(nf4) + nf4 + 2 + BB_SHIM_TRACE_IDS, std::string(), 1); })
                  + x86("add", "rsp", 112L))
-                 +
-                     IF(!BD_PEND_FIT(),
-                     x86_bomb(
-                     "bb_define: a traced DEFINE of more than 39 formals has no internal label ids left for its trace-handler glue (X86_INTERNAL_MAX 250, BB_SHIM_TRACE_NF_MAX); the C-entered hook is"
-                     " DELETED (CEO-1576) - widen the id space or move the glue to named labels"))
                  + x86_align_leave()
                  + x86("pop", "r12")
                  + x86("pop", "r9")
@@ -603,7 +592,7 @@ static std::string bb_define_sr() {
                  + x86_deflabel_id(236)
                  + x86("pop", "rax")
                  + x86("pop", "rdx")
-                 + FRESTORE(BB_SHIM_ID_BETA)
+                 + FRESTORE(bb_shim_id_beta(nf4))
          + x86("push", "rcx")
                  + bb_stno_restore((int)(16 * xt4 + 8))
                  + bb_fnclevel_leave()
@@ -637,20 +626,15 @@ static std::string bb_define_sr() {
                  + x86("push", "r12")
                  + x86("push", "rdi")
                  + x86_align_enter()
-                 + IF(BD_PEND_FIT(), x86("sub", "rsp", 112L))
-                 + IF(BD_PEND_FIT(), x86("mov", RDQ("rsp", 0), 0L))
+                 + (x86("sub", "rsp", 112L))
+                 + (x86("mov", RDQ("rsp", 0), 0L))
                  + x86("mov", "rdi", ROQ(237))
-                 + IF(BD_PEND_FIT(), x86("mov", "rsi", "rsp")
+                 + (x86("mov", "rsi", "rsp")
                  + x86_rsp_load64("rdx", 112 + 64 + 16 * xt4 + 8)
                  + S9([&]() { return x86("call", "rt_trace_fail_hook_p", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook_p)
                  + x86_rt_gc_poll(); })
-                 + S9([&]() { return bb_glue_trace_pend_run(BB_SHIM_ID_OMEGA + nf4 + 2 + 2 * BB_SHIM_TRACE_IDS, std::string(), 1); })
+                 + S9([&]() { return bb_glue_trace_pend_run(bb_shim_id_omega(nf4) + nf4 + 2 + 2 * BB_SHIM_TRACE_IDS, std::string(), 1); })
                  + x86("add", "rsp", 112L))
-                 +
-                     IF(!BD_PEND_FIT(),
-                     x86_bomb(
-                     "bb_define: a traced DEFINE of more than 39 formals has no internal label ids left for its trace-handler glue (X86_INTERNAL_MAX 250, BB_SHIM_TRACE_NF_MAX); the C-entered hook is"
-                     " DELETED (CEO-1576) - widen the id space or move the glue to named labels"))
                  + x86_align_leave()
                  + x86("pop", "rdi")
                  + x86("pop", "r12")
@@ -689,7 +673,7 @@ static std::string bb_define_sr() {
                  + x86("pop", "rsi")
                  + x86("pop", "rdi")
                  + x86_deflabel_id(240))
-                 + FRESTORE(BB_SHIM_ID_OMEGA)
+                 + FRESTORE(bb_shim_id_omega(nf4))
          + x86("push", "rcx")
                  + bb_stno_restore((int)(16 * xt4 + 8))
                  + bb_fnclevel_leave()
@@ -729,7 +713,7 @@ static std::string bb_define_sr() {
                         + x86("mov", GQ(gk4[nf4 + k], 0), (long)DT_SNUL)
                         + x86("mov", GQ(gk4[nf4 + k], 8), (long)0); })
              + x86_rsp_store64(16 * xt4 + 16, "rcx")
-             + CHAIN(BB_SHIM_ID_ALPHA, "rcx",
+             + CHAIN(bb_shim_id_alpha(nf4), "rcx",
                    [&](int i) {
                        return x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i))
                             + x86("note", gva_note(gk4[i]))
@@ -758,7 +742,7 @@ static std::string bb_define_sr() {
              + x86("note", gva_note(rgx))
              + x86("mov", "rdi", GQ(rgx, 0))
              + x86("mov", "rsi", GQ(rgx, 8))
-             + RESTORE4(BB_SHIM_ID_BETA)
+             + RESTORE4(bb_shim_id_beta(nf4))
              + WNRESTORE()
              + x86("mov32", "eax", T4 + 32 + 16L * nf4)
              + x86("cmp", "rcx", (long)nf4)
@@ -772,7 +756,7 @@ static std::string bb_define_sr() {
              + x86("mov", "rdx", "rsi")
              + x86("jmp", "rcx")
              + x86_def_ext(lbl_o)
-             + RESTORE4(BB_SHIM_ID_OMEGA)
+             + RESTORE4(bb_shim_id_omega(nf4))
              + WNRESTORE()
              + x86("mov32", "eax", T4 + 32 + 16L * nf4)
              + x86("cmp", "rcx", (long)nf4)

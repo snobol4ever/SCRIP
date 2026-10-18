@@ -3,20 +3,16 @@
 #ifdef __cplusplus
 #include <string>
 #include "IR.h"
-enum { BB_SCC_NP_MAX = 60, BB_SHIM_ID_ALPHA = 10, BB_SHIM_ID_BETA = 80, BB_SHIM_ID_OMEGA = 150, BB_SHIM_ID_FIXED = 230 };
-enum { BB_SHIM_TRACE_IDS = 13, BB_SHIM_TRACE_NF_MAX = 39 };
-static_assert(BB_SHIM_ID_ALPHA + BB_SCC_NP_MAX < BB_SHIM_ID_BETA - 5 && BB_SHIM_ID_BETA + BB_SCC_NP_MAX < BB_SHIM_ID_OMEGA - 5
-              && BB_SHIM_ID_OMEGA + BB_SCC_NP_MAX < BB_SHIM_ID_FIXED,
-              "THE ROLE-4 DEFINE SHIM ADMITS EVERY DEFINE THE SCC PROBE ADMITS (bb_scc_probe: np <= BB_SCC_NP_MAX): its three per-formal "
-              "chains (alpha swap, beta restore, omega restore) each take ONE one-byte internal label id per formal plus one join, from "
-              "its own base, below the next base's lid-5 join and the fixed ids 230..249 (X86_INTERNAL_MAX 250); the branch is monotone "
-              "in the argument count, so every formal past the arguments falls through the ext chain (it spent two ids per formal and "
-              "stopped at 29 formals until 2026-09-27)");
-static_assert(BB_SHIM_ID_OMEGA + BB_SHIM_TRACE_NF_MAX + 2 + 3 * BB_SHIM_TRACE_IDS <= BB_SHIM_ID_FIXED,
-              "THE ROLE-4 DEFINE SHIM'S THREE TRACE-HANDLER GLUES (call, return, failing return; bb_glue_trace_pend_run in_shim) each take a compact block of "
-              "BB_SHIM_TRACE_IDS one-byte internal label ids, placed after the omega chain (OMEGA + nformals + 2), below the fixed ids 230..249; a traced "
-              "DEFINE with more than BB_SHIM_TRACE_NF_MAX formals keeps the C-entered hook (rt_trace_*_hook_i through the r12 island bridge: a dyn-scope procedure runs only "
-              "through its role-4 shim, so the shim cannot be refused, and the id space is one byte)");
+enum { BB_SHIM_ID_FIXED = 230, BB_SHIM_ID_CHAINS = 250, BB_SHIM_TRACE_IDS = 13 };
+static inline int bb_shim_id_alpha(int nf) { (void)nf; return BB_SHIM_ID_CHAINS; }
+static inline int bb_shim_id_beta(int nf) { return BB_SHIM_ID_CHAINS + nf + 6; }
+static inline int bb_shim_id_omega(int nf) { return BB_SHIM_ID_CHAINS + 2 * (nf + 6); }
+static_assert(BB_SHIM_ID_CHAINS >= BB_SHIM_ID_FIXED + 20,
+              "THE ROLE-4 DEFINE SHIM'S LABEL IDS FOLLOW ITS FORMAL COUNT (Lon 2026-09-23: no fixed limit a program can reach): the fixed ids 230..249 stay where "
+              "the shim's literals name them, and its three per-formal chains (alpha swap, beta restore, omega restore; nformals + 1 ids each, the restores' joins "
+              "at their base - 5) and the three trace-handler glue blocks (BB_SHIM_TRACE_IDS each, after the omega chain) sit above them at bases computed from "
+              "nformals, so the two-byte record id (X86_INTERNAL_MAX) is the only bound and the encoder refuses loudly past it");
+extern "C" int bb_scc_gk_len(const char *fname);
 extern "C" { void bb_pattern_stub(const char * which); }
 extern "C++" {
 std::string bb_match_any();

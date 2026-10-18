@@ -43,8 +43,7 @@ typedef struct {
     IR_t * seq_rtail;
     const tree_t * wn_tree;
 } scx_t;
-#define SNO_DEF_NAMES_MAX 64
-typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; int nformals; } sno_def_t;
+typedef struct { const char * fname; const char * entry; const char * result_name; const char ** names; int nnames; int nformals; } sno_def_t;
 static int sno_fname_is_multiproto(const char * fname);
 typedef struct { const char * name; const tree_t * expr; int salt; int want_name; int nm; const char * svar; } sno_expr_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1961,19 +1960,15 @@ static void sno_parse_define(const char * spec, const char * entry_opt, sno_def_
     d->entry = (entry_opt && entry_opt[0]) ? lp_strdup(entry_opt) : d->fname;
     d->result_name = NULL;
     d->nnames = 0;
-    for (char * seg = par + 1; seg && *seg; ) {
-        char * cm = strchr(seg, ',');
-        if (cm) *cm = 0;
-        if (*seg && d->nnames < SNO_DEF_NAMES_MAX) d->names[d->nnames++] = lp_strdup(seg);
-        seg = cm ? cm + 1 : NULL;
+    {
+        int cap = 2;
+        for (const char * q = par + 1; q < cls; q++) cap += (*q == ',');
+        for (const char * q = cls + 1; *q; q++) cap += (*q == ',');
+        d->names = (const char **) ct_zalloc((size_t) cap, sizeof(const char *));
     }
+    for (char * seg = par + 1; seg && *seg; ) { char * cm = strchr(seg, ','); if (cm) *cm = 0; if (*seg) d->names[d->nnames++] = lp_strdup(seg); seg = cm ? cm + 1 : NULL; }
     d->nformals = d->nnames;
-    for (char * seg = cls + 1; seg && *seg; ) {
-        char * cm = strchr(seg, ',');
-        if (cm) *cm = 0;
-        if (*seg && d->nnames < SNO_DEF_NAMES_MAX) d->names[d->nnames++] = lp_strdup(seg);
-        seg = cm ? cm + 1 : NULL;
-    }
+    for (char * seg = cls + 1; seg && *seg; ) { char * cm = strchr(seg, ','); if (cm) *cm = 0; if (*seg) d->names[d->nnames++] = lp_strdup(seg); seg = cm ? cm + 1 : NULL; }
     sno_reg_var(d->fname);
     for (int k = 0; k < d->nnames; k++) sno_reg_var(d->names[k]);
 }

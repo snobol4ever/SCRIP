@@ -541,7 +541,7 @@ static std::string xa_flat_chain_prologue_str(const char * fname, int * argkt_ou
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
          + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
          + xa_flat_wn_park_str(kt, fname);
-    int nf = 0, nsave = 0; int gk[BB_SCC_NP_MAX + 1];
+    int nf = 0, nsave = 0; int gk[bb_scc_gk_len(fname)];
     if (xa_flat_sig_names(fname, &nf, &nsave, gk)) {
         int argkt = 16 * nsave;
         if (argkt_out) *argkt_out = argkt;
@@ -582,7 +582,7 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
     if (!xa_flat_class_c()) return std::string();
     int kt = g_emit.flat_frame_bytes;
     std::string pre;
-    { int nf = 0, nsave = 0, res_gk = -1; int gk[BB_SCC_NP_MAX + 1];
+    { int nf = 0, nsave = 0, res_gk = -1; int gk[bb_scc_gk_len(fname)];
       int have = xa_flat_sig_names(fname, &nf, &nsave, gk, &res_gk);
       if (getenv("SCRIP_SIGEPI_DIAG")) fprintf(stderr, "[SIGEPI] fname=%s is_gamma=%d kt=%d sig_names_have=%d nf=%d nsave=%d\n", fname?fname:"(null)", is_gamma, kt, have, nf, nsave);
       if (have) {
