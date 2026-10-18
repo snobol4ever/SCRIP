@@ -637,6 +637,8 @@ inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
 inline int x86_rsp_slide_known() { return 1; }
 inline int x86_frame_off(int off) { return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
 inline int x86_hb_on() { return (g_emit.zframe_graph && !(g_emit_cfg && g_emit_cfg->icn_cells_graph)) || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_gen); }
+inline int icn_gen_ft() { return (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_gen) ? g_emit.flat_frame_bytes + (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : 0; }
+inline int icn_frame_rbp() { return (g_emit_cfg && g_emit_cfg->icn_cells_graph && (g_emit.flat_gen || (g_emit.flat_lcl_proc && g_emit.icn_retain))) ? 1 : 0; }
 inline const char * x86_hb() { return "rbp"; }
 inline int x86_fb_num() { return 4; }
 inline const char * x86_fb() { return "rsp"; }
@@ -1058,10 +1060,19 @@ extern "C" int emit_port_exit_label_promotes(const char * label);
 inline int x86_zop_regime(int off) { if (x86_fc_hit(off)) return 2; return x86_fb_data() ? 3 : 4; }
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline const char * x86_zref(int off, int q);
+inline const char * ZRES_SPINE(int w);
 inline const char * x86_zop(int off, int q, int bump) {
     static char b[16][48]; static int i; i = (i + 1) & 15;
     if (off >= ZST_BIAS / 2) { x86_zop_note(2); snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", _.op_zabs + (off - ZST_BIAS) + bump); return b[i]; }
+    if (_.op_zres && _.op_res_alias >= 0 && (off == _.op_res_alias || off == _.op_res_alias + 8)) { int d = off - _.op_res_alias;
+        return _.op_xf_off != -1 ? (q ? RDQ("rbp", _.op_xf_off + d) : RDD("rbp", _.op_xf_off + d)) : (q ? ZRES_SPINE(d) : x86_zref(d, 0)); }
+    for (int k = 0; _.op_zres && k < _.op_zslot_n && k < _.op_zcap; k++) if (_.op_zslot[k] >= 0 && (off == _.op_zslot[k] || off == _.op_zslot[k] + 8)) { int d = off - _.op_zslot[k];
+        if (_.op_zread_xf[k] != -1) return q ? RDQ("rbp", _.op_zread_xf[k] + d) : RDD("rbp", _.op_zread_xf[k] + d);
+        if (_.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + d, q, bump);
+        return x86_zref(_.op_zread[k] + d, q); }
     int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
+    if (r != 2 && icn_frame_rbp()) return q ? RDQ("rbp", off - icn_gen_ft()) : RDD("rbp", off - icn_gen_ft());
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }
     else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { eff = x86_frame_off(off) + bump; spine = 1; }

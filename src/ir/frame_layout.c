@@ -242,8 +242,16 @@ static int zls_act8_kind(const IR_graph_t * g, const IR_t * nd) {
 static int zls_g_pinned_frame(const IR_graph_t * g);
 static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
     switch (ir_kind0(nd)) {
-        case IR_TO:
         case IR_TO_BY:
+        if (g && g->icn_cells_graph) {
+            zls_field(scope_id, off, 16, ZK_DESCR, 0, "toby.cur (the running value, a copy of from)", nd);
+            zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "toby.to (a copy of the limit operand)", nd);
+            zls_field(scope_id, off + 32, 16, ZK_DESCR, 0, "toby.by (a copy of the step operand)", nd);
+            zls_field(scope_id, off + 48, 8, ZK_RAW, 0, "toby.I counter", nd);
+            zls_field(scope_id, off + 56, 8, ZK_RAW, 0, "toby.pad", nd);
+            return 4;
+        }
+        case IR_TO:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "to.I counter", nd);
         zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "to.limit", nd);
         if (nd->op == IR_TO && ir_range_kind_is(nd, "db")) {

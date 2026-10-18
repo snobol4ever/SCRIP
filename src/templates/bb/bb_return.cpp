@@ -12,6 +12,7 @@ std::string bb_return() {
     return IF(_.op_zres && _.op_dval != 2.0,
                x86("comment", "IR_RETURN ZD (ZK-4 cells arm): ZOPQ -> FRQ(result) -> gamma+release")
              + x86_alpha()
+             + (_.op_dval != 2.0 && _.flat_gen && _.op_sb >= 0 && _.lbl_t1_p ? x86_lea_tgt("rax", X86T_TGT1) + x86("mov", FRQ(_.op_sb), "rax") : std::string())
              + IF(_.op_zread[0] >= 0,
                   x86("note", ZOPN(0))
                 + x86("mov", "rax", ZOPQ(0, 0))

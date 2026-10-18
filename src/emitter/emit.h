@@ -436,6 +436,7 @@ typedef struct {
     int flat_pat;
     int flat_lex;
     int flat_gen;
+    int icn_retain;
     int frame_region;
     int flat_carve_total;
     int flat_frame_bytes;
@@ -575,6 +576,9 @@ typedef struct {
     int op_xf_off;
     int * op_zread_xf;
     int * op_zread_fr;
+    int * op_zslot;
+    int op_zslot_n;
+    int op_res_alias;
     int pl_trace_mode;
     unsigned long pl_trace_n;
     long pl_trace_depth;

@@ -17,7 +17,15 @@ std::string bb_suspend() {
                x86("comment", _.op_zres ? "IR_SUSPEND yield+resume [PL-ZK-2 ZD: ZOPQ->ZRES]" : "IR_SUSPEND yield+resume")
          + x86_alpha()
          + (_.op_sb >= 0 && _.lbl_t1_p ? x86_lea_tgt("rax", X86T_TGT1) + x86("mov", FRQ(_.op_sb), "rax") : std::string())
-         + (_.op_zres ?
+         + (_.op_zres && g_emit_cfg && g_emit_cfg->icn_cells_graph ?
+                x86("comment", "the value leaves the spine for the frame's result slot: the caller reads it through the handle, and the spine stays where the run left it for the resume")
+              + x86("note", ZOPN(0))
+              + x86("mov", "rax", ZOPQ(0, 0))
+              + x86("mov", FRQ(0), "rax")
+              + x86("note", ZOPN(0))
+              + x86("mov", "rax", ZOPQ(0, 8))
+              + x86("mov", FRQ(8), "rax")
+            : _.op_zres ?
                 x86("note", ZRESN())
               + x86("mov", "rax", ZOPQ(0, 0))
               + x86("mov", ZRES(0), "rax")
@@ -50,6 +58,6 @@ std::string bb_suspend() {
          + x86_align_call_leave() + x86("pop", "rdx")
          + x86("pop", "rax"))
          + x86_scan_sync_in_rr()
-         + (_.lbl_t0 && _.op_suspend_stmt_uclaim > 0 ? x86_sub("rsp", _.op_suspend_stmt_uclaim) : std::string())
+         + (_.lbl_t0 && _.op_suspend_stmt_uclaim != 0 ? x86_add("rsp", (long)_.op_suspend_stmt_uclaim) : std::string())
          + (_.lbl_t0 ? x86_jmp_tgt(X86T_TGT0) : x86_omega()));
 }

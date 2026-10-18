@@ -28,8 +28,94 @@ static std::string to_by_int_operand_guard(int slot) {
          + x86_rt_gc_poll());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string to_by_zd_int_operand_guard(int slot) {
+    return IF(!_.op_range_int_operands,
+               std::string())
+         + IF(!(!_.op_range_int_operands),
+               x86("mov", "rdi", FRQ(slot))
+         + x86("mov", "rsi", FRQ(slot + 8))
+         + x86("call", "core_icn_int_operand_ok", (uint64_t)(uintptr_t)(void *)(int (*)(uint64_t, uint64_t))core_icn_int_operand_ok)
+         + x86("test", "eax", "eax")
+         + x86_omega("jz")
+         + x86_rt_gc_poll());
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string to_by_zd_to_int(int slot) {
+    return to_by_zd_int_operand_guard(slot)
+         + x86("mov", "rdi", FRQ(slot))
+         + x86("mov", "rsi", FRQ(slot + 8))
+         + x86("call", _.op_range_int_operands ? "core_icn_to_int_check" : "to_int",
+             _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
+         + x86("mov", FRQ(slot), (long)DT_I)
+         + x86("mov", FRQ(slot + 8), "rax")
+         + x86_rt_gc_poll();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_to_by_zd() {
+    const int cur = _.op_off + 16, lim = _.op_off + 32, stp = _.op_off + 48, ctr = _.op_off + 64;
+    return x86("comment",
+        "IR_TO_BY zd: the three operands are read from the spine once and copied into this box's own slot (cur, to, by), the counter beside them; the result is this box's spine cell")
+         + x86_alpha()
+         + x86("note", ZOPN(0)) + x86("mov", "rax", ZOPQ(0, 0)) + x86("mov", FRQ(cur), "rax") + x86("note", ZOPN(0)) + x86("mov", "rax", ZOPQ(0, 8)) + x86("mov", FRQ(cur + 8), "rax")
+         + x86("note", ZOPN(1)) + x86("mov", "rax", ZOPQ(1, 0)) + x86("mov", FRQ(lim), "rax") + x86("note", ZOPN(1)) + x86("mov", "rax", ZOPQ(1, 8)) + x86("mov", FRQ(lim + 8), "rax")
+         + x86("note", ZOPN(2)) + x86("mov", "rax", ZOPQ(2, 0)) + x86("mov", FRQ(stp), "rax") + x86("note", ZOPN(2)) + x86("mov", "rax", ZOPQ(2, 8)) + x86("mov", FRQ(stp + 8), "rax")
+         + x86("mov", "rax", FRQ(cur))
+         + x86("cmp", "al", (long)DT_I)
+         + x86("jne", L(3))
+         + x86("mov", "rax", FRQ(lim))
+         + x86("cmp", "al", (long)DT_I)
+         + x86("jne", L(3))
+         + x86("mov", "rax", FRQ(stp))
+         + x86("cmp", "al", (long)DT_I)
+         + x86("je", L(4))
+         + x86("def", L(3))
+         + x86("lea", "rdi", FRQ(cur))
+         + x86("lea", "rsi", FRQ(lim))
+         + x86("lea", "rdx", FRQ(stp))
+         + x86("call", "core_icn_toby_ctx", (uint64_t)(uintptr_t)(void *)core_icn_toby_ctx)
+         + to_by_zd_to_int(cur)
+         + to_by_zd_to_int(lim)
+         + to_by_zd_to_int(stp)
+         + x86("def", L(4))
+         + x86("lea", "rdi", FRQ(cur))
+         + x86("lea", "rsi", FRQ(lim))
+         + x86("lea", "rdx", FRQ(stp))
+         + x86("call", "core_icn_by_zero_at", (uint64_t)(uintptr_t)(void *)core_icn_by_zero_at)
+         + x86("cmp", "eax", (long)0)
+         + x86_omega("jne")
+         + x86_rt_gc_poll()
+         + x86("mov", "rax", FRQ(cur + 8))
+         + x86("mov", FRQ(ctr), "rax")
+         + x86("def", L(0))
+         + x86("mov", "rax", FRQ(ctr))
+         + x86("mov", "rcx", FRQ(lim + 8))
+         + x86("mov", "rdx", FRQ(stp + 8))
+         + x86("cmp", "rdx", (long)0)
+         + x86("jl", L(1))
+         + x86("cmp", "rax", "rcx")
+         + x86_omega("jg")
+         + x86("jmp", L(2))
+         + x86("def", L(1))
+         + x86("cmp", "rax", "rcx")
+         + x86_omega("jl")
+         + x86("def", L(2))
+         + x86("note", ZRESN())
+         + x86("mov", ZRES(0), (long)DT_I)
+         + x86("note", ZRESN())
+         + x86("mov", ZRES(8), "rax")
+         + x86_gamma()
+         + x86_beta()
+         + x86("mov", "rdx", FRQ(stp + 8))
+         + x86("mov", "rax", FRQ(ctr))
+         + x86("add", "rax", "rdx")
+         + x86_omega("jo")
+         + x86("mov", FRQ(ctr), "rax")
+         + x86("jmp", L(0));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_to_by() {
     x86_begin();
+        if (_.op_zres && !_.op_num_real && _.op_off >= 0 && g_emit_cfg && g_emit_cfg->icn_cells_graph) return bb_to_by_zd();
         return !(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0 && _.op_sc >= 0) ? x86_alpha() + x86_bomb("bb_to_by: unhandled (needs from/to/by operand slots, descr flat-chain)") :
                _.op_num_real ?
                x86("comment", "IR_TO_BY real")
