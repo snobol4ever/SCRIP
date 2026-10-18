@@ -118,6 +118,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {
     { "rt_pl_dop_co_unwound", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_co_yield", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_compare", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_compound0", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_concat_atom", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_copy_keep", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_copy_term", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },

@@ -49,6 +49,7 @@ void *rt_pl_compound_cell(const char *functor_name, int arity, void *arg_words) 
     pl_cell_t *src = (pl_cell_t *)arg_words;
     pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC((size_t)(arity > 0 ? arity : 1) * sizeof(pl_cell_t));
     for (int i = 0; i < arity; i++) blk[i] = src[i];
+    if (arity == 0) blk[0] = pl_make_int(0);
     int fid = prolog_atom_intern(functor_name ? functor_name : "[]");
     pl_cell_t *out = (pl_cell_t *)PL_CELL_ALLOC(sizeof(pl_cell_t));
     *out = pl_make_compound(fid, arity, blk);
@@ -991,6 +992,11 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell, pl_tr_c
     pl_cell_t *d1 = name_cell ? pl_deref((pl_cell_t *)name_cell) : (pl_cell_t *)0;
     if (d0 && !pl_cell_unbound(d0)) {
         pl_cell_t nameV, arityV;
+        if ((int)d0->v == DT_PLREF && plc_fid_arity(d0->slen) == 0) {
+            extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+            if (cx) cx->ball = rt_pl_ball_kind2("domain_error", "compound_non_zero_arity", *d0);
+            return 0;
+        }
         if ((int)d0->v == DT_PLREF) {
             nameV = plc_atom_id_cell(plc_fid_name(d0->slen));
             arityV = pl_make_int((int64_t)plc_fid_arity(d0->slen));
@@ -1047,6 +1053,11 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell, pl_tr_ctx_t *cx) {
     pl_cell_t *d0 = t0_cell ? pl_deref((pl_cell_t *)t0_cell) : (pl_cell_t *)0;
     if (d0 && !pl_cell_unbound(d0)) {
         pl_cell_t lst = plc_atom_id_cell(prolog_atom_intern("[]"));
+        if ((int)d0->v == DT_PLREF && plc_fid_arity(d0->slen) == 0) {
+            extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+            if (cx) cx->ball = rt_pl_ball_kind2("domain_error", "compound_non_zero_arity", *d0);
+            return 0;
+        }
         if ((int)d0->v == DT_PLREF) {
             int ar = plc_fid_arity(d0->slen);
             pl_cell_t *aa = (pl_cell_t *)d0->p;

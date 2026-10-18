@@ -168,6 +168,7 @@ static const char * pl_var_name(int slot) {
 static const char * pl_pi_name(const char * nm, int ar) { if (!nm) return ct_strdup("?"); return ct_fmt("%s/%d", nm, ar); }
 static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 static int pl_tree_is_big(const tree_t * t) { return t && t->t == TT_FNC && t->n == 1 && t->v.sval && !strcmp(t->v.sval, "$pl_big") && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval; }
+static int pl_tree_is_c0(const tree_t * t) { return t && t->t == TT_FNC && t->n == 0 && t->v.sval && strcmp(t->v.sval, "{}") != 0; }
 static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * mkc_node(lcx_t * cx, const char * fname, int nkids, IR_t ** kids, IR_t ** kid_entries, IR_t ** entry_out) {
@@ -245,6 +246,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
                 if (entry_out) *entry_out = dg;
                 return nd;
             }
+            if (nk == 0 && pl_tree_is_c0(t)) return mkc_node(cx, t->v.sval, 0, (IR_t **) 0, (IR_t **) 0, entry_out);
             if (nk == 0) { IR_t * nd = build(cx, IR_LIT_ATOM, NULL, cx->tω); IR_LIT(nd).sval = t->v.sval ? t->v.sval : "?"; return nd; }
             IR_t ** kids = (IR_t **) ct_zalloc((size_t)(nk > 0 ? nk : 1), sizeof(IR_t *));
             IR_t ** kes = (IR_t **) ct_zalloc((size_t)(nk > 0 ? nk : 1), sizeof(IR_t *));
@@ -307,7 +309,7 @@ static int pl_same_functor(const tree_t * a, const tree_t * b) {
 static IR_t * pl_const_lit(lcx_t * cx, const tree_t * t) {
     IR_t * nd = (IR_t *)0;
     if (!t) return nd;
-    if (t->t == TT_QLIT || (t->t == TT_FNC && t->n == 0)) {
+    if (t->t == TT_QLIT || (t->t == TT_FNC && t->n == 0 && !pl_tree_is_c0(t))) {
         nd = build(cx, IR_LIT_ATOM, NULL, NULL);
         IR_LIT(nd).sval = t->v.sval ? pl_atom_lit_sval(t) : "?";
     } else if (t->t == TT_MAKELIST && t->n == 0) {
@@ -415,7 +417,7 @@ static IR_t * pl_head_term(lcx_t * cx, const tree_t * cl, int ar, IR_t * src, lo
     }
     { IR_t * klit = pl_const_lit(cx, t); if (klit) return pl_unify_node3(cx, IR_UNIFY_CONST, src, idx, klit, next, step); }
     if (t->t == TT_MAKELIST) return pl_head_list(cx, cl, ar, src, idx, t, 0, next, step);
-    if (t->t == TT_FNC && t->n > 0) {
+    if (t->t == TT_FNC && (t->n > 0 || pl_tree_is_c0(t))) {
         extern int prolog_atom_intern(const char *);
         extern int prolog_functor_intern(int, int);
         IR_t * st = build(cx, IR_UNIFY_STRUCT, NULL, step);
@@ -1471,11 +1473,11 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     { "keysort", 1, "$gnu_keysort1" }, { "line_count", 2, "$gnu_line_count" }, { "line_position", 2, "$gnu_line_position" }, { "character_count", 2, "$gnu_character_count" }, { "stream_line_column",
     3, "$gnu_stream_line_column" }, { "last_read_start_line_column", 2, "$gnu_last_read_start" }, { "absolute_file_name", 2, "$gnu_absolute_file_name" }, { "prolog_file_name", 2,
     "$gnu_prolog_file_name" }, { "$gnu_builtin", 2, "$gnu_builtin" }, { "working_directory", 1, "$gnu_working_directory" }, { "change_directory", 1, "$gnu_change_directory" }, { "make_directory", 1,
-    "$gnu_make_directory" }, { "$gnu_os", 3, "$gnu_os" }, { "set_stream", 2, "$set_stream" }, { "delete_file", 1, "$gnu_delete_file" }, { "file_exists", 1, "$gnu_file_exists" }, { "directory_files",
-    2, "$gnu_directory_files" }, { "term_hash", 2, "$gnu_term_hash" }, { "prolog_pid", 1, "$gnu_prolog_pid" }, { "pipe", 2, "$pipe" }, { "open_null_stream", 1, "$open_null_stream" },
-    { "$gnu_environ_list", 1, "$gnu_environ_list" }, { "$gnu_file_props", 2, "$gnu_file_props" }, { "$trie_slice", 4, "$trie_slice" }, { "$cpu_ms", 1, "$cpu_ms" }, { "$crv_enter", 1, "$crv_enter" },
-    { "$crv_adj", 1, "$crv_adj" }, { "$crv_collect", 2, "$crv_collect" }, { "$copy_keep", 4, "$copy_keep" }, { "$pl_backtrace", 2, "$pl_backtrace" }, { "$factorize_term", 3, "$factorize_term" },
-    { "rational", 1, "$rational" }, { 0, 0, 0 } };
+    "$gnu_make_directory" }, { "$gnu_os", 3, "$gnu_os" }, { "$compound0", 3, "$compound0" }, { "set_stream", 2, "$set_stream" }, { "delete_file", 1, "$gnu_delete_file" }, { "file_exists", 1,
+    "$gnu_file_exists" }, { "directory_files", 2, "$gnu_directory_files" }, { "term_hash", 2, "$gnu_term_hash" }, { "prolog_pid", 1, "$gnu_prolog_pid" }, { "pipe", 2, "$pipe" }, { "open_null_stream",
+    1, "$open_null_stream" }, { "$gnu_environ_list", 1, "$gnu_environ_list" }, { "$gnu_file_props", 2, "$gnu_file_props" }, { "$trie_slice", 4, "$trie_slice" }, { "$cpu_ms", 1, "$cpu_ms" },
+    { "$crv_enter", 1, "$crv_enter" }, { "$crv_adj", 1, "$crv_adj" }, { "$crv_collect", 2, "$crv_collect" }, { "$copy_keep", 4, "$copy_keep" }, { "$pl_backtrace", 2, "$pl_backtrace" },
+    { "$factorize_term", 3, "$factorize_term" }, { "rational", 1, "$rational" }, { 0, 0, 0 } };
 static int pl_det_leaf_name_wired(const char * nm) { for (int i = 0; pl_det_leaves[i].nm; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_det_leaf_sym(const char * nm, int ar) {

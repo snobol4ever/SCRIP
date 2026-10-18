@@ -2060,6 +2060,8 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pl_dop_co_yield_c", GC_RET_DESCR },
     { "rt_pl_dop_compare", GC_RET_DESCR },
     { "rt_pl_dop_compare_c", GC_RET_DESCR },
+    { "rt_pl_dop_compound0", GC_RET_DESCR },
+    { "rt_pl_dop_compound0_c", GC_RET_DESCR },
     { "rt_pl_dop_concat_atom", GC_RET_DESCR },
     { "rt_pl_dop_concat_atom_c", GC_RET_DESCR },
     { "rt_pl_dop_copy_keep", GC_RET_DESCR },

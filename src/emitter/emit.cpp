@@ -6146,7 +6146,7 @@ void unify_prepare(IR_t *nd) {
     }
     if (nd && nd->op == IR_UNIFY_STRUCT) {
         g_emit.op_u_fid = (k && k->op == IR_LIT_INTEGER) ? (long)IR_LIT(k).ival : 0;
-        g_emit.op_u_why = !(ok && k && k->op == IR_LIT_INTEGER) ? 1 : (g_emit.op_off < 0 && !g_emit.op_zres) ? 2 : prolog_functor_arity((int)g_emit.op_u_fid) < 1 ? 3 : 0;
+        g_emit.op_u_why = !(ok && k && k->op == IR_LIT_INTEGER) ? 1 : (g_emit.op_off < 0 && !g_emit.op_zres) ? 2 : prolog_functor_arity((int)g_emit.op_u_fid) < 0 ? 3 : 0;
     }
     if (nd && (nd->op == IR_UNIFY_FIRST || nd->op == IR_UNIFY_VALUE)) {
         g_emit.op_u_vo = (ok && vn) ? bb_varslot_peek(vn) : -1;
@@ -6374,6 +6374,7 @@ DESCR_t rt_pl_dop_gnu_last_read_start(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_abs
 DESCR_t rt_pl_dop_gnu_builtin(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_working_directory(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_change_directory(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_make_directory(DESCR_t *, int);
     DESCR_t rt_pl_dop_gnu_os(DESCR_t *, int);
+    DESCR_t rt_pl_dop_compound0(DESCR_t *, int);
     DESCR_t rt_pl_dop_set_stream(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_delete_file(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_file_exists(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_directory_files(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_environ_list(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_file_props(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_term_hash(DESCR_t *, int);
@@ -6542,6 +6543,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$gnu_change_directory", 1, "rt_pl_dop_gnu_change_directory", rt_pl_dop_gnu_change_directory },
         { "$gnu_make_directory", 1, "rt_pl_dop_gnu_make_directory", rt_pl_dop_gnu_make_directory },
         { "$gnu_os", 3, "rt_pl_dop_gnu_os", rt_pl_dop_gnu_os },
+        { "$compound0", 3, "rt_pl_dop_compound0", rt_pl_dop_compound0 },
         { "$set_stream", 2, "rt_pl_dop_set_stream", rt_pl_dop_set_stream },
         { "$gnu_delete_file", 1, "rt_pl_dop_gnu_delete_file", rt_pl_dop_gnu_delete_file },
         { "$gnu_file_exists", 1, "rt_pl_dop_gnu_file_exists", rt_pl_dop_gnu_file_exists },

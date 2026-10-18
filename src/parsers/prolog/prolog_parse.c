@@ -297,7 +297,7 @@ static int prefix_arg_starts(Token pk) {
 static tree_t *pt_stamp(tree_t *t, int ln) { if (t && t->line <= 0 && ln > 0) t->line = ln; return t; }
 static tree_t *mk_atom(int atom_id) {
     if (atom_id == ATOM_CUT) return ast_node_new(TT_CUT);
-    tree_t *e = ast_node_new(TT_FNC);
+    tree_t *e = ast_node_new(TT_QLIT);
     const char *nm = prolog_atom_name(atom_id);
     e->v.sval = ct_strdup(nm ? nm : "");
     return e;
@@ -929,7 +929,7 @@ static tree_t *dcg_dq_codes(const tree_t *dq) {
 static tree_t *dcg_append_tail(TreeScope *ts, tree_t *list, tree_t *tail) {
     if (!list) return dcg_var_use(ts, tail);
     if (list->t == TT_DQLIT) list = dcg_dq_codes(list);
-    if (list->t == TT_FNC && list->v.sval && strcmp(list->v.sval, "[]") == 0 && list->n == 0)
+    if ((list->t == TT_QLIT || list->t == TT_FNC) && list->v.sval && strcmp(list->v.sval, "[]") == 0 && list->n == 0)
         return dcg_var_use(ts, tail);
     if (list->t == TT_FNC && list->v.sval && strcmp(list->v.sval, ".") == 0 && list->n == 2) {
         tree_t *new_tail = dcg_append_tail(ts, list->c[1], tail);
@@ -945,7 +945,7 @@ static tree_t *dcg_make_unify(TreeScope *ts, tree_t *a, tree_t *b) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *dcg_call_nt(TreeScope *ts, tree_t *nt, tree_t *s_in, tree_t *s_out) {
-    if (nt && nt->t == TT_FNC) {
+    if (nt && (nt->t == TT_FNC || nt->t == TT_QLIT)) {
         int new_arity = nt->n + 2;
         tree_t **args = (tree_t **)rt_wsb_alloc((size_t)new_arity * sizeof(tree_t *));
         for (int i = 0; i < nt->n; i++)
@@ -994,7 +994,7 @@ static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeSco
         buf[idx++] = dcg_make_unify(ts, s_in, s_out);
         return idx;
     }
-    if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, "[]") == 0 && body->n == 0) {
+    if ((body->t == TT_QLIT || body->t == TT_FNC) && body->v.sval && strcmp(body->v.sval, "[]") == 0 && body->n == 0) {
         buf[idx++] = dcg_make_unify(ts, s_in, s_out);
         return idx;
     }
@@ -1062,7 +1062,7 @@ static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeSco
         buf[idx++] = dcg_make_unify(ts, s_in, s_out);
         return idx;
     }
-    if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, "true") == 0 && body->n == 0) {
+    if (body->t == TT_QLIT && body->v.sval && strcmp(body->v.sval, "true") == 0) {
         buf[idx++] = dcg_make_unify(ts, s_in, s_out);
         return idx;
     }
@@ -2682,13 +2682,11 @@ static const char * const PL_PRELUDE_SRC =
     "'$sb_16d'(_,_,_):-throw(error(syntax_error(incomplete_multibyte_sequence),string_bytes/3)).\n"
     "'$sb_16lo'([X,Y|Bs],O,H,[C|Cs]):-!,(O==le->L is X\\/(Y<<8);L is (X<<8)\\/Y),C is 65536+((H-55296)<<10)+(L-56320),'$sb_16d'(Bs,O,Cs).\n"
     "'$sb_16lo'(_,_,_,_):-throw(error(syntax_error(incomplete_multibyte_sequence),string_bytes/3)).\n"
-    "compound_name_arity(T,N,A):-compound(T),!,functor(T,N,A).\n"
-    "compound_name_arity(T,N,A):-atom(T),!,N=T,A=0.\n"
-    "compound_name_arity(T,N,A):-var(T),!,(A==0->T=N;functor(T,N,A)).\n"
+    "compound_name_arity(T,N,A):-compound(T),!,'$compound0'(name,T,N),'$compound0'(arity,T,A).\n"
+    "compound_name_arity(T,N,A):-var(T),!,(A==0->'$compound0'(build,N,T);functor(T,N,A)).\n"
     "compound_name_arity(T,_,_):-throw(error(type_error(compound,T),compound_name_arity/3)).\n"
-    "compound_name_arguments(T,N,As):-compound(T),!,T=..[N|As].\n"
-    "compound_name_arguments(T,N,As):-atom(T),!,N=T,As=[].\n"
-    "compound_name_arguments(T,N,As):-var(T),!,(As==[]->T=N;T=..[N|As]).\n"
+    "compound_name_arguments(T,N,As):-compound(T),!,'$compound0'(arity,T,A),(A=:=0->'$compound0'(name,T,N),As=[];T=..[N|As]).\n"
+    "compound_name_arguments(T,N,As):-var(T),!,(As==[]->'$compound0'(build,N,T);T=..[N|As]).\n"
     "compound_name_arguments(T,_,_):-throw(error(type_error(compound,T),compound_name_arguments/3)).\n"
     "call_nth(G,_):-var(G),!,throw(error(instantiation_error,call_nth/2)).\n"
     "call_nth(G,_):- \\+ callable(G),!,throw(error(type_error(callable,G),call_nth/2)).\n"

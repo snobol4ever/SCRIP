@@ -73,7 +73,7 @@ std::string bb_unify_struct() {
                            "so every cell is typed before the poll), the result cell {DT_PLREF, functor id, block} stored into the mapped slot before the poll, then each argument cell made a "
                            "self-reference inline; the cell is re-derived after the poll and bound to the block. No C value service builds it.")
              + x86("mov32", "edi", (long)HB_DVEC)
-             + x86("mov32", "esi", (long)(16 * pl_struct_arity()))
+             + x86("mov32", "esi", (long)(16 * (pl_struct_arity() > 0 ? pl_struct_arity() : 1)))
              + x86("call", "rt_gcheap_alloc", (uint64_t)(uintptr_t)(void *)rt_gcheap_alloc)
              + x86_movabs_r64("rcx", (uint64_t)DT_PLREF | ((uint64_t)(uint32_t)_.op_u_fid << 32))
              + x86("mov", UR(0), "rcx")

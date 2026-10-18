@@ -304,7 +304,7 @@ static std::string pl_arm_mkc() {
                x86_bomb("PL-MKC: the functor operand of a $mkc is the id the lowerer interned (an IR_LIT_INTEGER); the R1.3 re-intern fallback is deleted (the cto's check 4, 2026-10-03)"))
          + IF(_.op_pl_fid_ok,
                x86("mov32", "edi", (long)HB_DVEC)
-             + x86("mov32", "esi", (long)(16 * (PLN() - 1)))
+             + x86("mov32", "esi", (long)(16 * (PLN() > 1 ? PLN() - 1 : 1)))
              + x86("call", "rt_gcheap_alloc", (uint64_t)(uintptr_t)(void *)rt_gcheap_alloc)
              + x86_movabs_r64("rcx", (uint64_t)DT_PLREF | ((uint64_t)(uint32_t)_.op_pl_fid << 32))
              + x86("note",
