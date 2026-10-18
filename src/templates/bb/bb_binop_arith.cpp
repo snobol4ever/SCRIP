@@ -46,7 +46,7 @@ DESCR_t rt_num_arith_sno(DESCR_t, DESCR_t, int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define binop_promotes(op) ((op) == BINOP_ADD_BIG || (op) == BINOP_SUB_BIG || (op) == BINOP_MUL_BIG)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const struct { long long op; int col; const char * name; void * addr; } rtop_tab[] = {
+static const struct { long long op; int col; char name[20]; void * addr; } rtop_tab[] = {
     { BINOP_ADD_BIG, 0, "rt_add_big", (void*)rt_add_big },
     { BINOP_ADD_BIG, 1, "rt_add_big", (void*)rt_add_big },
     { BINOP_ADD_BIG, 2, "rt_add_big", (void*)rt_add_big },

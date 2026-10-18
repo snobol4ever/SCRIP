@@ -555,7 +555,7 @@ static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno, const char *fil
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *mod; const char *name; int ar; } pl_mkey_t;
 typedef struct { cv_t defs; cv_t exps; cv_t trans; cv_t metas; cv_t dyns; cv_t foreign; } pl_mods_t;
-typedef struct { const char *nm; int ar; const char *spec; } pl_mspec_t;
+typedef struct { char nm[27]; int ar; char spec[27]; } pl_mspec_t;
 static const pl_mspec_t pl_mod_meta_builtins[] = { { "call", 1, "0" }, { "call", 2, "1-" }, { "call", 3, "2--" }, { "call", 4, "3---" }, { "call", 5, "4----" }, { "call", 6, "5-----" },
     { "call", 7, "6------" }, { "call", 8, "7-------" }, { "findall", 3, "-0-" }, { "findall", 4, "-0--" }, { "forall", 2, "00" }, { "\\+", 1, "0" }, { "not", 1, "0" }, { "once", 1, "0" },
     { "ignore", 1, "0" }, { "catch", 3, "0-0" }, { "bagof", 3, "-^-" }, { "setof", 3, "-^-" }, { "aggregate_all", 3, "-0-" }, { "aggregate_all", 4, "--0-" }, { "call_cleanup", 2, "00" },
@@ -564,7 +564,7 @@ static const pl_mspec_t pl_mod_meta_builtins[] = { { "call", 1, "0" }, { "call",
     { "exclude", 3, "1--" }, { "partition", 4, "1---" }, { "partition", 6, "2-----" }, { "convlist", 3, "2--" }, { "phrase", 2, "2-" }, { "phrase", 3, "2--" }, { "initialization", 1, "0" },
     { "initialization", 2, "0-" }, { "assertion", 1, "0" }, { "call_nth", 2, "0-" }, { "limit", 2, "-0" }, { "offset", 2, "-0" }, { "distinct", 1, "0" }, { "distinct", 2, "-0" }, { "$", 1, "0" },
     { "snapshot", 1, "0" }, { "transaction", 1, "0" }, { "tnot", 1, "0" }, { "call_with_depth_limit", 3, "0--" }, { "argv_options", 3, ":--" }, { "argv_options", 4, ":---" },
-    { "argv_usage", 1, ":" }, { 0, 0, 0 } };
+    { "argv_usage", 1, ":" }, { "", 0, "" } };
 static int pl_mk_has(const cv_t *v, const char *mod, const char *name, int ar) {
     for (uint32_t i = 0; i < v->len; i++) {
         const pl_mkey_t *e = &CV_AT(*v, pl_mkey_t, i);
@@ -795,7 +795,7 @@ static void pl_mod_closure(pl_mods_t *ms, const char *m1, const char *m2, tree_t
     else if (a->t == TT_FNC && a->v.sval && strcmp(a->v.sval, ":") && (q = pl_mod_resolve(ms, m1, m2, a->v.sval, a->n + extra))) a->v.sval = (char *)q;
 }
 static const char *pl_mod_meta_spec(pl_mods_t *ms, const char *nm, int ar) {
-    for (int i = 0; pl_mod_meta_builtins[i].nm; i++) if (pl_mod_meta_builtins[i].ar == ar && !strcmp(pl_mod_meta_builtins[i].nm, nm)) return pl_mod_meta_builtins[i].spec;
+    for (int i = 0; pl_mod_meta_builtins[i].nm[0]; i++) if (pl_mod_meta_builtins[i].ar == ar && !strcmp(pl_mod_meta_builtins[i].nm, nm)) return pl_mod_meta_builtins[i].spec;
     for (uint32_t i = 0; i < ms->metas.len; i++) { const tree_t *m = CV_AT(ms->metas, const tree_t *, i); if (m->n == ar && m->v.sval && !strcmp(m->v.sval, nm)) return (const char *)m; }
     return (const char *)0;
 }
@@ -1240,7 +1240,7 @@ static void pl_yall_body(tree_t *g, int *k) {
         pl_yall_body(g->c[1], k);
         return;
     }
-    for (int i = 0; pl_mod_meta_builtins[i].nm; i++) {
+    for (int i = 0; pl_mod_meta_builtins[i].nm[0]; i++) {
         if (pl_mod_meta_builtins[i].ar != g->n || strcmp(pl_mod_meta_builtins[i].nm, nm)) continue;
         const char *sp = pl_mod_meta_builtins[i].spec;
         for (int j = 0; j < g->n && sp[j]; j++) {

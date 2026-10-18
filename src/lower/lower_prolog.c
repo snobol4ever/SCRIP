@@ -1425,7 +1425,7 @@ static IR_t * pl_leaf(lcx_t * cx, const char * sym, const tree_t * t, int nargs,
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { const char * nm; int ar; const char * sym; } pl_det_leaf_t;
+typedef struct { char nm[28]; int ar; char sym[28]; } pl_det_leaf_t;
 static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar", 1, "$nonvar" }, { "atom", 1, "$atom" }, { "number", 1, "$number" }, { "integer", 1, "$integer" }, { "float", 1,
     "$float" }, { "atomic", 1, "$atomic" }, { "string", 1, "$string" }, { "compound", 1, "$compound" }, { "callable", 1, "$callable" }, { "ground", 1, "$ground" }, { "is_list", 1, "$is_list" },
     { "acyclic_term", 1, "$acyclic_term" }, { "==", 2, "$atop_eq" }, { "\\==", 2, "$atop_ne" }, { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
@@ -1477,11 +1477,11 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     "$gnu_file_exists" }, { "directory_files", 2, "$gnu_directory_files" }, { "term_hash", 2, "$gnu_term_hash" }, { "prolog_pid", 1, "$gnu_prolog_pid" }, { "pipe", 2, "$pipe" }, { "open_null_stream",
     1, "$open_null_stream" }, { "$gnu_environ_list", 1, "$gnu_environ_list" }, { "$gnu_file_props", 2, "$gnu_file_props" }, { "$trie_slice", 4, "$trie_slice" }, { "$cpu_ms", 1, "$cpu_ms" },
     { "$crv_enter", 1, "$crv_enter" }, { "$crv_adj", 1, "$crv_adj" }, { "$crv_collect", 2, "$crv_collect" }, { "$copy_keep", 4, "$copy_keep" }, { "$pl_backtrace", 2, "$pl_backtrace" },
-    { "$factorize_term", 3, "$factorize_term" }, { "rational", 1, "$rational" }, { 0, 0, 0 } };
-static int pl_det_leaf_name_wired(const char * nm) { for (int i = 0; pl_det_leaves[i].nm; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1; return 0; }
+    { "$factorize_term", 3, "$factorize_term" }, { "rational", 1, "$rational" }, { "", 0, "" } };
+static int pl_det_leaf_name_wired(const char * nm) { for (int i = 0; pl_det_leaves[i].nm[0]; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_det_leaf_sym(const char * nm, int ar) {
-    for (int i = 0; pl_det_leaves[i].nm; i++) if (pl_det_leaves[i].ar == ar && !strcmp(nm, pl_det_leaves[i].nm)) return pl_det_leaves[i].sym;
+    for (int i = 0; pl_det_leaves[i].nm[0]; i++) if (pl_det_leaves[i].ar == ar && !strcmp(nm, pl_det_leaves[i].nm)) return pl_det_leaves[i].sym;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5450,8 +5450,8 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         extern tree_t * pl_runtime_clause_tree(tree_t *);
         static const pl_det_leaf_t pl_meta_early[] = { { "write", 1, "$write" }, { "nl", 0, "$nl" }, { "true", 0, "$true" }, { "!", 0, "$true" }, { "fail", 0, "$fail" }, { "false", 0, "$fail" },
             { "throw", 1, "$throw" }, { "=", 2, "$unify" }, { "is", 2, "$is_v" }, { ">", 2, "$cmp_gt" }, { "assert", 1, "$db_assertz_t" }, { "asserta", 1, "$db_asserta_t" }, { "assertz", 1,
-            "$db_assertz_t" }, { "retract", 1, "$db_erase_t" }, { "retractall", 1, "$db_retractall_t" }, { "abolish", 1, "$db_abolish_t" }, { "clause", 2, "$db_at_t" }, { 0, 0, 0 } };
-        for (int tbl = 0; tbl < 2; tbl++) for (int li = 0; (tbl ? pl_meta_early[li].nm : pl_det_leaves[li].nm); li++) {
+            "$db_assertz_t" }, { "retract", 1, "$db_erase_t" }, { "retractall", 1, "$db_retractall_t" }, { "abolish", 1, "$db_abolish_t" }, { "clause", 2, "$db_at_t" }, { "", 0, "" } };
+        for (int tbl = 0; tbl < 2; tbl++) for (int li = 0; (tbl ? pl_meta_early[li].nm[0] : pl_det_leaves[li].nm[0]); li++) {
             const char * bn = tbl ? pl_meta_early[li].nm : pl_det_leaves[li].nm;
             int ba = tbl ? pl_meta_early[li].ar : pl_det_leaves[li].ar;
             if (!strcmp(bn, "halt") || bn[0] == '$') continue;

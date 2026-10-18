@@ -1,4 +1,4 @@
-static const char *const rk_rakudo_methods[] = { "!BACKREF", "!BACKREF-LATEST-CAPTURE", "!DELEGATE_ACCEPTS", "!DYNQUANT_LIMITS", "!LITERAL", "!alt", "!alt_nfa", "!braid", "!clear_highwater",
+static const char rk_rakudo_methods[][30] = { "!BACKREF", "!BACKREF-LATEST-CAPTURE", "!DELEGATE_ACCEPTS", "!DYNQUANT_LIMITS", "!LITERAL", "!alt", "!alt_nfa", "!braid", "!clear_highwater",
     "!clone_match_at", "!cursor_capture", "!cursor_fail", "!cursor_init", "!cursor_more", "!cursor_next", "!cursor_pass", "!cursor_pass_no_reduce", "!cursor_pass_quick", "!cursor_pos",
     "!cursor_push_cstack", "!cursor_start", "!cursor_start_all", "!cursor_start_cur", "!cursor_start_fail", "!cursor_start_subcapture", "!dba", "!dump_str", "!fresh_highexpect", "!highexpect",
     "!highwater", "!precompute_nfas", "!protoregex", "!protoregex_nfa", "!protoregex_table", "!reduce", "!reduce_with_match", "!set_highexpect", "!shared", "!shared_type", "ACCEPTS", "ASSIGN-KEY",

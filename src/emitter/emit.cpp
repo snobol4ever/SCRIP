@@ -5657,7 +5657,7 @@ struct rt_dcap_next_t { long fn; long how; };
 #define RTX_TWIN(kind, ret, leaf, twin, args) extern "C" ret twin args;
 #include "../templates/x86/rtx_twin_table.inc"
 #undef RTX_TWIN
-static const struct { const char * sym; const char * cname; void * caddr; int kind; } rtx_twin_tab[] = {
+static const struct { char sym[36]; char cname[36]; void * caddr; int kind; } rtx_twin_tab[] = {
 #define RTX_TWIN(kind, ret, leaf, twin, args) { #leaf, #twin, (void *)twin, RTX_VERDICT_##kind },
 #include "../templates/x86/rtx_twin_table.inc"
 #undef RTX_TWIN
@@ -6440,7 +6440,7 @@ DESCR_t rt_rk_undef(DESCR_t *, int); DESCR_t rt_rk_range_arr(DESCR_t *, int); DE
 DESCR_t rt_rk_byref_assign(DESCR_t *, int);
 }
 void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
-    static const struct { const char * nm; int ar; const char * sy; DESCR_t (*fp)(DESCR_t *, int); } t[] = {
+    static const struct { char nm[34]; int ar; char sy[34]; DESCR_t (*fp)(DESCR_t *, int); } t[] = {
         { "$clause_unify", 2, "rt_pl_dop_clause_unify", rt_pl_dop_clause_unify },
         { "$throw", 1, "rt_pl_throw_raise", rt_pl_throw_raise }, { "$existence_error", 1, "rt_pl_exist_raise", rt_pl_exist_raise },
         { "$catch_handle", 1, "rt_pl_catch_handle", rt_pl_catch_handle },
@@ -6621,8 +6621,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "__rk_range_arr", 3, "rt_rk_range_arr", rt_rk_range_arr }, { "__rk_iter_src", 0, "rt_rk_iter_src", rt_rk_iter_src }, { "__rk_iter_src", 1, "rt_rk_iter_src", rt_rk_iter_src },
         { "__rk_map_append", 2, "rt_rk_map_append", rt_rk_map_append }, { "__rk_grep_append", 2, "rt_rk_grep_append", rt_rk_grep_append },
         { "__rk_byref_assign", 2, "rt_rk_byref_assign", rt_rk_byref_assign },
-        { 0, 0, 0, 0 } };
-    for (int i = 0; t[i].nm; i++) if (!strcmp(fn, t[i].nm) && (t[i].ar < 0 ? narg >= 1 : narg == t[i].ar)) {
+        { "", 0, "", 0 } };
+    for (int i = 0; t[i].nm[0]; i++) if (!strcmp(fn, t[i].nm) && (t[i].ar < 0 ? narg >= 1 : narg == t[i].ar)) {
         const char * nd = getenv("SCRIP_NO_DOP"); if (nd && nd[0] == '1') return (void *)0;
         const char * sk = getenv("SCRIP_DOP_SKIP"); if (sk && sk[0] && strstr(sk, t[i].nm + 1)) return (void *)0;
         *sym = t[i].sy; return (void *)(uintptr_t)t[i].fp;

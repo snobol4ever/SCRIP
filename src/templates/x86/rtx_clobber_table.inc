@@ -1,4 +1,4 @@
-static const struct { const char * sym; unsigned mask; } rtx_clob_tab[] = {
+static const struct { char sym[34]; unsigned mask; } rtx_clob_tab[] = {
     { "VARVAL_fn", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "core_icn_int_operand_ok", 0 },
     { "dat_field_get", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
