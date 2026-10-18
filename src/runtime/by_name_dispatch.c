@@ -4846,6 +4846,10 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm) return icn_call_value_not_invocable(callee, argv, n);
+    if (!IS_PROCVAL_fn(callee)) {
+        const char *op = icn_opproc_find(nm, n);
+        if (op && !icn_opproc_assigns(op)) { callee = (DESCR_t){0}; callee.v = DT_E; callee.slen = 0xFFFFFFFEu; callee.s = (char *)op; nm = op; }
+    }
     if (IS_PROCVAL_fn(callee)) icn_opproc_fit(nm, &argv, &n);
     icn_call_value_deref_args(nm, argv, n);
     if (IS_PROCVAL_EXTERNAL_fn(callee)) { extern DESCR_t rt_extfn_invoke(DESCR_t, DESCR_t *, int); return rt_extfn_invoke(callee, argv, n); }
@@ -4892,6 +4896,10 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm) return icn_call_value_not_invocable(callee, argv, n);
+    if (!IS_PROCVAL_fn(callee)) {
+        const char *op = icn_opproc_find(nm, n);
+        if (op && !icn_opproc_assigns(op)) { callee = (DESCR_t){0}; callee.v = DT_E; callee.slen = 0xFFFFFFFEu; callee.s = (char *)op; nm = op; }
+    }
     if (IS_PROCVAL_fn(callee)) icn_opproc_fit(nm, &argv, &n);
     icn_call_value_deref_args(nm, argv, n);
     if (IS_PROCVAL_EXTERNAL_fn(callee)) { extern DESCR_t rt_extfn_invoke(DESCR_t, DESCR_t *, int); return rt_extfn_invoke(callee, argv, n); }
