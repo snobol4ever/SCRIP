@@ -2573,10 +2573,10 @@ inline std::string x86_pair_loop() {
     for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
         if (MEDIUM_BINARY) {
             if (XA_PAIR(i).define) { r += (char)'E'; r += x86_pair_idx_bytes(i); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA, XA_PAIR(i).define->name); }
-            if (XA_PAIR(i).jmp) { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(i); }
+            if (XA_PAIR(i).jmp) { if (g_emit_cfg && g_emit_cfg->icn_cells_graph) r += x86_port_hook(X86H_JMP, X86P_GAMMA); r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(i); }
         } else {
             if (XA_PAIR(i).define) { r += emit_fmt("%s:\n", XA_PAIR(i).define->name); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA, XA_PAIR(i).define->name); }
-            if (XA_PAIR(i).jmp) r += x86_rec("jmp") + XA_PAIR(i).jmp->name + "\n";
+            if (XA_PAIR(i).jmp) { if (g_emit_cfg && g_emit_cfg->icn_cells_graph) r += x86_port_hook(X86H_JMP, X86P_GAMMA); r += x86_rec("jmp") + XA_PAIR(i).jmp->name + "\n"; }
         }
     }
     return r;

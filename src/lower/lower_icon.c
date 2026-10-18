@@ -2429,6 +2429,7 @@ static IR_t * lower_seq_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
             if (t->t == TT_SEQ_EXPR && S[i]->line > 0) {
                 IR_t * se = succ;
                 se = cx->want_lines ? icn_line_hook(cx, S[i]->line, se) : icn_line_mark(cx, S[i]->line, se);
+                bb_src_note(se, "stmt", (int) S[i]->line);
                 se = icn_trace_stmt_wrap(cx, S[i]->line, se, ω);
                 if (succ == ent[i]) ent[i] = se;
                 succ = se;
@@ -3032,7 +3033,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
         IR_t * entry = lower(cx, s, succ, fail, &r);
         if (r && r->γ.node == succ) lc_γ_to(r, succ);
         if (entry && ir_is_generator_kind(entry->op)) { IR_t * tramp = IR_node_alloc(g, IR_GOTO); lc_γ_to(tramp, entry); lc_ω_to(tramp, entry); entry = tramp; }
-        if (entry && sline > 0) entry = (cx->want_lines || i == 0) ? icn_line_hook(cx, sline, entry) : icn_line_mark(cx, sline, entry);
+        if (entry && sline > 0) { entry = (cx->want_lines || i == 0) ? icn_line_hook(cx, sline, entry) : icn_line_mark(cx, sline, entry); bb_src_note(entry, "stmt", sline); }
         if (entry && sline > 0 && s->t != TT_LOCAL && s->t != TT_STATIC_DECL && s->t != TT_INITIAL && !(s->t == TT_IF && s->v.ival == ICN_IF_FROM_INITIAL)) entry =
             icn_trace_stmt_wrap(cx, sline, entry, PFAIL);
         succ = entry;
