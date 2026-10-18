@@ -68,6 +68,9 @@ struct g_emitter_t {
     const unsigned char * g_zd_on_cur = NULL;
     const unsigned char * g_zd_plan_on = NULL;
     IR_t ** g_zd_plan_nodes = NULL;
+    const int * g_zd_zarm_p = 0;
+    IR_t ** g_zd_zarm_nodes = NULL;
+    int g_zd_zarm_n = 0;
     int g_zd_plan_n = 0;
     int g_zd_n_cur = 0;
     std::unordered_set<std::string> g_port_exit_promoting_labels;
