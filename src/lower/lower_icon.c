@@ -2429,7 +2429,7 @@ static IR_t * lower_seq_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
             if (t->t == TT_SEQ_EXPR && S[i]->line > 0) {
                 IR_t * se = succ;
                 se = cx->want_lines ? icn_line_hook(cx, S[i]->line, se) : icn_line_mark(cx, S[i]->line, se);
-                bb_src_note(se, "stmt", (int) S[i]->line);
+                bb_src_note(se, i == 0 ? "nstmt" : "stmt", (int) S[i]->line);
                 se = icn_trace_stmt_wrap(cx, S[i]->line, se, ω);
                 if (succ == ent[i]) ent[i] = se;
                 succ = se;

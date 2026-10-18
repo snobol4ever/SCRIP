@@ -3494,6 +3494,8 @@ static int zst_s_of(const IR_t * nd);
 static int zd_k_own(IR_t * nd);
 static int zd_icn_suspend(const IR_t * nd) { return nd && nd->op == IR_SUSPEND && g_emit_cfg && g_emit_cfg->icn_cells_graph; }
 static int zd_icn_stmt_head(const IR_t * nd) { extern const char * bb_src_of(const IR_t *); const char * s = (nd && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? bb_src_of(nd) : (const char *)0;
+    return (s && (!strcmp(s, "stmt") || !strcmp(s, "nstmt"))) ? 1 : 0; }
+static int zd_icn_stmt_sibling(const IR_t * nd) { extern const char * bb_src_of(const IR_t *); const char * s = (nd && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? bb_src_of(nd) : (const char *)0;
     return (s && !strcmp(s, "stmt")) ? 1 : 0; }
 static int zd_k(IR_t * nd) { return zd_k_own(nd) + zst_s_of(nd); }
 static int zd_k_own(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO) return 16; if (zd_icn_local_var(nd)) return 0; if (zd_icn_suspend(nd)) return 0; if (op == IR_TO) return 32;
@@ -3737,7 +3739,7 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
                 if (q < 0 || rpo[q] <= rpo[h]) continue;
                 if (stmtg) { base[q] = 0; known[q] = 1; continue; }
                 int c = base[h] + l - (zout[q] - zd_k(nodes[q]));
-                if (zd_icn_stmt_head(nodes[q]) && zd_icn_stmt_head(nodes[h])) c = base[h];
+                if (zd_icn_stmt_sibling(nodes[q]) && zd_icn_stmt_head(nodes[h])) c = base[h];
                 if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-BASES] h=%d i=%d e=%d q=%d l=%d c=%d known=%d base=%d\n", h, i, e, q, l, c, known[q], base[q]);
                 if (known[q] && ((g_emit_cfg && g_emit_cfg->icn_cells_graph) ? c >= base[q] : c <= base[q])) continue;
                 base[q] = c;
@@ -4183,9 +4185,9 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         if (qo >= 0 && zon[qo] && claim[qo] == claim[i] && qo != i && port_sz_beta(zd_edge_sz(nodes[i], 1))) zwpop[i] = zout[i] - zd_k(nodes[i]) - zout[qo];
         if (q >= 0 && zon[q] && claim[q] != claim[i] && nodes[q]->op == IR_DISJUNCTION) zgpop[i] = zout[i];
     }
+    int * base = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
+    unsigned char * known = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
     {
-        int * base = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-        unsigned char * known = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
         int * aof = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
         zd_pl_bases(nodes, n, zon, zout, zgpop, zwpop, claim, base, known, aof, (int *)0);
         for (int i = 0; i < n; i++) {
@@ -4254,8 +4256,9 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 if (p >= 0 && p != q && !zd_icn_chain_step_ok(nodes, n, p, q)) p = -1;
                 int to = q;
                 if (p >= 0 && p != q) { to = p; if (zchn) zchn[2 * i + v] = p; }
-                if (v) zwpop[i] = (zout[i] - zd_k(nodes[i])) - zout[to];
-                else zgpop[i] = zout[i] - zout[to];
+                int xb = (claim[i] != claim[to] && claim[i] >= 0 && claim[to] >= 0 && known[claim[i]] && known[claim[to]]) ? base[claim[i]] - base[claim[to]] : 0;
+                if (v) zwpop[i] = (zout[i] - zd_k(nodes[i])) - zout[to] + xb;
+                else zgpop[i] = zout[i] - zout[to] + xb;
                 for (int c = p, g3 = 0; c >= 0 && c != q && g3++ <= n; c = zd_pred_bt(nodes, n, claim, claim[i], c)) {
                     int pc = zd_pred_bt(nodes, n, claim, claim[i], c);
                     int stop = (pc >= 0 && pc != q && !zd_icn_chain_step_ok(nodes, n, pc, q));
@@ -4296,9 +4299,10 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 if (q < 0 || !zon[q]) continue;
                 if (nodes[q]->op != IR_DISJUNCTION || !zd_dj_anc(zarm, i, q)) {
                     if (zarm[q] == zarm[i] && zarmj[q] == zarmj[i]) continue;
-                    int ent = zout[q] - zd_k(nodes[q]);
-                    if (v) zwpop[i] = (zout[i] - zd_k(nodes[i])) - ent;
-                    else zgpop[i] = zout[i] - ent;
+                    int ent = port_sz_beta(zd_edge_sz(nodes[i], v)) ? zout[q] : zout[q] - zd_k(nodes[q]);
+                    int xb = (claim[i] != claim[q] && claim[i] >= 0 && claim[q] >= 0 && known[claim[i]] && known[claim[q]]) ? base[claim[i]] - base[claim[q]] : 0;
+                    if (v) zwpop[i] = (zout[i] - zd_k(nodes[i])) - ent + xb;
+                    else zgpop[i] = zout[i] - ent + xb;
                     continue;
                 }
                 if (v) { if (!zdj_on) zwpop[i] = (zout[i] - zd_k(nodes[i])) - zout[q]; continue; }
