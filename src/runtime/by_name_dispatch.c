@@ -23730,9 +23730,17 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
         DESCR_t x = rt_pl_deref_val(a[0]), s = rt_pl_deref_val(a[4]);
         if (pl_iso_unbound(x)) return rt_pl_ball_instantiation();
         if (!pl_anum_is_text(x)) return rt_pl_ball_kind2("type_error", "atom", x);
-        for (int i = 1; i <= 3; i++) { DESCR_t v = rt_pl_deref_val(a[i]); if (!pl_iso_unbound(v) && v.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", v); }
+        for (int i = 1; i <= 3; i++) { DESCR_t v = rt_pl_deref_val(a[i]); if (!pl_iso_unbound(v) && v.v != DT_I && v.v != DT_BIG) return rt_pl_ball_kind2("type_error", "integer", v); }
         if (!pl_iso_unbound(s) && !pl_anum_is_text(s)) return rt_pl_ball_kind2("type_error", "atom", s);
-        for (int i = 1; i <= 3; i++) { DESCR_t v = rt_pl_deref_val(a[i]); if (v.v == DT_I && v.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", v); }
+        for (int i = 1; i <= 3; i++) {
+            DESCR_t v = rt_pl_deref_val(a[i]);
+            if (v.v == DT_I ? v.i < 0 : v.v == DT_BIG && pl_anum_big_sign(v) < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", v);
+        }
+        for (int i = 1; i <= 3; i++) {
+            extern int rt_big_limbs(DESCR_t);
+            DESCR_t v = rt_pl_deref_val(a[i]);
+            if (v.v == DT_BIG && rt_big_limbs(v) > 2) { extern void *rt_pl_ball_kind1(const char *, const char *); return rt_pl_ball_kind1("representation_error", "size_t"); }
+        }
         return (void *)0;
     }
     if (!strcmp(nm, "arg") && n == 3) {
