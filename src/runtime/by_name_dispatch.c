@@ -6724,9 +6724,52 @@ static int pl_parse_rational(const char *s, DESCR_t *out) {
     b[k] = 0;
     { DESCR_t v = pl_rat_parse(b); if (v.v == DT_FAIL) return 0; *out = v; return 1; }
 }
+static int pl_nd_zero(unsigned c) {
+    const unsigned nd[] = { 0x660, 0x6F0, 0x7C0, 0x966, 0x9E6, 0xA66, 0xAE6, 0xB66, 0xBE6, 0xC66, 0xCE6, 0xD66, 0xDE6, 0xE50, 0xED0, 0xF20, 0x1040, 0x1090, 0x17E0, 0x1810, 0x1946, 0x19D0, 0x1A80,
+        0x1A90, 0x1B50, 0x1BB0, 0x1C40, 0x1C50, 0xA620, 0xA8D0, 0xA900, 0xA9D0, 0xA9F0, 0xAA50, 0xABF0, 0xFF10, 0x104A0, 0x1D7CE, 0x1D7D8, 0x1D7E2, 0x1D7EC, 0x1D7F6 };
+    for (size_t k = 0; k < sizeof nd / sizeof *nd; k++) if (c >= nd[k] && c < nd[k] + 10) return (int)nd[k];
+    return -1;
+}
+static int pl_digits_to_ascii(const char *s, char *b) {
+    const unsigned char *q = (const unsigned char *)s;
+    int zero = -1, ascii = 0, wide = 0;
+    size_t k = 0;
+    while (*q) {
+        unsigned c = *q;
+        int n = c < 0x80 ? 1 : c < 0xE0 ? 2 : c < 0xF0 ? 3 : 4;
+        if (n > 1) {
+            c &= n == 2 ? 0x1F : n == 3 ? 0x0F : 0x07;
+            for (int i = 1; i < n; i++) { if ((q[i] & 0xC0) != 0x80) return 0; c = (c << 6) | (q[i] & 0x3F); }
+            int z = pl_nd_zero(c);
+            if (z < 0 || (zero >= 0 && z != zero)) return 0;
+            zero = z;
+            wide = 1;
+            b[k++] = (char)('0' + (c - (unsigned)z));
+        } else {
+            if (c >= '0' && c <= '9') ascii = 1;
+            if (!strchr("0123456789._eEr+-", (int)c)) return 0;
+            b[k++] = (char)c;
+        }
+        q += n;
+    }
+    b[k] = 0;
+    return wide && !ascii;
+}
+static int pl_digit_groups(const char *s, char *b) {
+    const char *q = s + (*s == '-' || *s == '+');
+    size_t k = 0;
+    int groups = 0;
+    if (q != s) b[k++] = *s;
+    if (*q < '0' || *q > '9') return 0;
+    for (; *q; q++) { if (*q >= '0' && *q <= '9') { b[k++] = *q; continue; } if (*q == '_' && q[-1] >= '0' && q[-1] <= '9' && q[1] >= '0' && q[1] <= '9') { groups = 1; continue; } return 0; }
+    b[k] = 0;
+    return groups;
+}
 static int pl_parse_number(const char *s, DESCR_t *out) {
     char *e = 0;
     if (!s) return 0;
+    if (strchr(s, '_') && !pl_gnu_dialect()) { char b[strlen(s) + 1]; if (pl_digit_groups(s, b)) return pl_parse_number(b, out); }
+    for (const char *w = s; *w; w++) { if (!((unsigned char)*w & 0x80)) continue; char b[strlen(s) + 1]; return pl_digits_to_ascii(s, b) && pl_parse_number(b, out); }
     if (pl_parse_rational(s, out)) return 1;
     {
         const char *p = pl_skip_layout(s);
