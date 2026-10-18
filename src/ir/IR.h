@@ -243,6 +243,7 @@ struct IR_graph_t {
     int zframe_graph;
     int entry_frame;
     int smx;
+    int cell_frame;
     int root_graph;
     int standing_cells;
     int runtime_fragment_graph;

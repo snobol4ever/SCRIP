@@ -35,7 +35,7 @@ void rt_gen_spine_resume_enter(void);
 #define cv_is_goal() (_.op_sval && strcmp(_.op_sval, "goal") == 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define cv_pl_proto() (cv_is_goal() && x86_resumable_frame())
-#define cv_icn() (!cv_is_goal() && g_emit_cfg && 0)
+#define cv_icn() (!cv_is_goal() && g_emit_cfg && g_emit_cfg->cell_frame)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define cv_lvl_add(d) (x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p") \
            + x86("mov", "rax", RDQ("rax", 0)) \

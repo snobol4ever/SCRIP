@@ -236,14 +236,14 @@ static int zls_act_kind(const IR_graph_t * g, const IR_t * nd) {
     return ZK_RAW;
 }
 static int zls_act8_kind(const IR_graph_t * g, const IR_t * nd) {
-    if (g && 0) return (nd->op == IR_PROC_GEN || nd->op == IR_CALL_PROC_STAGED || nd->op == IR_CALL_VALUE) ? ZK_PTR_FRAME_H : ZK_RAW;
+    if (g && g->cell_frame) return (nd->op == IR_PROC_GEN || nd->op == IR_CALL_PROC_STAGED || nd->op == IR_CALL_VALUE) ? ZK_PTR_FRAME_H : ZK_RAW;
     return ZK_PTR_CODE;
 }
 static int zls_g_pinned_frame(const IR_graph_t * g);
 static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
     switch (ir_kind0(nd)) {
         case IR_TO_BY:
-        if (g && 0) {
+        if (g && g->cell_frame) {
             zls_field(scope_id, off, 16, ZK_DESCR, 0, "toby.cur (the running value, a copy of from)", nd);
             zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "toby.to (a copy of the limit operand)", nd);
             zls_field(scope_id, off + 32, 16, ZK_DESCR, 0, "toby.by (a copy of the step operand)", nd);
@@ -1430,7 +1430,7 @@ void zls_build(IR_graph_t * g) {
             k++;
         }
     }
-    if (g->zframe_graph && !0 && g->decl_level == 3) {
+    if (g->zframe_graph && !g->cell_frame && g->decl_level == 3) {
         for (int _pdl = 4; _pdl <= 16; _pdl++) {
             const char * nm = zls_pas_display_name(_pdl);
             cv_reserve(&g_lower.ir.zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)g_lower.ir.zv_n + 1, "zv");
@@ -1746,17 +1746,17 @@ int zls_node_bytes(const IR_t * nd) {
 int zls_scope_of(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->scope_id : -1; }
 int zls_g_nslots(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->nslots : -1; }
 int zls_g_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->region : -1; }
-int zls_g_resumable_frame(const IR_graph_t * g) { if (!g || !g->zframe_graph) return 0; return (g->resumable_callable || g->root_graph) ? 1 : 0; }
+int zls_g_resumable_frame(const IR_graph_t * g) { if (!g || !g->zframe_graph || g->cell_frame) return 0; return (g->resumable_callable || g->root_graph) ? 1 : 0; }
 static int zls_g_pinned_frame(const IR_graph_t * g) { return zls_g_resumable_frame(g); }
-int zls_g_det_block(const IR_graph_t * g) { return (g && g->static_calls && g->zframe_graph && !zls_g_resumable_frame(g) && !0 && !g->root_graph) ? 1 : 0; }
+int zls_g_det_block(const IR_graph_t * g) { return (g && g->static_calls && g->zframe_graph && !zls_g_resumable_frame(g) && !g->cell_frame && !g->root_graph) ? 1 : 0; }
 int zls_g_block_args(const IR_graph_t * g) {
-    if (g && 0 && !g->root_graph) return 1;
-    if (!g || !g->zframe_graph || 0) return 0;
+    if (g && g->cell_frame && !g->root_graph) return 1;
+    if (!g || !g->zframe_graph || g->cell_frame) return 0;
     if (zls_g_resumable_frame(g)) return 1;
     if (zls_g_det_block(g)) return 1;
     return (g->block_args && !g->root_graph && g->nlocals == 0 && g->nparams <= 12) ? 1 : 0;
 }
-int zls_g_entry_block(const IR_graph_t * g) { return (zls_g_pinned_frame(g) || (g && 0 && !g->root_graph)) ? 1 : 0; }
+int zls_g_entry_block(const IR_graph_t * g) { return (zls_g_pinned_frame(g) || (g && g->cell_frame && !g->root_graph)) ? 1 : 0; }
 int zls_g_frame_bytes(const IR_graph_t * g) {
     zls_graph_t * r = zls_g_find(g);
     int region = r ? r->region : 0;
@@ -1766,7 +1766,7 @@ int zls_g_frame_bytes(const IR_graph_t * g) {
 int zls_g_has_suspend(const IR_graph_t * g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }
 int zls_g_block_base(const IR_graph_t * g) {
     if (!zls_g_block_args(g)) return -1;
-    if (!0) return zls_g_frame_bytes(g);
+    if (!g->cell_frame) return zls_g_frame_bytes(g);
     { int ft = zls_g_frame_bytes(g) + (g->nparams + g->nlocals) * 16; return zls_g_has_suspend(g) ? ((ft + 15) & ~15) + 72 : ft; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2326,7 +2326,7 @@ void fl_derive_tier(IR_graph_t * g) {
             break;
         }
     }
-    if (0) return;
+    if (g->cell_frame) return;
     if (statements || (matchers > 0 && others == 0)) return;
     g->zframe_graph = 1;
 }

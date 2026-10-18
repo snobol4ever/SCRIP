@@ -136,10 +136,10 @@ static void n2_fb_prepass_register(const stage2_t *s2) {
         if (!pn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) continue;
         IR_graph_t *g = s2->bbp.table[gi];
         {
-            int _zfA = (g->zframe_graph && !0);
+            int _zfA = (g->zframe_graph && !g->cell_frame);
             int _fp = _zfA ? 0 : (g->nparams + g->nlocals) * 16;
             if (getenv("SCRIP_N2_FT_PROBE"))
-                fprintf(stderr, "[N2-PREPASS] proc=%-14s np=%-3d nl=%-3d zframeA=%d icncells=%d rg=%-5d fp=%-5d ft=%d\n", pn, g->nparams, g->nlocals, _zfA, 0, g->jcon_value_region, _fp,
+                fprintf(stderr, "[N2-PREPASS] proc=%-14s np=%-3d nl=%-3d zframeA=%d icncells=%d rg=%-5d fp=%-5d ft=%d\n", pn, g->nparams, g->nlocals, _zfA, g->cell_frame, g->jcon_value_region, _fp,
                 ((32 + g->jcon_value_region + 15) & ~15) + _fp + 16);
             emit_patzeta_register(pn, g->jcon_value_region, _fp, 0);
         }
@@ -653,7 +653,7 @@ static char **g_prog_argv = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_register_locals(const char *pname, IR_graph_t *g);
 static int icn_main_callable(const stage2_t *s2, const IR_graph_t *g) {
-    if (!g || !0) return 0;
+    if (!g || !g->cell_frame) return 0;
     for (int i = 0; i < s2->proc_count; i++) if (s2->proc_table[i].name && !strcmp(s2->proc_table[i].name, "main")) return s2->proc_table[i].is_generator ? 0 : 1;
     return 0;
 }
@@ -680,7 +680,7 @@ static void drive_slots_all(stage2_t * s2) {
     for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) {
         IR_graph_t * _g = s2->bbp.table[_gi];
         fl_derive_tier(_g);
-        if (_gi == _mx && !0 && !_g->root_graph) _g->zframe_graph = _g->entry_frame ? 1 : 0;
+        if (_gi == _mx && !_g->cell_frame && !_g->root_graph) _g->zframe_graph = _g->entry_frame ? 1 : 0;
         ir_drive_slot_assign(_g);
     }
 }
@@ -1351,7 +1351,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
         {
             int _mx = polyglot_main_bb_idx(s2);
             IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0;
-            if (_rg && !0) _rg = (IR_graph_t *)0;
+            if (_rg && !_rg->cell_frame) _rg = (IR_graph_t *)0;
             if (_rg && ((_rg->lnames && _rg->nlocals > 0) || (_rg->pnames && _rg->nparams > 0))) {
                 emit_textf("  .section .data.rel.ro,\"aw\",@progbits\n  .Lstartup_rootnm: .string \"main\"\n");
                 m4_icn_name_tables_data(9000, _rg);
@@ -1593,12 +1593,12 @@ static int m4_icn_meta_present(stage2_t *s2) {
     extern int rt_icn_global_count(void);
     int _mx = polyglot_main_bb_idx(s2);
     IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0;
-    if (_rg && 0 && ((_rg->lnames && _rg->nlocals > 0) || rt_icn_global_count() > 0)) return 1;
+    if (_rg && _rg->cell_frame && ((_rg->lnames && _rg->nlocals > 0) || rt_icn_global_count() > 0)) return 1;
     return 0;
 }
 static int m4_icn_name_tables_data(int i, IR_graph_t *g) {
     extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
-    if (!g || !0) return 0;
+    if (!g || !g->cell_frame) return 0;
     int has_p = (g->pnames && g->nparams > 0);
     if (has_p) {
         for (int k = 0; k < g->nparams; k++) {
@@ -1632,7 +1632,7 @@ static int m4_icn_name_tables_data(int i, IR_graph_t *g) {
     return has_p;
 }
 static void m4_icn_name_tables_calls(int i, const char *namelbl, IR_graph_t *g) {
-    if (!g || !0) return;
+    if (!g || !g->cell_frame) return;
     int hp = (g->pnames && g->nparams > 0), hl = (g->lnames && g->nlocals > 0);
     if (!hp && !hl) return;
     emit_textf("  lea rdi, [rip + %s]\n", namelbl);
@@ -2641,13 +2641,13 @@ int main(int argc, char **argv) {
                 "  mov rdi, qword ptr [rsp]\n  mov rdi, qword ptr [rdi]\n  call rt_main_progname_stage@PLT\n  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  "
                 "call rt_main_args_stage_argv@PLT\n");
             if (bbg->nparams >= 1) emit_textf("  call rt_main_args_bind@PLT\n");
-            int _pl_root = (bbg->zframe_graph && !0 && bbg->root_graph) ? 1 : 0;
+            int _pl_root = (bbg->zframe_graph && !bbg->cell_frame && bbg->root_graph) ? 1 : 0;
             if (!_pl_root) emit_textf("  mov r12, qword ptr [0x70000000]\n");
-            if (bbg->zframe_graph && !0) emit_textf("  call rt_gcheap_warmup@PLT\n  mov rdi, rsp\n  call rt_program_top_adopt_top@PLT\n");
+            if (bbg->zframe_graph && !bbg->cell_frame) emit_textf("  call rt_gcheap_warmup@PLT\n  mov rdi, rsp\n  call rt_program_top_adopt_top@PLT\n");
             { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
-            if (!(bbg->zframe_graph && !0)) emit_textf("  lea rdi, [rsp - 16]\n  call rt_program_top_adopt@PLT\n");
+            if (!(bbg->zframe_graph && !bbg->cell_frame)) emit_textf("  lea rdi, [rsp - 16]\n  call rt_program_top_adopt@PLT\n");
             emit_textf("  xor esi, esi\n");
-            if (bbg->zframe_graph && !0) {
+            if (bbg->zframe_graph && !bbg->cell_frame) {
                 if (!_pl_root) emit_textf("  xor r14d, r14d\n");
                 emit_textf("  lea rcx, [rip + .Lmain_zf_γ]\n");
                 emit_textf("  lea rdx, [rip + .Lmain_zf_ω]\n");
@@ -2657,7 +2657,7 @@ int main(int argc, char **argv) {
                 else emit_textf(".Lmain_zf_ω:\n  and rsp, -16\n  mov edi, 1\n  call exit@PLT\n");
             } else {
                 emit_textf("  xor r14d, r14d\n");
-                if (0) {
+                if (bbg->cell_frame) {
                     emit_textf("  .pushsection .rodata\n.Lscan_nil:  .byte 0\n  .popsection\n  lea r13, [rip + .Lscan_nil]\n  xor r15d, r15d\n");
                     emit_textf("  mov rax, qword ptr [rip + rt_k_level_p@GOTPCREL]\n  mov rax, qword ptr [rax]\n  mov dword ptr [rax], 0\n");
                     emit_textf("  lea rax, [rip + .Lmain_icn_end]\n  push rax\n  push rax\n");
@@ -2911,8 +2911,8 @@ int main(int argc, char **argv) {
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             g_frame_active = 0;
             if (!fn) { fprintf(stderr, "[IBB] FATAL: mode-3 driver: emit_chain returned NULL — BB template(s) lack MEDIUM_BINARY arm\n"); abort(); }
-            int _nparams = bbg->nparams, _zframe_graph = bbg->zframe_graph, _icn_cells_graph = 0;
-            int _pl_root = (bbg->zframe_graph && !0 && bbg->root_graph) ? 1 : 0;
+            int _nparams = bbg->nparams, _zframe_graph = bbg->zframe_graph, _icn_cells_graph = bbg->cell_frame;
+            int _pl_root = (bbg->zframe_graph && !bbg->cell_frame && bbg->root_graph) ? 1 : 0;
             ir_delete_all(s2);
             void *mf = NULL;
             { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }

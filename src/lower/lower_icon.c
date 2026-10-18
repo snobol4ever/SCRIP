@@ -3041,6 +3041,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     }
     g->entry = icn_trace_call_wrap(cx, cx->pname, succ, PFAIL);
     if (cx->pname && !strcmp(cx->pname, "main")) { IR_t * qt = build(cx, IR_CALL, g->entry, g->entry); IR_LIT(qt).sval = (char *) "$quit_trap_300"; g->entry = qt; }
+    g->cell_frame = 1;
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3274,6 +3275,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     cx.g = g;
     IR_t * s = build(&cx, IR_SUCCEED, 0, 0);
     g->entry = s;
+    g->cell_frame = 1;
     return g;
 }
 #include "bb_program.h"
@@ -3475,7 +3477,7 @@ void lower_icon_resolve_call_kinds(void) {
     { extern void rt_icn_global_note(const char *); for (int _pi = 0; _pi < g_stage2.proc_count; _pi++) if (g_stage2.proc_table[_pi].name) rt_icn_global_note(g_stage2.proc_table[_pi].name); }
     for (int gi = 0; gi < g_stage2.bbp.count; gi++) {
         IR_graph_t * g = g_stage2.bbp.table[gi];
-        if (!g || !0) continue;
+        if (!g || !g->cell_frame) continue;
         for (int i = 0; i < g->n; i++) {
             IR_t * nd = g->all[i];
             if (!nd || nd->op != IR_CALL) continue;

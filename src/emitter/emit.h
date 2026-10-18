@@ -436,6 +436,7 @@ typedef struct {
     int flat_pat;
     int flat_lex;
     int flat_gen;
+    int frame_retained;
     int frame_region;
     int flat_carve_total;
     int flat_frame_bytes;

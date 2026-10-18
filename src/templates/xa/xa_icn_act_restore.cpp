@@ -20,5 +20,5 @@ std::string icn_landing_line_restore(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int xa_icn_block_size(void) {
-    return (g_emit_cfg && 0 && zls_g_block_args(g_emit_cfg)) ? 16 * g_emit_cfg->nparams : 0;
+    return (g_emit_cfg && g_emit_cfg->cell_frame && zls_g_block_args(g_emit_cfg)) ? 16 * g_emit_cfg->nparams : 0;
 }

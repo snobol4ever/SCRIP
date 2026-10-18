@@ -2773,6 +2773,7 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
     IR_t * fail = IR_node_alloc(g, IR_FAIL);
     int rk_gen = rk_proc_is_generator(rk_proc_name);
     IR_t * fall = rk_gen ? build(&cx, IR_GOTO, fail, fail) : build(&cx, IR_RETURN, succ, fail);
+    if (rk_gen) g->cell_frame = 1;
     IR_t * sentry = fall;
     IR_t * entry = fall;
     cx.proc_exit = succ;

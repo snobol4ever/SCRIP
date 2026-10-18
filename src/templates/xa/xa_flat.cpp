@@ -102,7 +102,7 @@ static std::string xa_flat_dc_stub_str(void) {
             + x86("ret");
         return zs;
     }
-    if (g_emit.zframe_graph || (g_emit_cfg && 0 && g_emit.flat_lcl_proc)) {
+    if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)) {
         static const char * const dcarg4[4] = { "rsi", "rdx", "rcx", "r8" };
         bool need_align_pad = (np > 0) && (np % 2 == 1);
         std::string zs = x86("comment", "ICN-FR-3 zframe dc stub: stage args, jmp proc_f_α≡0 with wire shims")
@@ -121,7 +121,7 @@ static std::string xa_flat_dc_stub_str(void) {
            + x86_rt_gc_poll();
         }
         if (push_bytes > 0) zs += x86("add", "rsp", (long)push_bytes);
-        if (icn_wire_stack_on() && g_emit_cfg && 0 && g_emit.flat_lcl_proc) {
+        if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) {
             zs += x86_lea_id("rcx", 3) + x86("push", "rcx")
                 + x86_lea_id("rcx", 2) + x86("push", "rcx")
                 + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
@@ -665,8 +665,8 @@ const char * xa_icn_trace_pname(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!xa_flat_class_zf()) return std::string();
-    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && 0 && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
-    if (g_emit.flat_gen && g_emit_cfg && 0 && g_emit.flat_lcl_proc) {
+    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
+    if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) {
         return x86("comment", "Z-3 γ-RETAIN cells-arm generator: marshal rax:rdx→rdi:rsi; load γ wire; NO unwind (frame survives for β); gen____→rax; jmp γ wire")
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
@@ -675,7 +675,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("jmp", "rcx");
     }
     extern int xa_icn_block_size(void);
-    if (icn_wire_stack_on() && g_emit_cfg && 0 && g_emit.flat_lcl_proc)
+    if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)
         return xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0, 16)
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
@@ -781,9 +781,9 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!xa_flat_class_zf()) return std::string();
-    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && 0 && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
+    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
     extern int xa_icn_block_size(void);
-    if (icn_wire_stack_on() && g_emit_cfg && 0 && g_emit.flat_lcl_proc)
+    if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc)
         return xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0, 16)
              + x86("push", "rax")
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")

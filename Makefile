@@ -978,6 +978,7 @@ test-sequential: scrip parsers  # ⛔⭐ THE DECLARATION OF THE BLOCKING SET, AN
 	bash ../harness/scripts/test_gate_template_medium_invisible.sh
 	bash ../harness/scripts/test_gate_template_watch_names_a_planted_violation_by_commit.sh   # ~9s MEASURED 2026-09-27 at load 19 (hq_templates, CEO-1321), needs no build: the watch loop's instrument, audit_template_watch.sh, names the commit, the rule class and the seat of a violation planted in a scratch clone (a clean template gone dirty, a dirty one risen), names two neutral touches as touched and never RAISED, reads rc 0 over a neutral-only range, and refuses rc 2 on an unreadable or non-ancestor base. RED on a mutant watch that credits the first commit touching a file.
 	bash ../harness/scripts/test_gate_template_form_census_names_a_planted_two_form_box.sh   # ~3s MEASURED 2026-09-27 at load 10 (hq_templates, CEO-1321), needs no build: the form census, audit_template_forms.py, names a planted two-form box, its guard and the break-out, and a kind the emitter splits across two boxes; a census that stops seeing forms reds here
+	bash ../harness/scripts/test_gate_template_form_choices_outside_lower_only_fall.sh   # ~3s (ceo 2026-10-18, CEO-1840): the form census as a ratchet, 64 boxes / 10 kinds may only fall
 	bash ../harness/scripts/test_gate_template_returns_count_per_function.sh   # ~1s, needs no build: the returns_plus class counts per function (R4), fail-once TEMPLATE_RETURNS=<mutant> reads RED
 	bash ../harness/scripts/test_gate_corpus_coverage_classified.sh
 	bash ../harness/scripts/test_gate_pl_a_cut_redo_reaches_its_own_barrier.sh   # ~9s MEASURED 2026-09-25 at load 28 (hq_prolog, CEO-1266, WIRED BLOCKING IN THE LANDING THAT CURES IT): a cut in an if-then-else, soft-cut, disjunction or catch/3 arm cuts the clause only, and a nested cut leaves the arm's redo alive; one witness, six lines, both modes, byte-equal to gprolog. FAIL-ONCE: rc=139 SIGSEGV in m3 AND m4 on origin 62a21f70f
@@ -1896,7 +1897,8 @@ parsers: $(PARSER_LANGS:%=out/parser_%)
 # $define $undef $include $ifdef $ifndef $else $endif $line $error resolved to plain text on stdout, LPATH for includes; it inserts no semicolon, ever.
 out/scrip-ipp: $(SRC)/tools/ipp.icn scrip libscrip_rt
 	@mkdir -p $(OBJ) out
-	@if ./scrip --compile -o $(OBJ)/ipp.s $(SRC)/tools/ipp.icn < /dev/null; then $(CC) -m64 -no-pie $(OBJ)/ipp.s -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt -lm -lpthread -o $@; else rm -f $@; echo "⛔ out/scrip-ipp NOT BUILT: ipp.icn is an Icon program and every Icon compile aborts since the language flags were deleted (ceo CEO-1838, Lon 2026-10-18: DELETE those OUTRIGHT); scrip and the runtime are built; the tool returns when Icon compiles again"; fi
+	./scrip --compile -o $(OBJ)/ipp.s $(SRC)/tools/ipp.icn < /dev/null
+	$(CC) -m64 -no-pie $(OBJ)/ipp.s -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt -lm -lpthread -o $@
 out/parser_%: $(SRC)/tools/parser_main.c libscrip_rt
 	@mkdir -p $(OBJ) out
 	$(CC) $(CRT) -DPARSER_LANG_$(shell echo $* | tr a-z A-Z) -c $(SRC)/tools/parser_main.c -o $(OBJ)/parser_$*.o

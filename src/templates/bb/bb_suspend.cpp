@@ -17,7 +17,7 @@ std::string bb_suspend() {
                x86("comment", _.op_zres ? "IR_SUSPEND yield+resume [PL-ZK-2 ZD: ZOPQ->ZRES]" : "IR_SUSPEND yield+resume")
          + x86_alpha()
          + (_.op_sb >= 0 && _.lbl_t1_p ? x86_lea_tgt("rax", X86T_TGT1) + x86("mov", FRQ(_.op_sb), "rax") : std::string())
-         + (_.op_zres && g_emit_cfg && 0 ?
+         + (_.op_zres && g_emit_cfg && g_emit_cfg->cell_frame ?
                 x86("comment", "the value leaves the spine for the frame's result slot: the caller reads it through the handle, and the spine stays where the run left it for the resume")
               + x86("note", ZOPN(0))
               + x86("mov", "rax", ZOPQ(0, 0))

@@ -36,6 +36,7 @@ DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
 int zls_g_resume_by_name(const char *name);
 int zls_g_block_args(const IR_graph_t * g);
+int zls_g_resumable_frame(const IR_graph_t * g);
 int rt_proc_is_generator(const char *name);
 int rt_define_tiny_ok(const char *, int);
 int rt_define_returns_by_frame(const char *);
@@ -223,20 +224,20 @@ extern "C" int bb_proc_target_retains(const char *fname) {
         if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue;
         int bi = g_stage2.proc_table[i].bb_idx;
         IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0;
-        return (!cg || zls_g_resumable_frame(cg)) ? 1 : 0;
+        return (cg && zls_g_resumable_frame(cg)) ? 1 : 0;
     }
     return 0;
 }
 extern "C" int bb_proc_target_block_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
     || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
-        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && !zls_g_resumable_frame(cg) && zls_g_block_args(cg)) ? 1 : 0; } return 0; }
+        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && cg->cell_frame && zls_g_block_args(cg)) ? 1 : 0; } return 0; }
 extern "C" int bb_proc_target_icn_block(const char *fname, int *np, int *vari) {
     int i = 0;
     while (fname && i < g_stage2.proc_count && (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname))) i++;
     IR_graph_t * cg = (fname && i < g_stage2.proc_count && g_stage2.proc_table[i].bb_idx >= 0 && g_stage2.proc_table[i].bb_idx < g_stage2.bbp.count)
                     ? g_stage2.bbp.table[g_stage2.proc_table[i].bb_idx] : (IR_graph_t *)0;
-    if (cg && 0 && zls_g_block_args(cg)) { if (np) *np = cg->nparams; if (vari) *vari = g_stage2.proc_table[i].is_variadic; }
-    return (cg && 0 && zls_g_block_args(cg)) ? 1 : 0;
+    if (cg && cg->cell_frame && zls_g_block_args(cg)) { if (np) *np = cg->nparams; if (vari) *vari = g_stage2.proc_table[i].is_variadic; }
+    return (cg && cg->cell_frame && zls_g_block_args(cg)) ? 1 : 0;
 }
 extern "C" int bb_proc_target_zframe_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
     || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; return (bi >= 0 && bi < g_stage2.bbp.count
