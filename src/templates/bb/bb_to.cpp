@@ -21,8 +21,8 @@ std::string xa_to_trail_unwind();
 std::string xa_to_int_operand_guard(int slot);
 std::string xa_to_db_load_store();
 std::string xa_to_db_slot_addr();
-#define TO_BOMB1() (x86_fb_pinned() && _.op_num_real)
-#define TO_ZD_LIM() ((x86_fb_pinned() && _.op_to_trailed) ? 8 : 24)
+#define TO_BOMB1() (x86_pl_frame() && _.op_num_real)
+#define TO_ZD_LIM() ((x86_pl_frame() && _.op_to_trailed) ? 8 : 24)
 static std::string bb_to_db() {
     return x86("comment", "IR_TO db (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 B): the packet's slots in packet order, each visible at the generation G this enumeration took at alpha; "
                           "the store is reloaded from its root cell at every step (a collected object moves)")
@@ -71,10 +71,10 @@ static std::string bb_to_db() {
 std::string bb_to() {
     x86_begin();
     return IF(_.op_db_walk,
-               (x86_fb_pinned() && _.op_off >= 0 && _.op_sa >= 0)
+               (x86_pl_frame() && _.op_off >= 0 && _.op_sa >= 0)
                    ? bb_to_db()
                    : x86_alpha()
-                   + x86_bomb("IR_TO db: a packet enumeration outside a pinned Prolog frame or without static operands"))
+                   + x86_bomb("IR_TO db: a packet enumeration outside a Prolog frame or without static operands"))
          + IF(!_.op_db_walk && TO_BOMB1(),
                x86_alpha()
                    + x86_bomb("IR_TO: a real-valued Prolog enumeration has no trailed arm")

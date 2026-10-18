@@ -15,15 +15,15 @@ int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_mark() {
-    return IF(x86_fb_pinned() && _.op_to_trailed,
+    return IF(x86_pl_frame() && _.op_to_trailed,
                x86_pl_choice_mark(FRQ(_.op_off + 24), 245)
              + x86_pl_header_open(_.op_off + 24, _.op_off + 48));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_exhausted(const char * jcc_ok, int l_ok) {
-    return IF(!(x86_fb_pinned() && _.op_to_trailed),
+    return IF(!(x86_pl_frame() && _.op_to_trailed),
                std::string())
-         + IF(x86_fb_pinned() && _.op_to_trailed,
+         + IF(x86_pl_frame() && _.op_to_trailed,
                x86(jcc_ok, L(l_ok))
              + x86("note", "pl_choice_restore inline (D1): the enumeration is exhausted, so its header is no choice: B returns to the choice it found")
              + x86("mov", "r13", FRQ(_.op_off + 48))
@@ -32,9 +32,9 @@ std::string xa_to_trail_exhausted(const char * jcc_ok, int l_ok) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_last(int l_more) {
-    return IF(!(x86_fb_pinned() && _.op_to_trailed),
+    return IF(!(x86_pl_frame() && _.op_to_trailed),
                std::string())
-         + IF(x86_fb_pinned() && _.op_to_trailed,
+         + IF(x86_pl_frame() && _.op_to_trailed,
                x86("cmp", "rax", "rcx")
              + x86("jne", L(l_more))
              + x86("note", "pl_choice_restore inline (D1): the value going out is the enumeration's last, so its header is no choice: B returns to the choice it found, as swipl exits det")
@@ -43,9 +43,9 @@ std::string xa_to_trail_last(int l_more) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_unwind() {
-    return IF(!(x86_fb_pinned() && _.op_to_trailed),
+    return IF(!(x86_pl_frame() && _.op_to_trailed),
                std::string())
-         + IF(x86_fb_pinned() && _.op_to_trailed,
+         + IF(x86_pl_frame() && _.op_to_trailed,
                x86_pl_tr_unwind_at(FRQ(_.op_off + 24), 200, 201)
                + x86("test", "r15", "r15")
                + x86_omega("jne"));

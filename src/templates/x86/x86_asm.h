@@ -630,17 +630,14 @@ inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zr() { return "rsp"; }
 inline int x86_zr_num() { return 4; }
-inline int x86_fb_pinned() { return emit_zframe_pinned(); }
 inline int x86_pl_frame() { return emit_pl_frame(); }
-inline int icn_host_pinned() { return (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit_cfg->zframe_pinned_base && g_emit.flat_lcl_proc && !g_emit.flat_gen) ? 1 : 0; }
-inline int x86_fb_pinned_any() { return (x86_fb_pinned() || icn_host_pinned()) ? 1 : 0; }
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
 inline int x86_rsp_slide_known() { return 1; }
-inline int x86_frame_off(int off) { if (x86_fb_pinned()) return off; return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
-inline int x86_fb_num() { return (x86_fb_data() || x86_fb_pinned_any()) ? 5 : 4; }
-inline const char * x86_fb() { return x86_fb_num() == 5 ? "rbp" : "rsp"; }
+inline int x86_frame_off(int off) { return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
+inline int x86_fb_num() { return 4; }
+inline const char * x86_fb() { return "rsp"; }
 inline const char * x86_fr32_prefix() { return "dword ptr [rsp$ + "; }
 inline const char * x86_fr64_prefix() { return "qword ptr [rsp$ + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1049,11 +1046,6 @@ inline const char * RDQ(const char * base, int off);
 inline const char * RDD(const char * base, int off);
 inline int icn_gen_regime();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_zeta_ft() {
-    if (!icn_gen_regime() || !_.flat_gen) return 0;
-    int ft = _.flat_frame_bytes + (g_emit_cfg ? (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : 0);
-    return ft > 0 ? ft : 0;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);
 extern "C" int rt_proc_is_registered(const char * name);
@@ -1071,8 +1063,6 @@ inline const char * x86_zop(int off, int q, int bump) {
     else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { eff = x86_frame_off(off) + bump; spine = 1; }
     else if (_.op_zf_unpinned && _.op_zres && !x86_fb_data() && !_.op_stmt_dyn) { eff = off + _.op_zabs; spine = 1; }
     else { eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
-    { int ft = icn_gen_zeta_ft(); if (ft > 0) return q ? RDQ("rbp", eff - ft) : RDD("rbp", eff - ft); }
-    if (spine && r != 2 && x86_fb_pinned()) return q ? RDQ(x86_fb(), eff) : RDD(x86_fb(), eff);
     if (spine) snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", eff);
     else snprintf(b[i], 48, "%s%d]", q ? x86_fr64_prefix() : x86_fr32_prefix(), eff);
     return b[i];
@@ -1089,8 +1079,6 @@ inline const char * ZTOSD(int off) { return x86_ztos(off, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zref(int off, int q) {
     static char b[16][48]; static int i; i = (i + 1) & 15;
-    { int ft = icn_gen_zeta_ft(); if (ft > 0) return q ? RDQ("rbp", off - ft) : RDD("rbp", off - ft); }
-    if (x86_fb_pinned() && !x86_pl_frame()) return q ? RDQ(x86_fb(), off) : RDD(x86_fb(), off);
     snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", off);
     return b[i];
 }

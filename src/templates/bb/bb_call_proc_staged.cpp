@@ -62,7 +62,7 @@ extern long g_trace_budget;
 int bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
 int bb_proc_target_zframe_graph(const char *fname);
-int bb_proc_target_pinned_graph(const char *fname); int bb_proc_target_det_block(const char *fname); int bb_proc_target_pinned_block(const char *fname, int *vari);
+int bb_proc_target_pinned_graph(const char *fname); int bb_proc_target_det_block(const char *fname);
 int rt_proc_pinned(const char *name);
 void *bb_ab_fn_cell_ptr(const char *fname);
 int bb_proc_target_icn_block(const char *fname, int *np, int *vari);
@@ -91,7 +91,7 @@ static std::string bcps_beta_leave(int bidx) { return bidx < 0 ? x86_omega() : x
 #define bcps_wire_cross(gid, wid, fname) (icn_wire_stack_for((fname)) ? bb_glue_pass_wires_blob((gid), (wid)) : bb_glue_pass_wires((gid), (wid)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_wire_cross_gen(int gid, int wid) {
-    if (!icn_wire_stack_on() || x86_fb_pinned()) return IF(icn_wire_stack_on(), x86_sub("rsp", 16)) + bb_glue_pass_wires(gid, wid);
+    if (!icn_wire_stack_on()) return bb_glue_pass_wires(gid, wid);
     return x86_lea_id("rcx", wid) + x86("push", "rcx")
          + x86_lea_id("rcx", gid) + x86("push", "rcx")
          + x86_lea_id("rdx", wid)
@@ -159,7 +159,6 @@ static inline int bcps_pl() { return x86_pl_frame(); }
 #define bcps_fnsig() emit_knob_unless_zero("SCRIP_FN_SIG")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bcps_nret_got() std::string("[rip@got + __]")
-#define BCPS_PINNED_NP(idx) ((_bnp < 0 && (idx) >= 0 && _.op_sval && !bcps_pl()) ? bb_proc_target_pinned_block(_.op_sval, &_v) : -1)
 #define bcps_cap_name_strict() emit_knob_unless_zero("SCRIP_CAP_NAME_STRICT")
 static std::string bcps_nret_consult(const std::string & r0, const std::string & r8) {
     extern int rt_g_ret_by_name;
@@ -224,7 +223,7 @@ extern "C" int bb_proc_target_retains(const char *fname) {
         if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue;
         int bi = g_stage2.proc_table[i].bb_idx;
         IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0;
-        return (cg && zls_g_pl_frame(cg) && !cg->spine_tier) ? 1 : 0;
+        return (cg && zls_g_pl_frame(cg)) ? 1 : 0;
     }
     return 0;
 }
@@ -349,11 +348,9 @@ static std::string bcps_det_arm() {
         int bidx_z = bcps_beta_pair_idx(); IR_graph_t ** argblks_z = (IR_graph_t **)(intptr_t)_.op_counter;
         int is_dyn_z = _.op_sval && rt_proc_dyn_scope(_.op_sval);
         long det_idx_z = (!is_dyn_z && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
-        int det_nA_z = (int)_.op_ival; { int _v = 0, _bnp = (det_idx_z >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1, _pnp = BCPS_PINNED_NP(det_idx_z);
-            if (_bnp >= 0 || _pnp >= 0) return (_bnp >= 0 ? _bnp != det_nA_z : _v || det_nA_z > _pnp)
-                ? x86_alpha() + x86_bomb(_bnp >= 0 ? "bb_call_proc_staged: a block-protocol callee is called with the wrong argument count"
-                                                   : "bb_call_proc_staged: a pinned block-protocol callee that is variadic or called with too many arguments")
-                : bcps_det_block_arm(1, off, bidx_z, argblks_z, det_idx_z, _bnp >= 0 ? det_nA_z : _pnp, _bnp >= 0 ? 1 : 0); }
+        int det_nA_z = (int)_.op_ival; { int _bnp = (det_idx_z >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1;
+            if (_bnp >= 0) return _bnp != det_nA_z ? x86_alpha() + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count")
+                : bcps_det_block_arm(1, off, bidx_z, argblks_z, det_idx_z, det_nA_z, 1); }
         int det_fuse_z = (det_idx_z >= 0 && det_nA_z >= 0 && det_nA_z <= 4);
         int dc_z = 0; uint64_t dc_slot_z = 0; char dc_name_z[_.op_sval ? fmt_len("%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)) : 1]; dc_name_z[0] = 0;
         if (det_fuse_z && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA_z)) {
@@ -544,11 +541,9 @@ static std::string bcps_det_arm() {
     { void *(*f3)(long, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det3; detN_fp[3] = (uint64_t)(uintptr_t)(void*)f3; }
     { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp[4] = (uint64_t)(uintptr_t)(void*)f4; }
     static const char * const detN_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
-{ int _v = 0, _bnp = (det_idx >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1, _pnp = BCPS_PINNED_NP(det_idx);
-    if (_bnp >= 0 || _pnp >= 0) return (_bnp >= 0 ? _bnp != (int)_.op_ival : _v || (int)_.op_ival > _pnp)
-        ? x86_alpha() + x86_bomb(_bnp >= 0 ? "bb_call_proc_staged: a block-protocol callee is called with the wrong argument count"
-                                           : "bb_call_proc_staged: a pinned block-protocol callee that is variadic or called with too many arguments")
-        : bcps_det_block_arm(0, off, bidx, argblks, det_idx, _bnp >= 0 ? (int)_.op_ival : _pnp, _bnp >= 0 ? 1 : 0); }
+{ int _bnp = (det_idx >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1;
+    if (_bnp >= 0) return _bnp != (int)_.op_ival ? x86_alpha() + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count")
+        : bcps_det_block_arm(0, off, bidx, argblks, det_idx, (int)_.op_ival, 1); }
 int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_nA <= 4);
     int dc = (det_fuse && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA));
     uint64_t dc_slot = 0; char dc_name[_.op_sval ? fmt_len("%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)) : 1]; dc_name[0] = 0;
@@ -781,14 +776,14 @@ static std::string bcps_block_build(IR_graph_t ** argblks, int n) {
                                                      + x86("mov", "rax", bcps_block_zop(i, 8, n)) + x86_rsp_store64(16 * i + 8, "rax"); }))
          + IF(!_.op_zres, FOR(0, n, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i);
                return x86("note", std::string("block A") + std::to_string(i))
-                    + x86("mov", "rax", x86_fb_pinned() ? FRQ(slot) : FRQB(slot, 16 * n)) + x86_rsp_store64(16 * i, "rax")
-                    + x86("mov", "rax", x86_fb_pinned() ? FRQ(slot + 8) : FRQB(slot + 8, 16 * n)) + x86_rsp_store64(16 * i + 8, "rax"); }));
+                    + x86("mov", "rax", FRQB(slot, 16 * n)) + x86_rsp_store64(16 * i, "rax")
+                    + x86("mov", "rax", FRQB(slot + 8, 16 * n)) + x86_rsp_store64(16 * i + 8, "rax"); }));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_flat_pkt_tail_pop(const char * fb, int kt, int lsk);
 static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop) {
     int ns = g_emit_cfg ? g_emit_cfg->nparams : 0;
-    const char * fb = x86_fb_pinned() ? x86_fb() : "r11";
+    const char * fb = "r11";
     auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; return bb_varslot_peek(a->sval); };
     auto arms = [&](int lb) -> std::string {
         return x86("def", L(lb + 3))
@@ -872,7 +867,7 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
     else for (int i = 0; i < n; i++) {
     int vs = var_slot(i); int lb = lsk + 10 + 10 * i;
         chk += x86("lea", "rsi", RDQ("rsp", 16 * i));
-        chk += vs < 0 ? cell_entry(lb) : x86("lea", "rdi", x86_fb_pinned() ? FRQ(vs) : FRQB(vs, 16 * n))
+        chk += vs < 0 ? cell_entry(lb) : x86("lea", "rdi", FRQB(vs, 16 * n))
                                        + x86("mov32", "r9d", 4L) + body(lb); ool += arms(lb); }
     int nb = kt + 16 * (ns - n);
     std::string mv = x86("note",
@@ -883,7 +878,7 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
                                          + x86("mov", "rax", RDQ("rsp", 16 * i))
                                          + x86("mov", RDQ(fb, nb + 16 * i), "rax");
     return x86("note", "last call (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.4): the block is tested in place, then copied over this frame's own block and the frame released")
-         + IF(!x86_fb_pinned(), x86("lea", "r11", RDQ("rsp", 16 * n + (_.op_zres ? _.op_zabs : 0))))
+         + x86("lea", "r11", RDQ("rsp", 16 * n + (_.op_zres ? _.op_zabs : 0)))
          + chk
          + IF(g_emit.flat_pkt, xa_flat_pkt_tail_pop(fb, kt, lsk))
          + x86("mov", "rax", RDQ(fb, kt - 40))
@@ -903,11 +898,9 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
                 : x86("jne", L(lsk + 99)))
          + x86("mov", "rcx", RDQ(fb, kt - 24))
          + x86("mov", "rdx", RDQ(fb, kt - 16))
-         + IF(x86_fb_pinned(), x86("mov", "r8", RDQ(fb, kt - 8)))
          + (pop ? x86("mov", "r13", RDQ(fb, kt - 40)) : std::string())
          + mv
          + x86("lea", "rsp", RDQ(fb, nb))
-         + IF(x86_fb_pinned(), x86("mov", fb, "r8"))
          + bcps_jmp_callee(idx)
          + ool
          + x86("def", L(lsk + 99));
@@ -993,7 +986,6 @@ static std::string bcps_block_beta(int act) {
          + x86("je", L(22))
          + x86("mov", "rcx", FRQ(act + 8))
          + x86("mov", FRQ(act), 0L)
-         + x86("mov", "rbp", "rax")
          + bcps_lvl_add(1L)
          + x86_jmp_reg("rcx")
          + x86("def", L(22))
@@ -1299,7 +1291,6 @@ static std::string bcps_spine_gen_arm() {
                  + x86("test", "rax", "rax")
                  + x86("je", L(22))
                  + x86("mov", "rcx", FRQ(act + 8))
-                 + x86("mov", x86_fb(), "rax")
                  + x86("call", "rt_gen_spine_resume_enter", TEMPLATE_FN_ADDR(rt_gen_spine_resume_enter))
                  + x86_jmp_reg("rcx")
                  + x86("def", L(22))
@@ -1323,10 +1314,6 @@ extern "C" int zls_g_det_block(const IR_graph_t * g);
 extern "C" int bb_proc_target_det_block(const char *fname) { if (!fname) return -1; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
     || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
         && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && zls_g_det_block(cg)) ? cg->nparams : -1; } return -1; }
-extern "C" int bb_proc_target_pinned_block(const char *fname, int *vari) { if (!fname) return -1; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
-    || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
-        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; if (vari) *vari = g_stage2.proc_table[i].is_variadic;
-    return (cg && cg->zframe_graph && cg->zframe_pinned_base && !cg->icn_cells_graph && !cg->root_graph && zls_g_block_args(cg)) ? cg->nparams : -1; } return -1; }
 static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t ** argblks, long idx, int nb, int wires) {
     int n = (int)_.op_ival; long bias = (wires ? 16L : 0L) + 16L * nb;
     auto zop = [&](int i, int w) -> std::string { int in = i >= 0 && i < _.op_zcap; if (in && _.op_zread_xf[i] != -1) return RDQ("rbp", _.op_zread_xf[i]
