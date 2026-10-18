@@ -2417,6 +2417,7 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
         if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += bb_glue_flat_leave();
         if (site == X86H_JMP && port == X86P_OMEGA && !_.op_wsteal) s += bb_glue_flat_leave();
     }
+    if (site == X86H_DEF && port == X86P_BETA && _.op_zbgrow > 0) s += x86("sub", "rsp", (long)_.op_zbgrow);
     if (site == X86H_JMP && port == X86P_GAMMA && (_.op_zcp_dst >= 0 || (_.op_xrec & 2)))
         s += x86("mov", "rax", (_.op_xrec & 1) ? RDQ("rbp", _.op_zcp_sxf) : x86_zref(_.op_zcp_src, 1))
            + x86("mov", (_.op_xrec & 2) ? RDQ("rbp", _.op_zcp_dxf) : x86_zref(_.op_zcp_dst, 1), "rax")
