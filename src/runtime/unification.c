@@ -339,15 +339,12 @@ static void plc_wt_num(FILE *fp, pl_cell_t *d) {
     if (isnan(fv)) { fputs("1.5NaN", fp); return; }
     if (isinf(fv)) { fputs(fv < 0 ? "-1.0Inf" : "1.0Inf", fp); return; }
     for (int pr = 15; pr <= 17; pr++) { snprintf(fb, sizeof fb, "%.*g", pr, fv); if (strtod(fb, NULL) == fv) break; }
-    if (!strpbrk(fb, ".eEnN")) {
-        size_t n = strlen(fb);
-        if (n+2 < sizeof fb) { fb[n]='.'; fb[n+1]='0'; fb[n+2]='\0'; }
-    } else if (!strchr(fb, '.')) {
-        char *e = strpbrk(fb, "eE");
-        char t[64];
-        if (e && (size_t)(e - fb) + strlen(e) + 2 < sizeof t) { size_t k = (size_t)(e - fb); memcpy(t, fb, k); memcpy(t + k, ".0", 2); strcpy(t + k + 2, e); memcpy(fb, t, strlen(t) + 1); }
-    }
-    fputs(fb, fp);
+    const char *e = strpbrk(fb, "eE");
+    if (strchr(fb, '.') || (!e && strpbrk(fb, "nN"))) { fputs(fb, fp); return; }
+    if (!e) { fputs(fb, fp); fputs(".0", fp); return; }
+    fwrite(fb, 1, (size_t)(e - fb), fp);
+    fputs(".0", fp);
+    fputs(e, fp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_term_prio(pl_cell_t *c, int ignore_ops) {
@@ -1740,14 +1737,12 @@ static void plc_fmt_dec(plc_fb *f, long long iv, long places, int group) {
 static void plc_fmt_radix(plc_fb *f, long long iv, int base, int upper) {
     const char *d = upper ? "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" : "0123456789abcdefghijklmnopqrstuvwxyz";
     char buf[80];
-    int bi = 0, oi = 0;
-    char outb[82];
-    unsigned long long u = iv < 0 ? (unsigned long long)(-(iv + 1)) + 1ull : (unsigned long long)iv;
+    int bi = 0;
+    unsigned long long u = iv < 0 ? (unsigned long long)(-(iv + 1)) + 1ull : (unsigned long long)iv, ub = (unsigned long long)base;
     if (!u) buf[bi++] = '0';
-    while (u) { buf[bi++] = d[(int)(u % (unsigned long long)base)]; u /= (unsigned long long)base; }
-    if (iv < 0) outb[oi++] = '-';
-    while (bi) outb[oi++] = buf[--bi];
-    plc_fb_add(f, outb, (size_t)oi);
+    while (u) { buf[bi++] = d[(int)(u % ub)]; u /= ub; }
+    if (iv < 0) plc_fb_add(f, "-", 1);
+    while (bi) plc_fb_add(f, &buf[--bi], 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *plc_fmt_exhausted(pl_cell_t all) {
