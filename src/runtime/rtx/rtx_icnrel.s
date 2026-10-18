@@ -14,6 +14,17 @@ RTX_GATE_DEF(icnrel)
 #define OP_EQV  22
 #define OP_NEQV 23
 #define OP_F_NUMIFY_BLANK 0x100
+#define RELOP_DEC(p) \
+    mov     rax, rdi; shr rax, 32; cmp eax, -1; je .Lns_fail; test eax, eax; jz .Lns_fail; test rsi, rsi; jz .Lns_fail; lea rdi, [rsi + rax]; \
+.Lnd_##p##_ws1: movzx ecx, byte ptr [rsi]; cmp cl, 0x20; jne .Lnd_##p##_sign; inc rsi; cmp rsi, rdi; jne .Lnd_##p##_ws1; jmp .Lns_fail; \
+.Lnd_##p##_sign: xor edx, edx; cmp cl, 0x2B; je .Lnd_##p##_sg; cmp cl, 0x2D; jne .Lnd_##p##_dig0; mov edx, 0x80000000; \
+.Lnd_##p##_sg: inc rsi; cmp rsi, rdi; je .Lns_fail; movzx ecx, byte ptr [rsi]; \
+.Lnd_##p##_dig0: sub ecx, 0x30; cmp ecx, 9; ja .Lns_fail; xor eax, eax; \
+.Lnd_##p##_dig: imul rax, rax, 10; add rax, rcx; inc edx; cmp dl, 18; ja .Lns_fail; inc rsi; cmp rsi, rdi; je .Lnd_##p##_end; movzx ecx, byte ptr [rsi]; sub ecx, 0x30; cmp ecx, 9; jbe .Lnd_##p##_dig; \
+    cmp ecx, -0x10; jne .Lns_fail; \
+.Lnd_##p##_ws2: inc rsi; cmp rsi, rdi; je .Lnd_##p##_end; cmp byte ptr [rsi], 0x20; je .Lnd_##p##_ws2; jmp .Lns_fail; \
+.Lnd_##p##_end: test edx, edx; jns .Lnd_##p##_pos; neg rax; \
+.Lnd_##p##_pos: mov rsi, rax; mov edi, DT_I
 RTX_FUNC(rt_jct_relop)
     RTX_GATE(icnrel, .Lbail)
     test    r8d, OP_F_NUMIFY_BLANK
@@ -161,6 +172,11 @@ RTX_FUNC(rt_jct_relop)
     mov     eax, 1
     ret
 .Lnum:
+    cmp     dil, DT_S
+    je      .Lnum_str
+    cmp     dl, DT_S
+    je      .Lnum_str
+.Lnum_typed:
     cmp     dil, DT_I
     je      .Lnum_a_i
     cmp     dil, DT_R
@@ -212,6 +228,49 @@ RTX_FUNC(rt_jct_relop)
     cmp     r8d, OP_NE
     sete    al
     ret
+.Lnum_str:
+    mov     eax, edi
+    cmp     al, DT_S
+    je      .Lns_lok
+    cmp     al, DT_I
+    je      .Lns_lok
+    cmp     al, DT_R
+    jne     .Lbail
+.Lns_lok:
+    mov     eax, edx
+    cmp     al, DT_S
+    je      .Lns_rok
+    cmp     al, DT_I
+    je      .Lns_rok
+    cmp     al, DT_R
+    jne     .Lbail
+.Lns_rok:
+    movq    xmm2, rdi
+    movq    xmm3, rsi
+    movq    xmm4, rdx
+    movq    xmm5, rcx
+    cmp     dil, DT_S
+    jne     .Lns_rhs
+    RELOP_DEC(l)
+.Lns_rhs:
+    movq    xmm0, rdi
+    movq    xmm1, rsi
+    movq    rdi, xmm4
+    movq    rsi, xmm5
+    cmp     dil, DT_S
+    jne     .Lns_done
+    RELOP_DEC(r)
+.Lns_done:
+    mov     rdx, rdi
+    mov     rcx, rsi
+    movq    rdi, xmm0
+    movq    rsi, xmm1
+    jmp     .Lnum_typed
+.Lns_fail:
+    movq    rdi, xmm2
+    movq    rsi, xmm3
+    movq    rdx, xmm4
+    movq    rcx, xmm5
 .Lbail:
     RTX_DECLINE
 RTX_ENDF(rt_jct_relop)
