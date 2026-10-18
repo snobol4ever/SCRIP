@@ -61,9 +61,9 @@ write_term_to_chars(C, T, O) :- '$gnu_b_ol'(C, write_term_to_chars/3), with_outp
 format_to_atom(A, F, Args) :- '$gnu_b_oa'(A, format_to_atom/3), with_output_to(atom(A), format(F, Args)).
 format_to_codes(C, F, Args) :- '$gnu_b_ol'(C, format_to_codes/3), with_output_to(codes(C), format(F, Args)).
 format_to_chars(C, F, Args) :- '$gnu_b_ol'(C, format_to_chars/3), with_output_to(chars(C), format(F, Args)).
-read_from_atom(A, T) :- ( var(A) -> throw(error(instantiation_error, read_from_atom/2)) ; '$gnu_b_read'(A, T) ).
-read_from_codes(C, T) :- atom_codes(A, C), '$gnu_b_read'(A, T).
-read_from_chars(C, T) :- atom_chars(A, C), '$gnu_b_read'(A, T).
+read_from_atom(A, T) :- ( var(A) -> throw(error(instantiation_error, read_from_atom/2)) ; '$gnu_b_read'(A, T, read_from_atom/2) ).
+read_from_codes(C, T) :- atom_codes(A, C), '$gnu_b_read'(A, T, read_from_codes/2).
+read_from_chars(C, T) :- atom_chars(A, C), '$gnu_b_read'(A, T, read_from_chars/2).
 '$gnu_b_oa'(A, _) :- ( var(A) ; atom(A) ), !.
 '$gnu_b_oa'(A, PI) :- throw(error(type_error(atom, A), PI)).
 '$gnu_b_ol'(L, _) :- '$gnu_b_pl'(L), !.
@@ -71,8 +71,8 @@ read_from_chars(C, T) :- atom_chars(A, C), '$gnu_b_read'(A, T).
 '$gnu_b_pl'(L) :- var(L), !.
 '$gnu_b_pl'([]).
 '$gnu_b_pl'([_|T]) :- '$gnu_b_pl'(T).
-'$gnu_b_read'(A, T) :- atom_codes(A, Cs), '$gnu_b_blank'(Cs), !, T = end_of_file.
-'$gnu_b_read'(A, T) :- read_term_from_atom(A, T, []).
+'$gnu_b_read'(A, T, _) :- atom_codes(A, Cs), '$gnu_b_blank'(Cs), !, T = end_of_file.
+'$gnu_b_read'(A, T, PI) :- '$gnu_os'(ts_in, A, S), current_input(I), set_input(S), catch(read(T0), E, true), set_input(I), close_input_atom_stream(S), ( var(E) -> T = T0 ; E = error(F, _) -> throw(error(F, PI)) ; throw(E) ).
 '$gnu_b_blank'([]).
 '$gnu_b_blank'([C|Cs]) :- code_type(C, space), '$gnu_b_blank'(Cs).
 number_atom(N, A) :- ( var(A) -> number_codes(N, C), atom_codes(A, C) ; atom_codes(A, C), number_codes(N, C) ).
