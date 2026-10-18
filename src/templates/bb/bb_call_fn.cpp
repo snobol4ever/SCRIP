@@ -1,3 +1,4 @@
+#include <climits>
 #include <string>
 #include <string.h>
 #include <stdint.h>
@@ -111,6 +112,12 @@ std::string cf_zd_copy() {
                                                 x86("mov", x86_zref(i * 16 + 8, 1), "rax") }); }) }));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * cf_zd_cursor() { return _.op_call_dsave != INT_MIN ? RDQ("rbp", _.op_call_dsave) : x86_zref(16, 1); }
+static std::string cf_zd_save() { return IF(_.op_call_curmov, x86("mov", cf_zd_cursor(), "r14")); }
+static std::string cf_zd_sync() { return IF(_.op_call_scansync, x86_scan_sync_out_force()); }
+static std::string cf_zd_beta() { return _.op_beta_dead ? std::string() :
+    emit_seq({ x86_deflabel(X86P_BETA), IF(_.op_call_curmov, x86("mov", "r14", cf_zd_cursor()) + x86_scan_sync_out_force()), x86_jmp(X86P_OMEGA) }); }
+static std::string cf_zd_sync_in() { return IF(_.op_call_scansync, x86_scan_sync_in_rr_force()); }
 std::string cf_zd_exit() {
     return emit_seq({ IF(CF_N() > 0, x86("add", "rsp", (long)(CF_N() * 16))),
                       x86("cmp", "al", (long)DT_FAIL),
@@ -121,7 +128,7 @@ std::string cf_zd_exit() {
                     + x86("mov", ZRES(8), "rdx"),
                       IF(_.op_call_sb_exit, x86_omega()),
                       IF(!_.op_call_sb_exit, x86_gamma()),
-                      IF(!_.op_call_sb_exit, x86_beta_trampoline()) });
+                      IF(!_.op_call_sb_exit, cf_zd_beta()) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string cf_flat_exit() {
@@ -195,6 +202,7 @@ static std::string cf_byname_zd(int open, int eval) {
                                    x86("mov32", "ecx", _.op_call_bid),
                                    x86("call", _.op_call_sym, _.op_call_fp) }),
                       cf_join29(open, eval),
+                      cf_zd_sync_in(),
                       x86_rt_gc_poll_res() });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -381,14 +389,14 @@ std::string bb_call_field_rec() {
 std::string bb_call_byname() {
     return x86_alpha()
          + IF(CF_REFUSED(), cf_refuse())
-         + IF(!CF_REFUSED() && _.op_zres, emit_seq({ CF_ZD_HEAD(), cf_zd_copy(), cf_byname_zd(0, 0), cf_zd_exit() }))
+         + IF(!CF_REFUSED() && _.op_zres, emit_seq({ CF_ZD_HEAD(), cf_zd_save(), cf_zd_copy(), cf_zd_sync(), cf_byname_zd(0, 0), cf_zd_exit() }))
          + IF(!CF_REFUSED() && !_.op_zres, emit_seq({ cf_marshal(), cf_pre_road(), cf_byname_flat(0, 0), cf_flat_exit() }));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_try() {
     return x86_alpha()
          + IF(CF_REFUSED(), cf_refuse())
-         + IF(!CF_REFUSED() && _.op_zres, emit_seq({ CF_ZD_HEAD(), cf_zd_copy(), cf_byname_zd(0, 0), cf_zd_exit() }))
+         + IF(!CF_REFUSED() && _.op_zres, emit_seq({ CF_ZD_HEAD(), cf_zd_save(), cf_zd_copy(), cf_zd_sync(), cf_byname_zd(0, 0), cf_zd_exit() }))
          + IF(!CF_REFUSED() && !_.op_zres, emit_seq({ cf_marshal(), cf_pre_road(), cf_byname_flat(0, 0), cf_flat_exit() }));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

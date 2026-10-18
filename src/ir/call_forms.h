@@ -24,6 +24,7 @@ int lower_knob_unless_zero(const char * name);
 long bid_bake_of(const char * fn);
 int lower_call_is_scan_builtin(const char * fn);
 int lower_call_is_curmov(const char * fn);
+int lower_call_node_is_curmov(const IR_t * nd);
 int sn4_byname_kind(const char * fn, int strict);
 int bb_callee_baked_kind(const char * fn, int strict);
 int lower_call_pas_bi(const char * fn);

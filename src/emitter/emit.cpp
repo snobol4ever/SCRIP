@@ -3495,7 +3495,7 @@ static void zd_cp_arm(IR_t ** nodes, int i, const int * zcps, const int * zcpd, 
     else g_emitter.g_zd_cps = zout[i] - zout[k];
 }
 int xop_frame_slot(const IR_t * nd) {
-    if (icn_xop_frame_member(nd)) return nd_slot(nd) - icn_gen_ft();
+    if (icn_xop_frame_member(nd)) return nd_slot(nd) - gen_frame_top();
     if (pl_xop_frame_member(nd)) return nd_slot(nd);
     if (!xop_frame_member(nd)) return -1;
     int idx = -1, rc = frame_slot_scan(nd, &idx, NULL); if (!rc || idx < 0) return -1;
@@ -3558,7 +3558,9 @@ static int zd_icn_stmt_sibling(const IR_t * nd) { extern const char * bb_src_of(
 static int zd_k(IR_t * nd) { return zd_k_own(nd) + zst_s_of(nd); }
 static int zd_dj_spine(const IR_t * nd) { if (!g_emitter.g_zd_zarm_p || g_emitter.g_zd_zarm_nodes != g_emitter.codegen_flat_chain_body_nodes) return 0;
     int i = nidx(g_emitter.g_zd_zarm_nodes, g_emitter.g_zd_zarm_n, nd); return (i >= 0 && zd_dj_admitted(g_emitter.g_zd_zarm_p, g_emitter.g_zd_zarm_n, i) && !zd_dj_retains(nd)) ? 32 : 0; }
-static int zd_k_own(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO) return 16; if (zd_icn_local_var(nd)) return 0; if (zd_icn_suspend(nd)) return 0; if (op == IR_TO) return 32;
+static int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
+static int zd_k_own(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO) return 16; if (zd_call_curmov(nd)) return 32; if (zd_icn_local_var(nd)) return 0; if (zd_icn_suspend(nd)) return 0;
+    if (op == IR_TO) return 32;
     if (op == IR_DISJUNCTION && nd->n_operands > 0) return zd_dj_spine(nd);
     return (op == IR_MATCH_RKRUN || op == IR_MATCH_RKCAPS || op == IR_MATCH_RKCAPE || op == IR_MATCH_RKLAND || op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || op == IR_DEFINE ||
         op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE || op == IR_STATEMENT ||
@@ -7519,6 +7521,8 @@ void call_prepare(IR_t * nd) {
     g_emit.op_call_sb_exit = (fnroute && zd && g_emit.op_sb) ? 1 : 0;
     if (!fnroute && !zd && kind != IR_CALL_GEN) { g_emit.op_call_scansync = lower_call_is_scan_builtin(fn); g_emit.op_call_curmov = lower_call_is_curmov(fn);
         g_emit.op_call_dsave = g_emit.op_call_argbase + 16 * narg; }
+    if (zd && !fnroute && kind == IR_CALL_BYNAME) { g_emit.op_call_scansync = lower_call_is_scan_builtin(fn); if (zd_call_curmov(nd)) { g_emit.op_call_curmov = 1;
+        g_emit.op_call_dsave = (g_emit.flat_gen && gen_frame_top() > 0 && zls_off(nd) >= 0) ? (zls_off(nd) + 16 - gen_frame_top()) : INT_MIN; } }
     if (kind == IR_CALL_GEN) g_emit.op_call_scansync = lower_call_is_scan_builtin(fn);
     switch (kind) {
     case IR_CALL_DIRECT: { const char * s = 0; g_emit.op_call_fp = (uint64_t)(uintptr_t)dop_direct_fp(fn, (int64_t)narg, &s); g_emit.op_call_sym = s ? s : ""; break; }

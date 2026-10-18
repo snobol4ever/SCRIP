@@ -7,6 +7,7 @@
 #include "gc_frame_map.h"
 #include "ast.h"
 #include "g_lower.h"
+#include "call_forms.h"
 extern const char * bb_op_name(IR_e k);
 extern int is_global(const char *);
 extern int rt_proc_is_registered(const char *);
@@ -241,6 +242,11 @@ static int zls_act8_kind(const IR_graph_t * g, const IR_t * nd) {
 }
 static int zls_g_pinned_frame(const IR_graph_t * g);
 static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
+    if (lower_call_node_is_curmov(nd)) {
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "call.cursor (r14, the scan cursor, banked at alpha by a by-name tab or move and restored at beta: the reversible effect undone on resume)", nd);
+        zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "call.cursor pad", nd);
+        return 1;
+    }
     switch (ir_kind0(nd)) {
         case IR_TO_BY:
         if (g && g->spine_cells) {

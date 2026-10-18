@@ -637,7 +637,7 @@ inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
 inline int x86_rsp_slide_known() { return 1; }
 inline int x86_frame_off(int off) { return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
 inline int x86_hb_on() { return (g_emit.zframe_graph && !(g_emit_cfg && g_emit_cfg->cell_frame)) || (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc && !g_emit.flat_gen); }
-inline int icn_gen_ft() { return (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_gen) ? g_emit.flat_frame_bytes + (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : 0; }
+inline int gen_frame_top() { return (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_gen) ? g_emit.flat_frame_bytes + (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : 0; }
 inline int icn_frame_rbp() { return (g_emit_cfg && g_emit_cfg->cell_frame && (g_emit.flat_gen || (g_emit.flat_lcl_proc && g_emit.frame_retained))) ? 1 : 0; }
 inline const char * x86_hb() { return "rbp"; }
 inline int x86_fb_num() { return 4; }
@@ -1073,7 +1073,7 @@ inline const char * x86_zop(int off, int q, int bump) {
         if (_.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + d, q, bump);
         return x86_zref(_.op_zread[k] + d, q); }
     int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
-    if (r != 2 && icn_frame_rbp()) return q ? RDQ("rbp", off - icn_gen_ft()) : RDD("rbp", off - icn_gen_ft());
+    if (r != 2 && icn_frame_rbp()) return q ? RDQ("rbp", off - gen_frame_top()) : RDD("rbp", off - gen_frame_top());
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }
     else if (x86_resumable_frame() && x86_hb_on() && !x86_fb_data() && !_.op_stmt_dyn) { x86_zop_note(3); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
