@@ -3523,6 +3523,27 @@ static void gc_fix_check(char *base, size_t logran) {
 }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_validate_record(const char *base, const char *oldtop) {
+    long n = g_gc_mk.nslot, hp = 0, ex = 0, mf = 0;
+    for (long i = 0; i < n; i++) {
+        const char **loc = g_gc_mk.slots[i].loc;
+        const char *val = g_gc_mk.slots[i].val, *want = (val >= g_hp_arena && val < oldtop) ? base + gc_rank(val) : val, *v;
+        rt_hblk_t *h;
+        if ((const char *)loc >= g_hp_arena && (const char *)loc < oldtop) loc = (const char **)(uintptr_t)(base + gc_rank((const char *)loc));
+        v = *loc;
+        if (v < g_hp_arena || v >= g_hp_cap_end) continue;
+        hp++;
+        h = gc_blk_of(v);
+        if (h && h->type != HB_FILL && v == want) continue;
+        if (ex + mf < 16)
+            fprintf(stderr, "[ZGC-VALIDATE] %s collection=%ld slot=%p value=%p want=%p registered=%p new_top=%p\n", (h && h->type != HB_FILL) ? "MISFIXED" : "EXPIRED", g_gc_runs + 1, (void *)loc,
+            (void *)v, (void *)want, (void *)val, (void *)g_hp_top);
+        if (h && h->type != HB_FILL) mf++;
+        else ex++;
+    }
+    fprintf(stderr, "[ZGC-VALIDATE] collection=%ld slots=%ld heap=%ld expired=%ld misfixed=%ld\n", g_gc_runs + 1, n, hp, ex, mf);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_collect_ex(const gc_ent_t *ent) {
     extern void kw_cset_gc_roots(void);
     extern void core_gc_roots(void);
@@ -3830,6 +3851,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     g_hp_live = (long)(dest - g_hp_arena);
     rt_gcheap_line_reset((long)mxs);
 #endif
+    { static int vld = -1; if (vld < 0) { const char *e = getenv("SCRIP_GC_VALIDATE"); vld = (e && *e == '1') ? 1 : 0; } if (vld) gc_validate_record(base, g_hp_arena + before_b); }
     if (n_hb) {
         gc_tr_args_t ta = { g_gc_rrng, g_gc_rrng_n, base, g_hp_arena + before_b, g_hp_top, &g_hp_fr, g_hp_arena, g_hp_cap_end };
         uint64_t bad = rt_gc_trail_run(&ta);
