@@ -52,7 +52,7 @@ std::string bb_suspend() {
          + IF(x86_trace_hooks_on(), x86("push", "rax")
          + x86("push", "rdx") + x86_align_call_enter()
          + x86_load_ro_str("rdi", (_.op_activate_proc ? _.op_activate_proc : "main"))
-         + x86("xor", "esi", "esi")
+         + x86("mov", "rsi", "rbp")
          + x86("call", "rt_trace_resume_hook", (uint64_t)(uintptr_t)(void *)rt_trace_resume_hook)
          + x86_rt_gc_poll()
          + x86_align_call_leave() + x86("pop", "rdx")
