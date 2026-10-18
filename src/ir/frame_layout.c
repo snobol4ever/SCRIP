@@ -243,7 +243,7 @@ static int zls_g_pinned_frame(const IR_graph_t * g);
 static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
     switch (ir_kind0(nd)) {
         case IR_TO_BY:
-        if (g && g->cell_frame) {
+        if (g && g->spine_cells) {
             zls_field(scope_id, off, 16, ZK_DESCR, 0, "toby.cur (the running value, a copy of from)", nd);
             zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "toby.to (a copy of the limit operand)", nd);
             zls_field(scope_id, off + 32, 16, ZK_DESCR, 0, "toby.by (a copy of the step operand)", nd);

@@ -3042,6 +3042,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     g->entry = icn_trace_call_wrap(cx, cx->pname, succ, PFAIL);
     if (cx->pname && !strcmp(cx->pname, "main")) { IR_t * qt = build(cx, IR_CALL, g->entry, g->entry); IR_LIT(qt).sval = (char *) "$quit_trap_300"; g->entry = qt; }
     g->cell_frame = 1;
+    g->spine_cells = 1;
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3276,6 +3277,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     IR_t * s = build(&cx, IR_SUCCEED, 0, 0);
     g->entry = s;
     g->cell_frame = 1;
+    g->spine_cells = 1;
     return g;
 }
 #include "bb_program.h"

@@ -244,6 +244,7 @@ struct IR_graph_t {
     int entry_frame;
     int smx;
     int cell_frame;
+    int spine_cells;
     int root_graph;
     int standing_cells;
     int runtime_fragment_graph;

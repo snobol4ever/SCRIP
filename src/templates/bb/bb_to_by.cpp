@@ -115,7 +115,7 @@ static std::string bb_to_by_zd() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_to_by() {
     x86_begin();
-        if (_.op_zres && !_.op_num_real && _.op_off >= 0 && g_emit_cfg && g_emit_cfg->cell_frame) return bb_to_by_zd();
+        if (_.op_zres && !_.op_num_real && _.op_off >= 0 && g_emit_cfg && g_emit_cfg->spine_cells) return bb_to_by_zd();
         return !(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0 && _.op_sc >= 0) ? x86_alpha() + x86_bomb("bb_to_by: unhandled (needs from/to/by operand slots, descr flat-chain)") :
                _.op_num_real ?
                x86("comment", "IR_TO_BY real")
