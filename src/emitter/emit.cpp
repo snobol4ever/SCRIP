@@ -1729,6 +1729,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_SCAN_BAL: bb_emit_x86(bb_scan_bal()); return 0;
     case IR_RETURN: {
         IR_t *rv = (nd->n_operands > 0 && nd->operands[0]) ? nd->operands[0] : (IR_t *)0;
+        if (!rv) g_emit.op_zread[0] = -1;
         { int _sa = rv ? bb_slot_get(rv) : -1; if (_sa < 0 && rv) { int _ns = nd_slot(rv); if (_ns >= 0) { bb_slot_register(rv, _ns); _sa = _ns; } } g_emit.op_sa = _sa;
             } g_emit.op_dval = IR_LIT(nd).dval;
         if (g_emit.flat_gen && g_emitter.g_suspend_resume_slot >= 0) { g_emit.op_sb = g_emitter.g_suspend_resume_slot; g_emit.lbl_t1_p = g_emit.flat_fail_p;
