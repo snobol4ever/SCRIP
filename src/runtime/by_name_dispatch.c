@@ -8448,7 +8448,21 @@ PL_CX_LEAF_HEAD(skip, 1)
         if (v.v == (DTYPE_t)DT_I) { do { c = fgetc(f); } while (c != EOF && c != (int)v.i); ok = 1; }
     }
 PL_CX_LEAF_TAIL
-typedef struct { const char *nm[256]; DESCR_t v[256]; int cnt[256]; int n; } pl_vtab_t;
+typedef struct { const char **nm; DESCR_t *v; int *cnt; int *hs; int n; int cap; unsigned hmask; } pl_vtab_t;
+static int pl_vt_occ(const tree_t *t) { int c = 0; if (!t) return 0; if (t->t == TT_VAR) c++; for (int i = 0; i < t->n; i++) c += pl_vt_occ(t->c[i]); return c; }
+static unsigned pl_vt_hash(const char *s) { unsigned h = 2166136261u; for (; *s; s++) h = (h ^ (unsigned char)*s) * 16777619u; return h; }
+static void pl_vt_init(pl_vtab_t *vt, int occ) {
+    unsigned hc = 16;
+    vt->cap = occ + 1;
+    while (hc < 2u * (unsigned)vt->cap) hc <<= 1;
+    vt->nm = (const char **)rt_wsb_alloc((size_t)vt->cap * sizeof(const char *));
+    vt->v = (DESCR_t *)rt_wsb_alloc((size_t)vt->cap * sizeof(DESCR_t));
+    vt->cnt = (int *)rt_wsb_alloc((size_t)vt->cap * sizeof(int));
+    vt->hs = (int *)rt_wsb_alloc((size_t)hc * sizeof(int));
+    memset(vt->hs, 0xff, (size_t)hc * sizeof(int));
+    vt->hmask = hc - 1;
+    vt->n = 0;
+}
 static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
     extern int prolog_atom_intern(const char *);
     extern DESCR_t rt_pl_fresh_var_ref(void);
@@ -8465,8 +8479,10 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
         {
             const char *nm = t->v.sval;
             int anon = !nm || !strcmp(nm, "_");
-            if (!anon) for (int i = 0; i < vt->n; i++) if (vt->nm[i] && !strcmp(vt->nm[i], nm)) { vt->cnt[i]++; return vt->v[i]; }
-            if (vt->n >= 256) return rt_pl_fresh_var_ref();
+            unsigned h = anon ? 0u : pl_vt_hash(nm) & vt->hmask;
+            if (!anon) for (; vt->hs[h] >= 0; h = (h + 1) & vt->hmask) if (!strcmp(vt->nm[vt->hs[h]], nm)) { vt->cnt[vt->hs[h]]++; return vt->v[vt->hs[h]]; }
+            if (vt->n >= vt->cap) { extern void rt_bomb(const char *msg); rt_bomb("pl_tree_cell: a term holds more variables than its tree counted"); }
+            if (!anon) vt->hs[h] = vt->n;
             vt->nm[vt->n] = anon ? (const char *)0 : nm;
             vt->v[vt->n] = rt_pl_fresh_var_ref();
             vt->cnt[vt->n] = 1;
@@ -8700,7 +8716,7 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
         if (tr && tr->t == TT_CLAUSE && tr->n >= 1) tr = tr->c[0];
         if (pg_out) *pg_out = pg;
         if (!pg || pg->nerrors || !tr || tr->t != TT_FNC || tr->n != 1) return 0;
-        vt->n = 0;
+        pl_vt_init(vt, pl_vt_occ(tr->c[0]));
         *out = pl_tree_cell(tr->c[0], vt);
         return 1;
     }
