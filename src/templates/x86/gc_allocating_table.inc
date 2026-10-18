@@ -780,6 +780,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "lower_limit_impl", GC_RET_OTHER },
     { "lower_lvalue_var", GC_RET_OTHER },
     { "lower_make_list", GC_RET_OTHER },
+    { "lower_node", GC_RET_OTHER },
     { "lower_not", GC_RET_OTHER },
     { "lower_pascal_body", GC_RET_OTHER },
     { "lower_pascal_proc", GC_RET_OTHER },

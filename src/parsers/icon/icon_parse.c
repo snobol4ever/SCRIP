@@ -22,6 +22,18 @@ static tree_t *e_binary(tree_e k, tree_t *left, tree_t *right) {
     return expr_binary(k, left, right);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *e_binary_at(int line, tree_e k, tree_t *left, tree_t *right) {
+    tree_t *e = expr_binary(k, left, right);
+    if (e && line > 0) e->line = line;
+    return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *e_unary_at(int line, tree_e k, tree_t *child) {
+    tree_t *e = expr_unary(k, child);
+    if (e && line > 0) e->line = line;
+    return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void parser_error(IcnParser *p, const char *msg) {
     if (!p->had_error) {
         size_t n = (size_t)fmt_len("line %d: %s (got %s)", p->cur.line, msg, icn_tk_name(p->cur.kind)); p->errmsg = (char *)ct_alloc(n);
@@ -154,6 +166,7 @@ static tree_t *parse_primary(IcnParser *p) {
     if (t.kind == TK_LBRACK) {
         advance(p);
         tree_t *lst = ast_node_new(TT_MAKELIST);
+        if (t.line > 0) lst->line = t.line;
         if (!check(p, TK_RBRACK)) {
             if (check(p, TK_COMMA)) push_child(lst, ast_node_new(TT_NUL));
             else push_child(lst, parse_expr(p));
@@ -303,20 +316,20 @@ static tree_t *parse_limit(IcnParser *p) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_unary(IcnParser *p) {
     int line = p->cur.line; (void)line;
-    if (check(p, TK_MINUS))     { advance(p); return e_unary(TT_MNS,        parse_unary(p)); }
-    if (check(p, TK_PLUS))      { advance(p); return e_unary(TT_PLS,        parse_unary(p)); }
-    if (check(p, TK_BANG))      { advance(p); return e_unary(TT_ITERATE,    parse_unary(p)); }
-    if (check(p, TK_STAR))      { advance(p); return e_unary(TT_SIZE,       parse_unary(p)); }
-    if (check(p, TK_BACKSLASH)) { advance(p); return e_unary(TT_NONNULL,    parse_unary(p)); }
-    if (check(p, TK_SLASH))     { advance(p); return e_unary(TT_NULL,       parse_unary(p)); }
-    if (check(p, TK_NOT))       { advance(p); return e_unary(TT_NOT,        parse_unary(p)); }
-    if (check(p, TK_QMARK))     { advance(p); return e_unary(TT_RANDOM,     parse_unary(p)); }
+    if (check(p, TK_MINUS))     { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_MNS,        parse_unary(p)); }
+    if (check(p, TK_PLUS))      { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_PLS,        parse_unary(p)); }
+    if (check(p, TK_BANG))      { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_ITERATE,    parse_unary(p)); }
+    if (check(p, TK_STAR))      { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_SIZE,       parse_unary(p)); }
+    if (check(p, TK_BACKSLASH)) { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_NONNULL,    parse_unary(p)); }
+    if (check(p, TK_SLASH))     { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_NULL,       parse_unary(p)); }
+    if (check(p, TK_NOT))       { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_NOT,        parse_unary(p)); }
+    if (check(p, TK_QMARK))     { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_RANDOM,     parse_unary(p)); }
     if (check(p, TK_AT))        { int atline = p->cur.line; advance(p); tree_t *na = e_unary(TT_ACTIVATE, parse_unary(p)); if (na) na->line = atline; return na; }
-    if (check(p, TK_TILDE))     { advance(p); return e_unary(TT_CSET_COMPL, parse_unary(p)); }
-    if (check(p, TK_DOT))       { advance(p); return e_unary(TT_DEREF,      parse_unary(p)); }
-    if (check(p, TK_PLUSPLUS))   { advance(p); return e_unary(TT_PLS,  e_unary(TT_PLS,  parse_unary(p))); }
-    if (check(p, TK_MINUSMINUS)) { advance(p); return e_unary(TT_MNS,  e_unary(TT_MNS,  parse_unary(p))); }
-    if (check(p, TK_STARSTAR))   { advance(p); return e_unary(TT_SIZE, e_unary(TT_SIZE, parse_unary(p))); }
+    if (check(p, TK_TILDE))     { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_CSET_COMPL, parse_unary(p)); }
+    if (check(p, TK_DOT))       { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_DEREF,      parse_unary(p)); }
+    if (check(p, TK_PLUSPLUS))   { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_PLS, e_unary_at(ol, TT_PLS, parse_unary(p))); }
+    if (check(p, TK_MINUSMINUS)) { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_MNS, e_unary_at(ol, TT_MNS, parse_unary(p))); }
+    if (check(p, TK_STARSTAR))   { int ol = p->cur.line; advance(p); return e_unary_at(ol, TT_SIZE, e_unary_at(ol, TT_SIZE, parse_unary(p))); }
     if (check(p, TK_CARET)) { advance(p); tree_t *arg = parse_unary(p);
         tree_t *cfn = ast_node_new(TT_FNC); push_child(cfn, e_leaf_sval(TT_VAR, "ICN$REFRESH", -1)); push_child(cfn, arg);
         return cfn; }
@@ -331,9 +344,10 @@ static tree_t *parse_pow(IcnParser *p) {
     tree_t *n = parse_limit(p);
     if (!n) return NULL;
     if (check(p, TK_CARET)) {
+        int ol = p->cur.line;
         advance(p);
         tree_t *rhs = parse_pow(p);
-        n = e_binary(TT_POW, n, rhs);
+        n = e_binary_at(ol, TT_POW, n, rhs);
     }
     return n;
 }
@@ -347,8 +361,9 @@ static tree_t *parse_mul(IcnParser *p) {
         else if (check(p, TK_SLASH)) k = TT_DIV;
         else if (check(p, TK_MOD))   k = TT_MOD;
         else break;
+        int ol = p->cur.line;
         advance(p);
-        n = e_binary(k, n, parse_pow(p));
+        n = e_binary_at(ol, k, n, parse_pow(p));
     }
     return n;
 }
@@ -361,8 +376,9 @@ static tree_t *parse_add(IcnParser *p) {
         if      (check(p, TK_PLUS))  k = TT_ADD;
         else if (check(p, TK_MINUS)) k = TT_SUB;
         else break;
+        int ol = p->cur.line;
         advance(p);
-        n = e_binary(k, n, parse_mul(p));
+        n = e_binary_at(ol, k, n, parse_mul(p));
     }
     return n;
 }
@@ -381,8 +397,9 @@ static tree_t *parse_cset(IcnParser *p) {
             continue;
         }
         else break;
+        int ol = p->cur.line;
         advance(p);
-        n = e_binary(k, n, parse_add(p));
+        n = e_binary_at(ol, k, n, parse_add(p));
     }
     return n;
 }
@@ -395,8 +412,9 @@ static tree_t *parse_concat(IcnParser *p) {
         if      (check(p, TK_LCONCAT)) k = TT_LCONCAT;
         else if (check(p, TK_CONCAT))  k = TT_CAT;
         else break;
+        int ol = p->cur.line;
         advance(p);
-        n = e_binary(k, n, parse_cset(p));
+        n = e_binary_at(ol, k, n, parse_cset(p));
     }
     return n;
 }
@@ -427,8 +445,9 @@ static tree_t *parse_rel(IcnParser *p) {
     if (!n) return NULL;
     while (is_relop(p->cur.kind)) {
         tree_e k = relop_ekind(p->cur.kind);
+        int ol = p->cur.line;
         advance(p);
-        n = e_binary(k, n, parse_concat(p));
+        n = e_binary_at(ol, k, n, parse_concat(p));
     }
     return n;
 }
@@ -507,23 +526,29 @@ static tree_t *parse_assign(IcnParser *p) {
     tree_t *n = parse_activate(p);
     if (!n) return NULL;
     if (check(p, TK_ASSIGN)) {
+        int ol = p->cur.line;
         advance(p);
-        return e_binary(TT_ASSIGN, n, parse_assign(p));
+        return e_binary_at(ol, TT_ASSIGN, n, parse_assign(p));
     }
     if (check(p, TK_REVASSIGN)) {
+        int ol = p->cur.line;
         advance(p);
-        return e_binary(TT_REVASSIGN, n, parse_assign(p));
+        return e_binary_at(ol, TT_REVASSIGN, n, parse_assign(p));
     }
     if (check(p, TK_SWAP)) {
+        int ol = p->cur.line;
         advance(p);
-        return e_binary(TT_SWAP, n, parse_assign(p));
+        return e_binary_at(ol, TT_SWAP, n, parse_assign(p));
     }
     if (check(p, TK_VALSWAP)) {
+        int ol = p->cur.line;
         advance(p);
-        return e_binary(TT_REVSWAP, n, parse_assign(p));
+        return e_binary_at(ol, TT_REVSWAP, n, parse_assign(p));
     }
     if (is_augop(p->cur.kind)) {
-        IcnTkKind aug = p->cur.kind; advance(p);
+        IcnTkKind aug = p->cur.kind;
+        int augl = p->cur.line;
+        advance(p);
         tree_t *rhs = parse_assign(p);
         tree_t *op = ast_node_new(TT_AUGOP);
         AugOp_e aop = AUGOP_ADD;
@@ -559,6 +584,7 @@ static tree_t *parse_assign(IcnParser *p) {
         default:                aop = AUGOP_ADD;       break;
         }
         op->v.ival = (long)aop;
+        if (augl > 0) op->line = augl;
         push_child(op, n); push_child(op, rhs);
         return op;
     }

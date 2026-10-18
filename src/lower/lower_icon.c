@@ -38,6 +38,8 @@ typedef struct {
     int end_line;
     int after_line;
     int key_after_line;
+    const tree_t * op_last;
+    int op_line;
     const tree_t * discard;
     int ret_lv;
     int var_road;
@@ -1017,7 +1019,44 @@ static int icn_field_hint(const tree_t * prog, const char * fn) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_field_var_store_only(IR_t * lv) { if (lv && lv->op == IR_FIELD_VAR && lv->seal > 0 && lv->seal < ICN_FIELD_PLAIN) lv->seal |= ICN_FIELD_PLAIN; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_op_hands_line(tree_e k) {
+    switch (k) {
+        case TT_ASSIGN:
+        case TT_REVASSIGN:
+        case TT_SWAP:
+        case TT_REVSWAP:
+        case TT_AUGOP:
+        case TT_MAKELIST:
+        case TT_MNS:
+        case TT_PLS:
+        case TT_SIZE:
+        case TT_NONNULL:
+        case TT_NULL:
+        case TT_NOT:
+        case TT_RANDOM:
+        case TT_CSET_COMPL:
+        case TT_DEREF:
+        case TT_ITERATE:
+        return 1;
+        default:
+        return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    const tree_t * pl = cx->op_last;
+    int pn = cx->op_line;
+    if (t && t == pl && pn > 0 && cx->after_line == 0) cx->after_line = pn;
+    if (t && t->line > 0 && t->n > 0 && icn_op_hands_line(t->t)) { cx->op_last = t->c[t->n - 1]; cx->op_line = t->line; }
+    IR_t * r = lower_node(cx, t, γ, ω, res);
+    cx->op_last = pl;
+    cx->op_line = pn;
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL;
     if (!res) res = &dummy;
     cx->beta = ω;
@@ -1399,15 +1438,18 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                 tree_t * as = ast_node_new(TT_ASSIGN);
                 ast_push(as, (tree_t *) lhs);
                 ast_push(as, scn);
+                as->line = t->line;
                 return lower(cx, as, γ, ω, res);
             }
             if (lhs && lhs->t == TT_VAR && rhs && augop_binop_tt((int) t->v.ival) != (tree_e) 0) {
                 tree_t * bo = ast_node_new(augop_binop_tt((int) t->v.ival));
                 ast_push(bo, (tree_t *) lhs);
                 ast_push(bo, (tree_t *) rhs);
+                bo->line = t->line;
                 tree_t * as = ast_node_new(TT_ASSIGN);
                 ast_push(as, (tree_t *) lhs);
                 ast_push(as, bo);
+                as->line = t->line;
                 return lower(cx, as, γ, ω, res);
             }
             if ((int) t->v.ival == AUGOP_CONJ && lhs && rhs) { tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, (tree_t *) rhs); return lower(cx, as, γ, ω, res); }
@@ -2791,7 +2833,11 @@ static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
         staged[k] = 0;
         if (nstage && icn_arg_stages(cx, a)) { cx->beta = aω; ae = lower_lvalue_var(cx, a, aω, &ar); if (ae && ar) staged[k] = 1; }
         IR_t * b4 = cx->beta;
-        if (!staged[k]) ae = lower(cx, a, (k == t->n - 1 && !nstage) ? ml : NULL, aω, &ar);
+        if (!staged[k]) {
+            const tree_t * na = k < t->n - 1 ? t->c[k + 1] : NULL;
+            if (na && na->line > 0 && (na->t == TT_KEYWORD || (na->t == TT_VAR && na->v.sval && na->v.sval[0] == '&'))) cx->after_line = na->line;
+            ae = lower(cx, a, (k == t->n - 1 && !nstage) ? ml : NULL, aω, &ar);
+        }
         aω = (cx->beta == b4 && ar && !staged[k] && icn_tree_is_cursor_mover(a)) ? ar : cx->beta;
         if (k == 0) entry = ae;
         if (prev) lc_γ_to(prev, ae);
