@@ -3543,6 +3543,7 @@ static const char * zd_edge_sz(IR_t * x, int v) {
 }
 static int zd_sz_sigma(const char * sz) { return (unsigned char)sz[0] == 0xcf && (unsigned char)sz[1] == 0x83 && sz[2] == 0; }
 static int zd_sz_phi(const char * sz) { return (unsigned char)sz[0] == 0xcf && (unsigned char)sz[1] == 0x86 && sz[2] == 0; }
+static int zd_sz_alpha(const char * sz) { return (unsigned char)sz[0] == 0xce && (unsigned char)sz[1] == 0xb1 && sz[2] == 0; }
 static int zd_dj_anc(const int * zarm, int i, int q) { int g = 0; for (int p = zarm[i]; p >= 0 && g++ < 4096; p = zarm[p]) if (p == q) return 1; return 0; }
 static IR_t * zd_dj_res(IR_t * dj, int j) {
     int na = (int)IR_LIT(dj).ival;
@@ -3990,6 +3991,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         if (!zoin[i]) zwpop[i] = (oback >= 0) ? ((zout[i] - K) - _obpre) : ((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop_s(nodes[i]->op, zmatch[i], zout[i], zstmt[i], zmafter[i]) : (zout[i] - K));
         else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] > rpos[i] && !port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - _obpre;
         else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] < rpos[i] && port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - zout[oback];
+        else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] < rpos[i] && zd_sz_alpha(zd_edge_sz(nodes[i], 1))) zwpop[i] = (zout[i] - K) - _obpre;
         if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-FINAL] i=%d %s K=%d zout=%d gpop=%d wpop=%d gback=%d oback=%d\n", i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i], gback, oback);
             } }
     if (zd_pl_abs()) for (int i = 0; i < n; i++) {
