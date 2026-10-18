@@ -3476,6 +3476,8 @@ static int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *
     for (int j = k + 1; j < n; j++) if (zon[j] && claim[j] == claim[k] && zout[j] > s && zd_omega_test_kind(nodes[j]) && zd_chase(nodes[j]->ω.node) == t) s = zout[j]; return s; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_omega_test_idx(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t); }
+static int zd_vl_join(const IR_t *last, const IR_t *cur) { return last && cur && last->op == IR_ASSIGN && cur->op == IR_VAR && IR_LIT(last).sval && IR_LIT(cur).sval &&
+    !strcmp(IR_LIT(last).sval, IR_LIT(cur).sval); }
 static int zd_arrival_depth(IR_t **nodes, int n, int i, const unsigned char *zon, const int *zout, const int *zgp, const int *zwp) {
     int d = -1;
     for (int j = 0; j < n; j++) {
@@ -3683,7 +3685,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         int ok = (rl > 0); const char * why = ""; int badi = -1; int rgood = rl;
         (void)rgood;
         int vd_tidx = -1;
-        if (pass == 1 && ok) { vd_tidx = zd_omega_test_idx(nodes, n, nodes[hi]);
+        if (ok && (pass == 1 || zd_vl_join(nodes[run[rl - 1]], cur))) { vd_tidx = zd_omega_test_idx(nodes, n, nodes[hi]);
             if (vd_tidx >= 0 && claim[vd_tidx] >= 0 && cur) { int _curi = -1; { int k = nidx(nodes, n, cur); if (k >= 0) { _curi = k; } }
                 if (!(_curi >= 0 && claim[_curi] == claim[vd_tidx])) vd_tidx = -1; }
             else vd_tidx = -1; }
@@ -3837,7 +3839,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                     else zgpop[i] = zout[i] - ent;
                     continue;
                 }
-                if (v) continue;
+                if (v) { if (!zdj_on) zwpop[i] = (zout[i] - zd_k(nodes[i])) - zout[q]; continue; }
                 zgpop[i] = zout[i] - zout[q];
                 if (!zd_sz_sigma(zd_edge_sz(nodes[i], 0))) continue;
                 int p = i;
@@ -4538,6 +4540,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     zd_plan(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, (const unsigned char *)0, zd_cps, zd_cpd, zd_chn, zd_claim);
     int * zd_vl = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     zd_vdj_live(g_emitter.codegen_flat_chain_body_nodes, n, zd_vl);
+    for (int i = 0; i < n; i++) for (int p = zd_on[i] ? zd_arm[i] : -1, g = 0; p >= 0 && g++ < n; p = zd_arm[p]) if (g_emitter.codegen_flat_chain_body_nodes[p]->op == IR_DISJUNCTION) { zd_vl[i] = 0;
+        break; }
         { unsigned char * _zw = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
             unsigned char * _zarm = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
         int * _zst = (int *)alloca(sizeof(int) * (size_t)(3 * n + 3)); for (int _q = 0; _q < n; _q++) _zw[_q] = 0; auto _in_arms = [&](int t, int k) -> int { int sp = 0;
