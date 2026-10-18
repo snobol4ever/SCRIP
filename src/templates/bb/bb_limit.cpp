@@ -63,5 +63,7 @@ std::string bb_limit_gate() {
            + x86("test", "rax", "rax")
            + x86_omega("jz")
            + x86_rt_gc_poll()
-           + x86_gamma());
+           + x86_gamma()
+           + x86_beta()
+           + x86_omega());
 }

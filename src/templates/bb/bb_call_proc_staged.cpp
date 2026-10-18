@@ -803,11 +803,11 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
              + x86("jmp", L(lb + 6))
              + x86("def", L(lb + 5))
              + x86("mov", "r8", RDQ("rdi", 8))
-             + x86("cmp", "r8", fb)
-             + x86("jb", L(lb + 9))
              + x86("mov", "rax", "r8")
-             + x86("sub", "rax", fb)
-             + x86("cmp", "rax", (long)(kt + 16 * ns))
+             + x86("sub", "rax", "rsp")
+             + x86("lea", "rcx", RDQ(fb, kt + 16 * ns))
+             + x86("sub", "rcx", "rsp")
+             + x86("cmp", "rax", "rcx")
              + x86("jae", L(lb + 9))
              + x86("def", L(lb + 6))
              + x86("mov", "rdi", "r8")
@@ -816,8 +816,10 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
              + x86("jmp", L(lsk + 99))
              + x86("def", L(lb + 8))
              + x86("mov", "rax", "rdi")
-             + x86("sub", "rax", fb)
-             + x86("cmp", "rax", (long)(kt + 16 * ns))
+             + x86("sub", "rax", "rsp")
+             + x86("lea", "rcx", RDQ(fb, kt + 16 * ns))
+             + x86("sub", "rcx", "rsp")
+             + x86("cmp", "rax", "rcx")
              + x86("jb", L(lsk + 99))
              + x86("mov", "rax", (long)((1L << 32) | (long)DT_N))
              + x86("mov", RDQ("rsi", 0), "rax")
@@ -851,7 +853,8 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
         "tail-safe, per cell (ARCH-PROLOG-C-OUT-OF-THE-BOX 9.3): a variable argument is inspected from its own slot "
             "(one hop fewer than through its name cell), any other cell from the block; ONE check body, its cold arms out "
                 "of line after the callee jump: a name (slen 1 the cell, slen 2 the VCELL's) is followed to its cell; a PLVAR "
-                    "link INTO THIS FRAME (A = B between two locals) is followed too, a link elsewhere is a value (its pointer is "
+                    "link INTO THIS FRAME -- rsp up to the old block's top, every cell the release kills, the spine cells below fb included -- "
+                        "is followed too, a link elsewhere is a value (its pointer is "
                         "absolute and its target outlives the frame); at most four hops, a longer chain or a self link of this frame "
                             "DECLINES the tail arm; a bound cell's VALUE is copied in; an unbound cell (the zero DESCR, a null name) of this frame declines, elsewhere it becomes a one-hop name");
     std::string ool;

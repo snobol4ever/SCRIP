@@ -17,7 +17,7 @@ int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 std::string xa_to_trail_mark() {
     return IF(x86_fb_pinned() && _.op_to_trailed,
                x86_pl_choice_mark(FRQ(_.op_off + 24), 245)
-             + x86_pl_header_open(x86_fb(), _.op_off + 24, _.op_off + 48));
+             + x86_pl_header_open(_.op_off + 24, _.op_off + 48));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_exhausted(const char * jcc_ok, int l_ok) {

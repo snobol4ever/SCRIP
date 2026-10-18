@@ -20,7 +20,8 @@ std::string xa_to_trail_unwind();
 std::string xa_to_int_operand_guard(int slot);
 std::string xa_to_db_load_store();
 std::string xa_to_db_slot_addr();
-#define TO_BOMB1() (x86_fb_pinned() && (_.op_zres || _.op_num_real))
+#define TO_BOMB1() (x86_fb_pinned() && _.op_num_real)
+#define TO_ZD_LIM() ((x86_fb_pinned() && _.op_to_trailed) ? 8 : 24)
 static std::string bb_to_db() {
     return x86("comment", "IR_TO db (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 B): the packet's slots in packet order, each visible at the generation G this enumeration took at alpha; "
                           "the store is reloaded from its root cell at every step (a collected object moves)")
@@ -75,8 +76,9 @@ std::string bb_to() {
                    + x86_bomb("IR_TO db: a packet enumeration outside a pinned Prolog frame or without static operands"))
          + IF(!_.op_db_walk && TO_BOMB1(),
                x86_alpha()
-                   + x86_bomb("IR_TO: a Prolog generator reached the zd/real arm, where op_off+24 is to.limit and the rung-7 trail mark "
-                       "would alias the loop bound -- grant IR_TO a fourth word before enabling this path"))
+                   + x86_bomb("IR_TO: a real-valued Prolog enumeration has no trailed arm")
+                   + x86_beta()
+                   + x86_bomb("IR_TO: a real-valued Prolog enumeration has no trailed arm"))
          + IF(!_.op_db_walk && !TO_BOMB1() && _.op_zres,
                x86("comment", "IR_TO zd")
                  + x86_alpha()
@@ -94,11 +96,13 @@ std::string bb_to() {
                  + x86("mov", "rsi", ZOPQ(1, 8))
                  + x86("call", _.op_range_int_operands ? "core_icn_to_int_check" : "to_int",
                      _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
-                 + x86("mov", FRQ(_.op_off + 24), "rax")
+                 + x86("mov", FRQ(_.op_off + TO_ZD_LIM()), "rax")
+                 + xa_to_trail_mark()
                  + x86("def", L(0))
                  + x86("mov", "rax", FRQ(_.op_off + 16))
-                 + x86("mov", "rcx", FRQ(_.op_off + 24))
+                 + x86("mov", "rcx", FRQ(_.op_off + TO_ZD_LIM()))
                  + x86("cmp", "rax", "rcx")
+                 + xa_to_trail_exhausted("jle", 6)
                  + x86_omega( "jg")
                  + x86("note", ZRESN())
                  + x86("mov", ZRES(0), (long)DT_I)
@@ -107,7 +111,9 @@ std::string bb_to() {
                  + x86_rt_gc_poll()
                  + x86_gamma()
                  + x86_beta()
+                 + xa_to_trail_unwind()
                  + x86("inc", FRQ(_.op_off + 16))
+                 + xa_to_trail_exhausted("jno", 7)
                  + x86_omega( "jo")
                  + x86("jmp", L(0)))
          + IF(!_.op_db_walk && !TO_BOMB1() && !_.op_zres,

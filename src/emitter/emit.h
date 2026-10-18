@@ -573,6 +573,7 @@ typedef struct {
     int op_leaf_frame_off;
     int op_xf_off;
     int * op_zread_xf;
+    int * op_zread_fr;
     int pl_trace_mode;
     unsigned long pl_trace_n;
     long pl_trace_depth;

@@ -100,7 +100,7 @@ static std::string cl_open() {
      + x86_omega("je") \
      + x86("cmp", RDQ("rcx", CLEANUP_REC_STATE), (long)CLEANUP_PENDING) \
      + x86_omega("jne") \
-     + IF(_.op_sa < 0, x86("mov", "rdx", RDQ(x86_fb(), g_emit.flat_frame_bytes - 40))) \
+     + IF(_.op_sa < 0, x86("mov", "rdx", FRQ(g_emit.flat_frame_bytes - 40))) \
      + IF(_.op_sa >= 0, x86("mov", "rdx", FRQ(_.op_sa + 16))) \
      + x86("test", "rdx", "rdx") \
      + x86("je", L(3)) \
@@ -148,7 +148,7 @@ static std::string cl_open() {
       x86("comment", "IR_CLEANUP det: SWI's determinism marks -- gamma when r13 reads the B its bank kept ($/1) or the frame's F.B0 ($/0, after the clause cut); omega when a choice is left") \
     + x86_alpha() \
     + IF(_.op_sa >= 0, x86("mov", "rax", FRQ(_.op_sa + 16))) \
-    + IF(_.op_sa < 0, x86("mov", "rax", RDQ(x86_fb(), g_emit.flat_frame_bytes - 40))) \
+    + IF(_.op_sa < 0, x86("mov", "rax", FRQ(g_emit.flat_frame_bytes - 40))) \
     + x86("cmp", "r13", "rax") \
     + x86_omega("jne") \
     + x86_gamma() \

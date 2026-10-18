@@ -76,8 +76,9 @@ inline struct bb_label_t * x86_tgt0_p() { return _.lbl_t0_p; }
 inline const char * x86_tgt1() { return _.lbl_t1; }
 inline struct bb_label_t * x86_tgt1_p() { return _.lbl_t1_p; }
 inline std::string x86_Lrec(const std::string & b) { std::string r; r += (char)'L'; r += (char)(unsigned char)b.size(); r += b; return r; }
-inline std::string x86_Jrec(int port) { std::string r; r += (char)'J'; r += (char)(unsigned char)port; return r; }
-inline std::string x86_Drec(int port) { std::string r; r += (char)'D'; r += (char)(unsigned char)port; return r; }
+inline std::string x86_Jrec(int port) { std::string r; r += (char)'J'; r += (char)(unsigned char)(port & 255); r += (char)(unsigned char)((port >> 8) & 255); return r; }
+inline std::string x86_Drec(int port) { std::string r; r += (char)'D'; r += (char)(unsigned char)(port & 255); r += (char)(unsigned char)((port >> 8) & 255); return r; }
+inline int x86_rec_id(const std::string & s, size_t & i) { int v = (unsigned char)s[i] | ((unsigned char)s[i + 1] << 8); i += 2; return v; }
 inline std::string x86_b1(uint8_t a) { std::string s; s += (char)a; return s; }
 inline std::string x86_b2(uint8_t a, uint8_t b) { std::string s; s += (char)a; s += (char)b; return s; }
 inline std::string x86_b3(uint8_t a, uint8_t b, uint8_t c) { std::string s; s += (char)a; s += (char)b; s += (char)c; return s; }
@@ -716,11 +717,12 @@ inline std::string x86_lea_tgt(const char * dst, int t) {
     return x86_rec("lea") + dst + ", [rip + " + nm + "]\n";
 }
 #define X86_INTERNAL_BASE 6
-#define X86_INTERNAL_MAX 250
+#define X86_INTERNAL_MAX 1000
+#define X86_LITERAL_MAX 250
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_internal_id(int n) {
     if (n < 0 || n >= X86_INTERNAL_MAX)
-        { fprintf(stderr, "FATAL x86_asm: internal label L(%d) out of range [0,%d) -- the one-byte record id would corrupt or truncate; split the box or raise X86_INTERNAL_MAX\n", n, X86_INTERNAL_MAX)
+        { fprintf(stderr, "FATAL x86_asm: internal label L(%d) out of range [0,%d) -- the two-byte record id holds X86_INTERNAL_MAX; split the box or raise it\n", n, X86_INTERNAL_MAX)
         ; abort(); }
     return X86_INTERNAL_BASE + n;
 }
@@ -788,15 +790,21 @@ inline std::string x86_jmp_mem(const char * base, int disp) {
     return x86_rec("jmp") + b2 + x86_rsp_goto();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_fc_jcc_omega(const char * mnem) {
+inline int x86_fc_synth_id() {
     int id = _.x86_fc_synth--;
+    if (id < X86_LITERAL_MAX)
+        { fprintf(stderr, "FATAL x86_asm: a box ran its synthesized port labels down into the literal L(n) range [0,%d)\n", X86_LITERAL_MAX); abort(); }
+    return id;
+}
+inline std::string x86_fc_jcc_omega(const char * mnem) {
+    int id = x86_fc_synth_id();
     return x86_jcc_id(x86_jcc_invert(mnem), id)
          + x86_jmp(X86P_OMEGA)
          + x86_deflabel_id(id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_fc_jcc_gamma(const char * mnem) {
-    int id = _.x86_fc_synth--;
+    int id = x86_fc_synth_id();
     return x86_jcc_id(x86_jcc_invert(mnem), id)
          + x86_jmp(X86P_GAMMA)
          + x86_deflabel_id(id);
@@ -838,7 +846,7 @@ inline std::string x86_jmp_via_cellp(const char * label, uint64_t cell) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_quad_ilbl(int n) {
     int id = x86_internal_id(n);
-    if (MEDIUM_BINARY) { std::string r; r += (char)'Q'; r += (char)(unsigned char)id; return r; }
+    if (MEDIUM_BINARY) { std::string r; r += (char)'Q'; r += (char)(unsigned char)(id & 255); r += (char)(unsigned char)((id >> 8) & 255); return r; }
     return std::string(" .quad ") + x86_internal_name(n) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1095,8 +1103,10 @@ inline const char * ZRES_SPINE(int w) { return x86_zref(w, 1); }
 inline const char * ZLOC(int o) { return x86_zref(16 + o, 1); }
 inline const char * ZLOCD(int o) { return x86_zref(16 + o, 0); }
 inline const char * ZLOC_B(int o) { return x86_zref(_.op_ztail + 16 + o, 1); }
-inline const char * ZOPQ(int k, int w) { int in = k >= 0 && k < _.op_zcap; return (in && _.op_zread_xf[k] != -1) ? RDQ("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 1); }
-inline const char * ZOPD(int k, int w) { int in = k >= 0 && k < _.op_zcap; return (in && _.op_zread_xf[k] != -1) ? RDD("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 0); }
+inline const char * ZOPQ(int k, int w) { int in = k >= 0 && k < _.op_zcap; if (in && _.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + w, 1, 0);
+    return (in && _.op_zread_xf[k] != -1) ? RDQ("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 1); }
+inline const char * ZOPD(int k, int w) { int in = k >= 0 && k < _.op_zcap; if (in && _.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + w, 0, 0);
+    return (in && _.op_zread_xf[k] != -1) ? RDD("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 0); }
 inline const char * FR(int off) { return x86_zop(off, 0, 0); }
 inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i + 1) & 7; snprintf(b[i], 16, "P%d", idx); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2177,13 +2187,13 @@ inline std::string x86_pl_choice_mark(const std::string & mark_mem, int l0)
     + x86_call_ro("rt_pl_tr_refuse", (uint64_t)(uintptr_t)(void *)rt_pl_tr_refuse)
     + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : x86_recn("ud2") + "\n")
     + x86("def", L(l0 + 4)); }
-inline std::string x86_pl_header_open(const char * fb, int hoff, int prev_off)
+inline std::string x86_pl_header_open(int hoff, int prev_off)
     { return x86("mov", "rax", "rsp")
     + x86_raw_pack("rax")
-    + x86("mov", RDQ(fb, hoff + 32), "rax")
-    + (prev_off >= 0 ? x86("mov", RDQ(fb, prev_off), "r13") : std::string())
+    + x86("mov", FRQ(hoff + 32), "rax")
+    + (prev_off >= 0 ? x86("mov", FRQ(prev_off), "r13") : std::string())
     + x86("note", "pl_header_open inline (D1): the construct's own choice header in its op slots, its mark at +0 and rsp at the open at +32; B is banked, then B := the header")
-    + x86("lea", "r13", RDQ(fb, hoff)); }
+    + x86("lea", "r13", FRQ(hoff)); }
 inline std::string x86_pl_frame_choice_open(const char * fb, int kt, int l_take, int l_done, int l_mark)
     { return x86("note",
         "pl_frame_choice_open inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): the floor word re-aimed at this frame's base; this frame becomes the youngest choice unless a younger one already is")
@@ -2221,12 +2231,12 @@ inline std::string x86_pl_scc_release_check(const char * fb, int kt, int l_ok) {
 inline std::string x86_pl_ball_rec_probe() { return x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", "rax", RDQ("rax", 32)) + x86("test", "rax", "rax"); }
 inline std::string x86_pl_ball_rule(int l_go, int l_skip) {
     if (!emit_pl_scc_armed()) return x86("test", "r15", "r15") + x86("jne", L(l_skip));
-    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86("je", L(l_skip)) + x86("lea", "rdx", RDQ(x86_fb(), g_emit.flat_frame_bytes)) + x86("cmp", "rax", "rdx") +
+    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86("je", L(l_skip)) + x86("lea", "rdx", FRQ(g_emit.flat_frame_bytes)) + x86("cmp", "rax", "rdx") +
         x86("jae", L(l_skip)) + x86("def", L(l_go));
 }
 inline std::string x86_pl_ball_rule_omega(int l_go) {
     if (!emit_pl_scc_armed()) return x86("test", "r15", "r15") + x86_omega("jne");
-    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86_omega("je") + x86("lea", "rdx", RDQ(x86_fb(), g_emit.flat_frame_bytes)) + x86("cmp", "rax", "rdx") +
+    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86_omega("je") + x86("lea", "rdx", FRQ(g_emit.flat_frame_bytes)) + x86("cmp", "rax", "rdx") +
         x86_omega("jae") + x86("def", L(l_go));
 }
 inline std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "pl_tr_unwind: pop the r12 trail to the mark, inline") + x86("mov", "rsi", mark_mem) +
@@ -2716,10 +2726,10 @@ inline void bb_emit_x86(const std::string & s) {
     { x86_rsp_pre_t before = x86_rsp_prepass_open(); x86_rsp_st_t & S = x86_rsp_S(); size_t i = 0, n = s.size();
       while (i < n) { char tag = s[i++];
         if (tag == 'L') { int k = (unsigned char)s[i++]; i += (size_t)k; if (k > 0) S.dead = 0; }
-        else if (tag == 'J') { int id = (unsigned char)s[i++]; x86_rsp_jump(1, (uint64_t)id); }
-        else if (tag == 'D') { int id = (unsigned char)s[i++]; if (id == X86P_ALPHA) { S.delta = 0; S.dead = 0; S.unknown = 0;
+        else if (tag == 'J') { int id = x86_rec_id(s, i); x86_rsp_jump(1, (uint64_t)id); }
+        else if (tag == 'D') { int id = x86_rec_id(s, i); if (id == X86P_ALPHA) { S.delta = 0; S.dead = 0; S.unknown = 0;
             } else if (id == X86P_BETA) { S.delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; S.dead = 0; S.unknown = 0; } else x86_rsp_define(1, (uint64_t)id); }
-        else if (tag == 'Q') { i++; }
+        else if (tag == 'Q') { i += 2; }
         else if (tag == 'E') { int idx = x86_pair_idx_read(s, i); x86_rsp_define(2, (uint64_t)idx); }
         else if (tag == 'F') { int idx = x86_pair_idx_read(s, i); x86_rsp_jump(2, (uint64_t)idx); }
         else if (tag == 'X' || tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); if (tag == 'X') x86_rsp_jump(3, v);
@@ -2741,11 +2751,14 @@ inline void bb_emit_x86(const std::string & s) {
     while (i < n) {
         char tag = s[i++];
         if (tag == 'L') { int k = (unsigned char)s[i++]; bb_emit_bytes((const uint8_t *)s.data() + i, (size_t)k); i += (size_t)k; if (k > 0) RS.dead = 0; }
-        else if (tag == 'J') { int id = (unsigned char)s[i++]; x86_rsp_jump(1, (uint64_t)id); bb_emit_patch_rel32(x86_label_for(id, internal, inm)); }
-        else if (tag == 'D') { int id = (unsigned char)s[i++]; if (id == X86P_ALPHA) { RS.delta = 0; RS.dead = 0; RS.unknown = 0;
+        else if (tag == 'J') { int id = x86_rec_id(s, i); x86_rsp_jump(1, (uint64_t)id); bb_emit_patch_rel32(x86_label_for(id, internal, inm)); }
+        else if (tag == 'D') { int id = x86_rec_id(s, i);
+            if (id >= X86_INTERNAL_BASE && id - X86_INTERNAL_BASE < X86_INTERNAL_MAX && internal[id - X86_INTERNAL_BASE].offset != BB_LABEL_UNRESOLVED)
+            { fprintf(stderr, "FATAL bb_emit_x86: internal label L(%d) defined twice in one %s box\n", id - X86_INTERNAL_BASE, x86_boxkind()); abort(); }
+            if (id == X86P_ALPHA) { RS.delta = 0; RS.dead = 0; RS.unknown = 0;
             } else if (id == X86P_BETA) { RS.delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; RS.dead = 0; RS.unknown = 0; } else x86_rsp_define(1, (uint64_t)id);
             bb_label_define(x86_label_for(id, internal, inm)); }
-        else if (tag == 'Q') { int id = (unsigned char)s[i++]; bb_emit_patch_abs64(x86_label_for(id, internal, inm)); }
+        else if (tag == 'Q') { int id = x86_rec_id(s, i); bb_emit_patch_abs64(x86_label_for(id, internal, inm)); }
         else if (tag == 'E') { int idx = x86_pair_idx_read(s, i); x86_rsp_define(2, (uint64_t)idx); if (XA_PAIR(idx).define) bb_label_define(XA_PAIR(idx).define); }
         else if (tag == 'F') { int idx = x86_pair_idx_read(s, i); x86_rsp_jump(2, (uint64_t)idx); bb_label_t * _t = x86_pair_tgt(idx); if (_t) bb_emit_patch_rel32(_t); }
         else if (tag == 'X') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_jump(3, v); bb_emit_patch_rel32((bb_label_t *)(uintptr_t)v); }
@@ -2771,8 +2784,8 @@ extern "C" void rt_gc_poll(void);
 extern "C" void rt_gc_poll_asm(void);
 extern "C" int g_gc_pending;
 inline long x86_rec_bytes(const std::string & s) { long n = 0; size_t i = 0; while (i < s.size()) { char t = s[i++]; if (t == 'L') { int k = (unsigned char)s[i++]; n += k; i += (size_t)k;
-    } else if (t == 'J') { i += 1; n += 4; } else if (t == 'F') { i += 4; n += 4; } else if (t == 'X') { i += 8; n += 4; } else if (t == 'D') { i += 1; } else if (t == 'E') { i += 4;
-    } else if (t == 'Y') { i += 8; } else if (t == 'Q') { i += 1; n += 8; } else if (t == 'S') { i += 4; } else if (t == 'R') { i += 4;
+    } else if (t == 'J') { i += 2; n += 4; } else if (t == 'F') { i += 4; n += 4; } else if (t == 'X') { i += 8; n += 4; } else if (t == 'D') { i += 2; } else if (t == 'E') { i += 4;
+    } else if (t == 'Y') { i += 8; } else if (t == 'Q') { i += 2; n += 8; } else if (t == 'S') { i += 4; } else if (t == 'R') { i += 4;
     } else if (t == 'U' || t == 'A' || t == 'Z' || t == 'G' || t == 'K' || t == 'M' || t == 'N') { } else if (t == 'k') { i += 4; } else return -1; } return n; }
 inline std::string x86_gc_gate(const std::string & body) {
     std::string test =

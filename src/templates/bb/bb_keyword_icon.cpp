@@ -15,14 +15,24 @@ DESCR_t rt_keyword_var(const char *name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define KI_BOMB() (!(_.op_off >= 0) && !_.op_zres)
 #define KI_VARFORM() (_.op_var_form && _.op_sval && _.op_sval[0] == '&')
+#define KI_RESULT() \
+    (IF(_.op_zres, \
+         x86("note", ZRESN()) \
+       + x86("mov", ZRES(0), "rax") \
+       + x86("note", ZRESN()) \
+       + x86("mov", ZRES(8), "rdx")) \
+   + IF(!_.op_zres, \
+         x86("mov", FRQ(_.op_off), "rax") \
+       + x86("mov", FRQ(_.op_off + 8), "rdx")))
+#define KI_GENKW() \
+    (!strcmp(_.op_name2, "features") || !strcmp(_.op_name2, "regions") || !strcmp(_.op_name2, "storage") || !strcmp(_.op_name2, "collections") || !strcmp(_.op_name2, "allocated"))
 std::string bb_keyword_icon() {
     return IF(KI_BOMB(), x86_alpha() + x86_bomb("bb_keyword: no slot"))
          + IF(!KI_BOMB() && KI_VARFORM(),
                x86_alpha()
              + x86("mov", "rdi", ROQ(0))
              + x86("call", "rt_keyword_var", (uint64_t)(uintptr_t)(void *)rt_keyword_var)
-             + x86("mov", FRQ(_.op_off), "rax")
-             + x86("mov", FRQ(_.op_off + 8), "rdx")
+             + KI_RESULT()
              + x86_rt_gc_poll()
              + x86_gamma() + x86_beta() + x86_omega()
              + x86(".quad_ro", L(0), LS(0), _.op_sval)
@@ -61,7 +71,46 @@ std::string bb_keyword_icon() {
             + x86("mov", ZRES(0), (long)DT_SNUL)
             + x86("mov", ZRES(8), (long)0)
             + x86_gamma() + x86_beta_trampoline()
-          : x86_alpha() + x86_bomb("bb_keyword_icon: unhandled keyword in ZD arm"))
+          : !strcmp(_.op_name2, "fail")
+            ? x86("comment", "KEYWORD_fail (ZK-2)")
+            + x86_alpha()
+            + x86_omega()
+            + x86_beta()
+            + x86_omega()
+          : (KI_GENKW() && _.op_off < 0)
+            ? x86_alpha() + x86_bomb("bb_keyword_icon: a generator keyword on the spine has no frame word for its counter")
+          : KI_GENKW()
+            ? x86("comment", "KEYWORD_gen->ZRES (ZK-2)")
+            + x86_alpha()
+            + x86("mov", FRQ(_.op_off + 16), (long)0)
+            + x86("def", L(1))
+            + x86("mov", "rdi", ROQ(0))
+            + x86("mov", "rsi", FRQ(_.op_off + 16))
+            + x86("call", "rt_keyword_gen", (uint64_t)(uintptr_t)(void *)rt_keyword_gen)
+            + x86("cmp", "al", (long)DT_FAIL)
+            + x86_omega("je")
+            + KI_RESULT()
+            + x86("mov", "rax", FRQ(_.op_off + 16))
+            + x86("add", "rax", (long)1)
+            + x86("mov", FRQ(_.op_off + 16), "rax")
+            + x86_gamma()
+            + x86_beta()
+            + x86("jmp", L(1))
+            + x86(".quad_ro", L(0), LS(0), _.op_sval)
+            + x86("label", LS(0))
+            + x86(".string", _.op_sval)
+          : x86("comment", "KEYWORD_read->ZRES (ZK-2)")
+            + x86_alpha()
+            + x86("mov", "rdi", ROQ(0))
+            + x86("call", "rt_keyword_read", (uint64_t)(uintptr_t)(void *)rt_keyword_read)
+            + x86("cmp", "al", (long)DT_FAIL)
+            + x86_omega("je")
+            + KI_RESULT()
+            + x86_rt_gc_poll()
+            + x86_gamma() + x86_beta() + x86_omega()
+            + x86(".quad_ro", L(0), LS(0), _.op_sval)
+            + x86("label", LS(0))
+            + x86(".string", _.op_sval))
          : (!strcmp(_.op_name2, "subject")
             ? (g_scan_regs_live
                ? x86("comment",

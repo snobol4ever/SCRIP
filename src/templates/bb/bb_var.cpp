@@ -8,7 +8,12 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var() {
     x86_begin();
-    return IF(_.op_zres,
+    return IF(_.op_zres && g_emit_cfg && g_emit_cfg->icn_cells_graph,
+               x86("comment", "IR_VAR local, K=0: no cell -- each consumer reads the variable's own slot at the operation")
+             + x86_alpha()
+             + x86_gamma()
+             + x86_beta_trampoline())
+         + IF(_.op_zres && !(g_emit_cfg && g_emit_cfg->icn_cells_graph),
                x86("comment", "IR_VAR local -> ZRES (ZK-2 cells arm)")
              + x86_alpha()
              + x86("mov", "rax", FRQ(_.op_sa))
