@@ -3576,6 +3576,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
     unsigned char * djok = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
     for (int i = 0; i < n; i++) { zarmj[i] = -1; djn[i] = 0; djok[i] = 0; if (zcps) zcps[i] = -1; if (zcpd) zcpd[i] = -1; if (zchn) { zchn[2 * i] = -1; zchn[2 * i + 1] = -1; } }
     const int zdj_on = zarm && zcps && g_emit_cfg && g_emit_cfg->icn_cells_graph && !x86_fb_pinned();
+    const int zdj_arms = zarm && zcps && g_emit_cfg && !x86_fb_pinned();
     { if(g_emitter.zd_plan__lp<0){const char*e=getenv("SCRIP_ZDLOCAL");g_emitter.zd_plan__lp=(e&&*e=='1')?1:0;} if(g_emitter.zd_plan__lp){ extern int is_global(const char *);
         for (int i=0;i<n;i++){ int o=(int)nodes[i]->op;
         if(o==IR_VAR||o==IR_ASSIGN){ const char*vn=IR_LIT(nodes[i]).sval; int gl = (vn && is_global(vn) && !graph_has_local(g_emit_cfg, vn));
@@ -3626,7 +3627,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                     }
                     if (bad) { for (int u = rl0; u < rl; u++) { int ci = run[u]; claim[ci] = -1; rpos[ci] = -1; zarm[ci] = -1; aent[ci] = 0; } rl = rl0; }
                 } } } }
-        if (zdj_on) {
+        if (zdj_arms) {
             for (int r0 = 0; r0 < rl; r0++) {
                 int ei = run[r0];
                 IR_t * env = nodes[ei];
@@ -3636,7 +3637,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 int bad = 0;
                 for (int a = 0; a < na && !bad; a++) {
                     IR_t * rs = env->operands[2 * a + 1];
-                    if (!rs || rs->op != IR_FAIL || nidx(nodes, n, rs) >= 0) { bad = 1; break; }
+                    if (!rs || (zdj_on ? (rs->op != IR_FAIL || nidx(nodes, n, rs) >= 0) : rs != env)) { bad = 1; break; }
                     IR_t * c2 = env->operands[2 * a];
                     int first = 1, g2 = 0;
                     while (c2 && c2 != env && g2++ <= n) {
@@ -3790,9 +3791,9 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             }
         }
     }
-    if (zdj_on) {
+    if (zdj_arms) {
         for (int i = 0; i < n; i++) {
-            if (!zon[i] || zarm[i] < 0) continue;
+            if (!zon[i] || zarm[i] < 0 || (!zdj_on && zarmj[i] < 0)) continue;
             for (int v = 0; v < 2; v++) {
                 IR_t * t = zd_chase(v ? nodes[i]->ω.node : nodes[i]->γ.node);
                 int q = t ? nidx(nodes, n, t) : -1;
