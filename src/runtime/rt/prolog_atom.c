@@ -173,7 +173,7 @@ void prolog_op_col_set_u(int atom, int prec, const char *ty, int user) {
         opcols = grown;
         opcols_cap = cap;
     }
-    { OpCol *c = op_col(&opcols[atom], fix); c->p = (unsigned short)(prec > 0 ? prec : 0); c->t = (unsigned char)(prec > 0 ? code : 0); c->u = (unsigned char)(user ? 1 : 0); }
+    { OpCol *c = op_col(&opcols[atom], fix); c->p = (unsigned short)(prec > 0 ? prec : 0); c->t = (unsigned char)(prec > 0 ? code : 0); c->u = (unsigned char)(user == 2 ? 2 : user ? 1 : 0); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void prolog_op_col_set(int atom, int prec, const char *ty) { prolog_op_col_set_u(atom, prec, ty, 1); }
@@ -190,7 +190,7 @@ static void op_cols_fill(void) {
     opcols_ready = 1;
     extern int prolog_op_user_count(void);
     extern int prolog_op_user_get(int, const char **, int *, const char **);
-    for (int i = 0; pre[i].n; i++) prolog_op_col_set_u(prolog_atom_intern(pre[i].n), pre[i].p, pre[i].ty, 0);
+    for (int i = 0; pre[i].n; i++) prolog_op_col_set_u(prolog_atom_intern(pre[i].n), pre[i].p, pre[i].ty, 2);
     for (int i = 0, n = prolog_op_table_count(); i < n; i++) {
         const char *nm = 0, *ty = 0;
         int pr = 0;
@@ -206,12 +206,13 @@ static void op_cols_fill(void) {
 int prolog_op_col_get(int atom, int fix, int *prec_out, int *type_out) {
     if (!opcols_ready) op_cols_fill();
     if (atom < 0 || atom >= opcols_cap || fix < 0 || fix > 2 || !op_col(&opcols[atom], fix)->p) return 0;
+    if (op_col(&opcols[atom], fix)->u == 2) { extern int rt_pl_dialect_gnu(void); if (rt_pl_dialect_gnu()) return 0; }
     if (prec_out) *prec_out = op_col(&opcols[atom], fix)->p;
     if (type_out) *type_out = op_col(&opcols[atom], fix)->t;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int prolog_op_col_user(int atom, int fix) { return (atom >= 0 && atom < opcols_cap && fix >= 0 && fix <= 2) ? op_col(&opcols[atom], fix)->u : 0; }
+int prolog_op_col_user(int atom, int fix) { return (atom >= 0 && atom < opcols_cap && fix >= 0 && fix <= 2) ? op_col(&opcols[atom], fix)->u == 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_op_cols_ready(void) { return opcols_ready; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

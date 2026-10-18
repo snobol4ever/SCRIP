@@ -22948,6 +22948,34 @@ static int pl_pp_ctl(const char *nm, int ar) {
     for (int i = 0; c[i]; i++) if (ca[i] == ar && !strcmp(c[i], nm)) return 1;
     return 0;
 }
+static const char *pl_gnu_meta_spec(const char *nm, int ar) {
+    static const char *const specs =
+        ";" "findall/3:? 0 -;findall/4:? 0 - ?;setof/3:? 0 -;bagof/3:? 0 -;asserta/1::;assertz/1::;retract/1::;retractall/1::;clause/2:: ?;abolish/1::;once/1:0;\\+/1:0;call_det/2:0 ?;"
+        "call_nth/2:0 ?;call_last/1:0;countall/2:0 ?;forall/2:0 0;call_with_args/1:1;call_with_args/2:1 ?;call_with_args/3:2 ? ?;call_with_args/4:3 ? ? ?;"
+        "call_with_args/5:4 ? ? ? ?;call_with_args/6:5 ? ? ? ? ?;call_with_args/7:6 ? ? ? ? ? ?;call_with_args/8:7 ? ? ? ? ? ? ?;call_with_args/9:8 ? ? ? ? ? ? ? ?;"
+        "call_with_args/10:9 ? ? ? ? ? ? ? ? ?;call_with_args/11:10 ? ? ? ? ? ? ? ? ? ?;call/2:1 ?;call/3:2 ? ?;call/4:3 ? ? ?;call/5:4 ? ? ? ?;call/6:5 ? ? ? ? ?;"
+        "call/7:6 ? ? ? ? ? ?;call/8:7 ? ? ? ? ? ? ?;call/9:8 ? ? ? ? ? ? ? ?;call/10:9 ? ? ? ? ? ? ? ? ?;call/11:10 ? ? ? ? ? ? ? ? ? ?;./2:: +;consult/1::;consult/2:: +;"
+        "listing/1::;spy/1::;nospy/1::;phrase/2:2 ?;phrase/3:2 ? ?;maplist/2:1 ?;maplist/3:2 ? ?;maplist/4:3 ? ? ?;maplist/5:4 ? ? ? ?;maplist/6:5 ? ? ? ? ?;"
+        "maplist/7:6 ? ? ? ? ? ?;maplist/8:7 ? ? ? ? ? ? ?;maplist/9:8 ? ? ? ? ? ? ? ?;current_predicate/1::;predicate_property/2:: ?;,/2:0 0;/2:0 0;->/2:0 0;*->/2:0 0;call/1:0;" "catch/3:0 ? 0;";
+    size_t nl = strlen(nm);
+    char key[nl + 24];
+    const char *p;
+    snprintf(key, sizeof key, ";%s/%d:", nm, ar);
+    p = strstr(specs, key);
+    return p ? p + strlen(key) : (const char *)0;
+}
+static DESCR_t pl_gnu_meta_term(const char *nm, int ar, const char *sp) {
+    DESCR_t a[ar > 0 ? ar : 1];
+    for (int k = 0; k < ar; k++) {
+        size_t tl = strcspn(sp, " ;");
+        int dig = tl > 0;
+        for (size_t j = 0; j < tl; j++) if (!isdigit((unsigned char)sp[j])) dig = 0;
+        a[k] = dig ? INTVAL(atoll(sp)) : pl_mk_atom_dup(sp, tl);
+        sp += tl;
+        if (*sp == ' ') sp++;
+    }
+    return pl_gnu_fn(nm, ar, a);
+}
 static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **file, long *line) {
     extern int rt_proc_is_registered(const char *);
     extern int rt_pl_db_key_line(void *, const char *);
@@ -22986,6 +23014,7 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
                 gp[n++] = strncmp(nm, "fd_", 3) ? "built_in" : "built_in_fd";
                 gp[n++] = "native_code";
                 if (pl_pp_ctl(nm, ar)) gp[n++] = "control_construct";
+                if (pl_gnu_meta_spec(nm, ar)) gp[n++] = "meta_predicate";
                 gp[n++] = "defined";
             }
             if (i > n) return (const char *)0;
@@ -23020,7 +23049,13 @@ DESCR_t rt_pl_dop_pl_pp_nth_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *r
         const char *fp = (const char *)0;
         long ln = 0;
         const char *pr = iv.v == DT_I ? pl_pp_prop(rt_pl_deref_val(args[1]), root, iv.i, &fp, &ln) : (const char *)0;
-        if (pr && !strcmp(pr, "prolog_line")) ok = plw_unify_vals(args[2], pl_gnu_fn1(pr, INTVAL(ln)), cx);
+        if (pr && !strcmp(pr, "meta_predicate")) {
+            DESCR_t hh = pl_pp_head(rt_pl_deref_val(args[1]), (DESCR_t *)0);
+            const char *hn = hh.v == (DTYPE_t)DT_PLREF ? prolog_atom_name(plc_fid_name(hh.slen)) : pl_atom_str(hh);
+            int ha = hh.v == (DTYPE_t)DT_PLREF ? plc_fid_arity(hh.slen) : 0;
+            const char *sp = hn ? pl_gnu_meta_spec(hn, ha) : (const char *)0;
+            ok = sp && plw_unify_vals(args[2], pl_gnu_fn1(pr, pl_gnu_meta_term(hn, ha, sp)), cx);
+        } else if (pr && !strcmp(pr, "prolog_line")) ok = plw_unify_vals(args[2], pl_gnu_fn1(pr, INTVAL(ln)), cx);
         else if (pr && fp) ok = plw_unify_vals(args[2], pl_gnu_fn1(pr, pl_mk_atom_dup(fp, strlen(fp))), cx);
         else if (pr) ok = plw_unify_vals(args[2], pl_mk_atom_dup(pr, strlen(pr)), cx);
     }
