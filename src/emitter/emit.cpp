@@ -4190,6 +4190,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 int q = t ? nidx(nodes, n, t) : -1;
                 const char * sz = zd_edge_sz(nodes[i], v);
                 if (q < 0 || !zon[q] || !(port_sz_beta(sz) || zd_sz_phi(sz))) continue;
+                if (claim[q] != claim[i]) continue;
                 int p = (v == 0 && nodes[i]->op == IR_UNMARK) ? -1 : zd_pred_bt(nodes, n, claim, claim[i], i);
                 int to = q;
                 if (p >= 0 && p != q) { to = p; if (zchn) zchn[2 * i + v] = p; }
