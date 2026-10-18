@@ -3476,7 +3476,8 @@ int rt_pl_nb_is_set(void *root, int64_t k) { if (!root || k < 0) return 0; { pl_
 #define PL_DB_REGISTRY_CELL 0
 #define PL_DB_KEY_VLA(buf, nm, ar) char buf[fmt_len("%s/%d", (nm), (int)(ar))]; snprintf(buf, sizeof buf, "%s/%d", (nm), (int)(ar))
 typedef struct { char *key; int k; pl_db_t *db; int stat; int decl; int file; int line; int mf; } pl_db_key_t;
-typedef struct { pl_db_key_t *e; int n; int cap; int next_cell; int ovf_cap; void **ovf; void **tries; int ntries; int tcap; int tbl_vt; } pl_db_reg_t;
+typedef struct { pl_db_key_t *e; int n; int cap; int next_cell; int ovf_cap; void **ovf; void **tries; int ntries; int tcap; int tbl_vt; int *hix; int hcap; } pl_db_reg_t;
+_Static_assert(__builtin_offsetof(pl_db_reg_t, hix) == 56, "rt_gc_mark_run (rtx_gc.s) visits the registry's key index at [registry + 56], an unscanned block of entry numbers");
 _Static_assert(__builtin_offsetof(pl_db_reg_t, ovf) == 24,
     "xa_flat.cpp's packet road loads a root cell numbered PL_DB_FRAME_CELLS or more through [registry + 24], the overflow vector -- the cells past the root frame live there, in an HB_PVEC that grows"
     " by doubling");
@@ -3500,6 +3501,8 @@ static pl_db_reg_t * pl_db_registry(void *root, int create) {
             r->ntries = 0;
             r->tcap = 0;
             r->tbl_vt = -1;
+            r->hix = (int *)0;
+            r->hcap = 0;
             r->e = (pl_db_key_t *)rt_pl_struct_alloc(HB_PLDBK, (size_t)r->cap * sizeof(pl_db_key_t));
             if (!r->e) { r->cap = 0; }
             *cell = r;
@@ -3529,8 +3532,53 @@ static void ** pl_db_cell_addr(void *root, int64_t k, int create) {
         return &r->ovf[i];
     }
 }
+static uint64_t pl_db_hash_bytes(uint64_t h, const char *s, size_t n) { for (size_t i = 0; i < n; i++) h = (h ^ (unsigned char)s[i]) * 0x100000001B3ull; return h; }
+static int pl_db_arity_digits(char *buf, int ar) {
+    char t[12];
+    int n = 0, m = 0;
+    unsigned u = ar < 0 ? 0u - (unsigned)ar : (unsigned)ar;
+    do t[n++] = (char)('0' + u % 10);
+    while (u /= 10);
+    if (ar < 0) buf[m++] = '-';
+    while (n) buf[m++] = t[--n];
+    return m;
+}
+static uint64_t pl_db_hash_na(const char *nm, size_t nl, const char *ad, int an) { return pl_db_hash_bytes(pl_db_hash_bytes(pl_db_hash_bytes(0xCBF29CE484222325ull, nm, nl), "/", 1), ad, (size_t)an); }
+static void pl_db_hix_put(pl_db_reg_t *r, int idx) {
+    const char *k = r->e[idx].key;
+    int m = r->hcap - 1, i = (int)(pl_db_hash_bytes(0xCBF29CE484222325ull, k, strlen(k)) & (uint64_t)m);
+    while (r->hix[i]) i = (i + 1) & m;
+    r->hix[i] = idx + 1;
+}
+static void pl_db_hix_index(pl_db_reg_t *r) {
+    if (r->hix && 2 * r->n <= r->hcap) { pl_db_hix_put(r, r->n - 1); return; }
+    {
+        int nc = r->hcap > 0 ? 2 * r->hcap : 64;
+        int *nh = (int *)rt_str_alloc((long)nc * (long)sizeof(int));
+        r->hix = nh;
+        r->hcap = nh ? nc : 0;
+        if (!nh) return;
+        memset(nh, 0, (size_t)nc * sizeof(int));
+        for (int i = 0; i < r->n; i++) pl_db_hix_put(r, i);
+    }
+}
+static pl_db_key_t * pl_db_reg_find_na(pl_db_reg_t *r, const char *nm, int arity) {
+    char ad[12];
+    int an = pl_db_arity_digits(ad, arity), m = r->hcap - 1;
+    size_t nl = strlen(nm);
+    for (int i = (int)(pl_db_hash_na(nm, nl, ad, an) & (uint64_t)m), x; (x = r->hix[i]) != 0; i = (i + 1) & m) {
+        const char *k = r->e[x - 1].key;
+        if (!strncmp(k, nm, nl) && k[nl] == '/' && !strncmp(k + nl + 1, ad, (size_t)an) && !k[nl + 1 + (size_t)an]) return &r->e[x - 1];
+    }
+    return (pl_db_key_t *)0;
+}
 static pl_db_key_t * pl_db_reg_find(pl_db_reg_t *r, const char *key) {
     if (!r || !key) return (pl_db_key_t *)0;
+    if (r->hix) {
+        int m = r->hcap - 1;
+        for (int i = (int)(pl_db_hash_bytes(0xCBF29CE484222325ull, key, strlen(key)) & (uint64_t)m), x; (x = r->hix[i]) != 0; i = (i + 1) & m) if (!strcmp(r->e[x - 1].key, key)) return &r->e[x - 1];
+        return (pl_db_key_t *)0;
+    }
     for (int i = 0; i < r->n; i++) if (!strcmp(r->e[i].key, key)) return &r->e[i];
     return (pl_db_key_t *)0;
 }
@@ -3556,7 +3604,8 @@ static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key) {
         e->file = -1;
         e->line = 0;
         e->mf = 0;
-        return e;
+        pl_db_hix_index(r);
+        return &r->e[r->n - 1];
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3881,6 +3930,7 @@ int rt_pl_db_bind(void *root, int64_t k, const char *name, int64_t arity) {
 int rt_pl_db_key_cell(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); return (e && e->k >= 0) ? e->k : -1; }
 int rt_pl_db_key_is_dynamic(void *root, const char *key);
 int rt_pl_db_cell_for(void *root, const char *name, int arity) {
+    { pl_db_reg_t *r = name ? pl_db_registry(root, 0) : (pl_db_reg_t *)0; pl_db_key_t *e = (r && r->hix) ? pl_db_reg_find_na(r, name, arity) : (pl_db_key_t *)0; if (e && e->k >= 0) return e->k; }
     PL_DB_KEY_VLA(key, name, arity);
     {
         pl_db_reg_t *r = pl_db_registry(root, 1);

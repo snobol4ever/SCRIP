@@ -1018,6 +1018,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_db_enum", GC_RET_OTHER },
     { "pl_db_enum_ref", GC_RET_OTHER },
     { "pl_db_fragment", GC_RET_OTHER },
+    { "pl_db_hix_index", GC_RET_VOID },
     { "pl_db_key_current", GC_RET_OTHER },
     { "pl_db_key_set_file", GC_RET_VOID },
     { "pl_db_key_set_meta", GC_RET_VOID },

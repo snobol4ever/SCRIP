@@ -808,8 +808,13 @@ RTX_ENTRY(rt_gc_walk_words_a)
 .Lmk_m_pldbr2:
     mov     r10, qword ptr [rsi + 32]
     test    r10, r10
-    je      .Lmk_loop
+    je      .Lmk_m_pldbr3
     MK_RAW rsi+32
+.Lmk_m_pldbr3:
+    mov     r10, qword ptr [rsi + 56]
+    test    r10, r10
+    je      .Lmk_loop
+    MK_RAW rsi+56
     jmp     .Lmk_loop
 .Lmk_m_pldbk:
     mov     edx, dword ptr [rax + 8]
