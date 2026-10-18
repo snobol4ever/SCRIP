@@ -3636,7 +3636,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             cur = zd_chase(cur->γ.node);
         }
         { for (int k = 0; k < n; k++) aent[k] = 0;
-          if (zarm) { int rl_main = rl;
+          if (zarm) {
             for (int r0 = 0; r0 < rl; r0++) { IR_t * env = nodes[run[r0]]; if ((int)env->op != IR_MATCH_ALTERNATE) continue; int ei = run[r0];
                 for (int a = 0; a + 1 < env->n_operands; a += 2) { IR_t * c2 = env->operands[a]; int rl0 = rl; int bad = 0; int g2 = 0; int first = 1;
                     while (c2 && g2++ <= n) {
