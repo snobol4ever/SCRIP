@@ -242,10 +242,11 @@ int prolog_op_user_get(int i, const char **name_out, int *prec_out, const char *
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void register_op_one(int prec, const char *type, tree_t *namenode) {
+static void register_op_one(int prec, const char *type, tree_t *namenode, int swi) {
     if (!namenode) return;
-    if (namenode->t == TT_MAKELIST) { for (int i = 0; i < namenode->n; i++) register_op_one(prec, type, namenode->c[i]); return; }
-    if (namenode->t != TT_QLIT || !namenode->v.sval || prec < 0 || prec > 1200 || prolog_op_permission(namenode->v.sval, prec, type)) return;
+    if (namenode->t == TT_MAKELIST) { for (int i = 0; i < namenode->n; i++) register_op_one(prec, type, namenode->c[i], swi); return; }
+    int blk = swi && namenode->t == TT_FNC && namenode->n == 0 && namenode->v.sval && !strcmp(namenode->v.sval, "{}");
+    if ((namenode->t != TT_QLIT && !blk) || !namenode->v.sval || prec < 0 || prec > 1200 || (!blk && prolog_op_permission(namenode->v.sval, prec, type))) return;
     Assoc assoc; Fixity fix;
     if (op_type_classify(type, &assoc, &fix)) user_op_add(namenode->v.sval, prec, assoc, fix);
 }
@@ -262,13 +263,13 @@ static void register_lib_ops(const char *lib) {
         return;
     }
 }
-static void register_op_directive(tree_t *goal) {
+static void register_op_directive(tree_t *goal, int swi) {
     if (!goal || goal->t != TT_FNC || !goal->v.sval) return;
-    if (strcmp(goal->v.sval, ",") == 0 && goal->n == 2) { register_op_directive(goal->c[0]); register_op_directive(goal->c[1]); return; }
+    if (strcmp(goal->v.sval, ",") == 0 && goal->n == 2) { register_op_directive(goal->c[0], swi); register_op_directive(goal->c[1], swi); return; }
     if (strcmp(goal->v.sval, "module") == 0 && goal->n == 2) {
         tree_t *exports = goal->c[1];
         if (exports && exports->t == TT_MAKELIST)
-            for (int i = 0; i < exports->n; i++) register_op_directive(exports->c[i]);
+            for (int i = 0; i < exports->n; i++) register_op_directive(exports->c[i], swi);
         return;
     }
     if (!strcmp(goal->v.sval, "use_module") && goal->n >= 1 && goal->c[0] && goal->c[0]->t == TT_FNC && goal->c[0]->v.sval && !strcmp(goal->c[0]->v.sval, "library") && goal->c[0]->n == 1 && goal->c[0]->c[0]
@@ -276,7 +277,7 @@ static void register_op_directive(tree_t *goal) {
     if (strcmp(goal->v.sval, "op") != 0 || goal->n != 3) return;
     tree_t *pn = goal->c[0], *tn = goal->c[1], *nn = goal->c[2];
     if (!pn || pn->t != TT_ILIT || !tn || tn->t != TT_QLIT || !tn->v.sval) return;
-    register_op_one((int)pn->v.ival, tn->v.sval, nn);
+    register_op_one((int)pn->v.ival, tn->v.sval, nn, swi);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lexer_functor_follows(Lexer *lx) {
@@ -879,6 +880,13 @@ static tree_t *pt_term(Parser *p, TreeScope *ts, int max_prec) {
     for (;;) {
         Token pk = lexer_peek(&p->lx);
         const char *optext = NULL;
+        if (pk.kind == TK_LBRACE) {
+            const OpEntry *bo = find_postfix("{}");
+            if (!bo || bo->prec > max_prec || lp > (bo->assoc == ASSOC_LEFT ? bo->prec : bo->prec - 1)) break;
+            tree_t *blk = pt_primary(p, ts);
+            if (!blk) break;
+            tree_t *bn = ast_node_new(TT_IDX); bn->v.sval = ct_strdup("{}"); ast_push(bn, lhs); ast_push(bn, blk); lhs = pt_stamp(bn, ln); lp = bo->prec; continue;
+        }
         if      (pk.kind == TK_OP)                              optext = pk.text;
         else if (pk.kind == TK_ATOM)                            optext = pk.text;
         else if (pk.kind == TK_COMMA && p->in_args > 0)         break;
@@ -1249,7 +1257,7 @@ static PlClause *parse_clause(Parser *p) {
             if (fdot.kind != TK_DOT) perror_at(p, fdot.line, "expected . at end of clause");
             tree_t *_fcl = ast_node_new(TT_CLAUSE);
             if (fnc->n == 2) { ast_push(_fcl, fnc->c[0]); ast_push(_fcl, fnc->c[1]); }
-            else if (fnc->n == 1) { register_op_directive(fnc->c[0]); iso_directive(p, fnc->c[0]); cl->nbody = 0; ast_push(_fcl, ast_node_new(TT_NUL)); ast_push(_fcl, fnc->c[0]); }
+            else if (fnc->n == 1) { register_op_directive(fnc->c[0], p->lx.swi); iso_directive(p, fnc->c[0]); cl->nbody = 0; ast_push(_fcl, ast_node_new(TT_NUL)); ast_push(_fcl, fnc->c[0]); }
             else ast_push(_fcl, fnc);
             cl->tr = _fcl;
             return cl;
@@ -1258,7 +1266,7 @@ static PlClause *parse_clause(Parser *p) {
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . after directive");
-        register_op_directive(body_tr); iso_directive(p, body_tr);
+        register_op_directive(body_tr, p->lx.swi); iso_directive(p, body_tr);
         cl->nbody = 0;
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
           ast_push(_cl, ast_node_new(TT_NUL));

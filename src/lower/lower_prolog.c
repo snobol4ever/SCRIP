@@ -4387,6 +4387,18 @@ static const tree_t * pl_attv_rewrite(const tree_t * prog) {
     return np;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_blockop_rewrite(const tree_t * t) {
+    if (!t) return t;
+    {
+        const tree_t * k[t->n + 1];
+        int ch = 0;
+        for (int i = 0; i < t->n; i++) { k[i] = pl_blockop_rewrite(t->c[i]); ch |= k[i] != t->c[i]; }
+        if (t->t == TT_IDX && t->n == 2 && t->v.sval) { tree_t * f = ast_node_new(TT_FNC); f->v = t->v; f->line = t->line; ast_push(f, (tree_t *) k[1]); ast_push(f, (tree_t *) k[0]); return f; }
+        if (!ch) return t;
+        { tree_t * c = ast_node_new(t->t); c->v = t->v; c->line = t->line; c->slen = t->slen; for (int i = 0; i < t->n; i++) ast_push(c, (tree_t *) k[i]); return c; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_table_rewrite(const tree_t * prog) {
     int nk = 0;
     for (int i = 0; i < prog->n; i++) nk = pl_table_specs(pl_table_dir(prog->c[i]), NULL, NULL, nk, 0);
@@ -5107,6 +5119,7 @@ static const tree_t * pl_dict_rewrite(const tree_t * prog) {
     return np;
 }
 stage2_t *lower_pl_stage2(const tree_t *prog) {
+    prog = pl_blockop_rewrite(prog);
     prog = pl_ssu_rewrite(prog);
     prog = pl_det_rewrite(prog);
     prog = pl_dict_rewrite(prog);

@@ -8501,12 +8501,31 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
             for (int i = ne - 1; i >= 0; i--) acc = pl_cons(el[i], acc);
             return acc;
         }
+        case TT_IDX:
+        if (t->n == 2 && t->v.sval) {
+            DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(2), c = {0};
+            kids[0] = pl_tree_cell(t->c[1], vt);
+            kids[1] = pl_tree_cell(t->c[0], vt);
+            c.v = (DTYPE_t)DT_PLREF;
+            c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(t->v.sval), 2);
+            c.p = (void *)kids;
+            return c;
+        }
+        return pl_mk_atom("?");
         case TT_FNC:
         case TT_UNIFY:
         case TT_IF:
         {
             const char *nm = t->t == TT_UNIFY ? "=" : t->t == TT_IF ? "->" : (t->v.sval ? t->v.sval : "?");
-            if (t->n == 0) return pl_mk_atom_dup(nm, strlen(nm));
+            if (t->n == 0 && (t->t != TT_FNC || !strcmp(nm, "{}"))) return pl_mk_atom_dup(nm, strlen(nm));
+            if (t->n == 0) {
+                DESCR_t *one = (DESCR_t *)rt_ws_alloc_descr(1), c = {0};
+                one[0] = INTVAL(0);
+                c.v = (DTYPE_t)DT_PLREF;
+                c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(nm), 0);
+                c.p = (void *)one;
+                return c;
+            }
             if (t->t == TT_FNC && t->n == 1 && !strcmp(nm, "$pl_big") && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) { DESCR_t a = STRVAL(t->c[0]->v.sval); return rt_pl_dop_big(&a, 1); }
             {
                 DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)t->n);
@@ -8980,11 +8999,13 @@ static int pl_write_opt_bad(const char *on, DESCR_t a, DESCR_t *culprit) {
     if (pl_val_unbound(a)) {
         for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return 1;
         if (!strcmp(on, "variable_names") || !strcmp(on, "max_depth") || !strcmp(on, "max_text") || !strcmp(on, "portray_goal") || !strcmp(on, "blobs")) return 1;
+        if (!strcmp(on, "module") && !pl_gnu_dialect()) return 1;
         return 2;
     }
     as = pl_atom_str(a);
     if (!strcmp(on, "portray_goal")) return 0;
     if (!strcmp(on, "blobs")) return as ? 0 : 2;
+    if (!strcmp(on, "module") && !pl_gnu_dialect()) return as ? 0 : 2;
     for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return (as && (!strcmp(as, "true") || !strcmp(as, "false"))) ? 0 : 2;
     if (!strcmp(on, "max_depth") || !strcmp(on, "max_text")) return (a.v == DT_I && a.i >= 0) ? 0 : 2;
     if (!strcmp(on, "priority")) return (a.v == DT_I && a.i >= 0 && a.i <= 1200) ? 0 : 2;
@@ -11070,7 +11091,10 @@ PL_CX_LEAF_HEAD(op, 3)
             e = pl_is_cons(cur) ? rt_pl_deref_val(((DESCR_t *)cur.p)[0]) : cur;
             if (pl_is_cons(o) && pl_is_nil(cur)) break;
             if (!(nm = pl_op_name(e))) { cx->ball = rt_pl_ball_kind2("type_error", "atom", e); return FAILDESCR; }
-            if ((pm = prolog_op_permission(nm, (int)p.i, ty))) { cx->ball = rt_pl_ball_permission3(pm == 1 ? "modify" : "create", "operator", e); return FAILDESCR; }
+            if ((pm = prolog_op_permission(nm, (int)p.i, ty)) && !(pl_swi_dialect() && !strcmp(nm, "{}"))) {
+                cx->ball = rt_pl_ball_permission3(pm == 1 ? "modify" : "create", "operator", e);
+                return FAILDESCR;
+            }
             if (!pl_is_cons(o)) break;
         }
         for (cur = o; ; cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) {

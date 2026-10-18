@@ -567,6 +567,19 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
         return;
     }
     if (!ignore_ops && ar == 1 && strcmp(fn, "{}") == 0) { fputs(m->space_args ? "{ " : "{", fp); PLC_KID(&aa[0], depth+1, 1200); fputs(m->space_args ? " }" : "}", fp); return; }
+    if (!ignore_ops && ar == 2 && strcmp(fn, "{}") == 0 && plc_op_is_postfix(fn)) {
+        pl_cell_t *b0 = pl_deref(&aa[0]);
+        int pp = 0, lm = 0, rm = 0;
+        if ((int)b0->v == DT_PLREF && plc_fid_arity(b0->slen) == 1 && !strcmp(prolog_atom_name(plc_fid_name(b0->slen)), "{}") && plc_op_info(fn, 1, &pp, &lm, &rm)) {
+            if (pp > maxp) fputc('(', fp);
+            PLC_KID(&aa[1], depth+1, lm);
+            if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
+            fputc(' ', fp);
+            PLC_KID(&aa[0], depth+1, 0);
+            if (pp > maxp) fputc(')', fp);
+            return;
+        }
+    }
     {
         int op_prec = 0, lmax = 0, rmax = 0;
         if (!ignore_ops && (ar == 1 || ar == 2) && plc_op_info(fn, ar, &op_prec, &lmax, &rmax)) {
