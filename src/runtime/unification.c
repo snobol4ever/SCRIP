@@ -3429,6 +3429,8 @@ void * rt_pl_db_get(void *root, int64_t k) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PLC_GVAR_ABSENT 0x47564152u
+static int plc_gvar_absent(const pl_cell_t *b) { return b && (int)b->v == DT_I && b->slen == PLC_GVAR_ABSENT; }
 int rt_pl_nb_set(void *root, int64_t k, void *val) {
     extern void *rt_ws_alloc_descr(size_t);
     if (!root || k < 0 || !val) return 0;
@@ -3469,8 +3471,11 @@ int rt_pl_b_set(void *root, int64_t k, void *val, pl_tr_ctx_t *cx) {
         } else {
             pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(1);
             if (!box) return 0;
-            *box = stored;
+            *box = pl_make_int(0);
+            box->slen = PLC_GVAR_ABSENT;
             *cell = box;
+            if (cx->b) pl_tr_push(cx, box);
+            *box = stored;
         }
         return 1;
     }
@@ -3481,12 +3486,12 @@ int rt_pl_nb_get_cell(void *root, int64_t k, void *out_cell, pl_tr_ctx_t *cx) {
     {
         pl_cell_t **cell = (pl_cell_t **)pl_db_cell_addr(root, k, 0);
         pl_cell_t *box = cell ? *cell : (pl_cell_t *)0;
-        if (!box) return 0;
+        if (!box || plc_gvar_absent(box)) return 0;
         return plc_unify_cells_cx((pl_cell_t *)out_cell, box, cx) ? 1 : 0;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_nb_is_set(void *root, int64_t k) { if (!root || k < 0) return 0; { pl_cell_t **cell = (pl_cell_t **)pl_db_cell_addr(root, k, 0); return cell && *cell != (pl_cell_t *)0; } }
+int rt_pl_nb_is_set(void *root, int64_t k) { if (!root || k < 0) return 0; { pl_cell_t **cell = (pl_cell_t **)pl_db_cell_addr(root, k, 0); return cell && *cell != (pl_cell_t *)0 && !plc_gvar_absent(*cell); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_DB_REGISTRY_CELL 0
