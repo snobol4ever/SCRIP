@@ -203,6 +203,7 @@ struct g_emitter_t {
     int zd_plan__gp = -1;
     int zd_plan__cd = -1;
     int zd_depth_census__on = -1;
+    int zd_check__on = -1;
     std::unordered_set<std::string> icn_trace_intern_pool;
     bb_label_t g_gc_map_lbl;
     int g_gc_map_pending = 0, g_gc_value_bytes = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;

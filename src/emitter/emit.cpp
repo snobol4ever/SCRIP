@@ -4154,6 +4154,41 @@ static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, 
     ct_drop(w);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zd_check_discard(const IR_t * t) { int o = t ? (int)t->op : -1;
+    return o == IR_UNMARK || o == IR_BOUND || o == IR_MATCH_FENCE0 || o == IR_MATCH_FENCE1 || o == IR_CUT || o == IR_GATE || o == IR_GATE_ARM || o == IR_STATEMENT_BEGIN || o == IR_SUCCEED ||
+        o == IR_FAIL; }
+static int zd_check_arm_env(int o) { return o == IR_GATE || o == IR_GATE_ARM || o == IR_DISJUNCTION || o == IR_MATCH_ARBNO || o == IR_MATCH_ALTERNATE; }
+static void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, const int *xb, const char *prefix) {
+    if (g_emitter.zd_check__on < 0) { const char * e = getenv("SCRIP_ZD_CHECK"); g_emitter.zd_check__on = (e && *e == '1') ? 1 : 0; }
+    if (!g_emitter.zd_check__on || n <= 0) return;
+    int armed = 0, def = 0, edges = 0, viol = 0;
+    for (int i = 0; i < n; i++) { if (!zon[i]) continue; armed++; if (xb && xb[i] != INT_MIN) def++; }
+    for (int i = 0; i < n; i++) {
+        if (!zon[i] || (xb && xb[i] == INT_MIN)) continue;
+        int o = (int)nodes[i]->op;
+        if (zd_check_arm_env(o) || o == IR_UNMARK || o == IR_CUT) continue;
+        int bi = xb ? xb[i] : 0, Xi = bi + zout[i], Ki = zd_k(nodes[i]);
+        for (int v = 0; v < 2; v++) {
+            IR_t * t = zd_chase(v ? nodes[i]->ω.node : nodes[i]->γ.node);
+            if (!t || zd_check_discard(t) || zd_check_arm_env((int)t->op)) continue;
+            int j = nidx(nodes, n, t);
+            if (j < 0 || j == i || !zon[j]) continue;
+            if (xb) { if (xb[j] == INT_MIN) continue; } else if (!claim || claim[j] != claim[i]) continue;
+            const char * sz = zd_edge_sz(nodes[i], v);
+            int bj = xb ? xb[j] : 0, beta = port_sz_beta(sz) || zd_sz_sigma(sz) || zd_sz_phi(sz);
+            int arrive = v ? (Xi - Ki - zwpop[i]) : (Xi - zgpop[i]);
+            int Xj = bj + zout[j], expect = beta ? Xj : Xj - zd_k(nodes[j]);
+            edges++;
+            if (arrive == expect) continue;
+            viol++;
+            fprintf(stderr, "[ZD-CHECK]   %s i=%d %s -> j=%d %s arrives=%d expects=%d\n", v ? (beta ? "OMEGA-BETA " : "OMEGA-ALPHA") : (beta ? "GAMMA-BETA " : "GAMMA-ALPHA"), i,
+                bb_op_name(nodes[i]->op), j,
+                bb_op_name(nodes[j]->op), arrive, expect);
+        }
+    }
+    fprintf(stderr, "[ZD-CHECK] graph=%s boxes=%d armed=%d definite=%d coordinate=%s edges=%d violations=%d\n", prefix ? prefix : "?", n, armed, def, xb ? "absolute" : "relative", edges, viol);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int flat_beta_kind_keeps(IR_t * nd) { int op = nd ? (int)ir_kind0(nd) : -1;
     return (nd &&
     (ir_is_generator_kind(ir_kind0(nd)) || op == IR_SUSPEND || op == IR_CALL || op == IR_CALL_PROC_STAGED || op == IR_CALL_BUILTIN_GEN || op == IR_PROC_GEN || op == IR_REPALT || op == IR_LIMIT ||
@@ -4852,6 +4887,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         bb_label_t ** _tpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); bb_label_t ** _tpt = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1));
         int * _tpd = (int *)alloca(sizeof(int) * (size_t)(n + 1)); int _tpn = 0;
     zd_depth_census(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, prefix);
+    zd_check(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, zd_xb, prefix);
     if (g_emitter.dump_homes) emit_dump_homes(g_emitter.codegen_flat_chain_body_nodes, n, zd_on);
     {
     if (g_emitter.codegen_flat_chain_body__zk0_on < 0) { const char * _e = getenv("SCRIP_ZD_CENSUS"); g_emitter.codegen_flat_chain_body__zk0_on = (_e && *_e == '1') ? 1 : 0; }
@@ -5604,6 +5640,9 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                       extern int fc_head_fp(const IR_t *); extern int fc_tail_head(const IR_t *); extern int emit_match_begin_frame_extra(const IR_t *);
                       _xh += 64 + emit_match_begin_frame_extra(g_emitter.codegen_flat_chain_body_nodes[_zm]);
                           } g_emitter.g_zd_read[_zj] = zd_out[i] - zd_out[_k] + _xh + ((zd_xb && zd_xb[i] != INT_MIN && zd_xb[_k] != INT_MIN) ? zd_xb[i] - zd_xb[_k] : 0);
+                          if (g_emitter.zd_check__on > 0 && zd_xb && zd_claim[i] != zd_claim[_k] && (zd_xb[i] == INT_MIN || zd_xb[_k] == INT_MIN))
+                              fprintf(stderr, "[ZD-CHECK]   READ i=%d %s reads p=%d %s across runs with an unknown base\n", i,
+                              bb_op_name(g_emitter.codegen_flat_chain_body_nodes[i]->op), _k, bb_op_name(g_emitter.codegen_flat_chain_body_nodes[_k]->op));
                           if (zd_icn_local_var(_p)) g_emitter.g_zd_fread[_zj] = bb_varslot_peek(IR_LIT(_p).sval);
                           g_emitter.g_zd_kind[_zj] = (int)ir_norm_call_kind(_p->op); } } } } }
               { if (zd_on[i] && g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_REPLACE) { g_emitter.g_zd_read[2] = -1; g_emitter.g_zd_kind[2] = -1; IR_t * _mb2 = (IR_t *)0; int _jh2 = -1;
