@@ -21245,7 +21245,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         if (rt_big_is(args[0]) ||
             (b > 0 && IS_INT_fn(args[0]) && args[0].i != 0 && (b >= 63 || (args[0].i > 0 ? (args[0].i > (9223372036854775807LL >> b)) : (args[0].i < (-9223372036854775807LL - 1) >> b))))) {
             DESCR_t x = rt_big_is(args[0]) ? args[0] : INTVAL(args[0].i);
-            if (b >= 0) { *out = rt_big_mul(x, rt_big_pow(INTVAL(2), b)); return 1; }
+            if (b >= 0) { extern DESCR_t rt_big_shl(DESCR_t, int64_t); *out = rt_big_shl(x, b); return 1; }
             {
                 DESCR_t p2 = rt_big_pow(INTVAL(2), -b);
                 DESCR_t q = rt_big_div(x, p2);

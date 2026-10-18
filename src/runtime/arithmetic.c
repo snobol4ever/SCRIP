@@ -399,10 +399,38 @@ static inline int rt_int_str_operand(DESCR_t d, int64_t *out) {
         return 1;
     }
 }
-#define RT_BINOP_ENTRY_S(fn, code, fast, strict) DESCR_t fn(DESCR_t a, DESCR_t b) { extern int g_core_errjmp_n; if (a.v == DT_I && b.v == DT_I) { fast } { int64_t _x, _y; if (rt_int_str_operand(a, & \
-    _x) && rt_int_str_operand(b, &_y)) { DESCR_t a = INTVAL(_x), b = INTVAL(_y); { fast } } } if (a.v == DT_DATA || b.v == DT_DATA) { extern int rk_rat_binop(DESCR_t, DESCR_t, int, DESCR_t *); \
-    DESCR_t ov; if (rk_rat_binop(a, b, code, &ov)) return ov; } core_errjmp_t ej; int my = g_core_errjmp_n; if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); return FAILDESCR; \
-    } core_errjmp_push(&ej); g_core_errjmp_n = my + 1; DESCR_t r = rt_num_arith_impl_s(a, b, code, strict); core_errjmp_pop(&ej, my); return r; }
+static int rt_big_direct_ok(int op, DESCR_t a, DESCR_t b) {
+    if (a.v != DT_BIG && b.v != DT_BIG) return 0;
+    if ((a.v != DT_BIG && a.v != DT_I) || (b.v != DT_BIG && b.v != DT_I)) return 0;
+    if (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL) return 1;
+    return (op == BINOP_DIV || op == BINOP_MOD) && (b.v == DT_BIG || b.i != 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_big_direct(int op, DESCR_t a, DESCR_t b) {
+    extern DESCR_t rt_big_add(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_div(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_mod(DESCR_t, DESCR_t);
+    switch (op) {
+        case BINOP_ADD:
+        return rt_big_add(a, b);
+        case BINOP_SUB:
+        return rt_big_sub(a, b);
+        case BINOP_MUL:
+        return rt_big_mul(a, b);
+        case BINOP_DIV:
+        return rt_big_div(a, b);
+        default:
+        return rt_big_mod(a, b);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RT_BINOP_ENTRY_S(fn, code, fast, strict) DESCR_t fn(DESCR_t a, DESCR_t b) { extern int g_core_errjmp_n; if (a.v == DT_I && b.v == DT_I) { fast } if (rt_big_direct_ok(code, a, b)) return \
+    rt_big_direct(code, a, b); { int64_t _x, _y; if (rt_int_str_operand(a, & _x) && rt_int_str_operand(b, &_y)) { DESCR_t a = INTVAL(_x), b = INTVAL(_y); { fast } } } if (a.v == DT_DATA || b.v == \
+    DT_DATA) { extern int rk_rat_binop(DESCR_t, DESCR_t, int, DESCR_t *); DESCR_t ov; if (rk_rat_binop(a, b, code, &ov)) return ov; } core_errjmp_t ej; int my = g_core_errjmp_n; if (setjmp(ej.jb)) { \
+    core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); return FAILDESCR; } core_errjmp_push(&ej); g_core_errjmp_n = my + 1; DESCR_t r = rt_num_arith_impl_s(a, b, code, strict); core_errjmp_pop(&ej, \
+    my); return r; }
 #define RT_BINOP_ENTRY(fn, code, fast) RT_BINOP_ENTRY_S(fn, code, fast, 0) RT_BINOP_ENTRY_S(fn##_strict, code, fast, 1) RT_BINOP_ENTRY_S(fn##_sno, code, fast, 2)
 RT_BINOP_ENTRY(c_rt_add, BINOP_ADD, { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
     RT_BINOP_ENTRY(c_rt_sub, BINOP_SUB, { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
@@ -665,7 +693,13 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
     if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return rt_cset_arith(a, b, op);
     DESCR_t oa = a, ob = b;
     if (strict != 2) { a = big_str_operand(a); b = big_str_operand(b); }
-    if (rt_big_arith_wanted(a, b, op)) return rt_big_arith_route(a, b, op);
+    if (rt_big_arith_wanted(a, b, op)) {
+        if (op == BINOP_DIV || op == BINOP_MOD) {
+            DESCR_t z = big_route_operand(b);
+            if (z.v == DT_I && z.i == 0) { rt_div_zero(op, oa, ob, op == BINOP_DIV ? "division caused integer overflow" : NULL, strict); return FAILDESCR; }
+        }
+        return rt_big_arith_route(a, b, op);
+    }
     if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) a = INTVAL(0);
     if ((b.v == DT_S || b.v == DT_SNUL) && (!b.s || descr_slen(b) == 0)) b = INTVAL(0);
     if (strict == 2) {

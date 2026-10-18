@@ -8,15 +8,11 @@ extern void *rt_wsb_alloc(size_t);
 extern char *rt_heap_strdup_c(const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct BIG_t { int32_t sign; uint32_t n; uint32_t limb[]; } BIG_t;
+typedef struct BIG2_t { int32_t sign; uint32_t n; uint32_t limb[2]; } BIG2_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BIG_t *big_alloc(uint32_t n) {
-    BIG_t *b = (BIG_t *) rt_wsb_alloc(sizeof(BIG_t) + (size_t)(n ? n : 1) * sizeof(uint32_t));
-    if (!b) return 0;
-    b->sign = 0;
-    b->n = n;
-    for (uint32_t i = 0; i < n; i++) b->limb[i] = 0;
-    return b;
-}
+static BIG_t *big_alloc_raw(uint32_t n) { BIG_t *b = (BIG_t *) rt_wsb_alloc(sizeof(BIG_t) + (size_t)(n ? n : 1) * sizeof(uint32_t)); if (!b) return 0; b->sign = 0; b->n = n; return b; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static BIG_t *big_alloc(uint32_t n) { BIG_t *b = big_alloc_raw(n); if (!b) return 0; for (uint32_t i = 0; i < n; i++) b->limb[i] = 0; return b; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void big_trim(BIG_t *b) { while (b->n > 1 && b->limb[b->n - 1] == 0) b->n--; if (b->n == 1 && b->limb[0] == 0) b->sign = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -28,7 +24,7 @@ static int big_ucmp(const BIG_t *a, const BIG_t *b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static BIG_t *big_uadd(const BIG_t *a, const BIG_t *b) {
     uint32_t n = (a->n > b->n ? a->n : b->n) + 1;
-    BIG_t *r = big_alloc(n);
+    BIG_t *r = big_alloc_raw(n);
     if (!r) return 0;
     uint64_t c = 0;
     for (uint32_t i = 0; i < n; i++) { uint64_t s = c; if (i < a->n) s += a->limb[i]; if (i < b->n) s += b->limb[i]; r->limb[i] = (uint32_t)s; c = s >> 32; }
@@ -37,7 +33,7 @@ static BIG_t *big_uadd(const BIG_t *a, const BIG_t *b) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static BIG_t *big_usub(const BIG_t *a, const BIG_t *b) {
-    BIG_t *r = big_alloc(a->n);
+    BIG_t *r = big_alloc_raw(a->n);
     if (!r) return 0;
     int64_t br = 0;
     for (uint32_t i = 0; i < a->n; i++) {
@@ -50,12 +46,12 @@ static BIG_t *big_usub(const BIG_t *a, const BIG_t *b) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void lmul_school(uint32_t *r, const uint32_t *a, uint32_t an, const uint32_t *b, uint32_t bn) {
-    for (uint32_t i = 0; i < an + bn; i++) r[i] = 0;
-    for (uint32_t i = 0; i < an; i++) {
-        uint64_t c = 0;
-        for (uint32_t j = 0; j < bn; j++) { uint64_t t = (uint64_t)a[i] * b[j] + r[i + j] + c; r[i + j] = (uint32_t)t; c = t >> 32; }
-        r[i + bn] = (uint32_t)c;
-    }
+    if (an > bn) { const uint32_t *tp = a; uint32_t tn = an; a = b; an = bn; b = tp; bn = tn; }
+    if (an == 0) { for (uint32_t j = 0; j < bn; j++) r[j] = 0; return; }
+    uint64_t c = 0;
+    for (uint32_t j = 0; j < bn; j++) { uint64_t t = (uint64_t)a[0] * b[j] + c; r[j] = (uint32_t)t; c = t >> 32; }
+    r[bn] = (uint32_t)c;
+    for (uint32_t i = 1; i < an; i++) { c = 0; for (uint32_t j = 0; j < bn; j++) { uint64_t t = (uint64_t)a[i] * b[j] + r[i + j] + c; r[i + j] = (uint32_t)t; c = t >> 32; } r[i + bn] = (uint32_t)c; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ladd_into(uint32_t *r, uint32_t rn, const uint32_t *b, uint32_t bn) {
@@ -105,10 +101,10 @@ static void lmul(uint32_t *r, const uint32_t *a, uint32_t an, const uint32_t *b,
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static BIG_t *big_umul(const BIG_t *a, const BIG_t *b) {
-    BIG_t *r = big_alloc(a->n + b->n);
+    BIG_t *r = big_alloc_raw(a->n + b->n);
     if (!r) return 0;
     if (a->n < 32 || b->n < 32) { lmul_school(r->limb, a->limb, a->n, b->limb, b->n); big_trim(r); return r; }
-    BIG_t *t = big_alloc(4 * (a->n + b->n) + 256);
+    BIG_t *t = big_alloc_raw(4 * (a->n + b->n) + 256);
     if (!t) return 0;
     lmul(r->limb, a->limb, a->n, b->limb, b->n, t->limb);
     big_trim(r);
@@ -159,21 +155,20 @@ int rt_big_sign(DESCR_t d) { if (d.v == DT_BIG && d.p) return ((BIG_t *)d.p)->si
 int rt_big_is(DESCR_t d) { return d.v == DT_BIG && d.p != 0; }
 int rt_big_is_odd(DESCR_t d) { if (d.v == DT_BIG && d.p) return (int)(((BIG_t *)d.p)->limb[0] & 1u); return (int)(d.i & 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static BIG_t *big_of(DESCR_t d) { return (d.v == DT_BIG) ? (BIG_t *) d.p : big_from_i64(d.i); }
+static BIG_t *big_of_into(DESCR_t d, BIG_t *t) {
+    if (d.v == DT_BIG) return (BIG_t *) d.p;
+    uint64_t u = (d.i < 0) ? (uint64_t)(-(d.i + 1)) + 1u : (uint64_t)d.i;
+    t->limb[0] = (uint32_t)u;
+    t->limb[1] = (uint32_t)(u >> 32);
+    t->n = t->limb[1] ? 2 : 1;
+    t->sign = (d.i == 0) ? 0 : (d.i < 0 ? -1 : 1);
+    return t;
+}
+#define big_of(d) big_of_into((d), (BIG_t *) &(BIG2_t){ 0, 0, { 0, 0 } })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static BIG_t *big_addsub(const BIG_t *a, const BIG_t *b, int negate_b) {
     int bs = negate_b ? -b->sign : b->sign;
-    if (a->sign == 0) {
-        BIG_t *r = big_uadd(b, b);
-        if (!r) return 0;
-        BIG_t *z = big_alloc(b->n);
-        if (!z) return 0;
-        memcpy(z->limb, b->limb, (size_t)b->n * 4);
-        z->n = b->n;
-        z->sign = bs;
-        big_trim(z);
-        return z;
-    }
+    if (a->sign == 0) { BIG_t *z = big_alloc(b->n); if (!z) return 0; memcpy(z->limb, b->limb, (size_t)b->n * 4); z->n = b->n; z->sign = bs; big_trim(z); return z; }
     if (bs == 0) { BIG_t *z = big_alloc(a->n); if (!z) return 0; memcpy(z->limb, a->limb, (size_t)a->n * 4); z->n = a->n; z->sign = a->sign; big_trim(z); return z; }
     if (a->sign == bs) { BIG_t *r = big_uadd(a, b); if (!r) return 0; r->sign = a->sign; big_trim(r); return r; }
     int c = big_ucmp(a, b);
@@ -197,6 +192,21 @@ DESCR_t rt_big_mul(DESCR_t x, DESCR_t y) {
     if (!r) return FAILDESCR;
     r->sign = (a->sign == b->sign) ? 1 : -1;
     big_trim(r);
+    return rt_big_norm(r);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_big_shl(DESCR_t x, int64_t sh) {
+    BIG_t *a = big_of(x);
+    if (!a || sh < 0 || sh > (int64_t)0x7FFFFFFF * 32) return FAILDESCR;
+    if (a->sign == 0) return rt_big_norm(big_alloc(1));
+    uint32_t w = (uint32_t)(sh / 32), s = (uint32_t)(sh % 32), n = a->n + w + 1;
+    BIG_t *r = big_alloc_raw(n);
+    if (!r) return FAILDESCR;
+    for (uint32_t i = 0; i < w; i++) r->limb[i] = 0;
+    uint32_t c = 0;
+    for (uint32_t i = 0; i < a->n; i++) { uint32_t l = a->limb[i]; r->limb[w + i] = s ? (l << s) | c : l; c = s ? l >> (32 - s) : 0; }
+    r->limb[n - 1] = c;
+    r->sign = a->sign;
     return rt_big_norm(r);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
