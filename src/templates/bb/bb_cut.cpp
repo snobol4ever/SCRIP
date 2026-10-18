@@ -13,7 +13,7 @@ static std::string cut_barrier() {
              + x86("note", "pl_cut_barrier inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): B := F.B0, the caller's choice the prologue saved at [kt-40]")
              + x86("mov", "r13", FRQ(g_emit.flat_frame_bytes - 40))
              + x86_release_acts(false)
-             + (x86_hb_on() ? x86("mov", "rsp", x86_hb()) : x86("lea", "rsp", FRQ(0))));
+             + (x86_hb_on() ? (_.op_zcut >= 0 ? x86("lea", "rsp", RDQ(x86_hb(), -_.op_zcut)) : x86("mov", "rsp", x86_hb())) : x86("lea", "rsp", FRQ(0))));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cut() {

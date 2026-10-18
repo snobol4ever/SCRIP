@@ -50,6 +50,13 @@ struct g_emitter_t {
     std::vector<signed char> dh_rt;
     std::unordered_map<std::string, int> dh_gidx;
     int g_zd_abs = 0;
+    int g_zd_def = 1;
+    int g_zd_cutd = -1;
+    const int * g_zd_cut_p = 0;
+    const int * g_zd_claim_p = 0;
+    const int * g_zd_xb_p = 0;
+    IR_t ** g_zd_nodes_p = 0;
+    int g_zd_n = 0;
     int g_zd_cur = -1;
     IR_t ** zst_nodes = NULL;
     int zst_n = 0;

@@ -574,6 +574,8 @@ typedef struct {
     int op_zdp_rbp;
     int op_leaf_frame_off;
     int op_xf_off;
+    int op_zdef;
+    int op_zcut;
     int * op_zread_xf;
     int * op_zread_fr;
     int * op_zslot;

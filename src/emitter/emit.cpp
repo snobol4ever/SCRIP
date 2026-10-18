@@ -1298,7 +1298,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.op_stmt_dyn = g_emitter.g_arbk16_stmt; if (nd) { if (nd->op == IR_STATEMENT_BEGIN) { g_emitter.g_arbk16_stmt = 0; g_emit.op_stmt_dyn = 0;
         } else if (nd->op == IR_STATEMENT_END || nd->op == IR_STATEMENT) g_emitter.g_arbk16_stmt = 0; }
     g_emit.op_zcp_src = -1; g_emit.op_zcp_dst = -1;
-    g_emit.op_zres = 0; g_emit.op_zgpop = 0; g_emit.op_wsteal = 0; g_emit.op_ztail = 0; g_emit.op_zpat = 0; g_emit.op_zfc = 0; g_emit.op_xf_off = -1; zd_ops_reserve(nd ? nd->n_operands : 0);
+    g_emit.op_zres = 0; g_emit.op_zgpop = 0; g_emit.op_wsteal = 0; g_emit.op_ztail = 0; g_emit.op_zpat = 0; g_emit.op_zfc = 0; g_emit.op_xf_off = -1; g_emit.op_zdef = 1; g_emit.op_zcut = -1;
+        zd_ops_reserve(nd ? nd->n_operands : 0);
         for (int _zi = 0; _zi < g_emit.op_zcap; _zi++) { g_emit.op_zread[_zi] = 0; g_emit.op_zkind[_zi] = -1; g_emit.op_zread_xf[_zi] = -1; g_emit.op_zread_fr[_zi] = -1; g_emit.op_zslot[_zi] = -1; }
     g_emit.op_zslot_n = 0; g_emit.op_res_alias = -1;
     if (nd) { g_emit.op_xf_off = xop_frame_slot(nd); int _xn = zd_nops(nd); for (int _zi = 0; _zi < _xn && _zi < nd->n_operands; _zi++) g_emit.op_zread_xf[_zi] = xop_frame_slot(nd->operands[_zi]); }
@@ -1312,7 +1313,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                 g_emit.op_ztail = g_emitter.g_zd_ztail;
                 g_emitter.g_zd_ztail = 0;
             g_emit.op_zpat = g_emitter.g_zd_zpat; g_emitter.g_zd_zpat = 0; g_emit.op_zfc = g_emitter.g_zd_zfc; g_emitter.g_zd_zfc = 0;
-            if (nd && g_emit_cfg && g_emit_cfg->icn_cells_graph) { int _xn = zd_nops(nd); g_emit.op_zslot_n = (_xn < nd->n_operands) ? _xn : nd->n_operands;
+            if (nd && g_emit_cfg && (g_emit_cfg->icn_cells_graph || emit_pl_frame())) { int _xn = zd_nops(nd); g_emit.op_zslot_n = (_xn < nd->n_operands) ? _xn : nd->n_operands;
                 for (int _zi = 0; _zi < g_emit.op_zslot_n && _zi < g_emit.op_zcap; _zi++) { IR_t * _po = nd->operands[_zi];
                     g_emit.op_zslot[_zi] = (_po && (zd_k_own(_po) >= 16 || zd_icn_local_var(_po)) && zd_plan_on_of(_po)) ? nd_slot(_po) : -1; }
                 g_emit.op_res_alias = (zd_k_own(nd) == 16 && !zd_icn_suspend(nd)) ? nd_slot(nd) : -1;
@@ -1328,7 +1329,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     if (!nd) return 1;
     g_emit.node = nd; g_emit.op_pat_static = nd->pat_static;
     g_emit.op_zf_unpinned = 1;
-    g_emit.op_zabs = g_emitter.g_zd_abs; g_emit.op_zsticky = zst_s_of(nd); g_emit.op_zk_own = g_emit.op_zres ? g_emitter.g_zd_k - g_emit.op_zsticky : 0;
+    g_emit.op_zabs = g_emitter.g_zd_abs; g_emit.op_zsticky = zst_s_of(nd); g_emit.op_zk_own = g_emit.op_zres ? g_emitter.g_zd_k - g_emit.op_zsticky : 0; g_emit.op_zdef = g_emitter.g_zd_def;
+        g_emit.op_zcut = g_emitter.g_zd_cutd;
     if (g_emit.op_zres && !g_emitter.g_zd_zunder) g_emit.op_zdepth = g_emitter.g_zd_abs;
     emit_set_sink(out);
     g_emit.sid = 0;
@@ -1854,8 +1856,8 @@ static std::string pl_clause_zero(int ak) {
     if (!g || !g->alt_zhi || ak < 1 || ak >= g->n_alts || g->alt_zhi[ak] <= g->alt_zlo) return std::string();
     int b = g->alt_zhi[ak] - g->alt_zlo;
     std::string r = x86("note", "the clause overlay: every clause's construct slots share one region, so a clause entered after another zeroes its own extent, as the prologue zeroes the first");
-    if (b <= 128) { for (int q = 0; q < b / 8; q++) r += x86("mov", RDQ("rsp", g->alt_zlo + 8 * q), 0L); return r; }
-    return r + x86("lea", "rdi", RDQ("rsp", g->alt_zlo)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(b / 8)) + x86("rep_stosq");
+    if (b <= 128) { for (int q = 0; q < b / 8; q++) r += x86("mov", RDQ(emit_pl_fb(), g->alt_zlo + 8 * q), 0L); return r; }
+    return r + x86("lea", "rdi", RDQ(emit_pl_fb(), g->alt_zlo)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(b / 8)) + x86("rep_stosq");
 }
 static std::string pl_step_reseed_locals(void) {
     std::string r;
@@ -1865,7 +1867,7 @@ static std::string pl_step_reseed_locals(void) {
         if (!nm) continue;
         int off = ir_varslot_of(g_emit_cfg, nm);
         if (off < 0) continue;
-        r += x86("mov", RDQ("rsp", off), 0L) + x86("mov", RDQ("rsp", off + 8), 0L);
+        r += x86("mov", RDQ(emit_pl_fb(), off), 0L) + x86("mov", RDQ(emit_pl_fb(), off + 8), 0L);
     }
     return r;
 }
@@ -3417,8 +3419,23 @@ static int icn_xop_frame_member(const IR_t * nd) {
             } }
     return 0;
 }
+static int pl_xop_frame_member(const IR_t * nd) {
+    if (!nd || !emit_pl_frame() || !g_emit_cfg || !g_emitter.g_zd_claim_p || !g_emitter.g_zd_xb_p || g_emitter.g_zd_nodes_p != g_emitter.codegen_flat_chain_body_nodes) return 0;
+    if (nd->op == IR_TO && ir_range_kind_is(nd, "db")) return nd_slot(nd) >= 0 ? 1 : 0;
+    if (zd_k((IR_t *)nd) != 16 || !ir_node_produces_value(nd->op) || nd_slot(nd) < 0) return 0;
+    int n = g_emitter.g_zd_n, i = nidx(g_emitter.g_zd_nodes_p, n, nd);
+    if (i < 0 || g_emitter.g_zd_claim_p[i] < 0) return 0;
+    if (g_emitter.g_xci_g != g_emit_cfg || g_emitter.g_xci_all != g_emit_cfg->all || g_emitter.g_xci_n != g_emit_cfg->n || g_emitter.g_xci_built != g_emitter.g_xci_epoch) xci_build();
+    xci_slot_t * _xs = xci_probe(nd); if (_xs->gen != g_emitter.g_xci_gen) return 0;
+    for (int _q = CV_AT(g_emitter.g_xci_off, int, _xs->idx); _q < CV_AT(g_emitter.g_xci_off, int, _xs->idx + 1); _q++) { const IR_t * c = g_emit_cfg->all[CV_AT(g_emitter.g_xci_con, int, _q)];
+        int k = nidx(g_emitter.g_zd_nodes_p, n, c);
+        if (k < 0 || g_emitter.g_zd_claim_p[k] < 0 || g_emitter.g_zd_claim_p[k] == g_emitter.g_zd_claim_p[i]) continue;
+        if (g_emitter.g_zd_xb_p[k] == INT_MIN || g_emitter.g_zd_xb_p[i] == INT_MIN) return 1; }
+    return 0;
+}
 int xop_frame_slot(const IR_t * nd) {
     if (icn_xop_frame_member(nd)) return nd_slot(nd) - icn_gen_ft();
+    if (pl_xop_frame_member(nd)) return nd_slot(nd);
     if (!xop_frame_member(nd)) return -1;
     int idx = -1, rc = frame_slot_scan(nd, &idx, NULL); if (!rc || idx < 0) return -1;
     return frame_slot_off(rc, idx);
@@ -3604,6 +3621,13 @@ static int zd_pred_bt(IR_t ** nodes, int n, const int * claim, int hi, int k) {
     for (int g = 0; p >= 0 && nodes[p]->op == IR_LINE_MARK && g++ <= n; ) p = zd_pred(nodes, n, claim, hi, p);
     return p;
 }
+extern "C" int bb_proc_target_retains(const char *fname);
+static int zd_edge_retains(const IR_t * nd) {
+    if (!nd || !emit_pl_frame() || (g_emit_cfg && g_emit_cfg->icn_cells_graph)) return 0;
+    if (ir_kind0(nd) == IR_CALL_VALUE) return 1;
+    if (nd->op == IR_TO && ir_range_kind_is(nd, "db")) return 1;
+    return (ir_kind0(nd) == IR_CALL_PROC_STAGED && IR_LIT(nd).sval && bb_proc_target_retains(IR_LIT(nd).sval)) ? 1 : 0;
+}
 static int zd_pl_cut(const IR_t * nd) { return nd->op == IR_CUT && !IR_LIT(nd).ival && emit_pl_frame() && !(g_emit_cfg && g_emit_cfg->icn_cells_graph); }
 static int zd_pl_unmark_bound(IR_t ** nodes, int n, int i) {
     IR_t * nd = nodes[i];
@@ -3637,6 +3661,7 @@ static int zd_pl_land(IR_t **nodes, int n, const unsigned char *zon, const int *
 }
 static int zd_pl_entry(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int i, int e, int *l) {
     int q, b;
+    if (e == 0 && zd_edge_retains(nodes[i])) return -1;
     (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q, &b);
     if (q < 0 || claim[q] < 0 || claim[q] == claim[i] || claim[q] != q || b) return -1;
     int v = (e == 1) ? zout[i] - zd_k(nodes[i]) : zout[i];
@@ -3646,7 +3671,7 @@ static int zd_pl_entry(IR_t **nodes, int n, const unsigned char *zon, const int 
     *l = v;
     return q;
 }
-static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int *base, unsigned char *known, int *aof) {
+static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int *base, unsigned char *known, int *aof, int *zcut) {
     int * rpo = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     int * ord = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     int * stk = (int *)alloca(sizeof(int) * (size_t)(2 * n + 2));
@@ -3692,6 +3717,81 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
                 known[q] = 1;
             }
         }
+    }
+    {
+        unsigned char * indef = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
+        int * wl = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
+        int wn = 0;
+        for (int i = 0; i < n; i++) indef[i] = 0;
+        for (int i = 0; i < n; i++) {
+            if (!zon[i] || claim[i] < 0 || !zd_edge_retains(nodes[i])) continue;
+            IR_t * t = zd_chase(nodes[i]->γ.node);
+            int q = t ? nidx(nodes, n, t) : -1;
+            if (q < 0 || !zon[q] || claim[q] < 0 || indef[claim[q]]) continue;
+            indef[claim[q]] = 1; wl[wn++] = claim[q];
+        }
+        while (wn > 0) {
+            int h = wl[--wn];
+            for (int i = 0; i < n; i++) {
+                if (claim[i] != h || !zon[i]) continue;
+                for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
+                    int q, b;
+                    if (e == 1 || (e >= 2 && nodes[i]->op != IR_DISJUNCTION)) continue;
+                    (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q, &b);
+                    if (q < 0 || claim[q] < 0 || claim[q] != q || indef[claim[q]]) continue;
+                    int r = claim[q];
+                    int ub = (nodes[r]->op == IR_UNMARK && (IR_LIT(nodes[r]).ival & 6) && nodes[r]->n_operands > 0) ? nidx(nodes, n, nodes[r]->operands[0]) : -1;
+                    if (ub >= 0 && zon[ub] && claim[ub] >= 0 && !indef[claim[ub]] && known[claim[ub]]) continue;
+                    indef[r] = 1; wl[wn++] = r;
+                }
+            }
+        }
+        for (int r = 0; r < n; r++) if (indef[r]) known[r] = 0;
+        int * anchor = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
+        for (int r = 0; r < n; r++) anchor[r] = -1;
+        for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) {
+            moved = 0;
+            for (int i = 0; i < n; i++) {
+                if (!zon[i] || claim[i] < 0) continue;
+                int h = claim[i], a = -1, q = -1;
+                if (zd_edge_retains(nodes[i])) { IR_t * t = zd_chase(nodes[i]->γ.node); q = t ? nidx(nodes, n, t) : -1; a = known[h] ? base[h] + zout[i] : anchor[h]; }
+                else if (indef[h] && anchor[h] >= 0) {
+                    for (int e = 0; e < zd_pl_edges(nodes[i]); e++) { int b2, q2; if (e == 1 || (e >= 2 && nodes[i]->op != IR_DISJUNCTION)) continue;
+                        (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q2, &b2);
+                        if (q2 >= 0 && claim[q2] == q2 && indef[q2] && anchor[q2] < 0) { anchor[q2] = anchor[h]; moved = 1; } }
+                    continue; }
+                if (q < 0 || !zon[q] || claim[q] != q || a < 0 || !indef[q] || anchor[q] >= 0) continue;
+                anchor[q] = a; moved = 1;
+            }
+        }
+        if (zcut) for (int i = 0; i < n; i++) zcut[i] = -1;
+        for (int c = 0; c < n; c++) {
+            if (!zon[c] || claim[c] < 0 || !zd_pl_cut(nodes[c])) continue;
+            int h = claim[c], D = known[h] ? base[h] + zout[c] - zd_k(nodes[c]) : anchor[h];
+            if (zcut) zcut[c] = D;
+            if (known[h] || D < 0) continue;
+            IR_t * t = zd_chase(nodes[c]->γ.node);
+            int q = t ? nidx(nodes, n, t) : -1;
+            if (q < 0 || !zon[q] || claim[q] < 0 || claim[q] == h || known[claim[q]]) continue;
+            base[claim[q]] = D - (zout[q] - zd_k(nodes[q])); known[claim[q]] = 1; indef[claim[q]] = 0;
+            int wn2 = 0; wl[wn2++] = claim[q];
+            while (wn2 > 0) {
+                int r = wl[--wn2];
+                for (int i = 0; i < n; i++) {
+                    if (claim[i] != r || !zon[i]) continue;
+                    for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
+                        int l, q2 = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l);
+                        if (q2 < 0 || known[q2]) continue;
+                        base[q2] = base[r] + l - (zout[q2] - zd_k(nodes[q2])); known[q2] = 1; indef[q2] = 0; wl[wn2++] = q2;
+                    }
+                }
+            }
+        }
+        if (zd_map_on()) for (int r = 0; r < n; r++) if (indef[r])
+            fprintf(stderr, "[ZD-MAP] INDEF run=%d (%s) anchor=%d: entered after a call that may return with its frame live -- no base, its cells rsp-relative within the run only\n", r,
+            bb_op_name(nodes[r]->op), anchor[r]);
+        if (zd_map_on()) for (int c = 0; c < n; c++) if (zon[c] && claim[c] >= 0 && zd_pl_cut(nodes[c]))
+            fprintf(stderr, "[ZD-MAP] CUT i=%d restores rsp to depth %d\n", c, known[claim[c]] ? base[claim[c]] + zout[c] - zd_k(nodes[c]) : anchor[claim[c]]);
     }
 }
 extern "C" int zls_g_vslot_count(const IR_graph_t *); extern "C" const char * zls_g_vslot_get(const IR_graph_t *, int, int *); extern "C" int zls_g_block_base(const IR_graph_t *);
@@ -3762,6 +3862,21 @@ static void zst_plan(IR_t ** nodes, int n) {
             if (low[(size_t)v] == idx[(size_t)v]) { std::vector<int> mem; int w; do { w = st.back(); st.pop_back(); on[(size_t)w] = 0; mem.push_back(w); } while (w != v);
                 if (mem.size() > 1) for (size_t m = 0; m < mem.size(); m++) loop[(size_t)mem[m]] = 1; } } }
     std::vector<int> dsz((size_t)n, 0); for (int v = 0; v < n; v++) { int c = 0; for (size_t w = 0; w < W; w++) c += __builtin_popcountll(dom[(size_t)v * W + w]); dsz[(size_t)v] = c; }
+    std::vector<unsigned char> indef0((size_t)n, 0);
+    { std::vector<int> wl;
+        for (int i = 0; i < n; i++) if (zd_edge_retains(nodes[i])) { int q = zst_edge(nodes, n, i, 0); if (q >= 0 && !indef0[(size_t)q]) { indef0[(size_t)q] = 1; wl.push_back(q); } }
+        while (!wl.empty()) { int v = wl.back(); wl.pop_back();
+            for (int k = scnt[(size_t)v]; k < scnt[(size_t)v + 1]; k++) { int w = sd[(size_t)k]; if (w < 0 || indef0[(size_t)w]) continue;
+                int ub = (nodes[w]->op == IR_UNMARK && (IR_LIT(nodes[w]).ival & 6) && nodes[w]->n_operands > 0) ? nidx(nodes, n, nodes[w]->operands[0]) : -1;
+                if (ub >= 0 && !indef0[(size_t)ub]) continue;
+                indef0[(size_t)w] = 1; wl.push_back(w); } } }
+    std::vector<int> bnds; std::vector<std::vector<unsigned char>> esc;
+    for (int b = 0; b < n; b++) { if (nodes[b]->op != IR_BOUND) continue; std::vector<unsigned char> r((size_t)n, 0); std::vector<int> wl;
+        for (int u = 0; u < n; u++) if (nodes[u]->op == IR_UNMARK && (IR_LIT(nodes[u]).ival & 6) && nodes[u]->n_operands > 0 && nodes[u]->operands[0] == nodes[b]) { int q = zst_edge(nodes, n, u, 0);
+            if (q >= 0 && !r[(size_t)q]) { r[(size_t)q] = 1; wl.push_back(q); } }
+        while (!wl.empty()) { int v = wl.back(); wl.pop_back(); for (int k = scnt[(size_t)v]; k < scnt[(size_t)v + 1]; k++) { int w = sd[(size_t)k]; if (w >= 0 && !r[(size_t)w]) { r[(size_t)w] = 1;
+            wl.push_back(w); } } }
+        bnds.push_back(b); esc.push_back(r); }
     const char * nm[2];
     for (int k = 0; k < nv; k++) { int off = -1; const char * vn = zls_g_vslot_get(g, k, &off); if (!vn || vn[0] == '&' || zst_isparam(g, vn)) continue;
         std::vector<int> uses; for (int i = 0; i < n; i++) { int m = zst_names(nodes[i], nm); for (int q = 0; q < m; q++) if (nm[q] && !strcmp(nm[q], vn)) { uses.push_back(i); break; } }
@@ -3778,7 +3893,17 @@ static void zst_plan(IR_t ** nodes, int n) {
         for (size_t t = 0; t < roots.size(); t++) { int r = roots[t]; for (size_t w = 0; w < W; w++) tmp[w] = ~0ull;
             for (size_t u = 0; u < uses.size(); u++) if (g_emitter.zst_root[(size_t)uses[u]] == r) for (size_t w = 0; w < W; w++) tmp[w] &= dom[(size_t)uses[u] * W + w];
             int best = -1;
-                for (int d = 0; d < n; d++) if ((tmp[(size_t)d / 64] >> (d % 64) & 1) && !loop[(size_t)d] && zd_k_own(nodes[d]) > 0 && (best < 0 || dsz[(size_t)d] > dsz[(size_t)best])) best = d;
+            for (int d = 0; d < n; d++) {
+                if (!(tmp[(size_t)d / 64] >> (d % 64) & 1) || loop[(size_t)d] || indef0[(size_t)d] || zd_k_own(nodes[d]) <= 0) continue;
+                int inside = 0;
+                for (size_t bi = 0; bi < bnds.size() && !inside; bi++) {
+                    int b = bnds[bi];
+                    if (b == d || !(dom[(size_t)d * W + (size_t)b / 64] >> (b % 64) & 1) || esc[bi][(size_t)d]) continue;
+                    for (size_t u = 0; u < uses.size() && !inside; u++) if (g_emitter.zst_root[(size_t)uses[u]] == r && esc[bi][(size_t)uses[u]]) inside = 1;
+                }
+                if (inside) continue;
+                if (best < 0 || dsz[(size_t)d] > dsz[(size_t)best]) best = d;
+            }
             if (best < 0) continue;
             g_emitter.zst_name.push_back(vn); g_emitter.zst_vroot.push_back(r); g_emitter.zst_c.push_back(best); g_emitter.zst_j.push_back(g_emitter.zst_s[(size_t)best] / 16);
                 g_emitter.zst_L.push_back(0);
@@ -3851,6 +3976,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             if (rl > 0 && emit_floater_kind(nodes[ci])) break;
             run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; rl++;
             if (zd_pl_cut(nodes[ci])) break;
+            if (zd_edge_retains(nodes[ci])) break;
             cur = zd_icn_suspend(cur) ? zd_chase(cur->n_operands > 1 ? cur->operands[1] : (IR_t *)0) : zd_chase(cur->γ.node);
         }
         { for (int k = 0; k < n; k++) aent[k] = 0;
@@ -4011,7 +4137,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         int * base = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
         unsigned char * known = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
         int * aof = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-        zd_pl_bases(nodes, n, zon, zout, zgpop, zwpop, claim, base, known, aof);
+        zd_pl_bases(nodes, n, zon, zout, zgpop, zwpop, claim, base, known, aof, (int *)0);
         for (int i = 0; i < n; i++) {
             if (!zon[i] || claim[i] < 0 || !known[claim[i]]) continue;
             int ai = base[claim[i]] + zout[i];
@@ -4048,7 +4174,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             IR_t * ig = (nodes[i]->op == IR_GATE_ARM && !nodes[i]->γ.node && nodes[i]->n_operands > 1) ? nodes[i]->operands[1] : (IR_t *)0;
             IR_t * c = zd_chase(ig ? ig->γ.node : nodes[i]->γ.node);
             int cq = c ? nidx(nodes, n, c) : -1;
-            if (c && (c->op == IR_SUCCEED || cq < 0 || !zon[cq])) zgpop[i] = base[claim[i]] + zout[i];
+            if (c && (c->op == IR_SUCCEED || cq < 0 || !zon[cq])) zgpop[i] = zd_edge_retains(nodes[i]) ? 0 : base[claim[i]] + zout[i];
             IR_t * o = zd_chase(nodes[i]->ω.node);
             int oq = o ? nidx(nodes, n, o) : -1;
             if (!o || o->op == IR_FAIL || oq < 0 || !zon[oq]) zwpop[i] = base[claim[i]] + zout[i] - zd_k(nodes[i]);
@@ -4128,8 +4254,8 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             if (q >= 0 && nodes[q]->op == IR_MATCH_ARBNO && zd_dj_anc(zarm, i, q)) zgpop[i] = 0;
         }
     { if (zd_map_on()) { fprintf(stderr, "[ZD-MAP] PLAN -- same i= indices as GRAPH above\n");
-        for (int i = 0; i < n; i++) fprintf(stderr, "[ZD-MAP] i=%-3d %-22s claim=%-3d rpos=%-3d zon=%d zout=%-4d gpop=%-5d wpop=%-5d arm=%d\n",
-            i, bb_op_name(nodes[i]->op), claim[i], rpos[i], (int)zon[i], zout[i], zgpop[i], zwpop[i], zarm ? zarm[i] : -1); } }
+        for (int i = 0; i < n; i++) fprintf(stderr, "[ZD-MAP] i=%-3d %-22s claim=%-3d rpos=%-3d zon=%d zout=%-4d gpop=%-5d wpop=%-5d arm=%d slot=%d\n",
+            i, bb_op_name(nodes[i]->op), claim[i], rpos[i], (int)zon[i], zout[i], zgpop[i], zwpop[i], zarm ? zarm[i] : -1, zls_off(nodes[i])); } }
     if (zclaim) for (int i = 0; i < n; i++) zclaim[i] = zon[i] ? claim[i] : -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4858,6 +4984,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     for (int i = 0; i < n; i++) for (int p = zd_on[i] ? zd_arm[i] : -1, g = 0; p >= 0 && g++ < n; p = zd_arm[p]) if (g_emitter.codegen_flat_chain_body_nodes[p]->op == IR_DISJUNCTION) { zd_vl[i] = 0;
         break; }
     int * zd_xb = (int *)0;
+    int * zd_cut = (int *)0;
         { unsigned char * _zw = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
             unsigned char * _zarm = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
         int * _zst = (int *)alloca(sizeof(int) * (size_t)(3 * n + 3)); for (int _q = 0; _q < n; _q++) _zw[_q] = 0; auto _in_arms = [&](int t, int k) -> int { int sp = 0;
@@ -4885,9 +5012,11 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         int * _b = (int *)alloca(sizeof(int) * (size_t)n);
         unsigned char * _kn = (unsigned char *)alloca((size_t)n);
         zd_xb = (int *)alloca(sizeof(int) * (size_t)n);
-        zd_pl_bases(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, _b, _kn, (int *)0);
+        zd_cut = (int *)alloca(sizeof(int) * (size_t)n);
+        zd_pl_bases(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, _b, _kn, (int *)0, zd_cut);
         for (int _i = 0; _i < n; _i++) zd_xb[_i] = (zd_on[_i] && zd_claim[_i] >= 0 && _kn[zd_claim[_i]]) ? _b[zd_claim[_i]] : INT_MIN;
         zst_finish(g_emitter.codegen_flat_chain_body_nodes, n, zd_out, zd_claim, _b, _kn);
+        g_emitter.g_zd_claim_p = zd_claim; g_emitter.g_zd_xb_p = zd_xb; g_emitter.g_zd_nodes_p = g_emitter.codegen_flat_chain_body_nodes; g_emitter.g_zd_n = n; g_emitter.g_zd_cut_p = zd_cut;
     }
     g_emitter.g_zd_plan_on = zd_on; g_emitter.g_zd_plan_nodes = g_emitter.codegen_flat_chain_body_nodes; g_emitter.g_zd_plan_n = n;
         int _sph = 0, _spgd = 0, _spf = 0, _wpn = 0;
@@ -5491,7 +5620,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   g_emitter.g_zd_ztail = 0;
                   g_emitter.g_zd_zpat = 0;
                   g_emitter.g_zd_zfc = 0;
-                  g_emitter.g_zd_abs = zd_out[i] + ((zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0); g_emitter.g_zd_cur = i;
+                  g_emitter.g_zd_abs = zd_out[i] + ((zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0); g_emitter.g_zd_cur = i; g_emitter.g_zd_def = (zd_xb && zd_xb[i] == INT_MIN) ? 0 : 1;
+                      g_emitter.g_zd_cutd = zd_cut ? zd_cut[i] : -1; g_emitter.g_zd_cutd = zd_cut ? zd_cut[i] : -1;
                   g_emitter.g_zd_cps = -1;
                   g_emitter.g_zd_cpd = -1;
                   zd_ops_reserve(g_emitter.codegen_flat_chain_body_nodes[i]->n_operands);
@@ -5615,6 +5745,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   int _bi = (zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0, _bt = (_ti >= 0 && zd_xb && zd_xb[_ti] != INT_MIN) ? zd_xb[_ti] : 0;
                   g_emitter.g_zd_suspend_uclaim = (_ti >= 0 && zd_on[_ti]) ? (_bi + zd_out[i]) - (_bt + zd_out[_ti] - zd_k(g_emitter.codegen_flat_chain_body_nodes[_ti])) : 0; }
               { g_emitter.g_zd_zunder = 0; g_emitter.g_zd_abs = zd_on[i] ? zd_out[i] + ((zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0) : 0; g_emitter.g_zd_cur = i;
+                  g_emitter.g_zd_def = (zd_xb && zd_xb[i] == INT_MIN) ? 0 : 1; g_emitter.g_zd_cutd = zd_cut ? zd_cut[i] : -1;
                   g_emitter.g_zd_cps = zd_on[i] ? zd_cps[i] : -1;
                   g_emitter.g_zd_cpd = zd_on[i] ? zd_cpd[i] : -1; if (zd_on[i] && g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_REPLACE) { int _zu = 0;
                   for (int _zj = i - 1; _zj >= 0; _zj--) { if (g_emitter.codegen_flat_chain_body_nodes[_zj]->op == IR_MATCH_END) break;
