@@ -3987,11 +3987,12 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] < rpos[i] && port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - zout[oback];
         if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-FINAL] i=%d %s K=%d zout=%d gpop=%d wpop=%d gback=%d oback=%d\n", i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i], gback, oback);
             } }
-    if (emit_pl_frame()) for (int i = 0; i < n; i++) {
+    if (zd_pl_abs()) for (int i = 0; i < n; i++) {
         if (!zon[i]) continue;
         IR_t * t = zd_chase(nodes[i]->γ.node);
         int q = t ? nidx(nodes, n, t) : -1;
         if (q >= 0 && zon[q] && claim[q] == claim[i] && q != i && port_sz_beta(zd_edge_sz(nodes[i], 0))) zgpop[i] = zout[i] - zout[q];
+        if (!emit_pl_frame()) continue;
         IR_t * r = (nodes[i]->op == IR_GATE_ARM && nodes[i]->n_operands > 0 && (int) nodes[i]->seal) ? nodes[i]->operands[0] : (IR_t *)0;
         int rq = r ? nidx(nodes, n, r) : -1;
         if (rq >= 0 && zon[rq] && claim[rq] == claim[i] && rpos[rq] < rpos[i]) zgpop[i] = zout[i] - zout[rq];
