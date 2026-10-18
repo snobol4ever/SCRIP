@@ -3709,6 +3709,7 @@ static int zd_edge_retains(const IR_t * nd) {
     if (nd->op == IR_TO && ir_range_kind_is(nd, "db")) return 1;
     return (ir_kind0(nd) == IR_CALL_PROC_STAGED && IR_LIT(nd).sval && bb_proc_target_retains(IR_LIT(nd).sval)) ? 1 : 0;
 }
+static int zd_beta_via_act(const IR_t * nd) { return zd_edge_retains(nd) && nd->op != IR_TO; }
 static int zd_pl_cut(const IR_t * nd) { return nd->op == IR_CUT && !IR_LIT(nd).ival && emit_resumable_frame(); }
 static int zd_pl_unmark_bound(IR_t ** nodes, int n, int i) {
     IR_t * nd = nodes[i];
@@ -3836,7 +3837,7 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
                     int q, b;
                     if (e == 1 || (e >= 2 && nodes[i]->op != IR_DISJUNCTION)) continue;
                     (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q, &b);
-                    if (q < 0 || claim[q] < 0 || indef[claim[q]]) continue;
+                    if (q < 0 || claim[q] < 0 || indef[claim[q]] || (b && zd_beta_via_act(nodes[q]))) continue;
                     int r = claim[q];
                     if (r != q && !(pl && nodes[q]->op != IR_DISJUNCTION)) continue;
                     int ub = (r == q && nodes[r]->op == IR_UNMARK && (IR_LIT(nodes[r]).ival & 6) && nodes[r]->n_operands > 0) ? nidx(nodes, n, nodes[r]->operands[0]) : -1;
@@ -3888,7 +3889,7 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
                             if (e == 1 || (e >= 2 && nodes[i]->op != IR_DISJUNCTION) || zd_edge_retains(nodes[i])) continue;
                             int b2, q2;
                             (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q2, &b2);
-                            if (q2 < 0 || !zon[q2] || claim[q2] < 0 || claim[q2] == h || known[claim[q2]] || fam[claim[q2]] >= 0) continue;
+                            if (q2 < 0 || !zon[q2] || claim[q2] < 0 || claim[q2] == h || known[claim[q2]] || fam[claim[q2]] >= 0 || (b2 && zd_beta_via_act(nodes[q2]))) continue;
                             int ld = (nodes[i]->op == IR_GATE_ARM) ? 0 : fbase[h] + zout[i] - zgpop[i];
                             fam[claim[q2]] = fam[h]; fbase[claim[q2]] = ld - (zout[q2] - (b2 ? 0 : zd_k(nodes[q2]))); moved = 1;
                         }
