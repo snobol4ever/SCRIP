@@ -1111,6 +1111,7 @@ static int zd_icn_suspend(const IR_t * nd);
 static int zd_icn_stmt_head(const IR_t * nd);
 static int zd_icn_local_var(const IR_t * nd);
 static int zd_icn_local_assign(const IR_t * nd);
+static const IR_t * zd_local_home_node(const IR_t * nd);
 static int xf_diag_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_XF_DIAG"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static int zd_plan_on_of(const IR_t * nd) { if (!nd || !g_emitter.g_zd_plan_on || g_emitter.g_zd_plan_nodes != g_emitter.codegen_flat_chain_body_nodes) return 0;
     for (int k = 0; k < g_emitter.g_zd_plan_n; k++) if (g_emitter.g_zd_plan_nodes[k] == nd) return g_emitter.g_zd_plan_on[k] ? 1 : 0; return 0; }
@@ -1334,7 +1335,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
             g_emit.op_zpat = g_emitter.g_zd_zpat; g_emitter.g_zd_zpat = 0; g_emit.op_zfc = g_emitter.g_zd_zfc; g_emitter.g_zd_zfc = 0;
             if (nd && g_emit_cfg) { int _xn = zd_nops(nd); g_emit.op_zslot_n = (_xn < nd->n_operands) ? _xn : nd->n_operands;
                 for (int _zi = 0; _zi < g_emit.op_zslot_n && _zi < g_emit.op_zcap; _zi++) { IR_t * _po = nd->operands[_zi];
-                    g_emit.op_zslot[_zi] = (_po && (zd_k_own(_po) >= 16 || zd_icn_local_var(_po) || zd_icn_local_assign(_po)) && zd_plan_on_of(_po)) ? nd_slot(_po) : -1; }
+                    g_emit.op_zslot[_zi] = (_po && (zd_k_own(_po) >= 16 || zd_local_home_node(_po)) && zd_plan_on_of(_po)) ? nd_slot(_po) : -1; }
                 g_emit.op_res_alias = (zd_k_own(nd) == 16 && !zd_icn_suspend(nd)) ? nd_slot(nd) : -1;
                 if (xf_diag_on()) { fprintf(stderr, "[ALIAS] %s res=%d nops=%d:", bb_op_name(nd->op), g_emit.op_res_alias, g_emit.op_zslot_n);
                     for (int _zi = 0; _zi < g_emit.op_zslot_n && _zi < g_emit.op_zcap; _zi++) { IR_t * _po = nd->operands[_zi];
@@ -3539,6 +3540,8 @@ static int zd_icn_local_var(const IR_t * nd) { return nd && nd->op == IR_VAR && 
     (!is_global(IR_LIT(nd).sval) || graph_has_local(g_emit_cfg, IR_LIT(nd).sval)); }
 static int zd_icn_local_assign(const IR_t * nd) { return nd && nd->op == IR_ASSIGN && g_emit_cfg && g_emit_cfg->spine_cells && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' &&
     (!is_global(IR_LIT(nd).sval) || graph_has_local(g_emit_cfg, IR_LIT(nd).sval)); }
+static const IR_t * zd_local_home_node(const IR_t * nd) { int g = 0; while (nd && nd->op == IR_CONJUNCTION && nd->n_operands > 0 && g++ < 16) nd = nd->operands[0];
+    return (zd_icn_local_var(nd) || zd_icn_local_assign(nd)) ? nd : (const IR_t *)0; }
 static int zd_icn_chain_step_ok(IR_t ** nodes, int n, int p, int q) {
     if (!(g_emit_cfg && g_emit_cfg->spine_cells)) return 1;
     if (p < 0 || q < 0 || zd_chase(nodes[p]->ω.node) != nodes[q]) return 0;
@@ -6068,7 +6071,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                           if (g_emitter.zd_check__on > 0 && zd_xb && zd_claim[i] != zd_claim[_k] && (zd_xb[i] == INT_MIN || zd_xb[_k] == INT_MIN) && xop_frame_slot(_p) == -1)
                               fprintf(stderr, "[ZD-CHECK]   READ i=%d %s reads p=%d %s across runs with an unknown base\n", i,
                               bb_op_name(g_emitter.codegen_flat_chain_body_nodes[i]->op), _k, bb_op_name(g_emitter.codegen_flat_chain_body_nodes[_k]->op));
-                          if (zd_icn_local_var(_p) || zd_icn_local_assign(_p)) g_emitter.g_zd_fread[_zj] = bb_varslot_peek(IR_LIT(_p).sval);
+                          { const IR_t * _lh = zd_local_home_node(_p); if (_lh) g_emitter.g_zd_fread[_zj] = bb_varslot_peek(IR_LIT(_lh).sval); }
                           g_emitter.g_zd_kind[_zj] = (int)ir_norm_call_kind(_p->op); } } } } }
               { if (zd_on[i] && g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_REPLACE) { g_emitter.g_zd_read[2] = -1; g_emitter.g_zd_kind[2] = -1; IR_t * _mb2 = (IR_t *)0; int _jh2 = -1;
                   for (int _zj = i - 1; _zj >= 0; _zj--) { if (g_emitter.codegen_flat_chain_body_nodes[_zj]->op == IR_MATCH_BEGIN) { _mb2 = g_emitter.codegen_flat_chain_body_nodes[_zj]; _jh2 = _zj;
