@@ -4482,16 +4482,20 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             int b = nidx(nodes, n, nodes[i]->operands[0]);
             if (b < 0 || !zon[b] || zd_unmark_acts(nodes[i]) > 0) continue;
             if (claim[b] != claim[i]) continue;
-            if (zchn[2 * i] < 0) { IR_t * _gt = zd_chase(nodes[i]->γ.node); int _gq = _gt ? nidx(nodes, n, _gt) : -1;
-                zgpop[i] = zout[i] - ((_gq >= 0 && zon[_gq] && port_sz_beta(zd_edge_sz(nodes[i], 0))) ? zout[_gq] : zout[b]); zchn[2 * i + 1] = b; zwpop[i] = 0; }
-            else if (zchn[2 * i + 1] < 0) zwpop[i] = zout[i] - zout[b];
             if (zchn[2 * i] < 0) {
-                IR_t * t = zd_chase(nodes[i]->γ.node);
+                IR_t * _gs = nodes[i];
+                IR_t * _gt = zd_chase(nodes[i]->γ.node);
                 int g4 = 0;
-                while (t && t->op == IR_LINE_MARK && g4++ <= n) t = zd_chase(t->γ.node);
-                if (t == nodes[b]) for (IR_t * u = zd_chase(nodes[i]->γ.node); u && u != nodes[b]; u = zd_chase(u->γ.node)) { int k = nidx(nodes, n, u); if (k >= 0 && zon[k]) { zout[k] = zout[b];
-                    zgpop[k] = 0; zwpop[k] = 0; } }
+                while (_gt && _gt->op == IR_LINE_MARK && g4++ <= n) { _gs = _gt; _gt = zd_chase(_gt->γ.node); }
+                int _gq = _gt ? nidx(nodes, n, _gt) : -1;
+                int _rb = _gq >= 0 && zon[_gq] && port_sz_beta(zd_edge_sz(_gs, 0));
+                zgpop[i] = zout[i] - (_rb ? zout[_gq] : zout[b]);
+                zchn[2 * i + 1] = b;
+                zwpop[i] = 0;
+                if (_gt == nodes[b] || _rb) for (IR_t * u = zd_chase(nodes[i]->γ.node); u && u != _gt; u = zd_chase(u->γ.node)) { int k = nidx(nodes, n, u);
+                    if (k >= 0 && zon[k]) { zout[k] = zout[i] - zgpop[i]; zgpop[k] = 0; zwpop[k] = 0; } }
             }
+            else if (zchn[2 * i + 1] < 0) zwpop[i] = zout[i] - zout[b];
         }
     }
     if (zdj_arms) {
