@@ -1016,6 +1016,7 @@ static std::string bcps_icn_opnd(IR_graph_t ** argblks, int i, int w, long d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bcps_icn_src(argblks, i, w, d) ( \
       (_.op_zres && (i) < _.op_zcap && _.op_zread_xf[(i)] != -1) ? x86("mov", "rcx", RDQ("rbp", _.op_zread_xf[(i)] + (w))) \
+    : (_.op_zres && (i) < _.op_zcap && _.op_zread_fr[(i)] >= 0) ? x86("mov", "rcx", x86_zop(_.op_zread_fr[(i)] + (w), 1, (int)(d))) \
     : (!_.op_zres && x86_fc_hit(bcps_arg_slot(_.node, (argblks), (i)) + (w))) \
     ? x86_rsp_load64("rcx", bcps_arg_slot(_.node, (argblks), (i)) + (w) - _.op_fc_base + (int)(d)) \
     : x86("mov", "rcx", bcps_icn_opnd((argblks), (i), (w), (d)).c_str()) \
