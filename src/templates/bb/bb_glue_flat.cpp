@@ -187,7 +187,7 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw, int hi, int blk = 0) {
              + x86("shl", "r8", 4L)
              + x86("sub", "rsp", "r8")
              + x86("add", "rcx", "rcx")
-             + x86("mov", "rsi", "[rip + __]", (uint64_t)(uintptr_t)&g_call_args, "g_call_args")
+             + x86("mov", "rsi", "[rip@got + __]", (uint64_t)(uintptr_t)&g_call_args, "g_call_args")
              + x86("mov", "rsi", RDQ("rsi", 0))
              + x86("mov", "rdi", "rsp")
              + x86("rep_movsq")

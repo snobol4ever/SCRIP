@@ -21,8 +21,8 @@ std::string bb_call_bool_slot() {
          + IF(_.op_a_slot >= 0,
                x86_alpha()
              + x86("comment", "BOX __rk_bool [descr flat-chain: slot truthiness test]")
-             + x86("mov", "rdi", FRQ(_.op_a_slot))
-             + x86("mov", "rsi", FRQ(_.op_a_slot + 8))
+             + x86("mov", "rdi", _.op_zres ? ZOPQ(0, 0) : FRQ(_.op_a_slot))
+             + x86("mov", "rsi", _.op_zres ? ZOPQ(0, 8) : FRQ(_.op_a_slot + 8))
              + x86("call", "rk_is_truthy", (uint64_t)(uintptr_t)(void *)rk_is_truthy)
              + x86("test", "eax", "eax")
              + x86_omega("je")

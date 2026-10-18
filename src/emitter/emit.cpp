@@ -1327,9 +1327,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     extern int bb_slot_get(IR_t *nd);
     if (!nd) return 1;
     g_emit.node = nd; g_emit.op_pat_static = nd->pat_static;
-    g_emit.op_zf_unpinned = ((g_emit_cfg && g_emit_cfg->icn_cells_graph) || emit_pl_frame()) ? 1 : 0;
+    g_emit.op_zf_unpinned = 1;
     g_emit.op_zabs = g_emitter.g_zd_abs; g_emit.op_zsticky = zst_s_of(nd); g_emit.op_zk_own = g_emit.op_zres ? g_emitter.g_zd_k - g_emit.op_zsticky : 0;
-    if (g_emit.op_zf_unpinned && g_emit.op_zres) g_emit.op_zdepth = g_emitter.g_zd_abs;
+    if (g_emit.op_zres && !g_emitter.g_zd_zunder) g_emit.op_zdepth = g_emitter.g_zd_abs;
     emit_set_sink(out);
     g_emit.sid = 0;
     g_emit.nid = bb_node_id(nd);
@@ -2853,7 +2853,7 @@ static int zd_nops(IR_t * nd) { int op = (int)ir_kind0(nd);
     return (op == IR_UNOP || op == IR_ASSIGN || op == IR_DEREF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_FIELD_VAR || op == IR_FIELD_GET || op == IR_MATCH_BEGIN ||
         op == IR_RETURN) ? 1 :
         (op == IR_BINOP || op == IR_COERCE_NUMERIC || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_BINOP_TEST || op == IR_BINOP_RELOP_VAL) ? 2 : (op == IR_MATCH_REPLACE) ? 2 :
-        (op == IR_SUBSCRIPT || op == IR_ASSIGN_VAR || op == IR_MAKE_LIST || op == IR_CALL || op == IR_CALL_ICON || op == IR_CALL_PROC_STAGED || op == IR_PROC_GEN || op == IR_SUSPEND || op == IR_TO ||
+        (op == IR_SUBSCRIPT || op == IR_ASSIGN_VAR || op == IR_MAKE_LIST || ir_norm_call_kind((IR_e)op) == IR_CALL || op == IR_PROC_GEN || op == IR_SUSPEND || op == IR_TO ||
             op == IR_TO_BY || op == IR_MATCH_LEN ||
         op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK ||
         op == IR_MATCH_BREAKX || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE) ? (int)nd->n_operands : 0; }

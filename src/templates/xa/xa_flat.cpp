@@ -381,6 +381,8 @@ static std::string xa_flat_zframe_prologue_str(void) {
                  + x86("mov", RDQ("rsp", kt - 56), "rax")
                  + x86("note", "pl_choice_open inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): B := this frame's header H = rsp+kt-64")
                  + x86("lea", "r13", RDQ("rsp", kt - 64))))
+            : x86_hb_on() ? x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
+                          + x86("mov", x86_hb(), "rsp")
             : (emit_jmp_pin_legacy() ? (xa_flat_zanchor_poison() ? std::string() : x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp"))
                                 + std::string("")
                                : std::string()));

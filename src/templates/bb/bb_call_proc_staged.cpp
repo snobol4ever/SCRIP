@@ -137,7 +137,7 @@ static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
          + x86("jne", L(SAI_L0 + i * 2))
          + x86("mov", "rax", FRQ(slot))
          + x86("mov", "rdx", FRQ(slot + 8))
-         + x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)&g_call_args, "g_call_args")
+         + x86("mov", "r8", "[rip@got + __]", (uint64_t)(uintptr_t)&g_call_args, "g_call_args")
          + x86("mov", "r8", "qword ptr [r8 + 0]")
          + x86("test", "r8", "r8")
          + x86("je", L(SAI_L0 + i * 2))

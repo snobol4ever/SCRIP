@@ -270,7 +270,7 @@ static std::string cf_direct_zd() {
 static std::string bcfn_method_open_enter(int base, int decl_id, int join_id, int rec_off, const char * osym, uint64_t ofp) {
     return IF(rec_off < 0, x86_bomb("bb_call_fn: a meth_call or redispatch node without the argv grant that holds its redispatch record (CEO-1552)"))
          + IF(rec_off >= 0,
-               x86("lea", "rdx", FRQ(rec_off))
+               x86("lea", "rdx", _.op_zres ? FRQB(rec_off, CF_N() * 16) : FRQ(rec_off))
              + x86("call", osym, ofp)
              + x86_rt_gc_poll_rec_sigma_word(1)
              + x86("test", "rax", "rax")
