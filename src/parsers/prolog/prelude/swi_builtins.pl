@@ -2,9 +2,11 @@
     SCRIP's own text, AGPL like the rest of SCRIP: not a vendored file; the generator (util_gen_prolog_prelude_libs.py) embeds it in LOCAL mode, no SWI reader, no renames, its helpers
     '$swb_'-named by hand. It is parsed only when a program names one of its exports. directory_file_path/3 and make_directory_path/1 are swipl 9.0.4's library(filesex) clauses
     (BSD, Jan Wielemaker, VU University Amsterdam) with their foreign-library dependency removed; the rest are written here from the documented behaviour and graded against swipl by
-    test_gate_pl_swi_file_and_text_builtins_answer_as_swipl.sh. */
+    test_gate_pl_swi_file_and_text_builtins_answer_as_swipl.sh. fast_term_serialized/2, fast_write/2 and fast_read/2 (cfo 2026-10-17) write SCRIP's own form, a length-prefixed
+    canonical text of term_factorized's skeleton and substitution with every string carried beside it as an atom, so no reader flag changes what comes back; graded by
+    test_gate_pl_maplist_include_and_exclude_exit_deterministically_and_fast_term_io_round_trips_as_swipl.sh. */
 :- module(swi_builtins, [ open_string/2, directory_file_path/3, make_directory_path/1, exists_file/1, exists_directory/1, size_file/2, time_file/2, same_file/2, working_directory/2,
-                          setenv/2, unsetenv/1, text_to_string/2 ]).
+                          setenv/2, unsetenv/1, text_to_string/2, fast_term_serialized/2, fast_write/2, fast_read/2 ]).
 open_string(S, Stream) :- ( var(S) -> throw(error(instantiation_error, context(open_string/2, _))) ; true ), text_to_string(S, Str), atom_string(A, Str), open_input_atom_stream(A, Stream), '$gnu_os'(ts_unmark, Stream, _).
 directory_file_path(Dir, File, Path) :- nonvar(Dir), nonvar(File), !, ( ( is_absolute_file_name(File) ; Dir == '.' ) -> Path = File ; sub_atom(Dir, _, _, 0, /) -> atom_concat(Dir, File, Path) ; atomic_list_concat([Dir, /, File], Path) ).
 directory_file_path(Dir, File, Path) :- nonvar(Path), !, ( nonvar(Dir) -> ( Dir == '.', \+ is_absolute_file_name(Path) -> File = Path ; sub_atom(Dir, _, _, 0, /) -> atom_concat(Dir, File, Path) ; atom_concat(Dir, /, TheDir) -> atom_concat(TheDir, File, Path) ) ; nonvar(File) -> atom_concat(Dir0, File, Path), '$swb_strip_slash'(Dir0, Dir) ; file_directory_name(Path, Dir), file_base_name(Path, File) ).
@@ -30,3 +32,44 @@ same_file(A, B) :- '$swb_arg'(A, PA, same_file/2), '$swb_arg'(B, PB, same_file/2
 working_directory(Old, New) :- '$gnu_os'(cwd, x, C0), ( atom_concat(_, /, C0) -> Old0 = C0 ; atom_concat(C0, /, Old0) ), Old = Old0, ( var(New) -> New = Old0 ; New == Old0 -> true ; '$swb_arg'(New, P, working_directory/2), ( '$gnu_os'(chdir, P, _) -> true ; throw(error(existence_error(directory, New), context(system:working_directory/2, 'No such file or directory'))) ) ).
 setenv(N, V) :- '$swb_arg'(N, PN, setenv/2), ( var(V) -> throw(error(instantiation_error, context(system:setenv/2, _))) ; number(V) -> atom_number(PV, V) ; '$swb_arg'(V, PV, setenv/2) ), '$gnu_os'(setenv, PN, PV).
 unsetenv(N) :- '$swb_arg'(N, PN, unsetenv/1), '$gnu_os'(unsetenv, PN, x).
+fast_term_serialized(T, S) :- var(S), !, '$swb_ftser'(T, S, fast_term_serialized/2).
+fast_term_serialized(T, S) :- ( string(S) -> true ; throw(error(type_error(string, S), context(system:fast_term_serialized/2, _))) ), '$swb_ftdes'(S, T).
+fast_write(Out, T) :- '$swb_ftser'(T, S, fast_write/2), string_codes(S, Cs), '$swb_u8e'(Cs, Bs), length(Bs, N), number_codes(N, NCs), '$swb_putb'(NCs, Out), put_byte(Out, 46),
+    '$swb_putb'(Bs, Out).
+fast_read(In, T) :- get_byte(In, B0), ( B0 < 0 -> T = end_of_file ; '$swb_getlen'(In, B0, 0, N), length(Bs, N), '$swb_getb'(Bs, In), '$swb_u8d'(Bs, Cs), string_codes(S, Cs), '$swb_ftdes'(S, T) ).
+'$swb_ftser'(T, S, PI) :- term_factorized(T, K, Sb), '$swb_ftblob'(K-Sb, PI), '$swb_ftstr'(K-Sb, KS, [], Ps), with_output_to(string(S), write_canonical('$fts'(KS, Ps))).
+'$swb_ftdes'(S, T) :- term_string(R, S), R = '$fts'(K-Sb, Ps), '$swb_ftstrb'(Ps), '$swb_ftbind'(Sb), T = K.
+'$swb_ftstr'(X, X, P, P) :- var(X), !.
+'$swb_ftstr'(X, V, P, [V-A|P]) :- string(X), !, atom_string(A, X).
+'$swb_ftstr'(X, X, P, P) :- atomic(X), !.
+'$swb_ftstr'(X, Y, P0, P) :- X =.. [F|As], '$swb_ftstrl'(As, Bs, P0, P), Y =.. [F|Bs].
+'$swb_ftstrl'([], [], P, P).
+'$swb_ftstrl'([A|As], [B|Bs], P0, P) :- '$swb_ftstr'(A, B, P0, P1), '$swb_ftstrl'(As, Bs, P1, P).
+'$swb_ftstrb'([]).
+'$swb_ftstrb'([V-A|Ps]) :- atom_string(A, V), '$swb_ftstrb'(Ps).
+'$swb_ftbind'([]).
+'$swb_ftbind'([V=X|R]) :- V = X, '$swb_ftbind'(R).
+'$swb_ftblob'(X, _) :- var(X), !.
+'$swb_ftblob'(X, _) :- atomic(X), !.
+'$swb_ftblob'(X, PI) :- X = '$stream'(_), !, throw(error(permission_error(fast_serialize, blob, X), context(system:PI, _))).
+'$swb_ftblob'(X, PI) :- X =.. [_|As], '$swb_ftblobl'(As, PI).
+'$swb_ftblobl'([], _).
+'$swb_ftblobl'([A|As], PI) :- '$swb_ftblob'(A, PI), '$swb_ftblobl'(As, PI).
+'$swb_getlen'(_, 46, N, N) :- !.
+'$swb_getlen'(In, B, A, N) :- B >= 48, B =< 57, A1 is A * 10 + B - 48, get_byte(In, B1), '$swb_getlen'(In, B1, A1, N).
+'$swb_putb'([], _).
+'$swb_putb'([B|Bs], O) :- put_byte(O, B), '$swb_putb'(Bs, O).
+'$swb_getb'([], _).
+'$swb_getb'([B|Bs], I) :- get_byte(I, B), '$swb_getb'(Bs, I).
+'$swb_u8e'([], []).
+'$swb_u8e'([C|Cs], Bs) :- '$swb_u8c'(C, Bs, R), '$swb_u8e'(Cs, R).
+'$swb_u8c'(C, [C|R], R) :- C < 128, !.
+'$swb_u8c'(C, [B1, B2|R], R) :- C < 2048, !, B1 is 192 \/ (C >> 6), B2 is 128 \/ (C /\ 63).
+'$swb_u8c'(C, [B1, B2, B3|R], R) :- C < 65536, !, B1 is 224 \/ (C >> 12), B2 is 128 \/ ((C >> 6) /\ 63), B3 is 128 \/ (C /\ 63).
+'$swb_u8c'(C, [B1, B2, B3, B4|R], R) :- B1 is 240 \/ (C >> 18), B2 is 128 \/ ((C >> 12) /\ 63), B3 is 128 \/ ((C >> 6) /\ 63), B4 is 128 \/ (C /\ 63).
+'$swb_u8d'([], []).
+'$swb_u8d'([B|Bs], [C|Cs]) :- '$swb_u8b'(B, Bs, C, R), '$swb_u8d'(R, Cs).
+'$swb_u8b'(B, Bs, B, Bs) :- B < 128, !.
+'$swb_u8b'(B, [B2|R], C, R) :- B < 224, !, C is ((B /\ 31) << 6) \/ (B2 /\ 63).
+'$swb_u8b'(B, [B2, B3|R], C, R) :- B < 240, !, C is ((B /\ 15) << 12) \/ ((B2 /\ 63) << 6) \/ (B3 /\ 63).
+'$swb_u8b'(B, [B2, B3, B4|R], C, R) :- C is ((B /\ 7) << 18) \/ ((B2 /\ 63) << 12) \/ ((B3 /\ 63) << 6) \/ (B4 /\ 63).
