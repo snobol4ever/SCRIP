@@ -550,6 +550,12 @@ void register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, i
     { extern void core_fn_set_arity(const char *name, int min_args, int max_args); core_fn_set_arity(name, min_args, max_args); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void register_fn_lit(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, int max_args) {
+    extern void core_fn_register_lit(const char *, FNCPTR_t, int, int);
+    for (const char *p = name; *p; p++) if (*p == '(' || *p == ',') { register_fn(name, fn, min_args, max_args); return; }
+    core_fn_register_lit(name, fn, min_args, max_args);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int eval_text_takes_chain(const char *s) {
     if (!s || !*s) return 0;
     { const char *c = s; while (*c == ' ' || *c == '\t') c++; if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z')) return 1; }
