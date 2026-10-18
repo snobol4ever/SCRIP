@@ -4172,7 +4172,7 @@ static void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *z
     for (int i = 0; i < n; i++) {
         if (!zon[i] || (xb && xb[i] == INT_MIN)) continue;
         int o = (int)nodes[i]->op;
-        if (zd_check_arm_env(o) || o == IR_UNMARK || o == IR_CUT) continue;
+        if (zd_check_arm_env(o) || o == IR_UNMARK || o == IR_CUT || o == IR_MATCH_END || o == IR_MATCH_REPLACE) continue;
         int bi = xb ? xb[i] : 0, Xi = bi + zout[i], Ki = zd_k(nodes[i]);
         for (int v = 0; v < 2; v++) {
             IR_t * t = zd_chase(v ? nodes[i]->ω.node : nodes[i]->γ.node);
