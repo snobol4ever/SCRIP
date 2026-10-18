@@ -3482,7 +3482,7 @@ static int alt_flat_live_bytes(const IR_t * nd) { if (!nd || nd->op != IR_MATCH_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_icn_local_var(const IR_t * nd) { return nd && nd->op == IR_VAR && g_emit_cfg && 0 && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' &&
     (!is_global(IR_LIT(nd).sval) || graph_has_local(g_emit_cfg, IR_LIT(nd).sval)); }
-static int zd_icn_local_assign(const IR_t * nd) { return nd && nd->op == IR_ASSIGN && g_emit_cfg && g_emit_cfg->icn_cells_graph && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' &&
+static int zd_icn_local_assign(const IR_t * nd) { return nd && nd->op == IR_ASSIGN && g_emit_cfg && 0 && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' &&
     (!is_global(IR_LIT(nd).sval) || graph_has_local(g_emit_cfg, IR_LIT(nd).sval)); }
 static int zd_icn_chain_step_ok(IR_t ** nodes, int n, int p, int q) {
     if (!(g_emit_cfg && 0)) return 1;
