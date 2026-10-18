@@ -1735,7 +1735,7 @@ $(RT_OBJDIR):
 $(RT_OBJDIR)/%.o: %.c $(RT)/rt/rt.h | $(RT_OBJDIR)
 	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.cpp $(RT)/rt/rt.h | $(RT_OBJDIR)
-	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC -std=c++17 -finput-charset=UTF-8 $(RT_INCS) $(ZCFLAGS) -c $< -o $@
+	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC -fno-gnu-unique -std=c++17 -finput-charset=UTF-8 $(RT_INCS) $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.S | $(RT_OBJDIR)
 	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.s | $(RT_OBJDIR)
