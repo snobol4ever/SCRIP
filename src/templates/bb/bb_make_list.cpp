@@ -15,9 +15,9 @@ std::string bb_make_list() {
              + x86_alpha()
              + IF(_.op_arg_slot_n > 0,
                   x86("sub", "rsp", (long)(_.op_arg_slot_n * 16))
-                + FOR(0, _.op_arg_slot_n, [&](int i) { return x86("mov", "rax", ZOPQ(i, _.op_arg_slot_n * 16 + 0))
+                + FOR(0, _.op_arg_slot_n, [&](int i) { return x86("mov", "rax", ZOPQS(i, _.op_arg_slot_n * 16, 0))
                            + x86("mov", x86_zref(i * 16 + 0, 1), "rax")
-                           + x86("mov", "rax", ZOPQ(i, _.op_arg_slot_n * 16 + 8))
+                           + x86("mov", "rax", ZOPQS(i, _.op_arg_slot_n * 16, 8))
                            + x86("mov", x86_zref(i * 16 + 8, 1), "rax"); })
                 + x86("lea", "rdi", RDQ("rsp", 0)))
              + IF(!(_.op_arg_slot_n > 0),
