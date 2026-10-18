@@ -2437,7 +2437,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$nv_bool'(V,B):-memberchk(V,[true,on]),!,B=true.\n"
     "'$nv_bool'(V,B):-memberchk(V,[false,off]),!,B=false.\n"
     "'$nv_bool'(V,_):-throw(error(type_error(bool,V),numbervars/4)).\n"
-    "'$nv4'(T,S,E,Sg,At,Fn):-(Sg==true->term_singletons(T,Ss),'$nv_single'(Ss,Fn);true),(Fn=='$VAR',At==error->numbervars(T,S,E);'$nv_walk'(T,S,E,At,Fn)).\n"
+    "'$nv4'(T,S,E,Sg,At,Fn):-(Sg==true,acyclic_term(T)->term_singletons(T,Ss),'$nv_single'(Ss,Fn);true),(Fn=='$VAR',At==error->numbervars(T,S,E);'$nv_walk'(T,S,E,At,Fn)).\n"
     "'$nv_single'([],_).\n"
     "'$nv_single'([V|Vs],F):-G=..[F,'_'],V=G,'$nv_single'(Vs,F).\n"
     "'$nv_walk'(T,S,E,At,Fn):-(integer(S)->true;var(S)->throw(error(instantiation_error,numbervars/4));throw(error(type_error(integer,S),numbervars/4))),term_variables(T,Vs),'$nv_bind'(Vs,S,E0,At,Fn),E=E0.\n"
