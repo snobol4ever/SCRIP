@@ -17,6 +17,7 @@ typedef struct {
     int inited;
     int busy;
     int no_reserve;
+    char lang[16];
     int i_src;
     int i_path;
     int i_lang;
@@ -46,33 +47,41 @@ DESCR_t _MATCHAT_(DESCR_t *args, int nargs) { (void)args; (void)nargs; return (D
 long rt_sc_gva_reserve(void) { return g_sc_mod.no_reserve ? 0 : SC_GVA_RESERVE; }
 void rt_sc_module_compiling(void) { g_sc_mod.no_reserve = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static sc_module_t *sc_module_get(void);
-int rt_sc_module_linked(void) { return sc_module_get() ? 1 : 0; }
+static sc_module_t *sc_module_get(const char *lang);
+int rt_sc_module_linked(const char *lang) { return sc_module_get(lang) ? 1 : 0; }
 int rt_sc_module_busy(void) { return g_sc_mod.busy; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sc_modules_invalidate(void) { g_sc_mod.inited = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sc_slot_of(const sc_module_desc_t *d, const char *nm) { for (long k = 0; k < d->n_gva; k++) if (d->gva_names[k] && !strcmp(d->gva_names[k], nm)) return (int)k; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static sc_module_t *sc_module_get(void) {
+static sc_module_t *sc_module_get(const char *lang) {
     sc_module_t *m = &g_sc_mod;
-    if (m->d) return m;
+    if (!lang || !*lang || strlen(lang) >= sizeof m->lang) return (sc_module_t *)0;
+    if (m->d) {
+        if (strcmp(m->lang, lang) == 0) return m;
+        fprintf(stderr, "rt_sc_module: the %s parser is loaded and a %s parse asks for its own -- one parser module per process until each has its own GVA island\n", m->lang, lang);
+        return (sc_module_t *)0;
+    }
     {
         Dl_info di;
         const char *so = dladdr((void *)rt_sc_module_busy, &di) && di.dli_fname ? di.dli_fname : "";
         const char *sl = strrchr(so, '/');
         size_t dl = sl ? (size_t)(sl - so) + 1 : 0;
-        char path[dl + sizeof "libscrip_scmod.so"];
+        char path[dl + fmt_len("libscrip_parser_%s.so", lang)];
+        char sym[fmt_len("parser_%s_sc_module", lang)];
         memcpy(path, so, dl);
-        memcpy(path + dl, "libscrip_scmod.so", sizeof "libscrip_scmod.so");
+        snprintf(path + dl, sizeof path - dl, "libscrip_parser_%s.so", lang);
+        snprintf(sym, sizeof sym, "parser_%s_sc_module", lang);
         void *h = dlopen(path, RTLD_NOW | RTLD_LOCAL);
-        const sc_module_desc_t *d = h ? (const sc_module_desc_t *)dlsym(h, "scparsers_sc_module") : (const sc_module_desc_t *)0;
+        const sc_module_desc_t *d = h ? (const sc_module_desc_t *)dlsym(h, sym) : (const sc_module_desc_t *)0;
         if (!d || !d->main_alpha) return (sc_module_t *)0;
         if (d->n_gva > SC_GVA_RESERVE) {
             fprintf(stderr, "rt_sc_module: the parser module has %ld GVA cells and the runtime reserves %d for it -- raise SC_GVA_RESERVE in rt_sc_module.c\n", d->n_gva, (int)SC_GVA_RESERVE);
             abort();
         }
         m->d = d;
+        memcpy(m->lang, lang, strlen(lang) + 1);
     }
     m->base = (DESCR_t *)RT_GVA_VA;
     m->i_src = sc_slot_of(m->d, "ModSrc");
@@ -141,7 +150,7 @@ static void sc_module_init(sc_module_t *m) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_sc_module_parse_begin(const char *lang, const char *src, size_t len, const char *path, const char *incl, size_t incl_len, long *errpos_out) {
-    sc_module_t *m = sc_module_get();
+    sc_module_t *m = sc_module_get(lang);
     DESCR_t none = { .v = DT_SNUL, .slen = 0, .s = "" };
     if (errpos_out) *errpos_out = -1;
     if (!m) return none;
@@ -166,8 +175,8 @@ DESCR_t rt_sc_module_parse_begin(const char *lang, const char *src, size_t len, 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sc_module_parse_end(void) {
-    sc_module_t *m = sc_module_get();
-    if (!m) return;
+    sc_module_t *m = &g_sc_mod;
+    if (!m->d) return;
     m->base[m->i_src] = (DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" };
     m->base[m->i_tree] = (DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" };
     m->busy = 0;

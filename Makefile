@@ -1424,7 +1424,7 @@ buildinfo:  # ⭐ what am I actually about to link? print it rather than assume 
 # EM-6: full SNOBOL4 runtime compiled -fPIC and linked into the .so.
 # Emitted x86-64 binaries link against this .so for all language-level
 # semantics (pattern matcher, NV table, exec_stmt, builtins, GC).
-libscrip_rt: out/libscrip_rt.so out/libscrip_scmod.so
+libscrip_rt: out/libscrip_rt.so
 
 # EM-6 runtime objects (all compiled -fPIC so they can go into the .so)
 RT_PIC_SRCS := \
@@ -1764,14 +1764,21 @@ RT_SRC_ALL := $(shell find $(SRC) -type f 2>/dev/null)
 # ── the linked parser module (stage 1 of the bootstrap, Lon 2026-10-14 "get all 7 parsers linked into SCRIP and running", and the same hour: ONE global
 # space, a 3-letter prefix per parser -- sno_ snc_ rak_ reb_ icn_ pro_ pas_; ARCH-PARSER-SC-BOOTSTRAP.md section 3.8): a stage-0 runtime and driver (no
 # module) compile ONE chain -- mod_head.sc, the library, every parser_<lang>.sc in SC_MOD_LANGS, mod_tail.sc, with a ModPrefix marker before each file --
-# through scrip --module scparsers, which qualifies every name by its file's prefix (the library's sc_) and emits a descriptor instead of main; the
-# runtime library links the object, and the user program's GVA slots start after the module's (rt_sc_gva_reserve).
-SC_MOD_LANGS := snobol4
+# through scrip --module, which qualifies every name by its file's prefix (the library's sc_) and emits a descriptor instead of main. ONE SHARED OBJECT
+# PER LANGUAGE PARSER (cto 2026-10-17, ceo CEO-1823 shaped by Lon: "I like the idea of a shared object for each language parser."): each language's
+# chain out/sc_mod/scmod_<lang>.sc (mod_head, the library, its parser_<lang>.sc, mod_tail; never named parser_<lang>.sc, which the importer reads as
+# a self-import and skips) compiles as module parser_<lang> to out/libscrip_parser_<lang>.so, linked by no
+# runtime and no program; rt_sc_module.c dlopens the one its parse asks for, beside the runtime it finds by dladdr. The user program's GVA slots start
+# after the reserved 741 (SC_GVA_RESERVE, the SNOBOL4 parser's count; a parser with more cells refuses its load until each module has its own island).
+SC_MOD_LANGS := snobol4 snocone rebus icon prolog pascal raku
 SC_MOD_LIB := global case assign match counter stack tree ShiftReduce tdump gen qize semantic omega trace
 sc_mod_pfx = $(if $(filter snobol4,$(1)),sno_,$(if $(filter snocone,$(1)),snc_,$(if $(filter raku,$(1)),rak_,$(if $(filter rebus,$(1)),reb_,$(if $(filter icon,$(1)),icn_,$(if $(filter prolog,$(1)),pro_,pas_))))))
-SC_MOD_OBJS := out/sc_mod/scparsers.o
+SC_MOD_OBJS := $(SC_MOD_LANGS:%=out/sc_mod/scmod_%.o)
+PARSER_SOS := $(SC_MOD_LANGS:%=out/libscrip_parser_%.so)
+PARSER_TAGGED := $(SC_MOD_LANGS:%=out/libscrip_parser_%-$(RT_TAG).so)
+libscrip_rt: $(PARSER_SOS)
 RT_SO0 := out/libscrip_rt0.so
-# the stage-0 library links a STRONG empty descriptor in place of the module object, so no weak reference exists anywhere (test_gate_no_weak_abort_stub; CEO-1749)
+# the stage-0 library and the shipped one link no parser module; a parser's descriptor is reached only by dlsym on its own object (CEO-1823)
 $(RT_SO0): $(RT_PIC_OBJS) Makefile
 	@mkdir -p out
 	$(CC) -shared $(RT_PIC_OBJS) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@
@@ -1779,14 +1786,13 @@ out/scrip0: $(RT_SO0) $(SRC)/driver/scrip.c
 	@mkdir -p $(OBJ)
 	$(CC) $(CRT) -c $(SRC)/driver/scrip.c -o $(OBJ)/scrip_driver0.o
 	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/scrip_driver0.o -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt0 $(LIBS) -o $@
-out/sc_mod/scparsers.sc: bootstrap/mod_head.sc bootstrap/mod_tail.sc $(SC_MOD_LIB:%=bootstrap/%.sc) $(SC_MOD_LANGS:%=bootstrap/parser_%.sc) Makefile
+$(SC_MOD_LANGS:%=out/sc_mod/scmod_%.sc): out/sc_mod/scmod_%.sc: bootstrap/mod_head.sc bootstrap/mod_tail.sc $(SC_MOD_LIB:%=bootstrap/%.sc) bootstrap/parser_%.sc Makefile
 	@mkdir -p out/sc_mod
 	@{ printf "ModPrefix = 'mod_';\nimport mod_head;\nModPrefix = 'sc_';\n"; for f in $(SC_MOD_LIB); do printf "import '%s';\n" $$f; done; \
-	   $(foreach L,$(SC_MOD_LANGS),printf "ModPrefix = '$(call sc_mod_pfx,$(L))';\nimport parser_$(L);\n";) \
-	   printf "ModPrefix = 'mod_';\nimport mod_tail;\n"; } > $@
-out/sc_mod/scparsers.o: out/sc_mod/scparsers.sc out/scrip0
-	./out/scrip0 --module scparsers --compile -o out/sc_mod/scparsers.s out/sc_mod/scparsers.sc < /dev/null
-	$(CC) -c out/sc_mod/scparsers.s -o $@
+	   printf "ModPrefix = '$(call sc_mod_pfx,$*)';\nimport parser_$*;\n"; printf "ModPrefix = 'mod_';\nimport mod_tail;\n"; } > $@
+$(SC_MOD_OBJS): out/sc_mod/scmod_%.o: out/sc_mod/scmod_%.sc out/scrip0
+	./out/scrip0 --module parser_$* --compile -o out/sc_mod/scmod_$*.s out/sc_mod/scmod_$*.sc < /dev/null
+	$(CC) -c out/sc_mod/scmod_$*.s -o $@
 $(RT_SO): $(RT_PIC_OBJS) $(RT_SRC_ALL) $(SRC)/runtime/rt_interposable.list Makefile
 	@mkdir -p out out/attic
 	@if [ -f $@ ]; then cp -pn $@ out/attic/$(notdir $(basename $(RT_SO)))-$$(md5sum $@ | cut -c1-12).so 2>/dev/null || true; fi
@@ -1814,17 +1820,13 @@ out/interposable/libscrip_rt.so: $(RT_PIC_OBJS) Makefile
 out/libscrip_rt.so: $(RT_SO) FORCE
 	@rm -f out/libscrip_rt.so && cp -f $(RT_SO) out/libscrip_rt.so
 	@echo "out/libscrip_rt.so = copy of $(notdir $(RT_SO))   RT_OPT=$(RT_OPT)"
-# THE PARSE-STAGE MODULE IS ITS OWN SHARED OBJECT (cto 2026-10-17, ceo CEO-1823): out/sc_mod/scparsers.o, the Snocone-compiled
-# parsers, is reached only under SCRIP_PARSE_STAGE=sc, so it is not linked into the runtime -- every process relocated its ~6,000
-# pointers for nothing. rt_sc_module.c dlopens out/libscrip_scmod.so (beside the runtime it finds by dladdr) at the first sc parse and
-# reads the descriptor scparsers_sc_module by dlsym; a mode-4 binary links it never. Its undefined names resolve against the runtime
-# the process already holds. The copy follows the runtime's RT_TAG discipline.
-SCMOD_SO := out/libscrip_scmod-$(RT_TAG).so
-$(SCMOD_SO): $(SC_MOD_OBJS) Makefile
+# EACH PARSER IS ITS OWN SHARED OBJECT (cto 2026-10-17, ceo CEO-1823): out/libscrip_parser_<lang>.so, linked alone from its module object, its
+# undefined names resolved against the runtime the process already holds; the copy follows the runtime's RT_TAG discipline.
+$(PARSER_TAGGED): out/libscrip_parser_%-$(RT_TAG).so: out/sc_mod/scmod_%.o
 	@mkdir -p out
-	$(CC) -shared $(SC_MOD_OBJS) -o $@
-out/libscrip_scmod.so: $(SCMOD_SO) FORCE
-	@rm -f out/libscrip_scmod.so && cp -f $(SCMOD_SO) out/libscrip_scmod.so
+	$(CC) -shared $< -o $@
+$(PARSER_SOS): out/libscrip_parser_%.so: out/libscrip_parser_%-$(RT_TAG).so FORCE
+	@rm -f $@ && cp -f $< $@
 
 # ── libscrip_rt.a — static-archive TWIN of libscrip_rt.so, for the OPT-IN m4 STATIC link arm ────
 # Row m4-static-link-arm (Lon 2026-08-28, FLEET-6). ADDITIVE ONLY: out/libscrip_rt.so above REMAINS
