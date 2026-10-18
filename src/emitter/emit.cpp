@@ -2106,14 +2106,8 @@ static void drive_guard_refused(IR_t *nd, int line) {
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int drive_plant_guard_sink(void) {
-    if (g_emitter.drive_plant_guard_sink_v < 0) { const char * e = getenv("SCRIP_TEST_PLANT_GUARD_SINK"); g_emitter.drive_plant_guard_sink_v = (e && *e == (char)49) ? 1 : 0; }
-    return g_emitter.drive_plant_guard_sink_v;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) { drive_guard_refused(nd, __LINE__); return; }
-    if (drive_plant_guard_sink()) drive_guard_refused(nd, __LINE__);
     { extern int g_scan_regs_live; g_scan_regs_live = nd->in_scan ? 1 : 0; }
     switch (nd->op) {
     case IR_LIT_STRING: case IR_LIT_INTEGER: case IR_LIT_REAL:
@@ -3180,8 +3174,6 @@ static void blob_layout_slot(const IR_t * m, int k, int units) {
     blob_lay_push(o0, GC_LAY_DESCR, 16);
 }
 static int blob_lay_cmp(const void * a, const void * b) { int x = GC_LAY_OFF(*(const uint64_t *)a), y = GC_LAY_OFF(*(const uint64_t *)b); return x < y ? -1 : (x > y ? 1 : 0); }
-static int blob_layout_plant(void) { if (g_emitter.blob_layout_plant_v < 0) { const char * e = getenv("SCRIP_GC_BLOB_LAYOUT_PLANT"); g_emitter.blob_layout_plant_v = e ? atoi(e) : 0;
-    } return g_emitter.blob_layout_plant_v; }
 int blob_cont_copy(void) { if (g_emitter.blob_cont_copy_v < 0) { const char * e = getenv("SCRIP_BLOB_CONT_COPY"); g_emitter.blob_cont_copy_v = (e && *e == '1') ? 1 : 0;
     } return g_emitter.blob_cont_copy_v; }
 static int blob_zf_gc_only(void) { if (g_emitter.blob_zf_gc_only_v < 0) { const char * e = getenv("SCRIP_BLOB_ZF_GC_ONLY"), * d = getenv("SCRIP_DIAG");
@@ -3340,9 +3332,6 @@ static int blob_layout_build(int bfb) {
     blob_lay_push(-(blob_head_bytes() + 16 * count), GC_LAY_RAW, 8);
     if (blob_choice_rbp_scan()) { int r = -bfb; blob_lay_push(r, GC_LAY_RAW, 8); blob_lay_push(r + 8, GC_LAY_PTR_CODE, 8); blob_lay_push(r + 16, GC_LAY_PTR_CODE, 8);
         blob_lay_push(r + 24, GC_LAY_RAW, 8); }
-    if (blob_layout_plant() == 1 && g_emitter.g_blob_lay.len > 0) g_emitter.g_blob_lay.len--;
-    if (blob_layout_plant() == 2) for (uint32_t i = 0; i < g_emitter.g_blob_lay.len; i++) { uint64_t & q = CV_AT(g_emitter.g_blob_lay, uint64_t, i); unsigned k = GC_LAY_KIND(q);
-        if (k == GC_LAY_DESCR || k == GC_LAY_PTR_GC) q = GC_LAY_Q(GC_LAY_OFF(q), GC_LAY_RAW, GC_LAY_SIZE(q)); }
     qsort(g_emitter.g_blob_lay.p, (size_t)g_emitter.g_blob_lay.len, sizeof(uint64_t), blob_lay_cmp);
     { int expect = -bfb; for (int i = 0; i < (int)g_emitter.g_blob_lay.len; i++) { int o = GC_LAY_OFF(CV_AT(g_emitter.g_blob_lay, uint64_t, i));
         if (o != expect)
@@ -4166,7 +4155,6 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
 static const char * gc_map_entry_fam(const char * fam) { return (fam && !strcmp(fam, "pat_flat")) ? "main" : fam; }
 static int gc_maps_knob(const char * k) { const char * e = getenv(k); return (e && *e == '1') ? 1 : 0; }
 static int gc_maps_report_on(void) { if (g_emitter.gc_maps_report_on_v < 0) g_emitter.gc_maps_report_on_v = gc_maps_knob("SCRIP_GC_MAPS_REPORT"); return g_emitter.gc_maps_report_on_v; }
-static int gc_maptab_plant_on(void) { if (g_emitter.gc_maptab_plant_on_v < 0) g_emitter.gc_maptab_plant_on_v = gc_maps_knob("SCRIP_GC_MAPTAB_PLANT"); return g_emitter.gc_maptab_plant_on_v; }
 extern "C++" std::string emit_gc_map_register(int value_bytes, int frame_bytes, int header_bytes, unsigned flags, int frame_rel, uint64_t link) {
     if (frame_rel == 2 ? (value_bytes < 16 || value_bytes != frame_bytes || (flags & GC_FRAME_MAP_BLOB) == 0) : (value_bytes < 0 || (value_bytes & 15) || value_bytes + 16 > frame_bytes))
         { fprintf(stderr,
@@ -4205,7 +4193,7 @@ static void emit_gc_map_data(const char * fam) {
     emit_sep_rule('-');
     if (g_is_text) emit_textf(".pushsection .data.rel.ro,\"aw\",@progbits\n .p2align 3\n");
     emit_label_define_bb(&g_emitter.g_gc_map_lbl);
-    uint64_t q0 = (uint64_t)GC_FRAME_MAP_MAGIC | ((uint64_t)(uint32_t)(g_emitter.g_gc_map_fb + (gc_maptab_plant_on() ? 16 : 0)) << 32);
+    uint64_t q0 = (uint64_t)GC_FRAME_MAP_MAGIC | ((uint64_t)(uint32_t)g_emitter.g_gc_map_fb << 32);
     uint64_t q1 = (uint64_t)(uint32_t)g_emitter.g_gc_map_hdr | ((uint64_t)g_emitter.g_gc_map_flags << 32);
     const int anon = g_emit.flat_pat ? 1 : 0;
     if (g_is_text) {
@@ -6660,13 +6648,6 @@ void defer_prepare(void) {
     g_emit.op_df_site = msite;
 }
 void emit_diag_arbno_arm(const char * arm) { if (emit_knob_if_one("SCRIP_ARBNO_DIAG")) fprintf(stderr, "[ARBNO-ARM] %s\n", arm); }
-long emit_scan_bank_tag(void) {
-    return !(getenv("SCRIP_GC_PLANT_SCAN_BANK") && *getenv("SCRIP_GC_PLANT_SCAN_BANK") == '1') ? (long)DT_S
-         : (g_emitter.emit_scan_bank_tag_said ? (long)DT_I : (g_emitter.emit_scan_bank_tag_said = 1, fprintf(stderr,
-    "[GC-SCANBANK] plant: the suspend-leave bank's cell is tagged DT_I, so the walker reads an integer and the live subject is invisible to it "
-        "(SCRIP_GC_PLANT_SCAN_BANK=1). THIS LINE IS THE ONLY PROOF "
-            "THE PLANT APPLIED, so it prints ONCE PER PROCESS at the first suspend-leave box emitted.\n"), (long)DT_I));
-}
 long emit_lit_d(const char * s, long k) { uint32_t w; memcpy(&w, s + k, 4); return (long)(int32_t)w; }
 uint64_t emit_double_bits(double d) { uint64_t b = 0; memcpy(&b, &d, 8); return b; }
 const char * emit_rec_or_empty(void * r) { return r ? (const char *)r : ""; }

@@ -22,7 +22,7 @@ static_assert(sizeof(uint64_t) == 8,
             "is the RESULT slot and the fields start 16 past it; the cell's DT_S tag is what makes the walker visit and relocate the subject, "
                 "and a collection during the suspension of an untagged bank handed rt_scan_reenter_live vacated ground (unitgenr, cto 2026-09-23, CTO-154)");
 #define scan_bank_off() (16)
-#define scan_bank_tag() emit_scan_bank_tag()
+#define scan_bank_tag() ((long)DT_S)
 std::string bb_gen_scan() {
     x86_begin();
     return x86("comment",

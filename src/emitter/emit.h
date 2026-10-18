@@ -863,7 +863,6 @@ void defer_prepare(void);
 long emit_lit_d(const char * s, long k);
 uint64_t emit_double_bits(double d);
 const char * emit_rec_or_empty(void * r);
-long emit_scan_bank_tag(void);
 void emit_diag_arbno_arm(const char * arm);
 void emit_write_file_s(const char * path, const std::string & s);
 int emit_knob_unless_zero(const char * name);

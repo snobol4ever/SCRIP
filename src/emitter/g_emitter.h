@@ -145,7 +145,6 @@ struct g_emitter_t {
     int walk_bb_node_inner__zdpa = -1;
     cv_t g_ab_dir, g_ab_names, g_ab_hix;
     int g_ab_fn_cell_n = 0;
-    int drive_plant_guard_sink_v = -1;
     int sn4_arbno_reentry_v = -1;
     int cap_fail_retreat__cf = -1;
     cv_t g_xci_map, g_xci_off, g_xci_con, g_xci_last, g_xci_at;
@@ -174,7 +173,6 @@ struct g_emitter_t {
     cv_t g_blob_lay;
     cv_t g_zls_lay_v;
     int g_zls_lay_gaps = 0, g_zls_lay_conf = 0;
-    int blob_layout_plant_v = -1;
     int blob_cont_copy_v = -1;
     int blob_zf_gc_only_v = -1;
     int blob_zf_rep_v = -1;
@@ -212,7 +210,6 @@ struct g_emitter_t {
     int emit_gc_sites_data_seq = 0;
     uint64_t g_gc_site_play_seq = 0;
     int gc_maps_report_on_v = -1;
-    int gc_maptab_plant_on_v = -1;
     bb_label_t **codegen_flat_chain_body_alt_tr = 0;
     bb_label_t **codegen_flat_chain_body_ret_tr = 0;
     int codegen_flat_chain_body_alt_tr_cap = 0;
@@ -272,7 +269,6 @@ struct g_emitter_t {
     std::unordered_set<std::string> xa_icn_trace_intern_pool;
     int bcps_sig_tally__sd = -1;
     int defer_prepare_g_defer_site_n;
-    int emit_scan_bank_tag_said = 0;
 };
 extern g_emitter_t g_emitter;
 #endif
