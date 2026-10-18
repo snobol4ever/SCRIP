@@ -2849,8 +2849,8 @@ static int beta_is_stmt_land(const IR_t * tgt) { return tgt && tgt->op == IR_STA
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_icn_suspend(const IR_t * nd);
 static int zd_nops(IR_t * nd) { int op = (int)ir_kind0(nd);
-    if (g_emit_cfg && g_emit_cfg->icn_cells_graph && !zd_icn_suspend(nd) && op != IR_DISJUNCTION && op != IR_GATE && op != IR_GATE_ARM && op != IR_BOUND && op != IR_UNMARK && op != IR_SCAN &&
-        op != IR_CREATE) return (int)nd->n_operands;
+    if (g_emit_cfg && g_emit_cfg->icn_cells_graph && !zd_icn_suspend(nd) && op != IR_DISJUNCTION && op != IR_GATE && op != IR_GATE_ARM && op != IR_BOUND && op != IR_UNMARK && op != IR_CREATE)
+        return (int)nd->n_operands;
     if (emit_pl_frame() && (op == IR_CALL_PL_LEAF || op == IR_CALL_DIRECT)) return (int)nd->n_operands;
     if (emit_pl_frame() && (op == IR_UNIFY_CONST || op == IR_UNIFY_STRUCT || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE))
         return (nd->n_operands > 0 && nd->operands[0] && nd->operands[0]->op == IR_UNIFY_STRUCT) ? 1 : 0;

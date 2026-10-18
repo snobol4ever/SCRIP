@@ -30,8 +30,8 @@ std::string bb_gen_scan() {
         "AVE node's own grant (a DT_S cell at +16/+24, delta +32): the enclosing activation's frame is the one home, no C-global scan stack (CEO-1548)")
          + x86_alpha()
          + IF(_.op_sb == 1,
-               x86("mov", FR(_.op_off), (long)DT_S)
-             + x86("mov", FR(_.op_off + 4), 0L)
+               x86("mov", "rcx", (long)DT_S)
+             + x86("mov", FRQ(_.op_off), "rcx")
              + x86("mov", FRQ(_.op_off + 8), "r13")
              + x86("mov", FRQ(_.op_off + 16), "r14")
              + x86("mov", FRQ(_.op_off + 24), "r15")
