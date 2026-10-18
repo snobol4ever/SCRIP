@@ -3562,7 +3562,7 @@ static int zd_pl_unmark_bound(IR_t ** nodes, int n, int i) {
     if (nd->op != IR_UNMARK || nd->n_operands < 1 || !emit_pl_frame() || (g_emit_cfg && g_emit_cfg->icn_cells_graph) || !(IR_LIT(nd).ival & 6)) return -1;
     return nidx(nodes, n, nd->operands[0]);
 }
-static int zd_pl_abs(void) { return emit_pl_frame(); }
+static int zd_pl_abs(void) { return emit_pl_frame() || (g_emit_cfg && g_emit_cfg->icn_cells_graph); }
 static int zd_pl_edges(IR_t * nd) { return 2 + ((nd->op == IR_DISJUNCTION || nd->op == IR_GATE) ? nd->n_operands : 0); }
 static int zd_pl_land(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, int i, int e, int *q, int *beta) {
     IR_t * nd = nodes[i], * t = (IR_t *)0;
@@ -3798,7 +3798,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 int _gbpre = (gback >= 0) ? (zout[gback] - zd_k(nodes[gback])) : 0;
                 int _obpre = (oback >= 0) ? (zout[oback] - zd_k(nodes[oback])) : 0;
                 {
-                if (!gin) zgpop[i] = (gback >= 0) ? (_wzdepth - _gbpre) :
+                if (!gin) zgpop[i] = (emit_pl_frame() && !(gback >= 0 && claim[gback] == claim[i])) ? 0 : (gback >= 0) ? (_wzdepth - _gbpre) :
                     (zd_exit_pop_s(nodes[i]->op, zdh_match, _wzdepth, zdh_stmt, zdh_mafter) + (int)kc);
                 if (!oin) zwpop[i] = (oback >= 0) ? ((_wzdepth - K) - _obpre) :
                     (((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop_s(nodes[i]->op, zdh_match, _wzdepth, zdh_stmt, zdh_mafter) : (_wzdepth - K)) + (int)kc);
@@ -3830,7 +3830,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         if (zot[i]) { { int tk = nidx(nodes, n, zot[i]); if (tk >= 0 && (zon[tk])) { oback = tk; } } }
         int _gbpre = (gback >= 0) ? (zout[gback] - zd_k(nodes[gback])) : 0;
         int _obpre = (oback >= 0) ? (zout[oback] - zd_k(nodes[oback])) : 0;
-        if (!zgin[i]) zgpop[i] = (gback >= 0 && _gbpre > 0) ? (zout[i] - zurel[i] - _gbpre) :
+        if (!zgin[i]) zgpop[i] = (emit_pl_frame() && !(gback >= 0 && claim[gback] == claim[i])) ? 0 : (gback >= 0 && _gbpre > 0) ? (zout[i] - zurel[i] - _gbpre) :
             zd_exit_pop_s(nodes[i]->op, zmatch[i], zout[i] - zurel[i], zstmt[i], zmafter[i]);
         if (!zoin[i]) zwpop[i] = (oback >= 0) ? ((zout[i] - K) - _obpre) : ((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop_s(nodes[i]->op, zmatch[i], zout[i], zstmt[i], zmafter[i]) : (zout[i] - K));
         else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] > rpos[i] && !port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - _obpre;
@@ -4167,6 +4167,7 @@ extern "C++" int emit_gc_site_new(int kind, int adj) {
     if (!g_emitter.g_gc_sites_armed) return -1;
     int rule, depth;
     if (g_emit.flat_pat && blob_frame_bytes() > 0) { rule = 3; depth = 0; }
+    else if (x86_hb_on()) { rule = 1; depth = 0; }
     else if (adj == X86_ADJ_ALIGNED) { rule = 4; depth = g_emit.op_zdepth + g_emit.op_vdj_live; }
     else { rule = 0; depth = g_emit.op_zrun + adj + g_emit.op_vdj_live; }
     if (g_emit.site_shim9) { rule = 9; depth = (int)(g_emit.site_shim9 - 1); }
@@ -4862,6 +4863,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         int host_frame_base = frame_total;
         g_emit.flat_carve_total = frame_total;
         (void)host_frame_base;
+        std::string _pin;
+        if (x86_hb_on()) _pin = x86("mov", RDQ("rsp", frame_total - 8), "rbp") + x86("mov", "rbp", "rsp");
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;
@@ -4897,10 +4900,10 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             if (!_lseed.empty()) bb_emit_x86(_lseed);
                 bb_emit_x86(emit_gc_map_register(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
                 ((g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u) |
-                (_use_zframe_install ? (GC_FRAME_MAP_ICN_PROC | (_blk ? GC_FRAME_MAP_ICN_BLOCK : 0u)) : 0u), 0,
+                (_use_zframe_install ? (GC_FRAME_MAP_ICN_PROC | (_blk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (x86_hb_on() ? GC_FRAME_MAP_ICN_PINNED : 0u)) : 0u), 0,
                 GC_LINK_Q(g_emitter.codegen_flat_chain_body__iws ? frame_total + (_blk ? 16 * np : 0) : frame_total - 24, frame_total - 8,
-                    g_emitter.codegen_flat_chain_body__iws ? frame_total + (_blk ? 16 * np : 0) : frame_total, GC_LINK_RBP_KEPT))
-                );
+                    g_emitter.codegen_flat_chain_body__iws ? frame_total + (_blk ? 16 * np : 0) : frame_total, _pin.empty() ? GC_LINK_RBP_KEPT : 0u))
+                ); if (!_pin.empty()) bb_emit_x86(_pin);
             if (_use_zframe_install) bb_emit_x86(_inst);
             else { _lz = 0; _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rsp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, "rt_lcl_proc_args_install");
                    emit_text_n(_lp, strlen(_lp)); }
@@ -4916,10 +4919,10 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             if (!_lseed.empty()) bb_emit_x86(_lseed);
                 bb_emit_x86(emit_gc_map_register(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
                 ((g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u) |
-                (_use_zframe_install ? (GC_FRAME_MAP_ICN_PROC | (_blk ? GC_FRAME_MAP_ICN_BLOCK : 0u)) : 0u), 0,
+                (_use_zframe_install ? (GC_FRAME_MAP_ICN_PROC | (_blk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (x86_hb_on() ? GC_FRAME_MAP_ICN_PINNED : 0u)) : 0u), 0,
                 GC_LINK_Q(g_emitter.codegen_flat_chain_body__iws ? frame_total + (_blk ? 16 * np : 0) : frame_total - 24, frame_total - 8,
-                    g_emitter.codegen_flat_chain_body__iws ? frame_total + (_blk ? 16 * np : 0) : frame_total, GC_LINK_RBP_KEPT))
-                );
+                    g_emitter.codegen_flat_chain_body__iws ? frame_total + (_blk ? 16 * np : 0) : frame_total, _pin.empty() ? GC_LINK_RBP_KEPT : 0u))
+                ); if (!_pin.empty()) bb_emit_x86(_pin);
             if (_use_zframe_install) bb_emit_x86(_inst);
             else {
             ef_b3(0x48, 0x89, 0xE7);
@@ -5276,7 +5279,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   g_emitter.g_zd_ztail = 0;
                   g_emitter.g_zd_zpat = 0;
                   g_emitter.g_zd_zfc = 0;
-                  g_emitter.g_zd_abs = zd_out[i];
+                  g_emitter.g_zd_abs = zd_out[i] + ((zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0);
                   g_emitter.g_zd_cps = -1;
                   g_emitter.g_zd_cpd = -1;
                   zd_ops_reserve(g_emitter.codegen_flat_chain_body_nodes[i]->n_operands);
@@ -5395,7 +5398,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
           if (zd_on[i] || zd_gp[i] > 0 || zd_wp[i] > 0) { g_emitter.g_zd_stage = 1; g_emitter.g_zd_arm = zd_on[i] ? 1 : 0; g_emitter.g_zd_gpop = zd_gp[i];
               g_emitter.g_zd_wpop = (_uw_stolen ? (int)_uw_pop : ((_zw5_wpop_stolen || _endj_stolen) ? 0 : zd_wp[i])); g_emitter.g_zd_wsteal = _endj_stolen || _uw_stolen;
               g_emitter.g_zd_k = zd_on[i] ? zd_k(g_emitter.codegen_flat_chain_body_nodes[i]) : 0;
-              { g_emitter.g_zd_zunder = 0; g_emitter.g_zd_abs = zd_on[i] ? zd_out[i] : 0; g_emitter.g_zd_cps = zd_on[i] ? zd_cps[i] : -1;
+              { g_emitter.g_zd_zunder = 0; g_emitter.g_zd_abs = zd_on[i] ? zd_out[i] + ((zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0) : 0; g_emitter.g_zd_cps = zd_on[i] ? zd_cps[i] : -1;
                   g_emitter.g_zd_cpd = zd_on[i] ? zd_cpd[i] : -1; if (zd_on[i] && g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_REPLACE) { int _zu = 0;
                   for (int _zj = i - 1; _zj >= 0; _zj--) { if (g_emitter.codegen_flat_chain_body_nodes[_zj]->op == IR_MATCH_END) break;
                   if (zd_on[_zj]) _zu += zd_k(g_emitter.codegen_flat_chain_body_nodes[_zj]); } g_emitter.g_zd_zunder = _zu; int _zp = 0, _inpat = 0;
@@ -5498,7 +5501,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             if (!_rb) continue;
             emit_sep_rule('-'); emit_label_define_bb(g_emitter.codegen_flat_chain_body_ret_tr[_ak]);
             bb_emit_x86( x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)_rb)
-                      + x86("mov", RDQ("rsp", _kt0 - 48), "rcx")
+                      + x86("mov", RDQ(emit_pl_fb(), _kt0 - 48), "rcx")
                       + x86("mov32", "eax", (long)DT_I)
                       + x86("mov32", "edx", 1L));
             emit_jmp_label(&lbl_γ, JMP_JMP);
@@ -5508,7 +5511,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             bb_label_t * sccd_ok = emit_label_alloc("%s_sccd", fam);
             bb_emit_x86(x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", "rcx", RDQ("rax", 32)) + x86("test", "rcx", "rcx"));
             emit_jmp_label(sccd_ok, JMP_JE);
-            bb_emit_x86(x86("lea", "rdx", RDQ("rsp", _kt0)) + x86("cmp", "rcx", "rdx"));
+            bb_emit_x86(x86("lea", "rdx", RDQ(emit_pl_fb(), _kt0)) + x86("cmp", "rcx", "rdx"));
             emit_jmp_label(sccd_ok, JMP_JGE);
             bb_emit_x86(x86_bomb("setup_call_cleanup: a clause retry reuses a frame that still holds a linked cleanup record, or one younger"));
             emit_label_define_bb(sccd_ok);
@@ -5517,7 +5520,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         bb_emit_x86(x86("test", "r15", "r15"));
         emit_jmp_label(pl_step_ball_lbl, JMP_JNE);
         bb_label_t * pl_uw_top = emit_label_alloc("%s_uw", fam), * pl_uw_done = emit_label_alloc("%s_uwd", fam);
-        bb_emit_x86(x86("mov", "rsi", RDQ("rsp", _kt0 - 64)));
+        bb_emit_x86(x86("mov", "rsi", RDQ(emit_pl_fb(), _kt0 - 64)));
         emit_label_define_bb(pl_uw_top);
         bb_emit_x86(x86("cmp", "rsi", "r12"));
         emit_jmp_label(pl_uw_done, JMP_JGE);
@@ -5527,9 +5530,9 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         emit_jmp_label(pl_uw_top, JMP_JMP);
         emit_label_define_bb(pl_uw_done);
         bb_emit_x86( x86_pl_tr_top_sync()
-                  + x86("mov", RDQ("rsp", _kt0 - 48), 0L)
+                  + x86("mov", RDQ(emit_pl_fb(), _kt0 - 48), 0L)
                   + pl_step_reseed_locals()
-                  + x86("mov", "rax", RDQ("rsp", _kt0 - 56))
+                  + x86("mov", "rax", RDQ(emit_pl_fb(), _kt0 - 56))
                   + x86("test", "rax", "rax"));
         emit_jmp_label(&lbl_ω, JMP_JE);
         bb_emit_x86(x86_jmp_reg("rax"));
@@ -5537,7 +5540,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         bb_emit_x86(x86("comment",
             "PL EXCEPTION IN FLIGHT (r15 armed): a thrown ball received at a clause's own failure port must propagate past every remaining sibling clause, never retry one -- restore the outer choice"
             " barrier this predicate's own choice point had saved, then concede.")
-                  + x86("mov", "r13", RDQ("rsp", _kt0 - 40)));
+                  + x86("mov", "r13", RDQ(emit_pl_fb(), _kt0 - 40)));
         emit_jmp_label(&lbl_ω, JMP_JMP);
         for (int _ak = 1; _ak < n_alt; _ak++) {
             int _kt = g_emit.flat_frame_bytes;
@@ -5547,9 +5550,9 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                 "n.")
                       + pl_clause_zero(_ak)
                       + (_ak + 1 < n_alt ? x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)g_emitter.codegen_flat_chain_body_alt_tr[_ak + 1]) : x86("xor", "eax", "eax"))
-                      + x86("mov", RDQ("rsp", _kt - 56), "rax")
+                      + x86("mov", RDQ(emit_pl_fb(), _kt - 56), "rax")
                       + IF(_ak + 1 >= n_alt,
-                            x86("mov", "r13", RDQ("rsp", _kt - 40))));
+                            x86("mov", "r13", RDQ(emit_pl_fb(), _kt - 40))));
             emit_jmp_label(pl_alt_target(_ak), JMP_JMP);
         }
         if (ix_switch) {
@@ -5572,16 +5575,16 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                 emit_sep_rule('-'); emit_label_define_bb(_det[_ak]);
                 bb_emit_x86(x86("comment",
                     "PL SWITCH: this clause is the only one the first argument's key can match -- entered as the chain's last alternative is: no next alternative, B back to the outer choice")
-                          + x86("mov", RDQ("rsp", _kt - 56), 0L)
-                          + x86("mov", "r13", RDQ("rsp", _kt - 40)));
+                          + x86("mov", RDQ(emit_pl_fb(), _kt - 56), 0L)
+                          + x86("mov", "r13", RDQ(emit_pl_fb(), _kt - 40)));
                 emit_jmp_label(pl_alt_target(_ak), JMP_JMP);
             }
             if (_fail) {
                 emit_sep_rule('-'); emit_label_define_bb(_fail);
                 bb_emit_x86(x86("comment",
                     "PL SWITCH: no clause's first head argument can match the first argument's key -- concede through the step with no next alternative and B back to the outer choice")
-                          + x86("mov", RDQ("rsp", _kt - 56), 0L)
-                          + x86("mov", "r13", RDQ("rsp", _kt - 40)));
+                          + x86("mov", RDQ(emit_pl_fb(), _kt - 56), 0L)
+                          + x86("mov", "r13", RDQ(emit_pl_fb(), _kt - 40)));
                 emit_jmp_label(pl_step_lbl, JMP_JMP);
             }
             for (int _s = 0; _s < ix_nset; _s++) {
@@ -5593,14 +5596,14 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                 bb_emit_x86(x86("comment", "PL SWITCH V2 (ARCH-PROLOG-C-OUT-OF-THE-BOX 11.4): the first argument's key leaves two or more candidate clauses -- the choice stays open (B is this "
                                            "frame's header) and the step walks ONLY this set, in source order, through its own trampolines")
                           + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)_tl[1])
-                          + x86("mov", RDQ("rsp", _kt - 56), "rax"));
+                          + x86("mov", RDQ(emit_pl_fb(), _kt - 56), "rax"));
                 emit_jmp_label(pl_alt_target(_it[0]), JMP_JMP);
                 for (int _j = 1; _j < _m; _j++) {
                     emit_sep_rule('-'); emit_label_define_bb(_tl[_j]);
                     bb_emit_x86(pl_clause_zero(_it[_j])
                               + (_j + 1 < _m ? x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)_tl[_j + 1]) : x86("xor", "eax", "eax"))
-                              + x86("mov", RDQ("rsp", _kt - 56), "rax")
-                              + IF(_j + 1 >= _m, x86("mov", "r13", RDQ("rsp", _kt - 40))));
+                              + x86("mov", RDQ(emit_pl_fb(), _kt - 56), "rax")
+                              + IF(_j + 1 >= _m, x86("mov", "r13", RDQ(emit_pl_fb(), _kt - 40))));
                     emit_jmp_label(pl_alt_target(_it[_j]), JMP_JMP);
                 }
             }
@@ -5635,14 +5638,14 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             emit_jmp_label(_go, JMP_JE);
             bb_emit_x86(x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", "rax", RDQ("rax", 32)) + x86("test", "rax", "rax"));
             emit_jmp_label(&lbl_ω, JMP_JE);
-            bb_emit_x86(x86("lea", "rdx", RDQ("rsp", _kt)) + x86("cmp", "rax", "rdx"));
+            bb_emit_x86(x86("lea", "rdx", RDQ(emit_pl_fb(), _kt)) + x86("cmp", "rax", "rdx"));
             emit_jmp_label(&lbl_ω, JMP_JGE);
             emit_label_define_bb(_go);
         } else {
             bb_emit_x86( x86("test", "r15", "r15"));
             emit_jmp_label(&lbl_ω, JMP_JNE);
         }
-        bb_emit_x86(x86("mov", "rax", RDQ("rsp", _kt - 48)) + x86("mov", RDQ("rsp", _kt - 48), 0L) + x86("test", "rax", "rax"));
+        bb_emit_x86(x86("mov", "rax", RDQ(emit_pl_fb(), _kt - 48)) + x86("mov", RDQ(emit_pl_fb(), _kt - 48), 0L) + x86("test", "rax", "rax"));
         emit_jmp_label(_resume, JMP_JNE);
         emit_jmp_label(_step ? _step : &lbl_ω, JMP_JMP);
         emit_label_define_bb(_resume);

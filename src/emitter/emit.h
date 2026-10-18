@@ -669,6 +669,7 @@ static inline int emit_jmp_pin_legacy(void) { return g_emit.flat_deep_arrival ||
 static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; extern int g_resumable_callable_active; return g_gen_proc_active || g_resumable_callable_active; }
 static inline int emit_rec_pin(void) { return emit_jmp_pin_legacy() || emit_heap_fb_adopt(); }
 static inline int emit_pl_frame(void) { return (g_emit.pl_frame && g_emit.zframe_graph) ? 1 : 0; }
+static inline const char * emit_pl_fb(void) { return "rbp"; }
 #ifdef __cplusplus
 extern "C" int emit_pl_fence_on(void);
 extern "C" int emit_pl_scc_armed(void);

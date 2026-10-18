@@ -783,7 +783,7 @@ static std::string bcps_block_build(IR_graph_t ** argblks, int n) {
 std::string xa_flat_pkt_tail_pop(const char * fb, int kt, int lsk);
 static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop) {
     int ns = g_emit_cfg ? g_emit_cfg->nparams : 0;
-    const char * fb = "r11";
+    const char * fb = x86_hb_on() ? x86_hb() : "r11";
     auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; return bb_varslot_peek(a->sval); };
     auto arms = [&](int lb) -> std::string {
         return x86("def", L(lb + 3))
@@ -898,9 +898,11 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
                 : x86("jne", L(lsk + 99)))
          + x86("mov", "rcx", RDQ(fb, kt - 24))
          + x86("mov", "rdx", RDQ(fb, kt - 16))
+         + IF(x86_hb_on(), x86("mov", "r8", RDQ(fb, kt - 8)))
          + (pop ? x86("mov", "r13", RDQ(fb, kt - 40)) : std::string())
          + mv
          + x86("lea", "rsp", RDQ(fb, nb))
+         + IF(x86_hb_on(), x86("mov", fb, "r8"))
          + bcps_jmp_callee(idx)
          + ool
          + x86("def", L(lsk + 99));
@@ -986,6 +988,7 @@ static std::string bcps_block_beta(int act) {
          + x86("je", L(22))
          + x86("mov", "rcx", FRQ(act + 8))
          + x86("mov", FRQ(act), 0L)
+         + x86("mov", x86_hb(), "rax")
          + bcps_lvl_add(1L)
          + x86_jmp_reg("rcx")
          + x86("def", L(22))
@@ -1291,6 +1294,7 @@ static std::string bcps_spine_gen_arm() {
                  + x86("test", "rax", "rax")
                  + x86("je", L(22))
                  + x86("mov", "rcx", FRQ(act + 8))
+                 + x86("mov", x86_hb(), "rax")
                  + x86("call", "rt_gen_spine_resume_enter", TEMPLATE_FN_ADDR(rt_gen_spine_resume_enter))
                  + x86_jmp_reg("rcx")
                  + x86("def", L(22))

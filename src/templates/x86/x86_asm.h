@@ -636,6 +636,8 @@ inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
 inline int x86_rsp_slide_known() { return 1; }
 inline int x86_frame_off(int off) { return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
+inline int x86_hb_on() { return (g_emit.zframe_graph && !(g_emit_cfg && g_emit_cfg->icn_cells_graph)) || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_gen); }
+inline const char * x86_hb() { return "rbp"; }
 inline int x86_fb_num() { return 4; }
 inline const char * x86_fb() { return "rsp"; }
 inline const char * x86_fr32_prefix() { return "dword ptr [rsp$ + "; }

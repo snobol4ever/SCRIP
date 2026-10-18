@@ -329,6 +329,7 @@ std::string bb_call_value() {
               + x86("mov", "rcx", FRQ(CV_H() + 8))
               + x86("test", "rcx", "rcx")
               + x86("je", L(12))
+              + x86("mov", x86_hb(), "rax")
               + cv_lvl_add(1L)
               + x86_jmp_reg("rcx")
               + x86("def", L(12))
