@@ -148,7 +148,7 @@ struct g_emitter_t {
     int walk_bb_node__zp = -1;
     int emit_sep_on__sep = -1;
     int g_zd_djok;
-    int g_zd_stage, g_zd_arm, g_zd_k, g_zd_gpop, g_zd_wpop, g_zd_wsteal, g_zd_ztail, g_zd_zunder, g_zd_zpat, g_zd_zfc;
+    int g_zd_stage, g_zd_arm, g_zd_k, g_zd_gpop, g_zd_bgrow, g_zd_wpop, g_zd_wsteal, g_zd_ztail, g_zd_zunder, g_zd_zpat, g_zd_zfc;
     int * g_zd_read, * g_zd_kind, * g_zd_anchor, * g_zd_fread;
     int g_arbk16_stmt = 0;
     long g_zd_suspend_uclaim = 0;

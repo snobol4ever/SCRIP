@@ -542,6 +542,7 @@ typedef struct {
     int op_head_rsp;
     int op_strict;
     int op_zgpop;
+    int op_zbgrow;
     int * op_zread;
     int op_zcap;
     int op_pair_rejoin;
