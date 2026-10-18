@@ -239,11 +239,11 @@ static std::string zf_display_restore(int kt) {
     if (dl <= 3) {
     const char * dr = dl == 1 ? "r13" : dl == 2 ? "r14" : "r15";
         return x86("comment", "PAS-DISPLAY-1: restore caller display[L] from [kt-40]")
-             + x86("mov", dr, FRQ(kt - 40)); }
+             + x86("mov", dr, x86_hb_on() ? RDQ(x86_hb(), kt - 40) : FRQ(kt - 40)); }
     int off = zf_display_mem_off(dl);
     if (off < 0) return x86_bomb("PAS-DISPLAY-N: level>3 ancestor slot unresolved (restore)");
     return x86("comment", "PAS-DISPLAY-N: restore [r15+off] from [kt-40] (saved caller value)")
-         + x86("mov", "rax", FRQ(kt - 40))
+         + x86("mov", "rax", x86_hb_on() ? RDQ(x86_hb(), kt - 40) : FRQ(kt - 40))
          + x86("mov", RDQ("r15", off), "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -696,6 +696,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
         return x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + zf_display_restore(kt)
+             + IF(x86_hb_on(), x86("mov", x86_hb(), RDQ("rsp", kt - 8)))
              + x86("add", "rsp", (long)kt + zf_det_block_size())
              + x86("pop", "rcx")
              + x86("add", "rsp", 8L)
@@ -800,6 +801,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (zf_pas_nest_graph())
         return x86("comment", "PAS-NEST epilogue-ω: consume the caller-pushed wire pair (discard γ-landing, jmp ω-landing) — twin of PAS-NEST epilogue-γ")
              + zf_display_restore(kt)
+             + IF(x86_hb_on(), x86("mov", x86_hb(), RDQ("rsp", kt - 8)))
              + x86("add", "rsp", (long)kt + zf_det_block_size())
              + x86("add", "rsp", 8L)
              + x86("pop", "rcx")
