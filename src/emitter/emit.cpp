@@ -3850,6 +3850,13 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             }
         }
     }
+    if (zarm)
+        for (int i = 0; i < n; i++) {
+            if (!zon[i] || zarm[i] < 0) continue;
+            IR_t * t = zd_chase(nodes[i]->γ.node);
+            int q = t ? nidx(nodes, n, t) : -1;
+            if (q >= 0 && nodes[q]->op == IR_MATCH_ARBNO && zd_dj_anc(zarm, i, q)) zgpop[i] = 0;
+        }
     { if (zd_map_on()) { fprintf(stderr, "[ZD-MAP] PLAN -- same i= indices as GRAPH above\n");
         for (int i = 0; i < n; i++) fprintf(stderr, "[ZD-MAP] i=%-3d %-22s claim=%-3d rpos=%-3d zon=%d zout=%-4d gpop=%-5d wpop=%-5d arm=%d\n",
             i, bb_op_name(nodes[i]->op), claim[i], rpos[i], (int)zon[i], zout[i], zgpop[i], zwpop[i], zarm ? zarm[i] : -1); } }
