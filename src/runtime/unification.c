@@ -66,8 +66,7 @@ struct plc_vmap {
     pl_cell_t *seen[1024];
     int n;
     FILE *fp;
-    pl_cell_t *vnv[256];
-    const char *vnn[256];
+    pl_cell_t *vnl;
     int vnc;
     int (*portray)(pl_cell_t *, plc_vmap *);
     pl_tr_ctx_t *cx;
@@ -78,7 +77,23 @@ struct plc_vmap {
     pl_cell_t *popts;
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *plc_vname(plc_vmap *m, pl_cell_t *d) { for (int i = m->vnc - 1; i >= 0; i--) if (m->vnv[i] == d) return m->vnn[i]; return (const char *)0; }
+static const char *plc_atom_text(pl_cell_t *d);
+static const char *plc_vname(plc_vmap *m, pl_cell_t *d) {
+    const char *r = (const char *)0;
+    if (m->vnc <= 0 || !m->vnl) return r;
+    for (pl_cell_t *lst = pl_deref(m->vnl); (int)lst->v == DT_PLREF && plc_fid_arity(lst->slen) == 2 && lst->p; lst = pl_deref(&((pl_cell_t *)lst->p)[1])) {
+        pl_cell_t *o = pl_deref(&((pl_cell_t *)lst->p)[0]);
+        const char *on = (int)o->v == DT_PLREF && plc_fid_arity(o->slen) == 1 && o->p ? prolog_atom_name(plc_fid_name(o->slen)) : (const char *)0;
+        if (!on || strcmp(on, "variable_names")) continue;
+        for (pl_cell_t *vl = pl_deref(&((pl_cell_t *)o->p)[0]); (int)vl->v == DT_PLREF && plc_fid_arity(vl->slen) == 2 && vl->p; vl = pl_deref(&((pl_cell_t *)vl->p)[1])) {
+            pl_cell_t *e = pl_deref(&((pl_cell_t *)vl->p)[0]);
+            if (!((int)e->v == DT_PLREF && plc_fid_arity(e->slen) == 2 && e->p)) continue;
+            pl_cell_t *nm = pl_deref(&((pl_cell_t *)e->p)[0]), *vr = pl_deref(&((pl_cell_t *)e->p)[1]);
+            if (vr == d && pl_cell_unbound(vr) && ((int)nm->v == DT_PLATOM || (int)nm->v == DT_S)) { r = plc_atom_text(nm); break; }
+        }
+    }
+    return r;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_vindex(plc_vmap *m, pl_cell_t *d) { for (int i = 0; i < m->n; i++) if (m->seen[i] == d) return i; if (m->n < 1024) { m->seen[m->n] = d; return m->n++; } return m->n - 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -907,21 +922,8 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
                 pl_cell_t *a = pl_deref(&oa[0]);
                 if ((int)a->v == DT_I) max_depth = (long)a->i;
             } else if (on && !strcmp(on, "variable_names")) {
-                pl_cell_t *vl = pl_deref(&oa[0]);
-                int base = m.vnc;
-                while ((int)vl->v == DT_PLREF && plc_fid_arity(vl->slen) == 2 && vl->p) {
-                    pl_cell_t *vp = (pl_cell_t *)vl->p;
-                    pl_cell_t *e = pl_deref(&vp[0]);
-                    if ((int)e->v == DT_PLREF && plc_fid_arity(e->slen) == 2 && e->p) {
-                        pl_cell_t *ea = (pl_cell_t *)e->p;
-                        pl_cell_t *nm = pl_deref(&ea[0]);
-                        pl_cell_t *vr = pl_deref(&ea[1]);
-                        int dup = 0;
-                        for (int k = base; k < m.vnc; k++) if (m.vnv[k] == vr) { dup = 1; break; }
-                        if (!dup && pl_cell_unbound(vr) && ((int)nm->v == DT_PLATOM || (int)nm->v == DT_S) && m.vnc < 256) { m.vnv[m.vnc] = vr; m.vnn[m.vnc] = plc_atom_text(nm); m.vnc++; }
-                    }
-                    vl = pl_deref(&vp[1]);
-                }
+                m.vnc++;
+                m.vnl = pl_deref((pl_cell_t *)opts_cell);
             }
         }
         lst = pl_deref(&pair[1]);
