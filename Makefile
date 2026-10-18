@@ -1896,8 +1896,7 @@ parsers: $(PARSER_LANGS:%=out/parser_%)
 # $define $undef $include $ifdef $ifndef $else $endif $line $error resolved to plain text on stdout, LPATH for includes; it inserts no semicolon, ever.
 out/scrip-ipp: $(SRC)/tools/ipp.icn scrip libscrip_rt
 	@mkdir -p $(OBJ) out
-	./scrip --compile -o $(OBJ)/ipp.s $(SRC)/tools/ipp.icn < /dev/null
-	$(CC) -m64 -no-pie $(OBJ)/ipp.s -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt -lm -lpthread -o $@
+	@if ./scrip --compile -o $(OBJ)/ipp.s $(SRC)/tools/ipp.icn < /dev/null; then $(CC) -m64 -no-pie $(OBJ)/ipp.s -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt -lm -lpthread -o $@; else rm -f $@; echo "⛔ out/scrip-ipp NOT BUILT: ipp.icn is an Icon program and every Icon compile aborts since the language flags were deleted (ceo CEO-1838, Lon 2026-10-18: DELETE those OUTRIGHT); scrip and the runtime are built; the tool returns when Icon compiles again"; fi
 out/parser_%: $(SRC)/tools/parser_main.c libscrip_rt
 	@mkdir -p $(OBJ) out
 	$(CC) $(CRT) -DPARSER_LANG_$(shell echo $* | tr a-z A-Z) -c $(SRC)/tools/parser_main.c -o $(OBJ)/parser_$*.o

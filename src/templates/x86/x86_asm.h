@@ -630,15 +630,15 @@ inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zr() { return "rsp"; }
 inline int x86_zr_num() { return 4; }
-inline int x86_pl_frame() { return emit_pl_frame(); }
+inline int x86_pl_frame() { return 0; }
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
 inline int x86_rsp_slide_known() { return 1; }
 inline int x86_frame_off(int off) { return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
-inline int x86_hb_on() { return (g_emit.zframe_graph && !(g_emit_cfg && g_emit_cfg->icn_cells_graph)) || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_gen); }
-inline int icn_gen_ft() { return (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_gen) ? g_emit.flat_frame_bytes + (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : 0; }
-inline int icn_frame_rbp() { return (g_emit_cfg && g_emit_cfg->icn_cells_graph && (g_emit.flat_gen || (g_emit.flat_lcl_proc && g_emit.icn_retain))) ? 1 : 0; }
+inline int x86_hb_on() { return (g_emit.zframe_graph && !(g_emit_cfg && 0)) || (g_emit_cfg && 0 && g_emit.flat_lcl_proc && !g_emit.flat_gen); }
+inline int icn_gen_ft() { return (g_emit_cfg && 0 && g_emit.flat_gen) ? g_emit.flat_frame_bytes + (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : 0; }
+inline int icn_frame_rbp() { return (g_emit_cfg && 0 && (g_emit.flat_gen || (g_emit.flat_lcl_proc && 0))) ? 1 : 0; }
 inline const char * x86_hb() { return "rbp"; }
 inline int x86_fb_num() { return 4; }
 inline const char * x86_fb() { return "rsp"; }
@@ -2448,7 +2448,7 @@ extern "C" void rt_zdp_ev(void);
 extern "C" void rt_zdp_sm_init(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int icn_gen_regime() {
-    return g_emit_cfg && g_emit_cfg->icn_cells_graph;
+    return g_emit_cfg && 0;
 }
 inline int x86_zdp_rbp_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM"); v = (e && *e == '1') ? 1 : 0; if (v) rt_zdp_sm_init(); } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2573,10 +2573,10 @@ inline std::string x86_pair_loop() {
     for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
         if (MEDIUM_BINARY) {
             if (XA_PAIR(i).define) { r += (char)'E'; r += x86_pair_idx_bytes(i); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA, XA_PAIR(i).define->name); }
-            if (XA_PAIR(i).jmp) { if (g_emit_cfg && g_emit_cfg->icn_cells_graph) r += x86_port_hook(X86H_JMP, X86P_GAMMA); r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(i); }
+            if (XA_PAIR(i).jmp) { if (g_emit_cfg && 0) r += x86_port_hook(X86H_JMP, X86P_GAMMA); r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(i); }
         } else {
             if (XA_PAIR(i).define) { r += emit_fmt("%s:\n", XA_PAIR(i).define->name); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA, XA_PAIR(i).define->name); }
-            if (XA_PAIR(i).jmp) { if (g_emit_cfg && g_emit_cfg->icn_cells_graph) r += x86_port_hook(X86H_JMP, X86P_GAMMA); r += x86_rec("jmp") + XA_PAIR(i).jmp->name + "\n"; }
+            if (XA_PAIR(i).jmp) { if (g_emit_cfg && 0) r += x86_port_hook(X86H_JMP, X86P_GAMMA); r += x86_rec("jmp") + XA_PAIR(i).jmp->name + "\n"; }
         }
     }
     return r;

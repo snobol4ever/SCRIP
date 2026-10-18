@@ -436,7 +436,6 @@ typedef struct {
     int flat_pat;
     int flat_lex;
     int flat_gen;
-    int icn_retain;
     int frame_region;
     int flat_carve_total;
     int flat_frame_bytes;
@@ -546,7 +545,6 @@ typedef struct {
     int op_arbno_body_kk;
     int op_stmt_dyn;
     int zframe_graph;
-    int pl_frame;
     long op_suspend_stmt_uclaim;
     int op_ztail;
     int op_zpat;
@@ -677,7 +675,6 @@ static inline int emit_jmp_pin_legacy(void) { return g_emit.flat_deep_arrival ||
 static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; extern int g_resumable_callable_active; return g_gen_proc_active || g_resumable_callable_active; }
 static inline int emit_rec_pin(void) { return emit_jmp_pin_legacy() || emit_heap_fb_adopt(); }
 #define ZST_BIAS (1 << 24)
-static inline int emit_pl_frame(void) { return (g_emit.pl_frame && g_emit.zframe_graph) ? 1 : 0; }
 static inline const char * emit_pl_fb(void) { return "rbp"; }
 #ifdef __cplusplus
 extern "C" int emit_pl_fence_on(void);
