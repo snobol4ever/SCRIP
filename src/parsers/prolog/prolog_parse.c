@@ -1120,46 +1120,79 @@ void prolog_dcg_expand(PlClause *cl) {
     dcg_expand_clause(cl, head_reshaped, dcg_body, pushback, &ts);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int eval_if_condition_tree(tree_t *cond) {
-    if (!cond) return -1;
-    if (cond->t == TT_QLIT) {
-        const char *a = cond->v.sval ? cond->v.sval : "";
-        if (strcmp(a, "true")  == 0) return 1;
-        if (strcmp(a, "fail")  == 0 || strcmp(a, "false") == 0) return 0;
-        return -1;
+typedef struct { const PlClause *head; const PlClause *stop; int swi; Parser *p; int lineno; } pl_ifcx_t;
+static int pl_if_defines(const pl_ifcx_t *x, const char *nm, const tree_t *ar) {
+    for (const PlClause *c = x->head; c && c != x->stop; c = c->next) {
+        const tree_t *h = (c->tr && c->tr->t == TT_CLAUSE && c->tr->n >= 1) ? c->tr->c[0] : (const tree_t *)0;
+        if (h && h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2) h = h->c[1];
+        if (!h || !h->v.sval || strcmp(h->v.sval, nm) || (h->t != TT_FNC && h->t != TT_QLIT)) continue;
+        int n = h->t == TT_FNC ? h->n : 0;
+        if (ar->t == TT_VAR || (ar->t == TT_ILIT && ar->v.ival == n)) return 1;
     }
-    if (cond->t != TT_FNC) return -1;
-    const char *fn = cond->v.sval ? cond->v.sval : "";
-    int arity = cond->n;
-    if ((strcmp(fn, "\\+") == 0 || strcmp(fn, "not") == 0) && arity == 1) {
-        int v = eval_if_condition_tree(cond->c[0]);
-        if (v < 0) return -1;
-        return v ? 0 : 1;
+    return 0;
+}
+static int pl_if_flag(const tree_t *f, const tree_t *v, int swi) {
+    extern int rt_pl_flag_at_read(const char *, int, const char **, long *);
+    const char *av;
+    long ver[3];
+    if (!f || f->t != TT_QLIT || !f->v.sval) return 0;
+    int k = rt_pl_flag_at_read(f->v.sval, swi, &av, ver);
+    if (!k) return 0;
+    if (!v || v->t == TT_VAR) return 1;
+    if (k == 1 && v->t == TT_QLIT) return v->v.sval && !strcmp(v->v.sval, av);
+    if (k == 1 && v->t == TT_ILIT) { char *e; long long n = strtoll(av, &e, 10); return *av && !*e && n == v->v.ival; }
+    if (k != 2 || v->t != TT_FNC || v->n != 4 || !v->v.sval || strcmp(v->v.sval, av)) return 0;
+    for (int i = 0; i < 3; i++) if (!v->c[i] || (v->c[i]->t != TT_VAR && !(v->c[i]->t == TT_ILIT && v->c[i]->v.ival == ver[i]))) return 0;
+    const tree_t *t = v->c[3];
+    return !t || t->t == TT_VAR || (t->t == TT_MAKELIST && t->n == 0) || (t->t == TT_QLIT && t->v.sval && !strcmp(t->v.sval, "[]"));
+}
+static int eval_if_condition_tree(const tree_t *cond, const pl_ifcx_t *x) {
+    if (!cond) return 0;
+    const char *fn = (cond->t == TT_QLIT || cond->t == TT_FNC) && cond->v.sval ? cond->v.sval : "";
+    int arity = cond->t == TT_FNC ? cond->n : 0;
+    if (cond->t == TT_QLIT && !strcmp(fn, "true")) return 1;
+    if (cond->t == TT_QLIT && (!strcmp(fn, "fail") || !strcmp(fn, "false"))) return 0;
+    if ((!strcmp(fn, "\\+") || !strcmp(fn, "not")) && arity == 1) return !eval_if_condition_tree(cond->c[0], x);
+    if (!strcmp(fn, ",") && arity == 2) return eval_if_condition_tree(cond->c[0], x) && eval_if_condition_tree(cond->c[1], x);
+    if (!strcmp(fn, "->") && arity == 2) return eval_if_condition_tree(cond->c[0], x) && eval_if_condition_tree(cond->c[1], x);
+    if (!strcmp(fn, ";") && arity == 2) {
+        const tree_t *l = cond->c[0];
+        if (l && l->t == TT_FNC && l->v.sval && !strcmp(l->v.sval, "->") && l->n == 2) return eval_if_condition_tree(l->c[0], x) ? eval_if_condition_tree(l->c[1], x) : eval_if_condition_tree(cond->c[1], x);
+        return eval_if_condition_tree(l, x) || eval_if_condition_tree(cond->c[1], x);
     }
-    if (strcmp(fn, "current_prolog_flag") == 0 && arity == 2) {
-        tree_t *flag_t = cond->c[0];
-        tree_t *val_t  = cond->c[1];
-        if (!flag_t || !val_t) return -1;
-        const char *flag = (flag_t->t == TT_QLIT) ? flag_t->v.sval : NULL;
-        const char *val  = (val_t->t  == TT_QLIT) ? val_t->v.sval  : NULL;
-        if (!flag || !val) return -1;
-        if (strcmp(flag, "bounded") == 0) {
-            if (strcmp(val, "true")  == 0) return 0;
-            if (strcmp(val, "false") == 0) return 1;
-            return -1;
+    if (!strcmp(fn, "current_prolog_flag") && arity == 2) return pl_if_flag(cond->c[0], cond->c[1], x->swi);
+    if (!strcmp(fn, "current_predicate") && arity == 1) {
+        extern int pl_pi_is_builtin(const char *, int);
+        extern int pl_prelude_defines(const char *, int);
+        const tree_t *pi = cond->c[0];
+        if (pi && pi->t == TT_FNC && pi->v.sval && !strcmp(pi->v.sval, ":") && pi->n == 2) pi = pi->c[1];
+        if (pi && pi->t == TT_FNC && pi->v.sval && !strcmp(pi->v.sval, "/") && pi->n == 2 && pi->c[0] && pi->c[0]->t == TT_QLIT && pi->c[0]->v.sval && pi->c[1]) {
+            const tree_t *ar = pi->c[1];
+            if (ar->t != TT_VAR && ar->t != TT_ILIT) return 0;
+            return pl_if_defines(x, pi->c[0]->v.sval, ar) || (ar->t == TT_ILIT && (pl_pi_is_builtin(pi->c[0]->v.sval, (int)ar->v.ival) || pl_prelude_defines(pi->c[0]->v.sval, (int)ar->v.ival)));
         }
-        if (strcmp(flag, "prefer_rationals") == 0) {
-            if (strcmp(val, "true")  == 0) return 0;
-            if (strcmp(val, "false") == 0) return 1;
-            return -1;
-        }
-        return -1;
     }
-    return -1;
+    if (!strcmp(fn, "exists_source") && arity == 1 && cond->c[0] && cond->c[0]->t == TT_FNC && cond->c[0]->v.sval && !strcmp(cond->c[0]->v.sval, "library") && cond->c[0]->n == 1) {
+        const tree_t *l = cond->c[0]->c[0];
+        const char *a = l && l->t == TT_QLIT ? l->v.sval : (const char *)0, *b = (const char *)0;
+        if (l && l->t == TT_FNC && l->v.sval && !strcmp(l->v.sval, "/") && l->n == 2 && l->c[0] && l->c[0]->t == TT_QLIT && l->c[1] && l->c[1]->t == TT_QLIT) { a = l->c[0]->v.sval; b = l->c[1]->v.sval; }
+        if (a) {
+            size_t na = strlen(a);
+            for (int i = 0; PL_PRELUDE_LIBS[i].lib; i++) {
+                const char *e = PL_PRELUDE_LIBS[i].lib;
+                if (b ? !strncmp(e, a, na) && e[na] == '_' && !strcmp(e + na + 1, b) : !strcmp(e, a)) return 1;
+            }
+            return 0;
+        }
+    }
+    if (!x->p->quiet) fprintf(stderr, "%s:%d: warning: the :- if condition %s/%d has no read-time evaluator in SCRIP, so it reads as false\n", x->p->filename, x->lineno, fn, arity);
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
+static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno, pl_ifcx_t *x) {
     if (!goal) return 0;
+    x->p = p;
+    x->lineno = lineno;
     const char *fn = NULL;
     int arity = 0;
     tree_t *arg0 = NULL;
@@ -1176,7 +1209,7 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
     if (!fn) return 0;
     if (strcmp(fn, "if") == 0 && arity == 1) {
         int parent_active = if_currently_active(p);
-        int verdict = parent_active ? eval_if_condition_tree(arg0) : 0;
+        int verdict = parent_active ? eval_if_condition_tree(arg0, x) : 0;
         int active = parent_active && (verdict != 0);
         IfFrame nf; nf.active = 0; nf.taken = 0; nf.parent_active = 0; nf.line = 0; CV_PUSH(p->ifst, IfFrame) = nf;
         IfFrame *f = &CV_AT(p->ifst, IfFrame, p->ifst.len - 1);
@@ -1195,7 +1228,7 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
         if (!f->parent_active || f->taken) {
             f->active = 0;
         } else {
-            int verdict = eval_if_condition_tree(arg0);
+            int verdict = eval_if_condition_tree(arg0, x);
             int active  = (verdict != 0);
             f->active = active;
             if (active) f->taken = 1;
@@ -3795,18 +3828,38 @@ static PlClause *pl_module_restore_clause(const char *mod, int lineno) {
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_clause_is_eof(const tree_t *t) {
+    const tree_t *h = (t && t->t == TT_CLAUSE && t->n == 1) ? t->c[0] : t;
+    return h && h->t == TT_QLIT && h->v.sval && !strcmp(h->v.sval, "end_of_file");
+}
+static int pl_if_ctx_at(pl_ifcx_t *x, PlProgram *prog, PlClause *cl) {
+    extern int prolog_clause_marks_swi(const PlClause *);
+    extern int prolog_dialect_gnu_selected(void);
+    x->head = prog->head;
+    x->stop = cl;
+    if (x->swi < 0) {
+        x->swi = 0;
+        for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { x->swi = 1; break; }
+    }
+    return 1;
+}
 static void pl_preprocess_list(PlProgram *prog, int depth) {
-    Parser q; PlClause *prev = (PlClause *)0, *cl; const char *cur_mod = "user";
+    Parser q; PlClause *prev = (PlClause *)0, *cl; const char *cur_mod = "user"; pl_ifcx_t ix;
     if (!prog) return;
     memset(&q, 0, sizeof q); q.filename = prog->filename ? prog->filename : "<stdin>"; q.quiet = prog->quiet; q.incl_depth = depth;
+    memset(&ix, 0, sizeof ix); ix.swi = -1;
     cl = prog->head;
     while (cl) {
         PlClause *next = cl->next; int drop = 0, is_include = 0; const tree_t *t = cl->tr;
         prolog_fold_pieces(cl->tr);
         { const char *mn = pl_module_directive_name(t); if (mn) cur_mod = mn; }
-        if (t && t->t == TT_CLAUSE && t->n == 2 && t->c[0] && t->c[0]->t == TT_NUL && t->c[1] && try_handle_if_directive_tree(&q, t->c[1], cl->lineno)) drop = 1;
+        if (t && t->t == TT_CLAUSE && t->n == 2 && t->c[0] && t->c[0]->t == TT_NUL && t->c[1] && pl_if_ctx_at(&ix, prog, cl) && try_handle_if_directive_tree(&q, t->c[1], cl->lineno, &ix)) drop = 1;
         else if (!if_currently_active(&q)) drop = 1;
-        else {
+        else if (pl_clause_is_eof(t)) {
+            for (PlClause *r = cl; r; r = r->next) prog->nclauses--;
+            if (prev) prev->next = (PlClause *)0; else prog->head = (PlClause *)0;
+            break;
+        } else {
             PlProgram *sub = pl_include_expand(&q, cl, depth, &is_include);
             if (is_include) {
                 drop = 1;

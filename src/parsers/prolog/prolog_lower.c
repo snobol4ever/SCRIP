@@ -499,6 +499,8 @@ static int pl_tree_has_dict(const tree_t *t) {
     for (int i = 0; i < t->n; i++) if (pl_tree_has_dict(t->c[i])) return 1;
     return 0;
 }
+int prolog_clause_marks_swi(const PlClause *cl) { return cl && cl->lineno && (pl_dialect_marker(cl->tr) || pl_tree_has_dict(cl->tr)); }
+int prolog_dialect_gnu_selected(void) { return g_stage2.pl_dialect_gnu; }
 static PlClause *pl_dq_string_directive(int lineno, const char *flag, const char *val) {
     PlClause *c = ct_zalloc(1, sizeof(PlClause));
     tree_t *cl = ast_node_new(TT_CLAUSE), *g = ast_node_new(TT_FNC), *f = ast_node_new(TT_QLIT), *v = ast_node_new(TT_QLIT);

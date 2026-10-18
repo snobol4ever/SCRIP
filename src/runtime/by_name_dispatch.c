@@ -9318,6 +9318,17 @@ void bnd_text_gc_roots(void) {
 static pl_flag_t * pl_flag_find(const char *nm) { pl_flags_ready(); for (int i = 0; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i]; return (pl_flag_t *)0; }
 static const char *pl_flag_encoding(void) { pl_flag_t *fl = pl_flag_find("encoding"); return fl && fl->val ? fl->val : "UTF-8"; }
 const char *rt_pl_flag_text(const char *nm) { pl_flag_t *fl = pl_flag_find(nm); return fl && fl->val ? fl->val : (const char *)0; }
+int rt_pl_flag_at_read(const char *nm, int swi, const char **aval, long *ver) {
+    pl_flag_t *fl = nm ? pl_flag_find(nm) : (pl_flag_t *)0;
+    *aval = (const char *)0;
+    if (!fl) return 0;
+    if (!strcmp(fl->nm, "version_data")) { *aval = swi ? "swi" : "scrip"; ver[0] = swi ? 9 : 0; ver[1] = 0; ver[2] = swi ? 4 : 0; return 2; }
+    if (!strcmp(fl->nm, "dialect") && swi) { *aval = "swi"; return 1; }
+    if (!strcmp(fl->nm, "debug") && swi) { *aval = strcmp(fl->val, "on") ? "false" : "true"; return 1; }
+    if (fl->is_term || !strcmp(fl->nm, "argv") || !fl->val || !fl->val[0]) return 3;
+    *aval = fl->val;
+    return 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_flag_opt_true(const char *on) {
     extern int prolog_atom_intern(const char *);
