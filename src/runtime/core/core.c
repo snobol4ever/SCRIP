@@ -243,11 +243,17 @@ static size_t trace_banner_str(char *out, size_t on, const char *name, DESCR_t *
     trace_spell_value(value, vtext, sizeof vtext);
     return (size_t)snprintf(out, on, "%s %s %s = %s\n", banner, istr, name, vtext);
 }
+static void trace_put_folded(const char *s) {
+    size_t n = s ? strlen(s) : 0;
+    if (n && s[n - 1] == '\n') n--;
+    if (!n) { fputc('\n', stdout); return; }
+    for (size_t o = 0; o < n; o += 120) { fwrite(s + o, 1, n - o < 120 ? n - o : 120, stdout); fputc('\n', stdout); }
+}
 static void trace_print_banner_args(const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, int kind) {
     size_t bn = trace_banner_str((char *)0, 0, name, args, nargs, value, stno, kind);
     char bb[bn + 1];
     trace_banner_str(bb, bn + 1, name, args, nargs, value, stno, kind);
-    fputs(bb, stdout);
+    trace_put_folded(bb);
     fflush(stdout);
 }
 static void trace_print_banner(const char *name, DESCR_t value, long long stno, int kind) { trace_print_banner_args(name, (DESCR_t *)0, 0, value, stno, kind); }
@@ -1564,7 +1570,7 @@ void rt_trace_pend_close(trace_pend_t *pend) {
     if (pend->saved_trace.slen == 1) { extern int64_t kw_fnclevel; extern int rt_k_level; kw_fnclevel++; rt_k_level++; }
     pend->saved_trace.slen = 0;
     trace_recursion_depth--;
-    if (pend->saved_ftrace.v == DT_S && kw_ftrace > 0) { kw_ftrace--; fputs(pend->saved_ftrace.s, stdout); fflush(stdout); }
+    if (pend->saved_ftrace.v == DT_S && kw_ftrace > 0) { kw_ftrace--; trace_put_folded(pend->saved_ftrace.s); fflush(stdout); }
     pend->saved_ftrace = INTVAL(0);
     pend->args[0].v = 0;
     if (pend->hook.slen == 1) comm_var_tail(pend->args[1].s, pend->val, (int)pend->hook.i);
