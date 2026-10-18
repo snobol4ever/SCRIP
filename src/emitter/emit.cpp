@@ -4369,7 +4369,7 @@ static void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *z
         for (int v = 0; v < 2; v++) {
             IR_t * t = zd_chase(v ? nodes[i]->ω.node : nodes[i]->γ.node);
             if (!t || zd_check_discard(t) || zd_check_arm_env((int)t->op) || (v && t->op == IR_MATCH_BEGIN)) continue;
-            int j = nidx(nodes, n, t), via = (zchn && g_emit_cfg && g_emit_cfg->icn_cells_graph && zchn[2 * i + v] >= 0) ? zchn[2 * i + v] : -1;
+            int j = nidx(nodes, n, t), via = (zchn && zchn[2 * i + v] >= 0) ? zchn[2 * i + v] : -1;
             if (via >= 0) j = via;
             if (j < 0 || j == i || !zon[j]) continue;
             if (xb) { if (xb[j] == INT_MIN) continue; } else if (!claim || claim[j] != claim[i]) continue;
