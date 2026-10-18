@@ -18912,6 +18912,20 @@ static const char PL_PRELUDE_LIB_35_SRC[] =
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "gc_tables", 1 },
+    { "abolish_table_subgoals", 1 },
+    { "abolish_table_subgoals", 2 },
+    { "abolish_table_call", 1 },
+    { "abolish_table_call", 2 },
+    { "abolish_table_pred", 1 },
+    { "$ats_goal", 2 },
+    { "$ats_split", 4 },
+    { "$ats_close", 3 },
+    { "$ats_dep", 4 },
+    { "$ats_hits", 2 },
+    { "$ats_lit", 2 },
+    { "$ats_drop", 2 },
+    { "$ats_opts", 1 },
+    { "$atp_goal", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
@@ -18924,7 +18938,34 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_36_SRC[] =
-    "gc_tables(0).\n";
+    "gc_tables(0).\n"
+    "abolish_table_pred(P):-'$atp_goal'(P,G),abolish_table_subgoals(G).\n"
+    "'$atp_goal'(P,_):-var(P),!,throw(error(instantiation_error,abolish_table_pred/1)).\n"
+    "'$atp_goal'(M:P,M:G):-atom(M),!,'$atp_goal'(P,G).\n"
+    "'$atp_goal'(F/N,G):-atom(F),integer(N),!,functor(G,F,N).\n"
+    "'$atp_goal'(H,G):-callable(H),!,functor(H,F,N),functor(G,F,N).\n"
+    "'$atp_goal'(P,_):-throw(error(type_error(callable_or_predicate_indicator,P),abolish_table_pred/1)).\n"
+    "abolish_table_subgoals(MG):-'$ats_goal'(MG,QG),'$tbl_vt'(VT),'$trie_entries'(VT,L),'$ats_split'(L,QG,A,R),'$ats_close'(A,R,All),'$ats_drop'(All,VT).\n"
+    "abolish_table_subgoals(G,O):-'$ats_opts'(O),abolish_table_subgoals(G).\n"
+    "abolish_table_call(G):-abolish_table_subgoals(G).\n"
+    "abolish_table_call(G,O):-abolish_table_subgoals(G,O).\n"
+    "'$ats_goal'(MG,_):-var(MG),!,throw(error(instantiation_error,abolish_table_subgoals/1)).\n"
+    "'$ats_goal'(MG,QG):-'$tbl_strip'(MG,M,G),(atom(M),M\\==user->'$tbl_qual'(M,G,QG);QG=G).\n"
+    "'$ats_split'([],_,[],[]).\n"
+    "'$ats_split'([E|L],G,A,R):-E=e(_,V,_),(\\+ \\+ V=G->A=[E|A1],R=R1;A=A1,R=[E|R1]),'$ats_split'(L,G,A1,R1).\n"
+    "'$ats_close'(A,R,All):-'$ats_dep'(R,A,N,Rest),(N==[]->All=A;append(A,N,A2),'$ats_close'(A2,Rest,All)).\n"
+    "'$ats_dep'([],_,[],[]).\n"
+    "'$ats_dep'([E|R],A,N,Rest):-E=e(_,_,T),('$ats_hits'(T,A)->N=[E|N1],Rest=Rest1;N=N1,Rest=[E|Rest1]),'$ats_dep'(R,A,N1,Rest1).\n"
+    "'$ats_hits'(T,A):-'$trie_entries'(T,As),member(e(_,_,u(P)),As),member(_-D,P),member(L,D),'$ats_lit'(L,G),member(e(_,V,_),A),subsumes_term(V,G),!.\n"
+    "'$ats_lit'(tnot(G),G):-!.\n"
+    "'$ats_lit'(G,G).\n"
+    "'$ats_drop'([],_).\n"
+    "'$ats_drop'([e(_,V,T)|L],VT):-('$trie_delete'(VT,V,_)->true;true),'$trie_destroy'(T),'$ats_drop'(L,VT).\n"
+    "'$ats_opts'(O):-var(O),!,throw(error(instantiation_error,abolish_table_subgoals/2)).\n"
+    "'$ats_opts'([]):-!.\n"
+    "'$ats_opts'(O):-is_list(O),(memberchk(abolish_tables_transitively,O);memberchk(abolish_tables_singly,O)),!.\n"
+    "'$ats_opts'(O):-is_list(O),!,throw(error(domain_error([abolish_tables_transitively,abolish_tables_singly],O),abolish_table_subgoals/2)).\n"
+    "'$ats_opts'(O):-throw(error(type_error(list,O),abolish_table_subgoals/2)).\n";
 static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "aggregate", PL_PRELUDE_LIB_0_EXPORTS, PL_PRELUDE_LIB_0_OPS, PL_PRELUDE_LIB_0_SHADOWS, PL_PRELUDE_LIB_0_QUIET, PL_PRELUDE_LIB_0_SRC },
     { "apply", PL_PRELUDE_LIB_1_EXPORTS, PL_PRELUDE_LIB_1_OPS, PL_PRELUDE_LIB_1_SHADOWS, PL_PRELUDE_LIB_1_QUIET, PL_PRELUDE_LIB_1_SRC },

@@ -2071,13 +2071,6 @@ static const char * const PL_PRELUDE_SRC =
     "'$tbl_dgoal'(T,G):-'$trie_meta_get'(T,1,d(G,_,_,_,_)).\n"
     "abolish_all_tables:-'$tbl_leading',!,throw(error(permission_error(abolish,table,all),abolish_all_tables/0)).\n"
     "abolish_all_tables:-'$tbl_vt'(VT),'$trie_entries'(VT,L),'$tbl_drop_all'(L),'$trie_destroy'(VT).\n"
-    "abolish_table_pred(P):-'$atp_key'(P,F,N),'$tbl_vt'(VT),'$trie_entries'(VT,L),'$atp_drop'(L,F,N,VT).\n"
-    "'$atp_key'(P,_,_):-var(P),!,throw(error(instantiation_error,abolish_table_pred/1)).\n"
-    "'$atp_key'(M:P,F,N):-atom(M),!,'$atp_key'(P,F0,N),(M==user->F=F0;atom_concat(M,':',Pre),atom_concat(Pre,F0,F)).\n"
-    "'$atp_key'(F/N,F,N):-!.\n"
-    "'$atp_key'(G,F,N):-callable(G),functor(G,F,N).\n"
-    "'$atp_drop'([],_,_,_).\n"
-    "'$atp_drop'([e(_,G,T)|L],F,N,VT):-(functor(G,F,N)->'$trie_delete'(VT,G,_),'$trie_destroy'(T);true),'$atp_drop'(L,F,N,VT).\n"
     "'$tbl_drop_all'([]).\n"
     "'$tbl_drop_all'([e(_,_,T)|L]):-'$trie_destroy'(T),'$tbl_drop_all'(L).\n"
     "'$tbl_local_variant_table'('$trie'(VT)):-'$tbl_vt'(VT).\n"
@@ -3547,6 +3540,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&referenced, "$lfx_gres");
         pl_cv_add(&referenced, "$lfx_mdb");
         pl_cv_add(&referenced, "abolish_table_pred");
+        pl_cv_add(&refkeys, pl_pred_key("abolish_table_pred", 1));
         pl_cv_add(&referenced, "tnot");
         pl_cv_add(&referenced, "get_residual");
         pl_cv_add(&referenced, "call_delays");
@@ -3564,6 +3558,12 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&refkeys, pl_pred_key("ord_setproduct", 3));
         pl_cv_add(&referenced, "gc_tables");
         pl_cv_add(&refkeys, pl_pred_key("gc_tables", 1));
+        pl_cv_add(&referenced, "abolish_table_subgoals");
+        pl_cv_add(&refkeys, pl_pred_key("abolish_table_subgoals", 1));
+        pl_cv_add(&refkeys, pl_pred_key("abolish_table_subgoals", 2));
+        pl_cv_add(&referenced, "abolish_table_call");
+        pl_cv_add(&refkeys, pl_pred_key("abolish_table_call", 1));
+        pl_cv_add(&refkeys, pl_pred_key("abolish_table_call", 2));
         for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
             if (strcmp(PL_PRELUDE_LIBS[li].lib, "lists") && strcmp(PL_PRELUDE_LIBS[li].lib, "apply") && strcmp(PL_PRELUDE_LIBS[li].lib, "ordsets")) continue;
             for (const pl_prelude_lib_pi_t *le = PL_PRELUDE_LIBS[li].exports; le->nm; le++) { pl_cv_add(&referenced, le->nm); pl_cv_add(&refkeys, pl_pred_key(le->nm, le->ar)); }
