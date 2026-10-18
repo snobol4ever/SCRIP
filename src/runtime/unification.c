@@ -366,7 +366,7 @@ static int plc_is_graphic_char(int ch) { static const char *const g = "#$&*+-./:
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_is_op_atom(pl_cell_t *d) {
     int p = 0, l = 0, r = 0;
-    int nid = (int)d->v == DT_PLATOM ? (int)d->i : (int)d->v == DT_S ? prolog_atom_intern(plc_atom_text(d)) : -1;
+    int nid = (int)d->v == DT_PLATOM ? (int)d->i : -1;
     return nid >= 0 && (plc_op_info_id(nid, 2, &p, &l, &r) || plc_op_info_id(nid, 1, &p, &l, &r));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -380,6 +380,7 @@ static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numberva
     if ((int)d->v == DT_R) return signbit(d->r) && !isnan(d->r) ? '-' : '0';
     if ((int)d->v == DT_BIG) { extern int rt_big_sign(DESCR_t); return rt_big_sign(*d) < 0 ? '-' : '0'; }
     if (pl_rat_is(*d)) return pl_rat_cmp(*d, pl_make_int(0)) < 0 ? '-' : '0';
+    if ((int)d->v == DT_S) return '"';
     if ((int)d->v == DT_PLATOM || (int)d->v == DT_S) {
         const char *n = plc_atom_text(d);
         if (!n || !n[0]) return quoted ? '\'' : ' ';
