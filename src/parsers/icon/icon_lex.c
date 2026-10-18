@@ -590,16 +590,13 @@ typedef struct {
     char *lbuf; size_t llen; char *tbuf; size_t tcap; int ifdepth, fatals; char *srcpath;
 } IcnPp;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void icn_pp_set_source_path(const char *path) {
-    if (!path) { g_parser.icn.pp_src[0] = 0; return; }
-    size_t pl = strlen(path); if (pl >= sizeof g_parser.icn.pp_src) pl = sizeof g_parser.icn.pp_src - 1;
-    memcpy(g_parser.icn.pp_src, path, pl); g_parser.icn.pp_src[pl] = 0;
-}
+void icn_pp_set_source_path(const char *path) { ct_drop(g_parser.icn.pp_src); g_parser.icn.pp_src = path ? ct_strdup(path) : (char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icn_pp_source_base(char *out, size_t n) {
     if (!out || n == 0) return;
-    const char *slash = strrchr(g_parser.icn.pp_src, '/');
-    const char *base  = slash ? slash + 1 : g_parser.icn.pp_src;
+    const char *src = g_parser.icn.pp_src ? g_parser.icn.pp_src : "";
+    const char *slash = strrchr(src, '/');
+    const char *base  = slash ? slash + 1 : src;
     size_t bl = strlen(base);
     if (bl >= n) bl = n - 1;
     memcpy(out, base, bl); out[bl] = 0;
@@ -946,7 +943,7 @@ static void ipp_init(IcnPp *pp) {
     memset(pp, 0, sizeof *pp);
     pp->cbin = (IcnPpDef **)ct_zalloc(256, sizeof *pp->cbin);
     pp->curfile = &pp->nofile;
-    pp->srcpath = ct_strdup(g_parser.icn.pp_src);
+    pp->srcpath = ct_strdup(g_parser.icn.pp_src ? g_parser.icn.pp_src : "");
     for (int k = 0; k < (int)(sizeof pre / sizeof *pre); k++) ipp_dlookup(pp, (char *)pre[k], -1, (char *)"1");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -983,7 +980,7 @@ void icn_lex_init(IcnLexer *lx, const char *src) {
     ipp_init(pp);
     IcnPpFile *fs = (IcnPpFile *)ct_zalloc(1, sizeof *fs);
     fs->mem = src ? src : ""; fs->mlen = strlen(fs->mem);
-    ipp_push_file(pp, fs, g_parser.icn.pp_src[0] ? g_parser.icn.pp_src : "stdin");
+    ipp_push_file(pp, fs, (g_parser.icn.pp_src && g_parser.icn.pp_src[0]) ? g_parser.icn.pp_src : "stdin");
     lx->pp      = pp;
     lx->src     = (char *)ct_zalloc(1, 1);
     lx->src_cap = 1;
