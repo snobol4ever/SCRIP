@@ -1699,6 +1699,7 @@ int main(int argc, char **argv) {
             } else if (strcmp(argv[argi], "--module") == 0) {
                 if (argi + 1 >= argc) { fprintf(stderr, "scrip: --module needs a module name\n"); return 2; }
                 g_sc_module_name = argv[argi + 1];
+                { extern void rt_sc_module_compiling(void); rt_sc_module_compiling(); }
                 argi += 2;
             } else if (strcmp(argv[argi], "--compile") == 0) {
                 mode_compile = 1;

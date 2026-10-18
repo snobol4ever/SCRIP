@@ -240,7 +240,7 @@ static tree_t *sc_sno_bookkeep(tree_t *root, const char *src, size_t len, const 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *sno_parse_stage_buf(const char *src, size_t len, const char *path, const char *incl, size_t incl_len) {
-    if (rt_sc_module_linked() && sc_stage_wants_module() && !rt_gc_program_top_get()) {
+    if (sc_stage_wants_module() && rt_sc_module_linked() && !rt_gc_program_top_get()) {
         long errpos = -1;
         DESCR_t t = rt_sc_module_parse_begin("snobol4", src, len, path, incl, incl_len, &errpos);
         tree_t *root = IS_DATA_INST_fn(t) && t.u ? sc_export_tree(t, src, len) : (tree_t *)0;

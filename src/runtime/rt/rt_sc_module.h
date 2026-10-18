@@ -14,5 +14,4 @@ typedef struct {
     long n_proc;
     const char *name;
 } sc_module_desc_t;
-extern const sc_module_desc_t scparsers_sc_module;
 #endif

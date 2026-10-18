@@ -1424,7 +1424,7 @@ buildinfo:  # ⭐ what am I actually about to link? print it rather than assume 
 # EM-6: full SNOBOL4 runtime compiled -fPIC and linked into the .so.
 # Emitted x86-64 binaries link against this .so for all language-level
 # semantics (pattern matcher, NV table, exec_stmt, builtins, GC).
-libscrip_rt: out/libscrip_rt.so
+libscrip_rt: out/libscrip_rt.so out/libscrip_scmod.so
 
 # EM-6 runtime objects (all compiled -fPIC so they can go into the .so)
 RT_PIC_SRCS := \
@@ -1772,12 +1772,9 @@ sc_mod_pfx = $(if $(filter snobol4,$(1)),sno_,$(if $(filter snocone,$(1)),snc_,$
 SC_MOD_OBJS := out/sc_mod/scparsers.o
 RT_SO0 := out/libscrip_rt0.so
 # the stage-0 library links a STRONG empty descriptor in place of the module object, so no weak reference exists anywhere (test_gate_no_weak_abort_stub; CEO-1749)
-out/sc_mod/scparsers_stub.o: $(SRC)/runtime/rt/rt_sc_module_stub.c $(SRC)/runtime/rt/rt_sc_module.h
-	@mkdir -p out/sc_mod
-	$(CC) $(RT_OPT) -g -fPIC $(RT_INCS) -c $(SRC)/runtime/rt/rt_sc_module_stub.c -o $@
-$(RT_SO0): $(RT_PIC_OBJS) out/sc_mod/scparsers_stub.o Makefile
+$(RT_SO0): $(RT_PIC_OBJS) Makefile
 	@mkdir -p out
-	$(CC) -shared $(RT_PIC_OBJS) out/sc_mod/scparsers_stub.o -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@
+	$(CC) -shared $(RT_PIC_OBJS) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@
 out/scrip0: $(RT_SO0) $(SRC)/driver/scrip.c
 	@mkdir -p $(OBJ)
 	$(CC) $(CRT) -c $(SRC)/driver/scrip.c -o $(OBJ)/scrip_driver0.o
@@ -1790,11 +1787,11 @@ out/sc_mod/scparsers.sc: bootstrap/mod_head.sc bootstrap/mod_tail.sc $(SC_MOD_LI
 out/sc_mod/scparsers.o: out/sc_mod/scparsers.sc out/scrip0
 	./out/scrip0 --module scparsers --compile -o out/sc_mod/scparsers.s out/sc_mod/scparsers.sc < /dev/null
 	$(CC) -c out/sc_mod/scparsers.s -o $@
-$(RT_SO): $(RT_PIC_OBJS) $(SC_MOD_OBJS) $(RT_SRC_ALL) $(SRC)/runtime/rt_interposable.list Makefile
+$(RT_SO): $(RT_PIC_OBJS) $(RT_SRC_ALL) $(SRC)/runtime/rt_interposable.list Makefile
 	@mkdir -p out out/attic
 	@if [ -f $@ ]; then cp -pn $@ out/attic/$(notdir $(basename $(RT_SO)))-$$(md5sum $@ | cut -c1-12).so 2>/dev/null || true; fi
 	@ls -1t out/attic/*.so 2>/dev/null | tail -n +9 | xargs -r rm -f
-	$(CC) -shared $(RT_PIC_OBJS) $(SC_MOD_OBJS) $(RT_BIND) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@   # ⛔⭐ libstdc++ AND libgcc ARE LINKED INTO THE RUNTIME, HIDDEN (the coo 2026-10-04, row instruments-a-mode-4-process-spends-1-76m-of-its-3-73m-instructions-in-ld-so-..., ceo CEO-1501 on hq_prolog's finding). MEASURED on SCRIP 9557a201d, callgrind, a mode-4 hello world (OUTPUT = 'hi'), the runtime relinked from the same 259 objects (the plain relink is byte-identical to the shipped .so): shared -lstdc++ 3,732,883 Ir (ld.so 1.76M of it) | + -Bsymbolic-functions 3,284,379 | THIS LINE 1,819,873 (PIE) / 1,814,168 (-no-pie) | this line + -Bsymbolic-functions 1,370,109 | + -Bsymbolic 1,248,271. An empty C main() reads 156,840 Ir and 1,873,917 with -lstdc++ -lm -lpthread loaded: LOADING libstdc++.so IS THE COST (its own 4,300 symbolic relocations and its initialisers), not this library's relocations. scrip and every mode-4 binary NEED no libstdc++ of their own (readelf -d scrip: libscrip_rt.so, libc.so.6), so the process holds ONE copy, compiled from the same GCC 13 headers as these objects. SUPERSEDED 2026-10-15 BY RT_BIND (cto, CEO-1795): it binds FUNCTIONS only and keeps every datum interposable, so a COPY relocation stays the one copy; no executable SCRIP builds or emits carries a canonical-PLT function (scrip, scrip-ipp, the parser tools, mode-4 programs; the 122 corpus .s artifacts take no runtime function address rip-relatively), the C test drivers take one only to call it; rt_time_ns and the lexer entries the parser tools clock stay interposable by name, and every other LD_PRELOAD instrument runs on out/interposable/libscrip_rt.so; test_gate_the_runtime_binds_its_own_functions_*.sh holds it.
+	$(CC) -shared $(RT_PIC_OBJS) $(RT_BIND) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@   # ⛔⭐ libstdc++ AND libgcc ARE LINKED INTO THE RUNTIME, HIDDEN (the coo 2026-10-04, row instruments-a-mode-4-process-spends-1-76m-of-its-3-73m-instructions-in-ld-so-..., ceo CEO-1501 on hq_prolog's finding). MEASURED on SCRIP 9557a201d, callgrind, a mode-4 hello world (OUTPUT = 'hi'), the runtime relinked from the same 259 objects (the plain relink is byte-identical to the shipped .so): shared -lstdc++ 3,732,883 Ir (ld.so 1.76M of it) | + -Bsymbolic-functions 3,284,379 | THIS LINE 1,819,873 (PIE) / 1,814,168 (-no-pie) | this line + -Bsymbolic-functions 1,370,109 | + -Bsymbolic 1,248,271. An empty C main() reads 156,840 Ir and 1,873,917 with -lstdc++ -lm -lpthread loaded: LOADING libstdc++.so IS THE COST (its own 4,300 symbolic relocations and its initialisers), not this library's relocations. scrip and every mode-4 binary NEED no libstdc++ of their own (readelf -d scrip: libscrip_rt.so, libc.so.6), so the process holds ONE copy, compiled from the same GCC 13 headers as these objects. SUPERSEDED 2026-10-15 BY RT_BIND (cto, CEO-1795): it binds FUNCTIONS only and keeps every datum interposable, so a COPY relocation stays the one copy; no executable SCRIP builds or emits carries a canonical-PLT function (scrip, scrip-ipp, the parser tools, mode-4 programs; the 122 corpus .s artifacts take no runtime function address rip-relatively), the C test drivers take one only to call it; rt_time_ns and the lexer entries the parser tools clock stay interposable by name, and every other LD_PRELOAD instrument runs on out/interposable/libscrip_rt.so; test_gate_the_runtime_binds_its_own_functions_*.sh holds it.
 	@echo "Built: $@   RT_OPT=$(RT_OPT)"
 	@printf 'kept previous: %s   (out/attic/, 8 newest by content)\n' "$$(ls -1t out/attic/*.so 2>/dev/null | head -1 | xargs -r basename)"
 # THE RUNTIME BINDS ITS OWN FUNCTIONS AND ITS OWN DATA (cto 2026-10-15, row startup-the-runtime-binds-its-own-symbols-..., ceo CEO-1795; data
@@ -1807,9 +1804,9 @@ $(RT_SO): $(RT_PIC_OBJS) $(SC_MOD_OBJS) $(RT_SRC_ALL) $(SRC)/runtime/rt_interpos
 # An instrument that interposes any other runtime symbol by LD_PRELOAD links out/interposable/libscrip_rt.so (every symbol preemptible,
 # the same objects) and runs under LD_LIBRARY_PATH (the executables carry RUNPATH).
 RT_BIND := -Wl,--dynamic-list=$(SRC)/runtime/rt_interposable.list -Wl,-z,pack-relative-relocs
-out/interposable/libscrip_rt.so: $(RT_PIC_OBJS) $(SC_MOD_OBJS) Makefile
+out/interposable/libscrip_rt.so: $(RT_PIC_OBJS) Makefile
 	@mkdir -p out/interposable
-	$(CC) -shared $(RT_PIC_OBJS) $(SC_MOD_OBJS) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@
+	$(CC) -shared $(RT_PIC_OBJS) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@
 # out/libscrip_rt.so REMAINS THE CANONICAL PATH -- 73 scripts reference it by that exact name, so it must
 # never move. It is a real COPY of whichever configuration was actually built -- never a symlink (Lon 2026-10-17, CEO-1820:
 # "Do not EVER use symlinks."). ⛔ THE FORCE PREREQUISITE IS LOAD-BEARING: switching back to a previously-built (older) tag must
@@ -1817,6 +1814,17 @@ out/interposable/libscrip_rt.so: $(RT_PIC_OBJS) $(SC_MOD_OBJS) Makefile
 out/libscrip_rt.so: $(RT_SO) FORCE
 	@rm -f out/libscrip_rt.so && cp -f $(RT_SO) out/libscrip_rt.so
 	@echo "out/libscrip_rt.so = copy of $(notdir $(RT_SO))   RT_OPT=$(RT_OPT)"
+# THE PARSE-STAGE MODULE IS ITS OWN SHARED OBJECT (cto 2026-10-17, ceo CEO-1823): out/sc_mod/scparsers.o, the Snocone-compiled
+# parsers, is reached only under SCRIP_PARSE_STAGE=sc, so it is not linked into the runtime -- every process relocated its ~6,000
+# pointers for nothing. rt_sc_module.c dlopens out/libscrip_scmod.so (beside the runtime it finds by dladdr) at the first sc parse and
+# reads the descriptor scparsers_sc_module by dlsym; a mode-4 binary links it never. Its undefined names resolve against the runtime
+# the process already holds. The copy follows the runtime's RT_TAG discipline.
+SCMOD_SO := out/libscrip_scmod-$(RT_TAG).so
+$(SCMOD_SO): $(SC_MOD_OBJS) Makefile
+	@mkdir -p out
+	$(CC) -shared $(SC_MOD_OBJS) -o $@
+out/libscrip_scmod.so: $(SCMOD_SO) FORCE
+	@rm -f out/libscrip_scmod.so && cp -f $(SCMOD_SO) out/libscrip_scmod.so
 
 # ── libscrip_rt.a — static-archive TWIN of libscrip_rt.so, for the OPT-IN m4 STATIC link arm ────
 # Row m4-static-link-arm (Lon 2026-08-28, FLEET-6). ADDITIVE ONLY: out/libscrip_rt.so above REMAINS

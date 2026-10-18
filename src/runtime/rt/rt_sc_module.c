@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +10,22 @@
 #include "ast.h"
 #include "pin_va.h"
 #include "rt_sc_module.h"
-typedef struct { const sc_module_desc_t *d; DESCR_t *base; int inited; int busy; int i_src; int i_path; int i_lang; int i_linked; int i_tree; int i_inited; int i_errpos; int i_incl; } sc_module_t;
+enum { SC_GVA_RESERVE = 741 };
+typedef struct {
+    const sc_module_desc_t *d;
+    DESCR_t *base;
+    int inited;
+    int busy;
+    int no_reserve;
+    int i_src;
+    int i_path;
+    int i_lang;
+    int i_linked;
+    int i_tree;
+    int i_inited;
+    int i_errpos;
+    int i_incl;
+} sc_module_t;
 static sc_module_t g_sc_mod;
 #include "../rtx/rtcc.h"
 extern int64_t kw_anchor, kw_trim, kw_fullscan, kw_maxlngth, kw_stlimit, kw_stcount, kw_trace, kw_ftrace;
@@ -26,9 +43,11 @@ extern char *rt_heap_strdup_c(const char *s);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _MATCHAT_(DESCR_t *args, int nargs) { (void)args; (void)nargs; return (DESCR_t){ .v = DT_I, .slen = 0, .i = (int64_t)rtccb[RTCC_SLOT_MATCHAT] }; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_sc_gva_reserve(void) { return scparsers_sc_module.main_alpha ? scparsers_sc_module.n_gva : 0; }
+long rt_sc_gva_reserve(void) { return g_sc_mod.no_reserve ? 0 : SC_GVA_RESERVE; }
+void rt_sc_module_compiling(void) { g_sc_mod.no_reserve = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_sc_module_linked(void) { return scparsers_sc_module.main_alpha ? 1 : 0; }
+static sc_module_t *sc_module_get(void);
+int rt_sc_module_linked(void) { return sc_module_get() ? 1 : 0; }
 int rt_sc_module_busy(void) { return g_sc_mod.busy; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sc_modules_invalidate(void) { g_sc_mod.inited = 0; }
@@ -38,8 +57,23 @@ static int sc_slot_of(const sc_module_desc_t *d, const char *nm) { for (long k =
 static sc_module_t *sc_module_get(void) {
     sc_module_t *m = &g_sc_mod;
     if (m->d) return m;
-    if (!scparsers_sc_module.main_alpha) return (sc_module_t *)0;
-    m->d = &scparsers_sc_module;
+    {
+        Dl_info di;
+        const char *so = dladdr((void *)rt_sc_module_busy, &di) && di.dli_fname ? di.dli_fname : "";
+        const char *sl = strrchr(so, '/');
+        size_t dl = sl ? (size_t)(sl - so) + 1 : 0;
+        char path[dl + sizeof "libscrip_scmod.so"];
+        memcpy(path, so, dl);
+        memcpy(path + dl, "libscrip_scmod.so", sizeof "libscrip_scmod.so");
+        void *h = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+        const sc_module_desc_t *d = h ? (const sc_module_desc_t *)dlsym(h, "scparsers_sc_module") : (const sc_module_desc_t *)0;
+        if (!d || !d->main_alpha) return (sc_module_t *)0;
+        if (d->n_gva > SC_GVA_RESERVE) {
+            fprintf(stderr, "rt_sc_module: the parser module has %ld GVA cells and the runtime reserves %d for it -- raise SC_GVA_RESERVE in rt_sc_module.c\n", d->n_gva, (int)SC_GVA_RESERVE);
+            abort();
+        }
+        m->d = d;
+    }
     m->base = (DESCR_t *)RT_GVA_VA;
     m->i_src = sc_slot_of(m->d, "ModSrc");
     m->i_path = sc_slot_of(m->d, "ModPath");
