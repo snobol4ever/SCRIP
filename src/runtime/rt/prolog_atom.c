@@ -152,7 +152,7 @@ const void *rt_pl_functor_entries(void) { return (const void *)functors; }
 int prolog_functor_count(void) { return functor_len; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int op_type_code(const char *ty) {
-    static const char *const names[] = { "xfx", "xfy", "yfx", "fy", "fx", "yf", "xf" };
+    static const char names[][4] = { "xfx", "xfy", "yfx", "fy", "fx", "yf", "xf" };
     for (int k = 0; k < 7; k++) if (ty && !strcmp(ty, names[k])) return k + 1;
     return 0;
 }

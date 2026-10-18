@@ -2899,10 +2899,10 @@ static void check_lexical_variable(RkP *p, int pos, int e, int twig) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int compile_time_var_known(const char *s, int n) {
-    static const char *const known[] = { "$?FILE", "$?LINE", "$?DISTRIBUTION", "$?LANG", "%?LANG", "$?NL", "$?BITS", "$?TABSTOP", "$?PACKAGE", "%?RESOURCES", "$?CHECKSUM", "$?FILES",
+    static const char known[][20] = { "$?FILE", "$?LINE", "$?DISTRIBUTION", "$?LANG", "%?LANG", "$?NL", "$?BITS", "$?TABSTOP", "$?PACKAGE", "%?RESOURCES", "$?CHECKSUM", "$?FILES",
                                          "$?SOURCE", "$?STRICT", "$?LANGUAGE-REVISION", "%?REQUIRE-SYMBOLS", "$?CONCRETIZATION", "$?CLASS", "$?ROLE", "$?MODULE", "$?REGEX", "&?ROUTINE",
-                                         "&?BLOCK", 0 };
-    for (int i = 0; known[i]; i++) if ((int) strlen(known[i]) == n && !memcmp(known[i], s, (size_t) n)) return 1;
+                                         "&?BLOCK", "" };
+    for (int i = 0; known[i][0]; i++) if ((int) strlen(known[i]) == n && !memcmp(known[i], s, (size_t) n)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4152,8 +4152,8 @@ static int r_declarator(RkP *p, int pos) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_multi_declarator(RkP *p, int pos) {
-    static const char *const m[] = { "multi", "proto", "only", 0 };
-    for (int i = 0; m[i]; i++) {
+    static const char m[][6] = { "multi", "proto", "only", "" };
+    for (int i = 0; m[i][0]; i++) {
         int e = kok(p, pos, m[i]);
         if (e < 0) continue;
         if (ch(p, e) == '(') panic_at(p, pos, "Cannot put %s on anonymous routine", m[i]);

@@ -393,8 +393,8 @@ static int kwb_write_ent(KWB_ENT_t *e, DESCR_t v) {
 static int kwb_write(const char *kw, DESCR_t v) { return kwb_write_ent(kwb_find(kw), v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_dump_values(void (*emit)(void *cx, const char *name, DESCR_t v), void *cx) {
-    static const char *const names[] = { "ANCHOR", "CASE", "CODE", "DUMP", "ERRLIMIT", "ERRTEXT", "ERRTYPE", "FILE", "FNCLEVEL", "FTRACE", "FULLSCAN", "INPUT", "LASTFILE", "LASTLINE", "LASTNO",
-        "LINE", "MAXLNGTH", "OUTPUT", "PROFILE", "RTNTYPE", "STCOUNT", "STLIMIT", "STNO", "TRACE", "TRIM", };
+    static const char names[][9] = { "ANCHOR", "CASE", "CODE", "DUMP", "ERRLIMIT", "ERRTEXT", "ERRTYPE", "FILE", "FNCLEVEL", "FTRACE", "FULLSCAN", "INPUT", "LASTFILE", "LASTLINE", "LASTNO", "LINE",
+        "MAXLNGTH", "OUTPUT", "PROFILE", "RTNTYPE", "STCOUNT", "STLIMIT", "STNO", "TRACE", "TRIM"};
     for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) { DESCR_t v; if (kwb_read(names[i], &v)) emit(cx, names[i], v); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

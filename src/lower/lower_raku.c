@@ -4118,10 +4118,9 @@ static tree_t * rk_gather_pump(tree_t * gcall, tree_t * limit) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_gath_eager_meth(const char * m) {
-    static const char * const ms[] = { "elems", "sum", "join", "list", "Array", "List", "Seq", "eager", "cache", "flat", "reverse", "sort", "min", "max", "minmax", "unique", "Str", "gist", "perl",
-        "raku", "end", "keys", "values", "kv", "pairs", "antipairs", "pick", "roll", "rotate", "squish", "tail", "Bool", "so", "not", "Numeric", "Int", "contains", "starts-with", "ends-with", "chars",
-        NULL };
-    for (int i = 0; ms[i]; i++) if (!strcmp(ms[i], m)) return 1;
+    static const char ms[][12] = { "elems", "sum", "join", "list", "Array", "List", "Seq", "eager", "cache", "flat", "reverse", "sort", "min", "max", "minmax", "unique", "Str", "gist", "perl", "raku",
+        "end", "keys", "values", "kv", "pairs", "antipairs", "pick", "roll", "rotate", "squish", "tail", "Bool", "so", "not", "Numeric", "Int", "contains", "starts-with", "ends-with", "chars", "" };
+    for (int i = 0; ms[i][0]; i++) if (!strcmp(ms[i], m)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

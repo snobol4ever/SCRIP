@@ -206,11 +206,11 @@ int icn_builtin_is_generator(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int icn_builtin_is_known(const char *name) {
     if (!name || !name[0]) return 0;
-    static const char *const icn_known[] = { "integer", "real", "string", "numeric", "char", "cset", "abs", "ord", "iand", "ior", "ixor", "ishift", "icom", "proc", "sqrt", "sin", "cos", "tan", "atan",
+    static const char icn_known[][9] = { "integer", "real", "string", "numeric", "char", "cset", "abs", "ord", "iand", "ior", "ixor", "ishift", "icom", "proc", "sqrt", "sin", "cos", "tan", "atan",
         "log", "exp", "asin", "acos", "dtor", "rtod", "args", "collect", "copy", "image", "name", "type", "variable", "sort", "sortf", "center", "detab", "entab", "left", "map", "repl", "reverse",
         "right", "trim", "delete", "insert", "list", "member", "pull", "get", "pop", "push", "put", "set", "table", "close", "getenv", "open", "read", "reads", "seek", "where", "stop", "write",
-        "writes", NULL };
-    for (int i = 0; icn_known[i]; i++) if (icn_known[i][0] == name[0] && !strcmp(icn_known[i], name)) return 1;
+        "writes", "" };
+    for (int i = 0; icn_known[i][0]; i++) if (icn_known[i][0] == name[0] && !strcmp(icn_known[i], name)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -447,7 +447,7 @@ int rt_builtin_is_known(const char *name) {
     if (rt_proc_is_registered(name)) return 0;
     if (builtin_is_generator(name)) return 0;
     if (!strncmp(name, "__rk_test_", 10)) return 1;
-    static const char *const known[] = { "write", "writes", "stop", "integer", "real", "string", "numeric", "char", "chr", "ord", "cset", "type", "image", "proc", "args", "copy", "abs", "sqrt", "sin",
+    static const char known[][24] = { "write", "writes", "stop", "integer", "real", "string", "numeric", "char", "chr", "ord", "cset", "type", "image", "proc", "args", "copy", "abs", "sqrt", "sin",
         "cos", "tan", "exp", "log", "asin", "acos", "atan", "dtor", "rtod", "max", "min", "trim", "reverse", "repl", "map", "left", "center", "right", "detab", "entab", "read", "reads", "sprintf",
         "printf", "iand", "ior", "ixor", "ishift", "icom", "table", "list", "set", "sort", "sortf", "get", "pop", "pull", "member", "insert", "delete", "key", "[]", "__apply__", "MAKELIST",
         "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make", "__rk_arr_xx", "__rk_arr_at", "__rk_seq_new",
@@ -470,8 +470,8 @@ int rt_builtin_is_known(const char *name) {
         "__rk_elem_bind", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT",
         "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY",
         "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "SNO$CHKNM", "SNO$PATCK", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt",
-        "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", NULL };
-    for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
+        "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", "" };
+    for (int i = 0; known[i][0]; i++) if (!strcmp(known[i], name)) return 1;
     { if (dat_find_type(name)) return 1; }
     { extern int rt_dat_field_of_any(const char *); if (rt_dat_field_of_any(name)) return 1; }
     { extern const char *rt_builtin_synonym(const char *); if (rt_builtin_synonym(name)) return 1; }
@@ -17911,14 +17911,14 @@ DESCR_t proc_as_value(const char *name) {
     for (int i = 0; i < g_stage2.proc_count; i++) {
         if (g_stage2.proc_table[i].name && strcmp(g_stage2.proc_table[i].name, name) == 0) { DESCR_t pv = {0}; pv.v = DT_E; pv.slen = (uint32_t)i; pv.i = g_stage2.proc_table[i].entry_pc; return pv; }
     }
-    static const char *const builtins[] = { "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_enum_name","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln",
+    static const char builtins[][17] = { "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_enum_name","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln",
         "__pas_trunc","__pas_abs","__pas_sin", "__pas_read_i_f","__pas_read_c_f","__pas_readln_f","__pas_eof_f","__pas_eoln_f","__pas_getbufch","__pas_getbufch_f", "__pas_ca_pack", "__pas_ca_unpack",
         "__pas_ca_encode","__pas_stdfile","__pas_arr_copy","__pas_arr_of", "__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","__pas_fassign","__pas_rewrite", "__pas_reset","__pas_fclose",
         "__pas_std_mute", "__pas_copy", "__pas_upcase", "__pas_paramcount", "__pas_paramstr", "__pas_read_s", "__pas_read_s_f", "write","writes","read","reads","close","open","remove", "flush", "put",
         "get","pull","push","pop","list","image","proc","type","copy", "string","integer", "real","numeric", "ord","char", "reverse","sort","sortf", "find","match","many","any","upto","bal","move",
         "tab","pos", "map","repl","trim","left","right","center","detab","entab", "abs", "sqrt","sin","cos", "tan","asin", "acos","atan","exp","log", "dtor","rtod", "iand","ior","ixor","ishift",
-        "icom", "table","key","insert","delete","member","args","level", "collect", "stop","exit","runerr","name", "variable", "seq", "chdir","delay","getch","getche","kbhit","loadfunc", NULL };
-    for (int i = 0; builtins[i]; i++) if (strcmp(builtins[i], name) == 0) return STRVAL(name);
+        "icom", "table","key","insert","delete","member","args","level", "collect", "stop","exit","runerr","name", "variable", "seq", "chdir","delay","getch","getche","kbhit","loadfunc", "" };
+    for (int i = 0; builtins[i][0]; i++) if (strcmp(builtins[i], name) == 0) return STRVAL(name);
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
