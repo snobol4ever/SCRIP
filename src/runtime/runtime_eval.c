@@ -805,7 +805,10 @@ int rt_sno_goto_special_is(const char *enc) {
     const char *want = (enc[1] == 'R') ? "RETURN" : (enc[1] == 'F') ? "FRETURN" : (enc[1] == 'N') ? "NRETURN" : NULL;
     if (!want) return 0;
     const char *got = rt_goto_peek_name(enc + 2);
-    return (got && !strcmp(got, want)) ? 1 : 0;
+    if (!got || strcmp(got, want)) return 0;
+    extern int rt_g_ret_by_name;
+    if (want[0] != 'N') rt_g_ret_by_name = 0;
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *rt_goto_resolve_x(const char *name, int *undef) {
@@ -848,7 +851,7 @@ static void *rt_goto_resolve_x(const char *name, int *undef) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_goto_resolve(const char *name) { return rt_goto_resolve_x(name, NULL); }
+void *rt_goto_resolve(const char *name) { extern int rt_g_ret_by_name; rt_g_ret_by_name = 0; return rt_goto_resolve_x(name, NULL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_entry_resolve(const char *name, int *is_frag) {
     if (is_frag) *is_frag = 0;
