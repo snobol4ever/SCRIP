@@ -39,7 +39,11 @@
                           close_output_chars_stream/2, close_output_codes_stream/2, add_stream_alias/2, current_alias/2, add_stream_mirror/2, remove_stream_mirror/2,
                           current_mirror/2, current_stream/1,
                           set_stream_type/2, set_stream_eof_action/2, set_stream_buffering/2, stream_position/2, stream_line_column/3, set_stream_line_column/3,
-                          seek/4 ]).
+                          seek/4,
+                          sr_open/3, sr_change_options/2, sr_close/1, sr_new_pass/1, sr_read_term/4, sr_current_descriptor/1, sr_get_stream/2, sr_get_module/3,
+                          sr_get_file_name/2, sr_get_position/3, sr_get_include_list/2, sr_get_include_stream_list/2, sr_get_size_counters/3,
+                          sr_get_error_counters/3, sr_set_error_counters/3, sr_write_message/4, sr_write_message/6, sr_write_message/8, sr_write_error/2,
+                          sr_write_error/4, sr_write_error/6, sr_error_from_exception/2 ]).
 write_to_atom(A, T) :- '$gnu_b_oa'(A, write_to_atom/2), with_output_to(atom(A), write(T)).
 writeq_to_atom(A, T) :- '$gnu_b_oa'(A, writeq_to_atom/2), with_output_to(atom(A), writeq(T)).
 print_to_atom(A, T) :- '$gnu_b_oa'(A, print_to_atom/2), with_output_to(atom(A), print(T)).
@@ -536,3 +540,123 @@ seek(S, W, O, N) :- '$gnu_b_seek'(S, W, O, N, seek/4).
     ( R == false -> throw(error(permission_error(reposition, stream, S), PI)) ; K == t -> throw(error(permission_error(reposition, text_stream, S), PI)) ; true ),
     '$gnu_b_ia'(W, PI), ( memberchk(W, [bof, current, eof]) -> true ; throw(error(domain_error(stream_seek_method, W), PI)) ),
     '$gnu_b_int'(O, PI), '$gnu_b_oi'(N, PI), '$gnu_os'(ts_seek, sk(St, W, O), N0), N = N0.
+sr_open(F, D, Os) :- PI = sr_open/3, '$gnu_b_sr_list'(Os, PI), '$gnu_b_sr_opts'(Os, 525310, M, user_error, Out, PI),
+    ( var(D) -> true ; throw(error(type_error(variable, D), PI)) ), '$gnu_b_sr_file'(F, PI, F1, S), '$gnu_b_sr_tab'(T), '$gnu_b_sr_free'(T, 0, D),
+    nb_setval('$gnu_b_sr_tab', [sr(D, M, Out, [f(S, F1, [], 0)], 0, 0, 0, 0, 0, 0)|T]), nb_setval('$gnu_b_sr_cur', D).
+'$gnu_b_sr_tab'(T) :- catch(nb_getval('$gnu_b_sr_tab', T), _, T = []).
+'$gnu_b_sr_free'(T, N, D) :- ( memberchk(sr(N, _, _, _, _, _, _, _, _, _), T) -> N1 is N + 1, '$gnu_b_sr_free'(T, N1, D) ; D = N ).
+'$gnu_b_sr_list'(L, PI) :- ( var(L) -> throw(error(instantiation_error, PI)) ; L == [] -> true ; L = [_|T] -> '$gnu_b_sr_list'(T, PI) ; throw(error(type_error(list, L), PI)) ).
+'$gnu_b_sr_opts'([], M, M, O, O, _).
+'$gnu_b_sr_opts'([X|Xs], M0, M, O0, O, PI) :- '$gnu_b_sr_opt'(X, M0, M1, O0, O1, PI), !, '$gnu_b_sr_opts'(Xs, M1, M, O1, O, PI).
+'$gnu_b_sr_opt'(X, _, _, _, _, PI) :- var(X), !, throw(error(instantiation_error, PI)).
+'$gnu_b_sr_opt'(T, M0, M, O, O, PI) :- functor(T, F, 1), arg(1, T, A), ( var(A) -> throw(error(instantiation_error, PI)) ; true ), '$gnu_b_sr_tp'(F, _, P),
+    BP is P * 2, BT is BP + 1, '$gnu_b_sr_tpb'(A, BP, BT, M0, M).
+'$gnu_b_sr_opt'(restart(X), M0, M, O, O, _) :- '$gnu_b_sr_flag'(X, 16, M0, M).
+'$gnu_b_sr_opt'(reflect_eof(X), M0, M, O, O, _) :- '$gnu_b_sr_flag'(X, 17, M0, M).
+'$gnu_b_sr_opt'(undo_directives(X), M0, M, O, O, _) :- '$gnu_b_sr_flag'(X, 18, M0, M).
+'$gnu_b_sr_opt'(write_error(X), M0, M, O, O, _) :- '$gnu_b_sr_flag'(X, 19, M0, M).
+'$gnu_b_sr_opt'(output_stream(S), M, M, _, S, _).
+'$gnu_b_sr_opt'(X, _, _, _, _, PI) :- throw(error(domain_error(sr_option, X), PI)).
+'$gnu_b_sr_flag'(false, B, M0, M) :- M is M0 /\ \ (1 << B).
+'$gnu_b_sr_flag'(true, B, M0, M) :- M is M0 \/ (1 << B).
+'$gnu_b_sr_tp'(include, 1, 0).
+'$gnu_b_sr_tp'(op, 3, 1).
+'$gnu_b_sr_tp'(set_prolog_flag, 2, 2).
+'$gnu_b_sr_tp'(char_conversion, 2, 3).
+'$gnu_b_sr_tp'(module, 1, 4).
+'$gnu_b_sr_tp'(end_module, 1, 4).
+'$gnu_b_sr_tp'(body, 1, 4).
+'$gnu_b_sr_tp'(end_body, 1, 4).
+'$gnu_b_sr_tpb'(kill, P, T, M0, M) :- M is M0 /\ \ ((1 << P) \/ (1 << T)).
+'$gnu_b_sr_tpb'(ignore, P, T, M0, M) :- M is (M0 \/ (1 << P)) /\ \ (1 << T).
+'$gnu_b_sr_tpb'(hide, P, T, M0, M) :- M is (M0 /\ \ (1 << P)) \/ (1 << T).
+'$gnu_b_sr_tpb'(reflect, P, T, M0, M) :- M is M0 \/ (1 << P) \/ (1 << T).
+'$gnu_b_sr_file'(F, PI, F, F) :- nonvar(F), F = '$stream'(_), !, ( PI = PI ).
+'$gnu_b_sr_file'(F, PI, F1, S) :- ( var(F) -> throw(error(instantiation_error, PI)) ; true ), prolog_file_name(F, F1),
+    catch(open(F1, read, S), error(E, _), throw(error(E, PI))).
+'$gnu_b_sr_get'(D, PI, R) :- ( var(D) -> throw(error(instantiation_error, PI)) ; integer(D) -> true ; throw(error(type_error(integer, D), PI)) ),
+    '$gnu_b_sr_tab'(T), R = sr(D, _, _, _, _, _, _, _, _, _), ( memberchk(R, T) -> true ; throw(error(existence_error(sr_descriptor, D), PI)) ).
+'$gnu_b_sr_put'(R) :- arg(1, R, D), '$gnu_b_sr_tab'(T0), '$gnu_b_sr_rep'(T0, D, R, T), nb_setval('$gnu_b_sr_tab', T).
+'$gnu_b_sr_rep'([], _, _, []).
+'$gnu_b_sr_rep'([X|Xs], D, R, [Y|Ys]) :- ( arg(1, X, D) -> Y = R ; Y = X ), '$gnu_b_sr_rep'(Xs, D, R, Ys).
+'$gnu_b_sr_bit'(D, B) :- '$gnu_b_sr_get'(D, sr_read_term/4, sr(_, M, _, _, _, _, _, _, _, _)), M /\ (1 << B) =\= 0.
+sr_change_options(D, Os) :- PI = sr_change_options/2, '$gnu_b_sr_get'(D, PI, sr(D, M0, O0, Fs, L1, L2, C, L, E, W)), '$gnu_b_sr_list'(Os, PI),
+    '$gnu_b_sr_opts'(Os, M0, M, O0, O, PI), '$gnu_b_sr_put'(sr(D, M, O, Fs, L1, L2, C, L, E, W)).
+sr_close(D) :- '$gnu_b_sr_get'(D, sr_close/1, sr(D, _, _, Fs, _, _, _, _, _, _)), '$gnu_b_sr_closeall'(Fs), '$gnu_b_sr_tab'(T0),
+    '$gnu_b_sr_del'(T0, D, T), nb_setval('$gnu_b_sr_tab', T).
+'$gnu_b_sr_closeall'([]).
+'$gnu_b_sr_closeall'([f(S, _, _, _)|Fs]) :- catch(close(S), _, true), '$gnu_b_sr_closeall'(Fs).
+'$gnu_b_sr_del'([], _, []).
+'$gnu_b_sr_del'([X|Xs], D, Ys) :- ( arg(1, X, D) -> Ys = Ys1 ; Ys = [X|Ys1] ), '$gnu_b_sr_del'(Xs, D, Ys1).
+sr_new_pass(D) :- PI = sr_new_pass/1, '$gnu_b_sr_get'(D, PI, sr(D, M, O, Fs, _, _, _, _, E, W)),
+    ( M /\ (1 << 16) =\= 0 -> '$gnu_b_sr_bottom'(Fs, f(S0, N, _, _)), '$gnu_b_sr_closeall'(Fs), open(N, read, S), ( S0 = S0 ),
+      '$gnu_b_sr_put'(sr(D, M, O, [f(S, N, [], 0)], 0, 0, 0, 0, E, W))
+    ; throw(error(permission_error(new_pass, one_pass_reader, D), PI)) ).
+'$gnu_b_sr_bottom'([F], F) :- !.
+'$gnu_b_sr_bottom'([_|Fs], F) :- '$gnu_b_sr_bottom'(Fs, F).
+sr_read_term(D, T, Os, E) :- '$gnu_b_sr_get'(D, sr_read_term/4, _), repeat, '$gnu_b_sr_get'(D, sr_read_term/4, sr(_, _, _, [f(S, _, _, _)|_], _, _, _, _, _, _)),
+    catch(read_term(S, T, Os), X, true), '$gnu_b_sr_pos'(D, S, T, X),
+    ( var(X) -> '$gnu_b_sr_treat'(D, T, E) ; T = '$sr_read_term_error', '$gnu_b_sr_exc'(X, E) ),
+    ( E = sr_error(_, _), '$gnu_b_sr_bit'(D, 19) -> sr_write_error(D, E) ; true ), !.
+'$gnu_b_sr_pos'(D, S, T, X) :- stream_line_column(S, L2, _), ( var(X), T == end_of_file -> L1 = L2 ; last_read_start_line_column(L1, _) -> true ; L1 = L2 ),
+    '$gnu_b_sr_get'(D, sr_read_term/4, sr(D, M, O, Fs, _, _, C, L, E, W)), '$gnu_b_sr_put'(sr(D, M, O, Fs, L1, L2, C, L, E, W)).
+'$gnu_b_sr_treat'(D, T, E) :- T == end_of_file, !, '$gnu_b_sr_eof'(D), E = sr_ok.
+'$gnu_b_sr_treat'(D, T, E) :- nonvar(T), T = (:- Dir), nonvar(Dir), functor(Dir, F, A), '$gnu_b_sr_tp'(F, A, P), !, BP is P * 2, BT is BP + 1,
+    ( '$gnu_b_sr_bit'(D, BT) -> catch('$gnu_b_sr_exec'(D, Dir, E), X, '$gnu_b_sr_exc'(X, E)) ; true ),
+    ( var(X) -> '$gnu_b_sr_bit'(D, BP) ; true ).
+'$gnu_b_sr_treat'(_, _, sr_ok).
+'$gnu_b_sr_eof'(D) :- '$gnu_b_sr_get'(D, sr_read_term/4, sr(D, M, O, [f(S, N, IL, Done)|Fs], L1, L2, C0, L0, E, W)),
+    ( Done == 0 -> character_count(S, C1), line_count(S, LC1), C is C0 + C1, L is L0 + LC1 ; C = C0, L = L0 ),
+    ( Fs == [] -> '$gnu_b_sr_put'(sr(D, M, O, [f(S, N, IL, 1)], L1, L2, C, L, E, W))
+    ; catch(close(S), _, true), '$gnu_b_sr_put'(sr(D, M, O, Fs, L1, L2, C, L, E, W)), fail ).
+'$gnu_b_sr_exec'(D, Dir, E) :- '$gnu_b_sr_dir'(D, Dir, E), !.
+'$gnu_b_sr_exec'(_, _, sr_error(warning, 'directive failed')).
+'$gnu_b_sr_dir'(D, include(F), sr_ok) :- '$gnu_b_sr_get'(D, sr_read_term/4, sr(D, M, O, [f(S0, N0, IL0, Dn)|Fs], L1, L2, C, L, E, W)),
+    '$gnu_b_sr_file'(F, sr_read_term/4, F1, S), '$gnu_b_sr_put'(sr(D, M, O, [f(S, F1, [N0:L1|IL0], 0), f(S0, N0, IL0, Dn)|Fs], L1, L2, C, L, E, W)).
+'$gnu_b_sr_dir'(_, op(P, S, O), sr_ok) :- op(P, S, O).
+'$gnu_b_sr_dir'(_, set_prolog_flag(F, V), sr_ok) :- set_prolog_flag(F, V).
+'$gnu_b_sr_dir'(_, char_conversion(I, O), sr_ok) :- char_conversion(I, O).
+'$gnu_b_sr_dir'(_, module(_), sr_ok).
+'$gnu_b_sr_dir'(_, body(_), sr_ok).
+'$gnu_b_sr_dir'(_, end_module(_), sr_ok).
+'$gnu_b_sr_dir'(_, end_body(_), sr_ok).
+sr_current_descriptor(D) :- '$gnu_b_sr_tab'(T), catch(nb_getval('$gnu_b_sr_cur', C), _, C = -1),
+    ( memberchk(sr(C, _, _, _, _, _, _, _, _, _), T), D = C ; member(sr(D, _, _, _, _, _, _, _, _, _), T), D \== C ).
+sr_get_stream(D, S) :- '$gnu_b_sr_get'(D, sr_get_stream/2, sr(_, _, _, [f(S0, _, _, _)|_], _, _, _, _, _, _)), S = S0.
+sr_get_module(D, _, _) :- '$gnu_b_sr_get'(D, sr_get_module/3, _), fail.
+sr_get_file_name(D, F) :- '$gnu_b_sr_get'(D, sr_get_file_name/2, sr(_, _, _, [f(_, N, _, _)|_], _, _, _, _, _, _)), F = N.
+sr_get_position(D, L1, L2) :- '$gnu_b_sr_get'(D, sr_get_position/3, sr(_, _, _, _, A, B, _, _, _, _)), L1 = A, L2 = B.
+sr_get_include_list(D, IL) :- '$gnu_b_sr_get'(D, sr_get_include_list/2, sr(_, _, _, [f(_, _, I, _)|_], _, _, _, _, _, _)), IL = I.
+sr_get_include_stream_list(D, SL) :- '$gnu_b_sr_get'(D, sr_get_include_stream_list/2, sr(_, _, _, [_|Fs], _, _, _, _, _, _)), '$gnu_b_sr_streams'(Fs, SL).
+'$gnu_b_sr_streams'([], []).
+'$gnu_b_sr_streams'([f(S, _, _, _)|Fs], [S|Ss]) :- '$gnu_b_sr_streams'(Fs, Ss).
+sr_get_size_counters(D, C, L) :- '$gnu_b_sr_get'(D, sr_get_size_counters/3, sr(_, _, _, _, _, _, C0, L0, _, _)), C = C0, L = L0.
+sr_get_error_counters(D, E, W) :- '$gnu_b_sr_get'(D, sr_get_error_counters/3, sr(_, _, _, _, _, _, _, _, E0, W0)), E = E0, W = W0.
+sr_set_error_counters(D, E, W) :- PI = sr_set_error_counters/3, '$gnu_b_sr_get'(D, PI, sr(D, M, O, Fs, L1, L2, C, L, _, _)),
+    '$gnu_b_oi'(E, PI), '$gnu_b_oi'(W, PI), '$gnu_b_sr_put'(sr(D, M, O, Fs, L1, L2, C, L, E, W)).
+sr_write_message(D, Ty, Fm, As) :- '$gnu_b_sr_get'(D, sr_write_message/4, sr(_, _, O, [f(_, N, _, _)|_], _, _, _, _, _, _)),
+    format(O, '~a: ~a: ', [N, Ty]), format(O, Fm, As), '$gnu_b_sr_count'(D, Ty).
+sr_write_message(D, L1, L2C, Ty, Fm, As) :- '$gnu_b_sr_get'(D, sr_write_message/6, sr(_, _, _, [f(_, N, IL, _)|_], _, _, _, _, _, _)),
+    sr_write_message(D, IL, N, L1, L2C, Ty, Fm, As).
+sr_write_message(D, _, N, L1, L2C, Ty, Fm, As) :- '$gnu_b_sr_get'(D, sr_write_message/8, sr(_, _, O, _, _, _, _, _, _, _)),
+    ( L2C < 0 -> C is -L2C, format(O, '~a:~d:~d: ~a: ', [N, L1, C, Ty]) ; format(O, '~a:~d-~d: ~a: ', [N, L1, L2C, Ty]) ), format(O, Fm, As), '$gnu_b_sr_count'(D, Ty).
+'$gnu_b_sr_count'(D, Ty) :- '$gnu_b_sr_get'(D, sr_write_message/4, sr(D, M, O, Fs, L1, L2, C, L, E0, W0)),
+    ( Ty == error -> E is E0 + 1, W = W0 ; Ty == warning -> E = E0, W is W0 + 1 ; E = E0, W = W0 ), '$gnu_b_sr_put'(sr(D, M, O, Fs, L1, L2, C, L, E, W)).
+sr_write_error(D, SE) :- '$gnu_b_sr_fae'(SE, L1, L2C, Ty, Fm, As, sr_write_error/2), ( var(L1), sr_write_message(D, Ty, Fm, As) ; sr_write_message(D, L1, L2C, Ty, Fm, As) ), !.
+sr_write_error(_, _).
+sr_write_error(D, L1, L2C, SE) :- '$gnu_b_sr_fae'(SE, EL1, EL2C, Ty, Fm, As, sr_write_error/4), ( L1 = EL1, L2C = EL2C ; true ),
+    sr_write_message(D, EL1, EL2C, Ty, Fm, As), !.
+sr_write_error(_, _, _, _).
+sr_write_error(D, IL, F, L1, L2C, SE) :- '$gnu_b_sr_fae'(SE, EL1, EL2C, Ty, Fm, As, sr_write_error/6), ( L1 = EL1, L2C = EL2C ; true ),
+    sr_write_message(D, IL, F, EL1, EL2C, Ty, Fm, As), !.
+sr_write_error(_, _, _, _, _, _).
+'$gnu_b_sr_fae'(SE, _, _, _, _, _, PI) :- var(SE), !, throw(error(instantiation_error, PI)).
+'$gnu_b_sr_fae'(SE, L1, L2C, Ty, Fm, As, _) :- SE = sr_error(Ty, Er), '$gnu_b_sr_simpl'(Er, L1, L2C, Fm, As).
+'$gnu_b_sr_simpl'(syntax(L, C, Er), L, L2C, '~a~n', [Er]) :- !, L2C is -C.
+'$gnu_b_sr_simpl'(existence_error(source_sink, F), _, _, 'cannot open file ~a - does not exist~n', [F]) :- !.
+'$gnu_b_sr_simpl'(permission_error(open, source_sink, F), _, _, 'cannot open file ~a - permission error~n', [F]) :- !.
+'$gnu_b_sr_simpl'(Er, _, _, '~w~n', [Er]).
+sr_error_from_exception(X, E) :- ( var(X) -> throw(error(instantiation_error, sr_error_from_exception/2)) ; true ), '$gnu_b_sr_exc'(X, E).
+'$gnu_b_sr_exc'(error(syntax_error(_), _), E) :- !, syntax_error_info(_, L, C, M), E = sr_error(error, syntax(L, C, M)).
+'$gnu_b_sr_exc'(error(F, _), sr_error(error, F)) :- !.
+'$gnu_b_sr_exc'(X, sr_error(exception, X)).

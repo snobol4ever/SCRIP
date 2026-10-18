@@ -3274,11 +3274,12 @@ static int pl_base_defines(PlClause *first, PlClause *last, const char *nm, int 
     return 0;
 }
 typedef struct { const char *s; int n; int ar; } pl_pk_t;
-static uint32_t pl_pk_hash(const char *s, int n, int ar) {
+static uint32_t pl_pk_hname(const char *s, int n) {
     uint32_t h = 2166136261u;
     for (int i = 0; i < n; i++) h = (h ^ (unsigned char)s[i]) * 16777619u;
-    return h ^ ((uint32_t)ar * 2654435761u);
+    return h;
 }
+static uint32_t pl_pk_hash(const char *s, int n, int ar) { return pl_pk_hname(s, n) ^ ((uint32_t)ar * 2654435761u); }
 static uint32_t pl_pk_cap(uint32_t n) { uint32_t c = 16; while (c < 2 * n + 2) c <<= 1; return c; }
 static void pl_pk_put(pl_pk_t *t, uint32_t cap, const char *s, int n, int ar) {
     for (uint32_t i = pl_pk_hash(s, n, ar) & (cap - 1);; i = (i + 1) & (cap - 1)) {
@@ -3286,13 +3287,13 @@ static void pl_pk_put(pl_pk_t *t, uint32_t cap, const char *s, int n, int ar) {
         if (t[i].n == n && t[i].ar == ar && !memcmp(t[i].s, s, (size_t)n)) return;
     }
 }
-static int pl_pk_has(const pl_pk_t *t, uint32_t cap, const char *s, int ar) {
-    int n = (int)strlen(s);
-    for (uint32_t i = pl_pk_hash(s, n, ar) & (cap - 1);; i = (i + 1) & (cap - 1)) {
+static int pl_pk_has_h(const pl_pk_t *t, uint32_t cap, const char *s, int n, uint32_t hn, int ar) {
+    for (uint32_t i = (hn ^ ((uint32_t)ar * 2654435761u)) & (cap - 1);; i = (i + 1) & (cap - 1)) {
         if (!t[i].s) return 0;
         if (t[i].n == n && t[i].ar == ar && !memcmp(t[i].s, s, (size_t)n)) return 1;
     }
 }
+static int pl_pk_has(const pl_pk_t *t, uint32_t cap, const char *s, int ar) { int n = (int)strlen(s); return pl_pk_has_h(t, cap, s, n, pl_pk_hname(s, n), ar); }
 typedef struct { pl_pk_t *t; uint32_t cap, n; } pl_pk_set_t;
 static void pl_pk_set_add(pl_pk_set_t *h, const char *s, int n, int ar) {
     if (2 * (h->n + 1) > h->cap) {
@@ -3336,11 +3337,13 @@ static int pl_lib_quiet(const pl_prelude_lib_t *lib, const char *nm, int ar) {
 static int pl_lib_named(const pl_prelude_lib_t *lib, const pl_pk_t *rk, uint32_t rkc, const pl_pk_t *bk, uint32_t bkc, PlClause *base, PlClause *base_last, const char *native_only, const pl_pk_t *ud,
     uint32_t udc, int imported) {
     for (const pl_prelude_lib_pi_t *e = lib->exports; e->nm; e++) {
+        int n = (int)strlen(e->nm);
+        uint32_t hn = pl_pk_hname(e->nm, n);
         if (native_only && !strcmp(e->nm, native_only)) continue;
-        if (ud && pl_pk_has(ud, udc, e->nm, e->ar)) continue;
-        if (!pl_pk_has(rk, rkc, e->nm, e->ar) && !(e->ar && pl_pk_has(rk, rkc, e->nm, 0) && (imported || !pl_lib_quiet(lib, e->nm, 0)))) continue;
+        if (ud && pl_pk_has_h(ud, udc, e->nm, n, hn, e->ar)) continue;
+        if (!pl_pk_has_h(rk, rkc, e->nm, n, hn, e->ar) && !(e->ar && pl_pk_has_h(rk, rkc, e->nm, n, hn, 0) && (imported || !pl_lib_quiet(lib, e->nm, 0)))) continue;
         if (pl_lib_quiet(lib, e->nm, e->ar)) continue;
-        if (!(bk ? pl_pk_has(bk, bkc, e->nm, e->ar) : pl_base_defines(base, base_last, e->nm, e->ar))) return 1;
+        if (!(bk ? pl_pk_has_h(bk, bkc, e->nm, n, hn, e->ar) : pl_base_defines(base, base_last, e->nm, e->ar))) return 1;
     }
     return 0;
 }
