@@ -345,6 +345,14 @@ typedef struct {
     int op_zk_own;
     int op_zcp_src;
     int op_zcp_dst;
+    int op_xrec;
+    int op_zcp_sxf;
+    int op_zcp_dxf;
+    int op_grec;
+    int op_grec_pop;
+    int op_wrec;
+    int op_wrec_pop;
+    int op_dj_rec;
     int op_dj_bfail;
     int op_unmark_chain;
     int op_beta_dead;

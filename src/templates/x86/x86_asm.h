@@ -595,8 +595,8 @@ inline std::string x86_fc_jcc_omega(const char * mnem);
 inline std::string x86_fc_jcc_gamma(const char * mnem);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc(const char * mnem, int port) {
-    if (port == X86P_OMEGA && (x86_fc_on() || _.op_wpop != 0 || x86_pl_trace_on())) return x86_fc_jcc_omega(mnem);
-    if (port == X86P_GAMMA && ((x86_fc_on() && _.op_fc_base < 0) || _.op_zgpop != 0 || _.op_zcp_dst >= 0 || x86_pl_trace_on())) return x86_fc_jcc_gamma(mnem);
+    if (port == X86P_OMEGA && (x86_fc_on() || _.op_wpop != 0 || (_.op_xrec & 8) || x86_pl_trace_on())) return x86_fc_jcc_omega(mnem);
+    if (port == X86P_GAMMA && ((x86_fc_on() && _.op_fc_base < 0) || _.op_zgpop != 0 || _.op_zcp_dst >= 0 || (_.op_xrec & 6) || x86_pl_trace_on())) return x86_fc_jcc_gamma(mnem);
     return x86_port_hook(X86H_JCC, port)
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
                           : x86_rec(mnem) + x86_portname(port) + "\n");
@@ -2417,13 +2417,15 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
         if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += bb_glue_flat_leave();
         if (site == X86H_JMP && port == X86P_OMEGA && !_.op_wsteal) s += bb_glue_flat_leave();
     }
-    if (site == X86H_JMP && port == X86P_GAMMA && _.op_zcp_dst >= 0)
-        s += x86("mov", "rax", x86_zref(_.op_zcp_src, 1))
-           + x86("mov", x86_zref(_.op_zcp_dst, 1), "rax")
-           + x86("mov", "rax", x86_zref(_.op_zcp_src + 8, 1))
-           + x86("mov", x86_zref(_.op_zcp_dst + 8, 1), "rax");
-    if (site == X86H_JMP && port == X86P_GAMMA && _.op_zgpop != 0) s += x86_add("rsp", (long)_.op_zgpop);
-    if (site == X86H_JMP && port == X86P_OMEGA && _.op_wpop != 0) s += x86_add("rsp", (long)_.op_wpop);
+    if (site == X86H_JMP && port == X86P_GAMMA && (_.op_zcp_dst >= 0 || (_.op_xrec & 2)))
+        s += x86("mov", "rax", (_.op_xrec & 1) ? RDQ("rbp", _.op_zcp_sxf) : x86_zref(_.op_zcp_src, 1))
+           + x86("mov", (_.op_xrec & 2) ? RDQ("rbp", _.op_zcp_dxf) : x86_zref(_.op_zcp_dst, 1), "rax")
+           + x86("mov", "rax", (_.op_xrec & 1) ? RDQ("rbp", _.op_zcp_sxf + 8) : x86_zref(_.op_zcp_src + 8, 1))
+           + x86("mov", (_.op_xrec & 2) ? RDQ("rbp", _.op_zcp_dxf + 8) : x86_zref(_.op_zcp_dst + 8, 1), "rax");
+    if (site == X86H_JMP && port == X86P_GAMMA && (_.op_xrec & 4)) s += x86("mov", "rsp", RDQ("rbp", _.op_grec)) + IF(_.op_grec_pop != 0, x86_add("rsp", (long)_.op_grec_pop));
+    else if (site == X86H_JMP && port == X86P_GAMMA && _.op_zgpop != 0) s += x86_add("rsp", (long)_.op_zgpop);
+    if (site == X86H_JMP && port == X86P_OMEGA && (_.op_xrec & 8)) s += x86("mov", "rsp", RDQ("rbp", _.op_wrec)) + IF(_.op_wrec_pop != 0, x86_add("rsp", (long)_.op_wrec_pop));
+    else if (site == X86H_JMP && port == X86P_OMEGA && _.op_wpop != 0) s += x86_add("rsp", (long)_.op_wpop);
     if (site == X86H_DEF && port == X86P_ALPHA) {
         static int on = -1;
         if (on < 0) { const char *e = getenv("SCRIP_RBX_FIELD_TRACE"); on = (e && *e == '1') ? 1 : 0; }

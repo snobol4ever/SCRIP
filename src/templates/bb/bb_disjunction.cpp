@@ -57,6 +57,7 @@ std::string bb_disjunction() {
              + x86("mov", FRQ(_.op_off), 0L)
              + x86("mov", FRQ(_.op_off + 8), 0L)
              + x86("mov", FR(_.op_off + 16), 0)
+             + IF(_.op_dj_rec, x86("mov", FRQ(_.op_off + 24), "rsp"))
              + disj_choice_open()
              + x86("jmp", PAIR(0))
              + x86("def", PAIR((int)(2 * _.op_ival)))
