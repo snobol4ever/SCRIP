@@ -4264,17 +4264,11 @@ static void pl_db_reclaim(pl_db_t *db) {
     {
         pl_db_rc_t r = { db, b, b + bb_pool_used(), INT_MAX, lo, hi };
         int ok = rt_gc_frames_visit(pl_db_rc_frame, (void *)&r);
-        const char *pe = getenv("SCRIP_GC_PLANT_PL_RECLAIM");
-        int plant = pe && *pe && *pe != '0';
         next_lo = db->n;
         for (int i = lo; i <= hi; i++) {
             int held = db->s[i].frag & PL_DB_FRAG_HELD;
             db->s[i].frag &= ~PL_DB_FRAG_HELD;
             if (!pl_db_reclaim_cand(db, i)) continue;
-            if (plant && ok && (held || db->s[i].erased >= r.min_g) && pl_db_reclaim_one(db, i)) {
-                fprintf(stderr, "[PL-RECLAIM-PLANT] applied: slot %d reclaimed though %s\n", i, held ? "a frame holds it" : "a live walk's generation can still see it");
-                continue;
-            }
             if (!ok || held || db->s[i].erased >= r.min_g || !pl_db_reclaim_one(db, i)) { if (i < next_lo) next_lo = i; }
         }
         db->recl_lo = next_lo;
