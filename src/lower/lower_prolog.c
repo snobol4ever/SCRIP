@@ -3660,7 +3660,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     rt_proc_set_generator(key, 1);
     rt_proc_set_jmpentry(key, 1);
     rt_proc_set_dyn_scope(key, 0);
-    { extern void rt_proc_set_pinned(const char *, int); rt_proc_set_pinned(key, 0); }
+    { extern void rt_proc_set_pinned(const char *, int); extern int zls_g_resumable_frame(const IR_graph_t *); rt_proc_set_pinned(key, zls_g_resumable_frame(g)); }
     gpa_sv = g_gen_proc_active;
     g_gen_proc_active = 1;
     {

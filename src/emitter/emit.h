@@ -698,6 +698,12 @@ int capture_frame_slot(const IR_t * cap_nd);
 enum { ZCUS_LEAF = 0, ZCUS_ARBNO = 1, ZCUS_CAPTURE = 2, ZCUS_FENCE = 3, ZCUS_CHOICE = 4, ZCUS_N = 5 };
 int zzone_off_for(const IR_t * nd, int customer);
 extern IR_graph_t * g_emit_cfg;
+#ifdef __cplusplus
+extern "C" int zls_g_resumable_frame(const IR_graph_t *);
+#else
+int zls_g_resumable_frame(const IR_graph_t *);
+#endif
+static inline int emit_resumable_frame(void) { return (g_emit.zframe_graph && g_emit_cfg && zls_g_resumable_frame(g_emit_cfg)) ? 1 : 0; }
 extern const char *Σ;
 extern int Σlen;
 extern int Δ;

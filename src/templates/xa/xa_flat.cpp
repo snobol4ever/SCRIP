@@ -358,7 +358,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
-         + (x86_pl_frame()
+         + (x86_resumable_frame()
             ? ( (x86_hb_on() ? x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
                              + x86("mov", x86_hb(), "rsp")
                              : (emit_jmp_pin_legacy() ? x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp") : std::string()))
@@ -386,7 +386,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
             : (emit_jmp_pin_legacy() ? (xa_flat_zanchor_poison() ? std::string() : x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp"))
                                 + std::string("")
                                : std::string()));
-    if (x86_pl_frame()) {
+    if (x86_resumable_frame()) {
         int zb = kt - 64;
         s += x86("comment",
             "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the arguments are the caller's block at [rbp+kt+16i], "
@@ -701,7 +701,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("pop", "rcx")
              + x86("add", "rsp", 8L)
              + x86("jmp", "rcx");
-    if (x86_pl_frame() && g_emit.flat_pkt && g_emit.flat_β_p && g_emit.flat_altdet_p && !(g_emit_cfg && g_emit_cfg->root_graph)) {
+    if (x86_resumable_frame() && g_emit.flat_pkt && g_emit.flat_β_p && g_emit.flat_altdet_p && !(g_emit_cfg && g_emit_cfg->root_graph)) {
         return x86("comment",
             "PACKET FRAGMENT gamma (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): B == this frame's header -> no choice inside the "
                 "clause: a later slot visible at G makes the token this frame with beta = the chain-omega, none pops the "
@@ -748,7 +748,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "r13", RDQ(x86_hb(), kt - 40))
              + x86("xor", "eax", "eax") + zf_release(kt) + zf_pin_restore(kt)
              + x86("jmp", "rcx"); }
-    if (x86_pl_frame() && g_emit.flat_β_p && g_emit.flat_altdet_p) {
+    if (x86_resumable_frame() && g_emit.flat_β_p && g_emit.flat_altdet_p) {
         int _plretain = !(g_emit_cfg && g_emit_cfg->root_graph);
         return x86("comment", "PL γ: a predicate has no value -- hand the caller the definite success DESCR {DT_I, 1} the return trampolines already hand it, never the last box's leftover rax:rdx")
              + x86("comment",
@@ -806,7 +806,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("add", "rsp", 8L)
              + x86("pop", "rcx")
              + x86("jmp", "rcx");
-    if (x86_pl_frame() && g_emit.flat_pkt) {
+    if (x86_resumable_frame() && g_emit.flat_pkt) {
         int k = g_emit.flat_pkt_cell, i = g_emit.flat_pkt_slot; int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
         if (!g_emit.flat_pkt_chainω_p || !g_emit.flat_pkt_walk_p) return x86_bomb("packet fragment chain-omega without its labels");
         return x86_def_ext(g_emit.flat_pkt_chainω_p)
@@ -864,7 +864,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("def", L(225)) + IF(np > 0,
              x86("add", "rsp", (long)(16 * np))) + x86_jmp_reg("rdx");
     }
-    if (x86_pl_frame())
+    if (x86_resumable_frame())
         return IF(emit_pl_scc_armed(), x86_pl_scc_release_check(x86_hb(), kt, 246))
              + x86("mov", "rcx", RDQ(x86_hb(), kt - 16))
              + x86("mov", "r13", RDQ(x86_hb(), kt - 40))

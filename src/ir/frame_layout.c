@@ -217,7 +217,7 @@ static void zls_field(int scope_id, int off, int size, int kind, int audit, cons
     zf[g_lower.ir.zf_n++] = (zls_pfield_t){ scope_id, off, size, (unsigned char)kind, (unsigned char)audit, what, nd, -1 };
     if (nd) znb_note(nd, scope_id, off + size, g_lower.ir.zf_n - 1);
 }
-static int zls_fence_widen(const IR_graph_t * g) { return 0; }
+static int zls_fence_widen(const IR_graph_t * g) { return zls_g_resumable_frame(g); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_locals_shifted(IR_e op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -230,7 +230,7 @@ static void zls_entry(const IR_t * nd, int scope_id, int off) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_act_kind(const IR_graph_t * g, const IR_t * nd) {
-    if (!0) return ZK_RAW;
+    if (!zls_g_resumable_frame(g)) return ZK_RAW;
     if (nd->op == IR_CALL_PROC_STAGED) return ZK_PTR_FRAME;
     if (nd->op == IR_CALL_VALUE && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "goal")) return ZK_PTR_FRAME;
     return ZK_RAW;
@@ -1746,12 +1746,13 @@ int zls_node_bytes(const IR_t * nd) {
 int zls_scope_of(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->scope_id : -1; }
 int zls_g_nslots(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->nslots : -1; }
 int zls_g_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->region : -1; }
-static int zls_g_pinned_frame(const IR_graph_t * g) { return 0; }
-int zls_g_det_block(const IR_graph_t * g) { return (g && g->static_calls && g->zframe_graph && !0 && !0 && !g->root_graph) ? 1 : 0; }
+int zls_g_resumable_frame(const IR_graph_t * g) { if (!g || !g->zframe_graph) return 0; return (g->resumable_callable || g->root_graph) ? 1 : 0; }
+static int zls_g_pinned_frame(const IR_graph_t * g) { return zls_g_resumable_frame(g); }
+int zls_g_det_block(const IR_graph_t * g) { return (g && g->static_calls && g->zframe_graph && !zls_g_resumable_frame(g) && !0 && !g->root_graph) ? 1 : 0; }
 int zls_g_block_args(const IR_graph_t * g) {
     if (g && 0 && !g->root_graph) return 1;
     if (!g || !g->zframe_graph || 0) return 0;
-    if (0) return 1;
+    if (zls_g_resumable_frame(g)) return 1;
     if (zls_g_det_block(g)) return 1;
     return (g->block_args && !g->root_graph && g->nlocals == 0 && g->nparams <= 12) ? 1 : 0;
 }

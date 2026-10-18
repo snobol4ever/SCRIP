@@ -8,6 +8,7 @@ extern "C" {
 #include "stage2.h"
 #include "ab_abi.h"
 #include "bb_templates.h"
+int zls_g_resumable_frame(const IR_graph_t * g);
 #include "rt/rt_pl_trail.h"
 long rt_proc_call_open(const char *name, int nargs);
 void *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm); const char *bb_ab_fn_sym(const char *nm);
@@ -154,7 +155,7 @@ static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define c2farm() (_.op_fc_wbytes > 0)
-static inline int bcps_pl() { return x86_pl_frame(); }
+static inline int bcps_pl() { return x86_resumable_frame(); }
 #define bcps_fnsig() emit_knob_unless_zero("SCRIP_FN_SIG")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bcps_nret_got() std::string("[rip@got + __]")
@@ -215,20 +216,20 @@ extern "C" int bb_proc_multi_proto(const char *fname) { if (!fname) return 0; fo
         && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->multi_proto : 0; } return 0; }
 extern "C" int bb_proc_target_pinned_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
     || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
-        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; if (cg) return 0; break; } return rt_proc_pinned(fname); }
+        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; if (cg) return zls_g_resumable_frame(cg); break; } return rt_proc_pinned(fname); }
 extern "C" int bb_proc_target_retains(const char *fname) {
     if (!fname) return 0;
     for (int i = 0; i < g_stage2.proc_count; i++) {
         if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue;
         int bi = g_stage2.proc_table[i].bb_idx;
         IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0;
-        return (cg && 0) ? 1 : 0;
+        return (!cg || zls_g_resumable_frame(cg)) ? 1 : 0;
     }
     return 0;
 }
 extern "C" int bb_proc_target_block_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
     || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
-        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && !0 && zls_g_block_args(cg)) ? 1 : 0; } return 0; }
+        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && !zls_g_resumable_frame(cg) && zls_g_block_args(cg)) ? 1 : 0; } return 0; }
 extern "C" int bb_proc_target_icn_block(const char *fname, int *np, int *vari) {
     int i = 0;
     while (fname && i < g_stage2.proc_count && (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname))) i++;

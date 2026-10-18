@@ -630,7 +630,7 @@ inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zr() { return "rsp"; }
 inline int x86_zr_num() { return 4; }
-inline int x86_pl_frame() { return 0; }
+inline int x86_resumable_frame() { return emit_resumable_frame(); }
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
@@ -1064,7 +1064,7 @@ inline const char * x86_zref(int off, int q);
 inline const char * ZRES_SPINE(int w);
 inline const char * x86_zop(int off, int q, int bump) {
     static char b[16][48]; static int i; i = (i + 1) & 15;
-    if (off >= ZST_BIAS / 2 && !_.op_zdef && x86_pl_frame()) { x86_zop_note(2); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off - ZST_BIAS); return b[i]; }
+    if (off >= ZST_BIAS / 2 && !_.op_zdef && x86_resumable_frame()) { x86_zop_note(2); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off - ZST_BIAS); return b[i]; }
     if (off >= ZST_BIAS / 2) { x86_zop_note(2); snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", _.op_zabs + (off - ZST_BIAS) + bump); return b[i]; }
     if (_.op_zres && _.op_res_alias >= 0 && (off == _.op_res_alias || off == _.op_res_alias + 8)) { int d = off - _.op_res_alias;
         return _.op_xf_off != -1 ? (q ? RDQ("rbp", _.op_xf_off + d) : RDD("rbp", _.op_xf_off + d)) : (q ? ZRES_SPINE(d) : x86_zref(d, 0)); }
@@ -1076,7 +1076,7 @@ inline const char * x86_zop(int off, int q, int bump) {
     if (r != 2 && icn_frame_rbp()) return q ? RDQ("rbp", off - icn_gen_ft()) : RDD("rbp", off - icn_gen_ft());
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }
-    else if (x86_pl_frame() && x86_hb_on() && !x86_fb_data() && !_.op_stmt_dyn) { x86_zop_note(3); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
+    else if (x86_resumable_frame() && x86_hb_on() && !x86_fb_data() && !_.op_stmt_dyn) { x86_zop_note(3); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
     else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { eff = x86_frame_off(off) + bump; spine = 1; }
     else if (_.op_zf_unpinned && _.op_zres && !x86_fb_data() && !_.op_stmt_dyn) { eff = off + _.op_zabs; spine = 1; }
     else { eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }

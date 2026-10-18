@@ -7,7 +7,7 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cut_barrier() {
-    return IF(x86_pl_frame() && !_.op_ival,
+    return IF(x86_resumable_frame() && !_.op_ival,
                x86("mov", FRQ(g_emit.flat_frame_bytes - 56), 0L)
              + x86("mov", FRQ(g_emit.flat_frame_bytes - 48), 0L)
              + x86("note", "pl_cut_barrier inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): B := F.B0, the caller's choice the prologue saved at [kt-40]")
