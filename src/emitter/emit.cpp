@@ -694,7 +694,10 @@ void bb_slot_register(IR_t *nd, int off) {
     bb_slotmap_push(nd, off);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zst_coord(const char * name);
+static int zst_s_of(const IR_t * nd);
 int bb_varslot_peek(const char *name) {
+    int c = zst_coord(name); if (c >= 0) return c;
     return ir_varslot_of(g_emit_cfg, name);
 }
 static int drive_local_slot(const char *vn) {
@@ -1310,7 +1313,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     if (!nd) return 1;
     g_emit.node = nd; g_emit.op_pat_static = nd->pat_static;
     g_emit.op_zf_unpinned = ((g_emit_cfg && g_emit_cfg->icn_cells_graph) || emit_pl_frame()) ? 1 : 0;
-    g_emit.op_zabs = g_emitter.g_zd_abs;
+    g_emit.op_zabs = g_emitter.g_zd_abs; g_emit.op_zsticky = zst_s_of(nd); g_emit.op_zk_own = g_emit.op_zres ? g_emitter.g_zd_k - g_emit.op_zsticky : 0;
     if (g_emit.op_zf_unpinned && g_emit.op_zres) g_emit.op_zdepth = g_emitter.g_zd_abs;
     emit_set_sink(out);
     g_emit.sid = 0;
@@ -3421,7 +3424,10 @@ static int alt_flat_live_bytes(const IR_t * nd) { if (!nd || nd->op != IR_MATCH_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_icn_local_var(const IR_t * nd) { return nd && nd->op == IR_VAR && g_emit_cfg && g_emit_cfg->icn_cells_graph && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' &&
     graph_has_local(g_emit_cfg, IR_LIT(nd).sval); }
-static int zd_k(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO) return 16; if (zd_icn_local_var(nd)) return 0; if (op == IR_TO) return 32;
+static int zst_s_of(const IR_t * nd);
+static int zd_k_own(IR_t * nd);
+static int zd_k(IR_t * nd) { return zd_k_own(nd) + zst_s_of(nd); }
+static int zd_k_own(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO) return 16; if (zd_icn_local_var(nd)) return 0; if (op == IR_TO) return 32;
     if (op == IR_DISJUNCTION && nd->n_operands > 0) return emit_pl_frame() ? 0 : 32;
     return (op == IR_MATCH_RKRUN || op == IR_MATCH_RKCAPS || op == IR_MATCH_RKCAPE || op == IR_MATCH_RKLAND || op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || op == IR_DEFINE ||
         op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE || op == IR_STATEMENT ||
@@ -3646,10 +3652,92 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
         }
     }
 }
+extern "C" int zls_g_vslot_count(const IR_graph_t *); extern "C" const char * zls_g_vslot_get(const IR_graph_t *, int, int *); extern "C" int zls_g_block_base(const IR_graph_t *);
+static int zst_s_of(const IR_t * nd) { if (!nd || g_emitter.zst_sm.empty()) return 0; auto it = g_emitter.zst_sm.find(nd); return it == g_emitter.zst_sm.end() ? 0 : it->second; }
+static int zst_edge(IR_t ** nodes, int n, int i, int e) {
+    IR_t * nd = nodes[i], * t = (IR_t *)0;
+    if (e == 0) { IR_t * ig = (nd->op == IR_GATE_ARM && !nd->γ.node && nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; t = zd_chase(ig ? ig->γ.node : nd->γ.node); }
+    else if (e == 1) t = zd_chase(nd->ω.node);
+    else if (nd->op == IR_GATE) { IR_t * arm = nd->operands[e - 2]; t = (arm && arm->n_operands > 0) ? arm->operands[0] : (IR_t *)0; if (t && (t->op == IR_SUCCEED || t->op == IR_FAIL)) t = (IR_t *)0; }
+    else t = nd->operands[e - 2];
+    return t ? nidx(nodes, n, t) : -1;
+}
+static int zst_names(const IR_t * nd, const char ** out) {
+    int k = 0, o = (int)nd->op;
+    if (o == IR_VAR || o == IR_VAR_REF || o == IR_ASSIGN || o == IR_ASSIGN_VAR || o == IR_REV_ASSIGN_VAR || o == IR_NULLTEST_VAR || o == IR_FIELD_VAR || o == IR_UNIFY_FIRST || o == IR_UNIFY_VALUE ||
+        o == IR_REV_SWAP) out[k++] = IR_LIT(nd).sval;
+    if (o == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) out[k++] = IR_LIT(nd->operands[1]).sval;
+    if (o == IR_REV_SWAP && nd->n_operands > 0 && nd->operands[0]) out[k++] = IR_LIT(nd->operands[0]).sval;
+    return k;
+}
+static int zst_isparam(const IR_graph_t * g, const char * vn) { for (int i = 0; g && g->pnames && i < g->nparams; i++) if (g->pnames[i] && !strcmp(g->pnames[i], vn)) return 1; return 0; }
+static void zst_plan(IR_t ** nodes, int n) {
+    g_emitter.zst_nodes = nodes; g_emitter.zst_n = n; g_emitter.g_zd_cur = -1; g_emitter.zst_s.assign((size_t)(n > 0 ? n : 0), 0); g_emitter.zst_root.assign((size_t)(n > 0 ? n : 0), -1);
+    g_emitter.zst_name.clear(); g_emitter.zst_vroot.clear(); g_emitter.zst_c.clear(); g_emitter.zst_j.clear(); g_emitter.zst_L.clear(); g_emitter.zst_vuse.clear(); g_emitter.zst_vcov.clear(); g_emitter.zst_sm.clear();
+    const IR_graph_t * g = g_emit_cfg;
+    if (!g || n <= 0 || !zd_pl_abs()) return;
+    int nv = zls_g_vslot_count(g); if (nv <= 0) return;
+    g_emitter.zst_vuse.assign((size_t)nv, 0); g_emitter.zst_vcov.assign((size_t)nv, 0);
+    std::vector<int> es, ed, pcnt((size_t)n + 1, 0);
+    for (int i = 0; i < n; i++) for (int e = 0; e < zd_pl_edges(nodes[i]); e++) { int q = zst_edge(nodes, n, i, e); if (q >= 0 && q != i) { es.push_back(i); ed.push_back(q); pcnt[(size_t)q + 1]++; } }
+    for (int i = 0; i < n; i++) pcnt[(size_t)i + 1] += pcnt[(size_t)i];
+    std::vector<int> preds(es.size() + 1), fill(pcnt);
+    for (size_t k = 0; k < es.size(); k++) preds[(size_t)fill[(size_t)ed[k]]++] = es[k];
+    std::vector<unsigned char> isroot((size_t)n, 0); isroot[0] = 1;
+    for (int a = 0; g->alt_entry && a < g->n_alts; a++) if (g->alt_entry[a]) { int q = nidx(nodes, n, zd_chase(g->alt_entry[a])); if (q >= 0) isroot[(size_t)q] = 1; }
+    size_t W = ((size_t)n + 63) / 64;
+    std::vector<uint64_t> dom((size_t)n * W, ~0ull), tmp(W);
+    for (int v = 0; v < n; v++) if (isroot[(size_t)v]) { for (size_t w = 0; w < W; w++) dom[(size_t)v * W + w] = 0; dom[(size_t)v * W + (size_t)v / 64] |= 1ull << (v % 64); }
+    for (int pass = 0, changed = 1; changed && pass < 200; pass++) { changed = 0;
+        for (int v = 0; v < n; v++) { if (isroot[(size_t)v]) continue; int np = pcnt[(size_t)v + 1] - pcnt[(size_t)v]; if (np == 0) continue;
+            for (size_t w = 0; w < W; w++) tmp[w] = ~0ull;
+            for (int k = pcnt[(size_t)v]; k < pcnt[(size_t)v + 1]; k++) { int p = preds[(size_t)k]; for (size_t w = 0; w < W; w++) tmp[w] &= dom[(size_t)p * W + w]; }
+            tmp[(size_t)v / 64] |= 1ull << (v % 64);
+            for (size_t w = 0; w < W; w++) if (dom[(size_t)v * W + w] != tmp[w]) { dom[(size_t)v * W + w] = tmp[w]; changed = 1; } } }
+    std::vector<unsigned char> reach((size_t)n, 0);
+    for (int v = 0; v < n; v++) { int np = pcnt[(size_t)v + 1] - pcnt[(size_t)v]; reach[(size_t)v] = (unsigned char)(isroot[(size_t)v] || np > 0); }
+    for (int v = 0; v < n; v++) { if (!reach[(size_t)v]) continue; int r = -1, nr = 0; for (int u = 0; u < n; u++) if (isroot[(size_t)u] && (dom[(size_t)v * W + (size_t)u / 64] >> (u % 64) & 1)) { r = u; nr++; }
+        g_emitter.zst_root[(size_t)v] = nr == 1 ? r : -1; }
+    std::vector<int> idx((size_t)n, -1), low((size_t)n, 0), st; std::vector<unsigned char> on((size_t)n, 0), loop((size_t)n, 0); int ctr = 0;
+    std::vector<int> scnt((size_t)n + 1, 0), ss, sd; for (size_t k = 0; k < es.size(); k++) scnt[(size_t)es[k] + 1]++;
+    for (int i = 0; i < n; i++) scnt[(size_t)i + 1] += scnt[(size_t)i]; { std::vector<int> f2(scnt); sd.assign(es.size() + 1, -1); for (size_t k = 0; k < es.size(); k++) sd[(size_t)f2[(size_t)es[k]]++] = ed[k]; }
+    for (int s0 = 0; s0 < n; s0++) { if (idx[(size_t)s0] >= 0) continue; std::vector<std::pair<int,int>> cs; cs.push_back(std::make_pair(s0, scnt[(size_t)s0])); idx[(size_t)s0] = low[(size_t)s0] = ctr++; st.push_back(s0); on[(size_t)s0] = 1;
+        while (!cs.empty()) { int v = cs.back().first; int & e = cs.back().second;
+            if (e < scnt[(size_t)v + 1]) { int w = sd[(size_t)e]; e++; if (w == v) loop[(size_t)v] = 1; else if (idx[(size_t)w] < 0) { idx[(size_t)w] = low[(size_t)w] = ctr++; st.push_back(w); on[(size_t)w] = 1; cs.push_back(std::make_pair(w, scnt[(size_t)w])); }
+                else if (on[(size_t)w] && low[(size_t)w] < low[(size_t)v]) low[(size_t)v] = low[(size_t)w]; continue; }
+            cs.pop_back(); if (!cs.empty() && low[(size_t)v] < low[(size_t)cs.back().first]) low[(size_t)cs.back().first] = low[(size_t)v];
+            if (low[(size_t)v] == idx[(size_t)v]) { std::vector<int> mem; int w; do { w = st.back(); st.pop_back(); on[(size_t)w] = 0; mem.push_back(w); } while (w != v);
+                if (mem.size() > 1) for (size_t m = 0; m < mem.size(); m++) loop[(size_t)mem[m]] = 1; } } }
+    std::vector<int> dsz((size_t)n, 0); for (int v = 0; v < n; v++) { int c = 0; for (size_t w = 0; w < W; w++) c += __builtin_popcountll(dom[(size_t)v * W + w]); dsz[(size_t)v] = c; }
+    const char * nm[2];
+    for (int k = 0; k < nv; k++) { int off = -1; const char * vn = zls_g_vslot_get(g, k, &off); if (!vn || vn[0] == '&' || zst_isparam(g, vn)) continue;
+        std::vector<int> uses; for (int i = 0; i < n; i++) { int m = zst_names(nodes[i], nm); for (int q = 0; q < m; q++) if (nm[q] && !strcmp(nm[q], vn)) { uses.push_back(i); break; } }
+        std::vector<int> roots; for (size_t u = 0; u < uses.size(); u++) { int r = g_emitter.zst_root[(size_t)uses[u]]; if (r < 0) continue; int seen = 0; for (size_t t = 0; t < roots.size(); t++) if (roots[t] == r) seen = 1; if (!seen) roots.push_back(r); }
+        g_emitter.zst_vuse[(size_t)k] = (int)roots.size();
+        for (size_t t = 0; t < roots.size(); t++) { int r = roots[t]; for (size_t w = 0; w < W; w++) tmp[w] = ~0ull;
+            for (size_t u = 0; u < uses.size(); u++) if (g_emitter.zst_root[(size_t)uses[u]] == r) for (size_t w = 0; w < W; w++) tmp[w] &= dom[(size_t)uses[u] * W + w];
+            int best = -1; for (int d = 0; d < n; d++) if ((tmp[(size_t)d / 64] >> (d % 64) & 1) && !loop[(size_t)d] && (best < 0 || dsz[(size_t)d] > dsz[(size_t)best])) best = d;
+            if (best < 0) continue;
+            g_emitter.zst_name.push_back(vn); g_emitter.zst_vroot.push_back(r); g_emitter.zst_c.push_back(best); g_emitter.zst_j.push_back(g_emitter.zst_s[(size_t)best] / 16); g_emitter.zst_L.push_back(0);
+            g_emitter.zst_s[(size_t)best] += 16; g_emitter.zst_vcov[(size_t)k]++; } }
+    for (int i = 0; i < n; i++) if (g_emitter.zst_s[(size_t)i] > 0) g_emitter.zst_sm[nodes[i]] = g_emitter.zst_s[(size_t)i];
+}
+static void zst_finish(IR_t ** nodes, int n, const int * zout, const int * claim, const int * base, const unsigned char * known) {
+    if (g_emitter.zst_nodes != nodes || g_emitter.zst_n != n) return;
+    for (size_t t = 0; t < g_emitter.zst_c.size(); t++) { int c = g_emitter.zst_c[t]; int b = (claim && claim[c] >= 0 && known && known[claim[c]] && base) ? base[claim[c]] : 0;
+        g_emitter.zst_L[t] = b + zout[c] - zd_k(nodes[c]) + g_emitter.zst_s[(size_t)c] - 16 * g_emitter.zst_j[t]; }
+}
+static int zst_coord(const char * name) {
+    if (!name || g_emitter.g_zd_cur < 0 || g_emitter.g_zd_cur >= g_emitter.zst_n || g_emitter.zst_nodes != g_emitter.codegen_flat_chain_body_nodes) return -1;
+    int r = g_emitter.zst_root[(size_t)g_emitter.g_zd_cur]; if (r < 0) return -1;
+    for (size_t t = 0; t < g_emitter.zst_name.size(); t++) if (g_emitter.zst_vroot[t] == r && !strcmp(g_emitter.zst_name[t], name)) return ZST_BIAS + g_emitter.zst_L[t];
+    return -1;
+}
 static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm, const unsigned char *walls, int *zcps, int *zcpd, int *zchn, int *zclaim) {
     extern const char * bb_src_of(const IR_t *);
     if (g_emitter.zd_plan__dg < 0) { const char * d = getenv("SCRIP_ZD_DIAG"); g_emitter.zd_plan__dg = (d && *d == '1') ? 1 : 0; }
     zdo_build(nodes, n);
+    zst_plan(nodes, n);
     if (zclaim) for (int i = 0; i < n; i++) zclaim[i] = -1;
     IR_t ** zgt = (IR_t **)alloca(sizeof(IR_t *) * (size_t)n); IR_t ** zot = (IR_t **)alloca(sizeof(IR_t *) * (size_t)n);
     unsigned char * zgin = (unsigned char *)alloca((size_t)n); unsigned char * zoin = (unsigned char *)alloca((size_t)n); int * zmatch = (int *)alloca(sizeof(int) * (size_t)n);
@@ -4456,7 +4544,10 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
     for (int k = 0; k < nv; k++) {
         int off = -1;
         const char * vn = zls_g_vslot_get(g, k, &off);
-        fprintf(stderr, "[HOMES] g=%d graph=%s local=%s home=%s off=%d\n", gi, gn ? gn : "?", vn ? vn : "?", off < 0 ? "NONE" : "RSP_CARVED", off);
+        int blk = g && g->block_args ? zls_g_block_base(g) : -1; int cov = (k < (int)g_emitter.zst_vcov.size()) ? g_emitter.zst_vcov[(size_t)k] : 0, use = (k < (int)g_emitter.zst_vuse.size()) ? g_emitter.zst_vuse[(size_t)k] : -1;
+        int soff = off; const char * home = off < 0 ? "NONE" : (blk >= 0 && off >= blk) ? "SPINE" : use == 0 ? "NONE" : (cov > 0 && cov == use) ? "SPINE" : "RSP_CARVED";
+        if (cov > 0 && cov == use) for (size_t t = 0; t < g_emitter.zst_name.size(); t++) if (vn && !strcmp(g_emitter.zst_name[t], vn)) { soff = -g_emitter.zst_L[t]; break; }
+        fprintf(stderr, "[HOMES] g=%d graph=%s local=%s home=%s off=%d\n", gi, gn ? gn : "?", vn ? vn : "?", home, soff);
     }
     dh_retains_build();
     for (int k = 0; g && k < g->n; k++) {
@@ -4678,6 +4769,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         zd_xb = (int *)alloca(sizeof(int) * (size_t)n);
         zd_pl_bases(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, _b, _kn, (int *)0);
         for (int _i = 0; _i < n; _i++) zd_xb[_i] = (zd_on[_i] && zd_claim[_i] >= 0 && _kn[zd_claim[_i]]) ? _b[zd_claim[_i]] : INT_MIN;
+        zst_finish(g_emitter.codegen_flat_chain_body_nodes, n, zd_out, zd_claim, _b, _kn);
     }
         int _sph = 0, _spgd = 0, _spf = 0, _wpn = 0;
         bb_label_t ** _wpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); int * _wpd = (int *)alloca(sizeof(int) * (size_t)(n + 1));
@@ -5279,7 +5371,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   g_emitter.g_zd_ztail = 0;
                   g_emitter.g_zd_zpat = 0;
                   g_emitter.g_zd_zfc = 0;
-                  g_emitter.g_zd_abs = zd_out[i] + ((zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0);
+                  g_emitter.g_zd_abs = zd_out[i] + ((zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0); g_emitter.g_zd_cur = i;
                   g_emitter.g_zd_cps = -1;
                   g_emitter.g_zd_cpd = -1;
                   zd_ops_reserve(g_emitter.codegen_flat_chain_body_nodes[i]->n_operands);
@@ -5398,7 +5490,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
           if (zd_on[i] || zd_gp[i] > 0 || zd_wp[i] > 0) { g_emitter.g_zd_stage = 1; g_emitter.g_zd_arm = zd_on[i] ? 1 : 0; g_emitter.g_zd_gpop = zd_gp[i];
               g_emitter.g_zd_wpop = (_uw_stolen ? (int)_uw_pop : ((_zw5_wpop_stolen || _endj_stolen) ? 0 : zd_wp[i])); g_emitter.g_zd_wsteal = _endj_stolen || _uw_stolen;
               g_emitter.g_zd_k = zd_on[i] ? zd_k(g_emitter.codegen_flat_chain_body_nodes[i]) : 0;
-              { g_emitter.g_zd_zunder = 0; g_emitter.g_zd_abs = zd_on[i] ? zd_out[i] + ((zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0) : 0; g_emitter.g_zd_cps = zd_on[i] ? zd_cps[i] : -1;
+              { g_emitter.g_zd_zunder = 0; g_emitter.g_zd_abs = zd_on[i] ? zd_out[i] + ((zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0) : 0; g_emitter.g_zd_cur = i; g_emitter.g_zd_cps = zd_on[i] ? zd_cps[i] : -1;
                   g_emitter.g_zd_cpd = zd_on[i] ? zd_cpd[i] : -1; if (zd_on[i] && g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_REPLACE) { int _zu = 0;
                   for (int _zj = i - 1; _zj >= 0; _zj--) { if (g_emitter.codegen_flat_chain_body_nodes[_zj]->op == IR_MATCH_END) break;
                   if (zd_on[_zj]) _zu += zd_k(g_emitter.codegen_flat_chain_body_nodes[_zj]); } g_emitter.g_zd_zunder = _zu; int _zp = 0, _inpat = 0;

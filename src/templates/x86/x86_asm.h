@@ -1059,7 +1059,9 @@ inline int x86_zop_regime(int off) { if (x86_fc_hit(off)) return 2; return x86_f
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zop(int off, int q, int bump) {
-    static char b[16][48]; static int i; i = (i + 1) & 15; int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
+    static char b[16][48]; static int i; i = (i + 1) & 15;
+    if (off >= ZST_BIAS / 2) { x86_zop_note(2); snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", _.op_zabs - (off - ZST_BIAS) + bump); return b[i]; }
+    int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }
     else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { eff = x86_frame_off(off) + bump; spine = 1; }
@@ -2395,7 +2397,7 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
         fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
     if (x86_fc_on()) {
         int zwco = _.op_fc_base < 0 && !_.op_zres;
-        if (site == X86H_DEF && port == X86P_ALPHA) s += bb_glue_flat_enter();
+        if (site == X86H_DEF && port == X86P_ALPHA) { s += bb_glue_flat_enter(); for (int j = 0; j < _.op_zsticky / 16; j++) s += x86("mov", RDQ("rsp", _.op_zk_own + 16 * j), (long)DT_SNUL) + x86("mov", RDQ("rsp", _.op_zk_own + 16 * j + 8), 0L); }
         if (zwco && site == X86H_DEF && port == X86P_BETA) s += bb_glue_flat_enter();
         if (zwco && site == X86H_DEF_PAIR && port == X86P_BETA && !_.op_pair_rejoin) s += bb_glue_flat_enter();
         if (zwco && site == X86H_JMP && port == X86P_GAMMA) s += bb_glue_flat_leave();
