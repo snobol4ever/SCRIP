@@ -3422,7 +3422,7 @@ static int icn_xop_frame_member(const IR_t * nd) {
 static int pl_xop_frame_member(const IR_t * nd) {
     if (!nd || !emit_pl_frame() || !g_emit_cfg || !g_emitter.g_zd_claim_p || !g_emitter.g_zd_xb_p || g_emitter.g_zd_nodes_p != g_emitter.codegen_flat_chain_body_nodes) return 0;
     if (nd->op == IR_TO && ir_range_kind_is(nd, "db")) return nd_slot(nd) >= 0 ? 1 : 0;
-    if (zd_k((IR_t *)nd) != 16 || !ir_node_produces_value(nd->op) || nd_slot(nd) < 0) return 0;
+    if (zd_k_own((IR_t *)nd) != 16 || !ir_node_produces_value(nd->op) || nd_slot(nd) < 0) return 0;
     int n = g_emitter.g_zd_n, i = nidx(g_emitter.g_zd_nodes_p, n, nd);
     if (i < 0 || g_emitter.g_zd_claim_p[i] < 0) return 0;
     if (g_emitter.g_xci_g != g_emit_cfg || g_emitter.g_xci_all != g_emit_cfg->all || g_emitter.g_xci_n != g_emit_cfg->n || g_emitter.g_xci_built != g_emitter.g_xci_epoch) xci_build();
@@ -3671,19 +3671,43 @@ static int zd_pl_entry(IR_t **nodes, int n, const unsigned char *zon, const int 
     *l = v;
     return q;
 }
-static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int *base, unsigned char *known, int *aof, int *zcut) {
+static int zd_pl_indef_land(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, const unsigned char *known,
+    const unsigned char *indef, int i, int e) {
+    if (e >= 2 && nodes[i]->op != IR_DISJUNCTION) return -1;
+    int q, b;
+    (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q, &b);
+    if (e == 1) {
+        if (q < 0 || claim[q] != q || claim[q] == claim[i] || nodes[q]->op != IR_UNMARK || !(IR_LIT(nodes[q]).ival & 6) || nodes[q]->n_operands < 1) return -1;
+        int ub = nidx(nodes, n, nodes[q]->operands[0]);
+        return (ub >= 0 && zon[ub] && claim[ub] >= 0 && (indef[claim[ub]] || !known[claim[ub]])) ? q : -1;
+    }
+    if (b) return -1;
+    if (q >= 0 && nodes[q]->op == IR_DISJUNCTION && claim[q] != claim[i]) {
+        int arm = 0;
+        for (int k = 0; k < nodes[q]->n_operands && !arm; k++) { int ak = nodes[q]->operands[k] ? nidx(nodes, n, nodes[q]->operands[k]) : -1; if (ak >= 0 && ak != q && (ak == i || claim[ak] == claim[i])) arm = 1; }
+        if (arm) { IR_t * t = zd_chase(nodes[q]->γ.node); q = t ? nidx(nodes, n, t) : -1; }
+    }
+    if (q < 0 || !zon[q] || claim[q] < 0 || claim[q] == claim[i]) return -1;
+    int r = claim[q];
+    if (q == r && nodes[r]->op == IR_UNMARK && (IR_LIT(nodes[r]).ival & 6) && nodes[r]->n_operands > 0) {
+        int ub = nidx(nodes, n, nodes[r]->operands[0]);
+        if (ub >= 0 && zon[ub] && claim[ub] >= 0 && !indef[claim[ub]] && known[claim[ub]]) return -1;
+    }
+    return r;
+}
+static void zd_pl_bases_pass(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int *base, unsigned char *known, int *aof,
+    const unsigned char *indef) {
     int * rpo = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     int * ord = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     int * stk = (int *)alloca(sizeof(int) * (size_t)(2 * n + 2));
     unsigned char * st = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
     for (int i = 0; i < n; i++) { base[i] = 0; known[i] = 0; rpo[i] = -1; st[i] = 0; if (aof) aof[i] = -1; }
-    if (n <= 0 || !zon[0] || claim[0] < 0) return;
     int no = 0, sp = 0, nalt = g_emit_cfg ? g_emit_cfg->n_alts : 0;
     for (int a0 = 0; a0 <= nalt; a0++) {
         int a = (a0 < nalt) ? a0 : -1;
         int r = (a < 0) ? claim[0] : -1;
         if (a >= 0 && g_emit_cfg->alt_entry && g_emit_cfg->alt_entry[a]) { int q = nidx(nodes, n, zd_chase(g_emit_cfg->alt_entry[a])); if (q >= 0 && zon[q] && claim[q] >= 0) r = claim[q]; }
-        if (r < 0 || st[r]) continue;
+        if (r < 0 || st[r] || indef[r]) continue;
         known[r] = 1;
         if (aof) aof[r] = a;
         stk[sp++] = r; stk[sp++] = 0; st[r] = 1;
@@ -3693,7 +3717,7 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
             int i = pos / 8, e = pos % 8, l;
             if (i >= n || claim[i] != h || !zon[i] || e >= zd_pl_edges(nodes[i])) continue;
             int q = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l);
-            if (q < 0 || st[q]) continue;
+            if (q < 0 || st[q] || indef[q]) continue;
             stk[sp - 1] = pos + 1; st[q] = 1; if (aof) aof[q] = aof[h]; stk[sp++] = q; stk[sp++] = 0; pushed = 1;
         }
         if (pushed) continue;
@@ -3704,13 +3728,13 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
     for (int k = 0; k < no; k++) {
         int h = ord[no - 1 - k];
         int ub = (nodes[h]->op == IR_UNMARK && nodes[h]->n_operands > 0) ? nidx(nodes, n, nodes[h]->operands[0]) : -1;
-        if (ub >= 0 && zon[ub] && claim[ub] >= 0 && claim[ub] != h && known[claim[ub]]) { base[h] = base[claim[ub]] + zout[ub] - zout[h]; known[h] = 1; }
-        if (!known[h]) continue;
+        if (ub >= 0 && zon[ub] && claim[ub] >= 0 && claim[ub] != h && known[claim[ub]] && !indef[claim[ub]]) { base[h] = base[claim[ub]] + zout[ub] - zout[h]; known[h] = 1; }
+        if (!known[h] || indef[h]) continue;
         for (int i = 0; i < n; i++) {
             if (claim[i] != h || !zon[i]) continue;
             for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
                 int l, q = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l);
-                if (q < 0 || rpo[q] <= rpo[h]) continue;
+                if (q < 0 || indef[q] || rpo[q] <= rpo[h]) continue;
                 int c = base[h] + l - (zout[q] - zd_k(nodes[q]));
                 if (known[q] && c <= base[q]) continue;
                 base[q] = c;
@@ -3718,50 +3742,54 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
             }
         }
     }
+}
+static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int *base, unsigned char *known, int *aof, int *zcut) {
+    unsigned char * indef = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
+    for (int i = 0; i < n; i++) { base[i] = 0; known[i] = 0; indef[i] = 0; if (aof) aof[i] = -1; }
+    if (n <= 0 || !zon[0] || claim[0] < 0) return;
+    zd_pl_bases_pass(nodes, n, zon, zout, zgpop, zwpop, claim, base, known, aof, indef);
     {
-        unsigned char * indef = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
         int * wl = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
         int wn = 0;
         for (int i = 0; i < n; i++) indef[i] = 0;
-        for (int i = 0; i < n; i++) {
-            if (!zon[i] || claim[i] < 0 || !zd_edge_retains(nodes[i])) continue;
-            IR_t * t = zd_chase(nodes[i]->γ.node);
-            int q = t ? nidx(nodes, n, t) : -1;
-            if (q < 0 || !zon[q] || claim[q] < 0 || indef[claim[q]]) continue;
-            indef[claim[q]] = 1; wl[wn++] = claim[q];
-        }
-        while (wn > 0) {
-            int h = wl[--wn];
+        for (int round = 0, grew = 1; grew && round < n + 2; round++) {
+            grew = 0;
             for (int i = 0; i < n; i++) {
-                if (claim[i] != h || !zon[i]) continue;
-                for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
-                    int q, b;
-                    if (e == 1 || (e >= 2 && nodes[i]->op != IR_DISJUNCTION)) continue;
-                    (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q, &b);
-                    if (q < 0 || claim[q] < 0 || claim[q] != q || indef[claim[q]]) continue;
-                    int r = claim[q];
-                    int ub = (nodes[r]->op == IR_UNMARK && (IR_LIT(nodes[r]).ival & 6) && nodes[r]->n_operands > 0) ? nidx(nodes, n, nodes[r]->operands[0]) : -1;
-                    if (ub >= 0 && zon[ub] && claim[ub] >= 0 && !indef[claim[ub]] && known[claim[ub]]) continue;
-                    indef[r] = 1; wl[wn++] = r;
+                if (!zon[i] || claim[i] < 0 || !zd_edge_retains(nodes[i])) continue;
+                int r = zd_pl_indef_land(nodes, n, zon, zout, zgpop, zwpop, claim, known, indef, i, 0);
+                if (r < 0 || indef[r]) continue;
+                indef[r] = 1; wl[wn++] = r; grew = 1;
+            }
+            while (wn > 0) {
+                int h = wl[--wn];
+                for (int i = 0; i < n; i++) {
+                    if (claim[i] != h || !zon[i]) continue;
+                    for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
+                        int r = zd_pl_indef_land(nodes, n, zon, zout, zgpop, zwpop, claim, known, indef, i, e);
+                        if (r < 0 || indef[r]) continue;
+                        indef[r] = 1; wl[wn++] = r; grew = 1;
+                    }
                 }
             }
         }
-        for (int r = 0; r < n; r++) if (indef[r]) known[r] = 0;
+        zd_pl_bases_pass(nodes, n, zon, zout, zgpop, zwpop, claim, base, known, aof, indef);
         int * anchor = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
         for (int r = 0; r < n; r++) anchor[r] = -1;
         for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) {
             moved = 0;
             for (int i = 0; i < n; i++) {
                 if (!zon[i] || claim[i] < 0) continue;
-                int h = claim[i], a = -1, q = -1;
-                if (zd_edge_retains(nodes[i])) { IR_t * t = zd_chase(nodes[i]->γ.node); q = t ? nidx(nodes, n, t) : -1; a = known[h] ? base[h] + zout[i] : anchor[h]; }
-                else if (indef[h] && anchor[h] >= 0) {
-                    for (int e = 0; e < zd_pl_edges(nodes[i]); e++) { int b2, q2; if (e == 1 || (e >= 2 && nodes[i]->op != IR_DISJUNCTION)) continue;
-                        (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q2, &b2);
-                        if (q2 >= 0 && claim[q2] == q2 && indef[q2] && anchor[q2] < 0) { anchor[q2] = anchor[h]; moved = 1; } }
-                    continue; }
-                if (q < 0 || !zon[q] || claim[q] != q || a < 0 || !indef[q] || anchor[q] >= 0) continue;
-                anchor[q] = a; moved = 1;
+                int h = claim[i];
+                if (zd_edge_retains(nodes[i])) {
+                    int a = known[h] ? base[h] + zout[i] : anchor[h], r = zd_pl_indef_land(nodes, n, zon, zout, zgpop, zwpop, claim, known, indef, i, 0);
+                    if (r >= 0 && indef[r] && anchor[r] < 0 && a >= 0) { anchor[r] = a; moved = 1; }
+                    continue;
+                }
+                if (!indef[h] || anchor[h] < 0) continue;
+                for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
+                    int r = zd_pl_indef_land(nodes, n, zon, zout, zgpop, zwpop, claim, known, indef, i, e);
+                    if (r >= 0 && indef[r] && anchor[r] < 0) { anchor[r] = anchor[h]; moved = 1; }
+                }
             }
         }
         if (zcut) for (int i = 0; i < n; i++) zcut[i] = -1;
@@ -3977,6 +4005,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; rl++;
             if (zd_pl_cut(nodes[ci])) break;
             if (zd_edge_retains(nodes[ci])) break;
+            if (nodes[ci]->op == IR_DISJUNCTION && emit_pl_frame() && !(g_emit_cfg && g_emit_cfg->icn_cells_graph)) break;
             cur = zd_icn_suspend(cur) ? zd_chase(cur->n_operands > 1 ? cur->operands[1] : (IR_t *)0) : zd_chase(cur->γ.node);
         }
         { for (int k = 0; k < n; k++) aent[k] = 0;
@@ -4132,6 +4161,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         if (qo >= 0 && zon[qo] && claim[qo] != claim[i]) zwpop[i] = zout[i] - zd_k(nodes[i]);
         if (qo >= 0 && zon[qo] && claim[qo] == claim[i] && qo != i && port_sz_beta(zd_edge_sz(nodes[i], 1))) zwpop[i] = zout[i] - zd_k(nodes[i]) - zout[qo];
         if (q >= 0 && zon[q] && claim[q] != claim[i] && nodes[q]->op == IR_DISJUNCTION) zgpop[i] = zout[i];
+        if (zd_edge_retains(nodes[i])) zgpop[i] = 0;
     }
     if (zd_pl_abs()) {
         int * base = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
