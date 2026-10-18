@@ -2239,6 +2239,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$dcg_body'(\\+A,S0,S,(\\+GA,S0=S)):-!,'$dcg_body'(A,S0,_,GA).\n"
     "'$dcg_body'({}(G),S0,S,(G,S0=S)):-!.\n"
     "'$dcg_body'(!,S0,S,(!,S0=S)):-!.\n"
+    "'$dcg_body'(NT,_,_,_):- \\+callable(NT),!,throw(error(type_error(callable,NT),_)).\n"
     "'$dcg_body'(NT,S0,S,G):-NT=..L0,'$dcg_list'(L0,[S0,S],L1),G=..L1.\n"
     "'$dcg_list'([],S,S).\n"
     "'$dcg_list'([H|T],S,[H|R]):-'$dcg_list'(T,S,R).\n"
