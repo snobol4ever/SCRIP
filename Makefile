@@ -1796,14 +1796,16 @@ $(RT_SO): $(RT_PIC_OBJS) $(SC_MOD_OBJS) $(RT_SRC_ALL) $(SRC)/runtime/rt_interpos
 	$(CC) -shared $(RT_PIC_OBJS) $(SC_MOD_OBJS) $(RT_BIND) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@   # ⛔⭐ libstdc++ AND libgcc ARE LINKED INTO THE RUNTIME, HIDDEN (the coo 2026-10-04, row instruments-a-mode-4-process-spends-1-76m-of-its-3-73m-instructions-in-ld-so-..., ceo CEO-1501 on hq_prolog's finding). MEASURED on SCRIP 9557a201d, callgrind, a mode-4 hello world (OUTPUT = 'hi'), the runtime relinked from the same 259 objects (the plain relink is byte-identical to the shipped .so): shared -lstdc++ 3,732,883 Ir (ld.so 1.76M of it) | + -Bsymbolic-functions 3,284,379 | THIS LINE 1,819,873 (PIE) / 1,814,168 (-no-pie) | this line + -Bsymbolic-functions 1,370,109 | + -Bsymbolic 1,248,271. An empty C main() reads 156,840 Ir and 1,873,917 with -lstdc++ -lm -lpthread loaded: LOADING libstdc++.so IS THE COST (its own 4,300 symbolic relocations and its initialisers), not this library's relocations. scrip and every mode-4 binary NEED no libstdc++ of their own (readelf -d scrip: libscrip_rt.so, libc.so.6), so the process holds ONE copy, compiled from the same GCC 13 headers as these objects. SUPERSEDED 2026-10-15 BY RT_BIND (cto, CEO-1795): it binds FUNCTIONS only and keeps every datum interposable, so a COPY relocation stays the one copy; no executable SCRIP builds or emits carries a canonical-PLT function (scrip, scrip-ipp, the parser tools, mode-4 programs; the 122 corpus .s artifacts take no runtime function address rip-relatively), the C test drivers take one only to call it; rt_time_ns and the lexer entries the parser tools clock stay interposable by name, and every other LD_PRELOAD instrument runs on out/interposable/libscrip_rt.so; test_gate_the_runtime_binds_its_own_functions_*.sh holds it.
 	@echo "Built: $@   RT_OPT=$(RT_OPT)"
 	@printf 'kept previous: %s   (out/attic/, 8 newest by content)\n' "$$(ls -1t out/attic/*.so 2>/dev/null | head -1 | xargs -r basename)"
-# THE RUNTIME BINDS ITS OWN FUNCTIONS (cto 2026-10-15, row startup-the-runtime-binds-its-own-symbols-..., ceo CEO-1795): --dynamic-list-data keeps
-# every datum interposable, so a copy relocation in an executable (scrip-ipp, a parser tool, every mode-4 program's rtccb) stays the one
-# copy the runtime reads; --dynamic-list names the only functions an instrument interposes (rt_time_ns for util_parser_phase_profile.sh,
-# the lexer entries parser_main.c clocks); every other function binds inside the library, and -z pack-relative-relocs packs the relative
-# relocations. MEASURED, mode-4 Icon hello under callgrind: 2,535,562 Ir shipped, 1,715,355 with these flags. An instrument that interposes
-# any other runtime function by LD_PRELOAD links out/interposable/libscrip_rt.so (every symbol preemptible, the same objects) and runs under
-# LD_LIBRARY_PATH (the executables carry RUNPATH).
-RT_BIND := -Wl,--dynamic-list-data -Wl,--dynamic-list=$(SRC)/runtime/rt_interposable.list -Wl,-z,pack-relative-relocs
+# THE RUNTIME BINDS ITS OWN FUNCTIONS AND ITS OWN DATA (cto 2026-10-15, row startup-the-runtime-binds-its-own-symbols-..., ceo CEO-1795; data
+# 2026-10-17, row startup-an-empty-mode-4-program-costs-...): --dynamic-list names the only symbols that stay interposable -- the functions an
+# instrument interposes (rt_time_ns for util_parser_phase_profile.sh, the lexer entries parser_main.c clocks) and the data an executable
+# COPIES, so the runtime reads the executable's one copy: rtccb (every mode-4 program and scrip-ipp), sno_nerrors and rebus_nerrors (the
+# parser tools), g_gc_pending (emitted code reads it), g_hp_fr (a harness C witness); every other function and datum binds inside the
+# library and -z pack-relative-relocs packs the relative relocations. The gate holds the copy relocations of every executable SCRIP
+# builds or emits to that list. MEASURED, mode-4 Icon hello under callgrind: 2,535,562 Ir shipped, 1,715,355 with the functions bound.
+# An instrument that interposes any other runtime symbol by LD_PRELOAD links out/interposable/libscrip_rt.so (every symbol preemptible,
+# the same objects) and runs under LD_LIBRARY_PATH (the executables carry RUNPATH).
+RT_BIND := -Wl,--dynamic-list=$(SRC)/runtime/rt_interposable.list -Wl,-z,pack-relative-relocs
 out/interposable/libscrip_rt.so: $(RT_PIC_OBJS) $(SC_MOD_OBJS) Makefile
 	@mkdir -p out/interposable
 	$(CC) -shared $(RT_PIC_OBJS) $(SC_MOD_OBJS) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@
