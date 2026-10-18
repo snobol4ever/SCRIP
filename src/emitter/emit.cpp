@@ -3730,7 +3730,7 @@ static void zst_finish(IR_t ** nodes, int n, const int * zout, const int * claim
 static int zst_coord(const char * name) {
     if (!name || g_emitter.g_zd_cur < 0 || g_emitter.g_zd_cur >= g_emitter.zst_n || g_emitter.zst_nodes != g_emitter.codegen_flat_chain_body_nodes) return -1;
     int r = g_emitter.zst_root[(size_t)g_emitter.g_zd_cur]; if (r < 0) return -1;
-    for (size_t t = 0; t < g_emitter.zst_name.size(); t++) if (g_emitter.zst_vroot[t] == r && !strcmp(g_emitter.zst_name[t], name)) return ZST_BIAS + g_emitter.zst_L[t];
+    for (size_t t = 0; t < g_emitter.zst_name.size(); t++) if (g_emitter.zst_vroot[t] == r && !strcmp(g_emitter.zst_name[t], name)) return ZST_BIAS - g_emitter.zst_L[t];
     return -1;
 }
 static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm, const unsigned char *walls, int *zcps, int *zcpd, int *zchn, int *zclaim) {

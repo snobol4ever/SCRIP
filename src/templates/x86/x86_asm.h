@@ -1060,7 +1060,7 @@ inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 <
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zop(int off, int q, int bump) {
     static char b[16][48]; static int i; i = (i + 1) & 15;
-    if (off >= ZST_BIAS / 2) { x86_zop_note(2); snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", _.op_zabs - (off - ZST_BIAS) + bump); return b[i]; }
+    if (off >= ZST_BIAS / 2) { x86_zop_note(2); snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", _.op_zabs + (off - ZST_BIAS) + bump); return b[i]; }
     int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }
