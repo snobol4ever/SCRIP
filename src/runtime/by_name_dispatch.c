@@ -17507,7 +17507,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
         }
         {
             DESCR_t c_rt_str_coerce(DESCR_t);
-            void rt_relop_val_coerce(DESCR_t, DESCR_t, DESCR_t *);
+            void c_rt_relop_val_coerce(DESCR_t, DESCR_t, DESCR_t *);
             int oc = -1;
             if (!strcmp(fn, "=")) oc = BINOP_EQ;
             else if (!strcmp(fn, "~=")) oc = BINOP_NE;
@@ -17528,7 +17528,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
                 if (oc >= BINOP_SLT && oc <= BINOP_SNE) return rtx_try_rt_str_coerce(b);
                 if (oc == BINOP_EQV || oc == BINOP_NEQV) return b;
                 DESCR_t _rv;
-                rt_relop_val_coerce(a, b, &_rv);
+                c_rt_relop_val_coerce(a, b, &_rv);
                 return _rv;
             }
         }

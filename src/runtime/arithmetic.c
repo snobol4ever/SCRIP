@@ -126,7 +126,7 @@ rt_call_next_t rt_binop_overload_open(DESCR_t a, DESCR_t b, int op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t big_str_operand(DESCR_t d);
 int operand_is_real_str(DESCR_t v);
-void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out) {
+void c_rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out) {
     if (IS_REAL(a) || IS_REAL(b) || operand_is_real_str(a) || operand_is_real_str(b)) { *out = REALVAL(to_real(b)); return; }
     if (b.v == DT_BIG) { *out = b; return; }
     { DESCR_t bs = big_str_operand(b); if (bs.v == DT_BIG) { *out = bs; return; } }

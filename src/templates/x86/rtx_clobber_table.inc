@@ -337,6 +337,7 @@ static const struct { char sym[34]; unsigned mask; } rtx_clob_tab[] = {
     { "rt_pl_unify_deep", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_zguard_cold", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_proc_value", 0 },
+    { "rt_relop_val_coerce", 0 },
     { "rt_rk_arr_at", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_rk_arr_set", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_size_d", 0 },
