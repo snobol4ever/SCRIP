@@ -4371,7 +4371,6 @@ rt_call_next_t rt_apply_open(DESCR_t *args, int nargs) {
         if (!pn || !*pn) return none;
         {
             int na = nargs - 1;
-            if (na > 64) na = 64;
             rt_call_args_need(na);
             for (int k = 0; k < na; k++) CALL_ARGS[k] = args[k + 1];
 #if RT_DIAG
