@@ -31,6 +31,17 @@ std::string xa_to_trail_exhausted(const char * jcc_ok, int l_ok) {
              + x86("def", L(l_ok)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string xa_to_trail_last(int l_more) {
+    return IF(!(x86_fb_pinned() && _.op_to_trailed),
+               std::string())
+         + IF(x86_fb_pinned() && _.op_to_trailed,
+               x86("cmp", "rax", "rcx")
+             + x86("jne", L(l_more))
+             + x86("note", "pl_choice_restore inline (D1): the value going out is the enumeration's last, so its header is no choice: B returns to the choice it found, as swipl exits det")
+             + x86("mov", "r13", FRQ(_.op_off + 48))
+             + x86("def", L(l_more)));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_unwind() {
     return IF(!(x86_fb_pinned() && _.op_to_trailed),
                std::string())

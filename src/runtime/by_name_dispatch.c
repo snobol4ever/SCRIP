@@ -7912,6 +7912,7 @@ static long pl_atom_concat_count(DESCR_t a, DESCR_t b, DESCR_t c) {
     int ha = pl_cell_text_n(a, ba, sizeof ba, &sa, &la), hb = pl_cell_text_n(b, bb, sizeof bb, &sb, &lb);
     if (ha && hb) return 0;
     if (!pl_cell_text_n(c, bc, sizeof bc, &sc, &lc)) return -1;
+    if (ha) { long na = (long)utf8_strlen_n(sa, la), nc = (long)utf8_strlen_n(sc, lc); return na <= nc ? na : -1; }
     return (long)utf8_strlen_n(sc, lc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

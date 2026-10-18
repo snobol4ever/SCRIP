@@ -16,6 +16,7 @@ int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_mark();
 std::string xa_to_trail_exhausted(const char * jcc_ok, int l_ok);
+std::string xa_to_trail_last(int l_more);
 std::string xa_to_trail_unwind();
 std::string xa_to_int_operand_guard(int slot);
 std::string xa_to_db_load_store();
@@ -104,6 +105,7 @@ std::string bb_to() {
                  + x86("cmp", "rax", "rcx")
                  + xa_to_trail_exhausted("jle", 6)
                  + x86_omega( "jg")
+                 + xa_to_trail_last(8)
                  + x86("note", ZRESN())
                  + x86("mov", ZRES(0), (long)DT_I)
                  + x86("note", ZRESN())

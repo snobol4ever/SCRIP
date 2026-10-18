@@ -1357,7 +1357,10 @@ static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, con
         collect_conj(arms[j], &av);
         IR_t * ae = NULL;
         IR_t * redo = NULL;
-        IR_t * first = pl_lower_conj(cx, (const tree_t * const *) av.data, av.n, ml, j ? ig : unmk, &ae, &redo, NULL);
+        IR_t * pop = j ? (IR_t *) 0 : build(cx, IR_UNMARK, ml, ig);
+        if (pop) { ir_operand_push(pop, mark); IR_LIT(pop).ival = 8; }
+        IR_t * first = pl_lower_conj(cx, (const tree_t * const *) av.data, av.n, pop ? pop : ml, j ? ig : unmk, &ae, &redo, NULL);
+        if (pop) lc_ω_to(pop, redo ? redo : ig);
         cx->cutω = saveω;
         cx->cut_scope = save_scope;
         cx->cut_mark = save_mark_0;
