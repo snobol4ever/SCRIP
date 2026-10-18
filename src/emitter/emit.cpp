@@ -3599,6 +3599,11 @@ static int zd_pred(IR_t ** nodes, int n, const int * claim, int hi, int k) {
     }
     return p;
 }
+static int zd_pred_bt(IR_t ** nodes, int n, const int * claim, int hi, int k) {
+    int p = zd_pred(nodes, n, claim, hi, k);
+    for (int g = 0; p >= 0 && nodes[p]->op == IR_LINE_MARK && g++ <= n; ) p = zd_pred(nodes, n, claim, hi, p);
+    return p;
+}
 static int zd_pl_cut(const IR_t * nd) { return nd->op == IR_CUT && !IR_LIT(nd).ival && emit_pl_frame() && !(g_emit_cfg && g_emit_cfg->icn_cells_graph); }
 static int zd_pl_unmark_bound(IR_t ** nodes, int n, int i) {
     IR_t * nd = nodes[i];
@@ -4057,13 +4062,13 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 int q = t ? nidx(nodes, n, t) : -1;
                 const char * sz = zd_edge_sz(nodes[i], v);
                 if (q < 0 || !zon[q] || !(port_sz_beta(sz) || zd_sz_phi(sz))) continue;
-                int p = (v == 0 && nodes[i]->op == IR_UNMARK) ? -1 : zd_pred(nodes, n, claim, claim[i], i);
+                int p = (v == 0 && nodes[i]->op == IR_UNMARK) ? -1 : zd_pred_bt(nodes, n, claim, claim[i], i);
                 int to = q;
                 if (p >= 0 && p != q) { to = p; if (zchn) zchn[2 * i + v] = p; }
                 if (v) zwpop[i] = (zout[i] - zd_k(nodes[i])) - zout[to];
                 else zgpop[i] = zout[i] - zout[to];
-                for (int c = p, g3 = 0; c >= 0 && c != q && g3++ <= n; c = zd_pred(nodes, n, claim, claim[i], c)) {
-                    int pc = zd_pred(nodes, n, claim, claim[i], c);
+                for (int c = p, g3 = 0; c >= 0 && c != q && g3++ <= n; c = zd_pred_bt(nodes, n, claim, claim[i], c)) {
+                    int pc = zd_pred_bt(nodes, n, claim, claim[i], c);
                     int tc = (pc >= 0) ? pc : q;
                     if (zchn && pc >= 0 && pc != q) zchn[2 * c + 1] = pc;
                     zwpop[c] = (zout[c] - zd_k(nodes[c])) - zout[tc];
