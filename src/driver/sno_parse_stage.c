@@ -26,7 +26,7 @@ static unsigned sc_kind_hash(const char *nm) { unsigned h = 2166136261u; for (co
 static void sc_kinds_build(int *bucket, int nb) {
     for (int i = 0; i < nb; i++) bucket[i] = -1;
     for (int k = 0; k < TT_KIND_COUNT; k++) {
-        if (!tt_e_name[k]) continue;
+        if (!tt_e_name[k][0]) continue;
         { unsigned h = sc_kind_hash(tt_e_name[k]) & (unsigned)(nb - 1); while (bucket[h] >= 0) h = (h + 1) & (unsigned)(nb - 1); bucket[h] = k; }
     }
 }

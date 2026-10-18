@@ -1,6 +1,6 @@
 #ifndef PAS_BI_NAMES_H
 #define PAS_BI_NAMES_H
-static const char * const g_pas_bi_name[] = { "__pas_abs", "__pas_alloc", "__pas_alloc_rec", "__pas_alpha_str", "__pas_append", "__pas_arctan", "__pas_arr_copy", "__pas_arr_of", "__pas_arrlit",
+static const char g_pas_bi_name[][24] = { "__pas_abs", "__pas_alloc", "__pas_alloc_rec", "__pas_alpha_str", "__pas_append", "__pas_arctan", "__pas_arr_copy", "__pas_arr_of", "__pas_arrlit",
     "__pas_assert", "__pas_bound", "__pas_ca_encode", "__pas_ca_pack", "__pas_ca_unpack", "__pas_chr", "__pas_chrlit", "__pas_copy", "__pas_cos", "__pas_deref", "__pas_deref_set", "__pas_display",
     "__pas_display_get", "__pas_dispose", "__pas_dispose_k", "__pas_dynlen", "__pas_dynset", "__pas_elem_ref", "__pas_enum_name", "__pas_envcall", "__pas_eof", "__pas_eof_f", "__pas_eoln",
     "__pas_eoln_f", "__pas_exp", "__pas_fassign", "__pas_fbuf_get", "__pas_fbuf_set", "__pas_fclose", "__pas_feof_t", "__pas_ferase", "__pas_fget", "__pas_field_idx_set", "__pas_field_idx_update",

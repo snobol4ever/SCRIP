@@ -109,7 +109,7 @@ static inline tree_t * ast_node_new(tree_e kind) { tree_t * e = (tree_t *)ct_zal
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void ast_tree_free(tree_t *p) { if (!p) return; for (int _i = 0; _i < p->n; _i++) ast_tree_free(p->c[_i]); if (p->c) ct_drop((char *)p->c - sizeof(size_t)); ct_drop(p); }
 #ifdef BB_DEFINE_NAMES
-static const char * const tt_e_name[TT_KIND_COUNT] = { [TT_QLIT] = "TT_QLIT", [TT_ILIT] = "TT_ILIT", [TT_FLIT] = "TT_FLIT", [TT_CSET] = "TT_CSET", [TT_NUL] = "TT_NUL", [TT_VAR] = "TT_VAR",
+static const char tt_e_name[TT_KIND_COUNT][19] = { [TT_QLIT] = "TT_QLIT", [TT_ILIT] = "TT_ILIT", [TT_FLIT] = "TT_FLIT", [TT_CSET] = "TT_CSET", [TT_NUL] = "TT_NUL", [TT_VAR] = "TT_VAR",
     [TT_KEYWORD] = "TT_KEYWORD", [TT_INDIRECT] = "TT_INDIRECT", [TT_DEFER] = "TT_DEFER", [TT_INTERROGATE] = "TT_INTERROGATE", [TT_NAME] = "TT_NAME", [TT_MNS] = "TT_MNS", [TT_PLS] = "TT_PLS",
     [TT_ADD] = "TT_ADD", [TT_SUB] = "TT_SUB", [TT_MUL] = "TT_MUL", [TT_DIV] = "TT_DIV", [TT_MOD] = "TT_MOD", [TT_POW] = "TT_POW", [TT_SEQ] = "TT_SEQ", [TT_CAT] = "TT_CAT", [TT_ALT] = "TT_ALT",
     [TT_CONJ] = "TT_CONJ", [TT_DEREF] = "TT_DEREF", [TT_NIDENTICAL] = "TT_NIDENTICAL", [TT_XREP] = "TT_XREP", [TT_DIVIS] = "TT_DIVIS", [TT_FLUSH] = "TT_FLUSH", [TT_VLIST] = "TT_VLIST",

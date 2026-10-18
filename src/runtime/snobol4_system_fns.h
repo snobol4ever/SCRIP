@@ -2,7 +2,7 @@
 #define SNOBOL4_SYSTEM_FNS_H
 #include <string.h>
 #include <stdlib.h>
-static const char * const g_sn4_system_fns[] = { "ANY","APPLY","ARBNO","ARG","ARRAY","ATAN","BREAK","BREAKX","CHAR","CHOP","CLEAR","CODE","COLLECT","CONVERT","COPY","COS","DATA","DATATYPE","DATE",
+static const char g_sn4_system_fns[][10] = { "ANY","APPLY","ARBNO","ARG","ARRAY","ATAN","BREAK","BREAKX","CHAR","CHOP","CLEAR","CODE","COLLECT","CONVERT","COPY","COS","DATA","DATATYPE","DATE",
     "DEFINE","DIFFER","DUMP","DUPL","ENDFILE","EQ","EVAL","EXP","FENCE","FIELD","GE","GT","HOST","IDENT","INPUT","INTEGER","ITEM","LE","LEN","LEQ","LGE","LGT","LLE","LLT","LN","LNE","LOAD","LOCAL",
     "LPAD","LT","MATCHAT","NE","NOTANY","OPSYN","OUTPUT","POS","PROTOTYPE","REMDR","REPLACE","REVERSE","RPAD","RPOS","RSORT","RTAB","SET","SETEXIT","SIN","SIZE","SORT","SPAN","SQRT","STOPTR","SUBSTR",
     "TAB", "TABLE","TAN","TIME","TRACE","TRIM","UNLOAD"};
@@ -26,8 +26,8 @@ static __attribute__((unused)) int sn4_is_system_fn(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((unused)) int sn4_sysfn_protected(const char *name) { return sn4_is_system_fn(name) && strcmp(name, "MATCHAT") != 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * const g_sn4_leaf_fns[] = { "ANY","ARBNO","ARRAY","ATAN","BREAK","BREAKX","CHAR","CHOP","CONVERT","COPY","COS","DATATYPE","DATE","DIFFER","DUPL","EQ","EXP","FENCE","GE","GT",
-    "IDENT","INTEGER","ITEM","LE","LEN","LEQ","LGE","LGT","LLE","LLT","LN","LNE","LPAD","LT","MATCHAT","NE","NOTANY","POS","PROTOTYPE","REMDR","REPLACE","REVERSE","RPAD","RPOS","RTAB","SIN","SIZE",
+static const char g_sn4_leaf_fns[][11] = { "ANY","ARBNO","ARRAY","ATAN","BREAK","BREAKX","CHAR","CHOP","CONVERT","COPY","COS","DATATYPE","DATE","DIFFER","DUPL","EQ","EXP","FENCE","GE","GT", "IDENT",
+    "INTEGER","ITEM","LE","LEN","LEQ","LGE","LGT","LLE","LLT","LN","LNE","LPAD","LT","MATCHAT","NE","NOTANY","POS","PROTOTYPE","REMDR","REPLACE","REVERSE","RPAD","RPOS","RTAB","SIN","SIZE",
     "SNO$CHKNM", "SNO$MKEXPR", "SNO$MKPAT","SNO$NAME","SNO$PATCK","SNO$WANTNM","SPAN","SQRT","SUBSTR","TAB","TABLE","TAN","TIME","TRIM" };
 #define SN4_LEAF_FN_COUNT (sizeof(g_sn4_leaf_fns) / sizeof(g_sn4_leaf_fns[0]))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "g_lower.h"
-static const char * const kind_names[IR_OP_COUNT] = { [IR_LIT_INTEGER] = "IR_LIT_INTEGER", [IR_LIT_STRING] = "IR_LIT_STRING", [IR_LIT_REAL] = "IR_LIT_REAL", [IR_VAR] = "IR_VAR",
+static const char kind_names[IR_OP_COUNT][21] = { [IR_LIT_INTEGER] = "IR_LIT_INTEGER", [IR_LIT_STRING] = "IR_LIT_STRING", [IR_LIT_REAL] = "IR_LIT_REAL", [IR_VAR] = "IR_VAR",
     [IR_VAR_REF] = "IR_VAR_REF", [IR_VAR_FRAME] = "IR_VAR_FRAME", [IR_ASSIGN_FRAME] = "IR_ASSIGN_FRAME", [IR_ACTIVATE] = "IR_ACTIVATE", [IR_ASSIGN] = "IR_ASSIGN", [IR_ASSIGN_VAR] = "IR_ASSIGN_VAR",
     [IR_BINOP] = "IR_BINOP", [IR_BINOP_TEST] = "IR_BINOP_TEST", [IR_BINOP_RELOP_VAL] = "IR_BINOP_RELOP_VAL", [IR_UNOP] = "IR_UNOP", [IR_UNOP_TEST] = "IR_UNOP_TEST", [IR_CALL] = "IR_CALL",
     [IR_CALL_PROC_STAGED] = "IR_CALL_PROC_STAGED", [IR_CALL_BUILTIN] = "IR_CALL_BUILTIN", [IR_CALL_BUILTIN_GEN] = "IR_CALL_BUILTIN_GEN", [IR_CALL_ICON] = "IR_CALL_ICON",
@@ -37,7 +37,7 @@ static const char * const kind_names[IR_OP_COUNT] = { [IR_LIT_INTEGER] = "IR_LIT
     [IR_CMP_TEST] = "IR_CMP_TEST", [IR_CUT] = "IR_CUT", [IR_REF_INVARIANT] = "IR_REF_INVARIANT", [IR_PATTERN_CAT] = "IR_PATTERN_CAT", [IR_PATTERN_ALT] = "IR_PATTERN_ALT",
     [IR_PATTERN_CAPTURE] = "IR_PATTERN_CAPTURE", [IR_PATTERN_DEFER] = "IR_PATTERN_DEFER", [IR_DTP_ASSIGN] = "IR_DTP_ASSIGN", [IR_EXCISED] = "IR_EXCISED", };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char * bb_op_name(IR_e k) { if (k >= 0 && k < IR_OP_COUNT && kind_names[k]) return kind_names[k]; return "IR_UNKNOWN"; }
+const char * bb_op_name(IR_e k) { if (k >= 0 && k < IR_OP_COUNT && kind_names[k][0]) return kind_names[k]; return "IR_UNKNOWN"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void IR_release_scope_add(IR_graph_t * g, const IR_t * nd, int lo, int hi) {
     if (!g || !nd) return;
