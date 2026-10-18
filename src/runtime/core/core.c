@@ -3907,7 +3907,8 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && _io_chan[ch].is_output && _io_chan[ch].fp) {
         const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);
-        fprintf(_io_chan[ch].fp, "%s\n", s ? s : "");
+        fputs(s ? s : "", _io_chan[ch].fp);
+        if (_io_chan[ch].rlen <= 0) fputc('\n', _io_chan[ch].fp);
         goto nv_store;
     }
     if (strcmp(name, "OUTPUT") == 0) { extern int rt_kw_output_on(void); if (rt_kw_output_on()) output_val(val); _var_assoc_set("_OUTPUT", val); return val; }
@@ -5221,35 +5222,57 @@ DESCR_t input_read(void) {
     return STRVAL(rt_heap_strdup_c(_input_buf));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *_io_extract_fname(const char *opts_str, char *buf, size_t bufsz) {
-    if (!opts_str || !opts_str[0]) return NULL;
-    const char *bracket = strchr(opts_str, '[');
-    if (bracket) {
-        size_t len = (size_t)(bracket - opts_str);
-        while (len > 0 && opts_str[len-1] == ' ') len--;
-        if (len > 0 && len < bufsz) { memcpy(buf, opts_str, len); buf[len] = '\0'; return buf; }
-        return NULL;
-    }
-    return opts_str;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *_io_varname(DESCR_t d) {
     if (d.v == DT_N) { if (d.slen == 0 && d.s && *d.s) return d.s; if (d.slen == 1 && d.ptr) return NV_name_from_ptr((const DESCR_t *)d.ptr); }
     if (IS_STR(d)) return d.s;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int _io_bang_cmd(const char *s, char *cmd, const char **opts) {
+static long _io_lenfnm(const char *s) {
+    size_t n = s ? strlen(s) : 0, len = n, c = 0;
+    if (!n) return 0;
+    if (s[n - 1] == ']') for (size_t k = n - 1; k-- > 0;) { if (s[k] == ']') break; if (s[k] == '[') { len = k; break; } }
+    if (s[0] == '!') { if (len < 3 || s[2] == s[1]) return -1; c = 2; while (c < len && s[c] != s[1]) c++; return (long)(c < len ? c + 1 : c); }
+    while (c < len && s[c] != ' ') c++;
+    return (long)c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int _io_opts(const char *s, long from, long *fd, long *rlen, int *app) {
+    extern long g_maxlngth;
+    size_t n = s ? strlen(s) : 0, i = from > 0 ? (size_t)from : 0;
+    int dash = 0;
+    while (i < n) {
+        int ch = toupper((unsigned char)s[i++]);
+        if (ch == ' ' || ch == '\t' || ch == ',' || ch == '[' || ch == ']') { dash = 0; continue; }
+        if (ch == '-') { if (dash) return -1; dash = 1; continue; }
+        if (ch == 'B' || ch == 'F' || ch == 'L' || ch == 'Q' || ch == 'R') {
+            long v = 0;
+            while (i < n && s[i] >= '0' && s[i] <= '9') { v = v > 1000000000000L ? v : 10 * v + (s[i] - '0'); i++; }
+            if (ch == 'F') *fd = v;
+            else if (v <= 0 || v > g_maxlngth) return -1;
+            else if (ch == 'L') *rlen = -v;
+            else if (ch != 'B') *rlen = v;
+        } else if (ch == 'S') {
+            int d1 = i < n ? toupper((unsigned char)s[i]) : 0, d2 = i + 1 < n ? toupper((unsigned char)s[i + 1]) : 0;
+            i += 2;
+            if (d1 != 'D' || (d2 != 'N' && d2 != 'R' && d2 != 'W')) return -1;
+            if (d2 == 'R' && i < n && toupper((unsigned char)s[i]) == 'W') i++;
+            if (i >= n) return -1;
+        } else if (ch == 'C') *rlen = 1;
+        else if (ch == 'A') *app = 1;
+        else if (ch != 'I' && ch != 'U' && ch != 'W' && ch != 'X' && ch != 'Y') return -1;
+        dash = 0;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int _io_bang_cmd(const char *s, char *cmd) {
     if (!s || s[0] != '!') return 0;
-    size_t len = strlen(s);
-    if (len && s[len - 1] == ']') { const char *q = s + len - 1; while (q > s) { q--; if (*q == ']') break; if (*q == '[') { len = (size_t)(q - s); break; } } }
-    if (len < 3 || s[2] == s[1]) return -1;
-    char d = s[1];
-    size_t i = 2;
-    while (i < len && s[i] != d) i++;
-    memcpy(cmd, s + 2, i - 2);
-    cmd[i - 2] = '\0';
-    *opts = s + (i < len ? i + 1 : len);
+    long len = _io_lenfnm(s);
+    if (len < 0) return -1;
+    size_t e = s[len - 1] == s[1] ? (size_t)len - 1 : (size_t)len;
+    memcpy(cmd, s + 2, e - 2);
+    cmd[e - 2] = '\0';
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5268,19 +5291,6 @@ static FILE *_io_spawn(const char *cmd, const char *mode) {
     _io_shell_quote(&p, cmd);
     *p = '\0';
     return popen(w, mode);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void _io_parse_opts(const char *spec, long *fd, long *rlen) {
-    const char *p = spec ? strchr(spec, '[') : NULL;
-    if (!p) return;
-    for (p++; *p && *p != ']'; p++) {
-        if (*p == '-' && (p[1] == 'f' || p[1] == 'r' || p[1] == 'q' || p[1] == 'l')) {
-            char k = p[1];
-            char *e = NULL;
-            long v = strtol(p + 2, &e, 10);
-            if (e && e > p + 2) { if (k == 'f') *fd = v; else if (k == 'l') *rlen = -v; else *rlen = v; p = e - 1; }
-        }
-    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FILE *_io_chan_fp_or_std(int ch) {
@@ -5430,10 +5440,13 @@ static int _io_assoc_std(const char *vn, int base, FILE *fp, int is_output) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _INPUT_(DESCR_t *a, int n) {
-    char fname_buf[n == 3 ? strlen(VARVAL_fn(a[2])) + 1 : 1];
+    const char *spec = n >= 3 ? VARVAL_fn(a[2]) : NULL;
+    long fl = n == 3 ? _io_lenfnm(spec) : 0;
+    char fname_buf[fl > 0 ? fl + 1 : 1];
     const char *fname = NULL;
-    if (n >= 4) { fname = VARVAL_fn(a[3]); } else if (n >= 3) { fname = _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf)); }
-    if (n == 3 && VARVAL_fn(a[2])[0] == '!') fname = VARVAL_fn(a[2]);
+    if (fl < 0) { core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; }
+    if (n >= 4) fname = VARVAL_fn(a[3]);
+    else if (fl > 0) { memcpy(fname_buf, spec, (size_t)fl); fname_buf[fl] = '\0'; fname = fname_buf; }
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
     int from_prebind = 0;
     if ((!fname || !fname[0]) && _io_prebind(ch)) {
@@ -5449,7 +5462,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         int ps = _io_assoc_pair_state(a, n);
         const char *vn = (n == 1 || ps == 0) ? _io_varname(a[0]) : NULL;
         if (ps == 0 && !vn) return NULVCL;
-        _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
+        { int app = 0; if (_io_opts(spec, 0, &fd, &rlen, &app) < 0) { core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; } }
         if (ps == 2 && fd < 0 && !core_io_assoc_legacy()) { core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; }
         if (ps == 2 && fd >= 0 && ch >= 0) {
             const char *cv = _io_varname(a[0]);
@@ -5481,16 +5494,16 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         return NULVCL;
     }
     char pcmd[strlen(fname) + 1];
-    const char *popts = NULL;
-    int bang = _io_bang_cmd(fname, pcmd, &popts);
-    if (bang < 0) { core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; }
+    int bang = _io_bang_cmd(fname, pcmd);
+    long fopt = -1, frlen = 0;
+    int fapp = 0;
+    const char *ospec = spec ? spec : bang > 0 ? fname : NULL;
+    if (bang < 0 || _io_opts(ospec, spec ? fl : _io_lenfnm(ospec), &fopt, &frlen, &fapp) < 0 || fopt >= 0) { core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; }
     int is_pipe = bang > 0;
     if (!is_pipe && !core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) return NULVCL;
     if (!from_prebind && _io_chan_in_use(ch)) { core_runtime_error(289, "input channel currently in use"); return FAILDESCR; }
     FILE *f = bang > 0 ? _io_spawn(pcmd, "r") : fopen(fname, "r");
     if (!f) return FAILDESCR;
-    long fopt = -1, frlen = 0;
-    _io_parse_opts(bang > 0 ? popts : n >= 3 ? VARVAL_fn(a[2]) : NULL, &fopt, &frlen);
     if (ch >= 0) {
         int sl = _io_slot(ch, 1);
         _io_chan_close(sl);
@@ -5518,16 +5531,19 @@ static void _io_output_reattach_std(void) {
     _io_var_refresh("OUTPUT");
 }
 static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
-    char fname_buf[n == 3 ? strlen(VARVAL_fn(a[2])) + 1 : 1];
+    const char *spec = n >= 3 ? VARVAL_fn(a[2]) : NULL;
+    long fl = n == 3 ? _io_lenfnm(spec) : 0;
+    char fname_buf[fl > 0 ? fl + 1 : 1];
     const char *fname = NULL;
     int from_prebind = 0;
     { int pch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1; if (n < 3 && _io_prebind(pch)) { fname = _io_prebind(pch); from_prebind = 1; } }
     if (!fname && !core_io_assoc_legacy() && _io_assoc_pair_state(a, n) == 1) { core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; }
+    if (fl < 0) { core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; }
     if (fname) {
     } else if (n >= 4) {
         fname = VARVAL_fn(a[3]);
     } else if (n >= 3) {
-        fname = VARVAL_fn(a[2])[0] == '!' ? VARVAL_fn(a[2]) : _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf));
+        if (fl > 0) { memcpy(fname_buf, spec, (size_t)fl); fname_buf[fl] = '\0'; fname = fname_buf; }
     } else if (n >= 1) {
         const char *vn = (n == 1 || _io_assoc_pair_state(a, n) == 0) ? _io_varname(a[0]) : NULL;
         if (vn && strcmp(vn, "OUTPUT") != 0) _io_assoc_std(vn, 6, stdout, 1);
@@ -5544,7 +5560,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
             else if (vn) _io_output_reattach_std();
             return NULVCL;
         }
-        _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
+        { int app = 0; if (_io_opts(spec, 0, &fd, &rlen, &app) < 0) { core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; } }
         if (fd < 0 || ch < 0) return FAILDESCR;
         {
             FILE *nf = fdopen(dup((int)fd), "w");
@@ -5555,18 +5571,21 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
             _io_chan_close(sl);
             _io_chan[sl].fp = nf;
             _io_chan[sl].is_output = 1;
+            _io_chan[sl].rlen = rlen;
             { const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL; _io_chan[sl].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); } }
         }
         return NULVCL;
     }
     char pcmd[strlen(fname) + 1];
-    const char *popts = NULL;
-    int bang = _io_bang_cmd(fname, pcmd, &popts);
-    if (bang < 0) { core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; }
+    int bang = _io_bang_cmd(fname, pcmd);
+    long fopt = -1, frlen = 0;
+    int fapp = 0;
+    const char *ospec = spec ? spec : bang > 0 ? fname : NULL;
+    if (bang < 0 || _io_opts(ospec, spec ? fl : _io_lenfnm(ospec), &fopt, &frlen, &fapp) < 0 || fopt >= 0) { core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; }
     int is_pipe = bang > 0;
     if (!is_pipe && !core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) { core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; }
     if (!from_prebind && _io_chan_in_use(ch)) { core_runtime_error(290, "output channel currently in use"); return FAILDESCR; }
-    FILE *f = bang > 0 ? _io_spawn(pcmd, "w") : fopen(fname, "w");
+    FILE *f = bang > 0 ? _io_spawn(pcmd, "w") : fopen(fname, fapp ? "a" : "w");
     if (!f) return FAILDESCR;
     if (ch >= 0) {
         int sl = _io_slot(ch, 1);
@@ -5574,6 +5593,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
         _io_chan[sl].fp = f;
         _io_chan[sl].is_output = 1;
         _io_chan[sl].is_popen = is_pipe;
+        _io_chan[sl].rlen = frlen;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
         _io_chan[sl].varname = vn ? rt_heap_strdup_c(vn) : NULL;
         if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); }
