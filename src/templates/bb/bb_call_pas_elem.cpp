@@ -6,7 +6,6 @@ extern "C" {
 #include "descr.h"
 }
 #include "x86_asm.h"
-extern "C++" int pas_elem_kind(void);
 #define PE_LO 0
 #define PE_HI 4
 #define PE_DATA 32
@@ -53,12 +52,12 @@ static std::string pe_core(const std::string & b0, const std::string & b8, const
          + x86("def", L(PE_DONE));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string pas_elem_zd_fast(void) {
+std::string elem_access_zd_fast(void) {
     return x86("comment", "PAS-ELEM inline element access under ZD: guard, bounds, one indexed load or store, operands read in place")
          + x86("note", ZOPN(0))
          + x86("note", ZOPN(1))
-         + IF(pas_elem_kind() == 2, x86("note", ZOPN(2)))
-         + pe_core(ZOPQ(0, 0), ZOPQ(0, 8), ZOPQ(1, 0), ZOPQ(1, 8), pas_elem_kind() == 2 ? ZOPQ(2, 0) : "", pas_elem_kind() == 2 ? ZOPQ(2, 8) : "", pas_elem_kind() == 2)
+         + IF(_.op_call_elem_access == 2, x86("note", ZOPN(2)))
+         + pe_core(ZOPQ(0, 0), ZOPQ(0, 8), ZOPQ(1, 0), ZOPQ(1, 8), _.op_call_elem_access == 2 ? ZOPQ(2, 0) : "", _.op_call_elem_access == 2 ? ZOPQ(2, 8) : "", _.op_call_elem_access == 2)
          + x86("cmp", "al", (long)DT_FAIL)
          + x86_omega("je")
          + x86("note", ZRESN())
@@ -69,14 +68,14 @@ std::string pas_elem_zd_fast(void) {
          + x86("def", L(PE_COLD));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string pas_elem_flat_fast(int argbase, int resoff) {
+std::string elem_access_flat_fast(int argbase, int resoff) {
     return x86("comment", "PAS-ELEM inline element access: guard, bounds, one indexed load or store")
          + pe_core(FRQ(argbase), FRQ(argbase + 8), FRQ(argbase + 16), FRQ(argbase + 24),
-                   pas_elem_kind() == 2 ? FRQ(argbase + 32) : "", pas_elem_kind() == 2 ? FRQ(argbase + 40) : "", pas_elem_kind() == 2)
+                   _.op_call_elem_access == 2 ? FRQ(argbase + 32) : "", _.op_call_elem_access == 2 ? FRQ(argbase + 40) : "", _.op_call_elem_access == 2)
          + x86("mov", FRQ(resoff), "rax")
          + x86("mov", FRQ(resoff + 8), "rdx")
          + x86("jmp", L(PE_JOIN))
          + x86("def", L(PE_COLD));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string pas_elem_flat_join(void) { return x86("def", L(PE_JOIN)); }
+std::string elem_access_flat_join(void) { return x86("def", L(PE_JOIN)); }

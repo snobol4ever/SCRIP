@@ -142,6 +142,7 @@ struct IR_t {
     int seal;
     int pat_static;
     int strict;
+    int elem_access;
     union { const char * sval; int64_t ival; double dval; };
 };
 static inline IR_e ir_kind0(const IR_t * n) { return n->op0 ? n->op0 : n->op; }

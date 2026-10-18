@@ -6991,13 +6991,7 @@ uint64_t sn4_byname_fp(const char * fn, int strict) {
 const char * bb_callee_baked_sym(int k) { return k == 2 ? "rt_call_callee_sn4" : "rt_call_fld_sn4"; }
 uint64_t bb_callee_baked_fp(int k) { return k == 2 ? (uint64_t)(uintptr_t)(void *)rt_call_callee_sn4 : (uint64_t)(uintptr_t)(void *)rt_call_fld_sn4; }
 #include "templates/bb/bb_pl_leaf_kinds.h"
-int pas_elem_kind(void) {
-    const char * fn = g_emit.op_sval ? g_emit.op_sval : "";
-    if (!emit_knob_unless_zero("SCRIP_PAS_ELEM")) return 0;
-    if (!strcmp(fn, "arr_get") && g_emit.op_ival == 2) return 1;
-    if (!strcmp(fn, "arr_set_pure") && g_emit.op_ival == 3) return 2;
-    return 0;
-}
+int elem_access_kind(const IR_t * nd) { return nd ? nd->elem_access : 0; }
 extern "C" { int stage2_owner_varslot(const char *, const char *); int bb_scc_probe(const char *, int, int *, int *, int *, int *); int rt_proc_nformals(const char *); extern int g_rt_fragment_emit;
     extern int g_flat_frame_floor; }
 IR_t * bb_chain_terminal_staged(IR_t * entry);
@@ -7510,7 +7504,7 @@ void call_prepare(IR_t * nd) {
     g_emit.op_call_route = route; g_emit.op_call_refuse = CALL_REFUSE_NONE; g_emit.op_call_try = 0; g_emit.op_call_sym = ""; g_emit.op_call_fp = 0; g_emit.op_call_try_sym = "";
         g_emit.op_call_try_fp = 0;
     g_emit.op_call_open_sym = ""; g_emit.op_call_open_fp = 0; g_emit.op_call_bid = -1; g_emit.op_call_idx = -1; g_emit.op_call_argbase = -1; g_emit.op_call_resoff = -1; g_emit.op_call_rec_off = -1;
-    g_emit.op_call_genoff = -1; g_emit.op_call_dsave = -1; g_emit.op_call_scansync = 0; g_emit.op_call_curmov = 0; g_emit.op_call_pas_elem = 0; g_emit.op_call_sb_exit = 0;
+    g_emit.op_call_genoff = -1; g_emit.op_call_dsave = -1; g_emit.op_call_scansync = 0; g_emit.op_call_curmov = 0; g_emit.op_call_elem_access = 0; g_emit.op_call_sb_exit = 0;
     g_emit.op_call_fnlbl_fresh = 0; g_emit.op_call_fnlbl = ""; g_emit.op_call_rec_addr = 0; g_emit.op_call_rec_lbl = ""; g_emit.op_marg_n = 0; g_emit.op_pl_kind = PLK_NONE; g_emit.op_pl_sub = 0;
     g_emit.op_pl_rat = 0; g_emit.op_pl_op = ""; g_emit.op_pl_tags = ""; g_emit.op_pl_jcc = "je"; g_emit.op_pl_oplbl = ""; g_emit.op_pl_rules = (const int *)0; g_emit.op_pl_fid_ok = 0;
     g_emit.op_pl_fid = 0; g_emit.op_pl_db_words = (const long long *)0; g_emit.op_pl_db_n = 0;
@@ -7525,7 +7519,7 @@ void call_prepare(IR_t * nd) {
     if (!zd && !g_emit.op_call_refuse) { call_margs_reserve(narg); g_emit.op_marg_n = narg;
         for (int i = narg - 1; i >= 0; i--) call_marg_plan(i, (subs && subs[i]) ? subs[i]->entry : (fnroute ? ir_call_arg(nd, i) : (IR_t *)0), g_emit.op_call_argbase + 16 * i, nd); }
     g_emit.op_call_bid = bid_bake_of(fn);
-    g_emit.op_call_pas_elem = fnroute ? pas_elem_kind() : 0;
+    g_emit.op_call_elem_access = fnroute ? elem_access_kind(nd) : 0;
     g_emit.op_call_sb_exit = (fnroute && zd && g_emit.op_sb) ? 1 : 0;
     if (!fnroute && !zd && kind != IR_CALL_GEN) { g_emit.op_call_scansync = lower_call_is_scan_builtin(fn); g_emit.op_call_curmov = lower_call_is_curmov(fn);
         g_emit.op_call_dsave = g_emit.op_call_argbase + 16 * narg; }

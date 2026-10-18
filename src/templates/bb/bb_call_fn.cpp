@@ -30,9 +30,9 @@ extern DESCR_t rt_eval_land(long word);
 extern DESCR_t rt_call_land_γ(DESCR_t frame0, long word);
 extern DESCR_t rt_call_land_ω(long word);
 }
-std::string pas_elem_zd_fast(void);
-std::string pas_elem_flat_fast(int argbase, int resoff);
-std::string pas_elem_flat_join(void);
+std::string elem_access_zd_fast(void);
+std::string elem_access_flat_fast(int argbase, int resoff);
+std::string elem_access_flat_join(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CF_FN() (_.op_sval ? _.op_sval : "")
 #define CF_N() ((int)_.op_ival)
@@ -258,14 +258,14 @@ static std::string cf_pas_bi_zd() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_direct_flat() {
-    return emit_seq({ IF(_.op_call_pas_elem, pas_elem_flat_fast(CF_ARG(), CF_RES())),
+    return emit_seq({ IF(_.op_call_elem_access, elem_access_flat_fast(CF_ARG(), CF_RES())),
                       x86("lea", "rdi", FRQ(CF_ARG())),
                       x86("mov32", "esi", (long)CF_N()),
                       x86("call", _.op_call_sym, _.op_call_fp),
                       x86("mov", FRQ(CF_RES()), "rax"),
                       x86("mov", FRQ(CF_RES() + 8), "rdx"),
                       x86_rt_gc_poll(),
-                      IF(_.op_call_pas_elem, pas_elem_flat_join()) });
+                      IF(_.op_call_elem_access, elem_access_flat_join()) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_direct_zd() {
@@ -350,7 +350,7 @@ static std::string cf_open_method(const char * osym, uint64_t ofp) {
 static std::string cf_open_apply() { return emit_seq({ CF_ARGV_LEA() + x86("mov32", "esi", (long)CF_N()) + bcfn_apply_open_enter(60, 68, 29), x86_deflabel_id(68) }); }
 static std::string cf_open_eval() { return emit_seq({ CF_ARGV_LEA(), x86("mov32", "esi", (long)CF_N()), BCFN_EVAL_OPEN_ENTER(80, 88, 29), x86_deflabel_id(88) }); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define CF_ZD_HEAD() IF(_.op_call_pas_elem && !_.op_sb, pas_elem_zd_fast())
+#define CF_ZD_HEAD() IF(_.op_call_elem_access && !_.op_sb, elem_access_zd_fast())
 std::string bb_call_direct() {
     return x86_alpha()
          + IF(CF_REFUSED(), cf_refuse())

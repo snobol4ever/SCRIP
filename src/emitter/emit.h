@@ -635,7 +635,7 @@ typedef struct {
     int op_call_dsave;
     int op_call_scansync;
     int op_call_curmov;
-    int op_call_pas_elem;
+    int op_call_elem_access;
     int op_call_sb_exit;
     int op_call_fnlbl_fresh;
     const char * op_call_fnlbl;
