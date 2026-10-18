@@ -1,4 +1,5 @@
 #include "prolog_lower.h"
+#include "parsers/g_parser.h"
 #include "prolog_lex.h"
 #include "ct_arena.h"
 #include "ct_vec.h"
@@ -219,7 +220,6 @@ static void pb_collect_names(const tree_t *t, const char **names, int *n, int ca
     for (int i = 0; i < t->n; i++) pb_collect_names(t->c[i], names, n, cap);
 }
 static int pb_count_vars(const tree_t *t) { if (!t) return 0; int n = (t->t == TT_VAR) ? 1 : 0; for (int i = 0; i < t->n; i++) n += pb_count_vars(t->c[i]); return n; }
-static int g_pb_fresh_ctr = 0;
 static void pb_expand_goal(tree_t *t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pb_expand_bagof(tree_t *t) {
@@ -239,7 +239,7 @@ static void pb_expand_bagof(tree_t *t) {
     char b1[32], b2[32];
     tree_t *fa; tree_t *inner;
     if (nfv == 0) {
-        snprintf(b1, sizeof b1, "_$B%d", g_pb_fresh_ctr++);
+        snprintf(b1, sizeof b1, "_$B%d", g_parser.pl.pb_fresh_ctr++);
         fa = pb_fnc3("findall", T, G1, pb_var(b1));
         tree_t *ne = pb_fnc2("\\==", pb_var(b1), ast_node_new(TT_MAKELIST));
         tree_t *fin = is_setof ? pb_fnc2("sort", pb_var(b1), L) : pb_fnc2("=", pb_var(b1), L);

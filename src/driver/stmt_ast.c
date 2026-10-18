@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include "parsers/g_parser.h"
 #include "ct_arena.h"
 #include <string.h>
 #include <stdio.h>
@@ -114,19 +115,14 @@ tree_t *stmt_attr_find(const tree_t *stmt, const char *tag) {
 tree_t *stmt_attr_expr(const tree_t *attr) { if (!attr || attr->n == 0) return NULL; return attr->c[0]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *stmt_attr_str(const tree_t *attr) { if (!attr) return NULL; if (attr->n > 0 && attr->c[0]) return attr->c[0]->v.sval; return NULL; }
-static char ** g_src_lines = NULL;
-static int g_src_nlines = 0;
-static char * g_src_path = NULL;
-typedef struct { char * name; char ** lines; int n; int depth; } stmt_inc_t;
-static stmt_inc_t * g_incs = NULL;
-static int g_n_incs = 0;
-static int g_cap_incs = 0;
+typedef struct stmt_inc { char * name; char ** lines; int n; int depth; } stmt_inc_t;
+g_parser_t g_parser;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char * stmt_src_get_file(void) { return g_src_path; }
+const char * stmt_src_get_file(void) { return g_parser.stmt.src_path; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int stmt_src_nlines(void) { return g_src_nlines; }
+int stmt_src_nlines(void) { return g_parser.stmt.src_nlines; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char * stmt_src_image(int lineno) { return (lineno >= 1 && lineno <= g_src_nlines) ? g_src_lines[lineno - 1] : NULL; }
+const char * stmt_src_image(int lineno) { return (lineno >= 1 && lineno <= g_parser.stmt.src_nlines) ? g_parser.stmt.src_lines[lineno - 1] : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void stmt_src_free_lines(char ** lines, int n) { for (int i = 0; i < n; i++) ct_drop(lines[i]); ct_drop(lines); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -165,25 +161,32 @@ static char ** stmt_src_read(const char * path, int * nout) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void stmt_src_set_file(const char * path) {
-    stmt_src_free_lines(g_src_lines, g_src_nlines);
-    if (!(path && g_src_path && strcmp(path, g_src_path) == 0)) { for (int i = 0; i < g_n_incs; i++) { stmt_src_free_lines(g_incs[i].lines, g_incs[i].n); ct_drop(g_incs[i].name); } g_n_incs = 0; }
-    ct_drop(g_src_path);
-    g_src_path = path ? ct_strdup(path) : NULL;
-    g_src_lines = stmt_src_read(path, &g_src_nlines);
+    stmt_src_free_lines(g_parser.stmt.src_lines, g_parser.stmt.src_nlines);
+    if (!(path && g_parser.stmt.src_path && strcmp(path, g_parser.stmt.src_path) == 0)) {
+        for (int i = 0; i < g_parser.stmt.n_incs; i++) { stmt_src_free_lines(g_parser.stmt.incs[i].lines, g_parser.stmt.incs[i].n); ct_drop(g_parser.stmt.incs[i].name); }
+        g_parser.stmt.n_incs = 0;
+    }
+    ct_drop(g_parser.stmt.src_path);
+    g_parser.stmt.src_path = path ? ct_strdup(path) : NULL;
+    g_parser.stmt.src_lines = stmt_src_read(path, &g_parser.stmt.src_nlines);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static stmt_inc_t * stmt_inc_find(const char * name) { if (!name) return NULL; for (int i = 0; i < g_n_incs; i++) if (strcmp(g_incs[i].name, name) == 0) return &g_incs[i]; return NULL; }
+static stmt_inc_t * stmt_inc_find(const char * name) {
+    if (!name) return NULL;
+    for (int i = 0; i < g_parser.stmt.n_incs; i++) if (strcmp(g_parser.stmt.incs[i].name, name) == 0) return &g_parser.stmt.incs[i];
+    return NULL;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void stmt_src_include_open(const char * name, const char * rpath, int depth) {
     if (!name || stmt_inc_find(name)) return;
-    if (g_n_incs >= g_cap_incs) {
-        int newcap = g_cap_incs ? g_cap_incs * 2 : 8;
-        stmt_inc_t * g = ct_grow(g_incs, (size_t) newcap * sizeof(stmt_inc_t));
+    if (g_parser.stmt.n_incs >= g_parser.stmt.cap_incs) {
+        int newcap = g_parser.stmt.cap_incs ? g_parser.stmt.cap_incs * 2 : 8;
+        stmt_inc_t * g = ct_grow(g_parser.stmt.incs, (size_t) newcap * sizeof(stmt_inc_t));
         if (!g) return;
-        g_incs = g;
-        g_cap_incs = newcap;
+        g_parser.stmt.incs = g;
+        g_parser.stmt.cap_incs = newcap;
     }
-    stmt_inc_t * e = &g_incs[g_n_incs++];
+    stmt_inc_t * e = &g_parser.stmt.incs[g_parser.stmt.n_incs++];
     e->name = ct_strdup(name);
     e->depth = depth;
     e->lines = stmt_src_read(rpath, &e->n);
@@ -225,7 +228,7 @@ static char * stmt_src_slice(const STMT_t * s, const stmt_inc_t * inc) {
     }
     if (snobol4_incl_depth() > 0 || s->lineno < 1) return NULL;
     int n2 = (s->next && s->next->lineno > s->lineno) ? s->next->lineno : s->lineno + 1;
-    return stmt_src_cut(s, g_src_lines, g_src_nlines, s->lineno, n2);
+    return stmt_src_cut(s, g_parser.stmt.src_lines, g_parser.stmt.src_nlines, s->lineno, n2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * stmt_src_for(const STMT_t * s, int * depth) { stmt_inc_t * inc = (s && s->file) ? stmt_inc_find(s->file) : NULL; *depth = inc ? inc->depth : 0; return stmt_src_slice(s, inc); }

@@ -1,4 +1,5 @@
 #include "prolog_parse.h"
+#include "parsers/g_parser.h"
 #include "ct_arena.h"
 #include "ct_vec.h"
 #include "prolog_lex.h"
@@ -61,7 +62,7 @@ static void perror_at(Parser *p, int line, const char *msg) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef enum { ASSOC_NONE, ASSOC_LEFT, ASSOC_RIGHT } Assoc;
 typedef enum { FIX_INFIX, FIX_PREFIX, FIX_POSTFIX } Fixity;
-typedef struct { const char *name; int prec; Assoc assoc; Fixity fixity; } OpEntry;
+typedef struct pl_op_entry { const char *name; int prec; Assoc assoc; Fixity fixity; } OpEntry;
 static const OpEntry BIN_OPS[] = {
     { ":-",   1200, ASSOC_NONE  },
     { "-->",  1200, ASSOC_NONE  },
@@ -147,19 +148,17 @@ static const OpEntry PREFIX_OPS[] = {
     { "$",       1, ASSOC_NONE,  FIX_PREFIX },
     { NULL,    0,   ASSOC_NONE,  FIX_INFIX  }
 };
-static OpEntry *g_uinfix = NULL;
-static int g_uinfix_n = 0, g_uinfix_cap = 0;
 static const char *op_type_unclassify(Assoc assoc, Fixity fix);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void user_op_add(const char *name, int prec, Assoc assoc, Fixity fixity) {
     if (prolog_op_cols_ready()) prolog_op_col_set(prolog_atom_intern(name), prec, op_type_unclassify(assoc, fixity));
-    for (int i = 0; i < g_uinfix_n; i++) if (g_uinfix[i].fixity == fixity && strcmp(g_uinfix[i].name, name) == 0) { g_uinfix[i].prec = prec; g_uinfix[i].assoc = assoc; return; }
-    if (g_uinfix_n >= g_uinfix_cap) { g_uinfix_cap = g_uinfix_cap ? g_uinfix_cap * 2 : 8; g_uinfix = (OpEntry *)ct_grow(g_uinfix, g_uinfix_cap * sizeof(OpEntry)); }
-    g_uinfix[g_uinfix_n].name = ct_strdup(name); g_uinfix[g_uinfix_n].prec = prec; g_uinfix[g_uinfix_n].assoc = assoc; g_uinfix[g_uinfix_n].fixity = fixity; g_uinfix_n++;
+    for (int i = 0; i < g_parser.pl.uinfix_n; i++) if (g_parser.pl.uinfix[i].fixity == fixity && strcmp(g_parser.pl.uinfix[i].name, name) == 0) { g_parser.pl.uinfix[i].prec = prec; g_parser.pl.uinfix[i].assoc = assoc; return; }
+    if (g_parser.pl.uinfix_n >= g_parser.pl.uinfix_cap) { g_parser.pl.uinfix_cap = g_parser.pl.uinfix_cap ? g_parser.pl.uinfix_cap * 2 : 8; g_parser.pl.uinfix = (OpEntry *)ct_grow(g_parser.pl.uinfix, g_parser.pl.uinfix_cap * sizeof(OpEntry)); }
+    g_parser.pl.uinfix[g_parser.pl.uinfix_n].name = ct_strdup(name); g_parser.pl.uinfix[g_parser.pl.uinfix_n].prec = prec; g_parser.pl.uinfix[g_parser.pl.uinfix_n].assoc = assoc; g_parser.pl.uinfix[g_parser.pl.uinfix_n].fixity = fixity; g_parser.pl.uinfix_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const OpEntry *find_user(const char *name, Fixity fix) {
-    for (int i = 0; i < g_uinfix_n; i++) if (g_uinfix[i].fixity == fix && strcmp(g_uinfix[i].name, name) == 0) return &g_uinfix[i];
+    for (int i = 0; i < g_parser.pl.uinfix_n; i++) if (g_parser.pl.uinfix[i].fixity == fix && strcmp(g_parser.pl.uinfix[i].name, name) == 0) return &g_parser.pl.uinfix[i];
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -199,13 +198,13 @@ static const char *op_type_unclassify(Assoc assoc, Fixity fix) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bin_ops_count(void) { int n = 0; for (const OpEntry *op = BIN_OPS; op->name; op++) n++; return n; }
 static int prefix_ops_count(void) { int n = 0; for (const OpEntry *op = PREFIX_OPS; op->name; op++) n++; return n; }
-int prolog_op_table_count(void) { return bin_ops_count() + prefix_ops_count() + g_uinfix_n; }
+int prolog_op_table_count(void) { return bin_ops_count() + prefix_ops_count() + g_parser.pl.uinfix_n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_op_table_get(int idx, const char **name_out, int *prec_out, const char **type_out) {
     int nbin = bin_ops_count(), npre = prefix_ops_count();
     const OpEntry *e;
-    if (idx < 0 || idx >= nbin + npre + g_uinfix_n) return 0;
-    e = (idx < nbin) ? &BIN_OPS[idx] : (idx < nbin + npre) ? &PREFIX_OPS[idx - nbin] : &g_uinfix[idx - nbin - npre];
+    if (idx < 0 || idx >= nbin + npre + g_parser.pl.uinfix_n) return 0;
+    e = (idx < nbin) ? &BIN_OPS[idx] : (idx < nbin + npre) ? &PREFIX_OPS[idx - nbin] : &g_parser.pl.uinfix[idx - nbin - npre];
     if (e->prec <= 0 || (idx < nbin + npre && find_user(e->name, e->fixity))) return 0;
     if (name_out) *name_out = e->name;
     if (prec_out) *prec_out = e->prec;
@@ -232,13 +231,13 @@ int prolog_op_table_add(const char *name, int prec, const char *type) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int prolog_op_user_count(void) { return g_uinfix_n; }
+int prolog_op_user_count(void) { return g_parser.pl.uinfix_n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_op_user_get(int i, const char **name_out, int *prec_out, const char **type_out) {
-    if (i < 0 || i >= g_uinfix_n) return 0;
-    if (name_out) *name_out = g_uinfix[i].name;
-    if (prec_out) *prec_out = g_uinfix[i].prec;
-    if (type_out) *type_out = op_type_unclassify(g_uinfix[i].assoc, g_uinfix[i].fixity);
+    if (i < 0 || i >= g_parser.pl.uinfix_n) return 0;
+    if (name_out) *name_out = g_parser.pl.uinfix[i].name;
+    if (prec_out) *prec_out = g_parser.pl.uinfix[i].prec;
+    if (type_out) *type_out = op_type_unclassify(g_parser.pl.uinfix[i].assoc, g_parser.pl.uinfix[i].fixity);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -357,7 +356,6 @@ static tree_t *mk_raw(int fid, tree_t **args, int arity) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dcg_var_counter = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rls(tree_t *t) {
     if (!t) return mk_atom(ATOM_NIL);
@@ -366,7 +364,7 @@ static tree_t *rls(tree_t *t) {
             if (t->v.sval && strcmp(t->v.sval, "_") == 0) {
                 tree_t *v = ast_node_new(TT_VAR);
                 char buf[32];
-                snprintf(buf, sizeof buf, "_S%d", dcg_var_counter++);
+                snprintf(buf, sizeof buf, "_S%d", g_parser.pl.dcg_var_counter++);
                 v->v.sval = ct_strdup(buf);
                 return v;
             }
@@ -916,7 +914,7 @@ static tree_t *pt_term(Parser *p, TreeScope *ts, int max_prec) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *dcg_fresh_var(TreeScope *ts) {
     char name[32];
-    snprintf(name, sizeof(name), "_S%d", dcg_var_counter++);
+    snprintf(name, sizeof(name), "_S%d", g_parser.pl.dcg_var_counter++);
     return ts_get(ts, name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

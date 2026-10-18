@@ -1,4 +1,5 @@
 #include "prolog_driver.h"
+#include "parsers/g_parser.h"
 #include "ct_arena.h"
 #include "ct_vec.h"
 #include "prolog_parse.h"
@@ -9,10 +10,7 @@
 #include <sys/stat.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 enum { PL_CONSULT_DEPTH_MAX = 16 };
-static cv_t g_pl_consulted_v;
-#define g_pl_consulted ((const char **)g_pl_consulted_v.p)
-static int g_pl_consulted_n = 0;
-static int g_pl_consult_depth = 0;
+#define g_pl_consulted ((const char **)g_parser.pl.consulted_v.p)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_regular_file(const char *p) { struct stat st; return !stat(p, &st) && S_ISREG(st.st_mode); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -44,8 +42,8 @@ static const char * pl_consult_spec(const tree_t *t) {
 static void pl_consult_one(tree_t *prog, const char *spec, const char *from_file) {
     char *path = pl_consult_resolve(spec, from_file); FILE *f; long flen; char *src; tree_t *sub = (tree_t *)0;
     if (!path) { fprintf(stderr, "scrip: prolog: consult: cannot find source for '%s' (tried alongside %s and the working directory)\n", spec, from_file ? from_file : "<stdin>"); return; }
-    for (int i = 0; i < g_pl_consulted_n; i++) if (!strcmp(g_pl_consulted[i], path)) { ct_drop(path); return; }
-    cv_reserve(&g_pl_consulted_v, (uint32_t)sizeof(const char *), (uint64_t)g_pl_consulted_n + 1, "g_pl_consulted"); g_pl_consulted[g_pl_consulted_n++] = path;
+    for (int i = 0; i < g_parser.pl.consulted_n; i++) if (!strcmp(g_pl_consulted[i], path)) { ct_drop(path); return; }
+    cv_reserve(&g_parser.pl.consulted_v, (uint32_t)sizeof(const char *), (uint64_t)g_parser.pl.consulted_n + 1, "g_pl_consulted"); g_pl_consulted[g_parser.pl.consulted_n++] = path;
     f = fopen(path, "r"); if (!f) return;
     fseek(f, 0, SEEK_END); flen = ftell(f); rewind(f);
     src = (char *)ct_alloc((size_t)flen + 1); if (!src) { fclose(f); return; }
@@ -80,16 +78,16 @@ static tree_t * pl_stmt_subj(const tree_t *s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_splice_consults(tree_t *prog, const char *from_file) {
     cv_t pending = {0, 0, 0, 0}; int npending = 0;
-    if (!prog || g_pl_consult_depth >= PL_CONSULT_DEPTH_MAX) return;
+    if (!prog || g_parser.pl.consult_depth >= PL_CONSULT_DEPTH_MAX) return;
     for (int r = 0; r < prog->n; r++) {
         tree_t *subj = pl_stmt_subj(prog->c[r]);
         if (!subj || subj->t == TT_CHOICE || subj->t == TT_CLAUSE) continue;
         pl_consult_scan_goal(subj, &pending, &npending);
     }
     if (!npending) return;
-    g_pl_consult_depth++;
+    g_parser.pl.consult_depth++;
     for (int i = 0; i < npending; i++) pl_consult_one(prog, CV_AT(pending, const char *, i), from_file);
-    g_pl_consult_depth--;
+    g_parser.pl.consult_depth--;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *prolog_compile_parse(const char *source, const char *filename)
