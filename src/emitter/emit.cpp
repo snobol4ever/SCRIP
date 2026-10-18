@@ -3658,8 +3658,7 @@ static int zst_edge(IR_t ** nodes, int n, int i, int e) {
     IR_t * nd = nodes[i], * t = (IR_t *)0;
     if (e == 0) { IR_t * ig = (nd->op == IR_GATE_ARM && !nd->γ.node && nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; t = zd_chase(ig ? ig->γ.node : nd->γ.node); }
     else if (e == 1) t = zd_chase(nd->ω.node);
-    else if (nd->op == IR_GATE) { IR_t * arm = nd->operands[e - 2]; t = (arm && arm->n_operands > 0) ? arm->operands[0] : (IR_t *)0; if (t && (t->op == IR_SUCCEED || t->op == IR_FAIL)) t = (IR_t *)0;
-        }
+    else if (nd->op == IR_GATE) return -1;
     else t = nd->operands[e - 2];
     return t ? nidx(nodes, n, t) : -1;
 }
@@ -3669,6 +3668,7 @@ static int zst_names(const IR_t * nd, const char ** out) {
         o == IR_REV_SWAP) out[k++] = IR_LIT(nd).sval;
     if (o == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) out[k++] = IR_LIT(nd->operands[1]).sval;
     if (o == IR_REV_SWAP && nd->n_operands > 0 && nd->operands[0]) out[k++] = IR_LIT(nd->operands[0]).sval;
+    if ((o == IR_UNIFY_CONST || o == IR_UNIFY_STRUCT) && nd->n_operands > 0 && nd->operands[0] && nd->operands[0]->op == IR_VAR_REF) out[k++] = IR_LIT(nd->operands[0]).sval;
     return k;
 }
 static int zst_isparam(const IR_graph_t * g, const char * vn) { for (int i = 0; g && g->pnames && i < g->nparams; i++) if (g->pnames[i] && !strcmp(g->pnames[i], vn)) return 1; return 0; }
@@ -3723,7 +3723,8 @@ static void zst_plan(IR_t ** nodes, int n) {
         g_emitter.zst_vuse[(size_t)k] = (int)roots.size();
         for (size_t t = 0; t < roots.size(); t++) { int r = roots[t]; for (size_t w = 0; w < W; w++) tmp[w] = ~0ull;
             for (size_t u = 0; u < uses.size(); u++) if (g_emitter.zst_root[(size_t)uses[u]] == r) for (size_t w = 0; w < W; w++) tmp[w] &= dom[(size_t)uses[u] * W + w];
-            int best = -1; for (int d = 0; d < n; d++) if ((tmp[(size_t)d / 64] >> (d % 64) & 1) && !loop[(size_t)d] && (best < 0 || dsz[(size_t)d] > dsz[(size_t)best])) best = d;
+            int best = -1;
+                for (int d = 0; d < n; d++) if ((tmp[(size_t)d / 64] >> (d % 64) & 1) && !loop[(size_t)d] && zd_k_own(nodes[d]) > 0 && (best < 0 || dsz[(size_t)d] > dsz[(size_t)best])) best = d;
             if (best < 0) continue;
             g_emitter.zst_name.push_back(vn); g_emitter.zst_vroot.push_back(r); g_emitter.zst_c.push_back(best); g_emitter.zst_j.push_back(g_emitter.zst_s[(size_t)best] / 16);
                 g_emitter.zst_L.push_back(0);
@@ -3734,6 +3735,9 @@ static void zst_finish(IR_t ** nodes, int n, const int * zout, const int * claim
     if (g_emitter.zst_nodes != nodes || g_emitter.zst_n != n) return;
     for (size_t t = 0; t < g_emitter.zst_c.size(); t++) { int c = g_emitter.zst_c[t]; int b = (claim && claim[c] >= 0 && known && known[claim[c]] && base) ? base[claim[c]] : 0;
         g_emitter.zst_L[t] = b + zout[c] - zd_k(nodes[c]) + g_emitter.zst_s[(size_t)c] - 16 * g_emitter.zst_j[t]; }
+    if (zd_map_on()) for (size_t t = 0; t < g_emitter.zst_c.size(); t++) { int c = g_emitter.zst_c[t];
+        fprintf(stderr, "[ZD-MAP] STICKY name=%s root=%d c=%d (%s zout=%d k=%d own=%d s=%d) j=%d L=%d\n", g_emitter.zst_name[t], g_emitter.zst_vroot[t], c, bb_op_name(nodes[c]->op), zout[c],
+            zd_k(nodes[c]), zd_k_own(nodes[c]), g_emitter.zst_s[(size_t)c], g_emitter.zst_j[t], g_emitter.zst_L[t]); }
 }
 static int zst_coord(const char * name) {
     if (!name || g_emitter.g_zd_cur < 0 || g_emitter.g_zd_cur >= g_emitter.zst_n || g_emitter.zst_nodes != g_emitter.codegen_flat_chain_body_nodes) return -1;
@@ -3982,6 +3986,16 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             int dq = ad ? nidx(nodes, n, zd_chase(ad)) : (nalt == 0 && ngx == 1) ? gx : -1;
             if (dq < 0 || dq == i || !zon[dq] || claim[dq] < 0 || !known[claim[dq]]) continue;
             zgpop[i] = base[claim[i]] + zout[i] - (base[claim[dq]] + zout[dq]);
+        }
+        if (emit_pl_frame()) for (int i = 0; i < n; i++) {
+            if (!zon[i] || claim[i] < 0 || !known[claim[i]]) continue;
+            IR_t * ig = (nodes[i]->op == IR_GATE_ARM && !nodes[i]->γ.node && nodes[i]->n_operands > 1) ? nodes[i]->operands[1] : (IR_t *)0;
+            IR_t * c = zd_chase(ig ? ig->γ.node : nodes[i]->γ.node);
+            int cq = c ? nidx(nodes, n, c) : -1;
+            if (c && (c->op == IR_SUCCEED || cq < 0 || !zon[cq])) zgpop[i] = base[claim[i]] + zout[i];
+            IR_t * o = zd_chase(nodes[i]->ω.node);
+            int oq = o ? nidx(nodes, n, o) : -1;
+            if (!o || o->op == IR_FAIL || oq < 0 || !zon[oq]) zwpop[i] = base[claim[i]] + zout[i] - zd_k(nodes[i]);
         }
     }
     if (zdj_on) {
