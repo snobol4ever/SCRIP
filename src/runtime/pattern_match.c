@@ -116,17 +116,11 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
     { const char *s = VARVAL_fn(d); return rcp_lit(s ? s : "", s ? (uint32_t)strlen(s) : 0); }
 }
 extern tree_t *ast_stmt_new(tree_e kind);
-#if RT_DIAG
-static int rtpat_plant_heapimm(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_RTPAT_PLANT_HEAPIMM"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
-#else
-#define rtpat_plant_heapimm() 0
-#endif
 _Static_assert(sizeof(tree_t *) == 8,
     "EVERY STRING A RUNTIME-COMPILED PATTERN BAKES INTO ITS CODE LIVES IN THE COMPILE-TIME ARENA, NEVER IN THE COLLECTED HEAP (cto 2026-09-23, CTO-152; site bb_match_defer.cpp:115): dtp_rcp_tree han"
     "ds the runtime compiler a tree whose sval words become imm64 operands of code that outlives every collection, so a heap string there (the ARB$n deferred name was one, rt_heap_strdup_c; the lite"
     "ral copies were rt_str_alloc) is an address the collector never sees, reclaimed at the first collection after the compile -- arbno_fence_span_branch_1 read FAIL for MATCH at stress 1/3/5 in eve"
-    "ry arena and relocation configuration once the entry was polled. ct_strdup/ct_strndup own them for the code's lifetime, like the parser's own literals; SCRIP_RTPAT_PLANT_HEAPIMM=1 restores the "
-    "heap name as the plant the gate fires on");
+    "ry arena and relocation configuration once the entry was polled. ct_strdup/ct_strndup own them for the code's lifetime, like the parser's own literals");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *dtp_rcp_tree(dtp_rcp_t *r, DESCR_t self) {
     if (!r) { tree_t *t = ast_stmt_new(TT_QLIT); t->v.sval = (char *)""; return t; }
@@ -168,7 +162,7 @@ static tree_t *dtp_rcp_tree(dtp_rcp_t *r, DESCR_t self) {
                 ast_push(sq, dtp_rcp_tree(r->l, self));
                 tree_t *df = ast_stmt_new(TT_DEFER);
                 tree_t *v = ast_stmt_new(TT_VAR);
-                v->v.sval = rtpat_plant_heapimm() ? rt_heap_strdup_c(nb) : ct_strdup(nb);
+                v->v.sval = ct_strdup(nb);
                 ast_push(df, v);
                 ast_push(sq, df);
                 ast_push(t, sq);
