@@ -4392,7 +4392,11 @@ void sno_expr_thunks_build(int x0) {
         const tree_t * xe = CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).expr;
         if (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).want_name && xe && xe->t == TT_INDIRECT && xe->n > 0 && xe->c[0] && CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).name &&
             !strncmp(CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).name, "EXPRNM$", 7)) xe = xe->c[0];
-        if (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).want_name && sno_item_argbase(xe) >= 0) { tree_t * nmn = ast_node_new(TT_NAME); ast_push(nmn, (tree_t *) xe); xe = nmn; }
+        if (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).want_name && xe && (sno_item_argbase(xe) >= 0 || (xe->t == TT_IDX && xe->n >= 2))) {
+            tree_t * nmn = ast_node_new(TT_NAME);
+            ast_push(nmn, (tree_t *) xe);
+            xe = nmn;
+        }
         IR_t * vr = NULL;
         int xe_is_idx_wn = CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).want_name && xe && xe->t == TT_IDX;
         IR_t * e = xe_is_idx_wn ? sx_idx_container(&ex, xe, fJ, &vr) : sx_lower(&ex, xe, asn, fJ, &vr);
