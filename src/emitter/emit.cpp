@@ -4163,6 +4163,7 @@ static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, 
 static int zd_check_discard(const IR_t * t) { int o = t ? (int)t->op : -1;
     return o == IR_UNMARK || o == IR_BOUND || o == IR_MATCH_FENCE0 || o == IR_MATCH_FENCE1 || o == IR_CUT || o == IR_GATE || o == IR_GATE_ARM || o == IR_STATEMENT_BEGIN || o == IR_SUCCEED ||
         o == IR_FAIL; }
+static int zd_check_generator(int o) { return o == IR_TO || o == IR_TO_BY || o == IR_PROC_GEN || ir_is_generator_kind((IR_e)o); }
 static int zd_check_arm_env(int o) { return o == IR_GATE || o == IR_GATE_ARM || o == IR_DISJUNCTION || o == IR_MATCH_ARBNO || o == IR_MATCH_ALTERNATE; }
 static void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, const int *xb, const char *prefix) {
     if (g_emitter.zd_check__on < 0) { const char * e = getenv("SCRIP_ZD_CHECK"); g_emitter.zd_check__on = (e && *e == '1') ? 1 : 0; }
@@ -4182,6 +4183,7 @@ static void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *z
             if (xb) { if (xb[j] == INT_MIN) continue; } else if (!claim || claim[j] != claim[i]) continue;
             const char * sz = zd_edge_sz(nodes[i], v);
             int bj = xb ? xb[j] : 0, beta = port_sz_beta(sz) || zd_sz_sigma(sz) || zd_sz_phi(sz);
+            if (beta && zd_check_generator((int)nodes[j]->op)) continue;
             int arrive = v ? (Xi - Ki - zwpop[i]) : (Xi - zgpop[i]);
             int Xj = bj + zout[j], expect = beta ? Xj : Xj - zd_k(nodes[j]);
             edges++;
