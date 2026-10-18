@@ -1208,6 +1208,8 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_trie_ents_list", GC_RET_OTHER },
     { "pl_trie_give", GC_RET_OTHER },
     { "pl_trie_key_term", GC_RET_DESCR },
+    { "pl_trie_kid_slot", GC_RET_OTHER },
+    { "pl_trie_kids_rehash", GC_RET_OTHER },
     { "pl_trie_leaf_open", GC_RET_OTHER },
     { "pl_trie_node_new", GC_RET_OTHER },
     { "pl_trie_tok_eq", GC_RET_OTHER },

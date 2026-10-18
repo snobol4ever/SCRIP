@@ -3634,9 +3634,46 @@ static int pl_trie_tok_eq(int ka, const DESCR_t *a, int kb, const DESCR_t *b) {
     if ((int)a->v == DT_R) return !memcmp(&a->r, &b->r, sizeof a->r);
     return rt_pl_cell_compare((pl_cell_t *)a, (pl_cell_t *)b) == 0;
 }
+#define PL_TRIE_LINEAR_KIDS 8
+static uint64_t pl_trie_tok_hash(int kind, const DESCR_t *t) {
+    uint64_t h = (uint64_t)kind * 0x9E3779B97F4A7C15ull;
+    if (kind != 1 || (int)t->v == DT_PLATOM || (int)t->v == DT_I) h ^= (uint64_t)t->i;
+    else if ((int)t->v == DT_R) { uint64_t b; memcpy(&b, &t->r, sizeof b); h ^= b; }
+    if (kind == 1) h ^= (uint64_t)(uint32_t)t->v << 40;
+    h *= 0xFF51AFD7ED558CCDull;
+    return h ^ (h >> 29);
+}
+static int pl_trie_kid_slot(void **kids, int cap, int kind, const DESCR_t *tok) {
+    int m = cap - 1, i = (int)(pl_trie_tok_hash(kind, tok) & (uint64_t)m);
+    for (pl_trie_node_t *c; (c = (pl_trie_node_t *)kids[i]) != 0; i = (i + 1) & m) if (pl_trie_tok_eq(c->kind, &c->tok, kind, tok)) return i;
+    return i;
+}
+static int pl_trie_kids_rehash(pl_trie_node_t *n, int nc) {
+    void **nv = (void **)rt_pvec_alloc((size_t)nc);
+    if (!nv) return 0;
+    if (n->kcap > PL_TRIE_LINEAR_KIDS) {
+        for (int i = 0; i < n->kcap; i++) if (n->kids[i]) { pl_trie_node_t *c = (pl_trie_node_t *)n->kids[i]; nv[pl_trie_kid_slot(nv, nc, c->kind, &c->tok)] = c; }
+    } else {
+        for (int i = 0; i < n->nkids; i++) { pl_trie_node_t *c = (pl_trie_node_t *)n->kids[i]; nv[pl_trie_kid_slot(nv, nc, c->kind, &c->tok)] = c; }
+    }
+    n->kids = nv;
+    n->kcap = nc;
+    return 1;
+}
 static pl_trie_node_t * pl_trie_child(pl_trie_node_t *n, int kind, const DESCR_t *tok, int create) {
+    if (n->kcap > PL_TRIE_LINEAR_KIDS) {
+        int s = pl_trie_kid_slot(n->kids, n->kcap, kind, tok);
+        pl_trie_node_t *c = (pl_trie_node_t *)n->kids[s];
+        if (c || !create) return c;
+        if (2 * (n->nkids + 1) > n->kcap) { if (!pl_trie_kids_rehash(n, 2 * n->kcap)) return (pl_trie_node_t *)0; s = pl_trie_kid_slot(n->kids, n->kcap, kind, tok); }
+        if (!(c = pl_trie_node_new(n, kind, *tok))) return (pl_trie_node_t *)0;
+        n->kids[s] = (void *)c;
+        n->nkids++;
+        return c;
+    }
     for (int i = 0; i < n->nkids; i++) { pl_trie_node_t *c = (pl_trie_node_t *)n->kids[i]; if (pl_trie_tok_eq(c->kind, &c->tok, kind, tok)) return c; }
     if (!create) return (pl_trie_node_t *)0;
+    if (n->nkids >= PL_TRIE_LINEAR_KIDS) return pl_trie_kids_rehash(n, 4 * PL_TRIE_LINEAR_KIDS) ? pl_trie_child(n, kind, tok, create) : (pl_trie_node_t *)0;
     if (n->nkids >= n->kcap) { int nc = n->kcap > 0 ? 2 * n->kcap : 4; void **nv = (void **)rt_pvec_realloc(n->kids, (size_t)nc); if (!nv) return (pl_trie_node_t *)0; n->kids = nv; n->kcap = nc; }
     { pl_trie_node_t *c = pl_trie_node_new(n, kind, *tok); if (!c) return (pl_trie_node_t *)0; n->kids[n->nkids++] = (void *)c; return c; }
 }
