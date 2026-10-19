@@ -3661,6 +3661,8 @@ static int zd_unmark_acts(const IR_t * nd) {
     if (sc->n_operands > 0 && sc->operands[0] && sc->operands[0]->op == IR_BOUND) sc = sc->operands[0];
     return g_emit_cfg ? zls_g_release_act_offs(g_emit_cfg, sc, 5, (int *)0, 0) : 0;
 }
+static IR_t * zd_lm_chase(IR_t * x, int n, IR_t ** last) { IR_t * s = x; IR_t * t = zd_chase(x->γ.node); int g = 0;
+    while (t && t->op == IR_LINE_MARK && g++ <= n) { s = t; t = zd_chase(t->γ.node); } *last = s; return t; }
 static int zd_loop_back_unmark(IR_t ** nodes, const int * run, int rb, const IR_t * head) {
     if (!head || head->op != IR_BOUND) return -1;
     int k = rb;
@@ -4488,15 +4490,18 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         for (int i = 0; i < n; i++) {
             if (!zon[i] || nodes[i]->op != IR_UNMARK || nodes[i]->n_operands < 1) continue;
             int b = nidx(nodes, n, nodes[i]->operands[0]);
-            if (b < 0 || !zon[b] || zd_unmark_acts(nodes[i]) > 0) continue;
+            if (b < 0 || !zon[b]) continue;
             if (claim[b] != claim[i]) continue;
+            IR_t * _gs = nodes[i];
+            IR_t * _gt = zd_lm_chase(nodes[i], n, &_gs);
+            int _gq = _gt ? nidx(nodes, n, _gt) : -1;
+            int _rb = _gq >= 0 && zon[_gq] && port_sz_beta(zd_edge_sz(_gs, 0));
+            if (zd_unmark_acts(nodes[i]) > 0) {
+                if (_gt == nodes[b] || _rb) for (IR_t * u = zd_chase(nodes[i]->γ.node); u && u != _gt; u = zd_chase(u->γ.node)) { int k = nidx(nodes, n, u);
+                    if (k >= 0 && zon[k]) { zout[k] = zout[b]; zgpop[k] = (u == _gs && _rb) ? zout[b] - zout[_gq] : 0; zwpop[k] = 0; } }
+                continue;
+            }
             if (zchn[2 * i] < 0) {
-                IR_t * _gs = nodes[i];
-                IR_t * _gt = zd_chase(nodes[i]->γ.node);
-                int g4 = 0;
-                while (_gt && _gt->op == IR_LINE_MARK && g4++ <= n) { _gs = _gt; _gt = zd_chase(_gt->γ.node); }
-                int _gq = _gt ? nidx(nodes, n, _gt) : -1;
-                int _rb = _gq >= 0 && zon[_gq] && port_sz_beta(zd_edge_sz(_gs, 0));
                 zgpop[i] = zout[i] - (_rb ? zout[_gq] : zout[b]);
                 zchn[2 * i + 1] = b;
                 zwpop[i] = 0;
