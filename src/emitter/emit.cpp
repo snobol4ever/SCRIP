@@ -1724,7 +1724,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_SWAP_VAR: bb_emit_x86(bb_swap_var()); return 0;
     case IR_PROC_VALUE: bb_emit_x86(bb_proc_value()); return 0;
     case IR_CALL_VALUE: bb_emit_x86(bb_call_value()); return 0;
-    case IR_LIMIT: bb_emit_x86(bb_limit()); return 0;
+    case IR_LIMIT: g_emit.op_t0_pop = g_emitter.g_limit_t0_pop; bb_emit_x86(bb_limit()); return 0;
     case IR_LIMIT_GATE: bb_emit_x86(bb_limit_gate()); return 0;
     case IR_REPALT: return 0;
     case IR_ITERATE: bb_emit_x86(bb_iterate()); return 0;
@@ -2674,6 +2674,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_sa = sa; g_emit.op_sc = sc;
         g_emit.lbl_t0 = g_emitter.g_limit_gen_beta ? g_emitter.g_limit_gen_beta->name : (lbl_ω ? lbl_ω->name : NULL);
         g_emit.lbl_t0_p = g_emitter.g_limit_gen_beta ? g_emitter.g_limit_gen_beta : lbl_ω;
+        g_emit.op_t0_pop = g_emitter.g_limit_t0_pop;
         g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -6104,8 +6105,11 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             IR_t *gen = g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 0 ? g_emitter.codegen_flat_chain_body_nodes[i]->operands[0] : NULL;
             IR_t *rs = g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 2 ? g_emitter.codegen_flat_chain_body_nodes[i]->operands[2] : NULL;
             g_emitter.g_limit_gen_beta = NULL;
-            if (gen && ir_is_generator_kind(gen->op)) { { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, gen); if (k >= 0) { g_emitter.g_limit_gen_beta = betas[k]; } } }
-            else if (rs) { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, rs); if (k >= 0) { g_emitter.g_limit_gen_beta = betas[k]; } }
+            g_emitter.g_limit_t0_pop = 0;
+            int tk = -1;
+            if (gen && ir_is_generator_kind(gen->op)) { { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, gen); if (k >= 0) { g_emitter.g_limit_gen_beta = betas[k]; tk = k; } } }
+            else if (rs) { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, rs); if (k >= 0) { g_emitter.g_limit_gen_beta = betas[k]; tk = k; } }
+            if (tk >= 0 && zd_xb && zd_on[i] && zd_on[tk] && zd_xb[i] != INT_MIN && zd_xb[tk] != INT_MIN) g_emitter.g_limit_t0_pop = (zd_xb[i] + zd_out[i]) - (zd_xb[tk] + zd_out[tk]);
         }
         if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SCAN) {
             IR_t *bv = g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 1 ? g_emitter.codegen_flat_chain_body_nodes[i]->operands[1] : NULL;

@@ -122,6 +122,7 @@ struct g_emitter_t {
     bb_label_t *g_limit_gen_beta = NULL;
     bb_label_t *g_scan_body_beta = NULL;
     int g_scan_t0_pop = 0;
+    int g_limit_t0_pop = 0;
     bb_label_t *g_suspend_dobody_beta = NULL;
     int g_suspend_resume_slot = -1;
     int g_flat_data_active = 0;
