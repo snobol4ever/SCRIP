@@ -109,6 +109,7 @@ typedef struct {
     lc_vec lower_icon_stage2_excl;
     lc_vec lower_icon_stage2_impl;
     lc_vec synth_excl;
+    lc_vec synth_locals;
     lc_vec reassigned;
     const tree_t * reassigned_prog;
     lc_vec breassigned;

@@ -47,6 +47,7 @@ typedef struct {
     int links;
     const tree_t * prog;
 } icx_t;
+static const char * icn_synth_local(icx_t * cx);
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
 static IR_t * icn_trace_stmt_wrap(icx_t * cx, long line, IR_t * stmt_entry, IR_t * ω);
 static IR_t * icn_trace_call_wrap(icx_t * cx, const char * name, IR_t * body_entry, IR_t * ω);
@@ -1749,20 +1750,50 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         }
         case TT_REPALT:
         {
-            IR_t * nd = build(cx, IR_REPALT, γ, ω);
-            lc_γ_to(nd, γ);
-            IR_t * xs = build(cx, IR_FAIL, NULL, NULL);
-            IR_t * b4 = cx->beta;
+            IR_graph_t * g = cx->g;
+            const char * fl = icn_synth_local(cx);
+            IR_t * nv = build(cx, IR_VAR, NULL, NULL);
+            IR_LIT(nv).sval = (char *) "&null";
+            IR_t * a0 = build(cx, IR_ASSIGN, NULL, ω);
+            IR_LIT(a0).sval = (char *) fl;
+            ir_operand_push(a0, nv);
+            γ_to(nv, a0);
+            IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
+            γ_to(dj, γ);
+            lc_γ_to(a0, dj);
+            int before = g->n;
+            IR_t * one = build(cx, IR_LIT_INTEGER, NULL, NULL);
+            IR_LIT(one).ival = 1;
+            IR_t * a1 = build(cx, IR_ASSIGN, dj, dj);
+            IR_LIT(a1).sval = (char *) fl;
+            ir_operand_push(a1, one);
+            γ_to(one, a1);
+            cx->beta = dj;
             IR_t * er = NULL;
-            IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, xs, &er);
-            IR_t * eβ = (cx->beta != b4 && cx->beta != xs && cx->beta != ω) ? cx->beta : NULL;
-            ir_operand_push(nd, er);
-            ir_operand_push(nd, ee);
-            ir_operand_push(nd, xs);
-            ir_operand_push(nd, eβ);
-            cx->beta = nd;
-            *res = nd;
-            return nd;
+            IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, one, dj, &er);
+            IR_t * ab = cx->beta;
+            int ab_in_arm = 0;
+            if (ab && ab != dj) for (int k = before; k < g->n; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
+            for (int k = before; k < g->n; k++) {
+                IR_t * x = g->all[k];
+                if (!x) continue;
+                if (x->ω.node == dj) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+                if (x->γ.node == dj) { if ((x->op == IR_GOTO && x->ω.node == dj) || icn_γ_is_fail_conduit(x)) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
+            }
+            ir_operand_push(dj, ee);
+            ir_operand_push(dj, ab_in_arm ? ab : dj);
+            ir_operand_push(dj, icn_arm_result(er));
+            IR_LIT(dj).ival = 1;
+            IR_t * tv = build(cx, IR_VAR, NULL, NULL);
+            IR_LIT(tv).sval = (char *) fl;
+            IR_t * tt = build(cx, IR_UNOP_TEST, nv, ω);
+            IR_LIT(tt).ival = (long long) TT_NONNULL;
+            ir_operand_push(tt, tv);
+            γ_to(tv, tt);
+            ω_to(dj, tv);
+            cx->beta = dj;
+            *res = dj;
+            return nv;
         }
         case TT_LIMIT:
         return lower_limit_impl(cx, t, γ, ω, res, 0);
@@ -2229,6 +2260,17 @@ static IR_t * icn_arm_result(IR_t * rv) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * icn_dj_α_entry(IR_graph_t * g, IR_t * dj) { (void) g; return dj; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * icn_synth_local(icx_t * cx) {
+    char b[32];
+    snprintf(b, sizeof b, "$rep%d", g_lower.icn.synth_locals.n + 1);
+    const char * nm = lp_strdup(b);
+    lc_vec_push(&g_lower.icn.synth_locals, &nm);
+    lc_vec_push(&g_lower.icn.lower_icon_proc_lnv, &nm);
+    cx->ln = (const char **) g_lower.icn.lower_icon_proc_lnv.data;
+    cx->nln = g_lower.icn.lower_icon_proc_lnv.n;
+    return nm;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_trace_var_form(const icx_t * cx, const tree_t * t) {
     if (!t) return 0;
@@ -3184,6 +3226,8 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     cx.npn = g_lower.icn.lower_icon_proc_pnv.n;
     lc_vec_init(&g_lower.icn.lower_icon_proc_lnv, (int) sizeof(const char *));
     g_lower.icn.lower_icon_proc_lnv.n = 0;
+    lc_vec_init(&g_lower.icn.synth_locals, (int) sizeof(const char *));
+    g_lower.icn.synth_locals.n = 0;
     if (pd) {
         const tree_t * plist = (pd->n > 1) ? pd->c[1] : NULL;
         for (int i = 0; plist && i < plist->n; i++) if (plist->c[i] && plist->c[i]->v.sval) lc_vec_push(&g_lower.icn.lower_icon_proc_lnv, &plist->c[i]->v.sval);
@@ -3378,13 +3422,14 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
                 for (int k = 0; k < g_lower.icn.synth_excl.n; k++) lc_vec_push(&g_lower.icn.lower_icon_stage2_excl, &LC_AT(&g_lower.icn.synth_excl, const char *, k));
                 icn_vec_reuse(&g_lower.icn.lower_icon_stage2_impl, (int) sizeof(const char *));
                 icn_collect_implicit_locals(body, (const char **)g_lower.icn.lower_icon_stage2_excl.data, g_lower.icn.lower_icon_stage2_excl.n, &g_lower.icn.lower_icon_stage2_impl);
-                if (w > 0 || g_lower.icn.lower_icon_stage2_impl.n > 0) {
-                    int total = w + g_lower.icn.lower_icon_stage2_impl.n;
+                if (w > 0 || g_lower.icn.lower_icon_stage2_impl.n > 0 || g_lower.icn.synth_locals.n > 0) {
+                    int total = w + g_lower.icn.lower_icon_stage2_impl.n + g_lower.icn.synth_locals.n;
                     const char ** _all = (const char **)ct_zalloc((size_t)total, sizeof(const char *));
                     int a = 0;
                     if (_all) {
                         for (int k = 0; k < w; k++) _all[a++] = _ln[k];
                         for (int k = 0; k < g_lower.icn.lower_icon_stage2_impl.n; k++) _all[a++] = LC_AT(&g_lower.icn.lower_icon_stage2_impl, const char *, k);
+                        for (int k = 0; k < g_lower.icn.synth_locals.n; k++) _all[a++] = LC_AT(&g_lower.icn.synth_locals, const char *, k);
                         g_stage2.bbp.table[bb_idx]->lnames = _all;
                         g_stage2.bbp.table[bb_idx]->nlocals = total;
                     }
