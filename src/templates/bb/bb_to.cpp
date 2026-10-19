@@ -23,6 +23,17 @@ std::string xa_to_db_load_store();
 std::string xa_to_db_slot_addr();
 #define TO_BOMB1() (x86_resumable_frame() && _.op_num_real)
 #define TO_ZD_LIM() ((x86_resumable_frame() && _.op_to_trailed) ? 8 : 24)
+static std::string to_zd_int_operand_guard(int k) {
+    return IF(_.op_range_int_operands,
+               x86("note", ZOPN(k))
+             + x86("mov", "rdi", ZOPQ(k, 0))
+             + x86("note", ZOPN(k))
+             + x86("mov", "rsi", ZOPQ(k, 8))
+             + x86("call", "core_icn_int_operand_ok", (uint64_t)(uintptr_t)(void *)(int (*)(uint64_t, uint64_t))core_icn_int_operand_ok)
+             + x86("test", "eax", "eax")
+             + x86_omega("jz")
+             + x86_rt_gc_poll());
+}
 static std::string bb_to_db() {
     return x86("comment", "IR_TO db (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 B): the packet's slots in packet order, each visible at the generation G this enumeration took at alpha; "
                           "the store is reloaded from its root cell at every step (a collected object moves)")
@@ -83,6 +94,8 @@ std::string bb_to() {
          + IF(!_.op_db_walk && !TO_BOMB1() && _.op_zres,
                x86("comment", "IR_TO zd")
                  + x86_alpha()
+                 + to_zd_int_operand_guard(0)
+                 + to_zd_int_operand_guard(1)
                  + x86("note", ZOPN(0))
                  + x86("mov", "rdi", ZOPQ(0, 0))
                  + x86("note", ZOPN(0))
