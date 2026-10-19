@@ -1334,6 +1334,11 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         g_emitter.g_zd_cpdx = -1;
         g_emitter.g_zd_cpsx = -1;
         if (g_emitter.g_zd_arm) { g_emit.op_zcp_src = g_emitter.g_zd_cps; g_emit.op_zcp_dst = g_emitter.g_zd_cpd; g_emitter.g_zd_cps = -1; g_emitter.g_zd_cpd = -1;
+            if (g_emit.op_zcp_src == 0 && g_emit.op_zcp_dst >= 0 && !(g_emit.op_xrec & 1)) {
+                IR_t * _vp = nd;
+                for (int _g = 0; _vp && _g < 16 && zd_k_own(_vp) == 0 && (_vp->op == IR_ASSIGN || _vp->op == IR_CONJUNCTION) && _vp->n_operands > 0; _g++) _vp = _vp->operands[0];
+                if (_vp && xop_frame_slot(_vp) != -1) { g_emit.op_xrec |= 1; g_emit.op_zcp_sxf = xop_frame_slot(_vp); }
+            }
             g_emit.op_zres = 1; g_emit.op_fc_bytes = g_emitter.g_zd_k; g_emit.op_fc_base = -1; g_emit.op_zdepth = g_emitter.g_zd_k + g_emitter.g_zd_zunder;
             for (int _zi = 0; _zi < g_emit.op_zcap; _zi++) { g_emit.op_zread[_zi] = g_emitter.g_zd_read[_zi]; g_emit.op_zkind[_zi] = g_emitter.g_zd_kind[_zi];
                 g_emit.op_zread_fr[_zi] = g_emitter.g_zd_fread[_zi]; }
@@ -2703,6 +2708,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         int sa = pv ? bb_slot_get(pv) : -1;
         if (sa < 0 && pv) { int _ns = nd_slot(pv); if (_ns >= 0) { bb_slot_register(pv, _ns); sa = _ns; } }
         if (sa < 0) { drive_guard_refused(nd, __LINE__); break; }
+        if (pv->op == IR_CONJUNCTION && nd_slot(pv) >= 0) sa = nd_slot(pv);
         g_emit.op_sa = sa;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }

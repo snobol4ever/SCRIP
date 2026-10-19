@@ -26,7 +26,7 @@ std::string bb_create() {
          + x86("comment", "the snapshot reaches the creator's argument block (the block protocol puts a det procedure's params at [rbp+kt+16i], above the frame)")
          + x86("mov", "edx", std::to_string((_.flat_carve_total > _.frame_region ? _.flat_carve_total : (_.frame_region > 0 ? _.frame_region : 0))
                                           + (g_emit.flat_gen ? 0 : xa_icn_block_size())))
-         + x86("mov", "ecx", std::to_string(x86_hb_on() ? _.flat_carve_total : 0))
+         + x86("mov", "ecx", std::to_string(0))
          + x86_load_ro_str("r8", _.op_activate_proc ? _.op_activate_proc : "main")
          + x86("call", "scrip_coexpr_create", (uint64_t)(uintptr_t)(void *)scrip_coexpr_create)
          + x86("mov", FRQ(_.op_off), (long)DT_CO)
