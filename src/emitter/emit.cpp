@@ -3547,7 +3547,8 @@ static int zd_icn_local_var(const IR_t * nd) { return nd && nd->op == IR_VAR && 
     (!is_global(IR_LIT(nd).sval) || graph_has_local(g_emit_cfg, IR_LIT(nd).sval)); }
 static int zd_icn_local_assign(const IR_t * nd) { return nd && nd->op == IR_ASSIGN && g_emit_cfg && g_emit_cfg->spine_cells && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' &&
     (!is_global(IR_LIT(nd).sval) || graph_has_local(g_emit_cfg, IR_LIT(nd).sval)); }
-static const IR_t * zd_local_home_node(const IR_t * nd) { int g = 0; while (nd && nd->op == IR_CONJUNCTION && nd->n_operands > 0 && g++ < 16) nd = nd->operands[0];
+static const IR_t * zd_local_home_node(const IR_t * nd) { int g = 0;
+    while (nd && (nd->op == IR_CONJUNCTION || (nd->op == IR_ASSIGN && !zd_icn_local_assign(nd))) && nd->n_operands > 0 && g++ < 16) nd = nd->operands[0];
     return (zd_icn_local_var(nd) || zd_icn_local_assign(nd)) ? nd : (const IR_t *)0; }
 static int zd_icn_chain_step_ok(IR_t ** nodes, int n, int p, int q) {
     if (!(g_emit_cfg && g_emit_cfg->spine_cells)) return 1;
