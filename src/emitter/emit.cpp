@@ -3933,6 +3933,7 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
             }
         }
         if (zcut) for (int i = 0; i < n; i++) zcut[i] = -1;
+        unsigned char * inp = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
         for (int c = 0; c < n; c++) {
             if (!zon[c] || claim[c] < 0 || !zd_pl_cut(nodes[c])) continue;
             int h = claim[c], D = known[h] ? base[h] + zout[c] - zd_k(nodes[c]) : anchor[h];
@@ -3941,15 +3942,40 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
             IR_t * t = zd_chase(nodes[c]->γ.node);
             int q = t ? nidx(nodes, n, t) : -1;
             if (q < 0 || !zon[q] || claim[q] < 0 || claim[q] == h || known[claim[q]]) continue;
-            base[claim[q]] = D - (zout[q] - zd_k(nodes[q])); known[claim[q]] = 1; indef[claim[q]] = 0;
-            int wn2 = 0; wl[wn2++] = claim[q];
+            int r0 = claim[q], wn2 = 0;
+            for (int r = 0; r < n; r++) inp[r] = 0;
+            inp[r0] = 1; wl[wn2++] = r0;
+            while (wn2 > 0) {
+                int r = wl[--wn2];
+                for (int i = 0; i < n; i++) for (int e = 0; claim[i] == r && zon[i] && e < zd_pl_edges(nodes[i]); e++) {
+                    int l, q2 = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l, dead);
+                    if (q2 >= 0 && !known[q2] && !inp[q2]) { inp[q2] = 1; wl[wn2++] = q2; }
+                }
+            }
+            auto rest = [&](int r) { int ub = (nodes[r]->op == IR_UNMARK && (IR_LIT(nodes[r]).ival & 6) && nodes[r]->n_operands > 0) ? nidx(nodes, n, nodes[r]->operands[0]) : -1;
+                return ub >= 0 && zon[ub] && claim[ub] >= 0 && (inp[claim[ub]] || (known[claim[ub]] && !indef[claim[ub]])); };
+            for (int moved = 1; moved; ) {
+                moved = 0;
+                for (int i = 0; i < n; i++) {
+                    IR_t * rt = (zon[i] && claim[i] >= 0 && zd_edge_retains(nodes[i])) ? zd_chase(nodes[i]->γ.node) : (IR_t *)0;
+                    int rq = rt ? nidx(nodes, n, rt) : -1;
+                    if (rq >= 0 && zon[rq] && claim[rq] >= 0 && claim[rq] != r0 && inp[claim[rq]] && !rest(claim[rq])) { inp[claim[rq]] = 0; moved = 1; }
+                }
+                for (int i = 0; i < n; i++) for (int e = 0; zon[i] && claim[i] >= 0 && !inp[claim[i]] && e < zd_pl_edges(nodes[i]); e++) {
+                    int l, q2 = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l, dead);
+                    if (q2 < 0 || q2 == r0 || !inp[q2] || (i == c && e == 0) || (known[claim[i]] && !indef[claim[i]] && !zd_edge_retains(nodes[i])) || rest(q2)) continue;
+                    inp[q2] = 0; moved = 1;
+                }
+            }
+            base[r0] = D - (zout[q] - zd_k(nodes[q])); known[r0] = 1; indef[r0] = 0;
+            wl[wn2++] = r0;
             while (wn2 > 0) {
                 int r = wl[--wn2];
                 for (int i = 0; i < n; i++) {
                     if (claim[i] != r || !zon[i]) continue;
                     for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
                         int l, q2 = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l, dead);
-                        if (q2 < 0 || known[q2]) continue;
+                        if (q2 < 0 || known[q2] || !inp[q2]) continue;
                         base[q2] = base[r] + l - (zout[q2] - zd_k(nodes[q2])); known[q2] = 1; indef[q2] = 0; wl[wn2++] = q2;
                     }
                 }
