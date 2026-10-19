@@ -604,10 +604,10 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * icn_assign_var_name(const tree_t * t) {
-    while (t && (t->t == TT_ASSIGN || t->t == TT_AUGOP) && t->n >= 2) t = t->c[0];
+    while (t && (t->t == TT_ASSIGN || t->t == TT_AUGOP || t->t == TT_SWAP || t->t == TT_REVSWAP) && t->n >= 2) t = t->c[0];
     return (t && t->t == TT_VAR && t->v.sval && t->v.sval[0] != '&') ? t->v.sval : NULL;
 }
-static int icn_assign_names_var(const tree_t * t) { return t && (t->t == TT_ASSIGN || t->t == TT_AUGOP) && icn_assign_var_name(t) != NULL; }
+static int icn_assign_names_var(const tree_t * t) { return t && (t->t == TT_ASSIGN || t->t == TT_AUGOP || t->t == TT_SWAP || t->t == TT_REVSWAP) && icn_assign_var_name(t) != NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res);
 static IR_t * lower_idx_base(icx_t * cx, const tree_t * b0, IR_t * ω, IR_t ** br) {
