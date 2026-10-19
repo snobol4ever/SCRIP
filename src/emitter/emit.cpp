@@ -1237,6 +1237,7 @@ extern "C" int fc_head_fp(const IR_t *);
 extern "C" int fc_leaf_disp(const IR_t *);
 extern "C" int fc_seq_active(const IR_t *);
 extern "C" int fc_call_active(const IR_t *);
+extern "C" int fc_vdj_active(const IR_t *);
 extern "C" int zls_arbno_geom(const IR_t *, int *, int *);
 extern "C" int zls_arbno_zq(const IR_t *, const int **);
 static int walk_bb_node_inner(IR_t * nd, FILE * out);
@@ -1717,7 +1718,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_GATE_ARM: bb_emit_x86(bb_gate_arm()); return 0;
     case IR_GATE: bb_emit_x86(bb_gate()); return 0;
     case IR_DISJUNCTION: { if (nd->n_operands > 0) { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } }
-        if (g_emit.op_zres) { g_emit.op_fc_bytes = 32; g_emit.op_fc_base = g_emit.op_off; } g_emit.op_dj_bfail = g_emit.op_zres && g_emitter.g_zd_djok && !(g_emit_cfg && g_emit_cfg->spine_cells);
+        if (g_emit.op_zres) { g_emit.op_fc_bytes = 32; g_emit.op_fc_base = g_emit.op_off; } g_emit.op_dj_bfail = g_emit.op_zres && g_emitter.g_zd_djok && fc_vdj_active(nd);
             g_emitter.g_zd_djok = 0;
             g_emit.op_dj_rec = (zd_dj_retains(nd) && xop_frame_slot(nd) != -1) ? 1 : 0;
             bb_emit_x86(bb_disjunction()); return 0; }
