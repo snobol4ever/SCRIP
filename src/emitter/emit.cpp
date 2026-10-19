@@ -4255,6 +4255,10 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                     IR_t * rs = env->operands[2 * a + 1];
                     if (!rs || (zdj_on ? 0 : rs != env)) { bad = 1; break; }
                     IR_t * c2 = env->operands[2 * a];
+                    if (c2 && c2->op == IR_FAIL && rs == env && nidx(nodes, n, c2) < 0) {
+                        if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d is a bare fail: no box, its entry is the chain's omega\n", ei, a);
+                        continue;
+                    }
                     int first = 1, g2 = 0;
                     while (c2 && c2 != env && g2++ <= n) {
                         int ci = nidx(nodes, n, c2);
@@ -4540,14 +4544,20 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             if (!zon[i] || nodes[i]->op != IR_UNMARK || nodes[i]->n_operands < 1) continue;
             int b = nidx(nodes, n, nodes[i]->operands[0]);
             if (b < 0 || !zon[b]) continue;
-            if (claim[b] != claim[i]) continue;
+            int xc = claim[b] != claim[i];
+            if (xc && !(zd_unmark_acts(nodes[i]) > 0 && claim[b] >= 0 && claim[i] >= 0 && known[claim[b]] && known[claim[i]])) continue;
             IR_t * _gs = nodes[i];
             IR_t * _gt = zd_lm_chase(nodes[i], n, &_gs);
             int _gq = _gt ? nidx(nodes, n, _gt) : -1;
             int _rb = _gq >= 0 && zon[_gq] && port_sz_beta(zd_edge_sz(_gs, 0));
+            if (xc && _rb && (claim[_gq] < 0 || !known[claim[_gq]])) continue;
             if (zd_unmark_acts(nodes[i]) > 0) {
+                int ab = base[claim[b]] + zout[b];
                 if (_gt == nodes[b] || _rb) for (IR_t * u = zd_chase(nodes[i]->γ.node); u && u != _gt; u = zd_chase(u->γ.node)) { int k = nidx(nodes, n, u);
-                    if (k >= 0 && zon[k]) { zout[k] = zout[b]; zgpop[k] = (u == _gs && _rb) ? zout[b] - zout[_gq] : 0; zwpop[k] = 0; } }
+                    if (k < 0 || !zon[k] || (xc && (claim[k] < 0 || !known[claim[k]]))) continue;
+                    zout[k] = xc ? ab - base[claim[k]] : zout[b];
+                    zgpop[k] = (u == _gs && _rb) ? (xc ? ab - (base[claim[_gq]] + zout[_gq]) : zout[b] - zout[_gq]) : 0;
+                    zwpop[k] = 0; }
                 continue;
             }
             if (zchn[2 * i] < 0) {
