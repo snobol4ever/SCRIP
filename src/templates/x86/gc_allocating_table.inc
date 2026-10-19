@@ -711,7 +711,6 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "icn_pad_str", GC_RET_OTHER },
     { "icn_parse_file", GC_RET_OTHER },
     { "icn_resolve_links", GC_RET_VOID },
-    { "icn_scan_seq_nary", GC_RET_OTHER },
     { "icn_scan_tail_gate", GC_RET_OTHER },
     { "icn_section_operands_ok", GC_RET_OTHER },
     { "icn_section_operands_ok_code", GC_RET_OTHER },
