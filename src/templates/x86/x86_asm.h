@@ -2911,7 +2911,9 @@ return x86_gc_gate(x86("comment",
          + x86_reg_disp32_lea64("rcx", "rsp", 32)
          + x86_rtcc_call_adj("rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c, 0)
          + x86_rsp_load64(preg0, 8)
+         + x86_rsp_load32(lenreg32_0, 4)
          + x86_rsp_load64(preg1, 24)
+         + x86_rsp_load32(lenreg32_1, 20)
          + x86("add", "rsp", (long)32));
 }
 inline std::string x86_rt_gc_poll_rec_sigma_needle() { return x86_rt_gc_poll_rec2("r13", "r15d", "rax", "edx"); }
