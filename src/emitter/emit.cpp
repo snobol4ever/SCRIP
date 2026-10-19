@@ -4398,7 +4398,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         int qo = o ? nidx(nodes, n, o) : -1;
         if (qo >= 0 && zon[qo] && claim[qo] != claim[i]) zwpop[i] = zout[i] - zd_k(nodes[i]);
         if (qo >= 0 && zon[qo] && claim[qo] == claim[i] && qo != i && port_sz_beta(zd_edge_sz(nodes[i], 1))) zwpop[i] = zout[i] - zd_k(nodes[i]) - zout[qo];
-        if (q >= 0 && zon[q] && claim[q] != claim[i] && nodes[q]->op == IR_DISJUNCTION) zgpop[i] = zout[i];
+        if (q >= 0 && zon[q] && claim[q] != claim[i] && nodes[q]->op == IR_DISJUNCTION && !zd_edge_retains(nodes[i])) zgpop[i] = zout[i];
     }
     int * base = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     unsigned char * known = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
