@@ -4451,6 +4451,10 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 { if (nodes[i]->op == IR_MATCH_BEGIN && zwt < n) zwms[zwt++] = (int)zd + K; }
                 { if (nodes[i]->op == IR_MATCH_REPLACE || nodes[i]->op == IR_MATCH_END) zdh_mafter = (int)zd + K; }
                 if (zarm && zarm[i] >= 0) { if (aent[i]) arm_zd = zout[zarm[i]] - (nodes[zarm[i]]->op == IR_DISJUNCTION ? zd_djx_of(nodes[zarm[i]]) : zd_k(nodes[zarm[i]])); zon[i] = 1;
+                    if (nodes[i]->op == IR_UNMARK && (IR_LIT(nodes[i]).ival & 16) && nodes[i]->n_operands > 0 && nodes[i]->operands[0] && nodes[i]->operands[0]->op == IR_BOUND) {
+                        int _bk = nidx(nodes, n, nodes[i]->operands[0]);
+                        if (_bk >= 0 && claim[_bk] == hi && zarm[_bk] == zarm[i] && rpos[_bk] >= 0 && rpos[_bk] < r) arm_zd = zout[_bk] - zd_k(nodes[_bk]);
+                    }
                     zout[i] = arm_zd + K;
                     arm_zd = arm_zd + K; }
                 else { zon[i] = 1; zout[i] = zd + K - REL; zd = zd + K - REL - UREL; }

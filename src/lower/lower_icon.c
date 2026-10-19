@@ -328,6 +328,12 @@ static void icn_augop_operands(int aop, IR_t * op, IR_t * ca, IR_t * cb, IR_t * 
 static int is_unop_tt(tree_e tt) { switch (tt) { case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL: case TT_CSET_COMPL: case TT_INTERROGATE: return 1; default: return 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_tree_is_cursor_mover(const tree_t * a);
+static int icn_tree_calls_a_generator(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && icn_proc_is_generator(t->c[0]->v.sval)) return 1;
+    for (int i = 0; i < t->n; i++) if (icn_tree_calls_a_generator(t->c[i])) return 1;
+    return 0;
+}
 static int is_resumable(const tree_t * t) {
     if (!t) return 0;
     if (t->t == TT_STMT) t = stmt_subj(t);
@@ -2549,7 +2555,18 @@ static IR_t * lower_if_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, 
             IR_t * aent0 = aent;
             int cbefore = g->n;
             IR_t * cval = NULL;
-            aent = lower(cx, C, aent, dj, &cval);
+            IR_t * cmark = NULL;
+            IR_t * cunmk = NULL;
+            if (C && icn_tree_calls_a_generator(C)) {
+                cmark = lc_build(g, IR_BOUND, NULL, NULL);
+                cunmk = lc_build(g, IR_UNMARK, NULL, NULL);
+                IR_LIT(cunmk).ival = 16;
+                lc_γ_to_α(cunmk, aent0);
+                lc_ω_to_α(cunmk, aent0);
+                ir_operand_push(cunmk, cmark);
+            }
+            aent = lower(cx, C, cunmk ? cunmk : aent, dj, &cval);
+            if (cmark) { lc_γ_to_α(cmark, aent); lc_ω_to_α(cmark, aent); aent = cmark; }
             (void) cval;
             for (int k = cbefore; k < g->n; k++) {
                 IR_t * x = g->all[k];
