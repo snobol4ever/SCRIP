@@ -4593,6 +4593,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 const char * sz = zd_edge_sz(nodes[i], v);
                 if (q < 0 || !zon[q] || !(port_sz_beta(sz) || zd_sz_phi(sz))) continue;
                 if (zd_icn_stmt_head(nodes[q])) continue;
+                if (!v && zd_sz_phi(sz) && nodes[q]->op != IR_DISJUNCTION && zd_chase(nodes[i]->ω.node) == t && !port_sz_beta(zd_edge_sz(nodes[i], 1))) continue;
                 int p = (v == 0 && nodes[i]->op == IR_UNMARK) ? -1 : zd_pred_bt(nodes, n, claim, claim[i], i);
                 if (p >= 0 && p != q && !zd_icn_chain_step_ok(nodes, n, p, q)) p = -1;
                 int to = q;
