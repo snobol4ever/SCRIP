@@ -4458,13 +4458,14 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                     fprintf(stderr, "[ZD-XC] i=%d v=%d q=%d b=%d cq=%d known=%d ai=%d\n", i, v, q, b, q >= 0 ? claim[q] : -2, (q >= 0 && claim[q] >= 0) ? known[claim[q]] : -1, ai);
                 if (q < 0 || claim[q] < 0 || claim[q] == claim[i]) continue;
                 int cq = claim[q], kq = known[cq] ? 1 : (fam[cq] >= 0 ? 2 : 0);
-                if (v && ki == 2 && b && zd_beta_via_act(nodes[q])) {
+                if (ki == 2 && b && zd_beta_via_act(nodes[q])) {
                     IR_t * lt = zd_chase(nodes[q]->γ.node);
                     int lq = lt ? nidx(nodes, n, lt) : -1;
                     int ub = (nodes[ci]->op == IR_UNMARK && (IR_LIT(nodes[ci]).ival & 6) && nodes[ci]->n_operands > 0) ? nidx(nodes, n, nodes[ci]->operands[0]) : -1;
                     int fl = (lq >= 0 && zon[lq] && claim[lq] >= 0) ? fam[claim[lq]] : -1, cb = (ub >= 0 && zon[ub] && claim[ub] >= 0) ? claim[ub] : -1;
                     int af = fl < 0 ? INT_MIN : fam[ci] == fl ? ai : (cb >= 0 && !known[cb] && fam[cb] == fl) ? fbase[cb] + zout[ub] - zout[ci] + zout[i] : INT_MIN;
-                    if (af != INT_MIN) { zwpop[i] = af - zd_k(nodes[i]) - (fbase[claim[lq]] + zout[lq] - zd_k(nodes[lq])); continue; }
+                    int ax = (lq >= 0 && claim[lq] >= 0) ? fbase[claim[lq]] + zout[lq] - zd_k(nodes[lq]) : 0;
+                    if (af != INT_MIN) { if (v) zwpop[i] = af - zd_k(nodes[i]) - ax; else zgpop[i] = af - ax; continue; }
                 }
                 if (kq != ki || (ki == 2 && fam[ci] != fam[cq])) continue;
                 int aq = (kq == 1 ? base[cq] : fbase[cq]) + zout[q] - (b ? 0 : zd_k(nodes[q]));
