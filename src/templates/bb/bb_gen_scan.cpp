@@ -79,6 +79,7 @@ std::string bb_gen_scan() {
                  + x86("mov", "r14d", FR(_.op_ival + scan_bank_off() + 16))
                  + x86("mov", "rdi", "r14")
                  + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out)
+                 + IF(_.op_t0_pop > 0, x86("add", "rsp", (long)_.op_t0_pop))
                  + x86_jmp_tgt(X86T_TGT0))
              + IF(_.lbl_t0_p != 0 && _.op_sb == 4,
                    x86("mov", "rdi", FRQ(_.op_sc))

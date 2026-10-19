@@ -1726,7 +1726,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         g_emit.op_sb = (IR_LIT(nd).dval == 4.0) ? 4 : ((nd->n_operands > 2 && !_bv) ? 2 : (IR_LIT(nd).dval == 3.0 ? 3 : 0)); g_emit.op_off = nd_slot(_en);
         g_emit.op_sa = (g_emit.op_sb == 2 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) : (_bv ? nd_slot(_bv) : -1);
         g_emit.op_sc = (g_emit.op_sb == 4 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) : -1; g_emit.op_ival = zls_off(nd);
-        g_emit.lbl_t0 = g_emitter.g_scan_body_beta ? g_emitter.g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_emitter.g_scan_body_beta; bb_emit_x86(bb_gen_scan()); } return 0;
+        g_emit.lbl_t0 = g_emitter.g_scan_body_beta ? g_emitter.g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_emitter.g_scan_body_beta; g_emit.op_t0_pop = g_emitter.g_scan_t0_pop;
+        bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_SCAN_TAB: bb_emit_x86(bb_scan_tab()); return 0;
     case IR_SCAN_MOVE: bb_emit_x86(bb_scan_move()); return 0;
     case IR_SCAN_UPTO: { IR_t * _ca = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
@@ -4646,6 +4647,22 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             int q = t ? nidx(nodes, n, t) : -1;
             if (q >= 0 && nodes[q]->op == IR_MATCH_ARBNO && zd_dj_anc(zarm, i, q)) zgpop[i] = 0;
         }
+    for (int sp = 0; sp < n; sp++) {
+        if (!zon[sp] || nodes[sp]->op != IR_SUSPEND || claim[sp] < 0) continue;
+        IR_t * t = zd_chase(nodes[sp]->γ.node);
+        for (int g = 0; t && g <= n; g++) {
+            int k = nidx(nodes, n, t);
+            if (k < 0 || !zon[k] || claim[k] != claim[sp]) break;
+            IR_t * nx = zd_chase(t->γ.node);
+            int nk = nx ? nidx(nodes, n, nx) : -1;
+            if (!nx || nx->op == IR_SUCCEED || nk < 0 || !zon[nk]) {
+                zgpop[k] = zout[k] - zout[sp];
+                if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-YIELD] i=%d ends the yield of suspend %d: it pops to the suspend's depth (%d)\n", k, sp, zgpop[k]);
+                break;
+            }
+            t = nx;
+        }
+    }
     zd_dj_discards(nodes, n, zon, zout, zgpop, zwpop, zarm, claim, base, known, zdj_on);
     { if (zd_map_on()) { fprintf(stderr, "[ZD-MAP] PLAN -- same i= indices as GRAPH above\n");
         for (int i = 0; i < n; i++) fprintf(stderr, "[ZD-MAP] i=%-3d %-22s claim=%-3d rpos=%-3d zon=%d zout=%-4d gpop=%-5d wpop=%-5d arm=%d slot=%d\n",
@@ -5937,6 +5954,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         }
         g_emitter.g_limit_gen_beta = NULL;
         g_emitter.g_scan_body_beta = NULL;
+        g_emitter.g_scan_t0_pop = 0;
         g_create_body_entry = NULL;
         g_emitter.g_suspend_dobody_beta = NULL;
         if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SUSPEND && g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 1 && g_emitter.codegen_flat_chain_body_nodes[i]->operands[1]) {
@@ -6066,6 +6084,9 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                         g_emitter.codegen_flat_chain_body_nodes[i]->n_operands, bv ? 1 : 0,
                     g_emitter.g_scan_body_beta ? g_emitter.g_scan_body_beta->name : "-", (_fk >= 0 && lbls[_fk]) ? lbls[_fk]->name : "-", (_fk >= 0 && betas[_fk]) ? betas[_fk]->name : "-",
                     _fk >= 0 ? scan_body_beta_keeps(g_emitter.codegen_flat_chain_body_nodes[_fk]) : -1, _fk >= 0 ? (int)bused[_fk] : -1); }
+            { int tk = -1;
+              for (int k = 0; k < n && g_emitter.g_scan_body_beta; k++) if (betas[k] == g_emitter.g_scan_body_beta) { tk = k; break; }
+              if (tk >= 0 && zd_xb && zd_on[i] && zd_on[tk] && zd_xb[i] != INT_MIN && zd_xb[tk] != INT_MIN) g_emitter.g_scan_t0_pop = (zd_xb[i] + zd_out[i]) - (zd_xb[tk] + zd_out[tk]); }
         }
         { if (g_emitter.codegen_flat_chain_body__zpf < 0) { const char *_e = getenv("SCRIP_ZPOP_FOLD_OFF"); g_emitter.codegen_flat_chain_body__zpf = (_e && _e[0] == '1') ? 1 : 0; }
           if (!g_emitter.codegen_flat_chain_body__zpf) {
