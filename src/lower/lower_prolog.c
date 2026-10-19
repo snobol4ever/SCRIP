@@ -897,6 +897,21 @@ static int pl_attv_on(void);
 static int pl_attv_body(const tree_t * cl, int ar, const tree_t ** out, int cap);
 static int pl_scc_armed(void) { extern int rt_proc_jmp_entry(const char *); return pl_fence_on() && (pl_file_defines("$scc_cut", 0) || rt_proc_jmp_entry("$scc_cut/0")); }
 int emit_pl_scc_armed(void) { return pl_scc_armed(); }
+static int pl_cond_may_clean(const tree_t * t) {
+    static const char * const meta[] = { "call", "findall", "bagof", "setof", "forall", "catch", "once", "ignore", "not", "aggregate_all", "setup_call_cleanup", "call_cleanup",
+        "setup_call_catcher_cleanup", "with_output_to", "format", "apply", NULL };
+    if (!t) return 0;
+    if (t->t == TT_VAR) return 1;
+    if (t->t != TT_FNC && t->t != TT_QLIT && t->t != TT_NAME) return 0;
+    const char * nm = t->v.sval;
+    int ar = t->t == TT_FNC ? t->n : 0;
+    if (!nm) return 1;
+    if (ar == 2 && (!strcmp(nm, ",") || !strcmp(nm, ";") || !strcmp(nm, "->") || !strcmp(nm, "*->"))) return pl_cond_may_clean(t->c[0]) || pl_cond_may_clean(t->c[1]);
+    if (ar == 1 && !strcmp(nm, "\\+")) return pl_cond_may_clean(t->c[0]);
+    for (int i = 0; meta[i]; i++) if (!strcmp(meta[i], nm)) return 1;
+    return pl_file_defines(nm, ar);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_probe_before(lcx_t * cx, IR_t * target, IR_t * mark, int needs_mark) {
     if (!pl_scc_armed() || (needs_mark && !mark)) return target;
     IR_t * pr = build(cx, IR_CLEANUP, NULL, target);
@@ -967,7 +982,7 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
         cx->cut_mark = mark;
         IR_t * fence = pl_fence_on() ? build(cx, IR_UNMARK, arm_entry[0], unmk_c) : (IR_t *) 0;
         if (fence) { ir_operand_push(fence, mark); IR_LIT(fence).ival = 2; }
-        IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, fence ? pl_probe_before(cx, fence, mark, 1) : arm_entry[0], unmk_f, &ce, NULL, NULL);
+        IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, fence ? (pl_cond_may_clean(C) ? pl_probe_before(cx, fence, mark, 1) : fence) : arm_entry[0], unmk_f, &ce, NULL, NULL);
         cx->cutω = savecutω;
         cx->cut_scope = save_scope;
         cx->cut_mark = save_mark_0;
