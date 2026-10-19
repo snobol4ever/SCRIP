@@ -4266,6 +4266,12 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                     int first = 1, g2 = 0;
                     while (c2 && c2 != env && g2++ <= n) {
                         int ci = nidx(nodes, n, c2);
+                        if (first && !zd_dj_arm_resumes(env, a) && ci >= 0 && claim[ci] < 0 && zd_icn_stmt_head(nodes[ci])) {
+                            if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d opens with a statement: no box claimed, its runs reach the box by sigma and phi\n", ei, a);
+                            first = 0;
+                            c2 = (IR_t *)0;
+                            break;
+                        }
                         if (ci < 0 && !first && (c2->op == IR_SUCCEED || c2->op == IR_FAIL)) { c2 = (IR_t *)0; break; }
                         if (zdj_on && ci >= 0 && !first && claim[ci] < 0 && (bb_src_of(nodes[ci]) || (zd_omega_head(nodes, n, nodes[ci]) && !(g_emit_cfg && g_emit_cfg->spine_cells)))) { c2 =
                             (IR_t *)0; break; }
@@ -4462,6 +4468,22 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 }
                 if (kq != ki || (ki == 2 && fam[ci] != fam[cq])) continue;
                 int aq = (kq == 1 ? base[cq] : fbase[cq]) + zout[q] - (b ? 0 : zd_k(nodes[q]));
+                if (!b && zarm && nodes[q]->op == IR_DISJUNCTION && zd_dj_admitted(zarm, n, q)) {
+                    const char * sz = zd_edge_sz(nodes[i], v);
+                    if (zd_sz_sigma(sz)) aq = (kq == 1 ? base[cq] : fbase[cq]) + zout[q];
+                    else if (zd_sz_phi(sz)) aq = (kq == 1 ? base[cq] : fbase[cq]) + zout[q] - zd_djx_of(nodes[q]);
+                    if (zd_sz_sigma(sz) && !v && zcps && zcpd && zarm[i] < 0 && zcpd[i] == -1)
+                        for (int a = 0; a < (int)IR_LIT(nodes[q]).ival; a++) {
+                            IR_t * rj = zd_dj_res(nodes[q], a);
+                            int kr = rj ? nidx(nodes, n, rj) : -1, hit = 0;
+                            if (kr < 0 || !zon[kr] || claim[kr] != claim[i] || zd_icn_local_var(nodes[kr])) continue;
+                            for (IR_t * t = nodes[kr]; t && hit < n; t = zd_chase(t->γ.node)) { if (t == nodes[i]) { hit = -1; break; } hit++; }
+                            if (hit != -1) continue;
+                            if (zd_dj_retains(nodes[q])) { zcps[i] = -(kr + 2); zcpd[i] = -(q + 2); }
+                            else { zcps[i] = zout[i] - zout[kr]; zcpd[i] = ai - aq; }
+                            break;
+                        }
+                }
                 if (v) zwpop[i] = ai - zd_k(nodes[i]) - aq; else zgpop[i] = ai - aq;
             }
             if (ki != 1) continue;
