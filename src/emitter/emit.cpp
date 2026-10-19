@@ -1461,7 +1461,14 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         bb_emit_x86(bb_var_ref()); } return 0;
     case IR_COERCE_STRING: { bb_prepare(nd); bb_emit_x86(bb_coerce_string()); } return 0;
     case IR_COERCE_INTEGER: { bb_prepare(nd); bb_emit_x86(bb_coerce_integer()); } return 0;
-    case IR_COERCE_NUMERIC: { bb_prepare(nd); bb_emit_x86(bb_coerce_numeric()); } return 0;
+    case IR_COERCE_NUMERIC: { bb_prepare(nd);
+        if (g_emit.op_zres && nd->n_operands == 1 && g_emit.op_zcap > 1) {
+            g_emit.op_zread[1] = g_emit.op_zread[0];
+            g_emit.op_zkind[1] = g_emit.op_zkind[0];
+            g_emit.op_zread_fr[1] = g_emit.op_zread_fr[0];
+            g_emit.op_zread_xf[1] = g_emit.op_zread_xf[0];
+        }
+        bb_emit_x86(bb_coerce_numeric()); } return 0;
     case IR_COERCE_REAL: { bb_prepare(nd); bb_emit_x86(bb_coerce_real()); } return 0;
     case IR_CMP_TEST: { bb_prepare(nd); bb_emit_x86(bb_cmp_test()); } return 0;
     case IR_IDENT: { bb_prepare(nd); bb_emit_x86(bb_ident()); } return 0;
