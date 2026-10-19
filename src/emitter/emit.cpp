@@ -3575,7 +3575,7 @@ static int zd_k_own(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO)
         op == IR_MATCH_NOTANY ||
     op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE || op == IR_MATCH_ALTERNATE ||
     (op == IR_MATCH_FENCE1 || op == IR_MATCH_FENCE0 || op == IR_MATCH_ABORT) || op == IR_BOUND || op == IR_UNMARK || op == IR_CONJUNCTION || op == IR_CUT || op == IR_GATE_ARM ||
-        op == IR_UNIFY_CONST || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE ||
+        op == IR_CLEANUP || op == IR_UNIFY_CONST || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE ||
     op == IR_RETURN || (op == IR_DISJUNCTION && nd->n_operands == 0) ||
     (op == IR_MATCH_DEFER && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5))) ? 0 : 16; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
