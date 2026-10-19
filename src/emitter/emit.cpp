@@ -3463,7 +3463,7 @@ static int icn_xop_frame_member(const IR_t * nd) {
 static int pl_xop_frame_member(const IR_t * nd) {
     if (!nd || !emit_resumable_frame() || !g_emit_cfg || !g_emitter.g_zd_claim_p || !g_emitter.g_zd_xb_p || g_emitter.g_zd_nodes_p != g_emitter.codegen_flat_chain_body_nodes) return 0;
     if (nd->op == IR_TO && ir_range_kind_is(nd, "db")) return nd_slot(nd) >= 0 ? 1 : 0;
-    if (zd_k((IR_t *)nd) != 16 || !ir_node_produces_value(nd->op) || nd_slot(nd) < 0) return 0;
+    if (zd_k_own((IR_t *)nd) != 16 || !ir_node_produces_value(nd->op) || nd_slot(nd) < 0) return 0;
     int n = g_emitter.g_zd_n, i = nidx(g_emitter.g_zd_nodes_p, n, nd);
     if (i < 0 || g_emitter.g_zd_claim_p[i] < 0) return 0;
     if (g_emitter.g_xci_g != g_emit_cfg || g_emitter.g_xci_all != g_emit_cfg->all || g_emitter.g_xci_n != g_emit_cfg->n || g_emitter.g_xci_built != g_emitter.g_xci_epoch) xci_build();
