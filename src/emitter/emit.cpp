@@ -4677,6 +4677,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                     continue;
                 }
                 if (v) { if (!zdj_on) zwpop[i] = (zout[i] - zd_k(nodes[i])) - zout[q]; continue; }
+                if (zdj_on && (port_sz_beta(zd_edge_sz(nodes[i], 0)) || zd_sz_phi(zd_edge_sz(nodes[i], 0)))) continue;
                 zgpop[i] = zout[i] - zout[q];
                 if (zd_dj_retains(nodes[q]) && !zd_djx_of(nodes[q])) { int p0 = i; while (zarm[p0] != q) p0 = zarm[p0]; if (zd_dj_arm_resumes(nodes[q], zarmj[p0])) zgpop[i] = 0; }
                 if (!zd_sz_sigma(zd_edge_sz(nodes[i], 0))) continue;
