@@ -1077,7 +1077,6 @@ inline const char * x86_zop(int off, int q, int bump) {
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }
     else if (x86_resumable_frame() && x86_hb_on() && !x86_fb_data() && !_.op_stmt_dyn) { x86_zop_note(3); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
-    else if (g_emit.zframe_graph && g_emit.frame_retained && x86_hb_on() && !_.op_stmt_dyn) { x86_zop_note(3); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
     else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { eff = x86_frame_off(off) + bump; spine = 1; }
     else if (_.op_zf_unpinned && _.op_zres && !x86_fb_data() && !_.op_stmt_dyn) { eff = off + _.op_zabs; spine = 1; }
     else { eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
@@ -1111,7 +1110,7 @@ inline const char * ZLOCD(int o) { return x86_zref(16 + o, 0); }
 inline const char * ZLOC_B(int o) { return x86_zref(_.op_ztail + 16 + o, 1); }
 inline const char * ZOPQ(int k, int w) { int in = k >= 0 && k < _.op_zcap; if (in && _.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + w, 1, 0);
     return (in && _.op_zread_xf[k] != -1) ? RDQ("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 1); }
-inline const char * ZOPQS(int k, int sp, int w) { int in = k >= 0 && k < _.op_zcap; if (in && _.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + w, 1, sp);
+inline const char * ZOPQS(int k, int sp, int w) { int in = k >= 0 && k < _.op_zcap; if (in && _.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + sp + w, 1, 0);
     return (in && _.op_zread_xf[k] != -1) ? RDQ("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + sp + w, 1); }
 inline const char * ZOPD(int k, int w) { int in = k >= 0 && k < _.op_zcap; if (in && _.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + w, 0, 0);
     return (in && _.op_zread_xf[k] != -1) ? RDD("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 0); }
