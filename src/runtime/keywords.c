@@ -166,33 +166,13 @@ static int kw_cset_slot_of(const char *kw_name) { for (int i = 0; i < g_kw_cset_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void kw_errtext_gc_root(void) { extern void rt_gc_visit_raw(const char **loc); if (g_sno_errtext) rt_gc_visit_raw(&g_sno_errtext); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#if RT_DIAG
-static int kw_cset_plant_strong(void) {
-    static int v = -1, said = 0;
-    if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_CSET_STRONG"); v = (e && *e && *e != '0') ? 1 : 0; }
-    if (v && !said) {
-        said = 1;
-        fprintf(stderr,
-            "[GC-CSET] plant: every interned cset is a STRONG root again, as before the registry went weak, so no computed cset ever dies and every "
-            "collection visits and slides all of them (SCRIP_GC_PLANT_CSET_STRONG=1). THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints " "ONCE PER PROCESS.\n");
-    }
-    return v;
-}
-#endif
 void kw_cset_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **loc);
     kw_errtext_gc_root();
     if (!g_kw_cset_names) return;
     rt_gc_visit_raw((const char **)&g_kw_cset_names);
-#if RT_DIAG
-    int strong = kw_cset_plant_strong();
-#endif
     for (int i = 0; i < g_kw_cset_count; i++) {
-#if RT_DIAG
-        if (!g_kw_cset_names[i].name && !strong) continue;
-#else
         if (!g_kw_cset_names[i].name) continue;
-#endif
         if (g_kw_cset_names[i].ptr) rt_gc_visit_raw(&g_kw_cset_names[i].ptr);
         rt_gc_visit_raw(&g_kw_cset_names[i].name);
     }
