@@ -7,8 +7,15 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define disj_dispatch_chain(N, base, lo) emit_for((int)(lo), (int)(N), [&](int i) { return x86("cmp", "eax", i) \
-                                                                       + x86("je", PAIR((int)(base) + i)); })
+#define disj_dispatch_chain(N, base, lo) emit_for((int)(lo), (int)(N), [&](int i) { return IF(XA_PAIR((int)(base) + i).rsp != 0, \
+                                                                         x86("cmp", "eax", i) \
+                                                                       + x86("jne", L(300 + (int)(base) + i)) \
+                                                                       + x86("add", "rsp", (long)XA_PAIR((int)(base) + i).rsp) \
+                                                                       + x86("jmp", PAIR((int)(base) + i)) \
+                                                                       + x86("def", L(300 + (int)(base) + i))) \
+                                                                     + IF(XA_PAIR((int)(base) + i).rsp == 0, \
+                                                                         x86("cmp", "eax", i) \
+                                                                       + x86("je", PAIR((int)(base) + i))); })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define disj_sigma_copy() emit_seq({ \
       x86("mov", "eax", FR(_.op_off + 16)), \
@@ -68,6 +75,8 @@ std::string bb_disjunction() {
              + IF(!_.op_dj_bfail,
                   x86("mov", "eax", FR(_.op_off + 16))
                 + disj_dispatch_chain(_.op_ival - 1, (int)_.op_ival, 0)
+                + IF(XA_PAIR((int)(_.op_ival + _.op_ival - 1)).rsp != 0,
+                     x86("add", "rsp", (long)XA_PAIR((int)(_.op_ival + _.op_ival - 1)).rsp))
                 + x86("jmp", PAIR((int)(_.op_ival + _.op_ival - 1))))
              + x86("def", PAIR((int)(2 * _.op_ival + 1)))
              + x86("def", PAIR((int)(2 * _.op_ival + 2)))
