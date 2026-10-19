@@ -1329,7 +1329,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         if (g_emitter.g_zd_wrec_off != -1) { g_emit.op_xrec |= 8; g_emit.op_wrec = g_emitter.g_zd_wrec_off; g_emit.op_wrec_pop = g_emitter.g_zd_wrec_res; }
         g_emitter.g_zd_grec_off = -1;
         g_emitter.g_zd_wrec_off = -1;
-        if (g_emitter.g_zd_arm && g_emitter.g_zd_cpdx != -1) { g_emit.op_xrec |= 2; g_emit.op_zcp_dxf = g_emitter.g_zd_cpdx;
+        if (g_emitter.g_zd_cpdx != -1) { g_emit.op_xrec |= 2; g_emit.op_zcp_dxf = g_emitter.g_zd_cpdx;
             if (g_emitter.g_zd_cpsx != -1) { g_emit.op_xrec |= 1; g_emit.op_zcp_sxf = g_emitter.g_zd_cpsx; } }
         g_emitter.g_zd_cpdx = -1;
         g_emitter.g_zd_cpsx = -1;
@@ -6079,6 +6079,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   g_emitter.g_zd_wpop = zd_wp[i];
                   g_emitter.g_zd_wsteal = 0;
                   zd_rec_arm(g_emitter.codegen_flat_chain_body_nodes, i);
+                  if (zd_cpd && zd_cpd[i] <= -2) zd_cp_arm(g_emitter.codegen_flat_chain_body_nodes, i, zd_cps, zd_cpd, zd_out);
               }
               else if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION && zd_on[i] && zd_dj_admitted(zd_arm, n, i)) {
                   g_emitter.g_zd_stage = 1;
