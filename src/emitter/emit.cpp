@@ -1112,6 +1112,7 @@ static int zd_icn_local_var(const IR_t * nd);
 static int zd_icn_local_assign(const IR_t * nd);
 static const IR_t * zd_local_home_node(const IR_t * nd);
 static int xf_diag_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_XF_DIAG"); v = (e && *e == '1') ? 1 : 0; } return v; }
+static IR_t * zd_conj_value_node(IR_t * nd) { int g = 0; while (nd && nd->op == IR_CONJUNCTION && nd->n_operands > 0 && zd_k_own(nd) == 0 && g++ < 16) nd = nd->operands[0]; return nd; }
 static int zd_plan_on_of(const IR_t * nd) { if (!nd || !g_emitter.g_zd_plan_on || g_emitter.g_zd_plan_nodes != g_emitter.codegen_flat_chain_body_nodes) return 0;
     for (int k = 0; k < g_emitter.g_zd_plan_n; k++) if (g_emitter.g_zd_plan_nodes[k] == nd) return g_emitter.g_zd_plan_on[k] ? 1 : 0; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1336,7 +1337,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
             g_emit.op_zpat = g_emitter.g_zd_zpat; g_emitter.g_zd_zpat = 0; g_emit.op_zfc = g_emitter.g_zd_zfc; g_emitter.g_zd_zfc = 0;
             if (nd && g_emit_cfg) { int _xn = zd_nops(nd); g_emit.op_zslot_n = (_xn < nd->n_operands) ? _xn : nd->n_operands;
                 for (int _zi = 0; _zi < g_emit.op_zslot_n && _zi < g_emit.op_zcap; _zi++) { IR_t * _po = nd->operands[_zi];
-                    g_emit.op_zslot[_zi] = (_po && (zd_k_own(_po) >= 16 || zd_local_home_node(_po)) && zd_plan_on_of(_po)) ? nd_slot(_po) : -1; }
+                    IR_t * _pv = zd_conj_value_node(_po);
+                    g_emit.op_zslot[_zi] = (_po && (zd_k_own(_po) >= 16 || zd_local_home_node(_po) || (_pv != _po && zd_k_own(_pv) >= 16 && zd_plan_on_of(_pv))) && zd_plan_on_of(_po)) ? nd_slot(_po) :
+                        -1; }
                 g_emit.op_res_alias = (zd_k_own(nd) == 16 && !zd_icn_suspend(nd)) ? nd_slot(nd) : -1;
                 if (xf_diag_on()) { fprintf(stderr, "[ALIAS] %s res=%d nops=%d:", bb_op_name(nd->op), g_emit.op_res_alias, g_emit.op_zslot_n);
                     for (int _zi = 0; _zi < g_emit.op_zslot_n && _zi < g_emit.op_zcap; _zi++) { IR_t * _po = nd->operands[_zi];
@@ -6220,7 +6223,10 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
               if (zd_on[i]) { int _no = zd_nops(g_emitter.codegen_flat_chain_body_nodes[i]);
                   int _op = (int)g_emitter.codegen_flat_chain_body_nodes[i]->op; int _cap = (_op == IR_MATCH_ASSIGN_COND || _op == IR_MATCH_ASSIGN_IMM);
                   for (int _zj = 0; _zj < _no && _zj < g_emitter.codegen_flat_chain_body_nodes[i]->n_operands; _zj++) { if (_cap && _zj == 0) continue;
-                  IR_t * _p = g_emitter.codegen_flat_chain_body_nodes[i]->operands[_zj]; { int _k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, _p); if (_k >= 0) { int _xh = 0, _xc = 0;
+                  IR_t * _p = g_emitter.codegen_flat_chain_body_nodes[i]->operands[_zj];
+                  { IR_t * _pv = zd_conj_value_node(_p);
+                      if (_pv != _p && zd_k_own(_pv) >= 16 && nidx(g_emitter.codegen_flat_chain_body_nodes, n, _pv) >= 0 && zd_on[nidx(g_emitter.codegen_flat_chain_body_nodes, n, _pv)]) _p = _pv; }
+                  { int _k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, _p); if (_k >= 0) { int _xh = 0, _xc = 0;
                       for (int _zm = i - 1; _zm > _k; _zm--) { if (g_emitter.codegen_flat_chain_body_nodes[_zm]->op == IR_MATCH_END) { _xc++; continue;
                           } if (_xc > 0) { if (g_emitter.codegen_flat_chain_body_nodes[_zm]->op == IR_MATCH_BEGIN) _xc--; continue;
                       } if (zd_arm[i] >= 0 && _zm == zd_arm[i] && g_emitter.codegen_flat_chain_body_nodes[_zm]->op == IR_MATCH_ALTERNATE) { _xh += 32; continue;
