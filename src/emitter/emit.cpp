@@ -3487,6 +3487,38 @@ int leaf_frame_slot(const IR_t * leaf_nd) {
 static int zd_nops(IR_t * nd);
 static int icn_retaining_kind(int op) { return op == IR_PROC_GEN || op == IR_CALL_VALUE || op == IR_CALL_GEN || op == IR_ACTIVATE; }
 static int zd_k_own(IR_t * nd);
+static int xop_retains(const IR_t * t) { return t && (icn_retaining_kind((int)t->op) || icn_retaining_kind((int)ir_kind0(t)) || zd_dj_retains(t)); }
+static int xop_arms_retain(const IR_t * dj) {
+    int na = (int)IR_LIT(dj).ival;
+    if (dj->op != IR_DISJUNCTION || na <= 0 || dj->n_operands < 2 * na) return 0;
+    for (int a = 0; a < na; a++) {
+        const IR_t * t = dj->operands[2 * a];
+        for (int s = 0; t && t != dj && s < 256; s++) {
+            if (xop_retains(t)) return 1;
+            t = zd_chase(t->γ.node);
+        }
+    }
+    return 0;
+}
+static int xop_walk_hazard(const IR_t * nd, const IR_t * c) {
+    int haz = 0;
+    const IR_t * t = zd_chase(nd->γ.node);
+    for (int s = 0; t && s < 4096; s++) {
+        if (t == c) return haz;
+        if (xop_retains(t) || xop_arms_retain(t)) haz = 1;
+        t = zd_chase(t->γ.node);
+    }
+    return 0;
+}
+static int xop_consumer_hazard(const IR_t * nd, const IR_t * c, int depth) {
+    if (xop_walk_hazard(nd, c)) return 1;
+    if (depth >= 4 || zd_k_own((IR_t *)c) != 0 || (c->op != IR_CONJUNCTION && c->op != IR_ASSIGN) || zd_icn_local_assign(c)) return 0;
+    xci_slot_t * _cs = xci_probe(c);
+    if (_cs->gen != g_emitter.g_xci_gen) return 0;
+    for (int _q = CV_AT(g_emitter.g_xci_off, int, _cs->idx); _q < CV_AT(g_emitter.g_xci_off, int, _cs->idx + 1); _q++)
+        if (xop_consumer_hazard(nd, g_emit_cfg->all[CV_AT(g_emitter.g_xci_con, int, _q)], depth + 1)) return 1;
+    return 0;
+}
 static int icn_xop_frame_member(const IR_t * nd) {
     if (!nd || !g_emit_cfg || !g_emit_cfg->spine_cells || !g_emit.frame_retained) return 0;
     if (zd_dj_retains(nd)) return nd_slot(nd) >= 0 ? 1 : 0;
@@ -3495,11 +3527,8 @@ static int icn_xop_frame_member(const IR_t * nd) {
     if (icn_retaining_kind((int)nd->op) || icn_retaining_kind((int)ir_kind0(nd))) return 1;
     if (g_emitter.g_xci_g != g_emit_cfg || g_emitter.g_xci_all != g_emit_cfg->all || g_emitter.g_xci_n != g_emit_cfg->n || g_emitter.g_xci_built != g_emitter.g_xci_epoch) xci_build();
     xci_slot_t * _xs = xci_probe(nd); if (_xs->gen != g_emitter.g_xci_gen) return 0;
-    for (int _q = CV_AT(g_emitter.g_xci_off, int, _xs->idx); _q < CV_AT(g_emitter.g_xci_off, int, _xs->idx + 1); _q++) { const IR_t * c = g_emit_cfg->all[CV_AT(g_emitter.g_xci_con, int, _q)];
-        int haz = 0; const IR_t * t = zd_chase(nd->γ.node);
-        for (int s = 0; t && s < 4096; s++) { if (t == c) { if (haz) return 1; break; } if (icn_retaining_kind((int)t->op) || icn_retaining_kind((int)ir_kind0(t)) || zd_dj_retains(t)) haz = 1;
-            t = zd_chase(t->γ.node);
-            } }
+    for (int _q = CV_AT(g_emitter.g_xci_off, int, _xs->idx); _q < CV_AT(g_emitter.g_xci_off, int, _xs->idx + 1); _q++)
+        if (xop_consumer_hazard(nd, g_emit_cfg->all[CV_AT(g_emitter.g_xci_con, int, _q)], 0)) return 1;
     return 0;
 }
 static int pl_xop_frame_member(const IR_t * nd) {
