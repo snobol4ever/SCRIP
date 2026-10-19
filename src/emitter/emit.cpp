@@ -512,9 +512,6 @@ void xa_dispatch(XA_op_t op)
     case XA_FLAT_DATA_SECTION: xa_flat_data_section(); return;
     case XA_PROLOGUE: xa_prologue(); return;
     case XA_EPILOGUE: xa_epilogue(); return;
-    case XA_WASM_MAIN_OPEN: xa_wasm_main_open(); return;
-    case XA_WASM_MAIN_CLOSE: xa_wasm_main_close(); return;
-    case XA_JS_LABEL_REGISTER: xa_js_label_register(); return;
     case XA_EXPRESSION_REGISTRY: xa_expression_registry(); return;
     case XA_KIDS_RODATA: return;
     case XA_SUB_BUILDER: return;

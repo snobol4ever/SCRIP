@@ -77,9 +77,6 @@ void emit_label_define_bb (bb_label_t * lbl);
 void emit_jmp_label (bb_label_t * target, jmp_kind_t kind);
 struct IR_t;
 int walk_bb_node(struct IR_t * nd, FILE * out);
-void jvm_push_int2(FILE * out, long v);
-void jvm_emit_ldc_string(FILE * out, const char * s);
-void js_escape_string(FILE * out, const char * s);
 #include "XA.h"
 struct tree_t;
 void strtab_label(char *buf, size_t bufsz, const char *s);
@@ -839,27 +836,7 @@ std::string u8 (unsigned v);
 std::string u32le(uint32_t v);
 std::string u64le(uint64_t v);
 std::string bytes(size_t n, const char * lit);
-std::string jvm_push_int2_str(long v);
-std::string jvm_emit_ldc_string_str(const char * s);
-std::string js_escape_string_str(const char * s);
 std::string gas_escape_str(const char * s);
-std::string jvm_class_hdr_str(const char * name);
-std::string jvm_init_ms_str_str(const char * name, const char * field);
-std::string jvm_init_ms_only_str(const char * name);
-std::string jvm_init_ms_int_str(const char * name, const char * field);
-std::string jvm_val_helper_str(const char * name);
-std::string net_escape_ldstr_str(const char * s);
-std::string net_class_hdr_str(int sid, int nid);
-std::string net_α_hdr_str();
-std::string net_β_hdr_str();
-std::string net_fail_ret_str();
-std::string net_cursor_load_str();
-std::string net_ms_length_str();
-std::string net_spec_of_str();
-std::string net_charset_class_str(int sid, int nid, const char * tag);
-std::string net_push_i4_str(int v);
-std::string net_ctor_none_str(int sid, int nid);
-std::string net_spec_zw_str();
 #define IF(c, ...) ((c) ? (__VA_ARGS__) : std::string())
 #define IF_M3(...) IF(MEDIUM_BINARY, __VA_ARGS__)
 #define IF_M4(...) IF(MEDIUM_TEXT, __VA_ARGS__)

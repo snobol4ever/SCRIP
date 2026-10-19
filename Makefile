@@ -1634,8 +1634,6 @@ RT_PIC_SRCS := \
     $(SRC)/templates/xa/xa_to_helpers.cpp \
     $(SRC)/templates/xa/xa_prologue.cpp \
     $(SRC)/templates/xa/xa_epilogue.cpp \
-    $(SRC)/templates/xa/xa_wasm_main.cpp \
-    $(SRC)/templates/xa/xa_js_label_register.cpp \
     $(SRC)/templates/xa/xa_expression_registry.cpp \
     $(SRC)/templates/xa/xa_strtab_rodata.cpp \
     $(SRC)/templates/xa/xa_csettab_rodata.cpp \
