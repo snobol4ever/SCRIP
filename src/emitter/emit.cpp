@@ -4035,9 +4035,11 @@ static void zst_plan(IR_t ** nodes, int n) {
                 int ub = (nodes[w]->op == IR_UNMARK && (IR_LIT(nodes[w]).ival & 6) && nodes[w]->n_operands > 0) ? nidx(nodes, n, nodes[w]->operands[0]) : -1;
                 if (ub >= 0 && !indef0[(size_t)ub]) continue;
                 indef0[(size_t)w] = 1; wl.push_back(w); } } }
-    std::vector<int> bnds; std::vector<std::vector<unsigned char>> esc;
+    std::vector<int> bnds; std::vector<std::vector<unsigned char>> esc; std::vector<unsigned char> wland((size_t)n, 0);
+    for (int i = 0; i < n; i++) { int q = zst_edge(nodes, n, i, 1); if (q >= 0) wland[(size_t)q] = 1; }
     for (int b = 0; b < n; b++) { if (nodes[b]->op != IR_BOUND) continue; std::vector<unsigned char> r((size_t)n, 0); std::vector<int> wl;
-        for (int u = 0; u < n; u++) if (nodes[u]->op == IR_UNMARK && (IR_LIT(nodes[u]).ival & 6) && nodes[u]->n_operands > 0 && nodes[u]->operands[0] == nodes[b]) { int q = zst_edge(nodes, n, u, 0);
+        for (int u = 0; u < n; u++) if (nodes[u]->op == IR_UNMARK && ((IR_LIT(nodes[u]).ival & 6) || wland[(size_t)u]) && nodes[u]->n_operands > 0 && nodes[u]->operands[0] == nodes[b]) {
+            int q = zst_edge(nodes, n, u, 0);
             if (q >= 0 && !r[(size_t)q]) { r[(size_t)q] = 1; wl.push_back(q); } }
         while (!wl.empty()) { int v = wl.back(); wl.pop_back(); for (int k = scnt[(size_t)v]; k < scnt[(size_t)v + 1]; k++) { int w = sd[(size_t)k]; if (w >= 0 && !r[(size_t)w]) { r[(size_t)w] = 1;
             wl.push_back(w); } } }
