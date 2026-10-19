@@ -605,29 +605,10 @@ void rt_trace_call_hook_p(const char *fname, trace_pend_t *pend) { (void)fname; 
 static const char *icn_errmsg(int n);
 static icn_bi_rec_t *g_icn_bi_top = (icn_bi_rec_t *)0;
 static struct { const char *sym; int arity; DESCR_t a, b, c; } g_icn_op;
-#if RT_DIAG
-static int core_icn_op_plant(void) {
-    static int v = -1;
-    if (v < 0) {
-        const char *e = getenv("SCRIP_GC_PLANT_ICN_OP");
-        v = (e && (e[0] == '1' || e[0] == '2') && !e[1]) ? e[0] - '0' : 0;
-        if (v)
-            fprintf(stderr,
-            "[GC-ICNOP] plant: level %d -- the Icon operator context OUTLIVES its operation (core_icn_op_ctx_clear and core_icn_bi_push leave it set), so the next "
-            "traceback reads operands stored before any number of collections%s (SCRIP_GC_PLANT_ICN_OP=%d). THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so " "it prints ONCE PER PROCESS.\n", v,
-            v == 2 ? ", AND core_gc_roots SKIPS its two visits of g_icn_op.a/.b -- the pre-cure defect restored on purpose, so a " "moved operand is read from its old ground" : "", v);
-    }
-    return v;
-}
-#endif
 static const char *icn_basename(const char *f) { const char *bn = f ? strrchr(f, '/') : (const char *)0; return bn ? bn + 1 : (f ? f : ""); }
 void core_icn_op_ctx(const char *sym, int arity, DESCR_t a, DESCR_t b) { g_icn_op.sym = sym; g_icn_op.arity = arity; g_icn_op.a = a; g_icn_op.b = b; }
 void core_icn_toby_ctx(const DESCR_t *from, const DESCR_t *to, const DESCR_t *by) { g_icn_op.sym = "to"; g_icn_op.arity = 3; g_icn_op.a = *from; g_icn_op.b = *to; g_icn_op.c = *by; }
-#if RT_DIAG
-void core_icn_op_ctx_clear(void) { if (core_icn_op_plant()) return; g_icn_op.sym = (const char *)0; }
-#else
 void core_icn_op_ctx_clear(void) { g_icn_op.sym = (const char *)0; }
-#endif
 const char *core_icn_binop_sym(int bcode) {
     switch (bcode) {
         case BINOP_ADD:
@@ -735,19 +716,6 @@ int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int stri
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#if RT_DIAG
-void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int nargs) {
-    extern int rt_k_level;
-    r->name = name;
-    r->args = args;
-    r->nargs = nargs;
-    r->level = rt_k_level;
-    r->prev = g_icn_bi_top;
-    r->callee = NULVCL;
-    g_icn_bi_top = r;
-    if (!core_icn_op_plant()) g_icn_op.sym = (const char *)0;
-}
-#else
 void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int nargs) {
     extern int rt_k_level;
     r->name = name;
@@ -759,7 +727,6 @@ void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int narg
     g_icn_bi_top = r;
     g_icn_op.sym = (const char *)0;
 }
-#endif
 void core_icn_bi_pop(icn_bi_rec_t *r) { g_icn_bi_top = r->prev; }
 void *core_icn_bi_mark(void) { return (void *)g_icn_bi_top; }
 void core_icn_bi_reset(void *mark) { g_icn_bi_top = (icn_bi_rec_t *)mark; }
@@ -5639,7 +5606,9 @@ void core_gc_roots(void) {
     }
     rt_gc_visit_descr(&g_icn_errvalue);
 #if RT_DIAG
-    if (core_icn_op_plant() != 2) { rt_gc_visit_descr(&g_icn_op.a); rt_gc_visit_descr(&g_icn_op.b); rt_gc_visit_descr(&g_icn_op.c); }
+    rt_gc_visit_descr(&g_icn_op.a);
+    rt_gc_visit_descr(&g_icn_op.b);
+    rt_gc_visit_descr(&g_icn_op.c);
     gv_gc_root(&g_trace_tab);
     gv_gc_root(&g_trace_value_last);
     for (int i = 0; i < TRACE_TAB_N; i++) if (trace_tab[i].used) {
