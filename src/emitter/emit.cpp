@@ -6044,8 +6044,9 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   g_emitter.g_zd_zfc = 0;
                   g_emitter.g_zd_abs = zd_out[i] + ((zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0); g_emitter.g_zd_cur = i; g_emitter.g_zd_def = (zd_xb && zd_xb[i] == INT_MIN) ? 0 : 1;
                       g_emitter.g_zd_cutd = zd_cut ? zd_cut[i] : -1; g_emitter.g_zd_cutd = zd_cut ? zd_cut[i] : -1;
-                  g_emitter.g_zd_cps = -1;
-                  g_emitter.g_zd_cpd = -1;
+                  g_emitter.g_zd_cps = zd_cps[i];
+                  g_emitter.g_zd_cpd = zd_cpd[i];
+                  zd_cp_arm(g_emitter.codegen_flat_chain_body_nodes, i, zd_cps, zd_cpd, zd_out);
                   zd_ops_reserve(g_emitter.codegen_flat_chain_body_nodes[i]->n_operands);
                   for (int _zj = 0; _zj < g_emit.op_zcap; _zj++) { g_emitter.g_zd_read[_zj] = 0; g_emitter.g_zd_kind[_zj] = -1; }
               }
