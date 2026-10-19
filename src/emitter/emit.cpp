@@ -2774,7 +2774,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_off = drive_value_slot(nd);
         if (!a0) { drive_guard_refused(nd, __LINE__); break; }
         if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
-        else { int sl = bb_slot_get(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
+        else { int sl = bb_slot_get(a0); if (sl < 0) sl = nd_slot(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_POS: {
@@ -2782,7 +2782,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_off = drive_value_slot(nd);
         if (!a0) { drive_guard_refused(nd, __LINE__); break; }
         if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
-        else { int sl = bb_slot_get(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
+        else { int sl = bb_slot_get(a0); if (sl < 0) sl = nd_slot(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SCAN_UPTO: {
@@ -2791,7 +2791,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) {
             g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1;
         } else if (a0) {
-            int sl = bb_slot_get(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
+            int sl = bb_slot_get(a0); if (sl < 0) sl = nd_slot(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
         } else { drive_guard_refused(nd, __LINE__); break; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -2801,7 +2801,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) {
             g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1;
         } else if (a0) {
-            int sl = bb_slot_get(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
+            int sl = bb_slot_get(a0); if (sl < 0) sl = nd_slot(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
         } else { drive_guard_refused(nd, __LINE__); break; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -2823,7 +2823,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (_fl >= 1 && _fl <= 32) {
             g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1;
         } else if (a0) {
-            int sl = bb_slot_get(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
+            int sl = bb_slot_get(a0); if (sl < 0) sl = nd_slot(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
         } else { drive_guard_refused(nd, __LINE__); break; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -2833,7 +2833,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (a0 && a0->op == IR_LIT_STRING && IR_LIT(a0).sval) {
             g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1;
         } else if (a0) {
-            int sl = bb_slot_get(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
+            int sl = bb_slot_get(a0); if (sl < 0) sl = nd_slot(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
         } else { drive_guard_refused(nd, __LINE__); break; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -2843,7 +2843,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (a0 && (a0->op == IR_LIT_STRING || a0->op == IR_LIT_CHARSET) && IR_LIT(a0).sval) {
             g_emit.op_name1 = IR_LIT(a0).sval; g_emit.op_sa = -1;
         } else if (a0) {
-            int sl = bb_slot_get(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
+            int sl = bb_slot_get(a0); if (sl < 0) sl = nd_slot(a0); if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_name1 = NULL;
         } else { drive_guard_refused(nd, __LINE__); break; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -4288,7 +4288,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                     IR_t * rs = env->operands[2 * a + 1];
                     if (!rs || (zdj_on ? 0 : rs != env)) { bad = 1; break; }
                     IR_t * c2 = env->operands[2 * a];
-                    if (c2 && c2->op == IR_FAIL && rs == env && nidx(nodes, n, c2) < 0) {
+                    if (c2 && c2->op == IR_FAIL && (rs == env || (zdj_on && rs->op == IR_FAIL)) && nidx(nodes, n, c2) < 0) {
                         if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d is a bare fail: no box, its entry is the chain's omega\n", ei, a);
                         continue;
                     }
