@@ -4288,6 +4288,21 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                         if (g_emitter.zd_plan__dg)
                             fprintf(stderr, "[ZD-DJ] i=%d arm %d claims ci=%d %s rawgamma=%s\n", ei, a, ci, bb_op_name(nodes[ci]->op), c2->γ.node ? bb_op_name(c2->γ.node->op) : "-");
                         if (zdj_on && c2->γ.node && c2->γ.node->op == IR_GOTO && zd_chase(c2->γ.node) != env) { c2 = (IR_t *)0; break; }
+                        if (zdj_on && c2->op == IR_GOTO) {
+                            int leaves = 1;
+                            IR_t * t = zd_chase(c2->γ.node);
+                            for (int g4 = 0; t && g4 <= n; g4++) {
+                                int tk = nidx(nodes, n, t);
+                                if (t == env || (tk >= 0 && claim[tk] < 0 && bb_src_of(nodes[tk]))) { leaves = 0; break; }
+                                if (tk < 0 || claim[tk] >= 0) break;
+                                t = zd_chase(t->γ.node);
+                            }
+                            if (leaves) {
+                                if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d leaves the box at its GOTO ci=%d (next, break)\n", ei, a, ci);
+                                c2 = (IR_t *)0;
+                                break;
+                            }
+                        }
                         c2 = zd_chase(c2->γ.node);
                     }
                     if (zdj_on && !bad && !first && c2 == env && g_emit_cfg && g_emit_cfg->spine_cells && rl > rl0) {
