@@ -3474,7 +3474,7 @@ static int zd_k_own(IR_t * nd);
 static int icn_xop_frame_member(const IR_t * nd) {
     if (!nd || !g_emit_cfg || !g_emit_cfg->spine_cells || !g_emit.frame_retained) return 0;
     if (zd_dj_retains(nd)) return nd_slot(nd) >= 0 ? 1 : 0;
-    if (zd_k_own((IR_t *)nd) != 16) return 0;
+    if (zd_k_own((IR_t *)nd) != 16 && !lower_call_node_is_curmov(nd)) return 0;
     if (nd_slot(nd) < 0) return 0;
     if (icn_retaining_kind((int)nd->op) || icn_retaining_kind((int)ir_kind0(nd))) return 1;
     if (g_emitter.g_xci_g != g_emit_cfg || g_emitter.g_xci_all != g_emit_cfg->all || g_emitter.g_xci_n != g_emit_cfg->n || g_emitter.g_xci_built != g_emitter.g_xci_epoch) xci_build();
