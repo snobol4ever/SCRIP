@@ -351,6 +351,7 @@ typedef struct {
     int op_wrec_pop;
     int op_dj_rec;
     int op_dj_bfail;
+    int op_upost;
     int op_unmark_chain;
     int op_beta_dead;
     int op_wpop;

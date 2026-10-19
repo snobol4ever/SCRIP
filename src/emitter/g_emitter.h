@@ -76,6 +76,7 @@ struct g_emitter_t {
     IR_t ** g_zd_zarm_nodes = NULL;
     int g_zd_zarm_n = 0;
     std::vector<int> g_zd_djx;
+    std::vector<int> g_zd_upost;
     IR_t ** g_zd_djx_nodes = NULL;
     std::vector<int> g_zd_grec, g_zd_wrec, g_zd_grec_pop, g_zd_wrec_pop;
     int g_zd_grec_off = -1, g_zd_wrec_off = -1, g_zd_grec_res = 0, g_zd_wrec_res = 0, g_zd_cpsx = -1, g_zd_cpdx = -1;
