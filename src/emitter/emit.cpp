@@ -6164,6 +6164,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             if (gen && ir_is_generator_kind(gen->op)) { { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, gen); if (k >= 0) { g_emitter.g_limit_gen_beta = betas[k]; tk = k; } } }
             else if (rs) { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, rs); if (k >= 0) { g_emitter.g_limit_gen_beta = betas[k]; tk = k; } }
             if (tk >= 0 && zd_xb && zd_on[i] && zd_on[tk] && zd_xb[i] != INT_MIN && zd_xb[tk] != INT_MIN) g_emitter.g_limit_t0_pop = (zd_xb[i] + zd_out[i]) - (zd_xb[tk] + zd_out[tk]);
+            else if (tk >= 0 && zd_on[i] && zd_on[tk] && zd_claim[i] >= 0 && zd_claim[i] == zd_claim[tk]) g_emitter.g_limit_t0_pop = zd_out[i] - zd_out[tk];
         }
         if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SCAN) {
             IR_t *bv = g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 1 ? g_emitter.codegen_flat_chain_body_nodes[i]->operands[1] : NULL;
@@ -6187,7 +6188,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                     _fk >= 0 ? scan_body_beta_keeps(g_emitter.codegen_flat_chain_body_nodes[_fk]) : -1, _fk >= 0 ? (int)bused[_fk] : -1); }
             { int tk = -1;
               for (int k = 0; k < n && g_emitter.g_scan_body_beta; k++) if (betas[k] == g_emitter.g_scan_body_beta) { tk = k; break; }
-              if (tk >= 0 && zd_xb && zd_on[i] && zd_on[tk] && zd_xb[i] != INT_MIN && zd_xb[tk] != INT_MIN) g_emitter.g_scan_t0_pop = (zd_xb[i] + zd_out[i]) - (zd_xb[tk] + zd_out[tk]); }
+              if (tk >= 0 && zd_xb && zd_on[i] && zd_on[tk] && zd_xb[i] != INT_MIN && zd_xb[tk] != INT_MIN) g_emitter.g_scan_t0_pop = (zd_xb[i] + zd_out[i]) - (zd_xb[tk] + zd_out[tk]);
+              else if (tk >= 0 && zd_on[i] && zd_on[tk] && zd_claim[i] >= 0 && zd_claim[i] == zd_claim[tk]) g_emitter.g_scan_t0_pop = zd_out[i] - zd_out[tk]; }
         }
         { if (g_emitter.codegen_flat_chain_body__zpf < 0) { const char *_e = getenv("SCRIP_ZPOP_FOLD_OFF"); g_emitter.codegen_flat_chain_body__zpf = (_e && _e[0] == '1') ? 1 : 0; }
           if (!g_emitter.codegen_flat_chain_body__zpf) {
