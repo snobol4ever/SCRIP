@@ -91,6 +91,7 @@ std::string bb_gen_scan() {
                  + x86("mov", "r13", "rax")
                  + x86("mov", "r15", "rdx")
                  + x86("mov", "r14", (long)0)
+                 + IF(_.op_t0_pop > 0, x86("add", "rsp", (long)_.op_t0_pop))
                  + x86_jmp_tgt(X86T_TGT0))
              + x86_omega())
          + IF(_.op_sb != 1 && _.op_off < 0, x86_bomb("bb_gen_scan: leave glue without regs out-area (op_off < 0)"));
