@@ -1936,7 +1936,8 @@ static void flat_drive_gate(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_la
             else if (k >= 0 && zon[k] && cl[k] >= 0 && fm[cl[k]] >= 0) { kd = fb[cl[k]] + zout[k] - (wantb ? 0 : zd_k(nodes[k])); kk = 2; kf = fm[cl[k]]; }
             if (lf >= 0 && kk == 1 && zd_edge_retains(nodes[k])) { IR_t * lt = zd_chase(nodes[k]->γ.node); int lq = lt ? nidx(nodes, n, lt) : -1;
                 if (lq >= 0 && cl[lq] >= 0 && fm[cl[lq]] == lf) { kd = 0; kk = 2; kf = lf; } }
-            if (lf >= 0 && kk == 2 && kf == lf) XA_PAIR(j).rsp = 0 - kd;
+            long di = (zon[i] && cl[i] >= 0 && fm[cl[i]] >= 0 && fm[cl[i]] == lf) ? fb[cl[i]] + zout[i] : 0;
+            if (lf >= 0 && kk == 2 && kf == lf) XA_PAIR(j).rsp = di - kd;
         }
     }
     g_emit.op_off = drive_value_slot(nd);
