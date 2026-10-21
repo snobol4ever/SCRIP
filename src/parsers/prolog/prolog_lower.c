@@ -220,6 +220,7 @@ static void pb_collect_names(const tree_t *t, const char **names, int *n, int ca
     for (int i = 0; i < t->n; i++) pb_collect_names(t->c[i], names, n, cap);
 }
 static int pb_count_vars(const tree_t *t) { if (!t) return 0; int n = (t->t == TT_VAR) ? 1 : 0; for (int i = 0; i < t->n; i++) n += pb_count_vars(t->c[i]); return n; }
+static int pb_has_anon(const tree_t *t) { if (!t) return 0; if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "_")) return 1; for (int i = 0; i < t->n; i++) if (pb_has_anon(t->c[i])) return 1; return 0; }
 static void pb_expand_goal(tree_t *t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pb_expand_bagof(tree_t *t) {
@@ -238,7 +239,7 @@ static void pb_expand_bagof(tree_t *t) {
         if (!drop) fv[nfv++] = gv[i]; }
     char b1[32], b2[32];
     tree_t *fa; tree_t *inner;
-    if (nfv == 0) {
+    if (nfv == 0 && !pb_has_anon(G1)) {
         snprintf(b1, sizeof b1, "_$B%d", g_parser.pl.pb_fresh_ctr++);
         fa = pb_fnc3("findall", T, G1, pb_var(b1));
         tree_t *ne = pb_fnc2("\\==", pb_var(b1), ast_node_new(TT_MAKELIST));
