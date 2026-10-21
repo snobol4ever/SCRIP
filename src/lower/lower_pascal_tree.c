@@ -765,6 +765,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         int managed = tn && (!strcmp(tn, "ansistring") || !strcmp(tn, "unicodestring") || !strcmp(tn, "widestring") || !strcmp(tn, "variant"));
         return bin(TT_NE, ilit(managed ? 1 : 0), ilit(0));
     }
+    if (name && !strcmp(name, "assigned") && !pas_is_func(name) && !pas_is_proc(name) && args && args->count >= 1) return bin(TT_NE, args->items[0], ilit(0));
     if (name && !strcmp(name, "boolean") && args && args->count >= 1) return bin(TT_NE, mk_fnc2("iand", args->items[0], ilit(255)), ilit(0));
     if (name && (!strcmp(name, "char") || !strcmp(name, "ansichar") || !strcmp(name, "widechar")) && args && args->count >= 1 && !pas_is_func(name) && !pas_is_proc(name) && !pas_scope_uid(name) &&
         g_lower.pas.sem.pas_dialect_fpc) return mk_fnc1("__pas_chrlit", args->items[0]);
@@ -1124,7 +1125,11 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             ast_push(alloc, leaf_s(TT_VAR, "__pas_alloc_rec"));
             ast_push(alloc, mk_fnc2("arr_make", ilit(lo), bin(TT_SUB, bin(TT_ADD, args->items[2], ilit(lo)), ilit(1))));
         }
-        return mk_assign(pv, alloc);
+        tree_t *gm = ast_node_new(TT_IF);
+        ast_push(gm, bin(TT_GE, pas_tree_clone(args->items[2]), ilit(0)));
+        ast_push(gm, mk_assign(pv, alloc));
+        ast_push(gm, mk_assign(pas_tree_clone(pv), mk_fnc1("__pas_heapfail", leaf_s(TT_VAR, "returnnilifgrowheapfails"))));
+        return gm;
     }
     if (name && !strcmp(name, "freemem") && !pas_is_proc(name) && !pas_is_func(name) && args && args->count >= 1) return mk_fnc1("__pas_dispose", args->items[0]);
     if (name && !strcmp(name, "mark") && args && args->count >= 1) { tree_t *mk = ast_node_new(TT_FNC); ast_push(mk, leaf_s(TT_VAR, "__pas_mark")); return mk_assign(args->items[0], mk); }
@@ -7814,6 +7819,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     pas_param_prepass(flat);
     if (!g_lower.pas.sem.pas_mode_iso && pas_addr_of_routine(flat, flat)) g_lower.pas.sem.pas_seen_mode_directive = 1;
     pas_var_inits(flat);
+    if (g_lower.pas.sem.pas_dialect_fpc) { pas_scope_define("returnnilifgrowheapfails"); pas_boolvar_add("returnnilifgrowheapfails"); pas_scalarvartype_add("returnnilifgrowheapfails", "boolean"); }
     tree_t *root = E_program(flat).node;
     int nsem = pascal_sem_check(root, filename) + g_lower.pas.sem.pas_iso_errors;
     if (nsem > 0) { fprintf(stderr, "pascal: %d ISO 7185 violation(s) in %s -- no code generated\n", nsem, filename); return NULL; }

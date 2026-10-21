@@ -16505,6 +16505,7 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
         *out = STRVAL((char *)"");
         return 1;
     }
+    if (!strcmp(fn, "__pas_heapfail") && nargs == 1) { if (IS_INT_fn(args[0]) && args[0].i) { *out = INTVAL(0); return 1; } fflush(NULL); fprintf(stderr, "Runtime error 204 at $0\n"); exit(204); }
     if (!strcmp(fn, "__pas_qchk") && nargs == 1) { if (IS_INT_fn(args[0]) && args[0].i < 0) { fflush(NULL); fprintf(stderr, "Runtime error 215 at $0\n"); exit(215); } *out = args[0]; return 1; }
     if (!strcmp(fn, "__pas_vcheck") && nargs == 2) {
         long long tv = IS_INT_fn(args[0]) ? args[0].i : -2, m = IS_INT_fn(args[1]) ? args[1].i : 0;

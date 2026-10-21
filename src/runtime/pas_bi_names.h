@@ -5,7 +5,7 @@ static const char g_pas_bi_name[][24] = { "__pas_abs", "__pas_alloc", "__pas_all
     "__pas_display_get", "__pas_dispose", "__pas_dispose_k", "__pas_dynlen", "__pas_dynset", "__pas_elem_ref", "__pas_enum_name", "__pas_envcall", "__pas_eof", "__pas_eof_f", "__pas_eoln",
     "__pas_eoln_f", "__pas_exp", "__pas_fassign", "__pas_fbuf_get", "__pas_fbuf_set", "__pas_fclose", "__pas_feof_t", "__pas_ferase", "__pas_fget", "__pas_field_idx_set", "__pas_field_idx_update",
     "__pas_field_set", "__pas_fileexists", "__pas_fill", "__pas_fill_from", "__pas_format", "__pas_fput", "__pas_frac", "__pas_fread", "__pas_fread_range", "__pas_fwrite", "__pas_fwrite_range",
-    "__pas_getbufch", "__pas_getbufch_f", "__pas_halt", "__pas_in", "__pas_len", "__pas_ln", "__pas_mark", "__pas_mathf", "__pas_mkdir", "__pas_move", "__pas_nlf", "__pas_nlg", "__pas_now",
+    "__pas_getbufch", "__pas_getbufch_f", "__pas_halt", "__pas_heapfail", "__pas_in", "__pas_len", "__pas_ln", "__pas_mark", "__pas_mathf", "__pas_mkdir", "__pas_move", "__pas_nlf", "__pas_nlg", "__pas_now",
     "__pas_open", "__pas_ord_check", "__pas_paramcount", "__pas_paramstr", "__pas_pcall", "__pas_pchar_deref", "__pas_pe", "__pas_pos", "__pas_pow", "__pas_qchk", "__pas_random", "__pas_randomize",
     "__pas_range_check", "__pas_rarr", "__pas_rdecode", "__pas_read_c", "__pas_read_c_f", "__pas_read_i", "__pas_read_i_f", "__pas_read_s", "__pas_read_s_f", "__pas_readln", "__pas_readln_f",
     "__pas_rebase", "__pas_ref_val", "__pas_release", "__pas_reset", "__pas_resundef", "__pas_rewrite", "__pas_rmdir", "__pas_round", "__pas_rounde", "__pas_rpatch", "__pas_rterr", "__pas_s2wide",
