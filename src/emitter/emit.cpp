@@ -4847,6 +4847,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 if (_rb && _gs == nodes[i]) g_emitter.g_zd_upost[(size_t)i] = xc ? ab - (base[claim[_gq]] + zout[_gq]) : zout[b] - zout[_gq];
                 continue;
             }
+            if (!xc && !_rb && _gt && _gt->op == IR_DISJUNCTION && zd_sz_phi(zd_edge_sz(_gs, 0))) continue;
             if (zchn[2 * i] < 0) {
                 zgpop[i] = zout[i] - (_rb ? zout[_gq] : zout[b]);
                 zchn[2 * i + 1] = b;
