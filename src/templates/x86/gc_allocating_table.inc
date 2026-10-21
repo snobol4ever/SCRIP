@@ -1161,6 +1161,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "pl_pp_prop", GC_RET_OTHER },
     { "pl_pred_graph", GC_RET_OTHER },
     { "pl_prelude_defines", GC_RET_OTHER },
+    { "pl_prelude_parse", GC_RET_OTHER },
     { "pl_preprocess_list", GC_RET_VOID },
     { "pl_probe_before", GC_RET_OTHER },
     { "pl_q_odd", GC_RET_OTHER },
