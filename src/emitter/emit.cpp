@@ -4716,7 +4716,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             int a = aof[claim[i]];
             IR_t * ad = (nalt > 0 && a >= 0 && a < nalt && g_emit_cfg->alt_redo) ? g_emit_cfg->alt_redo[a] : (IR_t *)0;
             int dq = ad ? nidx(nodes, n, zd_chase(ad)) : (nalt == 0 && ngx == 1) ? gx : -1;
-            if (dq < 0 || dq == i || !zon[dq] || claim[dq] < 0 || !known[claim[dq]]) continue;
+            if (dq < 0 || !zon[dq] || claim[dq] < 0 || !known[claim[dq]]) continue;
             zgpop[i] = base[claim[i]] + zout[i] - (base[claim[dq]] + zout[dq]);
             redo_priced[i] = 1;
         }
