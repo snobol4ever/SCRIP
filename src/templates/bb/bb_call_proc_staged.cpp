@@ -339,7 +339,7 @@ static std::string bcps_undef_fallback(uint64_t) {
 static std::string bcps_block_build(IR_graph_t ** argblks, int n);
 static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t ** argblks, long idx, int np, int vari, int n2_ftc);
 static std::string bcps_block_build(IR_graph_t ** argblks, int n); static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t ** argblks, long idx, int nb, int wires);
-static std::string bcps_pinned_byname_road(const std::string & blk, int fncell, int lγ, int lω, int lskip);
+static std::string bcps_pinned_byname_road(const std::string & blk, int fncell, int bump, int lγ, int lω, int lskip);
 static std::string bcps_det_arm() {
     x86_begin();
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
@@ -480,8 +480,8 @@ static std::string bcps_det_arm() {
                    + x86("call", "rt_proc_fn", TEMPLATE_FN_ADDR(rt_proc_fn)))
                    + IF(det_idx_z < 0 && bcps_pl(), bcps_pinned_byname_road(x86("sub", "rsp", (long)(16 * det_nA_z)) + FOR(0, det_nA_z, [&](int i) { return
                    x86("note", ZOPN(i))
-                   + x86("mov", "rax", ZOPQ(i, 0)) + x86_rsp_store64(16 * i, "rax")
-                   + x86("mov", "rax", ZOPQ(i, 8)) + x86_rsp_store64(16 * i + 8, "rax"); }), off, 61, 62, 60))
+                   + x86("mov", "rax", ZOPQS(i, 16 * det_nA_z, 0)) + x86_rsp_store64(16 * i, "rax")
+                   + x86("mov", "rax", ZOPQS(i, 16 * det_nA_z, 8)) + x86_rsp_store64(16 * i + 8, "rax"); }), off, 16 * det_nA_z, 61, 62, 60))
                    + [&]{
                        static int _sp4 = -1;
                        if (_sp4 < 0) {
@@ -656,7 +656,7 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
          + (dc ? std::string("")
             : (det_idx >= 0 ? std::string("") : x86("mov", "rdi", ROQ(0))
             + x86("call", "rt_proc_fn", TEMPLATE_FN_ADDR(rt_proc_fn)))
-            + IF(det_idx < 0 && bcps_pl(), bcps_pinned_byname_road(bcps_block_build(argblks, (int)_.op_ival), off, 61, 62, 60))
+            + IF(det_idx < 0 && bcps_pl(), bcps_pinned_byname_road(bcps_block_build(argblks, (int)_.op_ival), off, 16 * (int)_.op_ival, 61, 62, 60))
             + [&]{
                 static int _sp3 = -1;
                 if (_sp3 < 0) {
@@ -728,7 +728,14 @@ static std::string bcps_jmp_callee(long idx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_lvl_add(long d);
-static std::string bcps_pinned_byname_road(const std::string & blk, int fncell, int lγ, int lω, int lskip) {
+static const char * bcps_fncell_past_block(int fncell, int bump) {
+    const char * a = FRQ(fncell);
+    if (!strncmp(a, "qword ptr [rsp# + ", 18)) return x86_zref(atoi(a + 18) + bump, 1);
+    if (!strncmp(a, "qword ptr [rsp + ", 17)) return x86_zref(atoi(a + 17) + bump, 1);
+    return a;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_pinned_byname_road(const std::string & blk, int fncell, int bump, int lγ, int lω, int lskip) {
     extern int rt_proc_pinned(const char *);
     return x86("note",
         "the by-name road into a callee whose record reads PINNED at run time (a dynamic predicate's enumerator, a runtime-compiled graph): the block protocol, decided by the record, never by a name")
@@ -740,7 +747,7 @@ static std::string bcps_pinned_byname_road(const std::string & blk, int fncell, 
          + blk
          + x86_rsp_mark_save()
          + x86_lea_id("rcx", lγ) + x86_lea_id("rdx", lω)
-         + x86("mov", "rax", FRQ(fncell))
+         + x86("mov", "rax", bcps_fncell_past_block(fncell, bump))
          + x86_jmp_reg("rax")
          + x86("def", L(lγ))
          + x86_rsp_land(0L)
@@ -1213,7 +1220,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("je", L(1))
          + (gi_idx >= 0 ? std::string("") : x86("mov", "rdi", ROQ(0))
          + x86("call", "rt_proc_fn", TEMPLATE_FN_ADDR(rt_proc_fn)))
-         + IF(gi_idx < 0 && bcps_pl(), bcps_pinned_byname_road(bcps_block_build(argblks, (int)_.op_ival), act + 8, 61, 62, 60))
+         + IF(gi_idx < 0 && bcps_pl(), bcps_pinned_byname_road(bcps_block_build(argblks, (int)_.op_ival), act + 8, 16 * (int)_.op_ival, 61, 62, 60))
          + IF(icn_gen_regime(), x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0))
          + bcps_wire_cross_gen(3, 4)
          + x86("def", L(3))
