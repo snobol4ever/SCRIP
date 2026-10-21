@@ -2028,7 +2028,18 @@ static void flat_drive_gate(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_la
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_cleanup(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t *node_γ, bb_label_t *node_ω) {
+static int zd_cl_read(IR_t **nodes, int n, int i, const unsigned char *on, const int *out, const int *xb) {
+    IR_t *nd = nodes[i];
+    if ((int) IR_LIT(nd).ival != CLEANUP_OPEN || nd->n_operands < 2 || !nd->operands[1] || !on[i]) return -1;
+    IR_t *p = nd->operands[1];
+    IR_t *pv = zd_conj_value_node(p);
+    if (pv != p && zd_k_own(pv) >= 16 && nidx(nodes, n, pv) >= 0 && on[nidx(nodes, n, pv)]) p = pv;
+    int k = nidx(nodes, n, p);
+    if (k < 0 || !on[k] || zd_k_own(p) < 16) return -1;
+    return out[i] - out[k] + ((xb && xb[i] != INT_MIN && xb[k] != INT_MIN) ? xb[i] - xb[k] : 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_cleanup(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t *node_γ, bb_label_t *node_ω, int zread) {
     IR_t *nd = nodes[i];
     int kind = (int) IR_LIT(nd).ival;
     IR_t *op0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
@@ -2047,6 +2058,7 @@ static void flat_drive_cleanup(IR_t **nodes, int n, int i, bb_label_t **lbls, bb
     g_emit.op_off = (kind == CLEANUP_PROBE || kind == CLEANUP_WAKE || kind == CLEANUP_DET) ? 0 : (open ? zls_off(open) : -1);
     g_emit.op_sa = -1;
     if (kind == CLEANUP_OPEN && nd->n_operands > 1 && nd->operands[1]) g_emit.op_sa = drive_value_slot(nd->operands[1]);
+    g_emit.op_sb = kind == CLEANUP_OPEN ? zread : -1;
     if (kind == CLEANUP_PROBE && op0) g_emit.op_sa = zls_off(op0);
     if (kind == CLEANUP_BANK) g_emit.op_sa = zls_off(nd);
     if (kind == CLEANUP_DET) g_emit.op_sa = op0 ? zls_off(op0) : -1;
@@ -6271,7 +6283,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             continue;
         }
         if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_CLEANUP) {
-            flat_drive_cleanup(g_emitter.codegen_flat_chain_body_nodes, n, i, lbls, betas, node_γ, node_ω);
+            flat_drive_cleanup(g_emitter.codegen_flat_chain_body_nodes, n, i, lbls, betas, node_γ, node_ω, zd_cl_read(g_emitter.codegen_flat_chain_body_nodes, n, i, zd_on, zd_out, zd_xb));
             continue;
         }
         if ((g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_ALTERNATE || g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_ARBNO ||

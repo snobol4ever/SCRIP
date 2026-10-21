@@ -13,6 +13,7 @@ static_assert(PL_TR_CLEANUP_OFF == 32 && PL_TR_PROBE_B_OFF == 40, "bb_cleanup re
       x86("mov", (r), "r12") \
     + x86("and", (r), X86_PL_TR_ARENA_MASK) \
 )
+#define CL_TERM(w) (_.op_sb >= 0 ? RDQ("rsp", _.op_sb + (w)) : FRQ(_.op_sa + (w)))
 #define CL_NOSLOT() (_.op_off < 0 && _.op_ival != CLEANUP_PROBE && _.op_ival != CLEANUP_BANK && _.op_ival != CLEANUP_WAKE)
 #define CL_LIVE() (!CL_NOSLOT() && x86_resumable_frame())
 #define CL_KIND() ((int)_.op_ival)
@@ -32,9 +33,9 @@ static std::string cl_open() {
          + x86("mov", CL_REC(CLEANUP_REC_BS), "r13")
          + x86("mov32", "edx", (long)CLEANUP_ACTIVE)
          + x86("mov", CL_REC(CLEANUP_REC_STATE), "rdx")
-         + x86("mov", "rdx", FRQ(_.op_sa))
+         + x86("mov", "rdx", CL_TERM(0))
          + x86("mov", CL_REC(CLEANUP_REC_C), "rdx")
-         + x86("mov", "rdx", FRQ(_.op_sa + 8))
+         + x86("mov", "rdx", CL_TERM(8))
          + x86("mov", CL_REC(CLEANUP_REC_C + 8), "rdx")
          + x86("mov", RDQ("rax", PL_TR_CLEANUP_OFF), "rcx")
          + x86_gamma()
