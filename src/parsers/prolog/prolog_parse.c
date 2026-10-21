@@ -2069,6 +2069,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$tbl_snapat'([K-V|Ps],C,E):-(K==C->E=V;'$tbl_snapat'(Ps,C,E)).\n"
     "'$tbl_snap'([C|Cs],[C-E|Ps]):-'$trie_slice'(C,0,0,E-_),'$tbl_snap'(Cs,Ps).\n"
     "'$tbl_slice'(T,L):-'$trie_meta_get'(T,0,S),(S==complete->'$trie_entries'(T,L);'$tbl_range'(T,F,To),'$trie_slice'(T,F,To,_-L)).\n"
+    "'$tbl_range'(C,0,-1):-'$tbl_bcell'('$tbl_ctx',all,X),X=sn(_,Ps),'$tbl_snapat'(Ps,C,E),E>=1,'$trie_meta_get'(C,1,d(G,_,_,_,_)),ground(G),!.\n"
     "'$tbl_range'(C,F,To):-'$tbl_bcell'('$tbl_cpos',0,J0),J is J0+1,b_setval('$tbl_cpos',J),'$tbl_cell'('$tbl_mx',0,M),(J>M->nb_setval('$tbl_mx',J);true),"
         "'$tbl_bcell'('$tbl_ctx',all,X),(X=sn(R,Ps)->'$tbl_snapat'(Ps,C,E),(J<R->F=0,To=E;J=:=R->F=E,To= -1;F=0,To= -1);F=0,To= -1).\n"
     "'$tbl_addk'(plain,Fs,T,G,N):-'$tbl_ph'(r),!,'$tbl_radd'(Fs,T,G,0,N).\n"
