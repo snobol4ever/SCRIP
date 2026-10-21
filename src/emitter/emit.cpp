@@ -4709,15 +4709,33 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         memset(redo_priced, 0, (size_t)(n > 0 ? n : 1));
         for (int i = 0; i < n; i++) if (zon[i] && nodes[i]->op == IR_GATE && nodes[i]->γ.node && nodes[i]->γ.node->op == IR_SUCCEED && claim[i] >= 0 && known[claim[i]]) { gx = i; ngx++; }
         for (int i = 0; i < n; i++) {
-            if (!zon[i] || claim[i] < 0 || !known[claim[i]]) continue;
+            if (!zon[i] || claim[i] < 0 || (!known[claim[i]] && fam[claim[i]] < 0)) continue;
             IR_t * ig = (nodes[i]->op == IR_GATE_ARM && !nodes[i]->γ.node && nodes[i]->n_operands > 1) ? nodes[i]->operands[1] : (IR_t *)0;
             IR_t * c = zd_chase(ig ? ig->γ.node : nodes[i]->γ.node);
             if (!c || c->op != IR_SUCCEED || (!ig && nodes[i]->op == IR_GATE)) continue;
-            int a = aof[claim[i]];
+            int ci = claim[i], a = aof[ci];
+            for (int f = known[ci] ? -1 : fam[ci], hop = 0; f >= 0 && a < 0 && hop <= n; hop++) {
+                int nf = -1;
+                for (int e = 0; e < n && a < 0 && nf < 0; e++) {
+                    IR_t * t = (zon[e] && claim[e] >= 0 && zd_edge_retains(nodes[e])) ? zd_chase(nodes[e]->γ.node) : (IR_t *)0;
+                    int q = t ? nidx(nodes, n, t) : -1;
+                    if (q < 0 || !zon[q] || claim[q] < 0 || fam[claim[q]] != f || claim[e] == claim[q]) continue;
+                    if (known[claim[e]]) a = aof[claim[e]];
+                    else nf = fam[claim[e]];
+                }
+                f = nf;
+            }
             IR_t * ad = (nalt > 0 && a >= 0 && a < nalt && g_emit_cfg->alt_redo) ? g_emit_cfg->alt_redo[a] : (IR_t *)0;
             int dq = ad ? nidx(nodes, n, zd_chase(ad)) : (nalt == 0 && ngx == 1) ? gx : -1;
-            if (dq < 0 || !zon[dq] || claim[dq] < 0 || !known[claim[dq]]) continue;
-            zgpop[i] = base[claim[i]] + zout[i] - (base[claim[dq]] + zout[dq]);
+            if (dq < 0 || !zon[dq] || claim[dq] < 0) continue;
+            int cd = claim[dq];
+            IR_t * t = zd_edge_retains(nodes[dq]) ? zd_chase(nodes[dq]->γ.node) : (IR_t *)0;
+            int q = t ? nidx(nodes, n, t) : -1;
+            if (known[ci] && known[cd]) zgpop[i] = base[ci] + zout[i] - (base[cd] + zout[dq]);
+            else if (!known[ci] && q >= 0 && zon[q] && claim[q] >= 0 && !known[claim[q]] && fam[claim[q]] == fam[ci])
+                zgpop[i] = fbase[ci] + zout[i] - (fbase[claim[q]] + zout[q] - zd_k(nodes[q]));
+            else if (!known[ci] && !known[cd] && fam[cd] == fam[ci]) zgpop[i] = fbase[ci] + zout[i] - (fbase[cd] + zout[dq]);
+            else continue;
             redo_priced[i] = 1;
         }
         if (emit_resumable_frame()) for (int i = 0; i < n; i++) {
