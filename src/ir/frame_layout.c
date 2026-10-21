@@ -1746,6 +1746,8 @@ int zls_node_bytes(const IR_t * nd) {
 int zls_scope_of(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->scope_id : -1; }
 int zls_g_nslots(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->nslots : -1; }
 int zls_g_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->region : -1; }
+int zls_g_keys_only(const IR_graph_t * g) { return (g && zls_g_find(g) && !g->zframe_graph && !g->entry_frame && !g->cell_frame && !g->spine_cells && !g->root_graph && !g->caller_frame) ? 1 : 0; }
+int zls_g_frame_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? (zls_g_keys_only(g) ? 0 : r->region) : -1; }
 int zls_g_resumable_frame(const IR_graph_t * g) { if (!g || !g->zframe_graph || g->cell_frame) return 0; return (g->resumable_callable || g->root_graph) ? 1 : 0; }
 static int zls_g_pinned_frame(const IR_graph_t * g) { return zls_g_resumable_frame(g); }
 int zls_g_det_block(const IR_graph_t * g) { return (g && g->static_calls && g->zframe_graph && !zls_g_resumable_frame(g) && !g->cell_frame && !g->root_graph) ? 1 : 0; }
@@ -1759,7 +1761,7 @@ int zls_g_block_args(const IR_graph_t * g) {
 int zls_g_entry_block(const IR_graph_t * g) { return (zls_g_pinned_frame(g) || (g && g->cell_frame && !g->root_graph)) ? 1 : 0; }
 int zls_g_frame_bytes(const IR_graph_t * g) {
     zls_graph_t * r = zls_g_find(g);
-    int region = r ? r->region : 0;
+    int region = r ? zls_g_frame_region(g) : 0;
     int allowance = zls_g_pinned_frame(g) ? (g->root_graph ? FLAT_FRAME_ALLOWANCE_ROOT : FLAT_FRAME_ALLOWANCE_PINNED) : FLAT_FRAME_ALLOWANCE;
     return (allowance + region + (g ? 8 * g->standing_cells : 0) + 15) & ~15;
 }
@@ -1808,6 +1810,7 @@ int zls_g_layout_q(const IR_graph_t * g, uint64_t * out, int cap, int * gap_byte
     if (gap_bytes) *gap_bytes = 0;
     if (conflicts) *conflicts = 0;
     if (!r || r->first_scope < 0) return -1;
+    if (zls_g_keys_only(g)) return 0;
     cv_reserve(&g_lower.ir.zlq_v, (uint32_t)sizeof(zls_layq_t), (uint64_t)g_lower.ir.zf_n + 1, "zlq");
     for (int f = 0; f < g_lower.ir.zf_n; f++) if (zf[f].scope_id >= r->first_scope && zf[f].scope_id < r->first_scope + r->n_scopes && zf[f].size > 0 && zf[f].off >= 0) zlq[n++] =
         (zls_layq_t){ zf[f].off, zf[f].size, zf[f].kind };

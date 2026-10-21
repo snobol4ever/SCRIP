@@ -223,6 +223,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
     extern int zls_off(const IR_t *);
     extern int zls_g_nslots(const IR_graph_t *);
     extern int zls_g_region(const IR_graph_t *);
+    extern int zls_g_frame_region(const IR_graph_t *);
     extern int zls_g_resume(const IR_graph_t *);
     extern int zls_g_zeta_mark(const IR_graph_t *);
     extern int zls_g_vslot_count(const IR_graph_t *);
@@ -241,7 +242,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
     for (int v = 0; v < zls_g_vslot_count(g); v++) { int off = -1; const char * vn = zls_g_vslot_get(g, v, &off); if (vn && off >= 0) drv_vslot_push(g, vn, off); }
     g->resume_slot = zls_g_resume(g);
     g->zeta_mark_slot = zls_g_zeta_mark(g);
-    g->jcon_value_region = zls_g_region(g);
+    g->jcon_value_region = zls_g_frame_region(g);
     g->nvalue_slots = zls_g_nslots(g);
     { extern int zdp_mode(void); extern void zdp_report(IR_graph_t *, const char *); if (zdp_mode()) zdp_report(g, "graph"); { extern void zdp_port_census(IR_graph_t *); zdp_port_census(g); } }
 }

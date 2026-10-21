@@ -1060,6 +1060,7 @@ extern "C" int emit_port_exit_label_promotes(const char * label);
 inline int x86_zop_regime(int off) { if (x86_fc_hit(off)) return 2; return x86_fb_data() ? 3 : 4; }
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int zls_g_keys_only(const IR_graph_t * g);
 inline const char * x86_zref(int off, int q);
 inline const char * ZRES_SPINE(int w);
 inline const char * x86_zop(int off, int q, int bump) {
@@ -1073,6 +1074,9 @@ inline const char * x86_zop(int off, int q, int bump) {
         if (_.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + d, q, bump);
         return x86_zref(_.op_zread[k] + d, q); }
     int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
+    if (r != 2 && zls_g_keys_only(g_emit_cfg))
+        { fprintf(stderr, "FATAL x86_zop: offset %d of a keys-only graph is addressed through the frame -- its value boxes hold keys and no frame bytes (zls_g_keys_only, ceo CEO-1864)\n", off);
+            abort(); }
     if (r != 2 && icn_frame_rbp()) return q ? RDQ("rbp", off - gen_frame_top()) : RDD("rbp", off - gen_frame_top());
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }

@@ -5317,7 +5317,9 @@ extern "C++" std::string emit_gc_map_register(int value_bytes, int frame_bytes, 
     g_emitter.g_gc_map_pending = 1; g_emitter.g_gc_value_bytes = value_bytes; g_emitter.g_gc_map_link = link; g_emitter.g_gc_map_fb = frame_bytes; g_emitter.g_gc_map_hdr = header_bytes;
         g_emitter.g_gc_map_flags = flags;
     emit_label_initf(&g_emitter.g_gc_map_lbl, ".Lgcmap_%s", g_emit.flat_fam ? g_emit.flat_fam : "chain");
-    return x86("note", std::string("GCANCHOR ") + g_emitter.g_gc_map_lbl.name + " " + (frame_rel == 2 ? RDQ("rbp", -value_bytes + 8) : frame_rel ? FRQ(value_bytes + 8) : RDQ("rsp", value_bytes + 8)))
+    return x86("note", std::string("GCANCHOR ") + g_emitter.g_gc_map_lbl.name + " " + (frame_rel == 2 ? std::string(RDQ("rbp", -value_bytes + 8))
+                                                                          : frame_rel == 1 && zls_g_keys_only(g_emit_cfg) ? std::string(x86_fr64_prefix()) + std::to_string(value_bytes + 8) + "]"
+                                                                          : frame_rel ? std::string(FRQ(value_bytes + 8)) : std::string(RDQ("rsp", value_bytes + 8))))
          + IF(frame_rel != 2 || blob_cont_copy(), x86("mov", "eax", 0L));
 }
 static void emit_gc_map_data(const char * fam) {
@@ -5450,6 +5452,7 @@ static const char * xop_frame_why(const IR_t * nd) {
     return zd_dj_retains(nd) ? "retaining-disjunction" : nd->op == IR_TO ? "generator-state" : "read-across-retaining-edge";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int zls_g_keys_only(const IR_graph_t * g);
 static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
     extern const char * zls_graph_name_get(const IR_graph_t *); extern int zls_g_vslot_count(const IR_graph_t *); extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
     const IR_graph_t * g = g_emit_cfg;
@@ -5461,7 +5464,7 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
         if (!nd) continue;
         int ai = -1;
         for (int k = 0; g && k < g->n; k++) if (g->all[k] == nd) { ai = k; break; }
-        int off = bb_slot_get(nd); if (off < 0) off = nd_slot(nd);
+        int off = bb_slot_get(nd); if (off < 0) off = nd_slot(nd); if (zls_g_keys_only(g)) off = -1;
         int xf = xop_frame_slot(nd), rbp = xf != -1;
         const char * home = zon[i] ? (zd_k(nd) > 0 ? "SPINE" : "NONE") : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
         fprintf(stderr, "[HOMES] g=%d graph=%s all=%d kind=%s home=%s off=%d xf=%d xfwhy=%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), home, off, xf, rbp ? xop_frame_why(nd) : "-");
@@ -5470,6 +5473,7 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
     for (int k = 0; k < nv; k++) {
         int off = -1;
         const char * vn = zls_g_vslot_get(g, k, &off);
+        if (zls_g_keys_only(g)) off = -1;
         int blk = g && g->block_args ? zls_g_block_base(g) : -1; int cov = (k < (int)g_emitter.zst_vcov.size()) ? g_emitter.zst_vcov[(size_t)k] : 0,
             use = (k < (int)g_emitter.zst_vuse.size()) ? g_emitter.zst_vuse[(size_t)k] : -1;
         int soff = off; const char * home = off < 0 ? "NONE" : (blk >= 0 && off >= blk) ? "SPINE" : use == 0 ? "NONE" : (cov > 0 && cov == use) ? "SPINE" : "RSP_CARVED";

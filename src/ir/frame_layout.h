@@ -25,6 +25,8 @@ int zls_arbno_geom(const IR_t * nd, int * min_off, int * span);
 int zls_scope_of(const IR_t * nd);
 int zls_g_nslots(const IR_graph_t * g);
 int zls_g_region(const IR_graph_t * g);
+int zls_g_keys_only(const IR_graph_t * g);
+int zls_g_frame_region(const IR_graph_t * g);
 int zls_g_resume(const IR_graph_t * g);
 int zls_g_resume_by_name(const char *name);
 int zls_g_zeta_mark(const IR_graph_t * g);
