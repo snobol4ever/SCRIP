@@ -4701,6 +4701,8 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             zwpop[i] = ((ku == 1 ? base[cu] : fbase[cu]) + zout[ub]) - ((kq == 1 ? base[cq] : fbase[cq]) + zout[q] - (b ? 0 : zd_k(nodes[q])));
         }
         int nalt = g_emit_cfg ? g_emit_cfg->n_alts : 0, gx = -1, ngx = 0;
+        unsigned char * redo_priced = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
+        memset(redo_priced, 0, (size_t)(n > 0 ? n : 1));
         for (int i = 0; i < n; i++) if (zon[i] && nodes[i]->op == IR_GATE && nodes[i]->γ.node && nodes[i]->γ.node->op == IR_SUCCEED && claim[i] >= 0 && known[claim[i]]) { gx = i; ngx++; }
         for (int i = 0; i < n; i++) {
             if (!zon[i] || claim[i] < 0 || !known[claim[i]]) continue;
@@ -4712,13 +4714,14 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             int dq = ad ? nidx(nodes, n, zd_chase(ad)) : (nalt == 0 && ngx == 1) ? gx : -1;
             if (dq < 0 || dq == i || !zon[dq] || claim[dq] < 0 || !known[claim[dq]]) continue;
             zgpop[i] = base[claim[i]] + zout[i] - (base[claim[dq]] + zout[dq]);
+            redo_priced[i] = 1;
         }
         if (emit_resumable_frame()) for (int i = 0; i < n; i++) {
             if (!zon[i] || claim[i] < 0 || !known[claim[i]]) continue;
             IR_t * ig = (nodes[i]->op == IR_GATE_ARM && !nodes[i]->γ.node && nodes[i]->n_operands > 1) ? nodes[i]->operands[1] : (IR_t *)0;
             IR_t * c = zd_chase(ig ? ig->γ.node : nodes[i]->γ.node);
             int cq = c ? nidx(nodes, n, c) : -1;
-            if (c && (c->op == IR_SUCCEED || cq < 0 || !zon[cq])) zgpop[i] = zd_edge_retains(nodes[i]) ? 0 : base[claim[i]] + zout[i];
+            if (c && (c->op == IR_SUCCEED || cq < 0 || !zon[cq]) && !redo_priced[i]) zgpop[i] = zd_edge_retains(nodes[i]) ? 0 : base[claim[i]] + zout[i];
             IR_t * o = zd_chase(nodes[i]->ω.node);
             int oq = o ? nidx(nodes, n, o) : -1;
             if (!o || o->op == IR_FAIL || oq < 0 || !zon[oq]) zwpop[i] = base[claim[i]] + zout[i] - zd_k(nodes[i]);
