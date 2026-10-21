@@ -5446,10 +5446,7 @@ static void dh_retains_build(void) {
     }
 }
 static const char * xop_frame_why(const IR_t * nd) {
-    if (icn_xop_frame_member(nd)) return zd_dj_retains(nd) ? "retaining-disjunction" : (icn_retaining_kind((int)nd->op) || icn_retaining_kind((int)ir_kind0(nd))) ? "retaining-call-result" :
-        "read-across-retaining-edge";
-    if (pl_xop_frame_member(nd)) return nd->op == IR_TO ? "db-walk-state" : "read-across-segment";
-    return xop_frame_member(nd) ? "read-across-pattern-choice" : "-";
+    return zd_dj_retains(nd) ? "retaining-disjunction" : nd->op == IR_TO ? "generator-state" : "read-across-retaining-edge";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
