@@ -23690,7 +23690,7 @@ static void * pl_anum_text_list_pair(DESCR_t a, DESCR_t l, int codes, const char
     extern void *rt_pl_ball_instantiation(void);
     int lk = pl_anum_list_kind(l);
     if (!pl_iso_unbound(a)) {
-        if (codes >= 0 && !strcmp(atom_type, "atom") && !pl_anum_is_text(a)) return rt_pl_ball_kind2("type_error", "atom", a);
+        if (codes >= 0 && !strcmp(atom_type, "atom") && !pl_anum_is_text(a) && !(pl_swi_dialect() && pl_anum_is_num(a))) return rt_pl_ball_kind2("type_error", "atom", a);
         if (!strcmp(atom_type, "number") && !pl_anum_is_num(a)) return rt_pl_ball_kind2("type_error", "number", a);
     }
     if (l.v == DT_S) {
@@ -23734,7 +23734,7 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
     if (!strcmp(nm, "atom_length") && n == 2) {
         DESCR_t x = rt_pl_deref_val(a[0]), l = rt_pl_deref_val(a[1]);
         if (pl_iso_unbound(x)) return rt_pl_ball_instantiation();
-        if (!pl_anum_is_text(x)) return rt_pl_ball_kind2("type_error", "atom", x);
+        if (!pl_anum_is_text(x) && !(pl_swi_dialect() && pl_anum_is_num(x))) return rt_pl_ball_kind2("type_error", "atom", x);
         if (!pl_iso_unbound(l) && l.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", l);
         if (!pl_iso_unbound(l) && l.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", l);
         return (void *)0;

@@ -2269,7 +2269,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$dcg_list'([],S,S).\n"
     "'$dcg_list'([H|T],S,[H|R]):-'$dcg_list'(T,S,R).\n"
     "code_type(C,T):-integer(C),!,C>=0,char_code(Ch,C),'$code_type'(Ch,T).\n"
-    "code_type(C,T):-char_type(C,T).\n"
+    "code_type(C,T):-(var(C),nonvar(T)->between(0,1114111,C),'$code_type'(C,T);char_type(C,T)).\n"
     "'$code_type'(Ch,to_lower(X)):-!,(integer(X)->char_code(Y,X);true),char_type(Ch,to_lower(Y)),char_code(Y,X).\n"
     "'$code_type'(Ch,to_upper(X)):-!,(integer(X)->char_code(Y,X);true),char_type(Ch,to_upper(Y)),char_code(Y,X).\n"
     "'$code_type'(Ch,upper(X)):-!,char_type(Ch,upper(Y)),char_code(Y,X).\n"

@@ -2017,6 +2017,7 @@ int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell, pl_tr
     else if (!strcmp(ty, "csymf")) ok = (isalpha(ch) || ch == '_');
     else if (!strcmp(ty, "end_of_line")) ok = (ch == '\n' || ch == '\r');
     else if (!strcmp(ty, "newline")) ok = (ch == '\n');
+    else if (!strcmp(ty, "ascii")) ok = (ch < 128);
     else { return 0; }
     if (!ok) { return 0; }
     return 1;
