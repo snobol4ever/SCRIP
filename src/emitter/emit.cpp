@@ -3930,7 +3930,7 @@ static int zd_pl_land(IR_t **nodes, int n, const unsigned char *zon, const int *
     return l;
 }
 static int zd_pl_dj_join(IR_t **nodes, int n, int i, int q) {
-    if (q < 0 || nodes[q]->op != IR_DISJUNCTION || !emit_resumable_frame()) return 0;
+    if (q < 0 || nodes[q]->op != IR_DISJUNCTION) return 0;
     for (int a = 0; a < (int)IR_LIT(nodes[q]).ival; a++) if (zd_dj_arm_end(nodes, n, q, a) == i) return 1;
     return 0;
 }
@@ -5518,7 +5518,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     emit_label_initf(&lbl_ω, "%s_ω", fam);
     emit_label_initf(&lbl_β, "%s_β", fam);
     emit_label_initf(&lbl_res, "%s_res", fam);
-       bb_label_t * pl_step_lbl = (bb_label_t *)0; int n_alt = 0;
+       bb_label_t * alt_step_lbl = (bb_label_t *)0; int n_alt = 0;
     bb_label_t * ix_switch = (bb_label_t *)0; int * ix_code = (int *)0; int ix_n = 0; int ix_fbr = -2, ix_fba = -2, ix_fbi = -2; int ix_slot = -1; int * ix_tag = (int *)0;
         int64_t * ix_val = (int64_t *)0;
     int * ix_sets = (int *)0; int * ix_set_beg = (int *)0; int * ix_set_len = (int *)0; int ix_nset = 0;
@@ -5531,7 +5531,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                                       g_emitter.codegen_flat_chain_body_alt_tr_cap = n_alt; }
         for (int _ak = 0; _ak < n_alt; _ak++) g_emitter.codegen_flat_chain_body_alt_tr[_ak] = emit_label_alloc("%s_alt%d", fam, _ak);
         for (int _ak = 0; _ak < n_alt; _ak++) g_emitter.codegen_flat_chain_body_ret_tr[_ak] = emit_label_alloc("%s_ret%d", fam, _ak);
-        pl_step_lbl = emit_label_alloc("%s_step", fam);
+        alt_step_lbl = emit_label_alloc("%s_step", fam);
         g_emit.flat_altdet_p = emit_label_alloc("%s_altdet", fam);
         if (n_alt > 1) g_emit.flat_alt1_p = g_emitter.codegen_flat_chain_body_alt_tr[1];
     }
@@ -6122,7 +6122,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   if (_c == 0) ix_fbr = _fb; else if (_c == 1) ix_fba = _fb; else ix_fbi = _fb; } }
             ix_switch = emit_label_alloc("%s_switch", fam); } }
     if (ix_switch) emit_jmp_label(ix_switch, JMP_JMP);
-    else if (flat_empty_body_fail && n > 0) emit_jmp_label(pl_step_lbl && n_alt > 1 && emit_resumable_frame() ? pl_step_lbl : &lbl_ω, JMP_JMP);
+    else if (flat_empty_body_fail && n > 0) emit_jmp_label(alt_step_lbl && n_alt > 1 ? alt_step_lbl : &lbl_ω, JMP_JMP);
     int _bx_open = -1;
     int *repalt_of = (int *)alloca(sizeof(int) * (n > 0 ? n : 1)); for (int _q = 0; _q < n; _q++) repalt_of[_q] = -1;
     for (int _r = 0; _r < n; _r++) if (g_emitter.codegen_flat_chain_body_nodes[_r]->op == IR_REPALT && g_emitter.codegen_flat_chain_body_nodes[_r]->n_operands > 0) { int _k =
@@ -6198,9 +6198,9 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         if (zd_chn[2 * i] >= 0) node_γ = betas[zd_chn[2 * i]];
         if (zd_chn[2 * i + 1] >= 0) node_ω = betas[zd_chn[2 * i + 1]];
         g_emit.op_omega_is_death = (!omega_resolved && !(otgt && otgt->op == IR_SUCCEED)) ? 1 : 0;
-        if (g_emit_cfg && n_alt > 0 && emit_resumable_frame()) {
-              if (otgt && otgt == g_emit_cfg->alt_fail && pl_step_lbl) node_ω = pl_step_lbl;
-              if (gtgt && gtgt == g_emit_cfg->alt_fail && pl_step_lbl) node_γ = pl_step_lbl;
+        if (g_emit_cfg && n_alt > 0) {
+              if (otgt && otgt == g_emit_cfg->alt_fail && alt_step_lbl) node_ω = alt_step_lbl;
+              if (gtgt && gtgt == g_emit_cfg->alt_fail && alt_step_lbl) node_γ = alt_step_lbl;
               if (!g_emit_cfg->root_graph) for (int _ak = 0; _ak < n_alt; _ak++) if (gtgt && gtgt == g_emit_cfg->alt_ret[_ak] && g_emit_cfg->alt_redo[_ak]) { node_γ =
                   g_emitter.codegen_flat_chain_body_ret_tr[_ak]; break; } }
         if (getenv("SCRIP_OMEGA_DIAG"))
@@ -6261,7 +6261,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             else if (sg->op == IR_FAIL) node_γ = &lbl_ω;
             else { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, sg);
                 if (k >= 0) { node_γ = (sg_is_phi && na_f[k]) ? na_f[k] : (sg_is_sig && na_s[k]) ? na_s[k] : sg_is_beta ? betas[k] : lbls[k]; } }
-            if (g_emit_cfg && n_alt > 0 && emit_resumable_frame() && !g_emit_cfg->root_graph)
+            if (g_emit_cfg && n_alt > 0 && !g_emit_cfg->root_graph)
                 for (int _ak = 0; _ak < n_alt; _ak++) if (sg && sg == g_emit_cfg->alt_ret[_ak] && g_emit_cfg->alt_redo[_ak]) { node_γ = g_emitter.codegen_flat_chain_body_ret_tr[_ak]; break; }
         }
         if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_REPALT) {
@@ -6505,9 +6505,9 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   } if (getenv("SCRIP_ZPAT_DIAG"))
                       fprintf(stderr, "[SUBJ2] jh=%d js=%d zout_jh=%d zout_js=%d zon_js=%d staged=%d\n", _jh2, _js, zd_out[_jh2], zd_out[_js], zd_on[_js], g_emitter.g_zd_read[2]);
                   break; } } } }
-          if (g_emit_cfg && n_alt > 0 && emit_resumable_frame()) {
-              if (otgt && otgt == g_emit_cfg->alt_fail && pl_step_lbl) node_ω = pl_step_lbl;
-              if (gtgt && gtgt == g_emit_cfg->alt_fail && pl_step_lbl) node_γ = pl_step_lbl;
+          if (g_emit_cfg && n_alt > 0) {
+              if (otgt && otgt == g_emit_cfg->alt_fail && alt_step_lbl) node_ω = alt_step_lbl;
+              if (gtgt && gtgt == g_emit_cfg->alt_fail && alt_step_lbl) node_γ = alt_step_lbl;
               if (!g_emit_cfg->root_graph) for (int _ak = 0; _ak < n_alt; _ak++) if (gtgt && gtgt == g_emit_cfg->alt_ret[_ak] && g_emit_cfg->alt_redo[_ak]) { node_γ =
                   g_emitter.codegen_flat_chain_body_ret_tr[_ak]; break; } }
           if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_BEGIN) { g_emit.lbl_t0 = na_f[i] ? na_f[i]->name : NULL; g_emit.lbl_t0_p = na_f[i]; g_emit.lbl_t0o_p = na_fo[i]; }
@@ -6554,7 +6554,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         if (_e) { int _k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, _e); if (_k >= 0) return lbls[_k]; }
         if (_e && _e->op == IR_SUCCEED) return g_emit_cfg->alt_redo[ak] ? g_emitter.codegen_flat_chain_body_ret_tr[ak] : &lbl_γ;
         return &lbl_ω; };
-    if (g_emit_cfg && n_alt > 0 && emit_resumable_frame()) {
+    if (g_emit_cfg && n_alt > 0) {
         int _kt0 = g_emit.flat_frame_bytes; int _np0 = g_emit_cfg->nparams; int _nl0 = g_emit_cfg->nlocals;
         for (int _ak = 0; _ak < n_alt; _ak++) {
             IR_t * _rd = g_emit_cfg->alt_redo[_ak]; bb_label_t * _rb = (bb_label_t *)0;
@@ -6568,7 +6568,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                       + x86("mov32", "edx", 1L));
             emit_jmp_label(&lbl_γ, JMP_JMP);
         }
-        emit_sep_rule('-'); emit_label_define_bb(pl_step_lbl);
+        emit_sep_rule('-'); emit_label_define_bb(alt_step_lbl);
         if (emit_pl_scc_armed()) {
             bb_label_t * sccd_ok = emit_label_alloc("%s_sccd", fam);
             bb_emit_x86(x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", "rcx", RDQ("rax", 32)) + x86("test", "rcx", "rcx"));
@@ -6647,7 +6647,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                     "PL SWITCH: no clause's first head argument can match the first argument's key -- concede through the step with no next alternative and B back to the outer choice")
                           + x86("mov", RDQ(emit_pl_fb(), _kt - 56), 0L)
                           + x86("mov", "r13", RDQ(emit_pl_fb(), _kt - 40)));
-                emit_jmp_label(pl_step_lbl, JMP_JMP);
+                emit_jmp_label(alt_step_lbl, JMP_JMP);
             }
             for (int _s = 0; _s < ix_nset; _s++) {
                 if (!_sent[_s]) continue;
@@ -6690,9 +6690,9 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     }
     if (!bare && !_top_hoist) {
     emit_sep_rule('-'); emit_label_define_bb(&lbl_β);
-    if (g_emit_cfg && g_emit_cfg->n_alts > 0 && emit_resumable_frame()) {
+    if (g_emit_cfg && g_emit_cfg->n_alts > 0) {
         int _kt = g_emit.flat_frame_bytes;
-        bb_label_t * _step = pl_step_lbl;
+        bb_label_t * _step = alt_step_lbl;
         bb_label_t * _resume = emit_label_alloc("%s_βres", fam);
         if (emit_pl_scc_armed()) {
             bb_label_t * _go = emit_label_alloc("%s_βgo", fam);

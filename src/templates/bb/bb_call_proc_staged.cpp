@@ -226,7 +226,7 @@ extern "C" int bb_proc_target_retains(const char *fname) {
         IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0;
         return (!cg || zls_g_resumable_frame(cg)) ? 1 : 0;
     }
-    return emit_resumable_frame();
+    return 1;
 }
 extern "C" int bb_proc_target_block_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
     || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
