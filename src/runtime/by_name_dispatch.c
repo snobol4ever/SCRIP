@@ -16813,7 +16813,7 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
         b->hi2 = 0;
         b->proto_bare = 0;
         b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) (hi - lo + 1));
-        for (long k = lo; k <= hi; k++) b->data[k - lo] = INTVAL(k - lo < sl ? (unsigned char) sa[k - lo] : 32);
+        for (long k = lo; k <= hi; k++) b->data[k - lo] = INTVAL(k - lo < sl ? (unsigned char) sa[k - lo] : 0);
         DESCR_t d = {0};
         d.v = DT_A;
         d.slen = 0;
