@@ -3395,11 +3395,26 @@ static int pl_clause_is_attv_hook(PlClause *cl) {
     return (!strcmp(h->c[1]->v.sval, "attr_unify_hook") && h->c[1]->n == 2) || (!strcmp(h->c[1]->v.sval, "attribute_goals") && h->c[1]->n == 3);
 }
 static int pl_clause_is_directive(PlClause *cl) { return cl && cl->tr && cl->tr->t == TT_CLAUSE && cl->tr->n >= 2 && cl->tr->c[0] && cl->tr->c[0]->t == TT_NUL; }
+static PlProgram *pl_prelude_parse(const char *src, int lib, const char *vis, int nlibs) {
+    OpEntry *uo = g_parser.pl.uinfix;
+    int un = g_parser.pl.uinfix_n, uc = g_parser.pl.uinfix_cap;
+    g_parser.pl.uinfix = NULL;
+    g_parser.pl.uinfix_n = 0;
+    g_parser.pl.uinfix_cap = 0;
+    for (int j = 0; j < nlibs; j++) if (vis[j] || j == lib) register_lib_ops(PL_PRELUDE_LIBS[j].lib);
+    PlProgram *p = prolog_parse(src, "<prelude>");
+    g_parser.pl.uinfix = uo;
+    g_parser.pl.uinfix_n = un;
+    g_parser.pl.uinfix_cap = uc;
+    if (lib >= 0) register_lib_ops(PL_PRELUDE_LIBS[lib].lib);
+    if (p && lib >= 0) pl_preprocess_list(p, 1);
+    return p;
+}
 static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported) {
     int nlibs = 0;
     while (PL_PRELUDE_LIBS[nlibs].lib) nlibs++;
     PlProgram *lp[nlibs + 1];
-    char seen[nlibs + 1], imp[nlibs + 1];
+    char seen[nlibs + 1], imp[nlibs + 1], vis[nlibs + 1];
     PlClause *base_last = pre->tail;
     int any = 0;
     uint32_t rkc = pl_pk_cap(refkeys ? refkeys->len : 0), udc = pl_pk_cap(user_defined ? user_defined->len : 0), nb = 0;
@@ -3409,7 +3424,8 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     pl_pk_fill_cv(rk, rkc, refkeys);
     pl_pk_fill_cv(ud, udc, user_defined);
     for (int i = 0; i < nlibs; i++) imp[i] = (char)(imported && pl_cv_has(imported, PL_PRELUDE_LIBS[i].lib));
-    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (pl_lib_named(&PL_PRELUDE_LIBS[i], rk, rkc, NULL, 0, pre->head, base_last, native_only, user_defined ? ud : NULL, udc, imp[i])) { register_lib_ops(PL_PRELUDE_LIBS[i].lib); lp[i] = prolog_parse(PL_PRELUDE_LIBS[i].src, "<prelude>"); if (lp[i]) pl_preprocess_list(lp[i], 1); any = 1; } }
+    for (int i = 0; i < nlibs; i++) vis[i] = imp[i];
+    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (pl_lib_named(&PL_PRELUDE_LIBS[i], rk, rkc, NULL, 0, pre->head, base_last, native_only, user_defined ? ud : NULL, udc, imp[i])) { lp[i] = pl_prelude_parse(PL_PRELUDE_LIBS[i].src, i, vis, nlibs); vis[i] = 1; any = 1; } }
     if (!any) return;
     for (PlClause *cl = pre->head; cl; cl = cl->next) { nb++; if (cl == base_last) break; }
     uint32_t bkc = pl_pk_cap(nb);
@@ -3428,7 +3444,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             for (PlClause *cl = lp[i]->head; cl; cl = cl->next) pl_tree_collect_pk(cl->tr, &lh);
             seen[i] = 1;
             if (!lh.t) { lh.cap = 16; lh.t = (pl_pk_t *)ct_zalloc(lh.cap, sizeof(pl_pk_t)); }
-            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_named(&PL_PRELUDE_LIBS[j], lh.t, lh.cap, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc, imp[j])) { register_lib_ops(PL_PRELUDE_LIBS[j].lib); lp[j] = prolog_parse(PL_PRELUDE_LIBS[j].src, "<prelude>"); if (lp[j]) pl_preprocess_list(lp[j], 1); changed = 1; }
+            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_named(&PL_PRELUDE_LIBS[j], lh.t, lh.cap, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc, imp[j])) { lp[j] = pl_prelude_parse(PL_PRELUDE_LIBS[j].src, j, vis, nlibs); vis[j] = 1; changed = 1; }
             ct_drop(lh.t);
         }
     }
@@ -3653,7 +3669,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_word_referenced(user_src, "reset") || pl_word_referenced(user_src, "shift")) pl_cv_add(&referenced, "$co_body");
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
     for (PlClause *cl = prog->head; cl; cl = cl->next) if (pl_clause_ssu(cl)) { pl_cv_add(&referenced, "subsumes_term"); break; }
-    PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
+    PlProgram *pre = pl_prelude_parse(PL_PRELUDE_SRC, -1, "", 0);
     if (!pre || !pre->head) { if (pre) ct_drop(pre); return; }
     int agg_native = 0;
     for (PlClause *cl = prog->head; cl; cl = cl->next) agg_native += pl_agg_native_calls(cl->tr);
@@ -3754,7 +3770,7 @@ static int pl_cv_has_key(const cv_t *v, const char *nm, int ar) {
 int pl_prelude_defines(const char *nm, int ar) {
     if (!nm) return 0;
     if (!g_stage2.pl_prelude_keys.len) {
-        PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
+        PlProgram *pre = pl_prelude_parse(PL_PRELUDE_SRC, -1, "", 0);
         if (!pre) return 0;
         for (PlClause *cl = pre->head; cl; cl = cl->next) {
             const char *cn; int car;
