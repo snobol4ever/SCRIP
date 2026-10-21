@@ -794,7 +794,7 @@ static int zd_gate_holds(const IR_t * g);
 static int zd_beta_via_act(const IR_t * nd);
 static int zd_dj_admitted(const int * zarm, int n, int ei) { for (int j = 0; j < n; j++) if (zarm[j] == ei) return 1; return 0; }
 static int zd_dj_cellless(IR_t ** nodes, int n, const int * zarm, int k) {
-    return k >= 0 && nodes[k]->op == IR_DISJUNCTION && g_emit_cfg && g_emit_cfg->spine_cells && zarm && !zd_dj_admitted(zarm, n, k);
+    return k >= 0 && nodes[k]->op == IR_DISJUNCTION && zarm && !zd_dj_admitted(zarm, n, k);
 }
 static int zd_pl_dj_arm_holds(const IR_t * d, int a) {
     IR_t * t = zd_chase(d->operands[2 * a + 1]);
@@ -2105,7 +2105,7 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     { xa_pair_push(na_fo[i], NULL); }
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
     if (nd->op == IR_DISJUNCTION) { emit_parts_reserve(N); for (int j = 0; j < N; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0;
-        { int zok = g_emit_cfg && g_emit_cfg->spine_cells && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i] && g_emitter.g_zd_zarm_p &&
+        { int zok = g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i] && g_emitter.g_zd_zarm_p &&
               g_emitter.g_zd_zarm_nodes == nodes;
           if (zok && rj && nd_slot(rj) >= 0 && ((rj->op == IR_CONJUNCTION && !zd_dj_admitted(g_emitter.g_zd_zarm_p, g_emitter.g_zd_zarm_n, i)) ||
               zd_dj_cellless(nodes, n, g_emitter.g_zd_zarm_p, nidx(nodes, n, rj)))) { g_emit.op_parts_ival[j] = nd_slot(rj); continue; } }
@@ -6298,8 +6298,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   zd_rec_arm(g_emitter.codegen_flat_chain_body_nodes, i);
                   if (zd_cpd && zd_cpd[i] <= -2) zd_cp_arm(g_emitter.codegen_flat_chain_body_nodes, i, zd_cps, zd_cpd, zd_out);
               }
-              else if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION && zd_on[i] &&
-                  (zd_dj_admitted(zd_arm, n, i) || (g_emit_cfg && (g_emit_cfg->spine_cells || emit_resumable_frame())))) {
+              else if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION && zd_on[i]) {
                   g_emitter.g_zd_stage = 1;
                   g_emitter.g_zd_arm = 1;
                   g_emitter.g_zd_djok = zd_dj_admitted(zd_arm, n, i);
