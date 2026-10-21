@@ -4174,7 +4174,7 @@ static int zst_edge(IR_t ** nodes, int n, int i, int e) {
     IR_t * nd = nodes[i], * t = (IR_t *)0;
     if (e == 0) { IR_t * ig = (nd->op == IR_GATE_ARM && !nd->γ.node && nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; t = zd_chase(ig ? ig->γ.node : nd->γ.node); }
     else if (e == 1) t = zd_chase(nd->ω.node);
-    else if (nd->op == IR_GATE) return -1;
+    else if (nd->op == IR_GATE) { IR_t * arm = nd->operands[e - 2]; if (!arm || (int) arm->seal || arm->n_operands < 1) return -1; t = arm->operands[0]; }
     else t = nd->operands[e - 2];
     return t ? nidx(nodes, n, t) : -1;
 }
