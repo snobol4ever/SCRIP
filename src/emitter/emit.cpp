@@ -6113,6 +6113,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   if (_c == 0) ix_fbr = _fb; else if (_c == 1) ix_fba = _fb; else ix_fbi = _fb; } }
             ix_switch = emit_label_alloc("%s_switch", fam); } }
     if (ix_switch) emit_jmp_label(ix_switch, JMP_JMP);
+    else if (flat_empty_body_fail && n > 0) emit_jmp_label(pl_step_lbl && n_alt > 1 && emit_resumable_frame() ? pl_step_lbl : &lbl_ω, JMP_JMP);
     int _bx_open = -1;
     int *repalt_of = (int *)alloca(sizeof(int) * (n > 0 ? n : 1)); for (int _q = 0; _q < n; _q++) repalt_of[_q] = -1;
     for (int _r = 0; _r < n; _r++) if (g_emitter.codegen_flat_chain_body_nodes[_r]->op == IR_REPALT && g_emitter.codegen_flat_chain_body_nodes[_r]->n_operands > 0) { int _k =
