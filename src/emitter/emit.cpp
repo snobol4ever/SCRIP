@@ -1361,7 +1361,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                     IR_t * _pv = zd_conj_value_node(_po);
                     int _ph = (_po && zd_value_producer(_po) != _po && xop_frame_slot(zd_value_producer(_po)) != -1) ? 1 : 0;
                     g_emit.op_zslot[_zi] = (_po && (zd_k_own(_po) >= 16 || zd_local_home_node(_po) || (_pv != _po && zd_k_own(_pv) >= 16 && zd_plan_on_of(_pv)) || _ph) && zd_plan_on_of(_po)) ?
-                        nd_slot(_po) :
+                        (bb_slot_get(_po) >= 0 ? bb_slot_get(_po) : nd_slot(_po)) :
                         -1; }
                 { IR_t * _xs = zd_scan_subject(nd);
                     if (_xs && g_emit.op_zslot_n == nd->n_operands && g_emit.op_zslot_n < g_emit.op_zcap) {
@@ -6120,10 +6120,13 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         g_emitter.g_suspend_dobody_beta = NULL;
         if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SUSPEND && g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 1 && g_emitter.codegen_flat_chain_body_nodes[i]->operands[1]) {
             IR_t *dobody = g_emitter.codegen_flat_chain_body_nodes[i]->operands[1];
+            int via_beta = 0;
+            for (int _g = 0; dobody->op == IR_GOTO && dobody->γ.node && _g < 128; _g++) { via_beta |= port_sz_beta(dobody->γ.sz); dobody = dobody->γ.node; }
             if (dobody->op == IR_FAIL) { g_emitter.g_suspend_dobody_beta = &lbl_ω; }
             else { { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, dobody);
                 if (k >= 0) { int do_alpha = g_emitter.codegen_flat_chain_body_nodes[i]->seal == 1 && !(dobody->op == IR_SCAN && dobody->n_operands > 2 && !dobody->operands[1]);
-                g_emitter.g_suspend_dobody_beta = (!do_alpha && (ir_is_generator_kind(ir_kind0(dobody)) || ir_kind0(dobody) == IR_CALL || ir_kind0(dobody) == IR_CALL_PROC_STAGED)) ? betas[k] :
+                g_emitter.g_suspend_dobody_beta = (via_beta || (!do_alpha && (ir_is_generator_kind(ir_kind0(dobody)) || ir_kind0(dobody) == IR_CALL || ir_kind0(dobody) == IR_CALL_PROC_STAGED))) ?
+                    betas[k] :
                     lbls[k]; } } }
         }
         if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_DEFER) { g_emit.lbl_t1_p = NULL; g_emit.lbl_t1 = NULL;
