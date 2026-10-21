@@ -2957,7 +2957,7 @@ static int flat_unwind_beta(const IR_t *nd) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * zd_chase(IR_t * t) { int g = 0; while (t && t->op == IR_GOTO && g++ < 128) t = t->γ.node; return t; }
+static IR_t * zd_chase(IR_t * t) { int g = 0; while (t && (t->op == IR_GOTO || (t->op == IR_SUCCEED && t->γ.node)) && g++ < 4096) t = t->γ.node; return t; }
 static void zd_vdj_live(IR_t ** nodes, int n, int * live) {
     int q[n > 0 ? n : 1];
     unsigned char seen[n > 0 ? n : 1];
