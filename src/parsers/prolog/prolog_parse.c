@@ -2799,6 +2799,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$ev'(float(number),float).\n"
     "'$ev'(floor(float),integer).\n"
     "'$ev'(gcd(integer,integer),integer).\n"
+    "'$ev'(getbit(integer,integer),integer).\n"
     "'$ev'((integer div integer),integer).\n"
     "'$ev'((\\(integer)),integer).\n"
     "'$ev'((integer//integer),integer).\n"

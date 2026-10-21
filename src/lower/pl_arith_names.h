@@ -58,6 +58,7 @@ static inline const char * pl_ax_suffix_ext(const char * s, int ar) {
         if (!strcmp(s, "log")) return "logb";
         if (!strcmp(s, "copysign")) return "copysign";
         if (!strcmp(s, "nexttoward")) return "nexttoward";
+        if (!strcmp(s, "getbit")) return "getbit";
         if (!strcmp(s, "rdiv")) return "rdiv";
         if (!strcmp(s, "truncate")) return (const char *)0;
         return (const char *)0;

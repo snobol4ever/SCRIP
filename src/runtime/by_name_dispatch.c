@@ -5838,6 +5838,13 @@ static int pl_big_binop(const char *op, DESCR_t a, DESCR_t b, DESCR_t *out, void
         if (!strcmp(op, "xor")) { *out = rt_big_xor(a, b); return 1; }
     }
     if (!strcmp(op, "shl") || !strcmp(op, "shr")) return pl_ax_shift(op, a, b, out, ball);
+    if (!strcmp(op, "getbit") && b.v == DT_I && b.i >= 0 && pl_big_sign(a) >= 0) {
+        extern DESCR_t rt_big_and(DESCR_t, DESCR_t);
+        DESCR_t t;
+        if (!pl_ax_shift("shr", a, b, &t, ball)) return 0;
+        *out = rt_big_and(t, INTVAL(1));
+        return 1;
+    }
     if (!strcmp(op, "gcd")) {
         DESCR_t x = pl_big_sign(a) < 0 ? rt_big_neg_l(a) : a, y = pl_big_sign(b) < 0 ? rt_big_neg_l(b) : b;
         while (pl_big_sign(y) != 0) { DESCR_t t = rt_big_mod(x, y); if (pl_big_sign(t) < 0) t = rt_big_add(t, y); x = y; y = t; }
@@ -6156,6 +6163,13 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
     if (!strcmp(op, "max")) { *out = (ai && bi) ? INTVAL(a.i > b.i ? a.i : b.i) : (ad > bd ? a : ad < bd ? b : arl ? a : b); return 1; }
     if (!strcmp(op, "copysign")) { if (ai) { long long m = a.i < 0 ? -a.i : a.i; *out = INTVAL(signbit(bd) ? -m : m); } else *out = REALVAL(copysign(ad, bd)); return 1; }
     if (!strcmp(op, "nexttoward")) { *out = REALVAL(nexttoward(ad, (long double)bd)); return 1; }
+    if (!strcmp(op, "getbit")) {
+        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; }
+        if (a.i < 0 || b.i < 0) { if (ball && !*ball) *ball = rt_pl_ball_kind2("domain_error", "not_less_than_zero", a.i < 0 ? a : b); *out = FAILDESCR; return 1; }
+        *out = INTVAL(b.i >= 64 ? 0 : (long long)(((unsigned long long)a.i >> b.i) & 1ULL));
+        return 1;
+    }
     if (!strcmp(op, "gcd")) {
         if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; }
         unsigned long long x = a.i < 0 ? 0ULL - (unsigned long long)a.i : (unsigned long long)a.i, y = b.i < 0 ? 0ULL - (unsigned long long)b.i : (unsigned long long)b.i;
