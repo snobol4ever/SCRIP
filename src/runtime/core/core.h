@@ -384,6 +384,9 @@ int64_t rt_time_ns(void);
 DESCR_t EVAL_fn(DESCR_t expr);
 DESCR_t EXPVAL_fn(DESCR_t expr_d);
 #define RT_CONVE_CHAIN_MARK 0xFFFFFFFDu
+#define RT_TRY_EVAL_OPEN 3L
+#define RT_RQ_EVAL_ARM 1L
+int rt_eval_open_takes(DESCR_t a);
 typedef struct { DESCR_t saved; DESCR_t key; DESCR_t fn; DESCR_t mark; DESCR_t built; DESCR_t esv; DESCR_t flags; } eval_frame_t;
 DESCR_t CONVE_fn(DESCR_t str_d);
 DESCR_t CODE_fn(DESCR_t str_d);

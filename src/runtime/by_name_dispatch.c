@@ -4654,6 +4654,7 @@ DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs);
 int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen);
 int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict);
 static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict, long *rq);
+static int try_call_builtin_by_name_eval_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq);
 static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq);
 static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq);
 DESCR_t c_rt_pas_sqr(DESCR_t *args, int nargs);
@@ -17407,13 +17408,13 @@ rt_call_next_t rt_call_arr_bl_try(const char *fn, DESCR_t *args, long nb, DESCR_
     { DESCR_t v = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0, rq)); if (!rq[0] || rq[0] == 2) *out = v; return (rt_call_next_t){ rq[0], rq[1] }; }
 }
 rt_call_next_t rt_call_arr_bl_sn4_try(const char *fn, DESCR_t *args, long nb, DESCR_t *out) {
-    long rq[2] = { 0, 0 };
+    long rq[2] = { 0, RT_RQ_EVAL_ARM };
     int nargs = (int)(uint32_t)nb, bidlen = (int)(nb >> 32);
-    { DESCR_t v = RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, rq)); if (!rq[0] || rq[0] == 2) *out = v; return (rt_call_next_t){ rq[0], rq[1] }; }
+    { DESCR_t v = RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, rq)); if (!rq[0] || rq[0] == 2 || rq[0] == RT_TRY_EVAL_OPEN) *out = v; return (rt_call_next_t){ rq[0], rq[1] }; }
 }
 rt_call_next_t rt_call_callee_try_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r, DESCR_t *out) {
     extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
-    long rq[2] = { 0, 0 };
+    long rq[2] = { 0, RT_RQ_EVAL_ARM };
     if (r->ctor && r->cgen == rt_ctor_gen() && nargs <= ((DatType *)r->ctor)->nfields && !(nargs == 1 && IS_DATA_INST_fn(args[0]))) {
         *out = dat_construct_rq((DatType *)r->ctor, args, nargs, rq);
         return (rt_call_next_t){ rq[0], rq[1] };
@@ -17422,7 +17423,7 @@ rt_call_next_t rt_call_callee_try_sn4(DESCR_t *args, int nargs, sno_callee_rec_t
         DESCR_t v = rt_call_name_sn4_rq(r->name, args, nargs, -1, rq);
         int h = rt_ctor_ic_find(r->name, rt_ctor_gen());
         if (h >= 0) { r->ctor = g_ctor_ic[h].dt; r->cgen = g_ctor_ic[h].gen; }
-        if (!rq[0] || rq[0] == 2) *out = v;
+        if (!rq[0] || rq[0] == 2 || rq[0] == RT_TRY_EVAL_OPEN) *out = v;
         return (rt_call_next_t){ rq[0], rq[1] };
     }
 }
@@ -17647,10 +17648,10 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
         icn_bi_rec_t bi;
         core_icn_bi_push(&bi, fn, args, nargs);
         if (core_icn_builtin_argcheck(fn, args, nargs, strict)) { core_icn_bi_pop(&bi); return FAILDESCR; }
-        long trq[2] = { 0, 0 };
+        long trq[2] = { 0, rq ? rq[1] : 0 };
         int hit = try_call_builtin_by_name_bl_s_rq(fn, args, nargs, &out, bidlen, strict, sn4 ? trq : rq);
         core_icn_bi_pop(&bi);
-        if (sn4 && rq && trq[0] == 2 && !rq[0]) { rq[0] = 2; rq[1] = trq[1]; }
+        if (sn4 && rq && (trq[0] == 2 || trq[0] == RT_TRY_EVAL_OPEN) && !rq[0]) { rq[0] = trq[0]; rq[1] = trq[1]; }
         if (hit) return out;
     }
     if (sn4) {
@@ -19671,6 +19672,15 @@ static int icn_kbhit(void) {
 int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict) {
     return try_call_builtin_by_name_bl_s_rq(fn, args, nargs, out, bidlen, strict, (long *)0);
 }
+static int try_call_builtin_by_name_eval_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
+    long erq[2] = { 0, RT_RQ_EVAL_ARM };
+    int hit;
+    if (!rq || rq[1] != RT_RQ_EVAL_ARM) return try_call_builtin_by_name(fn, args, nargs, out);
+    hit = try_call_builtin_by_name_bl_s_rq(fn, args, nargs, out, -1, 0, erq);
+    if (erq[0] == RT_TRY_EVAL_OPEN) { rq[0] = erq[0]; rq[1] = erq[1]; }
+    return hit;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict, long *rq) {
     if (!strict && nargs == 1 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
         DATBLK_t *idb = args[0].u->type;
@@ -19855,7 +19865,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             if (_dx->gen == rt_dtax_gen && (_dx_bid_path || (_dx->len == _dxl && !memcmp(_dx->dxn, fn, _dxl)))) {
                 if (_dx->kind == 4 && _dx->ctor) { int _cr = ((int (*)(DESCR_t *, int, DESCR_t *))_dx->ctor)(args, nargs, out); if (_cr >= 0) return _cr; }
                 if (_dx->kind == 5 && _dx->ctor) { int _cr = ((int (*)(DESCR_t *, int, DESCR_t *, int))_dx->ctor)(args, nargs, out, (int)_dx->nf); if (_cr >= 0) return _cr; }
-                if (_dx->kind == 2 && _dx->syn) return try_call_builtin_by_name(_dx->syn, args, nargs, out);
+                if (_dx->kind == 2 && _dx->syn) return try_call_builtin_by_name_eval_rq(_dx->syn, args, nargs, out, rq);
                 if (_dx->kind == 1 && _dx->ctor) {
                     extern DESCR_t dat_construct_byref(void *, DESCR_t *, int);
                     extern int dat_nfields_byref(void *);
@@ -22373,6 +22383,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     if ((_bid == BID_EVAL) && nargs == 1) {
         extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
         DESCR_t av = args[0];
+        if (rq && rq[1] == RT_RQ_EVAL_ARM && rt_eval_open_takes(av)) { rq[0] = RT_TRY_EVAL_OPEN; rq[1] = (long)(uintptr_t)args; *out = FAILDESCR; return 1; }
         if (av.v == DT_X) { extern DESCR_t rt_sno_dtx_value_rec(sno_dstar_rec_t *); *out = rt_sno_dtx_value_rec(SNO_DTX_REC(av)); return 1; }
         if (av.v != DT_P && av.v != DT_E) { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
         if (IS_INT_fn(av) || IS_REAL_fn(av)) { *out = av; return 1; }
@@ -22422,7 +22433,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             extern DESCR_t rt_field_var(const char *field, DESCR_t obj);
             if (rt_g_want_name && nargs >= 2 && args[1].v == DT_DATA && rt_dat_field_of_any(pn)) { rt_g_want_name = 0; *out = rt_field_var(pn, args[1]); return 1; }
         }
-        return try_call_builtin_by_name(pn, args + 1, nargs - 1, out);
+        return try_call_builtin_by_name_eval_rq(pn, args + 1, nargs - 1, out, rq);
     }
     if (nargs == 1) {
         DESCR_t a = args[0];
@@ -22596,7 +22607,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         const char *syn = rt_builtin_synonym(fn);
         if (syn) {
             if (_dx && !_dx_hit) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 2; _dx->nf = 0; memcpy(_dx->dxn, fn, _dxl); _dx->ctor = 0; _dx->syn = syn; }
-            return try_call_builtin_by_name(syn, args, nargs, out);
+            return try_call_builtin_by_name_eval_rq(syn, args, nargs, out, rq);
         }
         if (_dx && !_dx_hit) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 0; _dx->nf = 0; memcpy(_dx->dxn, fn, _dxl); _dx->ctor = 0; _dx->syn = 0; }
     }

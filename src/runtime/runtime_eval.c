@@ -683,8 +683,15 @@ DESCR_t eval_string_transient(const char *s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { long fn; long how; } rt_eval_next_t;
-rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) {
+int rt_eval_open_takes(DESCR_t a) {
     extern int eval_text_takes_chain(const char *);
+    if (a.v == DT_E) return a.slen == RT_CONVE_CHAIN_MARK && a.ptr && eval_open_on();
+    if (a.v != DT_S || !eval_guard_on() || !eval_open_on()) return 0;
+    const char *s = VARVAL_fn(a);
+    return s && *s && eval_text_takes_chain(s);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) {
     extern void rt_eval_stage_leave(const char *);
     rt_eval_next_t none = { 0, 0 };
     if (!f) return none;
@@ -695,7 +702,7 @@ rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) {
         if (rt_dtx_open_tail(SNO_DTX_REC(args[0]), rq) && rq[0]) return (rt_eval_next_t){ rq[0], rq[1] | (1L << 62) };
         return none;
     }
-    if (args && nargs == 1 && args[0].v == DT_E && args[0].slen == RT_CONVE_CHAIN_MARK && args[0].ptr && eval_open_on()) {
+    if (args && nargs == 1 && args[0].v == DT_E && rt_eval_open_takes(args[0])) {
         DESCR_t *tc = NV_CELL_PLAIN_fn(EVAL_TMP);
         if (eval_frame_init(f, tc ? *tc : NV_GET_fn(EVAL_TMP), (const char *)0) < 0) return none;
         f->fn = INTVAL((int64_t)(uintptr_t)args[0].ptr);
@@ -706,9 +713,8 @@ rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) {
         g_error = G_ERROR_EVAL_STAGE;
         return (rt_eval_next_t){ (long)f->fn.i, (long)(uintptr_t)f };
     }
-    if (!args || nargs != 1 || args[0].v != DT_S || !eval_guard_on() || !eval_open_on()) return none;
+    if (!args || nargs != 1 || !rt_eval_open_takes(args[0])) return none;
     const char *s = VARVAL_fn(args[0]);
-    if (!s || !*s || !eval_text_takes_chain(s)) return none;
     rt_eval_stage_leave((const char *)0);
     if (eval_frame_open(f, s, 0) < 0) return none;
     f->flags.i |= 4;

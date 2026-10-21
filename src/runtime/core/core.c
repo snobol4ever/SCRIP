@@ -4973,6 +4973,7 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs, long *r
                 extern DESCR_t APPLY_fn_rq(const char *, DESCR_t *, int, long *);
                 return RT_GC_CALLBACK(APPLY_fn_rq(core_apply_target(args), args + 1, nargs - 1, rq));
             }
+            if (e->fn == _EVAL_ && rq && rq[1] == RT_RQ_EVAL_ARM && nargs == 1 && rt_eval_open_takes(args[0])) { rq[0] = RT_TRY_EVAL_OPEN; rq[1] = (long)(uintptr_t)args; return FAILDESCR; }
             if (e->fn) {
                 if (e->min_args > 0 && nargs < e->min_args) {
                     DESCR_t pad[e->min_args];

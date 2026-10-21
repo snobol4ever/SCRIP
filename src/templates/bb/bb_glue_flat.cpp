@@ -13,10 +13,16 @@ extern long rt_tweak_open(DESCR_t * out, const char * cname, trace_pend_t * pend
 extern void rt_call_pend_close(trace_pend_t * pend);
 extern DESCR_t rt_apply_land_γ(DESCR_t frame0, long word, const long * sv);
 extern DESCR_t rt_apply_land_ω(long word, const long * sv);
+typedef struct { long fn; long how; } rt_eval_next_t;
+extern rt_eval_next_t rt_eval_open(DESCR_t * args, int nargs, void * rec);
+extern DESCR_t rt_eval_land(long word);
 }
 #include "x86_asm.h"
+#define BGTE_EVAL_REC 112
+#define BGTE_VERDICT_EVAL 3
 std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno, int in_shim,
-    const std::string & tweak_out_lea = std::string());
+    const std::string & tweak_out_lea = std::string(), int eval_arm = 0);
+std::string bb_glue_enter_chain_ret(int lid);
 std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_shim);
 std::string bb_glue_call_pend_run(int base, long nargs, long off);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -214,8 +220,30 @@ std::string bb_glue_stno_unit_push(void) {
          + x86_rsp_store64(8, "rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_glue_try_eval_arm(int base, int val_id, int join_id) {
+    return x86("cmp", "rax", (long)BGTE_VERDICT_EVAL)
+         + x86_jcc_id("jne", base + 70)
+         + x86("mov", "rdi", "rdx")
+         + x86("mov32", "esi", 1L)
+         + x86("sub", "rsp", (long)BGTE_EVAL_REC)
+         + x86("mov", "rdx", "rsp")
+         + x86("call", "rt_eval_open", (uint64_t)(uintptr_t)(void *)rt_eval_open)
+         + x86_rt_gc_poll_rec_sigma_word(1)
+         + x86("test", "rax", "rax")
+         + x86_jcc_id("jz", base + 72)
+         + bb_glue_enter_chain_ret(base + 71)
+         + x86("call", "rt_eval_land", (uint64_t)(uintptr_t)(void *)rt_eval_land)
+         + x86_rt_gc_poll_rec_res()
+         + x86("add", "rsp", (long)BGTE_EVAL_REC)
+         + x86_jmp_id(join_id)
+         + x86_deflabel_id(base + 72)
+         + x86("add", "rsp", (long)BGTE_EVAL_REC)
+         + x86_jmp_id(val_id)
+         + x86_deflabel_id(base + 70);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno, int in_shim,
-    const std::string & tweak_out_lea)
+    const std::string & tweak_out_lea, int eval_arm)
     {
     return x86("call", try_sym, try_fp)
          + x86_rt_gc_poll_rec_sigma_word(1)
@@ -236,6 +264,7 @@ std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char 
              + x86("add", "rsp", 112L)
              + x86_jmp_id(val_id)
              + x86_deflabel_id(base + 9))
+         + IF(eval_arm, bb_glue_try_eval_arm(base, val_id, join_id))
          + IF(stno, bb_glue_stno_unit_push())
          + bb_glue_enter_c2bb(base, base + 5, base + 6, in_shim ? base + 7 : -1)
          + x86_deflabel_id(base + 5)
@@ -256,7 +285,7 @@ std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_callee_try_enter(int base, int val_id, int join_id, const std::string & tweak_out_lea) {
     return bb_glue_try_enter("rt_call_callee_try_sn4", (uint64_t)(uintptr_t)(void *)rt_call_callee_try_sn4, "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ,
-                             "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1, 0, tweak_out_lea);
+                             "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1, 0, tweak_out_lea, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PEND_CALL_ID(base, n) ((base) + (n))

@@ -165,7 +165,7 @@ static std::string cf_try_enter(const std::string & out_lea) {
     return x86("movabs", "rdx", ((uint64_t)(uint32_t)_.op_call_bid << 32) | (uint64_t)(uint32_t)CF_N())
          +
              bb_glue_try_enter(_.op_call_try_sym, _.op_call_try_fp, "rt_call_land_γ", TEMPLATE_FN_ADDR(rt_call_land_γ), "rt_call_land_ω", TEMPLATE_FN_ADDR(rt_call_land_ω), 100, 108, 29, 0, 0,
-             out_lea);
+             out_lea, !strcmp(_.op_call_try_sym, "rt_call_arr_bl_sn4_try"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cf_byname_flat(int open, int eval) {
