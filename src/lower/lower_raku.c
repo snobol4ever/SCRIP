@@ -2080,7 +2080,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             return lower_rcall(cx, call, "re_matchx", 0, γ, ω, res);
         }
         if (t->n > 2 && t->c[2] && t->c[2]->v.sval && strcmp(t->c[2]->v.sval, "subst")) {
-            IR_t * nd = build(cx, IR_CALL, γ, ω);
+            int plain = !strcmp(t->c[2]->v.sval, "match");
+            IR_t * last = NULL;
+            if (plain) { last = build(cx, IR_CALL, γ, ω); IR_LIT(last).sval = (char *) "__rk_match_last"; }
+            IR_t * nd = build(cx, IR_CALL, plain ? last : γ, plain ? last : ω);
             IR_LIT(nd).sval = strcmp(t->c[2]->v.sval, "match_global") ? "re_match" : "re_match_global";
             IR_t * sr = NULL, * pr = NULL;
             IR_t * es = lower_rv(cx, t->c[0], NULL, ω, &sr);
@@ -2088,7 +2091,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             γ_to(sr, ep);
             ir_operand_push(nd, sr);
             ir_operand_push(nd, pr);
-            *res = nd;
+            *res = plain ? last : nd;
             return es;
         }
         return rk_excise(cx, γ, ω, res);
