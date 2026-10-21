@@ -2277,6 +2277,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$code_type'(Ch,T):-char_type(Ch,T).\n"
     "select(X,[X|T],T).\n"
     "select(X,[H|T],[H|R]):-select(X,T,R).\n"
+    "nth(_,_,_):-current_prolog_flag('$dialect',swi),!,throw(error(existence_error(procedure,nth/3),nth/3)).\n"
     "nth(N,L,E):-nth1(N,L,E).\n"
     "delete([],_,[]).\n"
     "delete([H|T],X,R):-(\\+ H\\=X->R=R1;R=[H|R1]),delete(T,X,R1).\n"
