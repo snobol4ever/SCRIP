@@ -5277,6 +5277,13 @@ static void dh_retains_build(void) {
         }
     }
 }
+static const char * xop_frame_why(const IR_t * nd) {
+    if (icn_xop_frame_member(nd)) return zd_dj_retains(nd) ? "retaining-disjunction" : (icn_retaining_kind((int)nd->op) || icn_retaining_kind((int)ir_kind0(nd))) ? "retaining-call-result" :
+        "read-across-retaining-edge";
+    if (pl_xop_frame_member(nd)) return nd->op == IR_TO ? "db-walk-state" : "read-across-segment";
+    return xop_frame_member(nd) ? "read-across-pattern-choice" : "-";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
     extern const char * zls_graph_name_get(const IR_graph_t *); extern int zls_g_vslot_count(const IR_graph_t *); extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
     const IR_graph_t * g = g_emit_cfg;
@@ -5289,9 +5296,9 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
         int ai = -1;
         for (int k = 0; g && k < g->n; k++) if (g->all[k] == nd) { ai = k; break; }
         int off = bb_slot_get(nd); if (off < 0) off = nd_slot(nd);
-        int rbp = xop_frame_slot(nd) != -1;
+        int xf = xop_frame_slot(nd), rbp = xf != -1;
         const char * home = zon[i] ? (zd_k(nd) > 0 ? "SPINE" : "NONE") : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
-        fprintf(stderr, "[HOMES] g=%d graph=%s all=%d kind=%s home=%s off=%d\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), home, off);
+        fprintf(stderr, "[HOMES] g=%d graph=%s all=%d kind=%s home=%s off=%d xf=%d xfwhy=%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), home, off, xf, rbp ? xop_frame_why(nd) : "-");
     }
     int nv = g ? zls_g_vslot_count(g) : 0;
     for (int k = 0; k < nv; k++) {
