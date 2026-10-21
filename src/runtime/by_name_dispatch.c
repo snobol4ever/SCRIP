@@ -9332,10 +9332,10 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     { "float_undefined", "error", 1, { "error", "nan", 0 } }, { "char_conversion", "off", 1, { "on", "off", 0 } }, { "debug", "off", 1, { "on", "off", 0 } }, { "unknown", "error", 1, { "error",
     "fail", "warning", 0 } }, { "double_quotes", "codes", 1, { "atom", "chars", "codes", "string", 0 } }, { "protect_static_code", "false", 1, { "true", "false", 0 } }, { "iso", "false", 1, { "true",
     "false", 0 } }, { "occurs_check", "false", 1, { "true", "false", "error", 0 } }, { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", "UTF-16BE", "UTF-16LE",
-    "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0,
-    { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on", "off", 0 } },
-    { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", "gnu", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } }, { "threads",
-    "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } },
+    "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0, { 0 } }, { "os_argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0,
+    { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on",
+    "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", "gnu", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } },
+    { "threads", "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } },
     { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "min_tagged_integer", "-72057594037927936", 0, { 0 } }, { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } },
     { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { 0, "", 0, { 0 } } };
 static cv_t g_pl_flags;
@@ -9389,7 +9389,7 @@ int rt_pl_flag_at_read(const char *nm, int swi, const char **aval, long *ver) {
     if (!strcmp(fl->nm, "version_data")) { *aval = swi ? "swi" : "scrip"; ver[0] = swi ? 9 : 0; ver[1] = 0; ver[2] = swi ? 4 : 0; return 2; }
     if (!strcmp(fl->nm, "dialect") && swi) { *aval = "swi"; return 1; }
     if (!strcmp(fl->nm, "debug") && swi) { *aval = strcmp(fl->val, "on") ? "false" : "true"; return 1; }
-    if (fl->is_term || !strcmp(fl->nm, "argv") || !fl->val || !fl->val[0]) return 3;
+    if (fl->is_term || !strcmp(fl->nm, "argv") || !strcmp(fl->nm, "os_argv") || !fl->val || !fl->val[0]) return 3;
     *aval = fl->val;
     return 1;
 }
@@ -9474,11 +9474,16 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
         } else if (fl->is_term) {
             DESCR_t o = pl_flag_term_value(fl);
             ok = plw_unify_vals(args[1], o, cx);
-        } else if (!strcmp(fl->nm, "argv")) {
+        } else if (!strcmp(fl->nm, "argv") || !strcmp(fl->nm, "os_argv")) {
             extern int rt_main_args_count(void);
             extern const char *rt_main_arg_at(int);
+            extern const char *rt_main_progname(void);
             DESCR_t l = pl_nil();
-            for (int i = rt_main_args_count() - 1; i >= 0; i--) { const char *a = rt_main_arg_at(i); if (!a) a = ""; l = pl_cons(pl_mk_atom_dup(a, strlen(a)), l); }
+            for (int i = rt_main_args_count() - 1; i >= (fl->nm[0] == 'o' ? -1 : 0); i--) {
+                const char *a = i < 0 ? rt_main_progname() : rt_main_arg_at(i);
+                if (!a) a = "";
+                l = pl_cons(pl_mk_atom_dup(a, strlen(a)), l);
+            }
             ok = plw_unify_vals(args[1], l, cx);
         } else if (!strcmp(fl->nm, "stack_limit")) {
             ok = plw_unify_vals(args[1], INTVAL((int64_t)strtoll(fl->val ? fl->val : "0", (char **)0, 10)), cx);
