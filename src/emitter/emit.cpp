@@ -6358,10 +6358,11 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                         g_emitter.codegen_flat_chain_body_nodes[i]->n_operands, bv ? 1 : 0,
                     g_emitter.g_scan_body_beta ? g_emitter.g_scan_body_beta->name : "-", (_fk >= 0 && lbls[_fk]) ? lbls[_fk]->name : "-", (_fk >= 0 && betas[_fk]) ? betas[_fk]->name : "-",
                     _fk >= 0 ? scan_body_beta_keeps(g_emitter.codegen_flat_chain_body_nodes[_fk]) : -1, _fk >= 0 ? (int)bused[_fk] : -1); }
-            { int tk = -1;
+            { int tk = -1, ta = 0;
               for (int k = 0; k < n && g_emitter.g_scan_body_beta; k++) if (betas[k] == g_emitter.g_scan_body_beta) { tk = k; break; }
-              if (tk >= 0 && zd_xb && zd_on[i] && zd_on[tk] && zd_xb[i] != INT_MIN && zd_xb[tk] != INT_MIN) g_emitter.g_scan_t0_pop = (zd_xb[i] + zd_out[i]) - (zd_xb[tk] + zd_out[tk]);
-              else if (tk >= 0 && zd_on[i] && zd_on[tk] && zd_claim[i] >= 0 && zd_claim[i] == zd_claim[tk]) g_emitter.g_scan_t0_pop = zd_out[i] - zd_out[tk]; }
+              for (int k = 0; tk < 0 && k < n && g_emitter.g_scan_body_beta; k++) if (lbls[k] == g_emitter.g_scan_body_beta) { tk = k; ta = zd_k(g_emitter.codegen_flat_chain_body_nodes[k]); }
+              if (tk >= 0 && zd_xb && zd_on[i] && zd_on[tk] && zd_xb[i] != INT_MIN && zd_xb[tk] != INT_MIN) g_emitter.g_scan_t0_pop = (zd_xb[i] + zd_out[i]) - (zd_xb[tk] + zd_out[tk] - ta);
+              else if (tk >= 0 && zd_on[i] && zd_on[tk] && zd_claim[i] >= 0 && zd_claim[i] == zd_claim[tk]) g_emitter.g_scan_t0_pop = zd_out[i] - (zd_out[tk] - ta); }
         }
         { if (g_emitter.codegen_flat_chain_body__zpf < 0) { const char *_e = getenv("SCRIP_ZPOP_FOLD_OFF"); g_emitter.codegen_flat_chain_body__zpf = (_e && _e[0] == '1') ? 1 : 0; }
           if (!g_emitter.codegen_flat_chain_body__zpf) {
