@@ -19,7 +19,8 @@ std::string xa_to_trail_exhausted(const char * jcc_ok, int l_ok);
 std::string xa_to_trail_last(int l_more);
 std::string xa_to_trail_unwind();
 std::string xa_to_int_operand_guard(int slot);
-std::string xa_to_db_load_store();
+std::string xa_to_db_load_store(int lab);
+std::string xa_to_db_store_rax(int lab);
 std::string xa_to_db_slot_addr();
 #define TO_BOMB1() (x86_resumable_frame() && _.op_num_real)
 #define TO_ZD_LIM() ((x86_resumable_frame() && _.op_to_trailed) ? 8 : 24)
@@ -39,10 +40,7 @@ static std::string bb_to_db() {
                           "the store is reloaded from its root cell at every step (a collected object moves)")
          + x86_alpha()
          + x86("mov", "rax", FRQ(_.op_sa + 8))
-         + x86_shift_imm("shl", 4, "rax", 3)
-         + x86("mov", "rcx", "r14")
-         + x86("sub", "rcx", "rax")
-         + x86("mov", "rax", RDQ("rcx", -24))
+         + xa_to_db_store_rax(20)
          + x86("test", "rax", "rax")
          + x86_omega("je")
          + x86("mov", "r9", RDQ("rax", 0))
@@ -57,7 +55,7 @@ static std::string bb_to_db() {
          + x86("cmp", "esi", 0L)
          + xa_to_trail_exhausted("jge", 5)
          + x86_omega("jl")
-         + xa_to_db_load_store() + xa_to_db_slot_addr() + x86("mov", "r8", FRQ(_.op_off + 32))
+         + xa_to_db_load_store(22) + xa_to_db_slot_addr() + x86("mov", "r8", FRQ(_.op_off + 32))
          + x86("mov", "r11d", RDD("r10", 20))
          + x86("cmp", "r11d", "r8d")
          + x86("jge", L(3))
@@ -72,7 +70,7 @@ static std::string bb_to_db() {
          + x86_gamma()
          + x86_beta()
          + xa_to_trail_unwind()
-         + x86("mov", "rsi", FRQ(_.op_off + 16)) + xa_to_db_load_store() + xa_to_db_slot_addr()
+         + x86("mov", "rsi", FRQ(_.op_off + 16)) + xa_to_db_load_store(24) + xa_to_db_slot_addr()
          + x86("def", L(3))
          + x86("mov", "esi", RDD("r10", 32))
          + x86("movsxd", "rsi", "esi")

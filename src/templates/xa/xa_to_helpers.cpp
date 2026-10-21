@@ -61,12 +61,28 @@ std::string xa_to_int_operand_guard(int slot) {
              + x86_rt_gc_poll());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string xa_to_db_load_store() {
-    return x86("mov", "rax", FRQ(_.op_sa + 8))
+extern "C" int rt_pl_db_frame_cells(void);
+std::string xa_to_db_store_rax(int lab) {
+    int nf = rt_pl_db_frame_cells();
+    return x86("cmp", "rax", (long)nf)
+           + x86("jge", L(lab))
            + x86_shift_imm("shl", 4, "rax", 3)
            + x86("mov", "rcx", "r14")
            + x86("sub", "rcx", "rax")
            + x86("mov", "rax", RDQ("rcx", -24))
+           + x86("jmp", L(lab + 1))
+           + x86("def", L(lab))
+           + x86("sub", "rax", (long)nf)
+           + x86_shift_imm("shl", 4, "rax", 3)
+           + x86("mov", "rcx", RDQ("r14", -24))
+           + x86("mov", "rcx", RDQ("rcx", 24))
+           + x86("add", "rcx", "rax")
+           + x86("mov", "rax", RDQ("rcx", 0))
+           + x86("def", L(lab + 1));
+}
+std::string xa_to_db_load_store(int lab) {
+    return x86("mov", "rax", FRQ(_.op_sa + 8))
+           + xa_to_db_store_rax(lab)
            + x86("mov", "r9", RDQ("rax", 0));
 }
 std::string xa_to_db_slot_addr() {
