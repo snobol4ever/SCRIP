@@ -2072,6 +2072,11 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
             int e = zd_dj_arm_end(nodes, n, i, j), k = nidx(nodes, n, zd_chase(nd->operands[2 * j + 1]));
             long r = 0, da = 0, dk = 0;
             if (e < 0 || !zon[e]) continue;
+            if (zd_pl_dj_arm_holds(nd, j) && k >= 0 && zon[k] && zd_chase(nodes[k]->γ.node) == nd) {
+                int ca = zd_cpos(e, xb, zout, &da), ck = zd_cpos(k, xb, zout, &dk);
+                if (ca != INT_MIN && ca == ck) XA_PAIR(N + j).rsp = (da - g_emitter.g_zd_gp_p[e]) - (dk - g_emitter.g_zd_gp_p[k]);
+                continue;
+            }
             if (zd_pl_dj_arm_holds(nd, j)) { if (k >= 0 && zon[k] && zd_gate_pair(nodes, n, e, k, 1, zon, zout, xb, &r)) XA_PAIR(N + j).rsp = r; continue; }
             { int ca = zd_cpos(e, xb, zout, &da), ck = zd_cpos(i, xb, zout, &dk); da -= g_emitter.g_zd_gp_p[e]; if (ca != INT_MIN && ca == ck) XA_PAIR(N + j).rsp = da - dk; }
         }
@@ -4716,6 +4721,10 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             int ci = claim[i], a = aof[ci];
             for (int f = known[ci] ? -1 : fam[ci], hop = 0; f >= 0 && a < 0 && hop <= n; hop++) {
                 int nf = -1;
+                for (int a2 = 0; a2 < nalt && a < 0 && g_emit_cfg->alt_entry; a2++) {
+                    int q2 = g_emit_cfg->alt_entry[a2] ? nidx(nodes, n, zd_chase(g_emit_cfg->alt_entry[a2])) : -1;
+                    if (q2 >= 0 && zon[q2] && claim[q2] >= 0 && fam[claim[q2]] == f) a = a2;
+                }
                 for (int e = 0; e < n && a < 0 && nf < 0; e++) {
                     IR_t * t = (zon[e] && claim[e] >= 0 && zd_edge_retains(nodes[e])) ? zd_chase(nodes[e]->γ.node) : (IR_t *)0;
                     int q = t ? nidx(nodes, n, t) : -1;
