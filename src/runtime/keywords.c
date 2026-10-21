@@ -306,7 +306,7 @@ static int kwb_read_ent(KWB_ENT_t *e, DESCR_t *out) {
     if (e->kind == KWB_STR) {
         if (!strcmp(e->name, "RTNTYPE")) { *out = STRVAL(kw_rtntype); return 1; }
         if (!strcmp(e->name, "ERRTEXT")) { *out = STRVAL(g_sno_errtext ? g_sno_errtext : ""); return 1; }
-        if (!strcmp(e->name, "ALPHABET")) { extern char alphabet[257]; return (*out = BSTRVAL(alphabet, 256)), 1; }
+        if (!strcmp(e->name, "ALPHABET")) { extern const char alphabet[257]; return (*out = BSTRVAL(alphabet, 256)), 1; }
         if (!strcmp(e->name, "FILE")) { extern const char *g_file; *out = STRVAL(g_file ? g_file : ""); return 1; }
         if (!strcmp(e->name, "LASTFILE")) { extern const char *g_lastfile; *out = STRVAL(g_lastfile ? g_lastfile : ""); return 1; }
         *out = e->sval ? STRVAL(e->sval) : STRVAL("");

@@ -1613,10 +1613,10 @@ int64_t kw_errlimit = 0;
 int64_t kw_code = 0;
 int64_t kw_fnclevel = 0;
 char kw_rtntype[16] = "";
-char ucase[27] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-char lcase[27] = "abcdefghijklmnopqrstuvwxyz";
-char digits[11] = "0123456789";
-char alphabet[257];
+#define ALPHA4(n) (n), (n) + 1, (n) + 2, (n) + 3
+#define ALPHA16(n) ALPHA4(n), ALPHA4((n) + 4), ALPHA4((n) + 8), ALPHA4((n) + 12)
+#define ALPHA64(n) ALPHA16(n), ALPHA16((n) + 16), ALPHA16((n) + 32), ALPHA16((n) + 48)
+const char alphabet[257] = { ALPHA64(0), ALPHA64(64), ALPHA64(128), ALPHA64(192), 0 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int is_numeric_like(DESCR_t d) {
     if (d.v == DT_BIG) return 1;
@@ -2810,8 +2810,6 @@ void core_lib_init(void) {
         rt_cmdline_switches_apply();
         { extern long rt_stack_budget_bytes(long); extern void rt_stack_budget_apply(long, long); rt_stack_budget_apply(rt_stack_budget_bytes(_sw_stack_bytes), 0L); }
     }
-    for (int i = 0; i < 256; i++) alphabet[i] = (char)i;
-    alphabet[256] = '\0';
     { extern void rt_kw_seed_defaults(void); rt_kw_seed_defaults(); }
     if (!g_user_call_hook) { extern DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs, long *rq); g_user_call_hook = _usercall_hook; }
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts); _g_start_ns = (int64_t)_ts.tv_sec * 1000000000LL + (int64_t)_ts.tv_nsec; }
@@ -3067,7 +3065,7 @@ const char *rt_sno_indirect_name(DESCR_t v) {
 jmp_buf g_core_err_jmp;
 int g_core_err_active = 0;
 int g_kw_ctx = 0;
-static const char *core_err_msgs[40] = { NULL, "Illegal data type", "Error in arithmetic operation", "Erroneous array or table reference", "Null string in illegal context",
+static const char *const core_err_msgs[40] = { NULL, "Illegal data type", "Error in arithmetic operation", "Erroneous array or table reference", "Null string in illegal context",
     "Undefined function or operation", "Erroneous prototype", "Unknown keyword", "Variable not present where required", "Entry point of function not label", "Illegal argument to primitive function",
     "Reading error", "Illegal i/o unit", "Limit on defined data types exceeded", "Negative number in illegal context", "String overflow", "Overflow during pattern matching", "Error in SNOBOL4 system",
     "Return from level zero", "Failure during goto evaluation", "Insufficient storage to continue", "Stack overflow", "Limit on statement execution exceeded", "Object exceeds size limit",

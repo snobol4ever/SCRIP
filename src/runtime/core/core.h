@@ -315,10 +315,7 @@ static inline int core_err_is_terminal(int code) {
 static inline int core_err_survives_errlimit(int code) { switch (code) { case 38: case 242: return 0; default: return 1; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int core_err_is_fatal(int code) { switch (code) { case 19: case 24: case 25: case 35: return 1; default: return 0; } }
-extern char ucase[27];
-extern char lcase[27];
-extern char alphabet[257];
-extern char digits[11];
+extern const char alphabet[257];
 void core_lib_init(void);
 DESCR_t pat_lit(const char *s);
 DESCR_t pat_span(const char *chars);

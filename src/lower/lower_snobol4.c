@@ -253,7 +253,7 @@ static int sno_pe_op(tree_e op, const char * fn, DESCR_t * av, int n, DESCR_t * 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pe_walk(const tree_t * t, DESCR_t * v, sno_pe_t * e) {
-    extern char alphabet[257];
+    extern const char alphabet[257];
     DESCR_t a, b, av[2];
     int k, all;
     if (!t || e->code) return 0;
