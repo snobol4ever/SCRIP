@@ -112,6 +112,15 @@ static int icn_gen_wiring(const IR_t * t) {
 static void γ_to(IR_t * nd, IR_t * t) { if (t && icn_gen_wiring(t)) lc_γ_to_β(nd, t); else lc_γ_to(nd, t); }
 static void icn_mark_γ_fail_conduit(IR_t * nd) { if (nd) { memcpy(nd->γ.sz, "φ", 3); nd->γ.sz[3] = 0; } }
 static int icn_γ_is_fail_conduit(const IR_t * nd) { return nd && (unsigned char) nd->γ.sz[0] == 0xcf && (unsigned char) nd->γ.sz[1] == 0x86; }
+static void icn_settle_fail_conduits(IR_graph_t * g) {
+    for (int k = 0; k < g->n; k++) {
+        IR_t * x = g->all[k];
+        if (!x || !icn_γ_is_fail_conduit(x) || !x->γ.node || x->γ.node != x->ω.node) continue;
+        IR_t * t = x->γ.node;
+        for (int h = 0; t && t->op == IR_GOTO && h < 128; h++) t = t->γ.node;
+        if (t && t->op != IR_DISJUNCTION) memcpy(x->γ.sz, x->ω.sz, sizeof x->γ.sz);
+    }
+}
 static void ω_to(IR_t * nd, IR_t * t) { if (t && icn_gen_wiring(t)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(icx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
@@ -3060,6 +3069,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     }
     g->entry = icn_trace_call_wrap(cx, cx->pname, succ, PFAIL);
     if (cx->pname && !strcmp(cx->pname, "main")) { IR_t * qt = build(cx, IR_CALL, g->entry, g->entry); IR_LIT(qt).sval = (char *) "$quit_trap_300"; g->entry = qt; }
+    icn_settle_fail_conduits(g);
     g->cell_frame = 1;
     g->spine_cells = 1;
     return g;

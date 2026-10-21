@@ -2919,6 +2919,9 @@ static void zd_vdj_live(IR_t ** nodes, int n, int * live) {
 }
 static int port_sz_beta(const char * sz) { return sz[0] == (char)0xce && (unsigned char)sz[1] == 0xb2; }
 static int beta_is_stmt_land(const IR_t * tgt) { return tgt && tgt->op == IR_STATEMENT_BEGIN; }
+static int emit_glue_box(const IR_t * t, int phi) { int o = (int)t->op;
+    return ((o == IR_MATCH_ALTERNATE || o == IR_MATCH_ARBNO || o == IR_MATCH_FENCE1 || o == IR_SCAN_SEQUENCE || o == IR_SCAN_ALTERNATE || o == IR_DISJUNCTION) && t->n_operands > 0) ||
+        (phi && o == IR_MATCH_BEGIN); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_icn_suspend(const IR_t * nd);
@@ -4663,6 +4666,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 int to = q;
                 if (p >= 0 && p != q) { to = p; if (zchn) zchn[2 * i + v] = p; }
                 int xb = (claim[i] != claim[to] && claim[i] >= 0 && claim[to] >= 0 && known[claim[i]] && known[claim[to]]) ? base[claim[i]] - base[claim[to]] : 0;
+                int xq = (claim[i] != claim[q] && claim[i] >= 0 && claim[q] >= 0 && known[claim[i]] && known[claim[q]]) ? base[claim[i]] - base[claim[q]] : 0;
                 int zq = zout[q] - (zd_sz_phi(sz) ? zd_djx_of(nodes[q]) : 0);
                 if (v) zwpop[i] = (zout[i] - zd_k(nodes[i])) - (to == q ? zq : zout[to]) + xb;
                 else zgpop[i] = zout[i] - (to == q ? zq : zout[to]) + xb;
@@ -4672,7 +4676,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                     if (stop) pc = -1;
                     int tc = (pc >= 0) ? pc : q;
                     if (zchn && pc >= 0 && pc != q) zchn[2 * c + 1] = pc;
-                    zwpop[c] = (zout[c] - zd_k(nodes[c])) - (tc == q ? zq : zout[tc]);
+                    zwpop[c] = (zout[c] - zd_k(nodes[c])) - (tc == q ? zq - xq : zout[tc]);
                     if (zchn && pc == q && zd_chase(nodes[c]->ω.node) != nodes[q]) zchn[2 * c + 1] = q;
                     if (stop) break;
                 }
@@ -4801,6 +4805,23 @@ static int zd_check_discard(const IR_t * t) { int o = t ? (int)t->op : -1;
     return o == IR_UNMARK || o == IR_BOUND || o == IR_MATCH_FENCE0 || o == IR_MATCH_FENCE1 || o == IR_CUT || o == IR_GATE || o == IR_GATE_ARM || o == IR_STATEMENT_BEGIN || o == IR_SUCCEED ||
         o == IR_FAIL; }
 static int zd_check_arm_env(int o) { return o == IR_GATE || o == IR_GATE_ARM || o == IR_DISJUNCTION || o == IR_MATCH_ARBNO || o == IR_MATCH_ALTERNATE; }
+static int zd_run_alpha_dead(IR_t ** nodes, int n, const int * claim, int h) {
+    if (h <= 0 || h >= n || claim[h] != h || (g_emit_cfg && g_emit_cfg->n_alts > 0)) return 0;
+    for (int i = 0; i < n; i++) {
+        if (claim[i] == h) continue;
+        for (int v = 0; v < 2; v++) {
+            IR_t * t = zd_chase(v ? nodes[i]->ω.node : nodes[i]->γ.node);
+            int q = t ? nidx(nodes, n, t) : -1;
+            if (q >= 0 && claim[q] == h && !port_sz_beta(zd_edge_sz(nodes[i], v))) return 0;
+        }
+        int na = (nodes[i]->op == IR_DISJUNCTION) ? (int)IR_LIT(nodes[i]).ival : -1;
+        for (int k = 0; k < nodes[i]->n_operands; k++) {
+            int q = nodes[i]->operands[k] ? nidx(nodes, n, nodes[i]->operands[k]) : -1;
+            if (q >= 0 && claim[q] == h && !(na >= 0 && (k >= 2 * na || (k & 1)))) return 0;
+        }
+    }
+    return 1;
+}
 static void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, const int *xb, const int *zchn, const char *prefix) {
     if (g_emitter.zd_check__on < 0) { const char * e = getenv("SCRIP_ZD_CHECK"); g_emitter.zd_check__on = (e && *e == '1') ? 1 : 0; }
     if (!g_emitter.zd_check__on || n <= 0) return;
@@ -4819,7 +4840,7 @@ static void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *z
             if (j < 0 || j == i || !zon[j]) continue;
             if (xb) { if (xb[j] == INT_MIN) continue; } else if (!claim || claim[j] != claim[i]) continue;
             const char * sz = zd_edge_sz(nodes[i], v);
-            int bj = xb ? xb[j] : 0, beta = via >= 0 || port_sz_beta(sz) || zd_sz_sigma(sz) || zd_sz_phi(sz);
+            int bj = xb ? xb[j] : 0, beta = via >= 0 || port_sz_beta(sz) || (zd_sz_phi(sz) && emit_glue_box(nodes[j], 1)) || (!v && zd_sz_sigma(sz) && emit_glue_box(nodes[j], 0));
             int arrive = v ? (Xi - Ki - zwpop[i]) : (Xi - zgpop[i]);
             int Xj = bj + zout[j], expect = beta ? Xj : Xj - zd_k(nodes[j]);
             edges++;
@@ -5873,17 +5894,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         betas[i] = emit_label_alloc("n%d_%s_β", _uid, _kn);
         ra_y[i] = (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_REPALT) ? emit_label_alloc(".L%s_γ_%d_ry", _kn, _uid) : NULL;
         ra_t[i] = (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_REPALT) ? emit_label_alloc(".L%s_ω_%d_rt", _kn, _uid) : NULL;
-        na_s[i] =
-            ((g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_ALTERNATE || g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_ARBNO ||
-                g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_FENCE1 || g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SCAN_SEQUENCE ||
-                g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SCAN_ALTERNATE ||
-            g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION) && g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 0) ? emit_label_alloc(".L%s_γ_%d_as", _kn, _uid) : NULL;
-        { int _naf_on =
-            (((g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_ALTERNATE || g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_ARBNO ||
-                g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_FENCE1 || g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SCAN_SEQUENCE ||
-                g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SCAN_ALTERNATE ||
-            g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION) && g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 0) ||
-                g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_BEGIN);
+        na_s[i] = emit_glue_box(g_emitter.codegen_flat_chain_body_nodes[i], 0) ? emit_label_alloc(".L%s_γ_%d_as", _kn, _uid) : NULL;
+        { int _naf_on = emit_glue_box(g_emitter.codegen_flat_chain_body_nodes[i], 1);
           na_f[i] = _naf_on ? emit_label_alloc(".L%s_γ_%d_af", _kn, _uid) : NULL;
           na_fo[i] = _naf_on ? emit_label_alloc(".L%s_ω_%d_af", _kn, _uid) : NULL; }
         { extern const char * bb_src_of(const IR_t *); st_pre[i] = (g_emit.flat_stmt_frame && bb_src_of(g_emitter.codegen_flat_chain_body_nodes[i])) ? emit_label_alloc("n%d_%s_st", _uid, _kn) : NULL;
@@ -6327,7 +6339,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                       extern int fc_head_fp(const IR_t *); extern int fc_tail_head(const IR_t *); extern int emit_match_begin_frame_extra(const IR_t *);
                       _xh += 64 + emit_match_begin_frame_extra(g_emitter.codegen_flat_chain_body_nodes[_zm]);
                           } g_emitter.g_zd_read[_zj] = zd_out[i] - zd_out[_k] + _xh + ((zd_xb && zd_xb[i] != INT_MIN && zd_xb[_k] != INT_MIN) ? zd_xb[i] - zd_xb[_k] : 0);
-                          if (g_emitter.zd_check__on > 0 && zd_xb && zd_claim[i] != zd_claim[_k] && (zd_xb[i] == INT_MIN || zd_xb[_k] == INT_MIN) && xop_frame_slot(_p) == -1)
+                          if (g_emitter.zd_check__on > 0 && zd_xb && zd_claim[i] != zd_claim[_k] && (zd_xb[i] == INT_MIN || zd_xb[_k] == INT_MIN) && xop_frame_slot(_p) == -1 &&
+                              (zd_k_own(_p) >= 16 || zd_local_home_node(_p)) && !zd_run_alpha_dead(g_emitter.codegen_flat_chain_body_nodes, n, zd_claim, zd_claim[i]))
                               fprintf(stderr, "[ZD-CHECK]   READ i=%d %s reads p=%d %s across runs with an unknown base\n", i,
                               bb_op_name(g_emitter.codegen_flat_chain_body_nodes[i]->op), _k, bb_op_name(g_emitter.codegen_flat_chain_body_nodes[_k]->op));
                           { const IR_t * _lh = zd_local_home_node(_p); if (_lh) g_emitter.g_zd_fread[_zj] = bb_varslot_peek(IR_LIT(_lh).sval); }
