@@ -6206,7 +6206,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   zd_rec_arm(g_emitter.codegen_flat_chain_body_nodes, i);
                   if (zd_cpd && zd_cpd[i] <= -2) zd_cp_arm(g_emitter.codegen_flat_chain_body_nodes, i, zd_cps, zd_cpd, zd_out);
               }
-              else if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION && zd_on[i] && (zd_dj_admitted(zd_arm, n, i) || (g_emit_cfg && g_emit_cfg->spine_cells))) {
+              else if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION && zd_on[i] &&
+                  (zd_dj_admitted(zd_arm, n, i) || (g_emit_cfg && (g_emit_cfg->spine_cells || emit_resumable_frame())))) {
                   g_emitter.g_zd_stage = 1;
                   g_emitter.g_zd_arm = 1;
                   g_emitter.g_zd_djok = zd_dj_admitted(zd_arm, n, i);
