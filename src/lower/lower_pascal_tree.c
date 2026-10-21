@@ -5626,6 +5626,9 @@ static int pas_fold_const(const tree_t *e, int *k, long long *iv, double *dv, co
             static const long long PL[] = { 0, -128, -32768, 0, -2147483647LL - 1, 0, 0, INT64_MIN, 0, 0 };
             static const long long PH[] = { 255, 127, 32767, 65535, 2147483647LL, 4294967295LL, 4294967295LL, INT64_MAX, 255, 1 };
             for (int j = 0; j < 10; j++) if (!strcmp(a, P[j]) && !pas_scope_uid(a)) { *k = j == 8 ? 4 : 1; *iv = f[0] == 'h' ? PH[j] : PL[j]; return 1; }
+            long long ah;
+            if (pas_array_high_get(a, &ah) && pas_array_ncols(a) < 0) { *k = 1; *iv = f[0] == 'h' ? ah : pas_array_nonparam_low(a); return 1; }
+            if (!pas_arrtype_isdyn(a) && pas_arrtype_high(a) >= 0 && pas_arrtype_ncols(a) < 0) { *k = 1; *iv = f[0] == 'h' ? pas_arrtype_high(a) : pas_arrtype_lo(a); return 1; }
             return 0;
         }
         static const char *const F[] = { "ord", "chr", "succ", "pred", "abs" };
@@ -5683,6 +5686,7 @@ static pval E_const_decl(const tree_t *n) {
     }
     if (IS(n, TT_DECL) && !strcmp(n->v.sval, "const") && n->c[1] &&
         (n->c[1]->t == TT_ADD || n->c[1]->t == TT_SUB || n->c[1]->t == TT_MUL || n->c[1]->t == TT_DIV || n->c[1]->t == TT_IDIV || n->c[1]->t == TT_MOD ||
+        (n->c[1]->t == TT_FNC && n->c[1]->n == 2 && n->c[1]->c[0] && n->c[1]->c[0]->v.sval && (!strcmp(n->c[1]->c[0]->v.sval, "high") || !strcmp(n->c[1]->c[0]->v.sval, "low"))) ||
         (n->c[1]->t == TT_VAR && n->c[1]->v.sval && (pas_sconst_get(n->c[1]->v.sval) || pas_rconst_get(n->c[1]->v.sval, &v[5].dval))))) {
         int k = 0;
         long long iv = 0;
