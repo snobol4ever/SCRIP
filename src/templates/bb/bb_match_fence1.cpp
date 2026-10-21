@@ -55,6 +55,5 @@ std::string bb_match_fence1() {
          + x86_beta()
          + x86("mov", "r12", fence_cap_top(_.op_off))
          + x86("mov", "r14d", fence_cursor(_.op_off))
-         + fence_release(_.op_off)
          + x86_omega());
 }
