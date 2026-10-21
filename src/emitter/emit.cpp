@@ -787,6 +787,7 @@ static int earn_hazard_in(const IR_t * nd, int depth) {
 }
 extern "C" int fc_pair_extent(const IR_t *);
 static IR_t * zd_chase(IR_t * t);
+static inline int nidx(IR_t **nodes, int n, const IR_t *e);
 static int zd_edge_retains(const IR_t * nd);
 static int zd_arm_resumes(const IR_t * a, const IR_t * g);
 static int zd_gate_holds(const IR_t * g);
@@ -794,6 +795,25 @@ static int zd_beta_via_act(const IR_t * nd);
 static int zd_dj_admitted(const int * zarm, int n, int ei) { for (int j = 0; j < n; j++) if (zarm[j] == ei) return 1; return 0; }
 static int zd_dj_cellless(IR_t ** nodes, int n, const int * zarm, int k) {
     return k >= 0 && nodes[k]->op == IR_DISJUNCTION && g_emit_cfg && g_emit_cfg->spine_cells && zarm && !zd_dj_admitted(zarm, n, k);
+}
+static int zd_pl_dj_arm_holds(const IR_t * d, int a) {
+    IR_t * t = zd_chase(d->operands[2 * a + 1]);
+    return t && t != d && t->op != IR_FAIL && t->op != IR_SUCCEED && t->op != IR_UNMARK && t->op != IR_CUT;
+}
+static int zd_pl_dj_holds(const IR_t * d) {
+    int na = (d && d->op == IR_DISJUNCTION) ? (int)IR_LIT(d).ival : 0;
+    if (na <= 0 || d->n_operands < 2 * na) return 0;
+    for (int a = 0; a < na; a++) if (zd_pl_dj_arm_holds(d, a)) return 1;
+    return 0;
+}
+static int zd_dj_arm_end(IR_t ** nodes, int n, int dj, int a) {
+    IR_t * d = nodes[dj], * x = zd_chase(d->operands[2 * a]);
+    for (int g = 0; x && x != d && g <= n; g++) {
+        IR_t * nx = (x->op == IR_GATE_ARM && !x->γ.node && x->n_operands > 1) ? zd_chase(x->operands[1]->γ.node) : zd_chase(x->γ.node);
+        if (nx == d) return nidx(nodes, n, x);
+        x = nx;
+    }
+    return -1;
 }
 static int zd_dj_arm_resumes(const IR_t * nd, int a) { IR_t * rs = zd_chase(nd->operands[2 * a + 1]); return rs && rs != nd && rs->op != IR_FAIL && rs->op != IR_SUCCEED; }
 static int zd_djx_of(const IR_t * nd);
@@ -1967,7 +1987,7 @@ static int zd_gate_pair(IR_t **nodes, int n, int a, int k, int wantb, const unsi
     long da = 0, dk = 0;
     int ca = zd_cpos(a, xb, zout, &da), ck = INT_MIN;
     da -= g_emitter.g_zd_gp_p[a];
-    if (wantb && zd_beta_via_act(nodes[k])) {
+    if (wantb && zd_edge_retains(nodes[k])) {
         IR_t * c = zd_chase(nodes[k]->γ.node);
         int kc = c ? nidx(nodes, n, c) : -1;
         if (kc >= 0 && zon[kc]) { ck = zd_cpos(kc, xb, zout, &dk); dk -= zd_k(nodes[kc]); }
@@ -2045,6 +2065,17 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     if (nd->op == IR_DISJUNCTION && zd_djx_of(nd) && g_emitter.g_zd_out_p && g_emitter.g_zd_nodes_p == nodes)
         for (int j = 0; j < N; j++) { IR_t * r = nd->operands[2 * j + 1]; int k = nidx(nodes, n, r);
             XA_PAIR(N + j).rsp = (r == nd) ? zd_djx_of(nd) : (k >= 0 ? g_emitter.g_zd_out_p[i] - g_emitter.g_zd_out_p[k] : 0); }
+    if (nd->op == IR_DISJUNCTION && zd_edge_retains(nd) && g_emitter.g_zd_nodes_p == nodes && g_emitter.g_zd_xb_p && g_emitter.g_zd_out_p && g_emitter.g_zd_plan_on &&
+        g_emitter.g_zd_claim_p && g_emitter.g_zd_fam_p && g_emitter.g_zd_fbase_p && g_emitter.g_zd_gp_p) {
+        const unsigned char * zon = g_emitter.g_zd_plan_on; const int * zout = g_emitter.g_zd_out_p, * xb = g_emitter.g_zd_xb_p;
+        for (int j = 0; j < N; j++) {
+            int e = zd_dj_arm_end(nodes, n, i, j), k = nidx(nodes, n, zd_chase(nd->operands[2 * j + 1]));
+            long r = 0, da = 0, dk = 0;
+            if (e < 0 || !zon[e]) continue;
+            if (zd_pl_dj_arm_holds(nd, j)) { if (k >= 0 && zon[k] && zd_gate_pair(nodes, n, e, k, 1, zon, zout, xb, &r)) XA_PAIR(N + j).rsp = r; continue; }
+            { int ca = zd_cpos(e, xb, zout, &da), ck = zd_cpos(i, xb, zout, &dk); da -= g_emitter.g_zd_gp_p[e]; if (ca != INT_MIN && ca == ck) XA_PAIR(N + j).rsp = da - dk; }
+        }
+    }
     { xa_pair_push(na_s[i], NULL); }
     { xa_pair_push(na_f[i], NULL); }
     if (nd->op == IR_MATCH_ARBNO) { IR_t *_t = (nd->n_operands > 2) ? nd->operands[2] : (IR_t *)0; { IR_t *_s0 = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; int _i0 = -1, _i1 = -1;
@@ -3844,6 +3875,7 @@ static int zd_gate_holds(const IR_t * g) {
 static int zd_edge_retains(const IR_t * nd) {
     if (!nd || !emit_resumable_frame()) return 0;
     if (nd->op == IR_GATE) return zd_gate_holds(nd);
+    if (nd->op == IR_DISJUNCTION) return zd_pl_dj_holds(nd);
     if (ir_kind0(nd) == IR_CALL_VALUE) return 1;
     if (nd->op == IR_TO && ir_range_kind_is(nd, "db")) return 1;
     return (ir_kind0(nd) == IR_CALL_PROC_STAGED && IR_LIT(nd).sval && bb_proc_target_retains(IR_LIT(nd).sval)) ? 1 : 0;
@@ -4819,6 +4851,8 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
     }
     for (int i = 0; i < n; i++) if (zon[i] && nodes[i]->op == IR_GATE_ARM && nodes[i]->n_operands > 1 && zd_edge_retains(nodes[i]->operands[1]) &&
         zd_arm_resumes(nodes[i], nodes[i]->operands[1])) zgpop[i] = 0;
+    for (int dj = 0; dj < n; dj++) if (zon[dj] && nodes[dj]->op == IR_DISJUNCTION && zd_edge_retains(nodes[dj]))
+        for (int a = 0; a < (int)IR_LIT(nodes[dj]).ival; a++) { int e = zd_pl_dj_arm_holds(nodes[dj], a) ? zd_dj_arm_end(nodes, n, dj, a) : -1; if (e >= 0 && zon[e]) zgpop[e] = 0; }
     zd_dj_discards(nodes, n, zon, zout, zgpop, zwpop, zarm, claim, base, known, zdj_on);
     { if (zd_map_on()) { fprintf(stderr, "[ZD-MAP] PLAN -- same i= indices as GRAPH above\n");
         for (int i = 0; i < n; i++) fprintf(stderr, "[ZD-MAP] i=%-3d %-22s claim=%-3d rpos=%-3d zon=%d zout=%-4d gpop=%-5d wpop=%-5d arm=%d slot=%d\n",
