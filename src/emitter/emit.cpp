@@ -4362,7 +4362,8 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         }
         { for (int k = 0; k < n; k++) aent[k] = 0;
           if (zarm) {
-            for (int r0 = 0; r0 < rl; r0++) { IR_t * env = nodes[run[r0]]; if ((int)env->op != IR_MATCH_ALTERNATE && (int)env->op != IR_MATCH_ARBNO) continue; int ei = run[r0];
+            for (int r0 = 0; r0 < rl; r0++) { IR_t * env = nodes[run[r0]]; if ((int)env->op != IR_MATCH_ALTERNATE && (int)env->op != IR_MATCH_ARBNO && (int)env->op != IR_MATCH_FENCE1) continue;
+                int ei = run[r0];
                 for (int a = 0; a + 1 < env->n_operands; a += 2) { IR_t * c2 = env->operands[a]; int rl0 = rl; int bad = 0; int g2 = 0; int first = 1;
                     while (c2 && g2++ <= n) {
                         int ci = -1; { int k = nidx(nodes, n, c2); if (k >= 0) { ci = k; } }
