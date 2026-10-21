@@ -4163,6 +4163,8 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
     if (sel && sel->t == TT_FNC && sel->n == 1 && sel->c[0] && sel->c[0]->t == TT_VAR && sel->c[0]->v.sval && rhs && rhs->t != TT_QLIT && pas_func_returns_stringish(sel->c[0]->v.sval) &&
         pas_is_charexpr(rhs)) rhs = pas_concat_operand(rhs);
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->v.sval) && !pas_array_isdyn(sel->v.sval)) rhs = bin(TT_ADD, rhs, flit(0.0));
+    if (sel && sel->t == TT_FNC && sel->n == 1 && sel->c[0] && sel->c[0]->t == TT_VAR && sel->c[0]->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->c[0]->v.sval)) rhs =
+        bin(TT_ADD, rhs, flit(0.0));
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs) {
         int _dbf = pas_var_is_boolfam(sel->v.sval);
         int _sbf = (rhs->t == TT_VAR && rhs->v.sval) ? pas_var_is_boolfam(rhs->v.sval) : 0;
@@ -4205,7 +4207,7 @@ static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
 static tree_t *mk_ident(const char *name) {
     if (pas_pf_is_formal(name) && pas_pf_lookup(name)->sig[0] == 'F') return pas_pf_callthrough(name, NULL);
     if (name && !strcmp(name, "result") && !pas_is_declared_local_here(name)) { const char *cf = pas_curfunc_name(); if (cf) return leaf_s(TT_VAR, cf); }
-    if (name && g_lower.pas.sem.pas_dialect_fpc && pas_curfunc_name()) {
+    if (name && g_lower.pas.sem.pas_dialect_fpc && !g_lower.pas.sem.pas_fname_is_call && pas_curfunc_name()) {
         const char *cf = pas_curfunc_name(), *sep = strstr(cf, "__pc_") == cf ? strrchr(cf, '_') : NULL;
         if (!strcmp(name, cf)) return leaf_s(TT_VAR, name);
         if (sep && sep > cf + 1 && sep[-1] == '_' && !strcmp(sep + 1, name) && !pas_is_declared_local_here(name)) return leaf_s(TT_VAR, cf);
@@ -5133,6 +5135,7 @@ static void pas_apply_event(const char *ev) {
     if (!strcmp(ev, "iso_error")) g_lower.pas.sem.pas_iso_errors++;
     else if (!strcmp(ev, "mode_iso")) g_lower.pas.sem.pas_mode_iso = 1;
     else if (!strcmp(ev, "seen_mode")) g_lower.pas.sem.pas_seen_mode_directive = 1;
+    else if (!strncmp(ev, "fnamecall ", 10)) g_lower.pas.sem.pas_fname_is_call = atoi(ev + 10);
     else if (!strncmp(ev, "minenum ", 8)) g_lower.pas.sem.pas_min_enum_size = atoi(ev + 8);
     else if (!strncmp(ev, "packset ", 8)) g_lower.pas.sem.pas_pack_set_size = atoi(ev + 8);
     else if (!strncmp(ev, "packrec ", 8)) g_lower.pas.sem.pas_pack_records = atoi(ev + 8);
@@ -7801,6 +7804,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     g_lower.pas.sem.pas_pend_arr_ncols = -1;
     g_lower.pas.sem.pas_pend_enum_max = -1;
     g_lower.pas.sem.pas_pend_sub_high = -1;
+    g_lower.pas.sem.pas_fname_is_call = 0;
     g_lower.pas.sem.pas_dialect_fpc = g_lower.pas.sem.pas_seen_mode_directive = pas_tree_has_event(pruned, "seen_mode");
     if (!g_lower.pas.sem.pas_dialect_fpc) pas_iso_empty_strings(pruned);
     tree_t *flat = pas_flatten_units(pruned);
