@@ -1654,7 +1654,8 @@ static int pl_swi_library_leaf(const char * nm, int ar) {
         int ar;
     } lib[] = { { "display", 1 }, { "display", 2 }, { "numbervars", 1 }, { "string_to_atom", 2 }, { "concat_atom", 2 }, { "concat_atom", 3 }, { "read_term_from_chars", 3 }, { "read_term_from_codes",
         3 }, { "unget_char", 1 }, { "unget_char", 2 }, { "unget_code", 1 }, { "unget_byte", 1 }, { "unget_byte", 2 }, { "wall_us", 1 }, { "wall_ms", 1 }, { "sort", 1 }, { "msort", 1 }, { "keysort",
-        1 }, { "last_read_start_line_column", 2 }, { "working_directory", 1 }, { "change_directory", 1 }, { "file_exists", 1 }, { "prolog_pid", 1 }, { "pipe", 2 }, { 0, 0 } };
+        1 }, { "last_read_start_line_column", 2 }, { "working_directory", 1 }, { "change_directory", 1 }, { "file_exists", 1 }, { "prolog_pid", 1 }, { "pipe", 2 }, { "print", 1 }, { "print", 2 }, { 0,
+        0 } };
     for (int i = 0; lib[i].nm; i++) if (lib[i].ar == ar && !strcmp(lib[i].nm, nm)) return 1;
     return 0;
 }
