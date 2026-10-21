@@ -150,7 +150,7 @@ static int zdp_beta_is_stmt_land(const IR_t * tgt) { return tgt && tgt->op == IR
 static int zdp_land_value(const IR_t * tgt, int v) { (void)tgt; return v; }
 static int zdp_has_pairs(const IR_t * nd) {
     if (!nd || nd->n_operands <= 0) return 0;
-    switch (nd->op) { case IR_MATCH_ALTERNATE: case IR_MATCH_ARBNO: case IR_MATCH_FENCE1: case IR_SCAN_SEQUENCE: case IR_SCAN_ALTERNATE: case IR_DISJUNCTION: return 1; default: return 0; }
+    switch (nd->op) { case IR_MATCH_ALTERNATE: case IR_MATCH_ARBNO: case IR_MATCH_FENCE1: case IR_SCAN_ALTERNATE: case IR_DISJUNCTION: return 1; default: return 0; }
 }
 static int zdp_pairs_n(const IR_t * nd) {
     int N = (nd->op == IR_MATCH_ARBNO) ? 1 : (nd->op == IR_DISJUNCTION) ? (int)IR_LIT(nd).ival : nd->n_operands / 2;

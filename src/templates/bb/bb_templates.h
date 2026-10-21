@@ -43,7 +43,6 @@ std::string bb_match_fence0();
 std::string bb_match_flush();
 std::string bb_match_fence1();
 std::string bb_match_alternate();
-std::string bb_scan_sequence();
 std::string bb_scan_alternate();
 std::string bb_match_begin();
 std::string bb_match_end();

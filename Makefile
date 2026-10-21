@@ -1620,7 +1620,6 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_scan_match.cpp \
     $(SRC)/templates/bb/bb_scan_pos.cpp \
     $(SRC)/templates/bb/bb_scan_bal.cpp \
-    $(SRC)/templates/bb/bb_scan_sequence.cpp \
     $(SRC)/templates/bb/bb_scan_alternate.cpp \
     $(SRC)/runtime/rt/rt_sg_scan.S \
     $(SRC)/runtime/rt/rt_asm_helpers.S \

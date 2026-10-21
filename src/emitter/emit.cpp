@@ -1699,7 +1699,6 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                                          " a plain FENCE\n", (void *)nd, (long long)IR_LIT(nd).ival); abort(); } } return 0;
     case IR_MATCH_FENCE1: { bb_prepare(nd); g_emit.op_fence_body_kk = fence_body_kk(nd); g_emit.op_fence_frame_off = fence_frame_slot(nd); bb_emit_x86(bb_match_fence1()); } return 0;
     case IR_MATCH_ABORT: { bb_emit_x86(bb_match_abort()); } return 0;
-    case IR_SCAN_SEQUENCE: { bb_emit_x86(bb_scan_sequence()); } return 0;
     case IR_SCAN_ALTERNATE: { bb_emit_x86(bb_scan_alternate()); } return 0;
     case IR_TO_BY: { bb_prepare(nd); g_emit.op_range_int_operands = ir_range_operands_must_be_integers(nd); bb_emit_x86(bb_to_by()); } return 0;
     case IR_MAKE_LIST: bb_emit_x86(bb_make_list()); return 0;
@@ -2093,7 +2092,6 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
         for (int j = 0; j < N; j++) { xa_pair_push(fc_sig[i][j], NULL); }
     { xa_pair_push(na_fo[i], NULL); }
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
-    if (nd->op == IR_SCAN_SEQUENCE) { emit_parts_reserve(N); for (int j = 0; j < N; j++) g_emit.op_parts_ival[j] = zls_off(nd->operands[2 * j + 1]); g_emit.op_parts_n = N; }
     if (nd->op == IR_DISJUNCTION) { emit_parts_reserve(N); for (int j = 0; j < N; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0;
         { int zok = g_emit_cfg && g_emit_cfg->spine_cells && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i] && g_emitter.g_zd_zarm_p &&
               g_emitter.g_zd_zarm_nodes == nodes;
@@ -2430,7 +2428,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_MATCH_ABORT: {
         g_emit.op_off = -1; DRIVE_PAIR_RESET(); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_MATCH_ALTERNATE: case IR_MATCH_ARBNO: case IR_SCAN_SEQUENCE: case IR_SCAN_ALTERNATE: {
+    case IR_MATCH_ALTERNATE: case IR_MATCH_ARBNO: case IR_SCAN_ALTERNATE: {
         drive_guard_refused(nd, __LINE__);
         break;
     }
@@ -2993,7 +2991,7 @@ static void zd_vdj_live(IR_t ** nodes, int n, int * live) {
 static int port_sz_beta(const char * sz) { return sz[0] == (char)0xce && (unsigned char)sz[1] == 0xb2; }
 static int beta_is_stmt_land(const IR_t * tgt) { return tgt && tgt->op == IR_STATEMENT_BEGIN; }
 static int emit_glue_box(const IR_t * t, int phi) { int o = (int)t->op;
-    return ((o == IR_MATCH_ALTERNATE || o == IR_MATCH_ARBNO || o == IR_MATCH_FENCE1 || o == IR_SCAN_SEQUENCE || o == IR_SCAN_ALTERNATE || o == IR_DISJUNCTION) && t->n_operands > 0) ||
+    return ((o == IR_MATCH_ALTERNATE || o == IR_MATCH_ARBNO || o == IR_MATCH_FENCE1 || o == IR_SCAN_ALTERNATE || o == IR_DISJUNCTION) && t->n_operands > 0) ||
         (phi && o == IR_MATCH_BEGIN); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5007,7 +5005,7 @@ static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
     }
     for (int j = 0; j < n; j++) {
         int op = (int)nodes[j]->op;
-        if (op == IR_MATCH_ALTERNATE || op == IR_MATCH_ARBNO || (op == IR_MATCH_FENCE1 || op == IR_MATCH_FENCE0) || op == IR_SCAN_SEQUENCE || op == IR_SCAN_ALTERNATE || op == IR_DISJUNCTION ||
+        if (op == IR_MATCH_ALTERNATE || op == IR_MATCH_ARBNO || (op == IR_MATCH_FENCE1 || op == IR_MATCH_FENCE0) || op == IR_SCAN_ALTERNATE || op == IR_DISJUNCTION ||
             op == IR_REPALT)
             for (int a = 0; a < nodes[j]->n_operands; a++) { int k = nidx(nodes, n, nodes[j]->operands[a]); if (k >= 0) used[k] = 1; }
         if (op == IR_SCAN && nodes[j]->n_operands > 2 && nodes[j]->operands[2]) { int k = nidx(nodes, n, nodes[j]->operands[2]); if (k >= 0) used[k] = 1; }
@@ -5567,7 +5565,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
 #define RPO_PUSH_SUCCS(c) \
          \
         RPO_PUSH((c)->γ.node); \
-if (((c)->op == IR_MATCH_ALTERNATE || (c)->op == IR_MATCH_ARBNO || (c)->op == IR_MATCH_FENCE1 || (c)->op == IR_SCAN_SEQUENCE || (c)->op == IR_SCAN_ALTERNATE || (c)->op == IR_DISJUNCTION) && (c)-> \
+if (((c)->op == IR_MATCH_ALTERNATE || (c)->op == IR_MATCH_ARBNO || (c)->op == IR_MATCH_FENCE1 || (c)->op == IR_SCAN_ALTERNATE || (c)->op == IR_DISJUNCTION) && (c)-> \
     n_operands > 0) for (int _oi = (c)->n_operands - 1; _oi >= 0; _oi--) RPO_PUSH((c)->operands[_oi]); \
         if ((ir_is_matcher_element((c)->op)) || (c)->op == IR_MATCH_DEFER || (c)->op == IR_MATCH_VALUE) RPO_PUSH((c)->ω.node); \
         if ((c)->op == IR_MATCH_DEFER) for (int _di = (c)->n_operands - 1; _di >= 0; _di--) if ((c)->operands[_di] && (c)->operands[_di]->op == IR_MATCH_ABORT) RPO_PUSH((c)->operands[_di]); \
@@ -6269,7 +6267,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             continue;
         }
         if ((g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_ALTERNATE || g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_ARBNO ||
-            g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_FENCE1 || g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SCAN_SEQUENCE ||
+            g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_FENCE1 ||
             g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SCAN_ALTERNATE ||
             g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION) && g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 0) {
             { if (g_emitter.codegen_flat_chain_body__dd_0 < 0) { const char *_e = getenv("SCRIP_DRIVE_DIAG"); g_emitter.codegen_flat_chain_body__dd_0 = (_e && _e[0] == '1') ? 1 : 0; }
@@ -6995,7 +6993,7 @@ extern "C" void emit_jmp_entry_clear(void) { extern int g_flat_frame_floor; g_fl
     g_emit.zframe_graph = 0; g_emit.frame_retained = 0; }
 int emit_graph_has_suspend(IR_graph_t *g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }
 static int emit_graph_has_deep_arrival(IR_graph_t *g) { if (!g) return 1; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (!c) continue;
-    switch (c->op) { case IR_SUSPEND: case IR_SCAN: case IR_SCAN_ENTER: case IR_SCAN_ALTERNATE: case IR_SCAN_SEQUENCE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL: case IR_SCAN_MATCH:
+    switch (c->op) { case IR_SUSPEND: case IR_SCAN: case IR_SCAN_ENTER: case IR_SCAN_ALTERNATE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL: case IR_SCAN_MATCH:
     case IR_SCAN_MOVE: case IR_SCAN_TAB: case IR_TO: case IR_TO_BY: case IR_LIMIT: case IR_REPALT: case IR_PROC_GEN: case IR_CREATE: case IR_ITERATE: case IR_DISJUNCTION: case IR_CALL_BUILTIN_GEN:
     case IR_KW_ICON_GEN: case IR_MATCH_FENCE1: case IR_MATCH_ABORT: case IR_MATCH_ARBNO: case IR_MATCH_CALLOUT: case IR_MATCH_VALUE: return 1; case IR_MATCH_DEFER: return 1; default: break;
     } } return 0; }
@@ -7007,7 +7005,7 @@ static int emit_fb_stmt_scan(IR_graph_t * g) {
      if (g_emitter.emit_fb_stmt_scan_fbdbg < 0) { const char * e = getenv("SCRIP_FB_DEBUG"); g_emitter.emit_fb_stmt_scan_fbdbg = (e && *e == '1') ? 1 : 0; }
     g_emitter.g_fbm_n = 0; if (!g || g->n <= 0) { if (g_emitter.emit_fb_stmt_scan_fbdbg) fprintf(stderr, "[FB-STMT] bail size g=%p n=%d\n", (void *)g, g ? g->n : -1); return 0; }
     for (int i = 0; i < g->n; i++) { IR_t * c = g->all[i]; if (!c) continue; switch (c->op) {
-        case IR_SUSPEND: case IR_SCAN: case IR_SCAN_ENTER: case IR_SCAN_ALTERNATE: case IR_SCAN_SEQUENCE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL: case IR_SCAN_MATCH: case IR_SCAN_MOVE:
+        case IR_SUSPEND: case IR_SCAN: case IR_SCAN_ENTER: case IR_SCAN_ALTERNATE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL: case IR_SCAN_MATCH: case IR_SCAN_MOVE:
             case IR_SCAN_TAB:
         case IR_TO: case IR_TO_BY: case IR_LIMIT: case IR_REPALT: case IR_PROC_GEN: case IR_CREATE: case IR_ITERATE: case IR_DISJUNCTION: case IR_CALL_BUILTIN_GEN: case IR_KW_ICON_GEN:
         case IR_MATCH_ABORT: case IR_MATCH_CALLOUT: { if (g_emitter.emit_fb_stmt_scan_fbdbg) { extern const char * bb_op_name(IR_e);

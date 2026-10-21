@@ -390,11 +390,6 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
             "alt.next-entry continuation (ALT-FLAT s202: alpha and each entry stub store the NEXT arm's entry-stub address; the fail-advance is delta-restore + one indirect jmp — the entry cmp-cha"
             "in is dead)", nd);
         return 2;
-        case IR_SCAN_SEQUENCE:
-        zls_field(scope_id, off, 8, ZK_RAW, 0,
-            "scanseq.entry δ save (+16 from box base, 4B r14d) + seq_i live-element index (+20, 4B; α=0, na_s ++, na_f --, β=N); the value DESCR is the box result slot at [base]", nd);
-        zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scanseq.pad (unused upper quad of the 1-slot grant; registered CEO-820 so the frame map has no unmapped word)", nd);
-        return 1;
         case IR_SCAN_ALTERNATE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scanalt.entry δ save (+16 from box base, 4B r14d) + dcap height (+20, 4B)", nd);
         zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scanalt.alt_i live-alternative index (+24, 4B; α=0, na_f ++; β dispatches) (+28 pad)", nd);
@@ -791,8 +786,7 @@ static void zls_slot_census(IR_graph_t * g) {
         for (int k = 0; k < g->n && !ref; k++) {
             IR_t * c = g->all[k];
             if (!c || c == nd) continue;
-            if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_ARBNO || c->op == IR_MATCH_FENCE1 || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_REPALT ||
-                c->op == IR_GATE_ARM) continue;
+            if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_ARBNO || c->op == IR_MATCH_FENCE1 || c->op == IR_SCAN_ALTERNATE || c->op == IR_REPALT || c->op == IR_GATE_ARM) continue;
             for (int j = 0; j < c->n_operands; j++) if (c->operands[j] == nd) { ref = 1; break; }
         }
         if (ref) L++;
