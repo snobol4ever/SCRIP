@@ -3462,7 +3462,7 @@ static const tree_t * sno_capt_elem_rewrite(const tree_t * t, sno_tvec_t * pro) 
     const int curs = t->t == TT_CAPT_CURSOR && t->n > 0;
     if (!capt && !curs && t->t != TT_SEQ && t->t != TT_CAT && t->t != TT_ALT && t->t != TT_ARBNO && t->t != TT_FENCE) return t;
     const tree_t * tg = capt ? t->c[1] : curs ? t->c[0] : NULL;
-    const int elem = tg && (tg->t == TT_IDX || (curs && tg->t == TT_INDIRECT));
+    const int elem = tg && (tg->t == TT_IDX || (curs && tg->t == TT_INDIRECT) || (capt && tg->t == TT_FNC && sno_item_argbase(tg) < 0) || (capt && tg->t == TT_INDIRECT && !sno_capt_name(tg)));
     tree_t * u = NULL;
     for (int i = 0; i < t->n; i++) {
         const tree_t * ci = t->c[i];
