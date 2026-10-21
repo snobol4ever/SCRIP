@@ -1755,7 +1755,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_GATE_ARM: bb_emit_x86(bb_gate_arm()); return 0;
     case IR_GATE: bb_emit_x86(bb_gate()); return 0;
     case IR_DISJUNCTION: { if (nd->n_operands > 0) { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } }
-        if (g_emit.op_zres) { g_emit.op_fc_bytes = 32; g_emit.op_fc_base = g_emit.op_off; } g_emit.op_dj_bfail = g_emit.op_zres && g_emitter.g_zd_djok && fc_vdj_active(nd);
+        if (g_emit.op_zres && g_emitter.g_zd_djok) { g_emit.op_fc_bytes = 32; g_emit.op_fc_base = g_emit.op_off; } g_emit.op_dj_bfail = g_emit.op_zres && g_emitter.g_zd_djok && fc_vdj_active(nd);
             g_emitter.g_zd_djok = 0;
             g_emit.op_dj_rec = (zd_dj_retains(nd) && !zd_djx_of(nd) && xop_frame_slot(nd) != -1) ? 1 : 0;
             bb_emit_x86(bb_disjunction()); return 0; }
@@ -2053,7 +2053,13 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     { xa_pair_push(na_fo[i], NULL); }
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
     if (nd->op == IR_SCAN_SEQUENCE) { emit_parts_reserve(N); for (int j = 0; j < N; j++) g_emit.op_parts_ival[j] = zls_off(nd->operands[2 * j + 1]); g_emit.op_parts_n = N; }
-    if (nd->op == IR_DISJUNCTION) { emit_parts_reserve(N); for (int j = 0; j < N; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0; { int _g = 0;
+    if (nd->op == IR_DISJUNCTION) { emit_parts_reserve(N); for (int j = 0; j < N; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0;
+        if (rj && rj->op == IR_CONJUNCTION && g_emit_cfg && g_emit_cfg->spine_cells && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i] &&
+            g_emitter.g_zd_zarm_p && g_emitter.g_zd_zarm_nodes == nodes && !zd_dj_admitted(g_emitter.g_zd_zarm_p, g_emitter.g_zd_zarm_n, i) && nd_slot(rj) >= 0) {
+            g_emit.op_parts_ival[j] = nd_slot(rj);
+            continue;
+        }
+        { int _g = 0;
         while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; } int rs = rj ? emit_binop_opnd_slot(rj) : -1; g_emit.op_parts_ival[j] = rs;
         if (rj && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i]) { int kr = nidx(nodes, n, rj);
             if (kr >= 0 && g_emitter.g_zd_on_cur[kr] && !zd_icn_local_var(rj)) g_emit.op_parts_ival[j] = -1;
@@ -6195,10 +6201,10 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   zd_rec_arm(g_emitter.codegen_flat_chain_body_nodes, i);
                   if (zd_cpd && zd_cpd[i] <= -2) zd_cp_arm(g_emitter.codegen_flat_chain_body_nodes, i, zd_cps, zd_cpd, zd_out);
               }
-              else if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION && zd_on[i] && zd_dj_admitted(zd_arm, n, i)) {
+              else if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION && zd_on[i] && (zd_dj_admitted(zd_arm, n, i) || (g_emit_cfg && g_emit_cfg->spine_cells))) {
                   g_emitter.g_zd_stage = 1;
                   g_emitter.g_zd_arm = 1;
-                  g_emitter.g_zd_djok = 1;
+                  g_emitter.g_zd_djok = zd_dj_admitted(zd_arm, n, i);
                   g_emitter.g_zd_gpop = zd_gp[i];
                   g_emitter.g_zd_wpop = zd_wp[i];
                   g_emitter.g_zd_wsteal = 0;
