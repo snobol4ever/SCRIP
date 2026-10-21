@@ -4141,7 +4141,10 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
                     for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
                         int l, q2 = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l, dead);
                         if (q2 < 0 || known[q2] || !inp[q2]) continue;
-                        base[q2] = base[r] + l - (zout[q2] - zd_k(nodes[q2])); known[q2] = 1; indef[q2] = 0; wl[wn2++] = q2;
+                        int ub = (nodes[q2]->op == IR_UNMARK && nodes[q2]->n_operands > 0) ? nidx(nodes, n, nodes[q2]->operands[0]) : -1;
+                        base[q2] = (ub >= 0 && zon[ub] && claim[ub] >= 0 && claim[ub] != q2 && known[claim[ub]] && !indef[claim[ub]]) ? base[claim[ub]] + zout[ub] - zout[q2]
+                                 : base[r] + l - (zout[q2] - zd_k(nodes[q2]));
+                        known[q2] = 1; indef[q2] = 0; wl[wn2++] = q2;
                     }
                 }
             }
