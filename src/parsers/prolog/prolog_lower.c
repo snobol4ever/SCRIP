@@ -565,7 +565,8 @@ static const pl_mspec_t pl_mod_meta_builtins[] = { { "call", 1, "0" }, { "call",
     { "maplist", 6, "5-----" }, { "maplist", 7, "6------" }, { "foldl", 4, "3---" }, { "foldl", 5, "4----" }, { "foldl", 6, "5-----" }, { "foldl", 7, "6------" }, { "include", 3, "1--" },
     { "exclude", 3, "1--" }, { "partition", 4, "1---" }, { "partition", 6, "2-----" }, { "convlist", 3, "2--" }, { "phrase", 2, "2-" }, { "phrase", 3, "2--" }, { "initialization", 1, "0" },
     { "initialization", 2, "0-" }, { "assertion", 1, "0" }, { "call_nth", 2, "0-" }, { "limit", 2, "-0" }, { "offset", 2, "-0" }, { "distinct", 1, "0" }, { "distinct", 2, "-0" }, { "$", 1, "0" },
-    { "snapshot", 1, "0" }, { "transaction", 1, "0" }, { "tnot", 1, "0" }, { "call_with_depth_limit", 3, "0--" }, { "argv_options", 3, ":--" }, { "argv_options", 4, ":---" },
+    { "snapshot", 1, "0" }, { "transaction", 1, "0" }, { "tnot", 1, "0" }, { "call_delays", 2, "0-" }, { "call_residual_program", 2, "0-" }, { "get_residual", 2, "0-" }, { "tfindall", 3, "-0-" }, { "not_exists", 1, "0" },
+    { "sk_not", 1, "0" }, { "u_not", 1, "0" }, { "abolish_table_subgoals", 1, "0" }, { "abolish_table_call", 1, "0" }, { "call_with_depth_limit", 3, "0--" }, { "argv_options", 3, ":--" }, { "argv_options", 4, ":---" },
     { "argv_usage", 1, ":" }, { "", 0, "" } };
 static int pl_mk_has(const cv_t *v, const char *mod, const char *name, int ar) {
     for (uint32_t i = 0; i < v->len; i++) {
@@ -937,6 +938,16 @@ static void pl_mod_goal(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g
     }
     if ((ar == 1 && !strcmp(nm, "retractall")) || (ar == 2 && !strcmp(nm, "predicate_property"))) { pl_mod_head(ms, m1, m2, g->c[0]); return; }
     if (ar == 1 && (!strcmp(nm, "abolish") || !strcmp(nm, "current_predicate"))) { pl_mod_pi(ms, m1, m2, g->c[0]); return; }
+    if (ar == 2 && m1 && strcmp(m1, "user") && (!strcmp(nm, "call_delays") || !strcmp(nm, "call_residual_program")) && !pl_mod_resolve(ms, m1, m2, nm, ar)) {
+        pl_mod_args(ms, m1, m2, g, trans, nm, (const tree_t *)0);
+        tree_t *a0 = g->c[0], *a1 = g->c[1];
+        g->v.sval = ct_strdup(!strcmp(nm, "call_delays") ? "$call_delays_m" : "$call_residual_m");
+        g->n = 0;
+        ast_push(g, pl_mod_ctx_node(m1, trans));
+        ast_push(g, a0);
+        ast_push(g, a1);
+        return;
+    }
     pl_mod_args(ms, m1, m2, g, trans, nm, (const tree_t *)0);
     q = pl_mod_resolve(ms, m1, m2, nm, ar);
     if (pl_mod_mt(ms, g, q, nm, ar, pl_mod_ctx_node(m1, trans))) return;
