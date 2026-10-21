@@ -2065,6 +2065,8 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     if (nd->op == IR_DISJUNCTION && zd_djx_of(nd) && g_emitter.g_zd_out_p && g_emitter.g_zd_nodes_p == nodes)
         for (int j = 0; j < N; j++) { IR_t * r = nd->operands[2 * j + 1]; int k = nidx(nodes, n, r);
             XA_PAIR(N + j).rsp = (r == nd) ? zd_djx_of(nd) : (k >= 0 ? g_emitter.g_zd_out_p[i] - g_emitter.g_zd_out_p[k] : 0); }
+    if (nd->op == IR_DISJUNCTION && !zd_djx_of(nd) && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i])
+        for (int j = 0; j < N; j++) if (nd->operands[2 * j + 1] != nd && nidx(nodes, n, nd->operands[2 * j + 1]) < 0) XA_PAIR(N + j).rsp = g_emitter.g_zd_k + g_emitter.g_zd_wpop;
     if (nd->op == IR_DISJUNCTION && zd_edge_retains(nd) && g_emitter.g_zd_nodes_p == nodes && g_emitter.g_zd_xb_p && g_emitter.g_zd_out_p && g_emitter.g_zd_plan_on &&
         g_emitter.g_zd_claim_p && g_emitter.g_zd_fam_p && g_emitter.g_zd_fbase_p && g_emitter.g_zd_gp_p) {
         const unsigned char * zon = g_emitter.g_zd_plan_on; const int * zout = g_emitter.g_zd_out_p, * xb = g_emitter.g_zd_xb_p;
