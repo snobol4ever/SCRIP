@@ -4113,6 +4113,7 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
                 }
             }
         }
+        for (int r = 0; r < n; r++) if (zon[r] && claim[r] == r && !known[r] && nodes[r]->op == IR_MATCH_ABORT && claim[0] >= 0 && known[claim[0]]) { base[r] = base[claim[0]]; known[r] = 1; }
         if (zd_map_on()) for (int r = 0; r < n; r++) if (indef[r])
             fprintf(stderr, "[ZD-MAP] INDEF run=%d (%s) anchor=%d: entered after a call that may return with its frame live -- no base, its cells rsp-relative within the run only\n", r,
             bb_op_name(nodes[r]->op), anchor[r]);
