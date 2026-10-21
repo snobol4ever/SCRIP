@@ -3946,7 +3946,8 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
     for (int i = 0; i < n; i++) { base[i] = 0; known[i] = 0; rpo[i] = -1; st[i] = 0; if (aof) aof[i] = -1; if (fam) { fam[i] = -1; fbase[i] = 0; } }
     if (n <= 0 || !zon[0] || claim[0] < 0) return;
     int pl = emit_resumable_frame();
-    int no = 0, sp = 0, nalt = g_emit_cfg ? g_emit_cfg->n_alts : 0;
+    int no = 0, sp = 0, nalt = g_emit_cfg ? g_emit_cfg->n_alts : 0, ew = 8;
+    for (int i = 0; i < n; i++) if (zd_pl_edges(nodes[i]) > ew) ew = zd_pl_edges(nodes[i]);
     unsigned char * dead = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
     for (int i = 0; i < n; i++) dead[i] = (unsigned char)(zon[i] && claim[i] == i && i != 0);
     for (int i = 0; i < n; i++) for (int e = 0; zon[i] && e < zd_pl_edges(nodes[i]); e++) { int q, b; (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q, &b);
@@ -3966,8 +3967,8 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
         stk[sp++] = r; stk[sp++] = 0; st[r] = 1;
     while (sp > 0) {
         int h = stk[sp - 2], pos = stk[sp - 1], pushed = 0;
-        for (; pos < n * 8 && !pushed; pos++) {
-            int i = pos / 8, e = pos % 8, l;
+        for (; pos < n * ew && !pushed; pos++) {
+            int i = pos / ew, e = pos % ew, l;
             if (i >= n || claim[i] != h || !zon[i] || e >= zd_pl_edges(nodes[i])) continue;
             int q = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l, dead);
             if (q < 0 || st[q] || (xi && xi[q])) continue;
