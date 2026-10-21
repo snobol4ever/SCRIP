@@ -1875,14 +1875,22 @@ static IR_t * lower_node(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                     *res = write_kw;
                     return kv_old;
                 } else {
+                    const char * snap_nm = icn_synth_local(cx);
+                    IR_t * snap = build(cx, IR_ASSIGN, NULL, ω);
+                    IR_LIT(snap).sval = (char *) snap_nm;
+                    ir_operand_push(snap, pv_old);
+                    IR_t * snap_v = build(cx, IR_VAR, NULL, NULL);
+                    IR_LIT(snap_v).sval = (char *) snap_nm;
                     IR_t * write_plain = build(cx, IR_ASSIGN, NULL, ω);
                     IR_LIT(write_plain).sval = pl_tree->v.sval;
                     ir_operand_push(write_plain, kv_old);
                     IR_t * write_kw = build(cx, IR_KW_ASSIGN, γ, ω);
                     IR_LIT(write_kw).sval = kw_tree->v.sval;
-                    ir_operand_push(write_kw, pv_old);
-                    lc_γ_to(pv_old, write_plain);
-                    lc_γ_to(write_plain, write_kw);
+                    ir_operand_push(write_kw, snap_v);
+                    lc_γ_to(pv_old, snap);
+                    lc_γ_to(snap, write_plain);
+                    lc_γ_to(write_plain, snap_v);
+                    lc_γ_to(snap_v, write_kw);
                     *res = write_plain;
                     return kv_old;
                 }
