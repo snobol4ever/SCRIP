@@ -333,19 +333,7 @@ static void plc_wt_string(FILE *fp, pl_cell_t *d, int quoted) {
     fputc('"', fp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plc_wt_num(FILE *fp, pl_cell_t *d) {
-    double fv = d->r;
-    char fb[64];
-    if (isnan(fv)) { fputs("1.5NaN", fp); return; }
-    if (isinf(fv)) { fputs(fv < 0 ? "-1.0Inf" : "1.0Inf", fp); return; }
-    for (int pr = 15; pr <= 17; pr++) { snprintf(fb, sizeof fb, "%.*g", pr, fv); if (strtod(fb, NULL) == fv) break; }
-    const char *e = strpbrk(fb, "eE");
-    if (strchr(fb, '.') || (!e && strpbrk(fb, "nN"))) { fputs(fb, fp); return; }
-    if (!e) { fputs(fb, fp); fputs(".0", fp); return; }
-    fwrite(fb, 1, (size_t)(e - fb), fp);
-    fputs(".0", fp);
-    fputs(e, fp);
-}
+static void plc_wt_num(FILE *fp, pl_cell_t *d) { extern const char *pl_real_iso_str(double, char *, int); char fb[64]; fputs(pl_real_iso_str(d->r, fb, (int)sizeof fb), fp); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_term_prio(pl_cell_t *c, int ignore_ops) {
     extern int ATOM_DOT;

@@ -5256,7 +5256,13 @@ const char * pl_real_iso_str(double fv, char * fb, int bufsz) {
     if (isinf(fv) && fv < 0) { snprintf(fb, (size_t)bufsz, "-1.0Inf"); return fb; }
     if (isinf(fv)) { snprintf(fb, (size_t)bufsz, "1.0Inf"); return fb; }
     for (int prec = 15; prec <= 17; prec++) { snprintf(fb, (size_t)bufsz, "%.*g", prec, fv); if (strtod(fb, (char **)0) == fv) break; }
-    if (!strpbrk(fb, ".eEnN")) { size_t n = strlen(fb); if (n + 2 < (size_t)bufsz) { fb[n] = '.'; fb[n + 1] = '0'; fb[n + 2] = '\0'; } }
+    {
+        extern int rt_pl_dialect_swi(void);
+        char * e = strpbrk(fb, "eE");
+        size_t n = strlen(fb);
+        if (!strchr(fb, '.') && n + 2 < (size_t)bufsz) { size_t k = e ? (size_t)(e - fb) : n; memmove(fb + k + 2, fb + k, n - k + 1); fb[k] = '.'; fb[k + 1] = '0'; if (e) e = fb + k + 2; }
+        if (e && (e[1] == '+' || e[1] == '-') && rt_pl_dialect_swi()) { size_t z = strspn(e + 2, "0"); if (z && e[2 + z]) memmove(e + 2, e + 2 + z, strlen(e + 2 + z) + 1); }
+    }
     return fb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
