@@ -4464,6 +4464,11 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                         if (ci < 0 || claim[ci] >= 0 || bb_src_of(nodes[ci]) || emit_floater_kind(nodes[ci]) || (walls && walls[ci])) { bad = 1;
                             if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d stops at ci=%d (claim=%d src=%d floater=%d wall=%d)\n", ei, a, ci, ci >= 0 ? claim[ci] : -2,
                                 ci >= 0 ? (bb_src_of(nodes[ci]) != 0) : -1, ci >= 0 ? emit_floater_kind(nodes[ci]) : -1, (ci >= 0 && walls) ? walls[ci] : -1); break; }
+                        if (emit_resumable_frame() && zd_edge_retains(nodes[ci]) && zd_chase(c2->γ.node) != env) {
+                            if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d holds a retaining ci=%d before its end: the disjunction is not admitted\n", ei, a, ci);
+                            bad = 1;
+                            break;
+                        }
                         run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; zarm[ci] = ei; zarmj[ci] = a; aent[ci] = (unsigned char)first; first = 0; rl++;
                         if (g_emitter.zd_plan__dg)
                             fprintf(stderr, "[ZD-DJ] i=%d arm %d claims ci=%d %s rawgamma=%s\n", ei, a, ci, bb_op_name(nodes[ci]->op), c2->γ.node ? bb_op_name(c2->γ.node->op) : "-");
