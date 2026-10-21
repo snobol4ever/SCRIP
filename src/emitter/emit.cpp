@@ -1381,7 +1381,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
             g_emit.op_zpat = g_emitter.g_zd_zpat; g_emitter.g_zd_zpat = 0; g_emit.op_zfc = g_emitter.g_zd_zfc; g_emitter.g_zd_zfc = 0;
             if (nd && g_emit_cfg) { int _xn = zd_nops(nd); g_emit.op_zslot_n = (_xn < nd->n_operands) ? _xn : nd->n_operands;
                 for (int _zi = 0; _zi < g_emit.op_zslot_n && _zi < g_emit.op_zcap; _zi++) { IR_t * _po = nd->operands[_zi];
-                    IR_t * _pv = zd_conj_value_node(_po);
+                    IR_t * _pv = zd_value_producer(_po);
                     int _ph = (_po && zd_value_producer(_po) != _po && xop_frame_slot(zd_value_producer(_po)) != -1) ? 1 : 0;
                     g_emit.op_zslot[_zi] = (_po && (zd_k_own(_po) >= 16 || zd_local_home_node(_po) || (_pv != _po && zd_k_own(_pv) >= 16 && zd_plan_on_of(_pv)) || _ph) && zd_plan_on_of(_po)) ?
                         (bb_slot_get(_po) >= 0 ? bb_slot_get(_po) : nd_slot(_po)) :
