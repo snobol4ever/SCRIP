@@ -3917,9 +3917,15 @@ static int zd_pl_land(IR_t **nodes, int n, const unsigned char *zon, const int *
     if (*q < 0 || !zon[*q]) { *q = -1; return 0; }
     return l;
 }
+static int zd_pl_dj_join(IR_t **nodes, int n, int i, int q) {
+    if (q < 0 || nodes[q]->op != IR_DISJUNCTION || !emit_resumable_frame()) return 0;
+    for (int a = 0; a < (int)IR_LIT(nodes[q]).ival; a++) if (zd_dj_arm_end(nodes, n, q, a) == i) return 1;
+    return 0;
+}
 static int zd_pl_entry(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int i, int e, int *l, const unsigned char *dead) {
     int q, b;
     if (e == 0 && zd_edge_retains(nodes[i])) return -1;
+    if (e == 0 && zd_pl_dj_join(nodes, n, i, nidx(nodes, n, zd_chase(nodes[i]->γ.node)))) return -1;
     if (e >= 2 && nodes[i]->op == IR_DISJUNCTION && g_emit_cfg && g_emit_cfg->spine_cells && (((e - 2) & 1) || e - 2 >= 2 * (int)IR_LIT(nodes[i]).ival)) return -1;
     (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q, &b);
     if (q < 0 || claim[q] < 0 || claim[q] == claim[i] || b || (claim[q] != q && !(dead && dead[claim[q]]))) return -1;
@@ -4014,7 +4020,7 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
                     int q, b;
                     if (e == 1 || (e >= 2 && nodes[i]->op != IR_DISJUNCTION)) continue;
                     (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q, &b);
-                    if (q < 0 || claim[q] < 0 || indef[claim[q]] || (b && zd_beta_via_act(nodes[q]))) continue;
+                    if (q < 0 || claim[q] < 0 || indef[claim[q]] || (b && zd_beta_via_act(nodes[q])) || (e == 0 && zd_pl_dj_join(nodes, n, i, q))) continue;
                     int r = claim[q];
                     if (r != q && !(pl && nodes[q]->op != IR_DISJUNCTION)) continue;
                     int ub = (r == q && nodes[r]->op == IR_UNMARK && (IR_LIT(nodes[r]).ival & 6) && nodes[r]->n_operands > 0) ? nidx(nodes, n, nodes[r]->operands[0]) : -1;
