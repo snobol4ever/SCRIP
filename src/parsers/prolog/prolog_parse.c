@@ -2147,7 +2147,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$tbl_qual'(M,V,QV):-callable(V),V=..[F|As],atom_concat(M,':',P),atom_concat(P,F,QF),QV=..[QF|As].\n"
     "'$tbl_unqual'(QV,M,V):-callable(QV),QV=..[QF|As],atom(QF),sub_atom(QF,B,1,A,':'),B>0,!,sub_atom(QF,0,B,_,M),B1 is B+1,sub_atom(QF,B1,A,0,F),V=..[F|As].\n"
     "'$tbl_unqual'(V,user,V).\n"
-    "'$tbl_table_status'(T,S,M:W,Sk):-'$trie_id'(T,I),'$trie_meta_get'(I,0,S),'$tbl_dgoal'(I,G),'$tbl_unqual'(G,M,W),term_variables(W,Vs),Sk=..[ret|Vs].\n"
+    "'$tbl_table_status'(T,S,M:W,Sk):-'$trie_id'(T,I),'$trie_meta_get'(I,0,S),'$tbl_dgoal'(I,G),'$tbl_unqual'(G,M0,W0),term_variables(W0,Vs),Sk=..[ret|Vs],M=M0,W=W0.\n"
     "'$trie_id'(T,_):-var(T),!,throw(error(instantiation_error,_)).\n"
     "'$trie_id'('$trie'(I),I):-integer(I),'$trie_alive'(I),!.\n"
     "'$trie_id'(T,_):-nonvar(T),T='$trie'(I),integer(I),!,throw(error(existence_error(trie,T),_)).\n"
