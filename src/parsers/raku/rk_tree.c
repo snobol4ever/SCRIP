@@ -235,15 +235,19 @@ static tree_t *mk_junction(const char *flav, tree_t *l, tree_t *r) {
 static tree_t *rk_adverb_bool(int v) { tree_t *b = make_call("__rk_mkbool"); expr_add_child(b, rk_ilit(v)); return b; }
 static tree_t *rk_adverb_bool_n(int v, const char *name) { tree_t *b = rk_adverb_bool(v); if (name && *name) expr_add_child(b, leaf_sval(TT_QLIT, name)); return b; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *rk_multi_mangle(const char *base, TL *params) {
-    int np = params ? params->n : 0;
+static const char *rk_multi_mangle(const char *base, TL *params, int kind) {
+    int np = params ? params->n : 0, nnamed = 0;
+    for (int i = 0; kind == 0 && i < np; i++) if (params->v[i] && (params->v[i]->slen & RK_PV_NAMED)) nnamed++;
     SB b = { 0 };
-    for (const char *c = fmt("%s$%d", base, np); *c; c++) sb_c(&b, *c);
-    for (int i = 0; i < np; i++) {
+    for (const char *c = fmt("%s$%d", base, np - nnamed); *c; c++) sb_c(&b, *c);
+    for (int pass = 0; pass < (nnamed ? 2 : 1); pass++) for (int i = 0; i < np; i++) {
         tree_t *p = params->v[i];
+        int named = nnamed && p && (p->slen & RK_PV_NAMED);
+        if (named != pass) continue;
         const char *ty = (p && p->n > 0 && p->c[0] && p->c[0]->v.sval) ? p->c[0]->v.sval : "Any";
         if (!strcmp(ty, "*@") || !strcmp(ty, "**@")) ty = "Slurpy";
         sb_c(&b, '$');
+        if (named) { for (const char *c = fmt("N_%s_%c", p->v.sval ? p->v.sval : "", (p->slen & RK_PV_REQ) ? 'R' : 'O'); *c; c++) sb_c(&b, *c); continue; }
         for (const char *c = ty; *c; c++) sb_c(&b, (*c == ':') ? '_' : *c);
     }
     return sb_str(&b);
@@ -1685,15 +1689,15 @@ static int named_form(RkTerm *t, int first) {
     if (!t || t->npre || t->npost) return 0;
     if (t->kind == TK_FAT) return 1;
     if (t->kind == TK_CP && t->ck == 'v' && t->cnt == 'P') return 1;
-    if (t->kind == TK_CP && t->ck == 'n' && first) return 1;
+    if (t->kind == TK_CP && (t->ck == 'n' || t->ck == '!') && first) return 1;
     if (t->kind == TK_CP && t->ck == '$' && t->val) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void add_named(RkTerm *t, TL *named) {
     tl_add(named, leaf_sval(TT_QLIT, t->name));
-    if (t->kind == TK_CP && t->ck == 'n') {
-        tree_t *tb = ast_node_new(TT_FNC); tb->v.sval = (char *) "__rk_mkbool"; tree_t *tn = ast_node_new(TT_VAR); tn->v.sval = (char *) "__rk_mkbool"; ast_push(tb, tn); ast_push(tb, rk_ilit(1));
+    if (t->kind == TK_CP && (t->ck == 'n' || t->ck == '!')) {
+        tree_t *tb = ast_node_new(TT_FNC); tb->v.sval = (char *) "__rk_mkbool"; tree_t *tn = ast_node_new(TT_VAR); tn->v.sval = (char *) "__rk_mkbool"; ast_push(tb, tn); ast_push(tb, rk_ilit(t->ck == 'n'));
         tl_add(named, tb); return;
     }
     tl_add(named, t->val);
@@ -2786,7 +2790,7 @@ tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, 
     tree_t *rkbody = rk_defaults_prologue(&params, body);
     char *nm = trimdup(name ? name : "", name ? namelen : 0);
     nm = rk_op_name_canon(nm);
-    const char *mn = multi == 1 ? rk_multi_mangle(nm, &params) : intern(nm);
+    const char *mn = multi == 1 ? rk_multi_mangle(nm, &params, kind) : intern(nm);
     tree_t *e;
     if (kind == 0) { e = leaf_sval(TT_SUB_DECL, mn); e->v.ival = params.n; }
     else { e = ast_node_new(TT_SUB_DECL); e->v.ival = params.n + 1; }

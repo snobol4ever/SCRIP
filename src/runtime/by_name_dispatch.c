@@ -13380,6 +13380,95 @@ static int rk_fast_rat_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { char name[64]; int req; } rk_mc_named_t;
+static int rk_mc_named_of(const char *types, int arity, rk_mc_named_t *out, int max) {
+    int seg = 0, n = 0;
+    for (const char *q = types; q; seg++) {
+        const char *nx = strchr(q, '$');
+        int len = nx ? (int)(nx - q) : (int)strlen(q);
+        if (seg >= arity && len > 4 && !strncmp(q, "N_", 2) && n < max) {
+            int nl = len - 4 > 63 ? 63 : len - 4;
+            memcpy(out[n].name, q + 2, (size_t) nl);
+            out[n].name[nl] = 0;
+            out[n].req = q[len - 1] == 'R';
+            n++;
+        }
+        q = nx ? nx + 1 : (const char *)0;
+    }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_multi_named_winner(const char *base, const DESCR_t *pos, int npos, const DESCR_t *kv, int nkv, int *none) {
+    char prefix[fmt_len("%s$", base)];
+    int pl = snprintf(prefix, sizeof prefix, "%s$", base);
+    static char acc_names[256][160];
+    static char acc_types[256][8][32];
+    static int acc_var[256];
+    static int acc_fixed[256];
+    static int acc_nn[256];
+    int nacc = 0, ncand = 0;
+    extern int rt_proc_enum_count(void);
+    extern const char *rt_proc_enum_name(int i);
+    int pcount = rt_proc_enum_count();
+    for (int pi = 0; pi < pcount && nacc < 256; pi++) {
+        const char *pn = rt_proc_enum_name(pi);
+        if (!pn || strncmp(pn, prefix, (size_t)pl)) continue;
+        ncand++;
+        const char *p = pn + pl;
+        const char *e = strchr(p, '$');
+        int arity = atoi(p), nt = 0;
+        const char *q = e ? e + 1 : (const char *)0;
+        while (q && nt < 8) {
+            const char *nx = strchr(q, '$');
+            int len = nx ? (int)(nx - q) : (int)strlen(q);
+            if (len > 31) len = 31;
+            memcpy(acc_types[nacc][nt], q, (size_t)len);
+            acc_types[nacc][nt][len] = 0;
+            nt++;
+            if (!nx) break;
+            q = nx + 1;
+        }
+        int isvar = (arity > 0 && arity <= nt && !strcmp(acc_types[nacc][arity - 1], "Slurpy"));
+        int fixed = isvar ? arity - 1 : arity;
+        if (isvar ? (npos < fixed) : (arity != npos)) continue;
+        int ok = 1;
+        for (int i = 0; i < fixed && i < nt; i++) if (!rt_mc_accepts(acc_types[nacc][i], pos[i])) { ok = 0; break; }
+        if (!ok) continue;
+        rk_mc_named_t nmd[16];
+        int nnm = rk_mc_named_of(e ? e + 1 : (const char *)0, arity, nmd, 16);
+        for (int k = 0; k < nkv && ok; k++) {
+            char kb[128];
+            const char *key = to_cstring(kv[2 * k], kb, sizeof kb);
+            int hit = 0;
+            for (int i = 0; i < nnm; i++) if (key && !strcmp(nmd[i].name, key)) hit = 1;
+            if (!hit) ok = 0;
+        }
+        for (int i = 0; i < nnm && ok; i++) {
+            if (!nmd[i].req) continue;
+            int hit = 0;
+            for (int k = 0; k < nkv; k++) { char kb[128]; const char *key = to_cstring(kv[2 * k], kb, sizeof kb); if (key && !strcmp(nmd[i].name, key)) hit = 1; }
+            if (!hit) ok = 0;
+        }
+        if (!ok) continue;
+        acc_var[nacc] = isvar;
+        acc_fixed[nacc] = fixed;
+        acc_nn[nacc] = nnm;
+        snprintf(acc_names[nacc], sizeof acc_names[nacc], "%s", pn);
+        nacc++;
+    }
+    *none = ncand == 0;
+    if (nacc == 0) return (const char *)0;
+    int win = -1;
+    for (int pass = 0; pass < 2 && win < 0; pass++) for (int i = 0; i < nacc; i++) {
+        int beaten = 0;
+        if (acc_var[i] != pass) continue;
+        for (int j = 0; j < nacc; j++) { if (i == j || acc_var[j] != pass) continue; if (rt_mc_narrower(acc_types[j], acc_types[i], acc_fixed[i])) { beaten = 1; break; } }
+        if (!beaten && (win < 0 || acc_nn[i] > acc_nn[win])) win = i;
+    }
+    if (win < 0) win = 0;
+    return acc_names[win];
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_multi_winner(const char *base, const DESCR_t *aa, int na) {
     char prefix[fmt_len("%s$", base)];
     int pl = snprintf(prefix, sizeof prefix, "%s$", base);
@@ -13388,6 +13477,7 @@ const char *rt_multi_winner(const char *base, const DESCR_t *aa, int na) {
     static char acc_types[256][8][32];
     static int acc_var[256];
     static int acc_fixed[256];
+    static int acc_nn[256];
     int nacc = 0;
     extern int rt_proc_enum_count(void);
     extern const char *rt_proc_enum_name(int i);
@@ -13410,14 +13500,19 @@ const char *rt_multi_winner(const char *base, const DESCR_t *aa, int na) {
             if (!nx) break;
             q = nx + 1;
         }
-        int isvar = (nt > 0 && !strcmp(acc_types[nacc][nt - 1], "Slurpy"));
+        int isvar = (arity > 0 && arity <= nt && !strcmp(acc_types[nacc][arity - 1], "Slurpy"));
         int fixed = isvar ? arity - 1 : arity;
         if (isvar ? (na < fixed) : (arity != na)) continue;
+        rk_mc_named_t nmd[16];
+        int nnm = rk_mc_named_of(e ? e + 1 : (const char *)0, arity, nmd, 16), reqn = 0;
+        for (int i = 0; i < nnm; i++) if (nmd[i].req) reqn = 1;
+        if (reqn) continue;
         int ok = 1;
         for (int i = 0; i < fixed && i < nt; i++) if (!rt_mc_accepts(acc_types[nacc][i], aa[i])) { ok = 0; break; }
         if (!ok) continue;
         acc_var[nacc] = isvar;
         acc_fixed[nacc] = fixed;
+        acc_nn[nacc] = nnm;
         acc_idx[nacc] = pi;
         snprintf(acc_names[nacc], sizeof acc_names[nacc], "%s", pn);
         nacc++;
@@ -13428,7 +13523,7 @@ const char *rt_multi_winner(const char *base, const DESCR_t *aa, int na) {
         int beaten = 0;
         if (acc_var[i] != pass) continue;
         for (int j = 0; j < nacc; j++) { if (i == j || acc_var[j] != pass) continue; if (rt_mc_narrower(acc_types[j], acc_types[i], acc_fixed[i])) { beaten = 1; break; } }
-        if (!beaten) { win = i; break; }
+        if (!beaten && (win < 0 || acc_nn[i] > acc_nn[win])) win = i;
     }
     if (win < 0) win = 0;
     (void)acc_idx;
@@ -14193,6 +14288,19 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             return 1;
         }
         if (npos < 0) npos = 0;
+        if (!rt_proc_find_user(pname)) {
+            int none = 0;
+            const char *w = rk_multi_named_winner(pname, &args[2], npos, &args[2 + npos], nargs > 2 + npos ? (nargs - 2 - npos) / 2 : 0, &none);
+            if (w) pname = w;
+            else if (!none) {
+                extern void rt_script_die_surface(const char *msg);
+                char m[fmt_len("Cannot resolve caller %s(...); none of these signatures matches", pname)];
+                snprintf(m, sizeof m, "Cannot resolve caller %s(...); none of these signatures matches", pname);
+                rt_script_die_surface(m);
+                *out = FAILDESCR;
+                return 1;
+            }
+        }
         int np = 0;
         while (rt_proc_pname(pname, np)) np++;
         extern int rt_proc_named_rest(const char *name);
