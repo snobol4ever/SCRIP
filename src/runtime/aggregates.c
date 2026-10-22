@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "g_runtime.h"
 #include "rt/gc_heap.h"
 #include "core.h"
 #include "sil_macros.h"
@@ -7,25 +8,20 @@
 #include <stdlib.h>
 static unsigned _tbl_nbuck_for(int init);
 static struct _TBBUCK_t **_tbl_vec_new(unsigned nb);
-static long g_agg_list_ser = 1;
-static long g_agg_table_ser = 1;
-static long g_agg_set_ser = 1;
-static long g_agg_external_ser = 1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_agg_serial_list(void) { return g_agg_list_ser++; }
-long rt_agg_serial_table(void) { return g_agg_table_ser++; }
-long rt_agg_serial_set(void) { return g_agg_set_ser++; }
-long rt_agg_serial_external(void) { return g_agg_external_ser++; }
-static long g_sno_dumpno = 0;
-long rt_sno_dumpno_next(void) { return ++g_sno_dumpno; }
-void rt_sno_dumpno_undo(void) { if (g_sno_dumpno > 0) g_sno_dumpno--; }
+long rt_agg_serial_list(void) { return g_runtime.agg.agg_list_ser++; }
+long rt_agg_serial_table(void) { return g_runtime.agg.agg_table_ser++; }
+long rt_agg_serial_set(void) { return g_runtime.agg.agg_set_ser++; }
+long rt_agg_serial_external(void) { return g_runtime.agg.agg_external_ser++; }
+long rt_sno_dumpno_next(void) { return ++g_runtime.agg.sno_dumpno; }
+void rt_sno_dumpno_undo(void) { if (g_runtime.agg.sno_dumpno > 0) g_runtime.agg.sno_dumpno--; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new(int lo, int hi) {
     ARBLK_t *a = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
     a->lo = lo;
     a->hi = hi;
     a->ndim = 1;
-    a->id = g_agg_list_ser++;
+    a->id = g_runtime.agg.agg_list_ser++;
     a->dumpno = rt_sno_dumpno_next();
     a->proto = (const char *)0;
     int sz = hi - lo + 1;
@@ -42,7 +38,7 @@ ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2) {
     a->lo2 = lo2;
     a->hi2 = hi2;
     a->ndim = 2;
-    a->id = g_agg_list_ser++;
+    a->id = g_runtime.agg.agg_list_ser++;
     a->dumpno = rt_sno_dumpno_next();
     a->proto = (const char *)0;
     int rows = hi1 - lo1 + 1;
@@ -76,7 +72,7 @@ static TBBUCK_t **_tbl_vec_new(unsigned nb) { TBBUCK_t **v = rt_gcheap_alloc(HB_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *table_new(void) {
     TBBLK_t *t = rt_agg_alloc(2, sizeof(TBBLK_t));
-    t->id = g_agg_table_ser++;
+    t->id = g_runtime.agg.agg_table_ser++;
     t->dumpno = rt_sno_dumpno_next();
     t->size = 0;
     t->init = 11;
@@ -108,7 +104,7 @@ TBBLK_t *table_new(void) {
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-TBBLK_t *set_new(void) { TBBLK_t *r = table_new(); g_agg_table_ser--; r->is_set = 1; r->id = rt_agg_serial_set(); return r; }
+TBBLK_t *set_new(void) { TBBLK_t *r = table_new(); g_runtime.agg.agg_table_ser--; r->is_set = 1; r->id = rt_agg_serial_set(); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *table_new_args(int init, int inc) {
     TBBLK_t *t = table_new();
@@ -166,12 +162,12 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_h_real(cons
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_arr(const DESCR_t *k) {
     if (!k->arr) return 0x51ED270B2C1A33ull;
-    if (!k->arr->id) k->arr->id = g_agg_list_ser++;
+    if (!k->arr->id) k->arr->id = g_runtime.agg.agg_list_ser++;
     return (_tbl_rotl((unsigned long long)k->arr->id, 21) * 0xD6E8FEB86659FD93ull) >> 8;
 }
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_tbl(const DESCR_t *k) {
     if (!k->tbl) return 0x1C69B3F74AC4Aull;
-    if (!k->tbl->id) k->tbl->id = g_agg_table_ser++;
+    if (!k->tbl->id) k->tbl->id = g_runtime.agg.agg_table_ser++;
     return (_tbl_rotl((unsigned long long)k->tbl->id, 43) * 0xD6E8FEB86659FD93ull) >> 8;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -258,8 +254,8 @@ static inline __attribute__((always_inline)) int _tbl_eq_d(const TBPAIR_t *e, DE
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int tbl_key_equal(DESCR_t a, DESCR_t b) { TBPAIR_t e; e.key_descr = a; e.val = a; e.hkey = 0; return _tbl_eq_d(&e, b); }
 long tbl_key_serial(DESCR_t k) {
-    if (k.v == DT_A) { if (!k.arr) return 0; if (!k.arr->id) k.arr->id = g_agg_list_ser++; return (long)k.arr->id; }
-    if (k.v == DT_T) { if (!k.tbl) return 0; if (!k.tbl->id) k.tbl->id = g_agg_table_ser++; return (long)k.tbl->id; }
+    if (k.v == DT_A) { if (!k.arr) return 0; if (!k.arr->id) k.arr->id = g_runtime.agg.agg_list_ser++; return (long)k.arr->id; }
+    if (k.v == DT_T) { if (!k.tbl) return 0; if (!k.tbl->id) k.tbl->id = g_runtime.agg.agg_table_ser++; return (long)k.tbl->id; }
     if (k.v == DT_DATA) return (k.slen == DATA_INST_SLEN && k.u) ? (long)k.u->id : 0;
     return 0;
 }

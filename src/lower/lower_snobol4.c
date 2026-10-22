@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "g_runtime.h"
 #include "ct_arena.h"
 #include "ct_vec.h"
 #include <string.h>
@@ -1148,7 +1149,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                     if (res) *res = nd;
                     return nd;
                 }
-                if (fnb[0] && !({ extern int g_rt_fragment_emit; g_rt_fragment_emit; }) && !sno_fname_is_multiproto(fnb) && !sno_def_entry_absent(t, argbase))
+                if (fnb[0] && !({ g_runtime.eval.rt_fragment_emit; }) && !sno_fname_is_multiproto(fnb) && !sno_def_entry_absent(t, argbase))
                     sno_fatal(
                     "DEFINE in this expression position is outside the landed subset (literal-prototype DEFINE in a statement subject only; pattern/replacement-field and fragment DEFINE pending)",
                     NULL);
@@ -1792,9 +1793,8 @@ static IR_t * sno_label_trace_wrap(IR_graph_t * g, const char * nm, IR_t * land)
     return hook;
 }
 static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
-    extern int g_rt_fragment_emit;
     IR_t * l = (nm && nm[0] != '$') ? bb_label_landing(nm) : NULL;
-    if (l && (g_rt_fragment_emit || g_lower.sno.calls_code) && !sno_label_reserved(nm)) l = NULL;
+    if (l && (g_runtime.eval.rt_fragment_emit || g_lower.sno.calls_code) && !sno_label_reserved(nm)) l = NULL;
     if (l) return l;
     if (!nm || !nm[0]) sno_fatal("goto to unknown label", "?");
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL);

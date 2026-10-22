@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "g_runtime.h"
 #include "rt/rt_arena.h"
 #include "rt/gc_heap.h"
 #include <stdlib.h>
@@ -38,10 +39,7 @@ extern void bb_pool_release(size_t mark);
 #define EVAL_TMP_MARKED "EVAL$"
 #define EVAL_TMP_LEGACY "ZZEVALZZ"
 #define EVAL_TMP eval_tmp_name()
-typedef struct { char *key; eval_chain_fn fn; long gen; } eval_cache_ent_t;
-static eval_cache_ent_t *g_eval_cache = NULL;
-static int g_eval_cache_n = 0;
-static int g_eval_cache_cap = 0;
+typedef struct g_eval_cache_ent { char *key; eval_chain_fn fn; long gen; } eval_cache_ent_t;
 _Static_assert(sizeof(eval_frame_t) == 112, "bb_call_fn.cpp carves BCFN_EVAL_REC = 112 bytes on the spine for the EVAL record; the record drifted");
 typedef struct eval_cframe_s { eval_frame_t f; struct eval_cframe_s *prev; } eval_cframe_t;
 static eval_cframe_t *g_eval_cfr = NULL;
@@ -68,10 +66,10 @@ static int eval_result_is_plain(DESCR_t d) {
 static unsigned long eval_cache_hash(const char *s) { unsigned long h = 1469598103934665603UL; while (*s) { h ^= (unsigned char)*s++; h *= 1099511628211UL; } return h; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static eval_cache_ent_t *eval_cache_slot(const char *s) {
-    if (g_eval_cache_cap == 0) return NULL;
-    unsigned long m = (unsigned long)g_eval_cache_cap - 1;
-    for (unsigned long i = eval_cache_hash(s) & m, p = 0; p < (unsigned long)g_eval_cache_cap; p++, i = (i + 1) & m) if (!g_eval_cache[i].key) return NULL;
-    else if (strcmp(g_eval_cache[i].key, s) == 0) return &g_eval_cache[i];
+    if (g_runtime.eval.eval_cache_cap == 0) return NULL;
+    unsigned long m = (unsigned long)g_runtime.eval.eval_cache_cap - 1;
+    for (unsigned long i = eval_cache_hash(s) & m, p = 0; p < (unsigned long)g_runtime.eval.eval_cache_cap; p++, i = (i + 1) & m) if (!g_runtime.eval.eval_cache[i].key) return NULL;
+    else if (strcmp(g_runtime.eval.eval_cache[i].key, s) == 0) return &g_runtime.eval.eval_cache[i];
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -92,25 +90,27 @@ static void eval_cache_put(char *key, eval_chain_fn fn) {
     if (have) { if (fn) have->fn = fn; return; }
     extern long rt_gc_runs_count(void);
     long now = rt_gc_runs_count();
-    if (g_eval_cache_cap == 0 || (g_eval_cache_n + 1) * 2 > g_eval_cache_cap) {
+    if (g_runtime.eval.eval_cache_cap == 0 || (g_runtime.eval.eval_cache_n + 1) * 2 > g_runtime.eval.eval_cache_cap) {
         int keep = 0, marks = 0, ncap = 16;
-        for (int k = 0; k < g_eval_cache_cap; k++) if (g_eval_cache[k].key && (g_eval_cache[k].fn || g_eval_cache[k].gen == now)) { keep++; if (!g_eval_cache[k].fn) marks++; }
+        for (int k = 0; k < g_runtime.eval.eval_cache_cap; k++) if (g_runtime.eval.eval_cache[k].key && (g_runtime.eval.eval_cache[k].fn || g_runtime.eval.eval_cache[k].gen == now)) {
+            keep++;
+            if (!g_runtime.eval.eval_cache[k].fn) marks++;
+        }
         int drop = (keep + 1) * 4 > EVAL_SEEN_ONCE_TABLE_MAX && marks > 0;
         if (drop) keep -= marks;
         while ((keep + 1) * 4 > ncap) ncap *= 2;
         eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_wsb_alloc((size_t)ncap * sizeof(eval_cache_ent_t));
         if (!ntab) return;
         memset(ntab, 0, (size_t)ncap * sizeof(eval_cache_ent_t));
-        for (int k = 0; k < g_eval_cache_cap; k++) if (g_eval_cache[k].key && (g_eval_cache[k].fn || (g_eval_cache[k].gen == now && !drop)))
-            eval_cache_insert_raw(ntab, ncap, g_eval_cache[k].key, g_eval_cache[k].fn, g_eval_cache[k].gen);
-        g_eval_cache = ntab;
-        g_eval_cache_cap = ncap;
-        g_eval_cache_n = keep;
+        for (int k = 0; k < g_runtime.eval.eval_cache_cap; k++) if (g_runtime.eval.eval_cache[k].key && (g_runtime.eval.eval_cache[k].fn || (g_runtime.eval.eval_cache[k].gen == now && !drop)))
+            eval_cache_insert_raw(ntab, ncap, g_runtime.eval.eval_cache[k].key, g_runtime.eval.eval_cache[k].fn, g_runtime.eval.eval_cache[k].gen);
+        g_runtime.eval.eval_cache = ntab;
+        g_runtime.eval.eval_cache_cap = ncap;
+        g_runtime.eval.eval_cache_n = keep;
     }
-    eval_cache_insert_raw(g_eval_cache, g_eval_cache_cap, key, fn, now);
-    g_eval_cache_n++;
+    eval_cache_insert_raw(g_runtime.eval.eval_cache, g_runtime.eval.eval_cache_cap, key, fn, now);
+    g_runtime.eval.eval_cache_n++;
 }
-int g_rt_fragment_emit = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_thunks_emit_from(int pc0) {
     int emit_failed = 0;
@@ -142,7 +142,7 @@ static int eval_thunks_emit_from(int pc0) {
     int fa = g_frame_active;
     g_frame_active = 1;
     int ga = g_gen_proc_active;
-    g_rt_fragment_emit = 1;
+    g_runtime.eval.rt_fragment_emit = 1;
     int b1c = 1;
     { const char *_be = getenv("SCRIP_B1C_PARITY"); if (_be && *_be == '0') b1c = 0; }
     int b1cland = 1;
@@ -204,7 +204,7 @@ static int eval_thunks_emit_from(int pc0) {
         if (b1c && pfn) { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }
         emit_jmp_entry_clear();
     }
-    g_rt_fragment_emit = 0;
+    g_runtime.eval.rt_fragment_emit = 0;
     g_gen_proc_active = ga;
     g_frame_active = fa;
     g_emit_cfg = cfg_sv;
@@ -297,10 +297,10 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     g_frame_active = 1;
     { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph((IR_graph_t *)g); }
     emit_jmp_entry_for_chain((IR_graph_t *)g);
-    g_rt_fragment_emit = 1;
+    g_runtime.eval.rt_fragment_emit = 1;
     eval_chain_fn fn = emit_chain(((IR_graph_t *)g)->entry, NULL, "pat_flat");
     { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
-    g_rt_fragment_emit = 0;
+    g_runtime.eval.rt_fragment_emit = 0;
     emit_jmp_entry_clear();
     g_frame_active = fa;
     g_emit_cfg = cfg_sv;
@@ -314,8 +314,7 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_c2bb_hit(const char *site, const char *name);
 extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
-int g_eval_ret_v = 1;
-__attribute__((constructor)) static void eval_ret_init(void) { const char *e = getenv("SCRIP_EVAL_RET"); g_eval_ret_v = (e && *e == '0') ? 0 : 1; }
+__attribute__((constructor)) static void eval_ret_init(void) { const char *e = getenv("SCRIP_EVAL_RET"); g_runtime.eval.eval_ret_v = (e && *e == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_RETAIN"); v = (e && *e) ? atol(e) : -1; } return v < 0 ? ~(size_t)0 : (size_t)v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -752,17 +751,20 @@ DESCR_t rt_eval_land(long word) {
 static DESCR_t eval_node(tree_t *e) { (void)e; fprintf(stderr, "[B0b] BOMB eval_node: AST-walk evaluator deleted; nothing interprets tree_t at runtime\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t eval_expr(const char *src) { if (!src || !*src) return NULVCL; tree_t *tree = parse_expr_pat_from_str(src); if (!tree) return FAILDESCR; return eval_node(tree); }
-typedef struct { char *key; eval_chain_fn fn; } lbl_ent_t;
-static lbl_ent_t *g_lbl_tab = NULL;
-static int g_lbl_n = 0;
-static int g_lbl_cap = 0;
+typedef struct g_lbl_ent { char *key; eval_chain_fn fn; } lbl_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void eval_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **loc);
-    if (g_eval_cache) { rt_gc_visit_raw((const char **)&g_eval_cache); for (int i = 0; i < g_eval_cache_cap; i++) if (g_eval_cache[i].key) rt_gc_visit_raw((const char **)&g_eval_cache[i].key); }
+    if (g_runtime.eval.eval_cache) {
+        rt_gc_visit_raw((const char **)&g_runtime.eval.eval_cache);
+        for (int i = 0; i < g_runtime.eval.eval_cache_cap; i++) if (g_runtime.eval.eval_cache[i].key) rt_gc_visit_raw((const char **)&g_runtime.eval.eval_cache[i].key);
+    }
     { extern void rt_gc_visit_descr(DESCR_t *); for (eval_cframe_t *c = g_eval_cfr; c; c = c->prev) { rt_gc_visit_descr(&c->f.saved); if (c->f.key.v == DT_S) rt_gc_visit_descr(&c->f.key); } }
-    if (g_lbl_tab) { rt_gc_visit_raw((const char **)&g_lbl_tab); for (int i = 0; i < g_lbl_n; i++) if (g_lbl_tab[i].key) rt_gc_visit_raw((const char **)&g_lbl_tab[i].key); }
+    if (g_runtime.eval.lbl_tab) {
+        rt_gc_visit_raw((const char **)&g_runtime.eval.lbl_tab);
+        for (int i = 0; i < g_runtime.eval.lbl_n; i++) if (g_runtime.eval.lbl_tab[i].key) rt_gc_visit_raw((const char **)&g_runtime.eval.lbl_tab[i].key);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_sno_entry_cells_follow(const char *lbl, void *fn) {
@@ -780,20 +782,24 @@ static void rt_sno_entry_cells_follow(const char *lbl, void *fn) {
 void rt_label_set_fn(const char *name, void *fn) {
     if (!name || !*name) return;
     rt_sno_entry_cells_follow(name, fn);
-    for (int i = 0; i < g_lbl_n; i++) if (!strcmp(g_lbl_tab[i].key, name)) { g_lbl_tab[i].fn = (eval_chain_fn)fn; return; }
-    if (g_lbl_n >= g_lbl_cap) {
-        int ncap = g_lbl_cap ? g_lbl_cap * 2 : 16;
-        lbl_ent_t *nt = (lbl_ent_t *)rt_wsb_realloc(g_lbl_tab, (size_t)ncap * sizeof(lbl_ent_t));
+    for (int i = 0; i < g_runtime.eval.lbl_n; i++) if (!strcmp(g_runtime.eval.lbl_tab[i].key, name)) { g_runtime.eval.lbl_tab[i].fn = (eval_chain_fn)fn; return; }
+    if (g_runtime.eval.lbl_n >= g_runtime.eval.lbl_cap) {
+        int ncap = g_runtime.eval.lbl_cap ? g_runtime.eval.lbl_cap * 2 : 16;
+        lbl_ent_t *nt = (lbl_ent_t *)rt_wsb_realloc(g_runtime.eval.lbl_tab, (size_t)ncap * sizeof(lbl_ent_t));
         if (!nt) return;
-        g_lbl_tab = nt;
-        g_lbl_cap = ncap;
+        g_runtime.eval.lbl_tab = nt;
+        g_runtime.eval.lbl_cap = ncap;
     }
-    g_lbl_tab[g_lbl_n].key = rt_heap_strdup_c(name);
-    g_lbl_tab[g_lbl_n].fn = (eval_chain_fn)fn;
-    g_lbl_n++;
+    g_runtime.eval.lbl_tab[g_runtime.eval.lbl_n].key = rt_heap_strdup_c(name);
+    g_runtime.eval.lbl_tab[g_runtime.eval.lbl_n].fn = (eval_chain_fn)fn;
+    g_runtime.eval.lbl_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static eval_chain_fn rt_label_get_fn(const char *name) { if (!name || !*name) return NULL; for (int i = 0; i < g_lbl_n; i++) if (!strcmp(g_lbl_tab[i].key, name)) return g_lbl_tab[i].fn; return NULL; }
+static eval_chain_fn rt_label_get_fn(const char *name) {
+    if (!name || !*name) return NULL;
+    for (int i = 0; i < g_runtime.eval.lbl_n; i++) if (!strcmp(g_runtime.eval.lbl_tab[i].key, name)) return g_runtime.eval.lbl_tab[i].fn;
+    return NULL;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rt_goto_peek_name(const char *name) {
@@ -927,19 +933,19 @@ void *rt_sno_shim_install(void *pv, const char *name, void *efn) {
         { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
         {
             IR_graph_t *cfg_sv = g_emit_cfg;
-            int fa = g_frame_active, ga = g_gen_proc_active, rfe = g_rt_fragment_emit;
+            int fa = g_frame_active, ga = g_gen_proc_active, rfe = g_runtime.eval.rt_fragment_emit;
             char pfx[strlen(name) + 6];
             snprintf(pfx, sizeof pfx, "proc_%s", name);
             g_emit_cfg = g;
             g_frame_active = 1;
             g_gen_proc_active = 0;
-            g_rt_fragment_emit = 1;
+            g_runtime.eval.rt_fragment_emit = 1;
             emit_jmp_entry_for_proc(name, 1, 0, g);
             {
                 eval_chain_fn fn = emit_chain(g->entry, NULL, pfx);
                 emit_gc_tables_register((const void *)fn);
                 emit_jmp_entry_clear();
-                g_rt_fragment_emit = rfe;
+                g_runtime.eval.rt_fragment_emit = rfe;
                 g_gen_proc_active = ga;
                 g_frame_active = fa;
                 g_emit_cfg = cfg_sv;
@@ -969,7 +975,6 @@ __asm__( ".text\n" ".globl rt_setexit_continue_tramp\n" "rt_setexit_continue_tra
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code_at(const char *src, long base);
 DESCR_t code(const char *src) { return code_at(src, 0); }
-long g_sno_stmt_compiled = 0;
 DESCR_t code_at(const char *src, long base) {
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     if (!src) return FAILDESCR;
@@ -1031,8 +1036,8 @@ DESCR_t code_at(const char *src, long base) {
         for (int i = 0; i < prog->n && !pe; i++) if ((pe = sno_preeval_stmt(prog->c[i], &pm)) && parse_err && !(pm && !strcmp(pm, parse_err))) pe = 0, pm = (const char *)0;
         if (pe && !parse_err) parse_err = pm ? pm : "";
     }
-    if (g_sno_stmt_compiled < base) g_sno_stmt_compiled = base;
-    long stno_base = g_sno_stmt_compiled;
+    if (g_runtime.eval.sno_stmt_compiled < base) g_runtime.eval.sno_stmt_compiled = base;
+    long stno_base = g_runtime.eval.sno_stmt_compiled;
     extern int sno_pat_count(void);
     extern void sno_pat_thunks_build(int p0);
     extern int sno_expr_mark(void);
@@ -1047,10 +1052,10 @@ DESCR_t code_at(const char *src, long base) {
         if (!c || c->t != TT_STMT) continue;
         const char *lbl = sno_stmt_label(c);
         if (k == 0 || (lbl && lbl[0])) {
-            int rfl_sv = g_rt_fragment_emit;
-            g_rt_fragment_emit = 1;
+            int rfl_sv = g_runtime.eval.rt_fragment_emit;
+            g_runtime.eval.rt_fragment_emit = 1;
             IR_graph_t *g = sno_lower_fragment_at(prog, k, stno_base);
-            g_rt_fragment_emit = rfl_sv;
+            g_runtime.eval.rt_fragment_emit = rfl_sv;
             if (!g) return FAILDESCR;
             g->runtime_fragment_graph = 1;
             extern IR_graph_t *g_emit_cfg;
@@ -1058,14 +1063,14 @@ DESCR_t code_at(const char *src, long base) {
             g_emit_cfg = g;
             int fa = g_frame_active;
             g_frame_active = 1;
-            int rfe_sv = g_rt_fragment_emit;
-            g_rt_fragment_emit = 1;
+            int rfe_sv = g_runtime.eval.rt_fragment_emit;
+            g_runtime.eval.rt_fragment_emit = 1;
             { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g); }
             emit_jmp_entry_for_chain(g);
             eval_chain_fn fn = emit_chain(g->entry, NULL, "code_flat");
             { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
             emit_jmp_entry_clear();
-            g_rt_fragment_emit = rfe_sv;
+            g_runtime.eval.rt_fragment_emit = rfe_sv;
             g_frame_active = fa;
             g_emit_cfg = cfg_sv;
             if (!fn) { rt_code_pool_check(); return FAILDESCR; }
@@ -1081,7 +1086,7 @@ DESCR_t code_at(const char *src, long base) {
         if (patn > pat0) sno_pat_thunks_build(pat0);
         if (((ks && *ks == '0') ? (patn > pat0) : 1) && eval_thunks_emit_from(proc0)) { rt_code_pool_check(); return FAILDESCR; }
     }
-    g_sno_stmt_compiled += (long)(k - empty) + 1;
+    g_runtime.eval.sno_stmt_compiled += (long)(k - empty) + 1;
     if (parse_err || illegal) { g_sno_errtext = parse_err ? parse_err : illegal; code_compile_raise(orig, pe, pm); return FAILDESCR; }
     if (!first) return FAILDESCR;
     DESCR_t d = {0};
@@ -1201,14 +1206,14 @@ static int rk_emit_new_procs(int pc0) {
     int fa = g_frame_active;
     g_frame_active = 1;
     int ga = g_gen_proc_active;
-    g_rt_fragment_emit = 1;
+    g_runtime.eval.rt_fragment_emit = 1;
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
         const char *pname = g_stage2.proc_table[pi].name;
         int idx = g_stage2.proc_table[pi].bb_idx;
         if (!pname || !strcmp(pname, "main") || idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) continue;
         if (!emit_install_proc(&g_stage2, pi, NULL)) emit_failed = 1;
     }
-    g_rt_fragment_emit = 0;
+    g_runtime.eval.rt_fragment_emit = 0;
     g_gen_proc_active = ga;
     g_frame_active = fa;
     g_emit_cfg = cfg_sv;

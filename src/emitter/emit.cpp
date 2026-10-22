@@ -1,5 +1,6 @@
 #ifdef __cplusplus
 #include <unordered_map>
+#include "g_runtime.h"
 #include "ct_arena.h"
 #include "ct_vec.h"
 extern "C" int prolog_atom_intern_lit(const char *);
@@ -1743,7 +1744,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         abort();
     } return 0;
     case IR_STATEMENT_BEGIN: { extern long g_trace_budget; extern int g_mon_max_stno; g_emit.op_mon_stmt_tap = ((g_trace_budget != 0 || x86_zdp_rbp_on()) && g_emit.op_stno > 0) ? 1 : 0;
-        { extern int g_rt_fragment_emit; if (g_emit.op_mon_stmt_tap && !g_rt_fragment_emit && g_emit.op_stno > g_mon_max_stno) g_mon_max_stno = g_emit.op_stno; } g_emit.op_fc_bytes = 0;
+        { if (g_emit.op_mon_stmt_tap && !g_runtime.eval.rt_fragment_emit && g_emit.op_stno > g_mon_max_stno) g_mon_max_stno = g_emit.op_stno; } g_emit.op_fc_bytes = 0;
         bb_emit_x86(bb_statement()); { extern std::string bb_zdp_anchor(long, long); if (g_emitter.walk_bb_node_inner__zdpa < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN");
         g_emitter.walk_bb_node_inner__zdpa = (e && *e == '1') ? 1 : 0; } if (g_emitter.walk_bb_node_inner__zdpa) bb_emit_x86(bb_zdp_anchor((long)nd->op, (long)bb_node_id((IR_t *)nd)));
             } g_emit.op_mon_stmt_tap = 0; } return 0;
@@ -5061,7 +5062,6 @@ extern "C" int xa_flat_class_c_pred(void);
 extern "C" void xa_flat_chain_prologue(const char * fname, int * argkt_out);
 extern "C" void xa_flat_chain_epilogue(void);
 extern "C" void xa_flat_chain_epilogue_sig(int is_gamma, const char * fname);
-extern int g_rt_fragment_emit;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * icn_trace_intern(const char * s) {
     if (!s) return s;
@@ -5838,7 +5838,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     bb_label_t lbl_αblk; emit_label_initf(&lbl_αblk, "%s_αblk", fam);
     int _blk_graph = (g_emit.zframe_graph && !emit_resumable_frame() && g_emit_cfg && zls_g_block_args(g_emit_cfg) && !zls_g_det_block(g_emit_cfg)) ? 1 : 0;
     if (_blk_graph) { extern void xa_flat_block_staged_entry(void); xa_flat_block_staged_entry(); emit_label_define_bb(&lbl_αblk); }
-    if (prefix && !strcmp(gc_map_entry_fam(prefix), "main") && !g_rt_fragment_emit && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) && !g_emit.flat_lcl_proc &&
+    if (prefix && !strcmp(gc_map_entry_fam(prefix), "main") && !g_runtime.eval.rt_fragment_emit && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) &&
+        !g_emit.flat_lcl_proc &&
         !g_emit.flat_pat) { int _rg = g_emit_cfg->jcon_value_region;
         if (_rg >= 0 && !(_rg & 15)) { if (g_is_text && _rg + 32 > g_m4_main_frame_bytes)
         { fprintf(stderr, "FATAL emit: main's value region %d + the map cell exceeds the mode-4 main frame (%d), which the driver sizes from that same region -- the two readings disagree\n", _rg,
@@ -5995,7 +5996,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         }
     }
     if (!bare) emit_label_define_bb(&lbl_α_body);
-    if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
+    if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_runtime.eval.rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); } { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     int _sigk = 0;
     if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam, &_sigk);
@@ -6817,7 +6818,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   + x86("mov", "rbp", RDQ("rdx", 0))
          + x86("mov32", "eax", (long)DT_S) + x86_jmp_reg("rcx"));
     }
-    else if (xa_flat_class_c_pred() && !g_rt_fragment_emit) { xa_flat_chain_epilogue_sig(1, fam); }
+    else if (xa_flat_class_c_pred() && !g_runtime.eval.rt_fragment_emit) { xa_flat_chain_epilogue_sig(1, fam); }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); g_emit.op_fc_bytes = _glue_carve;
         bb_emit_x86((_wire_stub ? bb_glue_wire_γ() : bb_glue_outer_γ())); }
     }
@@ -6837,7 +6838,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   + x86("mov", "rbp", RDQ("rbp", 0))
                   + x86("mov32", "eax", (long)DT_FAIL) + x86_jmp_reg("rcx"));
     }
-    else if (xa_flat_class_c_pred() && !g_rt_fragment_emit) { xa_flat_chain_epilogue_sig(0, fam); }
+    else if (xa_flat_class_c_pred() && !g_runtime.eval.rt_fragment_emit) { xa_flat_chain_epilogue_sig(0, fam); }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); g_emit.op_fc_bytes = _glue_carve;
         bb_emit_x86((_wire_stub ? bb_glue_wire_ω() : bb_glue_outer_ω())); } } }
     { extern int g_flat_dc_np; extern long g_last_dc_off; g_last_dc_off = -1;
@@ -7434,8 +7435,7 @@ const char * bb_callee_baked_sym(int k) { return k == 2 ? "rt_call_callee_sn4" :
 uint64_t bb_callee_baked_fp(int k) { return k == 2 ? (uint64_t)(uintptr_t)(void *)rt_call_callee_sn4 : (uint64_t)(uintptr_t)(void *)rt_call_fld_sn4; }
 #include "templates/bb/bb_pl_leaf_kinds.h"
 int elem_access_kind(const IR_t * nd) { return nd ? nd->elem_access : 0; }
-extern "C" { int stage2_owner_varslot(const char *, const char *); int bb_scc_probe(const char *, int, int *, int *, int *, int *); int rt_proc_nformals(const char *); extern int g_rt_fragment_emit;
-    extern int g_flat_frame_floor; }
+extern "C" { int stage2_owner_varslot(const char *, const char *); int bb_scc_probe(const char *, int, int *, int *, int *, int *); int rt_proc_nformals(const char *); extern int g_flat_frame_floor; }
 IR_t * bb_chain_terminal_staged(IR_t * entry);
 int zf_display_level(void) {
     if (!g_emit_cfg || g_emit_cfg->cell_frame) return 0;
@@ -7470,7 +7470,7 @@ int xa_flat_class_c(void) {
       return _r; }
 }
 int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out, int * res_gk_out) {
-    if (!fname || !fname[0] || g_rt_fragment_emit) return 0;
+    if (!fname || !fname[0] || g_runtime.eval.rt_fragment_emit) return 0;
     int nf = rt_proc_nformals(fname); if (nf < 0) nf = 0;
     int np = 0, nsave = 0, res_gk = -1;
     int have = bb_scc_probe(fname, nf, &np, &nsave, gk_out, &res_gk);

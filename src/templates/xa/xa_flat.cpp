@@ -1,4 +1,5 @@
 #include <unordered_set>
+#include "g_runtime.h"
 #include <string>
 #include <cstdlib>
 #include <cstdio>
@@ -24,7 +25,6 @@ extern "C" void rt_jmp_frame_lexprep2(void *, long, long);
 extern "C" void rt_main_args_fetch(void);
 extern "C" int rt_proc_nformals(const char *name);
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
-extern int g_rt_fragment_emit;
 extern int * const rt_k_level_p;
 extern int64_t g_kw_fnclevel;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -482,7 +482,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
            + x86_pl_frame_choice_open(x86_hb(), kt, 236, 237, g_emit_cfg->n_alts > 1 && g_emit.flat_alt1_p ? -1 : 245); }
     if (g_emit_cfg && g_emit_cfg->root_graph) s += emit_gc_map_register(kt - FLAT_FRAME_ALLOWANCE_ROOT, kt, FLAT_FRAME_ALLOWANCE_ROOT - 16, GC_FRAME_MAP_ROOT, 0, 0u);
     else s += emit_gc_map_register(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, kt, kt - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
-        (!g_rt_fragment_emit && g_emit.flat_fam && (!strcmp(g_emit.flat_fam, "main") || !strcmp(g_emit.flat_fam, "pat_flat"))) ? GC_FRAME_MAP_ROOT : 0u, 0,
+        (!g_runtime.eval.rt_fragment_emit && g_emit.flat_fam && (!strcmp(g_emit.flat_fam, "main") || !strcmp(g_emit.flat_fam, "pat_flat"))) ? GC_FRAME_MAP_ROOT : 0u, 0,
         (zf_pas_nest_graph() ? GC_LINK_Q(kt + (int)zf_det_block_size(), kt - 8, kt + (int)zf_det_block_size() + 16, x86_hb_on() ? 0u : GC_LINK_RBP_KEPT) :
         GC_LINK_Q(kt - 24, kt - 8, kt + 16 * ((g_emit_cfg && zls_g_block_args(g_emit_cfg)) ? g_emit_cfg->nparams : 0), x86_hb_on() ? 0u : GC_LINK_RBP_KEPT)));
     return s;
@@ -493,7 +493,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
 #define xa_flat_sig_gq(gk, w) (g_rtcc_on ? std::string(GVARQ((gk), (w))) : std::string(ABSQ(RT_GVA_VA + (unsigned long)(gk) * 16 + (unsigned long)(w))))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define xa_flat_wn_park(fname) (!g_rt_fragment_emit && (fname) && (fname)[0] && !strchr((fname), '$') && strncmp((fname), "LBL__", 5) != 0)
+#define xa_flat_wn_park(fname) (!g_runtime.eval.rt_fragment_emit && (fname) && (fname)[0] && !strchr((fname), '$') && strncmp((fname), "LBL__", 5) != 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_wn_park_str(int kt, const char * fname) {
     extern int rt_g_want_name; extern int rt_g_ret_by_name;
@@ -603,7 +603,7 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
                      "res_gk just above (nreturn-after-indirect-assign-wrong-value fix) whenever this graph's signature info is known, otherwise still whatever the last node to "
                      "reach this exit staged. Must NOT clobber rax:rdx -- the call site's own landing tells success from failure by reading al, and only DT_FAIL (0x68) reads as "
                      "failure, so a live result's low byte must survive untouched. ⛔ ONLY valid when this chain was actually entered via bcps_det_arm's jmp-with-signature "
-                     "convention (guarded by !g_rt_fragment_emit at the call site) -- EVAL's runtime-compiled fragments reach this SAME class-C prologue but are invoked by a "
+                     "convention (guarded by !g_runtime.eval.rt_fragment_emit at the call site) -- EVAL's runtime-compiled fragments reach this SAME class-C prologue but are invoked by a "
                      "normal C call/ret (rt_proc_call_open_det* calling a real function pointer), so for them the plain xa_flat_chain_epilogue (release-only, fall through to ret) "
                      "is the correct and only exit; reading [rsp+kt-24] as a signature pointer for an eval fragment reads whatever garbage sat in rcx at entry and segfaults "
                      "(measured: corpus/crosscheck/rung10/1019_eval_string.sno SIGSEGV before this guard was added)."

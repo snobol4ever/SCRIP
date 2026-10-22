@@ -1,4 +1,5 @@
 #include <string>
+#include "g_runtime.h"
 #include <vector>
 #include <algorithm>
 #include <stdint.h>
@@ -261,7 +262,7 @@ static std::string bcps_det_arm() {
              + x86_anchor_enter()
              + ((scc_z || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)))
                 ? [&]() -> std::string {
-                    if (!bcps_no_tiny() && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || bcps_b1c_parity(); }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
+                    if (!bcps_no_tiny() && ({ !g_runtime.eval.rt_fragment_emit || bcps_b1c_parity(); }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
                         std::string laz = bcps_alpha_cellp_label(_.op_sval); std::string lazd = bcps_alpha_cellp_data(_.op_sval);
                         if (bcps_fnsig()) {
                             std::vector<long> soffz((size_t)_.op_ival); const char * whyz = "eligible"; std::string badz; int sigokz = 1;
@@ -435,7 +436,7 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
             ? [&]() -> std::string {
                 if (bcps_tiny_diag()) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d\n",
                     _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc);
-                if (!bcps_no_tiny() && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || bcps_b1c_parity(); }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
+                if (!bcps_no_tiny() && ({ !g_runtime.eval.rt_fragment_emit || bcps_b1c_parity(); }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
                     std::string la = bcps_alpha_cellp_label(_.op_sval); std::string lad = bcps_alpha_cellp_data(_.op_sval);
                     if (bcps_fnsig()) {
                         std::vector<long> soff((size_t)_.op_ival); const char * why = "eligible"; std::string bad; int sigok = 1;

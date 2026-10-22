@@ -1,4 +1,5 @@
 #include <string>
+#include "g_runtime.h"
 #include <cstdint>
 #include "emit.h"
 extern "C" {
@@ -6,7 +7,6 @@ extern "C" {
 #include "bb_templates.h"
 void *rt_goto_resolve(const char *name);
 int rt_sno_goto_special_is(const char *enc);
-extern int g_rt_fragment_emit;
 int xa_flat_class_c_pred(void);
 }
 #include "x86_asm.h"
@@ -16,9 +16,9 @@ int xa_flat_class_c_pred(void);
    + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_goto_deferred_frame_release() {
-    return IF(!g_rt_fragment_emit || !xa_flat_class_c_pred(),
+    return IF(!g_runtime.eval.rt_fragment_emit || !xa_flat_class_c_pred(),
                std::string())
-         + IF(!(!g_rt_fragment_emit || !xa_flat_class_c_pred()),
+         + IF(!(!g_runtime.eval.rt_fragment_emit || !xa_flat_class_c_pred()),
                x86("add", "rsp", (long)_.flat_frame_bytes));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

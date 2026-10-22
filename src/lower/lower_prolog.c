@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "g_runtime.h"
 #include "ct_arena.h"
 #include <string.h>
 #include <stdlib.h>
@@ -3320,11 +3321,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     return nd;
                 }
             }
-            {
-                extern int g_rt_fragment_emit;
-                int r = pl_rung_of(nm);
-                if (r && !g_rt_fragment_emit && !g_stage2.rt_lowering && !pl_file_defines(nm, t->n) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r);
-            }
+            { int r = pl_rung_of(nm); if (r && !g_runtime.eval.rt_fragment_emit && !g_stage2.rt_lowering && !pl_file_defines(nm, t->n) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
             return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
         }
         case TT_QLIT:
@@ -3350,11 +3347,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 return cn;
             }
             { const char * ls = pl_det_leaf_sym(nm, 0); if (ls) return pl_leaf_lv(cx, ls, t, 0, γnext, ωfail, entry_out); }
-            {
-                extern int g_rt_fragment_emit;
-                int r = pl_rung_of(nm);
-                if (r && !g_rt_fragment_emit && !g_stage2.rt_lowering && !pl_file_defines(nm, 0) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r);
-            }
+            { int r = pl_rung_of(nm); if (r && !g_runtime.eval.rt_fragment_emit && !g_stage2.rt_lowering && !pl_file_defines(nm, 0) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
             return pl_user_call(cx, nm, t, 0, γnext, ωfail, entry_out);
         }
         case TT_CUT:
@@ -3632,7 +3625,6 @@ static int pl_attv_rt_armed(void) {
 static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout, int pkt_cell, int pkt_slot, int * chain_off_out, void * rt_root) {
     extern IR_graph_t * g_emit_cfg;
     extern int g_frame_active;
-    extern int g_rt_fragment_emit;
     extern int g_gen_proc_active;
     extern int emit_jmp_entry_for_proc(const char *, int, int, IR_graph_t *);
     extern void emit_jmp_entry_clear(void);
@@ -3687,8 +3679,8 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     g_emit_cfg = g;
     fa = g_frame_active;
     g_frame_active = 1;
-    rfe_sv = g_rt_fragment_emit;
-    g_rt_fragment_emit = 1;
+    rfe_sv = g_runtime.eval.rt_fragment_emit;
+    g_runtime.eval.rt_fragment_emit = 1;
     rt_proc_set_generator(key, 1);
     rt_proc_set_jmpentry(key, 1);
     rt_proc_set_dyn_scope(key, 0);
@@ -3742,7 +3734,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
     emit_jmp_entry_clear();
     g_gen_proc_active = gpa_sv;
-    g_rt_fragment_emit = rfe_sv;
+    g_runtime.eval.rt_fragment_emit = rfe_sv;
     g_frame_active = fa;
     g_emit_cfg = cfg_sv;
     if (!fn) { extern void rt_code_pool_check(void); rt_code_pool_check(); return (void *)0; }

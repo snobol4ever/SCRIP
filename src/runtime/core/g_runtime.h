@@ -1,6 +1,18 @@
 #ifndef G_RUNTIME_H
 #define G_RUNTIME_H
 #include "g_runtime_atoms.h"
-typedef struct { g_atoms_t atoms; } g_runtime_t;
+#include "g_runtime_slab.h"
+#include "g_runtime_pc.h"
+#include "g_runtime_agg.h"
+#include "g_runtime_zsm.h"
+#include "g_runtime_eval.h"
+#include "g_runtime_bbprof.h"
+typedef struct { g_atoms_t atoms; g_slab_t slab; g_pc_t pc; g_agg_t agg; g_zsm_t zsm; g_eval_t eval; g_bbprof_t bbprof; } g_runtime_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
 extern g_runtime_t g_runtime;
+#ifdef __cplusplus
+}
+#endif
 #endif

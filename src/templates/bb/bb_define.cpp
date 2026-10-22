@@ -1,4 +1,5 @@
 #include <algorithm>
+#include "g_runtime.h"
 #include <string>
 #include <cstdint>
 #include <cstdio>
@@ -42,7 +43,7 @@ void bcps_alpha_shim_note(const char *);
 char *ct_strdup(const char *);
 void rt_shim_nv_in(const char *, DESCR_t *, const long *, const char *); DESCR_t rt_shim_nv_gamma(const char *, DESCR_t *); void rt_shim_nv_omega(const char *, DESCR_t *);
 }
-extern "C" { extern int g_rt_fragment_emit; int xa_flat_class_c_pred(void); }
+extern "C" { int xa_flat_class_c_pred(void); }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" const char * bb_ab_sym_name(const char * nm);
@@ -776,7 +777,7 @@ static std::string bb_define_sr() {
         uint64_t _rtn_fp; { void (*_f)(int) = rt_kw_set_rtntype_role; _rtn_fp = (uint64_t)(uintptr_t)(void *)_f; }
         std::string rtn_set = x86("mov", "edi", (long)role)
                             + x86("call", "rt_kw_set_rtntype_role", _rtn_fp);
-        std::string frag_release = (g_rt_fragment_emit && xa_flat_class_c_pred()) ? x86("add", "rsp", (long)_.flat_frame_bytes) : std::string();
+        std::string frag_release = (g_runtime.eval.rt_fragment_emit && xa_flat_class_c_pred()) ? x86("add", "rsp", (long)_.flat_frame_bytes) : std::string();
         return x86("comment", role == 1 ? "IR_DEFINE RETURN floater (s64 RSP-ONLY: pop {gamma,omega} pair at TOS — depth IS the anchor)" :
                                    role == 2 ? "IR_DEFINE FRETURN floater (s64 RSP-ONLY: skip gamma, pop omega — depth IS the anchor)" :
                                                "IR_DEFINE NRETURN floater (s64 RSP-ONLY: pop gamma — by-name result)")
