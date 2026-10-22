@@ -5191,7 +5191,7 @@ static int gc_site_rule_pick(int adj, int * depth) {
     if (x86_hb_on()) { *depth = 0; return 1; }
     if (g_emit.flat_gen_rbp > 0) { *depth = g_emit.flat_gen_rbp; return 2; }
     if (adj == X86_ADJ_ALIGNED) { *depth = g_emit.op_zdepth + g_emit.op_vdj_live; return 4; }
-    *depth = g_emit.op_zrun + adj + g_emit.op_vdj_live;
+    *depth = g_emit.op_zrun + g_emit.op_zxb + adj + g_emit.op_vdj_live;
     return 0;
 }
 extern "C++" int emit_gc_site_rsp_based(void) { int d; return !g_emit.site_shim9 && gc_site_rule_pick(0, &d) == 0; }
@@ -5836,7 +5836,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     if (g_is_text) g_emit_pos += 7;
     bb_label_t lbl_stcγ, lbl_stcω;
     if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", fam); emit_label_initf(&lbl_stcω, "%s_stω", fam); }
-    g_emit.flat_carve_total = 0; g_emit.flat_gen_rbp = 0;
+    g_emit.flat_carve_total = 0; g_emit.flat_gen_rbp = 0; g_emit.op_zxb = 0;
     bb_label_t lbl_αblk; emit_label_initf(&lbl_αblk, "%s_αblk", fam);
     int _blk_graph = (g_emit.zframe_graph && !emit_resumable_frame() && g_emit_cfg && zls_g_block_args(g_emit_cfg) && !zls_g_det_block(g_emit_cfg)) ? 1 : 0;
     if (_blk_graph) { extern void xa_flat_block_staged_entry(void); xa_flat_block_staged_entry(); emit_label_define_bb(&lbl_αblk); }
@@ -6461,6 +6461,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
           g_emit.op_trap_drop = (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SETEXIT_TEST && zd_on[i]) ? (long)(zd_out[i] - zd_k(g_emitter.codegen_flat_chain_body_nodes[i])) : 0;
           g_emit.op_zrun = (zd_out[i] >= 0 ? (int)(zd_out[i] - (zd_on[i] ? zd_k(g_emitter.codegen_flat_chain_body_nodes[i]) : 0)) : 0) + _sigk + _sph;
           if (zd_out[i] >= 0 && zd_on[i] && zd_xb && zd_xb[i] != INT_MIN && zd_xb[i] > 0 && g_emit.flat_gen) g_emit.op_zrun += zd_xb[i];
+          g_emit.op_zxb = (zd_out[i] >= 0 && zd_on[i] && zd_xb && zd_xb[i] != INT_MIN && zd_xb[i] > 0 && !g_emit.flat_gen) ? zd_xb[i] : 0;
           g_emit.op_vdj_live = zd_vl[i];
           if (zd_on[i] || zd_gp[i] > 0 || zd_wp[i] > 0) { g_emitter.g_zd_stage = 1; g_emitter.g_zd_arm = zd_on[i] ? 1 : 0; g_emitter.g_zd_gpop = zd_gp[i];
               g_emitter.g_zd_bgrow = zd_on[i] && zd_arm[i] >= 0 &&

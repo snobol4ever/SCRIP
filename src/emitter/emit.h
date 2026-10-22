@@ -535,6 +535,7 @@ typedef struct {
     int zop_seen;
     int op_zdepth;
     int op_zrun;
+    int op_zxb;
     int op_vdj_live;
     int op_zres;
     int op_head_spine;
