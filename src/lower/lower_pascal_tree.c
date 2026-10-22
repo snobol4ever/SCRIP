@@ -7104,7 +7104,8 @@ static pval E_type(const tree_t *n) {
             g_lower.pas.sem.pas_pend_row_hi = -1;
         }
         {
-            g_lower.pas.sem.pas_pend_esz = (g_lower.pas.sem.pas_pend_esz >= 0 && v[8].ival >= v[7].ival) ? g_lower.pas.sem.pas_pend_esz * (v[8].ival - v[7].ival + 1) : -1;
+            long long _cnt = (v[8].ival >= v[7].ival) ? v[8].ival - v[7].ival + 1 : 0, _tot;
+            g_lower.pas.sem.pas_pend_esz = (g_lower.pas.sem.pas_pend_esz >= 0 && _cnt > 0) ? (__builtin_mul_overflow(g_lower.pas.sem.pas_pend_esz, _cnt, &_tot) ? (1LL << 62) : _tot) : -1;
             int _eic = g_lower.pas.sem.pas_pend_ischar;
             if (_eic &&
                 (!v[1].ival || !g_lower.pas.sem.pas_pend_typename || strcmp(g_lower.pas.sem.pas_pend_typename, "char") || v[7].ival != 1 || v[8].ival < 2 || g_lower.pas.sem.pas_last_const_enum))
@@ -7302,6 +7303,11 @@ static pval E_var_decl(const tree_t *n) {
         v[3] = E_type(n->c[1]);
         {
             pas_scope_define_list(v[1].list);
+            if (v[1].list && g_lower.pas.sem.pas_pend_esz > 2147483647LL) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i] && v[1].list->items[i]->v.sval) {
+                fprintf(stderr, "pascal: the variable '%s' needs %lld bytes of storage, more than the 2 GiB a static variable can have (fpc cannot link one either)\n", v[1].list->items[i]->v.sval,
+                    g_lower.pas.sem.pas_pend_esz);
+                g_lower.pas.sem.pas_limit_errors++;
+            }
             if (v[1].list) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i] && v[1].list->items[i]->v.sval) pas_tsz_add(v[1].list->items[i]->v.sval, g_lower.pas.sem.pas_pend_esz);
             long long _ty3 = (v[3].ival == -4) ? -1 : v[3].ival;
             int _pk3 = (v[3].ival == -4) || (g_lower.pas.sem.pas_pend_typename && pas_rectype_is_packed(g_lower.pas.sem.pas_pend_typename));
@@ -7856,6 +7862,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     g_lower.pas.sem.pas_pend_enum_max = -1;
     g_lower.pas.sem.pas_pend_sub_high = -1;
     g_lower.pas.sem.pas_fname_is_call = 0;
+    g_lower.pas.sem.pas_limit_errors = 0;
     g_lower.pas.sem.pas_dialect_fpc = g_lower.pas.sem.pas_seen_mode_directive = pas_tree_has_event(pruned, "seen_mode");
     if (!g_lower.pas.sem.pas_dialect_fpc) pas_iso_empty_strings(pruned);
     tree_t *flat = pas_flatten_units(pruned);
@@ -7867,7 +7874,9 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     pas_var_inits(flat);
     if (g_lower.pas.sem.pas_dialect_fpc) { pas_scope_define("returnnilifgrowheapfails"); pas_boolvar_add("returnnilifgrowheapfails"); pas_scalarvartype_add("returnnilifgrowheapfails", "boolean"); }
     tree_t *root = E_program(flat).node;
-    int nsem = pascal_sem_check(root, filename) + g_lower.pas.sem.pas_iso_errors;
-    if (nsem > 0) { fprintf(stderr, "pascal: %d ISO 7185 violation(s) in %s -- no code generated\n", nsem, filename); return NULL; }
+    int nsem = pascal_sem_check(root, filename) + g_lower.pas.sem.pas_iso_errors, nlim = g_lower.pas.sem.pas_limit_errors;
+    if (nlim > 0) fprintf(stderr, "pascal: %d static-storage limit error(s) in %s -- no code generated\n", nlim, filename);
+    if (nsem > 0) fprintf(stderr, "pascal: %d ISO 7185 violation(s) in %s -- no code generated\n", nsem, filename);
+    if (nsem + nlim > 0) return NULL;
     return root;
 }
