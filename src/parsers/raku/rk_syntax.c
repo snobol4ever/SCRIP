@@ -2249,7 +2249,7 @@ static tree_t *x_unary(RkP *p, RkX *x) {
         if (np && (!strcmp(t->pre[np - 1], "++") || !strcmp(t->pre[np - 1], "--")) && t->kind == TK_VAR && t->cls == 'S' && !t->npost) { base = rkb_incdec(p->B, t->name, t->pre[np - 1][0] == '+');
             np--; }
         else if (np && (!strcmp(t->pre[np - 1], "++") || !strcmp(t->pre[np - 1], "--")) && t->kind == TK_VAR && t->npost && t->t
-                 && (t->t->t == TT_ARR_GET || t->t->t == TT_HASH_GET)) { base = rkb_elem_incdec(p->B, t->t, t->pre[np - 1][0] == '+', 0); np--; }
+                 && (t->t->t == TT_ARR_GET || t->t->t == TT_HASH_GET || (t->t->t == TT_METHCALL && t->t->n == 2 && t->t->c[1] && t->t->c[1]->t == TT_QLIT))) { base = rkb_elem_incdec(p->B, t->t, t->pre[np - 1][0] == '+', 0); np--; }
         else if (t->kind == TK_DECL && !t->t) { base = ast_node_new(TT_NUL); rkb_pend(x->el, base, t->decl); }
         else base = t->t ? t->t : ast_node_new(TT_NUL);
         if (t->kind == TK_VAR && !t->npre && !t->npost) { x->lastcls = t->cls; x->lastname = t->name; }

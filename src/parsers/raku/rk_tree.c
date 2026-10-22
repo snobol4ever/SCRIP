@@ -1559,9 +1559,11 @@ tree_t *rkb_assign_op(RkB *b, const char *name, const char *op, tree_t *r) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_elem(const tree_t *g) { return g && (g->t == TT_ARR_GET || g->t == TT_HASH_GET) && g->n >= 2; }
+static int rk_is_acc(const tree_t *g) { return g && g->t == TT_METHCALL && g->n == 2 && g->c[0] && g->c[1] && g->c[1]->t == TT_QLIT && g->c[1]->v.sval && g->c[1]->v.sval[0]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_unany(tree_t *rd) { tree_t *c = make_call("__rk_unany"); expr_add_child(c, rd); return c; }
 static tree_t *rk_elem_store(tree_t *g, tree_t *val) {
+    if (g->t == TT_METHCALL) { tree_t *fe = ast_node_new(TT_FIELD); fe->v.sval = (char *) intern(g->c[1]->v.sval); ast_push(fe, rk_tree_clone(g->c[0])); return expr_binary(TT_ASSIGN, fe, val); }
     tree_t *c = ast_node_new(g->t == TT_ARR_GET ? TT_ARR_SET : TT_HASH_SET); ast_push(c, rk_tree_clone(g->c[0])); ast_push(c, rk_tree_clone(g->c[1])); ast_push(c, val); return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2309,7 +2311,7 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
             it->t = c; return;
         }
     }
-    if (!first && pf->k == 'P' && pf->txt && (!strcmp(pf->txt, "++") || !strcmp(pf->txt, "--")) && rk_is_elem(e)) { it->t = rkb_elem_incdec(b, e, pf->txt[0] == '+', 1); return; }
+    if (!first && pf->k == 'P' && pf->txt && (!strcmp(pf->txt, "++") || !strcmp(pf->txt, "--")) && (rk_is_elem(e) || rk_is_acc(e))) { it->t = rkb_elem_incdec(b, e, pf->txt[0] == '+', 1); return; }
     if (first && it->kind == TK_NAME && it->name && e && e->t == TT_VAR && pf->k == 'P' && pf->txt && (!strcmp(pf->txt, "++") || !strcmp(pf->txt, "--"))) { it->t = rk_post_incdec(b, it->name, pf->txt[0] == '+'); return; }
     if (first && it->kind == TK_VAR && pf->hyper && pf->k == 'P' && pf->txt && it->cls == 'A' && (!strcmp(pf->txt, "++") || !strcmp(pf->txt, "--"))) {
         tree_t *c = make_call("__rk_hyper_incdec"); expr_add_child(c, var_node(b, it->name)); expr_add_child(c, rk_ilit(pf->txt[0] == '+' ? 1 : -1));
@@ -2655,6 +2657,10 @@ static tree_t *assign_forms(RkB *b, RkList *L, int tail, int bk) {
             return c; }
     }
     int clv, ck;
+    if (!eq && t0->npost >= 1 && !t0->npre && rk_is_acc(t0->t) && L->n == 1 && rkb_compound_base(op1, &clv, &ck)) {
+        tree_t *g = t0->t; tree_t *rhs = el_rest(b, e0);
+        return rk_elem_store(g, rk_scalar_rhs(rkb_binop(b, clv, ck, rk_unany(rk_tree_clone(g)), rhs)));
+    }
     if (!eq && t0->kind == TK_VAR && t0->npost >= 1 && !t0->npre && rk_is_elem(t0->t) && L->n == 1 && rkb_compound_base(op1, &clv, &ck)) {
         tree_t *g = t0->t; tree_t *rhs = el_rest(b, e0);
         return rk_elem_store(g, rk_scalar_rhs(rkb_binop(b, clv, ck, rk_unany(rk_tree_clone(g)), rhs)));
