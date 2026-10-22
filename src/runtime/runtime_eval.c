@@ -258,8 +258,16 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     sno_error_quiet_begin();
     tree_t *e = parse_expr_pat_from_str(src);
     sno_error_quiet_end();
-    if (!e || sno_error_captured()) { const char *cap = sno_error_captured(); if (cap) g_runtime.kw.sno_errtext = rt_heap_strdup_c(cap); return NULL; }
-    { extern int sno_preeval_expr(const tree_t *, const char **); *pe = sno_preeval_expr(e, pm); if (*pe) return NULL; }
+    extern int sno_preeval_expr(const tree_t *, const char **);
+    if (!e || sno_error_captured()) {
+        const char *cap = sno_error_captured(), *fm = (const char *)0;
+        int fc = (e && cap) ? sno_preeval_expr(e, &fm) : 0;
+        if (fc && fm && !strcmp(fm, cap)) { *pe = fc; *pm = fm; return NULL; }
+        if (cap) g_runtime.kw.sno_errtext = rt_heap_strdup_c(cap);
+        return NULL;
+    }
+    *pe = sno_preeval_expr(e, pm);
+    if (*pe) return NULL;
     tree_t *var = ast_stmt_new(TT_VAR);
     var->v.sval = (char *)EVAL_TMP;
     tree_t *st = ast_stmt_new(TT_STMT);
@@ -695,7 +703,7 @@ int rt_eval_open_takes(DESCR_t a) {
     return s && *s && eval_text_takes_chain(s);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) {
+static rt_eval_next_t eval_open(DESCR_t *args, int nargs, eval_frame_t *f, int raise) {
     extern void rt_eval_stage_leave(const char *);
     rt_eval_next_t none = { 0, 0 };
     if (!f) return none;
@@ -720,12 +728,14 @@ rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) {
     if (!args || nargs != 1 || !rt_eval_open_takes(args[0])) return none;
     const char *s = VARVAL_fn(args[0]);
     rt_eval_stage_leave((const char *)0);
-    if (eval_frame_open(f, s, 0) < 0) return none;
+    if (eval_frame_open(f, s, raise) < 0) return none;
     f->flags.i |= 4;
     f->esv = INTVAL(g_runtime.abi.error == G_ERROR_EVAL_STAGE ? 0 : g_runtime.abi.error);
     g_runtime.abi.error = G_ERROR_EVAL_STAGE;
     return (rt_eval_next_t){ (long)f->fn.i, (long)(uintptr_t)f };
 }
+rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) { return eval_open(args, nargs, f, 0); }
+rt_eval_next_t rt_eval_open_raise(DESCR_t *args, int nargs, eval_frame_t *f) { return eval_open(args, nargs, f, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_conve_chain_open(DESCR_t expr, eval_frame_t *f) {
     if (!f || expr.v != DT_E || expr.slen != RT_CONVE_CHAIN_MARK || !expr.ptr || !eval_open_on()) return 0;

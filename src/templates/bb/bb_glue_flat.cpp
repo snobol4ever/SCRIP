@@ -14,6 +14,7 @@ extern DESCR_t rt_apply_land_γ(DESCR_t frame0, long word, const long * sv);
 extern DESCR_t rt_apply_land_ω(long word, const long * sv);
 typedef struct { long fn; long how; } rt_eval_next_t;
 extern rt_eval_next_t rt_eval_open(DESCR_t * args, int nargs, void * rec);
+extern rt_eval_next_t rt_eval_open_raise(DESCR_t * args, int nargs, void * rec);
 extern DESCR_t rt_eval_land(long word);
 }
 #include "x86_asm.h"
@@ -226,7 +227,7 @@ static std::string bb_glue_try_eval_arm(int base, int val_id, int join_id) {
          + x86("mov32", "esi", 1L)
          + x86("sub", "rsp", (long)BGTE_EVAL_REC)
          + x86("mov", "rdx", "rsp")
-         + x86("call", "rt_eval_open", (uint64_t)(uintptr_t)(void *)rt_eval_open)
+         + x86("call", "rt_eval_open_raise", (uint64_t)(uintptr_t)(void *)rt_eval_open_raise)
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", base + 72)
