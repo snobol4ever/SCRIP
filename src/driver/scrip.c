@@ -2247,8 +2247,8 @@ int main(int argc, char **argv) {
         ast_tree_free(ast_prog);
         ast_prog = NULL;
         if (dump_zeta) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-        { extern void rt_proc_reset(void); rt_proc_reset(); register_procs_all(s2); drive_slots_all(s2); }
         { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
+        { extern void rt_proc_reset(void); rt_proc_reset(); register_procs_all(s2); drive_slots_all(s2); }
         const IR_t ** seen_all = (const IR_t **) ct_zalloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_t *));
         int seen_n = 0;
         for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -2369,6 +2369,7 @@ int main(int argc, char **argv) {
             int main_bb_idx = polyglot_main_bb_idx(s2);
             rt_proc_reset();
             register_procs_all(s2);
+            { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
             drive_slots_all(s2);
             n2_fb_prepass_diag(s2);
             n2_xgraph_probe(s2);
@@ -2405,7 +2406,6 @@ int main(int argc, char **argv) {
                 if (_nm != stdout) fclose(_nm);
                 return 0;
             }
-            { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             g_medium = BB_MEDIUM_TEXT;
@@ -2821,6 +2821,7 @@ int main(int argc, char **argv) {
             }
             register_procs_all(s2);
             { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+            { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
             drive_slots_all(s2);
             n2_fb_prepass_diag(s2);
             n2_xgraph_probe(s2);
@@ -2849,7 +2850,6 @@ int main(int argc, char **argv) {
                     if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2);
                 }
             }
-            { extern void lower_call_forms_all(stage2_t *); lower_call_forms_all(s2); }
             unsigned char _lbl_own[s2->bbp.count > 0 ? s2->bbp.count : 1];
             int _lbl_owned = sn4_lbl_owners(s2, _lbl_own);
             m3_lbl_ctx_t _m3lc = { s2, _lbl_own, _lbl_owned };
