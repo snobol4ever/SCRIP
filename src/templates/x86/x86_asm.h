@@ -379,6 +379,7 @@ inline std::string x86_rtx_after_bare(const char * sym) {
     return x86_movabs_r64("r10", ~(uint64_t)0) + x86_movabs_r64("r11", ~(uint64_t)0);
 }
 extern "C++" int emit_gc_site_new(int kind, int adj);
+extern "C++" int emit_gc_site_rsp_based(void);
 extern "C++" int emit_gc_site_raw(int kind, int rule, int depth);
 extern "C++" void emit_gc_site_play(int idx, const void * pc, int delta, int aligned, int unknown);
 extern "C++" std::string emit_gc_site_label(int idx);

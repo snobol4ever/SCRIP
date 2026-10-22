@@ -5186,14 +5186,19 @@ int g_m4_main_frame_bytes = 65544;
 extern "C" int rt_gva_add_var(const char * name);
 static int gc_sites_report_on(void) { if (g_emitter.gc_sites_report_on_v < 0) { const char * e = getenv("SCRIP_GC_SITES_REPORT"); g_emitter.gc_sites_report_on_v = (e && *e == '1') ? 1 : 0;
     } return g_emitter.gc_sites_report_on_v; }
+static int gc_site_rule_pick(int adj, int * depth) {
+    if (g_emit.flat_pat && blob_frame_bytes() > 0) { *depth = 0; return 3; }
+    if (x86_hb_on()) { *depth = 0; return 1; }
+    if (g_emit.flat_gen_rbp > 0) { *depth = g_emit.flat_gen_rbp; return 2; }
+    if (adj == X86_ADJ_ALIGNED) { *depth = g_emit.op_zdepth + g_emit.op_vdj_live; return 4; }
+    *depth = g_emit.op_zrun + adj + g_emit.op_vdj_live;
+    return 0;
+}
+extern "C++" int emit_gc_site_rsp_based(void) { int d; return !g_emit.site_shim9 && gc_site_rule_pick(0, &d) == 0; }
 extern "C++" int emit_gc_site_new(int kind, int adj) {
     if (!g_emitter.g_gc_sites_armed) return -1;
     int rule, depth;
-    if (g_emit.flat_pat && blob_frame_bytes() > 0) { rule = 3; depth = 0; }
-    else if (x86_hb_on()) { rule = 1; depth = 0; }
-    else if (icn_gen_regime() && g_emit.flat_gen && !g_emit.zframe_graph && g_emit.flat_carve_total > 0) { rule = 2; depth = g_emit.flat_carve_total; }
-    else if (adj == X86_ADJ_ALIGNED) { rule = 4; depth = g_emit.op_zdepth + g_emit.op_vdj_live; }
-    else { rule = 0; depth = g_emit.op_zrun + adj + g_emit.op_vdj_live; }
+    rule = gc_site_rule_pick(adj, &depth);
     if (g_emit.site_shim9) { rule = 9; depth = (int)(g_emit.site_shim9 - 1); }
     gc_site_t * e = &CV_PUSH(g_emitter.g_gc_sites_v, gc_site_t); e->pc = 0; e->depth = depth; e->kind = (uint16_t)kind; e->rule = (uint16_t)rule; e->zdepth = g_emit.op_zdepth;
         e->fcb = (int32_t)g_emit.op_fc_bytes; e->fcbase = (int32_t)g_emit.op_fc_base; e->demit = depth; e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node;
@@ -5831,7 +5836,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     if (g_is_text) g_emit_pos += 7;
     bb_label_t lbl_stcγ, lbl_stcω;
     if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", fam); emit_label_initf(&lbl_stcω, "%s_stω", fam); }
-    g_emit.flat_carve_total = 0;
+    g_emit.flat_carve_total = 0; g_emit.flat_gen_rbp = 0;
     bb_label_t lbl_αblk; emit_label_initf(&lbl_αblk, "%s_αblk", fam);
     int _blk_graph = (g_emit.zframe_graph && !emit_resumable_frame() && g_emit_cfg && zls_g_block_args(g_emit_cfg) && !zls_g_det_block(g_emit_cfg)) ? 1 : 0;
     if (_blk_graph) { extern void xa_flat_block_staged_entry(void); xa_flat_block_staged_entry(); emit_label_define_bb(&lbl_αblk); }
@@ -5855,7 +5860,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
         int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
         int frame_total = kt2 + (np + nl) * 16;
-        g_emit.flat_carve_total = frame_total;
+        g_emit.flat_carve_total = frame_total; g_emit.flat_gen_rbp = frame_total;
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->cell_frame) ? 1 : 0;

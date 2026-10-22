@@ -937,6 +937,7 @@ static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t *
          + x86("def", L(3))
          + x86_rsp_land(16)
          + x86_gc_site(X86_SITE_LANDING)
+         + IF(is_gen && emit_gc_site_rsp_based(), x86_bomb("bcps_icn_block_arm gamma landing, generator arm: a rule-0 caller took this road, its landing delta is 24 bytes wrong"))
          + icn_landing_line_restore()
          + (is_gen ? x86("cmp", "al", (long)DT_FAIL)
                    + x86("je", L(8))
