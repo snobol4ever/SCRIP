@@ -673,13 +673,12 @@ static int jct_one_cmp_str(const char *a, const char *b, int op) {
 int junction_mirror_op(int op) { switch (op) { case TT_LT: return TT_GT; case TT_GT: return TT_LT; case TT_LE: return TT_GE; case TT_GE: return TT_LE; default: return op; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *qname; const char *body; int flavor; } gram_ent_t;
-static cv_t g_gram;
-#define GRAM(k) CV_AT(g_gram, gram_ent_t, (k))
-#define gram_n ((int)g_gram.len)
+#define GRAM(k) CV_AT(g_runtime.bn.gram, gram_ent_t, (k))
+#define gram_n ((int)g_runtime.bn.gram.len)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gram_set(const char *qname, const char *body, int flavor) {
     for (int i = 0; i < gram_n; i++) if (!strcmp(GRAM(i).qname, qname)) { GRAM(i).body = rt_heap_strdup_c(body); GRAM(i).flavor = flavor; return; }
-    { gram_ent_t *e = &CV_PUSH(g_gram, gram_ent_t); e->qname = rt_heap_strdup_c(qname); e->body = rt_heap_strdup_c(body); e->flavor = flavor; }
+    { gram_ent_t *e = &CV_PUSH(g_runtime.bn.gram, gram_ent_t); e->qname = rt_heap_strdup_c(qname); e->body = rt_heap_strdup_c(body); e->flavor = flavor; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gram_get_flavor(const char *qname) { for (int i = 0; i < gram_n; i++) if (!strcmp(GRAM(i).qname, qname)) return GRAM(i).flavor; return 0; }
@@ -3855,43 +3854,35 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     }
     return 0;
 }
-static long g_pas_heap_ctr = 0;
-static DESCR_t *g_pas_heap = (DESCR_t *)0;
-static long g_pas_heap_cap = 0;
-static unsigned char *g_pas_heap_dead = (unsigned char *)0;
-static long *g_pas_heap_free = (long *)0;
-static long g_pas_heap_nfree = 0;
-static long g_pas_heap_freecap = 0;
-static gv_t g_pas_tf;
-#define PTF_BUF(k) (((DESCR_t *)g_pas_tf.p)[2 * (k)])
-#define PTF_ST(k) (((DESCR_t *)g_pas_tf.p)[2 * (k) + 1])
+#define PTF_BUF(k) (((DESCR_t *)g_runtime.pas.pas_tf.p)[2 * (k)])
+#define PTF_ST(k) (((DESCR_t *)g_runtime.pas.pas_tf.p)[2 * (k) + 1])
 #define PTF_HAS(k) ((int)(PTF_ST(k).i & 1))
 #define PTF_MODE(k) ((int)(PTF_ST(k).i >> 1))
-#define PTF_N ((int)(g_pas_tf.len / 2))
+#define PTF_N ((int)(g_runtime.pas.pas_tf.len / 2))
 static void pas_tf_set(int idx, DESCR_t buf, int has, int mode) {
     uint64_t need = (uint64_t)(2 * (idx + 1));
-    gv_reserve(&g_pas_tf, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), need, "g_pas_tf");
-    while (g_pas_tf.len < need) { ((DESCR_t *)g_pas_tf.p)[g_pas_tf.len] = INTVAL(0); g_pas_tf.len++; }
+    gv_reserve(&g_runtime.pas.pas_tf, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), need, "g_runtime.pas.pas_tf");
+    while (g_runtime.pas.pas_tf.len < need) { ((DESCR_t *)g_runtime.pas.pas_tf.p)[g_runtime.pas.pas_tf.len] = INTVAL(0); g_runtime.pas.pas_tf.len++; }
     PTF_BUF(idx) = buf;
     PTF_ST(idx) = INTVAL((long)(has & 1) | ((long)mode << 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *pas_heap_cell(long n, int grow) {
     if (n <= 0) return (DESCR_t *)0;
-    if (n >= g_pas_heap_cap) {
+    if (n >= g_runtime.pas.pas_heap_cap) {
         if (!grow) return (DESCR_t *)0;
-        long nc = g_pas_heap_cap ? g_pas_heap_cap : 1024;
+        long nc = g_runtime.pas.pas_heap_cap ? g_runtime.pas.pas_heap_cap : 1024;
         while (nc <= n) nc *= 2;
-        DESCR_t *nh = (DESCR_t *)ct_grow((void *)g_pas_heap, (size_t)nc * sizeof(DESCR_t));
-        unsigned char *nd = (unsigned char *)ct_grow((void *)g_pas_heap_dead, (size_t)nc);
+        DESCR_t *nh = (DESCR_t *)ct_grow((void *)g_runtime.pas.pas_heap, (size_t)nc * sizeof(DESCR_t));
+        unsigned char *nd = (unsigned char *)ct_grow((void *)g_runtime.pas.pas_heap_dead, (size_t)nc);
         if (!nh || !nd) { fprintf(stderr, "[PAS] heap table: out of memory growing to %ld entries\n", nc); abort(); }
-        memset(nh + g_pas_heap_cap, 0, (size_t)(nc - g_pas_heap_cap) * sizeof(DESCR_t));
-        memset(nd + g_pas_heap_cap, 0, (size_t)(nc - g_pas_heap_cap));
-        g_pas_heap = nh;
-        g_pas_heap_dead = nd;
-        g_pas_heap_cap = nc;
+        memset(nh + g_runtime.pas.pas_heap_cap, 0, (size_t)(nc - g_runtime.pas.pas_heap_cap) * sizeof(DESCR_t));
+        memset(nd + g_runtime.pas.pas_heap_cap, 0, (size_t)(nc - g_runtime.pas.pas_heap_cap));
+        g_runtime.pas.pas_heap = nh;
+        g_runtime.pas.pas_heap_dead = nd;
+        g_runtime.pas.pas_heap_cap = nc;
     }
-    return &g_pas_heap[n];
+    return &g_runtime.pas.pas_heap[n];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *pas_heap_ref(DESCR_t p, const char *fn) {
@@ -3899,8 +3890,8 @@ static DESCR_t *pas_heap_ref(DESCR_t p, const char *fn) {
     if (!IS_INT_fn(p)) pas_file_err("6.5.4", "the pointer-variable of an identified-variable is undefined", fn);
     if (p.i == 0) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", fn);
     DESCR_t *hc = pas_heap_cell(p.i, 0);
-    if (!hc || p.i > g_pas_heap_ctr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable is undefined (it denotes no variable ever created)", fn);
-    if (g_pas_heap_dead[p.i] & 1) pas_file_err("6.6.5.3", "the identified-variable was disposed, so no variable stands behind this reference", fn);
+    if (!hc || p.i > g_runtime.pas.pas_heap_ctr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable is undefined (it denotes no variable ever created)", fn);
+    if (g_runtime.pas.pas_heap_dead[p.i] & 1) pas_file_err("6.6.5.3", "the identified-variable was disposed, so no variable stands behind this reference", fn);
     return hc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3969,34 +3960,41 @@ static DESCR_t pas_read_number(FILE *f, int real, const char *fn) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_tag_ne(long long a, long long b) { if (a >= -1 && a <= 1 && b >= -1 && b <= 1) return (a != 0) != (b != 0); return a != b; }
-static long pas_heap_take(void) { if (g_pas_heap_nfree > 0) { long n = g_pas_heap_free[--g_pas_heap_nfree]; if (n < g_pas_heap_cap) g_pas_heap_dead[n] = 0; return n; } return ++g_pas_heap_ctr; }
+static long pas_heap_take(void) {
+    if (g_runtime.pas.pas_heap_nfree > 0) { long n = g_runtime.pas.pas_heap_free[--g_runtime.pas.pas_heap_nfree]; if (n < g_runtime.pas.pas_heap_cap) g_runtime.pas.pas_heap_dead[n] = 0; return n; }
+    return ++g_runtime.pas.pas_heap_ctr;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_heap_give(long n) {
-    if (n <= 0 || n > g_pas_heap_ctr || n >= g_pas_heap_cap || (g_pas_heap_dead[n] & 1)) return;
-    g_pas_heap[n] = INTVAL(0);
-    g_pas_heap_dead[n] = 1;
-    if (g_pas_heap_nfree == g_pas_heap_freecap) {
-        long nc = g_pas_heap_freecap ? g_pas_heap_freecap * 2 : 256;
-        long *nf = (long *)ct_grow((void *)g_pas_heap_free, (size_t)nc * sizeof(long));
+    if (n <= 0 || n > g_runtime.pas.pas_heap_ctr || n >= g_runtime.pas.pas_heap_cap || (g_runtime.pas.pas_heap_dead[n] & 1)) return;
+    g_runtime.pas.pas_heap[n] = INTVAL(0);
+    g_runtime.pas.pas_heap_dead[n] = 1;
+    if (g_runtime.pas.pas_heap_nfree == g_runtime.pas.pas_heap_freecap) {
+        long nc = g_runtime.pas.pas_heap_freecap ? g_runtime.pas.pas_heap_freecap * 2 : 256;
+        long *nf = (long *)ct_grow((void *)g_runtime.pas.pas_heap_free, (size_t)nc * sizeof(long));
         if (!nf) return;
-        g_pas_heap_free = nf;
-        g_pas_heap_freecap = nc;
+        g_runtime.pas.pas_heap_free = nf;
+        g_runtime.pas.pas_heap_freecap = nc;
     }
-    g_pas_heap_free[g_pas_heap_nfree++] = n;
+    g_runtime.pas.pas_heap_free[g_runtime.pas.pas_heap_nfree++] = n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_heap_release(long m) {
     if (m <= 0) return;
-    for (long n = m; n <= g_pas_heap_ctr && n < g_pas_heap_cap; n++) { g_pas_heap[n] = INTVAL(0); g_pas_heap_dead[n] = 0; }
-    if (m - 1 < g_pas_heap_ctr) g_pas_heap_ctr = m - 1;
-    { long w = 0; for (long i = 0; i < g_pas_heap_nfree; i++) if (g_pas_heap_free[i] < m) g_pas_heap_free[w++] = g_pas_heap_free[i]; g_pas_heap_nfree = w; }
+    for (long n = m; n <= g_runtime.pas.pas_heap_ctr && n < g_runtime.pas.pas_heap_cap; n++) { g_runtime.pas.pas_heap[n] = INTVAL(0); g_runtime.pas.pas_heap_dead[n] = 0; }
+    if (m - 1 < g_runtime.pas.pas_heap_ctr) g_runtime.pas.pas_heap_ctr = m - 1;
+    {
+        long w = 0;
+        for (long i = 0; i < g_runtime.pas.pas_heap_nfree; i++) if (g_runtime.pas.pas_heap_free[i] < m) g_runtime.pas.pas_heap_free[w++] = g_runtime.pas.pas_heap_free[i];
+        g_runtime.pas.pas_heap_nfree = w;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pas_gc_roots(void) {
     extern void rt_gc_visit_descr(DESCR_t *);
-    long top = (g_pas_heap_ctr < g_pas_heap_cap) ? g_pas_heap_ctr : g_pas_heap_cap - 1;
-    for (long n = 1; n <= top; n++) rt_gc_visit_descr(&g_pas_heap[n]);
-    gv_gc_root(&g_pas_tf);
+    long top = (g_runtime.pas.pas_heap_ctr < g_runtime.pas.pas_heap_cap) ? g_runtime.pas.pas_heap_ctr : g_runtime.pas.pas_heap_cap - 1;
+    for (long n = 1; n <= top; n++) rt_gc_visit_descr(&g_runtime.pas.pas_heap[n]);
+    gv_gc_root(&g_runtime.pas.pas_tf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *pas_cell_str(DESCR_t *hc) { if (hc->v == DT_S && hc->s) return hc->s; { const char *c = VARVAL_fn(*hc); return c ? c : ""; } }
@@ -4184,7 +4182,7 @@ void bnd_gc_roots(void) {
     {
         static const long off[2] = { (long)__builtin_offsetof(gram_ent_t, qname), (long)__builtin_offsetof(gram_ent_t, body) };
         static const char *const *const words[2] = { (const char *const *)&g_match.blk, (const char *const *)&g_subject };
-        if (gram_n > 0) rt_gc_run_ptr_fields(g_gram.p, (long)gram_n, (long)sizeof(gram_ent_t), 2, off);
+        if (gram_n > 0) rt_gc_run_ptr_fields(g_runtime.bn.gram.p, (long)gram_n, (long)sizeof(gram_ent_t), 2, off);
         rt_gc_run_loc_list(words, 2);
     }
     for (rk_redisp_t *r = g_redisp_cur; r; r = r->prev) if (r->local) {
@@ -4405,10 +4403,7 @@ DESCR_t rk_method_land_γ(DESCR_t frame0, long word) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rk_method_land_ω(long word) { extern DESCR_t rt_call_land_ω(long); DESCR_t r = rt_call_land_ω(word); if (g_redisp_cur) g_redisp_cur = g_redisp_cur->prev; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define RT_TWEAK_IC_N 64
-static struct { const char *cname; long gen; } g_tweak_none[RT_TWEAK_IC_N];
-static long g_tweak_gen_bump = 0;
-void bnd_tweak_cache_clear(void) { g_tweak_gen_bump++; }
+void bnd_tweak_cache_clear(void) { g_runtime.bn.tweak_gen_bump++; }
 _Static_assert((RT_TWEAK_IC_N & (RT_TWEAK_IC_N - 1)) == 0,
     "THE CONSTRUCTOR HOOK CACHE (ceo 2026-09-25, CEO-1258): a type whose method-resolution chain carries no <type>__TWEAK procedure is remembered by its name pointer under a generation that moves wh"
     "enever a procedure or a type is added or the procedure table is reset, so the check that cost every record constructor a formatted name, a proc-table scan and a hash lookup runs once per type p"
@@ -4419,9 +4414,9 @@ void rt_fire_buildplan_tweak_rq(const char *cname, DESCR_t self, long *rq) {
     extern int dat_type_gen(void);
     if (!cname || !*cname) return;
     {
-        long gen = (long)g_runtime.rt.rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + g_tweak_gen_bump * 1099511627776L;
+        long gen = (long)g_runtime.rt.rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + g_runtime.bn.tweak_gen_bump * 1099511627776L;
         unsigned h = (unsigned)(((uintptr_t)cname >> 3) & (RT_TWEAK_IC_N - 1));
-        if (g_tweak_none[h].cname == cname && g_tweak_none[h].gen == gen) return;
+        if (g_runtime.bn.tweak_none[h].cname == cname && g_runtime.bn.tweak_none[h].gen == gen) return;
         const char *chain[bnd_dat_need(cname, 0)];
         int n = dat_mro(cname, chain, (int)(sizeof chain / sizeof chain[0]));
         int any = 0;
@@ -4445,7 +4440,7 @@ void rt_fire_buildplan_tweak_rq(const char *cname, DESCR_t self, long *rq) {
                 ir_call_proc(pi, &a0, 1);
             }
         }
-        if (!any) { g_tweak_none[h].cname = cname; g_tweak_none[h].gen = gen; }
+        if (!any) { g_runtime.bn.tweak_none[h].cname = cname; g_runtime.bn.tweak_none[h].gen = gen; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5457,13 +5452,6 @@ static void pl_iso_evaluable(DESCR_t v) {
     if ((int)v.v == DT_PLREF) { rt_pl_iso_throw_pi("type_error", "evaluable", prolog_atom_name(plc_fid_name(v.slen)), plc_fid_arity(v.slen)); return; }
     rt_pl_iso_throw_pi("type_error", "evaluable", "?", 0);
 }
-static long g_tap_run = 0;
-static long g_tap_failed = 0;
-static long g_tap_planned = 0;
-static int g_tap_no_plan = 1;
-static long g_tap_todo_upto = 0;
-static const char *g_tap_todo_reason = "";
-static int g_tap_done_run = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_tap_truthy(DESCR_t v) { return rk_is_truthy(v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5479,13 +5467,19 @@ static void rk_tap_desc_escape(const char *desc, char *out, size_t cap) {
 static void rk_tap_exit(void) {
     int code = 0;
     char b[160];
-    if (!g_tap_no_plan && g_tap_planned != g_tap_run) {
-        if (!g_tap_done_run) { snprintf(b, sizeof b, "You planned %ld test%s, but ran %ld", g_tap_planned, g_tap_planned == 1 ? "" : "s", g_tap_run); fprintf(stderr, "# %s\n", b); }
+    if (!g_runtime.tap.tap_no_plan && g_runtime.tap.tap_planned != g_runtime.tap.tap_run) {
+        if (!g_runtime.tap.tap_done_run) {
+            snprintf(b, sizeof b, "You planned %ld test%s, but ran %ld", g_runtime.tap.tap_planned, g_runtime.tap.tap_planned == 1 ? "" : "s", g_runtime.tap.tap_run);
+            fprintf(stderr, "# %s\n", b);
+        }
         code = 255;
     }
-    if (g_tap_failed > 0) {
-        if (!g_tap_done_run) { snprintf(b, sizeof b, "You failed %ld test%s of %ld", g_tap_failed, g_tap_failed == 1 ? "" : "s", g_tap_run); fprintf(stderr, "# %s\n", b); }
-        code = g_tap_failed > 254 ? 254 : (int) g_tap_failed;
+    if (g_runtime.tap.tap_failed > 0) {
+        if (!g_runtime.tap.tap_done_run) {
+            snprintf(b, sizeof b, "You failed %ld test%s of %ld", g_runtime.tap.tap_failed, g_runtime.tap.tap_failed == 1 ? "" : "s", g_runtime.tap.tap_run);
+            fprintf(stderr, "# %s\n", b);
+        }
+        code = g_runtime.tap.tap_failed > 254 ? 254 : (int) g_runtime.tap.tap_failed;
     }
     if (code) { fflush(stdout); fflush(stderr); _exit(code); }
 }
@@ -5493,12 +5487,12 @@ static void rk_tap_exit(void) {
 static int rk_tap_proclaim(int cond, const char *desc, const char *prefix) {
     char esc[3 * strlen(desc ? desc : "") + 5];
     int in_todo;
-    if (g_tap_run++ == 0) atexit(rk_tap_exit);
-    in_todo = (g_tap_todo_reason[0] != '\0' && g_tap_run <= g_tap_todo_upto);
-    if (!cond && !(g_tap_run <= g_tap_todo_upto)) g_tap_failed++;
+    if (g_runtime.tap.tap_run++ == 0) atexit(rk_tap_exit);
+    in_todo = (g_runtime.tap.tap_todo_reason[0] != '\0' && g_runtime.tap.tap_run <= g_runtime.tap.tap_todo_upto);
+    if (!cond && !(g_runtime.tap.tap_run <= g_runtime.tap.tap_todo_upto)) g_runtime.tap.tap_failed++;
     rk_tap_desc_escape(desc ? desc : "", esc, sizeof esc);
-    char line[fmt_len("%sok %ld - %s%s%s", cond ? "" : "not ", g_tap_run, prefix ? prefix : "", esc, in_todo ? g_tap_todo_reason : "")];
-    snprintf(line, sizeof line, "%sok %ld - %s%s%s", cond ? "" : "not ", g_tap_run, prefix ? prefix : "", esc, in_todo ? g_tap_todo_reason : "");
+    char line[fmt_len("%sok %ld - %s%s%s", cond ? "" : "not ", g_runtime.tap.tap_run, prefix ? prefix : "", esc, in_todo ? g_runtime.tap.tap_todo_reason : "")];
+    snprintf(line, sizeof line, "%sok %ld - %s%s%s", cond ? "" : "not ", g_runtime.tap.tap_run, prefix ? prefix : "", esc, in_todo ? g_runtime.tap.tap_todo_reason : "");
     puts(line);
     fflush(stdout);
     return cond;
@@ -5512,20 +5506,20 @@ static DESCR_t rk_subtest_open(const char *nm) {
     else printf("# Subtest\n");
     fflush(stdout);
     st[0] = STRVAL(rt_heap_strdup_c(nm ? nm : ""));
-    st[1] = INTVAL(g_tap_planned);
-    st[2] = INTVAL(g_tap_run);
-    st[3] = INTVAL(g_tap_failed);
-    st[4] = INTVAL(g_tap_todo_upto);
-    st[5] = INTVAL(g_tap_no_plan);
-    st[6] = INTVAL(g_tap_done_run);
-    st[7] = STRVAL(rt_heap_strdup_c(g_tap_todo_reason ? g_tap_todo_reason : ""));
-    g_tap_planned = 0;
-    g_tap_run = 0;
-    g_tap_failed = 0;
-    g_tap_no_plan = 1;
-    g_tap_todo_upto = 0;
-    g_tap_todo_reason = "";
-    g_tap_done_run = 0;
+    st[1] = INTVAL(g_runtime.tap.tap_planned);
+    st[2] = INTVAL(g_runtime.tap.tap_run);
+    st[3] = INTVAL(g_runtime.tap.tap_failed);
+    st[4] = INTVAL(g_runtime.tap.tap_todo_upto);
+    st[5] = INTVAL(g_runtime.tap.tap_no_plan);
+    st[6] = INTVAL(g_runtime.tap.tap_done_run);
+    st[7] = STRVAL(rt_heap_strdup_c(g_runtime.tap.tap_todo_reason ? g_runtime.tap.tap_todo_reason : ""));
+    g_runtime.tap.tap_planned = 0;
+    g_runtime.tap.tap_run = 0;
+    g_runtime.tap.tap_failed = 0;
+    g_runtime.tap.tap_no_plan = 1;
+    g_runtime.tap.tap_todo_upto = 0;
+    g_runtime.tap.tap_todo_reason = "";
+    g_runtime.tap.tap_done_run = 0;
     int saved = dup(fileno(stdout)), cfd = -1;
     FILE *cap = tmpfile();
     if (cap) { cfd = dup(fileno(cap)); fclose(cap); }
@@ -5544,7 +5538,7 @@ static int rk_subtest_close(DESCR_t stv) {
     strcpy(nm, n0);
     strcpy(reason, r0);
     int saved = (int) sa.el[8].i, cfd = (int) sa.el[9].i;
-    if (g_tap_no_plan) printf("1..%ld\n", g_tap_run);
+    if (g_runtime.tap.tap_no_plan) printf("1..%ld\n", g_runtime.tap.tap_run);
     fflush(stdout);
     if (saved >= 0 && cfd >= 0) {
         dup2(saved, fileno(stdout));
@@ -5563,15 +5557,15 @@ static int rk_subtest_close(DESCR_t stv) {
             fclose(cap);
         } else close(cfd);
     }
-    long i_run = g_tap_run, i_failed = g_tap_failed, i_planned = g_tap_planned;
-    int i_noplan = g_tap_no_plan;
-    g_tap_planned = sa.el[1].i;
-    g_tap_run = sa.el[2].i;
-    g_tap_failed = sa.el[3].i;
-    g_tap_todo_upto = sa.el[4].i;
-    g_tap_no_plan = (int) sa.el[5].i;
-    g_tap_done_run = (int) sa.el[6].i;
-    g_tap_todo_reason = reason[0] ? rt_heap_strdup_c(reason) : "";
+    long i_run = g_runtime.tap.tap_run, i_failed = g_runtime.tap.tap_failed, i_planned = g_runtime.tap.tap_planned;
+    int i_noplan = g_runtime.tap.tap_no_plan;
+    g_runtime.tap.tap_planned = sa.el[1].i;
+    g_runtime.tap.tap_run = sa.el[2].i;
+    g_runtime.tap.tap_failed = sa.el[3].i;
+    g_runtime.tap.tap_todo_upto = sa.el[4].i;
+    g_runtime.tap.tap_no_plan = (int) sa.el[5].i;
+    g_runtime.tap.tap_done_run = (int) sa.el[6].i;
+    g_runtime.tap.tap_todo_reason = reason[0] ? rt_heap_strdup_c(reason) : "";
     int okv = (i_failed == 0) && (i_run > 0) && (i_noplan || i_planned == i_run);
     rk_tap_proclaim(okv, nm, "");
     return okv;
@@ -9285,8 +9279,6 @@ PL_CX_LEAF_HEAD(aggregate_reduce, 3)
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *g_pl_edin_out_name = "";
-static const char *g_pl_edin_in_name = "";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_edin_switch(DESCR_t *args, pl_tr_ctx_t *cx, int is_out, const char *fmode) {
     extern int fh_alloc(FILE *);
@@ -9301,12 +9293,12 @@ static int pl_edin_switch(DESCR_t *args, pl_tr_ctx_t *cx, int is_out, const char
     DESCR_t f = rt_pl_deref_val(args[0]);
     if (pl_val_unbound(f)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
     if (!pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("domain_error", "source_sink", f); return 0; }
-    if (!strcmp(fn, "user")) { if (is_out) { fh_set_output(1); g_pl_edin_out_name = ""; } else { fh_set_input(0); g_pl_edin_in_name = ""; } return 1; }
+    if (!strcmp(fn, "user")) { if (is_out) { fh_set_output(1); g_runtime.bn.pl_edin_out_name = ""; } else { fh_set_input(0); g_runtime.bn.pl_edin_in_name = ""; } return 1; }
     fp = fopen(fn, fmode);
     if (!fp) { cx->ball = rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
     idx = fh_alloc(fp);
     if (idx < 0) { fclose(fp); return 0; }
-    if (is_out) { fh_set_output(idx); g_pl_edin_out_name = rt_heap_strdup_c(fn); } else { fh_set_input(idx); g_pl_edin_in_name = rt_heap_strdup_c(fn); }
+    if (is_out) { fh_set_output(idx); g_runtime.bn.pl_edin_out_name = rt_heap_strdup_c(fn); } else { fh_set_input(idx); g_runtime.bn.pl_edin_in_name = rt_heap_strdup_c(fn); }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -9319,7 +9311,7 @@ static int pl_edin_revert(int is_out) {
     extern int fh_current_input(void);
     int cur = is_out ? fh_current_output() : fh_current_input();
     if (cur >= 3) { FILE *fp = fh_get(cur); if (fp) fclose(fp); fh_free(cur); }
-    if (is_out) { fh_set_output(1); g_pl_edin_out_name = ""; } else { fh_set_input(0); g_pl_edin_in_name = ""; }
+    if (is_out) { fh_set_output(1); g_runtime.bn.pl_edin_out_name = ""; } else { fh_set_input(0); g_runtime.bn.pl_edin_in_name = ""; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -9335,9 +9327,11 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     { "threads", "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } },
     { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "min_tagged_integer", "-72057594037927936", 0, { 0 } }, { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } },
     { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { 0, "", 0, { 0 } } };
-static cv_t g_pl_flags;
-#define pl_flags ((pl_flag_t *)g_pl_flags.p)
-static void pl_flags_ready(void) { if (g_pl_flags.len) return; for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; } }
+#define pl_flags ((pl_flag_t *)g_runtime.bn.g_pl_flags.p)
+static void pl_flags_ready(void) {
+    if (g_runtime.bn.g_pl_flags.len) return;
+    for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_runtime.bn.g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; }
+}
 DESCR_t rt_sno_wantnm_d(DESCR_t *args, int nargs) { extern int rt_g_want_name; (void)args; (void)nargs; rt_g_want_name = 1; return NULVCL; }
 static const char *rt_sno_patck_text(int code) {
     return code == 240 ? "pattern match right operand is not pattern" : code == 5 ? "alternation right operand is not pattern" : code == 6 ? "alternation left operand is not pattern" : code == 61 ?
@@ -9364,15 +9358,16 @@ DESCR_t rt_sno_chknm_d(DESCR_t *args, int nargs) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *rt_pl_flag_name(int i) { pl_flags_ready(); return (i >= 0 && i + 1 < (int)g_pl_flags.len) ? pl_flags[i].nm : (const char *)0; }
+const char *rt_pl_flag_name(int i) { pl_flags_ready(); return (i >= 0 && i + 1 < (int)g_runtime.bn.g_pl_flags.len) ? pl_flags[i].nm : (const char *)0; }
 void rt_pl_flags_gc_roots(void) {
-    gc_roots_args_t a = { (void **)pl_flags, (long)g_pl_flags.len, (void **)0, 0, (const char *)0, 0, (const char *)0, 0, (const char *)0, (const char *)0 };
+    gc_roots_args_t a = { (void **)pl_flags, (long)g_runtime.bn.g_pl_flags.len, (void **)0, 0, (const char *)0, 0, (const char *)0, 0, (const char *)0, (const char *)0 };
     rt_gc_run_flags_roots(&a);
 }
 _Static_assert(__builtin_offsetof(pl_flag_t, nm) == 0 && __builtin_offsetof(pl_flag_t, val) == 8 && __builtin_offsetof(pl_flag_t, is_term) == 72 && __builtin_offsetof(pl_flag_t, term) == 80 &&
     sizeof(pl_flag_t) == 104, "rt_gc_flags_roots_run (rtx_gc.s) walks the Prolog flags at these offsets, 104 bytes apart");
 void bnd_text_gc_roots(void) {
-    static const char *const *const words[3] = { (const char *const *)&g_pl_edin_out_name, (const char *const *)&g_pl_edin_in_name, (const char *const *)&g_tap_todo_reason };
+    static const char *const *const words[3] = { (const char *const *)&g_runtime.bn.pl_edin_out_name, (const char *const *)&g_runtime.bn.pl_edin_in_name,
+        (const char *const *)&g_runtime.tap.tap_todo_reason };
     rt_gc_run_loc_list(words, 3);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -9413,7 +9408,7 @@ static pl_flag_t * pl_flag_find_or_create(const char *nm) {
         extern char *rt_heap_strdup_c(const char *);
         char *persist = rt_heap_strdup_c(nm);
         if (!persist) return (pl_flag_t *)0;
-        (void)CV_PUSH(g_pl_flags, pl_flag_t);
+        (void)CV_PUSH(g_runtime.bn.g_pl_flags, pl_flag_t);
         pl_flags[i].nm = persist;
         pl_flags[i].val = "";
         pl_flags[i].mod = 1;
@@ -9631,14 +9626,18 @@ PL_OUT_CX_LEAF(print, 2)
 PL_CX_LEAF_HEAD(telling, 1)
     {
         extern int fh_current_output(void);
-        ok = plw_unify_vals(args[0], (fh_current_output() == 1 || !g_pl_edin_out_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(g_pl_edin_out_name, strlen(g_pl_edin_out_name)), cx);
+        ok =
+            plw_unify_vals(args[0],
+            (fh_current_output() == 1 || !g_runtime.bn.pl_edin_out_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(g_runtime.bn.pl_edin_out_name, strlen(g_runtime.bn.pl_edin_out_name)), cx);
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(seeing, 1)
     {
         extern int fh_current_input(void);
-        ok = plw_unify_vals(args[0], (fh_current_input() == 0 || !g_pl_edin_in_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(g_pl_edin_in_name, strlen(g_pl_edin_in_name)), cx);
+        ok =
+            plw_unify_vals(args[0],
+            (fh_current_input() == 0 || !g_runtime.bn.pl_edin_in_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(g_runtime.bn.pl_edin_in_name, strlen(g_runtime.bn.pl_edin_in_name)), cx);
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -13668,8 +13667,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         char msg[1024];
         if (!strcmp(op, "plan")) {
             long n = nargs > 0 ? (long) rk_int_arg(args[0], 0) : 0;
-            g_tap_planned = n;
-            g_tap_no_plan = 0;
+            g_runtime.tap.tap_planned = n;
+            g_runtime.tap.tap_no_plan = 0;
             atexit(rk_tap_exit);
             printf("1..%ld\n", n);
             fflush(stdout);
@@ -13967,8 +13966,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (!strcmp(op, "todo")) {
             const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : "";
             long n = nargs > 1 ? (long) rk_int_arg(args[1], 1) : 1;
-            g_tap_todo_upto = g_tap_run + n;
-            { char tb[fmt_len(" # TODO %s", r)]; snprintf(tb, sizeof tb, " # TODO %s", r); g_tap_todo_reason = rt_heap_strdup_c(tb); }
+            g_runtime.tap.tap_todo_upto = g_runtime.tap.tap_run + n;
+            { char tb[fmt_len(" # TODO %s", r)]; snprintf(tb, sizeof tb, " # TODO %s", r); g_runtime.tap.tap_todo_reason = rt_heap_strdup_c(tb); }
             *out = NULVCL;
             return 1;
         }
@@ -13981,19 +13980,22 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         }
         if (!strcmp(op, "skip_rest")) {
             const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : "<unknown>";
-            if (g_tap_no_plan) { rk_tap_diag("A plan is required in order to use skip-rest"); *out = NULVCL; return 1; }
-            for (long i = g_tap_run; i < g_tap_planned; ) { rk_tap_proclaim(1, r, "# SKIP "); i = g_tap_run; }
+            if (g_runtime.tap.tap_no_plan) { rk_tap_diag("A plan is required in order to use skip-rest"); *out = NULVCL; return 1; }
+            for (long i = g_runtime.tap.tap_run; i < g_runtime.tap.tap_planned; ) { rk_tap_proclaim(1, r, "# SKIP "); i = g_runtime.tap.tap_run; }
             *out = NULVCL;
             return 1;
         }
         if (!strcmp(op, "done")) {
-            g_tap_done_run = 1;
-            if (g_tap_no_plan) { g_tap_planned = g_tap_run; printf("1..%ld\n", g_tap_planned); fflush(stdout); }
-            if ((g_tap_planned || g_tap_run) && g_tap_planned != g_tap_run) {
-                snprintf(msg, sizeof msg, "You planned %ld test%s, but ran %ld", g_tap_planned, g_tap_planned == 1 ? "" : "s", g_tap_run);
+            g_runtime.tap.tap_done_run = 1;
+            if (g_runtime.tap.tap_no_plan) { g_runtime.tap.tap_planned = g_runtime.tap.tap_run; printf("1..%ld\n", g_runtime.tap.tap_planned); fflush(stdout); }
+            if ((g_runtime.tap.tap_planned || g_runtime.tap.tap_run) && g_runtime.tap.tap_planned != g_runtime.tap.tap_run) {
+                snprintf(msg, sizeof msg, "You planned %ld test%s, but ran %ld", g_runtime.tap.tap_planned, g_runtime.tap.tap_planned == 1 ? "" : "s", g_runtime.tap.tap_run);
                 rk_tap_diag(msg);
             }
-            if (g_tap_failed) { snprintf(msg, sizeof msg, "You failed %ld test%s of %ld", g_tap_failed, g_tap_failed == 1 ? "" : "s", g_tap_run); rk_tap_diag(msg); }
+            if (g_runtime.tap.tap_failed) {
+                snprintf(msg, sizeof msg, "You failed %ld test%s of %ld", g_runtime.tap.tap_failed, g_runtime.tap.tap_failed == 1 ? "" : "s", g_runtime.tap.tap_run);
+                rk_tap_diag(msg);
+            }
             *out = NULVCL;
             return 1;
         }
@@ -16439,7 +16441,7 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
     }
     if (!strcmp(fn, "__pas_dispose") && nargs == 1) {
         if (!IS_INT_fn(args[0]) || args[0].i <= 0) pas_file_err("6.6.5.3", "dispose of a pointer that is nil or undefined, so it identifies no variable", NULL);
-        if (args[0].i < g_pas_heap_cap && (g_pas_heap_dead[args[0].i] & 2))
+        if (args[0].i < g_runtime.pas.pas_heap_cap && (g_runtime.pas.pas_heap_dead[args[0].i] & 2))
             pas_file_err("6.6.5.3", "dispose(p) of a variable created with new(p, c1, ..., cn) must name the same variant constants", NULL);
         pas_heap_give(args[0].i);
         *out = NULVCL;
@@ -16448,7 +16450,7 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
     if (!strcmp(fn, "__pas_dispose_k") && nargs == 3) {
         if (!IS_INT_fn(args[0]) || args[0].i <= 0) pas_file_err("6.6.5.3", "dispose of a pointer that is nil or undefined, so it identifies no variable", NULL);
         long long n = args[0].i;
-        int tagged = n < g_pas_heap_cap && (g_pas_heap_dead[n] & 2);
+        int tagged = n < g_runtime.pas.pas_heap_cap && (g_runtime.pas.pas_heap_dead[n] & 2);
         if (!tagged) pas_file_err("6.6.5.3", "dispose(p, k1, ..., kn) names variants for a variable not created with new(p, c1, ..., cn)", NULL);
         if (IS_INT_fn(args[1]) && IS_INT_fn(args[2]) && pas_tag_ne(args[1].i, args[2].i))
             pas_file_err("6.6.5.3", "the variant constants of dispose are not those of the new that created the variable", NULL);
@@ -16456,15 +16458,19 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
         *out = NULVCL;
         return 1;
     }
-    if (!strcmp(fn, "__pas_tagmark") && nargs == 1) { if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_pas_heap_cap) g_pas_heap_dead[args[0].i] |= 2; *out = NULVCL; return 1; }
+    if (!strcmp(fn, "__pas_tagmark") && nargs == 1) {
+        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_runtime.pas.pas_heap_cap) g_runtime.pas.pas_heap_dead[args[0].i] |= 2;
+        *out = NULVCL;
+        return 1;
+    }
     if (!strcmp(fn, "__pas_tagset_chk") && nargs == 3) {
-        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_pas_heap_cap && (g_pas_heap_dead[args[0].i] & 2) && IS_INT_fn(args[1]) && IS_INT_fn(args[2]) && pas_tag_ne(args[1].i, args[2].i))
-            pas_file_err("6.6.5.3", "the tag-field of a variable created with new(p, c1, ..., cn) is assigned a value that activates a different variant", NULL);
+        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_runtime.pas.pas_heap_cap && (g_runtime.pas.pas_heap_dead[args[0].i] & 2) && IS_INT_fn(args[1]) && IS_INT_fn(args[2]) &&
+            pas_tag_ne(args[1].i, args[2].i)) pas_file_err("6.6.5.3", "the tag-field of a variable created with new(p, c1, ..., cn) is assigned a value that activates a different variant", NULL);
         *out = NULVCL;
         return 1;
     }
     if (!strcmp(fn, "__pas_tagwhole") && nargs == 1) {
-        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_pas_heap_cap && (g_pas_heap_dead[args[0].i] & 2))
+        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_runtime.pas.pas_heap_cap && (g_runtime.pas.pas_heap_dead[args[0].i] & 2))
             pas_file_err("6.6.5.3", "a variable created with new(p, c1, ..., cn) is accessed as a whole by a factor, an assignment or an actual-parameter", NULL);
         *out = NULVCL;
         return 1;
@@ -16511,7 +16517,7 @@ static int pas_bi_chain(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, 
         *out = NULVCL;
         return 1;
     }
-    if (!strcmp(fn, "__pas_mark") && nargs == 0) { *out = INTVAL(g_pas_heap_ctr + 1); return 1; }
+    if (!strcmp(fn, "__pas_mark") && nargs == 0) { *out = INTVAL(g_runtime.pas.pas_heap_ctr + 1); return 1; }
     if (!strcmp(fn, "__pas_release") && nargs == 1) { if (IS_INT_fn(args[0])) pas_heap_release(args[0].i); *out = NULVCL; return 1; }
     if (!strcmp(fn, "__pas_alpha_str") && nargs == 2) { *out = pas_chars_of(args[0], IS_INT_fn(args[1]) ? (long)args[1].i : 0); return 1; }
     if (!strcmp(fn, "__pas_rdecode") && nargs == 4) { *out = pas_rdecode(args[0], (long)pas_ord_of(args[1]), (long)pas_ord_of(args[2]), (long)pas_ord_of(args[3])); return 1; }
@@ -17293,33 +17299,30 @@ DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return RT_GC_CAL
 DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, 1, 0, (long *)0)); }
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0, (long *)0)); }
 static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out);
-#define RT_CTOR_IC_N 256
-static struct { const char *fn; void *dt; long gen; } g_ctor_ic[RT_CTOR_IC_N];
 static long rt_ctor_gen(void) {
     extern int dat_type_gen(void);
     extern unsigned rt_dtax_gen;
     return (long)g_runtime.rt.rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + (long)rt_dtax_gen * 1099511627776L;
 }
-static const char *g_ctor_ic_site = (const char *)0;
 static inline unsigned rt_ctor_ic_h(const char *fn) __attribute__((always_inline));
 static inline unsigned rt_ctor_ic_h(const char *fn) { return (unsigned)((((uintptr_t)fn) * 0x9E3779B97F4A7C15ull) >> 56) & (RT_CTOR_IC_N - 1); }
 static inline int rt_ctor_ic_find(const char *fn, long gen) __attribute__((always_inline));
 static inline int rt_ctor_ic_find(const char *fn, long gen) {
     unsigned h = rt_ctor_ic_h(fn);
-    if (g_ctor_ic[h].fn == fn && g_ctor_ic[h].gen == gen) return (int)h;
+    if (g_runtime.bn.ctor_ic[h].fn == fn && g_runtime.bn.ctor_ic[h].gen == gen) return (int)h;
     h ^= 1u;
-    if (g_ctor_ic[h].fn == fn && g_ctor_ic[h].gen == gen) return (int)h;
+    if (g_runtime.bn.ctor_ic[h].fn == fn && g_runtime.bn.ctor_ic[h].gen == gen) return (int)h;
     return -1;
 }
 static void rt_ctor_ic_note(const char *fn, void *dt) {
-    const char *site = g_ctor_ic_site;
+    const char *site = g_runtime.bn.ctor_ic_site;
     if (!site || (site != fn && strcmp(site, fn) != 0)) return;
     {
         unsigned h = rt_ctor_ic_h(site);
-        if (g_ctor_ic[h].fn != site && g_ctor_ic[h].fn && (!g_ctor_ic[h ^ 1u].fn || g_ctor_ic[h ^ 1u].fn == site)) h ^= 1u;
-        g_ctor_ic[h].fn = site;
-        g_ctor_ic[h].dt = dt;
-        g_ctor_ic[h].gen = rt_ctor_gen();
+        if (g_runtime.bn.ctor_ic[h].fn != site && g_runtime.bn.ctor_ic[h].fn && (!g_runtime.bn.ctor_ic[h ^ 1u].fn || g_runtime.bn.ctor_ic[h ^ 1u].fn == site)) h ^= 1u;
+        g_runtime.bn.ctor_ic[h].fn = site;
+        g_runtime.bn.ctor_ic[h].dt = dt;
+        g_runtime.bn.ctor_ic[h].gen = rt_ctor_gen();
     }
 }
 _Static_assert((RT_CTOR_IC_N & (RT_CTOR_IC_N - 1)) == 0,
@@ -17331,9 +17334,20 @@ static DESCR_t rt_call_arr_bl_sn4_rq(const char *fn, DESCR_t *args, int nargs, i
     extern int64_t g_kw_errlimit;
     if (g_error == 0 && g_kw_errlimit == 0 && fn) {
         int h = rt_ctor_ic_find(fn, rt_ctor_gen());
-        if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt; if (nargs <= _udt->nfields) return dat_construct_rq(_udt, args, nargs, rq); }
+        if (h >= 0) {
+            extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
+            DatType *_udt = (DatType *)g_runtime.bn.ctor_ic[h].dt;
+            if (nargs <= _udt->nfields) return dat_construct_rq(_udt, args, nargs, rq);
+        }
     }
-    { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1, rq)); g_ctor_ic_site = outer; return r; }
+    {
+        const char *outer = g_runtime.bn.ctor_ic_site;
+        DESCR_t r;
+        g_runtime.bn.ctor_ic_site = fn;
+        r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1, rq));
+        g_runtime.bn.ctor_ic_site = outer;
+        return r;
+    }
 }
 DESCR_t rt_call_arr_bl_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, (long *)0)); }
 DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) {
@@ -17346,12 +17360,17 @@ DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidl
     if (bidlen >= 0 && icn_bi_direct(bidlen, args, nargs, &out)) return out;
     if (fn && g_error == 0 && g_kw_errlimit == 0 && !rt_g_want_name) {
         int h = rt_ctor_ic_find(fn, rt_ctor_gen());
-        if (h >= 0 && nargs <= dat_nfields_byref(g_ctor_ic[h].dt)) return dat_construct_byref(g_ctor_ic[h].dt, args, nargs);
+        if (h >= 0 && nargs <= dat_nfields_byref(g_runtime.bn.ctor_ic[h].dt)) return dat_construct_byref(g_runtime.bn.ctor_ic[h].dt, args, nargs);
     }
-    { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0, (long *)0)); g_ctor_ic_site = outer; return r; }
+    {
+        const char *outer = g_runtime.bn.ctor_ic_site;
+        DESCR_t r;
+        g_runtime.bn.ctor_ic_site = fn;
+        r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0, (long *)0));
+        g_runtime.bn.ctor_ic_site = outer;
+        return r;
+    }
 }
-#define RT_FIELD_IC_N 256
-static struct { const char *fn; const DATBLK_t *type; int idx; } g_field_ic[RT_FIELD_IC_N];
 _Static_assert((RT_FIELD_IC_N & (RT_FIELD_IC_N - 1)) == 0,
     "THE FIELD-ACCESSOR INLINE CACHE (ceo 2026-09-25, CEO-1258): a call site's field name pointer and the instance's type pointer key a direct-mapped slot holding the field index; a hit is c"
     "onfirmed by strcmp against the type's own field name, so a reused string address can never answer with another field's index, and the value is the instance's own cell, exactly what dat_"
@@ -17359,13 +17378,16 @@ _Static_assert((RT_FIELD_IC_N & (RT_FIELD_IC_N - 1)) == 0,
 static inline int rt_field_index_cached_i(const char *fn, const DATBLK_t *idb) __attribute__((always_inline));
 static inline int rt_field_index_cached_i(const char *fn, const DATBLK_t *idb) {
     unsigned h = (unsigned)(((((uintptr_t)fn ^ ((uintptr_t)idb << 1)) * 0x9E3779B97F4A7C15ull) >> 56) & (RT_FIELD_IC_N - 1));
-    if (g_field_ic[h].fn == fn && g_field_ic[h].type == idb) { int fi = g_field_ic[h].idx; if (fi < idb->nfields && idb->fields[fi] && !strcmp(idb->fields[fi], fn)) return fi; }
+    if (g_runtime.bn.field_ic[h].fn == fn && g_runtime.bn.field_ic[h].type == idb) {
+        int fi = g_runtime.bn.field_ic[h].idx;
+        if (fi < idb->nfields && idb->fields[fi] && !strcmp(idb->fields[fi], fn)) return fi;
+    }
     {
         const char _f0 = fn[0];
         for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) {
-            g_field_ic[h].fn = fn;
-            g_field_ic[h].type = idb;
-            g_field_ic[h].idx = fi;
+            g_runtime.bn.field_ic[h].fn = fn;
+            g_runtime.bn.field_ic[h].type = idb;
+            g_runtime.bn.field_ic[h].idx = fi;
             return fi;
         }
     }
@@ -17424,7 +17446,7 @@ rt_call_next_t rt_call_callee_try_sn4(DESCR_t *args, int nargs, sno_callee_rec_t
     {
         DESCR_t v = rt_call_name_sn4_rq(r->name, args, nargs, -1, rq);
         int h = rt_ctor_ic_find(r->name, rt_ctor_gen());
-        if (h >= 0) { r->ctor = g_ctor_ic[h].dt; r->cgen = g_ctor_ic[h].gen; }
+        if (h >= 0) { r->ctor = g_runtime.bn.ctor_ic[h].dt; r->cgen = g_runtime.bn.ctor_ic[h].gen; }
         if (!rq[0] || rq[0] == 2 || rq[0] == RT_TRY_EVAL_OPEN) *out = v;
         return (rt_call_next_t){ rq[0], rq[1] };
     }
@@ -17432,7 +17454,12 @@ rt_call_next_t rt_call_callee_try_sn4(DESCR_t *args, int nargs, sno_callee_rec_t
 DESCR_t rt_call_callee_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r) {
     extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
     if (r->ctor && r->cgen == rt_ctor_gen() && nargs <= ((DatType *)r->ctor)->nfields && !(nargs == 1 && IS_DATA_INST_fn(args[0]))) return dat_construct((DatType *)r->ctor, args, nargs);
-    { DESCR_t v = rt_call_name_sn4(r->name, args, nargs, -1); int h = rt_ctor_ic_find(r->name, rt_ctor_gen()); if (h >= 0) { r->ctor = g_ctor_ic[h].dt; r->cgen = g_ctor_ic[h].gen; } return v; }
+    {
+        DESCR_t v = rt_call_name_sn4(r->name, args, nargs, -1);
+        int h = rt_ctor_ic_find(r->name, rt_ctor_gen());
+        if (h >= 0) { r->ctor = g_runtime.bn.ctor_ic[h].dt; r->cgen = g_runtime.bn.ctor_ic[h].gen; }
+        return v;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_name_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_name_sn4_rq(fn, args, nargs, bidlen, (long *)0); }
@@ -17449,9 +17476,20 @@ static DESCR_t rt_call_name_sn4_rq(const char *fn, DESCR_t *args, int nargs, int
     }
     if (fn) {
         int h = rt_ctor_ic_find(fn, rt_ctor_gen());
-        if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt; if (nargs <= _udt->nfields) return dat_construct_rq(_udt, args, nargs, rq); }
+        if (h >= 0) {
+            extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
+            DatType *_udt = (DatType *)g_runtime.bn.ctor_ic[h].dt;
+            if (nargs <= _udt->nfields) return dat_construct_rq(_udt, args, nargs, rq);
+        }
     }
-    { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, rq)); g_ctor_ic_site = outer; return r; }
+    {
+        const char *outer = g_runtime.bn.ctor_ic_site;
+        DESCR_t r;
+        g_runtime.bn.ctor_ic_site = fn;
+        r = RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, rq));
+        g_runtime.bn.ctor_ic_site = outer;
+        return r;
+    }
 }
 _Static_assert(G_ERROR_EVAL_STAGE == (-9223372036854775807L - 1), "rtx_misc.s rt_call_bid_sn4 passes g_error by doubling it: only 0 and LONG_MIN double to zero");
 DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen);
@@ -17733,14 +17771,13 @@ DESCR_t rt_args_list_from(char **v, int n) {
     for (int _i=0;_i<n;_i++) tmp[_i] = STRVAL(v[_i]);
     return rt_make_list(tmp, n);
 }
-static DESCR_t g_main_args_descr;
-static char **g_main_args_v;
-static int g_main_args_n = -1;
-static const char *g_main_progname;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_main_args_stage(char **v, int n) { if (n < 0 || !v) n = 0; g_main_args_v = v; g_main_args_n = n; }
-int pas_main_argc(void) { return g_main_args_n > 0 ? g_main_args_n : 0; }
-const char *pas_main_arg(int k) { return (k >= 1 && k <= g_main_args_n && g_main_args_v && g_main_args_v[k - 1] && g_main_args_v[k - 1][0]) ? g_main_args_v[k - 1] : (const char *)0; }
+void rt_main_args_stage(char **v, int n) { if (n < 0 || !v) n = 0; g_runtime.bn.main_args_v = v; g_runtime.bn.main_args_n = n; }
+int pas_main_argc(void) { return g_runtime.bn.main_args_n > 0 ? g_runtime.bn.main_args_n : 0; }
+const char *pas_main_arg(int k) {
+    return (k >= 1 && k <= g_runtime.bn.main_args_n && g_runtime.bn.main_args_v && g_runtime.bn.main_args_v[k - 1] && g_runtime.bn.main_args_v[k - 1][0]) ? g_runtime.bn.main_args_v[k - 1] :
+        (const char *)0;
+}
 void rt_main_args_stage_argv(char **v, int n) {
     extern int rt_cmdline_prog_first(void);
     int skip = rt_cmdline_prog_first() - 1;
@@ -17749,19 +17786,19 @@ void rt_main_args_stage_argv(char **v, int n) {
     if (skip > n) skip = n;
     rt_main_args_stage(v + skip, n - skip);
 }
-void rt_main_progname_stage(const char *s) { char *c = s ? ct_strdup(s) : 0; ct_drop((void *) g_main_progname); g_main_progname = c; }
-const char *rt_main_progname(void) { return g_main_progname ? g_main_progname : ""; }
+void rt_main_progname_stage(const char *s) { char *c = s ? ct_strdup(s) : 0; ct_drop((void *) g_runtime.bn.main_progname); g_runtime.bn.main_progname = c; }
+const char *rt_main_progname(void) { return g_runtime.bn.main_progname ? g_runtime.bn.main_progname : ""; }
 void rt_main_args_bind(void) {
-    if (g_main_args_descr.v == DT_DATA) return;
-    if (g_main_args_n < 0) rt_main_args_stage((char **)0, 0);
-    g_main_args_descr = rt_args_list_from(g_main_args_v, g_main_args_n);
+    if (g_runtime.bn.main_args_descr.v == DT_DATA) return;
+    if (g_runtime.bn.main_args_n < 0) rt_main_args_stage((char **)0, 0);
+    g_runtime.bn.main_args_descr = rt_args_list_from(g_runtime.bn.main_args_v, g_runtime.bn.main_args_n);
     if (!getenv("SCRIP_NO_MAIN_ARGS")) rt_call_args_need(2);
-    CALL_ARGS[0] = g_main_args_descr;
+    CALL_ARGS[0] = g_runtime.bn.main_args_descr;
 }
-DESCR_t rt_main_args_fetch(void) { rt_main_args_bind(); return g_main_args_descr; }
-void rt_main_args_gc_root(void) { extern void rt_gc_visit_descr(DESCR_t *); rt_gc_visit_descr(&g_main_args_descr); }
-int rt_main_args_count(void) { return g_main_args_n < 0 ? 0 : g_main_args_n; }
-const char *rt_main_arg_at(int i) { return (i >= 0 && i < g_main_args_n && g_main_args_v) ? g_main_args_v[i] : (const char *)0; }
+DESCR_t rt_main_args_fetch(void) { rt_main_args_bind(); return g_runtime.bn.main_args_descr; }
+void rt_main_args_gc_root(void) { extern void rt_gc_visit_descr(DESCR_t *); rt_gc_visit_descr(&g_runtime.bn.main_args_descr); }
+int rt_main_args_count(void) { return g_runtime.bn.main_args_n < 0 ? 0 : g_runtime.bn.main_args_n; }
+const char *rt_main_arg_at(int i) { return (i >= 0 && i < g_runtime.bn.main_args_n && g_runtime.bn.main_args_v) ? g_runtime.bn.main_args_v[i] : (const char *)0; }
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -18525,9 +18562,7 @@ static __attribute__((noinline)) int bn_remdr(DESCR_t *args, int nargs, DESCR_t 
     return 1;
 }
 extern unsigned rt_dtax_gen;
-typedef struct { unsigned gen; unsigned char len; signed char kind; short nf; char dxn[14]; void *ctor; const char *syn; } dtax_ent_t;
-static dtax_ent_t g_dtax[256];
-static dtax_ent_t g_dtax_bid[1025];
+typedef g_dtax_ent_t dtax_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dtax_off(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_DTAX_OFF"); p = (e && *e) ? 1 : 0; } return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -18760,7 +18795,7 @@ static int bn_icn_center(DESCR_t *args, int nargs, DESCR_t *out) {
     *out = BSTRVAL(buf, n);
     return 1;
 }
-static int icn_dtax_plain(int bid) { return !dtax_off() && g_dtax_bid[bid].gen == rt_dtax_gen && (g_dtax_bid[bid].kind == 0 || g_dtax_bid[bid].kind == 3); }
+static int icn_dtax_plain(int bid) { return !dtax_off() && g_runtime.bn.dtax_bid[bid].gen == rt_dtax_gen && (g_runtime.bn.dtax_bid[bid].kind == 0 || g_runtime.bn.dtax_bid[bid].kind == 3); }
 static int bn_icn_upto_resume(DESCR_t *args, int nargs, int64_t *resume, DESCR_t *out) {
     const char *s;
     int i1, i2;
@@ -18844,14 +18879,14 @@ static int bn_icn_move(DESCR_t *args, DESCR_t *out) {
 }
 static int icn_bi_direct_scanpos(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     extern int g_scan_pos;
-    if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
+    if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
     if (nargs != 1 || args[0].v != DT_I || g_scan_pos <= 0) return 0;
     core_icn_op_ctx_clear();
     return bid == BID_tab ? bn_icn_tab(args, out) : bn_icn_move(args, out);
 }
 static int icn_bi_direct_scan(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     extern int g_scan_pos;
-    if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
+    if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
     if (nargs < 1 || nargs > 4 || args[0].v != DT_S) return 0;
     if (nargs == 1) { if (g_scan_pos <= 0) return 0; } else if (args[1].v != DT_S || IS_CSET_fn(args[1])) return 0;
     for (int i = 2; i < nargs; i++) if (args[i].v != DT_I && args[i].v != DT_SNUL) return 0;
@@ -18860,7 +18895,7 @@ static int icn_bi_direct_scan(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
 }
 static int icn_bi_direct_list_io(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     extern int rt_g_want_name;
-    if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
+    if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
     if (bid == BID_trim) {
         if (nargs < 1 || nargs > 2 || args[0].v != DT_S || IS_CSET_fn(args[0])) return 0;
         if (nargs == 2 && args[1].v != DT_SNUL && args[1].v != DT_S) return 0;
@@ -18878,7 +18913,7 @@ static int icn_bi_direct_list_io(int bid, DESCR_t *args, int nargs, DESCR_t *out
 static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
 static int icn_bi_direct_scalar(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     extern int rt_g_want_name;
-    if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
+    if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
     if (bid == BID_type) { if (nargs != 1 || rt_g_want_name) return 0; core_icn_op_ctx_clear(); return bn_type_datatype("type", args, nargs, out); }
     if (bid == BID_integer) {
         if (nargs != 1) return 0;
@@ -18902,14 +18937,14 @@ static int icn_bi_direct_scalar(int bid, DESCR_t *args, int nargs, DESCR_t *out)
     return 0;
 }
 static int icn_bi_direct_pad(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
-    if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
+    if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
     if (nargs < 2 || nargs > 3 || (args[0].v != DT_I && (args[0].v != DT_S || IS_CSET_fn(args[0]))) || args[1].v != DT_I || args[1].i < 0) return 0;
     if (nargs == 3 && args[2].v != DT_SNUL && (args[2].v != DT_S || IS_CSET_fn(args[2]))) return 0;
     core_icn_op_ctx_clear();
     return bid == BID_left ? bn_icn_left(args, nargs, out) : bid == BID_center ? bn_icn_center(args, nargs, out) : bn_icn_right(args, nargs, out);
 }
 static int icn_bi_direct_write(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
-    if (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3) return 0;
+    if (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3) return 0;
     if (nargs < 1 || g_fh[1].closed) return 0;
     for (int i = 0; i < nargs; i++) if (!((args[i].v == DT_S && !IS_CSET_fn(args[i])) || args[i].v == DT_I)) return 0;
     core_icn_op_ctx_clear();
@@ -18950,7 +18985,7 @@ static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
         default:
         return 0;
     }
-    if (!fnlen || fnlen >= 14 || dtax_off() || g_dtax_bid[bid].gen != rt_dtax_gen) return 0;
+    if (!fnlen || fnlen >= 14 || dtax_off() || g_runtime.bn.dtax_bid[bid].gen != rt_dtax_gen) return 0;
     switch (bid) {
         case BID_write:
         case BID_writes:
@@ -18976,11 +19011,11 @@ static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out) {
         case BID_read:
         return icn_bi_direct_list_io(bid, args, nargs, out);
         case BID_IDENTICAL:
-        { if (nargs != 2 || (g_dtax_bid[bid].kind != 0 && g_dtax_bid[bid].kind != 3)) return 0; *out = bn_identical(args[0], args[1]) ? args[1] : FAILDESCR; return 1; }
+        { if (nargs != 2 || (g_runtime.bn.dtax_bid[bid].kind != 0 && g_runtime.bn.dtax_bid[bid].kind != 3)) return 0; *out = bn_identical(args[0], args[1]) ? args[1] : FAILDESCR; return 1; }
         default:
         break;
     }
-    if (nargs != 1 || g_dtax_bid[bid].kind != 0) return 0;
+    if (nargs != 1 || g_runtime.bn.dtax_bid[bid].kind != 0) return 0;
     if (args[0].v == DT_I) return icn_bi_string_of_int(args[0], out);
     if (args[0].v == DT_S && !IS_CSET_fn(args[0])) { *out = args[0]; return 1; }
     return 0;
@@ -19139,13 +19174,10 @@ static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out) {
     }
 }
 #if RT_DIAG
-long g_bidprof[1024];
-int g_bidprof_on = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void bidprof_dump(void) { for (int i = 0; i < 1024; i++) if (g_bidprof[i]) fprintf(stderr, "BIDPROF %d %ld\n", i, g_bidprof[i]); }
-void bidprof_init(void) { const char *e = getenv("SCRIP_BID_PROF"); g_bidprof_on = (e && e[0]=='1') ? 1 : 0; if (g_bidprof_on) atexit(bidprof_dump); }
+static void bidprof_dump(void) { for (int i = 0; i < 1024; i++) if (g_runtime.bn.bidprof[i]) fprintf(stderr, "BIDPROF %d %ld\n", i, g_runtime.bn.bidprof[i]); }
+void bidprof_init(void) { const char *e = getenv("SCRIP_BID_PROF"); g_runtime.bn.bidprof_on = (e && e[0]=='1') ? 1 : 0; if (g_runtime.bn.bidprof_on) atexit(bidprof_dump); }
 #endif
-int g_bidjmp_on = 1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *sort_key_cstr(DESCR_t v, char *buf, int bufsz) {
     if (v.v == DT_S) return v.s ? v.s : "";
@@ -19813,11 +19845,9 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     if (bidlen >= 0 && rt_dtax_gen == 0 && !dtax_off()) {
         const int _fb = bidlen & BID_BAKE_MASK;
 #if RT_DIAG
-        extern long g_bidprof[1024];
-        extern int g_bidprof_on;
         extern void bidprof_init(void);
-        if (g_bidprof_on < 0) bidprof_init();
-        if (g_bidprof_on && _fb >= 0 && _fb < 1024) g_bidprof[_fb]++;
+        if (g_runtime.bn.bidprof_on < 0) bidprof_init();
+        if (g_runtime.bn.bidprof_on && _fb >= 0 && _fb < 1024) g_runtime.bn.bidprof[_fb]++;
 #endif
         int _fr = -1;
         if (_fb == BID_SIZE) _fr = bn_size(args, nargs, out);
@@ -19840,7 +19870,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     const size_t _fnlen = (bidlen >= 0) ? (size_t)((unsigned)bidlen >> 16) : strlen(fn);
     const int _bid = (bidlen >= 0) ? (int)(bidlen & BID_BAKE_MASK) : bid_of(fn, (unsigned)_fnlen);
 #if RT_DIAG
-    { extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void); if (g_bidprof_on < 0) bidprof_init(); if (g_bidprof_on && _bid >= 0 && _bid < 1024) g_bidprof[_bid]++; }
+    { extern void bidprof_init(void); if (g_runtime.bn.bidprof_on < 0) bidprof_init(); if (g_runtime.bn.bidprof_on && _bid >= 0 && _bid < 1024) g_runtime.bn.bidprof[_bid]++; }
 #endif
     {
         extern int rt_g_want_name;
@@ -19863,13 +19893,13 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     if (!dtax_off()) {
         if (_bid > 0 && _bid <= 1024 && _fnlen && _fnlen < 14) {
             _dxl = (unsigned char)_fnlen;
-            _dx = &g_dtax_bid[_bid];
+            _dx = &g_runtime.bn.dtax_bid[_bid];
             _dx_bid_path = 1;
         } else {
             const char *_q = fn;
             while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; }
             if (!(!*_q && _dxl)) _dxl = 0;
-            else _dx = &g_dtax[_dxh & 255u];
+            else _dx = &g_runtime.bn.dtax[_dxh & 255u];
         }
         if (_dx) {
             if (_dx->gen == rt_dtax_gen && (_dx_bid_path || (_dx->len == _dxl && !memcmp(_dx->dxn, fn, _dxl)))) {
@@ -20017,7 +20047,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         }
     }
     if (icn_argtype_gate(_bid, args, nargs, out, strict)) return 1;
-    if (g_bidjmp_on) switch (_bid) {
+    if (g_runtime.bn.bidjmp_on) switch (_bid) {
         case BID___rk_bool:
         goto L_bidjmp_5076;
         case BID___rk_defined:
@@ -22659,15 +22689,14 @@ int rt_dat_field_of_any_live(const char *name) {
     return 0;
 }
 typedef struct { const char *newname; const char *oldname; } rt_syn_t;
-static cv_t g_rt_syn;
-#define SYN(k) CV_AT(g_rt_syn, rt_syn_t, (k))
-#define g_rt_syn_n ((int)g_rt_syn.len)
+#define SYN(k) CV_AT(g_runtime.bn.rt_syn, rt_syn_t, (k))
+#define g_rt_syn_n ((int)g_runtime.bn.rt_syn.len)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_builtin_synonym_add(const char *newname, const char *oldname) {
     if (!newname || !oldname) return;
     rt_dtax_gen++;
     for (int i = 0; i < g_rt_syn_n; i++) if (!strcmp(SYN(i).newname, newname)) { SYN(i).oldname = oldname; return; }
-    { rt_syn_t *e = &CV_PUSH(g_rt_syn, rt_syn_t); e->newname = newname; e->oldname = oldname; }
+    { rt_syn_t *e = &CV_PUSH(g_runtime.bn.rt_syn, rt_syn_t); e->newname = newname; e->oldname = oldname; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_builtin_synonym(const char *name) {
