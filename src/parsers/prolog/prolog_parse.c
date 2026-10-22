@@ -1947,6 +1947,19 @@ static const char * const PL_PRELUDE_SRC =
     "'$mod_cl'(M,G,E,G2):-atom(M),M\\==user,callable(G),functor(G,F,N),atom(F),atom_concat(M,':',P),atom_concat(P,F,QF),N2 is N+E,current_predicate(QF/N2),G=..[_|As],"
         "G2=..[QF|As].\n"
     "'$tbl_call'(G,I):-'$tbl_get'(G,I,plain,T),'$tbl_answer'(T,G).\n"
+    "'$tbl_icall'(G,I):-functor(G,F,N),'$tbl_cell'('$tbl_incr',[],L),(memberchk(F/N,L)->true;nb_setval('$tbl_incr',[F/N|L])),'$tbl_call'(G,I).\n"
+    "'$incr_inval':-'$tbl_cell'('$tbl_incr',[],L),L\\==[],!,'$tbl_vt'(VT),'$trie_entries'(VT,Es),'$incr_drop'(Es,L,VT).\n"
+    "'$incr_inval'.\n"
+    "'$incr_drop'([],_,_).\n"
+    "'$incr_drop'([e(_,G,T)|Es],L,VT):-(functor(G,F,N),memberchk(F/N,L),'$trie_meta_get'(T,0,complete)->'$trie_delete'(VT,G,_);true),'$incr_drop'(Es,L,VT).\n"
+    "incr_assert(C):-assertz(C),'$incr_inval'.\n"
+    "incr_asserta(C):-asserta(C),'$incr_inval'.\n"
+    "incr_assertz(C):-assertz(C),'$incr_inval'.\n"
+    "incr_retract(C):-retract(C),'$incr_inval'.\n"
+    "incr_retractall(C):-retractall(C),'$incr_inval'.\n"
+    "incr_invalidate_calls(_):-'$incr_inval'.\n"
+    "incr_invalidate_call(_):-'$incr_inval'.\n"
+    "xwam_state(2,R):-'$tbl_bcell'('$tbl_dl',[],DL),(DL==[]->R=0;R=1).\n"
     "'$tbl_mcall'(G,I,S):-G=..[F|As],I=..[Fi|_],S=..[_|Ms0],'$tbl_msplit'(Ms0,As,Gs,Xs,Cs,Vs,Ms),'$tbl_mcheck'(Cs),Gv=..[F|Gs],Iv=..[Fi|Gs],'$tbl_mterm'(Cs,Ma),'$tbl_mterm'(Vs,Mv),"
         "'$tbl_get'(Gv,Iv,moded(Ms,Xs,Mv),T),'$tbl_manswer'(T,Xs,Ma,Gv).\n"
     "'$tbl_get'(G,I,K,T1):-'$tbl_noattv'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,T)->true;T=none),'$tbl_enter'(T,VT,G,I,K,T0),('$trie_lookup'(VT,G,T1)->true;T1=T0),'$trie_meta_get'(T1,0,S),(S==complete->true;nb_setval('$tbl_dep',true)).\n"
@@ -3001,7 +3014,11 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_tspecs'((A,B),Ks,K0,Tb,T0):-!,'$lfx_tspecs'(A,Ks,K1,Tb,T1),'$lfx_tspecs'(B,K1,K0,T1,T0).\n"
     "'$lfx_tspecs'([],Ks,Ks,Tb,Tb):-!.\n"
     "'$lfx_tspecs'([A|B],Ks,K0,Tb,T0):-!,'$lfx_tspecs'(A,Ks,K1,Tb,T1),'$lfx_tspecs'(B,K1,K0,T1,T0).\n"
-    "'$lfx_tspecs'(as(S,_),Ks,K0,Tb,T0):-!,'$lfx_tspecs'(S,Ks,K0,Tb,T0).\n"
+    "'$lfx_tspecs'(as(S,O),Ks,K0,Tb,T0):-!,'$lfx_tspecs'(S,Ks,K0,Tb1,[]),('$lfx_incr'(O)->'$lfx_tincr'(Tb1,Tb2);Tb2=Tb1),append(Tb2,T0,Tb).\n"
+    "'$lfx_incr'(O):-nonvar(O),(O==incremental->true;O=(A,B),('$lfx_incr'(A)->true;'$lfx_incr'(B))).\n"
+    "'$lfx_tincr'([],[]).\n"
+    "'$lfx_tincr'([k(K,none)|R],[k(K,incr)|R2]):-!,'$lfx_tincr'(R,R2).\n"
+    "'$lfx_tincr'([X|R],[X|R2]):-'$lfx_tincr'(R,R2).\n"
     "'$lfx_tspecs'(F/N,[F/N|K0],K0,[k(F/N,none)|T0],T0):-!.\n"
     "'$lfx_tspecs'(F//N,[F/N2|K0],K0,[k(F/N2,none)|T0],T0):-!,N2 is N+2.\n"
     "'$lfx_tspecs'(S,[F/N|K0],K0,[k(F/N,Md)|T0],T0):-callable(S),!,functor(S,F,N),('$lfx_moded'(S)->Md=S;Md=none).\n"
@@ -3020,7 +3037,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_srcs'([],_,_).\n"
     "'$lfx_srcs'([F/N|R],M,A):-'$lfx_q'(M,F,Q),'$src_file_add'(Q,N,A),'$lfx_srcs'(R,M,A).\n"
     "'$lfx_wraps'([],_).\n"
-    "'$lfx_wraps'([k(F/N,Md)|R],M):-'$lfx_q'(M,F,Q),'$lfx_t'(Q,T),functor(H,Q,N),H=..[_|As],I=..[T|As],catch(dynamic(T/N),_,true),catch(dynamic(Q/N),_,true),(Md==none->B='$tbl_call'(H,I);'$lfx_mspec'(Md,Sp),B='$tbl_mcall'(H,I,Sp)),(catch(clause(H,_),_,fail)->true;assertz((H:-B))),'$lfx_wraps'(R,M).\n"
+    "'$lfx_wraps'([k(F/N,Md)|R],M):-'$lfx_q'(M,F,Q),'$lfx_t'(Q,T),functor(H,Q,N),H=..[_|As],I=..[T|As],catch(dynamic(T/N),_,true),catch(dynamic(Q/N),_,true),(Md==none->B='$tbl_call'(H,I);Md==incr->B='$tbl_icall'(H,I);'$lfx_mspec'(Md,Sp),B='$tbl_mcall'(H,I,Sp)),(catch(clause(H,_),_,fail)->true;assertz((H:-B))),'$lfx_wraps'(R,M).\n"
     "'$lfx_mspec'(S,C):-copy_term(S,C),term_variables(C,Vs),'$lfx_idx'(Vs).\n"
     "'$lfx_idx'([]).\n"
     "'$lfx_idx'([index|R]):-'$lfx_idx'(R).\n"
@@ -3039,7 +3056,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_dir'([F|Fs],M,_,A):-!,'$lfx_rels'([F|Fs],A,Ps),load_files(M:Ps,[dialect(xsb)]).\n"
     "'$lfx_dir'(dynamic(S),M,_,_):-!,'$lfx_dspecs'(S,Ks,[]),'$lfx_dyns'(Ks,M).\n"
     "'$lfx_dir'(import(S),M,_,A):-!,'$lfx_import'(S,M,A).\n"
-    "'$lfx_dir'(D,_,_,_):-functor(D,F,N),memberchk(F/N,[import/1,export/1,index/1,index/2,ti/1,mode/1,hilog/1,compiler_options/1,module/1,module/2,use_module/1,use_module/2,thread_shared/1,discontiguous/1,multifile/1,document_export/1,local/1]),!.\n"
+    "'$lfx_dir'(D,_,_,_):-functor(D,F,N),memberchk(F/N,[import/1,export/1,index/1,index/2,ti/1,mode/1,hilog/1,compiler_options/1,module/1,module/2,use_module/1,use_module/2,thread_shared/1,discontiguous/1,multifile/1,document_export/1,local/1,meta_predicate/1]),!.\n"
     "'$lfx_dir'(D,M,Ks,_):-'$lfx_body'(D,M,Ks,D2),'$consult_goal'(D2).\n"
     "'$lfx_rels'([],_,[]).\n"
     "'$lfx_rels'([F|Fs],A,[P|Ps]):-'$lf_rel'(A,F,P),'$lfx_rels'(Fs,A,Ps).\n"
@@ -3057,7 +3074,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_body'(get_calls(C,T,R),M,_,get_calls(Q,T,R)):-M\\==user,!,'$lfx_tmq'(M,C,Q).\n"
     "'$lfx_body'(G,M,_,'$lfx_mca'(M,C,Xs)):-M\\==user,compound(G),G=..[call,C|Xs],Xs\\==[],var(C),!.\n"
     "'$lfx_body'(G,M,Ks,G2):-compound(G),G=..[F,C|Xs],Xs\\==[],'$lfx_clof'(F),!,length(Xs,E),'$lfx_clo'(C,E,M,Ks,C2),G2=..[F,C2|Xs].\n"
-    "'$lfx_body'(G,M,_,'$lfx_mdb'(F,M,C)):-M\\==user,compound(G),G=..[F,C],var(C),memberchk(F,[assert,asserta,assertz,retract,retractall]),!.\n"
+    "'$lfx_body'(G,M,_,'$lfx_mdb'(F,M,C)):-M\\==user,compound(G),G=..[F,C],var(C),memberchk(F,[assert,asserta,assertz,retract,retractall,incr_assert,incr_asserta,incr_assertz,incr_retract,incr_retractall]),!.\n"
     "'$lfx_body'(call_delays(G,D),M,Ks,'$call_delays_m'(M,G2,D)):-M\\==user,!,'$lfx_body'(G,M,Ks,G2).\n"
     "'$lfx_body'(call_residual_program(G,P),M,Ks,'$call_residual_m'(M,G2,P)):-M\\==user,!,'$lfx_body'(G,M,Ks,G2).\n"
     "'$lfx_body'(G,M,Ks,G2):-'$lfx_meta'(G,Sp),!,G=..[F|As],Sp=..[_|Ms],'$lfx_margs'(Ms,As,M,Ks,As2),G2=..[F|As2].\n"
@@ -3143,9 +3160,14 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_meta'(setup_call_cleanup(_,_,_),setup_call_cleanup(0,0,0)).\n"
     "'$lfx_meta'(assert(_),assert(c)).\n"
     "'$lfx_meta'(asserta(_),asserta(c)).\n"
+    "'$lfx_meta'(incr_assert(_),incr_assert(c)).\n"
+    "'$lfx_meta'(incr_asserta(_),incr_asserta(c)).\n"
+    "'$lfx_meta'(incr_assertz(_),incr_assertz(c)).\n"
     "'$lfx_meta'(assertz(_),assertz(c)).\n"
     "'$lfx_meta'(retract(_),retract(c)).\n"
     "'$lfx_meta'(retractall(_),retractall(c)).\n"
+    "'$lfx_meta'(incr_retract(_),incr_retract(c)).\n"
+    "'$lfx_meta'(incr_retractall(_),incr_retractall(c)).\n"
     "'$lfx_meta'(abolish(_),abolish(p)).\n"
     "'$lfx_meta'(abolish_table_pred(_),abolish_table_pred(p)).\n"
     "'$lfx_meta'(abolish_table_subgoals(_),abolish_table_subgoals(0)).\n"
@@ -3622,11 +3644,20 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "current_prolog_flag")) pl_cv_add(&referenced, "$flag_member");
     if (pl_cv_has(&referenced, "current_predicate")) pl_cv_add(&referenced, "$cp_mq");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
-    if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
+    if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); pl_cv_add(&referenced, "$tbl_icall"); }
     if (pl_cv_has(&referenced, "source_file")) pl_cv_add(&referenced, "$src_file_add");
     if (pl_cv_has(&referenced, "load_files")) {
         pl_cv_add(&referenced, "tfindall");
         pl_cv_add(&referenced, "$tbl_call");
+        pl_cv_add(&referenced, "$tbl_icall");
+        pl_cv_add(&referenced, "incr_assert");
+        pl_cv_add(&referenced, "incr_asserta");
+        pl_cv_add(&referenced, "incr_assertz");
+        pl_cv_add(&referenced, "incr_retract");
+        pl_cv_add(&referenced, "incr_retractall");
+        pl_cv_add(&referenced, "incr_invalidate_calls");
+        pl_cv_add(&referenced, "incr_invalidate_call");
+        pl_cv_add(&referenced, "xwam_state");
         pl_cv_add(&referenced, "$tbl_mcall");
         pl_cv_add(&referenced, "abolish_all_tables");
         pl_cv_add(&referenced, "current_table");

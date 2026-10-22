@@ -4112,6 +4112,23 @@ static int pl_table_specs(const tree_t * a, const char ** keys, const tree_t ** 
     return n + 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_table_opt_incr(const tree_t * o) {
+    if (!o || !o->v.sval) return 0;
+    if (o->t == TT_FNC && o->n == 2 && !strcmp(o->v.sval, ",")) return pl_table_opt_incr(o->c[0]) || pl_table_opt_incr(o->c[1]);
+    return (o->t == TT_QLIT || o->t == TT_NAME) && !strcmp(o->v.sval, "incremental");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_table_incr(const tree_t * a, const char ** keys, int nf, unsigned char * incr) {
+    if (!a || a->t != TT_FNC || !a->v.sval || a->n != 2) return;
+    if (!strcmp(a->v.sval, ",")) { pl_table_incr(a->c[0], keys, nf, incr); pl_table_incr(a->c[1], keys, nf, incr); return; }
+    if (strcmp(a->v.sval, "as") || !pl_table_opt_incr(a->c[1])) return;
+    int m = pl_table_specs(a->c[0], NULL, NULL, 0, 0);
+    const char * ks[m > 0 ? m : 1];
+    const tree_t * sp[m > 0 ? m : 1];
+    m = pl_table_specs(a->c[0], ks, sp, 0, m);
+    for (int j = 0; j < m; j++) for (int k = 0; k < nf; k++) if (!strcmp(ks[j], keys[k]) && !sp[j]) incr[k] = 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_table_dir(const tree_t * s) {
     const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
     return (subj && subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "table") && subj->n >= 1) ? subj->c[0] : NULL;
@@ -4141,7 +4158,7 @@ static tree_t * pl_table_mode_copy(const tree_t * t) {
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * pl_table_wrapper(const char * key, const tree_t * spec) {
+static tree_t * pl_table_wrapper(const char * key, const tree_t * spec, int incr) {
     const char * sl = strrchr(key, '/');
     int ar = atoi(sl + 1);
     char nm[sl - key + 1], tn[sl - key + 6];
@@ -4152,7 +4169,7 @@ static tree_t * pl_table_wrapper(const char * key, const tree_t * spec) {
     cl->v.dval = ar;
     for (int i = 0; i < ar; i++) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = i; ast_push(cl, v); }
     tree_t * call = ast_node_new(TT_FNC);
-    call->v.sval = (char *) (spec ? "$tbl_mcall" : "$tbl_call");
+    call->v.sval = (char *) (spec ? "$tbl_mcall" : incr ? "$tbl_icall" : "$tbl_call");
     ast_push(call, pl_table_goal(lp_strdup(nm), ar));
     ast_push(call, pl_table_goal(lp_strdup(tn), ar));
     if (spec) ast_push(call, pl_table_mode_copy(spec));
@@ -4440,10 +4457,12 @@ static const tree_t * pl_table_rewrite(const tree_t * prog) {
     if (!nk) return prog;
     const char * keys[nk];
     const tree_t * specs[nk];
-    unsigned char done[nk];
+    unsigned char done[nk], incr[nk];
     int nf = 0;
     memset(done, 0, sizeof done);
+    memset(incr, 0, sizeof incr);
     for (int i = 0; i < prog->n; i++) nf = pl_table_specs(pl_table_dir(prog->c[i]), keys, specs, nf, nk);
+    for (int i = 0; i < prog->n; i++) pl_table_incr(pl_table_dir(prog->c[i]), keys, nf, incr);
     tree_t * np = ast_node_new(prog->t);
     np->v = prog->v;
     np->line = prog->line;
@@ -4458,7 +4477,7 @@ static const tree_t * pl_table_rewrite(const tree_t * prog) {
         snprintf(b, sizeof b, "$tbl %s", keys[k]);
         rn->v.sval = (char *) lp_strdup(b);
         ast_push(np, pl_table_stmt(s, rn));
-        if (!done[k]) { done[k] = 1; ast_push(np, pl_table_stmt(s, pl_table_wrapper(keys[k], specs[k]))); }
+        if (!done[k]) { done[k] = 1; ast_push(np, pl_table_stmt(s, pl_table_wrapper(keys[k], specs[k], incr[k]))); }
     }
     return np;
 }
