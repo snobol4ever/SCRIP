@@ -32,6 +32,7 @@ inline int nidx(IR_t **nodes, int n, const IR_t *e);
 extern "C" int zls_dj_arm_resumes(const IR_t * nd, int a);
 extern "C" int zls_dj_retains(const IR_t * nd);
 extern "C" int zls_home_local_why(const IR_t * nd);
+extern "C" int zls_home_local_test(const IR_graph_t * g, const char * vn);
 extern "C" int zls_off(const IR_t *);
 #define RK_BOOL_ROUTE(a0) (((a0) && (a0)->op == IR_BINOP && IR_LIT(a0).ival >= BINOP_LT && IR_LIT(a0).ival <= BINOP_NE) ? CALL_ROUTE_RK_BOOL_RELOP : CALL_ROUTE_RK_BOOL_SLOT)
 extern "C" int fc_geom(const IR_t *, long *);

@@ -1340,6 +1340,7 @@ static void pascal_register_program(stage2_t * s2, const tree_t * prog) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void zls_home_local_declare(const IR_graph_t * g, const char * name, int why);
 stage2_t *lower_pascal_stage2(const tree_t *prog) {
     pascal_register_program(&g_stage2, prog);
     lower_pascal_enum(prog, NULL, 0);
@@ -1408,6 +1409,19 @@ stage2_t *lower_pascal_stage2(const tree_t *prog) {
             if (np > 0) {
                 const char ** _pn = (const char **) ct_zalloc((size_t) np, sizeof(const char *));
                 if (_pn) { for (int k = 0; k < np && k < sc->n; k++) _pn[k] = sc->e[k].name; g_stage2.bbp.table[bb_idx]->pnames = _pn; }
+            }
+        }
+    }
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+        const IR_graph_t * ug = g_stage2.proc_table[pi].bb_idx >= 0 ? g_stage2.bbp.table[g_stage2.proc_table[pi].bb_idx] : (const IR_graph_t *)0;
+        for (int i = 0; ug && i < ug->n; i++) {
+            const IR_t * x = ug->all[i];
+            if (!x || !(x->op == IR_VAR_FRAME || x->op == IR_ASSIGN_FRAME || x->op == IR_VAR_REF) || !IR_LIT(x).sval || !strcmp(IR_LIT(x).sval, "__pas_display")) continue;
+            for (int k = 0; k < x->n_operands; k++) {
+                const IR_t * o = x->operands[k];
+                if (!o || o->op != IR_LIT_NAME || !IR_LIT(o).sval) continue;
+                for (int pj = 0; pj < g_stage2.proc_count; pj++) if (g_stage2.proc_table[pj].name && g_stage2.proc_table[pj].bb_idx >= 0 && !strcmp(g_stage2.proc_table[pj].name, IR_LIT(o).sval))
+                    zls_home_local_declare(g_stage2.bbp.table[g_stage2.proc_table[pj].bb_idx], IR_LIT(x).sval, 9);
             }
         }
     }

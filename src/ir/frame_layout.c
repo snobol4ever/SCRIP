@@ -1846,6 +1846,8 @@ const char * zls_home_why_name(int w) {
         return "deferred-pattern";
         case 8:
         return "dynamic";
+        case 9:
+        return "uplevel";
         default:
         return "-";
     }
@@ -1936,6 +1938,12 @@ void zls_home_pass(const IR_graph_t * g) {
     for (int i = 0; i < n; i++) { const IR_t * x = g->all[i]; if (x && tw[i] && zls_home_local_kind((int)x->op) && IR_LIT(x).sval) { fcn_t * t = fcn_get(x); t->fl |= FCN_LHOME; t->lw = tw[i]; } }
     ct_drop(nx.k);
     ct_drop(nx.v);
+}
+void zls_home_local_declare(const IR_graph_t * g, const char * name, int why) {
+    for (int i = 0; g && name && i < g->n; i++) {
+        const IR_t * x = g->all[i];
+        if (x && zls_home_local_kind((int)x->op) && IR_LIT(x).sval && !strcmp(IR_LIT(x).sval, name)) { fcn_t * t = fcn_get(x); t->fl |= FCN_LHOME; t->lw = why; }
+    }
 }
 int zls_home_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_HOME); return t ? t->hw : 0; }
 int zls_home_member(const IR_t * nd) { return (nd && zls_home_why(nd) && ir_node_produces_value(nd->op)) ? 1 : 0; }

@@ -49,6 +49,7 @@ int zls_home_why(const IR_t * nd);
 int zls_home_member(const IR_t * nd);
 int zls_home_local_why(const IR_t * nd);
 int zls_home_local_test(const IR_graph_t * g, const char * vn);
+void zls_home_local_declare(const IR_graph_t * g, const char * name, int why);
 const char * zls_home_why_name(int w);
 int zls_g_resume(const IR_graph_t * g);
 int zls_g_resume_by_name(const char *name);

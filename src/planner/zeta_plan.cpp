@@ -693,7 +693,7 @@ static void zst_plan(IR_t ** nodes, int n) {
     g_emitter.zst_name.clear(); g_emitter.zst_vroot.clear(); g_emitter.zst_c.clear(); g_emitter.zst_j.clear(); g_emitter.zst_L.clear(); g_emitter.zst_vuse.clear(); g_emitter.zst_vcov.clear();
         g_emitter.zst_sm.clear();
     const IR_graph_t * g = g_emit_cfg;
-    if (!g || n <= 0 || !(emit_resumable_frame() || g->spine_cells)) return;
+    if (!g || n <= 0 || !(emit_resumable_frame() || g->spine_cells || g->home_frame)) return;
     if (g->spine_cells) return;
     int nv = zls_g_vslot_count(g); if (nv <= 0) return;
     g_emitter.zst_vuse.assign((size_t)nv, 0); g_emitter.zst_vcov.assign((size_t)nv, 0);
@@ -753,6 +753,7 @@ static void zst_plan(IR_t ** nodes, int n) {
     for (int k = 0; k < nv; k++) { int off = -1; const char * vn = zls_g_vslot_get(g, k, &off); if (!vn || vn[0] == '&' || zst_isparam(g, vn)) continue;
         std::vector<int> uses; for (int i = 0; i < n; i++) { int m = zst_names(nodes[i], nm); for (int q = 0; q < m; q++) if (nm[q] && !strcmp(nm[q], vn)) { uses.push_back(i); break; } }
         { int past = 0; for (size_t u = 0; g->spine_cells && u < uses.size() && !past; u++) if (zls_home_local_why(nodes[uses[u]])) past = 1; if (past) continue; }
+        if (g->home_frame && zls_home_local_test(g, vn)) continue;
         std::vector<int> roots; for (size_t u = 0; u < uses.size(); u++) { int r = g_emitter.zst_root[(size_t)uses[u]]; if (r < 0) continue; int seen = 0;
             for (size_t t = 0; t < roots.size(); t++) if (roots[t] == r) seen = 1; if (!seen) roots.push_back(r); }
         g_emitter.zst_vuse[(size_t)k] = (int)roots.size();
