@@ -14219,6 +14219,10 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "__rk_seq_arity") && nargs == 1) { *out = INTVAL(rk_is_code(args[0]) ? rk_code_arity(args[0]) : 0); return 1; }
     if (!strcmp(fn, "__blk_close") && nargs >= 1) { DESCR_t cl = rk_mk_arr(args, nargs); ((ARBLK_t *) cl.arr)->proto = rk_proto_closure; *out = cl; return 1; }
     if (!strcmp(fn, "__blk_ref") && nargs == 1) { *out = rk_blk_ref_impl(args); return 1; }
+    if (!strcmp(fn, "__blk_invoke") && nargs == 2 && rk_typeobj_name(args[0])) {
+        DESCR_t ma[2] = { args[1], STRVAL(rt_heap_strdup_c(rk_typeobj_name(args[0]))) };
+        if (script_try_call_builtin_by_name_rq("meth_call", ma, 2, out, rq)) return 1;
+    }
     if (!strcmp(fn, "__blk_invoke") && nargs >= 1) {
         DESCR_t blk = args[0];
         if (!rk_is_code(blk)) { const char *vn = VARVAL_fn(blk); if (!vn || !*vn) { *out = FAILDESCR; return 1; } blk = (DESCR_t){ 0 }; blk.v = DT_BLK; blk.s = (char *) vn; }
