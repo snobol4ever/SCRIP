@@ -50,6 +50,10 @@ typedef struct {
 } zls_graph_t;
 #define ze ((zls_entry_t *)g_lower.ir.ze_v.p)
 #define zf ((zls_pfield_t *)g_lower.ir.zf_v.p)
+int zls_redisp_off(const IR_t * nd);
+void zls_redisp_mark(const IR_t * nd, int off);
+static int zls_redisp_node(const IR_t * nd);
+static void zls_redisp_fields(int scope_id, int at, const IR_t * nd);
 typedef struct { const IR_t * nd; int scope; int end; uint32_t gen; int head; int tail; } znb_slot_t;
 static znb_slot_t * znb_probe(cv_t * v, const IR_t * nd, int scope) {
     uint64_t h = ((((uint64_t)(uintptr_t)nd >> 4) ^ ((uint64_t)(uint32_t)scope * 0x9e3779b97f4a7c15ull)) * 0xff51afd7ed558ccdull) & (v->len - 1);
@@ -581,18 +585,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
             for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
             {
                 const char * cmn = IR_LIT(nd).sval;
-                if (cmn && (!strcmp(cmn, "meth_call") || !strcmp(cmn, "callsame") || !strcmp(cmn, "nextsame") || !strcmp(cmn, "callwith") || !strcmp(cmn, "nextwith"))) {
-                    zls_field(scope_id, off + 16 * nd->n_operands, 16, ZK_DESCR, 0,
-                        "redisp.self (the method call's redispatch record, CEO-1552: the invocant, for callsame/nextsame; lives as long as the call, chained from one head cell)", nd);
-                    zls_field(scope_id, off + 16 * nd->n_operands + 16, 16, ZK_DESCR, 0, "redisp.mname (the method name)", nd);
-                    zls_field(scope_id, off + 16 * nd->n_operands + 32, 8, ZK_RAW, 0, "redisp.prev (the chain link to the enclosing dispatch's record)", nd);
-                    zls_field(scope_id, off + 16 * nd->n_operands + 40, 8, ZK_RAW, 0, "redisp.cname (the invocant's class name, interned)", nd);
-                    zls_field(scope_id, off + 16 * nd->n_operands + 48, 8, ZK_RAW, 0, "redisp.found_idx | nargs (two 32-bit halves)", nd);
-                    zls_field(scope_id, off + 16 * nd->n_operands + 56, 8, ZK_RAW, 0, "redisp.args (a pointer into this frame's own argv: self, mname, the rest)", nd);
-                    zls_field(scope_id, off + 16 * nd->n_operands + 64, 8, ZK_RAW, 0, "redisp.skip_mname | local (two 32-bit halves)", nd);
-                    zls_field(scope_id, off + 16 * nd->n_operands + 72, 16 * RK_REDISP_REC_SLOTS - 72, ZK_RAW, 0, "redisp pad (the record is RK_REDISP_REC_BYTES; the grant is whole slots)", nd);
-                    return nd->n_operands + RK_REDISP_REC_SLOTS;
-                }
+                if (zls_redisp_node(nd)) { if (zls_redisp_off(nd) < 0) zls_redisp_fields(scope_id, off + 16 * nd->n_operands, nd); return nd->n_operands + RK_REDISP_REC_SLOTS; }
             }
             {
                 const char * cmn = IR_LIT(nd).sval;
@@ -987,6 +980,21 @@ static int zls_overlay(IR_graph_t * g, int base, int k0, int root, const char * 
     return kend;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zls_redisp_node(const IR_t * nd) {
+    const char * cmn = (nd && (ir_kind0(nd) == IR_CALL || ir_is_call_kind(ir_kind0(nd)))) ? IR_LIT(nd).sval : (const char *)0;
+    return (cmn && (!strcmp(cmn, "meth_call") || !strcmp(cmn, "callsame") || !strcmp(cmn, "nextsame") || !strcmp(cmn, "callwith") || !strcmp(cmn, "nextwith"))) ? 1 : 0;
+}
+static void zls_redisp_fields(int scope_id, int at, const IR_t * nd) {
+    zls_field(scope_id, at, 16, ZK_DESCR, 0, "redisp.self (the method call's redispatch record, CEO-1552: the invocant, for callsame/nextsame; lives as long as the call, chained from one head cell)",
+        nd);
+    zls_field(scope_id, at + 16, 16, ZK_DESCR, 0, "redisp.mname (the method name)", nd);
+    zls_field(scope_id, at + 32, 8, ZK_RAW, 0, "redisp.prev (the chain link to the enclosing dispatch's record)", nd);
+    zls_field(scope_id, at + 40, 8, ZK_RAW, 0, "redisp.cname (the invocant's class name, interned)", nd);
+    zls_field(scope_id, at + 48, 8, ZK_RAW, 0, "redisp.found_idx | nargs (two 32-bit halves)", nd);
+    zls_field(scope_id, at + 56, 8, ZK_RAW, 0, "redisp.args (a pointer into this frame's own argv: self, mname, the rest)", nd);
+    zls_field(scope_id, at + 64, 8, ZK_RAW, 0, "redisp.skip_mname | local (two 32-bit halves)", nd);
+    zls_field(scope_id, at + 72, 16 * RK_REDISP_REC_SLOTS - 72, ZK_RAW, 0, "redisp pad (the record is RK_REDISP_REC_BYTES; the grant is whole slots)", nd);
+}
 static int zls_hf_key_base(const IR_graph_t * g, int fregion, int base) {
     int kt = ((zls_g_pinned_frame(g) ? (g->root_graph ? FLAT_FRAME_ALLOWANCE_ROOT : FLAT_FRAME_ALLOWANCE_PINNED) : FLAT_FRAME_ALLOWANCE) + fregion + 8 * g->standing_cells + 15) & ~15;
     int ft = kt + (g->nparams + g->nlocals) * 16;
@@ -1413,6 +1421,14 @@ void zls_build(IR_graph_t * g) {
                     k += zls_grant_at(g, nd, i, c2 > 0 ? mfirst[c2 - 1] : root, root, rec, dl_base, lv, uo, &rs_scratch, base + k * 16);
                 }
                 if (ov_in) k = zls_overlay(g, base, k, root, rb, rec, dl_base, lv, uo, &rs_scratch);
+                for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && !zls_hf_resident(g->all[i]) && zls_redisp_node(g->all[i])) {
+                    IR_t * nd = g->all[i];
+                    for (int j = 0; j < nd->n_operands; j++) zls_field(root, base + (k + j) * 16, 16, ZK_DESCR, 0, "redisp.argv (the dispatcher copies the arguments here, in front of the record)", nd)
+                        ;
+                    zls_redisp_fields(root, base + (k + nd->n_operands) * 16, nd);
+                    zls_redisp_mark(nd, base + (k + nd->n_operands) * 16);
+                    k += nd->n_operands + RK_REDISP_REC_SLOTS;
+                }
                 r->fregion = base + k * 16;
                 r->kbase = zls_hf_key_base(g, r->fregion, base);
                 k = (r->kbase - base) / 16;
@@ -1653,7 +1669,7 @@ int fc_geom(const IR_t * nd, long * k) {
     if (nd->op == IR_SCAN_MATCH) { if (k) *k = 16; return 1; }
     return 0;
 }
-typedef struct { const IR_t * nd; uint32_t gen; uint32_t fl; int vr; int pe; int cf; int hf; int alt; long vw; const IR_t * cs; int hw; int lw; } fcn_t;
+typedef struct { const IR_t * nd; uint32_t gen; uint32_t fl; int vr; int pe; int cf; int hf; int alt; long vw; const IR_t * cs; int hw; int lw; int ro; } fcn_t;
 #define FCN_ARM 0x0001u
 #define FCN_VDJ 0x0002u
 #define FCN_VLIT 0x0004u
@@ -1672,6 +1688,7 @@ typedef struct { const IR_t * nd; uint32_t gen; uint32_t fl; int vr; int pe; int
 #define FCN_HOME 0x8000u
 #define FCN_LHOME 0x10000u
 #define FCN_RES 0x20000u
+#define FCN_RO 0x40000u
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void fc_reg_hw(const char * tbl, int n) {
     if (g_lower.ir.fc_reg_hw_e == (const char *) 1) g_lower.ir.fc_reg_hw_e = getenv("SCRIP_FC_REG_HIGHWATER");
@@ -1962,6 +1979,8 @@ int zls_frame_resident(const IR_t * nd) {
 }
 static int zls_hf_resident(const IR_t * nd) { return nd && (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES)) ? 1 : 0; }
 int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }
+int zls_redisp_off(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_RO); return t ? t->ro : -1; }
+void zls_redisp_mark(const IR_t * nd, int off) { fcn_t * t = fcn_get(nd); t->ro = off; t->fl |= FCN_RO; }
 int zls_home_local_test(const IR_graph_t * g, const char * vn) {
     for (int i = 0; g && vn && i < g->n; i++) {
         const IR_t * x = g->all[i];

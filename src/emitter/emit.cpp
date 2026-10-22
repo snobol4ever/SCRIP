@@ -6329,6 +6329,7 @@ static_assert(X86_PL_TR_ARENA_MASK == -(long)PL_TR_ARENA_BYTES, "x86_pl_tr_top_s
 static_assert(X86_PL_TR_WAKE_OFF == PL_TR_WAKE_OFF && X86_PL_TR_RESIDUE_OFF == PL_TR_RESIDUE_OFF, "x86_pl_tr_tidy spells the wake and residue words as literals");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_argv_off(const IR_t *);
+extern "C" int zls_redisp_off(const IR_t *);
 extern "C" int pl_db_decls_words(long long ** out);
 extern "C" { typedef struct { long fn; long how; } call_next_rec_t; call_next_rec_t rt_call_arr_bl_try(const char *, DESCR_t *, long, DESCR_t *); call_next_rec_t rt_call_arr_bl_sn4_try(const char *,
     DESCR_t *, long, DESCR_t *); call_next_rec_t rk_callsame_open(DESCR_t *, int, void *); call_next_rec_t rk_callwith_open(DESCR_t *, int, void *); }
@@ -6417,7 +6418,7 @@ void call_prepare(IR_t * nd) {
         g_emit.op_call_try_fp = sn4_byname_kind(fn, strict) == 3 ? (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4_try : (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_try;
         if (kind == IR_CALL_REDISP) { int with = (!strcmp(fn, "callwith") || !strcmp(fn, "nextwith")); g_emit.op_call_open_sym = with ? "rk_callwith_open" : "rk_callsame_open";
             g_emit.op_call_open_fp = with ? (uint64_t)(uintptr_t)(void *)rk_callwith_open : (uint64_t)(uintptr_t)(void *)rk_callsame_open; }
-        if (kind == IR_CALL_METHOD || kind == IR_CALL_REDISP) g_emit.op_call_rec_off = zls_argv_off(nd) >= 0 ? zls_argv_off(nd) + 16 * narg : -1;
+        if (kind == IR_CALL_METHOD || kind == IR_CALL_REDISP) g_emit.op_call_rec_off = zls_redisp_off(nd) >= 0 ? zls_redisp_off(nd) : zls_argv_off(nd) >= 0 ? zls_argv_off(nd) + 16 * narg : -1;
         if (fnroute) call_fnlbl_set(std::string(".L") + x86_boxkind() + (zd ? "_rkfnzd" : "_rkfn") + std::to_string(g_flat_node_id++), 0);
         else call_fnlbl_set(std::string(".L") + x86_boxkind() + (zd ? "_bynamefnzd" : "_bynamefn") + std::to_string((long long)g_emit.nid), 1);
         break; }

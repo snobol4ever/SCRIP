@@ -6594,7 +6594,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         int bi = g_stage2.proc_table[pi].bb_idx;
         if (bi >= 0 && bi < g_stage2.bbp.count && g_stage2.bbp.table[bi]) {
-            if (!g_stage2.proc_table[pi].is_generator) { g_stage2.bbp.table[bi]->entry_frame = 1; g_stage2.bbp.table[bi]->smx = 1; }
+            if (!g_stage2.proc_table[pi].is_generator) { g_stage2.bbp.table[bi]->entry_frame = 1; g_stage2.bbp.table[bi]->smx = 1; g_stage2.bbp.table[bi]->home_frame = 1; }
             {
                 const tree_t * pr = (const tree_t *) g_stage2.proc_table[pi].proc;
                 g_stage2.bbp.table[bi]->block_args = (pr && pr->t == TT_SUB_DECL && !g_stage2.proc_table[pi].is_variadic && !g_stage2.proc_table[pi].named_rest) ? 1 : 0;

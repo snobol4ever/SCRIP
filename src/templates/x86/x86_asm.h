@@ -1067,6 +1067,8 @@ extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
 extern "C" void zsm_frame_addr(int off, int cls, int rsp_form);
 extern "C" void zsm_frame_carve(int frame_bytes);
 extern "C" int zls_frame_resident(const IR_t * nd);
+extern "C" int zls_off(const IR_t * nd);
+extern "C" int zd_k_own(IR_t * nd);
 inline const char * x86_zref(int off, int q);
 inline const char * ZRES_SPINE(int w);
 inline const char * x86_zop(int off, int q, int bump) {
@@ -1082,6 +1084,8 @@ inline const char * x86_zop(int off, int q, int bump) {
             return q ? RDQ("rbp", _.op_zread_xf[k] + d) : RDD("rbp", _.op_zread_xf[k] + d); }
         if (_.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + d, q, bump);
         return x86_zref(_.op_zread[k] + d, q); }
+    if (_.op_zres && _.node && zls_key_unbacked(g_emit_cfg, off)) { int own = zls_off(_.node), kw = zd_k_own(_.node);
+        if (own >= 0 && off >= own && off < own + kw) return q ? ZRES_SPINE(off - own) : x86_zref(off - own, 0); }
     int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
     if (r != 2 && zls_key_unbacked(g_emit_cfg, off))
         { fprintf(stderr,
