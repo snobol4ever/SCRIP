@@ -7150,8 +7150,8 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
       { int _gen_ok = !g_emit.flat_gen;
         g_emit.flat_lcl_proc = (!g_emit.flat_pat && _gen_ok && g_emit_cfg && ((g_emit.flat_jmp_entry && (g_emit_cfg->nparams > 0 || g_emit_cfg->nlocals > 0)) || g_emit_cfg->cell_frame)) ? 1 : 0;
             }
-      { g_emit.frame_retained = 0; if (g_emit_cfg) for (int i = 0; i < g_emit_cfg->n; i++) { const IR_t * c = g_emit_cfg->all[i];
-          if (c && (icn_retaining_kind((int)c->op) || icn_retaining_kind((int)ir_kind0(c)) || zd_dj_retains(c))) { g_emit.frame_retained = 1; break; } } }
+      { int _fr = 0; if (g_emit_cfg) for (int i = 0; i < g_emit_cfg->n; i++) { const IR_t * c = g_emit_cfg->all[i];
+          if (c && (icn_retaining_kind((int)c->op) || icn_retaining_kind((int)ir_kind0(c)) || zd_dj_retains(c))) { _fr = 1; break; } } g_emit.frame_retained = _fr; }
       g_emit.zframe_graph = (g_emit_cfg && g_emit_cfg->zframe_graph && !g_emit_cfg->cell_frame) ? 1 : 0;
       if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->cell_frame)) && g_emit.flat_frame_bytes == 0) { extern int zls_g_frame_bytes(const IR_graph_t *);
           g_emit.flat_frame_bytes = g_emit_cfg ? zls_g_frame_bytes(g_emit_cfg) : ((FLAT_FRAME_ALLOWANCE + 15) & ~15); }
