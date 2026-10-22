@@ -4599,20 +4599,65 @@ static void rk_smartmatch_code_walk(const tree_t * prog, tree_t * t) {
     t->n = 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_subst_code_walk(tree_t * t, int * seq) {
+static int rk_subst_adverb_mode(const tree_t * a) {
+    if (!a || a->t != TT_FNC || !a->v.sval || strcmp(a->v.sval, "__rk_mkbool") || a->n != 3 || !a->c[1] || a->c[1]->t != TT_ILIT || !a->c[2] || a->c[2]->t != TT_QLIT || !a->c[2]->v.sval) return -1;
+    if (!a->c[1]->v.ival) return 0;
+    if (!strcmp(a->c[2]->v.sval, "g")) return 1;
+    if (!strcmp(a->c[2]->v.sval, "ov")) return 2;
+    if (!strcmp(a->c[2]->v.sval, "ex")) return 4;
+    return -1;
+}
+static void rk_subst_meth_walk(tree_t * t) {
     if (!t) return;
-    for (int i = 0; i < t->n; i++) rk_subst_code_walk(t->c[i], seq);
+    for (int i = 0; i < t->n; i++) rk_subst_meth_walk(t->c[i]);
+    if (t->t != TT_METHCALL || t->n < 4 || !t->c[1] || t->c[1]->t != TT_QLIT || !t->c[1]->v.sval || strcmp(t->c[1]->v.sval, "subst")) return;
+    tree_t * pat = t->c[2], * rep = t->c[3];
+    const tree_t * cl = rk_closure_block(rep);
+    if (!cl && !(rep && rep->t == TT_ANON_BLOCK && rep->v.sval)) return;
+    int rx = pat && pat->t == TT_FNC && pat->v.sval && !strcmp(pat->v.sval, "__rk_regex");
+    if (!rx && !(pat && pat->t == TT_QLIT && pat->v.sval)) return;
+    long mode = 128;
+    for (int i = 4; i < t->n; i++) { int m = rk_subst_adverb_mode(t->c[i]); if (m < 0) return; mode |= m; }
+    if (!rx) {
+        size_t n = strlen(pat->v.sval);
+        char q[2 * n + 1];
+        size_t k = 0;
+        for (size_t i = 0; i < n; i++) {
+            unsigned char c = (unsigned char) pat->v.sval[i];
+            if (c < 128 && !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_')) q[k++] = '\\';
+            q[k++] = (char) c;
+        }
+        q[k] = 0;
+        pat = leaf_sval2(TT_QLIT, lp_strdup(q));
+    }
+    tree_t * recv = t->c[0];
+    int line = t->line;
+    t->t = TT_FNC;
+    t->v.sval = (char *) "re_subst";
+    t->n = 0;
+    t->line = line;
+    ast_push(t, leaf_sval2(TT_VAR, "re_subst"));
+    ast_push(t, recv);
+    ast_push(t, pat);
+    ast_push(t, rep);
+    for (int i = 0; i < 4; i++) { tree_t * z = ast_node_new(TT_ILIT); z->v.ival = i ? 0 : mode; ast_push(t, z); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_subst_code_walk(const tree_t * prog, tree_t * t, int * seq) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_subst_code_walk(prog, t->c[i], seq);
     if (t->t != TT_FNC || !t->v.sval || strcmp(t->v.sval, "re_subst") || t->n < 8) return;
     const tree_t * cl = rk_closure_block(t->c[3]) ? t->c[3] : NULL, * B = cl ? cl->c[1] : t->c[3];
     if (!B || B->t != TT_ANON_BLOCK || !B->v.sval) return;
     char sv[32];
     snprintf(sv, sizeof sv, "__rk_sst%d", (*seq)++);
     const char * st = lp_strdup(sv);
+    const tree_t * bd = rk_block_decl(prog, B->v.sval);
     tree_t * op = rk_fnc2("__rk_subst_open", t->c[1], t->c[2]);
     for (int i = 4; i < t->n; i++) ast_push(op, t->c[i]);
     tree_t * wh = ast_node_new(TT_WHILE);
     ast_push(wh, rk_fnc2("__rk_subst_next", rk_tv(st), NULL));
-    ast_push(wh, rk_fnc2("__rk_subst_put", rk_tv(st), rk_fnc_cl(B->v.sval, cl, NULL, NULL)));
+    ast_push(wh, rk_fnc2("__rk_subst_put", rk_tv(st), rk_fnc_cl(B->v.sval, cl, (bd ? (int) bd->v.ival : -1) - (cl ? cl->n - 2 : 0) == 1 ? rk_tv("/") : NULL, NULL)));
     tree_t * fin = rk_fnc2("__rk_subst_close", rk_tv(st), NULL);
     int line = t->line;
     t->t = TT_SEQ_EXPR;
@@ -6056,7 +6101,8 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     { int sseq = 0; rk_subtest_walk((tree_t *) prog, &sseq); }
     rk_smartmatch_topic_walk((tree_t *) prog);
     rk_smartmatch_code_walk(prog, (tree_t *) prog);
-    { int sseq = 0; rk_subst_code_walk((tree_t *) prog, &sseq); }
+    rk_subst_meth_walk((tree_t *) prog);
+    { int sseq = 0; rk_subst_code_walk(prog, (tree_t *) prog, &sseq); }
     { int pseq = 0; rk_parse_actions_walk((tree_t *) prog, &pseq); }
     rk_make_walk((tree_t *) prog, "/");
     { int nseq = 0; rk_new_build_walk((tree_t *) prog, (tree_t *) prog, &nseq); }

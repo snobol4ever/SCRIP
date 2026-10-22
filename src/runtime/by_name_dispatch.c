@@ -3528,14 +3528,26 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         const char *repl = (nmargs >= 2) ? to_cstring(margs[1], rb, sizeof rb) : "";
         if (!repl) repl = "";
         size_t nl = strlen(needle), rl = strlen(repl);
+        int glob = 0;
+        for (int i = 2; i < nmargs; i++) if (margs[i].v == DT_BOOL && margs[i].i) glob = 1;
         const char *hit = (nl > 0) ? strstr(s, needle) : NULL;
         if (!hit) { char *o = (char *)rt_str_alloc(n); memcpy(o, s, n + 1); *out = STRVAL(o); return 1; }
-        size_t pre = (size_t)(hit - s);
-        char *o = (char *)rt_str_alloc(n - nl + rl);
-        memcpy(o, s, pre);
-        memcpy(o + pre, repl, rl);
-        memcpy(o + pre + rl, hit + nl, n - pre - nl);
-        o[n - nl + rl] = '\0';
+        size_t hits = 1;
+        for (const char *h = hit + nl; glob && (h = strstr(h, needle)); h += nl) hits++;
+        char *o = (char *)rt_str_alloc(n - hits * nl + hits * rl);
+        size_t olen = 0;
+        const char *from = s;
+        for (size_t k = 0; k < hits; k++) {
+            memcpy(o + olen, from, (size_t)(hit - from));
+            olen += (size_t)(hit - from);
+            memcpy(o + olen, repl, rl);
+            olen += rl;
+            from = hit + nl;
+            hit = strstr(from, needle);
+        }
+        memcpy(o + olen, from, (size_t)(s + n - from));
+        olen += (size_t)(s + n - from);
+        o[olen] = '\0';
         *out = STRVAL(o);
         return 1;
     }

@@ -2271,6 +2271,12 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
             it->t = c; return;
         }
         it->t = method_call(b, e, pf);
+        if (pf->mod == '=' && e && e->t == TT_VAR && e->v.sval && e->v.sval[0]) {
+            tree_t *mc = it->t;
+            if (e->v.sval[0] == '@' || e->v.sval[0] == '%') { tree_t *cv = make_call(e->v.sval[0] == '@' ? "__rk_to_array" : "__rk_to_hash"); expr_add_child(cv, mc); it->t = expr_binary(TT_ASSIGN, rk_tree_clone(e), cv); }
+            else it->t = rk_quiet_store(rk_tree_clone(e), mc);
+            return;
+        }
         if (pf->hyper && pf->k == 'M' && !pf->mod) {
             tree_t *h = make_call("__rk_hyper_meth"); tree_t *inv = it->t->c[0];
             if (inv && inv->t == TT_TO && inv->n >= 2) {
