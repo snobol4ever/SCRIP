@@ -5176,11 +5176,24 @@ static int rk_mod_named(char **v, int n, const char *nm) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_mod_assigns(tree_t *t, tree_t ***v, int *n, int *c) {
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t *d = rk_mod_subj(t->c[i]);
+        if (!d) continue;
+        if (d->t == TT_MODULE_DECL) { rk_mod_assigns(d, v, n, c); continue; }
+        if (d->t == TT_ASSIGN && d->n >= 2 && d->c[0] && d->c[0]->t == TT_VAR && d->c[0]->v.sval && (d->c[0]->slen & 4)) { RK_GROW(*v, *n, *c, tree_t *); (*v)[(*n)++] = t->c[i]; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_splice_modules(RkP *p, tree_t *t) {
     if (!t || !p->nmtrees) return t;
     tree_t **cand = NULL; int nc = 0, cc = 0;
     for (int k = 0; k < p->nmtrees; k++) rk_mod_decls(p->mtrees[k], &cand, &nc, &cc);
     if (!nc) return t;
+    tree_t **acand = NULL; int na = 0, ca = 0;
+    for (int k = 0; k < p->nmtrees; k++) rk_mod_assigns(p->mtrees[k], &acand, &na, &ca);
+    char *ataken = (char *) ct_alloc((size_t) na + 1);
+    memset(ataken, 0, (size_t) na + 1);
     char **names = NULL; int nn = 0, cn = 0;
     rk_mod_names(t, &names, &nn, &cn);
     char *taken = (char *) ct_alloc((size_t) nc + 1);
@@ -5194,12 +5207,25 @@ static tree_t *rk_splice_modules(RkP *p, tree_t *t) {
             taken[i] = 1; grew = 1;
             rk_mod_names(d, &names, &nn, &cn);
         }
+        for (int i = 0; i < na; i++) {
+            if (ataken[i]) continue;
+            const tree_t *a = rk_mod_subj(acand[i]);
+            if (!rk_mod_named(names, nn, a->c[0]->v.sval)) continue;
+            ataken[i] = 1; grew = 1;
+            rk_mod_names(a, &names, &nn, &cn);
+        }
     }
     tree_t *nt = ast_node_new(t->t);
     nt->v = t->v; nt->line = t->line; nt->slen = t->slen;
     extern tree_t *ast_stmt_new(tree_e kind);
     extern tree_t *ast_attr_int(const char *tag, int ival);
     extern tree_t *ast_attr_expr(const char *tag, tree_t *expr);
+    for (int i = 0; i < na; i++) {
+        if (!ataken[i]) continue;
+        tree_t *st = acand[i];
+        if (st->t != TT_STMT) { st = ast_stmt_new(TT_STMT); ast_push(st, ast_attr_int(":line", 0)); ast_push(st, ast_attr_int(":stno", 0)); ast_push(st, ast_attr_expr(":subj", acand[i])); }
+        ast_push(nt, st);
+    }
     for (int i = 0; i < nc; i++) {
         if (!taken[i]) continue;
         tree_t *st = cand[i];
