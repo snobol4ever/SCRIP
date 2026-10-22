@@ -1298,6 +1298,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         case TT_VAR:
         {
+            if (t->v.sval && t->v.sval[0] == ':' && t->v.sval[1] == ':' && t->v.sval[2] && !strpbrk(t->v.sval + 2, "(<{:$@%&") &&
+                (rk_is_class_name(t->v.sval + 2) || rk_is_grammar_name(t->v.sval + 2))) ((tree_t *) t)->v.sval += 2;
             if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval) || (t->v.sval && t->v.sval[0] == 'X' && t->v.sval[1] == ':' && t->v.sval[2] == ':')) {
                 IR_t * nd = build(cx, IR_LIT_STRING, γ, ω);
                 IR_LIT(nd).sval = t->v.sval;
