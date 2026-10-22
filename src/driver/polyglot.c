@@ -29,7 +29,7 @@ void polyglot_init(stage2_t *s2, const tree_t *prog) {
     g_runtime.abi.scan_pos = 1;
     g_runtime.abi.scan_depth = 0;
     { extern void rt_scan_subj_len_set(const char *, long); rt_scan_subj_len_set(g_runtime.abi.scan_subj, 0); }
-    g_root = NULL;
+    g_runtime.misc.root = NULL;
     prolog_atom_init();
     memset(&s2->resolve_pred_table, 0, sizeof s2->resolve_pred_table);
     memset(&s2->module_registry, 0, sizeof s2->module_registry);

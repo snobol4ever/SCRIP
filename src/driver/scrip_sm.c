@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "g_runtime.h"
 #include <stdlib.h>
 #include "scrip_sm.h"
 #include "lower.h"
@@ -8,7 +9,6 @@
 #include "../runtime/builtins/gen_runtime.h"
 #include "driver_private.h"
 #include "polyglot.h"
-extern int g_core_err_active;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sm_resolve_proc_entry_pcs(stage2_t *s2) {
     for (int i = 0; i < s2->proc_count; i++) s2->proc_table[i].entry_pc = -1;
@@ -16,7 +16,7 @@ static void sm_resolve_proc_entry_pcs(stage2_t *s2) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *sm_preamble(const tree_t *ast_prog, const lower_seg_t *segs, int nsegs){
-    g_core_err_active = 1;
+    g_runtime.misc.core_err_active = 1;
     stage2_reset();
     { extern void gva_keyword_refuse_reset(void); gva_keyword_refuse_reset(); }
     polyglot_init(&g_stage2, ast_prog);

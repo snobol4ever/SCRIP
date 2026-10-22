@@ -1,6 +1,7 @@
 #ifndef DRIVER_PRIVATE_H
 #define DRIVER_PRIVATE_H
 #include <stdio.h>
+#include "g_runtime.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -36,7 +37,6 @@ extern int g_script_try_depth;
 void rt_script_die_surface(const char *msg);
 extern Match g_match;
 extern const char *g_subject;
-extern int g_kw_ctx;
 #include "ct_vec.h"
 typedef struct {
     FILE *fp;

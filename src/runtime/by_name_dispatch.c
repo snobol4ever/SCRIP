@@ -22078,7 +22078,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_9997:
     ;
-    if ((_bid == BID_errorclear) && nargs == 0) { extern int g_icn_err_valid; g_icn_err_valid = 0; *out = NULVCL; return 1; }
+    if ((_bid == BID_errorclear) && nargs == 0) { g_runtime.misc.icn_err_valid = 0; *out = NULVCL; return 1; }
     L_bidjmp_9998:
     ;
     if ((_bid == BID_serial) && nargs == 1) {

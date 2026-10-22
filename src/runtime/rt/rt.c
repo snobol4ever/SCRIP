@@ -1483,9 +1483,8 @@ void rt_ab_cell_bind(const char *name, void **quad) {
 }
 void rt_ab_cell_bind_table(void **tab) { if (!tab) return; for (int i = 0; tab[i]; i += 2) rt_ab_cell_bind((const char *)tab[i], (void **)tab[i + 1]); }
 static void rt_proc_resolve_cells(rt_proc_t *p);
-extern int g_monitor_quiet_depth;
-static DESCR_t rt_shim_cell_get(DESCR_t *c, const char *nm) { if (c) return *c; g_monitor_quiet_depth++; DESCR_t v = NV_GET_fn(nm); g_monitor_quiet_depth--; return v; }
-static void rt_shim_cell_set(DESCR_t *c, const char *nm, DESCR_t v) { if (c) { *c = v; return; } g_monitor_quiet_depth++; NV_SET_fn(nm, v); g_monitor_quiet_depth--; }
+static DESCR_t rt_shim_cell_get(DESCR_t *c, const char *nm) { if (c) return *c; g_runtime.misc.monitor_quiet_depth++; DESCR_t v = NV_GET_fn(nm); g_runtime.misc.monitor_quiet_depth--; return v; }
+static void rt_shim_cell_set(DESCR_t *c, const char *nm, DESCR_t v) { if (c) { *c = v; return; } g_runtime.misc.monitor_quiet_depth++; NV_SET_fn(nm, v); g_runtime.misc.monitor_quiet_depth--; }
 static int rt_shim_nv_name(const char *nm) { extern int gva_index_of(const char *); extern int gva_trace_demoted(void); return nm && (gva_trace_demoted() || gva_index_of(nm) < 0); }
 void rt_shim_nv_in(const char *proc, DESCR_t *cells, const long *sig, const char *base) {
     rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0;

@@ -100,41 +100,40 @@ static sc_module_t *sc_module_get(const char *lang) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_module_run(sc_module_t *m) {
-    int64_t s_anchor = g_kw_anchor, s_trim = g_runtime.core.kw_trim, s_full = g_runtime.core.kw_fullscan, s_max = g_runtime.core.kw_maxlngth, s_stl = g_kw_stlimit, s_stc = g_kw_stcount,
-        s_tr = g_kw_trace, s_ftr = g_runtime.abi.kw_ftrace;
+    int64_t s_anchor = g_runtime.misc.kw_anchor, s_trim = g_runtime.core.kw_trim, s_full = g_runtime.core.kw_fullscan, s_max = g_runtime.core.kw_maxlngth, s_stl = g_runtime.misc.kw_stlimit,
+        s_stc = g_runtime.misc.kw_stcount, s_tr = g_runtime.misc.kw_trace, s_ftr = g_runtime.abi.kw_ftrace;
     char *save_top = rt_gc_program_top_get();
     if (save_top) { fprintf(stderr, "rt_sc_module: the parser module was entered while a program is live -- a run-time parse takes the C parser (CEO-1749)\n"); abort(); }
-    g_kw_anchor = 0;
+    g_runtime.misc.kw_anchor = 0;
     g_runtime.core.kw_trim = 0;
     g_runtime.core.kw_fullscan = 1;
     g_runtime.core.kw_maxlngth = 16777216;
-    g_kw_stlimit = -1;
-    g_kw_trace = 0;
+    g_runtime.misc.kw_stlimit = -1;
+    g_runtime.misc.kw_trace = 0;
     g_runtime.abi.kw_ftrace = 0;
     rt_gc_program_top_set((char *)0);
     rt_sc_outer_call(m->d->main_alpha);
     rt_gc_program_top_set(save_top);
-    g_kw_anchor = s_anchor;
+    g_runtime.misc.kw_anchor = s_anchor;
     g_runtime.core.kw_trim = s_trim;
     g_runtime.core.kw_fullscan = s_full;
     g_runtime.core.kw_maxlngth = s_max;
-    g_kw_stlimit = s_stl;
-    g_kw_stcount = s_stc;
-    g_kw_trace = s_tr;
+    g_runtime.misc.kw_stlimit = s_stl;
+    g_runtime.misc.kw_stcount = s_stc;
+    g_runtime.misc.kw_trace = s_tr;
     g_runtime.abi.kw_ftrace = s_ftr;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_module_init(sc_module_t *m) {
     const sc_module_desc_t *d = m->d;
     {
-        extern int g_core_stack_floor_raised;
         struct rlimit rl;
         if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY && rl.rlim_cur < (rlim_t)(64L << 20)) {
             rl.rlim_cur = (rlim_t)(64L << 20);
             if (rl.rlim_max != RLIM_INFINITY && rl.rlim_cur > rl.rlim_max) rl.rlim_cur = rl.rlim_max;
             (void)setrlimit(RLIMIT_STACK, &rl);
         }
-        g_core_stack_floor_raised = 1;
+        g_runtime.misc.core_stack_floor_raised = 1;
     }
     core_lib_init();
     { extern int rt_sxt_gva_count_get(void); if (rt_sxt_gva_count_get() < (int)d->n_gva) rt_gva_island((int)d->n_gva); }

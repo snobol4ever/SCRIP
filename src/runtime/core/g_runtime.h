@@ -17,6 +17,7 @@
 #include "g_runtime_bn.h"
 #include "g_runtime_gc.h"
 #include "g_runtime_abi.h"
+#include "g_runtime_misc.h"
 typedef struct {
     g_abi_t abi;
     g_atoms_t atoms;
@@ -34,6 +35,7 @@ typedef struct {
     g_tap_t tap;
     g_bn_t bn;
     g_gc_t gc;
+    g_misc_t misc;
 } g_runtime_t;
 #define GRT_AT(m) ((long)offsetof(g_runtime_t, abi.m))
 #ifdef __cplusplus

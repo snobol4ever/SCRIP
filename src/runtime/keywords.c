@@ -12,7 +12,6 @@
 #include <time.h>
 #include <unistd.h>
 const char *cset_canonical(const char *cs, int len);
-extern unsigned long g_bb_rnd_seed;
 void fh_ensure_init(void);
 static long g_anchor = 0;
 extern long rt_anchor_g __attribute__((alias("g_anchor")));
@@ -249,7 +248,7 @@ static KWB_ENT_t g_kwb[] = { { "ANCHOR", KWB_INT, 0, (int64_t *)&g_anchor, 0, (c
     "g_runtime.core.kw_code" }, { "DUMP", KWB_INT, 0, (int64_t *)&g_runtime.abi.dump, 0, (const char *)0 , "g_runtime.abi.dump" }, { "ERRLIMIT", KWB_INT, 0, &g_runtime.abi.kw_errlimit, 0,
     (const char *)0 , "g_kw_errlimit" }, { "ERRTYPE", KWB_INT, 0, &g_kwb_own[1], 0, (const char *)0 , "g_rt_kwb_own" }, { "FTRACE", KWB_INT, 0, &g_runtime.abi.kw_ftrace, 0, (const char *)0 ,
     "g_kw_ftrace" }, { "FULLSCAN", KWB_INT, 0, &g_runtime.core.kw_fullscan, 1, (const char *)0 , "g_runtime.core.kw_fullscan" }, { "MAXLNGTH", KWB_INT, 0, (int64_t *)&g_maxlngth, 16777216,
-    (const char *)0 , "g_maxlngth" }, { "STLIMIT", KWB_INT, 0, &g_kw_stlimit, 2147483647, (const char *)0 , "g_kw_stlimit" }, { "TRACE", KWB_INT, 0, (int64_t *)&g_runtime.abi.trace, 0,
+    (const char *)0 , "g_maxlngth" }, { "STLIMIT", KWB_INT, 0, &g_runtime.misc.kw_stlimit, 2147483647, (const char *)0 , "g_kw_stlimit" }, { "TRACE", KWB_INT, 0, (int64_t *)&g_runtime.abi.trace, 0,
     (const char *)0 , "g_runtime.abi.trace" }, { "ABEND", KWB_INT, 0, &g_kwb_own[2], 0, (const char *)0 , "g_rt_kwb_own" }, { "INPUT", KWB_INT, 0, &g_kwb_own[3], 1, (const char *)0 , "g_rt_kwb_own" },
     { "OUTPUT", KWB_INT, 0, &g_kwb_own[4], 1, (const char *)0 , "g_rt_kwb_own" }, { "PROFILE", KWB_INT, 0, &g_kwb_own[5], 0, (const char *)0 , "g_rt_kwb_own" }, { "COMPARE", KWB_INT, 0, &g_kwb_own[6],
     0, (const char *)0 , "g_rt_kwb_own" }, { "STCOUNT", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.stcount, 0, (const char *)0 , "g_runtime.abi.stcount" }, { "STNO", KWB_INT, KWB_PROT,
@@ -448,13 +447,9 @@ DESCR_t kw_read(const char *kw) {
         return CSETVAL(g_runtime.kw.kw_cset_names[csi].ptr);
     }
     {
-        extern long g_icn_errnumber;
-        extern const char *g_icn_errtext;
-        extern DESCR_t g_icn_errvalue;
-        extern int g_icn_err_valid;
-        if (!strcmp(kw,"errornumber")) { if (!g_icn_err_valid) return FAILDESCR; return INTVAL(g_icn_errnumber); }
-        if (!strcmp(kw,"errortext")) { if (!g_icn_err_valid) return FAILDESCR; return STRVAL(rt_heap_strdup_c(g_icn_errtext ? g_icn_errtext : "")); }
-        if (!strcmp(kw,"errorvalue")) { if (!g_icn_err_valid) return FAILDESCR; return g_icn_errvalue; }
+        if (!strcmp(kw,"errornumber")) { if (!g_runtime.misc.icn_err_valid) return FAILDESCR; return INTVAL(g_runtime.misc.icn_errnumber); }
+        if (!strcmp(kw,"errortext")) { if (!g_runtime.misc.icn_err_valid) return FAILDESCR; return STRVAL(rt_heap_strdup_c(g_runtime.misc.icn_errtext ? g_runtime.misc.icn_errtext : "")); }
+        if (!strcmp(kw,"errorvalue")) { if (!g_runtime.misc.icn_err_valid) return FAILDESCR; return g_runtime.misc.icn_errvalue; }
         if (!strcmp(kw,"control")) return FAILDESCR;
     }
     {
@@ -605,13 +600,13 @@ void rt_stmt_enter(long stno, long line) {
     g_runtime.abi.lastline = g_runtime.abi.line;
     g_runtime.abi.line = line;
     g_runtime.kw.lastfile = (g_runtime.abi.stcount > 0) ? g_runtime.abi.file : (const char *)0;
-    if (g_kw_stlimit < 0) return;
+    if (g_runtime.misc.kw_stlimit < 0) return;
     g_runtime.abi.stcount++;
     if (g_runtime.abi.stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();
 #if RT_DIAG
     { extern void rt_trace_keyword_write(const char *, int64_t, long long); rt_trace_keyword_write("STCOUNT", (int64_t)g_runtime.abi.stcount, (long long)stno); }
 #endif
-    if (g_kw_stlimit > 0 && g_runtime.abi.stcount > g_kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
+    if (g_runtime.misc.kw_stlimit > 0 && g_runtime.abi.stcount > g_runtime.misc.kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_stmt_enter_p(long stno, long line, trace_pend_t *pend) {
@@ -620,13 +615,13 @@ void rt_stmt_enter_p(long stno, long line, trace_pend_t *pend) {
     g_runtime.abi.lastline = g_runtime.abi.line;
     g_runtime.abi.line = line;
     g_runtime.kw.lastfile = (g_runtime.abi.stcount > 0) ? g_runtime.abi.file : (const char *)0;
-    if (g_kw_stlimit < 0) return;
+    if (g_runtime.misc.kw_stlimit < 0) return;
     g_runtime.abi.stcount++;
     if (g_runtime.abi.stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();
 #if RT_DIAG
     { extern void rt_trace_keyword_write_p(const char *, int64_t, long long, trace_pend_t *); rt_trace_keyword_write_p("STCOUNT", (int64_t)g_runtime.abi.stcount, (long long)stno, pend); }
 #endif
-    if (g_kw_stlimit > 0 && g_runtime.abi.stcount > g_kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
+    if (g_runtime.misc.kw_stlimit > 0 && g_runtime.abi.stcount > g_runtime.misc.kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_gen(const char *sval, long idx) {
@@ -676,7 +671,7 @@ int rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
     else if (IS_REAL(v)) iv = (long)v.r;
     else { const char *s2 = VARVAL_fn(v); if (s2) iv = strtol(s2, (char **)0, 10); }
     if (canon && !strcmp(lk,"error")) { g_runtime.abi.error = iv; return 1; }
-    if (canon && !strcmp(lk,"random")) { g_runtime.abi.random = iv; g_bb_rnd_seed = (unsigned long)iv; return 1; }
+    if (canon && !strcmp(lk,"random")) { g_runtime.abi.random = iv; g_runtime.misc.bb_rnd_seed = (unsigned long)iv; return 1; }
     {
         size_t bl = strlen(sval);
         char kb[bl + 2];

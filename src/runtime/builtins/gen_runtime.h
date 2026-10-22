@@ -13,7 +13,6 @@ struct GeneratorState;
 static inline IR_graph_t *bb_graph_of_proc(const ProcEntry *e) { if (!e) return NULL; if (e->bb_idx >= 0 && e->bb_idx < g_stage2.bbp.count) return g_stage2.bbp.table[e->bb_idx]; return NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_t *bb_proc_entry(const ProcEntry *e) { IR_graph_t *g = bb_graph_of_proc(e); if (!g) return NULL; if (e->proc_entry_node) return e->proc_entry_node; return g->entry; }
-extern tree_t *g_root;
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 typedef struct { const char *subj; int pos; int depth; long len; } ScanState;
 void *rt_scan_state_capture(void *prev);

@@ -26,7 +26,7 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs) {
     const char *retname = fname;
     if (entry_pre && strcmp(entry_pre, fname) != 0 && FNCEX_fn(entry_pre)) retname = entry_pre;
     comm_call(retname);
-    g_monitor_quiet_depth++;
+    g_runtime.misc.monitor_quiet_depth++;
     int nsaved = 1 + np + nl;
     extern void *rt_ws_alloc_descr(size_t);
     char **snames = rt_pvec_alloc((size_t)nsaved);
@@ -41,7 +41,7 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs) {
         NV_SET_fn(pnames[i], (i < nargs) ? args[i] : NULVCL);
     }
     for (int i = 0; i < nl; i++) { snames[1+np+i] = lnames[i]; svals[1+np+i] = NV_GET_fn(lnames[i]); NV_SET_fn(lnames[i], NULVCL); }
-    g_monitor_quiet_depth--;
+    g_runtime.misc.monitor_quiet_depth--;
     DESCR_t retval = NULVCL;
     const char *saved_Σ = Σ;
     int saved_Δ = Δ;
@@ -85,8 +85,8 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs) {
     Σlen = saved_Σlen;
     comm_return(retname, retval);
     init_update_snapshot(snames, svals, nsaved);
-    g_monitor_quiet_depth++;
+    g_runtime.misc.monitor_quiet_depth++;
     for (int i = 0; i < nsaved; i++) NV_SET_fn(snames[i], svals[i]);
-    g_monitor_quiet_depth--;
+    g_runtime.misc.monitor_quiet_depth--;
     return retval;
 }

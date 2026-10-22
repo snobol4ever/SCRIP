@@ -24,11 +24,16 @@ void rt_bomb(const char *msg);
 #define STACKLESS_ABORT(fn) do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)) \
     ; abort(); } while (0)
 DESCR_t (*g_eval_str_hook)(const char *s) = NULL;
-static DATBLK_t *g_lf_type;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void pm_lf_type_invalidate(void) { g_lf_type = (DATBLK_t *)0; }
+void pm_lf_type_invalidate(void) { g_runtime.misc.lf_type = (DATBLK_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int pm_lf_type_is(DATBLK_t *t) { if (!t) return 0; if (t == g_lf_type) return 1; if (t->nfields < 3 || !t->fields[0] || strcmp(t->fields[0], "frame_elems") != 0) return 0; g_lf_type = t; return 1; }
+int pm_lf_type_is(DATBLK_t *t) {
+    if (!t) return 0;
+    if (t == g_runtime.misc.lf_type) return 1;
+    if (t->nfields < 3 || !t->fields[0] || strcmp(t->fields[0], "frame_elems") != 0) return 0;
+    g_runtime.misc.lf_type = t;
+    return 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t *pm_nil_elems(void) { static DESCR_t nil[1]; return nil; }
 static inline int rt_list_view(DESCR_t o, DESCR_t **elems, int *n) {
@@ -832,14 +837,12 @@ static DESCR_t sort_impl(DESCR_t arr, DESCR_t col, int rev) {
 DESCR_t sort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 0); }
 DESCR_t rsort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int g_sno_defer_pair_hwm = 0;
 void rt_defer_pairs_forget(void) {
-    for (int i = 0; i < g_sno_defer_pair_hwm; i++) { g_runtime.abi.sno_defer_cells[i * 2] = 0; g_runtime.abi.sno_defer_cells[i * 2 + 1] = 0; }
-    g_sno_defer_pair_hwm = 0;
+    for (int i = 0; i < g_runtime.misc.sno_defer_pair_hwm; i++) { g_runtime.abi.sno_defer_cells[i * 2] = 0; g_runtime.abi.sno_defer_cells[i * 2 + 1] = 0; }
+    g_runtime.misc.sno_defer_pair_hwm = 0;
 }
 #include "pin_va.h"
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
-const char *g_dcap_base = 0;
 #define g_dcap_top (*(const char **)RT_DCAP_TOP)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 size_t rt_dcap_island_bytes(void) {
@@ -854,12 +857,16 @@ void rt_dcap_lazy_init(void) {
         size_t n = rt_dcap_island_bytes();
         char *m = (char *)mmap((void *)0, n + RT_DCAP_GUARD_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
         if (m == (char *)MAP_FAILED || mprotect(m + n, RT_DCAP_GUARD_BYTES, PROT_NONE) != 0) { fprintf(stderr, "rt_dcap: island reserve of %zu bytes failed\n", n); abort(); }
-        g_dcap_base = m;
-        g_dcap_top = g_dcap_base;
+        g_runtime.misc.dcap_base = m;
+        g_dcap_top = g_runtime.misc.dcap_base;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_dcap_guard_hit(uintptr_t a) { if (!g_dcap_base) return 0; uintptr_t end = (uintptr_t)g_dcap_base + rt_dcap_island_bytes(); return a >= end && a < end + RT_DCAP_GUARD_BYTES; }
+int rt_dcap_guard_hit(uintptr_t a) {
+    if (!g_runtime.misc.dcap_base) return 0;
+    uintptr_t end = (uintptr_t)g_runtime.misc.dcap_base + rt_dcap_island_bytes();
+    return a >= end && a < end + RT_DCAP_GUARD_BYTES;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_cap_fail_retreat(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_FAIL_RETREAT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }
@@ -1493,7 +1500,7 @@ static inline __attribute__((always_inline)) rt_dfx_t *rt_dfx_init(rt_dfx_t *s) 
 long rt_cas_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **);
     long b = 0;
-    for (int i = 0; i < g_sno_defer_pair_hwm; i++) { uint64_t *slot = &g_runtime.abi.sno_defer_cells[i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
+    for (int i = 0; i < g_runtime.misc.sno_defer_pair_hwm; i++) { uint64_t *slot = &g_runtime.abi.sno_defer_cells[i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1743,7 +1750,7 @@ static inline __attribute__((always_inline)) DESCR_t *rt_defer_cell_ptr(const ch
     if (!cell || !NV_CELL_IF_FASTSET_fn(varname)) return (DESCR_t *)0;
     slot[0] = (uint64_t)(uintptr_t)varname;
     slot[1] = (uint64_t)(uintptr_t)cell;
-    if ((int)site >= g_sno_defer_pair_hwm) g_sno_defer_pair_hwm = (int)site + 1;
+    if ((int)site >= g_runtime.misc.sno_defer_pair_hwm) g_runtime.misc.sno_defer_pair_hwm = (int)site + 1;
     return cell;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

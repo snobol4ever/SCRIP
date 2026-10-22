@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <signal.h>
+#include "g_runtime.h"
 #include "ct_arena.h"
 #include "gc_heap.h"
 #include "bb_pool.h"
@@ -155,7 +156,6 @@ _Static_assert(RT_STACK_HUGE == 2097152UL,
     "rst touch (an Icon hello's resident set 6,916 -> about 4,900 KB), and a deep one pays 64 small faults before the huge-page region");
 char *rt_main_stack_adopt(void) {
     extern long rt_sw_stack_bytes(void);
-    extern int g_core_stack_floor_raised;
     extern void rt_gc_stack_top_adopt(char *);
     long budget = rt_stack_budget_bytes(rt_sw_stack_bytes());
     size_t sz = ((size_t)budget + RT_STACK_HUGE - 1) & ~(RT_STACK_HUGE - 1), pg = 4096, total = sz + RT_STACK_HUGE + pg + RT_STACK_TOP_SMALL;
@@ -168,7 +168,7 @@ char *rt_main_stack_adopt(void) {
         if (end > top) munmap(top, (size_t)(end - top));
         (void)madvise(lo, (size_t)(top - lo), MADV_HUGEPAGE);
         rt_gc_stack_top_adopt(top);
-        g_core_stack_floor_raised = 1;
+        g_runtime.misc.core_stack_floor_raised = 1;
         return top - 8;
     }
 }

@@ -97,7 +97,7 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
     g_runtime.zsm.zsm_tr_rsp[t] = rsp;
     g_runtime.zsm.zsm_tr_kind[t] = kind | (zop << 8);
     g_runtime.zsm.zsm_tr_depth[t] = depth;
-    g_runtime.zsm.zsm_tr_stno[t] = (long)g_kw_stcount;
+    g_runtime.zsm.zsm_tr_stno[t] = (long)g_runtime.misc.kw_stcount;
     g_runtime.zsm.zsm_tr_n++;
     g_runtime.zsm.zsm_events++;
     if (zsm_census()) fprintf(stderr, "[ZSM-DEPTH] %-6s op=%-4ld node=%-8lu depth=%ld rsp=0x%lx rbp=0x%lx state=%s\n", zsm_kn(kind), zop, node, depth, rsp, rbp, zsm_sn(e->state));
@@ -120,7 +120,7 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
                 fprintf(stderr,
                 "[ZSM-AEXP] α%s node=%lu op=%ld(%s) RSP EXPECTED-VALUE MISMATCH AT ALPHA (Lon s196: RSP-RSP0 must equal the operand offset the emitter baked): statement-anchor depth=%ld but op_zdep"
                 "th=%ld (delta=%ld) -- the operand access that follows resolves [rsp + off + %ld] and reads %ld bytes off; rsp=0x%lx rsp0=0x%lx st=%ld\n", fl ? "·" : "", node, zop,
-                bb_op_name((IR_e)zop), d, exp_depth, d - exp_depth, exp_depth, d - exp_depth, rsp, g_runtime.zsm.zsm_rsp0, (long)g_kw_stcount);
+                bb_op_name((IR_e)zop), d, exp_depth, d - exp_depth, exp_depth, d - exp_depth, rsp, g_runtime.zsm.zsm_rsp0, (long)g_runtime.misc.kw_stcount);
         }
         e->node = node;
         e->E = rbp;
@@ -148,7 +148,7 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
     if (kind == 2) {
         if (rsp != e->rsp_a && zsm_bskew_on()) {
             fprintf(stderr, "[ZSM-BSKEW] β%s node=%lu op=%ld(%s) rsp at β differs from α by %ld bytes (α rsp=0x%lx β rsp=0x%lx) st=%ld\n", fl ? "·" : "", node, zop, bb_op_name((IR_e)zop),
-                (long)(e->rsp_a - rsp), e->rsp_a, rsp, (long)g_kw_stcount);
+                (long)(e->rsp_a - rsp), e->rsp_a, rsp, (long)g_runtime.misc.kw_stcount);
         }
         if (e->state != ZSM_SUSPENDED) {
             g_runtime.zsm.zsm_fsm_illegal++;
@@ -218,7 +218,7 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
         if (rsp > e->rsp_a && zsm_overpop_on())
             fprintf(stderr,
             "[ZSM-OVERPOP] ω%s node=%lu op=%ld released %ld bytes MORE than α carved: α rsp=0x%lx ω rsp=0x%lx rbp=0x%lx st=%ld -- read as a CANDIDATE, not a verdict (whack-owners legally retire "
-            "an enclosing frame here)\n", fl ? "·" : "", node, zop, (long)(rsp - e->rsp_a), e->rsp_a, rsp, rbp, (long)g_kw_stcount);
+            "an enclosing frame here)\n", fl ? "·" : "", node, zop, (long)(rsp - e->rsp_a), e->rsp_a, rsp, rbp, (long)g_runtime.misc.kw_stcount);
         if (rsp < e->rsp_a) {
             g_runtime.zsm.zsm_violations++;
             if (!fl) {

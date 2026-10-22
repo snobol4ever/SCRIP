@@ -1763,15 +1763,13 @@ int main(int argc, char **argv) {
                 argi++;
             } else if (strcmp(argv[argi], "--trace") == 0) {
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
-                extern int64_t g_kw_trace;
                 g_runtime.abi.trace_budget = 2000000000L;
-                g_kw_trace = 2000000000L;
+                g_runtime.misc.kw_trace = 2000000000L;
                 argi++;
             } else if (strncmp(argv[argi], "--trace=", 8) == 0) {
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
-                extern int64_t g_kw_trace;
                 g_runtime.abi.trace_budget = atol(argv[argi] + 8);
-                g_kw_trace = (int64_t) g_runtime.abi.trace_budget;
+                g_runtime.misc.kw_trace = (int64_t) g_runtime.abi.trace_budget;
                 argi++;
             } else break;
         }
@@ -2196,9 +2194,8 @@ int main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IOLBF, 0);
     extern void core_lib_init(void);
     {
-        extern int g_core_stack_floor_raised;
         struct rlimit rl;
-        g_core_stack_floor_raised = 1;
+        g_runtime.misc.core_stack_floor_raised = 1;
         if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY && rl.rlim_cur < (rlim_t)(64L << 20)) (void)apply_stack_limit(64L << 20);
     }
     core_lib_init();

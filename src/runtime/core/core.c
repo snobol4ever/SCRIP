@@ -46,7 +46,6 @@ DESCR_t rt_sno_cnv_num(DESCR_t v, int want);
 #include "../../../../harness/scripts/monitor/monitor_wire.h"
 #include "gc_frame_map.h"
 #if RT_DIAG
-int g_monitor_quiet_depth = 0;
 static void mon_at_exit(void);
 static uint32_t intern_name_bin(const char *p, int len);
 static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type, const void *value, uint32_t value_len);
@@ -55,9 +54,8 @@ typedef struct { char used; int kind; const char *name; const char *tag; const c
 #define trace_tab ((trace_ent_t *)g_runtime.core.g_trace_tab.p)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int trace_idle(void) {
-    extern int64_t g_kw_trace;
     if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
-    return !g_runtime.abi.comm_dbg && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_kw_trace <= 0 && g_runtime.abi.kw_ftrace <= 0 && g_runtime.abi.trace == 0;
+    return !g_runtime.abi.comm_dbg && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_runtime.misc.kw_trace <= 0 && g_runtime.abi.kw_ftrace <= 0 && g_runtime.abi.trace == 0;
 }
 int rt_trace_idle(void) { return trace_idle(); }
 static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out);
@@ -136,7 +134,6 @@ static int trace_registered(const char *name) { return trace_find_any(name) != (
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int trace_is_active(const char *name) { return trace_find(name, TRK_VALUE) != (trace_ent_t *)0; }
 #else
-int g_monitor_quiet_depth = 0;
 int rt_trace_idle(void) { return 1; }
 int trace_is_active(const char *name) { (void)name; return 0; }
 #endif
@@ -974,7 +971,6 @@ void rt_trace_fail_hook_p(const char *fname, trace_pend_t *pend, long long rstno
 void rt_trace_return_hook(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }
 void rt_trace_return_hook_p(const char *fname, DESCR_t retval, trace_pend_t *pend, long long rstno) { (void)fname; (void)retval; (void)pend; (void)rstno; }
 #endif
-int64_t g_kw_stcount = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 static void mon_send(const char *kind, const char *name, const char *value) {
@@ -1005,8 +1001,8 @@ void rt_trace_stmt(long line) {
     g_runtime.core.trace_stmt_seen = 1;
     g_runtime.core.trace_stmt_gen++;
     g_runtime.abi.trace_budget--;
-    g_kw_stcount++;
-    fprintf(stdout, "****%-7lld  L%ld\n", (long long)g_kw_stcount, line);
+    g_runtime.misc.kw_stcount++;
+    fprintf(stdout, "****%-7lld  L%ld\n", (long long)g_runtime.misc.kw_stcount, line);
     fflush(stdout);
     if (g_runtime.abi.monitor_bin) mon_emit_label_bin((int64_t)line);
     else if (g_runtime.abi.monitor_fd >= 0) { char lb[32]; snprintf(lb, sizeof lb, "%ld", line); mon_send("STMT", lb, ""); }
@@ -1014,10 +1010,10 @@ void rt_trace_stmt(long line) {
 void rt_trace_call(const char *name, DESCR_t *args, int nargs) {
     if (g_runtime.abi.trace_budget == 0 || !name) return;
     g_runtime.abi.trace_budget--;
-    g_kw_stcount++;
+    g_runtime.misc.kw_stcount++;
     char vtext[trace_spell_args(args, nargs, (char *)0, 0)];
     trace_spell_args(args, nargs, vtext, sizeof vtext);
-    fprintf(stdout, "****%-7lld  %s(%s)\n", (long long)g_kw_stcount, name, vtext);
+    fprintf(stdout, "****%-7lld  %s(%s)\n", (long long)g_runtime.misc.kw_stcount, name, vtext);
     fflush(stdout);
     if (g_runtime.abi.monitor_bin) mon_emit_trace_bin(MWK_CALL, name, NULVCL);
     else if (g_runtime.abi.monitor_fd >= 0) mon_send("CALL", name, vtext);
@@ -1025,10 +1021,10 @@ void rt_trace_call(const char *name, DESCR_t *args, int nargs) {
 void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval) {
     if (g_runtime.abi.trace_budget == 0 || !name) return;
     g_runtime.abi.trace_budget--;
-    g_kw_stcount++;
+    g_runtime.misc.kw_stcount++;
     char vtext[trace_spell_value(retval, (char *)0, 0)];
     trace_spell_value(retval, vtext, sizeof vtext);
-    fprintf(stdout, "****%-7lld  RETURN %s = %s\n", (long long)g_kw_stcount, name, vtext);
+    fprintf(stdout, "****%-7lld  RETURN %s = %s\n", (long long)g_runtime.misc.kw_stcount, name, vtext);
     fflush(stdout);
     if (g_runtime.abi.monitor_bin) mon_emit_trace_bin(MWK_RETURN, name, wireval);
     else if (g_runtime.abi.monitor_fd >= 0) mon_send("RETURN", name, vtext);
@@ -1057,8 +1053,8 @@ void rt_trace_value_sigil(const char *name, DESCR_t val, int hook) {
         memcpy(ln + 2 + nl, vtext, vl + 1);
     }
     g_runtime.abi.trace_budget--;
-    g_kw_stcount++;
-    fprintf(stdout, "****%-7lld  %s = %s\n", (long long)g_kw_stcount, name, vtext);
+    g_runtime.misc.kw_stcount++;
+    fprintf(stdout, "****%-7lld  %s = %s\n", (long long)g_runtime.misc.kw_stcount, name, vtext);
     fflush(stdout);
     DESCR_t wire = val;
     if (hook == 1 && (name[0] == '@' || name[0] == '%') && (val.v == DT_S || val.v == DT_SNUL)) wire.v = (name[0] == '@') ? DT_A : DT_T;
@@ -1246,7 +1242,7 @@ static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type, const vo
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_label_bin(int64_t stno) {
-    g_kw_stcount = stno;
+    g_runtime.misc.kw_stcount = stno;
     if (g_runtime.abi.monitor_fd < 0 || !g_runtime.abi.monitor_bin) return;
     unsigned char buf[8];
     for (int k = 0; k < 8; k++) buf[k] = (unsigned char)(((uint64_t)stno >> (k*8)) & 0xff);
@@ -1309,7 +1305,7 @@ void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) {
 }
 #else
 void rt_mon_set_max_stno(int v) { (void)v; }
-void mon_emit_label_bin(int64_t stno) { g_kw_stcount = stno; }
+void mon_emit_label_bin(int64_t stno) { g_runtime.misc.kw_stcount = stno; }
 void sno_trace_value(const char *name, DESCR_t val) { (void)name; (void)val; }
 void sno_trace_call(const char *fname) { (void)fname; }
 void sno_trace_return(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }
@@ -1454,17 +1450,17 @@ static void comm_var_tail(const char *name, DESCR_t val, int hook) {
     }
     if (g_runtime.abi.monitor_fd < 0 || g_runtime.abi.monitor_bin) return;
     if (!g_runtime.core.monitor_ready) return;
-    if (g_kw_trace <= 0 && !trace_registered(name)) return;
+    if (g_runtime.misc.kw_trace <= 0 && !trace_registered(name)) return;
     const char *s = VARVAL_fn(val);
     mon_send("VALUE", name, s ? s : "(undef)");
 }
 void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook, trace_pend_t *pend) {
     if (!name || name[0] == '_') return;
     if (mon_synth_name(name)) return;
-    if (g_monitor_quiet_depth > 0) return;
+    if (g_runtime.misc.monitor_quiet_depth > 0) return;
     if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
     const int dbg = g_runtime.abi.comm_dbg;
-    if (!dbg && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_kw_trace <= 0) return;
+    if (!dbg && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_runtime.misc.kw_trace <= 0) return;
     if (dbg) fprintf(stderr, "[scrip-trace] comm_var name=%s recur=%d\n", name, g_runtime.core.trace_recursion_depth);
     if (stno <= 0) { stno = (long long)g_runtime.abi.stno; }
     if (!g_runtime.abi.monitor_bin) {
@@ -1504,7 +1500,7 @@ void comm_call(const char *fname) {
     if (!fname || !*fname) return;
     fname = rt_proc_trace_canon(fname);
     if (mon_synth_name(fname)) return;
-    if (g_runtime.abi.kw_ftrace > 0 && !g_runtime.abi.monitor_bin) { fprintf(stdout, "****%-7lld  %s()\n", (long long)g_kw_stcount, fname); fflush(stdout); }
+    if (g_runtime.abi.kw_ftrace > 0 && !g_runtime.abi.monitor_bin) { fprintf(stdout, "****%-7lld  %s()\n", (long long)g_runtime.misc.kw_stcount, fname); fflush(stdout); }
     if (g_runtime.abi.monitor_fd < 0) return;
     if (!g_runtime.core.monitor_ready) return;
     if (g_runtime.abi.kw_ftrace <= 0 && !trace_registered(fname)) return;
@@ -1524,7 +1520,7 @@ void comm_return(const char *fname, DESCR_t retval) {
     if (mon_synth_name(fname)) return;
     if (g_runtime.abi.kw_ftrace > 0 && !g_runtime.abi.monitor_bin) {
         const char *s = VARVAL_fn(retval);
-        fprintf(stdout, "****%-7lld  RETURN %s = '%s'\n", (long long)g_kw_stcount, fname, s ? s : "");
+        fprintf(stdout, "****%-7lld  RETURN %s = '%s'\n", (long long)g_runtime.misc.kw_stcount, fname, s ? s : "");
         fflush(stdout);
     }
     if (g_runtime.abi.monitor_fd < 0) return;
@@ -1563,9 +1559,6 @@ void comm_var(const char *name, DESCR_t val, const char *file, long line, long l
 void comm_call(const char *fname) { (void)fname; }
 void comm_return(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }
 #endif
-int64_t g_kw_anchor = 0;
-int64_t g_kw_stlimit = -1;
-int64_t g_kw_trace = 0;
 #define ALPHA4(n) (n), (n) + 1, (n) + 2, (n) + 3
 #define ALPHA16(n) ALPHA4(n), ALPHA4((n) + 4), ALPHA4((n) + 8), ALPHA4((n) + 12)
 #define ALPHA64(n) ALPHA16(n), ALPHA16((n) + 16), ALPHA16((n) + 32), ALPHA16((n) + 48)
@@ -2732,7 +2725,6 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
     char *fname = rt_heap_strdup_c(name);
     return NV_GET_fn(fname);
 }
-int g_core_stack_floor_raised = 0;
 long rt_sw_stack_bytes(void) { rt_cmdline_switches_apply(); return g_runtime.core.sw_stack_bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_lib_init(void) {
@@ -2740,8 +2732,8 @@ void core_lib_init(void) {
     if (core_lib_inited) return;
     core_lib_inited = 1;
     { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
-    if (!g_core_stack_floor_raised) {
-        g_core_stack_floor_raised = 1;
+    if (!g_runtime.misc.core_stack_floor_raised) {
+        g_runtime.misc.core_stack_floor_raised = 1;
         rt_cmdline_switches_apply();
         { extern long rt_stack_budget_bytes(long); extern void rt_stack_budget_apply(long, long); rt_stack_budget_apply(rt_stack_budget_bytes(g_runtime.core.sw_stack_bytes), 0L); }
     }
@@ -2765,7 +2757,7 @@ void core_lib_init(void) {
         const char *ev_ftr = getenv("SCRIP_FTRACE");
         if (ev_ftr && ev_ftr[0]) { int64_t v = (int64_t)strtoll(ev_ftr, NULL, 10); if (v > 0) g_runtime.abi.kw_ftrace = v; }
         const char *ev_tr = getenv("SCRIP_TRACE");
-        if (ev_tr && ev_tr[0]) { int64_t v = (int64_t)strtoll(ev_tr, NULL, 10); if (v > 0) g_kw_trace = v; }
+        if (ev_tr && ev_tr[0]) { int64_t v = (int64_t)strtoll(ev_tr, NULL, 10); if (v > 0) g_runtime.misc.kw_trace = v; }
         const char *ev_rktr = getenv("SCRIP_TRACE");
         if (ev_rktr && ev_rktr[0]) { long v = strtol(ev_rktr, NULL, 10); if (v > 0) g_runtime.abi.trace_budget = v; }
         if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
@@ -2997,8 +2989,6 @@ const char *rt_sno_indirect_name(DESCR_t v) {
     return VARVAL_fn(v);
 }
 #include <setjmp.h>
-int g_core_err_active = 0;
-int g_kw_ctx = 0;
 static const char *const core_err_msgs[40] = { NULL, "Illegal data type", "Error in arithmetic operation", "Erroneous array or table reference", "Null string in illegal context",
     "Undefined function or operation", "Erroneous prototype", "Unknown keyword", "Variable not present where required", "Entry point of function not label", "Illegal argument to primitive function",
     "Reading error", "Illegal i/o unit", "Limit on defined data types exceeded", "Negative number in illegal context", "String overflow", "Overflow during pattern matching", "Error in SNOBOL4 system",
@@ -3029,17 +3019,13 @@ void core_runtime_error(int code, const char *msg) {
     if (!msg && code >= 1 && code <= 39) msg = core_err_msgs[code];
     {
         extern int g_core_errjmp_n;
-        extern long g_icn_errnumber;
-        extern const char *g_icn_errtext;
-        extern DESCR_t g_icn_errvalue;
-        extern int g_icn_err_valid;
         if (g_runtime.abi.error != 0 && g_runtime.abi.error != G_ERROR_EVAL_STAGE && g_core_errjmp_n > 0 && (g_runtime.abi.error == -2 || !(core_setexit_on() && sxl_set()))) {
             if (g_runtime.abi.error > 0) g_runtime.abi.error--;
             extern void rt_kw_publish_error(int code, const char *msg);
-            g_icn_errnumber = code;
-            g_icn_errtext = msg ? msg : "";
-            memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue);
-            g_icn_err_valid = 1;
+            g_runtime.misc.icn_errnumber = code;
+            g_runtime.misc.icn_errtext = msg ? msg : "";
+            memset(&g_runtime.misc.icn_errvalue, 0, sizeof g_runtime.misc.icn_errvalue);
+            g_runtime.misc.icn_err_valid = 1;
             rt_kw_publish_error(code, msg);
             core_errjmp_throw(g_core_errjmp_n - 1, code);
         }
@@ -3106,10 +3092,6 @@ int g_core_errjmp_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *core_gc_audit_nonref(const char *p) { (void)p; return (const char *)0; }
 #endif
-long g_icn_errnumber = 0;
-const char *g_icn_errtext = "";
-DESCR_t g_icn_errvalue;
-int g_icn_err_valid = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_errmsg_known(int n) {
     switch (n) {
@@ -3243,10 +3225,10 @@ void core_icn_startup_error_no_main(void) { fflush(stdout); fprintf(stderr, "scr
 int core_icn_error(int code, DESCR_t val) {
     if (g_runtime.abi.error != 0 && g_runtime.abi.error != G_ERROR_EVAL_STAGE) {
         g_runtime.abi.error--;
-        g_icn_errnumber = code;
-        { const char *_em = icn_errmsg_known(code); g_icn_errtext = _em ? _em : ""; }
-        g_icn_errvalue = val;
-        g_icn_err_valid = 1;
+        g_runtime.misc.icn_errnumber = code;
+        { const char *_em = icn_errmsg_known(code); g_runtime.misc.icn_errtext = _em ? _em : ""; }
+        g_runtime.misc.icn_errvalue = val;
+        g_runtime.misc.icn_err_valid = 1;
         if (g_core_errjmp_n > 0) core_errjmp_throw(g_core_errjmp_n - 1, code);
         return 1;
     }
@@ -3601,7 +3583,8 @@ int mon_cell_is_named(void *cellp) {
 void mon_tap_cell_store(void *cellp, DESCR_t val) {
     if (g_runtime.abi.monitor_fd < 0 || !cellp) return;
     for (unsigned h = 0; h < g_runtime.abi.var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) {
-        if (getenv("SCRIP_TAP_DBG")) fprintf(stderr, "[TAP] cell-store name=%s ready=%d quiet=%d ktr=%lld\n", e->name, g_runtime.core.monitor_ready, g_monitor_quiet_depth, (long long)g_kw_trace);
+        if (getenv("SCRIP_TAP_DBG"))
+            fprintf(stderr, "[TAP] cell-store name=%s ready=%d quiet=%d ktr=%lld\n", e->name, g_runtime.core.monitor_ready, g_runtime.misc.monitor_quiet_depth, (long long)g_runtime.misc.kw_trace);
         comm_var(e->name, val, stmt_src_get_file(), 0, 0);
         return;
     }
@@ -3817,7 +3800,7 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
         return val;
     }
     if (strcmp (name, "&pos") == 0) { g_runtime.abi.scan_pos = (int)((val.v==DT_I) ? val.i : (int64_t)to_real(val)); return val; }
-    if (g_kw_ctx) {
+    if (g_runtime.misc.kw_ctx) {
         static const char *const known_kw[] = { "STLIMIT","ANCHOR","TRIM","FULLSCAN","CASE","MAXLNGTH", "FTRACE","ERRLIMIT","CODE","FNCLEVEL","RTNTYPE", "ALPHABET","UCASE","LCASE","DIGITS","PI",
             "PARM", "STEXEC","STCOUNT","STNO","DUMP","ABEND", "TRACE","GTRACE","FATALLIMIT","ERRLIMIT","ERRTYPE","ERRTEXT", "INPUT","OUTPUT","TERMINAL","PUNCHAR", NULL };
         int found = 0;
@@ -4047,8 +4030,8 @@ void NV_CLEAR_fn(const char **except, int nexcept) {
 int ASGNIC_fn(const char *kw_name, DESCR_t val) {
     if (!kw_name) return 0;
     int64_t iv = IS_INT(val) ? val.i : (int64_t)to_real(val);
-    if (strcmp(kw_name, "STLIMIT") == 0) { g_kw_stlimit = iv; return 1; }
-    if (strcmp(kw_name, "ANCHOR") == 0) { g_kw_anchor = iv; if (g_rtcc_on) g_rtccb[RTCC_SLOT_R8] = (uint64_t)(int64_t)iv; return 1; }
+    if (strcmp(kw_name, "STLIMIT") == 0) { g_runtime.misc.kw_stlimit = iv; return 1; }
+    if (strcmp(kw_name, "ANCHOR") == 0) { g_runtime.misc.kw_anchor = iv; if (g_rtcc_on) g_rtccb[RTCC_SLOT_R8] = (uint64_t)(int64_t)iv; return 1; }
     if (strcmp(kw_name, "TRIM") == 0) { g_runtime.core.kw_trim = iv; return 1; }
     if (strcmp(kw_name, "FULLSCAN") == 0) { g_runtime.core.kw_fullscan = iv; return 1; }
     if (strcmp(kw_name, "CASE") == 0) { (void)iv; core_runtime_error(10, "&CASE is read-only; SCRIP is case-sensitive only"); return 1; }
@@ -5518,7 +5501,7 @@ void core_gc_roots(void) {
             (const char *)0, 0, (const char *)0, (const char *)0 };
         rt_gc_run_roots(&a);
     }
-    rt_gc_visit_descr(&g_icn_errvalue);
+    rt_gc_visit_descr(&g_runtime.misc.icn_errvalue);
 #if RT_DIAG
     rt_gc_visit_descr(&g_icn_op.a);
     rt_gc_visit_descr(&g_icn_op.b);

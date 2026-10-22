@@ -208,7 +208,6 @@ void output_val(DESCR_t v);
 DESCR_t input_read(void);
 DESCR_t terminal_read(void);
 void output_str(const char *s);
-extern int g_monitor_quiet_depth;
 void comm_stno(int n);
 void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno);
 void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook);
@@ -227,10 +226,9 @@ void rt_trace_call(const char *name, DESCR_t *args, int nargs);
 void rt_trace_return(const char *name, DESCR_t retval);
 void rt_trace_value(const char *name, DESCR_t val);
 void rt_trace_value_sigil(const char *name, DESCR_t val, int hook);
-extern int64_t g_kw_trace;
 #if RT_DIAG
-#define rt_trace_layer_idle() (g_runtime.abi.comm_dbg == 0 && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_kw_trace <= 0 && g_runtime.abi.kw_ftrace <= 0 && g_runtime.abi.trace \
-    == 0)
+#define rt_trace_layer_idle() (g_runtime.abi.comm_dbg == 0 && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_runtime.misc.kw_trace <= 0 && g_runtime.abi.kw_ftrace <= 0 && \
+    g_runtime.abi.trace == 0)
 #else
 #define rt_trace_layer_idle() (1)
 #endif
@@ -283,14 +281,8 @@ DESCR_t *core_icn_act_arg(int lv, int k);
 int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int strict);
 void rt_trace_return_hook(const char *fname, DESCR_t retval);
 void rt_trace_gen_fail_hook(const char *fname, void *h);
-extern int64_t g_kw_anchor;
-extern int64_t g_kw_stlimit;
-extern int64_t g_kw_stcount;
-extern int64_t g_kw_trace;
 #include <setjmp.h>
 void core_runtime_error(int code, const char *msg);
-extern int g_kw_ctx;
-extern int g_core_err_active;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int core_err_is_terminal(int code) {
     switch (code) { case 20: case 21: case 22: case 23: case 26: case 27: case 29: case 30: case 31: case 38: case 39: case 242: return 1; default: return 0; }
