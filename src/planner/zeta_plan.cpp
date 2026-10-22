@@ -361,6 +361,10 @@ int planner_retains_emitter_view(int op) { return op == IR_PROC_GEN || op == IR_
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd) {
     IR_graph_t * sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g;
     int r = planner_retains(nd);
+    if (r == PR_GATE_HOLDS || r == PR_DISJUNCTION_HOLDS || r == PR_DB_GENERATOR || r == PR_RETAINING_TARGET) {
+        int u = zls_fcn_hunres(nd) && (int)ir_kind0(nd) == IR_CALL_PROC_STAGED && zls_g_resumable_frame(g);
+        r = zls_fcn_hret(nd) ? PR_RETAINING_CALLEE : u ? PR_UNRESOLVED_CALLEE : 0;
+    }
     g_emit_cfg = sv;
     return (r == PR_SUSPEND || r == PR_COEXPR || r == PR_UNKNOWN_CALLEE || r == PR_GENERATOR_CALLEE || r == PR_DEFERRED_PATTERN || r == PR_RETAINING_CALLEE || r == PR_UNRESOLVED_CALLEE) ? r : 0;
 }
