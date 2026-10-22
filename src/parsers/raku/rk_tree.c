@@ -2550,6 +2550,7 @@ static tree_t *build_decl_raw(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
 static void rk_mark_declared(tree_t *t) {
     if (!t) return;
     if (t->t == TT_ASSIGN && t->n && t->c[0] && t->c[0]->t == TT_VAR) { t->c[0]->slen |= 4; return; }
+    if (t->t == TT_DECL && t->n >= 2 && t->c[1] && t->c[1]->t == TT_VAR) { t->c[1]->slen |= 4; return; }
     if (t->t == TT_SEQ_EXPR || t->t == TT_UNLESS) for (int i = 0; i < t->n; i++) rk_mark_declared(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

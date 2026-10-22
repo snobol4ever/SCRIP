@@ -3365,6 +3365,7 @@ static int rk_cap_mutated(const tree_t * t, const char * v) {
 static void rk_cap_decl_assigns(const tree_t * t, rk_ns_t * out) {
     if (!t || t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return;
     if (t->t == TT_ASSIGN && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && (t->c[0]->slen & 4)) rk_ns_add(out, t->c[0]->v.sval);
+    if (t->t == TT_DECL && t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && (t->c[1]->slen & 4) && t->c[1]->v.sval) rk_ns_add(out, t->c[1]->v.sval);
     for (int i = 0; i < t->n; i++) rk_cap_decl_assigns(t->c[i], out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3397,6 +3398,13 @@ static void rk_cap_flag_boxed(tree_t * t, const rk_ns_t * Bx) {
 static void rk_cap_box_decls(tree_t * t, const rk_ns_t * Bx) {
     if (!t || t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return;
     for (int i = 0; i < t->n; i++) rk_cap_box_decls(t->c[i], Bx);
+    if (t->t == TT_DECL && t->n >= 2 && t->c[1] && t->c[1]->t == TT_VAR && (t->c[1]->slen & 4) && t->c[1]->v.sval && rk_ns_has(Bx, t->c[1]->v.sval)) {
+        tree_t * var = t->c[1];
+        tree_t * val = (t->n > 2 && t->c[2]) ? t->c[2] : rk_fnc2("__rk_undef", NULL, NULL);
+        rk_ns_t ru = { 0 };
+        rk_cap_uses_deep(val, &ru);
+        if (!rk_ns_has(&ru, var->v.sval)) { tree_t * bx = rk_fnc2("__rk_box", val, NULL); t->t = TT_ASSIGN; t->n = 0; ast_push(t, var); ast_push(t, bx); return; }
+    }
     if (t->t == TT_ASSIGN && t->v.ival != 2 && t->n > 1 && t->c[0] && t->c[0]->t == TT_VAR && (t->c[0]->slen & 4) && rk_ns_has(Bx, t->c[0]->v.sval)) {
         const char * v = t->c[0]->v.sval;
         rk_ns_t ru = { 0 };
