@@ -13085,6 +13085,8 @@ static void rk_exc_init(void) {
     class_inherit("X::AdHoc", "Exception");
     record_register("X::Hash::Store::OddNumber(message)");
     class_inherit("X::Hash::Store::OddNumber", "Exception");
+    record_register("X::Parameter::RW(message)");
+    class_inherit("X::Parameter::RW", "Exception");
     record_register("X::TypeCheck(message)");
     class_inherit("X::TypeCheck", "Exception");
     record_register("X::Comp(message)");
@@ -14498,6 +14500,20 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) cnt);
         for (long k = 0; k < cnt; k++) r[k] = args[0];
         *out = rk_mk_arr(r, (int) cnt);
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_rw_refuse") && nargs == 3) {
+        extern const char * rt_proc_pname(const char *, int);
+        char nb[256], vb[128];
+        const char * pn = rt_proc_pname(to_cstring(args[0], nb, sizeof nb), (int) args[1].i);
+        const char * vs = to_cstring(args[2], vb, sizeof vb);
+        const char * tn = rk_value_type(args[2]);
+        char mm[512];
+        snprintf(mm, sizeof mm, "Parameter '$%s' expects a writable container (variable) as an argument,\nbut got '%s' (%s) as a value without a container.", pn ? pn : "", vs ? vs : "",
+            tn ? tn : "Any");
+        rk_exc_init();
+        rk_exc_throw(DATCON_fn("X::Parameter::RW", STRVAL(rt_heap_strdup_c(mm))));
+        *out = FAILDESCR;
         return 1;
     }
     if (!strcmp(fn, "__rk_hash")) { DESCR_t hh = TABLE_VAL(table_new()); for (int i = 0; i + 1 < nargs; i += 2) hh = rk_hash_store(hh, args[i], args[i + 1]); *out = hh; return 1; }

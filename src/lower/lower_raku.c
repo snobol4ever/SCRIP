@@ -599,10 +599,32 @@ static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_param_is_rw(const tree_t * pv);
+static tree_t * rk_ti(long long v);
+static int rk_callee_param_rw(const char * nm, int k) {
+    for (int i = 0; nm && i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, nm)) {
+        const tree_t * pr = (const tree_t *) g_stage2.proc_table[i].proc;
+        return pr && pr->t == TT_SUB_DECL && (1 + k) < pr->n && rk_param_is_rw(pr->c[1 + k]);
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int from, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nd = build(cx, rk_proc_is_generator(nm) ? IR_PROC_GEN : IR_CALL, γ, ω);
     IR_LIT(nd).sval = nm;
     int nargs = t->n - from;
+    for (int k = 0; nm && nm[0] != '_' && k < nargs; k++) {
+        const tree_t * a0 = t->c[from + k];
+        if (a0 && (a0->t == TT_ILIT || a0->t == TT_FLIT || a0->t == TT_QLIT) && rk_callee_param_rw(nm, k)) {
+            tree_t * rf = ast_node_new(TT_FNC);
+            rf->v.sval = (char *) "__rk_rw_refuse";
+            ast_push(rf, leaf_sval2(TT_VAR, "__rk_rw_refuse"));
+            ast_push(rf, leaf_sval2(TT_QLIT, nm));
+            ast_push(rf, rk_ti(k));
+            ast_push(rf, (tree_t *) a0);
+            return lower_rv(cx, rf, γ, ω, res);
+        }
+    }
     IR_t * prev = NULL;
     IR_t * tgt = nd;
     if (nd->op == IR_PROC_GEN) { tgt = build(cx, IR_GOTO, NULL, NULL); lc_γ_to(tgt, nd); lc_ω_to(tgt, nd); }
