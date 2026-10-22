@@ -3863,6 +3863,7 @@ extern "C++" std::string emit_gc_map_register(int value_bytes, int frame_bytes, 
         "FATAL emit_gc_map_register: value_bytes=%d frame_bytes=%d frame_rel=%d (the value region is 16-aligned and the 16 reserved bytes after it lie inside the frame; a blob's region is the wh"
             "ole frame below its base "
         "and carries GC_FRAME_MAP_BLOB)\n", value_bytes, frame_bytes, frame_rel); abort(); }
+    zsm_frame_carve(frame_bytes);
     g_emitter.g_gc_map_pending = 1; g_emitter.g_gc_value_bytes = value_bytes; g_emitter.g_gc_map_link = link; g_emitter.g_gc_map_fb = frame_bytes; g_emitter.g_gc_map_hdr = header_bytes;
         g_emitter.g_gc_map_flags = flags;
     emit_label_initf(&g_emitter.g_gc_map_lbl, ".Lgcmap_%s", g_emit.flat_fam ? g_emit.flat_fam : "chain");

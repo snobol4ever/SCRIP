@@ -62,6 +62,7 @@ typedef struct {
     long zsite_act[ZSM_N / 32][5][2];
     unsigned long zsite_overflow;
     unsigned long zdecl_refused[5][256];
+    unsigned long zdecl_retained[5][256];
     long zsm_cur_decl;
     long zsite_kgw[ZSM_N / 32][3];
     long zsite_to[ZSM_N / 32];

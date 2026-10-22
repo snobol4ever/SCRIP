@@ -1064,16 +1064,22 @@ inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 <
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_g_keys_only(const IR_graph_t * g);
 extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
+extern "C" void zsm_frame_addr(int off, int cls, int rsp_form);
+extern "C" void zsm_frame_carve(int frame_bytes);
+extern "C" int zls_frame_resident(const IR_t * nd);
 inline const char * x86_zref(int off, int q);
 inline const char * ZRES_SPINE(int w);
 inline const char * x86_zop(int off, int q, int bump) {
     static char b[16][48]; static int i; i = (i + 1) & 15;
-    if (off >= ZST_BIAS / 2 && !_.op_zdef && x86_resumable_frame()) { x86_zop_note(2); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off - ZST_BIAS); return b[i]; }
+    if (off >= ZST_BIAS / 2 && !_.op_zdef && x86_resumable_frame()) { x86_zop_note(2); zsm_frame_addr(-1, 2, 0); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off - ZST_BIAS);
+        return b[i]; }
     if (off >= ZST_BIAS / 2) { x86_zop_note(2); snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", _.op_zabs + (off - ZST_BIAS) + bump); return b[i]; }
     if (_.op_zres && _.op_res_alias >= 0 && (off == _.op_res_alias || off == _.op_res_alias + 8)) { int d = off - _.op_res_alias;
+        if (_.op_xf_off != -1) zsm_frame_addr(-1, zls_frame_resident(_.node) ? 2 : 3, 0);
         return _.op_xf_off != -1 ? (q ? RDQ("rbp", _.op_xf_off + d) : RDD("rbp", _.op_xf_off + d)) : (q ? ZRES_SPINE(d) : x86_zref(d, 0)); }
     for (int k = 0; _.op_zres && k < _.op_zslot_n && k < _.op_zcap; k++) if (_.op_zslot[k] >= 0 && (off == _.op_zslot[k] || off == _.op_zslot[k] + 8)) { int d = off - _.op_zslot[k];
-        if (_.op_zread_xf[k] != -1) return q ? RDQ("rbp", _.op_zread_xf[k] + d) : RDD("rbp", _.op_zread_xf[k] + d);
+        if (_.op_zread_xf[k] != -1) { zsm_frame_addr(-1, (_.node && k < _.node->n_operands && _.node->operands[k] && !zls_frame_resident(_.node->operands[k])) ? 3 : 2, 0);
+            return q ? RDQ("rbp", _.op_zread_xf[k] + d) : RDD("rbp", _.op_zread_xf[k] + d); }
         if (_.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + d, q, bump);
         return x86_zref(_.op_zread[k] + d, q); }
     int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
@@ -1082,6 +1088,9 @@ inline const char * x86_zop(int off, int q, int bump) {
             "FATAL x86_zop: offset %d is a key with no frame bytes behind it, addressed through the frame -- a keys-only graph, or a key past a home-frame graph's resident region (zls_key_unbacked, "
             "ceo CEO-1864/1884)\n", off);
             abort(); }
+    if (r != 2) zsm_frame_addr(off, -1, !icn_frame_rbp() && !(x86_resumable_frame() && x86_hb_on() && !x86_fb_data() && !_.op_stmt_dyn) &&
+        !(g_emit.zframe_graph && g_emit.frame_retained && x86_hb_on() && !_.op_stmt_dyn) &&
+            ((bump && !x86_fb_data() && !_.op_stmt_dyn) || (_.op_zf_unpinned && _.op_zres && !x86_fb_data() && !_.op_stmt_dyn)));
     if (r != 2 && icn_frame_rbp()) return q ? RDQ("rbp", off - gen_frame_top()) : RDD("rbp", off - gen_frame_top());
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }

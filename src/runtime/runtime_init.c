@@ -144,6 +144,7 @@ static void zsm_decl_event(unsigned long node, unsigned long rbp, unsigned long 
     g_runtime.misc.zsm_cur_decl = decl;
     if (kind == 1) { if (g_runtime.misc.zsm_pre_node != node) return; zsm_ek_push(node, rbp, g_runtime.misc.zsm_pre_rsp); if (!fl) zsm_ek_push(node, rsp - 8UL, g_runtime.misc.zsm_pre_rsp); return; }
     if (kind == 4 && ((decl >> 56) & 1L) && own) { if (!rel) zsm_decl_refuse(4, zop); else zsm_ek_depart(own, rbp, 4, zop, (long)rsp - (gp - K), gp - K, rsp, 0, node); return; }
+    if ((kind == 2 || kind == 4) && ((decl >> 57) & 1L)) { g_runtime.misc.zdecl_retained[kind == 2 ? 0 : 1][(zop >= 0L && zop < 256L) ? (int)zop : 255]++; return; }
     if (kind == 2 && ((decl >> 54) & 1L)) zsm_ek_depart(node, rbp, 0, zop, (long)rsp + K, K, rsp, 0, node);
     if (kind == 4 && ((decl >> 50) & 1L)) {
         if (!rel) zsm_decl_refuse(1, zop);
@@ -162,15 +163,16 @@ static void zsm_decl_site_port(char * b, size_t n, unsigned long k, int p) {
     snprintf(b, n, "%lu/%lu/%ld/%ld/%ld", g_runtime.misc.zsite_chk[k][p], g_runtime.misc.zsite_bad[k][p], d, a0 == LONG_MIN ? d : a0, a1 == LONG_MIN ? (a0 == LONG_MIN ? d : a0) : a1);
 }
 static void zsm_decl_report(void) {
-    unsigned long chk = 0, bad = 0, ref = 0;
+    unsigned long chk = 0, bad = 0, ref = 0, ret = 0;
     for (int p = 0; p < 5; p++) {
         for (int op = 0; op < 256; op++) {
-            if (!g_runtime.misc.zdecl_chk[p][op] && !g_runtime.misc.zdecl_refused[p][op]) continue;
+            if (!g_runtime.misc.zdecl_chk[p][op] && !g_runtime.misc.zdecl_refused[p][op] && !g_runtime.misc.zdecl_retained[p][op]) continue;
             chk += g_runtime.misc.zdecl_chk[p][op];
             bad += g_runtime.misc.zdecl_bad[p][op];
             ref += g_runtime.misc.zdecl_refused[p][op];
-            fprintf(stderr, "[ZSM-DECL-SUM] op=%s port=%s checked=%lu bad=%lu refused=%lu\n", bb_op_name((IR_e)op), zsm_decl_port(p), g_runtime.misc.zdecl_chk[p][op], g_runtime.misc.zdecl_bad[p][op],
-                g_runtime.misc.zdecl_refused[p][op]);
+            ret += g_runtime.misc.zdecl_retained[p][op];
+            fprintf(stderr, "[ZSM-DECL-SUM] op=%s port=%s checked=%lu bad=%lu refused=%lu retained=%lu\n", bb_op_name((IR_e)op), zsm_decl_port(p), g_runtime.misc.zdecl_chk[p][op],
+                g_runtime.misc.zdecl_bad[p][op], g_runtime.misc.zdecl_refused[p][op], g_runtime.misc.zdecl_retained[p][op]);
         }
     }
     for (unsigned long k = 0; k < ZSM_N / 32; k++) {
@@ -182,8 +184,8 @@ static void zsm_decl_report(void) {
             g_runtime.misc.zsite_node[k] - 1UL, g_runtime.misc.zsite_st[k], g_runtime.misc.zsite_kgw[k][0], g_runtime.misc.zsite_kgw[k][1], g_runtime.misc.zsite_kgw[k][2], b[0], b[1], b[2], b[4],
             to < 0L ? "-" : bb_op_name((IR_e)(to >> 8)), to < 0L ? "-" : zsm_kn(to & 0xFFL));
     }
-    fprintf(stderr, "[ZSM-DECL-TOTAL] checked=%lu bad=%lu events=%lu unanchored=%lu refused=%lu sites_overflow=%lu\n", chk, bad, g_runtime.zsm.zsm_events, g_runtime.misc.zdecl_unanchored, ref,
-        g_runtime.misc.zsite_overflow);
+    fprintf(stderr, "[ZSM-DECL-TOTAL] checked=%lu bad=%lu events=%lu unanchored=%lu refused=%lu retained=%lu sites_overflow=%lu\n", chk, bad, g_runtime.zsm.zsm_events, g_runtime.misc.zdecl_unanchored,
+        ref, ret, g_runtime.misc.zsite_overflow);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zsm_leak_report(void) {

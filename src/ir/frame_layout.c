@@ -44,6 +44,8 @@ typedef struct {
     int gen;
     int hf;
     int fregion;
+    unsigned char * kmap;
+    int kmap_n;
 } zls_graph_t;
 #define ze ((zls_entry_t *)g_lower.ir.ze_v.p)
 #define zf ((zls_pfield_t *)g_lower.ir.zf_v.p)
@@ -1988,6 +1990,39 @@ int zls_g_frame_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); 
 int zls_g_home_frame(const IR_graph_t * g) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; return r ? r->hf : 0; }
 int zls_g_value_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? (r->hf ? r->fregion : r->region) : -1; }
 int zls_key_unbacked(const IR_graph_t * g, int off) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; return (r && (zls_g_keys_only(g) || (r->hf && off >= r->fregion + 16))) ? 1 : 0; }
+int zls_retains_why(const IR_graph_t * g, const IR_t * nd) { return (g && nd) ? zls_home_dyn(g, nd) : 0; }
+int zls_g_key_class(const IR_graph_t * g, int off) {
+    zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0;
+    if (!r || r->first_scope < 0 || zls_g_keys_only(g) || off < 0) return 0;
+    int region = r->hf ? r->fregion : r->region;
+    if (!r->kmap) {
+        int hi = region + 16;
+        for (int j = r->first_vslot; j >= 0 && j < r->first_vslot + r->n_vslots && j < g_lower.ir.zv_n; j++) if (zv[j].off + 16 > hi) hi = zv[j].off + 16;
+        r->kmap_n = (hi + 7) / 8;
+        r->kmap = (unsigned char *)ct_zalloc((size_t)(r->kmap_n > 0 ? r->kmap_n : 1), 1);
+        for (int f = 0; f < g_lower.ir.zf_n; f++) {
+            if (zf[f].scope_id < r->first_scope || zf[f].scope_id >= r->first_scope + r->n_scopes || zf[f].size <= 0 || zf[f].off < 0) continue;
+            int c = zf[f].nd ? (zls_frame_resident(zf[f].nd) ? 2 : 3) : 1;
+            for (int u = zf[f].off / 8; u < (zf[f].off + zf[f].size + 7) / 8 && u < r->kmap_n; u++) if (!r->kmap[u] || c == 2 || (c == 3 && r->kmap[u] == 1)) r->kmap[u] = (unsigned char)c;
+        }
+        for (int j = r->first_vslot; j >= 0 && j < r->first_vslot + r->n_vslots && j < g_lower.ir.zv_n; j++) {
+            int par = 0;
+            for (int q = 0; q < g->nparams && g->pnames && zv[j].name; q++) if (g->pnames[q] && !strcmp(g->pnames[q], zv[j].name)) par = 1;
+            int c = (par || zls_home_local_test(g, zv[j].name)) ? 2 : 3;
+            for (int u = zv[j].off / 8; u < (zv[j].off + 16) / 8 && u >= 0 && u < r->kmap_n; u++) r->kmap[u] = (unsigned char)c;
+        }
+        for (int u = region / 8; u < (region + 16) / 8 && u < r->kmap_n; u++) if (!r->kmap[u]) r->kmap[u] = 1;
+    }
+    return off / 8 < r->kmap_n ? r->kmap[off / 8] : 0;
+}
+int zls_g_resident_bytes(const IR_graph_t * g) {
+    zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0;
+    if (!r || r->first_scope < 0 || zls_g_keys_only(g)) return 0;
+    zls_g_key_class(g, 0);
+    int n = 0, region = r->hf ? r->fregion : r->region;
+    for (int u = 0; u < r->kmap_n && u < region / 8; u++) if (r->kmap[u] == 1 || r->kmap[u] == 2) n += 8;
+    return n;
+}
 void zls_g_generator_set(const IR_graph_t * g) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; if (r) r->gen = zls_g_has_suspend(g); }
 int zls_g_generator_top(const IR_graph_t * g) {
     zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0;

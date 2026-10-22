@@ -1653,6 +1653,7 @@ void planner_restore(zeta_plan_t * rec) {
     if (rec->zarm_published) { g_emitter.g_zd_zarm_p = rec->arm; g_emitter.g_zd_zarm_nodes = nodes; g_emitter.g_zd_zarm_n = n; }
 }
 extern "C" long zsm_declared_owner(void);
+extern "C" int zls_retains_why(const IR_graph_t * g, const IR_t * nd);
 extern "C" long zsm_declared_word(void) {
     const IR_t * nd = g_emit.node;
     int n = g_emitter.g_zd_plan_n, i = (nd && g_emitter.g_zd_plan_nodes && g_emitter.g_zd_plan_on) ? nidx(g_emitter.g_zd_plan_nodes, n, nd) : -1;
@@ -1666,13 +1667,61 @@ extern "C" long zsm_declared_word(void) {
     int lb = !zd_check_discard(nd) && !zd_check_arm_env(o);
     long own = o == IR_MATCH_BEGIN ? 64L + emit_match_begin_frame_extra(nd) - ((!g_emit.op_zres && g_emit.op_subj_cell) ? 16L : 0L) : 0L;
     int end = (o == IR_MATCH_END || o == IR_MATCH_REPLACE) && zsm_declared_owner() > 0L;
+    int ret = zls_retains_why(g_emit_cfg, nd) != 0;
     return ((k + own) & 0xFFFFL) | ((gp & 0xFFFFL) << 16) | ((wp & 0xFFFFL) << 32) | (1L << 48) | ((long)rel << 49) | ((long)lg << 50) | ((long)lw << 51) | ((long)lb << 54) |
-        ((long)(own != 0L) << 55) | ((long)end << 56);
+        ((long)(own != 0L) << 55) | ((long)end << 56) | ((long)ret << 57);
 }
 extern "C" long zsm_declared_owner(void) {
     const IR_t * nd = g_emit.node;
     if (!nd || (nd->op != IR_MATCH_END && nd->op != IR_MATCH_REPLACE) || nd->n_operands < 1 || !nd->operands[0] || nd->operands[0]->op != IR_MATCH_BEGIN) return 0L;
     return (long)bb_node_id(nd->operands[0]);
+}
+extern "C" const char * zls_graph_name_get(const IR_graph_t * g);
+extern "C" int zls_g_frame_region(const IR_graph_t * g);
+extern "C" int zls_g_resident_bytes(const IR_graph_t * g);
+extern "C" int zls_g_key_class(const IR_graph_t * g, int off);
+static int zsm_frame_on(void) {
+    if (g_emitter.zsm_frame_on < 0) { const char * e = getenv("SCRIP_ZSM"); g_emitter.zsm_frame_on = (e && *e == '1') ? 1 : 0; }
+    return g_emitter.zsm_frame_on;
+}
+static void zsm_frame_report(void) {
+    for (const auto & r : g_emitter.zsm_frames)
+        fprintf(stderr, "[ZSM-FRAME] graph=%s total=%d region=%d resident=%d frames=%d addrs=%d word=%d resident_addrs=%d outside=%d unbacked=%d rsp_form=%d\n", r.name.c_str(), r.total,
+            r.region, r.resident, r.frames, r.addrs, r.cls[1], r.cls[2], r.cls[3], r.cls[0], r.rsp_form);
+}
+static g_emitter_t::zsm_frame_rec_t * zsm_frame_rec(void) {
+    const IR_graph_t * g = g_emit_cfg;
+    if (!g) return (g_emitter_t::zsm_frame_rec_t *)0;
+    int L = g_emitter.zsm_frames_last;
+    if (L >= 0 && L < (int)g_emitter.zsm_frames.size() && g_emitter.zsm_frames[(size_t)L].g == g) return &g_emitter.zsm_frames[(size_t)L];
+    for (size_t k = 0; k < g_emitter.zsm_frames.size(); k++) if (g_emitter.zsm_frames[k].g == g) { g_emitter.zsm_frames_last = (int)k; return &g_emitter.zsm_frames[k]; }
+    if (g_emitter.zsm_frames.empty()) atexit(zsm_frame_report);
+    const char * nm = zls_graph_name_get(g);
+    g_emitter_t::zsm_frame_rec_t r = { g, std::string(nm ? nm : "?"), zls_g_frame_region(g), zls_g_resident_bytes(g), 0, 0, { 0, 0, 0, 0 }, 0, 0 };
+    g_emitter.zsm_frames.push_back(r);
+    g_emitter.zsm_frames_last = (int)g_emitter.zsm_frames.size() - 1;
+    return &g_emitter.zsm_frames.back();
+}
+extern "C" void zsm_frame_addr(int off, int cls, int rsp_form) {
+    if (!zsm_frame_on()) return;
+    g_emitter_t::zsm_frame_rec_t * r = zsm_frame_rec();
+    if (!r) return;
+    int c = cls >= 0 ? cls : zls_g_key_class(g_emit_cfg, off);
+    if (c == 0 && off >= r->region + 16 && off < r->total) c = 1;
+    if (g_emitter.zsm_frame_diag < 0) { const char * e = getenv("SCRIP_ZSM_FRAME_DIAG"); g_emitter.zsm_frame_diag = (e && *e == '1') ? 1 : 0; }
+    if (g_emitter.zsm_frame_diag && (c == 0 || c == 3))
+        fprintf(stderr, "[ZSM-FRAME-ADDR] graph=%s class=%s op=%s off=%d region=%d form=%s\n", r->name.c_str(), c ? "outside" : "unbacked", g_emit.node ? bb_op_name(g_emit.node->op) : "-", off,
+            r->region, rsp_form ? "rsp" : "frame");
+    r->addrs++;
+    r->cls[c & 3]++;
+    r->rsp_form += rsp_form ? 1 : 0;
+}
+extern "C" void zsm_frame_carve(int frame_bytes) {
+    if (!zsm_frame_on()) return;
+    g_emitter_t::zsm_frame_rec_t * r = zsm_frame_rec();
+    if (!r) return;
+    r->frames++;
+    if (frame_bytes > r->total) r->total = frame_bytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void planner_pass_plan(IR_t * entry, const char * prefix) { zeta_plan_t * rec = planner_chain_plan(entry, prefix); rec->cfg = g_emit_cfg; rec->key = entry; g_emitter.planner_table[entry] = rec; }
