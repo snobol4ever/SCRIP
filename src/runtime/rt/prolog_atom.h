@@ -3,6 +3,7 @@
 #define PL_ATOM_H
 #include <stddef.h>
 #include <limits.h>
+#include "g_runtime.h"
 void prolog_atom_init(void);
 int prolog_atom_intern(const char *name);
 int prolog_atom_intern_n(const char *s, size_t n);
@@ -24,10 +25,4 @@ int prolog_op_cols_ready(void);
 int prolog_op_col_user(int atom, int fix);
 void prolog_op_col_set_u(int atom, int prec, const char *ty, int user);
 const char *prolog_op_type_name(int code);
-extern int g_atom_dot;
-extern int g_atom_nil;
-extern int g_atom_true;
-extern int g_atom_fail;
-extern int g_atom_cut;
-extern int g_functor_dot2;
 #endif

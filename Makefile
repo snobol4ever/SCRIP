@@ -1497,6 +1497,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/core/stmt_exec.c \
     $(SRC)/runtime/runtime_eval.c \
     $(SRC)/runtime/runtime_init.c \
+    $(SRC)/runtime/g_runtime.c \
     $(SRC)/runtime/io_format.c \
     $(SRC)/runtime/arithmetic.c \
     $(SRC)/runtime/bignum.c \
