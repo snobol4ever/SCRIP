@@ -2323,7 +2323,7 @@ void fl_derive_tier(IR_graph_t * g) {
             case IR_MATCH_ASSIGN_IMM:
             case IR_MATCH_ASSIGN_SAVE:
             case IR_MATCH_SPAN_VAR:
-            statements = 1;
+            if (!g->block_args) statements = 1;
             break;
             default:
             break;
