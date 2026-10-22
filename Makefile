@@ -43,6 +43,17 @@ OBJ     ?= /tmp/si_objs$(subst /,-,$(ROOT))
 BUILD_LOCK ?= /tmp/si_pristine_lock$(subst /,-,$(ROOT))
 CC      := gcc
 CXX     := g++
+# ⛔⭐ ONE COMPILE CACHE FOR THE WHOLE FLEET (ceo CEO-1879; Lon 2026-10-21 18:5x CDT, in-chat to the ceo, verbatim: "Why is the load so high? Why do recompiles re-compile everything all the
+# time?"; measured CEO-1876: sixteen trees compiled every commit separately, no cache on the box). ccache keys on the preprocessed source and the flags, so a hit is the same compile and
+# s150's per-tree objdir guard still holds. It enters through its wrapper directory on PATH, so every printed command still reads gcc/g++ (test_gate_no_implicit_declarations greps them).
+# CCACHE_BASEDIR=/home rewrites each tree's absolute paths relative to its own SCRIP, and DBGMAP maps the tree to "." in the debug info, so one tree's hit is another's and gdb reads the
+# tree it runs in. S4E_NO_CCACHE=1 on the command line or in the environment builds without it (the control arm). A tree outside /home (the /tmp placement watch) caches only with itself.
+ifeq ($(S4E_NO_CCACHE)$(wildcard /usr/lib/ccache/gcc),/usr/lib/ccache/gcc)
+export PATH := /usr/lib/ccache:$(PATH)
+export CCACHE_BASEDIR := /home
+export CCACHE_NOHASHDIR := true
+endif
+DBGMAP  := -fdebug-prefix-map=$(ROOT)=.
 WARN    := -w
 RT_OPT  ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⛔⭐ NO -O2 BUILDS, EVER (Lon 2026-08-23 s262 FACT RULE, SUPERSEDES O0-DEV-O2-BENCH/s179 and O2-ALWAYS/s178): -O0 for development AND benchmarks AND demos. Never pass RT_OPT="-O2 ...", never build an -O2 RT_TAG, never quote an -O2 number as current state. Two reasons, the second stronger: (1) an -O2 template-touching rebuild is ~9m30 vs ~1m40, paid on every arm of a measure-and-cure loop; (2) it measures a compiler we are DELETING — the RT is moving to register-aware ASM (src/runtime/rtx/*.s, GOAL-RTCC.md), so an -O2 figure grades gcc's optimizer over code that will not exist. The LABELING duty survives: every perf number still names its RT_OPT, and it now reads -O0. Authority: .github/RULES.md § NO -O2 BUILDS.
 # ⛔ THE FAN-OUT WIDTH OF `make test` READS THE LOAD FIRST (ceo CEO-1333, Lon's ECONOMY word, 2026-09-27 17:2x: cap concurrent children at
@@ -53,9 +64,9 @@ TEST_SHARDS ?= $(shell bash ../harness/scripts/lib_fanout.sh width)
 # ⛔⭐⭐⭐⭐ THE DEFAULT ARENA IS 128 KB AND IT IS COMPILED IN, NOT EXPORTED (Lon 2026-09-21 17:3x, in-chat to the ceo: "So let's take the default GC arena down to 128 KB."; ceo CEO-1095). GC_HEAP_KB in gc_heap.c is the default, so it travels with the BINARY and needs no make variable -- which also retires the blanket `export SCRIP_HEAP_MB ?= 1` this line used to carry, the one test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh arm 1 refuses by name because it changed what every existing gate measured and masked standing reds. MEASURED on two allocating witnesses: 128 KB is the PEAK of collector exasperation, not the floor -- icon concat 1613 collections at 1 MB, 7533 at 256 KB, 21362 at 128 KB, then DOWN to 5429 at 64 KB because the live set no longer fits and the window GROWS. Below the peak, smaller is LESS exasperating.
 SCRIP_HEAP_KB_TINY ?= 128  # kept as the knob `make arena` raises; the old note follows. THE TINY ARENA IS THE EXERCISER OF ALL GC TESTING, AND IT WAS ITS OWN PASS UNTIL CEO-1075 (`make test-arena`), NOT THE BLOCKING SET'S ENVIRONMENT (Lon 2026-09-19 16:1x, in-chat to the ceo, verbatim: "Actually, for all GC testing all seats should use a tiny arena to exasperate all the problems all the time."; ceo CEO-931/934/938/939, RULES.md § THE INSTRUMENT LAWS, TWENTY-EIGHTH BATCH CLAUSE 2). SCRIP_HEAP_MB is the COMMITTED WINDOW in MB (rt_gcheap_init); at 1 MB a program collects wherever it allocates a megabyte -- 1614 collections against SIX at the shipped 512 on corpus/benchmarks/icon/bench_icnstr_concat_table.icn, stdout identical -- and the reserve is the larger of 8x the window and the shipped default's, so a tiny window REFUSES NO LIVE SET (the cap used to be 8x the window and manufactured three phantom SIGABRTs on the SNOBOL4 rungs; cured at SCRIP e6aab28c7). ⛔ MEASURED AND REVERSED THE SAME SITTING (CEO-939): this was first landed as a blanket `export SCRIP_HEAP_MB ?= 1` here, so every arm of `make test` inherited it. The full 360-arm set then read 326 green / 32 red / 2 refused, and the classification says why that is the wrong shape -- gates that grade the SHIPPED configuration's behaviour flipped red for an arena nobody ships (gc2's Arizona witness and the co-expression frame image are green at 512 and red at 1 MB), while other reds were standing reds the export got blamed for. A landing gate must grade what we ship; the tiny arena is the SECOND pass whose every red is a row. Same logic as CLAUSE 2's published-row refinement.
 DEPFLAGS := -MMD -MP
-CBASE   := -O0 -g $(WARN) $(DEPFLAGS) -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
+CBASE   := -O0 -g $(DBGMAP) $(WARN) $(DEPFLAGS) -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 ZCFLAGS ?=
-CXXRT   := -O0 -g $(WARN) $(DEPFLAGS) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/templates/bb -I$(SRC)/templates/xa -I$(SRC)/templates/x86 -I$(RT) $(ZCFLAGS)
+CXXRT   := -O0 -g $(DBGMAP) $(WARN) $(DEPFLAGS) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/templates/bb -I$(SRC)/templates/xa -I$(SRC)/templates/x86 -I$(RT) $(ZCFLAGS)
 CRT     := $(CBASE) $(ZCFLAGS)
 LIBS    := -lm -lpthread
 
@@ -1746,13 +1757,13 @@ vpath %.s $(sort $(dir $(RT_PIC_SRCS)))
 $(RT_OBJDIR):
 	@mkdir -p $(RT_OBJDIR)
 $(RT_OBJDIR)/%.o: %.c $(RT)/rt/rt.h | $(RT_OBJDIR)
-	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -c $< -o $@
+	$(CC) $(RT_OPT) -g $(DBGMAP) $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.cpp $(RT)/rt/rt.h | $(RT_OBJDIR)
-	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC -fno-gnu-unique -std=c++17 -finput-charset=UTF-8 $(RT_INCS) $(ZCFLAGS) -c $< -o $@
+	$(CC) $(RT_OPT) -g $(DBGMAP) $(WARN) $(DEPFLAGS) -fPIC -fno-gnu-unique -std=c++17 -finput-charset=UTF-8 $(RT_INCS) $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.S | $(RT_OBJDIR)
-	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -c $< -o $@
+	$(CC) $(RT_OPT) -g $(DBGMAP) $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.s | $(RT_OBJDIR)
-	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -x assembler-with-cpp -c $< -o $@
+	$(CC) $(RT_OPT) -g $(DBGMAP) $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -x assembler-with-cpp -c $< -o $@
 # ⛔⭐ THE PREVIOUS .so IS KEPT, BY CONTENT HASH, BEFORE THIS LINK OVERWRITES IT (hq_T 2026-09-09, on the ceo's rank-0 row;
 # asked for by name in FINDING-2026-09-09-hq_P item 3). THE MEASURED CASE: hq_P caught a completed `make` whose binary
 # emitted code its own templates do not contain, wanted to settle it by diffing the two libraries, and could not --
