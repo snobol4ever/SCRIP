@@ -3671,6 +3671,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     if (gout) *gout = g;
     g->resumable_callable = 1;
     if (pkt_slot >= 0) { g->pkt_fragment = 1; g->pkt_cell = pkt_cell; g->pkt_slot = pkt_slot; }
+    { extern void optimizer_run(IR_graph_t *); optimizer_run(g); }
     { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
     { extern void fl_derive_tier(IR_graph_t *); fl_derive_tier(g); }
     { extern void ir_drive_slot_assign(IR_graph_t *); ir_drive_slot_assign(g); }
