@@ -1,4 +1,5 @@
 #include "gen_runtime.h"
+#include "g_runtime.h"
 #include "ct_arena.h"
 #include "gen_value.h"
 #include "ast.h"
@@ -16,25 +17,20 @@ extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
 extern int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 tree_t *g_root = NULL;
 unsigned long g_bb_rnd_seed = 12345UL;
-static const char g_scan_empty[1] = "";
-const char *g_scan_subj = g_scan_empty;
-long g_scan_subj_len = 0;
-const char *g_scan_subj_ptr = g_scan_empty;
+const char g_scan_empty[1] = "";
 long rt_scan_subj_len(void);
 void rt_scan_subj_len_set(const char *p, long n);
-int g_scan_pos = 1;
-int g_scan_depth = 0;
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_scan_active(void) { return (g_scan_depth > 0) || (g_scan_subj && g_scan_subj[0] != 0) || (g_scan_pos != 1); }
+int rt_scan_active(void) { return (g_runtime.abi.scan_depth > 0) || (g_runtime.abi.scan_subj && g_runtime.abi.scan_subj[0] != 0) || (g_runtime.abi.scan_pos != 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_scan_state_capture(void *prev) {
     ScanState *s = (ScanState *)prev;
     if (!s) s = (ScanState *)ct_zalloc(1, sizeof(ScanState));
     if (!s) return NULL;
-    s->subj = g_scan_subj;
-    s->pos = g_scan_pos;
-    s->depth = g_scan_depth;
+    s->subj = g_runtime.abi.scan_subj;
+    s->pos = g_runtime.abi.scan_pos;
+    s->depth = g_runtime.abi.scan_depth;
     s->len = rt_scan_subj_len();
     return s;
 }
@@ -42,27 +38,27 @@ void *rt_scan_state_capture(void *prev) {
 void rt_scan_state_apply(void *saved) {
     ScanState *s = (ScanState *)saved;
     if (!s) return;
-    g_scan_subj = s->subj ? s->subj : g_scan_empty;
-    g_scan_pos = s->pos;
-    g_scan_depth = s->depth;
-    rt_scan_subj_len_set(g_scan_subj, (s->subj && s->len >= 0) ? s->len : 0);
+    g_runtime.abi.scan_subj = s->subj ? s->subj : g_scan_empty;
+    g_runtime.abi.scan_pos = s->pos;
+    g_runtime.abi.scan_depth = s->depth;
+    rt_scan_subj_len_set(g_runtime.abi.scan_subj, (s->subj && s->len >= 0) ? s->len : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_scan_state_reset(void) { g_scan_subj = g_scan_empty; g_scan_pos = 1; g_scan_depth = 0; rt_scan_subj_len_set(g_scan_subj, 0); }
+void rt_scan_state_reset(void) { g_runtime.abi.scan_subj = g_scan_empty; g_runtime.abi.scan_pos = 1; g_runtime.abi.scan_depth = 0; rt_scan_subj_len_set(g_runtime.abi.scan_subj, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned long rt_scan_state_size(void) { return (unsigned long)sizeof(ScanState); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_scan_subj_len(void) {
-    extern const char *g_scan_subj;
-    if (!g_scan_subj) return -1;
-    if (g_scan_subj_ptr == g_scan_subj && g_scan_subj_len >= 0) return g_scan_subj_len;
+    if (!g_runtime.abi.scan_subj) return -1;
+    if (g_runtime.abi.scan_subj_ptr == g_runtime.abi.scan_subj && g_runtime.abi.scan_subj_len >= 0) return g_runtime.abi.scan_subj_len;
     fflush(stdout);
     fprintf(stderr,
         "scrip: internal error: the scan subject's length was not carried (subject %p, cached %p len %ld) -- a subject was set without "
-        "rt_scan_subj_len_set, or moved without its cache; measuring it would lose an embedded NUL\n", (const void *)g_scan_subj, (const void *)g_scan_subj_ptr, g_scan_subj_len);
+        "rt_scan_subj_len_set, or moved without its cache; measuring it would lose an embedded NUL\n", (const void *)g_runtime.abi.scan_subj, (const void *)g_runtime.abi.scan_subj_ptr,
+        g_runtime.abi.scan_subj_len);
     abort();
 }
-void rt_scan_subj_len_set(const char *p, long n) { g_scan_subj_ptr = p; g_scan_subj_len = n; }
+void rt_scan_subj_len_set(const char *p, long n) { g_runtime.abi.scan_subj_ptr = p; g_runtime.abi.scan_subj_len = n; }
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     uint64_t w[2];
     w[0] = lo;
@@ -71,20 +67,20 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     memcpy(&sv, w, sizeof sv);
     if (sv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); sv = STRVAL(rt_big_str(sv)); } else if (core_icn_argtype_check(lo, hi, 103)) { ScanSubjRegs z; z.ptr = 0; z.len = 0; return z; }
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
-    g_scan_depth++;
+    g_runtime.abi.scan_depth++;
     rt_gc_point(&sv, (const char **)0);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
-    g_scan_subj = s;
-    g_scan_pos = 1;
+    g_runtime.abi.scan_subj = s;
+    g_runtime.abi.scan_pos = 1;
     uint64_t L;
     if (IS_CSET_fn(sv)) {
         extern int kw_cset_len(const char *);
         int kn = sv.s ? kw_cset_len(sv.s) : -1;
         L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s);
     } else L = (sv.v == DT_S && sv.slen) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
-    g_scan_subj_ptr = s;
-    g_scan_subj_len = (long)L;
+    g_runtime.abi.scan_subj_ptr = s;
+    g_runtime.abi.scan_subj_len = (long)L;
     ScanSubjRegs r;
     r.ptr = (uint64_t)(uintptr_t)s;
     r.len = L;
@@ -113,27 +109,27 @@ ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len) {
-    if (g_scan_depth > 0) g_scan_depth--;
-    g_scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
-    g_scan_pos = (int)outer_delta + 1;
-    rt_scan_subj_len_set(g_scan_subj, outer_sigma ? (long)outer_len : 0);
+    if (g_runtime.abi.scan_depth > 0) g_runtime.abi.scan_depth--;
+    g_runtime.abi.scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
+    g_runtime.abi.scan_pos = (int)outer_delta + 1;
+    rt_scan_subj_len_set(g_runtime.abi.scan_subj, outer_sigma ? (long)outer_len : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_scan_sync_out(uint64_t delta) { g_scan_pos = (int)delta + 1; }
-uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(g_scan_pos - 1); }
-uint64_t rt_scan_live_subj(void) { return (uint64_t)(uintptr_t)(g_scan_subj ? g_scan_subj : ""); }
+void rt_scan_sync_out(uint64_t delta) { g_runtime.abi.scan_pos = (int)delta + 1; }
+uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(g_runtime.abi.scan_pos - 1); }
+uint64_t rt_scan_live_subj(void) { return (uint64_t)(uintptr_t)(g_runtime.abi.scan_subj ? g_runtime.abi.scan_subj : ""); }
 ScanSubjRegs rt_scan_live_regs(void) {
     ScanSubjRegs r;
-    long n = g_scan_subj ? rt_scan_subj_len() : 0;
-    r.ptr = (uint64_t)(uintptr_t)(g_scan_subj ? g_scan_subj : g_scan_empty);
+    long n = g_runtime.abi.scan_subj ? rt_scan_subj_len() : 0;
+    r.ptr = (uint64_t)(uintptr_t)(g_runtime.abi.scan_subj ? g_runtime.abi.scan_subj : g_scan_empty);
     r.len = (uint64_t)(n > 0 ? n : 0);
     return r;
 }
 ScanSubjRegs rt_scan_reenter_live(uint64_t subj, uint64_t len) {
     const char *s = subj ? (const char *)(uintptr_t)subj : g_scan_empty;
     long n = (s == g_scan_empty) ? 0 : (long)(uint32_t)len;
-    g_scan_depth++;
-    g_scan_subj = s;
+    g_runtime.abi.scan_depth++;
+    g_runtime.abi.scan_subj = s;
     rt_scan_subj_len_set(s, n);
     ScanSubjRegs r;
     r.ptr = (uint64_t)(uintptr_t)s;
@@ -172,11 +168,6 @@ ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     r.len = L;
     return r;
 }
-#if RT_DIAG
-__attribute__((visibility("hidden"))) int g_repl_trace = -1;
-#else
-__attribute__((visibility("hidden"))) int g_repl_trace = 0;
-#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_t start, int64_t end, DESCR_t *replp) {
     extern char * rt_str_alloc(long n);
@@ -203,8 +194,8 @@ void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int6
     if (end > slen) end = slen;
 #if RT_DIAG
     {
-        int _rpt = g_repl_trace;
-        if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = g_repl_trace = (_e && _e[0]) ? 1 : 0; }
+        int _rpt = g_runtime.abi.repl_trace;
+        if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = g_runtime.abi.repl_trace = (_e && _e[0]) ? 1 : 0; }
         if (_rpt)
             fprintf(stderr, "[REPL] name=%s slen=%lld raw_start=%lld raw_end=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)raw_start,
             (long long)raw_end, (long long)start, (long long)end, rs, (long long)rlen);
@@ -223,8 +214,11 @@ DESCR_t rt_match_capture(uint64_t sigma, int64_t start, int64_t end, const char 
     return sub;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_keyword_subject(void) { if (!g_scan_subj) return NULVCL; { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_scan_subj, n) : STRVAL(g_scan_subj); } }
-DESCR_t rt_keyword_pos(void) { return INTVAL((int64_t)g_scan_pos); }
+DESCR_t rt_keyword_subject(void) {
+    if (!g_runtime.abi.scan_subj) return NULVCL;
+    { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_runtime.abi.scan_subj, n) : STRVAL(g_runtime.abi.scan_subj); }
+}
+DESCR_t rt_keyword_pos(void) { return INTVAL((int64_t)g_runtime.abi.scan_pos); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long cvpos_of(DESCR_t v, long len, int *ok) {
     long i;
@@ -247,20 +241,20 @@ DESCR_t rt_keyword_pos_set_strict(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_pos_set(DESCR_t v) {
-    long len = g_scan_subj ? rt_scan_subj_len() : 0;
+    long len = g_runtime.abi.scan_subj ? rt_scan_subj_len() : 0;
     int ok;
     long p = cvpos_of(v, len, &ok);
     if (!ok) return FAILDESCR;
-    g_scan_pos = (int)p;
+    g_runtime.abi.scan_pos = (int)p;
     return INTVAL((int64_t)p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rsw_get(long kind, DESCR_t *vp, int64_t *spill) {
     if (kind == 0) return vp ? *vp : NULVCL;
-    if (kind == 1) return INTVAL(spill ? spill[0] + 1 : (int64_t)g_scan_pos);
-    if (kind == 3) { extern long g_random; return INTVAL((int64_t)g_random); }
-    if (kind == 4) { extern long g_error; return INTVAL((int64_t)g_error); }
-    if (kind == 6) { extern long g_dump; return INTVAL((int64_t)g_dump); }
+    if (kind == 1) return INTVAL(spill ? spill[0] + 1 : (int64_t)g_runtime.abi.scan_pos);
+    if (kind == 3) { return INTVAL((int64_t)g_runtime.abi.random); }
+    if (kind == 4) { return INTVAL((int64_t)g_runtime.abi.error); }
+    if (kind == 6) { return INTVAL((int64_t)g_runtime.abi.dump); }
     fprintf(stderr, "[REVSWAP] FATAL: <-> read of unimplemented keyword kind %ld (only plain vars and &pos are wired; add the kind to rsw_get/rsw_set)\n", kind);
     abort();
 }
@@ -268,12 +262,12 @@ static DESCR_t rsw_get(long kind, DESCR_t *vp, int64_t *spill) {
 static int rsw_set(long kind, DESCR_t *vp, int64_t *spill, DESCR_t v) {
     if (kind == 0) { if (vp) *vp = v; return 1; }
     if (kind == 1) {
-        long len = spill ? (long)spill[1] : (g_scan_subj ? rt_scan_subj_len() : 0);
+        long len = spill ? (long)spill[1] : (g_runtime.abi.scan_subj ? rt_scan_subj_len() : 0);
         int ok;
         long p = cvpos_of(v, len, &ok);
         if (!ok) return 0;
         if (spill) spill[0] = (int64_t)(p - 1);
-        else g_scan_pos = (int)p;
+        else g_runtime.abi.scan_pos = (int)p;
         return 1;
     }
     extern DESCR_t rt_keyword_random_set(DESCR_t), rt_keyword_error_set(DESCR_t), rt_keyword_dump_set(DESCR_t);
@@ -336,8 +330,8 @@ ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi) {
         int kn = kw_cset_len(s);
         L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s);
     } else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
-    g_scan_subj = s;
-    g_scan_pos = 1;
+    g_runtime.abi.scan_subj = s;
+    g_runtime.abi.scan_pos = 1;
     rt_scan_subj_len_set(s, (long)L);
     ScanSubjRegs r;
     r.ptr = (uint64_t)(uintptr_t)s;
@@ -346,55 +340,50 @@ ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_random_set(DESCR_t v) {
-    extern long g_random;
     long i;
     if (v.v == DT_I) i = (long)v.i;
     else if (v.v == DT_R) i = (long)v.r;
     else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; } else return FAILDESCR;
-    g_random = i;
+    g_runtime.abi.random = i;
     return INTVAL((int64_t)i);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_error_set(DESCR_t v) {
-    extern long g_error;
     long i;
     if (v.v == DT_I) i = (long)v.i;
     else if (v.v == DT_R) i = (long)v.r;
     else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; } else return FAILDESCR;
-    g_error = i;
+    g_runtime.abi.error = i;
     return INTVAL((int64_t)i);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 DESCR_t rt_keyword_trace_set(DESCR_t v) {
-    extern long g_trace;
     long i;
     if (v.v == DT_I) i = (long)v.i;
     else if (v.v == DT_R) i = (long)v.r;
     else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; } else return FAILDESCR;
-    g_trace = i;
+    g_runtime.abi.trace = i;
     { extern void rt_trace_all_set(int on); rt_trace_all_set(i != 0); }
     return INTVAL((int64_t)i);
 }
 #else
 DESCR_t rt_keyword_trace_set(DESCR_t v) {
-    extern long g_trace;
     long i;
     if (v.v == DT_I) i = (long)v.i;
     else if (v.v == DT_R) i = (long)v.r;
     else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; } else return FAILDESCR;
-    g_trace = i;
+    g_runtime.abi.trace = i;
     return INTVAL((int64_t)i);
 }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_dump_set(DESCR_t v) {
-    extern long g_dump;
     long i;
     if (v.v == DT_I) i = (long)v.i;
     else if (v.v == DT_R) i = (long)v.r;
     else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; } else return FAILDESCR;
-    g_dump = i;
+    g_runtime.abi.dump = i;
     return INTVAL((int64_t)i);
 }
 #include "../../driver/driver_private.h"
@@ -403,8 +392,8 @@ DESCR_t rt_keyword_dump_set(DESCR_t v) {
 void gen_gc_roots(void) {
     extern void rt_gc_visit_descr(DESCR_t *d);
     extern void rt_gc_visit_raw(const char **loc);
-    if (g_scan_subj_ptr == g_scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);
-    rt_gc_visit_raw(&g_scan_subj);
+    if (g_runtime.abi.scan_subj_ptr == g_runtime.abi.scan_subj) rt_gc_visit_raw(&g_runtime.abi.scan_subj_ptr);
+    rt_gc_visit_raw(&g_runtime.abi.scan_subj);
     { extern void rt_coexpr_gc_scan_states(void); rt_coexpr_gc_scan_states(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

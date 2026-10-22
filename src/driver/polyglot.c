@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "g_runtime.h"
 #include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
@@ -24,10 +25,10 @@ void polyglot_init(stage2_t *s2, const tree_t *prog) {
     g_fi8_gen_init_count++;
     s2->proc_count = 0;
     { extern void global_reset(void); global_reset(); }
-    g_scan_subj = "";
-    g_scan_pos = 1;
-    g_scan_depth = 0;
-    { extern void rt_scan_subj_len_set(const char *, long); rt_scan_subj_len_set(g_scan_subj, 0); }
+    g_runtime.abi.scan_subj = "";
+    g_runtime.abi.scan_pos = 1;
+    g_runtime.abi.scan_depth = 0;
+    { extern void rt_scan_subj_len_set(const char *, long); rt_scan_subj_len_set(g_runtime.abi.scan_subj, 0); }
     g_root = NULL;
     prolog_atom_init();
     memset(&s2->resolve_pred_table, 0, sizeof s2->resolve_pred_table);

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "g_runtime.h"
 #include "rtx_try.h"
 #include <errno.h>
 #include "ct_arena.h"
@@ -447,7 +448,7 @@ static int subscript_set_body(DESCR_t arr, DESCR_t idx, DESCR_t val) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) { int ok = subscript_set_body(arr, idx, val); if (ok && g_trace_budget != 0) sno_trace_value("<lval>", val); return ok; }
+int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) { int ok = subscript_set_body(arr, idx, val); if (ok && g_runtime.abi.trace_budget != 0) sno_trace_value("<lval>", val); return ok; }
 #else
 int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) { return subscript_set_body(arr, idx, val); }
 #endif
@@ -530,7 +531,11 @@ static int subscript_set2_body(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) { int ok = subscript_set2_body(arr, i, j, val); if (ok && g_trace_budget != 0) sno_trace_value("<lval>", val); return ok; }
+int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) {
+    int ok = subscript_set2_body(arr, i, j, val);
+    if (ok && g_runtime.abi.trace_budget != 0) sno_trace_value("<lval>", val);
+    return ok;
+}
 #else
 int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) { return subscript_set2_body(arr, i, j, val); }
 #endif
@@ -827,9 +832,11 @@ static DESCR_t sort_impl(DESCR_t arr, DESCR_t col, int rev) {
 DESCR_t sort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 0); }
 DESCR_t rsort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-uint64_t g_sno_defer_cells[2048];
 static int g_sno_defer_pair_hwm = 0;
-void rt_defer_pairs_forget(void) { for (int i = 0; i < g_sno_defer_pair_hwm; i++) { g_sno_defer_cells[i * 2] = 0; g_sno_defer_cells[i * 2 + 1] = 0; } g_sno_defer_pair_hwm = 0; }
+void rt_defer_pairs_forget(void) {
+    for (int i = 0; i < g_sno_defer_pair_hwm; i++) { g_runtime.abi.sno_defer_cells[i * 2] = 0; g_runtime.abi.sno_defer_cells[i * 2 + 1] = 0; }
+    g_sno_defer_pair_hwm = 0;
+}
 #include "pin_va.h"
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
 const char *g_dcap_base = 0;
@@ -885,13 +892,7 @@ typedef struct {
 } rt_dcf_t;
 typedef struct { long fn; long how; } rt_dcap_next_t;
 _Static_assert(sizeof(rt_dcap_next_t) == 16, "bb_match_end reads the pump result as rax = entry (0 done, 1 refuse) and rdx = protocol (2 = the alpha tiny record, else wires)");
-extern uint32_t g_cap_gen;
 __attribute__((visibility("hidden"))) uint32_t g_cap_abort_gen;
-#if RT_DIAG
-__attribute__((visibility("hidden"))) int g_dcap_trace = -1;
-#else
-__attribute__((visibility("hidden"))) int g_dcap_trace = 0;
-#endif
 _Static_assert(sizeof(rt_dcf_t) == 224 && offsetof(rt_dcf_t, pend) == 112,
     "bb_match_end.cpp release_pump and bb_match_flush.cpp flush_pump carve the commit-pump record as 224 bytes of spine: seven cells and the pending value trace at +112, whose first cell the box zer"
     "oes");
@@ -903,19 +904,15 @@ _Static_assert(offsetof(rt_dcf_t, nhr_v) == 80 && offsetof(rt_dcf_t, nsb) == 88 
     offsetof(rt_dcf_t, wsv) == 104 && offsetof(rt_dcf_t, asv) == 108, "rtx_match.s rt_dcap_end_ok_open writes the two DT_I flag cells at +80 and +96 with their payloads zero");
 _Static_assert(sizeof(DESCR_t) == 16 && DT_S == 2 && DT_I == 3, "rtx_match.s rt_dcap_end_ok_open stores the cell tags as imm32 qwords");
 #define RT_DCAP_NVCACHE_N 16
-__attribute__((visibility("hidden"))) const char *g_dcap_nv_key[RT_DCAP_NVCACHE_N];
-__attribute__((visibility("hidden"))) DESCR_t *g_dcap_nv_cell[RT_DCAP_NVCACHE_N];
-__attribute__((visibility("hidden"))) unsigned long g_dcap_nv_seen[RT_DCAP_NVCACHE_N];
 _Static_assert(sizeof(rt_dcap_e) == 24 && offsetof(rt_dcap_e, varname) == 0 && offsetof(rt_dcap_e, saved_delta) == 8 && offsetof(rt_dcap_e, len) == 16 && RT_DCAP_NVCACHE_N == 16 &&
     sizeof(unsigned long) == 8, "rtx_match.s rt_dcap_fast_run walks 24-byte capture entries and indexes the three 16-slot cache arrays with the same hash as rt_dcap_nv_cell");
 _Static_assert(offsetof(DESCR_t, slen) == 4 && DT_S == 2, "rtx_match.s rt_dcap_fast_run builds the string cell as (len << 32) | DT_S");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) DESCR_t *rt_dcap_nv_cell(const char *name) {
-    extern unsigned long g_nv_memo_gen;
     unsigned i = (unsigned)((((uintptr_t)name * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
-    if (g_dcap_nv_key[i] == name && g_dcap_nv_seen[i] == g_nv_memo_gen) return g_dcap_nv_cell[i];
+    if (g_runtime.abi.dcap_nv_key[i] == name && g_runtime.abi.dcap_nv_seen[i] == g_runtime.abi.nv_memo_gen) return g_runtime.abi.dcap_nv_cell[i];
     DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name);
-    if (cell) { g_dcap_nv_key[i] = name; g_dcap_nv_cell[i] = cell; g_dcap_nv_seen[i] = g_nv_memo_gen; }
+    if (cell) { g_runtime.abi.dcap_nv_key[i] = name; g_runtime.abi.dcap_nv_cell[i] = cell; g_runtime.abi.dcap_nv_seen[i] = g_runtime.abi.nv_memo_gen; }
     return cell;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -943,8 +940,8 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
 #if RT_DIAG
     if (IS_FAIL_fn(nm)) {
         if (strict) {
-            if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; }
-            if (g_dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: call FAILED -> rc=1 (match will fail at END)\n", dcf_name(c->star));
+            if (g_runtime.abi.dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_runtime.abi.dcap_trace = (_e && _e[0]) ? 1 : 0; }
+            if (g_runtime.abi.dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: call FAILED -> rc=1 (match will fail at END)\n", dcf_name(c->star));
             c->rc = 1;
             return 1;
         }
@@ -952,8 +949,8 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
         return 0;
     }
     if (strict && !by_name) {
-        if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; }
-        if (g_dcap_trace)
+        if (g_runtime.abi.dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_runtime.abi.dcap_trace = (_e && _e[0]) ? 1 : 0; }
+        if (g_runtime.abi.dcap_trace)
             fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: returned a VALUE not a NAME (by_name=0, nm.v=%d, nm.slen=%u, nm.s=%.24s) -> rc=1 (match will fail at END)\n", dcf_name(c->star), (int)nm.v,
             nm.slen, (nm.v == DT_S && nm.s) ? nm.s : "?");
         c->rc = 1;
@@ -978,8 +975,7 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
 __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
     extern long rt_proc_call_open(const char *name, int nargs);
     extern int rt_g_want_name;
-    extern int g_protected_pat_vars_armed;
-    if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) { g_cap_abort_gen = 0; return (rt_dcap_next_t){ 1, 0 }; }
+    if (g_cap_abort_gen && g_cap_abort_gen == g_runtime.abi.cap_gen) { g_cap_abort_gen = 0; return (rt_dcap_next_t){ 1, 0 }; }
     if (!c) { rt_bomb("rt_dcap_pump: no spine record -- release_pump carves one before rt_dcap_end_ok_open"); return (rt_dcap_next_t){ 1, 0 }; }
 #if RT_DIAG
     int _cva = comm_var_active();
@@ -1006,16 +1002,16 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
         if (!e->varname) { c->cur += sizeof(rt_dcap_e); continue; }
         if (_fast_ok && e->len > 0 && c->subj && e->varname[0] != '*') {
             extern int Σlen;
-            extern unsigned long g_nv_memo_gen;
             unsigned fi = (unsigned)((((uintptr_t)e->varname * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
 #if RT_DIAG
             if (_cva) goto dcap_slow;
 #endif
-            if (g_dcap_nv_key[fi] == e->varname && g_dcap_nv_seen[fi] == g_nv_memo_gen && (int)e->len <= Σlen && (long long)e->saved_delta + (long long)e->len <= (long long)Σlen) {
+            if (g_runtime.abi.dcap_nv_key[fi] == e->varname && g_runtime.abi.dcap_nv_seen[fi] == g_runtime.abi.nv_memo_gen && (int)e->len <= Σlen &&
+                (long long)e->saved_delta + (long long)e->len <= (long long)Σlen) {
                 rt_sxt_break_fast(c->subj);
                 DESCR_t fd = (DESCR_t){ .v = DT_S, .slen = (uint32_t)e->len, .s = (char *)c->subj + e->saved_delta };
                 rt_sxt_break_fast(fd.s);
-                *g_dcap_nv_cell[fi] = fd;
+                *g_runtime.abi.dcap_nv_cell[fi] = fd;
                 c->cur += sizeof(rt_dcap_e);
                 continue;
             }
@@ -1101,11 +1097,10 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
         if (e->varname && e->varname[0]) {
             DESCR_t *cell0;
             {
-                extern unsigned long g_nv_memo_gen;
                 unsigned _i = (unsigned)((((uintptr_t)e->varname * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
-                cell0 = (g_dcap_nv_key[_i] == e->varname && g_dcap_nv_seen[_i] == g_nv_memo_gen) ? g_dcap_nv_cell[_i] : (DESCR_t *)0;
+                cell0 = (g_runtime.abi.dcap_nv_key[_i] == e->varname && g_runtime.abi.dcap_nv_seen[_i] == g_runtime.abi.nv_memo_gen) ? g_runtime.abi.dcap_nv_cell[_i] : (DESCR_t *)0;
             }
-            if (!cell0 && g_protected_pat_vars_armed && is_protected_pat_lead(e->varname[0]) && is_protected_pat_name(e->varname)) {
+            if (!cell0 && g_runtime.abi.protected_pat_vars_armed && is_protected_pat_lead(e->varname[0]) && is_protected_pat_name(e->varname)) {
                 NV_SET_fn(e->varname, d);
             } else {
                 DESCR_t *cell = cell0 ? cell0 : rt_dcap_nv_cell(e->varname);
@@ -1128,8 +1123,8 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
 rt_dcap_next_t c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj, rt_dcf_t *c) {
 #if RT_DIAG
     {
-        if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; }
-        if (g_dcap_trace) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e)));
+        if (g_runtime.abi.dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_runtime.abi.dcap_trace = (_e && _e[0]) ? 1 : 0; }
+        if (g_runtime.abi.dcap_trace) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e)));
     }
 #endif
     if (!c) { rt_bomb("c_rt_dcap_end_ok_open: no spine record -- release_pump carves one before the call"); return (rt_dcap_next_t){ 1, 0 }; }
@@ -1183,8 +1178,6 @@ rt_dcap_next_t rt_dcap_resume(rt_dcf_t *c) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_dcap_flush(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_flush: dead C-side flush called — the commit flush is box-driven since NCB-1c M3 (rt_dcap_end_ok_open/step/close)\n"); abort(); }
 void rt_dcap_end_ok(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_end_ok: superseded by the box-driven pump (NCB-1c M3: rt_dcap_end_ok_open/step/close)\n"); abort(); }
-uint32_t g_cap_gen = 1;
-__attribute__((visibility("hidden"))) uint32_t g_cap_gen_next = 1;
 typedef struct { DESCR_t matched; DESCR_t wsv; DESCR_t asv; DESCR_t nmy; trace_pend_t pend; } rt_capo_t;
 _Static_assert(sizeof(rt_capo_t) == 176 && offsetof(rt_capo_t, pend) == 64,
     "bb_match_capture.cpp carves the computed-name capture record as 176 bytes of spine cells: four cells and the pending value trace at +64, whose first cell the box zeroes");
@@ -1192,7 +1185,7 @@ _Static_assert(sizeof(rt_capo_t) == 176 && offsetof(rt_capo_t, pend) == 64,
 static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name, trace_pend_t *pend) {
     extern DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
     if (IS_FAIL_fn(nm)) return rt_cap_fail_retreat() ? -1 : 0;
-    if (rt_cap_name_strict() && !by_name) { g_cap_abort_gen = g_cap_gen; return 0; }
+    if (rt_cap_name_strict() && !by_name) { g_cap_abort_gen = g_runtime.abi.cap_gen; return 0; }
     if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_p_fn(ns, matched, pend); } else rtx_try_rt_assign_var(nm, matched);
     return 0;
 }
@@ -1218,7 +1211,7 @@ rt_dcap_next_t c_rt_cap_open(const char *varname, int saved_delta, int cur_delta
         if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
         {
             DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
-            if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) return (rt_dcap_next_t){ 0, 0 };
+            if (g_cap_abort_gen && g_cap_abort_gen == g_runtime.abi.cap_gen) return (rt_dcap_next_t){ 0, 0 };
             if (varname[0] != '*') {
                 rt_bomb("c_rt_cap_open: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_cap_open in rtx_match.s is the sole spelling; this entry serves computed-name '*' targets only");
                 return (rt_dcap_next_t){ 0, 0 };
@@ -1368,7 +1361,7 @@ void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n) {
     DESCR_t d = rt_concat_parts_d(parts, n);
     NV_SET_fn(dst ? dst : "", d);
 #if RT_DIAG
-    if (g_trace_budget != 0) sno_trace_value(dst ? dst : "", d);
+    if (g_runtime.abi.trace_budget != 0) sno_trace_value(dst ? dst : "", d);
 #endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1500,7 +1493,7 @@ static inline __attribute__((always_inline)) rt_dfx_t *rt_dfx_init(rt_dfx_t *s) 
 long rt_cas_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **);
     long b = 0;
-    for (int i = 0; i < g_sno_defer_pair_hwm; i++) { uint64_t *slot = &g_sno_defer_cells[i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
+    for (int i = 0; i < g_sno_defer_pair_hwm; i++) { uint64_t *slot = &g_runtime.abi.sno_defer_cells[i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1743,9 +1736,8 @@ static int rt_defer_run_all_v(const char *varname, int cur_delta, DESCR_t val) {
 static inline __attribute__((always_inline)) DESCR_t *rt_defer_cell_ptr(const char *varname, long site) {
     extern DESCR_t *NV_PTR_fn(const char *name);
     extern DESCR_t *NV_CELL_IF_FASTSET_fn(const char *);
-    extern uint64_t g_sno_defer_cells[2048];
     if (site < 0 || site >= 1024 || !varname || varname[0] == '&' || varname[0] == '*') return (DESCR_t *)0;
-    uint64_t *slot = &g_sno_defer_cells[site * 2];
+    uint64_t *slot = &g_runtime.abi.sno_defer_cells[site * 2];
     if (slot[0] == (uint64_t)(uintptr_t)varname) return (DESCR_t *)(uintptr_t)slot[1];
     DESCR_t *cell = NV_PTR_fn(varname);
     if (!cell || !NV_CELL_IF_FASTSET_fn(varname)) return (DESCR_t *)0;
@@ -1914,23 +1906,22 @@ static DESCR_t c_rt_subscript_var_container_only_s(DESCR_t base, DESCR_t idx, in
 DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
 #if RT_DIAG
     extern int g_gc_pending;
-    extern int g_sno_etrace_n;
 #else
     extern int g_gc_pending;
-    enum { g_sno_etrace_n = 0, g_trace_budget = 0 };
+    enum { g_runtime.abi.sno_etrace_n = 0, g_runtime.abi.trace_budget = 0 };
 #endif
-    if (g_gc_pending || g_sno_etrace_n != 0) { DESCR_t ref = rtx_try_rt_subscript_var(base, idx); if (ref.v == DT_FAIL) return ref; return rtx_try_rt_assign_var(ref, val); }
+    if (g_gc_pending || g_runtime.abi.sno_etrace_n != 0) { DESCR_t ref = rtx_try_rt_subscript_var(base, idx); if (ref.v == DT_FAIL) return ref; return rtx_try_rt_assign_var(ref, val); }
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (base.v == DT_A) {
         ARBLK_t *a = base.arr;
         if (a && a->ndim == 1 && a->data && idx.v == DT_I) {
             long off = (long)idx.i - (long)a->lo;
-            if (off >= 0 && off <= (long)a->hi - (long)a->lo) { a->data[off] = val; if (g_trace_budget != 0) sno_trace_value("<lval>", val); return val; }
+            if (off >= 0 && off <= (long)a->hi - (long)a->lo) { a->data[off] = val; if (g_runtime.abi.trace_budget != 0) sno_trace_value("<lval>", val); return val; }
         }
         { DESCR_t ref = rtx_try_rt_subscript_var(base, idx); if (ref.v == DT_FAIL) return ref; return rtx_try_rt_assign_var(ref, val); }
     }
     table_set_descr_d(base.tbl, idx, val);
-    if (g_trace_budget != 0) sno_trace_value("<lval>", val);
+    if (g_runtime.abi.trace_budget != 0) sno_trace_value("<lval>", val);
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2167,16 +2158,20 @@ DESCR_t rt_var_table_elem(DESCR_t d, DESCR_t *tbl_out, DESCR_t *key_out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_random_var_body(DESCR_t base, int strict);
-static DESCR_t rt_random_var_s(DESCR_t base, int strict) { extern long g_random; long saved = g_random; DESCR_t r = rt_random_var_body(base, strict); if (r.v == DT_FAIL) g_random = saved; return r; }
+static DESCR_t rt_random_var_s(DESCR_t base, int strict) {
+    long saved = g_runtime.abi.random;
+    DESCR_t r = rt_random_var_body(base, strict);
+    if (r.v == DT_FAIL) g_runtime.abi.random = saved;
+    return r;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_random_var_body(DESCR_t base, int strict) {
-    extern long g_random;
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
     if ((base.v == DT_SNUL || IS_PROCVAL_fn(base)) && strict) { core_icn_op_ctx("?", 1, base, base); core_icn_error(113, base); core_icn_op_ctx_clear(); return FAILDESCR; }
     if (base.v == DT_R) { if (base.r >= 9223372036854775808.0 || base.r <= -9223372036854775808.0) return FAILDESCR; base = INTVAL((int64_t)base.r); bvar = base; }
-    g_random = (1103515245L * g_random + 453816694L) & 0x7FFFFFFFL;
-    double rval = 4.65661286e-10 * (double)g_random;
+    g_runtime.abi.random = (1103515245L * g_runtime.abi.random + 453816694L) & 0x7FFFFFFFL;
+    double rval = 4.65661286e-10 * (double)g_runtime.abi.random;
     if (base.v == DT_S && base.slen == 0xFFFFFFFFu) {
         const char *cp;
         int clen;
@@ -2398,7 +2393,12 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (var.v == DT_N && var.slen == 0 && var.s && *var.s) { extern DESCR_t NV_SET_fn(const char *, DESCR_t); NV_SET_fn(var.s, val); return val; }
 #if RT_DIAG
-    if (var.v == DT_N && var.slen == 1 && var.ptr) { extern void mon_tap_cell_store(void *, DESCR_t); *(DESCR_t *)var.ptr = val; if (g_monitor_fd >= 0) mon_tap_cell_store(var.ptr, val); return val; }
+    if (var.v == DT_N && var.slen == 1 && var.ptr) {
+        extern void mon_tap_cell_store(void *, DESCR_t);
+        *(DESCR_t *)var.ptr = val;
+        if (g_runtime.abi.monitor_fd >= 0) mon_tap_cell_store(var.ptr, val);
+        return val;
+    }
 #else
     if (var.v == DT_N && var.slen == 1 && var.ptr) { *(DESCR_t *)var.ptr = val; return val; }
 #endif
@@ -2416,7 +2416,7 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
         abort();
     }
 #if RT_DIAG
-    if (vc->cellp) { extern void mon_tap_cell_store(void *, DESCR_t); *vc->cellp = val; if (g_monitor_fd >= 0) mon_tap_cell_store((void *)vc->cellp, val); return val; }
+    if (vc->cellp) { extern void mon_tap_cell_store(void *, DESCR_t); *vc->cellp = val; if (g_runtime.abi.monitor_fd >= 0) mon_tap_cell_store((void *)vc->cellp, val); return val; }
 #else
     if (vc->cellp) { *vc->cellp = val; return val; }
 #endif
@@ -2466,12 +2466,12 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
         ns[nlen] = 0;
         DESCR_t nsd = (DESCR_t){ .v = DT_S, .slen = (uint32_t)nlen, .s = ns };
 #if RT_DIAG
-        long tb = g_trace_budget;
-        g_trace_budget = 0;
+        long tb = g_runtime.abi.trace_budget;
+        g_runtime.abi.trace_budget = 0;
 #endif
         DESCR_t wr = rtx_try_rt_assign_var(vc->sv, nsd);
 #if RT_DIAG
-        g_trace_budget = tb;
+        g_runtime.abi.trace_budget = tb;
 #endif
         if (wr.v == DT_FAIL) return FAILDESCR;
         vc->len = srclen;
@@ -2488,13 +2488,12 @@ static DESCR_t c_rt_assign_var_s(DESCR_t var, DESCR_t val, int strict) {
 #if RT_DIAG
     int simple = (var.v == DT_N && var.slen == 0 && var.s && *var.s);
     DESCR_t r = c_rt_assign_var_body(var, val, strict);
-    if (!simple && g_trace_budget != 0 && !IS_FAIL_fn(r)) {
-        extern int g_monitor_fd;
+    if (!simple && g_runtime.abi.trace_budget != 0 && !IS_FAIL_fn(r)) {
         extern int mon_cell_is_named(void *);
         void *cp = (var.v == DT_N && var.slen == 1) ? var.ptr : (IS_NAMETRAP_fn(var) && var.p) ? (void *)((VCELL_t *)var.p)->cellp : (void *)0;
-        if (!(g_monitor_fd >= 0 && cp && mon_cell_is_named(cp))) sno_trace_value("<lval>", val);
+        if (!(g_runtime.abi.monitor_fd >= 0 && cp && mon_cell_is_named(cp))) sno_trace_value("<lval>", val);
     }
-    { extern int g_sno_etrace_n; extern void rt_sno_elem_store_trace(DESCR_t, DESCR_t); if (g_sno_etrace_n != 0 && !IS_FAIL_fn(r) && IS_NAMETRAP_fn(var)) rt_sno_elem_store_trace(var, val); }
+    { extern void rt_sno_elem_store_trace(DESCR_t, DESCR_t); if (g_runtime.abi.sno_etrace_n != 0 && !IS_FAIL_fn(r) && IS_NAMETRAP_fn(var)) rt_sno_elem_store_trace(var, val); }
     return r;
 #else
     return c_rt_assign_var_body(var, val, strict);
@@ -2533,17 +2532,17 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
     VCELL_t *xc = (VCELL_t *)va.p, *yc = (VCELL_t *)vb.p;
     if (!xc || !yc) return FAILDESCR;
     {
-        extern int g_sno_etrace_n;
 #if !RT_DIAG
-#define g_trace_budget 0
-#define g_sno_etrace_n 0
-#define g_monitor_fd (-1)
+#define g_runtime.abi.trace_budget 0
+#define g_runtime.abi.sno_etrace_n 0
+#define g_runtime.abi.monitor_fd (-1)
 #endif
-        if (xc->len == 1 && yc->len == 1 && xc->pos > 0 && yc->pos > 0 && !xc->cellp && !yc->cellp && !xc->tbl && !yc->tbl && g_trace_budget == 0 && g_sno_etrace_n == 0 && g_monitor_fd < 0) {
+        if (xc->len == 1 && yc->len == 1 && xc->pos > 0 && yc->pos > 0 && !xc->cellp && !yc->cellp && !xc->tbl && !yc->tbl && g_runtime.abi.trace_budget == 0 && g_runtime.abi.sno_etrace_n == 0 &&
+            g_runtime.abi.monitor_fd < 0) {
 #if !RT_DIAG
-#undef g_trace_budget
-#undef g_sno_etrace_n
-#undef g_monitor_fd
+#undef g_runtime.abi.trace_budget
+#undef g_runtime.abi.sno_etrace_n
+#undef g_runtime.abi.monitor_fd
 #endif
             DESCR_t *cx_cell = swap_base_cell(xc->sv), *cy_cell = swap_base_cell(yc->sv);
             if (cx_cell && cx_cell == cy_cell) {

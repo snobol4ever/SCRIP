@@ -101,7 +101,7 @@ static sc_module_t *sc_module_get(const char *lang) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_module_run(sc_module_t *m) {
     int64_t s_anchor = g_kw_anchor, s_trim = g_runtime.core.kw_trim, s_full = g_runtime.core.kw_fullscan, s_max = g_runtime.core.kw_maxlngth, s_stl = g_kw_stlimit, s_stc = g_kw_stcount,
-        s_tr = g_kw_trace, s_ftr = g_kw_ftrace;
+        s_tr = g_kw_trace, s_ftr = g_runtime.abi.kw_ftrace;
     char *save_top = rt_gc_program_top_get();
     if (save_top) { fprintf(stderr, "rt_sc_module: the parser module was entered while a program is live -- a run-time parse takes the C parser (CEO-1749)\n"); abort(); }
     g_kw_anchor = 0;
@@ -110,7 +110,7 @@ static void sc_module_run(sc_module_t *m) {
     g_runtime.core.kw_maxlngth = 16777216;
     g_kw_stlimit = -1;
     g_kw_trace = 0;
-    g_kw_ftrace = 0;
+    g_runtime.abi.kw_ftrace = 0;
     rt_gc_program_top_set((char *)0);
     rt_sc_outer_call(m->d->main_alpha);
     rt_gc_program_top_set(save_top);
@@ -121,7 +121,7 @@ static void sc_module_run(sc_module_t *m) {
     g_kw_stlimit = s_stl;
     g_kw_stcount = s_stc;
     g_kw_trace = s_tr;
-    g_kw_ftrace = s_ftr;
+    g_runtime.abi.kw_ftrace = s_ftr;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_module_init(sc_module_t *m) {

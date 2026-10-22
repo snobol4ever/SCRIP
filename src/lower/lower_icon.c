@@ -1,4 +1,5 @@
 #include <string.h>
+#include "g_runtime.h"
 #include "ct_arena.h"
 #include <stdlib.h>
 #include <math.h>
@@ -3020,7 +3021,7 @@ static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next) {
     IR_LIT(mark).sval = (char *) cx->file;
     return mark;
 }
-static int icn_trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }
+static int icn_trace_wanted(void) { return g_runtime.abi.trace_budget != 0; }
 static IR_t * icn_trace_stmt_wrap(icx_t * cx, long line, IR_t * stmt_entry, IR_t * ω) {
     if (line <= 0 || !icn_trace_wanted()) return stmt_entry;
     IR_t * call = build(cx, IR_CALL, stmt_entry, ω);

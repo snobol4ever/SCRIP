@@ -1,5 +1,6 @@
 #ifndef RTX_ABI_INC
 #define RTX_ABI_INC
+#include "../core/g_runtime_abi.inc"
 .intel_syntax noprefix
 #include "descr_tags.inc"
 #define RTX_NAME(name) .pushsection rtx_entry_names,"a",@progbits; .asciz #name; .popsection

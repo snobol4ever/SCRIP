@@ -1,4 +1,5 @@
 #include <string.h>
+#include "g_runtime.h"
 #include <unistd.h>
 #include "ct_arena.h"
 #include "ct_vec.h"
@@ -471,7 +472,7 @@ static void rk_refuse(const tree_t * t, const char * what) { fprintf(stderr, "sc
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * rk_excise(rcx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) { IR_t * nd = build(cx, IR_EXCISED, γ, ω); if (res) *res = nd; return nd; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }
+static int trace_wanted(void) { return g_runtime.abi.trace_budget != 0; }
 static int rk_use_is_version(const tree_t * s) { return s && s->t == TT_USE_DECL && s->v.sval && s->v.sval[0] == 'v' && s->v.sval[1] >= '0' && s->v.sval[1] <= '9'; }
 static long trace_stmt_line(const tree_t * s) { return (s && !rk_use_is_version(s)) ? s->line : 0; }
 static IR_t * trace_stmt_wrap(rcx_t * cx, long line, IR_t * stmt_entry, IR_t * ω) {

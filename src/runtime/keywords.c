@@ -12,25 +12,13 @@
 #include <time.h>
 #include <unistd.h>
 const char *cset_canonical(const char *cs, int len);
-extern const char *g_scan_subj;
-extern int g_scan_pos;
 extern unsigned long g_bb_rnd_seed;
 void fh_ensure_init(void);
-long g_error = 0;
-long g_trace = 0;
-long g_dump = 0;
-long g_random = 0;
 static long g_anchor = 0;
 extern long rt_anchor_g __attribute__((alias("g_anchor")));
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long *rt_anchor_ptr(void) { return &g_anchor; }
 long g_maxlngth = 5000000;
-long g_stno = 0;
-long g_stcount = 0;
-long g_lastno = 0;
-long g_line = 0;
-long g_lastline = 0;
-const char *g_file = NULL;
 typedef struct g_kw_cset_ent { const char *ptr; const char *name; int len; unsigned char bits[32]; } kw_cset_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned kw_cset_hash(const char *p) { uint64_t x = (uint64_t)(uintptr_t)p; x ^= x >> 17; x *= 0x9E3779B97F4A7C15ull; x ^= x >> 29; return (unsigned)x; }
@@ -258,19 +246,21 @@ static int64_t g_kwb_own[8] = { 0, 0, 0, 0, 0, 0, 0, 1 };
 extern int64_t g_rt_kwb_own[8] __attribute__((alias("g_kwb_own")));
 static KWB_ENT_t g_kwb[] = { { "ANCHOR", KWB_INT, 0, (int64_t *)&g_anchor, 0, (const char *)0 , "rt_anchor_g" }, { "TRIM", KWB_INT, 0, &g_runtime.core.kw_trim, 1, (const char *)0 ,
     "g_runtime.core.kw_trim" }, { "CASE", KWB_INT, 0, &g_kwb_own[0], 0, (const char *)0 , "g_rt_kwb_own" }, { "CODE", KWB_INT, 0, &g_runtime.core.kw_code, 0, (const char *)0 ,
-    "g_runtime.core.kw_code" }, { "DUMP", KWB_INT, 0, (int64_t *)&g_dump, 0, (const char *)0 , "g_dump" }, { "ERRLIMIT", KWB_INT, 0, &g_kw_errlimit, 0, (const char *)0 , "g_kw_errlimit" },
-    { "ERRTYPE", KWB_INT, 0, &g_kwb_own[1], 0, (const char *)0 , "g_rt_kwb_own" }, { "FTRACE", KWB_INT, 0, &g_kw_ftrace, 0, (const char *)0 , "g_kw_ftrace" }, { "FULLSCAN", KWB_INT, 0,
-    &g_runtime.core.kw_fullscan, 1, (const char *)0 , "g_runtime.core.kw_fullscan" }, { "MAXLNGTH", KWB_INT, 0, (int64_t *)&g_maxlngth, 16777216, (const char *)0 , "g_maxlngth" }, { "STLIMIT",
-    KWB_INT, 0, &g_kw_stlimit, 2147483647, (const char *)0 , "g_kw_stlimit" }, { "TRACE", KWB_INT, 0, (int64_t *)&g_trace, 0, (const char *)0 , "g_trace" }, { "ABEND", KWB_INT, 0, &g_kwb_own[2], 0,
-    (const char *)0 , "g_rt_kwb_own" }, { "INPUT", KWB_INT, 0, &g_kwb_own[3], 1, (const char *)0 , "g_rt_kwb_own" }, { "OUTPUT", KWB_INT, 0, &g_kwb_own[4], 1, (const char *)0 , "g_rt_kwb_own" },
-    { "PROFILE", KWB_INT, 0, &g_kwb_own[5], 0, (const char *)0 , "g_rt_kwb_own" }, { "COMPARE", KWB_INT, 0, &g_kwb_own[6], 0, (const char *)0 , "g_rt_kwb_own" }, { "STCOUNT", KWB_INT, KWB_PROT,
-    (int64_t *)&g_stcount, 0, (const char *)0 , "g_stcount" }, { "STNO", KWB_INT, KWB_PROT, (int64_t *)&g_stno, 0, (const char *)0 , "g_stno" }, { "LASTNO", KWB_INT, KWB_PROT, (int64_t *)&g_lastno, 0,
-    (const char *)0 , "g_lastno" }, { "LINE", KWB_INT, KWB_PROT, (int64_t *)&g_line, 0, (const char *)0 , "g_line" }, { "LASTLINE", KWB_INT, KWB_PROT, (int64_t *)&g_lastline, 0, (const char *)0 ,
-    "g_lastline" }, { "FILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "LASTFILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 },
-    { "FNCLEVEL", KWB_INT, KWB_PROT, &g_kw_fnclevel, 0, (const char *)0 , "g_kw_fnclevel" }, { "UCASE", KWB_STR, KWB_PROT, (int64_t *)0, 0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ" , (const char *)0 }, { "LCASE",
-    KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" , (const char *)0 }, { "RTNTYPE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "ERRTEXT", KWB_STR, 0,
-    (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "USER_DECLARED_CONSTANTS", KWB_INT, 0, &g_kwb_own[7],
-    1, (const char *)0 , "g_rt_kwb_own" }, { "MAXINT", KWB_INT, KWB_PROT, &g_runtime.kw.kw_maxint, 0, (const char *)0 , "g_runtime.kw.kw_maxint" }, };
+    "g_runtime.core.kw_code" }, { "DUMP", KWB_INT, 0, (int64_t *)&g_runtime.abi.dump, 0, (const char *)0 , "g_runtime.abi.dump" }, { "ERRLIMIT", KWB_INT, 0, &g_runtime.abi.kw_errlimit, 0,
+    (const char *)0 , "g_kw_errlimit" }, { "ERRTYPE", KWB_INT, 0, &g_kwb_own[1], 0, (const char *)0 , "g_rt_kwb_own" }, { "FTRACE", KWB_INT, 0, &g_runtime.abi.kw_ftrace, 0, (const char *)0 ,
+    "g_kw_ftrace" }, { "FULLSCAN", KWB_INT, 0, &g_runtime.core.kw_fullscan, 1, (const char *)0 , "g_runtime.core.kw_fullscan" }, { "MAXLNGTH", KWB_INT, 0, (int64_t *)&g_maxlngth, 16777216,
+    (const char *)0 , "g_maxlngth" }, { "STLIMIT", KWB_INT, 0, &g_kw_stlimit, 2147483647, (const char *)0 , "g_kw_stlimit" }, { "TRACE", KWB_INT, 0, (int64_t *)&g_runtime.abi.trace, 0,
+    (const char *)0 , "g_runtime.abi.trace" }, { "ABEND", KWB_INT, 0, &g_kwb_own[2], 0, (const char *)0 , "g_rt_kwb_own" }, { "INPUT", KWB_INT, 0, &g_kwb_own[3], 1, (const char *)0 , "g_rt_kwb_own" },
+    { "OUTPUT", KWB_INT, 0, &g_kwb_own[4], 1, (const char *)0 , "g_rt_kwb_own" }, { "PROFILE", KWB_INT, 0, &g_kwb_own[5], 0, (const char *)0 , "g_rt_kwb_own" }, { "COMPARE", KWB_INT, 0, &g_kwb_own[6],
+    0, (const char *)0 , "g_rt_kwb_own" }, { "STCOUNT", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.stcount, 0, (const char *)0 , "g_runtime.abi.stcount" }, { "STNO", KWB_INT, KWB_PROT,
+    (int64_t *)&g_runtime.abi.stno, 0, (const char *)0 , "g_runtime.abi.stno" }, { "LASTNO", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.lastno, 0, (const char *)0 , "g_runtime.abi.lastno" },
+    { "LINE", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.line, 0, (const char *)0 , "g_runtime.abi.line" }, { "LASTLINE", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.lastline, 0, (const char *)0 ,
+    "g_runtime.abi.lastline" }, { "FILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "LASTFILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 ,
+    (const char *)0 }, { "FNCLEVEL", KWB_INT, KWB_PROT, &g_runtime.abi.kw_fnclevel, 0, (const char *)0 , "g_kw_fnclevel" }, { "UCASE", KWB_STR, KWB_PROT, (int64_t *)0, 0,
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ" , (const char *)0 }, { "LCASE", KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" , (const char *)0 }, { "RTNTYPE", KWB_STR, KWB_PROT, (int64_t *)0, 0,
+    (const char *)0 , (const char *)0 }, { "ERRTEXT", KWB_STR, 0, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 ,
+    (const char *)0 }, { "USER_DECLARED_CONSTANTS", KWB_INT, 0, &g_kwb_own[7], 1, (const char *)0 , "g_rt_kwb_own" }, { "MAXINT", KWB_INT, KWB_PROT, &g_runtime.kw.kw_maxint, 0, (const char *)0 ,
+    "g_runtime.kw.kw_maxint" }, };
 static const int g_kwb_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
 static KWB_ENT_t *g_kwb_bound = g_kwb;
 static int g_kwb_bound_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
@@ -325,10 +315,10 @@ static KWB_ENT_t *kwb_find(const char *kw) {
 static int kwb_read_ent(KWB_ENT_t *e, DESCR_t *out) {
     if (!e) return 0;
     if (e->kind == KWB_STR) {
-        if (!strcmp(e->name, "RTNTYPE")) { *out = STRVAL(g_kw_rtntype); return 1; }
+        if (!strcmp(e->name, "RTNTYPE")) { *out = STRVAL(g_runtime.abi.kw_rtntype); return 1; }
         if (!strcmp(e->name, "ERRTEXT")) { *out = STRVAL(g_runtime.kw.sno_errtext ? g_runtime.kw.sno_errtext : ""); return 1; }
         if (!strcmp(e->name, "ALPHABET")) { extern const char alphabet[257]; return (*out = BSTRVAL(alphabet, 256)), 1; }
-        if (!strcmp(e->name, "FILE")) { extern const char *g_file; *out = STRVAL(g_file ? g_file : ""); return 1; }
+        if (!strcmp(e->name, "FILE")) { *out = STRVAL(g_runtime.abi.file ? g_runtime.abi.file : ""); return 1; }
         if (!strcmp(e->name, "LASTFILE")) { *out = STRVAL(g_runtime.kw.lastfile ? g_runtime.kw.lastfile : ""); return 1; }
         *out = e->sval ? STRVAL(e->sval) : STRVAL("");
         return 1;
@@ -362,8 +352,8 @@ void rt_kw_publish_error_at_exit(int code, const char *msg) { KWB_ENT_t *et = kw
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_set_rtntype(int which) {
     static const uint64_t words[4] = { 0x00004E5255544552ull, 0x004E525554455246ull, 0x004E52555445524Eull, 0ull };
-    _Static_assert(sizeof(g_kw_rtntype) >= 8, "rt_kw_set_rtntype stores RETURN / FRETURN / NRETURN as one little-endian 8-byte word");
-    *(uint64_t *)(void *)g_kw_rtntype = words[(which >= 0 && which <= 2) ? which : 3];
+    _Static_assert(sizeof(g_runtime.abi.kw_rtntype) >= 8, "rt_kw_set_rtntype stores RETURN / FRETURN / NRETURN as one little-endian 8-byte word");
+    *(uint64_t *)(void *)g_runtime.abi.kw_rtntype = words[(which >= 0 && which <= 2) ? which : 3];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -413,11 +403,11 @@ DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v) { if (idx < 0 || idx >= (int64_t
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t kw_read(const char *kw) {
     if (!kw) return FAILDESCR;
-    if (!strcmp(kw,"pos")) return INTVAL(g_scan_pos);
+    if (!strcmp(kw,"pos")) return INTVAL(g_runtime.abi.scan_pos);
     if (!strcmp(kw,"subject")) {
         extern long rt_scan_subj_len(void);
-        if (!g_scan_subj) return STRVAL("");
-        { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_scan_subj, n) : STRVAL(g_scan_subj); }
+        if (!g_runtime.abi.scan_subj) return STRVAL("");
+        { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_runtime.abi.scan_subj, n) : STRVAL(g_runtime.abi.scan_subj); }
     }
     if (!strcmp(kw,"e")) return REALVAL(2.718281828459045);
     if (!strcmp(kw,"pi")) return REALVAL(3.141592653589793);
@@ -468,11 +458,10 @@ DESCR_t kw_read(const char *kw) {
         if (!strcmp(kw,"control")) return FAILDESCR;
     }
     {
-        extern long g_error, g_trace, g_dump, g_random;
-        if (!strcmp(kw,"error")) return INTVAL(g_error);
-        if (!strcmp(kw,"trace")) return INTVAL(g_trace);
-        if (!strcmp(kw,"dump")) return INTVAL(g_dump);
-        if (!strcmp(kw,"random")) return INTVAL(g_random);
+        if (!strcmp(kw,"error")) return INTVAL(g_runtime.abi.error);
+        if (!strcmp(kw,"trace")) return INTVAL(g_runtime.abi.trace);
+        if (!strcmp(kw,"dump")) return INTVAL(g_runtime.abi.dump);
+        if (!strcmp(kw,"random")) return INTVAL(g_runtime.abi.random);
     }
     {
         extern long g_maxlngth;
@@ -482,19 +471,18 @@ DESCR_t kw_read(const char *kw) {
         if (!strcmp(kw,"stlimit")) return INTVAL(-1);
     }
     {
-        extern long g_stno, g_stcount, g_lastno, g_line, g_lastline;
-        if (!strcmp(kw,"stno")) return INTVAL(g_stno);
-        if (!strcmp(kw,"stcount")) return INTVAL(g_stcount);
-        if (!strcmp(kw,"lastno")) return INTVAL(g_lastno);
-        if (!strcmp(kw,"line")) return INTVAL(g_line);
-        if (!strcmp(kw,"lastline")) return INTVAL(g_lastline);
+        if (!strcmp(kw,"stno")) return INTVAL(g_runtime.abi.stno);
+        if (!strcmp(kw,"stcount")) return INTVAL(g_runtime.abi.stcount);
+        if (!strcmp(kw,"lastno")) return INTVAL(g_runtime.abi.lastno);
+        if (!strcmp(kw,"line")) return INTVAL(g_runtime.abi.line);
+        if (!strcmp(kw,"lastline")) return INTVAL(g_runtime.abi.lastline);
     }
-    { extern const char *g_file; if (!strcmp(kw,"file")) return STRVAL(g_file ? g_file : ""); if (!strcmp(kw,"lastfile")) return STRVAL(g_runtime.kw.lastfile ? g_runtime.kw.lastfile : ""); }
+    { if (!strcmp(kw,"file")) return STRVAL(g_runtime.abi.file ? g_runtime.abi.file : ""); if (!strcmp(kw,"lastfile")) return STRVAL(g_runtime.kw.lastfile ? g_runtime.kw.lastfile : ""); }
     if (!strcmp(kw,"col")) return FAILDESCR;
     if (!strcmp(kw,"row")) return FAILDESCR;
     if (!strcmp(kw,"x")) return FAILDESCR;
     if (!strcmp(kw,"y")) return FAILDESCR;
-    { extern int g_rt_k_level; if (!strcmp(kw,"level")) return INTVAL(g_rt_k_level); }
+    { if (!strcmp(kw,"level")) return INTVAL(g_runtime.abi.rt_k_level); }
     if (!strcmp(kw,"lpress")) return INTVAL(-1);
     if (!strcmp(kw,"mpress")) return INTVAL(-2);
     if (!strcmp(kw,"rpress")) return INTVAL(-3);
@@ -607,38 +595,38 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_stmt_file_init(const char *file) { g_file = file; }
+void rt_stmt_file_init(const char *file) { g_runtime.abi.file = file; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_stmt_seed_code_fragment_statement_hooks(void) { setenv("SCRIP_SNO_STMTKW", "1", 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_stmt_enter(long stno, long line) {
-    g_lastno = g_stno;
-    g_stno = stno;
-    g_lastline = g_line;
-    g_line = line;
-    g_runtime.kw.lastfile = (g_stcount > 0) ? g_file : (const char *)0;
+    g_runtime.abi.lastno = g_runtime.abi.stno;
+    g_runtime.abi.stno = stno;
+    g_runtime.abi.lastline = g_runtime.abi.line;
+    g_runtime.abi.line = line;
+    g_runtime.kw.lastfile = (g_runtime.abi.stcount > 0) ? g_runtime.abi.file : (const char *)0;
     if (g_kw_stlimit < 0) return;
-    g_stcount++;
-    if (g_stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();
+    g_runtime.abi.stcount++;
+    if (g_runtime.abi.stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();
 #if RT_DIAG
-    { extern void rt_trace_keyword_write(const char *, int64_t, long long); rt_trace_keyword_write("STCOUNT", (int64_t)g_stcount, (long long)stno); }
+    { extern void rt_trace_keyword_write(const char *, int64_t, long long); rt_trace_keyword_write("STCOUNT", (int64_t)g_runtime.abi.stcount, (long long)stno); }
 #endif
-    if (g_kw_stlimit > 0 && g_stcount > g_kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
+    if (g_kw_stlimit > 0 && g_runtime.abi.stcount > g_kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_stmt_enter_p(long stno, long line, trace_pend_t *pend) {
-    g_lastno = g_stno;
-    g_stno = stno;
-    g_lastline = g_line;
-    g_line = line;
-    g_runtime.kw.lastfile = (g_stcount > 0) ? g_file : (const char *)0;
+    g_runtime.abi.lastno = g_runtime.abi.stno;
+    g_runtime.abi.stno = stno;
+    g_runtime.abi.lastline = g_runtime.abi.line;
+    g_runtime.abi.line = line;
+    g_runtime.kw.lastfile = (g_runtime.abi.stcount > 0) ? g_runtime.abi.file : (const char *)0;
     if (g_kw_stlimit < 0) return;
-    g_stcount++;
-    if (g_stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();
+    g_runtime.abi.stcount++;
+    if (g_runtime.abi.stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();
 #if RT_DIAG
-    { extern void rt_trace_keyword_write_p(const char *, int64_t, long long, trace_pend_t *); rt_trace_keyword_write_p("STCOUNT", (int64_t)g_stcount, (long long)stno, pend); }
+    { extern void rt_trace_keyword_write_p(const char *, int64_t, long long, trace_pend_t *); rt_trace_keyword_write_p("STCOUNT", (int64_t)g_runtime.abi.stcount, (long long)stno, pend); }
 #endif
-    if (g_kw_stlimit > 0 && g_stcount > g_kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
+    if (g_kw_stlimit > 0 && g_runtime.abi.stcount > g_kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_gen(const char *sval, long idx) {
@@ -687,8 +675,8 @@ int rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
     if (IS_INT(v)) iv = (long)v.i;
     else if (IS_REAL(v)) iv = (long)v.r;
     else { const char *s2 = VARVAL_fn(v); if (s2) iv = strtol(s2, (char **)0, 10); }
-    if (canon && !strcmp(lk,"error")) { g_error = iv; return 1; }
-    if (canon && !strcmp(lk,"random")) { g_random = iv; g_bb_rnd_seed = (unsigned long)iv; return 1; }
+    if (canon && !strcmp(lk,"error")) { g_runtime.abi.error = iv; return 1; }
+    if (canon && !strcmp(lk,"random")) { g_runtime.abi.random = iv; g_bb_rnd_seed = (unsigned long)iv; return 1; }
     {
         size_t bl = strlen(sval);
         char kb[bl + 2];

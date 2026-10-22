@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "g_runtime.h"
 #include "rtx_try.h"
 #include "driver_private.h"
 cv_t init_tab_v;
@@ -75,7 +76,7 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs) {
             goto fn_done;
         }
         retval = NV_GET_fn(retname);
-        strncpy(g_kw_rtntype, "RETURN", sizeof(g_kw_rtntype)-1);
+        strncpy(g_runtime.abi.kw_rtntype, "RETURN", sizeof(g_runtime.abi.kw_rtntype)-1);
     }
     fn_done:
     Σ = saved_Σ;

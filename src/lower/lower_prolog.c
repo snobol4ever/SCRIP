@@ -1394,7 +1394,7 @@ static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, con
     return ig;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }
+static int pl_trace_wanted(void) { return g_runtime.abi.trace_budget != 0; }
 static int pl_trace_is_control(const tree_t * t, int n, const char * f) { return t && t->t == TT_FNC && t->n == n && t->v.sval && !strcmp(t->v.sval, f); }
 static void pl_trace_number_goals(const tree_t * t) {
     if (!t) return;

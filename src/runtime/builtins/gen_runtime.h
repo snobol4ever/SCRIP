@@ -1,6 +1,7 @@
 #ifndef GEN_RUNTIME_H
 #define GEN_RUNTIME_H
 #include "ast.h"
+#include "g_runtime.h"
 #include "../../parsers/snobol4/scrip_cc.h"
 #include "bb_box.h"
 #include "gen.h"
@@ -13,8 +14,6 @@ static inline IR_graph_t *bb_graph_of_proc(const ProcEntry *e) { if (!e) return 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_t *bb_proc_entry(const ProcEntry *e) { IR_graph_t *g = bb_graph_of_proc(e); if (!g) return NULL; if (e->proc_entry_node) return e->proc_entry_node; return g->entry; }
 extern tree_t *g_root;
-extern const char *g_scan_subj;
-extern int g_scan_pos;
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 typedef struct { const char *subj; int pos; int depth; long len; } ScanState;
 void *rt_scan_state_capture(void *prev);
@@ -32,7 +31,6 @@ void rt_scan_sync_out(uint64_t delta);
 uint64_t rt_scan_sync_in(void);
 ScanSubjRegs rt_scan_live_regs(void);
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
-extern int g_scan_depth;
 int frame_lookup(tree_t *n, long *out);
 int frame_lookup_sv(tree_t *n, long *out, const char **sv);
 int is_global(const char *name);

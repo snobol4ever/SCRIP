@@ -332,15 +332,15 @@ static int eval_chain_run_guarded(eval_chain_fn fn) {
     int my = g_core_errjmp_n;
     core_errjmp_push(&ej);
     g_core_errjmp_n = my + 1;
-    long esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error;
-    g_error = G_ERROR_EVAL_STAGE;
-    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); g_error = esv; return 0; }
+    long esv = g_runtime.abi.error == G_ERROR_EVAL_STAGE ? 0 : g_runtime.abi.error;
+    g_runtime.abi.error = G_ERROR_EVAL_STAGE;
+    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); g_runtime.abi.error = esv; return 0; }
 #if RT_DIAG
     rt_c2bb_hit("chain.eval.guarded", "?");
 #endif
     (void)rt_c2bb_bomb("eval_chain_run_guarded", "?");
     core_errjmp_pop(&ej, my);
-    g_error = esv;
+    g_runtime.abi.error = esv;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -617,7 +617,12 @@ static int code_sb_syntax(const char *s, int *code, const char **msg) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_eval_raise(int code, const char *msg) { long esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; if (!esv) g_error = G_ERROR_EVAL_STAGE; core_runtime_error(code, msg); g_error = esv; }
+static void rt_eval_raise(int code, const char *msg) {
+    long esv = g_runtime.abi.error == G_ERROR_EVAL_STAGE ? 0 : g_runtime.abi.error;
+    if (!esv) g_runtime.abi.error = G_ERROR_EVAL_STAGE;
+    core_runtime_error(code, msg);
+    g_runtime.abi.error = esv;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void code_compile_raise(const char *src, int pe, const char *pm) {
     int code = pe;
@@ -707,8 +712,8 @@ rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) {
         if (tc) *tc = FAILDESCR;
         else NV_SET_fn(EVAL_TMP, FAILDESCR);
         f->flags = INTVAL(4);
-        f->esv = INTVAL(g_error == G_ERROR_EVAL_STAGE ? 0 : g_error);
-        g_error = G_ERROR_EVAL_STAGE;
+        f->esv = INTVAL(g_runtime.abi.error == G_ERROR_EVAL_STAGE ? 0 : g_runtime.abi.error);
+        g_runtime.abi.error = G_ERROR_EVAL_STAGE;
         return (rt_eval_next_t){ (long)f->fn.i, (long)(uintptr_t)f };
     }
     if (!args || nargs != 1 || !rt_eval_open_takes(args[0])) return none;
@@ -716,8 +721,8 @@ rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) {
     rt_eval_stage_leave((const char *)0);
     if (eval_frame_open(f, s, 0) < 0) return none;
     f->flags.i |= 4;
-    f->esv = INTVAL(g_error == G_ERROR_EVAL_STAGE ? 0 : g_error);
-    g_error = G_ERROR_EVAL_STAGE;
+    f->esv = INTVAL(g_runtime.abi.error == G_ERROR_EVAL_STAGE ? 0 : g_runtime.abi.error);
+    g_runtime.abi.error = G_ERROR_EVAL_STAGE;
     return (rt_eval_next_t){ (long)f->fn.i, (long)(uintptr_t)f };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -729,21 +734,21 @@ long rt_conve_chain_open(DESCR_t expr, eval_frame_t *f) {
     if (tc) *tc = FAILDESCR;
     else NV_SET_fn(EVAL_TMP, FAILDESCR);
     f->flags = INTVAL(4);
-    f->esv = INTVAL(g_error == G_ERROR_EVAL_STAGE ? 0 : g_error);
-    g_error = G_ERROR_EVAL_STAGE;
+    f->esv = INTVAL(g_runtime.abi.error == G_ERROR_EVAL_STAGE ? 0 : g_runtime.abi.error);
+    g_runtime.abi.error = G_ERROR_EVAL_STAGE;
     return (long)f->fn.i;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_conve_chain_land(eval_frame_t *f) {
     if (!f || f->flags.v != DT_I || !(f->flags.i & 4)) { fprintf(stderr, "rt_conve_chain_land: %p is not an opened CONVERT chain record on the spine\n", (void *)f); abort(); }
-    g_error = f->esv.i;
+    g_runtime.abi.error = f->esv.i;
     return eval_frame_land(f, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_eval_land(long word) {
     eval_frame_t *f = (eval_frame_t *)(uintptr_t)word;
     if (!f || f->flags.v != DT_I || !(f->flags.i & 4)) { fprintf(stderr, "rt_eval_land: %p is not an opened EVAL record on the spine\n", (void *)f); abort(); }
-    g_error = f->esv.i;
+    g_runtime.abi.error = f->esv.i;
     return eval_frame_land(f, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

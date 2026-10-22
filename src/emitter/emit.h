@@ -519,7 +519,6 @@ typedef struct {
     int op_df_vslot;
     int op_df_site;
     char op_df_b[24];
-    char op_df_pairlbl[48];
     int op_tail_dfr;
     int op_tail_fpr_rsp;
     int op_body_has_arbno;

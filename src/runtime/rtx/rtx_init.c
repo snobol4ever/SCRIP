@@ -1,4 +1,5 @@
 #include "descr.h"
+#include "g_runtime.h"
 #include "core.h"
 #include "gc_heap.h"
 #include "gen.h"
@@ -56,9 +57,7 @@ _Static_assert(offsetof(TBBLK_t, dflt) == 32 && offsetof(DESCR_t, v) == 0 && off
     "rtx_table.s rt_subscript_var_container_only answers a table miss from TBBLK_t.dflt at a fixed offset 32 (tag byte, then the two words) and builds NULVCL as {tag 0, slen 0, s}; core.h drifted"
     " -- every nested-table miss would return a wrong default");
 extern int Σlen;
-extern uint32_t g_cap_gen;
-extern uint32_t g_cap_gen_next;
-_Static_assert(sizeof(g_cap_gen) == 4 && sizeof(g_cap_gen_next) == 4,
+_Static_assert(sizeof(g_runtime.abi.cap_gen) == 4 && sizeof(g_runtime.abi.cap_gen_next) == 4,
     "rtx_match.s stores g_cap_gen/g_cap_gen_next with `dword ptr` because they sit ADJACENT at +0x0/+0x4 in pattern_match.o; if either widens, that dword store truncates and an 8-byte store would cl"
     "obber the sibling generation well -- links fine, passes short tests (s218)");
 _Static_assert(sizeof(Σlen) == 4,
@@ -70,8 +69,7 @@ _Static_assert(RT_DCAP_TOP == 0x70000000UL,
 _Static_assert(RT_GVA_VA == 0x70001000UL,
     "rtx_str.s str_concat_d scans the global-variable descriptors for a second reference to the string it extends at the baked absolute address 0x70001000; pin_va.h moved the pin -- the scan would r"
     "ead an" " unmapped page or the wrong table and extend a string another variable still holds");
-extern __attribute__((visibility("hidden"))) int g_repl_trace;
-_Static_assert(sizeof(g_repl_trace) == 4,
+_Static_assert(sizeof(g_runtime.abi.repl_trace) == 4,
     "rtx_match.s SLICE 9 tests g_repl_trace with `cmp dword ptr`; if it widens, the compare reads half the flag and the asm would run the hot arm while tracing is on -- silently swallowing every [RE"
     "PL] line the flag exists to produce");
 _Static_assert(offsetof(DESCR_t, v) == 0 && offsetof(DESCR_t, slen) == 4 && offsetof(DESCR_t, s) == 8,

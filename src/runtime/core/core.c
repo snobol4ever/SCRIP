@@ -19,12 +19,10 @@
 #include "../builtins/gen.h"
 #include "../../ir/ab_abi.h"
 #include "../../ir/stno_map.h"
-extern int g_protected_pat_vars_armed;
 int core_icn_error(int code, DESCR_t val);
 int rt_str_to_real(const char *s, double *out);
 int rt_gtn_real(const char *s, long n, double *out);
 DESCR_t rt_sno_cnv_num(DESCR_t v, int want);
-int g_call_fastpath_off = 0;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,31 +46,22 @@ int g_call_fastpath_off = 0;
 #include "../../../../harness/scripts/monitor/monitor_wire.h"
 #include "gc_frame_map.h"
 #if RT_DIAG
-int g_monitor_fd = -1;
 int g_monitor_quiet_depth = 0;
-int g_monitor_bin = 0;
-int g_mon_max_stno = 0;
 static void mon_at_exit(void);
 static uint32_t intern_name_bin(const char *p, int len);
 static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type, const void *value, uint32_t value_len);
 #define TRACE_TAB_N ((int)g_runtime.core.g_trace_tab.len)
 typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; long eid; } trace_ent_t;
 #define trace_tab ((trace_ent_t *)g_runtime.core.g_trace_tab.p)
-__attribute__((visibility("hidden"))) int g_trace_set_n = 0;
-__attribute__((visibility("hidden"))) int g_comm_dbg = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int trace_idle(void) {
-    extern long g_trace;
     extern int64_t g_kw_trace;
-    extern int64_t g_kw_ftrace;
-    if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
-    return !g_comm_dbg && g_trace_set_n == 0 && g_monitor_fd < 0 && g_kw_trace <= 0 && g_kw_ftrace <= 0 && g_trace == 0;
+    if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
+    return !g_runtime.abi.comm_dbg && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_kw_trace <= 0 && g_runtime.abi.kw_ftrace <= 0 && g_runtime.abi.trace == 0;
 }
 int rt_trace_idle(void) { return trace_idle(); }
-int g_sno_etrace_n = 0;
 static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out);
 static void etrace_recount(void);
-extern long g_trace;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static trace_ent_t *trace_find(const char *name, int kind) {
     if (!name || !*name) return (trace_ent_t *)0;
@@ -123,7 +112,7 @@ static void trace_register(const char *name, int kind, const char *tag, const ch
         e->kind = kind;
         e->name = lit ? name : rt_heap_strdup_c(name);
         e->eid = 0;
-        g_trace_set_n++;
+        g_runtime.abi.trace_set_n++;
         if (kind == TRK_ACCESS) g_runtime.core.trace_access_n++;
     }
     e->tag = (tag && *tag) ? (lit ? tag : rt_heap_strdup_c(tag)) : "";
@@ -139,7 +128,7 @@ static void trace_unregister(const char *name, int kind) {
     e->tag = (const char *)0;
     e->cbfn = (const char *)0;
     e->eid = 0;
-    if (g_trace_set_n > 0) g_trace_set_n--;
+    if (g_runtime.abi.trace_set_n > 0) g_runtime.abi.trace_set_n--;
     if (kind == TRK_ACCESS && g_runtime.core.trace_access_n > 0) g_runtime.core.trace_access_n--;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -147,14 +136,8 @@ static int trace_registered(const char *name) { return trace_find_any(name) != (
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int trace_is_active(const char *name) { return trace_find(name, TRK_VALUE) != (trace_ent_t *)0; }
 #else
-int g_monitor_fd = -1;
 int g_monitor_quiet_depth = 0;
-int g_monitor_bin = 0;
-int g_mon_max_stno = 0;
-__attribute__((visibility("hidden"))) int g_trace_set_n = 0;
-__attribute__((visibility("hidden"))) int g_comm_dbg = 0;
 int rt_trace_idle(void) { return 1; }
-int g_sno_etrace_n = 0;
 int trace_is_active(const char *name) { (void)name; return 0; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -208,17 +191,13 @@ static size_t trace_spell_args(DESCR_t *args, int nargs, char *buf, size_t bufsz
     return o + 1;
 }
 static size_t trace_banner_str(char *out, size_t on, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, int kind) {
-    extern int64_t g_kw_fnclevel;
-    extern int g_rt_k_level;
-    extern long g_line;
-    extern const char *g_file;
     char banner[13];
     int len = snprintf(banner, sizeof banner, "****%lld", stno);
     if (len < 0) len = 0;
     if (len > 12) len = 12;
     for (int i = len; i < 12; i++) banner[i] = '*';
     banner[12] = '\0';
-    long depth = (long)g_kw_fnclevel;
+    long depth = (long)g_runtime.abi.kw_fnclevel;
     if (kind == TRK_CALL || kind == TRK_RETURN) depth--;
     if (g_runtime.core.trace_depth_override >= 0) depth = g_runtime.core.trace_depth_override;
     if (depth < 0) depth = 0;
@@ -333,15 +312,13 @@ static void trace_image_icon_f(FILE *fp, DESCR_t a, int top) {
 }
 #if RT_DIAG
 static void trace_print_icon(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value) {
-    extern const char *g_file;
-    extern long g_line;
     extern int * const rt_k_level_p;
     extern int try_call_builtin_by_name(const char *fn, DESCR_t *a, int n, DESCR_t *out);
     fflush(stdout);
-    const char *f = g_file ? g_file : "";
+    const char *f = g_runtime.abi.file ? g_runtime.abi.file : "";
     { const char *bn = strrchr(f, 47); if (bn) f = bn + 1; }
     { size_t fl = strlen(f); if (fl > 13) f += fl - 13; }
-    if (g_line > 0) fprintf(stderr, "%-13s: %4ld  ", f, g_line);
+    if (g_runtime.abi.line > 0) fprintf(stderr, "%-13s: %4ld  ", f, g_runtime.abi.line);
     else fprintf(stderr, "             :       ");
     for (int k = *rt_k_level_p - 1; k > 0; k--) fputs("| ", stderr);
     fputs(name, stderr);
@@ -368,23 +345,21 @@ static void trace_print_icon(int kind, const char *name, DESCR_t *args, int narg
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_serial, uint64_t x0, uint64_t x1, int kind, long line_override) {
     if (trace_idle()) return;
-    extern const char *g_file;
-    extern long g_line;
     extern int * const rt_k_level_p;
-    if (g_trace == 0) return;
+    if (g_runtime.abi.trace == 0) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
     if (g_runtime.core.trace_recursion_depth > 0) return;
-    g_trace--;
+    g_runtime.abi.trace--;
     g_runtime.core.trace_recursion_depth++;
     DESCR_t value;
     uint64_t w[2];
     w[0] = x0;
     w[1] = x1;
     memcpy(&value, w, sizeof value);
-    long line = line_override > 0 ? line_override : g_line;
+    long line = line_override > 0 ? line_override : g_runtime.abi.line;
     fflush(stdout);
-    const char *f = g_file ? g_file : "";
+    const char *f = g_runtime.abi.file ? g_runtime.abi.file : "";
     { const char *bn = strrchr(f, 47); if (bn) f = bn + 1; }
     { size_t fl = strlen(f); if (fl > 13) f += fl - 13; }
     if (line > 0) fprintf(stderr, "%-13s: %4ld  ", f, line);
@@ -412,16 +387,15 @@ void rt_trace_all_set(int on) {
 }
 void rt_trace_label_hook_p(const char *name, trace_pend_t *pend) {
     if (trace_idle()) return;
-    extern long g_stno;
     if (!name || !*name) return;
     if (g_runtime.core.trace_recursion_depth > 0) return;
-    if (g_trace == 0) return;
+    if (g_runtime.abi.trace == 0) return;
     trace_ent_t *e = trace_find(name, TRK_LABEL);
     if (!e) return;
-    g_trace--;
+    g_runtime.abi.trace--;
     if (e->cbfn) {
-        int64_t saved_trace = g_trace;
-        g_trace = 0;
+        int64_t saved_trace = g_runtime.abi.trace;
+        g_runtime.abi.trace = 0;
         g_runtime.core.trace_recursion_depth++;
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(name));
@@ -439,11 +413,11 @@ void rt_trace_label_hook_p(const char *name, trace_pend_t *pend) {
         (void)RT_GC_CALLBACK(APPLY_fn(e->cbfn, cbargs, 2));
         rt_pl_port_trace_cb(e->cbfn, 2);
         g_runtime.core.trace_recursion_depth--;
-        g_trace = saved_trace;
+        g_runtime.abi.trace = saved_trace;
         return;
     }
     g_runtime.core.trace_recursion_depth++;
-    trace_print_banner_args(name, (DESCR_t *)0, 0, NULVCL, (long long)g_stno, TRK_LABEL);
+    trace_print_banner_args(name, (DESCR_t *)0, 0, NULVCL, (long long)g_runtime.abi.stno, TRK_LABEL);
     g_runtime.core.trace_recursion_depth--;
 }
 void rt_trace_label_hook(const char *name) { rt_trace_label_hook_p(name, (trace_pend_t *)0); }
@@ -453,11 +427,11 @@ void rt_trace_keyword_write_p(const char *kw, int64_t v, long long stno, trace_p
     if (g_runtime.core.trace_recursion_depth > 0) return;
     trace_ent_t *e = trace_find(kw, TRK_KEYWORD);
     if (!e) return;
-    if (g_trace == 0) return;
-    g_trace--;
+    if (g_runtime.abi.trace == 0) return;
+    g_runtime.abi.trace--;
     if (e->cbfn) {
-        int64_t saved_trace = g_trace;
-        g_trace = 0;
+        int64_t saved_trace = g_runtime.abi.trace;
+        g_runtime.abi.trace = 0;
         g_runtime.core.trace_recursion_depth++;
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(kw));
@@ -477,14 +451,14 @@ void rt_trace_keyword_write_p(const char *kw, int64_t v, long long stno, trace_p
         (void)RT_GC_CALLBACK(APPLY_fn(e->cbfn, cbargs, 2));
         rt_pl_port_trace_cb(e->cbfn, 2);
         g_runtime.core.trace_recursion_depth--;
-        g_trace = saved_trace;
+        g_runtime.abi.trace = saved_trace;
         return;
     }
     g_runtime.core.trace_recursion_depth++;
     {
         char nb[fmt_len("&%s", kw)];
         snprintf(nb, sizeof nb, "&%s", kw);
-        g_runtime.core.trace_depth_override = !strcmp(kw, "FNCLEVEL") ? (long)v : (long)g_kw_fnclevel;
+        g_runtime.core.trace_depth_override = !strcmp(kw, "FNCLEVEL") ? (long)v : (long)g_runtime.abi.kw_fnclevel;
         trace_print_banner_args(nb, (DESCR_t *)0, 0, INTVAL(v), stno, TRK_KEYWORD);
         g_runtime.core.trace_depth_override = -1;
     }
@@ -497,25 +471,30 @@ __asm__( ".text\n" ".globl rt_trace_apply_island\n" ".type rt_trace_apply_island
 void rt_trace_event_args_ip(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, long island, trace_pend_t *pend, long long rstno) {
     if (trace_idle()) return;
     if (!name || !*name) return;
-    int ftr = (kind == TRK_CALL || kind == TRK_RETURN) && g_kw_ftrace > 0;
-    if (g_runtime.core.trace_recursion_depth > 0) { if (ftr) { g_kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); } return; }
+    int ftr = (kind == TRK_CALL || kind == TRK_RETURN) && g_runtime.abi.kw_ftrace > 0;
+    if (g_runtime.core.trace_recursion_depth > 0) { if (ftr) { g_runtime.abi.kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); } return; }
     if (kind == TRK_CALL || kind == TRK_RETURN) {
-        extern int64_t g_kw_fnclevel;
-        int64_t lv = (kind == TRK_CALL) ? g_kw_fnclevel : g_kw_fnclevel - 1;
+        int64_t lv = (kind == TRK_CALL) ? g_runtime.abi.kw_fnclevel : g_runtime.abi.kw_fnclevel - 1;
         if (lv < 0) lv = 0;
         rt_trace_keyword_write("FNCLEVEL", lv, stno);
     }
-    trace_ent_t *e = (g_trace != 0) ? trace_find(name, kind) : (trace_ent_t *)0;
-    if (!e && g_trace != 0) e = trace_find("*", kind);
-    if (ftr && !(e && e->cbfn && g_trace > 0)) { g_kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); return; }
-    if (g_trace == 0) return;
+    trace_ent_t *e = (g_runtime.abi.trace != 0) ? trace_find(name, kind) : (trace_ent_t *)0;
+    if (!e && g_runtime.abi.trace != 0) e = trace_find("*", kind);
+    if (ftr && !(e && e->cbfn && g_runtime.abi.trace > 0)) { g_runtime.abi.kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); return; }
+    if (g_runtime.abi.trace == 0) return;
     if (!e) return;
-    if (g_trace < 0 && !(e->tag && !strcmp(e->tag, "icn"))) return;
-    if (e->tag && !strcmp(e->tag, "icn")) { g_trace--; g_runtime.core.trace_recursion_depth++; trace_print_icon(kind, name, args, nargs, value); g_runtime.core.trace_recursion_depth--; return; }
-    g_trace--;
+    if (g_runtime.abi.trace < 0 && !(e->tag && !strcmp(e->tag, "icn"))) return;
+    if (e->tag && !strcmp(e->tag, "icn")) {
+        g_runtime.abi.trace--;
+        g_runtime.core.trace_recursion_depth++;
+        trace_print_icon(kind, name, args, nargs, value);
+        g_runtime.core.trace_recursion_depth--;
+        return;
+    }
+    g_runtime.abi.trace--;
     if (e->cbfn) {
-        int64_t saved_trace = g_trace;
-        g_trace = 0;
+        int64_t saved_trace = g_runtime.abi.trace;
+        g_runtime.abi.trace = 0;
         g_runtime.core.trace_recursion_depth++;
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(name));
@@ -533,25 +512,19 @@ void rt_trace_event_args_ip(int kind, const char *name, DESCR_t *args, int nargs
                 trace_banner_str(bb, bn + 1, name, args, nargs, value, bstno, kind);
                 pend->saved_ftrace = STRVAL(rt_heap_strdup_c(bb));
             }
-            if (kind == TRK_CALL || kind == TRK_RETURN) {
-                extern int64_t g_kw_fnclevel;
-                extern int g_rt_k_level;
-                if (g_kw_fnclevel > 0) { g_kw_fnclevel--; g_rt_k_level--; pend->saved_trace.slen = 1; }
-            }
+            if (kind == TRK_CALL || kind == TRK_RETURN) { if (g_runtime.abi.kw_fnclevel > 0) { g_runtime.abi.kw_fnclevel--; g_runtime.abi.rt_k_level--; pend->saved_trace.slen = 1; } }
             rt_pl_port_trace_cb(e->cbfn, 0);
             return;
         }
-        extern int64_t g_kw_fnclevel;
-        extern int g_rt_k_level;
-        int lowered = (kind == TRK_CALL || kind == TRK_RETURN) && g_kw_fnclevel > 0;
-        if (lowered) { g_kw_fnclevel--; g_rt_k_level--; }
+        int lowered = (kind == TRK_CALL || kind == TRK_RETURN) && g_runtime.abi.kw_fnclevel > 0;
+        if (lowered) { g_runtime.abi.kw_fnclevel--; g_runtime.abi.rt_k_level--; }
         rt_pl_port_trace_cb(e->cbfn, 0);
         (void)RT_GC_CALLBACK(island ? rt_trace_apply_island(e->cbfn, cbargs, 2, island) : APPLY_fn(e->cbfn, cbargs, 2));
         rt_pl_port_trace_cb(e->cbfn, 2);
-        if (lowered) { g_kw_fnclevel++; g_rt_k_level++; }
+        if (lowered) { g_runtime.abi.kw_fnclevel++; g_runtime.abi.rt_k_level++; }
         g_runtime.core.trace_recursion_depth--;
-        g_trace = saved_trace;
-        if (ftr && g_kw_ftrace > 0) { g_kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); }
+        g_runtime.abi.trace = saved_trace;
+        if (ftr && g_runtime.abi.kw_ftrace > 0) { g_runtime.abi.kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); }
     } else {
         trace_print_banner_args(name, args, nargs, value, stno, kind);
     }
@@ -564,7 +537,6 @@ void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_call_hook_ip(const char *fname, long island, trace_pend_t *pend) {
     if (trace_idle()) return;
-    extern long g_stno;
     extern int rt_proc_nformals_exact(const char *name);
     extern const char *rt_proc_pname(const char *name, int k);
     extern DESCR_t NV_GET_fn(const char *);
@@ -576,7 +548,7 @@ void rt_trace_call_hook_ip(const char *fname, long island, trace_pend_t *pend) {
     if (np > nv) np = nv;
     DESCR_t a[nv > 0 ? nv : 1];
     for (int i = 0; i < np; i++) { const char *pn = rt_proc_pname(fname, i); a[i] = pn ? NV_GET_fn(pn) : NULVCL; }
-    { extern const char *rt_proc_trace_canon(const char *); rt_trace_event_args_ip(TRK_CALL, rt_proc_trace_canon(fname), a, np, NULVCL, g_stno, island, pend, 0); }
+    { extern const char *rt_proc_trace_canon(const char *); rt_trace_event_args_ip(TRK_CALL, rt_proc_trace_canon(fname), a, np, NULVCL, g_runtime.abi.stno, island, pend, 0); }
 }
 void rt_trace_call_hook_p(const char *fname, trace_pend_t *pend) { rt_trace_call_hook_ip(fname, 0, pend); }
 void rt_trace_call_hook(const char *fname) { rt_trace_call_hook_ip(fname, 0, (trace_pend_t *)0); }
@@ -715,11 +687,10 @@ int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int stri
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int nargs) {
-    extern int g_rt_k_level;
     r->name = name;
     r->args = args;
     r->nargs = nargs;
-    r->level = g_rt_k_level;
+    r->level = g_runtime.abi.rt_k_level;
     r->prev = g_icn_bi_top;
     r->callee = NULVCL;
     g_icn_bi_top = r;
@@ -748,7 +719,7 @@ static void icn_tb_builtins_at(int lv) {
             for (int j = 0; j < n2; j++) { if (j) fputc(',', stderr); icn_tb_image((b->args && j < b->nargs) ? b->args[j] : NULVCL); }
         }
         fputc(')', stderr);
-        { extern long g_line; extern const char *g_file; fprintf(stderr, " from line %ld in %s\n", g_line, icn_basename(g_file)); }
+        { fprintf(stderr, " from line %ld in %s\n", g_runtime.abi.line, icn_basename(g_runtime.abi.file)); }
     }
 }
 extern int rt_icn_frames(rt_icn_frame_t *out, int cap);
@@ -772,8 +743,6 @@ DESCR_t *core_icn_act_arg(int lv, int k) { rt_icn_frame_t f; return icn_act_fram
 void rt_icn_line_of_pc(uint64_t pc, long *line, const char **file);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_traceback(void) {
-    extern long g_line;
-    extern const char *g_file;
     extern int rt_proc_nparams(const char *);
     int n = rt_icn_frames((rt_icn_frame_t *)0, 0);
     {
@@ -819,7 +788,7 @@ void core_icn_traceback(void) {
             fprintf(stderr, " %s ", g_icn_op.sym);
             icn_tb_image(g_icn_op.b);
         }
-        fprintf(stderr, "} from line %ld in %s\n", g_line, icn_basename(g_file));
+        fprintf(stderr, "} from line %ld in %s\n", g_runtime.abi.line, icn_basename(g_runtime.abi.file));
     }
     fflush(stderr);
 }
@@ -900,14 +869,10 @@ void core_error_voice_at(int code, const char *msg, const char *file, long line,
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_error_voice(int code, const char *msg, int has_val, DESCR_t val) {
-    extern long g_line;
-    extern const char *g_file;
-    extern long g_stno;
-    extern int g_rt_k_level;
-    const sno_stno_rec_t * rec = (g_stno > 0 && g_line > 0 && g_file && *g_file) ? (const sno_stno_rec_t *)0 : scrip_stno_from_return_addrs();
-    long voice_stno = g_stno > 0 ? g_stno : (rec ? (long)rec->stno : 0);
-    int from_map = (!(g_file && *g_file) && g_line <= 0 && rec && rec->line > 0 && (g_stno <= 0 || g_stno == (long)rec->stno));
-    core_error_voice_at(code, msg, from_map ? rec->file : g_file, from_map ? (long)rec->line : g_line, voice_stno);
+    const sno_stno_rec_t * rec = (g_runtime.abi.stno > 0 && g_runtime.abi.line > 0 && g_runtime.abi.file && *g_runtime.abi.file) ? (const sno_stno_rec_t *)0 : scrip_stno_from_return_addrs();
+    long voice_stno = g_runtime.abi.stno > 0 ? g_runtime.abi.stno : (rec ? (long)rec->stno : 0);
+    int from_map = (!(g_runtime.abi.file && *g_runtime.abi.file) && g_runtime.abi.line <= 0 && rec && rec->line > 0 && (g_runtime.abi.stno <= 0 || g_runtime.abi.stno == (long)rec->stno));
+    core_error_voice_at(code, msg, from_map ? rec->file : g_runtime.abi.file, from_map ? (long)rec->line : g_runtime.abi.line, voice_stno);
     if (has_val && val.v != DT_FAIL) {
         extern FILE *fh_memsink_open(char **, size_t *);
         char *vb = (char *)0;
@@ -916,23 +881,21 @@ void core_error_voice(int code, const char *msg, int has_val, DESCR_t val) {
         if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); }
         if (vb && vb[0]) fprintf(stderr, "  offending value: %s\n", vb);
     }
-    if (g_rt_k_level >= 1 && rt_icn_frames((rt_icn_frame_t *)0, 0) > 0) core_icn_traceback();
+    if (g_runtime.abi.rt_k_level >= 1 && rt_icn_frames((rt_icn_frame_t *)0, 0) > 0) core_icn_traceback();
     fflush(stderr);
 }
 static void core_icn_report(int code, DESCR_t val, const char *msg) { core_error_voice(code, msg ? msg : icn_errmsg(code), 1, val); exit(1); }
 #if RT_DIAG
 void rt_trace_call_hook_f(const char *fname, int np, void *base) {
-    extern long g_stno;
     if (trace_idle()) return;
     if (np < 0) np = 0;
     DESCR_t a[np > 0 ? np : 1];
     for (int i = 0; i < np; i++) a[i] = *(DESCR_t *)((char *)base + (i + 1) * 16);
-    { extern const char *rt_proc_trace_canon(const char *); rt_trace_event_args(TRK_CALL, rt_proc_trace_canon(fname), a, np, NULVCL, g_stno); }
+    { extern const char *rt_proc_trace_canon(const char *); rt_trace_event_args(TRK_CALL, rt_proc_trace_canon(fname), a, np, NULVCL, g_runtime.abi.stno); }
 }
 void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long line) {
     if (trace_idle()) return;
-    extern long g_line;
-    if (g_trace == 0 || !pname || !*pname) return;
+    if (g_runtime.abi.trace == 0 || !pname || !*pname) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
     if (g_runtime.core.trace_recursion_depth > 0) return;
@@ -941,18 +904,18 @@ void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long lin
     w[0] = lo;
     w[1] = hi;
     memcpy(&v, w, sizeof v);
-    long save = g_line;
-    if (line > 0) g_line = line;
-    g_trace--;
+    long save = g_runtime.abi.line;
+    if (line > 0) g_runtime.abi.line = line;
+    g_runtime.abi.trace--;
     g_runtime.core.trace_recursion_depth++;
     trace_print_icon(TRK_SUSPEND, pname, (DESCR_t *)0, 0, v);
     g_runtime.core.trace_recursion_depth--;
-    g_line = save;
+    g_runtime.abi.line = save;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void *h) {
     if (trace_idle()) return;
-    if (g_trace == 0 || !pname || !*pname) return;
+    if (g_runtime.abi.trace == 0 || !pname || !*pname) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
     if (g_runtime.core.trace_recursion_depth > 0) return;
@@ -961,7 +924,7 @@ void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void 
     w[0] = lo;
     w[1] = hi;
     memcpy(&v, w, sizeof v);
-    g_trace--;
+    g_runtime.abi.trace--;
     g_runtime.core.trace_recursion_depth++;
     trace_print_icon(TRK_RETURN, pname, (DESCR_t *)0, 0, v);
     g_runtime.core.trace_recursion_depth--;
@@ -971,18 +934,17 @@ void rt_trace_gen_fail_hook(const char *fname, void *h) { if (trace_idle()) retu
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_resume_hook(const char *pname, void *h) {
     if (trace_idle()) return;
-    extern long g_line;
-    if (g_trace == 0 || !pname || !*pname) return;
+    if (g_runtime.abi.trace == 0 || !pname || !*pname) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
     if (g_runtime.core.trace_recursion_depth > 0) return;
-    long save = g_line;
-    if (h) { long ln = *(const long *)((const char *)h + 64) >> 1; if (ln > 0) g_line = ln; }
-    g_trace--;
+    long save = g_runtime.abi.line;
+    if (h) { long ln = *(const long *)((const char *)h + 64) >> 1; if (ln > 0) g_runtime.abi.line = ln; }
+    g_runtime.abi.trace--;
     g_runtime.core.trace_recursion_depth++;
     trace_print_icon(TRK_RESUME, pname, (DESCR_t *)0, 0, NULVCL);
     g_runtime.core.trace_recursion_depth--;
-    g_line = save;
+    g_runtime.abi.line = save;
 }
 #else
 void rt_trace_call_hook_f(const char *fname, int np, void *base) { (void)fname; (void)np; (void)base; }
@@ -995,16 +957,14 @@ void rt_trace_resume_hook(const char *pname, void *h) { (void)pname; (void)h; }
 #if RT_DIAG
 void rt_trace_fail_hook_ip(const char *fname, long island, trace_pend_t *pend, long long rstno) {
     if (trace_idle()) return;
-    extern long g_stno;
     extern const char *rt_proc_trace_canon(const char *);
-    rt_trace_event_args_ip(TRK_RETURN, rt_proc_trace_canon(fname), (DESCR_t *)0, 0, FAILDESCR, g_stno, island, pend, rstno);
+    rt_trace_event_args_ip(TRK_RETURN, rt_proc_trace_canon(fname), (DESCR_t *)0, 0, FAILDESCR, g_runtime.abi.stno, island, pend, rstno);
 }
 void rt_trace_fail_hook_p(const char *fname, trace_pend_t *pend, long long rstno) { rt_trace_fail_hook_ip(fname, 0, pend, rstno); }
 void rt_trace_fail_hook(const char *fname) { rt_trace_fail_hook_ip(fname, 0, (trace_pend_t *)0, 0); }
 void rt_trace_return_hook_ip(const char *fname, DESCR_t retval, long island, trace_pend_t *pend, long long rstno) {
-    extern long g_stno;
     extern const char *rt_proc_trace_canon(const char *);
-    if (!trace_idle()) rt_trace_event_args_ip(TRK_RETURN, rt_proc_trace_canon(fname), (DESCR_t *)0, 0, retval, g_stno, island, pend, rstno);
+    if (!trace_idle()) rt_trace_event_args_ip(TRK_RETURN, rt_proc_trace_canon(fname), (DESCR_t *)0, 0, retval, g_runtime.abi.stno, island, pend, rstno);
 }
 void rt_trace_return_hook_p(const char *fname, DESCR_t retval, trace_pend_t *pend, long long rstno) { rt_trace_return_hook_ip(fname, retval, 0, pend, rstno); }
 void rt_trace_return_hook(const char *fname, DESCR_t retval) { rt_trace_return_hook_ip(fname, retval, 0, (trace_pend_t *)0, 0); }
@@ -1018,7 +978,7 @@ int64_t g_kw_stcount = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 static void mon_send(const char *kind, const char *name, const char *value) {
-    if (g_monitor_fd < 0) return;
+    if (g_runtime.abi.monitor_fd < 0) return;
     if (!value) value = "";
     struct iovec iov[6];
     iov[0].iov_base = (void*)kind;
@@ -1033,51 +993,50 @@ static void mon_send(const char *kind, const char *name, const char *value) {
     iov[4].iov_len = strlen(value);
     iov[5].iov_base = MON_RS;
     iov[5].iov_len = 1;
-    writev(g_monitor_fd, iov, 6);
+    writev(g_runtime.abi.monitor_fd, iov, 6);
     if (g_runtime.core.monitor_ack_fd >= 0) { char ack = 0; ssize_t r = read(g_runtime.core.monitor_ack_fd, &ack, 1); if (r != 1 || ack == 'S') exit(0); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_label_bin(int64_t stno);
 void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val);
-long g_trace_budget = 0;
 void rt_trace_stmt(long line) {
     if (trace_idle()) return;
-    if (g_trace_budget == 0) return;
+    if (g_runtime.abi.trace_budget == 0) return;
     g_runtime.core.trace_stmt_seen = 1;
     g_runtime.core.trace_stmt_gen++;
-    g_trace_budget--;
+    g_runtime.abi.trace_budget--;
     g_kw_stcount++;
     fprintf(stdout, "****%-7lld  L%ld\n", (long long)g_kw_stcount, line);
     fflush(stdout);
-    if (g_monitor_bin) mon_emit_label_bin((int64_t)line);
-    else if (g_monitor_fd >= 0) { char lb[32]; snprintf(lb, sizeof lb, "%ld", line); mon_send("STMT", lb, ""); }
+    if (g_runtime.abi.monitor_bin) mon_emit_label_bin((int64_t)line);
+    else if (g_runtime.abi.monitor_fd >= 0) { char lb[32]; snprintf(lb, sizeof lb, "%ld", line); mon_send("STMT", lb, ""); }
 }
 void rt_trace_call(const char *name, DESCR_t *args, int nargs) {
-    if (g_trace_budget == 0 || !name) return;
-    g_trace_budget--;
+    if (g_runtime.abi.trace_budget == 0 || !name) return;
+    g_runtime.abi.trace_budget--;
     g_kw_stcount++;
     char vtext[trace_spell_args(args, nargs, (char *)0, 0)];
     trace_spell_args(args, nargs, vtext, sizeof vtext);
     fprintf(stdout, "****%-7lld  %s(%s)\n", (long long)g_kw_stcount, name, vtext);
     fflush(stdout);
-    if (g_monitor_bin) mon_emit_trace_bin(MWK_CALL, name, NULVCL);
-    else if (g_monitor_fd >= 0) mon_send("CALL", name, vtext);
+    if (g_runtime.abi.monitor_bin) mon_emit_trace_bin(MWK_CALL, name, NULVCL);
+    else if (g_runtime.abi.monitor_fd >= 0) mon_send("CALL", name, vtext);
 }
 void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval) {
-    if (g_trace_budget == 0 || !name) return;
-    g_trace_budget--;
+    if (g_runtime.abi.trace_budget == 0 || !name) return;
+    g_runtime.abi.trace_budget--;
     g_kw_stcount++;
     char vtext[trace_spell_value(retval, (char *)0, 0)];
     trace_spell_value(retval, vtext, sizeof vtext);
     fprintf(stdout, "****%-7lld  RETURN %s = %s\n", (long long)g_kw_stcount, name, vtext);
     fflush(stdout);
-    if (g_monitor_bin) mon_emit_trace_bin(MWK_RETURN, name, wireval);
-    else if (g_monitor_fd >= 0) mon_send("RETURN", name, vtext);
+    if (g_runtime.abi.monitor_bin) mon_emit_trace_bin(MWK_RETURN, name, wireval);
+    else if (g_runtime.abi.monitor_fd >= 0) mon_send("RETURN", name, vtext);
 }
 void rt_trace_return(const char *name, DESCR_t retval) { rt_trace_return_wire(name, retval, retval); }
 void rt_trace_tap_off(void) { g_runtime.core.trace_tap_off = 1; }
 void rt_trace_value_sigil(const char *name, DESCR_t val, int hook) {
-    if (g_trace_budget == 0 || !name) return;
+    if (g_runtime.abi.trace_budget == 0 || !name) return;
     if (!strncmp(name, "__icn_", 6) || strstr(name, "__INITFLAG__")) return;
     { const char *st = strstr(name, "__STATIC__"); if (st && st[10]) name = st + 10; }
     char vtext[trace_spell_value(val, (char *)0, 0)];
@@ -1097,18 +1056,17 @@ void rt_trace_value_sigil(const char *name, DESCR_t val, int hook) {
         memcpy(ln + 1, name, nl + 1);
         memcpy(ln + 2 + nl, vtext, vl + 1);
     }
-    g_trace_budget--;
+    g_runtime.abi.trace_budget--;
     g_kw_stcount++;
     fprintf(stdout, "****%-7lld  %s = %s\n", (long long)g_kw_stcount, name, vtext);
     fflush(stdout);
     DESCR_t wire = val;
     if (hook == 1 && (name[0] == '@' || name[0] == '%') && (val.v == DT_S || val.v == DT_SNUL)) wire.v = (name[0] == '@') ? DT_A : DT_T;
-    if (g_monitor_bin) mon_emit_trace_bin(MWK_VALUE, name, wire);
-    else if (g_monitor_fd >= 0) mon_send("VALUE", name, vtext);
+    if (g_runtime.abi.monitor_bin) mon_emit_trace_bin(MWK_VALUE, name, wire);
+    else if (g_runtime.abi.monitor_fd >= 0) mon_send("VALUE", name, vtext);
 }
 void rt_trace_value(const char *name, DESCR_t val) { rt_trace_value_sigil(name, val, 0); }
 #else
-long g_trace_budget = 0;
 void rt_trace_stmt(long line) { (void)line; }
 void rt_trace_call(const char *name, DESCR_t *args, int nargs) { (void)name; (void)args; (void)nargs; }
 void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval) { (void)name; (void)retval; (void)wireval; }
@@ -1201,7 +1159,7 @@ static uint32_t intern_name_bin(const char *p, int len) {
     g_runtime.core.bin_names[id] = copy;
     g_runtime.core.bin_name_lens[id] = len;
     g_runtime.core.bin_n_names = id + 1;
-    if (g_monitor_bin && g_monitor_fd >= 0) { mon_send_bin(MWK_NAME_DEF, (uint32_t)id, MWT_STRING, (len > 0) ? (const void *)copy : NULL, (uint32_t)len); }
+    if (g_runtime.abi.monitor_bin && g_runtime.abi.monitor_fd >= 0) { mon_send_bin(MWK_NAME_DEF, (uint32_t)id, MWT_STRING, (len > 0) ? (const void *)copy : NULL, (uint32_t)len); }
     return (uint32_t)id;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1209,9 +1167,9 @@ static void mon_at_exit(void) {
     static int already = 0;
     if (already) return;
     already = 1;
-    if (g_monitor_fd >= 0 && g_monitor_bin) {
-        if (g_mon_max_stno > 0 && g_runtime.core.monitor_ready) {
-            int64_t es = (int64_t)g_mon_max_stno + 1;
+    if (g_runtime.abi.monitor_fd >= 0 && g_runtime.abi.monitor_bin) {
+        if (g_runtime.abi.mon_max_stno > 0 && g_runtime.core.monitor_ready) {
+            int64_t es = (int64_t)g_runtime.abi.mon_max_stno + 1;
             unsigned char lhdr[MW_HDR_BYTES];
             unsigned char lbuf[8];
             for (int k = 0; k < 8; k++) lbuf[k] = (unsigned char)(((uint64_t)es >> (k*8)) & 0xff);
@@ -1221,18 +1179,18 @@ static void mon_at_exit(void) {
             iov[0].iov_len = MW_HDR_BYTES;
             iov[1].iov_base = lbuf;
             iov[1].iov_len = 8;
-            ssize_t lw = writev(g_monitor_fd, iov, 2);
+            ssize_t lw = writev(g_runtime.abi.monitor_fd, iov, 2);
             (void)lw;
             if (g_runtime.core.monitor_ack_fd >= 0) { char ack = 0; ssize_t r = read(g_runtime.core.monitor_ack_fd, &ack, 1); (void)r; (void)ack; }
         }
         unsigned char hdr[MW_HDR_BYTES];
         mw_pack_hdr(hdr, MWK_END, MW_NAME_ID_NONE, MWT_NULL, 0);
-        ssize_t w = write(g_monitor_fd, hdr, MW_HDR_BYTES);
+        ssize_t w = write(g_runtime.abi.monitor_fd, hdr, MW_HDR_BYTES);
         (void)w;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_mon_set_max_stno(int v) { if (v > g_mon_max_stno) g_mon_max_stno = v; }
+void rt_mon_set_max_stno(int v) { if (v > g_runtime.abi.mon_max_stno) g_runtime.abi.mon_max_stno = v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static uint8_t scrip_tag_to_wire(int v) {
     switch (v) {
@@ -1273,7 +1231,7 @@ static uint8_t mon_wire_type(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type, const void *value, uint32_t value_len) {
-    if (g_monitor_fd < 0) return;
+    if (g_runtime.abi.monitor_fd < 0) return;
     unsigned char hdr[MW_HDR_BYTES];
     mw_pack_hdr(hdr, kind, name_id, type, value_len);
     struct iovec iov[2];
@@ -1282,14 +1240,14 @@ static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type, const vo
     iov[0].iov_len = MW_HDR_BYTES;
     if (value_len > 0 && value) { iov[1].iov_base = (void *)value; iov[1].iov_len = (size_t)value_len; niov = 2; }
     ssize_t total = (ssize_t)MW_HDR_BYTES + (ssize_t)value_len;
-    ssize_t got = writev(g_monitor_fd, iov, niov);
+    ssize_t got = writev(g_runtime.abi.monitor_fd, iov, niov);
     if (got != total) return;
     if (g_runtime.core.monitor_ack_fd >= 0) { char ack = 0; ssize_t r = read(g_runtime.core.monitor_ack_fd, &ack, 1); if (r != 1 || ack == 'S') exit(0); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_label_bin(int64_t stno) {
     g_kw_stcount = stno;
-    if (g_monitor_fd < 0 || !g_monitor_bin) return;
+    if (g_runtime.abi.monitor_fd < 0 || !g_runtime.abi.monitor_bin) return;
     unsigned char buf[8];
     for (int k = 0; k < 8; k++) buf[k] = (unsigned char)(((uint64_t)stno >> (k*8)) & 0xff);
     mon_send_bin(MWK_LABEL, MW_NAME_ID_NONE, MWT_INTEGER, buf, 8);
@@ -1304,7 +1262,7 @@ static int mon_name_is_internal(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_trace_value(const char *name, DESCR_t val) {
-    if (g_trace_budget == 0 || !g_runtime.core.trace_stmt_seen) return;
+    if (g_runtime.abi.trace_budget == 0 || !g_runtime.core.trace_stmt_seen) return;
     if (!name || !name[0] || name[0] == '_' || name[0] == '&') return;
     if (name[0] != '<' && NV_PTR_fn(name) == NULL) return;
     if (mon_name_is_internal(name)) return;
@@ -1313,19 +1271,19 @@ void sno_trace_value(const char *name, DESCR_t val) {
 }
 void sno_trace_call(const char *fname) {
     extern const char *rt_proc_trace_canon(const char *);
-    if (g_trace_budget == 0 || !fname || !*fname) return;
+    if (g_runtime.abi.trace_budget == 0 || !fname || !*fname) return;
     if (mon_synth_name(fname)) return;
     rt_trace_call(rt_proc_trace_canon(fname), (DESCR_t *)0, 0);
 }
 void sno_trace_return(const char *fname, DESCR_t retval) {
     extern const char *rt_proc_trace_canon(const char *);
-    if (g_trace_budget == 0 || !fname || !*fname) return;
+    if (g_runtime.abi.trace_budget == 0 || !fname || !*fname) return;
     if (mon_synth_name(fname)) return;
     fname = rt_proc_trace_canon(fname);
-    rt_trace_return_wire(fname, retval, STRVAL(IS_FAIL_fn(retval) ? "FRETURN" : (g_kw_rtntype[0] == 'N' ? "NRETURN" : "RETURN")));
+    rt_trace_return_wire(fname, retval, STRVAL(IS_FAIL_fn(retval) ? "FRETURN" : (g_runtime.abi.kw_rtntype[0] == 'N' ? "NRETURN" : "RETURN")));
 }
 void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) {
-    if (g_monitor_fd < 0 || !g_monitor_bin || !g_runtime.core.monitor_ready) return;
+    if (g_runtime.abi.monitor_fd < 0 || !g_runtime.abi.monitor_bin || !g_runtime.core.monitor_ready) return;
     uint32_t name_id = MW_NAME_ID_NONE;
     if (name && name[0]) { name_id = intern_name_bin(name, (int)strlen(name)); if (name_id == MW_NAME_ID_NONE) return; }
     if (kind == MWK_CALL) { mon_send_bin(MWK_CALL, name_id, MWT_NULL, NULL, 0); return; }
@@ -1410,7 +1368,7 @@ static DESCR_t _mon_put_helper(DESCR_t *args, int nargs, uint32_t kind, int opaq
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _b_MON_OPEN(DESCR_t *args, int nargs) {
     if (nargs < 3) return FAILDESCR;
-    if (g_monitor_fd < 0) return FAILDESCR;
+    if (g_runtime.abi.monitor_fd < 0) return FAILDESCR;
     if (g_runtime.core.bin_names == NULL) {
         const char *np;
         int nl;
@@ -1444,7 +1402,7 @@ static DESCR_t _b_MON_PUT_CALL(DESCR_t *args, int nargs) {
 static DESCR_t _b_MON_CLOSE(DESCR_t *args, int nargs) {
     (void)args;
     (void)nargs;
-    if (g_monitor_fd >= 0) { mon_send_bin(MWK_END, MW_NAME_ID_NONE, MWT_NULL, NULL, 0); }
+    if (g_runtime.abi.monitor_fd >= 0) { mon_send_bin(MWK_END, MW_NAME_ID_NONE, MWT_NULL, NULL, 0); }
     return (DESCR_t){ .v = DT_I, .i = 0 };
 }
 #else
@@ -1487,14 +1445,14 @@ static int mon_synth_name(const char *n) {
     return keep ? 0 : mon_name_is_internal(n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int comm_var_active(void) { return g_comm_dbg != 0 || g_trace_set_n != 0 || g_monitor_fd >= 0; }
+int comm_var_active(void) { return g_runtime.abi.comm_dbg != 0 || g_runtime.abi.trace_set_n != 0 || g_runtime.abi.monitor_fd >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void comm_var_tail(const char *name, DESCR_t val, int hook) {
-    if (g_trace_budget != 0) {
+    if (g_runtime.abi.trace_budget != 0) {
         if (!g_runtime.core.trace_tap_off && g_runtime.core.trace_stmt_seen && !mon_name_is_internal(name) && !sno_name_is_output_assoc(name)) rt_trace_value_sigil(name, val, hook);
         return;
     }
-    if (g_monitor_fd < 0 || g_monitor_bin) return;
+    if (g_runtime.abi.monitor_fd < 0 || g_runtime.abi.monitor_bin) return;
     if (!g_runtime.core.monitor_ready) return;
     if (g_kw_trace <= 0 && !trace_registered(name)) return;
     const char *s = VARVAL_fn(val);
@@ -1504,12 +1462,12 @@ void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line,
     if (!name || name[0] == '_') return;
     if (mon_synth_name(name)) return;
     if (g_monitor_quiet_depth > 0) return;
-    if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
-    const int dbg = g_comm_dbg;
-    if (!dbg && g_trace_set_n == 0 && g_monitor_fd < 0 && g_kw_trace <= 0) return;
+    if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
+    const int dbg = g_runtime.abi.comm_dbg;
+    if (!dbg && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_kw_trace <= 0) return;
     if (dbg) fprintf(stderr, "[scrip-trace] comm_var name=%s recur=%d\n", name, g_runtime.core.trace_recursion_depth);
-    if (stno <= 0) { extern long g_stno; stno = (long long)g_stno; }
-    if (!g_monitor_bin) {
+    if (stno <= 0) { stno = (long long)g_runtime.abi.stno; }
+    if (!g_runtime.abi.monitor_bin) {
         rt_trace_event_args_ip(TRK_VALUE, name, (DESCR_t *)0, 0, val, stno, 0, pend, 0);
         if (pend && pend->args[0].v) { pend->val = val; pend->hook = INTVAL(hook); pend->hook.slen = 1; return; }
     }
@@ -1527,11 +1485,11 @@ void rt_trace_pend_run(trace_pend_t *pend) { (void)RT_GC_CALLBACK(APPLY_fn(VARVA
 void rt_trace_pend_close(trace_pend_t *pend) {
     if (!pend->args[0].v) return;
     rt_pl_port_trace_cb(pend->args[0].s, 2);
-    g_trace = pend->saved_trace.i;
-    if (pend->saved_trace.slen == 1) { extern int64_t g_kw_fnclevel; extern int g_rt_k_level; g_kw_fnclevel++; g_rt_k_level++; }
+    g_runtime.abi.trace = pend->saved_trace.i;
+    if (pend->saved_trace.slen == 1) { g_runtime.abi.kw_fnclevel++; g_runtime.abi.rt_k_level++; }
     pend->saved_trace.slen = 0;
     g_runtime.core.trace_recursion_depth--;
-    if (pend->saved_ftrace.v == DT_S && g_kw_ftrace > 0) { g_kw_ftrace--; trace_put_folded(pend->saved_ftrace.s); fflush(stdout); }
+    if (pend->saved_ftrace.v == DT_S && g_runtime.abi.kw_ftrace > 0) { g_runtime.abi.kw_ftrace--; trace_put_folded(pend->saved_ftrace.s); fflush(stdout); }
     pend->saved_ftrace = INTVAL(0);
     pend->args[0].v = 0;
     if (pend->hook.slen == 1) comm_var_tail(pend->args[1].s, pend->val, (int)pend->hook.i);
@@ -1546,11 +1504,16 @@ void comm_call(const char *fname) {
     if (!fname || !*fname) return;
     fname = rt_proc_trace_canon(fname);
     if (mon_synth_name(fname)) return;
-    if (g_kw_ftrace > 0 && !g_monitor_bin) { fprintf(stdout, "****%-7lld  %s()\n", (long long)g_kw_stcount, fname); fflush(stdout); }
-    if (g_monitor_fd < 0) return;
+    if (g_runtime.abi.kw_ftrace > 0 && !g_runtime.abi.monitor_bin) { fprintf(stdout, "****%-7lld  %s()\n", (long long)g_kw_stcount, fname); fflush(stdout); }
+    if (g_runtime.abi.monitor_fd < 0) return;
     if (!g_runtime.core.monitor_ready) return;
-    if (g_kw_ftrace <= 0 && !trace_registered(fname)) return;
-    if (g_monitor_bin) { uint32_t name_id = intern_name_bin(fname, (int)strlen(fname)); if (name_id == MW_NAME_ID_NONE) return; mon_send_bin(MWK_CALL, name_id, MWT_NULL, NULL, 0); return; }
+    if (g_runtime.abi.kw_ftrace <= 0 && !trace_registered(fname)) return;
+    if (g_runtime.abi.monitor_bin) {
+        uint32_t name_id = intern_name_bin(fname, (int)strlen(fname));
+        if (name_id == MW_NAME_ID_NONE) return;
+        mon_send_bin(MWK_CALL, name_id, MWT_NULL, NULL, 0);
+        return;
+    }
     mon_send("CALL", fname, "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1559,14 +1522,18 @@ void comm_return(const char *fname, DESCR_t retval) {
     if (!fname || !*fname) return;
     fname = rt_proc_trace_canon(fname);
     if (mon_synth_name(fname)) return;
-    if (g_kw_ftrace > 0 && !g_monitor_bin) { const char *s = VARVAL_fn(retval); fprintf(stdout, "****%-7lld  RETURN %s = '%s'\n", (long long)g_kw_stcount, fname, s ? s : ""); fflush(stdout); }
-    if (g_monitor_fd < 0) return;
+    if (g_runtime.abi.kw_ftrace > 0 && !g_runtime.abi.monitor_bin) {
+        const char *s = VARVAL_fn(retval);
+        fprintf(stdout, "****%-7lld  RETURN %s = '%s'\n", (long long)g_kw_stcount, fname, s ? s : "");
+        fflush(stdout);
+    }
+    if (g_runtime.abi.monitor_fd < 0) return;
     if (!g_runtime.core.monitor_ready) return;
-    if (g_kw_ftrace <= 0 && !trace_registered(fname)) return;
-    if (g_monitor_bin) {
+    if (g_runtime.abi.kw_ftrace <= 0 && !trace_registered(fname)) return;
+    if (g_runtime.abi.monitor_bin) {
         uint32_t name_id = intern_name_bin(fname, (int)strlen(fname));
         if (name_id == MW_NAME_ID_NONE) return;
-        const char *rt = g_kw_rtntype[0] ? g_kw_rtntype : "RETURN";
+        const char *rt = g_runtime.abi.kw_rtntype[0] ? g_runtime.abi.kw_rtntype : "RETURN";
         uint32_t rtlen = (uint32_t)strlen(rt);
         mon_send_bin(MWK_RETURN, name_id, MWT_STRING, rtlen ? (const void *)rt : NULL, rtlen);
         (void)retval;
@@ -1598,11 +1565,7 @@ void comm_return(const char *fname, DESCR_t retval) { (void)fname; (void)retval;
 #endif
 int64_t g_kw_anchor = 0;
 int64_t g_kw_stlimit = -1;
-int64_t g_kw_ftrace = 0;
 int64_t g_kw_trace = 0;
-int64_t g_kw_errlimit = 0;
-int64_t g_kw_fnclevel = 0;
-char g_kw_rtntype[16] = "";
 #define ALPHA4(n) (n), (n) + 1, (n) + 2, (n) + 3
 #define ALPHA16(n) ALPHA4(n), ALPHA4((n) + 4), ALPHA4((n) + 8), ALPHA4((n) + 12)
 #define ALPHA64(n) ALPHA16(n), ALPHA16((n) + 16), ALPHA16((n) + 32), ALPHA16((n) + 48)
@@ -1983,7 +1946,7 @@ void rt_io_chan_prebind(int ch, const char *path) {
 static void _io_chan_close(int ch);
 static void _io_var_refresh(const char *name);
 static int _io_chan_find_by_var(const char *name) {
-    if (!g_call_fastpath_off) return -1;
+    if (!g_runtime.abi.call_fastpath_off) return -1;
     for (int i = 0; i < IO_CHAN_N; i++) if (_io_chan[i].varname && strcmp(_io_chan[i].varname, name) == 0) return i;
     return -1;
 }
@@ -1996,7 +1959,7 @@ void rt_terminal_to_file(const char *path) {
     _io_chan[c].is_output = 1;
     _io_chan[c].is_popen = 0;
     _io_chan[c].varname = rt_heap_strdup_c("TERMINAL");
-    g_call_fastpath_off = 1;
+    g_runtime.abi.call_fastpath_off = 1;
     _io_var_refresh("TERMINAL");
 }
 #if RT_DIAG
@@ -2410,9 +2373,8 @@ static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
 const char *setexit_label_get(char *buf, size_t bufsz) { if (!(core_setexit_on() && sxl_set())) return NULL; strncpy(buf, SXL, bufsz - 1); buf[bufsz - 1] = '\0'; SXL[0] = '\0'; return buf; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_setexit_fire_on_end(void) {
-    extern int64_t g_kw_errlimit;
     char buf[g_runtime.core.setexit_label.p ? strlen(SXL) + 1 : 1];
-    if (g_kw_errlimit == 0 || !core_setexit_on_end()) return;
+    if (g_runtime.abi.kw_errlimit == 0 || !core_setexit_on_end()) return;
     const char *lbl = setexit_label_get(buf, sizeof buf);
     if (!lbl) return;
     extern void rt_kw_publish_error(int code, const char *msg);
@@ -2789,26 +2751,26 @@ void core_lib_init(void) {
 #if RT_DIAG
     const char *mon_fifo = getenv("MONITOR_READY_PIPE");
     if (mon_fifo && mon_fifo[0]) {
-        g_monitor_fd = open(mon_fifo, O_WRONLY | O_NONBLOCK);
-        if (g_monitor_fd < 0) g_monitor_fd = open(mon_fifo, O_WRONLY);
+        g_runtime.abi.monitor_fd = open(mon_fifo, O_WRONLY | O_NONBLOCK);
+        if (g_runtime.abi.monitor_fd < 0) g_runtime.abi.monitor_fd = open(mon_fifo, O_WRONLY);
         const char *go_pipe = getenv("MONITOR_GO_PIPE");
         if (go_pipe && go_pipe[0]) g_runtime.core.monitor_ack_fd = open(go_pipe, O_RDONLY);
         const char *names_path = getenv("MONITOR_NAMES_FILE");
         if (names_path && names_path[0]) (void)load_names_file_bin(names_path);
     } else {
         const char *mon = getenv("MONITOR");
-        if (mon && mon[0] == '1') g_monitor_fd = 2;
+        if (mon && mon[0] == '1') g_runtime.abi.monitor_fd = 2;
     }
     {
         const char *ev_ftr = getenv("SCRIP_FTRACE");
-        if (ev_ftr && ev_ftr[0]) { int64_t v = (int64_t)strtoll(ev_ftr, NULL, 10); if (v > 0) g_kw_ftrace = v; }
+        if (ev_ftr && ev_ftr[0]) { int64_t v = (int64_t)strtoll(ev_ftr, NULL, 10); if (v > 0) g_runtime.abi.kw_ftrace = v; }
         const char *ev_tr = getenv("SCRIP_TRACE");
         if (ev_tr && ev_tr[0]) { int64_t v = (int64_t)strtoll(ev_tr, NULL, 10); if (v > 0) g_kw_trace = v; }
         const char *ev_rktr = getenv("SCRIP_TRACE");
-        if (ev_rktr && ev_rktr[0]) { long v = strtol(ev_rktr, NULL, 10); if (v > 0) g_trace_budget = v; }
-        if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
+        if (ev_rktr && ev_rktr[0]) { long v = strtol(ev_rktr, NULL, 10); if (v > 0) g_runtime.abi.trace_budget = v; }
+        if (g_runtime.abi.comm_dbg < 0) g_runtime.abi.comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
     }
-    { const char *ev_bin = getenv("MONITOR_BIN"); if (ev_bin && ev_bin[0] && ev_bin[0] != '0') { g_monitor_bin = 1; atexit(mon_at_exit); } }
+    { const char *ev_bin = getenv("MONITOR_BIN"); if (ev_bin && ev_bin[0] && ev_bin[0] != '0') { g_runtime.abi.monitor_bin = 1; atexit(mon_at_exit); } }
 #endif
     extern void register_fn_lit(const char *, DESCR_t (*)(DESCR_t*, int), int, int);
     register_fn_lit("GT", _GT_, 2, 2);
@@ -2952,7 +2914,7 @@ void core_lib_init(void) {
     register_fn_lit("t", _b_tree_t, 1, 1);
     register_fn_lit("v", _b_tree_v, 1, 1);
     register_fn_lit("n", _b_tree_n, 1, 1);
-    g_protected_pat_vars_armed = 1;
+    g_runtime.abi.protected_pat_vars_armed = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *c_VARVAL_fn(DESCR_t v) {
@@ -3071,9 +3033,8 @@ void core_runtime_error(int code, const char *msg) {
         extern const char *g_icn_errtext;
         extern DESCR_t g_icn_errvalue;
         extern int g_icn_err_valid;
-        extern long g_error;
-        if (g_error != 0 && g_error != G_ERROR_EVAL_STAGE && g_core_errjmp_n > 0 && (g_error == -2 || !(core_setexit_on() && sxl_set()))) {
-            if (g_error > 0) g_error--;
+        if (g_runtime.abi.error != 0 && g_runtime.abi.error != G_ERROR_EVAL_STAGE && g_core_errjmp_n > 0 && (g_runtime.abi.error == -2 || !(core_setexit_on() && sxl_set()))) {
+            if (g_runtime.abi.error > 0) g_runtime.abi.error--;
             extern void rt_kw_publish_error(int code, const char *msg);
             g_icn_errnumber = code;
             g_icn_errtext = msg ? msg : "";
@@ -3084,15 +3045,14 @@ void core_runtime_error(int code, const char *msg) {
         }
     }
     {
-        extern int64_t g_kw_errlimit;
         extern void rt_kw_publish_error(int code, const char *msg);
         extern int g_core_errjmp_n;
         int aborting = 0;
-        if (core_setexit_on() && sxl_set() && g_kw_errlimit != 0) {
+        if (core_setexit_on() && sxl_set() && g_runtime.abi.kw_errlimit != 0) {
             char lbl[strlen(SXL) + 1];
             memcpy(lbl, SXL, sizeof lbl);
             SXL[0] = '\0';
-            if (g_kw_errlimit > 0) g_kw_errlimit--;
+            if (g_runtime.abi.kw_errlimit > 0) g_runtime.abi.kw_errlimit--;
             rt_kw_publish_error(code, msg);
             if (strcmp(lbl, "ABORT")) {
                 extern uint64_t g_rtccb[32];
@@ -3106,8 +3066,8 @@ void core_runtime_error(int code, const char *msg) {
             }
             aborting = 1;
         }
-        if (!aborting && (g_kw_errlimit != 0 || g_error == G_ERROR_EVAL_STAGE) && core_err_survives_errlimit(code) && !core_err_is_fatal(code)) {
-            if (g_kw_errlimit > 0) g_kw_errlimit--;
+        if (!aborting && (g_runtime.abi.kw_errlimit != 0 || g_runtime.abi.error == G_ERROR_EVAL_STAGE) && core_err_survives_errlimit(code) && !core_err_is_fatal(code)) {
+            if (g_runtime.abi.kw_errlimit > 0) g_runtime.abi.kw_errlimit--;
             rt_kw_publish_error(code, msg);
             return;
         }
@@ -3120,8 +3080,7 @@ void core_runtime_error(int code, const char *msg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_kb, long committed_kb) {
-    extern int g_rt_k_level;
-    int icon = (g_rt_k_level >= 1 && rt_icn_frames((rt_icn_frame_t *)0, 0) > 0) ? 1 : 0;
+    int icon = (g_runtime.abi.rt_k_level >= 1 && rt_icn_frames((rt_icn_frame_t *)0, 0) > 0) ? 1 : 0;
     int code = icon ? (type == (unsigned)DT_S ? 306 : 307) : 204;
     char mb[fmt_len("%s (the GC heap's hard cap is %ld KB, -d; %ld KB committed; this request %llu bytes)", icon ? icn_errmsg(code) : "memory overflow", cap_kb, committed_kb, payload)];
     snprintf(mb, sizeof mb, "%s (the GC heap's hard cap is %ld KB, -d; %ld KB committed; this request %llu bytes)", icon ? icn_errmsg(code) : "memory overflow", cap_kb, committed_kb, payload);
@@ -3282,9 +3241,8 @@ const char *core_icn_errmsg(int code) { return icn_errmsg(code); }
 void core_icn_startup_error_no_main(void) { fflush(stdout); fprintf(stderr, "scrip: error %d: %s\n  at startup\n", 117, icn_errmsg(117)); exit(1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_error(int code, DESCR_t val) {
-    extern long g_error;
-    if (g_error != 0 && g_error != G_ERROR_EVAL_STAGE) {
-        g_error--;
+    if (g_runtime.abi.error != 0 && g_runtime.abi.error != G_ERROR_EVAL_STAGE) {
+        g_runtime.abi.error--;
         g_icn_errnumber = code;
         { const char *_em = icn_errmsg_known(code); g_icn_errtext = _em ? _em : ""; }
         g_icn_errvalue = val;
@@ -3610,42 +3568,39 @@ typedef struct _VarEntry {
     int is_io;
     struct _VarEntry *next;
 } NV_t;
-__attribute__((visibility("hidden"))) gv_t g_var_buckets;
-__attribute__((visibility("hidden"))) unsigned g_var_nbuckets = 0;
-#define VB(h) (((NV_t **)g_var_buckets.p)[h])
-#define VBR(h) (g_var_buckets.p ? VB(h) : (NV_t *)0)
-__attribute__((visibility("hidden"))) int g_var_init_done = 0;
+#define VB(h) (((NV_t **)g_runtime.abi.var_buckets.p)[h])
+#define VBR(h) (g_runtime.abi.var_buckets.p ? VB(h) : (NV_t *)0)
 _Static_assert(offsetof(NV_t, name) == 0 && offsetof(NV_t, nlen) == 8 && offsetof(NV_t, has_nul) == 12 && offsetof(NV_t, val) == 32 && offsetof(NV_t, cell) == 48 && offsetof(NV_t, is_gva) == 56 &&
     offsetof(NV_t, is_io) == 68 && offsetof(NV_t, next) == 72 && offsetof(gv_t, p) == 0,
-    "rtx_misc.s rt_sno_name_dl walks the variable table at these fixed offsets (name 0, nlen 8, has_nul 12, val 32, cell 48, is_gva 56, is_io 68, next 72; the bucket vector is g_var_buckets.p); core"
-    ".c drifted -- every by-name lookup would read the wrong word");
+    "rtx_misc.s rt_sno_name_dl walks the variable table at these fixed offsets (name 0, nlen 8, has_nul 12, val 32, cell 48, is_gva 56, is_io 68, next 72; the bucket vector is g_runtime.abi.var_buck"
+    "ets.p); core" ".c drifted -- every by-name lookup would read the wrong word");
 static inline __attribute__((always_inline)) uint64_t nv_hash_raw(const char *s, size_t n);
 static void _var_grow(unsigned nb) {
     gv_t nv = { 0, 0, 0, 0, 0, 0 };
-    gv_reserve(&nv, (uint16_t)HB_PVEC, (uint32_t)sizeof(NV_t *), (uint64_t)nb, "g_var_buckets");
+    gv_reserve(&nv, (uint16_t)HB_PVEC, (uint32_t)sizeof(NV_t *), (uint64_t)nb, "g_runtime.abi.var_buckets");
     memset(nv.p, 0, (size_t)nb * sizeof(NV_t *));
-    for (unsigned h = 0; h < g_var_nbuckets; h++) for (NV_t *e = VB(h), *nx; e; e = nx) {
+    for (unsigned h = 0; h < g_runtime.abi.var_nbuckets; h++) for (NV_t *e = VB(h), *nx; e; e = nx) {
         unsigned k = (unsigned)(nv_hash_raw(e->name, (size_t)e->nlen) & (uint64_t)(nb - 1));
         nx = e->next;
         e->next = ((NV_t **)nv.p)[k];
         ((NV_t **)nv.p)[k] = e;
     }
-    g_var_buckets = nv;
-    g_var_nbuckets = nb;
+    g_runtime.abi.var_buckets = nv;
+    g_runtime.abi.var_nbuckets = nb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void _var_init(void) { if (g_var_init_done) return; g_var_init_done = 1; { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); } }
+static void _var_init(void) { if (g_runtime.abi.var_init_done) return; g_runtime.abi.var_init_done = 1; { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 int mon_cell_is_named(void *cellp) {
     if (!cellp) return 0;
-    for (unsigned h = 0; h < g_var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) return 1;
+    for (unsigned h = 0; h < g_runtime.abi.var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_tap_cell_store(void *cellp, DESCR_t val) {
-    if (g_monitor_fd < 0 || !cellp) return;
-    for (unsigned h = 0; h < g_var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) {
+    if (g_runtime.abi.monitor_fd < 0 || !cellp) return;
+    for (unsigned h = 0; h < g_runtime.abi.var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) {
         if (getenv("SCRIP_TAP_DBG")) fprintf(stderr, "[TAP] cell-store name=%s ready=%d quiet=%d ktr=%lld\n", e->name, g_runtime.core.monitor_ready, g_monitor_quiet_depth, (long long)g_kw_trace);
         comm_var(e->name, val, stmt_src_get_file(), 0, 0);
         return;
@@ -3678,7 +3633,9 @@ static inline __attribute__((always_inline)) uint64_t nv_hash_raw(const char *s,
     h ^= h >> 33;
     return h;
 }
-static inline __attribute__((always_inline)) unsigned nv_hash_n(const char *s, size_t n) { return g_var_nbuckets ? (unsigned)(nv_hash_raw(s, n) & (uint64_t)(g_var_nbuckets - 1)) : 0u; }
+static inline __attribute__((always_inline)) unsigned nv_hash_n(const char *s, size_t n) {
+    return g_runtime.abi.var_nbuckets ? (unsigned)(nv_hash_raw(s, n) & (uint64_t)(g_runtime.abi.var_nbuckets - 1)) : 0u;
+}
 static unsigned _var_hash(const char *name) { return nv_hash_n(name, __builtin_strlen(name)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int nv_key_c(const NV_t *e, const char *name) { return !e->has_nul && strcmp(e->name, name) == 0; }
@@ -3696,13 +3653,12 @@ static NV_t *nv_entry_name(NV_t *e, const char *s, size_t n) {
 }
 static NV_t *_var_bucket_find(const char *name) { for (NV_t *e = VBR(_var_hash(name)); e; e = e->next) if (nv_key_c(e, name)) return e; return (NV_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((visibility("hidden"))) unsigned long g_nv_memo_gen;
 static int _nv_memo_off_get(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NV_MEMO"); v = (e && *e == '0') ? 1 : 0; } return v; }
 static inline __attribute__((always_inline)) NV_t *_var_find_cached(const char *name) {
     unsigned i = (unsigned)((((uintptr_t)name >> 3) ^ ((uintptr_t)name >> 13)) & (NV_MEMO_N - 1));
-    if (g_runtime.core.nv_memo_key[i] == name && g_runtime.core.nv_memo_seen[i] == g_nv_memo_gen) { NV_t *c = g_runtime.core.nv_memo_val[i]; if (c && nv_key_c(c, name)) return c; }
+    if (g_runtime.core.nv_memo_key[i] == name && g_runtime.core.nv_memo_seen[i] == g_runtime.abi.nv_memo_gen) { NV_t *c = g_runtime.core.nv_memo_val[i]; if (c && nv_key_c(c, name)) return c; }
     NV_t *e = _var_bucket_find(name);
-    if (e && !_nv_memo_off_get()) { g_runtime.core.nv_memo_key[i] = name; g_runtime.core.nv_memo_val[i] = e; g_runtime.core.nv_memo_seen[i] = g_nv_memo_gen; }
+    if (e && !_nv_memo_off_get()) { g_runtime.core.nv_memo_key[i] = name; g_runtime.core.nv_memo_val[i] = e; g_runtime.core.nv_memo_seen[i] = g_runtime.abi.nv_memo_gen; }
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3711,11 +3667,11 @@ static void _io_var_refresh(const char *name) {
     if (!name) return;
     NV_t *e = _var_bucket_find(name);
     if (e) e->is_io = (_io_chan_find_by_var(name) >= 0) || (!strcmp(name, "OUTPUT") && !e->std_detached);
-    g_nv_memo_gen++;
+    g_runtime.abi.nv_memo_gen++;
     rt_defer_pairs_forget();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_nv_memo_invalidate(void) { g_nv_memo_gen++; }
+void rt_nv_memo_invalidate(void) { g_runtime.abi.nv_memo_gen++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int _nv_kwsplit(void) { static int _k = -1; if (_k < 0) { const char *e = getenv("SCRIP_KWSPACE_SPLIT"); _k = (e && *e == '0') ? 0 : 1; } return _k; }
 static int _nv_ordinary(const NV_t *e) { return !(e->is_const && _nv_kwsplit()); }
@@ -3730,11 +3686,11 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
     e->is_gva = 0;
     e->is_const = 0;
     e->is_io = (_io_chan_find_by_var(key) >= 0);
-    if (!g_var_nbuckets) { _var_grow(8); h = _var_hash(key); }
+    if (!g_runtime.abi.var_nbuckets) { _var_grow(8); h = _var_hash(key); }
     e->next = VB(h);
     VB(h) = e;
-    g_nv_memo_gen++;
-    if (++g_runtime.core.var_count > g_var_nbuckets) _var_grow(g_var_nbuckets * 2);
+    g_runtime.abi.nv_memo_gen++;
+    if (++g_runtime.core.var_count > g_runtime.abi.var_nbuckets) _var_grow(g_runtime.abi.var_nbuckets * 2);
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3767,12 +3723,11 @@ static DESCR_t NV_GET_untapped(const char *name) {
         return STRVAL(rt_heap_strdup_c(_io_chan[ch].buf));
     }
     if (strcmp (name, "&subject") == 0) {
-        extern const char *g_scan_subj;
         extern long rt_scan_subj_len(void);
-        if (!g_scan_subj) return NULVCL;
-        { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_scan_subj, n) : STRVAL(g_scan_subj); }
+        if (!g_runtime.abi.scan_subj) return NULVCL;
+        { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)g_runtime.abi.scan_subj, n) : STRVAL(g_runtime.abi.scan_subj); }
     }
-    if (strcmp (name, "&pos") == 0) { extern int g_scan_pos; return INTVAL(g_scan_pos); }
+    if (strcmp (name, "&pos") == 0) { return INTVAL(g_runtime.abi.scan_pos); }
     unsigned h = _var_hash(name);
     for (NV_t *e = VBR(h); e; e = e->next) if (nv_key_c(e, name) && _nv_ordinary(e)) return e->is_gva ? *e->cell : e->val;
     { extern DESCR_t rt_proc_value(const char *); if (name && (!strcmp(name, "write") || !strcmp(name, "writes"))) return rt_proc_value(name); }
@@ -3782,7 +3737,7 @@ static DESCR_t NV_GET_untapped(const char *name) {
 DESCR_t NV_GET_fn(const char *name) {
     DESCR_t v = NV_GET_untapped(name);
 #if RT_DIAG
-    if (g_runtime.core.trace_access_n != 0 && name && *name) { extern long g_stno; rt_trace_event(TRK_ACCESS, name, v, (long long)g_stno); }
+    if (g_runtime.core.trace_access_n != 0 && name && *name) { rt_trace_event(TRK_ACCESS, name, v, (long long)g_runtime.abi.stno); }
 #endif
     return v;
 }
@@ -3790,8 +3745,7 @@ DESCR_t NV_GET_fn(const char *name) {
 DESCR_t NV_GET_open(const char *name, trace_pend_t *pend) {
     DESCR_t v = NV_GET_untapped(name);
     if (g_runtime.core.trace_access_n != 0 && name && *name) {
-        extern long g_stno;
-        rt_trace_event_args_ip(TRK_ACCESS, name, (DESCR_t *)0, 0, v, (long long)g_stno, 0, pend, 0);
+        rt_trace_event_args_ip(TRK_ACCESS, name, (DESCR_t *)0, 0, v, (long long)g_runtime.abi.stno, 0, pend, 0);
         if (pend && pend->args[0].v) pend->val = v;
     }
     return v;
@@ -3799,10 +3753,9 @@ DESCR_t NV_GET_open(const char *name, trace_pend_t *pend) {
 #else
 DESCR_t NV_GET_open(const char *name, trace_pend_t *pend) { (void)pend; return NV_GET_untapped(name); }
 #endif
-int g_protected_pat_vars_armed = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name) {
-    if (!g_var_init_done) _var_init();
+    if (!g_runtime.abi.var_init_done) _var_init();
     if (!name || name[0] == '&') return (DESCR_t *)0;
     NV_t *e = _var_find_cached(name);
     if (!e || e->is_io) return (DESCR_t *)0;
@@ -3822,9 +3775,9 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
         }
     }
 #endif
-    if (!g_var_init_done) _var_init();
+    if (!g_runtime.abi.var_init_done) _var_init();
     if (val.v == DT_S) rt_sxt_break_fast(val.s);
-    if (g_protected_pat_vars_armed && name && is_protected_pat_lead(name[0]) && is_protected_pat_name(name)) { core_runtime_error(42, NULL); return val; }
+    if (g_runtime.abi.protected_pat_vars_armed && name && is_protected_pat_lead(name[0]) && is_protected_pat_name(name)) { core_runtime_error(42, NULL); return val; }
     if (!name) return val;
     if (name[0] == '&' && name[1] == '&') {
         extern int rt_kw_index(const char *);
@@ -3835,7 +3788,11 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
 #if RT_DIAG
     {
         DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name);
-        if (cell) { *cell = val; if (g_comm_dbg != 0 || g_trace_set_n != 0 || g_monitor_fd >= 0) comm_var_hook_p(name, val, stmt_src_get_file(), 0, 0, 2, pend); return val; }
+        if (cell) {
+            *cell = val;
+            if (g_runtime.abi.comm_dbg != 0 || g_runtime.abi.trace_set_n != 0 || g_runtime.abi.monitor_fd >= 0) comm_var_hook_p(name, val, stmt_src_get_file(), 0, 0, 2, pend);
+            return val;
+        }
     }
 #else
     { DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name); if (cell) { *cell = val; return val; } }
@@ -3850,17 +3807,16 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
     if (strcmp(name, "OUTPUT") == 0) { extern int rt_kw_output_on(void); if (rt_kw_output_on()) output_val(val); _var_assoc_set("_OUTPUT", val); return val; }
     if (strcmp(name, "TERMINAL") == 0) { const char *s = IS_STR(val) ? rt_cstr_d(val) : ""; fprintf(stderr, "%s\n", s); return val; }
     if (strcmp (name, "&subject") == 0) {
-        extern const char *g_scan_subj;
         const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);
         {
             extern void rt_scan_subj_len_set(const char *, long);
             long n = (val.v == DT_S && val.slen != 0xFFFFFFFFu) ? (long)val.slen : (s ? (long)strlen(s) : 0);
-            if (!s) { g_scan_subj = ""; rt_scan_subj_len_set("", 0); return val; }
-            { char *c = (char *)rt_heap_alloc_c((size_t)n + 1); memcpy(c, s, (size_t)n); c[n] = 0; g_scan_subj = c; rt_scan_subj_len_set(c, n); }
+            if (!s) { g_runtime.abi.scan_subj = ""; rt_scan_subj_len_set("", 0); return val; }
+            { char *c = (char *)rt_heap_alloc_c((size_t)n + 1); memcpy(c, s, (size_t)n); c[n] = 0; g_runtime.abi.scan_subj = c; rt_scan_subj_len_set(c, n); }
         }
         return val;
     }
-    if (strcmp (name, "&pos") == 0) { extern int g_scan_pos; g_scan_pos = (int)((val.v==DT_I) ? val.i : (int64_t)to_real(val)); return val; }
+    if (strcmp (name, "&pos") == 0) { g_runtime.abi.scan_pos = (int)((val.v==DT_I) ? val.i : (int64_t)to_real(val)); return val; }
     if (g_kw_ctx) {
         static const char *const known_kw[] = { "STLIMIT","ANCHOR","TRIM","FULLSCAN","CASE","MAXLNGTH", "FTRACE","ERRLIMIT","CODE","FNCLEVEL","RTNTYPE", "ALPHABET","UCASE","LCASE","DIGITS","PI",
             "PARM", "STEXEC","STCOUNT","STNO","DUMP","ABEND", "TRACE","GTRACE","FATALLIMIT","ERRLIMIT","ERRTYPE","ERRTEXT", "INPUT","OUTPUT","TERMINAL","PUNCHAR", NULL };
@@ -3896,11 +3852,11 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
     e->is_gva = 0;
     e->is_const = (name[0] == '&' && !_nv_kwsplit()) ? 1 : 0;
     e->is_io = (_io_chan_find_by_var(name) >= 0);
-    if (!g_var_nbuckets) { _var_grow(8); h = _var_hash(name); }
+    if (!g_runtime.abi.var_nbuckets) { _var_grow(8); h = _var_hash(name); }
     e->next = VB(h);
     VB(h) = e;
-    g_nv_memo_gen++;
-    if (++g_runtime.core.var_count > g_var_nbuckets) _var_grow(g_var_nbuckets * 2);
+    g_runtime.abi.nv_memo_gen++;
+    if (++g_runtime.core.var_count > g_runtime.abi.var_nbuckets) _var_grow(g_runtime.abi.var_nbuckets * 2);
 #if RT_DIAG
     comm_var_hook_p(name, val, stmt_src_get_file(), 0, 0, 2, pend);
 #endif
@@ -3951,7 +3907,7 @@ DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) {
     e->is_const = 1;
     e->next = VB(h);
     VB(h) = e;
-    g_nv_memo_gen++;
+    g_runtime.abi.nv_memo_gen++;
     comm_var(name, val, stmt_src_get_file(), 0, 0);
     return val;
 }
@@ -3975,7 +3931,7 @@ DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) {
     e->is_const = 1;
     e->next = VB(h);
     VB(h) = e;
-    g_nv_memo_gen++;
+    g_runtime.abi.nv_memo_gen++;
     return val;
 }
 #endif
@@ -4026,11 +3982,11 @@ DESCR_t *NV_PTR_fn(const char *name) {
     e->is_gva = 0;
     e->is_const = 0;
     e->is_io = (_io_chan_find_by_var(name) >= 0);
-    if (!g_var_nbuckets) { _var_grow(8); h = _var_hash(name); }
+    if (!g_runtime.abi.var_nbuckets) { _var_grow(8); h = _var_hash(name); }
     e->next = VB(h);
     VB(h) = e;
-    g_nv_memo_gen++;
-    if (++g_runtime.core.var_count > g_var_nbuckets) _var_grow(g_var_nbuckets * 2);
+    g_runtime.abi.nv_memo_gen++;
+    if (++g_runtime.core.var_count > g_runtime.abi.var_nbuckets) _var_grow(g_runtime.abi.var_nbuckets * 2);
     return &e->val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4070,13 +4026,13 @@ int NV_bind_gva(const char *name, DESCR_t *cell) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *NV_name_from_ptr(const DESCR_t *ptr) {
     if (!ptr) return NULL;
-    for (unsigned i = 0; i < g_var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) if (&e->val == ptr) return e->name;
+    for (unsigned i = 0; i < g_runtime.abi.var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) if (&e->val == ptr) return e->name;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void NV_CLEAR_fn(const char **except, int nexcept) {
     _var_init();
-    for (unsigned _i = 0; _i < g_var_nbuckets; _i++) {
+    for (unsigned _i = 0; _i < g_runtime.abi.var_nbuckets; _i++) {
         for (NV_t *_e = VBR(_i); _e; _e = _e->next) {
             if (_e->is_const || is_protected_pat_name(_e->name)) continue;
             int _excluded = 0;
@@ -4097,8 +4053,8 @@ int ASGNIC_fn(const char *kw_name, DESCR_t val) {
     if (strcmp(kw_name, "FULLSCAN") == 0) { g_runtime.core.kw_fullscan = iv; return 1; }
     if (strcmp(kw_name, "CASE") == 0) { (void)iv; core_runtime_error(10, "&CASE is read-only; SCRIP is case-sensitive only"); return 1; }
     if (strcmp(kw_name, "MAXLNGTH") == 0) { g_runtime.core.kw_maxlngth = iv; return 1; }
-    if (strcmp(kw_name, "FTRACE") == 0) { g_kw_ftrace = iv; return 1; }
-    if (strcmp(kw_name, "ERRLIMIT") == 0) { g_kw_errlimit = iv; return 1; }
+    if (strcmp(kw_name, "FTRACE") == 0) { g_runtime.abi.kw_ftrace = iv; return 1; }
+    if (strcmp(kw_name, "ERRLIMIT") == 0) { g_runtime.abi.kw_errlimit = iv; return 1; }
     if (strcmp(kw_name, "CODE") == 0) { g_runtime.core.kw_code = iv; return 1; }
     if (strcmp(kw_name, "STCOUNT") == 0) return 1;
     if (strcmp(kw_name, "STNO") == 0) return 1;
@@ -4339,7 +4295,7 @@ static int etrace_spell_nested(VCELL_t *vc, char *out, size_t n, long *id_out) {
     unsigned bb = 0;
     char bk[128];
     long bid = 0;
-    for (unsigned i = 0; i < g_var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
+    for (unsigned i = 0; i < g_runtime.abi.var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
         if (!etrace_var_name_ok(e->name)) continue;
         DESCR_t d = e->is_gva ? *e->cell : e->val;
         if (d.v != DT_A || !d.arr || !d.arr->data || d.arr->ndim != 1) continue;
@@ -4358,7 +4314,7 @@ static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) 
     if (vc->tbl) {
         NV_t *best = (NV_t *)0;
         unsigned bb = 0;
-        for (unsigned i = 0; i < g_var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
+        for (unsigned i = 0; i < g_runtime.abi.var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
             if (!etrace_var_name_ok(e->name)) continue;
             DESCR_t d = e->is_gva ? *e->cell : e->val;
             if (d.v != DT_T || d.tbl != vc->tbl) continue;
@@ -4375,7 +4331,7 @@ static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) 
     NV_t *best = (NV_t *)0;
     unsigned bb = 0;
     ARBLK_t *ba = (ARBLK_t *)0;
-    for (unsigned i = 0; i < g_var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
+    for (unsigned i = 0; i < g_runtime.abi.var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
         if (!etrace_var_name_ok(e->name)) continue;
         DESCR_t d = e->is_gva ? *e->cell : e->val;
         if (d.v != DT_A || !d.arr || !d.arr->data) continue;
@@ -4403,29 +4359,27 @@ static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) 
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void etrace_recount(void) { int c = 0; for (int i = 0; i < TRACE_TAB_N; i++) if (trace_tab[i].used && trace_tab[i].name && strchr(trace_tab[i].name, '<')) c++; g_sno_etrace_n = c; }
+static void etrace_recount(void) { int c = 0; for (int i = 0; i < TRACE_TAB_N; i++) if (trace_tab[i].used && trace_tab[i].name && strchr(trace_tab[i].name, '<')) c++; g_runtime.abi.sno_etrace_n = c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sno_elem_store_trace(DESCR_t var, DESCR_t val) {
-    extern long g_stno;
     long eid = 0;
-    if (g_sno_etrace_n == 0 || !IS_NAMETRAP_fn(var) || !var.p) return;
+    if (g_runtime.abi.sno_etrace_n == 0 || !IS_NAMETRAP_fn(var) || !var.p) return;
     int en = etrace_spell_of_cell((VCELL_t *)var.p, (char *)0, 0, (long *)0);
     if (en <= 0) return;
     char eb[en];
     if (!etrace_spell_of_cell((VCELL_t *)var.p, eb, sizeof eb, &eid)) return;
     { trace_ent_t *ee = trace_find(eb, TRK_VALUE); if (!ee || ee->eid != eid) return; }
-    rt_trace_event(TRK_VALUE, eb, val, (long long)g_stno);
+    rt_trace_event(TRK_VALUE, eb, val, (long long)g_runtime.abi.stno);
 }
 #else
 void rt_sno_elem_store_trace(DESCR_t var, DESCR_t val) { (void)var; (void)val; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void var_dump(void) {
-    extern long g_dump;
     dump_cx_t cx_s = { 0 }, *cx = &cx_s;
     NV_t **v = (NV_t **)0;
     int n = 0, cap = 0;
-    for (unsigned i = 0; i < g_var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
+    for (unsigned i = 0; i < g_runtime.abi.var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
         if (!e->name || !e->name[0] || e->name[0] == '&' || strchr(e->name, '$')) continue;
         if (e->name[0] == '_' && strcmp(e->name, "_OUTPUT") && strcmp(e->name, "_INPUT") && strcmp(e->name, "_TERMINAL") && strcmp(e->name, "_PUNCH")) continue;
         if (!e->is_gva && !e->touched && is_protected_pat_lead(e->name[0]) && is_protected_pat_name(e->name)) continue;
@@ -4448,7 +4402,7 @@ static void var_dump(void) {
         dump_puts(cx, " = ");
         dump_val(cx, d);
         dump_nl(cx);
-        if (g_dump >= 2) dump_collect(cx, d, dump_var_name(v[i]));
+        if (g_runtime.abi.dump >= 2) dump_collect(cx, d, dump_var_name(v[i]));
     }
     dump_nl(cx);
     dump_nl(cx);
@@ -4456,12 +4410,12 @@ static void var_dump(void) {
     dump_nl(cx);
     dump_nl(cx);
     rt_kw_dump_values(kw_dump_emit, cx);
-    if (g_dump >= 2 && cx->nobj > 0) { dump_nl(cx); dump_contents(cx); dump_nl(cx); dump_nl(cx); } else { dump_nl(cx); dump_nl(cx); dump_nl(cx); }
+    if (g_runtime.abi.dump >= 2 && cx->nobj > 0) { dump_nl(cx); dump_contents(cx); dump_nl(cx); dump_nl(cx); } else { dump_nl(cx); dump_nl(cx); dump_nl(cx); }
     fflush(stdout);
     ct_drop(v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void var_dump_at_exit(void) { extern long g_dump; if (g_dump) var_dump(); }
+static void var_dump_at_exit(void) { if (g_runtime.abi.dump) var_dump(); }
 void rt_dump_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; atexit(var_dump_at_exit); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void code_at_exit(int status, void * arg) { (void) arg; if (status == 0 && g_runtime.core.kw_code != 0) { fflush((FILE *) 0); _exit((int) g_runtime.core.kw_code); } }
@@ -4963,11 +4917,15 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs, long *r
 int core_fn_is_c(const char *name) { if (!name) return 0; for (FNCBLK_t *e = _func_head_at(_func_hash(name)); e; e = e->next) if (strcmp(e->name, name) == 0) return e->fn != NULL; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t APPLY_fn_rq(const char *name, DESCR_t *args, int nargs, long *rq) {
-    extern long g_stno, g_line, g_lastno, g_lastline;
-    long sv_stno = g_stno, sv_line = g_line;
+    long sv_stno = g_runtime.abi.stno, sv_line = g_runtime.abi.line;
     DESCR_t r = apply_fn_body(name, args, nargs, rq);
     if (rq && rq[0]) return r;
-    if (g_stno != sv_stno || g_line != sv_line) { g_lastno = g_stno; g_lastline = g_line; g_stno = sv_stno; g_line = sv_line; }
+    if (g_runtime.abi.stno != sv_stno || g_runtime.abi.line != sv_line) {
+        g_runtime.abi.lastno = g_runtime.abi.stno;
+        g_runtime.abi.lastline = g_runtime.abi.line;
+        g_runtime.abi.stno = sv_stno;
+        g_runtime.abi.line = sv_line;
+    }
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5366,7 +5324,7 @@ static int _io_assoc_std(const char *vn, int base, FILE *fp, int is_output) {
     _io_chan[c].is_output = is_output;
     _io_chan[c].is_popen = 0;
     _io_chan[c].varname = rt_heap_strdup_c(vn);
-    g_call_fastpath_off = 1;
+    g_runtime.abi.call_fastpath_off = 1;
     _io_var_refresh(vn);
     return c;
 }
@@ -5410,7 +5368,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
             _io_chan[sl].is_popen = 0;
             _io_chan[sl].rlen = rlen;
             _io_chan[sl].varname = cv ? rt_heap_strdup_c(cv) : NULL;
-            if (cv) { g_call_fastpath_off = 1; _io_var_refresh(cv); }
+            if (cv) { g_runtime.abi.call_fastpath_off = 1; _io_var_refresh(cv); }
             if (cv && !strcmp(cv, "INPUT")) { _input_fp_release(); g_runtime.core.input_fp = nf; g_runtime.core.input_fp_is_popen = 0; g_runtime.core.input_rlen = rlen; }
             return NULVCL;
         }
@@ -5445,7 +5403,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         _io_chan[sl].rlen = frlen;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
         _io_chan[sl].varname = vn ? rt_heap_strdup_c(vn) : NULL;
-        if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); }
+        if (vn) { g_runtime.abi.call_fastpath_off = 1; _io_var_refresh(vn); }
         if (vn && !strcmp(vn, "INPUT")) { _input_fp_release(); g_runtime.core.input_fp = f; g_runtime.core.input_fp_is_popen = is_pipe; g_runtime.core.input_rlen = frlen; }
     } else {
         _input_fp_release();
@@ -5504,7 +5462,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
             _io_chan[sl].fp = nf;
             _io_chan[sl].is_output = 1;
             _io_chan[sl].rlen = rlen;
-            { const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL; _io_chan[sl].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); } }
+            { const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL; _io_chan[sl].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_runtime.abi.call_fastpath_off = 1; _io_var_refresh(vn); } }
         }
         return NULVCL;
     }
@@ -5528,7 +5486,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
         _io_chan[sl].rlen = frlen;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
         _io_chan[sl].varname = vn ? rt_heap_strdup_c(vn) : NULL;
-        if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); }
+        if (vn) { g_runtime.abi.call_fastpath_off = 1; _io_var_refresh(vn); }
     } else {
         if (is_pipe) pclose(f);
         else fclose(f);
@@ -5549,15 +5507,15 @@ void core_gc_roots(void) {
     }
 #endif
     {
-        static const char *const *const words[5] = { (const char *const *)&g_runtime.core.io_chan.p, (const char *const *)&g_runtime.core.setexit_label.p, (const char *const *)&g_var_buckets.p,
-            (const char *const *)&g_runtime.core.udef_types, (const char *const *)&g_runtime.core.udef_nidx.p };
+        static const char *const *const words[5] = { (const char *const *)&g_runtime.core.io_chan.p, (const char *const *)&g_runtime.core.setexit_label.p,
+            (const char *const *)&g_runtime.abi.var_buckets.p, (const char *const *)&g_runtime.core.udef_types, (const char *const *)&g_runtime.core.udef_nidx.p };
         static const long off[2] = { (long)__builtin_offsetof(io_chan_t, varname), (long)__builtin_offsetof(io_chan_t, prebind) };
         rt_gc_run_loc_list(words, 5);
         if (IO_CHAN_N > 0) rt_gc_run_ptr_fields(_io_chan, (long)IO_CHAN_N, (long)sizeof(io_chan_t), 2, off);
     }
     {
-        gc_roots_args_t a = { (void **)g_var_buckets.p, (long)g_var_nbuckets, (void **)_func_buckets, (long)_func_nbuckets, (const char *)g_runtime.core.udef_types, 0, (const char *)0, 0,
-            (const char *)0, (const char *)0 };
+        gc_roots_args_t a = { (void **)g_runtime.abi.var_buckets.p, (long)g_runtime.abi.var_nbuckets, (void **)_func_buckets, (long)_func_nbuckets, (const char *)g_runtime.core.udef_types, 0,
+            (const char *)0, 0, (const char *)0, (const char *)0 };
         rt_gc_run_roots(&a);
     }
     rt_gc_visit_descr(&g_icn_errvalue);

@@ -1721,8 +1721,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MAKE_LIST: bb_emit_x86(bb_make_list()); return 0;
     case IR_CONJUNCTION: bb_emit_x86(bb_conjunction()); return 0;
     case IR_GOTO: { if (g_emitter.walk_bb_node_inner__mgt < 0) g_emitter.walk_bb_node_inner__mgt = getenv("MONITOR_GOTO_TAP") ? 1 : 0; extern void emit_mon_label_tap(int32_t);
-        extern long g_trace_budget;
-        if (g_trace_budget != 0 && g_emitter.walk_bb_node_inner__mgt && g_emit.op_stno > 0) emit_mon_label_tap(g_emit.op_stno); } bb_emit_x86(bb_goto()); return 0;
+        if (g_runtime.abi.trace_budget != 0 && g_emitter.walk_bb_node_inner__mgt && g_emit.op_stno > 0) emit_mon_label_tap(g_emit.op_stno); } bb_emit_x86(bb_goto()); return 0;
     case IR_GOTO_DEFERRED: bb_emit_x86(bb_goto_deferred()); return 0;
     case IR_DEFINE: {
         if (ir_define_sr_citizen(nd)) { extern int fc_call_active(const IR_t *);
@@ -1743,8 +1742,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
             IR_LIT(nd).sval ? IR_LIT(nd).sval : "", (int)nd->n_operands);
         abort();
     } return 0;
-    case IR_STATEMENT_BEGIN: { extern long g_trace_budget; extern int g_mon_max_stno; g_emit.op_mon_stmt_tap = ((g_trace_budget != 0 || x86_zdp_rbp_on()) && g_emit.op_stno > 0) ? 1 : 0;
-        { if (g_emit.op_mon_stmt_tap && !g_runtime.eval.rt_fragment_emit && g_emit.op_stno > g_mon_max_stno) g_mon_max_stno = g_emit.op_stno; } g_emit.op_fc_bytes = 0;
+    case IR_STATEMENT_BEGIN: { g_emit.op_mon_stmt_tap = ((g_runtime.abi.trace_budget != 0 || x86_zdp_rbp_on()) && g_emit.op_stno > 0) ? 1 : 0;
+        { if (g_emit.op_mon_stmt_tap && !g_runtime.eval.rt_fragment_emit && g_emit.op_stno > g_runtime.abi.mon_max_stno) g_runtime.abi.mon_max_stno = g_emit.op_stno; } g_emit.op_fc_bytes = 0;
         bb_emit_x86(bb_statement()); { extern std::string bb_zdp_anchor(long, long); if (g_emitter.walk_bb_node_inner__zdpa < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN");
         g_emitter.walk_bb_node_inner__zdpa = (e && *e == '1') ? 1 : 0; } if (g_emitter.walk_bb_node_inner__zdpa) bb_emit_x86(bb_zdp_anchor((long)nd->op, (long)bb_node_id((IR_t *)nd)));
             } g_emit.op_mon_stmt_tap = 0; } return 0;
@@ -5091,32 +5090,30 @@ static std::string icn_entry_gva(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icn_gen_line_save(void) {
-    extern long g_line; extern const char * g_file;
     return x86("comment",
         "suspend: the generator's own line and file are kept in its header at +48 and +56 for the resume (through rdx, the frame copy the gamma below already uses), then the caller's come back")
          + x86("mov", "rdx", "rbp")
-         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
-         + x86("mov", "rcx", RDQ("rcx", 0))
+         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", "rcx", RDQ("rcx", GRT_AT(line)))
          + x86("mov", RDQ("rdx", 48), "rcx")
-         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_file, "g_file")
-         + x86("mov", "rcx", RDQ("rcx", 0))
+         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", "rcx", RDQ("rcx", GRT_AT(file)))
          + x86("mov", RDQ("rdx", 56), "rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icn_gen_line_resume(void) {
-    extern long g_line; extern const char * g_file;
     return x86("comment", "resume: the generator's own line and file, kept at its last suspend, come back (read through rdx, a copy of the frame the resume hands over in rax)")
          + x86("mov", "rdx", "rax")
          + x86("mov", "rcx", RDQ("rdx", 48))
          + x86("test", "rcx", "rcx")
          + x86("je", L(238))
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
-         + x86("mov", RDQ("rax", 0), "rcx")
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", RDQ("rax", GRT_AT(line)), "rcx")
          + x86("mov", "rcx", RDQ("rdx", 56))
          + x86("test", "rcx", "rcx")
          + x86("je", L(238))
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_file, "g_file")
-         + x86("mov", RDQ("rax", 0), "rcx")
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", RDQ("rax", GRT_AT(file)), "rcx")
          + x86("def", L(238))
          + x86("mov", "rax", "rdx");
 }
@@ -5164,7 +5161,7 @@ static void icn_register_local_offsets(const char * pname) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icn_trace_tap(const char * pname, int kind, int np, int aoff = 16) {
     if (!x86_trace_hooks_on()) return std::string();
-    extern long g_trace; extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
+    extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
     extern void rt_trace_gen_fail_hook(const char *, void *);
     extern int g_flat_node_id;
     if (!pname) return std::string();
@@ -5172,8 +5169,8 @@ static std::string icn_trace_tap(const char * pname, int kind, int np, int aoff 
     std::string id = std::to_string(g_flat_node_id++);
     std::string sk = (kind <= 3) ? "L24" + std::to_string(6 + kind) : "L" + std::to_string(235 + kind); std::string fl = ".Licn_trace_nm" + id;
     std::string s = x86("push", "rax") + x86("push", "rdx") + x86_align_call_enter()
-        + IF(kind == 2 || kind == 3 || kind == 5, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
-        + x86("mov", "rax", RDQ("rax", 0)) + x86("cmp", "rax", (long)0) + x86("je", sk))
+        + IF(kind == 2 || kind == 3 || kind == 5, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+        + x86("mov", "rax", RDQ("rax", GRT_AT(trace))) + x86("cmp", "rax", (long)0) + x86("je", sk))
         + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
         + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str());
     if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("r11", aoff)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
@@ -5982,15 +5979,14 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         if (g_emitter.codegen_flat_chain_body__iws && _use_zframe_install) {
             const char * _apn = (g_emit_cfg && g_emit_cfg->root_graph) ? "main" : (strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
             extern int * const rt_k_level_p;
-            extern int64_t g_kw_fnclevel;
             bb_emit_x86( x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
                      + x86("mov", "rax", RDQ("rax", 0))
                      + x86("add", RDD("rax", 0), (long)1)
                      + x86("mov", "ecx", RDD("rax", 0))
                      + x86("movsxd", "rcx", "ecx")
                      + x86("sub", "rcx", (long)1)
-                     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_kw_fnclevel, "g_kw_fnclevel")
-                     + x86("mov", RDQ("rax", 0), "rcx"));
+                     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+                     + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "rcx"));
             bb_emit_x86(icn_trace_tap(_apn, 1, np, _aoff));
             icn_register_local_offsets(_apn);
         }
@@ -6703,11 +6699,12 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             bb_emit_x86(IF(blob_frame_bytes() > 0, x86_rsp_load64("rbp", 24)) + x86("add", "rsp", 32L));
         } else if (icn_gen_regime() && g_emit.flat_gen) {
             emit_sep_rule('-'); emit_label_define_bb(&lbl_res);
-            { extern long g_line;
+            {
               bb_emit_x86( x86("mov", "rbp", "rax")
                          +
                              IF(x86_trace_hooks_on(),
-                             x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line") + x86("mov", "rcx", RDQ("rcx", 0)) + x86("shl", "rcx", 1L) +
+                             x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") + x86("mov", "rcx", RDQ("rcx", GRT_AT(line))) +
+                                 x86("shl", "rcx", 1L) +
                              x86("mov", "rdx", RDQ("rax", 64)) + x86("and", "rdx", 1L) + x86("or", "rcx", "rdx") + x86("mov", RDQ("rax", 64), "rcx"))
                          + icn_gen_line_resume() + icn_entry_gva()); }
         }
@@ -7868,7 +7865,6 @@ extern "C" int dop_direct_leaf_known(const char * fn, int narg) {
     const char * s = 0;
     return (dop_direct_fp(fn, (int64_t)narg, &s) || pl_leaf_inline_known(fn, narg)) ? 1 : 0;
 }
-extern "C" uint64_t g_sno_defer_cells[2048];
 void defer_prepare(void) {
     extern int g_gva_active;
     int vslot = -1;
@@ -7879,8 +7875,6 @@ void defer_prepare(void) {
     if (gva_road || vslot >= 0 || star) g_emit.op_df_b[0] = 0; else strtab_label(g_emit.op_df_b, sizeof g_emit.op_df_b, g_emit.op_sval ? g_emit.op_sval : "");
     int merged = (vslot < 0 && !(g_gva_active && g_emit.op_gva_k >= 0));
     int msite = (merged && !star) ? (g_emitter.defer_prepare_g_defer_site_n < 1024 ? g_emitter.defer_prepare_g_defer_site_n++ : -1) : -1;
-    g_emit.op_df_pairlbl[0] = 0;
-    if (msite >= 0) snprintf(g_emit.op_df_pairlbl, sizeof g_emit.op_df_pairlbl, "g_sno_defer_cells+%d", msite * 2 * 8);
     g_emit.op_df_vslot = vslot;
     g_emit.op_df_site = msite;
 }

@@ -26,7 +26,6 @@ extern "C" void rt_main_args_fetch(void);
 extern "C" int rt_proc_nformals(const char *name);
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
 extern int * const rt_k_level_p;
-extern int64_t g_kw_fnclevel;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define icn_wire_stack_on() emit_knob_unless_zero("SCRIP_ICN_WIRE_STACK")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -622,7 +621,7 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d) {
-    extern long g_trace; extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
+    extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
     extern void rt_trace_gen_fail_hook(const char *, void *);
     extern int g_flat_node_id;
     if (!x86_trace_hooks_on()) return std::string();
@@ -632,8 +631,8 @@ std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d) {
     std::string sk = (kind <= 4) ? "L24" + std::to_string(6 + kind) : "L" + std::to_string(235 + kind); std::string fl = ".Licn_trace_nm" + id;
     std::string s = x86("push", "rax")
                   + x86("push", "rdx") + x86_align_call_enter()
-        + IF(kind != 1, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
-        + x86("mov", "rax", RDQ("rax", 0))
+        + IF(kind != 1, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+        + x86("mov", "rax", RDQ("rax", GRT_AT(trace)))
         + x86("cmp", "rax", (long)0)
         + x86("je", sk))
         + x86("directive", ".section .rodata")
@@ -687,8 +686,8 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("sub", "rcx", (long)1)
              + x86("mov", RDD("rax", 0), "ecx")
              + x86("sub", "rcx", (long)1)
-             + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_kw_fnclevel, "g_kw_fnclevel")
-             + x86("mov", RDQ("rax", 0), "rcx")
+             + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+             + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "rcx")
              + x86("pop", "rax")
              + (x86_hb_on() ? x86("lea", "rsp", RDQ(x86_hb(), kt + xa_icn_block_size())) + x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8)) : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
              + bb_glue_wire_γ();
@@ -793,8 +792,8 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("sub", "rcx", (long)1)
              + x86("mov", RDD("rax", 0), "ecx")
              + x86("sub", "rcx", (long)1)
-             + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_kw_fnclevel, "g_kw_fnclevel")
-             + x86("mov", RDQ("rax", 0), "rcx")
+             + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+             + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "rcx")
              + x86("pop", "rax")
              + (x86_hb_on() ? x86("lea", "rsp", RDQ(x86_hb(), kt + xa_icn_block_size())) + x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8)) : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
              + bb_glue_wire_ω();

@@ -59,8 +59,6 @@ const char *rt_proc_result_name_get(const char *name);
 int scc_program_ok(void);
 int gva_index_of(const char *name); int rt_gva_add_var(const char *name); int gva_trace_demoted(void);
 extern int g_gva_active;
-extern int g_monitor_bin;
-extern long g_trace_budget;
 int bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
 int bb_proc_target_zframe_graph(const char *fname);
@@ -869,15 +867,15 @@ static std::string bcps_block_beta(int act) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_icn_lvl(long d) {
-    extern int * const rt_k_level_p; extern int64_t g_kw_fnclevel;
+    extern int * const rt_k_level_p;
     return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
          + x86("mov", "rax", RDQ("rax", 0))
          + x86("add", RDD("rax", 0), d)
          + x86("mov", "ecx", RDD("rax", 0))
          + x86("movsxd", "rcx", "ecx")
          + x86("sub", "rcx", 1L)
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_kw_fnclevel, "g_kw_fnclevel")
-         + x86("mov", RDQ("rax", 0), "rcx");
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_icn_opnd(IR_graph_t ** argblks, int i, int w, long d) {

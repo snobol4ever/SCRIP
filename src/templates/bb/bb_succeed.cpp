@@ -15,7 +15,7 @@ std::string bb_succeed() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void emit_mon_label_tap(int32_t stno) {
-    extern int g_mon_max_stno; if (!g_runtime.eval.rt_fragment_emit && stno > g_mon_max_stno) g_mon_max_stno = stno;
+    if (!g_runtime.eval.rt_fragment_emit && stno > g_runtime.abi.mon_max_stno) g_runtime.abi.mon_max_stno = stno;
     _.op_stno = stno;
     bb_emit_x86(
           x86("comment", "MON LABEL tap")

@@ -1,5 +1,6 @@
 #ifndef G_RUNTIME_H
 #define G_RUNTIME_H
+#include <stddef.h>
 #include "g_runtime_atoms.h"
 #include "g_runtime_slab.h"
 #include "g_runtime_pc.h"
@@ -15,7 +16,9 @@
 #include "g_runtime_tap.h"
 #include "g_runtime_bn.h"
 #include "g_runtime_gc.h"
+#include "g_runtime_abi.h"
 typedef struct {
+    g_abi_t abi;
     g_atoms_t atoms;
     g_slab_t slab;
     g_pc_t pc;
@@ -32,6 +35,7 @@ typedef struct {
     g_bn_t bn;
     g_gc_t gc;
 } g_runtime_t;
+#define GRT_AT(m) ((long)offsetof(g_runtime_t, abi.m))
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -37,8 +37,8 @@ RTX_ENTRY(rt_assign_var_strict)
     test    rsi, rsi
     je      .Lav_c
 #if RT_DIAG
-    mov     rax, [rip + g_sno_etrace_n@GOTPCREL]
-    cmp     dword ptr [rax], 0
+    mov     rax, qword ptr [rip + g_runtime@GOTPCREL]
+    cmp     dword ptr [rax + G_RT_OFF_SNO_ETRACE_N], 0
     jne     .Lav_c
 #endif
     mov     rax, [rsi]

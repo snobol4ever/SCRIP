@@ -53,11 +53,11 @@ RTX_FUNC(rt_table_assign_fast)
     cmp     dword ptr [rax], 0
     jne     .Lta_c
 #if RT_DIAG
-    mov     rax, qword ptr [rip + g_sno_etrace_n@GOTPCREL]
-    cmp     dword ptr [rax], 0
+    mov     rax, qword ptr [rip + g_runtime@GOTPCREL]
+    cmp     dword ptr [rax + G_RT_OFF_SNO_ETRACE_N], 0
     jne     .Lta_c
-    mov     rax, qword ptr [rip + g_trace_budget@GOTPCREL]
-    cmp     qword ptr [rax], 0
+    mov     rax, qword ptr [rip + g_runtime@GOTPCREL]
+    cmp     qword ptr [rax + G_RT_OFF_TRACE_BUDGET], 0
     jne     .Lta_c
 #endif
     cmp     dil, DT_A

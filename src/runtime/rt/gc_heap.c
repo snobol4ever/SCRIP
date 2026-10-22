@@ -1,10 +1,9 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include "g_runtime.h"
-static char *g_hp_gcline = (char *)0;
-static long g_gc_polls = 0;
-static const char *g_gc_poll_site = (const char *)0;
-static int g_gc_in;
+#include "g_runtime_abi.inc"
+#define GRT_S2(x) #x
+#define GRT_S(x) GRT_S2(x)
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -109,15 +108,14 @@ static int gc_birth_on(void);
 static int gc_plant_flip(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_FLIP"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
 static void gc_quar_release(char *need_end);
 static void gc_quar_arm(char *lo);
-static void gc_fr_line_sync(void) { g_hp_fr.line = (g_runtime.gc.hp_qlo && g_runtime.gc.hp_qlo < g_hp_gcline) ? g_runtime.gc.hp_qlo : g_hp_gcline; }
+static void gc_fr_line_sync(void) { g_hp_fr.line = (g_runtime.gc.hp_qlo && g_runtime.gc.hp_qlo < g_runtime.abi.hp_gcline) ? g_runtime.gc.hp_qlo : g_runtime.abi.hp_gcline; }
 #else
-static void gc_fr_line_sync(void) { g_hp_fr.line = g_hp_gcline; }
+static void gc_fr_line_sync(void) { g_hp_fr.line = g_runtime.abi.hp_gcline; }
 #endif
 int g_gc_pending;
 #if RT_DIAG
 static const char *g_gc_top_graph = (const char *)0;
 #endif
-extern long g_line;
 __attribute__((visibility("hidden"))) rt_sxt_fr_t g_sxt_fr = { (char *)0, 0, 0, -1 };
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, owner) == 0, "rtx_str.s bakes g_sxt_fr.owner @0");
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, len) == 8, "rtx_str.s bakes g_sxt_fr.len @8");
@@ -209,7 +207,7 @@ long rt_gcheap_verify(void) {
         uint64_t above = (topg & 63) ? g_hp_fr.start[nw - 1] & ~((1ull << (topg & 63)) - 1u) : 0;
         for (size_t w = nw; w < hw; w++) above |= g_hp_fr.start[w];
         if (above) { fprintf(stderr, "[ZHP] heap verify FAILED: a START bit at or above the top (ARCH-GC 15.11 (3))\n"); abort(); }
-        if (g_gc_in) for (size_t w = 0; w < nw; w++) if (((g_hp_fr.ssum[w >> 6] >> (w & 63)) & 1u) != (g_hp_fr.start[w] != 0)) {
+        if (g_runtime.abi.gc_in) for (size_t w = 0; w < nw; w++) if (((g_hp_fr.ssum[w >> 6] >> (w & 63)) & 1u) != (g_hp_fr.start[w] != 0)) {
             fprintf(stderr, "[ZHP] heap verify FAILED: the START summary disagrees with START at word %ld (ARCH-GC 15.11 (3))\n", (long)w);
             abort();
         }
@@ -259,7 +257,7 @@ static void rt_gcheap_line_reset(long head) {
     long fr = (long)(g_hp_end - g_hp_top), h = fr >> 4;
     if (head > fr >> 1) head = fr >> 1;
     if (head > h) h = head;
-    g_hp_gcline = g_hp_top + gc_line_span(fr - h);
+    g_runtime.abi.hp_gcline = g_hp_top + gc_line_span(fr - h);
     gc_fr_line_sync();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -501,14 +499,14 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes) {
 #if RT_DIAG
     if (g_runtime.gc.alloc_detax == 1 && g_runtime.gc.ah_on <= 0) {
         uint64_t tf = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull);
-        if (g_hp_gcline && !g_gc_in && g_hp_top + tf > g_hp_gcline) g_gc_pending = 1;
+        if (g_runtime.abi.hp_gcline && !g_runtime.abi.gc_in && g_hp_top + tf > g_runtime.abi.hp_gcline) g_gc_pending = 1;
         if (g_hp_top + tf <= g_hp_end) { if (g_runtime.gc.hp_qlo) gc_quar_release(g_hp_top + tf); { void *rf = rt_gcheap_carve(g_hp_top, tf, type); g_hp_top += tf; return rf; } }
     }
     if (g_runtime.gc.ah_on > 0) { unsigned t = (unsigned)type & 511u; g_runtime.gc.ah_tn[t] += 1; g_runtime.gc.ah_tb[t] += (long)payload_bytes; }
 #else
     if (g_runtime.gc.alloc_detax == 1) {
         uint64_t tf = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull);
-        if (g_hp_gcline && !g_gc_in && g_hp_top + tf > g_hp_gcline) g_gc_pending = 1;
+        if (g_runtime.abi.hp_gcline && !g_runtime.abi.gc_in && g_hp_top + tf > g_runtime.abi.hp_gcline) g_gc_pending = 1;
         if (g_hp_top + tf <= g_hp_end) { { void *rf = rt_gcheap_carve(g_hp_top, tf, type); g_hp_top += tf; return rf; } }
     }
 #endif
@@ -536,7 +534,7 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes) {
     if (!g_runtime.gc.alloc_detax) g_runtime.gc.alloc_detax = (g_runtime.gc.hp_arena && g_runtime.gc.hp_report_reg) ? 1 : -1;
     g_hp_fr.armed = (g_runtime.gc.alloc_detax == 1) ? 1 : 0;
 #endif
-    if (g_hp_gcline && !g_gc_in && g_hp_top + total > g_hp_gcline && g_hp_top + total <= g_hp_end) g_gc_pending = 1;
+    if (g_runtime.abi.hp_gcline && !g_runtime.abi.gc_in && g_hp_top + total > g_runtime.abi.hp_gcline && g_hp_top + total <= g_hp_end) g_gc_pending = 1;
     if (g_hp_top + total > g_hp_end && g_runtime.gc.hp_win + total > g_runtime.gc.hp_wend) { g_gc_pending = 1; rt_gcheap_grow(total); }
 #if RT_DIAG
     if (g_hp_top + total <= g_hp_end) { if (g_runtime.gc.hp_qlo) gc_quar_release(g_hp_top + total); r = rt_gcheap_carve(g_hp_top, total, type); g_hp_top += total; return r; }
@@ -710,8 +708,8 @@ void *rt_gcheap_grow_block(void *p, uint16_t type, uint64_t n) {
 #if RT_DIAG
             stress_n == 0 && g_runtime.gc.ah_on <= 0 &&
 #endif
-            !g_gc_in && (char *)h + h->size == g_hp_top && g_hp_top + delta <= g_hp_end && total <= 0xFFFFFFFFull) {
-                if (g_hp_gcline && g_hp_top + delta > g_hp_gcline) g_gc_pending = 1;
+            !g_runtime.abi.gc_in && (char *)h + h->size == g_hp_top && g_hp_top + delta <= g_hp_end && total <= 0xFFFFFFFFull) {
+                if (g_runtime.abi.hp_gcline && g_hp_top + delta > g_runtime.abi.hp_gcline) g_gc_pending = 1;
 #if RT_DIAG
                 if (g_runtime.gc.hp_qlo) gc_quar_release(g_hp_top + delta);
 #endif
@@ -1090,7 +1088,7 @@ int rt_gc_poison_reg_report(const long long *gregs, int n, void *ip) {
     if (!hit) return 0;
     gc_say(
         "\n[ZGC-STALE]   a POINTER WAS READ FROM VACATED GROUND and dereferenced: the block that held it was moved or reclaimed by collection #%ld and whatever still points there was NEVER VISITED%s"
-        "\n", g_runtime.gc.gc_runs, g_gc_in ? " -- AND THE FAULT HAPPENED INSIDE A COLLECTION, so the stale holder is a root the previous collection did not repair" : "");
+        "\n", g_runtime.gc.gc_runs, g_runtime.abi.gc_in ? " -- AND THE FAULT HAPPENED INSIDE A COLLECTION, so the stale holder is a root the previous collection did not repair" : "");
     return 1;
 }
 int rt_gc_stale_addr_report(void *fault, void *ip) {
@@ -1150,7 +1148,7 @@ int rt_gc_stale_addr_report(void *fault, void *ip) {
         "[ZGC-STALE]   the address is above the live top (arena+%ld) but its page is not quarantined: vacated ground the allocator has already taken back, or ground beyond the committed window (aren"
         "a+%ld)\n", (long)(g_hp_top - g_runtime.gc.hp_arena), (long)(g_hp_end - g_runtime.gc.hp_arena));
     else gc_say("[ZGC-STALE]   the address is BELOW the live top (arena+%ld), so it is inside live heap and this fault is NOT the vacated-ground trap\n", (long)(g_hp_top - g_runtime.gc.hp_arena));
-    if (g_gc_in) gc_say("[ZGC-STALE]   THE FAULT HAPPENED INSIDE A COLLECTION -- read this as a defect in the collector or in the trap before reading it as a mutator stale pointer\n");
+    if (g_runtime.abi.gc_in) gc_say("[ZGC-STALE]   THE FAULT HAPPENED INSIDE A COLLECTION -- read this as a defect in the collector or in the trap before reading it as a mutator stale pointer\n");
     gc_say(
         "[ZGC-STALE]   a stale read means a ROOT THE COLLECTOR NEVER VISITED kept a pre-collection address; the instruction above is where it was used, not where it was stored. SCRIP_GC_TRAP=0 resto"
         "res the old silent wrong answer.\n");
@@ -1205,7 +1203,7 @@ static long gc_collect_ex(const gc_ent_t *ent);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_point_arr_run(DESCR_t *arr, int n, const char **r0, char *floor, int is_probe, const gc_ent_t *ent) {
     int pv = g_gc_pending;
-    if (!pv && g_hp_gcline && g_hp_top > g_hp_gcline) pv = 1;
+    if (!pv && g_runtime.abi.hp_gcline && g_hp_top > g_runtime.abi.hp_gcline) pv = 1;
     if (!pv) return;
     g_gc_pending = 0;
     g_runtime.gc.gc_shield_arr = arr;
@@ -1227,7 +1225,7 @@ static __attribute__((used, noinline)) void gc_point_arr_body(DESCR_t *arr, int 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_point_arr_c(DESCR_t *arr, int n, const char **r0, char *floor) {
 #if RT_DIAG
-    g_gc_poll_site = (const char *)__builtin_return_address(0);
+    g_runtime.abi.gc_poll_site = (const char *)__builtin_return_address(0);
 #endif
     gc_ent_t ent = { __builtin_return_address(0), (const char *)__builtin_frame_address(0) + 16, *(const void *const *)__builtin_frame_address(0) };
     gc_point_arr_run(arr, n, r0, floor, 0, &ent);
@@ -3387,9 +3385,9 @@ static long gc_audit_b_shim(char *floor) {
     sk[k].bytes = (long)sizeof g_runtime.gc.hp_arena;
     sk[k].name = "g_hp_arena";
     k++;
-    sk[k].at = (const void *)&g_hp_gcline;
-    sk[k].bytes = (long)sizeof g_hp_gcline;
-    sk[k].name = "g_hp_gcline";
+    sk[k].at = (const void *)&g_runtime.abi.hp_gcline;
+    sk[k].bytes = (long)sizeof g_runtime.abi.hp_gcline;
+    sk[k].name = "g_runtime.abi.hp_gcline";
     k++;
     sk[k].at = (const void *)&g_runtime.gc.hp_win;
     sk[k].bytes = (long)sizeof g_runtime.gc.hp_win;
@@ -3560,8 +3558,8 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     long n_hb = 0, fd = 0, lt = 0;
     char *base;
     g_sxt_owner = (char *)0;
-    if (g_gc_in || !g_runtime.gc.hp_arena) return 0;
-    g_gc_in = 1;
+    if (g_runtime.abi.gc_in || !g_runtime.gc.hp_arena) return 0;
+    g_runtime.abi.gc_in = 1;
     before_b = (long)(g_hp_top - g_runtime.gc.hp_arena);
 #if RT_DIAG
     gc_quar_release(g_runtime.gc.hp_cap_end);
@@ -3687,16 +3685,15 @@ static long gc_collect_ex(const gc_ent_t *ent) {
             if (!hb) continue;
             g_runtime.gc.gc_rtccb_heap++;
             if (g_gc_mk.maps)
-                fprintf(stderr, "[GC-WALK-RTCCB] slot=%d word=%p graph=%s line=%ld site=%p\n", ci, (const void *)g_rtccb[ci], g_gc_top_graph ? g_gc_top_graph : "?", g_line,
-                (const void *)g_gc_poll_site) ;
+                fprintf(stderr, "[GC-WALK-RTCCB] slot=%d word=%p graph=%s line=%ld site=%p\n", ci, (const void *)g_rtccb[ci], g_gc_top_graph ? g_gc_top_graph : "?", g_runtime.abi.line,
+                (const void *)g_runtime.abi.gc_poll_site) ;
             if (st_n < 32 && (w_tel || g_gc_mk.maps)) { st_slot[st_n] = ci; st_word[st_n] = g_rtccb[ci]; st_blk[st_n] = hb; st_fwd[st_n] = 0; st_n++; }
         }
     }
 #endif
     if (g_runtime.gc.gc_shield_r && *g_runtime.gc.gc_shield_r) {
         extern const char *Σ;
-        extern const char *g_scan_subj;
-        if (*g_runtime.gc.gc_shield_r == Σ || *g_runtime.gc.gc_shield_r == g_scan_subj) rt_gc_visit_raw(g_runtime.gc.gc_shield_r);
+        if (*g_runtime.gc.gc_shield_r == Σ || *g_runtime.gc.gc_shield_r == g_runtime.abi.scan_subj) rt_gc_visit_raw(g_runtime.gc.gc_shield_r);
         else if (!g_runtime.gc.gc_shield_r_is_probe) {
             fprintf(stderr,
                 "[ZHP] rt_gc_point_arr_c refuses r0 %p: a CALLER handed this shield a word to protect and it aliases neither the subject nor g_scan_subj, so this shield cannot reach it and honouring"
@@ -3858,7 +3855,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
             if (g_gc_mk.maps)
                 fprintf(stderr, "[GC-RTCCB-STALE] slot=%d word=%p block=type%d/%ldB forwarded=%d moved=%d unrepaired=%d swept=%d graph=%s line=%ld site=%p\n", st_slot[z],
                 (const void *)(uintptr_t)st_word[z], (int)st_blk[z]->type, (long)st_blk[z]->size, st_fwd[z] ? 1 : 0, moved, (moved && kept) ? 1 : 0, (!st_fwd[z] && kept) ? 1 : 0,
-                g_gc_top_graph ? g_gc_top_graph : "?", g_line, (const void *)g_gc_poll_site);
+                g_gc_top_graph ? g_gc_top_graph : "?", g_runtime.abi.line, (const void *)g_runtime.abi.gc_poll_site);
         }
         if ((un || sw) && (w_tel || g_gc_mk.maps || !said_stale)) {
             said_stale = 1;
@@ -3918,18 +3915,18 @@ static long gc_collect_ex(const gc_ent_t *ent) {
         g_runtime.gc.hp_qlo ? (long)((g_runtime.gc.hp_qhi - g_runtime.gc.hp_qlo) / (long)gc_pg()) : 0L, g_runtime.gc.gc_vacn, g_runtime.gc.gc_vacover, g_runtime.gc.hp_qarm);
 #endif
     g_runtime.gc.gc_idx = (rt_hblk_t **)0;
-    g_gc_in = 0;
+    g_runtime.abi.gc_in = 0;
     return before_b - after_b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gc_collect_c(char *floor) { long r; g_runtime.gc.gc_seam_sp = floor; r = gc_collect_ex((const gc_ent_t *)0); g_runtime.gc.gc_seam_sp = (char *)0; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_poll(void) {
-    if (g_gc_in) return;
-    if (!g_gc_pending && !(g_hp_gcline && g_hp_top > g_hp_gcline)) return;
+    if (g_runtime.abi.gc_in) return;
+    if (!g_gc_pending && !(g_runtime.abi.hp_gcline && g_hp_top > g_runtime.abi.hp_gcline)) return;
 #if RT_DIAG
-    g_gc_polls++;
-    g_gc_poll_site = (const char *)__builtin_return_address(0);
+    g_runtime.abi.gc_polls++;
+    g_runtime.abi.gc_poll_site = (const char *)__builtin_return_address(0);
 #endif
     gc_ent_t ent = { __builtin_return_address(0), (const char *)__builtin_frame_address(0) + 16, *(const void *const *)__builtin_frame_address(0) };
     gc_point_arr_run((DESCR_t *)0, 0, (const char **)0, (char *)__builtin_frame_address(0) + 16, 0, &ent);
@@ -3941,7 +3938,7 @@ _Static_assert(sizeof(void *) == 8,
     " the saved rbp and the return address, 16 bytes on x86-64 -- the walk steps 8-byte words from this floor and never aligns it, so a floor taken from a char local (an odd address) misreads every "
     "cell above it (cto 2026-09-23, user_function_opsyn_8 printed empty at the association tap's spilled-pair poll)");
 #if RT_DIAG
-long rt_gc_polls_count(void) { return g_gc_polls; }
+long rt_gc_polls_count(void) { return g_runtime.abi.gc_polls; }
 #else
 long rt_gc_polls_count(void) { return 0; }
 #endif
@@ -3953,18 +3950,18 @@ __asm__( ".text\n" ".globl rt_gc_poll_slow\n" ".type rt_gc_poll_slow,@function\n
     "  pushq %r8 ; .cfi_adjust_cfa_offset 8\n" "  pushq %r9 ; .cfi_adjust_cfa_offset 8\n" "  pushq %r10 ; .cfi_adjust_cfa_offset 8\n" "  pushq %r11 ; .cfi_adjust_cfa_offset 8\n"
     "  subq  $16, %rsp ; .cfi_adjust_cfa_offset 16\n" "  movq  %r13, (%rsp)\n"
 #if RT_DIAG
-"  incq g_gc_polls(%rip)\n" "  movq 88(%rsp), %rax\n" "  movq %rax, g_gc_poll_site(%rip)\n"
+"  incq g_runtime+" GRT_S(G_RT_OFF_GC_POLLS) "(%rip)\n" "  movq 88(%rsp), %rax\n" "  movq %rax, g_runtime+" GRT_S(G_RT_OFF_GC_POLL_SITE) "(%rip)\n"
 #endif
 "  xorl %edi, %edi\n" "  xorl %esi, %esi\n" "  movq %rsp, %rdx\n" "  leaq 88(%rsp), %rcx\n" "  movl $1, %r8d\n" "  call gc_point_arr_body\n" "  movq (%rsp), %r13\n"
     "  addq  $16, %rsp ; .cfi_adjust_cfa_offset -16\n" "  popq %r11 ; .cfi_adjust_cfa_offset -8\n" "  popq %r10 ; .cfi_adjust_cfa_offset -8\n" "  popq %r9 ; .cfi_adjust_cfa_offset -8\n"
     "  popq %r8 ; .cfi_adjust_cfa_offset -8\n" "  popq %rdi ; .cfi_adjust_cfa_offset -8\n" "  popq %rsi ; .cfi_adjust_cfa_offset -8\n" "  popq %rdx ; .cfi_adjust_cfa_offset -8\n"
     "  popq %rcx ; .cfi_adjust_cfa_offset -8\n" "  popq %rax ; .cfi_adjust_cfa_offset -8\n" "  ret\n" "  .cfi_endproc\n" ".size rt_gc_poll_slow,.-rt_gc_poll_slow\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__asm__( ".text\n" ".globl rt_gc_poll_asm\n" ".type rt_gc_poll_asm,@function\n" "rt_gc_poll_asm:\n" "  .cfi_startproc\n" "  cmpl $0, g_gc_in(%rip)\n" "  jne  9f\n"
-    "  pushq %r11 ; .cfi_adjust_cfa_offset 8\n" "  movq g_gc_pending@GOTPCREL(%rip), %r11\n" "  cmpl $0, (%r11)\n" "  jne  2f\n" "  movq g_hp_gcline(%rip), %r11\n" "  testq %r11, %r11\n" "  je   1f\n"
-    "  pushq %r10 ; .cfi_adjust_cfa_offset 8\n" "  movq g_hp_fr@GOTPCREL(%rip), %r10\n" "  movq (%r10), %r10\n" "  cmpq %r11, %r10\n" "  popq %r10 ; .cfi_adjust_cfa_offset -8\n" "  jbe  1f\n" "2:\n"
-    "  popq %r11 ; .cfi_adjust_cfa_offset -8\n" "  jmp  rt_gc_poll_slow@PLT\n" "1:\n" "  .cfi_def_cfa_offset 16\n" "  popq %r11 ; .cfi_adjust_cfa_offset -8\n" "9:\n" "  ret\n" "  .cfi_endproc\n"
-    ".size rt_gc_poll_asm,.-rt_gc_poll_asm\n" );
+__asm__( ".text\n" ".globl rt_gc_poll_asm\n" ".type rt_gc_poll_asm,@function\n" "rt_gc_poll_asm:\n" "  .cfi_startproc\n" "  cmpl $0, g_runtime+" GRT_S(G_RT_OFF_GC_IN)
+    "(%rip)\n" "  jne  9f\n" "  pushq %r11 ; .cfi_adjust_cfa_offset 8\n" "  movq g_gc_pending@GOTPCREL(%rip), %r11\n" "  cmpl $0, (%r11)\n" "  jne  2f\n" "  movq g_runtime+" GRT_S(G_RT_OFF_HP_GCLINE)
+    "(%rip), %r11\n" "  testq %r11, %r11\n" "  je   1f\n" "  pushq %r10 ; .cfi_adjust_cfa_offset 8\n" "  movq g_hp_fr@GOTPCREL(%rip), %r10\n" "  movq (%r10), %r10\n" "  cmpq %r11, %r10\n"
+    "  popq %r10 ; .cfi_adjust_cfa_offset -8\n" "  jbe  1f\n" "2:\n" "  popq %r11 ; .cfi_adjust_cfa_offset -8\n" "  jmp  rt_gc_poll_slow@PLT\n" "1:\n" "  .cfi_def_cfa_offset 16\n"
+    "  popq %r11 ; .cfi_adjust_cfa_offset -8\n" "9:\n" "  ret\n" "  .cfi_endproc\n" ".size rt_gc_poll_asm,.-rt_gc_poll_asm\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gcheap_free(void) { if (!g_runtime.gc.hp_arena) rt_gcheap_init(); return (long)(g_hp_end - g_hp_top); }
 long rt_gcheap_stat(int which) {

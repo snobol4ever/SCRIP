@@ -3,7 +3,7 @@
 RTX_FUNC(rt_zdp_anchor)
     RTX_PUSH(rax)
     pushfq  ; .cfi_adjust_cfa_offset 8
-    mov     rax, qword ptr [rip + g_zdp_anchor_rsp]
+    mov     rax, qword ptr [rip + g_runtime + G_RT_OFF_ZDP_ANCHOR_RSP]
     test    rax, rax
     jz      .Lzdp_first
     cmp     rax, rdi
@@ -14,7 +14,7 @@ RTX_FUNC(rt_zdp_anchor)
     ret
 .Lzdp_first:
     RTX_CFA(24)
-    mov     qword ptr [rip + g_zdp_anchor_rsp], rdi
+    mov     qword ptr [rip + g_runtime + G_RT_OFF_ZDP_ANCHOR_RSP], rdi
     jmp     .Lzdp_done
 .Lzdp_report:
     RTX_CFA(24)
@@ -35,7 +35,7 @@ RTX_FUNC(rt_zdp_anchor)
 RTX_ENDF(rt_zdp_anchor)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_zdp_origin)
-    mov     qword ptr [rip + g_zdp_anchor_rsp], rdi
+    mov     qword ptr [rip + g_runtime + G_RT_OFF_ZDP_ANCHOR_RSP], rdi
     ret
 RTX_ENDF(rt_zdp_origin)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -63,7 +63,7 @@ RTX_ENDF(rt_zdp_ev)
 RTX_FUNC(rt_zdp_probe)
     RTX_PUSH(rax)
     pushfq  ; .cfi_adjust_cfa_offset 8
-    mov     rax, qword ptr [rip + g_zdp_anchor_rsp]
+    mov     rax, qword ptr [rip + g_runtime + G_RT_OFF_ZDP_ANCHOR_RSP]
     test    rax, rax
     jz      .Lzdpp_done
     sub     rax, rdi
@@ -81,11 +81,11 @@ RTX_FUNC(rt_zdp_probe)
     ret
 .Lzdpp_rbp_save:
     RTX_CFA(24)
-    mov     qword ptr [rip + g_zdp_anchor_rbp], rbp
+    mov     qword ptr [rip + g_runtime + G_RT_OFF_ZDP_ANCHOR_RBP], rbp
     jmp     .Lzdpp_done
 .Lzdpp_rbp:
     RTX_CFA(24)
-    cmp     rbp, qword ptr [rip + g_zdp_anchor_rbp]
+    cmp     rbp, qword ptr [rip + g_runtime + G_RT_OFF_ZDP_ANCHOR_RBP]
     jne     .Lzdpp_report
     jmp     .Lzdpp_done
 .Lzdpp_record:

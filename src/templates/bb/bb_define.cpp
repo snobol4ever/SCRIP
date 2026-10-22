@@ -11,29 +11,20 @@ extern "C" {
 #include "ab_abi.h"
 #include "pin_va.h"
 #include "rt.h"
-extern int64_t g_kw_fnclevel;
-extern int g_monitor_bin;
 extern int rt_g_want_name;
 extern int rt_g_ret_by_name;
 void rt_kw_set_rtntype_role(int);
 void rt_define_bind_entry(const char *fname, const char *entry);
 extern int * const rt_k_level_p;
-extern long g_stno;
-extern long g_line;
-extern long g_lastno;
-extern long g_lastline;
 void *rt_proc_get_fn(const char *name);
 void sno_trace_call(const char *fname);
 void sno_trace_return(const char *fname, DESCR_t retval);
-extern long g_trace_budget;
 void rt_trace_call_hook(const char *fname);
 void rt_trace_return_hook(const char *fname, DESCR_t retval);
 void rt_trace_fail_hook(const char *fname);
 void rt_trace_call_hook_p(const char *fname, trace_pend_t *pend);
 void rt_trace_return_hook_p(const char *fname, DESCR_t retval, trace_pend_t *pend, long long rstno);
 void rt_trace_fail_hook_p(const char *fname, trace_pend_t *pend, long long rstno);
-extern long g_trace;
-extern int64_t g_kw_ftrace;
 const char *rt_define_query(const char *, int *, int *, int *, void **);
 void rt_define_site(const char *, const char *, int, int, int, void *);
 void rt_define_site_entry(const char *, const char *);
@@ -94,40 +85,40 @@ static std::string bb_define_entry_cell_data(const std::string & lbl, const std:
     + x86("mov", "ecx", RDD("rax", 0)) \
     + x86("movsxd", "rcx", "ecx") \
     + x86("sub", "rcx", (long)1) \
-    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_kw_fnclevel, "g_kw_fnclevel") \
-    + x86("mov", RDQ("rax", 0), "rcx") \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
+    + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "rcx") \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bb_stno_save(off) ( \
       x86("comment", "&STNO SAVE (CEO-1543): the CALLER's &STNO/&LINE go into this activation's own frame unit, so RETURN can put them back") \
-    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno") \
-    + x86("mov", "rax", RDQ("rax", 0)) \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
+    + x86("mov", "rax", RDQ("rax", GRT_AT(stno))) \
     + x86_rsp_store64((off), "rax") \
-    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line") \
-    + x86("mov", "rax", RDQ("rax", 0)) \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
+    + x86("mov", "rax", RDQ("rax", GRT_AT(line))) \
     + x86_rsp_store64((off) + 8, "rax") \
 )
 #define bb_stno_last_from_callee() ( \
       x86("comment", "&LASTNO/&LASTLINE ON RETURN: the returning function's statement and line become the previous ones, as SPITBOL answers them in the calling statement") \
-    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno") \
-    + x86("mov", "rcx", RDQ("rax", 0)) \
-    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastno, "g_lastno") \
-    + x86("mov", RDQ("rax", 0), "rcx") \
-    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line") \
-    + x86("mov", "rcx", RDQ("rax", 0)) \
-    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastline, "g_lastline") \
-    + x86("mov", RDQ("rax", 0), "rcx") \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
+    + x86("mov", "rcx", RDQ("rax", GRT_AT(stno))) \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
+    + x86("mov", RDQ("rax", GRT_AT(lastno)), "rcx") \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
+    + x86("mov", "rcx", RDQ("rax", GRT_AT(line))) \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
+    + x86("mov", RDQ("rax", GRT_AT(lastline)), "rcx") \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bb_stno_restore(off) ( \
       x86("comment", "&STNO RESTORE (CEO-1543): the caller's &STNO/&LINE come back from this activation's own frame unit") \
     + bb_stno_last_from_callee() \
     + x86_rsp_load64("rcx", (off)) \
-    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno") \
-    + x86("mov", RDQ("rax", 0), "rcx") \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
+    + x86("mov", RDQ("rax", GRT_AT(stno)), "rcx") \
     + x86_rsp_load64("rcx", (off) + 8) \
-    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line") \
-    + x86("mov", RDQ("rax", 0), "rcx") \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
+    + x86("mov", RDQ("rax", GRT_AT(line)), "rcx") \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bb_fnclevel_leave() ( \
@@ -138,8 +129,8 @@ static std::string bb_define_entry_cell_data(const std::string & lbl, const std:
     + x86("sub", "rcx", (long)1) \
     + x86("mov", RDD("rax", 0), "ecx") \
     + x86("sub", "rcx", (long)1) \
-    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_kw_fnclevel, "g_kw_fnclevel") \
-    + x86("mov", RDQ("rax", 0), "rcx") \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime") \
+    + x86("mov", RDQ("rax", GRT_AT(kw_fnclevel)), "rcx") \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_define_bind() {
@@ -437,12 +428,12 @@ static std::string bb_define_sr() {
                  + bb_stno_save((int)(16 * xt4 + 8))
                  + x86("pop", "rcx")
                  + NVIN()
-         + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
-                 + x86("mov", "rax", RDQ("rax", 0))
+         + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_runtime", (uint64_t)(uintptr_t)(void *)&g_runtime)
+                 + x86("mov", "rax", RDQ("rax", GRT_AT(trace)))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jg", 246)
-                 + x86_load_got("rax", "g_kw_ftrace", (uint64_t)(uintptr_t)(void *)&g_kw_ftrace)
-                 + x86("mov", "rax", RDQ("rax", 0))
+                 + x86_load_got("rax", "g_runtime", (uint64_t)(uintptr_t)(void *)&g_runtime)
+                 + x86("mov", "rax", RDQ("rax", GRT_AT(kw_ftrace)))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jle", 230)
                  + x86_deflabel_id(246)
@@ -473,8 +464,8 @@ static std::string bb_define_sr() {
                  + x86("pop", "rsi")
                  + x86("pop", "rdi")
                  + x86_deflabel_id(230))
-         + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_trace_budget", (uint64_t)(uintptr_t)(void *)&g_trace_budget)
-                 + x86("mov", "rax", RDQ("rax", 0))
+         + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_runtime", (uint64_t)(uintptr_t)(void *)&g_runtime)
+                 + x86("mov", "rax", RDQ("rax", GRT_AT(trace_budget)))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("je", 238)
                  + x86("push", "rdi")
@@ -521,12 +512,12 @@ static std::string bb_define_sr() {
                  + x86("mov", "rdx", "rsi")
          + x86("push", "rdx")
                  + x86("push", "rax")
-                 + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
-                 + x86("mov", "rax", RDQ("rax", 0))
+                 + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_runtime", (uint64_t)(uintptr_t)(void *)&g_runtime)
+                 + x86("mov", "rax", RDQ("rax", GRT_AT(trace)))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jne", 247)
-                 + x86_load_got("rax", "g_kw_ftrace", (uint64_t)(uintptr_t)(void *)&g_kw_ftrace)
-                 + x86("mov", "rax", RDQ("rax", 0))
+                 + x86_load_got("rax", "g_runtime", (uint64_t)(uintptr_t)(void *)&g_runtime)
+                 + x86("mov", "rax", RDQ("rax", GRT_AT(kw_ftrace)))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jle", 235)
                  + x86_deflabel_id(247)
@@ -559,8 +550,8 @@ static std::string bb_define_sr() {
                  + x86("mov", "rdi", GQ(rgx, 0))
                  + x86("mov", "rsi", GQ(rgx, 8)))
                  + x86_deflabel_id(235))
-                 + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_trace_budget", (uint64_t)(uintptr_t)(void *)&g_trace_budget)
-                 + x86("mov", "rax", RDQ("rax", 0))
+                 + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_runtime", (uint64_t)(uintptr_t)(void *)&g_runtime)
+                 + x86("mov", "rax", RDQ("rax", GRT_AT(trace_budget)))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("je", 239)
                  + x86("push", "rsi")
@@ -609,12 +600,12 @@ static std::string bb_define_sr() {
                  + x86_def_ext(lbl_o)
                  + x86_rsp_land(0L)
                  + NVOMEGA()
-         + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
-                 + x86("mov", "rax", RDQ("rax", 0))
+         + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_runtime", (uint64_t)(uintptr_t)(void *)&g_runtime)
+                 + x86("mov", "rax", RDQ("rax", GRT_AT(trace)))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jne", 248)
-                 + x86_load_got("rax", "g_kw_ftrace", (uint64_t)(uintptr_t)(void *)&g_kw_ftrace)
-                 + x86("mov", "rax", RDQ("rax", 0))
+                 + x86_load_got("rax", "g_runtime", (uint64_t)(uintptr_t)(void *)&g_runtime)
+                 + x86("mov", "rax", RDQ("rax", GRT_AT(kw_ftrace)))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jle", 249)
                  + x86_deflabel_id(248)
@@ -646,8 +637,8 @@ static std::string bb_define_sr() {
                  + x86("pop", "rsi")
                  + x86("pop", "rdi")
                  + x86_deflabel_id(249))
-         + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_trace_budget", (uint64_t)(uintptr_t)(void *)&g_trace_budget)
-                 + x86("mov", "rax", RDQ("rax", 0))
+         + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_runtime", (uint64_t)(uintptr_t)(void *)&g_runtime)
+                 + x86("mov", "rax", RDQ("rax", GRT_AT(trace_budget)))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("je", 240)
                  + x86("push", "rdi")

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "g_runtime.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -93,7 +94,6 @@ DESCR_t c_icn_field_get_at(const char *fname, DESCR_t obj, long at1);
 DESCR_t c_rt_field_var_strict_at(const char *fname, DESCR_t obj, long at1);
 int rt_trace_idle(void);
 int comm_var_active(void);
-extern int g_monitor_fd;
 static int fld_cases = 0, fld_hits = 0, fld_declines = 0;
 static DESCR_t fld_call(DESCR_t (*fp)(const char *, DESCR_t, long), const char *f, DESCR_t o, long at, int *kept) {
     uint64_t w[2];
@@ -366,7 +366,7 @@ int main(void) {
             { DESCR_t x = o; x.v = DT_BIG; fld_check("a tag above DT_DATA", var, q_tag, x, 3 | p); }
             fld_check("a variable naming the record", var, q_tag, vr, 3 | p);
         }
-        if (!active0) { int fd0 = g_monitor_fd; g_monitor_fd = 3; fld_check("a store-only hit under the monitor", 1, q_tag, o, 3 | 0x10000); g_monitor_fd = fd0; }
+        if (!active0) { int fd0 = g_runtime.abi.monitor_fd; g_runtime.abi.monitor_fd = 3; fld_check("a store-only hit under the monitor", 1, q_tag, o, 3 | 0x10000); g_runtime.abi.monitor_fd = fd0; }
         printf("RTX DIRECT icn_field_get_at and rt_field_var_strict_at against their C twins: %d cases, %d answered, %d declined, %d mismatches\n", fld_cases, fld_hits, fld_declines, fails - ffail0);
         if (active0 || fld_hits < 12 || fld_declines < 40) { fails++; printf("  FAIL field leaves: the trace state reads active (%d) or the battery saw too few of one verdict\n", active0); }
     }

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "g_runtime.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -9,7 +10,7 @@
 #include "g_lower.h"
 #include "lower_pascal_class.h"
 #define IS(x, k) ((x) && (x)->t == (k))
-static int pas_trace_enabled(void) { extern long g_trace_budget; return g_trace_budget != 0; }
+static int pas_trace_enabled(void) { return g_runtime.abi.trace_budget != 0; }
 static PNodeList *pnl_new(void) { PNodeList *l = (PNodeList *)ct_zalloc(1, sizeof *l); return l; }
 static void pnl_push(PNodeList *l, tree_t *e) {
     if (!l) return;

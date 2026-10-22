@@ -1,14 +1,9 @@
 #include <string>
+#include "g_runtime.h"
 #include <cstdint>
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-extern long g_stno;
-extern long g_line;
-extern long g_lastno;
-extern long g_lastline;
-extern const char *g_file;
-extern long g_stcount;
 }
 #include "x86_asm.h"
 #include "bb_templates.h"
@@ -47,18 +42,18 @@ std::string bb_stmt_mark(long stno, long line) {
              + x86("add", "rsp", 112L)
              + x86_align_leave())
          + IF(_.op_seal != IR_SEAL_STMT_HOOK && _.op_seal != IR_SEAL_LABEL_HOOK,
-               x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
-         + x86("mov", "rcx", RDQ("rax", 0))
-         + x86("mov", RDQ("rax", 0), (long)stno)
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastno, "g_lastno")
-         + x86("mov", RDQ("rax", 0), "rcx")
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
-         + x86("mov", "rcx", RDQ("rax", 0))
-         + x86("mov", RDQ("rax", 0), (long)line)
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastline, "g_lastline")
-         + x86("mov", RDQ("rax", 0), "rcx")
-         + IF(x86_trace_hooks_on(), x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stcount, "g_stcount")
-         + x86("inc", RDQ("rax", 0))))
+               x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", "rcx", RDQ("rax", GRT_AT(stno)))
+         + x86("mov", RDQ("rax", GRT_AT(stno)), (long)stno)
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", RDQ("rax", GRT_AT(lastno)), "rcx")
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", "rcx", RDQ("rax", GRT_AT(line)))
+         + x86("mov", RDQ("rax", GRT_AT(line)), (long)line)
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", RDQ("rax", GRT_AT(lastline)), "rcx")
+         + IF(x86_trace_hooks_on(), x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("inc", RDQ("rax", GRT_AT(stcount)))))
          + x86_gamma()
          + x86_beta_trampoline();
 }
@@ -66,13 +61,13 @@ std::string bb_stmt_mark(long stno, long line) {
 std::string bb_line_mark(long line, const char * file) {
     x86_begin();
     return x86_alpha()
-         + IF(line >= 0, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
-         + x86("mov", RDQ("rax", 0), (long)line))
+         + IF(line >= 0, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", RDQ("rax", GRT_AT(line)), (long)line))
          + IF(file != (const char *)0,
              x86("comment", "IR_LINE_MARK with the source file: g_file <- the read-only string, the ICN$LINE dispatcher call this replaces set exactly g_line and g_file")
-           + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_file, "g_file")
+           + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
            + x86("mov", "rcx", ROQ(0))
-           + x86("mov", RDQ("rax", 0), "rcx"))
+           + x86("mov", RDQ("rax", GRT_AT(file)), "rcx"))
          + x86_gamma()
          + x86_beta_trampoline()
          + IF(file != (const char *)0, RO_SEAL_STR(0, file));

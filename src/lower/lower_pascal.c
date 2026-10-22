@@ -1,4 +1,5 @@
 #include <string.h>
+#include "g_runtime.h"
 #include "ct_arena.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -28,7 +29,7 @@ typedef struct {
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 static IR_t * build(pcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
-static int pas_trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }
+static int pas_trace_wanted(void) { return g_runtime.abi.trace_budget != 0; }
 extern void global_register(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_reg_var(const char * nm) { if (nm && nm[0]) global_register(lp_strdup(nm)); }

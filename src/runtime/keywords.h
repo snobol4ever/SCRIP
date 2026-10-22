@@ -2,12 +2,9 @@
 #ifndef KEYWORDS_H
 #define KEYWORDS_H
 #include <limits.h>
+#include "g_runtime.h"
 #include "../ir/descr.h"
-extern long g_error;
 #define G_ERROR_EVAL_STAGE LONG_MIN
-extern long g_trace;
-extern long g_dump;
-extern long g_random;
 int kw_assign(const char *kw, DESCR_t val);
 int kw_can_assign(const char *kw, DESCR_t val);
 DESCR_t kw_read(const char *kw);

@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "g_runtime.h"
 #include "ct_arena.h"
 #include <stdarg.h>
 #include "../ir/pin_va.h"
@@ -1754,27 +1755,23 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "scrip: --compat is retired -- SPITBOL (sbl -bf) is the one SNOBOL4 oracle and its feature list the baseline (Lon 2026-09-07)\n");
                 return 2;
             } else if (strcmp(argv[argi], "--monitor") == 0) {
-                extern int g_monitor_bin;
-                g_monitor_bin = 1;
+                g_runtime.abi.monitor_bin = 1;
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
                 argi++;
             } else if (strcmp(argv[argi], "--no-monitor") == 0) {
-                extern int g_monitor_bin;
-                g_monitor_bin = 0;
+                g_runtime.abi.monitor_bin = 0;
                 argi++;
             } else if (strcmp(argv[argi], "--trace") == 0) {
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
-                extern long g_trace_budget;
                 extern int64_t g_kw_trace;
-                g_trace_budget = 2000000000L;
+                g_runtime.abi.trace_budget = 2000000000L;
                 g_kw_trace = 2000000000L;
                 argi++;
             } else if (strncmp(argv[argi], "--trace=", 8) == 0) {
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
-                extern long g_trace_budget;
                 extern int64_t g_kw_trace;
-                g_trace_budget = atol(argv[argi] + 8);
-                g_kw_trace = (int64_t) g_trace_budget;
+                g_runtime.abi.trace_budget = atol(argv[argi] + 8);
+                g_kw_trace = (int64_t) g_runtime.abi.trace_budget;
                 argi++;
             } else break;
         }
@@ -2611,11 +2608,7 @@ int main(int argc, char **argv) {
             if (s2->label_count > 0) emit_textf("  lea rdi, [rip + __label_names]\n  mov esi, %d\n  call rt_label_table_install@PLT\n", s2->label_count);
             emit_textf("  lea rdi, [rip + __gc_frame_maps]\n  call rt_gc_frame_maps_install_counted@PLT\n  lea rdi, [rip + __gc_frame_sites]\n  call rt_gc_frame_sites_install_counted@PLT\n");
             { extern int scc_program_ok(void); if (!scc_program_ok()) emit_textf("  call rt_scc_taint_inherit@PLT\n"); }
-            {
-                extern int g_monitor_bin;
-                extern long g_trace_budget;
-                if (g_monitor_bin || g_trace_budget != 0) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n");
-            }
+            { if (g_runtime.abi.monitor_bin || g_runtime.abi.trace_budget != 0) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n"); }
             {
                 extern int prolog_op_user_count(void);
                 extern int prolog_op_user_get(int, const char **, int *, const char **);
@@ -2777,12 +2770,7 @@ int main(int argc, char **argv) {
             { extern void emit_callee_records_data(void); emit_callee_records_data(); }
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
             { extern const char *bcps_alpha_cellp_table_c(void); emit_textf("%s", bcps_alpha_cellp_table_c()); }
-            {
-                extern int g_monitor_bin;
-                extern long g_trace_budget;
-                extern int g_mon_max_stno;
-                if (g_monitor_bin || g_trace_budget != 0) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_mon_max_stno);
-            }
+            { if (g_runtime.abi.monitor_bin || g_runtime.abi.trace_budget != 0) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_runtime.abi.mon_max_stno); }
             if (_pl_atoms) { m4_emit_atom_table(); m4_emit_functor_table(); }
             emit_textf("  .section .note.GNU-stack,\"\",@progbits\n");
             emit_textf_flush();

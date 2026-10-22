@@ -1,18 +1,18 @@
 #include "rtx_abi.inc"
 RTX_GATE_DEF(match)
 RTX_FUNC(rt_cap_match_begin)
-    mov     eax, dword ptr [rip + g_cap_gen_next]
+    mov     eax, dword ptr [rip + g_runtime + G_RT_OFF_CAP_GEN_NEXT]
     add     eax, 1
     je      .Lcmb_wrap
-    mov     dword ptr [rip + g_cap_gen_next], eax
-    mov     rcx, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     dword ptr [rcx], eax
+    mov     dword ptr [rip + g_runtime + G_RT_OFF_CAP_GEN_NEXT], eax
+    mov     rcx, qword ptr [rip + g_runtime@GOTPCREL]
+    mov     dword ptr [rcx + G_RT_OFF_CAP_GEN], eax
     ret
 .Lcmb_wrap:
     mov     eax, 1
-    mov     dword ptr [rip + g_cap_gen_next], eax
-    mov     rcx, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     dword ptr [rcx], eax
+    mov     dword ptr [rip + g_runtime + G_RT_OFF_CAP_GEN_NEXT], eax
+    mov     rcx, qword ptr [rip + g_runtime@GOTPCREL]
+    mov     dword ptr [rcx + G_RT_OFF_CAP_GEN], eax
     ret
 RTX_ENDF(rt_cap_match_begin)
 RTX_FUNC(rt_defer_close)
@@ -151,14 +151,14 @@ RTX_FUNC(rt_match_enter)
     mov     rdx, rdi
     shr     rdx, 32
     jz      .Lme_c
-    mov     eax, dword ptr [rip + g_cap_gen_next]
+    mov     eax, dword ptr [rip + g_runtime + G_RT_OFF_CAP_GEN_NEXT]
     add     eax, 1
     jne     .Lme_gen_ok
     mov     eax, 1
 .Lme_gen_ok:
-    mov     dword ptr [rip + g_cap_gen_next], eax
-    mov     rcx, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     dword ptr [rcx], eax
+    mov     dword ptr [rip + g_runtime + G_RT_OFF_CAP_GEN_NEXT], eax
+    mov     rcx, qword ptr [rip + g_runtime@GOTPCREL]
+    mov     dword ptr [rcx + G_RT_OFF_CAP_GEN], eax
     test    r12, r12
     je      .Lme_dcap_cold
 .Lme_dcap_done:
@@ -216,14 +216,14 @@ RTX_FUNC(rt_dcap_fast_run)
     imul    r14, rcx
     shr     r14, 32
     and     r14d, 15
-    lea     r13, [rip + g_dcap_nv_key]
+    lea     r13, [rip + g_runtime + G_RT_OFF_DCAP_NV_KEY]
     cmp     qword ptr [r13 + r14*8], rcx
     jne     .Ldfr_ret
-    mov     rbx, qword ptr [rip + g_nv_memo_gen]
-    lea     r13, [rip + g_dcap_nv_seen]
+    mov     rbx, qword ptr [rip + g_runtime + G_RT_OFF_NV_MEMO_GEN]
+    lea     r13, [rip + g_runtime + G_RT_OFF_DCAP_NV_SEEN]
     cmp     qword ptr [r13 + r14*8], rbx
     jne     .Ldfr_ret
-    lea     r13, [rip + g_dcap_nv_cell]
+    lea     r13, [rip + g_runtime + G_RT_OFF_DCAP_NV_CELL]
     mov     r13, qword ptr [r13 + r14*8]
     lea     r15, [rip + g_sxt_fr]
     mov     r14, qword ptr [r15]
@@ -260,7 +260,7 @@ RTX_ENDF(rt_dcap_fast_run)
 RTX_FUNC(rt_dcap_end_ok_open)
     RTX_GATE(match, .Ldeoo_c)
 #if RT_DIAG
-    cmp     dword ptr [rip + g_dcap_trace], 0
+    cmp     dword ptr [rip + g_runtime + G_RT_OFF_DCAP_TRACE], 0
     jne     .Ldeoo_c
 #endif
     test    rcx, rcx
@@ -296,7 +296,7 @@ RTX_ENDF(rt_dcap_end_ok_open)
 RTX_FUNC(rt_match_replace)
     RTX_GATE(match, .Lmr_c)
 #if RT_DIAG
-    cmp     dword ptr [rip + g_repl_trace], 0
+    cmp     dword ptr [rip + g_runtime + G_RT_OFF_REPL_TRACE], 0
     jne     .Lmr_c
 #endif
     test    rdi, rdi
@@ -466,8 +466,8 @@ RTX_ENTRY(rt_cap_open_plain)
     lea     r8, [rip + .Lcap_empty]
     mov     ecx, 0
 .Lcap_nv:
-    mov     r10, qword ptr [rip + g_protected_pat_vars_armed@GOTPCREL]
-    cmp     dword ptr [r10], 0
+    mov     r10, qword ptr [rip + g_runtime@GOTPCREL]
+    cmp     dword ptr [r10 + G_RT_OFF_PROTECTED_PAT_VARS_ARMED], 0
     je      .Lcap_fast
     movzx   eax, byte ptr [r11]
     cmp     al, 65
@@ -564,16 +564,16 @@ RTX_ENTRY(rt_cap_open_plain)
 RTX_ENDF(rt_cap_open)
     .size rt_cap_open_plain, .-rt_cap_open_plain
 RTX_FUNC(rt_cap_open_gva)
-    mov     rax, qword ptr [rip + g_call_fastpath_off@GOTPCREL]
-    cmp     dword ptr [rax], 0
+    mov     rax, qword ptr [rip + g_runtime@GOTPCREL]
+    cmp     dword ptr [rax + G_RT_OFF_CALL_FASTPATH_OFF], 0
     jne     .Lcg_plain
 #if RT_DIAG
-    mov     rax, qword ptr [rip + g_monitor_fd@GOTPCREL]
-    cmp     dword ptr [rax], 0
+    mov     rax, qword ptr [rip + g_runtime@GOTPCREL]
+    cmp     dword ptr [rax + G_RT_OFF_MONITOR_FD], 0
     jge     .Lcg_plain
-    cmp     dword ptr [rip + g_trace_set_n], 0
+    cmp     dword ptr [rip + g_runtime + G_RT_OFF_TRACE_SET_N], 0
     jne     .Lcg_plain
-    cmp     dword ptr [rip + g_comm_dbg], 0
+    cmp     dword ptr [rip + g_runtime + G_RT_OFF_COMM_DBG], 0
     jne     .Lcg_plain
 #endif
     mov     r11, rdi

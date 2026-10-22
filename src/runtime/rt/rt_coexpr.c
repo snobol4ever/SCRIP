@@ -16,7 +16,6 @@
 #include "rt_coexpr.h"
 scrip_coctx_t *g_scrip_co_current = NULL;
 static scrip_coctx_t *g_co_gc_head = NULL;
-extern int g_scan_depth;
 typedef struct scrip_coexpr_entry_pkg_t { void *body_entry_addr; uint64_t r12, r14, rbx, csav5, gva, frame_bytes, below; char *body_rbp; } scrip_coexpr_entry_pkg_t;
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_entry_addr) == 0, "pkg layout drift: body_entry_addr");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r12) == 8, "pkg layout drift: r12");
@@ -127,9 +126,8 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first, uint6
         new_ctx->started = 1;
         { extern void rt_scan_state_reset(void); if (new_ctx->entry_fn && !_inh_ctx) rt_scan_state_reset(); }
         if (_inh_ctx && new_ctx->entry_fn == scrip_coexpr_trampoline_entry && new_ctx->entry_arg) {
-            extern int g_scan_pos;
             scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)new_ctx->entry_arg;
-            pkg->r14 = (uint64_t)(g_scan_pos > 0 ? g_scan_pos - 1 : 0);
+            pkg->r14 = (uint64_t)(g_runtime.abi.scan_pos > 0 ? g_runtime.abi.scan_pos - 1 : 0);
         }
     }
     __asm__ volatile ("mov %%rsp, %0\n\tmov %%rbp, %1" : "=m"(old->park_sp), "=m"(old->park_rbp));
@@ -310,7 +308,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->scan_state = NULL;
     ctx->serial = ++g_runtime.coexpr.coexpr_serial;
     ctx->activations = 0;
-    { extern long g_line; ctx->create_line = g_line; }
+    { ctx->create_line = g_runtime.abi.line; }
     ctx->create_proc = procname;
     ctx->cur_line = 0;
     ctx->pl_gen = 0;
@@ -365,11 +363,11 @@ int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint6
 #endif
     target->activator = self;
     co_xmit_set(&target->xmit, x0, x1);
-    { extern long g_line; self->cur_line = g_line; if (!target->alive && target->create_line > 0) g_line = target->create_line; }
+    { self->cur_line = g_runtime.abi.line; if (!target->alive && target->create_line > 0) g_runtime.abi.line = target->create_line; }
     g_scrip_co_current = target;
     scrip_coswitch(self, target, first, (uint64_t)(uintptr_t)__builtin_return_address(0), (char *)__builtin_frame_address(0));
     g_scrip_co_current = prev;
-    { extern long g_line; if (self->cur_line > 0) g_line = self->cur_line; }
+    { if (self->cur_line > 0) g_runtime.abi.line = self->cur_line; }
     if (target->dead) return 0;
     memcpy(out2, &self->xmit, sizeof self->xmit);
     return 1;
@@ -392,7 +390,7 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->park_sp = 0;
     ctx->park_rbp = 0;
     ctx->park_pc = 0;
-    ctx->sigma_live = g_scan_depth > 0;
+    ctx->sigma_live = g_runtime.abi.scan_depth > 0;
     ctx->image = 0;
     ctx->image_src = 0;
     ctx->image_span = 0;

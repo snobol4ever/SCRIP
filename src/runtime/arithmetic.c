@@ -1,4 +1,5 @@
 #include <errno.h>
+#include "g_runtime.h"
 #include "core.h"
 #include <setjmp.h>
 #include "sil_macros.h"
@@ -539,10 +540,8 @@ static int rt_big_arith_wanted(DESCR_t a, DESCR_t b, int op) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_real_overflow(int spitcode, const char *what, double lv, int strict) {
-    extern long g_error;
-    extern int64_t g_kw_errlimit;
     extern int core_icn_error(int code, DESCR_t val);
-    if (strict == 2 || g_kw_errlimit != 0) { core_runtime_error(spitcode, what); return FAILDESCR; }
+    if (strict == 2 || g_runtime.abi.kw_errlimit != 0) { core_runtime_error(spitcode, what); return FAILDESCR; }
     core_icn_error(204, FAILDESCR);
     return FAILDESCR;
 }

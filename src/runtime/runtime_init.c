@@ -10,8 +10,6 @@
 #include "ct_vec.h"
 #include "rt_diag.h"
 #if RT_DIAG
-__attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rsp = 0UL;
-__attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rbp = 0UL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zdp_probe_report(unsigned long rsp, long op, long node, long expected, long portflags, long measured) {
     const char * port = (portflags & 1) ? "alpha" : "beta";

@@ -208,8 +208,6 @@ void output_val(DESCR_t v);
 DESCR_t input_read(void);
 DESCR_t terminal_read(void);
 void output_str(const char *s);
-extern int g_monitor_fd;
-extern int g_monitor_bin;
 extern int g_monitor_quiet_depth;
 void comm_stno(int n);
 void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno);
@@ -224,20 +222,15 @@ void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval);
 void comm_call(const char *fname);
 void comm_return(const char *fname, DESCR_t retval);
 int trace_is_active(const char *name);
-extern long g_trace_budget;
 void rt_trace_stmt(long line);
 void rt_trace_call(const char *name, DESCR_t *args, int nargs);
 void rt_trace_return(const char *name, DESCR_t retval);
 void rt_trace_value(const char *name, DESCR_t val);
 void rt_trace_value_sigil(const char *name, DESCR_t val, int hook);
-extern int g_comm_dbg;
-extern int g_trace_set_n;
-extern int g_monitor_fd;
-extern long g_trace;
 extern int64_t g_kw_trace;
-extern int64_t g_kw_ftrace;
 #if RT_DIAG
-#define rt_trace_layer_idle() (g_comm_dbg == 0 && g_trace_set_n == 0 && g_monitor_fd < 0 && g_kw_trace <= 0 && g_kw_ftrace <= 0 && g_trace == 0)
+#define rt_trace_layer_idle() (g_runtime.abi.comm_dbg == 0 && g_runtime.abi.trace_set_n == 0 && g_runtime.abi.monitor_fd < 0 && g_kw_trace <= 0 && g_runtime.abi.kw_ftrace <= 0 && g_runtime.abi.trace \
+    == 0)
 #else
 #define rt_trace_layer_idle() (1)
 #endif
@@ -293,11 +286,7 @@ void rt_trace_gen_fail_hook(const char *fname, void *h);
 extern int64_t g_kw_anchor;
 extern int64_t g_kw_stlimit;
 extern int64_t g_kw_stcount;
-extern int64_t g_kw_ftrace;
 extern int64_t g_kw_trace;
-extern int64_t g_kw_errlimit;
-extern int64_t g_kw_fnclevel;
-extern char g_kw_rtntype[16];
 #include <setjmp.h>
 void core_runtime_error(int code, const char *msg);
 extern int g_kw_ctx;

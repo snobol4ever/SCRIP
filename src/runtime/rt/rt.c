@@ -59,7 +59,6 @@ extern DESCR_t NV_GET_fn(const char *name);
 extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
 extern DESCR_t *NV_PTR_fn(const char *name);
 extern int is_protected_pat_name(const char *name);
-extern int g_call_fastpath_off;
 extern DESCR_t NAME_fn(const char *varname);
 extern char *VARVAL_fn(DESCR_t v);
 extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
@@ -115,7 +114,7 @@ void rt_gvar_assign_str(const char *name, const char *str) {
     d.slen = descr_cstrlen(d.s);
     NV_SET_fn(name ? name : "", d);
 #if RT_DIAG
-    if (g_trace_budget != 0) sno_trace_value(name ? name : "", d);
+    if (g_runtime.abi.trace_budget != 0) sno_trace_value(name ? name : "", d);
 #endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -126,7 +125,7 @@ void rt_indirect_assign_var(const char *holder, const char *val_name) {
     DESCR_t val = NV_GET_fn(val_name ? val_name : "");
     NV_SET_fn(target ? target : "", val);
 #if RT_DIAG
-    if (g_trace_budget != 0) sno_trace_value(target ? target : "", val);
+    if (g_runtime.abi.trace_budget != 0) sno_trace_value(target ? target : "", val);
 #endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -189,7 +188,7 @@ void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi) {
     d.i = hi;
     NV_SET_fn(name ? name : "", d);
 #if RT_DIAG
-    if (g_trace_budget != 0) sno_trace_value(name ? name : "", d);
+    if (g_runtime.abi.trace_budget != 0) sno_trace_value(name ? name : "", d);
 #endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -538,9 +537,8 @@ extern DESCR_t VARVAL_d_fn(DESCR_t d);
 typedef struct { const char *base; long len; } rt_subj_t;
 #if RT_DIAG
 #endif
-__attribute__((visibility("hidden"))) int g_rt_k_level = 1;
-int * const rt_k_level_p = &g_rt_k_level;
-static inline __attribute__((always_inline)) void rt_k_level_mirror(void) { g_kw_fnclevel = (int64_t)g_rt_k_level - 1; }
+int * const rt_k_level_p = &g_runtime.abi.rt_k_level;
+static inline __attribute__((always_inline)) void rt_k_level_mirror(void) { g_runtime.abi.kw_fnclevel = (int64_t)g_runtime.abi.rt_k_level - 1; }
 #define PROC_FRAME_QWORDS 512
 typedef struct {
     const char *name;
@@ -798,7 +796,7 @@ int rt_ab_enter_env(void *frame) {
     *(uint64_t *)(fb + AB_OFF_WN) = (uint64_t)(int64_t)rt_g_want_name;
     rt_g_want_name = 0;
     rt_g_ret_by_name = 0;
-    g_rt_k_level++;
+    g_runtime.abi.rt_k_level++;
     rt_k_level_mirror();
     return 0;
 }
@@ -808,7 +806,7 @@ DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail) {
     int wn = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_WN);
     Σ = (const char *)(uintptr_t)*(uint64_t *)(fb + AB_OFF_SIGMA);
     Σlen = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_SIGMALEN);
-    g_rt_k_level--;
+    g_runtime.abi.rt_k_level--;
     rt_k_level_mirror();
     if (is_fail) { rt_g_want_name = wn; return FAILDESCR; }
     return rt_nret_fix(result, wn);
@@ -1399,18 +1397,18 @@ rt_call_next_t rt_call_open_found(const char *name, int nargs, int *registered) 
     return p ? rt_call_open_by_name_p(p, name, nargs) : (rt_call_next_t){ 0, 0 };
 }
 static int rt_eval_stage_is_var(const char *name) { return name && name[0] == 'E' && !strncmp(name, "EXPR$", 5) && strchr(name + 5, '$'); }
-void rt_eval_stage_enter(const char *name) { if (g_error == 0 && !rt_eval_stage_is_var(name)) g_error = G_ERROR_EVAL_STAGE; }
-void rt_eval_stage_leave(const char *name) { if (g_error == G_ERROR_EVAL_STAGE && !rt_eval_stage_is_var(name)) g_error = 0; }
-void rt_eval_stage_leave_var(int is_var) { if (g_error == G_ERROR_EVAL_STAGE && !is_var) g_error = 0; }
+void rt_eval_stage_enter(const char *name) { if (g_runtime.abi.error == 0 && !rt_eval_stage_is_var(name)) g_runtime.abi.error = G_ERROR_EVAL_STAGE; }
+void rt_eval_stage_leave(const char *name) { if (g_runtime.abi.error == G_ERROR_EVAL_STAGE && !rt_eval_stage_is_var(name)) g_runtime.abi.error = 0; }
+void rt_eval_stage_leave_var(int is_var) { if (g_runtime.abi.error == G_ERROR_EVAL_STAGE && !is_var) g_runtime.abi.error = 0; }
 void rt_eval_stage_leave_word(long word) {
     long idx = word >> 40;
-    if (g_error == G_ERROR_EVAL_STAGE && !((idx >= 0 && idx < g_runtime.rt.rt_gen_proc_count) ? g_rt_gen_procs[idx].stage_var : 0)) g_error = 0;
+    if (g_runtime.abi.error == G_ERROR_EVAL_STAGE && !((idx >= 0 && idx < g_runtime.rt.rt_gen_proc_count) ? g_rt_gen_procs[idx].stage_var : 0)) g_runtime.abi.error = 0;
 }
 rt_call_next_t rt_call_open_staged(const char *name, int *registered) {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     *registered = p ? 1 : 0;
     if (!p) return (rt_call_next_t){ 0, 0 };
-    { rt_call_next_t n = rt_call_open_by_name_p(p, name, 0); if (n.fn && g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE; return n; }
+    { rt_call_next_t n = rt_call_open_by_name_p(p, name, 0); if (n.fn && g_runtime.abi.error == 0 && !p->stage_var) g_runtime.abi.error = G_ERROR_EVAL_STAGE; return n; }
 }
 static long rt_dcap_call_prepare_p(rt_proc_t *p, const char *name, short *how, int *nsb, int *registered) {
     *how = 0;
@@ -1420,7 +1418,7 @@ static long rt_dcap_call_prepare_p(rt_proc_t *p, const char *name, short *how, i
     {
         rt_call_next_t n = rt_call_open_by_name_p(p, name, 0);
         if (!n.fn) return 0;
-        if (g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE;
+        if (g_runtime.abi.error == 0 && !p->stage_var) g_runtime.abi.error = G_ERROR_EVAL_STAGE;
         *how = (short)(n.how & 0xff);
         *nsb = (int)((n.how >> 8) & 0xffffffffL);
         return n.fn;
@@ -1443,7 +1441,7 @@ rt_call_next_t rt_call_open_staged_rec(sno_dstar_rec_t *r, int *registered) {
     rt_proc_t *p = rt_proc_of_rec(r);
     *registered = p ? 1 : 0;
     if (!p) return (rt_call_next_t){ 0, 0 };
-    { rt_call_next_t n = rt_call_open_by_name_p(p, sno_dstar_star(r) + 1, 0); if (n.fn && g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE; return n; }
+    { rt_call_next_t n = rt_call_open_by_name_p(p, sno_dstar_star(r) + 1, 0); if (n.fn && g_runtime.abi.error == 0 && !p->stage_var) g_runtime.abi.error = G_ERROR_EVAL_STAGE; return n; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_dyn_alpha_fn(const char *name, void *fallback) {
@@ -1682,10 +1680,10 @@ DESCR_t rt_proc_resume_frame_h(void **hslot) {
             rt_c2bb_hit("gen_h.coro_resume", g->name);
 #endif
             uint64_t out2[2] = { 0, 0 };
-            g_rt_k_level++;
+            g_runtime.abi.rt_k_level++;
             rt_k_level_mirror();
             int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO);
-            g_rt_k_level--;
+            g_runtime.abi.rt_k_level--;
             rt_k_level_mirror();
             return rt_genp_triage(g, ok, out2, hslot);
         }
@@ -1801,7 +1799,7 @@ void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals) {
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline __attribute__((always_inline)) void rt_lvl_leave(long touched) { if (touched) { g_rt_k_level--; rt_k_level_mirror(); } }
+static inline __attribute__((always_inline)) void rt_lvl_leave(long touched) { if (touched) { g_runtime.abi.rt_k_level--; rt_k_level_mirror(); } }
 static int rt_wn_park_on(void) { static int on = -1; if (on < 0) { const char *e = getenv("SCRIP_WN_PARK"); on = (e && e[0] == '0') ? 0 : 1; } return on; }
 int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn) {
     rt_proc_t *p = *pp;
@@ -1819,8 +1817,8 @@ int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn) {
     if (!p->thunk) rt_nsave_bomb("rt_proc_call_prologue", p->name);
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
 #if RT_DIAG
-    if (g_trace_budget != 0) sno_trace_call(p->result_name ? p->result_name : p->name);
-    if (!rt_trace_layer_idle()) { extern long g_stno; rt_trace_event_args(TRK_CALL, p->result_name ? p->result_name : p->name, args, nargs, NULVCL, g_stno); }
+    if (g_runtime.abi.trace_budget != 0) sno_trace_call(p->result_name ? p->result_name : p->name);
+    if (!rt_trace_layer_idle()) { rt_trace_event_args(TRK_CALL, p->result_name ? p->result_name : p->name, args, nargs, NULVCL, g_runtime.abi.stno); }
 #endif
     if (slot) *pp = &g_rt_gen_procs[ix];
     rt_g_want_name = rt_wn_park_on() ? 0 : wn;
@@ -1911,13 +1909,13 @@ void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long n
     for (long k = nargs; k < np; k++) zf[1 + k] = NULVCL;
     zf[0] = NULVCL;
     { DESCR_t *sz = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) sz[zi] = NULVCL; }
-    g_rt_k_level++;
+    g_runtime.abi.rt_k_level++;
     rt_k_level_mirror();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dc_leave_γ(DESCR_t r, long vtmark, void *fb) { g_rt_k_level--; rt_k_level_mirror(); return r; }
+DESCR_t rt_pl_dc_leave_γ(DESCR_t r, long vtmark, void *fb) { g_runtime.abi.rt_k_level--; rt_k_level_mirror(); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb) { g_rt_k_level--; rt_k_level_mirror(); return FAILDESCR; }
+DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb) { g_runtime.abi.rt_k_level--; rt_k_level_mirror(); return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_proc_pname(const char *name, int k) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return (p && p->pnames && k >= 0 && k < p->nparams) ? p->pnames[k] : (const char *)0; }
 const char *rt_proc_result_name_get(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return p ? (p->result_name ? p->result_name : p->name) : (const char *)0; }
@@ -1955,12 +1953,12 @@ static int rt_proc_call_prologue_lex(rt_proc_t **pp, int nargs, int wn) {
 #if RT_DIAG
     {
         int own = p->is_generator ? 0 : 1;
-        if (!own) g_rt_k_level++;
+        if (!own) g_runtime.abi.rt_k_level++;
         rt_k_level_mirror();
-        if (!own && !rt_trace_layer_idle()) { extern long g_stno; int _tn = p->nparams > 0 ? p->nparams : nargs; rt_trace_event_args(TRK_CALL, p->name, CALL_ARGS, _tn, NULVCL, g_stno); }
+        if (!own && !rt_trace_layer_idle()) { int _tn = p->nparams > 0 ? p->nparams : nargs; rt_trace_event_args(TRK_CALL, p->name, CALL_ARGS, _tn, NULVCL, g_runtime.abi.stno); }
     }
 #else
-    if (p->is_generator) g_rt_k_level++;
+    if (p->is_generator) g_runtime.abi.rt_k_level++;
     rt_k_level_mirror();
 #endif
     if (slot) *pp = &g_rt_gen_procs[ix];

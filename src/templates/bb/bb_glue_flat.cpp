@@ -1,10 +1,9 @@
 #include <string>
+#include "g_runtime.h"
 #include <cstdint>
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-extern long g_stno;
-extern long g_line;
 #include "dtp.h"
 typedef struct { long fn; long how; } rt_call_next_t;
 extern rt_call_next_t rt_apply_open(DESCR_t * args, int nargs);
@@ -212,11 +211,11 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw, int hi, int blk = 0) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_stno_unit_push(void) {
     return x86("sub", "rsp", 16L)
-         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
-         + x86("mov", "rcx", RDQ("rcx", 0))
+         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", "rcx", RDQ("rcx", GRT_AT(stno)))
          + x86_rsp_store64(0, "rcx")
-         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
-         + x86("mov", "rcx", RDQ("rcx", 0))
+         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", "rcx", RDQ("rcx", GRT_AT(line)))
          + x86_rsp_store64(8, "rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

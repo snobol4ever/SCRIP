@@ -2,6 +2,7 @@
 #ifdef SCRIP_GC_AUDIT_B
 #define _GNU_SOURCE
 #include <stdarg.h>
+#include "g_runtime.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,9 +16,8 @@
 typedef struct gc_audit_b_ctr_t { long words; long inheap; long marked; long fill; long excl; long found; long shown; long suppressed; long xframe; long xowner; } gc_audit_b_ctr_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_audit_b_log(const char *line) {
-    extern const char *g_file;
     const char *lp = getenv("SCRIP_GC_AUDIT_B_LOG");
-    const char *src = g_file ? g_file : "-";
+    const char *src = g_runtime.abi.file ? g_runtime.abi.file : "-";
     int fd, n;
     if (!lp || !*lp) return;
     n = snprintf((char *)0, 0, "pid=%ld exe=%s src=%s %s", (long)getpid(), program_invocation_short_name, src, line);

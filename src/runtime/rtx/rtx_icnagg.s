@@ -312,14 +312,14 @@ RTX_FUNC(rt_field_var_strict_at)
     test    ecx, ICN_FIELD_PLAIN
     je      .Lfva_c
 #if RT_DIAG
-    mov     rax, qword ptr [rip + g_comm_dbg@GOTPCREL]
-    cmp     dword ptr [rax], 0
+    mov     rax, qword ptr [rip + g_runtime@GOTPCREL]
+    cmp     dword ptr [rax + G_RT_OFF_COMM_DBG], 0
     jne     .Lfva_c
-    mov     rax, qword ptr [rip + g_trace_set_n@GOTPCREL]
-    cmp     dword ptr [rax], 0
+    mov     rax, qword ptr [rip + g_runtime@GOTPCREL]
+    cmp     dword ptr [rax + G_RT_OFF_TRACE_SET_N], 0
     jne     .Lfva_c
-    mov     rax, qword ptr [rip + g_monitor_fd@GOTPCREL]
-    cmp     dword ptr [rax], 0
+    mov     rax, qword ptr [rip + g_runtime@GOTPCREL]
+    cmp     dword ptr [rax + G_RT_OFF_MONITOR_FD], 0
     jge     .Lfva_c
 #endif
     cmp     sil, DT_DATA
