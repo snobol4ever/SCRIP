@@ -19116,6 +19116,9 @@ static const char PL_PRELUDE_LIB_35_SRC[] =
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "gc_tables", 1 },
+    { "abolish_table_info", 0 },
+    { "abolish_module_tables", 1 },
+    { "$amt_drop", 3 },
     { "abolish_table_subgoals", 1 },
     { "abolish_table_subgoals", 2 },
     { "abolish_table_call", 1 },
@@ -19143,6 +19146,13 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
 };
 static const char PL_PRELUDE_LIB_36_SRC[] =
     "gc_tables(0).\n"
+    "abolish_table_info.\n"
+    "abolish_module_tables(M0):-'$must_be_atom_mod'(M0),(M0==usermod->M=user;M=M0),'$tbl_vt'(VT),'$trie_entries'(VT,L),'$amt_drop'(L,M,VT).\n"
+    "'$must_be_atom_mod'(M):-var(M),!,throw(error(instantiation_error,abolish_module_tables/1)).\n"
+    "'$must_be_atom_mod'(M):-atom(M),!.\n"
+    "'$must_be_atom_mod'(M):-throw(error(type_error(atom,M),abolish_module_tables/1)).\n"
+    "'$amt_drop'([],_,_).\n"
+    "'$amt_drop'([e(_,QV,T)|L],M,VT):-('$tbl_unqual'(QV,M0,_),M0==M->('$trie_delete'(VT,QV,_)->true;true),'$trie_destroy'(T);true),'$amt_drop'(L,M,VT).\n"
     "abolish_table_pred(P):-'$atp_goal'(P,G),abolish_table_subgoals(G).\n"
     "'$atp_goal'(P,_):-var(P),!,throw(error(instantiation_error,abolish_table_pred/1)).\n"
     "'$atp_goal'(M:P,M:G):-atom(M),!,'$atp_goal'(P,G).\n"

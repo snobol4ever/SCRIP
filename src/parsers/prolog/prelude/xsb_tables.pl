@@ -7,10 +7,19 @@
     abolish_table_call/1,2 is the same predicate (SWI library(tables)); the /2 forms accept [], abolish_tables_transitively and abolish_tables_singly as swipl does.
     abolish_table_pred(:NameArityOrHead) abolishes the subgoals of the predicate's most general head, as SWI's library(tables) defines it -- so the same cascade (it was
     the base prelude's own drop of the matching tables alone, which left xsb/table_tests pred_abolish_dag/cycle's dependents standing).
+    abolish_table_info/0 (2026-10-21, hq_packages, xsb/ptq tran/1) is XSB's reset of the tabling statistics: SCRIP keeps none, so it succeeds.
+    abolish_module_tables(+Module) (xsb/table_tests abol_test2, abol_test2a) destroys every table whose variant is in Module, as boot/tabling.pl of swipl 9.0.4 does (no cascade); usermod is user.
     Embedded by the generator in LOCAL mode; linked for a program that references load_files or names one of these predicates (prolog_parse.c). */
-:- module(xsb_tables, [ gc_tables/1, abolish_table_subgoals/1, abolish_table_subgoals/2, abolish_table_call/1, abolish_table_call/2, abolish_table_pred/1, '$ats_goal'/2,
+:- module(xsb_tables, [ gc_tables/1, abolish_table_info/0, abolish_module_tables/1, '$amt_drop'/3, abolish_table_subgoals/1, abolish_table_subgoals/2, abolish_table_call/1, abolish_table_call/2, abolish_table_pred/1, '$ats_goal'/2,
                         '$ats_split'/4, '$ats_close'/3, '$ats_dep'/4, '$ats_hits'/2, '$ats_lit'/2, '$ats_drop'/2, '$ats_opts'/1, '$atp_goal'/2 ]).
 gc_tables(0).
+abolish_table_info.
+abolish_module_tables(M0):-'$must_be_atom_mod'(M0),(M0==usermod->M=user;M=M0),'$tbl_vt'(VT),'$trie_entries'(VT,L),'$amt_drop'(L,M,VT).
+'$must_be_atom_mod'(M):-var(M),!,throw(error(instantiation_error,abolish_module_tables/1)).
+'$must_be_atom_mod'(M):-atom(M),!.
+'$must_be_atom_mod'(M):-throw(error(type_error(atom,M),abolish_module_tables/1)).
+'$amt_drop'([],_,_).
+'$amt_drop'([e(_,QV,T)|L],M,VT):-('$tbl_unqual'(QV,M0,_),M0==M->('$trie_delete'(VT,QV,_)->true;true),'$trie_destroy'(T);true),'$amt_drop'(L,M,VT).
 abolish_table_pred(P):-'$atp_goal'(P,G),abolish_table_subgoals(G).
 '$atp_goal'(P,_):-var(P),!,throw(error(instantiation_error,abolish_table_pred/1)).
 '$atp_goal'(M:P,M:G):-atom(M),!,'$atp_goal'(P,G).

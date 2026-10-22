@@ -4716,9 +4716,12 @@ static const tree_t * pl_src_file_rewrite(const tree_t * prog) {
         const tree_t * s = prog->c[i];
         const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
         if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && pl_tree_calls(subj, "source_file", 2)) any = 1;
+        if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && (pl_tree_calls(subj, "load_files", 1) || pl_tree_calls(subj, "load_files", 2))) any = 1;
+        if (subj && subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "load_files")) any = 1;
     }
     if (!any) return prog;
     const char * seen[prog->n + 1];
+    const char * lastfile = "";
     tree_t * np = ast_node_new(prog->t);
     np->v = prog->v;
     np->line = prog->line;
@@ -4729,6 +4732,18 @@ static const tree_t * pl_src_file_rewrite(const tree_t * prog) {
         const char * file = pl_stmt_file(s);
         const char * sl = key ? strrchr(key, '/') : NULL;
         int dup = 0;
+        if (file[0] && strcmp(file, lastfile)) {
+            const size_t dpn = PATH_MAX;
+            char dpb[dpn];
+            const char * dp = realpath(file, dpb);
+            tree_t * dg = ast_node_new(TT_FNC);
+            dg->v.sval = (char *) "$src_file_add";
+            ast_push(dg, (tree_t *) pl_atom_goal("$srcdir"));
+            ast_push(dg, pl_cc_ilit(0));
+            ast_push(dg, (tree_t *) pl_atom_goal(dp ? lp_strdup(dp) : file));
+            ast_push(np, pl_table_stmt(s, dg));
+            lastfile = file;
+        }
         ast_push(np, (tree_t *) s);
         if (!sl || sl == key || key[0] == '$' || !file[0]) continue;
         for (int k = 0; k < nk; k++) if (!strcmp(seen[k], key)) dup = 1;
