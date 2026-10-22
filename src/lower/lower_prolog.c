@@ -3634,7 +3634,12 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lower_pl_pred_graph(const char * key, const tree_t * ch) {
     if (ch->t == TT_CHOICE) { if (ch->n < 1) return -1; if (!ch->c[0] || ch->c[0]->t != TT_CLAUSE) return -1; } else if (ch->t != TT_CLAUSE) return -1;
-    { IR_graph_t * g = pl_pred_graph(ch, key); return bb_program_add(&g_stage2.bbp, g); }
+    {
+        extern void zls_frame_resident_mark(const IR_t *);
+        IR_graph_t * g = pl_pred_graph(ch, key);
+        if (g && g->home_frame) for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_TABLE_HDR) zls_frame_resident_mark(g->all[i]);
+        return bb_program_add(&g_stage2.bbp, g);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_attv_rt_armed(void) {
