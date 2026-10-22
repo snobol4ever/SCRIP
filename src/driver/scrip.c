@@ -2209,8 +2209,7 @@ int main(int argc, char **argv) {
     register_fn("CODE", _builtin_CODE, 1, 1);
     register_fn("DATA", _builtin_DATA, 1, 1);
     register_fn("print", _builtin_print, 0, 99);
-    extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int, long *);
-    g_user_call_hook = _usercall_hook;
+    g_runtime.misc.user_call_hook = _usercall_hook;
     {
         extern void sno_preeval_program(const tree_t *);
         extern int sno_nerrors;
@@ -2218,7 +2217,7 @@ int main(int argc, char **argv) {
         if (sno_nerrors > 0) { fprintf(stderr, "scrip: %d compile error(s) in '%s' -- no code generated\n", sno_nerrors, input_path); return 1; }
     }
     { extern void core_set_label_exists_hook(int (*fn)(const char *)); core_set_label_exists_hook(_label_exists_fn); }
-    { extern DESCR_t (*g_eval_str_hook)(const char *s); g_eval_str_hook = _eval_str_impl_fn; }
+    { g_runtime.misc.eval_str_hook = _eval_str_impl_fn; }
     g_opt_dump_bb = dump_ir;
     if (dump_transpile) { extern int tree_to_sno(const tree_t *ast, FILE *out); tree_to_sno(ast_prog, stdout); return 0; }
     if (dump_ir || dump_zeta) {

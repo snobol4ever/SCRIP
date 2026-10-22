@@ -23,7 +23,6 @@ int core_icn_error(int code, DESCR_t val);
 void rt_bomb(const char *msg);
 #define STACKLESS_ABORT(fn) do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)) \
     ; abort(); } while (0)
-DESCR_t (*g_eval_str_hook)(const char *s) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pm_lf_type_invalidate(void) { g_runtime.misc.lf_type = (DATBLK_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -594,7 +593,7 @@ DESCR_t EVAL_fn(DESCR_t expr) {
         { char *endp = NULL; (void)strtod(s, &endp); if (endp && *endp == '\0') { extern void rt_eval_syntax_raise(const char *); rt_eval_syntax_raise(s); return FAILDESCR; } }
     }
     eval_str:
-    if (g_eval_str_hook) return g_eval_str_hook(s);
+    if (g_runtime.misc.eval_str_hook) return g_runtime.misc.eval_str_hook(s);
     extern DESCR_t eval_string_transient(const char *s);
     return eval_string_transient(s);
 }

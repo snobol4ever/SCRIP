@@ -11,7 +11,7 @@ RTX_GATE_DEF(alloc)
 .endm
 RTX_FUNC(rt_gcheap_alloc)
     RTX_GATE(alloc, .Lga_c)
-    mov     rdx, [rip + g_hp_fr@GOTPCREL]
+    mov     rdx, [rip + g_runtime@GOTPCREL]
     mov     eax, dword ptr [rdx + 24]
     test    eax, eax
     je      .Lga_c
@@ -100,7 +100,7 @@ RTX_FUNC(rt_gcheap_alloc)
 RTX_ENDF(rt_gcheap_alloc)
 RTX_FUNC(rt_str_alloc)
     RTX_GATE(alloc, .Lsa_c)
-    mov     rdx, [rip + g_hp_fr@GOTPCREL]
+    mov     rdx, [rip + g_runtime@GOTPCREL]
     mov     eax, dword ptr [rdx + 24]
     test    eax, eax
     je      .Lsa_c
@@ -120,7 +120,7 @@ RTX_FUNC(rt_str_alloc)
 RTX_ENDF(rt_str_alloc)
 RTX_FUNC(rt_agg_alloc)
     RTX_GATE(alloc, .Laa_c)
-    mov     rdx, [rip + g_hp_fr@GOTPCREL]
+    mov     rdx, [rip + g_runtime@GOTPCREL]
     mov     eax, dword ptr [rdx + 24]
     test    eax, eax
     je      .Laa_c

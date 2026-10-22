@@ -89,7 +89,7 @@ RTX_FUNC(rt_table_assign_fast)
     je      .Lta_miss
     cmp     r8b, DT_S
     jne     .Lta_store
-    mov     r10, qword ptr [rip + g_sxt_fr@GOTPCREL]
+    lea     r10, [rip + g_runtime + G_RT_OFF_SXT_FR]
     cmp     qword ptr [r10], r9
     jne     .Lta_store
     mov     qword ptr [r10], 0
@@ -250,7 +250,7 @@ RTX_FUNC(rt_table_assign_fast)
     inc     dword ptr [rsi + TBBLK_ORD_LEN]
     cmp     r8b, DT_S
     jne     .Lta_ins_done
-    mov     r10, qword ptr [rip + g_sxt_fr@GOTPCREL]
+    lea     r10, [rip + g_runtime + G_RT_OFF_SXT_FR]
     cmp     qword ptr [r10], r9
     jne     .Lta_ins_done
     mov     qword ptr [r10], 0
@@ -287,7 +287,7 @@ RTX_FUNC(rt_table_assign_fast)
     add     rax, r11
     cmp     r8b, DT_S
     jne     .Lta_astore
-    mov     r10, qword ptr [rip + g_sxt_fr@GOTPCREL]
+    lea     r10, [rip + g_runtime + G_RT_OFF_SXT_FR]
     cmp     qword ptr [r10], r9
     jne     .Lta_astore
     mov     qword ptr [r10], 0

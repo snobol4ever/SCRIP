@@ -2513,10 +2513,10 @@ CTOR_FN(0) CTOR_FN(1) CTOR_FN(2) CTOR_FN(3) CTOR_FN(4) CTOR_FN(5) CTOR_FN(6) CTO
     CTOR_FN(17) CTOR_FN(18) CTOR_FN(19) CTOR_FN(20) CTOR_FN(21) CTOR_FN(22) CTOR_FN(23) CTOR_FN(24) CTOR_FN(25) CTOR_FN(26) CTOR_FN(27) CTOR_FN(28) CTOR_FN(29) CTOR_FN(30) CTOR_FN(31) CTOR_FN(32)
     CTOR_FN(33) CTOR_FN(34) CTOR_FN(35) CTOR_FN(36) CTOR_FN(37) CTOR_FN(38) CTOR_FN(39) CTOR_FN(40) CTOR_FN(41) CTOR_FN(42) CTOR_FN(43) CTOR_FN(44) CTOR_FN(45) CTOR_FN(46) CTOR_FN(47) CTOR_FN(48)
     CTOR_FN(49) CTOR_FN(50) CTOR_FN(51) CTOR_FN(52) CTOR_FN(53) CTOR_FN(54) CTOR_FN(55) CTOR_FN(56) CTOR_FN(57) CTOR_FN(58) CTOR_FN(59) CTOR_FN(60) CTOR_FN(61) CTOR_FN(62) CTOR_FN(63)
-    static DESCR_t (*g_ctor_fns[DATA_MAX_TYPES])(DESCR_t *, int) = { _ctor_0, _ctor_1, _ctor_2, _ctor_3, _ctor_4, _ctor_5, _ctor_6, _ctor_7, _ctor_8, _ctor_9, _ctor_10, _ctor_11, _ctor_12, _ctor_13,
-    _ctor_14, _ctor_15, _ctor_16, _ctor_17, _ctor_18, _ctor_19, _ctor_20, _ctor_21, _ctor_22, _ctor_23, _ctor_24, _ctor_25, _ctor_26, _ctor_27, _ctor_28, _ctor_29, _ctor_30, _ctor_31, _ctor_32,
-    _ctor_33, _ctor_34, _ctor_35, _ctor_36, _ctor_37, _ctor_38, _ctor_39, _ctor_40, _ctor_41, _ctor_42, _ctor_43, _ctor_44, _ctor_45, _ctor_46, _ctor_47, _ctor_48, _ctor_49, _ctor_50, _ctor_51,
-    _ctor_52, _ctor_53, _ctor_54, _ctor_55, _ctor_56, _ctor_57, _ctor_58, _ctor_59, _ctor_60, _ctor_61, _ctor_62, _ctor_63, };
+    static DESCR_t (*const g_ctor_fns[DATA_MAX_TYPES])(DESCR_t *, int) = { _ctor_0, _ctor_1, _ctor_2, _ctor_3, _ctor_4, _ctor_5, _ctor_6, _ctor_7, _ctor_8, _ctor_9, _ctor_10, _ctor_11, _ctor_12,
+    _ctor_13, _ctor_14, _ctor_15, _ctor_16, _ctor_17, _ctor_18, _ctor_19, _ctor_20, _ctor_21, _ctor_22, _ctor_23, _ctor_24, _ctor_25, _ctor_26, _ctor_27, _ctor_28, _ctor_29, _ctor_30, _ctor_31,
+    _ctor_32, _ctor_33, _ctor_34, _ctor_35, _ctor_36, _ctor_37, _ctor_38, _ctor_39, _ctor_40, _ctor_41, _ctor_42, _ctor_43, _ctor_44, _ctor_45, _ctor_46, _ctor_47, _ctor_48, _ctor_49, _ctor_50,
+    _ctor_51, _ctor_52, _ctor_53, _ctor_54, _ctor_55, _ctor_56, _ctor_57, _ctor_58, _ctor_59, _ctor_60, _ctor_61, _ctor_62, _ctor_63, };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _make_fget(int slot, DESCR_t obj) {
     if (slot < 0 || slot >= g_runtime.core.facc_n) return FAILDESCR;
@@ -2558,7 +2558,7 @@ FACC_FN(0) FACC_FN(1) FACC_FN(2) FACC_FN(3) FACC_FN(4) FACC_FN(5) FACC_FN(6) FAC
     FACC_SET_FN(96) FACC_SET_FN(97) FACC_SET_FN(98) FACC_SET_FN(99) FACC_SET_FN(100) FACC_SET_FN(101) FACC_SET_FN(102) FACC_SET_FN(103) FACC_SET_FN(104) FACC_SET_FN(105) FACC_SET_FN(106)
     FACC_SET_FN(107) FACC_SET_FN(108) FACC_SET_FN(109) FACC_SET_FN(110) FACC_SET_FN(111) FACC_SET_FN(112) FACC_SET_FN(113) FACC_SET_FN(114) FACC_SET_FN(115) FACC_SET_FN(116) FACC_SET_FN(117)
     FACC_SET_FN(118) FACC_SET_FN(119) FACC_SET_FN(120) FACC_SET_FN(121) FACC_SET_FN(122) FACC_SET_FN(123) FACC_SET_FN(124) FACC_SET_FN(125) FACC_SET_FN(126) FACC_SET_FN(127)
-    static DESCR_t (*g_facc_set_fns[FIELD_ACCESSOR_MAX])(DESCR_t *, int) = { _facc_set_0, _facc_set_1, _facc_set_2, _facc_set_3, _facc_set_4, _facc_set_5, _facc_set_6, _facc_set_7, _facc_set_8,
+    static DESCR_t (*const g_facc_set_fns[FIELD_ACCESSOR_MAX])(DESCR_t *, int) = { _facc_set_0, _facc_set_1, _facc_set_2, _facc_set_3, _facc_set_4, _facc_set_5, _facc_set_6, _facc_set_7, _facc_set_8,
     _facc_set_9, _facc_set_10, _facc_set_11, _facc_set_12, _facc_set_13, _facc_set_14, _facc_set_15, _facc_set_16, _facc_set_17, _facc_set_18, _facc_set_19, _facc_set_20, _facc_set_21, _facc_set_22,
     _facc_set_23, _facc_set_24, _facc_set_25, _facc_set_26, _facc_set_27, _facc_set_28, _facc_set_29, _facc_set_30, _facc_set_31, _facc_set_32, _facc_set_33, _facc_set_34, _facc_set_35, _facc_set_36,
     _facc_set_37, _facc_set_38, _facc_set_39, _facc_set_40, _facc_set_41, _facc_set_42, _facc_set_43, _facc_set_44, _facc_set_45, _facc_set_46, _facc_set_47, _facc_set_48, _facc_set_49, _facc_set_50,
@@ -2568,16 +2568,16 @@ FACC_FN(0) FACC_FN(1) FACC_FN(2) FACC_FN(3) FACC_FN(4) FACC_FN(5) FACC_FN(6) FAC
     _facc_set_93, _facc_set_94, _facc_set_95, _facc_set_96, _facc_set_97, _facc_set_98, _facc_set_99, _facc_set_100, _facc_set_101, _facc_set_102, _facc_set_103, _facc_set_104, _facc_set_105,
     _facc_set_106, _facc_set_107, _facc_set_108, _facc_set_109, _facc_set_110, _facc_set_111, _facc_set_112, _facc_set_113, _facc_set_114, _facc_set_115, _facc_set_116, _facc_set_117, _facc_set_118,
     _facc_set_119, _facc_set_120, _facc_set_121, _facc_set_122, _facc_set_123, _facc_set_124, _facc_set_125, _facc_set_126, _facc_set_127, };
-static DESCR_t (*g_facc_fns[FIELD_ACCESSOR_MAX])(DESCR_t *, int) = { _facc_get_0, _facc_get_1, _facc_get_2, _facc_get_3, _facc_get_4, _facc_get_5, _facc_get_6, _facc_get_7, _facc_get_8, _facc_get_9,
-    _facc_get_10, _facc_get_11, _facc_get_12, _facc_get_13, _facc_get_14, _facc_get_15, _facc_get_16, _facc_get_17, _facc_get_18, _facc_get_19, _facc_get_20, _facc_get_21, _facc_get_22, _facc_get_23,
-    _facc_get_24, _facc_get_25, _facc_get_26, _facc_get_27, _facc_get_28, _facc_get_29, _facc_get_30, _facc_get_31, _facc_get_32, _facc_get_33, _facc_get_34, _facc_get_35, _facc_get_36, _facc_get_37,
-    _facc_get_38, _facc_get_39, _facc_get_40, _facc_get_41, _facc_get_42, _facc_get_43, _facc_get_44, _facc_get_45, _facc_get_46, _facc_get_47, _facc_get_48, _facc_get_49, _facc_get_50, _facc_get_51,
-    _facc_get_52, _facc_get_53, _facc_get_54, _facc_get_55, _facc_get_56, _facc_get_57, _facc_get_58, _facc_get_59, _facc_get_60, _facc_get_61, _facc_get_62, _facc_get_63, _facc_get_64, _facc_get_65,
-    _facc_get_66, _facc_get_67, _facc_get_68, _facc_get_69, _facc_get_70, _facc_get_71, _facc_get_72, _facc_get_73, _facc_get_74, _facc_get_75, _facc_get_76, _facc_get_77, _facc_get_78, _facc_get_79,
-    _facc_get_80, _facc_get_81, _facc_get_82, _facc_get_83, _facc_get_84, _facc_get_85, _facc_get_86, _facc_get_87, _facc_get_88, _facc_get_89, _facc_get_90, _facc_get_91, _facc_get_92, _facc_get_93,
-    _facc_get_94, _facc_get_95, _facc_get_96, _facc_get_97, _facc_get_98, _facc_get_99, _facc_get_100, _facc_get_101, _facc_get_102, _facc_get_103, _facc_get_104, _facc_get_105, _facc_get_106,
-    _facc_get_107, _facc_get_108, _facc_get_109, _facc_get_110, _facc_get_111, _facc_get_112, _facc_get_113, _facc_get_114, _facc_get_115, _facc_get_116, _facc_get_117, _facc_get_118, _facc_get_119,
-    _facc_get_120, _facc_get_121, _facc_get_122, _facc_get_123, _facc_get_124, _facc_get_125, _facc_get_126, _facc_get_127, };
+static DESCR_t (*const g_facc_fns[FIELD_ACCESSOR_MAX])(DESCR_t *, int) = { _facc_get_0, _facc_get_1, _facc_get_2, _facc_get_3, _facc_get_4, _facc_get_5, _facc_get_6, _facc_get_7, _facc_get_8,
+    _facc_get_9, _facc_get_10, _facc_get_11, _facc_get_12, _facc_get_13, _facc_get_14, _facc_get_15, _facc_get_16, _facc_get_17, _facc_get_18, _facc_get_19, _facc_get_20, _facc_get_21, _facc_get_22,
+    _facc_get_23, _facc_get_24, _facc_get_25, _facc_get_26, _facc_get_27, _facc_get_28, _facc_get_29, _facc_get_30, _facc_get_31, _facc_get_32, _facc_get_33, _facc_get_34, _facc_get_35, _facc_get_36,
+    _facc_get_37, _facc_get_38, _facc_get_39, _facc_get_40, _facc_get_41, _facc_get_42, _facc_get_43, _facc_get_44, _facc_get_45, _facc_get_46, _facc_get_47, _facc_get_48, _facc_get_49, _facc_get_50,
+    _facc_get_51, _facc_get_52, _facc_get_53, _facc_get_54, _facc_get_55, _facc_get_56, _facc_get_57, _facc_get_58, _facc_get_59, _facc_get_60, _facc_get_61, _facc_get_62, _facc_get_63, _facc_get_64,
+    _facc_get_65, _facc_get_66, _facc_get_67, _facc_get_68, _facc_get_69, _facc_get_70, _facc_get_71, _facc_get_72, _facc_get_73, _facc_get_74, _facc_get_75, _facc_get_76, _facc_get_77, _facc_get_78,
+    _facc_get_79, _facc_get_80, _facc_get_81, _facc_get_82, _facc_get_83, _facc_get_84, _facc_get_85, _facc_get_86, _facc_get_87, _facc_get_88, _facc_get_89, _facc_get_90, _facc_get_91, _facc_get_92,
+    _facc_get_93, _facc_get_94, _facc_get_95, _facc_get_96, _facc_get_97, _facc_get_98, _facc_get_99, _facc_get_100, _facc_get_101, _facc_get_102, _facc_get_103, _facc_get_104, _facc_get_105,
+    _facc_get_106, _facc_get_107, _facc_get_108, _facc_get_109, _facc_get_110, _facc_get_111, _facc_get_112, _facc_get_113, _facc_get_114, _facc_get_115, _facc_get_116, _facc_get_117, _facc_get_118,
+    _facc_get_119, _facc_get_120, _facc_get_121, _facc_get_122, _facc_get_123, _facc_get_124, _facc_get_125, _facc_get_126, _facc_get_127, };
 static int fn_has_builtin(const char *name);
 static void _func_init(void);
 DESCR_t core_DATA_register(DESCR_t *a, int n);
@@ -2738,7 +2738,7 @@ void core_lib_init(void) {
         { extern long rt_stack_budget_bytes(long); extern void rt_stack_budget_apply(long, long); rt_stack_budget_apply(rt_stack_budget_bytes(g_runtime.core.sw_stack_bytes), 0L); }
     }
     { extern void rt_kw_seed_defaults(void); rt_kw_seed_defaults(); }
-    if (!g_user_call_hook) { extern DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs, long *rq); g_user_call_hook = _usercall_hook; }
+    if (!g_runtime.misc.user_call_hook) { extern DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs, long *rq); g_runtime.misc.user_call_hook = _usercall_hook; }
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts); g_runtime.core.start_ns = (int64_t)_ts.tv_sec * 1000000000LL + (int64_t)_ts.tv_nsec; }
 #if RT_DIAG
     const char *mon_fifo = getenv("MONITOR_READY_PIPE");
@@ -4836,7 +4836,6 @@ void core_undefined_call_error(const char *name) {
     else core_runtime_error(22, "undefined function called");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs, long *rq) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
     extern int rt_proc_is_registered(const char *);
@@ -4884,12 +4883,12 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs, long *r
                 return e->fn(args, nargs);
             }
             { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr, rq)) return pr; }
-            if (g_user_call_hook) return g_user_call_hook(name, args, nargs, rq);
+            if (g_runtime.misc.user_call_hook) return g_runtime.misc.user_call_hook(name, args, nargs, rq);
             return NULVCL;
         }
     }
     { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr, rq)) return pr; }
-    if (g_user_call_hook) { DESCR_t r = g_user_call_hook(name, args, nargs, rq); if ((rq && rq[0]) || !IS_FAIL_fn(r)) return r; }
+    if (g_runtime.misc.user_call_hook) { DESCR_t r = g_runtime.misc.user_call_hook(name, args, nargs, rq); if ((rq && rq[0]) || !IS_FAIL_fn(r)) return r; }
 #if RT_DIAG
     if (getenv("SCRIP_DEBUG_APPLY")) fprintf(stderr, "[apply-err5] unresolved '%s' (nargs=%d)\n", name ? name : "(null)", nargs);
 #endif

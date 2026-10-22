@@ -2,6 +2,7 @@
 #ifndef GC_HEAP_H
 #define GC_HEAP_H
 #include <stdint.h>
+#include "g_runtime.h"
 #include <stddef.h>
 #include "rt_diag.h"
 #define HB_ZCOL 200
@@ -54,10 +55,9 @@ void *rt_pvec_alloc(size_t n);
 void *rt_pvec_realloc(void *p, size_t n);
 void *rt_pm_struct_alloc(uint16_t type, size_t n);
 char *rt_str_dup(const char *s);
-typedef struct { char *owner; long len; int gva_n; int off; } rt_sxt_fr_t;
-extern rt_sxt_fr_t g_sxt_fr;
+#include "g_runtime_abi.h"
 extern rt_sxt_fr_t * const rt_sxt_fr_p;
-#define g_sxt_owner (g_sxt_fr.owner)
+#define g_sxt_owner (g_runtime.abi.sxt_fr.owner)
 void rt_sxt_gva_count(int n);
 void rt_sxt_break(const char *s);
 static inline __attribute__((always_inline)) void rt_sxt_break_fast(const char *s) { if (s && s == g_sxt_owner) g_sxt_owner = (char *)0; }

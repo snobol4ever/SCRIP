@@ -2411,7 +2411,7 @@ static unsigned *rk_un_normalize(const unsigned *in, int n, int compat, int comp
     return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *g_rk_uni_types[] = { "Uni", "NFC", "NFD", "NFKC", "NFKD", NULL };
+static const char *const g_rk_uni_types[] = { "Uni", "NFC", "NFD", "NFKC", "NFKD", NULL };
 static int rk_uni_is_name(const char *nm) { for (int i = 0; nm && g_rk_uni_types[i]; i++) if (!strcmp(nm, g_rk_uni_types[i])) return 1; return 0; }
 static void rk_uni_reg(void) {
     if (dat_find_type("Uni")) return;

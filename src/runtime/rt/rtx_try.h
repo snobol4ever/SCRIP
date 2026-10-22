@@ -1,6 +1,7 @@
 #ifndef RTX_TRY_H
 #define RTX_TRY_H
 #include "descr.h"
+#include "g_runtime.h"
 #include "gc_heap.h"
 #ifdef __cplusplus
 extern "C" {
@@ -23,7 +24,7 @@ int descr_identical(DESCR_t, DESCR_t);
 int c_descr_identical(DESCR_t, DESCR_t);
 static inline __attribute__((always_inline)) DESCR_t rtx_try_rt_assign_var(DESCR_t a, DESCR_t b) { DESCR_t r = rt_assign_var(a, b); return r.v == RTX_NOT_HANDLED ? c_rt_assign_var(a, b) : r; }
 static inline __attribute__((always_inline)) DESCR_t rtx_try_str_concat_d(DESCR_t a, DESCR_t b) {
-    if (a.v == DT_S && (g_sxt_fr.off < 0 || (g_sxt_fr.off == 0 && a.s == g_sxt_fr.owner))) return c_str_concat_d(a, b);
+    if (a.v == DT_S && (g_runtime.abi.sxt_fr.off < 0 || (g_runtime.abi.sxt_fr.off == 0 && a.s == g_runtime.abi.sxt_fr.owner))) return c_str_concat_d(a, b);
     DESCR_t r = str_concat_d(a, b);
     return r.v == RTX_NOT_HANDLED ? c_str_concat_d(a, b) : r;
 }

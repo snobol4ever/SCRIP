@@ -11,5 +11,4 @@
   sno_nerrors;
   rebus_nerrors;
   g_gc_pending;
-  g_hp_fr;
 };

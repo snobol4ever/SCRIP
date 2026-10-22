@@ -12,23 +12,6 @@
 #include "pin_va.h"
 #include "rt_sc_module.h"
 enum { SC_GVA_RESERVE = 741 };
-typedef struct {
-    const sc_module_desc_t *d;
-    DESCR_t *base;
-    int inited;
-    int busy;
-    int no_reserve;
-    char lang[16];
-    int i_src;
-    int i_path;
-    int i_lang;
-    int i_linked;
-    int i_tree;
-    int i_inited;
-    int i_errpos;
-    int i_incl;
-} sc_module_t;
-static sc_module_t g_sc_mod;
 #include "../rtx/rtcc.h"
 extern void core_lib_init(void);
 extern DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
@@ -44,19 +27,19 @@ extern char *rt_heap_strdup_c(const char *s);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _MATCHAT_(DESCR_t *args, int nargs) { (void)args; (void)nargs; return (DESCR_t){ .v = DT_I, .slen = 0, .i = (int64_t)g_rtccb[RTCC_SLOT_MATCHAT] }; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_sc_gva_reserve(void) { return g_sc_mod.no_reserve ? 0 : SC_GVA_RESERVE; }
-void rt_sc_module_compiling(void) { g_sc_mod.no_reserve = 1; }
+long rt_sc_gva_reserve(void) { return g_runtime.misc.sc_mod.no_reserve ? 0 : SC_GVA_RESERVE; }
+void rt_sc_module_compiling(void) { g_runtime.misc.sc_mod.no_reserve = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static sc_module_t *sc_module_get(const char *lang);
 int rt_sc_module_linked(const char *lang) { return sc_module_get(lang) ? 1 : 0; }
-int rt_sc_module_busy(void) { return g_sc_mod.busy; }
+int rt_sc_module_busy(void) { return g_runtime.misc.sc_mod.busy; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_sc_modules_invalidate(void) { g_sc_mod.inited = 0; }
+void rt_sc_modules_invalidate(void) { g_runtime.misc.sc_mod.inited = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sc_slot_of(const sc_module_desc_t *d, const char *nm) { for (long k = 0; k < d->n_gva; k++) if (d->gva_names[k] && !strcmp(d->gva_names[k], nm)) return (int)k; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static sc_module_t *sc_module_get(const char *lang) {
-    sc_module_t *m = &g_sc_mod;
+    sc_module_t *m = &g_runtime.misc.sc_mod;
     if (!lang || !*lang || strlen(lang) >= sizeof m->lang) return (sc_module_t *)0;
     if (m->d) {
         if (strcmp(m->lang, lang) == 0) return m;
@@ -112,7 +95,7 @@ static void sc_module_run(sc_module_t *m) {
     g_runtime.misc.kw_trace = 0;
     g_runtime.abi.kw_ftrace = 0;
     rt_gc_program_top_set((char *)0);
-    rt_sc_outer_call(m->d->main_alpha);
+    rt_sc_outer_call(((const sc_module_desc_t *)m->d)->main_alpha);
     rt_gc_program_top_set(save_top);
     g_runtime.misc.kw_anchor = s_anchor;
     g_runtime.core.kw_trim = s_trim;
@@ -175,7 +158,7 @@ DESCR_t rt_sc_module_parse_begin(const char *lang, const char *src, size_t len, 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sc_module_parse_end(void) {
-    sc_module_t *m = &g_sc_mod;
+    sc_module_t *m = &g_runtime.misc.sc_mod;
     if (!m->d) return;
     m->base[m->i_src] = (DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" };
     m->base[m->i_tree] = (DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" };

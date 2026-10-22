@@ -12,7 +12,6 @@
 #include "pin_va.h"
 extern "C" {
 extern uint64_t g_rtccb[32];
-extern struct rt_hp_fr_t g_hp_fr;
 void rt_pl_tr_refuse(const char *);
 long *rt_anchor_ptr(void);
 int rtx_entry_is(const char *sym);
@@ -2189,7 +2188,7 @@ inline std::string x86_pl_choice_mark(const std::string & mark_mem, int l0)
     + x86("def", L(l0 + 1))
     + x86("cmp", "rax", (long)(-X86_PL_TR_ARENA_MASK - X86_PL_TR_ENTRY_BYTES))
     + x86("jae", L(l0 + 3))
-    + x86_load_got("rax", "g_hp_fr", (uint64_t)(uintptr_t)(void *)&g_hp_fr)
+    + x86_load_got("rax", "g_runtime", (uint64_t)(uintptr_t)(void *)&g_runtime)
     + x86("mov", "rax", RDQ("rax", 0))
     + x86("mov", RDQ("r12", 0), 0L)
     + x86("mov", RDQ("r12", 8), "rax")

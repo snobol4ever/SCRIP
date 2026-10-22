@@ -1,6 +1,7 @@
 #ifndef BB_PL_CELL_H
 #define BB_PL_CELL_H
 #include "stage2.h"
+#include "g_runtime.h"
 #define PL_SRC_RDI() (IF(!_.op_u_kid, x86("lea", "rdi", FRQ(_.op_u_slot))) \
                     + IF(_.op_u_kid, \
                           x86("note", "the cell is child " + std::to_string((long long)_.op_u_idx) + " of the parent box's compound: [parent.p + 16j]") \
@@ -88,7 +89,7 @@
                     + x86("mov", "rdx", RDQ("rax", 8 - PL_TR_ENTRY_BYTES)) \
                     + x86("cmp", "rdi", "rdx") \
                     + x86("jb", L(lstore + 1)) \
-                    + x86_load_got("rax", "g_hp_fr", (uint64_t)(uintptr_t)(void *)&g_hp_fr) \
+                    + x86_load_got("rax", "g_runtime", (uint64_t)(uintptr_t)(void *)&g_runtime) \
                     + x86("mov", "rax", RDQ("rax", 0)) \
                     + x86("cmp", "rdi", "rax") \
                     + x86("jb", L(lstore)) \

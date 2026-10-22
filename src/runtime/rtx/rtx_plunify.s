@@ -120,7 +120,7 @@ RTX_ENDF(rt_pl_dop_clause_unify)
     .l##9:
 #define PL_U_UNB(c, lyes, lno) cmp al, 0; je lyes; cmp al, DT_FAIL; je lyes; cmp al, DT_PLVAR; je lyes; cmp al, DT_N; jne lno; cmp qword ptr [c + 8], c; jne lno; jmp lyes
 #define PL_U_TRAIL(c, l) test r13, r13; jz .l##9; cmp c, rsp; ja .l##4; mov rax, qword ptr [r13]; mov rcx, qword ptr [rax - 32]; test rcx, rcx; jne .l##5; \
-    mov rcx, qword ptr [rax - 24]; cmp c, rcx; jb .l##5; mov rax, qword ptr [rip + g_hp_fr@GOTPCREL]; mov rax, qword ptr [rax]; cmp c, rax; jb .l##9; jmp .l##5; \
+    mov rcx, qword ptr [rax - 24]; cmp c, rcx; jb .l##5; mov rax, qword ptr [rip + g_runtime@GOTPCREL]; mov rax, qword ptr [rax]; cmp c, rax; jb .l##9; jmp .l##5; \
     .l##4: mov rax, qword ptr [r13 + 32]; shr rax, 8; cmp c, rax; jb .l##9; \
     .l##5: mov rax, r12; and rax, 134217727; cmp rax, 134217696; jae .Lun_refuse; mov rax, qword ptr [c]; mov rcx, qword ptr [c + 8]; mov qword ptr [r12], c; mov qword ptr [r12 + 8], 0; mov qword ptr [r12 + 16], rax; mov qword ptr [r12 + 24], rcx; add r12, 32; \
     .l##9:

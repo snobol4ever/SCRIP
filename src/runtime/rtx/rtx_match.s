@@ -225,7 +225,7 @@ RTX_FUNC(rt_dcap_fast_run)
     jne     .Ldfr_ret
     lea     r13, [rip + g_runtime + G_RT_OFF_DCAP_NV_CELL]
     mov     r13, qword ptr [r13 + r14*8]
-    lea     r15, [rip + g_sxt_fr]
+    lea     r15, [rip + g_runtime + G_RT_OFF_SXT_FR]
     mov     r14, qword ptr [r15]
     cmp     r14, rdx
     jne     .Ldfr_own1
@@ -454,7 +454,7 @@ RTX_ENTRY(rt_cap_open_plain)
     jz      .Lcap_nv_null
     mov     r10, qword ptr [rip + Σ@GOTPCREL]
     mov     r10, qword ptr [r10]
-    mov     r9, qword ptr [rip + g_sxt_fr@GOTPCREL]
+    lea     r9, [rip + g_runtime + G_RT_OFF_SXT_FR]
     cmp     qword ptr [r9], r10
     jne     .Lcap_sxt_subj_ok
     mov     qword ptr [r9], 0
@@ -587,7 +587,7 @@ RTX_FUNC(rt_cap_open_gva)
     jz      .Lcg_nul
     mov     r10, qword ptr [rip + Σ@GOTPCREL]
     mov     r10, qword ptr [r10]
-    mov     r9, qword ptr [rip + g_sxt_fr@GOTPCREL]
+    lea     r9, [rip + g_runtime + G_RT_OFF_SXT_FR]
     cmp     qword ptr [r9], r10
     jne     .Lcg_sxt_skip
     mov     qword ptr [r9], 0

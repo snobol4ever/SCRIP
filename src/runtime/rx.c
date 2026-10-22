@@ -26,7 +26,7 @@ typedef struct RxNode {
 } RxNode;
 typedef struct CapList { RxCap **v; int n, cap; } CapList;
 struct RxProg { RxNode *root; int flags; const RxEnv *env; CapList tops; };
-static RxCap g_rx_silent_cap = { 'h', 0, "", 0, 0, 0, 0, 0, 0 };
+static const RxCap g_rx_silent_cap = { 'h', 0, "", 0, 0, 0, 0, 0, 0 };
 typedef struct Ctx { const RxEnv *env; const unsigned char *s; int slen, tend, nev, cev; RxEv *ev; int depth, mfrom, mto; } Ctx;
 typedef struct Cont Cont;
 struct Cont { int (*fn)(Ctx *, const Cont *, int); const RxNode *n; int a, b, c; const Cont *up; };

@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "g_runtime.h"
 #include "rtx_try.h"
 #include "core.h"
 #include "rt/rt_list_view.h"
@@ -41,7 +42,7 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     long al_auth = -1, bl_auth = -1;
     if (a.v == DT_S && a.s && a.slen != 0xFFFFFFFFu) { asp = a.s; al_auth = (long)a.slen; } else if (a.v == DT_DATA) asp = rk_obj_stringify(a, 0);
     else { DESCR_t as = descr_to_str(a); if (as.v == DT_S || as.v == DT_SNUL) { asp = VARVAL_fn(as); al_auth = (long)descr_slen(as); } else asp = NULL; }
-    if (a.v == DT_S && asp && g_sxt_fr.off <= 0) { alc = rt_sxt_match(asp); if (alc >= 0 && al_auth >= 0 && alc != al_auth) alc = -1; }
+    if (a.v == DT_S && asp && g_runtime.abi.sxt_fr.off <= 0) { alc = rt_sxt_match(asp); if (alc >= 0 && al_auth >= 0 && alc != al_auth) alc = -1; }
     if (b.v == DT_S && b.s && b.slen != 0xFFFFFFFFu) { bsp = b.s; bl_auth = (long)b.slen; } else if (b.v == DT_DATA) bsp = rk_obj_stringify(b, 0);
     else { DESCR_t bs = descr_to_str(b); if (bs.v == DT_S || bs.v == DT_SNUL) { bsp = VARVAL_fn(bs); bl_auth = (long)descr_slen(bs); } else bsp = NULL; }
     if (!asp) asp = "";

@@ -14,6 +14,9 @@
 #include <limits.h>
 #include "gc_heap.h"
 #include "rt_coexpr.h"
+_Static_assert(sizeof(scrip_coctx_t) <= sizeof(((g_coexpr_t *)0)->root_ctx) && _Alignof(scrip_coctx_t) <= 16,
+    "g_runtime.coexpr.root_ctx holds the root scrip_coctx_t: g_runtime_coexpr.h cannot include rt_coexpr.h (its declarations clash with by_name_dispatch.c), so the block is bytes and this assert is "
+    "its size contract");
 scrip_coctx_t *g_scrip_co_current = NULL;
 static scrip_coctx_t *g_co_gc_head = NULL;
 typedef struct scrip_coexpr_entry_pkg_t { void *body_entry_addr; uint64_t r12, r14, rbx, csav5, gva, frame_bytes, below; char *body_rbp; } scrip_coexpr_entry_pkg_t;
@@ -156,10 +159,9 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     sem_destroy(ctx->semp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static scrip_coctx_t g_root_ctx;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-static long scrip_co_serial_disp(scrip_coctx_t *c) { if (!c) return 0; if (c == &g_root_ctx && c->serial == 0) return 1; return c->serial; }
+static long scrip_co_serial_disp(scrip_coctx_t *c) { if (!c) return 0; if (c == &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx) && c->serial == 0) return 1; return c->serial; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_trace_xmit(const char *procname, scrip_coctx_t *self, scrip_coctx_t *target, uint64_t x0, uint64_t x1) {
     extern void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_serial, uint64_t x0, uint64_t x1, int kind, long line_override);
@@ -178,8 +180,8 @@ static void scrip_co_trace_term(scrip_coctx_t *me, scrip_coctx_t *back, uint64_t
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static scrip_coctx_t *scrip_co_live_activator(scrip_coctx_t *me) {
     scrip_coctx_t *b = me ? me->activator : 0;
-    for (int hop = 0; b && b != &g_root_ctx && b->dead && hop < 64; hop++) b = b->activator;
-    if (!b || (b != &g_root_ctx && b->dead)) b = &g_root_ctx;
+    for (int hop = 0; b && b != &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx) && b->dead && hop < 64; hop++) b = b->activator;
+    if (!b || (b != &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx) && b->dead)) b = &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx);
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -321,7 +323,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->pl_xtr = 0;
     ctx->gc_next = g_co_gc_head;
     g_co_gc_head = ctx;
-    { scrip_coctx_t *cur = g_scrip_co_current ? g_scrip_co_current : &g_root_ctx; scrip_co_init_once(cur); }
+    { scrip_coctx_t *cur = g_scrip_co_current ? g_scrip_co_current : &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx); scrip_co_init_once(cur); }
     if (sem_init(&ctx->created, 0, 0) == -1) scrip_co_uerror("scrip_coexpr: sem_init (created) failed");
     scrip_co_thread_start(ctx);
     while (sem_wait(&ctx->created) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait (created) in scrip_coexpr_create");
@@ -349,7 +351,7 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname, uint64_t tagw) {
     if ((uint8_t)tagw != DT_CO) { extern int core_icn_error(int code, DESCR_t val); DESCR_t d; memcpy(&d, &tagw, sizeof tagw); d.p = target; core_icn_error(118, d); return 0; }
     if (!target) scrip_co_uerror("scrip_coexpr: activate of NULL coexpression (operand slot held garbage -- LOWER/driver wiring bug)");
-    scrip_coctx_t *self = g_scrip_co_current ? g_scrip_co_current : &g_root_ctx;
+    scrip_coctx_t *self = g_scrip_co_current ? g_scrip_co_current : &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx);
 #if RT_DIAG
     if (target->dead) { scrip_co_trace_xmit(procname, self, target, x0, x1); scrip_co_trace_term(target, self, 0, 0, 1); return 0; }
 #else
@@ -421,7 +423,7 @@ void scrip_co_gc_link(scrip_coctx_t *ctx) { ctx->gc_next = g_co_gc_head; g_co_gc
 void rt_coexpr_gc_scan_states(void) {
     extern void gen_gc_visit_scan_state(void *);
     scrip_coctx_t *c;
-    gen_gc_visit_scan_state(g_root_ctx.scan_state);
+    gen_gc_visit_scan_state((*(scrip_coctx_t *)g_runtime.coexpr.root_ctx).scan_state);
     for (c = g_co_gc_head; c; c = c->gc_next) gen_gc_visit_scan_state(c->scan_state);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -429,7 +431,7 @@ void rt_coexpr_gc_scan_states(void) {
 void rt_coexpr_gc_audit_scan_states(long *hp, long *un) {
     extern void gen_gc_audit_scan_state(void *, long *, long *);
     scrip_coctx_t *c;
-    gen_gc_audit_scan_state(g_root_ctx.scan_state, hp, un);
+    gen_gc_audit_scan_state((*(scrip_coctx_t *)g_runtime.coexpr.root_ctx).scan_state, hp, un);
     for (c = g_co_gc_head; c; c = c->gc_next) gen_gc_audit_scan_state(c->scan_state, hp, un);
 }
 #else
@@ -457,20 +459,27 @@ void scrip_co_gc_images(long *on_stack, long *off_stack) { if (on_stack) *on_sta
 long scrip_co_gc_visit_records(long *n_ctx, long *n_sigma) {
     long n = 0, ns = 0;
     scrip_coctx_t *c;
-    rt_gc_visit_descr(&g_root_ctx.xmit);
+    rt_gc_visit_descr(&(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx).xmit);
     n++;
     for (c = g_co_gc_head; c; c = c->gc_next) { rt_gc_visit_descr(&c->xmit); co_gc_visit_record(c, &ns); n++; }
     if (n_ctx) *n_ctx = n;
     if (n_sigma) *n_sigma = ns;
     return n;
 }
-scrip_coctx_t *scrip_co_gc_root(void) { if (g_root_ctx.serial == 0) g_root_ctx.serial = 1; return &g_root_ctx; }
+scrip_coctx_t *scrip_co_gc_root(void) {
+    if ((*(scrip_coctx_t *)g_runtime.coexpr.root_ctx).serial == 0) (*(scrip_coctx_t *)g_runtime.coexpr.root_ctx).serial = 1;
+    return &(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx);
+}
 const char *scrip_co_body_base(const scrip_coctx_t *ctx) {
     if (!ctx || ctx->entry_fn != scrip_coexpr_trampoline_entry || !ctx->entry_arg) return (const char *)0;
     return ((const scrip_coexpr_entry_pkg_t *)ctx->entry_arg)->body_rbp;
 }
 long scrip_coexpr_serial_of(void *ctx) { return ctx ? ((scrip_coctx_t *)ctx)->serial : 0; }
-long scrip_coexpr_activations_of(void *ctx) { if (!ctx) return 0; if (ctx == (void *)&g_root_ctx) return ((scrip_coctx_t *)ctx)->activations + 1; return ((scrip_coctx_t *)ctx)->activations; }
+long scrip_coexpr_activations_of(void *ctx) {
+    if (!ctx) return 0;
+    if (ctx == (void *)&(*(scrip_coctx_t *)g_runtime.coexpr.root_ctx)) return ((scrip_coctx_t *)ctx)->activations + 1;
+    return ((scrip_coctx_t *)ctx)->activations;
+}
 int scrip_co_main_known(pthread_t *out) { if (g_runtime.coexpr.co_main_set && out) *out = g_runtime.coexpr.co_main_thr; return g_runtime.coexpr.co_main_set; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi) {

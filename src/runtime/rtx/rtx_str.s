@@ -66,7 +66,7 @@ RTX_ENTRY(sno_concat_d)
     mov     rax, [rip + g_gc_pending@GOTPCREL]
     cmp     dword ptr [rax], 0
     jne     .Lsc_slow
-    lea     rax, [rip + g_sxt_fr]
+    lea     rax, [rip + g_runtime + G_RT_OFF_SXT_FR]
     mov     r10d, dword ptr [rax + 20]
     test    r10d, r10d
     js      .Lsc_slow
@@ -97,9 +97,9 @@ RTX_ENTRY(sno_concat_d)
     RTX_MEMCPY
     lea     r11, [r8 + r9]
     mov     byte ptr [r10 + r11], 0
-    lea     rax, [rip + g_sxt_fr]
+    lea     rax, [rip + g_runtime + G_RT_OFF_SXT_FR]
     mov     qword ptr [rax + 0], 0
-    mov     rdx, [rip + g_hp_fr@GOTPCREL]
+    mov     rdx, [rip + g_runtime@GOTPCREL]
     mov     rdx, [rdx + 0]
     lea     rsi, [r10 - 16]
     test    word ptr [rsi + 14], HBF_TTL
@@ -247,7 +247,7 @@ RTX_ENTRY(sno_concat_d)
     jne     .Lsc_ext_bad
     mov     r11d, dword ptr [r10 + 8]
     add     r11, r10
-    mov     rdx, qword ptr [rip + g_hp_fr@GOTPCREL]
+    mov     rdx, qword ptr [rip + g_runtime@GOTPCREL]
     cmp     r11, qword ptr [rdx + 0]
     jne     .Lsc_ext_bad
     mov     edi, dword ptr [rax + 16]
@@ -359,7 +359,7 @@ RTX_ENTRY(sno_concat_d)
     mov     byte ptr [rdi + 1], 0
 .Lsc_ext_done:
     lea     rax, [r8 + r9]
-    lea     rcx, [rip + g_sxt_fr]
+    lea     rcx, [rip + g_runtime + G_RT_OFF_SXT_FR]
     mov     qword ptr [rcx + 8], rax
     mov     rdx, r10
     shl     rax, 32
@@ -367,7 +367,7 @@ RTX_ENTRY(sno_concat_d)
     RTX_GVA_R9
     ret
 .Lsc_ext_bad:
-    lea     rax, [rip + g_sxt_fr]
+    lea     rax, [rip + g_runtime + G_RT_OFF_SXT_FR]
     mov     qword ptr [rax + 0], 0
     jmp     .Lsc_nosxt
 .Lsc_slow:

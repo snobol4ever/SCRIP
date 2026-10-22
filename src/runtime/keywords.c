@@ -238,65 +238,60 @@ const char *kw_cset_const_str(const char *kw) {
 #define KWB_STR 2
 #define KWB_PROT 1
 typedef struct { const char *name; unsigned char kind; unsigned char prot; int64_t *cell; int64_t init; const char *sval; const char *sym; } KWB_ENT_t;
-static int64_t g_kwb_own[8] = { 0, 0, 0, 0, 0, 0, 0, 1 };
-extern int64_t g_rt_kwb_own[8] __attribute__((alias("g_kwb_own")));
-static KWB_ENT_t g_kwb[] = { { "ANCHOR", KWB_INT, 0, (int64_t *)&g_runtime.abi.anchor, 0, (const char *)0 , "rt_anchor_g" }, { "TRIM", KWB_INT, 0, &g_runtime.core.kw_trim, 1, (const char *)0 ,
-    "g_runtime.core.kw_trim" }, { "CASE", KWB_INT, 0, &g_kwb_own[0], 0, (const char *)0 , "g_rt_kwb_own" }, { "CODE", KWB_INT, 0, &g_runtime.core.kw_code, 0, (const char *)0 ,
+static const KWB_ENT_t g_kwb[] = { { "ANCHOR", KWB_INT, 0, (int64_t *)&g_runtime.abi.anchor, 0, (const char *)0 , "rt_anchor_g" }, { "TRIM", KWB_INT, 0, &g_runtime.core.kw_trim, 1, (const char *)0 ,
+    "g_runtime.core.kw_trim" }, { "CASE", KWB_INT, 0, &g_runtime.kw.kwb_own[0], 0, (const char *)0 , "g_rt_kwb_own" }, { "CODE", KWB_INT, 0, &g_runtime.core.kw_code, 0, (const char *)0 ,
     "g_runtime.core.kw_code" }, { "DUMP", KWB_INT, 0, (int64_t *)&g_runtime.abi.dump, 0, (const char *)0 , "g_runtime.abi.dump" }, { "ERRLIMIT", KWB_INT, 0, &g_runtime.abi.kw_errlimit, 0,
-    (const char *)0 , "g_kw_errlimit" }, { "ERRTYPE", KWB_INT, 0, &g_kwb_own[1], 0, (const char *)0 , "g_rt_kwb_own" }, { "FTRACE", KWB_INT, 0, &g_runtime.abi.kw_ftrace, 0, (const char *)0 ,
-    "g_kw_ftrace" }, { "FULLSCAN", KWB_INT, 0, &g_runtime.core.kw_fullscan, 1, (const char *)0 , "g_runtime.core.kw_fullscan" }, { "MAXLNGTH", KWB_INT, 0, (int64_t *)&g_runtime.abi.maxlngth, 16777216,
-    (const char *)0 , "g_runtime.abi.maxlngth" }, { "STLIMIT", KWB_INT, 0, &g_runtime.misc.kw_stlimit, 2147483647, (const char *)0 , "g_kw_stlimit" }, { "TRACE", KWB_INT, 0,
-    (int64_t *)&g_runtime.abi.trace, 0, (const char *)0 , "g_runtime.abi.trace" }, { "ABEND", KWB_INT, 0, &g_kwb_own[2], 0, (const char *)0 , "g_rt_kwb_own" }, { "INPUT", KWB_INT, 0, &g_kwb_own[3], 1,
-    (const char *)0 , "g_rt_kwb_own" }, { "OUTPUT", KWB_INT, 0, &g_kwb_own[4], 1, (const char *)0 , "g_rt_kwb_own" }, { "PROFILE", KWB_INT, 0, &g_kwb_own[5], 0, (const char *)0 , "g_rt_kwb_own" },
-    { "COMPARE", KWB_INT, 0, &g_kwb_own[6], 0, (const char *)0 , "g_rt_kwb_own" }, { "STCOUNT", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.stcount, 0, (const char *)0 , "g_runtime.abi.stcount" },
-    { "STNO", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.stno, 0, (const char *)0 , "g_runtime.abi.stno" }, { "LASTNO", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.lastno, 0, (const char *)0 ,
-    "g_runtime.abi.lastno" }, { "LINE", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.line, 0, (const char *)0 , "g_runtime.abi.line" }, { "LASTLINE", KWB_INT, KWB_PROT,
-    (int64_t *)&g_runtime.abi.lastline, 0, (const char *)0 , "g_runtime.abi.lastline" }, { "FILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "LASTFILE", KWB_STR,
-    KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "FNCLEVEL", KWB_INT, KWB_PROT, &g_runtime.abi.kw_fnclevel, 0, (const char *)0 , "g_kw_fnclevel" }, { "UCASE", KWB_STR, KWB_PROT,
-    (int64_t *)0, 0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ" , (const char *)0 }, { "LCASE", KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" , (const char *)0 }, { "RTNTYPE", KWB_STR, KWB_PROT,
-    (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "ERRTEXT", KWB_STR, 0, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0,
-    (const char *)0 , (const char *)0 }, { "USER_DECLARED_CONSTANTS", KWB_INT, 0, &g_kwb_own[7], 1, (const char *)0 , "g_rt_kwb_own" }, { "MAXINT", KWB_INT, KWB_PROT, &g_runtime.kw.kw_maxint, 0,
-    (const char *)0 , "g_runtime.kw.kw_maxint" }, };
+    (const char *)0 , "g_kw_errlimit" }, { "ERRTYPE", KWB_INT, 0, &g_runtime.kw.kwb_own[1], 0, (const char *)0 , "g_rt_kwb_own" }, { "FTRACE", KWB_INT, 0, &g_runtime.abi.kw_ftrace, 0,
+    (const char *)0 , "g_kw_ftrace" }, { "FULLSCAN", KWB_INT, 0, &g_runtime.core.kw_fullscan, 1, (const char *)0 , "g_runtime.core.kw_fullscan" }, { "MAXLNGTH", KWB_INT, 0,
+    (int64_t *)&g_runtime.abi.maxlngth, 16777216, (const char *)0 , "g_runtime.abi.maxlngth" }, { "STLIMIT", KWB_INT, 0, &g_runtime.misc.kw_stlimit, 2147483647, (const char *)0 , "g_kw_stlimit" },
+    { "TRACE", KWB_INT, 0, (int64_t *)&g_runtime.abi.trace, 0, (const char *)0 , "g_runtime.abi.trace" }, { "ABEND", KWB_INT, 0, &g_runtime.kw.kwb_own[2], 0, (const char *)0 , "g_rt_kwb_own" },
+    { "INPUT", KWB_INT, 0, &g_runtime.kw.kwb_own[3], 1, (const char *)0 , "g_rt_kwb_own" }, { "OUTPUT", KWB_INT, 0, &g_runtime.kw.kwb_own[4], 1, (const char *)0 , "g_rt_kwb_own" }, { "PROFILE",
+    KWB_INT, 0, &g_runtime.kw.kwb_own[5], 0, (const char *)0 , "g_rt_kwb_own" }, { "COMPARE", KWB_INT, 0, &g_runtime.kw.kwb_own[6], 0, (const char *)0 , "g_rt_kwb_own" }, { "STCOUNT", KWB_INT,
+    KWB_PROT, (int64_t *)&g_runtime.abi.stcount, 0, (const char *)0 , "g_runtime.abi.stcount" }, { "STNO", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.stno, 0, (const char *)0 ,
+    "g_runtime.abi.stno" }, { "LASTNO", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.lastno, 0, (const char *)0 , "g_runtime.abi.lastno" }, { "LINE", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.line,
+    0, (const char *)0 , "g_runtime.abi.line" }, { "LASTLINE", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.lastline, 0, (const char *)0 , "g_runtime.abi.lastline" }, { "FILE", KWB_STR, KWB_PROT,
+    (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "LASTFILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "FNCLEVEL", KWB_INT, KWB_PROT,
+    &g_runtime.abi.kw_fnclevel, 0, (const char *)0 , "g_kw_fnclevel" }, { "UCASE", KWB_STR, KWB_PROT, (int64_t *)0, 0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ" , (const char *)0 }, { "LCASE", KWB_STR, KWB_PROT,
+    (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" , (const char *)0 }, { "RTNTYPE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "ERRTEXT", KWB_STR, 0, (int64_t *)0, 0,
+    (const char *)0 , (const char *)0 }, { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "USER_DECLARED_CONSTANTS", KWB_INT, 0, &g_runtime.kw.kwb_own[7], 1,
+    (const char *)0 , "g_rt_kwb_own" }, { "MAXINT", KWB_INT, KWB_PROT, &g_runtime.kw.kw_maxint, 0, (const char *)0 , "g_runtime.kw.kw_maxint" }, };
 static const int g_kwb_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
-static KWB_ENT_t *g_kwb_bound = g_kwb;
-static int g_kwb_bound_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_kw_direct_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_KW_DIRECT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_kw_direct_sym(int idx, int *soff, const void **base) {
     if (!rt_kw_direct_on()) return (const char *)0;
-    if (idx < 0 || idx >= g_kwb_bound_n || g_kwb_bound != g_kwb) return (const char *)0;
-    KWB_ENT_t *e = &g_kwb_bound[idx];
+    if (idx < 0 || idx >= g_kwb_n) return (const char *)0;
+    const KWB_ENT_t *e = &g_kwb[idx];
     if (e->kind != KWB_INT || !e->cell || !e->sym) return (const char *)0;
     if ((char *)e->cell >= (char *)&g_runtime && (char *)e->cell < (char *)(&g_runtime + 1)) {
         *soff = (int)((char *)e->cell - (char *)&g_runtime);
         *base = (const void *)&g_runtime;
         return "g_runtime";
     }
-    long off = ((char *)e->cell >= (char *)g_kwb_own && (char *)e->cell < (char *)(g_kwb_own + 8)) ? (char *)e->cell - (char *)g_kwb_own : 0;
+    long off = ((char *)e->cell >= (char *)g_runtime.kw.kwb_own && (char *)e->cell < (char *)(g_runtime.kw.kwb_own + 8)) ? (char *)e->cell - (char *)g_runtime.kw.kwb_own : 0;
     *soff = (int)off;
     *base = (const void *)((char *)e->cell - off);
     return e->sym;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_udc_on(void) { return g_kwb_own[7] != 0; }
-int rt_kw_input_on(void) { return g_kwb_own[3] != 0; }
-int rt_kw_output_on(void) { return g_kwb_own[4] != 0; }
-void rt_kw_bind(void *block, int n) { if (block && n > 0) { g_kwb_bound = (KWB_ENT_t *)block; g_kwb_bound_n = n; } }
+int rt_udc_on(void) { return g_runtime.kw.kwb_own[7] != 0; }
+int rt_kw_input_on(void) { return g_runtime.kw.kwb_own[3] != 0; }
+int rt_kw_output_on(void) { return g_runtime.kw.kwb_own[4] != 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void kwb_init_once(void) {
     static int done = 0;
     if (done) return;
     done = 1;
-    for (int i = 0; i < g_kwb_bound_n; i++) if (g_kwb_bound[i].kind == KWB_INT && !g_kwb_bound[i].prot && g_kwb_bound[i].cell) *g_kwb_bound[i].cell = g_kwb_bound[i].init;
+    for (int i = 0; i < g_kwb_n; i++) if (g_kwb[i].kind == KWB_INT && !g_kwb[i].prot && g_kwb[i].cell) *g_kwb[i].cell = g_kwb[i].init;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_seed_defaults(void) { kwb_init_once(); { extern void rt_code_atexit_arm(void); rt_code_atexit_arm(); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sn4_kw_spelling_is_canonical(const char *kw) { if (!kw) return 0; if (kw[0] == '&') kw++; for (size_t i = 0; kw[i]; i++) if (kw[i] >= 'a' && kw[i] <= 'z') return 0; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static KWB_ENT_t *kwb_find(const char *kw) {
-    if (!kw) return (KWB_ENT_t *)0;
+static const KWB_ENT_t *kwb_find(const char *kw) {
+    if (!kw) return (const KWB_ENT_t *)0;
     if (kw[0] == '&') kw++;
     size_t un = strlen(kw);
     char uk[un + 1];
@@ -304,11 +299,11 @@ static KWB_ENT_t *kwb_find(const char *kw) {
     for (; ui < un; ui++) uk[ui] = (kw[ui] >= 'a' && kw[ui] <= 'z') ? (char)(kw[ui] - 'a' + 'A') : kw[ui];
     uk[ui] = '\0';
     kwb_init_once();
-    for (int i = 0; i < g_kwb_bound_n; i++) if (!strcmp(g_kwb_bound[i].name, uk)) return &g_kwb_bound[i];
-    return (KWB_ENT_t *)0;
+    for (int i = 0; i < g_kwb_n; i++) if (!strcmp(g_kwb[i].name, uk)) return &g_kwb[i];
+    return (const KWB_ENT_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int kwb_read_ent(KWB_ENT_t *e, DESCR_t *out) {
+static int kwb_read_ent(const KWB_ENT_t *e, DESCR_t *out) {
     if (!e) return 0;
     if (e->kind == KWB_STR) {
         if (!strcmp(e->name, "RTNTYPE")) { *out = STRVAL(g_runtime.abi.kw_rtntype); return 1; }
@@ -330,10 +325,10 @@ int kwb_error(int code, const char *msg) {
     extern void core_err_compat_map(int *code, const char **msg);
     core_err_compat_map(&code, &msg);
     extern int core_setexit_armed(void);
-    KWB_ENT_t *el = kwb_find("ERRLIMIT");
+    const KWB_ENT_t *el = kwb_find("ERRLIMIT");
     if (el && el->cell && *el->cell > 0 && !core_setexit_armed()) {
         *el->cell -= 1;
-        KWB_ENT_t *et = kwb_find("ERRTYPE");
+        const KWB_ENT_t *et = kwb_find("ERRTYPE");
         if (et && et->cell) *et->cell = code;
         g_runtime.kw.sno_errtext = msg;
         return 0;
@@ -342,9 +337,9 @@ int kwb_error(int code, const char *msg) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_kw_publish_error(int code, const char *msg) { KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_runtime.kw.sno_errtext = msg ? rt_heap_strdup_c(msg) : ""; }
+void rt_kw_publish_error(int code, const char *msg) { const KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_runtime.kw.sno_errtext = msg ? rt_heap_strdup_c(msg) : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_kw_publish_error_at_exit(int code, const char *msg) { KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_runtime.kw.sno_errtext = msg ? msg : ""; }
+void rt_kw_publish_error_at_exit(int code, const char *msg) { const KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_runtime.kw.sno_errtext = msg ? msg : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_set_rtntype(int which) {
     static const uint64_t words[4] = { 0x00004E5255544552ull, 0x004E525554455246ull, 0x004E52555445524Eull, 0ull };
@@ -367,7 +362,7 @@ static int kwb_numeric_text(const char *s) {
     return *p == '\0';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int kwb_write_ent(KWB_ENT_t *e, DESCR_t v) {
+static int kwb_write_ent(const KWB_ENT_t *e, DESCR_t v) {
     if (!e) return 0;
     if (e->kind == KWB_STR && !strcmp(e->name, "ERRTEXT")) { const char *s = VARVAL_fn(v); g_runtime.kw.sno_errtext = rt_heap_strdup_c(s ? s : ""); return 1; }
     int is_num = IS_INT(v) || IS_REAL(v);
@@ -391,11 +386,11 @@ void rt_kw_dump_values(void (*emit)(void *cx, const char *name, DESCR_t v), void
     for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) { DESCR_t v; if (kwb_read(names[i], &v)) emit(cx, names[i], v); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_kw_index(const char *kw) { if (!kw) return -1; if (!sn4_kw_spelling_is_canonical(kw)) return -1; KWB_ENT_t *e = kwb_find(kw); if (!e) return -1; return (int)(e - g_kwb_bound); }
+int rt_kw_index(const char *kw) { if (!kw) return -1; if (!sn4_kw_spelling_is_canonical(kw)) return -1; const KWB_ENT_t *e = kwb_find(kw); if (!e) return -1; return (int)(e - g_kwb); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_kw_read_idx(int64_t idx) { if (idx < 0 || idx >= (int64_t)g_kwb_bound_n) return NULVCL; kwb_init_once(); DESCR_t out; if (kwb_read_ent(&g_kwb_bound[idx], &out)) return out; return NULVCL; }
+DESCR_t rt_kw_read_idx(int64_t idx) { if (idx < 0 || idx >= (int64_t)g_kwb_n) return NULVCL; kwb_init_once(); DESCR_t out; if (kwb_read_ent(&g_kwb[idx], &out)) return out; return NULVCL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v) { if (idx < 0 || idx >= (int64_t)g_kwb_bound_n) return v; kwb_init_once(); return kwb_write_ent(&g_kwb_bound[idx], v) < 0 ? FAILDESCR : v; }
+DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v) { if (idx < 0 || idx >= (int64_t)g_kwb_n) return v; kwb_init_once(); return kwb_write_ent(&g_kwb[idx], v) < 0 ? FAILDESCR : v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t kw_read(const char *kw) {
     if (!kw) return FAILDESCR;

@@ -724,7 +724,7 @@ RTX_FUNC(rt_nv_set_fast)
     je      .Lnvs_undo
     cmp     bl, DT_S
     jne     .Lnvs_store
-    mov     rcx, qword ptr [rip + g_sxt_fr@GOTPCREL]
+    lea     rcx, [rip + g_runtime + G_RT_OFF_SXT_FR]
     cmp     qword ptr [rcx], r12
     jne     .Lnvs_store
     mov     qword ptr [rcx], 0

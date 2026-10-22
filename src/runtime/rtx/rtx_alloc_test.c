@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <dlfcn.h>
 #include <string.h>
 #include <stdint.h>
 typedef struct rt_hp_fr_t {
@@ -20,7 +21,7 @@ _Static_assert(sizeof(rt_hp_fr_t) == 128 && __builtin_offsetof(rt_hp_fr_t, start
     "this file carries its OWN copy of the frontier cell and nothing holds the two spellings equal: if gc_heap.c extends it, this assert fails the build instead of the test reading a short struct ov"
     "er a long object");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, alloc_total) == 56, "the copy must agree with gc_heap.c at 56");
-extern rt_hp_fr_t g_hp_fr;
+static rt_hp_fr_t *hpfr;
 void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
 void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
 char *rt_str_alloc(long n);
@@ -29,13 +30,13 @@ typedef struct { long dtop, dvirgin, dblocks, poff; unsigned long size, type, fl
 static int fails = 0, n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static delta_t take(void *(*fn)(uint16_t, uint64_t), uint16_t ty, uint64_t pay) {
-    char *t0 = g_hp_fr.top, *v0 = g_hp_fr.virgin;
-    long b0 = g_hp_fr.blocks;
+    char *t0 = hpfr->top, *v0 = hpfr->virgin;
+    long b0 = hpfr->blocks;
     char *p = (char *)fn(ty, pay);
     delta_t d;
-    d.dtop = g_hp_fr.top - t0;
-    d.dvirgin = g_hp_fr.virgin - v0;
-    d.dblocks = g_hp_fr.blocks - b0;
+    d.dtop = hpfr->top - t0;
+    d.dvirgin = hpfr->virgin - v0;
+    d.dblocks = hpfr->blocks - b0;
     d.poff = p - t0;
     d.size = *(uint32_t *)(p - 8);
     d.type = *(uint16_t *)(p - 4);
@@ -59,17 +60,17 @@ static void pair(const char *what, uint16_t ty, uint64_t pay) {
 static void pair_str(const char *what, long len) {
     char *t0, *p;
     delta_t a, c;
-    t0 = g_hp_fr.top;
+    t0 = hpfr->top;
     p = rt_str_alloc(len);
-    a.dtop = g_hp_fr.top - t0;
+    a.dtop = hpfr->top - t0;
     a.poff = p - t0;
     a.size = *(uint32_t *)(p - 8);
     a.type = *(uint16_t *)(p - 4);
     a.flags = *(uint16_t *)(p - 2);
     a.dvirgin = a.dblocks = 0;
-    t0 = g_hp_fr.top;
+    t0 = hpfr->top;
     p = c_rt_str_alloc(len);
-    c.dtop = g_hp_fr.top - t0;
+    c.dtop = hpfr->top - t0;
     c.poff = p - t0;
     c.size = *(uint32_t *)(p - 8);
     c.type = *(uint16_t *)(p - 4);
@@ -80,9 +81,10 @@ static void pair_str(const char *what, long len) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(void) {
+    hpfr = (rt_hp_fr_t *)dlsym(RTLD_DEFAULT, "g_runtime");
     int i;
     for (i = 0; i < 8; i++) (void)c_rt_gcheap_alloc(1, 64);
-    if (!g_hp_fr.armed) { printf("RTX alloc unit: heap never armed — cannot compare fast paths\n"); return 2; }
+    if (!hpfr->armed) { printf("RTX alloc unit: heap never armed — cannot compare fast paths\n"); return 2; }
     pair("payload 0", 1, 0);
     pair("payload 1", 1, 1);
     pair("payload 15", 1, 15);

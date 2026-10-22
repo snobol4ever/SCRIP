@@ -5,9 +5,51 @@
 #include "g_runtime_vec.h"
 #define RT_DCAP_NVCACHE_N 16
 struct DESCR_t;
+struct rt_hblk_t;
+struct gc_slot_t;
+typedef struct rt_hp_fr_t {
+    char *top;
+    char *end;
+    long blocks;
+    int armed;
+    int _pad;
+    char *virgin;
+    int zfull;
+    int _pad2;
+    char *line;
+    long alloc_total;
+    long alloc_str;
+    uint64_t *live, *start_abs, *vis, *start, *ssum, *prefix;
+    long ngran;
+} rt_hp_fr_t;
+typedef struct { char *owner; long len; int gva_n; int off; } rt_sxt_fr_t;
+struct gc_mk_t {
+    struct DESCR_t **wl;
+    long wln, wlcap;
+    struct gc_slot_t *slots;
+    long nslot, scap;
+    const char *arena, *top;
+    const uint64_t *ssum, *start;
+    uint64_t *live, *vis;
+    struct rt_hblk_t *mhead;
+    struct DESCR_t *rng_p;
+    long rng_n, wlmax, interior, dvec_elems, dvec_nondvec, nmk, mxs, walked, pv_end, draining;
+    const char *fc_anchor;
+    const void *fc_map;
+    const char *fc_lo, *fc_hi;
+    long fc_i;
+    const char *fc_c, *fc_e;
+    long fc_kind;
+    const char *sw_p, *sw_hi;
+    void **hs;
+    long hcap, hn, tb_h, code_unsorted, census, maps, diag, trap, plant, verify, telem, chain;
+};
 struct rt_proc_s;
 extern const char g_scan_empty[1];
 typedef struct {
+    rt_hp_fr_t hp_fr;
+    rt_sxt_fr_t sxt_fr;
+    struct gc_mk_t gc_mk;
     long error;
     long trace;
     long dump;

@@ -92,7 +92,6 @@ extern DESCR_t pat_assign_imm(DESCR_t child, DESCR_t var);
 extern DESCR_t pat_assign_cond(DESCR_t child, DESCR_t var);
 extern DESCR_t pat_at_cursor(const char *varname);
 extern DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
-extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int, long *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_case_eq(const DESCR_t *sel, const DESCR_t *key) {
     if (!sel || !key) return 0;

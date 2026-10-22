@@ -380,7 +380,7 @@ RTX_ENTRY(rt_gc_visit_descr_a)
     lea     rdx, [rip + .Lmk_class]
     cmp     byte ptr [rdx + rcx], 0
     je      .Lvd_ret
-    lea     rdx, [rip + g_gc_mk]
+    lea     rdx, [rip + g_runtime + G_RT_OFF_GC_MK]
     mov     rcx, qword ptr [rdx + 8]
     cmp     rcx, qword ptr [rdx + 16]
     jae     .Lvd_full
@@ -405,7 +405,7 @@ RTX_ENTRY(rt_gc_visit_descr_a)
 .Lvd_ret:
     ret
 RTX_ENTRY(rt_gc_frame_cells_a)
-    lea     rax, [rip + g_gc_mk]
+    lea     rax, [rip + g_runtime + G_RT_OFF_GC_MK]
     mov     qword ptr [rax + 192], rdi
     mov     qword ptr [rax + 200], rsi
     mov     qword ptr [rax + 208], rdx
@@ -416,7 +416,7 @@ RTX_ENTRY(rt_gc_frame_cells_a)
     mov     rdi, rax
     jmp     .Lmk_enter
 RTX_ENTRY(rt_gc_walk_words_a)
-    lea     rax, [rip + g_gc_mk]
+    lea     rax, [rip + g_runtime + G_RT_OFF_GC_MK]
     mov     qword ptr [rax + 256], rdi
     mov     qword ptr [rax + 264], rsi
     mov     qword ptr [rax + 184], 1
@@ -1819,7 +1819,7 @@ RTX_FUNC(rt_gc_clear_run)
 RTX_ENDF(rt_gc_clear_run)
 RTX_FUNC(rt_gc_visit_raw_a)
     mov     rsi, rdi
-    lea     rdi, [rip + g_gc_mk]
+    lea     rdi, [rip + g_runtime + G_RT_OFF_GC_MK]
     mov     rax, qword ptr [rdi + 40]
     sub     rax, qword ptr [rdi + 32]
     jle     .Lvr_no
@@ -1876,7 +1876,7 @@ RTX_FUNC(rt_gc_core_roots_run)
     RTX_PUSHS(r14)
     RTX_PUSHS(r15)
     mov     r8, rdi
-    lea     rdi, [rip + g_gc_mk]
+    lea     rdi, [rip + g_runtime + G_RT_OFF_GC_MK]
     mov     r11, qword ptr [rdi + 8]
     mov     rbx, qword ptr [rdi + 32]
     mov     r12, qword ptr [rdi + 48]
@@ -2101,7 +2101,7 @@ RTX_FUNC(rt_gc_trail_roots_run)
     RTX_PUSHS(r14)
     RTX_PUSHS(r15)
     mov     r8, rdi
-    lea     rdi, [rip + g_gc_mk]
+    lea     rdi, [rip + g_runtime + G_RT_OFF_GC_MK]
     mov     r11, qword ptr [rdi + 8]
     mov     rbx, qword ptr [rdi + 32]
     mov     r12, qword ptr [rdi + 48]
@@ -2181,7 +2181,7 @@ RTX_FUNC(rt_gc_proc_roots_run)
     RTX_PUSHS(r14)
     RTX_PUSHS(r15)
     mov     r8, rdi
-    lea     rdi, [rip + g_gc_mk]
+    lea     rdi, [rip + g_runtime + G_RT_OFF_GC_MK]
     mov     r11, qword ptr [rdi + 8]
     mov     rbx, qword ptr [rdi + 32]
     mov     r12, qword ptr [rdi + 48]
@@ -2346,7 +2346,7 @@ RTX_FUNC(rt_gc_flags_roots_run)
     RTX_PUSHS(r14)
     RTX_PUSHS(r15)
     mov     r8, rdi
-    lea     rdi, [rip + g_gc_mk]
+    lea     rdi, [rip + g_runtime + G_RT_OFF_GC_MK]
     mov     r11, qword ptr [rdi + 8]
     mov     rbx, qword ptr [rdi + 32]
     mov     r12, qword ptr [rdi + 48]
@@ -2413,7 +2413,7 @@ RTX_FUNC(rt_gc_ptr_fields_run)
     RTX_PUSHS(r14)
     RTX_PUSHS(r15)
     mov     r8, rdi
-    lea     rdi, [rip + g_gc_mk]
+    lea     rdi, [rip + g_runtime + G_RT_OFF_GC_MK]
     mov     rbx, qword ptr [rdi + 32]
     mov     r12, qword ptr [rdi + 48]
     mov     r14, qword ptr [rdi + 72]
@@ -2476,7 +2476,7 @@ RTX_FUNC(rt_gc_loc_list_run)
     RTX_PUSHS(r14)
     RTX_PUSHS(r15)
     mov     r8, rdi
-    lea     rdi, [rip + g_gc_mk]
+    lea     rdi, [rip + g_runtime + G_RT_OFF_GC_MK]
     mov     rbx, qword ptr [rdi + 32]
     mov     r12, qword ptr [rdi + 48]
     mov     r14, qword ptr [rdi + 72]
@@ -2615,7 +2615,7 @@ RTX_FUNC(rt_gc_sw_links_a)
     test    rax, rax
     jne     .Lln_have_b
 .Lln_cb:
-    lea     rax, [rip + g_gc_mk]
+    lea     rax, [rip + g_runtime + G_RT_OFF_GC_MK]
     cmp     qword ptr [rax + 304], 0
     jne     .Lln_decline
     mov     r10, qword ptr [r12 + 88]
@@ -2857,7 +2857,7 @@ RTX_ENDF(rt_gc_sw_links_a)
     mov     qword ptr [r12 + SW_GAPN], rdx
 .endm
 .macro SW_DRAIN_CLEAR
-    lea     rax, [rip + g_gc_mk]
+    lea     rax, [rip + g_runtime + G_RT_OFF_GC_MK]
     mov     qword ptr [rax + 184], 0
 .endm
 .macro SW_COPY_CHF dst, src

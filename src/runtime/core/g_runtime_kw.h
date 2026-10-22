@@ -15,5 +15,6 @@ typedef struct {
     long kw_cset_hidx_gen;
     const char *kw_cset_regc_ptr[64];
     int kw_cset_regc_len[64];
+    int64_t kwb_own[8];
 } g_kw_t;
 #endif
