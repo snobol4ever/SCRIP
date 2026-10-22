@@ -4888,7 +4888,7 @@ static void rk_subst_meth_walk(tree_t * t) {
     int rx = pat && pat->t == TT_FNC && pat->v.sval && !strcmp(pat->v.sval, "__rk_regex");
     if (!rx && !(pat && pat->t == TT_QLIT && pat->v.sval)) return;
     long mode = 128, xmin = 0, xmax = 0, nth[8];
-    int hasx = 0, nnth = 0;
+    int hasx = 0, nnth = 0, zerox = 0;
     for (int i = 4; i < t->n; i++) {
         const tree_t * a = t->c[i];
         int m = rk_subst_adverb_mode(a);
@@ -4896,6 +4896,7 @@ static void rk_subst_meth_walk(tree_t * t) {
         const tree_t * v = (a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "__rk_pair") && a->n == 3 && a->c[1] && a->c[1]->t == TT_QLIT && a->c[1]->v.sval) ? a->c[2] : NULL;
         if (!v) return;
         const char * nm = a->c[1]->v.sval;
+        if (!strcmp(nm, "x") && v->t == TT_ILIT && v->v.ival == 0) { zerox = 1; continue; }
         if (!strcmp(nm, "x") && v->t == TT_ILIT && v->v.ival >= 1) { mode |= 32; xmin = xmax = v->v.ival; hasx = 1; continue; }
         if (!strcmp(nm, "x") && v->t == TT_TO && v->n >= 2 && v->c[0] && v->c[0]->t == TT_ILIT && v->c[1] && v->c[1]->t == TT_ILIT && v->c[0]->v.ival >= 1) {
             mode |= 32;
@@ -4908,6 +4909,7 @@ static void rk_subst_meth_walk(tree_t * t) {
         if (!strcmp(nm, "nth") && v->t == TT_ILIT && v->v.ival >= 1 && nnth < 8) { mode |= 64; nth[nnth++] = v->v.ival; continue; }
         return;
     }
+    if (zerox) { tree_t * r = t->c[0]; t->t = r->t; t->v = r->v; t->slen = r->slen; t->n = 0; for (int i = 0; i < r->n; i++) ast_push(t, r->c[i]); return; }
     if (!iscode && !hasx && !nnth) return;
     if (!rx) {
         size_t n = strlen(pat->v.sval);
