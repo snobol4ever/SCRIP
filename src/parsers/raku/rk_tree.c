@@ -1750,12 +1750,13 @@ static void add_named(RkTerm *t, TL *named) {
     tl_add(named, t->val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *pos_arg(RkB *b, RkEl *e) {
+static tree_t *pos_arg(RkB *b, RkEl *e, int keep) {
     if (e->nitem == 1) {
         RkTerm *t = &e->t0;
         if (t->kind == TK_CP && !t->npre && !t->npost) {
             if (t->ck == 'n') return rk_adverb_bool_n(1, t->name);
             if (t->ck == '!') return rk_adverb_bool_n(0, t->name);
+            if (t->ck == 'v' && t->cnt == 'P' && keep && t->val) { tree_t *pr = make_call("__rk_pair"); expr_add_child(pr, leaf_sval(TT_QLIT, t->name)); expr_add_child(pr, t->val); return pr; }
             if (t->ck == 'v' && t->cnt == 'P') return t->val ? t->val : make_call("__rk_undef");
             if (t->ck == 'v' && t->cnt == 'W') return t->val;
         }
@@ -1770,7 +1771,7 @@ static int arglist(RkB *b, RkList *L, int ctx, TL *pos, TL *named) {
         RkEl *e = &L->v[i];
         int can = ctx == 1 || ((ctx == 2 || ctx == 3) && (i == 0 || innamed));
         if (named && can && e->nitem == 1 && named_form(&e->t0, 1)) { innamed = 1; add_named(&e->t0, named); continue; }
-        tl_add(pos, pos_arg(b, e));
+        tl_add(pos, pos_arg(b, e, ctx == 8));
     }
     return innamed;
 }
@@ -2227,7 +2228,7 @@ static tree_t *method_call(RkB *b, tree_t *inv, RkPf *pf) {
     if (pf->args) {
         if (pf->form == 2 && pf->args->n == 1 && pf->args->nitem > 1 && pf->args->op1) { ast_push(c, stmt_plain(b, pf->args)); return c; }
         TL pos = { 0 }, named = { 0 };
-        arglist(b, pf->args, pf->form == 2 ? 4 : 2, &pos, &named);
+        arglist(b, pf->args, !strcmp(nm, "subst") ? 8 : pf->form == 2 ? 4 : 2, &pos, &named);
         static const char *const iom[] = { "spurt", "open", "lines", "words", "mkdir", "copy", "rename", "move", "chmod", "slurp", "dir", "readchars", "seek", "first", "rotor", NULL }; int isio = 0;
         for (int k = 0; iom[k]; k++) if (!strcmp(nm, iom[k])) isio = 1;
         if (isio) for (int i = 0; i < pos.n; i++) { tree_t *a = pos.v[i];
