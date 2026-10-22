@@ -3298,6 +3298,15 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_meta'(get_call(_,_,_),get_call(0,-,-)).\n"
     "'$lfx_meta'(current_table(_,_),current_table(0,-)).\n"
     "'$lfx_meta'(time(_),time(0)).\n"
+    "'$lfx_meta'(distinct(_),distinct(0)).\n"
+    "'$lfx_meta'(distinct(_,_),distinct(?,0)).\n"
+    "'$lfx_meta'(reduced(_),reduced(0)).\n"
+    "'$lfx_meta'(reduced(_,_,_),reduced(?,0,+)).\n"
+    "'$lfx_meta'(limit(_,_),limit(+,0)).\n"
+    "'$lfx_meta'(offset(_,_),offset(+,0)).\n"
+    "'$lfx_meta'(call_nth(_,_),call_nth(0,?)).\n"
+    "'$lfx_meta'(order_by(_,_),order_by(+,0)).\n"
+    "'$lfx_meta'(group_by(_,_,_,_),group_by(?,?,0,-)).\n"
     "source_file(H,_):-var(H),!,fail.\n"
     "source_file(M:H,F):-atom(M),!,source_file(H,F).\n"
     "source_file(H,F):-callable(H),functor(H,N,A),catch('$src_file_rt'(Q,A,F0),error(existence_error(_,_),_),fail),'$sf_name'(Q,N),!,F=F0.\n"
@@ -3832,6 +3841,8 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&referenced, "abolish_table_call");
         pl_cv_add(&refkeys, pl_pred_key("abolish_table_call", 1));
         pl_cv_add(&refkeys, pl_pred_key("abolish_table_call", 2));
+        pl_cv_add(&referenced, "order_by");
+        pl_cv_add(&refkeys, pl_pred_key("order_by", 2));
         for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
             if (strcmp(PL_PRELUDE_LIBS[li].lib, "lists") && strcmp(PL_PRELUDE_LIBS[li].lib, "apply") && strcmp(PL_PRELUDE_LIBS[li].lib, "ordsets")) continue;
             for (const pl_prelude_lib_pi_t *le = PL_PRELUDE_LIBS[li].exports; le->nm; le++) { pl_cv_add(&referenced, le->nm); pl_cv_add(&refkeys, pl_pred_key(le->nm, le->ar)); }
