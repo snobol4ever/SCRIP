@@ -455,18 +455,6 @@ int bb_node_id(IR_t * nd) {
     CV_AT(g_emitter.g_nid, nid_slot_t, h).key = nd; return CV_AT(g_emitter.g_nid, nid_slot_t, h).val = ++g_emitter.g_nid_count;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void emit_chain_mark_entry_emitted(IR_t * entry) {
-    if (!entry) return;
-    for (int i = 0; i < g_emitter.g_chain_entry_n; i++) if (g_emitter.g_chain_entry_key[i] == entry) return;
-    if (g_emitter.g_chain_entry_n < 65536) g_emitter.g_chain_entry_key[g_emitter.g_chain_entry_n++] = entry;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int emit_chain_entry_already_emitted(const IR_t * entry) {
-    if (!entry) return 0;
-    for (int i = 0; i < g_emitter.g_chain_entry_n; i++) if (g_emitter.g_chain_entry_key[i] == entry) return 1;
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void xa_dispatch(XA_op_t op)
 {
     switch (op) {
@@ -5529,7 +5517,6 @@ extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
 static void emit_chain_prepare(IR_t * entry) {
     g_emitter.g_xci_epoch++;
     g_emit.stno_last = -1; g_emit.icn_line_cur = 0; g_emit.icn_file_cur = (const char *)0;
-    emit_chain_mark_entry_emitted(entry);
     emit_chain_operand_refs(entry);
     if (g_emit_cfg) zls_fct_finalize(g_emit_cfg, 1);
     g_emitter.g_bb_slotmap_n = 0; g_emitter.g_bb_slotix_gen++;
@@ -5568,7 +5555,9 @@ static void emit_chain_prepare(IR_t * entry) {
 bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return NULL;
     emit_chain_prepare(entry);
-    if (out) { emitter_init_text(out, TEXT_MODE_INVOCATION); int rc = codegen_flat_chain_body(entry, prefix); emitter_end(); return rc == 0 ? (bb_box_fn)1 : NULL; }
+    int rtplan = planner_rt_plan(entry, prefix);
+    if (out) { emitter_init_text(out, TEXT_MODE_INVOCATION); int rc = codegen_flat_chain_body(entry, prefix); emitter_end(); if (rtplan) planner_table_forget(entry);
+        return rc == 0 ? (bb_box_fn)1 : NULL; }
     long flat_cap = FLAT_BUF_MAX; if (g_emit_cfg && (long)g_emit_cfg->n * 2048L > flat_cap) { flat_cap = (long)g_emit_cfg->n * 2048L;
         if (flat_cap > 1024L * 1024L * 1024L) flat_cap = 1024L * 1024L * 1024L; }
     bb_buf_t buf = bb_alloc(flat_cap);
@@ -5576,6 +5565,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     g_flat_node_id = 0;
     emitter_init_binary(buf, flat_cap);
     codegen_flat_chain_body(entry, prefix);
+    if (rtplan) planner_table_forget(entry);
     if (g_emit_chain_posthook) { void (*h)(void) = g_emit_chain_posthook; g_emit_chain_posthook = NULL; h(); }
     int nbytes = emitter_end();
     if (g_emitter.bb_emit_overflow || nbytes <= 0 || nbytes > flat_cap) {

@@ -3,7 +3,6 @@
 #include "planner.h"
 int emit_floater_member(const IR_t * n);
 void nidx_build(IR_t **nodes, int n);
-int emit_chain_entry_already_emitted(const IR_t * entry);
 int emit_floater_kind(const IR_t * n);
 int fence0_release_bytes(const IR_t * nd);
 int nidx(IR_t **nodes, int n, const IR_t *e);
@@ -1515,7 +1514,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         for (int _ak = 1; _ak < g_emit_cfg->n_alts; _ak++) { IR_t * _ae = g_emit_cfg->alt_entry[_ak]; if (_ae && !RPO_VISITED(_ae)) { RPO_PUSH(_ae); RPO_DRAIN(); RPO_FLUSH(); } }
     { extern int zls_g_group_count(const IR_graph_t *); extern const IR_t * zls_g_group_anchor(const IR_graph_t *, int);
       if (g_emit_cfg && entry_is_own_graph_root) { int _gc = zls_g_group_count(g_emit_cfg); for (int _k = 0; _k < _gc; _k++) { const IR_t * _a = zls_g_group_anchor(g_emit_cfg, _k);
-          if (_a && !emit_chain_entry_already_emitted(_a)) { RPO_PUSH(_a); RPO_DRAIN(); RPO_FLUSH(); } } } }
+          if (_a && !planner_entry_planned(_a)) { RPO_PUSH(_a); RPO_DRAIN(); RPO_FLUSH(); } } } }
     { if (g_emit_cfg && entry_is_own_graph_root) { int _refd[4] = {0, 0, 0, 0};
           for (int _fi = 0; _fi < g_emit_cfg->n; _fi++) { IR_t * _fn = g_emit_cfg->all[_fi]; int _fk = emit_floater_kind(_fn); if (!_fk || _refd[_fk]) continue;
               for (int _rj = 0; _rj < g_emit_cfg->n && !_refd[_fk]; _rj++) { IR_t * _r = g_emit_cfg->all[_rj];
@@ -1724,12 +1723,20 @@ extern "C" void zsm_frame_carve(int frame_bytes) {
     if (frame_bytes > r->total) r->total = frame_bytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void planner_pass_plan(IR_t * entry, const char * prefix) { zeta_plan_t * rec = planner_chain_plan(entry, prefix); rec->cfg = g_emit_cfg; rec->key = entry; g_emitter.planner_table[entry] = rec; }
-void planner_table_clear(void) {
-    if (getenv("SCRIP_PLANNER_REPORT")) fprintf(stderr, "[PLANNER-PASS] planned=%d hits=%d fallbacks=%d\n", (int) g_emitter.planner_table.size(), g_emitter.planner_hits, g_emitter.planner_fallbacks);
-    g_emitter.planner_table.clear();
+static void planner_report_at_exit(void) {
+    fprintf(stderr, "[PLANNER-PASS] planned=%d planned_rt=%d hits=%d fallbacks=%d\n", g_emitter.planner_planned, g_emitter.planner_rt, g_emitter.planner_hits, g_emitter.planner_fallbacks);
 }
+static void planner_report_arm(void) { if (!g_emitter.planner_report_armed) { g_emitter.planner_report_armed = 1; if (getenv("SCRIP_PLANNER_REPORT")) atexit(planner_report_at_exit); } }
+void planner_pass_plan(IR_t * entry, const char * prefix) {
+    planner_report_arm();
+    zeta_plan_t * rec = planner_chain_plan(entry, prefix); rec->cfg = g_emit_cfg; rec->key = entry; g_emitter.planner_table[entry] = rec; g_emitter.planner_planned++;
+}
+int planner_entry_planned(const IR_t * entry) { return (entry && g_emitter.planner_table.find(entry) != g_emitter.planner_table.end()) ? 1 : 0; }
+int planner_rt_plan(IR_t * entry, const char * prefix) { if (planner_entry_planned(entry)) return 0; planner_pass_plan(entry, prefix); g_emitter.planner_rt++; return 1; }
+void planner_table_forget(const IR_t * entry) { if (entry) g_emitter.planner_table.erase(entry); }
+void planner_table_clear(void) { g_emitter.planner_table.clear(); }
 zeta_plan_t * planner_lookup_or_plan(IR_t * entry, const char * prefix) {
+    planner_report_arm();
     std::unordered_map<const IR_t *, zeta_plan_t *>::iterator it = g_emitter.planner_table.find(entry);
     if (it != g_emitter.planner_table.end() && it->second->cfg == g_emit_cfg) { g_emitter.planner_hits++; planner_restore(it->second); return it->second; }
     g_emitter.planner_fallbacks++;

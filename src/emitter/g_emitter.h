@@ -107,8 +107,6 @@ struct g_emitter_t {
     int bb_label_define_bm = -1;
     cv_t g_nid;
     int g_nid_count = 0;
-    IR_t * g_chain_entry_key[65536];
-    int g_chain_entry_n = 0;
     cv_t g_strtab;
     int g_strtab_n = 0;
     cv_t xa_emit_strtab_rodata_chars, xa_emit_strtab_rodata_labels, xa_emit_strtab_rodata_escaped;
@@ -307,7 +305,7 @@ struct g_emitter_t {
     int bcps_sig_tally__sd = -1;
     int defer_prepare_g_defer_site_n;
     std::unordered_map<const IR_t *, struct zeta_plan_t *> planner_table;
-    int planner_hits = 0, planner_fallbacks = 0;
+    int planner_hits = 0, planner_fallbacks = 0, planner_planned = 0, planner_rt = 0, planner_report_armed = 0;
 };
 extern g_emitter_t g_emitter;
 #endif
