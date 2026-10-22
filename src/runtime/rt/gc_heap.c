@@ -276,10 +276,12 @@ _Static_assert(GC_ERR_RESERVE % 4096u == 0,
     "he poll that follows the allocating call collects, and a collection that leaves the reserve's page free above the compacted top re-arms the reserve and clears the mark, because the request "
     "then fit after a collection; a mark still due after it is RAISED by the poll's raise entry (rt_pl_cap_raise: the same error(resource_error(stack), _) the C road's size check raises, the bal"
     "l armed, the call's result made FAIL or the box's failure edge taken) and becomes 2 with a collection armed, so the first safe point after the flight reclaims what the flight released and re-"
-    "arms the reserve; a call that allocates past the reserve while the mark is due is REFUSED rc 2 naming the leaf, and a road never declared keeps the fatal of CEO-1704 exactly");
+    "arms the reserve; a call that allocates past the reserve while the mark is due is REFUSED rc 2 naming the leaf, and a road never declared keeps the fatal of CEO-1704 exactly; a single requ"
+    "est the cap can never hold is never made: its leaf asks the cap first (rt_pl_cap_refuses, heap_guard's rule) and marks the error REFUSED (hp_cap_due 3), which the poll raises as it raises a"
+    " due mark and which no collection clears, because nothing was served");
 static void gc_cap_reserve_refuse(uint64_t payload_bytes, uint16_t type);
 static void gc_cap_rearm(void) {
-    if (!g_runtime.gc.hp_cap_due || g_hp_end != g_runtime.gc.hp_cap_end || g_hp_top + GC_ERR_RESERVE > g_runtime.gc.hp_cap_end) return;
+    if (!g_runtime.gc.hp_cap_due || g_runtime.gc.hp_cap_due == 3 || g_hp_end != g_runtime.gc.hp_cap_end || g_hp_top + GC_ERR_RESERVE > g_runtime.gc.hp_cap_end) return;
     if (mprotect(g_runtime.gc.hp_cap_end - GC_ERR_RESERVE, GC_ERR_RESERVE, PROT_NONE) != 0) return;
     g_hp_end = g_runtime.gc.hp_cap_end - GC_ERR_RESERVE;
     g_runtime.gc.hp_cap_due = 0;
@@ -565,7 +567,7 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes) {
             return r;
         }
     }
-    if (g_runtime.gc.hp_cap_due == 1) gc_cap_reserve_refuse(payload_bytes, type);
+    if (g_runtime.gc.hp_cap_due == 1 || g_runtime.gc.hp_cap_due == 3) gc_cap_reserve_refuse(payload_bytes, type);
 #if RT_DIAG
     fprintf(stderr,
         "[ZHP] heap exhausted AT THE HARD CAP (%ld KB cap, %ld KB committed lazily so far, %ld blocks live, cap hit %ld times, COLLECTIONS RUN %ld) -- THIS REQUEST wanted %llu payload bytes (%llu wi"
@@ -625,7 +627,8 @@ static void gc_cap_reserve_refuse(uint64_t payload_bytes, uint16_t type) {
     exit(2);
 }
 void rt_gcheap_cap_road(void) { g_runtime.gc.hp_cap_road = 1; }
-void rt_gcheap_cap_raised(void) { if (g_runtime.gc.hp_cap_due == 1) g_runtime.gc.hp_cap_due = 2; g_gc_pending = 1; }
+void rt_gcheap_cap_raised(void) { if (g_runtime.gc.hp_cap_due == 1 || g_runtime.gc.hp_cap_due == 3) g_runtime.gc.hp_cap_due = 2; g_gc_pending = 1; }
+int rt_gcheap_cap_refused(void) { if (!g_runtime.gc.hp_cap_road) return 0; g_runtime.gc.hp_cap_due = 3; g_gc_pending = 1; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_emitted_caller_of_descr_call(rt_emitted_regs_t *r) {
     extern int rtx_entry_is(const char *sym);

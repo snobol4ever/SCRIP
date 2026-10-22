@@ -11284,20 +11284,19 @@ PL_CX_LEAF_HEAD(op, 3)
         ok = 1;
     }
 PL_CX_LEAF_TAIL
+int rt_pl_cap_refuses(unsigned long long n, unsigned long long b) {
+    extern unsigned long long rt_gcheap_cap_bytes(void);
+    pl_flag_t *sl = pl_flag_find("stack_limit");
+    unsigned long long cap = rt_gcheap_cap_bytes(), soft = sl && sl->val ? strtoull(sl->val, (char **)0, 10) : 0ULL;
+    if (soft && (!cap || soft < cap)) cap = soft;
+    return cap && n && b && n > cap / b;
+}
 PL_CX_LEAF_HEAD(heap_guard, 2)
     {
-        extern unsigned long long rt_gcheap_cap_bytes(void);
         extern void *rt_pl_cap_error(void);
         DESCR_t u = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]);
-        pl_flag_t *sl;
-        unsigned long long cap = rt_gcheap_cap_bytes(), soft;
         ok = 1;
-        if (u.v == (DTYPE_t)DT_I && b.v == (DTYPE_t)DT_I && u.i > 0 && b.i > 0) {
-            sl = pl_flag_find("stack_limit");
-            soft = sl && sl->val ? strtoull(sl->val, (char **)0, 10) : 0ULL;
-            if (soft && (!cap || soft < cap)) cap = soft;
-            if (cap && (unsigned long long)u.i > cap / (unsigned long long)b.i) { cx->ball = rt_pl_cap_error(); ok = 0; }
-        }
+        if (u.v == (DTYPE_t)DT_I && b.v == (DTYPE_t)DT_I && u.i > 0 && b.i > 0 && rt_pl_cap_refuses((unsigned long long)u.i, (unsigned long long)b.i)) { cx->ball = rt_pl_cap_error(); ok = 0; }
     }
 PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_op_check, 3)

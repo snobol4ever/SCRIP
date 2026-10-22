@@ -46,7 +46,10 @@ RTX_FUNC(rt_pl_exist_raise)
 RTX_ENDF(rt_pl_exist_raise)
 RTX_FUNC(rt_pl_cap_raise)
     cmp     dword ptr [rip + g_runtime + G_RT_OFF_GC_HP_CAP_DUE], 1
+    je      .Lcr_go
+    cmp     dword ptr [rip + g_runtime + G_RT_OFF_GC_HP_CAP_DUE], 3
     jne     .Lcr_ret
+.Lcr_go:
     RTX_PUSHS(rcx)
     RTX_PUSHS(rsi)
     RTX_PUSHS(rdi)

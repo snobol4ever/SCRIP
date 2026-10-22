@@ -2912,7 +2912,12 @@ inline std::string x86_rtx_verdict_adj(const char * sym, int adj) {
     return x86_rtx_verdict_cmp(kind) + x86("jne", "extlbl", (uint64_t)(uintptr_t)done) + x86_rtcc_call_adj(cname, (uint64_t)(uintptr_t)caddr, adj) + x86_def_ext(done);
 }
 extern "C" void rt_pl_cap_raise(void);
-inline std::string x86_cap_raise_call() { return x86("call", "rt_pl_cap_raise", (uint64_t)(uintptr_t)(void *)rt_pl_cap_raise); }
+inline std::string x86_cap_raise_call() {
+    uint64_t block = (uint64_t)(uintptr_t)g_rtccb, fp = (uint64_t)(uintptr_t)(void *)rt_pl_cap_raise;
+    if (MEDIUM_BINARY) return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, RTCC_C_R11)) + x86_Lrec(x86_rtcc_call_b(fp)) + x86_gc_site(X86_SITE_CALL) +
+        x86_Lrec(x86_rtcc_rl_bin(block, RTCC_C_R11));
+    return x86("call", "rt_pl_cap_raise", fp);
+}
 #define x86_cap_raise(fail) (x86_resumable_frame() ? x86_cap_raise_call() + (fail) : std::string())
 inline std::string x86_rt_gc_poll_at(const char * f, int l, const std::string & raise = std::string()) { const char * b = strrchr(f, '/');
     return x86("note", std::string("gc_poll ") + (b ? b + 1 : f) + ":" + std::to_string(l)) + x86_gc_gate(x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm) + raise); }

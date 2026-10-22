@@ -3260,7 +3260,10 @@ void rt_pl_findall_collect(void *acc_v, void *tmpl_term) {
     DESCR_t *a = (DESCR_t *)acc_v;
     if (!a || !fa_items(a)) return;
     if (fa_n(a) >= fa_cap(a)) {
+        extern int rt_pl_cap_refuses(unsigned long long, unsigned long long);
+        extern int rt_gcheap_cap_refused(void);
         int nc = fa_cap(a) * 2;
+        if (rt_pl_cap_refuses((unsigned long long)nc + (unsigned long long)fa_cap(a), sizeof(DESCR_t)) && rt_gcheap_cap_refused()) return;
         pl_cell_t *ni = (pl_cell_t *)rt_ws_alloc_descr((size_t)nc);
         if (!ni) return;
         for (int i = 0; i < fa_n(a); i++) ni[i] = fa_items(a)[i];
