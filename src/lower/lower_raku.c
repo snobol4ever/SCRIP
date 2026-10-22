@@ -1600,7 +1600,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 const char * tv = ct_strdup(tvb);
                 tree_t * nb = ast_node_new(ob->t);
                 for (int i = 0; i < ob->n; i++) {
-                    if (i == li) { tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, leaf_sval2(TT_VAR, tv)); ast_push(as, (tree_t *) ls); ast_push(nb, as); } else ast_push(nb, ob->c[i]);
+                    if (i == li) {
+                        tree_t * as = ast_node_new(TT_ASSIGN);
+                        ast_push(as, leaf_sval2(TT_VAR, tv));
+                        ast_push(as, rk_fnc2("__rk_sink", (tree_t *) ls, NULL));
+                        ast_push(nb, as);
+                    } else ast_push(nb, ob->c[i]);
                 }
                 tree_t * nt = ast_node_new(TT_TRY);
                 nt->line = t->line;
@@ -1853,6 +1858,13 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             else if (nm && !strcmp(nm, "all")) nm = "__rk_jct_all";
             else if (nm && !strcmp(nm, "one")) nm = "__rk_jct_one";
             else if (nm && !strcmp(nm, "none")) nm = "__rk_jct_none";
+            if (nm && (!strcmp(nm, "shift") || !strcmp(nm, "pop")) && t->n > 2) {
+                char xm[96];
+                snprintf(xm, sizeof xm, "Too many positionals passed; expected 1 argument but got %d", t->n - 1);
+                tree_t * dd = ast_node_new(TT_DIE);
+                ast_push(dd, leaf_sval2(TT_QLIT, lp_strdup(xm)));
+                return lower_rv(cx, dd, γ, ω, res);
+            }
             if (nm && !strcmp(nm, "push") && t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) {
                 IR_t * as = build(cx, IR_ASSIGN, γ, ω);
                 IR_LIT(as).sval = t->c[1]->v.sval;
@@ -2282,9 +2294,16 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                     *res = as;
                     return e;
                 }
+                if ((!strcmp(mname, "pop") || !strcmp(mname, "shift")) && t->n > 2) {
+                    char xm[96];
+                    snprintf(xm, sizeof xm, "Too many positionals passed; expected 1 argument but got %d", t->n - 1);
+                    tree_t * dd = ast_node_new(TT_DIE);
+                    ast_push(dd, leaf_sval2(TT_QLIT, lp_strdup(xm)));
+                    return lower_rv(cx, dd, γ, ω, res);
+                }
                 if (!strcmp(mname, "pop") || !strcmp(mname, "shift")) {
                     const char * mut_fn = !strcmp(mname, "pop") ? "arr_init" : "arr_tail";
-                    const char * val_fn = !strcmp(mname, "pop") ? "arr_last" : "__rk_arr_first";
+                    const char * val_fn = !strcmp(mname, "pop") ? "arr_last" : "__rk_shift_val";
                     char tb[40];
                     snprintf(tb, sizeof tb, "$?pms%d", cx->g->n);
                     const char * tmp = lp_strdup(tb);
@@ -3196,8 +3215,8 @@ static void rk_cap_uses(const tree_t * t, rk_ns_t * out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_cap_synchronous(const tree_t * parent, int idx) {
     static const char * const meth[] = { "map", "grep", "first", "sort", "reduce", "min", "max", "classify", "categorize", "produce", NULL };
-    static const char * const fn[] = { "map", "grep", "first", "sort", "reduce", "__rk_test_lives_ok", "__rk_test_dies_ok", "__rk_test_throws_like", "__rk_test_subtest", "__rk_test_eval_lives_ok",
-        "__rk_test_eval_dies_ok", NULL };
+    static const char * const fn[] = { "map", "grep", "first", "sort", "reduce", "__rk_test_lives_ok", "__rk_test_dies_ok", "__rk_test_throws_like", "__rk_test_fails_like", "__rk_test_subtest",
+        "__rk_test_eval_lives_ok", "__rk_test_eval_dies_ok", NULL };
     if (!parent) return 0;
     if (parent->t == TT_METHCALL && idx >= 2 && parent->n > 1 && parent->c[1] && parent->c[1]->v.sval) { for (int i = 0; meth[i]; i++) if (!strcmp(parent->c[1]->v.sval, meth[i])) return 1; return 0; }
     if (parent->t == TT_FNC && idx >= 1 && parent->n > 0 && parent->c[0] && parent->c[0]->v.sval) { for (int i = 0; fn[i]; i++) if (!strcmp(parent->c[0]->v.sval, fn[i])) return 1; }

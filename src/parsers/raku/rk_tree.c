@@ -147,7 +147,7 @@ static const char *testop_rt(const char *s) {
         { "done-testing", "__rk_test_done" }, { "skip-rest", "__rk_test_skip_rest" }, { "skip", "__rk_test_skip" }, { "todo", "__rk_test_todo" }, { "diag", "__rk_test_diag" },
         { "pass", "__rk_test_pass" }, { "flunk", "__rk_test_flunk" }, { "subtest", "__rk_test_subtest" }, { "is-deeply", "__rk_test_is_deeply" }, { "is-approx", "__rk_test_is_approx" },
         { "isa-ok", "__rk_test_isa_ok" }, { "does-ok", "__rk_test_does_ok" }, { "cmp-ok", "__rk_test_cmp_ok" }, { "lives-ok", "__rk_test_lives_ok" }, { "dies-ok", "__rk_test_dies_ok" },
-        { "throws-like", "__rk_test_throws_like" }, { "is_run", "__rk_test_is_run" }, { "is-eqv", "__rk_test_is_eqv" }, { "group-of", "__rk_test_group_of" }, { "eval-lives-ok", "__rk_test_eval_lives_ok" }, { "eval-dies-ok", "__rk_test_eval_dies_ok" }, { "like", "__rk_test_like" }, { "unlike", "__rk_test_unlike" }, { NULL, NULL } };
+        { "throws-like", "__rk_test_throws_like" }, { "fails-like", "__rk_test_fails_like" }, { "is_run", "__rk_test_is_run" }, { "is-eqv", "__rk_test_is_eqv" }, { "group-of", "__rk_test_group_of" }, { "eval-lives-ok", "__rk_test_eval_lives_ok" }, { "eval-dies-ok", "__rk_test_eval_dies_ok" }, { "like", "__rk_test_like" }, { "unlike", "__rk_test_unlike" }, { NULL, NULL } };
     for (int i = 0; map[i][0]; i++) if (!strcmp(map[i][0], s)) return map[i][1];
     return NULL;
 }
@@ -197,7 +197,7 @@ static tree_t *rk_testop_shape(RkB *b, tree_t *c) {
         const char *fv = fmt("__tl%d", b->post_uid++);
         tree_t *seq = ast_node_new(TT_SEQ_EXPR);
         tree_t *init = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, fv), make_call("__rk_mkbool")); expr_add_child(init->c[1], rk_ilit(1)); expr_add_child(seq, init);
-        tree_t *body = ast_node_new(TT_SEQ_EXPR), *inv = evalform ? make_call("__rk_eval") : ast_node_new(TT_INVOKE); expr_add_child(inv, c->c[1]); expr_add_child(body, inv);
+        tree_t *body = ast_node_new(TT_SEQ_EXPR), *inv = evalform ? make_call("__rk_eval") : ast_node_new(TT_INVOKE), *snk = make_call("__rk_sink"); expr_add_child(inv, c->c[1]); expr_add_child(snk, inv); expr_add_child(body, snk);
         if (lives) {
             tree_t *fl = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, fv), make_call("__rk_mkbool")); expr_add_child(fl->c[1], rk_ilit(0));
             tree_t *cs = ast_node_new(TT_CASE), *cb = ast_node_new(TT_SEQ_EXPR), *ct = ast_node_new(TT_CATCH), *cq = ast_node_new(TT_SEQ_EXPR);
@@ -212,8 +212,23 @@ static tree_t *rk_testop_shape(RkB *b, tree_t *c) {
     }
     if (!strcmp(nm, "__rk_test_throws_like") && c->n >= 3 && c->c[1]) {
         tree_t *seq = ast_node_new(TT_SEQ_EXPR), *body = ast_node_new(TT_SEQ_EXPR), *inv = c->c[1]->t != TT_ANON_BLOCK ? make_call("__rk_eval") : ast_node_new(TT_INVOKE), *tr = ast_node_new(TT_TRY);
-        expr_add_child(inv, c->c[1]); expr_add_child(body, inv); expr_add_child(tr, body); expr_add_child(seq, tr);
+        expr_add_child(inv, c->c[1]); { tree_t *snk = make_call("__rk_sink"); expr_add_child(snk, inv); expr_add_child(body, snk); } expr_add_child(tr, body); expr_add_child(seq, tr);
         tree_t *tl = make_call("__rk_test_throws_like"); expr_add_child(tl, leaf_sval(TT_VAR, "!"));
+        for (int i = 2; i < c->n; i++) expr_add_child(tl, c->c[i]);
+        expr_add_child(seq, tl);
+        return seq;
+    }
+    if (!strcmp(nm, "__rk_test_fails_like") && c->n >= 3 && c->c[1]) {
+        const char *fv = fmt("__flv%d", b->post_uid++);
+        tree_t *seq = ast_node_new(TT_SEQ_EXPR), *body = ast_node_new(TT_SEQ_EXPR), *inv = c->c[1]->t != TT_ANON_BLOCK ? make_call("__rk_eval") : ast_node_new(TT_INVOKE), *tr = ast_node_new(TT_TRY);
+        expr_add_child(seq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, fv), make_call("__rk_undef")));
+        expr_add_child(inv, c->c[1]);
+        expr_add_child(body, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, fv), inv));
+        expr_add_child(tr, body);
+        expr_add_child(seq, tr);
+        tree_t *tl = make_call("__rk_test_fails_like");
+        expr_add_child(tl, leaf_sval(TT_VAR, fv));
+        expr_add_child(tl, leaf_sval(TT_VAR, "!"));
         for (int i = 2; i < c->n; i++) expr_add_child(tl, c->c[i]);
         expr_add_child(seq, tl);
         return seq;
@@ -2079,7 +2094,8 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
         if (!strcmp(nm, "True") || !strcmp(nm, "False")) { it->kind = TK_NAME; it->t = mkbool_lit(!strcmp(nm, "True")); return; }
         if (!strcmp(nm, "last")) { it->t = ast_node_new(TT_LOOP_BREAK); return; }
         if (!strcmp(nm, "next")) { it->t = ast_node_new(TT_LOOP_NEXT); return; }
-        if (!strcmp(nm, "return") || !strcmp(nm, "fail")) { it->t = ast_node_new(TT_RETURN); return; }
+        if (!strcmp(nm, "return")) { it->t = ast_node_new(TT_RETURN); return; }
+        if (!strcmp(nm, "fail")) { tree_t *r = ast_node_new(TT_RETURN); expr_add_child(r, make_call("__rk_failure")); it->t = r; return; }
         if (!strcmp(nm, "exit")) { tree_t *c = make_call("__rk_exit"); expr_add_child(c, rk_ilit(0)); it->t = c; return; }
         if (rt) { it->t = make_call(rt); return; }
         if (!strcmp(nm, "callsame") || !strcmp(nm, "samewith") || !strcmp(nm, "callwith") || !strcmp(nm, "nextcallee")) { it->t = make_call(nm); return; }
@@ -2117,7 +2133,14 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
         it->t = r;
         return;
     }
-    if (!strcmp(nm, "fail")) { it->t = ast_node_new(TT_RETURN); return; }
+    if (!strcmp(nm, "fail")) {
+        arglist(b, args, 0, &pos, NULL);
+        tree_t *r = ast_node_new(TT_RETURN), *fc = make_call("__rk_failure");
+        if (pos.n) expr_add_child(fc, pos.v[0]);
+        expr_add_child(r, fc);
+        it->t = r;
+        return;
+    }
     if (!strcmp(nm, "exit")) { arglist(b, args, 0, &pos, NULL); tree_t *c = make_call("__rk_exit"); if (pos.n) expr_add_child(c, pos.v[0]); it->t = c; return; }
     if (!strcmp(nm, "die")) { arglist(b, args, 0, &pos, NULL); tree_t *d = ast_node_new(TT_DIE); if (pos.n) expr_add_child(d, pos.v[0]); it->t = d; return; }
     if (!strcmp(nm, "flat")) { arglist(b, args, 0, &pos, NULL); it->t = rk_flat_call(&pos); return; }

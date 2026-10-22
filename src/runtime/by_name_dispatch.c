@@ -453,25 +453,25 @@ int rt_builtin_is_known(const char *name) {
         "printf", "iand", "ior", "ixor", "ishift", "icom", "table", "list", "set", "sort", "sortf", "get", "pop", "pull", "member", "insert", "delete", "key", "[]", "__apply__", "MAKELIST",
         "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make", "__rk_arr_xx", "__rk_arr_at", "__rk_seq_new",
         "__rk_iter_has", "__rk_take_dyn", "__rk_seq_plan", "__rk_seq_next", "__rk_seq_stop", "__rk_seq_arity", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first", "__rk_first_shape",
-        "__rk_exc_umsg", "__rk_die_m", "__rk_exc_umeth", "__rk_tl_got", "__rk_is_code", "__rk_run_child", "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append",
-        "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip", "__rk_hyper_shape", "__rk_adjacent_pairs", "__rk_all_true", "__rk_regex", "__rk_smartmatch",
-        "__rk_arr_keys", "__rk_hkeys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io",
-        "__rk_set_uni", "__rk_set_int", "__rk_set_dif", "__rk_set_sym", "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem", "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub",
-        "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne", "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv",
-        "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick", "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_pow",
-        "__rk_ratlit", "__rk_ratnew", "__rk_exend", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_unset",
-        "__rk_unany", "__rk_elem_put", "__rk_hyper_incdec", "__rk_radix_list", "__rk_radix_str", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg",
-        "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd",
-        "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list",
-        "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure",
-        "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists", "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any",
-        "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "__rk_new_alloc", "__rk_new_check", "__rk_new_defaults", "meth_call", "field_set", "field_set_pub", "field_get_pub",
-        "__rk_say_capture", "__rk_say_named_capture", "__rk_gist_capture", "__rk_gist_named_capture", "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die",
-        "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box", "__rk_cell_of", "__rk_elem_ref",
-        "__rk_elem_bind", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT",
-        "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY",
-        "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "SNO$CHKNM", "SNO$PATCK", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt",
-        "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", "" };
+        "__rk_exc_umsg", "__rk_die_m", "__rk_exc_umeth", "__rk_failure", "__rk_sink", "__rk_shift_val", "__rk_tl_got", "__rk_is_code", "__rk_run_child", "__rk_arr_map", "__rk_arr_grep",
+        "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip", "__rk_hyper_shape",
+        "__rk_adjacent_pairs", "__rk_all_true", "__rk_regex", "__rk_smartmatch", "__rk_arr_keys", "__rk_hkeys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array",
+        "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_set_uni", "__rk_set_int", "__rk_set_dif", "__rk_set_sym", "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem",
+        "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne",
+        "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick", "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat",
+        "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_pow", "__rk_ratlit", "__rk_ratnew", "__rk_exend", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv",
+        "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_unset", "__rk_unany", "__rk_elem_put", "__rk_hyper_incdec", "__rk_radix_list", "__rk_radix_str", "__rk_ident", "__rk_intdiv",
+        "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor",
+        "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem",
+        "__rk_set_cont", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile",
+        "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure", "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists",
+        "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "__rk_new_alloc", "__rk_new_check", "__rk_new_defaults",
+        "meth_call", "field_set", "field_set_pub", "field_get_pub", "__rk_say_capture", "__rk_say_named_capture", "__rk_gist_capture", "__rk_gist_named_capture", "nqp::create", "nqp::bindattr",
+        "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die", "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close",
+        "__blk_invoke", "__rk_box", "__rk_cell_of", "__rk_elem_ref", "__rk_elem_bind", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ",
+        "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY",
+        "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "SNO$CHKNM", "SNO$PATCK", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT",
+        "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", "" };
     for (int i = 0; known[i][0]; i++) if (!strcmp(known[i], name)) return 1;
     { if (dat_find_type(name)) return 1; }
     { extern int rt_dat_field_of_any(const char *); if (rt_dat_field_of_any(name)) return 1; }
@@ -698,6 +698,8 @@ static int rk_exc_is(DESCR_t d);
 static int rk_io_is(DESCR_t d);
 static void rk_exc_init(void);
 static void rk_exc_throw(DESCR_t ex);
+static int rk_failure_is(DESCR_t d);
+static void rk_failure_handle(DESCR_t d);
 static DESCR_t rk_exc_from_msg(const char *msg);
 static int rk_qh_is(DESCR_t d);
 static int rk_qh_n(DESCR_t q);
@@ -718,6 +720,7 @@ static int rk_agg_truth(DESCR_t v);
 int rk_is_truthy(DESCR_t v) {
     extern int rt_is_truthy(DESCR_t);
     if (rk_match_is_nil(v)) return 0;
+    if (rk_failure_is(v)) { rk_failure_handle(v); return 0; }
     if ((v.v == DT_A && v.arr) || (v.v == DT_T && v.tbl)) return rk_agg_truth(v);
     if (rk_match_is(v)) return 1;
     if (rk_qh_is(v)) return rk_qh_n(v) > 0;
@@ -13188,6 +13191,8 @@ static void rk_exc_init(void) {
     class_inherit("X::Undeclared::Symbols", "X::Comp");
     record_register("X::TypeCheck::Argument(message)");
     class_inherit("X::TypeCheck::Argument", "X::TypeCheck");
+    record_register("X::Cannot::Empty(message)");
+    class_inherit("X::Cannot::Empty", "Exception");
     record_register("X::TypeCheck::Assignment(message,got,expected,symbol)");
     class_inherit("X::TypeCheck::Assignment", "X::TypeCheck");
     record_register("X::Method::NotFound(message,method,typename,invocant)");
@@ -13262,6 +13267,47 @@ static DESCR_t rk_exc_current(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_exc_throw(DESCR_t ex) { extern void rt_script_die_surface(const char *msg); NV_SET_fn("!", ex); rt_script_die_surface(rk_exc_message(ex)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_failure_is(DESCR_t d) { return IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Failure"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_failure_handle(DESCR_t d) { FIELD_SET_fn(d, "handled", INTVAL(1)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_failure_new(DESCR_t ex) {
+    static int rk_failure_reg = 0;
+    if (!rk_failure_reg) { DEFDAT_fn("Failure(exception,handled)"); rk_failure_reg = 1; }
+    return DATCON_fn("Failure", ex, INTVAL(0));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_failure_of(DESCR_t *args, int nargs) {
+    if (nargs >= 1 && rk_exc_is(args[0])) return rk_failure_new(args[0]);
+    return rk_failure_new(rk_exc_adhoc(nargs >= 1 ? args[0] : STRVAL(rt_heap_strdup_c("Failed"))));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_empty_failure(const char *action) {
+    char msg[strlen(action) + 40];
+    rk_exc_init();
+    snprintf(msg, sizeof msg, "Cannot %s from an empty Array", action);
+    return rk_failure_new(DATCON_fn("X::Cannot::Empty", STRVAL(rt_heap_strdup_c(msg))));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_failure_sink(DESCR_t f) { if (FIELD_GET_fn(f, "handled").i) return; rk_failure_handle(f); rk_exc_throw(FIELD_GET_fn(f, "exception")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_failure_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) {
+    DESCR_t f = args[0];
+    (void) nargs;
+    if (!strcmp(m, "defined") || !strcmp(m, "Bool") || !strcmp(m, "so")) { rk_failure_handle(f); *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
+    if (!strcmp(m, "not")) { rk_failure_handle(f); *out = (DESCR_t){ .v = DT_BOOL, .i = 1 }; return 1; }
+    if (!strcmp(m, "handled")) { *out = (DESCR_t){ .v = DT_BOOL, .i = FIELD_GET_fn(f, "handled").i ? 1 : 0 }; return 1; }
+    if (!strcmp(m, "exception")) { rk_failure_handle(f); *out = FIELD_GET_fn(f, "exception"); return 1; }
+    if (!strcmp(m, "sink")) { rk_failure_sink(f); *out = NULVCL; return 1; }
+    if (!strcmp(m, "Str") || !strcmp(m, "Numeric") || !strcmp(m, "Int") || !strcmp(m, "Num") || !strcmp(m, "Rat") || !strcmp(m, "elems") || !strcmp(m, "chars") || !strcmp(m, "uc") || !strcmp(m, "lc"))
+        {
+        rk_failure_sink(f);
+        *out = FAILDESCR;
+        return 1;
+    }
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_raku_undeclared_call(const char *name) {
     extern int g_script_try_depth;
@@ -14097,6 +14143,22 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             rk_tap_proclaim(c, nb, "");
             if (!c && why[0]) rk_tap_diag(why);
             *out = INTVAL(c);
+            return 1;
+        }
+        if (!strcmp(op, "fails_like") && nargs >= 3) {
+            const char *w1 = rk_typeobj_name(args[2]) ? rk_typeobj_name(args[2]) : VARVAL_fn(args[2]);
+            char dflt[(w1 ? strlen(w1) : 0) + 32];
+            snprintf(dflt, sizeof dflt, "did we fails-like %s?", w1 ? w1 : "Exception");
+            DESCR_t a2[nargs + 1];
+            int n2 = 0, hd = 0;
+            a2[n2++] = rk_failure_is(args[0]) ? FIELD_GET_fn(args[0], "exception") : NULVCL;
+            for (int i = 2; i < nargs; i++) { if (i > 2 && !rk_is_pair(args[i])) hd = 1; a2[n2++] = args[i]; }
+            if (!hd) a2[n2++] = STRVAL(rt_heap_strdup_c(dflt));
+            if (rk_failure_is(args[0])) { rk_failure_handle(args[0]); return script_try_call_builtin_by_name("__rk_test_throws_like", a2, n2, out); }
+            const char *d1 = to_cstring(a2[n2 - 1], msg, sizeof msg);
+            rk_tap_proclaim(0, d1, "");
+            rk_tap_diag(rk_exc_is(args[1]) ? "expected code to fail but it threw an exception instead" : "code did not return a Failure");
+            *out = INTVAL(0);
             return 1;
         }
         if (!strcmp(op, "throws_like") && nargs >= 2) {
@@ -15423,6 +15485,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = rk_mk_arr(r, a.n);
         return 1;
     }
+    if (!strcmp(fn, "__rk_failure") && nargs <= 1) { *out = rk_failure_of(args, nargs); return 1; }
+    if (!strcmp(fn, "__rk_sink") && nargs == 1) { *out = args[0]; if (rk_failure_is(args[0]) && !FIELD_GET_fn(args[0], "handled").i) { rk_failure_sink(args[0]); *out = rk_typeobj("Nil"); } return 1; }
     if (!strcmp(fn, "__rk_exc_umeth") && nargs == 2) {
         const char *mn = rk_cstr(args[1]);
         if (!rk_exc_is(args[0]) || !mn || !*mn) { *out = FAILDESCR; return 1; }
@@ -15958,6 +16022,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             if (gname && rt_grammar_has_top(gname)) { const char *subj = VARVAL_fn(args[2]); return grammar_parse_core(gname, subj, out, mname0[0] == 's', nargs > 3 ? args[3] : (DESCR_t) { 0 }); }
         }
         if (mname0 && rk_match_is(args[0]) && rk_match_method(mname0, args, nargs, out)) return 1;
+        if (mname0 && rk_failure_is(args[0]) && rk_failure_method(mname0, args, nargs, out)) return 1;
         if (mname0 && (args[0].v == DT_DATA || args[0].v == DT_BIG || args[0].v == DT_I) && nargs >= 2 && rk_rat_dispatch(mname0, &args[0], nargs > 2 ? &args[2] : NULL, nargs - 2, out)) return 1;
         if (mname0 && rk_qh_hook(mname0, args, nargs, out)) return 1;
         if (mname0 && rk_io_is(args[0]) && rk_io_path_method(mname0, args, nargs, out)) return 1;
@@ -15977,12 +16042,28 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         { DESCR_t *_lva = 0; int _lvn = 0; if (_recv0.v == DT_DATA && rt_lv_is_list(_recv0, &_lva, &_lvn)) { _recv0 = rk_mark_list(rt_make_item_agg(_lva, _lvn)); _was_list_recv = 1; } }
         if (_recv0.v == DT_A && _recv0.arr && mname0 && nargs >= 2 && !rk_is_pair(_recv0) && !rk_is_jct(_recv0) &&
             (!strcmp(mname0, "push") || !strcmp(mname0, "append") || !strcmp(mname0, "unshift") || !strcmp(mname0, "prepend") || !strcmp(mname0, "pop") || !strcmp(mname0, "shift"))) {
+            if ((!strcmp(mname0, "pop") || !strcmp(mname0, "shift")) && nargs > 2) {
+                char xm[96];
+                extern void rt_script_die_surface(const char *msg);
+                snprintf(xm, sizeof xm, "Too many positionals passed; expected 1 argument but got %d", nargs - 1);
+                rt_script_die_surface(xm);
+                *out = FAILDESCR;
+                return 1;
+            }
+            if ((!strcmp(mname0, "pop") || !strcmp(mname0, "shift")) && nargs > 2) {
+                char xm[96];
+                extern void rt_script_die_surface(const char *msg);
+                snprintf(xm, sizeof xm, "Too many positionals passed; expected 1 argument but got %d", nargs - 1);
+                rt_script_die_surface(xm);
+                *out = FAILDESCR;
+                return 1;
+            }
             ARBLK_t *mb = (ARBLK_t *) _recv0.arr;
             int n0 = mb->hi - mb->lo + 1;
             if (n0 < 0) n0 = 0;
-            if (mname0[0] == 'p' && mname0[1] == 'o') { if (!n0) { *out = FAILDESCR; return 1; } *out = mb->data[n0 - 1]; mb->data[n0 - 1] = NULVCL; mb->hi--; return 1; }
+            if (mname0[0] == 'p' && mname0[1] == 'o') { if (!n0) { *out = rk_empty_failure("pop"); return 1; } *out = mb->data[n0 - 1]; mb->data[n0 - 1] = NULVCL; mb->hi--; return 1; }
             if (mname0[0] == 's') {
-                if (!n0) { *out = FAILDESCR; return 1; }
+                if (!n0) { *out = rk_empty_failure("shift"); return 1; }
                 *out = mb->data[0];
                 memmove(mb->data, mb->data + 1, (size_t) (n0 - 1) * sizeof(DESCR_t));
                 mb->data[n0 - 1] = NULVCL;
@@ -16468,7 +16549,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     }
     if (!strcmp(fn, "__rk_arr_set") && nargs >= 3) { rk_arr_set_impl(args, out); return 1; }
     if (!strcmp(fn, "arr_set_pure") && nargs >= 3) { *out = pas_arr_set(args, nargs); return 1; }
-    if (!strcmp(fn, "arr_last") && nargs == 1) { rk_av_t a = rk_av(args[0]); *out = a.n ? rk_av_elem(a, a.n - 1) : FAILDESCR; return 1; }
+    if (!strcmp(fn, "arr_last") && nargs == 1) { rk_av_t a = rk_av(args[0]); *out = a.n ? rk_av_elem(a, a.n - 1) : rk_empty_failure("pop"); return 1; }
+    if (!strcmp(fn, "__rk_shift_val") && nargs == 1) { rk_av_t a = rk_av(args[0]); *out = a.n ? rk_av_elem(a, 0) : rk_empty_failure("shift"); return 1; }
     if ((!strcmp(fn, "arr_init") || !strcmp(fn, "arr_tail")) && nargs == 1) {
         if (args[0].v == DT_A && args[0].arr && !((ARBLK_t *) args[0].arr)->proto && ((ARBLK_t *) args[0].arr)->ndim == 1) {
             ARBLK_t *b = (ARBLK_t *) args[0].arr;
@@ -20655,10 +20737,22 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     }
     L_bidjmp_5087:
     ;
-    if ((_bid == BID___rk_defined) && nargs == 1) { DESCR_t v = args[0]; int t = (!IS_FAIL_fn(v)) && (v.v != DT_SNUL) && !rk_typeobj_name(v); *out = t ? INTVAL(1) : FAILDESCR; return 1; }
+    if ((_bid == BID___rk_defined) && nargs == 1) {
+        DESCR_t v = args[0];
+        int t = (!IS_FAIL_fn(v)) && (v.v != DT_SNUL) && !rk_typeobj_name(v) && !rk_failure_is(v);
+        if (rk_failure_is(v)) rk_failure_handle(v);
+        *out = t ? INTVAL(1) : FAILDESCR;
+        return 1;
+    }
     L_bidjmp_5090:
     ;
-    if ((_bid == BID___rk_dor) && nargs == 2) { DESCR_t a = args[0]; int def = (!IS_FAIL_fn(a)) && (a.v != DT_SNUL) && !rk_typeobj_name(a); *out = def ? a : args[1]; return 1; }
+    if ((_bid == BID___rk_dor) && nargs == 2) {
+        DESCR_t a = args[0];
+        int def = (!IS_FAIL_fn(a)) && (a.v != DT_SNUL) && !rk_typeobj_name(a) && !rk_failure_is(a);
+        if (rk_failure_is(a)) rk_failure_handle(a);
+        *out = def ? a : args[1];
+        return 1;
+    }
     L_bidjmp_5093:
     ;
     if ((_bid == BID___rk_bool_val) && nargs == 1) {
