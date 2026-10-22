@@ -14581,6 +14581,20 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         int is_div = (fn[5] == 'i');
         DESCR_t a = args[0], b = args[1];
         { extern int rk_rat_binop(DESCR_t, DESCR_t, int, DESCR_t *); if (!is_div && (a.v == DT_DATA || b.v == DT_DATA) && rk_rat_binop(a, b, BINOP_MOD, out)) return 1; }
+        if ((a.v == DT_BIG || b.v == DT_BIG) && (a.v == DT_BIG || a.v == DT_I) && (b.v == DT_BIG || b.v == DT_I)) {
+            extern DESCR_t rt_big_div(DESCR_t, DESCR_t);
+            extern DESCR_t rt_big_mod(DESCR_t, DESCR_t);
+            extern DESCR_t rt_big_add(DESCR_t, DESCR_t);
+            extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
+            extern int rt_big_sign(DESCR_t);
+            int bs = rt_big_sign(b);
+            if (bs == 0) { rt_script_die_surface(is_div ? "Attempt to divide by zero" : "Attempt to divide by zero using infix:<%>"); *out = FAILDESCR; return 1; }
+            DESCR_t q = rt_big_div(a, b), r = rt_big_mod(a, b);
+            int rs = rt_big_sign(r);
+            if (rs != 0 && (rs < 0) != (bs < 0)) { q = rt_big_sub(q, INTVAL(1)); r = rt_big_add(r, b); }
+            *out = is_div ? q : r;
+            return 1;
+        }
         int ai = IS_INT_fn(a), arl = IS_REAL_fn(a), bi = IS_INT_fn(b), brl = IS_REAL_fn(b);
         double ad = arl ? a.r : (ai ? (double)a.i : 0.0), bd = brl ? b.r : (bi ? (double)b.i : 0.0);
         if (!ai && !arl) { char sa[64]; const char *cs = to_cstring(a, sa, sizeof sa); ad = cs ? strtod(cs, (char **)0) : 0.0; }
