@@ -11,6 +11,7 @@ extern int rt_icn_cset_member_n(const char *, long, int);
 #include <unistd.h>
 #include <sys/stat.h>
 #include <setjmp.h>
+#include <math.h>
 #include "snobol4_system_fns.h"
 #include "pl_arith_names.h"
 #include "pl_control_names.h"
@@ -175,7 +176,6 @@ extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);
 #include <stdlib.h>
 #include <time.h>
 #include <ctype.h>
-#include <math.h>
 #include <fenv.h>
 #include <float.h>
 #include <sys/select.h>
