@@ -19117,6 +19117,7 @@ static const char PL_PRELUDE_LIB_35_SRC[] =
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
+    { "close_open_tables", 1 },
     { "xsb_error_get_tag", 2 },
     { "xsb_error_get_message", 2 },
     { "abolish_module_tables", 1 },
@@ -19149,6 +19150,7 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
 static const char PL_PRELUDE_LIB_36_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
+    "close_open_tables(_).\n"
     "xsb_error_get_tag(error(Tag,_),Tag).\n"
     "xsb_error_get_message(error(_,C),M):-(var(C)->M=C;C=context(M,_)).\n"
     "abolish_module_tables(M0):-'$must_be_atom_mod'(M0),(M0==usermod->M=user;M=M0),'$tbl_vt'(VT),'$trie_entries'(VT,L),'$amt_drop'(L,M,VT).\n"
