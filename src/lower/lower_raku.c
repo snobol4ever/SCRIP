@@ -4682,6 +4682,21 @@ static void rk_pkg_refs(tree_t * t) {
     global_register(lp_strdup(v));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_class_is_stub(const tree_t * t) { return t && t->t == TT_CLASS_DECL && t->n == 2 && t->c[1] && t->c[1]->t == TT_YADA && t->c[0] && t->c[0]->v.sval; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_class_has_full(const tree_t * t, const char * nm) {
+    if (!t) return 0;
+    if (t->t == TT_CLASS_DECL && !rk_class_is_stub(t) && t->n > 0 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, nm)) return 1;
+    for (int i = 0; i < t->n; i++) if (rk_class_has_full(t->c[i], nm)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_class_stubs(const tree_t * prog, tree_t * t) {
+    if (!t) return;
+    if (rk_class_is_stub(t) && rk_class_has_full(prog, t->c[0]->v.sval)) { t->t = TT_SEQ_EXPR; t->v.sval = NULL; t->n = 0; return; }
+    for (int i = 0; i < t->n; i++) rk_class_stubs(prog, t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_class_member_is_decl(const tree_t * c) {
     if (!c) return 1;
     switch (c->t) {
@@ -4699,9 +4714,12 @@ static int rk_class_member_is_decl(const tree_t * c) {
         case TT_REGEX_DECL:
         case TT_RW_DECL:
         case TT_USE_DECL:
+        case TT_YADA:
         return 1;
         case TT_VAR:
-        return !c->v.sval || !c->v.sval[0] || c->v.sval[0] == '.' || c->v.sval[0] == '!';
+        return 1;
+        case TT_DECL:
+        return c->n > 1 && c->c[1] && c->c[1]->t == TT_VAR && c->c[1]->v.sval && (c->c[1]->v.sval[0] == '.' || c->c[1]->v.sval[0] == '!');
         default:
         return 0;
     }
@@ -6307,6 +6325,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_nested_elem_sets((tree_t *) prog);
     rk_pkg_scope((tree_t *) prog, NULL);
     rk_pkg_refs((tree_t *) prog);
+    rk_class_stubs(prog, (tree_t *) prog);
     { int cbseq = 0; rk_class_body((tree_t *) prog, &cbseq); }
     rk_place_phasers((tree_t *) prog);
     rk_rename_user_main((tree_t *) prog);
