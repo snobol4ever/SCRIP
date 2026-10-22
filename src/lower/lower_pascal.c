@@ -1263,6 +1263,21 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     }
     IR_t * entry = lower(&cx, body, body_gamma, fail, NULL);
     if (!entry) entry = build(&cx, IR_GOTO, body_gamma, body_gamma);
+    {
+        IR_t * e0 = entry;
+        while (e0 && (e0->op == IR_GOTO || (e0->op == IR_SUCCEED && e0->γ.node))) e0 = e0->γ.node;
+        int back = 0;
+        for (int i = 0; e0 && i < g->n && !back; i++) {
+            IR_t * x = g->all[i];
+            if (!x || x->op == IR_GOTO || x->op == IR_SUCCEED) continue;
+            for (int v = 0; v < 2 && !back; v++) {
+                IR_t * t = v ? x->ω.node : x->γ.node;
+                while (t && t != e0 && (t->op == IR_GOTO || (t->op == IR_SUCCEED && t->γ.node))) t = t->γ.node;
+                if (t == e0) back = 1;
+            }
+        }
+        if (back) { IR_t * em = build(&cx, IR_LINE_MARK, entry, fail); em->pat_static = -1; entry = em; }
+    }
     if (cx.unw) pas_nlg_unwind(&cx, &mine, xm, succ, fail);
     if (cx.unw && pas_is_main(pd)) { IR_t * a = lower_assign_var(&cx, "__pas_nlg", entry, fail); IR_t * z = build(&cx, IR_LIT_INTEGER, a, fail); IR_LIT(z).ival = 0; ir_operand_push(a, z); entry = z; }
     g->entry = entry;

@@ -994,7 +994,7 @@ static int zls_hf_key_base(const IR_graph_t * g, int fregion, int base) {
     int top = zls_g_block_args(g) ? bb + 16 * g->nparams : kt;
     return top > base ? (top + 15) & ~15 : base;
 }
-static int zls_frame_words(IR_graph_t * g, zls_graph_t * r, int root, int base, int k, const char * rb, const char ** nix, int nix_cap) {
+static int zls_frame_words(IR_graph_t * g, zls_graph_t * r, int root, int base, int k, const char * rb, const char ** nix, int nix_cap, int hf) {
     r->resume_off = -1;
     for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && g->all[i]->op == IR_SUSPEND) {
         r->resume_off = base + k * 16;
@@ -1030,6 +1030,7 @@ static int zls_frame_words(IR_graph_t * g, zls_graph_t * r, int root, int base, 
             if (*ns) continue;
             *ns = vn;
             cv_reserve(&g_lower.ir.zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)g_lower.ir.zv_n + 1, "zv");
+            if (hf && !zls_home_local_test(g, vn)) { zv[g_lower.ir.zv_n++] = (zls_vslot_t){ vn, -2 }; r->n_vslots++; continue; }
             zv[g_lower.ir.zv_n++] = (zls_vslot_t){ vn, base + k * 16 };
             r->n_vslots++;
             zls_field(root, base + k * 16, 16, ZK_DESCR, 0, "local", (const IR_t *)0);
@@ -1352,7 +1353,7 @@ void zls_build(IR_graph_t * g) {
         if (!blk) zls_field(root, 16 + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
     }
     int hf = g->home_frame ? 1 : 0;
-    if (hf) k = zls_frame_words(g, r, root, base, k, rb, nix, nix_cap);
+    if (hf) k = zls_frame_words(g, r, root, base, k, rb, nix, nix_cap, 1);
     int cur = 0;
     {
         if (g_lower.ir.zls_build_eon < 0) { const char * e = getenv("SCRIP_SLOT_ELIDE"); g_lower.ir.zls_build_eon = (e && *e == '0') ? 0 : 1; }
@@ -1415,6 +1416,11 @@ void zls_build(IR_graph_t * g) {
                 r->fregion = base + k * 16;
                 r->kbase = zls_hf_key_base(g, r->fregion, base);
                 k = (r->kbase - base) / 16;
+                for (int j = r->first_vslot; j >= 0 && j < r->first_vslot + r->n_vslots && j < g_lower.ir.zv_n; j++) if (zv[j].off == -2) {
+                    zv[j].off = base + k * 16;
+                    zls_field(root, zv[j].off, 16, ZK_DESCR, 0, "local (a pure key: the planner carves it on the spine at its first use)", (const IR_t *)0);
+                    k++;
+                }
             }
             if (pool_n > 0) {
                 pool_base = base + k * 16;
@@ -1482,7 +1488,7 @@ void zls_build(IR_graph_t * g) {
         if (lv != lv_sbuf) ct_drop(lv);
     }
     r->hf = hf;
-    if (!hf) k = zls_frame_words(g, r, root, base, k, rb, nix, nix_cap);
+    if (!hf) k = zls_frame_words(g, r, root, base, k, rb, nix, nix_cap, 0);
     ct_drop(nix);
     r->nslots = k;
     r->region = base + k * 16;

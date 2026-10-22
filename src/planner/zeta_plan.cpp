@@ -760,8 +760,8 @@ static void zst_plan(IR_t ** nodes, int n) {
         for (size_t t = 0; t < roots.size(); t++) { int r = roots[t]; for (size_t w = 0; w < W; w++) tmp[w] = ~0ull;
             for (size_t u = 0; u < uses.size(); u++) if (g_emitter.zst_root[(size_t)uses[u]] == r) for (size_t w = 0; w < W; w++) tmp[w] &= dom[(size_t)uses[u] * W + w];
             int best = -1;
-            for (int d = 0; d < n; d++) {
-                if (!(tmp[(size_t)d / 64] >> (d % 64) & 1) || loop[(size_t)d] || indef0[(size_t)d] || nodes[d]->op == IR_DISJUNCTION || zd_k_own(nodes[d]) <= 0) continue;
+            for (int pass = 0; pass < (g->home_frame ? 2 : 1) && best < 0; pass++) for (int d = 0; d < n; d++) {
+                if (!(tmp[(size_t)d / 64] >> (d % 64) & 1) || loop[(size_t)d] || indef0[(size_t)d] || nodes[d]->op == IR_DISJUNCTION || (zd_k_own(nodes[d]) <= 0 && !pass)) continue;
                 int inside = 0;
                 for (size_t bi = 0; bi < bnds.size() && !inside; bi++) {
                     int b = bnds[bi];
