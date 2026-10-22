@@ -1093,6 +1093,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         long long hi = 0;
         if ((pas_array_isdyn(sa) || pas_array_high_get(sa, &hi)) && (pas_array_isdyn(da) || pas_array_high_get(da, &hi))) {
             long long z = pas_elem_size(da);
+            if (z <= 0) z = pas_elem_size(sa);
             ast_push(f, leaf_s(TT_VAR, "__pas_move"));
             ast_push(f, leaf_s(TT_VAR, da));
             ast_push(f, args->items[2]->c[1]);
@@ -7925,6 +7926,27 @@ static int pas_agg_assign(tree_t *lhs, tree_t *type, int dim, tree_t *val, tree_
         int nidx = 0, first = -1;
         tree_t *elem = at->n > 0 ? at->c[at->n - 1] : NULL;
         for (int i = 0; i < at->n - 1; i++) if (at->c[i] && at->c[i]->t != TT_KEYWORD) { if (first < 0) first = i; nidx++; }
+        if (nidx == 0 && dim == 0 && elem) {
+            tree_t *sl = ast_node_new(TT_FNC);
+            ast_push(sl, leaf_s(TT_VAR, "setlength"));
+            ast_push(sl, pas_tree_clone(lhs));
+            ast_push(sl, ilit(val->n));
+            ast_push(out, sl);
+            for (int k = 0; k < val->n; k++) {
+                tree_t *sel = ast_node_new(TT_IDX);
+                ast_push(sel, pas_tree_clone(lhs));
+                ast_push(sel, ilit(k));
+                tree_t *ev = val->c[k], *et = pas_agg_type_resolve(elem, chain);
+                if (et && et->t == TT_ARRAY_TYPE && !(ev && ev->t == TT_VLIST && ev->v.sval && !strcmp(ev->v.sval, "aggregate"))) {
+                    tree_t *one = ast_node_new(TT_VLIST);
+                    one->v.sval = "aggregate";
+                    ast_push(one, ev);
+                    ev = one;
+                }
+                if (!pas_agg_assign(sel, elem, 0, ev, out, chain)) return 0;
+            }
+            return 1;
+        }
         if (dim >= nidx || !elem || first < 0) return 0;
         for (int k = 0; k < val->n; k++) {
             tree_t *ix = pas_agg_index(at->c[first + dim], k, chain);
