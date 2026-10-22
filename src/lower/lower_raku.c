@@ -4599,6 +4599,71 @@ static void rk_smartmatch_code_walk(const tree_t * prog, tree_t * t) {
     t->n = 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_qs_count(const tree_t * t, const char * bare) {
+    if (!t || t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL) return 0;
+    int n = 0;
+    if (t->t == TT_SUB_DECL && t->n > 0 && t->c[0] && t->c[0]->v.sval) { size_t bl = strcspn(t->c[0]->v.sval, "$"); if (bl == strlen(bare) && !strncmp(t->c[0]->v.sval, bare, bl)) n++; }
+    for (int i = 0; i < t->n; i++) n += rk_qs_count(t->c[i], bare);
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_qs_has(const tree_t * t, const char * path, const char * modpath, const char * bare) {
+    if (!t) return 0;
+    if (t->t == TT_STMT) { const tree_t * sub = stmt_subj(t); return rk_qs_has(sub, path, modpath, bare); }
+    if (t->t != TT_MODULE_DECL && t->t != TT_PROGRAM && t->t != TT_SEQ_EXPR) return 0;
+    const char * mn = (t->t == TT_MODULE_DECL && t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : NULL;
+    char np[(path ? strlen(path) : 0) + (mn ? strlen(mn) : 0) + 4];
+    if (mn) snprintf(np, sizeof np, "%s%s%s", path ? path : "", path ? "::" : "", mn);
+    else snprintf(np, sizeof np, "%s", path ? path : "");
+    for (int i = mn ? 1 : 0; i < t->n; i++) {
+        const tree_t * ch = t->c[i];
+        if (ch && ch->t == TT_STMT) ch = stmt_subj(ch);
+        if (!ch) continue;
+        if (mn && !strcmp(np, modpath) && ch->t == TT_SUB_DECL && ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) {
+            size_t bl = strcspn(ch->c[0]->v.sval, "$");
+            if (bl == strlen(bare) && !strncmp(ch->c[0]->v.sval, bare, bl)) return 1;
+        }
+        if (rk_qs_has(ch, mn ? np : path, modpath, bare)) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_qual_target(const tree_t * prog, const char * v, int * amp) {
+    *amp = v && v[0] == '&';
+    const char * q = v ? v + *amp : NULL;
+    const char * last = q ? strrchr(q, ':') : NULL;
+    if (!last || last == q || last[-1] != ':' || !last[1] || last - 1 == q) return NULL;
+    char mp[(size_t) (last - 1 - q) + 1];
+    memcpy(mp, q, (size_t) (last - 1 - q));
+    mp[last - 1 - q] = 0;
+    int pseudo = !strcmp(mp, "OUR") || !strcmp(mp, "MY") || !strcmp(mp, "GLOBAL") || !strcmp(mp, "UNIT");
+    return (pseudo || rk_qs_has(prog, NULL, mp, last + 1)) && rk_qs_count(prog, last + 1) == 1 ? last + 1 : NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_qualified_sub_refs(const tree_t * prog, tree_t * t) {
+    if (!t) return;
+    int amp = 0;
+    const char * bare = (t->t == TT_INVOKE && t->n >= 1 && t->c[0] && t->c[0]->t == TT_VAR) ? rk_qual_target(prog, t->c[0]->v.sval, &amp) : NULL;
+    if (bare) {
+        tree_t * f = ast_node_new(TT_FNC);
+        f->v.sval = (char *) lp_strdup(bare);
+        f->line = t->line;
+        ast_push(f, leaf_sval2(TT_VAR, lp_strdup(bare)));
+        for (int i = 1; i < t->n; i++) ast_push(f, t->c[i]);
+        t->t = TT_FNC;
+        t->v.sval = f->v.sval;
+        t->n = 0;
+        for (int i = 0; i < f->n; i++) ast_push(t, f->c[i]);
+    }
+    for (int i = 0; i < t->n; i++) rk_qualified_sub_refs(prog, t->c[i]);
+    if (t->t != TT_VAR || !t->v.sval || !strchr(t->v.sval, ':')) return;
+    bare = rk_qual_target(prog, t->v.sval, &amp);
+    if (!bare) return;
+    char nb[strlen(bare) + 2];
+    snprintf(nb, sizeof nb, "%s%s", amp ? "&" : "", bare);
+    t->v.sval = (char *) lp_strdup(nb);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_subst_adverb_mode(const tree_t * a) {
     if (!a || a->t != TT_FNC || !a->v.sval || strcmp(a->v.sval, "__rk_mkbool") || a->n != 3 || !a->c[1] || a->c[1]->t != TT_ILIT || !a->c[2] || a->c[2]->t != TT_QLIT || !a->c[2]->v.sval) return -1;
     if (!a->c[1]->v.ival) return 0;
@@ -6101,6 +6166,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     { int sseq = 0; rk_subtest_walk((tree_t *) prog, &sseq); }
     rk_smartmatch_topic_walk((tree_t *) prog);
     rk_smartmatch_code_walk(prog, (tree_t *) prog);
+    rk_qualified_sub_refs(prog, (tree_t *) prog);
     rk_subst_meth_walk((tree_t *) prog);
     { int sseq = 0; rk_subst_code_walk(prog, (tree_t *) prog, &sseq); }
     { int pseq = 0; rk_parse_actions_walk((tree_t *) prog, &pseq); }
