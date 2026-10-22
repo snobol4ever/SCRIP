@@ -511,6 +511,13 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "cleanup.pad (unused)", nd);
         zls_field(scope_id, off + CLEANUP_REC_C, 16, ZK_DESCR, 0, "cleanup.C -- the cleanup goal as a term, built at OPEN, run by '$scc_cut' when a cut drops the record", nd);
         return 3;
+        case IR_TABLE_HDR:
+        zls_field(scope_id, off, 16, ZK_DESCR, 0, "table.hdr address -- {DT_I, the header base}, the argument the open leaf reads and makes the current tabling header", nd);
+        for (int k = 0; k < TABLE_HDR_CELLS; k++)
+            zls_field(scope_id, off + 16 + 16 * k, 16, ZK_DESCR, 0,
+            "table.hdr cell -- cell 0 the banked previous header as {DT_I, address}, cells 1-9 the evaluation state a tabled call owns (in progress, raise, phase, new answer, dependency, semi-naive "
+            "context, consumer position, highest position, sliced tables); a zero tag reads as not owned here", nd);
+        return 1 + TABLE_HDR_CELLS;
         case IR_GATE:
         zls_field(scope_id, off, 8, ZK_RAW, 0,
             "gate.live arm index (+16 from box base; IR_GATE_ARM banks its own position in this gate's operand list at each arm's success, the box beta dispatches on it over compile-time wired ports"

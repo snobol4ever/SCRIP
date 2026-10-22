@@ -1562,6 +1562,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_stmt_mark.cpp \
     $(SRC)/templates/bb/bb_setexit_test.cpp \
     $(SRC)/templates/bb/bb_cleanup.cpp \
+    $(SRC)/templates/bb/bb_table_hdr.cpp \
     $(SRC)/templates/bb/bb_disjunction.cpp \
     $(SRC)/templates/bb/bb_goto_deferred.cpp \
     $(SRC)/templates/bb/bb_fail.cpp \

@@ -3932,6 +3932,52 @@ int rt_pl_db_cell_for(void *root, const char *name, int arity) {
 int rt_pl_db_key_is_dynamic_na(void *root, const char *name, int arity) { PL_DB_KEY_VLA(key, name, arity); return rt_pl_db_key_is_dynamic(root, key); }
 int rt_pl_db_key_cell_na(void *root, const char *name, int arity) { PL_DB_KEY_VLA(key, name, arity); return rt_pl_db_key_cell(root, key); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t * pl_tbh_cur(void *root) {
+    int64_t k = rt_pl_db_cell_for(root, "$tbl_cur", -1);
+    pl_cell_t **cell = k >= 0 ? (pl_cell_t **)pl_db_cell_addr(root, k, 0) : (pl_cell_t **)0;
+    pl_cell_t *v = (cell && *cell && !plc_gvar_absent(*cell)) ? pl_deref(*cell) : (pl_cell_t *)0;
+    return (v && (int)v->v == DT_I && v->i) ? (DESCR_t *)(uintptr_t)v->i : (DESCR_t *)0;
+}
+static DESCR_t * pl_tbh_fwd(DESCR_t *h, int f) { return h ? ((int)h[f].v == DT_RAW ? (DESCR_t *)(uintptr_t)h[f].i : &h[f]) : (DESCR_t *)0; }
+static DESCR_t * pl_tbh_owner(void *root, int f) { return pl_tbh_fwd(pl_tbh_cur(root), f); }
+int rt_pl_tbh_open(void *root, void *arg, pl_tr_ctx_t *cx) {
+    DESCR_t *a = (DESCR_t *)arg;
+    if (!root || !a || (int)a->v != DT_I || !a->i) return 0;
+    {
+        DESCR_t *h = (DESCR_t *)(uintptr_t)a->i;
+        DESCR_t *prev = pl_tbh_cur(root);
+        int64_t k = rt_pl_db_cell_for(root, "$tbl_cur", -1);
+        h[0] = (DESCR_t){ .v = DT_I, .i = (int64_t)(uintptr_t)prev };
+        for (int f = 1; f < PL_TBH_CELLS; f++) h[f] = (DESCR_t){ .v = DT_RAW, .i = (int64_t)(uintptr_t)pl_tbh_fwd(prev, f) };
+        return k >= 0 && rt_pl_b_set(root, k, arg, cx);
+    }
+}
+int rt_pl_tbh_close(void *root, pl_tr_ctx_t *cx) {
+    DESCR_t *h = pl_tbh_cur(root);
+    int64_t k = rt_pl_db_cell_for(root, "$tbl_cur", -1);
+    if (!h || k < 0) return 0;
+    { DESCR_t prev = (DESCR_t){ .v = DT_I, .i = h[0].i }; return rt_pl_b_set(root, k, (void *)&prev, cx); }
+}
+int rt_pl_tbh_leading(void *root) { return pl_tbh_cur(root) != (DESCR_t *)0; }
+int rt_pl_tbh_get(void *root, int64_t f, void *out, pl_tr_ctx_t *cx) {
+    DESCR_t *c = (f >= 1 && f < PL_TBH_CELLS) ? pl_tbh_owner(root, (int)f) : (DESCR_t *)0;
+    return c && plc_unify_cells_cx((pl_cell_t *)out, (pl_cell_t *)c, cx) ? 1 : 0;
+}
+int rt_pl_tbl_dl(void *root, int set, void *val, pl_tr_ctx_t *cx) {
+    int64_t k = rt_pl_db_cell_for(root, "$tbl_dl", -1);
+    return k < 0 ? 0 : set ? rt_pl_b_set(root, k, val, cx) : rt_pl_nb_get_cell(root, k, val, cx);
+}
+int rt_pl_tbh_put(void *root, int64_t f, int mode, void *val, pl_tr_ctx_t *cx) {
+    DESCR_t *h = pl_tbh_cur(root);
+    if (f < 1 || f >= PL_TBH_CELLS) return 0;
+    if (!h) return mode != 0;
+    {
+        DESCR_t *c = mode == 0 ? &h[f] : pl_tbh_owner(root, (int)f);
+        if (!c) return 1;
+        { pl_cell_t v = plc_copy(pl_deref((pl_cell_t *)val)); char probe; if (mode == 2 && pl_tr_needs_log(cx, c, &probe)) pl_tr_push(cx, c); *(pl_cell_t *)c = v; return 1; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_term_cell(void *root, void *term_cell) {
     extern const char *prolog_atom_name(int);
     extern int prolog_atom_intern(const char *);

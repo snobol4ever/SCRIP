@@ -23351,6 +23351,55 @@ DESCR_t rt_pl_dop_b_setval_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *ro
         return ok ? pl_ok() : FAILDESCR;
     }
 }
+extern int rt_pl_tbh_open(void *, void *, pl_tr_ctx_t *);
+extern int rt_pl_tbh_close(void *, pl_tr_ctx_t *);
+extern int rt_pl_tbh_leading(void *);
+extern int rt_pl_tbh_get(void *, int64_t, void *, pl_tr_ctx_t *);
+extern int rt_pl_tbh_put(void *, int64_t, int, void *, pl_tr_ctx_t *);
+DESCR_t rt_pl_dop_tbl_open_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    if (nargs != 1) return FAILDESCR;
+    pl_atoms_ready();
+    rt_pl_tr_gc_sync(cx->tr);
+    { int ok = rt_pl_tbh_open(root, (void *)&args[0], cx); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
+}
+DESCR_t rt_pl_dop_tbh_close_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    (void)args;
+    if (nargs != 0) return FAILDESCR;
+    pl_atoms_ready();
+    rt_pl_tr_gc_sync(cx->tr);
+    { int ok = rt_pl_tbh_close(root, cx); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
+}
+DESCR_t rt_pl_dop_tbh_leading_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    (void)args;
+    (void)cx;
+    if (nargs != 0) return FAILDESCR;
+    pl_atoms_ready();
+    return rt_pl_tbh_leading(root) ? pl_ok() : FAILDESCR;
+}
+DESCR_t rt_pl_dop_tbh_get_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    rt_pl_tr_gc_sync(cx->tr);
+    { DESCR_t f = rt_pl_deref_val(args[0]); int ok = (int)f.v == DT_I && rt_pl_tbh_get(root, f.i, (void *)&args[1], cx); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
+}
+static DESCR_t pl_tbh_put_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root, int mode) {
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    rt_pl_tr_gc_sync(cx->tr);
+    { DESCR_t f = rt_pl_deref_val(args[0]); int ok = (int)f.v == DT_I && rt_pl_tbh_put(root, f.i, mode, (void *)&args[1], cx); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
+}
+extern int rt_pl_tbl_dl(void *, int, void *, pl_tr_ctx_t *);
+static DESCR_t pl_tbl_dl_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root, int set) {
+    if (nargs != 1) return FAILDESCR;
+    pl_atoms_ready();
+    rt_pl_tr_gc_sync(cx->tr);
+    { int ok = rt_pl_tbl_dl(root, set, (void *)&args[0], cx); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
+}
+DESCR_t rt_pl_dop_tbl_dlget_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) { return pl_tbl_dl_leaf(args, nargs, cx, root, 0); }
+DESCR_t rt_pl_dop_tbl_dlset_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) { return pl_tbl_dl_leaf(args, nargs, cx, root, 1); }
+DESCR_t rt_pl_dop_tbh_own_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) { return pl_tbh_put_leaf(args, nargs, cx, root, 0); }
+DESCR_t rt_pl_dop_tbh_set_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) { return pl_tbh_put_leaf(args, nargs, cx, root, 1); }
+DESCR_t rt_pl_dop_tbh_bset_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) { return pl_tbh_put_leaf(args, nargs, cx, root, 2); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_db_add(DESCR_t *args, int nargs, void *root, int prepend) {
     if (nargs != 2) return FAILDESCR;

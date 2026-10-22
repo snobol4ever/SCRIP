@@ -18711,6 +18711,471 @@ static const char PL_PRELUDE_LIB_32_SRC[] =
     "'$swb_u8b'(B, [B2, B3|R], C, R) :- B < 240, !, C is ((B /\\ 15) << 12) \\/ ((B2 /\\ 63) << 6) \\/ (B3 /\\ 63).\n"
     "'$swb_u8b'(B, [B2, B3, B4|R], C, R) :- C is ((B /\\ 7) << 18) \\/ ((B2 /\\ 63) << 12) \\/ ((B3 /\\ 63) << 6) \\/ (B4 /\\ 63).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
+    { "$tbl_call", 2 },
+    { "$tbl_icall", 2 },
+    { "$tbl_isincr", 1 },
+    { "$tbl_incrs", 1 },
+    { "$incr_inval", 0 },
+    { "$incr_guard", 2 },
+    { "$incr_drop", 3 },
+    { "subgoal_property", 2 },
+    { "$tbl_vmap", 2 },
+    { "incr_assert", 1 },
+    { "incr_asserta", 1 },
+    { "incr_assertz", 1 },
+    { "incr_retract", 1 },
+    { "incr_retractall", 1 },
+    { "incr_invalidate_calls", 1 },
+    { "incr_invalidate_call", 1 },
+    { "xwam_state", 2 },
+    { "$tbl_mcall", 3 },
+    { "$tbl_get", 4 },
+    { "$tbl_valid", 4 },
+    { "$tbl_noattv", 1 },
+    { "$tbh_v", 3 },
+    { "$tbl_dl", 1 },
+    { "$tbl_msplit", 7 },
+    { "$tbl_mindex", 1 },
+    { "$tbl_mcheck", 1 },
+    { "$tbl_mterm", 2 },
+    { "$tbl_enter", 6 },
+    { "$tbl_leading", 0 },
+    { "$tbl_inprog", 1 },
+    { "$tbl_lead", 1 },
+    { "$tbl_eval1", 1 },
+    { "$tbl_cycg", 1 },
+    { "$tbl_restrain", 2 },
+    { "$tbl_rs", 1 },
+    { "$tbl_rsa", 2 },
+    { "$tbl_gdeeper", 2 },
+    { "$tbl_deeper", 2 },
+    { "$tbl_atrip", 1 },
+    { "$tbl_trip", 1 },
+    { "$tbl_trip", 2 },
+    { "$tbl_ans2", 3 },
+    { "$tbl_chk", 2 },
+    { "$tbl_chk2", 3 },
+    { "$tbl_eval1n", 1 },
+    { "$tbl_nest", 4 },
+    { "$tbl_dup", 1 },
+    { "$tbl_scc", 4 },
+    { "$tbl_indep", 2 },
+    { "$tbl_srounds", 1 },
+    { "$tbl_upto", 4 },
+    { "$tbl_fin_all", 1 },
+    { "$tbl_depn", 1 },
+    { "$tbl_pos", 2 },
+    { "$tbl_idx", 4 },
+    { "$tbl_dmin", 3 },
+    { "$tbl_done", 1 },
+    { "$tbl_wfsrun", 0 },
+    { "$tbl_alt", 1 },
+    { "$tbl_alt2", 2 },
+    { "$tbl_reset", 1 },
+    { "$tbl_renew", 3 },
+    { "$tbl_count", 3 },
+    { "$tbl_snapw", 2 },
+    { "$tbl_snapins", 2 },
+    { "$tbl_final", 1 },
+    { "$tbl_final1", 1 },
+    { "$tbl_wdrop", 1 },
+    { "$tbl_finvals", 2 },
+    { "tnot", 1 },
+    { "$tnot_split", 2 },
+    { "$tnot_impl", 2 },
+    { "$tnot_st", 3 },
+    { "$tnot_u", 2 },
+    { "$tnot_i", 3 },
+    { "undefined", 0 },
+    { "$tbl undefined", 0 },
+    { "not_exists", 1 },
+    { "tabled_call", 1 },
+    { "$tbl tabled_call", 1 },
+    { "get_residual", 2 },
+    { "call_residual_program", 2 },
+    { "$call_residual_m", 3 },
+    { "$tbl_rprog", 4 },
+    { "$tbl_rshare", 3 },
+    { "$tbl_rcls", 4 },
+    { "$tbl_rneg", 2 },
+    { "$tbl_ratoms", 2 },
+    { "$tbl_resq", 2 },
+    { "$tbl_rsk", 6 },
+    { "$tbl_rval", 2 },
+    { "$tbl_answered", 1 },
+    { "$tbl_resid", 3 },
+    { "sk_not", 1 },
+    { "get_calls", 3 },
+    { "get_returns", 2 },
+    { "get_call", 3 },
+    { "get_returns_and_dls", 3 },
+    { "$grd", 3 },
+    { "$grd_u", 3 },
+    { "excess_vars", 4 },
+    { "$xs_q", 4 },
+    { "$xs_minus", 3 },
+    { "$xs_memv", 2 },
+    { "get_returns", 3 },
+    { "$gr_idx", 4 },
+    { "get_returns_for_call", 2 },
+    { "$tbl_unql", 2 },
+    { "$tbl_unqe", 2 },
+    { "call_delays", 2 },
+    { "$call_delays_m", 3 },
+    { "$tbl_unqlm", 3 },
+    { "$tbl_unqem", 3 },
+    { "$tbl_conj", 2 },
+    { "$tbl_del", 3 },
+    { "$tbl_rounds", 0 },
+    { "$tbl_round", 3 },
+    { "$tbl_eval", 2 },
+    { "$tbl_gshort", 2 },
+    { "$tbl_runs", 5 },
+    { "$tbl_run", 5 },
+    { "$tbl_app", 3 },
+    { "$tbl_snap", 2 },
+    { "$tbl_snapat", 3 },
+    { "$tbl_slice", 2 },
+    { "$tbl_use", 1 },
+    { "$tbl_range", 3 },
+    { "$tbl_addk", 5 },
+    { "$tbl_mcond", 3 },
+    { "$tbl_unpair", 2 },
+    { "$tbl_radd", 5 },
+    { "$tbl_rput", 5 },
+    { "$tbl_rhas", 2 },
+    { "$tbl_fa", 3 },
+    { "$tbl_ph", 1 },
+    { "$tbl_raise", 0 },
+    { "$tbl_dlpush", 1 },
+    { "$tbl_w", 2 },
+    { "$tbl_wany", 2 },
+    { "$tbl_wtin", 2 },
+    { "$tbl_add", 5 },
+    { "$tbl_answer", 2 },
+    { "$tbl_aval", 4 },
+    { "$tbl_ucons", 2 },
+    { "$tbl_manswer", 4 },
+    { "$tbl_madd", 6 },
+    { "$tbl_mput", 6 },
+    { "$tbl_same", 2 },
+    { "$tbl_mupd", 4 },
+    { "$tbl_mupds", 4 },
+    { "$tbl_mupd1", 4 },
+    { "$tbl_mclos", 2 },
+    { "$tbl_complete", 1 },
+    { "$tbl_abort", 0 },
+    { "$tbl_drop", 2 },
+    { "$tbl_dgoal", 2 },
+    { "abolish_all_tables", 0 },
+    { "$tbl_drop_all", 1 },
+    { "$tbl_local_variant_table", 1 },
+    { "current_table", 2 },
+    { "$tbl_strip", 3 },
+    { "$tbl_lookup", 4 },
+    { "$tbl_qual", 3 },
+    { "$tbl_unqual", 3 },
+    { "$tbl_table_status", 4 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
+    { "undefined", 0 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_33_SRC[] =
+    "'$tbl_call'(G,I):-'$tbl_get'(G,I,plain,T),'$tbl_answer'(T,G).\n"
+    "'$tbl_icall'(G,I):-functor(G,F,N),('$tbl_isincr'(F/N)->true;assertz('$tbl_incrp'(F/N))),'$tbl_call'(G,I).\n"
+    "'$tbl_isincr'(X):-catch(call('$tbl_incrp'(X)),_,fail).\n"
+    "'$tbl_incrs'(L):-findall(X,'$tbl_isincr'(X),L).\n"
+    "'$incr_inval':-'$tbl_incrs'(L),L\\==[],!,'$tbl_vt'(VT),'$trie_entries'(VT,Es),'$incr_drop'(Es,L,VT).\n"
+    "'$incr_inval'.\n"
+    "'$incr_guard'(C,P):-'$tbl_inprog'(Ts),Ts\\==[],'$tbl_incrs'(L),member(T,Ts),'$tbl_dgoal'(T,G),functor(G,F,N),memberchk(F/N,L),!,throw(error(permission_error(update,incremental_table,C),P/1)).\n"
+    "'$incr_guard'(_,_).\n"
+    "'$incr_drop'([],_,_).\n"
+    "'$incr_drop'([e(_,G,T)|Es],L,VT):-(functor(G,F,N),memberchk(F/N,L),'$trie_meta_get'(T,0,complete)->'$trie_meta_set'(T,0,invalid);true),'$incr_drop'(Es,L,VT).\n"
+    "subgoal_property(MG,[incremental,V]):-get_calls(MG,T,_),'$trie_id'(T,I),'$tbl_dgoal'(I,Gv),functor(Gv,F,N),'$tbl_isincr'(F/N),'$tbl_table_status'(T,S,_,_),'$tbl_vmap'(S,V).\n"
+    "'$tbl_vmap'(invalid,invalid).\n"
+    "'$tbl_vmap'(complete,valid).\n"
+    "incr_assert(C):-'$incr_guard'(C,incr_assert),assertz(C),'$incr_inval'.\n"
+    "incr_asserta(C):-'$incr_guard'(C,incr_asserta),asserta(C),'$incr_inval'.\n"
+    "incr_assertz(C):-'$incr_guard'(C,incr_assertz),assertz(C),'$incr_inval'.\n"
+    "incr_retract(C):-'$incr_guard'(C,incr_retract),retract(C),'$incr_inval'.\n"
+    "incr_retractall(C):-'$incr_guard'(C,incr_retractall),retractall(C),'$incr_inval'.\n"
+    "incr_invalidate_calls(_):-'$incr_inval'.\n"
+    "incr_invalidate_call(_):-'$incr_inval'.\n"
+    "xwam_state(2,R):-'$tbl_dl'(DL),(DL==[]->R=0;R=1).\n"
+    "'$tbl_mcall'(G,I,S):-G=..[F|As],I=..[Fi|_],S=..[_|Ms0],'$tbl_msplit'(Ms0,As,Gs,Xs,Cs,Vs,Ms),'$tbl_mcheck'(Cs),Gv=..[F|Gs],Iv=..[Fi|Gs],'$tbl_mterm'(Cs,Ma),'$tbl_mterm'(Vs,Mv),'$tbl_get'(Gv,Iv,moded(Ms,Xs,Mv),T),'$tbl_manswer'(T,Xs,Ma,G).\n"
+    "'$tbl_get'(G,I,K,T1):-'$tbl_noattv'(G),'$tbl_cycg'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,Tq)->'$tbl_valid'(Tq,VT,G,T);T=none),'$tbl_restrain'(T,G),'$tbl_enter'(T,VT,G,I,K,T0),('$trie_lookup'(VT,G,T1)->true;T1=T0),'$trie_meta_get'(T1,0,S),(S==complete->true;'$tbl_depn'(T1)).\n"
+    "'$tbl_valid'(T0,VT,G,none):-'$trie_meta_get'(T0,0,invalid),!,'$trie_delete'(VT,G,_).\n"
+    "'$tbl_valid'(T,_,_,T).\n"
+    "'$tbl_noattv'(G):-term_attvars(G,[]),!.\n"
+    "'$tbl_noattv'(G):-throw(error(type_error(free_of_attvar,G),_)).\n"
+    "'$tbh_v'(F,D,V):-('$tbh_get'(F,V0)->V=V0;V=D).\n"
+    "'$tbl_dl'(L):-('$tbl_dlget'(L0)->L=L0;L=[]).\n"
+    "'$tbl_msplit'([],[],[],[],[],[],[]).\n"
+    "'$tbl_msplit'([M|Ms],[A|As],[A|Gs],[A|Xs],Cs,Vs,Mo):-'$tbl_mindex'(M),!,'$tbl_msplit'(Ms,As,Gs,Xs,Cs,Vs,Mo).\n"
+    "'$tbl_msplit'([M|Ms],[A|As],[V|Gs],Xs,[A|Cs],[V|Vs],[M|Mo]):-'$tbl_msplit'(Ms,As,Gs,Xs,Cs,Vs,Mo).\n"
+    "'$tbl_mindex'(M):-var(M),!.\n"
+    "'$tbl_mindex'(index).\n"
+    "'$tbl_mindex'('+').\n"
+    "'$tbl_mcheck'([]).\n"
+    "'$tbl_mcheck'([C|Cs]):-(var(C)->'$tbl_mcheck'(Cs);throw(error(uninstantiation_error(C),_))).\n"
+    "'$tbl_mterm'([X],X):-!.\n"
+    "'$tbl_mterm'(L,T):-T=..[s|L].\n"
+    "'$tbl_enter'(none,VT,G,I,K,T):-!,'$trie_new'(T),'$trie_meta_set'(T,0,incomplete),'$trie_meta_set'(T,1,d(G,I,K,none,none)),'$trie_insert'(VT,0,G,T,_),('$tbh_leading'->'$tbl_inprog'(Ts),'$tbh_set'(1,[T|Ts]),'$tbl_eval1n'(T);'$tbl_lead'(T)).\n"
+    "'$tbl_enter'(T,_,_,_,_,T).\n"
+    "'$tbl_leading':-'$tbh_leading'.\n"
+    "'$tbl_inprog'(Ts):-'$tbh_v'(1,[],Ts).\n"
+    "'$tbl_lead'(T):-'$tbl_hdr','$tbh_own'(1,[T]),'$tbh_own'(2,false),'$tbh_own'(3,0),'$tbh_own'(4,false),catch(('$tbl_eval1'(T),'$tbl_rounds','$tbl_wfsrun'),E,('$tbl_abort',throw(E))),'$tbl_inprog'(Ts),'$tbl_complete'(Ts),'$tbh_close'.\n"
+    "'$tbl_eval1'(T):-'$tbl_hdr','$tbh_own'(5,false),'$tbl_eval'(T,_),'$tbh_v'(5,false,D),'$tbh_close',(D==false->'$tbl_done'(T);true).\n"
+    "'$tbl_cycg'(G):-acyclic_term(G),!.\n"
+    "'$tbl_cycg'(G):-catch(current_prolog_flag(max_table_subgoal_size,N),_,fail),integer(N),!,'$tbl_trip'(G).\n"
+    "'$tbl_cycg'(_).\n"
+    "'$tbl_restrain'(none,G):-!,'$tbl_rs'(G).\n"
+    "'$tbl_restrain'(_,_).\n"
+    "'$tbl_rs'(G):-catch(current_prolog_flag(max_table_subgoal_size,N),_,fail),integer(N),'$tbl_rsa'(max_table_subgoal_size_action,A),'$tbl_gdeeper'(G,N),!,'$tbl_trip'(A,G).\n"
+    "'$tbl_rs'(_).\n"
+    "'$tbl_rsa'(F,A):-(catch(current_prolog_flag(F,A0),_,fail)->A=A0;A=error),(A==error;A==failure),!.\n"
+    "'$tbl_gdeeper'(G,N):-G=..[_|As],M is N+2,member(A,As),'$tbl_deeper'(A,M),!.\n"
+    "'$tbl_deeper'(_,L):-L=<0,!.\n"
+    "'$tbl_deeper'(T,L):-compound(T),T=..[_|As],L1 is L-1,member(A,As),'$tbl_deeper'(A,L1),!.\n"
+    "'$tbl_atrip'(T):-throw(error(resource_error(tripwire(max_table_answer_size,'$trie'(T))),_)).\n"
+    "'$tbl_trip'(G):-(catch(current_prolog_flag(max_table_subgoal_size_action,A),_,fail)->true;A=error),'$tbl_trip'(A,G).\n"
+    "'$tbl_trip'(failure,_):-!,fail.\n"
+    "'$tbl_trip'(A,_):-A\\==error,!.\n"
+    "'$tbl_trip'(_,G):-'$tbl_unqual'(G,M,G1),functor(G1,F,N),functor(MG,F,N),throw(error(resource_error(tripwire(max_table_subgoal_size,M:MG)),_)).\n"
+    "'$tbl_ans2'(A,T,_):- \\+ acyclic_term(A),!,'$tbl_atrip'(T).\n"
+    "'$tbl_ans2'(A,T,N):-'$tbl_gdeeper'(A,N),!,'$tbl_atrip'(T).\n"
+    "'$tbl_ans2'(_,_,_).\n"
+    "'$tbl_chk'(Fs,T):-catch(current_prolog_flag(max_table_answer_size,N),_,fail),integer(N),'$tbl_rsa'(max_table_answer_size_action,error),!,'$tbl_chk2'(Fs,T,N).\n"
+    "'$tbl_chk'(_,_).\n"
+    "'$tbl_chk2'([],_,_).\n"
+    "'$tbl_chk2'([A|As],T,N):-'$tbl_ans2'(A,T,N),'$tbl_chk2'(As,T,N).\n"
+    "'$tbl_eval1n'(T):-'$tbl_hdr','$tbh_own'(5,false),'$tbl_eval'(T,_),'$tbh_v'(5,false,D),'$tbl_pos'(T,P),'$tbl_nest'(D,P,T,Up),'$tbh_close','$tbl_dup'(Up).\n"
+    "'$tbl_nest'(false,_,T,none):-!,'$tbl_done'(T).\n"
+    "'$tbl_nest'(D,P,T,Up):-D>=P,'$tbl_ph'(0),!,'$tbh_set'(5,false),'$tbl_srounds'(T),'$tbh_v'(5,false,Dr),'$tbl_scc'(Dr,P,T,Up).\n"
+    "'$tbl_nest'(D,_,_,D).\n"
+    "'$tbl_dup'(none):-!.\n"
+    "'$tbl_dup'(D):-'$tbh_v'(5,false,D0),'$tbl_dmin'(D0,D,D1),'$tbh_set'(5,D1).\n"
+    "'$tbl_scc'(Dr,P,T,none):-'$tbl_indep'(Dr,P),!,'$tbl_inprog'(Ts),'$tbl_upto'(Ts,T,Us,Rest),'$tbl_fin_all'(Us),'$tbh_set'(1,Rest).\n"
+    "'$tbl_indep'(false,_):-!.\n"
+    "'$tbl_indep'(Dr,P):-Dr>=P.\n"
+    "'$tbl_scc'(Dr,_,_,Dr).\n"
+    "'$tbl_srounds'(T):-repeat,'$tbl_inprog'(Ts0),'$tbl_upto'(Ts0,T,Us0,_),length(Us0,N0),'$tbl_round'(Us0,0,C),'$tbl_inprog'(Ts1),'$tbl_upto'(Ts1,T,Us1,_),length(Us1,N1),(C+N1-N0>0->fail;!).\n"
+    "'$tbl_upto'([],_,[],[]).\n"
+    "'$tbl_upto'([K|Ks],T,Us,Rest):-(K==T->Us=[K],Rest=Ks;Us=[K|Us1],'$tbl_upto'(Ks,T,Us1,Rest)).\n"
+    "'$tbl_fin_all'([]).\n"
+    "'$tbl_fin_all'([K|Ks]):-('$tbl_ph'(r)->'$tbl_final1'(K);true),'$trie_meta_set'(K,0,complete),'$tbl_fin_all'(Ks).\n"
+    "'$tbl_depn'(T):-'$tbl_pos'(T,P),'$tbh_v'(5,false,D0),'$tbl_dmin'(D0,P,D),'$tbh_set'(5,D).\n"
+    "'$tbl_pos'(T,P):-'$tbl_inprog'(Ts),length(Ts,L),'$tbl_idx'(Ts,T,0,I),!,P is L-I.\n"
+    "'$tbl_pos'(_,0).\n"
+    "'$tbl_idx'([K|Ks],T,I0,I):-(K==T->I=I0;I1 is I0+1,'$tbl_idx'(Ks,T,I1,I)).\n"
+    "'$tbl_dmin'(false,B,B):-!.\n"
+    "'$tbl_dmin'(A,false,A):-!.\n"
+    "'$tbl_dmin'(A,B,C):-C is min(A,B).\n"
+    "'$tbl_done'(T):-('$tbl_ph'(r)->'$tbl_final1'(T);true),'$trie_meta_set'(T,0,complete),'$tbl_inprog'(Ts),'$tbl_del'(Ts,T,Ts1),'$tbh_set'(1,Ts1).\n"
+    "'$tbl_wfsrun':-'$tbh_v'(2,false,F),(F==true->'$tbl_alt'(0);true).\n"
+    "'$tbl_alt'(N0):-'$tbl_inprog'(Ts),'$tbl_snapw'(Ts,u),'$tbh_set'(4,false),'$tbl_reset'(t),'$tbl_rounds','$tbh_v'(4,false,WN),'$tbl_alt2'(WN,N0).\n"
+    "'$tbl_alt2'(true,N0):-!,'$tbl_reset'(u),'$tbl_rounds','$tbl_alt'(N0).\n"
+    "'$tbl_alt2'(_,N0):-'$tbl_inprog'(Ts2),'$tbl_count'(Ts2,0,N1),'$tbl_snapw'(Ts2,t),(N1=:=N0->'$tbl_reset'(r),'$tbl_rounds','$tbl_inprog'(Ts3),'$tbl_final'(Ts3);'$tbl_reset'(u),'$tbl_rounds','$tbl_alt'(N1)).\n"
+    "'$tbl_reset'(P):-'$tbh_set'(3,P),'$tbl_inprog'(Ts),'$tbl_vt'(VT),'$tbl_renew'(Ts,VT,Ts2),'$tbh_set'(1,Ts2).\n"
+    "'$tbl_renew'([],_,[]).\n"
+    "'$tbl_renew'([T|Ts],VT,[T2|Ts2]):-'$trie_meta_get'(T,1,d(G,I,K,_,W)),'$trie_new'(T2),'$trie_meta_set'(T2,0,incomplete),'$trie_meta_set'(T2,1,d(G,I,K,none,W)),'$trie_delete'(VT,G,_),'$trie_insert'(VT,0,G,T2,_),'$trie_destroy'(T),'$tbl_renew'(Ts,VT,Ts2).\n"
+    "'$tbl_count'([],N,N).\n"
+    "'$tbl_count'([T|Ts],N0,N):-'$trie_entries'(T,L),length(L,K),N1 is N0+K,'$tbl_count'(Ts,N1,N).\n"
+    "'$tbl_snapw'([],_).\n"
+    "'$tbl_snapw'([T|Ts],Which):-'$trie_meta_get'(T,1,d(G,I,K,Sn,W0)),(W0==none->W1=w(none,none);W1=W0),W1=w(TS,US),(Which==t->Old=TS;Old=US),(Old==none->true;'$trie_destroy'(Old)),'$trie_new'(S),'$trie_entries'(T,L),'$tbl_snapins'(L,S),(Which==t->W2=w(S,US);W2=w(TS,S)),'$trie_meta_set'(T,1,d(G,I,K,Sn,W2)),'$tbl_snapw'(Ts,Which).\n"
+    "'$tbl_snapins'([],_).\n"
+    "'$tbl_snapins'([e(_,Sk,_)|L],S):-'$trie_insert'(S,0,Sk,true,_),'$tbl_snapins'(L,S).\n"
+    "'$tbl_final'([]).\n"
+    "'$tbl_final'([T|Ts]):-'$tbl_final1'(T),'$tbl_final'(Ts).\n"
+    "'$tbl_final1'(T):-'$trie_entries'(T,L),'$tbl_finvals'(L,T),'$trie_meta_get'(T,1,d(G,I,K,Sn,W)),(W=w(TS,US)->'$tbl_wdrop'(TS),'$tbl_wdrop'(US);true),'$trie_meta_set'(T,1,d(G,I,K,Sn,none)).\n"
+    "'$tbl_wdrop'(S):-(S==none->true;'$trie_destroy'(S)).\n"
+    "'$tbl_finvals'([],_).\n"
+    "'$tbl_finvals'([e(_,Sk,V)|L],T):-(nonvar(V),V=r(P)->(member(_-[],P)->NV=true;NV=u(P)),'$trie_insert'(T,1,Sk,NV,_);true),'$tbl_finvals'(L,T).\n"
+    "tnot(G):-'$tnot_split'(G,G1),'$tbl_vt'(VT),'$trie_lookup'(VT,G1,T),\\+ '$trie_meta_get'(T,0,invalid),!,'$trie_meta_get'(T,0,S),'$tnot_st'(S,T,G1).\n"
+    "tnot(G):-'$tnot_split'(G,G1),'$tnot_impl'(G1,I),!,'$tbl_get'(G1,I,plain,T),'$trie_meta_get'(T,0,S),'$tnot_st'(S,T,G1).\n"
+    "tnot(G):- \\+ G.\n"
+    "'$tnot_split'(G,_):-var(G),!,throw(error(instantiation_error,tnot/1)).\n"
+    "'$tnot_split'(M:G,G1):-atom(M),!,('$mod_cl'(M,G,0,G1)->true;G1=G).\n"
+    "'$tnot_split'(G,G).\n"
+    "'$tnot_impl'(undefined,'$tbl undefined'):-!.\n"
+    "'$tnot_impl'(G,I):-callable(G),G=..[F|As],atom(F),atom_concat('$tbl ',F,TF),length(As,N),current_predicate(TF/N),I=..[TF|As].\n"
+    "'$tnot_st'(complete,T,G):-!,'$trie_entries'(T,L),(member(e(_,_,true),L)->fail;L==[]->true;'$tbl_ph'(P),'$tnot_u'(P,G)).\n"
+    "'$tnot_st'(_,T,G):-'$tbl_raise','$tbl_ph'(P),'$tnot_i'(P,T,G).\n"
+    "'$tnot_u'(t,_):-!,'$tbl_raise',fail.\n"
+    "'$tnot_u'(r,G):-!,'$tbl_dlpush'(tnot(G)).\n"
+    "'$tnot_u'(_,G):-('$tbl_leading'->'$tbl_raise';'$tbl_dlpush'(tnot(G))).\n"
+    "'$tnot_i'(t,T,_):-!,('$tbl_w'(T,w(_,US)),US\\==none-> \\+ '$tbl_wany'(T,u);'$tbh_set'(4,true)).\n"
+    "'$tnot_i'(r,T,G):-!,\\+ '$tbl_wany'(T,t),('$tbl_wany'(T,u)->'$tbl_dlpush'(tnot(G));true).\n"
+    "'$tnot_i'(_,T,_):- \\+ '$tbl_wany'(T,t).\n"
+    "undefined:-'$tbl_call'(undefined,'$tbl undefined').\n"
+    "'$tbl undefined':-tnot(undefined).\n"
+    "not_exists(G):-'$tnot_split'(G,G1),ground(G1),'$tnot_impl'(G1,_),!,tnot(G1).\n"
+    "not_exists(G):-'$tnot_split'(G,G1),'$tbl_unqual'(G1,M,G2),(tabled_call(M:G2),fail;tnot(tabled_call(M:G2))).\n"
+    "tabled_call(G):-'$tbl_call'(tabled_call(G),'$tbl tabled_call'(G)).\n"
+    "'$tbl tabled_call'(G):-call(G).\n"
+    "get_residual(G0,DL):-'$tnot_split'(G0,G),'$tbl_vt'(VT),'$trie_entries'(VT,L),member(e(_,V,T),L),'$tbl_answered'(T),\\+ \\+ V=G,copy_term(V,Vc),Vc=G,term_variables(Vc,Vs),Sk=..[ret|Vs],'$trie_entries'(T,As),member(e(_,Sk,Val),As),'$tbl_resid'(Val,Sk,D),'$tbl_unql'(D,DL).\n"
+    "call_residual_program(G,P):-'$call_residual_m'(user,G,P).\n"
+    "'$call_residual_m'(M,G,P):-'$call_delays_m'(M,G,_),'$tbl_rprog'([G],M,[],P).\n"
+    "'$tbl_rprog'([],_,_,[]).\n"
+    "'$tbl_rprog'([A|As],M,Seen,P):-member(S,Seen),S=@=A,!,'$tbl_rprog'(As,M,Seen,P).\n"
+    "'$tbl_rprog'([A|As],M,Seen,P):-findall(A-D,('$tbl_resq'(A,D),D\\==[]),Rs0),'$tbl_rshare'(Rs0,A,Rs),'$tbl_rcls'(Rs,M,Cs,New),append(As,New,As2),'$tbl_rprog'(As2,M,[A|Seen],P2),append(Cs,P2,P).\n"
+    "'$tbl_rshare'([],_,[]).\n"
+    "'$tbl_rshare'([A2-D|R],A,[A2-D|R2]):-(A2=@=A->A2=A;true),'$tbl_rshare'(R,A,R2).\n"
+    "'$tbl_rcls'([],_,[],[]).\n"
+    "'$tbl_rcls'([A-D0|Rs],M,[(H:-B)|Cs],New):-'$tbl_rneg'(D0,D),'$tbl_unqem'(A,M,H),'$tbl_unqlm'(D,M,Du),'$tbl_conj'(Du,B),'$tbl_ratoms'(D,N1),'$tbl_rcls'(Rs,M,Cs,N2),append(N1,N2,New).\n"
+    "'$tbl_rneg'([],[]).\n"
+    "'$tbl_rneg'([L|Ls],[L2|Ls2]):-(L=tnot(G)->copy_term(G,G2),L2=tnot(G2);L2=L),'$tbl_rneg'(Ls,Ls2).\n"
+    "'$tbl_ratoms'([],[]).\n"
+    "'$tbl_ratoms'([tnot(A)|Ls],[A|As]):-!,'$tbl_ratoms'(Ls,As).\n"
+    "'$tbl_ratoms'([A|Ls],[A|As]):-'$tbl_ratoms'(Ls,As).\n"
+    "'$tbl_resq'(G,D):-'$tbl_vt'(VT),'$trie_entries'(VT,L),member(e(_,V,T),L),'$tbl_answered'(T),\\+ \\+ V=G,'$trie_meta_get'(T,1,d(G0,_,K,_,_)),'$tbl_rsk'(K,G0,V,G,Sk,Mv),'$trie_entries'(T,As),member(e(_,Sk,Val),As),'$tbl_rval'(Mv,Val),'$tbl_resid'(Val,Sk,D).\n"
+    "'$tbl_rsk'(moded(_,Xs0,Mv0),G0,_,G,Sk,Mv):-!,copy_term(G0-Xs0-Mv0,G-Xs-Mv),term_variables(Xs,Vs),Sk=..[ret|Vs].\n"
+    "'$tbl_rsk'(_,_,V,G,Sk,none):-copy_term(V,G),term_variables(G,Vs),Sk=..[ret|Vs].\n"
+    "'$tbl_rval'(Mv,_):-Mv==none,!.\n"
+    "'$tbl_rval'(Mv,Val):-(nonvar(Val),Val=mu(V,_)->Mv=V;Mv=Val).\n"
+    "'$tbl_answered'(T):-'$trie_meta_get'(T,0,S),(S==complete->true;S==invalid).\n"
+    "'$tbl_resid'(true,_,[]).\n"
+    "'$tbl_resid'(u(P),Sk,D):-member(Sk2-D,P),Sk2=Sk.\n"
+    "'$tbl_resid'(mu(_,D),_,D).\n"
+    "sk_not(G):-not_exists(G).\n"
+    "get_calls(MG,T,R):-'$tbl_strip'(MG,M,G),'$tbl_vt'(VT),'$trie_entries'(VT,L),member(e(_,_,I),L),T='$trie'(I),'$tbl_table_status'(T,_,M:G,R).\n"
+    "get_returns(T,R):-'$trie_id'(T,I),'$trie_entries'(I,As),member(e(_,R,_),As).\n"
+    "get_call(MG,T,R):-'$tbl_strip'(MG,M,G),get_calls(M:G0,T,R0),G0=@=G,!,G0=G,R=R0.\n"
+    "get_returns_and_dls(T,R,DLs):-'$trie_id'(T,I),'$trie_entries'(I,As),member(e(_,R,V),As),'$grd'(V,R,DLs).\n"
+    "'$grd'(u(P),R,DLs):-!,'$grd_u'(P,R,DLs).\n"
+    "'$grd'(_,_,[]).\n"
+    "'$grd_u'([],_,[]).\n"
+    "'$grd_u'([Sk-D|P],R,Out):-(Sk=R->'$tbl_unql'(D,DL),Out=[DL|O2];Out=O2),'$grd_u'(P,R,O2).\n"
+    "excess_vars(T,E,A,V):-'$xs_q'(T,T2,[],Q),term_variables(E-Q,EV),term_variables(T2,TV),'$xs_minus'(TV,EV,R),append(A,R,V).\n"
+    "'$xs_q'(T,T,Q,Q):-var(T),!.\n"
+    "'$xs_q'(X^G,G2,Q0,Q):-!,'$xs_q'(G,G2,[X|Q0],Q).\n"
+    "'$xs_q'(T,T,Q,Q).\n"
+    "'$xs_minus'([],_,[]).\n"
+    "'$xs_minus'([V|Vs],E,R):-'$xs_memv'(V,E),!,'$xs_minus'(Vs,E,R).\n"
+    "'$xs_minus'([V|Vs],E,[V|R]):-'$xs_minus'(Vs,E,R).\n"
+    "'$xs_memv'(V,[W|Ws]):-(V==W->true;'$xs_memv'(V,Ws)).\n"
+    "get_returns(T,R,N):-'$trie_id'(T,I),'$trie_entries'(I,As),'$gr_idx'(As,1,R,N).\n"
+    "'$gr_idx'([e(_,R,_)|_],N,R,N).\n"
+    "'$gr_idx'([_|As],N0,R,N):-N1 is N0+1,'$gr_idx'(As,N1,R,N).\n"
+    "get_returns_for_call(MV,A):-current_table(MV,T),'$tbl_table_status'(T,_,_:A,Sk),'$trie_id'(T,I),'$trie_entries'(I,As),member(e(_,Sk,_),As).\n"
+    "'$tbl_unql'([],[]).\n"
+    "'$tbl_unql'([E|Es],[F|Fs]):-'$tbl_unqe'(E,F),'$tbl_unql'(Es,Fs).\n"
+    "'$tbl_unqe'(tnot(G),tnot(G2)):-!,'$tbl_unqual'(G,_,G2).\n"
+    "'$tbl_unqe'(G,G2):-'$tbl_unqual'(G,_,G2).\n"
+    "call_delays(G,D):-'$call_delays_m'(user,G,D).\n"
+    "'$call_delays_m'(M,G,D):-'$tbl_dl'(D0),'$tbl_dlset'([]),call(G),'$tbl_dl'(DL),reverse(DL,DL1),'$tbl_unqlm'(DL1,M,DL2),'$tbl_conj'(DL2,D),append(DL,D0,D1),'$tbl_dlset'(D1).\n"
+    "'$tbl_unqlm'([],_,[]).\n"
+    "'$tbl_unqlm'([E|Es],M,[F|Fs]):-'$tbl_unqem'(E,M,F),'$tbl_unqlm'(Es,M,Fs).\n"
+    "'$tbl_unqem'(tnot(G),M,tnot(G2)):-!,'$tbl_unqem'(G,M,G2).\n"
+    "'$tbl_unqem'(G,M,G3):-'$tbl_unqual'(G,Mg,G2),(Mg==M->G3=G2;Mg==user->G3=G2;G3=Mg:G2).\n"
+    "'$tbl_conj'([],true):-!.\n"
+    "'$tbl_conj'([X],X):-!.\n"
+    "'$tbl_conj'([X|Xs],(X,C)):-'$tbl_conj'(Xs,C).\n"
+    "'$tbl_del'([],_,[]).\n"
+    "'$tbl_del'([K|R],T,S):-(K==T->S=R;S=[K|S1],'$tbl_del'(R,T,S1)).\n"
+    "'$tbl_rounds':-repeat,'$tbl_inprog'(Ks0),(Ks0==[]->!;length(Ks0,N0),'$tbl_round'(Ks0,0,C),'$tbl_inprog'(Ks1),length(Ks1,N1),(C+N1-N0>0->fail;!)).\n"
+    "'$tbl_round'([],C,C).\n"
+    "'$tbl_round'([K|T],C0,C):-'$tbl_eval'(K,N),C1 is C0+N,'$tbl_round'(T,C1,C).\n"
+    "'$tbl_eval'(T,N):-'$trie_meta_get'(T,1,d(G,_,_,_,_)),ground(G),'$tbl_gshort'(T,N),!.\n"
+    "'$tbl_gshort'(T,0):- \\+ '$tbl_ph'(r),'$trie_entries'(T,[_|_]),!.\n"
+    "'$tbl_gshort'(T,N):-'$tbl_ph'(r),'$tbl_wtin'(T,ret),('$trie_entries'(T,[_|_])->N=0;'$trie_insert'(T,0,ret,r([ret-[]]),_),N=1).\n"
+    "'$tbl_eval'(T,N):-'$trie_meta_get'(T,1,d(G,I,K,Sn,W)),'$tbl_hdr','$tbh_own'(6,all),'$tbh_own'(7,0),'$tbh_own'(8,0),'$tbh_own'(9,[]),'$tbl_runs'(Sn,G,I,Fs,Mx),'$tbh_v'(9,[],U),'$tbh_close','$tbl_snap'(U,Ps),'$trie_meta_set'(T,1,d(G,I,K,s(Mx,Ps),W)),'$tbl_addk'(K,Fs,T,G,N).\n"
+    "'$tbl_runs'(none,G,I,Fs,Mx):-!,'$tbh_bset'(6,all),'$tbh_bset'(7,0),'$tbh_set'(8,0),'$tbl_fa'(G,I,Fs),'$tbh_v'(8,0,Mx).\n"
+    "'$tbl_runs'(s(Mx0,Ps),G,I,Fs,Mx):-'$tbh_set'(8,Mx0),'$tbl_run'(1,Ps,G,I,Fs),'$tbh_v'(8,0,Mx).\n"
+    "'$tbl_run'(R,Ps,G,I,Fs):-'$tbh_v'(8,0,M),(R>M->Fs=[];'$tbh_bset'(6,sn(R,Ps)),'$tbh_bset'(7,0),'$tbl_fa'(G,(I,'$tbh_v'(7,0,J),J>=R),F1),R1 is R+1,'$tbl_run'(R1,Ps,G,I,F2),'$tbl_app'(F1,F2,Fs)).\n"
+    "'$tbl_app'([],L,L).\n"
+    "'$tbl_app'([X|Xs],L,[X|Ys]):-'$tbl_app'(Xs,L,Ys).\n"
+    "'$tbl_snap'([],[]).\n"
+    "'$tbl_snapat'([],_,0).\n"
+    "'$tbl_snapat'([K-V|Ps],C,E):-(K==C->E=V;'$tbl_snapat'(Ps,C,E)).\n"
+    "'$tbl_snap'([C|Cs],[C-E|Ps]):-'$trie_slice'(C,0,0,E-_),'$tbl_snap'(Cs,Ps).\n"
+    "'$tbl_slice'(T,L):-'$trie_meta_get'(T,0,S),(S==complete->'$trie_entries'(T,L);'$tbl_use'(T),'$tbl_range'(T,F,To),'$trie_slice'(T,F,To,_-L)).\n"
+    "'$tbl_use'(T):-'$tbh_v'(9,[],U),('$var_memberchk'(T,U)->true;'$tbh_set'(9,[T|U])).\n"
+    "'$tbl_range'(C,0,-1):-'$tbh_v'(6,all,X),X=sn(_,Ps),'$tbl_snapat'(Ps,C,E),E>=1,'$trie_meta_get'(C,1,d(G,_,_,_,_)),ground(G),!.\n"
+    "'$tbl_range'(C,F,To):-'$tbh_v'(7,0,J0),J is J0+1,'$tbh_bset'(7,J),'$tbh_v'(8,0,M),(J>M->'$tbh_set'(8,J);true),'$tbh_v'(6,all,X),(X=sn(R,Ps)->'$tbl_snapat'(Ps,C,E),(J<R->F=0,To=E;J=:=R->F=E,To= -1;F=0,To= -1);F=0,To= -1).\n"
+    "'$tbl_addk'(plain,Fs,T,G,N):-'$tbl_ph'(r),!,'$tbl_unpair'(Fs,As),'$tbl_chk'(As,T),'$tbl_radd'(Fs,T,G,0,N).\n"
+    "'$tbl_addk'(plain,Fs,T,G,N):-'$tbl_chk'(Fs,T),'$tbl_add'(Fs,T,G,0,N).\n"
+    "'$tbl_addk'(moded(Ms,Xs,Mv),Fs0,T,G,N):-('$tbl_ph'(r)->'$tbl_unpair'(Fs0,Fs);Fs=Fs0),'$tbl_madd'(Fs,T,G-Xs-Mv,Ms,0,N),('$tbl_ph'(r)->'$tbl_mcond'(Fs0,T,G-Xs-Mv);true).\n"
+    "'$tbl_mcond'([],_,_).\n"
+    "'$tbl_mcond'([A-D|R],T,P):-(D==[]->true;copy_term(P,Gc-Xc-_),term_variables(Xc,Vs),Gc=A,Sk=..[ret|Vs],('$trie_lookup'(T,Sk,V),(var(V);V\\=mu(_,_))->'$trie_delete'(T,Sk,_),'$trie_insert'(T,0,Sk,mu(V,D),_);true)),'$tbl_mcond'(R,T,P).\n"
+    "'$tbl_unpair'([],[]).\n"
+    "'$tbl_unpair'([A-_|R],[A|S]):-'$tbl_unpair'(R,S).\n"
+    "'$tbl_radd'([],_,_,N,N).\n"
+    "'$tbl_radd'([A-D|As],T,G,N0,N):-copy_term(G,Gc),term_variables(Gc,Vs),Gc=A,Sk=..[ret|Vs],reverse(D,D1),'$tbl_rput'(T,Sk,D1,N0,N1),'$tbl_radd'(As,T,G,N1,N).\n"
+    "'$tbl_rput'(T,Sk,D,N0,N):-'$trie_lookup'(T,Sk,r(P0)),!,('$tbl_rhas'(P0,Sk-D)->N=N0;'$trie_insert'(T,1,Sk,r([Sk-D|P0]),_),N is N0+1).\n"
+    "'$tbl_rput'(T,Sk,D,N0,N):-'$trie_insert'(T,0,Sk,r([Sk-D]),_),N is N0+1.\n"
+    "'$tbl_rhas'(P,X):-member(Y,P),'$tbl_same'(Y,X),!.\n"
+    "'$tbl_fa'(G,Goal,Fs):-'$tbl_ph'(r),!,'$tbl_dl'(D0),findall(G-D,('$tbl_dlset'([]),Goal,'$tbl_dl'(D)),Fs),'$tbl_dlset'(D0).\n"
+    "'$tbl_fa'(G,Goal,Fs):-ground(G),!,(once(Goal)->Fs=[G];Fs=[]).\n"
+    "'$tbl_fa'(G,Goal,Fs):-findall(G,Goal,Fs).\n"
+    "'$tbl_ph'(P):-'$tbh_v'(3,0,P0),P=P0.\n"
+    "'$tbl_raise':-'$tbh_set'(2,true),'$tbh_set'(5,0).\n"
+    "'$tbl_dlpush'(E):-'$tbl_dl'(L),'$tbl_dlset'([E|L]).\n"
+    "'$tbl_w'(T,W):-'$trie_meta_get'(T,1,d(_,_,_,_,W0)),(W0==none->W=w(none,none);W=W0).\n"
+    "'$tbl_wany'(T,Which):-'$tbl_w'(T,w(TS,US)),(Which==t->S=TS;S=US),S\\==none,'$trie_entries'(S,[_|_]),!.\n"
+    "'$tbl_wtin'(T,Sk):-'$tbl_w'(T,w(TS,_)),TS\\==none,'$trie_lookup'(TS,Sk,_),!.\n"
+    "'$tbl_add'([],_,_,N,N).\n"
+    "'$tbl_add'([A|As],T,G,N0,N):-copy_term(G,Gc),term_variables(Gc,Vs),Gc=A,Sk=..[ret|Vs],'$trie_insert'(T,0,Sk,true,R),(R>=0->N1 is N0+1;N1=N0),'$tbl_add'(As,T,G,N1,N).\n"
+    "'$tbl_answer'(T,G):-term_variables(G,Vs),Sk=..[ret|Vs],'$tbl_slice'(T,L),member(e(_,Sk,V),L),'$tbl_aval'(V,T,G,Sk).\n"
+    "'$tbl_aval'(true,_,_,_):-!.\n"
+    "'$tbl_aval'(r(_),T,G,Sk):-!,('$tbl_wtin'(T,Sk)->true;'$tbl_dlpush'(G)).\n"
+    "'$tbl_aval'(u(_),_,G,_):-'$tbl_ph'(P),'$tbl_ucons'(P,G).\n"
+    "'$tbl_ucons'(t,_):-!,'$tbl_raise',fail.\n"
+    "'$tbl_ucons'(r,G):-!,'$tbl_dlpush'(G).\n"
+    "'$tbl_ucons'(_,G):-('$tbl_leading'->'$tbl_raise';'$tbl_dlpush'(G)).\n"
+    "'$tbl_manswer'(T,Xs,Ma,Gv):-term_variables(Xs,Vs),Sk=..[ret|Vs],'$tbl_slice'(T,L),member(e(_,Sk,V),L),(nonvar(V),V=mu(V0,_)->Ma=V0,'$tbl_ph'(P),'$tbl_ucons'(P,Gv);Ma=V).\n"
+    "'$tbl_madd'([],_,_,_,N,N).\n"
+    "'$tbl_madd'([A|As],T,P,Ms,N0,N):-copy_term(P,Gc-Xc-Mc),term_variables(Xc,Vs),Gc=A,Sk=..[ret|Vs],'$tbl_mput'(T,Sk,Ms,Mc,N0,N1),'$tbl_madd'(As,T,P,Ms,N1,N).\n"
+    "'$tbl_mput'(T,Sk,Ms,M,N0,N):-'$trie_lookup'(T,Sk,Old0),!,(nonvar(Old0),Old0=mu(Old,DL)->W=1;Old=Old0,W=0),('$tbl_mupd'(Ms,Old,M,New)->true;New=Old),('$tbl_same'(New,Old)->N=N0;'$trie_delete'(T,Sk,_),(W==1->NV=mu(New,DL);NV=New),'$trie_insert'(T,0,Sk,NV,_),N is N0+1).\n"
+    "'$tbl_mput'(T,Sk,_,M,N0,N):-'$trie_insert'(T,0,Sk,M,Q),(Q>=0->N is N0+1;N=N0).\n"
+    "'$tbl_same'(A,B):-copy_term(A-B,A1-B1),numbervars(A1,0,N),numbervars(B1,0,N),A1==B1.\n"
+    "'$tbl_mupd'([M],O,N,R):-!,'$tbl_mupd1'(M,O,N,R).\n"
+    "'$tbl_mupd'(Ms,O,N,R):-O=..[s|Os],N=..[s|Ns],'$tbl_mupds'(Ms,Os,Ns,Rs),R=..[s|Rs].\n"
+    "'$tbl_mupds'([],[],[],[]).\n"
+    "'$tbl_mupds'([M|Ms],[O|Os],[N|Ns],[R|Rs]):-'$tbl_mupd1'(M,O,N,R),'$tbl_mupds'(Ms,Os,Ns,Rs).\n"
+    "'$tbl_mupd1'(first,O,_,O):-!.\n"
+    "'$tbl_mupd1'('-',O,_,O):-!.\n"
+    "'$tbl_mupd1'(last,_,N,N):-!.\n"
+    "'$tbl_mupd1'(min,O,N,R):-!,(O@<N->R=O;R=N).\n"
+    "'$tbl_mupd1'(max,O,N,R):-!,(O@>N->R=O;R=N).\n"
+    "'$tbl_mupd1'(sum,O,N,R):-!,R is O+N.\n"
+    "'$tbl_mupd1'(lattice(P),O,N,R):-!,'$tbl_mclos'(P,C),call(C,O,N,R),!.\n"
+    "'$tbl_mupd1'(po(P),O,N,R):-!,'$tbl_mclos'(P,C),(call(C,O,N)->R=O;R=N).\n"
+    "'$tbl_mupd1'(M,_,_,_):-throw(error(domain_error(tabled_mode,M),_)).\n"
+    "'$tbl_mclos'(M:P,M:C):-!,'$tbl_mclos'(P,C).\n"
+    "'$tbl_mclos'(N/_,N):-!.\n"
+    "'$tbl_mclos'(H,N):-compound(H),!,functor(H,N,_).\n"
+    "'$tbl_mclos'(N,N).\n"
+    "'$tbl_complete'([]).\n"
+    "'$tbl_complete'([T|Ts]):-'$trie_meta_set'(T,0,complete),'$tbl_complete'(Ts).\n"
+    "'$tbl_abort':-'$tbl_inprog'(Ts),'$tbl_vt'(VT),'$tbl_drop'(Ts,VT),'$tbh_set'(1,[]).\n"
+    "'$tbl_drop'([],_).\n"
+    "'$tbl_drop'([T|Ts],VT):-('$tbl_dgoal'(T,G),'$trie_delete'(VT,G,_)->true;true),'$trie_destroy'(T),'$tbl_drop'(Ts,VT).\n"
+    "'$tbl_dgoal'(T,G):-'$trie_meta_get'(T,1,d(G,_,_,_,_)).\n"
+    "abolish_all_tables:-'$tbl_leading',!,throw(error(permission_error(abolish,table,all),abolish_all_tables/0)).\n"
+    "abolish_all_tables:-'$tbl_vt'(VT),'$trie_entries'(VT,L),'$tbl_drop_all'(L),'$trie_destroy'(VT).\n"
+    "'$tbl_drop_all'([]).\n"
+    "'$tbl_drop_all'([e(_,_,T)|L]):-'$trie_destroy'(T),'$tbl_drop_all'(L).\n"
+    "'$tbl_local_variant_table'('$trie'(VT)):-'$tbl_vt'(VT).\n"
+    "current_table(MV,T):-'$tbl_strip'(MV,M,V),'$tbl_vt'(VT),(nonvar(V)->'$tbl_lookup'(VT,M,V,I);'$trie_entries'(VT,L),member(e(_,QV,I),L),'$tbl_unqual'(QV,M,V)),T='$trie'(I).\n"
+    "'$tbl_strip'(MV,M,V):-nonvar(MV),MV=M0:V0,!,(var(M)->M=M0;true),'$tbl_strip'(V0,M,V).\n"
+    "'$tbl_strip'(MV,M,V):-nonvar(MV),MV='$lfx_mc'(M0,V0),!,(var(M)->M=M0;true),'$tbl_strip'(V0,M,V).\n"
+    "'$tbl_strip'(V,_,V).\n"
+    "'$tbl_lookup'(VT,M,V,I):-atom(M),M\\==user,'$tbl_qual'(M,V,QV),'$trie_lookup'(VT,QV,I),!.\n"
+    "'$tbl_lookup'(VT,_,V,I):-'$trie_lookup'(VT,V,I).\n"
+    "'$tbl_qual'(M,V,QV):-callable(V),V=..[F|As],atom_concat(M,':',P),atom_concat(P,F,QF),QV=..[QF|As].\n"
+    "'$tbl_unqual'(QV,M,V):-callable(QV),QV=..[QF|As],atom(QF),sub_atom(QF,B,1,A,':'),B>0,!,sub_atom(QF,0,B,_,M),B1 is B+1,sub_atom(QF,B1,A,0,F),V=..[F|As].\n"
+    "'$tbl_unqual'(V,user,V).\n"
+    "'$tbl_table_status'(T,S,M:W,Sk):-'$trie_id'(T,I),'$trie_meta_get'(I,0,S),'$tbl_dgoal'(I,G),'$tbl_unqual'(G,M0,W0),term_variables(W0,Vs),Sk=..[ret|Vs],M=M0,W=W0.\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "term_size", 2 },
     { "variant", 2 },
     { "subsumes", 2 },
@@ -18727,16 +19192,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
     { "same_functor", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_33_SRC[] =
+static const char PL_PRELUDE_LIB_34_SRC[] =
     "term_size(Term, Size) :-\n"
     "    '$term_size'(Term, _, Size).\n"
     "variant(X, Y) :-\n"
@@ -18945,23 +19410,23 @@ static const char PL_PRELUDE_LIB_33_SRC[] =
     "    ;   functor(Term2, Name, Arity),\n"
     "        functor(Term1, Name, Arity)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_34_SRC[] =
+static const char PL_PRELUDE_LIB_35_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -19096,25 +19561,25 @@ static const char PL_PRELUDE_LIB_34_SRC[] =
     "    put(Head),\n"
     "    '$writef_$padout'(Tail).\n"
     "'$writef_$padout'([]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_35_SRC[] =
+static const char PL_PRELUDE_LIB_36_SRC[] =
     "ord_setproduct([], _, []).\n"
     "ord_setproduct([Head|Tail], Set, SetProduct) :- '$xos_product'(Set, Head, SetProduct, Rest), ord_setproduct(Tail, Set, Rest).\n"
     "'$xos_product'([], _, Set, Set).\n"
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
     { "close_open_tables", 1 },
@@ -19138,16 +19603,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "$atp_goal", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_37_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_36_SRC[] =
+static const char PL_PRELUDE_LIB_37_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
     "close_open_tables(_).\n"
@@ -19220,9 +19685,10 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "solution_sequences", PL_PRELUDE_LIB_30_EXPORTS, PL_PRELUDE_LIB_30_OPS, PL_PRELUDE_LIB_30_SHADOWS, PL_PRELUDE_LIB_30_QUIET, PL_PRELUDE_LIB_30_SRC },
     { "strings", PL_PRELUDE_LIB_31_EXPORTS, PL_PRELUDE_LIB_31_OPS, PL_PRELUDE_LIB_31_SHADOWS, PL_PRELUDE_LIB_31_QUIET, PL_PRELUDE_LIB_31_SRC },
     { "swi_builtins", PL_PRELUDE_LIB_32_EXPORTS, PL_PRELUDE_LIB_32_OPS, PL_PRELUDE_LIB_32_SHADOWS, PL_PRELUDE_LIB_32_QUIET, PL_PRELUDE_LIB_32_SRC },
-    { "terms", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC },
-    { "writef", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC },
-    { "xsb_ordsets", PL_PRELUDE_LIB_35_EXPORTS, PL_PRELUDE_LIB_35_OPS, PL_PRELUDE_LIB_35_SHADOWS, PL_PRELUDE_LIB_35_QUIET, PL_PRELUDE_LIB_35_SRC },
-    { "xsb_tables", PL_PRELUDE_LIB_36_EXPORTS, PL_PRELUDE_LIB_36_OPS, PL_PRELUDE_LIB_36_SHADOWS, PL_PRELUDE_LIB_36_QUIET, PL_PRELUDE_LIB_36_SRC },
+    { "tabling", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC },
+    { "terms", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC },
+    { "writef", PL_PRELUDE_LIB_35_EXPORTS, PL_PRELUDE_LIB_35_OPS, PL_PRELUDE_LIB_35_SHADOWS, PL_PRELUDE_LIB_35_QUIET, PL_PRELUDE_LIB_35_SRC },
+    { "xsb_ordsets", PL_PRELUDE_LIB_36_EXPORTS, PL_PRELUDE_LIB_36_OPS, PL_PRELUDE_LIB_36_SHADOWS, PL_PRELUDE_LIB_36_QUIET, PL_PRELUDE_LIB_36_SRC },
+    { "xsb_tables", PL_PRELUDE_LIB_37_EXPORTS, PL_PRELUDE_LIB_37_OPS, PL_PRELUDE_LIB_37_SHADOWS, PL_PRELUDE_LIB_37_QUIET, PL_PRELUDE_LIB_37_SRC },
     { 0, 0, 0, 0, 0, 0 }
 };

@@ -30,6 +30,7 @@ extern "C" {
 #define CLEANUP_REC_C 32
 #define CLEANUP_REC_BYTES 48
 #define PL_TR_FRAME_HI_OFF 32
+#define PL_TBH_CELLS 10
 typedef struct { DESCR_t *cell; uint64_t pad; DESCR_t old; } pl_tr_entry_t;
 typedef struct pl_tr_ctx_s { char *tr; char *b; void *ball; uint64_t rbx; uint64_t r14; uint64_t r15; } pl_tr_ctx_t;
 void *rt_pl_tr_init(void);

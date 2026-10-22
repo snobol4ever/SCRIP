@@ -1737,6 +1737,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         bb_emit_x86(bb_stmt_mark((long)IR_LIT(nd).ival, (long)nd->pat_static)); return 0;
     case IR_SETEXIT_TEST: bb_emit_x86(bb_setexit_test()); return 0;
     case IR_CLEANUP: bb_emit_x86(bb_cleanup()); return 0;
+    case IR_TABLE_HDR: { g_emit.op_off = zls_off(nd); g_emit.op_fc_bytes = 0; bb_emit_x86(bb_table_hdr()); } return 0;
     case IR_LINE_MARK: if ((long)nd->pat_static > 0) g_emit.icn_line_cur = (long)nd->pat_static; if (IR_LIT(nd).sval && *IR_LIT(nd).sval) g_emit.icn_file_cur = IR_LIT(nd).sval;
         if (g_emit.icn_line_cur > 0) emit_stno_row(0, (int32_t)g_emit.icn_line_cur, g_emit.icn_file_cur); bb_emit_x86(bb_line_mark((long)nd->pat_static, IR_LIT(nd).sval)); return 0;
     case IR_STATEMENT_END:
@@ -2621,6 +2622,11 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_BOUND: {
         g_emit.op_sb = 1; g_emit.op_off = zls_off(nd); g_emit.op_fc_bytes = 0;
+        if (g_emit.op_off < 0) { drive_guard_refused(nd, __LINE__); break; }
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_TABLE_HDR: {
+        g_emit.op_off = zls_off(nd); g_emit.op_fc_bytes = 0;
         if (g_emit.op_off < 0) { drive_guard_refused(nd, __LINE__); break; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -3743,7 +3749,7 @@ static int zd_k_own(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO)
         op == IR_MATCH_NOTANY ||
     op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE || op == IR_MATCH_ALTERNATE ||
     (op == IR_MATCH_FENCE1 || op == IR_MATCH_FENCE0 || op == IR_MATCH_ABORT) || op == IR_BOUND || op == IR_UNMARK || op == IR_CONJUNCTION || op == IR_CUT || op == IR_GATE_ARM ||
-        op == IR_CLEANUP || op == IR_UNIFY_CONST || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE ||
+        op == IR_CLEANUP || op == IR_TABLE_HDR || op == IR_UNIFY_CONST || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE ||
     op == IR_RETURN || (op == IR_DISJUNCTION && nd->n_operands == 0) ||
     (op == IR_MATCH_DEFER && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5))) ? 0 : 16; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5472,10 +5478,13 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
         int ai = -1;
         for (int k = 0; g && k < g->n; k++) if (g->all[k] == nd) { ai = k; break; }
         int off = bb_slot_get(nd); if (off < 0) off = nd_slot(nd); if (zls_key_unbacked(g, off)) off = -1;
-        int xf = xop_frame_slot(nd), rbp = xf != -1;
-        const char * home = zon[i] ? (zd_k(nd) > 0 ? "SPINE" : "NONE") : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
-        fprintf(stderr, "[HOMES] g=%d graph=%s all=%d kind=%s home=%s off=%d xf=%d xfwhy=%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), home, off, xf, rbp ? xop_frame_why(nd) : "-");
-        fprintf(stderr, "[HOMETEST] g=%d graph=%s all=%d kind=%s test=%s%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), zls_home_why(nd) ? "operand:" : "", zls_home_why_name(zls_home_why(nd)));
+        int xf = xop_frame_slot(nd), rbp = xf != -1, esc = nd->op == IR_TABLE_HDR && off >= 0;
+        const char * home = esc ? "RBP" : zon[i] ? (zd_k(nd) > 0 ? "SPINE" : "NONE") : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
+        if (esc) xf = off;
+        fprintf(stderr, "[HOMES] g=%d graph=%s all=%d kind=%s home=%s off=%d xf=%d xfwhy=%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), home, off, xf,
+            esc ? "address-escapes" : rbp ? xop_frame_why(nd) : "-");
+        if (esc) fprintf(stderr, "[HOMETEST] g=%d graph=%s all=%d kind=%s test=state:address-escapes\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op));
+        else fprintf(stderr, "[HOMETEST] g=%d graph=%s all=%d kind=%s test=%s%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), zls_home_why(nd) ? "operand:" : "", zls_home_why_name(zls_home_why(nd)));
     }
     int nv = g ? zls_g_vslot_count(g) : 0;
     for (int k = 0; k < nv; k++) {
@@ -7568,6 +7577,8 @@ DESCR_t rt_pl_dop_nb_setval(DESCR_t *, int); DESCR_t rt_pl_dop_nb_getval(DESCR_t
 DESCR_t rt_pl_dop_trie_new(DESCR_t *, int); DESCR_t rt_pl_dop_trie_alive(DESCR_t *, int); DESCR_t rt_pl_dop_trie_destroy(DESCR_t *, int); DESCR_t rt_pl_dop_trie_insert(DESCR_t *, int);
 DESCR_t rt_pl_dop_trie_lookup(DESCR_t *, int); DESCR_t rt_pl_dop_trie_delete(DESCR_t *, int); DESCR_t rt_pl_dop_trie_entries(DESCR_t *, int); DESCR_t rt_pl_dop_trie_entry_key(DESCR_t *, int);
 DESCR_t rt_pl_dop_trie_count(DESCR_t *, int); DESCR_t rt_pl_dop_trie_meta_set(DESCR_t *, int); DESCR_t rt_pl_dop_trie_meta_get(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_vt(DESCR_t *, int);
+DESCR_t rt_pl_dop_tbh_close(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_leading(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_get(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_own(DESCR_t *, int);
+DESCR_t rt_pl_dop_tbh_set(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_bset(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_dlget(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_dlset(DESCR_t *, int);
 DESCR_t rt_pl_dop_trie_slice(DESCR_t *, int);
 DESCR_t rt_pl_dop_cpu_ms(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_retractall(DESCR_t *, int);
@@ -7737,6 +7748,10 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$trie_entries", 2, "rt_pl_dop_trie_entries", rt_pl_dop_trie_entries }, { "$trie_entry_key", 3, "rt_pl_dop_trie_entry_key", rt_pl_dop_trie_entry_key },
         { "$trie_count", 2, "rt_pl_dop_trie_count", rt_pl_dop_trie_count }, { "$trie_meta_set", 3, "rt_pl_dop_trie_meta_set", rt_pl_dop_trie_meta_set },
         { "$trie_meta_get", 3, "rt_pl_dop_trie_meta_get", rt_pl_dop_trie_meta_get }, { "$tbl_vt", 1, "rt_pl_dop_tbl_vt", rt_pl_dop_tbl_vt },
+        { "$tbh_close", 0, "rt_pl_dop_tbh_close", rt_pl_dop_tbh_close }, { "$tbh_leading", 0, "rt_pl_dop_tbh_leading", rt_pl_dop_tbh_leading },
+        { "$tbh_get", 2, "rt_pl_dop_tbh_get", rt_pl_dop_tbh_get }, { "$tbh_own", 2, "rt_pl_dop_tbh_own", rt_pl_dop_tbh_own }, { "$tbh_set", 2, "rt_pl_dop_tbh_set", rt_pl_dop_tbh_set },
+        { "$tbh_bset", 2, "rt_pl_dop_tbh_bset", rt_pl_dop_tbh_bset }, { "$tbl_dlget", 1, "rt_pl_dop_tbl_dlget", rt_pl_dop_tbl_dlget },
+        { "$tbl_dlset", 1, "rt_pl_dop_tbl_dlset", rt_pl_dop_tbl_dlset },
         { "$trie_slice", 4, "rt_pl_dop_trie_slice", rt_pl_dop_trie_slice },
         { "$cpu_ms", 1, "rt_pl_dop_cpu_ms", rt_pl_dop_cpu_ms },
         { "$pl_nb_getval_guard", 2, "rt_pl_dop_nb_getval_guard", rt_pl_dop_nb_getval_guard },
