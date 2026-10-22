@@ -2999,7 +2999,7 @@ std::string bb_glue_binop_open(int base, const std::string & load, const std::st
         + x86("def", L(12)) \
         + bb_glue_binop_open(60, RK_ARMED_LOAD_FR(), RK_ARMED_STORE_FR(), (long)binop_base((long long)_.op_ival), 13, 0) \
         + x86("def", L(13)))
-#define ARITH_ARMED_ZD() \
+#define RK_ARMED_ZD(op, truthy) \
     IF(g_stage2.rk_infix_armed, \
           x86("note", ZOPN(0)) \
         + x86("mov", "eax", ZOPD(0, 0)) \
@@ -3010,6 +3010,8 @@ std::string bb_glue_binop_open(int base, const std::string & load, const std::st
         + x86("cmp", "al", (long)DT_DATA) \
         + x86("jne", L(13)) \
         + x86("def", L(12)) \
-        + bb_glue_binop_open(60, RK_ARMED_LOAD_ZD(), RK_ARMED_STORE_ZD(), (long)binop_base((long long)_.op_ival), 13, 0) \
+        + bb_glue_binop_open(60, RK_ARMED_LOAD_ZD(), RK_ARMED_STORE_ZD(), (long)(op), 13, (truthy)) \
         + x86("def", L(13)))
+#define ARITH_ARMED_ZD() RK_ARMED_ZD(binop_base((long long)_.op_ival), 0)
+#define RELOP_ARMED_ZD(truthy) RK_ARMED_ZD(_.op_ival, (truthy))
 #endif
