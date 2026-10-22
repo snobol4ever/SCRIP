@@ -1563,9 +1563,9 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             const tree_t * ls = li >= 0 ? ob->c[li] : NULL;
             if (ls && ls->t == TT_STMT) { const tree_t * sub = stmt_subj(ls); if (sub) ls = sub; }
             if (ls && ls->t != TT_IF && ls->t != TT_UNLESS && ls->t != TT_WHILE && ls->t != TT_UNTIL && ls->t != TT_REPEAT && ls->t != TT_FOR && ls->t != TT_FOR_RANGE && ls->t != TT_EVERY &&
-                ls->t != TT_CASE && ls->t != TT_RETURN && ls->t != TT_NUL && ls->t != TT_INVOKE && ls->t != TT_SEQ && ls->t != TT_SEQ_EXPR && ls->t != TT_ASSIGN && ls->t != TT_REVASSIGN &&
-                ls->t != TT_ARR_SET && ls->t != TT_HASH_SET && ls->t != TT_DECL && ls->t != TT_ARR_DECL && ls->t != TT_HASH_DECL && ls->t != TT_RW_DECL && ls->t != TT_STATIC_DECL &&
-                ls->t != TT_SUB_DECL && ls->t != TT_CLASS_DECL) {
+                ls->t != TT_CASE && ls->t != TT_RETURN && ls->t != TT_NUL && ls->t != TT_SEQ && ls->t != TT_SEQ_EXPR && ls->t != TT_ASSIGN && ls->t != TT_REVASSIGN && ls->t != TT_ARR_SET &&
+                ls->t != TT_HASH_SET && ls->t != TT_DECL && ls->t != TT_ARR_DECL && ls->t != TT_HASH_DECL && ls->t != TT_RW_DECL && ls->t != TT_STATIC_DECL && ls->t != TT_SUB_DECL &&
+                ls->t != TT_CLASS_DECL) {
                 char tvb[48];
                 snprintf(tvb, sizeof tvb, "__tryv%p", (const void *) t);
                 const char * tv = ct_strdup(tvb);
