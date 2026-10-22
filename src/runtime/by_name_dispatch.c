@@ -455,7 +455,7 @@ int rt_builtin_is_known(const char *name) {
         "__rk_iter_has", "__rk_take_dyn", "__rk_seq_plan", "__rk_seq_next", "__rk_seq_stop", "__rk_seq_arity", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first", "__rk_first_shape",
         "__rk_exc_umsg", "__rk_die_m", "__rk_exc_umeth", "__rk_tl_got", "__rk_is_code", "__rk_run_child", "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append",
         "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip", "__rk_hyper_shape", "__rk_adjacent_pairs", "__rk_all_true", "__rk_regex", "__rk_smartmatch",
-        "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io",
+        "__rk_arr_keys", "__rk_hkeys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io",
         "__rk_set_uni", "__rk_set_int", "__rk_set_dif", "__rk_set_sym", "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem", "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub",
         "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne", "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv",
         "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick", "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_pow",
@@ -15167,6 +15167,10 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+    if (!strcmp(fn, "__rk_hkeys") && nargs == 1) {
+        if (args[0].v == DT_A && args[0].arr && !rk_is_pair(args[0])) { rk_av_t a = rk_av(args[0]); *out = rk_mark_list(rk_mk_arr(a.el, a.n)); } else *out = args[0];
+        return 1;
+    }
     if (!strcmp(fn, "__rk_arr_values") && nargs >= 1) { rk_av_t a = rk_av(args[0]); *out = rk_mk_arr(a.el, a.n); return 1; }
     if ((!strcmp(fn, "__rk_flat") || !strcmp(fn, "__rk_arr_flat")) && nargs >= 0) { *out = rk_flat_agg(args, nargs); return 1; }
     if (!strcmp(fn, "__rk_to_array") && nargs == 1) {
@@ -16431,6 +16435,27 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         }
         rk_av_t a = rk_av(args[0]);
         *out = rk_unmark(a.n > 1 ? rk_mk_arr(a.el + (fn[4] == 't' ? 1 : 0), a.n - 1) : rk_mk_arr(NULL, 0));
+        return 1;
+    }
+    if ((!strcmp(fn, "hash_get") || !strcmp(fn, "hash_exists") || !strcmp(fn, "hash_delete")) && nargs >= 2 && rk_is_list(args[1]) && !rk_is_pair(args[1]) && !rk_is_seq(args[1])) {
+        rk_av_t ks = rk_av(args[1]);
+        DESCR_t *r = ks.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) ks.n) : NULL;
+        for (int i = 0; i < ks.n; i++) {
+            DESCR_t sub[2] = { args[0], ks.el[i] }, one = FAILDESCR;
+            if (!script_try_call_builtin_by_name_rq(fn, sub, 2, &one, rq)) one = FAILDESCR;
+            r[i] = IS_FAIL_fn(one) ? rk_typeobj("Any") : one;
+            if (fn[5] == 'e') r[i] = (DESCR_t){ .v = DT_BOOL, .i = rk_is_truthy(r[i]) ? 1 : 0 };
+        }
+        *out = rk_mark_list(rk_mk_arr(r, ks.n));
+        return 1;
+    }
+    if (!strcmp(fn, "hash_set_pure") && nargs >= 3 && rk_is_list(args[1]) && !rk_is_pair(args[1]) && !rk_is_seq(args[1])) {
+        rk_av_t ks = rk_av(args[1]);
+        int vl = args[2].v == DT_A && args[2].arr && !rk_is_pair(args[2]);
+        rk_av_t vs = vl ? rk_av(args[2]) : (rk_av_t){ 1, &args[2], 0 };
+        DESCR_t h = args[0];
+        for (int i = 0; i < ks.n; i++) { DESCR_t v = i < vs.n ? vs.el[i] : rk_typeobj("Any"); if (rk_qh_is(h)) h = rk_qh_put(h, ks.el[i], v); else h = rk_hash_store(h, ks.el[i], v); }
+        *out = h;
         return 1;
     }
     if (!strcmp(fn, "hash_get") && nargs >= 2) {

@@ -139,6 +139,7 @@ static tree_t *make_call(const char *name) { tree_t *e = leaf_sval(TT_FNC, name)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *call2(const char *fn, tree_t *l, tree_t *r) { tree_t *c = make_call(fn); expr_add_child(c, l); expr_add_child(c, r); return c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_slice_key(const tree_t *k);
 static tree_t *rk_ilit(long long v) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival = v; return e; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *testop_rt(const char *s) {
@@ -1665,6 +1666,16 @@ const char *rkb_reduce_name(RkB *b, int ofrom, int oto) {
 void rkb_adverb(RkB *b, tree_t *t, const char *key) {
     (void) b;
     if (!t || t->t != TT_HASH_GET) return;
+    if (!strcmp(key, "exists") && t->n >= 2 && rk_is_slice_key(t->c[1])) {
+        tree_t *h = t->c[0], *k = t->c[1];
+        t->t = TT_FNC;
+        t->v.sval = (char *) intern("hash_exists");
+        t->n = 0;
+        ast_push(t, leaf_sval(TT_VAR, "hash_exists"));
+        ast_push(t, h);
+        ast_push(t, k);
+        return;
+    }
     if (!strcmp(key, "exists")) t->t = TT_HASH_EXISTS; else if (!strcmp(key, "delete")) t->t = TT_HASH_DELETE;
 }
 /*====================================================================================================================================================================================================*/
@@ -2138,6 +2149,7 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
     if (!strcmp(nm, "reverse")) { tree_t *c = ast_node_new(TT_REVERSE); ast_push(c, rkb_paren(b, args, 1)); it->t = c; return; }
     if (!strcmp(nm, "exists") || !strcmp(nm, "delete")) {
         tree_t *a = rkb_expr(b, args);
+        if (a && a->t == TT_HASH_GET && nm[0] == 'e' && a->n >= 2 && rk_is_slice_key(a->c[1])) { tree_t *hc = make_call("hash_exists"); expr_add_child(hc, a->c[0]); expr_add_child(hc, a->c[1]); it->t = hc; return; }
         if (a && a->t == TT_HASH_GET) { a->t = nm[0] == 'e' ? TT_HASH_EXISTS : TT_HASH_DELETE; it->t = a; return; }
         tree_t *c = make_call(nm); expr_add_child(c, a); it->t = c; return;
     }
@@ -2247,6 +2259,35 @@ void rkb_method_term(RkB *b, RkTerm *it, RkPf *pf) {
     it->kind = TK_TREE; it->t = ast_node_new(TT_NUL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_slice_key(const tree_t *k) {
+    return k && k->t == TT_FNC && k->v.sval && (!strcmp(k->v.sval, "__rk_arr") || !strcmp(k->v.sval, "__rk_hkeys") || !strcmp(k->v.sval, "__rk_range_arr"));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_hash_key(RkB *b, RkPf *pf) {
+    if (pf->k == '<') {
+        const char *t = pf->txt ? pf->txt : "";
+        int nw = 0;
+        for (const char *q = t; *q; ) { while (*q && isspace((unsigned char) *q)) q++; if (!*q) break; nw++; while (*q && !isspace((unsigned char) *q)) q++; }
+        if (nw < 2) return leaf_sval(TT_QLIT, trimdup(t, (int) strlen(t)));
+        tree_t *a = make_call("__rk_arr");
+        for (const char *q = t; *q; ) {
+            while (*q && isspace((unsigned char) *q)) q++;
+            if (!*q) break;
+            const char *w = q;
+            while (*q && !isspace((unsigned char) *q)) q++;
+            expr_add_child(a, leaf_sval(TT_QLIT, trimdup(w, (int) (q - w))));
+        }
+        return a;
+    }
+    RkList *in = pf->inner;
+    if (in && in->n > 1) { tree_t *a = make_call("__rk_arr"); for (int i = 0; i < in->n; i++) expr_add_child(a, el_tree(b, &in->v[i])); return a; }
+    tree_t *k = rkb_expr(b, in);
+    if (k && k->t == TT_VAR && k->v.sval && k->v.sval[0] == '@') { tree_t *m = make_call("__rk_hkeys"); expr_add_child(m, k); return m; }
+    if (k && k->t == TT_TO && k->n >= 2) { tree_t *r = make_call("__rk_range_arr"); expr_add_child(r, k->c[0]); expr_add_child(r, k->c[1]); rk_range_fl_arg(r, k); k = r; }
+    if (k && k->t == TT_FNC && k->v.sval && !strcmp(k->v.sval, "__rk_range_arr")) { tree_t *m = make_call("__rk_hkeys"); expr_add_child(m, k); return m; }
+    return k;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
     int first = it->npost == 0;
     int adj = pf->from == it->core_to;
@@ -2295,7 +2336,7 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
             it->t = rk_arr_index(b, name, rk_star_elems(rkb_expr(b, xs), var_node(b, name))); return;
         }
         if ((cls == 'H' || (cls == 'S' && adj)) && (pf->k == '{' || pf->k == '<')) {
-            tree_t *key = pf->k == '<' ? leaf_sval(TT_QLIT, trimdup(pf->txt, (int) strlen(pf->txt))) : rkb_expr(b, pf->inner);
+            tree_t *key = rk_hash_key(b, pf);
             tree_t *c = ast_node_new(TT_HASH_GET); ast_push(c, var_node(b, name)); ast_push(c, key); it->t = c; return;
         }
         if (cls == 'S' && adj && pf->k == '[') { it->t = rk_arr_index(b, name, rk_star_elems(rkb_expr(b, pf->inner), var_node(b, name))); return; }
@@ -2352,7 +2393,7 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
         tree_t *c = ast_node_new(TT_ARR_GET); ast_push(c, e); ast_push(c, idx); it->t = c; return;
     }
     if (pf->k == '{' || pf->k == '<') {
-        tree_t *key = pf->k == '<' ? leaf_sval(TT_QLIT, trimdup(pf->txt, (int) strlen(pf->txt))) : rkb_expr(b, pf->inner);
+        tree_t *key = rk_hash_key(b, pf);
         tree_t *c = ast_node_new(TT_HASH_GET); ast_push(c, e); ast_push(c, key); it->t = c; return;
     }
     if (pf->k == '(' && e && e->t == TT_FNC && e->v.sval && !strcmp(e->v.sval, "__rk_typeobj") && e->n >= 2 && e->c[1] && e->c[1]->t == TT_QLIT && e->c[1]->v.sval) {
@@ -2586,6 +2627,14 @@ static tree_t *assign_forms(RkB *b, RkList *L, int tail, int bk) {
         tree_t *fe = ast_node_new(TT_TWIGIL_FIELD); fe->v.sval = (char *) intern(rk_tw_bare(t0->name + 1));
         return expr_binary(TT_ASSIGN, fe, rhs);
     }
+    if (eq && t0->kind == TK_VAR && t0->npost >= 1 && !t0->npre && t0->t && L->n > 1 && t0->t->t == TT_HASH_GET && t0->t->n >= 2 && rk_is_slice_key(t0->t->c[1])) {
+        tree_t *g = t0->t;
+        tree_t *rhs = make_call("__rk_arr");
+        expr_add_child(rhs, el_rest(b, e0));
+        for (int i = 1; i < L->n; i++) expr_add_child(rhs, el_tree(b, &L->v[i]));
+        tree_t *c = ast_node_new(TT_HASH_SET); ast_push(c, g->c[0]); ast_push(c, g->c[1]); ast_push(c, rhs);
+        return c;
+    }
     if (eq && t0->kind == TK_VAR && t0->npost >= 1 && !t0->npre && t0->t && L->n == 1) {
         tree_t *g = t0->t;
         if (g->t == TT_ARR_GET) {
@@ -2602,7 +2651,7 @@ static tree_t *assign_forms(RkB *b, RkList *L, int tail, int bk) {
             ast_push(c, rhs);
             return c;
         }
-        if (g->t == TT_HASH_GET) { tree_t *rhs = el_rest(b, e0); tree_t *c = ast_node_new(TT_HASH_SET); ast_push(c, g->c[0]); ast_push(c, g->c[1]); ast_push(c, rhs);
+        if (g->t == TT_HASH_GET) { tree_t *rhs = el_rest(b, e0); if (rk_is_slice_key(g->c[1]) && rhs && rhs->t == TT_TO && rhs->n >= 2) { tree_t *rr = make_call("__rk_range_arr"); expr_add_child(rr, rhs->c[0]); expr_add_child(rr, rhs->c[1]); rk_range_fl_arg(rr, rhs); rhs = rr; } tree_t *c = ast_node_new(TT_HASH_SET); ast_push(c, g->c[0]); ast_push(c, g->c[1]); ast_push(c, rhs);
             return c; }
     }
     int clv, ck;
