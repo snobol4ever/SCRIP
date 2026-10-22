@@ -2131,7 +2131,8 @@ static long long rk_ival(DESCR_t v) {
 static long long rk_int_arg(DESCR_t v, long long d) {
     extern int rk_rat_to_int(DESCR_t, long long *);
     long long q;
-    return IS_INT_fn(v) ? (long long) v.i : (v.v == DT_DATA && rk_rat_to_int(v, &q)) ? q : d;
+    if (IS_STR_fn(v)) { char *e = NULL; const char *t = rk_cstr(v); double dv = strtod(t, &e); return (e && e != t && !*e) ? (long long) dv : d; }
+    return IS_INT_fn(v) ? (long long) v.i : IS_REAL_fn(v) ? (long long) v.r : (v.v == DT_DATA && rk_rat_to_int(v, &q)) ? q : d;
 }
 static int rk_int_or_rat(DESCR_t v) { extern int rk_rat_is(DESCR_t); return IS_INT_fn(v) || (v.v == DT_DATA && rk_rat_is(v)); }
 static int rk_int_exact(DESCR_t v, long long *out) {
