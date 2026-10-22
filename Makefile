@@ -41,8 +41,9 @@ OBJ     ?= /tmp/si_objs$(subst /,-,$(ROOT))
 # THIS lock is bounded by ../harness/scripts/lib_pristine_lock.sh (build-governor-holds-pristine-while-box-idles) --
 # see the `pristine` target's own comment for why.
 BUILD_LOCK ?= /tmp/si_pristine_lock$(subst /,-,$(ROOT))
-CC      := gcc
-CXX     := g++
+CC_SLOT := $(if $(wildcard $(ROOT)/../harness/scripts/util_cc_slot.sh),bash $(abspath $(ROOT)/../harness/scripts/util_cc_slot.sh) ,)
+CC      := $(CC_SLOT)gcc
+CXX     := $(CC_SLOT)g++
 # ⛔⭐ ONE COMPILE CACHE FOR THE WHOLE FLEET (ceo CEO-1879; Lon 2026-10-21 18:5x CDT, in-chat to the ceo, verbatim: "Why is the load so high? Why do recompiles re-compile everything all the
 # time?"; measured CEO-1876: sixteen trees compiled every commit separately, no cache on the box). ccache keys on the preprocessed source and the flags, so a hit is the same compile and
 # s150's per-tree objdir guard still holds. It enters through its wrapper directory on PATH, so every printed command still reads gcc/g++ (test_gate_no_implicit_declarations greps them).
