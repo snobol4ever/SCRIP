@@ -62,9 +62,9 @@ std::string xa_to_int_operand_guard(int slot) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int rt_pl_db_frame_cells(void);
+#define XA_DB_NF() ((long)rt_pl_db_frame_cells())
 std::string xa_to_db_store_rax(int lab) {
-    int nf = rt_pl_db_frame_cells();
-    return x86("cmp", "rax", (long)nf)
+    return x86("cmp", "rax", XA_DB_NF())
            + x86("jge", L(lab))
            + x86_shift_imm("shl", 4, "rax", 3)
            + x86("mov", "rcx", "r14")
@@ -72,7 +72,7 @@ std::string xa_to_db_store_rax(int lab) {
            + x86("mov", "rax", RDQ("rcx", -24))
            + x86("jmp", L(lab + 1))
            + x86("def", L(lab))
-           + x86("sub", "rax", (long)nf)
+           + x86("sub", "rax", XA_DB_NF())
            + x86_shift_imm("shl", 4, "rax", 3)
            + x86("mov", "rcx", RDQ("r14", -24))
            + x86("mov", "rcx", RDQ("rcx", 24))
