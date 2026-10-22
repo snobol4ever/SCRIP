@@ -1,6 +1,7 @@
 #ifndef SNOBOL4_H
 #define SNOBOL4_H
 #include <stdint.h>
+#include "g_runtime.h"
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
@@ -289,22 +290,17 @@ DESCR_t *core_icn_act_arg(int lv, int k);
 int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int strict);
 void rt_trace_return_hook(const char *fname, DESCR_t retval);
 void rt_trace_gen_fail_hook(const char *fname, void *h);
-extern int64_t g_kw_fullscan;
-extern int64_t g_kw_maxlngth;
 extern int64_t g_kw_anchor;
-extern int64_t g_kw_trim;
 extern int64_t g_kw_stlimit;
 extern int64_t g_kw_stcount;
 extern int64_t g_kw_ftrace;
 extern int64_t g_kw_trace;
 extern int64_t g_kw_errlimit;
-extern int64_t g_kw_code;
 extern int64_t g_kw_fnclevel;
 extern char g_kw_rtntype[16];
 #include <setjmp.h>
 void core_runtime_error(int code, const char *msg);
 extern int g_kw_ctx;
-extern jmp_buf g_core_err_jmp;
 extern int g_core_err_active;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int core_err_is_terminal(int code) {

@@ -7,7 +7,8 @@
 #include "g_runtime_zsm.h"
 #include "g_runtime_eval.h"
 #include "g_runtime_bbprof.h"
-typedef struct { g_atoms_t atoms; g_slab_t slab; g_pc_t pc; g_agg_t agg; g_zsm_t zsm; g_eval_t eval; g_bbprof_t bbprof; } g_runtime_t;
+#include "g_runtime_core.h"
+typedef struct { g_atoms_t atoms; g_slab_t slab; g_pc_t pc; g_agg_t agg; g_zsm_t zsm; g_eval_t eval; g_bbprof_t bbprof; g_core_t core; } g_runtime_t;
 #ifdef __cplusplus
 extern "C" {
 #endif

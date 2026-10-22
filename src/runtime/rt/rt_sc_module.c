@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <dlfcn.h>
+#include "g_runtime.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +30,6 @@ typedef struct {
 } sc_module_t;
 static sc_module_t g_sc_mod;
 #include "../rtx/rtcc.h"
-extern int64_t g_kw_anchor, g_kw_trim, g_kw_fullscan, g_kw_maxlngth, g_kw_stlimit, g_kw_stcount, g_kw_trace, g_kw_ftrace;
 extern void core_lib_init(void);
 extern DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
 extern DESCR_t *rt_gva_island(int n);
@@ -100,13 +100,14 @@ static sc_module_t *sc_module_get(const char *lang) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_module_run(sc_module_t *m) {
-    int64_t s_anchor = g_kw_anchor, s_trim = g_kw_trim, s_full = g_kw_fullscan, s_max = g_kw_maxlngth, s_stl = g_kw_stlimit, s_stc = g_kw_stcount, s_tr = g_kw_trace, s_ftr = g_kw_ftrace;
+    int64_t s_anchor = g_kw_anchor, s_trim = g_runtime.core.kw_trim, s_full = g_runtime.core.kw_fullscan, s_max = g_runtime.core.kw_maxlngth, s_stl = g_kw_stlimit, s_stc = g_kw_stcount,
+        s_tr = g_kw_trace, s_ftr = g_kw_ftrace;
     char *save_top = rt_gc_program_top_get();
     if (save_top) { fprintf(stderr, "rt_sc_module: the parser module was entered while a program is live -- a run-time parse takes the C parser (CEO-1749)\n"); abort(); }
     g_kw_anchor = 0;
-    g_kw_trim = 0;
-    g_kw_fullscan = 1;
-    g_kw_maxlngth = 16777216;
+    g_runtime.core.kw_trim = 0;
+    g_runtime.core.kw_fullscan = 1;
+    g_runtime.core.kw_maxlngth = 16777216;
     g_kw_stlimit = -1;
     g_kw_trace = 0;
     g_kw_ftrace = 0;
@@ -114,9 +115,9 @@ static void sc_module_run(sc_module_t *m) {
     rt_sc_outer_call(m->d->main_alpha);
     rt_gc_program_top_set(save_top);
     g_kw_anchor = s_anchor;
-    g_kw_trim = s_trim;
-    g_kw_fullscan = s_full;
-    g_kw_maxlngth = s_max;
+    g_runtime.core.kw_trim = s_trim;
+    g_runtime.core.kw_fullscan = s_full;
+    g_runtime.core.kw_maxlngth = s_max;
     g_kw_stlimit = s_stl;
     g_kw_stcount = s_stc;
     g_kw_trace = s_tr;
