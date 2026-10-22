@@ -1862,6 +1862,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 *res = as;
                 return e;
             }
+            if (nm && !strcmp(nm, "push") && t->n > 1 && t->c[1] && t->c[1]->t == TT_FNC && t->c[1]->n > 0 && t->c[1]->c[0] && t->c[1]->c[0]->v.sval && !strcmp(t->c[1]->c[0]->v.sval, "__rk_arr_lit"))
+                return lower_rcall(cx, t, "push_pure", 1, γ, ω, res);
             if (nm && !strcmp(nm, "hash_set") && t->n > 2 && t->c[1] && (t->c[1]->t == TT_VAR || t->c[1]->t == TT_TWIGIL_FIELD)) {
                 const char * vn = t->c[1]->v.sval;
                 IR_t * as = build(cx, IR_ASSIGN, γ, ω);

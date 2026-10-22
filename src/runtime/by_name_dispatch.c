@@ -15959,6 +15959,16 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (mname0 && rk_qh_hook(mname0, args, nargs, out)) return 1;
         if (mname0 && rk_io_is(args[0]) && rk_io_path_method(mname0, args, nargs, out)) return 1;
         if (mname0 && IS_FH_fn(args[0]) && rk_io_fh_method(mname0, args, nargs, out)) return 1;
+        if (mname0 && nargs >= 2 && (IS_INT_fn(args[0]) || IS_REAL_fn(args[0])) &&
+            (!strcmp(mname0, "push") || !strcmp(mname0, "append") || !strcmp(mname0, "unshift") || !strcmp(mname0, "prepend") || !strcmp(mname0, "splice"))) {
+            extern void rt_script_die_surface(const char *msg);
+            char m[fmt_len("Cannot resolve caller %s(...); none of these signatures matches", mname0)];
+            snprintf(m, sizeof m, "Cannot resolve caller %s(...); none of these signatures matches", mname0);
+            rt_script_die_surface(m);
+            *out = FAILDESCR;
+            return 1;
+        }
+        if (mname0 && nargs >= 2 && (IS_INT_fn(args[0]) || IS_REAL_fn(args[0])) && (!strcmp(mname0, "pop") || !strcmp(mname0, "shift"))) { rk_method_missing(args[0], mname0, out); return 1; }
         DESCR_t _recv0 = args[0];
         int _was_list_recv = 0;
         { DESCR_t *_lva = 0; int _lvn = 0; if (_recv0.v == DT_DATA && rt_lv_is_list(_recv0, &_lva, &_lvn)) { _recv0 = rk_mark_list(rt_make_item_agg(_lva, _lvn)); _was_list_recv = 1; } }
@@ -16423,6 +16433,15 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if ((!strcmp(fn, "push_pure") || !strcmp(fn, "unshift_pure") || !strcmp(fn, "append_pure") || !strcmp(fn, "prepend_pure")) && nargs >= 1) {
         int is_app = fn[0] == 'a', is_pre = fn[0] == 'p' && fn[1] == 'r', is_push = fn[0] == 'p' && fn[1] == 'u';
         int back = is_push || is_app, flat = (is_app || is_pre) && nargs == 2;
+        if (IS_INT_fn(args[0]) || IS_REAL_fn(args[0])) {
+            extern void rt_script_die_surface(const char *msg);
+            const char *base = is_push ? "push" : is_app ? "append" : is_pre ? "prepend" : "unshift";
+            char m[fmt_len("Cannot resolve caller %s(...); none of these signatures matches", base)];
+            snprintf(m, sizeof m, "Cannot resolve caller %s(...); none of these signatures matches", base);
+            rt_script_die_surface(m);
+            *out = FAILDESCR;
+            return 1;
+        }
         if (back && args[0].v == DT_A && args[0].arr && ((ARBLK_t *) args[0].arr)->proto == NULL) {
             int add = 0;
             for (int i = 1; i < nargs; i++) add += flat ? rk_spill_count(args[i]) : rk_item_count(args[i]);
