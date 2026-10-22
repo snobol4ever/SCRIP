@@ -4197,6 +4197,16 @@ static void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int
             bb_op_name(nodes[r]->op), anchor[r]);
         if (zd_map_on()) for (int c = 0; c < n; c++) if (zon[c] && claim[c] >= 0 && zd_pl_cut(nodes[c]))
             fprintf(stderr, "[ZD-MAP] CUT i=%d restores rsp to depth %d\n", c, known[claim[c]] ? base[claim[c]] + zout[c] - zd_k(nodes[c]) : anchor[claim[c]]);
+        if (aof) for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) {
+            moved = 0;
+            for (int i = 0; i < n; i++) {
+                if (!zon[i] || claim[i] < 0 || aof[claim[i]] < 0) continue;
+                for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
+                    int l, q = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l, dead);
+                    if (q >= 0 && claim[q] == q && aof[q] < 0) { aof[q] = aof[claim[i]]; moved = 1; }
+                }
+            }
+        }
     }
 }
 extern "C" int zls_g_vslot_count(const IR_graph_t *); extern "C" const char * zls_g_vslot_get(const IR_graph_t *, int, int *); extern "C" int zls_g_block_base(const IR_graph_t *);
