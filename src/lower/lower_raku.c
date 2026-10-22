@@ -2278,15 +2278,21 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 if (!strcmp(mname, "pop") || !strcmp(mname, "shift")) {
                     const char * mut_fn = !strcmp(mname, "pop") ? "arr_init" : "arr_tail";
                     const char * val_fn = !strcmp(mname, "pop") ? "arr_last" : "__rk_arr_first";
-                    IR_t * asA = build(cx, IR_ASSIGN, γ, ω);
-                    IR_LIT(asA).sval = t->c[0]->v.sval;
-                    IR_t * rmut = NULL;
-                    IR_t * emut = lower_rcall1(cx, t->c[0], mut_fn, asA, ω, &rmut);
-                    if (rmut) ir_operand_push(asA, rmut);
-                    IR_t * rval = NULL;
-                    IR_t * eval_ = lower_rcall1(cx, t->c[0], val_fn, emut, ω, &rval);
-                    *res = rval;
-                    return eval_;
+                    char tb[40];
+                    snprintf(tb, sizeof tb, "$?pms%d", cx->g->n);
+                    const char * tmp = lp_strdup(tb);
+                    tree_t * sq = ast_node_new(TT_SEQ_EXPR);
+                    sq->line = t->line;
+                    tree_t * a1 = ast_node_new(TT_ASSIGN);
+                    ast_push(a1, leaf_sval2(TT_VAR, tmp));
+                    ast_push(a1, rk_fnc2(val_fn, t->c[0], NULL));
+                    tree_t * a2 = ast_node_new(TT_ASSIGN);
+                    ast_push(a2, leaf_sval2(TT_VAR, t->c[0]->v.sval));
+                    ast_push(a2, rk_fnc2(mut_fn, t->c[0], NULL));
+                    ast_push(sq, a1);
+                    ast_push(sq, a2);
+                    ast_push(sq, leaf_sval2(TT_VAR, tmp));
+                    return lower_rv(cx, sq, γ, ω, res);
                 }
             }
             if (mname && t->n == 2 && t->c[0] && !g_lower.rk.user_write_meth && (!strcmp(mname, "say") || !strcmp(mname, "print"))) {
