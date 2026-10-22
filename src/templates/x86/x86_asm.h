@@ -1088,17 +1088,14 @@ inline const char * x86_zop(int off, int q, int bump) {
             "FATAL x86_zop: offset %d is a key with no frame bytes behind it, addressed through the frame -- a keys-only graph, or a key past a home-frame graph's resident region (zls_key_unbacked, "
             "ceo CEO-1864/1884)\n", off);
             abort(); }
-    if (r != 2) zsm_frame_addr(off, -1, !icn_frame_rbp() && !(x86_resumable_frame() && x86_hb_on() && !x86_fb_data() && !_.op_stmt_dyn) &&
-        !(g_emit.zframe_graph && g_emit.frame_retained && x86_hb_on() && !_.op_stmt_dyn) &&
-            ((bump && !x86_fb_data() && !_.op_stmt_dyn) || (_.op_zf_unpinned && _.op_zres && !x86_fb_data() && !_.op_stmt_dyn)));
-    if (r != 2 && icn_frame_rbp()) return q ? RDQ("rbp", off - gen_frame_top()) : RDD("rbp", off - gen_frame_top());
+    if (r != 2 && icn_frame_rbp()) { zsm_frame_addr(off, -1, 0); return q ? RDQ("rbp", off - gen_frame_top()) : RDD("rbp", off - gen_frame_top()); }
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }
-    else if (x86_resumable_frame() && x86_hb_on() && !x86_fb_data() && !_.op_stmt_dyn) { x86_zop_note(3); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
-    else if (g_emit.zframe_graph && g_emit.frame_retained && x86_hb_on() && !_.op_stmt_dyn) { x86_zop_note(3); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
-    else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { eff = x86_frame_off(off) + bump; spine = 1; }
-    else if (_.op_zf_unpinned && _.op_zres && !x86_fb_data() && !_.op_stmt_dyn) { eff = off + _.op_zabs; spine = 1; }
-    else { eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
+    else if (x86_resumable_frame() && x86_hb_on() && !x86_fb_data() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 0); x86_zop_note(3); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
+    else if (g_emit.zframe_graph && g_emit.frame_retained && x86_hb_on() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 0); x86_zop_note(3); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
+    else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 1); eff = x86_frame_off(off) + bump; spine = 1; }
+    else if (_.op_zf_unpinned && _.op_zres && !x86_fb_data() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 1); eff = off + _.op_zabs; spine = 1; }
+    else { zsm_frame_addr(off, -1, 0); eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
     if (spine) snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", eff);
     else snprintf(b[i], 48, "%s%d]", q ? x86_fr64_prefix() : x86_fr32_prefix(), eff);
     return b[i];
