@@ -217,18 +217,25 @@ int zd_k(IR_t * nd) { return zd_k_own(nd) + zst_s_of(nd) + zd_djx_of(nd); }
 static int zd_dj_spine(const IR_t * nd) { if (!g_emitter.g_zd_zarm_p || g_emitter.g_zd_zarm_nodes != g_emitter.codegen_flat_chain_body_nodes) return 0;
     int i = nidx(g_emitter.g_zd_zarm_nodes, g_emitter.g_zd_zarm_n, nd); return (i >= 0 && zd_dj_admitted(g_emitter.g_zd_zarm_p, g_emitter.g_zd_zarm_n, i) && !zls_dj_retains(nd)) ? 32 : 0; }
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
-int zd_k_own(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO) return 16; if (zd_call_curmov(nd)) return 32; if (zd_icn_local_var(nd)) return 0; if (zd_icn_suspend(nd)) return 0;
-    if (op == IR_TO) return 32;
-    if (op == IR_DISJUNCTION && nd->n_operands > 0) return zd_dj_spine(nd);
-    return (op == IR_MATCH_RKRUN || op == IR_MATCH_RKCAPS || op == IR_MATCH_RKCAPE || op == IR_MATCH_RKLAND || op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || op == IR_DEFINE ||
-        op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE || op == IR_STATEMENT ||
-    op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK || op == IR_SETEXIT_TEST || op == IR_LINE_MARK || op == IR_MATCH_LIT || op == IR_MATCH_LEN || op == IR_MATCH_ANY ||
-        op == IR_MATCH_NOTANY ||
-    op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE || op == IR_MATCH_ALTERNATE ||
-    (op == IR_MATCH_FENCE1 || op == IR_MATCH_FENCE0 || op == IR_MATCH_ABORT) || op == IR_BOUND || op == IR_UNMARK || op == IR_CONJUNCTION || op == IR_CUT || op == IR_GATE_ARM ||
-        op == IR_CLEANUP || op == IR_TABLE_HDR || op == IR_UNIFY_CONST || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE ||
-    op == IR_RETURN || (op == IR_DISJUNCTION && nd->n_operands == 0) ||
-    (op == IR_MATCH_DEFER && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5))) ? 0 : 16; }
+enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV };
+#include "box_cell_shapes.inc"
+static int zd_bcs_when(IR_t * nd, int w) {
+    if (w == BCS_ALWAYS) return 1;
+    if (w == BCS_CALL_CURMOV) return zd_call_curmov(nd);
+    if (w == BCS_ICN_LOCAL) return zd_icn_local_var(nd);
+    if (w == BCS_ICN_SUSPEND) return zd_icn_suspend(nd);
+    if (w == BCS_HAS_OPERANDS) return nd->n_operands > 0;
+    if (w == BCS_NO_OPERANDS) return nd->n_operands == 0;
+    return (w == BCS_PATV && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5)) ? 1 : 0;
+}
+int zd_k_own(IR_t * nd) {
+    int op = (int)nd->op;
+    for (size_t r = 0; r < sizeof box_cell_shapes / sizeof box_cell_shapes[0]; r++) {
+        if ((box_cell_shapes[r].op >= 0 && box_cell_shapes[r].op != op) || !zd_bcs_when(nd, box_cell_shapes[r].when)) continue;
+        return box_cell_shapes[r].words < 0 ? zd_dj_spine(nd) : box_cell_shapes[r].words;
+    }
+    return 16;
+}
 static int zd_map_on(void) { if (g_emitter.zd_map_on__m < 0) { const char * e = getenv("SCRIP_ZD_MAP"); g_emitter.zd_map_on__m = (e && *e == '1') ? 1 : 0; } return g_emitter.zd_map_on__m; }
 int zd_omega_test_kind(const IR_t * nd) { return (nd && nd->ω.node && ir_decides_own_failure_kind(nd->op)) ? 1 : 0; }
 static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t) >= 0; }
