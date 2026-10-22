@@ -827,7 +827,7 @@ static int zd_dj_arm_rbp_state(const IR_t * nd, int a) {
         if (o != IR_LIT_INTEGER && o != IR_LIT_STRING && o != IR_LIT_REAL && o != IR_VAR && o != IR_LINE_MARK) return 0;
         x = zd_chase(x->γ.node);
     }
-    return x == rs;
+    return x == rs && zd_chase(rs->γ.node) == nd;
 }
 static int zd_dj_rbp_arms(const IR_t * nd) {
     int na = (nd && nd->op == IR_DISJUNCTION) ? (int)IR_LIT(nd).ival : 0, r = 0;
