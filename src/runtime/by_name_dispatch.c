@@ -1157,6 +1157,29 @@ static rk_av_t rk_av(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_av_text(rk_av_t a, int i) { return (i < 0 || i >= a.n) ? "" : rk_cstr(a.el[i]); }
+static int rk_is_pair(DESCR_t v);
+static int rk_trans_items(DESCR_t side, const char **o, int cap) {
+    int n = 0;
+    if (side.v == DT_A && side.arr && !rk_is_pair(side)) { rk_av_t a = rk_av(side); for (int i = 0; i < a.n; i++) { if (o && n < cap) o[n] = rk_av_text(a, i); n++; } return n; }
+    const char *t = rk_cstr(side);
+    size_t tl = strlen(t);
+    for (size_t i = 0, l; i < tl; i += l) {
+        unsigned cp = rk_utf8_cp((const unsigned char *) t + i, tl - i, &l);
+        if (!l) l = 1;
+        size_t l2 = 0, l3 = 0, l4 = 0;
+        unsigned c2 = i + l < tl ? rk_utf8_cp((const unsigned char *) t + i + l, tl - i - l, &l2) : 0;
+        unsigned c3 = (c2 == '.' && i + l + l2 < tl) ? rk_utf8_cp((const unsigned char *) t + i + l + l2, tl - i - l - l2, &l3) : 0;
+        if (c2 == '.' && c3 == '.' && i + l + l2 + l3 < tl) {
+            unsigned hi = rk_utf8_cp((const unsigned char *) t + i + l + l2 + l3, tl - i - l - l2 - l3, &l4);
+            for (unsigned c = cp; c <= hi; c++) { if (o && n < cap) { char *b = rt_wsb_alloc(8); size_t k = rk_utf8_put(c, b); b[k] = 0; o[n] = b; } n++; }
+            l += l2 + l3 + (l4 ? l4 : 1);
+            continue;
+        }
+        if (o && n < cap) { char *b = rt_wsb_alloc(l + 1); memcpy(b, t + i, l); b[l] = 0; o[n] = b; }
+        n++;
+    }
+    return n;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_av_elem(rk_av_t a, int i) { return (i < 0 || i >= a.n) ? NULVCL : a.el[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3832,19 +3855,65 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "lines")) { *out = rk_lines_arr(s, n); return 1; }
     if (!strcmp(meth, "elems")) { *out = INTVAL(s[0] ? 1 : 0); return 1; }
     if (!strcmp(meth, "trans") && nmargs >= 1) {
-        rk_av_t fa = { 0, NULL, 0 }, ta = { 0, NULL, 0 };
-        if (rk_is_pair(margs[0])) { rk_av_t pp = rk_av(margs[0]); fa = rk_av(pp.el[0]); ta = rk_av(pp.el[1]); }
-        int half = fa.n;
-        if (half < 1 || ta.n != half) { char *r = (char *)rt_str_alloc(n); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
-        const char **from = (const char **) rt_pvec_alloc((size_t) half), **to = (const char **) rt_pvec_alloc((size_t) half);
-        size_t *fromlen = (size_t *) rt_wsb_alloc(sizeof(size_t) * (size_t) half), *tolen = (size_t *) rt_wsb_alloc(sizeof(size_t) * (size_t) half), maxto = 1;
-        for (int k = 0; k < half; k++) { from[k] = rk_av_text(fa, k); fromlen[k] = strlen(from[k]); to[k] = rk_av_text(ta, k); tolen[k] = strlen(to[k]); if (tolen[k] > maxto) maxto = tolen[k]; }
+        int np = 0, total = 0, ne = 0, flags = 0;
+        for (int i = 0; i < nmargs; i++) {
+            if (!rk_is_pair(margs[i])) continue;
+            rk_av_t fp = rk_av(margs[i]);
+            if (fp.n > 1 && !strcmp(rk_cstr(fp.el[0]), "__trans_flags")) { flags = (int) rk_ival(fp.el[1]); continue; }
+            np++;
+            total += rk_trans_items(fp.el[0], NULL, 0);
+        }
+        int fc = flags & 1, fd = flags & 2, fs = flags & 4;
+        if (!np || total < 1) { char *r = (char *)rt_str_alloc(n); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
+        const char **from = (const char **) rt_pvec_alloc((size_t) total), **to = (const char **) rt_pvec_alloc((size_t) total), *clast = "";
+        size_t *fromlen = (size_t *) rt_wsb_alloc(sizeof(size_t) * (size_t) total), *tolen = (size_t *) rt_wsb_alloc(sizeof(size_t) * (size_t) total), maxto = 1;
+        int cdel = 0;
+        for (int i = 0; i < nmargs; i++) {
+            if (!rk_is_pair(margs[i])) continue;
+            rk_av_t pp = rk_av(margs[i]);
+            if (pp.n > 1 && !strcmp(rk_cstr(pp.el[0]), "__trans_flags")) continue;
+            int nf = rk_trans_items(pp.el[0], NULL, 0), nt = rk_trans_items(pp.n > 1 ? pp.el[1] : NULVCL, NULL, 0);
+            const char **F = (const char **) rt_pvec_alloc((size_t) (nf ? nf : 1)), **T = (const char **) rt_pvec_alloc((size_t) (nt ? nt : 1));
+            rk_trans_items(pp.el[0], F, nf);
+            rk_trans_items(pp.n > 1 ? pp.el[1] : NULVCL, T, nt);
+            clast = nt ? T[nt - 1] : "";
+            cdel = fd && nt == 0;
+            for (int k = 0; k < nf && ne < total; k++, ne++) {
+                from[ne] = F[k];
+                to[ne] = k < nt ? T[k] : (fd ? NULL : (nt ? T[nt - 1] : ""));
+                fromlen[ne] = strlen(from[ne]);
+                tolen[ne] = to[ne] ? strlen(to[ne]) : 0;
+                if (tolen[ne] > maxto) maxto = tolen[ne];
+            }
+        }
+        size_t cl = strlen(clast);
+        if (cl > maxto) maxto = cl;
         char *r = (char *)rt_str_alloc(n * maxto + n);
-        size_t op = 0, i = 0;
+        size_t op = 0, i = 0, lastlen = 0;
+        const char *lastrep = NULL;
         while (i < n) {
             int matched = -1;
-            for (int k = 0; k < half; k++) { if (fromlen[k] > 0 && i + fromlen[k] <= n && memcmp(s + i, from[k], fromlen[k]) == 0) { matched = k; break; } }
-            if (matched >= 0) { memcpy(r + op, to[matched], tolen[matched]); op += tolen[matched]; i += fromlen[matched]; } else { r[op++] = s[i++]; }
+            for (int k = 0; k < ne; k++) { if (fromlen[k] > 0 && i + fromlen[k] <= n && memcmp(s + i, from[k], fromlen[k]) == 0 && (matched < 0 || fromlen[k] > fromlen[matched])) matched = k; }
+            size_t step = 1;
+            if (matched >= 0) step = fromlen[matched];
+            else { size_t ul; rk_utf8_cp((const unsigned char *) s + i, n - i, &ul); step = ul ? ul : 1; }
+            const char *rep;
+            size_t rl;
+            int translated;
+            if (fc) {
+                translated = matched < 0;
+                rep = cdel ? NULL : clast;
+                rl = rep ? cl : 0;
+            } else {
+                translated = matched >= 0;
+                rep = translated ? to[matched] : NULL;
+                rl = rep ? tolen[matched] : 0;
+            }
+            if (!translated) { memcpy(r + op, s + i, step); op += step; i += step; lastrep = NULL; continue; }
+            if (rep && !(fs && lastrep && lastlen == rl && !memcmp(lastrep, rep, rl))) { memcpy(r + op, rep, rl); op += rl; }
+            lastrep = rep ? rep : lastrep;
+            lastlen = rl;
+            i += step;
         }
         r[op] = '\0';
         *out = STRVAL(r);

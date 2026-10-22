@@ -4851,6 +4851,26 @@ static void rk_qualified_sub_refs(const tree_t * prog, tree_t * t) {
     t->v.sval = (char *) lp_strdup(nb);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_trans_flag_of(const char * nm) { return (nm && nm[0] && !nm[1] && strchr("cds", nm[0])) ? (nm[0] == 'c' ? 1 : nm[0] == 'd' ? 2 : 4) : 0; }
+static int rk_is_mkbool(const tree_t * a, int args) { return a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "__rk_mkbool") && a->n == args && a->c[1] && a->c[1]->t == TT_ILIT; }
+static void rk_trans_flags_walk(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_trans_flags_walk(t->c[i]);
+    if (t->t != TT_METHCALL || t->n < 3 || !t->c[1] || t->c[1]->t != TT_QLIT || !t->c[1]->v.sval || strcmp(t->c[1]->v.sval, "trans")) return;
+    int flags = 0, w = 2;
+    for (int i = 2; i < t->n; i++) {
+        const tree_t * a = t->c[i];
+        if (rk_is_mkbool(a, 3) && a->c[2] && a->c[2]->t == TT_QLIT && rk_trans_flag_of(a->c[2]->v.sval)) { if (a->c[1]->v.ival) flags |= rk_trans_flag_of(a->c[2]->v.sval); continue; }
+        if (a && a->t == TT_QLIT && rk_trans_flag_of(a->v.sval) && i + 1 < t->n && rk_is_mkbool(t->c[i + 1], 2)) { if (t->c[i + 1]->c[1]->v.ival) flags |= rk_trans_flag_of(a->v.sval); i++; continue; }
+        t->c[w++] = t->c[i];
+    }
+    t->n = w;
+    if (!flags) return;
+    tree_t * fl = ast_node_new(TT_ILIT);
+    fl->v.ival = flags;
+    ast_push(t, rk_fnc2("__rk_pair", leaf_sval2(TT_QLIT, "__trans_flags"), fl));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_subst_adverb_mode(const tree_t * a) {
     if (!a || a->t != TT_FNC || !a->v.sval || strcmp(a->v.sval, "__rk_mkbool") || a->n != 3 || !a->c[1] || a->c[1]->t != TT_ILIT || !a->c[2] || a->c[2]->t != TT_QLIT || !a->c[2]->v.sval) return -1;
     if (!a->c[1]->v.ival) return 0;
@@ -6358,6 +6378,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_smartmatch_topic_walk((tree_t *) prog);
     rk_smartmatch_code_walk(prog, (tree_t *) prog);
     rk_qualified_sub_refs(prog, (tree_t *) prog);
+    rk_trans_flags_walk((tree_t *) prog);
     rk_subst_meth_walk((tree_t *) prog);
     { int sseq = 0; rk_subst_code_walk(prog, (tree_t *) prog, &sseq); }
     { int pseq = 0; rk_parse_actions_walk((tree_t *) prog, &pseq); }
