@@ -9,6 +9,7 @@ RTX_GATE_DEF(plunify)
 #define CTX_FRAME        56
 #define CTX_SAVE mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov qword ptr [rsp + CTX_RBX], rbx; mov qword ptr [rsp + CTX_R14], r14; mov qword ptr [rsp + CTX_R15], r15
 #define PL_TR_ARENA_MASK  -536870912
+#define PL_TR_ENTRY_BYTES 32
 #define PL_TR_BALL_SLOT   8
 #define PL_TR_OCHECK_SLOT 24
 #define PL_ATTV_SLEN      0x56545441
@@ -122,7 +123,7 @@ RTX_ENDF(rt_pl_dop_clause_unify)
 #define PL_U_TRAIL(c, l) test r13, r13; jz .l##9; cmp c, rsp; ja .l##4; mov rax, qword ptr [r13]; mov rcx, qword ptr [rax - 32]; test rcx, rcx; jne .l##5; \
     mov rcx, qword ptr [rax - 24]; cmp c, rcx; jb .l##5; mov rax, qword ptr [rip + g_runtime@GOTPCREL]; mov rax, qword ptr [rax]; cmp c, rax; jb .l##9; jmp .l##5; \
     .l##4: mov rax, qword ptr [r13 + 32]; shr rax, 8; cmp c, rax; jb .l##9; \
-    .l##5: mov rax, r12; and rax, 134217727; cmp rax, 134217696; jae .Lun_refuse; mov rax, qword ptr [c]; mov rcx, qword ptr [c + 8]; mov qword ptr [r12], c; mov qword ptr [r12 + 8], 0; mov qword ptr [r12 + 16], rax; mov qword ptr [r12 + 24], rcx; add r12, 32; \
+    .l##5: mov rax, r12; and rax, (-PL_TR_ARENA_MASK - 1); cmp rax, (-PL_TR_ARENA_MASK - PL_TR_ENTRY_BYTES); jae .Lun_refuse; mov rax, qword ptr [c]; mov rcx, qword ptr [c + 8]; mov qword ptr [r12], c; mov qword ptr [r12 + 8], 0; mov qword ptr [r12 + 16], rax; mov qword ptr [r12 + 24], rcx; add r12, 32; \
     .l##9:
 #define PL_U_WORK_BYTES 696
 #define PL_U_FRAME_BYTES 728
