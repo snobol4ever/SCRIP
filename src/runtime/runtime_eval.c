@@ -1221,6 +1221,7 @@ static int rk_emit_new_procs(int pc0) {
     g_frame_active = 1;
     int ga = g_gen_proc_active;
     g_runtime.eval.rt_fragment_emit = 1;
+    { extern void emit_plan_procs(stage2_t *, int, int); emit_plan_procs(&g_stage2, pc0, 0); }
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
         const char *pname = g_stage2.proc_table[pi].name;
         int idx = g_stage2.proc_table[pi].bb_idx;

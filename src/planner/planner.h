@@ -20,6 +20,8 @@ struct zeta_plan_t {
     int * b;
     unsigned char * kn;
     IR_t * entry;
+    IR_graph_t * cfg;
+    IR_t * key;
     int own_root;
     int empty_fail;
     int empty_succ;
@@ -36,6 +38,8 @@ struct zeta_plan_t {
 void planner_capture(zeta_plan_t * rec);
 void planner_restore(zeta_plan_t * rec);
 zeta_plan_t * planner_lookup_or_plan(IR_t * entry, const char * prefix);
+void planner_pass_plan(IR_t * entry, const char * prefix);
+void planner_table_clear(void);
 zeta_plan_t * planner_chain_plan(IR_t * entry, const char * prefix);
 int zd_dj_admitted(const int * zarm, int n, int ei);
 int zd_dj_cellless(IR_t ** nodes, int n, const int * zarm, int k);

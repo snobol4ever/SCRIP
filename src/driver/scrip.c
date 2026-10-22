@@ -244,12 +244,7 @@ static void sn4_dentry_table_build(IR_graph_t *bbg, stage2_t *s2) {
         }
     }
 }
-static int proc_role3_kind(const IR_graph_t *g) {
-    if (!g || !g->entry) return 0;
-    if (g->entry->op == IR_GOTO_DEFERRED) return 1;
-    const IR_t *e = (g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) ? g->entry : (const IR_t *)0;
-    return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2;
-}
+extern int proc_role3_kind(const IR_graph_t *g);
 static const char *asm_sym_name(const char *nm) { extern const char * bb_ab_sym_name(const char *); return bb_ab_sym_name(nm); }
 static const char *g_sc_module_name = (const char *)0;
 extern tree_t *sno_parse_stage_buf(const char *src, size_t len, const char *path, const char *incl, size_t incl_len);
@@ -2473,6 +2468,7 @@ int main(int argc, char **argv) {
                 if (_n > _pfxcap) _pfxcap = _n;
             }
             char _pfx[_pfxcap];
+            { extern void emit_plan_procs(stage2_t *, int, int); extern void emit_plan_main(IR_graph_t *, const char *); emit_plan_procs(s2, 0, 1); emit_plan_main(bbg, "main"); }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -2484,39 +2480,9 @@ int main(int argc, char **argv) {
                     pn = (const char **)ct_zalloc((size_t)np, sizeof(const char *));
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
-                { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
-                { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
-                {
-                    extern int g_flat_frame_floor;
-                    extern int zls_g_region(const IR_graph_t *);
-                    IR_graph_t *_pg = s2->bbp.table[idx];
-                    int _is_lbl = pname && strncmp(pname, "LBL__", 5) == 0;
-                    g_flat_frame_floor = 0;
-                    int _floor_hit = (_is_lbl || (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)));
-                    if (getenv("SCRIP_FLOOR_DIAG"))
-                        fprintf(stderr, "[FLOOR-DIAG] pname=%s is_lbl=%d entry_op=%d hit=%d\n", pname ? pname : "(null)", _is_lbl, _pg && _pg->entry ? (int)_pg->entry->op : -1, _floor_hit);
-                    if (_floor_hit) {
-                        for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) {
-                            int _mx = s2->proc_table[_mi].bb_idx;
-                            if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]);
-                            break;
-                        }
-                    }
-                    if (getenv("SCRIP_FLOOR_DIAG") && _floor_hit) fprintf(stderr, "[FLOOR-DIAG] -> g_flat_frame_floor=%d\n", g_flat_frame_floor);
-                }
-                {
-                    extern int emit_jmp_entry_for_patproc(int, IR_graph_t*);
-                    extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*);
-                    extern void emit_jmp_entry_clear(void);
-                    extern int g_flat_dc_np;
-                    extern int rt_pl_dc_ok(const char *, int);
-                    int _isp = emit_jmp_entry_for_patproc(s2->proc_table[_pi].thunk_kind, s2->bbp.table[idx]);
-                    if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
-                    g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1;
-                    proc_ispat_buf[n_procs] = _isp;
-                }
-                { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
-                { extern int g_emit_frame_caller_dl; IR_graph_t *_cg = s2->bbp.table[idx]; g_emit_frame_caller_dl = (_cg->caller_frame && _cg->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
+                int _isp = 0;
+                { extern void emit_proc_prepare(stage2_t *, int, int, int *); emit_proc_prepare(s2, _pi, 0, &_isp); }
+                proc_ispat_buf[n_procs] = _isp;
                 if (_lbl_owned && strncmp(pname, "LBL__", 5) != 0) sn4_balias_fill(s2->bbp.table[idx], s2, _lbl_own, idx, 0);
                 {
                     snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname));
@@ -2532,9 +2498,7 @@ int main(int argc, char **argv) {
                         if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname));
                     }
                 }
-                { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
-                { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
-                { extern int g_gen_proc_active; g_gen_proc_active = 0; }
+                { extern void emit_proc_unprepare(void); emit_proc_unprepare(); }
                 {
                     extern int g_last_flat_frame_bytes;
                     proc_fb_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_frame_bytes;
@@ -2788,6 +2752,7 @@ int main(int argc, char **argv) {
             emit_textf_flush();
             fflush(stdout);
             ir_delete_all(s2);
+            { extern void planner_table_clear(void); planner_table_clear(); }
             return rc;
         }
     }
@@ -2880,6 +2845,12 @@ int main(int argc, char **argv) {
             unsigned char _lbl_own[s2->bbp.count > 0 ? s2->bbp.count : 1];
             int _lbl_owned = sn4_lbl_owners(s2, _lbl_own);
             m3_lbl_ctx_t _m3lc = { s2, _lbl_own, _lbl_owned };
+            {
+                extern void emit_plan_procs(stage2_t *, int, int);
+                extern void emit_plan_main(IR_graph_t *, const char *);
+                emit_plan_procs(s2, 0, 0);
+                if (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count && s2->bbp.table[main_bb_idx] && s2->bbp.table[main_bb_idx]->entry) emit_plan_main(s2->bbp.table[main_bb_idx], "pat_flat");
+            }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -2920,6 +2891,7 @@ int main(int argc, char **argv) {
             int _nparams = bbg->nparams, _zframe_graph = bbg->zframe_graph, _icn_cells_graph = bbg->cell_frame;
             int _pl_root = (bbg->zframe_graph && !bbg->cell_frame && bbg->root_graph) ? 1 : 0;
             ir_delete_all(s2);
+            { extern void planner_table_clear(void); planner_table_clear(); }
             void *mf = NULL;
             { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
             {

@@ -301,6 +301,8 @@ struct g_emitter_t {
     std::unordered_set<std::string> xa_icn_trace_intern_pool;
     int bcps_sig_tally__sd = -1;
     int defer_prepare_g_defer_site_n;
+    std::unordered_map<const IR_t *, struct zeta_plan_t *> planner_table;
+    int planner_hits = 0, planner_fallbacks = 0;
 };
 extern g_emitter_t g_emitter;
 #endif

@@ -1666,9 +1666,16 @@ extern "C" long zsm_declared_word(void) {
     return (k & 0xFFFFL) | ((gp & 0xFFFFL) << 16) | ((wp & 0xFFFFL) << 32) | (1L << 48) | ((long)rel << 49) | ((long)lg << 50) | ((long)lw << 51) | ((long)lb << 54);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void planner_pass_plan(IR_t * entry, const char * prefix) { zeta_plan_t * rec = planner_chain_plan(entry, prefix); rec->cfg = g_emit_cfg; rec->key = entry; g_emitter.planner_table[entry] = rec; }
+void planner_table_clear(void) {
+    if (getenv("SCRIP_PLANNER_REPORT")) fprintf(stderr, "[PLANNER-PASS] planned=%d hits=%d fallbacks=%d\n", (int) g_emitter.planner_table.size(), g_emitter.planner_hits, g_emitter.planner_fallbacks);
+    g_emitter.planner_table.clear();
+}
 zeta_plan_t * planner_lookup_or_plan(IR_t * entry, const char * prefix) {
-    zeta_plan_t * rec = planner_chain_plan(entry, prefix);
-    planner_restore(rec);
-    return rec;
+    std::unordered_map<const IR_t *, zeta_plan_t *>::iterator it = g_emitter.planner_table.find(entry);
+    if (it != g_emitter.planner_table.end() && it->second->cfg == g_emit_cfg) { g_emitter.planner_hits++; planner_restore(it->second); return it->second; }
+    g_emitter.planner_fallbacks++;
+    if (getenv("SCRIP_PLANNER_REPORT")) fprintf(stderr, "[PLANNER-FALLBACK] prefix=%s graph=%p n=%d\n", prefix ? prefix : "?", (const void *) g_emit_cfg, g_emit_cfg ? g_emit_cfg->n : -1);
+    zeta_plan_t * rec = planner_chain_plan(entry, prefix); rec->cfg = g_emit_cfg; rec->key = entry; planner_restore(rec); return rec;
 }
 }
