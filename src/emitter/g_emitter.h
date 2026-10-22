@@ -59,6 +59,7 @@ struct g_emitter_t {
     const int * g_zd_fbase_p = 0;
     const int * g_zd_gp_p = 0;
     const int * g_zd_out_p = 0;
+    const int * g_zd_wp_p = 0;
     IR_t ** g_zd_nodes_p = 0;
     int g_zd_n = 0;
     int g_zd_cur = -1;

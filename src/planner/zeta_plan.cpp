@@ -1611,6 +1611,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         rec->kn = (unsigned char *)ct_zalloc((size_t)n, 1); memcpy(rec->kn, _kn, (size_t)n);
         g_emitter.g_zd_claim_p = rec->claim; g_emitter.g_zd_xb_p = rec->xb; g_emitter.g_zd_nodes_p = g_emitter.codegen_flat_chain_body_nodes; g_emitter.g_zd_n = n; g_emitter.g_zd_cut_p = rec->cut;
         g_emitter.g_zd_fam_p = rec->fam; g_emitter.g_zd_fbase_p = rec->fbase; g_emitter.g_zd_gp_p = rec->gp; g_emitter.g_zd_out_p = rec->out;
+        g_emitter.g_zd_wp_p = rec->wp;
     }
     g_emitter.g_zd_plan_on = rec->on; g_emitter.g_zd_plan_nodes = g_emitter.codegen_flat_chain_body_nodes; g_emitter.g_zd_plan_n = n;
     planner_capture(rec);
@@ -1647,10 +1648,24 @@ void planner_restore(zeta_plan_t * rec) {
     g_emitter.g_zrm_map.len = rec->zrm_len; if (rec->zrm_len) memcpy(g_emitter.g_zrm_map.p, rec->zrm_bytes.data(), (size_t)rec->zrm_len * (size_t)rec->zrm_esz); g_emitter.g_zrm_gen = rec->zrm_gen;
     if (n > 0) { g_emitter.g_zd_claim_p = rec->claim; g_emitter.g_zd_xb_p = rec->xb; g_emitter.g_zd_nodes_p = nodes; g_emitter.g_zd_n = n; g_emitter.g_zd_cut_p = rec->cut;
         g_emitter.g_zd_fam_p = rec->fam;
-        g_emitter.g_zd_fbase_p = rec->fbase; g_emitter.g_zd_gp_p = rec->gp; g_emitter.g_zd_out_p = rec->out; }
+        g_emitter.g_zd_fbase_p = rec->fbase; g_emitter.g_zd_gp_p = rec->gp; g_emitter.g_zd_out_p = rec->out; g_emitter.g_zd_wp_p = rec->wp; }
     g_emitter.g_zd_plan_on = rec->on; g_emitter.g_zd_plan_nodes = nodes; g_emitter.g_zd_plan_n = n;
     if (rec->zarm_published) { g_emitter.g_zd_zarm_p = rec->arm; g_emitter.g_zd_zarm_nodes = nodes; g_emitter.g_zd_zarm_n = n; }
 }
+extern "C" long zsm_declared_word(void) {
+    const IR_t * nd = g_emit.node;
+    int n = g_emitter.g_zd_plan_n, i = (nd && g_emitter.g_zd_plan_nodes && g_emitter.g_zd_plan_on) ? nidx(g_emitter.g_zd_plan_nodes, n, nd) : -1;
+    if (i < 0 || !g_emitter.g_zd_plan_on[i]) return 0L;
+    int rel = g_emitter.g_zd_nodes_p == g_emitter.g_zd_plan_nodes && g_emitter.g_zd_n == n && g_emitter.g_zd_gp_p && g_emitter.g_zd_wp_p;
+    long k = zd_k((IR_t *)nd), gp = rel ? g_emitter.g_zd_gp_p[i] : 0, wp = rel ? g_emitter.g_zd_wp_p[i] : 0;
+    int o = (int)nd->op, ex = zd_check_arm_env(o) || o == IR_UNMARK || o == IR_CUT || o == IR_MATCH_END || o == IR_MATCH_REPLACE;
+    IR_t * tg = zd_chase(nd->γ.node), * tw = zd_chase(nd->ω.node);
+    int lg = !ex && tg && !zd_check_discard(tg) && !zd_check_arm_env((int)tg->op);
+    int lw = !ex && tw && !zd_check_discard(tw) && !zd_check_arm_env((int)tw->op) && !(tw->op == IR_MATCH_BEGIN && zd_sz_phi(zd_edge_sz((IR_t *)nd, 1)));
+    int lb = !zd_check_discard(nd) && !zd_check_arm_env(o);
+    return (k & 0xFFFFL) | ((gp & 0xFFFFL) << 16) | ((wp & 0xFFFFL) << 32) | (1L << 48) | ((long)rel << 49) | ((long)lg << 50) | ((long)lw << 51) | ((long)lb << 54);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 zeta_plan_t * planner_lookup_or_plan(IR_t * entry, const char * prefix) {
     zeta_plan_t * rec = planner_chain_plan(entry, prefix);
     planner_restore(rec);

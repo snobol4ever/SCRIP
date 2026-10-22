@@ -42,5 +42,16 @@ typedef struct {
     DESCR_t (*user_call_hook)(const char *name, DESCR_t *args, int nargs, long *rq);
     sc_module_t sc_mod;
     int sn4_direct_v;
+    unsigned long zsm_pre_node;
+    unsigned long zsm_pre_rsp;
+    int zdecl_mode;
+    unsigned long zdecl_chk[4][256];
+    unsigned long zdecl_bad[4][256];
+    unsigned long zsm_ek_node[ZSM_N / 4];
+    unsigned long zsm_ek_rbp[ZSM_N / 4];
+    unsigned long zsm_ek_e[ZSM_N / 4][8];
+    unsigned char zsm_ek_n[ZSM_N / 4];
+    unsigned char zsm_ek_cut[ZSM_N / 4];
+    unsigned long zdecl_unanchored;
 } g_misc_t;
 #endif

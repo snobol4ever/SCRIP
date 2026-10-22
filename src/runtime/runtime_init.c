@@ -68,6 +68,65 @@ static void zsm_dump(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zsm_decl_on(void) {
+    if (!g_runtime.misc.zdecl_mode) { const char * e = getenv("SCRIP_ZSM_DECL"); g_runtime.misc.zdecl_mode = (e && *e == '1') ? 2 : 1; }
+    return g_runtime.misc.zdecl_mode == 2;
+}
+static long zsm_decl_field(long decl, int f) { return (long)(short)((decl >> (16 * f)) & 0xFFFFL); }
+static const char * zsm_decl_port(int p) { return p == 0 ? "beta" : p == 1 ? "gamma" : p == 2 ? "omega" : "record"; }
+static void zsm_decl_check(int port, long zop, unsigned long node, long declared, long actual) {
+    int op = (zop >= 0L && zop < 256L) ? (int)zop : 255;
+    g_runtime.misc.zdecl_chk[port][op]++;
+    if (declared == actual) return;
+    if (++g_runtime.misc.zdecl_bad[port][op] <= 3UL)
+        fprintf(stderr, "[ZSM-DECL] port=%s op=%ld(%s) node=%lu declared=%ld actual=%ld st=%ld\n", zsm_decl_port(port), zop, bb_op_name((IR_e)zop), node, declared, actual,
+        (long)g_runtime.misc.kw_stcount);
+}
+static unsigned long zsm_ek_slot(unsigned long node, unsigned long rbp) { return (((node * 0x9E3779B97F4A7C15UL) ^ (rbp >> 3) * 0xC2B2AE3D27D4EB4FUL) >> 40) & (ZSM_N / 4 - 1); }
+static void zsm_ek_push(unsigned long node, unsigned long rbp, unsigned long e) {
+    unsigned long k = zsm_ek_slot(node, rbp);
+    unsigned long * st = g_runtime.misc.zsm_ek_e[k];
+    if (g_runtime.misc.zsm_ek_node[k] != node || g_runtime.misc.zsm_ek_rbp[k] != rbp) {
+        g_runtime.misc.zsm_ek_node[k] = node;
+        g_runtime.misc.zsm_ek_rbp[k] = rbp;
+        g_runtime.misc.zsm_ek_n[k] = 0;
+        g_runtime.misc.zsm_ek_cut[k] = 0;
+    }
+    int n = g_runtime.misc.zsm_ek_n[k];
+    while (n > 0 && st[n - 1] <= e) n--;
+    if (n == 8) { memmove(st, st + 1, 7 * sizeof *st); n = 7; g_runtime.misc.zsm_ek_cut[k] = 1; }
+    st[n++] = e;
+    g_runtime.misc.zsm_ek_n[k] = (unsigned char)n;
+}
+static void zsm_ek_depart(unsigned long node, unsigned long rbp, int port, long zop, long want_e, long declared, unsigned long rsp, int pop) {
+    unsigned long k = zsm_ek_slot(node, rbp);
+    unsigned long * st = g_runtime.misc.zsm_ek_e[k];
+    int n = g_runtime.misc.zsm_ek_node[k] == node && g_runtime.misc.zsm_ek_rbp[k] == rbp ? g_runtime.misc.zsm_ek_n[k] : -1;
+    if (n <= 0) { g_runtime.misc.zdecl_unanchored++; return; }
+    for (int q = n - 1; q >= 0; q--) { if ((long)st[q] != want_e) continue; zsm_decl_check(port, zop, node, declared, declared); if (pop) g_runtime.misc.zsm_ek_n[k] = (unsigned char)q; return; }
+    if (g_runtime.misc.zsm_ek_cut[k]) { g_runtime.misc.zdecl_unanchored++; return; }
+    zsm_decl_check(port, zop, node, declared, declared + (long)st[n - 1] - want_e);
+}
+static void zsm_decl_event(unsigned long node, unsigned long rbp, unsigned long rsp, long kind, long zop, long fl, long decl) {
+    long K = zsm_decl_field(decl, 0), gp = zsm_decl_field(decl, 1), wp = zsm_decl_field(decl, 2);
+    if (kind == 1) { if (g_runtime.misc.zsm_pre_node != node) return; zsm_ek_push(node, rbp, g_runtime.misc.zsm_pre_rsp); if (!fl) zsm_ek_push(node, rsp - 8UL, g_runtime.misc.zsm_pre_rsp); return; }
+    if (kind == 2 && ((decl >> 54) & 1L)) zsm_ek_depart(node, rbp, 0, zop, (long)rsp + K, K, rsp, 0);
+    if (kind == 4 && ((decl >> 49) & 3L) == 3L) { if ((decl >> 52) & 1L) zsm_decl_check(3, zop, node, 0L, 0L); else zsm_ek_depart(node, rbp, 1, zop, (long)rsp + K - gp, K - gp, rsp, 0); }
+    if (kind == 3 && ((decl >> 49) & 5L) == 5L) { if ((decl >> 53) & 1L) zsm_decl_check(3, zop, node, 0L, 0L); else zsm_ek_depart(node, rbp, 2, zop, (long)rsp - wp, wp, rsp, 1); }
+}
+static void zsm_decl_report(void) {
+    unsigned long chk = 0, bad = 0;
+    for (int p = 0; p < 4; p++) {
+        for (int op = 0; op < 256; op++) {
+            if (!g_runtime.misc.zdecl_chk[p][op]) continue;
+            chk += g_runtime.misc.zdecl_chk[p][op];
+            bad += g_runtime.misc.zdecl_bad[p][op];
+            fprintf(stderr, "[ZSM-DECL-SUM] op=%s port=%s checked=%lu bad=%lu\n", bb_op_name((IR_e)op), zsm_decl_port(p), g_runtime.misc.zdecl_chk[p][op], g_runtime.misc.zdecl_bad[p][op]);
+        }
+    }
+    fprintf(stderr, "[ZSM-DECL-TOTAL] checked=%lu bad=%lu events=%lu unanchored=%lu\n", chk, bad, g_runtime.zsm.zsm_events, g_runtime.misc.zdecl_unanchored);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zsm_leak_report(void) {
     unsigned long i;
     if (getenv("SCRIP_ZSM_RING")) zsm_dump();
@@ -82,11 +141,14 @@ static void zsm_leak_report(void) {
         if (g_runtime.zsm.zsm_leaked_at_exit) fprintf(stderr, "[ZSM-LEAK] total leaked activations at exit: %lu\n", g_runtime.zsm.zsm_leaked_at_exit);
     }
     if (g_runtime.zsm.zsm_alpha_while_live) fprintf(stderr, "[ZSM-ALPHA] total alpha-while-live events (see MATCH_END cross-node whack note): %lu\n", g_runtime.zsm.zsm_alpha_while_live);
+    if (zsm_decl_on()) zsm_decl_report();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zdp_sm_init(void) { static int done = 0; if (done) return; done = 1; atexit(zsm_leak_report); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, long kind, long exp_depth) {
+void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, long kind, long exp_depth, long decl) {
+    rt_zdp_sm_init();
+    if ((kind & 0xFFL) == 9L) { g_runtime.misc.zsm_pre_node = node; g_runtime.misc.zsm_pre_rsp = rsp; return; }
     long zop = (kind >> 8) & 0xFFFFL;
     kind &= 0xFFL;
     zsm_ent * e = &g_runtime.zsm.zsm[node & (ZSM_N - 1)];
@@ -104,6 +166,7 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
     if (kind == 0) { if (exp_depth >= 0L) g_runtime.zsm.zsm_rsp0 = rsp + (unsigned long)exp_depth; else if (!g_runtime.zsm.zsm_rsp0) g_runtime.zsm.zsm_rsp0 = rsp; return; }
     long fl = (kind >= 5L && kind <= 8L) ? 1L : 0L;
     if (fl) kind -= 4L;
+    if (zsm_decl_on() && ((decl >> 48) & 1L)) zsm_decl_event(node, rbp, rsp, kind, zop, fl, decl);
     if (e->node != node && zsm_leak_report_on()) {
         cv_reserve(&g_runtime.zsm.zsm_seen, (uint32_t)sizeof(unsigned long), (uint64_t)g_runtime.zsm.zsm_seen_n + 1, "g_runtime.zsm.zsm_seen");
         g_zsm_seen_nodes[g_runtime.zsm.zsm_seen_n++] = node;

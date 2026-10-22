@@ -676,10 +676,11 @@ inline std::string x86_jmp(int port) {
 }
 inline std::string x86_zdp_probe_at(int port);
 inline std::string x86_zdp_rbp_at(int port);
+inline std::string x86_zdp_rbp_pre_alpha();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_deflabel(int port) {
     std::string s = MEDIUM_BINARY ? x86_Drec(port) : (std::string(1, '\x01') + (char)('0' + port) + x86_reclbl(x86_portname(port)) + "\n");
-    return s + x86_port_hook(X86H_DEF, port) + x86_zdp_probe_at(port) + x86_zdp_rbp_at(port);
+    return s + (port == X86P_ALPHA ? x86_zdp_rbp_pre_alpha() : std::string()) + x86_port_hook(X86H_DEF, port) + x86_zdp_probe_at(port) + x86_zdp_rbp_at(port);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_alpha() { return x86_deflabel(X86P_ALPHA); }
@@ -2476,6 +2477,7 @@ inline int x86_zdp_rbp_frames() {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" long zsm_declared_word(void);
 inline std::string x86_zsm_ev(int kind) {
     return x86("comment", "ZSM")
          + x86("push", "rax") + x86("push", "rax")
@@ -2487,6 +2489,7 @@ inline std::string x86_zsm_ev(int kind) {
          + x86("mov", "rsi", "rbp")
          + x86("mov", "rcx", (long)(kind | ((long)_.op_node_kind << 8)))
          + x86("mov", "r8", (x86_rsp_slide_known() && !_.flat_jmp_entry) ? (long)_.op_zdepth : -1L)
+         + x86_movabs_r64("r9", (uint64_t)zsm_declared_word() | ((uint64_t)(_.op_xrec & 12) << 50))
          + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
          + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
          + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi")
@@ -2502,6 +2505,11 @@ inline std::string x86_zdp_rbp_at(int port) {
     if (port == X86P_ALPHA) return x86_zsm_ev(5);
     if (port == X86P_BETA) return x86_zsm_ev(6);
     return std::string();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_zdp_rbp_pre_alpha() {
+    if (!x86_zdp_rbp_on() || !(x86_zdp_rbp_frames() || x86_zsm_all())) return std::string();
+    return x86_zsm_ev(9);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_zdp_rbp_omega_at(int port) {
