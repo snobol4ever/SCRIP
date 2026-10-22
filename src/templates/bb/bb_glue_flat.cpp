@@ -365,6 +365,12 @@ std::string bb_glue_patv_args(void) {
           + x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, x86_strtab_lbl(_.op_sval).c_str()));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_patv_cell(const char * reg) {
+    return (_.op_head_spine && _.op_head_rsp < 0)
+         ? x86_bomb("bb_glue_patv_cell: a frameless thunk reads its head from a box with no spine depth")
+         : x86_reg_disp32_lea64(reg, _.op_head_spine ? "rsp" : "rbp", _.op_head_spine ? _.op_head_rsp : -24);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_glue_prim_open_enter(int base) {
     return x86("call", "rt_pat_prim_open", (uint64_t)(uintptr_t)(void *)rt_pat_prim_open)
          + x86_rt_gc_poll_rec_sigma_word(1)

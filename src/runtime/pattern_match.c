@@ -842,6 +842,8 @@ void rt_defer_pairs_forget(void) {
 }
 #include "pin_va.h"
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
+static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag);
+static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name, trace_pend_t *pend);
 #define g_dcap_top (*(const char **)RT_DCAP_TOP)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 size_t rt_dcap_island_bytes(void) {
@@ -1006,6 +1008,29 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
 #endif
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
         if (!e->varname) { c->cur += sizeof(rt_dcap_e); continue; }
+        if (e->varname[0] == '*' && (unsigned char)e->varname[1] == 2) {
+            const rt_dcap_e *e2 = e + 1;
+            int elen = (int)e->len;
+            if (elen < 0) elen = 0;
+            c->cur += 2 * sizeof(rt_dcap_e);
+            if (elen > Σlen || (long long)e->saved_delta + (long long)elen > (long long)Σlen) {
+                fprintf(stderr, "rt_dcap_pump: CORRUPT CAPTURE ENTRY refused — len=%d saved_delta=%llu exceeds subject length %d (an element target).\n", elen, (unsigned long long)e->saved_delta,
+                    Σlen);
+                c->rc = 1;
+                continue;
+            }
+            {
+                char *copy = rt_str_alloc(elen);
+                if (copy) { if (elen > 0 && c->subj) memcpy(copy, c->subj + e->saved_delta, (size_t)elen); copy[elen] = '\0'; }
+                DESCR_t matched = { .v = DT_S, .slen = (uint32_t)elen, .s = copy ? copy : "" };
+                void *hv = *(void **)(void *)e2->varname;
+                DESCR_t nm = patv_slot(hv, (long)e2->saved_delta, NULL, 0);
+                if (!IS_VARREF_fn(nm)) { rt_bomb("rt_dcap_pump: an element-target capture found no NAME in its pattern's snap vector"); continue; }
+                rt_cap_target_finish(nm, matched, 1, &c->pend);
+                if (c->pend.args[0].v) return (rt_dcap_next_t){ 2, 0 };
+            }
+            continue;
+        }
         if (_fast_ok && e->len > 0 && c->subj && e->varname[0] != '*') {
             extern int Σlen;
             unsigned fi = (unsigned)((((uintptr_t)e->varname * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));

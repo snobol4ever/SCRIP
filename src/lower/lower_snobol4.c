@@ -2940,7 +2940,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         }
         case TT_CAPT_COND_ASGN:
         {
-            const int ek = 0;
+            const int ek = t->n > 1 && sno_elem_here(cx, t->c[1], 0);
             const char * vn = ek ? "PAT$0$V0" : (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
             if (vn && !ek) sno_reg_var(vn);
             if (!vn && t->n > 1) vn = sno_capt_item_name(t->c[1]);
@@ -3271,7 +3271,8 @@ static int sno_pat_supported(const tree_t * t) {
     if (k == TT_KEYWORD) return t->v.sval != NULL;
     if (k == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
     if (k == TT_LEN) return t->n > 0 && t->c[0] && (t->c[0]->t != TT_DEFER || t->c[0]->n > 0);
-    if (k == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER || sno_item_argbase(t->c[1]) >= 0) && sno_pat_supported(t->c[0]);
+    if (k == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER || sno_item_argbase(t->c[1]) >= 0 || sno_capt_elem_tg(t->c[1], 0)) &&
+        sno_pat_supported(t->c[0]);
     if (k == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER || sno_item_argbase(t->c[1]) >= 0 || sno_capt_elem_tg(t->c[1], 0)) &&
         sno_pat_supported(t->c[0]);
     if (k == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && ((t->c[0]->t == TT_VAR && t->c[0]->v.sval) || sno_capt_elem_tg(t->c[0], 1));
