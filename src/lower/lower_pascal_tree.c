@@ -25,6 +25,7 @@ static PasDef *pas_scope_push(PasDef **a, int *n, int *cap, const char *name) {
     d->sig = NULL;
     d->owner = NULL;
     d->alias = NULL;
+    d->ov = NULL;
     d->depth = g_lower.pas.sem.pas_scope.depth;
     d->rid = 0;
     d->formal = 0;
@@ -4906,6 +4907,173 @@ static const char *pas_shadow_name(const char *src) {
     a->rid = 1;
     return uniq;
 }
+static const char *pas_ov_psig(const tree_t *n) {
+    const char *s = "";
+    const tree_t *ps = (n->n > 1 && n->c[1] && n->c[1]->t == TT_PARAMS) ? n->c[1] : NULL;
+    for (int i = 0; ps && i < ps->n; i++) {
+        const tree_t *d = ps->c[i];
+        if (!d || d->t != TT_DECL || d->n < 1 || !d->c[0]) continue;
+        const tree_t *ty = d->n > 1 ? d->c[1] : NULL;
+        const char *k = (d->v.sval && (!strcmp(d->v.sval, "var") || !strcmp(d->v.sval, "out"))) ? "r:" : "v:";
+        const char *tn = (ty && ty->t == TT_VAR && ty->v.sval) ? pas_pf_canon(ty->v.sval) : "?";
+        for (int j = 0; j < d->c[0]->n; j++) s = pas_pf_cat3(s, pas_pf_cat3(k, tn, ";"), NULL);
+    }
+    const tree_t *rt = (n->t == TT_FUNCTION && n->n > 2 && ps) ? n->c[2] : (n->t == TT_FUNCTION && n->n > 1 && !ps) ? n->c[1] : NULL;
+    return (rt && rt->t == TT_VAR && rt->v.sval) ? pas_pf_cat3(s, ">", pas_pf_canon(rt->v.sval)) : s;
+}
+static void pas_ov_tag(const char *psig) { if (g_lower.pas.sem.pas_scope.n > 0) g_lower.pas.sem.pas_scope.defs[g_lower.pas.sem.pas_scope.n - 1].ov = psig; }
+static int pas_ov_nparams(const char *psig) { int k = 0; for (const char *p = psig; p && *p && *p != '>'; p++) k += *p == ';'; return k; }
+static const char *pas_ov_ptype(const char *psig, int idx, int *byref) {
+    const char *p = psig;
+    for (int k = 0; p && *p && *p != '>'; k++) {
+        const char *e = strchr(p, ';');
+        if (!e) break;
+        if (k == idx) { *byref = p[0] == 'r'; char *t = (char *)ct_zalloc(1, (size_t)(e - p)); memcpy(t, p + 2, (size_t)(e - p - 2)); return t; }
+        p = e + 1;
+    }
+    return NULL;
+}
+static const char *pas_overload_name(const char *src, const char *psig) {
+    if (!src || !g_lower.pas.sem.pas_dialect_fpc) return pas_shadow_name(src);
+    int nd = 0;
+    const PasDef *same = NULL;
+    for (int i = g_lower.pas.sem.pas_scope.n - 1; i >= 0; i--) {
+        const PasDef *d = &g_lower.pas.sem.pas_scope.defs[i];
+        if (d->depth < g_lower.pas.sem.pas_scope.depth) break;
+        if (!d->name || d->fld || !d->rid || !d->ov || strcmp(d->name, src)) continue;
+        nd++;
+        if (!same && (!strcmp(d->ov, psig) || (!*psig && pas_scope_fwd_of(d->alias ? d->alias : d->name, NULL)))) same = d;
+    }
+    if (nd && same) return same->alias ? same->alias : src;
+    const char *r = pas_shadow_name(src);
+    if (nd) {
+        size_t sz = strlen(src) + 24;
+        char buf[sz];
+        snprintf(buf, sz, "%s$%d", src, ++g_lower.pas.sem.pas_routine_alias_n);
+        r = ct_strdup(buf);
+        PasDef *a = pas_scope_push(&g_lower.pas.sem.pas_scope.defs, &g_lower.pas.sem.pas_scope.n, &g_lower.pas.sem.pas_scope.cap, src);
+        a->alias = r;
+        a->rid = 1;
+    }
+    if (r != src) pas_ov_tag(psig);
+    return r;
+}
+static const char *pas_ov_argtype(tree_t *e);
+static int pas_ov_realrank(const char *t) {
+    return !strcmp(t, "single") ? 0 : !strcmp(t, "extended") ? 2 : (!strcmp(t, "double") || !strcmp(t, "real") || !strcmp(t, "comp") || !strcmp(t, "currency")) ? 1 : -1;
+}
+static int pas_ov_unsigned(const char *t) {
+    return !strcmp(t, "byte") || !strcmp(t, "word") || !strcmp(t, "cardinal") || !strcmp(t, "longword") || !strcmp(t, "qword") || !strcmp(t, "uint8") || !strcmp(t, "uint16") || !strcmp(t, "uint32") ||
+        !strcmp(t, "uint64") || !strcmp(t, "nativeuint") || !strcmp(t, "sizeuint") || !strcmp(t, "ptruint");
+}
+static int pas_ov_width(const char *t) {
+    if (!strcmp(t, "byte") || !strcmp(t, "shortint") || !strcmp(t, "int8") || !strcmp(t, "uint8")) return 8;
+    if (!strcmp(t, "word") || !strcmp(t, "smallint") || !strcmp(t, "int16") || !strcmp(t, "uint16")) return 16;
+    if (!strcmp(t, "int64") || !strcmp(t, "qword") || !strcmp(t, "uint64") || !strcmp(t, "nativeint") || !strcmp(t, "nativeuint") || !strcmp(t, "sizeint") || !strcmp(t, "sizeuint") ||
+        !strcmp(t, "ptrint") || !strcmp(t, "ptruint")) return 64;
+    return 32;
+}
+static const char *pas_ov_litreal(double d) {
+    size_t sz = 40;
+    char buf[sz];
+    if ((double)(float)d == d) return "single";
+    for (int p = 1; p <= 17; p++) { snprintf(buf, sz, "%.*g", p, d); if (strtod(buf, NULL) == d) return strtold(buf, NULL) == (long double)d ? "double" : "extended"; }
+    return "extended";
+}
+static int pas_ov_isint(const char *t) { return t && t[0] != '$' && pas_typename_class(t) == 'i'; }
+static const char *pas_ov_arith(tree_t *e) {
+    const char *a = pas_ov_argtype(e->c[0]), *b = e->n > 1 ? pas_ov_argtype(e->c[1]) : a;
+    if (!a || !b) return NULL;
+    int ra = pas_ov_realrank(a), rb = pas_ov_realrank(b);
+    if (ra < 0 && rb < 0) return pas_ov_isint(a) && pas_ov_isint(b) ? "int64" : NULL;
+    int la = e->c[0]->t == TT_FLIT, lb = e->n > 1 && e->c[1]->t == TT_FLIT;
+    if (ra >= 0 && rb >= 0) { if (la != lb) return la ? b : a; return ra >= rb ? a : b; }
+    return (ra >= 0 ? la : lb) ? "double" : ra >= 0 ? a : b;
+}
+static const char *pas_ov_argtype(tree_t *e) {
+    if (!e) return NULL;
+    if (e->t == TT_ILIT) return (e->v.ival > 2147483647LL || e->v.ival < -2147483648LL) ? "int64" : "longint";
+    if (e->t == TT_FLIT) return pas_ov_litreal(e->v.dval);
+    if (e->t == TT_QLIT) return (e->v.sval && strlen(e->v.sval) == 1) ? "$char" : "$str";
+    if (e->t == TT_LT || e->t == TT_LE || e->t == TT_GT || e->t == TT_GE || e->t == TT_EQ || e->t == TT_NE || e->t == TT_CONJ || e->t == TT_ALT) return "boolean";
+    if (e->t == TT_VAR && e->v.sval) {
+        if (!strcmp(e->v.sval, "true") || !strcmp(e->v.sval, "false")) return "boolean";
+        const char *t = pas_scalarvartype_get(e->v.sval);
+        if (t) return pas_pf_canon(t);
+    }
+    if (pas_is_stringexpr(e)) return "$str";
+    if (pas_is_charexpr(e)) return "$char";
+    if (e->t == TT_FNC && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "__pas_abs") || !strcmp(e->c[0]->v.sval, "__pas_sqr")))
+        return pas_ov_argtype(e->c[1]);
+    if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval) {
+        const PasDef *fd = pas_pf_lookup(e->c[0]->v.sval);
+        const char *rp = (fd && fd->sig) ? strrchr(fd->sig, ')') : NULL;
+        if (rp && rp[1] == ':') return rp + 2;
+    }
+    if ((e->t == TT_ADD || e->t == TT_SUB || e->t == TT_MUL || e->t == TT_DIV || e->t == TT_MOD || e->t == TT_IDIV) && e->n == 2) return pas_ov_arith(e);
+    if ((e->t == TT_MNS || e->t == TT_PLS) && e->n == 1) return pas_ov_arith(e);
+    if (pas_expr_is_real(e)) return "double";
+    return NULL;
+}
+static int pas_ov_cost(const char *a, const char *p) {
+    if (!a) return 30;
+    if (!strcmp(a, p)) return 0;
+    int lit = a[0] == '$';
+    char ca = lit ? (a[1] == 'c' ? 'c' : 's') : !strcmp(a, "currency") ? 'r' : pas_string_type_kind(a) ? 's' : pas_typename_class(a);
+    char cp = !strcmp(p, "currency") ? 'r' : pas_string_type_kind(p) ? 's' : pas_typename_class(p);
+    if (!ca || !cp) return -1;
+    if (ca == 'i' && cp == 'i') {
+        int wa = pas_ov_width(a), wp = pas_ov_width(p), sa = pas_ov_unsigned(a), sp = pas_ov_unsigned(p), d = wa > wp ? wa - wp : wp - wa;
+        if (wa == wp && sa == sp) return 1;
+        if (wp > wa && (sa == sp || sa)) return 2 + d / 8;
+        return 12 + d / 8 + (sa != sp ? 4 : 0);
+    }
+    if (ca == 'i' && cp == 'r') return 40 + pas_ov_realrank(p);
+    if (ca == 'r' && cp == 'r') {
+        if (!strcmp(a, "currency")) return !strcmp(p, "extended") ? 1 : !strcmp(p, "double") || !strcmp(p, "real") ? 2 : 3;
+        int d = pas_ov_realrank(a) - pas_ov_realrank(p);
+        return 1 + (d < 0 ? -d : d);
+    }
+    if (ca == 'c' && cp == 'c') return 1;
+    if (ca == 'c' && cp == 's') return 3;
+    if (ca == 's' && cp == 's') return 1;
+    if (ca == 'b' && cp == 'b') return 1;
+    return -1;
+}
+static const char *pas_overload_pick(const char *src, PNodeList *args, int *np_out) {
+    if (!src || !g_lower.pas.sem.pas_dialect_fpc) return NULL;
+    int na = args ? args->count / 2 : 0, nc = 0, best = -1, bestc = 0, bestnp = 0, firstnp = 0;
+    const char *bestn = NULL, *firstn = NULL;
+    int depth = -1;
+    for (int i = g_lower.pas.sem.pas_scope.n - 1; i >= 0; i--) {
+        const PasDef *d = &g_lower.pas.sem.pas_scope.defs[i];
+        if (!d->name || d->fld || !d->rid || !d->ov || strcmp(d->name, src)) continue;
+        if (depth < 0) depth = d->depth;
+        if (d->depth != depth) break;
+        nc++;
+    }
+    if (nc < 2) return NULL;
+    for (int k = 0; k < na; k++) if (!args->items[2 * k + 1] || args->items[2 * k + 1]->t != TT_ILIT || args->items[2 * k + 1]->v.ival != -1) return NULL;
+    for (int i = g_lower.pas.sem.pas_scope.n - 1; i >= 0; i--) {
+        const PasDef *d = &g_lower.pas.sem.pas_scope.defs[i];
+        if (!d->name || d->fld || !d->rid || !d->ov || strcmp(d->name, src) || d->depth != depth) continue;
+        int np = pas_ov_nparams(d->ov), ok = na <= np, cost = 0;
+        for (int k = na; ok && k < np; k++) ok = pas_default_get(src, k) != NULL;
+        if (!ok) continue;
+        for (int k = 0; k < na && cost >= 0; k++) {
+            int byref = 0;
+            const char *pt = pas_ov_ptype(d->ov, k, &byref);
+            int c = pt ? pas_ov_cost(pas_ov_argtype(args->items[2 * k]), pt) : 30;
+            cost = c < 0 ? -1 : cost + c;
+        }
+        const char *nm = d->alias ? d->alias : d->name;
+        firstn = nm;
+        firstnp = np;
+        if (cost >= 0 && (best < 0 || cost <= bestc)) { best = 1; bestc = cost; bestn = nm; bestnp = np; }
+    }
+    *np_out = bestn ? bestnp : firstnp;
+    return bestn ? bestn : firstn;
+}
 static const PasDef *pas_pf_lookup(const char *name) {
     for (int i = g_lower.pas.sem.pas_scope.n - 1; name && i >= 0; i--) if (g_lower.pas.sem.pas_scope.defs[i].name && !strcmp(g_lower.pas.sem.pas_scope.defs[i].name, name))
         return g_lower.pas.sem.pas_scope.defs[i].sig ? &g_lower.pas.sem.pas_scope.defs[i] : NULL;
@@ -5465,7 +5633,9 @@ static pval E_call(const tree_t *n) {
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
     if (IS(n, TT_FNC) && n->n == 1) {
-        v[1].str = pas_alias_resolve(tok_s(n->c[0]));
+        const char *src0 = tok_s(n->c[0]);
+        v[1].str = pas_alias_resolve(src0);
+        { int onp = 0; const char *ov = pas_overload_pick(src0, NULL, &onp); if (ov) v[1].str = ov; }
         {
             if (pas_pf_is_formal(v[1].str)) out.node = pas_pf_callthrough(v[1].str, NULL);
             else if (pas_default_get(v[1].str, 0)) {
@@ -5506,7 +5676,10 @@ static pval E_call_with_args(const tree_t *n) {
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
     if (IS(n, TT_FNC)) {
-        v[1].str = pas_alias_resolve(tok_s(n->c[0]));
+        const char *src0 = tok_s(n->c[0]);
+        const char *dflt = NULL;
+        int onp = 0;
+        v[1].str = pas_alias_resolve(src0);
         if (v[1].str && !strcmp(v[1].str, "format") && n->n == 3 && IS(n->c[2], TT_SET) && !pas_is_func(v[1].str) && !pas_is_proc(v[1].str) && (out.node = pas_format_call(n))) return out;
         if (pas_openparm_mask(v[1].str) != 0 || pas_pf_lookup(v[1].str)) {
             for (int i = 1; i < n->n; i++) {
@@ -5517,9 +5690,11 @@ static pval E_call_with_args(const tree_t *n) {
                 v[3].list = i == 1 ? _a.list : pnl_concat(v[3].list, _a.list);
             }
         } else v[3] = E_argument_list(n, 1, n->n);
+        { const char *ov = pas_overload_pick(src0, v[3].list, &onp); if (ov) { v[1].str = ov; dflt = src0; } }
         if (v[1].str && (!strcmp(v[1].str, "max") || !strcmp(v[1].str, "min")) && v[3].list && v[3].list->count >= 4 && pas_is_func("fpcmaxdouble") &&
             (pas_expr_is_real(v[3].list->items[0]) || pas_expr_is_real(v[3].list->items[2]))) v[1].str = v[1].str[1] == 'a' ? "fpcmaxdouble" : "fpcmindouble";
-        v[3].list = pas_defaults_extend(v[1].str, v[3].list);
+        v[3].list = pas_defaults_extend(dflt ? dflt : v[1].str, v[3].list);
+        if (dflt && v[3].list && v[3].list->count > 2 * onp) v[3].list->count = 2 * onp;
         {
             v[3].list = pas_pf_actuals(v[1].str, v[3].list);
             if (v[3].list) for (int i = 0; i < v[3].list->count; i++) if (pas_proc_param_is_var(v[1].str, i) && pas_actual_is_packed_component(v[3].list->items[i])) {
@@ -6357,13 +6532,15 @@ static pval E_procedure_decl(const tree_t *n) {
     int hasp = n->n > 1 && n->c[1] && n->c[1]->t == TT_PARAMS;
     int hasr = n->t == TT_FUNCTION && n->n > (hasp ? 2 : 1) && n->c[hasp ? 2 : 1] && n->c[hasp ? 2 : 1]->t == TT_VAR;
     tree_t *tail = n->c[n->n - 1];
+    const char *ovs = pas_ov_psig(n);
     if (IS(n, TT_PROCEDURE) && IS(tail, TT_KEYWORD)) {
-        v[2].str = pas_shadow_name(tok_s(n->c[0]));
+        v[2].str = pas_overload_name(tok_s(n->c[0]), ovs);
         v[3] = E_pv_mark(NULL);
         v[4] = E_parameter_list_opt(hasp ? n->c[1] : NULL);
         {
             const char *_sg = pas_pf_heading(v[2].str, v[4].list, 'P', NULL);
             pas_pf_define_routine(v[2].str, _sg);
+            pas_ov_tag(ovs);
             pas_scope_fwd_save(v[2].str, v[4].list, _sg);
             pas_proc_add(v[2].str);
             pas_proc_vparams(v[2].str, v[4].list);
@@ -6374,13 +6551,14 @@ static pval E_procedure_decl(const tree_t *n) {
         return out;
     }
     if (IS(n, TT_FUNCTION) && hasr && IS(tail, TT_KEYWORD)) {
-        v[2].str = pas_shadow_name(tok_s(n->c[0]));
+        v[2].str = pas_overload_name(tok_s(n->c[0]), ovs);
         v[3] = E_pv_mark(NULL);
         v[4] = E_parameter_list_opt(hasp ? n->c[1] : NULL);
         v[6].str = tok_s(n->c[hasp ? 2 : 1]);
         {
             const char *_sg = pas_pf_heading(v[2].str, v[4].list, 'F', v[6].str);
             pas_pf_define_routine(v[2].str, _sg);
+            pas_ov_tag(ovs);
             pas_scope_fwd_save(v[2].str, v[4].list, _sg);
             pas_func_add(v[2].str);
             pas_proc_vparams(v[2].str, v[4].list);
@@ -6395,11 +6573,12 @@ static pval E_procedure_decl(const tree_t *n) {
         return out;
     }
     if (IS(n, TT_PROCEDURE)) {
-        v[2].str = pas_shadow_name(tok_s(n->c[0]));
+        v[2].str = pas_overload_name(tok_s(n->c[0]), ovs);
         v[3] = E_pv_mark(NULL);
         v[4] = E_parameter_list_opt(hasp ? n->c[1] : NULL);
         {
             pas_pf_define_routine(v[2].str, pas_pf_heading(v[2].str, v[4].list, 'P', NULL));
+            pas_ov_tag(ovs);
             pas_scope_enter(v[2].str, v[4].list);
             pas_proc_add(v[2].str);
             pas_proc_vparams(v[2].str, pas_scope_fwd_params(v[2].str, v[4].list));
@@ -6423,12 +6602,13 @@ static pval E_procedure_decl(const tree_t *n) {
         return out;
     }
     if (IS(n, TT_FUNCTION) && hasr) {
-        v[2].str = pas_shadow_name(tok_s(n->c[0]));
+        v[2].str = pas_overload_name(tok_s(n->c[0]), ovs);
         v[3] = E_pv_mark(NULL);
         v[4] = E_parameter_list_opt(hasp ? n->c[1] : NULL);
         v[6].str = tok_s(n->c[hasp ? 2 : 1]);
         {
             pas_pf_define_routine(v[2].str, pas_pf_heading(v[2].str, v[4].list, 'F', v[6].str));
+            pas_ov_tag(ovs);
             pas_scope_enter(v[2].str, v[4].list);
             pas_func_add(v[2].str);
             pas_proc_vparams(v[2].str, pas_scope_fwd_params(v[2].str, v[4].list));
@@ -6462,10 +6642,11 @@ static pval E_procedure_decl(const tree_t *n) {
         return out;
     }
     if (IS(n, TT_FUNCTION)) {
-        v[2].str = pas_shadow_name(tok_s(n->c[0]));
+        v[2].str = pas_overload_name(tok_s(n->c[0]), ovs);
         v[3] = E_pv_mark(NULL);
         {
             pas_pf_define_routine(v[2].str, pas_pf_heading(v[2].str, NULL, 'F', NULL));
+            pas_ov_tag(ovs);
             pas_scope_enter(v[2].str, NULL);
             pas_func_add(v[2].str);
             pas_proc_vparams(v[2].str, pas_scope_fwd_params(v[2].str, NULL));
