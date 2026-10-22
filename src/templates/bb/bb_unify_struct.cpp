@@ -78,7 +78,7 @@ std::string bb_unify_struct() {
              + x86_movabs_r64("rcx", (uint64_t)DT_PLREF | ((uint64_t)(uint32_t)_.op_u_fid << 32))
              + x86("mov", UR(0), "rcx")
              + x86("mov", UR(8), "rax")
-             + x86_rt_gc_poll()
+             + x86_rt_gc_poll_or(x86_omega("je"))
              + x86("mov", "r10", UR(8))
              + pl_fresh_cells(0)
              + PL_SRC_RDI()

@@ -99,7 +99,7 @@ static std::string pl_cold_call(const char * sym, void * fp, int narg, int has_o
                       x86("call", sym, (uint64_t)(uintptr_t)fp),
                       _.op_zres ? std::string() : x86("mov", FRQ(PLR()), "rax")
                                                 + x86("mov", FRQ(PLR() + 8), "rdx"),
-                      _.op_zres ? x86_rt_gc_poll_res() : x86_rt_gc_poll(),
+                      _.op_zres ? x86_rt_gc_poll_res(x86_cap_raise(std::string())) : x86_rt_gc_poll_fails(),
                       _.op_zres ? x86("jmp", L(PL_L_ZX))
                                 : x86("cmp", "al", (long)DT_FAIL)
                                 + x86_omega("je") });
@@ -196,7 +196,7 @@ static std::string pl_arm_is() {
          + x86("call", "rt_pl_is_cold", (uint64_t)(uintptr_t)(void *)rt_pl_is_cold)
          + x86("mov", PLAQ(16), "rax")
          + x86("mov", PLAQ(24), "rdx")
-         + IF(!_.op_zres, pl_set("rax", "rdx")) + x86_rt_gc_poll()
+         + IF(!_.op_zres, pl_set("rax", "rdx")) + x86_rt_gc_poll_fails()
          + x86("cmp", "al", (long)DT_FAIL) + PL_OMEGA("je")
          + x86("lea", "rdi", PLAQ(16))
          + x86("jmp", L(120)) + pl_tail();
@@ -320,7 +320,7 @@ static std::string pl_arm_mkc() {
                      "poll and the kid loop: the box's result slot may be one of the kids' argv cells")
              + x86("mov", PLAQ(0), "rcx")
              + x86("mov", PLAQ(8), "rax")
-             + x86_rt_gc_poll()
+             + x86_rt_gc_poll_or(PL_OMEGA("je"))
              + x86("mov", "r10", PLAQ(8))
              + x86("lea", "r9", PLAQ(16))
              + x86("mov", "r11", (long)(PLN() - 1))
@@ -370,7 +370,7 @@ static std::string pl_arm_dbdecls() {
          + IF(!(_.op_pl_db_n < 2 || !_.op_pl_db_words),
                x86_lea_id("rdi", 120) + x86("mov", "rsi", "r14")
              + x86("call", "rt_pl_db_decls_install", (uint64_t)(uintptr_t)(void *)rt_pl_db_decls_install)
-             + x86_rt_gc_poll()
+             + x86_rt_gc_poll_or(PL_OMEGA("je"))
              + pl_set((long)DT_I, 1L)
              + PL_GAMMA()
              + x86("def", L(120))
@@ -394,7 +394,7 @@ static std::string pl_arm_unify() {
          + x86("jne", L(PL_L_FAIL))
          + x86("lea", "rdi", PLAQ(0))
          + x86("lea", "rsi", PLAQ(16))
-         + x86("call", "rt_pl_dop_unify_raise", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify_raise) + x86_rt_gc_poll()
+         + x86("call", "rt_pl_dop_unify_raise", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify_raise) + x86_rt_gc_poll_fails()
          + x86("jmp", L(PL_L_FAIL))
          + pl_fail_store() + pl_tail();
 }

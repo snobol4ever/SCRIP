@@ -2905,11 +2905,16 @@ inline std::string x86_rtx_verdict_adj(const char * sym, int adj) {
     const struct bb_label_t * done = emit_label_alloc(".L%s_vd_%d_%d", x86_boxkind(), _.x86_uid, seq++);
     return x86_rtx_verdict_cmp(kind) + x86("jne", "extlbl", (uint64_t)(uintptr_t)done) + x86_rtcc_call_adj(cname, (uint64_t)(uintptr_t)caddr, adj) + x86_def_ext(done);
 }
-inline std::string x86_rt_gc_poll_at(const char * f, int l) { const char * b = strrchr(f, '/');
-    return x86("note", std::string("gc_poll ") + (b ? b + 1 : f) + ":" + std::to_string(l)) + x86_gc_gate(x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm)); }
+extern "C" void rt_pl_cap_raise(void);
+inline std::string x86_cap_raise_call() { return x86("call", "rt_pl_cap_raise", (uint64_t)(uintptr_t)(void *)rt_pl_cap_raise); }
+#define x86_cap_raise(fail) (x86_resumable_frame() ? x86_cap_raise_call() + (fail) : std::string())
+inline std::string x86_rt_gc_poll_at(const char * f, int l, const std::string & raise = std::string()) { const char * b = strrchr(f, '/');
+    return x86("note", std::string("gc_poll ") + (b ? b + 1 : f) + ":" + std::to_string(l)) + x86_gc_gate(x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm) + raise); }
 #define x86_rt_gc_poll() x86_rt_gc_poll_at(__FILE__, __LINE__)
+#define x86_rt_gc_poll_or(fail) x86_rt_gc_poll_at(__FILE__, __LINE__, x86_cap_raise(fail))
+#define x86_rt_gc_poll_fails() x86_rt_gc_poll_at(__FILE__, __LINE__, x86_cap_raise(std::string()))
 extern "C" void rt_gc_point_arr_probe_c(DESCR_t * arr, int n, const char ** saved_subject_reg, char * floor);
-inline std::string x86_rt_gc_poll_res() {
+inline std::string x86_rt_gc_poll_res(const std::string & raise = std::string()) {
 return x86_gc_gate(x86("comment",
     "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell at the sweep floor across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it; r1"
     "3 is spilled as a raw word BELOW the floor and handed to the probe entry as the saved subject, which rewrites it only when it aliases Sigma or g_scan_subj")
@@ -2925,7 +2930,8 @@ return x86_gc_gate(x86("comment",
          + x86_reg_disp32_load64("r13", "rsp", 0)
          + x86_reg_disp32_load64("rax", "rsp", 16)
          + x86_reg_disp32_load64("rdx", "rsp", 24)
-         + x86("add", "rsp", (long)32));
+         + x86("add", "rsp", (long)32)
+         + raise);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_gc_point_arr_c(DESCR_t * arr, int n, const char ** r0, char * floor);

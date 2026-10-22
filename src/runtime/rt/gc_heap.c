@@ -269,6 +269,21 @@ int rt_gcheap_grow(uint64_t need) {
         return 1;
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+_Static_assert(GC_ERR_RESERVE % 4096u == 0,
+    "ONE ROAD AND ONE ERROR AT THE CAP (ARCH-PROLOG-ACTIVATION-LIFETIME section 4; the cto's ruling (c) of 2026-10-22 under CEO-1895): where a catchable road is declared (hp_cap_road, set when "
+    "the Prolog trail that carries the ball is made), a request the cap refuses is served from the error reserve and the resource error is marked DUE (hp_cap_due 1) with the collection armed; t"
+    "he poll that follows the allocating call collects, and a collection that leaves the reserve's page free above the compacted top re-arms the reserve and clears the mark, because the request "
+    "then fit after a collection; a mark still due after it is RAISED by the poll's raise entry (rt_pl_cap_raise: the same error(resource_error(stack), _) the C road's size check raises, the bal"
+    "l armed, the call's result made FAIL or the box's failure edge taken) and becomes 2 with a collection armed, so the first safe point after the flight reclaims what the flight released and re-"
+    "arms the reserve; a call that allocates past the reserve while the mark is due is REFUSED rc 2 naming the leaf, and a road never declared keeps the fatal of CEO-1704 exactly");
+static void gc_cap_reserve_refuse(uint64_t payload_bytes, uint16_t type);
+static void gc_cap_rearm(void) {
+    if (!g_runtime.gc.hp_cap_due || g_hp_end != g_runtime.gc.hp_cap_end || g_hp_top + GC_ERR_RESERVE > g_runtime.gc.hp_cap_end) return;
+    if (mprotect(g_runtime.gc.hp_cap_end - GC_ERR_RESERVE, GC_ERR_RESERVE, PROT_NONE) != 0) return;
+    g_hp_end = g_runtime.gc.hp_cap_end - GC_ERR_RESERVE;
+    g_runtime.gc.hp_cap_due = 0;
+}
 #if RT_DIAG
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gcheap_cap_hit(uint64_t need) {
@@ -536,7 +551,21 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes) {
         }
         return r;
     }
-    if (g_hp_end + GC_ERR_RESERVE == g_runtime.gc.hp_cap_end && mprotect(g_hp_end, GC_ERR_RESERVE, PROT_READ | PROT_WRITE) == 0) { g_hp_end = g_runtime.gc.hp_cap_end; rt_gcheap_line_reset(0); }
+    if (g_hp_end + GC_ERR_RESERVE == g_runtime.gc.hp_cap_end && mprotect(g_hp_end, GC_ERR_RESERVE, PROT_READ | PROT_WRITE) == 0) {
+        g_hp_end = g_runtime.gc.hp_cap_end;
+        rt_gcheap_line_reset(0);
+        if (g_runtime.gc.hp_cap_road && g_hp_top + total <= g_hp_end) {
+            g_runtime.gc.hp_cap_due = 1;
+            g_gc_pending = 1;
+#if RT_DIAG
+            if (g_runtime.gc.hp_qlo) gc_quar_release(g_hp_top + total);
+#endif
+            r = rt_gcheap_carve(g_hp_top, total, type);
+            g_hp_top += total;
+            return r;
+        }
+    }
+    if (g_runtime.gc.hp_cap_due == 1) gc_cap_reserve_refuse(payload_bytes, type);
 #if RT_DIAG
     fprintf(stderr,
         "[ZHP] heap exhausted AT THE HARD CAP (%ld KB cap, %ld KB committed lazily so far, %ld blocks live, cap hit %ld times, COLLECTIONS RUN %ld) -- THIS REQUEST wanted %llu payload bytes (%llu wi"
@@ -580,6 +609,23 @@ static _Unwind_Reason_Code rt_uw_caller_step(struct _Unwind_Context *c, void *a)
     u->hit = 1;
     return _URC_END_OF_STACK;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_cap_reserve_refuse(uint64_t payload_bytes, uint16_t type) {
+    rt_uw_caller_t u;
+    Dl_info di;
+    const char *leaf = "?";
+    memset(&u, 0, sizeof u);
+    _Unwind_Backtrace(rt_uw_caller_step, &u);
+    if (u.callee && dladdr((void *)(uintptr_t)u.callee, &di) && di.dli_sname) leaf = di.dli_sname;
+    fflush(stdout);
+    fprintf(stderr,
+        "[ZHP] REFUSED: %s allocated past the %u-byte error reserve of the %ld KB hard cap before the poll that follows it could raise the resource error (this request %llu payload bytes"
+        " of block kind %u); the reserve is sized to the largest burst one call makes between two polls, so this leaf is a measurement the reserve owes (ARCH-PROLOG-ACTIVATION-LIFETIME section 4)\n",
+        leaf, GC_ERR_RESERVE, (long)((g_runtime.gc.hp_cap_end - g_runtime.gc.hp_arena) >> 10), (unsigned long long)payload_bytes, (unsigned)type);
+    exit(2);
+}
+void rt_gcheap_cap_road(void) { g_runtime.gc.hp_cap_road = 1; }
+void rt_gcheap_cap_raised(void) { if (g_runtime.gc.hp_cap_due == 1) g_runtime.gc.hp_cap_due = 2; g_gc_pending = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_emitted_caller_of_descr_call(rt_emitted_regs_t *r) {
     extern int rtx_entry_is(const char *sym);
@@ -3830,6 +3876,7 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
         g_runtime.gc.gc_runs, "E", g_runtime.gc.gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_runtime.gc.hp_wend - g_runtime.gc.hp_win), g_runtime.abi.gc_mk.nslot,
         g_runtime.gc.gc_interior, g_runtime.abi.gc_mk.wlmax, n_mk, n_fw);
 #endif
+    gc_cap_rearm();
     if (g_runtime.gc.hp_cap_end > g_hp_end && (long)(g_hp_end - g_runtime.gc.hp_arena - g_runtime.gc.hp_live) * 100L < (long)(g_hp_end - g_runtime.gc.hp_arena) * (long)GC_FREE_PCT) (void)
         rt_gcheap_grow(0);
     rt_gcheap_line_reset((long)mxs);

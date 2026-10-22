@@ -102,7 +102,7 @@ std::string bb_call_value() {
                : cv_icn() ? x86("lea", "r8", FRQ(CV_H()))
                           + x86("call", "rt_call_value_spine_prep_blk", TEMPLATE_FN_ADDR(rt_call_value_spine_prep_blk))
                : x86("call", "rt_call_value_spine_prep", TEMPLATE_FN_ADDR(rt_call_value_spine_prep))))
-       + x86_rt_gc_poll()
+       + (cv_pl_proto() ? x86_rt_gc_poll_or(x86("je", L(7))) : x86_rt_gc_poll())
        + x86("test", "rax", "rax")
        + x86("je", L(7))
        + IF(cv_icn(), x86("cmp", "dl", 3L)
@@ -343,7 +343,7 @@ std::string bb_call_value() {
        + x86("mov", FRQ(_.op_off + 8), "rdx")
        + x86("cmp", "al", (long)DT_FAIL)
        + x86_omega("je")
-       + x86_rt_gc_poll()
+       + x86_rt_gc_poll_or(x86_omega("je"))
        + x86_gamma()
        + x86_beta()
        + IF(cv_icn(), icn_landing_line_restore())
@@ -387,7 +387,7 @@ std::string bb_call_value() {
              + x86_omega("je")
              + x86("mov", FRQ(_.op_off), "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
-             + x86_rt_gc_poll()
+             + x86_rt_gc_poll_or(x86_omega("je"))
              + x86_gamma())
        + x86_omega());
 }

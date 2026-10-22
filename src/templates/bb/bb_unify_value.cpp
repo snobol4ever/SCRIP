@@ -122,7 +122,7 @@ std::string bb_unify_value() {
              + PL_SRC_RDI()
              + x86("lea", "rsi", FRQ(_.op_u_vo))
              + x86("call", "rt_pl_dop_unify_raise", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify_raise)
-             + x86_rt_gc_poll()
+             + x86_rt_gc_poll_fails()
              + x86_omega()
              + x86("def", L(39))
              + x86("mov", "rdi", "r12")

@@ -92,6 +92,7 @@ static const struct { char sym[34]; unsigned mask; } rtx_clob_tab[] = {
     { "rt_pl_atop_cold", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_ax_cold", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_ball_take", 0 },
+    { "rt_pl_cap_raise", 0 },
     { "rt_pl_catch_handle", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_cmp_cold", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_db_reclaimed_entry", 0 },

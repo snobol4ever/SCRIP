@@ -35,6 +35,7 @@ typedef struct {
     long hp_grows;
     long hp_live;
     int hp_report_reg;
+    int hp_cap_due;
     struct gc_vac_t *gc_vac;
     long gc_vacn;
     long gc_vaccap;
@@ -57,6 +58,7 @@ typedef struct {
     int ah_reg;
     int ah_on;
     int alloc_detax;
+    int hp_cap_road;
     long scrip_coexpr_live;
     long gc_rrng_n;
     long gc_rrng_cap;

@@ -11287,7 +11287,7 @@ PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(heap_guard, 2)
     {
         extern unsigned long long rt_gcheap_cap_bytes(void);
-        extern void *rt_pl_ball_kind1(const char *, const char *);
+        extern void *rt_pl_cap_error(void);
         DESCR_t u = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]);
         pl_flag_t *sl;
         unsigned long long cap = rt_gcheap_cap_bytes(), soft;
@@ -11296,7 +11296,7 @@ PL_CX_LEAF_HEAD(heap_guard, 2)
             sl = pl_flag_find("stack_limit");
             soft = sl && sl->val ? strtoull(sl->val, (char **)0, 10) : 0ULL;
             if (soft && (!cap || soft < cap)) cap = soft;
-            if (cap && (unsigned long long)u.i > cap / (unsigned long long)b.i) { cx->ball = rt_pl_ball_kind1("resource_error", "stack"); ok = 0; }
+            if (cap && (unsigned long long)u.i > cap / (unsigned long long)b.i) { cx->ball = rt_pl_cap_error(); ok = 0; }
         }
     }
 PL_CX_LEAF_TAIL

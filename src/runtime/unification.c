@@ -3136,6 +3136,14 @@ void *rt_pl_ball_kind1(const char *kind, const char *arg0_atom) {
     er[1] = rt_pl_fresh_var_ref();
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
+void *rt_pl_cap_error(void) { return rt_pl_ball_kind1("resource_error", "stack"); }
+void *rt_pl_cap_ball(void) {
+    extern void rt_gcheap_cap_raised(void);
+    void *b = rt_pl_cap_error();
+    if (!b) { fprintf(stderr, "[ZHP] REFUSED: the resource error at the hard cap could not be built from the error reserve\n"); exit(2); }
+    rt_gcheap_cap_raised();
+    return b;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_instantiation(void) {
     extern DESCR_t rt_pl_fresh_var_ref(void);

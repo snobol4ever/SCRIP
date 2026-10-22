@@ -23,7 +23,7 @@ std::string bb_table_hdr() {
              + x86("lea", "rdi", TH_REC(0))
              + x86("mov32", "esi", 1L)
              + x86("call", "rt_pl_dop_tbl_open", (uint64_t)(uintptr_t)(void *)rt_pl_dop_tbl_open)
-             + x86_rt_gc_poll()
+             + x86_rt_gc_poll_fails()
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86_gamma()

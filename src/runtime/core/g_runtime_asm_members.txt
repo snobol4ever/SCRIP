@@ -16,3 +16,4 @@ gc.gc_rrng
 gc.gc_rrng_n
 gc.gc_spine_recn
 gc.gc_line_mbv
+gc.hp_cap_due

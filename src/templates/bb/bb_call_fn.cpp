@@ -264,7 +264,7 @@ static std::string cf_direct_flat() {
                       x86("call", _.op_call_sym, _.op_call_fp),
                       x86("mov", FRQ(CF_RES()), "rax"),
                       x86("mov", FRQ(CF_RES() + 8), "rdx"),
-                      x86_rt_gc_poll(),
+                      x86_rt_gc_poll_fails(),
                       IF(_.op_call_elem_access, elem_access_flat_join()) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -272,7 +272,7 @@ static std::string cf_direct_zd() {
     return emit_seq({ x86("lea", "rdi", RDQ("rsp", 0)),
                       x86("mov32", "esi", (long)CF_N()),
                       x86("call", _.op_call_sym, _.op_call_fp),
-                      x86_rt_gc_poll_res() });
+                      x86_rt_gc_poll_res(x86_cap_raise(std::string())) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcfn_method_open_enter(int base, int decl_id, int join_id, int rec_off, const char * osym, uint64_t ofp) {

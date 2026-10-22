@@ -44,6 +44,30 @@ RTX_FUNC(rt_pl_exist_raise)
     xor     edx, edx
     ret
 RTX_ENDF(rt_pl_exist_raise)
+RTX_FUNC(rt_pl_cap_raise)
+    cmp     dword ptr [rip + g_runtime + G_RT_OFF_GC_HP_CAP_DUE], 1
+    jne     .Lcr_ret
+    RTX_PUSHS(rcx)
+    RTX_PUSHS(rsi)
+    RTX_PUSHS(rdi)
+    RTX_PUSHS(r8)
+    RTX_PUSHS(r10)
+    RTX_PUSHS(r11)
+    RTX_SUB_RSP(8)
+    call rt_pl_cap_ball; RTX_GVA_R9
+    PL_BALL_ARM(rax, rcx)
+    RTX_ADD_RSP(8)
+    RTX_POPS(r11)
+    RTX_POPS(r10)
+    RTX_POPS(r8)
+    RTX_POPS(rdi)
+    RTX_POPS(rsi)
+    RTX_POPS(rcx)
+    mov     eax, DT_FAIL
+    xor     edx, edx
+.Lcr_ret:
+    ret
+RTX_ENDF(rt_pl_cap_raise)
 RTX_FUNC(rt_pl_goal_resolve)
     RTX_SUB_RSP(24)
     mov     qword ptr [rsp + 8], 0
