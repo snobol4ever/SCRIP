@@ -228,6 +228,25 @@ static int zd_bcs_when(IR_t * nd, int w) {
     if (w == BCS_NO_OPERANDS) return nd->n_operands == 0;
     return (w == BCS_PATV && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5)) ? 1 : 0;
 }
+extern "C" int zls_off(const IR_t * nd);
+extern "C" int zd_cross_cell(int off) {
+    int n = g_emitter.g_zd_n, i = g_emitter.g_zd_cur;
+    IR_t ** nodes = g_emitter.g_zd_nodes_p;
+    const int * out = g_emitter.g_zd_out_p, * xb = g_emitter.g_zd_xb_p, * cl = g_emitter.g_zd_claim_p;
+    const unsigned char * on = g_emitter.g_zd_plan_on;
+    if (!nodes || !out || !on || g_emitter.g_zd_plan_nodes != nodes || i < 0 || i >= n || !on[i]) return -1;
+    for (int b = 0; b < i; b++) {
+        if (!on[b]) continue;
+        int key = zls_off(nodes[b]), kw = zd_k_own(nodes[b]);
+        if (key < 0 || off < key || off >= key + kw) continue;
+        long xi, xo;
+        if (xb && xb[i] != INT_MIN && xb[b] != INT_MIN) { xi = (long)xb[i] + out[i]; xo = (long)xb[b] + out[b]; }
+        else if (cl && cl[i] >= 0 && cl[i] == cl[b]) { xi = out[i]; xo = out[b]; }
+        else return -1;
+        return xi < xo ? -1 : (int)(xi - xo) + (off - key);
+    }
+    return -1;
+}
 int zd_k_own(IR_t * nd) {
     int op = (int)nd->op;
     for (size_t r = 0; r < sizeof box_cell_shapes / sizeof box_cell_shapes[0]; r++) {
