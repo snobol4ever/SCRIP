@@ -15483,7 +15483,7 @@ static const char PL_PRELUDE_LIB_18_SRC[] =
     "        ;   true\n"
     "        )\n"
     "    ).\n"
-    ":- if(catch((A = f(A), variant_hash(A,_)), _, fail)).\n"
+    ":- if(fail).\n"
     "'$nb_set_hash_key'(Term, BCount, Key) :-\n"
     "    variant_hash(Term, IntHash),\n"
     "    Key is (IntHash mod BCount)+1.\n"
