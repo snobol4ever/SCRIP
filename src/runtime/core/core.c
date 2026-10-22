@@ -2108,7 +2108,7 @@ static DESCR_t _DATE_(DESCR_t *a, int n) {
     time_t t = time(NULL);
     struct tm *tm = localtime(&t);
     char *buf = rt_heap_alloc_c(20);
-    strftime(buf, 20, "%m/%d/%Y %H:%M:%S", tm);
+    strftime(buf, 20, "%m/%d/%y %H:%M:%S", tm);
     return STRVAL(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

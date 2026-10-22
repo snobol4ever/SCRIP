@@ -18834,7 +18834,7 @@ static __attribute__((noinline)) int bn_date(DESCR_t *args, int nargs, DESCR_t *
     time_t now = time(NULL);
     struct tm *tm = localtime(&now);
     char *buf = (char *)rt_heap_alloc_c(64);
-    strftime(buf, 64, "%m/%d/%Y %H:%M:%S", tm);
+    strftime(buf, 64, "%m/%d/%y %H:%M:%S", tm);
     *out = STRVAL(buf);
     return 1;
 }
