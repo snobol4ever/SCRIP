@@ -39,23 +39,26 @@ static const char kind_names[IR_OP_COUNT][21] = { [IR_LIT_INTEGER] = "IR_LIT_INT
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) { if (k >= 0 && k < IR_OP_COUNT && kind_names[k][0]) return kind_names[k]; return "IR_UNKNOWN"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void IR_release_scope_add(IR_graph_t * g, const IR_t * nd, int lo, int hi) {
-    if (!g || !nd) return;
-    if (g->n_rel == g->max_rel) {
-        int nm = g->max_rel ? 2 * g->max_rel : 16;
-        struct IR_relscope_t * nv = ct_zalloc((size_t)nm, sizeof *nv);
-        if (!nv) return;
-        for (int i = 0; i < g->n_rel; i++) nv[i] = g->rel[i];
-        g->rel = nv;
-        g->max_rel = nm;
+int ir_construct_add(IR_graph_t * g, int kind, IR_t * begin, IR_t * end, int lo, int hi) {
+    if (!g || kind < IR_CK_GRAPH || kind >= IR_CK_COUNT) return -1;
+    if (g->n_constructs == g->max_constructs) {
+        int nm = g->max_constructs ? 2 * g->max_constructs : 16;
+        g->constructs = ct_grow(g->constructs, (size_t)nm * sizeof *g->constructs);
+        g->max_constructs = nm;
     }
-    g->rel[g->n_rel++] = (struct IR_relscope_t){ nd, lo, hi };
+    g->constructs[g->n_constructs] = (IR_construct_t){ kind, begin, end, lo, hi };
+    return g->n_constructs++;
 }
-int IR_release_scope_get(const IR_graph_t * g, const IR_t * nd, int * lo, int * hi) {
-    if (!g || !nd) return 0;
-    for (int i = g->n_rel - 1; i >= 0; i--) if (g->rel[i].nd == nd) { *lo = g->rel[i].lo; *hi = g->rel[i].hi; return 1; }
-    return 0;
+const IR_construct_t * ir_construct_find(const IR_graph_t * g, int kind, const IR_t * begin) {
+    for (int i = g ? g->n_constructs - 1 : -1; i >= 0; i--) if (g->constructs[i].kind == kind && g->constructs[i].begin == begin) return &g->constructs[i];
+    return (const IR_construct_t *)0;
 }
+int ir_clause_bounds(const IR_graph_t * g, int * lo, int na) {
+    int k = 0;
+    for (int i = 0; g && i < g->n_constructs; i++) if (g->constructs[i].kind == IR_CK_CLAUSE) { if (lo && k < na) { lo[k] = g->constructs[i].lo; lo[k + 1] = g->constructs[i].hi; } k++; }
+    return k;
+}
+const char * ir_construct_name(int kind) { return kind == IR_CK_GRAPH ? "GRAPH" : kind == IR_CK_CLAUSE ? "CLAUSE" : kind == IR_CK_BOUND ? "BOUND" : kind == IR_CK_CUT ? "CUT" : "?"; }
 IR_graph_t * IR_alloc(int max_nodes) {
     IR_graph_t * bbg = ct_zalloc(1, sizeof(IR_graph_t));
     if (!bbg) return NULL;
@@ -104,6 +107,7 @@ void IR_free(IR_graph_t * bbg) {
     ct_drop(bbg->alt_entry);
     ct_drop(bbg->alt_ret);
     ct_drop(bbg->alt_redo);
+    ct_drop(bbg->constructs);
     ct_drop(bbg->all);
     ct_drop(bbg->vslots);
     ct_drop((void *)bbg->pnames);
@@ -118,6 +122,8 @@ int bb_program_add(bb_program_t * p, IR_graph_t * bbg) {
     if (p->count >= p->cap) { p->cap *= 2; p->table = (IR_graph_t **)ct_grow(p->table, (size_t)p->cap * sizeof(IR_graph_t *)); }
     int idx = p->count++;
     p->table[idx] = bbg;
+    bbg->serial = ++p->serial_next;
+    ir_construct_add(bbg, IR_CK_GRAPH, bbg->entry, (IR_t *)0, 0, bbg->n);
     return idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

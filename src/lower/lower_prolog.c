@@ -741,8 +741,8 @@ static void pl_register_releases(lcx_t * cx, int from) {
     for (int k = from; k < to; k++) {
         IR_t * x = cx->g->all[k];
         if (!x) continue;
-        if (x->op == IR_BOUND) IR_release_scope_add(cx->g, x, k, to);
-        if (x->op == IR_CUT && IR_LIT(x).ival == 0) IR_release_scope_add(cx->g, x, from, to);
+        if (x->op == IR_BOUND) ir_construct_add(cx->g, IR_CK_BOUND, x, (IR_t *) 0, k, to);
+        if (x->op == IR_CUT && IR_LIT(x).ival == 0) ir_construct_add(cx->g, IR_CK_CUT, x, (IR_t *) 0, from, to);
     }
 }
 static void pl_pop_ok(lcx_t * cx, IR_t * nd) { if (cx->pop_ok && nd) lc_vec_push(cx->pop_ok, &nd); }
@@ -3440,8 +3440,7 @@ static void pl_alt_alloc(IR_graph_t * g, int nc) {
     g->alt_entry = (IR_t **) ct_zalloc((size_t) nc, sizeof(IR_t *));
     g->alt_ret = (IR_t **) ct_zalloc((size_t) nc, sizeof(IR_t *));
     g->alt_redo = (IR_t **) ct_zalloc((size_t) nc, sizeof(IR_t *));
-    g->alt_lo = nc > 1 ? (int *) ct_zalloc((size_t)(2 * nc + 2), sizeof(int)) : (int *) 0;
-    g->alt_zhi = g->alt_lo ? g->alt_lo + nc + 1 : (int *) 0;
+    g->alt_zhi = nc > 1 ? (int *) ct_zalloc((size_t)(nc + 1), sizeof(int)) : (int *) 0;
     g->n_alts = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3548,7 +3547,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     cx.nvalias = nva;
     g_lower.pl.fresh_next = maxlocal + 1;
     for (int k = 0; k < nc; k++) {
-        if (g->alt_lo) g->alt_lo[k] = g->n;
+        int clause_lo = g->n;
         const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[k] : ch;
         if (!cl || cl->t != TT_CLAUSE) pl_refuse("clause shape in", key, 2);
         int ar = (int) cl->v.dval;
@@ -3620,8 +3619,8 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         g->alt_entry[k] = next;
         g->alt_ret[k] = succeed;
         g->alt_redo[k] = redo;
+        if (nc > 1) ir_construct_add(g, IR_CK_CLAUSE, next, succeed, clause_lo, g->n);
     }
-    if (g->alt_lo) g->alt_lo[nc] = g->n;
     maxlocal = g_lower.pl.fresh_next - 1;
     g_lower.pl.fresh_next = fresh_saved;
     if (arity < 0) arity = 0;

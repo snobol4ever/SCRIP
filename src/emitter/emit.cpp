@@ -3928,6 +3928,7 @@ extern "C" int emit_gc_map_names_n(void) { return g_emitter.g_gc_map_names_n; }
 extern "C" const char * emit_gc_map_name(int i) { return (i >= 0 && i < g_emitter.g_gc_map_names_n) ? CV_AT(g_emitter.g_gc_map_names_v, char *, i) : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void emit_dump_homes_on(void) { g_emitter.dump_homes = 1; }
+extern "C" void emit_dump_plan_on(void) { g_emitter.dump_plan = 1; }
 static int dh_callee_graph(const IR_t * nd) {
     if (!ir_is_call_kind(ir_kind0(nd)) || ir_kind0(nd) == IR_CALL_VALUE || !IR_LIT(nd).sval) return -1;
     auto it = g_emitter.dh_gidx.find(IR_LIT(nd).sval);
@@ -4049,6 +4050,50 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
     if (g && g->root_graph && g->standing_cells > 0)
         fprintf(stderr, "[HOMES] g=%d graph=%s standing=%d home=STANDING why=dynamic-predicate-root\n", gi, gn ? gn : "?", g->standing_cells);
 }
+static void dp_col(long v, long none) { if (v == none) printf(" -"); else printf(" %ld", v); }
+static void emit_dump_plan(const zeta_plan_t * pl, const char * prefix) {
+    extern const char * zls_graph_name_get(const IR_graph_t *);
+    const IR_graph_t * g = g_emit_cfg;
+    const char * gn = g ? zls_graph_name_get(g) : (const char *)0;
+    IR_t ** nodes = g_emitter.codegen_flat_chain_body_nodes;
+    int n = pl->n;
+    if (!g_emitter.dump_plan_cols) { printf("PLAN_COLUMNS E X K definite zeta off depth retains_code owner fenced gpop wpop restore\n"); g_emitter.dump_plan_cols = 1; }
+    printf("PLAN graph=%s serial=%d chain=%s n=%d constructs=%d\n", gn ? gn : "?", g ? g->serial : -1, prefix ? prefix : "-", n, (g && pl->own_root) ? g->n_constructs : 0);
+    for (int c = 0; g && pl->own_root && c < g->n_constructs; c++) {
+        const IR_construct_t * k = &g->constructs[c];
+        int bi = -1, ei = -1;
+        for (int q = 0; q < g->n; q++) { if (g->all[q] == k->begin) bi = q; if (k->end && g->all[q] == k->end) ei = q; }
+        printf("PLAN_CONSTRUCT graph=%s serial=%d k=%d kind=%s begin=%d end=%d lo=%d hi=%d\n", gn ? gn : "?", g->serial, c, ir_construct_name(k->kind), bi, ei, k->lo, k->hi);
+    }
+    for (int i = 0; i < n; i++) {
+        IR_t * nd = nodes[i];
+        int ai = -1;
+        for (int k = 0; g && k < g->n; k++) if (g->all[k] == nd) { ai = k; break; }
+        int on = pl->on[i], K = zd_k(nd), X = pl->out[i], gp = pl->gp[i], wp = pl->wp[i];
+        int off = bb_slot_get(nd);
+        if (off < 0) off = nd_slot(nd);
+        if (zls_key_unbacked(g, off)) off = -1;
+        int xf = xop_frame_slot(nd), esc = nd->op == IR_TABLE_HDR && off >= 0;
+        const char * zeta = esc ? "ACT" : on ? (K > 0 ? (xf != -1 ? "SPINE+ACT" : "SPINE") : (xf != -1 ? "ACT" : "NONE")) : off < 0 ? "NONE" : xf != -1 ? "ACT" : "PRE";
+        long zoff = esc ? off : xf != -1 ? xf : (!on && off >= 0) ? off : LONG_MIN;
+        int known = pl->xb && pl->xb[i] != INT_MIN;
+        printf("PLAN_ROW i=%d all=%d kind=%s", i, ai, bb_op_name(nd->op));
+        dp_col(on ? X - K : LONG_MIN, LONG_MIN);
+        dp_col(on ? X : LONG_MIN, LONG_MIN);
+        dp_col(K, LONG_MIN);
+        dp_col(on ? known : LONG_MIN, LONG_MIN);
+        printf(" %s", zeta);
+        dp_col(zoff, LONG_MIN);
+        dp_col((on && known) ? (long)pl->xb[i] + X : LONG_MIN, LONG_MIN);
+        dp_col(planner_retains(nd), LONG_MIN);
+        dp_col(pl->claim[i], -1);
+        dp_col(on ? gp > 0 : LONG_MIN, LONG_MIN);
+        dp_col(on ? gp : LONG_MIN, LONG_MIN);
+        dp_col(on ? wp : LONG_MIN, LONG_MIN);
+        dp_col((nd->op == IR_CUT && pl->cut && pl->cut[i] >= 0) ? pl->cut[i] : LONG_MIN, LONG_MIN);
+        printf("\n");
+    }
+}
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
     bb_label_t * lbl_α_orig_p = (bb_label_t *)0;
@@ -4122,6 +4167,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     zd_depth_census(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, prefix);
     zd_check(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, zd_xb, zd_chn, zd_cut, prefix);
     if (g_emitter.dump_homes) emit_dump_homes(g_emitter.codegen_flat_chain_body_nodes, n, zd_on);
+    if (g_emitter.dump_plan) emit_dump_plan(_pl, prefix);
     {
     if (g_emitter.codegen_flat_chain_body__zk0_on < 0) { const char * _e = getenv("SCRIP_ZD_CENSUS"); g_emitter.codegen_flat_chain_body__zk0_on = (_e && *_e == '1') ? 1 : 0; }
     if (g_emitter.codegen_flat_chain_body__zk0_on && g_emit_cfg && g_emit_cfg->spine_cells) {

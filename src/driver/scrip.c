@@ -1746,6 +1746,13 @@ int main(int argc, char **argv) {
                 extern void emit_dump_homes_on(void);
                 emit_dump_homes_on();
                 argi++;
+            } else if (strcmp(argv[argi], "--dump-plan") == 0) {
+                extern void emit_dump_plan_on(void);
+                emit_dump_plan_on();
+                mode_compile = 1;
+                if (!target_name) target_name = "x86";
+                if (!output_path) output_path = "/dev/null";
+                argi++;
             } else if (strcmp(argv[argi], "--transpile") == 0) {
                 dump_transpile = 1;
                 argi++;
@@ -1929,6 +1936,7 @@ int main(int argc, char **argv) {
             "  --dump-bb        print the Byrd-box graph as JSON (boxes + gamma/omega port edges) for tools/bb_viewer.html\n"
             "  --dump-ir-verbose  same, plus node-id alongside each slot and the legend line\n"
             "  --dump-zeta      print the ZB-2 zeta layout table: scope tree, typed field maps, vslots (post-optimizer)\n" "  --transpile      transpile AST to portable SNOBOL4 source\n"
+            "  --dump-plan      print the planner's table, one PLAN line per chain and one PLAN_ROW per node, on stdout (compiles to /dev/null)\n"
             "  --bench          print wall-clock time after execution\n"
             "  --dialect=NAME   Pascal: read a source with no {$mode} line as NAME (iso, fpc, objfpc, delphi, tp, macpas, delphiunicode), as if it began with {$mode NAME}; a {$mode} in the source wi"
             "ns. Prolog: gnu\n"

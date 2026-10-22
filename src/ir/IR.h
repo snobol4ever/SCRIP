@@ -194,6 +194,8 @@ static inline int ir_define_is_bind(const IR_t * nd) {
     return (nd->n_operands == 1 && ir_define_bind_proto(nd)) ? 1 : 0;
 }
 typedef struct { const char * sval; int64_t ival; double dval; } IR_lit_t;
+typedef enum { IR_CK_GRAPH = 1, IR_CK_CLAUSE, IR_CK_BOUND, IR_CK_CUT, IR_CK_COUNT } IR_construct_e;
+typedef struct IR_construct_t { int kind; IR_t * begin; IR_t * end; int lo; int hi; } IR_construct_t;
 struct IR_graph_t {
     IR_t * entry;
     IR_t ** all;
@@ -236,7 +238,6 @@ struct IR_graph_t {
     IR_t ** alt_entry;
     IR_t ** alt_ret;
     IR_t ** alt_redo;
-    int * alt_lo;
     int * alt_zhi;
     int alt_zlo;
     IR_t * alt_fail;
@@ -262,13 +263,16 @@ struct IR_graph_t {
     int pkt_fragment;
     int pkt_cell;
     int pkt_slot;
-    struct IR_relscope_t { const IR_t * nd; int lo, hi; } * rel;
-    int n_rel;
-    int max_rel;
+    IR_construct_t * constructs;
+    int n_constructs;
+    int max_constructs;
+    int serial;
 };
 IR_graph_t * IR_alloc(int max_nodes);
-void IR_release_scope_add(IR_graph_t * g, const IR_t * nd, int lo, int hi);
-int IR_release_scope_get(const IR_graph_t * g, const IR_t * nd, int * lo, int * hi);
+int ir_construct_add(IR_graph_t * g, int kind, IR_t * begin, IR_t * end, int lo, int hi);
+const IR_construct_t * ir_construct_find(const IR_graph_t * g, int kind, const IR_t * begin);
+int ir_clause_bounds(const IR_graph_t * g, int * lo, int na);
+const char * ir_construct_name(int kind);
 uint32_t ir_name_hash(const char * s);
 int ir_varslot_of(const IR_graph_t * g, const char * name);
 int graph_has_local(const IR_graph_t * g, const char * name);

@@ -47,6 +47,8 @@ typedef struct { int enc_kind, enc_depth; const IR_t * nd; } gc_match_lvl_t;
 typedef struct { const IR_t * nd; uint32_t gen; } ocr_slot_t;
 struct g_emitter_t {
     int dump_homes = 0;
+    int dump_plan = 0;
+    int dump_plan_cols = 0;
     std::vector<signed char> dh_rt;
     std::unordered_map<std::string, int> dh_gidx;
     int g_zd_abs = 0;

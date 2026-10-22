@@ -890,11 +890,13 @@ static int zls_ovn_clause(const zls_ovn_t * v, int n, const IR_t * nd) {
     return -1;
 }
 static int zls_ov_shares(const IR_graph_t * g) {
-    int na = g->n_alts, lo = g->alt_lo[0], hi = g->alt_lo[na], n = 0;
+    int na = g->n_alts, al[na + 1], n = 0;
+    ir_clause_bounds(g, al, na);
+    int lo = al[0], hi = al[na];
     zls_ovn_t v[hi - lo > 0 ? hi - lo : 1];
-    for (int c = 0; c < na; c++) for (int i = g->alt_lo[c]; i < g->alt_lo[c + 1]; i++) if (g->all[i]) v[n++] = (zls_ovn_t){ g->all[i], c };
+    for (int c = 0; c < na; c++) for (int i = al[c]; i < al[c + 1]; i++) if (g->all[i]) v[n++] = (zls_ovn_t){ g->all[i], c };
     qsort(v, (size_t)n, sizeof v[0], zls_ovn_cmp);
-    for (int c = 0; c < na; c++) for (int i = g->alt_lo[c]; i < g->alt_lo[c + 1]; i++) {
+    for (int c = 0; c < na; c++) for (int i = al[c]; i < al[c + 1]; i++) {
         const IR_t * x = g->all[i];
         if (!x) continue;
         int o = x->γ.node ? zls_ovn_clause(v, n, x->γ.node) : -1;
@@ -906,7 +908,9 @@ static int zls_ov_shares(const IR_graph_t * g) {
     return 0;
 }
 static int zls_overlay(IR_graph_t * g, int base, int k0, int root, const char * rb, const zls_reuse_t * rec, int dl_base, const char * lv, const char * uo, int * scratch_off) {
-    int na = g->n_alts, lo = g->alt_lo[0], hi = g->alt_lo[na];
+    int na = g->n_alts, al[na + 1];
+    ir_clause_bounds(g, al, na);
+    int lo = al[0], hi = al[na];
     if (*scratch_off < 0 && g_lower.ir.zls_build_eon) {
         int need = 0;
         for (int i = lo; i < hi && !need; i++) {
@@ -939,7 +943,7 @@ static int zls_overlay(IR_graph_t * g, int base, int k0, int root, const char * 
     for (int c = 0; c < na; c++) {
         int ce = 0, low = 0;
         memset(occ, 0, sizeof occ);
-        for (int i = g->alt_lo[c]; i < g->alt_lo[c + 1]; i++) {
+        for (int i = al[c]; i < al[c + 1]; i++) {
             const IR_t * nd = g->all[i];
             if (!nd || !rb[i]) continue;
             int a = g_lower.ir.zf_n, b = g_lower.ir.ze_n, x = g_lower.ir.zx_n, st = *scratch_off, pr = base + k0 * 16;
@@ -1375,7 +1379,8 @@ void zls_build(IR_graph_t * g) {
         zls_reuse_t * rec = (zls_reuse_t *)ct_alloc(sizeof(zls_reuse_t) * (size_t)g->n);
         int nloop = 0;
         zls_reuse_plan(g, rec, (int *)0, &nloop);
-        int ov = g->alt_lo && g->alt_zhi && g->n_alts > 1 && nl == 0 && g->alt_lo[0] <= g->alt_lo[g->n_alts] && g->alt_lo[g->n_alts] <= g->n && !zls_ov_shares(g);
+        int al_n = g->n_alts > 1 ? g->n_alts : 1, al[al_n + 1];
+        int ov = ir_clause_bounds(g, al, al_n) == g->n_alts && g->alt_zhi && g->n_alts > 1 && nl == 0 && al[0] <= al[g->n_alts] && al[g->n_alts] <= g->n && !zls_ov_shares(g);
         int pool_free[64], pool_n = 0, pool_base = -1, dl_base = -1, dl_w = 0, rs_scratch = -1, ov_in = 0;
         for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && rb[i] && zls_reuse_detleaf(nd) && (nl == 0 || i < mstart[0]) && nd->n_operands > dl_w) dl_w = nd->n_operands; }
         {
@@ -1411,13 +1416,13 @@ void zls_build(IR_graph_t * g) {
             zls_ds_drop(&ds);
             ct_drop(order);
             if (hf) {
-                for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && zls_hf_resident(g->all[i]) && ov && i >= g->alt_lo[0] && i < g->alt_lo[g->n_alts]) ov_in = 1;
+                for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && zls_hf_resident(g->all[i]) && ov && i >= al[0] && i < al[g->n_alts]) ov_in = 1;
                 if (dl_w > 0) { dl_base = zls_dl_place(root, base, k, dl_w); k += dl_w; }
                 for (int i = 0, c2 = 0; i < g->n; i++) {
                     IR_t * nd = g->all[i];
                     if (!nd) continue;
                     while (c2 < nl && i >= mstart[c2]) c2++;
-                    if (!rb[i] || !zls_hf_resident(nd) || (ov && i >= g->alt_lo[0] && i < g->alt_lo[g->n_alts])) continue;
+                    if (!rb[i] || !zls_hf_resident(nd) || (ov && i >= al[0] && i < al[g->n_alts])) continue;
                     k += zls_grant_at(g, nd, i, c2 > 0 ? mfirst[c2 - 1] : root, root, rec, dl_base, lv, uo, &rs_scratch, base + k * 16);
                 }
                 if (ov_in) k = zls_overlay(g, base, k, root, rb, rec, dl_base, lv, uo, &rs_scratch);
@@ -1487,7 +1492,7 @@ void zls_build(IR_graph_t * g) {
             if (!nd) continue;
             while (cur < nl && i >= mstart[cur]) cur++;
             if (!rb[i] || (hf && zls_hf_resident(nd))) continue;
-            if (ov && i >= g->alt_lo[0] && i < g->alt_lo[g->n_alts]) continue;
+            if (ov && i >= al[0] && i < al[g->n_alts]) continue;
             int sc = (cur > 0) ? mfirst[cur - 1] : root;
             k += zls_grant_at(g, nd, i, sc, root, rec, dl_base, lv, uo, &scratch_off, base + k * 16);
         }
@@ -2153,7 +2158,10 @@ int zls_g_ptr_frame_offs(const IR_graph_t * g, int kind, int * out, int cap) {
 }
 int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int kind, int * out, int cap) {
     int lo = 0, hi = 0, raw = 0, n = 0;
-    if (!g || !scope_nd || !IR_release_scope_get(g, scope_nd, &lo, &hi)) return zls_g_ptr_frame_offs(g, kind, out, cap);
+    const IR_construct_t * sc = ir_construct_find(g, (scope_nd && scope_nd->op == IR_CUT) ? IR_CK_CUT : IR_CK_BOUND, scope_nd);
+    if (!g || !scope_nd || !sc) return zls_g_ptr_frame_offs(g, kind, out, cap);
+    lo = sc->lo;
+    hi = sc->hi;
     if (hi > g->n) hi = g->n;
     for (int k = lo; k < hi; k++) if (g->all[k]) raw++;
     {
