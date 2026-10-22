@@ -485,6 +485,39 @@ static int pas_setcons_elems(tree_t *v, tree_t *out) {
     if (!strcmp(v->c[0]->v.sval, "__pas_set")) { for (int i = 1; i < v->n; i++) ast_push(out, v->c[i]); return 1; }
     return !strcmp(v->c[0]->v.sval, "__pas_setuni") && v->n == 3 && pas_setcons_elems(v->c[1], out) && pas_setcons_elems(v->c[2], out);
 }
+static int pas_has_user_call(const tree_t *x) {
+    if (!x) return 0;
+    if (x->t == TT_FNC && x->n >= 1 && x->c[0] && x->c[0]->t == TT_VAR && x->c[0]->v.sval && (pas_is_func(x->c[0]->v.sval) || pas_is_proc(x->c[0]->v.sval))) return 1;
+    for (int i = 0; i < x->n; i++) if (pas_has_user_call(x->c[i])) return 1;
+    return 0;
+}
+static tree_t *pas_split_writes(tree_t *e) {
+    int i0 = (e->n >= 3 && e->c[2] && e->c[2]->t == TT_ILIT && e->c[2]->v.ival == -9) ? 3 : 1;
+    int gs[e->n + 1], gcall[e->n + 1], ng = 0, needs = 0;
+    for (int i = i0; i + 1 < e->n;) {
+        int g = (e->c[i + 1] && e->c[i + 1]->t == TT_ILIT && (e->c[i + 1]->v.ival == -10 || e->c[i + 1]->v.ival == -3)) ? 4 : 2;
+        if (i + g > e->n) g = e->n - i;
+        gs[ng] = i;
+        gcall[ng] = 0;
+        for (int k = i; k < i + g; k++) if (pas_has_user_call(e->c[k])) gcall[ng] = 1;
+        if (gcall[ng] && ng > 0) needs = 1;
+        ng++;
+        i += g;
+    }
+    if (!needs) return e;
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+    int start = 0;
+    for (int j = 0; j <= ng; j++) {
+        if (j < ng && !(gcall[j] && j > start)) continue;
+        tree_t *c = ast_node_new(TT_FNC);
+        ast_push(c, leaf_s(TT_VAR, j == ng ? e->c[0]->v.sval : "__pas_write"));
+        if (i0 == 3) { ast_push(c, pas_tree_clone(e->c[1])); ast_push(c, ilit(-9)); }
+        for (int k = gs[start]; k < (j == ng ? e->n : gs[j]); k++) ast_push(c, e->c[k]);
+        ast_push(seq, c);
+        start = j;
+    }
+    return seq;
+}
 static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "fini.mute")) return mk_fnc0("__pas_std_mute");
     if (name && !g_lower.pas.sem.pas_dialect_fpc && (!strcmp(name, "random") || !strcmp(name, "randomize") || !strcmp(name, "stringofchar")) && !pas_is_func(name) && !pas_is_proc(name) &&
@@ -1317,6 +1350,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             }
         }
     }
+    if (is_pas_io(map_io(name))) return pas_split_writes(e);
     return e;
 }
 static tree_t *pas_mod(tree_t *a, tree_t *b) {
