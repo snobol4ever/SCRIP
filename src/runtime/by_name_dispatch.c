@@ -7156,7 +7156,10 @@ static int pl_sp_named(DESCR_t d) {
     if (!strcmp(nm, "user_error")) return 2;
     return pl_alias_idx(nm);
 }
-static const char *pl_sp_mode_name(int i) { char m = (i == 0) ? 'r' : (i == 1 || i == 2) ? 'w' : g_fh[i].mode; return (m == 'r') ? "read" : (m == 'a') ? "append" : (m == '+') ? "update" : "write"; }
+static const char *pl_sp_mode_name(int i) {
+    char m = (i == 0) ? 'r' : (i == 1 || i == 2) ? ((pl_swi_dialect() || pl_gnu_dialect()) ? 'w' : 'a') : g_fh[i].mode;
+    return (m == 'r') ? "read" : (m == 'a') ? "append" : (m == '+') ? "update" : "write";
+}
 static const char *pl_sp_eos_name(int i) {
     extern FILE *fh_get(int);
     FILE *fp = fh_get(i);
