@@ -281,7 +281,19 @@ static void plw_bind(DESCR_t *cell, DESCR_t word, pl_tr_ctx_t *cx) {
     *cell = word;
 }
 static int plw_oc_refuse(DESCR_t *v, DESCR_t *t, pl_tr_ctx_t *cx);
-static int plw_vvb_on(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_VVB"); p = (e && e[0] == '1') ? 0 : 1; } return p; }
+static int plw_bind_vv(DESCR_t *A, DESCR_t *B, pl_tr_ctx_t *cx, const char *floor_) {
+    int as = (const char *)A > floor_, bs = (const char *)B > floor_;
+    DESCR_t *from = as && bs ? (A < B ? A : B) : as ? A : bs ? B : (A > B ? A : B);
+    DESCR_t *to = from == A ? B : A;
+    DESCR_t r = {0};
+    r.v = (DTYPE_t)DT_PLVAR;
+    r.slen = 0;
+    r.p = (void *)to;
+    if (to->v != (DTYPE_t)DT_PLVAR || to->p != (void *)to) { if (pl_tr_needs_log_bind(cx, to, floor_)) pl_tr_push(cx, to); *to = r; }
+    if (pl_tr_needs_log_bind(cx, from, floor_)) pl_tr_push(cx, from);
+    *from = r;
+    return 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plw_unify_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
     pl_tr_ctx_t *cx = (pl_tr_ctx_t *)ctx;
@@ -299,30 +311,7 @@ static int plw_unify_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
             plw_bind(A, r, cx);
             return 1;
         }
-        if (plw_vvb_on() && (char *)A > floor_ && (char *)B > floor_) {
-            DESCR_t *lo = A < B ? A : B;
-            DESCR_t *hi = A < B ? B : A;
-            DESCR_t r = {0};
-            r.v = (DTYPE_t)DT_PLVAR;
-            r.slen = 0;
-            r.p = (void *)hi;
-            if (hi->v != (DTYPE_t)DT_PLVAR || hi->p != (void *)hi) { DESCR_t u = {0}; u.v = (DTYPE_t)DT_PLVAR; u.slen = 0; u.p = (void *)hi; plw_bind(hi, u, cx); }
-            plw_bind(lo, r, cx);
-            return 1;
-        }
-        {
-            DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1);
-            j->v = (DTYPE_t)DT_PLVAR;
-            j->slen = 0;
-            j->p = (void *)j;
-            DESCR_t r = {0};
-            r.v = (DTYPE_t)DT_PLVAR;
-            r.slen = 0;
-            r.p = (void *)j;
-            plw_bind(A, r, cx);
-            plw_bind(B, r, cx);
-            return 1;
-        }
+        return plw_bind_vv(A, B, cx, floor_);
     }
     if (av) { if (B->v == (DTYPE_t)DT_PLREF && pl_tr_ocheck_mode(cx) && plw_oc_refuse(A, B, cx)) return 0; plw_bind(A, *B, cx); return 1; }
     if (bv) { if (A->v == (DTYPE_t)DT_PLREF && pl_tr_ocheck_mode(cx) && plw_oc_refuse(B, A, cx)) return 0; plw_bind(B, *A, cx); return 1; }
@@ -365,17 +354,7 @@ static int plw_unify_oc_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
             plw_bind(A, r, cx);
             return 1;
         }
-        DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1);
-        j->v = (DTYPE_t)DT_PLVAR;
-        j->slen = 0;
-        j->p = (void *)j;
-        DESCR_t r = {0};
-        r.v = (DTYPE_t)DT_PLVAR;
-        r.slen = 0;
-        r.p = (void *)j;
-        plw_bind(A, r, cx);
-        plw_bind(B, r, cx);
-        return 1;
+        { char probe; return plw_bind_vv(A, B, cx, &probe); }
     }
     if (av) { if (plw_occurs_in(A, B)) return 0; plw_bind(A, *B, cx); return 1; }
     if (bv) { if (plw_occurs_in(B, A)) return 0; plw_bind(B, *A, cx); return 1; }

@@ -61,7 +61,7 @@ static inline int pl_unify(pl_cell_t *a, pl_cell_t *b) {
     if (A == B) return 1;
     int av = pl_cell_unbound(A), bv = pl_cell_unbound(B);
     if (av && bv && pl_attv_is(A) != pl_attv_is(B)) { pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)(pl_attv_is(A) ? A : B); pl_bind(pl_attv_is(A) ? B : A, r); return 1; }
-    if (av && bv) { extern void *rt_ws_alloc_descr(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; pl_bind(A, r); pl_bind(B, r); return 1; }
+    if (av && bv) { extern int rt_pl_bind_vv(pl_cell_t *, pl_cell_t *); return rt_pl_bind_vv(A, B); }
     if (av) { pl_bind(A, *B); return 1; }
     if (bv) { pl_bind(B, *A); return 1; }
     if ((int)A->v == DT_PLATOM && (int)B->v == DT_PLATOM) return A->i == B->i;

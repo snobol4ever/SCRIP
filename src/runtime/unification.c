@@ -2102,23 +2102,24 @@ static int rt_pl_cell_compare_leaf(pl_cell_t *a, pl_cell_t *b, void *ctx) {
     return PLR_DESCEND;
 }
 PLR_WALK2(plc_compare_walk, rt_pl_cell_compare_leaf, pl_deref) static int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb) { return plc_compare_walk(ca, cb, (void *)0, 0); }
+__attribute__((noinline)) int rt_pl_bind_vv(pl_cell_t *A, pl_cell_t *B) {
+    char probe;
+    int as = (char *)A > &probe, bs = (char *)B > &probe;
+    pl_cell_t *from = as && bs ? (A < B ? A : B) : as ? A : bs ? B : (A > B ? A : B);
+    pl_cell_t *to = from == A ? B : A;
+    pl_cell_t r;
+    r.v = (DTYPE_t)DT_PLVAR;
+    r.slen = 0;
+    r.p = (void *)to;
+    if ((int)to->v != DT_PLVAR || to->p != (void *)to) *to = r;
+    *from = r;
+    return 1;
+}
 static int plc_unify_leaf(pl_cell_t *A, pl_cell_t *B, void *ctx) {
     int av = pl_cell_unbound(A), bv = pl_cell_unbound(B);
     (void)ctx;
     if (av && bv && pl_attv_is(A) != pl_attv_is(B)) { pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)(pl_attv_is(A) ? A : B); pl_bind(pl_attv_is(A) ? B : A, r); return 1; }
-    if (av && bv) {
-        pl_cell_t *j = (pl_cell_t *)rt_ws_alloc_descr(1);
-        pl_cell_t r;
-        j->v = (DTYPE_t)DT_PLVAR;
-        j->slen = 0;
-        j->p = (void *)j;
-        r.v = (DTYPE_t)DT_PLVAR;
-        r.slen = 0;
-        r.p = (void *)j;
-        pl_bind(A, r);
-        pl_bind(B, r);
-        return 1;
-    }
+    if (av && bv) return rt_pl_bind_vv(A, B);
     if (av) { pl_bind(A, *B); return 1; }
     if (bv) { pl_bind(B, *A); return 1; }
     if ((int)A->v == DT_PLATOM && (int)B->v == DT_PLATOM) return A->i == B->i;
