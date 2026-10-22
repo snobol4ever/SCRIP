@@ -1892,7 +1892,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
                 if (!plc_fmt_text(h, &tx, &tn, &ball)) break;
                 if (have_n && (size_t)nval < tn) tn = (size_t)(nval < 0 ? 0 : nval);
                 plc_fb_add(&f, tx, tn);
-                if (have_n && (size_t)nval > tn) for (size_t i = tn; i < (size_t)nval; i++) plc_fb_add(&f, " ", 1);
+                if (have_n && (size_t)nval > tn && !rt_pl_dialect_swi()) for (size_t i = tn; i < (size_t)nval; i++) plc_fb_add(&f, " ", 1);
                 ct_drop(tx);
             } else if (*p == 'W') {
                 pl_cell_t *o = plc_fmt_next_arg(&args);
