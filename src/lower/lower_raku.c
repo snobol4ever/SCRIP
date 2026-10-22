@@ -1119,8 +1119,8 @@ static IR_t * rk_lower_iter_meth(rcx_t * cx, const tree_t * t, const char * mnam
     int np = cv ? (k == 4 || k == 6 ? 2 : 1) : rk_proc_nparams(bn), nref = cl ? cl->n - 2 : 0;
     if (np < 0 && !cv && k >= 1 && k <= 3 && rk_proc_slurpy_only(bn, nref)) np = 1 + nref;
     if (np >= 0 && (np -= nref) < 0) return NULL;
-    int step = (k == 1 && np > 1) ? np : 1;
-    if ((k == 4 || k == 6) ? np != 2 : k == 5 ? np != 1 : (np < 0 || (k != 1 && np > 1))) return NULL;
+    int step = (k == 1 && np > 1) ? np : (k == 4 && np > 2) ? np - 1 : 1;
+    if (k == 4 ? np < 2 : k == 6 ? np != 2 : k == 5 ? np != 1 : (np < 0 || (k != 1 && np > 1))) return NULL;
     if (rk_user_meth_named(mname) || (k > 3 && t->c[0]->t == TT_VAR && t->c[0]->v.sval && t->c[0]->v.sval[0] == '%')) return NULL;
     char b1[40], b2[40], b3[40], b4[40];
     int id = cx->g->n;
@@ -1145,10 +1145,11 @@ static IR_t * rk_lower_iter_meth(rcx_t * cx, const tree_t * t, const char * mnam
     IR_t * to = build(cx, IR_TO, va, fin);
     IR_LIT(to).sval = "ag";
     tree_t * lo = ast_node_new(TT_ILIT);
-    lo->v.ival = (k == 4 || k == 6) ? 1 : 0;
+    lo->v.ival = (k == 4 && step == 1) || k == 6 ? 1 : 0;
     tree_t * one = ast_node_new(TT_ILIT);
     one->v.ival = 1;
     tree_t * nel = rk_fnc2("elems", leaf_sval2(TT_VAR, src), NULL);
+    if (k == 4 && step > 1) { tree_t * o1 = ast_node_new(TT_ILIT); o1->v.ival = 1; tree_t * sb = ast_node_new(TT_SUB); ast_push(sb, nel); ast_push(sb, o1); nel = sb; }
     if (step > 1) { tree_t * sn = ast_node_new(TT_ILIT); sn->v.ival = step; nel = rk_fnc2("__rk_intdiv", nel, sn); }
     tree_t * hi = ast_node_new(TT_SUB);
     ast_push(hi, nel);
@@ -1168,12 +1169,12 @@ static IR_t * rk_lower_iter_meth(rcx_t * cx, const tree_t * t, const char * mnam
         IR_LIT(as).sval = acc;
         tree_t * call = k == 4 ? rk_iter_call(bn, cl, cv, leaf_sval2(TT_VAR, acc), at) : rk_iter_call(bn, cl, cv, np ? at : NULL, NULL);
         if (step > 1) {
-            call = rk_iter_call(bn, cl, cv, NULL, NULL);
+            call = rk_iter_call(bn, cl, cv, k == 4 ? leaf_sval2(TT_VAR, acc) : NULL, NULL);
             for (int j = 0; j < step; j++) {
                 tree_t * sn = ast_node_new(TT_ILIT);
                 sn->v.ival = step;
                 tree_t * jn = ast_node_new(TT_ILIT);
-                jn->v.ival = j;
+                jn->v.ival = k == 4 ? j + 1 : j;
                 tree_t * mu = ast_node_new(TT_MUL);
                 ast_push(mu, leaf_sval2(TT_VAR, idx));
                 ast_push(mu, sn);
