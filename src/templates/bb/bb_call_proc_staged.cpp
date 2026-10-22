@@ -11,6 +11,7 @@ extern "C" {
 #include "bb_templates.h"
 int zls_g_resumable_frame(const IR_graph_t * g);
 #include "rt/rt_pl_trail.h"
+#include "rt/gc_heap.h"
 long rt_proc_call_open(const char *name, int nargs);
 void *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm); const char *bb_ab_fn_sym(const char *nm);
 void *rt_proc_call_open_det(long idx, int nargs);
@@ -647,7 +648,7 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
     int ns = g_emit_cfg ? g_emit_cfg->nparams : 0;
     const char * fb = x86_hb_on() ? x86_hb() : "r11";
     auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; return bb_varslot_peek(a->sval); };
-    auto arms = [&](int lb) -> std::string {
+    auto arms = [&](int lb, int lg) -> std::string {
         return x86("def", L(lb + 3))
              + x86("mov", "r8", RDQ("rdi", 8))
              + x86("test", "r8", "r8")
@@ -667,6 +668,8 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
              + x86("sub", "rcx", "rsp")
              + x86("cmp", "rax", "rcx")
              + x86("jae", L(lb + 9))
+             + x86("cmp", "r8", "rdi")
+             + x86("je", L(lb + 8))
              + x86("def", L(lb + 6))
              + x86("mov", "rdi", "r8")
              + x86("sub", "r9d", 1L)
@@ -678,11 +681,62 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
              + x86("lea", "rcx", RDQ(fb, kt + 16 * ns))
              + x86("sub", "rcx", "rsp")
              + x86("cmp", "rax", "rcx")
-             + x86("jb", L(lsk + 99))
+             + x86("jb", L(lg))
              + x86("mov", "rax", (long)((1L << 32) | (long)DT_N))
              + x86("mov", RDQ("rsi", 0), "rax")
              + x86("mov", RDQ("rsi", 8), "rdi")
-             + x86("jmp", L(lb + 7)); };
+             + x86("jmp", L(lb + 7))
+             + x86("def", L(lg))
+             + x86("mov", "eax", RDD("rdi", 0))
+             + x86("test", "eax", "eax")
+             + x86("je", L(lg + 1))
+             + x86("cmp", "eax", (long)DT_PLVAR)
+             + x86("jne", L(lsk + 99))
+             + x86("mov", "ecx", RDD("rdi", 4))
+             + x86("test", "ecx", "ecx")
+             + x86("jne", L(lsk + 99))
+             + x86("mov", "rax", RDQ("rdi", 8))
+             + x86("cmp", "rax", "rdi")
+             + x86("jne", L(lsk + 99))
+             + x86("def", L(lg + 1))
+             + x86("test", "r13", "r13")
+             + x86("jz", L(lg + 2))
+             + x86("mov", "rax", RDQ("r13", PL_TR_FRAME_HI_OFF))
+             + x86_raw_unpack("rax")
+             + x86("cmp", "rdi", "rax")
+             + x86("jb", L(lg + 2))
+             + x86("mov", "rax", "r12")
+             + x86("and", "rax", (long)(PL_TR_ARENA_BYTES - 1))
+             + x86("cmp", "rax", (long)(PL_TR_ARENA_BYTES - PL_TR_ENTRY_BYTES))
+             + x86("jae", L(lg + 3))
+             + x86("mov", "rax", RDQ("rdi", 0))
+             + x86("mov", "rcx", RDQ("rdi", 8))
+             + x86("mov", RDQ("r12", 0), "rdi")
+             + x86("mov", RDQ("r12", 8), 0L)
+             + x86("mov", RDQ("r12", 16), "rax")
+             + x86("mov", RDQ("r12", 24), "rcx")
+             + x86("add", "r12", (long)PL_TR_ENTRY_BYTES)
+             + x86_pl_tr_top_sync()
+             + x86("def", L(lg + 2))
+             + x86("push", "rsi")
+             + x86("push", "rdi")
+             + x86("push", "r11")
+             + x86("push", "rdx")
+             + x86("mov32", "edi", (long)HB_DVEC)
+             + x86("mov32", "esi", 16L)
+             + x86("call", "rt_gcheap_alloc", (uint64_t)(uintptr_t)(void *)rt_gcheap_alloc)
+             + x86("pop", "rdx")
+             + x86("pop", "r11")
+             + x86("pop", "rdi")
+             + x86("pop", "rsi")
+             + x86("mov", RDQ("rax", 0), (long)DT_PLVAR)
+             + x86("mov", RDQ("rax", 8), "rax")
+             + x86("mov", RDQ("rdi", 0), (long)DT_PLVAR)
+             + x86("mov", RDQ("rdi", 8), "rax")
+             + x86("jmp", L(lb + 9))
+             + x86("def", L(lg + 3))
+             + x86("mov", "rdi", "r12")
+             + x86("call", "rt_pl_tr_refuse", (uint64_t)(uintptr_t)(void *)rt_pl_tr_refuse); };
     auto body = [&](int lb) -> std::string {
         return x86("def", L(lb + 2))
              + x86("mov", "eax", RDD("rdi", 0))
@@ -714,7 +768,9 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
                     "link INTO THIS FRAME -- rsp up to the old block's top, every cell the release kills, the spine cells below fb included -- "
                         "is followed too, a link elsewhere is a value (its pointer is "
                         "absolute and its target outlives the frame); at most four hops, a longer chain or a self link of this frame "
-                            "DECLINES the tail arm; a bound cell's VALUE is copied in; an unbound cell (the zero DESCR, a null name) of this frame declines, elsewhere it becomes a one-hop name");
+                            "DECLINES the tail arm; a bound cell's VALUE is copied in; an unbound cell elsewhere becomes a one-hop name; an unbound cell OF THIS FRAME "
+                            "(the zero DESCR, a self PLVAR) is GLOBALIZED (ARCH-PROLOG-ACTIVATION-LIFETIME 1 (c), the WAM's put_unsafe_value): a heap cell is made, the frame "
+                                "cell is bound to it under the trail test and the block carries the link; a null name or an attributed cell of this frame declines");
     std::string ool;
     int wide = n > 8;
     if (wide) { chk += x86("mov", "rsi", "rsp")
@@ -725,12 +781,12 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
          + cell_entry(lsk)
          + x86("add", "rsi", 16L)
          + x86("jmp", L(lsk + 1))
-         + x86("def", L(lsk + 10)); ool = arms(lsk); }
+         + x86("def", L(lsk + 10)); ool = arms(lsk, 300); }
     else for (int i = 0; i < n; i++) {
     int vs = var_slot(i); int lb = lsk + 10 + 10 * i;
         chk += x86("lea", "rsi", RDQ("rsp", 16 * i));
         chk += vs < 0 ? cell_entry(lb) : x86("lea", "rdi", FRQB(vs, 16 * n))
-                                       + x86("mov32", "r9d", 4L) + body(lb); ool += arms(lb); }
+                                       + x86("mov32", "r9d", 4L) + body(lb); ool += arms(lb, 300 + 4 * i); }
     int nb = kt + 16 * (ns - n);
     std::string mv = x86("note",
         "the new block's TOP is the old block's top (rbp+kt+16*nparams): a longer block grows DOWN over this frame's "
