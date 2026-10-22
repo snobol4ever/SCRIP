@@ -14720,6 +14720,29 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             return 1;
         }
         long long hit;
+        if (args[1].v == DT_T && args[1].tbl) {
+            TBBLK_t * hb = args[1].tbl;
+            const char * lp = rk_rx_pat(args[0]);
+            int found = 0;
+            if (lp) {
+                RxEnv henv;
+                RxProg * hprog = rk_rx_compile(&henv, "", lp, 0);
+                for (unsigned hi = 0; hprog && !found && hi < hb->ord_len; hi++) {
+                    DESCR_t hk = hb->ord[hi];
+                    if (hk.v == DT_RAW || !table_find_pair_d(hb, hk)) continue;
+                    const char * kt = rk_cstr(hk);
+                    RxMatch hm;
+                    rx_exec(hprog, kt, (int) strlen(kt), 0, 0, &hm);
+                    found = hm.ok;
+                }
+            } else {
+                char kb[64];
+                const char * ks = to_cstring(args[0], kb, sizeof kb);
+                found = table_find_pair_d(hb, args[0]) != NULL || table_find_pair_d(hb, STRVAL(rt_heap_strdup_c(ks ? ks : ""))) != NULL;
+            }
+            *out = (DESCR_t){ .v = DT_BOOL, .i = found };
+            return 1;
+        }
         if (rk_typeobj_name(args[1])) { *out = (DESCR_t){ .v = DT_BOOL, .i = rk_type_isa(rk_value_type(args[0]), rk_typeobj_name(args[1])) ? 1 : 0 }; return 1; }
         if (rk_is_code(args[1])) {
             rt_call_args_need(2);
