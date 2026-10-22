@@ -1643,6 +1643,11 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         int * zd_fbase = (int *)alloca(sizeof(int) * (size_t)n);
         zd_pl_bases(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, _b, _kn, (int *)0, zd_cut, zd_fam, zd_fbase);
         for (int _i = 0; _i < n; _i++) zd_xb[_i] = (zd_on[_i] && zd_claim[_i] >= 0 && _kn[zd_claim[_i]]) ? _b[zd_claim[_i]] : INT_MIN;
+        for (int _i = 0; _i < n; _i++) {
+            IR_t * _u = g_emitter.codegen_flat_chain_body_nodes[_i];
+            int _bd = (zd_on[_i] && _u->op == IR_UNMARK && _u->n_operands > 0) ? nidx(g_emitter.codegen_flat_chain_body_nodes, n, _u->operands[0]) : -1;
+            if (_bd >= 0 && zd_on[_bd] && zd_xb[_bd] != INT_MIN && zd_cut[_i] < 0) zd_cut[_i] = zd_xb[_bd] + zd_out[_bd] - zd_k(g_emitter.codegen_flat_chain_body_nodes[_bd]);
+        }
         zst_finish(g_emitter.codegen_flat_chain_body_nodes, n, zd_out, zd_claim, _b, _kn);
         rec->xb = (int *)ct_zalloc((size_t)n, sizeof(int)); memcpy(rec->xb, zd_xb, sizeof(int) * (size_t)n);
         rec->cut = (int *)ct_zalloc((size_t)n, sizeof(int)); memcpy(rec->cut, zd_cut, sizeof(int) * (size_t)n);

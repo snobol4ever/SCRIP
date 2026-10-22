@@ -52,7 +52,7 @@ static void zsm_bombf(const char *fmt, ...) __attribute__((format(printf, 1, 2))
 static void zsm_bombf(const char *fmt, ...) { va_list ap; va_start(ap, fmt); char b[vfmt_len(fmt, ap)]; vsnprintf(b, sizeof b, fmt, ap); va_end(ap); rt_bomb(b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * zsm_kn(long k) {
-    return k == 0 ? "ORIGIN" : k == 1 ? "α" : k == 2 ? "β" : k == 3 ? "ω" : k == 4 ? "γ" : k == 5 ? "α·" : k == 6 ? "β·" : k == 7 ? "ω·" : k == 8 ? "γ·" : "?";
+    return k == 0 ? "ORIGIN" : k == 1 ? "α" : k == 2 ? "β" : k == 3 ? "ω" : k == 4 ? "γ" : k == 5 ? "α·" : k == 6 ? "β·" : k == 7 ? "ω·" : k == 8 ? "γ·" : k == 10 ? "disc" : "?";
 }
 static const char * zsm_sn(int s) { return s == ZSM_FRESH ? "FRESH" : s == ZSM_LIVE ? "LIVE" : s == ZSM_SUSPENDED ? "SUSPENDED" : s == ZSM_RESUMED ? "RESUMED" : s == ZSM_DEAD ? "DEAD" : "?"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -226,6 +226,11 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
     g_runtime.zsm.zsm_events++;
     if (zsm_census()) fprintf(stderr, "[ZSM-DEPTH] %-6s op=%-4ld node=%-8lu depth=%ld rsp=0x%lx rbp=0x%lx state=%s\n", zsm_kn(kind), zop, node, depth, rsp, rbp, zsm_sn(e->state));
     if (kind == 0) { if (exp_depth >= 0L) g_runtime.zsm.zsm_rsp0 = rsp + (unsigned long)exp_depth; else if (!g_runtime.zsm.zsm_rsp0) g_runtime.zsm.zsm_rsp0 = rsp; return; }
+    if (kind == 10) {
+        long d = (long)(rbp - rsp);
+        if (d != exp_depth) fprintf(stderr, "[ZSM-DISC] node=%lu op=%ld(%s) restore=%ld actual=%ld delta=%ld\n", node, zop, bb_op_name((IR_e)zop), exp_depth, d, d - exp_depth);
+        return;
+    }
     long fl = (kind >= 5L && kind <= 8L) ? 1L : 0L;
     if (fl) kind -= 4L;
     if (g_runtime.misc.zsm_follow > 0L && kind >= 1L && kind <= 4L) { g_runtime.misc.zsite_to[g_runtime.misc.zsm_follow - 1L] = (zop << 8) | kind; g_runtime.misc.zsm_follow = 0L; }

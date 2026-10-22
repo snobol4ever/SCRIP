@@ -2565,6 +2565,23 @@ inline std::string x86_zsm_ev(int kind) {
          + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi")
          + x86("pop", "rax") + x86("pop", "rax");
 }
+inline std::string x86_zsm_disc(long restore) {
+    return x86("comment", "ZSM disc")
+         + x86("push", "rax") + x86("push", "rax")
+         + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx")
+         + x86("push", "r8") + x86("push", "r9") + x86("push", "r10") + x86("push", "r11")
+         + x86("mov", "rdx", "rsp")
+         + x86("add", "rdx", 80L)
+         + x86("mov", "rdi", (long)_.nid)
+         + x86("mov", "rsi", "rbp")
+         + x86("mov", "rcx", (long)(10 | ((long)_.op_node_kind << 8)))
+         + x86("mov", "r8", restore)
+         + x86("mov", "r9", 0L)
+         + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
+         + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
+         + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi")
+         + x86("pop", "rax") + x86("pop", "rax");
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_zsm_all() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_ALL"); v = (e && *e == '1') ? 1 : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

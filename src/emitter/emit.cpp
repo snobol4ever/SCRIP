@@ -4090,7 +4090,7 @@ static void emit_dump_plan(const zeta_plan_t * pl, const char * prefix) {
         dp_col(on ? gp > 0 : LONG_MIN, LONG_MIN);
         dp_col(on ? gp : LONG_MIN, LONG_MIN);
         dp_col(on ? wp : LONG_MIN, LONG_MIN);
-        dp_col((nd->op == IR_CUT && pl->cut && pl->cut[i] >= 0) ? pl->cut[i] : LONG_MIN, LONG_MIN);
+        dp_col((pl->cut && pl->cut[i] >= 0) ? pl->cut[i] : LONG_MIN, LONG_MIN);
         printf("\n");
     }
 }
