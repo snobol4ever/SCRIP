@@ -5194,6 +5194,7 @@ extern "C++" int emit_gc_site_new(int kind, int adj) {
     int rule, depth;
     if (g_emit.flat_pat && blob_frame_bytes() > 0) { rule = 3; depth = 0; }
     else if (x86_hb_on()) { rule = 1; depth = 0; }
+    else if (icn_gen_regime() && g_emit.flat_gen && !g_emit.zframe_graph && g_emit.flat_carve_total > 0) { rule = 2; depth = g_emit.flat_carve_total; }
     else if (adj == X86_ADJ_ALIGNED) { rule = 4; depth = g_emit.op_zdepth + g_emit.op_vdj_live; }
     else { rule = 0; depth = g_emit.op_zrun + adj + g_emit.op_vdj_live; }
     if (g_emit.site_shim9) { rule = 9; depth = (int)(g_emit.site_shim9 - 1); }
