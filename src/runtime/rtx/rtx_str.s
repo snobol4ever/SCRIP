@@ -473,3 +473,172 @@ RTX_ENDF(rt_substr)
 .Lss_empty:
     .asciz ""
 .text
+.macro BRL_EQ ne
+    cmp     rcx, 16
+    jb      2f
+    lea     r8, [rcx - 16]
+    xor     r9d, r9d
+1:
+    movdqu  xmm0, xmmword ptr [rsi + r9]
+    movdqu  xmm1, xmmword ptr [rdi + r9]
+    pcmpeqb xmm0, xmm1
+    pmovmskb eax, xmm0
+    cmp     eax, 0xFFFF
+    jne     \ne
+    add     r9, 16
+    cmp     r9, r8
+    jb      1b
+    movdqu  xmm0, xmmword ptr [rsi + r8]
+    movdqu  xmm1, xmmword ptr [rdi + r8]
+    pcmpeqb xmm0, xmm1
+    pmovmskb eax, xmm0
+    cmp     eax, 0xFFFF
+    jne     \ne
+    jmp     9f
+2:
+    cmp     rcx, 8
+    jb      3f
+    mov     rax, qword ptr [rsi]
+    cmp     rax, qword ptr [rdi]
+    jne     \ne
+    mov     rax, qword ptr [rsi + rcx - 8]
+    cmp     rax, qword ptr [rdi + rcx - 8]
+    jne     \ne
+    jmp     9f
+3:
+    cmp     rcx, 4
+    jb      4f
+    mov     eax, dword ptr [rsi]
+    cmp     eax, dword ptr [rdi]
+    jne     \ne
+    mov     eax, dword ptr [rsi + rcx - 4]
+    cmp     eax, dword ptr [rdi + rcx - 4]
+    jne     \ne
+    jmp     9f
+4:
+    xor     r9d, r9d
+5:
+    movzx   eax, byte ptr [rsi + r9]
+    cmp     al, byte ptr [rdi + r9]
+    jne     \ne
+    inc     r9
+    cmp     r9, rcx
+    jb      5b
+9:
+.endm
+.globl bn_replace_leaf
+.hidden bn_replace_leaf
+.type bn_replace_leaf,@function
+.align 16
+bn_replace_leaf:
+    .cfi_startproc
+    endbr64
+    cmp     byte ptr [rip + rtx_gate_str], 0
+    je      .Lbrl_c
+    cmp     esi, 3
+    jne     .Lbrl_c
+    cmp     byte ptr [rdi], DT_S
+    jne     .Lbrl_c
+    cmp     byte ptr [rdi + 16], DT_S
+    jne     .Lbrl_c
+    cmp     byte ptr [rdi + 32], DT_S
+    jne     .Lbrl_c
+    mov     ecx, dword ptr [rdi + 20]
+    cmp     ecx, dword ptr [rdi + 36]
+    jne     .Lbrl_c
+    lea     eax, [rcx - 1]
+    cmp     eax, 61
+    ja      .Lbrl_c
+    mov     eax, dword ptr [rdi + 4]
+    test    eax, eax
+    je      .Lbrl_c
+    cmp     eax, -1
+    je      .Lbrl_c
+    cmp     qword ptr [rdi + 8], 0
+    je      .Lbrl_c
+    cmp     qword ptr [rdi + 24], 0
+    je      .Lbrl_c
+    cmp     qword ptr [rdi + 40], 0
+    je      .Lbrl_c
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    mov     rbx, rdi
+    mov     r12, rdx
+    mov     r15d, eax
+    mov     r14, qword ptr [rdi + 8]
+    call    bn_replace_cache
+    test    rax, rax
+    je      .Lbrl_miss
+    mov     rsi, qword ptr [rbx + 24]
+    movzx   edx, byte ptr [rsi]
+    imul    edx, edx, 31
+    mov     ecx, dword ptr [rbx + 20]
+    add     edx, ecx
+    and     edx, 3
+    lea     edx, [rdx + rdx * 2]
+    shl     edx, 7
+    add     rax, rdx
+    cmp     byte ptr [rax], 0
+    je      .Lbrl_miss
+    cmp     byte ptr [rax + 1], cl
+    jne     .Lbrl_miss
+    mov     r13, rax
+    lea     rdi, [rax + 2]
+    BRL_EQ .Lbrl_miss
+    mov     rsi, qword ptr [rbx + 40]
+    lea     rdi, [r13 + 65]
+    mov     ecx, dword ptr [rbx + 20]
+    BRL_EQ .Lbrl_miss
+    lea     r13, [r13 + 128]
+.Lbrl_have:
+    lea     rsi, [r15 + 1]
+    mov     edi, 205
+    RTX_CALL(rt_gcheap_alloc)
+    xor     ecx, ecx
+.Lbrl_tl:
+    movzx   edx, byte ptr [r14 + rcx]
+    movzx   edx, byte ptr [r13 + rdx]
+    mov     byte ptr [rax + rcx], dl
+    inc     rcx
+    cmp     rcx, r15
+    jb      .Lbrl_tl
+    mov     byte ptr [rax + r15], 0
+    mov     rdx, r15
+    shl     rdx, 32
+    or      rdx, DT_S
+    mov     qword ptr [r12], rdx
+    mov     qword ptr [r12 + 8], rax
+    mov     eax, 1
+    .cfi_remember_state
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbx)
+    ret
+    .cfi_restore_state
+.Lbrl_miss:
+    mov     rdi, qword ptr [rbx + 24]
+    mov     rsi, qword ptr [rbx + 40]
+    mov     edx, dword ptr [rbx + 20]
+    call    bn_replace_map
+    test    rax, rax
+    je      .Lbrl_back
+    mov     r13, rax
+    jmp     .Lbrl_have
+.Lbrl_back:
+    mov     rdi, rbx
+    mov     esi, 3
+    mov     rdx, r12
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbx)
+.Lbrl_c:
+    RTX_JMP(c_bn_replace)
+    .cfi_endproc
+.size bn_replace_leaf, .-bn_replace_leaf
