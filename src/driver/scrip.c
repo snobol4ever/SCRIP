@@ -681,11 +681,21 @@ static void register_procs_all(stage2_t * s2) {
 static void drive_slots_all(stage2_t * s2) {
     extern void ir_drive_slot_assign(IR_graph_t * g);
     extern void fl_derive_tier(IR_graph_t * g);
+    extern void zls_home_callees_mark(IR_graph_t ** gs, int n, const char ** pn, const int * px, int np);
+    extern void zls_home_pass(const IR_graph_t * g);
     int _mx = polyglot_main_bb_idx(s2);
+    {
+        int np = s2->proc_count;
+        const char * pn[np > 0 ? np : 1];
+        int px[np > 0 ? np : 1];
+        for (int i = 0; i < np; i++) { pn[i] = s2->proc_table[i].name; px[i] = s2->proc_table[i].bb_idx; }
+        zls_home_callees_mark(s2->bbp.table, s2->bbp.count, pn, px, np);
+    }
     for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) {
         IR_graph_t * _g = s2->bbp.table[_gi];
         fl_derive_tier(_g);
         if (_gi == _mx && !_g->cell_frame && !_g->root_graph) _g->zframe_graph = _g->entry_frame ? 1 : 0;
+        zls_home_pass(_g);
         ir_drive_slot_assign(_g);
     }
 }

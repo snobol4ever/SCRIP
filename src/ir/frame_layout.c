@@ -1604,7 +1604,7 @@ int fc_geom(const IR_t * nd, long * k) {
     if (nd->op == IR_SCAN_MATCH) { if (k) *k = 16; return 1; }
     return 0;
 }
-typedef struct { const IR_t * nd; uint32_t gen; uint32_t fl; int vr; int pe; int cf; int hf; int alt; long vw; const IR_t * cs; } fcn_t;
+typedef struct { const IR_t * nd; uint32_t gen; uint32_t fl; int vr; int pe; int cf; int hf; int alt; long vw; const IR_t * cs; int hw; int lw; } fcn_t;
 #define FCN_ARM 0x0001u
 #define FCN_VDJ 0x0002u
 #define FCN_VLIT 0x0004u
@@ -1618,6 +1618,10 @@ typedef struct { const IR_t * nd; uint32_t gen; uint32_t fl; int vr; int pe; int
 #define FCN_CC 0x0400u
 #define FCN_HD 0x0800u
 #define FCN_ALT 0x1000u
+#define FCN_HRET 0x2000u
+#define FCN_HUNRES 0x4000u
+#define FCN_HOME 0x8000u
+#define FCN_LHOME 0x10000u
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void fc_reg_hw(const char * tbl, int n) {
     if (g_lower.ir.fc_reg_hw_e == (const char *) 1) g_lower.ir.fc_reg_hw_e = getenv("SCRIP_FC_REG_HIGHWATER");
@@ -1725,6 +1729,173 @@ void fc_head_register(const IR_t * nd, int fp) { if (!nd || fp < 0) return; { fc
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fc_head_fp(const IR_t * nd) { if (!fc_cells_on()) return -1; { const fcn_t * t = fcn_find(nd, FCN_HD); return t ? t->hf : -1; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zls_home_holds_retain(const IR_graph_t * g) {
+    for (int i = 0; g && i < g->n; i++) { int o = g->all[i] ? (int)ir_kind0(g->all[i]) : 0; if (o == IR_SUSPEND || o == IR_CREATE || o == IR_ACTIVATE || o == IR_CORET || o == IR_COFAIL) return 1; }
+    return 0;
+}
+static uint32_t zls_home_hash(const char * s) { uint32_t h = 2166136261u; for (; *s; s++) h = (h ^ (unsigned char)*s) * 16777619u; return h; }
+static int zls_home_local_retain(const IR_graph_t * g) {
+    int ns = 0;
+    for (int i = 0; g && i < g->n; i++) {
+        const IR_t * x = g->all[i];
+        int o = x ? (int)ir_kind0(x) : 0;
+        if (o == IR_SUSPEND || o == IR_CREATE || o == IR_ACTIVATE || o == IR_CORET || o == IR_COFAIL || o == IR_CALL_VALUE || o == IR_CALL_GEN || o == IR_PROC_GEN) return 1;
+        if (x && x->op == IR_SUCCEED) ns++;
+    }
+    return ns > 1;
+}
+static int zls_home_callee(const char * const * nm, const int * gx, int cap, const char * s) {
+    uint32_t h = zls_home_hash(s) & (uint32_t)(cap - 1);
+    while (nm[h] && strcmp(nm[h], s)) h = (h + 1) & (uint32_t)(cap - 1);
+    return nm[h] ? gx[h] : -1;
+}
+void zls_home_callees_mark(IR_graph_t ** gs, int n, const char ** pn, const int * px, int np) {
+    int cap = 16;
+    while (cap < 2 * np + 2) cap <<= 1;
+    const char * nm[cap];
+    int gx[cap];
+    unsigned char rt[n > 0 ? n : 1], hs[n > 0 ? n : 1];
+    memset(nm, 0, sizeof nm);
+    for (int k = 0; k < np; k++) {
+        if (!pn[k] || px[k] < 0 || px[k] >= n || !gs[px[k]]) continue;
+        uint32_t h = zls_home_hash(pn[k]) & (uint32_t)(cap - 1);
+        while (nm[h] && strcmp(nm[h], pn[k])) h = (h + 1) & (uint32_t)(cap - 1);
+        nm[h] = pn[k];
+        gx[h] = px[k];
+    }
+    for (int k = 0; k < n; k++) { rt[k] = gs[k] ? (unsigned char)zls_home_local_retain(gs[k]) : 0; hs[k] = gs[k] ? (unsigned char)zls_home_holds_retain(gs[k]) : 0; }
+    for (int changed = 1; changed;) {
+        changed = 0;
+        for (int k = 0; k < n; k++) for (int i = 0; gs[k] && !rt[k] && i < gs[k]->n; i++) {
+            const IR_t * x = gs[k]->all[i];
+            if (!x || !ir_is_call_kind(ir_kind0(x)) || ir_kind0(x) == IR_CALL_VALUE || !IR_LIT(x).sval) continue;
+            int h = zls_home_callee(nm, gx, cap, IR_LIT(x).sval);
+            if (h >= 0 && rt[h]) { rt[k] = 1; changed = 1; }
+        }
+    }
+    for (int k = 0; k < n; k++) for (int i = 0; gs[k] && i < gs[k]->n; i++) {
+        const IR_t * x = gs[k]->all[i];
+        if (!x || !ir_is_call_kind(ir_kind0(x)) || ir_kind0(x) == IR_CALL_VALUE || !IR_LIT(x).sval) continue;
+        int h = zls_home_callee(nm, gx, cap, IR_LIT(x).sval);
+        if (h < 0) fcn_flag(x, FCN_HUNRES);
+        else if (rt[h] && !(gs[h]->cell_frame && !hs[h])) fcn_flag(x, FCN_HRET);
+    }
+}
+static int zls_home_dyn(const IR_graph_t * g, const IR_t * nd) {
+    switch ((int)ir_kind0(nd)) {
+        case IR_SUSPEND:
+        return 1;
+        case IR_CREATE:
+        case IR_ACTIVATE:
+        case IR_CORET:
+        case IR_COFAIL:
+        return 2;
+        case IR_CALL_VALUE:
+        return 3;
+        case IR_CALL_GEN:
+        case IR_PROC_GEN:
+        return 4;
+        case IR_MATCH_DEFER:
+        return 7;
+        default:
+        break;
+    }
+    if (fcn_find(nd, FCN_HRET)) return 5;
+    if (fcn_find(nd, FCN_HUNRES) && ir_kind0(nd) == IR_CALL_PROC_STAGED && zls_g_resumable_frame(g)) return 6;
+    return 0;
+}
+const char * zls_home_why_name(int w) {
+    switch (w) {
+        case 1:
+        return "suspend";
+        case 2:
+        return "coexpression";
+        case 3:
+        return "unknown-callee";
+        case 4:
+        return "generator-callee";
+        case 5:
+        return "retaining-callee";
+        case 6:
+        return "unresolved-callee";
+        case 7:
+        return "deferred-pattern";
+        case 8:
+        return "dynamic";
+        default:
+        return "-";
+    }
+}
+static int zls_home_local_kind(int lo) {
+    return lo == IR_VAR || lo == IR_VAR_REF || lo == IR_ASSIGN || lo == IR_ASSIGN_VAR || lo == IR_REV_ASSIGN_VAR || lo == IR_NULLTEST_VAR || lo == IR_FIELD_VAR || lo == IR_UNIFY_FIRST ||
+        lo == IR_UNIFY_VALUE;
+}
+void zls_home_pass(const IR_graph_t * g) {
+    if (!g || g->n <= 0) return;
+    int n = g->n;
+    zls_nidx_t nx;
+    zls_nidx_build(&nx, g);
+    int sg[n], so[n], st[2 * n + 2], sd[2 * n + 2], sw[2 * n + 2];
+    unsigned char dy[n], rn[n], tw[n];
+    unsigned int seen[2 * n];
+    memset(seen, 0, sizeof seen);
+    for (int i = 0; i < n; i++) {
+        const IR_t * x = g->all[i];
+        sg[i] = (x && x->γ.node) ? zls_reuse_index(&nx, x->γ.node) : -1;
+        so[i] = (x && x->ω.node) ? zls_reuse_index(&nx, x->ω.node) : -1;
+        dy[i] = x ? (unsigned char)zls_home_dyn(g, x) : 0;
+        rn[i] = (x && x->op == IR_CUT) ? 1 : 0;
+        tw[i] = 0;
+    }
+    unsigned int stamp = 0;
+    for (int c = 0; c < n; c++) {
+        const IR_t * cx = g->all[c];
+        if (!cx || (cx->op == IR_DISJUNCTION && g->cell_frame)) continue;
+        for (int oj = 0; oj < cx->n_operands; oj++) {
+            int p = cx->operands[oj] ? zls_reuse_index(&nx, cx->operands[oj]) : -1;
+            if (p < 0 || fcn_find(g->all[p], FCN_HOME)) continue;
+            int top = 0, hit = 0;
+            stamp++;
+            if (sg[p] >= 0 && sg[p] != p) { st[top] = sg[p]; sd[top] = dy[p] ? 1 : 0; sw[top] = dy[p]; seen[2 * sg[p] + sd[top]] = stamp; top++; }
+            while (top > 0 && !hit) {
+                top--;
+                int x = st[top], d = sd[top], w = sw[top];
+                if (x == c) { if (d) { fcn_t * t = fcn_get(g->all[p]); t->fl |= FCN_HOME; t->hw = w ? w : 8; hit = 1; } continue; }
+                if (rn[x]) { d = 0; w = 0; } else if (dy[x]) { d = 1; w = dy[x]; }
+                for (int e = 0; e < 2; e++) {
+                    int y = e ? so[x] : sg[x];
+                    if (y < 0 || y == p || seen[2 * y + d] == stamp) continue;
+                    seen[2 * y + d] = stamp;
+                    st[top] = y;
+                    sd[top] = d;
+                    sw[top] = w;
+                    top++;
+                }
+            }
+        }
+    }
+    {
+        int top = 0;
+        for (int i = 0; i < n; i++) if (dy[i] && !tw[i] && !rn[i]) {
+            tw[i] = dy[i];
+            st[top] = i;
+            top++;
+            while (top > 0) { top--; int x = st[top]; for (int e = 0; e < 2; e++) { int y = e ? so[x] : sg[x]; if (y < 0 || tw[y] || rn[y]) continue; tw[y] = tw[x]; st[top] = y; top++; } }
+        }
+    }
+    for (int i = 0; i < n; i++) { const IR_t * x = g->all[i]; if (x && tw[i] && zls_home_local_kind((int)x->op) && IR_LIT(x).sval) { fcn_t * t = fcn_get(x); t->fl |= FCN_LHOME; t->lw = tw[i]; } }
+    ct_drop(nx.k);
+    ct_drop(nx.v);
+}
+int zls_home_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_HOME); return t ? t->hw : 0; }
+int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }
+int zls_home_local_test(const IR_graph_t * g, const char * vn) {
+    for (int i = 0; g && vn && i < g->n; i++) {
+        const IR_t * x = g->all[i];
+        if (x && zls_home_local_kind((int)x->op) && IR_LIT(x).sval && !strcmp(IR_LIT(x).sval, vn) && zls_home_local_why(x)) return zls_home_local_why(x);
+    }
+    return 0;
+}
 int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->loff; }
 int zls_result_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->off : -1; }
 int zls_act_off(const IR_t * nd) {

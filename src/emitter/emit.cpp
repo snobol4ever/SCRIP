@@ -5482,6 +5482,9 @@ static const char * xop_frame_why(const IR_t * nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_g_keys_only(const IR_graph_t * g);
+extern "C" int zls_home_why(const IR_t * nd);
+extern "C" int zls_home_local_test(const IR_graph_t * g, const char * vn);
+extern "C" const char * zls_home_why_name(int w);
 static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
     extern const char * zls_graph_name_get(const IR_graph_t *); extern int zls_g_vslot_count(const IR_graph_t *); extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
     const IR_graph_t * g = g_emit_cfg;
@@ -5497,6 +5500,7 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
         int xf = xop_frame_slot(nd), rbp = xf != -1;
         const char * home = zon[i] ? (zd_k(nd) > 0 ? "SPINE" : "NONE") : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
         fprintf(stderr, "[HOMES] g=%d graph=%s all=%d kind=%s home=%s off=%d xf=%d xfwhy=%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), home, off, xf, rbp ? xop_frame_why(nd) : "-");
+        fprintf(stderr, "[HOMETEST] g=%d graph=%s all=%d kind=%s test=%s%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), zls_home_why(nd) ? "operand:" : "", zls_home_why_name(zls_home_why(nd)));
     }
     int nv = g ? zls_g_vslot_count(g) : 0;
     for (int k = 0; k < nv; k++) {
@@ -5508,6 +5512,7 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
         int soff = off; const char * home = off < 0 ? "NONE" : (blk >= 0 && off >= blk) ? "SPINE" : use == 0 ? "NONE" : (cov > 0 && cov == use) ? "SPINE" : "RSP_CARVED";
         if (cov > 0 && cov == use) for (size_t t = 0; t < g_emitter.zst_name.size(); t++) if (vn && !strcmp(g_emitter.zst_name[t], vn)) { soff = -g_emitter.zst_L[t]; break; }
         fprintf(stderr, "[HOMES] g=%d graph=%s local=%s home=%s off=%d\n", gi, gn ? gn : "?", vn ? vn : "?", home, soff);
+        fprintf(stderr, "[HOMETEST] g=%d graph=%s local=%s test=%s%s\n", gi, gn ? gn : "?", vn ? vn : "?", zls_home_local_test(g, vn) ? "local:" : "", zls_home_why_name(zls_home_local_test(g, vn)));
     }
     dh_retains_build();
     for (int k = 0; g && k < g->n; k++) {
