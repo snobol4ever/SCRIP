@@ -4009,6 +4009,27 @@ static tree_t * rk_ph_subj_attr(tree_t * st) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_ph_collect_vars(const tree_t * t, rk_ns_t * out) {
+    if (!t) return;
+    if (t->t == TT_VAR && t->v.sval) rk_ns_add(out, t->v.sval);
+    for (int i = 0; i < t->n; i++) rk_ph_collect_vars(t->c[i], out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_ph_bare_asg(const tree_t * e) {
+    return e && e->t == TT_ASSIGN && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && (e->c[0]->slen & 4) && e->c[1] &&
+        (e->c[1]->t == TT_NUL || (e->c[1]->t == TT_FNC && e->c[1]->v.sval && !strcmp(e->c[1]->v.sval, "__rk_undef")));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_ph_bare_decl_hits(const tree_t * e, const rk_ns_t * set) {
+    if (!e) return 0;
+    if (rk_ph_bare_asg(e)) return rk_ns_has(set, e->c[0]->v.sval);
+    if (e->t == TT_SEQ_EXPR && e->n >= 2 && e->c[0] && e->c[0]->t == TT_ASSIGN && e->c[0]->n == 2 && e->c[0]->c[0] && e->c[0]->c[0]->t == TT_VAR && e->c[0]->c[0]->v.sval &&
+        !strncmp(e->c[0]->c[0]->v.sval, "__destr_", 8)) for (int i = 1; i < e->n; i++)
+        if (e->c[i] && e->c[i]->t == TT_ASSIGN && e->c[i]->n == 2 && e->c[i]->c[0] && e->c[i]->c[0]->t == TT_VAR && e->c[i]->c[0]->v.sval && (e->c[i]->c[0]->slen & 4) &&
+        rk_ns_has(set, e->c[i]->c[0]->v.sval)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_place_phasers(tree_t * prog) {
     int uid = 0, any = 0;
     if (!prog) return;
@@ -4027,6 +4048,11 @@ static void rk_place_phasers(tree_t * prog) {
             rk[i] = p ? rk_ph_rank(p, 1) : 4;
             if (rk[i] == -2) rk[i] = 4;
             bd[i] = p ? rk_ph_body(e) : NULL;
+        }
+        {
+            rk_ns_t seen = { 0 };
+            for (int i = 0; i < n; i++) if (bd[i] && rk[i] <= 3) rk_ph_collect_vars(bd[i], &seen);
+            for (int i = 0; i < n; i++) if (!bd[i] && rk[i] == 4) { tree_t * a = rk_ph_subj_attr(in[i]); if (a && rk_ph_bare_decl_hits(a->c[0], &seen)) rk[i] = 0; }
         }
         prog->n = 0;
         for (int rank = 0; rank <= 7; rank++) for (int i = 0; i < n; i++) { if (rk[i] != rank) continue; if (bd[i]) rk_ph_subj_attr(in[i])->c[0] = bd[i]; ast_push(prog, in[i]); }
