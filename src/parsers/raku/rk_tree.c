@@ -215,7 +215,8 @@ static tree_t *rk_testop_shape(RkB *b, tree_t *c) {
     }
     if ((like || unlike) && c->n >= 3) {
         tree_t *ok = make_call(like ? "__rk_test_ok" : "__rk_test_nok");
-        expr_add_child(ok, rkb_ternary(b, rkb_smartmatch(b, c->c[1], c->c[2]), mkbool_lit(1), mkbool_lit(0))); if (c->n >= 4) expr_add_child(ok, c->c[3]);
+        tree_t *gs = make_call("__rk_str"); expr_add_child(gs, c->c[1]);
+        expr_add_child(ok, rkb_ternary(b, rkb_smartmatch(b, gs, c->c[2]), mkbool_lit(1), mkbool_lit(0))); if (c->n >= 4) expr_add_child(ok, c->c[3]);
         return ok;
     }
     if ((!strcmp(nm, "__rk_test_ok") || !strcmp(nm, "__rk_test_nok")) && c->n >= 2) c->c[1] = rkb_ternary(b, c->c[1], mkbool_lit(1), mkbool_lit(0));
