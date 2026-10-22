@@ -162,6 +162,11 @@ static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
 #define c2farm() (_.op_fc_wbytes > 0)
 static inline int bcps_pl() { return x86_resumable_frame(); }
 #define bcps_fnsig() emit_knob_unless_zero("SCRIP_FN_SIG")
+#define bcps_no_tiny() emit_knob_if_one("SCRIP_NO_TINY")
+#define bcps_b1c_parity() emit_knob_unless_zero("SCRIP_B1C_PARITY")
+#define bcps_slim_pair() emit_knob_unless_zero("SCRIP_SLIM_PAIR")
+#define bcps_no_genidx() emit_knob_if_one("SCRIP_NO_GENIDX")
+#define bcps_tiny_diag() (getenv("SCRIP_TINY_DIAG") != 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bcps_nret_got() std::string("[rip@got + __]")
 #define bcps_cap_name_strict() emit_knob_unless_zero("SCRIP_CAP_NAME_STRICT")
@@ -256,15 +261,7 @@ static std::string bcps_det_arm() {
              + x86_anchor_enter()
              + ((scc_z || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)))
                 ? [&]() -> std::string {
-                    static int _ntz = -1; if (_ntz < 0) {
-    const char * _e = getenv("SCRIP_NO_TINY");
-    _ntz = (_e && *_e == '1') ? 1 : 0;
-}
-                    static int _b1cz = -1; if (_b1cz < 0) {
-    const char * _e = getenv("SCRIP_B1C_PARITY");
-    _b1cz = (_e && *_e == '0') ? 0 : 1;
-}
-                    if (!_ntz && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1cz; }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
+                    if (!bcps_no_tiny() && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || bcps_b1c_parity(); }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
                         std::string laz = bcps_alpha_cellp_label(_.op_sval); std::string lazd = bcps_alpha_cellp_data(_.op_sval);
                         if (bcps_fnsig()) {
                             std::vector<long> soffz((size_t)_.op_ival); const char * whyz = "eligible"; std::string badz; int sigokz = 1;
@@ -365,13 +362,7 @@ static std::string bcps_det_arm() {
                    x86("note", ZOPN(i))
                    + x86("mov", "rax", ZOPQS(i, 16 * det_nA_z, 0)) + x86_rsp_store64(16 * i, "rax")
                    + x86("mov", "rax", ZOPQS(i, 16 * det_nA_z, 8)) + x86_rsp_store64(16 * i + 8, "rax"); }), off, 16 * det_nA_z, 61, 62, 60))
-                   + [&]{
-                       static int _sp4 = -1;
-                       if (_sp4 < 0) {
-                           const char *e = getenv("SCRIP_SLIM_PAIR");
-                           _sp4 = (!e || *e != (char)48) ? 1 : 0;
-                       }
-                       return (!icn_wire_stack_for(_.op_sval) && _sp4 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note",
+                   + IF(!icn_wire_stack_for(_.op_sval) && bcps_slim_pair() && bcps_wire_pair_consumed(_.op_sval), x86("note",
                            "s111 floater pair (ZD twin NON-SLIM fallback): THE arm GVA-off actually reaches — MONITOR_BIN forces "
                                "n_gva_m3=0, the slim tail at ~:403 that s110 patched refuses, and the site falls through to rt_proc_call_open "
                                    "here with flat rcx/rdx wires and NO pair.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 "
@@ -379,9 +370,7 @@ static std::string bcps_det_arm() {
                                                                                                              + x86("lea", "rcx", L(4))
                                                                                                              + x86("push", "rcx")
                                                                                                              + x86("lea", "rcx", L(3))
-                                                                                                             + x86("push", "rcx") : std::string("");
-                   }
-                   ()
+                                                                                                             + x86("push", "rcx"))
                    + x86_rsp_mark_save()
                    + bcps_wire_cross(3, 4, _.op_sval)
                    + x86("def", L(3))
@@ -435,7 +424,7 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
         snprintf(dc_name, sizeof dc_name, "%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)); } }
     int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[bb_scc_gk_len(_.op_sval)];
     scc = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np, &scc_nsave, scc_gk, &scc_res_gk);
-    { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINYX] fn=%s nargs=%ld scc=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,scc); }
+    if (bcps_tiny_diag()) fprintf(stderr,"[TINYX] fn=%s nargs=%ld scc=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,scc);
     if (c2farm() && (!scc || (int)_.op_ival != 1)) return x86_alpha()
         + x86_bomb("bb_call_proc_staged: fc-armed call without SCC 1-arg shape (CALL2BB 3b v1) — the flat fallback does not exist "
             "as storage on an armed statement; registration and the probe disagreed");
@@ -444,17 +433,9 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
          + x86_anchor_enter()
          + (scc || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival))
             ? [&]() -> std::string {
-                static int _ntiny = -1; if (_ntiny < 0) {
-    const char * _e = getenv("SCRIP_NO_TINY");
-    _ntiny = (_e && *_e == '1') ? 1 : 0;
-}
-                { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d\n",
-                    _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc); }
-                static int _b1ct = -1; if (_b1ct < 0) {
-    const char * _e = getenv("SCRIP_B1C_PARITY");
-    _b1ct = (_e && *_e == '0') ? 0 : 1;
-}
-                if (!_ntiny && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1ct; }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
+                if (bcps_tiny_diag()) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d\n",
+                    _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc);
+                if (!bcps_no_tiny() && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || bcps_b1c_parity(); }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
                     std::string la = bcps_alpha_cellp_label(_.op_sval); std::string lad = bcps_alpha_cellp_data(_.op_sval);
                     if (bcps_fnsig()) {
                         std::vector<long> soff((size_t)_.op_ival); const char * why = "eligible"; std::string bad; int sigok = 1;
@@ -540,13 +521,7 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
             : (det_idx >= 0 ? std::string("") : x86("mov", "rdi", ROQ(0))
             + x86("call", "rt_proc_fn", TEMPLATE_FN_ADDR(rt_proc_fn)))
             + IF(det_idx < 0 && bcps_pl(), bcps_pinned_byname_road(bcps_block_build(argblks, (int)_.op_ival), off, 16 * (int)_.op_ival, 61, 62, 60))
-            + [&]{
-                static int _sp3 = -1;
-                if (_sp3 < 0) {
-                    const char *e = getenv("SCRIP_SLIM_PAIR");
-                    _sp3 = (!e || *e != (char)48) ? 1 : 0;
-                }
-                return (!icn_wire_stack_for(_.op_sval) && _sp3 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note",
+            + IF(!icn_wire_stack_for(_.op_sval) && bcps_slim_pair() && bcps_wire_pair_consumed(_.op_sval), x86("note",
                     "s111 floater pair (LEGACY flat-glue arm): the THIRD non-TINY arm, the one GVA-off actually takes (MONITOR_BIN "
                         "forces n_gva_m3=0 so the SCC gate and the role-4 TINY shim both refuse and the site falls HERE, to "
                             "rt_proc_call_open + flat rcx/rdx wires).  s110 patched only the two open_slim tails, so this arm still pushed "
@@ -555,9 +530,7 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
                                                                                                       + x86("lea", "rcx", L(4))
                                                                                                       + x86("push", "rcx")
                                                                                                       + x86("lea", "rcx", L(3))
-                                                                                                      + x86("push", "rcx") : std::string("");
-            }
-            ()
+                                                                                                      + x86("push", "rcx"))
             + x86_rsp_mark_save()
             + bcps_wire_cross(3, 4, _.op_sval)
             + x86("def", L(3))
@@ -1038,15 +1011,8 @@ static std::string bcps_spine_gen_arm() {
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
     int act = zls_act_off(_.node); if (act < 0) act = off + 16 * (1 + (int)_.op_ival);
     IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
-    int gi_off; {
-    static int c = -1;
-    if (c < 0) {
-        const char *e = getenv("SCRIP_NO_GENIDX");
-        c = (e && *e == '1') ? 1 : 0;
-    } gi_off = c;
-}
     int gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
-    long gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
+    long gi_idx = (!bcps_no_genidx() && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
     if (bcps_pl() && gi_idx >= 0 && bb_proc_target_pinned_graph(_.op_sval)) return bcps_block_arm(off, act, argblks, gi_idx);
     int n2_fb = -1, cb_np = 0, cb_va = 0, callee_blk = (gi_idx >= 0 && _.op_sval) ? bb_proc_target_icn_block(_.op_sval, &cb_np, &cb_va) : 0;
     if ((icn_gen_regime() || callee_blk) && _.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb);
