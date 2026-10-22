@@ -2612,6 +2612,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pvec_alloc", GC_RET_OTHER },
     { "rt_pvec_realloc", GC_RET_OTHER },
     { "rt_raku_eval_compile", GC_RET_OTHER },
+    { "rt_raku_undeclared_call", GC_RET_OTHER },
     { "rt_random_var", GC_RET_DESCR },
     { "rt_random_var_body", GC_RET_DESCR },
     { "rt_random_var_s", GC_RET_DESCR },

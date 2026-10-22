@@ -4832,6 +4832,8 @@ void register_fn_alias(const char *newname, const char *oldname) {
     _func_count_one();
 }
 void core_undefined_call_error(const char *name) {
+    extern int rt_raku_undeclared_call(const char *name);
+    if (rt_raku_undeclared_call(name)) return;
     if (name && name[0] && strchr("&@#%~!/=|^*+-?\\", name[0])) core_runtime_error(29, "undefined operator referenced");
     else core_runtime_error(22, "undefined function called");
 }

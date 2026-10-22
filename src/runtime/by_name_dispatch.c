@@ -13181,6 +13181,10 @@ static void rk_exc_init(void) {
     class_inherit("X::Syntax::Confused", "X::Syntax");
     record_register("X::Undeclared(message)");
     class_inherit("X::Undeclared", "X::Comp");
+    record_register("X::Undeclared::Symbols(message)");
+    class_inherit("X::Undeclared::Symbols", "X::Comp");
+    record_register("X::TypeCheck::Argument(message)");
+    class_inherit("X::TypeCheck::Argument", "X::TypeCheck");
     record_register("X::TypeCheck::Assignment(message,got,expected,symbol)");
     class_inherit("X::TypeCheck::Assignment", "X::TypeCheck");
     record_register("X::Method::NotFound(message,method,typename,invocant)");
@@ -13255,6 +13259,24 @@ static DESCR_t rk_exc_current(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_exc_throw(DESCR_t ex) { extern void rt_script_die_surface(const char *msg); NV_SET_fn("!", ex); rt_script_die_surface(rk_exc_message(ex)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_raku_undeclared_call(const char *name) {
+    extern int g_script_try_depth;
+    if (g_script_try_depth <= 0 || !name || !(isalpha((unsigned char) name[0]) || name[0] == '_') || !strncmp(name, "__", 2) || strstr(name, "::")) return 0;
+    rk_exc_init();
+    const char *cls = "X::Undeclared::Symbols";
+    const char *proto = !strcmp(name, "push") || !strcmp(name, "unshift") ? "($, |)" : !strcmp(name, "shift") ? "($, *%)" : (const char *) 0;
+    char msg[strlen(name) + 160];
+    if (!strcmp(name, "e") || !strcmp(name, "pi") || !strcmp(name, "tau")) {
+        cls = "X::Undeclared";
+        snprintf(msg, sizeof msg, "Variable '&%s' is not declared. Perhaps you forgot a 'sub' if this was\nintended to be part of a signature?", name);
+    } else if (proto) {
+        cls = "X::TypeCheck::Argument";
+        snprintf(msg, sizeof msg, "Calling %s() will never work with signature of the proto %s", name, proto);
+    } else snprintf(msg, sizeof msg, "Undeclared routine:\n    %s used", name);
+    rk_exc_throw(DATCON_fn(cls, STRVAL(rt_heap_strdup_c(msg))));
+    return 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_method_missing(DESCR_t recv, const char *mname, DESCR_t *out) {
     rk_exc_init();
