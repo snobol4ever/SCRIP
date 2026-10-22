@@ -2362,10 +2362,12 @@ static tree_t *x_expr(RkP *p, RkX *x) {
         int cls = x->lastcls; const char *nm = x->lastname;
         int eq = !strcmp(x->pk_txt, "="), k = rkb_op_index(LV_COMPOUND, x->pk_txt), clv, ck;
         int gen = !eq && k < 0 && cls == 'S' && x->pk_o.prec == PR('i') && rkb_compound_base(x->pk_txt, &clv, &ck);
-        if ((eq && (cls == 'S' || cls == 'A')) || (k >= 0 && cls == 'S') || gen) {
+        int dot = !strcmp(x->pk_txt, ".=") && (cls == 'S' || cls == 'A' || cls == 'H');
+        if ((eq && (cls == 'S' || cls == 'A')) || (k >= 0 && cls == 'S') || gen || dot) {
             const char *op = x->pk_txt;
             x_take(p, x); tree_t *r = x_after(p, x);
             if (!p->build) return NULL;
+            if (dot) return rkb_dotassign(p->B, cls, nm, r);
             return gen ? rkb_assign_op(p->B, nm, op, r) : rkb_assign(p->B, cls, nm, eq ? -1 : k, r);
         }
     }

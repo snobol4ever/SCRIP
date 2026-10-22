@@ -1545,6 +1545,13 @@ tree_t *rkb_assign(RkB *b, int cls, const char *name, int k, tree_t *r) {
     tree_t *v = var_node(b, name); return expr_binary(TT_ASSIGN, var_node(b, name), expr_binary(ck[k], v, r));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *rkb_dotassign(RkB *b, int cls, const char *name, tree_t *r) {
+    if (!r || r->t != TT_METHCALL || r->n < 2) return r;
+    r->c[0] = var_node(b, name);
+    if (cls == 'A' || cls == 'H') { tree_t *cv = make_call(cls == 'A' ? "__rk_to_array" : "__rk_to_hash"); expr_add_child(cv, r); return expr_binary(TT_ASSIGN, var_node(b, name), cv); }
+    return rk_quiet_store(var_node(b, name), r);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_assign_op(RkB *b, const char *name, const char *op, tree_t *r) {
     int lv, k; if (!rkb_compound_base(op, &lv, &k)) return NULL;
     return expr_binary(TT_ASSIGN, var_node(b, name), rk_scalar_rhs(rkb_binop(b, lv, k, var_node(b, name), r)));
