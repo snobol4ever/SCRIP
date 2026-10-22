@@ -1967,7 +1967,7 @@ static const char * const PL_PRELUDE_SRC =
     "xwam_state(2,R):-'$tbl_bcell'('$tbl_dl',[],DL),(DL==[]->R=0;R=1).\n"
     "'$tbl_mcall'(G,I,S):-G=..[F|As],I=..[Fi|_],S=..[_|Ms0],'$tbl_msplit'(Ms0,As,Gs,Xs,Cs,Vs,Ms),'$tbl_mcheck'(Cs),Gv=..[F|Gs],Iv=..[Fi|Gs],'$tbl_mterm'(Cs,Ma),'$tbl_mterm'(Vs,Mv),"
         "'$tbl_get'(Gv,Iv,moded(Ms,Xs,Mv),T),'$tbl_manswer'(T,Xs,Ma,Gv).\n"
-    "'$tbl_get'(G,I,K,T1):-'$tbl_noattv'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,Tq)->'$tbl_valid'(Tq,VT,G,T);T=none),'$tbl_enter'(T,VT,G,I,K,T0),('$trie_lookup'(VT,G,T1)->true;T1=T0),'$trie_meta_get'(T1,0,S),(S==complete->true;'$tbl_depn'(T1)).\n"
+    "'$tbl_get'(G,I,K,T1):-'$tbl_noattv'(G),'$tbl_vt'(VT),('$trie_lookup'(VT,G,Tq)->'$tbl_valid'(Tq,VT,G,T);T=none),'$tbl_restrain'(T,G),'$tbl_enter'(T,VT,G,I,K,T0),('$trie_lookup'(VT,G,T1)->true;T1=T0),'$trie_meta_get'(T1,0,S),(S==complete->true;'$tbl_depn'(T1)).\n"
     "'$tbl_valid'(T0,VT,G,none):-'$trie_meta_get'(T0,0,invalid),!,'$trie_delete'(VT,G,_).\n"
     "'$tbl_valid'(T,_,_,T).\n"
     "'$tbl_noattv'(G):-term_attvars(G,[]),!.\n"
@@ -1992,6 +1992,18 @@ static const char * const PL_PRELUDE_SRC =
     "'$tbl_lead'(T):-nb_setval('$tbl_leader',true),nb_setval('$tbl_wfs',false),nb_setval('$tbl_ph',0),catch(('$tbl_eval1'(T),'$tbl_rounds','$tbl_wfsrun'),E,('$tbl_abort',throw(E))),'$tbl_inprog'(Ts),"
         "'$tbl_complete'(Ts),nb_setval('$tbl_inprog',[]),nb_setval('$tbl_ph',0),nb_setval('$tbl_wfs',false),nb_setval('$tbl_leader',false).\n"
     "'$tbl_eval1'(T):-'$tbl_cell'('$tbl_dep',false,D0),nb_setval('$tbl_dep',false),'$tbl_eval'(T,_),'$tbl_cell'('$tbl_dep',false,D),(D==false->'$tbl_done'(T);true),nb_setval('$tbl_dep',D0).\n"
+    "'$tbl_restrain'(none,G):-!,'$tbl_rs'(G).\n"
+    "'$tbl_restrain'(_,_).\n"
+    "'$tbl_rs'(G):-catch(current_prolog_flag(max_table_subgoal_size,N),_,fail),integer(N),acyclic_term(G),'$tbl_gdepth'(G,D),D>N+1,!,'$tbl_trip'(G).\n"
+    "'$tbl_rs'(_).\n"
+    "'$tbl_gdepth'(G,D):-G=..[_|As],'$tbl_cdmax'(As,0,D).\n"
+    "'$tbl_cdmax'([],M,M).\n"
+    "'$tbl_cdmax'([A|As],M0,M):-'$tbl_cdepth'(A,D),(D>M0->M1=D;M1=M0),'$tbl_cdmax'(As,M1,M).\n"
+    "'$tbl_cdepth'(T,0):-(var(T);atomic(T)),!.\n"
+    "'$tbl_cdepth'(T,D):-T=..[_|As],'$tbl_cdmax'(As,0,M),D is M+1.\n"
+    "'$tbl_trip'(G):-(catch(current_prolog_flag(max_table_subgoal_size_action,A),_,fail)->true;A=error),'$tbl_trip'(A,G).\n"
+    "'$tbl_trip'(failure,_):-!,fail.\n"
+    "'$tbl_trip'(_,G):-'$tbl_unqual'(G,M,G1),functor(G1,F,N),functor(MG,F,N),throw(error(resource_error(tripwire(max_table_subgoal_size,M:MG)),_)).\n"
     "'$tbl_eval1n'(T):-'$tbl_cell'('$tbl_dep',false,D0),nb_setval('$tbl_dep',false),'$tbl_eval'(T,_),'$tbl_cell'('$tbl_dep',false,D),'$tbl_pos'(T,P),'$tbl_nest'(D,P,T,D0).\n"
     "'$tbl_nest'(false,_,T,D0):-!,'$tbl_done'(T),nb_setval('$tbl_dep',D0).\n"
     "'$tbl_nest'(D,P,T,D0):-D>=P,'$tbl_ph'(0),!,nb_setval('$tbl_dep',false),'$tbl_srounds'(T),'$tbl_cell'('$tbl_dep',false,Dr),'$tbl_scc'(Dr,P,T,D0).\n"
@@ -3753,6 +3765,10 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&refkeys, pl_pred_key("prolog_load_context", 2));
         pl_cv_add(&referenced, "abolish_table_info");
         pl_cv_add(&referenced, "abolish_module_tables");
+        pl_cv_add(&referenced, "xsb_error_get_tag");
+        pl_cv_add(&refkeys, pl_pred_key("xsb_error_get_tag", 2));
+        pl_cv_add(&referenced, "xsb_error_get_message");
+        pl_cv_add(&refkeys, pl_pred_key("xsb_error_get_message", 2));
         pl_cv_add(&refkeys, pl_pred_key("abolish_module_tables", 1));
         pl_cv_add(&refkeys, pl_pred_key("abolish_table_info", 0));
         pl_cv_add(&referenced, "gc_tables");

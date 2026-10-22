@@ -10,10 +10,12 @@
     abolish_table_info/0 (2026-10-21, hq_packages, xsb/ptq tran/1) is XSB's reset of the tabling statistics: SCRIP keeps none, so it succeeds.
     abolish_module_tables(+Module) (xsb/table_tests abol_test2, abol_test2a) destroys every table whose variant is in Module, as boot/tabling.pl of swipl 9.0.4 does (no cascade); usermod is user.
     Embedded by the generator in LOCAL mode; linked for a program that references load_files or names one of these predicates (prolog_parse.c). */
-:- module(xsb_tables, [ gc_tables/1, abolish_table_info/0, abolish_module_tables/1, '$amt_drop'/3, abolish_table_subgoals/1, abolish_table_subgoals/2, abolish_table_call/1, abolish_table_call/2, abolish_table_pred/1, '$ats_goal'/2,
+:- module(xsb_tables, [ gc_tables/1, abolish_table_info/0, xsb_error_get_tag/2, xsb_error_get_message/2, abolish_module_tables/1, '$amt_drop'/3, abolish_table_subgoals/1, abolish_table_subgoals/2, abolish_table_call/1, abolish_table_call/2, abolish_table_pred/1, '$ats_goal'/2,
                         '$ats_split'/4, '$ats_close'/3, '$ats_dep'/4, '$ats_hits'/2, '$ats_lit'/2, '$ats_drop'/2, '$ats_opts'/1, '$atp_goal'/2 ]).
 gc_tables(0).
 abolish_table_info.
+xsb_error_get_tag(error(Tag,_),Tag).
+xsb_error_get_message(error(_,C),M):-(var(C)->M=C;C=context(M,_)).
 abolish_module_tables(M0):-'$must_be_atom_mod'(M0),(M0==usermod->M=user;M=M0),'$tbl_vt'(VT),'$trie_entries'(VT,L),'$amt_drop'(L,M,VT).
 '$must_be_atom_mod'(M):-var(M),!,throw(error(instantiation_error,abolish_module_tables/1)).
 '$must_be_atom_mod'(M):-atom(M),!.

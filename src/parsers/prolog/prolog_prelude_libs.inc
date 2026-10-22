@@ -19117,6 +19117,8 @@ static const char PL_PRELUDE_LIB_35_SRC[] =
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
+    { "xsb_error_get_tag", 2 },
+    { "xsb_error_get_message", 2 },
     { "abolish_module_tables", 1 },
     { "$amt_drop", 3 },
     { "abolish_table_subgoals", 1 },
@@ -19147,6 +19149,8 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
 static const char PL_PRELUDE_LIB_36_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
+    "xsb_error_get_tag(error(Tag,_),Tag).\n"
+    "xsb_error_get_message(error(_,C),M):-(var(C)->M=C;C=context(M,_)).\n"
     "abolish_module_tables(M0):-'$must_be_atom_mod'(M0),(M0==usermod->M=user;M=M0),'$tbl_vt'(VT),'$trie_entries'(VT,L),'$amt_drop'(L,M,VT).\n"
     "'$must_be_atom_mod'(M):-var(M),!,throw(error(instantiation_error,abolish_module_tables/1)).\n"
     "'$must_be_atom_mod'(M):-atom(M),!.\n"
