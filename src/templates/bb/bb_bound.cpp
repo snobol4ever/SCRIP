@@ -14,7 +14,7 @@ static std::string bound_unmark_cells() {
     return x86("comment", "IR_UNMARK cells arm -- restore rsp from BOUND frame slot (depth-immune FRQ)")
          + x86_alpha()
          + x86("mov", "rsp", FRQ(_.op_off))
-         + IF(x86_zdp_rbp_on() && _.op_zcut >= 0 && x86_hb_on(), x86_zsm_disc(_.op_zcut))
+         + IF(x86_zdp_rbp_on() && _.op_zcut >= 0 && x86_hb_on(), x86_zsm_disc(_.op_zcut + _.op_upost))
          + x86_release_acts(true, 5)
          + x86_gamma()
          + x86_beta_trampoline();

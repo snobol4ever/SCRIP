@@ -1485,6 +1485,14 @@ void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, co
         viol++;
         fprintf(stderr, "[ZD-CHECK]   DISCARD     i=%d %s -> j=%d %s restores=%d expects=%d\n", i, bb_op_name(nodes[i]->op), j, bb_op_name(nodes[j]->op), arrive, expect);
     }
+    for (int i = 0; zcut && xb && i < n; i++) {
+        if (!zon[i] || nodes[i]->op != IR_UNMARK || zcut[i] < 0 || nodes[i]->n_operands < 1) continue;
+        int b = nidx(nodes, n, nodes[i]->operands[0]), up = zd_upost_of(nodes[i]);
+        int chn = (xb[i] != INT_MIN) ? xb[i] + zout[i] - zgpop[i] : INT_MIN;
+        int rec = (b >= 0 && zon[b] && xb[b] != INT_MIN) ? xb[b] + zout[b] - zd_k(nodes[b]) - up : INT_MIN;
+        if (chn != zcut[i] && rec != zcut[i])
+            fprintf(stderr, "[ZD-CHECK]   UNMARK      i=%d -> E_cont=%d chain_arrives=%d record_arrives=%d (reported, not counted)\n", i, zcut[i], chn, rec);
+    }
     fprintf(stderr, "[ZD-CHECK] graph=%s boxes=%d armed=%d definite=%d coordinate=%s edges=%d violations=%d\n", prefix ? prefix : "?", n, armed, def, xb ? "absolute" : "relative", edges, viol);
 }
 zeta_plan_t * planner_chain_plan(IR_t * entry, const char * prefix) {
@@ -1644,9 +1652,12 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         zd_pl_bases(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, _b, _kn, (int *)0, zd_cut, zd_fam, zd_fbase);
         for (int _i = 0; _i < n; _i++) zd_xb[_i] = (zd_on[_i] && zd_claim[_i] >= 0 && _kn[zd_claim[_i]]) ? _b[zd_claim[_i]] : INT_MIN;
         for (int _i = 0; _i < n; _i++) {
-            IR_t * _u = g_emitter.codegen_flat_chain_body_nodes[_i];
-            int _bd = (zd_on[_i] && _u->op == IR_UNMARK && _u->n_operands > 0) ? nidx(g_emitter.codegen_flat_chain_body_nodes, n, _u->operands[0]) : -1;
-            if (_bd >= 0 && zd_on[_bd] && zd_xb[_bd] != INT_MIN && zd_cut[_i] < 0) zd_cut[_i] = zd_xb[_bd] + zd_out[_bd] - zd_k(g_emitter.codegen_flat_chain_body_nodes[_bd]);
+            IR_t * _u = g_emitter.codegen_flat_chain_body_nodes[_i], * _gs = _u;
+            if (!zd_on[_i] || _u->op != IR_UNMARK || _u->n_operands < 1 || zd_cut[_i] >= 0) continue;
+            IR_t * _gt = zd_lm_chase(_u, n, &_gs);
+            int _q = _gt ? nidx(g_emitter.codegen_flat_chain_body_nodes, n, _gt) : -1;
+            if (_q < 0 || !zd_on[_q] || zd_xb[_q] == INT_MIN) continue;
+            zd_cut[_i] = zd_xb[_q] + zd_out[_q] - (port_sz_beta(zd_edge_sz(_gs, 0)) ? 0 : zd_k(g_emitter.codegen_flat_chain_body_nodes[_q]));
         }
         zst_finish(g_emitter.codegen_flat_chain_body_nodes, n, zd_out, zd_claim, _b, _kn);
         rec->xb = (int *)ct_zalloc((size_t)n, sizeof(int)); memcpy(rec->xb, zd_xb, sizeof(int) * (size_t)n);
