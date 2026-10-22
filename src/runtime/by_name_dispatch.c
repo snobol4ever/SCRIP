@@ -423,7 +423,7 @@ int rt_pl_catch_handle_c(DESCR_t *a, int n, void *ball, pl_tr_ctx_t *cx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *plw_det_cell(DESCR_t *tmp) {
-    { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT < 0) prolog_atom_init(); }
+    { extern int g_atom_dot; extern void prolog_atom_init(void); if (g_atom_dot < 0) prolog_atom_init(); }
     DESCR_t *c = plw_cell_deref(plw_entry(tmp));
     if (c->v == DT_SNUL || c->v == DT_FAIL) { c->v = (DTYPE_t)DT_PLVAR; c->slen = 0; c->p = (void *)c; }
     return c;
@@ -5047,7 +5047,7 @@ CVSPINE_t rt_call_apply_spine_prep_blk(DESCR_t callee, DESCR_t lv, void **hslot)
 static const char *rt_pl_goal_key(DESCR_t goal, int extra, DESCR_t **args_out, int *ar_out) {
     extern DESCR_t rt_pl_deref_val(DESCR_t);
     extern const char *prolog_atom_name(int);
-    extern int ATOM_DOT;
+    extern int g_atom_dot;
     DESCR_t v = rt_pl_deref_val(goal);
     const char *nm = (const char *)0;
     int ar = 0;
@@ -5055,7 +5055,7 @@ static const char *rt_pl_goal_key(DESCR_t goal, int extra, DESCR_t **args_out, i
     if ((int)v.v == DT_PLREF) { nm = prolog_atom_name(plc_fid_name(v.slen)); ar = plc_fid_arity(v.slen); kids = (DESCR_t *)v.p; } else if ((int)v.v == (int)DT_PLATOM) nm = prolog_atom_name((int)v.i);
     else if ((int)v.v == (int)DT_S) nm = v.s;
     if (!nm || extra < 0) return (const char *)0;
-    if ((int)v.v == DT_PLREF && extra == 0 && ar == 2 && plc_fid_name(v.slen) == ATOM_DOT) { kids = (DESCR_t *)rt_ws_alloc_descr(1); kids[0] = v; nm = "consult"; ar = 1; }
+    if ((int)v.v == DT_PLREF && extra == 0 && ar == 2 && plc_fid_name(v.slen) == g_atom_dot) { kids = (DESCR_t *)rt_ws_alloc_descr(1); kids[0] = v; nm = "consult"; ar = 1; }
     *args_out = kids;
     *ar_out = ar;
     return nm;
@@ -5296,17 +5296,17 @@ static const char *pl_atom_str_n(DESCR_t v, size_t *n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_mk_atom(const char *s) { extern int prolog_atom_intern(const char *); DESCR_t d = {0}; d.v = DT_PLATOM; d.slen = 0; d.i = prolog_atom_intern(s); return d; }
-static DESCR_t pl_nil(void) { extern int ATOM_NIL; DESCR_t d = {0}; d.v = DT_PLATOM; d.slen = 0; d.i = ATOM_NIL; return d; }
+static DESCR_t pl_nil(void) { extern int g_atom_nil; DESCR_t d = {0}; d.v = DT_PLATOM; d.slen = 0; d.i = g_atom_nil; return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_cons(DESCR_t head, DESCR_t tail) {
     extern int prolog_atom_intern(const char *);
     DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(2);
     kids[0] = head;
     kids[1] = tail;
-    extern int FUNCTOR_DOT2;
+    extern int g_functor_dot2;
     DESCR_t c = {0};
     c.v = (DTYPE_t)DT_PLREF;
-    c.slen = (uint32_t)FUNCTOR_DOT2;
+    c.slen = (uint32_t)g_functor_dot2;
     c.p = (void *)kids;
     return c;
 }
@@ -6616,8 +6616,8 @@ int rt_pl_numbervars_cell(void *, void *, void *, pl_tr_ctx_t *);
 int rt_pl_numbervars1_cell(void *, pl_tr_ctx_t *);
 int rt_pl_sort_cell(int, void *, void *, pl_tr_ctx_t *);
 static DESCR_t pl_ok(void) { DESCR_t r = {0}; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
-static void pl_atoms_ready(void) { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT < 0) prolog_atom_init(); }
-static int pl_is_cons(DESCR_t d) { extern int ATOM_DOT; return d.v == (DTYPE_t)DT_PLREF && plc_fid_name(d.slen) == ATOM_DOT && plc_fid_arity(d.slen) == 2; }
+static void pl_atoms_ready(void) { extern int g_atom_dot; extern void prolog_atom_init(void); if (g_atom_dot < 0) prolog_atom_init(); }
+static int pl_is_cons(DESCR_t d) { extern int g_atom_dot; return d.v == (DTYPE_t)DT_PLREF && plc_fid_name(d.slen) == g_atom_dot && plc_fid_arity(d.slen) == 2; }
 static DESCR_t pl_spine_end(DESCR_t cur, long *n_out, int *cyclic) {
     void *ck = (void *)0;
     long n = 0, st = 0, pw = 1;

@@ -24,10 +24,10 @@ int prolog_op_cols_ready(void);
 int prolog_op_col_user(int atom, int fix);
 void prolog_op_col_set_u(int atom, int prec, const char *ty, int user);
 const char *prolog_op_type_name(int code);
-extern int ATOM_DOT;
-extern int ATOM_NIL;
-extern int ATOM_TRUE;
-extern int ATOM_FAIL;
-extern int ATOM_CUT;
-extern int FUNCTOR_DOT2;
+extern int g_atom_dot;
+extern int g_atom_nil;
+extern int g_atom_true;
+extern int g_atom_fail;
+extern int g_atom_cut;
+extern int g_functor_dot2;
 #endif

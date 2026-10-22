@@ -167,7 +167,7 @@ static int plc_op_is_postfix_id(int nid) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_op_is_postfix(const char *name) { return name ? plc_op_is_postfix_id(prolog_atom_intern(name)) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plc_is_nil(pl_cell_t *d) { extern int ATOM_NIL; if ((int)d->v == DT_PLATOM) return (int)d->i == ATOM_NIL; if ((int)d->v == DT_S) return d->s && strcmp(d->s, "[]") == 0; return 0; }
+static int plc_is_nil(pl_cell_t *d) { extern int g_atom_nil; if ((int)d->v == DT_PLATOM) return (int)d->i == g_atom_nil; if ((int)d->v == DT_S) return d->s && strcmp(d->s, "[]") == 0; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_u8_get(const char *s, int *adv);
 static int plc_atom_needs_quoting(const char *name) {
@@ -336,12 +336,12 @@ static void plc_wt_string(FILE *fp, pl_cell_t *d, int quoted) {
 static void plc_wt_num(FILE *fp, pl_cell_t *d) { extern const char *pl_real_iso_str(double, char *, int); char fb[64]; fputs(pl_real_iso_str(d->r, fb, (int)sizeof fb), fp); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_term_prio(pl_cell_t *c, int ignore_ops) {
-    extern int ATOM_DOT;
+    extern int g_atom_dot;
     pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0;
     int pr = 0, lm = 0, rm = 0, ar;
     if (!d || ignore_ops || (int)d->v != DT_PLREF) return 0;
     ar = plc_fid_arity(d->slen);
-    if (plc_fid_name(d->slen) == ATOM_DOT && ar == 2) return 0;
+    if (plc_fid_name(d->slen) == g_atom_dot && ar == 2) return 0;
     if (ar != 1 && ar != 2) return 0;
     { int nid = plc_fid_name(d->slen); const char *fn = prolog_atom_name(nid); if (fn && !strcmp(fn, "{}") && ar == 1) return 0; if (fn && plc_op_info_id(nid, ar, &pr, &lm, &rm)) return pr; }
     return 0;
@@ -356,7 +356,7 @@ static int plc_is_op_atom(pl_cell_t *d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numbervars) {
-    extern int ATOM_DOT;
+    extern int g_atom_dot;
     pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0;
     int pr = 0, lm = 0, rm = 0;
     if (!d) return '[';
@@ -383,7 +383,7 @@ static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numberva
             if ((int)n->v == DT_I) return 'A';
             if ((int)n->v == DT_PLATOM || (int)n->v == DT_S) { const char *t = plc_atom_text(n); return t ? (unsigned char)*t : 0; }
         }
-        if (!ignore_ops && plc_fid_name(d->slen) == ATOM_DOT && ar == 2) return '[';
+        if (!ignore_ops && plc_fid_name(d->slen) == g_atom_dot && ar == 2) return '[';
         if (!ignore_ops && ar == 1 && !strcmp(fn, "{}")) return '{';
         if (!ignore_ops && (ar == 1 || ar == 2) && plc_op_info_id(nid, ar, &pr, &lm, &rm)) {
             if (pr > 1200) return (unsigned char)fn[0];
@@ -482,7 +482,7 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
 #define PLC_KID(cl, dp, mp) do { if (wx) plc_wt((cl), quoted, ignore_ops, numbervars, max_depth, (dp), (mp), m); else plc_wt_lv((cl), quoted, ignore_ops, numbervars, max_depth, (dp), (mp), m); } \
     while (0)
 static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, long max_depth, long depth, int maxp, plc_vmap *m) {
-    extern int ATOM_DOT;
+    extern int g_atom_dot;
     FILE *fp = m->fp;
     const pl_tr_ctx_t *wx = m->portray ? m->cx : (const pl_tr_ctx_t *)0;
     plc_wsref rd = { -1, (pl_cell_t *)0 };
@@ -521,7 +521,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
         pl_cell_t *n = pl_deref(&aa[0]);
         if ((int)n->v == DT_PLATOM || (int)n->v == DT_S) { const char *vn = plc_atom_text(n); fprintf(fp, "%s", vn ? vn : "_"); return; }
     }
-    if (ignore_ops != 1 && fnid == ATOM_DOT && ar == 2) {
+    if (ignore_ops != 1 && fnid == g_atom_dot && ar == 2) {
         extern void *rt_pl_ball_kind1(const char *, const char *);
         pl_cell_t *cur = d;
         long n = 0;
@@ -538,7 +538,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
             n++;
             if (wx) { cur = plc_wsref_get(wx, &rc); tort = plc_wsref_get(wx, &rtt); ca = (pl_cell_t *)cur->p; }
             tl = pl_deref(&ca[1]);
-            if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == ATOM_DOT && plc_fid_arity(tl->slen) == 2 && tl->p) {
+            if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == g_atom_dot && plc_fid_arity(tl->slen) == 2 && tl->p) {
                 cur = tl;
                 if (cur == tort) { fprintf(fp, "|..."); if (!m->pthrown) m->pthrown = rt_pl_ball_kind1("resource_error", "cyclic_term"); break; }
                 if ((n & (n - 1)) == 0) tort = cur;
@@ -673,7 +673,7 @@ static int plc_fz_run(void *wv) {
                 nb[ar] = plc_fz_var(w, ++w->next_k);
                 kc[0] = pl_make_compound(plc_fid_name(d->slen), ar, nb);
                 kc[1] = w->knodes;
-                w->knodes = pl_make_compound(ATOM_DOT, 2, kc);
+                w->knodes = pl_make_compound(g_atom_dot, 2, kc);
             }
             *w->d = nb[ar].v != DT_SNUL ? nb[ar] : pl_make_compound(plc_fid_name(d->slen), ar, nb);
         } else if (e) {
@@ -707,7 +707,7 @@ static int plc_fz_run(void *wv) {
 static int plc_fz_count_visit(pl_cell_t *d, void *ctx) { if ((int)d->v == DT_PLREF) ++*(long *)ctx; return PLR_V_GO; }
 PLR_WALK1(plc_fz_count_walk, plc_fz_count_visit, pl_deref) static pl_cell_t plc_factorize_x(pl_cell_t *c, int named, int dag) {
     long n = 0, cap = 64;
-    pl_cell_t out, subs = pl_make_atom(ATOM_NIL), *args = (pl_cell_t *)rt_ws_alloc_descr(2);
+    pl_cell_t out, subs = pl_make_atom(g_atom_nil), *args = (pl_cell_t *)rt_ws_alloc_descr(2);
     plc_fz_t w;
     (void)plc_fz_count_walk(c, (void *)&n);
     while (cap < 2 * n + 2) cap <<= 1;
@@ -722,7 +722,7 @@ PLR_WALK1(plc_fz_count_walk, plc_fz_count_visit, pl_deref) static pl_cell_t plc_
         w.next_k = 0;
         w.named = named;
         w.dag = dag;
-        w.knodes = pl_make_atom(ATOM_NIL);
+        w.knodes = pl_make_atom(g_atom_nil);
         w.tab = tab;
         w.mask = cap - 1;
         (void)plc_fz_run(&w);
@@ -735,7 +735,7 @@ PLR_WALK1(plc_fz_count_walk, plc_fz_count_visit, pl_deref) static pl_cell_t plc_
         eq[1] = node;
         cons[0] = pl_make_compound(prolog_atom_intern("="), 2, eq);
         cons[1] = subs;
-        subs = pl_make_compound(ATOM_DOT, 2, cons);
+        subs = pl_make_compound(g_atom_dot, 2, cons);
     }
     args[0] = out;
     args[1] = subs;
@@ -771,7 +771,7 @@ static void plc_writeq(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, 0, 1, 0, 0, 120
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_write_canonical(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, PLC_WC_IGNORE_OPS, 0, 0, 0, 1200, m); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plc_atoms_ready(void) { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT < 0) prolog_atom_init(); }
+static void plc_atoms_ready(void) { extern int g_atom_dot; extern void prolog_atom_init(void); if (g_atom_dot < 0) prolog_atom_init(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_cell(void *cell) {
     plc_atoms_ready();
@@ -944,13 +944,13 @@ static int plc_ground_visit(pl_cell_t *d, void *ctx) {
 PLR_WALK1(plc_ground_walk, plc_ground_visit, pl_deref) static int plc_cell_is_ground(pl_cell_t *c) { return c && !plc_ground_walk(c, (void *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_cell_is_proper_list(pl_cell_t *c) {
-    extern int ATOM_DOT, ATOM_NIL;
+    extern int g_atom_dot, g_atom_nil;
     pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0;
     pl_cell_t *tort = d;
     unsigned long n = 0;
     while (d) {
-        if (plc_is_atomlike(d) && plc_atom_id_of(d) == ATOM_NIL) return 1;
-        if ((int)d->v == DT_PLREF && plc_fid_name(d->slen) == ATOM_DOT && plc_fid_arity(d->slen) == 2 && d->p) {
+        if (plc_is_atomlike(d) && plc_atom_id_of(d) == g_atom_nil) return 1;
+        if ((int)d->v == DT_PLREF && plc_fid_name(d->slen) == g_atom_dot && plc_fid_arity(d->slen) == 2 && d->p) {
             d = pl_deref(&((pl_cell_t *)d->p)[1]);
             n++;
             if (d == tort) return 0;
@@ -1050,7 +1050,7 @@ int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell, pl_tr_ctx_t *cx) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long plc_list_cells(void *list_cell, int dot_id);
 int rt_pl_univ_cell(void *t0_cell, void *list_cell, pl_tr_ctx_t *cx) {
-    extern int ATOM_DOT;
+    extern int g_atom_dot;
     pl_cell_t *d0 = t0_cell ? pl_deref((pl_cell_t *)t0_cell) : (pl_cell_t *)0;
     if (d0 && !pl_cell_unbound(d0)) {
         pl_cell_t lst = plc_atom_id_cell(prolog_atom_intern("[]"));
@@ -1062,32 +1062,32 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell, pl_tr_ctx_t *cx) {
         if ((int)d0->v == DT_PLREF) {
             int ar = plc_fid_arity(d0->slen);
             pl_cell_t *aa = (pl_cell_t *)d0->p;
-            for (int i = ar - 1; i >= 0; i--) { pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t)); c[0] = aa[i]; c[1] = lst; lst = pl_make_compound(ATOM_DOT, 2, c); }
+            for (int i = ar - 1; i >= 0; i--) { pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t)); c[0] = aa[i]; c[1] = lst; lst = pl_make_compound(g_atom_dot, 2, c); }
             pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
             c[0] = plc_atom_id_cell(plc_fid_name(d0->slen));
             c[1] = lst;
-            lst = pl_make_compound(ATOM_DOT, 2, c);
+            lst = pl_make_compound(g_atom_dot, 2, c);
         } else {
             pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
             c[0] = *d0;
             c[1] = lst;
-            lst = pl_make_compound(ATOM_DOT, 2, c);
+            lst = pl_make_compound(g_atom_dot, 2, c);
         }
         if (!plc_unify_cells_cx((pl_cell_t *)list_cell, &lst, cx)) { return 0; }
         return 1;
     }
-    extern int ATOM_NIL;
+    extern int g_atom_nil;
     extern void *rt_pl_ball_instantiation(void);
     extern void *rt_pl_ball_kind1(const char *, const char *);
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     pl_cell_t *l0 = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0, *cur = l0;
     void *b = (void *)0;
     int ne = 0;
-    long nl = plc_list_cells(list_cell, ATOM_DOT);
-    while (nl >= 0 && cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == ATOM_DOT && plc_fid_arity(cur->slen) == 2 && cur->p) { ne++; cur = pl_deref(&((pl_cell_t *)cur->p)[1]); }
+    long nl = plc_list_cells(list_cell, g_atom_dot);
+    while (nl >= 0 && cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == g_atom_dot && plc_fid_arity(cur->slen) == 2 && cur->p) { ne++; cur = pl_deref(&((pl_cell_t *)cur->p)[1]); }
     if (nl < 0) b = rt_pl_ball_kind2("type_error", "list", *l0);
     else if (!cur || pl_cell_unbound(cur)) b = rt_pl_ball_instantiation();
-    else if (!(plc_is_atomlike(cur) && plc_atom_id_of(cur) == ATOM_NIL)) b = rt_pl_ball_kind2("type_error", "list", *l0);
+    else if (!(plc_is_atomlike(cur) && plc_atom_id_of(cur) == g_atom_nil)) b = rt_pl_ball_kind2("type_error", "list", *l0);
     else if (ne == 0) b = rt_pl_ball_kind2("domain_error", "non_empty_list", *l0);
     if (b) { if (cx && !cx->ball) cx->ball = b; return 0; }
     pl_cell_t *h = pl_deref(&((pl_cell_t *)l0->p)[0]);
@@ -1254,12 +1254,12 @@ int rt_pl_u8_put(char *o, int cp) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *plc_atom_op_list_text_heap(pl_cell_t *d, size_t *len) {
-    extern int ATOM_DOT, ATOM_NIL;
+    extern int g_atom_dot, g_atom_nil;
     extern void *rt_wsb_alloc(size_t);
     extern void *rt_wsb_realloc(void *, size_t);
     size_t oi = 0, cap = 64;
     char *buf = (char *)rt_wsb_alloc(cap);
-    while (d && (int)d->v == DT_PLREF && plc_fid_name(d->slen) == ATOM_DOT && plc_fid_arity(d->slen) == 2 && d->p) {
+    while (d && (int)d->v == DT_PLREF && plc_fid_name(d->slen) == g_atom_dot && plc_fid_arity(d->slen) == 2 && d->p) {
         pl_cell_t *pr = (pl_cell_t *)d->p;
         pl_cell_t *el = pl_deref(&pr[0]);
         if ((int)el->v == DT_I) {
@@ -1276,7 +1276,7 @@ static const char *plc_atom_op_list_text_heap(pl_cell_t *d, size_t *len) {
         } else return (const char *)0;
         d = pl_deref(&pr[1]);
     }
-    if (!(d && plc_is_atomlike(d) && plc_atom_id_of(d) == ATOM_NIL)) return (const char *)0;
+    if (!(d && plc_is_atomlike(d) && plc_atom_id_of(d) == g_atom_nil)) return (const char *)0;
     buf[oi] = '\0';
     *len = oi;
     return buf;
@@ -1350,13 +1350,13 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             const char *s = plc_atom_op_text_n(t0, buf0, sizeof buf0, &sn);
             if (!s) { if (swi && cx && !cx->ball) cx->ball = rt_pl_ball_kind2("type_error", "text", *t0); return 0; }
             if (t1 && (int)t1->v == DT_S) return plc_atom_len(t1) == sn && (!sn || !memcmp(plc_atom_text(t1), s, sn));
-            if (rt_pl_dialect_swi() && t1 && (int)t1->v == DT_PLREF && plc_fid_name(t1->slen) == ATOM_DOT && plc_fid_arity(t1->slen) == 2 && t1->p) {
+            if (rt_pl_dialect_swi() && t1 && (int)t1->v == DT_PLREF && plc_fid_name(t1->slen) == g_atom_dot && plc_fid_arity(t1->slen) == 2 && t1->p) {
                 pl_cell_t *c = t1, *e0 = pl_deref(&((pl_cell_t *)t1->p)[0]);
-                while (c && (int)c->v == DT_PLREF && plc_fid_name(c->slen) == ATOM_DOT && plc_fid_arity(c->slen) == 2 && c->p) {
+                while (c && (int)c->v == DT_PLREF && plc_fid_name(c->slen) == g_atom_dot && plc_fid_arity(c->slen) == 2 && c->p) {
                     if (pl_cell_unbound(pl_deref(&((pl_cell_t *)c->p)[0]))) break;
                     c = pl_deref(&((pl_cell_t *)c->p)[1]);
                 }
-                if (c && plc_is_atomlike(c) && plc_atom_id_of(c) == ATOM_NIL) as_codes = (int)e0->v == DT_I;
+                if (c && plc_is_atomlike(c) && plc_atom_id_of(c) == g_atom_nil) as_codes = (int)e0->v == DT_I;
             }
             int *cps = (int *)rt_wsb_alloc((sn + 1) * sizeof(int));
             int cn = 0, adv;
@@ -1369,7 +1369,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
                 pl_cell_t *pair = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
                 pair[0] = el;
                 pair[1] = lst;
-                lst = pl_make_compound(ATOM_DOT, 2, pair);
+                lst = pl_make_compound(g_atom_dot, 2, pair);
             }
             if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, lst, cx)) { return 0; }
             return 1;
@@ -1382,8 +1382,8 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             void *b = (void *)0;
             for (pl_cell_t *c = t1; !b; c = pl_deref(&((pl_cell_t *)c->p)[1])) {
                 if (!c || pl_cell_unbound(c)) { b = rt_pl_ball_instantiation(); break; }
-                if (plc_is_atomlike(c) && plc_atom_id_of(c) == ATOM_NIL) break;
-                if (!((int)c->v == DT_PLREF && plc_fid_name(c->slen) == ATOM_DOT && plc_fid_arity(c->slen) == 2 && c->p)) { b = rt_pl_ball_kind2("type_error", "list", *t1); break; }
+                if (plc_is_atomlike(c) && plc_atom_id_of(c) == g_atom_nil) break;
+                if (!((int)c->v == DT_PLREF && plc_fid_name(c->slen) == g_atom_dot && plc_fid_arity(c->slen) == 2 && c->p)) { b = rt_pl_ball_kind2("type_error", "list", *t1); break; }
                 pl_cell_t *el = pl_deref(&((pl_cell_t *)c->p)[0]);
                 int cp = 0, adv = 0;
                 const char *cn = ((int)el->v == DT_PLATOM || (int)el->v == DT_S) ? plc_atom_text(el) : (const char *)0;
@@ -1404,7 +1404,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         size_t ocap = 256;
         char *out = (char *)rt_wsb_alloc(ocap);
         size_t oi = 0;
-        while (cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == ATOM_DOT && plc_fid_arity(cur->slen) == 2) {
+        while (cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == g_atom_dot && plc_fid_arity(cur->slen) == 2) {
             pl_cell_t *pr = (pl_cell_t *)cur->p;
             pl_cell_t *el = pl_deref(&pr[0]);
             if (as_codes) {
@@ -1735,7 +1735,7 @@ static void plc_fmt_radix(plc_fb *f, long long iv, int base, int upper) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *plc_fmt_exhausted(pl_cell_t all) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
-    return !rt_pl_dialect_gnu() ? rt_pl_ball_kind2("domain_error", "format_arguments", all) : rt_pl_ball_kind2("domain_error", "non_empty_list", pl_make_atom(ATOM_NIL));
+    return !rt_pl_dialect_gnu() ? rt_pl_ball_kind2("domain_error", "format_arguments", all) : rt_pl_ball_kind2("domain_error", "non_empty_list", pl_make_atom(g_atom_nil));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
@@ -2272,7 +2272,7 @@ PLR_WALK1(plc_tv1_walk, plc_tv1_visit, pl_deref)
     "ch runtime " "call restores its marks before it returns, and an unbound DT_SNUL or DT_FAIL cell, which carries no self pointer to restore, sends the call back to the pool road");
 int rt_pl_term_variables_cell(void *term_cell, void *vars_cell, void *tail_cell, pl_tr_ctx_t *cx) {
     int dot_id = prolog_atom_intern(".");
-    pl_cell_t nil = pl_make_atom(ATOM_NIL);
+    pl_cell_t nil = pl_make_atom(g_atom_nil);
     pl_cell_t result = tail_cell ? *(pl_cell_t *)tail_cell : nil;
     plc_tv1_t t;
     t.head = (pl_cell_t *)0;
@@ -2339,7 +2339,7 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell, pl_tr_ctx_
     int m = 0;
     int out_idx[n + 1];
     for (int i = 0; i < n; i++) { if (!do_msort && m > 0 && rt_pl_cell_compare(elems[out_idx[m - 1]], elems[i]) == 0) continue; out_idx[m++] = i; }
-    pl_cell_t nil = pl_make_atom(ATOM_NIL);
+    pl_cell_t nil = pl_make_atom(g_atom_nil);
     pl_cell_t result = nil;
     for (int i = m - 1; i >= 0; i--) {
         pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
@@ -2377,7 +2377,7 @@ static int plc_plain_list_extract(void *list_cell, pl_cell_t **elems, int dot_id
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static pl_cell_t plc_nil_cell(void) { return pl_make_atom(ATOM_NIL); }
+static pl_cell_t plc_nil_cell(void) { return pl_make_atom(g_atom_nil); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_cell_t plc_cons(int fid, pl_cell_t head, pl_cell_t tail) {
     pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
@@ -2405,7 +2405,7 @@ int rt_pl_bag_prep_cell(int is_setof, void *list_cell, void *result_cell) {
     int m = 0;
     int out_idx[n + 1];
     for (int i = 0; i < n; i++) { if (is_setof && m > 0 && rt_pl_cell_compare(elems[out_idx[m - 1]], elems[i]) == 0) continue; out_idx[m++] = i; }
-    pl_cell_t nil = pl_make_atom(ATOM_NIL);
+    pl_cell_t nil = pl_make_atom(g_atom_nil);
     pl_cell_t result = nil;
     for (int i = m - 1; i >= 0; i--) {
         pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
@@ -2430,7 +2430,7 @@ int rt_pl_keysort_cell(void *list_cell, void *result_cell, pl_tr_ctx_t *cx) {
         while (j >= 0 && rt_pl_cell_compare((pl_cell_t *)elems[j]->p, kkey) > 0) { elems[j + 1] = elems[j]; j--; }
         elems[j + 1] = key;
     }
-    pl_cell_t nil = pl_make_atom(ATOM_NIL);
+    pl_cell_t nil = pl_make_atom(g_atom_nil);
     pl_cell_t result = nil;
     for (int i = n - 1; i >= 0; i--) {
         pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
@@ -2586,7 +2586,7 @@ static const char *pl_atom_text(pl_cell_t *d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_is_nil(pl_cell_t *d) { const char *s = pl_atom_text(d); return s && !strcmp(s, "[]"); }
-static pl_cell_t pl_nil_cell(void) { return pl_make_atom(ATOM_NIL); }
+static pl_cell_t pl_nil_cell(void) { return pl_make_atom(g_atom_nil); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_name_singleton_vars_cell(void *term_cell) {
     int occ = plc_var_occ((pl_cell_t *)term_cell) + 1;
