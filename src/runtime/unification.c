@@ -1917,7 +1917,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
         }
     }
     if (!ball && args && !pl_cell_unbound(args) && !plc_is_nil(args)) ball = rt_pl_ball_kind2("domain_error", "format_arguments", all);
-    if (!ball || rt_pl_dialect_gnu()) { fd = plc_out(); if (f.n) fwrite(f.b, 1, f.n, fd); }
+    { fd = plc_out(); if (f.n) fwrite(f.b, 1, f.n, fd); }
     ct_drop(f.b);
     plc_ws_end(cx, mark);
     return ball;
