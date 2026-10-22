@@ -96,7 +96,7 @@ extern "C" const char * bb_kind_name(int op) { return flat_label_kind((IR_e)op);
 extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);
 int emit_floater_kind(const IR_t * n) { if (!n) return 0; if (n->op == IR_DEFINE && IR_LIT(n).ival == 1) return 1; if (n->op == IR_DEFINE && IR_LIT(n).ival == 2) return 2;
     if (n->op == IR_LIT_STRING && n->γ.node && ir_norm_call_kind(n->γ.node->op) == IR_CALL && IR_LIT(n->γ.node).sval && !strcmp(IR_LIT(n->γ.node).sval, "SNO$NRET")) return 3; return 0; }
-static int emit_floater_member(const IR_t * n) { if (!n) return 0; if (emit_floater_kind(n)) return 1;
+int emit_floater_member(const IR_t * n) { if (!n) return 0; if (emit_floater_kind(n)) return 1;
     if (ir_norm_call_kind(n->op) == IR_CALL && IR_LIT(n).sval && !strcmp(IR_LIT(n).sval, "SNO$NRET")) return 1;
     return 0; }
 static bb_label_t * emit_floater_label(int k) { static const char * const fn[4] = {0, "RETURN", "FRETURN", "NRETURN"}; if (k < 1 || k > 3) return (bb_label_t *)0;
@@ -1137,7 +1137,7 @@ int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void nidx_build(IR_t **nodes, int n) {
+void nidx_build(IR_t **nodes, int n) {
     size_t want = 16; while (want < (size_t)n * 2 + 2) want <<= 1;
     if (want > g_emitter.g_nidx_cap) { ct_drop(g_emitter.g_nidx_keys); ct_drop(g_emitter.g_nidx_vals); g_emitter.g_nidx_keys = (IR_t **)ct_alloc(want * sizeof(IR_t *));
         g_emitter.g_nidx_vals = (int *)ct_alloc(want * sizeof(int)); g_emitter.g_nidx_cap = want; }
@@ -4121,152 +4121,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.flat_text_externalise = text_externalise;
     g_resumable_callable_active = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
     g_emitter.g_nidx_nodes = 0; g_emitter.g_nidx_n = 0;
-    int CH_MAX = 65536; if (g_emit_cfg && g_emit_cfg->n + 1024 > CH_MAX) CH_MAX = g_emit_cfg->n + 1024; int Q_MAX = CH_MAX * 16;
-      if (g_emitter.codegen_flat_chain_body_nodes_cap < CH_MAX) { g_emitter.codegen_flat_chain_body_nodes = (IR_t **)ct_grow(g_emitter.codegen_flat_chain_body_nodes, (size_t)CH_MAX * sizeof(IR_t *));
-          g_emitter.codegen_flat_chain_body_nodes_cap = CH_MAX; } int n = 0;
-      if (g_emitter.codegen_flat_chain_body_queue_cap < Q_MAX) { g_emitter.codegen_flat_chain_body_queue = (IR_t **)ct_grow(g_emitter.codegen_flat_chain_body_queue, (size_t)Q_MAX * sizeof(IR_t *));
-          g_emitter.codegen_flat_chain_body_queue_cap = Q_MAX; } int qh = 0, qt = 0;
-    int entry_is_own_graph_root = (g_emit_cfg && (entry == g_emit_cfg->entry)) ? 1 : 0;
-    { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL || entry->op == IR_GOTO) && entry->γ.node && guard++ < CH_MAX) entry = entry->γ.node; }
-    if (g_emit_cfg && entry == g_emit_cfg->entry) entry_is_own_graph_root = 1;
-    int flat_empty_body_fail = (entry && entry->op == IR_FAIL) ? 1 : 0;
-    int flat_empty_body_succ = (entry && entry->op == IR_SUCCEED) ? 1 : 0;
-    entry = entry;
-      if (g_emitter.codegen_flat_chain_body_postv_cap < CH_MAX) { g_emitter.codegen_flat_chain_body_postv = (IR_t **)ct_grow(g_emitter.codegen_flat_chain_body_postv, (size_t)CH_MAX * sizeof(IR_t *));
-          g_emitter.codegen_flat_chain_body_postv_cap = CH_MAX; } int pn = 0;
-    ir_pset_t seenset; ir_pset_init(&seenset);
-#define RPO_VISITED(p) (ir_pset_has(&seenset, (const IR_t *)(p)))
-#define RPO_MARK(p) ir_pset_add(&seenset, (const IR_t *)(p))
-#define RPO_TAG_EMIT ((IR_t *)1)
-#define RPO_PUSH(p) do { IR_t *_rpp = (IR_t *)(p); int _rppg = 0; while (_rpp && _rpp->op == IR_SUCCEED && _rpp->γ.node && _rppg++ < 4096) _rpp = _rpp->γ.node; if (_rpp && _rpp->op != IR_SUCCEED \
-&& _rpp->op != IR_FAIL && !emit_floater_member(_rpp) && !(_stmt_seed && _rpp->op == IR_STATEMENT_BEGIN) && !RPO_VISITED(_rpp) && qt < Q_MAX) g_emitter.codegen_flat_chain_body_queue[qt++] = _rpp; } \
-    while (0)
-#define RPO_PUSH_SUCCS(c) \
-         \
-        RPO_PUSH((c)->γ.node); \
-if (((c)->op == IR_MATCH_ALTERNATE || (c)->op == IR_MATCH_ARBNO || (c)->op == IR_MATCH_FENCE1 || (c)->op == IR_SCAN_ALTERNATE || (c)->op == IR_DISJUNCTION) && (c)-> \
-    n_operands > 0) for (int _oi = (c)->n_operands - 1; _oi >= 0; _oi--) RPO_PUSH((c)->operands[_oi]); \
-        if ((ir_is_matcher_element((c)->op)) || (c)->op == IR_MATCH_DEFER || (c)->op == IR_MATCH_VALUE) RPO_PUSH((c)->ω.node); \
-        if ((c)->op == IR_MATCH_DEFER) for (int _di = (c)->n_operands - 1; _di >= 0; _di--) if ((c)->operands[_di] && (c)->operands[_di]->op == IR_MATCH_ABORT) RPO_PUSH((c)->operands[_di]); \
-        if ((c)->op == IR_REPALT && (c)->n_operands > 1) RPO_PUSH((c)->operands[1]); \
-        if ((c)->op == IR_REPALT && (c)->n_operands > 0) RPO_PUSH((c)->operands[0]); \
-        if ((c)->op == IR_GATE_ARM && (c)->n_operands > 1) RPO_PUSH((c)->operands[1]); \
-        if ((c)->op == IR_GATE_ARM && (c)->n_operands > 0) RPO_PUSH((c)->operands[0]); \
-        if ((c)->op == IR_CREATE && (c)->n_operands > 0) RPO_PUSH((c)->operands[0]); \
-        if ((c)->op == IR_CLEANUP) { if ((c)->ω.node) RPO_PUSH((c)->ω.node); for (int _ci = (c)->n_operands - 1; _ci >= 0; _ci--) RPO_PUSH((c)->operands[_ci]); } \
-        if ((c)->op == IR_SUSPEND && (c)->n_operands > 1) RPO_PUSH((c)->operands[1]); \
-if (((c)->op == IR_SUBSCRIPT || (c)->op == IR_RANDOM || (c)->op == IR_DEREF || (c)->op == IR_UNIFY_CONST || (c)->op == IR_UNIFY_STRUCT || (c)->op == IR_UNIFY_FIRST || (c)->op == IR_UNIFY_VALUE || (c \
-    )->op == IR_ASSIGN_VAR || (c)->op == IR_REV_ASSIGN_VAR || (c)->op == IR_KW_ASSIGN || (c)->op == IR_SCAN_TAB || (c)->op == IR_SCAN_MOVE || (c)->op == IR_SCAN_POS || (c)->op == IR_SCAN_MATCH || (c \
-    )->op == IR_SCAN_ANY || (c)->op == IR_SWAP_VAR || (c)->op == IR_CALL_VALUE || (c)->op == IR_VAR || (c)->op == IR_KW_ICON) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
-if (((c)->op == IR_CALL || ir_is_call_kind((c)->op) || (c)->op == IR_PROC_GEN || (c)->op == IR_ACTIVATE || (c)->op == IR_TO || (c)->op == IR_TO_BY || (c)->op == IR_GATE || (c)->op == \
-    IR_GOTO_DEFERRED) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
-        if ((c)->op == IR_STATEMENT_BEGIN && (c)->ω.node) RPO_PUSH((c)->ω.node); \
-if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELOP_VAL || (c)->op == IR_UNOP || (c)->op == IR_UNOP_TEST || (c)->op == IR_NULLTEST_VAR || (c)->op == IR_COERCE_STRING || \
-    (c)->op == IR_COERCE_INTEGER || (c)->op == IR_COERCE_NUMERIC || (c)->op == IR_COERCE_REAL || (c)->op == IR_CMP_TEST || (c)->op == IR_IDENT || (c)->op == IR_DIFFER) && (c)->ω.node) RPO_PUSH((c) \
-    ->ω.node); \
-        (void)0;
-#define RPO_DRAIN() \
-    while (qt > qh) { \
-        IR_t *c = g_emitter.codegen_flat_chain_body_queue[--qt]; \
-        if (c == RPO_TAG_EMIT) { IR_t *e = g_emitter.codegen_flat_chain_body_queue[--qt]; if (pn < CH_MAX) g_emitter.codegen_flat_chain_body_postv[pn++] = e; continue; } \
-        if (!c || c->op == IR_SUCCEED || c->op == IR_FAIL) continue; \
-        if (RPO_VISITED(c)) continue; \
-        RPO_MARK(c); \
-        if (pn >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); } \
-        if (qt + 2 > Q_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated at EMIT tag\n"); abort(); } \
-        g_emitter.codegen_flat_chain_body_queue[qt++] = c; g_emitter.codegen_flat_chain_body_queue[qt++] = RPO_TAG_EMIT; \
-        RPO_PUSH_SUCCS(c); \
-    }
-#define RPO_FLUSH() do { for (int _i = pn - 1; _i >= 0; _i--) { if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); } g_emitter.codegen_flat_chain_body_nodes[n++] = \
-    g_emitter.codegen_flat_chain_body_postv[_i]; } pn = 0; } while (0)
-    int _stmt_seed = 0; if (g_emit_cfg && entry_is_own_graph_root) for (int _ss = 0; _ss < g_emit_cfg->n; _ss++) { IR_t * _sn = g_emit_cfg->all[_ss];
-        if (_sn && _sn->op == IR_STATEMENT_BEGIN) { _stmt_seed = 1; break; } }
-    if (_stmt_seed) { if (qt < Q_MAX) g_emitter.codegen_flat_chain_body_queue[qt++] = entry; RPO_DRAIN(); RPO_FLUSH();
-        for (int _ss = 0; _ss < g_emit_cfg->n; _ss++) { IR_t * _sb = g_emit_cfg->all[_ss];
-        if (!_sb || _sb->op != IR_STATEMENT_BEGIN || RPO_VISITED(_sb)) continue; if (qt < Q_MAX) { g_emitter.codegen_flat_chain_body_queue[qt++] = _sb; RPO_DRAIN(); RPO_FLUSH(); } } }
-    else { RPO_PUSH(entry); RPO_DRAIN(); RPO_FLUSH(); }
-    if (g_emit_cfg && g_emit_cfg->n_alts > 1 && g_emit_cfg->alt_entry)
-        for (int _ak = 1; _ak < g_emit_cfg->n_alts; _ak++) { IR_t * _ae = g_emit_cfg->alt_entry[_ak]; if (_ae && !RPO_VISITED(_ae)) { RPO_PUSH(_ae); RPO_DRAIN(); RPO_FLUSH(); } }
-    { extern int zls_g_group_count(const IR_graph_t *); extern const IR_t * zls_g_group_anchor(const IR_graph_t *, int);
-      if (g_emit_cfg && entry_is_own_graph_root) { int _gc = zls_g_group_count(g_emit_cfg); for (int _k = 0; _k < _gc; _k++) { const IR_t * _a = zls_g_group_anchor(g_emit_cfg, _k);
-          if (_a && !emit_chain_entry_already_emitted(_a)) { RPO_PUSH(_a); RPO_DRAIN(); RPO_FLUSH(); } } } }
-    { if (g_emit_cfg && entry_is_own_graph_root) { int _refd[4] = {0, 0, 0, 0};
-          for (int _fi = 0; _fi < g_emit_cfg->n; _fi++) { IR_t * _fn = g_emit_cfg->all[_fi]; int _fk = emit_floater_kind(_fn); if (!_fk || _refd[_fk]) continue;
-              for (int _rj = 0; _rj < g_emit_cfg->n && !_refd[_fk]; _rj++) { IR_t * _r = g_emit_cfg->all[_rj];
-                  if (_r && _r != _fn && !emit_floater_member(_r) && (_r->γ.node == _fn || _r->ω.node == _fn)) _refd[_fk] = 1; } }
-          if (_refd[3]) _refd[1] = _refd[2] = 1;
-          for (int _fk = 1; _fk <= 3; _fk++) { if (!_refd[_fk]) continue; for (int _fi = 0; _fi < g_emit_cfg->n; _fi++) { IR_t * _fn = g_emit_cfg->all[_fi];
-              if (!_fn || emit_floater_kind(_fn) != _fk || RPO_VISITED(_fn)) continue;
-              if (qt < Q_MAX) { g_emitter.codegen_flat_chain_body_queue[qt++] = _fn; RPO_DRAIN(); RPO_FLUSH(); } } } } }
-    { int _p2_base = 0; do { int _p2_added = 0;
-        for (int i = _p2_base; i < n; i++)
-            if (ir_is_generator_kind(g_emitter.codegen_flat_chain_body_nodes[i]->op) && g_emitter.codegen_flat_chain_body_nodes[i]->ω.node &&
-            !RPO_VISITED(g_emitter.codegen_flat_chain_body_nodes[i]->ω.node)) { RPO_PUSH(g_emitter.codegen_flat_chain_body_nodes[i]->ω.node); _p2_added = 1; } _p2_base = n;
-        RPO_DRAIN(); RPO_FLUSH(); if (!_p2_added) break; } while (1); }
-#undef RPO_FLUSH
-#undef RPO_DRAIN
-#undef RPO_PUSH_SUCCS
-#undef RPO_PUSH
-#undef RPO_TAG_EMIT
-#undef RPO_MARK
-#undef RPO_VISITED
-    ir_pset_free(&seenset);
-    if (qt >= Q_MAX)
-        { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated (qt=%d >= Q_MAX=%d) for prefix=%s -- control-flow edges were silently dropped; raise CH_MAX\n", qt, (int)Q_MAX, prefix);
-        abort(); }
-    unsigned char *zd_on = (unsigned char *)alloca((size_t)(n > 0 ? n : 1)); int *zd_out = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-        int *zd_gp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_wp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-        int *zd_arm = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-    int *zd_cps = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-    int *zd_cpd = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-    int *zd_chn = (int *)alloca(sizeof(int) * (size_t)(2 * n + 2));
-    if (!g_emit.flat_jmp_entry) g_emit.flat_pat = 0;
-    nidx_build(g_emitter.codegen_flat_chain_body_nodes, n);
-    int *zd_claim = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-    zd_plan(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, (const unsigned char *)0, zd_cps, zd_cpd, zd_chn, zd_claim);
-    int * zd_vl = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-    zd_vdj_live(g_emitter.codegen_flat_chain_body_nodes, n, zd_vl);
-    for (int i = 0; i < n; i++) for (int p = zd_on[i] ? zd_arm[i] : -1, g = 0; p >= 0 && g++ < n; p = zd_arm[p]) if (g_emitter.codegen_flat_chain_body_nodes[p]->op == IR_DISJUNCTION) { zd_vl[i] = 0;
-        break; }
-    int * zd_xb = (int *)0;
-    int * zd_cut = (int *)0;
-        { unsigned char * _zw = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
-            unsigned char * _zarm = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
-        int * _zst = (int *)alloca(sizeof(int) * (size_t)(3 * n + 3)); for (int _q = 0; _q < n; _q++) _zw[_q] = 0; auto _in_arms = [&](int t, int k) -> int { int sp = 0;
-        for (int q = 0; q < n; q++) _zarm[q] = 0;
-            for (int a = 0; a < g_emitter.codegen_flat_chain_body_nodes[t]->n_operands; a++) { int q =
-            nidx(g_emitter.codegen_flat_chain_body_nodes, n, g_emitter.codegen_flat_chain_body_nodes[t]->operands[a]); if (q >= 0 && !_zarm[q]) { _zarm[q] = 1;
-        _zst[sp++] = q; } } while (sp > 0) { IR_t * x = g_emitter.codegen_flat_chain_body_nodes[_zst[--sp]];
-        for (int e = 0; e < 2 + x->n_operands; e++) { IR_t * y = e == 0 ? zd_chase(x->γ.node) : e == 1 ? zd_chase(x->ω.node) : x->operands[e - 2];
-        int q = (y && y != g_emitter.codegen_flat_chain_body_nodes[t]) ? nidx(g_emitter.codegen_flat_chain_body_nodes, n, y) : -1; if (q >= 0 && !_zarm[q] && sp < 3 * n + 3) { _zarm[q] = 1;
-            _zst[sp++] = q; } } } return _zarm[k]; };
-        for (int _it = 0; _it < n; _it++) { int _add = 0;
-            for (int k = 0; k < n; k++) { if (g_emitter.codegen_flat_chain_body_nodes[k]->op == IR_GOTO) continue;
-        for (int v = 0; v < 2; v++) { IR_t * tt = zd_chase(v == 0 ? g_emitter.codegen_flat_chain_body_nodes[k]->γ.node : g_emitter.codegen_flat_chain_body_nodes[k]->ω.node);
-            if (!tt || (v == 1 && port_sz_beta(g_emitter.codegen_flat_chain_body_nodes[k]->ω.sz))) continue; int t = nidx(g_emitter.codegen_flat_chain_body_nodes, n, tt);
-        if (t < 0 || t == k || _zw[t] || !zd_on[t] || zd_arm[t] >= 0) continue;
-            int ad = zd_out[t] - zd_k(g_emitter.codegen_flat_chain_body_nodes[t]) + fence0_release_bytes(g_emitter.codegen_flat_chain_body_nodes[t]); int d = 0;
-        if (zd_on[k] || ad <= 0 || !strncmp(bb_op_name(g_emitter.codegen_flat_chain_body_nodes[k]->op), "IR_MATCH_", 9) ||
-            !strncmp(bb_op_name(g_emitter.codegen_flat_chain_body_nodes[t]->op), "IR_MATCH_", 9) || _in_arms(t, k)) continue; _zw[t] = 1; _add++;
-        if (getenv("SCRIP_ZD_DIAG"))
-            fprintf(stderr, "[ZD] JOIN-WALL i=%d (%s) alpha depth %d entered at depth %d by i=%d (%s)\n", t, bb_op_name(g_emitter.codegen_flat_chain_body_nodes[t]->op), ad, d, k,
-            bb_op_name(g_emitter.codegen_flat_chain_body_nodes[k]->op));
-        } } if (!_add) break; zd_plan(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, _zw, zd_cps, zd_cpd, zd_chn, zd_claim); }
-        }
-    if (n > 0) {
-        int * _b = (int *)alloca(sizeof(int) * (size_t)n);
-        unsigned char * _kn = (unsigned char *)alloca((size_t)n);
-        zd_xb = (int *)alloca(sizeof(int) * (size_t)n);
-        zd_cut = (int *)alloca(sizeof(int) * (size_t)n);
-        int * zd_fam = (int *)alloca(sizeof(int) * (size_t)n);
-        int * zd_fbase = (int *)alloca(sizeof(int) * (size_t)n);
-        zd_pl_bases(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, _b, _kn, (int *)0, zd_cut, zd_fam, zd_fbase);
-        for (int _i = 0; _i < n; _i++) zd_xb[_i] = (zd_on[_i] && zd_claim[_i] >= 0 && _kn[zd_claim[_i]]) ? _b[zd_claim[_i]] : INT_MIN;
-        zst_finish(g_emitter.codegen_flat_chain_body_nodes, n, zd_out, zd_claim, _b, _kn);
-        g_emitter.g_zd_claim_p = zd_claim; g_emitter.g_zd_xb_p = zd_xb; g_emitter.g_zd_nodes_p = g_emitter.codegen_flat_chain_body_nodes; g_emitter.g_zd_n = n; g_emitter.g_zd_cut_p = zd_cut;
-        g_emitter.g_zd_fam_p = zd_fam; g_emitter.g_zd_fbase_p = zd_fbase; g_emitter.g_zd_gp_p = zd_gp; g_emitter.g_zd_out_p = zd_out;
-    }
-    g_emitter.g_zd_plan_on = zd_on; g_emitter.g_zd_plan_nodes = g_emitter.codegen_flat_chain_body_nodes; g_emitter.g_zd_plan_n = n;
+    zeta_plan_t * _pl = planner_chain_plan(entry, prefix); entry = _pl->entry; int n = _pl->n; int entry_is_own_graph_root = _pl->own_root; int flat_empty_body_fail = _pl->empty_fail,
+        flat_empty_body_succ = _pl->empty_succ;
+    unsigned char * zd_on = _pl->on; int * zd_out = _pl->out; int * zd_gp = _pl->gp; int * zd_wp = _pl->wp; int * zd_arm = _pl->arm; int * zd_cps = _pl->cps; int * zd_cpd = _pl->cpd;
+        int * zd_chn = _pl->chn;
+    int * zd_claim = _pl->claim; int * zd_vl = _pl->vl; int * zd_xb = _pl->xb; int * zd_cut = _pl->cut; (void)entry_is_own_graph_root; (void)flat_empty_body_succ; (void)zd_vl; (void)zd_chn;
         int _sph = 0, _spgd = 0, _spf = 0, _wpn = 0;
         bb_label_t ** _wpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); int * _wpd = (int *)alloca(sizeof(int) * (size_t)(n + 1));
         bb_label_t ** _tpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); bb_label_t ** _tpt = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1));

@@ -1,3 +1,28 @@
+typedef struct {
+    IR_t ** nodes;
+    int n;
+    unsigned char * on;
+    int * out;
+    int * gp;
+    int * wp;
+    int * arm;
+    int * cps;
+    int * cpd;
+    int * chn;
+    int * claim;
+    int * vl;
+    int * xb;
+    int * cut;
+    int * fam;
+    int * fbase;
+    int * b;
+    unsigned char * kn;
+    IR_t * entry;
+    int own_root;
+    int empty_fail;
+    int empty_succ;
+} zeta_plan_t;
+zeta_plan_t * planner_chain_plan(IR_t * entry, const char * prefix);
 int zd_dj_admitted(const int * zarm, int n, int ei);
 int zd_dj_cellless(IR_t ** nodes, int n, const int * zarm, int k);
 int zd_pl_dj_arm_holds(const IR_t * d, int a);
