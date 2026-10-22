@@ -6326,6 +6326,7 @@ const char * emit_rec_or_empty(void * r) { return r ? (const char *)r : ""; }
 #include "rt/rt_pl_trail.h"
 static_assert(X86_PL_TR_ENTRY_BYTES == PL_TR_ENTRY_BYTES, "x86_pl_tr_pop_head spells the trail entry size as a literal");
 static_assert(X86_PL_TR_ARENA_MASK == -(long)PL_TR_ARENA_BYTES, "x86_pl_tr_top_sync spells the trail arena mask as a literal");
+static_assert(X86_PL_TR_WAKE_OFF == PL_TR_WAKE_OFF && X86_PL_TR_RESIDUE_OFF == PL_TR_RESIDUE_OFF, "x86_pl_tr_tidy spells the wake and residue words as literals");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_argv_off(const IR_t *);
 extern "C" int pl_db_decls_words(long long ** out);
