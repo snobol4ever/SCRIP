@@ -4121,7 +4121,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.flat_text_externalise = text_externalise;
     g_resumable_callable_active = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
     g_emitter.g_nidx_nodes = 0; g_emitter.g_nidx_n = 0;
-    zeta_plan_t * _pl = planner_chain_plan(entry, prefix); entry = _pl->entry; int n = _pl->n; int entry_is_own_graph_root = _pl->own_root; int flat_empty_body_fail = _pl->empty_fail,
+    zeta_plan_t * _pl = planner_lookup_or_plan(entry, prefix); entry = _pl->entry; int n = _pl->n; int entry_is_own_graph_root = _pl->own_root; int flat_empty_body_fail = _pl->empty_fail,
         flat_empty_body_succ = _pl->empty_succ;
     unsigned char * zd_on = _pl->on; int * zd_out = _pl->out; int * zd_gp = _pl->gp; int * zd_wp = _pl->wp; int * zd_arm = _pl->arm; int * zd_cps = _pl->cps; int * zd_cpd = _pl->cpd;
         int * zd_chn = _pl->chn;

@@ -1579,7 +1579,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             bb_op_name(g_emitter.codegen_flat_chain_body_nodes[k]->op));
         } } if (!_add) break; zd_plan(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, _zw, zd_cps, zd_cpd, zd_chn, zd_claim); }
         }
-    zeta_plan_t * rec = (zeta_plan_t *)ct_zalloc(1, sizeof *rec);
+    zeta_plan_t * rec = new zeta_plan_t();
     rec->entry = entry; rec->n = n; rec->own_root = entry_is_own_graph_root; rec->empty_fail = flat_empty_body_fail; rec->empty_succ = flat_empty_body_succ;
     rec->nodes = g_emitter.codegen_flat_chain_body_nodes;
     rec->on = (unsigned char *)ct_zalloc((size_t)(n > 0 ? n : 1), 1); memcpy(rec->on, zd_on, (size_t)n);
@@ -1613,6 +1613,47 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         g_emitter.g_zd_fam_p = rec->fam; g_emitter.g_zd_fbase_p = rec->fbase; g_emitter.g_zd_gp_p = rec->gp; g_emitter.g_zd_out_p = rec->out;
     }
     g_emitter.g_zd_plan_on = rec->on; g_emitter.g_zd_plan_nodes = g_emitter.codegen_flat_chain_body_nodes; g_emitter.g_zd_plan_n = n;
+    planner_capture(rec);
+    return rec;
+}
+void planner_capture(zeta_plan_t * rec) {
+    int n = rec->n;
+    rec->nodes_own = (IR_t **)ct_zalloc((size_t)(n > 0 ? n : 1), sizeof(IR_t *)); memcpy(rec->nodes_own, g_emitter.codegen_flat_chain_body_nodes, sizeof(IR_t *) * (size_t)n);
+    rec->v_zst_s = g_emitter.zst_s; rec->v_zst_root = g_emitter.zst_root; rec->v_zst_vroot = g_emitter.zst_vroot; rec->v_zst_c = g_emitter.zst_c; rec->v_zst_j = g_emitter.zst_j;
+        rec->v_zst_L = g_emitter.zst_L;
+    rec->v_zst_vuse = g_emitter.zst_vuse; rec->v_zst_vcov = g_emitter.zst_vcov; rec->v_zst_name = g_emitter.zst_name; rec->v_zst_sm = g_emitter.zst_sm; rec->zst_n_saved = g_emitter.zst_n;
+    rec->v_djx = g_emitter.g_zd_djx; rec->v_upost = g_emitter.g_zd_upost; rec->v_grec = g_emitter.g_zd_grec; rec->v_wrec = g_emitter.g_zd_wrec; rec->v_grec_pop = g_emitter.g_zd_grec_pop;
+    rec->v_wrec_pop = g_emitter.g_zd_wrec_pop;
+    rec->zarm_published = (g_emitter.g_zd_zarm_p == rec->arm) ? 1 : 0; rec->djx_nodes_published = (g_emitter.g_zd_djx_nodes == g_emitter.codegen_flat_chain_body_nodes) ? 1 : 0;
+    rec->zrm_len = g_emitter.g_zrm_map.len; rec->zrm_cap = g_emitter.g_zrm_map.cap; rec->zrm_esz = g_emitter.g_zrm_map.esz; rec->zrm_gen = g_emitter.g_zrm_gen;
+    rec->zrm_bytes.assign((const unsigned char *)g_emitter.g_zrm_map.p, (const unsigned char *)g_emitter.g_zrm_map.p + (size_t)g_emitter.g_zrm_map.len * (size_t)g_emitter.g_zrm_map.esz);
+}
+void planner_restore(zeta_plan_t * rec) {
+    int n = rec->n; int CH_MAX = 65536; if (g_emit_cfg && g_emit_cfg->n + 1024 > CH_MAX) CH_MAX = g_emit_cfg->n + 1024;
+    if (g_emitter.codegen_flat_chain_body_nodes_cap < CH_MAX) { g_emitter.codegen_flat_chain_body_nodes = (IR_t **)ct_grow(g_emitter.codegen_flat_chain_body_nodes, (size_t)CH_MAX * sizeof(IR_t *));
+        g_emitter.codegen_flat_chain_body_nodes_cap = CH_MAX; }
+    IR_t ** nodes = g_emitter.codegen_flat_chain_body_nodes; memcpy(nodes, rec->nodes_own, sizeof(IR_t *) * (size_t)n);
+    nidx_build(nodes, n);
+    g_emitter.zst_s = rec->v_zst_s; g_emitter.zst_root = rec->v_zst_root; g_emitter.zst_vroot = rec->v_zst_vroot; g_emitter.zst_c = rec->v_zst_c; g_emitter.zst_j = rec->v_zst_j;
+        g_emitter.zst_L = rec->v_zst_L;
+    g_emitter.zst_vuse = rec->v_zst_vuse; g_emitter.zst_vcov = rec->v_zst_vcov; g_emitter.zst_name = rec->v_zst_name; g_emitter.zst_sm = rec->v_zst_sm; g_emitter.zst_nodes = nodes;
+        g_emitter.zst_n = rec->zst_n_saved;
+    g_emitter.g_zd_djx = rec->v_djx; g_emitter.g_zd_upost = rec->v_upost; g_emitter.g_zd_grec = rec->v_grec; g_emitter.g_zd_wrec = rec->v_wrec; g_emitter.g_zd_grec_pop = rec->v_grec_pop;
+    g_emitter.g_zd_wrec_pop = rec->v_wrec_pop;
+    if (rec->djx_nodes_published) g_emitter.g_zd_djx_nodes = nodes;
+    zdo_build(nodes, n);
+    if (g_emitter.g_zrm_map.cap < rec->zrm_cap || g_emitter.g_zrm_map.esz != rec->zrm_esz) { g_emitter.g_zrm_map.p = ct_zalloc(rec->zrm_cap, rec->zrm_esz); g_emitter.g_zrm_map.cap = rec->zrm_cap;
+        g_emitter.g_zrm_map.esz = rec->zrm_esz; }
+    g_emitter.g_zrm_map.len = rec->zrm_len; if (rec->zrm_len) memcpy(g_emitter.g_zrm_map.p, rec->zrm_bytes.data(), (size_t)rec->zrm_len * (size_t)rec->zrm_esz); g_emitter.g_zrm_gen = rec->zrm_gen;
+    if (n > 0) { g_emitter.g_zd_claim_p = rec->claim; g_emitter.g_zd_xb_p = rec->xb; g_emitter.g_zd_nodes_p = nodes; g_emitter.g_zd_n = n; g_emitter.g_zd_cut_p = rec->cut;
+        g_emitter.g_zd_fam_p = rec->fam;
+        g_emitter.g_zd_fbase_p = rec->fbase; g_emitter.g_zd_gp_p = rec->gp; g_emitter.g_zd_out_p = rec->out; }
+    g_emitter.g_zd_plan_on = rec->on; g_emitter.g_zd_plan_nodes = nodes; g_emitter.g_zd_plan_n = n;
+    if (rec->zarm_published) { g_emitter.g_zd_zarm_p = rec->arm; g_emitter.g_zd_zarm_nodes = nodes; g_emitter.g_zd_zarm_n = n; }
+}
+zeta_plan_t * planner_lookup_or_plan(IR_t * entry, const char * prefix) {
+    zeta_plan_t * rec = planner_chain_plan(entry, prefix);
+    planner_restore(rec);
     return rec;
 }
 }

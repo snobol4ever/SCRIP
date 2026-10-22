@@ -1,4 +1,6 @@
-typedef struct {
+#include <vector>
+#include <unordered_map>
+struct zeta_plan_t {
     IR_t ** nodes;
     int n;
     unsigned char * on;
@@ -21,7 +23,19 @@ typedef struct {
     int own_root;
     int empty_fail;
     int empty_succ;
-} zeta_plan_t;
+    IR_t ** nodes_own;
+    int zst_n_saved;
+    int zarm_published;
+    int djx_nodes_published;
+    unsigned int zrm_len, zrm_cap, zrm_esz, zrm_gen;
+    std::vector<int> v_zst_s, v_zst_root, v_zst_vroot, v_zst_c, v_zst_j, v_zst_L, v_zst_vuse, v_zst_vcov, v_djx, v_upost, v_grec, v_wrec, v_grec_pop, v_wrec_pop;
+    std::vector<const char *> v_zst_name;
+    std::unordered_map<const IR_t *, int> v_zst_sm;
+    std::vector<unsigned char> zrm_bytes;
+};
+void planner_capture(zeta_plan_t * rec);
+void planner_restore(zeta_plan_t * rec);
+zeta_plan_t * planner_lookup_or_plan(IR_t * entry, const char * prefix);
 zeta_plan_t * planner_chain_plan(IR_t * entry, const char * prefix);
 int zd_dj_admitted(const int * zarm, int n, int ei);
 int zd_dj_cellless(IR_t ** nodes, int n, const int * zarm, int k);
