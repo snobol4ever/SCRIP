@@ -44,6 +44,7 @@ typedef struct {
     int gen;
     int hf;
     int fregion;
+    int kbase;
     unsigned char * kmap;
     int kmap_n;
 } zls_graph_t;
@@ -985,6 +986,13 @@ static int zls_overlay(IR_graph_t * g, int base, int k0, int root, const char * 
     return kend;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zls_hf_key_base(const IR_graph_t * g, int fregion, int base) {
+    int kt = ((zls_g_pinned_frame(g) ? (g->root_graph ? FLAT_FRAME_ALLOWANCE_ROOT : FLAT_FRAME_ALLOWANCE_PINNED) : FLAT_FRAME_ALLOWANCE) + fregion + 8 * g->standing_cells + 15) & ~15;
+    int ft = kt + (g->nparams + g->nlocals) * 16;
+    int bb = !g->cell_frame ? kt : zls_g_has_suspend(g) ? ((ft + 15) & ~15) + 72 : ft;
+    int top = zls_g_block_args(g) ? bb + 16 * g->nparams : kt;
+    return top > base ? (top + 15) & ~15 : base;
+}
 static int zls_frame_words(IR_graph_t * g, zls_graph_t * r, int root, int base, int k, const char * rb, const char ** nix, int nix_cap) {
     r->resume_off = -1;
     for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && g->all[i]->op == IR_SUSPEND) {
@@ -1404,7 +1412,8 @@ void zls_build(IR_graph_t * g) {
                 }
                 if (ov_in) k = zls_overlay(g, base, k, root, rb, rec, dl_base, lv, uo, &rs_scratch);
                 r->fregion = base + k * 16;
-                k++;
+                r->kbase = zls_hf_key_base(g, r->fregion, base);
+                k = (r->kbase - base) / 16;
             }
             if (pool_n > 0) {
                 pool_base = base + k * 16;
@@ -1969,7 +1978,7 @@ int zls_g_keys_only(const IR_graph_t * g) { return (g && zls_g_find(g) && !g->zf
 int zls_g_frame_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? (zls_g_keys_only(g) ? 0 : r->hf ? r->fregion : r->region) : -1; }
 int zls_g_home_frame(const IR_graph_t * g) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; return r ? r->hf : 0; }
 int zls_g_value_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? (r->hf ? r->fregion : r->region) : -1; }
-int zls_key_unbacked(const IR_graph_t * g, int off) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; return (r && (zls_g_keys_only(g) || (r->hf && off >= r->fregion + 16))) ? 1 : 0; }
+int zls_key_unbacked(const IR_graph_t * g, int off) { zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0; return (r && (zls_g_keys_only(g) || (r->hf && off >= r->kbase))) ? 1 : 0; }
 int zls_retains_why(const IR_graph_t * g, const IR_t * nd) { return (g && nd) ? zls_home_dyn(g, nd) : 0; }
 int zls_g_key_class(const IR_graph_t * g, int off) {
     zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0;
