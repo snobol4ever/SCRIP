@@ -229,6 +229,7 @@ static IR_t * lower_binop(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     int rm = is_condish(rt);
     IR_t * op = build(cx, IR_BINOP, γ, ω);
     IR_LIT(op).ival = lc_binop_code(t->t);
+    if (t->t == TT_DIV || t->t == TT_MOD) op->strict |= g_lower.pas.sem.pas_dialect_fpc ? IR_STRICT_DIVERR_RTERR : IR_STRICT_DIVERR_ISO7185;
     IR_t * lr = NULL, * rr = NULL;
     IR_t * ea, * eb;
     if (lm) { IR_t * lv = NULL; ea = pas_mat_rv(cx, lt, NULL, ω, &lv); lr = lv; } else ea = lower(cx, lt, NULL, ω, &lr);

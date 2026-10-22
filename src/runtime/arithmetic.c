@@ -438,6 +438,22 @@ RT_BINOP_ENTRY(c_rt_add, BINOP_ADD, { int64_t _z; if (!__builtin_add_overflow(a.
     RT_BINOP_ENTRY(c_rt_mul, BINOP_MUL, { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
     RT_BINOP_ENTRY(c_rt_div, BINOP_DIV, if (b.i != 0 && b.i != -1) return INTVAL(a.i / b.i);) RT_BINOP_ENTRY(c_rt_mod, BINOP_MOD, if (b.i != 0 && b.i != -1) return INTVAL(a.i % b.i);)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_pas_div_error(int bcode, int fpc, DESCR_t a, DESCR_t b) {
+    extern void pas_file_err(const char *clause, const char *what, const char *proc);
+    int real = a.v == DT_R || b.v == DT_R;
+    int num_zero = a.v == DT_R ? a.r == 0.0 : a.i == 0;
+    int code = !real ? 200 : num_zero ? 207 : 208;
+    if (!fpc) pas_file_err("6.7.2.2", real ? "x / y with y zero" : bcode == BINOP_MOD ? "i mod j with j zero" : "i div j with j zero", NULL);
+    fflush(NULL);
+    fprintf(stderr, "Runtime error %d at $0\n", code);
+    exit(code);
+}
+static int rt_pas_zero_divisor(DESCR_t b) { return (b.v == DT_I && b.i == 0) || (b.v == DT_R && b.r == 0.0); }
+DESCR_t c_rt_div_diviso(DESCR_t a, DESCR_t b) { if (rt_pas_zero_divisor(b)) return rt_pas_div_error(BINOP_DIV, 0, a, b); return c_rt_div(a, b); }
+DESCR_t c_rt_div_divrc(DESCR_t a, DESCR_t b) { if (rt_pas_zero_divisor(b)) return rt_pas_div_error(BINOP_DIV, 1, a, b); return c_rt_div(a, b); }
+DESCR_t c_rt_mod_diviso(DESCR_t a, DESCR_t b) { if (rt_pas_zero_divisor(b)) return rt_pas_div_error(BINOP_MOD, 0, a, b); return c_rt_mod(a, b); }
+DESCR_t c_rt_mod_divrc(DESCR_t a, DESCR_t b) { if (rt_pas_zero_divisor(b)) return rt_pas_div_error(BINOP_MOD, 1, a, b); return c_rt_mod(a, b); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_big_add(DESCR_t, DESCR_t);
 DESCR_t rt_big_sub(DESCR_t, DESCR_t);
 DESCR_t rt_big_mul(DESCR_t, DESCR_t);

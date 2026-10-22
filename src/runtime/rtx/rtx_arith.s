@@ -367,6 +367,8 @@ RTX_ENDF(rt_mul_sno)
 RTX_FUNC(rt_div)
 RTX_ENTRY(rt_div_strict)
 RTX_ENTRY(rt_div_sno)
+RTX_ENTRY(rt_div_diviso)
+RTX_ENTRY(rt_div_divrc)
     RTX_GATE(arith, .Ldiv_slow)
     cmp     dil, DT_I
     jne     .Ldiv_mixed
@@ -423,6 +425,8 @@ RTX_ENDF(rt_div)
 RTX_FUNC(rt_mod)
 RTX_ENTRY(rt_mod_strict)
 RTX_ENTRY(rt_mod_sno)
+RTX_ENTRY(rt_mod_diviso)
+RTX_ENTRY(rt_mod_divrc)
     RTX_GATE(arith, .Lmod_slow)
     cmp     dil, DT_I
     jne     .Lmod_mixed

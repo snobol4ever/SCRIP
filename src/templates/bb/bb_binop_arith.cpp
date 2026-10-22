@@ -33,6 +33,10 @@ DESCR_t rt_add_sno(DESCR_t, DESCR_t);
 DESCR_t rt_sub_sno(DESCR_t, DESCR_t);
 DESCR_t rt_mul_sno(DESCR_t, DESCR_t);
 DESCR_t rt_div_sno(DESCR_t, DESCR_t);
+DESCR_t rt_div_diviso(DESCR_t, DESCR_t);
+DESCR_t rt_div_divrc(DESCR_t, DESCR_t);
+DESCR_t rt_mod_diviso(DESCR_t, DESCR_t);
+DESCR_t rt_mod_divrc(DESCR_t, DESCR_t);
 DESCR_t rt_mod_sno(DESCR_t, DESCR_t);
 DESCR_t rt_pow_sno(DESCR_t, DESCR_t);
 DESCR_t rt_powreal_sno(DESCR_t, DESCR_t);
@@ -68,9 +72,13 @@ static const struct { long long op; int col; char name[20]; void * addr; } rtop_
     { BINOP_DIV, 0, "rt_div", (void*)rt_div },
     { BINOP_DIV, 1, "rt_div_strict", (void*)rt_div_strict },
     { BINOP_DIV, 2, "rt_div_sno", (void*)rt_div_sno },
+    { BINOP_DIV, 3, "rt_div_diviso", (void*)rt_div_diviso },
+    { BINOP_DIV, 4, "rt_div_divrc", (void*)rt_div_divrc },
     { BINOP_MOD, 0, "rt_mod", (void*)rt_mod },
     { BINOP_MOD, 1, "rt_mod_strict", (void*)rt_mod_strict },
     { BINOP_MOD, 2, "rt_mod_sno", (void*)rt_mod_sno },
+    { BINOP_MOD, 3, "rt_mod_diviso", (void*)rt_mod_diviso },
+    { BINOP_MOD, 4, "rt_mod_divrc", (void*)rt_mod_divrc },
     { BINOP_POW, 0, "rt_pow", (void*)rt_pow },
     { BINOP_POW, 1, "rt_pow_strict", (void*)rt_pow_strict },
     { BINOP_POW, 2, "rt_pow_sno", (void*)rt_pow_sno },
@@ -92,7 +100,8 @@ static const struct { long long op; int col; char name[20]; void * addr; } rtop_
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int rtop_row(long long op, int strict, int i) {
-    return (rtop_tab[i].op == op || rtop_tab[i].op == -1) && rtop_tab[i].col == (strict == 2 ? 2 : strict != 0) ? i : rtop_row(op, strict, i + 1);
+    int col = (strict & IR_STRICT_DIVERR_MASK) == IR_STRICT_DIVERR_ISO7185 ? 3 : (strict & IR_STRICT_DIVERR_MASK) == IR_STRICT_DIVERR_RTERR ? 4 : strict == 2 ? 2 : strict != 0;
+    return (rtop_tab[i].op == op || rtop_tab[i].op == -1) && rtop_tab[i].col == col ? i : rtop_row(op, strict, i + 1);
 }
 #define rtop_addr_s(op, strict) (rtop_tab[rtop_row((op), (strict), 0)].addr)
 #define rtop_is_dyn(op) (rtop_addr_s((op), 0) == (void*)rt_num_arith)

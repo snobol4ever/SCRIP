@@ -151,6 +151,9 @@ static inline IR_e ir_kind0(const IR_t * n) { return n->op0 ? n->op0 : n->op; }
 #define IR_SEAL_THUNK_REF 3
 #define IR_SEAL_DSTAR_REF 4
 #define IR_SEAL_SUBSCRIPT_VALUE 5
+#define IR_STRICT_DIVERR_MASK (3 << 27)
+#define IR_STRICT_DIVERR_ISO7185 (1 << 27)
+#define IR_STRICT_DIVERR_RTERR (2 << 27)
 #define IR_STRICT_RELOP_NUMIFY_BLANK (1 << 29)
 #define IR_SEAL_STMT_HOOK 8
 #define IR_SEAL_LABEL_HOOK 9
