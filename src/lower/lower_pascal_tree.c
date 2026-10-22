@@ -3182,6 +3182,7 @@ static int pas_is_charexpr(tree_t *e) {
     if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_IDX && e->c[0]->n == 2 && e->c[0]->c[0] && e->c[0]->c[0]->t == TT_VAR && e->c[0]->c[0]->v.sval &&
         (pas_is_strarr(e->c[0]->c[0]->v.sval) || pas_is_strelem_arr(e->c[0]->c[0]->v.sval))) return 1;
     if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && (pas_var_string_kind(e->c[0]->v.sval) || pas_is_pcharvar(e->c[0]->v.sval))) return 1;
+    if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_QLIT) return 1;
     if (e->t == TT_IDX && e->n >= 2 && e->c[0] && pas_is_cafield(e->c[0])) return 1;
     if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_IDX && e->c[0]->n == 2 && e->c[0]->c[0] && e->c[0]->c[0]->t == TT_VAR && e->c[0]->c[0]->v.sval &&
         pas_rows_get(e->c[0]->c[0]->v.sval, 0, NULL, NULL) == 2) return 1;
