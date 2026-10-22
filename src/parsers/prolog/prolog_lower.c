@@ -474,15 +474,15 @@ static int pl_dq_directive_mode(const tree_t *g) {
 void prolog_dq_lower(tree_t *t, int mode) {
     if (!t) return;
     if (t->t == TT_DQLIT) {
-        const char *b = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : ""; size_t n = strlen(b);
+        const char *b = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : ""; size_t n = (t->n > 0 && t->c[0] && t->c[0]->slen > 0) ? (size_t)t->c[0]->slen : strlen(b);
         if (mode == 3) return;
-        if (mode == 0) { t->t = TT_QLIT; t->v.sval = (char *)b; t->n = 0; return; }
+        if (mode == 0) { int sl = (t->n > 0 && t->c[0]) ? t->c[0]->slen : 0; t->t = TT_QLIT; t->v.sval = (char *)b; t->n = 0; t->slen = sl; return; }
         t->t = TT_MAKELIST; t->v.ival = 0; t->n = 0;
         for (size_t i = 0; i < n;) {
             tree_t *e;
             int cp, w = u8_decode((const unsigned char *)b + i, &cp);
             if (mode == 2) { e = ast_node_new(TT_ILIT); e->v.ival = (long long)cp; }
-            else { e = ast_node_new(TT_QLIT); e->v.sval = ct_strndup(b + i, (size_t)w); }
+            else { e = ast_node_new(TT_QLIT); e->v.sval = ct_strndup(b + i, (size_t)w); if (!b[i]) e->slen = 1; }
             ast_push(t, e);
             i += (size_t)w;
         }

@@ -212,7 +212,12 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
         case TT_ILIT:
         { IR_t * nd = build(cx, IR_LIT_INTEGER, NULL, cx->tω); IR_LIT(nd).ival = t->v.ival; return nd; }
         case TT_DQLIT:
-        { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : ""; return nd; }
+        {
+            IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω);
+            IR_LIT(nd).sval = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : "";
+            if (t->n > 0 && t->c[0] && t->c[0]->slen > 0) { IR_t * ln = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(ln).ival = (int64_t) t->c[0]->slen; ir_operand_push(nd, ln); }
+            return nd;
+        }
         case TT_FLIT:
         { IR_t * nd = build(cx, IR_LIT_REAL, NULL, cx->tω); IR_LIT(nd).dval = t->v.dval; return nd; }
         case TT_VAR:
