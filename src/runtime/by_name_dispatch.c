@@ -11543,7 +11543,15 @@ static DESCR_t rk_hash_from_list(const DESCR_t *el, int n) {
             h = rk_hash_store(h, p.el[0], p.n > 1 ? p.el[1] : NULVCL);
             i++;
         } else {
-            h = rk_hash_store(h, el[i], i + 1 < n ? el[i + 1] : NULVCL);
+            if (i + 1 >= n) {
+                const char * lr = rk_raku_str(el[i], 0);
+                char hm[strlen(lr) + 160];
+                snprintf(hm, sizeof hm, "Odd number of elements found where hash initializer expected:\nFound %d (implicit) elements:\nLast element seen: %s", n, lr);
+                rk_exc_init();
+                rk_exc_throw(DATCON_fn("X::Hash::Store::OddNumber", STRVAL(rt_heap_strdup_c(hm))));
+                return FAILDESCR;
+            }
+            h = rk_hash_store(h, el[i], el[i + 1]);
             i += 2;
         }
     }
@@ -13075,6 +13083,8 @@ static void rk_exc_init(void) {
     record_register("Exception");
     record_register("X::AdHoc(payload)");
     class_inherit("X::AdHoc", "Exception");
+    record_register("X::Hash::Store::OddNumber(message)");
+    class_inherit("X::Hash::Store::OddNumber", "Exception");
     record_register("X::TypeCheck(message)");
     class_inherit("X::TypeCheck", "Exception");
     record_register("X::Comp(message)");
@@ -14495,7 +14505,11 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "__rk_pre") && nargs == 1) { if (!rk_pre_value(rk_cstr(args[0]), out)) *out = NULVCL; return 1; }
     if (!strcmp(fn, "__rk_to_hash") && nargs == 1) {
         if (args[0].v == DT_T && args[0].tbl) *out = rk_hash_copy(args[0]);
-        else if (args[0].v == DT_A && args[0].arr) { rk_av_t a = rk_av(args[0]); *out = rk_hash_from_list(a.el, a.n); } else if (args[0].v == DT_SNUL) *out = TABLE_VAL(table_new());
+        else if (args[0].v == DT_A && args[0].arr) {
+            rk_av_t a = rk_av(args[0]);
+            if (a.n == 1 && a.el[0].v == DT_A && a.el[0].arr && !rk_is_pair(a.el[0])) a = rk_av(a.el[0]);
+            *out = rk_hash_from_list(a.el, a.n);
+        } else if (args[0].v == DT_SNUL) *out = TABLE_VAL(table_new());
         else *out = args[0];
         return 1;
     }
