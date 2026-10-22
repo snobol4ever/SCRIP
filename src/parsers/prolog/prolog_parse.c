@@ -3232,7 +3232,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_mt'(Q,_,Q).\n"
     "'$lfx_mc'(M,import(S)):-nonvar(S),!,'$lfx_impd'(S,M).\n"
     "'$lfx_mc'(M,G):-callable(G),functor(G,F,N),catch('$lfx_imp'(M,F,N,Mod),_,fail),!,'$lfx_q'(Mod,F,Q),G=..[_|As],G2=..[Q|As],call(G2).\n"
-    "'$lfx_mc'(M,G):-callable(G),M\\==user,functor(G,F,N),'$lfx_q'(M,F,Q),'$lfx_nodef'(Q,N),current_predicate(F/N),!,call(G).\n"
+    "'$lfx_mc'(M,G):-callable(G),M\\==user,\\+ '$lfx_meta'(G,_),functor(G,F,N),'$lfx_q'(M,F,Q),'$lfx_nodef'(Q,N),current_predicate(F/N),!,call(G).\n"
     "'$lfx_mc'(M,G):-call(M:G).\n"
     "'$lfx_nodef'(Q,N):- \\+ '$lfx_hasdef'(Q,N),\\+ catch(current_predicate(Q/N),_,fail).\n"
     "'$lfx_hasdef'(Q,N):-catch('$src_file_rt'(Q,N,_),_,fail).\n"
