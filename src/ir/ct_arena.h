@@ -8,6 +8,7 @@
 extern "C" {
 #endif
 void *ct_alloc(size_t n);
+void *ct_try_alloc(size_t n);
 void *ct_zalloc(size_t n, size_t sz);
 void *ct_grow(void *p, size_t n);
 char *ct_strdup(const char *s);

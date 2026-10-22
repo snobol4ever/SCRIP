@@ -505,9 +505,9 @@ void rt_trace_event_args_ip(int kind, const char *name, DESCR_t *args, int nargs
             if (ftr) {
                 const long long bstno = (kind == TRK_RETURN && rstno > 0) ? rstno : stno;
                 size_t bn = trace_banner_str((char *)0, 0, name, args, nargs, value, bstno, kind);
-                char bb[bn + 1];
+                char *bb = (char *)rt_heap_alloc_c(bn + 1);
                 trace_banner_str(bb, bn + 1, name, args, nargs, value, bstno, kind);
-                pend->saved_ftrace = STRVAL(rt_heap_strdup_c(bb));
+                pend->saved_ftrace = STRVAL(bb);
             }
             if (kind == TRK_CALL || kind == TRK_RETURN) { if (g_runtime.abi.kw_fnclevel > 0) { g_runtime.abi.kw_fnclevel--; g_runtime.abi.rt_k_level--; pend->saved_trace.slen = 1; } }
             rt_pl_port_trace_cb(e->cbfn, 0);
@@ -1856,10 +1856,10 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
             int has_u = 0, bad = 0;
             (void)cmdline_switch_walk((long *)0, (long *)0, (long *)0, (long *)0, (char *)0, 0, &has_u, &bad, 0);
             if (has_u && !bad) {
-                char ub[has_u];
+                char *ub = (char *)rt_heap_alloc_c((size_t)has_u);
                 int h2 = 0;
-                (void)cmdline_switch_walk((long *)0, (long *)0, (long *)0, (long *)0, ub, (int)sizeof(ub), &h2, &bad, 0);
-                return *ub ? STRVAL(rt_heap_strdup_c(ub)) : NULVCL;
+                (void)cmdline_switch_walk((long *)0, (long *)0, (long *)0, (long *)0, ub, has_u, &h2, &bad, 0);
+                return *ub ? STRVAL(ub) : NULVCL;
             }
         }
         return NULVCL;
@@ -1869,7 +1869,7 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
         int64_t want = to_int(a[1]);
         int al = want < 0 ? -1 : host_cmdline_len((int)want);
         if (al < 0) return FAILDESCR;
-        { char abuf[al + 1]; if (host_cmdline_arg((int)want, abuf, (int)sizeof(abuf)) < 0) return FAILDESCR; return STRVAL(rt_heap_strdup_c(abuf)); }
+        { char *abuf = (char *)rt_heap_alloc_c((size_t)al + 1); if (host_cmdline_arg((int)want, abuf, al + 1) < 0) return FAILDESCR; return STRVAL(abuf); }
     }
     if (selector == 3) {
         extern int rt_main_args_count(void);

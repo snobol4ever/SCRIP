@@ -2160,7 +2160,7 @@ void rt_proc_opsyn_bind(const char *nm, const char *old) {
     pn[np] = (const char *)0;
     const char *rn = rt_heap_strdup_c(o.result_name ? o.result_name : o.name);
     const char *key = nm;
-    if (rt_proc_hash_lookup(nm) < 0) { char kb[strlen(nm) + 8]; snprintf(kb, sizeof kb, "\001OPSYN%s", nm); key = rt_heap_strdup_c(kb); core_fn_entry_label_set(nm, key); }
+    if (rt_proc_hash_lookup(nm) < 0) { key = rt_heap_fmt("\001OPSYN%s", nm); core_fn_entry_label_set(nm, key); }
     rt_proc_register(key == nm ? rt_heap_strdup_c(nm) : key, pn, np);
     {
         rt_proc_t *p = rt_proc_find(key);

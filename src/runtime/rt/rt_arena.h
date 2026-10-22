@@ -27,5 +27,7 @@ void *rt_pvec_alloc(size_t n);
 void *rt_pvec_realloc(void *p, size_t n);
 void *rt_heap_alloc_c(size_t n);
 char *rt_heap_strdup_c(const char *s);
+char *rt_heap_strndup_c(const char *s, size_t n);
+char *rt_heap_fmt(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void *rt_agg_alloc(int kind, size_t n);
 #endif

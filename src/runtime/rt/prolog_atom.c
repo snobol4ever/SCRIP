@@ -13,19 +13,28 @@ typedef g_atom_opcols_t OpCols;
 #define HT_INIT_SIZE 8
 extern void *rt_wsb_alloc(size_t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *pool_dup_n(const char *s, size_t n) {
+static char *pool_carve(size_t n) {
     size_t need = sizeof(uint32_t) + n + 1;
-    if (need > g_runtime.atoms.name_pool_left) { size_t chunk = need > 65536 ? need : 65536; g_runtime.atoms.name_pool = (char *)rt_slab_region(chunk); g_runtime.atoms.name_pool_left = chunk; }
-    {
-        uint32_t len = (uint32_t)n;
-        char *p = g_runtime.atoms.name_pool + sizeof(uint32_t);
-        memcpy(g_runtime.atoms.name_pool, &len, sizeof len);
-        if (n) memcpy(p, s, n);
-        p[n] = 0;
-        g_runtime.atoms.name_pool += need;
-        g_runtime.atoms.name_pool_left -= need;
-        return p;
+    char *p;
+    if (n >= (size_t)UINT32_MAX) return (char *)0;
+    if (need > g_runtime.atoms.name_pool_left) {
+        size_t chunk = need > 65536 ? need : 65536;
+        char *c = (char *)rt_slab_try_region(chunk);
+        if (!c) return (char *)0;
+        g_runtime.atoms.name_pool = c;
+        g_runtime.atoms.name_pool_left = chunk;
     }
+    p = g_runtime.atoms.name_pool + sizeof(uint32_t);
+    g_runtime.atoms.name_pool += need;
+    g_runtime.atoms.name_pool_left -= need;
+    return p;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pool_seal(char *p, size_t n, size_t k) {
+    uint32_t len = (uint32_t)k;
+    memcpy(p - sizeof(uint32_t), &len, sizeof len);
+    p[k] = 0;
+    if (g_runtime.atoms.name_pool == p + n + 1) { g_runtime.atoms.name_pool = p + k + 1; g_runtime.atoms.name_pool_left += n - k; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t pool_len(const char *p) { uint32_t len; memcpy(&len, p - sizeof(uint32_t), sizeof len); return len; }
@@ -48,8 +57,8 @@ static void ht_grow(int new_size) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int prolog_atom_intern_n(const char *s, size_t n) {
-    if (!s) { s = ""; n = 0; }
+static int atom_find(const char *s, size_t n, unsigned int *hp) {
+    unsigned int h;
     if (!g_runtime.atoms.ht) {
         g_runtime.atoms.ht_size = HT_INIT_SIZE;
         g_runtime.atoms.ht = rt_wsb_alloc(g_runtime.atoms.ht_size * sizeof(HEntry));
@@ -60,14 +69,19 @@ int prolog_atom_intern_n(const char *s, size_t n) {
         g_runtime.atoms.atom_names = rt_wsb_alloc(g_runtime.atoms.atom_cap * sizeof(char *));
         memset(g_runtime.atoms.atom_names, 0, g_runtime.atoms.atom_cap * sizeof(char *));
     }
-    unsigned int h = ht_hash(s, n) & (g_runtime.atoms.ht_size - 1);
+    h = ht_hash(s, n) & (g_runtime.atoms.ht_size - 1);
     while (g_runtime.atoms.ht[h].key) {
         if (pool_len(g_runtime.atoms.ht[h].key) == n && (!n || memcmp(g_runtime.atoms.ht[h].key, s, n) == 0)) return g_runtime.atoms.ht[h].id;
         h = (h + 1) & (g_runtime.atoms.ht_size - 1);
     }
+    *hp = h;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int atom_add(char *copy, size_t n, unsigned int h) {
     if (g_runtime.atoms.ht_used * 2 >= g_runtime.atoms.ht_size) {
         ht_grow(g_runtime.atoms.ht_size * 2);
-        h = ht_hash(s, n) & (g_runtime.atoms.ht_size - 1);
+        h = ht_hash(copy, n) & (g_runtime.atoms.ht_size - 1);
         while (g_runtime.atoms.ht[h].key) h = (h + 1) & (g_runtime.atoms.ht_size - 1);
     }
     if (g_runtime.atoms.atom_len >= g_runtime.atoms.atom_cap) {
@@ -80,13 +94,37 @@ int prolog_atom_intern_n(const char *s, size_t n) {
         }
         memset(g_runtime.atoms.atom_names + old_cap, 0, (g_runtime.atoms.atom_cap - old_cap) * sizeof(char *));
     }
-    char *copy = pool_dup_n(s, n);
-    int id = g_runtime.atoms.atom_len++;
-    g_runtime.atoms.atom_names[id] = copy;
-    g_runtime.atoms.ht[h].key = copy;
-    g_runtime.atoms.ht[h].id = id;
-    g_runtime.atoms.ht_used++;
-    return id;
+    { int id = g_runtime.atoms.atom_len++; g_runtime.atoms.atom_names[id] = copy; g_runtime.atoms.ht[h].key = copy; g_runtime.atoms.ht[h].id = id; g_runtime.atoms.ht_used++; return id; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_atom_intern_n(const char *s, size_t n) {
+    unsigned int h = 0;
+    int id;
+    char *p;
+    if (!s) { s = ""; n = 0; }
+    id = atom_find(s, n, &h);
+    if (id >= 0) return id;
+    p = pool_carve(n);
+    if (!p) { fprintf(stderr, "scrip: the atom pool cannot hold an atom of %zu bytes\n", n); exit(2); }
+    if (n) memcpy(p, s, n);
+    pool_seal(p, n, n);
+    return atom_add(p, n, h);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+char *prolog_atom_carve(size_t n) { return pool_carve(n); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void prolog_atom_uncarve(char *p, size_t n) {
+    if (p && g_runtime.atoms.name_pool == p + n + 1) { g_runtime.atoms.name_pool = p - sizeof(uint32_t); g_runtime.atoms.name_pool_left += sizeof(uint32_t) + n + 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_atom_carved(char *p, size_t n, size_t k) {
+    unsigned int h = 0;
+    int id;
+    if (k > n) k = n;
+    pool_seal(p, n, k);
+    id = atom_find(p, k, &h);
+    if (id >= 0) { prolog_atom_uncarve(p, k); return id; }
+    return atom_add(p, k, h);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_atom_intern(const char *name) { if (!name) name = ""; return prolog_atom_intern_n(name, strlen(name)); }
@@ -97,10 +135,11 @@ int prolog_atom_intern_lit(const char *s) {
     n = strlen(s);
     if (!memchr(s, 0xC0, n)) return prolog_atom_intern_n(s, n);
     {
-        char b[n + 1];
+        char *b = pool_carve(n);
         size_t k = 0;
+        if (!b) { fprintf(stderr, "scrip: the atom pool cannot hold an atom of %zu bytes\n", n); exit(2); }
         for (size_t i = 0; i < n; i++) { if ((unsigned char)s[i] == 0xC0 && (unsigned char)s[i + 1] == 0x80) { b[k++] = 0; i++; } else b[k++] = s[i]; }
-        return prolog_atom_intern_n(b, k);
+        return prolog_atom_carved(b, n, k);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -17,8 +17,9 @@ typedef struct ct_head { uint64_t magic; uint64_t size; struct ct_head *next; ui
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t ct_page(void) { long p = sysconf(_SC_PAGESIZE); return p > 0 ? (size_t)p : (size_t)4096; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void *ct_map(size_t want) {
+static void *ct_map(size_t want, int soft) {
     void *m = mmap((void *)0, want, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
+    if (m == MAP_FAILED && soft) return (void *)0;
     if (m == MAP_FAILED) { fprintf(stderr, "ct_arena: mmap of %zu bytes failed\n", want); _exit(3); }
     g_lower.ir.ct_mapped += want;
     return m;
@@ -28,7 +29,7 @@ static int ct_class_of(size_t n) { size_t cap = CT_MIN_CLASS; int i = 0; while (
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t ct_cap_of(int cls) { return CT_MIN_CLASS << (size_t)cls; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *ct_alloc(size_t n) {
+static void *ct_alloc_in(size_t n, int soft) {
     int cls;
     size_t cap, need, pg;
     ct_head_t *h;
@@ -37,7 +38,8 @@ void *ct_alloc(size_t n) {
     if (cls < 0) {
         pg = ct_page();
         need = ((n + sizeof(ct_head_t)) + pg - 1) & ~(pg - 1);
-        h = (ct_head_t *)ct_map(need);
+        h = (ct_head_t *)ct_map(need, soft);
+        if (!h) return (void *)0;
         h->magic = CT_MAGIC_BIG;
         h->size = need;
         g_lower.ir.ct_taken += need;
@@ -56,7 +58,9 @@ void *ct_alloc(size_t n) {
     need = cap + CT_ALIGN;
     if ((size_t)(g_lower.ir.ct_end - g_lower.ir.ct_cur) < need) {
         size_t want = CT_CHUNK > need ? CT_CHUNK : ((need + ct_page() - 1) & ~(ct_page() - 1));
-        g_lower.ir.ct_cur = (uint8_t *)ct_map(want);
+        uint8_t *c = (uint8_t *)ct_map(want, soft);
+        if (!c) return (void *)0;
+        g_lower.ir.ct_cur = c;
         g_lower.ir.ct_end = g_lower.ir.ct_cur + want;
     }
     h = (ct_head_t *)g_lower.ir.ct_cur;
@@ -66,6 +70,10 @@ void *ct_alloc(size_t n) {
     g_lower.ir.ct_taken += cap;
     return (void *)((uint8_t *)h + CT_ALIGN);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *ct_alloc(size_t n) { return ct_alloc_in(n, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *ct_try_alloc(size_t n) { return ct_alloc_in(n, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *ct_zalloc(size_t n, size_t sz) { size_t want = n * sz; void *p = ct_alloc(want ? want : 1); memset(p, 0, want ? want : 1); return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -787,6 +787,24 @@ void *c_rt_agg_alloc(int kind, size_t n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *rt_heap_strdup_c(const char *s) { if (!s) return (char *)0; { size_t n = strlen(s); char *q = (char *)rt_heap_alloc_c(n + 1); memcpy(q, s, n + 1); return q; } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+char *rt_heap_strndup_c(const char *s, size_t n) { char *q = (char *)rt_heap_alloc_c(n + 1); if (n) memcpy(q, s, n); q[n] = 0; return q; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+char *rt_heap_fmt(const char *fmt, ...) {
+    va_list ap, aq;
+    int n;
+    char *q;
+    va_start(ap, fmt);
+    va_copy(aq, ap);
+    n = vsnprintf((char *)0, 0, fmt, aq);
+    va_end(aq);
+    if (n < 0) n = 0;
+    q = (char *)rt_heap_alloc_c((size_t)n + 1);
+    q[0] = 0;
+    vsnprintf(q, (size_t)n + 1, fmt, ap);
+    va_end(ap);
+    return q;
+}
 #include <setjmp.h>
 #include "../core/core.h"
 #include "rt_coexpr.h"

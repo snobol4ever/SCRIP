@@ -1222,6 +1222,29 @@ static int plc_text_out_n(void *cell, const char *s, size_t n, int as_str, pl_tr
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_text_out(void *cell, const char *s, int as_str, pl_tr_ctx_t *cx) { return plc_text_out_n(cell, s, s ? strlen(s) : 0, as_str, cx); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *plc_text_carve(size_t n, int as_str, pl_tr_ctx_t *cx) {
+    extern int rt_pl_cap_refuses(unsigned long long, unsigned long long);
+    extern void *rt_pl_cap_error(void);
+    char *b = (char *)0;
+    if (!as_str) b = prolog_atom_carve(n);
+    else if (!rt_pl_cap_refuses((unsigned long long)n + 1ULL, 1ULL)) b = (char *)rt_heap_alloc_c(n + 1);
+    if (!b && cx && !cx->ball) cx->ball = rt_pl_cap_error();
+    return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_cell_t plc_atom_built(char *b, size_t n, size_t k) { return pl_make_atom(prolog_atom_carved(b, n, k)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_text_built(void *cell, char *b, size_t n, size_t k, int as_str, pl_tr_ctx_t *cx) {
+    pl_cell_t *d = cell ? pl_deref((pl_cell_t *)cell) : (pl_cell_t *)0;
+    if (d && !pl_cell_unbound(d) && ((int)d->v == DT_S || (int)d->v == DT_PLATOM)) {
+        int eq = plc_atom_len(d) == k && (!k || !memcmp(plc_atom_text(d), b, k));
+        if (!as_str) prolog_atom_uncarve(b, n);
+        return eq;
+    }
+    if (as_str) { pl_cell_t c = {0}; b[k] = 0; c.v = (DTYPE_t)DT_S; c.s = b; c.slen = (uint32_t)k; return plc_unify_into_cell_cx((pl_cell_t *)cell, c, cx); }
+    return plc_unify_into_cell_cx((pl_cell_t *)cell, plc_atom_built(b, n, k), cx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_u8_get(const char *s, int *adv) {
     const unsigned char *u = (const unsigned char *)s;
     unsigned c = u[0];
@@ -1296,11 +1319,11 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         const char *s1 = plc_atom_op_text_n(t1, buf1, sizeof buf1, &l1);
         if (!s0 || !s1) { return 0; }
         {
-            char *cat = (char *)rt_wsb_alloc(l0 + l1 + 1);
+            char *cat = plc_text_carve(l0 + l1, 0, cx);
+            if (!cat) { return 0; }
             memcpy(cat, s0, l0);
             memcpy(cat + l0, s1, l1);
-            cat[l0 + l1] = '\0';
-            return plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_make_atom_cell_n(cat, l0 + l1), cx) ? 1 : 0;
+            return plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_atom_built(cat, l0 + l1, l0 + l1), cx) ? 1 : 0;
         }
     }
     if (!strcmp(fn, "atom_concat")) {
@@ -1318,22 +1341,22 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             }
             return 0;
         }
-        char cat[l0 + l1 + 1];
+        char *cat = plc_text_carve(l0 + l1, 0, cx);
+        if (!cat) { return 0; }
         memcpy(cat, s0, l0);
         memcpy(cat + l0, s1, l1);
-        cat[l0 + l1] = '\0';
-        if (!plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_make_atom_cell_n(cat, l0 + l1), cx)) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_atom_built(cat, l0 + l1, l0 + l1), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "upcase_atom") || !strcmp(fn, "downcase_atom")) {
         size_t n;
         const char *s = plc_atom_op_text_n(t0, buf0, sizeof buf0, &n);
         if (!s) { return 0; }
-        char out[n + 1];
+        char *out = plc_text_carve(n, 0, cx);
         int up = (!strcmp(fn, "upcase_atom"));
+        if (!out) { return 0; }
         for (size_t i = 0; i < n; i++) out[i] = up ? (char)toupper((unsigned char)s[i]) : (char)tolower((unsigned char)s[i]);
-        out[n] = '\0';
-        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell_n(out, n), cx)) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_atom_built(out, n, n), cx)) { return 0; }
         return 1;
     }
     int as_codes = (!strcmp(fn, "atom_codes") || !strcmp(fn, "string_codes"));
@@ -1437,11 +1460,11 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
         if (!s) { return 0; }
         size_t n = strlen(s);
-        char out[n + 1];
+        char *out = plc_text_carve(n, 1, cx);
         int up = (!strcmp(fn, "string_upper"));
+        if (!out) { return 0; }
         for (size_t i = 0; i < n; i++) out[i] = up ? (char)toupper((unsigned char)s[i]) : (char)tolower((unsigned char)s[i]);
-        out[n] = '\0';
-        return plc_text_out(a1_cell, out, 1, cx);
+        return plc_text_built(a1_cell, out, n, n, 1, cx);
     }
     if (!strcmp(fn, "atom_string") || !strcmp(fn, "string_to_atom")) {
         int a0_str = !strcmp(fn, "string_to_atom");
@@ -1480,20 +1503,21 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             if (!u0) { size_t l0 = strlen(s0); return (l0 <= l2 && !memcmp(s2, s0, l0)) ? plc_text_out(a1_cell, s2 + l0, 1, cx) : 0; }
             {
                 size_t l1 = strlen(s1);
-                char pre[l2 + 1];
+                char *pre;
                 if (l1 > l2 || memcmp(s2 + l2 - l1, s1, l1)) { return 0; }
+                pre = plc_text_carve(l2 - l1, 1, cx);
+                if (!pre) { return 0; }
                 memcpy(pre, s2, l2 - l1);
-                pre[l2 - l1] = 0;
-                return plc_text_out(a0_cell, pre, 1, cx);
+                return plc_text_built(a0_cell, pre, l2 - l1, l2 - l1, 1, cx);
             }
         }
         if (!s0 || !s1) { return 0; }
         size_t l0 = strlen(s0), l1 = strlen(s1);
-        char cat[l0 + l1 + 1];
+        char *cat = plc_text_carve(l0 + l1, 1, cx);
+        if (!cat) { return 0; }
         memcpy(cat, s0, l0);
         memcpy(cat + l0, s1, l1);
-        cat[l0 + l1] = '\0';
-        return plc_text_out(a2_cell, cat, 1, cx);
+        return plc_text_built(a2_cell, cat, l0 + l1, l0 + l1, 1, cx);
     }
     if (!strcmp(fn, "atomic_list_concat") || !strcmp(fn, "concat_atom")) {
         const char *sep = (t1 && ((int)t1->v == DT_PLATOM || (int)t1->v == DT_S)) ? plc_atom_text(t1) : "";
@@ -1505,8 +1529,9 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             if (!es) { return 0; }
             need += strlen(es) + (ne++ ? sl : 0);
         }
-        char out[need];
+        char *out = plc_text_carve(need - 1, 0, cx);
         size_t oi = 0;
+        if (!out) { return 0; }
         ne = 0;
         for (pl_cell_t *lst = t0; lst && (int)lst->v == DT_PLREF && plc_fid_arity(lst->slen) == 2; lst = pl_deref(&((pl_cell_t *)lst->p)[1])) {
             const char *es = plc_atom_op_text(pl_deref(&((pl_cell_t *)lst->p)[0]), buf0, sizeof buf0);
@@ -1515,8 +1540,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             memcpy(out + oi, es, el_len);
             oi += el_len;
         }
-        out[oi] = '\0';
-        if (!plc_unify_into_cell_cx((pl_cell_t *)result_cell, plc_make_atom_cell(out), cx)) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)result_cell, plc_atom_built(out, need - 1, oi), cx)) { return 0; }
         return 1;
     }
     (void)t2;
@@ -2983,10 +3007,10 @@ void *rt_pl_ball_existence_key(const char *key) {
     int ar = 0;
     if (rt_pl_unknown_suppress(key)) return (void *)0;
     const char *sl = key ? strrchr(key, '/') : (const char *)0;
-    char nm[key ? strlen(key) + 1 : 2];
-    if (sl) { size_t kl = (size_t)(sl - key); memcpy(nm, key, kl); nm[kl] = 0; ar = atoi(sl + 1); } else { snprintf(nm, sizeof nm, "%s", key ? key : "?"); }
+    int nid = sl ? prolog_atom_intern_n(key, (size_t)(sl - key)) : prolog_atom_intern(key ? key : "?");
+    if (sl) ar = atoi(sl + 1);
     pl_cell_t pi[2];
-    pi[0] = pl_make_atom(prolog_atom_intern(nm));
+    pi[0] = pl_make_atom(nid);
     pi[1] = pl_make_int(ar);
     pl_cell_t *pic = (pl_cell_t *)rt_pl_compound_cell("/", 2, (void *)pi);
     if (!pic) return (void *)0;
@@ -4472,15 +4496,14 @@ static int pl_db_define_absent(void *root, const char *key, int arity) {
     if (!key) return 0;
     sl = strrchr(key, '/');
     if (!sl) return 0;
-    char nm[(size_t)(sl - key) + 1];
-    { size_t kl = (size_t)(sl - key); memcpy(nm, key, kl); nm[kl] = 0; }
+    int nid = prolog_atom_intern_n(key, (size_t)(sl - key));
     if (arity > 0) {
         hargs = (pl_cell_t *)PL_CELL_ALLOC((size_t)arity * sizeof(pl_cell_t));
         if (!hargs) return 0;
         for (int i = 0; i < arity; i++) pl_init_var(&hargs[i], -1);
-        head = pl_make_compound(prolog_atom_intern(nm), arity, hargs);
-    } else head = pl_make_atom(prolog_atom_intern(nm));
-    pi[0] = pl_make_atom(prolog_atom_intern(nm));
+        head = pl_make_compound(nid, arity, hargs);
+    } else head = pl_make_atom(nid);
+    pi[0] = pl_make_atom(nid);
     pi[1] = pl_make_int(arity);
     pic = pl_make_compound(prolog_atom_intern("/"), 2, (void *)pi);
     ee[0] = pl_make_atom(prolog_atom_intern("procedure"));

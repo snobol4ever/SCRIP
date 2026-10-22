@@ -468,9 +468,7 @@ int rk_rat_base(DESCR_t self, DESCR_t radix, const DESCR_t *digd, DESCR_t *out) 
         if (digits == 0) {
             DESCR_t rd = bi_floordiv(bi_add(bi_mul(n, INTVAL(2)), d), bi_mul(d, INTVAL(2)));
             const char *rs = bi_base_str(bi_abs(rd), base);
-            char res[strlen(rs) + 2];
-            snprintf(res, sizeof res, "%s%s", bi_sgn(rd) < 0 ? "-" : "", rs);
-            *out = STRVAL(rt_heap_strdup_c(res));
+            *out = STRVAL(rt_heap_fmt("%s%s", bi_sgn(rd) < 0 ? "-" : "", rs));
             return 1;
         }
     } else digits = bi_cmp(d, bi_pow(INTVAL(base), 6)) < 0 ? 6 : (long) ceil(log(bi_dbl(d)) / log((double) base)) + 1;

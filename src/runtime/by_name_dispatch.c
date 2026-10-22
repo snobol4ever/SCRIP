@@ -2241,8 +2241,10 @@ static DESCR_t rk_range_arr_make_fl(DESCR_t a, DESCR_t b, int fl) {
     strcpy(cur, lo);
     for (;;) { cnt++; if (!strcmp(cur, hi) || cnt > 50000000) break; rk_str_succ_buf(cur, nxt); if (strlen(nxt) > hl) break; strcpy(cur, nxt); }
     ARBLK_t *ra = array_new(0, (int) (cnt - 1));
-    strcpy(cur, lo);
-    for (long long i = 0; i < cnt; i++) { ra->data[i] = STRVAL(rt_heap_strdup_c(cur)); rk_str_succ_buf(cur, nxt); strcpy(cur, nxt); }
+    {
+        const char *prev = lo;
+        for (long long i = 0; i < cnt; i++) { char *e = i ? rk_str_succ_buf(prev, (char *)rt_heap_alloc_c(strlen(prev) + 2)) : rt_heap_strdup_c(lo); ra->data[i] = STRVAL(e); prev = e; }
+    }
     DESCR_t d = {0};
     d.v = DT_A;
     d.slen = 0;
@@ -2998,7 +3000,7 @@ static DESCR_t rk_seq_plan(DESCR_t seedv, int gen_code, DESCR_t ev) {
 static DESCR_t rk_seq_next(int kind, DESCR_t step, DESCR_t last) {
     if (kind == 1) return rk_seq_num2(last, step, 0);
     if (kind == 2) return rk_seq_num2(last, step, 2);
-    { const char *ls = rk_cstr(last); char sb[strlen(ls) + 3]; return STRVAL(rt_heap_strdup_c(rk_str_succ_buf(ls, sb))); }
+    { const char *ls = rk_cstr(last); return STRVAL(rk_str_succ_buf(ls, (char *)rt_heap_alloc_c(strlen(ls) + 2))); }
 }
 static int rk_seq_stop(DESCR_t v, DESCR_t ev, int kind, int dir, int gen_code) {
     if (rk_typeobj_name(ev) != NULL || (IS_REAL_fn(ev) && isinf(ev.r)) || ev.v == DT_SNUL) return 0;
@@ -3730,8 +3732,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     }
     if (!strcmp(meth, "succ") && !IS_INT_fn(recv) && !IS_REAL_fn(recv) && IS_STR_fn(recv) && !rk_typeobj_name(recv)) {
         const char *sv = rk_cstr(recv);
-        char sc[strlen(sv) + 3];
-        *out = STRVAL(rt_heap_strdup_c(rk_str_succ_buf(sv, sc)));
+        *out = STRVAL(rk_str_succ_buf(sv, (char *)rt_heap_alloc_c(strlen(sv) + 2)));
         return 1;
     }
     if ((!strcmp(meth, "succ") || !strcmp(meth, "pred")) && (IS_INT_fn(recv) || IS_REAL_fn(recv))) {
@@ -4515,9 +4516,7 @@ void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) { rt_fire_buildpla
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_tweak_open(DESCR_t *out, const char *cname, trace_pend_t *pend) {
     if (!out || !cname || !*cname || !pend || !IS_DATA_INST_fn(*out)) return 0;
-    char proc[fmt_len("%s__TWEAK", cname)];
-    snprintf(proc, sizeof proc, "%s__TWEAK", cname);
-    pend->args[0] = STRVAL(rt_heap_strdup_c(proc));
+    pend->args[0] = STRVAL(rt_heap_fmt("%s__TWEAK", cname));
     pend->args[1] = *out;
     pend->args[2] = NULVCL;
     return 1;
@@ -5385,6 +5384,15 @@ static DESCR_t pl_mk_atom_dup(const char *s, size_t n) {
     d.i = prolog_atom_intern_n(s, n);
     return d;
 }
+static char *pl_atom_carve_cx(size_t n, pl_tr_ctx_t *cx) {
+    extern void *rt_pl_cap_error(void);
+    extern int rt_gcheap_cap_refused(void);
+    char *b = prolog_atom_carve(n);
+    if (!b && cx && !cx->ball) cx->ball = rt_pl_cap_error();
+    if (!b && !cx) (void)rt_gcheap_cap_refused();
+    return b;
+}
+static DESCR_t pl_mk_atom_carved(char *b, size_t n, size_t k) { DESCR_t d = {0}; d.v = DT_PLATOM; d.slen = 0; d.i = prolog_atom_carved(b, n, k); return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_sink_kind(DESCR_t a) {
     extern DESCR_t rt_pl_deref_val(DESCR_t);
@@ -8056,12 +8064,13 @@ static int rt_pl_atom_concat_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
     ha = pl_cell_text_n(args[1], ba, sizeof ba, &sa, &la);
     hb = pl_cell_text_n(args[2], bb, sizeof bb, &sb, &lb);
     if (ha && hb) {
-        char cb[la + lb + 1];
+        char *cb;
         if ((long)iv.i != 0) return 0;
+        cb = pl_atom_carve_cx(la + lb, cx);
+        if (!cb) return 0;
         if (la) memcpy(cb, sa, la);
         if (lb) memcpy(cb + la, sb, lb);
-        cb[la + lb] = 0;
-        return plw_unify_vals(args[3], pl_mk_atom_dup(cb, la + lb), cx);
+        return plw_unify_vals(args[3], pl_mk_atom_carved(cb, la + lb, la + lb), cx);
     }
     if (!pl_cell_text_n(args[3], bc, sizeof bc, &sc, &blen)) return 0;
     {
@@ -10460,10 +10469,11 @@ static const char *pl_gs_msg(const char *fn, long l, long c, const char *e) {
     extern int prolog_atom_intern(const char *);
     extern const char *prolog_atom_name(int);
     int n = *fn ? snprintf((char *)0, 0, "%s:%ld (char:%ld) %s", fn, l, c, e) : snprintf((char *)0, 0, "(char:%ld) %s", c, e);
-    char b[n + 1];
-    if (*fn) snprintf(b, sizeof b, "%s:%ld (char:%ld) %s", fn, l, c, e);
-    else snprintf(b, sizeof b, "(char:%ld) %s", c, e);
-    return prolog_atom_name(prolog_atom_intern(b));
+    char *b = pl_atom_carve_cx((size_t)n, (pl_tr_ctx_t *)0);
+    if (!b) return e;
+    if (*fn) snprintf(b, (size_t)n + 1, "%s:%ld (char:%ld) %s", fn, l, c, e);
+    else snprintf(b, (size_t)n + 1, "(char:%ld) %s", c, e);
+    return prolog_atom_name(prolog_atom_carved(b, (size_t)n, (size_t)n));
 }
 static void pl_gs_record(const char *fn, long l, long c, const char *e) {
     pl_flag_t *fl = pl_flag_find_or_create("$gnu_synerr");
@@ -10741,7 +10751,15 @@ static int pl_gs_ts(const char *op, DESCR_t a, DESCR_t res, pl_tr_ctx_t *cx) {
     }
     return 0;
 }
-static DESCR_t pl_os_cwd_atom(void) { for (size_t cn = 256;; cn *= 2) { char cw[cn]; if (getcwd(cw, cn)) return pl_mk_atom_dup(cw, strlen(cw)); if (errno != ERANGE) return FAILDESCR; } }
+static DESCR_t pl_os_cwd_atom(void) {
+    for (size_t cn = 256;; cn *= 2) {
+        char *cw = pl_atom_carve_cx(cn, (pl_tr_ctx_t *)0);
+        if (!cw) return FAILDESCR;
+        if (getcwd(cw, cn + 1)) return pl_mk_atom_carved(cw, cn, strlen(cw));
+        prolog_atom_uncarve(cw, cn);
+        if (errno != ERANGE) return FAILDESCR;
+    }
+}
 PL_CX_LEAF_HEAD(compound0, 3)
     {
         extern void *rt_pl_compound_cell(const char *, int, void *);
@@ -11088,40 +11106,42 @@ PL_CX_LEAF_HEAD(format_time_text, 3)
         else if (!pl_dt_stamp(args[1], &st, &off, &zone, &local, &ball)) cx->ball = ball;
         else {
             size_t cap = strlen(fm) * 64 + 64, n = 0;
-            char out[cap];
-            double fl = floor(st), frac = fabs(st - trunc(st));
-            time_t t = (time_t)fl;
-            struct tm tm;
-            if (local) localtime_r(&t, &tm);
-            else { t -= (time_t)off; gmtime_r(&t, &tm); tm.tm_gmtoff = -(long)off; tm.tm_zone = (zone && strcmp(zone, "-")) ? zone : ""; }
-            for (const char *p = fm; *p && n + 64 < cap; p++) {
-                int w = 0;
-                if (*p != '%') { out[n++] = *p; continue; }
-                p++;
-                while (*p >= '0' && *p <= '9') w = w * 10 + (*p++ - '0');
-                if (*p == 'f') {
-                    long long us = llround(frac * 1e6), v = us > 999999 ? 999999 : us;
-                    if (!w) w = 6;
-                    if (w > 15) w = 15;
-                    for (int i = w; i < 6; i++) v /= 10;
-                    for (int i = 6; i < w; i++) v *= 10;
-                    n += (size_t)snprintf(out + n, cap - n, "%0*lld", w, v);
-                } else if (*p == ':' && p[1] == 'z') {
-                    long g = tm.tm_gmtoff, a = g < 0 ? -g : g;
+            char *out = pl_atom_carve_cx(cap, cx);
+            if (out) {
+                double fl = floor(st), frac = fabs(st - trunc(st));
+                time_t t = (time_t)fl;
+                struct tm tm;
+                if (local) localtime_r(&t, &tm);
+                else { t -= (time_t)off; gmtime_r(&t, &tm); tm.tm_gmtoff = -(long)off; tm.tm_zone = (zone && strcmp(zone, "-")) ? zone : ""; }
+                for (const char *p = fm; *p && n + 64 < cap; p++) {
+                    int w = 0;
+                    if (*p != '%') { out[n++] = *p; continue; }
                     p++;
-                    n += (size_t)snprintf(out + n, cap - n, "%c%02ld:%02ld", g < 0 ? '-' : '+', a / 3600, a / 60 % 60);
-                } else if (*p == 's') n += (size_t)snprintf(out + n, cap - n, "%lld", (long long)fl);
-                else if (*p == '+') n += strftime(out + n, cap - n, "%a %b %e %H:%M:%S %Y", &tm);
-                else if (*p) {
-                    char f2[5] = { '%', 0, 0, 0, 0 };
-                    int k = 1;
-                    if (*p == '-' || *p == '_' || *p == 'E' || *p == 'O') f2[k++] = *p++;
-                    f2[k] = *p;
-                    if (*p) n += strftime(out + n, cap - n, f2, &tm);
-                    else p--;
-                } else p--;
+                    while (*p >= '0' && *p <= '9') w = w * 10 + (*p++ - '0');
+                    if (*p == 'f') {
+                        long long us = llround(frac * 1e6), v = us > 999999 ? 999999 : us;
+                        if (!w) w = 6;
+                        if (w > 15) w = 15;
+                        for (int i = w; i < 6; i++) v /= 10;
+                        for (int i = 6; i < w; i++) v *= 10;
+                        n += (size_t)snprintf(out + n, cap - n, "%0*lld", w, v);
+                    } else if (*p == ':' && p[1] == 'z') {
+                        long g = tm.tm_gmtoff, a = g < 0 ? -g : g;
+                        p++;
+                        n += (size_t)snprintf(out + n, cap - n, "%c%02ld:%02ld", g < 0 ? '-' : '+', a / 3600, a / 60 % 60);
+                    } else if (*p == 's') n += (size_t)snprintf(out + n, cap - n, "%lld", (long long)fl);
+                    else if (*p == '+') n += strftime(out + n, cap - n, "%a %b %e %H:%M:%S %Y", &tm);
+                    else if (*p) {
+                        char f2[5] = { '%', 0, 0, 0, 0 };
+                        int k = 1;
+                        if (*p == '-' || *p == '_' || *p == 'E' || *p == 'O') f2[k++] = *p++;
+                        f2[k] = *p;
+                        if (*p) n += strftime(out + n, cap - n, f2, &tm);
+                        else p--;
+                    } else p--;
+                }
+                ok = plw_unify_vals(args[2], pl_mk_atom_carved(out, cap, n), cx);
             }
-            ok = plw_unify_vals(args[2], pl_mk_atom_dup(out, n), cx);
         }
         pl_gnu_ctx(cx, "format_time", 3);
     }
@@ -11610,10 +11630,9 @@ static DESCR_t rk_hash_from_list(const DESCR_t *el, int n) {
         } else {
             if (i + 1 >= n) {
                 const char * lr = rk_raku_str(el[i], 0);
-                char hm[strlen(lr) + 160];
-                snprintf(hm, sizeof hm, "Odd number of elements found where hash initializer expected:\nFound %d (implicit) elements:\nLast element seen: %s", n, lr);
+                char *hm = rt_heap_fmt("Odd number of elements found where hash initializer expected:\nFound %d (implicit) elements:\nLast element seen: %s", n, lr);
                 rk_exc_init();
-                rk_exc_throw(DATCON_fn("X::Hash::Store::OddNumber", STRVAL(rt_heap_strdup_c(hm))));
+                rk_exc_throw(DATCON_fn("X::Hash::Store::OddNumber", STRVAL(hm)));
                 return FAILDESCR;
             }
             h = rk_hash_store(h, el[i], el[i + 1]);
@@ -11717,10 +11736,7 @@ static const char *rk_os_release(const char *key) {
             size_t n = len - kl - 1;
             while (n && v[n - 1] == '"') n--;
             if (n && v[0] == '"') { v++; n--; }
-            char tmp[n + 1];
-            memcpy(tmp, v, n);
-            tmp[n] = '\0';
-            return rt_heap_strdup_c(tmp);
+            return rt_heap_strndup_c(v, n);
         }
         ln += len + (nl ? 1 : 0);
     }
@@ -11981,14 +11997,13 @@ static void rk_actions_plan_rec(DESCR_t m, DESCR_t actions, DESCR_t key, DESCR_t
         if (!tryk[t]) continue;
         int fidx;
         const char *rmc = resolve_method_chain(cname, tryk[t], &fidx);
-        char procname[strlen(rmc) + strlen(tryk[t]) + 4];
-        snprintf(procname, sizeof procname, "%s__%s", rmc, tryk[t]);
+        char *procname = rt_heap_fmt("%s__%s", rmc, tryk[t]);
         if (!meth_is_user_proc(procname)) continue;
         if (bomb) {
             extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
             rt_c2bb_bomb("grammar actions from C (the lowered .parse loops over __rk_actions_plan and the box calls each action)", procname);
         }
-        rk_arr_append((ARBLK_t *) plan.arr, STRVAL(rt_heap_strdup_c(procname)));
+        rk_arr_append((ARBLK_t *) plan.arr, STRVAL(procname));
         rk_arr_append((ARBLK_t *) plan.arr, m);
     }
 }
@@ -13261,10 +13276,9 @@ static DESCR_t rk_failure_of(DESCR_t *args, int nargs) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_empty_failure(const char *action) {
-    char msg[strlen(action) + 40];
+    char *msg = rt_heap_fmt("Cannot %s from an empty Array", action);
     rk_exc_init();
-    snprintf(msg, sizeof msg, "Cannot %s from an empty Array", action);
-    return rk_failure_new(DATCON_fn("X::Cannot::Empty", STRVAL(rt_heap_strdup_c(msg))));
+    return rk_failure_new(DATCON_fn("X::Cannot::Empty", STRVAL(msg)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_failure_sink(DESCR_t f) { if (FIELD_GET_fn(f, "handled").i) return; rk_failure_handle(f); rk_exc_throw(FIELD_GET_fn(f, "exception")); }
@@ -13292,15 +13306,15 @@ int rt_raku_undeclared_call(const char *name) {
     rk_exc_init();
     const char *cls = "X::Undeclared::Symbols";
     const char *proto = !strcmp(name, "push") || !strcmp(name, "unshift") ? "($, |)" : !strcmp(name, "shift") ? "($, *%)" : (const char *) 0;
-    char msg[strlen(name) + 160];
+    char *msg;
     if (!strcmp(name, "e") || !strcmp(name, "pi") || !strcmp(name, "tau")) {
         cls = "X::Undeclared";
-        snprintf(msg, sizeof msg, "Variable '&%s' is not declared. Perhaps you forgot a 'sub' if this was\nintended to be part of a signature?", name);
+        msg = rt_heap_fmt("Variable '&%s' is not declared. Perhaps you forgot a 'sub' if this was\nintended to be part of a signature?", name);
     } else if (proto) {
         cls = "X::TypeCheck::Argument";
-        snprintf(msg, sizeof msg, "Calling %s() will never work with signature of the proto %s", name, proto);
-    } else snprintf(msg, sizeof msg, "Undeclared routine:\n    %s used", name);
-    rk_exc_throw(DATCON_fn(cls, STRVAL(rt_heap_strdup_c(msg))));
+        msg = rt_heap_fmt("Calling %s() will never work with signature of the proto %s", name, proto);
+    } else msg = rt_heap_fmt("Undeclared routine:\n    %s used", name);
+    rk_exc_throw(DATCON_fn(cls, STRVAL(msg)));
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -13311,9 +13325,8 @@ static void rk_method_missing(DESCR_t recv, const char *mname, DESCR_t *out) {
     else if (rk_typeobj_name(recv)) tn = rk_typeobj_name(recv);
     else if (IS_STR_fn(recv) && recv.s && dat_find_type(recv.s)) tn = recv.s;
     if (!tn) tn = rk_value_type(recv);
-    char msg[strlen(mname) + strlen(tn) + 64];
-    snprintf(msg, sizeof msg, "No such method '%s' for invocant of type '%s'", mname, tn);
-    rk_exc_throw(DATCON_fn("X::Method::NotFound", STRVAL(rt_heap_strdup_c(msg)), STRVAL(rt_heap_strdup_c(mname)), STRVAL(rt_heap_strdup_c(tn)), recv));
+    char *msg = rt_heap_fmt("No such method '%s' for invocant of type '%s'", mname, tn);
+    rk_exc_throw(DATCON_fn("X::Method::NotFound", STRVAL(msg), STRVAL(rt_heap_strdup_c(mname)), STRVAL(rt_heap_strdup_c(tn)), recv));
     *out = FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -14124,13 +14137,11 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         }
         if (!strcmp(op, "fails_like") && nargs >= 3) {
             const char *w1 = rk_typeobj_name(args[2]) ? rk_typeobj_name(args[2]) : VARVAL_fn(args[2]);
-            char dflt[(w1 ? strlen(w1) : 0) + 32];
-            snprintf(dflt, sizeof dflt, "did we fails-like %s?", w1 ? w1 : "Exception");
             DESCR_t a2[nargs + 1];
             int n2 = 0, hd = 0;
             a2[n2++] = rk_failure_is(args[0]) ? FIELD_GET_fn(args[0], "exception") : NULVCL;
             for (int i = 2; i < nargs; i++) { if (i > 2 && !rk_is_pair(args[i])) hd = 1; a2[n2++] = args[i]; }
-            if (!hd) a2[n2++] = STRVAL(rt_heap_strdup_c(dflt));
+            if (!hd) a2[n2++] = STRVAL(rt_heap_fmt("did we fails-like %s?", w1 ? w1 : "Exception"));
             if (rk_failure_is(args[0])) { rk_failure_handle(args[0]); return script_try_call_builtin_by_name("__rk_test_throws_like", a2, n2, out); }
             const char *d1 = to_cstring(a2[n2 - 1], msg, sizeof msg);
             rk_tap_proclaim(0, d1, "");
@@ -14223,7 +14234,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : "";
             long n = nargs > 1 ? (long) rk_int_arg(args[1], 1) : 1;
             g_runtime.tap.tap_todo_upto = g_runtime.tap.tap_run + n;
-            { char tb[fmt_len(" # TODO %s", r)]; snprintf(tb, sizeof tb, " # TODO %s", r); g_runtime.tap.tap_todo_reason = rt_heap_strdup_c(tb); }
+            g_runtime.tap.tap_todo_reason = rt_heap_fmt(" # TODO %s", r);
             *out = NULVCL;
             return 1;
         }
@@ -14501,10 +14512,9 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         rk_exc_init();
         const char *got = rk_raku_str(v, 0);
         int el = IS_INT_fn(args[3]) && args[3].i;
-        char msg[strlen(nm) + strlen(ty) + strlen(vt) + strlen(got) + 80];
-        if (el) snprintf(msg, sizeof msg, "Type check failed for an element of %s; expected %s but got %s (%s)", nm, ty, vt, got);
-        else snprintf(msg, sizeof msg, "Type check failed in assignment to $%s; expected %s but got %s (%s)", nm, ty, vt, got);
-        rk_exc_throw(DATCON_fn("X::TypeCheck::Assignment", STRVAL(rt_heap_strdup_c(msg)), STRVAL(rt_heap_strdup_c(vt)), STRVAL(rt_heap_strdup_c(ty)), STRVAL(rt_heap_strdup_c(nm))));
+        char *msg = el ? rt_heap_fmt("Type check failed for an element of %s; expected %s but got %s (%s)", nm, ty, vt, got) :
+            rt_heap_fmt("Type check failed in assignment to $%s; expected %s but got %s (%s)", nm, ty, vt, got);
+        rk_exc_throw(DATCON_fn("X::TypeCheck::Assignment", STRVAL(msg), STRVAL(rt_heap_strdup_c(vt)), STRVAL(rt_heap_strdup_c(ty)), STRVAL(rt_heap_strdup_c(nm))));
         *out = FAILDESCR;
         return 1;
     }
@@ -15953,9 +15963,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
                 int nh = 0;
                 for (int i = 0; i < mn; i++) {
                     if (!mro[i]) continue;
-                    char pn[fmt_len("%s__%s", mro[i], want)];
-                    snprintf(pn, sizeof pn, "%s__%s", mro[i], want);
-                    if (meth_is_user_proc(pn)) { hits[nh] = (DESCR_t){ 0 }; hits[nh].v = DT_BLK; hits[nh].s = rt_heap_strdup_c(pn); nh++; continue; }
+                    char *pn = rt_heap_fmt("%s__%s", mro[i], want);
+                    if (meth_is_user_proc(pn)) { hits[nh] = (DESCR_t){ 0 }; hits[nh].v = DT_BLK; hits[nh].s = pn; nh++; continue; }
                     DatType *ft = dat_find_type(mro[i]);
                     if (ft) for (int f = 0; f < ft->nfields; f++) if (!ft->priv[f] && !strcmp(ft->fields[f], want)) { hits[nh++] = STRVAL(rt_heap_strdup_c(want)); break; }
                 }
@@ -19491,11 +19500,11 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     if (!strcmp(fn,"DATATYPE") && declared) { *out = STRVAL(rt_heap_strdup_c(t)); return 1; }
     if (!strcmp(fn,"DATATYPE")) { const char *uc = bn_datatype_upper(t); if (uc) { *out = STRVAL(uc); return 1; } }
     if (!strcmp(fn,"DATATYPE")) {
-        char ub[strlen(t) + 1];
+        char *ub = (char *)rt_heap_alloc_c(strlen(t) + 1);
         int ui=0;
         for (; t[ui]; ui++) ub[ui]=(char)((t[ui]>='a'&&t[ui]<='z')?t[ui]-32:t[ui]);
         ub[ui]=0;
-        *out = STRVAL(rt_heap_strdup_c(ub));
+        *out = STRVAL(ub);
         return 1;
     }
     *out = STRVAL(t);
@@ -22570,26 +22579,20 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
                 DESCR_t kn;
                 int r2 = try_call_builtin_by_name("image", &vc->key_d, 1, &kn);
                 const char *key = (r2 && kn.v == DT_S && kn.s) ? kn.s : "";
-                char sb[fmt_len("T[%s]", key)];
-                snprintf(sb, sizeof sb, "T[%s]", key);
-                *out = STRVAL(rt_heap_strdup_c(sb));
+                *out = STRVAL(rt_heap_fmt("T[%s]", key));
                 return 1;
             }
-            if (vc->cellp && vc->pos > 0) { char sb[64]; snprintf(sb, sizeof sb, "L[%ld]", (long)vc->pos); *out = STRVAL(rt_heap_strdup_c(sb)); return 1; }
+            if (vc->cellp && vc->pos > 0) { *out = STRVAL(rt_heap_fmt("L[%ld]", (long)vc->pos)); return 1; }
             if (vc->cellp && vc->pos < 0 && vc->sv.u && vc->sv.u->type && vc->sv.u->type->fields && -vc->pos <= vc->sv.u->type->nfields) {
                 const char *tn = vc->sv.u->type->name ? vc->sv.u->type->name : "", *fnm = vc->sv.u->type->fields[-vc->pos - 1] ? vc->sv.u->type->fields[-vc->pos - 1] : "";
-                char sb[fmt_len("%s.%s", tn, fnm)];
-                snprintf(sb, sizeof sb, "%s.%s", tn, fnm);
-                *out = STRVAL(rt_heap_strdup_c(sb));
+                *out = STRVAL(rt_heap_fmt("%s.%s", tn, fnm));
                 return 1;
             }
             if (vc->sv.v == DT_N && (vc->sv.slen == 0 || vc->sv.slen == 2) && vc->len > 0) {
                 DESCR_t bn;
                 int r1 = try_call_builtin_by_name("name", &vc->sv, 1, &bn);
                 const char *base = (r1 && bn.v == DT_S && bn.s) ? bn.s : "";
-                char sb[fmt_len("%s[%ld:%ld]", base, (long)vc->pos, (long)(vc->pos + vc->len))];
-                snprintf(sb, sizeof sb, "%s[%ld:%ld]", base, (long)vc->pos, (long)(vc->pos + vc->len));
-                *out = STRVAL(rt_heap_strdup_c(sb));
+                *out = STRVAL(rt_heap_fmt("%s[%ld:%ld]", base, (long)vc->pos, (long)(vc->pos + vc->len)));
                 return 1;
             }
             *out = FAILDESCR;
@@ -23805,14 +23808,21 @@ static DESCR_t pl_db_add_r(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root
     extern int rt_pl_db_assert_ref(void *, void *, void *, int);
     extern int rt_pl_db_term_key(void *, char *, size_t, int *);
     extern void *rt_pl_db_get_by_key(void *, const char *, int);
-    char key[nargs == 2 ? bnd_db_key_need((void *)&args[0]) : 1];
+    size_t kn;
+    char *key;
+    int kid;
     int ar = 0;
     int ref;
     int ok;
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
+    kn = (size_t)bnd_db_key_need((void *)&args[0]);
+    key = pl_atom_carve_cx(kn - 1, cx);
+    if (!key) return FAILDESCR;
     rt_pl_tr_gc_sync(cx->tr);
-    if (!rt_pl_db_term_key((void *)&args[0], key, sizeof key, &ar)) { rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
+    if (!rt_pl_db_term_key((void *)&args[0], key, kn, &ar)) { prolog_atom_uncarve(key, kn - 1); rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
+    kid = prolog_atom_carved(key, kn - 1, strlen(key));
+    key = (char *)prolog_atom_name(kid);
     {
         void *db = rt_pl_db_get_by_key(root, key, 1);
         if (!db) { rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
@@ -23822,7 +23832,7 @@ static DESCR_t pl_db_add_r(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root
     {
         DESCR_t kids[2];
         DESCR_t *rc;
-        kids[0] = pl_mk_atom_dup(key, strlen(key));
+        kids[0] = pl_mk_atom(key);
         kids[1] = INTVAL((long long)ref);
         rc = (DESCR_t *)rt_pl_compound_cell("$clref", 2, (void *)kids);
         if (!rc) { rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
@@ -23871,19 +23881,23 @@ DESCR_t rt_pl_dop_db_at_r_c(DESCR_t *args, int nargs, void *root) {
 DESCR_t rt_pl_dop_db_ref_r_c(DESCR_t *args, int nargs, void *root) {
     extern int rt_pl_db_ref_at(void *, int);
     extern void *rt_pl_compound_cell(const char *, int, void *);
-    char key[nargs == 3 ? bnd_db_and_key_need(&args[0], args[1]) : 1];
+    size_t kn;
+    char *key;
     if (nargs != 3) return FAILDESCR;
     pl_atoms_ready();
+    kn = (size_t)bnd_db_and_key_need(&args[0], args[1]);
+    key = pl_atom_carve_cx(kn - 1, (pl_tr_ctx_t *)0);
+    if (!key) return FAILDESCR;
     {
-        void *db = pl_db_and_key(&args[0], args[1], root, key, sizeof key);
+        void *db = pl_db_and_key(&args[0], args[1], root, key, kn);
         DESCR_t iv = rt_pl_deref_val(args[2]);
-        if (!db || iv.v != DT_I) return FAILDESCR;
+        if (!db || iv.v != DT_I) { prolog_atom_uncarve(key, kn - 1); return FAILDESCR; }
         {
             int r = rt_pl_db_ref_at(db, (int)iv.i);
             DESCR_t kids[2];
             DESCR_t *rc;
-            if (r < 1) return FAILDESCR;
-            kids[0] = pl_mk_atom_dup(key, strlen(key));
+            if (r < 1) { prolog_atom_uncarve(key, kn - 1); return FAILDESCR; }
+            kids[0] = pl_mk_atom_carved(key, kn - 1, strlen(key));
             kids[1] = INTVAL((long long)r);
             rc = (DESCR_t *)rt_pl_compound_cell("$clref", 2, (void *)kids);
             return rc ? *rc : FAILDESCR;
@@ -24565,16 +24579,15 @@ PL_CX_LEAF_HEAD(cutcall, 2)
         int nleaf = 0, cuts = 0;
         ok = 0;
         if (pl_cutcall_walk(&args[0], (char *)0, &len, (DESCR_t **)0, &nleaf, &cuts, 0, (tree_t **)0) && cuts) {
-            char sk[len + 1];
+            char *nb = pl_atom_carve_cx(len + 3, cx);
             DESCR_t *leaves[nleaf > 0 ? nleaf : 1];
             size_t l2 = 0;
             int n = 0, c2 = 0;
-            if (pl_cutcall_walk(&args[0], sk, &l2, leaves, &n, &c2, 0, (tree_t **)0)) {
-                sk[l2] = 0;
+            if (nb) memcpy(nb, "$cc", 3);
+            if (nb && !pl_cutcall_walk(&args[0], nb + 3, &l2, leaves, &n, &c2, 0, (tree_t **)0)) prolog_atom_uncarve(nb, len + 3);
+            else if (nb) {
                 {
-                    int nl = snprintf(NULL, 0, "$cc%s", sk) + 1;
-                    char nm[nl];
-                    snprintf(nm, (size_t)nl, "$cc%s", sk);
+                    const char *nm = prolog_atom_name(prolog_atom_carved(nb, len + 3, l2 + 3));
                     int kl = snprintf(NULL, 0, "%s/%d", nm, n) + 1;
                     char key[kl];
                     snprintf(key, (size_t)kl, "%s/%d", nm, n);
