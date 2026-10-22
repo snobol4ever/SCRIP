@@ -25,96 +25,93 @@ extern long rt_anchor_g __attribute__((alias("g_anchor")));
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long *rt_anchor_ptr(void) { return &g_anchor; }
 long g_maxlngth = 5000000;
-int64_t g_kw_maxint = 9223372036854775807LL;
 long g_stno = 0;
 long g_stcount = 0;
 long g_lastno = 0;
 long g_line = 0;
 long g_lastline = 0;
 const char *g_file = NULL;
-const char *g_lastfile = NULL;
-const char *g_sno_errtext = NULL;
-typedef struct { const char *ptr; const char *name; int len; unsigned char bits[32]; } kw_cset_ent_t;
-static kw_cset_ent_t *g_kw_cset_names = NULL;
-static int g_kw_cset_count = 0;
-static int g_kw_cset_cap = 0;
+typedef struct g_kw_cset_ent { const char *ptr; const char *name; int len; unsigned char bits[32]; } kw_cset_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int *g_kw_cset_hidx = NULL;
-static int g_kw_cset_hcap = 0;
 static unsigned kw_cset_hash(const char *p) { uint64_t x = (uint64_t)(uintptr_t)p; x ^= x >> 17; x *= 0x9E3779B97F4A7C15ull; x ^= x >> 29; return (unsigned)x; }
-static int *g_kw_cset_cidx = NULL;
 static unsigned kw_cset_chash(const char *p, int len) { unsigned h = 5381u; for (int i = 0; i < len; i++) h = h * 33u + (unsigned char)p[i]; return h; }
 static int kw_cset_same(const kw_cset_ent_t *e, const char *p, int len) { return e->ptr && e->len == len && !memcmp(e->ptr, p, (size_t)len); }
 static void kw_cset_cindex_insert(int idx) {
-    const kw_cset_ent_t *e = &g_kw_cset_names[idx];
+    const kw_cset_ent_t *e = &g_runtime.kw.kw_cset_names[idx];
     if (!e->ptr || e->len < 0) return;
-    int m = g_kw_cset_hcap - 1;
+    int m = g_runtime.kw.kw_cset_hcap - 1;
     for (int sl = (int)(kw_cset_chash(e->ptr, e->len) & (unsigned)m);; sl = (sl + 1) & m) {
-        int v = g_kw_cset_cidx[sl];
-        if (!v) { g_kw_cset_cidx[sl] = idx + 1; return; }
-        if (kw_cset_same(&g_kw_cset_names[v - 1], e->ptr, e->len)) return;
+        int v = g_runtime.kw.kw_cset_cidx[sl];
+        if (!v) { g_runtime.kw.kw_cset_cidx[sl] = idx + 1; return; }
+        if (kw_cset_same(&g_runtime.kw.kw_cset_names[v - 1], e->ptr, e->len)) return;
     }
 }
 static int kw_cset_find_content(const char *p, int len) {
-    if (!g_kw_cset_cidx || !p || len < 0) return -1;
-    int m = g_kw_cset_hcap - 1;
-    for (int sl = (int)(kw_cset_chash(p, len) & (unsigned)m);; sl = (sl + 1) & m) { int v = g_kw_cset_cidx[sl]; if (!v) return -1; if (kw_cset_same(&g_kw_cset_names[v - 1], p, len)) return v - 1; }
+    if (!g_runtime.kw.kw_cset_cidx || !p || len < 0) return -1;
+    int m = g_runtime.kw.kw_cset_hcap - 1;
+    for (int sl = (int)(kw_cset_chash(p, len) & (unsigned)m);; sl = (sl + 1) & m) {
+        int v = g_runtime.kw.kw_cset_cidx[sl];
+        if (!v) return -1;
+        if (kw_cset_same(&g_runtime.kw.kw_cset_names[v - 1], p, len)) return v - 1;
+    }
 }
 static void kw_cset_hindex_insert(int idx) {
-    int m = g_kw_cset_hcap - 1;
-    for (int sl = (int)(kw_cset_hash(g_kw_cset_names[idx].ptr) & (unsigned)m);; sl = (sl + 1) & m) if (!g_kw_cset_hidx[sl]) { g_kw_cset_hidx[sl] = idx + 1; return; }
+    int m = g_runtime.kw.kw_cset_hcap - 1;
+    for (int sl = (int)(kw_cset_hash(g_runtime.kw.kw_cset_names[idx].ptr) & (unsigned)m);; sl = (sl + 1) & m) if (!g_runtime.kw.kw_cset_hidx[sl]) { g_runtime.kw.kw_cset_hidx[sl] = idx + 1; return; }
 }
-static long g_kw_cset_hidx_gen = -1;
 static __attribute__((noinline)) void kw_cset_compact(void) {
     int j = 0;
-    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr || g_kw_cset_names[i].name) { if (j != i) g_kw_cset_names[j] = g_kw_cset_names[i]; j++; }
-    if (j == g_kw_cset_count) return;
-    g_kw_cset_count = j;
-    memset(g_kw_cset_cidx, 0, (size_t)g_kw_cset_hcap * sizeof(int));
-    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr) kw_cset_cindex_insert(i);
+    for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) if (g_runtime.kw.kw_cset_names[i].ptr || g_runtime.kw.kw_cset_names[i].name) {
+        if (j != i) g_runtime.kw.kw_cset_names[j] = g_runtime.kw.kw_cset_names[i];
+        j++;
+    }
+    if (j == g_runtime.kw.kw_cset_count) return;
+    g_runtime.kw.kw_cset_count = j;
+    memset(g_runtime.kw.kw_cset_cidx, 0, (size_t)g_runtime.kw.kw_cset_hcap * sizeof(int));
+    for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) if (g_runtime.kw.kw_cset_names[i].ptr) kw_cset_cindex_insert(i);
 }
 static void kw_cset_hindex_refresh(void) {
     extern long rt_gc_runs_count(void);
     long gen = rt_gc_runs_count();
-    if (gen == g_kw_cset_hidx_gen) return;
-    g_kw_cset_hidx_gen = gen;
-    if (!g_kw_cset_hidx || g_kw_cset_hcap <= 0) return;
+    if (gen == g_runtime.kw.kw_cset_hidx_gen) return;
+    g_runtime.kw.kw_cset_hidx_gen = gen;
+    if (!g_runtime.kw.kw_cset_hidx || g_runtime.kw.kw_cset_hcap <= 0) return;
     kw_cset_compact();
-    memset(g_kw_cset_hidx, 0, (size_t)g_kw_cset_hcap * sizeof(int));
-    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr) kw_cset_hindex_insert(i);
+    memset(g_runtime.kw.kw_cset_hidx, 0, (size_t)g_runtime.kw.kw_cset_hcap * sizeof(int));
+    for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) if (g_runtime.kw.kw_cset_names[i].ptr) kw_cset_hindex_insert(i);
 }
 static void kw_cset_hindex_rebuild(void) {
     int want = 64;
-    while (want < g_kw_cset_cap * 2) want <<= 1;
-    if (want != g_kw_cset_hcap) {
-        ct_drop(g_kw_cset_hidx);
-        ct_drop(g_kw_cset_cidx);
-        g_kw_cset_hidx = (int *) ct_zalloc((size_t)want, sizeof(int));
-        g_kw_cset_cidx = (int *) ct_zalloc((size_t)want, sizeof(int));
-        g_kw_cset_hcap = want;
+    while (want < g_runtime.kw.kw_cset_cap * 2) want <<= 1;
+    if (want != g_runtime.kw.kw_cset_hcap) {
+        ct_drop(g_runtime.kw.kw_cset_hidx);
+        ct_drop(g_runtime.kw.kw_cset_cidx);
+        g_runtime.kw.kw_cset_hidx = (int *) ct_zalloc((size_t)want, sizeof(int));
+        g_runtime.kw.kw_cset_cidx = (int *) ct_zalloc((size_t)want, sizeof(int));
+        g_runtime.kw.kw_cset_hcap = want;
     } else {
-        memset(g_kw_cset_hidx, 0, (size_t)want * sizeof(int));
-        memset(g_kw_cset_cidx, 0, (size_t)want * sizeof(int));
+        memset(g_runtime.kw.kw_cset_hidx, 0, (size_t)want * sizeof(int));
+        memset(g_runtime.kw.kw_cset_cidx, 0, (size_t)want * sizeof(int));
     }
-    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr) { kw_cset_hindex_insert(i); kw_cset_cindex_insert(i); }
+    for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) if (g_runtime.kw.kw_cset_names[i].ptr) { kw_cset_hindex_insert(i); kw_cset_cindex_insert(i); }
 }
 static int kw_cset_find_ptr(const char *p) {
-    if (!g_kw_cset_hidx || !p) return -1;
+    if (!g_runtime.kw.kw_cset_hidx || !p) return -1;
     kw_cset_hindex_refresh();
-    int m = g_kw_cset_hcap - 1;
-    for (int sl = (int)(kw_cset_hash(p) & (unsigned)m);; sl = (sl + 1) & m) { int v = g_kw_cset_hidx[sl]; if (!v) return -1; if (g_kw_cset_names[v - 1].ptr == p) return v - 1; }
+    int m = g_runtime.kw.kw_cset_hcap - 1;
+    for (int sl = (int)(kw_cset_hash(p) & (unsigned)m);; sl = (sl + 1) & m) { int v = g_runtime.kw.kw_cset_hidx[sl]; if (!v) return -1; if (g_runtime.kw.kw_cset_names[v - 1].ptr == p) return v - 1; }
 }
 static void kw_cset_grow(void) {
-    if (g_kw_cset_count < g_kw_cset_cap) return;
-    g_kw_cset_cap = g_kw_cset_cap ? g_kw_cset_cap * 2 : 16;
-    g_kw_cset_names = (kw_cset_ent_t *) ct_grow(g_kw_cset_names, (size_t)g_kw_cset_cap * sizeof(kw_cset_ent_t));
+    if (g_runtime.kw.kw_cset_count < g_runtime.kw.kw_cset_cap) return;
+    g_runtime.kw.kw_cset_cap = g_runtime.kw.kw_cset_cap ? g_runtime.kw.kw_cset_cap * 2 : 16;
+    g_runtime.kw.kw_cset_names = (kw_cset_ent_t *) ct_grow(g_runtime.kw.kw_cset_names, (size_t)g_runtime.kw.kw_cset_cap * sizeof(kw_cset_ent_t));
     kw_cset_hindex_rebuild();
 }
 static void kw_cset_bits_fill(kw_cset_ent_t *e) {
     memset(e->bits, 0, sizeof e->bits);
     if (e->ptr) for (int i = 0; i < e->len; i++) { unsigned c = (unsigned char)e->ptr[i]; e->bits[c >> 3] |= (unsigned char)(1u << (c & 7)); }
 }
-const unsigned char *kw_cset_bits(const char *ptr) { int hit = kw_cset_find_ptr(ptr); return hit >= 0 ? g_kw_cset_names[hit].bits : (const unsigned char *)0; }
+const unsigned char *kw_cset_bits(const char *ptr) { int hit = kw_cset_find_ptr(ptr); return hit >= 0 ? g_runtime.kw.kw_cset_names[hit].bits : (const unsigned char *)0; }
 const unsigned char *rt_icn_cset_bits_d(uint64_t lo, uint64_t hi) {
     uint64_t w[2];
     w[0] = lo;
@@ -125,16 +122,17 @@ const unsigned char *rt_icn_cset_bits_d(uint64_t lo, uint64_t hi) {
 }
 static void kw_cset_append(const char *ptr, const char *name, int len) {
     kw_cset_grow();
-    g_kw_cset_names[g_kw_cset_count].ptr = ptr;
-    g_kw_cset_names[g_kw_cset_count].name = name;
-    g_kw_cset_names[g_kw_cset_count].len = len;
-    kw_cset_bits_fill(&g_kw_cset_names[g_kw_cset_count]);
-    g_kw_cset_count++;
-    if (ptr) { kw_cset_hindex_insert(g_kw_cset_count - 1); kw_cset_cindex_insert(g_kw_cset_count - 1); }
+    g_runtime.kw.kw_cset_names[g_runtime.kw.kw_cset_count].ptr = ptr;
+    g_runtime.kw.kw_cset_names[g_runtime.kw.kw_cset_count].name = name;
+    g_runtime.kw.kw_cset_names[g_runtime.kw.kw_cset_count].len = len;
+    kw_cset_bits_fill(&g_runtime.kw.kw_cset_names[g_runtime.kw.kw_cset_count]);
+    g_runtime.kw.kw_cset_count++;
+    if (ptr) { kw_cset_hindex_insert(g_runtime.kw.kw_cset_count - 1); kw_cset_cindex_insert(g_runtime.kw.kw_cset_count - 1); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
-    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, kw_name)) return CSETVAL(g_kw_cset_names[i].ptr);
+    for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) if (g_runtime.kw.kw_cset_names[i].name && !strcmp(g_runtime.kw.kw_cset_names[i].name, kw_name))
+        return CSETVAL(g_runtime.kw.kw_cset_names[i].ptr);
     const char *arena = cset_canonical(chars, (int)strlen(chars));
     char *stable = rt_heap_strdup_c(arena);
     int clen = (int)strlen(stable);
@@ -143,7 +141,7 @@ static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void kw_cset_reg(const char *chars, const char *name, int len) {
-    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, name)) return;
+    for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) if (g_runtime.kw.kw_cset_names[i].name && !strcmp(g_runtime.kw.kw_cset_names[i].name, name)) return;
     extern void *rt_wsb_alloc(size_t);
     char *stable = (char *)rt_wsb_alloc((size_t)len + 1);
     memcpy(stable, chars, (size_t)len);
@@ -163,33 +161,39 @@ static void kw_cset_prime(void) {
     { char a[256]; for (int c=0;c<256;c++) a[c]=(char)c; kw_cset_reg(a, "&cset", 256); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int kw_cset_slot_of(const char *kw_name) { for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, kw_name)) return i; return -1; }
+static int kw_cset_slot_of(const char *kw_name) {
+    for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) if (g_runtime.kw.kw_cset_names[i].name && !strcmp(g_runtime.kw.kw_cset_names[i].name, kw_name)) return i;
+    return -1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void kw_errtext_gc_root(void) { extern void rt_gc_visit_raw(const char **loc); if (g_sno_errtext) rt_gc_visit_raw(&g_sno_errtext); }
+void kw_errtext_gc_root(void) { extern void rt_gc_visit_raw(const char **loc); if (g_runtime.kw.sno_errtext) rt_gc_visit_raw(&g_runtime.kw.sno_errtext); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void kw_cset_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **loc);
     kw_errtext_gc_root();
-    if (!g_kw_cset_names) return;
-    rt_gc_visit_raw((const char **)&g_kw_cset_names);
-    for (int i = 0; i < g_kw_cset_count; i++) {
-        if (!g_kw_cset_names[i].name) continue;
-        if (g_kw_cset_names[i].ptr) rt_gc_visit_raw(&g_kw_cset_names[i].ptr);
-        rt_gc_visit_raw(&g_kw_cset_names[i].name);
+    if (!g_runtime.kw.kw_cset_names) return;
+    rt_gc_visit_raw((const char **)&g_runtime.kw.kw_cset_names);
+    for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) {
+        if (!g_runtime.kw.kw_cset_names[i].name) continue;
+        if (g_runtime.kw.kw_cset_names[i].ptr) rt_gc_visit_raw(&g_runtime.kw.kw_cset_names[i].ptr);
+        rt_gc_visit_raw(&g_runtime.kw.kw_cset_names[i].name);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *g_kw_cset_regc_ptr[64];
-static int g_kw_cset_regc_len[64];
 void kw_cset_gc_weak(void) {
     extern int rt_gc_weak_keep(const char **loc);
-    for (int i = 0; i < g_kw_cset_count; i++) { kw_cset_ent_t *e = &g_kw_cset_names[i]; if (e->name || !e->ptr || rt_gc_weak_keep(&e->ptr)) continue; e->ptr = (const char *)0; e->len = -1; }
-    memset(g_kw_cset_regc_ptr, 0, sizeof g_kw_cset_regc_ptr);
+    for (int i = 0; i < g_runtime.kw.kw_cset_count; i++) {
+        kw_cset_ent_t *e = &g_runtime.kw.kw_cset_names[i];
+        if (e->name || !e->ptr || rt_gc_weak_keep(&e->ptr)) continue;
+        e->ptr = (const char *)0;
+        e->len = -1;
+    }
+    memset(g_runtime.kw.kw_cset_regc_ptr, 0, sizeof g_runtime.kw.kw_cset_regc_ptr);
 }
 const char *kw_cset_intern(const char *canon, int len) {
     kw_cset_prime();
     if (!canon) { canon = ""; if (len > 0) len = 0; }
-    if (len >= 0) { int hit = kw_cset_find_content(canon, len); if (hit >= 0) return g_kw_cset_names[hit].ptr; }
+    if (len >= 0) { int hit = kw_cset_find_content(canon, len); if (hit >= 0) return g_runtime.kw.kw_cset_names[hit].ptr; }
     {
         extern void *rt_wsb_alloc(size_t);
         char *stable = (char *)rt_wsb_alloc((size_t)len + 1);
@@ -201,29 +205,39 @@ const char *kw_cset_intern(const char *canon, int len) {
 }
 void rt_icn_cset_register(const char *ptr, int len) {
     if (!ptr) return;
-    { unsigned h = (unsigned)(((uintptr_t)ptr >> 4) & 63u); if (g_kw_cset_regc_ptr[h] == ptr && g_kw_cset_regc_len[h] == len) return; g_kw_cset_regc_ptr[h] = ptr; g_kw_cset_regc_len[h] = len; }
+    {
+        unsigned h = (unsigned)(((uintptr_t)ptr >> 4) & 63u);
+        if (g_runtime.kw.kw_cset_regc_ptr[h] == ptr && g_runtime.kw.kw_cset_regc_len[h] == len) return;
+        g_runtime.kw.kw_cset_regc_ptr[h] = ptr;
+        g_runtime.kw.kw_cset_regc_len[h] = len;
+    }
     kw_cset_prime();
-    { int hit = kw_cset_find_ptr(ptr); if (hit >= 0) { if (g_kw_cset_names[hit].len != len) { g_kw_cset_names[hit].len = len; kw_cset_bits_fill(&g_kw_cset_names[hit]); } return; } }
+    {
+        int hit = kw_cset_find_ptr(ptr);
+        if (hit >= 0) { if (g_runtime.kw.kw_cset_names[hit].len != len) { g_runtime.kw.kw_cset_names[hit].len = len; kw_cset_bits_fill(&g_runtime.kw.kw_cset_names[hit]); } return; }
+    }
     kw_cset_append(ptr, NULL, len);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *kw_cset_name(const char *ptr) {
     kw_cset_prime();
-    { int hit = kw_cset_find_ptr(ptr); if (hit >= 0 && g_kw_cset_names[hit].name) return g_kw_cset_names[hit].name; }
-    if (ptr) for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr && g_kw_cset_names[i].ptr[0] != '\0' && g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].ptr, ptr))
-        return g_kw_cset_names[i].name;
+    { int hit = kw_cset_find_ptr(ptr); if (hit >= 0 && g_runtime.kw.kw_cset_names[hit].name) return g_runtime.kw.kw_cset_names[hit].name; }
+    if (ptr) for (int i = 0; i < g_runtime.kw.kw_cset_count; i++)
+        if (g_runtime.kw.kw_cset_names[i].ptr && g_runtime.kw.kw_cset_names[i].ptr[0] != '\0' && g_runtime.kw.kw_cset_names[i].name && !strcmp(g_runtime.kw.kw_cset_names[i].ptr, ptr))
+        return g_runtime.kw.kw_cset_names[i].name;
     {
         int plen = kw_cset_len(ptr);
-        if (plen > 0) for (int i = 0; i < g_kw_cset_count; i++)
-            if (g_kw_cset_names[i].name && g_kw_cset_names[i].len == plen && g_kw_cset_names[i].ptr && !memcmp(g_kw_cset_names[i].ptr, ptr, (size_t)plen)) return g_kw_cset_names[i].name;
+        if (plen > 0) for (int i = 0; i < g_runtime.kw.kw_cset_count; i++)
+            if (g_runtime.kw.kw_cset_names[i].name && g_runtime.kw.kw_cset_names[i].len == plen && g_runtime.kw.kw_cset_names[i].ptr && !memcmp(g_runtime.kw.kw_cset_names[i].ptr, ptr, (size_t)plen))
+            return g_runtime.kw.kw_cset_names[i].name;
     }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int kw_cset_len(const char *ptr) {
     kw_cset_prime();
-    { int hit = kw_cset_find_ptr(ptr); if (hit >= 0) return g_kw_cset_names[hit].len; }
-    if (ptr && ptr[0]) { int hit = kw_cset_find_content(ptr, (int)strlen(ptr)); if (hit >= 0) return g_kw_cset_names[hit].len; }
+    { int hit = kw_cset_find_ptr(ptr); if (hit >= 0) return g_runtime.kw.kw_cset_names[hit].len; }
+    if (ptr && ptr[0]) { int hit = kw_cset_find_content(ptr, (int)strlen(ptr)); if (hit >= 0) return g_runtime.kw.kw_cset_names[hit].len; }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -256,7 +270,7 @@ static KWB_ENT_t g_kwb[] = { { "ANCHOR", KWB_INT, 0, (int64_t *)&g_anchor, 0, (c
     { "FNCLEVEL", KWB_INT, KWB_PROT, &g_kw_fnclevel, 0, (const char *)0 , "g_kw_fnclevel" }, { "UCASE", KWB_STR, KWB_PROT, (int64_t *)0, 0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ" , (const char *)0 }, { "LCASE",
     KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" , (const char *)0 }, { "RTNTYPE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "ERRTEXT", KWB_STR, 0,
     (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "USER_DECLARED_CONSTANTS", KWB_INT, 0, &g_kwb_own[7],
-    1, (const char *)0 , "g_rt_kwb_own" }, { "MAXINT", KWB_INT, KWB_PROT, &g_kw_maxint, 0, (const char *)0 , "g_kw_maxint" }, };
+    1, (const char *)0 , "g_rt_kwb_own" }, { "MAXINT", KWB_INT, KWB_PROT, &g_runtime.kw.kw_maxint, 0, (const char *)0 , "g_runtime.kw.kw_maxint" }, };
 static const int g_kwb_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
 static KWB_ENT_t *g_kwb_bound = g_kwb;
 static int g_kwb_bound_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
@@ -312,10 +326,10 @@ static int kwb_read_ent(KWB_ENT_t *e, DESCR_t *out) {
     if (!e) return 0;
     if (e->kind == KWB_STR) {
         if (!strcmp(e->name, "RTNTYPE")) { *out = STRVAL(g_kw_rtntype); return 1; }
-        if (!strcmp(e->name, "ERRTEXT")) { *out = STRVAL(g_sno_errtext ? g_sno_errtext : ""); return 1; }
+        if (!strcmp(e->name, "ERRTEXT")) { *out = STRVAL(g_runtime.kw.sno_errtext ? g_runtime.kw.sno_errtext : ""); return 1; }
         if (!strcmp(e->name, "ALPHABET")) { extern const char alphabet[257]; return (*out = BSTRVAL(alphabet, 256)), 1; }
         if (!strcmp(e->name, "FILE")) { extern const char *g_file; *out = STRVAL(g_file ? g_file : ""); return 1; }
-        if (!strcmp(e->name, "LASTFILE")) { extern const char *g_lastfile; *out = STRVAL(g_lastfile ? g_lastfile : ""); return 1; }
+        if (!strcmp(e->name, "LASTFILE")) { *out = STRVAL(g_runtime.kw.lastfile ? g_runtime.kw.lastfile : ""); return 1; }
         *out = e->sval ? STRVAL(e->sval) : STRVAL("");
         return 1;
     }
@@ -331,14 +345,20 @@ int kwb_error(int code, const char *msg) {
     core_err_compat_map(&code, &msg);
     extern int core_setexit_armed(void);
     KWB_ENT_t *el = kwb_find("ERRLIMIT");
-    if (el && el->cell && *el->cell > 0 && !core_setexit_armed()) { *el->cell -= 1; KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_sno_errtext = msg; return 0; }
+    if (el && el->cell && *el->cell > 0 && !core_setexit_armed()) {
+        *el->cell -= 1;
+        KWB_ENT_t *et = kwb_find("ERRTYPE");
+        if (et && et->cell) *et->cell = code;
+        g_runtime.kw.sno_errtext = msg;
+        return 0;
+    }
     core_runtime_error(code, msg);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_kw_publish_error(int code, const char *msg) { KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_sno_errtext = msg ? rt_heap_strdup_c(msg) : ""; }
+void rt_kw_publish_error(int code, const char *msg) { KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_runtime.kw.sno_errtext = msg ? rt_heap_strdup_c(msg) : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_kw_publish_error_at_exit(int code, const char *msg) { KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_sno_errtext = msg ? msg : ""; }
+void rt_kw_publish_error_at_exit(int code, const char *msg) { KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_runtime.kw.sno_errtext = msg ? msg : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_set_rtntype(int which) {
     static const uint64_t words[4] = { 0x00004E5255544552ull, 0x004E525554455246ull, 0x004E52555445524Eull, 0ull };
@@ -363,7 +383,7 @@ static int kwb_numeric_text(const char *s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int kwb_write_ent(KWB_ENT_t *e, DESCR_t v) {
     if (!e) return 0;
-    if (e->kind == KWB_STR && !strcmp(e->name, "ERRTEXT")) { const char *s = VARVAL_fn(v); g_sno_errtext = rt_heap_strdup_c(s ? s : ""); return 1; }
+    if (e->kind == KWB_STR && !strcmp(e->name, "ERRTEXT")) { const char *s = VARVAL_fn(v); g_runtime.kw.sno_errtext = rt_heap_strdup_c(s ? s : ""); return 1; }
     int is_num = IS_INT(v) || IS_REAL(v);
     if (!is_num) is_num = kwb_numeric_text(VARVAL_fn(v));
     if (!is_num) return kwb_error(208, "keyword value assigned is not integer") ? 1 : -1;
@@ -372,7 +392,7 @@ static int kwb_write_ent(KWB_ENT_t *e, DESCR_t v) {
     if (!strcmp(e->name, "MAXLNGTH") && iv < 1024) return kwb_error(287, "value assigned to keyword maxlngth is too small") ? 1 : -1;
     if (e->prot) return kwb_error(209, "keyword in assignment is protected") ? 1 : -1;
     if (e->cell) *e->cell = iv;
-    if (!strcmp(e->name, "ERRTYPE")) return kwb_error((int)iv, g_sno_errtext ? g_sno_errtext : "") ? 1 : -1;
+    if (!strcmp(e->name, "ERRTYPE")) return kwb_error((int)iv, g_runtime.kw.sno_errtext ? g_runtime.kw.sno_errtext : "") ? 1 : -1;
     if (!strcmp(e->name, "DUMP") && iv) { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); }
     return 1;
 }
@@ -418,9 +438,9 @@ DESCR_t kw_read(const char *kw) {
             memcpy(stable, ascii_str, 128);
             stable[128] = '\0';
             kw_cset_append(stable, "&ascii", 128);
-            csi = g_kw_cset_count - 1;
+            csi = g_runtime.kw.kw_cset_count - 1;
         }
-        return CSETVAL(g_kw_cset_names[csi].ptr);
+        return CSETVAL(g_runtime.kw.kw_cset_names[csi].ptr);
     }
     if (!strcmp(kw,"cset")) {
         static int csi = -1;
@@ -433,9 +453,9 @@ DESCR_t kw_read(const char *kw) {
             memcpy(stable, cset_str, 256);
             stable[256] = '\0';
             kw_cset_append(stable, "&cset", 256);
-            csi = g_kw_cset_count - 1;
+            csi = g_runtime.kw.kw_cset_count - 1;
         }
-        return CSETVAL(g_kw_cset_names[csi].ptr);
+        return CSETVAL(g_runtime.kw.kw_cset_names[csi].ptr);
     }
     {
         extern long g_icn_errnumber;
@@ -469,7 +489,7 @@ DESCR_t kw_read(const char *kw) {
         if (!strcmp(kw,"line")) return INTVAL(g_line);
         if (!strcmp(kw,"lastline")) return INTVAL(g_lastline);
     }
-    { extern const char *g_file, *g_lastfile; if (!strcmp(kw,"file")) return STRVAL(g_file ? g_file : ""); if (!strcmp(kw,"lastfile")) return STRVAL(g_lastfile ? g_lastfile : ""); }
+    { extern const char *g_file; if (!strcmp(kw,"file")) return STRVAL(g_file ? g_file : ""); if (!strcmp(kw,"lastfile")) return STRVAL(g_runtime.kw.lastfile ? g_runtime.kw.lastfile : ""); }
     if (!strcmp(kw,"col")) return FAILDESCR;
     if (!strcmp(kw,"row")) return FAILDESCR;
     if (!strcmp(kw,"x")) return FAILDESCR;
@@ -596,7 +616,7 @@ void rt_stmt_enter(long stno, long line) {
     g_stno = stno;
     g_lastline = g_line;
     g_line = line;
-    g_lastfile = (g_stcount > 0) ? g_file : (const char *)0;
+    g_runtime.kw.lastfile = (g_stcount > 0) ? g_file : (const char *)0;
     if (g_kw_stlimit < 0) return;
     g_stcount++;
     if (g_stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();
@@ -611,7 +631,7 @@ void rt_stmt_enter_p(long stno, long line, trace_pend_t *pend) {
     g_stno = stno;
     g_lastline = g_line;
     g_line = line;
-    g_lastfile = (g_stcount > 0) ? g_file : (const char *)0;
+    g_runtime.kw.lastfile = (g_stcount > 0) ? g_file : (const char *)0;
     if (g_kw_stlimit < 0) return;
     g_stcount++;
     if (g_stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();

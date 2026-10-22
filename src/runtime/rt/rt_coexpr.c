@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <errno.h>
+#include "g_runtime.h"
 #include "ct_arena.h"
 #include <pthread.h>
 #include <semaphore.h>
@@ -13,14 +14,8 @@
 #include <limits.h>
 #include "gc_heap.h"
 #include "rt_coexpr.h"
-static int g_inited = 0;
-static pthread_attr_t g_attribs;
-static long g_coexp_stksize = 8L * 1024 * 1024;
 scrip_coctx_t *g_scrip_co_current = NULL;
 static scrip_coctx_t *g_co_gc_head = NULL;
-static pthread_t g_co_main_thr;
-static int g_co_main_set = 0;
-static long g_coexpr_serial = 1;
 extern int g_scan_depth;
 typedef struct scrip_coexpr_entry_pkg_t { void *body_entry_addr; uint64_t r12, r14, rbx, csav5, gva, frame_bytes, below; char *body_rbp; } scrip_coexpr_entry_pkg_t;
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_entry_addr) == 0, "pkg layout drift: body_entry_addr");
@@ -78,26 +73,26 @@ static void *scrip_co_trampoline(void *arg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_init_once(scrip_coctx_t *cur) {
-    if (g_inited) return;
+    if (g_runtime.coexpr.inited) return;
     cur->semp = &cur->sema;
     scrip_co_makesem(cur);
     cur->thread = pthread_self();
     cur->alive = 1;
     cur->started = 1;
-    g_co_main_thr = cur->thread;
-    g_co_main_set = 1;
-    { const char *_cs = getenv("SCRIP_COEXP_STACK"); if (_cs && *_cs) { long _v = atol(_cs); if (_v >= (long)PTHREAD_STACK_MIN) g_coexp_stksize = _v; } }
-    pthread_attr_init(&g_attribs);
-    if (pthread_attr_setstacksize(&g_attribs, (size_t)g_coexp_stksize) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize failed");
-    g_inited = 1;
+    g_runtime.coexpr.co_main_thr = cur->thread;
+    g_runtime.coexpr.co_main_set = 1;
+    { const char *_cs = getenv("SCRIP_COEXP_STACK"); if (_cs && *_cs) { long _v = atol(_cs); if (_v >= (long)PTHREAD_STACK_MIN) g_runtime.coexpr.coexp_stksize = _v; } }
+    pthread_attr_init(&g_runtime.coexpr.attribs);
+    if (pthread_attr_setstacksize(&g_runtime.coexpr.attribs, (size_t)g_runtime.coexpr.coexp_stksize) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize failed");
+    g_runtime.coexpr.inited = 1;
 }
 static void scrip_co_thread_start(scrip_coctx_t *new_ctx) {
     scrip_co_makesem(new_ctx);
     {
-        pthread_attr_t *ap = &g_attribs;
+        pthread_attr_t *ap = &g_runtime.coexpr.attribs;
         pthread_attr_t big;
         size_t need = new_ctx->stk_need + (size_t)(2u << 20);
-        if (need > (size_t)g_coexp_stksize) {
+        if (need > (size_t)g_runtime.coexpr.coexp_stksize) {
             need = (need + 4095u) & ~(size_t)4095u;
             pthread_attr_init(&big);
             if (pthread_attr_setstacksize(&big, need) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize (image-sized) failed");
@@ -314,7 +309,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->park_pc = 0;
     ctx->sigma_live = 0;
     ctx->scan_state = NULL;
-    ctx->serial = ++g_coexpr_serial;
+    ctx->serial = ++g_runtime.coexpr.coexpr_serial;
     ctx->activations = 0;
     { extern long g_line; ctx->create_line = g_line; }
     ctx->create_proc = procname;
@@ -480,7 +475,7 @@ const char *scrip_co_body_base(const scrip_coctx_t *ctx) {
 }
 long scrip_coexpr_serial_of(void *ctx) { return ctx ? ((scrip_coctx_t *)ctx)->serial : 0; }
 long scrip_coexpr_activations_of(void *ctx) { if (!ctx) return 0; if (ctx == (void *)&g_root_ctx) return ((scrip_coctx_t *)ctx)->activations + 1; return ((scrip_coctx_t *)ctx)->activations; }
-int scrip_co_main_known(pthread_t *out) { if (g_co_main_set && out) *out = g_co_main_thr; return g_co_main_set; }
+int scrip_co_main_known(pthread_t *out) { if (g_runtime.coexpr.co_main_set && out) *out = g_runtime.coexpr.co_main_thr; return g_runtime.coexpr.co_main_set; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi) {
     if (ctx->stk_lo && ctx->stk_hi && ctx->stk_lo < ctx->stk_hi) { *lo = ctx->stk_lo; *hi = ctx->stk_hi; return 1; }

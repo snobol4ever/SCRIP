@@ -243,8 +243,8 @@ static void eval_stmt_strings_drop(tree_t *st) {
 static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, int *thunks) {
     *thunks = 0;
     if (!s || !*s) return NULL;
-    if (eval_top_comma(s)) { extern const char *g_sno_errtext; g_sno_errtext = "syntax error: invalid use of comma"; return NULL; }
-    if (sno_text_illegal_at(s) >= 0) { extern const char *g_sno_errtext; g_sno_errtext = "syntax error: illegal character"; return NULL; }
+    if (eval_top_comma(s)) { g_runtime.kw.sno_errtext = "syntax error: invalid use of comma"; return NULL; }
+    if (sno_text_illegal_at(s) >= 0) { g_runtime.kw.sno_errtext = "syntax error: illegal character"; return NULL; }
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
     size_t n = strlen(s);
@@ -254,11 +254,10 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     extern void sno_error_quiet_begin(void);
     extern void sno_error_quiet_end(void);
     extern const char *sno_error_captured(void);
-    extern const char *g_sno_errtext;
     sno_error_quiet_begin();
     tree_t *e = parse_expr_pat_from_str(src);
     sno_error_quiet_end();
-    if (!e || sno_error_captured()) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); return NULL; }
+    if (!e || sno_error_captured()) { const char *cap = sno_error_captured(); if (cap) g_runtime.kw.sno_errtext = rt_heap_strdup_c(cap); return NULL; }
     { extern int sno_preeval_expr(const tree_t *, const char **); *pe = sno_preeval_expr(e, pm); if (*pe) return NULL; }
     tree_t *var = ast_stmt_new(TT_VAR);
     var->v.sval = (char *)EVAL_TMP;
@@ -986,7 +985,7 @@ DESCR_t code_at(const char *src, long base) {
             char q = 0;
             for (long i = 0; i < bad; i++) { char c = src[i]; if (q) { if (c == q) q = 0; continue; } if (c == '\'' || c == '"') q = c; else if (c == ';') cut = i; }
             illegal = "syntax error: illegal character";
-            if (cut < 0) { extern const char *g_sno_errtext; g_sno_errtext = illegal; code_compile_raise(orig, 0, NULL); return FAILDESCR; }
+            if (cut < 0) { g_runtime.kw.sno_errtext = illegal; code_compile_raise(orig, 0, NULL); return FAILDESCR; }
             char *pre = (char *)rt_wsb_alloc((size_t)cut + 1);
             if (!pre) return FAILDESCR;
             memcpy(pre, src, (size_t)cut);
@@ -1003,14 +1002,13 @@ DESCR_t code_at(const char *src, long base) {
     extern void sno_error_quiet_begin(void);
     extern void sno_error_quiet_end(void);
     extern const char *sno_error_captured(void);
-    extern const char *g_sno_errtext;
     sno_error_quiet_begin();
     tree_t *prog = sno_parse_string_ast(src, NULL);
     sno_error_quiet_end();
     int empty = 0;
     if (!prog || prog->n == 0) {
         const char *cap = sno_error_captured();
-        if (cap) { g_sno_errtext = rt_heap_strdup_c(cap); code_compile_raise(orig, 0, NULL); return FAILDESCR; }
+        if (cap) { g_runtime.kw.sno_errtext = rt_heap_strdup_c(cap); code_compile_raise(orig, 0, NULL); return FAILDESCR; }
         if (!prog) prog = ast_stmt_new(TT_PROGRAM);
         tree_t *st = ast_stmt_new(TT_STMT);
         ast_push(st, ast_attr_int(":line", 1));
@@ -1087,7 +1085,7 @@ DESCR_t code_at(const char *src, long base) {
         if (((ks && *ks == '0') ? (patn > pat0) : 1) && eval_thunks_emit_from(proc0)) { rt_code_pool_check(); return FAILDESCR; }
     }
     g_runtime.eval.sno_stmt_compiled += (long)(k - empty) + 1;
-    if (parse_err || illegal) { g_sno_errtext = parse_err ? parse_err : illegal; code_compile_raise(orig, pe, pm); return FAILDESCR; }
+    if (parse_err || illegal) { g_runtime.kw.sno_errtext = parse_err ? parse_err : illegal; code_compile_raise(orig, pe, pm); return FAILDESCR; }
     if (!first) return FAILDESCR;
     DESCR_t d = {0};
     d.v = DT_C;

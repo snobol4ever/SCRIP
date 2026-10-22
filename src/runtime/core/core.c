@@ -2450,9 +2450,8 @@ void rt_setexit_fire_now(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_setexit_abort(void) {
     extern uint64_t g_rtccb[32];
-    extern const char *g_sno_errtext;
     int code = (int)(int64_t)g_rtccb[30];
-    const char *msg = g_sno_errtext;
+    const char *msg = g_runtime.kw.sno_errtext;
     g_rtccb[26] = 0;
     { extern void core_error_voice(int, const char *, int, DESCR_t); core_error_voice(code, msg, 0, FAILDESCR); }
     { extern void rt_kw_publish_error_at_exit(int code, const char *msg); rt_kw_publish_error_at_exit(code, msg); }

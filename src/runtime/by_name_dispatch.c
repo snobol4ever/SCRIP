@@ -1,4 +1,5 @@
 #include <sys/utsname.h>
+#include "g_runtime.h"
 #include <sys/resource.h>
 #include "rtx_try.h"
 #include "dtp.h"
@@ -4415,11 +4416,10 @@ _Static_assert((RT_TWEAK_IC_N & (RT_TWEAK_IC_N - 1)) == 0,
 void rt_fire_buildplan_tweak_rq(const char *cname, DESCR_t self, long *rq) {
     extern int dat_mro(const char *name, const char **out, int max);
     extern int rt_proc_has_native_fn(const char *name);
-    extern int g_rt_gen_proc_count;
     extern int dat_type_gen(void);
     if (!cname || !*cname) return;
     {
-        long gen = (long)g_rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + g_tweak_gen_bump * 1099511627776L;
+        long gen = (long)g_runtime.rt.rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + g_tweak_gen_bump * 1099511627776L;
         unsigned h = (unsigned)(((uintptr_t)cname >> 3) & (RT_TWEAK_IC_N - 1));
         if (g_tweak_none[h].cname == cname && g_tweak_none[h].gen == gen) return;
         const char *chain[bnd_dat_need(cname, 0)];
@@ -17296,10 +17296,9 @@ static int icn_bi_direct(int bidlen, DESCR_t *args, int nargs, DESCR_t *out);
 #define RT_CTOR_IC_N 256
 static struct { const char *fn; void *dt; long gen; } g_ctor_ic[RT_CTOR_IC_N];
 static long rt_ctor_gen(void) {
-    extern int g_rt_gen_proc_count;
     extern int dat_type_gen(void);
     extern unsigned rt_dtax_gen;
-    return (long)g_rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + (long)rt_dtax_gen * 1099511627776L;
+    return (long)g_runtime.rt.rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + (long)rt_dtax_gen * 1099511627776L;
 }
 static const char *g_ctor_ic_site = (const char *)0;
 static inline unsigned rt_ctor_ic_h(const char *fn) __attribute__((always_inline));
