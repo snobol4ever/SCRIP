@@ -1437,7 +1437,8 @@ int zd_run_alpha_dead(IR_t ** nodes, int n, const int * claim, int h) {
     }
     return 1;
 }
-void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, const int *xb, const int *zchn, const char *prefix) {
+void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, const int *xb, const int *zchn, const int *zcut, const char *prefix)
+    {
     if (g_emitter.zd_check__on < 0) { const char * e = getenv("SCRIP_ZD_CHECK"); g_emitter.zd_check__on = (e && *e == '1') ? 1 : 0; }
     if (!g_emitter.zd_check__on || n <= 0) return;
     int armed = 0, def = 0, edges = 0, viol = 0;
@@ -1466,6 +1467,17 @@ void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, co
                 bb_op_name(nodes[i]->op), j,
                 bb_op_name(nodes[j]->op), arrive, expect);
         }
+    }
+    for (int i = 0; zcut && xb && i < n; i++) {
+        if (!zon[i] || nodes[i]->op != IR_CUT || zcut[i] < 0) continue;
+        IR_t * t = zd_chase(nodes[i]->γ.node);
+        int j = t ? nidx(nodes, n, t) : -1;
+        if (j < 0 || j == i || !zon[j] || xb[j] == INT_MIN) continue;
+        int join = zd_pl_dj_join(nodes, n, i, j), arrive = zcut[i] - zgpop[i], expect = xb[j] + zout[j] - (join ? 0 : zd_k(nodes[j]));
+        edges++;
+        if (arrive == expect) continue;
+        viol++;
+        fprintf(stderr, "[ZD-CHECK]   DISCARD     i=%d %s -> j=%d %s restores=%d expects=%d\n", i, bb_op_name(nodes[i]->op), j, bb_op_name(nodes[j]->op), arrive, expect);
     }
     fprintf(stderr, "[ZD-CHECK] graph=%s boxes=%d armed=%d definite=%d coordinate=%s edges=%d violations=%d\n", prefix ? prefix : "?", n, armed, def, xb ? "absolute" : "relative", edges, viol);
 }
