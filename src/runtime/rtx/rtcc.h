@@ -2,6 +2,7 @@
 #ifndef RTCC_H
 #define RTCC_H
 #include <stdint.h>
+#include "g_runtime.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,7 +45,6 @@ _Static_assert(RTCC_SLOT_MATCHAT == 31,
     "rror code rt_setexit_abort reads; slot 31 is the start offset of the capture whose deferred call is being pumped (rt_dcap_pump writes it, the MATCHAT builtin reads it, an integer never a he"
     "ap pointer). 6a3ff25a9 wrote that offset into slot 30 and every capture pump overwrote SETEXIT's error code: parser_snobol4.sc as a mode-3 program then died SIGSEGV in the chain walk.");
 #endif
-extern unsigned char g_rtcc_on;
 void rtcc_coexpr_save(uint64_t *dst_256);
 void rtcc_coexpr_restore(const uint64_t *src_256);
 void rtcc_load_scratch(void);

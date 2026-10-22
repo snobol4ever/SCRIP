@@ -250,7 +250,7 @@ static std::string bb_define_sr() {
         int xt4 = ns4 - nf4;
         long T4 = 16L * xt4 + 32;
         int rgx = rg4 < 0 ? 0 : rg4; int nnv4 = 0; for (int j = 0; j < ns4; j++) if (gk4[j] < 0) nnv4++;
-        auto GQ = [&](int gk, int w) { return (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, w) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w); };
+        auto GQ = [&](int gk, int w) { return (g_runtime.abi.rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, w) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w); };
         auto R8Q = [&](long d) { return std::string("[r8 + ") + std::to_string(d) + "]"; };
         auto CHAIN = [&](int base, const char * reg, auto arg, auto ext) {
             if (nf4 <= 0) return std::string();

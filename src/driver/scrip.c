@@ -1,5 +1,8 @@
 #include "rt/rt_arena.h"
 #include "g_runtime.h"
+#include "g_runtime_abi.inc"
+#define GRT_S2(x) #x
+#define GRT_S(x) GRT_S2(x)
 #include "ct_arena.h"
 #include <stdarg.h>
 #include "../ir/pin_va.h"
@@ -160,9 +163,9 @@ static __attribute__((naked)) void icn_root_end(void) { __asm__ volatile("and $-
 static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
     __asm__ volatile( "push %%r12\n\t" "sub $8, %%rsp\n\t" "mov %%rsp, %%r12\n\t" "push %%rax\n\t" "push %%rdi\n\t" "push %%rcx\n\t" "push %%rdx\n\t" "mov %%r12, %%rdi\n\t" "and $-16, %%rsp\n\t"
         "call rt_program_top_adopt_top@PLT\n\t" "lea -32(%%r12), %%rsp\n\t" "pop %%rdx\n\t" "pop %%rcx\n\t" "pop %%rdi\n\t" "pop %%rax\n\t" "mov $0x70000000, %%r12\n\t" "mov (%%r12), %%r12\n\t"
-        "movq g_rtcc_on@GOTPCREL(%%rip), %%r10\n\t" "cmpb $0, (%%r10)\n\t" "je 1f\n\t" "movq g_rtccb@GOTPCREL(%%rip), %%r10\n\t" "movq 48(%%r10), %%r9\n\t" "1:\n\t" "xor %%esi, %%esi\n\t"
-        "xor %%r13d, %%r13d\n\t" "xor %%r14d, %%r14d\n\t" "xor %%r15d, %%r15d\n\t" "jmp *%%rax\n\t" : : "a"(fn), "D"(mf), "c"(wire_γ), "d"(wire_ω) : "memory", "rsi", "r8", "r9", "r10", "r11", "r13",
-        "r15" );
+        "movq g_runtime@GOTPCREL(%%rip), %%r10\n\t" "cmpb $0, " GRT_S(G_RT_OFF_RTCC_ON)
+        "(%%r10)\n\t" "je 1f\n\t" "movq g_rtccb@GOTPCREL(%%rip), %%r10\n\t" "movq 48(%%r10), %%r9\n\t" "1:\n\t" "xor %%esi, %%esi\n\t" "xor %%r13d, %%r13d\n\t" "xor %%r14d, %%r14d\n\t"
+        "xor %%r15d, %%r15d\n\t" "jmp *%%rax\n\t" : : "a"(fn), "D"(mf), "c"(wire_γ), "d"(wire_ω) : "memory", "rsi", "r8", "r9", "r10", "r11", "r13", "r15" );
 }
 #define RT_OUTER_RESERVE 4194304L
 #define RT_OUTER_RESERVE_S "4194304"
@@ -171,9 +174,10 @@ _Static_assert(RT_OUTER_RESERVE == 4194304L && RT_OUTER_RESERVE % 16 == 0,
     "it on top of the program's own -s (ceo CEO-1261)");
 __asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n" "rt_outer_call:\n" "  push %r12\n" "  sub $" RT_OUTER_RESERVE_S ", %rsp\n" "  push %rdi\n" "  push %rsi\n" "  push %rdx\n"
     "  push %rcx\n" "  lea 16(%rsp), %rdi\n" "  call rt_program_top_adopt@PLT\n" "  pop %rcx\n" "  pop %rdx\n" "  pop %rsi\n" "  pop %rdi\n" "  mov %rdi, %rax\n" "  mov %rsi, %rdi\n"
-    "  mov %rdx, %rsi\n" "  mov 0x70000000, %r12\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n" "  cmpb $0, (%r10)\n" "  je 1f\n" "  movq g_rtccb@GOTPCREL(%rip), %r10\n" "  movq 48(%r10), %r9\n" "1:\n"
-    "  test %rcx, %rcx\n" "  jnz 3f\n" "  leaq 2f(%rip), %rcx\n" "3:\n" "  push %rcx\n" "  push %rcx\n" "  xor %r13d, %r13d\n" "  xor %r15d, %r15d\n" "  jmp *%rax\n" "  add $" RT_OUTER_RESERVE_S
-    ", %rsp\n" "  add $16, %rsp\n" "  pop %r12\n" "  ret\n" "2:\n" "  call rt_kw_return_level_zero@PLT\n" "  ud2\n" ".size rt_outer_call, .-rt_outer_call\n");
+    "  mov %rdx, %rsi\n" "  mov 0x70000000, %r12\n" "  movq g_runtime@GOTPCREL(%rip), %r10\n" "  cmpb $0, " GRT_S(G_RT_OFF_RTCC_ON)
+    "(%r10)\n" "  je 1f\n" "  movq g_rtccb@GOTPCREL(%rip), %r10\n" "  movq 48(%r10), %r9\n" "1:\n" "  test %rcx, %rcx\n" "  jnz 3f\n" "  leaq 2f(%rip), %rcx\n" "3:\n" "  push %rcx\n" "  push %rcx\n"
+    "  xor %r13d, %r13d\n" "  xor %r15d, %r15d\n" "  jmp *%rax\n" "  add $" RT_OUTER_RESERVE_S ", %rsp\n" "  add $16, %rsp\n" "  pop %r12\n" "  ret\n" "2:\n" "  call rt_kw_return_level_zero@PLT\n"
+    "  ud2\n" ".size rt_outer_call, .-rt_outer_call\n");
 __asm__(".globl rt_outer_call_delta0\n.type rt_outer_call_delta0, @function\n" "rt_outer_call_delta0:\n" "  push %r14\n" "  xor %r14d, %r14d\n" "  call rt_outer_call\n" "  pop %r14\n" "  ret\n"
     ".size rt_outer_call_delta0, .-rt_outer_call_delta0\n");
 extern const char *Σ;
@@ -1835,8 +1839,7 @@ int main(int argc, char **argv) {
                 if (v < 65536L) { fprintf(stderr, "scrip: -s%ld: the stack must be at least 64k\n", v); return 2; }
                 opt_stack_bytes = v;
             } else if (sw == 'm') {
-                extern long g_maxlngth;
-                g_maxlngth = v;
+                g_runtime.abi.maxlngth = v;
             } else if (sw == 'd') {
                 opt_heap_cap_kb = v >> 10;
                 if (opt_heap_cap_kb < 1) { fprintf(stderr, "scrip: -d%ld: the maximum heap must be at least 1k\n", v); return 2; }
@@ -2640,7 +2643,7 @@ int main(int argc, char **argv) {
             int _pl_root = (bbg->zframe_graph && !bbg->cell_frame && bbg->root_graph) ? 1 : 0;
             if (!_pl_root) emit_textf("  mov r12, qword ptr [0x70000000]\n");
             if (bbg->zframe_graph && !bbg->cell_frame) emit_textf("  call rt_gcheap_warmup@PLT\n  mov rdi, rsp\n  call rt_program_top_adopt_top@PLT\n");
-            { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
+            { if (g_runtime.abi.rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
             if (!(bbg->zframe_graph && !bbg->cell_frame)) emit_textf("  lea rdi, [rsp - 16]\n  call rt_program_top_adopt@PLT\n");
             emit_textf("  xor esi, esi\n");
             if (bbg->zframe_graph && !bbg->cell_frame) {
@@ -2929,11 +2932,11 @@ int main(int argc, char **argv) {
             { extern void bbprof_start(void); bbprof_start(); }
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
             if (_zframe_graph && !_icn_cells_graph) {
-                { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }
+                { extern void rtcc_load_all(void); if (g_runtime.abi.rtcc_on) rtcc_load_all(); }
                 icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, _pl_root ? (void *)pl_root_ω : (void *)icn_zf_exit_ω);
             } else {
                 extern void rt_outer_call(bb_box_fn, void *, long, void *);
-                { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }
+                { extern void rtcc_load_all(void); if (g_runtime.abi.rtcc_on) rtcc_load_all(); }
                 {
                     extern void rt_outer_call_delta0(bb_box_fn, void *, long, void *);
                     extern int * const rt_k_level_p;

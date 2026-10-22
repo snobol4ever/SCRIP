@@ -5,6 +5,7 @@
 #include "g_runtime_vec.h"
 #define RT_DCAP_NVCACHE_N 16
 struct DESCR_t;
+struct rt_proc_s;
 extern const char g_scan_empty[1];
 typedef struct {
     long error;
@@ -54,5 +55,9 @@ typedef struct {
     long gc_polls;
     const char *gc_poll_site;
     char *hp_gcline;
+    long anchor;
+    long maxlngth;
+    unsigned char rtcc_on;
+    struct rt_proc_s *rt_gen_procs;
 } g_abi_t;
 #endif

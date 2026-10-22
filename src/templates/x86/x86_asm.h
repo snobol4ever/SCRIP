@@ -14,7 +14,6 @@ extern "C" {
 extern uint64_t g_rtccb[32];
 extern struct rt_hp_fr_t g_hp_fr;
 void rt_pl_tr_refuse(const char *);
-extern unsigned char g_rtcc_on;
 long *rt_anchor_ptr(void);
 int rtx_entry_is(const char *sym);
 int emit_rtx_entry_is(const char * sym);
@@ -1893,7 +1892,7 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
                 s += (char)0x48; s += (char)0x83; s += (char)0xF8; s += (char)0x00;
                 return x86_Lrec(s);
             }
-            return x86_rec("mov") + "rcx, qword ptr [rip + rt_anchor_g@GOTPCREL]\n mov rax, qword ptr [rcx]\n cmp rax, 0\n";
+            return x86_rec("mov") + "rcx, qword ptr [rip + g_runtime@GOTPCREL]\n mov rax, qword ptr [rcx + " + std::to_string(GRT_AT(anchor)) + "]\n cmp rax, 0\n";
         }
         if (MEDIUM_BINARY) { std::string s; s += (char)0x4D; s += (char)0x85; s += (char)0xC0; return x86_Lrec(s); }
         return x86_rec("test") + "r8, r8\n";

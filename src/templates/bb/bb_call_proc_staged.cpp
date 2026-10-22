@@ -562,12 +562,11 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_jmp_proc_fn(long idx) {
-    extern void *g_rt_gen_procs;
     return x86("note",
         "the registry jump: the record's fn word (PROC_FN at +8, the 128-byte stride both asserted in rt.c), so a fn "
             "re-sealed at run time -- a dynamic predicate's enumerator, a redefinition -- is followed in both media")
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_rt_gen_procs, "g_rt_gen_procs")
-         + x86("mov", "rax", RDQ("rax", 0))
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_runtime, "g_runtime")
+         + x86("mov", "rax", RDQ("rax", GRT_AT(rt_gen_procs)))
          + x86("mov", "rax", RDQ("rax", (int)(8 + 128 * idx)))
          + x86_jmp_reg("rax");
 }

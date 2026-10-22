@@ -3508,9 +3508,9 @@ static void blob_first_guard(void) {
     for (uint32_t i = 0; i < deps.var.len; i++) {
         const char * dv = CV_AT(deps.var, const char *, i), * dt = CV_AT(deps.thunk, const char *, i); int gk = gva_index_of(dv);
         bb_label_t * q = emit_label_alloc(".Lfg_rec_%d_%u", id, i), * over = emit_label_alloc(".Lfg_over_%d_%u", id, i);
-        bb_emit_x86(x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 0) : ABSQ(RT_GVA_VA + gk * 16)) + x86("cmp", "al", (long)DT_P));
+        bb_emit_x86(x86("mov", "rax", (g_runtime.abi.rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 0) : ABSQ(RT_GVA_VA + gk * 16)) + x86("cmp", "al", (long)DT_P));
         emit_jmp_label(ok, JMP_JNE);
-        bb_emit_x86(x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 8) : ABSQ(RT_GVA_VA + gk * 16 + 8)) + x86("mov", "rax", RDQ("rax", 0)) + x86_lea_ext("rcx", q) +
+        bb_emit_x86(x86("mov", "rax", (g_runtime.abi.rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 8) : ABSQ(RT_GVA_VA + gk * 16 + 8)) + x86("mov", "rax", RDQ("rax", 0)) + x86_lea_ext("rcx", q) +
             x86("mov", "rcx", RDQ("rcx", 0)) + x86("mov", "rcx", RDQ("rcx", 0)) + x86("cmp", "rax", "rcx"));
         emit_jmp_label(ok, JMP_JNE);
         emit_jmp_label(over, JMP_JMP);

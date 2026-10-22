@@ -13,11 +13,8 @@
 #include <unistd.h>
 const char *cset_canonical(const char *cs, int len);
 void fh_ensure_init(void);
-static long g_anchor = 0;
-extern long rt_anchor_g __attribute__((alias("g_anchor")));
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long *rt_anchor_ptr(void) { return &g_anchor; }
-long g_maxlngth = 5000000;
+long *rt_anchor_ptr(void) { return &g_runtime.abi.anchor; }
 typedef struct g_kw_cset_ent { const char *ptr; const char *name; int len; unsigned char bits[32]; } kw_cset_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned kw_cset_hash(const char *p) { uint64_t x = (uint64_t)(uintptr_t)p; x ^= x >> 17; x *= 0x9E3779B97F4A7C15ull; x ^= x >> 29; return (unsigned)x; }
@@ -243,23 +240,23 @@ const char *kw_cset_const_str(const char *kw) {
 typedef struct { const char *name; unsigned char kind; unsigned char prot; int64_t *cell; int64_t init; const char *sval; const char *sym; } KWB_ENT_t;
 static int64_t g_kwb_own[8] = { 0, 0, 0, 0, 0, 0, 0, 1 };
 extern int64_t g_rt_kwb_own[8] __attribute__((alias("g_kwb_own")));
-static KWB_ENT_t g_kwb[] = { { "ANCHOR", KWB_INT, 0, (int64_t *)&g_anchor, 0, (const char *)0 , "rt_anchor_g" }, { "TRIM", KWB_INT, 0, &g_runtime.core.kw_trim, 1, (const char *)0 ,
+static KWB_ENT_t g_kwb[] = { { "ANCHOR", KWB_INT, 0, (int64_t *)&g_runtime.abi.anchor, 0, (const char *)0 , "rt_anchor_g" }, { "TRIM", KWB_INT, 0, &g_runtime.core.kw_trim, 1, (const char *)0 ,
     "g_runtime.core.kw_trim" }, { "CASE", KWB_INT, 0, &g_kwb_own[0], 0, (const char *)0 , "g_rt_kwb_own" }, { "CODE", KWB_INT, 0, &g_runtime.core.kw_code, 0, (const char *)0 ,
     "g_runtime.core.kw_code" }, { "DUMP", KWB_INT, 0, (int64_t *)&g_runtime.abi.dump, 0, (const char *)0 , "g_runtime.abi.dump" }, { "ERRLIMIT", KWB_INT, 0, &g_runtime.abi.kw_errlimit, 0,
     (const char *)0 , "g_kw_errlimit" }, { "ERRTYPE", KWB_INT, 0, &g_kwb_own[1], 0, (const char *)0 , "g_rt_kwb_own" }, { "FTRACE", KWB_INT, 0, &g_runtime.abi.kw_ftrace, 0, (const char *)0 ,
-    "g_kw_ftrace" }, { "FULLSCAN", KWB_INT, 0, &g_runtime.core.kw_fullscan, 1, (const char *)0 , "g_runtime.core.kw_fullscan" }, { "MAXLNGTH", KWB_INT, 0, (int64_t *)&g_maxlngth, 16777216,
-    (const char *)0 , "g_maxlngth" }, { "STLIMIT", KWB_INT, 0, &g_runtime.misc.kw_stlimit, 2147483647, (const char *)0 , "g_kw_stlimit" }, { "TRACE", KWB_INT, 0, (int64_t *)&g_runtime.abi.trace, 0,
-    (const char *)0 , "g_runtime.abi.trace" }, { "ABEND", KWB_INT, 0, &g_kwb_own[2], 0, (const char *)0 , "g_rt_kwb_own" }, { "INPUT", KWB_INT, 0, &g_kwb_own[3], 1, (const char *)0 , "g_rt_kwb_own" },
-    { "OUTPUT", KWB_INT, 0, &g_kwb_own[4], 1, (const char *)0 , "g_rt_kwb_own" }, { "PROFILE", KWB_INT, 0, &g_kwb_own[5], 0, (const char *)0 , "g_rt_kwb_own" }, { "COMPARE", KWB_INT, 0, &g_kwb_own[6],
-    0, (const char *)0 , "g_rt_kwb_own" }, { "STCOUNT", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.stcount, 0, (const char *)0 , "g_runtime.abi.stcount" }, { "STNO", KWB_INT, KWB_PROT,
-    (int64_t *)&g_runtime.abi.stno, 0, (const char *)0 , "g_runtime.abi.stno" }, { "LASTNO", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.lastno, 0, (const char *)0 , "g_runtime.abi.lastno" },
-    { "LINE", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.line, 0, (const char *)0 , "g_runtime.abi.line" }, { "LASTLINE", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.lastline, 0, (const char *)0 ,
-    "g_runtime.abi.lastline" }, { "FILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "LASTFILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 ,
-    (const char *)0 }, { "FNCLEVEL", KWB_INT, KWB_PROT, &g_runtime.abi.kw_fnclevel, 0, (const char *)0 , "g_kw_fnclevel" }, { "UCASE", KWB_STR, KWB_PROT, (int64_t *)0, 0,
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ" , (const char *)0 }, { "LCASE", KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" , (const char *)0 }, { "RTNTYPE", KWB_STR, KWB_PROT, (int64_t *)0, 0,
-    (const char *)0 , (const char *)0 }, { "ERRTEXT", KWB_STR, 0, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 ,
-    (const char *)0 }, { "USER_DECLARED_CONSTANTS", KWB_INT, 0, &g_kwb_own[7], 1, (const char *)0 , "g_rt_kwb_own" }, { "MAXINT", KWB_INT, KWB_PROT, &g_runtime.kw.kw_maxint, 0, (const char *)0 ,
-    "g_runtime.kw.kw_maxint" }, };
+    "g_kw_ftrace" }, { "FULLSCAN", KWB_INT, 0, &g_runtime.core.kw_fullscan, 1, (const char *)0 , "g_runtime.core.kw_fullscan" }, { "MAXLNGTH", KWB_INT, 0, (int64_t *)&g_runtime.abi.maxlngth, 16777216,
+    (const char *)0 , "g_runtime.abi.maxlngth" }, { "STLIMIT", KWB_INT, 0, &g_runtime.misc.kw_stlimit, 2147483647, (const char *)0 , "g_kw_stlimit" }, { "TRACE", KWB_INT, 0,
+    (int64_t *)&g_runtime.abi.trace, 0, (const char *)0 , "g_runtime.abi.trace" }, { "ABEND", KWB_INT, 0, &g_kwb_own[2], 0, (const char *)0 , "g_rt_kwb_own" }, { "INPUT", KWB_INT, 0, &g_kwb_own[3], 1,
+    (const char *)0 , "g_rt_kwb_own" }, { "OUTPUT", KWB_INT, 0, &g_kwb_own[4], 1, (const char *)0 , "g_rt_kwb_own" }, { "PROFILE", KWB_INT, 0, &g_kwb_own[5], 0, (const char *)0 , "g_rt_kwb_own" },
+    { "COMPARE", KWB_INT, 0, &g_kwb_own[6], 0, (const char *)0 , "g_rt_kwb_own" }, { "STCOUNT", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.stcount, 0, (const char *)0 , "g_runtime.abi.stcount" },
+    { "STNO", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.stno, 0, (const char *)0 , "g_runtime.abi.stno" }, { "LASTNO", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.lastno, 0, (const char *)0 ,
+    "g_runtime.abi.lastno" }, { "LINE", KWB_INT, KWB_PROT, (int64_t *)&g_runtime.abi.line, 0, (const char *)0 , "g_runtime.abi.line" }, { "LASTLINE", KWB_INT, KWB_PROT,
+    (int64_t *)&g_runtime.abi.lastline, 0, (const char *)0 , "g_runtime.abi.lastline" }, { "FILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "LASTFILE", KWB_STR,
+    KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "FNCLEVEL", KWB_INT, KWB_PROT, &g_runtime.abi.kw_fnclevel, 0, (const char *)0 , "g_kw_fnclevel" }, { "UCASE", KWB_STR, KWB_PROT,
+    (int64_t *)0, 0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ" , (const char *)0 }, { "LCASE", KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" , (const char *)0 }, { "RTNTYPE", KWB_STR, KWB_PROT,
+    (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "ERRTEXT", KWB_STR, 0, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0,
+    (const char *)0 , (const char *)0 }, { "USER_DECLARED_CONSTANTS", KWB_INT, 0, &g_kwb_own[7], 1, (const char *)0 , "g_rt_kwb_own" }, { "MAXINT", KWB_INT, KWB_PROT, &g_runtime.kw.kw_maxint, 0,
+    (const char *)0 , "g_runtime.kw.kw_maxint" }, };
 static const int g_kwb_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
 static KWB_ENT_t *g_kwb_bound = g_kwb;
 static int g_kwb_bound_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
@@ -459,9 +456,8 @@ DESCR_t kw_read(const char *kw) {
         if (!strcmp(kw,"random")) return INTVAL(g_runtime.abi.random);
     }
     {
-        extern long g_maxlngth;
-        if (!strcmp(kw,"anchor")) return INTVAL(g_anchor);
-        if (!strcmp(kw,"maxlngth")) return INTVAL(g_maxlngth);
+        if (!strcmp(kw,"anchor")) return INTVAL(g_runtime.abi.anchor);
+        if (!strcmp(kw,"maxlngth")) return INTVAL(g_runtime.abi.maxlngth);
         if (!strcmp(kw,"fullscan")) return INTVAL(0);
         if (!strcmp(kw,"stlimit")) return INTVAL(-1);
     }

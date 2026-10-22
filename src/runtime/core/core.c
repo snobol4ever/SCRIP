@@ -1814,7 +1814,7 @@ void rt_cmdline_switches_apply(void) {
     int bad = 0;
     (void)cmdline_switch_walk(&win_kb, &cap_kb, &g_runtime.core.sw_stack_bytes, &mxl, (char *)0, 0, (int *)0, &bad, 1);
     if (bad) exit(2);
-    if (mxl >= 0) { extern long g_maxlngth; g_maxlngth = mxl; }
+    if (mxl >= 0) { g_runtime.abi.maxlngth = mxl; }
     if (win_kb > 0 || cap_kb > 0) { extern void rt_heap_size_set(long, long); rt_heap_size_set(win_kb, cap_kb); }
 }
 static int host_selector_int(DESCR_t d, int64_t *out) {
@@ -4031,7 +4031,7 @@ int ASGNIC_fn(const char *kw_name, DESCR_t val) {
     if (!kw_name) return 0;
     int64_t iv = IS_INT(val) ? val.i : (int64_t)to_real(val);
     if (strcmp(kw_name, "STLIMIT") == 0) { g_runtime.misc.kw_stlimit = iv; return 1; }
-    if (strcmp(kw_name, "ANCHOR") == 0) { g_runtime.misc.kw_anchor = iv; if (g_rtcc_on) g_rtccb[RTCC_SLOT_R8] = (uint64_t)(int64_t)iv; return 1; }
+    if (strcmp(kw_name, "ANCHOR") == 0) { g_runtime.misc.kw_anchor = iv; if (g_runtime.abi.rtcc_on) g_rtccb[RTCC_SLOT_R8] = (uint64_t)(int64_t)iv; return 1; }
     if (strcmp(kw_name, "TRIM") == 0) { g_runtime.core.kw_trim = iv; return 1; }
     if (strcmp(kw_name, "FULLSCAN") == 0) { g_runtime.core.kw_fullscan = iv; return 1; }
     if (strcmp(kw_name, "CASE") == 0) { (void)iv; core_runtime_error(10, "&CASE is read-only; SCRIP is case-sensitive only"); return 1; }
@@ -5111,7 +5111,6 @@ static long _io_lenfnm(const char *s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int _io_opts(const char *s, long from, long *fd, long *rlen, int *app) {
-    extern long g_maxlngth;
     size_t n = s ? strlen(s) : 0, i = from > 0 ? (size_t)from : 0;
     int dash = 0;
     while (i < n) {
@@ -5122,7 +5121,7 @@ static int _io_opts(const char *s, long from, long *fd, long *rlen, int *app) {
             long v = 0;
             while (i < n && s[i] >= '0' && s[i] <= '9') { v = v > 1000000000000L ? v : 10 * v + (s[i] - '0'); i++; }
             if (ch == 'F') *fd = v;
-            else if (v <= 0 || v > g_maxlngth) return -1;
+            else if (v <= 0 || v > g_runtime.abi.maxlngth) return -1;
             else if (ch == 'L') *rlen = -v;
             else if (ch != 'B') *rlen = v;
         } else if (ch == 'S') {

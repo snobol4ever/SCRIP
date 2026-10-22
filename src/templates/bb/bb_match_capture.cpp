@@ -1,4 +1,5 @@
 #include <string>
+#include "g_runtime.h"
 #include <cstdint>
 #include "emit.h"
 extern "C" {
@@ -62,7 +63,7 @@ static std::string cap_imm_gva(const std::string & homeop) {
          + x86("mov", "eax", homeop.c_str())
          + x86_anchor_enter()
          + x86("note", gva_note(_.op_gva_k))
-         + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rdi", gva_cell_addr(_.op_gva_k).c_str()) :
+         + ((g_runtime.abi.rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rdi", gva_cell_addr(_.op_gva_k).c_str()) :
          x86("mov", "rdi", (long)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))
          + x86("mov", "esi", "eax")
          + x86("mov", "edx", "r14d")
@@ -80,7 +81,7 @@ static std::string cap_imm_gva(const std::string & homeop) {
 #define cap_cond_target_rcx() ( \
       IF(cap_gva() && gva_name_hidden(_.op_sval), \
           x86("note", gva_note(_.op_gva_k)) \
-                   + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rcx", gva_cell_addr(_.op_gva_k).c_str()) \
+                   + ((g_runtime.abi.rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rcx", gva_cell_addr(_.op_gva_k).c_str()) \
                                                        : x86_movabs_r64("rcx", (uint64_t)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))) \
     + IF(!(cap_gva() && gva_name_hidden(_.op_sval)) && (_.op_sval && _.op_sval[0] == '*' && _.op_sval[1]), \
           x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(_.op_sval), (std::string(".Ldstar_") + bb_ab_sym_name(_.op_sval)).c_str())) \
