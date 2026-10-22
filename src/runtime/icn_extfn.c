@@ -51,6 +51,8 @@ static int icnx_to_double(const icnx_descr_t *s, double *out) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const icnx_descr_t nulldesc = { 0 };
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_extfn_unprovided(const char *what) {
     char b[fmt_len("external function facility not provided by this runtime: %s", what)];
     snprintf(b, sizeof b, "external function facility not provided by this runtime: %s", what);
