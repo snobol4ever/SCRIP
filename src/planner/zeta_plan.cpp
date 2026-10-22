@@ -598,6 +598,11 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
         for (int c = 0; c < n; c++) {
             if (!zon[c] || claim[c] < 0 || !zd_pl_cut(nodes[c])) continue;
             int h = claim[c], D = known[h] ? base[h] + zout[c] - zd_k(nodes[c]) : anchor[h];
+            {
+                IR_t * jt = zd_chase(nodes[c]->γ.node);
+                int j = jt ? nidx(nodes, n, jt) : -1;
+                if (j >= 0 && zon[j] && claim[j] >= 0 && known[claim[j]] && !indef[claim[j]] && zd_pl_dj_join(nodes, n, c, j)) D = base[claim[j]] + zout[j] + zgpop[c];
+            }
             if (zcut) zcut[c] = D;
             if (known[h] || D < 0) continue;
             IR_t * t = zd_chase(nodes[c]->γ.node);
@@ -651,7 +656,7 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
             fprintf(stderr, "[ZD-MAP] INDEF run=%d (%s) anchor=%d: entered after a call that may return with its frame live -- no base, its cells rsp-relative within the run only\n", r,
             bb_op_name(nodes[r]->op), anchor[r]);
         if (zd_map_on()) for (int c = 0; c < n; c++) if (zon[c] && claim[c] >= 0 && zd_pl_cut(nodes[c]))
-            fprintf(stderr, "[ZD-MAP] CUT i=%d restores rsp to depth %d\n", c, known[claim[c]] ? base[claim[c]] + zout[c] - zd_k(nodes[c]) : anchor[claim[c]]);
+            fprintf(stderr, "[ZD-MAP] CUT i=%d restores rsp to depth %d\n", c, zcut ? zcut[c] : known[claim[c]] ? base[claim[c]] + zout[c] - zd_k(nodes[c]) : anchor[claim[c]]);
         if (aof) for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) {
             moved = 0;
             for (int i = 0; i < n; i++) {
