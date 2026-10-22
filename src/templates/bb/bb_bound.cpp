@@ -48,6 +48,7 @@ std::string bb_bound() {
              ? x86_alpha()
          + x86("note", "pl_fence_commit inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): B := the choice banked at the bound")
          + x86("mov", "r13", FRQ(_.op_off + 16))
+         + x86_pl_tr_tidy(400)
                + x86("comment", "then the frames themselves, off a FRAME-relative slot that stays readable across the move.")
                + x86("mov", "rsp", FRQ(_.op_off + 8))
                + x86_release_acts(true)

@@ -766,10 +766,10 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
                   + x86("jne", L(lsk + 99))
                   + x86("def", L(lsk + 98))
                 : x86("jne", L(lsk + 99)))
+         + (pop ? x86("mov", "r13", RDQ(fb, kt - 40)) + x86_pl_tr_tidy(700) : std::string())
          + x86("mov", "rcx", RDQ(fb, kt - 24))
          + x86("mov", "rdx", RDQ(fb, kt - 16))
          + IF(x86_hb_on(), x86("mov", "r8", RDQ(fb, kt - 8)))
-         + (pop ? x86("mov", "r13", RDQ(fb, kt - 40)) : std::string())
          + mv
          + x86("lea", "rsp", RDQ(fb, nb))
          + IF(x86_hb_on(), x86("mov", fb, "r8"))
