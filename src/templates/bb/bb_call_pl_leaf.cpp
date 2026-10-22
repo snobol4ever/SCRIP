@@ -74,18 +74,22 @@ static std::string pl_deref(const char * r, int b, int l_unb, int l_cold, int un
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_set(const char * tag, const char * val) {
-    return IF(!_.op_zres, x86("mov", FRQ(PLR()), tag) + x86("mov", FRQ(PLR() + 8), val))
+    return IF(!_.op_zres, x86("mov", FRQ(PLR()), tag)
+                        + x86("mov", FRQ(PLR() + 8), val))
          + IF(_.op_zres && strcmp(val, "rdx") != 0, x86("mov", "rdx", val))
          + IF(_.op_zres && strcmp(tag, "rax") != 0, x86("mov", "rax", tag));
 }
 static std::string pl_set(long tag, const char * val) {
-    return IF(!_.op_zres, x86("mov", FRQ(PLR()), tag) + x86("mov", FRQ(PLR() + 8), val))
+    return IF(!_.op_zres, x86("mov", FRQ(PLR()), tag)
+                        + x86("mov", FRQ(PLR() + 8), val))
          + IF(_.op_zres && strcmp(val, "rdx") != 0, x86("mov", "rdx", val))
          + IF(_.op_zres, x86("mov32", "eax", tag));
 }
 static std::string pl_set(long tag, long val) {
-    return IF(!_.op_zres, x86("mov", FRQ(PLR()), tag) + x86("mov", FRQ(PLR() + 8), val))
-         + IF(_.op_zres, x86("mov32", "eax", tag) + x86("mov32", "edx", val));
+    return IF(!_.op_zres, x86("mov", FRQ(PLR()), tag)
+                        + x86("mov", FRQ(PLR() + 8), val))
+         + IF(_.op_zres, x86("mov32", "eax", tag)
+                       + x86("mov32", "edx", val));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_cold_call(const char * sym, void * fp, int narg, int has_op) {
@@ -93,10 +97,12 @@ static std::string pl_cold_call(const char * sym, void * fp, int narg, int has_o
                     + x86("mov32", "esi", (long)narg),
                       IF(has_op, PL_OPSTR("rdx")),
                       x86("call", sym, (uint64_t)(uintptr_t)fp),
-                      IF(!_.op_zres, x86("mov", FRQ(PLR()), "rax")
-                                   + x86("mov", FRQ(PLR() + 8), "rdx") + x86_rt_gc_poll()
-                                   + x86("cmp", "al", (long)DT_FAIL) + x86_omega("je")),
-                      IF(_.op_zres, x86_rt_gc_poll_res() + x86("jmp", L(PL_L_ZX))) });
+                      _.op_zres ? std::string() : x86("mov", FRQ(PLR()), "rax")
+                                                + x86("mov", FRQ(PLR() + 8), "rdx"),
+                      _.op_zres ? x86_rt_gc_poll_res() : x86_rt_gc_poll(),
+                      _.op_zres ? x86("jmp", L(PL_L_ZX))
+                                : x86("cmp", "al", (long)DT_FAIL)
+                                + x86_omega("je") });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define pl_ok_store() ( \
@@ -176,12 +182,14 @@ static std::string pl_arm_is() {
          + x86("mov", "rax", RDQ("rdi", 0))
          + x86("mov", "rdx", RDQ("rdi", 8))
          + IF(!_.op_zres, pl_set("rax", "rdx"))
-         + IF(_.op_zres, x86("mov", PLAQ(16), "rax") + x86("mov", PLAQ(24), "rdx"))
+         + IF(_.op_zres, x86("mov", PLAQ(16), "rax")
+                       + x86("mov", PLAQ(24), "rdx"))
          + x86("lea", "rdi", PLAQ(0))
          + x86("lea", "rsi", PLAQ(16))
          + x86("call", "rtx_pl_unify", (uint64_t)(uintptr_t)(void *)rtx_pl_unify)
          + x86("test", "eax", "eax") + PL_OMEGA("jz")
-         + IF(_.op_zres, x86("mov", "rax", PLAQ(16)) + x86("mov", "rdx", PLAQ(24))) + PL_GAMMA()
+         + IF(_.op_zres, x86("mov", "rax", PLAQ(16))
+                       + x86("mov", "rdx", PLAQ(24))) + PL_GAMMA()
          + x86("def", L(PL_L_COLD))
          + x86("lea", "rdi", PLAQ(0))
          + x86("mov32", "esi", (long)2)
