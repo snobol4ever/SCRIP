@@ -3488,7 +3488,8 @@ _Static_assert(__builtin_offsetof(pl_db_reg_t, ovf) == 24,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 _Static_assert(__builtin_offsetof(pl_db_t, s) == 0 && __builtin_offsetof(pl_db_slot_t, cl) == 0 && sizeof(pl_db_slot_t) == 40 && __builtin_offsetof(pl_db_reg_t, e) == 0 &&
     __builtin_offsetof(pl_db_reg_t, ovf) == 24 && __builtin_offsetof(pl_db_reg_t, tries) == 32 && __builtin_offsetof(pl_db_key_t, key) == 0 && __builtin_offsetof(pl_db_key_t, db) == 16 &&
-    sizeof(pl_db_key_t) == 48, "rt_gc_mark_run (rtx_gc.s) visits the Prolog db store, slots, registry and keys at these offsets");
+    sizeof(pl_db_key_t) == 48 && __builtin_offsetof(pl_db_reg_t, hcap) == 64,
+    "rt_gc_mark_run and rt_pl_db_reg_find_na (rtx_gc.s, rtx_plunify.s) read the Prolog db store, slots, registry and keys at these offsets");
 static pl_db_reg_t * pl_db_registry(void *root, int create) {
     if (!root) return (pl_db_reg_t *)0;
     {
@@ -3537,17 +3538,6 @@ static void ** pl_db_cell_addr(void *root, int64_t k, int create) {
     }
 }
 static uint64_t pl_db_hash_bytes(uint64_t h, const char *s, size_t n) { for (size_t i = 0; i < n; i++) h = (h ^ (unsigned char)s[i]) * 0x100000001B3ull; return h; }
-static int pl_db_arity_digits(char *buf, int ar) {
-    char t[12];
-    int n = 0, m = 0;
-    unsigned u = ar < 0 ? 0u - (unsigned)ar : (unsigned)ar;
-    do t[n++] = (char)('0' + u % 10);
-    while (u /= 10);
-    if (ar < 0) buf[m++] = '-';
-    while (n) buf[m++] = t[--n];
-    return m;
-}
-static uint64_t pl_db_hash_na(const char *nm, size_t nl, const char *ad, int an) { return pl_db_hash_bytes(pl_db_hash_bytes(pl_db_hash_bytes(0xCBF29CE484222325ull, nm, nl), "/", 1), ad, (size_t)an); }
 static void pl_db_hix_put(pl_db_reg_t *r, int idx) {
     const char *k = r->e[idx].key;
     int m = r->hcap - 1, i = (int)(pl_db_hash_bytes(0xCBF29CE484222325ull, k, strlen(k)) & (uint64_t)m);
@@ -3566,16 +3556,7 @@ static void pl_db_hix_index(pl_db_reg_t *r) {
         for (int i = 0; i < r->n; i++) pl_db_hix_put(r, i);
     }
 }
-static pl_db_key_t * pl_db_reg_find_na(pl_db_reg_t *r, const char *nm, int arity) {
-    char ad[12];
-    int an = pl_db_arity_digits(ad, arity), m = r->hcap - 1;
-    size_t nl = strlen(nm);
-    for (int i = (int)(pl_db_hash_na(nm, nl, ad, an) & (uint64_t)m), x; (x = r->hix[i]) != 0; i = (i + 1) & m) {
-        const char *k = r->e[x - 1].key;
-        if (!strncmp(k, nm, nl) && k[nl] == '/' && !strncmp(k + nl + 1, ad, (size_t)an) && !k[nl + 1 + (size_t)an]) return &r->e[x - 1];
-    }
-    return (pl_db_key_t *)0;
-}
+extern pl_db_key_t * rt_pl_db_reg_find_na(pl_db_reg_t *r, const char *nm, int arity);
 static pl_db_key_t * pl_db_reg_find(pl_db_reg_t *r, const char *key) {
     if (!r || !key) return (pl_db_key_t *)0;
     if (r->hix) {
@@ -3934,7 +3915,7 @@ int rt_pl_db_bind(void *root, int64_t k, const char *name, int64_t arity) {
 int rt_pl_db_key_cell(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); return (e && e->k >= 0) ? e->k : -1; }
 int rt_pl_db_key_is_dynamic(void *root, const char *key);
 int rt_pl_db_cell_for(void *root, const char *name, int arity) {
-    { pl_db_reg_t *r = name ? pl_db_registry(root, 0) : (pl_db_reg_t *)0; pl_db_key_t *e = (r && r->hix) ? pl_db_reg_find_na(r, name, arity) : (pl_db_key_t *)0; if (e && e->k >= 0) return e->k; }
+    { pl_db_reg_t *r = name ? pl_db_registry(root, 0) : (pl_db_reg_t *)0; pl_db_key_t *e = (r && r->hix) ? rt_pl_db_reg_find_na(r, name, arity) : (pl_db_key_t *)0; if (e && e->k >= 0) return e->k; }
     PL_DB_KEY_VLA(key, name, arity);
     {
         pl_db_reg_t *r = pl_db_registry(root, 1);

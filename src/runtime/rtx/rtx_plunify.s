@@ -988,4 +988,110 @@ RTX_FUNC(rt_pl_occurs_a)
     RTX_POPS(rbx)
     ret
 RTX_ENDF(rt_pl_occurs_a)
+RTX_FUNC(rt_pl_db_reg_find_na)
+    RTX_PUSHS(rbp)
+    RTX_PUSHS(rbx)
+    RTX_SUB_RSP(16)
+    mov     eax, edx
+    mov     r8d, edx
+    test    eax, eax
+    jns     .Ldbf_pos
+    neg     eax
+.Ldbf_pos:
+    lea     rbx, [rsp + 12]
+    mov     rbp, rbx
+    mov     r10d, 10
+.Ldbf_dig:
+    xor     edx, edx
+    div     r10d
+    add     dl, 48
+    dec     rbp
+    mov     byte ptr [rbp], dl
+    test    eax, eax
+    jnz     .Ldbf_dig
+    test    r8d, r8d
+    jns     .Ldbf_hash
+    dec     rbp
+    mov     byte ptr [rbp], 45
+.Ldbf_hash:
+    movabs  rax, 0xCBF29CE484222325
+    movabs  r11, 0x100000001B3
+    mov     r10, rsi
+.Ldbf_nm:
+    movzx   ecx, byte ptr [r10]
+    test    ecx, ecx
+    jz      .Ldbf_slash
+    xor     rax, rcx
+    imul    rax, r11
+    inc     r10
+    jmp     .Ldbf_nm
+.Ldbf_slash:
+    xor     rax, 47
+    imul    rax, r11
+    mov     r10, rbp
+.Ldbf_ad:
+    cmp     r10, rbx
+    jae     .Ldbf_probe
+    movzx   ecx, byte ptr [r10]
+    xor     rax, rcx
+    imul    rax, r11
+    inc     r10
+    jmp     .Ldbf_ad
+.Ldbf_probe:
+    mov     r8d, dword ptr [rdi + 64]
+    dec     r8d
+    and     eax, r8d
+    mov     rdx, qword ptr [rdi + 56]
+.Ldbf_slot:
+    mov     ecx, dword ptr [rdx + rax*4]
+    test    ecx, ecx
+    jz      .Ldbf_none
+    dec     ecx
+    lea     rcx, [rcx + rcx*2]
+    shl     rcx, 4
+    add     rcx, qword ptr [rdi]
+    mov     r11, qword ptr [rcx]
+    mov     r10, rsi
+.Ldbf_cn:
+    movzx   r8d, byte ptr [r10]
+    test    r8d, r8d
+    jz      .Ldbf_cs
+    cmp     r8b, byte ptr [r11]
+    jne     .Ldbf_next
+    inc     r10
+    inc     r11
+    jmp     .Ldbf_cn
+.Ldbf_cs:
+    cmp     byte ptr [r11], 47
+    jne     .Ldbf_next
+    inc     r11
+    mov     r10, rbp
+.Ldbf_cd:
+    cmp     r10, rbx
+    jae     .Ldbf_ce
+    movzx   r8d, byte ptr [r10]
+    cmp     r8b, byte ptr [r11]
+    jne     .Ldbf_next
+    inc     r10
+    inc     r11
+    jmp     .Ldbf_cd
+.Ldbf_ce:
+    cmp     byte ptr [r11], 0
+    jne     .Ldbf_next
+    mov     rax, rcx
+    jmp     .Ldbf_ret
+.Ldbf_next:
+    mov     r8d, dword ptr [rdi + 64]
+    dec     r8d
+    inc     eax
+    and     eax, r8d
+    jmp     .Ldbf_slot
+.Ldbf_none:
+    xor     eax, eax
+.Ldbf_ret:
+    RTX_ADD_RSP(16)
+    RTX_POPS(rbx)
+    RTX_POPS(rbp)
+    ret
+RTX_ENDF(rt_pl_db_reg_find_na)
 .section .note.GNU-stack,"",@progbits
