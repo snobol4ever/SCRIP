@@ -132,5 +132,6 @@ typedef struct {
     long gc_chain_landhops;
     long gc_chain_roadhops;
     long gc_chain_ghost;
+    long gc_line_mbv;
 } g_gc_t;
 #endif

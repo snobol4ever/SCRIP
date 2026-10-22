@@ -1838,7 +1838,7 @@ $(RT_SO): $(RT_PIC_OBJS) $(RT_SRC_ALL) $(SRC)/runtime/rt_interposable.list Makef
 # 2026-10-17, row startup-an-empty-mode-4-program-costs-...): --dynamic-list names the only symbols that stay interposable -- the functions an
 # instrument interposes (rt_time_ns for util_parser_phase_profile.sh, the lexer entries parser_main.c clocks) and the data an executable
 # COPIES, so the runtime reads the executable's one copy: rtccb (every mode-4 program and scrip-ipp), sno_nerrors and rebus_nerrors (the
-# parser tools), g_gc_pending (emitted code reads it), g_hp_fr (a harness C witness); every other function and datum binds inside the
+# parser tools), g_gc_pending (emitted code reads it); every other function and datum binds inside the
 # library, and its relative relocations are plain RELA (-z nopack-relative-relocs): ld.so applies RELA's at about 6.5 Ir each, while RELR's bitmap walk measured 12.7K Ir more for the same 7,103 (hq_icon 2026-10-17). The gate holds the copy relocations of every executable SCRIP
 # builds or emits to that list. MEASURED, mode-4 Icon hello under callgrind: 2,535,562 Ir shipped, 1,715,355 with the functions bound.
 # An instrument that interposes any other runtime symbol by LD_PRELOAD links out/interposable/libscrip_rt.so (every symbol preemptible,

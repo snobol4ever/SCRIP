@@ -101,5 +101,6 @@ typedef struct {
     long maxlngth;
     unsigned char rtcc_on;
     struct rt_proc_s *rt_gen_procs;
+    long gc_fast;
 } g_abi_t;
 #endif

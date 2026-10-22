@@ -3651,3 +3651,543 @@ RTX_ENDF(rt_gc_sw_step_a)
     .asciz "?"
 .text
 #endif
+#define GRT(off) qword ptr [rip + g_runtime + off]
+#define GRTD(off) dword ptr [rip + g_runtime + off]
+#define GXMK(f) qword ptr [rip + g_runtime + G_RT_OFF_GC_MK + f]
+#define GXHP(f) qword ptr [rip + g_runtime + G_RT_OFF_HP_FR + f]
+#define GX_WLN 8
+#define GX_SLOTS 24
+#define GX_NSLOT 32
+#define GX_ARENA 48
+#define GX_TOP 56
+#define GX_SSUM 64
+#define GX_START 72
+#define GX_LIVE 80
+#define GX_VIS 88
+#define GX_MHEAD 96
+#define GX_RNGP 104
+#define GX_RNGN 112
+#define GX_INTERIOR 128
+#define GX_DVEC_E 136
+#define GX_DVEC_N 144
+#define GX_NMK 152
+#define GX_MXS 160
+#define GX_WALKED 168
+#define GX_DRAIN 184
+#define GX_HS 272
+#define GX_HCAP 280
+#define GX_HN 288
+#define HPF_END 8
+#define HPF_BLOCKS 16
+#define HPF_LINE 48
+#define HPF_LIVE 72
+#define HPF_VIS 88
+#define HPF_START 96
+#define HPF_SSUM 104
+#define HPF_PREFIX 112
+.macro GX_DISPATCH
+    cmp     rax, 1
+    jne     911f
+    cmp     GXMK(112), 0
+    je      912f
+    RTX_CALL(gc_wl_grow)
+    jmp     919f
+912:
+    RTX_CALL(gc_slot_grow)
+    jmp     919f
+911:
+    cmp     rax, 2
+    jne     913f
+    RTX_CALL(gc_wl_grow)
+    jmp     919f
+913:
+    cmp     rax, 6
+    jne     914f
+    RTX_CALL(gc_hins_grow)
+    jmp     919f
+914:
+    test    al, 2
+    je      915f
+    and     rax, -3
+    mov     rdi, rax
+    RTX_CALL(gc_visit_mblk)
+    jmp     919f
+915:
+    mov     rdi, rax
+    RTX_CALL(gc_visit_one)
+919:
+.endm
+RTX_FUNC(gc_wl_drain)
+    RTX_SUB_RSP(8)
+.Lwd_loop:
+    lea     rdi, [rip + g_runtime + G_RT_OFF_GC_MK]
+    RTX_CALL(rt_gc_mark_run)
+    test    rax, rax
+    je      .Lwd_done
+    GX_DISPATCH
+    jmp     .Lwd_loop
+.Lwd_done:
+    RTX_ADD_RSP(8)
+    RTX_GVA_R9
+    ret
+RTX_ENDF(gc_wl_drain)
+RTX_FUNC(gc_run_verdicts)
+    RTX_SUB_RSP(8)
+    mov     rax, rdi
+.Lrv_loop:
+    test    rax, rax
+    je      .Lrv_done
+    GX_DISPATCH
+    lea     rdi, [rip + g_runtime + G_RT_OFF_GC_MK]
+    RTX_CALL(rt_gc_mark_run)
+    jmp     .Lrv_loop
+.Lrv_done:
+    mov     GXMK(GX_DRAIN), 0
+    RTX_ADD_RSP(8)
+    RTX_GVA_R9
+    ret
+RTX_ENDF(gc_run_verdicts)
+RTX_FUNC(rt_gc_visit_descr)
+    RTX_PUSHS(rbx)
+    mov     rbx, rdi
+.Lvd_again:
+    mov     rdi, rbx
+    RTX_CALL(rt_gc_visit_descr_a)
+    test    rax, rax
+    jne     .Lvd_nz
+    mov     GXMK(GX_DRAIN), 0
+    jmp     .Lvd_out
+.Lvd_nz:
+    cmp     rax, 3
+    je      .Lvd_out
+    cmp     rax, 4
+    jne     .Lvd_run
+    RTX_CALL(gc_wl_grow)
+    jmp     .Lvd_again
+.Lvd_run:
+    mov     rdi, rax
+    RTX_CALL(gc_run_verdicts)
+.Lvd_out:
+    RTX_POPS(rbx)
+    RTX_GVA_R9
+    ret
+RTX_ENDF(rt_gc_visit_descr)
+RTX_FUNC(rt_gcheap_line_reset)
+    mov     rax, GXHP(HPF_END)
+    sub     rax, GXHP(0)
+    mov     rdx, rax
+    sar     rdx, 4
+    mov     rcx, rax
+    sar     rcx, 1
+    cmp     rdi, rcx
+    jle     1f
+    mov     rdi, rcx
+1:
+    cmp     rdi, rdx
+    jle     2f
+    mov     rdx, rdi
+2:
+    sub     rax, rdx
+    mov     rcx, GRT(G_RT_OFF_GC_GC_LINE_MBV)
+    test    rcx, rcx
+    je      3f
+    shl     rcx, 20
+    cmp     rcx, rax
+    jge     3f
+    mov     rax, rcx
+3:
+    add     rax, GXHP(0)
+    mov     GRT(G_RT_OFF_HP_GCLINE), rax
+    mov     rdx, GRT(G_RT_OFF_GC_HP_QLO)
+    test    rdx, rdx
+    je      4f
+    cmp     rdx, rax
+    jae     4f
+    mov     rax, rdx
+4:
+    mov     GXHP(HPF_LINE), rax
+    ret
+RTX_ENDF(rt_gcheap_line_reset)
+RTX_FUNC(gc_collect_ex)
+    cmp     GRT(G_RT_OFF_GC_FAST), 0
+    jne     .Lgx_fast
+    RTX_SUB_RSP(8)
+    RTX_CALL(gc_collect_ex_c)
+    RTX_ADD_RSP(8)
+    RTX_GVA_R9
+    ret
+.Lgx_fast:
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
+    RTX_SUB_RSP(64)
+    mov     rbx, rdi
+    mov     qword ptr [rip + g_runtime + G_RT_OFF_SXT_FR], 0
+    cmp     GRTD(G_RT_OFF_GC_IN), 0
+    jne     .Lgx_zero
+    mov     rax, GRT(G_RT_OFF_GC_HP_ARENA)
+    test    rax, rax
+    je      .Lgx_zero
+    mov     GRTD(G_RT_OFF_GC_IN), 1
+    mov     rcx, GXHP(0)
+    mov     r12, rcx
+    sub     r12, rax
+    mov     GRT(G_RT_OFF_GC_HP_WIN), 0
+    mov     GRT(G_RT_OFF_GC_HP_WEND), 0
+    mov     GRT(G_RT_OFF_GC_GC_NBLK), 0
+    mov     GXMK(GX_NMK), 0
+    mov     GXMK(GX_MXS), 0
+    mov     GXMK(GX_ARENA), rax
+    mov     GXMK(GX_TOP), rcx
+    mov     rdx, GXHP(HPF_SSUM)
+    mov     GXMK(GX_SSUM), rdx
+    mov     rdx, GXHP(HPF_START)
+    mov     GXMK(GX_START), rdx
+    mov     rdx, GXHP(HPF_LIVE)
+    mov     GXMK(GX_LIVE), rdx
+    mov     rdx, GXHP(HPF_VIS)
+    mov     GXMK(GX_VIS), rdx
+    mov     GXMK(GX_RNGP), 0
+    mov     GXMK(GX_RNGN), 0
+    mov     GXMK(GX_INTERIOR), 0
+    mov     GXMK(GX_DVEC_E), 0
+    mov     GXMK(GX_DVEC_N), 0
+    mov     GXMK(GX_WALKED), 0
+    mov     GRT(G_RT_OFF_GC_GC_IDX), 0
+    lea     rdi, [rip + g_runtime + G_RT_OFF_HP_FR]
+    mov     rsi, r12
+    shr     rsi, 4
+    add     rsi, 63
+    shr     rsi, 6
+    RTX_CALL(rt_gc_ssum_run)
+    mov     GXMK(GX_MHEAD), 0
+    mov     GXMK(GX_HN), 0
+    mov     rdi, GXMK(GX_HS)
+    test    rdi, rdi
+    je      1f
+    mov     rcx, GXMK(GX_HCAP)
+    xor     eax, eax
+    rep stosq
+1:
+    mov     GXMK(GX_NSLOT), 0
+    mov     GRTD(G_RT_OFF_GC_GC_SPINE_RECN), 0
+    xor     r13d, r13d
+.Lgx_rb:
+    cmp     r13, GRT(G_RT_OFF_GC_GC_RRNG_N)
+    jge     .Lgx_rbd
+    mov     rax, GRT(G_RT_OFF_GC_GC_RRNG)
+    mov     rcx, r13
+    shl     rcx, 4
+    add     rax, rcx
+    cmp     qword ptr [rax + 8], 0
+    jne     .Lgx_rbn
+    mov     rdi, qword ptr [rax]
+    RTX_CALL(pl_tr_gc_root_ball)
+.Lgx_rbn:
+    inc     r13
+    jmp     .Lgx_rb
+.Lgx_rbd:
+    mov     GXMK(GX_DRAIN), 1
+    mov     rax, GRT(G_RT_OFF_GC_GC_RRNG)
+    mov     qword ptr [rsp], rax
+    mov     rax, GRT(G_RT_OFF_GC_GC_RRNG_N)
+    mov     qword ptr [rsp + 8], rax
+    mov     qword ptr [rsp + 16], 0
+    mov     qword ptr [rsp + 24], 0
+    mov     qword ptr [rsp + 32], 0
+    mov     qword ptr [rsp + 40], 0
+.Lgx_tr:
+    mov     rdi, rsp
+    RTX_CALL(rt_gc_trail_roots_run)
+    test    rax, rax
+    je      .Lgx_trd
+    cmp     rax, 1
+    jne     .Lgx_trw
+    RTX_CALL(gc_slot_grow)
+    jmp     .Lgx_tr
+.Lgx_trw:
+    RTX_CALL(gc_wl_grow)
+    jmp     .Lgx_tr
+.Lgx_trd:
+    mov     r13, qword ptr [rsp + 32]
+    mov     GXMK(GX_DRAIN), 0
+    RTX_CALL(gc_wl_drain)
+    xor     edi, edi
+    xor     esi, esi
+    RTX_CALL(scrip_co_gc_visit_records)
+    mov     rdi, GRT(G_RT_OFF_GC_GC_SEAM_SP)
+    test    rdi, rdi
+    jne     1f
+    mov     rdi, rsp
+1:
+    mov     rsi, rbx
+    RTX_CALL(gc_stack_segments)
+    mov     GXMK(GX_DRAIN), 0
+    RTX_CALL(gc_wl_drain)
+    RTX_CALL(rt_cas_gc_roots)
+    mov     eax, 0x70001000
+    mov     GXMK(GX_RNGP), rax
+    movsxd  rax, dword ptr [rip + g_runtime + G_RT_OFF_SXT_FR + 16]
+    mov     GXMK(GX_RNGN), rax
+    mov     GXMK(GX_DRAIN), 1
+    RTX_CALL(gc_wl_drain)
+    mov     GXMK(GX_DRAIN), 0
+    RTX_CALL(kw_cset_gc_roots)
+    RTX_CALL(core_gc_roots)
+    RTX_CALL(dat_gc_roots)
+    RTX_CALL(gen_gc_roots)
+    RTX_CALL(pas_gc_roots)
+    RTX_CALL(pl_gc_roots)
+    RTX_CALL(rt_gc_root_args)
+    RTX_CALL(eval_gc_roots)
+    RTX_CALL(lower_gc_roots)
+    RTX_CALL(bnd_gc_roots)
+    RTX_CALL(drv_gc_roots)
+    mov     rax, GRT(G_RT_OFF_GC_GC_SHIELD_R)
+    test    rax, rax
+    je      .Lgx_sh0
+    mov     rdx, qword ptr [rax]
+    test    rdx, rdx
+    je      .Lgx_sh0
+    mov     rcx, qword ptr [rip + Σ@GOTPCREL]
+    cmp     rdx, qword ptr [rcx]
+    je      .Lgx_shv
+    cmp     rdx, GRT(G_RT_OFF_SCAN_SUBJ)
+    je      .Lgx_shv
+    cmp     GRTD(G_RT_OFF_GC_GC_SHIELD_R_IS_PROBE), 0
+    jne     .Lgx_sh0
+    mov     rdi, rdx
+    RTX_CALL(gc_shield_refuse)
+.Lgx_shv:
+    mov     rdi, rax
+    RTX_CALL(rt_gc_visit_raw)
+.Lgx_sh0:
+    mov     rdi, qword ptr [rip + Σ@GOTPCREL]
+    RTX_CALL(rt_gc_visit_raw)
+    xor     r14d, r14d
+.Lgx_shl:
+    movsxd  rax, dword ptr [rip + g_runtime + G_RT_OFF_GC_GC_SHIELD_N]
+    cmp     r14, rax
+    jge     .Lgx_shd
+    mov     rdi, r14
+    shl     rdi, 4
+    add     rdi, GRT(G_RT_OFF_GC_GC_SHIELD_ARR)
+    RTX_CALL(rt_gc_visit_descr)
+    inc     r14
+    jmp     .Lgx_shl
+.Lgx_shd:
+.Lgx_rd:
+    cmp     GXMK(GX_MHEAD), 0
+    jne     .Lgx_rdg
+    cmp     GXMK(GX_WLN), 0
+    je      .Lgx_rdd
+.Lgx_rdg:
+    mov     GXMK(GX_DRAIN), 1
+    RTX_CALL(gc_wl_drain)
+    mov     GXMK(GX_DRAIN), 0
+    jmp     .Lgx_rd
+.Lgx_rdd:
+    RTX_CALL(kw_cset_gc_weak)
+    mov     rax, GXHP(0)
+    sub     rax, GRT(G_RT_OFF_GC_HP_ARENA)
+    shr     rax, 4
+    mov     r15, rax
+    mov     rdi, GXHP(HPF_LIVE)
+    mov     rsi, r15
+    RTX_CALL(rt_gc_first_dead_run)
+    mov     r14, rax
+    mov     rdi, GXHP(HPF_PREFIX)
+    mov     rsi, GXHP(HPF_LIVE)
+    lea     rdx, [r15 + 63]
+    shr     rdx, 6
+    RTX_CALL(rt_gc_prefix_run)
+    mov     rdi, GXMK(GX_SLOTS)
+    mov     rsi, GXMK(GX_NSLOT)
+    mov     rdx, GRT(G_RT_OFF_GC_HP_ARENA)
+    mov     rcx, r14
+    lea     r8, [rip + g_runtime + G_RT_OFF_HP_FR]
+    mov     r9, rdx
+    RTX_CALL(rt_gc_fix_run)
+    mov     r15, GXHP(0)
+    mov     rdi, GRT(G_RT_OFF_GC_HP_ARENA)
+    mov     rsi, r14
+    lea     rdx, [rip + g_runtime + G_RT_OFF_HP_FR]
+    mov     rcx, rdi
+    mov     r8, r15
+    RTX_CALL(rt_gc_slide_run)
+    mov     r14, rax
+    lea     rdi, [rip + g_runtime + G_RT_OFF_HP_FR]
+    mov     rsi, GRT(G_RT_OFF_GC_HP_ARENA)
+    mov     rdx, rsi
+    mov     rcx, r15
+    RTX_CALL(rt_gc_start_compact_run)
+    mov     rsi, r14
+    cmp     rsi, r15
+    cmovbe  rsi, r15
+    sub     rsi, GRT(G_RT_OFF_GC_HP_ARENA)
+    shr     rsi, 4
+    add     rsi, 63
+    shr     rsi, 6
+    lea     rdi, [rip + g_runtime + G_RT_OFF_HP_FR]
+    RTX_CALL(rt_gc_ssum_run)
+    mov     r15d, dword ptr [rip + g_runtime + G_RT_OFF_GC_MK + GX_MXS]
+    mov     GXHP(0), r14
+    mov     rax, GXMK(GX_NMK)
+    mov     GXHP(HPF_BLOCKS), rax
+    mov     rax, r14
+    sub     rax, GRT(G_RT_OFF_GC_HP_ARENA)
+    mov     GRT(G_RT_OFF_GC_HP_LIVE), rax
+    mov     rdi, r15
+    RTX_CALL(rt_gcheap_line_reset)
+    test    r13, r13
+    je      .Lgx_notr
+    mov     rax, GRT(G_RT_OFF_GC_GC_RRNG)
+    mov     qword ptr [rsp], rax
+    mov     rax, GRT(G_RT_OFF_GC_GC_RRNG_N)
+    mov     qword ptr [rsp + 8], rax
+    mov     rax, GRT(G_RT_OFF_GC_HP_ARENA)
+    mov     qword ptr [rsp + 16], rax
+    add     rax, r12
+    mov     qword ptr [rsp + 24], rax
+    mov     rax, GXHP(0)
+    mov     qword ptr [rsp + 32], rax
+    lea     rax, [rip + g_runtime + G_RT_OFF_HP_FR]
+    mov     qword ptr [rsp + 40], rax
+    mov     rax, GRT(G_RT_OFF_GC_HP_ARENA)
+    mov     qword ptr [rsp + 48], rax
+    mov     rax, GRT(G_RT_OFF_GC_HP_CAP_END)
+    mov     qword ptr [rsp + 56], rax
+    mov     rdi, rsp
+    RTX_CALL(rt_gc_trail_run)
+    test    rax, rax
+    je      .Lgx_notr
+    mov     rdi, rax
+    RTX_CALL(gc_trail_refuse)
+.Lgx_notr:
+    lea     rdi, [rip + g_runtime + G_RT_OFF_HP_FR]
+    mov     rsi, r12
+    shr     rsi, 4
+    add     rsi, 63
+    shr     rsi, 6
+    RTX_CALL(rt_gc_clear_run)
+    mov     r13, GXHP(0)
+    sub     r13, GRT(G_RT_OFF_GC_HP_ARENA)
+    RTX_CALL(rt_nv_memo_invalidate)
+    RTX_CALL(pm_lf_type_invalidate)
+    inc     GRT(G_RT_OFF_GC_GC_RUNS)
+    mov     rax, GRT(G_RT_OFF_GC_HP_CAP_END)
+    cmp     rax, GXHP(HPF_END)
+    jbe     .Lgx_ng
+    mov     rcx, GXHP(HPF_END)
+    sub     rcx, GRT(G_RT_OFF_GC_HP_ARENA)
+    mov     rdx, rcx
+    sub     rdx, GRT(G_RT_OFF_GC_HP_LIVE)
+    imul    rdx, rdx, 100
+    imul    rcx, rcx, 15
+    cmp     rdx, rcx
+    jge     .Lgx_ng
+    xor     edi, edi
+    RTX_CALL(rt_gcheap_grow)
+.Lgx_ng:
+    mov     rdi, r15
+    RTX_CALL(rt_gcheap_line_reset)
+    mov     GRT(G_RT_OFF_GC_GC_IDX), 0
+    mov     GRTD(G_RT_OFF_GC_IN), 0
+    mov     rax, r12
+    sub     rax, r13
+    jmp     .Lgx_out
+.Lgx_zero:
+    xor     eax, eax
+.Lgx_out:
+    RTX_ADD_RSP(64)
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbx)
+    RTX_GVA_R9
+    ret
+RTX_ENDF(gc_collect_ex)
+.macro GX_GROW_LOOP run, slotonly
+    RTX_PUSHS(rbx)
+    mov     rbx, rdi
+1:
+    mov     rdi, rbx
+    RTX_CALL(\run)
+    test    rax, rax
+    je      3f
+.if \slotonly
+    RTX_CALL(gc_slot_grow)
+    jmp     1b
+.else
+    cmp     rax, 1
+    jne     2f
+    RTX_CALL(gc_slot_grow)
+    jmp     1b
+2:
+    RTX_CALL(gc_wl_grow)
+    jmp     1b
+.endif
+3:
+    RTX_POPS(rbx)
+    RTX_GVA_R9
+    ret
+.endm
+RTX_FUNC(rt_gc_run_roots)
+    GX_GROW_LOOP rt_gc_core_roots_run, 0
+RTX_ENDF(rt_gc_run_roots)
+RTX_FUNC(rt_gc_run_flags_roots)
+    GX_GROW_LOOP rt_gc_flags_roots_run, 0
+RTX_ENDF(rt_gc_run_flags_roots)
+RTX_FUNC(rt_gc_run_proc_roots)
+    GX_GROW_LOOP rt_gc_proc_roots_run, 1
+RTX_ENDF(rt_gc_run_proc_roots)
+RTX_FUNC(rt_gc_run_ptr_fields)
+    lea     rax, [rcx - 1]
+    cmp     rax, 4
+    ja      .Lpf_bad
+    RTX_SUB_RSP(56)
+    mov     qword ptr [rsp], rdi
+    mov     qword ptr [rsp + 8], rsi
+    mov     qword ptr [rsp + 16], rdx
+    mov     qword ptr [rsp + 24], 0
+    mov     qword ptr [rsp + 32], rcx
+    mov     qword ptr [rsp + 40], r8
+    mov     qword ptr [rsp + 48], 0
+.Lpf_again:
+    mov     rdi, rsp
+    RTX_CALL(rt_gc_ptr_fields_run)
+    test    rax, rax
+    je      .Lpf_done
+    RTX_CALL(gc_slot_grow)
+    jmp     .Lpf_again
+.Lpf_done:
+    RTX_ADD_RSP(56)
+    RTX_GVA_R9
+    ret
+.Lpf_bad:
+    RTX_SUB_RSP(8)
+    RTX_CALL(rt_gc_ptr_fields_bad)
+    RTX_ADD_RSP(8)
+    RTX_GVA_R9
+    ret
+RTX_ENDF(rt_gc_run_ptr_fields)
+RTX_FUNC(rt_gc_run_loc_list)
+    RTX_SUB_RSP(24)
+    mov     qword ptr [rsp], rdi
+    mov     qword ptr [rsp + 8], rsi
+    mov     qword ptr [rsp + 16], 0
+.Lrll_again:
+    mov     rdi, rsp
+    RTX_CALL(rt_gc_loc_list_run)
+    test    rax, rax
+    je      .Lrll_done
+    RTX_CALL(gc_slot_grow)
+    jmp     .Lrll_again
+.Lrll_done:
+    RTX_ADD_RSP(24)
+    RTX_GVA_R9
+    ret
+RTX_ENDF(rt_gc_run_loc_list)

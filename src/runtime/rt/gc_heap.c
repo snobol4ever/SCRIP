@@ -108,9 +108,8 @@ rt_sxt_fr_t * const rt_sxt_fr_p = &g_runtime.abi.sxt_fr;
 #define g_sxt_len (g_runtime.abi.sxt_fr.len)
 #define g_sxt_gva_n (g_runtime.abi.sxt_fr.gva_n)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long gc_line_mb(void) { static long line_mb = -1; if (line_mb < 0) { const char *e = getenv("SCRIP_GC_LINE_MB"); line_mb = e ? atol(e) : 128; if (line_mb < 0) line_mb = 0; } return line_mb; }
+static long gc_line_mb(void) { const char *e = getenv("SCRIP_GC_LINE_MB"); long v = e ? atol(e) : 128; return v < 0 ? 0 : v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long gc_line_span(long room) { long line_mb = gc_line_mb(); if (line_mb == 0) return room; { long span = line_mb << 20; return span < room ? span : room; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_gva_count(int n) { g_sxt_gva_n = n; }
 int rt_sxt_gva_count_get(void) { return g_sxt_gva_n; }
@@ -236,15 +235,9 @@ _Static_assert(sizeof(long) == 8,
     ": the collection line is recomputed as top plus min(SCRIP_GC_LINE_MB, fifteen sixteenths of what is free -- half until CEO-1264) at init, after every grow and after every collection -- a line f"
     "ixed at half the STARTING window made every poll collect once the live set outgrew it -- and a grow commits the larger of the request and the committed size whenever the last collection left th"
     "e window more than half live, else the request alone; still lazy, still one mprotect per grow, still nothing past the cap");
-static void rt_gcheap_line_reset(long head) {
-    long fr = (long)(g_hp_end - g_hp_top), h = fr >> 4;
-    if (head > fr >> 1) head = fr >> 1;
-    if (head > h) h = head;
-    g_runtime.abi.hp_gcline = g_hp_top + gc_line_span(fr - h);
-    gc_fr_line_sync();
-}
+void rt_gcheap_line_reset(long head);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_gcheap_grow(uint64_t need) {
+int rt_gcheap_grow(uint64_t need) {
     size_t left = (size_t)(g_runtime.gc.hp_cap_end - g_hp_end) > GC_ERR_RESERVE ? (size_t)(g_runtime.gc.hp_cap_end - g_hp_end) - GC_ERR_RESERVE : 0;
 #if RT_DIAG
     if (!left) { rt_gcheap_cap_hit(need); return 0; }
@@ -763,6 +756,9 @@ extern void rt_gc_ssum_run(rt_hp_fr_t *fr, size_t nw);
 extern uint64_t rt_gc_trail_run(const gc_tr_args_t *a);
 extern void rt_gc_clear_run(rt_hp_fr_t *fr, size_t nw);
 typedef struct gc_mk_t gc_mk_t;
+_Static_assert(__builtin_offsetof(rt_hp_fr_t, live) == 72 && __builtin_offsetof(rt_hp_fr_t, vis) == 88 && __builtin_offsetof(rt_hp_fr_t, start) == 96 && __builtin_offsetof(rt_hp_fr_t, ssum) == 104 &&
+    __builtin_offsetof(rt_hp_fr_t, prefix) == 112 && __builtin_offsetof(rt_hp_fr_t, blocks) == 16 && __builtin_offsetof(rt_hp_fr_t, end) == 8 && RT_GVA_VA == 0x70001000UL && GC_FREE_PCT == 15 &&
+    sizeof(gc_tr_args_t) == 64, "gc_collect_ex (rtx_gc.s) addresses the frontier cell, the pinned GVA base, the free-percent and the trail argument block by these values");
 _Static_assert(__builtin_offsetof(gc_mk_t, wl) == 0 && __builtin_offsetof(gc_mk_t, wln) == 8 && __builtin_offsetof(gc_mk_t, wlcap) == 16 && __builtin_offsetof(gc_mk_t, slots) == 24 &&
     __builtin_offsetof(gc_mk_t, nslot) == 32 && __builtin_offsetof(gc_mk_t, scap) == 40 && __builtin_offsetof(gc_mk_t, arena) == 48 && __builtin_offsetof(gc_mk_t, top) == 56 &&
     __builtin_offsetof(gc_mk_t, ssum) == 64 && __builtin_offsetof(gc_mk_t, start) == 72 && __builtin_offsetof(gc_mk_t, live) == 80 && __builtin_offsetof(gc_mk_t, vis) == 88 &&
@@ -784,6 +780,12 @@ _Static_assert(__builtin_offsetof(ARBLK_t, lo) == 0 && __builtin_offsetof(ARBLK_
     "rt_gc_mark_run (rtx_gc.s) walks arrays, tables, buckets, pairs, data instances and pointer vectors at these offsets and dispatches the move list on these types");
 _Static_assert(HB_AGGV == 206 && HB_FILL == 202 && HB_DINST == 213 && HB_DVEC == 214 && DATA_ELEMS_SLEN == 1 && PROCVAL_SLEN == 0xFFFFFFFEu && PROCVAL_BUILTIN_SLEN == 0xFFFFFFFCu &&
     PROCVAL_EXTERNAL_SLEN == 0xFFFFFFFBu, "rt_gc_mark_run (rtx_gc.s) carries these block types and descriptor lengths as its own defines");
+static int gc_env_set(const char *n) { const char *e = getenv(n); return e && *e; }
+static long gc_collect_fast_ok(void) {
+    const struct gc_mk_t *m = &g_runtime.abi.gc_mk;
+    return !(m->diag || m->trap || m->plant || m->verify || m->telem || m->maps || m->census || gc_env_set("SCRIP_GC_AUDIT_SLOTS") || gc_env_set("SCRIP_GC_COVERAGE") ||
+        gc_env_set("SCRIP_GC_POISON") || gc_env_set("SCRIP_GC_VALIDATE"));
+}
 static void gc_knobs_hoist(void) {
     g_runtime.abi.gc_mk.diag = gc_diag_on();
     g_runtime.abi.gc_mk.chain = gc_chain_check_on();
@@ -794,7 +796,9 @@ static void gc_knobs_hoist(void) {
     g_runtime.abi.gc_mk.telem = gc_telem_on();
     g_runtime.abi.gc_mk.maps = gc_maps_on();
     g_runtime.abi.gc_mk.census = gc_walk_census_on();
+    g_runtime.abi.gc_fast = gc_collect_fast_ok();
 #endif
+    g_runtime.gc.gc_line_mbv = gc_line_mb();
 }
 _Static_assert(__builtin_offsetof(gc_slot_t, loc) == 0 && __builtin_offsetof(gc_slot_t, val) == 8 && sizeof(gc_slot_t) == 16,
     "the slot record is two words (ARCH-GC section 15.11 (1)): the slot's address and the pointer value read at registration, so the fix is arena plus the rank of that value, idempotent under a doub"
@@ -1165,7 +1169,10 @@ static void *gcbk_reserve(void *p, size_t need) {
 static double gc_walk_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (double)t.tv_sec * 1e9 + (double)t.tv_nsec; }
 #endif
 typedef struct { const void *pc; const char *r; const void *rbp; } gc_ent_t;
-static long gc_collect_ex(const gc_ent_t *ent);
+long gc_collect_ex(const gc_ent_t *ent);
+long gc_collect_ex_c(const gc_ent_t *ent);
+void gc_wl_drain(void);
+void gc_run_verdicts(DESCR_t *v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_point_arr_run(DESCR_t *arr, int n, const char **r0, char *floor, int is_probe, const gc_ent_t *ent) {
     int pv = g_gc_pending;
@@ -1213,7 +1220,7 @@ _Static_assert(sizeof(void *) == 8,
     "visit read it as already visited, the buckets array was never marked, and the collection after next walked reclaimed ground -- the key spaces are distinct by construction now, and gc_visit_one'"
     "s DT_N slen=1 case is the only writer of bit 1");
 static inline int gc_hins(void *p) __attribute__((always_inline));
-static void gc_hins_grow(void) {
+void gc_hins_grow(void) {
     long ncap = g_runtime.abi.gc_mk.hcap ? g_runtime.abi.gc_mk.hcap * 2 : 4096;
     void **nh = (void **)gcbk_alloc((size_t)ncap * sizeof(void *));
     if (!nh) { fprintf(stderr, "[ZGC] visited-set alloc failed\n"); abort(); }
@@ -1296,7 +1303,7 @@ static long gc_visit_segment(const char *lo0, const char *hi0, const gc_ent_t *e
 static int gc_frames_visit_check(uint64_t *v);
 static void gc_frames_visit_judge(const uint64_t *v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_slot_grow(void) {
+void gc_slot_grow(void) {
     g_runtime.abi.gc_mk.scap = g_runtime.abi.gc_mk.scap ? g_runtime.abi.gc_mk.scap * 2 : 4096;
     g_runtime.abi.gc_mk.slots = (gc_slot_t *)gcbk_grow((void *)g_runtime.abi.gc_mk.slots, (size_t)g_runtime.abi.gc_mk.scap * sizeof(*g_runtime.abi.gc_mk.slots));
     if (!g_runtime.abi.gc_mk.slots) abort();
@@ -1327,7 +1334,7 @@ static inline int gc_tag_bears_ptr(uint8_t v) {
     return v == DT_S || v == DT_SNUL || v == DT_X || v == DT_A || v == DT_T || v == DT_N || v == DT_DATA || v == DT_P || v == DT_PLVAR || v == DT_PLREF || v == DT_E || v == DT_BIG || v == DT_CPLX ||
         v == DT_EXTL;
 }
-static void gc_wl_grow(void) {
+void gc_wl_grow(void) {
     g_runtime.abi.gc_mk.wlcap = g_runtime.abi.gc_mk.wlcap ? g_runtime.abi.gc_mk.wlcap * 2 : 4096;
     g_runtime.abi.gc_mk.wl = (DESCR_t **)gcbk_grow((void *)g_runtime.abi.gc_mk.wl, (size_t)g_runtime.abi.gc_mk.wlcap * sizeof(*g_runtime.abi.gc_mk.wl));
     if (!g_runtime.abi.gc_mk.wl) { fprintf(stderr, "[ZGC] mark worklist alloc failed at %ld entries\n", g_runtime.abi.gc_mk.wlcap); abort(); }
@@ -1384,7 +1391,7 @@ static void gc_visit_tbblk(struct _TBBLK_t *t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_visit_one(DESCR_t *d) {
+void gc_visit_one(DESCR_t *d) {
     if (!d) return;
     switch ((int)d->v) {
         case DT_S:
@@ -1460,7 +1467,7 @@ static void gc_visit_one(DESCR_t *d) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_visit_mblk(rt_hblk_t *h) {
+void gc_visit_mblk(rt_hblk_t *h) {
     if (h->type == HB_AGGV) { if (!gc_vis_test_set(h)) gc_visit_vcell((VCELL_t *)(h + 1)); return; }
     if (h->type == HB_TRIE || h->type == HB_TRIEN) { extern void pl_trie_gc_visit(uint16_t, void *); pl_trie_gc_visit(h->type, (void *)(h + 1)); return; }
 #if RT_DIAG
@@ -1468,72 +1475,19 @@ static void gc_visit_mblk(rt_hblk_t *h) {
     g_runtime.gc.gc_interior += (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *));
 #endif
 }
-static void gc_wl_drain(void) {
-    extern DESCR_t *rt_gc_mark_run(gc_mk_t *);
-    for (;;) {
-        DESCR_t *d = rt_gc_mark_run(&g_runtime.abi.gc_mk);
-        if (!d) break;
-        if (d == (DESCR_t *)1) { if (g_runtime.abi.gc_mk.rng_n) gc_wl_grow(); else gc_slot_grow(); } else if (d == (DESCR_t *)2) gc_wl_grow();
-        else if (d == (DESCR_t *)6) gc_hins_grow();
-        else if ((uintptr_t)d & 2u) gc_visit_mblk((rt_hblk_t *)((uintptr_t)d & ~(uintptr_t)2u));
-        else gc_visit_one(d);
-    }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_run_verdicts(DESCR_t *v) {
-    extern DESCR_t *rt_gc_mark_run(gc_mk_t *);
-    while (v) {
-        if (v == (DESCR_t *)1) { if (g_runtime.abi.gc_mk.rng_n) gc_wl_grow(); else gc_slot_grow(); } else if (v == (DESCR_t *)2) gc_wl_grow();
-        else if (v == (DESCR_t *)6) gc_hins_grow();
-        else if ((uintptr_t)v & 2u) gc_visit_mblk((rt_hblk_t *)((uintptr_t)v & ~(uintptr_t)2u));
-        else gc_visit_one(v);
-        v = rt_gc_mark_run(&g_runtime.abi.gc_mk);
-    }
-    g_runtime.abi.gc_mk.draining = 0;
-}
-void rt_gc_visit_descr(DESCR_t *d) {
-    extern DESCR_t *rt_gc_visit_descr_a(DESCR_t *);
-    for (;;) {
-        DESCR_t *v = rt_gc_visit_descr_a(d);
-        if (!v) { g_runtime.abi.gc_mk.draining = 0; return; }
-        if (v == (DESCR_t *)3) return;
-        if (v == (DESCR_t *)4) { gc_wl_grow(); continue; }
-        gc_run_verdicts(v);
-        return;
-    }
-}
 typedef struct gc_trail_roots_args_t { const struct gc_rng_t *rr; long n; long pos_i; const char *pos_e; long n_hb; const char *top; } gc_trail_roots_args_t;
 _Static_assert(__builtin_offsetof(gc_trail_roots_args_t, rr) == 0 && __builtin_offsetof(gc_trail_roots_args_t, n) == 8 && __builtin_offsetof(gc_trail_roots_args_t, pos_i) == 16 &&
     __builtin_offsetof(gc_trail_roots_args_t, pos_e) == 24 && __builtin_offsetof(gc_trail_roots_args_t, n_hb) == 32 && __builtin_offsetof(gc_trail_roots_args_t, top) == 40 &&
     sizeof(pl_tr_entry_t) == 32 && PL_TR_HEADER_BYTES == 64 && __builtin_offsetof(pl_tr_entry_t, pad) == 8 && __builtin_offsetof(pl_tr_entry_t, old) == 16,
     "rt_gc_trail_roots_run (rtx_gc.s) reads its argument block and the trail at these offsets");
-void rt_gc_run_proc_roots(gc_roots_args_t *a) { extern long rt_gc_proc_roots_run(gc_roots_args_t *); while (rt_gc_proc_roots_run(a)) gc_slot_grow(); }
-void rt_gc_run_flags_roots(gc_roots_args_t *a) {
-    extern long rt_gc_flags_roots_run(gc_roots_args_t *);
-    for (;;) { long r = rt_gc_flags_roots_run(a); if (!r) break; if (r == 1) gc_slot_grow(); else gc_wl_grow(); }
-}
 typedef struct gc_ptr_fields_args_t { const char *base; long n; long stride; long pos; long noff; const long *off; long k; } gc_ptr_fields_args_t;
 _Static_assert(__builtin_offsetof(gc_ptr_fields_args_t, base) == 0 && __builtin_offsetof(gc_ptr_fields_args_t, n) == 8 && __builtin_offsetof(gc_ptr_fields_args_t, stride) == 16 &&
     __builtin_offsetof(gc_ptr_fields_args_t, pos) == 24 && __builtin_offsetof(gc_ptr_fields_args_t, noff) == 32 && __builtin_offsetof(gc_ptr_fields_args_t, off) == 40 &&
     __builtin_offsetof(gc_ptr_fields_args_t, k) == 48, "rt_gc_ptr_fields_run (rtx_gc.s) reads its argument block at these offsets");
-void rt_gc_run_ptr_fields(const void *base, long n, long stride, long noff, const long *off) {
-    extern long rt_gc_ptr_fields_run(gc_ptr_fields_args_t *);
-    gc_ptr_fields_args_t a = { (const char *)base, n, stride, 0, noff, off, 0 };
-    if (noff < 1 || noff > 5) rt_bomb("rt_gc_run_ptr_fields: a run visits one to five pointer fields per entry");
-    while (rt_gc_ptr_fields_run(&a)) gc_slot_grow();
-}
 typedef struct gc_loc_list_args_t { const char *const *const *list; long n; long pos; } gc_loc_list_args_t;
 _Static_assert(__builtin_offsetof(gc_loc_list_args_t, list) == 0 && __builtin_offsetof(gc_loc_list_args_t, n) == 8 && __builtin_offsetof(gc_loc_list_args_t, pos) == 16,
     "rt_gc_loc_list_run (rtx_gc.s) reads its argument block at these offsets");
-void rt_gc_run_loc_list(const char *const *const *list, long n) {
-    extern long rt_gc_loc_list_run(gc_loc_list_args_t *);
-    gc_loc_list_args_t a = { list, n, 0 };
-    while (rt_gc_loc_list_run(&a)) gc_slot_grow();
-}
-void rt_gc_run_roots(gc_roots_args_t *a) {
-    extern long rt_gc_core_roots_run(gc_roots_args_t *);
-    for (;;) { long r = rt_gc_core_roots_run(a); if (!r) break; if (r == 1) gc_slot_grow(); else gc_wl_grow(); }
-}
 _Static_assert(__builtin_offsetof(gc_roots_args_t, vbk) == 0 && __builtin_offsetof(gc_roots_args_t, vnb) == 8 && __builtin_offsetof(gc_roots_args_t, fbk) == 16 &&
     __builtin_offsetof(gc_roots_args_t, fnb) == 24 && __builtin_offsetof(gc_roots_args_t, udef) == 32 && __builtin_offsetof(gc_roots_args_t, pos_t) == 40 &&
     __builtin_offsetof(gc_roots_args_t, pos_e) == 48 && __builtin_offsetof(gc_roots_args_t, pos_b) == 56 && __builtin_offsetof(gc_roots_args_t, tmp_end) == 64 &&
@@ -1901,7 +1855,7 @@ static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop) {
 }
 static int gc_chain_entry_from_c(uint64_t *pco, const char **ro, const char **rbpo);
 static gc_ent_t gc_park_ent(const scrip_coctx_t *sc, const char *lo, const char *prbp);
-static long gc_stack_segments(char *floor, const gc_ent_t *ent) {
+long gc_stack_segments(char *floor, const gc_ent_t *ent) {
     gc_seg_it_t it;
     char *lo, *hi;
     int pop;
@@ -3443,7 +3397,7 @@ static void gc_assert_check(void) {
 }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_trail_refuse(const char *hb) {
+void gc_trail_refuse(const char *hb) {
     fprintf(stderr, "[GC-TRAIL] REFUSED: a heap-mark sentinel on the Prolog trail names %p, outside the heap reservation %p..%p -- a choice point's HB is the frontier at its creation\n",
         (const void *)hb, (const void *)g_runtime.gc.hp_arena, (const void *)g_runtime.gc.hp_cap_end);
     abort();
@@ -3497,7 +3451,15 @@ static void gc_validate_record(const char *base, const char *oldtop) {
     fprintf(stderr, "[ZGC-VALIDATE] collection=%ld slots=%ld heap=%ld expired=%ld misfixed=%ld\n", g_runtime.gc.gc_runs + 1, n, hp, ex, mf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long gc_collect_ex(const gc_ent_t *ent) {
+void rt_gc_ptr_fields_bad(void) { rt_bomb("rt_gc_run_ptr_fields: a run visits one to five pointer fields per entry"); }
+void gc_shield_refuse(const char *w) {
+    fprintf(stderr,
+        "[ZHP] rt_gc_point_arr_c refuses r0 %p: a CALLER handed this shield a word to protect and it aliases neither the subject nor g_scan_subj, so this shield cannot reach it and honouring"
+        " the call silently would drop a root -- pass the word as a tagged DESCR cell in arr[] instead (CEO-972). The asm shim's saved-subject PROBE is rt_gc_point_arr_probe_c and is not this "
+        "road.\n", (const void *)w);
+    abort();
+}
+long gc_collect_ex_c(const gc_ent_t *ent) {
     extern void kw_cset_gc_roots(void);
     extern void core_gc_roots(void);
     extern void dat_gc_roots(void);
@@ -3666,14 +3628,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     if (g_runtime.gc.gc_shield_r && *g_runtime.gc.gc_shield_r) {
         extern const char *Σ;
         if (*g_runtime.gc.gc_shield_r == Σ || *g_runtime.gc.gc_shield_r == g_runtime.abi.scan_subj) rt_gc_visit_raw(g_runtime.gc.gc_shield_r);
-        else if (!g_runtime.gc.gc_shield_r_is_probe) {
-            fprintf(stderr,
-                "[ZHP] rt_gc_point_arr_c refuses r0 %p: a CALLER handed this shield a word to protect and it aliases neither the subject nor g_scan_subj, so this shield cannot reach it and honouring"
-                " t"
-                "he call silently would drop a root -- pass the word as a tagged DESCR cell in arr[] instead (CEO-972). The asm shim's saved-subject PROBE is rt_gc_point_arr_probe_c and is not this "
-                "road.\n", (const void *)*g_runtime.gc.gc_shield_r);
-            abort();
-        }
+        else if (!g_runtime.gc.gc_shield_r_is_probe) gc_shield_refuse((const char *)*g_runtime.gc.gc_shield_r);
     }
     { extern const char *Σ; rt_gc_visit_raw(&Σ); }
     for (int si = 0; si < g_runtime.gc.gc_shield_n; si++) rt_gc_visit_descr(&g_runtime.gc.gc_shield_arr[si]);
