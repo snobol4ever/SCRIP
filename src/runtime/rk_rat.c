@@ -157,6 +157,18 @@ static DESCR_t rq_pow(DESCR_t n, DESCR_t d, DESCR_t e, int fat) {
     if (neg) { if (bi_zero(pn)) { rq_dz("infix:<**>"); return FAILDESCR; } return rq_make(pd, pn, fat); }
     return rq_make(pn, pd, fat);
 }
+static int rq_str_dbl(DESCR_t v, double *out) {
+    if (v.v != DT_S) return 0;
+    const char *t = VARVAL_fn(v);
+    while (t && (*t == ' ' || *t == '\t' || *t == '\n')) t++;
+    char *e = NULL;
+    double d = t && *t ? strtod(t, &e) : 0;
+    if (!t || !*t || e == t) return 0;
+    while (*e == ' ' || *e == '\t' || *e == '\n') e++;
+    if (*e) return 0;
+    *out = d;
+    return 1;
+}
 int rk_rat_binop(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     if (!rq_kind(a) && !rq_kind(b)) return 0;
     DESCR_t an, ad, bn, bd;
@@ -209,10 +221,10 @@ int rk_rat_binop(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     double x, y;
     if (ae) x = rq_dbl(an, ad);
     else if (IS_REAL_fn(a)) x = a.r;
-    else return 0;
+    else if (!rq_str_dbl(a, &x)) return 0;
     if (be) y = rq_dbl(bn, bd);
     else if (IS_REAL_fn(b)) y = b.r;
-    else return 0;
+    else if (!rq_str_dbl(b, &y)) return 0;
     switch (op) {
         case BINOP_ADD:
         *out = REALVAL(x + y);
@@ -265,10 +277,10 @@ int rk_rat_cmp(DESCR_t a, DESCR_t b, int *c) {
     double x, y;
     if (rq_get(a, &an, &ad, &fat)) x = rq_dbl(an, ad);
     else if (IS_REAL_fn(a)) x = a.r;
-    else return 0;
+    else if (!rq_str_dbl(a, &x)) return 0;
     if (rq_get(b, &bn, &bd, &fat)) y = rq_dbl(bn, bd);
     else if (IS_REAL_fn(b)) y = b.r;
-    else return 0;
+    else if (!rq_str_dbl(b, &y)) return 0;
     *c = x < y ? -1 : x > y ? 1 : 0;
     return 1;
 }
