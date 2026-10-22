@@ -214,6 +214,11 @@ static tree_t *rk_testop_shape(RkB *b, tree_t *c) {
         expr_add_child(seq, tl);
         return seq;
     }
+    if (!strcmp(nm, "__rk_test_does_ok") && c->n >= 3) {
+        tree_t *dm = ast_node_new(TT_METHCALL); expr_add_child(dm, c->c[1]); expr_add_child(dm, leaf_sval(TT_QLIT, "does")); expr_add_child(dm, c->c[2]);
+        tree_t *ok = make_call("__rk_test_ok"); expr_add_child(ok, rkb_ternary(b, dm, mkbool_lit(1), mkbool_lit(0))); if (c->n >= 4) expr_add_child(ok, c->c[3]);
+        return ok;
+    }
     if ((like || unlike) && c->n >= 3) {
         tree_t *ok = make_call(like ? "__rk_test_ok" : "__rk_test_nok");
         tree_t *gs = make_call("__rk_str"); expr_add_child(gs, c->c[1]);
