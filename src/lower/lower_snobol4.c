@@ -24,7 +24,7 @@ static int sno_sub_val_on(void) {
 static int sno_kw_static_slot(const char * kw) { return kw ? rt_kw_index(kw) : -1; }
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
-typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; const char * snapg; int ppos; } sprearg_t;
+typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; const char * snapg; int ppos; IR_t * prim2; } sprearg_t;
 typedef struct sno_kw_link { const char * nm; const struct sno_kw_link * up; } sno_kw_link_t;
 typedef struct {
     IR_graph_t * g;
@@ -36,6 +36,7 @@ typedef struct {
     IR_t * pat_seal;
     sprearg_t pre[64];
     int npre;
+    int snap;
     int ppos;
     long prog_nstmt;
     long stno_base;
@@ -2372,6 +2373,24 @@ static void sno_pre_req(scx_t * cx, const tree_t * t, IR_t * prim) {
     cx->npre++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char sno_elem_snapg[] = "$elem";
+static int sno_capt_elem_tg(const tree_t * tg, int curs) {
+    return tg && (tg->t == TT_IDX || (curs && tg->t == TT_INDIRECT) || (!curs && tg->t == TT_FNC && sno_item_argbase(tg) < 0) || (!curs && tg->t == TT_INDIRECT && !sno_capt_name(tg)));
+}
+static int sno_elem_here(const scx_t * cx, const tree_t * tg, int curs) { return cx->snap && cx->npre >= 0 && cx->npre < 64 && sno_capt_elem_tg(tg, curs); }
+static void sno_elem_pre(scx_t * cx, const tree_t * tg, IR_t * prim, IR_t * prim2) {
+    tree_t * nx = ast_node_new(TT_NAME);
+    ast_push(nx, (tree_t *) tg);
+    cx->pre[cx->npre].arg = nx;
+    cx->pre[cx->npre].prim = prim;
+    cx->pre[cx->npre].prim2 = prim2;
+    cx->pre[cx->npre].str = 0;
+    cx->pre[cx->npre].codes = 0;
+    cx->pre[cx->npre].snapg = sno_elem_snapg;
+    cx->pre[cx->npre].ppos = 0;
+    cx->npre++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_lambda_kind(const char * n, int nargs) {
     if (!n || nargs != 1) return 0;
     if (!strcmp(n, "LAMBDA") || !strcmp(n, "\xce\x9b")) return 1;
@@ -2862,11 +2881,15 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         { IR_t * nd = lc_build(g, IR_MATCH_REM, succ, NULL); sno_ω_to(nd, fail); return nd; }
         case TT_CAPT_CURSOR:
         {
-            const char * cvn = sno_cursor_target((t->n > 0) ? t->c[0] : NULL);
+            const tree_t * ctg = (t->n > 0) ? t->c[0] : NULL;
+            const char * cvn = sno_cursor_target(ctg);
+            const int ek = !cvn && sno_elem_here(cx, ctg, 1);
+            if (ek) cvn = "PAT$0$V0";
             if (!cvn) sno_fatal("@ cursor-position capture target is not a simple variable", NULL);
             IR_t * nd = lc_build(g, IR_MATCH_ATP, succ, NULL);
             IR_LIT(nd).sval = (char *) cvn;
             sno_ω_to(nd, fail);
+            if (ek) sno_elem_pre(cx, ctg, nd, NULL);
             return nd;
         }
         case TT_ARB:
@@ -2917,8 +2940,9 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         }
         case TT_CAPT_COND_ASGN:
         {
-            const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
-            if (vn) sno_reg_var(vn);
+            const int ek = 0;
+            const char * vn = ek ? "PAT$0$V0" : (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
+            if (vn && !ek) sno_reg_var(vn);
             if (!vn && t->n > 1) vn = sno_capt_item_name(t->c[1]);
             if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) {
                 const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL;
@@ -2942,6 +2966,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             IR_t * itail = NULL;
             cx->ppos = (pp && t->slen == 240) ? pp : 30;
             IR_t * pe = sno_capt_body(cx, t->c[0], nd, save, &itail);
+            if (ek) sno_elem_pre(cx, t->c[1], nd, save);
             lc_γ_to(save, pe);
             sno_ω_to(nd, itail);
             ir_operand_push(nd, pe);
@@ -2952,8 +2977,9 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         }
         case TT_CAPT_IMMED_ASGN:
         {
-            const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
-            if (vn) sno_reg_var(vn);
+            const int ek = t->n > 1 && sno_elem_here(cx, t->c[1], 0);
+            const char * vn = ek ? "PAT$0$V0" : (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
+            if (vn && !ek) sno_reg_var(vn);
             if (!vn && t->n > 1) vn = sno_capt_item_name(t->c[1]);
             if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) {
                 const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL;
@@ -2977,6 +3003,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             IR_t * itail = NULL;
             cx->ppos = (pp && t->slen == 240) ? pp : 25;
             IR_t * pe = sno_capt_body(cx, t->c[0], nd, save, &itail);
+            if (ek) sno_elem_pre(cx, t->c[1], nd, save);
             lc_γ_to(save, pe);
             sno_ω_to(nd, itail);
             ir_operand_push(nd, pe);
@@ -3245,8 +3272,9 @@ static int sno_pat_supported(const tree_t * t) {
     if (k == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
     if (k == TT_LEN) return t->n > 0 && t->c[0] && (t->c[0]->t != TT_DEFER || t->c[0]->n > 0);
     if (k == TT_CAPT_COND_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER || sno_item_argbase(t->c[1]) >= 0) && sno_pat_supported(t->c[0]);
-    if (k == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER || sno_item_argbase(t->c[1]) >= 0) && sno_pat_supported(t->c[0]);
-    if (k == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval;
+    if (k == TT_CAPT_IMMED_ASGN) return t->n > 1 && t->c[1] && (sno_capt_name(t->c[1]) != NULL || t->c[1]->t == TT_DEFER || sno_item_argbase(t->c[1]) >= 0 || sno_capt_elem_tg(t->c[1], 0)) &&
+        sno_pat_supported(t->c[0]);
+    if (k == TT_CAPT_CURSOR) return t->n > 0 && t->c[0] && ((t->c[0]->t == TT_VAR && t->c[0]->v.sval) || sno_capt_elem_tg(t->c[0], 1));
     if (k == TT_SEQ) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     if (k == TT_ALT) return sno_pat_supported((t->n > 0) ? t->c[0] : NULL) && sno_pat_supported((t->n > 1) ? t->c[1] : NULL);
     if (k == TT_FNC) return 1;
@@ -3286,6 +3314,8 @@ static int sno_is_pattern_rhs(const tree_t * t) {
         case TT_CAPT_COND_ASGN:
         case TT_CAPT_IMMED_ASGN:
         return 1;
+        case TT_CAPT_CURSOR:
+        return t->n > 0 && sno_capt_elem_tg(t->c[0], 1);
         case TT_SEQ:
         case TT_CAT:
         {
@@ -3327,6 +3357,7 @@ static int sno_mkpat_here(const tree_t * t) {
     tx.pat_fail = NULL;
     tx.pat_seal = NULL;
     tx.npre = 0;
+    tx.snap = 1;
     tx.ppos = 0;
     tx.prog_nstmt = 0;
     tx.stno_base = 0;
@@ -3335,7 +3366,8 @@ static int sno_mkpat_here(const tree_t * t) {
     tx.pat_fail = tno;
     tx.pat_seal = sno_thunk_abort_exit(tg, tno);
     sno_pat_node(&tx, t, tok, tno);
-    return tx.npre == 0;
+    for (int pk = 0; pk < tx.npre; pk++) if (tx.pre[pk].snapg != sno_elem_snapg) return 0;
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pat_right_sealed(const tree_t * t) {
@@ -3385,6 +3417,7 @@ static IR_t * sno_mkpat_emit(scx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
     tx.pat_fail = NULL;
     tx.pat_seal = NULL;
     tx.npre = 0;
+    tx.snap = 1;
     tx.ppos = 0;
     tx.prog_nstmt = 0;
     tx.stno_base = 0;
@@ -3457,7 +3490,7 @@ static const tree_t * sno_capt_elem_rewrite(const tree_t * t, sno_tvec_t * pro) 
     const int curs = t->t == TT_CAPT_CURSOR && t->n > 0;
     if (!capt && !curs && t->t != TT_SEQ && t->t != TT_CAT && t->t != TT_ALT && t->t != TT_ARBNO && t->t != TT_FENCE) return t;
     const tree_t * tg = capt ? t->c[1] : curs ? t->c[0] : NULL;
-    const int elem = tg && (tg->t == TT_IDX || (curs && tg->t == TT_INDIRECT) || (capt && tg->t == TT_FNC && sno_item_argbase(tg) < 0) || (capt && tg->t == TT_INDIRECT && !sno_capt_name(tg)));
+    const int elem = sno_capt_elem_tg(tg, curs);
     tree_t * u = NULL;
     for (int i = 0; i < t->n; i++) {
         const tree_t * ci = t->c[i];
@@ -3767,6 +3800,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     cx.pat_fail = NULL;
     cx.pat_seal = NULL;
     cx.npre = 0;
+    cx.snap = 0;
     cx.ppos = 0;
     cx.prog_nstmt = (long)nst + 1 + stno_base;
     cx.stno_base = stno_base;
@@ -4369,6 +4403,7 @@ void sno_expr_thunks_build(int x0) {
         ex.pat_fail = NULL;
         ex.pat_seal = NULL;
         ex.npre = 0;
+        ex.snap = 0;
         ex.ppos = 0;
         ex.prog_nstmt = 0;
         ex.stno_base = 0;
@@ -4501,6 +4536,7 @@ void sno_pat_thunks_build(int p0) {
         px.pat_fail = NULL;
         px.pat_seal = NULL;
         px.npre = 0;
+        px.snap = 1;
         px.ppos = 0;
         px.prog_nstmt = 0;
         px.stno_base = 0;
@@ -4522,6 +4558,7 @@ void sno_pat_thunks_build(int p0) {
                     char * vg = lp_strdup(vbuf);
                     sno_reg_var(vg);
                     IR_LIT(px.pre[api].prim).sval = vg;
+                    if (px.pre[api].snapg == sno_elem_snapg && px.pre[api].prim2) IR_LIT(px.pre[api].prim2).sval = vg;
                     continue;
                 }
                 IR_t * co = lc_build(gp, px.pre[api].str ? IR_COERCE_STRING : IR_COERCE_INTEGER, paft, no);
@@ -5140,6 +5177,7 @@ IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
     px.pat_fail = NULL;
     px.pat_seal = NULL;
     px.npre = 0;
+    px.snap = 0;
     px.ppos = 0;
     px.prog_nstmt = 0;
     px.stno_base = 0;

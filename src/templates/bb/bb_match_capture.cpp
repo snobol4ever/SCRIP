@@ -13,6 +13,7 @@ extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0, long touched);
 extern "C" DESCR_t rt_proc_call_epilogue_ω(long touched);
 extern "C" long rt_cap_land_γ(DESCR_t frame0, long word, void *rec);
 extern "C" long rt_cap_land_ω(long word, void *rec);
+extern "C" long rt_cap_assign_patv(void *hv, long i, const char *fb, int saved_delta, int cur_delta);
 extern "C" long rt_cap_open_gva(DESCR_t *cell, int saved_delta, int cur_delta, const char *varname);
 extern "C" int is_protected_pat_name(const char *name);
 extern "C" int gva_name_hidden(const char *name);
@@ -75,6 +76,18 @@ static std::string cap_imm_gva(const std::string & homeop) {
          + cap_value_trace_plain()
          + x86("def", L(1))
          + x86_anchor_leave()
+         + x86_gamma()
+         + x86_beta_trampoline();
+}
+static std::string cap_imm_patv(const std::string & homeop) {
+    return x86("comment", "IR_MATCH_CAPTURE_IMM patv-slot: the NAME the pattern's constructor snapped for an element target, read from the pattern's own header")
+         + x86_alpha()
+         + x86("mov", "eax", homeop.c_str())
+         + bb_glue_patv_args()
+         + x86("mov", "ecx", "eax")
+         + x86("mov", "r8d", "r14d")
+         + x86("call", "rt_cap_assign_patv", (uint64_t)(uintptr_t)(void *)(long (*)(void *, long, const char *, int, int))rt_cap_assign_patv)
+         + x86_rt_gc_poll()
          + x86_gamma()
          + x86_beta_trampoline();
 }
@@ -168,6 +181,10 @@ std::string bb_match_capture() {
            + x86_bomb("IR_MATCH_CAPTURE_COND: no home -- neither a ζ-SPINE cell (op_zres) nor a ζ-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm "
                       "classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_top fallback is deliberately not rebuilt (s83)")
            + x86_beta() )
+         : (int)_.op_phase == 2 && bb_patv_slot_of(_.op_sval) >= 0 && _.op_frame_need && _.op_cap_frame_off != -1
+         ? cap_imm_patv(CFC(0))
+         : (int)_.op_phase == 2 && bb_patv_slot_of(_.op_sval) >= 0 && !_.op_frame_need && havehome()
+         ? cap_imm_patv(readhome())
          : (_.op_sval && _.op_sval[0] == '*' && !sn4_nret_cap())
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_IMM: computed-name (*VAR/NRETURN) target not yet rebuilt -- blocked on the :(NRETURN) lowering bug (s82), see this file's header comment") )

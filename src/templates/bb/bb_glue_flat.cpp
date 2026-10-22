@@ -352,6 +352,19 @@ std::string bb_glue_name_or_rec_lea(const char * nm) {
                                   : x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)nm, x86_strtab_lbl(nm).c_str());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int bb_patv_slot_of(const char * sv) {
+    const char * d = (sv && !strncmp(sv, "PAT$", 4)) ? strstr(sv, "$V") : NULL;
+    return (d && strspn(d + 2, "0123456789") > 0 && !d[2 + strspn(d + 2, "0123456789")]) ? atoi(d + 2) : -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_patv_args(void) {
+    return (_.op_head_spine && _.op_head_rsp < 0)
+         ? x86_bomb("bb_glue_patv_args: a frameless thunk reads its head from a box with no spine depth")
+         : (x86("mov", "rdi", _.op_head_spine ? RDQ("rsp", _.op_head_rsp) : RDQ("rbp", -24))
+          + x86("mov", "esi", (long) bb_patv_slot_of(_.op_sval))
+          + x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, x86_strtab_lbl(_.op_sval).c_str()));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_glue_prim_open_enter(int base) {
     return x86("call", "rt_pat_prim_open", (uint64_t)(uintptr_t)(void *)rt_pat_prim_open)
          + x86_rt_gc_poll_rec_sigma_word(1)

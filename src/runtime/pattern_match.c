@@ -1701,6 +1701,30 @@ static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag) {
     { DESCR_t val = rt_defer_nv_read(fb); if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); } return val; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_cap_assign_patv(void *hv, long i, const char *fb, int saved_delta, int cur_delta) {
+    DESCR_t nm = patv_slot(hv, i, fb, 0);
+    trace_pend_t pend;
+    memset(&pend, 0, sizeof pend);
+    if (!IS_VARREF_fn(nm)) return 0;
+    {
+        int len = cur_delta - saved_delta;
+        if (len < 0) len = 0;
+        const char *base = Σ ? Σ + saved_delta : NULL;
+        char *copy = rt_str_alloc(len);
+        if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
+        DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
+        rt_cap_target_finish(nm, matched, 1, &pend);
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_at_cursor_patv(void *hv, long i, const char *fb, int cur_delta) {
+    DESCR_t nm = patv_slot(hv, i, fb, 0);
+    DESCR_t pos = { .v = DT_I, .i = (int64_t)cur_delta };
+    if (IS_VARREF_fn(nm)) rtx_try_rt_assign_var(nm, pos);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb) {
     { DTP_t *h = (DTP_t *)hv; if (h && h->snap && i >= 0 && i < h->nsnap) { DESCR_t sv = h->snap[i]; if (sv.v == DT_P && sv.p && ((DTP_t *)sv.p)->fn) return sv.p; } }
     { DESCR_t v = patv_slot(hv, i, fb, 0); if (v.v == DT_P && v.p) { extern void *dtp_fn_of(void *); dtp_fn_of(v.p); return v.p; } }

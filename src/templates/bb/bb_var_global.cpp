@@ -14,11 +14,7 @@ DESCR_t NV_GET_fn(const char * name);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char * vg_res(int w) { return _.op_zres ? ZRES(w) : FRQ(_.op_off + w); }
-#define VG_PATV_DIGITS(sv) (strstr((sv), "$V") + 2)
-static inline int vg_patv_slot(const char * sv) {
-    return (sv && strstr(sv, "$V") && !strncmp(sv, "PAT$", 4) && strspn(VG_PATV_DIGITS(sv), "0123456789") > 0 && !VG_PATV_DIGITS(sv)[strspn(VG_PATV_DIGITS(sv), "0123456789")])
-         ? atoi(VG_PATV_DIGITS(sv)) : -1;
-}
+static inline int vg_patv_slot(const char * sv) { return bb_patv_slot_of(sv); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define VG_TRACE_LAND() ( \
       x86("mov", "rax", RDQ("rsp", 80)) \

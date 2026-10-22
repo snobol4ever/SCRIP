@@ -5,6 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 }
 extern "C" long rt_at_cursor(const char *varname, int cur_delta, void *pend);
+extern "C" long rt_at_cursor_patv(void *hv, long i, const char *fb, int cur_delta);
 typedef struct { long fn; long how; } rt_dcap_next_t;
 extern "C" rt_dcap_next_t rt_at_cursor_open(const char *varname, int cur_delta, void *rec);
 extern "C" long rt_at_cursor_land_γ(DESCR_t frame0, long word, void *rec);
@@ -15,6 +16,15 @@ extern "C" long rt_at_cursor_land_ω(long word, void *rec);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_atp() {
     return !(_.op_sval ? _.op_sval : "")[0] ? std::string()
+         : bb_patv_slot_of(_.op_sval) >= 0
+         ? ( x86("comment", "IR_MATCH_ATP patv-slot: the NAME the pattern's constructor snapped for an element target, read from the pattern's own header")
+            + x86_alpha()
+            + bb_glue_patv_args()
+            + x86("mov", "ecx", "r14d")
+            + x86("call", "rt_at_cursor_patv", (uint64_t)(uintptr_t)(void *)(long (*)(void *, long, const char *, int))rt_at_cursor_patv)
+            + x86_rt_gc_poll()
+            + x86_gamma()
+            + x86_beta_trampoline())
          : (_.op_sval[0] == '*' && _.op_sval[1])
          ? ( x86("comment", "IR_MATCH_ATP computed target: the box opens the target's procedure and lands the name (CEO-1633)")
             + x86_alpha()
