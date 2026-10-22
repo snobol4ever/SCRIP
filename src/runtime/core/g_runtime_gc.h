@@ -1,0 +1,136 @@
+#ifndef G_RUNTIME_GC_H
+#define G_RUNTIME_GC_H
+#include <stddef.h>
+#include <stdint.h>
+#define GC_REP_POPS 5
+#define GC_SPINE_REC_CAP 32
+struct DESCR_t;
+struct rt_hblk_t;
+struct gc_frame_map_t;
+struct gc_site_blk;
+struct g_gc_ah_tab;
+struct gc_vac_t { char *at; char *fwd; uint32_t size; uint32_t gen; uint16_t type; uint16_t pad; long serial; void *ra_site; void *ra_from; };
+struct gc_walk_t {
+    long frames, roots, nomap, notab, i_descr, i_heap, i_badtag, i_phase, i_ptr, i_ptr_heap, i_raw, i_raw_heap, i_gap, h_words, h_cell_heap, h_raw_heap, s_words, s_cell_heap, s_raw_heap, a_words,
+        a_heap, ghost;
+};
+struct gc_spine_rec_t { struct rt_hblk_t *h; const char *graph; long off; const char *const *at; };
+struct gc_rng_t { const char *lo, *hi; };
+struct gc_seg_t { char *lo, *hi; };
+struct g_gc_chw_t {
+    long runs, whole, frames, offchain, said, missing, mapdiff, xblob, xgen, xroot, xplain, beyond, shrt, s_root, s_nosite, s_frameless, s_unknown, s_cycle, s_nolink, s_rise, s_left, s_costart,
+        s_badlink, s_noentry, s_topabove, links, links_below, said_link, v_same, v_diff, v_refused, ghost;
+    uint64_t fsum;
+};
+typedef struct {
+    char *hp_arena;
+    char *hp_win;
+    char *hp_wend;
+    char *hp_cap_end;
+    size_t hp_chunk;
+    long hp_sw_win_kb;
+    long hp_sw_cap_kb;
+    long hp_capped;
+    long hp_grown;
+    long hp_grows;
+    long hp_live;
+    int hp_report_reg;
+    struct gc_vac_t *gc_vac;
+    long gc_vacn;
+    long gc_vaccap;
+    long gc_vacover;
+    long gc_vacgen;
+    char *hp_qlo;
+    char *hp_flo;
+    char *hp_fhi;
+    char *gc_flip_to;
+    long gc_flips;
+    long gc_flip_declined;
+    long gc_flip_live;
+    char *hp_qhi;
+    long hp_qgen;
+    long hp_qarm;
+    long hp_qbytes;
+    long ah_tn[512];
+    long ah_tb[512];
+    struct g_gc_ah_tab *ah_ra;
+    int ah_reg;
+    int ah_on;
+    int alloc_detax;
+    long scrip_coexpr_live;
+    long gc_rrng_n;
+    long gc_rrng_cap;
+    long gc_nseg;
+    long gc_seg_cap;
+    struct rt_hblk_t **gc_idx;
+    struct rt_hblk_t **gc_idxbuf;
+    long gc_icap;
+    long gc_nblk;
+    long gc_runs;
+    long gc_interior;
+    char *gc_stktop;
+    char *gc_seam_sp;
+    struct DESCR_t *gc_shield_arr;
+    int gc_shield_n;
+    const char **gc_shield_r;
+    int gc_shield_r_is_probe;
+    long gc_dvec_elems;
+    long gc_dvec_nondvec;
+    long gc_rrng_ss;
+    const struct gc_frame_map_t **gc_maps;
+    int gc_maps_n;
+    int gc_maps_cap;
+    struct gc_site_blk *gc_sblk;
+    int gc_sblk_n;
+    int gc_sblk_cap;
+    long gc_co_ctxs;
+    long gc_co_sigma;
+    long gc_co_parked;
+    int gc_rep_pop;
+    char *gc_program_top;
+    int gc_seg_main;
+    int gc_maps_rep;
+    long gc_rep_ranges[GC_REP_POPS];
+    long gc_rep_bytes[GC_REP_POPS];
+    long gc_rep_agree[GC_REP_POPS];
+    long gc_rep_map_only[GC_REP_POPS];
+    long gc_rep_sniff_only[GC_REP_POPS];
+    long gc_rep_raw[GC_REP_POPS];
+    struct gc_walk_t gw[GC_REP_POPS];
+    long gw_lines;
+    long gw_suppressed;
+    struct gc_spine_rec_t gc_spine_rec[GC_SPINE_REC_CAP];
+    int gc_spine_recn;
+    long gc_spine_lost;
+    long gc_spine_seen;
+    long gw_dumps;
+    long gc_blob_frames;
+    long gc_blob_entries;
+    long gc_blob_descr;
+    long gc_blob_ptr;
+    long gc_blob_raw;
+    long gc_blob_code;
+    long gc_blob_raw_in_heap;
+    long gc_rtccb_heap;
+    long gc_cas_bytes;
+    struct gc_rng_t *gc_rrng;
+    struct gc_seg_t *gc_segs;
+    struct g_gc_chw_t gc_chw;
+    int gc_chain_knob;
+    int gc_chain_reg;
+    long gc_chain_said_fl;
+    long gc_chain_said_dump;
+    long gc_chain_said_ctx;
+    long gc_chain_ok;
+    long gc_chain_nosite;
+    long gc_chain_host;
+    long gc_chain_bad;
+    long gc_chain_said;
+    long gc_chain_frameless;
+    long gc_chain_ctx;
+    long gc_chain_fnhops;
+    long gc_chain_landhops;
+    long gc_chain_roadhops;
+    long gc_chain_ghost;
+} g_gc_t;
+#endif

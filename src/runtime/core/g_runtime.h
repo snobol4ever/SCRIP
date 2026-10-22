@@ -14,6 +14,7 @@
 #include "g_runtime_pas.h"
 #include "g_runtime_tap.h"
 #include "g_runtime_bn.h"
+#include "g_runtime_gc.h"
 typedef struct {
     g_atoms_t atoms;
     g_slab_t slab;
@@ -29,6 +30,7 @@ typedef struct {
     g_pas_t pas;
     g_tap_t tap;
     g_bn_t bn;
+    g_gc_t gc;
 } g_runtime_t;
 #ifdef __cplusplus
 extern "C" {

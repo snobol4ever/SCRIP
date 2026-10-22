@@ -151,7 +151,7 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     ctx->park_sp = 0;
     ctx->park_rbp = 0;
     ctx->park_pc = 0;
-    { extern long g_scrip_coexpr_live; scrip_coctx_t **pp = &g_co_gc_head; while (*pp && *pp != ctx) pp = &(*pp)->gc_next; if (*pp) { *pp = ctx->gc_next; g_scrip_coexpr_live--; } }
+    { scrip_coctx_t **pp = &g_co_gc_head; while (*pp && *pp != ctx) pp = &(*pp)->gc_next; if (*pp) { *pp = ctx->gc_next; g_runtime.gc.scrip_coexpr_live--; } }
     ctx->image = 0;
     ctx->image_span = 0;
     if (ctx->eager) sem_destroy(&ctx->created);
@@ -256,8 +256,7 @@ __asm__(".text\n.globl rt_genp_spine_enter_n2\n" "rt_genp_spine_enter_n2:\n"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes, const char *procname) {
-    extern long g_scrip_coexpr_live;
-    g_scrip_coexpr_live++;
+    g_runtime.gc.scrip_coexpr_live++;
     scrip_coctx_t *ctx = (scrip_coctx_t *)ct_alloc(sizeof(scrip_coctx_t));
     if (!ctx) scrip_co_uerror("scrip_coexpr: malloc scrip_coctx_t failed");
     scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)ct_alloc(sizeof(scrip_coexpr_entry_pkg_t));
@@ -377,8 +376,7 @@ int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint6
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry_arg) {
-    extern long g_scrip_coexpr_live;
-    g_scrip_coexpr_live++;
+    g_runtime.gc.scrip_coexpr_live++;
     ctx->entry_fn = entry_fn;
     ctx->entry_arg = entry_arg;
     ctx->thread = 0;
