@@ -2092,6 +2092,16 @@ static const char * const PL_PRELUDE_SRC =
     "sk_not(G):-not_exists(G).\n"
     "get_calls(MG,T,R):-'$tbl_strip'(MG,M,G),'$tbl_vt'(VT),'$trie_entries'(VT,L),member(e(_,_,I),L),T='$trie'(I),'$tbl_table_status'(T,_,M:G,R).\n"
     "get_returns(T,R):-'$trie_id'(T,I),'$trie_entries'(I,As),member(e(_,R,_),As).\n"
+    "get_call(MG,T,R):-'$tbl_strip'(MG,M,G),get_calls(M:G0,T,R0),G0=@=G,!,G0=G,R=R0.\n"
+    "get_returns_and_dls(T,R,DLs):-'$trie_id'(T,I),'$trie_entries'(I,As),member(e(_,R,V),As),(V==true->DLs=[];findall(DL,('$tbl_resid'(V,R,D),'$tbl_unql'(D,DL)),DLs)).\n"
+    "excess_vars(T,E,A,V):-'$xs_q'(T,T2,[],Q),term_variables(E-Q,EV),term_variables(T2,TV),'$xs_minus'(TV,EV,R),append(A,R,V).\n"
+    "'$xs_q'(T,T,Q,Q):-var(T),!.\n"
+    "'$xs_q'(X^G,G2,Q0,Q):-!,'$xs_q'(G,G2,[X|Q0],Q).\n"
+    "'$xs_q'(T,T,Q,Q).\n"
+    "'$xs_minus'([],_,[]).\n"
+    "'$xs_minus'([V|Vs],E,R):-'$xs_memv'(V,E),!,'$xs_minus'(Vs,E,R).\n"
+    "'$xs_minus'([V|Vs],E,[V|R]):-'$xs_minus'(Vs,E,R).\n"
+    "'$xs_memv'(V,[W|Ws]):-(V==W->true;'$xs_memv'(V,Ws)).\n"
     "get_returns(T,R,N):-'$trie_id'(T,I),'$trie_entries'(I,As),'$gr_idx'(As,1,R,N).\n"
     "'$gr_idx'([e(_,R,_)|_],N,R,N).\n"
     "'$gr_idx'([_|As],N0,R,N):-N1 is N0+1,'$gr_idx'(As,N1,R,N).\n"
@@ -3767,6 +3777,10 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&referenced, "incr_invalidate_call");
         pl_cv_add(&referenced, "xwam_state");
         pl_cv_add(&referenced, "subgoal_property");
+        pl_cv_add(&referenced, "get_call");
+        pl_cv_add(&referenced, "get_returns_and_dls");
+        pl_cv_add(&referenced, "excess_vars");
+        pl_cv_add(&referenced, "is_most_general_term");
         pl_cv_add(&referenced, "$tbl_mcall");
         pl_cv_add(&referenced, "abolish_all_tables");
         pl_cv_add(&referenced, "current_table");
