@@ -19,7 +19,7 @@ extern CVSPINE_t rt_call_value_spine_prep_blk(DESCR_t callee, DESCR_t *argv, int
 extern CVSPINE_t rt_call_apply_spine_prep_blk(DESCR_t callee, DESCR_t lv, void **hslot);
 extern CVSPINE_t rt_pl_goal_resolve(DESCR_t goal, int n);
 extern int * const rt_k_level_p;
-extern int64_t kw_fnclevel;
+extern int64_t g_kw_fnclevel;
 extern "C++" std::string icn_landing_line_restore(void);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0, long touched);
 DESCR_t rt_proc_call_epilogue_ω(long touched);
@@ -44,7 +44,7 @@ void rt_gen_spine_resume_enter(void);
            + x86("mov", "ecx", RDD("rax", 0)) \
            + x86("movsxd", "rcx", "ecx") \
            + x86("sub", "rcx", 1L) \
-           + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel") \
+           + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_kw_fnclevel, "g_kw_fnclevel") \
            + x86("mov", RDQ("rax", 0), "rcx"))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define cv_sync_out() (cv_is_goal() ? x86_scan_sync_out() : x86_scan_sync_out_force())

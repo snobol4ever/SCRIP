@@ -474,9 +474,9 @@ long rt_pat_prim_member(int ch, long codes) {
     DESCR_t v = g_prim_val, s;
     if (IS_FAIL_fn(v)) return -1;
     if (rt_coerce_str_d(&v, &s, codes)) {
-        extern uint64_t rtccb[32];
+        extern uint64_t g_rtccb[32];
         extern void rt_setexit_continue_tramp(void);
-        if (!rtccb[25]) rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp;
+        if (!g_rtccb[25]) g_rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp;
         return -1;
     }
     if (s.v != DT_S) return -1;
@@ -490,9 +490,9 @@ long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes) {
     DESCR_t s;
     if (IS_FAIL_fn(v)) return -1;
     if (rt_coerce_str_d(&v, &s, codes)) {
-        extern uint64_t rtccb[32];
+        extern uint64_t g_rtccb[32];
         extern void rt_setexit_continue_tramp(void);
-        if (!rtccb[25]) rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp;
+        if (!g_rtccb[25]) g_rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp;
         return -1;
     }
     if (s.v != DT_S) return -1;
@@ -539,9 +539,9 @@ typedef struct { const char *base; long len; } rt_subj_t;
 const char *g_subject_dbg_base = 0;
 long g_subject_dbg_len = -1;
 #endif
-__attribute__((visibility("hidden"))) int rt_k_level = 1;
-int * const rt_k_level_p = &rt_k_level;
-static inline __attribute__((always_inline)) void rt_k_level_mirror(void) { kw_fnclevel = (int64_t)rt_k_level - 1; }
+__attribute__((visibility("hidden"))) int g_rt_k_level = 1;
+int * const rt_k_level_p = &g_rt_k_level;
+static inline __attribute__((always_inline)) void rt_k_level_mirror(void) { g_kw_fnclevel = (int64_t)g_rt_k_level - 1; }
 #define PROC_FRAME_QWORDS 512
 typedef struct {
     const char *name;
@@ -792,7 +792,7 @@ int rt_ab_enter_env(void *frame) {
     *(uint64_t *)(fb + AB_OFF_WN) = (uint64_t)(int64_t)rt_g_want_name;
     rt_g_want_name = 0;
     rt_g_ret_by_name = 0;
-    rt_k_level++;
+    g_rt_k_level++;
     rt_k_level_mirror();
     return 0;
 }
@@ -802,7 +802,7 @@ DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail) {
     int wn = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_WN);
     Σ = (const char *)(uintptr_t)*(uint64_t *)(fb + AB_OFF_SIGMA);
     Σlen = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_SIGMALEN);
-    rt_k_level--;
+    g_rt_k_level--;
     rt_k_level_mirror();
     if (is_fail) { rt_g_want_name = wn; return FAILDESCR; }
     return rt_nret_fix(result, wn);
@@ -1473,9 +1473,9 @@ void rt_ab_cell_bind(const char *name, void **quad) {
 }
 void rt_ab_cell_bind_table(void **tab) { if (!tab) return; for (int i = 0; tab[i]; i += 2) rt_ab_cell_bind((const char *)tab[i], (void **)tab[i + 1]); }
 static void rt_proc_resolve_cells(rt_proc_t *p);
-extern int monitor_quiet_depth;
-static DESCR_t rt_shim_cell_get(DESCR_t *c, const char *nm) { if (c) return *c; monitor_quiet_depth++; DESCR_t v = NV_GET_fn(nm); monitor_quiet_depth--; return v; }
-static void rt_shim_cell_set(DESCR_t *c, const char *nm, DESCR_t v) { if (c) { *c = v; return; } monitor_quiet_depth++; NV_SET_fn(nm, v); monitor_quiet_depth--; }
+extern int g_monitor_quiet_depth;
+static DESCR_t rt_shim_cell_get(DESCR_t *c, const char *nm) { if (c) return *c; g_monitor_quiet_depth++; DESCR_t v = NV_GET_fn(nm); g_monitor_quiet_depth--; return v; }
+static void rt_shim_cell_set(DESCR_t *c, const char *nm, DESCR_t v) { if (c) { *c = v; return; } g_monitor_quiet_depth++; NV_SET_fn(nm, v); g_monitor_quiet_depth--; }
 static int rt_shim_nv_name(const char *nm) { extern int gva_index_of(const char *); extern int gva_trace_demoted(void); return nm && (gva_trace_demoted() || gva_index_of(nm) < 0); }
 void rt_shim_nv_in(const char *proc, DESCR_t *cells, const long *sig, const char *base) {
     rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0;
@@ -1671,10 +1671,10 @@ DESCR_t rt_proc_resume_frame_h(void **hslot) {
             rt_c2bb_hit("gen_h.coro_resume", g->name);
 #endif
             uint64_t out2[2] = { 0, 0 };
-            rt_k_level++;
+            g_rt_k_level++;
             rt_k_level_mirror();
             int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO);
-            rt_k_level--;
+            g_rt_k_level--;
             rt_k_level_mirror();
             return rt_genp_triage(g, ok, out2, hslot);
         }
@@ -1682,11 +1682,11 @@ DESCR_t rt_proc_resume_frame_h(void **hslot) {
     if (hslot) *hslot = (void *)0;
     return FAILDESCR;
 }
-int rt_plco_mark(char *tr) { scrip_coctx_t *me = scrip_co_current; if (!me || !rt_genp_of_co(me)) return 0; me->pl_park = 1; me->pl_base = tr; me->pl_floor = tr; return 1; }
-int rt_plco_inside(void) { scrip_coctx_t *me = scrip_co_current; return me && me->pl_park != 0 && rt_genp_of_co(me) != (void *)0; }
+int rt_plco_mark(char *tr) { scrip_coctx_t *me = g_scrip_co_current; if (!me || !rt_genp_of_co(me)) return 0; me->pl_park = 1; me->pl_base = tr; me->pl_floor = tr; return 1; }
+int rt_plco_inside(void) { scrip_coctx_t *me = g_scrip_co_current; return me && me->pl_park != 0 && rt_genp_of_co(me) != (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_plco_park(int kind, DESCR_t r, char **tr, long *gen, long gen_in) {
-    scrip_coctx_t *me = scrip_co_current;
+    scrip_coctx_t *me = g_scrip_co_current;
     uint64_t d0, d1;
     if (!me || !me->pl_park) return -2;
     if (me->pl_floor && *tr < me->pl_floor) { me->pl_floor = me->pl_base; return -1; }
@@ -1704,7 +1704,7 @@ int rt_plco_park(int kind, DESCR_t r, char **tr, long *gen, long gen_in) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_plco_settle(scrip_coctx_t *c, void *slot, DESCR_t r, char **tr, long *gen_out, int *st) {
     int park;
-    if (!slot) { scrip_coctx_t *me = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); if (me->pl_xtr) *tr = me->pl_xtr; me->pl_xtr = 0; *st = 0; return FAILDESCR; }
+    if (!slot) { scrip_coctx_t *me = g_scrip_co_current ? g_scrip_co_current : scrip_co_gc_root(); if (me->pl_xtr) *tr = me->pl_xtr; me->pl_xtr = 0; *st = 0; return FAILDESCR; }
     *tr = c->pl_tr;
     *gen_out = c->pl_gen;
     park = c->pl_park;
@@ -1729,7 +1729,7 @@ DESCR_t rt_plco_resume(DESCR_t h, long cmd, long gen, char **tr, long *gen_out, 
     c->pl_cmd = cmd ? 1 : 0;
     c->pl_tr = *tr;
     c->pl_floor = cmd ? *tr : c->pl_base;
-    { scrip_coctx_t *me = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); me->pl_xtr = 0; }
+    { scrip_coctx_t *me = g_scrip_co_current ? g_scrip_co_current : scrip_co_gc_root(); me->pl_xtr = 0; }
     return rt_plco_settle(c, slot, rt_proc_resume_frame_h(&slot), tr, gen_out, st);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1794,7 +1794,7 @@ void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals) {
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline __attribute__((always_inline)) void rt_lvl_leave(long touched) { if (touched) { rt_k_level--; rt_k_level_mirror(); } }
+static inline __attribute__((always_inline)) void rt_lvl_leave(long touched) { if (touched) { g_rt_k_level--; rt_k_level_mirror(); } }
 static int rt_wn_park_on(void) { static int on = -1; if (on < 0) { const char *e = getenv("SCRIP_WN_PARK"); on = (e && e[0] == '0') ? 0 : 1; } return on; }
 int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn) {
     rt_proc_t *p = *pp;
@@ -1902,13 +1902,13 @@ void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long n
     for (long k = nargs; k < np; k++) zf[1 + k] = NULVCL;
     zf[0] = NULVCL;
     { DESCR_t *sz = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) sz[zi] = NULVCL; }
-    rt_k_level++;
+    g_rt_k_level++;
     rt_k_level_mirror();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dc_leave_γ(DESCR_t r, long vtmark, void *fb) { rt_k_level--; rt_k_level_mirror(); return r; }
+DESCR_t rt_pl_dc_leave_γ(DESCR_t r, long vtmark, void *fb) { g_rt_k_level--; rt_k_level_mirror(); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb) { rt_k_level--; rt_k_level_mirror(); return FAILDESCR; }
+DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb) { g_rt_k_level--; rt_k_level_mirror(); return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_proc_pname(const char *name, int k) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return (p && p->pnames && k >= 0 && k < p->nparams) ? p->pnames[k] : (const char *)0; }
 const char *rt_proc_result_name_get(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return p ? (p->result_name ? p->result_name : p->name) : (const char *)0; }
@@ -1946,12 +1946,12 @@ static int rt_proc_call_prologue_lex(rt_proc_t **pp, int nargs, int wn) {
 #if RT_DIAG
     {
         int own = p->is_generator ? 0 : 1;
-        if (!own) rt_k_level++;
+        if (!own) g_rt_k_level++;
         rt_k_level_mirror();
         if (!own && !rt_trace_layer_idle()) { extern long g_stno; int _tn = p->nparams > 0 ? p->nparams : nargs; rt_trace_event_args(TRK_CALL, p->name, CALL_ARGS, _tn, NULVCL, g_stno); }
     }
 #else
-    if (p->is_generator) rt_k_level++;
+    if (p->is_generator) g_rt_k_level++;
     rt_k_level_mirror();
 #endif
     if (slot) *pp = &g_rt_gen_procs[ix];

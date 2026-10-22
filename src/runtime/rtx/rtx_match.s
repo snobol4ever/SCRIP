@@ -568,10 +568,10 @@ RTX_FUNC(rt_cap_open_gva)
     cmp     dword ptr [rax], 0
     jne     .Lcg_plain
 #if RT_DIAG
-    mov     rax, qword ptr [rip + monitor_fd@GOTPCREL]
+    mov     rax, qword ptr [rip + g_monitor_fd@GOTPCREL]
     cmp     dword ptr [rax], 0
     jge     .Lcg_plain
-    cmp     dword ptr [rip + trace_set_n], 0
+    cmp     dword ptr [rip + g_trace_set_n], 0
     jne     .Lcg_plain
     cmp     dword ptr [rip + g_comm_dbg], 0
     jne     .Lcg_plain

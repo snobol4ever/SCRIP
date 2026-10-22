@@ -27,10 +27,10 @@ extern "C" {
 #define RTCC_GLOBAL_R9_GVA 1
 #endif
 #define RTCC_GVA_REG "r9"
-extern uint64_t rtccb[32];
+extern uint64_t g_rtccb[32];
 #ifndef __cplusplus
 _Static_assert(RTCC_SLOT_R8 == 5 && RTCC_SLOT_R9 == 6 && RTCC_SLOT_R10 == 7 && RTCC_SLOT_R11 == 8,
-    "rtccb IS THE CALLER-SAVED SPILL BLOCK AND IT IS NOT A GC ROOT. THE BLOCK: 32 raw machine words, 64-byte aligned, addressed rip-relative from emitted text. THE WORDS: slot 5 = r8 = the ANCHO"
+    "g_rtccb IS THE CALLER-SAVED SPILL BLOCK AND IT IS NOT A GC ROOT. THE BLOCK: 32 raw machine words, 64-byte aligned, addressed rip-relative from emitted text. THE WORDS: slot 5 = r8 = the ANCHO"
     "R, slot 6 = r9 = the GVA base, slots 7 and 8 = r10 and r11 = scratch, spilled before every safe point at x86_asm.h 386-389 and reloaded after it at 395-398. THE REASON NOTHING THAT MUST SUR"
     "VIVE A COLLECTION MAY LIVE HERE: no root walk visits this block and none can. These are 32 untagged words, so visiting them means asking of each one does this look like it points into a hea"
     "p block, which is a conservative scan by definition, and CEO-812 froze that out -- everything the collector reads is a DESCR whose type field is the only tag. A value that must survive a po"

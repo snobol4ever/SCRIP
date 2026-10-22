@@ -3697,13 +3697,13 @@ static long gc_collect_ex(const gc_ent_t *ent) {
     }
     if (w_tel || g_gc_mk.maps || g_gc_mk.diag) {
         for (int ci = 0; ci < 32; ci++) {
-            rt_hblk_t *hb = gc_blk_of((const char *)rtccb[ci]);
+            rt_hblk_t *hb = gc_blk_of((const char *)g_rtccb[ci]);
             if (!hb) continue;
             g_gc_rtccb_heap++;
             if (g_gc_mk.maps)
-                fprintf(stderr, "[GC-WALK-RTCCB] slot=%d word=%p graph=%s line=%ld site=%p\n", ci, (const void *)rtccb[ci], g_gc_top_graph ? g_gc_top_graph : "?", g_line, (const void *)g_gc_poll_site)
-                ;
-            if (st_n < 32 && (w_tel || g_gc_mk.maps)) { st_slot[st_n] = ci; st_word[st_n] = rtccb[ci]; st_blk[st_n] = hb; st_fwd[st_n] = 0; st_n++; }
+                fprintf(stderr, "[GC-WALK-RTCCB] slot=%d word=%p graph=%s line=%ld site=%p\n", ci, (const void *)g_rtccb[ci], g_gc_top_graph ? g_gc_top_graph : "?", g_line,
+                (const void *)g_gc_poll_site) ;
+            if (st_n < 32 && (w_tel || g_gc_mk.maps)) { st_slot[st_n] = ci; st_word[st_n] = g_rtccb[ci]; st_blk[st_n] = hb; st_fwd[st_n] = 0; st_n++; }
         }
     }
 #endif
@@ -3864,7 +3864,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
         static int said_stale = 0;
         long mv = 0, un = 0, sw = 0;
         for (int z = 0; z < st_n; z++) {
-            int moved = (st_fwd[z] && st_fwd[z] != (uint64_t)(uintptr_t)st_blk[z]) ? 1 : 0, kept = (rtccb[st_slot[z]] == st_word[z]) ? 1 : 0;
+            int moved = (st_fwd[z] && st_fwd[z] != (uint64_t)(uintptr_t)st_blk[z]) ? 1 : 0, kept = (g_rtccb[st_slot[z]] == st_word[z]) ? 1 : 0;
             if (moved) mv++;
             if (moved && kept) un++;
             if (!st_fwd[z] && kept) sw++;

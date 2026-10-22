@@ -315,10 +315,10 @@ RTX_FUNC(rt_field_var_strict_at)
     mov     rax, qword ptr [rip + g_comm_dbg@GOTPCREL]
     cmp     dword ptr [rax], 0
     jne     .Lfva_c
-    mov     rax, qword ptr [rip + trace_set_n@GOTPCREL]
+    mov     rax, qword ptr [rip + g_trace_set_n@GOTPCREL]
     cmp     dword ptr [rax], 0
     jne     .Lfva_c
-    mov     rax, qword ptr [rip + monitor_fd@GOTPCREL]
+    mov     rax, qword ptr [rip + g_monitor_fd@GOTPCREL]
     cmp     dword ptr [rax], 0
     jge     .Lfva_c
 #endif

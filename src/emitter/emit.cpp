@@ -5981,14 +5981,14 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         if (g_emitter.codegen_flat_chain_body__iws && _use_zframe_install) {
             const char * _apn = (g_emit_cfg && g_emit_cfg->root_graph) ? "main" : (strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
             extern int * const rt_k_level_p;
-            extern int64_t kw_fnclevel;
+            extern int64_t g_kw_fnclevel;
             bb_emit_x86( x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
                      + x86("mov", "rax", RDQ("rax", 0))
                      + x86("add", RDD("rax", 0), (long)1)
                      + x86("mov", "ecx", RDD("rax", 0))
                      + x86("movsxd", "rcx", "ecx")
                      + x86("sub", "rcx", (long)1)
-                     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
+                     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_kw_fnclevel, "g_kw_fnclevel")
                      + x86("mov", RDQ("rax", 0), "rcx"));
             bb_emit_x86(icn_trace_tap(_apn, 1, np, _aoff));
             icn_register_local_offsets(_apn);

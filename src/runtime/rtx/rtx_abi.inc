@@ -18,7 +18,7 @@
 #define RTX_POP_DYN(x, d, k) pop x; RTX_CFA_DYN(d, k)
 #define RTX_SUB_RSP_DYN(n, d, k) sub rsp, n; RTX_CFA_DYN(d, k)
 #define RTX_ADD_RSP_DYN(n, d, k) add rsp, n; RTX_CFA_DYN(d, k)
-#define RTX_GVA_R9 mov r9, qword ptr [rip + rtccb@GOTPCREL]; mov r9, qword ptr [r9 + 48]
+#define RTX_GVA_R9 mov r9, qword ptr [rip + g_rtccb@GOTPCREL]; mov r9, qword ptr [r9 + 48]
 #define RTX_DECLINE mov eax, RTX_NOT_HANDLED; ret
 #define RTX_DECLINE_INT mov eax, RTX_NOT_HANDLED_INT; ret
 #define RTX_DECLINE_PTR mov rax, RTX_NOT_HANDLED_PTR; ret

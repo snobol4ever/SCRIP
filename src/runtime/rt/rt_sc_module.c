@@ -29,7 +29,7 @@ typedef struct {
 } sc_module_t;
 static sc_module_t g_sc_mod;
 #include "../rtx/rtcc.h"
-extern int64_t kw_anchor, kw_trim, kw_fullscan, kw_maxlngth, kw_stlimit, kw_stcount, kw_trace, kw_ftrace;
+extern int64_t g_kw_anchor, g_kw_trim, g_kw_fullscan, g_kw_maxlngth, g_kw_stlimit, g_kw_stcount, g_kw_trace, g_kw_ftrace;
 extern void core_lib_init(void);
 extern DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
 extern DESCR_t *rt_gva_island(int n);
@@ -42,7 +42,7 @@ extern void rt_gc_program_top_set(char *top);
 extern void rt_sc_outer_call(void *fn);
 extern char *rt_heap_strdup_c(const char *s);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t _MATCHAT_(DESCR_t *args, int nargs) { (void)args; (void)nargs; return (DESCR_t){ .v = DT_I, .slen = 0, .i = (int64_t)rtccb[RTCC_SLOT_MATCHAT] }; }
+DESCR_t _MATCHAT_(DESCR_t *args, int nargs) { (void)args; (void)nargs; return (DESCR_t){ .v = DT_I, .slen = 0, .i = (int64_t)g_rtccb[RTCC_SLOT_MATCHAT] }; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_sc_gva_reserve(void) { return g_sc_mod.no_reserve ? 0 : SC_GVA_RESERVE; }
 void rt_sc_module_compiling(void) { g_sc_mod.no_reserve = 1; }
@@ -100,40 +100,40 @@ static sc_module_t *sc_module_get(const char *lang) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_module_run(sc_module_t *m) {
-    int64_t s_anchor = kw_anchor, s_trim = kw_trim, s_full = kw_fullscan, s_max = kw_maxlngth, s_stl = kw_stlimit, s_stc = kw_stcount, s_tr = kw_trace, s_ftr = kw_ftrace;
+    int64_t s_anchor = g_kw_anchor, s_trim = g_kw_trim, s_full = g_kw_fullscan, s_max = g_kw_maxlngth, s_stl = g_kw_stlimit, s_stc = g_kw_stcount, s_tr = g_kw_trace, s_ftr = g_kw_ftrace;
     char *save_top = rt_gc_program_top_get();
     if (save_top) { fprintf(stderr, "rt_sc_module: the parser module was entered while a program is live -- a run-time parse takes the C parser (CEO-1749)\n"); abort(); }
-    kw_anchor = 0;
-    kw_trim = 0;
-    kw_fullscan = 1;
-    kw_maxlngth = 16777216;
-    kw_stlimit = -1;
-    kw_trace = 0;
-    kw_ftrace = 0;
+    g_kw_anchor = 0;
+    g_kw_trim = 0;
+    g_kw_fullscan = 1;
+    g_kw_maxlngth = 16777216;
+    g_kw_stlimit = -1;
+    g_kw_trace = 0;
+    g_kw_ftrace = 0;
     rt_gc_program_top_set((char *)0);
     rt_sc_outer_call(m->d->main_alpha);
     rt_gc_program_top_set(save_top);
-    kw_anchor = s_anchor;
-    kw_trim = s_trim;
-    kw_fullscan = s_full;
-    kw_maxlngth = s_max;
-    kw_stlimit = s_stl;
-    kw_stcount = s_stc;
-    kw_trace = s_tr;
-    kw_ftrace = s_ftr;
+    g_kw_anchor = s_anchor;
+    g_kw_trim = s_trim;
+    g_kw_fullscan = s_full;
+    g_kw_maxlngth = s_max;
+    g_kw_stlimit = s_stl;
+    g_kw_stcount = s_stc;
+    g_kw_trace = s_tr;
+    g_kw_ftrace = s_ftr;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_module_init(sc_module_t *m) {
     const sc_module_desc_t *d = m->d;
     {
-        extern int core_stack_floor_raised;
+        extern int g_core_stack_floor_raised;
         struct rlimit rl;
         if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY && rl.rlim_cur < (rlim_t)(64L << 20)) {
             rl.rlim_cur = (rlim_t)(64L << 20);
             if (rl.rlim_max != RLIM_INFINITY && rl.rlim_cur > rl.rlim_max) rl.rlim_cur = rl.rlim_max;
             (void)setrlimit(RLIMIT_STACK, &rl);
         }
-        core_stack_floor_raised = 1;
+        g_core_stack_floor_raised = 1;
     }
     core_lib_init();
     { extern int rt_sxt_gva_count_get(void); if (rt_sxt_gva_count_get() < (int)d->n_gva) rt_gva_island((int)d->n_gva); }
@@ -184,6 +184,6 @@ void rt_sc_module_parse_end(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __asm__(".globl rt_sc_outer_call\n.type rt_sc_outer_call, @function\n" "rt_sc_outer_call:\n" "  push %rbp\n  mov %rsp, %rbp\n  push %rbx\n  push %r12\n  push %r13\n  push %r14\n  push %r15\n"
     "  sub $8, %rsp\n  sub $1048576, %rsp\n  and $-16, %rsp\n  mov %rdi, %rax\n  push %rax\n  push %rax\n  mov %rsp, %rdi\n  call rt_program_top_adopt@PLT\n  pop %rax\n  pop %rax\n"
-    "  mov 0x70000000, %r12\n  movq rtccb@GOTPCREL(%rip), %r10\n  movq 48(%r10), %r9\n  leaq 1f(%rip), %rcx\n  push %rcx\n  push %rcx\n  xor %esi, %esi\n  xor %r13d, %r13d\n  xor %r14d, %r14d\n"
+    "  mov 0x70000000, %r12\n  movq g_rtccb@GOTPCREL(%rip), %r10\n  movq 48(%r10), %r9\n  leaq 1f(%rip), %rcx\n  push %rcx\n  push %rcx\n  xor %esi, %esi\n  xor %r13d, %r13d\n  xor %r14d, %r14d\n"
     "  xor %r15d, %r15d\n  jmp *%rax\n" "1:\n" "  leaq 1b(%rip), %rcx\n  mov (%rsp), %rax\n  cmp %rax, %rcx\n  jne 2f\n  add $8, %rsp\n" "2:\n"
     "  lea -40(%rbp), %rsp\n  pop %r15\n  pop %r14\n  pop %r13\n  pop %r12\n  pop %rbx\n  pop %rbp\n  ret\n" ".size rt_sc_outer_call, .-rt_sc_outer_call\n");

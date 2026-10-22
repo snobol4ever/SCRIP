@@ -47,10 +47,10 @@ int g_call_fastpath_off = 0;
 #include "../../../../harness/scripts/monitor/monitor_wire.h"
 #include "gc_frame_map.h"
 #if RT_DIAG
-int monitor_fd = -1;
-int monitor_ack_fd = -1;
-int monitor_ready = 0;
-int monitor_quiet_depth = 0;
+int g_monitor_fd = -1;
+int g_monitor_ack_fd = -1;
+int g_monitor_ready = 0;
+int g_monitor_quiet_depth = 0;
 int g_trace_tap_off = 0;
 int g_monitor_bin = 0;
 int g_mon_max_stno = 0;
@@ -61,17 +61,17 @@ static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type, const vo
 typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; long eid; } trace_ent_t;
 static gv_t g_trace_tab;
 #define trace_tab ((trace_ent_t *)g_trace_tab.p)
-__attribute__((visibility("hidden"))) int trace_set_n = 0;
-static int trace_access_n = 0;
+__attribute__((visibility("hidden"))) int g_trace_set_n = 0;
+static int g_trace_access_n = 0;
 __attribute__((visibility("hidden"))) int g_comm_dbg = -1;
-static int trace_recursion_depth = 0;
+static int g_trace_recursion_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int trace_idle(void) {
     extern long g_trace;
-    extern int64_t kw_trace;
-    extern int64_t kw_ftrace;
+    extern int64_t g_kw_trace;
+    extern int64_t g_kw_ftrace;
     if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
-    return !g_comm_dbg && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0 && kw_ftrace <= 0 && g_trace == 0;
+    return !g_comm_dbg && g_trace_set_n == 0 && g_monitor_fd < 0 && g_kw_trace <= 0 && g_kw_ftrace <= 0 && g_trace == 0;
 }
 int rt_trace_idle(void) { return trace_idle(); }
 int g_sno_etrace_n = 0;
@@ -128,8 +128,8 @@ static void trace_register(const char *name, int kind, const char *tag, const ch
         e->kind = kind;
         e->name = lit ? name : rt_heap_strdup_c(name);
         e->eid = 0;
-        trace_set_n++;
-        if (kind == TRK_ACCESS) trace_access_n++;
+        g_trace_set_n++;
+        if (kind == TRK_ACCESS) g_trace_access_n++;
     }
     e->tag = (tag && *tag) ? (lit ? tag : rt_heap_strdup_c(tag)) : "";
     e->cbfn = (cbfn && *cbfn) ? (lit ? cbfn : rt_heap_strdup_c(cbfn)) : (const char *)0;
@@ -144,19 +144,19 @@ static void trace_unregister(const char *name, int kind) {
     e->tag = (const char *)0;
     e->cbfn = (const char *)0;
     e->eid = 0;
-    if (trace_set_n > 0) trace_set_n--;
-    if (kind == TRK_ACCESS && trace_access_n > 0) trace_access_n--;
+    if (g_trace_set_n > 0) g_trace_set_n--;
+    if (kind == TRK_ACCESS && g_trace_access_n > 0) g_trace_access_n--;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int trace_registered(const char *name) { return trace_find_any(name) != (trace_ent_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int trace_is_active(const char *name) { return trace_find(name, TRK_VALUE) != (trace_ent_t *)0; }
 #else
-int monitor_fd = -1;
-int monitor_quiet_depth = 0;
+int g_monitor_fd = -1;
+int g_monitor_quiet_depth = 0;
 int g_monitor_bin = 0;
 int g_mon_max_stno = 0;
-__attribute__((visibility("hidden"))) int trace_set_n = 0;
+__attribute__((visibility("hidden"))) int g_trace_set_n = 0;
 __attribute__((visibility("hidden"))) int g_comm_dbg = 0;
 int rt_trace_idle(void) { return 1; }
 int g_sno_etrace_n = 0;
@@ -203,7 +203,7 @@ static size_t trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-static long trace_depth_override = -1;
+static long g_trace_depth_override = -1;
 static size_t trace_spell_args(DESCR_t *args, int nargs, char *buf, size_t bufsz) {
     size_t o = 0;
     for (int k = 0; k < nargs; k++) {
@@ -214,8 +214,8 @@ static size_t trace_spell_args(DESCR_t *args, int nargs, char *buf, size_t bufsz
     return o + 1;
 }
 static size_t trace_banner_str(char *out, size_t on, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, int kind) {
-    extern int64_t kw_fnclevel;
-    extern int rt_k_level;
+    extern int64_t g_kw_fnclevel;
+    extern int g_rt_k_level;
     extern long g_line;
     extern const char *g_file;
     char banner[13];
@@ -224,9 +224,9 @@ static size_t trace_banner_str(char *out, size_t on, const char *name, DESCR_t *
     if (len > 12) len = 12;
     for (int i = len; i < 12; i++) banner[i] = '*';
     banner[12] = '\0';
-    long depth = (long)kw_fnclevel;
+    long depth = (long)g_kw_fnclevel;
     if (kind == TRK_CALL || kind == TRK_RETURN) depth--;
-    if (trace_depth_override >= 0) depth = trace_depth_override;
+    if (g_trace_depth_override >= 0) depth = g_trace_depth_override;
     if (depth < 0) depth = 0;
     char istr[depth + 1];
     int i;
@@ -380,9 +380,9 @@ void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_seria
     if (g_trace == 0) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
-    if (trace_recursion_depth > 0) return;
+    if (g_trace_recursion_depth > 0) return;
     g_trace--;
-    trace_recursion_depth++;
+    g_trace_recursion_depth++;
     DESCR_t value;
     uint64_t w[2];
     w[0] = x0;
@@ -405,7 +405,7 @@ void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_seria
     else { fputs(" returned ", stderr); trace_image_icon(value, 1); fprintf(stderr, " to co-expression_%ld", targ_serial); }
     fputc('\n', stderr);
     fflush(stderr);
-    trace_recursion_depth--;
+    g_trace_recursion_depth--;
 }
 void rt_trace_all_set(int on) {
     if (on) {
@@ -420,7 +420,7 @@ void rt_trace_label_hook_p(const char *name, trace_pend_t *pend) {
     if (trace_idle()) return;
     extern long g_stno;
     if (!name || !*name) return;
-    if (trace_recursion_depth > 0) return;
+    if (g_trace_recursion_depth > 0) return;
     if (g_trace == 0) return;
     trace_ent_t *e = trace_find(name, TRK_LABEL);
     if (!e) return;
@@ -428,7 +428,7 @@ void rt_trace_label_hook_p(const char *name, trace_pend_t *pend) {
     if (e->cbfn) {
         int64_t saved_trace = g_trace;
         g_trace = 0;
-        trace_recursion_depth++;
+        g_trace_recursion_depth++;
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(name));
         cbargs[1] = STRVAL(rt_heap_strdup_c(e->tag ? e->tag : ""));
@@ -444,19 +444,19 @@ void rt_trace_label_hook_p(const char *name, trace_pend_t *pend) {
         rt_pl_port_trace_cb(e->cbfn, 0);
         (void)RT_GC_CALLBACK(APPLY_fn(e->cbfn, cbargs, 2));
         rt_pl_port_trace_cb(e->cbfn, 2);
-        trace_recursion_depth--;
+        g_trace_recursion_depth--;
         g_trace = saved_trace;
         return;
     }
-    trace_recursion_depth++;
+    g_trace_recursion_depth++;
     trace_print_banner_args(name, (DESCR_t *)0, 0, NULVCL, (long long)g_stno, TRK_LABEL);
-    trace_recursion_depth--;
+    g_trace_recursion_depth--;
 }
 void rt_trace_label_hook(const char *name) { rt_trace_label_hook_p(name, (trace_pend_t *)0); }
 void rt_trace_keyword_write_p(const char *kw, int64_t v, long long stno, trace_pend_t *pend) {
     if (trace_idle()) return;
     if (!kw || !*kw) return;
-    if (trace_recursion_depth > 0) return;
+    if (g_trace_recursion_depth > 0) return;
     trace_ent_t *e = trace_find(kw, TRK_KEYWORD);
     if (!e) return;
     if (g_trace == 0) return;
@@ -464,7 +464,7 @@ void rt_trace_keyword_write_p(const char *kw, int64_t v, long long stno, trace_p
     if (e->cbfn) {
         int64_t saved_trace = g_trace;
         g_trace = 0;
-        trace_recursion_depth++;
+        g_trace_recursion_depth++;
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(kw));
         cbargs[1] = STRVAL(rt_heap_strdup_c(e->tag ? e->tag : ""));
@@ -482,19 +482,19 @@ void rt_trace_keyword_write_p(const char *kw, int64_t v, long long stno, trace_p
         rt_pl_port_trace_cb(e->cbfn, 0);
         (void)RT_GC_CALLBACK(APPLY_fn(e->cbfn, cbargs, 2));
         rt_pl_port_trace_cb(e->cbfn, 2);
-        trace_recursion_depth--;
+        g_trace_recursion_depth--;
         g_trace = saved_trace;
         return;
     }
-    trace_recursion_depth++;
+    g_trace_recursion_depth++;
     {
         char nb[fmt_len("&%s", kw)];
         snprintf(nb, sizeof nb, "&%s", kw);
-        trace_depth_override = !strcmp(kw, "FNCLEVEL") ? (long)v : (long)kw_fnclevel;
+        g_trace_depth_override = !strcmp(kw, "FNCLEVEL") ? (long)v : (long)g_kw_fnclevel;
         trace_print_banner_args(nb, (DESCR_t *)0, 0, INTVAL(v), stno, TRK_KEYWORD);
-        trace_depth_override = -1;
+        g_trace_depth_override = -1;
     }
-    trace_recursion_depth--;
+    g_trace_recursion_depth--;
 }
 void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) { rt_trace_keyword_write_p(kw, v, stno, (trace_pend_t *)0); }
 DESCR_t rt_trace_apply_island(const char *name, DESCR_t *args, int nargs, long island);
@@ -503,26 +503,26 @@ __asm__( ".text\n" ".globl rt_trace_apply_island\n" ".type rt_trace_apply_island
 void rt_trace_event_args_ip(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, long island, trace_pend_t *pend, long long rstno) {
     if (trace_idle()) return;
     if (!name || !*name) return;
-    int ftr = (kind == TRK_CALL || kind == TRK_RETURN) && kw_ftrace > 0;
-    if (trace_recursion_depth > 0) { if (ftr) { kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); } return; }
+    int ftr = (kind == TRK_CALL || kind == TRK_RETURN) && g_kw_ftrace > 0;
+    if (g_trace_recursion_depth > 0) { if (ftr) { g_kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); } return; }
     if (kind == TRK_CALL || kind == TRK_RETURN) {
-        extern int64_t kw_fnclevel;
-        int64_t lv = (kind == TRK_CALL) ? kw_fnclevel : kw_fnclevel - 1;
+        extern int64_t g_kw_fnclevel;
+        int64_t lv = (kind == TRK_CALL) ? g_kw_fnclevel : g_kw_fnclevel - 1;
         if (lv < 0) lv = 0;
         rt_trace_keyword_write("FNCLEVEL", lv, stno);
     }
     trace_ent_t *e = (g_trace != 0) ? trace_find(name, kind) : (trace_ent_t *)0;
     if (!e && g_trace != 0) e = trace_find("*", kind);
-    if (ftr && !(e && e->cbfn && g_trace > 0)) { kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); return; }
+    if (ftr && !(e && e->cbfn && g_trace > 0)) { g_kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); return; }
     if (g_trace == 0) return;
     if (!e) return;
     if (g_trace < 0 && !(e->tag && !strcmp(e->tag, "icn"))) return;
-    if (e->tag && !strcmp(e->tag, "icn")) { g_trace--; trace_recursion_depth++; trace_print_icon(kind, name, args, nargs, value); trace_recursion_depth--; return; }
+    if (e->tag && !strcmp(e->tag, "icn")) { g_trace--; g_trace_recursion_depth++; trace_print_icon(kind, name, args, nargs, value); g_trace_recursion_depth--; return; }
     g_trace--;
     if (e->cbfn) {
         int64_t saved_trace = g_trace;
         g_trace = 0;
-        trace_recursion_depth++;
+        g_trace_recursion_depth++;
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(name));
         cbargs[1] = STRVAL(rt_heap_strdup_c(e->tag ? e->tag : ""));
@@ -539,21 +539,25 @@ void rt_trace_event_args_ip(int kind, const char *name, DESCR_t *args, int nargs
                 trace_banner_str(bb, bn + 1, name, args, nargs, value, bstno, kind);
                 pend->saved_ftrace = STRVAL(rt_heap_strdup_c(bb));
             }
-            if (kind == TRK_CALL || kind == TRK_RETURN) { extern int64_t kw_fnclevel; extern int rt_k_level; if (kw_fnclevel > 0) { kw_fnclevel--; rt_k_level--; pend->saved_trace.slen = 1; } }
+            if (kind == TRK_CALL || kind == TRK_RETURN) {
+                extern int64_t g_kw_fnclevel;
+                extern int g_rt_k_level;
+                if (g_kw_fnclevel > 0) { g_kw_fnclevel--; g_rt_k_level--; pend->saved_trace.slen = 1; }
+            }
             rt_pl_port_trace_cb(e->cbfn, 0);
             return;
         }
-        extern int64_t kw_fnclevel;
-        extern int rt_k_level;
-        int lowered = (kind == TRK_CALL || kind == TRK_RETURN) && kw_fnclevel > 0;
-        if (lowered) { kw_fnclevel--; rt_k_level--; }
+        extern int64_t g_kw_fnclevel;
+        extern int g_rt_k_level;
+        int lowered = (kind == TRK_CALL || kind == TRK_RETURN) && g_kw_fnclevel > 0;
+        if (lowered) { g_kw_fnclevel--; g_rt_k_level--; }
         rt_pl_port_trace_cb(e->cbfn, 0);
         (void)RT_GC_CALLBACK(island ? rt_trace_apply_island(e->cbfn, cbargs, 2, island) : APPLY_fn(e->cbfn, cbargs, 2));
         rt_pl_port_trace_cb(e->cbfn, 2);
-        if (lowered) { kw_fnclevel++; rt_k_level++; }
-        trace_recursion_depth--;
+        if (lowered) { g_kw_fnclevel++; g_rt_k_level++; }
+        g_trace_recursion_depth--;
         g_trace = saved_trace;
-        if (ftr && kw_ftrace > 0) { kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); }
+        if (ftr && g_kw_ftrace > 0) { g_kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); }
     } else {
         trace_print_banner_args(name, args, nargs, value, stno, kind);
     }
@@ -717,11 +721,11 @@ int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int stri
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int nargs) {
-    extern int rt_k_level;
+    extern int g_rt_k_level;
     r->name = name;
     r->args = args;
     r->nargs = nargs;
-    r->level = rt_k_level;
+    r->level = g_rt_k_level;
     r->prev = g_icn_bi_top;
     r->callee = NULVCL;
     g_icn_bi_top = r;
@@ -905,7 +909,7 @@ void core_error_voice(int code, const char *msg, int has_val, DESCR_t val) {
     extern long g_line;
     extern const char *g_file;
     extern long g_stno;
-    extern int rt_k_level;
+    extern int g_rt_k_level;
     const sno_stno_rec_t * rec = (g_stno > 0 && g_line > 0 && g_file && *g_file) ? (const sno_stno_rec_t *)0 : scrip_stno_from_return_addrs();
     long voice_stno = g_stno > 0 ? g_stno : (rec ? (long)rec->stno : 0);
     int from_map = (!(g_file && *g_file) && g_line <= 0 && rec && rec->line > 0 && (g_stno <= 0 || g_stno == (long)rec->stno));
@@ -918,7 +922,7 @@ void core_error_voice(int code, const char *msg, int has_val, DESCR_t val) {
         if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); }
         if (vb && vb[0]) fprintf(stderr, "  offending value: %s\n", vb);
     }
-    if (rt_k_level >= 1 && rt_icn_frames((rt_icn_frame_t *)0, 0) > 0) core_icn_traceback();
+    if (g_rt_k_level >= 1 && rt_icn_frames((rt_icn_frame_t *)0, 0) > 0) core_icn_traceback();
     fflush(stderr);
 }
 static void core_icn_report(int code, DESCR_t val, const char *msg) { core_error_voice(code, msg ? msg : icn_errmsg(code), 1, val); exit(1); }
@@ -937,7 +941,7 @@ void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long lin
     if (g_trace == 0 || !pname || !*pname) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
-    if (trace_recursion_depth > 0) return;
+    if (g_trace_recursion_depth > 0) return;
     DESCR_t v;
     uint64_t w[2];
     w[0] = lo;
@@ -946,9 +950,9 @@ void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long lin
     long save = g_line;
     if (line > 0) g_line = line;
     g_trace--;
-    trace_recursion_depth++;
+    g_trace_recursion_depth++;
     trace_print_icon(TRK_SUSPEND, pname, (DESCR_t *)0, 0, v);
-    trace_recursion_depth--;
+    g_trace_recursion_depth--;
     g_line = save;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -957,16 +961,16 @@ void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void 
     if (g_trace == 0 || !pname || !*pname) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
-    if (trace_recursion_depth > 0) return;
+    if (g_trace_recursion_depth > 0) return;
     DESCR_t v;
     uint64_t w[2];
     w[0] = lo;
     w[1] = hi;
     memcpy(&v, w, sizeof v);
     g_trace--;
-    trace_recursion_depth++;
+    g_trace_recursion_depth++;
     trace_print_icon(TRK_RETURN, pname, (DESCR_t *)0, 0, v);
-    trace_recursion_depth--;
+    g_trace_recursion_depth--;
     if (h) *(long *)((char *)h + 64) |= 1;
 }
 void rt_trace_gen_fail_hook(const char *fname, void *h) { if (trace_idle()) return; if (h && (*(const long *)((const char *)h + 64) & 1)) return; rt_trace_fail_hook(fname); }
@@ -977,13 +981,13 @@ void rt_trace_resume_hook(const char *pname, void *h) {
     if (g_trace == 0 || !pname || !*pname) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
-    if (trace_recursion_depth > 0) return;
+    if (g_trace_recursion_depth > 0) return;
     long save = g_line;
     if (h) { long ln = *(const long *)((const char *)h + 64) >> 1; if (ln > 0) g_line = ln; }
     g_trace--;
-    trace_recursion_depth++;
+    g_trace_recursion_depth++;
     trace_print_icon(TRK_RESUME, pname, (DESCR_t *)0, 0, NULVCL);
-    trace_recursion_depth--;
+    g_trace_recursion_depth--;
     g_line = save;
 }
 #else
@@ -1016,11 +1020,11 @@ void rt_trace_fail_hook_p(const char *fname, trace_pend_t *pend, long long rstno
 void rt_trace_return_hook(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }
 void rt_trace_return_hook_p(const char *fname, DESCR_t retval, trace_pend_t *pend, long long rstno) { (void)fname; (void)retval; (void)pend; (void)rstno; }
 #endif
-int64_t kw_stcount = 0;
+int64_t g_kw_stcount = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 static void mon_send(const char *kind, const char *name, const char *value) {
-    if (monitor_fd < 0) return;
+    if (g_monitor_fd < 0) return;
     if (!value) value = "";
     struct iovec iov[6];
     iov[0].iov_base = (void*)kind;
@@ -1035,8 +1039,8 @@ static void mon_send(const char *kind, const char *name, const char *value) {
     iov[4].iov_len = strlen(value);
     iov[5].iov_base = MON_RS;
     iov[5].iov_len = 1;
-    writev(monitor_fd, iov, 6);
-    if (monitor_ack_fd >= 0) { char ack = 0; ssize_t r = read(monitor_ack_fd, &ack, 1); if (r != 1 || ack == 'S') exit(0); }
+    writev(g_monitor_fd, iov, 6);
+    if (g_monitor_ack_fd >= 0) { char ack = 0; ssize_t r = read(g_monitor_ack_fd, &ack, 1); if (r != 1 || ack == 'S') exit(0); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_label_bin(int64_t stno);
@@ -1050,33 +1054,33 @@ void rt_trace_stmt(long line) {
     g_trace_stmt_seen = 1;
     g_trace_stmt_gen++;
     g_trace_budget--;
-    kw_stcount++;
-    fprintf(stdout, "****%-7lld  L%ld\n", (long long)kw_stcount, line);
+    g_kw_stcount++;
+    fprintf(stdout, "****%-7lld  L%ld\n", (long long)g_kw_stcount, line);
     fflush(stdout);
     if (g_monitor_bin) mon_emit_label_bin((int64_t)line);
-    else if (monitor_fd >= 0) { char lb[32]; snprintf(lb, sizeof lb, "%ld", line); mon_send("STMT", lb, ""); }
+    else if (g_monitor_fd >= 0) { char lb[32]; snprintf(lb, sizeof lb, "%ld", line); mon_send("STMT", lb, ""); }
 }
 void rt_trace_call(const char *name, DESCR_t *args, int nargs) {
     if (g_trace_budget == 0 || !name) return;
     g_trace_budget--;
-    kw_stcount++;
+    g_kw_stcount++;
     char vtext[trace_spell_args(args, nargs, (char *)0, 0)];
     trace_spell_args(args, nargs, vtext, sizeof vtext);
-    fprintf(stdout, "****%-7lld  %s(%s)\n", (long long)kw_stcount, name, vtext);
+    fprintf(stdout, "****%-7lld  %s(%s)\n", (long long)g_kw_stcount, name, vtext);
     fflush(stdout);
     if (g_monitor_bin) mon_emit_trace_bin(MWK_CALL, name, NULVCL);
-    else if (monitor_fd >= 0) mon_send("CALL", name, vtext);
+    else if (g_monitor_fd >= 0) mon_send("CALL", name, vtext);
 }
 void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval) {
     if (g_trace_budget == 0 || !name) return;
     g_trace_budget--;
-    kw_stcount++;
+    g_kw_stcount++;
     char vtext[trace_spell_value(retval, (char *)0, 0)];
     trace_spell_value(retval, vtext, sizeof vtext);
-    fprintf(stdout, "****%-7lld  RETURN %s = %s\n", (long long)kw_stcount, name, vtext);
+    fprintf(stdout, "****%-7lld  RETURN %s = %s\n", (long long)g_kw_stcount, name, vtext);
     fflush(stdout);
     if (g_monitor_bin) mon_emit_trace_bin(MWK_RETURN, name, wireval);
-    else if (monitor_fd >= 0) mon_send("RETURN", name, vtext);
+    else if (g_monitor_fd >= 0) mon_send("RETURN", name, vtext);
 }
 void rt_trace_return(const char *name, DESCR_t retval) { rt_trace_return_wire(name, retval, retval); }
 void rt_trace_tap_off(void) { g_trace_tap_off = 1; }
@@ -1103,13 +1107,13 @@ void rt_trace_value_sigil(const char *name, DESCR_t val, int hook) {
         memcpy(ln + 2 + nl, vtext, vl + 1);
     }
     g_trace_budget--;
-    kw_stcount++;
-    fprintf(stdout, "****%-7lld  %s = %s\n", (long long)kw_stcount, name, vtext);
+    g_kw_stcount++;
+    fprintf(stdout, "****%-7lld  %s = %s\n", (long long)g_kw_stcount, name, vtext);
     fflush(stdout);
     DESCR_t wire = val;
     if (hook == 1 && (name[0] == '@' || name[0] == '%') && (val.v == DT_S || val.v == DT_SNUL)) wire.v = (name[0] == '@') ? DT_A : DT_T;
     if (g_monitor_bin) mon_emit_trace_bin(MWK_VALUE, name, wire);
-    else if (monitor_fd >= 0) mon_send("VALUE", name, vtext);
+    else if (g_monitor_fd >= 0) mon_send("VALUE", name, vtext);
 }
 void rt_trace_value(const char *name, DESCR_t val) { rt_trace_value_sigil(name, val, 0); }
 static char **g_bin_names = NULL;
@@ -1210,7 +1214,7 @@ static uint32_t intern_name_bin(const char *p, int len) {
     g_bin_names[id] = copy;
     g_bin_name_lens[id] = len;
     g_bin_n_names = id + 1;
-    if (g_monitor_bin && monitor_fd >= 0) { mon_send_bin(MWK_NAME_DEF, (uint32_t)id, MWT_STRING, (len > 0) ? (const void *)copy : NULL, (uint32_t)len); }
+    if (g_monitor_bin && g_monitor_fd >= 0) { mon_send_bin(MWK_NAME_DEF, (uint32_t)id, MWT_STRING, (len > 0) ? (const void *)copy : NULL, (uint32_t)len); }
     return (uint32_t)id;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1218,8 +1222,8 @@ static void mon_at_exit(void) {
     static int already = 0;
     if (already) return;
     already = 1;
-    if (monitor_fd >= 0 && g_monitor_bin) {
-        if (g_mon_max_stno > 0 && monitor_ready) {
+    if (g_monitor_fd >= 0 && g_monitor_bin) {
+        if (g_mon_max_stno > 0 && g_monitor_ready) {
             int64_t es = (int64_t)g_mon_max_stno + 1;
             unsigned char lhdr[MW_HDR_BYTES];
             unsigned char lbuf[8];
@@ -1230,13 +1234,13 @@ static void mon_at_exit(void) {
             iov[0].iov_len = MW_HDR_BYTES;
             iov[1].iov_base = lbuf;
             iov[1].iov_len = 8;
-            ssize_t lw = writev(monitor_fd, iov, 2);
+            ssize_t lw = writev(g_monitor_fd, iov, 2);
             (void)lw;
-            if (monitor_ack_fd >= 0) { char ack = 0; ssize_t r = read(monitor_ack_fd, &ack, 1); (void)r; (void)ack; }
+            if (g_monitor_ack_fd >= 0) { char ack = 0; ssize_t r = read(g_monitor_ack_fd, &ack, 1); (void)r; (void)ack; }
         }
         unsigned char hdr[MW_HDR_BYTES];
         mw_pack_hdr(hdr, MWK_END, MW_NAME_ID_NONE, MWT_NULL, 0);
-        ssize_t w = write(monitor_fd, hdr, MW_HDR_BYTES);
+        ssize_t w = write(g_monitor_fd, hdr, MW_HDR_BYTES);
         (void)w;
     }
 }
@@ -1282,7 +1286,7 @@ static uint8_t mon_wire_type(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type, const void *value, uint32_t value_len) {
-    if (monitor_fd < 0) return;
+    if (g_monitor_fd < 0) return;
     unsigned char hdr[MW_HDR_BYTES];
     mw_pack_hdr(hdr, kind, name_id, type, value_len);
     struct iovec iov[2];
@@ -1291,14 +1295,14 @@ static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type, const vo
     iov[0].iov_len = MW_HDR_BYTES;
     if (value_len > 0 && value) { iov[1].iov_base = (void *)value; iov[1].iov_len = (size_t)value_len; niov = 2; }
     ssize_t total = (ssize_t)MW_HDR_BYTES + (ssize_t)value_len;
-    ssize_t got = writev(monitor_fd, iov, niov);
+    ssize_t got = writev(g_monitor_fd, iov, niov);
     if (got != total) return;
-    if (monitor_ack_fd >= 0) { char ack = 0; ssize_t r = read(monitor_ack_fd, &ack, 1); if (r != 1 || ack == 'S') exit(0); }
+    if (g_monitor_ack_fd >= 0) { char ack = 0; ssize_t r = read(g_monitor_ack_fd, &ack, 1); if (r != 1 || ack == 'S') exit(0); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_label_bin(int64_t stno) {
-    kw_stcount = stno;
-    if (monitor_fd < 0 || !g_monitor_bin) return;
+    g_kw_stcount = stno;
+    if (g_monitor_fd < 0 || !g_monitor_bin) return;
     unsigned char buf[8];
     for (int k = 0; k < 8; k++) buf[k] = (unsigned char)(((uint64_t)stno >> (k*8)) & 0xff);
     mon_send_bin(MWK_LABEL, MW_NAME_ID_NONE, MWT_INTEGER, buf, 8);
@@ -1331,10 +1335,10 @@ void sno_trace_return(const char *fname, DESCR_t retval) {
     if (g_trace_budget == 0 || !fname || !*fname) return;
     if (mon_synth_name(fname)) return;
     fname = rt_proc_trace_canon(fname);
-    rt_trace_return_wire(fname, retval, STRVAL(IS_FAIL_fn(retval) ? "FRETURN" : (kw_rtntype[0] == 'N' ? "NRETURN" : "RETURN")));
+    rt_trace_return_wire(fname, retval, STRVAL(IS_FAIL_fn(retval) ? "FRETURN" : (g_kw_rtntype[0] == 'N' ? "NRETURN" : "RETURN")));
 }
 void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) {
-    if (monitor_fd < 0 || !g_monitor_bin || !monitor_ready) return;
+    if (g_monitor_fd < 0 || !g_monitor_bin || !g_monitor_ready) return;
     uint32_t name_id = MW_NAME_ID_NONE;
     if (name && name[0]) { name_id = intern_name_bin(name, (int)strlen(name)); if (name_id == MW_NAME_ID_NONE) return; }
     if (kind == MWK_CALL) { mon_send_bin(MWK_CALL, name_id, MWT_NULL, NULL, 0); return; }
@@ -1360,7 +1364,7 @@ void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) {
 }
 #else
 void rt_mon_set_max_stno(int v) { (void)v; }
-void mon_emit_label_bin(int64_t stno) { kw_stcount = stno; }
+void mon_emit_label_bin(int64_t stno) { g_kw_stcount = stno; }
 void sno_trace_value(const char *name, DESCR_t val) { (void)name; (void)val; }
 void sno_trace_call(const char *fname) { (void)fname; }
 void sno_trace_return(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }
@@ -1419,7 +1423,7 @@ static DESCR_t _mon_put_helper(DESCR_t *args, int nargs, uint32_t kind, int opaq
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _b_MON_OPEN(DESCR_t *args, int nargs) {
     if (nargs < 3) return FAILDESCR;
-    if (monitor_fd < 0) return FAILDESCR;
+    if (g_monitor_fd < 0) return FAILDESCR;
     if (g_bin_names == NULL) {
         const char *np;
         int nl;
@@ -1453,7 +1457,7 @@ static DESCR_t _b_MON_PUT_CALL(DESCR_t *args, int nargs) {
 static DESCR_t _b_MON_CLOSE(DESCR_t *args, int nargs) {
     (void)args;
     (void)nargs;
-    if (monitor_fd >= 0) { mon_send_bin(MWK_END, MW_NAME_ID_NONE, MWT_NULL, NULL, 0); }
+    if (g_monitor_fd >= 0) { mon_send_bin(MWK_END, MW_NAME_ID_NONE, MWT_NULL, NULL, 0); }
     return (DESCR_t){ .v = DT_I, .i = 0 };
 }
 #else
@@ -1496,24 +1500,24 @@ static int mon_synth_name(const char *n) {
     return keep ? 0 : mon_name_is_internal(n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int comm_var_active(void) { return g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0; }
+int comm_var_active(void) { return g_comm_dbg != 0 || g_trace_set_n != 0 || g_monitor_fd >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void comm_var_tail(const char *name, DESCR_t val, int hook) {
     if (g_trace_budget != 0) { if (!g_trace_tap_off && g_trace_stmt_seen && !mon_name_is_internal(name) && !sno_name_is_output_assoc(name)) rt_trace_value_sigil(name, val, hook); return; }
-    if (monitor_fd < 0 || g_monitor_bin) return;
-    if (!monitor_ready) return;
-    if (kw_trace <= 0 && !trace_registered(name)) return;
+    if (g_monitor_fd < 0 || g_monitor_bin) return;
+    if (!g_monitor_ready) return;
+    if (g_kw_trace <= 0 && !trace_registered(name)) return;
     const char *s = VARVAL_fn(val);
     mon_send("VALUE", name, s ? s : "(undef)");
 }
 void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook, trace_pend_t *pend) {
     if (!name || name[0] == '_') return;
     if (mon_synth_name(name)) return;
-    if (monitor_quiet_depth > 0) return;
+    if (g_monitor_quiet_depth > 0) return;
     if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
     const int dbg = g_comm_dbg;
-    if (!dbg && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0) return;
-    if (dbg) fprintf(stderr, "[scrip-trace] comm_var name=%s recur=%d\n", name, trace_recursion_depth);
+    if (!dbg && g_trace_set_n == 0 && g_monitor_fd < 0 && g_kw_trace <= 0) return;
+    if (dbg) fprintf(stderr, "[scrip-trace] comm_var name=%s recur=%d\n", name, g_trace_recursion_depth);
     if (stno <= 0) { extern long g_stno; stno = (long long)g_stno; }
     if (!g_monitor_bin) {
         rt_trace_event_args_ip(TRK_VALUE, name, (DESCR_t *)0, 0, val, stno, 0, pend, 0);
@@ -1534,10 +1538,10 @@ void rt_trace_pend_close(trace_pend_t *pend) {
     if (!pend->args[0].v) return;
     rt_pl_port_trace_cb(pend->args[0].s, 2);
     g_trace = pend->saved_trace.i;
-    if (pend->saved_trace.slen == 1) { extern int64_t kw_fnclevel; extern int rt_k_level; kw_fnclevel++; rt_k_level++; }
+    if (pend->saved_trace.slen == 1) { extern int64_t g_kw_fnclevel; extern int g_rt_k_level; g_kw_fnclevel++; g_rt_k_level++; }
     pend->saved_trace.slen = 0;
-    trace_recursion_depth--;
-    if (pend->saved_ftrace.v == DT_S && kw_ftrace > 0) { kw_ftrace--; trace_put_folded(pend->saved_ftrace.s); fflush(stdout); }
+    g_trace_recursion_depth--;
+    if (pend->saved_ftrace.v == DT_S && g_kw_ftrace > 0) { g_kw_ftrace--; trace_put_folded(pend->saved_ftrace.s); fflush(stdout); }
     pend->saved_ftrace = INTVAL(0);
     pend->args[0].v = 0;
     if (pend->hook.slen == 1) comm_var_tail(pend->args[1].s, pend->val, (int)pend->hook.i);
@@ -1552,10 +1556,10 @@ void comm_call(const char *fname) {
     if (!fname || !*fname) return;
     fname = rt_proc_trace_canon(fname);
     if (mon_synth_name(fname)) return;
-    if (kw_ftrace > 0 && !g_monitor_bin) { fprintf(stdout, "****%-7lld  %s()\n", (long long)kw_stcount, fname); fflush(stdout); }
-    if (monitor_fd < 0) return;
-    if (!monitor_ready) return;
-    if (kw_ftrace <= 0 && !trace_registered(fname)) return;
+    if (g_kw_ftrace > 0 && !g_monitor_bin) { fprintf(stdout, "****%-7lld  %s()\n", (long long)g_kw_stcount, fname); fflush(stdout); }
+    if (g_monitor_fd < 0) return;
+    if (!g_monitor_ready) return;
+    if (g_kw_ftrace <= 0 && !trace_registered(fname)) return;
     if (g_monitor_bin) { uint32_t name_id = intern_name_bin(fname, (int)strlen(fname)); if (name_id == MW_NAME_ID_NONE) return; mon_send_bin(MWK_CALL, name_id, MWT_NULL, NULL, 0); return; }
     mon_send("CALL", fname, "");
 }
@@ -1565,14 +1569,14 @@ void comm_return(const char *fname, DESCR_t retval) {
     if (!fname || !*fname) return;
     fname = rt_proc_trace_canon(fname);
     if (mon_synth_name(fname)) return;
-    if (kw_ftrace > 0 && !g_monitor_bin) { const char *s = VARVAL_fn(retval); fprintf(stdout, "****%-7lld  RETURN %s = '%s'\n", (long long)kw_stcount, fname, s ? s : ""); fflush(stdout); }
-    if (monitor_fd < 0) return;
-    if (!monitor_ready) return;
-    if (kw_ftrace <= 0 && !trace_registered(fname)) return;
+    if (g_kw_ftrace > 0 && !g_monitor_bin) { const char *s = VARVAL_fn(retval); fprintf(stdout, "****%-7lld  RETURN %s = '%s'\n", (long long)g_kw_stcount, fname, s ? s : ""); fflush(stdout); }
+    if (g_monitor_fd < 0) return;
+    if (!g_monitor_ready) return;
+    if (g_kw_ftrace <= 0 && !trace_registered(fname)) return;
     if (g_monitor_bin) {
         uint32_t name_id = intern_name_bin(fname, (int)strlen(fname));
         if (name_id == MW_NAME_ID_NONE) return;
-        const char *rt = kw_rtntype[0] ? kw_rtntype : "RETURN";
+        const char *rt = g_kw_rtntype[0] ? g_kw_rtntype : "RETURN";
         uint32_t rtlen = (uint32_t)strlen(rt);
         mon_send_bin(MWK_RETURN, name_id, MWT_STRING, rtlen ? (const void *)rt : NULL, rtlen);
         (void)retval;
@@ -1602,17 +1606,17 @@ void comm_var(const char *name, DESCR_t val, const char *file, long line, long l
 void comm_call(const char *fname) { (void)fname; }
 void comm_return(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }
 #endif
-int64_t kw_fullscan = 0;
-int64_t kw_maxlngth = 524288;
-int64_t kw_anchor = 0;
-int64_t kw_trim = 0;
-int64_t kw_stlimit = -1;
-int64_t kw_ftrace = 0;
-int64_t kw_trace = 0;
-int64_t kw_errlimit = 0;
-int64_t kw_code = 0;
-int64_t kw_fnclevel = 0;
-char kw_rtntype[16] = "";
+int64_t g_kw_fullscan = 0;
+int64_t g_kw_maxlngth = 524288;
+int64_t g_kw_anchor = 0;
+int64_t g_kw_trim = 0;
+int64_t g_kw_stlimit = -1;
+int64_t g_kw_ftrace = 0;
+int64_t g_kw_trace = 0;
+int64_t g_kw_errlimit = 0;
+int64_t g_kw_code = 0;
+int64_t g_kw_fnclevel = 0;
+char g_kw_rtntype[16] = "";
 #define ALPHA4(n) (n), (n) + 1, (n) + 2, (n) + 3
 #define ALPHA16(n) ALPHA4(n), ALPHA4((n) + 4), ALPHA4((n) + 8), ALPHA4((n) + 12)
 #define ALPHA64(n) ALPHA16(n), ALPHA16((n) + 16), ALPHA16((n) + 32), ALPHA16((n) + 48)
@@ -1790,8 +1794,8 @@ static DESCR_t _LEQ_(DESCR_t *a, int n) { if (n < 2) return FAILDESCR; return le
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _LNE_(DESCR_t *a, int n) { if (n < 2) return FAILDESCR; return lex_cmp_pair(a[0], a[1]) != 0 ? NULVCL : FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *_host_u = NULL;
-void rt_host_u_set(const char *s) { _host_u = s; }
+static const char *g_host_u = NULL;
+void rt_host_u_set(const char *s) { g_host_u = s; }
 static int host_cmdline_arg(int want, char *out, int outsz) {
     FILE *f = fopen("/proc/self/cmdline", "rb");
     if (!f) return -1;
@@ -1818,7 +1822,7 @@ static int host_cmdline_len(int want) {
     return found;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long _sw_stack_bytes = 0;
+static long g_sw_stack_bytes = 0;
 static long _sw_mem_arg(const char *t) {
     char *e = (char *)0;
     long v = strtol(t, &e, 10);
@@ -1868,7 +1872,7 @@ void rt_cmdline_switches_apply(void) {
     done = 1;
     long win_kb = 0, cap_kb = 0, mxl = -1;
     int bad = 0;
-    (void)cmdline_switch_walk(&win_kb, &cap_kb, &_sw_stack_bytes, &mxl, (char *)0, 0, (int *)0, &bad, 1);
+    (void)cmdline_switch_walk(&win_kb, &cap_kb, &g_sw_stack_bytes, &mxl, (char *)0, 0, (int *)0, &bad, 1);
     if (bad) exit(2);
     if (mxl >= 0) { extern long g_maxlngth; g_maxlngth = mxl; }
     if (win_kb > 0 || cap_kb > 0) { extern void rt_heap_size_set(long, long); rt_heap_size_set(win_kb, cap_kb); }
@@ -1907,7 +1911,7 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
         return INTVAL((int64_t)v);
     }
     if (selector == 0) {
-        if (_host_u) return *_host_u ? STRVAL(rt_heap_strdup_c(_host_u)) : NULVCL;
+        if (g_host_u) return *g_host_u ? STRVAL(rt_heap_strdup_c(g_host_u)) : NULVCL;
         {
             int has_u = 0, bad = 0;
             (void)cmdline_switch_walk((long *)0, (long *)0, (long *)0, (long *)0, (char *)0, 0, &has_u, &bad, 0);
@@ -1995,8 +1999,8 @@ void rt_io_chan_prebind(int ch, const char *path) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _io_chan_close(int ch);
 static void _io_var_refresh(const char *name);
-static FILE *_input_fp;
-static int _input_fp_is_popen;
+static FILE *g_input_fp;
+static int g_input_fp_is_popen;
 static int _io_chan_find_by_var(const char *name) {
     if (!g_call_fastpath_off) return -1;
     for (int i = 0; i < IO_CHAN_N; i++) if (_io_chan[i].varname && strcmp(_io_chan[i].varname, name) == 0) return i;
@@ -2025,7 +2029,7 @@ static int sno_name_is_output_assoc(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _io_chan_close(int ch) {
     if (ch < 0 || ch >= IO_CHAN_N) return;
-    if (_io_chan[ch].fp && _io_chan[ch].fp == _input_fp) { _input_fp = stdin; _input_fp_is_popen = 0; }
+    if (_io_chan[ch].fp && _io_chan[ch].fp == g_input_fp) { g_input_fp = stdin; g_input_fp_is_popen = 0; }
     if (_io_chan[ch].fp) {
         if (_io_chan[ch].fp == stdin || _io_chan[ch].fp == stdout) { } else if (_io_chan[ch].is_popen) pclose(_io_chan[ch].fp);
         else fclose(_io_chan[ch].fp);
@@ -2170,14 +2174,14 @@ static DESCR_t _DATE_(DESCR_t *a, int n) {
     strftime(buf, 20, "%m/%d/%Y %H:%M:%S", tm);
     return STRVAL(buf);
 }
-static int64_t _g_start_ns = -1;
+static int64_t g_start_ns = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t rt_time_ns(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     int64_t now_ns = (int64_t)ts.tv_sec * 1000000000LL + (int64_t)ts.tv_nsec;
-    if (_g_start_ns < 0) _g_start_ns = now_ns;
-    return now_ns - _g_start_ns;
+    if (g_start_ns < 0) g_start_ns = now_ns;
+    return now_ns - g_start_ns;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _TIME_(DESCR_t *a, int n) { (void)a; (void)n; return INTVAL(rt_time_ns()); }
@@ -2394,7 +2398,7 @@ static DESCR_t _CLEAR_(DESCR_t *a, int n) {
 static gv_t g_setexit_label;
 #define SXL ((char *)g_setexit_label.p)
 static int sxl_set(void) { return g_setexit_label.p && SXL[0]; }
-static int _setexit_resume = -1;
+static int g_setexit_resume = -1;
 extern int g_core_errjmp_n;
 static void core_errjmp_throw(int k, int v) __attribute__((noreturn));
 static void core_errjmp_throw(int k, int v) { core_errjmp_t *t = core_errjmp_at(k); extern void rt_eval_unwind_to(const void *); rt_eval_unwind_to((const void *)t); longjmp(t->jb, v); }
@@ -2428,9 +2432,9 @@ static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
 const char *setexit_label_get(char *buf, size_t bufsz) { if (!(core_setexit_on() && sxl_set())) return NULL; strncpy(buf, SXL, bufsz - 1); buf[bufsz - 1] = '\0'; SXL[0] = '\0'; return buf; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_setexit_fire_on_end(void) {
-    extern int64_t kw_errlimit;
+    extern int64_t g_kw_errlimit;
     char buf[g_setexit_label.p ? strlen(SXL) + 1 : 1];
-    if (kw_errlimit == 0 || !core_setexit_on_end()) return;
+    if (g_kw_errlimit == 0 || !core_setexit_on_end()) return;
     const char *lbl = setexit_label_get(buf, sizeof buf);
     if (!lbl) return;
     extern void rt_kw_publish_error(int code, const char *msg);
@@ -2439,18 +2443,18 @@ void sno_setexit_fire_on_end(void) {
     rt_kw_publish_error(0, "");
     core_errjmp_t ej;
     int my = g_core_errjmp_n;
-    int outer = _setexit_resume;
-    if (setjmp(ej.jb) == 0) { core_errjmp_push(&ej); g_core_errjmp_n = my + 1; _setexit_resume = my; rt_goto_transfer(lbl); }
+    int outer = g_setexit_resume;
+    if (setjmp(ej.jb) == 0) { core_errjmp_push(&ej); g_core_errjmp_n = my + 1; g_setexit_resume = my; rt_goto_transfer(lbl); }
     core_errjmp_pop(&ej, my);
-    _setexit_resume = outer;
+    g_setexit_resume = outer;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __asm__( ".text\n" ".globl rt_return_to_emitted\n" ".type rt_return_to_emitted,@function\n" "rt_return_to_emitted:\n" "  movq 16(%rdi), %rbx\n" "  movq 24(%rdi), %rbp\n" "  movq 32(%rdi), %r12\n"
     "  movq 40(%rdi), %r13\n" "  movq 48(%rdi), %r14\n" "  movq 56(%rdi), %r15\n" "  movq 64(%rdi), %rax\n" "  movq 72(%rdi), %rdx\n" "  movq 0(%rdi), %rcx\n" "  movq 8(%rdi), %rsp\n"
-    "  movq rtccb@GOTPCREL(%rip), %r9\n" "  movq 48(%r9), %r9\n" "  jmp *%rcx\n" );
+    "  movq g_rtccb@GOTPCREL(%rip), %r9\n" "  movq 48(%r9), %r9\n" "  jmp *%rcx\n" );
 void rt_setexit_abort(void);
 void rt_setexit_fire_now(void) {
-    extern uint64_t rtccb[32];
+    extern uint64_t g_rtccb[32];
     extern void rt_return_to_emitted(const rt_emitted_regs_t *r) __attribute__((noreturn));
     extern void rt_eval_unwind_to(const void *);
     rt_emitted_regs_t r;
@@ -2458,8 +2462,8 @@ void rt_setexit_fire_now(void) {
     _Static_assert(sizeof(DESCR_t) == 16 && offsetof(rt_emitted_regs_t, ra) == 0 && offsetof(rt_emitted_regs_t, sp) == 8 && offsetof(rt_emitted_regs_t, rbx) == 16 &&
         offsetof(rt_emitted_regs_t, rbp) == 24 && offsetof(rt_emitted_regs_t, r12) == 32 && offsetof(rt_emitted_regs_t, r15) == 56 && offsetof(rt_emitted_regs_t, rax) == 64 &&
         offsetof(rt_emitted_regs_t, rdx) == 72, "rt_return_to_emitted reads the snapshot at these offsets and the FAIL answer rides rax:rdx as two quads");
-    if (!rtccb[25]) return;
-    if (!rt_emitted_caller_of_descr_call(&r)) { rtccb[25] = 0; rt_setexit_abort(); }
+    if (!g_rtccb[25]) return;
+    if (!rt_emitted_caller_of_descr_call(&r)) { g_rtccb[25] = 0; rt_setexit_abort(); }
     while (g_core_errjmp_stk && (uint64_t)(uintptr_t)g_core_errjmp_stk < r.sp) { g_core_errjmp_stk = g_core_errjmp_stk->prev; g_core_errjmp_n--; }
     rt_eval_unwind_to((const void *)(uintptr_t)r.sp);
     memcpy(&r.rax, &f, sizeof f);
@@ -2467,18 +2471,18 @@ void rt_setexit_fire_now(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_setexit_abort(void) {
-    extern uint64_t rtccb[32];
+    extern uint64_t g_rtccb[32];
     extern const char *g_sno_errtext;
-    int code = (int)(int64_t)rtccb[30];
+    int code = (int)(int64_t)g_rtccb[30];
     const char *msg = g_sno_errtext;
-    rtccb[26] = 0;
+    g_rtccb[26] = 0;
     { extern void core_error_voice(int, const char *, int, DESCR_t); core_error_voice(code, msg, 0, FAILDESCR); }
     { extern void rt_kw_publish_error_at_exit(int code, const char *msg); rt_kw_publish_error_at_exit(code, msg); }
     exit(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_setexit_resume(const char *which) {
-    if (_setexit_resume >= 0) core_errjmp_throw(_setexit_resume, (which && which[0] == 'A') ? 2 : 1);
+    if (g_setexit_resume >= 0) core_errjmp_throw(g_setexit_resume, (which && which[0] == 'A') ? 2 : 1);
     char w0 = which ? which[0] : 'C';
     char w1 = which ? which[1] : '\0';
     if (w0 == 'A') core_runtime_error(36, "goto abort with no preceding error");
@@ -2487,15 +2491,15 @@ void sno_setexit_resume(const char *which) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _FUNCTION_(DESCR_t *a, int n) { if (n < 1) return FAILDESCR; const char *name = VARVAL_fn(a[0]); if (!name || !*name) return FAILDESCR; return FNCEX_fn(name) ? NULVCL : FAILDESCR; }
-static int (*_label_exists_hook)(const char *) = NULL;
+static int (*g_label_exists_hook)(const char *) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void core_set_label_exists_hook(int (*fn)(const char *)) { _label_exists_hook = fn; }
+void core_set_label_exists_hook(int (*fn)(const char *)) { g_label_exists_hook = fn; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _LABEL_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     const char *name = VARVAL_fn(a[0]);
     if (!name || !*name) return FAILDESCR;
-    if (_label_exists_hook && _label_exists_hook(name)) return NULVCL;
+    if (g_label_exists_hook && g_label_exists_hook(name)) return NULVCL;
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2562,12 +2566,12 @@ typedef struct { char *typename; int nfields; char **fields; } DataClosure;
 typedef struct { char *typename; char *fieldname; } FieldClosure;
 #define DATA_MAX_TYPES 64
 #define DATA_MAX_FIELDS 16
-static struct { char *typename; int nfields; char *fields[DATA_MAX_FIELDS]; } _data_types[DATA_MAX_TYPES];
-static int _data_ntypes = 0;
+static struct { char *typename; int nfields; char *fields[DATA_MAX_FIELDS]; } g_data_types[DATA_MAX_TYPES];
+static int g_data_ntypes = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _make_ctor(int tidx, DESCR_t *args, int nargs) {
-    if (tidx < 0 || tidx >= _data_ntypes) return NULVCL;
-    DATBLK_t *t = _udef_lookup(_data_types[tidx].typename);
+    if (tidx < 0 || tidx >= g_data_ntypes) return NULVCL;
+    DATBLK_t *t = _udef_lookup(g_data_types[tidx].typename);
     if (!t) return NULVCL;
     DATINST_t *u = rt_gcheap_alloc(HB_DINST, sizeof(DATINST_t));
     u->type = t;
@@ -2582,19 +2586,19 @@ CTOR_FN(0) CTOR_FN(1) CTOR_FN(2) CTOR_FN(3) CTOR_FN(4) CTOR_FN(5) CTOR_FN(6) CTO
     CTOR_FN(17) CTOR_FN(18) CTOR_FN(19) CTOR_FN(20) CTOR_FN(21) CTOR_FN(22) CTOR_FN(23) CTOR_FN(24) CTOR_FN(25) CTOR_FN(26) CTOR_FN(27) CTOR_FN(28) CTOR_FN(29) CTOR_FN(30) CTOR_FN(31) CTOR_FN(32)
     CTOR_FN(33) CTOR_FN(34) CTOR_FN(35) CTOR_FN(36) CTOR_FN(37) CTOR_FN(38) CTOR_FN(39) CTOR_FN(40) CTOR_FN(41) CTOR_FN(42) CTOR_FN(43) CTOR_FN(44) CTOR_FN(45) CTOR_FN(46) CTOR_FN(47) CTOR_FN(48)
     CTOR_FN(49) CTOR_FN(50) CTOR_FN(51) CTOR_FN(52) CTOR_FN(53) CTOR_FN(54) CTOR_FN(55) CTOR_FN(56) CTOR_FN(57) CTOR_FN(58) CTOR_FN(59) CTOR_FN(60) CTOR_FN(61) CTOR_FN(62) CTOR_FN(63)
-    static DESCR_t (*_ctor_fns[DATA_MAX_TYPES])(DESCR_t *, int) = { _ctor_0, _ctor_1, _ctor_2, _ctor_3, _ctor_4, _ctor_5, _ctor_6, _ctor_7, _ctor_8, _ctor_9, _ctor_10, _ctor_11, _ctor_12, _ctor_13,
+    static DESCR_t (*g_ctor_fns[DATA_MAX_TYPES])(DESCR_t *, int) = { _ctor_0, _ctor_1, _ctor_2, _ctor_3, _ctor_4, _ctor_5, _ctor_6, _ctor_7, _ctor_8, _ctor_9, _ctor_10, _ctor_11, _ctor_12, _ctor_13,
     _ctor_14, _ctor_15, _ctor_16, _ctor_17, _ctor_18, _ctor_19, _ctor_20, _ctor_21, _ctor_22, _ctor_23, _ctor_24, _ctor_25, _ctor_26, _ctor_27, _ctor_28, _ctor_29, _ctor_30, _ctor_31, _ctor_32,
     _ctor_33, _ctor_34, _ctor_35, _ctor_36, _ctor_37, _ctor_38, _ctor_39, _ctor_40, _ctor_41, _ctor_42, _ctor_43, _ctor_44, _ctor_45, _ctor_46, _ctor_47, _ctor_48, _ctor_49, _ctor_50, _ctor_51,
     _ctor_52, _ctor_53, _ctor_54, _ctor_55, _ctor_56, _ctor_57, _ctor_58, _ctor_59, _ctor_60, _ctor_61, _ctor_62, _ctor_63, };
 #define FIELD_ACCESSOR_MAX (DATA_MAX_TYPES * DATA_MAX_FIELDS)
-static struct { int tidx; int fidx; } _facc_slots[FIELD_ACCESSOR_MAX];
-static int _facc_n = 0;
+static struct { int tidx; int fidx; } g_facc_slots[FIELD_ACCESSOR_MAX];
+static int g_facc_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _make_fget(int slot, DESCR_t obj) {
-    if (slot < 0 || slot >= _facc_n) return FAILDESCR;
-    int tidx = _facc_slots[slot].tidx;
-    int fidx = _facc_slots[slot].fidx;
-    if (!IS_DATA(obj) || !obj.u || !obj.u->type || strcmp(obj.u->type->name, _data_types[tidx].typename) != 0) {
+    if (slot < 0 || slot >= g_facc_n) return FAILDESCR;
+    int tidx = g_facc_slots[slot].tidx;
+    int fidx = g_facc_slots[slot].fidx;
+    if (!IS_DATA(obj) || !obj.u || !obj.u->type || strcmp(obj.u->type->name, g_data_types[tidx].typename) != 0) {
         core_runtime_error(41, "field function argument is wrong datatype");
         return FAILDESCR;
     }
@@ -2603,8 +2607,8 @@ static DESCR_t _make_fget(int slot, DESCR_t obj) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _make_fset(int slot, DESCR_t obj, DESCR_t val) {
-    if (slot < 0 || slot >= _facc_n) return;
-    int fidx = _facc_slots[slot].fidx;
+    if (slot < 0 || slot >= g_facc_n) return;
+    int fidx = g_facc_slots[slot].fidx;
     if (!IS_DATA(obj) || !obj.u) return;
     if (fidx < 0 || fidx >= obj.u->type->nfields) return;
     obj.u->fields[fidx] = val;
@@ -2630,7 +2634,7 @@ FACC_FN(0) FACC_FN(1) FACC_FN(2) FACC_FN(3) FACC_FN(4) FACC_FN(5) FACC_FN(6) FAC
     FACC_SET_FN(96) FACC_SET_FN(97) FACC_SET_FN(98) FACC_SET_FN(99) FACC_SET_FN(100) FACC_SET_FN(101) FACC_SET_FN(102) FACC_SET_FN(103) FACC_SET_FN(104) FACC_SET_FN(105) FACC_SET_FN(106)
     FACC_SET_FN(107) FACC_SET_FN(108) FACC_SET_FN(109) FACC_SET_FN(110) FACC_SET_FN(111) FACC_SET_FN(112) FACC_SET_FN(113) FACC_SET_FN(114) FACC_SET_FN(115) FACC_SET_FN(116) FACC_SET_FN(117)
     FACC_SET_FN(118) FACC_SET_FN(119) FACC_SET_FN(120) FACC_SET_FN(121) FACC_SET_FN(122) FACC_SET_FN(123) FACC_SET_FN(124) FACC_SET_FN(125) FACC_SET_FN(126) FACC_SET_FN(127)
-    static DESCR_t (*_facc_set_fns[FIELD_ACCESSOR_MAX])(DESCR_t *, int) = { _facc_set_0, _facc_set_1, _facc_set_2, _facc_set_3, _facc_set_4, _facc_set_5, _facc_set_6, _facc_set_7, _facc_set_8,
+    static DESCR_t (*g_facc_set_fns[FIELD_ACCESSOR_MAX])(DESCR_t *, int) = { _facc_set_0, _facc_set_1, _facc_set_2, _facc_set_3, _facc_set_4, _facc_set_5, _facc_set_6, _facc_set_7, _facc_set_8,
     _facc_set_9, _facc_set_10, _facc_set_11, _facc_set_12, _facc_set_13, _facc_set_14, _facc_set_15, _facc_set_16, _facc_set_17, _facc_set_18, _facc_set_19, _facc_set_20, _facc_set_21, _facc_set_22,
     _facc_set_23, _facc_set_24, _facc_set_25, _facc_set_26, _facc_set_27, _facc_set_28, _facc_set_29, _facc_set_30, _facc_set_31, _facc_set_32, _facc_set_33, _facc_set_34, _facc_set_35, _facc_set_36,
     _facc_set_37, _facc_set_38, _facc_set_39, _facc_set_40, _facc_set_41, _facc_set_42, _facc_set_43, _facc_set_44, _facc_set_45, _facc_set_46, _facc_set_47, _facc_set_48, _facc_set_49, _facc_set_50,
@@ -2640,7 +2644,7 @@ FACC_FN(0) FACC_FN(1) FACC_FN(2) FACC_FN(3) FACC_FN(4) FACC_FN(5) FACC_FN(6) FAC
     _facc_set_93, _facc_set_94, _facc_set_95, _facc_set_96, _facc_set_97, _facc_set_98, _facc_set_99, _facc_set_100, _facc_set_101, _facc_set_102, _facc_set_103, _facc_set_104, _facc_set_105,
     _facc_set_106, _facc_set_107, _facc_set_108, _facc_set_109, _facc_set_110, _facc_set_111, _facc_set_112, _facc_set_113, _facc_set_114, _facc_set_115, _facc_set_116, _facc_set_117, _facc_set_118,
     _facc_set_119, _facc_set_120, _facc_set_121, _facc_set_122, _facc_set_123, _facc_set_124, _facc_set_125, _facc_set_126, _facc_set_127, };
-static DESCR_t (*_facc_fns[FIELD_ACCESSOR_MAX])(DESCR_t *, int) = { _facc_get_0, _facc_get_1, _facc_get_2, _facc_get_3, _facc_get_4, _facc_get_5, _facc_get_6, _facc_get_7, _facc_get_8, _facc_get_9,
+static DESCR_t (*g_facc_fns[FIELD_ACCESSOR_MAX])(DESCR_t *, int) = { _facc_get_0, _facc_get_1, _facc_get_2, _facc_get_3, _facc_get_4, _facc_get_5, _facc_get_6, _facc_get_7, _facc_get_8, _facc_get_9,
     _facc_get_10, _facc_get_11, _facc_get_12, _facc_get_13, _facc_get_14, _facc_get_15, _facc_get_16, _facc_get_17, _facc_get_18, _facc_get_19, _facc_get_20, _facc_get_21, _facc_get_22, _facc_get_23,
     _facc_get_24, _facc_get_25, _facc_get_26, _facc_get_27, _facc_get_28, _facc_get_29, _facc_get_30, _facc_get_31, _facc_get_32, _facc_get_33, _facc_get_34, _facc_get_35, _facc_get_36, _facc_get_37,
     _facc_get_38, _facc_get_39, _facc_get_40, _facc_get_41, _facc_get_42, _facc_get_43, _facc_get_44, _facc_get_45, _facc_get_46, _facc_get_47, _facc_get_48, _facc_get_49, _facc_get_50, _facc_get_51,
@@ -2699,10 +2703,10 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
     char *fstr = paren + 1;
     char *close = strchr(fstr, ')');
     if (close) *close = '\0';
-    if (_data_ntypes >= DATA_MAX_TYPES) return NULVCL;
-    int tidx = _data_ntypes++;
+    if (g_data_ntypes >= DATA_MAX_TYPES) return NULVCL;
+    int tidx = g_data_ntypes++;
     char *uname = rt_heap_strdup_c(tname);
-    _data_types[tidx].typename = uname;
+    g_data_types[tidx].typename = uname;
     int nf = 0;
     char *tmp = rt_heap_strdup_c(fstr);
     char *tok = strtok(tmp, ",");
@@ -2711,28 +2715,28 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
         char *end = tok + strlen(tok) - 1;
         while (end > tok && *end == ' ') *end-- = '\0';
         char *fld = rt_heap_strdup_c(tok);
-        _data_types[tidx].fields[nf] = fld;
+        g_data_types[tidx].fields[nf] = fld;
         nf++;
         tok = strtok(NULL, ",");
     }
-    _data_types[tidx].nfields = nf;
+    g_data_types[tidx].nfields = nf;
     extern void register_fn(const char *, DESCR_t (*)(DESCR_t*, int), int, int);
-    register_fn(uname, _ctor_fns[tidx], 0, nf);
+    register_fn(uname, g_ctor_fns[tidx], 0, nf);
     for (int fi = 0; fi < nf; fi++) {
-        if (_facc_n >= FIELD_ACCESSOR_MAX) {
+        if (g_facc_n >= FIELD_ACCESSOR_MAX) {
             fprintf(stderr,
                 "scrip: the field accessor table is full at %d slots (FIELD_ACCESSOR_MAX = DATA_MAX_TYPES * DATA_MAX_FIELDS, one accessor function per slot) -- this record type's field %d has no acc"
-                "essor\n", _facc_n, fi);
+                "essor\n", g_facc_n, fi);
             abort();
         }
-        int slot = _facc_n++;
-        _facc_slots[slot].tidx = tidx;
-        _facc_slots[slot].fidx = fi;
-        const char *fname = _data_types[tidx].fields[fi];
-        register_fn(fname, _facc_fns[slot], 1, 1);
+        int slot = g_facc_n++;
+        g_facc_slots[slot].tidx = tidx;
+        g_facc_slots[slot].fidx = fi;
+        const char *fname = g_data_types[tidx].fields[fi];
+        register_fn(fname, g_facc_fns[slot], 1, 1);
         char setname[fmt_len("%s_SET", fname)];
         snprintf(setname, sizeof(setname), "%s_SET", fname);
-        register_fn(setname, _facc_set_fns[slot], 2, 2);
+        register_fn(setname, g_facc_set_fns[slot], 2, 2);
     }
     return NULVCL;
 }
@@ -2797,40 +2801,40 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
     char *fname = rt_heap_strdup_c(name);
     return NV_GET_fn(fname);
 }
-int core_stack_floor_raised = 0;
-long rt_sw_stack_bytes(void) { rt_cmdline_switches_apply(); return _sw_stack_bytes; }
+int g_core_stack_floor_raised = 0;
+long rt_sw_stack_bytes(void) { rt_cmdline_switches_apply(); return g_sw_stack_bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_lib_init(void) {
     static int core_lib_inited = 0;
     if (core_lib_inited) return;
     core_lib_inited = 1;
     { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
-    if (!core_stack_floor_raised) {
-        core_stack_floor_raised = 1;
+    if (!g_core_stack_floor_raised) {
+        g_core_stack_floor_raised = 1;
         rt_cmdline_switches_apply();
-        { extern long rt_stack_budget_bytes(long); extern void rt_stack_budget_apply(long, long); rt_stack_budget_apply(rt_stack_budget_bytes(_sw_stack_bytes), 0L); }
+        { extern long rt_stack_budget_bytes(long); extern void rt_stack_budget_apply(long, long); rt_stack_budget_apply(rt_stack_budget_bytes(g_sw_stack_bytes), 0L); }
     }
     { extern void rt_kw_seed_defaults(void); rt_kw_seed_defaults(); }
     if (!g_user_call_hook) { extern DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs, long *rq); g_user_call_hook = _usercall_hook; }
-    { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts); _g_start_ns = (int64_t)_ts.tv_sec * 1000000000LL + (int64_t)_ts.tv_nsec; }
+    { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts); g_start_ns = (int64_t)_ts.tv_sec * 1000000000LL + (int64_t)_ts.tv_nsec; }
 #if RT_DIAG
     const char *mon_fifo = getenv("MONITOR_READY_PIPE");
     if (mon_fifo && mon_fifo[0]) {
-        monitor_fd = open(mon_fifo, O_WRONLY | O_NONBLOCK);
-        if (monitor_fd < 0) monitor_fd = open(mon_fifo, O_WRONLY);
+        g_monitor_fd = open(mon_fifo, O_WRONLY | O_NONBLOCK);
+        if (g_monitor_fd < 0) g_monitor_fd = open(mon_fifo, O_WRONLY);
         const char *go_pipe = getenv("MONITOR_GO_PIPE");
-        if (go_pipe && go_pipe[0]) monitor_ack_fd = open(go_pipe, O_RDONLY);
+        if (go_pipe && go_pipe[0]) g_monitor_ack_fd = open(go_pipe, O_RDONLY);
         const char *names_path = getenv("MONITOR_NAMES_FILE");
         if (names_path && names_path[0]) (void)load_names_file_bin(names_path);
     } else {
         const char *mon = getenv("MONITOR");
-        if (mon && mon[0] == '1') monitor_fd = 2;
+        if (mon && mon[0] == '1') g_monitor_fd = 2;
     }
     {
         const char *ev_ftr = getenv("SCRIP_FTRACE");
-        if (ev_ftr && ev_ftr[0]) { int64_t v = (int64_t)strtoll(ev_ftr, NULL, 10); if (v > 0) kw_ftrace = v; }
+        if (ev_ftr && ev_ftr[0]) { int64_t v = (int64_t)strtoll(ev_ftr, NULL, 10); if (v > 0) g_kw_ftrace = v; }
         const char *ev_tr = getenv("SCRIP_TRACE");
-        if (ev_tr && ev_tr[0]) { int64_t v = (int64_t)strtoll(ev_tr, NULL, 10); if (v > 0) kw_trace = v; }
+        if (ev_tr && ev_tr[0]) { int64_t v = (int64_t)strtoll(ev_tr, NULL, 10); if (v > 0) g_kw_trace = v; }
         const char *ev_rktr = getenv("SCRIP_TRACE");
         if (ev_rktr && ev_rktr[0]) { long v = strtol(ev_rktr, NULL, 10); if (v > 0) g_trace_budget = v; }
         if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
@@ -2972,7 +2976,7 @@ void core_lib_init(void) {
     NV_SET_fn("REM", pat_rem());
     NV_SET_fn("SUCCEED", pat_succeed());
 #if RT_DIAG
-    monitor_ready = 1;
+    g_monitor_ready = 1;
 #endif
     DEFDAT_fn("tree(t,v,n,c)");
     register_fn_lit("c", _b_tree_c, 1, 1);
@@ -3112,30 +3116,30 @@ void core_runtime_error(int code, const char *msg) {
         }
     }
     {
-        extern int64_t kw_errlimit;
+        extern int64_t g_kw_errlimit;
         extern void rt_kw_publish_error(int code, const char *msg);
         extern int g_core_errjmp_n;
         int aborting = 0;
-        if (core_setexit_on() && sxl_set() && kw_errlimit != 0) {
+        if (core_setexit_on() && sxl_set() && g_kw_errlimit != 0) {
             char lbl[strlen(SXL) + 1];
             memcpy(lbl, SXL, sizeof lbl);
             SXL[0] = '\0';
-            if (kw_errlimit > 0) kw_errlimit--;
+            if (g_kw_errlimit > 0) g_kw_errlimit--;
             rt_kw_publish_error(code, msg);
             if (strcmp(lbl, "ABORT")) {
-                extern uint64_t rtccb[32];
+                extern uint64_t g_rtccb[32];
                 extern void *rt_goto_resolve_ck(const char *, int *);
                 if (strcmp(lbl, "CONTINUE") && strcmp(lbl, "SCONTINUE")) {
                     int undef = 0;
                     void *fn = rt_goto_resolve_ck(lbl, &undef);
-                    if (fn) { rtccb[25] = (uint64_t)(uintptr_t)fn; rtccb[30] = (uint64_t)(int64_t)code; }
+                    if (fn) { g_rtccb[25] = (uint64_t)(uintptr_t)fn; g_rtccb[30] = (uint64_t)(int64_t)code; }
                 }
                 return;
             }
             aborting = 1;
         }
-        if (!aborting && (kw_errlimit != 0 || g_error == G_ERROR_EVAL_STAGE) && core_err_survives_errlimit(code) && !core_err_is_fatal(code)) {
-            if (kw_errlimit > 0) kw_errlimit--;
+        if (!aborting && (g_kw_errlimit != 0 || g_error == G_ERROR_EVAL_STAGE) && core_err_survives_errlimit(code) && !core_err_is_fatal(code)) {
+            if (g_kw_errlimit > 0) g_kw_errlimit--;
             rt_kw_publish_error(code, msg);
             return;
         }
@@ -3148,8 +3152,8 @@ void core_runtime_error(int code, const char *msg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_kb, long committed_kb) {
-    extern int rt_k_level;
-    int icon = (rt_k_level >= 1 && rt_icn_frames((rt_icn_frame_t *)0, 0) > 0) ? 1 : 0;
+    extern int g_rt_k_level;
+    int icon = (g_rt_k_level >= 1 && rt_icn_frames((rt_icn_frame_t *)0, 0) > 0) ? 1 : 0;
     int code = icon ? (type == (unsigned)DT_S ? 306 : 307) : 204;
     char mb[fmt_len("%s (the GC heap's hard cap is %ld KB, -d; %ld KB committed; this request %llu bytes)", icon ? icn_errmsg(code) : "memory overflow", cap_kb, committed_kb, payload)];
     snprintf(mb, sizeof mb, "%s (the GC heap's hard cap is %ld KB, -d; %ld KB committed; this request %llu bytes)", icon ? icn_errmsg(code) : "memory overflow", cap_kb, committed_kb, payload);
@@ -3517,7 +3521,7 @@ const char *datatype(DESCR_t v) {
         return "STRING";
     }
 }
-static DATBLK_t *_udef_types = NULL;
+static DATBLK_t *g_udef_types = NULL;
 static cv_t g_udef_nidx;
 static unsigned udef_nhash(const char *s) { unsigned h = 2166136261u; for (; *s; s++) h = (h ^ (unsigned char)(*s | 32)) * 16777619u; return h; }
 static void udef_nidx_ins(DATBLK_t *t) {
@@ -3581,9 +3585,9 @@ void DEFDAT_fn(const char *spec) {
         t->fields[i] = fld;
         tok = strtok(NULL, ",");
     }
-    t->next = _udef_types;
+    t->next = g_udef_types;
     t->serial_next = 1;
-    _udef_types = t;
+    g_udef_types = t;
     udef_nidx_put(t);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3641,11 +3645,11 @@ typedef struct _VarEntry {
     struct _VarEntry *next;
 } NV_t;
 __attribute__((visibility("hidden"))) gv_t g_var_buckets;
-__attribute__((visibility("hidden"))) unsigned _var_nbuckets = 0;
-static unsigned long _var_count = 0;
+__attribute__((visibility("hidden"))) unsigned g_var_nbuckets = 0;
+static unsigned long g_var_count = 0;
 #define VB(h) (((NV_t **)g_var_buckets.p)[h])
 #define VBR(h) (g_var_buckets.p ? VB(h) : (NV_t *)0)
-__attribute__((visibility("hidden"))) int _var_init_done = 0;
+__attribute__((visibility("hidden"))) int g_var_init_done = 0;
 _Static_assert(offsetof(NV_t, name) == 0 && offsetof(NV_t, nlen) == 8 && offsetof(NV_t, has_nul) == 12 && offsetof(NV_t, val) == 32 && offsetof(NV_t, cell) == 48 && offsetof(NV_t, is_gva) == 56 &&
     offsetof(NV_t, is_io) == 68 && offsetof(NV_t, next) == 72 && offsetof(gv_t, p) == 0,
     "rtx_misc.s rt_sno_name_dl walks the variable table at these fixed offsets (name 0, nlen 8, has_nul 12, val 32, cell 48, is_gva 56, is_io 68, next 72; the bucket vector is g_var_buckets.p); core"
@@ -3655,29 +3659,29 @@ static void _var_grow(unsigned nb) {
     gv_t nv = { 0, 0, 0, 0, 0, 0 };
     gv_reserve(&nv, (uint16_t)HB_PVEC, (uint32_t)sizeof(NV_t *), (uint64_t)nb, "g_var_buckets");
     memset(nv.p, 0, (size_t)nb * sizeof(NV_t *));
-    for (unsigned h = 0; h < _var_nbuckets; h++) for (NV_t *e = VB(h), *nx; e; e = nx) {
+    for (unsigned h = 0; h < g_var_nbuckets; h++) for (NV_t *e = VB(h), *nx; e; e = nx) {
         unsigned k = (unsigned)(nv_hash_raw(e->name, (size_t)e->nlen) & (uint64_t)(nb - 1));
         nx = e->next;
         e->next = ((NV_t **)nv.p)[k];
         ((NV_t **)nv.p)[k] = e;
     }
     g_var_buckets = nv;
-    _var_nbuckets = nb;
+    g_var_nbuckets = nb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void _var_init(void) { if (_var_init_done) return; _var_init_done = 1; { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); } }
+static void _var_init(void) { if (g_var_init_done) return; g_var_init_done = 1; { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 int mon_cell_is_named(void *cellp) {
     if (!cellp) return 0;
-    for (unsigned h = 0; h < _var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) return 1;
+    for (unsigned h = 0; h < g_var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_tap_cell_store(void *cellp, DESCR_t val) {
-    if (monitor_fd < 0 || !cellp) return;
-    for (unsigned h = 0; h < _var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) {
-        if (getenv("SCRIP_TAP_DBG")) fprintf(stderr, "[TAP] cell-store name=%s ready=%d quiet=%d ktr=%lld\n", e->name, monitor_ready, monitor_quiet_depth, (long long)kw_trace);
+    if (g_monitor_fd < 0 || !cellp) return;
+    for (unsigned h = 0; h < g_var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) {
+        if (getenv("SCRIP_TAP_DBG")) fprintf(stderr, "[TAP] cell-store name=%s ready=%d quiet=%d ktr=%lld\n", e->name, g_monitor_ready, g_monitor_quiet_depth, (long long)g_kw_trace);
         comm_var(e->name, val, stmt_src_get_file(), 0, 0);
         return;
     }
@@ -3709,7 +3713,7 @@ static inline __attribute__((always_inline)) uint64_t nv_hash_raw(const char *s,
     h ^= h >> 33;
     return h;
 }
-static inline __attribute__((always_inline)) unsigned nv_hash_n(const char *s, size_t n) { return _var_nbuckets ? (unsigned)(nv_hash_raw(s, n) & (uint64_t)(_var_nbuckets - 1)) : 0u; }
+static inline __attribute__((always_inline)) unsigned nv_hash_n(const char *s, size_t n) { return g_var_nbuckets ? (unsigned)(nv_hash_raw(s, n) & (uint64_t)(g_var_nbuckets - 1)) : 0u; }
 static unsigned _var_hash(const char *name) { return nv_hash_n(name, __builtin_strlen(name)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int nv_key_c(const NV_t *e, const char *name) { return !e->has_nul && strcmp(e->name, name) == 0; }
@@ -3721,7 +3725,7 @@ static NV_t *nv_entry_name(NV_t *e, const char *s, size_t n) {
     e->name = q;
     e->nlen = (uint32_t)n;
     e->has_nul = memchr(s, 0, n) ? 1 : 0;
-    e->serial = _var_count;
+    e->serial = g_var_count;
     e->std_detached = 0;
     return e;
 }
@@ -3765,11 +3769,11 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
     e->is_gva = 0;
     e->is_const = 0;
     e->is_io = (_io_chan_find_by_var(key) >= 0);
-    if (!_var_nbuckets) { _var_grow(8); h = _var_hash(key); }
+    if (!g_var_nbuckets) { _var_grow(8); h = _var_hash(key); }
     e->next = VB(h);
     VB(h) = e;
     g_nv_memo_gen++;
-    if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
+    if (++g_var_count > g_var_nbuckets) _var_grow(g_var_nbuckets * 2);
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3798,7 +3802,7 @@ static DESCR_t NV_GET_untapped(const char *name) {
         if (nread < 0) return FAILDESCR;
         if (nread > 0 && _io_chan[ch].buf[nread-1] == '\n') { _io_chan[ch].buf[nread-1] = '\0'; nread--; }
         if (_io_chan[ch].rlen < 0 && nread > -_io_chan[ch].rlen) { nread = -_io_chan[ch].rlen; _io_chan[ch].buf[nread] = '\0'; }
-        if (kw_trim) { while (nread > 0 && (_io_chan[ch].buf[nread-1] == ' ' || _io_chan[ch].buf[nread-1] == '\t')) { _io_chan[ch].buf[--nread] = '\0'; } }
+        if (g_kw_trim) { while (nread > 0 && (_io_chan[ch].buf[nread-1] == ' ' || _io_chan[ch].buf[nread-1] == '\t')) { _io_chan[ch].buf[--nread] = '\0'; } }
         return STRVAL(rt_heap_strdup_c(_io_chan[ch].buf));
     }
     if (strcmp (name, "&subject") == 0) {
@@ -3817,14 +3821,14 @@ static DESCR_t NV_GET_untapped(const char *name) {
 DESCR_t NV_GET_fn(const char *name) {
     DESCR_t v = NV_GET_untapped(name);
 #if RT_DIAG
-    if (trace_access_n != 0 && name && *name) { extern long g_stno; rt_trace_event(TRK_ACCESS, name, v, (long long)g_stno); }
+    if (g_trace_access_n != 0 && name && *name) { extern long g_stno; rt_trace_event(TRK_ACCESS, name, v, (long long)g_stno); }
 #endif
     return v;
 }
 #if RT_DIAG
 DESCR_t NV_GET_open(const char *name, trace_pend_t *pend) {
     DESCR_t v = NV_GET_untapped(name);
-    if (trace_access_n != 0 && name && *name) {
+    if (g_trace_access_n != 0 && name && *name) {
         extern long g_stno;
         rt_trace_event_args_ip(TRK_ACCESS, name, (DESCR_t *)0, 0, v, (long long)g_stno, 0, pend, 0);
         if (pend && pend->args[0].v) pend->val = v;
@@ -3837,7 +3841,7 @@ DESCR_t NV_GET_open(const char *name, trace_pend_t *pend) { (void)pend; return N
 int g_protected_pat_vars_armed = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name) {
-    if (!_var_init_done) _var_init();
+    if (!g_var_init_done) _var_init();
     if (!name || name[0] == '&') return (DESCR_t *)0;
     NV_t *e = _var_find_cached(name);
     if (!e || e->is_io) return (DESCR_t *)0;
@@ -3857,7 +3861,7 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
         }
     }
 #endif
-    if (!_var_init_done) _var_init();
+    if (!g_var_init_done) _var_init();
     if (val.v == DT_S) rt_sxt_break_fast(val.s);
     if (g_protected_pat_vars_armed && name && is_protected_pat_lead(name[0]) && is_protected_pat_name(name)) { core_runtime_error(42, NULL); return val; }
     if (!name) return val;
@@ -3870,7 +3874,7 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
 #if RT_DIAG
     {
         DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name);
-        if (cell) { *cell = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var_hook_p(name, val, stmt_src_get_file(), 0, 0, 2, pend); return val; }
+        if (cell) { *cell = val; if (g_comm_dbg != 0 || g_trace_set_n != 0 || g_monitor_fd >= 0) comm_var_hook_p(name, val, stmt_src_get_file(), 0, 0, 2, pend); return val; }
     }
 #else
     { DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name); if (cell) { *cell = val; return val; } }
@@ -3931,11 +3935,11 @@ DESCR_t NV_SET_p_fn(const char *name, DESCR_t val, trace_pend_t *pend) {
     e->is_gva = 0;
     e->is_const = (name[0] == '&' && !_nv_kwsplit()) ? 1 : 0;
     e->is_io = (_io_chan_find_by_var(name) >= 0);
-    if (!_var_nbuckets) { _var_grow(8); h = _var_hash(name); }
+    if (!g_var_nbuckets) { _var_grow(8); h = _var_hash(name); }
     e->next = VB(h);
     VB(h) = e;
     g_nv_memo_gen++;
-    if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
+    if (++g_var_count > g_var_nbuckets) _var_grow(g_var_nbuckets * 2);
 #if RT_DIAG
     comm_var_hook_p(name, val, stmt_src_get_file(), 0, 0, 2, pend);
 #endif
@@ -4061,11 +4065,11 @@ DESCR_t *NV_PTR_fn(const char *name) {
     e->is_gva = 0;
     e->is_const = 0;
     e->is_io = (_io_chan_find_by_var(name) >= 0);
-    if (!_var_nbuckets) { _var_grow(8); h = _var_hash(name); }
+    if (!g_var_nbuckets) { _var_grow(8); h = _var_hash(name); }
     e->next = VB(h);
     VB(h) = e;
     g_nv_memo_gen++;
-    if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
+    if (++g_var_count > g_var_nbuckets) _var_grow(g_var_nbuckets * 2);
     return &e->val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4105,13 +4109,13 @@ int NV_bind_gva(const char *name, DESCR_t *cell) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *NV_name_from_ptr(const DESCR_t *ptr) {
     if (!ptr) return NULL;
-    for (unsigned i = 0; i < _var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) if (&e->val == ptr) return e->name;
+    for (unsigned i = 0; i < g_var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) if (&e->val == ptr) return e->name;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void NV_CLEAR_fn(const char **except, int nexcept) {
     _var_init();
-    for (unsigned _i = 0; _i < _var_nbuckets; _i++) {
+    for (unsigned _i = 0; _i < g_var_nbuckets; _i++) {
         for (NV_t *_e = VBR(_i); _e; _e = _e->next) {
             if (_e->is_const || is_protected_pat_name(_e->name)) continue;
             int _excluded = 0;
@@ -4126,15 +4130,15 @@ void NV_CLEAR_fn(const char **except, int nexcept) {
 int ASGNIC_fn(const char *kw_name, DESCR_t val) {
     if (!kw_name) return 0;
     int64_t iv = IS_INT(val) ? val.i : (int64_t)to_real(val);
-    if (strcmp(kw_name, "STLIMIT") == 0) { kw_stlimit = iv; return 1; }
-    if (strcmp(kw_name, "ANCHOR") == 0) { kw_anchor = iv; if (g_rtcc_on) rtccb[RTCC_SLOT_R8] = (uint64_t)(int64_t)iv; return 1; }
-    if (strcmp(kw_name, "TRIM") == 0) { kw_trim = iv; return 1; }
-    if (strcmp(kw_name, "FULLSCAN") == 0) { kw_fullscan = iv; return 1; }
+    if (strcmp(kw_name, "STLIMIT") == 0) { g_kw_stlimit = iv; return 1; }
+    if (strcmp(kw_name, "ANCHOR") == 0) { g_kw_anchor = iv; if (g_rtcc_on) g_rtccb[RTCC_SLOT_R8] = (uint64_t)(int64_t)iv; return 1; }
+    if (strcmp(kw_name, "TRIM") == 0) { g_kw_trim = iv; return 1; }
+    if (strcmp(kw_name, "FULLSCAN") == 0) { g_kw_fullscan = iv; return 1; }
     if (strcmp(kw_name, "CASE") == 0) { (void)iv; core_runtime_error(10, "&CASE is read-only; SCRIP is case-sensitive only"); return 1; }
-    if (strcmp(kw_name, "MAXLNGTH") == 0) { kw_maxlngth = iv; return 1; }
-    if (strcmp(kw_name, "FTRACE") == 0) { kw_ftrace = iv; return 1; }
-    if (strcmp(kw_name, "ERRLIMIT") == 0) { kw_errlimit = iv; return 1; }
-    if (strcmp(kw_name, "CODE") == 0) { kw_code = iv; return 1; }
+    if (strcmp(kw_name, "MAXLNGTH") == 0) { g_kw_maxlngth = iv; return 1; }
+    if (strcmp(kw_name, "FTRACE") == 0) { g_kw_ftrace = iv; return 1; }
+    if (strcmp(kw_name, "ERRLIMIT") == 0) { g_kw_errlimit = iv; return 1; }
+    if (strcmp(kw_name, "CODE") == 0) { g_kw_code = iv; return 1; }
     if (strcmp(kw_name, "STCOUNT") == 0) return 1;
     if (strcmp(kw_name, "STNO") == 0) return 1;
     if (strcmp(kw_name, "ALPHABET") == 0) return 1;
@@ -4374,7 +4378,7 @@ static int etrace_spell_nested(VCELL_t *vc, char *out, size_t n, long *id_out) {
     unsigned bb = 0;
     char bk[128];
     long bid = 0;
-    for (unsigned i = 0; i < _var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
+    for (unsigned i = 0; i < g_var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
         if (!etrace_var_name_ok(e->name)) continue;
         DESCR_t d = e->is_gva ? *e->cell : e->val;
         if (d.v != DT_A || !d.arr || !d.arr->data || d.arr->ndim != 1) continue;
@@ -4393,7 +4397,7 @@ static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) 
     if (vc->tbl) {
         NV_t *best = (NV_t *)0;
         unsigned bb = 0;
-        for (unsigned i = 0; i < _var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
+        for (unsigned i = 0; i < g_var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
             if (!etrace_var_name_ok(e->name)) continue;
             DESCR_t d = e->is_gva ? *e->cell : e->val;
             if (d.v != DT_T || d.tbl != vc->tbl) continue;
@@ -4410,7 +4414,7 @@ static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) 
     NV_t *best = (NV_t *)0;
     unsigned bb = 0;
     ARBLK_t *ba = (ARBLK_t *)0;
-    for (unsigned i = 0; i < _var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
+    for (unsigned i = 0; i < g_var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
         if (!etrace_var_name_ok(e->name)) continue;
         DESCR_t d = e->is_gva ? *e->cell : e->val;
         if (d.v != DT_A || !d.arr || !d.arr->data) continue;
@@ -4460,7 +4464,7 @@ static void var_dump(void) {
     dump_cx_t cx_s = { 0 }, *cx = &cx_s;
     NV_t **v = (NV_t **)0;
     int n = 0, cap = 0;
-    for (unsigned i = 0; i < _var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
+    for (unsigned i = 0; i < g_var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
         if (!e->name || !e->name[0] || e->name[0] == '&' || strchr(e->name, '$')) continue;
         if (e->name[0] == '_' && strcmp(e->name, "_OUTPUT") && strcmp(e->name, "_INPUT") && strcmp(e->name, "_TERMINAL") && strcmp(e->name, "_PUNCH")) continue;
         if (!e->is_gva && !e->touched && is_protected_pat_lead(e->name[0]) && is_protected_pat_name(e->name)) continue;
@@ -4499,7 +4503,7 @@ static void var_dump(void) {
 static void var_dump_at_exit(void) { extern long g_dump; if (g_dump) var_dump(); }
 void rt_dump_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; atexit(var_dump_at_exit); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void code_at_exit(int status, void * arg) { (void) arg; if (status == 0 && kw_code != 0) { fflush((FILE *) 0); _exit((int) kw_code); } }
+static void code_at_exit(int status, void * arg) { (void) arg; if (status == 0 && g_kw_code != 0) { fflush((FILE *) 0); _exit((int) g_kw_code); } }
 void rt_code_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; on_exit(code_at_exit, (void *) 0); } }
 typedef struct _FNCBLK_t {
     char *name;
@@ -5141,16 +5145,16 @@ const char *FUNC_ENTRY_fn(const char *fname) {
     for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, fname) == 0) return e->entry_label ? e->entry_label : e->name;
     return NULL;
 }
-static FILE *_input_fp = NULL;
-static int _input_fp_is_popen = 0;
+static FILE *g_input_fp = NULL;
+static int g_input_fp_is_popen = 0;
 static void _input_fp_release(void) {
-    if (_input_fp && _input_fp != stdin) {
+    if (g_input_fp && g_input_fp != stdin) {
         int owned = 0;
-        for (int c = 0; c < IO_CHAN_N; c++) if (_io_chan[c].fp == _input_fp) { owned = 1; break; }
-        if (!owned) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); }
+        for (int c = 0; c < IO_CHAN_N; c++) if (_io_chan[c].fp == g_input_fp) { owned = 1; break; }
+        if (!owned) { if (g_input_fp_is_popen) pclose(g_input_fp); else fclose(g_input_fp); }
     }
-    _input_fp = stdin;
-    _input_fp_is_popen = 0;
+    g_input_fp = stdin;
+    g_input_fp_is_popen = 0;
 }
 static int _io_chan_in_use(int unit) { int ch = unit >= 0 ? _io_slot(unit, 0) : -1; return ch >= 0 && _io_chan[ch].fp && _io_chan[ch].fp != stdin && _io_chan[ch].fp != stdout; }
 void rt_input_from_file_at(const char *path, long off) {
@@ -5158,43 +5162,43 @@ void rt_input_from_file_at(const char *path, long off) {
     if (!f) return;
     if (fseek(f, off, SEEK_SET) != 0) { fclose(f); return; }
     _input_fp_release();
-    _input_fp = f;
-    _input_fp_is_popen = 0;
+    g_input_fp = f;
+    g_input_fp_is_popen = 0;
 }
-static char *_input_buf = NULL;
-static size_t _input_cap = 0;
-static long _input_rlen = 0;
+static char *g_input_buf = NULL;
+static size_t g_input_cap = 0;
+static long g_input_rlen = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static FILE *_terminal_fp = NULL;
-static int _terminal_tried = 0;
+static FILE *g_terminal_fp = NULL;
+static int g_terminal_tried = 0;
 DESCR_t terminal_read(void) {
-    if (!_terminal_tried) { _terminal_tried = 1; _terminal_fp = fopen("/dev/tty", "r"); }
-    if (!_terminal_fp) return FAILDESCR;
+    if (!g_terminal_tried) { g_terminal_tried = 1; g_terminal_fp = fopen("/dev/tty", "r"); }
+    if (!g_terminal_fp) return FAILDESCR;
     static char *tbuf = NULL;
     static size_t tcap = 0;
-    ssize_t nread = rt_line_read(&tbuf, &tcap, _terminal_fp);
+    ssize_t nread = rt_line_read(&tbuf, &tcap, g_terminal_fp);
     if (nread < 0) return FAILDESCR;
     if (nread > 0 && tbuf[nread-1] == '\n') { tbuf[nread-1] = '\0'; nread--; }
-    if (kw_trim) { while (nread > 0 && (tbuf[nread-1] == ' ' || tbuf[nread-1] == '\t')) tbuf[--nread] = '\0'; }
+    if (g_kw_trim) { while (nread > 0 && (tbuf[nread-1] == ' ' || tbuf[nread-1] == '\t')) tbuf[--nread] = '\0'; }
     return STRVAL(rt_heap_strdup_c(tbuf));
 }
 #define RT_INPUT_DEFAULT_RECLEN 1024
 DESCR_t input_read(void) {
-    if (!_input_fp) _input_fp = stdin;
-    if (_input_rlen > 0) {
+    if (!g_input_fp) g_input_fp = stdin;
+    if (g_input_rlen > 0) {
         extern char *rt_str_alloc(long n);
-        if (!rt_line_cap(&_input_buf, &_input_cap, (size_t)_input_rlen + 1)) return FAILDESCR;
-        size_t got = fread(_input_buf, 1, (size_t)_input_rlen, _input_fp);
+        if (!rt_line_cap(&g_input_buf, &g_input_cap, (size_t)g_input_rlen + 1)) return FAILDESCR;
+        size_t got = fread(g_input_buf, 1, (size_t)g_input_rlen, g_input_fp);
         if (got == 0) return FAILDESCR;
-        { char *b = rt_str_alloc((long)got); memcpy(b, _input_buf, got); b[got] = '\0'; { DESCR_t r = {0}; r.v = DT_S; r.slen = (uint32_t)got; r.s = b; return r; } }
+        { char *b = rt_str_alloc((long)got); memcpy(b, g_input_buf, got); b[got] = '\0'; { DESCR_t r = {0}; r.v = DT_S; r.slen = (uint32_t)got; r.s = b; return r; } }
     }
-    ssize_t nread = rt_line_read(&_input_buf, &_input_cap, _input_fp);
+    ssize_t nread = rt_line_read(&g_input_buf, &g_input_cap, g_input_fp);
     if (nread < 0) return FAILDESCR;
-    if (nread > 0 && _input_buf[nread-1] == '\n') { _input_buf[nread-1] = '\0'; nread--; }
-    if (nread > RT_INPUT_DEFAULT_RECLEN) { nread = RT_INPUT_DEFAULT_RECLEN; _input_buf[nread] = '\0'; }
-    if (_input_rlen < 0 && nread > -_input_rlen) { nread = -_input_rlen; _input_buf[nread] = '\0'; }
-    if (kw_trim) { while (nread > 0 && (_input_buf[nread-1] == ' ' || _input_buf[nread-1] == '\t')) { _input_buf[--nread] = '\0'; } }
-    return STRVAL(rt_heap_strdup_c(_input_buf));
+    if (nread > 0 && g_input_buf[nread-1] == '\n') { g_input_buf[nread-1] = '\0'; nread--; }
+    if (nread > RT_INPUT_DEFAULT_RECLEN) { nread = RT_INPUT_DEFAULT_RECLEN; g_input_buf[nread] = '\0'; }
+    if (g_input_rlen < 0 && nread > -g_input_rlen) { nread = -g_input_rlen; g_input_buf[nread] = '\0'; }
+    if (g_kw_trim) { while (nread > 0 && (g_input_buf[nread-1] == ' ' || g_input_buf[nread-1] == '\t')) { g_input_buf[--nread] = '\0'; } }
+    return STRVAL(rt_heap_strdup_c(g_input_buf));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *_io_varname(DESCR_t d) {
@@ -5454,7 +5458,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
             _io_chan[sl].rlen = rlen;
             _io_chan[sl].varname = cv ? rt_heap_strdup_c(cv) : NULL;
             if (cv) { g_call_fastpath_off = 1; _io_var_refresh(cv); }
-            if (cv && !strcmp(cv, "INPUT")) { _input_fp_release(); _input_fp = nf; _input_fp_is_popen = 0; _input_rlen = rlen; }
+            if (cv && !strcmp(cv, "INPUT")) { _input_fp_release(); g_input_fp = nf; g_input_fp_is_popen = 0; g_input_rlen = rlen; }
             return NULVCL;
         }
         if (vn && strcmp(vn, "INPUT") != 0) {
@@ -5464,8 +5468,8 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
             return NULVCL;
         }
         _input_fp_release();
-        if (fd >= 0) { FILE *nf = fdopen(dup((int)fd), "r"); if (!nf) return FAILDESCR; _input_fp = nf; }
-        _input_rlen = rlen;
+        if (fd >= 0) { FILE *nf = fdopen(dup((int)fd), "r"); if (!nf) return FAILDESCR; g_input_fp = nf; }
+        g_input_rlen = rlen;
         return NULVCL;
     }
     char pcmd[strlen(fname) + 1];
@@ -5489,12 +5493,12 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
         _io_chan[sl].varname = vn ? rt_heap_strdup_c(vn) : NULL;
         if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); }
-        if (vn && !strcmp(vn, "INPUT")) { _input_fp_release(); _input_fp = f; _input_fp_is_popen = is_pipe; _input_rlen = frlen; }
+        if (vn && !strcmp(vn, "INPUT")) { _input_fp_release(); g_input_fp = f; g_input_fp_is_popen = is_pipe; g_input_rlen = frlen; }
     } else {
         _input_fp_release();
-        _input_fp = f;
-        _input_fp_is_popen = is_pipe;
-        _input_rlen = frlen;
+        g_input_fp = f;
+        g_input_fp_is_popen = is_pipe;
+        g_input_rlen = frlen;
     }
     return NULVCL;
 }
@@ -5593,13 +5597,13 @@ void core_gc_roots(void) {
 #endif
     {
         static const char *const *const words[5] = { (const char *const *)&g_io_chan.p, (const char *const *)&g_setexit_label.p, (const char *const *)&g_var_buckets.p,
-            (const char *const *)&_udef_types, (const char *const *)&g_udef_nidx.p };
+            (const char *const *)&g_udef_types, (const char *const *)&g_udef_nidx.p };
         static const long off[2] = { (long)__builtin_offsetof(io_chan_t, varname), (long)__builtin_offsetof(io_chan_t, prebind) };
         rt_gc_run_loc_list(words, 5);
         if (IO_CHAN_N > 0) rt_gc_run_ptr_fields(_io_chan, (long)IO_CHAN_N, (long)sizeof(io_chan_t), 2, off);
     }
     {
-        gc_roots_args_t a = { (void **)g_var_buckets.p, (long)_var_nbuckets, (void **)_func_buckets, (long)_func_nbuckets, (const char *)_udef_types, 0, (const char *)0, 0, (const char *)0,
+        gc_roots_args_t a = { (void **)g_var_buckets.p, (long)g_var_nbuckets, (void **)_func_buckets, (long)_func_nbuckets, (const char *)g_udef_types, 0, (const char *)0, 0, (const char *)0,
             (const char *)0 };
         rt_gc_run_roots(&a);
     }

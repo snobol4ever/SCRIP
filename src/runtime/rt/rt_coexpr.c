@@ -13,10 +13,10 @@
 #include <limits.h>
 #include "gc_heap.h"
 #include "rt_coexpr.h"
-static int inited = 0;
-static pthread_attr_t attribs;
+static int g_inited = 0;
+static pthread_attr_t g_attribs;
 static long g_coexp_stksize = 8L * 1024 * 1024;
-scrip_coctx_t *scrip_co_current = NULL;
+scrip_coctx_t *g_scrip_co_current = NULL;
 static scrip_coctx_t *g_co_gc_head = NULL;
 static pthread_t g_co_main_thr;
 static int g_co_main_set = 0;
@@ -69,7 +69,7 @@ static void *scrip_co_trampoline(void *arg) {
         sem_post(&self->created);
     }
     while (sem_wait(self->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in trampoline");
-    scrip_co_current = self;
+    g_scrip_co_current = self;
     if (setjmp(self->exit_jmp) != 0) return NULL;
     self->entry_fn(self->entry_arg);
     fprintf(stderr, "scrip_coexpr: FATAL entry_fn returned to trampoline instead of switching away -- RUNG 3/4 bug\n");
@@ -78,7 +78,7 @@ static void *scrip_co_trampoline(void *arg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_init_once(scrip_coctx_t *cur) {
-    if (inited) return;
+    if (g_inited) return;
     cur->semp = &cur->sema;
     scrip_co_makesem(cur);
     cur->thread = pthread_self();
@@ -87,14 +87,14 @@ static void scrip_co_init_once(scrip_coctx_t *cur) {
     g_co_main_thr = cur->thread;
     g_co_main_set = 1;
     { const char *_cs = getenv("SCRIP_COEXP_STACK"); if (_cs && *_cs) { long _v = atol(_cs); if (_v >= (long)PTHREAD_STACK_MIN) g_coexp_stksize = _v; } }
-    pthread_attr_init(&attribs);
-    if (pthread_attr_setstacksize(&attribs, (size_t)g_coexp_stksize) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize failed");
-    inited = 1;
+    pthread_attr_init(&g_attribs);
+    if (pthread_attr_setstacksize(&g_attribs, (size_t)g_coexp_stksize) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize failed");
+    g_inited = 1;
 }
 static void scrip_co_thread_start(scrip_coctx_t *new_ctx) {
     scrip_co_makesem(new_ctx);
     {
-        pthread_attr_t *ap = &attribs;
+        pthread_attr_t *ap = &g_attribs;
         pthread_attr_t big;
         size_t need = new_ctx->stk_need + (size_t)(2u << 20);
         if (need > (size_t)g_coexp_stksize) {
@@ -191,30 +191,30 @@ static scrip_coctx_t *scrip_co_live_activator(scrip_coctx_t *me) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
-    if (!scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_coret with no current coexpression (RUNG 5 `@` wiring bug -- body entered without setting scrip_co_current)");
-    scrip_co_current->resume_addr = resume_addr;
-    scrip_coctx_t *me = scrip_co_current;
+    if (!g_scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_coret with no current coexpression (RUNG 5 `@` wiring bug -- body entered without setting g_scrip_co_current)");
+    g_scrip_co_current->resume_addr = resume_addr;
+    scrip_coctx_t *me = g_scrip_co_current;
     scrip_coctx_t *back = scrip_co_live_activator(me);
-    if (!back) scrip_co_uerror("scrip_coexpr: scrip_coret with no activator (RUNG 5 `@` did not set scrip_co_current->activator before switching in)");
+    if (!back) scrip_co_uerror("scrip_coexpr: scrip_coret with no activator (RUNG 5 `@` did not set g_scrip_co_current->activator before switching in)");
     co_xmit_set(&back->xmit, d0, d1);
     me->activations++;
 #if RT_DIAG
     scrip_co_trace_term(me, back, d0, d1, 0);
 #endif
-    scrip_co_current = back;
+    g_scrip_co_current = back;
     scrip_coswitch(me, back, 1, (uint64_t)(uintptr_t)__builtin_return_address(0), (char *)__builtin_frame_address(0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_cofail(void) {
-    if (!scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_cofail with no current coexpression (RUNG 5 `@` wiring bug)");
-    scrip_coctx_t *me = scrip_co_current;
+    if (!g_scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_cofail with no current coexpression (RUNG 5 `@` wiring bug)");
+    scrip_coctx_t *me = g_scrip_co_current;
     me->dead = 1;
     scrip_coctx_t *back = scrip_co_live_activator(me);
     if (!back) scrip_co_uerror("scrip_coexpr: scrip_cofail with no activator (RUNG 5 `@` did not set the activator chain)");
 #if RT_DIAG
     scrip_co_trace_term(me, back, 0, 0, 1);
 #endif
-    scrip_co_current = back;
+    g_scrip_co_current = back;
     scrip_coswitch(me, back, 1, (uint64_t)(uintptr_t)__builtin_return_address(0), (char *)__builtin_frame_address(0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -329,7 +329,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->pl_xtr = 0;
     ctx->gc_next = g_co_gc_head;
     g_co_gc_head = ctx;
-    { scrip_coctx_t *cur = scrip_co_current ? scrip_co_current : &g_root_ctx; scrip_co_init_once(cur); }
+    { scrip_coctx_t *cur = g_scrip_co_current ? g_scrip_co_current : &g_root_ctx; scrip_co_init_once(cur); }
     if (sem_init(&ctx->created, 0, 0) == -1) scrip_co_uerror("scrip_coexpr: sem_init (created) failed");
     scrip_co_thread_start(ctx);
     while (sem_wait(&ctx->created) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait (created) in scrip_coexpr_create");
@@ -357,14 +357,14 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname, uint64_t tagw) {
     if ((uint8_t)tagw != DT_CO) { extern int core_icn_error(int code, DESCR_t val); DESCR_t d; memcpy(&d, &tagw, sizeof tagw); d.p = target; core_icn_error(118, d); return 0; }
     if (!target) scrip_co_uerror("scrip_coexpr: activate of NULL coexpression (operand slot held garbage -- LOWER/driver wiring bug)");
-    scrip_coctx_t *self = scrip_co_current ? scrip_co_current : &g_root_ctx;
+    scrip_coctx_t *self = g_scrip_co_current ? g_scrip_co_current : &g_root_ctx;
 #if RT_DIAG
     if (target->dead) { scrip_co_trace_xmit(procname, self, target, x0, x1); scrip_co_trace_term(target, self, 0, 0, 1); return 0; }
 #else
     (void)procname;
     if (target->dead) return 0;
 #endif
-    scrip_coctx_t *prev = scrip_co_current;
+    scrip_coctx_t *prev = g_scrip_co_current;
     int first = target->alive ? 1 : 0;
 #if RT_DIAG
     scrip_co_trace_xmit(procname, self, target, x0, x1);
@@ -372,9 +372,9 @@ int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint6
     target->activator = self;
     co_xmit_set(&target->xmit, x0, x1);
     { extern long g_line; self->cur_line = g_line; if (!target->alive && target->create_line > 0) g_line = target->create_line; }
-    scrip_co_current = target;
+    g_scrip_co_current = target;
     scrip_coswitch(self, target, first, (uint64_t)(uintptr_t)__builtin_return_address(0), (char *)__builtin_frame_address(0));
-    scrip_co_current = prev;
+    g_scrip_co_current = prev;
     { extern long g_line; if (self->cur_line > 0) g_line = self->cur_line; }
     if (target->dead) return 0;
     memcpy(out2, &self->xmit, sizeof self->xmit);

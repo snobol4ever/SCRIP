@@ -840,8 +840,8 @@ static void *rt_goto_resolve_x(const char *name, int *undef) {
     }
     if (!strcmp(name, "END")) return NULL;
     if (!strcmp(name, "CONTINUE") || !strcmp(name, "SCONTINUE") || !strcmp(name, "ABORT")) {
-        extern uint64_t rtccb[32];
-        if (rtccb[26]) { if (name[0] == 'A') { extern void rt_setexit_abort(void); rt_setexit_abort(); } extern void rt_setexit_continue_tramp(void); return (void *)rt_setexit_continue_tramp; }
+        extern uint64_t g_rtccb[32];
+        if (g_rtccb[26]) { if (name[0] == 'A') { extern void rt_setexit_abort(void); rt_setexit_abort(); } extern void rt_setexit_continue_tramp(void); return (void *)rt_setexit_continue_tramp; }
         { extern void sno_setexit_resume(const char *which); sno_setexit_resume(name); return NULL; }
     }
     { eval_chain_fn fn = rt_label_get_fn(name); if (fn) return (void *)fn; }
@@ -964,7 +964,7 @@ int rt_goto_transfer(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_goto_resolve_ck(const char *name, int *undef) { return rt_goto_resolve_x(name, undef); }
-__asm__( ".text\n" ".globl rt_setexit_continue_tramp\n" "rt_setexit_continue_tramp:\n" "  movq rtccb@GOTPCREL(%rip), %rax\n" "  movq 208(%rax), %rcx\n" "  movq $0, 208(%rax)\n"
+__asm__( ".text\n" ".globl rt_setexit_continue_tramp\n" "rt_setexit_continue_tramp:\n" "  movq g_rtccb@GOTPCREL(%rip), %rax\n" "  movq 208(%rax), %rcx\n" "  movq $0, 208(%rax)\n"
     "  movq 216(%rax), %rdx\n" "  movq 224(%rax), %rbp\n" "  movq 232(%rax), %r12\n" "  movq %rdx, %rsp\n" "  jmp *%rcx\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code_at(const char *src, long base);

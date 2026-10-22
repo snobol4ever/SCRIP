@@ -25,16 +25,16 @@ static void csn_nv_snapshot_free(CsnNvPair *pairs, int n) { (void)pairs; (void)n
 void exec_snapshot_take(ExecSnapshot *s) {
     if (!s) return;
     s->nv_count = nv_snapshot(&s->nv_pairs);
-    s->kw_stcount = kw_stcount;
-    s->kw_stlimit = kw_stlimit;
-    s->kw_anchor = kw_anchor;
+    s->kw_stcount = g_kw_stcount;
+    s->kw_stlimit = g_kw_stlimit;
+    s->kw_anchor = g_kw_anchor;
     s->resolve_trail_mark = 0;
     s->resolve_locals = NULL;
     s->resolve_locals_count = 0;
     s->last_ok = -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void exec_snapshot_restore(const ExecSnapshot *s) { if (!s) return; nv_restore(s->nv_pairs, s->nv_count); kw_stcount = s->kw_stcount; kw_stlimit = s->kw_stlimit; kw_anchor = s->kw_anchor; }
+void exec_snapshot_restore(const ExecSnapshot *s) { if (!s) return; nv_restore(s->nv_pairs, s->nv_count); g_kw_stcount = s->kw_stcount; g_kw_stlimit = s->kw_stlimit; g_kw_anchor = s->kw_anchor; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void exec_snapshot_free(ExecSnapshot *s) {
     if (!s) return;

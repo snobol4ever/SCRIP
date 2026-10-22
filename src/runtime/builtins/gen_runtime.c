@@ -15,7 +15,7 @@
 extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
 extern int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 tree_t *g_root = NULL;
-unsigned long bb_rnd_seed = 12345UL;
+unsigned long g_bb_rnd_seed = 12345UL;
 static const char g_scan_empty[1] = "";
 const char *g_scan_subj = g_scan_empty;
 long g_scan_subj_len = 0;

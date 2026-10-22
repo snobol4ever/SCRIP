@@ -60,7 +60,7 @@ typedef struct scrip_coctx_t {
 } scrip_coctx_t;
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first, uint64_t epc, char *efp);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);
-extern scrip_coctx_t *scrip_co_current;
+extern scrip_coctx_t *g_scrip_co_current;
 void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr);
 void scrip_cofail(void);
 scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes, const char *procname);

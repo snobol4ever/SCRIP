@@ -54,8 +54,8 @@ int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_
     }
     const char * pat = pat_lit ? pat_lit : "";
     int pat_len = (int)strlen(pat);
-    extern int64_t kw_anchor;
-    int max_start = kw_anchor ? 0 : subj_len;
+    extern int64_t g_kw_anchor;
+    int max_start = g_kw_anchor ? 0 : subj_len;
     int matched = 0;
     int m_start = -1;
     int m_end = -1;

@@ -6,7 +6,7 @@ RTX_FUNC(rt_call_bid_sn4)
     mov     rax, qword ptr [rax]
     add     rax, rax
     jnz     .Lcb_c
-    mov     rax, qword ptr [rip + kw_errlimit@GOTPCREL]
+    mov     rax, qword ptr [rip + g_kw_errlimit@GOTPCREL]
     cmp     qword ptr [rax], 0
     jne     .Lcb_c
     test    ecx, ecx
@@ -72,7 +72,7 @@ RTX_FUNC(rt_kw_set_rtntype_role)
 .Lkr_n:
     mov     rax, 0x004E52555445524E
 .Lkr_store:
-    mov     rdx, qword ptr [rip + kw_rtntype@GOTPCREL]
+    mov     rdx, qword ptr [rip + g_kw_rtntype@GOTPCREL]
     mov     qword ptr [rdx], rax
     ret
 RTX_ENDF(rt_kw_set_rtntype_role)
@@ -237,17 +237,17 @@ RTX_FUNC(rt_sno_name_dl)
     mov     rax, qword ptr [rip + g_error@GOTPCREL]
     cmp     qword ptr [rax], 0
     jne     .Lsn_c
-    mov     rax, qword ptr [rip + kw_errlimit@GOTPCREL]
+    mov     rax, qword ptr [rip + g_kw_errlimit@GOTPCREL]
     cmp     qword ptr [rax], 0
     jne     .Lsn_c
 #if RT_DIAG
     mov     rax, qword ptr [rip + g_comm_dbg@GOTPCREL]
     cmp     dword ptr [rax], 0
     jne     .Lsn_c
-    mov     rax, qword ptr [rip + trace_set_n@GOTPCREL]
+    mov     rax, qword ptr [rip + g_trace_set_n@GOTPCREL]
     cmp     dword ptr [rax], 0
     jne     .Lsn_c
-    mov     rax, qword ptr [rip + monitor_fd@GOTPCREL]
+    mov     rax, qword ptr [rip + g_monitor_fd@GOTPCREL]
     cmp     dword ptr [rax], 0
     jge     .Lsn_c
 #endif
@@ -289,14 +289,14 @@ RTX_FUNC(rt_sno_name_dl)
     cmp     r10d, 8
     je      .Lsn_c
 .Lsn_not_t:
-    mov     rax, qword ptr [rip + _var_init_done@GOTPCREL]
+    mov     rax, qword ptr [rip + g_var_init_done@GOTPCREL]
     cmp     dword ptr [rax], 0
     je      .Lsn_c
     mov     rax, qword ptr [rip + g_var_buckets@GOTPCREL]
     mov     rdx, qword ptr [rax]
     test    rdx, rdx
     jz      .Lsn_c
-    mov     rax, qword ptr [rip + _var_nbuckets@GOTPCREL]
+    mov     rax, qword ptr [rip + g_var_nbuckets@GOTPCREL]
     mov     r9d, dword ptr [rax]
     test    r9d, r9d
     jz      .Lsn_c

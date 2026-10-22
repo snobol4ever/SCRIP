@@ -2411,11 +2411,11 @@ static unsigned *rk_un_normalize(const unsigned *in, int n, int compat, int comp
     return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *rk_uni_types[] = { "Uni", "NFC", "NFD", "NFKC", "NFKD", NULL };
-static int rk_uni_is_name(const char *nm) { for (int i = 0; nm && rk_uni_types[i]; i++) if (!strcmp(nm, rk_uni_types[i])) return 1; return 0; }
+static const char *g_rk_uni_types[] = { "Uni", "NFC", "NFD", "NFKC", "NFKD", NULL };
+static int rk_uni_is_name(const char *nm) { for (int i = 0; nm && g_rk_uni_types[i]; i++) if (!strcmp(nm, g_rk_uni_types[i])) return 1; return 0; }
 static void rk_uni_reg(void) {
     if (dat_find_type("Uni")) return;
-    for (int i = 0; rk_uni_types[i]; i++) { char spec[strlen(rk_uni_types[i]) + 16]; snprintf(spec, sizeof spec, "%s(codes)", rk_uni_types[i]); DEFDAT_fn(spec); }
+    for (int i = 0; g_rk_uni_types[i]; i++) { char spec[strlen(g_rk_uni_types[i]) + 16]; snprintf(spec, sizeof spec, "%s(codes)", g_rk_uni_types[i]); DEFDAT_fn(spec); }
 }
 static DESCR_t rk_uni_make(const char *tn, const unsigned *cps, int n) {
     rk_uni_reg();
@@ -9287,8 +9287,8 @@ PL_CX_LEAF_HEAD(aggregate_reduce, 3)
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *pl_edin_out_name = "";
-static const char *pl_edin_in_name = "";
+static const char *g_pl_edin_out_name = "";
+static const char *g_pl_edin_in_name = "";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_edin_switch(DESCR_t *args, pl_tr_ctx_t *cx, int is_out, const char *fmode) {
     extern int fh_alloc(FILE *);
@@ -9303,12 +9303,12 @@ static int pl_edin_switch(DESCR_t *args, pl_tr_ctx_t *cx, int is_out, const char
     DESCR_t f = rt_pl_deref_val(args[0]);
     if (pl_val_unbound(f)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
     if (!pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("domain_error", "source_sink", f); return 0; }
-    if (!strcmp(fn, "user")) { if (is_out) { fh_set_output(1); pl_edin_out_name = ""; } else { fh_set_input(0); pl_edin_in_name = ""; } return 1; }
+    if (!strcmp(fn, "user")) { if (is_out) { fh_set_output(1); g_pl_edin_out_name = ""; } else { fh_set_input(0); g_pl_edin_in_name = ""; } return 1; }
     fp = fopen(fn, fmode);
     if (!fp) { cx->ball = rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
     idx = fh_alloc(fp);
     if (idx < 0) { fclose(fp); return 0; }
-    if (is_out) { fh_set_output(idx); pl_edin_out_name = rt_heap_strdup_c(fn); } else { fh_set_input(idx); pl_edin_in_name = rt_heap_strdup_c(fn); }
+    if (is_out) { fh_set_output(idx); g_pl_edin_out_name = rt_heap_strdup_c(fn); } else { fh_set_input(idx); g_pl_edin_in_name = rt_heap_strdup_c(fn); }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -9321,7 +9321,7 @@ static int pl_edin_revert(int is_out) {
     extern int fh_current_input(void);
     int cur = is_out ? fh_current_output() : fh_current_input();
     if (cur >= 3) { FILE *fp = fh_get(cur); if (fp) fclose(fp); fh_free(cur); }
-    if (is_out) { fh_set_output(1); pl_edin_out_name = ""; } else { fh_set_input(0); pl_edin_in_name = ""; }
+    if (is_out) { fh_set_output(1); g_pl_edin_out_name = ""; } else { fh_set_input(0); g_pl_edin_in_name = ""; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -9374,7 +9374,7 @@ void rt_pl_flags_gc_roots(void) {
 _Static_assert(__builtin_offsetof(pl_flag_t, nm) == 0 && __builtin_offsetof(pl_flag_t, val) == 8 && __builtin_offsetof(pl_flag_t, is_term) == 72 && __builtin_offsetof(pl_flag_t, term) == 80 &&
     sizeof(pl_flag_t) == 104, "rt_gc_flags_roots_run (rtx_gc.s) walks the Prolog flags at these offsets, 104 bytes apart");
 void bnd_text_gc_roots(void) {
-    static const char *const *const words[3] = { (const char *const *)&pl_edin_out_name, (const char *const *)&pl_edin_in_name, (const char *const *)&g_tap_todo_reason };
+    static const char *const *const words[3] = { (const char *const *)&g_pl_edin_out_name, (const char *const *)&g_pl_edin_in_name, (const char *const *)&g_tap_todo_reason };
     rt_gc_run_loc_list(words, 3);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -9633,14 +9633,14 @@ PL_OUT_CX_LEAF(print, 2)
 PL_CX_LEAF_HEAD(telling, 1)
     {
         extern int fh_current_output(void);
-        ok = plw_unify_vals(args[0], (fh_current_output() == 1 || !pl_edin_out_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(pl_edin_out_name, strlen(pl_edin_out_name)), cx);
+        ok = plw_unify_vals(args[0], (fh_current_output() == 1 || !g_pl_edin_out_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(g_pl_edin_out_name, strlen(g_pl_edin_out_name)), cx);
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(seeing, 1)
     {
         extern int fh_current_input(void);
-        ok = plw_unify_vals(args[0], (fh_current_input() == 0 || !pl_edin_in_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(pl_edin_in_name, strlen(pl_edin_in_name)), cx);
+        ok = plw_unify_vals(args[0], (fh_current_input() == 0 || !g_pl_edin_in_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(g_pl_edin_in_name, strlen(g_pl_edin_in_name)), cx);
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -17331,8 +17331,8 @@ _Static_assert((RT_CTOR_IC_N & (RT_CTOR_IC_N - 1)) == 0,
     "onstruct, the same TWEAK hook, without the 5,000 instructions of checks that precede the positional arm");
 static DESCR_t rt_call_arr_bl_sn4_rq(const char *fn, DESCR_t *args, int nargs, int bidlen, long *rq) {
     extern long g_error;
-    extern int64_t kw_errlimit;
-    if (g_error == 0 && kw_errlimit == 0 && fn) {
+    extern int64_t g_kw_errlimit;
+    if (g_error == 0 && g_kw_errlimit == 0 && fn) {
         int h = rt_ctor_ic_find(fn, rt_ctor_gen());
         if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt; if (nargs <= _udt->nfields) return dat_construct_rq(_udt, args, nargs, rq); }
     }
@@ -17341,13 +17341,13 @@ static DESCR_t rt_call_arr_bl_sn4_rq(const char *fn, DESCR_t *args, int nargs, i
 DESCR_t rt_call_arr_bl_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, (long *)0)); }
 DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     extern long g_error;
-    extern int64_t kw_errlimit;
+    extern int64_t g_kw_errlimit;
     extern int rt_g_want_name;
     extern DESCR_t dat_construct_byref(void *, DESCR_t *, int);
     extern int dat_nfields_byref(void *);
     DESCR_t out;
     if (bidlen >= 0 && icn_bi_direct(bidlen, args, nargs, &out)) return out;
-    if (fn && g_error == 0 && kw_errlimit == 0 && !rt_g_want_name) {
+    if (fn && g_error == 0 && g_kw_errlimit == 0 && !rt_g_want_name) {
         int h = rt_ctor_ic_find(fn, rt_ctor_gen());
         if (h >= 0 && nargs <= dat_nfields_byref(g_ctor_ic[h].dt)) return dat_construct_byref(g_ctor_ic[h].dt, args, nargs);
     }
@@ -17460,8 +17460,8 @@ _Static_assert(G_ERROR_EVAL_STAGE == (-9223372036854775807L - 1), "rtx_misc.s rt
 DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen);
 DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     extern long g_error;
-    extern int64_t kw_errlimit;
-    if ((g_error != 0 && g_error != G_ERROR_EVAL_STAGE) || kw_errlimit != 0 || bidlen < 0 || !(bidlen & BID_BAKE_LEAF)) return RT_GC_CALLBACK(rt_call_arr_bl_sn4(fn, args, nargs, bidlen));
+    extern int64_t g_kw_errlimit;
+    if ((g_error != 0 && g_error != G_ERROR_EVAL_STAGE) || g_kw_errlimit != 0 || bidlen < 0 || !(bidlen & BID_BAKE_LEAF)) return RT_GC_CALLBACK(rt_call_arr_bl_sn4(fn, args, nargs, bidlen));
     { DESCR_t out = FAILDESCR; if (try_call_builtin_by_name_bl_s(fn, args, nargs, &out, bidlen, 0)) return out; }
     {
         extern int core_fn_arity_norm(const char *, int);
@@ -19450,7 +19450,7 @@ typedef struct { int (*fn)(DESCR_t *, int, DESCR_t *, int); int op; int _pad; } 
 _Static_assert(sizeof(bn_direct_t) == 16, "rtx_misc.s indexes g_bn_direct with a 16-byte stride: fn at +0, op at +8 (ceo 2026-09-25, CEO-1255)");
 static int bn_sno_name_d(DESCR_t *args, int nargs, DESCR_t *out, int op) { (void)op; return nargs == 1 ? bn_sno_name(args, nargs, out) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define RT_HOOK_GUARD(nm) do { extern long g_error; extern int64_t kw_errlimit; if (g_error != 0 || kw_errlimit != 0) return c_rt_call_bid_sn4((nm), args, nargs, -1); } while (0)
+#define RT_HOOK_GUARD(nm) do { extern long g_error; extern int64_t g_kw_errlimit; if (g_error != 0 || g_kw_errlimit != 0) return c_rt_call_bid_sn4((nm), args, nargs, -1); } while (0)
 DESCR_t c_rt_sno_name_dl(DESCR_t *args, int nargs) { RT_HOOK_GUARD("SNO$NAME"); DESCR_t out = FAILDESCR; if (nargs == 1) bn_sno_name(args, nargs, &out); return out; }
 static const char *rt_sno_target_name(DESCR_t d) { return (d.v == DT_S && d.s && d.slen != 0xFFFFFFFFu && NV_name_needs_key(d.s, (size_t)d.slen)) ? NV_nul_key(d.s, (size_t)d.slen) : rt_cstr_d(d); }
 DESCR_t rt_sno_pbk_d(DESCR_t *args, int nargs) {
@@ -19715,7 +19715,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         extern int rt_icn_global_count(void);
         extern const char *rt_icn_global_name(int);
         extern DESCR_t NV_GET_fn(const char *);
-        extern int rt_k_level;
+        extern int g_rt_k_level;
         FILE *fp = stderr;
         if (nargs >= 2 && (IS_FH_fn(args[1]) || IS_INT_fn(args[1]))) { FILE *q = fh_get((int)args[1].i); if (q) fp = q; }
         int top = core_icn_act_top();

@@ -34,7 +34,7 @@ extern "C" int sn4_alt_carrier(void);
 #define T1_TRAP_TEST() IF(_.lbl_t1_p, \
                            x86("cmp", "r14d", -2L) \
                          + x86_jcc_tgt("je", X86T_TGT1) \
-                         + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb") \
+                         + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&g_rtccb[0], "g_rtccb") \
                          + x86("mov", "rcx", RDQ("rcx", 200)) \
                          + x86("test", "rcx", "rcx") \
                          + x86_jcc_tgt("jne", X86T_TGT1))
@@ -347,7 +347,7 @@ std::string bb_match_defer() {
                    : ((emit_knob_unless_zero("SCRIP_DEFER_BETA_GUARD")
                           ? (x86("cmp", RDQ("rsp", 0), 0L)
                            + x86("jne", L(12))
-                           + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
+                           + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&g_rtccb[0], "g_rtccb")
                            + x86("mov", "rax", RDQ("rcx", 248))
                            + x86("test", "rax", "rax")
                            + x86("je", L(12))

@@ -26,7 +26,7 @@ typedef struct RxNode {
 } RxNode;
 typedef struct CapList { RxCap **v; int n, cap; } CapList;
 struct RxProg { RxNode *root; int flags; const RxEnv *env; CapList tops; };
-static RxCap rx_silent_cap = { 'h', 0, "", 0, 0, 0, 0, 0, 0 };
+static RxCap g_rx_silent_cap = { 'h', 0, "", 0, 0, 0, 0, 0, 0 };
 typedef struct Ctx { const RxEnv *env; const unsigned char *s; int slen, tend, nev, cev; RxEv *ev; int depth, mfrom, mto; } Ctx;
 typedef struct Cont Cont;
 struct Cont { int (*fn)(Ctx *, const Cont *, int); const RxNode *n; int a, b, c; const Cont *up; };
@@ -506,7 +506,7 @@ static RxCap *mkcap(P *p, char kind, int idx, const char *name, int nlen) {
 }
 static void mark_rep(RxNode *n) {
     if (!n) return;
-    if (n->cap && n->cap != &rx_silent_cap) { ((RxCap *) n->cap)->rep = 1; if (n->kind == N_GROUP) return; }
+    if (n->cap && n->cap != &g_rx_silent_cap) { ((RxCap *) n->cap)->rep = 1; if (n->kind == N_GROUP) return; }
     if (n->kind == N_GROUP) return;
     for (int k = 0; k < n->nch; k++) mark_rep(n->ch[k]);
     if (n->sep) mark_rep(n->sep);
@@ -1194,7 +1194,7 @@ static int quant_simple(Ctx *c, const RxNode *n, int pos, const Cont *k) {
 static int cap_text(Ctx *c, const RxNode *n, int *from, int *to) {
     for (int i = c->nev - 1; i >= 0; i--) {
         const RxCap *cp = c->ev[i].cap;
-        if (cp == &rx_silent_cap) continue;
+        if (cp == &g_rx_silent_cap) continue;
         int hit = n->min >= 0 ? (cp->kind == 'p' && cp->idx == n->min) : (cp->kind == 'n' && cp->nlen == n->slen && !strncmp(cp->name, n->s, (size_t) n->slen));
         if (hit) { *from = c->ev[i].from; *to = c->ev[i].to; return 1; }
     }

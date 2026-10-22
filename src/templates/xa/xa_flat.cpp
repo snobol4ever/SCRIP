@@ -26,7 +26,7 @@ extern "C" int rt_proc_nformals(const char *name);
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
 extern int g_rt_fragment_emit;
 extern int * const rt_k_level_p;
-extern int64_t kw_fnclevel;
+extern int64_t g_kw_fnclevel;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define icn_wire_stack_on() emit_knob_unless_zero("SCRIP_ICN_WIRE_STACK")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -687,7 +687,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("sub", "rcx", (long)1)
              + x86("mov", RDD("rax", 0), "ecx")
              + x86("sub", "rcx", (long)1)
-             + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
+             + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_kw_fnclevel, "g_kw_fnclevel")
              + x86("mov", RDQ("rax", 0), "rcx")
              + x86("pop", "rax")
              + (x86_hb_on() ? x86("lea", "rsp", RDQ(x86_hb(), kt + xa_icn_block_size())) + x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8)) : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
@@ -793,7 +793,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("sub", "rcx", (long)1)
              + x86("mov", RDD("rax", 0), "ecx")
              + x86("sub", "rcx", (long)1)
-             + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
+             + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_kw_fnclevel, "g_kw_fnclevel")
              + x86("mov", RDQ("rax", 0), "rcx")
              + x86("pop", "rax")
              + (x86_hb_on() ? x86("lea", "rsp", RDQ(x86_hb(), kt + xa_icn_block_size())) + x86("mov", x86_hb(), RDQ(x86_hb(), kt - 8)) : x86("add", "rsp", (long)(kt + xa_icn_block_size())))

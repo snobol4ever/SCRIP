@@ -207,9 +207,9 @@ void output_val(DESCR_t v);
 DESCR_t input_read(void);
 DESCR_t terminal_read(void);
 void output_str(const char *s);
-extern int monitor_fd;
+extern int g_monitor_fd;
 extern int g_monitor_bin;
-extern int monitor_quiet_depth;
+extern int g_monitor_quiet_depth;
 void comm_stno(int n);
 void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno);
 void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook);
@@ -230,13 +230,13 @@ void rt_trace_return(const char *name, DESCR_t retval);
 void rt_trace_value(const char *name, DESCR_t val);
 void rt_trace_value_sigil(const char *name, DESCR_t val, int hook);
 extern int g_comm_dbg;
-extern int trace_set_n;
-extern int monitor_fd;
+extern int g_trace_set_n;
+extern int g_monitor_fd;
 extern long g_trace;
-extern int64_t kw_trace;
-extern int64_t kw_ftrace;
+extern int64_t g_kw_trace;
+extern int64_t g_kw_ftrace;
 #if RT_DIAG
-#define rt_trace_layer_idle() (g_comm_dbg == 0 && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0 && kw_ftrace <= 0 && g_trace == 0)
+#define rt_trace_layer_idle() (g_comm_dbg == 0 && g_trace_set_n == 0 && g_monitor_fd < 0 && g_kw_trace <= 0 && g_kw_ftrace <= 0 && g_trace == 0)
 #else
 #define rt_trace_layer_idle() (1)
 #endif
@@ -289,18 +289,18 @@ DESCR_t *core_icn_act_arg(int lv, int k);
 int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int strict);
 void rt_trace_return_hook(const char *fname, DESCR_t retval);
 void rt_trace_gen_fail_hook(const char *fname, void *h);
-extern int64_t kw_fullscan;
-extern int64_t kw_maxlngth;
-extern int64_t kw_anchor;
-extern int64_t kw_trim;
-extern int64_t kw_stlimit;
-extern int64_t kw_stcount;
-extern int64_t kw_ftrace;
-extern int64_t kw_trace;
-extern int64_t kw_errlimit;
-extern int64_t kw_code;
-extern int64_t kw_fnclevel;
-extern char kw_rtntype[16];
+extern int64_t g_kw_fullscan;
+extern int64_t g_kw_maxlngth;
+extern int64_t g_kw_anchor;
+extern int64_t g_kw_trim;
+extern int64_t g_kw_stlimit;
+extern int64_t g_kw_stcount;
+extern int64_t g_kw_ftrace;
+extern int64_t g_kw_trace;
+extern int64_t g_kw_errlimit;
+extern int64_t g_kw_code;
+extern int64_t g_kw_fnclevel;
+extern char g_kw_rtntype[16];
 #include <setjmp.h>
 void core_runtime_error(int code, const char *msg);
 extern int g_kw_ctx;

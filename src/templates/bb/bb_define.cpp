@@ -10,7 +10,7 @@ extern "C" {
 #include "ab_abi.h"
 #include "pin_va.h"
 #include "rt.h"
-extern int64_t kw_fnclevel;
+extern int64_t g_kw_fnclevel;
 extern int g_monitor_bin;
 extern int rt_g_want_name;
 extern int rt_g_ret_by_name;
@@ -32,7 +32,7 @@ void rt_trace_call_hook_p(const char *fname, trace_pend_t *pend);
 void rt_trace_return_hook_p(const char *fname, DESCR_t retval, trace_pend_t *pend, long long rstno);
 void rt_trace_fail_hook_p(const char *fname, trace_pend_t *pend, long long rstno);
 extern long g_trace;
-extern int64_t kw_ftrace;
+extern int64_t g_kw_ftrace;
 const char *rt_define_query(const char *, int *, int *, int *, void **);
 void rt_define_site(const char *, const char *, int, int, int, void *);
 void rt_define_site_entry(const char *, const char *);
@@ -93,7 +93,7 @@ static std::string bb_define_entry_cell_data(const std::string & lbl, const std:
     + x86("mov", "ecx", RDD("rax", 0)) \
     + x86("movsxd", "rcx", "ecx") \
     + x86("sub", "rcx", (long)1) \
-    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel") \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_kw_fnclevel, "g_kw_fnclevel") \
     + x86("mov", RDQ("rax", 0), "rcx") \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -137,7 +137,7 @@ static std::string bb_define_entry_cell_data(const std::string & lbl, const std:
     + x86("sub", "rcx", (long)1) \
     + x86("mov", RDD("rax", 0), "ecx") \
     + x86("sub", "rcx", (long)1) \
-    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel") \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_kw_fnclevel, "g_kw_fnclevel") \
     + x86("mov", RDQ("rax", 0), "rcx") \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -440,7 +440,7 @@ static std::string bb_define_sr() {
                  + x86("mov", "rax", RDQ("rax", 0))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jg", 246)
-                 + x86_load_got("rax", "kw_ftrace", (uint64_t)(uintptr_t)(void *)&kw_ftrace)
+                 + x86_load_got("rax", "g_kw_ftrace", (uint64_t)(uintptr_t)(void *)&g_kw_ftrace)
                  + x86("mov", "rax", RDQ("rax", 0))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jle", 230)
@@ -524,7 +524,7 @@ static std::string bb_define_sr() {
                  + x86("mov", "rax", RDQ("rax", 0))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jne", 247)
-                 + x86_load_got("rax", "kw_ftrace", (uint64_t)(uintptr_t)(void *)&kw_ftrace)
+                 + x86_load_got("rax", "g_kw_ftrace", (uint64_t)(uintptr_t)(void *)&g_kw_ftrace)
                  + x86("mov", "rax", RDQ("rax", 0))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jle", 235)
@@ -612,7 +612,7 @@ static std::string bb_define_sr() {
                  + x86("mov", "rax", RDQ("rax", 0))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jne", 248)
-                 + x86_load_got("rax", "kw_ftrace", (uint64_t)(uintptr_t)(void *)&kw_ftrace)
+                 + x86_load_got("rax", "g_kw_ftrace", (uint64_t)(uintptr_t)(void *)&g_kw_ftrace)
                  + x86("mov", "rax", RDQ("rax", 0))
                  + x86("cmp", "rax", (long)0)
                  + x86_jcc_id("jle", 249)

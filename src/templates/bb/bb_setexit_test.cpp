@@ -7,7 +7,7 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_setexit_take(int land_id, long drop) {
     return x86_rsp_mark_save()
-         + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
+         + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&g_rtccb[0], "g_rtccb")
          + x86("mov", "rax", RDQ("rcx", 200))
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", land_id)
@@ -25,8 +25,8 @@ std::string bb_setexit_take(int land_id, long drop) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_setexit_test() {
-    return x86("comment", "IR_SETEXIT_TEST: a SETEXIT trap core_runtime_error left pending in rtccb[25] enters its handler on this statement's failure path; "
-                          "the inline take keeps this path (a resume label in this box), rsp, rbp and r12 in rtccb[26..29] for CONTINUE")
+    return x86("comment", "IR_SETEXIT_TEST: a SETEXIT trap core_runtime_error left pending in g_rtccb[25] enters its handler on this statement's failure path; "
+                          "the inline take keeps this path (a resume label in this box), rsp, rbp and r12 in g_rtccb[26..29] for CONTINUE")
          + x86_alpha()
          + bb_setexit_take(1, _.op_trap_drop)
          + x86_deflabel_id(1)

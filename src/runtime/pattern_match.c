@@ -1085,7 +1085,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
 #endif
             c->pending = d;
             c->star = srec ? (const char *)(const void *)srec : star;
-            rtccb[RTCC_SLOT_MATCHAT] = e->saved_delta;
+            g_rtccb[RTCC_SLOT_MATCHAT] = e->saved_delta;
             c->wsv = rt_g_want_name;
             c->asv = g_cap_abort_gen;
             c->how = 0;
@@ -2399,7 +2399,7 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (var.v == DT_N && var.slen == 0 && var.s && *var.s) { extern DESCR_t NV_SET_fn(const char *, DESCR_t); NV_SET_fn(var.s, val); return val; }
 #if RT_DIAG
-    if (var.v == DT_N && var.slen == 1 && var.ptr) { extern void mon_tap_cell_store(void *, DESCR_t); *(DESCR_t *)var.ptr = val; if (monitor_fd >= 0) mon_tap_cell_store(var.ptr, val); return val; }
+    if (var.v == DT_N && var.slen == 1 && var.ptr) { extern void mon_tap_cell_store(void *, DESCR_t); *(DESCR_t *)var.ptr = val; if (g_monitor_fd >= 0) mon_tap_cell_store(var.ptr, val); return val; }
 #else
     if (var.v == DT_N && var.slen == 1 && var.ptr) { *(DESCR_t *)var.ptr = val; return val; }
 #endif
@@ -2417,7 +2417,7 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
         abort();
     }
 #if RT_DIAG
-    if (vc->cellp) { extern void mon_tap_cell_store(void *, DESCR_t); *vc->cellp = val; if (monitor_fd >= 0) mon_tap_cell_store((void *)vc->cellp, val); return val; }
+    if (vc->cellp) { extern void mon_tap_cell_store(void *, DESCR_t); *vc->cellp = val; if (g_monitor_fd >= 0) mon_tap_cell_store((void *)vc->cellp, val); return val; }
 #else
     if (vc->cellp) { *vc->cellp = val; return val; }
 #endif
@@ -2490,10 +2490,10 @@ static DESCR_t c_rt_assign_var_s(DESCR_t var, DESCR_t val, int strict) {
     int simple = (var.v == DT_N && var.slen == 0 && var.s && *var.s);
     DESCR_t r = c_rt_assign_var_body(var, val, strict);
     if (!simple && g_trace_budget != 0 && !IS_FAIL_fn(r)) {
-        extern int monitor_fd;
+        extern int g_monitor_fd;
         extern int mon_cell_is_named(void *);
         void *cp = (var.v == DT_N && var.slen == 1) ? var.ptr : (IS_NAMETRAP_fn(var) && var.p) ? (void *)((VCELL_t *)var.p)->cellp : (void *)0;
-        if (!(monitor_fd >= 0 && cp && mon_cell_is_named(cp))) sno_trace_value("<lval>", val);
+        if (!(g_monitor_fd >= 0 && cp && mon_cell_is_named(cp))) sno_trace_value("<lval>", val);
     }
     { extern int g_sno_etrace_n; extern void rt_sno_elem_store_trace(DESCR_t, DESCR_t); if (g_sno_etrace_n != 0 && !IS_FAIL_fn(r) && IS_NAMETRAP_fn(var)) rt_sno_elem_store_trace(var, val); }
     return r;
@@ -2538,13 +2538,13 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
 #if !RT_DIAG
 #define g_trace_budget 0
 #define g_sno_etrace_n 0
-#define monitor_fd (-1)
+#define g_monitor_fd (-1)
 #endif
-        if (xc->len == 1 && yc->len == 1 && xc->pos > 0 && yc->pos > 0 && !xc->cellp && !yc->cellp && !xc->tbl && !yc->tbl && g_trace_budget == 0 && g_sno_etrace_n == 0 && monitor_fd < 0) {
+        if (xc->len == 1 && yc->len == 1 && xc->pos > 0 && yc->pos > 0 && !xc->cellp && !yc->cellp && !xc->tbl && !yc->tbl && g_trace_budget == 0 && g_sno_etrace_n == 0 && g_monitor_fd < 0) {
 #if !RT_DIAG
 #undef g_trace_budget
 #undef g_sno_etrace_n
-#undef monitor_fd
+#undef g_monitor_fd
 #endif
             DESCR_t *cx_cell = swap_base_cell(xc->sv), *cy_cell = swap_base_cell(yc->sv);
             if (cx_cell && cx_cell == cy_cell) {

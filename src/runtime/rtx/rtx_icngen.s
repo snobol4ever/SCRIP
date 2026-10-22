@@ -2,19 +2,19 @@
 RTX_GATE_DEF(icngen)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_gen_spine_resume_enter)
-    inc     dword ptr [rip + rt_k_level]
+    inc     dword ptr [rip + g_rt_k_level]
     ret
 RTX_ENDF(rt_gen_spine_resume_enter)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_gen_spine_pass_γ)
-    dec     dword ptr [rip + rt_k_level]
+    dec     dword ptr [rip + g_rt_k_level]
     mov     rax, rdi
     mov     rdx, rsi
     ret
 RTX_ENDF(rt_gen_spine_pass_γ)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_gen_spine_pass_ω)
-    dec     dword ptr [rip + rt_k_level]
+    dec     dword ptr [rip + g_rt_k_level]
     mov     eax, DT_FAIL
     xor     edx, edx
     ret

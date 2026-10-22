@@ -4,5 +4,5 @@
 #include "ast.h"
 #include "core.h"
 #include "../string_ops.h"
-extern unsigned long bb_rnd_seed;
+extern unsigned long g_bb_rnd_seed;
 #endif
