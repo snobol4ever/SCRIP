@@ -1923,6 +1923,10 @@ case 5:
 YY_RULE_SETUP
 { }
 	YY_BREAK
+case YY_STATE_EOF(COMMENT):
+case YY_STATE_EOF(BRACE):
+{ fprintf(stderr, "pascal: ISO 7185 6.1.8 violation line %d: a comment is not closed before the end of the file\n", pascal_yylineno); pascal_event("iso_error"); BEGIN INITIAL; yyterminate(); }
+	YY_BREAK
 case 6:
 YY_RULE_SETUP
 { }
@@ -2525,8 +2529,6 @@ YY_RULE_SETUP
 ECHO;
 	YY_BREAK
 case YY_STATE_EOF(INITIAL):
-case YY_STATE_EOF(COMMENT):
-case YY_STATE_EOF(BRACE):
 case YY_STATE_EOF(SKIPC):
 case YY_STATE_EOF(MODE_HDR):
 case YY_STATE_EOF(MINENUM_HDR):

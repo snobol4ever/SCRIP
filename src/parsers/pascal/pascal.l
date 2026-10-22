@@ -332,6 +332,7 @@ ALNUM    [A-Za-z0-9_]
 <COMMENT>"*)"           { BEGIN INITIAL; }
 <COMMENT>.              { }
 <COMMENT>\n             { }
+<COMMENT,BRACE><<EOF>>   { fprintf(stderr, "pascal: ISO 7185 6.1.8 violation line %d: a comment is not closed before the end of the file\n", pascal_yylineno); pascal_event("iso_error"); BEGIN INITIAL; yyterminate(); }
 "//"[^\n]*              { }
 "{$"(ifdef|ifndef|if|elseif|else|endif|ifend|define|undef|ifc|elsec|endc|setc)([ \t\r\n][^}]*)?"}" { pascal_cond(pascal_yytext); if (*pascal_cond_skip_p()) BEGIN SKIPC; }
 "(*$"(ifdef|ifndef|if|elseif|else|endif|ifend|define|undef|ifc|elsec|endc|setc)([ \t\r\n][^*]*)?"*)" { pascal_cond_paren(pascal_yytext); if (*pascal_cond_skip_p()) BEGIN SKIPC; }
