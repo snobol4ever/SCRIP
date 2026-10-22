@@ -9,7 +9,6 @@ extern "C" void *rt_match_value_get_pat_fn (DESCR_t *pval);
 extern "C" void *rt_match_value_get_pat_dtp(DESCR_t *pval);
 extern "C" long rt_match_value_open (DESCR_t *pval, void *rec);
 extern "C" void *dtp_fn_of(void *headv);
-extern uint64_t g_scan_hit_start;
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_value() {

@@ -20,7 +20,6 @@ extern "C" rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, 
 extern "C" void *dtp_fn_of(void *headv);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" uint64_t g_sno_defer_cells[2048];
-extern uint64_t g_scan_hit_start;
 extern int g_gva_active;
 #include "x86_asm.h"
 extern "C" int sn4_alt_carrier(void);

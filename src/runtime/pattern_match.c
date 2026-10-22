@@ -827,7 +827,6 @@ static DESCR_t sort_impl(DESCR_t arr, DESCR_t col, int rev) {
 DESCR_t sort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 0); }
 DESCR_t rsort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-uint64_t g_scan_hit_start = 0;
 uint64_t g_sno_defer_cells[2048];
 static int g_sno_defer_pair_hwm = 0;
 void rt_defer_pairs_forget(void) { for (int i = 0; i < g_sno_defer_pair_hwm; i++) { g_sno_defer_cells[i * 2] = 0; g_sno_defer_cells[i * 2 + 1] = 0; } g_sno_defer_pair_hwm = 0; }
