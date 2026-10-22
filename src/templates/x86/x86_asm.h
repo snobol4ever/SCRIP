@@ -637,7 +637,8 @@ inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
 inline int x86_rsp_slide_known() { return 1; }
 inline int x86_frame_off(int off) { return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
 inline int x86_hb_on() { return (g_emit.zframe_graph && !(g_emit_cfg && g_emit_cfg->cell_frame)) || (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_lcl_proc && !g_emit.flat_gen); }
-inline int gen_frame_top() { return (g_emit_cfg && g_emit_cfg->cell_frame && g_emit.flat_gen) ? g_emit.flat_frame_bytes + (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : 0; }
+extern "C" int zls_g_generator_top(const IR_graph_t * g);
+inline int gen_frame_top() { return zls_g_generator_top(g_emit_cfg); }
 inline int icn_frame_rbp() { return (g_emit_cfg && g_emit_cfg->cell_frame && (g_emit.flat_gen || (g_emit.flat_lcl_proc && g_emit.frame_retained))) ? 1 : 0; }
 inline const char * x86_hb() { return "rbp"; }
 inline int x86_fb_num() { return 4; }
@@ -1061,6 +1062,7 @@ inline int x86_zop_regime(int off) { if (x86_fc_hit(off)) return 2; return x86_f
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_g_keys_only(const IR_graph_t * g);
+extern "C" int zls_key_unbacked(const IR_graph_t * g, int off);
 inline const char * x86_zref(int off, int q);
 inline const char * ZRES_SPINE(int w);
 inline const char * x86_zop(int off, int q, int bump) {
@@ -1074,8 +1076,10 @@ inline const char * x86_zop(int off, int q, int bump) {
         if (_.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + d, q, bump);
         return x86_zref(_.op_zread[k] + d, q); }
     int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
-    if (r != 2 && zls_g_keys_only(g_emit_cfg))
-        { fprintf(stderr, "FATAL x86_zop: offset %d of a keys-only graph is addressed through the frame -- its value boxes hold keys and no frame bytes (zls_g_keys_only, ceo CEO-1864)\n", off);
+    if (r != 2 && zls_key_unbacked(g_emit_cfg, off))
+        { fprintf(stderr,
+            "FATAL x86_zop: offset %d is a key with no frame bytes behind it, addressed through the frame -- a keys-only graph, or a key past a home-frame graph's resident region (zls_key_unbacked, "
+            "ceo CEO-1864/1884)\n", off);
             abort(); }
     if (r != 2 && icn_frame_rbp()) return q ? RDQ("rbp", off - gen_frame_top()) : RDD("rbp", off - gen_frame_top());
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);

@@ -153,6 +153,7 @@ static int eval_thunks_emit_from(int pc0) {
         if (!pname || idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) continue;
         { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g_stage2.bbp.table[idx]); }
         ir_drive_slot_assign(g_stage2.bbp.table[idx]);
+        if (g_stage2.proc_table[pi].is_generator) { extern void zls_g_generator_set(const IR_graph_t *); zls_g_generator_set(g_stage2.bbp.table[idx]); }
         { extern void lower_call_forms_graph(IR_graph_t *); lower_call_forms_graph(g_stage2.bbp.table[idx]); }
         g_emit_cfg = g_stage2.bbp.table[idx];
         g_gen_proc_active = g_stage2.proc_table[pi].is_generator;

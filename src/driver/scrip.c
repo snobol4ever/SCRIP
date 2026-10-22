@@ -683,6 +683,7 @@ static void drive_slots_all(stage2_t * s2) {
     extern void fl_derive_tier(IR_graph_t * g);
     extern void zls_home_callees_mark(IR_graph_t ** gs, int n, const char ** pn, const int * px, int np);
     extern void zls_home_pass(const IR_graph_t * g);
+    extern void zls_g_generator_set(const IR_graph_t * g);
     int _mx = polyglot_main_bb_idx(s2);
     {
         int np = s2->proc_count;
@@ -698,6 +699,8 @@ static void drive_slots_all(stage2_t * s2) {
         zls_home_pass(_g);
         ir_drive_slot_assign(_g);
     }
+    for (int i = 0; i < s2->proc_count; i++) if (s2->proc_table[i].is_generator && s2->proc_table[i].bb_idx >= 0 && s2->proc_table[i].bb_idx < s2->bbp.count)
+        zls_g_generator_set(s2->bbp.table[s2->proc_table[i].bb_idx]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long parse_mem_arg(const char *s) {
