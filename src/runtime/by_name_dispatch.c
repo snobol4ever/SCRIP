@@ -15699,7 +15699,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             maybe = 1;
         }
         if (IS_STR_fn(args[0]) && args[0].s && ((args[0].s[0] == 'X' && args[0].s[1] == ':') || args[0].s[0] == 'E') && (args[0].s[0] == 'X' || !strcmp(args[0].s, "Exception"))) rk_exc_init();
-        if (mname0 && mname0[0] == '^') {
+        if (mname0 && mname0[0] == '^' && !(!strcmp(mname0 + 1, "can") && nargs == 3)) {
             const char *mm = mname0 + 1;
             const char *cn = NULL;
             if (IS_DATA_INST_fn(args[0]) && args[0].u) {
@@ -15765,7 +15765,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             *out = INTVAL(hit ? 1 : 0);
             return 1;
         }
-        if (mname0 && !strcmp(mname0, "can") && nargs == 3) {
+        if (mname0 && (!strcmp(mname0, "can") || !strcmp(mname0, "^can")) && nargs == 3) {
             const char *cn = NULL;
             if (IS_DATA_INST_fn(args[0]) && args[0].u) {
                 DATINST_t *di = (DATINST_t *)args[0].u;
@@ -15786,13 +15786,14 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
                     if (!mro[i]) continue;
                     char pn[fmt_len("%s__%s", mro[i], want)];
                     snprintf(pn, sizeof pn, "%s__%s", mro[i], want);
-                    if (meth_is_user_proc(pn)) { hits[nh++] = STRVAL(rt_heap_strdup_c(want)); continue; }
+                    if (meth_is_user_proc(pn)) { hits[nh] = (DESCR_t){ 0 }; hits[nh].v = DT_BLK; hits[nh].s = rt_heap_strdup_c(pn); nh++; continue; }
                     DatType *ft = dat_find_type(mro[i]);
                     if (ft) for (int f = 0; f < ft->nfields; f++) if (!ft->priv[f] && !strcmp(ft->fields[f], want)) { hits[nh++] = STRVAL(rt_heap_strdup_c(want)); break; }
                 }
                 *out = rk_mark_list(rk_mk_arr(hits, nh));
                 return 1;
             }
+            if (!cn && want) { DESCR_t hit = STRVAL(rt_heap_strdup_c(want)); *out = rk_mark_list(rk_mk_arr(&hit, rk_is_rakudo_method(want) ? 1 : 0)); return 1; }
         }
         if (mname0 && !strcmp(mname0, "bless")) {
             const char *cname = VARVAL_fn(args[0]);
