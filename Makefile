@@ -1506,6 +1506,7 @@ RT_PIC_SRCS := \
     $(SRC)/ir/ct_arena.c \
     $(SRC)/emitter/emit.cpp \
     $(SRC)/emitter/emit_str.cpp \
+    $(SRC)/emitter/emit_call_probe.cpp \
     $(SRC)/templates/x86/x86_arg_roles.cpp \
     $(SRC)/templates/bb/bb_glue_flat.cpp \
     $(SRC)/templates/bb/bb_main.cpp \
