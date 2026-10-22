@@ -1652,6 +1652,7 @@ void planner_restore(zeta_plan_t * rec) {
     g_emitter.g_zd_plan_on = rec->on; g_emitter.g_zd_plan_nodes = nodes; g_emitter.g_zd_plan_n = n;
     if (rec->zarm_published) { g_emitter.g_zd_zarm_p = rec->arm; g_emitter.g_zd_zarm_nodes = nodes; g_emitter.g_zd_zarm_n = n; }
 }
+extern "C" long zsm_declared_owner(void);
 extern "C" long zsm_declared_word(void) {
     const IR_t * nd = g_emit.node;
     int n = g_emitter.g_zd_plan_n, i = (nd && g_emitter.g_zd_plan_nodes && g_emitter.g_zd_plan_on) ? nidx(g_emitter.g_zd_plan_nodes, n, nd) : -1;
@@ -1663,7 +1664,15 @@ extern "C" long zsm_declared_word(void) {
     int lg = !ex && tg && !zd_check_discard(tg) && !zd_check_arm_env((int)tg->op);
     int lw = !ex && tw && !zd_check_discard(tw) && !zd_check_arm_env((int)tw->op) && !(tw->op == IR_MATCH_BEGIN && zd_sz_phi(zd_edge_sz((IR_t *)nd, 1)));
     int lb = !zd_check_discard(nd) && !zd_check_arm_env(o);
-    return (k & 0xFFFFL) | ((gp & 0xFFFFL) << 16) | ((wp & 0xFFFFL) << 32) | (1L << 48) | ((long)rel << 49) | ((long)lg << 50) | ((long)lw << 51) | ((long)lb << 54);
+    long own = o == IR_MATCH_BEGIN ? 64L + emit_match_begin_frame_extra(nd) - ((!g_emit.op_zres && g_emit.op_subj_cell) ? 16L : 0L) : 0L;
+    int end = (o == IR_MATCH_END || o == IR_MATCH_REPLACE) && zsm_declared_owner() > 0L;
+    return ((k + own) & 0xFFFFL) | ((gp & 0xFFFFL) << 16) | ((wp & 0xFFFFL) << 32) | (1L << 48) | ((long)rel << 49) | ((long)lg << 50) | ((long)lw << 51) | ((long)lb << 54) |
+        ((long)(own != 0L) << 55) | ((long)end << 56);
+}
+extern "C" long zsm_declared_owner(void) {
+    const IR_t * nd = g_emit.node;
+    if (!nd || (nd->op != IR_MATCH_END && nd->op != IR_MATCH_REPLACE) || nd->n_operands < 1 || !nd->operands[0] || nd->operands[0]->op != IR_MATCH_BEGIN) return 0L;
+    return (long)bb_node_id(nd->operands[0]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void planner_pass_plan(IR_t * entry, const char * prefix) { zeta_plan_t * rec = planner_chain_plan(entry, prefix); rec->cfg = g_emit_cfg; rec->key = entry; g_emitter.planner_table[entry] = rec; }

@@ -2478,7 +2478,9 @@ inline int x86_zdp_rbp_frames() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" long zsm_declared_word(void);
+extern "C" long zsm_declared_owner(void);
 inline std::string x86_zsm_ev(int kind) {
+    long own = zsm_declared_owner();
     return x86("comment", "ZSM")
          + x86("push", "rax") + x86("push", "rax")
          + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx")
@@ -2487,7 +2489,7 @@ inline std::string x86_zsm_ev(int kind) {
          + x86("add", "rdx", 80L)
          + x86("mov", "rdi", (long)_.nid)
          + x86("mov", "rsi", "rbp")
-         + x86("mov", "rcx", (long)(kind | ((long)_.op_node_kind << 8)))
+         + (own > 0L ? x86_movabs_r64("rcx", (uint64_t)(kind | ((long)_.op_node_kind << 8)) | ((uint64_t)own << 24)) : x86("mov", "rcx", (long)(kind | ((long)_.op_node_kind << 8))))
          + x86("mov", "r8", (x86_rsp_slide_known() && !_.flat_jmp_entry) ? (long)_.op_zdepth : -1L)
          + x86_movabs_r64("r9", (uint64_t)zsm_declared_word() | ((uint64_t)(_.op_xrec & 12) << 50))
          + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)

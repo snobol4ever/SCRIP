@@ -45,13 +45,26 @@ typedef struct {
     unsigned long zsm_pre_node;
     unsigned long zsm_pre_rsp;
     int zdecl_mode;
-    unsigned long zdecl_chk[4][256];
-    unsigned long zdecl_bad[4][256];
+    unsigned long zdecl_chk[5][256];
+    unsigned long zdecl_bad[5][256];
     unsigned long zsm_ek_node[ZSM_N / 4];
     unsigned long zsm_ek_rbp[ZSM_N / 4];
     unsigned long zsm_ek_e[ZSM_N / 4][8];
     unsigned char zsm_ek_n[ZSM_N / 4];
     unsigned char zsm_ek_cut[ZSM_N / 4];
     unsigned long zdecl_unanchored;
+    unsigned long zsite_node[ZSM_N / 32];
+    long zsite_op[ZSM_N / 32];
+    long zsite_st[ZSM_N / 32];
+    unsigned long zsite_chk[ZSM_N / 32][5];
+    unsigned long zsite_bad[ZSM_N / 32][5];
+    long zsite_decl[ZSM_N / 32][5];
+    long zsite_act[ZSM_N / 32][5][2];
+    unsigned long zsite_overflow;
+    unsigned long zdecl_refused[5][256];
+    long zsm_cur_decl;
+    long zsite_kgw[ZSM_N / 32][3];
+    long zsite_to[ZSM_N / 32];
+    long zsm_follow;
 } g_misc_t;
 #endif
