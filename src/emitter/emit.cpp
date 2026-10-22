@@ -5211,12 +5211,12 @@ static int emit_gc_match_reaches(const IR_t * b, const IR_t * nd) {
     while (h < n) {
         const IR_t * x = q[h++];
         if (x == nd) return 1;
-        if (x->op == IR_MATCH_END || !ir_is_matcher(x->op)) continue;
+        if (x == b || x->op == IR_MATCH_END || !ir_is_matcher(x->op)) continue;
         const IR_t * nx[2] = { x->γ.node, x->ω.node };
         for (int k = 0; k < 2 + x->n_operands; k++) {
             const IR_t * y = k < 2 ? nx[k] : x->operands[k - 2];
             int seen = 0;
-            if (!y || (k >= 2 && !ir_is_matcher(y->op))) continue;
+            if (!y) continue;
             for (int i = 0; i < n && !seen; i++) seen = (q[i] == y);
             if (!seen && n < cap) q[n++] = y;
         }
@@ -5240,7 +5240,8 @@ extern "C++" void emit_gc_site_play(int idx, const void * pc, int delta, int ali
     if (pc) e->pc = (uint64_t)(uintptr_t)pc;
     else e->pc = ++g_emitter.g_gc_site_play_seq;
     if (e->kind == X86_SITE_MATCH_ENTER) { int ek = e->rule == 3 ? 3 : (e->rule == 1 ? 1 : (e->rule == 0 && !aligned && !unknown ? 0 : 5)); int ed = e->rule == 0 ? e->depth + delta : 0;
-        if (g_emitter.g_gc_match_n == 0) { g_emitter.g_gc_match_out.enc_kind = ek; g_emitter.g_gc_match_out.enc_depth = ed; } g_emitter.g_gc_match_n++; e->depth = ed; e->mn = ek + 1; return; }
+        if (g_emitter.g_gc_match_n == 0) { g_emitter.g_gc_match_out.enc_kind = ek; g_emitter.g_gc_match_out.enc_depth = ed; g_emitter.g_gc_match_out.nd = e->nd; } g_emitter.g_gc_match_n++;
+            e->depth = ed; e->mn = ek + 1; return; }
     if (e->kind == X86_SITE_MATCH_LEAVE) { if (g_emitter.g_gc_match_n > 0) g_emitter.g_gc_match_n--; return; }
     if (e->rule == 9) {
         const x86_rsp_st_t & K = x86_rsp_S();
@@ -5256,7 +5257,9 @@ extern "C++" void emit_gc_site_play(int idx, const void * pc, int delta, int ali
         e->kind = (uint16_t)((e->kind & 255) | ((d / 8) << 8));
     }
     if (e->rule == 0) { e->depth += delta; if (aligned) e->rule = 4; if (unknown) e->rule = 5; }
-    if (g_emitter.g_gc_match_n > 0 && (e->rule == 0 || e->rule == 1 || e->rule == 3 || e->rule == 5)) { const gc_match_lvl_t & o = g_emitter.g_gc_match_out;
+    if (g_emitter.g_gc_match_n > 0 && (e->rule == 0 || e->rule == 1 || e->rule == 3 || e->rule == 5) &&
+        (ir_is_matcher(e->nd ? (int)e->nd->op : 0) || emit_gc_match_reaches(g_emitter.g_gc_match_out.nd, e->nd))) {
+        const gc_match_lvl_t & o = g_emitter.g_gc_match_out;
         if (o.enc_kind == 5) e->rule = 5; else { e->rule = 6; e->kind = (uint16_t)((e->kind & 255) | ((g_emitter.g_gc_match_n & 15) << 8) | ((o.enc_kind & 15) << 12)); e->depth = o.enc_depth; } }
     else if (g_emitter.g_gc_match_n == 0 && e->nd && ir_is_matcher(e->nd->op) && e->nd->op != IR_MATCH_BEGIN && e->nd->op != IR_MATCH_END
         && (e->rule == 0 || e->rule == 1 || e->rule == 3 || e->rule == 5)) {

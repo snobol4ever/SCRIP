@@ -43,7 +43,7 @@ typedef struct { const IR_t *k; int v; uint32_t gen; } zdo_slot_t;
 typedef struct { const IR_t * nd; uint32_t gen; int maxk; } zrm_slot_t;
 typedef struct { IR_t * t; int d0; int nd; int multi; } zdw_ent_t;
 typedef struct { uint64_t pc; int32_t depth; uint16_t kind; uint16_t rule; int32_t zdepth, fcb, fcbase, demit; const char * bk; int mn; const IR_t * nd; } gc_site_t;
-typedef struct { int enc_kind, enc_depth; } gc_match_lvl_t;
+typedef struct { int enc_kind, enc_depth; const IR_t * nd; } gc_match_lvl_t;
 typedef struct { const IR_t * nd; uint32_t gen; } ocr_slot_t;
 struct g_emitter_t {
     int dump_homes = 0;
