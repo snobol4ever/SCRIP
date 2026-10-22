@@ -1815,29 +1815,9 @@ void zls_home_callees_mark(IR_graph_t ** gs, int n, const char ** pn, const int 
         else if (rt[h] && !(gs[h]->cell_frame && !hs[h])) fcn_flag(x, FCN_HRET);
     }
 }
-static int zls_home_dyn(const IR_graph_t * g, const IR_t * nd) {
-    switch ((int)ir_kind0(nd)) {
-        case IR_SUSPEND:
-        return 1;
-        case IR_CREATE:
-        case IR_ACTIVATE:
-        case IR_CORET:
-        case IR_COFAIL:
-        return 2;
-        case IR_CALL_VALUE:
-        return 3;
-        case IR_CALL_GEN:
-        case IR_PROC_GEN:
-        return 4;
-        case IR_MATCH_DEFER:
-        return 7;
-        default:
-        break;
-    }
-    if (fcn_find(nd, FCN_HRET)) return 5;
-    if (fcn_find(nd, FCN_HUNRES) && ir_kind0(nd) == IR_CALL_PROC_STAGED && zls_g_resumable_frame(g)) return 6;
-    return 0;
-}
+int zls_fcn_hret(const IR_t * nd) { return fcn_find(nd, FCN_HRET) ? 1 : 0; }
+int zls_fcn_hunres(const IR_t * nd) { return fcn_find(nd, FCN_HUNRES) ? 1 : 0; }
+static int zls_home_dyn(const IR_graph_t * g, const IR_t * nd) { extern int planner_home_dyn(const IR_graph_t *, const IR_t *); return planner_home_dyn(g, nd); }
 const char * zls_home_why_name(int w) {
     switch (w) {
         case 1:

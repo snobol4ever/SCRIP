@@ -3392,7 +3392,7 @@ int leaf_frame_slot(const IR_t * leaf_nd) {
     return frame_slot_off(rc, idx + 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_retaining_kind(int op) { return op == IR_PROC_GEN || op == IR_CALL_VALUE || op == IR_CALL_GEN || op == IR_ACTIVATE; }
+static int icn_retaining_kind(int op) { return planner_retains_emitter_view(op); }
 static int xop_retains(const IR_t * t) { return t && (icn_retaining_kind((int)t->op) || icn_retaining_kind((int)ir_kind0(t)) || zls_dj_retains(t)); }
 static int xop_arms_retain(const IR_t * dj) {
     int na = (int)IR_LIT(dj).ival;

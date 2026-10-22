@@ -336,13 +336,33 @@ static int zd_gate_holds(const IR_t * g) {
     for (int j = 0; j < g->n_operands; j++) if (zd_arm_resumes(g->operands[j], g)) return 1;
     return 0;
 }
+int planner_retains(const IR_t * nd) {
+    if (!nd) return 0;
+    int k0 = (int)ir_kind0(nd), op = (int)nd->op;
+    if (k0 == IR_SUSPEND) return PR_SUSPEND;
+    if (k0 == IR_CREATE || k0 == IR_ACTIVATE || k0 == IR_CORET || k0 == IR_COFAIL) return PR_COEXPR;
+    if (k0 == IR_CALL_VALUE) return PR_UNKNOWN_CALLEE;
+    if (k0 == IR_CALL_GEN || k0 == IR_PROC_GEN) return PR_GENERATOR_CALLEE;
+    if (k0 == IR_MATCH_DEFER) return PR_DEFERRED_PATTERN;
+    if (op == IR_GATE && zd_gate_holds(nd)) return PR_GATE_HOLDS;
+    if (op == IR_DISJUNCTION && zd_pl_dj_holds(nd)) return PR_DISJUNCTION_HOLDS;
+    if (op == IR_TO && ir_range_kind_is(nd, "db")) return PR_DB_GENERATOR;
+    if (k0 == IR_CALL_PROC_STAGED && IR_LIT(nd).sval && bb_proc_target_retains(IR_LIT(nd).sval)) return PR_RETAINING_TARGET;
+    if (zls_fcn_hret(nd)) return PR_RETAINING_CALLEE;
+    if (zls_fcn_hunres(nd) && k0 == IR_CALL_PROC_STAGED && zls_g_resumable_frame(g_emit_cfg)) return PR_UNRESOLVED_CALLEE;
+    return 0;
+}
 int zd_edge_retains(const IR_t * nd) {
     if (!nd || !emit_resumable_frame()) return 0;
-    if (nd->op == IR_GATE) return zd_gate_holds(nd);
-    if (nd->op == IR_DISJUNCTION) return zd_pl_dj_holds(nd);
-    if (ir_kind0(nd) == IR_CALL_VALUE) return 1;
-    if (nd->op == IR_TO && ir_range_kind_is(nd, "db")) return 1;
-    return (ir_kind0(nd) == IR_CALL_PROC_STAGED && IR_LIT(nd).sval && bb_proc_target_retains(IR_LIT(nd).sval)) ? 1 : 0;
+    int r = planner_retains(nd);
+    return (r == PR_UNKNOWN_CALLEE || r == PR_GATE_HOLDS || r == PR_DISJUNCTION_HOLDS || r == PR_DB_GENERATOR || r == PR_RETAINING_TARGET) ? 1 : 0;
+}
+int planner_retains_emitter_view(int op) { return op == IR_PROC_GEN || op == IR_CALL_VALUE || op == IR_CALL_GEN || op == IR_ACTIVATE; }
+extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd) {
+    IR_graph_t * sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g;
+    int r = planner_retains(nd);
+    g_emit_cfg = sv;
+    return (r == PR_SUSPEND || r == PR_COEXPR || r == PR_UNKNOWN_CALLEE || r == PR_GENERATOR_CALLEE || r == PR_DEFERRED_PATTERN || r == PR_RETAINING_CALLEE || r == PR_UNRESOLVED_CALLEE) ? r : 0;
 }
 static int zd_beta_via_act(const IR_t * nd) { return zd_edge_retains(nd) && nd->op != IR_TO; }
 static int zd_pl_cut(const IR_t * nd) { return nd->op == IR_CUT && !IR_LIT(nd).ival && emit_resumable_frame(); }

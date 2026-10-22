@@ -74,6 +74,18 @@ int zd_k_own(IR_t * nd);
 int zd_omega_test_kind(const IR_t * nd);
 int zd_arrival_depth(IR_t **nodes, int n, int i, const unsigned char *zon, const int *zout, const int *zgp, const int *zwp);
 int zd_edge_retains(const IR_t * nd);
+enum {
+    PR_SUSPEND = 1, PR_COEXPR = 2, PR_UNKNOWN_CALLEE = 3, PR_GENERATOR_CALLEE = 4, PR_RETAINING_CALLEE = 5, PR_UNRESOLVED_CALLEE = 6, PR_DEFERRED_PATTERN = 7, PR_GATE_HOLDS = 8,
+        PR_DISJUNCTION_HOLDS = 9, PR_DB_GENERATOR = 10, PR_RETAINING_TARGET = 11
+};
+extern "C" {
+int zls_fcn_hret(const IR_t * nd);
+int zls_fcn_hunres(const IR_t * nd);
+int zls_g_resumable_frame(const IR_graph_t * g);
+}
+int planner_retains(const IR_t * nd);
+int planner_retains_emitter_view(int op);
+extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
 void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int *base, unsigned char *known, int *aof, int *zcut, int *fam,
     int *fbase);
 int zst_s_of(const IR_t * nd);
