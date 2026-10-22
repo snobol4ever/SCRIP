@@ -4539,6 +4539,29 @@ static void rk_new_build_walk(tree_t * prog, tree_t * t, int * seq) {
     ast_push(t, rk_tv(hname));
     for (int k = 0; k < nkv; k++) ast_push(t, vals[k]);
 }
+static void rk_smartmatch_topic_walk(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_smartmatch_topic_walk(t->c[i]);
+    if (t->t != TT_FNC || !t->v.sval || strcmp(t->v.sval, "__rk_smartmatch") || t->n != 3) return;
+    tree_t * r = t->c[2];
+    if (!r || r->t != TT_METHCALL || r->n < 2 || !r->c[0] || r->c[0]->t != TT_VAR || !r->c[0]->v.sval || strcmp(r->c[0]->v.sval, "_")) return;
+    char b[64];
+    snprintf(b, sizeof b, "__smt%p", (const void *) t);
+    const char * sv = ct_strdup(b);
+    snprintf(b, sizeof b, "__smr%p", (const void *) t);
+    const char * rs = ct_strdup(b);
+    tree_t * lhs = t->c[1];
+    tree_t * inner = rk_fnc2("__rk_smartmatch", rk_tv("_"), r);
+    t->t = TT_SEQ_EXPR;
+    t->v.sval = NULL;
+    t->n = 0;
+    ast_push(t, rk_gath_asg(rk_tv(sv), rk_tv("_")));
+    ast_push(t, rk_gath_asg(rk_tv("_"), lhs));
+    ast_push(t, rk_gath_asg(rk_tv(rs), inner));
+    ast_push(t, rk_gath_asg(rk_tv("_"), rk_tv(sv)));
+    ast_push(t, rk_tv(rs));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_smartmatch_code_walk(const tree_t * prog, tree_t * t) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_smartmatch_code_walk(prog, t->c[i]);
@@ -6007,6 +6030,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_gather_consumers((tree_t *) prog, NULL, 0);
     rk_sort_cmp_walk((tree_t *) prog, (tree_t *) prog);
     { int sseq = 0; rk_subtest_walk((tree_t *) prog, &sseq); }
+    rk_smartmatch_topic_walk((tree_t *) prog);
     rk_smartmatch_code_walk(prog, (tree_t *) prog);
     { int sseq = 0; rk_subst_code_walk((tree_t *) prog, &sseq); }
     { int pseq = 0; rk_parse_actions_walk((tree_t *) prog, &pseq); }
