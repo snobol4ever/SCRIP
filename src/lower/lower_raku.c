@@ -4595,7 +4595,33 @@ static void rk_smartmatch_code_walk(const tree_t * prog, tree_t * t) {
     if (t->t != TT_FNC || !t->v.sval || strcmp(t->v.sval, "__rk_smartmatch") || t->n != 3) return;
     int ok = 0;
     tree_t * bc = rk_code_call1(prog, t->c[2], t->c[1], &ok);
-    if (!ok) return;
+    if (!ok) {
+        tree_t * r = t->c[2];
+        int dyn = r &&
+            (r->t == TT_HASH_GET || r->t == TT_ARR_GET ||
+            (r->t == TT_VAR && r->v.sval && r->v.sval[0] && !strchr("&@%:", r->v.sval[0]) && !(r->v.sval[0] >= 'A' && r->v.sval[0] <= 'Z') && !rk_is_class_name(r->v.sval) && !(r->slen & 1)));
+        if (!dyn) return;
+        char b[64];
+        snprintf(b, sizeof b, "__smdl%p", (const void *) t);
+        const char * lv = lp_strdup(b);
+        snprintf(b, sizeof b, "__smdr%p", (const void *) t);
+        const char * rv = lp_strdup(b);
+        tree_t * lhs = t->c[1];
+        tree_t * iv = ast_node_new(TT_INVOKE);
+        ast_push(iv, rk_tv(rv));
+        ast_push(iv, rk_tv(lv));
+        tree_t * tn = ast_node_new(TT_TERNARY);
+        ast_push(tn, rk_fnc2("__rk_is_code", rk_tv(rv), NULL));
+        ast_push(tn, rk_fnc2("__rk_mkbool", iv, NULL));
+        ast_push(tn, rk_fnc2("__rk_smartmatch", rk_tv(lv), rk_tv(rv)));
+        t->t = TT_SEQ_EXPR;
+        t->v.sval = NULL;
+        t->n = 0;
+        ast_push(t, rk_gath_asg(rk_tv(lv), lhs));
+        ast_push(t, rk_gath_asg(rk_tv(rv), r));
+        ast_push(t, tn);
+        return;
+    }
     t->v.sval = (char *) "__rk_mkbool";
     t->c[0] = leaf_sval2(TT_VAR, "__rk_mkbool");
     t->c[1] = bc;

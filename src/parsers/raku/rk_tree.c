@@ -185,6 +185,9 @@ static tree_t *rk_testop_build(const char *name, TL *a) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *mkbool_lit(int v);
+static tree_t *rk_logical_and(tree_t *a, tree_t *c);
+static int rk_isrun_hashish(tree_t *a) { return a && ((a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "__rk_hash")) || (a->t == TT_VAR && a->v.sval && a->v.sval[0] == '%')); }
+static tree_t *rk_isrun_key(int kind, const char *hv, const char *key) { tree_t *t = ast_node_new((tree_e) kind); expr_add_child(t, leaf_sval(TT_VAR, hv)); expr_add_child(t, leaf_sval(TT_QLIT, key)); return t; }
 static tree_t *rk_testop_shape(RkB *b, tree_t *c) {
     const char *nm = c->c[0]->v.sval;
     int lives = !strcmp(nm, "__rk_test_lives_ok") || !strcmp(nm, "__rk_test_eval_lives_ok"), dies = !strcmp(nm, "__rk_test_dies_ok") || !strcmp(nm, "__rk_test_eval_dies_ok"), like = !strcmp(nm, "__rk_test_like"), unlike = !strcmp(nm, "__rk_test_unlike");
@@ -213,6 +216,36 @@ static tree_t *rk_testop_shape(RkB *b, tree_t *c) {
         for (int i = 2; i < c->n; i++) expr_add_child(tl, c->c[i]);
         expr_add_child(seq, tl);
         return seq;
+    }
+    if (!strcmp(nm, "__rk_test_is_run") && c->n >= 3) {
+        int ei = rk_isrun_hashish(c->c[2]) ? 2 : (c->n >= 4 && rk_isrun_hashish(c->c[3])) ? 3 : 0;
+        if (ei && c->n <= ei + 2) {
+            const char *ev = fmt("%%__ise%d", b->post_uid), *rv = fmt("__isr%d", b->post_uid++);
+            tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+            expr_add_child(seq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, ev), c->c[ei]));
+            tree_t *rc = make_call("__rk_run_child"); expr_add_child(rc, c->c[1]); expr_add_child(rc, ei == 3 ? c->c[2] : leaf_sval(TT_QLIT, ""));
+            expr_add_child(seq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, rv), rc));
+            const char *keys[3] = { "status", "out", "err" };
+            tree_t *cond = NULL;
+            for (int k = 0; k < 3; k++) {
+                tree_t *got = make_call("__rk_arr_at"); expr_add_child(got, leaf_sval(TT_VAR, rv)); expr_add_child(got, rk_ilit(k));
+                tree_t *ex = rk_isrun_key(TT_HASH_EXISTS, ev, keys[k]), *want = rk_isrun_key(TT_HASH_GET, ev, keys[k]);
+                tree_t *part;
+                if (k == 0) {
+                    tree_t *g0a = make_call("__rk_arr_at"); expr_add_child(g0a, leaf_sval(TT_VAR, rv)); expr_add_child(g0a, rk_ilit(0));
+                    tree_t *z = ast_node_new(TT_EQ); expr_add_child(z, g0a); expr_add_child(z, rk_ilit(0));
+                    tree_t *g0b = make_call("__rk_arr_at"); expr_add_child(g0b, leaf_sval(TT_VAR, rv)); expr_add_child(g0b, rk_ilit(0));
+                    tree_t *z2 = ast_node_new(TT_EQ); expr_add_child(z2, g0b); expr_add_child(z2, rk_ilit(0));
+                    tree_t *es = ast_node_new(TT_LEQ); expr_add_child(es, rk_isrun_key(TT_HASH_GET, ev, "err")); expr_add_child(es, leaf_sval(TT_QLIT, ""));
+                    tree_t *dflt = rkb_ternary(b, rk_isrun_key(TT_HASH_EXISTS, ev, "err"), rkb_ternary(b, es, z, mkbool_lit(1)), z2);
+                    part = rkb_ternary(b, ex, rkb_smartmatch(b, got, want), dflt);
+                } else part = rkb_ternary(b, ex, rkb_smartmatch(b, got, want), mkbool_lit(1));
+                cond = cond ? rk_logical_and(cond, part) : part;
+            }
+            tree_t *ok = make_call("__rk_test_ok"); expr_add_child(ok, rkb_ternary(b, cond, mkbool_lit(1), mkbool_lit(0))); if (c->n > ei + 1) expr_add_child(ok, c->c[ei + 1]);
+            expr_add_child(seq, ok);
+            return seq;
+        }
     }
     if (!strcmp(nm, "__rk_test_does_ok") && c->n >= 3) {
         tree_t *dm = ast_node_new(TT_METHCALL); expr_add_child(dm, c->c[1]); expr_add_child(dm, leaf_sval(TT_QLIT, "does")); expr_add_child(dm, c->c[2]);
