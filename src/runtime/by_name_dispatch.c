@@ -277,7 +277,6 @@ static void plw_bind(DESCR_t *cell, DESCR_t word, pl_tr_ctx_t *cx) {
         if (!cx || !cx->tr) { extern void rt_bomb(const char *msg); rt_bomb("plw_bind: an attributed variable bound with no trail context, so its wakeup cannot be recorded"); }
         pl_tr_push_attv(cx, cell);
     } else if (pl_tr_needs_log_bind(cx, cell, floor_)) pl_tr_push(cx, cell);
-    if ((char *)cell <= floor_) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
     *cell = word;
 }
 static int plw_oc_refuse(DESCR_t *v, DESCR_t *t, pl_tr_ctx_t *cx);

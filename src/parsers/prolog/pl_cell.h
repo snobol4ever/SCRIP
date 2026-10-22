@@ -50,9 +50,7 @@ static inline int plc_fid_arity(uint32_t fid) { extern int prolog_functor_arity(
 static inline void *pl_compound_heap(pl_cell_t *c) { return pl_deref(c)->p; }
 static inline void pl_bind(pl_cell_t *cell, pl_cell_t word) {
     pl_cell_t *v = pl_deref(cell);
-    char probe; char *floor_ = &probe;
     if (pl_attv_is(v)) { extern void rt_bomb(const char *msg); rt_bomb("pl_bind: an attributed variable bound on the untrailed road, so its wakeup cannot be recorded"); }
-    if ((char *)v <= floor_) { extern void *rt_ws_alloc_descr(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc_descr(1); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
     *v = word;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
