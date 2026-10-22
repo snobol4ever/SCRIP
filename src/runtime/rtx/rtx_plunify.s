@@ -47,6 +47,7 @@ RTX_FUNC(rt_pl_goal_resolve)
     RTX_SUB_RSP(24)
     mov     qword ptr [rsp + 8], 0
     lea     rcx, [rsp + 8]
+    mov     r8, r14
     call    rt_pl_goal_resolve_c
     mov     rcx, qword ptr [rsp + 8]
     RTX_ADD_RSP(24)

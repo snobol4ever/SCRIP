@@ -5061,8 +5061,8 @@ static const char *rt_pl_goal_key(DESCR_t goal, int extra, DESCR_t **args_out, i
     return nm;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_goal_key_live(char *key, size_t cap) {
-    extern void *pl_runtime_define_goal_wrapper(const char *wkey, const char *nm, int ar);
+static int pl_goal_key_live(char *key, size_t cap, void *root) {
+    extern void *pl_runtime_define_goal_wrapper(const char *wkey, const char *nm, int ar, void *rt_root);
     size_t kn = strlen(key);
     char wkey[kn + 5];
     char nm[kn + 1];
@@ -5078,7 +5078,7 @@ static int pl_goal_key_live(char *key, size_t cap) {
         memcpy(nm, key, kl);
         nm[kl] = 0;
         ar = atoi(sl + 1);
-        if (!pl_runtime_define_goal_wrapper(wkey, nm, ar)) return 0;
+        if (!pl_runtime_define_goal_wrapper(wkey, nm, ar, root)) return 0;
     }
     snprintf(key, cap, "%s", wkey);
     return 1;
@@ -5104,7 +5104,7 @@ static int rt_pl_goal_stage(DESCR_t *kids, int ar, DESCR_t *argv, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *pl_goal_arity_ball(void) { extern void *rt_pl_ball_kind1(const char *, const char *); return rt_pl_ball_kind1("representation_error", "max_procedure_arity"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-CVSPINE_t rt_pl_goal_resolve_c(DESCR_t goal, int n, void **ball) {
+CVSPINE_t rt_pl_goal_resolve_c(DESCR_t goal, int n, void **ball, void *root) {
     extern int rt_proc_jmp_entry(const char *name);
     extern void *rt_proc_fn(const char *name);
     extern int rt_proc_pinned(const char *name);
@@ -5122,7 +5122,7 @@ CVSPINE_t rt_pl_goal_resolve_c(DESCR_t goal, int n, void **ball) {
     if (!gnm) { DESCR_t gg = goal; void *gb = rt_pl_dop_goal_guard_c(&gg, 1); if (ball) *ball = gb ? gb : rt_pl_ball_type_pi("type_error", "callable", "?", 0); return no; }
     if (ar + n > PROLOG_MAX_PROCEDURE_ARITY) { if (ball) *ball = pl_goal_arity_ball(); return no; }
     { void *cb = pl_goal_body_conv_ball(goal, key, n); if (cb) { if (ball) *ball = cb; return no; } }
-    if (!pl_goal_key_live(key, sizeof key) || !rt_proc_jmp_entry(key) || !rt_proc_is_generator(key) || !rt_proc_pinned(key) || rt_proc_gen_region_ft(key) > 0) {
+    if (!pl_goal_key_live(key, sizeof key, root) || !rt_proc_jmp_entry(key) || !rt_proc_is_generator(key) || !rt_proc_pinned(key) || rt_proc_gen_region_ft(key) > 0) {
         if (ball) *ball = rt_pl_ball_existence_key(key);
         return no;
     }
@@ -5168,7 +5168,7 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
     }
     if (ar + n > PROLOG_MAX_PROCEDURE_ARITY && ball) { *ball = pl_goal_arity_ball(); return FAILDESCR; }
     { void *cb = pl_goal_body_conv_ball(goal, key, n); if (cb && ball) { *ball = cb; return FAILDESCR; } }
-    if (!pl_goal_key_live(key, kcap)) { if (ball) { *ball = rt_pl_ball_existence_key(key); return FAILDESCR; } rt_pl_iso_throw_existence_key(key); return FAILDESCR; }
+    if (!pl_goal_key_live(key, kcap, (void *)(uintptr_t)cx->r14)) { if (ball) { *ball = rt_pl_ball_existence_key(key); return FAILDESCR; } rt_pl_iso_throw_existence_key(key); return FAILDESCR; }
     rt_pl_goal_stage(kids, ar, argv, n);
 #if RT_DIAG
     rt_c2bb_hit("gen_h.pl_goal", key);
@@ -24138,7 +24138,7 @@ PL_CX_LEAF_HEAD(cutcall, 2)
                             ast_push(raw, body);
                             cl = pl_runtime_clause_tree(raw);
                             ch = cl ? rt_pl_choice_new(key) : (void *)0;
-                            if (ch) { rt_pl_choice_add(ch, cl); have = pl_runtime_define_pred(key, ch, n, (void *)0) != (void *)0; }
+                            if (ch) { rt_pl_choice_add(ch, cl); have = pl_runtime_define_pred(key, ch, n, (void *)(uintptr_t)cx->r14) != (void *)0; }
                         }
                     }
                     if (have) {

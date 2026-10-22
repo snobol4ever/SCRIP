@@ -1619,6 +1619,11 @@ static int pl_dyn_index_or_add(const char * name, int arity) {
     { int k = pl_dyn_index(name, arity); if (k >= 0) return k; pl_dyn_mark(ct_strdup(name), arity); return pl_dyn_index(name, arity); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_dyn_rt_declare(const char * name, int arity) {
+    extern int rt_pl_db_decl(void *, const char *, int64_t, int64_t);
+    if (g_stage2.rt_lowering && g_stage2.rt_root) (void) rt_pl_db_decl(g_stage2.rt_root, name, arity, 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_db_leaf1(lcx_t * cx, const char * sym, int k, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * nd = build(cx, IR_CALL, γnext, ωfail);
     IR_LIT(nd).sval = (char *) sym;
@@ -3264,9 +3269,11 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             }
             if (!strcmp(nm, "char_conversion") && t->n == 2) {
                 (void) pl_dyn_index_or_add("$pl_cconv", 2);
+                pl_dyn_rt_declare("$pl_cconv", 2);
                 tree_t * in = (tree_t *) t->c[0];
                 tree_t * out = (tree_t *) t->c[1];
-                tree_t * store = pl_cc_fnc1("asserta", pl_cc_fnc2("$pl_cconv", in, out));
+                tree_t * put = pl_cc_ite(pl_cc_fnc2("==", in, out), (tree_t *) pl_atom_goal("true"), pl_cc_fnc1("asserta", pl_cc_fnc2("$pl_cconv", in, out)));
+                tree_t * store = pl_cc_fnc2(",", pl_cc_fnc1("retractall", pl_cc_fnc2("$pl_cconv", in, pl_cc_freshvar())), put);
                 tree_t * out_ck = pl_cc_ite(pl_cc_ischar(out), store, pl_cc_throw(pl_cc_fnc2("type_error", (tree_t *) pl_atom_goal("character"), out), "char_conversion"));
                 tree_t * out_gate = pl_cc_ite(pl_cc_fnc1("var", out), pl_cc_throw((tree_t *) pl_atom_goal("instantiation_error"), "char_conversion"), out_ck);
                 tree_t * in_ck = pl_cc_ite(pl_cc_ischar(in), out_gate, pl_cc_throw(pl_cc_fnc2("type_error", (tree_t *) pl_atom_goal("character"), in), "char_conversion"));
@@ -3275,6 +3282,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             }
             if (!strcmp(nm, "current_char_conversion") && t->n == 2) {
                 (void) pl_dyn_index_or_add("$pl_cconv", 2);
+                pl_dyn_rt_declare("$pl_cconv", 2);
                 tree_t * in = (tree_t *) t->c[0];
                 tree_t * out = (tree_t *) t->c[1];
                 tree_t * lookup = pl_cc_fnc2("$pl_cconv", in, out);
@@ -3755,8 +3763,8 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     }
     return (void *)fn;
 }
-static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout) {
-    return pl_runtime_define_pred_x(key, choice, arity, gout, -1, -1, (int *)0, (void *)0);
+static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout, void * rt_root) {
+    return pl_runtime_define_pred_x(key, choice, arity, gout, -1, -1, (int *)0, rt_root);
 }
 void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity, void * rt_root) { return pl_runtime_define_pred_x(key, choice, arity, NULL, -1, -1, (int *)0, rt_root); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3849,7 +3857,7 @@ static int pl_mc_graph_fell_back(const IR_graph_t * g, const char * nm, int ar) 
     }
     return 0;
 }
-static void * pl_mc_define(const char * wkey, const char * wname, int ar, tree_t * body, IR_graph_t ** gout) {
+static void * pl_mc_define(const char * wkey, const char * wname, int ar, tree_t * body, IR_graph_t ** gout, void * rt_root) {
     extern tree_t * pl_runtime_clause_tree(tree_t *);
     tree_t * pair = pl_cc_fnc2(":-", pl_mc_wrapper_term(wname, ar), body);
     tree_t * cl = pl_runtime_clause_tree(pair);
@@ -3858,9 +3866,9 @@ static void * pl_mc_define(const char * wkey, const char * wname, int ar, tree_t
     ch = ast_node_new(TT_CHOICE);
     ch->v.sval = ct_strdup(wkey);
     ast_push(ch, cl);
-    return pl_runtime_define_pred_g(wkey, ch, ar, gout);
+    return pl_runtime_define_pred_g(wkey, ch, ar, gout, rt_root);
 }
-void * pl_runtime_define_goal_wrapper(const char * wkey, const char * nm, int ar) {
+void * pl_runtime_define_goal_wrapper(const char * wkey, const char * nm, int ar, void * rt_root) {
     extern int rt_pl_unknown_suppress(const char *);
     IR_graph_t * g = NULL;
     void * fn;
@@ -3868,8 +3876,8 @@ void * pl_runtime_define_goal_wrapper(const char * wkey, const char * nm, int ar
     nm = ct_strdup(nm);
     char wname[fmt_len("$mc:%s", nm)];
     snprintf(wname, sizeof wname, "$mc:%s", nm);
-    if (!strcmp(nm, ":") && ar == 2 && rt_proc_is_registered("$mod_call/2")) return pl_mc_define(wkey, wname, ar, pl_mc_wrapper_term("$mod_call", 2), NULL);
-    fn = pl_mc_define(wkey, wname, ar, pl_mc_wrapper_term(nm, ar), &g);
+    if (!strcmp(nm, ":") && ar == 2 && rt_proc_is_registered("$mod_call/2")) return pl_mc_define(wkey, wname, ar, pl_mc_wrapper_term("$mod_call", 2), NULL, rt_root);
+    fn = pl_mc_define(wkey, wname, ar, pl_mc_wrapper_term(nm, ar), &g, rt_root);
     if (!fn) return (void *)0;
     if (!pl_mc_graph_fell_back(g, nm, ar)) return fn;
     {
@@ -3880,7 +3888,7 @@ void * pl_runtime_define_goal_wrapper(const char * wkey, const char * nm, int ar
         else body =
             pl_cc_fnc2(";", pl_cc_fnc2("->", pl_cc_fnc2("$pl_declared", (tree_t *) pl_atom_goal(nm), pl_cc_ilit(ar)), (tree_t *) pl_atom_goal("fail")),
             pl_cc_fnc1("throw", pl_cc_fnc2("error", pl_cc_fnc2("existence_error", (tree_t *) pl_atom_goal("procedure"), pl_cc_pi_ar(nm, ar)), pl_cc_pi_ar(nm, ar))));
-        return pl_mc_define(wkey, wname, ar, body, NULL);
+        return pl_mc_define(wkey, wname, ar, body, NULL, rt_root);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
