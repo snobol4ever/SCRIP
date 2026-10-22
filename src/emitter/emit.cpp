@@ -818,11 +818,27 @@ static int zd_dj_arm_end(IR_t ** nodes, int n, int dj, int a) {
 static int zd_dj_arm_resumes(const IR_t * nd, int a) { IR_t * rs = zd_chase(nd->operands[2 * a + 1]); return rs && rs != nd && rs->op != IR_FAIL && rs->op != IR_SUCCEED; }
 static int zd_djx_of(const IR_t * nd);
 static int zd_upost_of(const IR_t * nd);
+static int zd_dj_arm_rbp_state(const IR_t * nd, int a) {
+    IR_t * rs = zd_chase(nd->operands[2 * a + 1]), * x = zd_chase(nd->operands[2 * a]);
+    if (!rs || rs->op != IR_TO) return 0;
+    for (int g = 0; x && x != rs && g < 8; g++) {
+        int o = (int)x->op;
+        if (o != IR_LIT_INTEGER && o != IR_LIT_STRING && o != IR_LIT_REAL && o != IR_VAR && o != IR_LINE_MARK) return 0;
+        x = zd_chase(x->γ.node);
+    }
+    return x == rs;
+}
+static int zd_dj_rbp_arms(const IR_t * nd) {
+    int na = (nd && nd->op == IR_DISJUNCTION) ? (int)IR_LIT(nd).ival : 0, r = 0;
+    if (na <= 0 || nd->n_operands < 3 * na) return 0;
+    for (int a = 0; a < na; a++) if (zd_dj_arm_resumes(nd, a)) { if (!zd_dj_arm_rbp_state(nd, a)) return 0; r = 1; }
+    return r;
+}
 static int zd_dj_retains(const IR_t * nd) {
     if (!nd || nd->op != IR_DISJUNCTION) return 0;
     int na = (int)IR_LIT(nd).ival;
     if (na <= 0 || nd->n_operands < 3 * na) return 0;
-    for (int a = 0; a < na; a++) if (zd_dj_arm_resumes(nd, a)) return 1;
+    for (int a = 0; a < na; a++) if (zd_dj_arm_resumes(nd, a)) return !zd_dj_rbp_arms(nd);
     return 0;
 }
 static int zd_nops(IR_t * nd);
@@ -6444,7 +6460,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
           if (zd_out[i] >= 0 && zd_on[i] && zd_xb && zd_xb[i] != INT_MIN && zd_xb[i] > 0 && g_emit.flat_gen) g_emit.op_zrun += zd_xb[i];
           g_emit.op_vdj_live = zd_vl[i];
           if (zd_on[i] || zd_gp[i] > 0 || zd_wp[i] > 0) { g_emitter.g_zd_stage = 1; g_emitter.g_zd_arm = zd_on[i] ? 1 : 0; g_emitter.g_zd_gpop = zd_gp[i];
-              g_emitter.g_zd_bgrow = zd_on[i] && zd_arm[i] >= 0 && g_emitter.codegen_flat_chain_body_nodes[zd_arm[i]]->op == IR_MATCH_ALTERNATE &&
+              g_emitter.g_zd_bgrow = zd_on[i] && zd_arm[i] >= 0 &&
+                  (g_emitter.codegen_flat_chain_body_nodes[zd_arm[i]]->op == IR_MATCH_ALTERNATE || zd_dj_rbp_arms(g_emitter.codegen_flat_chain_body_nodes[zd_arm[i]])) &&
                   zd_chase(g_emitter.codegen_flat_chain_body_nodes[i]->γ.node) == g_emitter.codegen_flat_chain_body_nodes[zd_arm[i]];
               g_emitter.g_zd_wpop = (_uw_stolen ? (int)_uw_pop : ((_zw5_wpop_stolen || _endj_stolen) ? 0 : zd_wp[i])); g_emitter.g_zd_wsteal = _endj_stolen || _uw_stolen;
               g_emitter.g_zd_k = zd_on[i] ? zd_k(g_emitter.codegen_flat_chain_body_nodes[i]) : 0;
