@@ -1676,6 +1676,7 @@ int main(int argc, char **argv) {
     int dump_zeta = 0;
     int dump_transpile = 0;
     int opt_bench = 0;
+    const char *opt_dialect = NULL;
     int opt_pp_only = 0;
     const char * target_name = NULL;
     const char * output_path = NULL;
@@ -1742,12 +1743,12 @@ int main(int argc, char **argv) {
                 setenv("SCRIP_SNO_STMTKW", "1", 1);
                 argi++;
             } else if (strncmp(argv[argi], "--dialect=", 10) == 0) {
-                if (strcmp(argv[argi] + 10, "gnu")) {
-                    fprintf(stderr, "scrip: --dialect=%s refused -- gnu is the one Prolog dialect a command line selects (iso is the default; swi follows the program's own SWI markers)\n",
-                        argv[argi] + 10);
+                if (!strcmp(argv[argi] + 10, "gnu")) prolog_select_dialect_gnu();
+                else if (pascal_dialect_directive(argv[argi] + 10)) opt_dialect = argv[argi] + 10;
+                else {
+                    fprintf(stderr, "scrip: --dialect=%s refused -- gnu is the one Prolog dialect and iso, fpc, objfpc, delphi, tp, macpas and delphiunicode are the Pascal ones\n", argv[argi] + 10);
                     return 2;
                 }
-                prolog_select_dialect_gnu();
                 argi++;
             } else if (strncmp(argv[argi], "--compat=", 9) == 0) {
                 fprintf(stderr, "scrip: --compat is retired -- SPITBOL (sbl -bf) is the one SNOBOL4 oracle and its feature list the baseline (Lon 2026-09-07)\n");
@@ -1923,6 +1924,8 @@ int main(int argc, char **argv) {
             "  --dump-ir-verbose  same, plus node-id alongside each slot and the legend line\n"
             "  --dump-zeta      print the ZB-2 zeta layout table: scope tree, typed field maps, vslots (post-optimizer)\n" "  --transpile      transpile AST to portable SNOBOL4 source\n"
             "  --bench          print wall-clock time after execution\n"
+            "  --dialect=NAME   Pascal: read a source with no {$mode} line as NAME (iso, fpc, objfpc, delphi, tp, macpas, delphiunicode), as if it began with {$mode NAME}; a {$mode} in the source wi"
+            "ns. Prolog: gnu\n"
             "  --stlimit        the instrumentation switch, every language: SNOBOL4 &STLIMIT enforcement, &STCOUNT, &STNO/&LASTNO/&LINE/&LASTLINE, keyword and label TRACE, the per-assignment variabl"
             "e tap, and every call/return/fail/suspend/resume trace hook the monitor reads (off by default; never inferred from the source, since EVAL and CODE can use them; --monitor and --trace im"
             "ply it; SCRIP_SNO_STMTKW=1 in the environment is the same switch, which is how the correctness graders ask for it; benchmarks do not)\n" "\n"
@@ -2081,10 +2084,13 @@ int main(int argc, char **argv) {
             fseek(f, 0, SEEK_END);
             long flen = ftell(f);
             rewind(f);
-            char *src = ct_alloc(flen + 1);
+            const char *pdir = (lang_pascal && opt_dialect) ? pascal_dialect_directive(opt_dialect) : NULL;
+            size_t plen = pdir ? strlen(pdir) : 0;
+            char *src = ct_alloc(flen + 1 + (long)plen);
             if (!src) { fprintf(stderr, "scrip: out of memory\n"); return 1; }
-            fread(src, 1, flen, f);
-            src[flen] = '\0';
+            if (plen) memcpy(src, pdir, plen);
+            fread(src + plen, 1, flen, f);
+            src[flen + (long)plen] = '\0';
             fclose(f);
             tree_t *sub_ast = NULL;
             if (lang_icon) icon_compile(src, input_path, &sub_ast);

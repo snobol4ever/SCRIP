@@ -17,6 +17,12 @@ void *pascal_compile_parse(const char *src, const char *filename) {
     return pascal_parse_string(src);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *pascal_dialect_directive(const char *name) {
+    static const char *const D[][2] = { { "iso", "{$mode iso}" }, { "fpc", "{$mode fpc}" }, { "objfpc", "{$mode objfpc}" }, { "delphi", "{$mode delphi}" }, { "tp", "{$mode tp}" }, { "macpas", "{$mode macpas}" }, { "delphiunicode", "{$mode delphiunicode}" } };
+    for (size_t i = 0; name && i < sizeof D / sizeof D[0]; i++) if (!strcmp(name, D[i][0])) return D[i][1];
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pascal_compile(const char *src, const char *filename, tree_t **out_ast) {
     if (out_ast) *out_ast = NULL;
     pascal_compile_finish(pascal_compile_parse(src, filename), filename, out_ast);

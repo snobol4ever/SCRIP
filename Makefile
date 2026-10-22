@@ -1365,6 +1365,7 @@ test-sequential: scrip parsers parsers-sc  # ⛔⭐ THE DECLARATION OF THE BLOCK
 	bash ../harness/scripts/test_gate_pas_xor_keeps_the_iso_dialect.sh   # ~3s MEASURED 2026-10-14 (two programs both modes: xor under fpc -Miso widths, shl under fpc default), needs the build; hermetic
 	bash ../harness/scripts/test_gate_pas_string_element_arrays_read_as_strings.sh   # ~4s MEASURED 2026-10-14 (three programs both modes against fpc -Mfpc: arrays of string, string vs char), needs the build; hermetic
 	bash ../harness/scripts/test_gate_pas_an_fpc_dialect_case_with_no_matching_constant_does_nothing.sh   # ~3s MEASURED 2026-10-14 (two programs both modes against fpc -Mfpc / -Mobjfpc), needs the build; hermetic
+	bash ../harness/scripts/test_gate_pas_the_dialect_switch_stands_in_for_a_mode_directive_the_source_lacks.sh   # ~10s MEASURED 2026-10-21 (three programs and two refusals over 12 arms, both modes, expectations cut live from fpc -Mobjfpc / -Mdelphi / -Mtp), needs the build; hermetic
 	bash ../harness/scripts/test_gate_pas_not_of_a_signed_integer_is_bitwise.sh   # ~3s MEASURED 2026-10-14 (two programs both modes against fpc -Miso / -Mobjfpc), needs the build; hermetic
 	bash ../harness/scripts/test_gate_pas_bounds_fold_calls_and_fpc_integer_types.sh   # ~5s MEASURED 2026-10-14 (four programs both modes against fpc -Miso / -Mobjfpc), needs the build; hermetic
 	bash ../harness/scripts/test_gate_pas_fillchar_of_a_whole_variable_fills_every_scalar.sh   # ~2s MEASURED 2026-10-14 (one program both modes against fpc -Mobjfpc), needs the build; hermetic

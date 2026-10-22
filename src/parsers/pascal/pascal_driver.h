@@ -5,4 +5,5 @@
 void pascal_compile(const char *source, const char *filename, tree_t **out_ast);
 void *pascal_compile_parse(const char *source, const char *filename);
 void  pascal_compile_finish(void *parsed, const char *filename, tree_t **out_ast);
+const char *pascal_dialect_directive(const char *name);
 #endif
