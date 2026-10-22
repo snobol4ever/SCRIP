@@ -18873,32 +18873,9 @@ static int repl_pl_off(void) { static int v = -1; if (v < 0) { const char *e = g
 void c_rt_translate_bytes(char *dst, const char *src, size_t n, const char *map) { for (size_t i = 0; i < n; i++) dst[i] = map[(unsigned char)src[i]]; }
 #define BN_PTRLEN(A, P, L, F) do { DESCR_t _a = (A); if ((F) && _a.v == DT_S && _a.s && _a.slen != 0xFFFFFFFFu && _a.slen != 0u) { (P) = _a.s; (L) = (size_t)_a.slen; } else { (P) = VARVAL_fn(_a); if \
     (!(P)) (P) = ""; (L) = sv_len(_a, (P)); } } while (0)
-typedef struct { unsigned char v, n; char rm_from[63], rm_to[63], rm_map[256]; } bn_rm_t;
-_Static_assert(sizeof(bn_rm_t) == 384 && offsetof(bn_rm_t, rm_from) == 2 && offsetof(bn_rm_t, rm_to) == 65 && offsetof(bn_rm_t, rm_map) == 128,
-    "bn_replace_leaf (rtx_str.s) hashes into four slots of this cache and compares from and to at these byte offsets: stride 384, from at 2, to at 65, map at 128");
-__attribute__((visibility("hidden"))) bn_rm_t *bn_replace_cache(void) {
-    static bn_rm_t g_rm[4];
+static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_t *out) {
+    static struct { unsigned char v, n; char rm_from[63], rm_to[63], rm_map[256]; } g_rm[4];
     static int g_rm_off = -1;
-    if (g_rm_off < 0) { const char *e = getenv("SCRIP_REPLMAP_OFF"); g_rm_off = (e && *e) ? 1 : 0; }
-    return g_rm_off ? (bn_rm_t *)0 : g_rm;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((visibility("hidden"))) const char *bn_replace_map(const char *fv, const char *tv, size_t fl) {
-    bn_rm_t *g_rm = bn_replace_cache();
-    if (!g_rm || fl >= 63) return (const char *)0;
-    unsigned s = ((unsigned char)fv[0] * 31u + (unsigned)fl) & 3u;
-    if (g_rm[s].v && g_rm[s].n == (unsigned char)fl && !memcmp(g_rm[s].rm_from, fv, fl) && !memcmp(g_rm[s].rm_to, tv, fl)) return g_rm[s].rm_map;
-    char *map = g_rm[s].rm_map;
-    for (int i = 0; i < 256; i++) map[i] = (char)i;
-    for (size_t k = 0; k < fl; k++) map[(unsigned char)fv[k]] = tv[k];
-    memcpy(g_rm[s].rm_from, fv, fl);
-    memcpy(g_rm[s].rm_to, tv, fl);
-    g_rm[s].n = (unsigned char)fl;
-    g_rm[s].v = 1;
-    return map;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((visibility("hidden"))) int c_bn_replace(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 3) return -1;
     const char *sv, *fv, *tv;
     size_t sl, fl, tl;
@@ -18907,9 +18884,25 @@ __attribute__((visibility("hidden"))) int c_bn_replace(DESCR_t *args, int nargs,
     BN_PTRLEN(args[1], fv, fl, _plf);
     BN_PTRLEN(args[2], tv, tl, _plf);
     if (fl != tl || !fl) { core_runtime_error(171, "null or unequally long 2nd, 3rd args to replace"); *out = FAILDESCR; return 1; }
+    if (g_rm_off < 0) { const char *e = getenv("SCRIP_REPLMAP_OFF"); g_rm_off = (e && *e) ? 1 : 0; }
     char mloc[256];
-    const char *map = bn_replace_map(fv, tv, fl);
-    if (!map) { for (int i = 0; i < 256; i++) mloc[i] = (char)i; for (size_t k = 0; k < fl; k++) mloc[(unsigned char)fv[k]] = tv[k]; map = mloc; }
+    char *map = mloc;
+    if (!g_rm_off && fl < 63) {
+        unsigned s = ((unsigned char)fv[0] * 31u + (unsigned)fl) & 3u;
+        if (g_rm[s].v && g_rm[s].n == (unsigned char)fl && !memcmp(g_rm[s].rm_from, fv, fl) && !memcmp(g_rm[s].rm_to, tv, fl)) map = g_rm[s].rm_map;
+        else {
+            map = g_rm[s].rm_map;
+            for (int i = 0; i < 256; i++) map[i] = (char)i;
+            for (size_t k = 0; k < fl; k++) map[(unsigned char)fv[k]] = tv[k];
+            memcpy(g_rm[s].rm_from, fv, fl);
+            memcpy(g_rm[s].rm_to, tv, fl);
+            g_rm[s].n = (unsigned char)fl;
+            g_rm[s].v = 1;
+        }
+    } else {
+        for (int i = 0; i < 256; i++) map[i] = (char)i;
+        for (size_t k = 0; k < fl; k++) map[(unsigned char)fv[k]] = tv[k];
+    }
     size_t n = sl;
     char *buf = (char *)rt_heap_alloc_c(n + 1);
     rt_translate_bytes(buf, sv, n, map);
@@ -18917,7 +18910,6 @@ __attribute__((visibility("hidden"))) int c_bn_replace(DESCR_t *args, int nargs,
     *out = BSTRVAL(buf, n);
     return 1;
 }
-extern int bn_replace_leaf(DESCR_t *, int, DESCR_t *, int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_substr(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 2 && nargs != 3) return -1;
@@ -20055,13 +20047,13 @@ static int bn_mkpat(DESCR_t *args, int nargs, DESCR_t *out, int op) {
 }
 __attribute__((visibility("hidden"))) const bn_direct_t g_bn_direct[BID_TABSZ] = { [BID_PROTOTYPE] = { bn_prototype, 0, 0 }, [BID_SNOx24NAME] = { bn_sno_name_d, 0, 0 }, [BID_TABLE] = { bn_table, 0,
     0 }, [BID_CONVERT] = { bn_convert, 0, 0 }, [BID_SNOx24MKPAT] = { bn_mkpat, 0, 0 }, [BID_SNOx24WANTNM] = { bn_wantnm, 0, 0 }, [BID_ARRAY] = { bn_array, 0, 0 },
-    [BID_SIZE] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_size, 0, 0 }, [BID_SUBSTR] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_substr, 0, 0 }, [BID_REPLACE] = { bn_replace_leaf, 0, 0 },
-    [BID_TRIM] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_trim, 0, 0 }, [BID_DUPL] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_dupl, 0, 0 },
-    [BID_LPAD] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_lpad, 0, 0 }, [BID_RPAD] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_rpad, 0, 0 },
-    [BID_REVERSE] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_reverse, 0, 0 }, [BID_INTEGER] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_integer, 0, 0 },
-    [BID_REMDR] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_remdr, 0, 0 }, [BID_DATE] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_date, 0, 0 },
-    [BID_TIME] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_time, 0, 0 }, [BID_IDENT] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_identdiffer, 1, 0 },
-    [BID_DIFFER] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_identdiffer, 0, 0 }, };
+    [BID_SIZE] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_size, 0, 0 }, [BID_SUBSTR] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_substr, 0, 0 },
+    [BID_REPLACE] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_replace, 0, 0 }, [BID_TRIM] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_trim, 0, 0 },
+    [BID_DUPL] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_dupl, 0, 0 }, [BID_LPAD] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_lpad, 0, 0 },
+    [BID_RPAD] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_rpad, 0, 0 }, [BID_REVERSE] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_reverse, 0, 0 },
+    [BID_INTEGER] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_integer, 0, 0 }, [BID_REMDR] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_remdr, 0, 0 },
+    [BID_DATE] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_date, 0, 0 }, [BID_TIME] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_time, 0, 0 },
+    [BID_IDENT] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_identdiffer, 1, 0 }, [BID_DIFFER] = { (int (*)(DESCR_t *, int, DESCR_t *, int))bn_identdiffer, 0, 0 }, };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *icn_variable_frame_cell(DESCR_t nm, char *stat, size_t statsz) {
     extern int core_icn_act_top(void);
@@ -20262,7 +20254,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
 #endif
         int _fr = -1;
         if (_fb == BID_SIZE) _fr = bn_size(args, nargs, out);
-        else if (_fb == BID_REPLACE) _fr = c_bn_replace(args, nargs, out);
+        else if (_fb == BID_REPLACE) _fr = bn_replace(args, nargs, out);
         else if (_fb == BID_TRIM) _fr = bn_trim(args, nargs, out);
         else if (_fb == BID_SUBSTR) _fr = bn_substr(args, nargs, out);
         else if (_fb == BID_REVERSE) _fr = bn_reverse(args, nargs, out);
@@ -20431,8 +20423,8 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
                 break;
                 case (7u<<8)|'R':
                 if ((_bid == BID_REPLACE)) {
-                    dtx4(_dx, _dxl, fn, (void *)c_bn_replace);
-                    _r = c_bn_replace(args, nargs, out);
+                    dtx4(_dx, _dxl, fn, (void *)bn_replace);
+                    _r = bn_replace(args, nargs, out);
                 } else if ((_bid == BID_REVERSE)) {
                     dtx4(_dx, _dxl, fn, (void *)bn_reverse);
                     _r = bn_reverse(args, nargs, out);
