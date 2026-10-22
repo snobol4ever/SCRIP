@@ -4330,8 +4330,8 @@ static void zst_plan(IR_t ** nodes, int n) {
 }
 static void zst_finish(IR_t ** nodes, int n, const int * zout, const int * claim, const int * base, const unsigned char * known) {
     if (g_emitter.zst_nodes != nodes || g_emitter.zst_n != n) return;
-    for (size_t t = 0; t < g_emitter.zst_c.size(); t++) { int c = g_emitter.zst_c[t]; int b = (claim && claim[c] >= 0 && known && known[claim[c]] && base) ? base[claim[c]] : 0;
-        g_emitter.zst_L[t] = b + zout[c] - zd_k(nodes[c]) + g_emitter.zst_s[(size_t)c] - 16 * g_emitter.zst_j[t]; }
+    for (size_t t = 0; t < g_emitter.zst_c.size(); t++) { int c = g_emitter.zst_c[t]; int rk = claim && claim[c] >= 0 && known && known[claim[c]] && base;
+        g_emitter.zst_L[t] = rk ? base[claim[c]] + zout[c] - zd_k(nodes[c]) + g_emitter.zst_s[(size_t)c] - 16 * g_emitter.zst_j[t] : INT_MIN; }
     if (zd_map_on()) for (size_t t = 0; t < g_emitter.zst_c.size(); t++) { int c = g_emitter.zst_c[t];
         fprintf(stderr, "[ZD-MAP] STICKY name=%s root=%d c=%d (%s zout=%d k=%d own=%d s=%d) j=%d L=%d\n", g_emitter.zst_name[t], g_emitter.zst_vroot[t], c, bb_op_name(nodes[c]->op), zout[c],
             zd_k(nodes[c]), zd_k_own(nodes[c]), g_emitter.zst_s[(size_t)c], g_emitter.zst_j[t], g_emitter.zst_L[t]); }
@@ -4339,7 +4339,8 @@ static void zst_finish(IR_t ** nodes, int n, const int * zout, const int * claim
 static int zst_coord(const char * name) {
     if (!name || g_emitter.g_zd_cur < 0 || g_emitter.g_zd_cur >= g_emitter.zst_n || g_emitter.zst_nodes != g_emitter.codegen_flat_chain_body_nodes) return -1;
     int r = g_emitter.zst_root[(size_t)g_emitter.g_zd_cur]; if (r < 0) return -1;
-    for (size_t t = 0; t < g_emitter.zst_name.size(); t++) if (g_emitter.zst_vroot[t] == r && !strcmp(g_emitter.zst_name[t], name)) return ZST_BIAS - g_emitter.zst_L[t];
+    for (size_t t = 0; t < g_emitter.zst_name.size(); t++) if (g_emitter.zst_vroot[t] == r && g_emitter.zst_L[t] != INT_MIN && !strcmp(g_emitter.zst_name[t], name)) return ZST_BIAS -
+        g_emitter.zst_L[t];
     return -1;
 }
 static void zd_dj_discards(IR_t ** nodes, int n, const unsigned char * zon, const int * zout, const int * zgpop, const int * zwpop, const int * zarm, const int * claim, const int * base,
@@ -5510,7 +5511,8 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
         int blk = g && g->block_args ? zls_g_block_base(g) : -1; int cov = (k < (int)g_emitter.zst_vcov.size()) ? g_emitter.zst_vcov[(size_t)k] : 0,
             use = (k < (int)g_emitter.zst_vuse.size()) ? g_emitter.zst_vuse[(size_t)k] : -1;
         int soff = off; const char * home = off < 0 ? "NONE" : (blk >= 0 && off >= blk) ? "SPINE" : use == 0 ? "NONE" : (cov > 0 && cov == use) ? "SPINE" : "RSP_CARVED";
-        if (cov > 0 && cov == use) for (size_t t = 0; t < g_emitter.zst_name.size(); t++) if (vn && !strcmp(g_emitter.zst_name[t], vn)) { soff = -g_emitter.zst_L[t]; break; }
+        if (cov > 0 && cov == use) for (size_t t = 0; t < g_emitter.zst_name.size(); t++) if (vn && g_emitter.zst_L[t] != INT_MIN && !strcmp(g_emitter.zst_name[t], vn)) { soff = -g_emitter.zst_L[t];
+            break; }
         fprintf(stderr, "[HOMES] g=%d graph=%s local=%s home=%s off=%d\n", gi, gn ? gn : "?", vn ? vn : "?", home, soff);
         fprintf(stderr, "[HOMETEST] g=%d graph=%s local=%s test=%s%s\n", gi, gn ? gn : "?", vn ? vn : "?", zls_home_local_test(g, vn) ? "local:" : "", zls_home_why_name(zls_home_local_test(g, vn)));
     }
