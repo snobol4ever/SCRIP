@@ -19,6 +19,7 @@ typedef struct {
     uint64_t cur_byref_mask;
     int cur_nparams;
     const char * cur_proc_name;
+    IR_t * cond_om;
 } rcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_seq_is_logical_and(const tree_t * t) { return t && t->t == TT_SEQ && t->n == 2 && t->v.ival == 1; }
@@ -847,6 +848,7 @@ static IR_t * lower_cond(rcx_t * cx, const tree_t * c, IR_t * on_true, IR_t * on
     if (c && c->t == TT_STMT) { const tree_t * sub = stmt_subj(c); if (sub) c = sub; }
     if (!c) return on_true;
     if (c->t == TT_DIVIS && c->n > 1) return lower_cond(cx, rk_divis_desugar(c), on_true, on_false);
+    if (c->t == TT_DIE && cx->cond_om) { IR_t * dr = NULL; return lower_rv(cx, c, on_true, cx->cond_om, &dr); }
     if (rk_is_relop(c->t) && c->n > 1) {
         IR_t * op = build(cx, IR_BINOP_TEST, on_true, on_false);
         rk_relop_code(op, c->t);
@@ -1879,7 +1881,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         {
             IR_t * tentry = (t->n > 1 && t->c[1]) ? lower_rblock(cx, t->c[1], γ, ω, NULL) : γ;
             IR_t * eentry = (t->n > 2 && t->c[2]) ? lower_rblock(cx, t->c[2], γ, ω, NULL) : γ;
+            IR_t * sv_om = cx->cond_om;
+            cx->cond_om = ω;
             IR_t * e = (t->t == TT_UNLESS) ? lower_cond(cx, t->c[0], eentry, tentry) : lower_cond(cx, t->c[0], tentry, eentry);
+            cx->cond_om = sv_om;
             *res = e;
             return e;
         }
@@ -2772,6 +2777,7 @@ static const char * rk_prologue_target(const tree_t * s) {
 IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
     IR_graph_t * g = IR_alloc(8192);
     rcx_t cx;
+    cx.cond_om = NULL;
     cx.try_depth = 0;
     cx.g = g;
     cx.try_catch = NULL;
@@ -6438,6 +6444,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     if (!has_main && want_main) {
         IR_graph_t * tg = IR_alloc(8192);
         rcx_t tcx;
+        tcx.cond_om = NULL;
         tcx.try_depth = 0;
         tcx.g = tg;
         tcx.try_catch = NULL;
