@@ -85,6 +85,8 @@ static int rk_name_is_byref(rcx_t * cx, const char * name) {
 #define RK_PV_NAMED 4096
 #define RK_PV_REQ 8192
 #define RK_PV_OPT 16384
+#define RK_VAR_PKG 1048576
+#define RK_VAR_OUR 2097152
 static int rk_is_scalar_bind(const tree_t * t);
 static int rk_var_byref(rcx_t * cx, const tree_t * v) { return v && v->v.sval && ((v->slen & RK_VF_BOXED) || rk_name_is_byref(cx, v->v.sval)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1328,7 +1330,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 *res = nd;
                 return nd;
             }
-            if (t->v.sval && strchr(t->v.sval, ':') && !rk_predeclared(t->v.sval, 0)) {
+            if (t->v.sval && strchr(t->v.sval, ':') && !(t->slen & RK_VAR_PKG) && !rk_predeclared(t->v.sval, 0)) {
                 IR_t * nd = build(cx, IR_LIT_STRING, γ, ω);
                 IR_LIT(nd).sval = rk_qualified_type_gist(t->v.sval);
                 *res = nd;
@@ -4599,6 +4601,134 @@ static void rk_smartmatch_code_walk(const tree_t * prog, tree_t * t) {
     t->n = 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_pkg_is(const tree_t * t) { return t && (t->t == TT_MODULE_DECL || t->t == TT_CLASS_DECL) && t->n > 0 && t->c[0] && t->c[0]->v.sval && t->c[0]->v.sval[0]; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_pkg_our_names(const tree_t * t, rk_ns_t * ours, rk_ns_t * mine) {
+    if (!t) return;
+    if (t->t == TT_VAR && t->v.sval && (t->slen & RK_VAR_OUR)) rk_ns_add(ours, t->v.sval);
+    else if (t->t == TT_VAR && t->v.sval && (t->slen & 4)) rk_ns_add(mine, t->v.sval);
+    for (int i = 0; i < t->n; i++) if (!rk_pkg_is(t->c[i])) rk_pkg_our_names(t->c[i], ours, mine);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_pkg_rename(tree_t * t, const char * v, const char * to) {
+    if (!t) return;
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, v)) { t->v.sval = (char *) to; t->slen |= RK_VAR_PKG; }
+    for (int i = 0; i < t->n; i++) if (!rk_pkg_is(t->c[i])) rk_pkg_rename(t->c[i], v, to);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_pkg_scope(tree_t * t, const char * path) {
+    extern void global_register(const char * name);
+    if (!t) return;
+    if (rk_pkg_is(t)) {
+        const char * mn = t->c[0]->v.sval;
+        char np[(path ? strlen(path) + 2 : 0) + strlen(mn) + 1];
+        snprintf(np, sizeof np, "%s%s%s", path ? path : "", path ? "::" : "", mn);
+        const char * npp = lp_strdup(np);
+        rk_ns_t ours = { 0 }, mine = { 0 };
+        for (int i = 1; i < t->n; i++) if (!rk_pkg_is(t->c[i])) rk_pkg_our_names(t->c[i], &ours, &mine);
+        for (int k = 0; k < ours.n; k++) {
+            const char * v = ours.v[k];
+            if (rk_ns_has(&mine, v)) continue;
+            char sg = (v[0] == '@' || v[0] == '%') ? v[0] : 0;
+            char nb[strlen(npp) + strlen(v) + 4];
+            snprintf(nb, sizeof nb, "%.*s%s::%s", sg ? 1 : 0, v, npp, sg ? v + 1 : v);
+            const char * to = lp_strdup(nb);
+            for (int i = 1; i < t->n; i++) if (!rk_pkg_is(t->c[i])) rk_pkg_rename(t->c[i], v, to);
+            global_register(to);
+        }
+        for (int i = 1; i < t->n; i++) rk_pkg_scope(t->c[i], npp);
+        return;
+    }
+    for (int i = 0; i < t->n; i++) rk_pkg_scope(t->c[i], path);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_pkg_refs(tree_t * t) {
+    extern void global_register(const char * name);
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_pkg_refs(t->c[i]);
+    if (t->t != TT_VAR || !t->v.sval || !(t->slen & RK_VAR_PKG)) return;
+    const char * v = t->v.sval;
+    char sg = (v[0] == '@' || v[0] == '%') ? v[0] : 0;
+    const char * b = sg ? v + 1 : v;
+    const char * bare = !strncmp(b, "::", 2) ? b + 2 : !strncmp(b, "GLOBAL::", 8) ? b + 8 : NULL;
+    if (bare && *bare && !strstr(bare, "::")) { char nb[strlen(bare) + 2]; snprintf(nb, sizeof nb, "%.*s%s", sg ? 1 : 0, v, bare); t->v.sval = (char *) lp_strdup(nb); t->slen &= ~RK_VAR_PKG; return; }
+    global_register(lp_strdup(v));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_class_member_is_decl(const tree_t * c) {
+    if (!c) return 1;
+    switch (c->t) {
+        case TT_HAS_DECL:
+        case TT_ARR_DECL:
+        case TT_HASH_DECL:
+        case TT_HANDLES_DECL:
+        case TT_SUB_DECL:
+        case TT_CLASS_DECL:
+        case TT_ROLE_DECL:
+        case TT_MODULE_DECL:
+        case TT_GRAMMAR_DECL:
+        case TT_PROC_DECL:
+        case TT_RECORD_DECL:
+        case TT_REGEX_DECL:
+        case TT_RW_DECL:
+        case TT_USE_DECL:
+        return 1;
+        case TT_VAR:
+        return !c->v.sval || !c->v.sval[0] || c->v.sval[0] == '.' || c->v.sval[0] == '!';
+        default:
+        return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_class_body(tree_t * t, int * seq) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_class_body(t->c[i], seq);
+    for (int i = 0; t->t != TT_ATTR && i < t->n; i++) {
+        tree_t * st = t->c[i];
+        tree_t * d = (st && st->t == TT_STMT) ? (tree_t *) stmt_subj(st) : st;
+        if (!d || d->t != TT_CLASS_DECL) continue;
+        int nb = 0;
+        for (int j = 1; j < d->n; j++) if (!rk_class_member_is_decl(d->c[j])) nb++;
+        if (!nb) continue;
+        rk_ns_t dn = { 0 };
+        for (int j = 1; j < d->n; j++) if (!rk_class_member_is_decl(d->c[j])) rk_cap_declared(d->c[j], &dn);
+        char sfx[32];
+        snprintf(sfx, sizeof sfx, "__cb%d", (*seq)++);
+        for (int k = 0; k < dn.n; k++) {
+            const char * v = dn.v[k];
+            if (!*v || v[0] == '&' || v[0] == '_' || strstr(v, "::")) continue;
+            char nb2[strlen(v) + strlen(sfx) + 1];
+            snprintf(nb2, sizeof nb2, "%s%s", v, sfx);
+            rk_gw_rename(d, v, lp_strdup(nb2));
+        }
+        tree_t * body = ast_node_new(TT_SEQ_EXPR);
+        body->line = d->line;
+        int w = 1;
+        for (int j = 1; j < d->n; j++) { if (rk_class_member_is_decl(d->c[j])) d->c[w++] = d->c[j]; else ast_push(body, d->c[j]); }
+        d->n = w;
+        tree_t * ns = body;
+        if (st != d) {
+            ns = ast_node_new(TT_STMT);
+            ns->line = st->line;
+            ns->v = st->v;
+            ns->slen = st->slen;
+            for (int q = 0; q < st->n; q++) {
+                tree_t * a = st->c[q];
+                if (!(a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj"))) { ast_push(ns, a); continue; }
+                tree_t * na = ast_node_new(TT_ATTR);
+                na->v = a->v;
+                na->line = a->line;
+                ast_push(na, body);
+                ast_push(ns, na);
+            }
+        }
+        ast_push(t, ns);
+        for (int k = t->n - 1; k > i + 1; k--) t->c[k] = t->c[k - 1];
+        t->c[i + 1] = ns;
+        i++;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_qs_count(const tree_t * t, const char * bare) {
     if (!t || t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL) return 0;
     int n = 0;
@@ -6148,6 +6278,9 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_elem_store_values((tree_t *) prog);
     rk_nonint_ranges((tree_t *) prog);
     rk_nested_elem_sets((tree_t *) prog);
+    rk_pkg_scope((tree_t *) prog, NULL);
+    rk_pkg_refs((tree_t *) prog);
+    { int cbseq = 0; rk_class_body((tree_t *) prog, &cbseq); }
     rk_place_phasers((tree_t *) prog);
     rk_rename_user_main((tree_t *) prog);
     rk_return_outside_routine((tree_t *) prog, 0);

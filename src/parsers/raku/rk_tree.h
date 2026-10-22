@@ -34,6 +34,8 @@ typedef struct { const char *word; const char *name; tree_t *args; } RkTrait;
 #define RK_PV_NAMED 4096
 #define RK_PV_REQ 8192
 #define RK_PV_OPT 16384
+#define RK_VAR_PKG 1048576
+#define RK_VAR_OUR 2097152
 struct RkDecl {
     int scope, sigil;
     const char *name, *type, *init_op;

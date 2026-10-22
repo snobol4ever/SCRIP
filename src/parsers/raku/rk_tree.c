@@ -125,6 +125,7 @@ static tree_t *var_node(RkB *b, const char *name) {
     if (name && name[0] == '@') mark_arr(b, id);
     tree_t *e = leaf_sval(TT_VAR, id);
     if (name && name[0] != '$' && name[0] != '@' && name[0] != '%') e->slen = 1;
+    else if (name && name[1] && strstr(name + 1, "::") && !strchr("*?!.^=~:", name[1] == ':' ? 'a' : name[1])) e->slen |= RK_VAR_PKG;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2463,7 +2464,13 @@ static void rk_mark_declared(tree_t *t) {
     if (t->t == TT_SEQ_EXPR || t->t == TT_UNLESS) for (int i = 0; i < t->n; i++) rk_mark_declared(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *build_decl(RkB *b, RkDecl *d, RkList *outer, int ofirst) { tree_t *t = build_decl_raw(b, d, outer, ofirst); rk_mark_declared(t); return t; }
+static void rk_mark_our(tree_t *t) {
+    if (!t) return;
+    if (t->t == TT_ASSIGN && t->n && t->c[0] && t->c[0]->t == TT_VAR) { t->c[0]->slen |= RK_VAR_OUR; return; }
+    if (t->t == TT_SEQ_EXPR || t->t == TT_UNLESS) for (int i = 0; i < t->n; i++) rk_mark_our(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *build_decl(RkB *b, RkDecl *d, RkList *outer, int ofirst) { tree_t *t = build_decl_raw(b, d, outer, ofirst); rk_mark_declared(t); if (d->scope == 1 && d->sigil != '(') rk_mark_our(t); return t; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_decl(RkB *b, RkTerm *it, int from, int to, RkDecl *d) { (void) b; memset(it, 0, sizeof *it); it->kind = TK_DECL; it->from = from; it->to = it->core_to = to; it->decl = d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
