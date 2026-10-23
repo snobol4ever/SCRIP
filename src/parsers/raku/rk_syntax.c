@@ -4327,14 +4327,14 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
         }
         break;
     }
-    int e;
+    int e, onlystar = 0;
     if (ch(p, q) == ';' && !is_method) {
         if (name_from < 0 || !(name_to - name_from == 4 && !memcmp(p->s + name_from, "MAIN", 4))) panic_at(p, q,
             "A unit-scoped sub definition is not allowed except on a MAIN sub; please use the block form");
         if (outer_depth != 1) panic_at(p, q, "A unit-scoped sub definition is not allowed in a subscope");
         e = r_statementlist(p, q + 1);
     }
-    else if ((e = r_onlystar(p, q)) >= 0) ;
+    else if ((e = r_onlystar(p, q)) >= 0) onlystar = 1;
     else if (ch(p, q) != '{') {
         if (!is_method && is_alpha_cp(cp_at(p, q)) && name_from >= 0 && is_type_n(p, p->s + name_from, name_to - name_from)) {
             panic_at(p, q, "Did you mean to write \"my %.*s sub %.*s\" or put \"returns %.*s\" before the block?", name_to - name_from, p->s + name_from, 10, p->s + q, name_to - name_from,
@@ -4355,7 +4355,7 @@ static int r_routine_def(RkP *p, int pos, int is_method) {
     if (p->build) {
         if (name_from < 0 && !is_method) rkb_block_term(p->B, &p->tm, pos, e, body, rsig, 1, bl, bn);
         else { memset(&p->tm, 0, sizeof p->tm); p->tm.kind = TK_BSTMT; p->tm.from = pos; p->tm.to = p->tm.core_to = e;
-            p->tm.t = rkb_routine(p->B, is_method ? 1 : 0, multi, name_from >= 0 ? p->s + name_from : "", name_from >= 0 ? name_to - name_from : 0, 0, rsig, sig_to > sig_from, body, rtr, nrtr); }
+            p->tm.t = onlystar && is_method && multi == 2 ? ast_node_new(TT_SEQ_EXPR) : rkb_routine(p->B, is_method ? 1 : 0, multi, name_from >= 0 ? p->s + name_from : "", name_from >= 0 ? name_to - name_from : 0, 0, rsig, sig_to > sig_from, body, rtr, nrtr); }
     }
     return e;
 }
@@ -5185,17 +5185,29 @@ static void rk_mod_assigns(tree_t *t, tree_t ***v, int *n, int *c) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_mod_begins(tree_t *t, tree_t ***v, int *n, int *c) {
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t *d = rk_mod_subj(t->c[i]);
+        if (!d) continue;
+        if (d->t == TT_MODULE_DECL) { rk_mod_begins(d, v, n, c); continue; }
+        if (d->t == TT_FNC && d->v.sval && !strcmp(d->v.sval, "__rk_phaser_BEGIN")) { RK_GROW(*v, *n, *c, tree_t *); (*v)[(*n)++] = t->c[i]; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_splice_modules(RkP *p, tree_t *t) {
     if (!t || !p->nmtrees) return t;
     tree_t **cand = NULL; int nc = 0, cc = 0;
     for (int k = 0; k < p->nmtrees; k++) rk_mod_decls(p->mtrees[k], &cand, &nc, &cc);
-    if (!nc) return t;
+    tree_t **bgn = NULL; int nb = 0, cbg = 0;
+    for (int k = 0; k < p->nmtrees; k++) rk_mod_begins(p->mtrees[k], &bgn, &nb, &cbg);
+    if (!nc && !nb) return t;
     tree_t **acand = NULL; int na = 0, ca = 0;
     for (int k = 0; k < p->nmtrees; k++) rk_mod_assigns(p->mtrees[k], &acand, &na, &ca);
     char *ataken = (char *) ct_alloc((size_t) na + 1);
     memset(ataken, 0, (size_t) na + 1);
     char **names = NULL; int nn = 0, cn = 0;
     rk_mod_names(t, &names, &nn, &cn);
+    for (int i = 0; i < nb; i++) rk_mod_names(bgn[i], &names, &nn, &cn);
     char *taken = (char *) ct_alloc((size_t) nc + 1);
     memset(taken, 0, (size_t) nc + 1);
     for (int grew = 1; grew; ) {
@@ -5232,7 +5244,11 @@ static tree_t *rk_splice_modules(RkP *p, tree_t *t) {
         if (st->t != TT_STMT) { st = ast_stmt_new(TT_STMT); ast_push(st, ast_attr_int(":line", 0)); ast_push(st, ast_attr_int(":stno", 0)); ast_push(st, ast_attr_expr(":subj", cand[i])); }
         ast_push(nt, st);
     }
-    for (int i = 0; i < t->n; i++) ast_push(nt, t->c[i]);
+    for (int i = 0; i < nb; i++) if (bgn[i]->t != TT_STMT) { tree_t *st = ast_stmt_new(TT_STMT); ast_push(st, ast_attr_int(":line", 0)); ast_push(st, ast_attr_int(":stno", 0)); ast_push(st, ast_attr_expr(":subj", bgn[i])); bgn[i] = st; }
+    int lastuse = -1;
+    for (int i = 0; i < t->n; i++) { tree_t *u = rk_mod_subj(t->c[i]); if (u && u->t == TT_USE_DECL) lastuse = i; }
+    if (lastuse < 0) for (int i = 0; i < nb; i++) ast_push(nt, bgn[i]);
+    for (int i = 0; i < t->n; i++) { ast_push(nt, t->c[i]); if (i == lastuse) for (int j = 0; j < nb; j++) ast_push(nt, bgn[j]); }
     return nt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
