@@ -8042,7 +8042,32 @@ static int pas_result_used(const tree_t *t, int in_routine) {
     for (int i = 0; i < t->n; i++) if (pas_result_used(t->c[i], inside)) return 1;
     return 0;
 }
-static int pas_result_flips_dialect(const tree_t *root) { return !pas_tree_has_event(root, "mode_iso") && pas_result_used(root, 0) && !pas_result_declared(root); }
+static int pas_fname_read_in(const tree_t *t, const char *fn, int mode) {
+    if (!t || IS(t, TT_PROCEDURE) || IS(t, TT_FUNCTION)) return 0;
+    if (IS(t, TT_VAR)) return mode == 0 && t->v.sval && !strcmp(t->v.sval, fn);
+    if (IS(t, TT_FIELD)) return t->n > 0 && pas_fname_read_in(t->c[0], fn, mode == 1 ? 1 : 0);
+    for (int i = 0; i < t->n; i++) {
+        int m = 0;
+        if (i == 0 && IS(t, TT_ASSIGN)) m = 1;
+        else if (i == 0 && IS(t, TT_FNC)) m = 2;
+        else if (i == 0 && IS(t, TT_IDX)) m = mode == 1 ? 1 : 0;
+        if (pas_fname_read_in(t->c[i], fn, m)) return 1;
+    }
+    return 0;
+}
+static int pas_fname_read_as_variable(const tree_t *t) {
+    if (!t) return 0;
+    if (IS(t, TT_FUNCTION) && t->n >= 3 && t->c[0] && t->c[0]->v.sval) {
+        int has_params = 0;
+        for (int i = 1; i < t->n; i++) if (IS(t->c[i], TT_PARAMS) && t->c[i]->n > 0) has_params = 1;
+        if (has_params && IS(t->c[t->n - 1], TT_BLOCK) && pas_fname_read_in(t->c[t->n - 1], t->c[0]->v.sval, 0)) return 1;
+    }
+    for (int i = 0; i < t->n; i++) if (pas_fname_read_as_variable(t->c[i])) return 1;
+    return 0;
+}
+static int pas_result_flips_dialect(const tree_t *root) {
+    return !pas_tree_has_event(root, "mode_iso") && ((pas_result_used(root, 0) && !pas_result_declared(root)) || pas_fname_read_as_variable(root));
+}
 static void pas_default_add(const char *routine, int idx, tree_t *expr) {
     if (!routine || !expr) return;
     if (g_lower.pas.sem.pas_ndefault >= g_lower.pas.sem.pas_default_cap) {
