@@ -9122,8 +9122,12 @@ PL_CX_LEAF_HEAD(put_edin, 1)
                 int bl = rt_pl_u8_put(cb, (int)v.i);
                 fwrite(cb, 1, (size_t)bl, fh_cur_out_fp());
                 ok = 1;
+            } else if (pl_gnu_dialect()) {
+                extern void *rt_pl_ball_kind1(const char *, const char *);
+                cx->ball = rt_pl_ball_kind1("representation_error", "character_code");
             } else cx->ball = rt_pl_ball_kind2("type_error", "character", v);
-        } else {
+        } else if (pl_gnu_dialect()) cx->ball = rt_pl_ball_kind2("type_error", "integer", v);
+        else {
             s = pl_atom_str_n(v, &n);
             if (!s && pl_is_cons(v) && (s = pl_list_text_heap(v))) n = strlen(s);
             unsigned char c0 = s && n ? (unsigned char)s[0] : 0;
