@@ -1405,10 +1405,11 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
         IR_t * t = zd_chase(nodes[sp]->γ.node);
         for (int g = 0; t && g <= n; g++) {
             int k = nidx(nodes, n, t);
-            if (k < 0 || !zon[k] || claim[k] != claim[sp]) break;
+            if (k < 0 || !zon[k]) break;
             IR_t * nx = zd_chase(t->γ.node);
             int nk = nx ? nidx(nodes, n, nx) : -1;
             if (!nx || nx->op == IR_SUCCEED || nk < 0 || !zon[nk]) {
+                if (claim[k] != claim[sp]) break;
                 zgpop[k] = zout[k] - zout[sp];
                 if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-YIELD] i=%d ends the yield of suspend %d: it pops to the suspend's depth (%d)\n", k, sp, zgpop[k]);
                 break;
