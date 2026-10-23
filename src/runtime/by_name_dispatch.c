@@ -9569,7 +9569,12 @@ DESCR_t rt_sno_chknm_d(DESCR_t *args, int nargs) {
     DESCR_t r = nargs > 0 ? args[0] : NULVCL;
     if (!rt_g_want_name) return r;
     rt_g_want_name = 0;
-    if (!rt_g_ret_by_name && nargs > 1 && args[1].v == DT_S && args[1].s && rt_proc_is_registered(args[1].s)) core_runtime_error(21, "function called by name returned a value");
+    const char * fnm = (nargs > 1 && args[1].v == DT_S && args[1].s) ? args[1].s : "";
+    if (!rt_g_ret_by_name && fnm[0] && rt_proc_is_registered(fnm)) core_runtime_error(21, "function called by name returned a value");
+    else if (nargs > 1 && r.v != DT_N && !IS_FAIL_fn(r) && strcmp(fnm, "EVAL") && strcmp(fnm, "ITEM")) {
+        core_runtime_error(21, "function called by name returned a value");
+        return FAILDESCR;
+    }
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

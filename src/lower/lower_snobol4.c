@@ -894,6 +894,23 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 return nl;
             }
             if (t->c[0]->t == TT_INDIRECT && t->c[0]->n > 0 && t->c[0]->c[0]) return sx_nameval(cx, t->c[0]->c[0], γ, ω, res);
+            if (sno_pe_patfn(t->c[0]->t)) {
+                IR_t * chk = lc_build(cx->g, IR_CALL, γ, ω);
+                IR_LIT(chk).sval = (char *) "SNO$CHKNM";
+                IR_t * nlit = lc_build(cx->g, IR_LIT_STRING, chk, ω);
+                IR_LIT(nlit).sval = (char *) "";
+                IR_t * wm = lc_build(cx->g, IR_CALL, nlit, ω);
+                IR_LIT(wm).sval = (char *) "SNO$WANTNM";
+                IR_t * wl = lc_build(cx->g, IR_LIT_STRING, wm, ω);
+                IR_LIT(wl).sval = (char *) "";
+                ir_operand_push(wm, wl);
+                IR_t * ar = NULL;
+                IR_t * e = sx_lower(cx, t->c[0], wl, ω, &ar);
+                ir_operand_push(chk, ar);
+                ir_operand_push(chk, nlit);
+                if (res) *res = chk;
+                return e;
+            }
             sno_fatal("name operator over this form is outside the landed subset", NULL);
         }
         case TT_ANY:
@@ -2381,7 +2398,7 @@ static void sno_pre_req(scx_t * cx, const tree_t * t, IR_t * prim) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char sno_elem_snapg[] = "$elem";
 static int sno_capt_elem_tg(const tree_t * tg, int curs) {
-    return tg && (tg->t == TT_IDX || (curs && tg->t == TT_INDIRECT) || (!curs && tg->t == TT_FNC && sno_item_argbase(tg) < 0) || (!curs && tg->t == TT_INDIRECT && !sno_capt_name(tg)));
+    return tg && (tg->t == TT_IDX || (curs && tg->t == TT_INDIRECT) || (tg->t == TT_FNC && sno_item_argbase(tg) < 0) || sno_pe_patfn(tg->t) || (!curs && tg->t == TT_INDIRECT && !sno_capt_name(tg)));
 }
 static int sno_elem_here(const scx_t * cx, const tree_t * tg, int curs) { return cx->snap && cx->npre >= 0 && cx->npre < 64 && sno_capt_elem_tg(tg, curs); }
 static void sno_elem_pre(scx_t * cx, const tree_t * tg, IR_t * prim, IR_t * prim2) {
