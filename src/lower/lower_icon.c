@@ -2522,8 +2522,9 @@ static IR_t * lower_limit_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * �
     if (t->n > 0 && t->c[0] && t->c[0]->t == TT_CONJ && t->c[0]->n > 0 && !is_resumable(t->c[0]->c[t->c[0]->n - 1]) && cx->conj_resumable && cx->conj_resumable != ω) gen_beta = cx->conj_resumable;
     ir_operand_push(lim, er);
     ir_operand_push(lim, lr);
+    IR_t * gate = NULL;
     if (lr) {
-        IR_t * gate = build(cx, IR_LIMIT_GATE, NULL, ω);
+        gate = build(cx, IR_LIMIT_GATE, NULL, ω);
         ir_operand_push(gate, lr);
         γ_to(gate, ge);
         if (gate->γ.node == ge) lc_γ_to(gate, ge);
@@ -2535,6 +2536,7 @@ static IR_t * lower_limit_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * �
     }
     if (er) lc_γ_to(er, lim);
     if (gen_beta && gen_beta != ω && gen_beta != er) ir_operand_push(lim, gen_beta);
+    if (gate) ir_operand_push(lim, gate);
     (void)inner_beta;
     cx->beta = (gen_beta && gen_beta != ω) ? lim : gen_beta;
     *res = lim;
@@ -3081,6 +3083,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     icn_settle_fail_conduits(g);
     g->cell_frame = 1;
     g->spine_cells = 1;
+    g->home_frame = 1;
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
