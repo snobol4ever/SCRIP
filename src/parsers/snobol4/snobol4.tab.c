@@ -226,7 +226,7 @@ static void sno_target_refuse(void) { sno_error(snobol4_get_stmt_lineno(), "valu
 void sno_error_voice(int, const char *, int);
 static int sno_fold_refused_line = -1;
 static int sno_tree_has_call(const tree_t *t) { if (!t) return 0; if (t->t == TT_FNC) return 1; for (int k = 0; k < t->n; k++) if (sno_tree_has_call(t->c[k])) return 1; return 0; }
-static void sno_fold_refuse(const tree_t *t) { extern int sno_preeval_expr(const tree_t *, const char **); const char *m = (const char *)0; int c, ln; if (sno_tree_has_call(t)) return; c = sno_preeval_expr(t, &m); ln = snobol4_get_stmt_lineno(); if (c && ln != sno_fold_refused_line) { sno_error_voice(c, m ? m : "", ln); sno_fold_refused_line = ln; } }
+static void sno_fold_refuse(const tree_t *t) { extern int sno_preeval_expr(const tree_t *, const char **); extern int sno_error_quiet_on(void); const char *m = (const char *)0; int c, ln; if (sno_tree_has_call(t) || sno_error_quiet_on()) return; c = sno_preeval_expr(t, &m); ln = snobol4_get_stmt_lineno(); if (c && ln != sno_fold_refused_line) { sno_error_voice(c, m ? m : "", ln); sno_fold_refused_line = ln; } }
 #define TAL_MAX 512
 #define TAL_DEPTH 64
 static tree_t *g_tal[TAL_MAX];

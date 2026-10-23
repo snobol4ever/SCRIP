@@ -741,6 +741,7 @@ static int  sno_err_quiet = 0;
 static char sno_err_capture[1024];
 void sno_error_quiet_begin(void) { sno_err_quiet = 1; sno_err_capture[0] = '\0'; }
 void sno_error_quiet_end(void) { sno_err_quiet = 0; }
+int sno_error_quiet_on(void) { return sno_err_quiet; }
 const char *sno_error_captured(void) { return sno_err_capture[0] ? sno_err_capture : NULL; }
 static int   lineno = 1;
 static struct { int lineno; int lline; char *fname; char *pend_fname; char *kw_fname; int after_stmt; } g_stmt_pos = { 1, 1, (char *)0, (char *)0, (char *)0, 1 };
