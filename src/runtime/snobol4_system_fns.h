@@ -29,7 +29,7 @@ static __attribute__((unused)) int sn4_sysfn_protected(const char *name) { retur
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char g_sn4_leaf_fns[][11] = { "ANY","ARBNO","ARRAY","ATAN","BREAK","BREAKX","CHAR","CHOP","CONVERT","COPY","COS","DATATYPE","DATE","DIFFER","DUPL","EQ","EXP","FENCE","GE","GT", "IDENT",
     "INTEGER","ITEM","LE","LEN","LEQ","LGE","LGT","LLE","LLT","LN","LNE","LPAD","LT","MATCHAT","NE","NOTANY","POS","PROTOTYPE","REMDR","REPLACE","REVERSE","RPAD","RPOS","RTAB","SIN","SIZE",
-    "SNO$BYNAME", "SNO$CHKNM", "SNO$MKEXPR", "SNO$MKPAT","SNO$NAME","SNO$PATCK","SNO$WANTNM","SNO$XNAME","SNO$XTHUNK","SPAN","SQRT","SUBSTR","TAB","TABLE","TAN","TIME","TRIM" };
+    "SNO$BYNAME", "SNO$CHKNM", "SNO$MKEXPR", "SNO$MKPAT","SNO$NAME","SNO$PATCK","SNO$WANTNM","SNO$XLV","SNO$XNAME","SNO$XTHUNK","SPAN","SQRT","SUBSTR","TAB","TABLE","TAN","TIME","TRIM" };
 #define SN4_LEAF_FN_COUNT (sizeof(g_sn4_leaf_fns) / sizeof(g_sn4_leaf_fns[0]))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((unused)) int sn4_direct_on(void) {

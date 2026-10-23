@@ -60,9 +60,10 @@ static int sno_define_entry_computed(const tree_t * t, int argbase) {
     return en && en->t != TT_QLIT && !(en->t == TT_NAME && en->n > 0 && en->c[0] && en->c[0]->t == TT_VAR);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_is_xname(const tree_t * t) { return t && t->t == TT_NAME && t->n > 0 && t->c[0] && t->c[0]->t == TT_DEFER && !(t->c[0]->n > 0 && t->c[0]->c[0] && t->c[0]->c[0]->t == TT_VAR); }
 static void sno_scan_xname_use(const tree_t * t) {
     if (!t || g_lower.sno.uses_xname) return;
-    if (t->t == TT_NAME && t->n > 0 && t->c[0] && t->c[0]->t == TT_DEFER && !(t->c[0]->n > 0 && t->c[0]->c[0] && t->c[0]->c[0]->t == TT_VAR)) { g_lower.sno.uses_xname = 1; return; }
+    if (sno_is_xname(t)) { g_lower.sno.uses_xname = 1; return; }
     if (t->t == TT_FNC) {
         const char * fn = t->v.sval;
         if (!fn && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) fn = t->c[0]->v.sval;
@@ -879,6 +880,40 @@ static IR_t * sx_idx_container(scx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sno_xname_lv(scx_t * cx, const tree_t * nexp, IR_t * ω, IR_t ** res) {
+    IR_graph_t * g = cx->g;
+    char * tn = sno_scan_tmp("SNO$XW");
+    char * xn = sno_scan_tmp("SNO$XN");
+    IR_t * join = lc_build(g, IR_VAR, NULL, ω);
+    IR_LIT(join).sval = tn;
+    IR_t * asn_d = lc_build(g, IR_ASSIGN, join, ω);
+    IR_LIT(asn_d).sval = tn;
+    IR_t * fb = lc_build(g, IR_CALL, asn_d, ω);
+    IR_LIT(fb).sval = (char *) "SNO$NAME";
+    ir_operand_push(asn_d, fb);
+    tree_t * ev = ast_node_new(TT_FNC);
+    ev->v.sval = (char *) "EVAL";
+    tree_t * xv = ast_node_new(TT_VAR);
+    xv->v.sval = xn;
+    ast_push(ev, xv);
+    IR_t * asn_e = lc_build(g, IR_ASSIGN, join, ω);
+    IR_LIT(asn_e).sval = tn;
+    IR_t * evr = NULL;
+    IR_t * ee = sx_lower(cx, ev, asn_e, ω, &evr);
+    ir_operand_push(asn_e, evr);
+    IR_t * xa = lc_build(g, IR_ASSIGN, ee, ω);
+    IR_LIT(xa).sval = xn;
+    IR_t * xt = lc_build(g, IR_CALL, xa, fb);
+    IR_LIT(xt).sval = (char *) "SNO$XLV";
+    ir_operand_push(xa, xt);
+    IR_t * vr = NULL;
+    IR_t * ve = sx_lower(cx, nexp, xt, ω, &vr);
+    ir_operand_push(xt, vr);
+    ir_operand_push(fb, vr);
+    *res = join;
+    return ve;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (!t) { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
     if (sno_mkpat_here(t)) return sno_mkpat_emit(cx, t, γ, ω, res);
@@ -983,9 +1018,18 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             if (t->c[0]->t == TT_DEFER) {
                 IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω);
                 IR_LIT(mk).sval = (char *) "SNO$XNAME";
-                IR_t * nr = NULL;
-                IR_t * ne = sx_lower(cx, t->c[0], mk, ω, &nr);
+                IR_t * nr = NULL, * nr2 = NULL, * after = mk;
+                const tree_t * de = t->c[0]->n > 0 ? t->c[0]->c[0] : NULL;
+                if (de && de->t != TT_VAR && sno_name_wrappable(de)) {
+                    tree_t * nm = ast_node_new(TT_NAME);
+                    ast_push(nm, (tree_t *) de);
+                    tree_t * nt = ast_node_new(TT_DEFER);
+                    ast_push(nt, nm);
+                    after = sx_lower(cx, nt, mk, ω, &nr2);
+                }
+                IR_t * ne = sx_lower(cx, t->c[0], after, ω, &nr);
                 if (nr) ir_operand_push(mk, nr);
+                if (nr2) ir_operand_push(mk, nr2);
                 if (res) *res = mk;
                 return ne;
             }
@@ -1191,7 +1235,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         case TT_INDIRECT:
         {
             if (t->n < 1) sno_fatal("indirect reference with no operand", NULL);
-            if (t->c[0] && t->c[0]->t == TT_NAME) {
+            if (t->c[0] && t->c[0]->t == TT_NAME && !(g_lower.sno.uses_xname && sno_is_xname(t->c[0]))) {
                 IR_t * dr = lc_build(cx->g, IR_DEREF, γ, ω);
                 IR_t * nr = NULL;
                 IR_t * ne = sx_lower(cx, t->c[0], NULL, ω, &nr);
@@ -4187,7 +4231,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         }
         if (subj->t == TT_INDIRECT && subj->n > 0) {
             IR_t * nv = NULL;
-            IR_t * e1 = sx_nameval(&cx, subj->c[0], NULL, fA, &nv);
+            IR_t * e1 = (g_lower.sno.uses_xname && subj->c[0]->t == TT_VAR) ? sno_xname_lv(&cx, subj->c[0], fA, &nv) : sx_nameval(&cx, subj->c[0], NULL, fA, &nv);
             IR_t * vv = NULL;
             IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
             lc_γ_to(nv, e2);
@@ -4778,6 +4822,14 @@ static void sno_entry_seen_push(cv_t * seen, const char * el) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_indirect_lit_to_var(tree_t * t) {
     if (!t || t->t == TT_GOTO_U || t->t == TT_GOTO_S || t->t == TT_GOTO_F) return;
+    if (t->t == TT_NAME && t->n == 1 && t->c[0] && t->c[0]->t == TT_DEFER && t->c[0]->n == 1 && t->c[0]->c[0] && t->c[0]->c[0]->t == TT_INDIRECT) return;
+    if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n == 2 && t->c[1] && t->c[1]->t == TT_INDIRECT && t->c[1]->n == 1) {
+        tree_t * nm = t->c[1]->c[0];
+        if (nm && nm->t == TT_NAME && nm->n == 1 && nm->c[0] && nm->c[0]->t == TT_DEFER && nm->c[0]->n == 1) {
+            tree_t * de = nm->c[0]->c[0];
+            if (de && de->t != TT_VAR && sno_name_wrappable(de)) nm->c[0] = de;
+        }
+    }
     if (t->t == TT_INDIRECT && t->n == 1 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval && t->c[0]->v.sval[0] && t->c[0]->v.sval[0] != '&' && t->c[0]->v.sval[0] != '*') {
         t->v.sval = t->c[0]->v.sval;
         t->t = TT_VAR;
