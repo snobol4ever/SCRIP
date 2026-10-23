@@ -8027,6 +8027,22 @@ static int pas_addr_of_routine(const tree_t *root, const tree_t *t) {
     for (int i = 0; i < t->n; i++) if (pas_addr_of_routine(root, t->c[i])) return 1;
     return 0;
 }
+static int pas_result_declared(const tree_t *t) {
+    if (!t) return 0;
+    if (IS(t, TT_DECL) && t->n > 0 && t->c[0] && IS(t->c[0], TT_VAR) && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "result")) return 1;
+    if (IS(t, TT_VLIST)) { for (int i = 0; i < t->n; i++) if (t->c[i] && IS(t->c[i], TT_VAR) && t->c[i]->v.sval && !strcmp(t->c[i]->v.sval, "result")) return 1; }
+    if ((IS(t, TT_PROCEDURE) || IS(t, TT_FUNCTION)) && t->n > 0 && t->c[0] && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "result")) return 1;
+    for (int i = 0; i < t->n; i++) if (pas_result_declared(t->c[i])) return 1;
+    return 0;
+}
+static int pas_result_used(const tree_t *t, int in_routine) {
+    if (!t) return 0;
+    if (in_routine && IS(t, TT_VAR) && t->v.sval && !strcmp(t->v.sval, "result")) return 1;
+    int inside = in_routine || IS(t, TT_PROCEDURE) || IS(t, TT_FUNCTION);
+    for (int i = 0; i < t->n; i++) if (pas_result_used(t->c[i], inside)) return 1;
+    return 0;
+}
+static int pas_result_flips_dialect(const tree_t *root) { return !pas_tree_has_event(root, "mode_iso") && pas_result_used(root, 0) && !pas_result_declared(root); }
 static void pas_default_add(const char *routine, int idx, tree_t *expr) {
     if (!routine || !expr) return;
     if (g_lower.pas.sem.pas_ndefault >= g_lower.pas.sem.pas_default_cap) {
@@ -8103,7 +8119,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     g_lower.pas.sem.pas_pend_sub_high = -1;
     g_lower.pas.sem.pas_fname_is_call = 0;
     g_lower.pas.sem.pas_limit_errors = 0;
-    g_lower.pas.sem.pas_dialect_fpc = g_lower.pas.sem.pas_seen_mode_directive = pas_tree_has_event(pruned, "seen_mode");
+    g_lower.pas.sem.pas_dialect_fpc = g_lower.pas.sem.pas_seen_mode_directive = pas_tree_has_event(pruned, "seen_mode") || pas_result_flips_dialect(pruned);
     if (!g_lower.pas.sem.pas_dialect_fpc) pas_iso_empty_strings(pruned);
     tree_t *flat = pas_flatten_units(pruned);
     pas_shortstrings(flat);
