@@ -894,6 +894,22 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 return nl;
             }
             if (t->c[0]->t == TT_INDIRECT && t->c[0]->n > 0 && t->c[0]->c[0]) return sx_nameval(cx, t->c[0]->c[0], γ, ω, res);
+            if (t->c[0]->t == TT_DEFER && t->c[0]->n > 0 && t->c[0]->c[0] && t->c[0]->c[0]->t == TT_VAR && t->c[0]->c[0]->v.sval) {
+                sno_reg_var(t->c[0]->c[0]->v.sval);
+                IR_t * nl = lc_build(cx->g, IR_LIT_NAME, γ, ω);
+                IR_LIT(nl).sval = t->c[0]->c[0]->v.sval;
+                if (res) *res = nl;
+                return nl;
+            }
+            if (t->c[0]->t == TT_DEFER) {
+                IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω);
+                IR_LIT(mk).sval = (char *) "SNO$XNAME";
+                IR_t * nr = NULL;
+                IR_t * ne = sx_lower(cx, t->c[0], mk, ω, &nr);
+                if (nr) ir_operand_push(mk, nr);
+                if (res) *res = mk;
+                return ne;
+            }
             if (sno_pe_patfn(t->c[0]->t)) {
                 IR_t * chk = lc_build(cx->g, IR_CALL, γ, ω);
                 IR_LIT(chk).sval = (char *) "SNO$CHKNM";

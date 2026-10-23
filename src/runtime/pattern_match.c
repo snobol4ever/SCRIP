@@ -987,6 +987,11 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
         const char *ns = VARVAL_fn(nm);
         if (!ns || !*ns) { extern int kwb_error(int, const char *); kwb_error(239, "indirection operand is not name"); c->rc = 1; return 1; }
         NV_SET_p_fn(ns, d, &c->pend);
+    } else if (!IS_VARREF_fn(nm)) {
+        extern const char *rt_sno_indirect_name(DESCR_t);
+        const char *ns = rt_sno_indirect_name(nm);
+        if (!ns || !*ns) { c->rc = 1; return 1; }
+        NV_SET_p_fn(ns, d, &c->pend);
     } else rtx_try_rt_assign_var(nm, d);
     return 0;
 }
@@ -1228,7 +1233,14 @@ static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name, trace
     extern DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
     if (IS_FAIL_fn(nm)) return rt_cap_fail_retreat() ? -1 : 0;
     if (rt_cap_name_strict() && !by_name) { g_cap_abort_gen = g_runtime.abi.cap_gen; return 0; }
-    if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_p_fn(ns, matched, pend); } else rtx_try_rt_assign_var(nm, matched);
+    if (IS_STR_fn(nm)) {
+        const char *ns = VARVAL_fn(nm);
+        if (ns && *ns) NV_SET_p_fn(ns, matched, pend);
+    } else if (!IS_VARREF_fn(nm)) {
+        extern const char *rt_sno_indirect_name(DESCR_t);
+        const char *ns = rt_sno_indirect_name(nm);
+        if (ns && *ns) NV_SET_p_fn(ns, matched, pend);
+    } else rtx_try_rt_assign_var(nm, matched);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2431,6 +2443,10 @@ DESCR_t rt_deref_slow(DESCR_t d) {
     VCELL_t *vc = (VCELL_t *)d.p;
     if (!vc) return FAILDESCR;
     if (vc->key == pas_view_key) return pas_view_get(vc);
+    if (!vc->cellp && !vc->tbl && !vc->key && vc->pos == -2) {
+        rt_bomb("rt_deref: reading a name of a deferred expression (.*E) is not implemented -- the expression is a compiled thunk, evaluated only through the box call protocol");
+        return FAILDESCR;
+    }
     if (!vc->cellp && !vc->tbl && vc->key && vc->pos == -1) { extern DESCR_t rt_keyword_read(const char *); return rt_keyword_read(vc->key); }
     if (vc->cellp) return *vc->cellp;
     if (vc->tbl) {
@@ -2476,6 +2492,11 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
     VCELL_t *vc = (VCELL_t *)var.p;
     if (!vc) return FAILDESCR;
     if (vc->key == pas_view_key) return pas_view_set(vc, val);
+    if (!vc->cellp && !vc->tbl && !vc->key && vc->pos == -2) {
+        extern void core_runtime_error(int, const char *);
+        core_runtime_error(249, "expression evaluated by name returned value");
+        return FAILDESCR;
+    }
     if (!vc->cellp && !vc->tbl && vc->key && vc->pos == -1) {
         fprintf(stderr, "[IDX] BOMB rt_assign_var: assignment to keyword variable %s is not implemented (the keyword write also resets the scanning environment, so it is not a cell store)\n", vc->key)
             ;

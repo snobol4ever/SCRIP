@@ -2720,6 +2720,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_sno_shim_refresh_ent", GC_RET_VOID },
     { "rt_sno_stmt_d", GC_RET_DESCR },
     { "rt_sno_target_name", GC_RET_OTHER },
+    { "rt_sno_xname_d", GC_RET_DESCR },
     { "rt_stmt_enter", GC_RET_VOID },
     { "rt_stmt_enter_p", GC_RET_VOID },
     { "rt_str_alloc", GC_RET_OTHER },

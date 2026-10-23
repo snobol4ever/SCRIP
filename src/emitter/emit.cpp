@@ -6024,7 +6024,8 @@ DESCR_t rt_pl_throw_raise(DESCR_t *, int); DESCR_t rt_pl_exist_raise(DESCR_t *, 
         int); DESCR_t rt_sno_chknm_d(DESCR_t *, int); DESCR_t rt_sno_patck_d(DESCR_t *, int); DESCR_t rt_sno_mkpat_d(DESCR_t *, int);
 DESCR_t rt_sno_name_dl(DESCR_t *, int); DESCR_t rt_sno_pbk_d(DESCR_t *, int); DESCR_t rt_sno_pbn_d(DESCR_t *, int); DESCR_t rt_sno_pb0_d(DESCR_t *, int); DESCR_t rt_sno_pbc_d(DESCR_t *,
     int); DESCR_t rt_sno_pcur_d(DESCR_t *, int); DESCR_t rt_sno_pbalt_d(DESCR_t *, int); DESCR_t rt_sno_parb_d(DESCR_t *, int); DESCR_t rt_sno_pfen_d(DESCR_t *,
-        int); DESCR_t rt_sno_pdef_d(DESCR_t *, int); DESCR_t rt_sno_kwset_d(DESCR_t *, int); DESCR_t rt_sno_mkexpr_d(DESCR_t *, int); DESCR_t rt_sno_stmt_d(DESCR_t *,
+        int); DESCR_t rt_sno_pdef_d(DESCR_t *, int); DESCR_t rt_sno_kwset_d(DESCR_t *, int); DESCR_t rt_sno_mkexpr_d(DESCR_t *, int); DESCR_t rt_sno_xname_d(DESCR_t *, int);
+            DESCR_t rt_sno_stmt_d(DESCR_t *,
             int); DESCR_t rt_sno_nofail_d(DESCR_t *, int); DESCR_t rt_sno_list_d(DESCR_t *, int);
 DESCR_t rt_pl_dop_skip_list(DESCR_t *, int); DESCR_t rt_pl_dop_argv(DESCR_t *, int);
 DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, int); DESCR_t rt_pl_dop_arg(DESCR_t *, int); DESCR_t rt_pl_dop_univ(DESCR_t *, int);
@@ -6162,7 +6163,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$catch_handle", 1, "rt_pl_catch_handle", rt_pl_catch_handle },
         { "$write", 1, "dop_write", dop_write }, { "$nl", 0, "dop_nl", dop_nl },
         { "$fp_model_spitbol", 0, "rt_fp_model_spitbol", rt_fp_model_spitbol }, { "SNO$WANTNM", -1, "rt_sno_wantnm_d", rt_sno_wantnm_d }, { "SNO$CHKNM", -1, "rt_sno_chknm_d", rt_sno_chknm_d },
-            { "SNO$PATCK", 2, "rt_sno_patck_d", rt_sno_patck_d },
+            { "SNO$PATCK", 2, "rt_sno_patck_d", rt_sno_patck_d }, { "SNO$XNAME", 1, "rt_sno_xname_d", rt_sno_xname_d },
             { "SNO$MKPAT", -1, "rt_sno_mkpat_d", rt_sno_mkpat_d },
         { "SNO$NAME", 1, "rt_sno_name_dl", rt_sno_name_dl }, { "SNO$PBK", 2, "rt_sno_pbk_d", rt_sno_pbk_d }, { "SNO$PBN", 2, "rt_sno_pbn_d", rt_sno_pbn_d }, { "SNO$PB0", 1, "rt_sno_pb0_d",
             rt_sno_pb0_d },

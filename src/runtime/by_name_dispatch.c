@@ -448,8 +448,8 @@ int rt_builtin_is_known(const char *name) {
         "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die", "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close",
         "__blk_invoke", "__rk_box", "__rk_cell_of", "__rk_elem_ref", "__rk_elem_bind", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ",
         "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY",
-        "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "SNO$CHKNM", "SNO$PATCK", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT",
-        "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", "" };
+        "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "SNO$CHKNM", "SNO$PATCK", "SNO$XNAME", "EVAL", "SNO$MKEXPR", "SNO$MKPAT",
+        "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", "" };
     for (int i = 0; known[i][0]; i++) if (!strcmp(known[i], name)) return 1;
     { if (dat_find_type(name)) return 1; }
     { extern int rt_dat_field_of_any(const char *); if (rt_dat_field_of_any(name)) return 1; }
@@ -20095,6 +20095,18 @@ DESCR_t rt_sno_mkexpr_of(DESCR_t a) {
     return xd;
 }
 DESCR_t rt_sno_mkexpr_d(DESCR_t *args, int nargs) { if (nargs != 1) return FAILDESCR; return rt_sno_mkexpr_of(args[0]); }
+DESCR_t rt_sno_xname_d(DESCR_t *args, int nargs) {
+    if (nargs != 1) return FAILDESCR;
+    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
+    vc->cellp = 0;
+    vc->tbl = 0;
+    vc->key = 0;
+    vc->key_d = FAILDESCR;
+    vc->sv = args[0];
+    vc->pos = -2;
+    vc->len = 0;
+    return NAMETRAP(vc);
+}
 DESCR_t rt_sno_stmt_d(DESCR_t *args, int nargs) {
     extern void rt_stmt_enter(long stno, long line);
     RT_HOOK_GUARD("SNO$STMT");
