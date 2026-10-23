@@ -249,6 +249,47 @@ static int sno_pe_op(tree_e op, const char * fn, DESCR_t * av, int n, DESCR_t * 
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pe_value_form(const tree_t * t) {
+    if (!t) return 0;
+    switch (t->t) {
+        case TT_ILIT:
+        case TT_FLIT:
+        case TT_QLIT:
+        case TT_NAME:
+        case TT_CAPT_CURSOR:
+        case TT_PLS:
+        case TT_MNS:
+        case TT_NOT:
+        case TT_INTERROGATE:
+        case TT_ASSIGN:
+        case TT_ADD:
+        case TT_SUB:
+        case TT_MUL:
+        case TT_DIV:
+        case TT_POW:
+        case TT_SEQ:
+        case TT_CAT:
+        case TT_ALT:
+        case TT_SCAN:
+        case TT_VLIST:
+        case TT_CAPT_COND_ASGN:
+        case TT_CAPT_IMMED_ASGN:
+        return 1;
+        default:
+        return 0;
+    }
+}
+static int sno_pe_target_value(const tree_t * t) { return (t && t->t == TT_SCAN && t->n == 2) ? sno_pe_value_form(t->c[0]) : sno_pe_value_form(t); }
+static int sno_pe_byname_value(const tree_t * t) {
+    if (!t) return 0;
+    if ((t->t == TT_NAME || t->t == TT_CAPT_CURSOR) && t->n == 1) return sno_pe_value_form(t->c[0]);
+    if (t->t == TT_OPSYN && t->n == 1 && t->v.sval && !strcmp(t->v.sval, "&")) return sno_pe_value_form(t->c[0]);
+    if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n == 2) return sno_pe_value_form(t->c[1]);
+    if (t->t == TT_ASSIGN && t->n == 2) return sno_pe_target_value(t->c[0]);
+    return 0;
+}
+#define SNO_PE_212 "syntax error: value used where name is required"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pe_walk(const tree_t * t, DESCR_t * v, sno_pe_t * e) {
     extern const char alphabet[257];
     DESCR_t a, b, av[2];
@@ -259,6 +300,7 @@ static int sno_pe_walk(const tree_t * t, DESCR_t * v, sno_pe_t * e) {
         e->msg = "indirection operand is not name";
         return 0;
     }
+    if (sno_pe_byname_value(t)) { e->code = 212; e->msg = SNO_PE_212; return 0; }
     switch (t->t) {
         case TT_ILIT:
         *v = INTVAL(t->v.ival);
@@ -365,6 +407,7 @@ int sno_preeval_stmt(const tree_t * s, const char ** msg) {
     part[3] = goto_node_expr(stmt_goto_find(s, TT_GOTO_S));
     part[4] = goto_node_expr(stmt_goto_find(s, TT_GOTO_F));
     part[5] = goto_node_expr(stmt_goto_find(s, TT_GOTO_U));
+    if (stmt_attr_find(s, ":eq") && part[0] && (part[1] ? sno_pe_value_form(part[0]) : sno_pe_target_value(part[0]))) { if (msg) *msg = SNO_PE_212; return 212; }
     for (k = 0; k < 6 && !c; k++) if (part[k]) c = sno_preeval_expr(part[k], msg);
     return c;
 }

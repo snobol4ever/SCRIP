@@ -1062,13 +1062,18 @@ DESCR_t code_at(const char *src, long base) {
     }
     const char *parse_err = sno_error_captured();
     if (parse_err) parse_err = rt_heap_strdup_c(parse_err);
-    int pe = 0;
+    int pe = 0, pe_at = -1;
     const char *pm = (const char *)0;
     {
         extern int sno_preeval_stmt(const tree_t *, const char **);
-        for (int i = 0; i < prog->n && !pe; i++) if ((pe = sno_preeval_stmt(prog->c[i], &pm)) && parse_err && !(pm && !strcmp(pm, parse_err))) pe = 0, pm = (const char *)0;
+        for (int i = 0; i < prog->n && !pe; i++) {
+            if (!(pe = sno_preeval_stmt(prog->c[i], &pm))) continue;
+            pe_at = i;
+            if (parse_err && !(pm && (!strcmp(pm, parse_err) || (!strncmp(pm, "syntax error: ", 14) && !strcmp(pm + 14, parse_err))))) pe = 0, pe_at = -1, pm = (const char *)0;
+        }
         if (pe && !parse_err) parse_err = pm ? pm : "";
     }
+    if (pe_at >= 0) { tree_t *pre = ast_stmt_new(TT_PROGRAM); for (int i = 0; i < pe_at; i++) ast_push(pre, prog->c[i]); prog = pre; }
     if (g_runtime.eval.sno_stmt_compiled < base) g_runtime.eval.sno_stmt_compiled = base;
     long stno_base = g_runtime.eval.sno_stmt_compiled;
     extern int sno_pat_count(void);
