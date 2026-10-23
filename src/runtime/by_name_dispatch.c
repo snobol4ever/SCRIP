@@ -9104,6 +9104,35 @@ PL_CX_LEAF_HEAD(put_byte, 1)
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(put_edin, 1)
+    {
+        extern FILE *fh_cur_out_fp(void);
+        extern int rt_pl_u8_put(char *, int);
+        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        DESCR_t v = rt_pl_deref_val(args[0]);
+        const char *s = (const char *)0;
+        size_t n = 0;
+        ok = 0;
+        if (pl_val_unbound(v)) {
+            extern void *rt_pl_ball_instantiation(void);
+            cx->ball = rt_pl_ball_instantiation();
+        } else if (v.v == (DTYPE_t)DT_I) {
+            if (v.i >= 0 && v.i <= 0x10FFFF) {
+                char cb[8];
+                int bl = rt_pl_u8_put(cb, (int)v.i);
+                fwrite(cb, 1, (size_t)bl, fh_cur_out_fp());
+                ok = 1;
+            } else cx->ball = rt_pl_ball_kind2("type_error", "character", v);
+        } else {
+            s = pl_atom_str_n(v, &n);
+            if (!s && pl_is_cons(v) && (s = pl_list_text_heap(v))) n = strlen(s);
+            unsigned char c0 = s && n ? (unsigned char)s[0] : 0;
+            size_t w = c0 < 0x80 ? 1 : c0 >= 0xF0 ? 4 : c0 >= 0xE0 ? 3 : c0 >= 0xC0 ? 2 : 0;
+            if (s && n && n == w) { fwrite(s, 1, n, fh_cur_out_fp()); ok = 1; } else cx->ball = rt_pl_ball_kind2("type_error", "character", v);
+        }
+    }
+PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_OUT_CX_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm##_s, ar) { extern int fh_current_output(void); extern void fh_set_output(int); int idx = pl_stream_idx_ball(args[0], 1, PL_TEXTOP_##nm, cx); ok = 0; \
     if (idx >= 0) { int sv = fh_current_output(); fh_set_output(idx); DESCR_t r = rt_pl_dop_##nm##_c(args + 1, ar - 1, cx); fh_set_output(sv); ok = (r.v == (DTYPE_t)DT_I); } } PL_CX_LEAF_TAIL
 #define PL_OUT_BALL_LEAF(nm, body1, ar) PL_CX_LEAF_HEAD(nm##_sb, ar) { extern int fh_current_output(void); extern void fh_set_output(int); int idx = pl_stream_idx_ball(args[0], 1, 1, cx); ok = 0; if \

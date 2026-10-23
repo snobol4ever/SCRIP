@@ -6118,6 +6118,7 @@ DESCR_t rt_pl_dop_get_code_s(DESCR_t *, int); DESCR_t rt_pl_dop_peek_code_s(DESC
     int); DESCR_t rt_pl_dop_unget_char_s(DESCR_t *, int);
 DESCR_t rt_pl_dop_unget_code(DESCR_t *, int); DESCR_t rt_pl_dop_unget_byte(DESCR_t *, int); DESCR_t rt_pl_dop_unget_code_s(DESCR_t *, int); DESCR_t rt_pl_dop_unget_byte_s(DESCR_t *, int);
 DESCR_t dop_pl_at_end_of_stream(DESCR_t *, int); DESCR_t rt_pl_dop_at_end_of_stream_s(DESCR_t *, int); DESCR_t rt_pl_dop_get_edin(DESCR_t *, int); DESCR_t rt_pl_dop_skip(DESCR_t *, int);
+DESCR_t rt_pl_dop_put_edin(DESCR_t *, int);
 DESCR_t rt_pl_dop_put_char_c(DESCR_t *, int); DESCR_t rt_pl_dop_put_char_c_s(DESCR_t *, int);
 DESCR_t rt_pl_dop_current_prolog_flag(DESCR_t *, int); DESCR_t rt_pl_dop_set_prolog_flag(DESCR_t *, int); DESCR_t rt_pl_dop_telling(DESCR_t *, int); DESCR_t rt_pl_dop_seeing(DESCR_t *,
     int); DESCR_t rt_pl_dop_tell(DESCR_t *, int); DESCR_t rt_pl_dop_append1(DESCR_t *, int); DESCR_t rt_pl_dop_see(DESCR_t *, int);
@@ -6286,7 +6287,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$told", 0, "dop_pl_told", dop_pl_told }, { "$seen", 0, "dop_pl_seen", dop_pl_seen },
         { "$put_char_c", 1, "rt_pl_dop_put_char_c", rt_pl_dop_put_char_c }, { "$put_char_c_s", 2, "rt_pl_dop_put_char_c_s", rt_pl_dop_put_char_c_s },
         { "$at_end_of_stream", 0, "dop_pl_at_end_of_stream", dop_pl_at_end_of_stream }, { "$at_end_of_stream_s", 1, "rt_pl_dop_at_end_of_stream_s", rt_pl_dop_at_end_of_stream_s },
-        { "$get_edin", 1, "rt_pl_dop_get_edin", rt_pl_dop_get_edin }, { "$skip", 1, "rt_pl_dop_skip", rt_pl_dop_skip },
+        { "$get_edin", 1, "rt_pl_dop_get_edin", rt_pl_dop_get_edin }, { "$put_edin", 1, "rt_pl_dop_put_edin", rt_pl_dop_put_edin }, { "$skip", 1, "rt_pl_dop_skip", rt_pl_dop_skip },
         { "$get_code_s", 2, "rt_pl_dop_get_code_s", rt_pl_dop_get_code_s }, { "$peek_code_s", 2, "rt_pl_dop_peek_code_s", rt_pl_dop_peek_code_s },
         { "$get_byte_s", 2, "rt_pl_dop_get_byte_s", rt_pl_dop_get_byte_s }, { "$peek_byte_s", 2, "rt_pl_dop_peek_byte_s", rt_pl_dop_peek_byte_s },
         { "$unget_char_s", 2, "rt_pl_dop_unget_char_s", rt_pl_dop_unget_char_s }, { "$unget_code_s", 2, "rt_pl_dop_unget_code_s", rt_pl_dop_unget_code_s }, { "$unget_byte_s", 2,
