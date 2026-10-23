@@ -244,6 +244,7 @@ int prolog_op_user_get(int i, const char **name_out, int *prec_out, const char *
 static void register_op_one(int prec, const char *type, tree_t *namenode, int swi) {
     if (!namenode) return;
     if (namenode->t == TT_MAKELIST) { for (int i = 0; i < namenode->n; i++) register_op_one(prec, type, namenode->c[i], swi); return; }
+    if (swi && namenode->t == TT_FNC && namenode->n == 2 && namenode->v.sval && !strcmp(namenode->v.sval, ":")) { register_op_one(prec, type, namenode->c[1], swi); return; }
     int blk = swi && namenode->t == TT_FNC && namenode->n == 0 && namenode->v.sval && !strcmp(namenode->v.sval, "{}");
     if ((namenode->t != TT_QLIT && !blk) || !namenode->v.sval || prec < 0 || prec > 1200 || (!blk && prolog_op_permission(namenode->v.sval, prec, type))) return;
     Assoc assoc; Fixity fix;

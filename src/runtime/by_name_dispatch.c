@@ -11279,6 +11279,11 @@ PL_CX_LEAF_HEAD(gnu_prolog_pid, 1)
 PL_CX_LEAF_TAIL
 static int pl_op_spec_ok(const char *t) { static const char *const k[] = { "xfx", "xfy", "yfx", "fy", "fx", "yf", "xf", 0 }; for (int i = 0; k[i]; i++) if (!strcmp(t, k[i])) return 1; return 0; }
 static const char *pl_op_name(DESCR_t d) { return pl_is_nil(d) ? "[]" : pl_atom_str(d); }
+static DESCR_t pl_op_unqual(DESCR_t d) {
+    extern const char *prolog_atom_name(int);
+    while (pl_swi_dialect() && d.v == (DTYPE_t)DT_PLREF && plc_fid_arity(d.slen) == 2 && !strcmp(prolog_atom_name(plc_fid_name(d.slen)), ":")) d = rt_pl_deref_val(((DESCR_t *)d.p)[1]);
+    return d;
+}
 PL_CX_LEAF_HEAD(op, 3)
     {
         extern int prolog_op_table_add(const char *, int, const char *);
@@ -11286,7 +11291,7 @@ PL_CX_LEAF_HEAD(op, 3)
         extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
         extern void *rt_pl_ball_instantiation(void);
         extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
-        DESCR_t p = rt_pl_deref_val(args[0]), t = rt_pl_deref_val(args[1]), o = rt_pl_deref_val(args[2]), cur, e;
+        DESCR_t p = rt_pl_deref_val(args[0]), t = rt_pl_deref_val(args[1]), o = pl_op_unqual(rt_pl_deref_val(args[2])), cur, e;
         const char *ty = pl_atom_str(t), *nm;
         int pm;
         ok = 0;
@@ -11301,7 +11306,7 @@ PL_CX_LEAF_HEAD(op, 3)
         if (cx->ball) return FAILDESCR;
         ty = ct_strdup(ty);
         for (cur = o; ; cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) {
-            e = pl_is_cons(cur) ? rt_pl_deref_val(((DESCR_t *)cur.p)[0]) : cur;
+            e = pl_is_cons(cur) ? pl_op_unqual(rt_pl_deref_val(((DESCR_t *)cur.p)[0])) : cur;
             if (pl_is_cons(o) && pl_is_nil(cur)) break;
             if (!(nm = pl_op_name(e))) { cx->ball = rt_pl_ball_kind2("type_error", "atom", e); return FAILDESCR; }
             if ((pm = prolog_op_permission(nm, (int)p.i, ty)) && !(pl_swi_dialect() && !strcmp(nm, "{}"))) {
@@ -11311,7 +11316,7 @@ PL_CX_LEAF_HEAD(op, 3)
             if (!pl_is_cons(o)) break;
         }
         for (cur = o; ; cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) {
-            e = pl_is_cons(cur) ? rt_pl_deref_val(((DESCR_t *)cur.p)[0]) : cur;
+            e = pl_is_cons(cur) ? pl_op_unqual(rt_pl_deref_val(((DESCR_t *)cur.p)[0])) : cur;
             if (pl_is_cons(o) && pl_is_nil(cur)) break;
             prolog_op_table_add(ct_strdup(pl_op_name(e)), (int)p.i, ty);
             if (!pl_is_cons(o)) break;
