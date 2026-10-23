@@ -7808,6 +7808,31 @@ static void pu_apply_pragmas(tree_t *t) {
     for (int i = 0; i < t->n; i++) pu_apply_pragmas(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pu_routine_name(const tree_t *r) { return (r && r->n > 0 && IS(r->c[0], TT_VAR)) ? r->c[0]->v.sval : NULL; }
+static int pu_listed(const tree_t *list, const tree_t *r) { for (int i = 0; list && i < list->n; i++) if (list->c[i] == r) return 1; return 0; }
+static void pu_idents(const tree_t *t, tree_t *names) {
+    if (!t) return;
+    if (IS(t, TT_VAR) && t->v.sval && !pu_has(names, t->v.sval)) ast_push(names, leaf_s(TT_VAR, t->v.sval));
+    for (int i = 0; i < t->n; i++) pu_idents(t->c[i], names);
+}
+static void pu_prune_routines(tree_t *nb, tree_t *ur) {
+    tree_t *cand = ast_node_new(TT_VLIST), *refs = ast_node_new(TT_VLIST), *keep = ast_node_new(TT_VLIST);
+    for (int i = 0; i < ur->n; i++) { const char *nm = pu_routine_name(ur->c[i]); if (nm && !strstr(nm, "__pc_")) ast_push(cand, ur->c[i]); }
+    for (int i = 0; i < nb->n; i++) if (!pu_listed(cand, nb->c[i])) pu_idents(nb->c[i], refs);
+    for (int grew = 1; grew;) {
+        grew = 0;
+        for (int i = 0; i < cand->n; i++) {
+            const char *nm = pu_routine_name(cand->c[i]);
+            if (pu_listed(keep, cand->c[i]) || !pu_has(refs, nm)) continue;
+            ast_push(keep, cand->c[i]);
+            for (int j = 1; j < cand->c[i]->n; j++) pu_idents(cand->c[i]->c[j], refs);
+            grew = 1;
+        }
+    }
+    int w = 0;
+    for (int i = 0; i < nb->n; i++) if (!pu_listed(cand, nb->c[i]) || pu_listed(keep, nb->c[i])) nb->c[w++] = nb->c[i];
+    nb->n = w;
+}
 static tree_t *pas_flatten_units(tree_t *prog) {
     if (!IS(prog, TT_PROGRAM)) return prog;
     tree_t *forest = NULL;
@@ -7848,7 +7873,7 @@ static tree_t *pas_flatten_units(tree_t *prog) {
     pu_rename(block, pfrom, pto, NULL);
     for (int k = 0; k < nu; k++) for (int i = 1; i < forest->c[k]->n; i++) forest->c[k]->c[i] = pu_qualify(forest->c[k]->c[i], unames, qfrom, qto);
     block = pu_qualify(block, unames, qfrom, qto);
-    tree_t *nb = ast_node_new(TT_BLOCK), *lab = NULL, *con = NULL, *typ = NULL, *var = NULL, *body = ast_node_new(TT_SEQ_EXPR);
+    tree_t *nb = ast_node_new(TT_BLOCK), *lab = NULL, *con = NULL, *typ = NULL, *var = NULL, *body = ast_node_new(TT_SEQ_EXPR), *ur = ast_node_new(TT_VLIST);
     pu_merge_part(&lab, "label", block);
     for (int k = 0; k < nu; k++) for (int s = 1; s <= 2; s++) pu_merge_part(&con, "const", forest->c[k]->c[s]);
     for (int k = 0; k < nu; k++) for (int s = 1; s <= 2; s++) pu_merge_part(&typ, "type", forest->c[k]->c[s]);
@@ -7864,9 +7889,13 @@ static tree_t *pas_flatten_units(tree_t *prog) {
             if (!IS(intf->c[i], TT_PROCEDURE) && !IS(intf->c[i], TT_FUNCTION)) continue;
             ast_push(intf->c[i], leaf_s(TT_KEYWORD, "forward"));
             ast_push(nb, intf->c[i]);
+            ast_push(ur, intf->c[i]);
         }
     }
-    for (int k = 0; k < nu; k++) { tree_t *impl = forest->c[k]->c[2]; for (int i = 0; i < impl->n; i++) if (IS(impl->c[i], TT_PROCEDURE) || IS(impl->c[i], TT_FUNCTION)) ast_push(nb, impl->c[i]); }
+    for (int k = 0; k < nu; k++) {
+        tree_t *impl = forest->c[k]->c[2];
+        for (int i = 0; i < impl->n; i++) if (IS(impl->c[i], TT_PROCEDURE) || IS(impl->c[i], TT_FUNCTION)) { ast_push(nb, impl->c[i]); ast_push(ur, impl->c[i]); }
+    }
     for (int i = 0; i < block->n - 1; i++) if (IS(block->c[i], TT_PROCEDURE) || IS(block->c[i], TT_FUNCTION)) ast_push(nb, block->c[i]);
     for (int k = 0; k < nu; k++) pu_stmts(body, pu_child_part(forest->c[k], "initialization"));
     tree_t *main_seq = block->n > 0 ? block->c[block->n - 1] : NULL;
@@ -7876,6 +7905,7 @@ static tree_t *pas_flatten_units(tree_t *prog) {
     if (fini) ast_push(body, pu_fnc0("fini.mute"));
     for (int k = nu - 1; k >= 0; k--) pu_stmts(body, pu_child_part(forest->c[k], "finalization"));
     ast_push(nb, body);
+    pu_prune_routines(nb, ur);
     tree_t *np = ast_node_new(TT_PROGRAM);
     np->line = prog->line;
     for (int i = 0; i < prog->n; i++) { if (i == bi) ast_push(np, nb); else if (prog->c[i] != forest) ast_push(np, prog->c[i]); }

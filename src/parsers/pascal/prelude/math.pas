@@ -9,6 +9,8 @@ function Min(a, b: integer): integer;
 function FpcMaxDouble(a, b: double): double;
 function FpcMinDouble(a, b: double): double;
 function IntPower(base: real; exponent: integer): real;
+procedure SinCos(theta: double; var sinv, cosv: double);
+function Sign(x: double): integer;
 implementation
 function Power(base, exponent: real): real;
 var r: real; k, i: integer;
@@ -58,5 +60,14 @@ begin
   for i := 1 to abs(exponent) do r := r * base;
   if exponent < 0 then r := 1.0 / r;
   IntPower := r
+end;
+procedure SinCos(theta: double; var sinv, cosv: double);
+begin
+  sinv := sin(theta);
+  cosv := cos(theta)
+end;
+function Sign(x: double): integer;
+begin
+  if x > 0 then Sign := 1 else if x < 0 then Sign := -1 else Sign := 0
 end;
 end.
