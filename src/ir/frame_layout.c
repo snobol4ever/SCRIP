@@ -447,7 +447,13 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         zls_field(scope_id, off, 8, ZK_RAW, 0, "iterate.index i (alpha=0, beta inc)", nd);
         zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "iterate.pad (unused)", nd);
         return 1;
+        case IR_LIMIT_GATE:
+        if (!(g && g->home_frame)) return 0;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "limit.counter (the gate's record on a home-frame graph: the gate zeroes it at alpha, the IR_LIMIT that names the gate as an operand counts here)", nd);
+        zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "limit.resumed flag (the gate's record: the limit's beta sets it before resuming the generator, its alpha consumes it)", nd);
+        return 1;
         case IR_LIMIT:
+        if (g && g->home_frame) return 0;
         zls_field(scope_id, off, 8, ZK_RAW, 0, "limit.counter", nd);
         zls_field(scope_id, off + 8, 8, ZK_RAW, 0,
             "limit.resumed flag (+24 from box base; beta sets before resuming the generator, alpha consumes and clears it so a FRESH entry zeroes limit.counter -- see bb_limit.cpp)", nd);
@@ -1942,8 +1948,10 @@ void zls_home_pass(const IR_graph_t * g) {
                 int x = st[top], d = sd[top], w = sw[top];
                 if (x == c) { if (d) { fcn_t * t = fcn_get(g->all[p]); t->fl |= FCN_HOME; t->hw = w ? w : 8; hit = 1; } continue; }
                 if (rn[x]) { d = 0; w = 0; } else if (dy[x]) { d = 1; w = dy[x]; }
-                for (int e = 0; e < 2; e++) {
-                    int y = e ? so[x] : sg[x];
+                const IR_t * xx = g->all[x];
+                int na = (g->home_frame && xx && xx->op == IR_DISJUNCTION) ? (int)IR_LIT(xx).ival : 0;
+                for (int e = 0; e < 2 + na; e++) {
+                    int y = e == 0 ? sg[x] : e == 1 ? so[x] : (2 * (e - 2) < xx->n_operands && xx->operands[2 * (e - 2)]) ? zls_reuse_index(&nx, xx->operands[2 * (e - 2)]) : -1;
                     if (y < 0 || y == p || seen[2 * y + d] == stamp) continue;
                     seen[2 * y + d] = stamp;
                     st[top] = y;
@@ -1964,6 +1972,14 @@ void zls_home_pass(const IR_graph_t * g) {
         }
     }
     for (int i = 0; i < n; i++) { const IR_t * x = g->all[i]; if (x && tw[i] && zls_home_local_kind((int)x->op) && IR_LIT(x).sval) { fcn_t * t = fcn_get(x); t->fl |= FCN_LHOME; t->lw = tw[i]; } }
+    for (int c = 0; c < n; c++) {
+        const IR_t * cx = g->all[c];
+        if (!g->home_frame || !cx || !tw[c]) continue;
+        for (int oj = 0; oj < cx->n_operands; oj++) {
+            const IR_t * o = cx->operands[oj];
+            if (o && o->op == IR_VAR && IR_LIT(o).sval && !fcn_find(o, FCN_LHOME)) { fcn_t * t = fcn_get(o); t->fl |= FCN_LHOME; t->lw = tw[c]; }
+        }
+    }
     ct_drop(nx.k);
     ct_drop(nx.v);
 }
@@ -1982,7 +1998,9 @@ int zls_frame_resident(const IR_t * nd) {
         (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) || fc_vlit_active(nd) || fc_vread_fp(nd) >= 0 || fc_vbinop_active(nd) || fc_vdj_active(nd) || fc_call_active(nd)) ? 1 :
         0;
 }
-static int zls_hf_resident(const IR_t * nd) { return nd && (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES)) ? 1 : 0; }
+static int zls_hf_resident(const IR_t * nd) {
+    return nd && (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) || (zls_home_why(nd) && !ir_node_produces_value(nd->op))) ? 1 : 0;
+}
 int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }
 int zls_redisp_off(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_RO); return t ? t->ro : -1; }
 void zls_redisp_mark(const IR_t * nd, int off) { fcn_t * t = fcn_get(nd); t->ro = off; t->fl |= FCN_RO; }
