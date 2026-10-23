@@ -84,7 +84,6 @@ static int pas_units_visit(const char *dir, const char *from, const tree_t *uses
     for (int i = 0; uses && i < uses->n; i++) {
         const char *name = uses->c[i] ? uses->c[i]->v.sval : NULL;
         if (!name || pas_named_in(forest, name) || pas_named_in(visiting, name)) continue;
-        if (!strcasecmp(name, "crt")) { fprintf(stderr, "pascal: uses crt in %s: the crt unit drives an interactive terminal, which SCRIP does not provide (NEEDS_INTERACTIVE_TTY)\n", from); return 0; }
         char *path = pas_unit_file(dir, name);
         const char *src = path ? pas_slurp(path) : pas_prelude_src(name);
         if (!src) { fprintf(stderr, "pascal: uses %s in %s: no unit %s.pas beside it and no SCRIP prelude unit of that name\n", name, from, name); return 0; }
