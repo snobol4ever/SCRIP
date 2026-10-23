@@ -1645,6 +1645,7 @@ static DESCR_t _REAL_(DESCR_t *a, int n) {
 static DESCR_t _SIZE_(DESCR_t *a, int n) {
     if (n < 1) return INTVAL(0);
     if (IS_STR(a[0]) && a[0].slen) return INTVAL((int64_t)a[0].slen);
+    if (rt_name_textless(a[0])) { core_runtime_error(189, "SIZE argument is not a string"); return FAILDESCR; }
     const char *s = VARVAL_fn(a[0]);
     return INTVAL((int64_t)(s ? utf8_strlen(s) : 0));
 }
@@ -4017,6 +4018,13 @@ const char *NV_name_from_ptr(const DESCR_t *ptr) {
     if (!ptr) return NULL;
     for (unsigned i = 0; i < g_runtime.abi.var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) if (&e->val == ptr) return e->name;
     return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_name_textless(DESCR_t v) {
+    if (IS_KWNAME_fn(v) || IS_NAMETRAP_fn(v)) return 1;
+    if (v.v != DT_N || v.slen != 1 || !v.ptr) return 0;
+    for (unsigned i = 0; i < g_runtime.abi.var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) if (&e->val == (DESCR_t *)v.ptr || (e->is_gva && e->cell == (DESCR_t *)v.ptr)) return 0;
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void NV_CLEAR_fn(const char **except, int nexcept) {

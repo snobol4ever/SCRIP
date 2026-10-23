@@ -18965,6 +18965,7 @@ static __attribute__((noinline)) int bn_size(DESCR_t *args, int nargs, DESCR_t *
     if (nargs != 1) return -1;
     DESCR_t v = args[0];
     if (IS_FAIL_fn(v)) { *out = FAILDESCR; return 1; }
+    if (rt_name_textless(v)) { core_runtime_error(189, "SIZE argument is not a string"); *out = FAILDESCR; return 1; }
     if (v.v == DT_T) { *out = INTVAL(v.tbl ? v.tbl->size : 0); return 1; }
     if (v.v == DT_CO) { extern long scrip_coexpr_activations_of(void *); *out = INTVAL(scrip_coexpr_activations_of(v.p)); return 1; }
     if (v.v == DT_A) { *out = INTVAL(v.arr ? (v.arr->hi - v.arr->lo + 1) : 0); return 1; }
@@ -20193,7 +20194,7 @@ static int bn_convert(DESCR_t *args, int nargs, DESCR_t *out, int op) {
             if (!strcmp(tu, "INTEGER")) { *out = rt_sno_cnv_num(a, 'I'); return 1; }
             if (!strcmp(tu, "REAL")) { *out = rt_sno_cnv_num(a, 'R'); return 1; }
             if (!strcmp(tu, "STRING")) {
-                if (a.v == DT_A || a.v == DT_T || a.v == DT_P || a.v == DT_C || a.v == DT_E || a.v == DT_X || IS_DATA_INST_fn(a)) { *out = FAILDESCR; return 1; }
+                if (a.v == DT_A || a.v == DT_T || a.v == DT_P || a.v == DT_C || a.v == DT_E || a.v == DT_X || IS_DATA_INST_fn(a) || rt_name_textless(a)) { *out = FAILDESCR; return 1; }
                 const char *sv = VARVAL_fn(a);
                 *out = STRVAL(rt_heap_strdup_c(sv ? sv : ""));
                 return 1;
@@ -22856,7 +22857,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         if (a.v == DT_S && a.s) a.s = (char *)rt_cstr_d(a);
         if (!strcmp(tu,"INTEGER")) { *out = rt_sno_cnv_num(a, 'I'); return 1; }
         if (!strcmp(tu,"REAL")) { *out = rt_sno_cnv_num(a, 'R'); return 1; }
-        if (!strcmp(tu,"STRING")) { const char *sv = VARVAL_fn(a); *out = STRVAL(rt_heap_strdup_c(sv ? sv : "")); return 1; }
+        if (!strcmp(tu,"STRING")) { if (rt_name_textless(a)) { *out = FAILDESCR; return 1; } const char *sv = VARVAL_fn(a); *out = STRVAL(rt_heap_strdup_c(sv ? sv : "")); return 1; }
         return 0;
     }
     L_bidjmp_6521:
@@ -23000,6 +23001,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
     ;
     if ((_bid == BID_CODE) && (nargs == 1 || nargs == 2)) {
         extern DESCR_t code_at(const char *, long);
+        if (rt_name_textless(args[0])) { *out = FAILDESCR; return 1; }
         const char *cs = VARVAL_fn(args[0]);
         long _cb = (nargs == 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
         *out = cs ? code_at(cs, _cb) : FAILDESCR;
@@ -23016,7 +23018,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         if (IS_INT_fn(av) || IS_REAL_fn(av)) { *out = av; return 1; }
         if (av.v == DT_SNUL) { *out = NULVCL; return 1; }
         if (av.v == DT_S) { extern DESCR_t EVAL_fn(DESCR_t); *out = EVAL_fn(av); return 1; }
-        if (av.v == DT_P) { core_runtime_error(103, "eval argument is not expression"); *out = FAILDESCR; return 1; }
+        if (av.v == DT_P || rt_name_textless(av)) { core_runtime_error(103, "eval argument is not expression"); *out = FAILDESCR; return 1; }
         if (av.v == DT_E) { extern DESCR_t EXPVAL_fn(DESCR_t); *out = EXPVAL_fn(av); return 1; }
         *out = FAILDESCR;
         return 1;

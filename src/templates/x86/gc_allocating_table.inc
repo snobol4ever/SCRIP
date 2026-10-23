@@ -1751,6 +1751,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_cap_open", GC_RET_OTHER },
     { "rt_cap_open_gva", GC_RET_OTHER },
     { "rt_cap_open_plain", GC_RET_OTHER },
+    { "rt_cap_raise_val", GC_RET_VOID },
     { "rt_cap_target_finish", GC_RET_OTHER },
     { "rt_case_eq", GC_RET_OTHER },
     { "rt_cdiff", GC_RET_DESCR },

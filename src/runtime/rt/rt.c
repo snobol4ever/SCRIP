@@ -314,7 +314,7 @@ int rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
     DESCR_t v = *in;
     if (v.v == DT_S && v.s) { uint32_t n = (v.slen != 0xFFFFFFFFu) ? v.slen : (uint32_t)__builtin_strlen(v.s); if (n) { *out = v; out->slen = n; return 0; } }
     if (v.v == DT_S || v.v == DT_SNUL) { if (nc) core_runtime_error(nc, rt_coerce_errmsg(nc)); out->v = DT_S; out->s = (char *)""; out->slen = 0; return nc != 0; }
-    if (v.v == DT_N && v.slen == 0 && v.s) { out->v = DT_S; out->s = v.s; out->slen = descr_cstrlen(v.s); return 0; }
+    if (v.v == DT_N && v.slen == 0 && v.s && !IS_KWNAME_fn(v)) { out->v = DT_S; out->s = v.s; out->slen = descr_cstrlen(v.s); return 0; }
     if (v.v == DT_I || v.v == DT_R) {
         char *s = VARVAL_fn(v);
         if ((!s || !s[0]) && nc) core_runtime_error(nc, rt_coerce_errmsg(nc));

@@ -345,6 +345,7 @@ DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val);
 int NV_CONST_ASSIGNED_fn(const char *name);
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
 const char *NV_name_from_ptr(const DESCR_t *ptr);
+int rt_name_textless(DESCR_t v);
 DESCR_t *array_ptr(ARBLK_t *a, int i);
 int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j);

@@ -587,7 +587,7 @@ DESCR_t EVAL_fn(DESCR_t expr) {
     if (expr.v != DT_P) { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     if (expr.v == DT_I) return expr;
     if (expr.v == DT_R) return expr;
-    if (expr.v == DT_P) { core_runtime_error(103, "eval argument is not expression"); return FAILDESCR; }
+    if (expr.v == DT_P || rt_name_textless(expr)) { core_runtime_error(103, "eval argument is not expression"); return FAILDESCR; }
     const char *s = VARVAL_fn(expr);
     if (!s || !*s) return NULVCL;
     if (eval_text_takes_chain(s)) goto eval_str;

@@ -61,7 +61,7 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     return BSTRVAL(buf, (long)(al + bl));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int so_sno_cat_bad(DESCR_t v) { return v.v == DT_A || v.v == DT_T || IS_DATA_INST_fn(v); }
+static int so_sno_cat_bad(DESCR_t v) { return v.v == DT_A || v.v == DT_T || IS_DATA_INST_fn(v) || rt_name_textless(v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_sno_concat_d(DESCR_t a, DESCR_t b) {
     if (!IS_FAIL_fn(a) && !IS_FAIL_fn(b) && !IS_NULL_fn(a) && !IS_NULL_fn(b)) {

@@ -8,6 +8,7 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void output_val(DESCR_t v) {
     if (v.v == DT_S && v.slen && v.slen != 0xFFFFFFFFu) { if (v.s) fwrite(v.s, 1, (size_t)v.slen, stdout); fputc('\n', stdout); return; }
+    if (rt_name_textless(v)) { fputs("NAME\n", stdout); return; }
     char *s = VARVAL_fn(v);
     printf("%s\n", s ? s : "");
 }

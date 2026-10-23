@@ -90,6 +90,7 @@ static inline __attribute__((always_inline)) int IS_FAIL_fn(DESCR_t v) { return 
 static inline __attribute__((always_inline)) int IS_DATA_TAG_fn(uint8_t v) { return v >= DT_DATA && v < DT_RAW; }
 static inline __attribute__((always_inline)) int IS_NAMETRAP_fn(DESCR_t v) { return v.v == DT_N && v.slen == 2; }
 static inline __attribute__((always_inline)) int IS_VARREF_fn(DESCR_t v) { return v.v == DT_N && (v.slen == 2 || (v.slen == 1 && v.ptr) || (v.slen == 0 && v.s && *v.s)); }
+static inline __attribute__((always_inline)) int IS_KWNAME_fn(DESCR_t v) { return v.v == DT_N && v.slen == 0 && v.s && v.s[0] == '&' && v.s[1] == '&'; }
 #define DATA_INST_SLEN 0u
 #define DATA_ELEMS_SLEN 1u
 DESCR_SASSERT(DATA_INST_SLEN != DATA_ELEMS_SLEN,
