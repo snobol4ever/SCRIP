@@ -2357,10 +2357,11 @@ static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
     DESCR_t prev = (core_setexit_on() && sxl_set()) ? STRVAL(rt_heap_strdup_c(SXL)) : NULVCL;
     if (n < 1 || a[0].v == DT_FAIL) { if (g_runtime.core.setexit_label.p) SXL[0] = '\0'; return prev; }
     const char *lbl = VARVAL_fn(a[0]);
+    if (lbl && *lbl && g_runtime.kw.kwb_own[0]) { char *fold = rt_heap_strdup_c(lbl); for (char *q = fold; *q; q++) *q = (char)toupper((unsigned char)*q); lbl = fold; }
     if (lbl && *lbl && !core_setexit_system_label(lbl)) {
         extern void *rt_entry_resolve(const char *, int *);
         int frag = 0;
-        if (!rt_entry_resolve(lbl, &frag)) { core_runtime_error(187, "setexit argument is not label name or null"); return prev; }
+        if (!rt_entry_resolve(lbl, &frag)) { core_runtime_error(187, "setexit argument is not label name or null"); return FAILDESCR; }
     }
     if (lbl) { size_t ll = strlen(lbl); gv_reserve(&g_runtime.core.setexit_label, (uint16_t)HB_WSB, 1u, (uint64_t)ll + 1, "setexit_label"); memcpy(SXL, lbl, ll + 1); }
     return prev;
