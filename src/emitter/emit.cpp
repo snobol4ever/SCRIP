@@ -4826,7 +4826,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
               { auto _bit = beta_of.find(node_ω); if (_bit != beta_of.end()) _fk = _bit->second; }
               if (_fk >= 0 && beta_is_stmt_land(g_emitter.codegen_flat_chain_body_nodes[_fk])) { _fk = -1; }
               while (_fk >= 0 && _hops++ < 64 && flat_trivial_beta(g_emitter.codegen_flat_chain_body_nodes[_fk])) {
-                  { long _fck = 0; if (fc_geom(g_emitter.codegen_flat_chain_body_nodes[_fk], &_fck)) _sum += _fck; }
+                  { long _fck = 0; if (fc_geom(g_emitter.codegen_flat_chain_body_nodes[_fk], &_fck)) _sum += _fck; if (zd_wp[_fk] > 0) _sum += zd_wp[_fk]; }
                   IR_t *_c = g_emitter.codegen_flat_chain_body_nodes[_fk]; IR_t *_o = _c->ω.node;
                   int _ib = port_sz_beta(_c->ω.sz);
                   int _ip = (_c->ω.sz[0] == (char)0xcf && (unsigned char)_c->ω.sz[1] == 0x86);
@@ -5217,12 +5217,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                     if (_mok && _ti >= 0 && g_emitter.codegen_flat_chain_body_nodes[_ti]->op != IR_MATCH_FENCE1 && g_emitter.codegen_flat_chain_body_nodes[_ti]->op != IR_MATCH_FENCE0) resume_tgt =
                         betas[_ti];
                 } } } }
+        long _rpop = 0;
         if (g_emit_cfg && g_emit_cfg->body_root && g_emit_cfg->body_root->op == IR_MATCH_ABORT) { int i = nidx(g_emitter.codegen_flat_chain_body_nodes, n, g_emit_cfg->body_root);
-            if (i >= 0) resume_tgt = lbls[i]; }
+            if (i >= 0) { resume_tgt = lbls[i]; int _da = zd_arrival_depth(g_emitter.codegen_flat_chain_body_nodes, n, i, zd_on, zd_out, zd_gp, zd_wp);
+                if (_spf && _spgd >= 0 && _da >= 0 && _spgd > _da) _rpop = _spgd - _da; } }
         if (icn_gen_regime() && g_emit.flat_gen && g_emitter.g_suspend_resume_slot >= 0)
             bb_emit_x86( x86("mov", "rax", FRQ(g_emitter.g_suspend_resume_slot)) + x86_jmp_reg("rax"));
-        else
-        emit_jmp_label(resume_tgt, JMP_JMP);
+        else { if (_rpop > 0) bb_emit_x86(x86("add", "rsp", _rpop)); emit_jmp_label(resume_tgt, JMP_JMP); }
     }
     }
     if (g_emit.flat_stmt_frame) { emit_sep_rule('-'); emit_label_define_bb(&lbl_stcγ); bb_emit_x86(bb_glue_framed_leave()); emit_jmp_label(&lbl_γ, JMP_JMP); emit_label_define_bb(&lbl_stcω);
