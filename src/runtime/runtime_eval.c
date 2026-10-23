@@ -243,6 +243,8 @@ static void eval_stmt_strings_drop(tree_t *st) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, int *thunks) {
     *thunks = 0;
+    const int byname = s && s[0] == '\001';
+    if (byname) s++;
     if (!s || !*s) return NULL;
     if (eval_top_comma(s)) { g_runtime.kw.sno_errtext = "syntax error: invalid use of comma"; return NULL; }
     if (sno_text_illegal_at(s) >= 0) { g_runtime.kw.sno_errtext = "syntax error: illegal character"; return NULL; }
@@ -268,6 +270,8 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     }
     *pe = sno_preeval_expr(e, pm);
     if (*pe) return NULL;
+    extern int sno_name_wrappable(const tree_t *);
+    if (byname && sno_name_wrappable(e)) { tree_t *nm = ast_stmt_new(TT_NAME); ast_push(nm, e); e = nm; }
     tree_t *var = ast_stmt_new(TT_VAR);
     var->v.sval = (char *)EVAL_TMP;
     tree_t *st = ast_stmt_new(TT_STMT);
@@ -656,7 +660,7 @@ static int eval_frame_open(eval_frame_t *f, const char *s, int raise) {
         int pe = 0;
         const char *pm = (const char *)0;
         fn = eval_build_chain(s, &pe, &pm, &thunks);
-        if (!fn) { if (raise && !pe) rt_code_pool_check(); bb_pool_release(mark); if (raise) { if (pe) rt_eval_raise(pe, pm); else rt_eval_syntax_raise(s); } return -1; }
+        if (!fn) { if (raise && !pe) rt_code_pool_check(); bb_pool_release(mark); if (raise) { if (pe) rt_eval_raise(pe, pm); else rt_eval_syntax_raise(s + (s[0] == '\001' ? 1 : 0)); } return -1; }
         built = bb_pool_mark();
         made = 1;
         keep = mark < eval_retain_budget();
@@ -666,7 +670,7 @@ static int eval_frame_open(eval_frame_t *f, const char *s, int raise) {
     f->fn = INTVAL((int64_t)(uintptr_t)fn);
     f->mark = INTVAL((int64_t)mark);
     f->built = INTVAL((int64_t)built);
-    f->flags = INTVAL((int64_t)made | (int64_t)keep << 1 | (int64_t)thunks << 8);
+    f->flags = INTVAL((int64_t)made | (int64_t)keep << 1 | (int64_t)(s[0] == '\001') << 5 | (int64_t)thunks << 8);
     if (tc) *tc = FAILDESCR;
     else NV_SET_fn(EVAL_TMP, FAILDESCR);
     return 0;
@@ -679,6 +683,7 @@ static DESCR_t eval_frame_land(eval_frame_t *f, int ok) {
     if (tc) *tc = f->saved;
     else NV_SET_fn(EVAL_TMP, f->saved);
     int64_t fl = f->flags.i;
+    if ((fl & 32) && !IS_FAIL(res) && res.v != DT_N) { extern void core_runtime_error(int, const char *); core_runtime_error(249, "expression evaluated by name returned value"); res = FAILDESCR; }
     if (fl & 1) eval_chain_settle(f->key.v == DT_S ? f->key.s : NULL, (eval_chain_fn)(uintptr_t)f->fn.i, res, (size_t)f->mark.i, (size_t)f->built.i, (int)(fl >> 8), (int)((fl >> 1) & 1));
     return res;
 }

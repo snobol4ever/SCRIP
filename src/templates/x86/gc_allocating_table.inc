@@ -2688,6 +2688,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_shim_nv_in", GC_RET_VOID },
     { "rt_shim_nv_omega", GC_RET_VOID },
     { "rt_shim_nv_restore", GC_RET_VOID },
+    { "rt_sno_bynmark_d", GC_RET_DESCR },
     { "rt_sno_chknm_d", GC_RET_DESCR },
     { "rt_sno_cnv_num", GC_RET_DESCR },
     { "rt_sno_dtx_value_rec", GC_RET_DESCR },

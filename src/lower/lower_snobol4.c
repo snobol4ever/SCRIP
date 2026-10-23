@@ -212,6 +212,12 @@ static int sno_pe_patfn(tree_e k) {
     return k == TT_ANY || k == TT_NOTANY || k == TT_SPAN || k == TT_BREAK || k == TT_BREAKX || k == TT_LEN || k == TT_POS || k == TT_RPOS || k == TT_TAB || k == TT_RTAB || k == TT_ARBNO ||
         k == TT_FENCE;
 }
+int sno_name_wrappable(const tree_t * e) {
+    if (!e) return 0;
+    if (e->t == TT_VAR || e->t == TT_IDX || e->t == TT_INDIRECT || e->t == TT_KEYWORD || e->t == TT_FNC) return 1;
+    if (e->t == TT_DEFER) return e->n > 0 && e->c[0] && e->c[0]->t == TT_VAR;
+    return sno_pe_patfn(e->t);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pe_valfn(const char * s) {
     extern int core_fn_is_c(const char *);
@@ -672,7 +678,10 @@ static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int
     IR_t * entry = tail;
     for (int k = 0; k < nargs; k++) {
         IR_t * ar = NULL;
-        IR_t * ae = sx_lower(cx, t->c[argbase + k], (k == nargs - 1) ? tail : NULL, ω, &ar);
+        IR_t * mkn = NULL;
+        if (bn && nargs == 1 && !strcmp(name, "EVAL")) { mkn = lc_build(cx->g, IR_CALL, tail, ω); IR_LIT(mkn).sval = (char *) "SNO$BYNAME"; }
+        IR_t * ae = sx_lower(cx, t->c[argbase + k], (k == nargs - 1) ? (mkn ? mkn : tail) : NULL, ω, &ar);
+        if (mkn) { ir_operand_push(mkn, ar); ar = mkn; }
         if (k == 0) entry = ae;
         if (prev) lc_γ_to(prev, ae);
         prev = ar;
