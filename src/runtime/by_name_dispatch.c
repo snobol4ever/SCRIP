@@ -13965,6 +13965,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         char sb2[512];
         char msg[1024];
         if (!strcmp(op, "plan")) {
+            if (nargs > 0 && rk_is_pair(args[0]) && !strcmp(rk_av_text(rk_av(args[0]), 0), "skip-all")) { printf("1..0 # Skipped: %s\n", rk_av_text(rk_av(args[0]), 1)); fflush(stdout); exit(0); }
             long n = nargs > 0 ? (long) rk_int_arg(args[0], 0) : 0;
             g_runtime.tap.tap_planned = n;
             g_runtime.tap.tap_no_plan = 0;
