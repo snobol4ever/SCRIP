@@ -254,6 +254,11 @@ static int sno_pe_walk(const tree_t * t, DESCR_t * v, sno_pe_t * e) {
     DESCR_t a, b, av[2];
     int k, all;
     if (!t || e->code) return 0;
+    if ((t->t == TT_NAME || t->t == TT_CAPT_CURSOR) && t->n == 1 && t->c[0] && t->c[0]->t == TT_INDIRECT && t->c[0]->n == 1 && sno_pe_walk(t->c[0]->c[0], &a, e) && (a.v == DT_P || a.v == DT_E)) {
+        e->code = 239;
+        e->msg = "indirection operand is not name";
+        return 0;
+    }
     switch (t->t) {
         case TT_ILIT:
         *v = INTVAL(t->v.ival);
