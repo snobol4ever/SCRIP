@@ -1446,10 +1446,18 @@ rt_call_next_t rt_call_open_found(const char *name, int nargs, int *registered) 
 static int rt_eval_stage_is_var(const char *name) { return name && name[0] == 'E' && !strncmp(name, "EXPR$", 5) && strchr(name + 5, '$'); }
 void rt_eval_stage_enter(const char *name) { if (g_runtime.abi.error == 0 && !rt_eval_stage_is_var(name)) g_runtime.abi.error = G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel); }
 void rt_eval_stage_leave(const char *name) { if (G_ERROR_IS_EVAL(g_runtime.abi.error) && !rt_eval_stage_is_var(name)) g_runtime.abi.error = 0; }
-void rt_eval_stage_leave_var(int is_var) { if (G_ERROR_IS_EVAL(g_runtime.abi.error) && !is_var) g_runtime.abi.error = 0; }
+static void rt_eval_stage_erred_trap(void) {
+    extern uint64_t g_rtccb[32];
+    extern void rt_setexit_continue_tramp(void);
+    if (G_ERROR_EVAL_ERRED(g_runtime.abi.error) && !g_rtccb[25]) g_rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp;
+}
+void rt_eval_stage_leave_var(int is_var) { if (G_ERROR_IS_EVAL(g_runtime.abi.error) && !is_var) { rt_eval_stage_erred_trap(); g_runtime.abi.error = 0; } }
 void rt_eval_stage_leave_word(long word) {
     long idx = word >> 40;
-    if (G_ERROR_IS_EVAL(g_runtime.abi.error) && !((idx >= 0 && idx < g_runtime.rt.rt_gen_proc_count) ? g_runtime.abi.rt_gen_procs[idx].stage_var : 0)) g_runtime.abi.error = 0;
+    if (G_ERROR_IS_EVAL(g_runtime.abi.error) && !((idx >= 0 && idx < g_runtime.rt.rt_gen_proc_count) ? g_runtime.abi.rt_gen_procs[idx].stage_var : 0)) {
+        rt_eval_stage_erred_trap();
+        g_runtime.abi.error = 0;
+    }
 }
 rt_call_next_t rt_call_open_staged(const char *name, int *registered) {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
