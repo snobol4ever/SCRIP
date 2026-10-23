@@ -1014,7 +1014,7 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
     IR_LIT(unmk_f).ival = 1;
     IR_t * unmk_c = build(cx, IR_UNMARK, ig, ig);
     ir_operand_push(unmk_c, mark);
-    IR_LIT(unmk_c).ival = 1;
+    IR_LIT(unmk_c).ival = pl_fence_on() ? 5 : 1;
     lc_γ_to_β(unmk_f, eg);
     IR_t * ml_e = build(cx, IR_GATE_ARM, NULL, ig);
     IR_t * ml_c = build(cx, IR_GATE_ARM, NULL, ig);
@@ -1076,7 +1076,7 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
         sc_pop |= pl_seal_branch_tail(tail, tail_pop, etail);
         sc_cut_in_else = !eredo && pl_conj_top_cut(&ev);
         if (sc_cut_in_else) sc_else_cut = pl_cut_redo(cx);
-        ir_operand_push(ml_ee, sc_cut_in_else ? sc_else_cut : (eredo ? eredo : ig));
+        ir_operand_push(ml_ee, sc_cut_in_else ? sc_else_cut : (eredo ? eredo : unmk_c));
         ir_operand_push(ml_ee, ig);
         ir_operand_push(ig, ml_ee);
         IR_LIT(ig).ival = ig->n_operands;
@@ -1098,7 +1098,7 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
     IR_LIT(eg).ival = eg->n_operands;
     ml_c->seal = 0;
     IR_LIT(ml_c).ival = eg->n_operands - 1;
-    ir_operand_push(ml_t, sc_cut_in_then ? sc_then_cut : (tredo ? tredo : (credo ? credo : ig)));
+    ir_operand_push(ml_t, sc_cut_in_then ? sc_then_cut : (tredo ? tredo : (credo ? credo : unmk_c)));
     ir_operand_push(ml_t, ig);
     ir_operand_push(ig, ml_t);
     IR_LIT(ig).ival = ig->n_operands;

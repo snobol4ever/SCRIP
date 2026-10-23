@@ -920,6 +920,9 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 { int k = nidx(nodes, n, nodes[i]->operands[a]); if (k >= 0) { pi = k; } }
                 fprintf(stderr, "%s%d", a ? "," : "", pi); }
             fprintf(stderr, "] g=%d o=%d lit/nameptr=%lld src=%s\n", gi, oi, (long long)IR_LIT(nodes[i]).ival, bb_src_of(nodes[i]) ? bb_src_of(nodes[i]) : "-"); } } }
+    unsigned char * rjoin = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
+    for (int k = 0; k < n; k++) rjoin[k] = 0;
+    for (int k = 0; k < n; k++) if (zd_edge_retains(nodes[k])) { int q = nidx(nodes, n, zd_chase(nodes[k]->γ.node)); if (q >= 0) rjoin[q] = 1; }
     for (int pass = 0; pass < 2; pass++) {
     for (int hi = 0; hi < n; hi++) {
         if (pass == 0) { }
@@ -930,6 +933,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
             int ci = -1; { int k = nidx(nodes, n, cur); if (k >= 0) { ci = k; } }
             if (ci < 0 || claim[ci] >= 0) break;
             if (rl > 0 && bb_src_of(nodes[ci]) && !zd_icn_suspend(nodes[ci])) break; if (rl > 0 && walls && walls[ci]) break;
+            if (rl > 0 && rjoin[ci]) break;
             { int _ub = zd_pl_unmark_bound(nodes, n, ci); if (rl > 0 && _ub >= 0 && claim[_ub] != hi) break; }
             if (rl > 0 && emit_floater_kind(nodes[ci])) break;
             run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; rl++;
