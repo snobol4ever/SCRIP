@@ -72,6 +72,17 @@ static DTP_t *dtp_new(void *fn, dtp_rcp_t *rcp) {
     return h;
 }
 void *dtp_wrap_fn(void *fn) { return (void *)dtp_new(fn, (dtp_rcp_t *)0); }
+void *dtp_copy_box(void *p) {
+    DTP_t *s = (DTP_t *)p;
+    if (!s) return p;
+    DTP_t *h = dtp_new(s->fn, s->rcp);
+    h->zsz = s->zsz;
+    h->zstatic = s->zstatic;
+    h->zpad = s->zpad;
+    h->snap = s->snap;
+    h->nsnap = s->nsnap;
+    return (void *)h;
+}
 void *dtp_wrap_fn_sz(void *fn, int64_t zsz, int32_t zstatic) {
     DTP_t *h = dtp_new(fn, (dtp_rcp_t *)0);
     h->zsz = zsz;

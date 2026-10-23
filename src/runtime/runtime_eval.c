@@ -858,7 +858,7 @@ static void *rt_goto_resolve_x(const char *name, int *undef) {
     }
     if (name[0] == '<') {
         DESCR_t cv = NV_GET_fn(name + 1);
-        if (cv.v != DT_C || cv.slen != 3 || !cv.ptr) { fprintf(stderr, "[SNO] goto operand in direct goto is not code\n"); exit(1); }
+        if (cv.v != DT_C || cv.slen < 3 || !cv.ptr) { fprintf(stderr, "[SNO] goto operand in direct goto is not code\n"); exit(1); }
         return cv.ptr;
     }
     if (!strcmp(name, "END")) return NULL;
@@ -1148,7 +1148,7 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d) {
         return result;
     }
     if (expr_d.v == DT_C) {
-        if (expr_d.slen == 3) {
+        if (expr_d.slen >= 3) {
             core_runtime_error(103,
                 "eval argument is not expression: EXPVAL of a CODE value is DELETED (ceo CEO-1094, Lon 2026-09-21: eradicate C->BB->C->BB, and a C function creates residue on the hardware stack). It"
                 " entered the chain from a C frame through rt_chain_enter and returned NULVCL afterwards, so the C frame survived the transition. THE ORACLE REFUSES THIS ROAD TOO: sbl -bf raises ERR"

@@ -2304,6 +2304,9 @@ static DESCR_t _COPY_(DESCR_t *a, int n) {
         TBL_FOREACH(v.tbl, e) table_set_descr_d(tcopy, e->key_descr, e->val);
         return TABLE_VAL(tcopy);
     }
+    if (v.v == DT_P && v.p) { extern void *dtp_copy_box(void *); DESCR_t r = v; r.p = dtp_copy_box(v.p); return r; }
+    if (v.v == DT_X && v.p) { char *b = (char *)rt_heap_alloc_c(sizeof(sno_dstar_rec_t)); memcpy(b, v.p, sizeof(sno_dstar_rec_t)); DESCR_t r = v; r.p = b; return r; }
+    if (v.v == DT_C && v.ptr && v.slen >= 3) { DESCR_t r = v; r.slen = v.slen + 1; return r; }
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -641,6 +641,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "dop_pl_writeq", GC_RET_DESCR },
     { "dop_pl_writeq_s", GC_RET_DESCR },
     { "dop_write", GC_RET_DESCR },
+    { "dtp_copy_box", GC_RET_OTHER },
     { "dtp_fn_of", GC_RET_OTHER },
     { "dtp_new", GC_RET_OTHER },
     { "dtp_rcp_tree", GC_RET_OTHER },
