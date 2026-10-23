@@ -7522,8 +7522,9 @@ static pval E_var_decl(const tree_t *n) {
         {
             pas_scope_define_list(v[1].list);
             if (v[1].list && g_lower.pas.sem.pas_pend_esz > 2147483647LL) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i] && v[1].list->items[i]->v.sval) {
-                fprintf(stderr, "pascal: the variable '%s' needs %lld bytes of storage, more than the 2 GiB a static variable can have (fpc cannot link one either)\n", v[1].list->items[i]->v.sval,
-                    g_lower.pas.sem.pas_pend_esz);
+                int _vln = (i < n->c[0]->n && n->c[0]->c[i] && n->c[0]->c[i]->line > 0) ? n->c[0]->c[i]->line : n->line;
+                fprintf(stderr, "pascal: line %d: the variable '%s' needs %lld bytes of storage, more than the 2 GiB a static variable can have (fpc cannot link one either)\n", _vln,
+                    v[1].list->items[i]->v.sval, g_lower.pas.sem.pas_pend_esz);
                 g_lower.pas.sem.pas_limit_errors++;
             }
             if (v[1].list) for (int i = 0; i < v[1].list->count; i++) if (v[1].list->items[i] && v[1].list->items[i]->v.sval) pas_tsz_add(v[1].list->items[i]->v.sval, g_lower.pas.sem.pas_pend_esz);
