@@ -1742,6 +1742,10 @@ int main(int argc, char **argv) {
             } else if (strcmp(argv[argi], "--dump-zeta") == 0) {
                 dump_zeta = 1;
                 argi++;
+            } else if (strcmp(argv[argi], "--dump-pas-types") == 0) {
+                extern void lower_pascal_dump_types_on(void);
+                lower_pascal_dump_types_on();
+                argi++;
             } else if (strcmp(argv[argi], "--dump-homes") == 0) {
                 extern void emit_dump_homes_on(void);
                 emit_dump_homes_on();

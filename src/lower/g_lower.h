@@ -118,7 +118,7 @@ typedef struct {
     const char * icn_record_names[512];
     int icn_record_name_count;
 } g_lower_icn_t;
-typedef struct { int pas_vptmp_var_vptmp_n; int pas_vpref_var_vpref_n; lc_vec proc_list; lc_vec proc_parent; int has_nesting; g_lower_pas_sem_t sem; } g_lower_pas_t;
+typedef struct { int pas_vptmp_var_vptmp_n; int pas_vpref_var_vpref_n; lc_vec proc_list; lc_vec proc_parent; int has_nesting; int dump_types; g_lower_pas_sem_t sem; } g_lower_pas_t;
 typedef struct {
     int bc_mon_m;
     int dg_mon_m;
