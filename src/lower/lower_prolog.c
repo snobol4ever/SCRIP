@@ -2098,7 +2098,7 @@ static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int na
         if (!ch && !pl_db_live && !bbhit) {
             const char * ck = cx ? cx->cur_key : (const char *) 0;
             const char * colon = (ck && !strncmp(ck, "plunit_", 7)) ? strchr(ck, ':') : (const char *) 0;
-            if (colon && g_stage2.pl_dialect_swi && !(cx->umod && !cx->umod[0])) {
+            if (colon && g_stage2.pl_dialect_swi && !(cx->umod && !cx->umod[0]) && strcmp(nm, "$mctx_call")) {
                 tree_t * mq = ast_node_new(TT_QLIT);
                 mq->v.sval = cx->umod ? (char *) cx->umod : ct_strndup(ck, (size_t) (colon - ck));
                 return goal(cx, pl_cc_fnc2("$mctx_call", mq, (tree_t *) t), γnext, ωfail, entry_out);
