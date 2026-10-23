@@ -1493,7 +1493,8 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * gate = lc_build(cx->g, IR_LIT_STRING, γ, NULL);
             IR_LIT(gate).sval = (char *) "";
             IR_t * r = NULL;
-            IR_t * e = sx_lower(cx, inner, ω, gate, &r);
+            IR_t * fl = lc_build(cx->g, IR_GOTO, ω, ω);
+            IR_t * e = sx_lower(cx, inner, fl, gate, &r);
             if (res) *res = gate;
             return e;
         }
