@@ -3292,7 +3292,7 @@ static int pl_lib_named(const pl_prelude_lib_t *lib, const pl_pk_t *rk, uint32_t
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_preprocess_list(PlProgram *prog, int depth);
+static void pl_preprocess_list(PlProgram *prog, int depth, int swi);
 static int pl_clause_is_attv_hook(PlClause *cl) {
     const tree_t *h = (cl && cl->tr && cl->tr->t == TT_CLAUSE && cl->tr->n >= 1) ? cl->tr->c[0] : (const tree_t *)0;
     if (!h || h->t != TT_FNC || !h->v.sval || strcmp(h->v.sval, ":") || h->n != 2 || !h->c[1] || h->c[1]->t != TT_FNC || !h->c[1]->v.sval) return 0;
@@ -3311,7 +3311,7 @@ static PlProgram *pl_prelude_parse(const char *src, int lib, const char *vis, in
     g_parser.pl.uinfix_n = un;
     g_parser.pl.uinfix_cap = uc;
     if (lib >= 0) register_lib_ops(PL_PRELUDE_LIBS[lib].lib);
-    if (p && lib >= 0) pl_preprocess_list(p, 1);
+    if (p && lib >= 0) pl_preprocess_list(p, 1, -1);
     return p;
 }
 static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported) {
@@ -3741,8 +3741,8 @@ static char *pl_include_read(const Parser *pp, const char *spec, char **path_out
     src[n] = 0; fclose(f); *path_out = cand; return src;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_preprocess_list(PlProgram *prog, int depth);
-static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, int *is_include) {
+static void pl_preprocess_list(PlProgram *prog, int depth, int swi);
+static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, int *is_include, int swi) {
     const tree_t *t = cl ? cl->tr : (const tree_t *)0; const tree_t *g; const char *spec; char *path = (char *)0; char *src; PlProgram *sub;
     *is_include = 0;
     if (!t || t->t != TT_CLAUSE || t->n < 2 || !t->c[0] || t->c[0]->t != TT_NUL) return (PlProgram *)0;
@@ -3760,7 +3760,7 @@ static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, i
         pp->nerrors++; return (PlProgram *)0; }
     sub = prolog_parse_ex(src, path, pp->quiet);
     if (!sub) { pp->nerrors++; return (PlProgram *)0; }
-    pl_preprocess_list(sub, depth + 1);
+    pl_preprocess_list(sub, depth + 1, swi);
     pp->nerrors += sub->nerrors;
     return sub;
 }
@@ -3801,11 +3801,11 @@ static int pl_if_ctx_at(pl_ifcx_t *x, PlProgram *prog, PlClause *cl) {
     }
     return 1;
 }
-static void pl_preprocess_list(PlProgram *prog, int depth) {
+static void pl_preprocess_list(PlProgram *prog, int depth, int swi) {
     Parser q; PlClause *prev = (PlClause *)0, *cl; const char *cur_mod = "user"; pl_ifcx_t ix;
     if (!prog) return;
     memset(&q, 0, sizeof q); q.filename = prog->filename ? prog->filename : "<stdin>"; q.quiet = prog->quiet; q.incl_depth = depth;
-    memset(&ix, 0, sizeof ix); ix.swi = -1;
+    memset(&ix, 0, sizeof ix); ix.swi = swi;
     cl = prog->head;
     while (cl) {
         PlClause *next = cl->next; int drop = 0, is_include = 0; const tree_t *t = cl->tr;
@@ -3818,7 +3818,7 @@ static void pl_preprocess_list(PlProgram *prog, int depth) {
             if (prev) prev->next = (PlClause *)0; else prog->head = (PlClause *)0;
             break;
         } else {
-            PlProgram *sub = pl_include_expand(&q, cl, depth, &is_include);
+            PlProgram *sub = (pl_if_ctx_at(&ix, prog, cl), pl_include_expand(&q, cl, depth, &is_include, ix.swi > 0 ? 1 : -1));
             if (is_include) {
                 drop = 1;
                 if (sub && sub->head) {
@@ -3843,7 +3843,7 @@ static void pl_preprocess_list(PlProgram *prog, int depth) {
     prog->nerrors += q.nerrors;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void prolog_preprocess(PlProgram *prog) { pl_preprocess_list(prog, 0); }
+void prolog_preprocess(PlProgram *prog) { pl_preprocess_list(prog, 0, -1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_parse_loop(Parser *pp, PlProgram *prog) {
     for (;;) {
