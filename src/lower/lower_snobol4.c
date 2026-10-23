@@ -4010,7 +4010,9 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 IR_t * pent = NULL;
                 IR_t * pasn = NULL;
                 const tree_t * sbj = repl->c[0];
-                const tree_t * pat = sno_pat_valued(&cx, &sbj, 0, repl->c[1], fA, &pent, &pasn);
+                sno_tvec_t cpro = { 0 };
+                const tree_t * rpat = sno_capt_elem_rewrite(repl->c[1], &cpro);
+                const tree_t * pat = sno_pat_valued(&cx, &sbj, 0, rpat, fA, &pent, &pasn);
                 tree_t * capt = ast_stmt_new(TT_CAPT_COND_ASGN);
                 capt->slen = 240;
                 ast_push(capt, (tree_t *) pat);
@@ -4022,7 +4024,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 ast_push(sc, capt);
                 IR_t * e = sno_lower_match(&cx, sc, NULL, 0, sJ, fA, NULL);
                 if (pasn) { lc_γ_to(pasn, e); e = pent; }
-                lc_γ_to(anchor[i], e);
+                lc_γ_to(anchor[i], sno_capt_prologue(&cx, &cpro, e, fA));
                 continue;
             }
             IR_t * asn = lc_build(g, IR_ASSIGN, sJ, fA);
