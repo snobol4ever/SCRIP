@@ -7170,7 +7170,7 @@ void pas_file_err(const char *clause, const char *what, const char *proc) {
     if (proc && !strncmp(proc, "__pas_", 6)) fprintf(stderr, " (in %s)", proc + 6);
     fputc('\n', stderr);
     fflush(stderr);
-    exit(1);
+    exit((clause && !strcmp(clause, "6.9.1") && what && (!strncmp(what, "end-of-file is true when a number", 33) || !strncmp(what, "the characters read do not form", 31))) ? 106 : 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pas_tf_write(FILE *fp, DESCR_t v) {
