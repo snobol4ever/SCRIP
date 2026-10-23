@@ -710,9 +710,16 @@ static rt_eval_next_t eval_open(DESCR_t *args, int nargs, eval_frame_t *f, int r
     eval_frame_blank(f);
     if (args && nargs == 1 && args[0].v == DT_X) {
         extern int rt_dtx_open_tail(sno_dstar_rec_t *, long *);
+        sno_dstar_rec_t *r = SNO_DTX_REC(args[0]);
         long rq[2] = { 0, 0 };
-        if (rt_dtx_open_tail(SNO_DTX_REC(args[0]), rq) && rq[0]) return (rt_eval_next_t){ rq[0], rq[1] | (1L << 62) };
-        return none;
+        if (!rt_dtx_open_tail(r, rq) || !rq[0]) return none;
+        f->flags = INTVAL(16);
+        if (!(r->flags & SNO_DSTAR_STAGEVAR)) {
+            f->flags = INTVAL(16 | 4);
+            f->esv = INTVAL(G_ERROR_IS_EVAL(g_runtime.abi.error) ? 0 : g_runtime.abi.error);
+            g_runtime.abi.error = G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel);
+        }
+        return (rt_eval_next_t){ rq[0], rq[1] | (1L << 62) };
     }
     if (args && nargs == 1 && args[0].v == DT_E && rt_eval_open_takes(args[0])) {
         DESCR_t *tc = NV_CELL_PLAIN_fn(EVAL_TMP);
@@ -764,6 +771,16 @@ DESCR_t rt_eval_land(long word) {
     g_runtime.abi.error = f->esv.i;
     return eval_frame_land(f, !erred);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t eval_dtx_land(eval_frame_t *f, DESCR_t r) {
+    if (!f || f->flags.v != DT_I || !(f->flags.i & 16)) { fprintf(stderr, "rt_eval_dtx_land: %p is not an opened EVAL of an unevaluated expression on the spine\n", (void *)f); abort(); }
+    if (!(f->flags.i & 4)) return r;
+    int erred = G_ERROR_EVAL_ERRED(g_runtime.abi.error);
+    g_runtime.abi.error = f->esv.i;
+    return erred ? FAILDESCR : r;
+}
+DESCR_t rt_eval_dtx_land_γ(DESCR_t frame0, long word, eval_frame_t *f) { extern DESCR_t rt_call_land_γ(DESCR_t, long); return eval_dtx_land(f, rt_call_land_γ(frame0, word)); }
+DESCR_t rt_eval_dtx_land_ω(long word, eval_frame_t *f) { extern DESCR_t rt_call_land_ω(long); return eval_dtx_land(f, rt_call_land_ω(word)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t eval_node(tree_t *e) { (void)e; fprintf(stderr, "[B0b] BOMB eval_node: AST-walk evaluator deleted; nothing interprets tree_t at runtime\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

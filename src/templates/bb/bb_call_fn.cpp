@@ -27,6 +27,8 @@ typedef struct { long fn; long how; } rt_eval_next_t;
 extern rt_eval_next_t rt_eval_open(DESCR_t * args, int nargs, void * rec);
 #define BCFN_EVAL_REC 112
 extern DESCR_t rt_eval_land(long word);
+extern DESCR_t rt_eval_dtx_land_γ(DESCR_t frame0, long word, void * rec);
+extern DESCR_t rt_eval_dtx_land_ω(long word, void * rec);
 extern DESCR_t rt_call_land_γ(DESCR_t frame0, long word);
 extern DESCR_t rt_call_land_ω(long word);
 }
@@ -332,11 +334,13 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + x86("shr", "rdx", 2L) \
          + bb_glue_enter_c2bb((base) + 30, (base) + 35, (base) + 36) \
          + x86_deflabel_id((base) + 35) \
-         + x86("call", "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ) \
+         + x86("mov", "rcx", "rsp") \
+         + x86("call", "rt_eval_dtx_land_γ", (uint64_t)(uintptr_t)(void *)rt_eval_dtx_land_γ) \
          + x86_rt_gc_poll_rec_res() \
          + x86_jmp_id((join_id)) \
          + x86_deflabel_id((base) + 36) \
-         + x86("call", "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω) \
+         + x86("mov", "rsi", "rsp") \
+         + x86("call", "rt_eval_dtx_land_ω", (uint64_t)(uintptr_t)(void *)rt_eval_dtx_land_ω) \
          + x86_rt_gc_poll_rec_res() \
          + x86_jmp_id((join_id)) )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

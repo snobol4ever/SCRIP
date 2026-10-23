@@ -1807,6 +1807,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_descr_equal", GC_RET_OTHER },
     { "rt_div_zero", GC_RET_VOID },
     { "rt_dtx_open_tail", GC_RET_OTHER },
+    { "rt_eval_dtx_land_γ", GC_RET_DESCR },
     { "rt_eval_land", GC_RET_DESCR },
     { "rt_eval_open", GC_RET_OTHER },
     { "rt_eval_open_raise", GC_RET_OTHER },
