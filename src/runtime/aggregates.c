@@ -180,9 +180,13 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_h_data(cons
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_ptr(const DESCR_t *k) { return (((unsigned long long)(uintptr_t)k->ptr >> 4) * 0xC2B2AE3D27D4EB4Full) >> 8; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline __attribute__((always_inline)) const void * _tbl_name_obj(const DESCR_t *k) {
+    if (k->slen == 2 && k->ptr) { const VCELL_t *vc = (const VCELL_t *)k->ptr; if (vc->cellp) return vc->cellp; if (vc->tbl) return vc->tbl; }
+    return k->ptr;
+}
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_name(const DESCR_t *k) {
-    if (k->slen == 0) { DESCR_t sk = *k; sk.v = DT_S; sk.slen = 0xFFFFFFFFu; return _tbl_h_str(&sk); }
-    return ((((unsigned long long)(uintptr_t)k->ptr >> 4) ^ ((unsigned long long)k->slen << 40)) * 0xC2B2AE3D27D4EB4Full) >> 8;
+    if (k->slen == 0 && !IS_KWNAME_fn(*k)) { DESCR_t sk = *k; sk.v = DT_S; sk.slen = 0xFFFFFFFFu; return _tbl_h_str(&sk); }
+    return ((((unsigned long long)(uintptr_t)_tbl_name_obj(k) >> 4) ^ ((unsigned long long)k->slen << 40)) * 0xC2B2AE3D27D4EB4Full) >> 8;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_big(const DESCR_t *k) { extern unsigned long long rt_big_hash(DESCR_t); return rt_big_hash(*k); }
@@ -245,7 +249,14 @@ static inline __attribute__((always_inline)) int _tbl_eq_d(const TBPAIR_t *e, DE
         case DT_BIG:
         { extern int rt_big_cmp(DESCR_t, DESCR_t); return rt_big_cmp(e->key_descr, k) == 0; }
         case DT_N:
-        if (e->key_descr.slen == 0 && k.slen == 0) return (e->key_descr.s && k.s) ? strcmp(e->key_descr.s, k.s) == 0 : e->key_descr.s == k.s;
+        if (e->key_descr.slen == 0 && k.slen == 0 && !IS_KWNAME_fn(e->key_descr) && !IS_KWNAME_fn(k)) return (e->key_descr.s && k.s) ? strcmp(e->key_descr.s, k.s) == 0 : e->key_descr.s == k.s;
+        if (e->key_descr.slen == 2 && k.slen == 2 && e->key_descr.ptr && k.ptr) {
+            const VCELL_t *va = (const VCELL_t *)e->key_descr.ptr, *vb = (const VCELL_t *)k.ptr;
+            if (va == vb) return 1;
+            if (va->cellp || vb->cellp) return va->cellp == vb->cellp;
+            if (va->tbl || vb->tbl) return va->tbl == vb->tbl && tbl_key_equal(va->key_d, vb->key_d);
+            return 0;
+        }
         return e->key_descr.slen == k.slen && e->key_descr.ptr == k.ptr;
         default:
         return e->key_descr.ptr == k.ptr;
