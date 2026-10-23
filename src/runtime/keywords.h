@@ -11,6 +11,7 @@
 #define G_ERROR_IS_EVAL(e) ((long)(e) >= G_ERROR_EVAL_STAGE && (long)(e) < G_ERROR_EVAL_STAGE + 2 * G_ERROR_EVAL_LEVELS)
 #define G_ERROR_EVAL_ERRED(e) ((long)(e) >= G_ERROR_EVAL_STAGE + G_ERROR_EVAL_LEVELS && (long)(e) < G_ERROR_EVAL_STAGE + 2 * G_ERROR_EVAL_LEVELS)
 #define G_ERROR_EVAL_LEVEL(e) (((long)(e) - G_ERROR_EVAL_STAGE) & (G_ERROR_EVAL_LEVELS - 1))
+#define G_ERROR_EVAL_LOCAL (1L << 23)
 int kw_assign(const char *kw, DESCR_t val);
 int kw_can_assign(const char *kw, DESCR_t val);
 DESCR_t kw_read(const char *kw);

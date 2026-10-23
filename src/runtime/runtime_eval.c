@@ -703,10 +703,17 @@ int rt_eval_open_takes(DESCR_t a) {
     return s && *s && eval_text_takes_chain(s);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long eval_esv_of(long prev) { return G_ERROR_IS_EVAL(prev) ? ((G_ERROR_EVAL_LEVEL(prev) & G_ERROR_EVAL_LOCAL) ? prev : 0) : prev; }
+static long eval_marker_here(long prev) {
+    long lv = g_runtime.abi.kw_fnclevel;
+    long pl = G_ERROR_IS_EVAL(prev) ? (G_ERROR_EVAL_LEVEL(prev) & ~G_ERROR_EVAL_LOCAL) : -1;
+    return G_ERROR_EVAL_AT((lv > 0 && pl != lv) ? (lv | G_ERROR_EVAL_LOCAL) : lv);
+}
 static rt_eval_next_t eval_open(DESCR_t *args, int nargs, eval_frame_t *f, int raise) {
     extern void rt_eval_stage_leave(const char *);
     rt_eval_next_t none = { 0, 0 };
     if (!f) return none;
+    const long pe = g_runtime.abi.error;
     eval_frame_blank(f);
     if (args && nargs == 1 && args[0].v == DT_X) {
         extern int rt_dtx_open_tail(sno_dstar_rec_t *, long *);
@@ -714,11 +721,7 @@ static rt_eval_next_t eval_open(DESCR_t *args, int nargs, eval_frame_t *f, int r
         long rq[2] = { 0, 0 };
         if (!rt_dtx_open_tail(r, rq) || !rq[0]) return none;
         f->flags = INTVAL(16);
-        if (!(r->flags & SNO_DSTAR_STAGEVAR)) {
-            f->flags = INTVAL(16 | 4);
-            f->esv = INTVAL(G_ERROR_IS_EVAL(g_runtime.abi.error) ? 0 : g_runtime.abi.error);
-            g_runtime.abi.error = G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel);
-        }
+        if (!(r->flags & SNO_DSTAR_STAGEVAR)) { f->flags = INTVAL(16 | 4); f->esv = INTVAL(eval_esv_of(pe)); g_runtime.abi.error = eval_marker_here(pe); }
         return (rt_eval_next_t){ rq[0], rq[1] | (1L << 62) };
     }
     if (args && nargs == 1 && args[0].v == DT_E && rt_eval_open_takes(args[0])) {
@@ -728,8 +731,8 @@ static rt_eval_next_t eval_open(DESCR_t *args, int nargs, eval_frame_t *f, int r
         if (tc) *tc = FAILDESCR;
         else NV_SET_fn(EVAL_TMP, FAILDESCR);
         f->flags = INTVAL(4);
-        f->esv = INTVAL(G_ERROR_IS_EVAL(g_runtime.abi.error) ? 0 : g_runtime.abi.error);
-        g_runtime.abi.error = G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel);
+        f->esv = INTVAL(eval_esv_of(pe));
+        g_runtime.abi.error = eval_marker_here(pe);
         return (rt_eval_next_t){ (long)f->fn.i, (long)(uintptr_t)f };
     }
     if (!args || nargs != 1 || !rt_eval_open_takes(args[0])) return none;
@@ -737,8 +740,8 @@ static rt_eval_next_t eval_open(DESCR_t *args, int nargs, eval_frame_t *f, int r
     rt_eval_stage_leave((const char *)0);
     if (eval_frame_open(f, s, raise) < 0) return none;
     f->flags.i |= 4;
-    f->esv = INTVAL(G_ERROR_IS_EVAL(g_runtime.abi.error) ? 0 : g_runtime.abi.error);
-    g_runtime.abi.error = G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel);
+    f->esv = INTVAL(eval_esv_of(pe));
+    g_runtime.abi.error = eval_marker_here(pe);
     return (rt_eval_next_t){ (long)f->fn.i, (long)(uintptr_t)f };
 }
 rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) { return eval_open(args, nargs, f, 0); }
@@ -752,8 +755,8 @@ long rt_conve_chain_open(DESCR_t expr, eval_frame_t *f) {
     if (tc) *tc = FAILDESCR;
     else NV_SET_fn(EVAL_TMP, FAILDESCR);
     f->flags = INTVAL(4);
-    f->esv = INTVAL(G_ERROR_IS_EVAL(g_runtime.abi.error) ? 0 : g_runtime.abi.error);
-    g_runtime.abi.error = G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel);
+    f->esv = INTVAL(eval_esv_of(g_runtime.abi.error));
+    g_runtime.abi.error = eval_marker_here(g_runtime.abi.error);
     return (long)f->fn.i;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
