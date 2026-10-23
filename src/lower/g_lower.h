@@ -81,6 +81,7 @@ typedef struct {
     int uses_stmtkw;
     int traces_a_label;
     int uses_code;
+    int uses_xname;
     int calls_code;
     cv_t predef;
     cv_t tdef;
