@@ -1214,6 +1214,14 @@ static const char rk_proto_methval[] = "Method";
 static const char rk_proto_attrval[] = "Attribute";
 static int rk_is_methval(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_methval; }
 static int rk_is_attrval(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_attrval; }
+static const char rk_proto_sigval[] = "Signature";
+static const char rk_proto_paramval[] = "Parameter";
+static int rk_is_sigval(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_sigval; }
+static int rk_is_paramval(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_paramval; }
+static const char *rk_param_sigil(const char *pn) {
+    size_t n = pn ? strlen(pn) : 0;
+    return (n && (pn[0] == '@' || pn[0] == '%' || pn[0] == '&')) ? (pn[0] == '@' ? "@" : pn[0] == '%' ? "%" : "&") : (n > 6 && !strcmp(pn + n - 6, "__code")) ? "&" : "$";
+}
 static DESCR_t rk_mk_metaval(const char *proto, const char *a, const char *b) {
     DESCR_t el[2] = { STRVAL(rt_heap_strdup_c(a)), STRVAL(rt_heap_strdup_c(b ? b : "")) };
     DESCR_t d = rk_mk_arr(el, b ? 2 : 1);
@@ -15868,6 +15876,21 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             if (!strcmp(mname0, "type") && !ism) { *out = rk_typeobj(rk_cstr(ma.el[0])); return 1; }
             if (!strcmp(mname0, "WHAT")) { *out = rk_typeobj(ism ? "Method" : "Attribute"); return 1; }
         }
+        if (mname0 && rk_is_code(args[0]) && !strcmp(mname0, "signature") && rk_code_name(args[0])) { *out = rk_mk_metaval(rk_proto_sigval, rk_code_name(args[0]), NULL); return 1; }
+        if (mname0 && rk_is_sigval(args[0])) {
+            extern const char *rt_proc_pname(const char *name, int k);
+            const char *pn = rk_cstr(rk_av(args[0]).el[0]);
+            int np = 0;
+            while (pn && rt_proc_pname(pn, np)) np++;
+            if (!strcmp(mname0, "params")) {
+                DESCR_t el[np > 0 ? np : 1];
+                for (int k = 0; k < np; k++) el[k] = rk_mk_metaval(rk_proto_paramval, rt_proc_pname(pn, k), rk_param_sigil(rt_proc_pname(pn, k)));
+                *out = rk_mk_arr(el, np);
+                return 1;
+            }
+            if (!strcmp(mname0, "WHAT")) { *out = rk_typeobj("Signature"); return 1; }
+        }
+        if (mname0 && rk_is_paramval(args[0])) { if (!strcmp(mname0, "sigil")) { *out = rk_av(args[0]).el[1]; return 1; } if (!strcmp(mname0, "WHAT")) { *out = rk_typeobj("Parameter"); return 1; } }
         int maybe = 0;
         if (mname0 && mname0[0] == '?' && mname0[1]) {
             DESCR_t *fa = rt_ws_alloc_descr((size_t) nargs);
