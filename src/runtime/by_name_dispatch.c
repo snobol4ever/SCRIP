@@ -17964,7 +17964,7 @@ static DESCR_t rt_call_name_sn4_rq(const char *fn, DESCR_t *args, int nargs, int
 _Static_assert(G_ERROR_EVAL_STAGE == (-9223372036854775807L - 1), "rtx_misc.s rt_call_bid_sn4 passes g_error by doubling it: only 0 and LONG_MIN double to zero");
 DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen);
 DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
-    if ((g_runtime.abi.error != 0 && g_runtime.abi.error != G_ERROR_EVAL_STAGE) || g_runtime.abi.kw_errlimit != 0 || bidlen < 0 || !(bidlen & BID_BAKE_LEAF))
+    if ((g_runtime.abi.error != 0 && !G_ERROR_IS_EVAL(g_runtime.abi.error)) || g_runtime.abi.kw_errlimit != 0 || bidlen < 0 || !(bidlen & BID_BAKE_LEAF))
         return RT_GC_CALLBACK(rt_call_arr_bl_sn4(fn, args, nargs, bidlen));
     { DESCR_t out = FAILDESCR; if (try_call_builtin_by_name_bl_s(fn, args, nargs, &out, bidlen, 0)) return out; }
     {

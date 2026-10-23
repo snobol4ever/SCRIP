@@ -3019,7 +3019,7 @@ void core_runtime_error(int code, const char *msg) {
     if (!msg && code >= 1 && code <= 39) msg = core_err_msgs[code];
     {
         extern int g_core_errjmp_n;
-        if (g_runtime.abi.error != 0 && g_runtime.abi.error != G_ERROR_EVAL_STAGE && g_core_errjmp_n > 0 && (g_runtime.abi.error == -2 || !(core_setexit_on() && sxl_set()))) {
+        if (g_runtime.abi.error != 0 && !G_ERROR_IS_EVAL(g_runtime.abi.error) && g_core_errjmp_n > 0 && (g_runtime.abi.error == -2 || !(core_setexit_on() && sxl_set()))) {
             if (g_runtime.abi.error > 0) g_runtime.abi.error--;
             extern void rt_kw_publish_error(int code, const char *msg);
             g_runtime.misc.icn_errnumber = code;
@@ -3052,8 +3052,10 @@ void core_runtime_error(int code, const char *msg) {
             }
             aborting = 1;
         }
-        if (!aborting && (g_runtime.abi.kw_errlimit != 0 || g_runtime.abi.error == G_ERROR_EVAL_STAGE) && core_err_survives_errlimit(code) && !core_err_is_fatal(code)) {
+        if (!aborting && (g_runtime.abi.kw_errlimit != 0 || G_ERROR_IS_EVAL(g_runtime.abi.error)) && core_err_survives_errlimit(code) && !core_err_is_fatal(code)) {
             if (g_runtime.abi.kw_errlimit > 0) g_runtime.abi.kw_errlimit--;
+            if (G_ERROR_IS_EVAL(g_runtime.abi.error) && G_ERROR_EVAL_LEVEL(g_runtime.abi.error) == G_ERROR_EVAL_LEVEL(G_ERROR_EVAL_AT(g_runtime.abi.kw_fnclevel))) g_runtime.abi.error =
+                G_ERROR_EVAL_ERRED_AT(g_runtime.abi.kw_fnclevel);
             rt_kw_publish_error(code, msg);
             return;
         }
@@ -3223,7 +3225,7 @@ const char *core_icn_errmsg(int code) { return icn_errmsg(code); }
 void core_icn_startup_error_no_main(void) { fflush(stdout); fprintf(stderr, "scrip: error %d: %s\n  at startup\n", 117, icn_errmsg(117)); exit(1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_error(int code, DESCR_t val) {
-    if (g_runtime.abi.error != 0 && g_runtime.abi.error != G_ERROR_EVAL_STAGE) {
+    if (g_runtime.abi.error != 0 && !G_ERROR_IS_EVAL(g_runtime.abi.error)) {
         g_runtime.abi.error--;
         g_runtime.misc.icn_errnumber = code;
         { const char *_em = icn_errmsg_known(code); g_runtime.misc.icn_errtext = _em ? _em : ""; }
