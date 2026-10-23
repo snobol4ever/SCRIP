@@ -385,6 +385,11 @@ static int sno_pe_walk(const tree_t * t, DESCR_t * v, sno_pe_t * e) {
         case TT_CAPT_IMMED_ASGN:
         if (t->n != 2) break;
         all = sno_pe_walk(t->c[0], &a, e);
+        if (all && !e->code && t->c[1] && t->c[1]->t == TT_INDIRECT && t->c[1]->n == 1 && sno_pe_walk(t->c[1]->c[0], &b, e) && (b.v == DT_P || b.v == DT_E)) {
+            e->code = 239;
+            e->msg = "indirection operand is not name";
+            return 0;
+        }
         if (!t->c[1] || t->c[1]->t != TT_VAR) { sno_pe_walk(t->c[1], &b, e); all = 0; }
         if (!all || e->code) return 0;
         *v = (DESCR_t){ .v = DT_P };
