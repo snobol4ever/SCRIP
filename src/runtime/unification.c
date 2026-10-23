@@ -394,6 +394,32 @@ static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numberva
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_alpha_glue(int ch) { return isalnum((unsigned char)ch) || ch == '_' || ch >= 0x80; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_last_char(pl_cell_t *c, int quoted, int ignore_ops, int numbervars) {
+    pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0;
+    int pr = 0, lm = 0, rm = 0, ar, nid;
+    const char *fn, *n;
+    pl_cell_t *aa;
+    if (!d) return ']';
+    if (pl_cell_unbound(d) || (int)d->v == DT_I || (int)d->v == DT_R || (int)d->v == DT_BIG || pl_rat_is(*d)) return '0';
+    if ((int)d->v == DT_S) { n = plc_atom_text(d); return quoted ? '"' : (n[0] ? (unsigned char)n[strlen(n) - 1] : ' '); }
+    if ((int)d->v == DT_PLATOM) { n = plc_atom_text(d); if (!n[0]) return quoted ? '\'' : ' '; return (quoted && plc_atom_needs_quoting(n)) ? '\'' : (unsigned char)n[strlen(n) - 1]; }
+    if ((int)d->v != DT_PLREF) return '0';
+    ar = plc_fid_arity(d->slen);
+    nid = plc_fid_name(d->slen);
+    fn = prolog_atom_name(nid);
+    aa = (pl_cell_t *)d->p;
+    if (!fn || !fn[0]) return ')';
+    if (numbervars && ar == 1 && !strcmp(fn, "$VAR")) return 'a';
+    if (!ignore_ops && nid == g_runtime.atoms.atom_dot && ar == 2) return ']';
+    if (!ignore_ops && ar == 1 && !strcmp(fn, "{}")) return '}';
+    if (ignore_ops || (ar != 1 && ar != 2) || !plc_op_info_id(nid, ar, &pr, &lm, &rm)) return ')';
+    if (ar == 1 && plc_op_is_postfix_id(nid)) return (unsigned char)fn[strlen(fn) - 1];
+    aa = ar == 2 ? &aa[1] : &aa[0];
+    return (plc_is_op_atom(pl_deref(aa)) || plc_term_prio(aa, ignore_ops) > rm) ? ')' : plc_last_char(aa, quoted, ignore_ops, numbervars);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { long k; pl_cell_t *p; } plc_wsref;
 static DESCR_t *plc_ws_vec(const pl_tr_ctx_t *cx) { return (cx && cx->tr) ? *(DESCR_t **)pl_tr_wslot_slot(pl_tr_base_of(cx->tr)) : (DESCR_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -590,8 +616,13 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                 PLC_KID(&aa[0], depth+1, lop ? 1200 : lmax);
                 if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
                 if (lop) fputc(')', fp);
-                if (isalnum((unsigned char)fn[0]) || fn[0] == '_') fprintf(fp, " %s ", fn);
-                else if (!strcmp(fn, ",") || !strcmp(fn, "|")) {
+                if (isalnum((unsigned char)fn[0]) || fn[0] == '_') {
+                    if (rt_pl_dialect_swi() && !m->space_args) {
+                        int lead = plc_alpha_glue((lop || plc_term_prio(&aa[0], ignore_ops) > lmax) ? ')' : plc_last_char(&aa[0], quoted, ignore_ops, numbervars));
+                        int rf = (rop || plc_term_prio(&aa[1], ignore_ops) > rmax) ? '(' : plc_first_char(&aa[1], quoted, ignore_ops, numbervars);
+                        fprintf(fp, "%s%s%s", lead ? " " : "", fn, (lead || plc_alpha_glue(rf)) ? " " : "");
+                    } else fprintf(fp, " %s ", fn);
+                } else if (!strcmp(fn, ",") || !strcmp(fn, "|")) {
                     fputc(fn[0], fp);
                     if (m->space_args) fputc(' ', fp);
                 } else if (m->space_args) {
