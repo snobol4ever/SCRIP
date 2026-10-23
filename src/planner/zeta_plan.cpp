@@ -111,7 +111,7 @@ int zd_gate_pair_at(IR_t **nodes, int n, int g, int a, int k, int wantb, const u
     IR_t * c = (g >= 0 && wantb && (nodes[k]->op == IR_DISJUNCTION || (int)ir_kind0(nodes[k]) == IR_CALL_PROC_STAGED)) ? zd_chase(nodes[g]->γ.node) : (IR_t *)0;
     int ci = c ? nidx(nodes, n, c) : -1;
     const int * cl = g_emitter.g_zd_claim_p;
-    if (ci >= 0 && zon[ci] && zon[g] && cl && cl[ci] >= 0 && cl[ci] == cl[g] && cl[g] != cl[a]) *rsp += zout[g] - (zout[ci] - zd_k(nodes[ci]));
+    if (ci >= 0 && ci != g && zon[ci] && zon[g] && cl && cl[ci] >= 0 && cl[ci] == cl[g] && cl[g] != cl[a]) *rsp += zout[g] - (zout[ci] - zd_k(nodes[ci]));
     return 1;
 }
 int zd_cl_read(IR_t **nodes, int n, int i, const unsigned char *on, const int *out, const int *xb) {
@@ -576,12 +576,12 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
             }
             for (int h = 0; h < n; h++) if (zon[h] && claim[h] == h && !known[h] && !indef[h]) indef[h] = 1;
         }
-        if (pl && fam) {
+        if (pl && fam) for (int ph = 0; ph < 2; ph++) {
             for (int i = 0; i < n; i++) {
                 if (!zon[i] || claim[i] < 0 || !zd_edge_retains(nodes[i])) continue;
                 int q, b;
                 (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, 0, &q, &b);
-                if (q < 0 || !zon[q] || claim[q] < 0 || known[claim[q]] || fam[claim[q]] >= 0) continue;
+                if (q < 0 || !zon[q] || claim[q] < 0 || known[claim[q]] || fam[claim[q]] >= 0 || (claim[q] == claim[i]) != (ph == 1)) continue;
                 fam[claim[q]] = claim[q]; fbase[claim[q]] = 0 - (zout[q] - (b ? 0 : zd_k(nodes[q])));
             }
             for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) {
@@ -1208,6 +1208,11 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                     int af = fl < 0 ? INT_MIN : fam[ci] == fl ? ai : (cb >= 0 && !known[cb] && fam[cb] == fl) ? fbase[cb] + zout[ub] - zout[ci] + zout[i] : INT_MIN;
                     int ax = (lq >= 0 && claim[lq] >= 0) ? fbase[claim[lq]] + zout[lq] - zd_k(nodes[lq]) : 0;
                     if (af != INT_MIN) { if (v) zwpop[i] = af - zd_k(nodes[i]) - ax; else zgpop[i] = af - ax; continue; }
+                }
+                if (ki == 2 && v && fam[ci] != ci && zd_edge_retains(nodes[q])) {
+                    int ql, qb;
+                    (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, q, 0, &ql, &qb);
+                    if (ql >= 0 && zon[ql] && claim[ql] >= 0 && claim[ql] == fam[ci]) { zwpop[i] = ai - zd_k(nodes[i]) - (fbase[fam[ci]] + zout[ql] - (qb ? 0 : zd_k(nodes[ql]))); continue; }
                 }
                 if (kq != ki || (ki == 2 && fam[ci] != fam[cq])) continue;
                 int aq = (kq == 1 ? base[cq] : fbase[cq]) + zout[q] - (b ? 0 : zd_k(nodes[q]));
