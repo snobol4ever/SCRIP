@@ -729,7 +729,7 @@ static int sno_vl_quiet(const tree_t * t) {
 static IR_t * sno_vlist_arms(scx_t * cx, const tree_t * t, int j, char * tn, IR_t * jn, IR_t * ω) {
     IR_graph_t * g = cx->g;
     IR_t * next = ω;
-    if (j + 1 < t->n) { IR_t * jr = jn; if (j + 2 < t->n) { jr = lc_build(g, IR_VAR, jn, ω); IR_LIT(jr).sval = tn; } next = sno_vlist_arms(cx, t, j + 1, tn, jr, ω); }
+    if (j + 1 < t->n) next = sno_vlist_arms(cx, t, j + 1, tn, jn, ω);
     IR_t * asn = lc_build(g, IR_ASSIGN, jn, next);
     IR_LIT(asn).sval = tn;
     int before = g->n;

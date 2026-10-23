@@ -213,6 +213,26 @@ static const char * rt_coerce_errmsg(int code) {
         return "break evaluated argument is not a string";
         case 45:
         return "breakx evaluated argument is not a string";
+        case 47:
+        return "len evaluated argument is not integer";
+        case 48:
+        return "len evaluated argument is negative or too large";
+        case 50:
+        return "pos evaluated argument is not integer";
+        case 51:
+        return "pos evaluated argument is negative or too large";
+        case 52:
+        return "rpos evaluated argument is not integer";
+        case 53:
+        return "rpos evaluated argument is negative or too large";
+        case 54:
+        return "rtab evaluated argument is not integer";
+        case 55:
+        return "rtab evaluated argument is negative or too large";
+        case 57:
+        return "tab evaluated argument is not integer";
+        case 58:
+        return "tab evaluated argument is negative or too large";
         case 120:
         return "len argument is not integer or expression";
         case 162:
@@ -454,17 +474,27 @@ rt_call_next_t rt_pat_prim_open(const char *varname) {
 void rt_pat_prim_land_γ(DESCR_t frame0, long word) { g_prim_val = rt_call_land_γ(frame0, word); rt_eval_stage_leave_word(word); }
 void rt_pat_prim_land_ω(long word) { g_prim_val = rt_call_land_ω(word); rt_eval_stage_leave_word(word); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_pat_prim_int_take(void) {
+static long rt_pat_prim_int_error(int code) {
+    extern void core_runtime_error(int code, const char *msg);
+    extern uint64_t g_rtccb[32];
+    extern void rt_setexit_continue_tramp(void);
+    core_runtime_error(code, rt_coerce_errmsg(code));
+    if (!g_rtccb[25]) g_rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp;
+    return -1;
+}
+long rt_pat_prim_int_take(long code) {
+    extern int IS_FAIL_fn(DESCR_t);
     DESCR_t v = g_prim_val;
     int64_t r = 0;
     int64_t si = 0;
     double sr = 0;
     int sreal = 0;
-    if (!rt_parse_num_d(&v, &si, &sr, &sreal)) return -1;
+    if (IS_FAIL_fn(v)) return -1;
+    if (!rt_parse_num_d(&v, &si, &sr, &sreal)) return code ? rt_pat_prim_int_error((int)code) : -1;
     if (!sreal) r = si;
-    else if (!isfinite(sr) || sr >= 9.2233720368547758e18 || sr <= -9.2233720368547758e18) return -1;
+    else if (!isfinite(sr) || sr >= 9.2233720368547758e18 || sr <= -9.2233720368547758e18) return code ? rt_pat_prim_int_error((int)code + 1) : -1;
     else r = (int64_t)sr;
-    if (r < 0) return -1;
+    if (r < 0 || r > 16777216) return code ? rt_pat_prim_int_error((int)code + 1) : -1;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

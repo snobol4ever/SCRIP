@@ -110,7 +110,7 @@ extern "C" void rt_tiny_glue_enter(void);
 extern "C" struct gv_s g_call_args;
 extern "C" void rt_pat_prim_land_γ(DESCR_t frame0, long word);
 extern "C" void rt_pat_prim_land_ω(long word);
-extern "C" long rt_pat_prim_int_take(void);
+extern "C" long rt_pat_prim_int_take(long code);
 extern "C" long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes);
 extern "C" long rt_pat_prim_member(int ch, long codes);
 #define GLUE_SAVE() ( \
@@ -388,8 +388,9 @@ static std::string bb_glue_prim_open_enter(int base) {
          + x86_deflabel_id(base + 7);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_prim_int(int base) {
+std::string bb_glue_prim_int(int base, int code) {
     return bb_glue_prim_open_enter(base)
+         + x86("mov", "rdi", (long)code)
          + x86("call", "rt_pat_prim_int_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_int_take)
          + x86_rt_gc_poll_rec_sigma(1);
 }

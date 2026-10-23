@@ -101,7 +101,7 @@ std::string bb_glue_name_or_rec_lea(const char * nm);
 int bb_patv_slot_of(const char * sv);
 std::string bb_glue_patv_args(void);
 std::string bb_glue_patv_cell(const char * reg);
-std::string bb_glue_prim_int(int base);
+std::string bb_glue_prim_int(int base, int code);
 std::string bb_glue_prim_member(int base, int code);
 std::string bb_glue_prim_str(int base, int ptr_d, int ptr_sd, int len_d, int len_sd, int code);
 std::string bb_glue_prim_str_rsp(int base, int ptr_off, int len_off, int code);

@@ -263,6 +263,10 @@ static int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *
 static int zd_omega_test_idx(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t); }
 static int zd_vl_join(const IR_t *last, const IR_t *cur) { return last && cur && last->op == IR_ASSIGN && cur->op == IR_VAR && IR_LIT(last).sval && IR_LIT(cur).sval &&
     !strcmp(IR_LIT(last).sval, IR_LIT(cur).sval); }
+static int zd_vl_sibling(IR_t **nodes, int n, const int *claim, int c, IR_t *cur) {
+    for (int k = 0; k < n; k++) if (claim[k] == c && zd_chase(nodes[k]->γ.node) == cur && zd_vl_join(nodes[k], cur)) return 1;
+    return 0;
+}
 int zd_arrival_depth(IR_t **nodes, int n, int i, const unsigned char *zon, const int *zout, const int *zgp, const int *zwp) {
     int d = -1;
     for (int j = 0; j < n; j++) {
@@ -1055,7 +1059,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
         int vd_tidx = -1;
         if (ok && (pass == 1 || zd_vl_join(nodes[run[rl - 1]], cur))) { vd_tidx = zd_omega_test_idx(nodes, n, nodes[hi]);
             if (vd_tidx >= 0 && claim[vd_tidx] >= 0 && cur) { int _curi = -1; { int k = nidx(nodes, n, cur); if (k >= 0) { _curi = k; } }
-                if (!(_curi >= 0 && claim[_curi] == claim[vd_tidx])) vd_tidx = -1; }
+                if (!(_curi >= 0 && (claim[_curi] == claim[vd_tidx] || (zon[vd_tidx] && zd_vl_sibling(nodes, n, claim, claim[vd_tidx], cur))))) vd_tidx = -1; }
             else vd_tidx = -1; }
         if (ok) { int zd = (vd_tidx >= 0) ? zd_omega_seed(nodes, n, nodes[hi], zon, zout, claim) : 0; int arm_zd = 0; int zdh_match = -1; int zdh_stmt = -1; int zdh_mafter = -1; int zwt = 0;
             if (nblob <= 0) zrm_build(nodes, run, rl);

@@ -185,7 +185,7 @@ DESCR_t rt_call_land_ω(long word);
 rt_call_next_t rt_pat_prim_open(const char *varname);
 void rt_pat_prim_land_γ(DESCR_t frame0, long word);
 void rt_pat_prim_land_ω(long word);
-long rt_pat_prim_int_take(void);
+long rt_pat_prim_int_take(long code);
 long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes);
 long rt_pat_prim_member(int ch, long codes);
 int rt_defer_close(int cur_delta, void *rec);

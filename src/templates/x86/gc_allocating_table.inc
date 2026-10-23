@@ -1924,6 +1924,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_num_pos_sno", GC_RET_DESCR },
     { "rt_nv_cstr", GC_RET_OTHER },
     { "rt_parse_num_d", GC_RET_OTHER },
+    { "rt_pat_prim_int_error", GC_RET_OTHER },
     { "rt_pat_prim_int_take", GC_RET_OTHER },
     { "rt_pat_prim_land_γ", GC_RET_VOID },
     { "rt_pat_prim_member", GC_RET_OTHER },

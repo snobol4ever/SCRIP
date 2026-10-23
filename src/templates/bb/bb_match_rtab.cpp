@@ -12,7 +12,7 @@ std::string bb_match_rtab() {
              + x86_alpha()
              + x86("mov", LFC(0), "r14d")
              + bb_glue_name_or_rec_lea(_.op_sval + 1)
-             + bb_glue_prim_int(50)
+             + bb_glue_prim_int(50, 54)
              + x86("test", "rax", "rax")
              + x86_omega("js")
              + x86("mov", "ecx", "r15d")
