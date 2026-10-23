@@ -56,6 +56,7 @@ void zd_ops_reserve(int n);
 int zd_sr_role(const IR_t * nd);
 int zd_cpos(int i, const int *xb, const int *zout, long *d);
 int zd_gate_pair(IR_t **nodes, int n, int a, int k, int wantb, const unsigned char *zon, const int *zout, const int *xb, long *rsp);
+int zd_gate_pair_at(IR_t **nodes, int n, int g, int a, int k, int wantb, const unsigned char *zon, const int *zout, const int *xb, long *rsp);
 int zd_cl_read(IR_t **nodes, int n, int i, const unsigned char *on, const int *out, const int *xb);
 IR_t * zd_chase(IR_t * t);
 void zd_vdj_live(IR_t ** nodes, int n, int * live);

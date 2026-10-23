@@ -1883,7 +1883,7 @@ static void flat_drive_gate(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_la
         else if (rtgt && rtgt->op != IR_FAIL) { k = nidx(nodes, n, rtgt); if (k >= 0) t = wantb ? betas[k] : lbls[k]; }
         xa_pair_push(NULL, t);
         { int a = arm ? nidx(nodes, n, arm) : -1; long r = 0;
-            if (hold && k >= 0 && a >= 0 && zon[a] && zon[k] && zd_gate_pair(nodes, n, a, k, wantb, zon, zout, xb, &r)) { XA_PAIR(j).rsp = r; continue; } }
+            if (hold && k >= 0 && a >= 0 && zon[a] && zon[k] && zd_gate_pair_at(nodes, n, i, a, k, wantb, zon, zout, xb, &r)) { XA_PAIR(j).rsp = r; continue; } }
         if (xb && k >= 0 && zon[i] && zon[k] && xb[i] != INT_MIN && xb[k] != INT_MIN) XA_PAIR(j).rsp = (xb[i] + zout[i]) - (xb[k] + zout[k] - (wantb ? 0 : zd_k(nodes[k])));
         else if (xb && g_emitter.g_zd_fam_p && g_emitter.g_zd_claim_p && g_emitter.g_zd_gp_p && g_emitter.g_zd_nodes_p == nodes) {
             const int * cl = g_emitter.g_zd_claim_p, * fm = g_emitter.g_zd_fam_p, * fb = g_emitter.g_zd_fbase_p;

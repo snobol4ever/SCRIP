@@ -106,6 +106,14 @@ int zd_gate_pair(IR_t **nodes, int n, int a, int k, int wantb, const unsigned ch
     *rsp = da - dk;
     return 1;
 }
+int zd_gate_pair_at(IR_t **nodes, int n, int g, int a, int k, int wantb, const unsigned char *zon, const int *zout, const int *xb, long *rsp) {
+    if (!zd_gate_pair(nodes, n, a, k, wantb, zon, zout, xb, rsp)) return 0;
+    IR_t * c = (g >= 0 && wantb && (nodes[k]->op == IR_DISJUNCTION || (int)ir_kind0(nodes[k]) == IR_CALL_PROC_STAGED)) ? zd_chase(nodes[g]->γ.node) : (IR_t *)0;
+    int ci = c ? nidx(nodes, n, c) : -1;
+    const int * cl = g_emitter.g_zd_claim_p;
+    if (ci >= 0 && zon[ci] && zon[g] && cl && cl[ci] >= 0 && cl[ci] == cl[g] && cl[g] != cl[a]) *rsp += zout[g] - (zout[ci] - zd_k(nodes[ci]));
+    return 1;
+}
 int zd_cl_read(IR_t **nodes, int n, int i, const unsigned char *on, const int *out, const int *xb) {
     IR_t *nd = nodes[i];
     if ((int) IR_LIT(nd).ival != CLEANUP_OPEN || nd->n_operands < 2 || !nd->operands[1] || !on[i]) return -1;
