@@ -208,6 +208,8 @@ int sno_predef_pattern_name(const char * s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pe_csetcode(tree_e k) { return k == TT_ANY ? 59 : k == TT_NOTANY ? 151 : k == TT_SPAN ? 188 : k == TT_BREAK ? 69 : k == TT_BREAKX ? 70 : 0; }
+static int sno_pe_intcode(tree_e k) { return k == TT_LEN ? 120 : k == TT_POS ? 162 : k == TT_RPOS ? 185 : k == TT_TAB ? 183 : k == TT_RTAB ? 181 : 0; }
+static const char * sno_lead_name(const char * lead, const char * nm);
 static int sno_pe_patfn(tree_e k) {
     return k == TT_ANY || k == TT_NOTANY || k == TT_SPAN || k == TT_BREAK || k == TT_BREAKX || k == TT_LEN || k == TT_POS || k == TT_RPOS || k == TT_TAB || k == TT_RTAB || k == TT_ARBNO ||
         k == TT_FENCE;
@@ -343,6 +345,12 @@ static int sno_pe_walk(const tree_t * t, DESCR_t * v, sno_pe_t * e) {
         return 0;
         case TT_NAME:
         if (t->n == 1 && t->c[0] && t->c[0]->t == TT_VAR) { *v = NAMEVAL(t->c[0]->v.sval); return 1; }
+        if (t->n == 1 && t->c[0] && t->c[0]->t == TT_KEYWORD && t->c[0]->v.sval && t->c[0]->v.sval[0]) {
+            const char * kn = t->c[0]->v.sval;
+            *v = NAMEVAL(sno_lead_name("&&", kn[0] == '&' ? kn + 1 : kn));
+            return 1;
+        }
+        if (t->n == 1 && t->c[0] && t->c[0]->t == TT_DEFER && t->c[0]->n == 1 && t->c[0]->c[0] && t->c[0]->c[0]->t == TT_VAR) { *v = NAMEVAL(t->c[0]->c[0]->v.sval); return 1; }
         break;
         case TT_CAPT_CURSOR:
         if (t->n == 1 && t->c[0] && t->c[0]->t == TT_VAR) { *v = (DESCR_t){ .v = DT_P }; return 1; }
@@ -407,8 +415,11 @@ static int sno_pe_walk(const tree_t * t, DESCR_t * v, sno_pe_t * e) {
         if (!all || e->code) return 0;
         {
             int pc = sno_pe_csetcode(t->t);
+            int ic = sno_pe_intcode(t->t);
             extern const char * rt_coerce_errtext(int);
-            if (pc && t->n == 1 && (IS_NULL_fn(a) || a.v == DT_P)) { e->code = pc; e->msg = rt_coerce_errtext(pc); return 0; }
+            extern int rt_name_textless(DESCR_t);
+            if (pc && t->n == 1 && (IS_NULL_fn(a) || a.v == DT_P || rt_name_textless(a))) { e->code = pc; e->msg = rt_coerce_errtext(pc); return 0; }
+            if (ic && t->n == 1 && a.v == DT_N) { e->code = ic; e->msg = rt_coerce_errtext(ic); return 0; }
         }
         *v = (DESCR_t){ .v = DT_P };
         return 1;
