@@ -190,11 +190,12 @@ static int plc_atom_needs_quoting(const char *name) {
     }
     {
         extern int prolog_u_letter(const char *, int *);
+        extern int rt_pl_dialect_swi(void);
         int all_graphic = 1;
         for (const char *q = name; *q; ) {
             int adv = 1, cp;
             if ((unsigned char)*q < 0x80) { if (!strchr(graphic, *q)) { all_graphic = 0; break; } q++; continue; }
-            if (prolog_u_letter(q, &adv) ||
+            if (!rt_pl_dialect_swi() || prolog_u_letter(q, &adv) ||
                 (cp = rt_pl_u8_get(q, &adv), cp < 0xA0 || cp == 0xA0 || cp == 0x1680 || (cp >= 0x2000 && cp <= 0x200A) || cp == 0x2028 || cp == 0x2029 || cp == 0x202F || cp == 0x205F || cp == 0x3000))
                 {
                 all_graphic = 0;
