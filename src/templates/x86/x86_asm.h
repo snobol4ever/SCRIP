@@ -2226,7 +2226,7 @@ inline std::string x86_pl_choice_mark(const std::string & mark_mem, int l0)
     + x86("def", L(l0 + 4)); }
 inline std::string x86_pl_tr_tidy(int l0)
     { return x86("note",
-        "pl_tr_tidy inline (the trail rule): above the mark of r13, the choice this commit leaves, every entry the trail test would not record under r13 is dropped; "
+        "pl_tr_tidy inline (the trail rule): above the mark of r13, the choice this commit leaves, every entry the trail test would not record under r13 is dropped, and an entry with a pad word (a global's restore, PL_TR_PAD_KEEP) is kept; "
             "never while a wake is pending or call_residue_vars is open, whose readers find their entries by trail offset")
     + x86("test", "r13", "r13")
     + x86("je", L(l0 + 9))
@@ -2244,6 +2244,8 @@ inline std::string x86_pl_tr_tidy(int l0)
     + x86("mov", "rax", RDQ("rsi", 0))
     + x86("test", "rax", "rax")
     + x86("je", L(l0 + 3))
+    + x86("cmp", RDQ("rsi", 8), 0L)
+    + x86("jne", L(l0 + 2))
     + x86("cmp", "rax", "rsp")
     + x86("jbe", L(l0 + 1))
     + x86("mov", "rcx", RDQ("r13", 32))

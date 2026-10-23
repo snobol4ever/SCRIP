@@ -3483,7 +3483,7 @@ int rt_pl_b_set(void *root, int64_t k, void *val, pl_tr_ctx_t *cx) {
         if (*cell) {
             char probe;
             char *floor_ = &probe;
-            if (pl_tr_needs_log(cx, *cell, floor_)) pl_tr_push(cx, *cell);
+            if (pl_tr_needs_log(cx, *cell, floor_)) pl_tr_push_keep(cx, *cell);
             **cell = stored;
         } else {
             pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(1);
@@ -3491,7 +3491,7 @@ int rt_pl_b_set(void *root, int64_t k, void *val, pl_tr_ctx_t *cx) {
             *box = pl_make_int(0);
             box->slen = PLC_GVAR_ABSENT;
             *cell = box;
-            if (cx->b) pl_tr_push(cx, box);
+            if (cx->b) pl_tr_push_keep(cx, box);
             *box = stored;
         }
         return 1;

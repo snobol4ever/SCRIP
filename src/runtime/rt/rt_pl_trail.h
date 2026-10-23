@@ -18,6 +18,7 @@ extern "C" {
 #define PL_TR_WAKE_OFF 48
 #define PL_TR_RESIDUE_OFF 56
 #define PL_TR_PAD_RESIDUE 0x45445352u
+#define PL_TR_PAD_KEEP 0x5045454Bu
 #define PL_ATTV_SLEN 0x56545441u
 #define PL_ATTV_SEEN 0x4E454553u
 #define PL_TR_FRAME_HEADER_BYTES 64
@@ -76,6 +77,7 @@ static inline void pl_tr_push(pl_tr_ctx_t *cx, DESCR_t *cell) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int pl_tr_residue_on(const pl_tr_ctx_t *cx) { return cx && cx->tr && *pl_tr_residue_slot(pl_tr_base_of(cx->tr)) != 0; }
 static inline void pl_tr_push_residue(pl_tr_ctx_t *cx, DESCR_t *cell) { pl_tr_push(cx, cell); ((pl_tr_entry_t *)(cx->tr - PL_TR_ENTRY_BYTES))->pad = PL_TR_PAD_RESIDUE; }
+static inline void pl_tr_push_keep(pl_tr_ctx_t *cx, DESCR_t *cell) { pl_tr_push(cx, cell); ((pl_tr_entry_t *)(cx->tr - PL_TR_ENTRY_BYTES))->pad = PL_TR_PAD_KEEP; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void pl_tr_push_attv(pl_tr_ctx_t *cx, DESCR_t *cell) {
     char *base = pl_tr_base_of(cx->tr);
