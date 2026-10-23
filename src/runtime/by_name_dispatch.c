@@ -9567,11 +9567,18 @@ DESCR_t rt_sno_chknm_d(DESCR_t *args, int nargs) {
     extern int rt_proc_is_registered(const char *);
     extern void core_runtime_error(int, const char *);
     DESCR_t r = nargs > 0 ? args[0] : NULVCL;
-    if (!rt_g_want_name) return r;
+    if (!rt_g_want_name && !(nargs > 1 && args[1].v == DT_S && args[1].s && !strcmp(args[1].s, "APPLY"))) return r;
     rt_g_want_name = 0;
+    const int byn = rt_g_ret_by_name;
+    rt_g_ret_by_name = 0;
     const char * fnm = (nargs > 1 && args[1].v == DT_S && args[1].s) ? args[1].s : "";
-    if (!rt_g_ret_by_name && fnm[0] && rt_proc_is_registered(fnm)) core_runtime_error(21, "function called by name returned a value");
-    else if (nargs > 1 && r.v != DT_N && !IS_FAIL_fn(r) && strcmp(fnm, "EVAL") && strcmp(fnm, "ITEM")) { core_runtime_error(21, "function called by name returned a value"); return FAILDESCR; }
+    if (!byn && fnm[0] && rt_proc_is_registered(fnm)) {
+        core_runtime_error(21, "function called by name returned a value");
+        return FAILDESCR;
+    } else if (nargs > 1 && r.v != DT_N && !IS_FAIL_fn(r) && strcmp(fnm, "EVAL") && strcmp(fnm, "ITEM")) {
+        core_runtime_error(21, "function called by name returned a value");
+        return FAILDESCR;
+    }
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
