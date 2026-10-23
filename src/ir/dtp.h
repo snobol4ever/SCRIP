@@ -38,6 +38,7 @@ typedef struct sno_dstar_rec { char mark[8]; const char *star; int32_t pidx; uin
 #define SNO_DSTAR_THUNK 2u
 #define SNO_DSTAR_EXPRNM 4u
 #define SNO_DSTAR_STAGEVAR 8u
+#define SNO_DSTAR_CALL 16u
 #define SNO_DTX_REC(d) ((sno_dstar_rec_t *)(d).p)
 #define SNO_DSTAR_NONAME "*(expression)"
 static inline const char *sno_dstar_star(const sno_dstar_rec_t *r) { return (r && r->star) ? r->star : SNO_DSTAR_NONAME; }

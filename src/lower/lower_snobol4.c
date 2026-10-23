@@ -4592,7 +4592,9 @@ void sno_expr_thunks_build(int x0) {
         g_stage2.proc_table[xpi].dyn_scope = 1;
         g_stage2.proc_table[xpi].thunk_kind = PROC_THUNK_EXPR;
         g_stage2.proc_table[xpi].thunk_flags =
-            SNO_DSTAR_THUNK | (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).nm ? SNO_DSTAR_EXPRNM : 0u) | (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).svar ? SNO_DSTAR_STAGEVAR : 0u);
+            SNO_DSTAR_THUNK | (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).nm ? SNO_DSTAR_EXPRNM : 0u) | (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).svar ? SNO_DSTAR_STAGEVAR : 0u) |
+            ((CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).expr &&
+            (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).expr->t == TT_FNC || sno_pe_patfn(CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).expr->t))) ? SNO_DSTAR_CALL : 0u);
         g_stage2.proc_table[xpi].stage_var = CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).svar;
         g_stage2.proc_table[xpi].result_name = CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).name;
         g_stage2.proc_table[xpi].bb_idx = bb_program_add(&g_stage2.bbp, gx);

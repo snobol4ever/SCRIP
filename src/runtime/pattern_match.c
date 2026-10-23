@@ -854,7 +854,7 @@ void rt_defer_pairs_forget(void) {
 #include "pin_va.h"
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
 static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag);
-static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name, trace_pend_t *pend);
+static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name, trace_pend_t *pend, int vcode);
 #define g_dcap_top (*(const char **)RT_DCAP_TOP)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 size_t rt_dcap_island_bytes(void) {
@@ -944,6 +944,16 @@ static void dcf_stage_leave(const char *s) {
     if (r && (r->flags & SNO_DSTAR_THUNK)) rt_eval_stage_leave_var((r->flags & SNO_DSTAR_STAGEVAR) ? 1 : 0);
     else rt_eval_stage_leave(s ? dcf_name(s) + 1 : (const char *)0);
 }
+static int rt_cap_valerr(const sno_dstar_rec_t *srec) {
+    if (!srec) return 21;
+    if (srec->flags & SNO_DSTAR_VARREF) return 0;
+    if (!(srec->flags & SNO_DSTAR_THUNK)) return 21;
+    return (srec->flags & SNO_DSTAR_CALL) ? 21 : 249;
+}
+static void rt_cap_raise_val(int code) {
+    extern void core_runtime_error(int, const char *);
+    if (code) core_runtime_error(code, code == 21 ? "function called by name returned a value" : "expression evaluated by name returned value");
+}
 static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
     extern DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
     extern int rt_g_ret_by_name;
@@ -972,6 +982,7 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
         if (g_runtime.abi.dcap_trace)
             fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: returned a VALUE not a NAME (by_name=0, nm.v=%d, nm.slen=%u, nm.s=%.24s) -> rc=1 (match will fail at END)\n", dcf_name(c->star), (int)nm.v,
             nm.slen, (nm.v == DT_S && nm.s) ? nm.s : "?");
+        rt_cap_raise_val(rt_cap_valerr(srec));
         c->rc = 1;
         return 1;
     }
@@ -981,7 +992,7 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
         fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", dcf_name(c->star));
         return 0;
     }
-    if (strict && !by_name) { c->rc = 1; return 1; }
+    if (strict && !by_name) { rt_cap_raise_val(rt_cap_valerr(srec)); c->rc = 1; return 1; }
 #endif
     if (IS_STR_fn(nm)) {
         const char *ns = VARVAL_fn(nm);
@@ -1042,7 +1053,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
                 void *hv = *(void **)(void *)e2->varname;
                 DESCR_t nm = patv_slot(hv, (long)e2->saved_delta, NULL, 0);
                 if (!IS_VARREF_fn(nm)) { rt_bomb("rt_dcap_pump: an element-target capture found no NAME in its pattern's snap vector"); continue; }
-                rt_cap_target_finish(nm, matched, 1, &c->pend);
+                rt_cap_target_finish(nm, matched, 1, &c->pend, 0);
                 if (c->pend.args[0].v) return (rt_dcap_next_t){ 2, 0 };
             }
             continue;
@@ -1229,10 +1240,10 @@ typedef struct { DESCR_t matched; DESCR_t wsv; DESCR_t asv; DESCR_t nmy; trace_p
 _Static_assert(sizeof(rt_capo_t) == 176 && offsetof(rt_capo_t, pend) == 64,
     "bb_match_capture.cpp carves the computed-name capture record as 176 bytes of spine cells: four cells and the pending value trace at +64, whose first cell the box zeroes");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name, trace_pend_t *pend) {
+static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name, trace_pend_t *pend, int vcode) {
     extern DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
     if (IS_FAIL_fn(nm)) return rt_cap_fail_retreat() ? -1 : 0;
-    if (rt_cap_name_strict() && !by_name) { g_cap_abort_gen = g_runtime.abi.cap_gen; return 0; }
+    if (rt_cap_name_strict() && !by_name) { rt_cap_raise_val(vcode); g_cap_abort_gen = g_runtime.abi.cap_gen; return 0; }
     if (IS_STR_fn(nm)) {
         const char *ns = VARVAL_fn(nm);
         if (ns && *ns) NV_SET_p_fn(ns, matched, pend);
@@ -1277,7 +1288,9 @@ rt_dcap_next_t c_rt_cap_open(const char *varname, int saved_delta, int cur_delta
                 rec->matched = matched;
                 rec->wsv = INTVAL((long long)wsv);
                 rec->asv = INTVAL((long long)g_cap_abort_gen);
-                rec->nmy = INTVAL((long long)((srec->flags & SNO_DSTAR_EXPRNM) ? 1 : 0));
+                rec->nmy =
+                    INTVAL((long long)
+                    (((srec->flags & SNO_DSTAR_EXPRNM) ? 1 : 0) | ((srec->flags & SNO_DSTAR_CALL) ? 2 : 0) | (((srec->flags & (SNO_DSTAR_THUNK | SNO_DSTAR_VARREF)) == SNO_DSTAR_THUNK) ? 4 : 0)));
                 rt_g_want_name = 1;
                 { rt_dcap_next_t n = rt_call_open_staged_rec(srec, &reg); if (!n.fn) { rt_g_want_name = wsv; return (rt_dcap_next_t){ 0, 0 }; } return n; }
             }
@@ -1292,13 +1305,13 @@ rt_dcap_next_t c_rt_cap_open(const char *varname, int saved_delta, int cur_delta
                     {
                         int by_name = rt_g_ret_by_name || nmyield;
                         rt_g_ret_by_name = 0;
-                        { long r = rt_cap_target_finish(nm, matched, by_name, &rec->pend); return (rt_dcap_next_t){ (!r && rec->pend.args[0].v) ? 2 : r, 0 }; }
+                        { long r = rt_cap_target_finish(nm, matched, by_name, &rec->pend, 0); return (rt_dcap_next_t){ (!r && rec->pend.args[0].v) ? 2 : r, 0 }; }
                     }
                 }
                 rec->matched = matched;
                 rec->wsv = INTVAL((long long)wsv);
                 rec->asv = INTVAL((long long)g_cap_abort_gen);
-                rec->nmy = INTVAL((long long)nmyield);
+                rec->nmy = INTVAL((long long)nmyield | 2);
                 rt_g_want_name = 1;
                 {
                     rt_dcap_next_t n = rt_call_open_by_name(tn, 0);
@@ -1323,9 +1336,9 @@ long rt_cap_land_γ(DESCR_t frame0, long word, rt_capo_t *rec) {
         int by_name;
         g_cap_abort_gen = (uint32_t)rec->asv.i;
         rt_g_want_name = (int)rec->wsv.i;
-        by_name = rt_g_ret_by_name || (int)rec->nmy.i;
+        by_name = rt_g_ret_by_name || (int)(rec->nmy.i & 1);
         rt_g_ret_by_name = 0;
-        { long r = rt_cap_target_finish(nm, matched, by_name, &rec->pend); return (!r && rec->pend.args[0].v) ? 2 : r; }
+        { long r = rt_cap_target_finish(nm, matched, by_name, &rec->pend, (rec->nmy.i & 2) ? 21 : (rec->nmy.i & 4) ? 249 : 0); return (!r && rec->pend.args[0].v) ? 2 : r; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1339,7 +1352,7 @@ long rt_cap_land_ω(long word, rt_capo_t *rec) {
     g_cap_abort_gen = (uint32_t)rec->asv.i;
     rt_g_want_name = (int)rec->wsv.i;
     rt_g_ret_by_name = 0;
-    { long r = rt_cap_target_finish(nm, rec->matched, 0, &rec->pend); return (!r && rec->pend.args[0].v) ? 2 : r; }
+    { long r = rt_cap_target_finish(nm, rec->matched, 0, &rec->pend, (rec->nmy.i & 2) ? 21 : (rec->nmy.i & 4) ? 249 : 0); return (!r && rec->pend.args[0].v) ? 2 : r; }
 }
 extern const char *Σ;
 extern int Σlen;
@@ -1761,7 +1774,7 @@ long rt_cap_assign_patv(void *hv, long i, const char *fb, int saved_delta, int c
         char *copy = rt_str_alloc(len);
         if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
         DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
-        rt_cap_target_finish(nm, matched, 1, &pend);
+        rt_cap_target_finish(nm, matched, 1, &pend, 0);
     }
     return 0;
 }
