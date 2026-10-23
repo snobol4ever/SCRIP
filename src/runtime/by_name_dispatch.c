@@ -1658,6 +1658,101 @@ static int rk_rx_subst_run(DESCR_t subjD, DESCR_t patD, DESCR_t replD, const RkR
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_trans_has_rx(const DESCR_t *margs, int nmargs) {
+    int rx = 0;
+    for (int i = 0; i < nmargs; i++) {
+        if (!rk_is_pair(margs[i])) continue;
+        rk_av_t fp = rk_av(margs[i]);
+        if (fp.n < 2) continue;
+        if (rk_is_code(fp.el[1])) return 0;
+        if (fp.el[1].v == DT_A && fp.el[1].arr && !rk_is_pair(fp.el[1])) { rk_av_t va = rk_av(fp.el[1]); for (int j = 0; j < va.n; j++) if (rk_is_code(va.el[j])) return 0; }
+        if (rk_rx_pat(fp.el[0])) rx = 1;
+        if (fp.el[0].v == DT_A && fp.el[0].arr && !rk_is_pair(fp.el[0]) && !rk_is_range(fp.el[0])) { rk_av_t ka = rk_av(fp.el[0]); for (int j = 0; j < ka.n; j++) if (rk_rx_pat(ka.el[j])) rx = 1; }
+    }
+    return rx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_trans_rx(DESCR_t subjD, const DESCR_t *margs, int nmargs, DESCR_t *out) {
+    int total = 0;
+    for (int i = 0; i < nmargs; i++) {
+        if (!rk_is_pair(margs[i])) continue;
+        rk_av_t fp = rk_av(margs[i]);
+        if (fp.n < 2 || (!rk_rx_pat(fp.el[0]) && IS_STR_fn(fp.el[0]) && !strcmp(rk_cstr(fp.el[0]), "__trans_flags"))) continue;
+        total += fp.el[0].v == DT_A && fp.el[0].arr && !rk_is_pair(fp.el[0]) && !rk_is_range(fp.el[0]) ? rk_av(fp.el[0]).n : 1;
+    }
+    DESCR_t items[2 * total + 1];
+    int np = 0;
+    items[0] = subjD;
+    for (int i = 0; i < nmargs; i++) {
+        if (!rk_is_pair(margs[i])) continue;
+        rk_av_t fp = rk_av(margs[i]);
+        if (fp.n < 2 || (!rk_rx_pat(fp.el[0]) && IS_STR_fn(fp.el[0]) && !strcmp(rk_cstr(fp.el[0]), "__trans_flags"))) continue;
+        int ka = fp.el[0].v == DT_A && fp.el[0].arr && !rk_is_pair(fp.el[0]) && !rk_is_range(fp.el[0]);
+        int nk = ka ? rk_av(fp.el[0]).n : 1;
+        int va = fp.el[1].v == DT_A && fp.el[1].arr && !rk_is_pair(fp.el[1]) && !rk_is_range(fp.el[1]);
+        int nv = va ? rk_av(fp.el[1]).n : 1;
+        for (int j = 0; j < nk; j++) { items[1 + 2 * np] = ka ? rk_av(fp.el[0]).el[j] : fp.el[0]; items[2 + 2 * np] = va ? (nv ? rk_av(fp.el[1]).el[j < nv ? j : nv - 1] : NULVCL) : fp.el[1]; np++; }
+    }
+    rk_cbh_t H = { g_rk_cbh_cur, { rk_mk_arr(items, 2 * np + 1), rk_mk_arr(NULL, 0) } };
+    g_rk_cbh_cur = &H;
+    int pos = 0, last_end = 0, count = 0;
+    for (;;) {
+        rk_av_t hv = rk_av(H.d[0]);
+        const char *subj = rk_cstr(hv.el[0]);
+        int slen = (int) strlen(subj);
+        if (pos > slen) break;
+        int best = -1, bfrom = 0, bto = 0;
+        for (int k = 0; k < np; k++) {
+            DESCR_t kd = hv.el[1 + 2 * k];
+            const char *pat = rk_rx_pat(kd);
+            int mf = 0, mt = 0;
+            if (pat) {
+                RxEnv renv;
+                RxProg *prog = rk_rx_compile(&renv, "", pat, 0);
+                RxMatch rm;
+                if (!prog || !rx_exec(prog, subj, slen, pos, 1, &rm)) continue;
+                mf = rm.from;
+                mt = rm.to;
+            } else {
+                const char *ks = rk_cstr(kd);
+                int kl = (int) strlen(ks);
+                if (kl == 0 || pos + kl > slen || memcmp(subj + pos, ks, (size_t) kl)) continue;
+                mf = pos;
+                mt = pos + kl;
+            }
+            if (mt > mf && (best < 0 || mt - mf > bto - bfrom)) { best = k; bfrom = mf; bto = mt; }
+        }
+        if (best < 0) { pos = rk_rx_step(subj, slen, pos); continue; }
+        DESCR_t kd = hv.el[1 + 2 * best], rd = hv.el[2 + 2 * best];
+        const char *pat = rk_rx_pat(kd);
+        if (pat) {
+            RxEnv renv;
+            RxProg *prog = rk_rx_compile(&renv, "", pat, 0);
+            RxMatch rm;
+            if (prog && rx_exec(prog, subj, slen, pos, 1, &rm)) { rk_rx_to_match(&g_match, prog, &rm); g_subject = subj; }
+        }
+        rk_arr_append((ARBLK_t *) H.d[1].arr, rk_rx_piece_str(subj, last_end, bfrom));
+        char rb[64];
+        const char *rt = to_cstring(rd, rb, sizeof rb);
+        rk_arr_append((ARBLK_t *) H.d[1].arr, STRVAL(rt_heap_strdup_c(rt ? rt : "")));
+        last_end = bto;
+        count++;
+        pos = bto;
+    }
+    g_rk_cbh_cur = H.prev;
+    const char *subj = rk_cstr(rk_av_elem(rk_av(H.d[0]), 0));
+    rk_arr_append((ARBLK_t *) H.d[1].arr, rk_rx_piece_str(subj, last_end, (int) strlen(subj)));
+    rk_av_t pv = rk_av(H.d[1]);
+    size_t tot = 0;
+    for (int i = 0; i < pv.n; i++) tot += strlen(rk_cstr(pv.el[i]));
+    char *res = (char *) rt_str_alloc((long) tot + 1);
+    size_t k = 0;
+    for (int i = 0; i < pv.n; i++) { const char *t = rk_cstr(pv.el[i]); size_t l = strlen(t); memcpy(res + k, t, l); k += l; }
+    res[k] = 0;
+    *out = STRVAL(res);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_tr_cp(const char *s, int *i) {
     unsigned char c = (unsigned char) s[*i];
     if (c < 0x80) { (*i)++; return c; }
@@ -3845,6 +3940,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "lines")) { *out = rk_lines_arr(s, n); return 1; }
     if (!strcmp(meth, "elems")) { *out = INTVAL(s[0] ? 1 : 0); return 1; }
     if (!strcmp(meth, "trans") && nmargs >= 1) {
+        if (rk_trans_has_rx(margs, nmargs)) return rk_trans_rx(STRVAL(rt_heap_strdup_c(s)), margs, nmargs, out);
         int np = 0, total = 0, ne = 0, flags = 0;
         for (int i = 0; i < nmargs; i++) {
             if (!rk_is_pair(margs[i])) continue;
