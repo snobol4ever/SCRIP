@@ -2671,7 +2671,7 @@ static const char * sno_capt_name(const tree_t * tgt) {
     if (!tgt) return NULL;
     if (tgt->t == TT_VAR) return tgt->v.sval;
     if (tgt->t == TT_KEYWORD && tgt->v.sval && tgt->v.sval[0]) { const char * kn = tgt->v.sval; return sno_lead_name("&&", kn[0] == '&' ? kn + 1 : kn); }
-    if (tgt->t == TT_INDIRECT && tgt->n > 0 && tgt->c[0] && tgt->c[0]->t == TT_QLIT) return tgt->c[0]->v.sval;
+    if (tgt->t == TT_INDIRECT && tgt->n > 0 && tgt->c[0] && tgt->c[0]->t == TT_QLIT) return (tgt->c[0]->v.sval && tgt->c[0]->v.sval[0]) ? tgt->c[0]->v.sval : NULL;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
