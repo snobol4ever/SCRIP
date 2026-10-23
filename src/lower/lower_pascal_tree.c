@@ -3107,6 +3107,8 @@ static long long pas_nafield_lo_get(const tree_t *e) {
     for (int i = 0; i < g_lower.pas.sem.pas_nnafield; i++) if (g_lower.pas.sem.pas_nafield_marks[i] == (tree_t *)e) return g_lower.pas.sem.pas_nafield_lo[i];
     return 0;
 }
+static void pas_flat_mark_add(tree_t *e) { if (e) pnl_push(&g_lower.pas.sem.pas_flat_marks, e); }
+static int pas_flat_marked(const tree_t *e) { for (int i = 0; i < g_lower.pas.sem.pas_flat_marks.count; i++) if (g_lower.pas.sem.pas_flat_marks.items[i] == e) return 1; return 0; }
 static void pas_cvfield_mark_add(tree_t *e) { if (g_lower.pas.sem.pas_ncvfield < 2048 && e) g_lower.pas.sem.pas_cvfield_marks[g_lower.pas.sem.pas_ncvfield++] = e; }
 static int pas_is_cvfield(const tree_t *e) { for (int i = 0; i < g_lower.pas.sem.pas_ncvfield; i++) if (g_lower.pas.sem.pas_cvfield_marks[i] == (tree_t *)e) return 1; return 0; }
 static int pas_ca_is_read(const tree_t *e) { return e && e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_ca_unpack"); }
@@ -6941,10 +6943,11 @@ static pval E_selector(const tree_t *n) {
                     ast_push(e, v[1].node);
                     ast_push(e, flat);
                     _fl2 = pas_array_ischar2d(v[1].node->v.sval);
+                    pas_flat_mark_add(e);
                 }
             }
             if (!e && v[3].list && v[3].list->count == 1 && v[1].node && v[1].node->t == TT_IDX && v[1].node->n == 2 && v[1].node->c[0] && v[1].node->c[0]->t == TT_VAR && v[1].node->c[0]->v.sval &&
-                !pas_is_nafield(v[1].node)) {
+                !pas_is_nafield(v[1].node) && !pas_flat_marked(v[1].node)) {
                 long long _nc2 = pas_array_ncols(v[1].node->c[0]->v.sval);
                 if (_nc2 > 0) {
                     tree_t *flat2 = bin(TT_ADD, bin(TT_MUL, v[1].node->c[1], ilit(_nc2)), v[3].list->items[0]);
@@ -6952,6 +6955,7 @@ static pval E_selector(const tree_t *n) {
                     ast_push(e, v[1].node->c[0]);
                     ast_push(e, flat2);
                     _fl2 = pas_array_ischar2d(v[1].node->c[0]->v.sval);
+                    pas_flat_mark_add(e);
                 }
             }
             if (!e) {
