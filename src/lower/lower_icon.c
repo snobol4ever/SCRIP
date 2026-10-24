@@ -872,9 +872,9 @@ static int icn_scan_kind_for(const char * s) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_retag_scan_body(IR_graph_t * g, int depth) {
-    if (!g || !g->all || depth > 16) return;
-    for (int i = 0; i < g->n; i++) {
+static void icn_retag_scan_body(IR_graph_t * g, int lo) {
+    if (!g || !g->all || lo < 0) return;
+    for (int i = lo; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
         if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN || nd->op == IR_CALL_ICON || nd->op == IR_CALL_BUILTIN_GEN) && IR_LIT(nd).sval && nd->n_operands == 1) {
@@ -955,7 +955,7 @@ static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * 
     IR_t * body_beta = cx->beta;
     for (int _si = scan_body_lo; _si < cx->g->n; _si++) if (cx->g->all[_si]) cx->g->all[_si]->in_scan = 1;
     if (bv) ir_operand_push(leave_succ, bv);
-    icn_retag_scan_body(cx->g, 0);
+    icn_retag_scan_body(cx->g, scan_body_lo);
     lc_γ_to(enter, b_entry);
     cx->beta = ω;
     IR_t * sr = NULL;
