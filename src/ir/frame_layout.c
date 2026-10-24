@@ -1366,6 +1366,7 @@ void zls_build(IR_graph_t * g) {
         if (!blk) zls_field(root, 16 + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
     }
     int hf = g->home_frame ? 1 : 0;
+    r->hf = hf;
     if (hf) k = zls_frame_words(g, r, root, base, k, rb, nix, nix_cap, 1);
     int cur = 0;
     {
@@ -1509,7 +1510,6 @@ void zls_build(IR_graph_t * g) {
         ct_drop(rec);
         if (lv != lv_sbuf) ct_drop(lv);
     }
-    r->hf = hf;
     if (!hf) k = zls_frame_words(g, r, root, base, k, rb, nix, nix_cap, 0);
     ct_drop(nix);
     r->nslots = k;
@@ -1987,7 +1987,8 @@ static int zls_edge_retains(const IR_graph_t * g, const IR_t * nd) { extern int 
 static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
     return nd &&
         (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) ||
-        (zls_g_resumable_frame(g) && ((zls_home_why(nd) && !ir_node_produces_value(nd->op)) || zls_home_dyn(g, nd) || zls_edge_retains(g, nd)))) ? 1 : 0;
+        (zls_g_resumable_frame(g) &&
+        ((zls_home_why(nd) && !ir_node_produces_value(nd->op)) || zls_home_dyn(g, nd) || zls_edge_retains(g, nd) || (zls_g_home_frame(g) && (nd->op == IR_BOUND || nd->op == IR_GATE))))) ? 1 : 0;
 }
 int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }
 int zls_redisp_off(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_RO); return t ? t->ro : -1; }
