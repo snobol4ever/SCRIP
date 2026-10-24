@@ -761,6 +761,8 @@ static void pl_pop_vet(lcx_t * cx, int from) {
     }
     if (any && bad) for (int k = from; k < cx->g->n; k++) { IR_t * x = cx->g->all[k]; if (x && x->op == IR_CALL_PROC_STAGED && x->seal == PL_SEAL_TAIL_POP) x->seal = PL_SEAL_TAIL; }
 }
+static const tree_t * pl_atom_goal(const char * nm);
+static tree_t * pl_cc_fnc2(const char * f, tree_t * a, tree_t * b);
 static IR_t * pl_lower_disj(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     int tail = cx->tail, tail_pop = cx->tail_pop;
     cx->tail = 0;
@@ -769,8 +771,19 @@ static IR_t * pl_lower_disj(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * 
     lc_vec_init(&bv, (int) sizeof(const tree_t *));
     collect_disj(t, &bv);
     const tree_t * const * br = (const tree_t * const *) bv.data;
+    const tree_t * wide[32];
     int nb = bv.n;
-    if (nb > 32) pl_refuse("disjunction wider than 32 branches", ";", 3);
+    if (nb > 32) {
+        int ite = 0;
+        const tree_t * rest = br[nb - 1];
+        for (int j = 0; j < nb; j++) if (br[j] && br[j]->t == TT_FNC && br[j]->v.sval && br[j]->n == 2 && (!strcmp(br[j]->v.sval, "->") || !strcmp(br[j]->v.sval, "*->"))) ite = 1;
+        if (ite) pl_refuse("disjunction wider than 32 branches with an if-then arm", ";", 3);
+        for (int j = nb - 2; j >= 31; j--) rest = pl_cc_fnc2(";", (tree_t *) br[j], (tree_t *) rest);
+        for (int j = 0; j < 31; j++) wide[j] = br[j];
+        wide[31] = pl_cc_fnc2(",", (tree_t *) pl_atom_goal("true"), (tree_t *) rest);
+        br = wide;
+        nb = 32;
+    }
     IR_t * dj = build(cx, IR_DISJUNCTION, γnext, ωfail);
     for (int j = 0; j < nb; j++) {
         int before = cx->g->n;
