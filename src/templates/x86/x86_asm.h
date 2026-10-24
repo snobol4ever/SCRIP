@@ -1099,12 +1099,16 @@ inline const char * x86_zop(int off, int q, int bump) {
             "FATAL x86_zop: offset %d is a key with no frame bytes behind it, addressed through the frame -- a keys-only graph, or a key past a home-frame graph's resident region (zls_key_unbacked, "
             "ceo CEO-1864/1884) op=%d regime=%d zres=%d own=%d k_own=%d\n",
             off, _.node ? (int) _.node->op : -1, r, _.op_zres, _.node ? zls_off(_.node) : -1, _.node ? zd_k_own(_.node) : -1);
+            fprintf(stderr, "FATAL x86_zop: at node %s own=%d k_own=%d op_sa=%d op_off=%d\n", _.node ? bb_op_name(_.node->op) : "NONE", _.node ? zls_off(_.node) : -1, _.node ? zd_k_own(_.node) : -1,
+                _.op_sa, _.op_off);
             abort(); }
     if (r != 2 && icn_frame_rbp()) { zsm_frame_addr(off, -1, 0); return q ? RDQ("rbp", off - gen_frame_top()) : RDD("rbp", off - gen_frame_top()); }
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
         eff = off - _.op_fc_base + bump; spine = 1; }
-    else if (x86_resumable_frame() && x86_hb_on() && !x86_fb_data() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 0); x86_zop_note(3); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
-    else if (g_emit.zframe_graph && g_emit.frame_retained && x86_hb_on() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 0); x86_zop_note(3); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
+    else if (x86_resumable_frame() && x86_hb_on() && !x86_fb_data() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 0); x86_zop_note(3);
+        snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
+    else if (g_emit.zframe_graph && g_emit.frame_retained && x86_hb_on() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 0); x86_zop_note(3);
+        snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off); return b[i]; }
     else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 1); eff = x86_frame_off(off) + bump; spine = 1; }
     else if (_.op_zf_unpinned && _.op_zres && !x86_fb_data() && !_.op_stmt_dyn) { zsm_frame_addr(off, -1, 1); eff = off + _.op_zabs; spine = 1; }
     else { zsm_frame_addr(off, -1, 0); eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
@@ -2206,7 +2210,8 @@ inline std::string x86_pl_choice_mark(const std::string & mark_mem, int l0)
     + x86("def", L(l0 + 4)); }
 inline std::string x86_pl_tr_tidy(int l0)
     { return x86("note",
-        "pl_tr_tidy inline (the trail rule): above the mark of r13, the choice this commit leaves, every entry the trail test would not record under r13 is dropped, and an entry with a pad word (a global's restore, PL_TR_PAD_KEEP) is kept; "
+        "pl_tr_tidy inline (the trail rule): above the mark of r13, the choice this commit leaves, every entry the trail test would not record under r13 is dropped, and an entry with a pad word "
+            "(a global's restore, PL_TR_PAD_KEEP) is kept; "
             "never while a wake is pending or call_residue_vars is open, whose readers find their entries by trail offset")
     + x86("test", "r13", "r13")
     + x86("je", L(l0 + 9))

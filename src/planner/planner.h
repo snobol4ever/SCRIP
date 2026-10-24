@@ -59,6 +59,7 @@ int zd_gate_pair(IR_t **nodes, int n, int a, int k, int wantb, const unsigned ch
 int zd_gate_pair_at(IR_t **nodes, int n, int g, int a, int k, int wantb, const unsigned char *zon, const int *zout, const int *xb, long *rsp);
 int zd_cl_read(IR_t **nodes, int n, int i, const unsigned char *on, const int *out, const int *xb);
 IR_t * zd_chase(IR_t * t);
+int zd_yield_end(IR_t ** nodes, int n, int sp, const unsigned char * zon, const int * claim);
 void zd_vdj_live(IR_t ** nodes, int n, int * live);
 int zd_nops(IR_t * nd);
 void zd_rec_arm(IR_t ** nodes, int i);
