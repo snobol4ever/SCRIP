@@ -251,6 +251,7 @@ static int zls_act8_kind(const IR_graph_t * g, const IR_t * nd) {
     return ZK_PTR_CODE;
 }
 static int zls_g_pinned_frame(const IR_graph_t * g);
+static int zls_edge_retains(const IR_graph_t * g, const IR_t * nd);
 static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
     if (lower_call_node_is_curmov(nd)) {
         zls_field(scope_id, off, 8, ZK_RAW, 0, "call.cursor (r14, the scan cursor, banked at alpha by a by-name tab or move and restored at beta: the reversible effect undone on resume)", nd);
@@ -571,7 +572,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         default:
         if (ir_kind0(nd) == IR_CALL || ir_is_call_kind(ir_kind0(nd))) {
             if (ir_kind0(nd) == IR_CALL_PROC_STAGED) {
-                if (!zls_callee_is_gen(nd)) return 0;
+                if (!zls_callee_is_gen(nd) && !(g->home_frame && zls_g_resumable_frame(g) && zls_edge_retains(g, nd))) return 0;
                 zls_field(scope_id, off, 8, zls_act_kind(g, nd), 0,
                     "callgen.act +0 (ZK_RAW, or ZK_PTR_FRAME on a pinned caller's Prolog arm: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that "
                     "opened a NON-RESUMABLE callee -- a plain procedur"

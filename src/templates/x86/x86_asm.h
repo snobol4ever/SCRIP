@@ -1170,6 +1170,8 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * FRQ(int off) { return x86_zop(off, 1, 0); }
 inline const char * FRQB(int off, int bump) { return x86_zop(off, 1, bump); }
+extern "C" int zls_g_home_frame(const IR_graph_t * g);
+inline const char * x86_frame_top() { return zls_g_home_frame(g_emit_cfg) ? RDQ("rbp", g_emit.flat_frame_bytes) : FRQ(g_emit.flat_frame_bytes); }
 inline const char * ROQ(int n) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
 inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * ABSQ(unsigned long va) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%lu]", va); return b[i]; }
@@ -2327,12 +2329,12 @@ inline std::string x86_pl_scc_release_check(const char * fb, int kt, int l_ok) {
 inline std::string x86_pl_ball_rec_probe() { return x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", "rax", RDQ("rax", 32)) + x86("test", "rax", "rax"); }
 inline std::string x86_pl_ball_rule(int l_go, int l_skip) {
     if (!emit_pl_scc_armed()) return x86("test", "r15", "r15") + x86("jne", L(l_skip));
-    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86("je", L(l_skip)) + x86("lea", "rdx", FRQ(g_emit.flat_frame_bytes)) + x86("cmp", "rax", "rdx") +
+    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86("je", L(l_skip)) + x86("lea", "rdx", x86_frame_top()) + x86("cmp", "rax", "rdx") +
         x86("jae", L(l_skip)) + x86("def", L(l_go));
 }
 inline std::string x86_pl_ball_rule_omega(int l_go) {
     if (!emit_pl_scc_armed()) return x86("test", "r15", "r15") + x86_omega("jne");
-    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86_omega("je") + x86("lea", "rdx", FRQ(g_emit.flat_frame_bytes)) + x86("cmp", "rax", "rdx") +
+    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86_omega("je") + x86("lea", "rdx", x86_frame_top()) + x86("cmp", "rax", "rdx") +
         x86_omega("jae") + x86("def", L(l_go));
 }
 inline std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "pl_tr_unwind: pop the r12 trail to the mark, inline") + x86("mov", "rsi", mark_mem) +
