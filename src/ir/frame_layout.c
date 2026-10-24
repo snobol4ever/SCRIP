@@ -1989,7 +1989,8 @@ static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
     return nd &&
         (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) ||
         (zls_g_resumable_frame(g) &&
-        ((zls_home_why(nd) && !ir_node_produces_value(nd->op)) || zls_home_dyn(g, nd) || zls_edge_retains(g, nd) || (zls_g_home_frame(g) && (nd->op == IR_BOUND || nd->op == IR_GATE))))) ? 1 : 0;
+        ((zls_home_why(nd) && !ir_node_produces_value(nd->op)) || zls_home_dyn(g, nd) || zls_edge_retains(g, nd) ||
+        (zls_g_home_frame(g) && (nd->op == IR_BOUND || nd->op == IR_GATE || nd->op == IR_TO))))) ? 1 : 0;
 }
 int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }
 int zls_redisp_off(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_RO); return t ? t->ro : -1; }
