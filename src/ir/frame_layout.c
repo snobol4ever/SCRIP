@@ -830,6 +830,7 @@ int fc_vlit_active(const IR_t * nd);
 int fc_vread_fp(const IR_t * nd);
 int fc_vdj_active(const IR_t * nd);
 static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd);
+extern int planner_bound_spine(const IR_graph_t * g, const IR_t * nd);
 static int fc_vunop_ok(const IR_t * nd) { return nd->op == IR_UNOP && nd->n_operands == 1 && ((int)IR_LIT(nd).ival == TT_MNS || (int)IR_LIT(nd).ival == TT_PLS); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fc_call_ok(const IR_t * nd) { (void)nd; return 0; }
@@ -2119,6 +2120,7 @@ void zls_home_pass(const IR_graph_t * g) {
     for (int c = 0; c < n; c++) {
         const IR_t * cx = g->all[c];
         if (!cx || (cx->op == IR_DISJUNCTION && g->cell_frame)) continue;
+        if (cx->op == IR_UNMARK && (IR_LIT(cx).ival & 32) && cx->n_operands > 0 && planner_bound_spine(g, cx->operands[0])) continue;
         for (int oj = 0; oj < cx->n_operands; oj++) {
             int p = cx->operands[oj] ? zls_reuse_index(&nx, cx->operands[oj]) : -1;
             if (p < 0 || fcn_find(g->all[p], FCN_HOME)) continue;
@@ -2225,7 +2227,8 @@ static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
         (zls_home_member(nd) || zls_frame_word_why(nd) || (fcn_find(nd, FCN_RES) && !(g->spine_cells && nd->op == IR_DISJUNCTION)) || zls_hf_resident_cleanup(g, nd) ||
         (zls_home_why(nd) && !ir_node_produces_value(nd->op)) ||
         (zls_g_resumable_frame(g) &&
-        (zls_home_dyn(g, nd) || zls_edge_retains(g, nd) || (zls_g_home_frame(g) && (nd->op == IR_BOUND || nd->op == IR_GATE || nd->op == IR_TO || nd->op == IR_DISJUNCTION))))) ? 1 : 0;
+        (zls_home_dyn(g, nd) || zls_edge_retains(g, nd) ||
+        (zls_g_home_frame(g) && ((nd->op == IR_BOUND && !planner_bound_spine(g, nd)) || nd->op == IR_GATE || nd->op == IR_TO || nd->op == IR_DISJUNCTION))))) ? 1 : 0;
 }
 int zls_g_hf_resident(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && zls_hf_resident(g, nd) ? 1 : 0; }
 int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }

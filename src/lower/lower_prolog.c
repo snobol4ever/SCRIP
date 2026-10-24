@@ -938,7 +938,7 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
     pl_pop_ok(cx, mark);
     IR_t * unmk_c = build(cx, IR_UNMARK, ig, ωfail);
     ir_operand_push(unmk_c, mark);
-    IR_LIT(unmk_c).ival = pl_fence_on() ? 5 : 1;
+    IR_LIT(unmk_c).ival = (pl_fence_on() ? 5 : 1) | 32;
     IR_t * unmk_f = build(cx, IR_UNMARK, ig, ωfail);
     ir_operand_push(unmk_f, mark);
     IR_LIT(unmk_f).ival = pl_fence_on() ? 5 : 1;

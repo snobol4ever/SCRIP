@@ -113,6 +113,7 @@ extern "C" int planner_alt_k(const IR_graph_t * g, const IR_t * nd);
 extern "C" int planner_blob_exit_live(const IR_graph_t * g);
 int planner_retains_emitter_view(int op);
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
+extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd);
 extern "C" int planner_span_retains(const IR_graph_t * g, int from_ai, int to_ai);
 void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int *base, unsigned char *known, int *aof, int *zcut, int *fam,
     int *fbase);

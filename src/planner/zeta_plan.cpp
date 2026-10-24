@@ -240,7 +240,7 @@ static int zd_dj_spine(const IR_t * nd) { if (!g_emitter.g_zd_zarm_p || g_emitte
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
 extern "C" int zd_dj_on_spine(const IR_t * nd) { return zd_dj_spine(nd) ? 1 : 0; }
 enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV, BCS_HOME_FRAME, BCS_HOME_STATE, BCS_PL_HOME, BCS_PL_HOME_DYN, BCS_PL_HOME_RANGE_HDR,
-    BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME };
+    BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME, BCS_PL_BOUND_SPINE };
 extern "C" int zls_g_home_frame(const IR_graph_t * g);
 extern "C" int zls_home_why(const IR_t * nd);
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
@@ -261,22 +261,24 @@ static int zd_bcs_when(IR_t * nd, int w) {
     if (w == BCS_PL_HOME_DYN) return zd_pl_home_dyn(nd);
     if (w == BCS_PL_HOME_RANGE_HDR) return (zd_pl_home() && nd->op == IR_TO && (ir_range_kind_is(nd, "db") || ir_range_trailed(nd))) ? 1 : 0;
     if (w == BCS_PL_HOME_HAS_OPERANDS) return (zd_pl_home() && nd->n_operands > 0) ? 1 : 0;
+    if (w == BCS_PL_BOUND_SPINE) return (zd_pl_home() && planner_bound_spine(g_emit_cfg, nd)) ? 1 : 0;
     return (w == BCS_PATV && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5)) ? 1 : 0;
 }
 extern "C" int zls_off(const IR_t * nd);
 extern "C" int zd_cross_cell(int off) {
     int n = g_emitter.g_zd_n, i = g_emitter.g_zd_cur;
     IR_t ** nodes = g_emitter.g_zd_nodes_p;
-    const int * out = g_emitter.g_zd_out_p, * xb = g_emitter.g_zd_xb_p, * cl = g_emitter.g_zd_claim_p;
+    const int * out = g_emitter.g_zd_out_p, * xb = g_emitter.g_zd_xb_p, * cl = g_emitter.g_zd_claim_p, * fam = g_emitter.g_zd_fam_p, * fb = g_emitter.g_zd_fbase_p;
     const unsigned char * on = g_emitter.g_zd_plan_on;
     if (!nodes || !out || !on || g_emitter.g_zd_plan_nodes != nodes || i < 0 || i >= n || !on[i]) return -1;
-    for (int b = 0; b < i; b++) {
+    for (int b = i - 1; b >= 0; b--) {
         if (!on[b]) continue;
         int key = zls_off(nodes[b]), kw = zd_k_own(nodes[b]);
         if (key < 0 || off < key || off >= key + kw) continue;
         long xi, xo;
         if (xb && xb[i] != INT_MIN && xb[b] != INT_MIN) { xi = (long)xb[i] + out[i]; xo = (long)xb[b] + out[b]; }
         else if (cl && cl[i] >= 0 && cl[i] == cl[b]) { xi = out[i]; xo = out[b]; }
+        else if (fam && fb && cl && cl[i] >= 0 && cl[b] >= 0 && fam[cl[i]] >= 0 && fam[cl[i]] == fam[cl[b]]) { xi = (long)fb[cl[i]] + out[i]; xo = (long)fb[cl[b]] + out[b]; }
         else return -1;
         return xi < xo ? -1 : (int)(xi - xo) + (off - key);
     }
@@ -444,6 +446,40 @@ extern "C" int planner_span_retains(const IR_graph_t * g, int from_ai, int to_ai
     }
     g_emit_cfg = sv; return r;
 }
+extern "C" int planner_bound_spine(const IR_graph_t * g, const IR_t * nd) {
+    if (!g || !nd || nd->op != IR_BOUND || !zls_g_home_frame(g) || !zls_g_resumable_frame(g)) return 0;
+    const IR_t * ig = zd_chase((IR_t *)nd->ω.node);
+    if (!ig || ig->op != IR_GATE) return 0;
+    int fence = 0;
+    for (int k = 0; k < g->n && !fence; k++) { const IR_t * u = g->all[k]; if (u && u->op == IR_UNMARK && u->n_operands > 0 && u->operands[0] == nd && IR_LIT(u).ival == 2) fence = 1; }
+    if (!fence) return 0;
+    IR_graph_t * sv = g_emit_cfg;
+    g_emit_cfg = (IR_graph_t *)g;
+    std::vector<const IR_t *> seen(1, nd), stk(1, nd);
+    int r = 0;
+    while (!stk.empty() && !r) {
+        const IR_t * x = stk.back();
+        stk.pop_back();
+        if (x != nd && (zd_edge_retains(x) || x->op == IR_SUSPEND || x->op == IR_DISJUNCTION || (x->op == IR_CUT && !IR_LIT(x).ival))) r = 1;
+        if (r || (x != nd && x->op == IR_UNMARK && x->n_operands > 0 && x->operands[0] == nd)) continue;
+        for (int e = -2; e < x->n_operands; e++) {
+            const IR_t * y = e == -2 ? x->γ.node : e == -1 ? x->ω.node : x->operands[e];
+            if (!y || y == ig || y == ig->γ.node || y == ig->ω.node || std::find(seen.begin(), seen.end(), y) != seen.end()) continue;
+            seen.push_back(y);
+            stk.push_back(y);
+        }
+    }
+    for (int k = 0; k < g->n && !r; k++) {
+        const IR_t * x = g->all[k];
+        if (!x || x == nd || std::find(seen.begin(), seen.end(), x) != seen.end()) continue;
+        for (int e = -2; e < x->n_operands && !r; e++) {
+            const IR_t * y = e == -2 ? x->γ.node : e == -1 ? x->ω.node : x->operands[e];
+            if (y && y->op == IR_UNMARK && y->n_operands > 0 && y->operands[0] == nd && !(IR_LIT(y).ival & 32)) r = 1;
+        }
+    }
+    g_emit_cfg = sv;
+    return r ? 0 : 1;
+}
 int planner_retains_emitter_view(int op) { return op == IR_PROC_GEN || op == IR_CALL_VALUE || op == IR_CALL_GEN || op == IR_ACTIVATE; }
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd) {
     IR_graph_t * sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g;
@@ -457,9 +493,14 @@ extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd) {
 }
 static int zd_beta_via_act(const IR_t * nd) { return zd_edge_retains(nd) && nd->op != IR_TO; }
 static int zd_pl_cut(const IR_t * nd) { return nd->op == IR_CUT && !IR_LIT(nd).ival && emit_resumable_frame(); }
+static int zd_pl_bspine(const IR_t * nd) { return nd && nd->op == IR_BOUND && planner_bound_spine(g_emit_cfg, nd); }
+static int zd_pl_rest_ival(const IR_t * u) {
+    if (!(IR_LIT(u).ival & 6)) return 0;
+    return !((IR_LIT(u).ival & 32) && u->n_operands > 0 && zd_pl_bspine(u->operands[0]));
+}
 static int zd_pl_unmark_bound(IR_t ** nodes, int n, int i) {
     IR_t * nd = nodes[i];
-    if (nd->op != IR_UNMARK || nd->n_operands < 1 || !emit_resumable_frame() || !(IR_LIT(nd).ival & 6)) return -1;
+    if (nd->op != IR_UNMARK || nd->n_operands < 1 || !emit_resumable_frame() || !zd_pl_rest_ival(nd)) return -1;
     return nidx(nodes, n, nd->operands[0]);
 }
 static int zd_pl_restores_head(IR_t ** nodes, int n, const int * claim, int h) { int ub = zd_pl_unmark_bound(nodes, n, h); return ub >= 0 && claim[ub] >= 0 && claim[ub] != h; }
@@ -499,9 +540,13 @@ static int zd_pl_entry(IR_t **nodes, int n, const unsigned char *zon, const int 
     if (e >= 2 && nodes[i]->op == IR_DISJUNCTION && g_emit_cfg && g_emit_cfg->spine_cells && (((e - 2) & 1) || e - 2 >= 2 * (int)IR_LIT(nodes[i]).ival)) return -1;
     (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q, &b);
     if (q < 0 || claim[q] < 0 || claim[q] == claim[i] || b || (claim[q] != q && !(dead && dead[claim[q]]))) return -1;
-    int v = (e == 1) ? ((nodes[i]->op == IR_BOUND && (emit_resumable_frame() || (g_emit_cfg && g_emit_cfg->spine_cells))) ? zout[i] : zout[i] - zd_k(nodes[i])) :
+    int v = (e == 1) ? ((nodes[i]->op == IR_BOUND && !zd_pl_bspine(nodes[i]) && (emit_resumable_frame() || (g_emit_cfg && g_emit_cfg->spine_cells))) ? zout[i] : zout[i] - zd_k(nodes[i])) :
         (e >= 2 && nodes[i]->op == IR_DISJUNCTION) ? zout[i] - zd_djx_of(nodes[i]) :
         zout[i];
+    if (e == 0 && nodes[i]->op == IR_UNMARK && nodes[i]->n_operands > 0 && zd_pl_rest_ival(nodes[i]) && zd_pl_bspine(nodes[i]->operands[0])) {
+        int ub = nidx(nodes, n, nodes[i]->operands[0]);
+        if (ub >= 0) v = (claim[ub] == claim[i]) ? zout[ub] - zd_k_own(nodes[ub]) : zout[i] - zd_k_own(nodes[ub]);
+    }
     IR_t * r = (e == 0 && nodes[i]->op == IR_GATE_ARM && nodes[i]->n_operands > 0 && (int) nodes[i]->seal) ? nodes[i]->operands[0] : (IR_t *)0;
     int rq = r ? nidx(nodes, n, r) : -1;
     if (rq >= 0 && zon[rq] && claim[rq] == claim[i]) v = zout[rq];
@@ -588,7 +633,7 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
             if (q == i) continue;
             for (int cur = i, hop = 0; q >= 0 && hop <= n && zd_pl_dj_join(nodes, n, cur, q); hop++) { IR_t * t2 = zd_chase(nodes[q]->γ.node); cur = q; q = t2 ? nidx(nodes, n, t2) : -1; }
             if (q < 0 || !zon[q] || claim[q] < 0 || indef[claim[q]]) continue;
-            int ub = (pl && claim[q] == q && nodes[q]->op == IR_UNMARK && (IR_LIT(nodes[q]).ival & 6) && nodes[q]->n_operands > 0) ? nidx(nodes, n, nodes[q]->operands[0]) : -1;
+            int ub = (pl && claim[q] == q && nodes[q]->op == IR_UNMARK && zd_pl_rest_ival(nodes[q]) && nodes[q]->n_operands > 0) ? nidx(nodes, n, nodes[q]->operands[0]) : -1;
             if (ub >= 0 && zon[ub] && claim[ub] >= 0 && known[claim[ub]]) continue;
             indef[claim[q]] = 1; wl[wn++] = claim[q];
         }
@@ -603,7 +648,7 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
                     if (q < 0 || claim[q] < 0 || indef[claim[q]] || (b && zd_beta_via_act(nodes[q])) || (e == 0 && zd_pl_dj_join(nodes, n, i, q))) continue;
                     int r = claim[q];
                     if (r != q && !(pl && nodes[q]->op != IR_DISJUNCTION)) continue;
-                    int ub = (r == q && nodes[r]->op == IR_UNMARK && (IR_LIT(nodes[r]).ival & 6) && nodes[r]->n_operands > 0) ? nidx(nodes, n, nodes[r]->operands[0]) : -1;
+                    int ub = (r == q && nodes[r]->op == IR_UNMARK && zd_pl_rest_ival(nodes[r]) && nodes[r]->n_operands > 0) ? nidx(nodes, n, nodes[r]->operands[0]) : -1;
                     if (ub >= 0 && zon[ub] && claim[ub] >= 0 && !indef[claim[ub]] && known[claim[ub]]) continue;
                     indef[r] = 1; wl[wn++] = r;
                 }
@@ -717,7 +762,7 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
                     if (q2 >= 0 && !known[q2] && !inp[q2]) { inp[q2] = 1; wl[wn2++] = q2; }
                 }
             }
-            auto rest = [&](int r) { int ub = (nodes[r]->op == IR_UNMARK && (IR_LIT(nodes[r]).ival & 6) && nodes[r]->n_operands > 0) ? nidx(nodes, n, nodes[r]->operands[0]) : -1;
+            auto rest = [&](int r) { int ub = (nodes[r]->op == IR_UNMARK && zd_pl_rest_ival(nodes[r]) && nodes[r]->n_operands > 0) ? nidx(nodes, n, nodes[r]->operands[0]) : -1;
                 return ub >= 0 && zon[ub] && claim[ub] >= 0 && (inp[claim[ub]] || (known[claim[ub]] && !indef[claim[ub]])); };
             for (int moved = 1; moved; ) {
                 moved = 0;
@@ -847,13 +892,13 @@ static void zst_plan(IR_t ** nodes, int n) {
             if (nodes[q]->op != IR_CUT) wl.push_back(q); } }
         while (!wl.empty()) { int v = wl.back(); wl.pop_back();
             for (int k = scnt[(size_t)v]; k < scnt[(size_t)v + 1]; k++) { int w = sd[(size_t)k]; if (w < 0 || indef0[(size_t)w]) continue;
-                int ub = (nodes[w]->op == IR_UNMARK && (IR_LIT(nodes[w]).ival & 6) && nodes[w]->n_operands > 0) ? nidx(nodes, n, nodes[w]->operands[0]) : -1;
+                int ub = (nodes[w]->op == IR_UNMARK && zd_pl_rest_ival(nodes[w]) && nodes[w]->n_operands > 0) ? nidx(nodes, n, nodes[w]->operands[0]) : -1;
                 if (ub >= 0 && !indef0[(size_t)ub]) continue;
                 indef0[(size_t)w] = 1; if (nodes[w]->op != IR_CUT) wl.push_back(w); } } }
     std::vector<int> bnds; std::vector<std::vector<unsigned char>> esc; std::vector<unsigned char> wland((size_t)n, 0);
     for (int i = 0; i < n; i++) { int q = zst_edge(nodes, n, i, 1); if (q >= 0) wland[(size_t)q] = 1; }
     for (int b = 0; b < n; b++) { if (nodes[b]->op != IR_BOUND) continue; std::vector<unsigned char> r((size_t)n, 0); std::vector<int> wl;
-        for (int u = 0; u < n; u++) if (nodes[u]->op == IR_UNMARK && ((IR_LIT(nodes[u]).ival & 6) || wland[(size_t)u]) && nodes[u]->n_operands > 0 && nodes[u]->operands[0] == nodes[b]) {
+        for (int u = 0; u < n; u++) if (nodes[u]->op == IR_UNMARK && (zd_pl_rest_ival(nodes[u]) || wland[(size_t)u]) && nodes[u]->n_operands > 0 && nodes[u]->operands[0] == nodes[b]) {
             int q = zst_edge(nodes, n, u, 0);
             if (q >= 0 && !r[(size_t)q]) { r[(size_t)q] = 1; wl.push_back(q); } }
         while (!wl.empty()) { int v = wl.back(); wl.pop_back(); for (int k = scnt[(size_t)v]; k < scnt[(size_t)v + 1]; k++) { int w = sd[(size_t)k]; if (w >= 0 && !r[(size_t)w]) { r[(size_t)w] = 1;
@@ -1162,7 +1207,9 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 int REL = fence0_release_bytes(nodes[i]);
                 int K = zd_k(nodes[i]);
                 int UREL = 0;
-                { int _ub = zd_pl_unmark_bound(nodes, n, i); if (_ub >= 0 && claim[_ub] == hi && rpos[_ub] >= 0 && rpos[_ub] < r) UREL = (int)zd + K - zout[_ub]; }
+                { int _ub = zd_pl_unmark_bound(nodes, n, i);
+                    if (_ub >= 0 && claim[_ub] == hi && rpos[_ub] >= 0 && rpos[_ub] < r) UREL = (int)zd + K - (zout[_ub] - (zd_pl_bspine(nodes[_ub]) ? zd_k_own(nodes[_ub]) : 0));
+                    else if (_ub >= 0 && claim[_ub] != hi && zd_pl_bspine(nodes[_ub])) UREL = zd_k_own(nodes[_ub]); }
                 if (zd_pl_cut(nodes[i])) UREL = (int)zd + K;
                 zurel[i] = UREL;
                 { if (nodes[i]->op == IR_MATCH_BEGIN && zdh_match < 0) zdh_match = (int)zd + K; } { if (nodes[i]->op == IR_STATEMENT_END) zdh_stmt = (int)zd + K; }
@@ -1209,7 +1256,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 {
                 if (!gin) zgpop[i] = (emit_resumable_frame() && !(gback >= 0 && claim[gback] == claim[i])) ? 0 : (gback >= 0) ? (_wzdepth - _gbpre) :
                     (zd_exit_pop_s(nodes[i]->op, zdh_match, _wzdepth, zdh_stmt, zdh_mafter) + (int)kc);
-                if (nodes[i]->op == IR_BOUND && (emit_resumable_frame() || (g_emit_cfg && g_emit_cfg->spine_cells))) zwpop[i] = -K;
+                if (nodes[i]->op == IR_BOUND && !zd_pl_bspine(nodes[i]) && (emit_resumable_frame() || (g_emit_cfg && g_emit_cfg->spine_cells))) zwpop[i] = -K;
                 else if (!oin) zwpop[i] = (oback >= 0) ? ((_wzdepth - K) - _obpre) :
                     (((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop_s(nodes[i]->op, zdh_match, _wzdepth, zdh_stmt, zdh_mafter) : (_wzdepth - K)) + (int)kc);
                 else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] < rpos[i] && port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (_wzdepth - K) - zout[oback]; } }
@@ -1243,7 +1290,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
         if (!zgin[i]) zgpop[i] = (emit_resumable_frame() && !(gback >= 0 && claim[gback] == claim[i])) ? 0 : (gback >= 0 && _gbpre > 0) ? (zout[i] - zurel[i] - _gbpre) :
             zd_exit_pop_s(nodes[i]->op, zmatch[i], zout[i] - zurel[i], zstmt[i], zmafter[i]);
         int _obeta = oback >= 0 && port_sz_beta(zd_edge_sz(nodes[i], 1)) && !beta_is_stmt_land(zot[i]);
-        if (nodes[i]->op == IR_BOUND && (emit_resumable_frame() || (g_emit_cfg && g_emit_cfg->spine_cells))) zwpop[i] = -K;
+        if (nodes[i]->op == IR_BOUND && !zd_pl_bspine(nodes[i]) && (emit_resumable_frame() || (g_emit_cfg && g_emit_cfg->spine_cells))) zwpop[i] = -K;
         else if (!zoin[i]) zwpop[i] = (oback >= 0) ? ((zout[i] - K) - (_obeta ? zout[oback] : _obpre)) :
             ((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop_s(nodes[i]->op, zmatch[i], zout[i], zstmt[i], zmafter[i]) : (zout[i] - K));
         else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] > rpos[i] && !port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - _obpre;
@@ -1288,7 +1335,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 if (ki == 2 && b && zd_beta_via_act(nodes[q])) {
                     IR_t * lt = zd_chase(nodes[q]->γ.node);
                     int lq = lt ? nidx(nodes, n, lt) : -1;
-                    int ub = (nodes[ci]->op == IR_UNMARK && (IR_LIT(nodes[ci]).ival & 6) && nodes[ci]->n_operands > 0) ? nidx(nodes, n, nodes[ci]->operands[0]) : -1;
+                    int ub = (nodes[ci]->op == IR_UNMARK && zd_pl_rest_ival(nodes[ci]) && nodes[ci]->n_operands > 0) ? nidx(nodes, n, nodes[ci]->operands[0]) : -1;
                     int fl = (lq >= 0 && zon[lq] && claim[lq] >= 0) ? fam[claim[lq]] : -1, cb = (ub >= 0 && zon[ub] && claim[ub] >= 0) ? claim[ub] : -1;
                     int af = fl < 0 ? INT_MIN : fam[ci] == fl ? ai : (cb >= 0 && !known[cb] && fam[cb] == fl) ? fbase[cb] + zout[ub] - zout[ci] + zout[i] : INT_MIN;
                     int ax = (lq >= 0 && claim[lq] >= 0) ? fbase[claim[lq]] + zout[lq] - zd_k(nodes[lq]) : 0;
