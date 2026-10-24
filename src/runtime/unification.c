@@ -1703,7 +1703,15 @@ static int plc_fmt_text(pl_cell_t *h, char **out, size_t *len, void **ball) {
     pl_cell_t *lst;
     if (!h) return 0;
     if (pl_cell_unbound(h)) { if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }
-    if (plc_fmt_is_atom(h)) { const char *s = plc_atom_text(h); *len = strlen(s); *out = (char *)ct_alloc(*len + 1); if (!*out) return 0; memcpy(*out, s, *len + 1); return 1; }
+    if (plc_fmt_is_atom(h)) {
+        const char *s = plc_atom_text(h);
+        if (!strcmp(s, "[]")) s = "";
+        *len = strlen(s);
+        *out = (char *)ct_alloc(*len + 1);
+        if (!*out) return 0;
+        memcpy(*out, s, *len + 1);
+        return 1;
+    }
     b = (char *)ct_alloc(cap);
     if (!b) return 0;
     lst = pl_deref(h);
