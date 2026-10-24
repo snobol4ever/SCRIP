@@ -248,15 +248,13 @@ static int zd_pl_home_dyn(IR_t * nd) { return zd_pl_home() && (zls_home_why(nd) 
 #include "box_cell_shapes.inc"
 static int zd_bcs_when(IR_t * nd, int w) {
     if (w == BCS_ALWAYS) return 1;
-    if (w == BCS_HOME_FRAME) return zls_g_home_frame(g_emit_cfg) ? 1 : 0;
+    if (w == BCS_HOME_FRAME) return (zls_g_home_frame(g_emit_cfg) && !g_emit_cfg->resumable_callable) ? 1 : 0;
     if (w == BCS_HOME_STATE) return (zls_g_home_frame(g_emit_cfg) && zls_home_why(nd)) ? 1 : 0;
     if (w == BCS_CALL_CURMOV) return zd_call_curmov(nd);
     if (w == BCS_ICN_LOCAL) return zd_icn_local_var(nd);
     if (w == BCS_ICN_SUSPEND) return zd_icn_suspend(nd);
     if (w == BCS_HAS_OPERANDS) return nd->n_operands > 0;
     if (w == BCS_NO_OPERANDS) return nd->n_operands == 0;
-    if (w == BCS_HOME_FRAME) return zls_g_home_frame(g_emit_cfg) ? 1 : 0;
-    if (w == BCS_HOME_STATE) return (zls_g_home_frame(g_emit_cfg) && zls_home_why(nd)) ? 1 : 0;
     if (w == BCS_PL_HOME) return zd_pl_home();
     if (w == BCS_PL_HOME_DYN) return zd_pl_home_dyn(nd);
     if (w == BCS_PL_HOME_RANGE_HDR) return (zd_pl_home() && nd->op == IR_TO && (ir_range_kind_is(nd, "db") || ir_range_trailed(nd))) ? 1 : 0;
