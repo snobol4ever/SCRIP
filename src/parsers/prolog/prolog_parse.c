@@ -2147,6 +2147,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$strip_module'(T,_,M,P):-nonvar(T),T=M1:T1,atom(M1),!,'$strip_module'(T1,M1,M,P).\n"
     "'$strip_module'(T,M,M,T).\n"
     "garbage_collect_atoms:-catch(nb_getval('$stat_agc',N0),_,N0=0),N is N0+1,nb_setval('$stat_agc',N).\n"
+    "garbage_collect_clauses.\n"
     "wildcard_match(P,S):-wildcard_match(P,S,[]).\n"
     "wildcard_match(P,S,O):-'$wc_ign'(O,I),'$wc_codes'(P,Pc),'$wc_codes'(S,Sc0),'$wc_comp'(Pc,I,top,Ops,_),'$wc_lowl'(I,Sc0,Sc),('$wc_m'(Ops,Sc)->true).\n"
     "'$wc_ign'(O,I):-(memberchk(case_sensitive(B),O)->(B==false->I=1;I=0);I=0).\n"
