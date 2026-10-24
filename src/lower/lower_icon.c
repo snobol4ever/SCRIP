@@ -3396,6 +3396,22 @@ static void icon_register_program(stage2_t * s2, const tree_t * prog) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_display_homes_every_local(void) {
+    extern void zls_home_local_declare(const IR_graph_t *, const char *, int);
+    int on = 0;
+    for (int gi = 0; gi < g_stage2.bbp.count && !on; gi++) {
+        const IR_graph_t * g = g_stage2.bbp.table[gi];
+        for (int i = 0; g && i < g->n && !on; i++) {
+            const IR_t * x = g->all[i];
+            if (x && (x->op == IR_CALL || x->op == IR_VAR || x->op == IR_VAR_REF) && IR_LIT(x).sval && !strcmp(IR_LIT(x).sval, "display")) on = 1;
+        }
+    }
+    for (int gi = 0; on && gi < g_stage2.bbp.count; gi++) {
+        const IR_graph_t * g = g_stage2.bbp.table[gi];
+        for (int k = 0; g && g->lnames && k < g->nlocals; k++) if (g->lnames[k] && g->lnames[k][0] != '&') zls_home_local_declare(g, g->lnames[k], 9);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_icon_stage2(const tree_t *prog) {
     icn_collect_reassigned_procs(prog);
     int _icn_bb0 = g_stage2.bbp.count;
@@ -3476,6 +3492,7 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
             }
         }
     }
+    icn_display_homes_every_local();
     lower_icon_resolve_call_kinds();
     return &g_stage2;
 }
