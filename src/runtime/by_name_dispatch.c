@@ -9555,8 +9555,9 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on",
     "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", "gnu", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } },
     { "threads", "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } },
-    { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "min_tagged_integer", "-72057594037927936", 0, { 0 } }, { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } },
-    { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural", "compatibility", 0 } }, { 0, "", 0, { 0 } } };
+    { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "max_answers_for_subgoal", "infinite", 1, { 0 }, 0, { 0 }, 1 }, { "min_tagged_integer", "-72057594037927936", 0, { 0 } }, { "float_max",
+    "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural",
+    "compatibility", 0 } }, { 0, "", 0, { 0 } } };
 #define pl_flags ((pl_flag_t *)g_runtime.bn.g_pl_flags.p)
 static void pl_flags_ready(void) {
     if (g_runtime.bn.g_pl_flags.len) return;
@@ -9847,7 +9848,16 @@ PL_CX_LEAF_HEAD(set_prolog_flag_declare, 2)
         ok = 1;
         if (pl_cell_text(args[0], fb, sizeof fb, &fn) && pl_cell_text(args[1], vb, sizeof vb, &vn)) {
             fl = pl_flag_find_or_create(fn);
-            if (fl && fl->mod) { fl->val = rt_heap_strdup_c(vn); pl_flag_effects(fl, cx); }
+            if (fl && fl->user) {
+                extern pl_cell_t rt_pl_cell_snapshot(void *);
+                fl->term = rt_pl_cell_snapshot(&args[1]);
+                fl->val = "set";
+                fl->is_term = 1;
+                fl->mod = 1;
+            } else if (fl && fl->mod) {
+                fl->val = rt_heap_strdup_c(vn);
+                pl_flag_effects(fl, cx);
+            }
         }
     }
 PL_CX_LEAF_TAIL
