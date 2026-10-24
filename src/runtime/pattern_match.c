@@ -951,8 +951,8 @@ static int rt_cap_valerr(const sno_dstar_rec_t *srec) {
     return (srec->flags & SNO_DSTAR_CALL) ? 21 : 249;
 }
 static void rt_cap_raise_val(int code) {
-    extern void core_runtime_error(int, const char *);
-    if (code) core_runtime_error(code, code == 21 ? "function called by name returned a value" : "expression evaluated by name returned value");
+    extern void core_runtime_error_soft(int, const char *);
+    if (code) core_runtime_error_soft(code, code == 21 ? "function called by name returned a value" : "expression evaluated by name returned value");
 }
 static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
     extern DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
