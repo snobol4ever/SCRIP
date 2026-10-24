@@ -261,7 +261,7 @@ int zd_k_own(IR_t * nd) {
     int op = (int)nd->op;
     for (size_t r = 0; r < sizeof box_cell_shapes / sizeof box_cell_shapes[0]; r++) {
         if ((box_cell_shapes[r].op >= 0 && box_cell_shapes[r].op != op) || !zd_bcs_when(nd, box_cell_shapes[r].when)) continue;
-        return box_cell_shapes[r].words < 0 ? zd_dj_spine(nd) : box_cell_shapes[r].words;
+        return box_cell_shapes[r].words == -2 ? 16 * (2 + nd->n_operands) : box_cell_shapes[r].words < 0 ? zd_dj_spine(nd) : box_cell_shapes[r].words;
     }
     return 16;
 }
