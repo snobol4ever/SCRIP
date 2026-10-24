@@ -763,7 +763,7 @@ static void zst_plan(IR_t ** nodes, int n) {
         g_emitter.zst_sm.clear();
     const IR_graph_t * g = g_emit_cfg;
     if (!g || n <= 0 || !(emit_resumable_frame() || g->spine_cells || g->home_frame)) return;
-    if (g->spine_cells) return;
+    if (g->spine_cells && !g->home_frame) return;
     int nv = zls_g_vslot_count(g); if (nv <= 0) return;
     g_emitter.zst_vuse.assign((size_t)nv, 0); g_emitter.zst_vcov.assign((size_t)nv, 0);
     std::vector<int> es, ed, pcnt((size_t)n + 1, 0);
