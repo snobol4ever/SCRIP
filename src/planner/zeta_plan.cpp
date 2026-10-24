@@ -1449,7 +1449,9 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
             }
             if (!xc && !_rb && _gt && _gt->op == IR_DISJUNCTION && zd_sz_phi(zd_edge_sz(_gs, 0))) continue;
             if (zchn[2 * i] < 0) {
-                zgpop[i] = zout[i] - (_rb ? zout[_gq] : _gt == nodes[b] ? zout[b] - zd_k(nodes[b]) : zout[b]);
+                int _xr = !_rb && _gq >= 0 && zon[_gq] && claim[_gq] >= 0 && claim[i] >= 0 && claim[_gq] != claim[i] && known[claim[_gq]] && known[claim[i]];
+                zgpop[i] = _xr ? base[claim[i]] + zout[i] - (base[claim[_gq]] + zout[_gq] - zd_k(nodes[_gq]))
+                               : zout[i] - (_rb ? zout[_gq] : _gt == nodes[b] ? zout[b] - zd_k(nodes[b]) : zout[b]);
                 zchn[2 * i + 1] = b;
                 zwpop[i] = 0;
                 if (_gt == nodes[b] || _rb) for (IR_t * u = zd_chase(nodes[i]->γ.node); u && u != _gt; u = zd_chase(u->γ.node)) { int k = nidx(nodes, n, u);
