@@ -1678,7 +1678,10 @@ void zls_build(IR_graph_t * g) {
             int sc = (cur > 0) ? mfirst[cur - 1] : root;
             k += zls_grant_at(g, nd, i, sc, root, rec, dl_base, lv, uo, &scratch_off, base + k * 16);
         }
-        if (ov) { k = zls_overlay(g, base, k, root, rb, rec, dl_base, lv, uo, &scratch_off, ov_in ? 2 : 0); } else if (g->alt_zhi) for (int c = 0; c < g->n_alts; c++) g->alt_zhi[c] = 0;
+        if (ov) {
+            k = zls_overlay(g, base, k, root, rb, rec, dl_base, lv, uo, &scratch_off, hf ? 2 : 0);
+            if (hf && !ov_in) for (int c = 0; c < g->n_alts; c++) g->alt_zhi[c] = 0;
+        } else if (g->alt_zhi) for (int c = 0; c < g->n_alts; c++) g->alt_zhi[c] = 0;
         {
             int nr = 0;
             for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && !zls_is_wiring(ir_kind0(g->all[i]))) nr++;
