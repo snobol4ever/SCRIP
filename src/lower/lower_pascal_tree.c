@@ -5533,6 +5533,14 @@ static pval E_argument_list(const tree_t *n, int from, int to) {
     }
     return out;
 }
+static int pas_set_has_range(const tree_t *set) { for (int i = 0; i < set->n; i++) if (IS(set->c[i], TT_SUBRANGE)) return 1; return 0; }
+static tree_t *pas_src_call(const char *fn, tree_t *a, tree_t *b) { tree_t *f = ast_node_new(TT_FNC); ast_push(f, leaf_s(TT_VAR, fn)); ast_push(f, a); if (b) ast_push(f, b); return f; }
+static tree_t *pas_dynarr_append_src(const tree_t *lhs, const tree_t *set) {
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR), *a = (tree_t *)lhs;
+    ast_push(seq, pas_src_call("setlength", a, bin(TT_ADD, pas_src_call("length", a, NULL), ilit(set->n))));
+    for (int i = 0; i < set->n; i++) ast_push(seq, bin(TT_ASSIGN, bin(TT_IDX, a, bin(TT_SUB, pas_src_call("length", a, NULL), ilit(set->n - i))), set->c[i]));
+    return seq;
+}
 static pval E_assignment(const tree_t *n) {
     pval v[6];
     pval out;
@@ -5540,6 +5548,8 @@ static pval E_assignment(const tree_t *n) {
     memset(&out, 0, sizeof out);
     if (IS(n, TT_ASSIGN)) {
         v[1] = E_selector(n->c[0]);
+        if (n->n == 3 && IS(n->c[2], TT_KEYWORD) && n->c[2]->v.sval && !strcmp(n->c[2]->v.sval, "+=") && IS(n->c[1], TT_SET) && pas_dyn_depth(v[1].node, NULL) > 0 && !pas_set_has_range(n->c[1]))
+            return E_compound_statement(pas_dynarr_append_src(n->c[0], n->c[1]));
         v[3] = E_expression(n->c[1]);
         if (n->n == 3 && n->c[2] && n->c[2]->t == TT_KEYWORD && n->c[2]->v.sval) {
             const char *op = n->c[2]->v.sval;
@@ -7034,6 +7044,13 @@ static pval E_selector(const tree_t *n) {
             }
         }
         return out;
+    }
+    if (IS(n, TT_DEREF) && IS(n->c[0], TT_FNC) && n->c[0]->n == 2 && IS(n->c[0]->c[0], TT_VAR) && n->c[0]->c[0]->v.sval && !strcmp(pas_alias_resolve(n->c[0]->c[0]->v.sval), "pointer") &&
+        !pas_is_func("pointer") && IS(n->c[0]->c[1], TT_VAR) && n->c[0]->c[1]->v.sval && pas_array_isdyn(n->c[0]->c[1]->v.sval)) {
+        tree_t *ix = ast_node_new(TT_IDX);
+        ast_push(ix, n->c[0]->c[1]);
+        ast_push(ix, ilit(0));
+        return E_selector(ix);
     }
     if (IS(n, TT_DEREF)) {
         v[1] = E_selector(n->c[0]);
