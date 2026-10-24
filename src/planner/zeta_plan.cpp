@@ -499,7 +499,8 @@ static int zd_pl_entry(IR_t **nodes, int n, const unsigned char *zon, const int 
     if (e >= 2 && nodes[i]->op == IR_DISJUNCTION && g_emit_cfg && g_emit_cfg->spine_cells && (((e - 2) & 1) || e - 2 >= 2 * (int)IR_LIT(nodes[i]).ival)) return -1;
     (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q, &b);
     if (q < 0 || claim[q] < 0 || claim[q] == claim[i] || b || (claim[q] != q && !(dead && dead[claim[q]]))) return -1;
-    int v = (e == 1) ? ((nodes[i]->op == IR_BOUND && (emit_resumable_frame() || (g_emit_cfg && g_emit_cfg->spine_cells))) ? zout[i] : zout[i] - zd_k(nodes[i])) : (e >= 2 && nodes[i]->op == IR_DISJUNCTION) ? zout[i] - zd_djx_of(nodes[i]) :
+    int v = (e == 1) ? ((nodes[i]->op == IR_BOUND && (emit_resumable_frame() || (g_emit_cfg && g_emit_cfg->spine_cells))) ? zout[i] : zout[i] - zd_k(nodes[i])) :
+        (e >= 2 && nodes[i]->op == IR_DISJUNCTION) ? zout[i] - zd_djx_of(nodes[i]) :
         zout[i];
     IR_t * r = (e == 0 && nodes[i]->op == IR_GATE_ARM && nodes[i]->n_operands > 0 && (int) nodes[i]->seal) ? nodes[i]->operands[0] : (IR_t *)0;
     int rq = r ? nidx(nodes, n, r) : -1;
