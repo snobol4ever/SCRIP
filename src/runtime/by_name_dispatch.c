@@ -24135,8 +24135,8 @@ DESCR_t rt_pl_dop_db_erase_ref_c(DESCR_t *args, int nargs, void *root) {
     pl_atoms_ready();
     {
         void *db = pl_db_of_clref(rt_pl_deref_val(args[0]), root, &ref);
-        if (!db) return pl_ok();
-        { int i = rt_pl_db_slot_of_ref(db, ref); if (i < 0) return pl_ok(); return rt_pl_db_erase(db, i) ? pl_ok() : pl_ok(); }
+        if (!db) return FAILDESCR;
+        { int i = rt_pl_db_slot_of_ref(db, ref); if (i < 0) return FAILDESCR; return rt_pl_db_erase(db, i) ? pl_ok() : FAILDESCR; }
     }
 }
 static void *pl_db_of_term(DESCR_t *t, void *root, int create) {
