@@ -9072,9 +9072,9 @@ static const char *pl_read_dq_option(DESCR_t opts) {
     }
     return (const char *)0;
 }
-static int pl_read_term_from_text(DESCR_t *args, pl_tr_ctx_t *cx) {
+static int pl_read_term_from_text(DESCR_t *args, pl_tr_ctx_t *cx, int atom_text) {
     extern void *rt_pl_ball_kind1(const char *, const char *);
-    const char *b = pl_list_text_heap(args[0]);
+    const char *b = atom_text && pl_is_nil(rt_pl_deref_val(args[0])) ? "[]" : pl_list_text_heap(args[0]);
     DESCR_t t;
     pl_vtab_t vt;
     int gnu = pl_gnu_dialect(), sm = 0;
@@ -9091,8 +9091,8 @@ static int pl_read_term_from_text(DESCR_t *args, pl_tr_ctx_t *cx) {
     }
     return plw_unify_vals(args[1], t, cx) && pl_read_term_options_cell(args[2], &vt, cx);
 }
-#define PL_READ_TERM_LEAF(nm) PL_CX_LEAF_HEAD(nm, 3) { ok = pl_read_term_from_text(args, cx); } PL_CX_LEAF_TAIL
-PL_READ_TERM_LEAF(read_term_from_atom) PL_READ_TERM_LEAF(read_term_from_chars) PL_READ_TERM_LEAF(read_term_from_codes)
+#define PL_READ_TERM_LEAF(nm, at) PL_CX_LEAF_HEAD(nm, 3) { ok = pl_read_term_from_text(args, cx, at); } PL_CX_LEAF_TAIL
+PL_READ_TERM_LEAF(read_term_from_atom, 1) PL_READ_TERM_LEAF(read_term_from_chars, 0) PL_READ_TERM_LEAF(read_term_from_codes, 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *pl_read_opts_ball(DESCR_t opts) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
