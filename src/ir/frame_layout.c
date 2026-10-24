@@ -1980,6 +1980,29 @@ void zls_home_pass(const IR_graph_t * g) {
             if (o && o->op == IR_VAR && IR_LIT(o).sval && !fcn_find(o, FCN_LHOME)) { fcn_t * t = fcn_get(o); t->fl |= FCN_LHOME; t->lw = tw[c]; }
         }
     }
+    for (int c = 0; c < n; c++) {
+        const IR_t * cx = g->all[c];
+        if (!g->home_frame || !cx || cx->op != IR_CREATE || cx->n_operands < 1 || !cx->operands[0]) continue;
+        int e0 = zls_reuse_index(&nx, cx->operands[0]), qn = 0, q[n];
+        unsigned char vis[n];
+        if (e0 < 0) continue;
+        memset(vis, 0, sizeof vis);
+        q[qn++] = e0;
+        vis[e0] = 1;
+        for (int h = 0; h < qn; h++) {
+            const IR_t * x = g->all[q[h]];
+            if (!x) continue;
+            if (zls_home_local_kind((int)x->op) && IR_LIT(x).sval) zls_home_local_declare(g, IR_LIT(x).sval, 2);
+            if (x->op == IR_CORET || x->op == IR_COFAIL) continue;
+            for (int k = 0; k < 2 + x->n_operands; k++) {
+                const IR_t * y = k == 0 ? x->γ.node : k == 1 ? x->ω.node : x->operands[k - 2];
+                int yi = y ? zls_reuse_index(&nx, y) : -1;
+                if (yi < 0 || yi == c || vis[yi]) continue;
+                vis[yi] = 1;
+                q[qn++] = yi;
+            }
+        }
+    }
     ct_drop(nx.k);
     ct_drop(nx.v);
 }
@@ -1998,9 +2021,7 @@ int zls_frame_resident(const IR_t * nd) {
         (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) || fc_vlit_active(nd) || fc_vread_fp(nd) >= 0 || fc_vbinop_active(nd) || fc_vdj_active(nd) || fc_call_active(nd)) ? 1 :
         0;
 }
-static int zls_hf_resident(const IR_t * nd) {
-    return nd && (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) || (zls_home_why(nd) && !ir_node_produces_value(nd->op))) ? 1 : 0;
-}
+static int zls_hf_resident(const IR_t * nd) { return nd && (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) || (zls_home_why(nd) && !ir_node_produces_value(nd->op))) ? 1 : 0; }
 int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }
 int zls_redisp_off(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_RO); return t ? t->ro : -1; }
 void zls_redisp_mark(const IR_t * nd, int off) { fcn_t * t = fcn_get(nd); t->ro = off; t->fl |= FCN_RO; }
