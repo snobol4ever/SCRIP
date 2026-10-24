@@ -510,7 +510,7 @@ static tree_t *pc_expr(pc_ctx *x, tree_t *e) {
                 return c;
             }
             if (pc_eq(n, "as") && e->n == 3 && !s) return pc_expr(x, e->c[1]);
-            if (e->n == 2 && s && (s->kind == 'k' || (s->kind == 't' && PC_IS(pc_resolve(x, h).t, TT_PTR_TYPE)))) return pc_expr(x, e->c[1]);
+            if (e->n == 2 && s && s->kind == 'k') return pc_expr(x, e->c[1]);
             if (pc_ident_is_member(x, n)) { pc_class *c = pc_member_owner(x, n); pc_meth *m = pc_find_meth(c, n); if (m) return pc_mcall(x, pc_self(x, n), m, e, 1, 0); }
             for (int i = 1; i < e->n; i++) e->c[i] = pc_expr(x, e->c[i]);
             return e;

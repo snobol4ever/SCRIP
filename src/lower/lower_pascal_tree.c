@@ -5420,6 +5420,10 @@ static void tok_events(const tree_t *x) {
     }
 }
 static char *tok_s(const tree_t *x) { tok_events(x); return x->v.sval; }
+static const char *pas_ptrcast_target(const tree_t *n) {
+    const char *t = (IS(n, TT_FNC) && n->n == 2 && IS(n->c[0], TT_VAR) && n->c[0]->v.sval) ? pas_alias_resolve(n->c[0]->v.sval) : NULL;
+    return (t && !pas_is_func(t) && !pas_is_proc(t)) ? pas_ptrtype_target(t) : NULL;
+}
 static long long tok_i(const tree_t *x) { tok_events(x); return x->v.ival; }
 static double tok_d(const tree_t *x) { tok_events(x); return x->v.dval; }
 static pval E_decl_part(const tree_t *n);
@@ -5686,6 +5690,7 @@ static pval E_call_with_args(const tree_t *n) {
         const char *dflt = NULL;
         int onp = 0;
         v[1].str = pas_alias_resolve(src0);
+        if (pas_ptrcast_target(n)) return E_expression(n->c[1]);
         if (v[1].str && !strcmp(v[1].str, "format") && n->n == 3 && IS(n->c[2], TT_SET) && !pas_is_func(v[1].str) && !pas_is_proc(v[1].str) && (out.node = pas_format_call(n))) return out;
         if (pas_openparm_mask(v[1].str) != 0 || pas_pf_lookup(v[1].str)) {
             for (int i = 1; i < n->n; i++) {
@@ -6982,7 +6987,7 @@ static pval E_selector(const tree_t *n) {
         v[3].str = tok_s(n->c[1]);
         {
             int _fi = -1;
-            const char *_rt = pas_selector_rectype(v[1].node);
+            const char *_rt = IS(n->c[0], TT_DEREF) && pas_ptrcast_target(n->c[0]->c[0]) ? pas_ptrcast_target(n->c[0]->c[0]) : pas_selector_rectype(v[1].node);
             if (_rt) _fi = pas_rectype_field_index(_rt, v[3].str);
             else if (v[1].node && v[1].node->t == TT_VAR && v[1].node->v.sval) _fi = pas_recvar_field_index(v[1].node->v.sval, v[3].str);
             if (_fi < 0 && v[1].node && v[1].node->t == TT_IDX && v[1].node->n == 2 && v[1].node->c[0] && v[1].node->c[0]->t == TT_VAR) {
@@ -7042,6 +7047,7 @@ static pval E_selector(const tree_t *n) {
         return out;
     }
     if (IS(n, TT_VAR)) { v[1].str = pas_alias_resolve(tok_s(n)); { out.node = mk_ident(v[1].str); } return out; }
+    if (IS(n, TT_FNC)) return E_call_with_args(n);
     elab_bad("selector", n);
     return out;
 }
