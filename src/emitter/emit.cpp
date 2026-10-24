@@ -1519,14 +1519,16 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_GATE_ARM: bb_emit_x86(bb_gate_arm()); return 0;
     case IR_GATE: bb_emit_x86(bb_gate()); return 0;
     case IR_DISJUNCTION: { if (nd->n_operands > 0) { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } }
-        if (g_emit.op_zres && g_emitter.g_zd_djok) { g_emit.op_fc_bytes = zd_k_own(nd); g_emit.op_fc_base = g_emit.op_off; } g_emit.op_dj_bfail = g_emit.op_zres && g_emitter.g_zd_djok && fc_vdj_active(nd);
+        if (g_emit.op_zres && g_emitter.g_zd_djok) { g_emit.op_fc_bytes = zd_k_own(nd); g_emit.op_fc_base = g_emit.op_off;
+            } g_emit.op_dj_bfail = g_emit.op_zres && g_emitter.g_zd_djok && fc_vdj_active(nd);
             g_emitter.g_zd_djok = 0;
             g_emit.op_dj_rec = (zls_dj_retains(nd) && !zd_djx_of(nd) && xop_frame_slot(nd) != -1) ? 1 : 0;
             bb_emit_x86(bb_disjunction()); return 0; }
                                                   g_emit.op_ival = 0; bb_emit_x86(bb_gate()); } return 0;
     case IR_SCAN: { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL;
         g_emit.op_sb = (IR_LIT(nd).dval == 4.0) ? 4 : ((nd->n_operands > 2 && !_bv) ? 2 : (IR_LIT(nd).dval == 3.0 ? 3 : 0)); g_emit.op_off = nd_slot(_en);
-        g_emit.op_sa = (g_emit.op_sb == 2 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) : (_bv ? (bb_slot_get(_bv) >= 0 ? bb_slot_get(_bv) : nd_slot(_bv)) : -1);
+        g_emit.op_sa = (g_emit.op_sb == 2 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) :
+            (_bv ? ((_bv->op == IR_VAR && IR_LIT(_bv).sval) ? drive_local_slot(IR_LIT(_bv).sval) : bb_slot_get(_bv) >= 0 ? bb_slot_get(_bv) : nd_slot(_bv)) : -1);
         g_emit.op_sc = (g_emit.op_sb == 4 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) : -1; g_emit.op_ival = zls_off(nd);
         g_emit.lbl_t0 = g_emitter.g_scan_body_beta ? g_emitter.g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_emitter.g_scan_body_beta; g_emit.op_t0_pop = g_emitter.g_scan_t0_pop;
         bb_emit_x86(bb_gen_scan()); } return 0;

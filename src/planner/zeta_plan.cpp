@@ -607,6 +607,11 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
         }
         for (int r = 0; r < n; r++) if (indef[r]) known[r] = 0;
         if (pl) absolute_pass(indef);
+        for (int h = 0; h < n; h++) {
+            if (!zon[h] || claim[h] != h || known[h] || indef[h] || nodes[h]->op != IR_SCAN || nodes[h]->n_operands < 1 || !nodes[h]->operands[0]) continue;
+            int q = nidx(nodes, n, nodes[h]->operands[0]);
+            if (q >= 0 && zon[q] && claim[q] >= 0 && known[claim[q]] && !indef[claim[q]]) { base[h] = base[claim[q]] + zout[q] - (zout[h] - zd_k(nodes[h])); known[h] = 1; }
+        }
         if (pl) {
             for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) {
                 moved = 0;
@@ -775,6 +780,7 @@ static int zst_names(const IR_t * nd, const char ** out) {
     if (o == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) out[k++] = IR_LIT(nd->operands[1]).sval;
     if (o == IR_REV_SWAP && nd->n_operands > 0 && nd->operands[0]) out[k++] = IR_LIT(nd->operands[0]).sval;
     if ((o == IR_UNIFY_CONST || o == IR_UNIFY_STRUCT) && nd->n_operands > 0 && nd->operands[0] && nd->operands[0]->op == IR_VAR_REF) out[k++] = IR_LIT(nd->operands[0]).sval;
+    if (o == IR_SCAN && nd->n_operands > 1 && nd->operands[1] && nd->operands[1]->op == IR_VAR && IR_LIT(nd->operands[1]).sval) out[k++] = IR_LIT(nd->operands[1]).sval;
     return k;
 }
 static int zst_dj_reads(const IR_t * nd, const char * vn) {
