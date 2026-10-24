@@ -4267,7 +4267,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_is_text) g_emit_pos += 7;
     bb_label_t lbl_stcγ, lbl_stcω;
     if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", fam); emit_label_initf(&lbl_stcω, "%s_stω", fam); }
-    g_emit.flat_carve_total = 0; g_emit.flat_gen_rbp = 0; g_emit.op_zxb = 0;
+    g_emit.flat_carve_total = 0; g_emit.flat_gen_rbp = 0; g_emit.flat_gen_above = 0; g_emit.op_zxb = 0;
     bb_label_t lbl_αblk; emit_label_initf(&lbl_αblk, "%s_αblk", fam);
     int _blk_graph = (g_emit.zframe_graph && !emit_resumable_frame() && g_emit_cfg && zls_g_block_args(g_emit_cfg) && !zls_g_det_block(g_emit_cfg)) ? 1 : 0;
     if (_blk_graph) { extern void xa_flat_block_staged_entry(void); xa_flat_block_staged_entry(); emit_label_define_bb(&lbl_αblk); }
@@ -4308,6 +4308,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           }
         extern int zls_g_block_args(const IR_graph_t *); extern int zls_g_block_base(const IR_graph_t *);
         int _gblk = (_use_zframe_install && zls_g_block_args(g_emit_cfg)) ? 1 : 0, _gw = _gblk ? 16 * np : 0;
+        g_emit.flat_gen_above = carve - frame_total + _gw + 40;
         if (_gblk && zls_g_block_base(g_emit_cfg) != carve)
             { fprintf(stderr, "FATAL emit: generator %s's argument block lies at +%d by the layout and +%d by the carve -- the two must agree to the byte\n", prefix ? prefix : "?",
             zls_g_block_base(g_emit_cfg), carve); abort(); }
