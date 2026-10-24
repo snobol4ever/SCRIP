@@ -629,6 +629,8 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                     fputc(' ', fp);
                     plc_wt_atom(fp, fn, quoted);
                     fputc(' ', fp);
+                } else if (!fn[0] && !quoted) {
+                    fputc(' ', fp);
                 } else {
                     int lglue = !lop && plc_is_graphic_char((unsigned char)fn[0]) && plc_term_prio(&aa[0], ignore_ops) <= lmax &&
                         plc_is_graphic_char(plc_last_char(&aa[0], quoted, ignore_ops, numbervars));
