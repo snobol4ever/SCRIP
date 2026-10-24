@@ -1302,7 +1302,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                             if (kr < 0 || !zon[kr] || claim[kr] != claim[i] || zd_icn_local_var(nodes[kr]) || zd_dj_cellless(nodes, n, zarm, kr)) continue;
                             for (IR_t * t = nodes[kr]; t && hit < n; t = zd_chase(t->γ.node)) { if (t == nodes[i]) { hit = -1; break; } hit++; }
                             if (hit != -1) continue;
-                            if (zls_dj_retains(nodes[q]) || xop_frame_slot(nodes[q]) != -1) { zcps[i] = -(kr + 2); zcpd[i] = -(q + 2); }
+                            if (zls_dj_retains(nodes[q]) || (g_emit_cfg && g_emit_cfg->spine_cells && xop_frame_slot(nodes[q]) != -1)) { zcps[i] = -(kr + 2); zcpd[i] = -(q + 2); }
                             else { zcps[i] = -(kr + 2); zcpd[i] = ai - aq; }
                             break;
                         }
@@ -1480,7 +1480,8 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 while (zarm[p] != q) p = zarm[p];
                 IR_t * rj = zd_dj_res(nodes[q], zarmj[p]);
                 int kr = rj ? nidx(nodes, n, rj) : -1;
-                if (kr >= 0 && zon[kr] && !zd_icn_local_var(nodes[kr]) && !zd_dj_cellless(nodes, n, zarm, kr) && (zls_dj_retains(nodes[q]) || xop_frame_slot(nodes[q]) != -1)) { zcps[i] = -(kr + 2);
+                if (kr >= 0 && zon[kr] && !zd_icn_local_var(nodes[kr]) && !zd_dj_cellless(nodes, n, zarm, kr) &&
+                    (zls_dj_retains(nodes[q]) || (g_emit_cfg && g_emit_cfg->spine_cells && xop_frame_slot(nodes[q]) != -1))) { zcps[i] = -(kr + 2);
                     zcpd[i] = -(q + 2); }
                 else if (kr >= 0 && zon[kr] && !zd_icn_local_var(nodes[kr]) && !zd_dj_cellless(nodes, n, zarm, kr)) { zcps[i] = -(kr + 2); zcpd[i] = zout[i] - zout[q]; }
             }
@@ -1497,7 +1498,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
         if (!zon[sp] || nodes[sp]->op != IR_SUSPEND || claim[sp] < 0) continue;
         int k = zd_yield_end(nodes, n, sp, zon, claim);
         if (k < 0) continue;
-        zgpop[k] = (g_emit_cfg && g_emit_cfg->home_frame) ? 0 : zout[k] - zout[sp];
+        zgpop[k] = (g_emit_cfg && g_emit_cfg->home_frame && g_emit_cfg->spine_cells) ? 0 : zout[k] - zout[sp];
         if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-YIELD] i=%d ends the yield of suspend %d: it pops %d\n", k, sp, zgpop[k]);
     }
     for (int i = 0; i < n; i++) if (zon[i] && nodes[i]->op == IR_GATE_ARM && nodes[i]->n_operands > 1 && zd_edge_retains(nodes[i]->operands[1]) &&

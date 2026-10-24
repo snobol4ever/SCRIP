@@ -2207,11 +2207,11 @@ void zls_home_local_declare(const IR_graph_t * g, const char * name, int why) {
 int zls_home_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_HOME); return t ? t->hw : 0; }
 int zls_home_member(const IR_t * nd) { return (nd && zls_home_why(nd) && ir_node_produces_value(nd->op)) ? 1 : 0; }
 void zls_frame_resident_mark(const IR_t * nd) { fcn_flag(nd, FCN_RES); }
-int zls_frame_home(const IR_t * nd) { return (zls_home_member(nd) || zls_frame_word_why(nd)) && zls_off(nd) >= 0 ? 1 : 0; }
+int zls_frame_home(const IR_t * nd) { return (zls_home_member(nd) || zls_frame_word_why(nd) || (nd && nd->op == IR_SCAN_ENTER && zls_home_why(nd))) && zls_off(nd) >= 0 ? 1 : 0; }
 int zls_frame_resident(const IR_t * nd) {
     return nd &&
-        (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) || fc_vlit_active(nd) || fc_vread_fp(nd) >= 0 || fc_vbinop_active(nd) || fc_vdj_active(nd) || fc_call_active(nd)) ? 1 :
-        0;
+        (zls_home_member(nd) || zls_frame_word_why(nd) || (nd->op == IR_SCAN_ENTER && zls_home_why(nd)) || fcn_find(nd, FCN_RES) || fc_vlit_active(nd) || fc_vread_fp(nd) >= 0 ||
+        fc_vbinop_active(nd) || fc_vdj_active(nd) || fc_call_active(nd)) ? 1 : 0;
 }
 static int zls_edge_retains(const IR_graph_t * g, const IR_t * nd) { extern int planner_edge_retains(const IR_graph_t *, const IR_t *); return planner_edge_retains(g, nd); }
 static int zls_hf_resident_cleanup(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && nd->op == IR_CLEANUP ? 1 : 0; }

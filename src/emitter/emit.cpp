@@ -2349,7 +2349,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (nd->n_operands > 0 && nd->operands[0] && bb_slot_get(nd) < 0) { int voff = bb_slot_get(nd->operands[0]); if (voff >= 0) bb_slot_register(nd, voff); }
         { int dst = nd_slot(nd); if (dst >= 0 && nd->n_operands > 0 && nd->operands[0]) {
             int src = bb_slot_get(nd->operands[0]);
-            if (src >= 0 && dst >= 0 && src != dst && !(zls_g_home_frame(g_emit_cfg) && zd_k_own(nd) == 0)) {
+            if (src >= 0 && dst >= 0 && src != dst && !(g_emit_cfg && g_emit_cfg->spine_cells && zls_g_home_frame(g_emit_cfg) && zd_k_own(nd) == 0)) {
                 g_emit.op_sa = src; g_emit.op_off = dst;
             } else {
                 g_emit.op_sa = -1; g_emit.op_off = -1;
@@ -4502,7 +4502,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   int _ti = (_sn->n_operands > 1) ? nidx(g_emitter.codegen_flat_chain_body_nodes, n, zd_chase(_sn->operands[1])) : -1;
                   int _bi = (zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0, _bt = (_ti >= 0 && zd_xb && zd_xb[_ti] != INT_MIN) ? zd_xb[_ti] : 0;
                   int _ta = (_ti >= 0 && zd_on[_ti] && g_emitter.g_suspend_dobody_beta == lbls[_ti]) ? zd_k(g_emitter.codegen_flat_chain_body_nodes[_ti]) : 0;
-                  int _ke = (g_emitter.g_zd_claim_p && g_emit_cfg && g_emit_cfg->home_frame) ? zd_yield_end(g_emitter.codegen_flat_chain_body_nodes, n, i, zd_on, g_emitter.g_zd_claim_p) : -1;
+                  int _ke = (g_emitter.g_zd_claim_p && g_emit_cfg && g_emit_cfg->home_frame && g_emit_cfg->spine_cells) ?
+                      zd_yield_end(g_emitter.codegen_flat_chain_body_nodes, n, i, zd_on, g_emitter.g_zd_claim_p) : -1;
                   int _yd = _ke >= 0 ? zd_out[_ke] - zd_gp[_ke] : zd_out[i];
                   g_emitter.g_zd_suspend_uclaim = (_ti >= 0 && zd_on[_ti]) ? (_bi + _yd) - (_bt + zd_out[_ti] - _ta) : 0; }
               { g_emitter.g_zd_zunder = 0; g_emitter.g_zd_abs = zd_on[i] ? zd_out[i] + ((zd_xb && zd_xb[i] != INT_MIN) ? zd_xb[i] : 0) : 0; g_emitter.g_zd_cur = i;
