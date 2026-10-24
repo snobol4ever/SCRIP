@@ -1007,6 +1007,91 @@ static int zls_hf_key_base(const IR_graph_t * g, int fregion, int base) {
     int top = zls_g_block_args(g) ? bb + 16 * g->nparams : kt;
     return top > base ? (top + 15) & ~15 : base;
 }
+static int zls_node_var_names(const IR_t * nd, const char ** vns) {
+    int nvn = 0;
+    if (nd->op == IR_ASSIGN) vns[nvn++] = IR_LIT(nd).sval;
+    else if (nd->op == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) vns[nvn++] = IR_LIT(nd->operands[1]).sval;
+    else if (nd->op == IR_REV_SWAP) {
+        vns[nvn++] = IR_LIT(nd).sval;
+        if (nd->n_operands > 0 && nd->operands[0]) vns[nvn++] = IR_LIT(nd->operands[0]).sval;
+    } else if (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_UNIFY_FIRST || nd->op == IR_UNIFY_VALUE) vns[nvn++] = IR_LIT(nd).sval;
+    return nvn;
+}
+typedef struct { int n; int * fo; int * fa; int * ro; int * ra; unsigned char * exc; unsigned char * seed; unsigned char * mf; unsigned char * mb; int * stk; zls_nidx_t nx; } zls_vflow_t;
+static int zls_vflow_succ(const IR_graph_t * g, const zls_nidx_t * nx, int i, int k) {
+    const IR_t * x = g->all[i];
+    const IR_t * t = !x ? (const IR_t *)0 : k == 0 ? x->γ.node : k == 1 ? x->ω.node : k - 2 < x->n_operands ? x->operands[k - 2] : (const IR_t *)0;
+    int j = t ? zls_reuse_index(nx, t) : -1;
+    return j == i ? -1 : j;
+}
+static void zls_vflow_build(zls_vflow_t * f, const IR_graph_t * g) {
+    extern int planner_span_retains(const IR_graph_t *, int, int);
+    int n = g->n, m = 0;
+    f->n = n;
+    zls_nidx_build(&f->nx, g);
+    f->fo = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1));
+    f->ro = (int *)ct_zalloc((size_t)(n + 2), sizeof(int));
+    f->exc = (unsigned char *)ct_alloc((size_t)n);
+    f->seed = (unsigned char *)ct_alloc((size_t)n);
+    f->mf = (unsigned char *)ct_alloc((size_t)n);
+    f->mb = (unsigned char *)ct_alloc((size_t)n);
+    f->stk = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1));
+    for (int i = 0; i < n; i++) {
+        f->fo[i] = m;
+        f->exc[i] = g->all[i] ? (unsigned char)(planner_span_retains(g, i, i) ? 1 : 0) : 0;
+        for (int k = 0, e = g->all[i] ? 2 + g->all[i]->n_operands : 0; k < e; k++) { int j = zls_vflow_succ(g, &f->nx, i, k); if (j >= 0) { m++; f->ro[j + 1]++; } }
+    }
+    f->fo[n] = m;
+    f->fa = (int *)ct_alloc(sizeof(int) * (size_t)(m + 1));
+    f->ra = (int *)ct_alloc(sizeof(int) * (size_t)(m + 1));
+    for (int i = 0; i < n; i++) f->ro[i + 1] += f->ro[i];
+    {
+        int * fill = (int *)ct_alloc(sizeof(int) * (size_t)(n + 1));
+        for (int i = 0; i < n; i++) fill[i] = f->ro[i];
+        for (int i = 0, w = 0; i < n; i++) {
+            for (int k = 0, e = g->all[i] ? 2 + g->all[i]->n_operands : 0; k < e; k++) { int j = zls_vflow_succ(g, &f->nx, i, k); if (j >= 0) { f->fa[w++] = j; f->ra[fill[j]++] = i; } }
+        }
+        ct_drop(fill);
+    }
+}
+static void zls_vflow_drop(zls_vflow_t * f) {
+    ct_drop(f->fo);
+    ct_drop(f->fa);
+    ct_drop(f->ro);
+    ct_drop(f->ra);
+    ct_drop(f->exc);
+    ct_drop(f->seed);
+    ct_drop(f->mf);
+    ct_drop(f->mb);
+    ct_drop(f->stk);
+    ct_drop(f->nx.k);
+    ct_drop(f->nx.v);
+}
+static void zls_vflow_close(const zls_vflow_t * f, const int * o, const int * a, unsigned char * mark) {
+    int top = 0;
+    memset(mark, 0, (size_t)f->n);
+    for (int i = 0; i < f->n; i++) if (f->seed[i]) { mark[i] = 1; f->stk[top++] = i; }
+    while (top > 0) { int x = f->stk[--top]; for (int e = o[x]; e < o[x + 1]; e++) { int y = a[e]; if (!mark[y]) { mark[y] = 1; f->stk[top++] = y; } } }
+}
+static int zls_var_span_retains(const IR_graph_t * g, const char * vn, zls_vflow_t * f) {
+    int n = g->n, any = 0;
+    memset(f->seed, 0, (size_t)n);
+    for (int j = 0; j < n; j++) {
+        const IR_t * x = g->all[j];
+        const char * xs[2];
+        int nx = x ? zls_node_var_names(x, xs) : 0;
+        for (int q = 0; q < nx; q++) if (xs[q] && !strcmp(xs[q], vn)) { f->seed[j] = 1; any = 1; }
+    }
+    if (!any) return 0;
+    for (int i = 0; i < n; i++) {
+        if (!f->exc[i]) continue;
+        for (int k = 0; k < g->all[i]->n_operands; k++) { int j = g->all[i]->operands[k] ? zls_reuse_index(&f->nx, g->all[i]->operands[k]) : -1; if (j >= 0 && f->seed[j]) return 1; }
+    }
+    zls_vflow_close(f, f->fo, f->fa, f->mf);
+    zls_vflow_close(f, f->ro, f->ra, f->mb);
+    for (int i = 0; i < n; i++) if (f->exc[i] && f->mf[i] && f->mb[i]) return 1;
+    return 0;
+}
 static int zls_frame_words(IR_graph_t * g, zls_graph_t * r, int root, int base, int k, const char * rb, const char ** nix, int nix_cap, int hf) {
     r->resume_off = -1;
     for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && g->all[i]->op == IR_SUSPEND) {
@@ -1025,17 +1110,13 @@ static int zls_frame_words(IR_graph_t * g, zls_graph_t * r, int root, int base, 
     }
     r->locals_off = base + k * 16;
     r->zeta_mark_off = -1;
+    zls_vflow_t vf;
+    if (hf) zls_vflow_build(&vf, g);
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd || !rb[i]) continue;
         const char * vns[2];
-        int nvn = 0;
-        if (nd->op == IR_ASSIGN) vns[nvn++] = IR_LIT(nd).sval;
-        else if (nd->op == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) vns[nvn++] = IR_LIT(nd->operands[1]).sval;
-        else if (nd->op == IR_REV_SWAP) {
-            vns[nvn++] = IR_LIT(nd).sval;
-            if (nd->n_operands > 0 && nd->operands[0]) vns[nvn++] = IR_LIT(nd->operands[0]).sval;
-        } else if (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_UNIFY_FIRST || nd->op == IR_UNIFY_VALUE) vns[nvn++] = IR_LIT(nd).sval;
+        int nvn = zls_node_var_names(nd, vns);
         for (int q = 0; q < nvn; q++) {
             const char * vn = vns[q];
             if (!vn || vn[0] == '&' || (is_global(vn) && !graph_has_local(g, vn))) continue;
@@ -1043,6 +1124,7 @@ static int zls_frame_words(IR_graph_t * g, zls_graph_t * r, int root, int base, 
             if (*ns) continue;
             *ns = vn;
             cv_reserve(&g_lower.ir.zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)g_lower.ir.zv_n + 1, "zv");
+            if (hf && !zls_home_local_test(g, vn) && zls_var_span_retains(g, vn, &vf)) zls_home_local_declare(g, vn, 8);
             if (hf && !zls_home_local_test(g, vn)) { zv[g_lower.ir.zv_n++] = (zls_vslot_t){ vn, -2 }; r->n_vslots++; continue; }
             zv[g_lower.ir.zv_n++] = (zls_vslot_t){ vn, base + k * 16 };
             r->n_vslots++;
@@ -1074,6 +1156,7 @@ static int zls_frame_words(IR_graph_t * g, zls_graph_t * r, int root, int base, 
             k++;
         }
     }
+    if (hf) zls_vflow_drop(&vf);
     return k;
 }
 static int zls_dl_place(int root, int base, int k, int dl_w) {
@@ -2001,9 +2084,10 @@ int zls_frame_resident(const IR_t * nd) {
         0;
 }
 static int zls_edge_retains(const IR_graph_t * g, const IR_t * nd) { extern int planner_edge_retains(const IR_graph_t *, const IR_t *); return planner_edge_retains(g, nd); }
+static int zls_hf_resident_cleanup(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && nd->op == IR_CLEANUP ? 1 : 0; }
 static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
     return nd &&
-        (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) ||
+        (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) || zls_hf_resident_cleanup(g, nd) ||
         (zls_g_resumable_frame(g) &&
         ((zls_home_why(nd) && !ir_node_produces_value(nd->op)) || zls_home_dyn(g, nd) || zls_edge_retains(g, nd) ||
         (zls_g_home_frame(g) && (nd->op == IR_BOUND || nd->op == IR_GATE || nd->op == IR_TO))))) ? 1 : 0;
