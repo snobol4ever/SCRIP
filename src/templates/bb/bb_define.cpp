@@ -693,7 +693,7 @@ static std::string bb_define_sr() {
              + x86_jcc_id("jbe", 2)
              + x86("mov32", "eax", 16L * nf4)
              + x86_deflabel_id(2)
-             + x86("sub", "rsp", T4 + 16L * nf4)
+             + std::string()
              + x86("add", "rsp", "rax")
              + WNSAVE()
              + FOR(0, xt4, [&](int k) {

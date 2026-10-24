@@ -4432,7 +4432,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam, &_sigk);
     if (!bare && blob_frame_scope()) blob_first_guard();
     { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb);
-        bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) +
+        bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + std::string() +
         emit_gc_map_register(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2, GC_LINK_Q(8, 0, 8, 0u)) + blob_zero_fill(_bfb) +
         IF(blob_cont_copy(), x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx")) +
         x86("mov", RDQ("rbp", -32), (long)DT_P) + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -40), "r12"))); } else if (blob_frame_scope()) { _spf = 1;
@@ -4441,7 +4441,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         for (int _q = 0; _q < n; _q++) { IR_t * _gt = zd_chase(g_emitter.codegen_flat_chain_body_nodes[_q]->γ.node); if (_gt && _gt->op != IR_SUCCEED) continue; int _d = zd_on[_q] ? zd_out[_q] : -2;
         _spgd = (_spgd == -1 || _spgd == _d) ? _d : -2;
         } if (_sph)
-        bb_emit_x86(x86("sub", "rsp", (long)_sph) + x86("mov", RDQ("rsp", _sph - 16), (long)DT_P) + x86("mov", RDQ("rsp", _sph - 8), "rdx") +
+        bb_emit_x86(std::string() + x86("mov", RDQ("rsp", _sph - 16), (long)DT_P) + x86("mov", RDQ("rsp", _sph - 8), "rdx") +
         IF(_sph == 32, x86("mov", RDQ("rsp", 0), (long)DT_I) + x86("mov", RDQ("rsp", 8), "r12"))); }
     }
     long _glue_carve = 0;

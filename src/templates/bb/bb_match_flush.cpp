@@ -85,7 +85,7 @@ std::string bb_match_flush() {
          + x86_alpha()
          + flush_pump()
          + IF(_.op_fence0_floor > 0, x86("mov", "rsp", "rbp")
-                                    + x86("sub", "rsp", (long)_.op_fence0_floor))
+                                    + std::string())
          + IF(_.op_fence0_floor <= 0 && _.op_fence0_release > 0, x86("add", "rsp", _.op_fence0_release))
          + x86_gamma()
          + x86_beta()

@@ -20,7 +20,7 @@ std::string bb_match_fence0() {
                                   : "IR_MATCH_FENCE0 (bare FENCE cut box: alpha commits — match null — then gamma; beta abandons to omega; nothing releasable here)")
          + x86_alpha()
          + IF(_.op_fence0_floor > 0, x86("mov", "rsp", "rbp")
-                                    + x86("sub", "rsp", (long)_.op_fence0_floor))
+                                    + std::string())
          + IF(_.op_fence0_floor <= 0 && _.op_fence0_release > 0, x86("add", "rsp", _.op_fence0_release))
          + x86_gamma()
          + x86_beta()

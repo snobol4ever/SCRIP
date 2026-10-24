@@ -8,9 +8,9 @@ extern "C" {
 std::string bb_glue_framed_enter() {
     return std::string("")
          + std::string("")
-         + x86("sub", "rsp", ((_.op_fc_bytes + 15) & ~15L));
+         + std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_framed_leave() {
-    return x86("add", "rsp", ((_.op_fc_bytes + 15) & ~15L));
+    return std::string();
 }

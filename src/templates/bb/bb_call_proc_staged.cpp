@@ -302,7 +302,7 @@ static std::string bcps_det_arm() {
                         } else {
                         long Kbz = 16L * (long)_.op_ival + 32;
                         auto ZOPQT = [&](int i, int w) { return x86_zref(_.op_zread[i] + w + (int)Kbz, 1); };
-                        return lazd + x86("sub", "rsp", Kbz)
+                        return lazd + std::string()
                              + FOR(0, (int)_.op_ival, [&](int i) {
                                    return x86("note", ZOPN(i))
                                         + x86("mov", "rax", ZOPQT(i, 0)) + x86_rsp_store64(32 + 16 * i, "rax")
@@ -475,7 +475,7 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
                                                                             "callee, not a silent decline here. [arm=frame]");
                     } else {
                     long Kb = 16L * (long)_.op_ival + 32;
-                    return lad + x86("sub", "rsp", Kb)
+                    return lad + std::string()
                          + FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i);
                                return (x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)Kb) : x86("mov", "rax", FRQB(slot, (int)Kb)))
                                     + x86_rsp_store64(32 + 16 * i, "rax")

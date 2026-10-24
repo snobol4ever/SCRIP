@@ -153,7 +153,7 @@ static std::string cf_fnlbl() {
          + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)CF_FN(), _.op_call_fnlbl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string cf_join29(int open, int eval) { return IF(open, x86_deflabel_id(29) + IF(eval, x86("add", "rsp", (long)BCFN_EVAL_REC))); }
+static std::string cf_join29(int open, int eval) { return IF(open, x86_deflabel_id(29) + IF(eval, std::string())); }
 static std::string cf_sync_in() { return IF(_.op_call_scansync, x86_scan_sync_in_rr_force()); }
 static std::string cf_argv_rsi(int eval) {
     return IF(CF_N() > 0, x86("lea", "rsi", RDQ("rsp", eval ? BCFN_EVAL_REC : 0)))
@@ -317,7 +317,7 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + x86_jmp_id(join_id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define BCFN_EVAL_OPEN_ENTER(base, decl_id, join_id) ( x86("sub", "rsp", (long)BCFN_EVAL_REC) \
+#define BCFN_EVAL_OPEN_ENTER(base, decl_id, join_id) ( std::string() \
                                                      + x86("mov", "rdx", "rsp") \
                                                      + x86("call", "rt_eval_open", (uint64_t)(uintptr_t)(void *)rt_eval_open) \
          + x86_rt_gc_poll_rec_sigma_word(1) \

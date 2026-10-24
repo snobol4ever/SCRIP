@@ -687,6 +687,7 @@ static void drive_slots_all(stage2_t * s2) {
         for (int i = 0; i < np; i++) { pn[i] = s2->proc_table[i].name; px[i] = s2->proc_table[i].bb_idx; }
         zls_home_callees_mark(s2->bbp.table, s2->bbp.count, pn, px, np);
     }
+    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi] && !s2->bbp.table[_gi]->root_graph) s2->bbp.table[_gi]->home_frame = 1;
     for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi] && s2->bbp.table[_gi]->home_frame) fl_derive_tier(s2->bbp.table[_gi]);
     for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) {
         IR_graph_t * _g = s2->bbp.table[_gi];

@@ -36,7 +36,7 @@ std::string bb_match_begin() {
          + x86("push", "r14")
          + x86("note", HKN(3))
          + x86("push", "r15")
-         + x86("sub", "rsp", (long)(24 + _.op_frame_extra))
+         + x86("sub", "rsp", 24L)
          + x86("mov", "rax", std::string("[rip@got + __]"), TEMPLATE_ADDR_SIGMA, "Σ")
          + x86("mov", "rax", "[rax]")
          + x86("mov", "rcx", std::string("[rip@got + __]"), TEMPLATE_ADDR_SIGLEN, "Σlen")
