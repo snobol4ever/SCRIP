@@ -3075,7 +3075,8 @@ static int pl_xop_frame_member(const IR_t * nd) {
 }
 int xop_frame_slot(const IR_t * nd);
 int xop_frame_slot(const IR_t * nd) {
-    if (zls_g_home_frame(g_emit_cfg) ? zls_frame_home(nd) : (icn_xop_frame_member(nd) || pl_xop_frame_member(nd))) return zls_frame_off(g_emit_cfg, nd);
+    if (zls_g_home_frame(g_emit_cfg) ? (zls_frame_home(nd) || (g_emit_cfg->spine_cells && nd && zls_home_why(nd) && zls_off(nd) >= 0)) : (icn_xop_frame_member(nd) || pl_xop_frame_member(nd)))
+        return zls_frame_off(g_emit_cfg, nd);
     return planner_act_value_slot(nd);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

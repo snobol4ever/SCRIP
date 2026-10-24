@@ -2067,7 +2067,7 @@ int zls_frame_resident(const IR_t * nd);
 int zls_dj_arm_resumes(const IR_t * nd, int a) { const IR_t * rs = zls_chase(nd->operands[2 * a + 1]); return rs && rs != nd && rs->op != IR_FAIL && rs->op != IR_SUCCEED; }
 static int zls_dj_arm_rbp_state(const IR_t * nd, int a) {
     const IR_t * rs = zls_chase(nd->operands[2 * a + 1]), * x = zls_chase(nd->operands[2 * a]);
-    if (!rs || rs->op != IR_TO || !zls_frame_resident(rs)) return 0;
+    if (!rs || rs->op != IR_TO || !ir_range_trailed(rs)) return 0;
     for (int g = 0; x && x != rs && g < 8; g++) {
         int o = (int)x->op;
         if (o != IR_LIT_INTEGER && o != IR_LIT_STRING && o != IR_LIT_REAL && o != IR_VAR && o != IR_LINE_MARK) return 0;
