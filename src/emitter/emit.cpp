@@ -3760,7 +3760,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         bb_label_t ** _tpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); bb_label_t ** _tpt = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1));
         int * _tpd = (int *)alloca(sizeof(int) * (size_t)(n + 1)); int _tpn = 0;
     zd_depth_census(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, prefix);
-    zd_check(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, zd_xb, zd_chn, zd_cut, prefix);
+    zd_check(g_emitter.codegen_flat_chain_body_nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_claim, zd_xb, zd_chn, zd_cut, zd_arm, prefix);
     if (g_emitter.dump_homes) emit_dump_homes(g_emitter.codegen_flat_chain_body_nodes, n, zd_on);
     if (g_emitter.dump_plan) emit_dump_plan(_pl, prefix);
     {

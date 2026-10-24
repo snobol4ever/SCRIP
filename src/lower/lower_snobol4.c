@@ -903,13 +903,15 @@ static IR_t * sno_xname_lv(scx_t * cx, const tree_t * nexp, IR_t * ω, IR_t ** r
     ir_operand_push(asn_e, evr);
     IR_t * xa = lc_build(g, IR_ASSIGN, ee, ω);
     IR_LIT(xa).sval = xn;
-    IR_t * xt = lc_build(g, IR_CALL, xa, fb);
+    IR_t * fr = NULL;
+    IR_t * fe = sx_lower(cx, nexp, fb, ω, &fr);
+    ir_operand_push(fb, fr);
+    IR_t * xt = lc_build(g, IR_CALL, xa, fe);
     IR_LIT(xt).sval = (char *) "SNO$XLV";
     ir_operand_push(xa, xt);
     IR_t * vr = NULL;
     IR_t * ve = sx_lower(cx, nexp, xt, ω, &vr);
     ir_operand_push(xt, vr);
-    ir_operand_push(fb, vr);
     *res = join;
     return ve;
 }
@@ -1264,15 +1266,21 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 IR_t * evr = NULL;
                 IR_t * ee = sx_lower(cx, ev, asn_e, ω, &evr);
                 ir_operand_push(asn_e, evr);
-                IR_t * xa = lc_build(g, IR_ASSIGN, ee, dr);
+                char * vn = sno_scan_tmp("SNO$XV");
+                IR_t * rd = lc_build(g, IR_VAR, dr, ω);
+                IR_LIT(rd).sval = vn;
+                ir_operand_push(dr, rd);
+                IR_t * xa = lc_build(g, IR_ASSIGN, ee, rd);
                 IR_LIT(xa).sval = xn;
-                IR_t * xt = lc_build(g, IR_CALL, xa, dr);
+                IR_t * xt = lc_build(g, IR_CALL, xa, rd);
                 IR_LIT(xt).sval = (char *) "SNO$XTHUNK";
                 ir_operand_push(xa, xt);
+                IR_t * av = lc_build(g, IR_ASSIGN, xt, ω);
+                IR_LIT(av).sval = vn;
                 IR_t * vr = NULL;
-                IR_t * ve = sx_nameval(cx, t->c[0], xt, ω, &vr);
+                IR_t * ve = sx_nameval(cx, t->c[0], av, ω, &vr);
+                ir_operand_push(av, vr);
                 ir_operand_push(xt, vr);
-                ir_operand_push(dr, vr);
                 if (res) *res = join;
                 return ve;
             }

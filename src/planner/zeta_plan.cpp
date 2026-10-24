@@ -1024,7 +1024,7 @@ static void zd_dj_discards(IR_t ** nodes, int n, const unsigned char * zon, cons
         }
     }
 }
-static int zd_match_env_record(const IR_t * nd) { return nd->op == IR_MATCH_ALTERNATE ? 32 : nd->op == IR_MATCH_FENCE1 ? planner_fence_k(g_emit_cfg, nd) : nd->op == IR_MATCH_ARBNO ? 16 : 0; }
+static int zd_match_env_record(const IR_t * nd) { return nd->op == IR_MATCH_ALTERNATE ? 32 : nd->op == IR_MATCH_FENCE1 ? planner_fence_k(g_emit_cfg, nd) : 0; }
 void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm, const unsigned char *walls, int *zcps, int *zcpd, int *zchn, int *zclaim) {
     extern const char * bb_src_of(const IR_t *);
     if (g_emitter.zd_plan__dg < 0) { const char * d = getenv("SCRIP_ZD_DIAG"); g_emitter.zd_plan__dg = (d && *d == '1') ? 1 : 0; }
@@ -1653,7 +1653,8 @@ int zd_run_alpha_dead(IR_t ** nodes, int n, const int * claim, int h) {
     }
     return 1;
 }
-void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, const int *xb, const int *zchn, const int *zcut, const char *prefix)
+void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, const int *xb, const int *zchn, const int *zcut, const int *zarm,
+    const char *prefix)
     {
     if (g_emitter.zd_check__on < 0) { const char * e = getenv("SCRIP_ZD_CHECK"); g_emitter.zd_check__on = (e && *e == '1') ? 1 : 0; }
     if (!g_emitter.zd_check__on || n <= 0) return;
@@ -1675,6 +1676,7 @@ void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, co
             const char * sz = zd_edge_sz(nodes[i], v);
             int bj = xb ? xb[j] : 0, beta = via >= 0 || port_sz_beta(sz) || (zd_sz_phi(sz) && emit_glue_box(nodes[j], 1)) || (!v && zd_sz_sigma(sz) && emit_glue_box(nodes[j], 0));
             int arrive = v ? (Xi - Ki - zwpop[i]) : (Xi - zgpop[i]);
+            if (v && zarm) for (int p = zarm[i], g = 0; p >= 0 && g++ < 4096; p = zarm[p]) if (j != p && !zd_dj_anc(zarm, j, p)) arrive += zd_match_env_record(nodes[p]);
             int Xj = bj + zout[j], expect = beta ? Xj : Xj - zd_k(nodes[j]);
             edges++;
             if (arrive == expect) continue;
