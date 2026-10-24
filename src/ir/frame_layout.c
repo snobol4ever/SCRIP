@@ -2058,6 +2058,10 @@ const char * zls_home_why_name(int w) {
         return "uplevel";
         case 10:
         return "pinned-temp";
+        case 11:
+        return "read-across-excursion";
+        case 12:
+        return "plan-run-split";
         default:
         return "-";
     }
@@ -2107,7 +2111,7 @@ void zls_home_pass(const IR_graph_t * g) {
         const IR_t * x = g->all[i];
         sg[i] = (x && x->γ.node) ? zls_reuse_index(&nx, x->γ.node) : -1;
         so[i] = (x && x->ω.node) ? zls_reuse_index(&nx, x->ω.node) : -1;
-        dy[i] = x ? (unsigned char)(zls_home_dyn(g, x) ? zls_home_dyn(g, x) : zls_hf_excursion(g, x) ? 5 : 0) : 0;
+        dy[i] = x ? (unsigned char)(zls_home_dyn(g, x) ? zls_home_dyn(g, x) : zls_hf_excursion(g, x) ? 5 : (g->home_frame && zls_g_resumable_frame(g) && planner_span_retains(g, i, i)) ? 11 : 0) : 0;
         rn[i] = (x && x->op == IR_CUT) ? 1 : 0;
         tw[i] = 0;
     }
@@ -2151,18 +2155,19 @@ void zls_home_pass(const IR_graph_t * g) {
     }
     for (int i = 0; i < n; i++) { const IR_t * x = g->all[i]; if (x && tw[i] && zls_home_local_kind((int)x->op) && IR_LIT(x).sval) { fcn_t * t = fcn_get(x); t->fl |= FCN_LHOME; t->lw = tw[i]; } }
     if (g->home_frame && zls_g_resumable_frame(g)) {
-        zls_reuse_t * rc = (zls_reuse_t *)ct_alloc(sizeof(zls_reuse_t) * (size_t)n);
-        zls_reuse_plan(g, rc, (int *)0, (int *)0);
-        for (int i = 0; i < n; i++) {
-            const IR_t * x = g->all[i];
-            if (!x || !ir_node_produces_value(x->op) || !(zls_reuse_straight(ir_kind0(x)) || zls_reuse_detleaf(x)) || fcn_find(x, FCN_HOME)) continue;
-            if (rc[i].cls == ZR_LOOP || rc[i].cls == ZR_GUARD || rc[i].cls == ZR_READER || rc[i].cls == ZR_UNPLACED || rc[i].cls == ZR_DYNAMIC) {
-                fcn_t * t = fcn_get(x);
+        for (int c = 0; c < n; c++) {
+            const IR_t * cx = g->all[c];
+            if (!cx || cx->op != IR_CALL_PROC_STAGED || !zls_edge_retains(g, cx)) continue;
+            const IR_t * gt = zls_chase(cx->γ.node);
+            if (gt != cx) continue;
+            for (int oj = 0; oj < cx->n_operands; oj++) {
+                const IR_t * o = cx->operands[oj];
+                if (!o || !ir_node_produces_value(o->op) || fcn_find(o, FCN_HOME) || !(zls_reuse_straight(ir_kind0(o)) || zls_reuse_detleaf(o))) continue;
+                fcn_t * t = fcn_get(o);
                 t->fl |= FCN_HOME;
-                t->hw = 10;
+                t->hw = 12;
             }
         }
-        ct_drop(rc);
     }
     for (int c = 0; c < n; c++) {
         const IR_t * cx = g->all[c];
