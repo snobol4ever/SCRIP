@@ -2414,8 +2414,6 @@ inline std::string x86_rsp_release_to(int disp) {
 }
 std::string bb_glue_flat_enter();
 std::string bb_glue_flat_leave();
-std::string bb_glue_framed_enter();
-std::string bb_glue_framed_leave();
 std::string bb_glue_outer_γ();
 std::string bb_glue_outer_ω();
 std::string bb_glue_wire_exit(int is_gamma);

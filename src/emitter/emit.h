@@ -529,7 +529,6 @@ typedef struct {
     int op_res_live;
     int flat_deep_arrival;
     int flat_fb_refine;
-    int flat_stmt_frame;
     int flat_all_zd;
     int op_subj_cell;
     int zop_seen;
@@ -565,7 +564,6 @@ typedef struct {
     long op_suspend_stmt_uclaim;
     int op_ztail;
     int op_zpat;
-    int op_cap_anchor;
     int op_zfc;
     int op_arbno_body_defer_unsafe;
     int op_frame_need;

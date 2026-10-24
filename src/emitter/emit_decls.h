@@ -43,9 +43,8 @@ extern IR_graph_t * g_emit_cfg;
     0; g_emit.op_arbno_dt = 0; g_emit.op_arbno_dt_susp = 0; g_emit. op_defer_leaf_susp = -1; g_emit.op_tail_dfr = 0; g_emit.op_tail_fpr_rsp = 0; g_emit.op_body_has_arbno = 0; g_emit.op_arbno_framed \
     = 0; g_emit.op_arbno_body_k0 = 0; g_emit.op_arbno_body_kk = 0; g_emit.op_fence_body_kk = 0; g_emit.op_fence_frame_off = -1; g_emit.op_arbno_win_lo = 0; g_emit.op_arbno_win_bytes = 0; g_emit. \
     op_alt_M = -1; g_emit.op_alt_pad = (int *)0; g_emit.op_fence0_floor = 0; g_emit.op_arbno_body_defer_unsafe = 0; g_emit.op_arbno_body_actframe = 0; g_emit.op_arbno_body_fence = 0; g_emit. \
-    op_alt_cell = 0; g_emit.op_cap_anchor = 0; g_emit. op_arbno_rbp = 0; g_emit.op_range_int_operands = 0; bb_label_t *_fs__=bb_label_fold((s)), *_ff__=bb_label_fold((f)); g_emit.lbl_α=(a)->name; \
-    g_emit.lbl_γ=_fs__->name; g_emit.lbl_ω=_ff__->name ; g_emit.lbl_β=(b)->name; g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=_fs__; g_emit.lbl_ω_p=_ff__; g_emit.lbl_β_p=(b); walk_bb_node((nd), \
-    emit_outf()); } while(0)
+    op_alt_cell = 0; g_emit. op_arbno_rbp = 0; g_emit.op_range_int_operands = 0; bb_label_t *_fs__=bb_label_fold((s)), *_ff__=bb_label_fold((f)); g_emit.lbl_α=(a)->name; g_emit.lbl_γ=_fs__->name; \
+    g_emit.lbl_ω=_ff__->name ; g_emit.lbl_β=(b)->name; g_emit.lbl_α_p=(a); g_emit.lbl_γ_p=_fs__; g_emit.lbl_ω_p=_ff__; g_emit.lbl_β_p=(b); walk_bb_node((nd), emit_outf()); } while(0)
 #define DRIVE_PAIR_RESET() do { g_emit.xa_bb_emit_pair_n = 0; } while(0)
 #define DRIVE_PAIR_JMP(tgt) do { xa_pair_push(NULL, (tgt)); } while(0)
 #define DRIVE_PAIR_DEF_JMP(l,t) do { xa_pair_push((l), (t)); } while(0)

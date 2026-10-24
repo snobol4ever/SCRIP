@@ -13,8 +13,6 @@ const char * stmt_src_get_file(void);
 #include "x86_asm.h"
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define stf() (_.flat_stmt_frame)
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int mon_vars_on() { return x86_trace_hooks_on(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define MVT_B 110
@@ -108,7 +106,7 @@ std::string bb_assign_global() {
             + x86("mov", (g_runtime.abi.rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 0) : ABSQ(RT_GVA_VA + _.op_gva_k * 16), "rax")
             + x86("note", gva_note(_.op_gva_k))
             + x86("mov", (g_runtime.abi.rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 8) : ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8), "rdx")
-            + IF(_.op_res_live && !stf(), x86("mov", FRQ(_.op_off), "rax")
+            + IF(_.op_res_live, x86("mov", FRQ(_.op_off), "rax")
                               + x86("mov", FRQ(_.op_off + 8), "rdx"))
             + IF(mon_vars_on(),
                   mon_var_trace_tap())
@@ -129,7 +127,7 @@ std::string bb_assign_global() {
             + x86("mov", "rdi", ROQ(0))
             + x86("rtcc_wb")
             + x86("call_bare", "NV_SET_fn", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(const char *, DESCR_t))NV_SET_fn)
-            + IF(_.op_res_live && !stf(), x86("mov", FRQ(_.op_off), "rax")
+            + IF(_.op_res_live, x86("mov", FRQ(_.op_off), "rax")
                               + x86("mov", FRQ(_.op_off + 8), "rdx"))
                               + x86_rt_gc_poll()
             + x86("rtcc_rl")

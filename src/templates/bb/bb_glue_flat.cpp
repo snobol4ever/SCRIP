@@ -36,8 +36,6 @@ std::string bb_glue_flat_leave() {
 int g_glue_entered = 0;
 int g_glue_o_sup = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define bb_glue_outer_whack() ((bool)(g_glue_entered != 0))
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bb_glue_outer_needs_ret() ((bool)((g_emit.flat_jmp_entry != 0) && !(g_emit_cfg && g_emit_cfg->runtime_fragment_graph)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void sno_setexit_fire_on_end(void);
@@ -51,7 +49,6 @@ static std::string bb_glue_icn_root_tap(int kind) {
 }
 std::string bb_glue_outer_γ() {
     return bb_glue_icn_root_tap(2)
-         + IF(bb_glue_outer_whack(), bb_glue_framed_leave())
          + IF(!bb_glue_outer_needs_ret(),
               x86("call_bare", "sno_setexit_fire_on_end", (uint64_t)(uintptr_t)(void(*)(void))sno_setexit_fire_on_end)
             + x86_rt_gc_poll()
@@ -64,7 +61,6 @@ std::string bb_glue_outer_γ() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_ω() {
     return bb_glue_icn_root_tap(3)
-         + IF(bb_glue_outer_whack(), bb_glue_framed_leave())
          + IF(!bb_glue_outer_needs_ret(),
               x86("mov32", "edi", 1)
             + x86("call_bare", "exit", (uint64_t)(uintptr_t)(void(*)(int))exit))
