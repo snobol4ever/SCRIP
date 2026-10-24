@@ -1064,7 +1064,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
             fprintf(stderr, "] g=%d o=%d lit/nameptr=%lld src=%s\n", gi, oi, (long long)IR_LIT(nodes[i]).ival, bb_src_of(nodes[i]) ? bb_src_of(nodes[i]) : "-"); } } }
     unsigned char * rjoin = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
     for (int k = 0; k < n; k++) rjoin[k] = 0;
-    for (int k = 0; k < n; k++) if (zd_edge_retains(nodes[k])) { int q = nidx(nodes, n, zd_chase(nodes[k]->γ.node)); if (q >= 0 && nodes[q]->op != IR_DISJUNCTION) rjoin[q] = 1; }
+    for (int k = 0; k < n; k++) if (zd_edge_retains(nodes[k])) { int q = nidx(nodes, n, zd_chase(nodes[k]->γ.node)); if (q >= 0 && q != k && nodes[q]->op != IR_DISJUNCTION) rjoin[q] = 1; }
     for (int pass = 0; pass < 2; pass++) {
     for (int hi = 0; hi < n; hi++) {
         if (pass == 0) { }
