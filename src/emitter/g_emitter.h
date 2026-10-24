@@ -145,7 +145,6 @@ struct g_emitter_t {
     int fence_kk_gamma_on_v = -1;
     int fence0_whack_on_v = -1;
     int fence0_dyn_on_v = -1;
-    int blob_slots_mask_v = -1;
     int frame_need_of__cn = -1;
     int bb_classify_node__ed = -1;
     int bb_classify_node__cd = -1;
@@ -188,7 +187,6 @@ struct g_emitter_t {
     const IR_graph_t * g_xci_g;
     IR_t ** g_xci_all;
     int g_xci_n = -1;
-    void (*g_frame_slot_visitor)(const IR_t *, int, int) = (void (*)(const IR_t *, int, int))0;
     int sn4_blob_casmark_v = -1;
     int sn4_defer_resume__dres = -1;
     int sn4_arbno_altsib_v = -1;
@@ -199,14 +197,14 @@ struct g_emitter_t {
     IR_t ** g_bcs_all;
     int g_bcs_n = -1, g_bcs_nc, g_bcs_lf, g_bcs_fn;
     uint32_t g_bcs_ep;
-    cv_t g_fsc_u, g_fsc_pre, g_fsc_lmb, g_fsc_nmb;
-    int g_fsc_full = 0;
-    const IR_graph_t * g_fsc_g;
-    IR_t ** g_fsc_all;
-    int g_fsc_n = -1, g_fsc_bs = -1, g_fsc_bm = -1;
-    uint32_t g_fsc_ep;
     int blob_carve_pad_v = -1;
     cv_t g_blob_lay;
+    const IR_graph_t * g_act_g = (const IR_graph_t *)0;
+    IR_t ** g_act_all = (IR_t **)0;
+    int g_act_n = -1, g_act_blob = -1, g_act_head = 0, g_act_blob_units = 0;
+    std::vector<int> g_act_cls, g_act_cause, g_act_slot, g_act_units, g_act_extra, g_act_owner;
+    cv_t g_alt_pads;
+    int g_zd_fence_exit = 0;
     cv_t g_zls_lay_v;
     int g_zls_lay_gaps = 0, g_zls_lay_conf = 0;
     int blob_cont_copy_v = -1;
@@ -294,7 +292,6 @@ struct g_emitter_t {
     std::string g_text_acc;
     FILE * g_emit_sink = NULL;
     long g_emit_text_count = 0;
-    int zzone_disagree_bm = -1;
     int sn4_defer_beta_guard__bg = -1;
     int sn4_define_fold__df = -1;
     int sn4_descr_stamp_on = -1;

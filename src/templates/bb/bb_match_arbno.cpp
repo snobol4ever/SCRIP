@@ -26,7 +26,7 @@ extern "C" int sn4_arbno_tailbeta(void);
     + x86("def", PAIR(2)) \
     + x86("mov", "eax", RDD("rsp", kkN() + 4)) \
     + x86("cmp", "r14d", "eax") \
-    + x86("je", PAIR(1)) \
+    + x86("je", ARB_BODYBETA()) \
     + x86("mov", "eax", RDD("rsp", kkN())) \
     + x86("sub", "rsp", 16L) \
     + x86("mov", RDD("rsp", 0), "eax") \
@@ -41,7 +41,7 @@ extern "C" int sn4_arbno_tailbeta(void);
     + x86_omega() \
     + x86("def", L(3)) \
     + x86("add", "rsp", 16L) \
-    + x86("jmp", PAIR(1)) \
+    + x86("jmp", ARB_BODYBETA()) \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_frameless() {

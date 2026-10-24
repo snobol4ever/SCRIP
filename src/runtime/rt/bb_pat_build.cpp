@@ -23,7 +23,6 @@ void lower_call_forms_graph(IR_graph_t * g);
 void zls_reset(void);
 IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat);
 int zls_g_region(const IR_graph_t * g);
-int sn4_choice_rbp_off(void);
 void sn4_blob_choice_scan(int *, int *, int *);
 extern int g_flat_frame_floor;
 }
@@ -112,7 +111,7 @@ extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *z
     g_emit.flat_pat = 1;
 #if RT_DIAG
     if (getenv("SCRIP_RTPAT_DIAG")) { int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn);
-        fprintf(stderr, "[RTPAT-DIAG] n=%d kt=%d cro=%d ptf=%d floor=%d nc=%d lf=%d fn=%d\n", g->n, kt, sn4_choice_rbp_off(), 1, g_flat_frame_floor, _nc, _lf, _fn); }
+        fprintf(stderr, "[RTPAT-DIAG] n=%d kt=%d ptf=%d floor=%d nc=%d lf=%d fn=%d\n", g->n, kt, 1, g_flat_frame_floor, _nc, _lf, _fn); }
     size_t pool_before = bb_pool_mark();
 #endif
     bb_box_fn fn = emit_chain(g->entry, NULL, "rtpat");

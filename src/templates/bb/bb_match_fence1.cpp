@@ -7,21 +7,46 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fence_u2_frame(void) {
-    return sn4_u2_fence() && _.op_ival != SNO_FENCE_LIT_ARG_IN_ARBNO;
+static std::string fence_act_arm() {
+    return x86("comment", "IR_MATCH_FENCE1 (ACT: the record in the match frame, the planner's word for an indefinite body)")
+         + x86_alpha()
+         + x86("mov", FFCQ(0), "rsp")
+         + x86("mov", FFCQ(8), "r12")
+         + x86("mov", FFCQ(16), 0L)
+         + x86("mov", FFC(20), "r14d")
+         + x86("jmp", PAIR(0))
+         + x86("def", PAIR(2))
+         + x86("mov", "rsp", FFCQ(0))
+         + x86_gamma()
+         + x86("def", PAIR(3))
+         + x86("def", PAIR(4))
+         + x86_beta()
+         + x86("mov", "r12", FFCQ(8))
+         + x86("mov", "r14d", FFC(20))
+         + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string fence_release(int off, int kk = 0) {
-    return _.op_fence_frame_off != -1 ? x86("mov", "rsp", FFCQ(0))
-         : fence_u2_frame() ? x86("mov", "rsp", FRQ(off+32+kk))
-                                       : x86("mov", "rsp", FRQ(off+kk));
+static std::string fence_spine_arm() {
+    return x86("comment",
+        "IR_MATCH_FENCE1 (SPINE: the fence's own 16-byte record -- tag 0, cursor, the capture-stack top -- and the body's cells discarded here by the plan's constant, the body's exit edge priced at "
+        "zero)")
+         + x86_alpha()
+         + x86("sub", "rsp", 16L)
+         + x86("mov", RDD("rsp", 0), 0L)
+         + x86("mov", RDD("rsp", 4), "r14d")
+         + x86("mov", RDQ("rsp", 8), "r12")
+         + x86("jmp", PAIR(0))
+         + x86("def", PAIR(2))
+         + IF(_.op_fence_body_kk > 0, x86("add", "rsp", (long)_.op_fence_body_kk))
+         + x86_gamma()
+         + x86("def", PAIR(3))
+         + x86("def", PAIR(4))
+         + x86_beta()
+         + x86("mov", "r12", RDQ("rsp", 8))
+         + x86("mov", "r14d", RDD("rsp", 4))
+         + x86("add", "rsp", 16L)
+         + x86_omega();
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define fence_cap_top(off) (_.op_fence_frame_off != -1 ? FFCQ(8) : FRQ((off)+8))
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define fence_cursor_tag(off) (_.op_fence_frame_off != -1 ? FFCQ(16) : FRQ((off)+16))
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define fence_cursor(off) (_.op_fence_frame_off != -1 ? FFC(20) : FR((off)+20))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_fence1() {
     x86_begin();
@@ -31,29 +56,14 @@ std::string bb_match_fence1() {
              + x86_gamma()
              + x86_beta()
              + x86_omega())
-         + IF(_.op_ival != SNO_FENCE_LIT_BARE && _.op_off < 0,
-               x86_alpha() + x86_bomb("IR_MATCH_FENCE1: watermark slot not granted (zls)"))
-         + IF(_.op_ival != SNO_FENCE_LIT_BARE && _.op_off >= 0,
-               x86("comment", "IR_MATCH_FENCE1")
-         + x86_alpha()
-         + (_.op_fence_frame_off != -1 ? x86("mov", FFCQ(0), "rsp")
-          : fence_u2_frame() ? x86("mov", FRQ(_.op_off), "rsp")
-                                      + x86("mov", FRQ(_.op_off+32), "rsp")
-                                        : x86("mov", FRQ(_.op_off), "rsp"))
-         + x86("mov", fence_cap_top(_.op_off), "r12")
-         + x86("mov", fence_cursor_tag(_.op_off), 0L)
-         + x86("mov", fence_cursor(_.op_off), "r14d")
-         + IF(fence_u2_frame(), bb_glue_framed_enter())
-         + x86("jmp", PAIR(0))
-         + x86("def", PAIR(2))
-         + IF(fence_u2_frame(), bb_glue_framed_leave())
-         + fence_release(_.op_off, _.op_fence_body_kk)
-         + x86_gamma()
-         + x86("def", PAIR(3))
-         + x86("def", PAIR(4))
-         + IF(fence_u2_frame(), bb_glue_framed_leave())
-         + x86_beta()
-         + x86("mov", "r12", fence_cap_top(_.op_off))
-         + x86("mov", "r14d", fence_cursor(_.op_off))
-         + x86_omega());
+         + IF(_.op_ival != SNO_FENCE_LIT_BARE && _.op_fence_frame_off != -1, fence_act_arm())
+         + IF(_.op_ival != SNO_FENCE_LIT_BARE && _.op_fence_frame_off == -1 && _.op_fence_body_kk >= 0, fence_spine_arm())
+         + IF(_.op_ival != SNO_FENCE_LIT_BARE && _.op_fence_frame_off == -1 && _.op_fence_body_kk < 0,
+               x86_alpha()
+             + x86_bomb("IR_MATCH_FENCE1: the body is indefinite and the planner granted no frame word (no enclosing match frame), CEO-1938")
+             + x86("def", PAIR(2))
+             + x86("def", PAIR(3))
+             + x86("def", PAIR(4))
+             + x86_beta()
+             + x86_omega());
 }

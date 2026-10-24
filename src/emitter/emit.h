@@ -95,7 +95,6 @@ int sn4_cap_gva(void);
 int sn4_opt_binimm_off(void);
 void kw_snobol4_prepare(void);
 const char * rt_kw_direct_sym(int idx, int * soff, const void ** base);
-int sn4_choice_rbp_off_nd(void);
 const char * kw_bare(const char * s);
 int rt_kw_index(const char * name);
 void xa_emit_csettab_rodata(void);
@@ -554,6 +553,13 @@ typedef struct {
     int op_arbno_framed;
     int op_arbno_body_k0;
     int op_arbno_body_kk;
+    int op_frame_extra;
+    int op_arbno_frame_off;
+    int op_arbno_win_lo;
+    int op_arbno_win_bytes;
+    int op_cap_frame_off;
+    int op_alt_M;
+    int * op_alt_pad;
     int op_stmt_dyn;
     int zframe_graph;
     long op_suspend_stmt_uclaim;
@@ -565,14 +571,9 @@ typedef struct {
     int op_frame_need;
     int op_arbno_rbp;
     int op_range_int_operands;
-    int op_frame_extra;
-    int op_arbno_frame_off;
-    int op_arbno_win_lo;
-    int op_arbno_win_bytes;
     int op_arbno_body_fence;
     int op_alt_cell;
     const char * op_alt_first;
-    int op_cap_frame_off;
     int op_fence0_release;
     int op_fence0_floor;
     int op_fence_body_kk;
@@ -581,7 +582,6 @@ typedef struct {
     int op_zdp_ad;
     int op_zdp_bd;
     int op_zdp_rbp;
-    int op_leaf_frame_off;
     int op_xf_off;
     int op_zdef;
     int op_zcut;
@@ -699,15 +699,8 @@ static inline int emit_rec_rsp_arm(void) {
     if (on < 0) { const char * e = getenv("SCRIP_REC_RSP"); on = (e && *e == '0') ? 0 : 1; }
     return on && g_emit.flat_pat && !emit_jmp_pin_legacy();
 }
-int emit_match_begin_frame_extra(const IR_t * match_begin_nd);
-int arbno_frame_slot(const IR_t * arbno_nd);
-int fence_frame_slot(const IR_t * fence_nd);
 int xop_frame_slot(const IR_t * nd);
-int leaf_frame_slot(const IR_t * leaf_nd);
 int cap_fail_retreat(void);
-int capture_frame_slot(const IR_t * cap_nd);
-enum { ZCUS_LEAF = 0, ZCUS_ARBNO = 1, ZCUS_CAPTURE = 2, ZCUS_FENCE = 3, ZCUS_CHOICE = 4, ZCUS_N = 5 };
-int zzone_off_for(const IR_t * nd, int customer);
 extern IR_graph_t * g_emit_cfg;
 #ifdef __cplusplus
 extern "C" int zls_g_resumable_frame(const IR_graph_t *);

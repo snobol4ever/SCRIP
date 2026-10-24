@@ -273,6 +273,8 @@ static int zd_bcs_words(const IR_t * nd, int w) {
     if (w == -1) return zd_dj_spine(nd);
     if (w == -2) return zd_dj_spine(nd) ? zd_dj_spine(nd) + 32 : 0;
     if (w == -3) return 16 * (2 + nd->n_operands);
+    if (w == -4) return planner_fence_k(g_emit_cfg, nd);
+    if (w == -5) return planner_alt_k(g_emit_cfg, nd);
     return w;
 }
 int zd_k_own(IR_t * nd) {
@@ -322,6 +324,7 @@ static int zd_sz_sigma(const char * sz) { return (unsigned char)sz[0] == 0xcf &&
 static int zd_sz_phi(const char * sz) { return (unsigned char)sz[0] == 0xcf && (unsigned char)sz[1] == 0x86 && sz[2] == 0; }
 static int zd_sz_alpha(const char * sz) { return (unsigned char)sz[0] == 0xce && (unsigned char)sz[1] == 0xb1 && sz[2] == 0; }
 static int zd_dj_anc(const int * zarm, int i, int q) { int g = 0; for (int p = zarm[i]; p >= 0 && g++ < 4096; p = zarm[p]) if (p == q) return 1; return 0; }
+extern "C" int planner_env_encloses(const int * zarm, int i, int q) { return (zarm && i >= 0 && q >= 0) ? zd_dj_anc(zarm, i, q) : 0; }
 static IR_t * zd_dj_res(IR_t * dj, int j) {
     int na = (int)IR_LIT(dj).ival;
     IR_t * rj = (2 * na + j < dj->n_operands) ? dj->operands[2 * na + j] : (IR_t *)0;
@@ -1468,7 +1471,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
             if (!zon[i] || zarm[i] < 0) continue;
             IR_t * t = zd_chase(nodes[i]->γ.node);
             int q = t ? nidx(nodes, n, t) : -1;
-            if (q >= 0 && nodes[q]->op == IR_MATCH_ARBNO && zd_dj_anc(zarm, i, q)) zgpop[i] = 0;
+            if (q >= 0 && (nodes[q]->op == IR_MATCH_ARBNO || nodes[q]->op == IR_MATCH_ALTERNATE || nodes[q]->op == IR_MATCH_FENCE1) && zd_dj_anc(zarm, i, q)) zgpop[i] = 0;
         }
     for (int sp = 0; sp < n; sp++) {
         if (!zon[sp] || nodes[sp]->op != IR_SUSPEND || claim[sp] < 0) continue;
@@ -1823,7 +1826,7 @@ extern "C" long zsm_declared_word(void) {
     int lg = !ex && tg && !zd_check_discard(tg) && !zd_check_arm_env((int)tg->op);
     int lw = !ex && tw && !zd_check_discard(tw) && !zd_check_arm_env((int)tw->op) && !(tw->op == IR_MATCH_BEGIN && zd_sz_phi(zd_edge_sz((IR_t *)nd, 1)));
     int lb = !zd_check_discard(nd) && !zd_check_arm_env(o);
-    long own = o == IR_MATCH_BEGIN ? 64L + emit_match_begin_frame_extra(nd) - ((!g_emit.op_zres && g_emit.op_subj_cell) ? 16L : 0L) : 0L;
+    long own = o == IR_MATCH_BEGIN ? 64L + planner_act_extra(nd) - ((!g_emit.op_zres && g_emit.op_subj_cell) ? 16L : 0L) : 0L;
     int end = (o == IR_MATCH_END || o == IR_MATCH_REPLACE) && zsm_declared_owner() > 0L;
     int ret = zls_retains_why(g_emit_cfg, nd) != 0;
     return ((k + own) & 0xFFFFL) | ((gp & 0xFFFFL) << 16) | ((wp & 0xFFFFL) << 32) | (1L << 48) | ((long)rel << 49) | ((long)lg << 50) | ((long)lw << 51) | ((long)lb << 54) |

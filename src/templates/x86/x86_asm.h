@@ -1196,48 +1196,20 @@ inline const char * XSAQ(int d) { return (_.op_zcap > 0 && _.op_zread_xf[0] != -
 inline const char * XSAD(int d) { return (_.op_zcap > 0 && _.op_zread_xf[0] != -1) ? RDD("rbp", _.op_zread_xf[0] + d) : FR(_.op_sa + d); }
 inline const char * zone_ref(int rbp_off, int spine_base, int d, int w) { return (rbp_off != -1) ? ((w == 8) ? RDQ("rbp", rbp_off + d) : RDD("rbp", rbp_off + d)) :
     ((w == 8) ? FRQ(spine_base + d) : FR(spine_base + d)); }
-inline int LFC_ON() { return _.op_leaf_frame_off != -1; }
-extern "C" int zzone_tier_of_cur(void);
-extern "C" int zzone_off_of_cur(void);
-extern "C" int zzone_off_cur_for(int customer);
-extern "C" void zzone_disagree(int customer, int staged, int planned);
-enum { ZSP_SCRATCH = 0, ZSP_RAW = 1 };
-inline const char * ZREFS(int reg_off, int d, int w, int customer, int spine);
-enum { FL_LEAF = 0, FL_ARBNO = 1, FL_CAPTURE = 2, FL_FENCE = 3, FL_CHOICE = 4 };
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int zzone_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZONE"); v = (e && *e == '1') ? 1 : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * ZREFC(int reg_off, int d, int w, int customer) {
-    return ZREFS(reg_off, d, w, customer, ZSP_SCRATCH);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * ZREFS(int reg_off, int d, int w, int customer, int spine) {
-    int off = reg_off, tier = 2;
-    if (zzone_on()) {
-        tier = zzone_tier_of_cur();
-        int planned = zzone_off_cur_for(customer);
-        zzone_disagree(customer, off, planned);
-        if (planned != -1) off = planned;
-    }
-    (void)tier;
-    if (off != -1) return (w == 8) ? RDQ("rbp", off + d) : RDD("rbp", off + d);
-    if (spine == ZSP_RAW) return (w == 8) ? RDQ("rsp", d) : RDD("rsp", d);
-    return (w == 8) ? FRQ(_.x86_scratch_off + d) : FR(_.x86_scratch_off + d);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * ZREF(int reg_off, int d, int w) { return ZREFC(reg_off, d, w, FL_LEAF); }
-inline const char * LFC(int d) { return ZREF(_.op_leaf_frame_off, d, 4); }
-inline const char * LFCQ(int d) { return ZREF(_.op_leaf_frame_off, d, 8); }
-inline const char * LFDQ(int d, int sd) { return LFC_ON() ? RDQ("rbp", _.op_leaf_frame_off + 16 + d) : LFCQ(sd); }
-inline const char * LFD(int d, int sd) { return LFC_ON() ? RDD("rbp", _.op_leaf_frame_off + 16 + d) : LFC(sd); }
-inline const char * AFC(int d) { return ZREFC(_.op_arbno_frame_off, d, 4, FL_ARBNO); }
-inline const char * AFCQ(int d) { return ZREFC(_.op_arbno_frame_off, d, 8, FL_ARBNO); }
-inline const char * CFC(int d) { return ZREFC(_.op_cap_frame_off, d, 4, FL_CAPTURE); }
-inline const char * CFCQ(int d) { return ZREFC(_.op_cap_frame_off, d, 8, FL_CAPTURE); }
-inline const char * FFC(int d) { return ZREFC(_.op_fence_frame_off, d, 4, FL_FENCE); }
-inline const char * FFCQ(int d) { return ZREFC(_.op_fence_frame_off, d, 8, FL_FENCE); }
-inline const char * CROQ(int cro, int d) { return ZREFS(cro ? cro : -1, d, 8, FL_CHOICE, ZSP_RAW); }
-inline const char * CROD(int cro, int d) { return ZREFS(cro ? cro : -1, d, 4, FL_CHOICE, ZSP_RAW); }
+inline const char * LFC(int d) { return FR(_.x86_scratch_off + d); }
+inline const char * LFCQ(int d) { return FRQ(_.x86_scratch_off + d); }
+inline const char * LFDQ(int d, int sd) { (void)d; return LFCQ(sd); }
+inline const char * LFD(int d, int sd) { (void)d; return LFC(sd); }
+inline const char * AFC(int d) { return RDD("rbp", _.op_arbno_frame_off + d); }
+inline const char * AFCQ(int d) { return RDQ("rbp", _.op_arbno_frame_off + d); }
+inline const char * CFC(int d) { return RDD("rbp", _.op_cap_frame_off + d); }
+inline const char * CFCQ(int d) { return RDQ("rbp", _.op_cap_frame_off + d); }
+inline const char * FFC(int d) { return RDD("rbp", _.op_fence_frame_off + d); }
+inline const char * FFCQ(int d) { return RDQ("rbp", _.op_fence_frame_off + d); }
+inline const char * CROQ(int cro, int d) { (void)cro; return RDQ("rsp", d); }
+inline const char * CROD(int cro, int d) { (void)cro; return RDD("rsp", d); }
 inline const char * LIDX(long k) { static char b[8][32]; static int i; i = (i + 1) & 7; if (k) snprintf(b[i], 32, "[r13+rcx+%ld]", k); else snprintf(b[i], 32, "[r13+rcx]"); return b[i]; }
 inline long LITQ(long k) { uint64_t w; memcpy(&w, _.op_sval + k, 8); return (long) w; }
 inline void x86_rd32_modrm(std::string & c, int g, int b) { c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); if ((b & 7) == 4) c += (char)0x24; }
