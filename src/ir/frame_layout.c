@@ -1877,6 +1877,8 @@ const char * zls_home_why_name(int w) {
         return "dynamic";
         case 9:
         return "uplevel";
+        case 10:
+        return "pinned-temp";
         default:
         return "-";
     }
@@ -1966,6 +1968,20 @@ void zls_home_pass(const IR_graph_t * g) {
         }
     }
     for (int i = 0; i < n; i++) { const IR_t * x = g->all[i]; if (x && tw[i] && zls_home_local_kind((int)x->op) && IR_LIT(x).sval) { fcn_t * t = fcn_get(x); t->fl |= FCN_LHOME; t->lw = tw[i]; } }
+    if (g->home_frame && zls_g_resumable_frame(g)) {
+        zls_reuse_t * rc = (zls_reuse_t *)ct_alloc(sizeof(zls_reuse_t) * (size_t)n);
+        zls_reuse_plan(g, rc, (int *)0, (int *)0);
+        for (int i = 0; i < n; i++) {
+            const IR_t * x = g->all[i];
+            if (!x || !ir_node_produces_value(x->op) || !(zls_reuse_straight(ir_kind0(x)) || zls_reuse_detleaf(x)) || fcn_find(x, FCN_HOME)) continue;
+            if (rc[i].cls == ZR_LOOP || rc[i].cls == ZR_GUARD || rc[i].cls == ZR_READER || rc[i].cls == ZR_UNPLACED || rc[i].cls == ZR_DYNAMIC) {
+                fcn_t * t = fcn_get(x);
+                t->fl |= FCN_HOME;
+                t->hw = 10;
+            }
+        }
+        ct_drop(rc);
+    }
     ct_drop(nx.k);
     ct_drop(nx.v);
 }
