@@ -1973,6 +1973,8 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
               zd_dj_cellless(nodes, n, g_emitter.g_zd_zarm_p, nidx(nodes, n, rj)))) { g_emit.op_parts_ival[j] = nd_slot(rj); continue; } }
         { int _g = 0;
         while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; } int rs = rj ? emit_binop_opnd_slot(rj) : -1; g_emit.op_parts_ival[j] = rs;
+        if (rj && zls_g_home_frame(g_emit_cfg) && zd_icn_local_var(rj)) { extern int zst_coord(const char *); int sv = g_emitter.g_zd_cur; g_emitter.g_zd_cur = i;
+            int c = zst_coord(IR_LIT(rj).sval); g_emitter.g_zd_cur = sv; if (c >= 0) { g_emit.op_parts_ival[j] = c; continue; } }
         if (rj && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i]) { int kr = nidx(nodes, n, rj);
             if (kr >= 0 && g_emitter.g_zd_on_cur[kr] && !zd_icn_local_var(rj)) g_emit.op_parts_ival[j] = -1;
             }
@@ -2626,7 +2628,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         IR_t * cnt = nd->n_operands > 0 ? nd->operands[0] : NULL;
         int sc = cnt ? drive_value_slot(cnt) : -1;
         if (sc < 0) { drive_guard_refused(nd, __LINE__); break; }
-        g_emit.op_sa = sc; g_emit.op_off = drive_value_slot(nd);
+        g_emit.op_sa = sc; g_emit.op_off = drive_value_slot(nd); g_emit.op_sb = zls_g_home_frame(g_emit_cfg) ? g_emit.op_off + 16 : -1;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_LIMIT: {
@@ -2640,6 +2642,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.lbl_t0_p = g_emitter.g_limit_gen_beta ? g_emitter.g_limit_gen_beta : lbl_ω;
         g_emit.op_t0_pop = g_emitter.g_limit_t0_pop;
         g_emit.op_off = drive_value_slot(nd);
+        g_emit.op_sb = -1;
+        for (int _gk = 2; zls_g_home_frame(g_emit_cfg) && _gk < nd->n_operands; _gk++) if (nd->operands[_gk] && nd->operands[_gk]->op == IR_LIMIT_GATE) g_emit.op_sb =
+            drive_value_slot(nd->operands[_gk]) + 16;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CREATE: {
@@ -4006,10 +4011,11 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
         for (int k = 0; g && k < g->n; k++) if (g->all[k] == nd) { ai = k; break; }
         int off = bb_slot_get(nd); if (off < 0) off = nd_slot(nd); if (zls_key_unbacked(g, off)) off = -1;
         int xf = xop_frame_slot(nd), rbp = xf != -1, esc = nd->op == IR_TABLE_HDR && off >= 0;
-        const char * home = esc ? "RBP" : zon[i] ? (zd_k(nd) > 0 ? "SPINE" : "NONE") : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
-        if (esc) xf = off;
+        int hs = !esc && !rbp && off >= 0 && zls_home_why(nd) && !ir_node_produces_value(nd->op);
+        const char * home = (esc || hs) ? "RBP" : zon[i] ? (zd_k(nd) > 0 ? "SPINE" : "NONE") : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
+        if (esc || hs) xf = off;
         fprintf(stderr, "[HOMES] g=%d graph=%s all=%d kind=%s home=%s off=%d xf=%d xfwhy=%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), home, off, xf,
-            esc ? "address-escapes" : rbp ? xop_frame_why(nd) : "-");
+            esc ? "address-escapes" : hs ? zls_home_why_name(zls_home_why(nd)) : rbp ? xop_frame_why(nd) : "-");
         if (esc) fprintf(stderr, "[HOMETEST] g=%d graph=%s all=%d kind=%s test=state:address-escapes\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op));
         else fprintf(stderr, "[HOMETEST] g=%d graph=%s all=%d kind=%s test=%s%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), zls_home_why(nd) ? "operand:" : "", zls_home_why_name(zls_home_why(nd)));
     }
@@ -4538,7 +4544,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         bb_emit_x86(x86("mov", FRQ(g_emitter.g_suspend_resume_slot), "rax"));
     }
-    for (int _li = 0; _li < n; _li++) if (g_emitter.codegen_flat_chain_body_nodes[_li]->op == IR_LIMIT) {
+    for (int _li = 0; _li < n && !zls_g_home_frame(g_emit_cfg); _li++) if (g_emitter.codegen_flat_chain_body_nodes[_li]->op == IR_LIMIT) {
         g_emit.op_off = drive_value_slot(g_emitter.codegen_flat_chain_body_nodes[_li]);
         bb_emit_x86(bb_limit_init());
     }

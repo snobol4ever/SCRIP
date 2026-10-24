@@ -1072,6 +1072,11 @@ extern "C" int zd_k_own(IR_t * nd);
 extern "C" int zd_cross_cell(int off);
 inline const char * x86_zref(int off, int q);
 inline const char * ZRES_SPINE(int w);
+inline int x86_zop_operand_hit(int k, int off) {
+    int s = _.op_zslot[k];
+    int wide = off > s + 8 && (off - s) % 8 == 0 && _.node && k < _.node->n_operands && _.node->operands[k];
+    return s >= 0 && (off == s || off == s + 8 || (wide && off < s + zd_k_own(_.node->operands[k])));
+}
 inline const char * x86_zop(int off, int q, int bump) {
     static char b[16][48]; static int i; i = (i + 1) & 15;
     if (off >= ZST_BIAS / 2 && !_.op_zdef && x86_resumable_frame()) { x86_zop_note(2); zsm_frame_addr(-1, 2, 0); snprintf(b[i], 48, "%s ptr [rbp + %d]", q ? "qword" : "dword", off - ZST_BIAS);
@@ -1080,7 +1085,7 @@ inline const char * x86_zop(int off, int q, int bump) {
     if (_.op_zres && _.op_res_alias >= 0 && (off == _.op_res_alias || off == _.op_res_alias + 8)) { int d = off - _.op_res_alias;
         if (_.op_xf_off != -1) zsm_frame_addr(-1, zls_frame_resident(_.node) ? 2 : 3, 0);
         return _.op_xf_off != -1 ? (q ? RDQ("rbp", _.op_xf_off + d) : RDD("rbp", _.op_xf_off + d)) : (q ? ZRES_SPINE(d) : x86_zref(d, 0)); }
-    for (int k = 0; _.op_zres && k < _.op_zslot_n && k < _.op_zcap; k++) if (_.op_zslot[k] >= 0 && (off == _.op_zslot[k] || off == _.op_zslot[k] + 8)) { int d = off - _.op_zslot[k];
+    for (int k = 0; _.op_zres && k < _.op_zslot_n && k < _.op_zcap; k++) if (x86_zop_operand_hit(k, off)) { int d = off - _.op_zslot[k];
         if (_.op_zread_xf[k] != -1) { zsm_frame_addr(-1, (_.node && k < _.node->n_operands && _.node->operands[k] && !zls_frame_resident(_.node->operands[k])) ? 3 : 2, 0);
             return q ? RDQ("rbp", _.op_zread_xf[k] + d) : RDD("rbp", _.op_zread_xf[k] + d); }
         if (_.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + d, q, bump);
