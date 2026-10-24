@@ -1143,10 +1143,12 @@ inline const char * ZLOC_B(int o) { return x86_zref(_.op_ztail + 16 + o, 1); }
 inline const char * ZOPQ(int k, int w) { int in = k >= 0 && k < _.op_zcap; if (in && _.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + w, 1, 0);
     return (in && _.op_zread_xf[k] != -1) ? RDQ("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 1); }
 inline const char * ZOPFS(int off, int sp) {
-    int s = _.zop_seen;
-    const char * a = x86_zop(off, 1, 0);
-    if (strncmp(a, "qword ptr [rbp ", 15)) { _.zop_seen = s; a = x86_zop(off + sp, 1, 0); }
-    return a;
+    static char b[16][48]; static int i;
+    const char * a = x86_zop(off, 1, 0), * p = strrchr(a, '+');
+    if (!strncmp(a, "qword ptr [rbp ", 15) || !p || p[1] != ' ') return a;
+    i = (i + 1) & 15;
+    snprintf(b[i], 48, "%.*s+ %d]", (int)(p - a), a, atoi(p + 2) + sp);
+    return b[i];
 }
 inline const char * ZOPQS(int k, int sp, int w) { int in = k >= 0 && k < _.op_zcap; if (in && _.op_zread_fr[k] >= 0) return ZOPFS(_.op_zread_fr[k] + w, sp);
     return (in && _.op_zread_xf[k] != -1) ? RDQ("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + sp + w, 1); }
