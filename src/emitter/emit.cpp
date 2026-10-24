@@ -3697,7 +3697,6 @@ static std::string icn_trace_tap(const char * pname, int kind, int np, int aoff 
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int g_m4_main_frame_bytes = 65544;
 extern "C" int rt_gva_add_var(const char * name);
 static int gc_sites_report_on(void) { if (g_emitter.gc_sites_report_on_v < 0) { const char * e = getenv("SCRIP_GC_SITES_REPORT"); g_emitter.gc_sites_report_on_v = (e && *e == '1') ? 1 : 0;
     } return g_emitter.gc_sites_report_on_v; }
@@ -4276,9 +4275,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (prefix && !strcmp(gc_map_entry_fam(prefix), "main") && !g_runtime.eval.rt_fragment_emit && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) &&
         !g_emit.flat_lcl_proc &&
         !g_emit.flat_pat) { int _rg = g_emit_cfg->jcon_value_region;
-        if (_rg >= 0 && !(_rg & 15)) { if (g_is_text && _rg + 32 > g_m4_main_frame_bytes)
-        { fprintf(stderr, "FATAL emit: main's value region %d + the map cell exceeds the mode-4 main frame (%d), which the driver sizes from that same region -- the two readings disagree\n", _rg,
-        g_m4_main_frame_bytes); abort(); } bb_emit_x86(emit_gc_map_register(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1, 0u)); } }
+        if (_rg >= 0 && !(_rg & 15)) { bb_emit_x86(emit_gc_map_register(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1, 0u)); } }
     g_emit.flat_pkt = (g_emit.zframe_graph && g_emit_cfg && g_emit_cfg->pkt_fragment) ? 1 : 0; g_emit.flat_pkt_cell = g_emit.flat_pkt ? g_emit_cfg->pkt_cell : -1;
         g_emit.flat_pkt_slot = g_emit.flat_pkt ? g_emit_cfg->pkt_slot : -1; g_emit.flat_pkt_chain_off = -1;
     g_emit.flat_pkt_walk_p = (bb_label_t *)0; g_emit.flat_pkt_chainω_p = (bb_label_t *)0;

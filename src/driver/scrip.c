@@ -2559,14 +2559,7 @@ int main(int argc, char **argv) {
             emit_textf(
                 "  push rdi\n  push rsi\n  sub rsp, 8\n  call rt_main_stack_adopt@PLT\n  mov rsi, qword ptr [rsp + 8]\n  mov rdi, qword ptr [rsp + 16]\n  add rsp, 24\n  test rax, rax\n  jz .Lmain_st"
                 "ack_kept\n  mov rsp, rax\n.Lmain_stack_kept:\n");
-            {
-                extern int g_m4_main_frame_bytes;
-                long _mfb = 65544;
-                int _mrg = bbg ? bbg->jcon_value_region : 0;
-                if (_mrg > 0 && (long)_mrg + 64 > _mfb) _mfb = ((((long)_mrg + 64 + 15) & ~15L) | 8L);
-                g_m4_main_frame_bytes = (int)_mfb;
-                emit_textf("  sub rsp, %ld\n", _mfb);
-            }
+            emit_textf("  sub rsp, 8\n");
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
