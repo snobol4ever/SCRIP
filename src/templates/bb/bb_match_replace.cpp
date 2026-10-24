@@ -17,9 +17,9 @@ std::string bb_match_replace() {
          + x86("mov", "rdi", ROQ(0))
          + IF(_.op_zres && _.op_zread[2] >= 0,
                 x86("note", ZOPN(2))
-              + x86("mov", "rsi", ZCELL(Z_OP(2), 0))
+              + x86("mov", "rsi", ZOPQ(2, 0))
               + x86("note", ZOPN(2))
-              + x86("mov", "rdx", ZCELL(Z_OP(2), 8)))
+              + x86("mov", "rdx", ZOPQ(2, 8)))
          + IF(!(_.op_zres && _.op_zread[2] >= 0),
                 x86("mov", "rsi", FRQ(_.op_sa))
               + x86("mov", "rdx", FRQ(_.op_sa + 8)))
@@ -29,7 +29,7 @@ std::string bb_match_replace() {
          + x86("mov", "r8", RDQ("r12", -8))
          + x86("sub", "r12", (long)16)
          + IF(_.op_zres, x86("note", ZOPN(1))
-                        + x86("lea", "r9", ZCELL(Z_OP(1), 0)))
+                        + x86("lea", "r9", ZOPQ(1, 0)))
          + IF(!_.op_zres, x86("lea", "r9", FRQ(_.op_sb)))
          + x86("call", "rt_match_replace", (uint64_t)(uintptr_t)(void *)rt_match_replace)
          + x86_align_leave()

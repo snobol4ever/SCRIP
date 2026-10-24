@@ -8,12 +8,12 @@ extern "C" {
 static std::string bb_match_rem_body() {
     return x86("comment", "IR_MATCH_REM")
          + x86_alpha()
-         + IF( _.op_zres, x86("mov", ZCELL(Z_SELF(), 0, 4), "r14d"))
+         + IF( _.op_zres, x86("mov", ZRESD(0), "r14d"))
          + IF(!_.op_zres, x86("mov", LFC(0), "r14d"))
          + x86("mov", "r14d", "r15d")
          + x86_gamma()
          + x86_beta()
-         + IF( _.op_zres, x86("mov", "r14d", ZCELL(Z_SELF(), 0, 4)))
+         + IF( _.op_zres, x86("mov", "r14d", ZRESD(0)))
          + IF(!_.op_zres, x86("mov", "r14d", LFC(0)))
          + x86_omega();
 }
