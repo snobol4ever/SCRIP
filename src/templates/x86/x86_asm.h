@@ -1092,7 +1092,8 @@ inline const char * x86_zop(int off, int q, int bump) {
     if (r != 2 && zls_key_unbacked(g_emit_cfg, off))
         { fprintf(stderr,
             "FATAL x86_zop: offset %d is a key with no frame bytes behind it, addressed through the frame -- a keys-only graph, or a key past a home-frame graph's resident region (zls_key_unbacked, "
-            "ceo CEO-1864/1884)\n", off);
+            "ceo CEO-1864/1884) op=%d regime=%d zres=%d own=%d k_own=%d\n",
+            off, _.node ? (int) _.node->op : -1, r, _.op_zres, _.node ? zls_off(_.node) : -1, _.node ? zd_k_own(_.node) : -1);
             abort(); }
     if (r != 2 && icn_frame_rbp()) { zsm_frame_addr(off, -1, 0); return q ? RDQ("rbp", off - gen_frame_top()) : RDD("rbp", off - gen_frame_top()); }
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
@@ -1169,6 +1170,8 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * FRQ(int off) { return x86_zop(off, 1, 0); }
 inline const char * FRQB(int off, int bump) { return x86_zop(off, 1, bump); }
+extern "C" int zls_g_home_frame(const IR_graph_t * g);
+inline const char * x86_frame_top() { return zls_g_home_frame(g_emit_cfg) ? RDQ("rbp", g_emit.flat_frame_bytes) : FRQ(g_emit.flat_frame_bytes); }
 inline const char * ROQ(int n) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
 inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * ABSQ(unsigned long va) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%lu]", va); return b[i]; }
@@ -2326,12 +2329,12 @@ inline std::string x86_pl_scc_release_check(const char * fb, int kt, int l_ok) {
 inline std::string x86_pl_ball_rec_probe() { return x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", "rax", RDQ("rax", 32)) + x86("test", "rax", "rax"); }
 inline std::string x86_pl_ball_rule(int l_go, int l_skip) {
     if (!emit_pl_scc_armed()) return x86("test", "r15", "r15") + x86("jne", L(l_skip));
-    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86("je", L(l_skip)) + x86("lea", "rdx", FRQ(g_emit.flat_frame_bytes)) + x86("cmp", "rax", "rdx") +
+    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86("je", L(l_skip)) + x86("lea", "rdx", x86_frame_top()) + x86("cmp", "rax", "rdx") +
         x86("jae", L(l_skip)) + x86("def", L(l_go));
 }
 inline std::string x86_pl_ball_rule_omega(int l_go) {
     if (!emit_pl_scc_armed()) return x86("test", "r15", "r15") + x86_omega("jne");
-    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86_omega("je") + x86("lea", "rdx", FRQ(g_emit.flat_frame_bytes)) + x86("cmp", "rax", "rdx") +
+    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86_omega("je") + x86("lea", "rdx", x86_frame_top()) + x86("cmp", "rax", "rdx") +
         x86_omega("jae") + x86("def", L(l_go));
 }
 inline std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "pl_tr_unwind: pop the r12 trail to the mark, inline") + x86("mov", "rsi", mark_mem) +

@@ -225,7 +225,13 @@ int zd_k(IR_t * nd) { return zd_k_own(nd) + zst_s_of(nd) + zd_djx_of(nd); }
 static int zd_dj_spine(const IR_t * nd) { if (!g_emitter.g_zd_zarm_p || g_emitter.g_zd_zarm_nodes != g_emitter.codegen_flat_chain_body_nodes) return 0;
     int i = nidx(g_emitter.g_zd_zarm_nodes, g_emitter.g_zd_zarm_n, nd); return (i >= 0 && zd_dj_admitted(g_emitter.g_zd_zarm_p, g_emitter.g_zd_zarm_n, i) && !zls_dj_retains(nd)) ? 32 : 0; }
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
-enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV };
+enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV, BCS_HOME_FRAME, BCS_HOME_STATE, BCS_PL_HOME, BCS_PL_HOME_DYN, BCS_PL_HOME_RANGE_HDR,
+    BCS_PL_HOME_HAS_OPERANDS };
+extern "C" int zls_g_home_frame(const IR_graph_t * g);
+extern "C" int zls_home_why(const IR_t * nd);
+extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
+static int zd_pl_home(void) { return (zls_g_home_frame(g_emit_cfg) && zls_g_resumable_frame(g_emit_cfg)) ? 1 : 0; }
+static int zd_pl_home_dyn(IR_t * nd) { return zd_pl_home() && (zls_home_why(nd) || zd_edge_retains(nd) || planner_home_dyn(g_emit_cfg, nd)) ? 1 : 0; }
 #include "box_cell_shapes.inc"
 static int zd_bcs_when(IR_t * nd, int w) {
     if (w == BCS_ALWAYS) return 1;
@@ -234,6 +240,12 @@ static int zd_bcs_when(IR_t * nd, int w) {
     if (w == BCS_ICN_SUSPEND) return zd_icn_suspend(nd);
     if (w == BCS_HAS_OPERANDS) return nd->n_operands > 0;
     if (w == BCS_NO_OPERANDS) return nd->n_operands == 0;
+    if (w == BCS_HOME_FRAME) return zls_g_home_frame(g_emit_cfg) ? 1 : 0;
+    if (w == BCS_HOME_STATE) return (zls_g_home_frame(g_emit_cfg) && zls_home_why(nd)) ? 1 : 0;
+    if (w == BCS_PL_HOME) return zd_pl_home();
+    if (w == BCS_PL_HOME_DYN) return zd_pl_home_dyn(nd);
+    if (w == BCS_PL_HOME_RANGE_HDR) return (zd_pl_home() && nd->op == IR_TO && (ir_range_kind_is(nd, "db") || ir_range_trailed(nd))) ? 1 : 0;
+    if (w == BCS_PL_HOME_HAS_OPERANDS) return (zd_pl_home() && nd->n_operands > 0) ? 1 : 0;
     return (w == BCS_PATV && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5)) ? 1 : 0;
 }
 extern "C" int zls_off(const IR_t * nd);
@@ -255,11 +267,16 @@ extern "C" int zd_cross_cell(int off) {
     }
     return -1;
 }
+static int zd_bcs_words(const IR_t * nd, int w) {
+    if (w == -1) return zd_dj_spine(nd);
+    if (w == -2) return zd_dj_spine(nd) ? zd_dj_spine(nd) + 32 : 0;
+    return w;
+}
 int zd_k_own(IR_t * nd) {
     int op = (int)nd->op;
     for (size_t r = 0; r < sizeof box_cell_shapes / sizeof box_cell_shapes[0]; r++) {
         if ((box_cell_shapes[r].op >= 0 && box_cell_shapes[r].op != op) || !zd_bcs_when(nd, box_cell_shapes[r].when)) continue;
-        return box_cell_shapes[r].words < 0 ? zd_dj_spine(nd) : box_cell_shapes[r].words;
+        return zd_bcs_words(nd, box_cell_shapes[r].words);
     }
     return 16;
 }
@@ -395,6 +412,19 @@ int zd_edge_retains(const IR_t * nd) {
     int r = planner_retains(nd);
     return (r == PR_UNKNOWN_CALLEE || r == PR_GATE_HOLDS || r == PR_DISJUNCTION_HOLDS || r == PR_DB_GENERATOR || r == PR_RETAINING_TARGET) ? 1 : 0;
 }
+extern "C" int planner_edge_retains(const IR_graph_t * g, const IR_t * nd) { IR_graph_t * sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g; int r = zd_edge_retains(nd); g_emit_cfg = sv; return r; }
+extern "C" int planner_span_retains(const IR_graph_t * g, int from_ai, int to_ai) {
+    if (!g || !g->all || g->n <= 0) return 0;
+    if (from_ai > to_ai) { int t = from_ai; from_ai = to_ai; to_ai = t; }
+    if (from_ai < 0) from_ai = 0;
+    if (to_ai >= g->n) to_ai = g->n - 1;
+    IR_graph_t * sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g; int r = 0;
+    for (int k = from_ai; k <= to_ai && !r; k++) {
+        const IR_t * nd = g->all[k];
+        if (nd && (zd_edge_retains(nd) || nd->op == IR_SUSPEND || (nd->op == IR_DISJUNCTION && zls_dj_retains(nd)))) r = 1;
+    }
+    g_emit_cfg = sv; return r;
+}
 int planner_retains_emitter_view(int op) { return op == IR_PROC_GEN || op == IR_CALL_VALUE || op == IR_CALL_GEN || op == IR_ACTIVATE; }
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd) {
     IR_graph_t * sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g;
@@ -450,7 +480,8 @@ static int zd_pl_entry(IR_t **nodes, int n, const unsigned char *zon, const int 
     if (e >= 2 && nodes[i]->op == IR_DISJUNCTION && g_emit_cfg && g_emit_cfg->spine_cells && (((e - 2) & 1) || e - 2 >= 2 * (int)IR_LIT(nodes[i]).ival)) return -1;
     (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q, &b);
     if (q < 0 || claim[q] < 0 || claim[q] == claim[i] || b || (claim[q] != q && !(dead && dead[claim[q]]))) return -1;
-    int v = (e == 1) ? zout[i] - zd_k(nodes[i]) : (e >= 2 && nodes[i]->op == IR_DISJUNCTION) ? zout[i] - zd_djx_of(nodes[i]) : zout[i];
+    int v = (e == 1) ? ((nodes[i]->op == IR_BOUND && emit_resumable_frame()) ? zout[i] : zout[i] - zd_k(nodes[i])) : (e >= 2 && nodes[i]->op == IR_DISJUNCTION) ? zout[i] - zd_djx_of(nodes[i]) :
+        zout[i];
     IR_t * r = (e == 0 && nodes[i]->op == IR_GATE_ARM && nodes[i]->n_operands > 0 && (int) nodes[i]->seal) ? nodes[i]->operands[0] : (IR_t *)0;
     int rq = r ? nidx(nodes, n, r) : -1;
     if (rq >= 0 && zon[rq] && claim[rq] == claim[i]) v = zout[rq];
@@ -1079,7 +1110,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 int REL = fence0_release_bytes(nodes[i]);
                 int K = zd_k(nodes[i]);
                 int UREL = 0;
-                { int _ub = zd_pl_unmark_bound(nodes, n, i); if (_ub >= 0 && claim[_ub] == hi && rpos[_ub] >= 0 && rpos[_ub] < r) UREL = (int)zd + K - (zout[_ub] - zd_k(nodes[_ub])); }
+                { int _ub = zd_pl_unmark_bound(nodes, n, i); if (_ub >= 0 && claim[_ub] == hi && rpos[_ub] >= 0 && rpos[_ub] < r) UREL = (int)zd + K - zout[_ub]; }
                 if (zd_pl_cut(nodes[i])) UREL = (int)zd + K;
                 zurel[i] = UREL;
                 { if (nodes[i]->op == IR_MATCH_BEGIN && zdh_match < 0) zdh_match = (int)zd + K; } { if (nodes[i]->op == IR_STATEMENT_END) zdh_stmt = (int)zd + K; }
@@ -1126,7 +1157,8 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 {
                 if (!gin) zgpop[i] = (emit_resumable_frame() && !(gback >= 0 && claim[gback] == claim[i])) ? 0 : (gback >= 0) ? (_wzdepth - _gbpre) :
                     (zd_exit_pop_s(nodes[i]->op, zdh_match, _wzdepth, zdh_stmt, zdh_mafter) + (int)kc);
-                if (!oin) zwpop[i] = (oback >= 0) ? ((_wzdepth - K) - _obpre) :
+                if (nodes[i]->op == IR_BOUND && emit_resumable_frame()) zwpop[i] = -K;
+                else if (!oin) zwpop[i] = (oback >= 0) ? ((_wzdepth - K) - _obpre) :
                     (((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop_s(nodes[i]->op, zdh_match, _wzdepth, zdh_stmt, zdh_mafter) : (_wzdepth - K)) + (int)kc);
                 else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] < rpos[i] && port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (_wzdepth - K) - zout[oback]; } }
                 if (g_emitter.zd_plan__dg)
@@ -1159,7 +1191,8 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
         if (!zgin[i]) zgpop[i] = (emit_resumable_frame() && !(gback >= 0 && claim[gback] == claim[i])) ? 0 : (gback >= 0 && _gbpre > 0) ? (zout[i] - zurel[i] - _gbpre) :
             zd_exit_pop_s(nodes[i]->op, zmatch[i], zout[i] - zurel[i], zstmt[i], zmafter[i]);
         int _obeta = oback >= 0 && port_sz_beta(zd_edge_sz(nodes[i], 1)) && !beta_is_stmt_land(zot[i]);
-        if (!zoin[i]) zwpop[i] = (oback >= 0) ? ((zout[i] - K) - (_obeta ? zout[oback] : _obpre)) :
+        if (nodes[i]->op == IR_BOUND && emit_resumable_frame()) zwpop[i] = -K;
+        else if (!zoin[i]) zwpop[i] = (oback >= 0) ? ((zout[i] - K) - (_obeta ? zout[oback] : _obpre)) :
             ((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop_s(nodes[i]->op, zmatch[i], zout[i], zstmt[i], zmafter[i]) : (zout[i] - K));
         else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] > rpos[i] && !port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - _obpre;
         else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] < rpos[i] && port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - zout[oback];
