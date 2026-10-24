@@ -21464,6 +21464,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
             *out = INTVAL(-2);
             return 1;
         }
+        if (strict) { core_icn_error(106, a); *out = FAILDESCR; return 1; }
         if (IS_STR_fn(a)) { *out = INTVAL(-2); return 1; }
         *out = FAILDESCR;
         return 1;
