@@ -4392,6 +4392,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (bv && (ir_is_generator_kind(bv->op) || bv->op == IR_SCAN_TAB || bv->op == IR_SCAN_MOVE)) { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, bv);
                 if (k >= 0) { g_emitter.g_scan_body_beta = betas[k]; } }
             if (!g_emitter.g_scan_body_beta && g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 2) { IR_t *bb2 = g_emitter.codegen_flat_chain_body_nodes[i]->operands[2]; int _fk = -1;
+                { int _gb = 0, _gg = 0; IR_t * _g2 = bb2; while (_g2 && _g2->op == IR_GOTO && _gg++ < 128) { _gb |= port_sz_beta(_g2->γ.sz); _g2 = _g2->γ.node; }
+                  int _gk = (bb2 && bb2->op == IR_GOTO && _gb && _g2) ? nidx(g_emitter.codegen_flat_chain_body_nodes, n, _g2) : -1;
+                  if (_gk >= 0 && betas[_gk]) { g_emitter.g_scan_body_beta = betas[_gk]; _fk = _gk; } }
                 for (int _hops = 0; bb2 && _fk < 0 && _hops < 8; _hops++) {
                     { int _conduit = (IR_LIT(g_emitter.codegen_flat_chain_body_nodes[i]).dval == 3.0 || IR_LIT(g_emitter.codegen_flat_chain_body_nodes[i]).dval == 4.0) ? 1 : 0;
                     { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, bb2); if (k >= 0) { _fk = k;
