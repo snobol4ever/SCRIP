@@ -914,11 +914,11 @@ static int zls_ov_shares(const IR_graph_t * g) {
     }
     return 0;
 }
-static int zls_overlay(IR_graph_t * g, int base, int k0, int root, const char * rb, const zls_reuse_t * rec, int dl_base, const char * lv, const char * uo, int * scratch_off) {
+static int zls_overlay(IR_graph_t * g, int base, int k0, int root, const char * rb, const zls_reuse_t * rec, int dl_base, const char * lv, const char * uo, int * scratch_off, int mode) {
     int na = g->n_alts, al[na + 1];
     ir_clause_bounds(g, al, na);
     int lo = al[0], hi = al[na];
-    if (*scratch_off < 0 && g_lower.ir.zls_build_eon) {
+    if (*scratch_off < 0 && g_lower.ir.zls_build_eon && mode != 1) {
         int need = 0;
         for (int i = lo; i < hi && !need; i++) {
             const IR_t * nd = g->all[i];
@@ -934,7 +934,7 @@ static int zls_overlay(IR_graph_t * g, int base, int k0, int root, const char * 
     long S = 0;
     for (int i = lo; i < hi; i++) {
         const IR_t * nd = g->all[i];
-        if (!nd || !rb[i]) continue;
+        if (!nd || !rb[i] || (mode == 1 && !zls_hf_resident(g, nd)) || (mode == 2 && zls_hf_resident(g, nd))) continue;
         int a = g_lower.ir.zf_n, b = g_lower.ir.ze_n, x = g_lower.ir.zx_n, st = *scratch_off;
         S += zls_grant_at(g, nd, i, root, root, rec, dl_base, lv, uo, &st, base + k0 * 16);
         g_lower.ir.zf_n = a;
@@ -946,13 +946,13 @@ static int zls_overlay(IR_graph_t * g, int base, int k0, int root, const char * 
     unsigned char occ[seq ? 1 : S];
     memset(km, 0, sizeof km);
     int kend = k0;
-    g->alt_zlo = base + k0 * 16;
+    if (mode != 2) g->alt_zlo = base + k0 * 16;
     for (int c = 0; c < na; c++) {
         int ce = 0, low = 0;
         memset(occ, 0, sizeof occ);
         for (int i = al[c]; i < al[c + 1]; i++) {
             const IR_t * nd = g->all[i];
-            if (!nd || !rb[i]) continue;
+            if (!nd || !rb[i] || (mode == 1 && !zls_hf_resident(g, nd)) || (mode == 2 && zls_hf_resident(g, nd))) continue;
             int a = g_lower.ir.zf_n, b = g_lower.ir.ze_n, x = g_lower.ir.zx_n, st = *scratch_off, pr = base + k0 * 16;
             int n = zls_grant_at(g, nd, i, root, root, rec, dl_base, lv, uo, &st, pr);
             int nf = g_lower.ir.zf_n - a, s0 = -1;
@@ -986,7 +986,7 @@ static int zls_overlay(IR_graph_t * g, int base, int k0, int root, const char * 
             if (s0 + got > ce) ce = s0 + got;
             if (k0 + ce > kend) kend = k0 + ce;
         }
-        g->alt_zhi[c] = base + (k0 + ce) * 16;
+        if (mode != 2) g->alt_zhi[c] = base + (k0 + ce) * 16;
     }
     return kend;
 }
@@ -1599,7 +1599,6 @@ void zls_build(IR_graph_t * g) {
             ct_drop(order);
             if (hf) {
                 for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && zls_hf_resident(g, g->all[i]) && ov && i >= al[0] && i < al[g->n_alts]) ov_in = 1;
-                if (dl_w > 0) { dl_base = zls_dl_place(root, base, k, dl_w); k += dl_w; }
                 for (int i = 0, c2 = 0; i < g->n; i++) {
                     IR_t * nd = g->all[i];
                     if (!nd) continue;
@@ -1607,7 +1606,7 @@ void zls_build(IR_graph_t * g) {
                     if (!rb[i] || !zls_hf_resident(g, nd) || (ov && i >= al[0] && i < al[g->n_alts])) continue;
                     k += zls_grant_at(g, nd, i, c2 > 0 ? mfirst[c2 - 1] : root, root, rec, dl_base, lv, uo, &rs_scratch, base + k * 16);
                 }
-                if (ov_in) k = zls_overlay(g, base, k, root, rb, rec, dl_base, lv, uo, &rs_scratch);
+                if (ov_in) k = zls_overlay(g, base, k, root, rb, rec, dl_base, lv, uo, &rs_scratch, 1);
                 for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && !zls_hf_resident(g, g->all[i]) && zls_redisp_node(g->all[i])) {
                     IR_t * nd = g->all[i];
                     for (int j = 0; j < nd->n_operands; j++) zls_field(root, base + (k + j) * 16, 16, ZK_DESCR, 0, "redisp.argv (the dispatcher copies the arguments here, in front of the record)", nd)
@@ -1678,7 +1677,7 @@ void zls_build(IR_graph_t * g) {
             int sc = (cur > 0) ? mfirst[cur - 1] : root;
             k += zls_grant_at(g, nd, i, sc, root, rec, dl_base, lv, uo, &scratch_off, base + k * 16);
         }
-        if (ov) { if (!ov_in) k = zls_overlay(g, base, k, root, rb, rec, dl_base, lv, uo, &scratch_off); } else if (g->alt_zhi) for (int c = 0; c < g->n_alts; c++) g->alt_zhi[c] = 0;
+        if (ov) { k = zls_overlay(g, base, k, root, rb, rec, dl_base, lv, uo, &scratch_off, ov_in ? 2 : 0); } else if (g->alt_zhi) for (int c = 0; c < g->n_alts; c++) g->alt_zhi[c] = 0;
         {
             int nr = 0;
             for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && !zls_is_wiring(ir_kind0(g->all[i]))) nr++;
@@ -2221,6 +2220,7 @@ static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
         (zls_g_resumable_frame(g) &&
         (zls_home_dyn(g, nd) || zls_edge_retains(g, nd) || (zls_g_home_frame(g) && (nd->op == IR_BOUND || nd->op == IR_GATE || nd->op == IR_TO || nd->op == IR_DISJUNCTION))))) ? 1 : 0;
 }
+int zls_g_hf_resident(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && zls_hf_resident(g, nd) ? 1 : 0; }
 int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }
 int zls_redisp_off(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_RO); return t ? t->ro : -1; }
 void zls_redisp_mark(const IR_t * nd, int off) { fcn_t * t = fcn_get(nd); t->ro = off; t->fl |= FCN_RO; }

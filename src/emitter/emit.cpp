@@ -3583,6 +3583,8 @@ static const char * xop_frame_why(const IR_t * nd) {
 extern "C" int zls_g_keys_only(const IR_graph_t * g);
 extern "C" int zls_home_why(const IR_t * nd);
 extern "C" int zls_home_local_test(const IR_graph_t * g, const char * vn);
+extern "C" int zls_g_hf_resident(const IR_graph_t * g, const IR_t * nd);
+extern "C" int zd_dj_on_spine(const IR_t * nd);
 extern "C" const char * zls_home_why_name(int w);
 static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
     extern const char * zls_graph_name_get(const IR_graph_t *); extern int zls_g_vslot_count(const IR_graph_t *); extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
@@ -3598,10 +3600,11 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
         int off = bb_slot_get(nd); if (off < 0) off = nd_slot(nd); if (zls_key_unbacked(g, off)) off = -1;
         int xf = xop_frame_slot(nd), rbp = xf != -1, esc = nd->op == IR_TABLE_HDR && off >= 0;
         int hs = !esc && !rbp && off >= 0 && zls_home_why(nd) && !ir_node_produces_value(nd->op);
-        const char * home = (esc || hs) ? "RBP" : zon[i] ? (zd_k(nd) > 0 ? "SPINE" : "NONE") : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
-        if (esc || hs) xf = off;
+        int hr = !esc && !rbp && !hs && off >= 0 && g && zls_g_hf_resident(g, nd) && (nd->op != IR_DISJUNCTION || zls_dj_retains(nd) || !zd_dj_on_spine(nd));
+        const char * home = (esc || hs || hr) ? "RBP" : zon[i] ? (zd_k(nd) > 0 ? "SPINE" : "NONE") : off < 0 ? "NONE" : rbp ? "RBP" : "RSP_CARVED";
+        if (esc || hs || hr) xf = off;
         fprintf(stderr, "[HOMES] g=%d graph=%s all=%d kind=%s home=%s off=%d xf=%d xfwhy=%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), home, off, xf,
-            esc ? "address-escapes" : hs ? zls_home_why_name(zls_home_why(nd)) : rbp ? xop_frame_why(nd) : "-");
+            esc ? "address-escapes" : hs ? zls_home_why_name(zls_home_why(nd)) : hr ? (ir_node_produces_value(nd->op) ? "resident-result" : "construct-record") : rbp ? xop_frame_why(nd) : "-");
         if (esc) fprintf(stderr, "[HOMETEST] g=%d graph=%s all=%d kind=%s test=state:address-escapes\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op));
         else fprintf(stderr, "[HOMETEST] g=%d graph=%s all=%d kind=%s test=%s%s\n", gi, gn ? gn : "?", ai, bb_op_name(nd->op), zls_home_why(nd) ? "operand:" : "", zls_home_why_name(zls_home_why(nd)));
     }
