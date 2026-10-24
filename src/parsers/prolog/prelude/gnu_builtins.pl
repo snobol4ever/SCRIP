@@ -19,7 +19,7 @@
                           format_to_atom/3, format_to_codes/3, format_to_chars/3,
                           read_from_atom/2, read_from_codes/2, read_from_chars/2,
                           number_atom/2, lower_upper/2, new_atom/1, new_atom/2,
-                          portray_clause/1, portray_clause/2, name_singleton_vars/1, name_query_vars/2, bind_variables/2,
+                          portray_clause/1, portray_clause/2, portray_clause/3, name_singleton_vars/1, name_query_vars/2, bind_variables/2,
                           partial_list/1, list_or_partial_list/1, generic_var/1, non_generic_var/1, non_fd_var/1, current_atom/1, atom_property/2,
                           call_with_args/1, call_with_args/2, call_with_args/3, call_with_args/4, call_with_args/5, call_with_args/6, call_with_args/7,
                           call_with_args/8, call_with_args/9, call_with_args/10, call_with_args/11, call_det/2, setarg/4, term_variables/3,
@@ -91,6 +91,7 @@ new_atom(_, A) :- nonvar(A), !, throw(error(uninstantiation_error(A), new_atom/2
 new_atom(P, A) :- ( nb_current('$gnu_b_new_atom', N0) -> true ; N0 = 0 ), N is N0 + 1, nb_setval('$gnu_b_new_atom', N), atom_number(S, N), atom_concat(P, S, A).
 portray_clause(T) :- current_output(S), '$gnu_b_portray'(S, T, portray_clause/1).
 portray_clause(S, T) :- '$gnu_b_portray'(S, T, portray_clause/2).
+portray_clause(S, T, _) :- '$gnu_b_portray'(S, T, portray_clause/3).
 '$gnu_b_portray'(_, T, PI) :- var(T), !, throw(error(instantiation_error, PI)).
 '$gnu_b_portray'(_, T, PI) :- \+ callable(T), !, throw(error(type_error(callable, T), PI)).
 '$gnu_b_portray'(S, T, _) :- \+ \+ ( '$gnu_b_lit'(T, T1, [], Rs), '$gnu_b_singles'(T1), '$gnu_b_number'(T1, 0, Rs, _, numbervars), '$gnu_b_pc'(S, T1) ).

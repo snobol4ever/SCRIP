@@ -12974,6 +12974,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_11_EXPORTS[] = {
     { "new_atom", 2 },
     { "portray_clause", 1 },
     { "portray_clause", 2 },
+    { "portray_clause", 3 },
     { "name_singleton_vars", 1 },
     { "name_query_vars", 2 },
     { "bind_variables", 2 },
@@ -13316,6 +13317,7 @@ static const char PL_PRELUDE_LIB_11_SRC[] =
     "new_atom(P, A) :- ( nb_current('$gnu_b_new_atom', N0) -> true ; N0 = 0 ), N is N0 + 1, nb_setval('$gnu_b_new_atom', N), atom_number(S, N), atom_concat(P, S, A).\n"
     "portray_clause(T) :- current_output(S), '$gnu_b_portray'(S, T, portray_clause/1).\n"
     "portray_clause(S, T) :- '$gnu_b_portray'(S, T, portray_clause/2).\n"
+    "portray_clause(S, T, _) :- '$gnu_b_portray'(S, T, portray_clause/3).\n"
     "'$gnu_b_portray'(_, T, PI) :- var(T), !, throw(error(instantiation_error, PI)).\n"
     "'$gnu_b_portray'(_, T, PI) :- \\+ callable(T), !, throw(error(type_error(callable, T), PI)).\n"
     "'$gnu_b_portray'(S, T, _) :- \\+ \\+ ( '$gnu_b_lit'(T, T1, [], Rs), '$gnu_b_singles'(T1), '$gnu_b_number'(T1, 0, Rs, _, numbervars), '$gnu_b_pc'(S, T1) ).\n"
@@ -15421,9 +15423,11 @@ static const char PL_PRELUDE_LIB_17_SRC[] =
     "'$mctx_un'(M1,M2,T0,T):-(nonvar(T0),T0=(H0:-B)->'$mctx_unh'(M1,M2,H0,H),T=(H:-B);'$mctx_unh'(M1,M2,T0,T)).\n"
     "'$mctx_retract'(M1,M2,C):-(var(C)->retract(C1),'$mctx_un'(M1,M2,C1,C);'$mctx_term'(M1,M2,C,C1),retract(C1)).\n"
     "'$mctx_retractall'(M1,M2,H0):-'$mctx_head'(M1,M2,H0,H),retractall(H).\n"
-    "'$mctx_clause'(M1,M2,H0,B):-(var(H0)->clause(H1,B),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B)).\n"
-    "'$mctx_clause'(M1,M2,H0,B,R):-(var(H0)->clause(H1,B,R),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B,R)).\n"
+    "'$mctx_unb'(M1,M2,B0,B):-(nonvar(B0),B0=Q:B1,atom(Q),(Q==M1;Q==M2)->B=B1;B=B0).\n"
+    "'$mctx_clause'(M1,M2,H0,B):-(var(H0)->clause(H1,B0),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B0)),'$mctx_unb'(M1,M2,B0,B).\n"
+    "'$mctx_clause'(M1,M2,H0,B,R):-(var(H0)->clause(H1,B0,R),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B0,R)),'$mctx_unb'(M1,M2,B0,B).\n"
     "'$mctx_call'(M,G):-catch(G,error(existence_error(procedure,PI),Ctx),'$mctx_unk'(M,G,PI,Ctx)).\n"
+    "'$mctx_unk'(M,G,N/A,_):-nonvar(G),callable(G),functor(G,N,A),'$mctx_pick'([M],N,A,QN),!,G=..[_|As],G2=..[QN|As],call(G2).\n"
     "'$mctx_unk'(M,G,N/A,Ctx):-atom(N),'$mctx_lf'(M,G,Q,E),callable(E),functor(E,N,A),Q\\==user,!,throw(error(existence_error(procedure,Q:N/A),Ctx)).\n"
     "'$mctx_lf'(M,G,Q,E):-nonvar(G),G=(A,B),!,('$mctx_lf'(M,A,Q,E);'$mctx_lf'(M,B,Q,E)).\n"
     "'$mctx_lf'(M,G,Q,E):-nonvar(G),G=(A;B),!,('$mctx_lf'(M,A,Q,E);'$mctx_lf'(M,B,Q,E)).\n"
