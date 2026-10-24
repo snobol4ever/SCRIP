@@ -589,6 +589,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "core_quit_trap_300_sig", GC_RET_VOID },
     { "core_quit_trap_320_sig", GC_RET_VOID },
     { "core_runtime_error", GC_RET_VOID },
+    { "core_runtime_error_soft", GC_RET_VOID },
     { "core_undefined_call_error", GC_RET_VOID },
     { "cset_bits_of", GC_RET_VOID },
     { "cset_canonical", GC_RET_OTHER },
