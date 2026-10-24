@@ -480,7 +480,8 @@ static int zd_pl_entry(IR_t **nodes, int n, const unsigned char *zon, const int 
     if (e >= 2 && nodes[i]->op == IR_DISJUNCTION && g_emit_cfg && g_emit_cfg->spine_cells && (((e - 2) & 1) || e - 2 >= 2 * (int)IR_LIT(nodes[i]).ival)) return -1;
     (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q, &b);
     if (q < 0 || claim[q] < 0 || claim[q] == claim[i] || b || (claim[q] != q && !(dead && dead[claim[q]]))) return -1;
-    int v = (e == 1) ? zout[i] - zd_k(nodes[i]) : (e >= 2 && nodes[i]->op == IR_DISJUNCTION) ? zout[i] - zd_djx_of(nodes[i]) : zout[i];
+    int v = (e == 1) ? ((nodes[i]->op == IR_BOUND && emit_resumable_frame()) ? zout[i] : zout[i] - zd_k(nodes[i])) : (e >= 2 && nodes[i]->op == IR_DISJUNCTION) ? zout[i] - zd_djx_of(nodes[i]) :
+        zout[i];
     IR_t * r = (e == 0 && nodes[i]->op == IR_GATE_ARM && nodes[i]->n_operands > 0 && (int) nodes[i]->seal) ? nodes[i]->operands[0] : (IR_t *)0;
     int rq = r ? nidx(nodes, n, r) : -1;
     if (rq >= 0 && zon[rq] && claim[rq] == claim[i]) v = zout[rq];
@@ -1109,7 +1110,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 int REL = fence0_release_bytes(nodes[i]);
                 int K = zd_k(nodes[i]);
                 int UREL = 0;
-                { int _ub = zd_pl_unmark_bound(nodes, n, i); if (_ub >= 0 && claim[_ub] == hi && rpos[_ub] >= 0 && rpos[_ub] < r) UREL = (int)zd + K - (zout[_ub] - zd_k(nodes[_ub])); }
+                { int _ub = zd_pl_unmark_bound(nodes, n, i); if (_ub >= 0 && claim[_ub] == hi && rpos[_ub] >= 0 && rpos[_ub] < r) UREL = (int)zd + K - zout[_ub]; }
                 if (zd_pl_cut(nodes[i])) UREL = (int)zd + K;
                 zurel[i] = UREL;
                 { if (nodes[i]->op == IR_MATCH_BEGIN && zdh_match < 0) zdh_match = (int)zd + K; } { if (nodes[i]->op == IR_STATEMENT_END) zdh_stmt = (int)zd + K; }
@@ -1156,7 +1157,8 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 {
                 if (!gin) zgpop[i] = (emit_resumable_frame() && !(gback >= 0 && claim[gback] == claim[i])) ? 0 : (gback >= 0) ? (_wzdepth - _gbpre) :
                     (zd_exit_pop_s(nodes[i]->op, zdh_match, _wzdepth, zdh_stmt, zdh_mafter) + (int)kc);
-                if (!oin) zwpop[i] = (oback >= 0) ? ((_wzdepth - K) - _obpre) :
+                if (nodes[i]->op == IR_BOUND && emit_resumable_frame()) zwpop[i] = -K;
+                else if (!oin) zwpop[i] = (oback >= 0) ? ((_wzdepth - K) - _obpre) :
                     (((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop_s(nodes[i]->op, zdh_match, _wzdepth, zdh_stmt, zdh_mafter) : (_wzdepth - K)) + (int)kc);
                 else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] < rpos[i] && port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (_wzdepth - K) - zout[oback]; } }
                 if (g_emitter.zd_plan__dg)
@@ -1189,7 +1191,8 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
         if (!zgin[i]) zgpop[i] = (emit_resumable_frame() && !(gback >= 0 && claim[gback] == claim[i])) ? 0 : (gback >= 0 && _gbpre > 0) ? (zout[i] - zurel[i] - _gbpre) :
             zd_exit_pop_s(nodes[i]->op, zmatch[i], zout[i] - zurel[i], zstmt[i], zmafter[i]);
         int _obeta = oback >= 0 && port_sz_beta(zd_edge_sz(nodes[i], 1)) && !beta_is_stmt_land(zot[i]);
-        if (!zoin[i]) zwpop[i] = (oback >= 0) ? ((zout[i] - K) - (_obeta ? zout[oback] : _obpre)) :
+        if (nodes[i]->op == IR_BOUND && emit_resumable_frame()) zwpop[i] = -K;
+        else if (!zoin[i]) zwpop[i] = (oback >= 0) ? ((zout[i] - K) - (_obeta ? zout[oback] : _obpre)) :
             ((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop_s(nodes[i]->op, zmatch[i], zout[i], zstmt[i], zmafter[i]) : (zout[i] - K));
         else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] > rpos[i] && !port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - _obpre;
         else if (oback >= 0 && claim[oback] == claim[i] && rpos[oback] < rpos[i] && port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - zout[oback];
