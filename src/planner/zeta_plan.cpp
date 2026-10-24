@@ -899,10 +899,12 @@ static void zst_plan(IR_t ** nodes, int n) {
     std::vector<int> dsz((size_t)n, 0); for (int v = 0; v < n; v++) { int c = 0; for (size_t w = 0; w < W; w++) c += __builtin_popcountll(dom[(size_t)v * W + w]); dsz[(size_t)v] = c; }
     std::vector<unsigned char> indef0((size_t)n, 0);
     { std::vector<int> wl;
-        for (int i = 0; i < n; i++) if (zd_edge_retains(nodes[i])) { int q = zst_edge(nodes, n, i, 0); if (q >= 0 && !indef0[(size_t)q]) { indef0[(size_t)q] = 1;
-            if (nodes[q]->op != IR_CUT) wl.push_back(q); } }
+        for (int i = 0; i < n; i++) if (zd_edge_retains(nodes[i])) { int q = zst_edge(nodes, n, i, 0);
+            for (int cur = i, hop = 0; q >= 0 && hop <= n && zd_pl_dj_join(nodes, n, cur, q); hop++) { cur = q; q = zst_edge(nodes, n, q, 0); }
+            if (q >= 0 && q != i && !indef0[(size_t)q]) { indef0[(size_t)q] = 1; if (nodes[q]->op != IR_CUT) wl.push_back(q); } }
         while (!wl.empty()) { int v = wl.back(); wl.pop_back();
-            for (int k = scnt[(size_t)v]; k < scnt[(size_t)v + 1]; k++) { int w = sd[(size_t)k]; if (w < 0 || indef0[(size_t)w]) continue;
+            for (int e = 0; e < zd_pl_edges(nodes[v]); e++) { if (e == 1 || (e >= 2 && nodes[v]->op != IR_DISJUNCTION)) continue;
+                int w = zst_edge(nodes, n, v, e); if (w < 0 || w == v || indef0[(size_t)w] || (e == 0 && zd_pl_dj_join(nodes, n, v, w))) continue;
                 int ub = (nodes[w]->op == IR_UNMARK && zd_pl_rest_ival(nodes[w]) && nodes[w]->n_operands > 0) ? nidx(nodes, n, nodes[w]->operands[0]) : -1;
                 if (ub >= 0 && !indef0[(size_t)ub]) continue;
                 indef0[(size_t)w] = 1; if (nodes[w]->op != IR_CUT) wl.push_back(w); } } }
