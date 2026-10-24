@@ -413,6 +413,18 @@ int zd_edge_retains(const IR_t * nd) {
     return (r == PR_UNKNOWN_CALLEE || r == PR_GATE_HOLDS || r == PR_DISJUNCTION_HOLDS || r == PR_DB_GENERATOR || r == PR_RETAINING_TARGET) ? 1 : 0;
 }
 extern "C" int planner_edge_retains(const IR_graph_t * g, const IR_t * nd) { IR_graph_t * sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g; int r = zd_edge_retains(nd); g_emit_cfg = sv; return r; }
+extern "C" int planner_span_retains(const IR_graph_t * g, int from_ai, int to_ai) {
+    if (!g || !g->all || g->n <= 0) return 0;
+    if (from_ai > to_ai) { int t = from_ai; from_ai = to_ai; to_ai = t; }
+    if (from_ai < 0) from_ai = 0;
+    if (to_ai >= g->n) to_ai = g->n - 1;
+    IR_graph_t * sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g; int r = 0;
+    for (int k = from_ai; k <= to_ai && !r; k++) {
+        const IR_t * nd = g->all[k];
+        if (nd && (zd_edge_retains(nd) || nd->op == IR_SUSPEND || (nd->op == IR_DISJUNCTION && zls_dj_retains(nd)))) r = 1;
+    }
+    g_emit_cfg = sv; return r;
+}
 int planner_retains_emitter_view(int op) { return op == IR_PROC_GEN || op == IR_CALL_VALUE || op == IR_CALL_GEN || op == IR_ACTIVATE; }
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd) {
     IR_graph_t * sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g;

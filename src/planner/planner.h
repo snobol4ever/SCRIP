@@ -87,6 +87,7 @@ int zls_fcn_hunres(const IR_t * nd);
 int planner_retains(const IR_t * nd);
 int planner_retains_emitter_view(int op);
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
+extern "C" int planner_span_retains(const IR_graph_t * g, int from_ai, int to_ai);
 void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout, const int *zgpop, const int *zwpop, const int *claim, int *base, unsigned char *known, int *aof, int *zcut, int *fam,
     int *fbase);
 int zst_s_of(const IR_t * nd);
