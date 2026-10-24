@@ -125,8 +125,8 @@ static std::string cap_imm_patv(const std::string & homeop) {
     + IF(!(cap_gva() && gva_name_hidden(_.op_sval)) && !(_.op_sval && _.op_sval[0] == '*' && _.op_sval[1]), \
           x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str())) \
 )
-#define writehome() (_.op_zres ? ZRESD(0) : FR(_.op_off))
-#define readhome() (_.op_zres ? ZOPD(1, 0) : FR(_.op_off))
+#define writehome() (_.op_zres ? ZCELL(Z_SELF(), 0, 4) : FR(_.op_off))
+#define readhome() (_.op_zres ? ZCELL(Z_OP(1), 0, 4) : FR(_.op_off))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_capture() {
     x86_begin();

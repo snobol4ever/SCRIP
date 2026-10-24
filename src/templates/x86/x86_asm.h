@@ -1153,6 +1153,35 @@ inline const char * ZOPQS(int k, int sp, int w) { int in = k >= 0 && k < _.op_zc
 inline const char * ZOPD(int k, int w) { int in = k >= 0 && k < _.op_zcap; if (in && _.op_zread_fr[k] >= 0) return x86_zop(_.op_zread_fr[k] + w, 0, 0);
     return (in && _.op_zread_xf[k] != -1) ? RDD("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 0); }
 inline const char * FR(int off) { return x86_zop(off, 0, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+enum { ZR_SELF = 1, ZR_OP = 2, ZR_STATE = 3, ZR_LOCAL = 4, ZR_FRAME = 5, ZR_KEY = 6, ZR_TOS = 7, ZR_SPINE = 8, ZR_RSP = 9 };
+struct zcell_ref_t { int kind; int a; int b; };
+inline zcell_ref_t Z_SELF() { zcell_ref_t r = { ZR_SELF, 0, 0 }; return r; }
+inline zcell_ref_t Z_OP(int k, int sp = 0) { zcell_ref_t r = { ZR_OP, k, sp }; return r; }
+inline zcell_ref_t Z_STATE() { zcell_ref_t r = { ZR_STATE, 0, 0 }; return r; }
+inline zcell_ref_t Z_LOCAL(int key) { zcell_ref_t r = { ZR_LOCAL, key, 0 }; return r; }
+inline zcell_ref_t Z_FRAME(int off) { zcell_ref_t r = { ZR_FRAME, off, 0 }; return r; }
+inline zcell_ref_t Z_KEY(int off, int bump = 0) { zcell_ref_t r = { ZR_KEY, off, bump }; return r; }
+inline zcell_ref_t Z_TOS(int off) { zcell_ref_t r = { ZR_TOS, off, 0 }; return r; }
+inline zcell_ref_t Z_SPINE(int d) { zcell_ref_t r = { ZR_SPINE, d, 0 }; return r; }
+inline zcell_ref_t Z_RSP(int off) { zcell_ref_t r = { ZR_RSP, off, 0 }; return r; }
+inline const char * ZCELL(zcell_ref_t r, int w, int width = 8) {
+    int q = width == 8;
+    switch (r.kind) {
+    case ZR_SELF: return _.op_xf_off != -1 ? (q ? RDQ("rbp", _.op_xf_off + w) : RDD("rbp", _.op_xf_off + w)) : x86_zref(w, q);
+    case ZR_OP: { int k = r.a, in = k >= 0 && k < _.op_zcap; if (in && _.op_zread_fr[k] >= 0) return r.b ? ZOPFS(_.op_zread_fr[k] + w, r.b) : x86_zop(_.op_zread_fr[k] + w, q, 0);
+        return (in && _.op_zread_xf[k] != -1) ? (q ? RDQ("rbp", _.op_zread_xf[k] + w) : RDD("rbp", _.op_zread_xf[k] + w)) : x86_zref((in ? _.op_zread[k] : 0) + r.b + w, q); }
+    case ZR_STATE: return x86_zref(16 + w, q);
+    case ZR_LOCAL: return x86_zop(r.a + w, q, 0);
+    case ZR_FRAME: return q ? RDQ("rbp", r.a + w) : RDD("rbp", r.a + w);
+    case ZR_KEY: return x86_zop(r.a + w, q, r.b);
+    case ZR_TOS: return x86_ztos(r.a + w, q);
+    case ZR_SPINE: return x86_zref(r.a + w, q);
+    case ZR_RSP: return q ? RDQ("rsp", r.a + w) : RDD("rsp", r.a + w);
+    }
+    fprintf(stderr, "FATAL ZCELL: ref kind %d has no zeta (ARCH-THREE-ZETAS-EMISSION section 2 form 5: a ref with no zeta is a FATAL at emit time)\n", r.kind); abort(); return (const char *)0;
+}
+inline const char * ZCELL_ADDR(zcell_ref_t r, int w) { return ZCELL(r, w, 8); }
 inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i + 1) & 7; snprintf(b[i], 16, "P%d", idx); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load64(const char * reg, int off) {

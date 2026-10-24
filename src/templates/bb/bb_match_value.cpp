@@ -14,7 +14,7 @@ extern "C" void *dtp_fn_of(void *headv);
 std::string bb_match_value() {
     return x86("comment", "IR_MATCH_VALUE (operand[0] pattern value, no manufactured name)")
          + x86_alpha()
-         + IF(_.op_zres, x86("lea", "rdi", ZOPQ(0, 0)))
+         + IF(_.op_zres, x86("lea", "rdi", ZCELL(Z_OP(0), 0)))
          + IF(!_.op_zres, x86("lea", "rdi", FRQ(_.op_a_slot)))
          + x86_align_enter()
          + x86("call", "rt_match_value_get_pat_dtp", (uint64_t)(uintptr_t)(void *)(void *(*)(DESCR_t *))rt_match_value_get_pat_dtp)
@@ -38,7 +38,7 @@ std::string bb_match_value() {
          + bb_glue_wire_land()
          + x86_omega()
          + x86("def", "L0")
-         + IF(_.op_zres, x86("lea", "rdi", ZOPQ(0, 0)))
+         + IF(_.op_zres, x86("lea", "rdi", ZCELL(Z_OP(0), 0)))
          + IF(!_.op_zres, x86("lea", "rdi", FRQ(_.op_a_slot)))
          + x86_align_enter()
          + x86("sub", "rsp", 32L)

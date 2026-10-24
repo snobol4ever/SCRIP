@@ -9,7 +9,7 @@ extern "C" {
 static std::string bb_match_rpos_body() {
     return x86("comment", "IR_MATCH_RPOS")
          + x86_alpha()
-         + IF(_.op_sa >= 0 && _.op_zres, x86("mov", "rax", ZOPQ(0, 8)))
+         + IF(_.op_sa >= 0 && _.op_zres, x86("mov", "rax", ZCELL(Z_OP(0), 8)))
          + IF(_.op_sa >= 0 && !_.op_zres, x86("mov", "rax", XSAQ(8)))
          + IF(_.op_sa < 0, x86("mov", "rax", (long)_.op_sb))
          + x86("mov", "ecx", "r15d")

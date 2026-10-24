@@ -29,7 +29,7 @@ std::string bb_match_tab() {
              + x86_alpha()
              + x86("mov", LFC(0), "r14d")
              + IF(_.op_sa >= 0, x86("note", ZOPN(0))
-                              + x86("mov", "rax", ZOPQ(0, 8)))
+                              + x86("mov", "rax", ZCELL(Z_OP(0), 8)))
              + IF(_.op_sa < 0, x86("mov", "rax", (long)_.op_sb))
              + x86("cmp", "r14d", "eax")
              + x86_omega("jg")
