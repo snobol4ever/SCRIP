@@ -4537,8 +4537,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                       }
                           if (g_emitter.codegen_flat_chain_body_nodes[_zm]->op != IR_MATCH_BEGIN) continue;
                       _xh += 64 + planner_act_extra(g_emitter.codegen_flat_chain_body_nodes[_zm]);
-                          } g_emitter.g_zd_read[_zj] = zd_out[i] - zd_out[_k] + _xh + ((zd_xb && zd_xb[i] != INT_MIN && zd_xb[_k] != INT_MIN) ? zd_xb[i] - zd_xb[_k] : 0);
-                          if (g_emitter.zd_check__on > 0 && zd_xb && zd_claim[i] != zd_claim[_k] && (zd_xb[i] == INT_MIN || zd_xb[_k] == INT_MIN) && xop_frame_slot(_p) == -1 &&
+                          } int _fok = 0, _fd = zd_fam_delta(i, _k, &_fok);
+                          g_emitter.g_zd_read[_zj] = zd_out[i] - zd_out[_k] + _xh + ((zd_xb && zd_xb[i] != INT_MIN && zd_xb[_k] != INT_MIN) ? zd_xb[i] - zd_xb[_k] : _fd);
+                          if (g_emitter.zd_check__on > 0 && zd_xb && zd_claim[i] != zd_claim[_k] && (zd_xb[i] == INT_MIN || zd_xb[_k] == INT_MIN) && !_fok && xop_frame_slot(_p) == -1 &&
                               (zd_k_own(_p) >= 16 || zd_local_home_node(_p)) && !zd_run_alpha_dead(g_emitter.codegen_flat_chain_body_nodes, n, zd_claim, zd_claim[i]))
                               fprintf(stderr, "[ZD-CHECK]   READ i=%d %s reads p=%d %s across runs with an unknown base\n", i,
                               bb_op_name(g_emitter.codegen_flat_chain_body_nodes[i]->op), _k, bb_op_name(g_emitter.codegen_flat_chain_body_nodes[_k]->op));

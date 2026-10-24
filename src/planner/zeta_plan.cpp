@@ -93,6 +93,11 @@ int zd_cpos(int i, const int *xb, const int *zout, long *d) {
     *d = zout[i];
     return cl[i] >= 0 ? -3 - cl[i] : INT_MIN;
 }
+int zd_fam_delta(int i, int k, int * ok) {
+    const int * cl = g_emitter.g_zd_claim_p, * fm = g_emitter.g_zd_fam_p, * fb = g_emitter.g_zd_fbase_p;
+    *ok = (cl && fm && fb && cl[i] >= 0 && cl[k] >= 0 && cl[i] != cl[k] && fm[cl[i]] >= 0 && fm[cl[i]] == fm[cl[k]]) ? 1 : 0;
+    return *ok ? fb[cl[i]] - fb[cl[k]] : 0;
+}
 int zd_gate_pair(IR_t **nodes, int n, int a, int k, int wantb, const unsigned char *zon, const int *zout, const int *xb, long *rsp) {
     long da = 0, dk = 0;
     int ca = zd_cpos(a, xb, zout, &da), ck = INT_MIN;

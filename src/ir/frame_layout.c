@@ -2156,21 +2156,6 @@ void zls_home_pass(const IR_graph_t * g) {
         }
     }
     for (int i = 0; i < n; i++) { const IR_t * x = g->all[i]; if (x && tw[i] && zls_home_local_kind((int)x->op) && IR_LIT(x).sval) { fcn_t * t = fcn_get(x); t->fl |= FCN_LHOME; t->lw = tw[i]; } }
-    if (g->home_frame && zls_g_resumable_frame(g)) {
-        for (int c = 0; c < n; c++) {
-            const IR_t * cx = g->all[c];
-            if (!cx || cx->op != IR_CALL_PROC_STAGED || !zls_edge_retains(g, cx)) continue;
-            const IR_t * gt = zls_chase(cx->γ.node);
-            if (gt != cx) continue;
-            for (int oj = 0; oj < cx->n_operands; oj++) {
-                const IR_t * o = cx->operands[oj];
-                if (!o || !ir_node_produces_value(o->op) || fcn_find(o, FCN_HOME) || !(zls_reuse_straight(ir_kind0(o)) || zls_reuse_detleaf(o))) continue;
-                fcn_t * t = fcn_get(o);
-                t->fl |= FCN_HOME;
-                t->hw = 12;
-            }
-        }
-    }
     for (int c = 0; c < n; c++) {
         const IR_t * cx = g->all[c];
         if (!g->home_frame || !cx || !tw[c]) continue;
