@@ -2649,7 +2649,6 @@ void fl_derive_tier(IR_graph_t * g) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_tables_reset(void) { g_lower.ir.fct_n = 0; g_lower.ir.fcn_gen++; g_lower.ir.fcn_n = 0; g_lower.ir.fca.len = 0; }
-int fc_frameless_fpr_rsp(const IR_t * nd) { if (!nd) return 0; { long _fk = 0; return !fc_geom(nd, &_fk); } }
 typedef struct { const char * name; int fb; int fp; int uni; } zls_pz_t;
 #define pz ((zls_pz_t *)g_lower.ir.pz_v.p)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

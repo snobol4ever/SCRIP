@@ -2382,8 +2382,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         g_emit.op_off = -1;
         if (!a0) { g_emit.op_sb = (int)IR_LIT(nd).ival; g_emit.op_sa = -1; }
-        else if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; { extern int fc_frameless_fpr_rsp(const IR_t *);
-            if (g_emitter.g_zd_arm && fc_frameless_fpr_rsp(a0)) g_emit.op_wpop += 16; } }
+        else if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
         else { int sl = bb_slot_get(a0); if (sl < 0) { extern int zls_off(const IR_t *); int _zsa = zls_off(a0); if (_zsa >= 0) { sl = _zsa; g_emit.op_zres = 1;
             } } if (sl < 0) { drive_guard_refused(nd, __LINE__); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
         { const char * _sv = (nd->n_operands == 0 && (uintptr_t)(uint64_t)IR_LIT(nd).ival > (uintptr_t)0xFFFFU) ? IR_LIT(nd).sval : (const char *)0;

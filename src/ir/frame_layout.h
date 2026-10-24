@@ -71,7 +71,6 @@ void fc_head_register(const IR_t * nd, int fp);
 int fc_head_fp(const IR_t * nd);
 void fc_tables_reset(void);
 void fl_derive_tier(IR_graph_t * g);
-int fc_frameless_fpr_rsp(const IR_t * nd);
 int fc_cells_active(void);
 int zls_g_block_args(const IR_graph_t * g);
 int zls_g_resumable_frame(const IR_graph_t * g);
