@@ -1911,6 +1911,7 @@ static int zls_home_local_kind(int lo) {
     return lo == IR_VAR || lo == IR_VAR_REF || lo == IR_ASSIGN || lo == IR_ASSIGN_VAR || lo == IR_REV_ASSIGN_VAR || lo == IR_NULLTEST_VAR || lo == IR_FIELD_VAR || lo == IR_UNIFY_FIRST ||
         lo == IR_UNIFY_VALUE;
 }
+static int zls_hf_excursion(const IR_graph_t * g, const IR_t * x) { return g->home_frame && (x->op == IR_CALL_PROC_STAGED || x->op == IR_TO) && zls_edge_retains(g, x); }
 void zls_home_pass(const IR_graph_t * g) {
     if (!g || g->n <= 0) return;
     int n = g->n;
@@ -1924,7 +1925,7 @@ void zls_home_pass(const IR_graph_t * g) {
         const IR_t * x = g->all[i];
         sg[i] = (x && x->γ.node) ? zls_reuse_index(&nx, x->γ.node) : -1;
         so[i] = (x && x->ω.node) ? zls_reuse_index(&nx, x->ω.node) : -1;
-        dy[i] = x ? (unsigned char)(zls_home_dyn(g, x) ? zls_home_dyn(g, x) : (g->home_frame && x->op == IR_CALL_PROC_STAGED && zls_edge_retains(g, x)) ? 5 : 0) : 0;
+        dy[i] = x ? (unsigned char)(zls_home_dyn(g, x) ? zls_home_dyn(g, x) : zls_hf_excursion(g, x) ? 5 : 0) : 0;
         rn[i] = (x && x->op == IR_CUT) ? 1 : 0;
         tw[i] = 0;
     }
