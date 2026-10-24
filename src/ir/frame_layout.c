@@ -1097,6 +1097,10 @@ static void zls_vflow_regions(zls_vflow_t * f, const IR_graph_t * g) {
             x = f->stk[--top];
         }
     }
+    for (int k = 0; k < nd; k++) {
+        const unsigned long long * m = f->rg + (size_t)k * n;
+        for (int j = 0; j < n; j++) if ((m[j] & ((1ULL << 62) - 1)) && f->exc[j]) { zls_frame_resident_mark(g->all[f->dj[k]]); break; }
+    }
     ct_drop(po);
     ct_drop(pa);
     ct_drop(fill);
