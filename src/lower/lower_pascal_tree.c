@@ -695,6 +695,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
             return mk_assign(v, f);
         }
     }
+    if (name && !strcmp(name, "length") && !pas_is_func(name) && !pas_is_proc(name) && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_VAR) {
+        long long d2[4];
+        if (pas_array_dims(args->items[0]->v.sval, d2)) return ilit(d2[1] - d2[0] + 1);
+    }
     if (name && !strcmp(name, "length") && args && args->count >= 1 && pas_is_dynexpr(args->items[0])) return mk_fnc1("__pas_dynlen", args->items[0]);
     if (name && !strcmp(name, "length") && !pas_is_func(name) && args && args->count >= 1 && args->items[0] && args->items[0]->t == TT_VAR && !pas_var_string_kind(args->items[0]->v.sval)) {
         long long hi = 0;
@@ -5701,6 +5705,11 @@ static pval E_call_with_args(const tree_t *n) {
         int onp = 0;
         v[1].str = pas_alias_resolve(src0);
         if (pas_ptrcast_target(n)) return E_expression(n->c[1]);
+        if (v[1].str && !strcmp(v[1].str, "length") && !pas_is_func(v[1].str) && !pas_is_proc(v[1].str) && n->n == 2 && IS(n->c[1], TT_IDX) && n->c[1]->n == 2 && IS(n->c[1]->c[0], TT_VAR)) {
+            tree_t *b = E_selector(n->c[1]->c[0]).node;
+            long long d2[4];
+            if (b && b->t == TT_VAR && pas_array_dims(b->v.sval, d2)) { out.node = ilit(d2[3] - d2[2] + 1); return out; }
+        }
         if (v[1].str && !strcmp(v[1].str, "format") && n->n == 3 && IS(n->c[2], TT_SET) && !pas_is_func(v[1].str) && !pas_is_proc(v[1].str) && (out.node = pas_format_call(n))) return out;
         if (pas_openparm_mask(v[1].str) != 0 || pas_pf_lookup(v[1].str)) {
             for (int i = 1; i < n->n; i++) {
