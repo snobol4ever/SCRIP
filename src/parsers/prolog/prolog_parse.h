@@ -24,6 +24,7 @@ typedef struct {
     const char *src;
     const char *filename;
     int       quiet;
+    const char *synerr;
 } PlProgram;
 void prolog_preprocess(PlProgram *prog);
 void prolog_fold_pieces(tree_t *t);

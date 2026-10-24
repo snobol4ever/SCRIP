@@ -315,7 +315,7 @@ S_GRAPHIC:
 LX_INT:
     t = tok(TK_INT, span_text(s, p, seps), line); errno = 0; t.ival = (long)strtoll(t.text, NULL, 10); t.big = (errno == ERANGE); SYNC(); return t;
 LX_FLOAT:
-    t = tok(TK_FLOAT, span_text(s, p, seps), line); t.fval = atof(t.text); SYNC(); return t;
+    t = tok(TK_FLOAT, span_text(s, p, seps), line); t.fval = atof(t.text); t.big = isinf(t.fval); SYNC(); return t;
 LX_UNEXPECTED:
     snprintf(msg, sizeof msg, "unexpected '%c'", (char)c); SYNC(); return err_tok(line, msg);
 }

@@ -32,6 +32,7 @@ typedef struct {
     TreeScope   ts;
     int         incl_depth;
     int         iso;
+    const char *synerr;
 } Parser;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int if_currently_active(const Parser *p) {
@@ -519,6 +520,8 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
             return pt_stamp(n, ln);
         }
         case TK_FLOAT: {
+            extern int rt_pl_flag_is(const char *, const char *);
+            if (tk.big && !rt_pl_flag_is("float_overflow", "infinity")) { if (p->clause_errs == 0) p->synerr = "float_overflow"; perror_at(p, ln, "float literal out of range"); return pt_stamp(NULL, ln); }
             tree_t *n = ast_node_new(TT_FLIT);
             n->v.dval = tk.fval;
             return pt_stamp(n, ln);
@@ -3954,11 +3957,13 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.quiet    = quiet;
     p.prec     = 0;
     p.incl_depth = 0;
+    p.synerr   = (const char *)0;
     { extern int rt_pl_iso_mode(void); p.iso = rt_pl_iso_mode(); p.lx.iso = p.iso; }
     memset(&p.ts, 0, sizeof p.ts);
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));
     pl_parse_loop(&p, prog);
     prog->nerrors = p.nerrors;
+    prog->synerr = p.synerr;
     prog->src = src;
     prog->filename = filename;
     prog->quiet = quiet;

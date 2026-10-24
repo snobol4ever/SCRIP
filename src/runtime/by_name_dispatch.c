@@ -5902,6 +5902,7 @@ static int pl_round_mode(const char *v);
 static int pl_swi_dialect(void) { return pl_float_flag("$dialect", "swi"); }
 static int pl_gnu_dialect(void) { return pl_float_flag("$dialect", "gnu"); }
 int rt_pl_flag_true(const char *nm) { return pl_float_flag(nm, "true"); }
+int rt_pl_flag_is(const char *nm, const char *val) { return pl_float_flag(nm, val); }
 int rt_pl_fp_max_code(FILE *fp) {
     for (int i = 0; fp && i < FH_N; i++) {
         const char *e = g_fh[i].fp == fp ? g_fh[i].enc : (const char *)0;
@@ -8685,7 +8686,8 @@ PL_CX_LEAF_HEAD(skip, 1)
         if (v.v == (DTYPE_t)DT_I) { do { c = fgetc(f); } while (c != EOF && c != (int)v.i); ok = 1; }
     }
 PL_CX_LEAF_TAIL
-typedef struct { const char **nm; DESCR_t *v; int *cnt; int *hs; int n; int cap; unsigned hmask; } pl_vtab_t;
+typedef struct { const char **nm; DESCR_t *v; int *cnt; int *hs; int n; int cap; unsigned hmask; const char *err; } pl_vtab_t;
+#define PL_SYNERR(vt) ((vt).err ? (vt).err : "cannot_start_term")
 static int pl_vt_occ(const tree_t *t) { int c = 0; if (!t) return 0; if (t->t == TT_VAR) c++; for (int i = 0; i < t->n; i++) c += pl_vt_occ(t->c[i]); return c; }
 static unsigned pl_vt_hash(const char *s) { unsigned h = 2166136261u; for (; *s; s++) h = (h ^ (unsigned char)*s) * 16777619u; return h; }
 static void pl_vt_init(pl_vtab_t *vt, int occ) {
@@ -8931,6 +8933,7 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
     size_t L = strlen(txt);
     char *text;
     size_t e;
+    vt->err = (const char *)0;
     if (pl_text_is_blank(txt)) { vt->n = 0; if (pg_out) *pg_out = (PlProgram *)0; *out = pl_mk_atom("end_of_file"); return 1; }
     text = (char *)rt_wsb_alloc(L + 20);
     if (pl_text_is_unbalanced(txt)) return 0;
@@ -8952,7 +8955,7 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
         tr = (pg && pg->head) ? pg->head->tr : (const tree_t *)0;
         if (tr && tr->t == TT_CLAUSE && tr->n >= 1) tr = tr->c[0];
         if (pg_out) *pg_out = pg;
-        if (!pg || pg->nerrors || !tr || tr->t != TT_FNC || tr->n != 1) return 0;
+        if (!pg || pg->nerrors || !tr || tr->t != TT_FNC || tr->n != 1) { if (pg) vt->err = pg->synerr; return 0; }
         pl_vt_init(vt, pl_vt_occ(tr->c[0]));
         *out = pl_tree_cell(tr->c[0], vt);
         return 1;
@@ -8979,7 +8982,7 @@ PL_CX_LEAF_HEAD(read, 1)
             ok = 0;
         } else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) {
             const char *g = pl_gp_read_err(off0);
-            cx->ball = rt_pl_ball_kind1("syntax_error", g ? g : "cannot_start_term");
+            cx->ball = rt_pl_ball_kind1("syntax_error", g ? g : PL_SYNERR(vt));
             ok = 0;
         } else ok = plw_unify_vals(args[0], t, cx);
     }
@@ -8997,7 +9000,7 @@ PL_CX_LEAF_HEAD(atom_to_term, 3)
         } else if (!pl_cell_text(args[0], b, sizeof b, &txt)) ok = 0;
         else if (!pl_parse_term_text(txt, &t, &vt, (PlProgram **)0)) {
             extern void *rt_pl_ball_kind1(const char *, const char *);
-            cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term");
+            cx->ball = rt_pl_ball_kind1("syntax_error", PL_SYNERR(vt));
             ok = 0;
         } else {
             DESCR_t el[vt.n > 0 ? vt.n : 1];
@@ -9081,9 +9084,9 @@ static int pl_read_term_from_text(DESCR_t *args, pl_tr_ctx_t *cx) {
     int parsed = pl_parse_term_text(b, &t, &vt, (PlProgram **)0);
     if (dq) pl_dq_swap(sv);
     if (!parsed) {
-        if (sm == 2) printf("warning: syntax error: cannot_start_term\n");
-        if (sm == 3) fprintf(stderr, "warning: syntax error: cannot_start_term\n");
-        if (!sm) cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term");
+        if (sm == 2) printf("warning: syntax error: %s\n", PL_SYNERR(vt));
+        if (sm == 3) fprintf(stderr, "warning: syntax error: %s\n", PL_SYNERR(vt));
+        if (!sm) cx->ball = rt_pl_ball_kind1("syntax_error", PL_SYNERR(vt));
         return 0;
     }
     return plw_unify_vals(args[1], t, cx) && pl_read_term_options_cell(args[2], &vt, cx);
@@ -9162,7 +9165,7 @@ PL_CX_LEAF_HEAD(read_term_opts, 2)
             if (got == 0) { vt.n = 0; ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx) && pl_read_term_options_cell(args[1], &vt, cx); break; }
             if (got < 0) { cx->ball = rt_pl_ball_kind1("syntax_error", "term_too_long"); ok = 0; break; }
             if (got != 1) se = "end_of_file";
-            else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) se = "cannot_start_term";
+            else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) se = PL_SYNERR(vt);
             if (!se) { ok = plw_unify_vals(args[0], t, cx) && pl_read_term_options_cell(args[1], &vt, cx); break; }
             { const char *g = pl_gp_read_err(off0); if (g) se = g; }
             if (sm == 2) printf("warning: syntax error: %s\n", se);
@@ -11685,11 +11688,7 @@ static int pl_term_text_leaf(DESCR_t *args, int as_str, pl_tr_ctx_t *cx) {
     DESCR_t t;
     pl_vtab_t vt;
     if (pl_cell_text(args[1], b, sizeof b, &txt)) {
-        if (!pl_parse_term_text(txt, &t, &vt, (PlProgram **)0)) {
-            extern void *rt_pl_ball_kind1(const char *, const char *);
-            cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term");
-            return 0;
-        }
+        if (!pl_parse_term_text(txt, &t, &vt, (PlProgram **)0)) { extern void *rt_pl_ball_kind1(const char *, const char *); cx->ball = rt_pl_ball_kind1("syntax_error", PL_SYNERR(vt)); return 0; }
         return plw_unify_vals(args[0], t, cx);
     }
     return rt_pl_term_string_cell(&args[0], &args[1], as_str, cx);
