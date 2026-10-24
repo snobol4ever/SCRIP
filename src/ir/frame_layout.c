@@ -2093,6 +2093,16 @@ int zls_dj_retains(const IR_t * nd) {
     for (int a = 0; a < na; a++) if (zls_dj_arm_resumes(nd, a)) return !zls_dj_rbp_arms(nd);
     return 0;
 }
+int zls_dj_cut_arm(const IR_t * nd) {
+    if (!nd || nd->op != IR_DISJUNCTION) return 0;
+    int na = (int)IR_LIT(nd).ival;
+    if (na <= 0 || nd->n_operands < 3 * na) return 0;
+    for (int a = 0; a < na; a++) {
+        const IR_t * rs = zls_chase(nd->operands[2 * a + 1]), * x = zls_chase(nd->operands[2 * a]);
+        for (int k = 0; x && x != rs && k < 4096; k++, x = zls_chase(x->γ.node)) if (x->op == IR_CUT) return 1;
+    }
+    return 0;
+}
 int zls_frame_word_why(const IR_t * nd) { return zls_dj_retains(nd) ? 1 : (nd && nd->op == IR_TO && ir_range_kind_is(nd, "db")) ? 2 : 0; }
 static int zls_home_local_kind(int lo) {
     return lo == IR_VAR || lo == IR_VAR_REF || lo == IR_ASSIGN || lo == IR_ASSIGN_VAR || lo == IR_REV_ASSIGN_VAR || lo == IR_NULLTEST_VAR || lo == IR_FIELD_VAR || lo == IR_UNIFY_FIRST ||
@@ -2213,7 +2223,7 @@ static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
         (zls_home_why(nd) && !ir_node_produces_value(nd->op)) ||
         (zls_g_resumable_frame(g) &&
         (zls_home_dyn(g, nd) || zls_edge_retains(g, nd) ||
-        (zls_g_home_frame(g) && ((nd->op == IR_BOUND && !planner_bound_spine(g, nd)) || nd->op == IR_GATE || nd->op == IR_TO || nd->op == IR_DISJUNCTION))))) ? 1 : 0;
+        (zls_g_home_frame(g) && ((nd->op == IR_BOUND && !planner_bound_spine(g, nd)) || nd->op == IR_GATE || nd->op == IR_TO || (nd->op == IR_DISJUNCTION && zls_dj_cut_arm(nd))))))) ? 1 : 0;
 }
 int zls_g_hf_resident(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && zls_hf_resident(g, nd) ? 1 : 0; }
 int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }

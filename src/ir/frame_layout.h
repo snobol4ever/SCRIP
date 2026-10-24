@@ -33,6 +33,7 @@ int zls_frame_off(const IR_graph_t * g, const IR_t * nd);
 int zls_dj_arm_resumes(const IR_t * nd, int a);
 int zls_dj_rbp_arms(const IR_t * nd);
 int zls_dj_retains(const IR_t * nd);
+int zls_dj_cut_arm(const IR_t * nd);
 int zls_frame_word_why(const IR_t * nd);
 int zls_g_home_frame(const IR_graph_t * g);
 int zls_g_hf_resident(const IR_graph_t * g, const IR_t * nd);

@@ -275,6 +275,7 @@ static int zd_bcs_when(IR_t * nd, int w) {
     return (w == BCS_PATV && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5)) ? 1 : 0;
 }
 extern "C" int zls_off(const IR_t * nd);
+extern "C" int zls_g_hf_resident(const IR_graph_t * g, const IR_t * nd);
 extern "C" int zd_cross_cell(int off) {
     int n = g_emitter.g_zd_n, i = g_emitter.g_zd_cur;
     IR_t ** nodes = g_emitter.g_zd_nodes_p;
@@ -1175,6 +1176,8 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                     if (first || (c2 && c2 != env)) bad = 1;
                 }
                 if (g_emitter.zd_plan__dg && bad) fprintf(stderr, "[ZD-DJ] i=%d not admitted (na=%d claimed=%d)\n", ei, na, rl - rl0);
+                if (bad && getenv("SCRIP_ZD_CHECK") && zd_pl_home() && !zls_g_hf_resident(g_emit_cfg, nodes[ei]))
+                    { fprintf(stderr, "[ZD-CHECK] FATAL DISJUNCTION i=%d is not admitted to the spine, does not retain and holds no frame record (zls_hf_resident)\n", ei); abort(); }
                 if (bad) { for (int u = rl0; u < rl; u++) { int ci = run[u]; claim[ci] = -1; rpos[ci] = -1; zarm[ci] = -1; zarmj[ci] = -1; aent[ci] = 0; } rl = rl0; continue; }
                 djok[ei] = 1;
                 djn[ei] = rl - rl0;
