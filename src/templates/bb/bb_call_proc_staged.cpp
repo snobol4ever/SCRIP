@@ -647,7 +647,8 @@ std::string xa_flat_pkt_tail_pop(const char * fb, int kt, int lsk);
 static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop) {
     int ns = g_emit_cfg ? g_emit_cfg->nparams : 0;
     const char * fb = x86_hb_on() ? x86_hb() : "r11";
-    auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; return bb_varslot_peek(a->sval); };
+    auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; int s = bb_varslot_peek(a->sval);
+        return (s >= 0 && zls_key_unbacked(g_emit_cfg, s)) ? -1 : s; };
     auto arms = [&](int lb, int lg) -> std::string {
         return x86("def", L(lb + 3))
              + x86("mov", "r8", RDQ("rdi", 8))
