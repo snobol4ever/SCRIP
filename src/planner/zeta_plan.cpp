@@ -562,6 +562,7 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
             if (!zon[i] || claim[i] < 0 || !zd_edge_retains(nodes[i])) continue;
             IR_t * t = zd_chase(nodes[i]->γ.node);
             int q = t ? nidx(nodes, n, t) : -1;
+            if (q == i) continue;
             if (q < 0 || !zon[q] || claim[q] < 0 || indef[claim[q]]) continue;
             int ub = (pl && claim[q] == q && nodes[q]->op == IR_UNMARK && (IR_LIT(nodes[q]).ival & 6) && nodes[q]->n_operands > 0) ? nidx(nodes, n, nodes[q]->operands[0]) : -1;
             if (ub >= 0 && zon[ub] && claim[ub] >= 0 && known[claim[ub]]) continue;
