@@ -582,6 +582,14 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
         if (q >= 0 && q != i) dead[q] = 0; }
     int stmtg = 0;
     for (int i = 0; i < n; i++) if (nodes[i]->op == IR_STATEMENT_BEGIN || nodes[i]->op == IR_SETEXIT_TEST || nodes[i]->op == IR_STMT_MARK) stmtg = 1;
+    int * bst = (int *)alloca(sizeof(int) * (size_t)(n + 2));
+    int * bfl = (int *)alloca(sizeof(int) * (size_t)(n + 2));
+    int * bit = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
+    for (int i = 0; i < n + 2; i++) bst[i] = 0;
+    for (int i = 0; i < n; i++) if (zon[i] && claim[i] >= 0 && claim[i] < n) bst[claim[i] + 1]++;
+    for (int i = 0; i <= n; i++) bst[i + 1] += bst[i];
+    for (int i = 0; i <= n; i++) bfl[i] = bst[i];
+    for (int i = 0; i < n; i++) if (zon[i] && claim[i] >= 0 && claim[i] < n) bit[bfl[claim[i]]++] = i;
     auto absolute_pass = [&](const unsigned char * xi) {
     no = 0; sp = 0;
     for (int i = 0; i < n; i++) { base[i] = 0; known[i] = 0; rpo[i] = -1; st[i] = 0; if (aof) aof[i] = -1; }
@@ -594,10 +602,10 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
         if (aof) aof[r] = a;
         stk[sp++] = r; stk[sp++] = 0; st[r] = 1;
     while (sp > 0) {
-        int h = stk[sp - 2], pos = stk[sp - 1], pushed = 0;
-        for (; pos < n * ew && !pushed; pos++) {
-            int i = pos / ew, e = pos % ew, l;
-            if (i >= n || claim[i] != h || !zon[i] || e >= zd_pl_edges(nodes[i])) continue;
+        int h = stk[sp - 2], pos = stk[sp - 1], pushed = 0, hb = (h >= 0 && h < n) ? bst[h] : 0, hc = (h >= 0 && h < n) ? bst[h + 1] - bst[h] : 0;
+        for (; pos < hc * ew && !pushed; pos++) {
+            int i = bit[hb + pos / ew], e = pos % ew, l;
+            if (e >= zd_pl_edges(nodes[i])) continue;
             int q = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l, dead);
             if (q < 0 || st[q] || (xi && xi[q])) continue;
             stk[sp - 1] = pos + 1; st[q] = 1; if (aof) aof[q] = aof[h]; stk[sp++] = q; stk[sp++] = 0; pushed = 1;
