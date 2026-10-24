@@ -4177,6 +4177,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     std::unordered_map<const bb_label_t *, int> beta_of; beta_of.reserve((size_t)n * 2 + 1); for (int _q = 0; _q < n; _q++) if (betas[_q]) beta_of.emplace(betas[_q], _q);
     int _hk_c = -1, _hk_upto = 0;
+    if (g_emit_cfg && n_alt > 1 && g_emit_cfg->alt_entry && !g_emit_cfg->root_graph) {
+        IR_t * _e0 = g_emit_cfg->alt_entry[0];
+        { int _sg = 0; while (_e0 && _e0->op == IR_SUCCEED && _e0->γ.node && _sg++ < 4096) _e0 = _e0->γ.node; }
+        if (_e0 && _e0->op == IR_SUCCEED && nidx(g_emitter.codegen_flat_chain_body_nodes, n, _e0) < 0) {
+            emit_jmp_label(g_emit_cfg->alt_redo[0] ? g_emitter.codegen_flat_chain_body_ret_tr[0] : &lbl_γ, JMP_JMP);
+        }
+    }
     for (int i = 0; i < n; i++) {
         { int _fk = emit_floater_kind(g_emitter.codegen_flat_chain_body_nodes[i]); if (_fk && _flt_hoisted[_fk]) { g_flat_node_id += _flt_uid_burn[_fk]; continue; } }
         { if (g_emitter.codegen_flat_chain_body__sz < 0) { const char *_e = getenv("SCRIP_ASM_SYMSIZE"); g_emitter.codegen_flat_chain_body__sz = (_e && _e[0] == '0') ? 0 : 1; }
