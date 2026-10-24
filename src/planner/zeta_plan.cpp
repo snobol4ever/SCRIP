@@ -225,7 +225,13 @@ int zd_k(IR_t * nd) { return zd_k_own(nd) + zst_s_of(nd) + zd_djx_of(nd); }
 static int zd_dj_spine(const IR_t * nd) { if (!g_emitter.g_zd_zarm_p || g_emitter.g_zd_zarm_nodes != g_emitter.codegen_flat_chain_body_nodes) return 0;
     int i = nidx(g_emitter.g_zd_zarm_nodes, g_emitter.g_zd_zarm_n, nd); return (i >= 0 && zd_dj_admitted(g_emitter.g_zd_zarm_p, g_emitter.g_zd_zarm_n, i) && !zls_dj_retains(nd)) ? 32 : 0; }
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
-enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV };
+enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV, BCS_HOME_FRAME, BCS_HOME_STATE, BCS_PL_HOME, BCS_PL_HOME_DYN, BCS_PL_HOME_RANGE_HDR,
+    BCS_PL_HOME_HAS_OPERANDS };
+extern "C" int zls_g_home_frame(const IR_graph_t * g);
+extern "C" int zls_home_why(const IR_t * nd);
+extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
+static int zd_pl_home(void) { return (zls_g_home_frame(g_emit_cfg) && zls_g_resumable_frame(g_emit_cfg)) ? 1 : 0; }
+static int zd_pl_home_dyn(IR_t * nd) { return zd_pl_home() && (zls_home_why(nd) || zd_edge_retains(nd) || planner_home_dyn(g_emit_cfg, nd)) ? 1 : 0; }
 #include "box_cell_shapes.inc"
 static int zd_bcs_when(IR_t * nd, int w) {
     if (w == BCS_ALWAYS) return 1;
@@ -234,6 +240,12 @@ static int zd_bcs_when(IR_t * nd, int w) {
     if (w == BCS_ICN_SUSPEND) return zd_icn_suspend(nd);
     if (w == BCS_HAS_OPERANDS) return nd->n_operands > 0;
     if (w == BCS_NO_OPERANDS) return nd->n_operands == 0;
+    if (w == BCS_HOME_FRAME) return zls_g_home_frame(g_emit_cfg) ? 1 : 0;
+    if (w == BCS_HOME_STATE) return (zls_g_home_frame(g_emit_cfg) && zls_home_why(nd)) ? 1 : 0;
+    if (w == BCS_PL_HOME) return zd_pl_home();
+    if (w == BCS_PL_HOME_DYN) return zd_pl_home_dyn(nd);
+    if (w == BCS_PL_HOME_RANGE_HDR) return (zd_pl_home() && nd->op == IR_TO && (ir_range_kind_is(nd, "db") || ir_range_trailed(nd))) ? 1 : 0;
+    if (w == BCS_PL_HOME_HAS_OPERANDS) return (zd_pl_home() && nd->n_operands > 0) ? 1 : 0;
     return (w == BCS_PATV && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5)) ? 1 : 0;
 }
 extern "C" int zls_off(const IR_t * nd);
@@ -255,11 +267,16 @@ extern "C" int zd_cross_cell(int off) {
     }
     return -1;
 }
+static int zd_bcs_words(const IR_t * nd, int w) {
+    if (w == -1) return zd_dj_spine(nd);
+    if (w == -2) return zd_dj_spine(nd) ? zd_dj_spine(nd) + 32 : 0;
+    return w;
+}
 int zd_k_own(IR_t * nd) {
     int op = (int)nd->op;
     for (size_t r = 0; r < sizeof box_cell_shapes / sizeof box_cell_shapes[0]; r++) {
         if ((box_cell_shapes[r].op >= 0 && box_cell_shapes[r].op != op) || !zd_bcs_when(nd, box_cell_shapes[r].when)) continue;
-        return box_cell_shapes[r].words < 0 ? zd_dj_spine(nd) : box_cell_shapes[r].words;
+        return zd_bcs_words(nd, box_cell_shapes[r].words);
     }
     return 16;
 }
@@ -395,6 +412,7 @@ int zd_edge_retains(const IR_t * nd) {
     int r = planner_retains(nd);
     return (r == PR_UNKNOWN_CALLEE || r == PR_GATE_HOLDS || r == PR_DISJUNCTION_HOLDS || r == PR_DB_GENERATOR || r == PR_RETAINING_TARGET) ? 1 : 0;
 }
+extern "C" int planner_edge_retains(const IR_graph_t * g, const IR_t * nd) { IR_graph_t * sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g; int r = zd_edge_retains(nd); g_emit_cfg = sv; return r; }
 int planner_retains_emitter_view(int op) { return op == IR_PROC_GEN || op == IR_CALL_VALUE || op == IR_CALL_GEN || op == IR_ACTIVATE; }
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd) {
     IR_graph_t * sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g;

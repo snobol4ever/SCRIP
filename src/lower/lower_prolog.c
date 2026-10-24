@@ -3434,6 +3434,7 @@ static void pl_graph_stamp(IR_graph_t * g, int arity, int maxlocal, const unsign
     g->nslots = arity + nl + 8;
     g->resumable_callable = 1;
     g->deterministic = 1;
+    g->home_frame = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_alt_alloc(IR_graph_t * g, int nc) {

@@ -1092,7 +1092,8 @@ inline const char * x86_zop(int off, int q, int bump) {
     if (r != 2 && zls_key_unbacked(g_emit_cfg, off))
         { fprintf(stderr,
             "FATAL x86_zop: offset %d is a key with no frame bytes behind it, addressed through the frame -- a keys-only graph, or a key past a home-frame graph's resident region (zls_key_unbacked, "
-            "ceo CEO-1864/1884)\n", off);
+            "ceo CEO-1864/1884) op=%d regime=%d zres=%d own=%d k_own=%d\n",
+            off, _.node ? (int) _.node->op : -1, r, _.op_zres, _.node ? zls_off(_.node) : -1, _.node ? zd_k_own(_.node) : -1);
             abort(); }
     if (r != 2 && icn_frame_rbp()) { zsm_frame_addr(off, -1, 0); return q ? RDQ("rbp", off - gen_frame_top()) : RDD("rbp", off - gen_frame_top()); }
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);

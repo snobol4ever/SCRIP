@@ -822,7 +822,7 @@ int fc_vbinop_active(const IR_t * nd);
 int fc_vlit_active(const IR_t * nd);
 int fc_vread_fp(const IR_t * nd);
 int fc_vdj_active(const IR_t * nd);
-static int zls_hf_resident(const IR_t * nd);
+static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd);
 static int fc_vunop_ok(const IR_t * nd) { return nd->op == IR_UNOP && nd->n_operands == 1 && ((int)IR_LIT(nd).ival == TT_MNS || (int)IR_LIT(nd).ival == TT_PLS); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fc_call_ok(const IR_t * nd) { (void)nd; return 0; }
@@ -1391,7 +1391,7 @@ void zls_build(IR_graph_t * g) {
                 if (!nd || !rb[i]) continue;
                 if (nl > 0 && i >= mstart[0]) continue;
                 if (g_lower.ir.zls_build_eon && lv[i] && rec[i].cls == ZR_CANDIDATE && nd->op != IR_LINE_MARK && !zls_fc_cell(nd) && !fc_vlit_active(nd) && fc_vread_fp(nd) < 0 &&
-                    !fc_vbinop_active(nd) && !fc_vdj_active(nd) && !(hf && zls_hf_resident(nd))) order[on++] = i;
+                    !fc_vbinop_active(nd) && !fc_vdj_active(nd) && !(hf && zls_hf_resident(g, nd))) order[on++] = i;
             }
             {
                 zls_pi_t * ow = (zls_pi_t *)ct_alloc(sizeof(zls_pi_t) * (size_t)(on > 0 ? on : 1));
@@ -1416,17 +1416,17 @@ void zls_build(IR_graph_t * g) {
             zls_ds_drop(&ds);
             ct_drop(order);
             if (hf) {
-                for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && zls_hf_resident(g->all[i]) && ov && i >= al[0] && i < al[g->n_alts]) ov_in = 1;
+                for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && zls_hf_resident(g, g->all[i]) && ov && i >= al[0] && i < al[g->n_alts]) ov_in = 1;
                 if (dl_w > 0) { dl_base = zls_dl_place(root, base, k, dl_w); k += dl_w; }
                 for (int i = 0, c2 = 0; i < g->n; i++) {
                     IR_t * nd = g->all[i];
                     if (!nd) continue;
                     while (c2 < nl && i >= mstart[c2]) c2++;
-                    if (!rb[i] || !zls_hf_resident(nd) || (ov && i >= al[0] && i < al[g->n_alts])) continue;
+                    if (!rb[i] || !zls_hf_resident(g, nd) || (ov && i >= al[0] && i < al[g->n_alts])) continue;
                     k += zls_grant_at(g, nd, i, c2 > 0 ? mfirst[c2 - 1] : root, root, rec, dl_base, lv, uo, &rs_scratch, base + k * 16);
                 }
                 if (ov_in) k = zls_overlay(g, base, k, root, rb, rec, dl_base, lv, uo, &rs_scratch);
-                for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && !zls_hf_resident(g->all[i]) && zls_redisp_node(g->all[i])) {
+                for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && !zls_hf_resident(g, g->all[i]) && zls_redisp_node(g->all[i])) {
                     IR_t * nd = g->all[i];
                     for (int j = 0; j < nd->n_operands; j++) zls_field(root, base + (k + j) * 16, 16, ZK_DESCR, 0, "redisp.argv (the dispatcher copies the arguments here, in front of the record)", nd)
                         ;
@@ -1491,7 +1491,7 @@ void zls_build(IR_graph_t * g) {
             IR_t * nd = g->all[i];
             if (!nd) continue;
             while (cur < nl && i >= mstart[cur]) cur++;
-            if (!rb[i] || (hf && zls_hf_resident(nd))) continue;
+            if (!rb[i] || (hf && zls_hf_resident(g, nd))) continue;
             if (ov && i >= al[0] && i < al[g->n_alts]) continue;
             int sc = (cur > 0) ? mfirst[cur - 1] : root;
             k += zls_grant_at(g, nd, i, sc, root, rec, dl_base, lv, uo, &scratch_off, base + k * 16);
@@ -1982,7 +1982,12 @@ int zls_frame_resident(const IR_t * nd) {
         (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) || fc_vlit_active(nd) || fc_vread_fp(nd) >= 0 || fc_vbinop_active(nd) || fc_vdj_active(nd) || fc_call_active(nd)) ? 1 :
         0;
 }
-static int zls_hf_resident(const IR_t * nd) { return nd && (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES)) ? 1 : 0; }
+static int zls_edge_retains(const IR_graph_t * g, const IR_t * nd) { extern int planner_edge_retains(const IR_graph_t *, const IR_t *); return planner_edge_retains(g, nd); }
+static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
+    return nd &&
+        (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) ||
+        (zls_g_resumable_frame(g) && ((zls_home_why(nd) && !ir_node_produces_value(nd->op)) || zls_home_dyn(g, nd) || zls_edge_retains(g, nd)))) ? 1 : 0;
+}
 int zls_home_local_why(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_LHOME); return t ? t->lw : 0; }
 int zls_redisp_off(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FCN_RO); return t ? t->ro : -1; }
 void zls_redisp_mark(const IR_t * nd, int off) { fcn_t * t = fcn_get(nd); t->ro = off; t->fl |= FCN_RO; }
@@ -2150,7 +2155,7 @@ int zls_g_ptr_frame_offs(const IR_graph_t * g, int kind, int * out, int cap) {
     zls_graph_t * r = g ? zls_g_find(g) : (zls_graph_t *)0;
     int n = 0;
     if (!r || r->first_scope < 0) return 0;
-    for (int f = 0; f < g_lower.ir.zf_n; f++) if (zls_slot_matches(f, kind) && zf[f].scope_id >= r->first_scope && zf[f].scope_id < r->first_scope + r->n_scopes) {
+    for (int f = 0; f < g_lower.ir.zf_n; f++) if (zls_slot_matches(f, kind) && zf[f].scope_id >= r->first_scope && zf[f].scope_id < r->first_scope + r->n_scopes && !zls_key_unbacked(g, zf[f].off)) {
         if (out && n < cap) out[n] = zf[f].off;
         n++;
     }
@@ -2170,7 +2175,7 @@ int zls_g_release_act_offs(const IR_graph_t * g, const IR_t * scope_nd, int kind
             const IR_t * x = g->all[k];
             const zls_entry_t * e;
             if (!x || (x->op != IR_CALL_PROC_STAGED && x->op != IR_CALL_VALUE && x->op != IR_PROC_GEN) || !(e = zx_find(x))) continue;
-            for (int f = zfc_first(x, e->scope_id); f >= 0; f = zfc_next(f)) if (zls_slot_matches(f, kind)) { tmp[n++] = zf[f].off; break; }
+            for (int f = zfc_first(x, e->scope_id); f >= 0; f = zfc_next(f)) if (zls_slot_matches(f, kind) && !zls_key_unbacked(g, zf[f].off)) { tmp[n++] = zf[f].off; break; }
         }
         if (n > 1) { int w = 1; qsort(tmp, (size_t)n, sizeof tmp[0], zls_int_cmp); for (int i = 1; i < n; i++) if (tmp[i] != tmp[w - 1]) tmp[w++] = tmp[i]; n = w; }
         for (int i = 0; out && i < n && i < cap; i++) out[i] = tmp[i];
