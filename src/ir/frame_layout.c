@@ -1924,7 +1924,7 @@ void zls_home_pass(const IR_graph_t * g) {
         const IR_t * x = g->all[i];
         sg[i] = (x && x->γ.node) ? zls_reuse_index(&nx, x->γ.node) : -1;
         so[i] = (x && x->ω.node) ? zls_reuse_index(&nx, x->ω.node) : -1;
-        dy[i] = x ? (unsigned char)zls_home_dyn(g, x) : 0;
+        dy[i] = x ? (unsigned char)(zls_home_dyn(g, x) ? zls_home_dyn(g, x) : (g->home_frame && x->op == IR_CALL_PROC_STAGED && zls_edge_retains(g, x)) ? 5 : 0) : 0;
         rn[i] = (x && x->op == IR_CUT) ? 1 : 0;
         tw[i] = 0;
     }
