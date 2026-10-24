@@ -143,6 +143,11 @@ int zd_yield_end(IR_t ** nodes, int n, int sp, const unsigned char * zon, const 
     }
     return -1;
 }
+static IR_t * zd_suspend_run_next(IR_t ** nodes, int n, IR_t * sp, const int * claim) {
+    IR_t * r = zd_chase(sp->n_operands > 1 ? sp->operands[1] : (IR_t *)0), * t = zd_chase(sp->γ.node), * u = t;
+    for (int g = 0; r && u && u != r && g <= n; g++) { int k = nidx(nodes, n, u); if (k < 0 || claim[k] >= 0) return r; u = zd_chase(u->γ.node); }
+    return (r && u == r) ? t : r;
+}
 void zd_vdj_live(IR_t ** nodes, int n, int * live) {
     int q[n > 0 ? n : 1];
     unsigned char seen[n > 0 ? n : 1];
@@ -1065,7 +1070,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
             run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; rl++;
             if (zd_pl_cut(nodes[ci])) break;
             if (zd_edge_retains(nodes[ci])) break;
-            cur = zd_icn_suspend(cur) ? zd_chase(cur->n_operands > 1 ? cur->operands[1] : (IR_t *)0) : zd_chase(cur->γ.node);
+            cur = zd_icn_suspend(cur) ? zd_suspend_run_next(nodes, n, cur, claim) : zd_chase(cur->γ.node);
         }
         { for (int k = 0; k < n; k++) aent[k] = 0;
           if (zarm) {
