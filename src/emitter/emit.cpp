@@ -3648,7 +3648,8 @@ static void emit_dump_plan(const zeta_plan_t * pl, const char * prefix) {
     IR_t ** nodes = g_emitter.codegen_flat_chain_body_nodes;
     int n = pl->n;
     if (!g_emitter.dump_plan_cols) { printf("PLAN_COLUMNS E X K definite zeta off depth retains_code owner fenced gpop wpop restore act\n"); g_emitter.dump_plan_cols = 1; }
-    printf("PLAN graph=%s serial=%d chain=%s n=%d constructs=%d\n", gn ? gn : "?", g ? g->serial : -1, prefix ? prefix : "-", n, (g && pl->own_root) ? g->n_constructs : 0);
+    printf("PLAN graph=%s serial=%d chain=%s n=%d constructs=%d resumable=%d\n", gn ? gn : "?", g ? g->serial : -1, prefix ? prefix : "-", n, (g && pl->own_root) ? g->n_constructs : 0,
+        g ? zls_g_resumable_frame(g) : 0);
     for (int c = 0; g && pl->own_root && c < g->n_constructs; c++) {
         const IR_construct_t * k = &g->constructs[c];
         int bi = -1, ei = -1;

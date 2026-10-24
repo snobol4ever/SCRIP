@@ -239,7 +239,7 @@ static int zd_dj_spine(const IR_t * nd) { if (!g_emitter.g_zd_zarm_p || g_emitte
     int i = nidx(g_emitter.g_zd_zarm_nodes, g_emitter.g_zd_zarm_n, nd); return (i >= 0 && zd_dj_admitted(g_emitter.g_zd_zarm_p, g_emitter.g_zd_zarm_n, i) && !zls_dj_retains(nd)) ? 32 : 0; }
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
 enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV, BCS_HOME_FRAME, BCS_HOME_STATE, BCS_PL_HOME, BCS_PL_HOME_DYN, BCS_PL_HOME_RANGE_HDR,
-    BCS_PL_HOME_HAS_OPERANDS };
+    BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME };
 extern "C" int zls_g_home_frame(const IR_graph_t * g);
 extern "C" int zls_home_why(const IR_t * nd);
 extern "C" int planner_home_dyn(const IR_graph_t * g, const IR_t * nd);
@@ -249,6 +249,7 @@ static int zd_pl_home_dyn(IR_t * nd) { return zd_pl_home() && (zls_home_why(nd) 
 static int zd_bcs_when(IR_t * nd, int w) {
     if (w == BCS_ALWAYS) return 1;
     if (w == BCS_HOME_FRAME) return (zls_g_home_frame(g_emit_cfg) && !g_emit_cfg->resumable_callable) ? 1 : 0;
+    if (w == BCS_ICN_HOME) return (zls_g_home_frame(g_emit_cfg) && !g_emit_cfg->resumable_callable) ? 1 : 0;
     if (w == BCS_HOME_STATE) return (zls_g_home_frame(g_emit_cfg) && zls_home_why(nd)) ? 1 : 0;
     if (w == BCS_CALL_CURMOV) return zd_call_curmov(nd);
     if (w == BCS_ICN_LOCAL) return zd_icn_local_var(nd);
