@@ -18298,7 +18298,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
     }
     if (strict && !rt_proc_name_exists(fn) && !icn_builtin_is_known(fn) && icn_builtin_arity(fn) == ICN_ARITY_UNKNOWN) {
         DESCR_t cal = NV_GET_fn(fn);
-        if (!IS_PROCVAL_fn(cal)) { core_icn_op_ctx(fn, 1, cal, cal); core_icn_error(106, cal); core_icn_op_ctx_clear(); return FAILDESCR; }
+        if (!IS_PROCVAL_fn(cal)) { icn_bi_rec_t cr; core_icn_bi_push(&cr, (const char *)0, args, nargs); cr.callee = cal; core_icn_error(106, cal); core_icn_bi_pop(&cr); return FAILDESCR; }
     }
     out = RT_GC_CALLBACK(APPLY_fn_rq(fn, args, nargs, rq));
     return out;
