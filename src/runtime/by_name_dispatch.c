@@ -9057,6 +9057,18 @@ static int pl_read_term_options_cell(DESCR_t opts, pl_vtab_t *vt, pl_tr_ctx_t *c
 }
 static void *pl_read_opts_ball(DESCR_t opts);
 static int pl_read_syntax_mode(DESCR_t opts);
+static const char *pl_dq_swap(const char *v);
+static const char *pl_read_dq_option(DESCR_t opts) {
+    static const char *const dq[] = { "atom", "chars", "codes", "string", 0 };
+    for (DESCR_t cur = rt_pl_deref_val(opts); pl_is_cons(cur); cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) {
+        DESCR_t e = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
+        const char *fn = (e.v == (DTYPE_t)DT_PLREF && plc_fid_arity(e.slen) == 1) ? prolog_atom_name(plc_fid_name(e.slen)) : (const char *)0;
+        if (!fn || strcmp(fn, "double_quotes")) continue;
+        const char *as = pl_atom_str(rt_pl_deref_val(((DESCR_t *)e.p)[0]));
+        for (int i = 0; as && dq[i]; i++) if (!strcmp(as, dq[i])) return dq[i];
+    }
+    return (const char *)0;
+}
 static int pl_read_term_from_text(DESCR_t *args, pl_tr_ctx_t *cx) {
     extern void *rt_pl_ball_kind1(const char *, const char *);
     const char *b = pl_list_text_heap(args[0]);
@@ -9065,7 +9077,10 @@ static int pl_read_term_from_text(DESCR_t *args, pl_tr_ctx_t *cx) {
     int gnu = pl_gnu_dialect(), sm = 0;
     if (!b) return 0;
     if (gnu) { void *ob = pl_read_opts_ball(args[2]); if (ob) { cx->ball = ob; return 0; } sm = pl_read_syntax_mode(args[2]); }
-    if (!pl_parse_term_text(b, &t, &vt, (PlProgram **)0)) {
+    const char *dq = pl_read_dq_option(args[2]), *sv = dq ? pl_dq_swap(dq) : (const char *)0;
+    int parsed = pl_parse_term_text(b, &t, &vt, (PlProgram **)0);
+    if (dq) pl_dq_swap(sv);
+    if (!parsed) {
         if (sm == 2) printf("warning: syntax error: cannot_start_term\n");
         if (sm == 3) fprintf(stderr, "warning: syntax error: cannot_start_term\n");
         if (!sm) cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term");
@@ -9658,6 +9673,7 @@ static int pl_float_flag(const char *nm, const char *val) { pl_flag_t *fl = pl_f
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_protect_static_code(void) { pl_flag_t *fl = pl_flag_find("protect_static_code"); return fl && !strcmp(fl->val, "true"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pl_dq_swap(const char *v) { pl_flag_t *fl = pl_flag_find("double_quotes"); if (!fl) return (const char *)0; const char *old = fl->val; if (v) fl->val = v; return old; }
 int rt_pl_double_quotes_mode(void) {
     pl_flag_t *fl = pl_flag_find("double_quotes");
     const char *v = fl ? fl->val : NULL;
