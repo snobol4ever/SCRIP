@@ -19569,6 +19569,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "import", 1 },
     { "export", 1 },
     { "set_arg", 3 },
+    { "load_dyn", 1 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
@@ -19583,7 +19584,14 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
 static const char PL_PRELUDE_LIB_36_SRC[] =
     "import(_).\n"
     "export(_).\n"
-    "set_arg(Term, Index, Arg) :- setarg(Index, Term, Arg).\n";
+    "set_arg(Term, Index, Arg) :- setarg(Index, Term, Arg).\n"
+    "load_dyn(File) :- '$xsb_ld_path'(File, Path), setup_call_cleanup(open(Path, read, S), '$xsb_ld_read'(S), close(S)).\n"
+    "'$xsb_ld_path'(F, P) :- ( var(F) -> throw(error(instantiation_error, load_dyn/1)) ; \\+ atom(F) -> throw(error(type_error(atom, F), load_dyn/1)) ; true ),\n"
+    "    ( sub_atom(F, _, _, _, '.'), exists_file(F) -> P = F ; atom_concat(F, '.P', P), exists_file(P) -> true ; atom_concat(F, '.pl', P), exists_file(P) -> true ; exists_file(F) -> P = F\n"
+    "    ; throw(error(existence_error('file/module', F), load_dyn/1)) ).\n"
+    "'$xsb_ld_read'(S) :- repeat, read_term(S, T, []), ( T == end_of_file -> ! ; '$xsb_ld_one'(T), fail ).\n"
+    "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
+    "'$xsb_ld_one'(C) :- assertz(C).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { 0, 0 }
