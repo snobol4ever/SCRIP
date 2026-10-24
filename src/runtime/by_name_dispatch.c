@@ -11038,7 +11038,9 @@ PL_CX_LEAF_HEAD(gnu_os, 3)
             char here;
             struct rlimit rl;
             if (k && !strcmp(k, "local_stack")) {
-                used = (char *) __libc_stack_end - &here;
+                extern long rt_stack_stat(int which, const char * sp);
+                used = rt_stack_stat(5, &here);
+                if (used < 0) used = (char *) __libc_stack_end - &here;
                 if (used < 0) used = 0;
                 avail = (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY) ? (long) rl.rlim_cur - used : (8L << 20) - used;
                 ok = 1;
