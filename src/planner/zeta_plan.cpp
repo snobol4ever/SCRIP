@@ -238,6 +238,7 @@ int zd_k(IR_t * nd) { return zd_k_own(nd) + zst_s_of(nd) + zd_djx_of(nd); }
 static int zd_dj_spine(const IR_t * nd) { if (!g_emitter.g_zd_zarm_p || g_emitter.g_zd_zarm_nodes != g_emitter.codegen_flat_chain_body_nodes) return 0;
     int i = nidx(g_emitter.g_zd_zarm_nodes, g_emitter.g_zd_zarm_n, nd); return (i >= 0 && zd_dj_admitted(g_emitter.g_zd_zarm_p, g_emitter.g_zd_zarm_n, i) && !zls_dj_retains(nd)) ? 32 : 0; }
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
+extern "C" int zd_dj_on_spine(const IR_t * nd) { return zd_dj_spine(nd) ? 1 : 0; }
 enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV, BCS_HOME_FRAME, BCS_HOME_STATE, BCS_PL_HOME, BCS_PL_HOME_DYN, BCS_PL_HOME_RANGE_HDR,
     BCS_PL_HOME_HAS_OPERANDS, BCS_ICN_HOME };
 extern "C" int zls_g_home_frame(const IR_graph_t * g);
@@ -1302,7 +1303,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                             if (kr < 0 || !zon[kr] || claim[kr] != claim[i] || zd_icn_local_var(nodes[kr]) || zd_dj_cellless(nodes, n, zarm, kr)) continue;
                             for (IR_t * t = nodes[kr]; t && hit < n; t = zd_chase(t->γ.node)) { if (t == nodes[i]) { hit = -1; break; } hit++; }
                             if (hit != -1) continue;
-                            if (zls_dj_retains(nodes[q]) || xop_frame_slot(nodes[q]) != -1) { zcps[i] = -(kr + 2); zcpd[i] = -(q + 2); }
+                            if (zls_dj_retains(nodes[q]) || (g_emit_cfg && g_emit_cfg->spine_cells && xop_frame_slot(nodes[q]) != -1)) { zcps[i] = -(kr + 2); zcpd[i] = -(q + 2); }
                             else { zcps[i] = -(kr + 2); zcpd[i] = ai - aq; }
                             break;
                         }
@@ -1480,7 +1481,8 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 while (zarm[p] != q) p = zarm[p];
                 IR_t * rj = zd_dj_res(nodes[q], zarmj[p]);
                 int kr = rj ? nidx(nodes, n, rj) : -1;
-                if (kr >= 0 && zon[kr] && !zd_icn_local_var(nodes[kr]) && !zd_dj_cellless(nodes, n, zarm, kr) && (zls_dj_retains(nodes[q]) || xop_frame_slot(nodes[q]) != -1)) { zcps[i] = -(kr + 2);
+                if (kr >= 0 && zon[kr] && !zd_icn_local_var(nodes[kr]) && !zd_dj_cellless(nodes, n, zarm, kr) &&
+                    (zls_dj_retains(nodes[q]) || (g_emit_cfg && g_emit_cfg->spine_cells && xop_frame_slot(nodes[q]) != -1))) { zcps[i] = -(kr + 2);
                     zcpd[i] = -(q + 2); }
                 else if (kr >= 0 && zon[kr] && !zd_icn_local_var(nodes[kr]) && !zd_dj_cellless(nodes, n, zarm, kr)) { zcps[i] = -(kr + 2); zcpd[i] = zout[i] - zout[q]; }
             }
@@ -1497,7 +1499,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
         if (!zon[sp] || nodes[sp]->op != IR_SUSPEND || claim[sp] < 0) continue;
         int k = zd_yield_end(nodes, n, sp, zon, claim);
         if (k < 0) continue;
-        zgpop[k] = (g_emit_cfg && g_emit_cfg->home_frame) ? 0 : zout[k] - zout[sp];
+        zgpop[k] = (g_emit_cfg && g_emit_cfg->home_frame && g_emit_cfg->spine_cells) ? 0 : zout[k] - zout[sp];
         if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-YIELD] i=%d ends the yield of suspend %d: it pops %d\n", k, sp, zgpop[k]);
     }
     for (int i = 0; i < n; i++) if (zon[i] && nodes[i]->op == IR_GATE_ARM && nodes[i]->n_operands > 1 && zd_edge_retains(nodes[i]->operands[1]) &&

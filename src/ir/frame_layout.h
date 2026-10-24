@@ -35,6 +35,7 @@ int zls_dj_rbp_arms(const IR_t * nd);
 int zls_dj_retains(const IR_t * nd);
 int zls_frame_word_why(const IR_t * nd);
 int zls_g_home_frame(const IR_graph_t * g);
+int zls_g_hf_resident(const IR_graph_t * g, const IR_t * nd);
 int zls_g_value_region(const IR_graph_t * g);
 int zls_key_unbacked(const IR_graph_t * g, int off);
 int zls_g_key_class(const IR_graph_t * g, int off);

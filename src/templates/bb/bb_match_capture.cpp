@@ -22,7 +22,7 @@ extern "C" void * bb_dstar_rec_addr(const char * star);
 extern "C" const char * bb_ab_sym_name(const char * nm);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define havehome() (_.op_zres || _.op_cap_anchor || _.op_off >= 0)
+#define havehome() (_.op_zres || _.op_off >= 0)
 #define cap_name_plain() (_.op_sval && _.op_sval[0] && _.op_sval[0] != '*')
 #define cap_open_sym() (cap_name_plain() ? "rt_cap_open_plain" : "rt_cap_open")
 #define cap_open_fp() ( \
