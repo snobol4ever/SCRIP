@@ -1443,9 +1443,10 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 if (_gt == nodes[b] || _rb) for (IR_t * u = zd_chase(nodes[i]->γ.node); u && u != _gt; u = zd_chase(u->γ.node)) { int k = nidx(nodes, n, u);
                     if (k < 0 || !zon[k] || (xc && (claim[k] < 0 || !known[claim[k]]))) continue;
                     zout[k] = xc ? ab - base[claim[k]] : zout[b];
-                    zgpop[k] = (u == _gs && _rb) ? (xc ? ab - (base[claim[_gq]] + zout[_gq]) : zout[b] - zout[_gq]) : 0;
+                    zgpop[k] = (u == _gs && _rb) ? (xc ? ab - (base[claim[_gq]] + zout[_gq]) : zout[b] - zout[_gq]) : (u == _gs && _gt == nodes[b]) ? zd_k(nodes[b]) : 0;
                     zwpop[k] = 0; }
                 if (_rb && _gs == nodes[i]) g_emitter.g_zd_upost[(size_t)i] = xc ? ab - (base[claim[_gq]] + zout[_gq]) : zout[b] - zout[_gq];
+                else if (_gt == nodes[b] && _gs == nodes[i]) g_emitter.g_zd_upost[(size_t)i] = zd_k(nodes[b]);
                 continue;
             }
             if (!xc && !_rb && _gt && _gt->op == IR_DISJUNCTION && zd_sz_phi(zd_edge_sz(_gs, 0))) continue;
