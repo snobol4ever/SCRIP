@@ -2217,7 +2217,8 @@ static int zls_edge_retains(const IR_graph_t * g, const IR_t * nd) { extern int 
 static int zls_hf_resident_cleanup(const IR_graph_t * g, const IR_t * nd) { return zls_g_home_frame(g) && nd->op == IR_CLEANUP ? 1 : 0; }
 static int zls_hf_resident(const IR_graph_t * g, const IR_t * nd) {
     return nd &&
-        (zls_home_member(nd) || zls_frame_word_why(nd) || fcn_find(nd, FCN_RES) || zls_hf_resident_cleanup(g, nd) || (zls_home_why(nd) && !ir_node_produces_value(nd->op)) ||
+        (zls_home_member(nd) || zls_frame_word_why(nd) || (fcn_find(nd, FCN_RES) && !(g->spine_cells && nd->op == IR_DISJUNCTION)) || zls_hf_resident_cleanup(g, nd) ||
+        (zls_home_why(nd) && !ir_node_produces_value(nd->op)) ||
         (zls_g_resumable_frame(g) &&
         (zls_home_dyn(g, nd) || zls_edge_retains(g, nd) || (zls_g_home_frame(g) && (nd->op == IR_BOUND || nd->op == IR_GATE || nd->op == IR_TO || nd->op == IR_DISJUNCTION))))) ? 1 : 0;
 }
