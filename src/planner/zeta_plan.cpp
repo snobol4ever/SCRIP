@@ -1047,7 +1047,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                         if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d is a bare fail: no box, its entry is the chain's omega\n", ei, a);
                         continue;
                     }
-                    int first = 1, g2 = 0;
+                    int first = 1, g2 = 0, phi = 0;
                     while (c2 && c2 != env && g2++ <= n) {
                         int ci = nidx(nodes, n, c2);
                         if (first && ci >= 0 && claim[ci] < 0 && zd_icn_stmt_head(nodes[ci])) {
@@ -1059,6 +1059,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                         if (!first && ci >= 0 && claim[ci] == hi && zarm[ci] == ei && zarmj[ci] == a) {
                             if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d loops back to ci=%d: the arm's own loop, it leaves by phi\n", ei, a, ci);
                             c2 = (IR_t *)0;
+                            phi = 1;
                             break;
                         }
                         if (ci < 0 && !first && (c2->op == IR_SUCCEED || c2->op == IR_FAIL)) { c2 = (IR_t *)0; break; }
@@ -1099,8 +1100,13 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                         }
                         c2 = zd_chase(c2->γ.node);
                     }
-                    if (zdj_on && !bad && !first && c2 == env && g_emit_cfg && g_emit_cfg->spine_cells && rl > rl0) {
+                    if (zdj_on && !bad && !first && (c2 == env || phi) && g_emit_cfg && g_emit_cfg->spine_cells && rl > rl0) {
                         IR_t * c3 = zd_chase(nodes[run[rl - 1]]->ω.node);
+                        for (int u = rl - 1; phi && u >= rl0; u--) {
+                            IR_t * o3 = zd_chase(nodes[run[u]]->ω.node);
+                            int k3 = o3 ? nidx(nodes, n, o3) : -1;
+                            if (k3 >= 0 && claim[k3] < 0) { c3 = o3; break; }
+                        }
                         int rl1 = rl, g3 = 0;
                         while (c3 && c3 != env && g3++ <= n) {
                             int ci = nidx(nodes, n, c3);
