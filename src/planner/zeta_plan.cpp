@@ -584,7 +584,7 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
             IR_t * t = zd_chase(nodes[i]->γ.node);
             int q = t ? nidx(nodes, n, t) : -1;
             if (q == i) continue;
-            if (q >= 0 && zd_pl_dj_join(nodes, n, i, q)) { IR_t * t2 = zd_chase(nodes[q]->γ.node); q = t2 ? nidx(nodes, n, t2) : -1; }
+            for (int cur = i, hop = 0; q >= 0 && hop <= n && zd_pl_dj_join(nodes, n, cur, q); hop++) { IR_t * t2 = zd_chase(nodes[q]->γ.node); cur = q; q = t2 ? nidx(nodes, n, t2) : -1; }
             if (q < 0 || !zon[q] || claim[q] < 0 || indef[claim[q]]) continue;
             int ub = (pl && claim[q] == q && nodes[q]->op == IR_UNMARK && (IR_LIT(nodes[q]).ival & 6) && nodes[q]->n_operands > 0) ? nidx(nodes, n, nodes[q]->operands[0]) : -1;
             if (ub >= 0 && zon[ub] && claim[ub] >= 0 && known[claim[ub]]) continue;
