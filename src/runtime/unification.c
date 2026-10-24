@@ -1591,7 +1591,7 @@ static pl_cell_t *plc_fmt_next_arg(pl_cell_t **args) {
     return (pl_cell_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { char *b; size_t n; size_t cap; size_t seg; size_t fpos[256]; int fchr[256]; int nf; pl_tr_ctx_t *cx; } plc_fb;
+typedef struct { char *b; size_t n; size_t cap; size_t seg; size_t fpos[256]; int fchr[256]; int nf; pl_tr_ctx_t *cx; long cadj; } plc_fb;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_fb_raw(plc_fb *f, const char *s, size_t n) {
     if (!n) return;
@@ -1601,13 +1601,17 @@ static void plc_fb_raw(plc_fb *f, const char *s, size_t n) {
     f->b[f->n] = '\0';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plc_fb_add(plc_fb *f, const char *s, size_t n) { size_t at = f->n; plc_fb_raw(f, s, n); for (size_t k = at; k < f->n; k++) if (f->b[k] == '\n') { f->seg = k + 1; f->nf = 0; } }
+static void plc_fb_add(plc_fb *f, const char *s, size_t n) {
+    size_t at = f->n;
+    plc_fb_raw(f, s, n);
+    for (size_t k = at; k < f->n; k++) if (f->b[k] == '\n') { f->seg = k + 1; f->nf = 0; f->cadj = 0; }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t plc_fb_colat(plc_fb *f, size_t at) {
     size_t k = at, col = 0;
     while (k > 0 && f->b[k - 1] != '\n') k--;
     for (; k < at; k++) if (((unsigned char)f->b[k] & 0xC0u) != 0x80u) col++;
-    return col;
+    return (size_t)((long)col + f->cadj);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_fb_u8(plc_fb *f, unsigned cp) {
@@ -1626,6 +1630,7 @@ static void plc_fb_tab(plc_fb *f, int fill) { if (f->nf < 256) { f->fpos[f->nf] 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_fb_stop(plc_fb *f, long target) {
     long cur = (long)plc_fb_colat(f, f->n), pad = target - cur;
+    if (pad < 0) f->cadj += pad;
     if (pad > 0 && f->nf == 0) {
         for (long i = 0; i < pad; i++) plc_fb_raw(f, " ", 1);
     } else if (pad > 0) {
@@ -1635,8 +1640,11 @@ static void plc_fb_stop(plc_fb *f, long target) {
         if (segn) memcpy(seg, f->b + base, segn);
         f->n = base;
         if (f->b) f->b[f->n] = '\0';
+        long w[nf > 0 ? nf : 1];
+        for (int i = 0; i < nf; i++) w[i] = pad / nf;
+        for (long r = 0; r < pad % nf; r++) w[(nf / 2 + r) % nf]++;
         for (size_t k = 0; k <= segn; k++) {
-            while (fi < nf && f->fpos[fi] - base == k) { long hi = ((long)(fi + 1) * pad) / nf, lo = ((long)fi * pad) / nf; for (long j = lo; j < hi; j++) plc_fb_u8(f, (unsigned)f->fchr[fi]); fi++; }
+            while (fi < nf && f->fpos[fi] - base == k) { for (long j = 0; j < w[fi]; j++) plc_fb_u8(f, (unsigned)f->fchr[fi]); fi++; }
             if (k < segn) plc_fb_raw(f, seg + k, 1);
         }
     }
