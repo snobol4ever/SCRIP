@@ -8,7 +8,18 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var() {
     x86_begin();
-    return IF(_.op_zres && g_emit_cfg && g_emit_cfg->spine_cells,
+    return IF(_.op_zres && g_emit_cfg && g_emit_cfg->spine_cells && _.op_xf_off != -1 && _.op_sa != -1,
+               x86("comment", "IR_VAR local with a frame home: the variable's own slot is copied into the home its consumer reads across the retaining edge")
+             + x86_alpha()
+             + x86("mov", "rax", FRQ(_.op_sa))
+             + x86("note", ZRESN())
+             + x86("mov", ZRES(0), "rax")
+             + x86("mov", "rax", FRQ(_.op_sa + 8))
+             + x86("note", ZRESN())
+             + x86("mov", ZRES(8), "rax")
+             + x86_gamma()
+             + x86_beta_trampoline())
+         + IF(_.op_zres && g_emit_cfg && g_emit_cfg->spine_cells && !(_.op_xf_off != -1 && _.op_sa != -1),
                x86("comment", "IR_VAR local, K=0: no cell -- each consumer reads the variable's own slot at the operation")
              + x86_alpha()
              + x86_gamma()
