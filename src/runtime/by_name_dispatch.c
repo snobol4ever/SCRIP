@@ -11449,7 +11449,7 @@ PL_CX_LEAF_HEAD(op, 3)
             e = pl_is_cons(cur) ? pl_op_unqual(rt_pl_deref_val(((DESCR_t *)cur.p)[0])) : cur;
             if (pl_is_cons(o) && pl_is_nil(cur)) break;
             if (!(nm = pl_op_name(e))) { cx->ball = rt_pl_ball_kind2("type_error", "atom", e); return FAILDESCR; }
-            if ((pm = prolog_op_permission(nm, (int)p.i, ty)) && !(pl_swi_dialect() && !strcmp(nm, "{}"))) {
+            if ((pm = prolog_op_permission(nm, (int)p.i, ty)) && !(pl_swi_dialect() && (!strcmp(nm, "{}") || !strcmp(nm, "[]")))) {
                 cx->ball = rt_pl_ball_permission3(pm == 1 ? "modify" : "create", "operator", e);
                 return FAILDESCR;
             }

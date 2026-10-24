@@ -247,9 +247,11 @@ static void register_op_one(int prec, const char *type, tree_t *namenode, int sw
     if (namenode->t == TT_MAKELIST) { for (int i = 0; i < namenode->n; i++) register_op_one(prec, type, namenode->c[i], swi); return; }
     if (swi && namenode->t == TT_FNC && namenode->n == 2 && namenode->v.sval && !strcmp(namenode->v.sval, ":")) { register_op_one(prec, type, namenode->c[1], swi); return; }
     int blk = swi && namenode->t == TT_FNC && namenode->n == 0 && namenode->v.sval && !strcmp(namenode->v.sval, "{}");
-    if ((namenode->t != TT_QLIT && !blk) || !namenode->v.sval || prec < 0 || prec > 1200 || (!blk && prolog_op_permission(namenode->v.sval, prec, type))) return;
+    int cut = namenode->t == TT_CUT;
+    const char *nm = cut ? "!" : namenode->v.sval;
+    if ((namenode->t != TT_QLIT && !blk && !cut) || !nm || prec < 0 || prec > 1200 || (!blk && prolog_op_permission(nm, prec, type))) return;
     Assoc assoc; Fixity fix;
-    if (op_type_classify(type, &assoc, &fix)) user_op_add(namenode->v.sval, prec, assoc, fix);
+    if (op_type_classify(type, &assoc, &fix)) user_op_add(nm, prec, assoc, fix);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "prolog_prelude_libs.inc"
@@ -600,6 +602,14 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                 else perror_at(p, rp.line, "expected ) to close argument list");
                 return pt_stamp(fnc, ln);
             }
+            { const OpEntry *pre_c = find_prefix("!");
+              if (pre_c && prefix_arg_starts(pkc)) {
+                  tree_t *fnc = ast_node_new(TT_FNC);
+                  fnc->v.sval = ct_strdup("!");
+                  tree_t *arg = pt_term(p, ts, (pre_c->assoc == ASSOC_RIGHT) ? pre_c->prec : pre_c->prec - 1);
+                  if (arg) ast_push(fnc, arg);
+                  p->prec = pre_c->prec;
+                  return pt_stamp(fnc, ln); } }
             return pt_stamp(ast_node_new(TT_CUT), ln);
         }
         case TK_NECK: {
