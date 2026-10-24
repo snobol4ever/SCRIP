@@ -843,12 +843,13 @@ static void zst_plan(IR_t ** nodes, int n) {
     std::vector<int> dsz((size_t)n, 0); for (int v = 0; v < n; v++) { int c = 0; for (size_t w = 0; w < W; w++) c += __builtin_popcountll(dom[(size_t)v * W + w]); dsz[(size_t)v] = c; }
     std::vector<unsigned char> indef0((size_t)n, 0);
     { std::vector<int> wl;
-        for (int i = 0; i < n; i++) if (zd_edge_retains(nodes[i])) { int q = zst_edge(nodes, n, i, 0); if (q >= 0 && !indef0[(size_t)q]) { indef0[(size_t)q] = 1; wl.push_back(q); } }
+        for (int i = 0; i < n; i++) if (zd_edge_retains(nodes[i])) { int q = zst_edge(nodes, n, i, 0); if (q >= 0 && !indef0[(size_t)q]) { indef0[(size_t)q] = 1;
+            if (nodes[q]->op != IR_CUT) wl.push_back(q); } }
         while (!wl.empty()) { int v = wl.back(); wl.pop_back();
             for (int k = scnt[(size_t)v]; k < scnt[(size_t)v + 1]; k++) { int w = sd[(size_t)k]; if (w < 0 || indef0[(size_t)w]) continue;
                 int ub = (nodes[w]->op == IR_UNMARK && (IR_LIT(nodes[w]).ival & 6) && nodes[w]->n_operands > 0) ? nidx(nodes, n, nodes[w]->operands[0]) : -1;
                 if (ub >= 0 && !indef0[(size_t)ub]) continue;
-                indef0[(size_t)w] = 1; wl.push_back(w); } } }
+                indef0[(size_t)w] = 1; if (nodes[w]->op != IR_CUT) wl.push_back(w); } } }
     std::vector<int> bnds; std::vector<std::vector<unsigned char>> esc; std::vector<unsigned char> wland((size_t)n, 0);
     for (int i = 0; i < n; i++) { int q = zst_edge(nodes, n, i, 1); if (q >= 0) wland[(size_t)q] = 1; }
     for (int b = 0; b < n; b++) { if (nodes[b]->op != IR_BOUND) continue; std::vector<unsigned char> r((size_t)n, 0); std::vector<int> wl;
