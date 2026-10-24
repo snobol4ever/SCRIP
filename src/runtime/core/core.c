@@ -3072,6 +3072,13 @@ void core_runtime_error(int code, const char *msg) {
     exit(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void core_runtime_error_soft(int code, const char *msg) {
+    extern void rt_kw_publish_error(int code, const char *msg);
+    if (g_runtime.abi.kw_errlimit != 0 || g_runtime.abi.error != 0) { core_runtime_error(code, msg); return; }
+    core_err_compat_map(&code, &msg);
+    rt_kw_publish_error(code, msg);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_kb, long committed_kb) {
     int icon = (g_runtime.abi.rt_k_level >= 1 && rt_icn_frames((rt_icn_frame_t *)0, 0) > 0) ? 1 : 0;
     int code = icon ? (type == (unsigned)DT_S ? 306 : 307) : 204;
