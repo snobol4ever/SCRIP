@@ -630,16 +630,20 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                     plc_wt_atom(fp, fn, quoted);
                     fputc(' ', fp);
                 } else {
+                    int lglue = !lop && plc_is_graphic_char((unsigned char)fn[0]) && plc_term_prio(&aa[0], ignore_ops) <= lmax &&
+                        plc_is_graphic_char(plc_last_char(&aa[0], quoted, ignore_ops, numbervars));
+                    if (lglue) fputc(' ', fp);
                     plc_wt_atom(fp, fn, quoted);
-                    if (!rop && plc_is_graphic_char(plc_first_char(&aa[1], quoted, ignore_ops, numbervars))) fputc(' ', fp);
+                    if (lglue || (!rop && plc_is_graphic_char(plc_first_char(&aa[1], quoted, ignore_ops, numbervars)))) fputc(' ', fp);
                 }
                 if (rop) fputc('(', fp);
                 PLC_KID(&aa[1], depth+1, rop ? 1200 : rmax);
                 if (rop) fputc(')', fp);
             } else if (plc_op_is_postfix(fn)) {
+                int lglue = plc_is_graphic_char((unsigned char)fn[0]) && plc_term_prio(&aa[0], ignore_ops) <= lmax && plc_is_graphic_char(plc_last_char(&aa[0], quoted, ignore_ops, numbervars));
                 PLC_KID(&aa[0], depth+1, lmax);
                 if (isalnum((unsigned char)fn[0]) || fn[0] == '_') fprintf(fp, " %s", fn);
-                else plc_wt_atom(fp, fn, quoted);
+                else { if (lglue) fputc(' ', fp); plc_wt_atom(fp, fn, quoted); }
             } else {
                 {
                     pl_cell_t *a0 = pl_deref(&aa[0]);
