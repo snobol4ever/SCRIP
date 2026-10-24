@@ -953,6 +953,7 @@ static void zd_dj_discards(IR_t ** nodes, int n, const unsigned char * zon, cons
         }
     }
 }
+static int zd_match_env_record(const IR_t * nd) { return nd->op == IR_MATCH_ALTERNATE ? 32 : nd->op == IR_MATCH_FENCE1 ? planner_fence_k(g_emit_cfg, nd) : nd->op == IR_MATCH_ARBNO ? 16 : 0; }
 void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm, const unsigned char *walls, int *zcps, int *zcpd, int *zchn, int *zclaim) {
     extern const char * bb_src_of(const IR_t *);
     if (g_emitter.zd_plan__dg < 0) { const char * d = getenv("SCRIP_ZD_DIAG"); g_emitter.zd_plan__dg = (d && *d == '1') ? 1 : 0; }
@@ -1510,6 +1511,14 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
     for (int dj = 0; dj < n; dj++) if (zon[dj] && nodes[dj]->op == IR_DISJUNCTION && zd_edge_retains(nodes[dj]))
         for (int a = 0; a < (int)IR_LIT(nodes[dj]).ival; a++) { int e = zd_pl_dj_arm_holds(nodes[dj], a) ? zd_dj_arm_end(nodes, n, dj, a) : -1; if (e >= 0 && zon[e]) zgpop[e] = 0; }
     zd_dj_discards(nodes, n, zon, zout, zgpop, zwpop, zarm, claim, base, known, zdj_on);
+    if (zarm)
+        for (int i = 0; i < n; i++) {
+            if (!zon[i] || zarm[i] < 0) continue;
+            IR_t * t = zd_chase(nodes[i]->ω.node);
+            int q = t ? nidx(nodes, n, t) : -1;
+            if (q < 0 || !zon[q]) continue;
+            for (int p = zarm[i], g = 0; p >= 0 && g++ < 4096; p = zarm[p]) if (q != p && !zd_dj_anc(zarm, q, p)) zwpop[i] += zd_match_env_record(nodes[p]);
+        }
     { if (zd_map_on()) { fprintf(stderr, "[ZD-MAP] PLAN -- same i= indices as GRAPH above\n");
         for (int i = 0; i < n; i++) fprintf(stderr, "[ZD-MAP] i=%-3d %-22s claim=%-3d rpos=%-3d zon=%d zout=%-4d gpop=%-5d wpop=%-5d arm=%d slot=%d\n",
             i, bb_op_name(nodes[i]->op), claim[i], rpos[i], (int)zon[i], zout[i], zgpop[i], zwpop[i], zarm ? zarm[i] : -1, zls_off(nodes[i])); } }

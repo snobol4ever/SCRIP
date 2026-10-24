@@ -4357,7 +4357,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   for (int _zj = 0; _zj < g_emit.op_zcap; _zj++) { g_emitter.g_zd_read[_zj] = 0; g_emitter.g_zd_kind[_zj] = -1; }
               }
               { g_emitter.g_zd_on_cur = zd_on; g_emitter.g_zd_n_cur = n;
-                flat_drive_match_alt(g_emitter.codegen_flat_chain_body_nodes, n, i, lbls, betas, na_s, na_f, na_fo, fc_sig, node_γ, node_ω, &lbl_ω); g_emitter.g_zd_on_cur = NULL; }
+                int _awp = g_emit.op_wpop;
+                if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_ALTERNATE || g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_FENCE1)
+                    g_emit.op_wpop = (zd_on[i] && zd_wp[i] > 0) ? zd_wp[i] : 0;
+                flat_drive_match_alt(g_emitter.codegen_flat_chain_body_nodes, n, i, lbls, betas, na_s, na_f, na_fo, fc_sig, node_γ, node_ω, &lbl_ω); g_emitter.g_zd_on_cur = NULL;
+                g_emit.op_wpop = _awp; }
               if (g_emitter.codegen_flat_chain_body__dd_0 && emit_text_count() == _p0)
                   fprintf(stderr, "[DRIVE-DIAG] ZERO-EMIT chain=%d i=%d op=%s n_operands=%d (match_alt path)\n", id, i, bb_op_name(g_emitter.codegen_flat_chain_body_nodes[i]->op),
                   g_emitter.codegen_flat_chain_body_nodes[i]->n_operands)
@@ -5511,7 +5515,8 @@ int xa_flat_class_zf(void) {
 int xa_flat_class_c(void) {
     if (!g_emit.flat_jmp_entry) { if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=no_jmp_entry\n", g_emit.nid); return 0; }
     if (g_emit.flat_pat || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph) {
-        if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=pat/gen/lcl/zframe pat=%d gen=%d lcl=%d zframe=%d\n", g_emit.nid, g_emit.flat_pat, g_emit.flat_gen, g_emit.flat_lcl_proc, g_emit.zframe_graph);
+        if (getenv("SCRIP_FLOOR_DIAG"))
+            fprintf(stderr, "[CLASS-C] nid=%d bail=pat/gen/lcl/zframe pat=%d gen=%d lcl=%d zframe=%d\n", g_emit.nid, g_emit.flat_pat, g_emit.flat_gen, g_emit.flat_lcl_proc, g_emit.zframe_graph);
         return 0; }
     { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0) {
         if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=floor floor=%d\n", g_emit.nid, g_flat_frame_floor);
