@@ -6034,7 +6034,7 @@ void call_prepare(IR_t * nd) {
     if (!fnroute && !zd && kind != IR_CALL_GEN) { g_emit.op_call_scansync = lower_call_is_scan_builtin(fn); g_emit.op_call_curmov = lower_call_is_curmov(fn);
         g_emit.op_call_dsave = g_emit.op_call_argbase + 16 * narg; }
     if (zd && !fnroute && kind == IR_CALL_BYNAME) { g_emit.op_call_scansync = lower_call_is_scan_builtin(fn); if (zd_call_curmov(nd)) { g_emit.op_call_curmov = 1;
-        g_emit.op_call_dsave = (zls_g_generator_top(g_emit_cfg) > 0 && zls_off(nd) >= 0) ? zls_frame_off(g_emit_cfg, nd) + 16 : INT_MIN; } }
+        g_emit.op_call_dsave = (zls_g_generator_top(g_emit_cfg) > 0 && zls_off(nd) >= 0 && !zls_key_unbacked(g_emit_cfg, zls_off(nd))) ? zls_frame_off(g_emit_cfg, nd) + 16 : INT_MIN; } }
     if (kind == IR_CALL_GEN) g_emit.op_call_scansync = lower_call_is_scan_builtin(fn);
     switch (kind) {
     case IR_CALL_DIRECT: { const char * s = 0; g_emit.op_call_fp = (uint64_t)(uintptr_t)dop_direct_fp(fn, (int64_t)narg, &s); g_emit.op_call_sym = s ? s : ""; break; }
