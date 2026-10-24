@@ -1712,7 +1712,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$predicate_property1'(F,N,built_in):-'$gnu_builtin'(F,N),\\+current_predicate(F/N).\n"
     "'$pl_pp_pcheck'(P):-(var(P);\\+current_prolog_flag('$dialect',gnu)),!.\n"
     "'$pl_pp_pcheck'(P):-callable(P),functor(P,N,_),memberchk(N,[static,dynamic,private,public,monofile,multifile,user,built_in,built_in_fd,control_construct,native_code,"
-        "prolog_file,prolog_line,meta_predicate,defined,discontiguous,exported,imported_from,foreign,iso,number_of_clauses,native,tabled,volatile,transparent,nodebug,visible,"
+        "prolog_file,prolog_line,meta_predicate,defined,discontiguous,exported,imported_from,foreign,iso,number_of_clauses,native,tabled,incremental,volatile,transparent,nodebug,visible,"
         "template,alias,declared_in,defined_in,scope,synchronized,file,line_count,notrace,thread_local,non_terminal,ssu,quasi_quotation_syntax]),!.\n"
     "'$pl_pp_pcheck'(P):-throw(error(domain_error(predicate_property,P),predicate_property/2)).\n"
     "'$aux_name'(N):-'$gnu_aux_split'(N,_,_).\n"
@@ -3473,8 +3473,72 @@ static int pl_dcg_body_var_goal(const tree_t *b) {
 typedef struct { const char *nm; int i; } pl_ckey_t;
 static int pl_ckey_cmp(const void *a, const void *b) { const pl_ckey_t *x = (const pl_ckey_t *)a, *y = (const pl_ckey_t *)b; int c = strcmp(x->nm, y->nm); return c ? c : (x->i > y->i) - (x->i < y->i); }
 static int pl_ckey_lower(const pl_ckey_t *so, int nk, const char *s) { int lo = 0, hi = nk; while (lo < hi) { int m = (lo + hi) / 2; if (strcmp(so[m].nm, s) < 0) lo = m + 1; else hi = m; } return lo; }
+static int pl_opts_have_incremental(const tree_t *o) {
+    if (!o) return 0;
+    if ((o->t == TT_QLIT || o->t == TT_NAME) && o->v.sval && !strcmp(o->v.sval, "incremental")) return 1;
+    if (o->t == TT_FNC && o->v.sval && !strcmp(o->v.sval, "incremental") && o->n == 1 && o->c[0] && o->c[0]->v.sval && !strcmp(o->c[0]->v.sval, "true")) return 1;
+    for (int i = 0; i < o->n; i++) if (pl_opts_have_incremental(o->c[i])) return 1;
+    return 0;
+}
+static void pl_collect_incr_dyn(const tree_t *t, cv_t *keys) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "as") && t->n == 2) {
+        if (pl_opts_have_incremental(t->c[1])) pl_tree_collect_declared(t->c[0], keys);
+        return;
+    }
+    for (int i = 0; i < t->n; i++) pl_collect_incr_dyn(t->c[i], keys);
+}
+static int pl_clause_arg_key(const tree_t *c, const char **nm, int *ar) {
+    for (int k = 0; k < 4 && c && c->t == TT_FNC && c->v.sval && c->n == 2 && (!strcmp(c->v.sval, ":-") || !strcmp(c->v.sval, ":")); k++) c = !strcmp(c->v.sval, ":-") ? c->c[0] : c->c[1];
+    if (!c || !c->v.sval) return 0;
+    if (c->t == TT_FNC) { *nm = c->v.sval; *ar = c->n; return 1; }
+    if (c->t == TT_QLIT || c->t == TT_NAME) { *nm = c->v.sval; *ar = 0; return 1; }
+    return 0;
+}
+static void pl_rewrite_incr_goals(tree_t *t, const cv_t *incr, const cv_t *all) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "predicate_property") && t->n == 2 && t->c[1] && (t->c[1]->t == TT_QLIT || t->c[1]->t == TT_NAME) && t->c[1]->v.sval &&
+        !strcmp(t->c[1]->v.sval, "incremental")) {
+        const char *nm = (const char *)0;
+        int ar = 0;
+        if (pl_clause_arg_key(t->c[0], &nm, &ar) && pl_cv_has(all, pl_pred_key(nm, ar))) { t->t = TT_QLIT; t->n = 0; t->v.sval = ct_strdup("true"); return; }
+    }
+    if (t->t == TT_FNC && t->v.sval && t->n == 1) {
+        const char *f = t->v.sval, *nm = (const char *)0;
+        int ar = 0, db = !strcmp(f, "assert") || !strcmp(f, "asserta") || !strcmp(f, "assertz") || !strcmp(f, "retract") || !strcmp(f, "retractall");
+        if (db && pl_clause_arg_key(t->c[0], &nm, &ar) && pl_cv_has(incr, pl_pred_key(nm, ar))) {
+            tree_t *orig = ast_node_new(TT_FNC), *inv = ast_node_new(TT_QLIT);
+            orig->v.sval = t->v.sval;
+            orig->line = t->line;
+            ast_push(orig, t->c[0]);
+            inv->v.sval = ct_strdup("$incr_inval");
+            t->n = 0;
+            t->v.sval = ct_strdup(",");
+            ast_push(t, orig);
+            ast_push(t, inv);
+            return;
+        }
+    }
+    for (int i = 0; i < t->n; i++) pl_rewrite_incr_goals(t->c[i], incr, all);
+}
+static void pl_incremental_dynamics(PlProgram *prog) {
+    cv_t incr = { 0 }, all = { 0 };
+    for (PlClause *cl = prog->head; cl; cl = cl->next) {
+        if (!pl_clause_is_directive(cl) || !cl->tr->c[1] || cl->tr->c[1]->t != TT_FNC || !cl->tr->c[1]->v.sval) continue;
+        if (!strcmp(cl->tr->c[1]->v.sval, "dynamic")) {
+            const tree_t *d = cl->tr->c[1];
+            if (d->n == 2 && pl_opts_have_incremental(d->c[1])) { pl_tree_collect_declared(d->c[0], &incr); pl_tree_collect_declared(d->c[0], &all); }
+            pl_collect_incr_dyn(d, &incr);
+            pl_collect_incr_dyn(d, &all);
+        }
+        else if (!strcmp(cl->tr->c[1]->v.sval, "table")) pl_collect_incr_dyn(cl->tr->c[1], &all);
+    }
+    if (all.len == 0) return;
+    for (PlClause *cl = prog->head; cl; cl = cl->next) if (cl->tr) pl_rewrite_incr_goals(cl->tr, &incr, &all);
+}
 void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
+    pl_incremental_dynamics(prog);
     cv_t user_defined = { 0 }, referenced = { 0 }, refkeys = { 0 }, wanted = { 0 }, attv_off = { 0 };
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
         const char *nm; int ar;

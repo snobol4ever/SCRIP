@@ -1762,9 +1762,9 @@ static const tree_t * pl_clause_ill_typed(const tree_t * cl) {
     return pl_tree_number(cl);
 }
 static const char * const pl_pred_props[] = { "built_in", "dynamic", "static", "defined", "multifile", "discontiguous", "meta_predicate", "exported", "imported_from", "foreign", "iso",
-    "number_of_clauses", "public", "private", "native", "tabled", "volatile", "transparent", "nodebug", "visible", "template", "alias", "declared_in", "defined_in", "scope", "synchronized", "file",
-    "line_count", "notrace", "thread_local", "non_terminal", "ssu", "quasi_quotation_syntax", "user", "monofile", "native_code", "built_in_fd", "control_construct", "prolog_file", "prolog_line",
-    NULL };
+    "number_of_clauses", "public", "private", "native", "tabled", "incremental", "volatile", "transparent", "nodebug", "visible", "template", "alias", "declared_in", "defined_in", "scope",
+    "synchronized", "file", "line_count", "notrace", "thread_local", "non_terminal", "ssu", "quasi_quotation_syntax", "user", "monofile", "native_code", "built_in_fd", "control_construct",
+    "prolog_file", "prolog_line", NULL };
 static const char * pl_meta_template(const char * pn, int ar) {
     static const struct {
         const char * n;
