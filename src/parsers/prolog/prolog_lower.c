@@ -505,7 +505,7 @@ static int pl_xsb_marker(const tree_t *tr) {
     const char *f = (g && g->t == TT_FNC) ? g->v.sval : (const char *)0;
     if (!f) return 0;
     if (!strcmp(f, "import") && g->n == 1) return g->c[0] && g->c[0]->t == TT_FNC && g->c[0]->n == 2 && g->c[0]->v.sval && !strcmp(g->c[0]->v.sval, "from");
-    return (g->n == 1 && (!strcmp(f, "export") || !strcmp(f, "compiler_options") || !strcmp(f, "hilog") || !strcmp(f, "ti"))) || (!strcmp(f, "index") && g->n >= 1 && g->n <= 3);
+    return (g->n == 1 && (!strcmp(f, "compiler_options") || !strcmp(f, "hilog") || !strcmp(f, "ti"))) || (!strcmp(f, "index") && g->n >= 2 && g->n <= 3);
 }
 int prolog_clause_marks_swi(const PlClause *cl) { return cl && cl->lineno && (pl_dialect_marker(cl->tr) || pl_tree_has_dict(cl->tr)); }
 int prolog_clause_marks_xsb(const PlClause *cl) { return cl && cl->lineno && pl_xsb_marker(cl->tr); }
