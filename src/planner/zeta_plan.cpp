@@ -757,10 +757,12 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
                     }
                 }
                 for (int h = 0; h < n; h++) {
-                    if (!zon[h] || claim[h] != h || known[h] || fam[h] >= 0) continue;
+                    if (!zon[h] || claim[h] != h || known[h] || (fam[h] >= 0 && fam[h] != h)) continue;
                     int ub = (nodes[h]->op == IR_UNMARK && nodes[h]->n_operands > 0) ? nidx(nodes, n, nodes[h]->operands[0]) : -1;
-                    if (ub < 0 || !zon[ub] || claim[ub] < 0 || claim[ub] == h || fam[claim[ub]] < 0) continue;
-                    fam[h] = fam[claim[ub]]; fbase[h] = fbase[claim[ub]] + zout[ub] - zout[h]; moved = 1;
+                    if (ub < 0 || !zon[ub] || claim[ub] < 0 || claim[ub] == h || fam[claim[ub]] < 0 || fam[claim[ub]] == h) continue;
+                    int f = fam[claim[ub]], nb = fbase[claim[ub]] + zout[ub] - zout[h], sh = (fam[h] == h) ? nb - fbase[h] : 0;
+                    if (fam[h] == h) for (int r = 0; r < n; r++) if (fam[r] == h) { fam[r] = f; fbase[r] += sh; }
+                    fam[h] = f; fbase[h] = nb; moved = 1;
                 }
             }
         }
