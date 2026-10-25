@@ -3911,6 +3911,8 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_word_referenced(user_src, "undefined")) {
         pl_cv_add(&referenced, "$tbl_call");
         pl_cv_add(&refkeys, pl_pred_key("$tbl_call", 2));
+        static const struct { const char * nm; int ar; } tbl_roots[] = { { "$tbl_icall", 2 }, { "$tbl_kcall", 3 }, { "$tbl_mcall", 3 }, { "$tbl_mcall", 4 }, { "$tbl_dcall", 1 }, { "$tbl_dchange", 3 }, { 0, 0 } };
+        for (int ti = 0; tbl_roots[ti].nm; ti++) if (pl_cv_has(&referenced, tbl_roots[ti].nm)) pl_cv_add(&refkeys, pl_pred_key(tbl_roots[ti].nm, tbl_roots[ti].ar));
     }
     PlProgram *pre = pl_prelude_parse(PL_PRELUDE_SRC, -1, "", 0);
     if (!pre || !pre->head) { if (pre) ct_drop(pre); return; }
