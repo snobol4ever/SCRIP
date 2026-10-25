@@ -1881,6 +1881,10 @@ typedef struct { const IR_t * nd; uint32_t gen; uint32_t fl; int vr; int pe; int
 #define FCN_LHOME 0x10000u
 #define FCN_RES 0x20000u
 #define FCN_RO 0x40000u
+#define FCN_BSK 0x80000u
+#define FCN_BSF 0x100000u
+#define FCN_BOK 0x200000u
+#define FCN_BOV 0x400000u
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void fc_reg_hw(const char * tbl, int n) {
     if (g_lower.ir.fc_reg_hw_e == (const char *) 1) g_lower.ir.fc_reg_hw_e = getenv("SCRIP_FC_REG_HIGHWATER");
@@ -2042,6 +2046,15 @@ void zls_home_callees_mark(IR_graph_t ** gs, int n, const char ** pn, const int 
 }
 int zls_fcn_hret(const IR_t * nd) { return fcn_find(nd, FCN_HRET) ? 1 : 0; }
 int zls_fcn_hunres(const IR_t * nd) { return fcn_find(nd, FCN_HUNRES) ? 1 : 0; }
+int zls_fcn_bs_get(const IR_t * nd, int which) { uint32_t k = which ? FCN_BOK : FCN_BSK, v = which ? FCN_BOV : FCN_BSF; return fcn_find(nd, k) ? (fcn_find(nd, v) ? 2 : 1) : 0; }
+void zls_fcn_bs_set(const IR_t * nd, int which, int val) {
+    if (!nd) return;
+    uint32_t k = which ? FCN_BOK : FCN_BSK, v = which ? FCN_BOV : FCN_BSF;
+    fcn_t * t = fcn_get(nd);
+    t->fl |= k;
+    if (val == 2) t->fl |= v;
+    else t->fl &= ~v;
+}
 static int zls_home_dyn(const IR_graph_t * g, const IR_t * nd) { extern int planner_home_dyn(const IR_graph_t *, const IR_t *); return planner_home_dyn(g, nd); }
 const char * zls_home_why_name(int w) {
     switch (w) {

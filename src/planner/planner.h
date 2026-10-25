@@ -85,6 +85,8 @@ enum {
 extern "C" {
 int zls_fcn_hret(const IR_t * nd);
 int zls_fcn_hunres(const IR_t * nd);
+int zls_fcn_bs_get(const IR_t * nd, int which);
+void zls_fcn_bs_set(const IR_t * nd, int which, int val);
 }
 #include "../ir/frame_layout.h"
 int planner_retains(const IR_t * nd);
