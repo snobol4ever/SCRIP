@@ -3408,18 +3408,42 @@ static int pl_lib_quiet(const pl_prelude_lib_t *lib, const char *nm, int ar) {
     for (const pl_prelude_lib_pi_t *q = lib->quiet; q && q->nm; q++) if (q->ar == ar && !strcmp(q->nm, nm)) return 1;
     return 0;
 }
-static void pl_tree_collect_reach(const tree_t *t, pl_pk_set_t *ex, pl_pk_set_t *pa) {
+typedef struct { const char *s; int n; int ar; int part; } pl_rq_t;
+typedef struct { pl_pk_set_t ex, pa, un; cv_t q; int user; } pl_reach_t;
+typedef struct { const char *s; int n; int ar; int lib; int j; PlClause *cl; int next; } pl_ri_t;
+static void pl_reach_add(pl_reach_t *r, const char *s, int n, int ar, int part) {
+    pl_pk_set_t *h = part ? &r->pa : &r->ex;
+    uint32_t was = h->n;
+    if (r->user) pl_pk_set_add(&r->un, s, n, 0);
+    pl_pk_set_add(h, s, n, ar);
+    if (h->n != was) {
+        pl_rq_t *e = &CV_PUSH(r->q, pl_rq_t);
+        e->s = s;
+        e->n = n;
+        e->ar = ar;
+        e->part = part;
+    }
+}
+static void pl_dcg_collect_reach(const tree_t *b, pl_reach_t *r) {
+    if (!b) return;
+    if (pl_dcg_ctrl(b, 2, ",") || pl_dcg_ctrl(b, 2, ";") || pl_dcg_ctrl(b, 2, "->") || pl_dcg_ctrl(b, 2, "|")) { pl_dcg_collect_reach(b->c[0], r); pl_dcg_collect_reach(b->c[1], r); return; }
+    if (pl_dcg_ctrl(b, 1, "\\+")) { pl_dcg_collect_reach(b->c[0], r); return; }
+    if (!((b->t == TT_FNC || b->t == TT_QLIT || b->t == TT_NAME) && b->v.sval)) return;
+    if (!strcmp(b->v.sval, "{}") || !strcmp(b->v.sval, ".") || !strcmp(b->v.sval, "[]") || !strcmp(b->v.sval, "!") || !strcmp(b->v.sval, "call")) return;
+    pl_reach_add(r, b->v.sval, (int)strlen(b->v.sval), (b->t == TT_FNC ? b->n : 0) + 2, 1);
+}
+static void pl_tree_collect_reach(const tree_t *t, pl_reach_t *r) {
     if (!t) return;
-    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_NAME || t->c[0]->t == TT_QLIT)) { pl_tree_collect_reach(t->c[1], ex, pa); return; }
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_NAME || t->c[0]->t == TT_QLIT)) { pl_tree_collect_reach(t->c[1], r); return; }
     if (t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, "/") || !strcmp(t->v.sval, "//")) && t->n == 2 && t->c[0] && (t->c[0]->t == TT_NAME || t->c[0]->t == TT_QLIT) && t->c[0]->v.sval && t->c[1] &&
         t->c[1]->t == TT_ILIT) {
-        pl_pk_set_add(ex, t->c[0]->v.sval, (int)strlen(t->c[0]->v.sval), (int)t->c[1]->v.ival + (t->v.sval[1] ? 2 : 0));
+        pl_reach_add(r, t->c[0]->v.sval, (int)strlen(t->c[0]->v.sval), (int)t->c[1]->v.ival + (t->v.sval[1] ? 2 : 0), 0);
         return;
     }
-    if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) pl_pk_set_add(pa, t->v.sval, (int)strlen(t->v.sval), t->t == TT_FNC ? t->n : 0);
-    if (pl_dcg_ctrl(t, 2, "-->")) pl_tree_collect_dcg_pk(t->c[1], pa);
-    if (pl_dcg_ctrl(t, 2, "phrase") || pl_dcg_ctrl(t, 3, "phrase")) pl_tree_collect_dcg_pk(t->c[0], pa);
-    for (int i = 0; i < t->n; i++) pl_tree_collect_reach(t->c[i], ex, pa);
+    if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) pl_reach_add(r, t->v.sval, (int)strlen(t->v.sval), t->t == TT_FNC ? t->n : 0, 1);
+    if (pl_dcg_ctrl(t, 2, "-->")) pl_dcg_collect_reach(t->c[1], r);
+    if (pl_dcg_ctrl(t, 2, "phrase") || pl_dcg_ctrl(t, 3, "phrase")) pl_dcg_collect_reach(t->c[0], r);
+    for (int i = 0; i < t->n; i++) pl_tree_collect_reach(t->c[i], r);
 }
 static int pl_goal_ctrl(const tree_t *t) {
     static const char *const c[] = { ",", ";", "->", "*->", "|", 0 };
@@ -3427,28 +3451,36 @@ static int pl_goal_ctrl(const tree_t *t) {
     for (int i = 0; c[i]; i++) if (!strcmp(t->v.sval, c[i])) return 1;
     return 0;
 }
-static void pl_goal_collect_reach(const tree_t *t, pl_pk_set_t *ex, pl_pk_set_t *pa) {
+static void pl_goal_collect_reach(const tree_t *t, pl_reach_t *r) {
     if (!t) return;
-    if (pl_goal_ctrl(t)) { for (int i = 0; i < t->n; i++) pl_goal_collect_reach(t->c[i], ex, pa); return; }
-    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_NAME || t->c[0]->t == TT_QLIT)) { pl_goal_collect_reach(t->c[1], ex, pa); return; }
+    if (pl_goal_ctrl(t)) { for (int i = 0; i < t->n; i++) pl_goal_collect_reach(t->c[i], r); return; }
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_NAME || t->c[0]->t == TT_QLIT)) { pl_goal_collect_reach(t->c[1], r); return; }
     if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) {
-        pl_pk_set_add(ex, t->v.sval, (int)strlen(t->v.sval), t->t == TT_FNC ? t->n : 0);
-        for (int i = 0; t->t == TT_FNC && i < t->n; i++) pl_tree_collect_reach(t->c[i], ex, pa);
+        pl_reach_add(r, t->v.sval, (int)strlen(t->v.sval), t->t == TT_FNC ? t->n : 0, 0);
+        for (int i = 0; t->t == TT_FNC && i < t->n; i++) pl_tree_collect_reach(t->c[i], r);
         return;
     }
-    pl_tree_collect_reach(t, ex, pa);
+    pl_tree_collect_reach(t, r);
 }
-static void pl_clause_collect_refs(PlClause *cl, pl_pk_set_t *ex, pl_pk_set_t *pa) {
+static void pl_clause_collect_refs(PlClause *cl, pl_reach_t *r) {
     const tree_t *t = cl ? cl->tr : (const tree_t *)0;
     if (!t) return;
-    if (cl->is_dcg || t->t != TT_CLAUSE || t->n < 1 || !t->c[0]) { pl_tree_collect_reach(t, ex, pa); return; }
-    for (int k = 0; k < t->c[0]->n; k++) pl_tree_collect_reach(t->c[0]->c[k], ex, pa);
-    for (int k = 1; k < t->n; k++) pl_goal_collect_reach(t->c[k], ex, pa);
+    if (cl->is_dcg || t->t != TT_CLAUSE || t->n < 1 || !t->c[0]) { pl_tree_collect_reach(t, r); return; }
+    for (int k = 0; k < t->c[0]->n; k++) pl_tree_collect_reach(t->c[0]->c[k], r);
+    for (int k = 1; k < t->n; k++) pl_goal_collect_reach(t->c[k], r);
 }
-static int pl_lib_reach(const pl_pk_set_t *ex, const pl_pk_set_t *pa, const char *nm, int ar) {
-    if (ex->t && pl_pk_has(ex->t, ex->cap, nm, ar)) return 1;
-    for (int k = 0; k <= ar; k++) if (pa->t && pl_pk_has(pa->t, pa->cap, nm, k)) return 1;
-    return 0;
+static void pl_ri_put(pl_ri_t *ri, uint32_t *nr, int *hd, uint32_t hc, const char *s, int ar, int lib, int j, PlClause *cl) {
+    int n = (int)strlen(s);
+    uint32_t h = pl_pk_hname(s, n) & (hc - 1);
+    pl_ri_t *c = &ri[*nr];
+    c->s = s;
+    c->n = n;
+    c->ar = ar;
+    c->lib = lib;
+    c->j = j;
+    c->cl = cl;
+    c->next = hd[h];
+    hd[h] = (int)(*nr)++;
 }
 static int pl_lib_named(const pl_prelude_lib_t *lib, const pl_pk_t *rk, uint32_t rkc, const pl_pk_t *bk, uint32_t bkc, PlClause *base, PlClause *base_last, const char *native_only, const pl_pk_t *ud,
     uint32_t udc, int imported) {
@@ -3543,43 +3575,74 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     }
     char *mk[nlibs + 1];
     {
-        pl_pk_set_t r = { 0 }, rp = { 0 };
-        for (uint32_t q = 0; refkeys && q < refkeys->len; q++) {
-            const char *e = CV_AT(*refkeys, char *, q), *sl = strrchr(e, '/');
-            if (sl) pl_pk_set_add(&r, e, (int)(sl - e), (int)strtol(sl + 1, (char **)0, 10));
-        }
-        for (PlClause *cl = uprog ? uprog->head : (PlClause *)0; cl; cl = cl->next) pl_clause_collect_refs(cl, &r, &rp);
-        for (PlClause *cl = pre->head; cl; cl = cl->next) {
-            const tree_t *t = cl->tr;
-            if (t && t->t == TT_CLAUSE) for (int k = 1; k < t->n; k++) pl_goal_collect_reach(t->c[k], &r, &rp);
-            if (cl == base_last) break;
-        }
+        pl_reach_t r;
+        uint32_t ni = nb, hc, nr = 0;
+        memset(&r, 0, sizeof r);
         for (int i = 0; i < nlibs; i++) {
-            int nc = 0;
+            uint32_t nc = 0;
             mk[i] = NULL;
             if (!lp[i]) continue;
             for (PlClause *cl = lp[i]->head; cl; cl = cl->next) nc++;
             mk[i] = (char *)ct_zalloc((size_t)nc + 1, 1);
+            ni += nc;
         }
-        for (int changed = 1; changed;) {
-            changed = 0;
-            for (int i = 0; i < nlibs; i++) {
-                int j = 0;
-                if (!lp[i]) continue;
-                for (PlClause *cl = lp[i]->head; cl; cl = cl->next, j++) {
-                    const char *nm;
-                    int ar;
-                    if (mk[i][j]) continue;
-                    if (!pl_clause_is_directive(cl) && !pl_clause_is_attv_hook(cl) && !(pl_clause_key(cl, &nm, &ar) && nm && pl_lib_reach(&r, &rp, nm, ar))) continue;
-                    if (!pl_clause_is_directive(cl) && !pl_clause_is_attv_hook(cl) && nm[0] != '$' && pl_pk_has(bk, bkc, nm, ar)) continue;
-                    mk[i][j] = 1;
-                    changed = 1;
-                    pl_clause_collect_refs(cl, &r, &rp);
-                }
+        hc = pl_pk_cap(ni);
+        int hd[hc];
+        pl_ri_t ri[ni + 1];
+        char bw[nb + 1];
+        memset(bw, 0, sizeof bw);
+        for (uint32_t h = 0; h < hc; h++) hd[h] = -1;
+        {
+            int j = 0;
+            for (PlClause *cl = pre->head; cl; cl = cl->next, j++) {
+                const char *cn;
+                int car;
+                if (pl_clause_key(cl, &cn, &car) && cn) pl_ri_put(ri, &nr, hd, hc, cn, car, -1, j, cl);
+                if (cl == base_last) break;
             }
         }
-        if (r.t) ct_drop(r.t);
-        if (rp.t) ct_drop(rp.t);
+        for (int i = 0; i < nlibs; i++) {
+            int j = 0;
+            if (!lp[i]) continue;
+            for (PlClause *cl = lp[i]->head; cl; cl = cl->next, j++) {
+                const char *cn;
+                int car;
+                if (pl_clause_is_directive(cl) || pl_clause_is_attv_hook(cl)) { mk[i][j] = 1; pl_clause_collect_refs(cl, &r); }
+                else if (pl_clause_key(cl, &cn, &car) && cn) pl_ri_put(ri, &nr, hd, hc, cn, car, i, j, cl);
+            }
+        }
+        for (uint32_t q = 0; refkeys && q < refkeys->len; q++) {
+            const char *e = CV_AT(*refkeys, char *, q), *sl = strrchr(e, '/');
+            if (sl) pl_reach_add(&r, e, (int)(sl - e), (int)strtol(sl + 1, (char **)0, 10), 0);
+        }
+        r.user = 1;
+        for (PlClause *cl = uprog ? uprog->head : (PlClause *)0; cl; cl = cl->next) pl_clause_collect_refs(cl, &r);
+        r.user = 0;
+        for (uint32_t q = 0; referenced && q < referenced->len; q++) {
+            const char *e = CV_AT(*referenced, char *, q);
+            if (e && !(r.un.t && pl_pk_has(r.un.t, r.un.cap, e, 0))) pl_reach_add(&r, e, (int)strlen(e), 0, 1);
+        }
+        for (uint32_t qi = 0; qi < r.q.len; qi++) {
+            pl_rq_t e = CV_AT(r.q, pl_rq_t, qi);
+            for (int x = hd[pl_pk_hname(e.s, e.n) & (hc - 1)]; x >= 0; x = ri[x].next) {
+                pl_ri_t *c = &ri[x];
+                if (c->n != e.n || memcmp(c->s, e.s, (size_t)e.n) || (e.part ? c->ar < e.ar : c->ar != e.ar)) continue;
+                if (c->lib < 0) {
+                    const tree_t *t = c->cl->tr;
+                    if (bw[c->j]) continue;
+                    bw[c->j] = 1;
+                    if (t && t->t == TT_CLAUSE) for (int k = 1; k < t->n; k++) pl_goal_collect_reach(t->c[k], &r);
+                    continue;
+                }
+                if (mk[c->lib][c->j] || (c->s[0] != '$' && pl_pk_has(bk, bkc, c->s, c->ar))) continue;
+                mk[c->lib][c->j] = 1;
+                pl_clause_collect_refs(c->cl, &r);
+            }
+        }
+        if (r.ex.t) ct_drop(r.ex.t);
+        if (r.pa.t) ct_drop(r.pa.t);
+        if (r.un.t) ct_drop(r.un.t);
+        if (r.q.p) ct_drop(r.q.p);
     }
     for (int i = 0; i < nlibs; i++) {
         if (!lp[i]) continue;
