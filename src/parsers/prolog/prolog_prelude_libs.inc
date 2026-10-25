@@ -18730,6 +18730,9 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
     { "fast_term_serialized", 2 },
     { "fast_write", 2 },
     { "fast_read", 2 },
+    { "maplist", 6 },
+    { "maplist", 7 },
+    { "set_prolog_stack", 2 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
@@ -18742,6 +18745,16 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_33_SRC[] =
+    "maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).\n"
+    "'$swb_maplist'([], [], [], [], [], _).\n"
+    "'$swb_maplist'([A|As], [B|Bs], [C|Cs], [D|Ds], [E|Es], G) :- call(G, A, B, C, D, E), '$swb_maplist'(As, Bs, Cs, Ds, Es, G).\n"
+    "maplist(G, L1, L2, L3, L4, L5, L6) :- '$swb_maplist'(L1, L2, L3, L4, L5, L6, G).\n"
+    "'$swb_maplist'([], [], [], [], [], [], _).\n"
+    "'$swb_maplist'([A|As], [B|Bs], [C|Cs], [D|Ds], [E|Es], [F|Fs], G) :- call(G, A, B, C, D, E, F), '$swb_maplist'(As, Bs, Cs, Ds, Es, Fs, G).\n"
+    "set_prolog_stack(S, P) :- ( atom(S), memberchk(S, [local, global, trail, argument]) -> true ; throw(error(existence_error(stack, S), context(system:'$set_prolog_stack'/4, _))) ), '$swb_stack_kv'(P).\n"
+    "'$swb_stack_kv'(P) :- var(P), !, throw(error(instantiation_error, context(system:(=..)/2, _))).\n"
+    "'$swb_stack_kv'(P) :- compound(P), P =.. [K, V0], memberchk(K, [limit, min_free, low, factor, spare]), !, ( var(V0) -> throw(error(instantiation_error, context('$syspreds':set_prolog_stack/2, _))) ; true ), catch(V is V0, error(Err, _), throw(error(Err, context('$syspreds':set_prolog_stack/2, _)))), ( K == limit -> set_prolog_flag(stack_limit, V) ; true ).\n"
+    "'$swb_stack_kv'(P) :- ( compound(P) -> functor(P, K, _) ; K = P ), throw(error(domain_error(stack_parameter, K), context(system:'$set_prolog_stack'/4, _))).\n"
     "open_string(S, Stream) :- ( var(S) -> throw(error(instantiation_error, context(open_string/2, _))) ; true ), text_to_string(S, Str), atom_string(A, Str), open_input_atom_stream(A, Stream), '$gnu_os'(ts_unmark, Stream, _).\n"
     "directory_file_path(Dir, File, Path) :- nonvar(Dir), nonvar(File), !, ( ( is_absolute_file_name(File) ; Dir == '.' ) -> Path = File ; sub_atom(Dir, _, _, 0, /) -> atom_concat(Dir, File, Path) ; atomic_list_concat([Dir, /, File], Path) ).\n"
     "directory_file_path(Dir, File, Path) :- nonvar(Path), !, ( nonvar(Dir) -> ( Dir == '.', \\+ is_absolute_file_name(Path) -> File = Path ; sub_atom(Dir, _, _, 0, /) -> atom_concat(Dir, File, Path) ; atom_concat(Dir, /, TheDir) -> atom_concat(TheDir, File, Path) ) ; nonvar(File) -> atom_concat(Dir0, File, Path), '$swb_strip_slash'(Dir0, Dir) ; file_directory_name(Path, Dir), file_base_name(Path, File) ).\n"
