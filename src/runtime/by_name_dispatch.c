@@ -18695,7 +18695,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
         }
         { extern int rt_proc_is_registered(const char *); if (sn4 && !sysfn && rt_proc_is_registered(fn)) { out = RT_GC_CALLBACK(APPLY_fn_rq(fn, args, nargs, rq)); return out; } }
         if (sn4 && !sysfn && !sn4_call_in_scope(fn)) {
-            if (sn4_name_is_identifier(fn)) core_runtime_error(22, "undefined function called");
+            if (sn4_name_is_identifier(fn) && !(fn[0] == '&' && !fn[1])) core_runtime_error(22, "undefined function called");
             else core_runtime_error(29, "undefined operator referenced");
             return FAILDESCR;
         }
