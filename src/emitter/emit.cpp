@@ -1645,14 +1645,28 @@ static std::string pl_clause_zero(int ak) {
     if (b <= 128) { for (int q = 0; q < b / 8; q++) r += x86("mov", RDQ(emit_pl_fb(), g->alt_zlo + 8 * q), 0L); return r; }
     return r + x86("lea", "rdi", RDQ(emit_pl_fb(), g->alt_zlo)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(b / 8)) + x86("rep_stosq");
 }
+extern "C" int zls_g_vslot_count(const IR_graph_t *);
+extern "C" const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
+static int pl_local_is_spine_cell(const IR_graph_t * g, const char * nm) {
+    int nv = zls_g_vslot_count(g);
+    for (int k = 0; k < nv; k++) {
+        int o = -1;
+        const char * vn = zls_g_vslot_get(g, k, &o);
+        if (!vn || strcmp(vn, nm)) continue;
+        int cov = k < (int)g_emitter.zst_vcov.size() ? g_emitter.zst_vcov[(size_t)k] : 0, use = k < (int)g_emitter.zst_vuse.size() ? g_emitter.zst_vuse[(size_t)k] : -1;
+        return cov > 0 && cov == use;
+    }
+    return 0;
+}
 static std::string pl_step_reseed_locals(void) {
     std::string r;
     if (!g_emit_cfg || !g_emit_cfg->lnames) return r;
+    int kt = g_emit.flat_frame_bytes;
     for (int i = 0; i < g_emit_cfg->nlocals; i++) {
         const char * nm = g_emit_cfg->lnames[i];
         if (!nm) continue;
         int off = ir_varslot_of(g_emit_cfg, nm);
-        if (off < 0) continue;
+        if (off < 0 || (kt > 0 && off + 16 > kt) || pl_local_is_spine_cell(g_emit_cfg, nm)) continue;
         r += x86("mov", RDQ(emit_pl_fb(), off), 0L) + x86("mov", RDQ(emit_pl_fb(), off + 8), 0L);
     }
     return r;
