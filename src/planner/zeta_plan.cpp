@@ -80,9 +80,7 @@ void zd_ops_reserve(int n) {
     if (n <= g_emit.op_zcap) return;
     int o = g_emit.op_zcap, cap = o > 0 ? o : ZD_NOPS_MIN; while (cap < n) cap *= 2;
     g_emit.op_zread = zd_grow_one(g_emit.op_zread, o, cap, 0); g_emit.op_zkind = zd_grow_one(g_emit.op_zkind, o, cap, -1); g_emit.op_zread_xf = zd_grow_one(g_emit.op_zread_xf, o, cap, -1);
-    g_emit.op_zread_fr = zd_grow_one(g_emit.op_zread_fr, o, cap, -1); g_emitter.g_zd_fread = zd_grow_one(g_emitter.g_zd_fread, o, cap, -1); g_emit.op_zslot = zd_grow_one(g_emit.op_zslot, o, cap, -1);
-    g_emitter.g_zd_read = zd_grow_one(g_emitter.g_zd_read, o, cap, 0); g_emitter.g_zd_kind = zd_grow_one(g_emitter.g_zd_kind, o, cap, -1);
-        g_emitter.g_zd_anchor = zd_grow_one(g_emitter.g_zd_anchor, o, cap, -1);
+    g_emit.op_zread_fr = zd_grow_one(g_emit.op_zread_fr, o, cap, -1); g_emit.op_zslot = zd_grow_one(g_emit.op_zslot, o, cap, -1);
     g_emit.op_zcap = cap;
 }
 int zd_sr_role(const IR_t * nd) { int64_t v = IR_LIT(nd).ival; return (v == 1 || v == 2 || v == 3 || v == 4) ? (int)v : 0; }
@@ -1832,6 +1830,9 @@ static void zd_place(zeta_plan_t * rec, IR_t ** nodes, int n, const unsigned cha
                 int k = nidx(nodes, n, p);
                 if (k < 0) continue;
                 rd[j].dist = planner_read_distance(nodes, n, zarm, i, k, zout, rec->xb);
+                if (g_emitter.zd_check__on > 0 && rec->xb && rec->claim && rec->claim[i] != rec->claim[k] && (rec->xb[i] == INT_MIN || rec->xb[k] == INT_MIN) && planner_frame_slot(g, p) == -1 &&
+                    (zd_k_own(p) >= 16 || zd_local_home_node(p)) && !zd_run_alpha_dead(nodes, n, rec->claim, rec->claim[i])) { int fok = 0; zd_fam_delta(i, k, &fok);
+                    if (!fok) fprintf(stderr, "[ZD-CHECK]   READ i=%d %s reads p=%d %s across runs with an unknown base\n", i, bb_op_name(nd->op), k, bb_op_name(p->op)); }
                 { const IR_t * lh = zd_local_home_node(p); if (lh) rd[j].fr = bb_varslot_peek(IR_LIT(lh).sval); else if (zd_dj_cellless(nodes, n, zarm, k) && zls_off(p) >= 0) rd[j].fr = zls_off(p); }
                 rd[j].kind = (int)ir_norm_call_kind(p->op);
             }

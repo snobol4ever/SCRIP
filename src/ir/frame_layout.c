@@ -4,6 +4,7 @@
 #include "ct_vec.h"
 #include <stdlib.h>
 #include "frame_layout.h"
+#include "zeta_depth.h"
 #include "gc_frame_map.h"
 #include "ast.h"
 #include "g_lower.h"
@@ -625,6 +626,7 @@ static int zls_locals_shifted(IR_e op) {
         op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL || op == IR_CLEANUP;
 }
 int fc_arm_member(const IR_t * nd);
+int fc_leaf_cell(const IR_t * nd, long * k);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fc_cells_on(void) { return 1; }
 int fc_cells_active(void) { return fc_cells_on(); }
@@ -1918,6 +1920,7 @@ static const int * fca_arms(const IR_t * nd) { const fcn_t * t = fcn_find(nd, FC
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_arm_member_register(const IR_t * nd) { fcn_flag(nd, FCN_ARM); }
 int fc_arm_member(const IR_t * nd) { return fcn_find(nd, FCN_ARM) != (const fcn_t *)0; }
+int fc_leaf_cell(const IR_t * nd, long * k) { if (fc_geom(nd, k)) return 1; if (!nd || zdp_seam_tier(nd) != 0 || !zdp_scratch_cell(nd) || !fc_arm_member(nd)) return 0; if (k) *k = 16; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_alt_register(const IR_t * nd, int n, const int * fp, const int * ab, const int * ae) {
     if (!nd || n <= 0 || n > 10) return;

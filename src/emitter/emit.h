@@ -588,6 +588,7 @@ typedef struct {
     int * op_zslot;
     int op_zslot_n;
     int op_res_alias;
+    int op_zrow;
     int pl_trace_mode;
     unsigned long pl_trace_n;
     long pl_trace_depth;
