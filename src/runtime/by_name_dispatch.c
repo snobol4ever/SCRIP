@@ -23967,7 +23967,7 @@ static void *pl_db_static_ball(void *root, const char *op, const char *nm, int a
     int isclause = !strcmp(op, "clause");
     int bi;
     snprintf(key, sizeof key, "%s/%d", nm, ar);
-    bi = pl_pi_is_control(nm, ar) || (isclause && pl_pi_is_builtin(nm, ar) && !rt_pl_db_key_is_static(root, key));
+    bi = pl_pi_is_control(nm, ar) || (isclause && pl_pi_is_builtin(nm, ar) && !rt_pl_db_key_is_static(root, key) && !rt_pl_db_key_is_dynamic(root, key));
     if (!bi && (rt_pl_db_key_is_dynamic(root, key) || !(rt_proc_is_registered(key) || (isclause && rt_pl_db_key_is_static(root, key))))) return (void *)0;
     if (isclause) { if (!bi && !rt_pl_iso_mode() && !rt_pl_protect_static_code() && !pl_gnu_dialect()) return (void *)0; return rt_pl_ball_permission_pi("access", "private_procedure", nm, ar); }
     return rt_pl_ball_permission_pi("modify", "static_procedure", nm, ar);

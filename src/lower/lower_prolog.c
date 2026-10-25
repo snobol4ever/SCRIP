@@ -59,9 +59,10 @@ static pl_bb_ent_t * pl_bb_register(const char * name, int arity, int bb_idx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_pi_is_static_builtin(const char * pn, int ar);
+static int pl_swi_user_redefines(const char * nm, int ar);
 void pl_dyn_mark(const char *name, int arity) {
     if (!name) return;
-    if (pl_pi_is_static_builtin(name, arity)) return;
+    if (pl_pi_is_static_builtin(name, arity) && !pl_swi_user_redefines(name, arity)) return;
     for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return;
     if (g_stage2.pl_dyn_n >= g_stage2.pl_dyn_cap) {
         int nc = g_stage2.pl_dyn_cap > 0 ? g_stage2.pl_dyn_cap * 2 : 64;
@@ -1721,6 +1722,32 @@ static int pl_user_file_defines(const char * nm, int ar) {
     return pl_pred_file(nm, ar) || (pl_rt_registered_static(nm, ar) && !pl_prelude_defines(nm, ar));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_iso_builtin(const char * nm, int ar) {
+    static const struct {
+        const char * nm;
+        int ar;
+    } iso[] = { { "!", 0 }, { ",", 2 }, { "->", 2 }, { ";", 2 }, { "<", 2 }, { "=", 2 }, { "=..", 2 }, { "=:=", 2 }, { "=<", 2 }, { "==", 2 }, { "=\\=", 2 }, { ">", 2 }, { ">=", 2 }, { "@<", 2 },
+        { "@=<", 2 }, { "@>", 2 }, { "@>=", 2 }, { "\\+", 1 }, { "\\=", 2 }, { "\\==", 2 }, { "abolish", 1 }, { "acyclic_term", 1 }, { "arg", 3 }, { "asserta", 1 }, { "assertz", 1 },
+        { "at_end_of_stream", 0 }, { "at_end_of_stream", 1 }, { "atom", 1 }, { "atom_chars", 2 }, { "atom_codes", 2 }, { "atom_concat", 3 }, { "atom_length", 2 }, { "atomic", 1 }, { "bagof", 3 },
+        { "call", 1 }, { "call", 2 }, { "call", 3 }, { "call", 4 }, { "call", 5 }, { "call", 6 }, { "call", 7 }, { "call", 8 }, { "callable", 1 }, { "catch", 3 }, { "char_code", 2 },
+        { "char_conversion", 2 }, { "clause", 2 }, { "close", 1 }, { "close", 2 }, { "compare", 3 }, { "compound", 1 }, { "copy_term", 2 }, { "current_char_conversion", 2 }, { "current_input", 1 },
+        { "current_op", 3 }, { "current_output", 1 }, { "current_predicate", 1 }, { "current_prolog_flag", 2 }, { "discontiguous", 1 }, { "dynamic", 1 }, { "fail", 0 }, { "false", 0 }, { "findall",
+        3 }, { "float", 1 }, { "flush_output", 0 }, { "flush_output", 1 }, { "functor", 3 }, { "get_byte", 1 }, { "get_byte", 2 }, { "get_char", 1 }, { "get_char", 2 }, { "get_code", 1 },
+        { "get_code", 2 }, { "ground", 1 }, { "halt", 0 }, { "halt", 1 }, { "initialization", 1 }, { "integer", 1 }, { "is", 2 }, { "keysort", 2 }, { "length", 2 }, { "message_queue_create", 2 },
+        { "message_queue_destroy", 1 }, { "message_queue_property", 2 }, { "multifile", 1 }, { "mutex_create", 2 }, { "mutex_destroy", 1 }, { "mutex_lock", 1 }, { "mutex_property", 2 },
+        { "mutex_trylock", 1 }, { "mutex_unlock", 1 }, { "nl", 0 }, { "nl", 1 }, { "nonvar", 1 }, { "number", 1 }, { "number_chars", 2 }, { "number_codes", 2 }, { "numbervars", 3 }, { "once", 1 },
+        { "op", 3 }, { "open", 3 }, { "open", 4 }, { "peek_byte", 1 }, { "peek_byte", 2 }, { "peek_char", 1 }, { "peek_char", 2 }, { "peek_code", 1 }, { "peek_code", 2 }, { "phrase", 2 }, { "phrase",
+        3 }, { "predicate_property", 2 }, { "put_byte", 1 }, { "put_byte", 2 }, { "put_char", 1 }, { "put_char", 2 }, { "put_code", 1 }, { "put_code", 2 }, { "read", 1 }, { "read", 2 }, { "read_term",
+        2 }, { "read_term", 3 }, { "repeat", 0 }, { "retract", 1 }, { "retractall", 1 }, { "set_input", 1 }, { "set_output", 1 }, { "set_prolog_flag", 2 }, { "set_stream_position", 2 }, { "setof",
+        3 }, { "sort", 2 }, { "stream_property", 2 }, { "sub_atom", 5 }, { "subsumes_term", 2 }, { "term_variables", 2 }, { "thread_create", 3 }, { "thread_detach", 1 }, { "thread_get_message", 1 },
+        { "thread_get_message", 2 }, { "thread_get_message", 3 }, { "thread_peek_message", 1 }, { "thread_peek_message", 2 }, { "thread_property", 2 }, { "thread_self", 1 }, { "thread_send_message",
+        2 }, { "thread_signal", 2 }, { "throw", 1 }, { "true", 0 }, { "unify_with_occurs_check", 2 }, { "var", 1 }, { "with_mutex", 2 }, { "write", 1 }, { "write", 2 }, { "write_canonical", 1 },
+        { "write_canonical", 2 }, { "write_term", 2 }, { "write_term", 3 }, { "writeq", 1 }, { "writeq", 2 }, { 0, 0 } };
+    for (int i = 0; iso[i].nm; i++) if (iso[i].ar == ar && !strcmp(iso[i].nm, nm)) return 1;
+    return 0;
+}
+static int pl_swi_user_redefines(const char * nm, int ar) { return g_stage2.pl_dialect_swi && nm[0] != '$' && !pl_iso_builtin(nm, ar) && pl_user_file_defines(nm, ar); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_swi_library_leaf(const char * nm, int ar) {
     static const struct {
         const char * nm;
@@ -2306,6 +2333,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 return qr;
             }
             if (!strcmp(nm, "$") && t->n == 1 && !pl_dollar_user(1)) return pl_lower_det_goal(cx, t->c[0], γnext, ωfail, entry_out);
+            if (pl_swi_user_redefines(nm, t->n)) return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
             if (!strcmp(nm, "$det_prop") && t->n == 3) return pl_lower_det_prop(cx, t->c[0], t->c[1], t->c[2], γnext, ωfail, entry_out);
             if (!strcmp(nm, "string_concat") && t->n == 3 && !pl_user_defines(nm, 3)) {
                 tree_t * both = pl_cc_fnc2(",", pl_cc_fnc1("nonvar", (tree_t *) t->c[0]), pl_cc_fnc1("nonvar", (tree_t *) t->c[1]));
@@ -3100,7 +3128,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     if (entry_out) *entry_out = ge ? ge : le;
                     return nd;
                 }
-                if (pl_pi_is_static_builtin(pn, ar)) return goal(cx, pl_cc_perm_access(pn, ar), γnext, ωfail, entry_out);
+                if (pl_pi_is_static_builtin(pn, ar) && !pl_swi_user_redefines(pn, ar)) return goal(cx, pl_cc_perm_access(pn, ar), γnext, ωfail, entry_out);
                 if (pl_db_owned(pn, ar)) {
                     IR_t * le = NULL;
                     IR_t * nd = pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], t->c[1]), 0, γnext, ωfail, &le);
@@ -3139,7 +3167,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                         {
                             IR_t * body_first = first ? first : enum_entry;
                             IR_t * ge = NULL;
-                            pl_db_leaf2_tree(cx, "$db_t_guard", pl_clause_target(t->c[0], t->c[1]), pl_atom_goal("clause"), body_first, ωfail, &ge);
+                            if (!pl_swi_user_redefines(pn, ar)) pl_db_leaf2_tree(cx, "$db_t_guard", pl_clause_target(t->c[0], t->c[1]), pl_atom_goal("clause"), body_first, ωfail, &ge);
                             if (entry_out) *entry_out = ge ? ge : body_first;
                             return to;
                         }
