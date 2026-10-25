@@ -3430,12 +3430,13 @@ static int pl_lib_quiet(const pl_prelude_lib_t *lib, const char *nm, int ar) {
     return 0;
 }
 typedef struct { const char *s; int n; int ar; int part; } pl_rq_t;
-typedef struct { pl_pk_set_t ex, pa, un; cv_t q; int user; } pl_reach_t;
+typedef struct { pl_pk_set_t ex, pa, un, ug; cv_t q; int user; } pl_reach_t;
 typedef struct { const char *s; int n; int ar; int lib; int j; PlClause *cl; int next; } pl_ri_t;
 static void pl_reach_add(pl_reach_t *r, const char *s, int n, int ar, int part) {
     pl_pk_set_t *h = part ? &r->pa : &r->ex;
     uint32_t was = h->n;
     if (r->user) pl_pk_set_add(&r->un, s, n, 0);
+    if (r->user && !part) pl_pk_set_add(&r->ug, s, n, ar);
     pl_pk_set_add(h, s, n, ar);
     if (h->n != was) {
         pl_rq_t *e = &CV_PUSH(r->q, pl_rq_t);
@@ -3647,7 +3648,8 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             }
         }
     }
-    char *mk[nlibs + 1];
+    char *mk[nlibs + 1], called[nlibs + 1];
+    memset(called, 0, sizeof called);
     {
         pl_reach_t r;
         uint32_t ni = nb, hc, nr = 0;
@@ -3693,6 +3695,9 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         r.user = 1;
         for (PlClause *cl = uprog ? uprog->head : (PlClause *)0; cl; cl = cl->next) pl_clause_collect_refs(cl, &r);
         r.user = 0;
+        for (int i = 0; i < nlibs && r.ug.t; i++) {
+            for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[i].exports; lp[i] && e->nm && !called[i]; e++) if (pl_pk_has(r.ug.t, r.ug.cap, e->nm, e->ar)) called[i] = 1;
+        }
         for (uint32_t q = 0; referenced && q < referenced->len; q++) {
             const char *e = CV_AT(*referenced, char *, q);
             if (e && !(r.un.t && pl_pk_has(r.un.t, r.un.cap, e, 0))) pl_reach_add(&r, e, (int)strlen(e), 0, 1);
@@ -3717,6 +3722,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         if (r.ex.t) ct_drop(r.ex.t);
         if (r.pa.t) ct_drop(r.pa.t);
         if (r.un.t) ct_drop(r.un.t);
+        if (r.ug.t) ct_drop(r.ug.t);
         if (r.q.p) ct_drop(r.q.p);
     }
     cv_t lek = { 0 }, lev = { 0 };
@@ -3742,7 +3748,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "write_canonical")) pl_cv_add(referenced, "$write_canonical_swi");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "display")) pl_cv_add(referenced, "$display_swi");
-        if (imp[i] && (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "put_attr") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "freeze"))) pl_cv_add(referenced, "$wakeup");
+        if ((imp[i] || called[i]) && (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "put_attr") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "freeze"))) pl_cv_add(referenced, "$wakeup");
         PlClause *nextc = NULL, *ph = NULL, *pt = NULL;
         int ji = 0;
         for (PlClause *cl = lp[i]->head; cl; cl = nextc, ji++) {
