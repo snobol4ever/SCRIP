@@ -20,22 +20,6 @@ typedef struct {
 } sc_module_t;
 struct _DATINST_tType;
 struct tree_t;
-typedef struct { void *inst; int64_t id; int64_t ctx; int64_t arena; int64_t slab; int pinned; } g_pl_eng_ent_t;
-typedef struct { int64_t ctx; int64_t arena; int64_t slab; } g_pl_eng_pend_t;
-typedef struct {
-    g_pl_eng_ent_t *ent;
-    int n;
-    int cap;
-    g_pl_eng_pend_t *pend;
-    int npend;
-    int cpend;
-    int64_t *reaped;
-    int nreaped;
-    int creaped;
-    int64_t nmade;
-    int64_t nreaped_total;
-    int64_t nfreed;
-} g_pl_eng_t;
 typedef struct {
     int monitor_quiet_depth;
     int64_t kw_stcount;
@@ -83,6 +67,5 @@ typedef struct {
     long zsite_kgw[ZSM_N / 32][3];
     long zsite_to[ZSM_N / 32];
     long zsm_follow;
-    g_pl_eng_t pl_eng;
 } g_misc_t;
 #endif
