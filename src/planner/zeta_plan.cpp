@@ -1552,7 +1552,9 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 if (q < 0 || !zon[q]) continue;
                 if (nodes[q]->op != IR_DISJUNCTION || !zd_dj_anc(zarm, i, q)) {
                     if (zarm[q] == zarm[i] && zarmj[q] == zarmj[i]) continue;
-                    int ent = port_sz_beta(zd_edge_sz(nodes[i], v)) ? zout[q] : zout[q] - zd_k(nodes[q]);
+                    int res = 0;
+                    for (int j = 0; !v && nodes[q]->op == IR_DISJUNCTION && j < (int)IR_LIT(nodes[q]).ival && !res; j++) if (zd_dj_res(nodes[q], j) == nodes[i]) res = 1;
+                    int ent = (port_sz_beta(zd_edge_sz(nodes[i], v)) || res) ? zout[q] : zout[q] - zd_k(nodes[q]);
                     int xb = (claim[i] != claim[q] && claim[i] >= 0 && claim[q] >= 0 && known[claim[i]] && known[claim[q]]) ? base[claim[i]] - base[claim[q]] : 0;
                     if (v) zwpop[i] = (zout[i] - zd_k(nodes[i])) - ent + xb;
                     else zgpop[i] = zout[i] - ent + xb;
