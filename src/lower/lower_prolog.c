@@ -4595,6 +4595,114 @@ static const tree_t * pl_blockop_rewrite(const tree_t * t) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_rs_dyn(const tree_t * spec) {
+    if (!spec) return;
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_rs_dyn(spec->c[0]); pl_rs_dyn(spec->c[1]); return; }
+    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_rs_dyn(spec->c[i]); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "as") && spec->n == 2 && (pl_table_opt_kind(spec->c[1]) & 3)) pl_hook_dyn_record(spec->c[0]);
+}
+static int pl_rs_ctl(const tree_t * g, const char * f) { return g && g->t == TT_FNC && g->v.sval && g->n == 2 && !strcmp(g->v.sval, f); }
+static int pl_rs_source(const tree_t * g, const char ** tk, int ntk) {
+    char b[g && g->v.sval ? strlen(g->v.sval) + 24 : 24];
+    int ar;
+    if (!g || !g->v.sval || !(g->t == TT_FNC || g->t == TT_QLIT || g->t == TT_NAME)) return 0;
+    ar = g->t == TT_FNC ? g->n : 0;
+    if (pl_hook_dyn_is(g->v.sval, ar)) return 1;
+    snprintf(b, sizeof b, "%s/%d", g->v.sval, ar);
+    for (int i = 0; i < ntk; i++) if (!strcmp(tk[i], b)) return 2;
+    return 0;
+}
+static const tree_t * pl_rs_conj(const tree_t * a, const tree_t * b) { return !a ? b : !b ? a : pl_cc_fnc2(",", (tree_t *) a, (tree_t *) b); }
+#define PL_RS_CAP 64
+static void pl_rs_walk(const tree_t * g, const tree_t * after, const char ** tk, int ntk, const tree_t ** node, const tree_t ** aft, int * ns) {
+    if (!g) return;
+    if (pl_rs_ctl(g, ",")) { pl_rs_walk(g->c[0], pl_rs_conj(g->c[1], after), tk, ntk, node, aft, ns); pl_rs_walk(g->c[1], after, tk, ntk, node, aft, ns); return; }
+    if (pl_rs_ctl(g, ";") || pl_rs_ctl(g, "|")) { pl_rs_walk(g->c[0], after, tk, ntk, node, aft, ns); pl_rs_walk(g->c[1], after, tk, ntk, node, aft, ns); return; }
+    if (pl_rs_ctl(g, "->") || pl_rs_ctl(g, "*->")) { pl_rs_walk(g->c[0], pl_rs_conj(g->c[1], after), tk, ntk, node, aft, ns); pl_rs_walk(g->c[1], after, tk, ntk, node, aft, ns); return; }
+    if (pl_rs_source(g, tk, ntk) && *ns < PL_RS_CAP + 1) { node[*ns] = g; aft[*ns] = after; (*ns)++; }
+}
+static void pl_rs_vars(const tree_t * t, long long * slots, int * n, int cap) {
+    if (!t) return;
+    if (t->t == TT_VAR) { for (int i = 0; i < *n; i++) if (slots[i] == t->v.ival) return; if (*n < cap) slots[(*n)++] = t->v.ival; return; }
+    for (int i = 0; i < t->n; i++) pl_rs_vars(t->c[i], slots, n, cap);
+}
+static tree_t * pl_rs_inst(const tree_t * g, const tree_t ** node, tree_t ** rec, int ns) {
+    if (!g) return NULL;
+    for (int j = 0; j < ns; j++) if (node[j] == g) return pl_cc_fnc2(",", rec[j], (tree_t *) g);
+    if (pl_rs_ctl(g, ",") || pl_rs_ctl(g, ";") || pl_rs_ctl(g, "|") || pl_rs_ctl(g, "->") || pl_rs_ctl(g, "*->")) {
+        tree_t * c = ast_node_new(TT_FNC);
+        c->v = g->v;
+        c->line = g->line;
+        ast_push(c, pl_rs_inst(g->c[0], node, rec, ns));
+        ast_push(c, pl_rs_inst(g->c[1], node, rec, ns));
+        return c;
+    }
+    return (tree_t *) g;
+}
+static void pl_rs_push(tree_t * cl, const tree_t * g) { if (!g) return; if (pl_rs_ctl(g, ",")) { pl_rs_push(cl, g->c[0]); pl_rs_push(cl, g->c[1]); return; } ast_push(cl, (tree_t *) g); }
+static int pl_rs_clause(tree_t * ch, int ci, const char * key, const char ** tk, int ntk, tree_t ** out, int nout) {
+    tree_t * cl = pl_tree_copy(ch->c[ci]);
+    int ar = (int) cl->v.dval, ns = 0, nr = 0;
+    const tree_t * node[PL_RS_CAP + 1], * aft[PL_RS_CAP + 1], * bt = NULL;
+    tree_t * rec[PL_RS_CAP + 1], * vs[PL_RS_CAP + 1];
+    const char * sl = strrchr(key, '/');
+    char base[sl ? (size_t)(sl - key) + 1 : strlen(key) + 1];
+    long long slots[256];
+    if (cl->t != TT_CLAUSE || ar < 0 || ar > cl->n) return nout;
+    snprintf(base, sizeof base, "%.*s", (int)(sl ? sl - key : (long)strlen(key)), key);
+    for (int i = cl->n - 1; i >= ar; i--) bt = pl_rs_conj(cl->c[i], bt);
+    if (!bt) return nout;
+    pl_rs_walk(bt, NULL, tk, ntk, node, aft, &ns);
+    if (ns == 0 || ns > PL_RS_CAP) return nout;
+    for (int j = 0; j < ns; j++) {
+        int nv = 0;
+        char nm[strlen(base) + 40];
+        tree_t * v, * src;
+        for (int i = 0; i < ar; i++) pl_rs_vars(cl->c[i], slots, &nv, 256);
+        pl_rs_vars(node[j], slots, &nv, 256);
+        pl_rs_vars(aft[j], slots, &nv, 256);
+        v = nv > 0 ? ast_node_new(TT_FNC) : (tree_t *) pl_atom_goal("v");
+        if (nv > 0) { v->v.sval = (char *) "v"; for (int i = 0; i < nv; i++) { tree_t * pv = ast_node_new(TT_VAR); pv->v.ival = slots[i]; ast_push(v, pv); } }
+        vs[j] = v;
+        snprintf(nm, sizeof nm, "$rs %s#%d.%d", base, ci, j);
+        src = ast_node_new(TT_FNC);
+        src->v.sval = (char *) (pl_rs_source(node[j], tk, ntk) == 1 ? "dyn" : "tab");
+        {
+            char sb[strlen(node[j]->v.sval) + 2];
+            tree_t * pi = ast_node_new(TT_FNC), * nmn = ast_node_new(TT_QLIT);
+            snprintf(sb, sizeof sb, "%s", node[j]->v.sval);
+            nmn->v.sval = lp_strdup(sb);
+            pi->v.sval = (char *) "/";
+            ast_push(pi, nmn);
+            ast_push(pi, pl_cc_ilit(node[j]->t == TT_FNC ? node[j]->n : 0));
+            ast_push(src, pi);
+        }
+        { tree_t * r = ast_node_new(TT_FNC); r->v.sval = (char *) "$tbl_rec"; ast_push(r, src); ast_push(r, (tree_t *) pl_atom_goal(lp_strdup(nm))); ast_push(r, pl_tree_copy(v)); rec[j] = r; }
+    }
+    for (int j = 0; j < ns && nout + nr < 512; j++) {
+        char nm[strlen(base) + 40], rk[strlen(base) + 48];
+        tree_t * rcl = ast_node_new(TT_CLAUSE), * rch = ast_node_new(TT_CHOICE);
+        rcl->v.dval = ar + 1;
+        for (int i = 0; i < ar; i++) ast_push(rcl, pl_tree_copy(cl->c[i]));
+        ast_push(rcl, pl_tree_copy(vs[j]));
+        ast_push(rcl, pl_tree_copy(node[j]));
+        pl_rs_push(rcl, pl_rs_inst(aft[j], node, rec, ns));
+        snprintf(nm, sizeof nm, "$rs %s#%d.%d", base, ci, j);
+        snprintf(rk, sizeof rk, "%s/%d", nm, ar + 1);
+        rch->v.sval = (char *) lp_strdup(rk);
+        ast_push(rch, pl_tree_copy(rcl));
+        out[nout + nr++] = rch;
+    }
+    {
+        tree_t * ncl = ast_node_new(TT_CLAUSE);
+        ncl->v = cl->v;
+        ncl->line = cl->line;
+        for (int i = 0; i < ar; i++) ast_push(ncl, cl->c[i]);
+        for (int i = ar; i < cl->n; i++) ast_push(ncl, pl_rs_inst(cl->c[i], node, rec, ns));
+        ch->c[ci] = ncl;
+    }
+    return nout + nr;
+}
 static const tree_t * pl_table_rewrite(const tree_t * prog) {
     int nk = 0;
     for (int i = 0; i < prog->n; i++) nk = pl_table_specs(pl_table_dir(prog->c[i]), NULL, NULL, nk, 0);
@@ -4607,6 +4715,10 @@ static const tree_t * pl_table_rewrite(const tree_t * prog) {
     memset(kind, 0, sizeof kind);
     for (int i = 0; i < prog->n; i++) nf = pl_table_specs(pl_table_dir(prog->c[i]), keys, specs, nf, nk);
     for (int i = 0; i < prog->n; i++) pl_table_kind(pl_table_dir(prog->c[i]), keys, nf, kind);
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * ds = (prog->c[i] && prog->c[i]->t == TT_STMT) ? lp_s_expr(prog->c[i], ":subj") : NULL;
+        if (ds && ds->t == TT_FNC && ds->v.sval && !strcmp(ds->v.sval, "dynamic")) for (int q = 0; q < (ds->n == 2 ? 1 : ds->n); q++) pl_rs_dyn(ds->c[q]);
+    }
     tree_t * np = ast_node_new(prog->t);
     np->v = prog->v;
     np->line = prog->line;
@@ -4616,11 +4728,14 @@ static const tree_t * pl_table_rewrite(const tree_t * prog) {
         int k = -1;
         if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && subj->v.sval) for (int j = 0; j < nf; j++) if (!strcmp(keys[j], subj->v.sval)) k = j;
         if (k < 0) { ast_push(np, (tree_t *) s); continue; }
-        tree_t * rn = pl_tree_copy(subj);
+        tree_t * rn = pl_tree_copy(subj), * rsx[512];
         char b[strlen(keys[k]) + 6];
+        int nrs = 0;
         snprintf(b, sizeof b, "$tbl %s", keys[k]);
         rn->v.sval = (char *) lp_strdup(b);
+        if ((kind[k] & 6) && rn->t == TT_CHOICE) for (int ci = 0; ci < rn->n; ci++) nrs = pl_rs_clause(rn, ci, keys[k], keys, nf, rsx, nrs);
         ast_push(np, pl_table_stmt(s, rn));
+        for (int q = 0; q < nrs; q++) ast_push(np, pl_table_stmt(s, rsx[q]));
         if (!done[k]) { done[k] = 1; ast_push(np, pl_table_stmt(s, pl_table_wrapper(keys[k], specs[k], kind[k]))); }
     }
     return np;

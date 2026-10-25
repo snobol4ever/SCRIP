@@ -36,7 +36,7 @@ incr_propagate_calls(G):-'$tbl_dchange'(propagate,G,mono).
 incr_is_invalid(MG):-'$tbl_strip'(MG,M,G),'$tbl_vt'(VT),'$tbl_lookup'(VT,M,G,T),'$trie_meta_get'(T,0,invalid).
 '$tbl_dreads'([e(_,_,T)|Es],D):-('$tbl_idg'(T,idg(_,Deps,_,_,_)),memberchk(D,Deps)->true;'$tbl_dreads'(Es,D)).
 '$tbl_idg'(T,Dg):-'$trie_meta_get'(T,1,d(_,_,_,_,_,Dg)).
-'$tbl_idg_deps'(idg(TK,D0,Fc,Q,Fo),U,idg(TK,D1,Fc,Q,Fo)):-'$tbl_dunion'(U,D0,D1).
+'$tbl_idg_deps'(idg(TK,D0,Fc,Q,Fo),U,idg(TK,D1,Fc1,Q,Fo)):-'$tbl_rsplit'(U,Ds,Rs),'$tbl_dunion'(Ds,D0,D1),'$tbl_rs_merge'(Fc,Rs,Fc1).
 '$tbl_dunion'([],D,D).
 '$tbl_dunion'([X|Xs],D0,D):-(memberchk(X,D0)->D1=D0;D1=[X|D0]),'$tbl_dunion'(Xs,D1,D).
 '$tbl_duse'(D):-'$tbh_v'(9,[],U),(memberchk(D,U)->true;'$tbh_set'(9,[D|U])).
@@ -63,7 +63,7 @@ incr_is_invalid(MG):-'$tbl_strip'(MG,M,G),'$tbl_vt'(VT),'$tbl_lookup'(VT,M,G,T),
 '$tbl_dinvg'(_,_,_).
 '$tbl_dinvg1'([],_).
 '$tbl_dinvg1'([e(_,G,T)|Es],H):-(\+ \+ G=H->'$tbl_inval'(T);true),'$tbl_dinvg1'(Es,H).
-'$tbl_dact'(Op,mono,TK,T,S,D):-(TK==mono;TK==lazy),'$tbl_assertish'(Op),'$trie_meta_get'(T,1,d(_,_,plain,_,_,_)),!,'$tbl_mdelta'(T,S,D).
+'$tbl_dact'(Op,mono,TK,T,S,D):-(TK==mono;TK==lazy),'$tbl_assertish'(Op),!,'$tbl_mdelta'(T,S,D).
 '$tbl_dact'(_,_,_,T,_,_):-'$tbl_inval'(T).
 '$tbl_assertish'(assert).
 '$tbl_assertish'(asserta).
@@ -103,6 +103,7 @@ incr_is_invalid(MG):-'$tbl_strip'(MG,M,G),'$tbl_vt'(VT),'$tbl_lookup'(VT,M,G,T),
 '$tbl_inval_deps'([e(_,_,T2)|Es],T):-('$tbl_idg'(T2,idg(_,Deps,_,_,_)),memberchk(T,Deps)->'$tbl_inval'(T2);true),'$tbl_inval_deps'(Es,T).
 '$tbl_mono_step'(T,S,D):-'$trie_meta_get'(T,0,complete),'$trie_meta_get'(T,1,d(G,I,K,_,_,_)),!,'$tx_meta'(T),'$tbl_hdr','$tbh_own'(1,[]),'$tbh_own'(2,false),'$tbh_own'(3,0),'$tbh_own'(4,false),'$tbh_own'(5,false),catch(('$tbl_mono_pass'(T,G,I,K,S,D,New),'$tbl_rounds','$tbl_wfsrun'),E,('$tbl_abort',throw(E))),'$tbl_inprog'(Ts),'$tbl_complete'(Ts),'$tbh_close','$tbl_propagate'(T,New).
 '$tbl_mono_step'(_,_,_).
+'$tbl_mono_pass'(T,G,_,K,S,D,New):-'$tbl_idg'(T,idg(_,_,Fc,_,_)),is_list(Fc),'$tbl_rs_for'(Fc,S,Rs),Rs\==[],!,'$trie_meta_get'(T,1,d(_,_,_,Sn0,_,_)),'$tbl_mx0'(Sn0,M0),'$tbl_hdr','$tbh_own'(6,all),'$tbh_own'(7,0),'$tbh_own'(8,M0),'$tbh_own'(9,[]),'$tbl_rsrun'(Rs,S,D,G,Fs),'$tbh_v'(9,[],U),'$tbh_v'(8,0,Mx),'$tbh_close','$trie_meta_get'(T,1,d(G1,I1,K1,Sn,W,Dg0)),'$tbl_idg_deps'(Dg0,U,Dg1),'$tbl_mx'(Sn,Mx,Sn1),'$trie_meta_set'(T,1,d(G1,I1,K1,Sn1,W,Dg1)),'$tx_deps'(T,Dg1),'$tbl_addnew'(K,Fs,T,G,New).
 '$tbl_mono_pass'(T,G,I,K,S,D,New):-'$trie_meta_get'(T,1,d(_,_,_,Sn0,_,_)),'$tbl_mx0'(Sn0,M0),'$tbl_hdr','$tbh_own'(6,all),'$tbh_own'(7,0),'$tbh_own'(8,M0),'$tbh_own'(9,[]),'$tbl_mrun'(1,S,D,G,I,Fs),'$tbh_v'(9,[],U),'$tbh_v'(8,0,Mx),'$tbh_close','$trie_meta_get'(T,1,d(G1,I1,K1,Sn,W,Dg0)),'$tbl_idg_deps'(Dg0,U,Dg1),'$tbl_mx'(Sn,Mx,Sn1),'$trie_meta_set'(T,1,d(G1,I1,K1,Sn1,W,Dg1)),'$tx_deps'(T,Dg1),'$tbl_addnew'(K,Fs,T,G,New).
 '$tbl_mx0'(s(M,_),M1):-!,M1 is max(M,1).
 '$tbl_mx0'(_,1).
@@ -110,7 +111,10 @@ incr_is_invalid(MG):-'$tbl_strip'(MG,M,G),'$tbl_vt'(VT),'$tbl_lookup'(VT,M,G,T),
 '$tbl_mx'(Sn,_,Sn).
 '$tbl_mrun'(R,S,D,G,I,Fs):-'$tbh_v'(8,0,M),(R>M->Fs=[];'$tbh_bset'(6,mono(S,R,D)),'$tbh_bset'(7,0),'$tbl_fa'(G,(I,'$tbh_v'(7,0,J),J>=R),F1),R1 is R+1,'$tbl_mrun'(R1,S,D,G,I,F2),'$tbl_app'(F1,F2,Fs)).
 '$tbl_addnew'(plain,Fs,T,G,New):-!,'$tbl_chk'(Fs,T),'$tbl_addn'(Fs,T,G,New).
-'$tbl_addnew'(K,Fs,T,G,[]):-'$tbl_addk'(K,Fs,T,G,_).
+'$tbl_addnew'(K,Fs,T,G,New):-'$trie_entries'(T,E0),'$tbl_addk'(K,Fs,T,G,_),'$trie_entries'(T,E1),'$tbl_chg'(E1,E0,New).
+'$tbl_chg'([],_,[]).
+'$tbl_chg'([e(R,Sk,V)|Es],E0,New):-('$tbl_has_e'(E0,Sk,V)->New=N1;New=[e(R,Sk,V)|N1]),'$tbl_chg'(Es,E0,N1).
+'$tbl_has_e'([e(_,Sk0,V0)|E],Sk,V):-('$tbl_same'(Sk0,Sk),'$tbl_same'(V0,V)->true;'$tbl_has_e'(E,Sk,V)).
 '$tbl_addn'([],_,_,[]).
 '$tbl_addn'([A|As],T,G,New):-copy_term(G,Gc),term_variables(Gc,Vs),Gc=A,Sk=..[ret|Vs],'$trie_insert'(T,0,Sk,true,R),(R>=0->'$tx_log'(answer(T,Sk)),New=[e(R,Sk,true)|N1];New=N1),'$tbl_addn'(As,T,G,N1).
 '$tbl_propagate'(_,[]):-!.
@@ -298,7 +302,7 @@ call_delays(G,D):-'$call_delays_m'(user,G,D).
 '$tbl_eval'(T,N):-'$trie_meta_get'(T,1,d(G,_,_,_,_,_)),ground(G),'$tbl_gshort'(T,N),!.
 '$tbl_gshort'(T,0):- \+ '$tbl_ph'(r),'$trie_entries'(T,[_|_]),!.
 '$tbl_gshort'(T,N):-'$tbl_ph'(r),'$tbl_wtin'(T,ret),('$trie_entries'(T,[_|_])->N=0;'$trie_insert'(T,0,ret,r([ret-[]]),_),N=1).
-'$tbl_eval'(T,N):-'$trie_meta_get'(T,1,d(G,I,K,Sn,W,Dg0)),'$tbl_hdr','$tbh_own'(6,all),'$tbh_own'(7,0),'$tbh_own'(8,0),'$tbh_own'(9,[]),'$tbl_runs'(Sn,G,I,Fs,Mx),'$tbh_v'(9,[],U),'$tbh_close','$tbl_snap'(U,Ps),'$tbl_idg_deps'(Dg0,U,Dg1),'$trie_meta_set'(T,1,d(G,I,K,s(Mx,Ps),W,Dg1)),'$tbl_addk'(K,Fs,T,G,N),'$tx_log'(evald(T)).
+'$tbl_eval'(T,N):-'$trie_meta_get'(T,1,d(G,I,K,Sn,W,Dg0)),'$tbl_hdr','$tbh_own'(6,all),'$tbh_own'(7,0),'$tbh_own'(8,0),'$tbh_own'(9,[]),'$tbl_runs'(Sn,G,I,Fs,Mx),'$tbh_v'(9,[],U),'$tbh_close','$tbl_rsplit'(U,Ds,_),'$tbl_snap'(Ds,Ps),'$tbl_idg_deps'(Dg0,U,Dg1),'$trie_meta_set'(T,1,d(G,I,K,s(Mx,Ps),W,Dg1)),'$tbl_addk'(K,Fs,T,G,N),'$tx_log'(evald(T)).
 '$tbl_runs'(none,G,I,Fs,Mx):-!,'$tbh_bset'(6,all),'$tbh_bset'(7,0),'$tbh_set'(8,0),'$tbl_fa'(G,I,Fs),'$tbh_v'(8,0,Mx).
 '$tbl_runs'(s(Mx0,Ps),G,I,Fs,Mx):-'$tbh_set'(8,Mx0),'$tbl_run'(1,Ps,G,I,Fs),'$tbh_v'(8,0,Mx).
 '$tbl_run'(R,Ps,G,I,Fs):-'$tbh_v'(8,0,M),(R>M->Fs=[];'$tbh_bset'(6,sn(R,Ps)),'$tbh_bset'(7,0),'$tbl_fa'(G,(I,'$tbh_v'(7,0,J),J>=R),F1),R1 is R+1,'$tbl_run'(R1,Ps,G,I,F2),'$tbl_app'(F1,F2,Fs)).
@@ -435,3 +439,16 @@ snapshot(G):-'$tx_open'(P,L),(catch(once(G),E,('$tx_undo'(L),'$tx_close'(P),thro
 '$tx_deps'(T,Dg):-nb_current('$tx_cur',C),C=tx(Rs),!,(Dg=idg(_,Dp,_,_,_),'$tx_hit_in'(Dp,Rs),\+ '$tx_has_inpush'(Rs,T)->nb_setarg(1,C,[inpush(T)|Rs]);true).
 '$tx_deps'(_,_).
 '$tx_hit_in'([D|Ds],Rs):-('$tx_inside'(D,Rs)->true;'$tx_hit_in'(Ds,Rs)).
+'$tbl_rec'(Src,Name,Vs):-'$tbh_v'(9,[],U),R=rs(Src,Name,Vs),('$tbl_rs_has'(U,R)->true;'$tbh_set'(9,[R|U])).
+'$tbl_rs_has'([X|Xs],R):-(X=rs(_,_,_),X=@=R->true;'$tbl_rs_has'(Xs,R)).
+'$tbl_rsplit'([],[],[]).
+'$tbl_rsplit'([X|Xs],Ds,Rs):-(X=rs(_,_,_)->Rs=[X|Rs1],Ds=Ds1;Ds=[X|Ds1],Rs=Rs1),'$tbl_rsplit'(Xs,Ds1,Rs1).
+'$tbl_rs_merge'(Fc,Rs,Fc1):-(is_list(Fc)->R0=Fc;R0=[]),'$tbl_rs_add'(Rs,R0,Fc1).
+'$tbl_rs_add'([],L,L).
+'$tbl_rs_add'([R|Rs],L0,L):-('$tbl_rs_has'(L0,R)->L1=L0;'$tbl_app'(L0,[R],L1)),'$tbl_rs_add'(Rs,L1,L).
+'$tbl_rs_for'([],_,[]).
+'$tbl_rs_for'([R|Rs],S,Out):-(R=rs(Src,_,_),'$tbl_rs_src'(Src,S)->Out=[R|O1];Out=O1),'$tbl_rs_for'(Rs,S,O1).
+'$tbl_rs_src'(dyn(K),S):-S==dyn(K).
+'$tbl_rs_src'(tab(K),S):-integer(S),'$tbl_dgoal'(S,G0),functor(G0,F,N),K=F/N.
+'$tbl_rsrun'([],_,_,_,[]).
+'$tbl_rsrun'([rs(_,Name,Vs0)|Rs],S,D,G,Fs):-copy_term(Vs0,Vs),G=..[_|As],'$tbl_app'(As,[Vs],As2),Gr=..[Name|As2],'$tbh_bset'(6,mono(S,1,D)),'$tbh_bset'(7,0),'$tbl_fa'(G,Gr,F1),'$tbl_rsrun'(Rs,S,D,G,F2),'$tbl_app'(F1,F2,Fs).

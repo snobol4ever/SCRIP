@@ -3966,7 +3966,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "current_prolog_flag")) pl_cv_add(&referenced, "$flag_member");
     if (pl_cv_has(&referenced, "current_predicate")) pl_cv_add(&referenced, "$cp_mq");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
-    if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); pl_cv_add(&referenced, "$tbl_icall"); pl_cv_add(&referenced, "$tbl_kcall"); }
+    if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); pl_cv_add(&referenced, "$tbl_icall"); pl_cv_add(&referenced, "$tbl_kcall"); pl_cv_add(&referenced, "$tbl_rec"); }
     if (hooked_dyn) { pl_cv_add(&referenced, "$tbl_dcall"); pl_cv_add(&referenced, "$tbl_dchange"); }
     if (pl_cv_has(&referenced, "source_file")) pl_cv_add(&referenced, "$src_file_add");
     if (pl_cv_has(&referenced, "load_files")) {
@@ -4080,7 +4080,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_word_referenced(user_src, "undefined")) {
         pl_cv_add(&referenced, "$tbl_call");
         pl_cv_add(&refkeys, pl_pred_key("$tbl_call", 2));
-        static const struct { const char * nm; int ar; } tbl_roots[] = { { "$tbl_icall", 2 }, { "$tbl_kcall", 3 }, { "$tbl_mcall", 3 }, { "$tbl_mcall", 4 }, { "$tbl_dcall", 1 }, { "$tbl_dchange", 3 }, { 0, 0 } };
+        static const struct { const char * nm; int ar; } tbl_roots[] = { { "$tbl_icall", 2 }, { "$tbl_kcall", 3 }, { "$tbl_mcall", 3 }, { "$tbl_mcall", 4 }, { "$tbl_dcall", 1 }, { "$tbl_dchange", 3 }, { "$tbl_rec", 3 }, { 0, 0 } };
         for (int ti = 0; tbl_roots[ti].nm; ti++) if (pl_cv_has(&referenced, tbl_roots[ti].nm)) pl_cv_add(&refkeys, pl_pred_key(tbl_roots[ti].nm, tbl_roots[ti].ar));
     }
     PlProgram *pre = pl_prelude_parse(PL_PRELUDE_SRC, -1, "", 0);
