@@ -195,6 +195,7 @@ expr14     : T_1AT      expr14                                                  
            | expr15                                                                                { $$=$1; }
            ;
 expr15     : expr15 T_LBRACK { tal_open(); tal_push($1); } idx_args T_RBRACK  { int _n=tal_count(); tree_t*_i=ast_node_new(TT_IDX); for(int _j=0;_j<_n;_j++) expr_add_child(_i,tal_child(_j)); tal_close(); $$=_i; }
+           | expr15 T_LANGLE { tal_open(); tal_push($1); } idx_args T_RANGLE  { int _n=tal_count(); tree_t*_i=ast_node_new(TT_IDX); for(int _j=0;_j<_n;_j++) expr_add_child(_i,tal_child(_j)); tal_close(); $$=_i; }
            | expr17                                                                                { $$=$1; }
            ;
 idx_args   : idx_args T_COMMA expr0                                                               { if (tal_count()==1) tal_push(ast_node_new(TT_NUL)); tal_push($3); }
