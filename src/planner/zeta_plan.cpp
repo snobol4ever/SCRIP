@@ -1737,6 +1737,27 @@ void zd_check(IR_t **nodes, int n, const unsigned char *zon, const int *zout, co
         if (chn != zcut[i] && rec != zcut[i])
             fprintf(stderr, "[ZD-CHECK]   UNMARK      i=%d -> E_cont=%d chain_arrives=%d record_arrives=%d (reported, not counted)\n", i, zcut[i], chn, rec);
     }
+    int sb_cut = 0;
+    for (int i = 0; i < n; i++) if (nodes[i]->op == IR_CUT && !IR_LIT(nodes[i]).ival) sb_cut = 1;
+    for (int i = 0; !sb_cut && xb && g_emit_cfg && g_emit_cfg->n_alts > 0 && g_emit_cfg->alt_redo && g_emit_cfg->alt_ret && i < n; i++) {
+        if (!zon[i] || xb[i] == INT_MIN) continue;
+        IR_t * ig = (nodes[i]->op == IR_GATE_ARM && !nodes[i]->γ.node && nodes[i]->n_operands > 1) ? nodes[i]->operands[1] : (IR_t *)0;
+        IR_t * c = zd_chase(ig ? ig->γ.node : nodes[i]->γ.node);
+        if (!c || c->op != IR_SUCCEED || (!ig && nodes[i]->op == IR_GATE)) continue;
+        for (int k = 0; k < g_emit_cfg->n_alts; k++) {
+            IR_t * rd = g_emit_cfg->alt_redo[k];
+            int dq = (rd && g_emit_cfg->alt_ret[k] && zd_chase(g_emit_cfg->alt_ret[k]) == c) ? nidx(nodes, n, zd_chase(rd)) : -1;
+            int expect;
+            if (dq < 0 || !zon[dq] || xb[dq] == INT_MIN) continue;
+            expect = xb[i] + zout[i] - (xb[dq] + zout[dq]);
+            edges++;
+            if (zgpop[i] != expect) {
+                viol++;
+                fprintf(stderr, "[ZD-CHECK]   SAVED-BETA i=%d %s -> redo j=%d %s gpop=%d expects=%d\n", i, bb_op_name(nodes[i]->op), dq, bb_op_name(nodes[dq]->op), zgpop[i], expect);
+            }
+            break;
+        }
+    }
     fprintf(stderr, "[ZD-CHECK] graph=%s boxes=%d armed=%d definite=%d coordinate=%s edges=%d violations=%d\n", prefix ? prefix : "?", n, armed, def, xb ? "absolute" : "relative", edges, viol);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
