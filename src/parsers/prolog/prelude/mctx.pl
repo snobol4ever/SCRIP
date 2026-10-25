@@ -25,9 +25,10 @@
 '$mctx_un'(M1,M2,T0,T):-(nonvar(T0),T0=(H0:-B)->'$mctx_unh'(M1,M2,H0,H),T=(H:-B);'$mctx_unh'(M1,M2,T0,T)).
 '$mctx_retract'(M1,M2,C):-(var(C)->retract(C1),'$mctx_un'(M1,M2,C1,C);'$mctx_term'(M1,M2,C,C1),retract(C1)).
 '$mctx_retractall'(M1,M2,H0):-'$mctx_head'(M1,M2,H0,H),retractall(H).
-'$mctx_unb'(M1,M2,B0,B):-(nonvar(B0),B0=Q:B1,atom(Q),(Q==M1;Q==M2)->B=B1;B=B0).
-'$mctx_clause'(M1,M2,H0,B):-(var(H0)->clause(H1,B0),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B0)),'$mctx_unb'(M1,M2,B0,B).
-'$mctx_clause'(M1,M2,H0,B,R):-(var(H0)->clause(H1,B0,R),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B0,R)),'$mctx_unb'(M1,M2,B0,B).
+'$mctx_own'(H,Own):-(nonvar(H),callable(H),functor(H,N,_),atom(N),'$mod_split'(N,Own0,_)->Own=Own0;Own=user).
+'$mctx_unb'(M1,M2,H1,B0,B):-(nonvar(B0),B0=Q:B1,atom(Q),(Q==M1;Q==M2)->B2=B1;B2=B0),'$mctx_own'(H1,Own),'$clause_unmangle'(Own,B2,B).
+'$mctx_clause'(M1,M2,H0,B):-(var(H0)->clause(H1,B0),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B0),H1=H),'$mctx_unb'(M1,M2,H1,B0,B).
+'$mctx_clause'(M1,M2,H0,B,R):-(var(H0)->clause(H1,B0,R),'$mctx_unh'(M1,M2,H1,H0);'$mctx_head'(M1,M2,H0,H),clause(H,B0,R),H1=H),'$mctx_unb'(M1,M2,H1,B0,B).
 '$mctx_call'(M,G):-catch(G,error(existence_error(procedure,PI),Ctx),'$mctx_unk'(M,G,PI,Ctx)).
 '$mctx_unk'(M,G,N/A,_):-nonvar(G),callable(G),functor(G,N,A),'$mctx_pick'([M],N,A,QN),!,G=..[_|As],G2=..[QN|As],call(G2).
 '$mctx_unk'(M,G,N/A,Ctx):-atom(N),'$mctx_lf'(M,G,Q,E),callable(E),functor(E,N,A),Q\==user,!,throw(error(existence_error(procedure,Q:N/A),Ctx)).
