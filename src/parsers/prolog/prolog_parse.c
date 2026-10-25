@@ -3535,9 +3535,10 @@ static int pl_lib_export_of(const cv_t *ek, const cv_t *ev, const char *nm, int 
     return -1;
 }
 static char *pl_lib_private_name(int lib, const char *nm) {
-    size_t a = strlen(PL_PRELUDE_LIBS[lib].lib), b = strlen(nm);
+    const char *stem = lib < 0 ? "system" : PL_PRELUDE_LIBS[lib].lib;
+    size_t a = strlen(stem), b = strlen(nm);
     char *r = (char *)ct_alloc(a + b + 2);
-    memcpy(r, PL_PRELUDE_LIBS[lib].lib, a);
+    memcpy(r, stem, a);
     r[a] = ':';
     memcpy(r + a + 1, nm, b + 1);
     return r;
@@ -3556,7 +3557,7 @@ static void pl_lib_rename_goals(tree_t *g, int dcg, const cv_t *ek, const cv_t *
     if (!dcg && n == 3 && !strcmp(f, "catch")) { pl_lib_rename_goals(g->c[0], 0, ek, ev); pl_lib_rename_goals(g->c[2], 0, ek, ev); return; }
     if (!strcmp(f, ":")) return;
     int j = pl_lib_export_of(ek, ev, f, n + (dcg ? 2 : 0));
-    if (j >= 0) g->v.sval = pl_lib_private_name(j, f);
+    if (j != -1) g->v.sval = pl_lib_private_name(j, f);
 }
 static tree_t *pl_lib_clause_head(PlClause *cl, int *dcg) {
     tree_t *d = pl_clause_dcg(cl), *h;
@@ -4088,6 +4089,35 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         int exc = pl_cv_has(&user_defined, "exception/3");
         for (PlClause *cl = pre->head; cl && !exc; cl = cl->next) { const char *nm; int ar; if (pl_clause_key(cl, &nm, &ar) && nm && ar == 3 && !strcmp(nm, "exception")) exc = 1; }
         if (exc) { pl_cv_add(&referenced, "$nb_getval_hooked"); pl_cv_add(&referenced, "$b_getval_hooked"); }
+    }
+    {
+        cv_t bk = { 0 }, bv = { 0 };
+        PlClause *ph = NULL, *pt = NULL;
+        for (PlClause *cl = pre->head; cl; cl = cl->next) {
+            const char *nm;
+            int ar;
+            if (cl->dq_forced == 3 + 1 || pl_clause_is_directive(cl) || !pl_clause_key(cl, &nm, &ar) || !nm || nm[0] == '$' || pl_lib_export_of(&bk, &bv, nm, ar) != -1) continue;
+            char *k = pl_pred_key(nm, ar);
+            if (pl_cv_has(&user_defined, k)) { CV_PUSH(bk, char *) = k; CV_PUSH(bv, void *) = (void *)(intptr_t)-2; }
+        }
+        if (bk.len) (void)pl_prelude_defines("", -1);
+        for (PlClause *cl = bk.len ? pre->head : (PlClause *)0; cl; cl = cl->next) {
+            const char *nm;
+            int ar, dg = 0;
+            tree_t *hd;
+            pl_lib_rename_clause(cl, &bk, &bv);
+            if (cl->dq_forced == 3 + 1 || pl_clause_is_directive(cl) || !pl_clause_key(cl, &nm, &ar) || !nm || pl_lib_export_of(&bk, &bv, nm, ar) != -2) continue;
+            PlClause *cp = (PlClause *)ct_alloc(sizeof *cp);
+            *cp = *cl;
+            cp->tr = pl_tree_dup(cl->tr);
+            cp->next = NULL;
+            if ((hd = pl_lib_clause_head(cp, &dg)) == (tree_t *)0) continue;
+            hd->v.sval = pl_lib_private_name(-2, nm);
+            if (!pl_cv_has_key(&g_stage2.pl_prelude_keys, hd->v.sval, ar)) CV_PUSH(g_stage2.pl_prelude_keys, char *) = pl_pred_key(hd->v.sval, ar);
+            if (!ph) ph = cp; else pt->next = cp;
+            pt = cp;
+        }
+        for (PlClause *cp = ph, *nx; cp; cp = nx) { nx = cp->next; cp->next = NULL; if (!pre->head) pre->head = cp; else pre->tail->next = cp; pre->tail = cp; pre->nclauses++; }
     }
     for (PlClause *cl = pre->head; cl; cl = cl->next) {
         const char *nm; int ar;
