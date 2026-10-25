@@ -579,7 +579,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                 strcmp(tk.text, "public") == 0 ||
                 strcmp(tk.text, "record") == 0 ||
                 strcmp(tk.text, "mode") == 0) {
-                if (prefix_arg_starts(pk)) {
+                if (prefix_arg_starts(pk) || (p->lx.swi && (pk.kind == TK_ATOM || pk.kind == TK_OP) && lexer_functor_follows(&p->lx))) {
                     tree_t *fnc = ast_node_new(TT_FNC);
                     fnc->v.sval = ct_strdup(strcmp(tk.text, "thread_local") == 0 ? "dynamic" : tk.text);
                     tree_t *arg = pt_term(p, ts, 1150);
