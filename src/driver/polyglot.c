@@ -24,6 +24,7 @@ void polyglot_init(stage2_t *s2, const tree_t *prog) {
     prescan_defines(prog);
     g_fi8_gen_init_count++;
     s2->proc_count = 0;
+    s2->proc_ix_n = -1;
     { extern void global_reset(void); global_reset(); }
     g_runtime.abi.scan_subj = "";
     g_runtime.abi.scan_pos = 1;

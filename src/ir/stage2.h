@@ -56,6 +56,11 @@ typedef struct stage2_t {
     ProcEntry *proc_table;
     int proc_count;
     int proc_cap;
+    int *proc_ix;
+    unsigned proc_ix_mask;
+    int proc_ix_n;
+    int proc_ix_nul;
+    ProcEntry *proc_ix_tbl;
     Resolve_PredTable resolve_pred_table;
     ScripModuleRegistry module_registry;
     const char **pl_dyn_name;

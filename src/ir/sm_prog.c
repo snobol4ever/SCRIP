@@ -24,6 +24,10 @@ void stage2_reset(void) {
     g_stage2.label_table = NULL;
     ct_drop(g_stage2.proc_table);
     g_stage2.proc_table = NULL;
+    ct_drop(g_stage2.proc_ix);
+    g_stage2.proc_ix = NULL;
+    g_stage2.proc_ix_n = -1;
+    g_stage2.proc_ix_tbl = NULL;
     g_stage2.label_cap = STAGE2_LABEL_MAX;
     g_stage2.label_count = 0;
     g_stage2.label_table = ct_zalloc((size_t)g_stage2.label_cap, sizeof(LabelEntry));
