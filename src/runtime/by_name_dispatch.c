@@ -9880,6 +9880,13 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1,
     { "natural", "compatibility", 0 } }, { "verbose", "silent", 1, { "silent", "normal", 0 } }, { 0, "", 0, { 0 } } };
 #define pl_flags ((pl_flag_t *)g_runtime.bn.g_pl_flags.p)
+typedef struct { const char *dia; const char *nm; const char *val; } pl_dia_flag_t;
+static const pl_dia_flag_t pl_dia_flags[] = { { "xsb", "max_integer", "9223372036854775807" }, { "xsb", "min_integer", "-9223372036854775807" }, { "xsb", "bounded", "true" }, { "gnu", "max_integer",
+    "1152921504606846975" }, { "gnu", "min_integer", "-1152921504606846976" }, { "gnu", "bounded", "true" }, { 0, 0, 0 } };
+static const char *pl_dia_flag(const char *nm) {
+    for (int i = 0; pl_dia_flags[i].nm; i++) if (!strcmp(pl_dia_flags[i].nm, nm) && pl_float_flag("$dialect", pl_dia_flags[i].dia)) return pl_dia_flags[i].val;
+    return (const char *)0;
+}
 static void pl_flags_ready(void) {
     if (g_runtime.bn.g_pl_flags.len) return;
     for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_runtime.bn.g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; }
@@ -10019,11 +10026,14 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
         const char *fn;
         DESCR_t f = rt_pl_deref_val(args[0]);
         pl_flag_t *fl;
+        const char *dv;
         ok = 0;
         if (pl_val_unbound(f)) {
             cx->ball = rt_pl_ball_instantiation();
         } else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) || !pl_cell_text(args[0], fb, sizeof fb, &fn)) {
             cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+        } else if ((dv = pl_dia_flag(fn))) {
+            ok = plw_unify_vals(args[1], (dv[0] == 't' || dv[0] == 'f') ? pl_mk_atom(dv) : INTVAL((int64_t)strtoll(dv, (char **)0, 10)), cx);
         } else if (!(fl = pl_flag_find(fn))) {
             if (!pl_swi_dialect()) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f);
         } else if (fl->is_term) {
