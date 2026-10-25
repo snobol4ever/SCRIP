@@ -178,8 +178,14 @@ __asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n" "rt_outer_call:
     "(%r10)\n" "  je 1f\n" "  movq g_rtccb@GOTPCREL(%rip), %r10\n" "  movq 48(%r10), %r9\n" "1:\n" "  test %rcx, %rcx\n" "  jnz 3f\n" "  leaq 2f(%rip), %rcx\n" "3:\n" "  push %rcx\n" "  push %rcx\n"
     "  xor %r13d, %r13d\n" "  xor %r15d, %r15d\n" "  jmp *%rax\n" "  add $" RT_OUTER_RESERVE_S ", %rsp\n" "  add $16, %rsp\n" "  pop %r12\n" "  ret\n" "2:\n" "  call rt_kw_return_level_zero@PLT\n"
     "  ud2\n" ".size rt_outer_call, .-rt_outer_call\n");
-__asm__(".globl rt_outer_call_delta0\n.type rt_outer_call_delta0, @function\n" "rt_outer_call_delta0:\n" "  push %r14\n" "  xor %r14d, %r14d\n" "  call rt_outer_call\n" "  pop %r14\n" "  ret\n"
-    ".size rt_outer_call_delta0, .-rt_outer_call_delta0\n");
+__asm__(".globl rt_outer_call_root\n.type rt_outer_call_root, @function\n" "rt_outer_call_root:\n" "  push %r12\n" "  sub $" RT_OUTER_RESERVE_S ", %rsp\n" "  push %rdi\n" "  push %rsi\n"
+    "  push %rdx\n" "  push %rcx\n" "  lea 16(%rsp), %rdi\n" "  call rt_program_top_adopt@PLT\n" "  pop %rcx\n" "  pop %rdx\n" "  pop %rsi\n" "  pop %rdi\n" "  mov %rdi, %rax\n" "  mov %rsi, %rdi\n"
+    "  mov %rdx, %rsi\n" "  mov 0x70000000, %r12\n" "  movq g_runtime@GOTPCREL(%rip), %r10\n" "  cmpb $0, " GRT_S(G_RT_OFF_RTCC_ON)
+    "(%r10)\n" "  je 1f\n" "  movq g_rtccb@GOTPCREL(%rip), %r10\n" "  movq 48(%r10), %r9\n" "1:\n" "  test %rcx, %rcx\n" "  jnz 3f\n" "  leaq 2f(%rip), %rcx\n" "3:\n" "  push %rcx\n" "  push %rcx\n"
+    "  leaq .Lrt_icn_root_nil(%rip), %r13\n" "  xor %r15d, %r15d\n" "  jmp *%rax\n" "  add $" RT_OUTER_RESERVE_S ", %rsp\n" "  add $16, %rsp\n" "  pop %r12\n" "  ret\n" "2:\n"
+    "  call rt_kw_return_level_zero@PLT\n" "  ud2\n" ".size rt_outer_call_root, .-rt_outer_call_root\n" ".pushsection .rodata\n.Lrt_icn_root_nil: .byte 0\n.popsection\n");
+__asm__(".globl rt_outer_call_icn_root\n.type rt_outer_call_icn_root, @function\n" "rt_outer_call_icn_root:\n" "  push %r14\n" "  xor %r14d, %r14d\n" "  call rt_outer_call_root\n" "  pop %r14\n"
+    "  ret\n" ".size rt_outer_call_icn_root, .-rt_outer_call_icn_root\n");
 extern const char *Σ;
 extern int Ω;
 extern int Δ;
@@ -2926,9 +2932,9 @@ int main(int argc, char **argv) {
                 extern void rt_outer_call(bb_box_fn, void *, long, void *);
                 { extern void rtcc_load_all(void); if (g_runtime.abi.rtcc_on) rtcc_load_all(); }
                 {
-                    extern void rt_outer_call_delta0(bb_box_fn, void *, long, void *);
+                    extern void rt_outer_call_icn_root(bb_box_fn, void *, long, void *);
                     extern int * const rt_k_level_p;
-                    if (_icn_cells_graph) { *rt_k_level_p = 0; rt_outer_call_delta0(fn, mf, 0, (void *)icn_root_end); } else rt_outer_call(fn, mf, 0, (void *)0);
+                    if (_icn_cells_graph) { *rt_k_level_p = 0; rt_outer_call_icn_root(fn, mf, 0, (void *)icn_root_end); } else rt_outer_call(fn, mf, 0, (void *)0);
                 }
             }
             sno_setexit_fire_on_end();

@@ -5,12 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
-ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi);
-void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len);
-void rt_scan_sync_out(uint64_t delta);
-uint64_t rt_scan_sync_in(void);
-uint64_t rt_scan_live_subj(void);
-ScanSubjRegs rt_scan_reenter_live(uint64_t subj, uint64_t len);
+ScanSubjRegs rt_icn_subject_coerce(uint64_t lo, uint64_t hi, uint64_t mode);
 }
 #include "x86_asm.h"
 #include <cstdlib>
@@ -23,11 +18,34 @@ static_assert(sizeof(uint64_t) == 8,
                 "and a collection during the suspension of an untagged bank handed rt_scan_reenter_live vacated ground (unitgenr, cto 2026-09-23, CTO-154)");
 #define scan_bank_off() (16)
 #define scan_bank_tag() ((long)DT_S)
+#define scan_subject_load(sa, k) \
+    (x86("mov", "rax", FRQ(sa)) \
+   + x86("cmp", "eax", (long)DT_S) \
+   + x86("jne", L(k)) \
+   + x86("shr", "rax", 32L) \
+   + x86("test", "eax", "eax") \
+   + x86("je", L(k)) \
+   + x86("mov", "r13", FRQ((sa) + 8)) \
+   + x86("mov", "r15d", "eax") \
+   + x86("xor", "r14d", "r14d") \
+   + x86("jmp", L((k) + 1)) \
+   + x86("def", L(k)) \
+   + x86("mov", "rdi", FRQ(sa)) \
+   + x86("mov", "rsi", FRQ((sa) + 8)) \
+   + x86("mov", "edx", 2L) \
+   + x86("call", "rt_icn_subject_coerce", (uint64_t)(uintptr_t)(void *)rt_icn_subject_coerce) \
+   + x86_rt_gc_poll_rec_subject_new() \
+   + x86("test", "rax", "rax") \
+   + x86_omega("je") \
+   + x86("mov", "r13", "rax") \
+   + x86("mov", "r15", "rdx") \
+   + x86("xor", "r14d", "r14d") \
+   + x86("def", L((k) + 1)))
 std::string bb_gen_scan() {
     x86_begin();
     return x86("comment",
-        "IR_GEN_SCAN: the outer Sigma/delta/Delta live in ENTER's own grant (a DT_S cell at FRQ off/+8, delta +16, Delta +24) and the inner environment a leave banks for its re-entry lives in the LE"
-        "AVE node's own grant (a DT_S cell at +16/+24, delta +32): the enclosing activation's frame is the one home, no C-global scan stack (CEO-1548)")
+        "IR_GEN_SCAN: the environment is (r13, r14, r15) and its only memory is two banks -- the outer in ENTER's own grant (a DT_S cell at FRQ off/+8, delta +16, Delta +24), the inner a suspended bo"
+        "dy left in the LEAVE node's own grant (a DT_S cell at +16/+24, delta +32); a DT_S subject with its length is three moves, any other the coercion leaf from this site (ARCH-ICON-RTX 10 R3)")
          + x86_alpha()
          + IF(_.op_sb == 1,
                x86("mov", "rcx", (long)DT_S)
@@ -35,15 +53,7 @@ std::string bb_gen_scan() {
              + x86("mov", FRQ(_.op_off + 8), "r13")
              + x86("mov", FRQ(_.op_off + 16), "r14")
              + x86("mov", FRQ(_.op_off + 24), "r15")
-             + x86("mov", "rdi", FRQ(_.op_sa))
-             + x86("mov", "rsi", FRQ(_.op_sa + 8))
-             + x86("call", "rt_scan_enter", (uint64_t)(uintptr_t)(void *)rt_scan_enter)
-             + x86_rt_gc_poll_rec_subject_new()
-             + x86("test", "rax", "rax")
-             + x86_omega("je")
-             + x86("mov", "r13", "rax")
-             + x86("mov", "r15", "rdx")
-             + x86("mov", "r14", (long)0)
+             + scan_subject_load(_.op_sa, 1)
              + x86_gamma()
              + x86_beta_trampoline())
          + IF(_.op_sb != 1 && _.op_off >= 0,
@@ -55,42 +65,24 @@ std::string bb_gen_scan() {
              + IF(_.op_sb != 4,
                    x86("mov", FR(_.op_ival + scan_bank_off() + 16), "r14d")
                  + x86("mov", FR(_.op_ival + scan_bank_off() + 4), "r15d")
-                 + x86("call", "rt_scan_live_subj", (uint64_t)(uintptr_t)(void *)rt_scan_live_subj)
-                 + x86("mov", FRQ(_.op_ival + scan_bank_off() + 8), "rax")
+                 + x86("mov", FRQ(_.op_ival + scan_bank_off() + 8), "r13")
                  + x86("mov", FR(_.op_ival + scan_bank_off()), scan_bank_tag()))
-             + x86("mov", "rdi", FRQ(_.op_off + 8))
-             + x86("mov", "rsi", FRQ(_.op_off + 16))
-             + x86("comment", "the outer Delta travels with the outer Sigma: leave restores the length CACHE too, or an embedded/trailing NUL in the outer subject is lost to strlen on the way out")
-             + x86("mov", "rdx", FRQ(_.op_off + 24))
-             + x86("call", "rt_scan_leave", (uint64_t)(uintptr_t)(void *)rt_scan_leave)
              + x86("mov", "r13", FRQ(_.op_off + 8))
              + x86("mov", "r14", FRQ(_.op_off + 16))
              + x86("mov", "r15", FRQ(_.op_off + 24))
              + x86_gamma()
              + x86_beta()
              + IF(_.lbl_t0_p != 0 && _.op_sb != 4,
-                   x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
-                 + x86("mov", FRQ(_.op_off + 16), "rax")
-                 + x86("mov", "rdi", FRQ(_.op_ival + scan_bank_off() + 8))
-                 + x86("mov", "esi", FR(_.op_ival + scan_bank_off() + 4))
-                 + x86("call", "rt_scan_reenter_live", (uint64_t)(uintptr_t)(void *)rt_scan_reenter_live)
-                 + x86("mov", "r13", "rax")
-                 + x86("mov", "r15", "rdx")
+                   x86("mov", FRQ(_.op_off + 8), "r13")
+                 + x86("mov", FRQ(_.op_off + 16), "r14")
+                 + x86("mov", FRQ(_.op_off + 24), "r15")
+                 + x86("mov", "r13", FRQ(_.op_ival + scan_bank_off() + 8))
+                 + x86("mov", "r15d", FR(_.op_ival + scan_bank_off() + 4))
                  + x86("mov", "r14d", FR(_.op_ival + scan_bank_off() + 16))
-                 + x86("mov", "rdi", "r14")
-                 + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out)
                  + IF(_.op_t0_pop > 0, x86("add", "rsp", (long)_.op_t0_pop))
                  + x86_jmp_tgt(X86T_TGT0))
              + IF(_.lbl_t0_p != 0 && _.op_sb == 4,
-                   x86("mov", "rdi", FRQ(_.op_sc))
-                 + x86("mov", "rsi", FRQ(_.op_sc + 8))
-                 + x86("call", "rt_scan_enter", (uint64_t)(uintptr_t)(void *)rt_scan_enter)
-                 + x86_rt_gc_poll_rec_subject_new()
-                 + x86("test", "rax", "rax")
-                 + x86_omega("je")
-                 + x86("mov", "r13", "rax")
-                 + x86("mov", "r15", "rdx")
-                 + x86("mov", "r14", (long)0)
+                   scan_subject_load(_.op_sc, 3)
                  + IF(_.op_t0_pop > 0, x86("add", "rsp", (long)_.op_t0_pop))
                  + x86_jmp_tgt(X86T_TGT0))
              + IF(_.lbl_t0_p == 0, x86_omega()))

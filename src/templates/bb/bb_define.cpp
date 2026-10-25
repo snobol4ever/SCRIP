@@ -147,10 +147,8 @@ static std::string bb_define_bind() {
          + x86("mov32", "ecx", (long)_nf)
          + x86("mov32", "r8d", (long)_fb)
          + (_.lbl_t0 ? x86("lea", "r9", std::string("[rip + __]"), (uint64_t)(uintptr_t)_fn, blbl.c_str()) : x86_load_got("r9", blbl.c_str(), (uint64_t)(uintptr_t)_fn))
-         + x86_scan_sync_out()
          + x86("call", "rt_define_site", _site_fp)
-         + x86_rt_gc_poll()
-         + x86_scan_sync_in_rr();
+         + x86_rt_gc_poll();
     {
     static int _m4seal = -1; if (_m4seal < 0) {
     const char * _e = getenv("SCRIP_M4_ALPHA_SEAL");
@@ -161,9 +159,7 @@ static std::string bb_define_bind() {
         reg = reg + x86("comment", "M4-ALPHA-SEAL: alpha$<FN> <- &<FN>_α, the m4 twin of the driver seal")
             + x86("mov", "rdi", ROQ(0))
             + x86("lea", "rsi", std::string("[rip + __]"), (uint64_t)0, (std::string(fname) + "_\xce\xb1").c_str())
-            + x86_scan_sync_out()
-            + x86("call", "bb_ab_seal_alpha", _seal_fp)
-            + x86_scan_sync_in_rr(); } }
+            + x86("call", "bb_ab_seal_alpha", _seal_fp); } }
     { if (_.lbl_t0 && !bb_ab_cell_addr(fname) && bb_tiny_shim_ok(fname, 0)) {
         reg = reg + x86("comment", "M4-ENTRY-SEAL (term 3): entry_cell$<FN> <- &LBL__<this DEFINE's entry>, so a call reads the binding in force when it runs rather than a baked winner")
          + bb_define_entry_cell_data(std::string("entry_cell$") + std::string(bb_ab_sym_name(fname)), std::string(_.lbl_t0))
@@ -177,10 +173,8 @@ static std::string bb_define_bind() {
         reg = reg
             + x86("mov", "rdi", ROQ(0))
             + x86("mov", "rsi", ROQ(2))
-            + x86_scan_sync_out()
             + x86("call", "rt_define_bind_entry", _bind_fp)
-            + x86_rt_gc_poll()
-            + x86_scan_sync_in_rr();
+            + x86_rt_gc_poll();
         bind_seal = x86(".quad_ro", L(2), LS(2), _ent)
             + x86("label", LS(2))
             + x86(".string", _ent); } }
@@ -190,10 +184,8 @@ static std::string bb_define_bind() {
         reg = reg
             + x86("mov", "rdi", ROQ(0))
             + x86("mov", "rsi", ROQ(3))
-            + x86_scan_sync_out()
             + x86("call", "rt_define_site_entry", _ent_fp)
-            + x86_rt_gc_poll()
-            + x86_scan_sync_in_rr();
+            + x86_rt_gc_poll();
         entry_seal = x86(".quad_ro", L(3), LS(3), _.op_entry)
             + x86("label", LS(3))
             + x86(".string", _.op_entry); } }

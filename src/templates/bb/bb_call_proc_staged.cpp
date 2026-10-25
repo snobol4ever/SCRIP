@@ -257,7 +257,6 @@ static std::string bcps_det_arm() {
         scc_z = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np_z, &scc_nsave_z, scc_gk_z, &scc_res_gk_z);
         uint64_t dc_slot_fp_z = dc_slot_z;
         return x86_alpha()
-             + x86_scan_sync_out()
              + x86_anchor_enter()
              + ((scc_z || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)))
                 ? [&]() -> std::string {
@@ -391,7 +390,6 @@ static std::string bcps_det_arm() {
              + x86("def", L(2))
              + x86_gc_site(X86_SITE_LANDING)
              + x86_anchor_leave()
-             + x86_scan_sync_in_rr()
              + IF(!bb_proc_target_block_graph(_.op_sval), bcps_nret_consult(std::string(ZRES(0)), std::string(ZRES(8))))
              + x86("note", ZRESN())
              + x86("mov", ZRES(0), "rax")
@@ -429,7 +427,6 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
         + x86_bomb("bb_call_proc_staged: fc-armed call without SCC 1-arg shape (CALL2BB 3b v1) — the flat fallback does not exist "
             "as storage on an armed statement; registration and the probe disagreed");
     return x86_alpha()
-         + x86_scan_sync_out()
          + x86_anchor_enter()
          + (scc || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival))
             ? [&]() -> std::string {
@@ -550,7 +547,6 @@ int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_
          + x86("def", L(2))
          + x86_gc_site(X86_SITE_LANDING)
          + x86_anchor_leave()
-         + x86_scan_sync_in_rr()
          + IF(!bb_proc_target_block_graph(_.op_sval), bcps_nret_consult(std::string(FRQ(off)), std::string(FRQ(off + 8))))
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
@@ -956,7 +952,6 @@ static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t *
     return x86_alpha()
          + x86("note", "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2, Icon): the wires and entry words first, then the argument block at the callee's entry rsp, "
                        "then a jump through the registry -- no staged medium, no C open, no C epilogue, no NRETURN consult")
-         + x86_scan_sync_out()
          + x86_anchor_enter()
          + IF(is_gen, x86("mov", FRQ(act), (long)DT_RAW)
                     + bcps_icn_lvl(1L)
@@ -1046,7 +1041,6 @@ static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t *
                    + x86("xor", "edx", "edx"))
          + x86("def", L(2))
          + x86_anchor_leave()
-         + x86_scan_sync_in_rr()
          + x86("mov", _.op_zres ? ZRES(0) : FRQ(off), "rax")
          + x86("mov", _.op_zres ? ZRES(8) : FRQ(off + 8), "rdx")
          + x86("cmp", "al", (long)DT_FAIL)
@@ -1054,8 +1048,7 @@ static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t *
          + x86_gamma()
          + x86_beta()
          + icn_landing_line_restore()
-         + (is_gen ? x86_scan_sync_out()
-                   + x86("call", "rt_gen_spine_resume_enter", (uint64_t)(uintptr_t)(void *)rt_gen_spine_resume_enter)
+         + (is_gen ? x86("call", "rt_gen_spine_resume_enter", (uint64_t)(uintptr_t)(void *)rt_gen_spine_resume_enter)
                    + x86("mov", "rax", FRQ(act + 8))
                    + x86_jmp_mem("rax", 32)
                  : bcps_beta_leave(bcps_beta_pair_idx()))
@@ -1078,7 +1071,6 @@ static std::string bcps_spine_gen_arm() {
     int n2_ftc = (n2_fb > 0) ? ((n2_fb + 15) & ~15) : 0;
     { int ibnp = 0, ibva = 0; if (gi_idx >= 0 && n2_ftc > 0 && bb_proc_target_icn_block(_.op_sval, &ibnp, &ibva)) return bcps_icn_block_arm(1, off, act, argblks, gi_idx, ibnp, ibva, n2_ftc); }
     return x86_alpha()
-         + x86_scan_sync_out()
          + x86_anchor_enter()
          + x86("mov", FRQ(act), 0L)
          + FOR(0, (int)_.op_ival, [&](int i) {
@@ -1200,7 +1192,6 @@ static std::string bcps_spine_gen_arm() {
          + bcps_undef_fallback(TEMPLATE_FN_ADDR(rt_ab_undef_fn_stub))
          + x86("def", L(2))
          + x86_anchor_leave()
-         + x86_scan_sync_in_rr()
          + bcps_nret_consult(std::string(FRQ(off)), std::string(FRQ(off + 8)))
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
@@ -1208,7 +1199,6 @@ static std::string bcps_spine_gen_arm() {
          + x86_omega("je")
          + x86_gamma()
          + x86_beta()
-         + x86_scan_sync_out()
          + IF(!bcps_pl(), x86("call", "rt_gen_spine_resume_enter", TEMPLATE_FN_ADDR(rt_gen_spine_resume_enter)))
          + ((bcps_pl()
                ? x86_pl_ball_rule(30, 22)
@@ -1240,7 +1230,7 @@ static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t **
     int n = (int)_.op_ival; long bias = (wires ? 16L : 0L) + 16L * nb;
     auto zop = [&](int i, int w) -> std::string { int in = i >= 0 && i < _.op_zcap; if (in && _.op_zread_xf[i] != -1) return RDQ("rbp", _.op_zread_xf[i]
         + w); return x86_zref((in ? _.op_zread[i] : 0) + w + (int)bias, 1); };
-    std::string s = x86_alpha() + x86_scan_sync_out() + x86_anchor_enter() + x86_rsp_mark_save()
+    std::string s = x86_alpha() + x86_anchor_enter() + x86_rsp_mark_save()
          + x86("note",
              "the block protocol for a deterministic Pascal callee (CEO-1491): the two wire cells, then the argument block "
                  "on this spine, then a jump; no staged medium, no registry call, no C prologue or epilogue")
@@ -1272,7 +1262,6 @@ static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t **
          + x86("xor", "edx", "edx")
          + x86("def", L(2))
          + x86_anchor_leave()
-         + x86_scan_sync_in_rr()
          + (zres ? x86("note", ZRESN())
          + x86("mov", ZRES(0), "rax")
          + x86("note", ZRESN())

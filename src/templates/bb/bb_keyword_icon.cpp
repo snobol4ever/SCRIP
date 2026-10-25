@@ -1,12 +1,10 @@
 #include <string>
 #include <stdint.h>
+#include <string.h>
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-extern int g_scan_regs_live;
-struct DESCR_t rt_keyword_subject(void);
-struct DESCR_t rt_keyword_pos(void);
 DESCR_t rt_keyword_read(const char *sval);
 DESCR_t rt_keyword_gen(const char *sval, long idx);
 DESCR_t rt_keyword_var(const char *name);
@@ -14,7 +12,7 @@ DESCR_t rt_keyword_var(const char *name);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define KI_BOMB() (!(_.op_off >= 0) && !_.op_zres)
-#define KI_VARFORM() (_.op_var_form && _.op_sval && _.op_sval[0] == '&')
+#define KI_VARFORM() (_.op_var_form && _.op_sval && _.op_sval[0] == '&' && strcmp(_.op_sval, "&subject") && strcmp(_.op_sval, "&pos"))
 #define KI_RESULT() \
     (IF(_.op_zres, \
          x86("note", ZRESN()) \
@@ -41,21 +39,13 @@ std::string bb_keyword_icon() {
          + IF(!KI_BOMB() && !KI_VARFORM(),
                _.op_zres
          ? (!strcmp(_.op_name2, "subject")
-            ? (g_scan_regs_live
-               ? x86_alpha()
+            ? x86("comment", "KEYWORD_subject->ZRES: {DT_S, r15d, r13}, the subject IS the register pair at every instruction of an Icon graph (ARCH-ICON-RTX 10 R4)")
+               + x86_alpha()
                + x86("mov", ZRESD(0), (long)DT_S)
                + x86("mov", ZRESD(4), "r15d")
                + x86("note", ZRESN())
                + x86("mov", ZRES(8), "r13")
                + x86_gamma() + x86_beta_trampoline()
-               : x86("comment", "KEYWORD_subject_call->ZRES (ZK-2)")
-               + x86_alpha()
-               + x86("call", "rt_keyword_subject", (uint64_t)(uintptr_t)(void *)rt_keyword_subject)
-               + x86("note", ZRESN())
-               + x86("mov", ZRES(0), "rax")
-               + x86("note", ZRESN())
-               + x86("mov", ZRES(8), "rdx")
-               + x86_gamma() + x86_beta_trampoline())
           : !strcmp(_.op_name2, "pos")
             ? x86("comment", "KEYWORD_pos->ZRES (ZK-2) [r14+1: scan-reg truth]")
             + x86_alpha()
@@ -112,20 +102,13 @@ std::string bb_keyword_icon() {
             + x86("label", LS(0))
             + x86(".string", _.op_sval))
          : (!strcmp(_.op_name2, "subject")
-            ? (g_scan_regs_live
-               ? x86("comment",
-                   "KEYWORD_subject_reg: same word0 packing fix as the ZRES arm above -- v/slen share one qword, so this needs a dword pair, not a single clobbering qword store of the bare tag.")
+            ? x86("comment",
+                "KEYWORD_subject_reg: {DT_S, r15d, r13} unconditionally (ARCH-ICON-RTX 10 R4); v/slen share one qword, so a dword pair, not a single clobbering qword store of the bare tag")
                + x86_alpha()
                + x86("mov", FR(_.op_off), (long)DT_S)
                + x86("mov", FR(_.op_off + 4), "r15d")
                + x86("mov", FRQ(_.op_off + 8), "r13")
                + x86_gamma() + x86_beta() + x86_omega()
-               : x86("comment", "KEYWORD_subject_call")
-               + x86_alpha()
-               + x86("call", "rt_keyword_subject", (uint64_t)(uintptr_t)(void *)rt_keyword_subject)
-               + x86("mov", FRQ(_.op_off), "rax")
-               + x86("mov", FRQ(_.op_off + 8), "rdx")
-               + x86_gamma() + x86_beta() + x86_omega())
           : !strcmp(_.op_name2, "pos")
             ? x86("comment", "KEYWORD_pos_reg [always r14+1: register cursor is the source of truth, incl. ?-less scanning callees]")
             + x86_alpha()

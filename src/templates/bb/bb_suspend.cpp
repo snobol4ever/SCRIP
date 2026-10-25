@@ -37,7 +37,6 @@ std::string bb_suspend() {
               + x86("mov", FRQ(0), "rax")
               + x86("mov", "rax", FRQ(_.op_sa + 8))
               + x86("mov", FRQ(8), "rax"))
-         + x86_scan_sync_out()
          + IF(x86_trace_hooks_on(), x86("push", "rax")
          + x86("push", "rdx") + x86_align_call_enter()
          + x86_load_ro_str("rdi", (_.op_activate_proc ? _.op_activate_proc : "main")) + x86("mov", "rsi", FRQ(0))
@@ -57,7 +56,6 @@ std::string bb_suspend() {
          + x86_rt_gc_poll()
          + x86_align_call_leave() + x86("pop", "rdx")
          + x86("pop", "rax"))
-         + x86_scan_sync_in_rr()
          + (_.lbl_t0 && _.op_suspend_stmt_uclaim != 0 ? x86_add("rsp", (long)_.op_suspend_stmt_uclaim) : std::string())
          + (_.lbl_t0 ? x86_jmp_tgt(X86T_TGT0) : x86_omega()));
 }

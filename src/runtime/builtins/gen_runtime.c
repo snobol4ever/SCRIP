@@ -85,6 +85,34 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+ScanSubjRegs rt_icn_subject_coerce(uint64_t lo, uint64_t hi, uint64_t mode) {
+    uint64_t w[2];
+    w[0] = lo;
+    w[1] = hi;
+    DESCR_t sv;
+    memcpy(&sv, w, sizeof sv);
+    ScanSubjRegs r;
+    r.ptr = 0;
+    r.len = 0;
+    if (mode < 2) {
+        extern int rt_big_is(DESCR_t);
+        extern int core_icn_error(int, DESCR_t);
+        int strish = (sv.v == DT_S) || (sv.v == DT_SNUL && sv.s);
+        if (!strish && !IS_INT_fn(sv) && !IS_REAL_fn(sv) && !rt_big_is(sv)) { if (mode == 1) core_icn_error(103, sv); return r; }
+    }
+    if (sv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); sv = STRVAL(rt_big_str(sv)); } else if (mode == 2 && core_icn_argtype_check(lo, hi, 103)) return r;
+    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
+    const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
+    if (!s) s = "";
+    if (IS_CSET_fn(sv)) {
+        extern int kw_cset_len(const char *);
+        int kn = sv.s ? kw_cset_len(sv.s) : -1;
+        r.len = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s);
+    } else r.len = (sv.v == DT_S && sv.slen) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    r.ptr = (uint64_t)(uintptr_t)s;
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
     uint64_t w[2];
     w[0] = lo;
@@ -113,7 +141,11 @@ void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_le
     rt_scan_subj_len_set(g_runtime.abi.scan_subj, outer_sigma ? (long)outer_len : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_scan_sync_out(uint64_t delta) { g_runtime.abi.scan_pos = (int)delta + 1; }
+void rt_scan_sync_out(uint64_t subj, uint64_t len, uint64_t delta) {
+    g_runtime.abi.scan_subj = subj ? (const char *)(uintptr_t)subj : g_scan_empty;
+    rt_scan_subj_len_set(g_runtime.abi.scan_subj, subj ? (long)(uint32_t)len : 0);
+    g_runtime.abi.scan_pos = (int)delta + 1;
+}
 uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(g_runtime.abi.scan_pos - 1); }
 uint64_t rt_scan_live_subj(void) { return (uint64_t)(uintptr_t)(g_runtime.abi.scan_subj ? g_runtime.abi.scan_subj : ""); }
 ScanSubjRegs rt_scan_live_regs(void) {

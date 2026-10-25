@@ -953,7 +953,6 @@ static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * 
     cx->scan_top = sf.up;
     if (IR_LIT(enter).dval == 3.0) { IR_LIT(leave_succ).dval = 3.0; IR_LIT(leave_fail).dval = 3.0; }
     IR_t * body_beta = cx->beta;
-    for (int _si = scan_body_lo; _si < cx->g->n; _si++) if (cx->g->all[_si]) cx->g->all[_si]->in_scan = 1;
     if (bv) ir_operand_push(leave_succ, bv);
     icn_retag_scan_body(cx->g, scan_body_lo);
     lc_γ_to(enter, b_entry);
@@ -3083,6 +3082,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     icn_settle_fail_conduits(g);
     g->cell_frame = 1;
     g->spine_cells = 1;
+    g->scan_regs = 1;
     g->home_frame = 1;
     return g;
 }
@@ -3321,6 +3321,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     g->entry = s;
     g->cell_frame = 1;
     g->spine_cells = 1;
+    g->scan_regs = 1;
     return g;
 }
 #include "bb_program.h"
