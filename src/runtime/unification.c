@@ -3634,11 +3634,12 @@ int rt_pl_nb_set(void *root, int64_t k, void *val) {
         pl_cell_t **cell = (pl_cell_t **)pl_db_cell_addr(root, k, 1);
         if (!cell) return 0;
         pl_cell_t *t = pl_deref((pl_cell_t *)val);
-        pl_cell_t stored = plc_copy(t);
+        pl_cell_t stored = plc_copy_x(t, 1);
         pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(1);
         if (!box) return 0;
         *box = stored;
         *cell = box;
+        if ((int)stored.v == DT_PLREF || (int)stored.v == DT_PLVAR) rt_pl_tr_freeze();
         return 1;
     }
 }

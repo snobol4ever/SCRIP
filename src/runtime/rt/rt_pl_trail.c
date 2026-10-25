@@ -67,4 +67,18 @@ void rt_pl_tr_refuse(const char *tr) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_tr_gc_sync(const char *tr) { *(const char **)pl_tr_base_of(tr) = tr; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_tr_freeze(void) {
+    const char *top = g_runtime.abi.hp_fr.top;
+    for (long i = 0; i < g_runtime.gc.gc_rrng_n; i++) {
+        const struct gc_rng_t *r = &g_runtime.gc.gc_rrng[i];
+        const char *etop;
+        if (r->hi || !r->lo) continue;
+        etop = *(const char * const *)r->lo;
+        for (const char *p = r->lo + PL_TR_HEADER_BYTES; p + PL_TR_ENTRY_BYTES <= etop; p += PL_TR_ENTRY_BYTES) {
+            pl_tr_entry_t *e = (pl_tr_entry_t *)(uintptr_t)p;
+            if (!e->cell && e->pad && (const char *)(uintptr_t)e->pad < top) e->pad = (uint64_t)(uintptr_t)top;
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *rt_pl_tr_unwind_to(char *tr, char *mark) { while (tr > mark) { tr -= PL_TR_ENTRY_BYTES; { pl_tr_entry_t *e = (pl_tr_entry_t *)tr; if (e->cell) *e->cell = e->old; } } return tr; }

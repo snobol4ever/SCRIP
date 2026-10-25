@@ -41,6 +41,7 @@ void rt_pl_tr_free_arena(const char *tr, void *slab);
 void rt_pl_tr_refuse(const char *tr);
 void rt_pl_tr_gc_sync(const char *tr);
 char *rt_pl_tr_unwind_to(char *tr, char *mark);
+void rt_pl_tr_freeze(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline char *pl_tr_base_of(const char *tr) { return (char *)((uintptr_t)tr & ~(PL_TR_ARENA_BYTES - 1)); }
 static inline void **pl_tr_ball_slot(const char *base) { return (void **)((char *)base + PL_TR_BALL_OFF); }
