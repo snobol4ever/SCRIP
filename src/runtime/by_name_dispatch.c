@@ -5419,14 +5419,19 @@ static int pl_num_cmp(const char *s, DESCR_t a, DESCR_t b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * pl_real_iso_str(double fv, char * fb, int bufsz) {
     extern int rt_pl_dialect_swi(void);
+    extern int rt_pl_dialect_gnu(void);
+    extern int rt_pl_dialect_xsb(void);
+    int prec = rt_pl_dialect_xsb() ? 15 : rt_pl_dialect_gnu() ? 17 : 0;
     if (isnan(fv)) { snprintf(fb, (size_t)bufsz, "1.5NaN"); return fb; }
     if (isinf(fv) && fv < 0) { snprintf(fb, (size_t)bufsz, "-1.0Inf"); return fb; }
     if (isinf(fv)) { snprintf(fb, (size_t)bufsz, "1.0Inf"); return fb; }
-    for (int prec = 15; prec <= 17; prec++) { snprintf(fb, (size_t)bufsz, "%.*g", prec, fv); if (strtod(fb, (char **)0) == fv) break; }
-    if (!strpbrk(fb, ".eEnN")) {
-        size_t n = strlen(fb);
-        if (n + 2 < (size_t)bufsz) { fb[n] = '.'; fb[n + 1] = '0'; fb[n + 2] = '\0'; }
-    } else if (!strchr(fb, '.')) snprintf(fb, (size_t)bufsz, "%.1e", fv);
+    if (prec) snprintf(fb, (size_t)bufsz, "%.*g", prec, fv);
+    else for (prec = 15; prec <= 17; prec++) { snprintf(fb, (size_t)bufsz, "%.*g", prec, fv); if (strtod(fb, (char **)0) == fv) break; }
+    if (!strchr(fb, '.')) {
+        char * x = strpbrk(fb, "eE");
+        size_t at = x ? (size_t)(x - fb) : strlen(fb), n = strlen(fb);
+        if (n + 2 < (size_t)bufsz) { memmove(fb + at + 2, fb + at, n - at + 1); fb[at] = '.'; fb[at + 1] = '0'; }
+    }
     { char * x = strpbrk(fb, "eE"); if (x && (x[1] == '+' || x[1] == '-') && x[2] == '0' && x[3] && rt_pl_dialect_swi()) { x[2] = x[3]; x[3] = '\0'; } }
     return fb;
 }
