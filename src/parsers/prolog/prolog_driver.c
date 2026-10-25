@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/stat.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 enum { PL_CONSULT_DEPTH_MAX = 16 };
@@ -39,34 +40,92 @@ static const char * pl_consult_spec(const tree_t *t) {
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_consult_one(tree_t *prog, const char *spec, const char *from_file) {
-    char *path = pl_consult_resolve(spec, from_file); FILE *f; long flen; char *src; tree_t *sub = (tree_t *)0;
-    if (!path) { fprintf(stderr, "scrip: prolog: consult: cannot find source for '%s' (tried alongside %s and the working directory)\n", spec, from_file ? from_file : "<stdin>"); return; }
-    for (int i = 0; i < g_parser.pl.consulted_n; i++) if (!strcmp(g_pl_consulted[i], path)) { ct_drop(path); return; }
-    cv_reserve(&g_parser.pl.consulted_v, (uint32_t)sizeof(const char *), (uint64_t)g_parser.pl.consulted_n + 1, "g_pl_consulted"); g_pl_consulted[g_parser.pl.consulted_n++] = path;
-    f = fopen(path, "r"); if (!f) return;
+static char * pl_slurp(const char *path) {
+    FILE *f = fopen(path, "r");
+    long flen;
+    char *src;
+    if (!f) return (char *)0;
     fseek(f, 0, SEEK_END); flen = ftell(f); rewind(f);
-    src = (char *)ct_alloc((size_t)flen + 1); if (!src) { fclose(f); return; }
+    src = (char *)ct_alloc((size_t)flen + 1); if (!src) { fclose(f); return (char *)0; }
     if (fread(src, 1, (size_t)flen, f) != (size_t)flen) src[0] = src[0];
     src[flen] = '\0'; fclose(f);
+    return src;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_consult_first(char *path) {
+    for (int i = 0; i < g_parser.pl.consulted_n; i++) if (!strcmp(g_pl_consulted[i], path)) { ct_drop(path); return 0; }
+    cv_reserve(&g_parser.pl.consulted_v, (uint32_t)sizeof(const char *), (uint64_t)g_parser.pl.consulted_n + 1, "g_pl_consulted"); g_pl_consulted[g_parser.pl.consulted_n++] = path;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_consult_text(tree_t *prog, const char *src, const char *path) {
+    tree_t *sub = (tree_t *)0;
     prolog_compile(src, path, &sub);
-    ct_drop(src);
     if (sub) for (int i = 0; i < sub->n; i++) if (sub->c[i]) ast_push(prog, sub->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_consult_one(tree_t *prog, const char *spec, const char *from_file) {
+    char *path = pl_consult_resolve(spec, from_file), *src;
+    if (!path) { fprintf(stderr, "scrip: prolog: consult: cannot find source for '%s' (tried alongside %s and the working directory)\n", spec, from_file ? from_file : "<stdin>"); return; }
+    if (!pl_consult_first(path) || !(src = pl_slurp(path))) return;
+    pl_consult_text(prog, src, path);
+    ct_drop(src);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_xsb_exports(const char *s) {
+    for (const char *l = s; l && *l; l = strchr(l, '\n') ? strchr(l, '\n') + 1 : (const char *)0) {
+        while (*l == ' ' || *l == '\t') l++;
+        if (l[0] != ':' || l[1] != '-') continue;
+        for (l += 2; *l == ' ' || *l == '\t';) l++;
+        if (!strncmp(l, "export", 6) && !(isalnum((unsigned char)l[6]) || l[6] == '_')) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_import_one(tree_t *prog, const char *mod, const char *from_file) {
+    const char *slash = from_file ? strrchr(from_file, '/') : (const char *)0;
+    size_t dlen = slash ? (size_t)(slash - from_file) + 1 : 0, ml = strlen(mod);
+    char xp[dlen + ml + sizeof ".P"], hp[dlen + ml + sizeof ".H"], *path, *src, *hdr;
+    snprintf(xp, sizeof xp, "%.*s%s.P", (int)dlen, from_file ? from_file : "", mod);
+    snprintf(hp, sizeof hp, "%.*s%s.H", (int)dlen, from_file ? from_file : "", mod);
+    path = pl_regular_file(xp) ? ct_strdup(xp) : pl_consult_resolve(mod, from_file);
+    if (!path || !pl_consult_first(path) || !(src = pl_slurp(path))) return;
+    hdr = pl_regular_file(hp) ? pl_slurp(hp) : (char *)0;
+    {
+        int is_mod = pl_xsb_exports(src) || (hdr && pl_xsb_exports(hdr));
+        size_t n = strlen(src) + (hdr ? strlen(hdr) : 0) + 2 * ml + 64;
+        char *all = (char *)ct_alloc(n), *o = all;
+        if (is_mod) {
+            o += snprintf(o, n, ":- module('");
+            for (const char *c = mod; *c; c++) { if (*c == '\'' || *c == '\\') *o++ = '\\'; *o++ = *c; }
+            o += snprintf(o, n - (size_t)(o - all), "', []). ");
+        }
+        if (hdr) snprintf(o, n - (size_t)(o - all), "%s\n%s", hdr, src); else snprintf(o, n - (size_t)(o - all), "%s", src);
+        pl_consult_text(prog, all, path);
+        ct_drop(all);
+    }
+    if (hdr) ct_drop(hdr);
+    ct_drop(src);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char *spec; int import; } pl_pend_t;
 static void pl_consult_scan_goal(tree_t *g, cv_t *pending, int *npending) {
     if (!g) return;
     if (g->t == TT_FNC && g->v.sval && g->n == 2 && (!strcmp(g->v.sval, ",") || !strcmp(g->v.sval, ";") || !strcmp(g->v.sval, "->"))) {
         pl_consult_scan_goal(g->c[0], pending, npending); pl_consult_scan_goal(g->c[1], pending, npending); return; }
     if (g->t == TT_FNC && g->v.sval && g->n == 1 && (!strcmp(g->v.sval, "consult") || !strcmp(g->v.sval, "ensure_loaded"))) {
         const char *sp = pl_consult_spec(g->c[0]);
-        if (sp) { CV_PUSH(*pending, const char *) = sp; (*npending)++; g->t = TT_QLIT; g->v.sval = (char *) "true"; g->n = 0; }
+        if (sp) { CV_PUSH(*pending, pl_pend_t) = (pl_pend_t){ sp, 0 }; (*npending)++; g->t = TT_QLIT; g->v.sval = (char *) "true"; g->n = 0; }
+        return; }
+    if (g->t == TT_FNC && g->v.sval && g->n == 1 && !strcmp(g->v.sval, "import") && g->c[0] && g->c[0]->t == TT_FNC && g->c[0]->n == 2 && g->c[0]->v.sval && !strcmp(g->c[0]->v.sval, "from")) {
+        const char *m = pl_consult_spec(g->c[0]->c[1]);
+        if (m) { CV_PUSH(*pending, pl_pend_t) = (pl_pend_t){ m, 1 }; (*npending)++; }
         return; }
     if (g->t == TT_MAKELIST && g->n > 0) {
         int all = 1;
         for (int k = 0; k < g->n; k++) if (!pl_consult_spec(g->c[k])) { all = 0; break; }
         if (!all) return;
-        for (int k = 0; k < g->n; k++) { CV_PUSH(*pending, const char *) = pl_consult_spec(g->c[k]); (*npending)++; }
+        for (int k = 0; k < g->n; k++) { CV_PUSH(*pending, pl_pend_t) = (pl_pend_t){ pl_consult_spec(g->c[k]), 0 }; (*npending)++; }
         g->t = TT_QLIT; g->v.sval = (char *) "true"; g->n = 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -86,7 +145,10 @@ static void pl_splice_consults(tree_t *prog, const char *from_file) {
     }
     if (!npending) return;
     g_parser.pl.consult_depth++;
-    for (int i = 0; i < npending; i++) pl_consult_one(prog, CV_AT(pending, const char *, i), from_file);
+    for (int i = 0; i < npending; i++) {
+        const pl_pend_t *p = &CV_AT(pending, pl_pend_t, i);
+        if (p->import) pl_import_one(prog, p->spec, from_file); else pl_consult_one(prog, p->spec, from_file);
+    }
     g_parser.pl.consult_depth--;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
