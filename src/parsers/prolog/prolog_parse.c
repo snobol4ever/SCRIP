@@ -2833,6 +2833,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$consult_term'((:-multifile(_)),R,R):-!.\n"
     "'$consult_term'((:-discontiguous(_)),R,R):-!.\n"
     "'$consult_term'((:-D),R,R):-!,'$consult_goal'(D).\n"
+    "'$consult_term'((?-D),R,R):-!,'$consult_goal'(D).\n"
     "'$consult_term'((H-->B),R,R):-!,dcg_translate_rule((H-->B),C),assertz(C).\n"
     "'$consult_term'(C,R,R):-assertz(C).\n"
     "'$consult_inits'([]).\n"
