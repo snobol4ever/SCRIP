@@ -1765,9 +1765,11 @@ int main(int argc, char **argv) {
                 argi++;
             } else if (strncmp(argv[argi], "--dialect=", 10) == 0) {
                 if (!strcmp(argv[argi] + 10, "gnu")) prolog_select_dialect_gnu();
+                else if (!strcmp(argv[argi] + 10, "xsb")) prolog_select_dialect_xsb();
                 else if (pascal_dialect_directive(argv[argi] + 10)) opt_dialect = argv[argi] + 10;
                 else {
-                    fprintf(stderr, "scrip: --dialect=%s refused -- gnu is the one Prolog dialect and iso, fpc, objfpc, delphi, tp, macpas and delphiunicode are the Pascal ones\n", argv[argi] + 10);
+                    fprintf(stderr, "scrip: --dialect=%s refused -- gnu and xsb are the Prolog dialects and iso, fpc, objfpc, delphi, tp, macpas and delphiunicode are the Pascal ones\n",
+                        argv[argi] + 10);
                     return 2;
                 }
                 argi++;

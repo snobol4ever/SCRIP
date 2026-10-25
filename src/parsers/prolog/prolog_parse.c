@@ -4308,12 +4308,14 @@ static int pl_clause_is_eof(const tree_t *t) {
 }
 static int pl_if_ctx_at(pl_ifcx_t *x, PlProgram *prog, PlClause *cl) {
     extern int prolog_clause_marks_swi(const PlClause *);
+    extern int prolog_clause_marks_xsb(const PlClause *);
     extern int prolog_dialect_gnu_selected(void);
     x->head = prog->head;
     x->stop = cl;
     if (x->swi < 0) {
         x->swi = 0;
         for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { x->swi = 1; break; }
+        for (const PlClause *c = prog->head; c && x->swi; c = c->next) if (prolog_clause_marks_xsb(c)) x->swi = 0;
     }
     return 1;
 }

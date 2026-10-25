@@ -5902,6 +5902,7 @@ static int pl_float_flag(const char *nm, const char *val);
 static int pl_round_mode(const char *v);
 static int pl_swi_dialect(void) { return pl_float_flag("$dialect", "swi"); }
 static int pl_gnu_dialect(void) { return pl_float_flag("$dialect", "gnu"); }
+static int pl_xsb_dialect(void) { return pl_float_flag("$dialect", "xsb"); }
 int rt_pl_flag_true(const char *nm) { return pl_float_flag(nm, "true"); }
 int rt_pl_flag_is(const char *nm, const char *val) { return pl_float_flag(nm, val); }
 int rt_pl_fp_max_code(FILE *fp) {
@@ -9769,11 +9770,11 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     "false", 0 } }, { "occurs_check", "false", 1, { "true", "false", "error", 0 } }, { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", "UTF-16BE", "UTF-16LE",
     "UTF-32BE", "UTF-32LE", 0 } }, { "argv", "[]", 0, { 0 } }, { "os_argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } }, { "prolog_version", "0.0.0", 0,
     { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } }, { "multifile_warning", "on", 1, { "on",
-    "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", "gnu", 0 } }, { "prefer_rationals", "false", 1, { "true", "false", 0 } },
-    { "threads", "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero", 0 } },
-    { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "max_answers_for_subgoal", "infinite", 1, { 0 }, 0, { 0 }, 1 }, { "min_tagged_integer", "-72057594037927936", 0, { 0 } }, { "float_max",
-    "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1, { "natural",
-    "compatibility", 0 } }, { "verbose", "silent", 1, { "silent", "normal", 0 } }, { 0, "", 0, { 0 } } };
+    "off", 0 } }, { "character_escapes_unicode", "true", 1, { "true", "false", 0 } }, { "$dialect", "iso", 1, { "iso", "swi", "gnu", "xsb", 0 } }, { "prefer_rationals", "false", 1, { "true", "false",
+    0 } }, { "threads", "false", 0, { 0 } }, { "float_underflow", "ignore", 1, { "error", "ignore", 0 } }, { "float_rounding", "to_nearest", 1, { "to_nearest", "to_positive", "to_negative", "to_zero",
+    0 } }, { "max_tagged_integer", "72057594037927935", 0, { 0 } }, { "max_answers_for_subgoal", "infinite", 1, { 0 }, 0, { 0 }, 1 }, { "min_tagged_integer", "-72057594037927936", 0, { 0 } },
+    { "float_max", "", 0, { 0 } }, { "float_min", "", 0, { 0 } }, { "float_max_integer", "", 0, { 0 } }, { "stack_limit", "1073741824", 1, { 0 } }, { "rational_syntax", "compatibility", 1,
+    { "natural", "compatibility", 0 } }, { "verbose", "silent", 1, { "silent", "normal", 0 } }, { 0, "", 0, { 0 } } };
 #define pl_flags ((pl_flag_t *)g_runtime.bn.g_pl_flags.p)
 static void pl_flags_ready(void) {
     if (g_runtime.bn.g_pl_flags.len) return;
@@ -9885,6 +9886,7 @@ static void pl_flag_effects(const pl_flag_t *fl, pl_tr_ctx_t *cx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dialect_swi(void) { return pl_swi_dialect(); }
 int rt_pl_dialect_gnu(void) { return pl_gnu_dialect(); }
+int rt_pl_dialect_xsb(void) { return pl_xsb_dialect(); }
 int rt_pl_iso_mode(void) { pl_flag_t *fl = pl_flag_find("iso"); return fl && !strcmp(fl->val, "true"); }
 static int pl_float_flag(const char *nm, const char *val) { pl_flag_t *fl = pl_flag_find(nm); return fl && fl->val && !strcmp(fl->val, val); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

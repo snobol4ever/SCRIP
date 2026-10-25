@@ -19,6 +19,7 @@ static inline void stage2_scope_reserve(Scope *sc, int need) {
 }
 struct IR_graph_t;
 enum { PROC_THUNK_NONE = 0, PROC_THUNK_PATTERN = 1, PROC_THUNK_EXPR = 2 };
+enum { PL_DIALECT_ISO = 0, PL_DIALECT_SWI = 1, PL_DIALECT_GNU = 2, PL_DIALECT_XSB = 3 };
 typedef struct ProcEntry {
     const char *name;
     tree_t *proc;
@@ -75,8 +76,7 @@ typedef struct stage2_t {
     cv_t pl_decl_multifile;
     cv_t pl_decl_meta;
     int pl_dq_mode;
-    int pl_dialect_swi;
-    int pl_dialect_gnu;
+    int pl_dialect;
     int pl_scc_aux_n;
     int pl_attv_armed;
     int rk_infix_armed;

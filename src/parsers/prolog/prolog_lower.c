@@ -500,8 +500,16 @@ static int pl_tree_has_dict(const tree_t *t) {
     for (int i = 0; i < t->n; i++) if (pl_tree_has_dict(t->c[i])) return 1;
     return 0;
 }
+static int pl_xsb_marker(const tree_t *tr) {
+    const tree_t *g = (tr && tr->t == TT_CLAUSE && tr->n == 2 && tr->c[0] && tr->c[0]->t == TT_NUL) ? tr->c[1] : (const tree_t *)0;
+    const char *f = (g && g->t == TT_FNC) ? g->v.sval : (const char *)0;
+    if (!f) return 0;
+    if (!strcmp(f, "import") && g->n == 1) return g->c[0] && g->c[0]->t == TT_FNC && g->c[0]->n == 2 && g->c[0]->v.sval && !strcmp(g->c[0]->v.sval, "from");
+    return (g->n == 1 && (!strcmp(f, "export") || !strcmp(f, "compiler_options") || !strcmp(f, "hilog") || !strcmp(f, "ti"))) || (!strcmp(f, "index") && g->n >= 1 && g->n <= 3);
+}
 int prolog_clause_marks_swi(const PlClause *cl) { return cl && cl->lineno && (pl_dialect_marker(cl->tr) || pl_tree_has_dict(cl->tr)); }
-int prolog_dialect_gnu_selected(void) { return g_stage2.pl_dialect_gnu; }
+int prolog_clause_marks_xsb(const PlClause *cl) { return cl && cl->lineno && pl_xsb_marker(cl->tr); }
+int prolog_dialect_gnu_selected(void) { return g_stage2.pl_dialect == PL_DIALECT_GNU; }
 static PlClause *pl_dq_string_directive(int lineno, const char *flag, const char *val) {
     PlClause *c = ct_zalloc(1, sizeof(PlClause));
     tree_t *cl = ast_node_new(TT_CLAUSE), *g = ast_node_new(TT_FNC), *f = ast_node_new(TT_QLIT), *v = ast_node_new(TT_QLIT);
@@ -516,30 +524,33 @@ static PlClause *pl_dq_string_directive(int lineno, const char *flag, const char
     c->tr = cl;
     return c;
 }
-void prolog_select_dialect_gnu(void) { g_stage2.pl_dialect_gnu = 1; }
+void prolog_select_dialect_gnu(void) { g_stage2.pl_dialect = PL_DIALECT_GNU; }
+void prolog_select_dialect_xsb(void) { g_stage2.pl_dialect = PL_DIALECT_XSB; }
 static void pl_dq_lower_program(PlProgram *pl_prog) {
-    int marker = 0, line0 = 0, set = 0;
+    int marker = 0, xsb = 0, line0 = 0, set = 0;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
         if (cl->lineno && !line0) line0 = cl->lineno;
         if (cl->lineno && (pl_dialect_marker(cl->tr) || pl_tree_has_dict(cl->tr))) marker = 1;
+        if (cl->lineno && pl_xsb_marker(cl->tr)) xsb = 1;
     }
-    if (g_stage2.pl_dialect_gnu) {
-        PlClause *d = pl_dq_string_directive(line0 ? line0 : 1, "$dialect", "gnu");
+    if (g_stage2.pl_dialect == PL_DIALECT_GNU || xsb || g_stage2.pl_dialect == PL_DIALECT_XSB) {
+        PlClause *d = pl_dq_string_directive(line0 ? line0 : 1, "$dialect", g_stage2.pl_dialect == PL_DIALECT_GNU ? "gnu" : "xsb");
         d->next = pl_prog->head;
         pl_prog->head = d;
         if (!pl_prog->tail) pl_prog->tail = d;
         pl_prog->nclauses++;
+        if (g_stage2.pl_dialect != PL_DIALECT_GNU) g_stage2.pl_dialect = PL_DIALECT_XSB;
         marker = 0;
     }
     for (int k = 0; k < 2; k++) {
-        if (!marker || g_stage2.pl_dialect_swi || (k == 0 && g_stage2.pl_dq_mode)) continue;
+        if (!marker || g_stage2.pl_dialect == PL_DIALECT_SWI || (k == 0 && g_stage2.pl_dq_mode)) continue;
         PlClause *d = k == 0 ? pl_dq_string_directive(line0 ? line0 : 1, "double_quotes", "string") : pl_dq_string_directive(line0 ? line0 : 1, "$dialect", "swi");
         d->next = pl_prog->head;
         pl_prog->head = d;
         if (!pl_prog->tail) pl_prog->tail = d;
         pl_prog->nclauses++;
     }
-    if (marker) g_stage2.pl_dialect_swi = 1;
+    if (marker) g_stage2.pl_dialect = PL_DIALECT_SWI;
     int mode = g_stage2.pl_dq_mode ? g_stage2.pl_dq_mode - 1 : 2;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
         tree_t *tr = cl->tr; int m;
@@ -1047,7 +1058,7 @@ static void pl_module_flatten(PlProgram *pl_prog) {
         }
     }
     if (!any) {
-        if (g_stage2.pl_dialect_swi) for (PlClause *cl = pl_prog->head; cl; cl = cl->next) if (cl->lineno) pl_mod_strip_head(cl);
+        if (g_stage2.pl_dialect == PL_DIALECT_SWI) for (PlClause *cl = pl_prog->head; cl; cl = cl->next) if (cl->lineno) pl_mod_strip_head(cl);
         return;
     }
     {

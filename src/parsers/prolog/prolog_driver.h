@@ -6,4 +6,5 @@ void prolog_compile(const char *source, const char *filename, tree_t **out_ast);
 void *prolog_compile_parse(const char *source, const char *filename);
 void  prolog_compile_finish(void *parsed, const char *filename, tree_t **out_ast);
 void prolog_select_dialect_gnu(void);
+void prolog_select_dialect_xsb(void);
 #endif
