@@ -2338,7 +2338,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 return qr;
             }
             if (!strcmp(nm, "$") && t->n == 1 && !pl_dollar_user(1)) return pl_lower_det_goal(cx, t->c[0], γnext, ωfail, entry_out);
-            if (pl_swi_user_redefines(nm, t->n)) return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
+            if (pl_swi_user_redefines(nm, t->n) && !pl_hook_dyn_is(nm, t->n)) return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
             if (!strcmp(nm, "$det_prop") && t->n == 3) return pl_lower_det_prop(cx, t->c[0], t->c[1], t->c[2], γnext, ωfail, entry_out);
             if (!strcmp(nm, "string_concat") && t->n == 3 && !pl_user_defines(nm, 3)) {
                 tree_t * both = pl_cc_fnc2(",", pl_cc_fnc1("nonvar", (tree_t *) t->c[0]), pl_cc_fnc1("nonvar", (tree_t *) t->c[1]));
