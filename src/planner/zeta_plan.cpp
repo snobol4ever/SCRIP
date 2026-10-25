@@ -593,10 +593,14 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
     auto absolute_pass = [&](const unsigned char * xi) {
     no = 0; sp = 0;
     for (int i = 0; i < n; i++) { base[i] = 0; known[i] = 0; rpo[i] = -1; st[i] = 0; if (aof) aof[i] = -1; }
-    for (int a0 = 0; a0 <= nalt; a0++) {
+    for (int a0 = 0; a0 <= nalt + n; a0++) {
         int a = (a0 < nalt) ? a0 : -1;
-        int r = (a < 0) ? claim[0] : -1;
+        int r = (a0 == nalt) ? claim[0] : -1;
         if (a >= 0 && g_emit_cfg->alt_entry && g_emit_cfg->alt_entry[a]) { int q = nidx(nodes, n, zd_chase(g_emit_cfg->alt_entry[a])); if (q >= 0 && zon[q] && claim[q] >= 0) r = claim[q]; }
+        if (a0 > nalt && nodes[a0 - nalt - 1]->op == IR_CREATE && nodes[a0 - nalt - 1]->n_operands > 0) {
+            int q = nidx(nodes, n, zd_chase(nodes[a0 - nalt - 1]->operands[0]));
+            if (q >= 0 && zon[q] && claim[q] >= 0) r = claim[q];
+        }
         if (r < 0 || st[r] || (xi && xi[r])) continue;
         known[r] = 1;
         if (aof) aof[r] = a;
