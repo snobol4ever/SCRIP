@@ -19803,6 +19803,7 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "import", 1 },
     { "export", 1 },
     { "index", 1 },
+    { "compiler_options", 1 },
     { "set_arg", 3 },
     { "load_dyn", 1 },
     { 0, 0 }
@@ -19820,6 +19821,7 @@ static const char PL_PRELUDE_LIB_37_SRC[] =
     "import(_).\n"
     "export(_).\n"
     "index(_).\n"
+    "compiler_options(L) :- ( is_list(L) -> true ; throw(error(type_error(list, L), compiler_options/1)) ).\n"
     "set_arg(Term, Index, Arg) :- setarg(Index, Term, Arg).\n"
     "load_dyn(File) :- '$xsb_ld_path'(File, Path), setup_call_cleanup(open(Path, read, S), '$xsb_ld_read'(S), close(S)).\n"
     "'$xsb_ld_path'(F, P) :- ( var(F) -> throw(error(instantiation_error, load_dyn/1)) ; \\+ atom(F) -> throw(error(type_error(atom, F), load_dyn/1)) ; true ),\n"

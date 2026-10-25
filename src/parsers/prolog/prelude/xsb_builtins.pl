@@ -3,14 +3,18 @@
     parsed only when a program names one of its exports. import/1 and export/1 answer XSB's module directives ':- import P from M.' and ':- export P.' (the package prelude declares
     XSB's operators import fy 1050, export fx 1100, from xfx 1040): SCRIP has one predicate namespace, so a predicate an XSB system module exports is already visible and the
     directive succeeds having changed nothing (an import from a module whose M.P lies beside the program loads it at compile time, prolog_driver.c pl_import_one). index/1 answers
-    XSB's ':- index Name/Arity-Arg.' (the package prelude declares XSB's index fy 1100), an indexing hint that changes no answer. set_arg/3 is XSB machine's set_arg(Term, Index, Arg) :- term_set_arg(Term, Index, Arg, -1), the backtrackable destructive
+    XSB's ':- index Name/Arity-Arg.' (the package prelude declares XSB's index fy 1100), an indexing hint that changes no answer. compiler_options/1 answers XSB's
+    ':- compiler_options(Options).' (consult.P proc_directive: options for compiling the current file -- spec_off, optimize, sysmod, allow_redefinition, singleton_warnings_off,
+    xpp_on): none changes what SCRIP's compile answers, and a file that uses XSB's preprocessor (#define, #include) under xpp_on is refused by SCRIP's reader before the
+    directive runs, so succeeding on a list hides nothing (ai_tests/read, hq_icon 2026-10-24). set_arg/3 is XSB machine's set_arg(Term, Index, Arg) :- term_set_arg(Term, Index, Arg, -1), the backtrackable destructive
     assignment (XSB syslib/machine.P; constraint_tests/testsetarg's ref shows the old argument back after a failure), which is SWI's setarg/3 with its arguments reordered. load_dyn/1 is XSB consult.P's load_dyn(File) :- load_dyn(File, 1, usermod): the file is
     found as named when the name has an extension, else as File.P, File.pl or File (search_module's order), each clause is asserted at the end (direction 1, z) and each
     directive is run; float_tests/assert_test reads its data file assert_test_old so (cfo 2026-10-24, CEO-1960). */
-:- module(xsb_builtins, [ import/1, export/1, index/1, set_arg/3, load_dyn/1 ]).
+:- module(xsb_builtins, [ import/1, export/1, index/1, compiler_options/1, set_arg/3, load_dyn/1 ]).
 import(_).
 export(_).
 index(_).
+compiler_options(L) :- ( is_list(L) -> true ; throw(error(type_error(list, L), compiler_options/1)) ).
 set_arg(Term, Index, Arg) :- setarg(Index, Term, Arg).
 load_dyn(File) :- '$xsb_ld_path'(File, Path), setup_call_cleanup(open(Path, read, S), '$xsb_ld_read'(S), close(S)).
 '$xsb_ld_path'(F, P) :- ( var(F) -> throw(error(instantiation_error, load_dyn/1)) ; \+ atom(F) -> throw(error(type_error(atom, F), load_dyn/1)) ; true ),
