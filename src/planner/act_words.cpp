@@ -83,11 +83,18 @@ extern "C" int planner_fence_k(const IR_graph_t * g, const IR_t * nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int act_slot_off(int blob, int head, int k) { return -((blob ? head + 8 : 64) + 16 * k); }
-static int act_walk_crosses(const IR_graph_t * g, const IR_t * from, const IR_t * to) {
-    IR_t * t = zd_chase(from->γ.node); int haz = 0;
-    for (int s = 0; t && s < g->n + 4; s++) { if (t == to) return haz; if (act_unbounded_kind((int)ir_kind0(t)) || (int)t->op == IR_MATCH_ARBNO) haz = 1; t = zd_chase(t->γ.node); }
+static int act_chain_crosses(const IR_graph_t * g, IR_t * t, const IR_t * last, const IR_t * self, const IR_t * to, int haz, int depth) {
+    for (int s = 0; t && s < g->n + 4; s++) { if (t == self) return -1; if (t == to) return haz; int o = (int)t->op, M = 0;
+        if (o == IR_MATCH_ALTERNATE && depth < 64) for (int q = 0; 2 * q + 1 < t->n_operands; q++) {
+            int r = act_chain_crosses(g, zd_chase(t->operands[2 * q]), t->operands[2 * q + 1], t, to, haz, depth + 1);
+            if (r >= 0) return r; }
+        if (o == IR_MATCH_FENCE1 && t->n_operands >= 2 && depth < 64) { int r = act_chain_crosses(g, zd_chase(t->operands[0]), t->operands[1], t, to, haz, depth + 1); if (r >= 0) return r; }
+        if (act_unbounded_kind((int)ir_kind0(t)) || o == IR_MATCH_ARBNO || (o == IR_MATCH_ALTERNATE && planner_alt_exit(g, t, &M) != 0)) haz = 1;
+        if (t == last) return -1;
+        t = zd_chase(t->γ.node); }
     return -1;
 }
+static int act_walk_crosses(const IR_graph_t * g, const IR_t * from, const IR_t * to) { return act_chain_crosses(g, zd_chase(from->γ.node), (const IR_t *)0, (const IR_t *)0, to, 0, 0); }
 static int act_mark_depth = 0;
 static void act_mark_chain(const IR_graph_t * g, const IR_t * first, const IR_t * last, const IR_t * self, std::vector<int> & tag, int v) {
     IR_t * cur = zd_chase((IR_t *)first); int guard = 0; if (act_mark_depth > 64) return; act_mark_depth++;
