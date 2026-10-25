@@ -14730,6 +14730,868 @@ static const char PL_PRELUDE_LIB_15_SRC[] =
     "    '$heaps_pairing'(Qs, Q3),\n"
     "    '$heaps_meld'(Q2, Q3, Q).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
+    { "listing", 0 },
+    { "listing", 1 },
+    { "listing", 2 },
+    { "portray_clause", 1 },
+    { "portray_clause", 2 },
+    { "portray_clause", 3 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
+    { "portray_clause", 1 },
+    { "portray_clause", 2 },
+    { "portray_clause", 3 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_16_SRC[] =
+    "listing :-\n"
+    "    context_module(Context),\n"
+    "    '$listing_list_module'(Context, []).\n"
+    "'$listing_list_module'(Module, Options) :-\n"
+    "    (   current_predicate(_, Module:Pred),\n"
+    "        \\+ predicate_property(Module:Pred, imported_from(_)),\n"
+    "        strip_module(Pred, _Module, Head),\n"
+    "        functor(Head, Name, _Arity),\n"
+    "        (   (   predicate_property(Module:Pred, built_in)\n"
+    "            ;   sub_atom(Name, 0, _, _, $)\n"
+    "            )\n"
+    "        ->  current_prolog_flag(access_level, system)\n"
+    "        ;   true\n"
+    "        ),\n"
+    "        nl,\n"
+    "        '$listing_list_predicate'(Module:Head, Module, Options),\n"
+    "        fail\n"
+    "    ;   true\n"
+    "    ).\n"
+    "listing(Spec) :-\n"
+    "    listing(Spec, []).\n"
+    "listing(Spec, Options) :-\n"
+    "    call_cleanup(\n"
+    "        '$listing_listing_'(Spec, Options),\n"
+    "        '$listing_close_sources').\n"
+    "'$listing_listing_'(M:Spec, Options) :-\n"
+    "    var(Spec),\n"
+    "    !,\n"
+    "    '$listing_list_module'(M, Options).\n"
+    "'$listing_listing_'(M:List, Options) :-\n"
+    "    is_list(List),\n"
+    "    !,\n"
+    "    forall(member(Spec, List),\n"
+    "           '$listing_listing_'(M:Spec, Options)).\n"
+    "'$listing_listing_'(M:CRef, Options) :-\n"
+    "    blob(CRef, clause),\n"
+    "    !,\n"
+    "    '$listing_list_clauserefs'([CRef], M, Options).\n"
+    "'$listing_listing_'(X, Options) :-\n"
+    "    (   prolog:locate_clauses(X, ClauseRefs)\n"
+    "    ->  strip_module(X, Context, _),\n"
+    "        '$listing_list_clauserefs'(ClauseRefs, Context, Options)\n"
+    "    ;   '$find_predicate'(X, Preds),\n"
+    "        '$listing_list_predicates'(Preds, X, Options)\n"
+    "    ).\n"
+    "'$listing_list_clauserefs'([], _, _) :- !.\n"
+    "'$listing_list_clauserefs'([H|T], Context, Options) :-\n"
+    "    !,\n"
+    "    '$listing_list_clauserefs'(H, Context, Options),\n"
+    "    '$listing_list_clauserefs'(T, Context, Options).\n"
+    "'$listing_list_clauserefs'(Ref, Context, Options) :-\n"
+    "    @(rule(M:_, Rule, Ref), Context),\n"
+    "    '$listing_list_clause'(M:Rule, Ref, Context, Options).\n"
+    "'$listing_list_predicates'(PIs, Context:X, Options) :-\n"
+    "    member(PI, PIs),\n"
+    "    '$listing_pi_to_head'(PI, Pred),\n"
+    "    '$listing_unify_args'(Pred, X),\n"
+    "    '$listing_list_define'(Pred, DefPred),\n"
+    "    '$listing_list_predicate'(DefPred, Context, Options),\n"
+    "    nl,\n"
+    "    fail.\n"
+    "'$listing_list_predicates'(_, _, _).\n"
+    "'$listing_list_define'(Head, LoadModule:Head) :-\n"
+    "    compound(Head),\n"
+    "    Head \\= (_:_),\n"
+    "    functor(Head, Name, Arity),\n"
+    "    '$find_library'(_, Name, Arity, LoadModule, Library),\n"
+    "    !,\n"
+    "    use_module(Library, []).\n"
+    "'$listing_list_define'(M:Pred, DefM:Pred) :-\n"
+    "    '$define_predicate'(M:Pred),\n"
+    "    (   predicate_property(M:Pred, imported_from(DefM))\n"
+    "    ->  true\n"
+    "    ;   DefM = M\n"
+    "    ).\n"
+    "'$listing_pi_to_head'(PI, _) :-\n"
+    "    var(PI),\n"
+    "    !,\n"
+    "    instantiation_error(PI).\n"
+    "'$listing_pi_to_head'(M:PI, M:Head) :-\n"
+    "    !,\n"
+    "    '$listing_pi_to_head'(PI, Head).\n"
+    "'$listing_pi_to_head'(Name/Arity, Head) :-\n"
+    "    functor(Head, Name, Arity).\n"
+    "'$listing_unify_args'(_, _/_) :- !.\n"
+    "'$listing_unify_args'(X, X) :- !.\n"
+    "'$listing_unify_args'(_:X, X) :- !.\n"
+    "'$listing_unify_args'(_, _).\n"
+    "'$listing_list_predicate'(Pred, Context, _) :-\n"
+    "    predicate_property(Pred, undefined),\n"
+    "    !,\n"
+    "    '$listing_decl_term'(Pred, Context, Decl),\n"
+    "    '$listing_comment'('%   Undefined: ~q~n', [Decl]).\n"
+    "'$listing_list_predicate'(Pred, Context, _) :-\n"
+    "    predicate_property(Pred, foreign),\n"
+    "    !,\n"
+    "    '$listing_decl_term'(Pred, Context, Decl),\n"
+    "    '$listing_comment'('%   Foreign: ~q~n', [Decl]).\n"
+    "'$listing_list_predicate'(Pred, Context, Options) :-\n"
+    "    '$listing_notify_changed'(Pred, Context),\n"
+    "    '$listing_list_declarations'(Pred, Context),\n"
+    "    '$listing_list_clauses'(Pred, Context, Options).\n"
+    "'$listing_decl_term'(Pred, Context, Decl) :-\n"
+    "    strip_module(Pred, Module, Head),\n"
+    "    functor(Head, Name, Arity),\n"
+    "    (   '$listing_hide_module'(Module, Context, Head)\n"
+    "    ->  Decl = Name/Arity\n"
+    "    ;   Decl = Module:Name/Arity\n"
+    "    ).\n"
+    "'$listing_decl'(thread_local, thread_local).\n"
+    "'$listing_decl'(dynamic,      dynamic).\n"
+    "'$listing_decl'(volatile,     volatile).\n"
+    "'$listing_decl'(multifile,    multifile).\n"
+    "'$listing_decl'(public,       public).\n"
+    "'$listing_declaration'(Pred, Source, Decl) :-\n"
+    "    predicate_property(Pred, tabled),\n"
+    "    Pred = M:Head,\n"
+    "    (   M:'$table_mode'(Head, Head, _)\n"
+    "    ->  '$listing_decl_term'(Pred, Source, Funct),\n"
+    "        '$listing_table_options'(Pred, Funct, TableDecl),\n"
+    "        Decl = table(TableDecl)\n"
+    "    ;   '$listing_comment'('% tabled using answer subsumption~n', []),\n"
+    "        fail\n"
+    "    ).\n"
+    "'$listing_declaration'(Pred, Source, Decl) :-\n"
+    "    '$listing_decl'(Prop, Declname),\n"
+    "    predicate_property(Pred, Prop),\n"
+    "    '$listing_decl_term'(Pred, Source, Funct),\n"
+    "    Decl =.. [ Declname, Funct ].\n"
+    "'$listing_declaration'(Pred, Source, Decl) :-\n"
+    "    predicate_property(Pred, meta_predicate(Head)),\n"
+    "    strip_module(Pred, Module, _),\n"
+    "    (   (Module == system; Source == Module)\n"
+    "    ->  Decl = meta_predicate(Head)\n"
+    "    ;   Decl = meta_predicate(Module:Head)\n"
+    "    ),\n"
+    "    (   '$listing_meta_implies_transparent'(Head)\n"
+    "    ->  !\n"
+    "    ;   true\n"
+    "    ).\n"
+    "'$listing_declaration'(Pred, Source, Decl) :-\n"
+    "    predicate_property(Pred, transparent),\n"
+    "    '$listing_decl_term'(Pred, Source, PI),\n"
+    "    Decl = module_transparent(PI).\n"
+    "'$listing_meta_implies_transparent'(Head):-\n"
+    "    compound(Head),\n"
+    "    arg(_, Head, Arg),\n"
+    "    '$listing_implies_transparent'(Arg),\n"
+    "    !.\n"
+    "'$listing_implies_transparent'(Arg) :-\n"
+    "    integer(Arg),\n"
+    "    !.\n"
+    "'$listing_implies_transparent'(:).\n"
+    "'$listing_implies_transparent'(//).\n"
+    "'$listing_implies_transparent'(^).\n"
+    "'$listing_table_options'(Pred, Decl0, as(Decl0, Options)) :-\n"
+    "    findall(Flag, predicate_property(Pred, tabled(Flag)), [F0|Flags]),\n"
+    "    !,\n"
+    "    foldl('$listing_table_option', Flags, F0, Options).\n"
+    "'$listing_table_options'(_, Decl, Decl).\n"
+    "'$listing_table_option'(Flag, X, (Flag,X)).\n"
+    "'$listing_list_declarations'(Pred, Source) :-\n"
+    "    findall(Decl, '$listing_declaration'(Pred, Source, Decl), Decls),\n"
+    "    (   Decls == []\n"
+    "    ->  true\n"
+    "    ;   '$listing_write_declarations'(Decls, Source),\n"
+    "        format('~n', [])\n"
+    "    ).\n"
+    "'$listing_write_declarations'([], _) :- !.\n"
+    "'$listing_write_declarations'([H|T], Module) :-\n"
+    "    format(':- ~q.~n', [H]),\n"
+    "    '$listing_write_declarations'(T, Module).\n"
+    "'$listing_list_clauses'(Pred, Source, Options) :-\n"
+    "    strip_module(Pred, Module, Head),\n"
+    "    most_general_goal(Head, GenHead),\n"
+    "    forall(( rule(Module:GenHead, Rule, Ref),\n"
+    "             \\+ \\+ '$listing_rule_head'(Rule, Head)\n"
+    "           ),\n"
+    "           '$listing_list_clause'(Module:Rule, Ref, Source, Options)).\n"
+    "'$listing_rule_head'((Head0 :- _Body), Head) :- !, Head = Head0.\n"
+    "'$listing_rule_head'((Head0,_Cond => _Body), Head) :- !, Head = Head0.\n"
+    "'$listing_rule_head'((Head0 => _Body), Head) :- !, Head = Head0.\n"
+    "'$listing_rule_head'(?=>(Head0, _Body), Head) :- !, Head = Head0.\n"
+    "'$listing_rule_head'(Head, Head).\n"
+    "'$listing_list_clause'(_Rule, Ref, _Source, Options) :-\n"
+    "    option(source(true), Options),\n"
+    "    (   clause_property(Ref, file(File)),\n"
+    "        clause_property(Ref, line_count(Line)),\n"
+    "        catch('$listing_source_clause_string'(File, Line, String, Repositioned),\n"
+    "              _, fail),\n"
+    "        debug(listing(source), 'Read ~w:~d: \"~s\"~n', [File, Line, String])\n"
+    "    ->  !,\n"
+    "        (   Repositioned == true\n"
+    "        ->  '$listing_comment'('% From ~w:~d~n', [ File, Line ])\n"
+    "        ;   true\n"
+    "        ),\n"
+    "        writeln(String)\n"
+    "    ;   decompiled\n"
+    "    ->  fail\n"
+    "    ;   asserta(decompiled),\n"
+    "        '$listing_comment'('% From database (decompiled)~n', []),\n"
+    "        fail\n"
+    "    ).\n"
+    "'$listing_list_clause'(Module:(Head:-Body), Ref, Source, Options) :-\n"
+    "    !,\n"
+    "    '$listing_list_clause'(Module:Head, Body, :-, Ref, Source, Options).\n"
+    "'$listing_list_clause'(Module:(Head=>Body), Ref, Source, Options) :-\n"
+    "    '$listing_list_clause'(Module:Head, Body, =>, Ref, Source, Options).\n"
+    "'$listing_list_clause'(Module:Head, Ref, Source, Options) :-\n"
+    "    !,\n"
+    "    '$listing_list_clause'(Module:Head, true, :-, Ref, Source, Options).\n"
+    "'$listing_list_clause'(Module:Head, Body, Neck, Ref, Source, Options) :-\n"
+    "    '$listing_restore_variable_names'(Module, Head, Body, Ref, Options),\n"
+    "    '$listing_write_module'(Module, Source, Head),\n"
+    "    Rule =.. [Neck,Head,Body],\n"
+    "    portray_clause(Rule).\n"
+    "'$listing_restore_variable_names'(Module, Head, Body, Ref, Options) :-\n"
+    "    option(variable_names(source), Options, source),\n"
+    "    catch(clause_info(Ref, _, _, _,\n"
+    "                      [ head(QHead),\n"
+    "                        body(Body),\n"
+    "                        variable_names(Bindings)\n"
+    "                      ]),\n"
+    "          _, true),\n"
+    "    '$listing_unify_head'(Module, Head, QHead),\n"
+    "    !,\n"
+    "    '$listing_bind_vars'(Bindings),\n"
+    "    '$listing_name_other_vars'((Head:-Body), Bindings).\n"
+    "'$listing_restore_variable_names'(_,_,_,_,_).\n"
+    "'$listing_unify_head'(Module, Head, Module:Head) :-\n"
+    "    !.\n"
+    "'$listing_unify_head'(_, Head, Head) :-\n"
+    "    !.\n"
+    "'$listing_unify_head'(_, _, _).\n"
+    "'$listing_bind_vars'([]) :-\n"
+    "    !.\n"
+    "'$listing_bind_vars'([Name = Var|T]) :-\n"
+    "    ignore(Var = '$VAR'(Name)),\n"
+    "    '$listing_bind_vars'(T).\n"
+    "'$listing_name_other_vars'(Term, Bindings) :-\n"
+    "    term_singletons(Term, Singletons),\n"
+    "    '$listing_bind_singletons'(Singletons),\n"
+    "    term_variables(Term, Vars),\n"
+    "    '$listing_name_vars'(Vars, 0, Bindings).\n"
+    "'$listing_bind_singletons'([]).\n"
+    "'$listing_bind_singletons'(['$VAR'('_')|T]) :-\n"
+    "    '$listing_bind_singletons'(T).\n"
+    "'$listing_name_vars'([], _, _).\n"
+    "'$listing_name_vars'([H|T], N, Bindings) :-\n"
+    "    between(N, infinite, N2),\n"
+    "    '$listing_var_name'(N2, Name),\n"
+    "    \\+ memberchk(Name=_, Bindings),\n"
+    "    !,\n"
+    "    H = '$VAR'(N2),\n"
+    "    N3 is N2 + 1,\n"
+    "    '$listing_name_vars'(T, N3, Bindings).\n"
+    "'$listing_var_name'(I, Name) :-\n"
+    "    L is (I mod 26)+0'A,\n"
+    "    N is I // 26,\n"
+    "    (   N == 0\n"
+    "    ->  char_code(Name, L)\n"
+    "    ;   format(atom(Name), '~c~d', [L, N])\n"
+    "    ).\n"
+    "'$listing_write_module'(Module, Context, Head) :-\n"
+    "    '$listing_hide_module'(Module, Context, Head),\n"
+    "    !.\n"
+    "'$listing_write_module'(Module, _, _) :-\n"
+    "    format('~q:', [Module]).\n"
+    "'$listing_hide_module'(system, Module, Head) :-\n"
+    "    predicate_property(Module:Head, imported_from(M)),\n"
+    "    predicate_property(system:Head, imported_from(M)),\n"
+    "    !.\n"
+    "'$listing_hide_module'(Module, Module, _) :- !.\n"
+    "'$listing_notify_changed'(Pred, Context) :-\n"
+    "    strip_module(Pred, user, Head),\n"
+    "    predicate_property(Head, built_in),\n"
+    "    \\+ predicate_property(Head, (dynamic)),\n"
+    "    !,\n"
+    "    '$listing_decl_term'(Pred, Context, Decl),\n"
+    "    '$listing_comment'('%   NOTE: system definition has been overruled for ~q~n',\n"
+    "            [Decl]).\n"
+    "'$listing_notify_changed'(_, _).\n"
+    "'$listing_source_clause_string'(File, Line, String, Repositioned) :-\n"
+    "    '$listing_open_source'(File, Line, Stream, Repositioned),\n"
+    "    stream_property(Stream, position(Start)),\n"
+    "    '$raw_read'(Stream, _TextWithoutComments),\n"
+    "    stream_property(Stream, position(End)),\n"
+    "    stream_position_data(char_count, Start, StartChar),\n"
+    "    stream_position_data(char_count, End, EndChar),\n"
+    "    Length is EndChar - StartChar,\n"
+    "    set_stream_position(Stream, Start),\n"
+    "    read_string(Stream, Length, String),\n"
+    "    '$listing_skip_blanks_and_comments'(Stream, blank).\n"
+    "'$listing_skip_blanks_and_comments'(Stream, _) :-\n"
+    "    at_end_of_stream(Stream),\n"
+    "    !.\n"
+    "'$listing_skip_blanks_and_comments'(Stream, State0) :-\n"
+    "    peek_string(Stream, 80, String),\n"
+    "    string_chars(String, Chars),\n"
+    "    phrase('$listing_blanks_and_comments'(State0, State), Chars, Rest),\n"
+    "    (   Rest == []\n"
+    "    ->  read_string(Stream, 80, _),\n"
+    "        '$listing_skip_blanks_and_comments'(Stream, State)\n"
+    "    ;   length(Chars, All),\n"
+    "        length(Rest, RLen),\n"
+    "        Skip is All-RLen,\n"
+    "        read_string(Stream, Skip, _)\n"
+    "    ).\n"
+    "'$listing_blanks_and_comments'(State0, State) -->\n"
+    "    [C],\n"
+    "    { '$listing_transition'(C, State0, State1) },\n"
+    "    !,\n"
+    "    '$listing_blanks_and_comments'(State1, State).\n"
+    "'$listing_blanks_and_comments'(State, State) -->\n"
+    "    [].\n"
+    "'$listing_transition'(C, blank, blank) :-\n"
+    "    char_type(C, space).\n"
+    "'$listing_transition'('%', blank, line_comment).\n"
+    "'$listing_transition'('\\n', line_comment, blank).\n"
+    "'$listing_transition'(_, line_comment, line_comment).\n"
+    "'$listing_transition'('/', blank, comment_0).\n"
+    "'$listing_transition'('/', comment(N), comment(N,/)).\n"
+    "'$listing_transition'('*', comment(N,/), comment(N1)) :-\n"
+    "    N1 is N + 1.\n"
+    "'$listing_transition'('*', comment_0, comment(1)).\n"
+    "'$listing_transition'('*', comment(N), comment(N,*)).\n"
+    "'$listing_transition'('/', comment(N,*), State) :-\n"
+    "    (   N == 1\n"
+    "    ->  State = blank\n"
+    "    ;   N2 is N - 1,\n"
+    "        State = comment(N2)\n"
+    "    ).\n"
+    "'$listing_open_source'(File, Line, Stream, Repositioned) :-\n"
+    "    '$listing_source_stream'(File, Stream, Pos0, Repositioned),\n"
+    "    line_count(Stream, Line0),\n"
+    "    (   Line >= Line0\n"
+    "    ->  Skip is Line - Line0\n"
+    "    ;   set_stream_position(Stream, Pos0),\n"
+    "        Skip is Line - 1\n"
+    "    ),\n"
+    "    debug(listing(source), '~w: skip ~d to ~d', [File, Line0, Line]),\n"
+    "    (   Skip =\\= 0\n"
+    "    ->  Repositioned = true\n"
+    "    ;   true\n"
+    "    ),\n"
+    "    forall(between(1, Skip, _),\n"
+    "           skip(Stream, 0'\\n)).\n"
+    ":- thread_local\n"
+    "    opened_source/3,\n"
+    "    decompiled/0.\n"
+    "'$listing_source_stream'(File, Stream, Pos0, _) :-\n"
+    "    opened_source(File, Stream, Pos0),\n"
+    "    !.\n"
+    "'$listing_source_stream'(File, Stream, Pos0, true) :-\n"
+    "    open(File, read, Stream),\n"
+    "    stream_property(Stream, position(Pos0)),\n"
+    "    asserta(opened_source(File, Stream, Pos0)).\n"
+    "'$listing_close_sources' :-\n"
+    "    retractall(decompiled),\n"
+    "    forall(retract(opened_source(_,Stream,_)),\n"
+    "           close(Stream)).\n"
+    "portray_clause(Term) :-\n"
+    "    current_output(Out),\n"
+    "    portray_clause(Out, Term).\n"
+    "portray_clause(Stream, Term) :-\n"
+    "    must_be(stream, Stream),\n"
+    "    portray_clause(Stream, Term, []).\n"
+    "portray_clause(Stream, Term, Options) :-\n"
+    "    Options \\= _:_,\n"
+    "    !,\n"
+    "    portray_clause(Stream, Term, user:Options).\n"
+    "portray_clause(Stream, Term, M:Options) :-\n"
+    "    must_be(list, Options),\n"
+    "    meta_options('$listing_is_meta', M:Options, QOptions),\n"
+    "    \\+ \\+ '$listing_name_vars_and_portray_clause'(Stream, Term, QOptions).\n"
+    "'$listing_name_vars_and_portray_clause'(Stream, Term, Options) :-\n"
+    "    term_attvars(Term, []),\n"
+    "    !,\n"
+    "    '$listing_clause_vars'(Term, Options),\n"
+    "    '$listing_do_portray_clause'(Stream, Term, Options).\n"
+    "'$listing_name_vars_and_portray_clause'(Stream, Term, Options) :-\n"
+    "    option(variable_names(Bindings), Options),\n"
+    "    !,\n"
+    "    copy_term_nat(Term+Bindings, Copy+BCopy),\n"
+    "    '$listing_bind_vars'(BCopy),\n"
+    "    '$listing_name_other_vars'(Copy, BCopy),\n"
+    "    '$listing_do_portray_clause'(Stream, Copy, Options).\n"
+    "'$listing_name_vars_and_portray_clause'(Stream, Term, Options) :-\n"
+    "    copy_term_nat(Term, Copy),\n"
+    "    '$listing_clause_vars'(Copy, Options),\n"
+    "    '$listing_do_portray_clause'(Stream, Copy, Options).\n"
+    "'$listing_clause_vars'(Clause, Options) :-\n"
+    "    option(variable_names(Bindings), Options),\n"
+    "    !,\n"
+    "    '$listing_bind_vars'(Bindings),\n"
+    "    '$listing_name_other_vars'(Clause, Bindings).\n"
+    "'$listing_clause_vars'(Clause, _) :-\n"
+    "    numbervars(Clause, 0, _,\n"
+    "               [ singletons(true)\n"
+    "               ]).\n"
+    "'$listing_is_meta'(portray_goal).\n"
+    "'$listing_do_portray_clause'(Out, Var, Options) :-\n"
+    "    var(Var),\n"
+    "    !,\n"
+    "    option(indent(LeftMargin), Options, 0),\n"
+    "    '$listing_indent'(Out, LeftMargin),\n"
+    "    '$listing_pprint'(Out, Var, 1200, Options).\n"
+    "'$listing_do_portray_clause'(Out, (Head :- true), Options) :-\n"
+    "    !,\n"
+    "    option(indent(LeftMargin), Options, 0),\n"
+    "    '$listing_indent'(Out, LeftMargin),\n"
+    "    '$listing_pprint'(Out, Head, 1200, Options),\n"
+    "    '$listing_full_stop'(Out).\n"
+    "'$listing_do_portray_clause'(Out, Term, Options) :-\n"
+    "    '$listing_clause_term'(Term, Head, Neck, Body),\n"
+    "    !,\n"
+    "    option(indent(LeftMargin), Options, 0),\n"
+    "    '$listing_inc_indent'(LeftMargin, 1, Indent),\n"
+    "    '$listing_infix_op'(Neck, RightPri, LeftPri),\n"
+    "    '$listing_indent'(Out, LeftMargin),\n"
+    "    '$listing_pprint'(Out, Head, LeftPri, Options),\n"
+    "    format(Out, ' ~w', [Neck]),\n"
+    "    (   nonvar(Body),\n"
+    "        Body = Module:LocalBody,\n"
+    "        \\+ '$listing_primitive'(LocalBody)\n"
+    "    ->  '$listing_nlindent'(Out, Indent),\n"
+    "        format(Out, '~q', [Module]),\n"
+    "        '$put_token'(Out, :),\n"
+    "        '$listing_nlindent'(Out, Indent),\n"
+    "        write(Out, '(   '),\n"
+    "        '$listing_inc_indent'(Indent, 1, BodyIndent),\n"
+    "        '$listing_portray_body'(LocalBody, BodyIndent, noindent, 1200, Out, Options),\n"
+    "        '$listing_nlindent'(Out, Indent),\n"
+    "        write(Out, ')')\n"
+    "    ;   setting(listing:body_indentation, BodyIndent0),\n"
+    "        BodyIndent is LeftMargin+BodyIndent0,\n"
+    "        '$listing_portray_body'(Body, BodyIndent, indent, RightPri, Out, Options)\n"
+    "    ),\n"
+    "    '$listing_full_stop'(Out).\n"
+    "'$listing_do_portray_clause'(Out, (:-Directive), Options) :-\n"
+    "    '$listing_wrapped_list_directive'(Directive),\n"
+    "    !,\n"
+    "    Directive =.. [Name, Arg, List],\n"
+    "    option(indent(LeftMargin), Options, 0),\n"
+    "    '$listing_indent'(Out, LeftMargin),\n"
+    "    format(Out, ':- ~q(', [Name]),\n"
+    "    line_position(Out, Indent),\n"
+    "    format(Out, '~q,', [Arg]),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    '$listing_portray_list'(List, Indent, Out, Options),\n"
+    "    write(Out, ').\\n').\n"
+    "'$listing_do_portray_clause'(Out, Clause, Options) :-\n"
+    "    '$listing_directive'(Clause, Op, Directive),\n"
+    "    !,\n"
+    "    option(indent(LeftMargin), Options, 0),\n"
+    "    '$listing_indent'(Out, LeftMargin),\n"
+    "    format(Out, '~w ', [Op]),\n"
+    "    DIndent is LeftMargin+3,\n"
+    "    '$listing_portray_body'(Directive, DIndent, noindent, 1199, Out, Options),\n"
+    "    '$listing_full_stop'(Out).\n"
+    "'$listing_do_portray_clause'(Out, Fact, Options) :-\n"
+    "    option(indent(LeftMargin), Options, 0),\n"
+    "    '$listing_indent'(Out, LeftMargin),\n"
+    "    '$listing_portray_body'(Fact, LeftMargin, noindent, 1200, Out, Options),\n"
+    "    '$listing_full_stop'(Out).\n"
+    "'$listing_clause_term'((Head:-Body), Head, :-, Body).\n"
+    "'$listing_clause_term'((Head=>Body), Head, =>, Body).\n"
+    "'$listing_clause_term'(?=>(Head,Body), Head, ?=>, Body).\n"
+    "'$listing_clause_term'((Head-->Body), Head, -->, Body).\n"
+    "'$listing_full_stop'(Out) :-\n"
+    "    '$put_token'(Out, '.'),\n"
+    "    nl(Out).\n"
+    "'$listing_directive'((:- Directive), :-, Directive).\n"
+    "'$listing_directive'((?- Directive), ?-, Directive).\n"
+    "'$listing_wrapped_list_directive'(module(_,_)).\n"
+    "'$listing_portray_body'(Var, _, _, Pri, Out, Options) :-\n"
+    "    var(Var),\n"
+    "    !,\n"
+    "    '$listing_pprint'(Out, Var, Pri, Options).\n"
+    "'$listing_portray_body'(!, _, _, _, Out, _) :-\n"
+    "    setting(listing:cut_on_same_line, true),\n"
+    "    !,\n"
+    "    write(Out, ' !').\n"
+    "'$listing_portray_body'((!, Clause), Indent, _, Pri, Out, Options) :-\n"
+    "    setting(listing:cut_on_same_line, true),\n"
+    "    \\+ '$listing_term_needs_braces'((_,_), Pri),\n"
+    "    !,\n"
+    "    write(Out, ' !,'),\n"
+    "    '$listing_portray_body'(Clause, Indent, indent, 1000, Out, Options).\n"
+    "'$listing_portray_body'(Term, Indent, indent, Pri, Out, Options) :-\n"
+    "    !,\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    '$listing_portray_body'(Term, Indent, noindent, Pri, Out, Options).\n"
+    "'$listing_portray_body'(Or, Indent, _, _, Out, Options) :-\n"
+    "    '$listing_or_layout'(Or),\n"
+    "    !,\n"
+    "    write(Out, '(   '),\n"
+    "    '$listing_portray_or'(Or, Indent, 1200, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    write(Out, ')').\n"
+    "'$listing_portray_body'(Term, Indent, _, Pri, Out, Options) :-\n"
+    "    '$listing_term_needs_braces'(Term, Pri),\n"
+    "    !,\n"
+    "    write(Out, '( '),\n"
+    "    ArgIndent is Indent + 2,\n"
+    "    '$listing_portray_body'(Term, ArgIndent, noindent, 1200, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    write(Out, ')').\n"
+    "'$listing_portray_body'(((AB),C), Indent, _, _Pri, Out, Options) :-\n"
+    "    nonvar(AB),\n"
+    "    AB = (A,B),\n"
+    "    !,\n"
+    "    '$listing_infix_op'(',', LeftPri, RightPri),\n"
+    "    '$listing_portray_body'(A, Indent, noindent, LeftPri, Out, Options),\n"
+    "    write(Out, ','),\n"
+    "    '$listing_portray_body'((B,C), Indent, indent, RightPri, Out, Options).\n"
+    "'$listing_portray_body'((A,B), Indent, _, _Pri, Out, Options) :-\n"
+    "    !,\n"
+    "    '$listing_infix_op'(',', LeftPri, RightPri),\n"
+    "    '$listing_portray_body'(A, Indent, noindent, LeftPri, Out, Options),\n"
+    "    write(Out, ','),\n"
+    "    '$listing_portray_body'(B, Indent, indent, RightPri, Out, Options).\n"
+    "'$listing_portray_body'(\\+(Goal), Indent, _, _Pri, Out, Options) :-\n"
+    "    !,\n"
+    "    write(Out, \\+), write(Out, ' '),\n"
+    "    '$listing_prefix_op'(\\+, ArgPri),\n"
+    "    ArgIndent is Indent+3,\n"
+    "    '$listing_portray_body'(Goal, ArgIndent, noindent, ArgPri, Out, Options).\n"
+    "'$listing_portray_body'(Call, _, _, _, Out, Options) :-\n"
+    "    '$listing_m_callable'(Call),\n"
+    "    option(module(M), Options, user),\n"
+    "    predicate_property(M:Call, meta_predicate(Meta)),\n"
+    "    !,\n"
+    "    '$listing_portray_meta'(Out, Call, Meta, Options).\n"
+    "'$listing_portray_body'(Clause, _, _, Pri, Out, Options) :-\n"
+    "    '$listing_pprint'(Out, Clause, Pri, Options).\n"
+    "'$listing_m_callable'(Term) :-\n"
+    "    strip_module(Term, _, Plain),\n"
+    "    callable(Plain),\n"
+    "    Plain \\= (_:_).\n"
+    "'$listing_term_needs_braces'(Term, Pri) :-\n"
+    "    callable(Term),\n"
+    "    functor(Term, Name, _Arity),\n"
+    "    current_op(OpPri, _Type, Name),\n"
+    "    OpPri > Pri,\n"
+    "    !.\n"
+    "'$listing_portray_or'(Term, Indent, Pri, Out, Options) :-\n"
+    "    '$listing_term_needs_braces'(Term, Pri),\n"
+    "    !,\n"
+    "    '$listing_inc_indent'(Indent, 1, NewIndent),\n"
+    "    write(Out, '(   '),\n"
+    "    '$listing_portray_or'(Term, NewIndent, Out, Options),\n"
+    "    '$listing_nlindent'(Out, NewIndent),\n"
+    "    write(Out, ')').\n"
+    "'$listing_portray_or'(Term, Indent, _Pri, Out, Options) :-\n"
+    "    '$listing_or_layout'(Term),\n"
+    "    !,\n"
+    "    '$listing_portray_or'(Term, Indent, Out, Options).\n"
+    "'$listing_portray_or'(Term, Indent, Pri, Out, Options) :-\n"
+    "    '$listing_inc_indent'(Indent, 1, NestIndent),\n"
+    "    '$listing_portray_body'(Term, NestIndent, noindent, Pri, Out, Options).\n"
+    "'$listing_portray_or'((If -> Then ; Else), Indent, Out, Options) :-\n"
+    "    !,\n"
+    "    '$listing_inc_indent'(Indent, 1, NestIndent),\n"
+    "    '$listing_infix_op'((->), LeftPri, RightPri),\n"
+    "    '$listing_portray_body'(If, NestIndent, noindent, LeftPri, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    write(Out, '->  '),\n"
+    "    '$listing_portray_body'(Then, NestIndent, noindent, RightPri, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    write(Out, ';   '),\n"
+    "    '$listing_infix_op'(;, _LeftPri, RightPri2),\n"
+    "    '$listing_portray_or'(Else, Indent, RightPri2, Out, Options).\n"
+    "'$listing_portray_or'((If *-> Then ; Else), Indent, Out, Options) :-\n"
+    "    !,\n"
+    "    '$listing_inc_indent'(Indent, 1, NestIndent),\n"
+    "    '$listing_infix_op'((*->), LeftPri, RightPri),\n"
+    "    '$listing_portray_body'(If, NestIndent, noindent, LeftPri, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    write(Out, '*-> '),\n"
+    "    '$listing_portray_body'(Then, NestIndent, noindent, RightPri, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    write(Out, ';   '),\n"
+    "    '$listing_infix_op'(;, _LeftPri, RightPri2),\n"
+    "    '$listing_portray_or'(Else, Indent, RightPri2, Out, Options).\n"
+    "'$listing_portray_or'((If -> Then), Indent, Out, Options) :-\n"
+    "    !,\n"
+    "    '$listing_inc_indent'(Indent, 1, NestIndent),\n"
+    "    '$listing_infix_op'((->), LeftPri, RightPri),\n"
+    "    '$listing_portray_body'(If, NestIndent, noindent, LeftPri, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    write(Out, '->  '),\n"
+    "    '$listing_portray_or'(Then, Indent, RightPri, Out, Options).\n"
+    "'$listing_portray_or'((If *-> Then), Indent, Out, Options) :-\n"
+    "    !,\n"
+    "    '$listing_inc_indent'(Indent, 1, NestIndent),\n"
+    "    '$listing_infix_op'((->), LeftPri, RightPri),\n"
+    "    '$listing_portray_body'(If, NestIndent, noindent, LeftPri, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    write(Out, '*-> '),\n"
+    "    '$listing_portray_or'(Then, Indent, RightPri, Out, Options).\n"
+    "'$listing_portray_or'((A;B), Indent, Out, Options) :-\n"
+    "    !,\n"
+    "    '$listing_inc_indent'(Indent, 1, NestIndent),\n"
+    "    '$listing_infix_op'(;, LeftPri, RightPri),\n"
+    "    '$listing_portray_body'(A, NestIndent, noindent, LeftPri, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    write(Out, ';   '),\n"
+    "    '$listing_portray_or'(B, Indent, RightPri, Out, Options).\n"
+    "'$listing_portray_or'((A|B), Indent, Out, Options) :-\n"
+    "    !,\n"
+    "    '$listing_inc_indent'(Indent, 1, NestIndent),\n"
+    "    '$listing_infix_op'('|', LeftPri, RightPri),\n"
+    "    '$listing_portray_body'(A, NestIndent, noindent, LeftPri, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    write(Out, '|   '),\n"
+    "    '$listing_portray_or'(B, Indent, RightPri, Out, Options).\n"
+    "'$listing_infix_op'(Op, Left, Right) :-\n"
+    "    current_op(Pri, Assoc, Op),\n"
+    "    '$listing_infix_assoc'(Assoc, LeftMin, RightMin),\n"
+    "    !,\n"
+    "    Left is Pri - LeftMin,\n"
+    "    Right is Pri - RightMin.\n"
+    "'$listing_infix_assoc'(xfx, 1, 1).\n"
+    "'$listing_infix_assoc'(xfy, 1, 0).\n"
+    "'$listing_infix_assoc'(yfx, 0, 1).\n"
+    "'$listing_prefix_op'(Op, ArgPri) :-\n"
+    "    current_op(Pri, Assoc, Op),\n"
+    "    '$listing_pre_assoc'(Assoc, ArgMin),\n"
+    "    !,\n"
+    "    ArgPri is Pri - ArgMin.\n"
+    "'$listing_pre_assoc'(fx, 1).\n"
+    "'$listing_pre_assoc'(fy, 0).\n"
+    "'$listing_postfix_op'(Op, ArgPri) :-\n"
+    "    current_op(Pri, Assoc, Op),\n"
+    "    '$listing_post_assoc'(Assoc, ArgMin),\n"
+    "    !,\n"
+    "    ArgPri is Pri - ArgMin.\n"
+    "'$listing_post_assoc'(xf, 1).\n"
+    "'$listing_post_assoc'(yf, 0).\n"
+    "'$listing_or_layout'(Var) :-\n"
+    "    var(Var), !, fail.\n"
+    "'$listing_or_layout'((_;_)).\n"
+    "'$listing_or_layout'((_->_)).\n"
+    "'$listing_or_layout'((_*->_)).\n"
+    "'$listing_primitive'(G) :-\n"
+    "    '$listing_or_layout'(G), !, fail.\n"
+    "'$listing_primitive'((_,_)) :- !, fail.\n"
+    "'$listing_primitive'(_).\n"
+    "'$listing_portray_meta'(Out, Call, Meta, Options) :-\n"
+    "    '$listing_contains_non_primitive_meta_arg'(Call, Meta),\n"
+    "    !,\n"
+    "    Call =.. [Name|Args],\n"
+    "    Meta =.. [_|Decls],\n"
+    "    format(Out, '~q(', [Name]),\n"
+    "    line_position(Out, Indent),\n"
+    "    '$listing_portray_meta_args'(Decls, Args, Indent, Out, Options),\n"
+    "    format(Out, ')', []).\n"
+    "'$listing_portray_meta'(Out, Call, _, Options) :-\n"
+    "    '$listing_pprint'(Out, Call, 999, Options).\n"
+    "'$listing_contains_non_primitive_meta_arg'(Call, Decl) :-\n"
+    "    arg(I, Call, CA),\n"
+    "    arg(I, Decl, DA),\n"
+    "    integer(DA),\n"
+    "    \\+ '$listing_primitive'(CA),\n"
+    "    !.\n"
+    "'$listing_portray_meta_args'([], [], _, _, _).\n"
+    "'$listing_portray_meta_args'([D|DT], [A|AT], Indent, Out, Options) :-\n"
+    "    '$listing_portray_meta_arg'(D, A, Out, Options),\n"
+    "    (   DT == []\n"
+    "    ->  true\n"
+    "    ;   format(Out, ',', []),\n"
+    "        '$listing_nlindent'(Out, Indent),\n"
+    "        '$listing_portray_meta_args'(DT, AT, Indent, Out, Options)\n"
+    "    ).\n"
+    "'$listing_portray_meta_arg'(I, A, Out, Options) :-\n"
+    "    integer(I),\n"
+    "    !,\n"
+    "    line_position(Out, Indent),\n"
+    "    '$listing_portray_body'(A, Indent, noindent, 999, Out, Options).\n"
+    "'$listing_portray_meta_arg'(_, A, Out, Options) :-\n"
+    "    '$listing_pprint'(Out, A, 999, Options).\n"
+    "'$listing_portray_list'([], _, Out, _) :-\n"
+    "    !,\n"
+    "    write(Out, []).\n"
+    "'$listing_portray_list'(List, Indent, Out, Options) :-\n"
+    "    write(Out, '[ '),\n"
+    "    EIndent is Indent + 2,\n"
+    "    '$listing_portray_list_elements'(List, EIndent, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    write(Out, ']').\n"
+    "'$listing_portray_list_elements'([H|T], EIndent, Out, Options) :-\n"
+    "    '$listing_pprint'(Out, H, 999, Options),\n"
+    "    (   T == []\n"
+    "    ->  true\n"
+    "    ;   nonvar(T), T = [_|_]\n"
+    "    ->  write(Out, ','),\n"
+    "        '$listing_nlindent'(Out, EIndent),\n"
+    "        '$listing_portray_list_elements'(T, EIndent, Out, Options)\n"
+    "    ;   Indent is EIndent - 2,\n"
+    "        '$listing_nlindent'(Out, Indent),\n"
+    "        write(Out, '| '),\n"
+    "        '$listing_pprint'(Out, T, 999, Options)\n"
+    "    ).\n"
+    "'$listing_pprint'(Out, Term, _, Options) :-\n"
+    "    nonvar(Term),\n"
+    "    Term = {}(Arg),\n"
+    "    line_position(Out, Indent),\n"
+    "    ArgIndent is Indent + 2,\n"
+    "    format(Out, '{ ', []),\n"
+    "    '$listing_portray_body'(Arg, ArgIndent, noident, 1000, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent),\n"
+    "    format(Out, '}', []).\n"
+    "'$listing_pprint'(Out, Term, Pri, Options) :-\n"
+    "    (   compound(Term)\n"
+    "    ->  compound_name_arity(Term, _, Arity),\n"
+    "        Arity > 0\n"
+    "    ;   is_dict(Term)\n"
+    "    ),\n"
+    "    \\+ '$listing_nowrap_term'(Term),\n"
+    "    setting(listing:line_width, Width),\n"
+    "    Width > 0,\n"
+    "    (   write_length(Term, Len, [max_length(Width)|Options])\n"
+    "    ->  true\n"
+    "    ;   Len = Width\n"
+    "    ),\n"
+    "    line_position(Out, Indent),\n"
+    "    Indent + Len > Width,\n"
+    "    Len > Width/4,\n"
+    "    !,\n"
+    "    '$listing_pprint_wrapped'(Out, Term, Pri, Options).\n"
+    "'$listing_pprint'(Out, Term, Pri, Options) :-\n"
+    "    '$listing_listing_write_options'(Pri, WrtOptions, Options),\n"
+    "    write_term(Out, Term,\n"
+    "               [ blobs(portray),\n"
+    "                 portray_goal('$listing_portray_blob')\n"
+    "               | WrtOptions\n"
+    "               ]).\n"
+    "'$listing_portray_blob'(Blob, _Options) :-\n"
+    "    blob(Blob, _),\n"
+    "    \\+ atom(Blob),\n"
+    "    !,\n"
+    "    format(string(S), '~q', [Blob]),\n"
+    "    format('~q', ['$BLOB'(S)]).\n"
+    "'$listing_nowrap_term'('$VAR'(_)) :- !.\n"
+    "'$listing_nowrap_term'(_{}) :- !.\n"
+    "'$listing_nowrap_term'(Term) :-\n"
+    "    functor(Term, Name, Arity),\n"
+    "    current_op(_, _, Name),\n"
+    "    (   Arity == 2\n"
+    "    ->  '$listing_infix_op'(Name, _, _)\n"
+    "    ;   Arity == 1\n"
+    "    ->  (   '$listing_prefix_op'(Name, _)\n"
+    "        ->  true\n"
+    "        ;   '$listing_postfix_op'(Name, _)\n"
+    "        )\n"
+    "    ).\n"
+    "'$listing_pprint_wrapped'(Out, Term, _, Options) :-\n"
+    "    Term = [_|_],\n"
+    "    !,\n"
+    "    line_position(Out, Indent),\n"
+    "    '$listing_portray_list'(Term, Indent, Out, Options).\n"
+    "'$listing_pprint_wrapped'(Out, Dict, _, Options) :-\n"
+    "    is_dict(Dict),\n"
+    "    !,\n"
+    "    dict_pairs(Dict, Tag, Pairs),\n"
+    "    '$listing_pprint'(Out, Tag, 1200, Options),\n"
+    "    format(Out, '{ ', []),\n"
+    "    line_position(Out, Indent),\n"
+    "    '$listing_pprint_nv'(Pairs, Indent, Out, Options),\n"
+    "    '$listing_nlindent'(Out, Indent-2),\n"
+    "    format(Out, '}', []).\n"
+    "'$listing_pprint_wrapped'(Out, Term, _, Options) :-\n"
+    "    Term =.. [Name|Args],\n"
+    "    format(Out, '~q(', [Name]),\n"
+    "    line_position(Out, Indent),\n"
+    "    '$listing_pprint_args'(Args, Indent, Out, Options),\n"
+    "    format(Out, ')', []).\n"
+    "'$listing_pprint_args'([], _, _, _).\n"
+    "'$listing_pprint_args'([H|T], Indent, Out, Options) :-\n"
+    "    '$listing_pprint'(Out, H, 999, Options),\n"
+    "    (   T == []\n"
+    "    ->  true\n"
+    "    ;   format(Out, ',', []),\n"
+    "        '$listing_nlindent'(Out, Indent),\n"
+    "        '$listing_pprint_args'(T, Indent, Out, Options)\n"
+    "    ).\n"
+    "'$listing_pprint_nv'([], _, _, _).\n"
+    "'$listing_pprint_nv'([Name-Value|T], Indent, Out, Options) :-\n"
+    "    '$listing_pprint'(Out, Name, 999, Options),\n"
+    "    format(Out, ':', []),\n"
+    "    '$listing_pprint'(Out, Value, 999, Options),\n"
+    "    (   T == []\n"
+    "    ->  true\n"
+    "    ;   format(Out, ',', []),\n"
+    "        '$listing_nlindent'(Out, Indent),\n"
+    "        '$listing_pprint_nv'(T, Indent, Out, Options)\n"
+    "    ).\n"
+    "'$listing_listing_write_options'(Pri,\n"
+    "                      [ quoted(true),\n"
+    "                        numbervars(true),\n"
+    "                        priority(Pri),\n"
+    "                        spacing(next_argument)\n"
+    "                      | Options\n"
+    "                      ],\n"
+    "                      Options).\n"
+    "'$listing_nlindent'(Out, N) :-\n"
+    "    nl(Out),\n"
+    "    '$listing_indent'(Out, N).\n"
+    "'$listing_indent'(Out, N) :-\n"
+    "    setting(listing:tab_distance, D),\n"
+    "    (   D =:= 0\n"
+    "    ->  tab(Out, N)\n"
+    "    ;   Tab is N // D,\n"
+    "        Space is N mod D,\n"
+    "        '$listing_put_tabs'(Out, Tab),\n"
+    "        tab(Out, Space)\n"
+    "    ).\n"
+    "'$listing_put_tabs'(Out, N) :-\n"
+    "    N > 0,\n"
+    "    !,\n"
+    "    put(Out, 0'\\t),\n"
+    "    NN is N - 1,\n"
+    "    '$listing_put_tabs'(Out, NN).\n"
+    "'$listing_put_tabs'(_, _).\n"
+    "'$listing_inc_indent'(Indent0, Inc, Indent) :-\n"
+    "    Indent is Indent0 + Inc*4.\n"
+    "'$listing_not_qualified'(Var) :-\n"
+    "    var(Var),\n"
+    "    !.\n"
+    "'$listing_not_qualified'(_:_) :- !, fail.\n"
+    "'$listing_not_qualified'(_).\n"
+    "'$listing_comment'(Format, Args) :-\n"
+    "    stream_property(current_output, tty(true)),\n"
+    "    setting(listing:comment_ansi_attributes, Attributes),\n"
+    "    Attributes \\== [],\n"
+    "    !,\n"
+    "    ansi_format(Attributes, Format, Args).\n"
+    "'$listing_comment'(Format, Args) :-\n"
+    "    format(Format, Args).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "member", 2 },
     { "append", 2 },
     { "append", 3 },
@@ -14767,16 +15629,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_EXPORTS[] = {
     { "subtract", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_16_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_16_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_16_SRC[] =
+static const char PL_PRELUDE_LIB_17_SRC[] =
     "member(El, [H|T]) :-\n"
     "    '$lists_member_'(T, El, H).\n"
     "'$lists_member_'(_, El, El).\n"
@@ -15067,7 +15929,7 @@ static const char PL_PRELUDE_LIB_16_SRC[] =
     "    ;   R = [E|R1],\n"
     "        subtract(T, D, R1)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "main", 0 },
     { "argv_options", 3 },
     { "argv_options", 4 },
@@ -15076,16 +15938,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "cli_enable_development_system", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_17_SRC[] =
+static const char PL_PRELUDE_LIB_18_SRC[] =
     ":- dynamic\n"
     "    interactive/0.\n"
     "main :-\n"
@@ -15648,7 +16510,7 @@ static const char PL_PRELUDE_LIB_17_SRC[] =
     "    set_prolog_flag(xpce_threaded, true),\n"
     "    set_prolog_flag(message_ide, true),\n"
     "    set_prolog_flag(toplevel_goal, prolog).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "$mctx_assert", 3 },
     { "$mctx_asserta", 3 },
     { "$mctx_assertz", 3 },
@@ -15662,16 +16524,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "$mctx_call", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_18_SRC[] =
+static const char PL_PRELUDE_LIB_19_SRC[] =
     "'$mctx_pick'([M|_],N,A,QN):-atom_concat(M,':',P),atom_concat(P,N,Q0),current_predicate(Q0/A),!,QN=Q0.\n"
     "'$mctx_pick'([_|Ms],N,A,QN):-'$mctx_pick'(Ms,N,A,QN).\n"
     "'$mctx_head'(M1,M2,H0,H):-nonvar(H0),callable(H0),H0\\=(_:_),functor(H0,N,A),'$mctx_pick'([M1,M2],N,A,QN),!,H0=..[_|As],H=..[QN|As].\n"
@@ -15709,7 +16571,7 @@ static const char PL_PRELUDE_LIB_18_SRC[] =
     "'$mctx_eff1'(M,C,As,M,E):-'$mctx_ext'(C,As,E).\n"
     "'$mctx_ext'(C,As,E):-nonvar(C),callable(C),C=..L0,append(L0,As,L1),E=..L1,!.\n"
     "'$mctx_ext'(C,_,C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
     { "empty_nb_set", 1 },
     { "add_nb_set", 2 },
     { "add_nb_set", 3 },
@@ -15718,16 +16580,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "nb_set_to_list", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_19_SRC[] =
+static const char PL_PRELUDE_LIB_20_SRC[] =
     "'$nb_set_initial_size'(32).\n"
     "empty_nb_set(nb_set(Buckets, 0)) :-\n"
     "    '$nb_set_initial_size'(Size),\n"
@@ -15789,7 +16651,7 @@ static const char PL_PRELUDE_LIB_19_SRC[] =
     "    nb_set_to_list(Set, OrdSet),\n"
     "    member(Key, OrdSet).\n"
     "size_nb_set(nb_set(_, Size), Size).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
     { "option", 2 },
     { "option", 3 },
     { "select_option", 3 },
@@ -15799,16 +16661,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
     { "dict_options", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_21_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_20_SRC[] =
+static const char PL_PRELUDE_LIB_21_SRC[] =
     "option(Opt, Options, Default) :-\n"
     "    is_dict(Options),\n"
     "    !,\n"
@@ -15983,23 +16845,23 @@ static const char PL_PRELUDE_LIB_20_SRC[] =
     "    !.\n"
     "'$option_key_name'(Opt, _) :-\n"
     "    domain_error(option, Opt).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
     { "opt_parse", 5 },
     { "opt_parse", 4 },
     { "opt_arguments", 3 },
     { "opt_help", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_21_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_22_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_21_SRC[] =
+static const char PL_PRELUDE_LIB_22_SRC[] =
     "opt_arguments(OptsSpec, Opts, PositionalArgs) :-\n"
     "    current_prolog_flag(argv, Argv),\n"
     "    opt_parse(OptsSpec, Argv, Opts, PositionalArgs).\n"
@@ -16379,7 +17241,7 @@ static const char PL_PRELUDE_LIB_21_SRC[] =
     "'$optparse_flags'(OptSpec, Flags) :- memberchk(longflags(Flags), OptSpec).\n"
     "'$optparse_is_list_of_atoms'([]).\n"
     "'$optparse_is_list_of_atoms'([X|Xs]) :- atom(X), '$optparse_is_list_of_atoms'(Xs).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
     { "is_ordset", 1 },
     { "list_to_ord_set", 2 },
     { "ord_add_element", 3 },
@@ -16402,16 +17264,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
     { "ord_intersection", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_22_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_23_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_22_SRC[] =
+static const char PL_PRELUDE_LIB_23_SRC[] =
     "is_ordset(Term) :-\n"
     "    is_list(Term),\n"
     "    '$ordsets_is_ordset2'(Term).\n"
@@ -16630,7 +17492,7 @@ static const char PL_PRELUDE_LIB_22_SRC[] =
     "    ord_symdiff(T1, T2, Difference).\n"
     "'$ordsets_ord_symdiff'(>, H1, T1, H2, Set2, [H2|Difference]) :-\n"
     "    '$ordsets_ord_symdiff'(Set2, H1, T1, Difference).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
     { "pairs_keys_values", 3 },
     { "pairs_values", 2 },
     { "pairs_keys", 2 },
@@ -16639,16 +17501,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
     { "map_list_to_pairs", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_23_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_24_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_23_SRC[] =
+static const char PL_PRELUDE_LIB_24_SRC[] =
     "pairs_keys_values(Pairs, Keys, Values) :-\n"
     "    (   nonvar(Pairs) ->\n"
     "        '$pairs_pairs_keys_values_'(Pairs, Keys, Values)\n"
@@ -16692,7 +17554,7 @@ static const char PL_PRELUDE_LIB_23_SRC[] =
     "'$pairs_map_list_to_pairs2'([H|T0], Pred, [K-H|T]) :-\n"
     "    call(Pred, H, K),\n"
     "    '$pairs_map_list_to_pairs2'(T0, Pred, T).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_EXPORTS[] = {
     { "re_match", 2 },
     { "re_match", 3 },
     { "re_matchsub", 3 },
@@ -16704,16 +17566,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
     { "re_replace", 5 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_24_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_25_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_24_SRC[] =
+static const char PL_PRELUDE_LIB_25_SRC[] =
     "re_match(Re, S) :- re_match(Re, S, []).\n"
     "re_match(Re, S, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_search'(R, W, 0, W, _, _), !.\n"
     "re_matchsub(Re, S, Sub) :- re_matchsub(Re, S, Sub, []).\n"
@@ -16937,20 +17799,20 @@ static const char PL_PRELUDE_LIB_24_SRC[] =
     "'$re_conv'(_, Cs, V) :- string_codes(V, Cs).\n"
     "'$re_take'(0, _, []) :- !.\n"
     "'$re_take'(N, [C|Cs], [C|Ts]) :- N1 is N - 1, '$re_take'(N1, Cs, Ts).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_EXPORTS[] = {
     { "valid_term_position", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_25_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_26_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_25_SRC[] =
+static const char PL_PRELUDE_LIB_26_SRC[] =
     "valid_term_position(Term, TermPos) :-\n"
     "    '$vtp'(0, 0x7fffffffffffffff, Term, TermPos).\n"
     "'$vtp'(OuterFrom, OuterTo, _Term, TermPos),\n"
@@ -17031,7 +17893,7 @@ static const char PL_PRELUDE_LIB_25_SRC[] =
     "'$vtp_tail'(Tail0, HdPart, Tail) =>\n"
     "    HdPart = [],\n"
     "    Tail0 = Tail.\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_EXPORTS[] = {
     { "phrase_from_file", 2 },
     { "phrase_from_file", 3 },
     { "phrase_from_stream", 2 },
@@ -17041,16 +17903,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_EXPORTS[] = {
     { "lazy_list_character_count", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_26_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_27_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_26_SRC[] =
+static const char PL_PRELUDE_LIB_27_SRC[] =
     "phrase_from_file(Grammar, File) :-\n"
     "    phrase_from_file(Grammar, File, []).\n"
     "phrase_from_file(Grammar, File, Options) :-\n"
@@ -17132,7 +17994,7 @@ static const char PL_PRELUDE_LIB_26_SRC[] =
     "        )\n"
     "    ;   Value = Read\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
     { "unix", 1 },
     { "abs", 2 },
     { "sin", 2 },
@@ -17170,16 +18032,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_EXPORTS[] = {
     { "on_exception", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_27_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_28_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_27_SRC[] =
+static const char PL_PRELUDE_LIB_28_SRC[] =
     "unix(system(Command)) :-\n"
     "    shell(Command).\n"
     "unix(shell(Command)) :-\n"
@@ -17289,7 +18151,7 @@ static const char PL_PRELUDE_LIB_27_SRC[] =
     "    throw(Term).\n"
     "on_exception(Except, Goal, Recover) :-\n"
     "    catch(Goal, Except, Recover).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_EXPORTS[] = {
     { "random", 1 },
     { "random_between", 3 },
     { "getrand", 1 },
@@ -17308,16 +18170,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
     { "random", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_28_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_29_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_28_SRC[] =
+static const char PL_PRELUDE_LIB_29_SRC[] =
     "'$random_check_gmp' :-\n"
     "    current_arithmetic_function(random_float),\n"
     "    !.\n"
@@ -17487,7 +18349,7 @@ static const char PL_PRELUDE_LIB_28_SRC[] =
     "'$random_partial_list'(List) :-\n"
     "    '$skip_list'(_, List, Tail),\n"
     "    var(Tail).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
     { "rb_new", 1 },
     { "rb_empty", 1 },
     { "rb_lookup", 3 },
@@ -17518,16 +18380,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_EXPORTS[] = {
     { "rb_in", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_29_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_30_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_29_SRC[] =
+static const char PL_PRELUDE_LIB_30_SRC[] =
     "rb_new(t(Nil,Nil)) :-\n"
     "    Nil = black('',_,_,'').\n"
     "rb_empty(t(Nil,Nil)) :-\n"
@@ -18136,7 +18998,7 @@ static const char PL_PRELUDE_LIB_29_SRC[] =
     "'$rbtrees_check_red_child'(black(_,_,_,_)) => true.\n"
     "'$rbtrees_check_red_child'(Node), Node = red(_,_,_,_) =>\n"
     "    domain_error(rb_black, Node).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
     { "read_line_to_codes", 2 },
     { "read_line_to_codes", 3 },
     { "read_stream_to_codes", 2 },
@@ -18147,16 +19009,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
     { "read_file_to_terms", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_30_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_31_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_30_SRC[] =
+static const char PL_PRELUDE_LIB_31_SRC[] =
     "'$readutil_link_foreign' :-\n"
     "    catch(use_foreign_library(foreign(readutil)), _, fail),\n"
     "    !.\n"
@@ -18266,23 +19128,23 @@ static const char PL_PRELUDE_LIB_30_SRC[] =
     "        open(Path, read, Stream, Options),\n"
     "        '$readutil_read_stream_to_terms'(Stream, Terms, Tail, Options),\n"
     "        close(Stream)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
     { "record", 1 },
     { "current_record", 2 },
     { "current_record_predicate", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_31_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_32_OPS[] = {
     { 1150, "fx", "record" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_31_SRC[] =
+static const char PL_PRELUDE_LIB_32_SRC[] =
     "'$error_has_type'(record(M:Name), X) :-\n"
     "    '$record_is_record'(Name, M, X).\n"
     "'$record_is_record'(Name, M, X) :-\n"
@@ -18574,7 +19436,7 @@ static const char PL_PRELUDE_LIB_31_SRC[] =
     "'$record_types'([Name|T0], [Name|TN], [any|TT]) :-\n"
     "    must_be(atom, Name),\n"
     "    '$record_types'(T0, TN, TT).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
     { "distinct", 1 },
     { "distinct", 2 },
     { "reduced", 1 },
@@ -18586,16 +19448,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
     { "group_by", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_32_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_32_SRC[] =
+static const char PL_PRELUDE_LIB_33_SRC[] =
     "distinct(Goal) :-\n"
     "    distinct(Goal, Goal).\n"
     "distinct(Witness, Goal) :-\n"
@@ -18753,7 +19615,7 @@ static const char PL_PRELUDE_LIB_32_SRC[] =
     "    '$solution_sequences_ordered_term_variables'(By+Template, UVars),\n"
     "    ord_subtract(GVars, UVars, ExVars),\n"
     "    bagof(Template, ExVars^Goal, Bag).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "dedent_lines", 3 },
     { "indent_lines", 3 },
     { "indent_lines", 4 },
@@ -18761,16 +19623,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
     { "string_lines", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_33_SRC[] =
+static const char PL_PRELUDE_LIB_34_SRC[] =
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
     "interpolate_string(Module:In, Out, Map, Options) :-\n"
     "    '$strings_comp_interpolate'(In, Compiled, Map, [module(Module)|Options]),\n"
@@ -18980,7 +19842,7 @@ static const char PL_PRELUDE_LIB_33_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
     { "open_string", 2 },
     { "directory_file_path", 3 },
     { "make_directory_path", 1 },
@@ -19001,16 +19863,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "set_prolog_stack", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_34_SRC[] =
+static const char PL_PRELUDE_LIB_35_SRC[] =
     "maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).\n"
     "'$swb_maplist'([], [], [], [], [], _).\n"
     "'$swb_maplist'([A|As], [B|Bs], [C|Cs], [D|Ds], [E|Es], G) :- call(G, A, B, C, D, E), '$swb_maplist'(As, Bs, Cs, Ds, Es, G).\n"
@@ -19087,7 +19949,7 @@ static const char PL_PRELUDE_LIB_34_SRC[] =
     "'$swb_u8b'(B, [B2|R], C, R) :- B < 224, !, C is ((B /\\ 31) << 6) \\/ (B2 /\\ 63).\n"
     "'$swb_u8b'(B, [B2, B3|R], C, R) :- B < 240, !, C is ((B /\\ 15) << 12) \\/ ((B2 /\\ 63) << 6) \\/ (B3 /\\ 63).\n"
     "'$swb_u8b'(B, [B2, B3, B4|R], C, R) :- C is ((B /\\ 7) << 18) \\/ ((B2 /\\ 63) << 12) \\/ ((B3 /\\ 63) << 6) \\/ (B4 /\\ 63).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "$tbl_call", 2 },
     { "$tbl_icall", 2 },
     { "$tbl_isincr", 1 },
@@ -19258,17 +20120,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
     { "$tx_pre", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
     { "undefined", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_35_SRC[] =
+static const char PL_PRELUDE_LIB_36_SRC[] =
     "'$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).\n"
     "'$tbl_kcall'(G,I,TK):-(TK==incr->functor(G,F,N),('$tbl_isincr'(F/N)->true;assertz('$tbl_incrp'(F/N)));true),'$tbl_get'(G,I,plain,TK,T),'$tbl_answer'(T,G).\n"
     "'$tbl_icall'(G,I):-'$tbl_kcall'(G,I,incr).\n"
@@ -19692,7 +20554,7 @@ static const char PL_PRELUDE_LIB_35_SRC[] =
     "'$tx_deps'(T,Dg):-nb_current('$tx_cur',C),C=tx(Rs),!,(Dg=idg(_,Dp,_,_,_),'$tx_hit_in'(Dp,Rs),\\+ '$tx_has_inpush'(Rs,T)->nb_setarg(1,C,[inpush(T)|Rs]);true).\n"
     "'$tx_deps'(_,_).\n"
     "'$tx_hit_in'([D|Ds],Rs):-('$tx_inside'(D,Rs)->true;'$tx_hit_in'(Ds,Rs)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "term_size", 2 },
     { "variant", 2 },
     { "subsumes", 2 },
@@ -19709,16 +20571,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "same_functor", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_37_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_36_SRC[] =
+static const char PL_PRELUDE_LIB_37_SRC[] =
     "term_size(Term, Size) :-\n"
     "    '$term_size'(Term, _, Size).\n"
     "variant(X, Y) :-\n"
@@ -19927,23 +20789,23 @@ static const char PL_PRELUDE_LIB_36_SRC[] =
     "    ;   functor(Term2, Name, Arity),\n"
     "        functor(Term1, Name, Arity)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_37_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_38_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_37_SRC[] =
+static const char PL_PRELUDE_LIB_38_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -20078,7 +20940,7 @@ static const char PL_PRELUDE_LIB_37_SRC[] =
     "    put(Head),\n"
     "    '$writef_$padout'(Tail).\n"
     "'$writef_$padout'([]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
     { "import", 1 },
     { "export", 1 },
     { "index", 1 },
@@ -20089,16 +20951,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
     { "load_dyn", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_38_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_39_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_38_SRC[] =
+static const char PL_PRELUDE_LIB_39_SRC[] =
     "import(_).\n"
     "export(_).\n"
     "index(_).\n"
@@ -20116,25 +20978,25 @@ static const char PL_PRELUDE_LIB_38_SRC[] =
     "'$xsb_ld_read'(S) :- repeat, read_term(S, T, []), ( T == end_of_file -> ! ; '$xsb_ld_one'(T), fail ).\n"
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
     "'$xsb_ld_one'(C) :- assertz(C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_39_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_40_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_39_SRC[] =
+static const char PL_PRELUDE_LIB_40_SRC[] =
     "ord_setproduct([], _, []).\n"
     "ord_setproduct([Head|Tail], Set, SetProduct) :- '$xos_product'(Set, Head, SetProduct, Rest), ord_setproduct(Tail, Set, Rest).\n"
     "'$xos_product'([], _, Set, Set).\n"
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
     { "close_open_tables", 1 },
@@ -20158,16 +21020,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
     { "$atp_goal", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_40_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_41_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_40_SRC[] =
+static const char PL_PRELUDE_LIB_41_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
     "close_open_tables(_).\n"
@@ -20223,30 +21085,31 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "gnu_fd", PL_PRELUDE_LIB_13_EXPORTS, PL_PRELUDE_LIB_13_OPS, PL_PRELUDE_LIB_13_SHADOWS, PL_PRELUDE_LIB_13_QUIET, PL_PRELUDE_LIB_13_SRC },
     { "hashtable", PL_PRELUDE_LIB_14_EXPORTS, PL_PRELUDE_LIB_14_OPS, PL_PRELUDE_LIB_14_SHADOWS, PL_PRELUDE_LIB_14_QUIET, PL_PRELUDE_LIB_14_SRC },
     { "heaps", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC },
-    { "lists", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
-    { "main", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
-    { "mctx", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
-    { "nb_set", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
-    { "option", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC },
-    { "optparse", PL_PRELUDE_LIB_21_EXPORTS, PL_PRELUDE_LIB_21_OPS, PL_PRELUDE_LIB_21_SHADOWS, PL_PRELUDE_LIB_21_QUIET, PL_PRELUDE_LIB_21_SRC },
-    { "ordsets", PL_PRELUDE_LIB_22_EXPORTS, PL_PRELUDE_LIB_22_OPS, PL_PRELUDE_LIB_22_SHADOWS, PL_PRELUDE_LIB_22_QUIET, PL_PRELUDE_LIB_22_SRC },
-    { "pairs", PL_PRELUDE_LIB_23_EXPORTS, PL_PRELUDE_LIB_23_OPS, PL_PRELUDE_LIB_23_SHADOWS, PL_PRELUDE_LIB_23_QUIET, PL_PRELUDE_LIB_23_SRC },
-    { "pcre", PL_PRELUDE_LIB_24_EXPORTS, PL_PRELUDE_LIB_24_OPS, PL_PRELUDE_LIB_24_SHADOWS, PL_PRELUDE_LIB_24_QUIET, PL_PRELUDE_LIB_24_SRC },
-    { "prolog_source", PL_PRELUDE_LIB_25_EXPORTS, PL_PRELUDE_LIB_25_OPS, PL_PRELUDE_LIB_25_SHADOWS, PL_PRELUDE_LIB_25_QUIET, PL_PRELUDE_LIB_25_SRC },
-    { "pure_input", PL_PRELUDE_LIB_26_EXPORTS, PL_PRELUDE_LIB_26_OPS, PL_PRELUDE_LIB_26_SHADOWS, PL_PRELUDE_LIB_26_QUIET, PL_PRELUDE_LIB_26_SRC },
-    { "quintus", PL_PRELUDE_LIB_27_EXPORTS, PL_PRELUDE_LIB_27_OPS, PL_PRELUDE_LIB_27_SHADOWS, PL_PRELUDE_LIB_27_QUIET, PL_PRELUDE_LIB_27_SRC },
-    { "random", PL_PRELUDE_LIB_28_EXPORTS, PL_PRELUDE_LIB_28_OPS, PL_PRELUDE_LIB_28_SHADOWS, PL_PRELUDE_LIB_28_QUIET, PL_PRELUDE_LIB_28_SRC },
-    { "rbtrees", PL_PRELUDE_LIB_29_EXPORTS, PL_PRELUDE_LIB_29_OPS, PL_PRELUDE_LIB_29_SHADOWS, PL_PRELUDE_LIB_29_QUIET, PL_PRELUDE_LIB_29_SRC },
-    { "readutil", PL_PRELUDE_LIB_30_EXPORTS, PL_PRELUDE_LIB_30_OPS, PL_PRELUDE_LIB_30_SHADOWS, PL_PRELUDE_LIB_30_QUIET, PL_PRELUDE_LIB_30_SRC },
-    { "record", PL_PRELUDE_LIB_31_EXPORTS, PL_PRELUDE_LIB_31_OPS, PL_PRELUDE_LIB_31_SHADOWS, PL_PRELUDE_LIB_31_QUIET, PL_PRELUDE_LIB_31_SRC },
-    { "solution_sequences", PL_PRELUDE_LIB_32_EXPORTS, PL_PRELUDE_LIB_32_OPS, PL_PRELUDE_LIB_32_SHADOWS, PL_PRELUDE_LIB_32_QUIET, PL_PRELUDE_LIB_32_SRC },
-    { "strings", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC },
-    { "swi_builtins", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC },
-    { "tabling", PL_PRELUDE_LIB_35_EXPORTS, PL_PRELUDE_LIB_35_OPS, PL_PRELUDE_LIB_35_SHADOWS, PL_PRELUDE_LIB_35_QUIET, PL_PRELUDE_LIB_35_SRC },
-    { "terms", PL_PRELUDE_LIB_36_EXPORTS, PL_PRELUDE_LIB_36_OPS, PL_PRELUDE_LIB_36_SHADOWS, PL_PRELUDE_LIB_36_QUIET, PL_PRELUDE_LIB_36_SRC },
-    { "writef", PL_PRELUDE_LIB_37_EXPORTS, PL_PRELUDE_LIB_37_OPS, PL_PRELUDE_LIB_37_SHADOWS, PL_PRELUDE_LIB_37_QUIET, PL_PRELUDE_LIB_37_SRC },
-    { "xsb_builtins", PL_PRELUDE_LIB_38_EXPORTS, PL_PRELUDE_LIB_38_OPS, PL_PRELUDE_LIB_38_SHADOWS, PL_PRELUDE_LIB_38_QUIET, PL_PRELUDE_LIB_38_SRC },
-    { "xsb_ordsets", PL_PRELUDE_LIB_39_EXPORTS, PL_PRELUDE_LIB_39_OPS, PL_PRELUDE_LIB_39_SHADOWS, PL_PRELUDE_LIB_39_QUIET, PL_PRELUDE_LIB_39_SRC },
-    { "xsb_tables", PL_PRELUDE_LIB_40_EXPORTS, PL_PRELUDE_LIB_40_OPS, PL_PRELUDE_LIB_40_SHADOWS, PL_PRELUDE_LIB_40_QUIET, PL_PRELUDE_LIB_40_SRC },
+    { "listing", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
+    { "lists", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
+    { "main", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
+    { "mctx", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
+    { "nb_set", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC },
+    { "option", PL_PRELUDE_LIB_21_EXPORTS, PL_PRELUDE_LIB_21_OPS, PL_PRELUDE_LIB_21_SHADOWS, PL_PRELUDE_LIB_21_QUIET, PL_PRELUDE_LIB_21_SRC },
+    { "optparse", PL_PRELUDE_LIB_22_EXPORTS, PL_PRELUDE_LIB_22_OPS, PL_PRELUDE_LIB_22_SHADOWS, PL_PRELUDE_LIB_22_QUIET, PL_PRELUDE_LIB_22_SRC },
+    { "ordsets", PL_PRELUDE_LIB_23_EXPORTS, PL_PRELUDE_LIB_23_OPS, PL_PRELUDE_LIB_23_SHADOWS, PL_PRELUDE_LIB_23_QUIET, PL_PRELUDE_LIB_23_SRC },
+    { "pairs", PL_PRELUDE_LIB_24_EXPORTS, PL_PRELUDE_LIB_24_OPS, PL_PRELUDE_LIB_24_SHADOWS, PL_PRELUDE_LIB_24_QUIET, PL_PRELUDE_LIB_24_SRC },
+    { "pcre", PL_PRELUDE_LIB_25_EXPORTS, PL_PRELUDE_LIB_25_OPS, PL_PRELUDE_LIB_25_SHADOWS, PL_PRELUDE_LIB_25_QUIET, PL_PRELUDE_LIB_25_SRC },
+    { "prolog_source", PL_PRELUDE_LIB_26_EXPORTS, PL_PRELUDE_LIB_26_OPS, PL_PRELUDE_LIB_26_SHADOWS, PL_PRELUDE_LIB_26_QUIET, PL_PRELUDE_LIB_26_SRC },
+    { "pure_input", PL_PRELUDE_LIB_27_EXPORTS, PL_PRELUDE_LIB_27_OPS, PL_PRELUDE_LIB_27_SHADOWS, PL_PRELUDE_LIB_27_QUIET, PL_PRELUDE_LIB_27_SRC },
+    { "quintus", PL_PRELUDE_LIB_28_EXPORTS, PL_PRELUDE_LIB_28_OPS, PL_PRELUDE_LIB_28_SHADOWS, PL_PRELUDE_LIB_28_QUIET, PL_PRELUDE_LIB_28_SRC },
+    { "random", PL_PRELUDE_LIB_29_EXPORTS, PL_PRELUDE_LIB_29_OPS, PL_PRELUDE_LIB_29_SHADOWS, PL_PRELUDE_LIB_29_QUIET, PL_PRELUDE_LIB_29_SRC },
+    { "rbtrees", PL_PRELUDE_LIB_30_EXPORTS, PL_PRELUDE_LIB_30_OPS, PL_PRELUDE_LIB_30_SHADOWS, PL_PRELUDE_LIB_30_QUIET, PL_PRELUDE_LIB_30_SRC },
+    { "readutil", PL_PRELUDE_LIB_31_EXPORTS, PL_PRELUDE_LIB_31_OPS, PL_PRELUDE_LIB_31_SHADOWS, PL_PRELUDE_LIB_31_QUIET, PL_PRELUDE_LIB_31_SRC },
+    { "record", PL_PRELUDE_LIB_32_EXPORTS, PL_PRELUDE_LIB_32_OPS, PL_PRELUDE_LIB_32_SHADOWS, PL_PRELUDE_LIB_32_QUIET, PL_PRELUDE_LIB_32_SRC },
+    { "solution_sequences", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC },
+    { "strings", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC },
+    { "swi_builtins", PL_PRELUDE_LIB_35_EXPORTS, PL_PRELUDE_LIB_35_OPS, PL_PRELUDE_LIB_35_SHADOWS, PL_PRELUDE_LIB_35_QUIET, PL_PRELUDE_LIB_35_SRC },
+    { "tabling", PL_PRELUDE_LIB_36_EXPORTS, PL_PRELUDE_LIB_36_OPS, PL_PRELUDE_LIB_36_SHADOWS, PL_PRELUDE_LIB_36_QUIET, PL_PRELUDE_LIB_36_SRC },
+    { "terms", PL_PRELUDE_LIB_37_EXPORTS, PL_PRELUDE_LIB_37_OPS, PL_PRELUDE_LIB_37_SHADOWS, PL_PRELUDE_LIB_37_QUIET, PL_PRELUDE_LIB_37_SRC },
+    { "writef", PL_PRELUDE_LIB_38_EXPORTS, PL_PRELUDE_LIB_38_OPS, PL_PRELUDE_LIB_38_SHADOWS, PL_PRELUDE_LIB_38_QUIET, PL_PRELUDE_LIB_38_SRC },
+    { "xsb_builtins", PL_PRELUDE_LIB_39_EXPORTS, PL_PRELUDE_LIB_39_OPS, PL_PRELUDE_LIB_39_SHADOWS, PL_PRELUDE_LIB_39_QUIET, PL_PRELUDE_LIB_39_SRC },
+    { "xsb_ordsets", PL_PRELUDE_LIB_40_EXPORTS, PL_PRELUDE_LIB_40_OPS, PL_PRELUDE_LIB_40_SHADOWS, PL_PRELUDE_LIB_40_QUIET, PL_PRELUDE_LIB_40_SRC },
+    { "xsb_tables", PL_PRELUDE_LIB_41_EXPORTS, PL_PRELUDE_LIB_41_OPS, PL_PRELUDE_LIB_41_SHADOWS, PL_PRELUDE_LIB_41_QUIET, PL_PRELUDE_LIB_41_SRC },
     { 0, 0, 0, 0, 0, 0 }
 };

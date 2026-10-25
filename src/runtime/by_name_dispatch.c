@@ -177,6 +177,7 @@ extern DESCR_t dat_construct_rq(DatType *, DESCR_t *, int, long *);
 #include <stdlib.h>
 #include <time.h>
 #include <ctype.h>
+#include <wctype.h>
 #include <fenv.h>
 #include <float.h>
 #include <sys/select.h>
@@ -9484,13 +9485,14 @@ static int pl_write_opt_bad(const char *on, DESCR_t a, DESCR_t *culprit) {
     if (!strcmp(on, "truncated")) return 0;
     if (pl_val_unbound(a)) {
         for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return 1;
-        if (!strcmp(on, "variable_names") || !strcmp(on, "max_depth") || !strcmp(on, "max_text") || !strcmp(on, "portray_goal") || !strcmp(on, "blobs")) return 1;
+        if (!strcmp(on, "variable_names") || !strcmp(on, "max_depth") || !strcmp(on, "max_text") || !strcmp(on, "portray_goal") || !strcmp(on, "blobs") || !strcmp(on, "spacing")) return 1;
         if (!strcmp(on, "module") && !pl_gnu_dialect()) return 1;
         return 2;
     }
     as = pl_atom_str(a);
     if (!strcmp(on, "portray_goal")) return 0;
     if (!strcmp(on, "blobs")) return as ? 0 : 2;
+    if (!strcmp(on, "spacing")) { *culprit = a; return !as ? 4 : (!strcmp(as, "standard") || !strcmp(as, "next_argument")) ? 0 : 6; }
     if (!strcmp(on, "module") && !pl_gnu_dialect()) return as ? 0 : 2;
     for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return (as && (!strcmp(as, "true") || !strcmp(as, "false"))) ? 0 : 2;
     if (!strcmp(on, "max_depth") || !strcmp(on, "max_text")) return (a.v == DT_I && a.i >= 0) ? 0 : 2;
@@ -9519,6 +9521,12 @@ static int pl_write_opt_bad(const char *on, DESCR_t a, DESCR_t *culprit) {
     return 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_write_opt_known(const char *on) {
+    static const char *const known[] = { "quoted", "ignore_ops", "numbervars", "portray", "portrayed", "character_escapes", "quote_non_ascii", "partial", "character_escapes_unicode", "space_args",
+        "truncated", "variable_names", "max_depth", "max_text", "portray_goal", "blobs", "module", "priority", "spacing", 0 };
+    for (int i = 0; on && known[i]; i++) if (!strcmp(on, known[i])) return 1;
+    return 0;
+}
 static int pl_write_opts_check(DESCR_t optlist, DESCR_t *culprit) {
     DESCR_t o = rt_pl_deref_val(optlist);
     for (;;) {
@@ -9531,6 +9539,10 @@ static int pl_write_opts_check(DESCR_t optlist, DESCR_t *culprit) {
             int bad;
             if (pl_val_unbound(opt)) return 1;
             *culprit = opt;
+            if (opt.v == (DTYPE_t)DT_PLREF && plc_fid_arity(opt.slen) > 0 && pl_swi_dialect() && !pl_write_opt_known(prolog_atom_name(plc_fid_name(opt.slen)))) {
+                o = rt_pl_deref_val(kids[1]);
+                continue;
+            }
             if (opt.v != (DTYPE_t)DT_PLREF || plc_fid_arity(opt.slen) != 1) return 3;
             bad = pl_write_opt_bad(prolog_atom_name(plc_fid_name(opt.slen)), rt_pl_deref_val(((DESCR_t *)opt.p)[0]), culprit);
             if (bad) return bad == 1 ? 1 : bad >= 4 ? bad : 3;
@@ -9552,6 +9564,7 @@ PL_CX_LEAF_HEAD(write_term, 2)
         else if (k == 3) cx->ball = rt_pl_ball_kind2("domain_error", "write_option", bad);
         else if (k == 4) cx->ball = rt_pl_ball_kind2("type_error", "atom", bad);
         else if (k == 5) cx->ball = rt_pl_ball_kind2("domain_error", "variable_name", bad);
+        else if (k == 6) cx->ball = rt_pl_ball_kind2("domain_error", "spacing", bad);
         else { cx->ball = rt_pl_write_term_cell(&args[0], &args[1], cx); ok = !cx->ball; }
     }
 PL_CX_LEAF_TAIL
@@ -9574,7 +9587,9 @@ PL_CX_LEAF_HEAD(wot_open, 3)
                     fclose(fp);
                     fh_memsink_take(si, (size_t *)0);
                 } else {
+                    extern void fh_set_sink(int, int);
                     int oldout = fh_current_output();
+                    fh_set_sink(idx, si);
                     ok = plw_unify_vals(args[0], pl_mk_stream(idx), cx) && plw_unify_vals(args[1], INTVAL((long long)oldout), cx) && plw_unify_vals(args[2], INTVAL((long long)si), cx);
                 }
             }
@@ -10191,11 +10206,11 @@ PL_CX_LEAF_HEAD(keysort, 2) { void *b = pl_sort_args_ball(args, 1); if (b) { cx-
 PL_GNU_SORT1_LEAF(gnu_sort1, 0) PL_GNU_SORT1_LEAF(gnu_msort1, 1) PL_GNU_SORT1_LEAF(gnu_keysort1, 2)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_gnu_position(DESCR_t s, long *ch, long *ln, long *lp, pl_tr_ctx_t *cx, const char *who) {
-    extern int fh_in_position(int, long *, long *, long *);
+    extern int fh_query_position(int, long *, long *, long *);
     void *b = (void *)0;
     int idx = pl_stream_resolve(s, -1, 1, &b), r;
     if (b) { cx->ball = b; return 0; }
-    r = fh_in_position(idx, ch, ln, lp);
+    r = fh_query_position(idx, ch, ln, lp);
     if (r == 1) return 1;
     fprintf(stderr, "scrip: prolog: %s on %s is not tracked yet -- positions are read with pread over a seekable input stream or a regular-file output stream\n", who,
         r == -1 ? "an output stream that is not a regular file" : "a stream that cannot seek");
@@ -10204,6 +10219,31 @@ static int pl_gnu_position(DESCR_t s, long *ch, long *ln, long *lp, pl_tr_ctx_t 
 PL_CX_LEAF_HEAD(gnu_line_count, 2) { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "line_count/2") && plw_unify_vals(args[1], INTVAL(l), cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_line_position, 2) { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "line_position/2") && plw_unify_vals(args[1], INTVAL(p), cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_character_count, 2) { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "character_count/2") && plw_unify_vals(args[1], INTVAL(c), cx); } PL_CX_LEAF_TAIL
+static int pl_tok_alpha(int c) { return c < 0x80 ? (isalnum(c) || c == '_') : iswalpha((wint_t)c); }
+static int pl_tok_symbol(int c) { return c > 0 && c < 0x80 && strchr("#$&*+-./:<=>?@\\^~", c); }
+PL_CX_LEAF_HEAD(put_token, 2)
+    {
+        extern int fh_last_char(int);
+        extern FILE *fh_get(int);
+        extern void *rt_pl_ball_instantiation(void);
+        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        void *b = (void *)0;
+        int idx = pl_stream_resolve(args[0], 1, 0, &b);
+        DESCR_t t = rt_pl_deref_val(args[1]);
+        const char *tk = pl_atom_str(t);
+        ok = 0;
+        if (b) cx->ball = b;
+        else if (pl_val_unbound(t)) cx->ball = rt_pl_ball_instantiation();
+        else if (!tk) cx->ball = rt_pl_ball_kind2("type_error", "atom", t);
+        else {
+            FILE *fp = fh_get(idx);
+            int lc = tk[0] ? fh_last_char(idx) : -1, c = (unsigned char)tk[0];
+            if (lc > 0 && ((pl_tok_alpha(lc) && pl_tok_alpha(c)) || (pl_tok_symbol(lc) && pl_tok_symbol(c)) || (c == '(' && lc != '(' && !isspace(lc)))) fputc(' ', fp);
+            fputs(tk, fp);
+            ok = 1;
+        }
+    }
+PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_stream_line_column, 3)
     { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "stream_line_column/3") && plw_unify_vals(args[1], INTVAL(l + 1), cx) && plw_unify_vals(args[2], INTVAL(p + 1), cx); }
 PL_CX_LEAF_TAIL

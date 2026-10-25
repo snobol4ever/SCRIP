@@ -73,6 +73,7 @@ struct plc_vmap {
     void *pthrown;
     long pheld;
     int space_args;
+    int next_arg;
     pl_cell_t *pgoal;
     pl_cell_t *popts;
 };
@@ -563,7 +564,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
             pl_cell_t *ca = (pl_cell_t *)cur->p;
             pl_cell_t *tl;
             if (max_depth > 0 && n > 0 && depth + 1 + n >= max_depth) { fprintf(fp, "|..."); break; }
-            if (n) fputs(m->space_args ? ", " : ",", fp);
+            if (n) fputs(m->space_args || m->next_arg ? ", " : ",", fp);
             PLC_KID(&ca[0], depth + 1 + n, 999);
             n++;
             if (wx) { cur = plc_wsref_get(wx, &rc); tort = plc_wsref_get(wx, &rtt); ca = (pl_cell_t *)cur->p; }
@@ -586,7 +587,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
         if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
         fputc('{', fp);
         for (int i = 1; i < ar; i += 2) {
-            if (i > 1) fputc(',', fp);
+            if (i > 1) fputs(m->next_arg ? ", " : ",", fp);
             PLC_KID(&aa[i + 1], depth+1, 0);
             if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
             fputc(':', fp);
@@ -632,7 +633,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                     } else fprintf(fp, " %s ", fn);
                 } else if (!strcmp(fn, ",") || !strcmp(fn, "|")) {
                     fputc(fn[0], fp);
-                    if (m->space_args) fputc(' ', fp);
+                    if (m->space_args || m->next_arg) fputc(' ', fp);
                 } else if (m->space_args) {
                     fputc(' ', fp);
                     plc_wt_atom(fp, fn, quoted);
@@ -680,7 +681,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
     }
     plc_wt_atom(fp, fn, quoted || (fn[0] == '.' && fn[1] == 0));
     fprintf(fp, "(");
-    for (int i = 0; i < ar; i++) { if (i) fputs(m->space_args ? ", " : ",", fp); PLC_KID(&aa[i], depth+1, 999); if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; } }
+    for (int i = 0; i < ar; i++) { if (i) fputs(m->space_args || m->next_arg ? ", " : ",", fp); PLC_KID(&aa[i], depth+1, 999); if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; } }
     fprintf(fp, ")");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -830,6 +831,7 @@ void rt_pl_write_cell(void *cell) {
     m.pgoal = (pl_cell_t *)0;
     m.popts = (pl_cell_t *)0;
     m.space_args = 0;
+    m.next_arg = 0;
     plc_write((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -846,6 +848,7 @@ void rt_pl_write_cell_fp(void *cell, FILE *fp) {
     m.pgoal = (pl_cell_t *)0;
     m.popts = (pl_cell_t *)0;
     m.space_args = 0;
+    m.next_arg = 0;
     plc_write((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -862,6 +865,7 @@ void rt_pl_writeq_cell(void *cell) {
     m.pgoal = (pl_cell_t *)0;
     m.popts = (pl_cell_t *)0;
     m.space_args = 0;
+    m.next_arg = 0;
     plc_writeq((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -878,6 +882,7 @@ void rt_pl_write_canonical_cell(void *cell) {
     m.pgoal = (pl_cell_t *)0;
     m.popts = (pl_cell_t *)0;
     m.space_args = 0;
+    m.next_arg = 0;
     plc_write_canonical((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -894,6 +899,7 @@ void *rt_pl_display_cell_ball(void *cell) {
     m.pgoal = (pl_cell_t *)0;
     m.popts = (pl_cell_t *)0;
     m.space_args = 0;
+    m.next_arg = 0;
     plc_wt((pl_cell_t *)cell, 0, 1, 0, 0, 0, 1200, &m);
     return m.pthrown;
 }
@@ -923,6 +929,7 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
     m.pgoal = (pl_cell_t *)0;
     m.popts = (pl_cell_t *)0;
     m.space_args = 0;
+    m.next_arg = 0;
     int quoted = 0, ignore_ops = 0, numbervars = 0, prio = 1200, noesc = 0, qna = 0, partial = 0, xesc = !rt_pl_flag_true("character_escapes_unicode");
     long max_depth = 0;
     pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
@@ -943,7 +950,10 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
             } else if (on && !strcmp(on, "ignore_ops")) ignore_ops = plc_opt_is_true(o);
             else if (on && !strcmp(on, "numbervars")) numbervars = plc_opt_is_true(o);
             else if (on && !strcmp(on, "space_args")) m.space_args = plc_opt_is_true(o);
-            else if (on && !strcmp(on, "portray_goal") && cxp) {
+            else if (on && !strcmp(on, "spacing")) {
+                pl_cell_t *a = pl_deref(&oa[0]);
+                m.next_arg = (int)a->v == DT_PLATOM && !strcmp(plc_atom_text(a), "next_argument");
+            } else if (on && !strcmp(on, "portray_goal") && cxp) {
                 m.pgoal = pl_deref(&oa[0]);
                 m.popts = pl_deref((pl_cell_t *)opts_cell);
                 m.cx = (pl_tr_ctx_t *)cxp;
@@ -1600,7 +1610,7 @@ static pl_cell_t *plc_fmt_next_arg(pl_cell_t **args) {
     return (pl_cell_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { char *b; size_t n; size_t cap; size_t seg; size_t fpos[256]; int fchr[256]; int nf; pl_tr_ctx_t *cx; long cadj; } plc_fb;
+typedef struct { char *b; size_t n; size_t cap; size_t seg; size_t fpos[256]; int fchr[256]; int nf; pl_tr_ctx_t *cx; long cadj; long segadj; } plc_fb;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_fb_raw(plc_fb *f, const char *s, size_t n) {
     if (!n) return;
@@ -1613,7 +1623,7 @@ static void plc_fb_raw(plc_fb *f, const char *s, size_t n) {
 static void plc_fb_add(plc_fb *f, const char *s, size_t n) {
     size_t at = f->n;
     plc_fb_raw(f, s, n);
-    for (size_t k = at; k < f->n; k++) if (f->b[k] == '\n') { f->seg = k + 1; f->nf = 0; f->cadj = 0; }
+    for (size_t k = at; k < f->n; k++) if (f->b[k] == '\n') { f->seg = k + 1; f->nf = 0; f->cadj = 0; f->segadj = 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t plc_fb_colat(plc_fb *f, size_t at) {
@@ -1659,6 +1669,7 @@ static void plc_fb_stop(plc_fb *f, long target) {
     }
     f->seg = f->n;
     f->nf = 0;
+    f->segadj = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int ignore_ops) {
@@ -1678,6 +1689,7 @@ static void *plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int igno
     m.pgoal = (pl_cell_t *)0;
     m.popts = (pl_cell_t *)0;
     m.space_args = 0;
+    m.next_arg = 0;
     if (kind == 4) {
         extern int rt_proc_is_registered(const char *);
         m.portray = rt_proc_is_registered("portray/1") ? plc_portray_hit : (int (*)(pl_cell_t *, plc_vmap *))0;
@@ -1821,6 +1833,20 @@ static void *plc_fmt_exhausted(pl_cell_t all) {
     return !rt_pl_dialect_gnu() ? rt_pl_ball_kind2("domain_error", "format_arguments", all) : rt_pl_ball_kind2("domain_error", "non_empty_list", pl_make_atom(g_runtime.atoms.atom_nil));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_fmt_has_stop(const char *p) {
+    for (; *p; p++) {
+        if (*p != '~') continue;
+        p++;
+        if (*p == '`' && p[1]) p += 2;
+        else if (*p == '*') p++;
+        else while (*p >= '0' && *p <= '9') p++;
+        if (*p == ':') p++;
+        if (*p == '|' || *p == '+' || *p == 'N') return 1;
+        if (!*p) return 0;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
     extern void *rt_pl_ball_instantiation(void);
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
@@ -1841,6 +1867,12 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
     char fmtc[fl + 1];
     memcpy(fmtc, fmt, fl + 1);
     fmt = fmtc;
+    if (plc_fmt_has_stop(fmt)) {
+        extern int fh_query_position(int, long *, long *, long *);
+        extern int fh_current_output(void);
+        long c = 0, l = 0, lp = 0;
+        if (fh_query_position(fh_current_output(), &c, &l, &lp) == 1) f.cadj = f.segadj = lp;
+    }
     for (p = fmt; *p && !ball; p++) {
         long nval = 0;
         int have_n = 0, fill = ' ', colon = 0;
@@ -1869,7 +1901,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx) {
         if (*p == 'N') { if (plc_fb_colat(&f, f.n)) plc_fb_add(&f, "\n", 1); continue; }
         if (*p == 't') { plc_fb_tab(&f, have_n ? fill : ' '); continue; }
         if (*p == '|') { plc_fb_stop(&f, have_n ? nval : (long)plc_fb_colat(&f, f.n)); continue; }
-        if (*p == '+') { plc_fb_stop(&f, (long)plc_fb_colat(&f, f.seg) + (have_n ? nval : 8)); continue; }
+        if (*p == '+') { plc_fb_stop(&f, (long)plc_fb_colat(&f, f.seg) - f.segadj + (have_n ? nval : 8)); continue; }
         if (rt_pl_dialect_gnu() && !strchr("acdDeEfgGikpqrRswW", *p)) { char cb[2] = { *p, 0 }; ball = rt_pl_ball_kind2("domain_error", "format_control_sequence", plc_make_atom_cell(cb)); break; }
         {
             pl_cell_t *h = plc_fmt_next_arg(&args);
@@ -2926,6 +2958,7 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell, int as_str, pl_tr_ct
     m.pgoal = (pl_cell_t *)0;
     m.popts = (pl_cell_t *)0;
     m.space_args = 0;
+    m.next_arg = 0;
     plc_writeq((pl_cell_t *)term_cell, &m);
     if (fclose(ms) != 0) { return 0; }
     return plc_text_out(str_cell, buf ? buf : "", as_str, cx);

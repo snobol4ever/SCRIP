@@ -581,7 +581,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                 strcmp(tk.text, "mode") == 0) {
                 if (prefix_arg_starts(pk)) {
                     tree_t *fnc = ast_node_new(TT_FNC);
-                    fnc->v.sval = ct_strdup(tk.text);
+                    fnc->v.sval = ct_strdup(strcmp(tk.text, "thread_local") == 0 ? "dynamic" : tk.text);
                     tree_t *arg = pt_term(p, ts, 1150);
                     if (arg) ast_push(fnc, arg);
                     p->prec = 1150;
@@ -2091,7 +2091,18 @@ static const char * const PL_PRELUDE_SRC =
     "'$predmerge_d'(<,P,H1,H2,T1,T2,[H1|R]):-'$predmerge_'(P,T1,[H2|T2],R).\n"
     "'$predmerge_d'(=,P,H1,_,T1,T2,[H1|R]):-'$predmerge_'(P,T1,T2,R).\n"
     "'$predmerge_d'(>,P,H1,H2,T1,T2,[H2|R]):-'$predmerge_'(P,[H1|T1],T2,R).\n"
+    "setting(listing:body_indentation,4).\n"
+    "setting(listing:tab_distance,0).\n"
+    "setting(listing:cut_on_same_line,false).\n"
+    "setting(listing:line_width,78).\n"
+    "setting(listing:comment_ansi_attributes,[fg(green)]).\n"
     "current_predicate(N,M:H):-atom(M),!,current_predicate(N,H).\n"
+    "write_length(T,L,O):-'$wl_opts'(O,M,W),with_output_to(string(S),write_term(T,W)),string_length(S,N),(var(M)->true;N=<M),L=N.\n"
+    "'$wl_opts'(O,_,O):-var(O),!.\n"
+    "'$wl_opts'([],_,[]):-!.\n"
+    "'$wl_opts'([max_length(M)|T],M,R):-!,'$wl_opts'(T,M,R).\n"
+    "'$wl_opts'([O|T],M,[O|R]):-!,'$wl_opts'(T,M,R).\n"
+    "'$wl_opts'(O,_,O).\n"
     "current_predicate(N,H):-(nonvar(H)->functor(H,N,A),current_predicate(N/A);current_predicate(N/A),functor(H,N,A)).\n"
     "read_line_to_string(S,L):-get_code(S,C),'$rl_first'(C,S,L).\n"
     "use_foreign_library(foreign(readutil)):-!.\n"
@@ -3573,7 +3584,8 @@ static void pl_lib_rename_clause(PlClause *cl, const cv_t *ek, const cv_t *ev) {
     if (cl->tr && cl->tr->n > 1) pl_lib_rename_goals(cl->tr->c[1], 0, ek, ev);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported, const PlProgram *uprog) {
+static int pl_lib_dialect_ok(const char *lib, int swi) { return swi || strcmp(lib, "listing"); }
+static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported, const PlProgram *uprog, int swi) {
     int nlibs = 0;
     while (PL_PRELUDE_LIBS[nlibs].lib) nlibs++;
     PlProgram *lp[nlibs + 1];
@@ -3588,7 +3600,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     pl_pk_fill_cv(ud, udc, user_defined);
     for (int i = 0; i < nlibs; i++) imp[i] = (char)(imported && pl_cv_has(imported, PL_PRELUDE_LIBS[i].lib));
     for (int i = 0; i < nlibs; i++) vis[i] = imp[i];
-    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (pl_lib_named(&PL_PRELUDE_LIBS[i], rk, rkc, NULL, 0, pre->head, base_last, native_only, user_defined ? ud : NULL, udc, imp[i])) { lp[i] = pl_prelude_parse(PL_PRELUDE_LIBS[i].src, i, vis, nlibs); vis[i] = 1; any = 1; } }
+    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (pl_lib_dialect_ok(PL_PRELUDE_LIBS[i].lib, swi) && pl_lib_named(&PL_PRELUDE_LIBS[i], rk, rkc, NULL, 0, pre->head, base_last, native_only, user_defined ? ud : NULL, udc, imp[i])) { lp[i] = pl_prelude_parse(PL_PRELUDE_LIBS[i].src, i, vis, nlibs); vis[i] = 1; any = 1; } }
     if (!any) return;
     for (PlClause *cl = pre->head; cl; cl = cl->next) { nb++; if (cl == base_last) break; }
     uint32_t bkc = pl_pk_cap(nb);
@@ -3607,7 +3619,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             for (PlClause *cl = lp[i]->head; cl; cl = cl->next) pl_tree_collect_pk(cl->tr, &lh);
             seen[i] = 1;
             if (!lh.t) { lh.cap = 16; lh.t = (pl_pk_t *)ct_zalloc(lh.cap, sizeof(pl_pk_t)); }
-            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_named(&PL_PRELUDE_LIBS[j], lh.t, lh.cap, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc, imp[j])) { lp[j] = pl_prelude_parse(PL_PRELUDE_LIBS[j].src, j, vis, nlibs); vis[j] = 1; changed = 1; }
+            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_dialect_ok(PL_PRELUDE_LIBS[j].lib, swi) && pl_lib_named(&PL_PRELUDE_LIBS[j], lh.t, lh.cap, bk, bkc, pre->head, base_last, NULL, user_defined ? ud : NULL, udc, imp[j])) { lp[j] = pl_prelude_parse(PL_PRELUDE_LIBS[j].src, j, vis, nlibs); vis[j] = 1; changed = 1; }
             ct_drop(lh.t);
         }
     }
@@ -4083,7 +4095,13 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     {
         cv_t imported = { 0 };
         pl_collect_imported_libs(prog, &imported);
-        pl_libs_append(pre, &referenced, &refkeys, native_only, &user_defined, &imported, prog);
+        int swi = 0;
+        {
+            extern int prolog_clause_marks_swi(const PlClause *);
+            extern int prolog_dialect_gnu_selected(void);
+            for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { swi = 1; break; }
+        }
+        pl_libs_append(pre, &referenced, &refkeys, native_only, &user_defined, &imported, prog, swi);
     }
     {
         int exc = pl_cv_has(&user_defined, "exception/3");

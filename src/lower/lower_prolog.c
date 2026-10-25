@@ -1544,14 +1544,14 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     2, "$close" }, { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" }, { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" }, { "keysort", 2,
     "$keysort" }, { "set_stream_position", 2, "$set_stream_position" }, { "op", 3, "$op" }, { "$pl_op_count", 1, "$pl_op_count" }, { "$pl_op_nth", 4, "$pl_op_nth" }, { "$pl_sp_count", 1,
     "$pl_sp_count" }, { "$pl_sp_nth", 3, "$pl_sp_nth" }, { "$pl_cs_count", 1, "$pl_cs_count" }, { "$pl_cs_nth", 4, "$pl_cs_nth" }, { "wall_us", 1, "$wall_us" }, { "wall_ms", 1, "$wall_ms" }, { "sort",
-    1, "$gnu_sort1" }, { "msort", 1, "$gnu_msort1" }, { "keysort", 1, "$gnu_keysort1" }, { "line_count", 2, "$gnu_line_count" }, { "line_position", 2, "$gnu_line_position" }, { "character_count", 2,
-    "$gnu_character_count" }, { "stream_line_column", 3, "$gnu_stream_line_column" }, { "last_read_start_line_column", 2, "$gnu_last_read_start" }, { "absolute_file_name", 2,
-    "$gnu_absolute_file_name" }, { "prolog_file_name", 2, "$gnu_prolog_file_name" }, { "$gnu_builtin", 2, "$gnu_builtin" }, { "working_directory", 1, "$gnu_working_directory" }, { "change_directory",
-    1, "$gnu_change_directory" }, { "make_directory", 1, "$gnu_make_directory" }, { "$gnu_os", 3, "$gnu_os" }, { "$compound0", 3, "$compound0" }, { "set_stream", 2, "$set_stream" }, { "delete_file",
-    1, "$gnu_delete_file" }, { "file_exists", 1, "$gnu_file_exists" }, { "directory_files", 2, "$gnu_directory_files" }, { "term_hash", 2, "$gnu_term_hash" }, { "prolog_pid", 1, "$gnu_prolog_pid" },
-    { "pipe", 2, "$pipe" }, { "open_null_stream", 1, "$open_null_stream" }, { "$gnu_environ_list", 1, "$gnu_environ_list" }, { "$gnu_file_props", 2, "$gnu_file_props" }, { "$trie_slice", 4,
-    "$trie_slice" }, { "$cpu_ms", 1, "$cpu_ms" }, { "$crv_enter", 1, "$crv_enter" }, { "$crv_adj", 1, "$crv_adj" }, { "$crv_collect", 2, "$crv_collect" }, { "$copy_keep", 4, "$copy_keep" },
-    { "$pl_backtrace", 2, "$pl_backtrace" }, { "$factorize_term", 3, "$factorize_term" }, { "rational", 1, "$rational" }, { "", 0, "" } };
+    1, "$gnu_sort1" }, { "msort", 1, "$gnu_msort1" }, { "keysort", 1, "$gnu_keysort1" }, { "line_count", 2, "$gnu_line_count" }, { "line_position", 2, "$gnu_line_position" }, { "$put_token", 2,
+    "$put_token" }, { "character_count", 2, "$gnu_character_count" }, { "stream_line_column", 3, "$gnu_stream_line_column" }, { "last_read_start_line_column", 2, "$gnu_last_read_start" },
+    { "absolute_file_name", 2, "$gnu_absolute_file_name" }, { "prolog_file_name", 2, "$gnu_prolog_file_name" }, { "$gnu_builtin", 2, "$gnu_builtin" }, { "working_directory", 1,
+    "$gnu_working_directory" }, { "change_directory", 1, "$gnu_change_directory" }, { "make_directory", 1, "$gnu_make_directory" }, { "$gnu_os", 3, "$gnu_os" }, { "$compound0", 3, "$compound0" },
+    { "set_stream", 2, "$set_stream" }, { "delete_file", 1, "$gnu_delete_file" }, { "file_exists", 1, "$gnu_file_exists" }, { "directory_files", 2, "$gnu_directory_files" }, { "term_hash", 2,
+    "$gnu_term_hash" }, { "prolog_pid", 1, "$gnu_prolog_pid" }, { "pipe", 2, "$pipe" }, { "open_null_stream", 1, "$open_null_stream" }, { "$gnu_environ_list", 1, "$gnu_environ_list" },
+    { "$gnu_file_props", 2, "$gnu_file_props" }, { "$trie_slice", 4, "$trie_slice" }, { "$cpu_ms", 1, "$cpu_ms" }, { "$crv_enter", 1, "$crv_enter" }, { "$crv_adj", 1, "$crv_adj" }, { "$crv_collect",
+    2, "$crv_collect" }, { "$copy_keep", 4, "$copy_keep" }, { "$pl_backtrace", 2, "$pl_backtrace" }, { "$factorize_term", 3, "$factorize_term" }, { "rational", 1, "$rational" }, { "", 0, "" } };
 static int pl_det_leaf_name_wired(const char * nm) { for (int i = 0; pl_det_leaves[i].nm[0]; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_det_leaf_sym(const char * nm, int ar) {
