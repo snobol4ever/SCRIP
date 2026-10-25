@@ -19437,15 +19437,19 @@ static const char PL_PRELUDE_LIB_32_SRC[] =
     "    must_be(atom, Name),\n"
     "    '$record_types'(T0, TN, TT).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
-    { "distinct", 1 },
-    { "distinct", 2 },
-    { "reduced", 1 },
-    { "reduced", 3 },
-    { "limit", 2 },
-    { "offset", 2 },
-    { "call_nth", 2 },
-    { "order_by", 2 },
-    { "group_by", 4 },
+    { "assignment", 2 },
+    { "constraint", 3 },
+    { "constraint", 4 },
+    { "constraint_add", 4 },
+    { "gen_state", 1 },
+    { "gen_state_clpr", 1 },
+    { "gen_state_clpr", 2 },
+    { "maximize", 3 },
+    { "minimize", 3 },
+    { "objective", 2 },
+    { "shadow_price", 3 },
+    { "transportation", 4 },
+    { "variable_value", 3 },
     { 0, 0 }
 };
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
@@ -19458,6 +19462,968 @@ static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
     { 0, 0, 0 }
 };
 static const char PL_PRELUDE_LIB_33_SRC[] =
+    ":- if(exists_source(library(clpr))).\n"
+    ":- endif.\n"
+    "gen_state_clpr(State) :- gen_state_clpr([], State).\n"
+    "gen_state_clpr(Options, State) :-\n"
+    "        ( memberchk(eps=_, Options) -> Options1 = Options\n"
+    "        ;   Options1 = [eps=1.0e-6|Options]\n"
+    "        ),\n"
+    "        State = clpr_state(Options1, [], []).\n"
+    "'$simplex_clpr_state_options'(clpr_state(Os, _, _), Os).\n"
+    "'$simplex_clpr_state_constraints'(clpr_state(_, Cs, _), Cs).\n"
+    "'$simplex_clpr_state_integrals'(clpr_state(_, _, Is), Is).\n"
+    "'$simplex_clpr_state_add_integral'(I, clpr_state(Os, Cs, Is), clpr_state(Os, Cs, [I|Is])).\n"
+    "'$simplex_clpr_state_add_constraint'(C, clpr_state(Os, Cs, Is), clpr_state(Os, [C|Cs], Is)).\n"
+    "'$simplex_clpr_state_set_constraints'(Cs, clpr_state(Os,_,Is), clpr_state(Os, Cs, Is)).\n"
+    "'$simplex_clpr_constraint'(Name, Constraint, S0, S) :-\n"
+    "        (   Constraint = integral(Var) -> '$simplex_clpr_state_add_integral'(Var, S0, S)\n"
+    "        ;   Constraint =.. [Op,Left,Right],\n"
+    "            '$simplex_coeff_one'(Left, Left1),\n"
+    "            '$simplex_clpr_state_add_constraint'(c(Name, Left1, Op, Right), S0, S)\n"
+    "        ).\n"
+    "'$simplex_clpr_constraint'(Constraint, S0, S) :-\n"
+    "        '$simplex_clpr_constraint'(0, Constraint, S0, S).\n"
+    "'$simplex_clpr_shadow_price'(clpr_solved(_,_,Duals,_), Name, Value) :-\n"
+    "        memberchk(Name-Value0, Duals),\n"
+    "        Value is Value0.\n"
+    "'$simplex_clpr_make_variables'(Cs, Aliases) :-\n"
+    "        '$simplex_clpr_constraints_variables'(Cs, Variables0, []),\n"
+    "        sort(Variables0, Variables1),\n"
+    "        pairs_keys(Aliases, Variables1).\n"
+    "'$simplex_clpr_constraints_variables'([]) --> [].\n"
+    "'$simplex_clpr_constraints_variables'([c(_, Left, _, _)|Cs]) -->\n"
+    "        '$simplex_variables'(Left),\n"
+    "        '$simplex_clpr_constraints_variables'(Cs).\n"
+    "'$simplex_clpr_set_up'(Aliases, c(_Name, Left, Op, Right)) :-\n"
+    "        '$simplex_clpr_translate_linsum'(Left, Aliases, LinSum),\n"
+    "        CLPRConstraint =.. [Op, LinSum, Right],\n"
+    "        clpr:{ CLPRConstraint }.\n"
+    "'$simplex_clpr_set_up_noneg'(Aliases, Var) :-\n"
+    "        memberchk(Var-CLPVar, Aliases),\n"
+    "        { CLPVar >= 0 }.\n"
+    "'$simplex_clpr_translate_linsum'([], _, 0).\n"
+    "'$simplex_clpr_translate_linsum'([Coeff*Var|Ls], Aliases, LinSum) :-\n"
+    "        memberchk(Var-CLPVar, Aliases),\n"
+    "        LinSum = Coeff*CLPVar + LinRest,\n"
+    "        '$simplex_clpr_translate_linsum'(Ls, Aliases, LinRest).\n"
+    "'$simplex_clpr_dual'(Objective0, S0, DualValues) :-\n"
+    "        '$simplex_clpr_state_constraints'(S0, Cs0),\n"
+    "        '$simplex_clpr_constraints_variables'(Cs0, Variables0, []),\n"
+    "        sort(Variables0, Variables1),\n"
+    "        maplist('$simplex_clpr_standard_form', Cs0, Cs1),\n"
+    "        '$simplex_clpr_include_all_vars'(Cs1, Variables1, Cs2),\n"
+    "        '$simplex_clpr_merge_into'(Variables1, Objective0, Objective, []),\n"
+    "        '$simplex_clpr_unique_names'(Cs2, 0, Names),\n"
+    "        maplist('$simplex_clpr_constraint_coefficient', Cs2, Coefficients),\n"
+    "        '$simplex_lists_transpose'(Coefficients, TCs),\n"
+    "        maplist('$simplex_clpr_dual_constraints'(Names), TCs, Objective, DualConstraints),\n"
+    "        phrase('$simplex_clpr_nonneg_constraints'(Cs2, Names), DualNonNeg),\n"
+    "        append(DualConstraints, DualNonNeg, DualConstraints1),\n"
+    "        maplist('$simplex_clpr_dual_objective', Cs2, Names, DualObjective),\n"
+    "        '$simplex_clpr_make_variables'(DualConstraints1, Aliases),\n"
+    "        maplist('$simplex_clpr_set_up'(Aliases), DualConstraints1),\n"
+    "        '$simplex_clpr_translate_linsum'(DualObjective, Aliases, LinExpr),\n"
+    "        minimize(LinExpr),\n"
+    "        Aliases = DualValues.\n"
+    "'$simplex_clpr_dual_objective'(c(_, _, _, Right), Name, Right*Name).\n"
+    "'$simplex_clpr_nonneg_constraints'([], _) --> [].\n"
+    "'$simplex_clpr_nonneg_constraints'([C|Cs], [Name|Names]) -->\n"
+    "        { C = c(_, _, Op, _) },\n"
+    "        (   { Op == (=<) } -> [c(0, [1*Name], (>=), 0)]\n"
+    "        ;   []\n"
+    "        ),\n"
+    "        '$simplex_clpr_nonneg_constraints'(Cs, Names).\n"
+    "'$simplex_clpr_dual_constraints'(Names, Coeffs, O*_, Constraint) :-\n"
+    "        maplist('$simplex_clpr_dual_linsum', Coeffs, Names, Linsum),\n"
+    "        Constraint = c(0, Linsum, (>=), O).\n"
+    "'$simplex_clpr_dual_linsum'(Coeff, Name, Coeff*Name).\n"
+    "'$simplex_clpr_constraint_coefficient'(c(_, Left, _, _), Coeff) :-\n"
+    "        maplist('$simplex_all_coeffs', Left, Coeff).\n"
+    "'$simplex_all_coeffs'(Coeff*_, Coeff).\n"
+    "'$simplex_clpr_unique_names'([], _, []).\n"
+    "'$simplex_clpr_unique_names'([C0|Cs0], Num, [N|Ns]) :-\n"
+    "        C0 = c(Name, _, _, _),\n"
+    "        (   Name == 0 -> N = Num, Num1 is Num + 1\n"
+    "        ;   N = Name, Num1 = Num\n"
+    "        ),\n"
+    "        '$simplex_clpr_unique_names'(Cs0, Num1, Ns).\n"
+    "'$simplex_clpr_include_all_vars'([], _, []).\n"
+    "'$simplex_clpr_include_all_vars'([C0|Cs0], Variables, [C|Cs]) :-\n"
+    "        C0 = c(Name, Left0, Op, Right),\n"
+    "        '$simplex_clpr_merge_into'(Variables, Left0, Left, []),\n"
+    "        C = c(Name, Left, Op, Right),\n"
+    "        '$simplex_clpr_include_all_vars'(Cs0, Variables, Cs).\n"
+    "'$simplex_clpr_merge_into'([], _, Ls, Ls).\n"
+    "'$simplex_clpr_merge_into'([V|Vs], Left, Ls0, Ls) :-\n"
+    "        ( member(Coeff*V, Left) ->\n"
+    "                Ls0 = [Coeff*V|Rest]\n"
+    "        ;\n"
+    "                Ls0 = [0*V|Rest]\n"
+    "        ),\n"
+    "        '$simplex_clpr_merge_into'(Vs, Left, Rest, Ls).\n"
+    "'$simplex_clpr_maximize'(Expr0, S0, S) :-\n"
+    "        '$simplex_coeff_one'(Expr0, Expr),\n"
+    "        '$simplex_clpr_state_constraints'(S0, Cs),\n"
+    "        '$simplex_clpr_make_variables'(Cs, Aliases),\n"
+    "        maplist('$simplex_clpr_set_up'(Aliases), Cs),\n"
+    "        '$simplex_clpr_constraints_variables'(Cs, Variables0, []),\n"
+    "        sort(Variables0, Variables1),\n"
+    "        maplist('$simplex_clpr_set_up_noneg'(Aliases), Variables1),\n"
+    "        '$simplex_clpr_translate_linsum'(Expr, Aliases, LinExpr),\n"
+    "        '$simplex_clpr_state_integrals'(S0, Is),\n"
+    "        ( Is == [] ->\n"
+    "                maximize(LinExpr),\n"
+    "                Sup is LinExpr,\n"
+    "                '$simplex_clpr_dual'(Expr, S0, DualValues),\n"
+    "                S = clpr_solved(Sup, Aliases, DualValues, S0)\n"
+    "        ;\n"
+    "                '$simplex_clpr_state_options'(S0, Options),\n"
+    "                memberchk(eps=Eps, Options),\n"
+    "                maplist('$simplex_clpr_fetch_var'(Aliases), Is, Vars),\n"
+    "                bb_inf(Vars, -LinExpr, Sup, Vertex, Eps),\n"
+    "                pairs_keys_values(Values, Is, Vertex),\n"
+    "                Sup1 is -Sup,\n"
+    "                S = clpr_solved(Sup1, Values, [], S0)\n"
+    "        ).\n"
+    "'$simplex_clpr_minimize'(Expr0, S0, S) :-\n"
+    "        '$simplex_coeff_one'(Expr0, Expr1),\n"
+    "        maplist('$simplex_linsum_negate', Expr1, Expr2),\n"
+    "        '$simplex_clpr_maximize'(Expr2, S0, S1),\n"
+    "        S1 = clpr_solved(Sup, Values, Duals, S0),\n"
+    "        Inf is -Sup,\n"
+    "        S = clpr_solved(Inf, Values, Duals, S0).\n"
+    "'$simplex_clpr_fetch_var'(Aliases, Var, X) :- memberchk(Var-X, Aliases).\n"
+    "'$simplex_clpr_variable_value'(clpr_solved(_, Aliases, _, _), Variable, Value) :-\n"
+    "        memberchk(Variable-Value0, Aliases),\n"
+    "        Value is Value0.\n"
+    "'$simplex_clpr_objective'(clpr_solved(Obj, _, _, _), Obj).\n"
+    "'$simplex_clpr_standard_form'(c(Name, Left, Op, Right), S) :-\n"
+    "        '$simplex_clpr_standard_form_'(Op, Name, Left, Right, S).\n"
+    "'$simplex_clpr_standard_form_'((=), Name, Left, Right, c(Name, Left, (=), Right)).\n"
+    "'$simplex_clpr_standard_form_'((>=), Name, Left, Right, c(Name, Left1, (=<), Right1)) :-\n"
+    "        Right1 is -Right,\n"
+    "        maplist('$simplex_linsum_negate', Left, Left1).\n"
+    "'$simplex_clpr_standard_form_'((=<), Name, Left, Right, c(Name, Left, (=<), Right)).\n"
+    "'$simplex_find_row'(Variable, [Row|Rows], R) :-\n"
+    "        Row = row(V, _, _),\n"
+    "        (   V == Variable -> R = Row\n"
+    "        ;   '$simplex_find_row'(Variable, Rows, R)\n"
+    "        ).\n"
+    "variable_value(State, Variable, Value) :-\n"
+    "        functor(State, F, _),\n"
+    "        (   F == solved ->\n"
+    "            '$simplex_solved_tableau'(State, Tableau),\n"
+    "            '$simplex_tableau_rows'(Tableau, Rows),\n"
+    "            (   '$simplex_find_row'(Variable, Rows, Row) -> Row = row(_, _, Value)\n"
+    "            ;   Value = 0\n"
+    "            )\n"
+    "        ;   F == clpr_solved -> '$simplex_clpr_variable_value'(State, Variable, Value)\n"
+    "        ).\n"
+    "'$simplex_var_zero'(State, _Coeff*Var) :- variable_value(State, Var, 0).\n"
+    "'$simplex_list_first'(Ls, F, Index) :- once(nth0(Index, Ls, F)).\n"
+    "shadow_price(State, Name, Value) :-\n"
+    "        functor(State, F, _),\n"
+    "        (   F == solved ->\n"
+    "            '$simplex_solved_tableau'(State, Tableau),\n"
+    "            '$simplex_tableau_objective'(Tableau, row(_,Left,_)),\n"
+    "            '$simplex_tableau_variables'(Tableau, Variables),\n"
+    "            '$simplex_solved_names'(State, Names),\n"
+    "            memberchk(user(Name)-Var, Names),\n"
+    "            '$simplex_list_first'(Variables, Var, Nth0),\n"
+    "            nth0(Nth0, Left, Value)\n"
+    "        ;   F == clpr_solved -> '$simplex_clpr_shadow_price'(State, Name, Value)\n"
+    "        ).\n"
+    "objective(State, Obj) :-\n"
+    "        functor(State, F, _),\n"
+    "        (   F == solved ->\n"
+    "            '$simplex_solved_tableau'(State, Tableau),\n"
+    "            '$simplex_tableau_objective'(Tableau, Objective),\n"
+    "            Objective = row(_, _, Obj)\n"
+    "        ;   '$simplex_clpr_objective'(State, Obj)\n"
+    "        ).\n"
+    "'$simplex_tableau_objective'(tableau(Obj, _, _, _), Obj).\n"
+    "'$simplex_tableau_rows'(tableau(_, _, _, Rows), Rows).\n"
+    "'$simplex_tableau_indicators'(tableau(_, _, Inds, _), Inds).\n"
+    "'$simplex_tableau_variables'(tableau(_, Vars, _, _), Vars).\n"
+    "'$simplex_constraint_name'(c(Name, _, _, _), Name).\n"
+    "'$simplex_constraint_op'(c(_, _, Op, _), Op).\n"
+    "'$simplex_constraint_left'(c(_, Left, _, _), Left).\n"
+    "'$simplex_constraint_right'(c(_, _, _, Right), Right).\n"
+    "gen_state(state(0,[],[],[])).\n"
+    "'$simplex_state_add_constraint'(C, S0, S) :-\n"
+    "        (   '$simplex_constraint_name'(C, 0), '$simplex_constraint_left'(C, [_Coeff*_Var]) ->\n"
+    "            '$simplex_state_merge_constraint'(C, S0, S)\n"
+    "        ;   '$simplex_state_add_constraint_'(C, S0, S)\n"
+    "        ).\n"
+    "'$simplex_state_add_constraint_'(C, state(VID,Ns,Cs,Is), state(VID,Ns,[C|Cs],Is)).\n"
+    "'$simplex_state_merge_constraint'(C, S0, S) :-\n"
+    "        '$simplex_constraint_left'(C, [Coeff0*Var0]),\n"
+    "        '$simplex_constraint_right'(C, Right0),\n"
+    "        '$simplex_constraint_op'(C, Op),\n"
+    "        (   Coeff0 =:= 0 ->\n"
+    "            (   Op == (=) -> Right0 =:= 0, S0 = S\n"
+    "            ;   Op == (=<) -> S0 = S\n"
+    "            ;   Op == (>=) -> Right0 =:= 0, S0 = S\n"
+    "            )\n"
+    "        ;   Coeff0 < 0 -> '$simplex_state_add_constraint_'(C, S0, S)\n"
+    "        ;   Right is Right0 rdiv Coeff0,\n"
+    "            '$simplex_state_constraints'(S0, Cs),\n"
+    "            (   select(c(0, [1*Var0], Op, CRight), Cs, RestCs) ->\n"
+    "                (   Op == (=) -> CRight =:= Right, S0 = S\n"
+    "                ;   Op == (=<) ->\n"
+    "                    NewRight is min(Right, CRight),\n"
+    "                    NewCs = [c(0, [1*Var0], Op, NewRight)|RestCs],\n"
+    "                    '$simplex_state_set_constraints'(NewCs, S0, S)\n"
+    "                ;   Op == (>=) ->\n"
+    "                    NewRight is max(Right, CRight),\n"
+    "                    NewCs = [c(0, [1*Var0], Op, NewRight)|RestCs],\n"
+    "                    '$simplex_state_set_constraints'(NewCs, S0, S)\n"
+    "                )\n"
+    "            ;   '$simplex_state_add_constraint_'(c(0, [1*Var0], Op, Right), S0, S)\n"
+    "            )\n"
+    "        ).\n"
+    "'$simplex_state_add_name'(Name, Var), [state(VID,[Name-Var|Ns],Cs,Is)] -->\n"
+    "        [state(VID,Ns,Cs,Is)].\n"
+    "'$simplex_state_add_integral'(Var, state(VID,Ns,Cs,Is), state(VID,Ns,Cs,[Var|Is])).\n"
+    "'$simplex_state_constraints'(state(_, _, Cs, _), Cs).\n"
+    "'$simplex_state_names'(state(_,Names,_,_), Names).\n"
+    "'$simplex_state_integrals'(state(_,_,_,Is), Is).\n"
+    "'$simplex_state_set_constraints'(Cs, state(VID,Ns,_,Is), state(VID,Ns,Cs,Is)).\n"
+    "'$simplex_state_set_integrals'(Is, state(VID,Ns,Cs,_), state(VID,Ns,Cs,Is)).\n"
+    "'$simplex_state_next_var'(VarID0), [state(VarID1,Names,Cs,Is)] -->\n"
+    "        [state(VarID0,Names,Cs,Is)],\n"
+    "        { VarID1 is VarID0 + 1 }.\n"
+    "'$simplex_solved_tableau'(solved(Tableau, _, _), Tableau).\n"
+    "'$simplex_solved_names'(solved(_, Names,_), Names).\n"
+    "'$simplex_solved_integrals'(solved(_,_,Is), Is).\n"
+    "constraint(C, S0, S) :-\n"
+    "        functor(S0, F, _),\n"
+    "        (   F == state ->\n"
+    "            (   C = integral(Var) -> '$simplex_state_add_integral'(Var, S0, S)\n"
+    "            ;   '$simplex_constraint_'(0, C, S0, S)\n"
+    "            )\n"
+    "        ;   F == clpr_state -> '$simplex_clpr_constraint'(C, S0, S)\n"
+    "        ).\n"
+    "constraint(Name, C, S0, S) :- '$simplex_constraint_'(user(Name), C, S0, S).\n"
+    "'$simplex_constraint_'(Name, C, S0, S) :-\n"
+    "        functor(S0, F, _),\n"
+    "        (   F == state ->\n"
+    "            (   C = integral(Var) -> '$simplex_state_add_integral'(Var, S0, S)\n"
+    "            ;   C =.. [Op, Left0, Right0],\n"
+    "                '$simplex_coeff_one'(Left0, Left),\n"
+    "                Right0 >= 0,\n"
+    "                Right is rationalize(Right0),\n"
+    "                '$simplex_state_add_constraint'(c(Name, Left, Op, Right), S0, S)\n"
+    "            )\n"
+    "        ;   F == clpr_state -> '$simplex_clpr_constraint'(Name, C, S0, S)\n"
+    "        ).\n"
+    "constraint_add(Name, A, S0, S) :-\n"
+    "        functor(S0, F, _),\n"
+    "        (   F == state ->\n"
+    "            '$simplex_state_constraints'(S0, Cs),\n"
+    "            '$simplex_add_left'(Cs, user(Name), A, Cs1),\n"
+    "            '$simplex_state_set_constraints'(Cs1, S0, S)\n"
+    "        ;   F == clpr_state ->\n"
+    "            '$simplex_clpr_state_constraints'(S0, Cs),\n"
+    "            '$simplex_add_left'(Cs, Name, A, Cs1),\n"
+    "            '$simplex_clpr_state_set_constraints'(Cs1, S0, S)\n"
+    "        ).\n"
+    "'$simplex_add_left'([c(Name,Left0,Op,Right)|Cs], V, A, [c(Name,Left,Op,Right)|Rest]) :-\n"
+    "        (   Name == V -> append(A, Left0, Left), Rest = Cs\n"
+    "        ;   Left0 = Left, '$simplex_add_left'(Cs, V, A, Rest)\n"
+    "        ).\n"
+    "'$simplex_branching_variable'(State, Variable) :-\n"
+    "        '$simplex_solved_integrals'(State, Integrals),\n"
+    "        member(Variable, Integrals),\n"
+    "        variable_value(State, Variable, Value),\n"
+    "        \\+ integer(Value).\n"
+    "'$simplex_worth_investigating'(ZStar0, _, _) :- var(ZStar0).\n"
+    "'$simplex_worth_investigating'(ZStar0, AllInt, Z) :-\n"
+    "        nonvar(ZStar0),\n"
+    "        (   AllInt =:= 1 -> Z1 is floor(Z)\n"
+    "        ;   Z1 = Z\n"
+    "        ),\n"
+    "        Z1 > ZStar0.\n"
+    "'$simplex_branch_and_bound'(Objective, Solved, AllInt, ZStar0, ZStar, S0, S, Found) :-\n"
+    "        objective(Solved, Z),\n"
+    "        (   '$simplex_worth_investigating'(ZStar0, AllInt, Z) ->\n"
+    "            (   '$simplex_branching_variable'(Solved, BrVar) ->\n"
+    "                variable_value(Solved, BrVar, Value),\n"
+    "                Value1 is floor(Value),\n"
+    "                Value2 is Value1 + 1,\n"
+    "                constraint([BrVar] =< Value1, S0, SubProb1),\n"
+    "                (   '$simplex_maximize_'(Objective, SubProb1, SubSolved1) ->\n"
+    "                    Sub1Feasible = 1,\n"
+    "                    objective(SubSolved1, Obj1)\n"
+    "                ;   Sub1Feasible = 0\n"
+    "                ),\n"
+    "                constraint([BrVar] >= Value2, S0, SubProb2),\n"
+    "                (   '$simplex_maximize_'(Objective, SubProb2, SubSolved2) ->\n"
+    "                    Sub2Feasible = 1,\n"
+    "                    objective(SubSolved2, Obj2)\n"
+    "                ;   Sub2Feasible = 0\n"
+    "                ),\n"
+    "                (   Sub1Feasible =:= 1, Sub2Feasible =:= 1 ->\n"
+    "                    (   Obj1 >= Obj2 ->\n"
+    "                        First = SubProb1,\n"
+    "                        Second = SubProb2,\n"
+    "                        FirstSolved = SubSolved1,\n"
+    "                        SecondSolved = SubSolved2\n"
+    "                    ;   First = SubProb2,\n"
+    "                        Second = SubProb1,\n"
+    "                        FirstSolved = SubSolved2,\n"
+    "                        SecondSolved = SubSolved1\n"
+    "                    ),\n"
+    "                    '$simplex_branch_and_bound'(Objective, FirstSolved, AllInt, ZStar0, ZStar1, First, Solved1, Found1),\n"
+    "                    '$simplex_branch_and_bound'(Objective, SecondSolved, AllInt, ZStar1, ZStar2, Second, Solved2, Found2)\n"
+    "                ;   Sub1Feasible =:= 1 ->\n"
+    "                    '$simplex_branch_and_bound'(Objective, SubSolved1, AllInt, ZStar0, ZStar1, SubProb1, Solved1, Found1),\n"
+    "                    Found2 = 0\n"
+    "                ;   Sub2Feasible =:= 1 ->\n"
+    "                    Found1 = 0,\n"
+    "                    '$simplex_branch_and_bound'(Objective, SubSolved2, AllInt, ZStar0, ZStar2, SubProb2, Solved2, Found2)\n"
+    "                ;   Found1 = 0, Found2 = 0\n"
+    "                ),\n"
+    "                (   Found1 =:= 1, Found2 =:= 1 -> S = Solved2, ZStar = ZStar2\n"
+    "                ;   Found1 =:= 1 -> S = Solved1, ZStar = ZStar1\n"
+    "                ;   Found2 =:= 1 -> S = Solved2, ZStar = ZStar2\n"
+    "                ;   S = S0, ZStar = ZStar0\n"
+    "                ),\n"
+    "                Found is max(Found1, Found2)\n"
+    "            ;   S = Solved, ZStar = Z, Found = 1\n"
+    "            )\n"
+    "        ;   ZStar = ZStar0, S = S0, Found = 0\n"
+    "        ).\n"
+    "maximize(Z0, S0, S) :-\n"
+    "        '$simplex_coeff_one'(Z0, Z1),\n"
+    "        functor(S0, F, _),\n"
+    "        (   F == state -> '$simplex_maximize_mip'(Z1, S0, S)\n"
+    "        ;   F == clpr_state -> '$simplex_clpr_maximize'(Z1, S0, S)\n"
+    "        ).\n"
+    "'$simplex_maximize_mip'(Z, S0, S) :-\n"
+    "        '$simplex_maximize_'(Z, S0, Solved),\n"
+    "        '$simplex_state_integrals'(S0, Is),\n"
+    "        (   Is == [] -> S = Solved\n"
+    "        ;\n"
+    "            reverse(Is, Is1),\n"
+    "            '$simplex_state_set_integrals'(Is1, S0, S1),\n"
+    "            (   '$simplex_all_integers'(Z, Is1) -> AllInt = 1\n"
+    "            ;   AllInt = 0\n"
+    "            ),\n"
+    "            '$simplex_branch_and_bound'(Z, Solved, AllInt, _, _, S1, S, 1)\n"
+    "        ).\n"
+    "'$simplex_all_integers'([], _).\n"
+    "'$simplex_all_integers'([Coeff*V|Rest], Is) :-\n"
+    "        integer(Coeff),\n"
+    "        memberchk(V, Is),\n"
+    "        '$simplex_all_integers'(Rest, Is).\n"
+    "minimize(Z0, S0, S) :-\n"
+    "        '$simplex_coeff_one'(Z0, Z1),\n"
+    "        functor(S0, F, _),\n"
+    "        (   F == state ->\n"
+    "            maplist('$simplex_linsum_negate', Z1, Z2),\n"
+    "            '$simplex_maximize_mip'(Z2, S0, S1),\n"
+    "            '$simplex_solved_tableau'(S1, tableau(Obj, Vars, Inds, Rows)),\n"
+    "            '$simplex_solved_names'(S1, Names),\n"
+    "            Obj = row(z, Left0, Right0),\n"
+    "            '$simplex_all_times'(Left0, -1, Left),\n"
+    "            Right is -Right0,\n"
+    "            Obj1 = row(z, Left, Right),\n"
+    "            '$simplex_state_integrals'(S0, Is),\n"
+    "            S = solved(tableau(Obj1, Vars, Inds, Rows), Names, Is)\n"
+    "        ;   F == clpr_state -> '$simplex_clpr_minimize'(Z1, S0, S)\n"
+    "        ).\n"
+    "'$simplex_op_pendant'(>=, =<).\n"
+    "'$simplex_op_pendant'(=<, >=).\n"
+    "'$simplex_constraints_collapse'([]) --> [].\n"
+    "'$simplex_constraints_collapse'([C|Cs]) -->\n"
+    "        { C = c(Name, Left, Op, Right) },\n"
+    "        (   { Name == 0, Left = [1*Var], '$simplex_op_pendant'(Op, P) } ->\n"
+    "            { Pendant = c(0, [1*Var], P, Right) },\n"
+    "            (   { select(Pendant, Cs, Rest) } ->\n"
+    "                [c(0, Left, (=), Right)],\n"
+    "                { CsLeft = Rest }\n"
+    "            ;   [C],\n"
+    "                { CsLeft = Cs }\n"
+    "            )\n"
+    "        ;   [C],\n"
+    "            { CsLeft = Cs }\n"
+    "        ),\n"
+    "        '$simplex_constraints_collapse'(CsLeft).\n"
+    "'$simplex_maximize_'(Z, S0, S) :-\n"
+    "        '$simplex_state_constraints'(S0, Cs0),\n"
+    "        phrase('$simplex_constraints_collapse'(Cs0), Cs1),\n"
+    "        phrase('$simplex_constraints_normalize'(Cs1, Cs, As0), [S0], [S1]),\n"
+    "        flatten(As0, As1),\n"
+    "        (   As1 == [] ->\n"
+    "            '$simplex_make_tableau'(Z, Cs, Tableau0),\n"
+    "            '$simplex_simplex'(Tableau0, Tableau),\n"
+    "            '$simplex_state_names'(S1, Names),\n"
+    "            '$simplex_state_integrals'(S1, Is),\n"
+    "            S = solved(Tableau, Names, Is)\n"
+    "        ;   '$simplex_state_names'(S1, Names),\n"
+    "            '$simplex_state_integrals'(S1, Is),\n"
+    "            '$simplex_two_phase_simplex'(Z, Cs, As1, Names, Is, S)\n"
+    "        ).\n"
+    "'$simplex_make_tableau'(Z, Cs, Tableau) :-\n"
+    "        ZC = c(_, Z, _),\n"
+    "        phrase('$simplex_constraints_variables'([ZC|Cs]), Variables0),\n"
+    "        sort(Variables0, Variables),\n"
+    "        '$simplex_constraints_rows'(Cs, Variables, Rows),\n"
+    "        '$simplex_linsum_row'(Variables, Z, Objective1),\n"
+    "        '$simplex_all_times'(Objective1, -1, Obj),\n"
+    "        length(Variables, LVs),\n"
+    "        length(Ones, LVs),\n"
+    "        '$simplex_all_one'(Ones),\n"
+    "        Tableau = tableau(row(z, Obj, 0), Variables, Ones, Rows).\n"
+    "'$simplex_all_one'(Ones) :- maplist(=(1), Ones).\n"
+    "'$simplex_proper_form'(Variables, Rows, _Coeff*A, Obj0, Obj) :-\n"
+    "        (   '$simplex_find_row'(A, Rows, PivotRow) ->\n"
+    "            '$simplex_list_first'(Variables, A, Col),\n"
+    "            '$simplex_row_eliminate'(Obj0, PivotRow, Col, Obj)\n"
+    "        ;   Obj = Obj0\n"
+    "        ).\n"
+    "'$simplex_two_phase_simplex'(Z, Cs, As, Names, Is, S) :-\n"
+    "        '$simplex_make_tableau'(As, Cs, Tableau0),\n"
+    "        Tableau0 = tableau(Obj0, Variables, Inds, Rows),\n"
+    "        foldl('$simplex_proper_form'(Variables, Rows), As, Obj0, Obj),\n"
+    "        '$simplex_simplex'(tableau(Obj, Variables, Inds, Rows), Tableau1),\n"
+    "        maplist('$simplex_var_zero'(solved(Tableau1, _, _)), As),\n"
+    "        '$simplex_tableau_rows'(Tableau1, Rows2),\n"
+    "        '$simplex_eliminate_artificial'(As, As, Variables, Rows2, Rows3),\n"
+    "        '$simplex_list_nths'(As, Variables, Nths0),\n"
+    "        '$simplex_nths_to_zero'(Nths0, Inds, Inds1),\n"
+    "        '$simplex_linsum_row'(Variables, Z, Objective),\n"
+    "        '$simplex_all_times'(Objective, -1, Objective1),\n"
+    "        foldl('$simplex_proper_form'(Variables, Rows3), Z, row(z, Objective1, 0), ObjRow),\n"
+    "        '$simplex_simplex'(tableau(ObjRow, Variables, Inds1, Rows3), Tableau),\n"
+    "        S = solved(Tableau, Names, Is).\n"
+    "'$simplex_eliminate_artificial'([], _, _, Rows, Rows).\n"
+    "'$simplex_eliminate_artificial'([_Coeff*A|Rest], As, Variables, Rows0, Rows) :-\n"
+    "        (   select(row(A, Left, 0), Rows0, Others) ->\n"
+    "            (   nth0(Col, Left, Coeff),\n"
+    "                Coeff =\\= 0,\n"
+    "                nth0(Col, Variables, Var),\n"
+    "                \\+ memberchk(_*Var, As) ->\n"
+    "                '$simplex_row_divide'(row(A, Left, 0), Coeff, Row),\n"
+    "                '$simplex_gauss_elimination'(Rows0, Row, Col, Rows1),\n"
+    "                '$simplex_swap_basic'(Rows1, A, Var, Rows2)\n"
+    "            ;   Rows2 = Others\n"
+    "            )\n"
+    "        ;   Rows2 = Rows0\n"
+    "        ),\n"
+    "        '$simplex_eliminate_artificial'(Rest, As, Variables, Rows2, Rows).\n"
+    "'$simplex_nths_to_zero'([], Inds, Inds).\n"
+    "'$simplex_nths_to_zero'([Nth|Nths], Inds0, Inds) :-\n"
+    "        '$simplex_nth_to_zero'(Inds0, 0, Nth, Inds1),\n"
+    "        '$simplex_nths_to_zero'(Nths, Inds1, Inds).\n"
+    "'$simplex_nth_to_zero'([], _, _, []).\n"
+    "'$simplex_nth_to_zero'([I|Is], Curr, Nth, [Z|Zs]) :-\n"
+    "        (   Curr =:= Nth -> [Z|Zs] = [0|Is]\n"
+    "        ;   Z = I,\n"
+    "            Next is Curr + 1,\n"
+    "            '$simplex_nth_to_zero'(Is, Next, Nth, Zs)\n"
+    "        ).\n"
+    "'$simplex_list_nths'([], _, []).\n"
+    "'$simplex_list_nths'([_Coeff*A|As], Variables, [Nth|Nths]) :-\n"
+    "        '$simplex_list_first'(Variables, A, Nth),\n"
+    "        '$simplex_list_nths'(As, Variables, Nths).\n"
+    "'$simplex_linsum_negate'(Coeff0*Var, Coeff*Var) :- Coeff is -Coeff0.\n"
+    "'$simplex_linsum_row'([], _, []).\n"
+    "'$simplex_linsum_row'([V|Vs], Ls, [C|Cs]) :-\n"
+    "        (   memberchk(Coeff*V, Ls) -> C is rationalize(Coeff)\n"
+    "        ;   C = 0\n"
+    "        ),\n"
+    "        '$simplex_linsum_row'(Vs, Ls, Cs).\n"
+    "'$simplex_constraints_rows'([], _, []).\n"
+    "'$simplex_constraints_rows'([C|Cs], Vars, [R|Rs]) :-\n"
+    "        C = c(Var, Left0, Right),\n"
+    "        '$simplex_linsum_row'(Vars, Left0, Left),\n"
+    "        R = row(Var, Left, Right),\n"
+    "        '$simplex_constraints_rows'(Cs, Vars, Rs).\n"
+    "'$simplex_constraints_normalize'([], [], []) --> [].\n"
+    "'$simplex_constraints_normalize'([C0|Cs0], [C|Cs], [A|As]) -->\n"
+    "        { '$simplex_constraint_op'(C0, Op),\n"
+    "          '$simplex_constraint_left'(C0, Left),\n"
+    "          '$simplex_constraint_right'(C0, Right),\n"
+    "          '$simplex_constraint_name'(C0, Name),\n"
+    "          Con =.. [Op, Left, Right] },\n"
+    "        '$simplex_constraint_normalize'(Con, Name, C, A),\n"
+    "        '$simplex_constraints_normalize'(Cs0, Cs, As).\n"
+    "'$simplex_constraint_normalize'(As0 =< B0, Name, c(Slack, [1*Slack|As0], B0), []) -->\n"
+    "        '$simplex_state_next_var'(Slack),\n"
+    "        '$simplex_state_add_name'(Name, Slack).\n"
+    "'$simplex_constraint_normalize'(As0 = B0, Name, c(AID, [1*AID|As0], B0), [-1*AID]) -->\n"
+    "        '$simplex_state_next_var'(AID),\n"
+    "        '$simplex_state_add_name'(Name, AID).\n"
+    "'$simplex_constraint_normalize'(As0 >= B0, Name, c(AID, [-1*Slack,1*AID|As0], B0), [-1*AID]) -->\n"
+    "        '$simplex_state_next_var'(Slack),\n"
+    "        '$simplex_state_next_var'(AID),\n"
+    "        '$simplex_state_add_name'(Name, AID).\n"
+    "'$simplex_coeff_one'([], []).\n"
+    "'$simplex_coeff_one'([L|Ls], [Coeff*Var|Rest]) :-\n"
+    "        (   L = A*B -> Coeff = A, Var = B\n"
+    "        ;   Coeff = 1, Var = L\n"
+    "        ),\n"
+    "        '$simplex_coeff_one'(Ls, Rest).\n"
+    "'$simplex_tableau_optimal'(Tableau) :-\n"
+    "        '$simplex_tableau_objective'(Tableau, Objective),\n"
+    "        '$simplex_tableau_indicators'(Tableau, Indicators),\n"
+    "        Objective = row(_, Left, _),\n"
+    "        '$simplex_all_nonnegative'(Left, Indicators).\n"
+    "'$simplex_all_nonnegative'([], []).\n"
+    "'$simplex_all_nonnegative'([Coeff|As], [I|Is]) :-\n"
+    "        (   I =:= 0 -> true\n"
+    "        ;   Coeff >= 0\n"
+    "        ),\n"
+    "        '$simplex_all_nonnegative'(As, Is).\n"
+    "'$simplex_pivot_column'(Tableau, PCol) :-\n"
+    "        '$simplex_tableau_objective'(Tableau, row(_, Left, _)),\n"
+    "        '$simplex_tableau_indicators'(Tableau, Indicators),\n"
+    "        '$simplex_first_negative'(Left, Indicators, 0, Index0, Val, RestL, RestI),\n"
+    "        Index1 is Index0 + 1,\n"
+    "        '$simplex_pivot_column'(RestL, RestI, Val, Index1, Index0, PCol).\n"
+    "'$simplex_first_negative'([L|Ls], [I|Is], Index0, N, Val, RestL, RestI) :-\n"
+    "        Index1 is Index0 + 1,\n"
+    "        (   I =:= 0 -> '$simplex_first_negative'(Ls, Is, Index1, N, Val, RestL, RestI)\n"
+    "        ;   (   L < 0 -> N = Index0, Val = L, RestL = Ls, RestI = Is\n"
+    "            ;   '$simplex_first_negative'(Ls, Is, Index1, N, Val, RestL, RestI)\n"
+    "            )\n"
+    "        ).\n"
+    "'$simplex_pivot_column'([], _, _, _, N, N).\n"
+    "'$simplex_pivot_column'([L|Ls], [I|Is], Coeff0, Index0, N0, N) :-\n"
+    "        (   I =:= 0 -> Coeff1 = Coeff0, N1 = N0\n"
+    "        ;   (   L < Coeff0 -> Coeff1 = L, N1 = Index0\n"
+    "            ;   Coeff1 = Coeff0, N1 = N0\n"
+    "            )\n"
+    "        ),\n"
+    "        Index1 is Index0 + 1,\n"
+    "        '$simplex_pivot_column'(Ls, Is, Coeff1, Index1, N1, N).\n"
+    "'$simplex_pivot_row'(Tableau, PCol, PRow) :-\n"
+    "        '$simplex_tableau_rows'(Tableau, Rows),\n"
+    "        '$simplex_pivot_row'(Rows, PCol, false, _, 0, 0, PRow).\n"
+    "'$simplex_pivot_row'([], _, Bounded, _, _, Row, Row) :- Bounded.\n"
+    "'$simplex_pivot_row'([Row|Rows], PCol, Bounded0, Min0, Index0, PRow0, PRow) :-\n"
+    "        Row = row(_Var, Left, B),\n"
+    "        nth0(PCol, Left, Ae),\n"
+    "        (   Ae > 0 ->\n"
+    "            Bounded1 = true,\n"
+    "            Bound is B rdiv Ae,\n"
+    "            (   Bounded0 ->\n"
+    "                (   Bound < Min0 -> Min1 = Bound, PRow1 = Index0\n"
+    "                ;   Min1 = Min0, PRow1 = PRow0\n"
+    "                )\n"
+    "            ;   Min1 = Bound, PRow1 = Index0\n"
+    "            )\n"
+    "        ;   Bounded1 = Bounded0, Min1 = Min0, PRow1 = PRow0\n"
+    "        ),\n"
+    "        Index1 is Index0 + 1,\n"
+    "        '$simplex_pivot_row'(Rows, PCol, Bounded1, Min1, Index1, PRow1, PRow).\n"
+    "'$simplex_row_divide'(row(Var, Left0, Right0), Div, row(Var, Left, Right)) :-\n"
+    "        '$simplex_all_divide'(Left0, Div, Left),\n"
+    "        Right is Right0 rdiv Div.\n"
+    "'$simplex_all_divide'([], _, []).\n"
+    "'$simplex_all_divide'([R|Rs], Div, [DR|DRs]) :-\n"
+    "        DR is R rdiv Div,\n"
+    "        '$simplex_all_divide'(Rs, Div, DRs).\n"
+    "'$simplex_gauss_elimination'([], _, _, []).\n"
+    "'$simplex_gauss_elimination'([Row0|Rows0], PivotRow, Col, [Row|Rows]) :-\n"
+    "        PivotRow = row(PVar, _, _),\n"
+    "        Row0 = row(Var, _, _),\n"
+    "        (   PVar == Var -> Row = PivotRow\n"
+    "        ;   '$simplex_row_eliminate'(Row0, PivotRow, Col, Row)\n"
+    "        ),\n"
+    "        '$simplex_gauss_elimination'(Rows0, PivotRow, Col, Rows).\n"
+    "'$simplex_row_eliminate'(row(Var, Ls0, R0), row(_, PLs, PR), Col, row(Var, Ls, R)) :-\n"
+    "        nth0(Col, Ls0, Coeff),\n"
+    "        (   Coeff =:= 0 -> Ls = Ls0, R = R0\n"
+    "        ;   '$simplex_all_times_minus'([PR|PLs], Coeff, [R0|Ls0], [R|Ls])\n"
+    "        ).\n"
+    "'$simplex_all_times_minus'([], _, _, []).\n"
+    "'$simplex_all_times_minus'([A|As], T, [B|Bs], [AT|ATs]) :-\n"
+    "        (   A == 0 -> AT = B\n"
+    "        ;   AT is B - A * T\n"
+    "        ),\n"
+    "        '$simplex_all_times_minus'(As, T, Bs, ATs).\n"
+    "'$simplex_all_times'([], _, []).\n"
+    "'$simplex_all_times'([A|As], T, [AT|ATs]) :-\n"
+    "        AT is A * T,\n"
+    "        '$simplex_all_times'(As, T, ATs).\n"
+    "'$simplex_simplex'(Tableau0, Tableau) :-\n"
+    "        (   '$simplex_tableau_optimal'(Tableau0) -> Tableau0 = Tableau\n"
+    "        ;   '$simplex_pivot_column'(Tableau0, PCol),\n"
+    "            '$simplex_pivot_row'(Tableau0, PCol, PRow),\n"
+    "            Tableau0 = tableau(Obj0,Variables,Inds,Matrix0),\n"
+    "            nth0(PRow, Matrix0, Row0),\n"
+    "            Row0 = row(Leaving, Left0, _Right0),\n"
+    "            nth0(PCol, Left0, PivotElement),\n"
+    "            '$simplex_row_divide'(Row0, PivotElement, Row1),\n"
+    "            '$simplex_gauss_elimination'([Obj0|Matrix0], Row1, PCol, [Obj|Matrix1]),\n"
+    "            nth0(PCol, Variables, Entering),\n"
+    "            '$simplex_swap_basic'(Matrix1, Leaving, Entering, Matrix),\n"
+    "            '$simplex_simplex'(tableau(Obj,Variables,Inds,Matrix), Tableau)\n"
+    "        ).\n"
+    "'$simplex_swap_basic'([Row0|Rows0], Old, New, Matrix) :-\n"
+    "        Row0 = row(Var, Left, Right),\n"
+    "        (   Var == Old -> Matrix = [row(New, Left, Right)|Rows0]\n"
+    "        ;   Matrix = [Row0|Rest],\n"
+    "            '$simplex_swap_basic'(Rows0, Old, New, Rest)\n"
+    "        ).\n"
+    "'$simplex_constraints_variables'([]) --> [].\n"
+    "'$simplex_constraints_variables'([c(_,Left,_)|Cs]) -->\n"
+    "        '$simplex_variables'(Left),\n"
+    "        '$simplex_constraints_variables'(Cs).\n"
+    "'$simplex_variables'([]) --> [].\n"
+    "'$simplex_variables'([_Coeff*Var|Rest]) --> [Var], '$simplex_variables'(Rest).\n"
+    "'$simplex_arcs'([], Assoc, Assoc).\n"
+    "'$simplex_arcs'([arc(From0,To0,C)|As], Assoc0, Assoc) :-\n"
+    "        (   get_assoc(From0, Assoc0, From) -> Assoc1 = Assoc0\n"
+    "        ;   put_assoc(From0, Assoc0, From, Assoc1),\n"
+    "            put_attr(From, node, From0)\n"
+    "        ),\n"
+    "        (   get_attr(From, edges, Es) -> true\n"
+    "        ;   Es = []\n"
+    "        ),\n"
+    "        put_attr(F, flow, 0),\n"
+    "        put_attr(From, edges, [arc_to(To,F,C)|Es]),\n"
+    "        (   get_assoc(To0, Assoc1, To) -> Assoc2 = Assoc1\n"
+    "        ;   put_assoc(To0, Assoc1, To, Assoc2),\n"
+    "            put_attr(To, node, To0)\n"
+    "        ),\n"
+    "        (   get_attr(To, edges, Es1) -> true\n"
+    "        ;   Es1 = []\n"
+    "        ),\n"
+    "        put_attr(To, edges, [arc_from(From,F,C)|Es1]),\n"
+    "        '$simplex_arcs'(As, Assoc2, Assoc).\n"
+    "'$simplex_edmonds_karp'(Arcs0, Arcs) :-\n"
+    "        empty_assoc(E),\n"
+    "        '$simplex_arcs'(Arcs0, E, Assoc),\n"
+    "        get_assoc(s, Assoc, S),\n"
+    "        get_assoc(t, Assoc, T),\n"
+    "        '$simplex_maximum_flow'(S, T),\n"
+    "        term_attvars(S, AttVars),\n"
+    "        phrase('$simplex_flow_to_arcs'(S), Ls),\n"
+    "        '$simplex_arcs_assoc'(Ls, Arcs),\n"
+    "        maplist(del_attrs, AttVars).\n"
+    "'$simplex_flow_to_arcs'(V) -->\n"
+    "        (   { get_attr(V, edges, Es) } ->\n"
+    "            { del_attr(V, edges),\n"
+    "              get_attr(V, node, Name) },\n"
+    "            '$simplex_flow_to_arcs_'(Es, Name)\n"
+    "        ;   []\n"
+    "        ).\n"
+    "'$simplex_flow_to_arcs_'([], _) --> [].\n"
+    "'$simplex_flow_to_arcs_'([E|Es], Name) -->\n"
+    "        '$simplex_edge_to_arc'(E, Name),\n"
+    "        '$simplex_flow_to_arcs_'(Es, Name).\n"
+    "'$simplex_edge_to_arc'(arc_from(_,_,_), _) --> [].\n"
+    "'$simplex_edge_to_arc'(arc_to(To,F,C), Name) -->\n"
+    "        { get_attr(To, node, NTo),\n"
+    "          get_attr(F, flow, Flow) },\n"
+    "        [arc(Name,NTo,Flow,C)],\n"
+    "        '$simplex_flow_to_arcs'(To).\n"
+    "'$simplex_arcs_assoc'(Arcs, Hash) :-\n"
+    "        empty_assoc(E),\n"
+    "        '$simplex_arcs_assoc'(Arcs, E, Hash).\n"
+    "'$simplex_arcs_assoc'([], Hs, Hs).\n"
+    "'$simplex_arcs_assoc'([arc(From,To,F,C)|Rest], Hs0, Hs) :-\n"
+    "        (   get_assoc(From, Hs0, As) -> Hs1 = Hs0\n"
+    "        ;   put_assoc(From, Hs0, [], Hs1),\n"
+    "            empty_assoc(As)\n"
+    "        ),\n"
+    "        put_assoc(To, As, arc(From,To,F,C), As1),\n"
+    "        put_assoc(From, Hs1, As1, Hs2),\n"
+    "        '$simplex_arcs_assoc'(Rest, Hs2, Hs).\n"
+    "'$simplex_maximum_flow'(S, T) :-\n"
+    "        (   '$simplex_augmenting_path'([[S]], Levels, T) ->\n"
+    "            phrase('$simplex_augmenting_path'(S, T), Path),\n"
+    "            Path = [augment(_,First,_)|Rest],\n"
+    "            '$simplex_path_minimum'(Rest, First, Min),\n"
+    "            maplist('$simplex_augment'(Min), Path),\n"
+    "            maplist(maplist('$simplex_clear_parent'), Levels),\n"
+    "            '$simplex_maximum_flow'(S, T)\n"
+    "        ;   true\n"
+    "        ).\n"
+    "'$simplex_clear_parent'(V) :- del_attr(V, parent).\n"
+    "'$simplex_augmenting_path'(Levels0, Levels, T) :-\n"
+    "        Levels0 = [Vs|_],\n"
+    "        Levels1 = [Tos|Levels0],\n"
+    "        phrase('$simplex_reachables'(Vs), Tos),\n"
+    "        Tos = [_|_],\n"
+    "        (   member(To, Tos), To == T -> Levels = Levels1\n"
+    "        ;   '$simplex_augmenting_path'(Levels1, Levels, T)\n"
+    "        ).\n"
+    "'$simplex_reachables'([])     --> [].\n"
+    "'$simplex_reachables'([V|Vs]) -->\n"
+    "        { get_attr(V, edges, Es) },\n"
+    "        '$simplex_reachables_'(Es, V),\n"
+    "        '$simplex_reachables'(Vs).\n"
+    "'$simplex_reachables_'([], _)     --> [].\n"
+    "'$simplex_reachables_'([E|Es], V) -->\n"
+    "        '$simplex_reachable'(E, V),\n"
+    "        '$simplex_reachables_'(Es, V).\n"
+    "'$simplex_reachable'(arc_from(V,F,_), P) -->\n"
+    "        (   { \\+ get_attr(V, parent, _),\n"
+    "              get_attr(F, flow, Flow),\n"
+    "              Flow > 0 } ->\n"
+    "            { put_attr(V, parent, P-augment(F,Flow,-)) },\n"
+    "            [V]\n"
+    "        ;   []\n"
+    "        ).\n"
+    "'$simplex_reachable'(arc_to(V,F,C), P) -->\n"
+    "        (   { \\+ get_attr(V, parent, _),\n"
+    "              get_attr(F, flow, Flow),\n"
+    "              (   C == inf ; Flow < C )} ->\n"
+    "            { ( C == inf -> Diff = inf\n"
+    "              ;   Diff is C - Flow\n"
+    "              ),\n"
+    "              put_attr(V, parent, P-augment(F,Diff,+)) },\n"
+    "            [V]\n"
+    "        ;   []\n"
+    "        ).\n"
+    "'$simplex_path_minimum'([], Min, Min).\n"
+    "'$simplex_path_minimum'([augment(_,A,_)|As], Min0, Min) :-\n"
+    "        (   A == inf -> Min1 = Min0\n"
+    "        ;   Min1 is min(Min0,A)\n"
+    "        ),\n"
+    "        '$simplex_path_minimum'(As, Min1, Min).\n"
+    "'$simplex_augment'(Min, augment(F,_,Sign)) :-\n"
+    "        get_attr(F, flow, Flow0),\n"
+    "        '$simplex_flow_'(Sign, Flow0, Min, Flow),\n"
+    "        put_attr(F, flow, Flow).\n"
+    "'$simplex_flow_'(+, F0, A, F) :- F is F0 + A.\n"
+    "'$simplex_flow_'(-, F0, A, F) :- F is F0 - A.\n"
+    "'$simplex_augmenting_path'(S, V) -->\n"
+    "        (   { V == S } -> []\n"
+    "        ;   { get_attr(V, parent, V1-Augment) },\n"
+    "            [Augment],\n"
+    "            '$simplex_augmenting_path'(S, V1)\n"
+    "        ).\n"
+    "'$simplex_naive_init'(Supplies, _, Costs, Alphas, Betas) :-\n"
+    "        same_length(Supplies, Alphas),\n"
+    "        maplist(=(0), Alphas),\n"
+    "        '$simplex_lists_transpose'(Costs, TCs),\n"
+    "        maplist(min_list, TCs, Betas).\n"
+    "'$simplex_lists_transpose'([], []).\n"
+    "'$simplex_lists_transpose'([L|Ls], Ts) :- foldl('$simplex_transpose_', L, Ts, [L|Ls], _).\n"
+    "'$simplex_transpose_'(_, Fs, Lists0, Lists) :-\n"
+    "        maplist('$simplex_list_first_rest', Lists0, Fs, Lists).\n"
+    "'$simplex_list_first_rest'([L|Ls], L, Ls).\n"
+    "transportation(Supplies, Demands, Costs, Transport) :-\n"
+    "        length(Supplies, LAs),\n"
+    "        length(Demands, LBs),\n"
+    "        '$simplex_naive_init'(Supplies, Demands, Costs, Alphas, Betas),\n"
+    "        '$simplex_network_head'(Supplies, 1, SArcs, []),\n"
+    "        '$simplex_network_tail'(Demands, 1, DArcs, []),\n"
+    "        numlist(1, LAs, Sources),\n"
+    "        numlist(1, LBs, Sinks0),\n"
+    "        maplist('$simplex_make_sink', Sinks0, Sinks),\n"
+    "        append(SArcs, DArcs, Torso),\n"
+    "        '$simplex_alpha_beta'(Torso, Sources, Sinks, Costs, Alphas, Betas, Flow),\n"
+    "        '$simplex_flow_transport'(Supplies, 1, Demands, Flow, Transport).\n"
+    "'$simplex_flow_transport'([], _, _, _, []).\n"
+    "'$simplex_flow_transport'([_|Rest], N, Demands, Flow, [Line|Lines]) :-\n"
+    "        '$simplex_transport_line'(Demands, N, 1, Flow, Line),\n"
+    "        N1 is N + 1,\n"
+    "        '$simplex_flow_transport'(Rest, N1, Demands, Flow, Lines).\n"
+    "'$simplex_transport_line'([], _, _, _, []).\n"
+    "'$simplex_transport_line'([_|Rest], I, J, Flow, [L|Ls]) :-\n"
+    "        (   get_assoc(I, Flow, As), get_assoc(p(J), As, arc(I,p(J),F,_)) -> L = F\n"
+    "        ;   L = 0\n"
+    "        ),\n"
+    "        J1 is J + 1,\n"
+    "        '$simplex_transport_line'(Rest, I, J1, Flow, Ls).\n"
+    "'$simplex_make_sink'(N, p(N)).\n"
+    "'$simplex_network_head'([], _) --> [].\n"
+    "'$simplex_network_head'([S|Ss], N) -->\n"
+    "        [arc(s,N,S)],\n"
+    "        { N1 is N + 1 },\n"
+    "        '$simplex_network_head'(Ss, N1).\n"
+    "'$simplex_network_tail'([], _) --> [].\n"
+    "'$simplex_network_tail'([D|Ds], N) -->\n"
+    "        [arc(p(N),t,D)],\n"
+    "        { N1 is N + 1 },\n"
+    "        '$simplex_network_tail'(Ds, N1).\n"
+    "'$simplex_network_connections'([], _, _, _) --> [].\n"
+    "'$simplex_network_connections'([A|As], Betas, [Cs|Css], N) -->\n"
+    "        '$simplex_network_connections'(Betas, Cs, A, N, 1),\n"
+    "        { N1 is N + 1 },\n"
+    "        '$simplex_network_connections'(As, Betas, Css, N1).\n"
+    "'$simplex_network_connections'([], _, _, _, _) --> [].\n"
+    "'$simplex_network_connections'([B|Bs], [C|Cs], A, N, PN) -->\n"
+    "        (   { C =:= A + B } -> [arc(N,p(PN),inf)]\n"
+    "        ;   []\n"
+    "        ),\n"
+    "        { PN1 is PN + 1 },\n"
+    "        '$simplex_network_connections'(Bs, Cs, A, N, PN1).\n"
+    "'$simplex_alpha_beta'(Torso, Sources, Sinks, Costs, Alphas, Betas, Flow) :-\n"
+    "        '$simplex_network_connections'(Alphas, Betas, Costs, 1, Cons, []),\n"
+    "        append(Torso, Cons, Arcs),\n"
+    "        '$simplex_edmonds_karp'(Arcs, MaxFlow),\n"
+    "        '$simplex_mark_hashes'(MaxFlow, MArcs, MRevArcs),\n"
+    "        '$simplex_all_markable'(MArcs, MRevArcs, Markable),\n"
+    "        '$simplex_mark_unmark'(Sources, Markable, MarkSources, UnmarkSources),\n"
+    "        (   MarkSources == [] -> Flow = MaxFlow\n"
+    "        ;   '$simplex_mark_unmark'(Sinks, Markable, MarkSinks0, UnmarkSinks0),\n"
+    "            maplist('$simplex_un_p', MarkSinks0, MarkSinks),\n"
+    "            maplist('$simplex_un_p', UnmarkSinks0, UnmarkSinks),\n"
+    "            MarkSources = [FirstSource|_],\n"
+    "            UnmarkSinks = [FirstSink|_],\n"
+    "            '$simplex_theta'(FirstSource, FirstSink, Costs, Alphas, Betas, TInit),\n"
+    "            '$simplex_theta'(MarkSources, UnmarkSinks, Costs, Alphas, Betas, TInit, Theta),\n"
+    "            '$simplex_duals_add'(MarkSources, Alphas, Theta, Alphas1),\n"
+    "            '$simplex_duals_add'(UnmarkSinks, Betas, Theta, Betas1),\n"
+    "            Theta1 is -Theta,\n"
+    "            '$simplex_duals_add'(UnmarkSources, Alphas1, Theta1, Alphas2),\n"
+    "            '$simplex_duals_add'(MarkSinks, Betas1, Theta1, Betas2),\n"
+    "            '$simplex_alpha_beta'(Torso, Sources, Sinks, Costs, Alphas2, Betas2, Flow)\n"
+    "        ).\n"
+    "'$simplex_mark_hashes'(MaxFlow, Arcs, RevArcs) :-\n"
+    "        assoc_to_list(MaxFlow, FlowList),\n"
+    "        maplist('$simplex_un_arc', FlowList, FlowList1),\n"
+    "        flatten(FlowList1, FlowList2),\n"
+    "        empty_assoc(E),\n"
+    "        '$simplex_mark_arcs'(FlowList2, E, Arcs),\n"
+    "        '$simplex_mark_revarcs'(FlowList2, E, RevArcs).\n"
+    "'$simplex_un_arc'(_-Ls0, Ls) :-\n"
+    "        assoc_to_list(Ls0, Ls1),\n"
+    "        maplist('$simplex_un_arc_', Ls1, Ls).\n"
+    "'$simplex_un_arc_'(_-Ls, Ls).\n"
+    "'$simplex_mark_arcs'([], Arcs, Arcs).\n"
+    "'$simplex_mark_arcs'([arc(From,To,F,C)|Rest], Arcs0, Arcs) :-\n"
+    "        (   get_assoc(From, Arcs0, As) -> true\n"
+    "        ;   As = []\n"
+    "        ),\n"
+    "        (   C == inf -> As1 = [To|As]\n"
+    "        ;   F < C -> As1 = [To|As]\n"
+    "        ;   As1 = As\n"
+    "        ),\n"
+    "        put_assoc(From, Arcs0, As1, Arcs1),\n"
+    "        '$simplex_mark_arcs'(Rest, Arcs1, Arcs).\n"
+    "'$simplex_mark_revarcs'([], Arcs, Arcs).\n"
+    "'$simplex_mark_revarcs'([arc(From,To,F,_)|Rest], Arcs0, Arcs) :-\n"
+    "        (   get_assoc(To, Arcs0, Fs) -> true\n"
+    "        ;   Fs = []\n"
+    "        ),\n"
+    "        (   F > 0 -> Fs1 = [From|Fs]\n"
+    "        ;   Fs1 = Fs\n"
+    "        ),\n"
+    "        put_assoc(To, Arcs0, Fs1, Arcs1),\n"
+    "        '$simplex_mark_revarcs'(Rest, Arcs1, Arcs).\n"
+    "'$simplex_un_p'(p(N), N).\n"
+    "'$simplex_duals_add'([], Alphas, _, Alphas).\n"
+    "'$simplex_duals_add'([S|Ss], Alphas0, Theta, Alphas) :-\n"
+    "        '$simplex_add_to_nth'(1, S, Alphas0, Theta, Alphas1),\n"
+    "        '$simplex_duals_add'(Ss, Alphas1, Theta, Alphas).\n"
+    "'$simplex_add_to_nth'(N, N, [A0|As], Theta, [A|As]) :- !,\n"
+    "        A is A0 + Theta.\n"
+    "'$simplex_add_to_nth'(N0, N, [A|As0], Theta, [A|As]) :-\n"
+    "        N1 is N0 + 1,\n"
+    "        '$simplex_add_to_nth'(N1, N, As0, Theta, As).\n"
+    "'$simplex_theta'(Source, Sink, Costs, Alphas, Betas, Theta) :-\n"
+    "        nth1(Source, Costs, Row),\n"
+    "        nth1(Sink, Row, C),\n"
+    "        nth1(Source, Alphas, A),\n"
+    "        nth1(Sink, Betas, B),\n"
+    "        Theta is (C - A - B) rdiv 2.\n"
+    "'$simplex_theta'([], _, _, _, _, Theta, Theta).\n"
+    "'$simplex_theta'([Source|Sources], Sinks, Costs, Alphas, Betas, Theta0, Theta) :-\n"
+    "        '$simplex_theta_'(Sinks, Source, Costs, Alphas, Betas, Theta0, Theta1),\n"
+    "        '$simplex_theta'(Sources, Sinks, Costs, Alphas, Betas, Theta1, Theta).\n"
+    "'$simplex_theta_'([], _, _, _, _, Theta, Theta).\n"
+    "'$simplex_theta_'([Sink|Sinks], Source, Costs, Alphas, Betas, Theta0, Theta) :-\n"
+    "        '$simplex_theta'(Source, Sink, Costs, Alphas, Betas, Theta1),\n"
+    "        Theta2 is min(Theta0, Theta1),\n"
+    "        '$simplex_theta_'(Sinks, Source, Costs, Alphas, Betas, Theta2, Theta).\n"
+    "'$simplex_mark_unmark'(Nodes, Hash, Mark, Unmark) :-\n"
+    "        '$simplex_mark_unmark'(Nodes, Hash, Mark, [], Unmark, []).\n"
+    "'$simplex_mark_unmark'([], _, Mark, Mark, Unmark, Unmark).\n"
+    "'$simplex_mark_unmark'([Node|Nodes], Markable, Mark0, Mark, Unmark0, Unmark) :-\n"
+    "        (   memberchk(Node, Markable) ->\n"
+    "            Mark0 = [Node|Mark1],\n"
+    "            Unmark0 = Unmark1\n"
+    "        ;   Mark0 = Mark1,\n"
+    "            Unmark0 = [Node|Unmark1]\n"
+    "        ),\n"
+    "        '$simplex_mark_unmark'(Nodes, Markable, Mark1, Mark, Unmark1, Unmark).\n"
+    "'$simplex_all_markable'(Flow, RevArcs, Markable) :-\n"
+    "        phrase('$simplex_markable'(s, [], _, Flow, RevArcs), Markable).\n"
+    "'$simplex_all_markable'([], Visited, Visited, _, _) --> [].\n"
+    "'$simplex_all_markable'([To|Tos], Visited0, Visited, Arcs, RevArcs) -->\n"
+    "        (   { memberchk(To, Visited0) } -> { Visited0 = Visited1 }\n"
+    "        ;   '$simplex_markable'(To, [To|Visited0], Visited1, Arcs, RevArcs)\n"
+    "        ),\n"
+    "        '$simplex_all_markable'(Tos, Visited1, Visited, Arcs, RevArcs).\n"
+    "'$simplex_markable'(Current, Visited0, Visited, Arcs, RevArcs) -->\n"
+    "        { (   Current = p(_) ->\n"
+    "              (   get_assoc(Current, RevArcs, Fs) -> true\n"
+    "              ;   Fs = []\n"
+    "              )\n"
+    "          ;   (   get_assoc(Current, Arcs, Fs) -> true\n"
+    "              ;   Fs = []\n"
+    "              )\n"
+    "          ) },\n"
+    "        [Current],\n"
+    "        '$simplex_all_markable'(Fs, [Current|Visited0], Visited, Arcs, RevArcs).\n"
+    "'$simplex_input'(Ss, Ds, Costs) -->\n"
+    "        '$simplex_integer'(NS),\n"
+    "        '$simplex_integer'(ND),\n"
+    "        '$simplex_n_integers'(NS, Ss),\n"
+    "        '$simplex_n_integers'(ND, Ds),\n"
+    "        '$simplex_n_kvectors'(NS, ND, Costs).\n"
+    "'$simplex_n_kvectors'(0, _, []) --> !.\n"
+    "'$simplex_n_kvectors'(N, K, [V|Vs]) -->\n"
+    "        '$simplex_n_integers'(K, V),\n"
+    "        { N1 is N - 1 },\n"
+    "        '$simplex_n_kvectors'(N1, K, Vs).\n"
+    "'$simplex_n_integers'(0, []) --> !.\n"
+    "'$simplex_n_integers'(N, [I|Is]) --> '$simplex_integer'(I), { N1 is N - 1 }, '$simplex_n_integers'(N1, Is).\n"
+    "'$simplex_number'([D|Ds]) --> '$simplex_digit'(D), '$simplex_number'(Ds).\n"
+    "'$simplex_number'([D])    --> '$simplex_digit'(D).\n"
+    "'$simplex_digit'(D) --> [D], { between(0'0, 0'9, D) }.\n"
+    "'$simplex_integer'(N) --> '$simplex_number'(Ds), !, '$simplex_ws', { name(N, Ds) }.\n"
+    "'$simplex_ws' --> [W], { W =< 0' }, !, '$simplex_ws'.\n"
+    "'$simplex_ws' --> [].\n"
+    "'$simplex_solve'(File) :-\n"
+    "        time((phrase_from_file('$simplex_input'(Supplies, Demands, Costs), File),\n"
+    "              transportation(Supplies, Demands, Costs, Matrix),\n"
+    "              maplist('$simplex_print_row', Matrix))),\n"
+    "        halt.\n"
+    "'$simplex_print_row'(R) :- maplist('$simplex_print_row_', R), nl.\n"
+    "'$simplex_print_row_'(N) :- format(\"~w \", [N]).\n"
+    "assignment(Costs, Assignment) :-\n"
+    "        length(Costs, LC),\n"
+    "        length(Supply, LC),\n"
+    "        '$simplex_all_one'(Supply),\n"
+    "        transportation(Supply, Supply, Costs, Assignment).\n"
+    "'$simplex_warn_if_bounded_arithmetic' :-\n"
+    "        (   current_prolog_flag(bounded, true) ->\n"
+    "            print_message(warning, simplex(bounded))\n"
+    "        ;   true\n"
+    "        ).\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
+    { "distinct", 1 },
+    { "distinct", 2 },
+    { "reduced", 1 },
+    { "reduced", 3 },
+    { "limit", 2 },
+    { "offset", 2 },
+    { "call_nth", 2 },
+    { "order_by", 2 },
+    { "group_by", 4 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_34_SRC[] =
     "distinct(Goal) :-\n"
     "    distinct(Goal, Goal).\n"
     "distinct(Witness, Goal) :-\n"
@@ -19615,7 +20581,7 @@ static const char PL_PRELUDE_LIB_33_SRC[] =
     "    '$solution_sequences_ordered_term_variables'(By+Template, UVars),\n"
     "    ord_subtract(GVars, UVars, ExVars),\n"
     "    bagof(Template, ExVars^Goal, Bag).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
     { "dedent_lines", 3 },
     { "indent_lines", 3 },
     { "indent_lines", 4 },
@@ -19623,16 +20589,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "string_lines", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_34_SRC[] =
+static const char PL_PRELUDE_LIB_35_SRC[] =
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
     "interpolate_string(Module:In, Out, Map, Options) :-\n"
     "    '$strings_comp_interpolate'(In, Compiled, Map, [module(Module)|Options]),\n"
@@ -19842,7 +20808,7 @@ static const char PL_PRELUDE_LIB_34_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "open_string", 2 },
     { "directory_file_path", 3 },
     { "make_directory_path", 1 },
@@ -19863,16 +20829,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
     { "set_prolog_stack", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_35_SRC[] =
+static const char PL_PRELUDE_LIB_36_SRC[] =
     "maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).\n"
     "'$swb_maplist'([], [], [], [], [], _).\n"
     "'$swb_maplist'([A|As], [B|Bs], [C|Cs], [D|Ds], [E|Es], G) :- call(G, A, B, C, D, E), '$swb_maplist'(As, Bs, Cs, Ds, Es, G).\n"
@@ -19949,7 +20915,7 @@ static const char PL_PRELUDE_LIB_35_SRC[] =
     "'$swb_u8b'(B, [B2|R], C, R) :- B < 224, !, C is ((B /\\ 31) << 6) \\/ (B2 /\\ 63).\n"
     "'$swb_u8b'(B, [B2, B3|R], C, R) :- B < 240, !, C is ((B /\\ 15) << 12) \\/ ((B2 /\\ 63) << 6) \\/ (B3 /\\ 63).\n"
     "'$swb_u8b'(B, [B2, B3, B4|R], C, R) :- C is ((B /\\ 7) << 18) \\/ ((B2 /\\ 63) << 12) \\/ ((B3 /\\ 63) << 6) \\/ (B4 /\\ 63).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "$tbl_call", 2 },
     { "$tbl_icall", 2 },
     { "$tbl_isincr", 1 },
@@ -20119,17 +21085,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "snapshot", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_QUIET[] = {
     { "undefined", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_37_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_36_SRC[] =
+static const char PL_PRELUDE_LIB_37_SRC[] =
     "'$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).\n"
     "'$tbl_kcall'(G,I,TK):-(TK==incr->functor(G,F,N),('$tbl_isincr'(F/N)->true;assertz('$tbl_incrp'(F/N)));true),'$tbl_get'(G,I,plain,TK,T),'$tbl_answer'(T,G).\n"
     "'$tbl_icall'(G,I):-'$tbl_kcall'(G,I,incr).\n"
@@ -20554,7 +21520,7 @@ static const char PL_PRELUDE_LIB_36_SRC[] =
     "'$tx_deps'(T,Dg):-nb_current('$tx_cur',C),C=tx(Rs),!,(Dg=idg(_,Dp,_,_,_),'$tx_hit_in'(Dp,Rs),\\+ '$tx_has_inpush'(Rs,T)->nb_setarg(1,C,[inpush(T)|Rs]);true).\n"
     "'$tx_deps'(_,_).\n"
     "'$tx_hit_in'([D|Ds],Rs):-('$tx_inside'(D,Rs)->true;'$tx_hit_in'(Ds,Rs)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
     { "term_size", 2 },
     { "variant", 2 },
     { "subsumes", 2 },
@@ -20571,16 +21537,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "same_functor", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_37_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_38_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_37_SRC[] =
+static const char PL_PRELUDE_LIB_38_SRC[] =
     "term_size(Term, Size) :-\n"
     "    '$term_size'(Term, _, Size).\n"
     "variant(X, Y) :-\n"
@@ -20789,23 +21755,23 @@ static const char PL_PRELUDE_LIB_37_SRC[] =
     "    ;   functor(Term2, Name, Arity),\n"
     "        functor(Term1, Name, Arity)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_38_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_39_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_38_SRC[] =
+static const char PL_PRELUDE_LIB_39_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -20940,7 +21906,7 @@ static const char PL_PRELUDE_LIB_38_SRC[] =
     "    put(Head),\n"
     "    '$writef_$padout'(Tail).\n"
     "'$writef_$padout'([]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
     { "import", 1 },
     { "export", 1 },
     { "index", 1 },
@@ -20951,16 +21917,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
     { "load_dyn", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_39_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_40_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_39_SRC[] =
+static const char PL_PRELUDE_LIB_40_SRC[] =
     "import(_).\n"
     "export(_).\n"
     "index(_).\n"
@@ -20978,25 +21944,25 @@ static const char PL_PRELUDE_LIB_39_SRC[] =
     "'$xsb_ld_read'(S) :- repeat, read_term(S, T, []), ( T == end_of_file -> ! ; '$xsb_ld_one'(T), fail ).\n"
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
     "'$xsb_ld_one'(C) :- assertz(C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_40_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_41_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_40_SRC[] =
+static const char PL_PRELUDE_LIB_41_SRC[] =
     "ord_setproduct([], _, []).\n"
     "ord_setproduct([Head|Tail], Set, SetProduct) :- '$xos_product'(Set, Head, SetProduct, Rest), ord_setproduct(Tail, Set, Rest).\n"
     "'$xos_product'([], _, Set, Set).\n"
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
     { "close_open_tables", 1 },
@@ -21020,16 +21986,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
     { "$atp_goal", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_41_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_42_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_41_SRC[] =
+static const char PL_PRELUDE_LIB_42_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
     "close_open_tables(_).\n"
@@ -21102,14 +22068,15 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "rbtrees", PL_PRELUDE_LIB_30_EXPORTS, PL_PRELUDE_LIB_30_OPS, PL_PRELUDE_LIB_30_SHADOWS, PL_PRELUDE_LIB_30_QUIET, PL_PRELUDE_LIB_30_SRC },
     { "readutil", PL_PRELUDE_LIB_31_EXPORTS, PL_PRELUDE_LIB_31_OPS, PL_PRELUDE_LIB_31_SHADOWS, PL_PRELUDE_LIB_31_QUIET, PL_PRELUDE_LIB_31_SRC },
     { "record", PL_PRELUDE_LIB_32_EXPORTS, PL_PRELUDE_LIB_32_OPS, PL_PRELUDE_LIB_32_SHADOWS, PL_PRELUDE_LIB_32_QUIET, PL_PRELUDE_LIB_32_SRC },
-    { "solution_sequences", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC },
-    { "strings", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC },
-    { "swi_builtins", PL_PRELUDE_LIB_35_EXPORTS, PL_PRELUDE_LIB_35_OPS, PL_PRELUDE_LIB_35_SHADOWS, PL_PRELUDE_LIB_35_QUIET, PL_PRELUDE_LIB_35_SRC },
-    { "tabling", PL_PRELUDE_LIB_36_EXPORTS, PL_PRELUDE_LIB_36_OPS, PL_PRELUDE_LIB_36_SHADOWS, PL_PRELUDE_LIB_36_QUIET, PL_PRELUDE_LIB_36_SRC },
-    { "terms", PL_PRELUDE_LIB_37_EXPORTS, PL_PRELUDE_LIB_37_OPS, PL_PRELUDE_LIB_37_SHADOWS, PL_PRELUDE_LIB_37_QUIET, PL_PRELUDE_LIB_37_SRC },
-    { "writef", PL_PRELUDE_LIB_38_EXPORTS, PL_PRELUDE_LIB_38_OPS, PL_PRELUDE_LIB_38_SHADOWS, PL_PRELUDE_LIB_38_QUIET, PL_PRELUDE_LIB_38_SRC },
-    { "xsb_builtins", PL_PRELUDE_LIB_39_EXPORTS, PL_PRELUDE_LIB_39_OPS, PL_PRELUDE_LIB_39_SHADOWS, PL_PRELUDE_LIB_39_QUIET, PL_PRELUDE_LIB_39_SRC },
-    { "xsb_ordsets", PL_PRELUDE_LIB_40_EXPORTS, PL_PRELUDE_LIB_40_OPS, PL_PRELUDE_LIB_40_SHADOWS, PL_PRELUDE_LIB_40_QUIET, PL_PRELUDE_LIB_40_SRC },
-    { "xsb_tables", PL_PRELUDE_LIB_41_EXPORTS, PL_PRELUDE_LIB_41_OPS, PL_PRELUDE_LIB_41_SHADOWS, PL_PRELUDE_LIB_41_QUIET, PL_PRELUDE_LIB_41_SRC },
+    { "simplex", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC },
+    { "solution_sequences", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC },
+    { "strings", PL_PRELUDE_LIB_35_EXPORTS, PL_PRELUDE_LIB_35_OPS, PL_PRELUDE_LIB_35_SHADOWS, PL_PRELUDE_LIB_35_QUIET, PL_PRELUDE_LIB_35_SRC },
+    { "swi_builtins", PL_PRELUDE_LIB_36_EXPORTS, PL_PRELUDE_LIB_36_OPS, PL_PRELUDE_LIB_36_SHADOWS, PL_PRELUDE_LIB_36_QUIET, PL_PRELUDE_LIB_36_SRC },
+    { "tabling", PL_PRELUDE_LIB_37_EXPORTS, PL_PRELUDE_LIB_37_OPS, PL_PRELUDE_LIB_37_SHADOWS, PL_PRELUDE_LIB_37_QUIET, PL_PRELUDE_LIB_37_SRC },
+    { "terms", PL_PRELUDE_LIB_38_EXPORTS, PL_PRELUDE_LIB_38_OPS, PL_PRELUDE_LIB_38_SHADOWS, PL_PRELUDE_LIB_38_QUIET, PL_PRELUDE_LIB_38_SRC },
+    { "writef", PL_PRELUDE_LIB_39_EXPORTS, PL_PRELUDE_LIB_39_OPS, PL_PRELUDE_LIB_39_SHADOWS, PL_PRELUDE_LIB_39_QUIET, PL_PRELUDE_LIB_39_SRC },
+    { "xsb_builtins", PL_PRELUDE_LIB_40_EXPORTS, PL_PRELUDE_LIB_40_OPS, PL_PRELUDE_LIB_40_SHADOWS, PL_PRELUDE_LIB_40_QUIET, PL_PRELUDE_LIB_40_SRC },
+    { "xsb_ordsets", PL_PRELUDE_LIB_41_EXPORTS, PL_PRELUDE_LIB_41_OPS, PL_PRELUDE_LIB_41_SHADOWS, PL_PRELUDE_LIB_41_QUIET, PL_PRELUDE_LIB_41_SRC },
+    { "xsb_tables", PL_PRELUDE_LIB_42_EXPORTS, PL_PRELUDE_LIB_42_OPS, PL_PRELUDE_LIB_42_SHADOWS, PL_PRELUDE_LIB_42_QUIET, PL_PRELUDE_LIB_42_SRC },
     { 0, 0, 0, 0, 0, 0 }
 };
