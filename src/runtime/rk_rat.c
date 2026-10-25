@@ -328,6 +328,7 @@ DESCR_t rk_rat_lit(const char *txt) {
     return rq_make(n, bi_pow(INTVAL(10), frac), 0);
 }
 DESCR_t rk_rat_new(DESCR_t n, DESCR_t d, int fat) { if (!bi_is(n) || !bi_is(d)) return FAILDESCR; if (bi_zero(d)) return rq_new(INTVAL(bi_sgn(n)), INTVAL(0), fat); return rq_make(n, d, fat); }
+DESCR_t rk_rat_new_reduced(DESCR_t n, DESCR_t d, int fat) { return rq_new(n, d, fat); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rq_pow10_cmp_den(DESCR_t d) { return bi_cmp(d, INTVAL(100000)) < 0; }
 static int rq_chars(DESCR_t a) { if (a.v == DT_I) return snprintf(NULL, 0, "%lld", (long long) a.i); return (int) strlen(rt_big_str(a)); }

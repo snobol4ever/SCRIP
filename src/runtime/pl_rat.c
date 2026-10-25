@@ -20,6 +20,7 @@ extern int rt_big_sign(DESCR_t);
 extern int rt_big_cmp(DESCR_t, DESCR_t);
 extern int rt_big_eq(DESCR_t, DESCR_t);
 extern DESCR_t rk_rat_new(DESCR_t, DESCR_t, int);
+extern DESCR_t rk_rat_new_reduced(DESCR_t, DESCR_t, int);
 extern int rk_rat_is(DESCR_t);
 extern int rk_rat_to_real(DESCR_t, double *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -54,16 +55,34 @@ static DESCR_t pq_gcd(DESCR_t a, DESCR_t b) {
     return a;
 }
 static void pq_parts(DESCR_t a, DESCR_t *n, DESCR_t *d) { if (pl_rat_is(a)) { *n = a.u->fields[0]; *d = a.u->fields[1]; } else { *n = a; *d = INTVAL(1); } }
+static DESCR_t pq_exq(DESCR_t a, DESCR_t g) { return pq_one(g) ? a : pq_divt(a, g); }
+static DESCR_t pq_reduced(DESCR_t n, DESCR_t d) { if (pq_one(d)) return n; return rk_rat_new_reduced(n, d, 1); }
+static DESCR_t pq_rat_add(DESCR_t an, DESCR_t ad, DESCR_t bn, DESCR_t bd) {
+    DESCR_t g, g2, t;
+    if (pq_one(ad) && pq_one(bd)) return pq_add(an, bn);
+    g = pq_gcd(ad, bd);
+    t = pq_add(pq_mul(an, pq_exq(bd, g)), pq_mul(bn, pq_exq(ad, g)));
+    if (pq_zero(t)) return INTVAL(0);
+    g2 = pq_one(g) ? g : pq_gcd(t, g);
+    return pq_reduced(pq_exq(t, g2), pq_mul(pq_exq(ad, g), pq_exq(bd, g2)));
+}
+static DESCR_t pq_rat_mul(DESCR_t an, DESCR_t ad, DESCR_t bn, DESCR_t bd) {
+    DESCR_t g1, g2;
+    if (pq_zero(an) || pq_zero(bn)) return INTVAL(0);
+    g1 = pq_one(bd) ? bd : pq_gcd(an, bd);
+    g2 = pq_one(ad) ? ad : pq_gcd(bn, ad);
+    return pq_reduced(pq_mul(pq_exq(an, g1), pq_exq(bn, g2)), pq_mul(pq_exq(ad, g2), pq_exq(bd, g1)));
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_rat_is(DESCR_t a) { return a.v == DT_DATA && rk_rat_is(a); }
 int pl_rat_exact(DESCR_t a) { return pq_int(a) || pl_rat_is(a); }
 DESCR_t pl_rat_make(DESCR_t n, DESCR_t d) {
     DESCR_t g;
+    if (pq_zero(d)) return rk_rat_new(n, d, 1);
     if (pq_sgn(d) < 0) { n = pq_neg(n); d = pq_neg(d); }
     g = pq_gcd(n, d);
     if (!pq_one(g) && !pq_zero(g)) { n = pq_divt(n, g); d = pq_divt(d, g); }
-    if (pq_one(d)) return n;
-    return rk_rat_new(n, d, 1);
+    return pq_reduced(n, d);
 }
 double pl_rat_real(DESCR_t a) {
     double x = 0.0;
@@ -212,10 +231,14 @@ int pl_rat_binop(const char *op, DESCR_t a, DESCR_t b, DESCR_t *out, int *err, D
     }
     pq_parts(a, &an, &ad);
     pq_parts(b, &bn, &bd);
-    if (!strcmp(op, "add")) { *out = pl_rat_make(pq_add(pq_mul(an, bd), pq_mul(bn, ad)), pq_mul(ad, bd)); return 1; }
-    if (!strcmp(op, "sub")) { *out = pl_rat_make(pq_sub(pq_mul(an, bd), pq_mul(bn, ad)), pq_mul(ad, bd)); return 1; }
-    if (!strcmp(op, "mul")) { *out = pl_rat_make(pq_mul(an, bn), pq_mul(ad, bd)); return 1; }
-    if (!strcmp(op, "div") || !strcmp(op, "rdiv")) { if (pq_zero(bn)) { *err = PLQ_ZDIV; return 1; } *out = pl_rat_make(pq_mul(an, bd), pq_mul(ad, bn)); return 1; }
+    if (!strcmp(op, "add")) { *out = pq_rat_add(an, ad, bn, bd); return 1; }
+    if (!strcmp(op, "sub")) { *out = pq_rat_add(an, ad, pq_neg(bn), bd); return 1; }
+    if (!strcmp(op, "mul")) { *out = pq_rat_mul(an, ad, bn, bd); return 1; }
+    if (!strcmp(op, "div") || !strcmp(op, "rdiv")) {
+        if (pq_zero(bn)) { *err = PLQ_ZDIV; return 1; }
+        *out = pq_sgn(bn) < 0 ? pq_rat_mul(an, ad, pq_neg(bd), pq_neg(bn)) : pq_rat_mul(an, ad, bd, bn);
+        return 1;
+    }
     if (!strcmp(op, "min")) { *out = pl_rat_cmp(a, b) <= 0 ? a : b; return 1; }
     if (!strcmp(op, "max")) { *out = pl_rat_cmp(a, b) >= 0 ? a : b; return 1; }
     if (!strcmp(op, "fpow") || !strcmp(op, "pow")) return pl_rat_pow(a, b, out, err);
