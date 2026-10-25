@@ -19804,6 +19804,8 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "export", 1 },
     { "index", 1 },
     { "compiler_options", 1 },
+    { "term_depth", 2 },
+    { "dynamic_pred_has_clauses", 2 },
     { "set_arg", 3 },
     { "load_dyn", 1 },
     { 0, 0 }
@@ -19822,6 +19824,11 @@ static const char PL_PRELUDE_LIB_37_SRC[] =
     "export(_).\n"
     "index(_).\n"
     "compiler_options(L) :- ( is_list(L) -> true ; throw(error(type_error(list, L), compiler_options/1)) ).\n"
+    "term_depth(T, D) :- ( compound(T) -> functor(T, _, N), '$xsb_td_args'(N, T, 0, M), D is M + 1 ; float(T) -> D = 2 ; D = 1 ).\n"
+    "'$xsb_td_args'(0, _, M, M) :- !.\n"
+    "'$xsb_td_args'(I, T, M0, M) :- arg(I, T, A), term_depth(A, DA), M1 is max(M0, DA), I1 is I - 1, '$xsb_td_args'(I1, T, M1, M).\n"
+    "dynamic_pred_has_clauses(H, F) :- ( var(H) -> throw(error(instantiation_error, dynamic_pred_has_clauses/2)) ; \\+ callable(H) -> throw(error(type_error(callable, H), dynamic_pred_has_clauses/2))\n"
+    "    ; predicate_property(H, dynamic) -> ( \\+ \\+ clause(H, _) -> F = 1 ; F = 0 ) ; throw(error(permission_error(access, non_dynamic, H), dynamic_pred_has_clauses/2)) ).\n"
     "set_arg(Term, Index, Arg) :- setarg(Index, Term, Arg).\n"
     "load_dyn(File) :- '$xsb_ld_path'(File, Path), setup_call_cleanup(open(Path, read, S), '$xsb_ld_read'(S), close(S)).\n"
     "'$xsb_ld_path'(F, P) :- ( var(F) -> throw(error(instantiation_error, load_dyn/1)) ; \\+ atom(F) -> throw(error(type_error(atom, F), load_dyn/1)) ; true ),\n"
