@@ -669,7 +669,6 @@ int g_frame_active = 0;
 int g_flat_outer_nparams = 0;
 int g_gen_proc_active = 0;
 int g_resumable_callable_active = 0;
-int g_scan_regs_live = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void fbdiv_report(void) { fprintf(stderr, "FB-DIVERGE TOTAL=%d\n", g_emitter.fbdiv_n); }
 static int emit_fb_bit_of(IR_t * nd);
@@ -1965,7 +1964,6 @@ static void drive_guard_refused(IR_t *nd, int line) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) { drive_guard_refused(nd, __LINE__); return; }
-    { extern int g_scan_regs_live; g_scan_regs_live = nd->in_scan ? 1 : 0; }
     switch (nd->op) {
     case IR_LIT_STRING: case IR_LIT_INTEGER: case IR_LIT_REAL:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
@@ -4960,7 +4958,6 @@ static void emit_chain_prepare(IR_t * entry) {
     emit_chain_operand_refs(entry);
     if (g_emit_cfg) zls_fct_finalize(g_emit_cfg, 1);
     g_emitter.g_bb_slotmap_n = 0; g_emitter.g_bb_slotix_gen++;
-    { extern int g_scan_regs_live; g_scan_regs_live = 0; }
     { extern void zop_audit_graph_close(void); zop_audit_graph_close(); g_emit.zop_seen = 0; }
     g_emit.op_zres = 0; g_emit.op_zf_unpinned = 0; g_emit.op_zabs = 0;
     g_emit.flat_all_zd = 0;

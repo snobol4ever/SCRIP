@@ -139,7 +139,6 @@ struct IR_t {
     IR_ref_t ω;
     IR_t ** operands;
     int n_operands;
-    int in_scan;
     int seal;
     int pat_static;
     int strict;
@@ -252,6 +251,7 @@ struct IR_graph_t {
     int entry_frame;
     int smx;
     int cell_frame;
+    int scan_regs;
     int spine_cells;
     int home_frame;
     int root_graph;

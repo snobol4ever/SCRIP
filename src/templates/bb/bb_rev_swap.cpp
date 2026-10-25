@@ -5,7 +5,6 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-extern int g_scan_regs_live;
 int is_global(const char * name);
 struct DESCR_t * NV_PTR_fn(const char * name);
 struct DESCR_t rt_rev_swap_fwd(long lkind, struct DESCR_t *lp, long rkind, struct DESCR_t *rp, struct DESCR_t *save, int64_t *spill);
@@ -46,9 +45,8 @@ static std::string rsw_cell(int lbl, int arm) {
     + x86("mov", "rdi", (long)((lk) == 2 ? 0 : (lk))) \
     + x86("mov", "rdx", (long)((rk) == 2 ? 0 : (rk))) \
     + x86("lea", "r8", FRQ(_.op_off + 16)) \
-    + (g_scan_regs_live != 0 ? x86("note", "scan_δ") \
-                               + x86("lea", "r9", FRQ(_.op_off + 48)) \
-                             : x86("mov", "r9", (long)0)) \
+    + x86("note", "scan_δ") \
+    + x86("lea", "r9", FRQ(_.op_off + 48)) \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define rsw_names(lk, rk) ( \
@@ -70,28 +68,28 @@ std::string bb_rev_swap() {
                               + x86_bomb("bb_rev_swap: no result slot")
              : x86("comment", "IR_REV_SWAP")
              + x86_alpha()
-             + IF(g_scan_regs_live != 0, x86("note", "scan_δ")
-                                       + x86("mov", FRQ(_.op_off + 48), "r14")
-                                       + x86("note", "scan_Δ")
-                                       + x86("mov", FRQ(_.op_off + 56), "r15"))
+             + x86("note", "scan_δ")
+             + x86("mov", FRQ(_.op_off + 48), "r14")
+             + x86("note", "scan_Δ")
+             + x86("mov", FRQ(_.op_off + 56), "r15")
              + rsw_operands(lk, rk, 0)
              + x86("call", "rt_rev_swap_fwd", (uint64_t)(uintptr_t)(void *)rt_rev_swap_fwd)
-             + IF(g_scan_regs_live != 0, x86("note", "scan_δ")
-                                       + x86("mov", "r14", FRQ(_.op_off + 48)))
+             + x86("note", "scan_δ")
+             + x86("mov", "r14", FRQ(_.op_off + 48))
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov", FRQ(_.op_off), "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
              + x86_beta()
-             + IF(g_scan_regs_live != 0, x86("note", "scan_δ")
-                                       + x86("mov", FRQ(_.op_off + 48), "r14")
-                                       + x86("note", "scan_Δ")
-                                       + x86("mov", FRQ(_.op_off + 56), "r15"))
+             + x86("note", "scan_δ")
+             + x86("mov", FRQ(_.op_off + 48), "r14")
+             + x86("note", "scan_Δ")
+             + x86("mov", FRQ(_.op_off + 56), "r15")
              + rsw_operands(lk, rk, 1)
              + x86("call", "rt_rev_swap_undo", (uint64_t)(uintptr_t)(void *)rt_rev_swap_undo)
-             + IF(g_scan_regs_live != 0, x86("note", "scan_δ")
-                                       + x86("mov", "r14", FRQ(_.op_off + 48)))
+             + x86("note", "scan_δ")
+             + x86("mov", "r14", FRQ(_.op_off + 48))
              + x86_omega()
              + rsw_names(lk, rk);
     }(rsw_eff(rsw_kind(_.op_sval), _.op_sb, _.op_sval), rsw_eff(rsw_kind(_.op_name2), _.op_sa, _.op_name2));

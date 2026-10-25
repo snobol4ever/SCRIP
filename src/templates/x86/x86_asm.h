@@ -2352,34 +2352,15 @@ inline std::string x86_srf_floater(int wire_disp) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_return_floater() { return x86_srf_floater(16); }
 inline std::string x86_freturn_floater() { return x86_srf_floater(24); }
-extern "C" void rt_scan_sync_out(uint64_t delta);
+extern "C" void rt_scan_sync_out(uint64_t subj, uint64_t len, uint64_t delta);
 extern "C" uint64_t rt_scan_sync_in(void);
-extern "C" uint64_t rt_scan_live_subj(void);
 typedef struct { uint64_t ptr; uint64_t len; } ScanLiveRegs_t;
 extern "C" ScanLiveRegs_t rt_scan_live_regs(void);
-extern "C" int g_scan_regs_live;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_scan_sync_out() {
-    if (!g_scan_regs_live) return std::string();
-    return x86("mov", "rdi", "r14") + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_scan_sigma_reload() {
-    return x86("call", "rt_scan_live_subj", (uint64_t)(uintptr_t)(void *)rt_scan_live_subj)
-         + x86("mov", "r13", "rax");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_scan_sync_in_rr() {
-    if (!g_scan_regs_live) return std::string();
-    return x86("push", "rax") + x86("push", "rdx")
-         + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
-         + x86("mov", "r14", "rax")
-         + x86_scan_sigma_reload()
-         + x86("pop", "rdx") + x86("pop", "rax");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_scan_sync_out_force() {
-    return x86("mov", "rdi", "r14") + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
+    return x86("mov", "rdi", "r13")
+         + x86("mov", "esi", "r15d")
+         + x86("mov", "rdx", "r14")
+         + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_scan_switch_reload_force() {
@@ -2399,7 +2380,6 @@ inline std::string x86_scan_sync_in_rr_force() {
     return x86("push", "rax") + x86("push", "rdx")
          + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
          + x86("mov", "r14", "rax")
-         + (g_scan_regs_live ? x86_scan_sigma_reload() : std::string())
          + x86("pop", "rdx") + x86("pop", "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2936,13 +2916,62 @@ inline std::string x86_cap_raise_call() {
     return x86("call", "rt_pl_cap_raise", fp);
 }
 #define x86_cap_raise(fail) (x86_resumable_frame() ? x86_cap_raise_call() + (fail) : std::string())
+extern "C" void rt_gc_point_arr_c(DESCR_t * arr, int n, const char ** r0, char * floor);
+inline int x86_scan_regs_graph() { return g_emit_cfg && g_emit_cfg->scan_regs; }
+inline std::string x86_rt_gc_poll_scan_regs() {
+    return x86("comment",
+        "ARCH-ICON-RTX 10 R6: a scan_regs graph holds the subject pair at every instruction, so the poll spills it as ONE described cell {DT_S, r15d, r13} the walker relocates and reloads r13; "
+        "rax rcx rdx rsi rdi are kept as rt_gc_poll_slow keeps them")
+         + x86("sub", "rsp", (long)64)
+         + x86_rsp_store32_imm(0, (long)DT_S)
+         + x86_rsp_store32(4, "r15d")
+         + x86_rsp_store64(8, "r13")
+         + x86_rsp_store64(16, "rax")
+         + x86_rsp_store64(24, "rcx")
+         + x86_rsp_store64(32, "rdx")
+         + x86_rsp_store64(40, "rsi")
+         + x86_rsp_store64(48, "rdi")
+         + x86_reg_disp32_lea64("rdi", "rsp", 0)
+         + x86("mov", "esi", (long)1)
+         + x86("mov", "edx", (long)0)
+         + x86_reg_disp32_lea64("rcx", "rsp", 64)
+         + x86_rtcc_call_adj("rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c, 0)
+         + x86_rsp_load64("r13", 8)
+         + x86_rsp_load64("rax", 16)
+         + x86_rsp_load64("rcx", 24)
+         + x86_rsp_load64("rdx", 32)
+         + x86_rsp_load64("rsi", 40)
+         + x86_rsp_load64("rdi", 48)
+         + x86("add", "rsp", (long)64);
+}
 inline std::string x86_rt_gc_poll_at(const char * f, int l, const std::string & raise = std::string()) { const char * b = strrchr(f, '/');
-    return x86("note", std::string("gc_poll ") + (b ? b + 1 : f) + ":" + std::to_string(l)) + x86_gc_gate(x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm) + raise); }
+    return x86("note", std::string("gc_poll ") + (b ? b + 1 : f) + ":" + std::to_string(l))
+         + x86_gc_gate((x86_scan_regs_graph() ? x86_rt_gc_poll_scan_regs() : x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm)) + raise); }
 #define x86_rt_gc_poll() x86_rt_gc_poll_at(__FILE__, __LINE__)
 #define x86_rt_gc_poll_or(fail) x86_rt_gc_poll_at(__FILE__, __LINE__, x86_cap_raise(fail))
 #define x86_rt_gc_poll_fails() x86_rt_gc_poll_at(__FILE__, __LINE__, x86_cap_raise(std::string()))
 extern "C" void rt_gc_point_arr_probe_c(DESCR_t * arr, int n, const char ** saved_subject_reg, char * floor);
+inline std::string x86_rt_gc_poll_res_scan_regs(const std::string & raise) {
+return x86_gc_gate(x86("comment", "ARCH-ICON-RTX 10 R6: the subject pair as one described cell and the box result rax:rdx as a second, both swept and relocated across the poll")
+         + x86("sub", "rsp", (long)32)
+         + x86_rsp_store32_imm(0, (long)DT_S)
+         + x86_rsp_store32(4, "r15d")
+         + x86_rsp_store64(8, "r13")
+         + x86_rsp_store64(16, "rax")
+         + x86_rsp_store64(24, "rdx")
+         + x86_reg_disp32_lea64("rdi", "rsp", 0)
+         + x86("mov", "esi", (long)2)
+         + x86("mov", "edx", (long)0)
+         + x86_reg_disp32_lea64("rcx", "rsp", 32)
+         + x86_rtcc_call_adj("rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c, 0)
+         + x86_rsp_load64("r13", 8)
+         + x86_rsp_load64("rax", 16)
+         + x86_rsp_load64("rdx", 24)
+         + x86("add", "rsp", (long)32)
+         + raise);
+}
 inline std::string x86_rt_gc_poll_res(const std::string & raise = std::string()) {
+if (x86_scan_regs_graph()) return x86_rt_gc_poll_res_scan_regs(raise);
 return x86_gc_gate(x86("comment",
     "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell at the sweep floor across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it; r1"
     "3 is spilled as a raw word BELOW the floor and handed to the probe entry as the saved subject, which rewrites it only when it aliases Sigma or g_scan_subj")
@@ -3050,6 +3079,80 @@ return x86_gc_gate(x86("comment",
 inline std::string x86_rt_gc_poll_rec_sigma_res() { return x86_rt_gc_poll_rec2_res("r13", "r15d"); }
 inline std::string x86_rt_gc_poll_rec_subject_new() { return x86_rt_gc_poll_rec1("rax", "edx", 0, 1); }
 inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1); }
+extern "C" int64_t rt_cvpos_pos(DESCR_t v, int64_t len);
+extern "C" int core_icn_int_ok_d(DESCR_t v);
+extern "C" int core_icn_error(int code, DESCR_t v);
+typedef struct { uint64_t ptr; uint64_t len; } IcnSubjRegs_t;
+extern "C" IcnSubjRegs_t rt_icn_subject_coerce(uint64_t lo, uint64_t hi, uint64_t mode);
+inline std::string x86_icn_pos_set(int a, int strict, int k) {
+    return x86("mov", "rax", FRQ(a))
+         + x86("cmp", "eax", (long)DT_I)
+         + x86("jne", L(k))
+         + x86("mov", "rax", FRQ(a + 8))
+         + x86("mov", "rcx", "r15")
+         + x86("add", "rcx", 1L)
+         + x86("cmp", "rax", "rcx")
+         + x86_omega("jg")
+         + x86("mov", "rdx", "rax")
+         + x86("add", "rdx", "r15")
+         + x86_omega("js")
+         + x86("test", "rax", "rax")
+         + x86("jg", L(k + 1))
+         + x86("add", "rax", "rcx")
+         + x86("jmp", L(k + 1))
+         + x86("def", L(k))
+         + (strict ? x86("mov", "rdi", FRQ(a))
+                   + x86("mov", "rsi", FRQ(a + 8))
+                   + x86("call", "core_icn_int_ok_d", (uint64_t)(uintptr_t)(void *)core_icn_int_ok_d)
+                   + x86("test", "eax", "eax")
+                   + x86("jne", L(k + 2))
+                   + x86("mov", "edi", 101L)
+                   + x86("mov", "rsi", FRQ(a))
+                   + x86("mov", "rdx", FRQ(a + 8))
+                   + x86("call", "core_icn_error", (uint64_t)(uintptr_t)(void *)core_icn_error)
+                   + x86_omega()
+                   + x86("def", L(k + 2))
+                 : std::string())
+         + x86("mov", "rdi", FRQ(a))
+         + x86("mov", "rsi", FRQ(a + 8))
+         + x86("mov", "rdx", "r15")
+         + x86("call", "rt_cvpos_pos", (uint64_t)(uintptr_t)(void *)rt_cvpos_pos)
+         + x86("test", "rax", "rax")
+         + x86_omega("je")
+         + x86("def", L(k + 1))
+         + x86("mov", "r14", "rax")
+         + x86("sub", "r14", 1L);
+}
+inline std::string x86_icn_subject_set(int a, int mode, int k) {
+    return x86("mov", "rax", FRQ(a))
+         + x86("cmp", "eax", (long)DT_S)
+         + x86("jne", L(k))
+         + x86("shr", "rax", 32L)
+         + x86("test", "eax", "eax")
+         + x86("je", L(k))
+         + x86("mov", "r13", FRQ(a + 8))
+         + x86("mov", "r15d", "eax")
+         + x86("jmp", L(k + 1))
+         + x86("def", L(k))
+         + x86("mov", "rdi", FRQ(a))
+         + x86("mov", "rsi", FRQ(a + 8))
+         + x86("mov", "edx", (long)mode)
+         + x86("call", "rt_icn_subject_coerce", (uint64_t)(uintptr_t)(void *)rt_icn_subject_coerce)
+         + x86_rt_gc_poll_rec_subject_new()
+         + x86("test", "rax", "rax")
+         + x86_omega("je")
+         + x86("mov", "r13", "rax")
+         + x86("mov", "r15", "rdx")
+         + x86("def", L(k + 1))
+         + x86("xor", "r14d", "r14d");
+}
+inline std::string x86_icn_subject_result(int off) {
+    return x86("mov", "eax", "r15d")
+         + x86("shl", "rax", 32L)
+         + x86("or", "rax", (long)DT_S)
+         + x86("mov", FRQ(off), "rax")
+         + x86("mov", FRQ(off + 8), "r13");
+}
 inline std::string x86_rt_gc_poll_rec_sigma_pair(int ptr_in_rax, int lbl) {
 return x86_gc_gate(x86("sub", "rsp", (long)48)
          + x86_rsp_store32_imm(0, (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13")
