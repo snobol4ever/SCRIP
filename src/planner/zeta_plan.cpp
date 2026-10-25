@@ -1097,10 +1097,13 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
             if (rl > 0 && rjoin[ci]) break;
             { int _ub = zd_pl_unmark_bound(nodes, n, ci); if (rl > 0 && _ub >= 0 && claim[_ub] != hi) break; }
             if (rl > 0 && emit_floater_kind(nodes[ci])) break;
+            { int back = 0;
+              for (int u = 0; nodes[ci]->op == IR_BOUND && u < rl && !back; u++) back = nodes[run[u]]->op == IR_UNMARK && nodes[run[u]]->n_operands > 0 && nodes[run[u]]->operands[0] == nodes[ci];
+              if (back) break; }
             run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; rl++;
             if (zd_pl_cut(nodes[ci])) break;
             if (zd_edge_retains(nodes[ci])) break;
-            cur = zd_icn_suspend(cur) ? zd_suspend_run_next(nodes, n, cur, claim) : zd_chase(cur->γ.node);
+            cur =zd_icn_suspend(cur) ? zd_suspend_run_next(nodes, n, cur, claim) : zd_chase(cur->γ.node);
         }
         { for (int k = 0; k < n; k++) aent[k] = 0;
           if (zarm) {
