@@ -520,8 +520,9 @@ static void pl_hook_dyn_mark(const char * name, int arity) {
     g_lower.pl.hook_dyn_arity[g_lower.pl.hook_dyn_n] = arity;
     g_lower.pl.hook_dyn_n++;
 }
+void pl_lower_hook_dyn_mark(const char * name, int arity) { pl_hook_dyn_mark(name, arity); }
 static int pl_hook_dyn_is(const char * name, int arity) {
-    if (!name || g_stage2.rt_lowering) return 0;
+    if (!name) return 0;
     for (int i = 0; i < g_lower.pl.hook_dyn_n; i++) if (g_lower.pl.hook_dyn_name[i] && !strcmp(g_lower.pl.hook_dyn_name[i], name) && g_lower.pl.hook_dyn_arity[i] == arity) return 1;
     return 0;
 }
@@ -2995,8 +2996,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             if (!strcmp(nm, "erase") && t->n == 1) {
                 tree_t * clr = pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("clref_in")), pl_cc_fnc1("$db_erase_ref", (tree_t *) t->c[0]));
                 tree_t * er = pl_cc_fnc2(";", pl_cc_fnc2("->", pl_cc_fnc1("$rec_ref", (tree_t *) t->c[0]), pl_cc_fnc1("$rec_erase", (tree_t *) t->c[0])), clr);
-                if (g_lower.pl.hook_dyn_n > 0 && !g_stage2.rt_lowering) er =
-                    pl_cc_fnc2(",", er, pl_cc_fnc3("$tbl_dchange", (tree_t *) pl_atom_goal("erase"), (tree_t *) t->c[0], (tree_t *) pl_atom_goal("incr")));
+                if (g_lower.pl.hook_dyn_n > 0) er = pl_cc_fnc2(",", er, pl_cc_fnc3("$tbl_dchange", (tree_t *) pl_atom_goal("erase"), (tree_t *) t->c[0], (tree_t *) pl_atom_goal("incr")));
                 return goal(cx, er, γnext, ωfail, entry_out);
             }
             if (!strcmp(nm, "retract") && t->n == 1) {
@@ -5386,11 +5386,16 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     }
     IR_graph_t * top;
     {
-        const tree_t * all_goals[ndir + nearly + ninit + nmain + 3 + (load_n + PL_SEED_CHUNK - 1) / PL_SEED_CHUNK];
+        const tree_t * all_goals[ndir + nearly + ninit + nmain + 3 + (load_n + PL_SEED_CHUNK - 1) / PL_SEED_CHUNK + g_lower.pl.hook_dyn_n];
         int nall = 0;
         int nseedv = 1;
         { tree_t * dt = ast_node_new(TT_FNC); dt->v.sval = (char *) "$db_decls"; ast_push(dt, pl_cc_ilit(0)); all_goals[nall++] = dt; }
         for (int i = 0; i < nearly; i++) all_goals[nall++] = early_goals[i];
+        for (int i = 0; i < g_lower.pl.hook_dyn_n; i++) {
+            char hk[fmt_len("%s/%d", g_lower.pl.hook_dyn_name[i], g_lower.pl.hook_dyn_arity[i])];
+            snprintf(hk, sizeof hk, "%s/%d", g_lower.pl.hook_dyn_name[i], g_lower.pl.hook_dyn_arity[i]);
+            all_goals[nall++] = pl_cc_fnc2("$set_prolog_flag_declare", (tree_t *) pl_atom_goal("$tbl_hook"), (tree_t *) pl_atom_goal(lp_strdup(hk)));
+        }
         for (int di = 0; di < g_stage2.pl_dyn_n; di++) {
             const char * dn = g_stage2.pl_dyn_name[di];
             int da = g_stage2.pl_dyn_arity[di];

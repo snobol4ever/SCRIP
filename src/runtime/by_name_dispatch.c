@@ -9865,7 +9865,12 @@ PL_CX_LEAF_HEAD(set_prolog_flag_declare, 2)
         pl_flag_t *fl;
         ok = 1;
         if (pl_cell_text(args[0], fb, sizeof fb, &fn) && pl_cell_text(args[1], vb, sizeof vb, &vn)) {
-            fl = pl_flag_find_or_create(fn);
+            if (!strcmp(fn, "$tbl_hook")) {
+                extern void pl_lower_hook_dyn_mark(const char *, int);
+                const char *sl = strrchr(vn, '/');
+                if (sl && sl > vn) { char nb[sl - vn + 1]; memcpy(nb, vn, (size_t)(sl - vn)); nb[sl - vn] = 0; pl_lower_hook_dyn_mark(nb, atoi(sl + 1)); }
+            }
+            fl = strcmp(fn, "$tbl_hook") ? pl_flag_find_or_create(fn) : (pl_flag_t *)0;
             if (fl && fl->user) {
                 extern pl_cell_t rt_pl_cell_snapshot(void *);
                 fl->term = rt_pl_cell_snapshot(&args[1]);
