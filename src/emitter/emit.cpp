@@ -1819,14 +1819,17 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     if (nd->op == IR_DISJUNCTION) { emit_parts_reserve(N); for (int j = 0; j < N; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0;
         { int zok = g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i] && g_emitter.g_zd_zarm_p &&
               g_emitter.g_zd_zarm_nodes == nodes;
-          if (zok && rj && nd_slot(rj) >= 0 && ((rj->op == IR_CONJUNCTION && !zd_dj_admitted(g_emitter.g_zd_zarm_p, g_emitter.g_zd_zarm_n, i)) ||
+          if (zok && rj && nd_slot(rj) >= 0 && ((rj->op == IR_CONJUNCTION && !zd_dj_admitted(g_emitter.g_zd_zarm_n, i)) ||
               zd_dj_cellless(nodes, n, g_emitter.g_zd_zarm_p, nidx(nodes, n, rj)))) { g_emit.op_parts_ival[j] = nd_slot(rj); continue; } }
         { int _g = 0;
-        while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; } int rs = rj ? emit_binop_opnd_slot(rj) : -1; g_emit.op_parts_ival[j] = rs;
-        if (rj && zls_g_home_frame(g_emit_cfg) && zd_icn_local_var(rj)) { extern int zst_coord(const char *); int sv = g_emitter.g_zd_cur; g_emitter.g_zd_cur = i;
+        while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; }
+        int rs = rj ? emit_binop_opnd_slot(rj) : -1; g_emit.op_parts_ival[j] = rs;
+        int lasn = (rj && zd_icn_local_assign(rj) && zd_k_own(rj) == 0) ? 1 : 0;
+        if (lasn) { int voff = bb_varslot_peek(IR_LIT(rj).sval); g_emit.op_parts_ival[j] = voff >= 0 ? voff : -1; }
+        if (rj && zls_g_home_frame(g_emit_cfg) && (zd_icn_local_var(rj) || lasn)) { extern int zst_coord(const char *); int sv = g_emitter.g_zd_cur; g_emitter.g_zd_cur = i;
             int c = zst_coord(IR_LIT(rj).sval); g_emitter.g_zd_cur = sv; if (c >= 0) { g_emit.op_parts_ival[j] = c; continue; } }
         if (rj && g_emitter.g_zd_on_cur && g_emitter.g_zd_n_cur == n && g_emitter.g_zd_on_cur[i]) { int kr = nidx(nodes, n, rj);
-            if (kr >= 0 && g_emitter.g_zd_on_cur[kr] && !zd_icn_local_var(rj)) g_emit.op_parts_ival[j] = -1;
+            if (kr >= 0 && g_emitter.g_zd_on_cur[kr] && !zd_icn_local_var(rj) && !lasn) g_emit.op_parts_ival[j] = -1;
             }
         } g_emit.op_parts_n = N; }
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
@@ -4335,7 +4338,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION) && g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 0) {
             { if (g_emitter.codegen_flat_chain_body__dd_0 < 0) { const char *_e = getenv("SCRIP_DRIVE_DIAG"); g_emitter.codegen_flat_chain_body__dd_0 = (_e && _e[0] == '1') ? 1 : 0; }
               long _p0 = g_emitter.codegen_flat_chain_body__dd_0 ? emit_text_count() : 0;
-              if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION && zd_on[i] && zd_dj_admitted(zd_arm, n, i) && zls_dj_retains(g_emitter.codegen_flat_chain_body_nodes[i])) {
+              if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION && zd_on[i] && zd_dj_admitted(n, i) && zls_dj_retains(g_emitter.codegen_flat_chain_body_nodes[i])) {
                   g_emitter.g_zd_stage = 1;
                   g_emitter.g_zd_arm = 0;
                   g_emitter.g_zd_gpop = zd_gp[i];
@@ -4347,7 +4350,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
               else if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_DISJUNCTION && zd_on[i]) {
                   g_emitter.g_zd_stage = 1;
                   g_emitter.g_zd_arm = 1;
-                  g_emitter.g_zd_djok = zd_dj_admitted(zd_arm, n, i);
+                  g_emitter.g_zd_djok = zd_dj_admitted(n, i);
                   g_emitter.g_zd_gpop = zd_gp[i];
                   g_emitter.g_zd_wpop = zd_wp[i];
                   g_emitter.g_zd_wsteal = 0;

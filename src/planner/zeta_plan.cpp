@@ -39,9 +39,9 @@ int zd_nops(IR_t * nd);
 int zd_k_own(IR_t * nd);
 int zst_s_of(const IR_t * nd);
 int zd_k_own(IR_t * nd);
-int zd_dj_admitted(const int * zarm, int n, int ei) { for (int j = 0; j < n; j++) if (zarm[j] == ei) return 1; return 0; }
+int zd_dj_admitted(int n, int ei) { return (ei >= 0 && ei < n && (size_t)ei < g_emitter.g_zd_admit.size() && g_emitter.g_zd_admit[(size_t)ei]) ? 1 : 0; }
 int zd_dj_cellless(IR_t ** nodes, int n, const int * zarm, int k) {
-    return k >= 0 && nodes[k]->op == IR_DISJUNCTION && zarm && !zd_dj_admitted(zarm, n, k);
+    return k >= 0 && nodes[k]->op == IR_DISJUNCTION && zarm && !zd_dj_admitted(n, k);
 }
 int zd_pl_dj_arm_holds(const IR_t * d, int a) {
     IR_t * t = zd_chase(d->operands[2 * a + 1]);
@@ -246,7 +246,7 @@ int zd_upost_of(const IR_t * nd) { if (!nd || nd->op != IR_UNMARK || g_emitter.g
     int i = nidx(g_emitter.g_zd_djx_nodes, (int)g_emitter.g_zd_upost.size(), nd); return i >= 0 ? g_emitter.g_zd_upost[(size_t)i] : 0; }
 int zd_k(IR_t * nd) { return zd_k_own(nd) + zst_s_of(nd) + zd_djx_of(nd); }
 static int zd_dj_spine(const IR_t * nd) { if (!g_emitter.g_zd_zarm_p || g_emitter.g_zd_zarm_nodes != g_emitter.codegen_flat_chain_body_nodes) return 0;
-    int i = nidx(g_emitter.g_zd_zarm_nodes, g_emitter.g_zd_zarm_n, nd); return (i >= 0 && zd_dj_admitted(g_emitter.g_zd_zarm_p, g_emitter.g_zd_zarm_n, i) && !zls_dj_retains(nd)) ? 32 : 0; }
+    int i = nidx(g_emitter.g_zd_zarm_nodes, g_emitter.g_zd_zarm_n, nd); return (i >= 0 && zd_dj_admitted(g_emitter.g_zd_zarm_n, i) && !zls_dj_retains(nd)) ? 32 : 0; }
 int zd_call_curmov(const IR_t * nd) { return lower_call_node_is_curmov(nd); }
 extern "C" int zd_dj_on_spine(const IR_t * nd) { return zd_dj_spine(nd) ? 1 : 0; }
 enum { BCS_ALWAYS, BCS_CALL_CURMOV, BCS_ICN_LOCAL, BCS_ICN_SUSPEND, BCS_HAS_OPERANDS, BCS_NO_OPERANDS, BCS_PATV, BCS_HOME_FRAME, BCS_HOME_STATE, BCS_PL_HOME, BCS_PL_HOME_DYN, BCS_PL_HOME_RANGE_HDR,
@@ -999,7 +999,7 @@ static void zd_dj_discards(IR_t ** nodes, int n, const unsigned char * zon, cons
     if (!on || n <= 0 || !zarm) return;
     std::vector<int> recd((size_t)n * 2, INT_MAX);
     for (int d = 0; d < n; d++) {
-        if (!zon[d] || !zls_dj_retains(nodes[d]) || zd_djx_of(nodes[d]) || !zd_dj_admitted(zarm, n, d) || claim[d] < 0 || !known[claim[d]]) continue;
+        if (!zon[d] || !zls_dj_retains(nodes[d]) || zd_djx_of(nodes[d]) || !zd_dj_admitted(n, d) || claim[d] < 0 || !known[claim[d]]) continue;
         int zdab = base[claim[d]] + zout[d];
         std::vector<unsigned char> r0((size_t)n, 0), r1((size_t)n, 0);
         std::vector<int> wl;
@@ -1044,6 +1044,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
     extern const char * bb_src_of(const IR_t *);
     if (g_emitter.zd_plan__dg < 0) { const char * d = getenv("SCRIP_ZD_DIAG"); g_emitter.zd_plan__dg = (d && *d == '1') ? 1 : 0; }
     g_emitter.g_zd_djx.assign((size_t)(n > 0 ? n : 0), 0);
+    g_emitter.g_zd_admit.assign((size_t)(n > 0 ? n : 1), 0);
     g_emitter.g_zd_upost.assign((size_t)(n > 0 ? n : 0), 0);
     g_emitter.g_zd_djx_nodes = nodes;
     zdo_build(nodes, n);
@@ -1058,7 +1059,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
     for (int i = 0; i < n; i++) { zon[i] = 0; zout[i] = -1; zgpop[i] = 0; zwpop[i] = 0; if (zarm) zarm[i] = -1; zgt[i] = (IR_t *)0; zot[i] = (IR_t *)0; zgin[i] = 0; zoin[i] = 0; zmatch[i] = -1; }
     int * zarmj = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     int * djn = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
-    unsigned char * djok = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
+    unsigned char * djok = g_emitter.g_zd_admit.data();
     for (int i = 0; i < n; i++) { zarmj[i] = -1; djn[i] = 0; djok[i] = 0; if (zcps) zcps[i] = -1; if (zcpd) zcpd[i] = -1; if (zchn) { zchn[2 * i] = -1; zchn[2 * i + 1] = -1; } }
     const int zdj_on = zarm && zcps && g_emit_cfg && g_emit_cfg->spine_cells;
     const int zdj_arms = zarm && zcps && g_emit_cfg;
@@ -1393,7 +1394,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 }
                 if (kq != ki || (ki == 2 && fam[ci] != fam[cq])) continue;
                 int aq = (kq == 1 ? base[cq] : fbase[cq]) + zout[q] - (b ? 0 : zd_k(nodes[q]));
-                if (!b && zarm && nodes[q]->op == IR_DISJUNCTION && zd_dj_admitted(zarm, n, q)) {
+                if (!b && zarm && nodes[q]->op == IR_DISJUNCTION && zd_dj_admitted(n, q)) {
                     const char * sz = zd_edge_sz(nodes[i], v);
                     if (zd_sz_sigma(sz)) aq = (kq == 1 ? base[cq] : fbase[cq]) + zout[q];
                     else if (zd_sz_phi(sz)) aq = (kq == 1 ? base[cq] : fbase[cq]) + zout[q] - zd_djx_of(nodes[q]);
@@ -1915,7 +1916,7 @@ void planner_capture(zeta_plan_t * rec) {
         rec->v_zst_L = g_emitter.zst_L;
     rec->v_zst_vuse = g_emitter.zst_vuse; rec->v_zst_vcov = g_emitter.zst_vcov; rec->v_zst_name = g_emitter.zst_name; rec->v_zst_sm = g_emitter.zst_sm; rec->zst_n_saved = g_emitter.zst_n;
     rec->v_djx = g_emitter.g_zd_djx; rec->v_upost = g_emitter.g_zd_upost; rec->v_grec = g_emitter.g_zd_grec; rec->v_wrec = g_emitter.g_zd_wrec; rec->v_grec_pop = g_emitter.g_zd_grec_pop;
-    rec->v_wrec_pop = g_emitter.g_zd_wrec_pop;
+    rec->v_wrec_pop = g_emitter.g_zd_wrec_pop; rec->v_admit = g_emitter.g_zd_admit;
     rec->zarm_published = (g_emitter.g_zd_zarm_p == rec->arm) ? 1 : 0; rec->djx_nodes_published = (g_emitter.g_zd_djx_nodes == g_emitter.codegen_flat_chain_body_nodes) ? 1 : 0;
     rec->zrm_len = g_emitter.g_zrm_map.len; rec->zrm_cap = g_emitter.g_zrm_map.cap; rec->zrm_esz = g_emitter.g_zrm_map.esz; rec->zrm_gen = g_emitter.g_zrm_gen;
     rec->zrm_bytes.assign((const unsigned char *)g_emitter.g_zrm_map.p, (const unsigned char *)g_emitter.g_zrm_map.p + (size_t)g_emitter.g_zrm_map.len * (size_t)g_emitter.g_zrm_map.esz);
@@ -1931,7 +1932,7 @@ void planner_restore(zeta_plan_t * rec) {
     g_emitter.zst_vuse = rec->v_zst_vuse; g_emitter.zst_vcov = rec->v_zst_vcov; g_emitter.zst_name = rec->v_zst_name; g_emitter.zst_sm = rec->v_zst_sm; g_emitter.zst_nodes = nodes;
         g_emitter.zst_n = rec->zst_n_saved;
     g_emitter.g_zd_djx = rec->v_djx; g_emitter.g_zd_upost = rec->v_upost; g_emitter.g_zd_grec = rec->v_grec; g_emitter.g_zd_wrec = rec->v_wrec; g_emitter.g_zd_grec_pop = rec->v_grec_pop;
-    g_emitter.g_zd_wrec_pop = rec->v_wrec_pop;
+    g_emitter.g_zd_wrec_pop = rec->v_wrec_pop; g_emitter.g_zd_admit = rec->v_admit;
     if (rec->djx_nodes_published) g_emitter.g_zd_djx_nodes = nodes;
     zdo_build(nodes, n);
     if (g_emitter.g_zrm_map.cap < rec->zrm_cap || g_emitter.g_zrm_map.esz != rec->zrm_esz) { g_emitter.g_zrm_map.p = ct_zalloc(rec->zrm_cap, rec->zrm_esz); g_emitter.g_zrm_map.cap = rec->zrm_cap;

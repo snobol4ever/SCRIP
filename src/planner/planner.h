@@ -34,6 +34,7 @@ struct zeta_plan_t {
     std::vector<const char *> v_zst_name;
     std::unordered_map<const IR_t *, int> v_zst_sm;
     std::vector<unsigned char> zrm_bytes;
+    std::vector<unsigned char> v_admit;
 };
 void planner_capture(zeta_plan_t * rec);
 void planner_restore(zeta_plan_t * rec);
@@ -44,7 +45,7 @@ void planner_table_forget(const IR_t * entry);
 int planner_entry_planned(const IR_t * entry);
 int planner_rt_plan(IR_t * entry, const char * prefix);
 zeta_plan_t * planner_chain_plan(IR_t * entry, const char * prefix);
-int zd_dj_admitted(const int * zarm, int n, int ei);
+int zd_dj_admitted(int n, int ei);
 int zd_dj_cellless(IR_t ** nodes, int n, const int * zarm, int k);
 int zd_pl_dj_arm_holds(const IR_t * d, int a);
 int zd_dj_arm_end(IR_t ** nodes, int n, int dj, int a);
