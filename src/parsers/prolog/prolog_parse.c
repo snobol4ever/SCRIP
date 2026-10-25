@@ -1014,7 +1014,7 @@ static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeSco
         buf[idx++] = dcg_make_unify(ts, s_in, s_out);
         return idx;
     }
-    if ((body->t == TT_QLIT || body->t == TT_FNC) && body->v.sval && strcmp(body->v.sval, "[]") == 0 && body->n == 0) {
+    if ((body->t == TT_QLIT || body->t == TT_FNC) && body->v.sval && (strcmp(body->v.sval, "[]") == 0 || strcmp(body->v.sval, "{}") == 0) && body->n == 0) {
         buf[idx++] = dcg_make_unify(ts, s_in, s_out);
         return idx;
     }
@@ -1099,13 +1099,12 @@ static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, t
     for (int i = 0; i < head_tr->n; i++) ast_push(new_head, head_tr->c[i]);
     ast_push(new_head, dcg_var_use(ts, s0));
     ast_push(new_head, dcg_var_use(ts, s));
-    tree_t *buf[dcg_need(dcg_body) + (pushback ? 1 : 0)];
+    tree_t *buf[dcg_need(dcg_body) + (pushback ? dcg_need(pushback) : 0)];
     int n;
     if (pushback) {
         tree_t *s_mid = dcg_fresh_var(ts);
         n = dcg_expand_body(dcg_body, s0, s_mid, ts, buf, 0);
-        tree_t *pushback_with_tail = dcg_append_tail(ts, pushback, s_mid);
-        buf[n++] = dcg_make_unify(ts, s, pushback_with_tail);
+        n = dcg_expand_body(pushback, s, s_mid, ts, buf, n);
     } else {
         n = dcg_expand_body(dcg_body, s0, s, ts, buf, 0);
     }
@@ -2108,6 +2107,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$dcg_body'((C->T),S0,S,(GC->GT)):-!,'$dcg_body'(C,S0,S1,GC),'$dcg_body'(T,S1,S,GT).\n"
     "'$dcg_body'(\\+A,S0,S,(\\+GA,S0=S)):-!,'$dcg_body'(A,S0,_,GA).\n"
     "'$dcg_body'({}(G),S0,S,(G,S0=S)):-!.\n"
+    "'$dcg_body'({},S0,S,S0=S):-!.\n"
     "'$dcg_body'(!,S0,S,(!,S0=S)):-!.\n"
     "'$dcg_body'(NT,_,_,_):- \\+callable(NT),!,throw(error(type_error(callable,NT),_)).\n"
     "'$dcg_body'(NT,S0,S,G):-NT=..L0,'$dcg_list'(L0,[S0,S],L1),G=..L1.\n"
