@@ -1227,6 +1227,11 @@ int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell, p
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *plc_atom_op_list_text_heap(pl_cell_t *d, size_t *len);
+static const char *plc_atom_op_text_n(pl_cell_t *t, char *buf, size_t bufsz, size_t *len);
+static const char *plc_text_nil_empty(pl_cell_t *t, char *buf, size_t bufsz, size_t *len) {
+    if (t && rt_pl_dialect_swi() && plc_is_nil(pl_deref(t))) { *len = 0; return ""; }
+    return plc_atom_op_text_n(t, buf, bufsz, len);
+}
 static const char *plc_atom_op_text_n(pl_cell_t *t, char *buf, size_t bufsz, size_t *len) {
     const char *r = (const char *)0;
     *len = 0;
@@ -1369,7 +1374,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     char buf0[512], buf1[512];
     if (!strcmp(fn, "atom_length")) {
         size_t sn;
-        const char *s = plc_atom_op_text_n(t0, buf0, sizeof buf0, &sn);
+        const char *s = plc_text_nil_empty(t0, buf0, sizeof buf0, &sn);
         if (!s) { return 0; }
         if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)pl_u8_count_n(s, sn)), cx)) { return 0; }
         return 1;
@@ -1427,7 +1432,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         extern void *rt_pl_ball_instantiation(void);
         if (t0 && !pl_cell_unbound(t0)) {
             size_t sn;
-            const char *s = plc_atom_op_text_n(t0, buf0, sizeof buf0, &sn);
+            const char *s = swi ? plc_text_nil_empty(t0, buf0, sizeof buf0, &sn) : plc_atom_op_text_n(t0, buf0, sizeof buf0, &sn);
             if (!s) { if (swi && cx && !cx->ball) cx->ball = rt_pl_ball_kind2("type_error", "text", *t0); return 0; }
             if (t1 && (int)t1->v == DT_S) return plc_atom_len(t1) == sn && (!sn || !memcmp(plc_atom_text(t1), s, sn));
             if (rt_pl_dialect_swi() && t1 && (int)t1->v == DT_PLREF && plc_fid_name(t1->slen) == g_runtime.atoms.atom_dot && plc_fid_arity(t1->slen) == 2 && t1->p) {
@@ -1512,7 +1517,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     }
     if (!strcmp(fn, "string_length")) {
         size_t sn;
-        const char *s = plc_atom_op_text_n(t0, buf0, sizeof buf0, &sn);
+        const char *s = plc_text_nil_empty(t0, buf0, sizeof buf0, &sn);
         if (!s) { return 0; }
         if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)pl_u8_count_n(s, sn)), cx)) { return 0; }
         return 1;
@@ -1530,7 +1535,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     if (!strcmp(fn, "atom_string") || !strcmp(fn, "string_to_atom")) {
         int a0_str = !strcmp(fn, "string_to_atom");
         size_t sn;
-        if (t0 && !pl_cell_unbound(t0)) { const char *s = plc_atom_op_text_n(t0, buf0, sizeof buf0, &sn); if (!s) { return 0; } return plc_text_out_n(a1_cell, s, sn, !a0_str, cx); }
+        if (t0 && !pl_cell_unbound(t0)) { const char *s = plc_text_nil_empty(t0, buf0, sizeof buf0, &sn); if (!s) { return 0; } return plc_text_out_n(a1_cell, s, sn, !a0_str, cx); }
         const char *s = plc_atom_op_text_n(t1, buf1, sizeof buf1, &sn);
         if (!s) { return 0; }
         return plc_text_out_n(a0_cell, s, sn, a0_str, cx);
