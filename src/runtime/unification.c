@@ -355,6 +355,7 @@ static int plc_is_graphic_char(int ch) { static const char *const g = "#$&*+-./:
 static int plc_is_op_atom(pl_cell_t *d) {
     int p = 0, l = 0, r = 0;
     int nid = (int)d->v == DT_PLATOM ? (int)d->i : -1;
+    if (nid >= 0 && nid == g_runtime.atoms.atom_dot && rt_pl_dialect_swi()) return 1;
     return nid >= 0 && (plc_op_info_id(nid, 2, &p, &l, &r) || plc_op_info_id(nid, 1, &p, &l, &r));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -668,8 +669,9 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                     int a_num = !kel && (((int)a0->v == DT_I && a0->i >= 0) || ((int)a0->v == DT_R && a0->r >= 0) || ((int)a0->v == DT_BIG && rt_big_sign(*a0) >= 0));
                     int a_opatom = !kel && plc_is_op_atom(a0);
                     int a_digit = !kel && !strcmp(fn, "-") && isdigit(plc_first_char(a0, quoted, ignore_ops, numbervars));
-                    int needp = (ap > rmax) || a_opatom || (a_num && !strcmp(fn, "-")) || a_digit;
-                    int sep = needp || (!alnum_op && plc_is_graphic_char(plc_first_char_d(&aa[0], quoted, ignore_ops, numbervars, kdl)));
+                    int swi_numop = rt_pl_dialect_swi() && !kel && !strcmp(fn, "-") && (a_num || a_digit);
+                    int needp = (ap > rmax) || a_opatom || (!swi_numop && ((a_num && !strcmp(fn, "-")) || a_digit));
+                    int sep = needp || swi_numop || (!alnum_op && plc_is_graphic_char(plc_first_char_d(&aa[0], quoted, ignore_ops, numbervars, kdl)));
                     if (alnum_op) fprintf(fp, "%s ", fn);
                     else plc_wt_atom(fp, fn, quoted);
                     if ((sep || m->space_args) && !alnum_op) fputc(' ', fp);

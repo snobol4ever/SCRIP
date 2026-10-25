@@ -766,7 +766,8 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
             }
             if (strcmp(tk.text, "-") == 0) {
                 Token pk3 = lexer_peek(&p->lx);
-                if (pk3.kind == TK_INT && !pk3.uni) {
+                int neg_adj = !syn_swi(p) || pk3.start == tk.end;
+                if (pk3.kind == TK_INT && !pk3.uni && neg_adj) {
                     Token num = lexer_next(&p->lx);
                     if (num.big && num.text) {
                         size_t dn = strlen(num.text);
@@ -783,7 +784,7 @@ static tree_t *pt_primary0(Parser *p, TreeScope *ts) {
                     n->v.ival = -num.ival;
                     return pt_stamp(n, ln);
                 }
-                if (pk3.kind == TK_FLOAT && !pk3.uni) {
+                if (pk3.kind == TK_FLOAT && !pk3.uni && neg_adj) {
                     Token num = lexer_next(&p->lx);
                     tree_t *n = ast_node_new(TT_FLIT);
                     n->v.dval = -num.fval;
