@@ -2153,11 +2153,11 @@ void zls_home_pass(const IR_graph_t * g) {
     unsigned int stamp = 0;
     for (int c = 0; c < n; c++) {
         const IR_t * cx = g->all[c];
-        if (!cx || (cx->op == IR_DISJUNCTION && g->cell_frame)) continue;
+        if (!cx) continue;
         if (cx->op == IR_UNMARK && (IR_LIT(cx).ival & 32) && cx->n_operands > 0 && planner_bound_spine(g, cx->operands[0])) continue;
         for (int oj = 0; oj < cx->n_operands; oj++) {
             int p = cx->operands[oj] ? zls_reuse_index(&nx, cx->operands[oj]) : -1;
-            if (p < 0 || fcn_find(g->all[p], FCN_HOME)) continue;
+            if (p < 0 || fcn_find(g->all[p], FCN_HOME) || (cx->op == IR_DISJUNCTION && g->cell_frame && !dy[p])) continue;
             int top = 0, hit = 0;
             stamp++;
             if (sg[p] >= 0 && sg[p] != p) { st[top] = sg[p]; sd[top] = dy[p] ? 1 : 0; sw[top] = dy[p]; seen[2 * sg[p] + sd[top]] = stamp; top++; }
