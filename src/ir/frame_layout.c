@@ -452,6 +452,9 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         if (!(g && g->home_frame)) return 0;
         zls_field(scope_id, off, 8, ZK_RAW, 0, "limit.counter (the gate's record on a home-frame graph: the gate zeroes it at alpha, the IR_LIMIT that names the gate as an operand counts here)", nd);
         zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "limit.resumed flag (the gate's record: the limit's beta sets it before resuming the generator, its alpha consumes it)", nd);
+        if (zls_home_why(nd))
+            zls_field(scope_id, off + 16, 8, ZK_RAW, 0,
+            "limit.mark (rsp at a homed gate's alpha: a spent limit leaves through the gate's beta, which restores it past the frame of the generator it cuts)", nd);
         return 1;
         case IR_LIMIT:
         if (g && g->home_frame) return 0;

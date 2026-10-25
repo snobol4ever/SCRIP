@@ -29,7 +29,8 @@ std::string bb_limit() {
            + x86("mov", "rcx", "rax")
            + x86("mov", "rax", FRQ(lim_count()))
            + x86("cmp", "rax", "rcx")
-           + x86_omega("jge")
+           + IF(_.op_sb >= 0 && _.lbl_t1, x86_jcc_tgt("jge", X86T_TGT1))
+           + IF(!(_.op_sb >= 0 && _.lbl_t1), x86_omega("jge"))
            + x86("inc", FRQ(lim_count()))
            + x86("mov", "rax", FRQ(_.op_sa))
            + x86("mov", FRQ(_.op_off), "rax")
@@ -44,7 +45,8 @@ std::string bb_limit() {
            + x86("mov", "rcx", "rax")
            + x86("mov", "rax", FRQ(lim_count()))
            + x86("cmp", "rax", "rcx")
-           + x86_omega("jge")
+           + IF(_.op_sb >= 0 && _.lbl_t1, x86_jcc_tgt("jge", X86T_TGT1))
+           + IF(!(_.op_sb >= 0 && _.lbl_t1), x86_omega("jge"))
            + x86_rt_gc_poll()
            + x86("mov", FRQ(lim_flag()), (long)1)
            + IF(_.op_zres && _.op_t0_pop > 0, x86_add("rsp", (long)_.op_t0_pop))
@@ -63,6 +65,7 @@ std::string bb_limit_gate() {
          + IF(_.op_sa >= 0,
               x86_alpha()
            + IF(_.op_sb >= 0, x86("mov", FRQ(_.op_sb), (long)0) + x86("mov", FRQ(_.op_sb + 8), (long)0))
+           + IF(_.op_sc >= 0, x86("mov", FRQ(_.op_sc), "rsp"))
            + x86("mov", "rdi", FRQ(_.op_sa))
            + x86("mov", "rsi", FRQ(_.op_sa + 8))
            + x86("call", "core_icn_limit_count_check", (uint64_t)(uintptr_t)(void*)core_icn_limit_count_check)
@@ -71,5 +74,6 @@ std::string bb_limit_gate() {
            + x86_rt_gc_poll()
            + x86_gamma()
            + x86_beta()
+           + IF(_.op_sc >= 0, x86("mov", "rsp", FRQ(_.op_sc)))
            + x86_omega());
 }

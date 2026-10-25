@@ -2476,6 +2476,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         int sc = cnt ? drive_value_slot(cnt) : -1;
         if (sc < 0) { drive_guard_refused(nd, __LINE__); break; }
         g_emit.op_sa = sc; g_emit.op_off = drive_value_slot(nd); g_emit.op_sb = zls_g_home_frame(g_emit_cfg) ? g_emit.op_off + 16 : -1;
+        g_emit.op_sc = (g_emit.op_sb >= 0 && zls_home_why(nd)) ? g_emit.op_sb + 16 : -1;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_LIMIT: {
@@ -4385,6 +4386,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             else if (rs) { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, rs); if (k >= 0) { g_emitter.g_limit_gen_beta = betas[k]; tk = k; } }
             if (tk >= 0 && zd_xb && zd_on[i] && zd_on[tk] && zd_xb[i] != INT_MIN && zd_xb[tk] != INT_MIN) g_emitter.g_limit_t0_pop = (zd_xb[i] + zd_out[i]) - (zd_xb[tk] + zd_out[tk]);
             else if (tk >= 0 && zd_on[i] && zd_on[tk] && zd_claim[i] >= 0 && zd_claim[i] == zd_claim[tk]) g_emitter.g_limit_t0_pop = zd_out[i] - zd_out[tk];
+            g_emit.lbl_t1_p = (bb_label_t *)0; g_emit.lbl_t1 = (const char *)0;
+            for (int _gk = 2; zls_g_home_frame(g_emit_cfg) && _gk < g_emitter.codegen_flat_chain_body_nodes[i]->n_operands; _gk++) {
+                IR_t * _gt = g_emitter.codegen_flat_chain_body_nodes[i]->operands[_gk];
+                int _k = (_gt && _gt->op == IR_LIMIT_GATE && zls_home_why(_gt)) ? nidx(g_emitter.codegen_flat_chain_body_nodes, n, _gt) : -1;
+                if (_k >= 0 && betas[_k]) { g_emit.lbl_t1_p = betas[_k]; g_emit.lbl_t1 = betas[_k]->name; }
+            }
         }
         if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SCAN) {
             IR_t *bv = g_emitter.codegen_flat_chain_body_nodes[i]->n_operands > 1 ? g_emitter.codegen_flat_chain_body_nodes[i]->operands[1] : NULL;
