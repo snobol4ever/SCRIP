@@ -8,7 +8,7 @@ extern "C" {
 #endif
 #define PL_TR_ARENA_LG2 29
 #define PL_TR_ARENA_BYTES ((uintptr_t)1 << PL_TR_ARENA_LG2)
-#define PL_TR_HEADER_BYTES 64
+#define PL_TR_HEADER_BYTES 128
 #define PL_TR_ENTRY_BYTES 32
 #define PL_TR_BALL_OFF 8
 #define PL_TR_WSLOT_OFF 16
@@ -17,6 +17,7 @@ extern "C" {
 #define PL_TR_PROBE_B_OFF 40
 #define PL_TR_WAKE_OFF 48
 #define PL_TR_RESIDUE_OFF 56
+#define PL_TR_FLOOR_OFF 64
 #define PL_TR_PAD_RESIDUE 0x45445352u
 #define PL_TR_PAD_KEEP 0x5045454Bu
 #define PL_ATTV_SLEN 0x56545441u
@@ -49,6 +50,7 @@ static inline char **pl_tr_cleanup_slot(const char *base) { return (char **)((ch
 static inline uint64_t *pl_tr_probe_b_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_PROBE_B_OFF); }
 static inline uint64_t *pl_tr_wake_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_WAKE_OFF); }
 static inline uint64_t *pl_tr_residue_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_RESIDUE_OFF); }
+static inline char **pl_tr_floor_slot(const char *base) { return (char **)((char *)base + PL_TR_FLOOR_OFF); }
 static inline int pl_attv_is(const DESCR_t *c) { return c->v == (DTYPE_t)DT_PLVAR && c->p == (const void *)c && c->slen == PL_ATTV_SLEN; }
 static inline uint64_t pl_tr_ocheck_mode(const pl_tr_ctx_t *cx) { return (cx && cx->tr) ? *pl_tr_ocheck_slot(pl_tr_base_of(cx->tr)) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

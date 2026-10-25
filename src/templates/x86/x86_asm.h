@@ -2172,9 +2172,10 @@ inline std::string x86_arbno_rbp_unwind(const char * mark_base, int mark_off, in
 inline std::string x86_pl_tr_pop_head() { return x86("sub", "r12", X86_PL_TR_ENTRY_BYTES) + x86("mov", "rdi", RDQ("r12", 0)) + x86("test", "rdi", "rdi"); }
 inline std::string x86_pl_tr_pop_restore() { return x86("mov", "rax", RDQ("r12", 16)) + x86("mov", "rdx", RDQ("r12", 24)) + x86("mov", RDQ("rdi", 0), "rax") + x86("mov", RDQ("rdi", 8), "rdx"); }
 inline std::string x86_pl_tr_top_sync() { return x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", RDQ("rax", 0), "r12"); }
-#define X86_PL_TR_HEADER_BYTES 64L
+#define X86_PL_TR_HEADER_BYTES 128L
 #define X86_PL_TR_WAKE_OFF 48L
 #define X86_PL_TR_RESIDUE_OFF 56L
+#define X86_PL_TR_FLOOR_OFF 64L
 inline std::string x86_pl_choice_mark(const std::string & mark_mem, int l0)
     { return x86("note",
         "pl_choice_mark inline: sentinels at the trail top above the current B's mark are dead choices' and are dropped; then this choice's sentinel {0, HB = the heap frontier} goes under its mark")
@@ -2212,7 +2213,8 @@ inline std::string x86_pl_choice_mark(const std::string & mark_mem, int l0)
     + x86("def", L(l0 + 4)); }
 inline std::string x86_pl_tr_tidy(int l0)
     { return x86("note",
-        "pl_tr_tidy inline (the trail rule): above the mark of r13, the choice this commit leaves, every entry the trail test would not record under r13 is dropped, and an entry with a pad word "
+        "pl_tr_tidy inline (the trail rule): above the mark of r13, the choice this commit leaves, and above the activation's trail floor (the header word a resumed continuation sets: entries be"
+            "low it are another owner's), every entry the trail test would not record under r13 is dropped, and an entry with a pad word "
             "(a global's restore, PL_TR_PAD_KEEP) is kept; "
             "never while a wake is pending or call_residue_vars is open, whose readers find their entries by trail offset")
     + x86("test", "r13", "r13")
@@ -2224,6 +2226,11 @@ inline std::string x86_pl_tr_tidy(int l0)
     + x86("cmp", RDQ("rax", X86_PL_TR_RESIDUE_OFF), 0L)
     + x86("jne", L(l0 + 9))
     + x86("mov", "rsi", RDQ("r13", 0))
+    + x86("mov", "rcx", RDQ("rax", X86_PL_TR_FLOOR_OFF))
+    + x86("cmp", "rsi", "rcx")
+    + x86("jae", L(l0 + 5))
+    + x86("mov", "rsi", "rcx")
+    + x86("def", L(l0 + 5))
     + x86("cmp", "rsi", "r12")
     + x86("jae", L(l0 + 9))
     + x86("mov", "rdi", "rsi")

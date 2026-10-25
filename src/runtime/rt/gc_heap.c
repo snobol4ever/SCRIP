@@ -1546,7 +1546,7 @@ void gc_visit_mblk(rt_hblk_t *h) {
 typedef struct gc_trail_roots_args_t { const struct gc_rng_t *rr; long n; long pos_i; const char *pos_e; long n_hb; const char *top; } gc_trail_roots_args_t;
 _Static_assert(__builtin_offsetof(gc_trail_roots_args_t, rr) == 0 && __builtin_offsetof(gc_trail_roots_args_t, n) == 8 && __builtin_offsetof(gc_trail_roots_args_t, pos_i) == 16 &&
     __builtin_offsetof(gc_trail_roots_args_t, pos_e) == 24 && __builtin_offsetof(gc_trail_roots_args_t, n_hb) == 32 && __builtin_offsetof(gc_trail_roots_args_t, top) == 40 &&
-    sizeof(pl_tr_entry_t) == 32 && PL_TR_HEADER_BYTES == 64 && __builtin_offsetof(pl_tr_entry_t, pad) == 8 && __builtin_offsetof(pl_tr_entry_t, old) == 16,
+    sizeof(pl_tr_entry_t) == 32 && PL_TR_HEADER_BYTES == 128 && __builtin_offsetof(pl_tr_entry_t, pad) == 8 && __builtin_offsetof(pl_tr_entry_t, old) == 16,
     "rt_gc_trail_roots_run (rtx_gc.s) reads its argument block and the trail at these offsets");
 typedef struct gc_ptr_fields_args_t { const char *base; long n; long stride; long pos; long noff; const long *off; long k; } gc_ptr_fields_args_t;
 _Static_assert(__builtin_offsetof(gc_ptr_fields_args_t, base) == 0 && __builtin_offsetof(gc_ptr_fields_args_t, n) == 8 && __builtin_offsetof(gc_ptr_fields_args_t, stride) == 16 &&
