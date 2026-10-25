@@ -6970,7 +6970,12 @@ static int pl_parse_number(const char *s, DESCR_t *out) {
     char *e = 0;
     if (!s) return 0;
     if (strchr(s, '_') && !pl_gnu_dialect()) { char b[strlen(s) + 1]; if (pl_digit_groups(s, b)) return pl_parse_number(b, out); }
-    for (const char *w = s; *w; w++) { if (!((unsigned char)*w & 0x80)) continue; char b[strlen(s) + 1]; return pl_digits_to_ascii(s, b) && pl_parse_number(b, out); }
+    const char *q0 = pl_skip_layout(s);
+    for (const char *w = s; *w && !(q0[0] == '0' && q0[1] == '\''); w++) {
+        if (!((unsigned char)*w & 0x80)) continue;
+        char b[strlen(s) + 1];
+        return pl_digits_to_ascii(s, b) && pl_parse_number(b, out);
+    }
     if (pl_parse_rational(s, out)) return 1;
     {
         const char *p = pl_skip_layout(s);
