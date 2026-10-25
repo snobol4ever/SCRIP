@@ -4046,6 +4046,7 @@ static void pl_clause_term_key(const tree_t * h, cv_t * keys, int * all) {
 static void pl_clause_term_walk(const tree_t * t, cv_t * keys, int * all) {
     if (!t) return;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "clause") && (t->n == 2 || t->n == 3) && t->c[0]) pl_clause_term_key(t->c[0], keys, all);
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "listing") && (t->n == 1 || t->n == 2)) *all = 1;
     for (int i = 0; i < t->n; i++) pl_clause_term_walk(t->c[i], keys, all);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4055,20 +4056,20 @@ static void pl_static_seed_pred(const char * key, const tree_t * ch, cv_t * proc
     size_t nl;
     int ar, n;
     const char * kn;
-    if (!slash || key[0] == '$' || !ch || ch->t != TT_CHOICE || ch->n < 1) return;
+    if (!slash || key[0] == '$' || !ch || (ch->t == TT_CHOICE && ch->n < 1)) return;
     ar = atoi(slash + 1);
     nl = (size_t) (slash - key);
     nm = (char *) ct_alloc(nl + 1);
     memcpy(nm, key, nl);
     nm[nl] = 0;
     if (pl_dyn_index(nm, ar) >= 0 || pl_decl_dyn_is(nm, ar)) { ct_drop(nm); return; }
-    n = ch->n;
+    n = ch->t == TT_CHOICE ? ch->n : 1;
     kn = ct_strdup(key);
     for (int lo = 0; lo < n && procs->len < PL_SEED_PROCS_MAX; lo += PL_SEED_CHUNK) {
         int hi = lo + PL_SEED_CHUNK < n ? lo + PL_SEED_CHUNK : n, m = 0, save_base = g_lower.pl.seed_var_base;
         const tree_t ** sg = (const tree_t **) ct_zalloc((size_t) (hi - lo), sizeof(const tree_t *));
         g_lower.pl.seed_var_base = 0;
-        for (int i = lo; i < hi; i++) sg[m++] = pl_cc_fnc3("$db_seed_once", (tree_t *) pl_atom_goal(kn), pl_cc_ilit(i), pl_static_clause_term(ch->c[i], nm, ar));
+        for (int i = lo; i < hi; i++) sg[m++] = pl_cc_fnc3("$db_seed_once", (tree_t *) pl_atom_goal(kn), pl_cc_ilit(i), pl_static_clause_term(ch->t == TT_CHOICE ? ch->c[i] : ch, nm, ar));
         g_lower.pl.seed_var_base = save_base;
         {
             IR_graph_t * g = pl_body_graph(sg, m);
