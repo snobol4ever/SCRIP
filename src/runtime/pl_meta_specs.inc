@@ -497,12 +497,6 @@ static const char *const pl_meta_tok[] = {
     "+",
     "0",
     "0",
-    "0",
-    "0",
-    "0",
-    "0",
-    "0",
-    "0",
     (const char *)0 };
 static const pl_meta_row_t pl_meta_rows_swi[] = {
     { "$", 1, 196 },
@@ -652,7 +646,6 @@ static const pl_meta_row_t pl_meta_rows_swi[] = {
     { "with_mutex", 2, 493 },
     { "with_output_to", 2, 495 },
     { "with_tty_raw", 1, 497 },
-    { "if", 3, 498 },
     { (const char *)0, 0, 0 } };
 static const pl_meta_row_t pl_meta_rows_gnu[] = {
     { "*->", 2, 0 },
@@ -709,5 +702,4 @@ static const pl_meta_row_t pl_meta_rows_gnu[] = {
     { "retractall", 1, 191 },
     { "setof", 3, 192 },
     { "spy", 1, 195 },
-    { "if", 3, 501 },
     { (const char *)0, 0, 0 } };
