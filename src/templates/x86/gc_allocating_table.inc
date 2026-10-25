@@ -2036,6 +2036,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pl_db_key_is_dynamic_na", GC_RET_OTHER },
     { "rt_pl_db_key_is_static", GC_RET_OTHER },
     { "rt_pl_db_key_kind", GC_RET_OTHER },
+    { "rt_pl_db_key_lib_take", GC_RET_OTHER },
     { "rt_pl_db_key_line", GC_RET_OTHER },
     { "rt_pl_db_key_mf", GC_RET_OTHER },
     { "rt_pl_db_match_erase", GC_RET_OTHER },

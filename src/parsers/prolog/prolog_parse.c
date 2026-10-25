@@ -3518,6 +3518,51 @@ static PlProgram *pl_prelude_parse(const char *src, int lib, const char *vis, in
     if (p && lib >= 0) pl_preprocess_list(p, 1, -1);
     return p;
 }
+static tree_t *pl_tree_dup(const tree_t *t);
+static int pl_lib_export_of(const cv_t *ek, const cv_t *ev, const char *nm, int ar) {
+    char k[strlen(nm) + 24];
+    snprintf(k, sizeof k, "%s/%d", nm, ar);
+    for (uint32_t i = 0; i < ek->len; i++) if (!strcmp(CV_AT(*ek, char *, i), k)) return (int)(intptr_t)CV_AT(*ev, void *, i);
+    return -1;
+}
+static char *pl_lib_private_name(int lib, const char *nm) {
+    size_t a = strlen(PL_PRELUDE_LIBS[lib].lib), b = strlen(nm);
+    char *r = (char *)ct_alloc(a + b + 2);
+    memcpy(r, PL_PRELUDE_LIBS[lib].lib, a);
+    r[a] = ':';
+    memcpy(r + a + 1, nm, b + 1);
+    return r;
+}
+static void pl_lib_rename_goals(tree_t *g, int dcg, const cv_t *ek, const cv_t *ev) {
+    if (!g || (g->t != TT_FNC && g->t != TT_QLIT && g->t != TT_NAME) || !g->v.sval) return;
+    const char *f = g->v.sval;
+    int n = g->t == TT_FNC ? g->n : 0;
+    if (n == 2 && (!strcmp(f, ",") || !strcmp(f, ";") || !strcmp(f, "->") || !strcmp(f, "*->") || !strcmp(f, "|"))) { pl_lib_rename_goals(g->c[0], dcg, ek, ev); pl_lib_rename_goals(g->c[1], dcg, ek, ev); return; }
+    if (n == 1 && !strcmp(f, "\\+")) { pl_lib_rename_goals(g->c[0], dcg, ek, ev); return; }
+    if (dcg && n == 1 && !strcmp(f, "{}")) { pl_lib_rename_goals(g->c[0], 0, ek, ev); return; }
+    if (dcg && (!strcmp(f, "!") || !strcmp(f, "[]") || !strcmp(f, "[|]") || !strcmp(f, ".") || !strcmp(f, "call"))) return;
+    if (!dcg && n == 1 && (!strcmp(f, "call") || !strcmp(f, "once") || !strcmp(f, "ignore"))) { pl_lib_rename_goals(g->c[0], 0, ek, ev); return; }
+    if (!dcg && n == 2 && !strcmp(f, "forall")) { pl_lib_rename_goals(g->c[0], 0, ek, ev); pl_lib_rename_goals(g->c[1], 0, ek, ev); return; }
+    if (!dcg && (n == 3 || n == 4) && !strcmp(f, "findall")) { pl_lib_rename_goals(g->c[1], 0, ek, ev); return; }
+    if (!dcg && n == 3 && !strcmp(f, "catch")) { pl_lib_rename_goals(g->c[0], 0, ek, ev); pl_lib_rename_goals(g->c[2], 0, ek, ev); return; }
+    if (!strcmp(f, ":")) return;
+    int j = pl_lib_export_of(ek, ev, f, n + (dcg ? 2 : 0));
+    if (j >= 0) g->v.sval = pl_lib_private_name(j, f);
+}
+static tree_t *pl_lib_clause_head(PlClause *cl, int *dcg) {
+    tree_t *d = pl_clause_dcg(cl), *h;
+    *dcg = d != (tree_t *)0;
+    h = d ? d->c[0] : (cl->tr && cl->tr->n > 0) ? cl->tr->c[0] : (tree_t *)0;
+    if (d && h && h->t == TT_FNC && h->n == 2 && h->v.sval && !strcmp(h->v.sval, ",")) h = h->c[0];
+    return (h && (h->t == TT_FNC || h->t == TT_QLIT) && h->v.sval) ? h : (tree_t *)0;
+}
+static void pl_lib_rename_clause(PlClause *cl, const cv_t *ek, const cv_t *ev) {
+    tree_t *d = pl_clause_dcg(cl);
+    if (pl_clause_ssu(cl)) return;
+    if (d) { pl_lib_rename_goals(d->c[1], 1, ek, ev); return; }
+    if (cl->tr && cl->tr->n > 1) pl_lib_rename_goals(cl->tr->c[1], 0, ek, ev);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only, const cv_t *user_defined, const cv_t *imported, const PlProgram *uprog) {
     int nlibs = 0;
     while (PL_PRELUDE_LIBS[nlibs].lib) nlibs++;
@@ -3644,6 +3689,21 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         if (r.un.t) ct_drop(r.un.t);
         if (r.q.p) ct_drop(r.q.p);
     }
+    cv_t lek = { 0 }, lev = { 0 };
+    (void)pl_prelude_defines("", -1);
+    for (int j = 0; j < nlibs; j++) {
+        int jj = 0;
+        if (!lp[j] || !strcmp(PL_PRELUDE_LIBS[j].lib, "tabling")) continue;
+        for (PlClause *cl = lp[j]->head; cl; cl = cl->next, jj++) {
+            const char *nm;
+            int ar, ex = 0;
+            if (!mk[j][jj] || pl_clause_is_directive(cl) || !pl_clause_key(cl, &nm, &ar) || !nm || nm[0] == '$' || pl_pk_has(bk, bkc, nm, ar)) continue;
+            for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[j].exports; e->nm && !ex; e++) if (e->ar == ar && !strcmp(e->nm, nm)) ex = 1;
+            if (!ex || pl_lib_export_of(&lek, &lev, nm, ar) >= 0) continue;
+            CV_PUSH(lek, char *) = pl_pred_key(nm, ar);
+            CV_PUSH(lev, void *) = (void *)(intptr_t)j;
+        }
+    }
     for (int i = 0; i < nlibs; i++) {
         if (!lp[i]) continue;
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "phrase")) pl_cv_add(referenced, "$phrase");
@@ -3653,19 +3713,36 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "write_canonical")) pl_cv_add(referenced, "$write_canonical_swi");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "display")) pl_cv_add(referenced, "$display_swi");
         if (imp[i] && (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "put_attr") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "freeze"))) pl_cv_add(referenced, "$wakeup");
-        PlClause *nextc = NULL;
+        PlClause *nextc = NULL, *ph = NULL, *pt = NULL;
         int ji = 0;
         for (PlClause *cl = lp[i]->head; cl; cl = nextc, ji++) {
             nextc = cl->next;
             const char *nm; int ar;
             if (!mk[i][ji]) continue;
             if (!pl_clause_is_directive(cl) && !pl_clause_is_attv_hook(cl) && (!pl_clause_key(cl, &nm, &ar) || !nm || (nm[0] != '$' && pl_pk_has(bk, bkc, nm, ar)))) continue;
+            pl_lib_rename_clause(cl, &lek, &lev);
+            if (!pl_clause_is_directive(cl) && pl_clause_key(cl, &nm, &ar) && nm && pl_lib_export_of(&lek, &lev, nm, ar) == i) {
+                PlClause *cp = (PlClause *)ct_alloc(sizeof *cp);
+                int dg = 0;
+                tree_t *hd;
+                *cp = *cl;
+                cp->tr = pl_tree_dup(cl->tr);
+                cp->next = NULL;
+                cp->dq_forced = 3 + 1;
+                if ((hd = pl_lib_clause_head(cp, &dg)) != (tree_t *)0) {
+                    hd->v.sval = pl_lib_private_name(i, nm);
+                    if (!pl_cv_has_key(&g_stage2.pl_prelude_keys, hd->v.sval, ar)) CV_PUSH(g_stage2.pl_prelude_keys, char *) = pl_pred_key(hd->v.sval, ar);
+                    if (!ph) ph = cp; else pt->next = cp;
+                    pt = cp;
+                }
+            }
             cl->next = NULL;
             cl->dq_forced = 3 + 1;
             if (!pre->head) pre->head = cl; else pre->tail->next = cl;
             pre->tail = cl;
             pre->nclauses++;
         }
+        for (PlClause *cp = ph, *nx; cp; cp = nx) { nx = cp->next; cp->next = NULL; if (!pre->head) pre->head = cp; else pre->tail->next = cp; pre->tail = cp; pre->nclauses++; }
         ct_drop(lp[i]);
         ct_drop(mk[i]);
     }
@@ -4081,6 +4158,15 @@ static int pl_cv_has_key(const cv_t *v, const char *nm, int ar) {
     for (uint32_t i = 0; i < v->len; i++) {
         const char *e = CV_AT(*v, char *, i);
         if (!strncmp(e, nm, n) && e[n] == '/' && (int)strtol(e + n + 1, (char **)0, 10) == ar) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int pl_prelude_lib_exports(const char *nm, int ar) {
+    if (!nm || ar < 0 || nm[0] == '$') return 0;
+    for (int li = 0; PL_PRELUDE_LIBS[li].lib; li++) {
+        if (!strcmp(PL_PRELUDE_LIBS[li].lib, "tabling")) continue;
+        for (const pl_prelude_lib_pi_t *e = PL_PRELUDE_LIBS[li].exports; e->nm; e++) if (e->ar == ar && !strcmp(e->nm, nm)) return 1;
     }
     return 0;
 }

@@ -3639,7 +3639,7 @@ int rt_pl_nb_is_set(void *root, int64_t k) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_DB_REGISTRY_CELL 0
 #define PL_DB_KEY_VLA(buf, nm, ar) char buf[fmt_len("%s/%d", (nm), (int)(ar))]; snprintf(buf, sizeof buf, "%s/%d", (nm), (int)(ar))
-typedef struct { char *key; int k; pl_db_t *db; int stat; int decl; int file; int line; int mf; } pl_db_key_t;
+typedef struct { char *key; int k; pl_db_t *db; int stat; int decl; int file; int line; int mf; int lib; } pl_db_key_t;
 typedef struct { pl_db_key_t *e; int n; int cap; int next_cell; int ovf_cap; void **ovf; void **tries; int ntries; int tcap; int tbl_vt; int *hix; int hcap; } pl_db_reg_t;
 _Static_assert(__builtin_offsetof(pl_db_reg_t, hix) == 56, "rt_gc_mark_run (rtx_gc.s) visits the registry's key index at [registry + 56], an unscanned block of entry numbers");
 _Static_assert(__builtin_offsetof(pl_db_reg_t, ovf) == 24,
@@ -3749,6 +3749,7 @@ static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key) {
         e->file = -1;
         e->line = 0;
         e->mf = 0;
+        e->lib = 0;
         pl_db_hix_index(r);
         return &r->e[r->n - 1];
     }
@@ -4187,14 +4188,15 @@ void rt_pl_db_decls_install(const long *tab, void *root) {
     for (long i = 0; i < n; i++) {
         const char *nm = prolog_atom_name((int)e[4 * i]);
         if (nm && e[4 * i + 2] == 4) pl_db_key_set_file(root, nm, e[4 * i + 1], e[4 * i + 3]);
-        else if (nm && e[4 * i + 2] >= 5) pl_db_key_set_meta(root, nm, e[4 * i + 1], e[4 * i + 2], e[4 * i + 3]);
+        else if (nm && e[4 * i + 2] >= 5 && e[4 * i + 2] != 7) pl_db_key_set_meta(root, nm, e[4 * i + 1], e[4 * i + 2], e[4 * i + 3]);
         else if (nm && e[4 * i + 2] > 0) rt_pl_db_decl(root, nm, e[4 * i + 1], e[4 * i + 2]);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_cells_base(void *root, int64_t n) { pl_db_reg_t *r = pl_db_registry(root, 1); if (!r) return 0; if ((int)n > r->next_cell) r->next_cell = (int)n; return 1; }
-int rt_pl_db_key_is_dynamic(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); return (e && !e->stat) ? 1 : 0; }
+int rt_pl_db_key_is_dynamic(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); return (e && !e->stat && !e->lib) ? 1 : 0; }
 int rt_pl_db_key_is_static(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); return (e && e->stat) ? 1 : 0; }
+int rt_pl_db_key_lib_take(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); if (!e || !e->lib) return 0; e->lib = 0; return 1; }
 int rt_pl_db_key_is_declared(void *root, const char *key) { pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key); return (e && e->decl) ? 1 : 0; }
 static int pl_db_key_current(void *root, pl_db_key_t *e);
 const char *rt_pl_db_key_file(void *root, const char *key) {
@@ -4211,7 +4213,7 @@ int rt_pl_db_decl(void *root, const char *name, int64_t arity, int64_t kind) {
         pl_db_key_t *e = pl_db_reg_find(r, key);
         if (!e) e = pl_db_reg_add(r, key);
         if (!e) return 0;
-        if (kind == 1) { if (e->k < 0 && !e->db) e->stat = 1; } else if (kind == 3) e->stat = 1;
+        if (kind == 1) { if (e->k < 0 && !e->db) e->stat = 1; } else if (kind == 7) { if (e->k < 0 && !e->db) e->lib = 1; } else if (kind == 3) e->stat = 1;
         else e->decl = 1;
         return 1;
     }
@@ -4220,6 +4222,7 @@ static pl_db_t * pl_db_cell_peek(void *root, int k) { if (!root || k < 0) return
 static int pl_db_key_current(void *root, pl_db_key_t *e) {
     pl_db_t *db;
     if (!strncmp(e->key, "$pl_", 4) || !strncmp(e->key, "$db_", 4)) return 0;
+    if (e->lib) return 0;
     if (e->stat) return 1;
     db = (e->k >= 0) ? pl_db_cell_peek(root, e->k) : e->db;
     if (db) return db->killed ? 0 : 1;

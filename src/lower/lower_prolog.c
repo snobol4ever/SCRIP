@@ -4144,6 +4144,7 @@ static int pl_name_is_scrip_own(const char * nm, int ar) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_db_decls_capture(void) {
     extern int prolog_atom_intern(const char *);
+    extern int pl_prelude_lib_exports(const char *, int);
     extern void * ct_grow(void *, size_t);
     long long * w = (long long *) 0;
     int n = 0, cap = 0;
@@ -4174,7 +4175,10 @@ static void pl_db_decls_capture(void) {
             char nm[nl + 1];
             memcpy(nm, pe->key, nl);
             nm[nl] = 0;
-            if (pl_name_is_scrip_own(nm, ar)) continue;
+            if (pl_name_is_scrip_own(nm, ar)) {
+                if (pl_prelude_lib_exports(nm, ar) && !pl_iso_builtin(nm, ar) && pl_dyn_index(nm, ar) < 0) { PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(7); PL_DW(-1); }
+                continue;
+            }
             if (pl_dyn_index(nm, ar) < 0 && !pl_decl_dyn_is(nm, ar)) {
                 PL_DW(prolog_atom_intern(nm));
                 PL_DW(ar);
