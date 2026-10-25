@@ -176,6 +176,7 @@ static const char * pl_var_name(int slot) {
 static const char * pl_pi_name(const char * nm, int ar) { if (!nm) return ct_strdup("?"); return ct_fmt("%s/%d", nm, ar); }
 static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 static int pl_tree_is_big(const tree_t * t) { return t && t->t == TT_FNC && t->n == 1 && t->v.sval && !strcmp(t->v.sval, "$pl_big") && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval; }
+static int pl_tree_is_engine(const tree_t * t) { return t && t->t == TT_FNC && t->n == 1 && t->v.sval && !strcmp(t->v.sval, "$pl_engine") && t->c[0] && t->c[0]->t == TT_ILIT; }
 static int pl_tree_is_c0(const tree_t * t) { return t && t->t == TT_FNC && t->n == 0 && t->v.sval && strcmp(t->v.sval, "{}") != 0; }
 static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -254,6 +255,16 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
                 IR_LIT(nd).sval = "$pl_big";
                 IR_t * dg = build(cx, IR_LIT_STRING, NULL, cx->tω);
                 IR_LIT(dg).sval = t->c[0]->v.sval;
+                ir_operand_push(nd, dg);
+                lc_γ_to(dg, nd);
+                if (entry_out) *entry_out = dg;
+                return nd;
+            }
+            if (pl_tree_is_engine(t)) {
+                IR_t * nd = build(cx, IR_CALL, NULL, cx->tω);
+                IR_LIT(nd).sval = "$pl_engine";
+                IR_t * dg = build(cx, IR_LIT_STRING, NULL, cx->tω);
+                IR_LIT(dg).sval = ct_fmt("%ld", (long) t->c[0]->v.ival);
                 ir_operand_push(nd, dg);
                 lc_γ_to(dg, nd);
                 if (entry_out) *entry_out = dg;
@@ -388,7 +399,7 @@ static int pl_head_boxable(const tree_t * t) {
         for (int i = 0; i < t->n; i++) if (!pl_head_boxable(t->c[i])) return 0;
         return 1;
         case TT_FNC:
-        if (pl_tree_is_big(t)) return 0;
+        if (pl_tree_is_big(t) || pl_tree_is_engine(t)) return 0;
         for (int i = 0; i < t->n; i++) if (!pl_head_boxable(t->c[i])) return 0;
         return 1;
         default:
@@ -1575,9 +1586,10 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     "$get_char_s" }, { "$peek_char", 1, "$peek_char" }, { "$peek_char_s", 2, "$peek_char_s" }, { "$get_byte", 1, "$get_byte" }, { "$get_byte_s", 2, "$get_byte_s" }, { "$peek_byte", 1, "$peek_byte" },
     { "$peek_byte_s", 2, "$peek_byte_s" }, { "$get_edin", 1, "$get_edin" }, { "$put_edin", 1, "$put_edin" }, { "$skip", 1, "$skip" }, { "$current_prolog_flag", 2, "$current_prolog_flag" },
     { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$co_start", 4, "$co_start" }, { "$co_resume", 5, "$co_resume" },
-    { "$co_yield", 2, "$co_yield" }, { "$co_unwound", 2, "$co_unwound" }, { "$co_finish", 2, "$co_finish" }, { "$co_mark", 0, "$co_mark" }, { "$co_inside", 0, "$co_inside" }, { "$engine_new", 6,
-    "$engine_new" }, { "$engine_next", 2, "$engine_next" }, { "$engine_yield", 1, "$engine_yield" }, { "$engine_destroy", 3, "$engine_destroy" }, { "$engine_self", 1, "$engine_self" }, { "$trie_new",
-    1, "$trie_new" }, { "$trie_alive", 1, "$trie_alive" }, { "$trie_destroy", 1, "$trie_destroy" }, { "$trie_insert", 5, "$trie_insert" }, { "$trie_lookup", 3, "$trie_lookup" }, { "$trie_delete", 3,
+    { "$co_yield", 2, "$co_yield" }, { "$co_unwound", 2, "$co_unwound" }, { "$co_finish", 2, "$co_finish" }, { "$co_mark", 0, "$co_mark" }, { "$co_inside", 0, "$co_inside" }, { "$engine_new", 4,
+    "$engine_new" }, { "$engine_next", 2, "$engine_next" }, { "$engine_yield", 1, "$engine_yield" }, { "$engine_destroy", 1, "$engine_destroy" }, { "$engine_self", 1, "$engine_self" }, { "$engine_id",
+    2, "$engine_id" }, { "$engine_list", 1, "$engine_list" }, { "$engine_reaped", 1, "$engine_reaped" }, { "$engine_stats", 4, "$engine_stats" }, { "$gc_now", 0, "$gc_now" }, { "$trie_new", 1,
+    "$trie_new" }, { "$trie_alive", 1, "$trie_alive" }, { "$trie_destroy", 1, "$trie_destroy" }, { "$trie_insert", 5, "$trie_insert" }, { "$trie_lookup", 3, "$trie_lookup" }, { "$trie_delete", 3,
     "$trie_delete" }, { "$trie_entries", 2, "$trie_entries" }, { "$trie_entry_key", 3, "$trie_entry_key" }, { "$trie_count", 2, "$trie_count" }, { "$trie_meta_set", 3, "$trie_meta_set" },
     { "$trie_meta_get", 3, "$trie_meta_get" }, { "$tbl_vt", 1, "$tbl_vt" }, { "$tbh_close", 0, "$tbh_close" }, { "$tbh_leading", 0, "$tbh_leading" }, { "$tbh_get", 2, "$tbh_get" }, { "$tbh_own", 2,
     "$tbh_own" }, { "$tbh_set", 2, "$tbh_set" }, { "$tbh_bset", 2, "$tbh_bset" }, { "$tbl_dlget", 1, "$tbl_dlget" }, { "$tbl_dlset", 1, "$tbl_dlset" }, { "$tx_db", 2, "$tx_db" }, { "$mod_ext", 4,

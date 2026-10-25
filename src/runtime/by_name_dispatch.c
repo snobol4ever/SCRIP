@@ -5370,6 +5370,7 @@ DESCR_t rt_call_value_resume_h(void **hslot, int n) {
 int rt_descr_equal(DESCR_t a, DESCR_t b) {
     if (a.v == DT_I && b.v == DT_I) return a.i == b.i;
     if (a.v == DT_R && b.v == DT_R) return a.r == b.r;
+    if (a.v == DT_DATA && b.v == DT_DATA && a.u && a.u == b.u) return 1;
     if ((a.v == DT_S || a.v == DT_SNUL) && (b.v == DT_S || b.v == DT_SNUL)) { const char *x = a.s ? a.s : ""; const char *y = b.s ? b.s : ""; return strcmp(x, y) == 0; }
     { const char *x = VARVAL_fn(a); const char *y = VARVAL_fn(b); if (x && y) return strcmp(x, y) == 0; }
     return 0;
@@ -6645,6 +6646,7 @@ DESCR_t rt_pl_dop_unify_oc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_unify_const_cold(const DESCR_t *c, int64_t k, int atom) { if (atom) return c->v == DT_PLATOM && c->i == k; return c->v == DT_I && c->i == k; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int rt_pl_eng_inst_is(DESCR_t);
 int rt_pl_unify_atomic_cold(DESCR_t *A, DESCR_t *B) {
     int av = (int)A->v, bv = (int)B->v;
     if (av == DT_I && bv == DT_I) return A->i == B->i;
@@ -6652,6 +6654,7 @@ int rt_pl_unify_atomic_cold(DESCR_t *A, DESCR_t *B) {
     if (av == DT_BIG || bv == DT_BIG) { extern int rt_big_eq(DESCR_t, DESCR_t); return rt_big_eq(*A, *B); }
     { int as = av == DT_S || av == DT_PLATOM, bs = bv == DT_S || bv == DT_PLATOM; if (as && bs) { return rt_pl_text_eq(A, B); } }
     if (pl_rat_is(*A) && pl_rat_is(*B)) return pl_rat_eq(*A, *B);
+    if (av == DT_DATA && bv == DT_DATA && A->u == B->u && rt_pl_eng_inst_is(*A)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -7750,13 +7753,29 @@ extern void rt_genp_yield(uint64_t, uint64_t);
 extern DESCR_t rt_proc_resume_frame_h(void **);
 extern void rt_proc_drop_frame_h(void **);
 #define pl_eng_unify_int(a, v, cx) plw_unify_vals((a), INTVAL((int64_t)(v)), (cx))
+extern DESCR_t rt_pl_eng_make(int64_t, int64_t, int64_t);
+extern int rt_pl_eng_inst_is(DESCR_t);
+extern int64_t rt_pl_eng_inst_id(DESCR_t);
+extern void rt_pl_eng_pin(DESCR_t);
+extern int rt_pl_eng_by_id(int64_t, DESCR_t *);
+extern int rt_pl_eng_is(DESCR_t);
+extern int64_t rt_pl_eng_id(DESCR_t);
+extern int64_t rt_pl_eng_ctx(DESCR_t);
+extern void rt_pl_eng_ctx_done(DESCR_t);
+extern void rt_pl_eng_destroy(DESCR_t);
+extern int rt_pl_eng_self(void *, DESCR_t *);
+extern int rt_pl_eng_count(void);
+extern DESCR_t rt_pl_eng_at(int);
+extern int rt_pl_eng_reaped_count(void);
+extern int64_t rt_pl_eng_reaped_take(int);
+extern void rt_pl_eng_reaped_clear(void);
 DESCR_t rt_pl_dop_engine_new_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    DESCR_t ag[2], r, nm;
+    DESCR_t ag[2], r, nm, hd;
     void *h = (void *)0, *ball = (void *)0, *slab = (void *)0;
     pl_tr_ctx_t c2;
     char *etr;
     int ok;
-    if (nargs != 6) return FAILDESCR;
+    if (nargs != 4) return FAILDESCR;
     pl_atoms_ready();
     rt_pl_tr_gc_sync(cx->tr);
     nm = rt_pl_deref_val(args[0]);
@@ -7770,22 +7789,26 @@ DESCR_t rt_pl_dop_engine_new_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     r = rt_pl_goal_gen_h_c(nm, ag, 2, &h, &ball, &c2);
     if (ball || !h) { rt_pl_tr_free_arena(etr, slab); cx->ball = ball; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
     (void)r;
-    ok = pl_eng_unify_int(args[3], (int64_t)(intptr_t)h, cx) && pl_eng_unify_int(args[4], (int64_t)(intptr_t)etr, cx) && pl_eng_unify_int(args[5], (int64_t)(intptr_t)slab, cx);
+    hd = rt_pl_eng_make((int64_t)(intptr_t)h, (int64_t)(intptr_t)etr, (int64_t)(intptr_t)slab);
+    if (hd.v != DT_DATA) { void *sl = h; rt_proc_drop_frame_h(&sl); rt_pl_tr_free_arena(etr, slab); rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
+    ok = plw_unify_vals(args[3], hd, cx);
     rt_pl_tr_gc_sync(cx->tr);
     return ok ? pl_ok() : FAILDESCR;
 }
 DESCR_t rt_pl_dop_engine_next_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    DESCR_t ad, r;
+    DESCR_t hd, r;
+    int64_t ctx;
     void *slot;
     int ok;
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
-    ad = rt_pl_deref_val(args[0]);
-    if (ad.v != DT_I || !rt_genp_valid((void *)(intptr_t)ad.i)) return plw_unify_vals(args[1], pl_mk_atom("done"), cx) ? pl_ok() : FAILDESCR;
-    slot = (void *)(intptr_t)ad.i;
+    hd = rt_pl_deref_val(args[0]);
+    ctx = rt_pl_eng_ctx(hd);
+    if (!ctx || !rt_genp_valid((void *)(intptr_t)ctx)) return plw_unify_vals(args[1], pl_mk_atom("done"), cx) ? pl_ok() : FAILDESCR;
+    slot = (void *)(intptr_t)ctx;
     rt_pl_tr_gc_sync(cx->tr);
     r = rt_proc_resume_frame_h(&slot);
-    if (!slot) r = pl_mk_atom("done");
+    if (!slot) { rt_pl_eng_ctx_done(hd); r = pl_mk_atom("done"); }
     ok = plw_unify_vals(args[1], r, cx);
     rt_pl_tr_gc_sync(cx->tr);
     return ok ? pl_ok() : FAILDESCR;
@@ -7803,21 +7826,39 @@ DESCR_t rt_pl_dop_engine_yield_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     rt_pl_tr_gc_sync(cx->tr);
     return pl_ok();
 }
-DESCR_t rt_pl_dop_engine_destroy_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    DESCR_t ad, td, sd;
-    if (nargs != 3) return FAILDESCR;
-    ad = rt_pl_deref_val(args[0]);
-    td = rt_pl_deref_val(args[1]);
-    sd = rt_pl_deref_val(args[2]);
-    if (ad.v == DT_I && ad.i && rt_genp_valid((void *)(intptr_t)ad.i)) { void *slot = (void *)(intptr_t)ad.i; rt_proc_drop_frame_h(&slot); }
-    if (td.v == DT_I && sd.v == DT_I && td.i && sd.i) rt_pl_tr_free_arena((const char *)(intptr_t)td.i, (void *)(intptr_t)sd.i);
-    (void)cx;
+DESCR_t rt_pl_dop_engine_destroy_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { (void)cx; if (nargs != 1) return FAILDESCR; rt_pl_eng_destroy(rt_pl_deref_val(args[0])); return pl_ok(); }
+DESCR_t rt_pl_dop_engine_self_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    DESCR_t d = {0};
+    if (nargs != 1 || !rt_pl_eng_self(rt_genp_self_handle(), &d)) return FAILDESCR;
+    return plw_unify_vals(args[0], d, cx) ? pl_ok() : FAILDESCR;
+}
+DESCR_t rt_pl_dop_engine_id_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    DESCR_t hd;
+    if (nargs != 2) return FAILDESCR;
+    hd = rt_pl_deref_val(args[0]);
+    if (!rt_pl_eng_is(hd)) return FAILDESCR;
+    return plw_unify_vals(args[1], INTVAL(rt_pl_eng_id(hd)), cx) ? pl_ok() : FAILDESCR;
+}
+DESCR_t rt_pl_dop_engine_list_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    DESCR_t l = pl_nil();
+    if (nargs != 1) return FAILDESCR;
+    for (int i = rt_pl_eng_count() - 1; i >= 0; i--) l = pl_cons(rt_pl_eng_at(i), l);
+    return plw_unify_vals(args[0], l, cx) ? pl_ok() : FAILDESCR;
+}
+extern int64_t rt_pl_eng_stat(int);
+extern void rt_gc_request(void);
+DESCR_t rt_pl_dop_engine_stats_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    if (nargs != 4) return FAILDESCR;
+    for (int i = 0; i < 4; i++) if (!plw_unify_vals(args[i], INTVAL(rt_pl_eng_stat(i)), cx)) return FAILDESCR;
     return pl_ok();
 }
-DESCR_t rt_pl_dop_engine_self_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    void *h = rt_genp_self_handle();
-    if (nargs != 1 || !h) return FAILDESCR;
-    return plw_unify_vals(args[0], INTVAL((int64_t)(intptr_t)h), cx) ? pl_ok() : FAILDESCR;
+DESCR_t rt_pl_dop_gc_now_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { (void)args; (void)cx; if (nargs != 0) return FAILDESCR; rt_gc_request(); return pl_ok(); }
+DESCR_t rt_pl_dop_engine_reaped_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    DESCR_t l = pl_nil();
+    if (nargs != 1) return FAILDESCR;
+    for (int i = rt_pl_eng_reaped_count() - 1; i >= 0; i--) l = pl_cons(INTVAL(rt_pl_eng_reaped_take(i)), l);
+    rt_pl_eng_reaped_clear();
+    return plw_unify_vals(args[0], l, cx) ? pl_ok() : FAILDESCR;
 }
 PL_CX_LEAF_HEAD(co_mark, 0) ok = rt_plco_mark(cx->tr); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(co_inside, 0) ok = rt_plco_inside(); PL_CX_LEAF_TAIL
@@ -8295,6 +8336,14 @@ static int rt_pl_atom_concat_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(atom_concat_at, 4) ok = rt_pl_atom_concat_at_cell(args, cx); PL_CX_LEAF_TAIL
+DESCR_t rt_pl_dop_pl_engine(DESCR_t *args, int nargs) {
+    DESCR_t d, eh;
+    if (nargs != 1) return FAILDESCR;
+    d = rt_pl_deref_val(args[0]);
+    if (!IS_STR_fn(d) || !d.s) return FAILDESCR;
+    if (rt_pl_eng_by_id(strtoll(d.s, (char **)0, 10), &eh)) return eh;
+    return pl_mk_atom("$dead_engine");
+}
 DESCR_t rt_pl_dop_big(DESCR_t *args, int nargs) {
     if (nargs != 1) return FAILDESCR;
     {
@@ -8894,6 +8943,11 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
                 return c;
             }
             if (t->t == TT_FNC && t->n == 1 && !strcmp(nm, "$pl_big") && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) { DESCR_t a = STRVAL(t->c[0]->v.sval); return rt_pl_dop_big(&a, 1); }
+            if (t->t == TT_FNC && t->n == 1 && !strcmp(nm, "$pl_engine") && t->c[0] && t->c[0]->t == TT_ILIT) {
+                DESCR_t eh;
+                if (rt_pl_eng_by_id(t->c[0]->v.ival, &eh)) return eh;
+                return pl_mk_atom_dup("$dead_engine", 12);
+            }
             {
                 DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)t->n);
                 for (int i = 0; i < t->n; i++) kids[i] = pl_tree_cell(t->c[i], vt);
@@ -25035,6 +25089,14 @@ static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
         t->v.sval = pl_tree_name("$pl_big");
         q->v.sval = pl_tree_name(rb);
         ast_push(t, q);
+        return t;
+    }
+    if (rt_pl_eng_inst_is(*d)) {
+        tree_t *t = ast_node_new(TT_FNC), *q = ast_node_new(TT_ILIT);
+        t->v.sval = pl_tree_name("$pl_engine");
+        q->v.ival = rt_pl_eng_inst_id(*d);
+        ast_push(t, q);
+        rt_pl_eng_pin(*d);
         return t;
     }
     if ((int)d->v == DT_BIG) {

@@ -5427,7 +5427,8 @@ DESCR_t rt_pl_dop_findall_new(DESCR_t *, int); DESCR_t rt_pl_dop_findall_add(DES
     int); DESCR_t rt_pl_dop_bagof_result(DESCR_t *, int); DESCR_t rt_pl_dop_setof_result(DESCR_t *, int);
 DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *, int); DESCR_t rt_pl_dop_sub_atom_at(DESCR_t *, int); DESCR_t rt_pl_dop_atom_concat_n(DESCR_t *, int); DESCR_t rt_pl_dop_atom_concat_at(DESCR_t *,
     int); DESCR_t rt_pl_dop_bagof_group_n(DESCR_t *, int); DESCR_t rt_pl_dop_bagof_group_at(DESCR_t *, int); DESCR_t rt_pl_dop_setof_group_at(DESCR_t *, int);
-DESCR_t rt_pl_dop_big(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase(DESCR_t *,
+DESCR_t rt_pl_dop_big(DESCR_t *, int); DESCR_t rt_pl_dop_pl_engine(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta(DESCR_t *, int);
+    DESCR_t rt_pl_dop_db_erase(DESCR_t *,
     int); DESCR_t rt_pl_dop_db_abolish(DESCR_t *, int); DESCR_t rt_pl_dop_db_nonempty(DESCR_t *, int); DESCR_t rt_pl_dop_ball_pending(DESCR_t *, int); DESCR_t rt_pl_dop_format(DESCR_t *,
         int); DESCR_t rt_pl_dop_db_seed_once(DESCR_t *, int);
 DESCR_t rt_pl_dop_nb_setval(DESCR_t *, int); DESCR_t rt_pl_dop_nb_getval(DESCR_t *, int); DESCR_t rt_pl_dop_b_setval(DESCR_t *, int);
@@ -5448,7 +5449,8 @@ DESCR_t rt_pl_dop_db_t_guard(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_t(DES
 DESCR_t rt_pl_dop_co_start(DESCR_t *, int); DESCR_t rt_pl_dop_co_resume(DESCR_t *, int); DESCR_t rt_pl_dop_co_yield(DESCR_t *, int); DESCR_t rt_pl_dop_co_unwound(DESCR_t *, int);
 DESCR_t rt_pl_dop_co_finish(DESCR_t *, int); DESCR_t rt_pl_dop_co_mark(DESCR_t *, int); DESCR_t rt_pl_dop_co_inside(DESCR_t *, int);
 DESCR_t rt_pl_dop_engine_new(DESCR_t *, int); DESCR_t rt_pl_dop_engine_next(DESCR_t *, int); DESCR_t rt_pl_dop_engine_yield(DESCR_t *, int); DESCR_t rt_pl_dop_engine_destroy(DESCR_t *, int);
-DESCR_t rt_pl_dop_engine_self(DESCR_t *, int);
+DESCR_t rt_pl_dop_engine_self(DESCR_t *, int); DESCR_t rt_pl_dop_engine_id(DESCR_t *, int); DESCR_t rt_pl_dop_engine_list(DESCR_t *, int); DESCR_t rt_pl_dop_engine_reaped(DESCR_t *, int);
+    DESCR_t rt_pl_dop_engine_stats(DESCR_t *, int); DESCR_t rt_pl_dop_gc_now(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_store_k(DESCR_t *, int); DESCR_t rt_pl_dop_db_copy(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cp_nth(DESCR_t *,
     int); DESCR_t rt_pl_dop_pl_cp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_nth(DESCR_t *,
         int); DESCR_t rt_pl_dop_halt(DESCR_t *, int);
@@ -5578,7 +5580,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
             rt_pl_dop_factorize_term },
         { "$wall_us", 1, "rt_pl_dop_wall_us", rt_pl_dop_wall_us }, { "$wall_ms", 1, "rt_pl_dop_wall_ms", rt_pl_dop_wall_ms },
         { "$sort", 2, "rt_pl_dop_sort", rt_pl_dop_sort }, { "$msort", 2, "rt_pl_dop_msort", rt_pl_dop_msort }, { "$char_type", 2, "rt_pl_dop_char_type", rt_pl_dop_char_type },
-        { "$pl_big", 1, "rt_pl_dop_big", rt_pl_dop_big }, { "$findall_new", 0, "rt_pl_dop_findall_new", rt_pl_dop_findall_new }, { "$findall_add", 2, "rt_pl_dop_findall_add", rt_pl_dop_findall_add },
+        { "$pl_big", 1, "rt_pl_dop_big", rt_pl_dop_big }, { "$pl_engine", 1, "rt_pl_dop_pl_engine", rt_pl_dop_pl_engine },{ "$findall_new", 0, "rt_pl_dop_findall_new", rt_pl_dop_findall_new },
+            { "$findall_add", 2, "rt_pl_dop_findall_add", rt_pl_dop_findall_add },
         { "$findall_result", 2, "rt_pl_dop_findall_result", rt_pl_dop_findall_result }, { "$findall_result4", 3, "rt_pl_dop_findall_result4", rt_pl_dop_findall_result4 }, { "$bagof_result",
             2, "rt_pl_dop_bagof_result", rt_pl_dop_bagof_result },
         { "$setof_result", 2, "rt_pl_dop_setof_result", rt_pl_dop_setof_result },
@@ -5595,9 +5598,11 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$co_yield", 2, "rt_pl_dop_co_yield", rt_pl_dop_co_yield }, { "$co_unwound", 2, "rt_pl_dop_co_unwound", rt_pl_dop_co_unwound },
         { "$co_finish", 2, "rt_pl_dop_co_finish", rt_pl_dop_co_finish }, { "$co_mark", 0, "rt_pl_dop_co_mark", rt_pl_dop_co_mark },
         { "$co_inside", 0, "rt_pl_dop_co_inside", rt_pl_dop_co_inside },
-        { "$engine_new", 6, "rt_pl_dop_engine_new", rt_pl_dop_engine_new }, { "$engine_next", 2, "rt_pl_dop_engine_next", rt_pl_dop_engine_next },
-        { "$engine_yield", 1, "rt_pl_dop_engine_yield", rt_pl_dop_engine_yield }, { "$engine_destroy", 3, "rt_pl_dop_engine_destroy", rt_pl_dop_engine_destroy },
-        { "$engine_self", 1, "rt_pl_dop_engine_self", rt_pl_dop_engine_self },
+        { "$engine_new", 4, "rt_pl_dop_engine_new", rt_pl_dop_engine_new }, { "$engine_next", 2, "rt_pl_dop_engine_next", rt_pl_dop_engine_next },
+        { "$engine_yield", 1, "rt_pl_dop_engine_yield", rt_pl_dop_engine_yield }, { "$engine_destroy", 1, "rt_pl_dop_engine_destroy", rt_pl_dop_engine_destroy },
+        { "$engine_self", 1, "rt_pl_dop_engine_self", rt_pl_dop_engine_self }, { "$engine_id", 2, "rt_pl_dop_engine_id", rt_pl_dop_engine_id },
+        { "$engine_list", 1, "rt_pl_dop_engine_list", rt_pl_dop_engine_list }, { "$engine_reaped", 1, "rt_pl_dop_engine_reaped", rt_pl_dop_engine_reaped },
+        { "$engine_stats", 4, "rt_pl_dop_engine_stats", rt_pl_dop_engine_stats }, { "$gc_now", 0, "rt_pl_dop_gc_now", rt_pl_dop_gc_now },
         { "$db_store_k", 1, "rt_pl_dop_db_store_k", rt_pl_dop_db_store_k }, { "$db_copy", 2, "rt_pl_dop_db_copy", rt_pl_dop_db_copy }, { "$pl_cp_count", 1, "rt_pl_dop_pl_cp_count",
             rt_pl_dop_pl_cp_count }, { "$pl_cp_nth", 3, "rt_pl_dop_pl_cp_nth", rt_pl_dop_pl_cp_nth }, { "$pl_pp_guard", 1, "rt_pl_dop_pl_pp_guard", rt_pl_dop_pl_pp_guard }, { "$pl_pp_count",
                 2, "rt_pl_dop_pl_pp_count", rt_pl_dop_pl_pp_count }, { "$pl_pp_nth", 3, "rt_pl_dop_pl_pp_nth", rt_pl_dop_pl_pp_nth }, { "$pl_cp_guard", 1, "rt_pl_dop_pl_cp_guard",

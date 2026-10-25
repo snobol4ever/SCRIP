@@ -3647,6 +3647,7 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
     gen_gc_roots();
     pas_gc_roots();
     pl_gc_roots();
+    { extern void rt_pl_eng_gc_roots(void); rt_pl_eng_gc_roots(); }
     rt_gc_root_args();
     eval_gc_roots();
     lower_gc_roots();
@@ -3729,6 +3730,7 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
     g_runtime.gc.gc_dvec_nondvec += g_runtime.abi.gc_mk.dvec_nondvec;
 #endif
     { extern void kw_cset_gc_weak(void); kw_cset_gc_weak(); }
+    { extern void rt_pl_eng_gc_weak(void); rt_pl_eng_gc_weak(); }
 #ifdef SCRIP_GC_AUDIT_B
 #if RT_DIAG
     gc_audit_b_shim(g_runtime.gc.gc_seam_sp ? g_runtime.gc.gc_seam_sp : &anchor);
@@ -3916,11 +3918,14 @@ long gc_collect_ex_c(const gc_ent_t *ent) {
 #endif
     g_runtime.gc.gc_idx = (rt_hblk_t **)0;
     g_runtime.abi.gc_in = 0;
+    { extern void rt_pl_eng_reap_run(void); rt_pl_eng_reap_run(); }
     return before_b - after_b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gc_collect_c(char *floor) { long r; g_runtime.gc.gc_seam_sp = floor; r = gc_collect_ex((const gc_ent_t *)0); g_runtime.gc.gc_seam_sp = (char *)0; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_request(void) { g_gc_pending = 1; }
+int rt_gc_addr_in_heap(const void *p) { return p && gc_blk_of((const char *)p) != (rt_hblk_t *)0; }
 void rt_gc_poll(void) {
     if (g_runtime.abi.gc_in) return;
     if (!g_gc_pending && !(g_runtime.abi.hp_gcline && g_hp_top > g_runtime.abi.hp_gcline)) return;

@@ -30,6 +30,8 @@ void rt_pl_ball_report(void *ball);
 static int plc_unify_into_cell(pl_cell_t *dst, pl_cell_t val);
 extern int plw_unify_cell_val(DESCR_t *, DESCR_t, pl_tr_ctx_t *);
 extern int plw_unify_cells_x(DESCR_t *, DESCR_t *, pl_tr_ctx_t *);
+extern int rt_pl_eng_inst_is(DESCR_t);
+extern int64_t rt_pl_eng_inst_id(DESCR_t);
 extern void plw_bind_x(DESCR_t *, DESCR_t, pl_tr_ctx_t *);
 static int plc_unify_into_cell_cx(pl_cell_t *dst, pl_cell_t val, pl_tr_ctx_t *cx) { return cx ? plw_unify_cell_val(dst, val, cx) : plc_unify_into_cell(dst, val); }
 static int plc_unify_cells_cx(pl_cell_t *a, pl_cell_t *b, pl_tr_ctx_t *cx) { return cx ? plw_unify_cells_x(a, b, cx) : pl_unify(a, b); }
@@ -531,6 +533,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
     if (tg == DT_R) { plc_wt_num(fp, d); return; }
     if (tg == DT_BIG) { extern char *rt_big_str(DESCR_t); char *bs = rt_big_str(*d); fputs(bs ? bs : "0", fp); return; }
     if (pl_rat_is(*d)) { pl_rat_fput(*d, fp); return; }
+    if (rt_pl_eng_inst_is(*d)) { fprintf(fp, "<engine>(%ld,0x%lx)", (long)rt_pl_eng_inst_id(*d), (unsigned long)(uintptr_t)d->u); return; }
     if (tg != DT_PLREF) { { const char *vn = plc_vname(m, d); if (vn) fputs(vn, fp); else fprintf(fp, "_G%d", plc_vindex(m, d)); } return; }
     int fnid = plc_fid_name(d->slen), ar = plc_fid_arity(d->slen);
     pl_cell_t *aa = (pl_cell_t *)d->p;
@@ -1024,6 +1027,7 @@ int rt_pl_type_test_cell(void *cell_term, const char *fn) {
     int isfloat = (d && !isvar && (int)d->v == DT_R);
     int iscomp = (d && !isvar && (int)d->v == DT_PLREF);
     int israt = (d && !isvar && pl_rat_is(*d));
+    int isblob = (d && !isvar && rt_pl_eng_inst_is(*d));
     if (!fn) return 0;
     if (strcmp(fn, "var") == 0) return isvar ? 1 : 0;
     if (strcmp(fn, "nonvar") == 0) return !isvar ? 1 : 0;
@@ -1032,7 +1036,7 @@ int rt_pl_type_test_cell(void *cell_term, const char *fn) {
     if (strcmp(fn, "float") == 0) return isfloat ? 1 : 0;
     if (strcmp(fn, "number") == 0) return (isint || isfloat || israt) ? 1 : 0;
     if (strcmp(fn, "rational") == 0) return (isint || israt) ? 1 : 0;
-    if (strcmp(fn, "atomic") == 0) return (isatom || isstr || isint || isfloat || israt) ? 1 : 0;
+    if (strcmp(fn, "atomic") == 0) return (isatom || isstr || isint || isfloat || israt || isblob) ? 1 : 0;
     if (strcmp(fn, "string") == 0) return isstr ? 1 : 0;
     if (strcmp(fn, "compound") == 0) return iscomp ? 1 : 0;
     if (strcmp(fn, "callable") == 0) return (isatom || iscomp) ? 1 : 0;
@@ -2160,6 +2164,7 @@ static int rt_pl_cell_class(pl_cell_t *d) {
     if (t == DT_S) return 2;
     if (t == DT_PLATOM) return 3;
     if (t == DT_PLREF) return 4;
+    if (rt_pl_eng_inst_is(*d)) return 3;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2200,6 +2205,10 @@ static int rt_pl_cell_compare_leaf(pl_cell_t *a, pl_cell_t *b, void *ctx) {
         int c = n ? memcmp(a->s, b->s, n) : 0;
         if (!c) c = a->slen < b->slen ? -1 : a->slen > b->slen ? 1 : 0;
         return c < 0 ? -1 : (c > 0 ? 1 : 0);
+    }
+    if (cla == 3 && ((int)a->v == DT_DATA || (int)b->v == DT_DATA)) {
+        if ((int)a->v == DT_DATA && (int)b->v == DT_DATA) { int64_t x = rt_pl_eng_inst_id(*a), y = rt_pl_eng_inst_id(*b); return x < y ? -1 : x > y ? 1 : 0; }
+        return (int)a->v == DT_DATA ? 1 : -1;
     }
     if (cla == 3) {
         if (a->i == b->i) return 0;
