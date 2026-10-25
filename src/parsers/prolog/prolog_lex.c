@@ -52,7 +52,7 @@ static int hexval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a
 static int digval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a' && c <= 'z') return c - 'a' + 10; if (c >= 'A' && c <= 'Z') return c - 'A' + 10; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline Token tok(TkKind kind, char *text, int line) {
-    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0; t.adj = 0; t.len = -1; t.pc = (struct tree_t *)0;
+    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0; t.adj = 0; t.len = -1; t.start = 0; t.end = 0; t.pc = (struct tree_t *)0;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -68,6 +68,11 @@ static char *span_text(const char *s, const char *e, int seps) {
     return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void cm_add(Lexer *lx, int a, int b) {
+    if (lx->ncm + 2 > lx->ccm) { lx->ccm = lx->ccm ? lx->ccm * 2 : 64; lx->cm = (int *)ct_grow(lx->cm, (size_t)lx->ccm * sizeof(int)); }
+    lx->cm[lx->ncm++] = a;
+    lx->cm[lx->ncm++] = b;
+}
 static inline void sb_put(Lexer *lx, int c) {
     if (lx->slen + 1 >= lx->scap) { lx->scap = lx->scap ? lx->scap * 2 : 256; lx->sbuf = (char *)ct_grow(lx->sbuf, (size_t)lx->scap); }
     lx->sbuf[lx->slen++] = (char)c;
@@ -162,13 +167,13 @@ int prolog_u_letter(const char *s, int *adv) {
     return 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Token lexer_next_raw(Lexer *lx) {
+static Token lexer_scan(Lexer *lx) {
     const char *p, *s; int line, seps = 0, radix = 0, ndig = 0, code = 0, st, c = 0, q = 0, n, uk; TkKind kind = TK_ATOM; Token t; char msg[32];
     if (lx->fenced) return tok(TK_EOF, (char *)"", lx->line);
     if (lx->has_peek) { lx->has_peek = 0; return lx->peek; }
     p = lx->src + lx->pos;
 S_START:
-    line = lx->line; s = p; c = PEEK(0);
+    line = lx->line; s = p; c = PEEK(0); lx->tstart = (int)(s - lx->src);
     if (c >= 0x80)                                                                                                                             goto S_HI;
     switch (DC[c]) {
     case D_LAYOUT:                                                   {  ADV(1);                                                                goto S_START;       }
@@ -212,12 +217,11 @@ S_HI:
     if (n > 1 && code >= 0xA0)                                       {  ADV(n);                                                                goto S_GRAPHIC;     }
                                                                      {  ADV(1);                                                                goto LX_UNEXPECTED; }
 S_LCOMMENT:
-    if (PEEK(0) == '\0')                                                                                                                       goto S_START;
-    if (PEEK(0) == '\n')                                                                                                                       goto S_START;
+    if (PEEK(0) == '\0' || PEEK(0) == '\n')                           {  cm_add(lx, (int)(s - lx->src), (int)(p - lx->src));                      goto S_START;       }
                                                                      {  ADV(1);                                                                goto S_LCOMMENT;    }
 S_BCOMMENT:
     if (PEEK(0) == '\0')                                                                                                                       goto S_START;
-    if (PEEK(0) == '*' && PEEK(1) == '/')                            {  ADV(2);                                                                goto S_START;       }
+    if (PEEK(0) == '*' && PEEK(1) == '/')                            {  ADV(2); cm_add(lx, (int)(s - lx->src), (int)(p - lx->src));            goto S_START;       }
     if (PEEK(0) == '\n')                                             {  NL(); ADV(1);                                                          goto S_BCOMMENT;    }
                                                                      {  ADV(1);                                                                goto S_BCOMMENT;    }
 S_VAR:
@@ -320,9 +324,17 @@ LX_UNEXPECTED:
     snprintf(msg, sizeof msg, "unexpected '%c'", (char)c); SYNC(); return err_tok(line, msg);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static Token lexer_next_raw(Lexer *lx) {
+    int had = lx->has_peek;
+    Token t = lexer_scan(lx);
+    if (!had && !lx->fenced) { t.start = lx->tstart; t.end = lx->pos; }
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Token lexer_next(Lexer *lx) {
     Token t = lexer_next_raw(lx);
     lx->last_kind = t.kind;
+    lx->last_end = t.end;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -344,6 +356,7 @@ void lexer_init(Lexer *lx, const char *src) {
     lx->fenced = 0;
     lx->iso = 0;
     lx->swi = lx_dialect_marker(lx->src);
+    lx->tstart = 0; lx->last_end = 0; lx->cm = NULL; lx->ncm = 0; lx->ccm = 0;
     lx->sbuf = NULL; lx->slen = 0; lx->scap = 0;
     memset(&lx->peek, 0, sizeof lx->peek);
 }

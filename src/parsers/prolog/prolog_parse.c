@@ -299,6 +299,8 @@ static int prefix_arg_starts(Token pk) {
     }
 }
 static tree_t *pt_stamp(tree_t *t, int ln) { if (t && t->line <= 0 && ln > 0) t->line = ln; return t; }
+static tree_t *pt_ext(Parser *p, tree_t *t, int start) { if (t && t->end <= t->start) { t->start = start; t->end = p->lx.last_end; } return t; }
+static tree_t *pt_span2(tree_t *n, const tree_t *a, const tree_t *b) { if (n && a && b) { n->start = a->start; n->end = b->end; } return n; }
 static tree_t *mk_atom(int atom_id) {
     if (atom_id == g_runtime.atoms.atom_cut) return ast_node_new(TT_CUT);
     tree_t *e = ast_node_new(TT_QLIT);
@@ -428,6 +430,18 @@ static tree_t *ts_get(TreeScope *ts, const char *name) {
     return v;
 }
 static tree_t *pt_term(Parser *p, TreeScope *ts, int max_prec);
+int prolog_token_extent(const char *src, int from, int skip_close, int *tstart, int *tend) {
+    Lexer lx;
+    lexer_init(&lx, src + from);
+    for (;;) {
+        Token t = lexer_next(&lx);
+        if (t.kind == TK_EOF || t.kind == TK_ERROR) return 0;
+        if (skip_close && t.kind == TK_RPAREN) continue;
+        *tstart = from + t.start;
+        *tend = from + t.end;
+        return 1;
+    }
+}
 static tree_t *pt_primary(Parser *p, TreeScope *ts);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pt_list(Parser *p, TreeScope *ts) {
@@ -850,7 +864,9 @@ static tree_t *pt_dict(Parser *p, TreeScope *ts, tree_t *tag, int ln) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pt_primary(Parser *p, TreeScope *ts) {
+    int pst = lexer_peek(&p->lx).start;
     tree_t *n = pt_primary0(p, ts);
+    pt_ext(p, n, pst);
     if (!n || p->prec != 0) return n;
     int ln = n->line;
     Token pk = lexer_peek(&p->lx);
@@ -911,7 +927,7 @@ static tree_t *pt_term(Parser *p, TreeScope *ts, int max_prec) {
         if (!op || op->prec > max_prec) {
             const OpEntry *po = optext ? find_postfix(optext) : NULL;
             if (po && po->prec <= max_prec && lp <= (po->assoc == ASSOC_LEFT ? po->prec : po->prec - 1)) {
-                lexer_next(&p->lx); tree_t *pf = ast_node_new(TT_FNC); pf->v.sval = ct_strdup(po->name); ast_push(pf, lhs); lhs = pt_stamp(pf, ln); lp = po->prec; continue; }
+                lexer_next(&p->lx); tree_t *pf = ast_node_new(TT_FNC); pf->v.sval = ct_strdup(po->name); ast_push(pf, lhs); pf->start = lhs->start; pf->end = p->lx.last_end; lhs = pt_stamp(pf, ln); lp = po->prec; continue; }
             break;
         }
         if (lp > (op->assoc == ASSOC_LEFT ? op->prec : op->prec - 1)) break;
@@ -919,7 +935,7 @@ static tree_t *pt_term(Parser *p, TreeScope *ts, int max_prec) {
         int rprec = (op->assoc == ASSOC_RIGHT) ? op->prec : op->prec - 1;
         tree_t *rhs = pt_term(p, ts, rprec);
         if (!rhs) break;
-        tree_t *node = pt_stamp(pt_binop(op->name, lhs, rhs), ln);
+        tree_t *node = pt_span2(pt_stamp(pt_binop(op->name, lhs, rhs), ln), lhs, rhs);
         lhs = node; lp = op->prec;
     }
     p->prec = 0;
@@ -4082,6 +4098,8 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     pl_parse_loop(&p, prog);
     prog->nerrors = p.nerrors;
     prog->synerr = p.synerr;
+    prog->cm = p.lx.cm;
+    prog->ncm = p.lx.ncm;
     prog->src = src;
     prog->filename = filename;
     prog->quiet = quiet;

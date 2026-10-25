@@ -85,7 +85,7 @@ static inline tree_e augop_binop_tt(int a) {
     }
 }
 typedef struct tree_t tree_t;
-struct tree_t { tree_e t; union { char * sval; long long ival; double dval; } v; int n; tree_t ** c; int line; int slen; };
+struct tree_t { tree_e t; int start; union { char * sval; long long ival; double dval; } v; int n; int end; tree_t ** c; int line; int slen; };
 #include <stdlib.h>
 #include "ct_arena.h"
 #include <string.h>

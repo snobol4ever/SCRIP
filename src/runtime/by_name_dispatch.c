@@ -8701,7 +8701,7 @@ PL_CX_LEAF_HEAD(skip, 1)
         if (v.v == (DTYPE_t)DT_I) { do { c = fgetc(f); } while (c != EOF && c != (int)v.i); ok = 1; }
     }
 PL_CX_LEAF_TAIL
-typedef struct { const char **nm; DESCR_t *v; int *cnt; int *hs; int n; int cap; unsigned hmask; const char *err; } pl_vtab_t;
+typedef struct { const char **nm; DESCR_t *v; int *cnt; int *hs; int n; int cap; unsigned hmask; const char *err; const tree_t *tr; const char *src; int shift; const int *cm; int ncm; } pl_vtab_t;
 #define PL_SYNERR(vt) ((vt).err ? (vt).err : "cannot_start_term")
 static int pl_vt_occ(const tree_t *t) { int c = 0; if (!t) return 0; if (t->t == TT_VAR) c++; for (int i = 0; i < t->n; i++) c += pl_vt_occ(t->c[i]); return c; }
 static unsigned pl_vt_hash(const char *s) { unsigned h = 2166136261u; for (; *s; s++) h = (h ^ (unsigned char)*s) * 16777619u; return h; }
@@ -8949,6 +8949,9 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
     char *text;
     size_t e;
     vt->err = (const char *)0;
+    vt->tr = (const tree_t *)0;
+    vt->cm = (const int *)0;
+    vt->ncm = 0;
     if (pl_text_is_blank(txt)) { vt->n = 0; if (pg_out) *pg_out = (PlProgram *)0; *out = pl_mk_atom("end_of_file"); return 1; }
     text = (char *)rt_wsb_alloc(L + 20);
     if (pl_text_is_unbalanced(txt)) return 0;
@@ -8973,6 +8976,11 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
         if (!pg || pg->nerrors || !tr || tr->t != TT_FNC || tr->n != 1) { if (pg) vt->err = pg->synerr; return 0; }
         pl_vt_init(vt, pl_vt_occ(tr->c[0]));
         *out = pl_tree_cell(tr->c[0], vt);
+        vt->tr = tr->c[0];
+        vt->src = text;
+        vt->shift = 7;
+        vt->cm = pg->cm;
+        vt->ncm = pg->ncm;
         return 1;
     }
 }
@@ -9032,6 +9040,84 @@ PL_CX_LEAF_HEAD(atom_to_term, 3)
         }
     }
 PL_CX_LEAF_TAIL
+extern int prolog_token_extent(const char *, int, int, int *, int *);
+static int pl_pos_off(const pl_vtab_t *vt, int off) { int c = 0; for (int i = 0; i < off && vt->src[i]; i++) if (((unsigned char)vt->src[i] & 0xC0) != 0x80) c++; return c - vt->shift; }
+static DESCR_t pl_pos_cmp(const char *nm, int ar, const DESCR_t *kids) {
+    extern int prolog_atom_intern(const char *);
+    DESCR_t *k = (DESCR_t *)rt_ws_alloc_descr(ar);
+    DESCR_t c = {0};
+    for (int i = 0; i < ar; i++) k[i] = kids[i];
+    c.v = (DTYPE_t)DT_PLREF;
+    c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(nm), ar);
+    c.p = (void *)k;
+    return c;
+}
+static DESCR_t pl_pos_ft(const pl_vtab_t *vt, int a, int b) { DESCR_t k[2] = { INTVAL((int64_t)pl_pos_off(vt, a)), INTVAL((int64_t)pl_pos_off(vt, b)) }; return pl_pos_cmp("-", 2, k); }
+static DESCR_t pl_pos_term(const pl_vtab_t *vt, const tree_t *n) {
+    DESCR_t k[5];
+    if (!n || n->end <= n->start) return pl_pos_ft(vt, 0, 0);
+    int a = n->start, b = n->end;
+    if (n->t == TT_DQLIT || (n->t == TT_MAKELIST && vt->src[a] == '`')) {
+        k[0] = INTVAL((int64_t)pl_pos_off(vt, a));
+        k[1] = INTVAL((int64_t)pl_pos_off(vt, b));
+        return pl_pos_cmp("string_position", 2, k);
+    }
+    if (n->t == TT_MAKELIST && n->n > 0) {
+        int nel = n->v.ival ? n->n - 1 : n->n;
+        DESCR_t el[nel > 0 ? nel : 1];
+        for (int i = 0; i < nel; i++) el[i] = pl_pos_term(vt, n->c[i]);
+        k[0] = INTVAL((int64_t)pl_pos_off(vt, a));
+        k[1] = INTVAL((int64_t)pl_pos_off(vt, b));
+        k[2] = pl_list_from_arr(el, nel);
+        k[3] = n->v.ival ? pl_pos_term(vt, n->c[n->n - 1]) : pl_mk_atom("none");
+        return pl_pos_cmp("list_position", 4, k);
+    }
+    if (n->t == TT_FNC && n->v.sval && n->n >= 1 && strcmp(n->v.sval, "$pl_big") && strcmp(n->v.sval, "$dict_lit") && strcmp(n->v.sval, "$dot")) {
+        if (!strcmp(n->v.sval, "{}") && n->n == 1) {
+            k[0] = INTVAL((int64_t)pl_pos_off(vt, a));
+            k[1] = INTVAL((int64_t)pl_pos_off(vt, b));
+            k[2] = pl_pos_term(vt, n->c[0]);
+            return pl_pos_cmp("brace_term_position", 3, k);
+        }
+        int fs = a, fe = a, ok;
+        int infix = n->n == 2 && n->c[0] && n->c[0]->start == a, postfix = n->n == 1 && n->c[0] && n->c[0]->start == a;
+        if (infix) ok = prolog_token_extent(vt->src, n->c[0]->end, 1, &fs, &fe);
+        else if (postfix) ok = prolog_token_extent(vt->src, n->c[0]->end, 1, &fs, &fe);
+        else ok = prolog_token_extent(vt->src, a, 0, &fs, &fe);
+        if (!ok) { fs = a; fe = a; }
+        DESCR_t av[n->n];
+        for (int i = 0; i < n->n; i++) av[i] = pl_pos_term(vt, n->c[i]);
+        k[0] = INTVAL((int64_t)pl_pos_off(vt, a));
+        k[1] = INTVAL((int64_t)pl_pos_off(vt, b));
+        k[2] = INTVAL((int64_t)pl_pos_off(vt, fs));
+        k[3] = INTVAL((int64_t)pl_pos_off(vt, fe));
+        k[4] = pl_list_from_arr(av, n->n);
+        return pl_pos_cmp("term_position", 5, k);
+    }
+    return pl_pos_ft(vt, a, b);
+}
+static DESCR_t pl_pos_comments(const pl_vtab_t *vt) {
+    int nc = vt->ncm / 2;
+    DESCR_t el[nc > 0 ? nc : 1];
+    int ne = 0;
+    for (int i = 0; i < nc; i++) {
+        int a = vt->cm[2 * i], b = vt->cm[2 * i + 1], line = 0, lstart = vt->shift;
+        char tx[(b > a ? b - a : 0) + 1];
+        DESCR_t sp[4], pr[2];
+        for (int j = vt->shift; j < a; j++) if (vt->src[j] == '\n') { line++; lstart = j + 1; }
+        if (a < vt->shift) continue;
+        memcpy(tx, vt->src + a, (size_t)(b - a));
+        tx[b - a] = 0;
+        sp[0] = INTVAL((int64_t)pl_pos_off(vt, a));
+        sp[1] = INTVAL((int64_t)line);
+        sp[2] = INTVAL((int64_t)(pl_pos_off(vt, a) - pl_pos_off(vt, lstart)));
+        sp[3] = INTVAL((int64_t)0);
+        pr[0] = pl_pos_cmp("$stream_position", 4, sp);
+        pr[1] = rt_pl_make_string_cell(tx);
+        el[ne++] = pl_pos_cmp("-", 2, pr);
+    }
+    return pl_list_from_arr(el, ne);
+}
 static int pl_read_term_options_cell(DESCR_t opts, pl_vtab_t *vt, pl_tr_ctx_t *cx) {
     extern int prolog_atom_intern(const char *);
     DESCR_t o = rt_pl_deref_val(opts);
@@ -9042,6 +9128,8 @@ static int pl_read_term_options_cell(DESCR_t opts, pl_vtab_t *vt, pl_tr_ctx_t *c
             DESCR_t *oa = (DESCR_t *)opt.p;
             int fid = plc_fid_name(opt.slen);
             int is_vars = fid == prolog_atom_intern("variables"), is_vn = fid == prolog_atom_intern("variable_names"), is_sing = fid == prolog_atom_intern("singletons");
+            if (fid == prolog_atom_intern("subterm_positions") && vt->tr && !plw_unify_vals(oa[0], pl_pos_term(vt, vt->tr), cx)) return 0;
+            if (fid == prolog_atom_intern("comments") && vt->tr && !plw_unify_vals(oa[0], pl_pos_comments(vt), cx)) return 0;
             if (is_vars || is_vn || is_sing) {
                 gv_t el;
                 int n = 0;
@@ -9177,7 +9265,7 @@ PL_CX_LEAF_HEAD(read_term_opts, 2)
             long off0 = ftell(fh_cur_in_fp());
             got = pl_read_term_text(&text, &tn);
             se = (const char *)0;
-            if (got == 0) { vt.n = 0; ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx) && pl_read_term_options_cell(args[1], &vt, cx); break; }
+            if (got == 0) { vt.n = 0; vt.tr = (const tree_t *)0; vt.ncm = 0; ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx) && pl_read_term_options_cell(args[1], &vt, cx); break; }
             if (got < 0) { cx->ball = rt_pl_ball_kind1("syntax_error", "term_too_long"); ok = 0; break; }
             if (got != 1) se = "end_of_file";
             else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) se = PL_SYNERR(vt);

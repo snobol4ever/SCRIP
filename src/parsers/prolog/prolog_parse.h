@@ -25,9 +25,12 @@ typedef struct {
     const char *filename;
     int       quiet;
     const char *synerr;
+    int      *cm;
+    int       ncm;
 } PlProgram;
 void prolog_preprocess(PlProgram *prog);
 void prolog_fold_pieces(tree_t *t);
+int prolog_token_extent(const char *src, int from, int skip_close, int *tstart, int *tend);
 PlProgram *prolog_parse(const char *src, const char *filename);
 void prolog_inject_prelude(PlProgram *prog, const char *user_src);
 void prolog_rewrite_incremental_dynamics(PlProgram *prog);

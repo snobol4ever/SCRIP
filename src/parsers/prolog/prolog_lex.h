@@ -36,6 +36,8 @@ typedef struct {
     int     big;
     int     adj;
     int     len;
+    int     start;
+    int     end;
     struct tree_t *pc;
 } Token;
 typedef struct {
@@ -53,6 +55,11 @@ typedef struct {
     int         run0;
     int         iso;
     int         swi;
+    int         tstart;
+    int         last_end;
+    int        *cm;
+    int         ncm;
+    int         ccm;
 } Lexer;
 void lexer_init(Lexer *lx, const char *src);
 Token lexer_next(Lexer *lx);
