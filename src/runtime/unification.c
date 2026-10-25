@@ -355,10 +355,11 @@ static int plc_is_op_atom(pl_cell_t *d) {
     return nid >= 0 && (plc_op_info_id(nid, 2, &p, &l, &r) || plc_op_info_id(nid, 1, &p, &l, &r));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numbervars) {
+static int plc_first_char_d(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, long dl) {
     pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0;
     int pr = 0, lm = 0, rm = 0;
     if (!d) return '[';
+    if (dl <= 0) return '.';
     if (pl_cell_unbound(d)) return '_';
     if ((int)d->v == DT_I) return d->i < 0 ? '-' : '0';
     if ((int)d->v == DT_R) return signbit(d->r) && !isnan(d->r) ? '-' : '0';
@@ -386,22 +387,25 @@ static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numberva
         if (!ignore_ops && ar == 1 && !strcmp(fn, "{}")) return '{';
         if (!ignore_ops && (ar == 1 || ar == 2) && plc_op_info_id(nid, ar, &pr, &lm, &rm)) {
             if (pr > 1200) return (unsigned char)fn[0];
-            if (ar == 2 && plc_is_op_atom(pl_deref(&aa[0]))) return '(';
-            if (ar == 2 || plc_op_is_postfix_id(nid)) return plc_first_char(&aa[0], quoted, ignore_ops, numbervars);
+            if (ar == 2 && dl > 1 && plc_is_op_atom(pl_deref(&aa[0]))) return '(';
+            if (ar == 2 || plc_op_is_postfix_id(nid)) return plc_first_char_d(&aa[0], quoted, ignore_ops, numbervars, dl - 1);
             return (quoted && plc_atom_needs_quoting(fn)) ? '\'' : (unsigned char)fn[0];
         }
         return (quoted && plc_atom_needs_quoting(fn)) ? '\'' : (unsigned char)fn[0];
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numbervars) { return plc_first_char_d(c, quoted, ignore_ops, numbervars, LONG_MAX); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_alpha_glue(int ch) { return isalnum((unsigned char)ch) || ch == '_' || ch >= 0x80; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plc_last_char(pl_cell_t *c, int quoted, int ignore_ops, int numbervars) {
+static int plc_last_char_d(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, long dl) {
     pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0;
     int pr = 0, lm = 0, rm = 0, ar, nid;
     const char *fn, *n;
     pl_cell_t *aa;
     if (!d) return ']';
+    if (dl <= 0) return '.';
     if (pl_cell_unbound(d) || (int)d->v == DT_I || (int)d->v == DT_R || (int)d->v == DT_BIG || pl_rat_is(*d)) return '0';
     if ((int)d->v == DT_S) { n = plc_atom_text(d); return quoted ? '"' : (n[0] ? (unsigned char)n[strlen(n) - 1] : ' '); }
     if ((int)d->v == DT_PLATOM) { n = plc_atom_text(d); if (!n[0]) return quoted ? '\'' : ' '; return (quoted && plc_atom_needs_quoting(n)) ? '\'' : (unsigned char)n[strlen(n) - 1]; }
@@ -417,8 +421,10 @@ static int plc_last_char(pl_cell_t *c, int quoted, int ignore_ops, int numbervar
     if (ignore_ops || (ar != 1 && ar != 2) || !plc_op_info_id(nid, ar, &pr, &lm, &rm)) return ')';
     if (ar == 1 && plc_op_is_postfix_id(nid)) return (unsigned char)fn[strlen(fn) - 1];
     aa = ar == 2 ? &aa[1] : &aa[0];
-    return (plc_is_op_atom(pl_deref(aa)) || plc_term_prio(aa, ignore_ops) > rm) ? ')' : plc_last_char(aa, quoted, ignore_ops, numbervars);
+    if (dl <= 1) return '.';
+    return (plc_is_op_atom(pl_deref(aa)) || plc_term_prio(aa, ignore_ops) > rm) ? ')' : plc_last_char_d(aa, quoted, ignore_ops, numbervars, dl - 1);
 }
+static int plc_last_char(pl_cell_t *c, int quoted, int ignore_ops, int numbervars) { return plc_last_char_d(c, quoted, ignore_ops, numbervars, LONG_MAX); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { long k; pl_cell_t *p; } plc_wsref;
 static DESCR_t *plc_ws_vec(const pl_tr_ctx_t *cx) { return (cx && cx->tr) ? *(DESCR_t **)pl_tr_wslot_slot(pl_tr_base_of(cx->tr)) : (DESCR_t *)0; }
@@ -556,9 +562,9 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
         for (;;) {
             pl_cell_t *ca = (pl_cell_t *)cur->p;
             pl_cell_t *tl;
-            if (max_depth > 0 && n >= max_depth) { fprintf(fp, "|..."); break; }
+            if (max_depth > 0 && n > 0 && depth + 1 + n >= max_depth) { fprintf(fp, "|..."); break; }
             if (n) fputs(m->space_args ? ", " : ",", fp);
-            PLC_KID(&ca[0], depth, 999);
+            PLC_KID(&ca[0], depth + 1 + n, 999);
             n++;
             if (wx) { cur = plc_wsref_get(wx, &rc); tort = plc_wsref_get(wx, &rtt); ca = (pl_cell_t *)cur->p; }
             tl = pl_deref(&ca[1]);
@@ -569,7 +575,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                 if (wx) { plc_wsref_set(wx, &rc, cur); plc_wsref_set(wx, &rtt, tort); }
                 continue;
             }
-            if (!plc_is_nil(tl)) { fputc('|', fp); PLC_KID(tl, depth, 999); }
+            if (!plc_is_nil(tl)) { if (max_depth > 0 && depth + 1 + n >= max_depth) fputs("|...", fp); else { fputc('|', fp); PLC_KID(tl, depth + 1 + n, 999); } }
             break;
         }
         fputc(']', fp);
@@ -608,18 +614,20 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
     {
         int op_prec = 0, lmax = 0, rmax = 0;
         if (!ignore_ops && (ar == 1 || ar == 2) && plc_op_info(fn, ar, &op_prec, &lmax, &rmax)) {
+            long kdl = max_depth > 0 ? max_depth - (depth + 1) : LONG_MAX;
+            int kel = kdl <= 0;
             int wrap = op_prec > maxp;
             if (wrap) fputc('(', fp);
             if (ar == 2) {
-                int lop = plc_is_op_atom(pl_deref(&aa[0])), rop = plc_is_op_atom(pl_deref(&aa[1]));
+                int lop = !kel && plc_is_op_atom(pl_deref(&aa[0])), rop = !kel && plc_is_op_atom(pl_deref(&aa[1]));
                 if (lop) fputc('(', fp);
                 PLC_KID(&aa[0], depth+1, lop ? 1200 : lmax);
                 if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
                 if (lop) fputc(')', fp);
                 if (isalnum((unsigned char)fn[0]) || fn[0] == '_') {
                     if (rt_pl_dialect_swi() && !m->space_args) {
-                        int lead = plc_alpha_glue((lop || plc_term_prio(&aa[0], ignore_ops) > lmax) ? ')' : plc_last_char(&aa[0], quoted, ignore_ops, numbervars));
-                        int rf = (rop || plc_term_prio(&aa[1], ignore_ops) > rmax) ? '(' : plc_first_char(&aa[1], quoted, ignore_ops, numbervars);
+                        int lead = plc_alpha_glue((lop || (!kel && plc_term_prio(&aa[0], ignore_ops) > lmax)) ? ')' : plc_last_char_d(&aa[0], quoted, ignore_ops, numbervars, kdl));
+                        int rf = (rop || (!kel && plc_term_prio(&aa[1], ignore_ops) > rmax)) ? '(' : plc_first_char_d(&aa[1], quoted, ignore_ops, numbervars, kdl);
                         fprintf(fp, "%s%s%s", lead ? " " : "", fn, (lead || plc_alpha_glue(rf)) ? " " : "");
                     } else fprintf(fp, " %s ", fn);
                 } else if (!strcmp(fn, ",") || !strcmp(fn, "|")) {
@@ -632,31 +640,32 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                 } else if (!fn[0] && !quoted) {
                     fputc(' ', fp);
                 } else {
-                    int lglue = !lop && plc_is_graphic_char((unsigned char)fn[0]) && plc_term_prio(&aa[0], ignore_ops) <= lmax &&
-                        plc_is_graphic_char(plc_last_char(&aa[0], quoted, ignore_ops, numbervars));
+                    int lglue = !lop && plc_is_graphic_char((unsigned char)fn[0]) && (kel || plc_term_prio(&aa[0], ignore_ops) <= lmax) &&
+                        plc_is_graphic_char(plc_last_char_d(&aa[0], quoted, ignore_ops, numbervars, kdl));
                     if (lglue) fputc(' ', fp);
                     plc_wt_atom(fp, fn, quoted);
-                    if (lglue || (!rop && plc_is_graphic_char(plc_first_char(&aa[1], quoted, ignore_ops, numbervars)))) fputc(' ', fp);
+                    if (lglue || (!rop && (kel || plc_term_prio(&aa[1], ignore_ops) <= rmax) && plc_is_graphic_char(plc_first_char_d(&aa[1], quoted, ignore_ops, numbervars, kdl)))) fputc(' ', fp);
                 }
                 if (rop) fputc('(', fp);
                 PLC_KID(&aa[1], depth+1, rop ? 1200 : rmax);
                 if (rop) fputc(')', fp);
             } else if (plc_op_is_postfix(fn)) {
-                int lglue = plc_is_graphic_char((unsigned char)fn[0]) && plc_term_prio(&aa[0], ignore_ops) <= lmax && plc_is_graphic_char(plc_last_char(&aa[0], quoted, ignore_ops, numbervars));
+                int lglue = plc_is_graphic_char((unsigned char)fn[0]) && (kel || plc_term_prio(&aa[0], ignore_ops) <= lmax) &&
+                    plc_is_graphic_char(plc_last_char_d(&aa[0], quoted, ignore_ops, numbervars, kdl));
                 PLC_KID(&aa[0], depth+1, lmax);
                 if (isalnum((unsigned char)fn[0]) || fn[0] == '_') fprintf(fp, " %s", fn);
                 else { if (lglue) fputc(' ', fp); plc_wt_atom(fp, fn, quoted); }
             } else {
                 {
                     pl_cell_t *a0 = pl_deref(&aa[0]);
-                    int ap = plc_term_prio(a0, ignore_ops);
+                    int ap = kel ? 0 : plc_term_prio(a0, ignore_ops);
                     int alnum_op = isalnum((unsigned char)fn[0]) || fn[0] == '_';
                     extern int rt_big_sign(DESCR_t);
-                    int a_num = ((int)a0->v == DT_I && a0->i >= 0) || ((int)a0->v == DT_R && a0->r >= 0) || ((int)a0->v == DT_BIG && rt_big_sign(*a0) >= 0);
-                    int a_opatom = plc_is_op_atom(a0);
-                    int a_digit = !strcmp(fn, "-") && isdigit(plc_first_char(a0, quoted, ignore_ops, numbervars));
+                    int a_num = !kel && (((int)a0->v == DT_I && a0->i >= 0) || ((int)a0->v == DT_R && a0->r >= 0) || ((int)a0->v == DT_BIG && rt_big_sign(*a0) >= 0));
+                    int a_opatom = !kel && plc_is_op_atom(a0);
+                    int a_digit = !kel && !strcmp(fn, "-") && isdigit(plc_first_char(a0, quoted, ignore_ops, numbervars));
                     int needp = (ap > rmax) || a_opatom || (a_num && !strcmp(fn, "-")) || a_digit;
-                    int sep = needp || (!alnum_op && plc_is_graphic_char(plc_first_char(&aa[0], quoted, ignore_ops, numbervars)));
+                    int sep = needp || (!alnum_op && plc_is_graphic_char(plc_first_char_d(&aa[0], quoted, ignore_ops, numbervars, kdl)));
                     if (alnum_op) fprintf(fp, "%s ", fn);
                     else plc_wt_atom(fp, fn, quoted);
                     if ((sep || m->space_args) && !alnum_op) fputc(' ', fp);
