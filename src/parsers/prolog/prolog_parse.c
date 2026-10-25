@@ -3660,7 +3660,8 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
             for (PlClause *cl = lp[i]->head; cl; cl = cl->next, j++) {
                 const char *cn;
                 int car;
-                if (pl_clause_is_directive(cl) || pl_clause_is_attv_hook(cl)) { mk[i][j] = 1; pl_clause_collect_refs(cl, &r); }
+                int hook = pl_clause_is_directive(cl) || pl_clause_is_attv_hook(cl) || (pl_clause_key(cl, &cn, &car) && cn && car == 3 && !strcmp(cn, "exception"));
+                if (hook) { mk[i][j] = 1; pl_clause_collect_refs(cl, &r); }
                 else if (pl_clause_key(cl, &cn, &car) && cn) pl_ri_put(ri, &nr, hd, hc, cn, car, i, j, cl);
             }
         }
