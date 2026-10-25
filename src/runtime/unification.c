@@ -387,8 +387,8 @@ static int plc_first_char_d(pl_cell_t *c, int quoted, int ignore_ops, int number
             if ((int)n->v == DT_I) return 'A';
             if ((int)n->v == DT_PLATOM || (int)n->v == DT_S) { const char *t = plc_atom_text(n); return t ? (unsigned char)*t : 0; }
         }
-        if (!ignore_ops && plc_fid_name(d->slen) == g_runtime.atoms.atom_dot && ar == 2) return '[';
-        if (!ignore_ops && ar == 1 && !strcmp(fn, "{}")) return '{';
+        if ((!ignore_ops || (ignore_ops & 2)) && plc_fid_name(d->slen) == g_runtime.atoms.atom_dot && ar == 2) return '[';
+        if ((!ignore_ops || (ignore_ops & 4)) && ar == 1 && !strcmp(fn, "{}")) return '{';
         if (!ignore_ops && (ar == 1 || ar == 2) && plc_op_info_id(nid, ar, &pr, &lm, &rm)) {
             if (pr > 1200) return (unsigned char)fn[0];
             if (ar == 2 && dl > 1 && plc_is_op_atom(pl_deref(&aa[0]))) return '(';
@@ -420,8 +420,8 @@ static int plc_last_char_d(pl_cell_t *c, int quoted, int ignore_ops, int numberv
     aa = (pl_cell_t *)d->p;
     if (!fn || !fn[0]) return ')';
     if (numbervars && ar == 1 && !strcmp(fn, "$VAR")) return 'a';
-    if (!ignore_ops && nid == g_runtime.atoms.atom_dot && ar == 2) return ']';
-    if (!ignore_ops && ar == 1 && !strcmp(fn, "{}")) return '}';
+    if ((!ignore_ops || (ignore_ops & 2)) && nid == g_runtime.atoms.atom_dot && ar == 2) return ']';
+    if ((!ignore_ops || (ignore_ops & 4)) && ar == 1 && !strcmp(fn, "{}")) return '}';
     if (ignore_ops || (ar != 1 && ar != 2) || !plc_op_info_id(nid, ar, &pr, &lm, &rm)) return ')';
     if (ar == 1 && plc_op_is_postfix_id(nid)) return (unsigned char)fn[strlen(fn) - 1];
     aa = ar == 2 ? &aa[1] : &aa[0];
@@ -556,7 +556,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
         pl_cell_t *n = pl_deref(&aa[0]);
         if ((int)n->v == DT_PLATOM || (int)n->v == DT_S) { const char *vn = plc_atom_text(n); fprintf(fp, "%s", vn ? vn : "_"); return; }
     }
-    if (ignore_ops != 1 && fnid == g_runtime.atoms.atom_dot && ar == 2) {
+    if ((!ignore_ops || (ignore_ops & 2)) && fnid == g_runtime.atoms.atom_dot && ar == 2) {
         extern void *rt_pl_ball_kind1(const char *, const char *);
         pl_cell_t *cur = d;
         long n = 0;
@@ -602,7 +602,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
         fputc('}', fp);
         return;
     }
-    if (!ignore_ops && ar == 1 && strcmp(fn, "{}") == 0) { fputs(m->space_args ? "{ " : "{", fp); PLC_KID(&aa[0], depth+1, 1200); fputs(m->space_args ? " }" : "}", fp); return; }
+    if ((!ignore_ops || (ignore_ops & 4)) && ar == 1 && strcmp(fn, "{}") == 0) { fputs(m->space_args ? "{ " : "{", fp); PLC_KID(&aa[0], depth+1, 1200); fputs(m->space_args ? " }" : "}", fp); return; }
     if (!ignore_ops && ar == 2 && strcmp(fn, "{}") == 0 && plc_op_is_postfix(fn)) {
         pl_cell_t *b0 = pl_deref(&aa[0]);
         int pp = 0, lm = 0, rm = 0;
@@ -819,7 +819,7 @@ static void plc_write(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 0, 0, 1, 0, 0, 1200
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_writeq(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, 0, 1, 0, 0, 1200, m); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plc_write_canonical(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, PLC_WC_IGNORE_OPS, 0, 0, 0, 1200, m); }
+static void plc_write_canonical(pl_cell_t *c, plc_vmap *m) { plc_wt(c, 1, rt_pl_dialect_swi() ? 3 : PLC_WC_IGNORE_OPS, 0, 0, 0, 1200, m); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_atoms_ready(void) { extern void prolog_atom_init(void); if (g_runtime.atoms.atom_dot < 0) prolog_atom_init(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -935,7 +935,7 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
     m.popts = (pl_cell_t *)0;
     m.space_args = 0;
     m.next_arg = 0;
-    int quoted = 0, ignore_ops = 0, numbervars = 0, prio = 1200, noesc = 0, qna = 0, partial = 0, xesc = !rt_pl_flag_true("character_escapes_unicode");
+    int quoted = 0, ignore_ops = 0, numbervars = 0, prio = 1200, noesc = 0, qna = 0, partial = 0, xesc = !rt_pl_flag_true("character_escapes_unicode"), nolists = 0, nobraces = 0;
     long max_depth = 0;
     pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
     while (lst && (int)lst->v == DT_PLREF && plc_fid_arity(lst->slen) == 2) {
@@ -953,6 +953,8 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
                 pl_cell_t *a = pl_deref(&oa[0]);
                 if ((int)a->v == DT_I && a->i >= 0 && a->i <= 1200) prio = (int)a->i;
             } else if (on && !strcmp(on, "ignore_ops")) ignore_ops = plc_opt_is_true(o);
+            else if (on && (!strcmp(on, "no_lists") || !strcmp(on, "dotlists"))) nolists = plc_opt_is_true(o);
+            else if (on && !strcmp(on, "brace_terms")) nobraces = !plc_opt_is_true(o);
             else if (on && !strcmp(on, "numbervars")) numbervars = plc_opt_is_true(o);
             else if (on && !strcmp(on, "space_args")) m.space_args = plc_opt_is_true(o);
             else if (on && !strcmp(on, "spacing")) {
@@ -973,6 +975,7 @@ void *rt_pl_write_term_cell(void *term_cell, void *opts_cell, void *cxp) {
         }
         lst = pl_deref(&pair[1]);
     }
+    if (ignore_ops && rt_pl_dialect_swi()) ignore_ops = 1 | (nolists ? 0 : 2) | (nobraces ? 0 : 4);
     pl_cell_t *tt = pl_deref((pl_cell_t *)term_cell);
     int br = 0, p1 = 0, p2 = 0, lm, rm;
     if (partial && (int)tt->v == DT_PLATOM) { const char *an = plc_atom_text(tt); br = (plc_op_info(an, 1, &p1, &lm, &rm) && p1 > prio) || (plc_op_info(an, 2, &p2, &lm, &rm) && p2 > prio); }
