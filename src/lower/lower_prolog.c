@@ -2333,7 +2333,15 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 IR_t * qr;
                 cx->tail_pop = tpop;
                 cx->umod = (t->c[0]->v.sval && strcmp(t->c[0]->v.sval, "user")) ? t->c[0]->v.sval : "";
-                qr = goal(cx, t->c[1], γnext, ωfail, entry_out);
+                {
+                    const tree_t * ig = t->c[1];
+                    int qh = cx->umod[0] && ig->t == TT_FNC && ig->v.sval && !strcmp(ig->v.sval, "clause") && (ig->n == 2 || ig->n == 3) &&
+                        !(ig->c[0] && ig->c[0]->t == TT_FNC && ig->c[0]->v.sval && !strcmp(ig->c[0]->v.sval, ":"));
+                    if (qh) ig = ig->n == 2 ? pl_cc_fnc2("clause", pl_cc_fnc2(":", (tree_t *) pl_atom_goal(t->c[0]->v.sval), (tree_t *) ig->c[0]), (tree_t *) ig->c[1]) :
+                        pl_cc_fnc3("clause", pl_cc_fnc2(":", (tree_t *) pl_atom_goal(t->c[0]->v.sval), (tree_t *) ig->c[0]), (tree_t *) ig->c[1], (tree_t *) ig->c[2]);
+                    if (qh) cx->umod = sv;
+                    qr = goal(cx, ig, γnext, ωfail, entry_out);
+                }
                 cx->umod = sv;
                 return qr;
             }
@@ -4718,7 +4726,7 @@ static int pl_mq_dir_specs(const tree_t * s, const char ** keys, const char ** m
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_mq_var(int slot) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = slot; return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * pl_mq_wrapper(const char * key, const char * mask) {
+static tree_t * pl_mq_wrapper(const char * key, const char * mask, const char * mod) {
     const char * sl = strrchr(key, '/');
     int ar = atoi(sl + 1), q = ar;
     char tn[sl - key + 6];
@@ -4732,6 +4740,7 @@ static tree_t * pl_mq_wrapper(const char * key, const char * mask) {
         if (mask[i] != '1') { ast_push(call, pl_mq_var(i)); continue; }
         tree_t * g = ast_node_new(TT_FNC);
         g->v.sval = (char *) "$mq_arg";
+        ast_push(g, (tree_t *) pl_atom_goal(mod));
         ast_push(g, pl_mq_var(i));
         ast_push(g, pl_mq_var(q));
         ast_push(cl, g);
@@ -4750,9 +4759,8 @@ static const tree_t * pl_mq_rewrite(const tree_t * prog) {
     if (!nk) return prog;
     const char * keys[nk];
     const char * masks[nk];
-    unsigned char done[nk];
-    int nf = 0;
-    memset(done, 0, sizeof done);
+    const char * emitted[prog->n + 1];
+    int nf = 0, ne = 0;
     for (int i = 0; i < prog->n; i++) nf = pl_mq_dir_specs(prog->c[i], keys, masks, nf, nk);
     tree_t * np = ast_node_new(prog->t);
     np->v = prog->v;
@@ -4761,14 +4769,24 @@ static const tree_t * pl_mq_rewrite(const tree_t * prog) {
         const tree_t * s = prog->c[i];
         const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
         int k = -1;
-        if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && subj->v.sval) for (int j = 0; j < nf; j++) if (!strcmp(keys[j], subj->v.sval)) k = j;
+        const char * mod = "user";
+        char mb[subj && subj->v.sval ? strlen(subj->v.sval) + 1 : 1];
+        if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && subj->v.sval) {
+            const char * colon = strchr(subj->v.sval, ':');
+            for (int j = 0; j < nf; j++) {
+                if (!strcmp(keys[j], subj->v.sval)) k = j;
+                else if (colon && colon > subj->v.sval && !strcmp(colon + 1, keys[j])) { k = j; snprintf(mb, sizeof mb, "%.*s", (int)(colon - subj->v.sval), subj->v.sval); mod = mb; }
+            }
+        }
         if (k < 0) { ast_push(np, (tree_t *) s); continue; }
         tree_t * rn = pl_tree_copy(subj);
-        char b[strlen(keys[k]) + 6];
-        snprintf(b, sizeof b, "$mq %s", keys[k]);
+        char b[strlen(subj->v.sval) + 6];
+        snprintf(b, sizeof b, "$mq %s", subj->v.sval);
         rn->v.sval = (char *) lp_strdup(b);
         ast_push(np, pl_table_stmt(s, rn));
-        if (!done[k]) { done[k] = 1; ast_push(np, pl_table_stmt(s, pl_mq_wrapper(keys[k], masks[k]))); }
+        int dup = 0;
+        for (int e = 0; e < ne; e++) if (!strcmp(emitted[e], subj->v.sval)) dup = 1;
+        if (!dup) { emitted[ne++] = lp_strdup(subj->v.sval); ast_push(np, pl_table_stmt(s, pl_mq_wrapper(subj->v.sval, masks[k], mod))); }
     }
     return np;
 }
