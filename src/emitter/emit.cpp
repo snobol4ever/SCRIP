@@ -574,6 +574,8 @@ void xa_emit_csettab_rodata(void)
     csettab_reset();
 }
 int bb_slot_get(IR_t *nd);
+static void zrec_ck(int i, const char * col, long plan, long emit);
+static int zrec_cur(int n);
 #include "templates/bb/bb_templates.h"
 #include "emit_ir.h"
 #include "XA.h"
@@ -1090,6 +1092,10 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         }
         if (zd_scan_subject(nd) && _xn == nd->n_operands && _xn < g_emit.op_zcap) g_emit.op_zread_xf[_xn] = xop_frame_slot(zd_scan_subject(nd)); }
     for (int _zi = 0; _zi < g_emit.op_zcap; _zi++) if (g_emit.op_zread_xf[_zi] == -1 && g_emitter.g_zd_anchor[_zi] != -1) g_emit.op_zread_xf[_zi] = g_emitter.g_zd_anchor[_zi];
+    if (nd && zrec_cur(g_emitter.g_zd_n)) { int _ri = nidx(g_emitter.codegen_flat_chain_body_nodes, g_emitter.g_zd_n, nd);
+        if (_ri >= 0) { zeta_plan_t * _zr = g_emitter.g_zd_rec_p; zrec_ck(_ri, "home", _zr->home[_ri], g_emit.op_xf_off);
+            for (int _zi = 0; _zi <= nd->n_operands && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = planner_rec_read(_ri, _zi); if (!_rd) continue;
+                zrec_ck(_ri, "xf", _rd->xf, g_emit.op_zread_xf[_zi]); if (_zi < nd->n_operands) zrec_ck(_ri, "anchor", _rd->anchor, g_emitter.g_zd_anchor[_zi]); } } }
     g_emit.op_suspend_stmt_uclaim = 0;
     if (g_emitter.g_zd_stage) { g_emit.op_suspend_stmt_uclaim = g_emitter.g_zd_suspend_uclaim; g_emitter.g_zd_suspend_uclaim = 0;
         if (g_emitter.g_zd_grec_off != -1) { g_emit.op_xrec |= 4; g_emit.op_grec = g_emitter.g_zd_grec_off; g_emit.op_grec_pop = g_emitter.g_zd_grec_res; }
@@ -1125,6 +1131,11 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                         g_emit.op_zslot[_zi] = ((zd_k_own(_xs) >= 16 || zd_local_home_node(_xs)) && zd_plan_on_of(_xs)) ? nd_slot(_xs) : -1;
                     } }
                 g_emit.op_res_alias = (zd_k_own(nd) == 16 && !zd_icn_suspend(nd)) ? nd_slot(nd) : -1;
+                if (zrec_cur(g_emitter.g_zd_n)) { int _ri = nidx(g_emitter.codegen_flat_chain_body_nodes, g_emitter.g_zd_n, nd);
+                    if (_ri >= 0) { zeta_plan_t * _zr = g_emitter.g_zd_rec_p; zrec_ck(_ri, "alias", _zr->alias[_ri], g_emit.op_res_alias); zrec_ck(_ri, "cpa_s", _zr->cpa_s[_ri], g_emit.op_zcp_src);
+                        zrec_ck(_ri, "cpa_d", _zr->cpa_d[_ri], g_emit.op_zcp_dst); zrec_ck(_ri, "cpa_sx", _zr->cpa_sx[_ri], (g_emit.op_xrec & 1) ? g_emit.op_zcp_sxf : -1);
+                        for (int _zi = 0; _zi < g_emit.op_zslot_n && _zi < g_emit.op_zcap; _zi++) { const zrd_t * _rd = planner_rec_read(_ri, _zi);
+                            if (_rd) zrec_ck(_ri, "key", _rd->key, g_emit.op_zslot[_zi]); } } }
                 if (xf_diag_on()) { fprintf(stderr, "[ALIAS] %s res=%d nops=%d:", bb_op_name(nd->op), g_emit.op_res_alias, g_emit.op_zslot_n);
                     for (int _zi = 0; _zi < g_emit.op_zslot_n && _zi < g_emit.op_zcap; _zi++) { IR_t * _po = nd->operands[_zi];
                         fprintf(stderr, " [%d %s slot=%d on=%d k=%d zread=%d fr=%d xf=%d]", _zi, _po ? bb_op_name(_po->op) : "-", g_emit.op_zslot[_zi], _po ? zd_plan_on_of(_po) : -1,
@@ -3646,6 +3657,19 @@ static void emit_dump_homes(IR_t ** nodes, int n, const unsigned char * zon) {
     if (g && g->root_graph && g->standing_cells > 0)
         fprintf(stderr, "[HOMES] g=%d graph=%s standing=%d home=STANDING why=dynamic-predicate-root\n", gi, gn ? gn : "?", g->standing_cells);
 }
+static void zrec_ck(int i, const char * col, long plan, long emit) {
+    g_emitter.zrec_checked++;
+    if (plan == emit) return;
+    g_emitter.zrec_viol++;
+    extern const char * zls_graph_name_get(const IR_graph_t *);
+    const char * gn = g_emit_cfg ? zls_graph_name_get(g_emit_cfg) : (const char *)0;
+    fprintf(stderr, "[ZD-CHECK] RECORD graph=%s coordinate=absolute i=%d kind=%s col=%s plan=%ld emitter=%ld violations=1\n", gn ? gn : "?", i,
+        (i >= 0 && i < g_emitter.g_zd_n && g_emitter.codegen_flat_chain_body_nodes[i]) ? bb_op_name(g_emitter.codegen_flat_chain_body_nodes[i]->op) : "?", col, plan, emit);
+}
+static int zrec_cur(int n) {
+    zeta_plan_t * r = g_emitter.g_zd_rec_p;
+    return (g_emitter.zd_check__on > 0 && r && r->home && r->n == n && g_emitter.g_zd_nodes_p == g_emitter.codegen_flat_chain_body_nodes) ? 1 : 0;
+}
 static void dp_col(long v, long none) { if (v == none) printf(" -"); else printf(" %ld", v); }
 static void emit_dump_plan(const zeta_plan_t * pl, const char * prefix) {
     extern const char * zls_graph_name_get(const IR_graph_t *);
@@ -3667,11 +3691,8 @@ static void emit_dump_plan(const zeta_plan_t * pl, const char * prefix) {
         int ai = -1;
         for (int k = 0; g && k < g->n; k++) if (g->all[k] == nd) { ai = k; break; }
         int on = pl->on[i], K = zd_k(nd), X = pl->out[i], gp = pl->gp[i], wp = pl->wp[i];
-        int off = bb_slot_get(nd);
-        if (off < 0) off = nd_slot(nd);
-        if (zls_key_unbacked(g, off)) off = -1;
-        int xf = xop_frame_slot(nd), esc = nd->op == IR_TABLE_HDR && off >= 0;
-        const char * zeta = esc ? "ACT" : on ? (K > 0 ? (xf != -1 ? "SPINE+ACT" : "SPINE") : (xf != -1 ? "ACT" : "NONE")) : off < 0 ? "NONE" : xf != -1 ? "ACT" : "PRE";
+        int off = pl->lkey ? pl->lkey[i] : -1, xf = pl->home ? pl->home[i] : -1, esc = nd->op == IR_TABLE_HDR && off >= 0;
+        const char * zeta = zeta_name(pl->zeta ? (int)pl->zeta[i] : ZETA_NONE);
         long zoff = esc ? off : xf != -1 ? xf : (!on && off >= 0) ? off : LONG_MIN;
         int known = pl->xb && pl->xb[i] != INT_MIN;
         printf("PLAN_ROW i=%d all=%d kind=%s", i, ai, bb_op_name(nd->op));
@@ -3682,7 +3703,7 @@ static void emit_dump_plan(const zeta_plan_t * pl, const char * prefix) {
         printf(" %s", zeta);
         dp_col(zoff, LONG_MIN);
         dp_col((on && known) ? (long)pl->xb[i] + X : LONG_MIN, LONG_MIN);
-        dp_col(planner_retains(nd), LONG_MIN);
+        dp_col(pl->ret ? pl->ret[i] : planner_retains(nd), LONG_MIN);
         dp_col(pl->claim[i], -1);
         dp_col(on ? gp > 0 : LONG_MIN, LONG_MIN);
         dp_col(on ? gp : LONG_MIN, LONG_MIN);
@@ -4536,6 +4557,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   } } } { g_emitter.g_zd_ztail = 0;
                       if (zd_on[i] && (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_TO || g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_TO_BY)) { int _zttail = 0;
                   for (int _zt = i + 1; _zt < n; _zt++) { if (zd_on[_zt]) _zttail += zd_k(g_emitter.codegen_flat_chain_body_nodes[_zt]); } g_emitter.g_zd_ztail = _zttail; } }
+              if (zrec_cur(n)) { zeta_plan_t * _zr = g_emitter.g_zd_rec_p; zrec_ck(i, "tail", _zr->tail[i], g_emitter.g_zd_ztail);
+                  if (zd_on[i] || zd_gp[i] > 0 || zd_wp[i] > 0) { zrec_ck(i, "under", _zr->under[i], g_emitter.g_zd_zunder); zrec_ck(i, "pat", _zr->pat[i], g_emitter.g_zd_zpat);
+                      zrec_ck(i, "fc", _zr->fc[i], g_emitter.g_zd_zfc);
+                      zrec_ck(i, "grec_off", _zr->grec_off[i], g_emitter.g_zd_grec_off); zrec_ck(i, "wrec_off", _zr->wrec_off[i], g_emitter.g_zd_wrec_off);
+                      if (g_emitter.g_zd_grec_off != -1) zrec_ck(i, "grec_res", _zr->grec_res[i], g_emitter.g_zd_grec_res);
+                      if (g_emitter.g_zd_wrec_off != -1) zrec_ck(i, "wrec_res", _zr->wrec_res[i], g_emitter.g_zd_wrec_res);
+                      if (zd_on[i]) zrec_ck(i, "cpa_dx", _zr->cpa_dx[i], g_emitter.g_zd_cpdx); } }
               zd_ops_reserve(g_emitter.codegen_flat_chain_body_nodes[i]->n_operands + 1);
               for (int _zj = 0; _zj < g_emit.op_zcap; _zj++) { g_emitter.g_zd_read[_zj] = 0; g_emitter.g_zd_kind[_zj] = -1; g_emitter.g_zd_fread[_zj] = -1; }
               if (zd_on[i]) { int _no = zd_nops(g_emitter.codegen_flat_chain_body_nodes[i]);
@@ -4576,6 +4604,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   } if (getenv("SCRIP_ZPAT_DIAG"))
                       fprintf(stderr, "[SUBJ2] jh=%d js=%d zout_jh=%d zout_js=%d zon_js=%d staged=%d\n", _jh2, _js, zd_out[_jh2], zd_out[_js], zd_on[_js], g_emitter.g_zd_read[2]);
                   break; } } } }
+          if (zrec_cur(n)) { int _nn = g_emitter.codegen_flat_chain_body_nodes[i]->n_operands;
+              for (int _zj = 0; _zj <= _nn && _zj < g_emit.op_zcap; _zj++) { const zrd_t * _rd = planner_rec_read(i, _zj); if (!_rd) continue;
+                  zrec_ck(i, "dist", _rd->dist, g_emitter.g_zd_read[_zj]); zrec_ck(i, "fr", _rd->fr, g_emitter.g_zd_fread[_zj]); zrec_ck(i, "kind", _rd->kind, g_emitter.g_zd_kind[_zj]); } }
           if (g_emit_cfg && n_alt > 0) {
               if (otgt && otgt == g_emit_cfg->alt_fail && alt_step_lbl) node_ω = alt_step_lbl;
               if (gtgt && gtgt == g_emit_cfg->alt_fail && alt_step_lbl) node_γ = alt_step_lbl;

@@ -211,3 +211,158 @@ extern "C" void planner_act_visit(void (*fn)(const IR_t *, int, int, int)) {
     for (int j = 0; j < g->n; j++) if (g_emitter.g_act_units[(size_t)j] > 0 && g_emitter.g_act_slot[(size_t)j] != -1)
         fn(g->all[j], g_emitter.g_act_slot[(size_t)j], g_emitter.g_act_units[(size_t)j], g_emitter.g_act_cls[(size_t)j]);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int planner_retains_emitter_view(int op);
+extern "C" int zls_dj_retains(const IR_t * nd);
+int bb_slot_get(IR_t * nd);
+static int pcon_ready(const IR_graph_t * g) { return (g && g_emitter.g_pcon_g == g && g_emitter.g_pcon_all == g->all && g_emitter.g_pcon_n == g->n) ? 1 : 0; }
+static int ph_retk(int op) { return planner_retains_emitter_view(op); }
+void planner_consumers_build(const IR_graph_t * g) {
+    if (!g) return;
+    int n = g->n;
+    g_emitter.g_pcon_idx.clear();
+    for (int j = 0; j < n; j++) { const IR_t * c = g->all[j]; if (c && !g_emitter.g_pcon_idx.count(c)) g_emitter.g_pcon_idx[c] = j; }
+    std::vector<int> & off = g_emitter.g_pcon_off;
+    std::vector<int> last((size_t)n + 1, -1), at((size_t)n + 1, 0);
+    off.assign((size_t)n + 1, 0);
+    for (int j = 0; j < n; j++) {
+        const IR_t * c = g->all[j];
+        if (!c) continue;
+        for (int k = 0; k < c->n_operands; k++) {
+            const IR_t * o = c->operands[k];
+            if (!o || o == c) continue;
+            std::unordered_map<const IR_t *, int>::const_iterator t = g_emitter.g_pcon_idx.find(o);
+            if (t == g_emitter.g_pcon_idx.end() || last[(size_t)t->second] == j) continue;
+            last[(size_t)t->second] = j;
+            off[(size_t)t->second + 1]++;
+        }
+    }
+    for (int j = 0; j < n; j++) off[(size_t)j + 1] += off[(size_t)j];
+    std::vector<int> & con = g_emitter.g_pcon_con;
+    con.assign((size_t)(off[(size_t)n] > 0 ? off[(size_t)n] : 1), -1);
+    for (int j = 0; j <= n; j++) { last[(size_t)j] = -1; at[(size_t)j] = off[(size_t)j]; }
+    for (int j = 0; j < n; j++) {
+        const IR_t * c = g->all[j];
+        if (!c) continue;
+        for (int k = 0; k < c->n_operands; k++) {
+            const IR_t * o = c->operands[k];
+            if (!o || o == c) continue;
+            std::unordered_map<const IR_t *, int>::const_iterator t = g_emitter.g_pcon_idx.find(o);
+            if (t == g_emitter.g_pcon_idx.end() || last[(size_t)t->second] == j) continue;
+            last[(size_t)t->second] = j;
+            con[(size_t)at[(size_t)t->second]++] = j;
+        }
+    }
+    int fr = 0;
+    for (int j = 0; j < n && !fr; j++) { const IR_t * c = g->all[j]; if (c && (ph_retk((int)c->op) || ph_retk((int)ir_kind0(c)) || zls_dj_retains(c))) fr = 1; }
+    g_emitter.g_pcon_ret = fr; g_emitter.g_pcon_g = g; g_emitter.g_pcon_all = g->all; g_emitter.g_pcon_n = n;
+}
+int planner_consumers_of(const IR_graph_t * g, const IR_t * nd, const int ** con) {
+    *con = (const int *)0;
+    if (!g) return 0;
+    if (!pcon_ready(g)) planner_consumers_build(g);
+    if (!nd) return 0;
+    std::unordered_map<const IR_t *, int>::const_iterator t = g_emitter.g_pcon_idx.find(nd);
+    if (t == g_emitter.g_pcon_idx.end()) return 0;
+    int a = g_emitter.g_pcon_off[(size_t)t->second], b = g_emitter.g_pcon_off[(size_t)t->second + 1];
+    *con = g_emitter.g_pcon_con.data() + a;
+    return b - a;
+}
+int planner_graph_retains(const IR_graph_t * g) { if (!g) return 0; if (!pcon_ready(g)) planner_consumers_build(g); return g_emitter.g_pcon_ret; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int ph_xop_retains(const IR_t * t) { return t && (ph_retk((int)t->op) || ph_retk((int)ir_kind0(t)) || zls_dj_retains(t)); }
+static int ph_arms_retain(const IR_t * dj) {
+    int na = (int)IR_LIT(dj).ival;
+    if (dj->op != IR_DISJUNCTION || na <= 0 || dj->n_operands < 2 * na) return 0;
+    for (int a = 0; a < na; a++) {
+        const IR_t * t = dj->operands[2 * a];
+        for (int s = 0; t && t != dj && s < 256; s++) {
+            if (ph_xop_retains(t)) return 1;
+            t = zd_chase(t->γ.node);
+        }
+    }
+    return 0;
+}
+static int ph_walk_hazard(const IR_t * nd, const IR_t * c) {
+    int haz = 0;
+    const IR_t * t = zd_chase(nd->γ.node);
+    for (int s = 0; t && s < 4096; s++) {
+        if (t == c) return haz;
+        if (ph_xop_retains(t) || ph_arms_retain(t)) haz = 1;
+        t = zd_chase(t->γ.node);
+    }
+    return 0;
+}
+static int ph_consumer_hazard(const IR_graph_t * g, const IR_t * nd, const IR_t * c, int depth) {
+    if (ph_walk_hazard(nd, c)) return 1;
+    if (depth >= 4 || zd_k_own((IR_t *)c) != 0 || (c->op != IR_CONJUNCTION && c->op != IR_ASSIGN) || zd_icn_local_assign(c)) return 0;
+    const int * con;
+    int m = planner_consumers_of(g, c, &con);
+    for (int q = 0; q < m; q++) if (ph_consumer_hazard(g, nd, g->all[con[q]], depth + 1)) return 1;
+    return 0;
+}
+static int planner_home_icn(const IR_graph_t * g, const IR_t * nd) {
+    if (!nd || !g || !g->spine_cells || !planner_graph_retains(g)) return 0;
+    if (zls_frame_word_why(nd) == 1) return zls_off(nd) >= 0 ? 1 : 0;
+    if (zd_k_own((IR_t *)nd) != 16 && !zd_call_curmov(nd)) return 0;
+    if (zls_off(nd) < 0) return 0;
+    if (ph_retk((int)nd->op) || ph_retk((int)ir_kind0(nd))) return 1;
+    const int * con;
+    int m = planner_consumers_of(g, nd, &con);
+    for (int q = 0; q < m; q++) if (ph_consumer_hazard(g, nd, g->all[con[q]], 0)) return 1;
+    return 0;
+}
+static int planner_home_pl(const IR_graph_t * g, const IR_t * nd, IR_t ** nodes, int n, const int * claim, const int * xb) {
+    if (!nd || !g || !zls_g_resumable_frame(g) || !nodes || !claim || !xb) return 0;
+    if (zls_frame_word_why(nd) == 2) return zls_off(nd) >= 0 ? 1 : 0;
+    if (zd_k_own((IR_t *)nd) != 16 || !ir_node_produces_value(nd->op) || zls_off(nd) < 0) return 0;
+    int i = nidx(nodes, n, nd);
+    if (i < 0 || claim[i] < 0) return 0;
+    const int * con;
+    int m = planner_consumers_of(g, nd, &con);
+    for (int q = 0; q < m; q++) {
+        const IR_t * c = g->all[con[q]];
+        int k = nidx(nodes, n, c);
+        if (k < 0 || claim[k] < 0 || claim[k] == claim[i]) continue;
+        if (xb[k] == INT_MIN || xb[i] == INT_MIN) return 1;
+    }
+    return 0;
+}
+int planner_frame_slot_at(const IR_graph_t * g, const IR_t * nd, IR_t ** nodes, int n, const int * claim, const int * xb) {
+    if (zls_g_home_frame(g) ? (zls_frame_home(nd) || (g->spine_cells && nd && zls_home_why(nd) && zls_off(nd) >= 0)) : (planner_home_icn(g, nd) || planner_home_pl(g, nd, nodes, n, claim, xb)))
+        return zls_frame_off(g, nd);
+    return planner_act_value_slot(nd);
+}
+int planner_frame_slot(const IR_graph_t * g, const IR_t * nd) {
+    int pub = (g_emitter.g_zd_claim_p && g_emitter.g_zd_xb_p && g_emitter.g_zd_nodes_p == g_emitter.codegen_flat_chain_body_nodes) ? 1 : 0;
+    return planner_frame_slot_at(g, nd, pub ? g_emitter.g_zd_nodes_p : (IR_t **)0, pub ? g_emitter.g_zd_n : 0, pub ? g_emitter.g_zd_claim_p : (const int *)0,
+        pub ? g_emitter.g_zd_xb_p : (const int *)0);
+}
+int planner_read_distance(IR_t ** nodes, int n, const int * zarm, int i, int k, const int * zout, const int * xb) {
+    int xh = 0, xc = 0, xp = planner_read_extra(nodes, n, zarm, i, k);
+    if (xp >= 0) xh = xp;
+    else
+        for (int zm = i - 1; zm > k; zm--) {
+            if (nodes[zm]->op == IR_MATCH_END) { xc++; continue; }
+            if (xc > 0) { if (nodes[zm]->op == IR_MATCH_BEGIN) xc--; continue; }
+            if (planner_env_encloses(zarm, i, zm) && nodes[zm]->op == IR_MATCH_ALTERNATE) { xh += 32; continue; }
+            if (planner_env_encloses(zarm, i, zm) && nodes[zm]->op == IR_MATCH_FENCE1 && planner_act_slot(nodes[zm]) == -1) { xh += 16; continue; }
+            if (nodes[zm]->op == IR_MATCH_DEFER) { xh += 16; continue; }
+            if (nodes[zm]->op != IR_MATCH_BEGIN) continue;
+            xh += 64 + planner_act_extra(nodes[zm]);
+        }
+    int fok = 0, fd = zd_fam_delta(i, k, &fok);
+    return zout[i] - zout[k] + xh + ((xb && xb[i] != INT_MIN && xb[k] != INT_MIN) ? xb[i] - xb[k] : fd);
+}
+int planner_rec_home(const IR_t * nd) {
+    zeta_plan_t * r = g_emitter.g_zd_rec_p;
+    if (r && r->home && nd && g_emitter.g_zd_nodes_p == g_emitter.codegen_flat_chain_body_nodes && g_emitter.g_zd_n == r->n) { int i = nidx(g_emitter.g_zd_nodes_p, r->n, nd);
+        if (i >= 0) return r->home[i]; }
+    return planner_frame_slot(g_emit_cfg, nd);
+}
+const zrd_t * planner_rec_read(int i, int j) {
+    zeta_plan_t * r = g_emitter.g_zd_rec_p;
+    if (!r || !r->rd || !r->rdo || i < 0 || i >= r->n || j < 0 || r->rdo[i] + j >= r->rdo[i + 1]) return (const zrd_t *)0;
+    return &r->rd[r->rdo[i] + j];
+}
+const char * zeta_name(int z) { static const char * const nm[5] = { "NONE", "SPINE", "ACT", "SPINE+ACT", "PRE" }; return (z >= 0 && z < 5) ? nm[z] : "?"; }

@@ -45,6 +45,7 @@ typedef struct { IR_t * t; int d0; int nd; int multi; } zdw_ent_t;
 typedef struct { uint64_t pc; int32_t depth; uint16_t kind; uint16_t rule; int32_t zdepth, fcb, fcbase, demit; const char * bk; int mn; const IR_t * nd; } gc_site_t;
 typedef struct { int enc_kind, enc_depth; const IR_t * nd; } gc_match_lvl_t;
 typedef struct { const IR_t * nd; uint32_t gen; } ocr_slot_t;
+struct zeta_plan_t;
 struct g_emitter_t {
     int dump_homes = 0;
     int dump_plan = 0;
@@ -85,6 +86,13 @@ struct g_emitter_t {
     int g_zd_zarm_n = 0;
     std::vector<int> g_zd_djx;
     std::vector<unsigned char> g_zd_admit;
+    zeta_plan_t * g_zd_rec_p = (zeta_plan_t *)0;
+    int zrec_viol = 0, zrec_checked = 0;
+    const IR_graph_t * g_pcon_g = (const IR_graph_t *)0;
+    IR_t ** g_pcon_all = (IR_t **)0;
+    int g_pcon_n = 0, g_pcon_ret = 0;
+    std::vector<int> g_pcon_off, g_pcon_con;
+    std::unordered_map<const IR_t *, int> g_pcon_idx;
     std::vector<int> g_zd_upost;
     IR_t ** g_zd_djx_nodes = NULL;
     std::vector<int> g_zd_grec, g_zd_wrec, g_zd_grec_pop, g_zd_wrec_pop;

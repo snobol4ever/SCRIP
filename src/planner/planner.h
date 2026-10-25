@@ -1,5 +1,6 @@
 #include <vector>
 #include <unordered_map>
+struct zrd_t { int dist, xf, fr, key, kind, anchor; };
 struct zeta_plan_t {
     IR_t ** nodes;
     int n;
@@ -35,7 +36,37 @@ struct zeta_plan_t {
     std::unordered_map<const IR_t *, int> v_zst_sm;
     std::vector<unsigned char> zrm_bytes;
     std::vector<unsigned char> v_admit;
+    int * home;
+    unsigned char * zeta;
+    int * lkey;
+    int * alias;
+    int * under;
+    int * pat;
+    int * fc;
+    int * tail;
+    int * ret;
+    int * grec_off;
+    int * wrec_off;
+    int * grec_res;
+    int * wrec_res;
+    int * cpa_s;
+    int * cpa_d;
+    int * cpa_sx;
+    int * cpa_dx;
+    int * rdo;
+    zrd_t * rd;
+    int rdn;
 };
+enum { ZETA_NONE = 0, ZETA_SPINE = 1, ZETA_ACT = 2, ZETA_SPINE_ACT = 3, ZETA_PRE = 4 };
+const char * zeta_name(int z);
+int planner_frame_slot(const IR_graph_t * g, const IR_t * nd);
+int planner_frame_slot_at(const IR_graph_t * g, const IR_t * nd, IR_t ** nodes, int n, const int * claim, const int * xb);
+int planner_read_distance(IR_t ** nodes, int n, const int * zarm, int i, int k, const int * zout, const int * xb);
+int planner_graph_retains(const IR_graph_t * g);
+void planner_consumers_build(const IR_graph_t * g);
+int planner_consumers_of(const IR_graph_t * g, const IR_t * nd, const int ** con);
+int planner_rec_home(const IR_t * nd);
+const zrd_t * planner_rec_read(int i, int j);
 void planner_capture(zeta_plan_t * rec);
 void planner_restore(zeta_plan_t * rec);
 zeta_plan_t * planner_lookup_or_plan(IR_t * entry, const char * prefix);
