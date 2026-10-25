@@ -4531,6 +4531,8 @@ static int pl_db_define_absent(void *root, const char *key, int arity) {
     extern void * rt_pl_choice_new(const char *);
     extern void rt_pl_choice_add(void *, void *);
     extern int prolog_atom_intern(const char *);
+    extern int rt_proc_is_registered(const char *);
+    extern int pl_runtime_install_packet_entry(const char *, int, const char *);
     const char *sl;
     pl_cell_t *hargs;
     pl_cell_t head;
@@ -4550,6 +4552,9 @@ static int pl_db_define_absent(void *root, const char *key, int arity) {
     if (!key) return 0;
     sl = strrchr(key, '/');
     if (!sl) return 0;
+    char skey[fmt_len("%s@absent", key)];
+    snprintf(skey, sizeof skey, "%s@absent", key);
+    if (rt_proc_is_registered(skey)) return pl_runtime_install_packet_entry(key, arity, skey);
     int nid = prolog_atom_intern_n(key, (size_t)(sl - key));
     if (arity > 0) {
         hargs = (pl_cell_t *)PL_CELL_ALLOC((size_t)arity * sizeof(pl_cell_t));
@@ -4574,9 +4579,10 @@ static int pl_db_define_absent(void *root, const char *key, int arity) {
     raw = rt_pl_clause_tree((void *)&pair);
     cl = raw ? pl_runtime_clause_tree(raw) : (void *)0;
     if (!cl) return 0;
-    ch = rt_pl_choice_new(key);
+    ch = rt_pl_choice_new(skey);
     rt_pl_choice_add(ch, cl);
-    return pl_runtime_define_pred(key, ch, arity, root) ? 1 : 0;
+    if (!pl_runtime_define_pred(skey, ch, arity, root)) return 0;
+    return pl_runtime_install_packet_entry(key, arity, skey);
 }
 int rt_pl_db_abolish(void *root, void *db_v) {
     pl_db_t *db = (pl_db_t *)db_v;
