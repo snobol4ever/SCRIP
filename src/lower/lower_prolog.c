@@ -1811,6 +1811,12 @@ static const char * pl_head_key(const tree_t * a, int * ar_out) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_clause_unqual_head(tree_t * c) {
+    tree_t * h = (c && c->t == TT_FNC && c->v.sval && !strcmp(c->v.sval, ":-") && c->n == 2) ? c->c[0] : NULL;
+    if (h && h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && h->c[0] && h->c[0]->t != TT_VAR && h->c[1]) c->c[0] = h->c[1];
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_pi_is_static_builtin(const char * pn, int ar) {
     if (!pn) return 0;
     if (pl_decl_dyn_is(pn, ar)) return 0;
@@ -2935,6 +2941,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 ast_push(g2, t->c[0]->c[1]);
                 return goal(cx, g2, γnext, ωfail, entry_out);
             }
+            if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && (t->n == 1 || t->n == 2)) pl_clause_unqual_head(t->c[0]);
             if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && t->n == 1) {
                 int ar = 0;
                 const char * pn;
