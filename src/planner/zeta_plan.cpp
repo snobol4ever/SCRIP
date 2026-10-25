@@ -1570,6 +1570,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                 if (q < 0 || !zon[q]) continue;
                 if (nodes[q]->op != IR_DISJUNCTION || !zd_dj_anc(zarm, i, q)) {
                     if (zarm[q] == zarm[i] && zarmj[q] == zarmj[i]) continue;
+                    if (zchn && zchn[2 * i + v] >= 0 && zchn[2 * i + v] != q) continue;
                     int res = 0;
                     for (int j = 0, na = (int)IR_LIT(nodes[q]).ival; !v && nodes[q]->op == IR_DISJUNCTION && j < na && !res; j++)
                         res = zd_dj_res(nodes[q], j) == nodes[i] || (2 * na + j < nodes[q]->n_operands && nodes[q]->operands[2 * na + j] == nodes[i]);
