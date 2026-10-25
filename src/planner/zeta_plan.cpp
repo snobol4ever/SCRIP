@@ -301,12 +301,16 @@ static int zd_bcs_words(const IR_t * nd, int w) {
     return w;
 }
 int zd_k_own(IR_t * nd) {
-    int op = (int)nd->op;
+    const void * cfg = (const void *)g_emit_cfg; int serial = g_emit_cfg ? g_emit_cfg->serial : -1;
+    auto it = g_emitter.zd_kown.find(nd);
+    if (it != g_emitter.zd_kown.end() && it->second.cfg == cfg && it->second.serial == serial) return it->second.k;
+    int op = (int)nd->op, k = 16;
     for (size_t r = 0; r < sizeof box_cell_shapes / sizeof box_cell_shapes[0]; r++) {
         if ((box_cell_shapes[r].op >= 0 && box_cell_shapes[r].op != op) || !zd_bcs_when(nd, box_cell_shapes[r].when)) continue;
-        return zd_bcs_words(nd, box_cell_shapes[r].words);
+        k = zd_bcs_words(nd, box_cell_shapes[r].words); break;
     }
-    return 16;
+    g_emitter.zd_kown[nd] = g_emitter_t::zd_kown_t{ cfg, serial, k };
+    return k;
 }
 static int zd_map_on(void) { if (g_emitter.zd_map_on__m < 0) { const char * e = getenv("SCRIP_ZD_MAP"); g_emitter.zd_map_on__m = (e && *e == '1') ? 1 : 0; } return g_emitter.zd_map_on__m; }
 int zd_omega_test_kind(const IR_t * nd) { return (nd && nd->ω.node && ir_decides_own_failure_kind(nd->op)) ? 1 : 0; }
@@ -2168,6 +2172,7 @@ static void planner_report_at_exit(void) {
 static void planner_report_arm(void) { if (!g_emitter.planner_report_armed) { g_emitter.planner_report_armed = 1; if (getenv("SCRIP_PLANNER_REPORT")) atexit(planner_report_at_exit); } }
 void planner_pass_plan(IR_t * entry, const char * prefix) {
     planner_report_arm();
+    g_emitter.zd_kown.clear();
     zeta_plan_t * rec = planner_chain_plan(entry, prefix); rec->cfg = g_emit_cfg; rec->key = entry; g_emitter.planner_table[entry] = rec; g_emitter.planner_planned++;
 }
 int planner_entry_planned(const IR_t * entry) { return (entry && g_emitter.planner_table.find(entry) != g_emitter.planner_table.end()) ? 1 : 0; }
