@@ -52,7 +52,7 @@ static int hexval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a
 static int digval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a' && c <= 'z') return c - 'a' + 10; if (c >= 'A' && c <= 'Z') return c - 'A' + 10; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline Token tok(TkKind kind, char *text, int line) {
-    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0; t.adj = 0; t.len = -1; t.start = 0; t.end = 0; t.pc = (struct tree_t *)0;
+    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0; t.adj = 0; t.uni = 0; t.len = -1; t.start = 0; t.end = 0; t.pc = (struct tree_t *)0;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -60,10 +60,36 @@ static Token err_tok(int line, const char *msg) {
     return tok(TK_ERROR, ct_strdup(msg), line);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_u_nd_zero(unsigned c) {
+    static const unsigned nd[] = { 0x660, 0x6F0, 0x7C0, 0x966, 0x9E6, 0xA66, 0xAE6, 0xB66, 0xBE6, 0xC66, 0xCE6, 0xD66, 0xDE6, 0xE50, 0xED0, 0xF20, 0x1040, 0x1090, 0x17E0, 0x1810, 0x1946, 0x19D0, 0x1A80,
+        0x1A90, 0x1B50, 0x1BB0, 0x1C40, 0x1C50, 0xA620, 0xA8D0, 0xA900, 0xA9D0, 0xA9F0, 0xAA50, 0xABF0, 0xFF10, 0x104A0, 0x1D7CE, 0x1D7D8, 0x1D7E2, 0x1D7EC, 0x1D7F6 };
+    for (size_t k = 0; k < sizeof nd / sizeof *nd; k++) if (c >= nd[k] && c < nd[k] + 10) return (int)nd[k];
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int lx_udig(const char *q, int zs) {
+    int cp, n;
+    if ((unsigned char)*q < 0x80) return zs == 0 && is_digit(*q) ? 1 : 0;
+    n = u8_decode((const unsigned char *)q, &cp);
+    return n > 1 && zs > 0 && prolog_u_nd_zero((unsigned)cp) == zs ? n : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int lx_prev_udig(const char *from, const char *p, int zs) {
+    const char *q = p - 1;
+    while (q > from && ((unsigned char)*q & 0xC0) == 0x80) q--;
+    return lx_udig(q, zs) == (int)(p - q);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *span_text(const char *s, const char *e, int seps) {
-    if (!seps) return ct_strndup(s, (size_t)(e - s));
+    int hi = 0, cp, k, z;
+    for (const char *q = s; q < e; q++) if ((unsigned char)*q >= 0x80) { hi = 1; break; }
+    if (!seps && !hi) return ct_strndup(s, (size_t)(e - s));
     char *o = (char *)ct_alloc((size_t)(e - s) + 1); size_t n = 0;
-    for (; s < e; s++) if (*s != '_' && *s != ' ') o[n++] = *s;
+    while (s < e) {
+        if ((unsigned char)*s >= 0x80 && (k = u8_decode((const unsigned char *)s, &cp)) > 1 && (z = prolog_u_nd_zero((unsigned)cp)) >= 0) { o[n++] = (char)('0' + (cp - z)); s += k; continue; }
+        if (*s != '_' && *s != ' ') o[n++] = *s;
+        s++;
+    }
     o[n] = '\0';
     return o;
 }
@@ -168,7 +194,7 @@ int prolog_u_letter(const char *s, int *adv) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token lexer_scan(Lexer *lx) {
-    const char *p, *s; int line, seps = 0, radix = 0, ndig = 0, code = 0, st, c = 0, q = 0, n, uk; TkKind kind = TK_ATOM; Token t; char msg[32];
+    const char *p, *s; int line, seps = 0, zs = 0, radix = 0, ndig = 0, code = 0, st, c = 0, q = 0, n, uk; TkKind kind = TK_ATOM; Token t; char msg[32];
     if (lx->fenced) return tok(TK_EOF, (char *)"", lx->line);
     if (lx->has_peek) { lx->has_peek = 0; return lx->peek; }
     p = lx->src + lx->pos;
@@ -209,6 +235,9 @@ S_START:
     default:                                                         {  ADV(1);                                                                goto LX_UNEXPECTED; }
     }
 S_HI:
+    n = u8_decode((const unsigned char *)p, &code); zs = n > 1 ? prolog_u_nd_zero((unsigned)code) : -1;
+    if (zs >= 0)                                                     {  ADV(n);                                                                goto S_INT;         }
+                                                                     {  zs = 0;                                                                                    }
     uk = prolog_u_letter(p, &n);
     if (uk == 1)                                                     {  ADV(n);                                                                goto S_VAR;         }
     if (uk == 2)                                                     {  ADV(n);                                                                goto S_WORD;        }
@@ -237,19 +266,19 @@ S_UNDERSCORE:
     if (PEEK(0) >= 0x80 && prolog_u_letter(p, &n))                   {  ADV(n);                                                                goto S_VAR;         }
                                                                      {  SYNC(); return tok(TK_ANON, (char *)"_", line);                                            }
 S_INT:
-    if (is_digit(PEEK(0)))                                           {  ADV(1);                                                                goto S_INT;         }
+    if ((n = lx_udig(p, zs)))                                            {  ADV(n);                                                                goto S_INT;         }
     if (PEEK(0) == '_')                                              {  seps = 1; ADV(1);                                                      goto S_INT;         }
-    if (PEEK(0) == ' ' && is_digit(PEEK(1)))                         {  seps = 1; ADV(1);                                                      goto S_INT;         }
+    if (PEEK(0) == ' ' && lx_udig(p + 1, zs))                            {  seps = 1; ADV(1);                                                      goto S_INT;         }
     if (PEEK(0) == '\'')                                             {  radix = 0; for (const char *r = s; r < p && radix <= 36; r++) if (is_digit(*r)) radix = radix * 10 + (*r - '0');
                                                                         c = digval(PEEK(1)); if (radix >= 2 && radix <= 36 && c >= 0 && c < radix) { ADV(1); s = p; goto S_RDIGITS; } goto LX_INT; }
-    if (!lx->iso && (PEEK(0) == 'e' || PEEK(0) == 'E') && (is_digit(PEEK(1)) || ((PEEK(1) == '+' || PEEK(1) == '-') && is_digit(PEEK(2))))) { ADV(1); goto S_EXP_SIGN; }
-    if (PEEK(0) == '.' && is_digit(PEEK(1)))                         {  ADV(1);                                                                goto S_FRAC;        }
-    if (!lx->iso && PEEK(0) == 'r' && is_digit(PEEK(1)) && is_digit(p[-1])) {  ADV(1);                                                             goto S_RAT;         }
+    if (!lx->iso && (PEEK(0) == 'e' || PEEK(0) == 'E') && (lx_udig(p + 1, zs) || ((PEEK(1) == '+' || PEEK(1) == '-') && lx_udig(p + 2, zs)))) { ADV(1); goto S_EXP_SIGN; }
+    if (PEEK(0) == '.' && lx_udig(p + 1, zs))                            {  ADV(1);                                                                goto S_FRAC;        }
+    if (!lx->iso && PEEK(0) == 'r' && lx_udig(p + 1, zs) && lx_prev_udig(s, p, zs)) {  ADV(1);                                                             goto S_RAT;         }
                                                                                                                                                goto LX_INT;
 S_RAT:
-    if (is_digit(PEEK(0)))                                           {  ADV(1);                                                                goto S_RAT;         }
-    if (PEEK(0) == '_' && is_digit(PEEK(1)))                         {  seps = 1; ADV(1);                                                      goto S_RAT;         }
-                                                                     {  t = tok(TK_INT, span_text(s, p, seps), line); t.big = 1; SYNC(); return t;                }
+    if ((n = lx_udig(p, zs)))                                            {  ADV(n);                                                                goto S_RAT;         }
+    if (PEEK(0) == '_' && lx_udig(p + 1, zs))                            {  seps = 1; ADV(1);                                                      goto S_RAT;         }
+                                                                     {  t = tok(TK_INT, span_text(s, p, seps), line); t.uni = zs != 0; t.big = 1; SYNC(); return t;   }
 S_RDIGITS:
     c = digval(PEEK(0)); if (c >= 0 && c < radix)                    {  ADV(1);                                                                goto S_RDIGITS;     }
                                                                      {  t = tok(TK_INT, ct_strndup(s, (size_t)(p - s)), line); t.ival = (long)(unsigned long long)strtoull(t.text, NULL, radix);
@@ -258,17 +287,17 @@ S_EXP_SIGN:
     if (PEEK(0) == '+' || PEEK(0) == '-')                            {  ADV(1);                                                                goto S_EXP_DIG;     }
                                                                                                                                                goto S_EXP_DIG;
 S_EXP_DIG:
-    if (is_digit(PEEK(0)))                                           {  ADV(1);                                                                goto S_EXP_DIG;     }
+    if ((n = lx_udig(p, zs)))                                            {  ADV(n);                                                                goto S_EXP_DIG;     }
                                                                                                                                                goto LX_FLOAT;
 S_FRAC:
-    if (is_digit(PEEK(0)))                                           {  ADV(1);                                                                goto S_FRAC;        }
+    if ((n = lx_udig(p, zs)))                                            {  ADV(n);                                                                goto S_FRAC;        }
     if (PEEK(0) == 'e' || PEEK(0) == 'E')                            {  ADV(1);                                                                goto S_FRAC_EXP_SIGN; }
                                                                                                                                                goto S_FRAC_END;
 S_FRAC_EXP_SIGN:
     if (PEEK(0) == '+' || PEEK(0) == '-')                            {  ADV(1);                                                                goto S_FRAC_EXP_DIG; }
                                                                                                                                                goto S_FRAC_EXP_DIG;
 S_FRAC_EXP_DIG:
-    if (is_digit(PEEK(0)))                                           {  ADV(1);                                                                goto S_FRAC_EXP_DIG; }
+    if ((n = lx_udig(p, zs)))                                            {  ADV(n);                                                                goto S_FRAC_EXP_DIG; }
                                                                                                                                                goto S_FRAC_END;
 S_FRAC_END:
     if ((PEEK(0) == 'N' && PEEK(1) == 'a' && PEEK(2) == 'N') || (PEEK(0) == 'I' && PEEK(1) == 'n' && PEEK(2) == 'f')) {
@@ -317,9 +346,9 @@ S_GRAPHIC:
     if (!lx->iso && p - s == 1 && s[0] == '.' && s > lx->src && !is_layout((unsigned char)s[-1]) && (DC[PEEK(0)] == D_LOWER || DC[PEEK(0)] == D_UPPER || DC[PEEK(0)] == D_USCORE)) {  t = tok(TK_OP, (char *)".", line); t.adj = 1; SYNC(); return t; }
                                                                      {  SYNC(); return tok(TK_OP, ct_strndup(s, (size_t)(p - s)), line);                           }
 LX_INT:
-    t = tok(TK_INT, span_text(s, p, seps), line); errno = 0; t.ival = (long)strtoll(t.text, NULL, 10); t.big = (errno == ERANGE); SYNC(); return t;
+    t = tok(TK_INT, span_text(s, p, seps), line); t.uni = zs != 0; errno = 0; t.ival = (long)strtoll(t.text, NULL, 10); t.big = (errno == ERANGE); SYNC(); return t;
 LX_FLOAT:
-    t = tok(TK_FLOAT, span_text(s, p, seps), line); t.fval = atof(t.text); t.big = isinf(t.fval); SYNC(); return t;
+    t = tok(TK_FLOAT, span_text(s, p, seps), line); t.uni = zs != 0; t.fval = atof(t.text); t.big = isinf(t.fval); SYNC(); return t;
 LX_UNEXPECTED:
     snprintf(msg, sizeof msg, "unexpected '%c'", (char)c); SYNC(); return err_tok(line, msg);
 }

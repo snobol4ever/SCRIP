@@ -35,6 +35,7 @@ typedef struct {
     int     line;
     int     big;
     int     adj;
+    int     uni;
     int     len;
     int     start;
     int     end;
@@ -67,6 +68,7 @@ Token lexer_peek(Lexer *lx);
 Token lexer_expect(Lexer *lx, TkKind kind, const char *context);
 void token_free(Token *t);
 int prolog_escape_bytes(const char *raw, char *out, int cap);
+int prolog_u_nd_zero(unsigned c);
 const char *tk_name(TkKind kind);
 static inline int u8_decode(const unsigned char *u, int *cp) {
     if ((u[0] & 0xE0) == 0xC0 && (u[1] & 0xC0) == 0x80) { *cp = ((u[0] & 0x1F) << 6) | (u[1] & 0x3F); return 2; }

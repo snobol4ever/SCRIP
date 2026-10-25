@@ -6836,6 +6836,16 @@ static int pl_cell_text_n(DESCR_t v, char *buf, size_t n, const char **out, size
     if (d.v == DT_I) { snprintf(buf, n, "%lld", (long long)d.i); *out = buf; *len = strlen(buf); return 1; }
     if (d.v == DT_BIG) { extern char *rt_big_str(DESCR_t); *out = rt_big_str(d); if (*out) *len = strlen(*out); return *out != (const char *)0; }
     if (d.v == DT_R) { *out = pl_real_iso_str(d.r, buf, (int)n); *len = strlen(*out); return 1; }
+    if (pl_rat_is(d)) {
+        extern void *rt_wsb_alloc(size_t);
+        size_t m = pl_rat_text(d, (char *)0, 0) + 1;
+        char *rb = m <= n ? buf : (char *)rt_wsb_alloc(m);
+        if (!rb) return 0;
+        (void)pl_rat_text(d, rb, m);
+        *out = rb;
+        *len = m - 1;
+        return 1;
+    }
     if (pl_is_cons(d) || pl_is_nil(d)) { const char *t = pl_list_text_heap(d); if (!t) return 0; *out = t; *len = strlen(t); return 1; }
     return 0;
 }
@@ -6917,12 +6927,7 @@ static int pl_parse_rational(const char *s, DESCR_t *out) {
     b[k] = 0;
     { DESCR_t v = pl_rat_parse(b); if (v.v == DT_FAIL) return 0; *out = v; return 1; }
 }
-static int pl_nd_zero(unsigned c) {
-    const unsigned nd[] = { 0x660, 0x6F0, 0x7C0, 0x966, 0x9E6, 0xA66, 0xAE6, 0xB66, 0xBE6, 0xC66, 0xCE6, 0xD66, 0xDE6, 0xE50, 0xED0, 0xF20, 0x1040, 0x1090, 0x17E0, 0x1810, 0x1946, 0x19D0, 0x1A80,
-        0x1A90, 0x1B50, 0x1BB0, 0x1C40, 0x1C50, 0xA620, 0xA8D0, 0xA900, 0xA9D0, 0xA9F0, 0xAA50, 0xABF0, 0xFF10, 0x104A0, 0x1D7CE, 0x1D7D8, 0x1D7E2, 0x1D7EC, 0x1D7F6 };
-    for (size_t k = 0; k < sizeof nd / sizeof *nd; k++) if (c >= nd[k] && c < nd[k] + 10) return (int)nd[k];
-    return -1;
-}
+static int pl_nd_zero(unsigned c) { extern int prolog_u_nd_zero(unsigned); return prolog_u_nd_zero(c); }
 static int pl_digits_to_ascii(const char *s, char *b) {
     const unsigned char *q = (const unsigned char *)s;
     int zero = -1, ascii = 0, wide = 0;
