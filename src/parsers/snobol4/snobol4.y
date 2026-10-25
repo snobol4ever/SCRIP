@@ -75,7 +75,7 @@ static tree_e pat_prim_kind(const char *s) {
 %token T_CONCAT T_COMMA T_LPAREN T_RPAREN T_LBRACK T_RBRACK T_LANGLE T_RANGLE
 %type <expr> expr0 expr1 expr2 expr3 expr4 expr5 expr6 expr7 expr8
 %type <expr> expr9 expr10 expr11 expr12 expr13 expr14 expr15 expr17
-%type <expr> opt_subject qsubject opt_pattern opt_repl
+%type <expr> opt_subject subj_amp qsubject opt_pattern opt_repl
 %type <expr> goto_label_expr
 %type <expr> goto_expr goto_atom
 %%
@@ -103,9 +103,14 @@ unlabeled_stmt
 opt_subject: expr14 T_CONCAT expr2                                                                 { $$=expr_binary(TT_SCAN,$1,$3); }
            | qsubject                                                                               { $$=$1; }
            | expr5                                                                                  { $$=$1; }
+           | subj_amp                                                                               { $$=$1; }
            |                                                                           { $$=NULL; }
            ;
+subj_amp   : expr5 T_2AMP expr3                                                                     { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("&"); $$=_e; }
+           | subj_amp T_2AMP expr3                                                                  { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("&"); $$=_e; }
+           ;
 qsubject   : expr2 T_2QUEST opt_pattern                                                             { $$=expr_binary(TT_SCAN,$1,$3); }
+           | subj_amp T_2QUEST opt_pattern                                                          { $$=expr_binary(TT_SCAN,$1,$3); }
            | expr14 T_CONCAT expr4 T_2QUEST opt_pattern                                             { tree_t*s=ast_node_new(TT_SEQ);expr_add_child(s,$1);expr_add_child(s,$3);$$=expr_binary(TT_SCAN,s,$5); }
            | qsubject T_2QUEST opt_pattern                                                          { $$=expr_binary(TT_SCAN,$1,$3); }
            ;
