@@ -6402,7 +6402,10 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         }
     }
     if (!strcmp(op, "div") && ai && bi && b.i == 0) return pl_ax_zdiv((double)a.i, 0.0, 0, "/", 2, out, ball);
-    if (!strcmp(op, "div") && ai && bi) { extern int rt_pl_iso_mode(void); if (rt_pl_iso_mode()) return pl_ax_float_result((double)a.i / (double)b.i, (double)a.i, (double)b.i, "/", 2, out, ball); }
+    if (!strcmp(op, "div") && ai && bi) {
+        extern int rt_pl_iso_mode(void);
+        if (rt_pl_iso_mode() || pl_xsb_dialect() || pl_gnu_dialect()) return pl_ax_float_result((double)a.i / (double)b.i, (double)a.i, (double)b.i, "/", 2, out, ball);
+    }
     { DESCR_t r = pl_arith2(op, a, b); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
