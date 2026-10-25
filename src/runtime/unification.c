@@ -2179,7 +2179,68 @@ static int rt_pl_cell_compare_leaf(pl_cell_t *a, pl_cell_t *b, void *ctx) {
     (void)ctx;
     return PLR_DESCEND;
 }
-PLR_WALK2(plc_compare_walk, rt_pl_cell_compare_leaf, pl_deref) static int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb) { return plc_compare_walk(ca, cb, (void *)0, 0); }
+PLR_WALK2(plc_compare_walk, rt_pl_cell_compare_leaf, pl_deref)
+#define PLC_CMP_DEPTH 1024
+#define PLC_CMP_MAP 16384
+static const void *plc_cmp_find(const void **mk, const void **mv, const void *p) {
+    for (int g = 0; g < PLC_CMP_MAP; g++) {
+        size_t h = ((uintptr_t)p >> 4) * 0x9E3779B97F4A7C15ull >> 50;
+        while (mk[h] && mk[h] != p) h = (h + 1) & (PLC_CMP_MAP - 1);
+        if (!mk[h]) return p;
+        p = mv[h];
+    }
+    return p;
+}
+static int plc_cmp_bounded(pl_cell_t *ca, pl_cell_t *cb, int use_map, int *ok) {
+    pl_cell_t *fa[PLC_CMP_DEPTH], *fb[PLC_CMP_DEPTH];
+    int fi[PLC_CMP_DEPTH], fn[PLC_CMP_DEPTH], top = 0, used = 0;
+    long steps = 0;
+    const void **mk = (const void **)0, **mv = (const void **)0;
+    if (use_map) { mk = (const void **)alloca(sizeof(void *) * PLC_CMP_MAP); mv = (const void **)alloca(sizeof(void *) * PLC_CMP_MAP); memset(mk, 0, sizeof(void *) * PLC_CMP_MAP); }
+    *ok = 1;
+    for (;;) {
+        pl_cell_t *A = pl_deref(ca), *B = pl_deref(cb);
+        if (A != B) {
+            int r = rt_pl_cell_compare_leaf(A, B, (void *)0);
+            if (r == PLR_DESCEND) {
+                int ar = plc_fid_arity(A->slen);
+                int same = 0;
+                if (use_map) {
+                    const void *ra = plc_cmp_find(mk, mv, A->p), *rb = plc_cmp_find(mk, mv, B->p);
+                    if (ra == rb) same = 1;
+                    else {
+                        if (used * 4 >= PLC_CMP_MAP * 3) { *ok = 0; return 0; }
+                        size_t h = ((uintptr_t)ra >> 4) * 0x9E3779B97F4A7C15ull >> 50;
+                        while (mk[h]) h = (h + 1) & (PLC_CMP_MAP - 1);
+                        mk[h] = ra;
+                        mv[h] = rb;
+                        used++;
+                    }
+                } else if (A->p == B->p) same = 1;
+                if (!same && ar > 0) {
+                    while (top > 0 && fi[top - 1] >= fn[top - 1]) top--;
+                    if (top >= PLC_CMP_DEPTH || (!use_map && ++steps > (1L << 16))) { *ok = 0; return 0; }
+                    fa[top] = (pl_cell_t *)A->p;
+                    fb[top] = (pl_cell_t *)B->p;
+                    fi[top] = 0;
+                    fn[top] = ar;
+                    top++;
+                }
+            } else if (r) return r;
+        }
+        while (top > 0 && fi[top - 1] >= fn[top - 1]) top--;
+        if (top == 0) return 0;
+        ca = &fa[top - 1][fi[top - 1]];
+        cb = &fb[top - 1][fi[top - 1]];
+        fi[top - 1]++;
+    }
+}
+static int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb) {
+    int ok, r = plc_cmp_bounded(ca, cb, 0, &ok);
+    if (ok) return r;
+    r = plc_cmp_bounded(ca, cb, 1, &ok);
+    return ok ? r : plc_compare_walk(ca, cb, (void *)0, 0);
+}
 __attribute__((noinline)) int rt_pl_bind_vv(pl_cell_t *A, pl_cell_t *B) {
     char probe;
     int as = (char *)A > &probe, bs = (char *)B > &probe;
