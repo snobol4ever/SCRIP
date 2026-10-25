@@ -709,19 +709,15 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
                 if (q < 0 || !zon[q] || claim[q] < 0 || known[claim[q]] || fam[claim[q]] >= 0 || (claim[q] == claim[i]) != (ph == 1)) continue;
                 fam[claim[q]] = claim[q]; fbase[claim[q]] = 0 - (zout[q] - (b ? 0 : zd_k(nodes[q])));
             }
-            for (int pass = 0, moved = 1; moved && pass < 2 * n + 4; pass++) {
+            for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) {
                 moved = 0;
-                for (int st = 0; st < 2 && !moved; st++) for (int h = 0; h < n; h++) {
+                for (int h = 0; h < n; h++) {
                     if (!zon[h] || claim[h] != h || fam[h] < 0) continue;
                     for (int i = 0; i < n; i++) {
                         if (!zon[i] || claim[i] != h) continue;
                         for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
-                            if (st == 0) {
-                                if (nodes[i]->op == IR_DISJUNCTION && e >= 2 && ((e - 2) & 1)) continue;
-                                int l, q = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l, dead);
-                                if (q >= 0 && !known[q] && fam[q] < 0 && !zd_pl_restores_head(nodes, n, claim, q)) { fam[q] = fam[h]; fbase[q] = fbase[h] + l - (zout[q] - zd_k(nodes[q])); moved = 1; }
-                                continue;
-                            }
+                            int l, q = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l, dead);
+                            if (q >= 0 && !known[q] && fam[q] < 0 && !zd_pl_restores_head(nodes, n, claim, q)) { fam[q] = fam[h]; fbase[q] = fbase[h] + l - (zout[q] - zd_k(nodes[q])); moved = 1; }
                             if (e == 1 || (e >= 2 && nodes[i]->op != IR_DISJUNCTION) || zd_edge_retains(nodes[i])) continue;
                             int b2, q2;
                             (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &q2, &b2);
