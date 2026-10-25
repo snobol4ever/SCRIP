@@ -1663,7 +1663,10 @@ void rt_genp_entry_c(rt_genp_s *g) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_genp_yield(uint64_t d0, uint64_t d1) { scrip_coret(d0, d1, (void *)0); }
 int rt_genp_active(void) { return g_genp_self != (rt_genp_s *)0; }
+void *rt_genp_self_handle(void) { return (void *)g_genp_self; }
+int rt_genp_valid(void *h);
 static rt_genp_s *rt_genp_lookup(void *h) { for (rt_genp_s *g = g_genp_head; g; g = g->next) if ((void *)g == h) return g; return (rt_genp_s *)0; }
+int rt_genp_valid(void *h) { return rt_genp_lookup(h) != (rt_genp_s *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 scrip_coctx_t *rt_genp_co_of(void *h) { rt_genp_s *g = rt_genp_lookup(h); return g ? &g->co : (scrip_coctx_t *)0; }
 void *rt_genp_of_co(scrip_coctx_t *c) { for (rt_genp_s *g = g_genp_head; g; g = g->next) if (&g->co == c) return (void *)g; return (void *)0; }

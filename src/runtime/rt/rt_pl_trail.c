@@ -5,8 +5,7 @@
 extern void rt_gc_root_range_add_topword(const char *lo);
 extern void rt_gcheap_cap_road(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_pl_tr_init(void) {
-    char *raw = (char *)rt_slab_region((size_t)PL_TR_ARENA_BYTES * 2u);
+static char *pl_tr_arena_open(char *raw) {
     char *base = (char *)(((uintptr_t)raw + PL_TR_ARENA_BYTES - 1) & ~(PL_TR_ARENA_BYTES - 1));
     char *tr = base + PL_TR_HEADER_BYTES;
     *(char **)base = tr;
@@ -18,8 +17,20 @@ void *rt_pl_tr_init(void) {
     *pl_tr_wake_slot(base) = 0;
     *pl_tr_residue_slot(base) = 0;
     rt_gc_root_range_add_topword(base);
-    rt_gcheap_cap_road();
-    return (void *)tr;
+    return tr;
+}
+void *rt_pl_tr_init(void) { char *tr = pl_tr_arena_open((char *)rt_slab_region((size_t)PL_TR_ARENA_BYTES * 2u)); rt_gcheap_cap_road(); return (void *)tr; }
+void *rt_pl_tr_new_arena(void **slab_out) {
+    rt_slab_t *s = rt_slab_try_get((size_t)PL_TR_ARENA_BYTES * 2u);
+    if (!s) return (void *)0;
+    *slab_out = (void *)s;
+    return (void *)pl_tr_arena_open((char *)RT_SLAB_BASE(s));
+}
+void rt_pl_tr_free_arena(const char *tr, void *slab) {
+    extern void rt_gc_root_range_del(const char *lo);
+    if (!tr || !slab) return;
+    rt_gc_root_range_del(pl_tr_base_of(tr));
+    rt_slab_put((rt_slab_t *)slab);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 _Static_assert(PL_TR_HEADER_BYTES >= PL_TR_BALL_OFF + 8, "the pending-ball slot must fit inside the trail header, below the first entry");

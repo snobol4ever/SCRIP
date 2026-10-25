@@ -7735,6 +7735,83 @@ DESCR_t rt_pl_dop_co_finish_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     DESCR_t cd = nargs == 2 ? rt_pl_deref_val(args[0]) : FAILDESCR;
     return cd.v == DT_I ? pl_co_park_leaf(args, cd.i ? 5 : 4, 0, 0, cx) : FAILDESCR;
 }
+extern void *rt_pl_tr_new_arena(void **);
+extern void rt_pl_tr_free_arena(const char *, void *);
+extern int rt_genp_valid(void *);
+extern void *rt_genp_self_handle(void);
+extern void rt_genp_yield(uint64_t, uint64_t);
+extern DESCR_t rt_proc_resume_frame_h(void **);
+extern void rt_proc_drop_frame_h(void **);
+#define pl_eng_unify_int(a, v, cx) plw_unify_vals((a), INTVAL((int64_t)(v)), (cx))
+DESCR_t rt_pl_dop_engine_new_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    DESCR_t ag[2], r, nm;
+    void *h = (void *)0, *ball = (void *)0, *slab = (void *)0;
+    pl_tr_ctx_t c2;
+    char *etr;
+    int ok;
+    if (nargs != 6) return FAILDESCR;
+    pl_atoms_ready();
+    rt_pl_tr_gc_sync(cx->tr);
+    nm = rt_pl_deref_val(args[0]);
+    if (!pl_atom_str(nm)) return FAILDESCR;
+    etr = (char *)rt_pl_tr_new_arena(&slab);
+    if (!etr) return FAILDESCR;
+    c2 = *cx;
+    c2.tr = etr;
+    ag[0] = rt_pl_deref_val(args[1]);
+    ag[1] = rt_pl_deref_val(args[2]);
+    r = rt_pl_goal_gen_h_c(nm, ag, 2, &h, &ball, &c2);
+    if (ball || !h) { rt_pl_tr_free_arena(etr, slab); cx->ball = ball; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
+    (void)r;
+    ok = pl_eng_unify_int(args[3], (int64_t)(intptr_t)h, cx) && pl_eng_unify_int(args[4], (int64_t)(intptr_t)etr, cx) && pl_eng_unify_int(args[5], (int64_t)(intptr_t)slab, cx);
+    rt_pl_tr_gc_sync(cx->tr);
+    return ok ? pl_ok() : FAILDESCR;
+}
+DESCR_t rt_pl_dop_engine_next_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    DESCR_t ad, r;
+    void *slot;
+    int ok;
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    ad = rt_pl_deref_val(args[0]);
+    if (ad.v != DT_I || !rt_genp_valid((void *)(intptr_t)ad.i)) return plw_unify_vals(args[1], pl_mk_atom("done"), cx) ? pl_ok() : FAILDESCR;
+    slot = (void *)(intptr_t)ad.i;
+    rt_pl_tr_gc_sync(cx->tr);
+    r = rt_proc_resume_frame_h(&slot);
+    if (!slot) r = pl_mk_atom("done");
+    ok = plw_unify_vals(args[1], r, cx);
+    rt_pl_tr_gc_sync(cx->tr);
+    return ok ? pl_ok() : FAILDESCR;
+}
+DESCR_t rt_pl_dop_engine_yield_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    DESCR_t r;
+    uint64_t d0, d1;
+    if (nargs != 1) return FAILDESCR;
+    if (!rt_genp_self_handle()) return FAILDESCR;
+    r = rt_pl_deref_val(args[0]);
+    rt_pl_tr_gc_sync(cx->tr);
+    memcpy(&d0, &r, 8);
+    memcpy(&d1, (char *)&r + 8, 8);
+    rt_genp_yield(d0, d1);
+    rt_pl_tr_gc_sync(cx->tr);
+    return pl_ok();
+}
+DESCR_t rt_pl_dop_engine_destroy_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    DESCR_t ad, td, sd;
+    if (nargs != 3) return FAILDESCR;
+    ad = rt_pl_deref_val(args[0]);
+    td = rt_pl_deref_val(args[1]);
+    sd = rt_pl_deref_val(args[2]);
+    if (ad.v == DT_I && ad.i && rt_genp_valid((void *)(intptr_t)ad.i)) { void *slot = (void *)(intptr_t)ad.i; rt_proc_drop_frame_h(&slot); }
+    if (td.v == DT_I && sd.v == DT_I && td.i && sd.i) rt_pl_tr_free_arena((const char *)(intptr_t)td.i, (void *)(intptr_t)sd.i);
+    (void)cx;
+    return pl_ok();
+}
+DESCR_t rt_pl_dop_engine_self_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    void *h = rt_genp_self_handle();
+    if (nargs != 1 || !h) return FAILDESCR;
+    return plw_unify_vals(args[0], INTVAL((int64_t)(intptr_t)h), cx) ? pl_ok() : FAILDESCR;
+}
 PL_CX_LEAF_HEAD(co_mark, 0) ok = rt_plco_mark(cx->tr); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(co_inside, 0) ok = rt_plco_inside(); PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
