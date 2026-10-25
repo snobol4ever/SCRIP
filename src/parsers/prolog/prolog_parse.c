@@ -2455,6 +2455,17 @@ static const char * const PL_PRELUDE_SRC =
     "'$between_test'(_,H,_):- \\+integer(H),H\\==inf,H\\==infinite,!,throw(error(type_error(integer,H),context(between/3,_))).\n"
     "'$between_test'(_,_,X):- \\+integer(X),!,throw(error(type_error(integer,X),context(between/3,_))).\n"
     "'$between_test'(L,H,X):-X>=L,(integer(H)->X=<H;true).\n"
+    "'$between_big'(L,_,_):-var(L),!,throw(error(instantiation_error,context(between/3,_))).\n"
+    "'$between_big'(L,_,_):- \\+integer(L),!,throw(error(type_error(integer,L),context(between/3,_))).\n"
+    "'$between_big'(_,H,_):-var(H),!,throw(error(instantiation_error,context(between/3,_))).\n"
+    "'$between_big'(L,H,X):-(H==inf;H==infinite),!,'$between_up'(L,X).\n"
+    "'$between_big'(_,H,_):- \\+integer(H),!,throw(error(type_error(integer,H),context(between/3,_))).\n"
+    "'$between_big'(L,H,X):-L=<H,'$between_to'(L,H,X).\n"
+    "'$between_to'(L,H,X):-L=:=H,!,X=L.\n"
+    "'$between_to'(L,_,L).\n"
+    "'$between_to'(L,H,X):-L1 is L+1,'$between_to'(L1,H,X).\n"
+    "'$between_up'(L,L).\n"
+    "'$between_up'(L,X):-L1 is L+1,'$between_up'(L1,X).\n"
     "lazy_list(Next,S0,L):-freeze(L,'$lazy_list_next'(Next,S0,L)).\n"
     "'$lazy_list_next'(Next,S0,L):-(call(Next,S0,S1,H)->L=[H|T],lazy_list(Next,S1,T);L=[]).\n"
     "'$at_ctx'(V):-var(V),!,throw(error(instantiation_error,_)).\n"
@@ -3783,7 +3794,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     }
     if (pl_cv_has(&referenced, "@")) { pl_cv_add(&referenced, "$at_ctx"); pl_cv_add(&referenced, "$meta_add"); }
     if (pl_cv_has(&referenced, "lazy_list")) pl_cv_add(&referenced, "$wakeup");
-    if (pl_cv_has(&referenced, "between")) pl_cv_add(&referenced, "$between_test");
+    if (pl_cv_has(&referenced, "between")) { pl_cv_add(&referenced, "$between_test"); pl_cv_add(&referenced, "$between_big"); }
     if (pl_cv_has(&referenced, "with_output_to")) { pl_cv_add(&referenced, "$wot_stream_sink"); pl_cv_add(&referenced, "$wot_stream"); }
     {
         int napi = 0;
@@ -3872,7 +3883,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
                 pl_tree_collect_calls(pl_clause_body(pc[i]), &calls[i]);
                 if (pl_cv_has(&calls[i], "call_cleanup") || pl_cv_has(&calls[i], "setup_call_cleanup") || pl_cv_has(&calls[i], "setup_call_catcher_cleanup")) pl_cv_add(&calls[i], "$scc_cut");
                 if (pl_cv_has(&calls[i], "string_concat")) pl_cv_add(&calls[i], "$string_concat_split");
-                if (pl_cv_has(&calls[i], "between")) pl_cv_add(&calls[i], "$between_test");
+                if (pl_cv_has(&calls[i], "between")) { pl_cv_add(&calls[i], "$between_test"); pl_cv_add(&calls[i], "$between_big"); }
                 if (pl_cv_has(&calls[i], "erase")) { pl_cv_add(&calls[i], "$rec_ref"); pl_cv_add(&calls[i], "$rec_erase"); }
                 if (pl_cv_has(&calls[i], "current_predicate")) pl_cv_add(&calls[i], "$cp_mq");
                 if (pl_cv_has(&calls[i], "with_output_to")) { pl_cv_add(&calls[i], "$wot_stream_sink"); pl_cv_add(&calls[i], "$wot_stream"); }

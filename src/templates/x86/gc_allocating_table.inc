@@ -623,6 +623,7 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "dop_cmp_lt", GC_RET_OTHER },
     { "dop_cmp_ne", GC_RET_OTHER },
     { "dop_pl_acyclic_term", GC_RET_DESCR },
+    { "dop_pl_between_special", GC_RET_DESCR },
     { "dop_pl_flush_output_s", GC_RET_DESCR },
     { "dop_pl_format", GC_RET_DESCR },
     { "dop_pl_ground", GC_RET_DESCR },

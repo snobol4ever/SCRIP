@@ -6997,6 +6997,13 @@ PL_TYPE_LEAF(ground) PL_TYPE_LEAF(is_list) DESCR_t rt_pl_type_cold_c(DESCR_t *ar
     pl_atoms_ready();
     return (nargs == 1 && kind && rt_pl_type_test_cell(&args[0], kind)) ? pl_ok() : FAILDESCR;
 }
+DESCR_t dop_pl_between_special(DESCR_t *args, int nargs) {
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    DESCR_t lo = rt_pl_deref_val(args[0]), hi = rt_pl_deref_val(args[1]);
+    const char *h = hi.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(hi) : (const char *)0;
+    return (lo.v == (DTYPE_t)DT_BIG || hi.v == (DTYPE_t)DT_BIG || (h && (!strcmp(h, "inf") || !strcmp(h, "infinite")))) ? pl_ok() : FAILDESCR;
+}
 DESCR_t dop_pl_acyclic_term(DESCR_t *args, int nargs) { pl_atoms_ready(); return (nargs == 1 && rt_pl_acyclic_cell(&args[0])) ? pl_ok() : FAILDESCR; }
 static int pl_atop_op_of(const char *op) {
     return !op ? -1 : !strcmp(op, "lt") ? 0 : !strcmp(op, "le") ? 1 : !strcmp(op, "gt") ? 2 : !strcmp(op, "ge") ? 3 : !strcmp(op, "eq") ? 4 : !strcmp(op, "ne") ? 5 : -1;

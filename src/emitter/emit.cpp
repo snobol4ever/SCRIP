@@ -5702,7 +5702,7 @@ DESCR_t rt_pl_dop_read(DESCR_t *, int); DESCR_t rt_pl_dop_atom_to_term(DESCR_t *
 DESCR_t rt_pl_dop_read_term_opts(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_opts_s(DESCR_t *, int);
 DESCR_t rt_pl_dop_wot_open(DESCR_t *, int); DESCR_t rt_pl_dop_wot_capture(DESCR_t *, int); DESCR_t rt_pl_dop_wot_discard(DESCR_t *, int);
 DESCR_t rt_pl_dop_set_prolog_flag_declare(DESCR_t *, int);
-DESCR_t dop_pl_ground(DESCR_t *, int); DESCR_t dop_pl_is_list(DESCR_t *, int); DESCR_t dop_pl_acyclic_term(DESCR_t *, int);
+DESCR_t dop_pl_ground(DESCR_t *, int); DESCR_t dop_pl_is_list(DESCR_t *, int); DESCR_t dop_pl_acyclic_term(DESCR_t *, int); DESCR_t dop_pl_between_special(DESCR_t *, int);
 DESCR_t dop_pl_writeq(DESCR_t *, int); DESCR_t dop_pl_write_canonical(DESCR_t *, int);
 DESCR_t dop_pl_writeln(DESCR_t *, int); DESCR_t dop_pl_tab(DESCR_t *, int); DESCR_t dop_pl_put_char(DESCR_t *, int);
 DESCR_t dop_pl_flush_output(DESCR_t *, int); DESCR_t dop_pl_format(DESCR_t *, int);
@@ -5904,7 +5904,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$set_prolog_flag_declare", 2, "rt_pl_dop_set_prolog_flag_declare", rt_pl_dop_set_prolog_flag_declare },
         { "$read_term_from_atom", 3, "rt_pl_dop_read_term_from_atom", rt_pl_dop_read_term_from_atom }, { "$read_term_from_chars", 3, "rt_pl_dop_read_term_from_chars",
             rt_pl_dop_read_term_from_chars }, { "$read_term_from_codes", 3, "rt_pl_dop_read_term_from_codes", rt_pl_dop_read_term_from_codes },
-        { "$ground", 1, "dop_pl_ground", dop_pl_ground }, { "$is_list", 1, "dop_pl_is_list", dop_pl_is_list }, { "$acyclic_term", 1, "dop_pl_acyclic_term", dop_pl_acyclic_term },
+        { "$ground", 1, "dop_pl_ground", dop_pl_ground }, { "$is_list", 1, "dop_pl_is_list", dop_pl_is_list }, { "$acyclic_term", 1, "dop_pl_acyclic_term", dop_pl_acyclic_term }, { "$between_special",
+            2, "dop_pl_between_special", dop_pl_between_special },
         { "$writeq", 1, "dop_pl_writeq", dop_pl_writeq }, { "$write_canonical", 1, "dop_pl_write_canonical", dop_pl_write_canonical }, { "$writeln", 1, "dop_pl_writeln", dop_pl_writeln },
         { "$tab", 1, "dop_pl_tab", dop_pl_tab }, { "$put_char", 1, "dop_pl_put_char", dop_pl_put_char }, { "$halt", 0, "rt_pl_dop_halt", rt_pl_dop_halt }, { "$halt", 1, "rt_pl_dop_halt",
             rt_pl_dop_halt },
