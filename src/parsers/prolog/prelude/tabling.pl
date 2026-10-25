@@ -236,7 +236,7 @@ not_exists(G):-'$tnot_split'(G,G1),ground(G1),'$tnot_impl'(G1,_),!,tnot(G1).
 not_exists(G):-'$tnot_split'(G,G1),'$tbl_unqual'(G1,M,G2),(tabled_call(M:G2),fail;tnot(tabled_call(M:G2))).
 tabled_call(G):-'$tbl_call'(tabled_call(G),'$tbl tabled_call'(G)).
 '$tbl tabled_call'(G):-call(G).
-get_residual(G0,DL):-'$tnot_split'(G0,G),'$tbl_vt'(VT),'$trie_entries'(VT,L),member(e(_,V,T),L),'$tbl_answered'(T),\+ \+ V=G,copy_term(V,Vc),Vc=G,term_variables(Vc,Vs),Sk=..[ret|Vs],'$trie_entries'(T,As),member(e(_,Sk,Val),As),'$tbl_resid'(Val,Sk,D),'$tbl_unql'(D,DL).
+get_residual(G0,DL):-'$tnot_split'(G0,G),'$tbl_vt'(VT),'$trie_entries'(VT,L),member(e(_,V,T),L),'$tbl_answered'(T),\+ \+ V=G,copy_term(V,Vc),term_variables(Vc,Vs),Sk=..[ret|Vs],Vc=G,'$trie_entries'(T,As),member(e(_,Sk,Val),As),'$tbl_resid'(Val,Sk,D),'$tbl_unql'(D,DL).
 call_residual_program(G,P):-'$call_residual_m'(user,G,P).
 '$call_residual_m'(M,G,P):-'$call_delays_m'(M,G,_),'$tbl_rprog'([G],M,[],P).
 '$tbl_rprog'([],_,_,[]).
@@ -258,7 +258,7 @@ call_residual_program(G,P):-'$call_residual_m'(user,G,P).
 '$tbl_rval'(Mv,Val):-(nonvar(Val),Val=mu(V,_)->Mv=V;Mv=Val).
 '$tbl_answered'(T):-'$trie_meta_get'(T,0,S),(S==complete->true;S==invalid).
 '$tbl_resid'(true,_,[]).
-'$tbl_resid'(u(P),Sk,D):-member(Sk2-D,P),Sk2=Sk.
+'$tbl_resid'(u(P),Sk,D):-member(Sk2-D0,P),Sk2=Sk,reverse(D0,D).
 '$tbl_resid'(mu(_,D),_,D).
 sk_not(G):-not_exists(G).
 get_calls(MG,T,R):-'$tbl_strip'(MG,M,G),'$tbl_vt'(VT),'$trie_entries'(VT,L),member(e(_,_,I),L),T='$trie'(I),'$tbl_table_status'(T,_,M:G,R).
