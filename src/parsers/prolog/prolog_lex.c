@@ -77,6 +77,7 @@ int prolog_u_nd_zero(unsigned c) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int lx_uscore_layout(const char *q) { int k = 1; while (q[k] == ' ' || q[k] == '\t' || q[k] == '\n' || q[k] == '\r') k++; return k; }
 static int lx_udig(const char *q, int zs) {
     int cp, n;
     if ((unsigned char)*q < 0x80) return zs == 0 && is_digit(*q) ? 1 : 0;
@@ -97,7 +98,7 @@ static char *span_text(const char *s, const char *e, int seps) {
     char *o = (char *)ct_alloc((size_t)(e - s) + 1); size_t n = 0;
     while (s < e) {
         if ((unsigned char)*s >= 0x80 && (k = u8_decode((const unsigned char *)s, &cp)) > 1 && (z = prolog_u_nd_zero((unsigned)cp)) >= 0) { o[n++] = (char)('0' + (cp - z)); s += k; continue; }
-        if (*s != '_' && *s != ' ') o[n++] = *s;
+        if (*s != '_' && *s != ' ' && *s != '\t' && *s != '\n' && *s != '\r') o[n++] = *s;
         s++;
     }
     o[n] = '\0';
@@ -277,6 +278,7 @@ S_UNDERSCORE:
                                                                      {  SYNC(); return tok(TK_ANON, (char *)"_", line);                                            }
 S_INT:
     if ((n = lx_udig(p, zs)))                                            {  ADV(n);                                                                goto S_INT;         }
+    if (PEEK(0) == '_' && (n = lx_uscore_layout(p)) > 1 && lx_udig(p + n, zs)) { for (int i = 1; i < n; i++) if (PEEK(i) == '\n') NL(); seps = 1; ADV(n); goto S_INT; }
     if (PEEK(0) == '_')                                              {  seps = 1; ADV(1);                                                      goto S_INT;         }
     if (PEEK(0) == ' ' && lx_udig(p + 1, zs))                            {  seps = 1; ADV(1);                                                      goto S_INT;         }
     if (PEEK(0) == '\'')                                             {  radix = 0; for (const char *r = s; r < p && radix <= 36; r++) if (is_digit(*r)) radix = radix * 10 + (*r - '0');
@@ -316,6 +318,7 @@ S_FRAC_END:
                                                                                                                                                goto LX_FLOAT;
 S_RADIX:
     c = hexval(PEEK(0)); if (c >= 0 && c < radix)                    {  ndig++; ADV(1);                                                        goto S_RADIX;       }
+    if (PEEK(0) == '_' && ndig && (n = lx_uscore_layout(p)) > 1 && (c = hexval(PEEK(n))) >= 0 && c < radix) { for (int i = 1; i < n; i++) if (PEEK(i) == '\n') NL(); seps = 1; ADV(n); goto S_RADIX; }
     if (PEEK(0) == '_' && ndig)                                      {  seps = 1; ADV(1);                                                      goto S_RADIX;       }
     if (PEEK(0) == ' ' && ndig)                                      {  c = hexval(PEEK(1)); if (c >= 0 && c < radix) { seps = 1; ADV(1); goto S_RADIX; }         goto S_RADIX_END;   }
                                                                                                                                                goto S_RADIX_END;

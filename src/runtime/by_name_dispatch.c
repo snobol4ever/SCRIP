@@ -6964,20 +6964,39 @@ static int pl_digits_to_ascii(const char *s, char *b) {
     b[k] = 0;
     return wide && !ascii;
 }
+static int pl_dg_val(char c) { return (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'z') ? c - 'a' + 10 : (c >= 'A' && c <= 'Z') ? c - 'A' + 10 : 99; }
+static int pl_dg_layout(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
 static int pl_digit_groups(const char *s, char *b) {
-    const char *q = s + (*s == '-' || *s == '+');
+    const char *q = s;
     size_t k = 0;
-    int groups = 0;
-    if (q != s) b[k++] = *s;
+    int groups = 0, radix = 10;
+    while (pl_dg_layout(*q)) q++;
+    if (*q == '-' || *q == '+') b[k++] = *q++;
     if (*q < '0' || *q > '9') return 0;
-    for (; *q; q++) { if (*q >= '0' && *q <= '9') { b[k++] = *q; continue; } if (*q == '_' && q[-1] >= '0' && q[-1] <= '9' && q[1] >= '0' && q[1] <= '9') { groups = 1; continue; } return 0; }
+    if (q[0] == '0' && (q[1] == 'x' || q[1] == 'o' || q[1] == 'b')) {
+        radix = q[1] == 'x' ? 16 : q[1] == 'o' ? 8 : 2;
+        b[k++] = *q++;
+        b[k++] = *q++;
+    } else {
+        const char *r = q;
+        int rv = 0;
+        while (*r >= '0' && *r <= '9' && rv <= 36) rv = rv * 10 + (*r++ - '0');
+        if (*r == '\'' && r[1] && rv >= 2 && rv <= 36 && pl_dg_val(r[1]) < rv) { radix = rv; while (q <= r) b[k++] = *q++; }
+    }
+    if (pl_dg_val(*q) >= radix) return 0;
+    for (; *q; q++) {
+        if (pl_dg_val(*q) < radix) { b[k++] = *q; continue; }
+        if (*q == '_' && pl_dg_val(q[-1]) < radix) { const char *r = q + 1; while (pl_dg_layout(*r)) r++; if (pl_dg_val(*r) >= radix) return 0; q = r - 1; groups = 1; continue; }
+        if (*q == ' ' && radix <= 10 && pl_dg_val(q[-1]) < radix && pl_dg_val(q[1]) < radix) { groups = 1; continue; }
+        return 0;
+    }
     b[k] = 0;
     return groups;
 }
 static int pl_parse_number(const char *s, DESCR_t *out) {
     char *e = 0;
     if (!s) return 0;
-    if (strchr(s, '_') && !pl_gnu_dialect()) { char b[strlen(s) + 1]; if (pl_digit_groups(s, b)) return pl_parse_number(b, out); }
+    if ((strchr(s, '_') || strchr(s, ' ')) && !pl_gnu_dialect()) { char b[strlen(s) + 1]; if (pl_digit_groups(s, b)) return pl_parse_number(b, out); }
     const char *q0 = pl_skip_layout(s);
     for (const char *w = s; *w && !(q0[0] == '0' && q0[1] == '\''); w++) {
         if (!((unsigned char)*w & 0x80)) continue;
