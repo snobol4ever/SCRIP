@@ -804,23 +804,24 @@ static void pl_mod_table_pi(pl_mods_t *ms, const char *m1, const char *m2, tree_
     }
     if ((q = pl_mod_resolve(ms, m1, m2, spec->v.sval, spec->n))) spec->v.sval = (char *)q;
 }
-static tree_t *pl_mod_closure(pl_mods_t *ms, const char *m1, const char *m2, tree_t *a, int extra) {
-    const char *nm = (const char *)0;
+static tree_t *pl_mod_qualify(const char *mod, tree_t *a) {
+    tree_t *w = ast_node_new(TT_FNC), *q = ast_node_new(TT_QLIT);
+    q->v.sval = ct_strdup(mod);
+    w->v.sval = ct_strdup(":");
+    ast_push(w, q);
+    ast_push(w, a);
+    return w;
+}
+static tree_t *pl_mod_closure(pl_mods_t *ms, const char *m1, const char *m2, tree_t *a, int extra, int declared) {
+    const char *nm = (const char *)0, *q;
     int ar = extra;
     if (!a) return a;
     if (pl_mod_atomish(a)) nm = a->v.sval;
     else if (a->t == TT_FNC && a->v.sval && strcmp(a->v.sval, ":")) { nm = a->v.sval; ar = a->n + extra; }
     if (!nm) return a;
-    {
-        const char *mod = (m1 && pl_mk_has(&ms->defs, m1, nm, ar)) ? m1 : (m2 && pl_mk_has(&ms->defs, m2, nm, ar)) ? m2 : (const char *)0;
-        if (!mod) return a;
-        tree_t *w = ast_node_new(TT_FNC), *q = ast_node_new(TT_QLIT);
-        q->v.sval = ct_strdup(mod);
-        w->v.sval = ct_strdup(":");
-        ast_push(w, q);
-        ast_push(w, a);
-        return w;
-    }
+    if (declared) return (m1 && strcmp(m1, "user") && a->t != TT_VAR) ? pl_mod_qualify(m1, a) : a;
+    if ((q = pl_mod_resolve(ms, m1, m2, nm, ar))) a->v.sval = (char *)q;
+    return a;
 }
 static const char *pl_mod_meta_spec(pl_mods_t *ms, const char *nm, int ar) {
     for (int i = 0; pl_mod_meta_builtins[i].nm[0]; i++) if (pl_mod_meta_builtins[i].ar == ar && !strcmp(pl_mod_meta_builtins[i].nm, nm)) return pl_mod_meta_builtins[i].spec;
@@ -839,9 +840,9 @@ static void pl_mod_args(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g
             if (ds && ds->t == TT_ILIT && ds->v.ival >= 0 && ds->v.ival <= 9) k = (char)('0' + ds->v.ival);
             else if (ds && pl_mod_atomish(ds) && (!strcmp(ds->v.sval, ":") || !strcmp(ds->v.sval, "^"))) k = ds->v.sval[0];
         } else k = spec[i];
-        if (k == '0') pl_mod_goal(ms, m1, m2, g->c[i], trans);
+        if (k == '0') { pl_mod_goal(ms, m1, m2, g->c[i], trans); if (declared && m1 && strcmp(m1, "user") && g->c[i] && g->c[i]->t != TT_VAR) g->c[i] = pl_mod_qualify(m1, g->c[i]); }
         else if (k == '^') { tree_t *a = g->c[i]; while (a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "^") && a->n == 2) a = a->c[1]; pl_mod_goal(ms, m1, m2, a, trans); }
-        else if (k >= '1' && k <= '9') g->c[i] = pl_mod_closure(ms, m1, m2, g->c[i], k - '0');
+        else if (k >= '1' && k <= '9') g->c[i] = pl_mod_closure(ms, m1, m2, g->c[i], k - '0', declared);
         else if (k == ':' && g->c[i] && (ctx || g->c[i]->t != TT_VAR) && !(g->c[i]->t == TT_FNC && g->c[i]->v.sval && !strcmp(g->c[i]->v.sval, ":") && g->c[i]->n == 2)
             && (ctx || (m1 && strcmp(m1, "user")))) {
             tree_t *w = ast_node_new(TT_FNC);
