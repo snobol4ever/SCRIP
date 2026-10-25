@@ -3952,6 +3952,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
     int hooked_dyn = pl_incremental_dynamics(prog, 0);
     cv_t user_defined = { 0 }, referenced = { 0 }, refkeys = { 0 }, wanted = { 0 }, attv_off = { 0 };
+    for (uint32_t i = 0; i < g_stage2.pl_user_keys_files.len; i++) pl_cv_add(&user_defined, CV_AT(g_stage2.pl_user_keys_files, char *, i));
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
         const char *nm; int ar;
         if (pl_clause_key(cl, &nm, &ar) && nm) pl_cv_add(&user_defined, pl_pred_key(nm, ar));
@@ -4106,6 +4107,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             for (const PlClause *c = prog->head; c && !prolog_dialect_gnu_selected(); c = c->next) if (prolog_clause_marks_swi(c)) { swi = 1; break; }
         }
         pl_libs_append(pre, &referenced, &refkeys, native_only, &user_defined, &imported, prog, swi);
+        for (uint32_t i = 0; i < user_defined.len; i++) if (!pl_cv_has(&g_stage2.pl_user_keys_files, CV_AT(user_defined, char *, i))) CV_PUSH(g_stage2.pl_user_keys_files, char *) = CV_AT(user_defined, char *, i);
     }
     {
         int exc = pl_cv_has(&user_defined, "exception/3");

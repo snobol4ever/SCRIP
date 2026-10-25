@@ -73,6 +73,7 @@ typedef struct stage2_t {
     long long * db_decls_words;
     int db_decls_n;
     cv_t pl_prelude_keys;
+    cv_t pl_user_keys_files;
     cv_t pl_decl_multifile;
     cv_t pl_decl_meta;
     int pl_dq_mode;
