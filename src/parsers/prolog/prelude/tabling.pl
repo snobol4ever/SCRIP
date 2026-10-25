@@ -10,7 +10,7 @@
     heap (they outlive the call), the current delay list is one trailed root word ('$tbl_dlget'/'$tbl_dlset', the cto's 2026-10-14 ruling), and the incremental
     predicates are '$tbl_incrp'/1 facts. THE GRAPH (ARCH-PROLOG-TABLING-IDG.md, the cto, CEO-1960): slot 1's d/6 carries idg(Kind,Deps,False,Queue,Forced) per table;
     cell 9 of a pass is its Deps; '$tbl_dcall' records a dynamic source and '$tbl_dchange' is the one change entry; a monotonic step is a semi-naive run under mono(Src,R,Delta) in cell 6. */
-:- module(tabling, [ '$tbl_call'/2, '$tbl_icall'/2, '$tbl_isincr'/1, '$tbl_incrs'/1, '$incr_inval'/0, '$incr_guard'/2, '$incr_drop'/3, subgoal_property/2, '$tbl_vmap'/2, incr_assert/1, incr_asserta/1, incr_assertz/1, incr_retract/1, incr_retractall/1, incr_invalidate_calls/1, incr_invalidate_call/1, xwam_state/2, '$tbl_mcall'/3, '$tbl_get'/4, '$tbl_valid'/4, '$tbl_noattv'/1, '$tbh_v'/3, '$tbl_dl'/1, '$tbl_msplit'/7, '$tbl_mindex'/1, '$tbl_mcheck'/1, '$tbl_mterm'/2, '$tbl_enter'/6, '$tbl_leading'/0, '$tbl_inprog'/1, '$tbl_lead'/1, '$tbl_eval1'/1, '$tbl_cycg'/1, '$tbl_restrain'/2, '$tbl_rs'/1, '$tbl_rsa'/2, '$tbl_gdeeper'/2, '$tbl_deeper'/2, '$tbl_atrip'/1, '$tbl_trip'/1, '$tbl_trip'/2, '$tbl_ans2'/3, '$tbl_chk'/2, '$tbl_chk2'/3, '$tbl_eval1n'/1, '$tbl_nest'/4, '$tbl_dup'/1, '$tbl_scc'/4, '$tbl_indep'/2, '$tbl_srounds'/1, '$tbl_upto'/4, '$tbl_fin_all'/1, '$tbl_depn'/1, '$tbl_pos'/2, '$tbl_idx'/4, '$tbl_dmin'/3, '$tbl_done'/1, '$tbl_wfsrun'/0, '$tbl_alt'/1, '$tbl_alt2'/2, '$tbl_reset'/1, '$tbl_renew'/3, '$tbl_count'/3, '$tbl_snapw'/2, '$tbl_snapins'/2, '$tbl_final'/1, '$tbl_final1'/1, '$tbl_wdrop'/1, '$tbl_finvals'/2, tnot/1, '$tnot_split'/2, '$tnot_impl'/2, '$tnot_st'/3, '$tnot_u'/2, '$tnot_i'/3, undefined/0, '$tbl undefined'/0, not_exists/1, tabled_call/1, '$tbl tabled_call'/1, get_residual/2, call_residual_program/2, '$call_residual_m'/3, '$tbl_rprog'/4, '$tbl_rshare'/3, '$tbl_rcls'/4, '$tbl_rneg'/2, '$tbl_ratoms'/2, '$tbl_resq'/2, '$tbl_rsk'/6, '$tbl_rval'/2, '$tbl_answered'/1, '$tbl_resid'/3, sk_not/1, get_calls/3, get_returns/2, get_call/3, get_returns_and_dls/3, '$grd'/3, '$grd_u'/3, excess_vars/4, '$xs_q'/4, '$xs_minus'/3, '$xs_memv'/2, get_returns/3, '$gr_idx'/4, get_returns_for_call/2, '$tbl_unql'/2, '$tbl_unqe'/2, call_delays/2, '$call_delays_m'/3, '$tbl_unqlm'/3, '$tbl_unqem'/3, '$tbl_conj'/2, '$tbl_del'/3, '$tbl_rounds'/0, '$tbl_round'/3, '$tbl_eval'/2, '$tbl_gshort'/2, '$tbl_runs'/5, '$tbl_run'/5, '$tbl_app'/3, '$tbl_snap'/2, '$tbl_snapat'/3, '$tbl_slice'/2, '$tbl_use'/1, '$tbl_range'/3, '$tbl_addk'/5, '$tbl_mcond'/3, '$tbl_unpair'/2, '$tbl_radd'/5, '$tbl_rput'/5, '$tbl_rhas'/2, '$tbl_fa'/3, '$tbl_ph'/1, '$tbl_raise'/0, '$tbl_dlpush'/1, '$tbl_w'/2, '$tbl_wany'/2, '$tbl_wtin'/2, '$tbl_add'/5, '$tbl_answer'/2, '$tbl_aval'/4, '$tbl_ucons'/2, '$tbl_manswer'/4, '$tbl_madd'/6, '$tbl_mput'/6, '$tbl_same'/2, '$tbl_mupd'/4, '$tbl_mupds'/4, '$tbl_mupd1'/4, '$tbl_mclos'/2, '$tbl_complete'/1, '$tbl_abort'/0, '$tbl_drop'/2, '$tbl_dgoal'/2, abolish_all_tables/0, '$tbl_drop_all'/1, '$tbl_local_variant_table'/1, current_table/2, '$tbl_strip'/3, '$tbl_lookup'/4, '$tbl_qual'/3, '$tbl_unqual'/3, '$tbl_table_status'/4, '$idg_forced'/1, '$idg_mono_affects_lazy'/5, transaction/1, snapshot/1, '$tx_pre'/1 ]).
+:- module(tabling, [ '$tbl_call'/2, '$tbl_icall'/2, '$tbl_isincr'/1, '$tbl_incrs'/1, '$incr_inval'/0, '$incr_guard'/2, '$incr_drop'/3, subgoal_property/2, '$tbl_vmap'/2, incr_assert/1, incr_asserta/1, incr_assertz/1, incr_retract/1, incr_retractall/1, incr_invalidate_calls/1, incr_invalidate_call/1, xwam_state/2, '$tbl_mcall'/3, '$tbl_get'/4, '$tbl_valid'/4, '$tbl_noattv'/1, '$tbh_v'/3, '$tbl_dl'/1, '$tbl_msplit'/7, '$tbl_mindex'/1, '$tbl_mcheck'/1, '$tbl_mterm'/2, '$tbl_enter'/6, '$tbl_leading'/0, '$tbl_inprog'/1, '$tbl_lead'/1, '$tbl_eval1'/1, '$tbl_cycg'/1, '$tbl_restrain'/2, '$tbl_rs'/1, '$tbl_rsa'/2, '$tbl_gdeeper'/2, '$tbl_deeper'/2, '$tbl_atrip'/1, '$tbl_trip'/1, '$tbl_trip'/2, '$tbl_ans2'/3, '$tbl_chk'/2, '$tbl_chk2'/3, '$tbl_eval1n'/1, '$tbl_nest'/4, '$tbl_dup'/1, '$tbl_scc'/4, '$tbl_indep'/2, '$tbl_srounds'/1, '$tbl_upto'/4, '$tbl_fin_all'/1, '$tbl_depn'/1, '$tbl_pos'/2, '$tbl_idx'/4, '$tbl_dmin'/3, '$tbl_done'/1, '$tbl_wfsrun'/0, '$tbl_alt'/1, '$tbl_alt2'/2, '$tbl_reset'/1, '$tbl_renew'/3, '$tbl_count'/3, '$tbl_snapw'/2, '$tbl_snapins'/2, '$tbl_final'/1, '$tbl_final1'/1, '$tbl_wdrop'/1, '$tbl_finvals'/2, tnot/1, '$tnot_split'/2, '$tnot_impl'/2, '$tnot_st'/3, '$tnot_u'/2, '$tnot_i'/3, undefined/0, '$tbl undefined'/0, not_exists/1, tabled_call/1, '$tbl tabled_call'/1, get_residual/2, call_residual_program/2, '$call_residual_m'/3, '$tbl_rprog'/4, '$tbl_rshare'/3, '$tbl_rcls'/4, '$tbl_rneg'/2, '$tbl_ratoms'/2, '$tbl_resq'/2, '$tbl_rsk'/6, '$tbl_rval'/2, '$tbl_answered'/1, '$tbl_resid'/3, sk_not/1, get_calls/3, get_returns/2, get_call/3, get_returns_and_dls/3, '$grd'/3, '$grd_u'/3, excess_vars/4, '$xs_q'/4, '$xs_minus'/3, '$xs_memv'/2, get_returns/3, '$gr_idx'/4, get_returns_for_call/2, '$tbl_unql'/2, '$tbl_unqe'/2, call_delays/2, '$call_delays_m'/3, '$tbl_unqlm'/3, '$tbl_unqem'/3, '$tbl_conj'/2, '$tbl_del'/3, '$tbl_rounds'/0, '$tbl_round'/3, '$tbl_eval'/2, '$tbl_gshort'/2, '$tbl_runs'/5, '$tbl_run'/5, '$tbl_app'/3, '$tbl_snap'/2, '$tbl_snapat'/3, '$tbl_slice'/2, '$tbl_use'/1, '$tbl_range'/3, '$tbl_addk'/5, '$tbl_mcond'/3, '$tbl_unpair'/2, '$tbl_radd'/5, '$tbl_rput'/5, '$tbl_rhas'/2, '$tbl_fa'/3, '$tbl_ph'/1, '$tbl_raise'/0, '$tbl_dlpush'/1, '$tbl_w'/2, '$tbl_wany'/2, '$tbl_wtin'/2, '$tbl_add'/5, '$tbl_answer'/2, '$tbl_aval'/4, '$tbl_ucons'/2, '$tbl_manswer'/4, '$tbl_madd'/6, '$tbl_mput'/6, '$tbl_same'/2, '$tbl_mupd'/4, '$tbl_mupds'/4, '$tbl_mupd1'/4, '$tbl_mclos'/2, '$tbl_complete'/1, '$tbl_abort'/0, '$tbl_drop'/2, '$tbl_dgoal'/2, abolish_all_tables/0, '$tbl_drop_all'/1, '$tbl_local_variant_table'/1, current_table/2, '$tbl_strip'/3, '$tbl_lookup'/4, '$tbl_qual'/3, '$tbl_unqual'/3, '$tbl_table_status'/4, '$idg_forced'/1, '$idg_mono_affects_lazy'/5, transaction/1, snapshot/1 ]).
 '$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).
 '$tbl_kcall'(G,I,TK):-(TK==incr->functor(G,F,N),('$tbl_isincr'(F/N)->true;assertz('$tbl_incrp'(F/N)));true),'$tbl_get'(G,I,plain,TK,T),'$tbl_answer'(T,G).
 '$tbl_icall'(G,I):-'$tbl_kcall'(G,I,incr).
@@ -48,7 +48,7 @@ incr_is_invalid(MG):-'$tbl_strip'(MG,M,G),'$tbl_vt'(VT),'$tbl_lookup'(VT,M,G,T),
 '$tbl_dfact'((H:-B),G):-!,G=H,call(B).
 '$tbl_dfact'(G,G).
 '$tbl_dpos'(J):-'$tbh_v'(7,0,J0),J is J0+1,'$tbh_bset'(7,J),'$tbh_v'(8,0,M),(J>M->'$tbh_set'(8,J);true).
-'$tbl_dchange'(Op,H0,K):-'$tbl_dnorm'(H0,H),'$tbl_dhead'(H,F,N),!,'$tbl_vt'(VT),'$trie_entries'(VT,Es),('$tbl_dreads'(Es,dyn(F/N))->'$tbl_dchg'(Es,Op,H,dyn(F/N),K);Op\==propagate,'$incr_inval'->true;true),'$tbl_dinvg'(Op,Es,H).
+'$tbl_dchange'(Op,H0,K):-'$tbl_dnorm'(H0,H),'$tbl_dhead'(H,F,N),!,'$tx_chg'(Op,F,N),'$tbl_vt'(VT),'$trie_entries'(VT,Es),('$tbl_dreads'(Es,dyn(F/N))->'$tbl_dchg'(Es,Op,H,dyn(F/N),K);Op\==propagate,'$incr_inval'->true;true),'$tbl_dinvg'(Op,Es,H).
 '$tbl_dnorm'(V,V):-var(V),!.
 '$tbl_dnorm'(M:H0,H):-!,'$tbl_dnorm'(H0,H1),(atom(M),M\==user,callable(H1),H1\=(_:-_)->'$tbl_qual'(M,H1,H);H1=(B0:-Bd),atom(M),M\==user,callable(B0)->'$tbl_qual'(M,B0,QB),H=(QB:-Bd);H=H1).
 '$tbl_dnorm'(H,H).
@@ -394,17 +394,21 @@ transaction(G):-'$tx_open'(P,L),(catch(once(G),E,('$tx_undo'(L),'$tx_close'(P),t
 snapshot(G):-'$tx_open'(P,L),(catch(once(G),E,('$tx_undo'(L),'$tx_close'(P),throw(E)))->'$tx_undo'(L),'$tx_close'(P);'$tx_undo'(L),'$tx_close'(P),fail).
 '$tx_open'(P,L):-(nb_current('$tx_cur',P0)->P=P0;P=none),L=tx([]),b_setval('$tx_cur',L).
 '$tx_close'(P):-b_setval('$tx_cur',P).
-'$tx_commit'(P,tx(In)):-(P=tx(Out)->'$tbl_app'(In,Out,All),nb_setarg(1,P,All);true).
+'$tx_commit'(P,tx(In)):-(P=tx(Out)->'$tbl_app'(In,Out,All),nb_setarg(1,P,All);'$tx_db'(1,In)).
 '$tx_log'(R):-nb_current('$tx_cur',C),C=tx(Rs),!,nb_setarg(1,C,[R|Rs]).
 '$tx_log'(_).
-'$tx_pre'(C0):-nb_current('$tx_cur',C),C=tx(Rs),!,'$tbl_dnorm'(C0,C1),('$tbl_dhead'(C1,F,N)->('$tx_has_pred'(Rs,F/N)->true;'$tx_snap_pred'(F,N,Cs),nb_setarg(1,C,[pred(F/N,Cs)|Rs]));true).
-'$tx_pre'(_).
-'$tx_has_pred'([R|Rs],K):-(R=pred(K0,_),K0==K->true;'$tx_has_pred'(Rs,K)).
-'$tx_snap_pred'(F,N,Cs):-functor(H,F,N),catch(findall(H-B,clause(H,B),Cs),_,Cs=[]).
+'$tx_chg'(Op,F,N):-('$tx_dbop'(Op),nb_current('$tx_cur',C),C=tx(Rs)->('$tx_has_chg'(Rs,F/N)->true;nb_setarg(1,C,[chg(F/N)|Rs]));true).
+'$tx_dbop'(assert).
+'$tx_dbop'(asserta).
+'$tx_dbop'(assertz).
+'$tx_dbop'(retract).
+'$tx_dbop'(retractall).
+'$tx_dbop'(erase).
+'$tx_has_chg'([R|Rs],K):-(R=chg(K0),K0==K->true;'$tx_has_chg'(Rs,K)).
 '$tx_meta'(T):-nb_current('$tx_cur',C),C=tx(Rs),!,('$tx_has_meta'(Rs,T)->true;'$trie_meta_get'(T,0,S),(S==complete;S==invalid),'$tbl_idg'(T,Dg)->nb_setarg(1,C,[meta(T,S,Dg)|Rs]);true).
 '$tx_meta'(_).
 '$tx_has_meta'([R|Rs],T):-(R=meta(T0,_,_),T0==T->true;'$tx_has_meta'(Rs,T)).
-'$tx_undo'(tx(Rs)):-'$tx_inps'(Rs,Ip),'$tx_taint'(Rs,Ip,Ts),'$tx_undo1'(Rs,Ip),'$tx_inval_all'(Ts).
+'$tx_undo'(tx(Rs)):-'$tx_inps'(Rs,Ip),'$tx_taint'(Rs,Ip,Ts),'$tx_db'(0,Rs),'$tx_undo1'(Rs,Ip),'$tx_inval_all'(Ts).
 '$tx_undo1'([],_).
 '$tx_undo1'([R|Rs],Ip):-'$tx_un'(R,Ip),'$tx_undo1'(Rs,Ip).
 '$tx_inps'([],[]).
@@ -412,19 +416,16 @@ snapshot(G):-'$tx_open'(P,L),(catch(once(G),E,('$tx_undo'(L),'$tx_close'(P),thro
 '$tx_inp1'(inpush(T),T).
 '$tx_inpush'(T,S):-nb_current('$tx_cur',C),C=tx(Rs),!,('$tx_inside'(S,Rs),\+ '$tx_has_inpush'(Rs,T)->nb_setarg(1,C,[inpush(T)|Rs]);true).
 '$tx_inpush'(_,_).
-'$tx_inside'(dyn(K),Rs):-!,'$tx_has_pred'(Rs,K).
+'$tx_inside'(dyn(K),Rs):-!,'$tx_has_chg'(Rs,K).
 '$tx_inside'(S,Rs):-'$tx_has_inpush'(Rs,S).
 '$tx_has_inpush'([R|Rs],T):-(R=inpush(T0),T0==T->true;'$tx_has_inpush'(Rs,T)).
-'$tx_un'(pred(F/N,Cs),_):-!,functor(H,F,N),catch(retractall(H),_,true),'$tx_reassert'(Cs).
 '$tx_un'(answer(T,Sk),Ip):-!,(memberchk(T,Ip)->('$trie_delete'(T,Sk,_)->true;true);true).
 '$tx_un'(meta(T,S,Dg),Ip):-!,(memberchk(T,Ip)->'$trie_meta_set'(T,0,S),'$tbl_idg_put'(T,Dg);true).
 '$tx_un'(_,_).
-'$tx_reassert'([]).
-'$tx_reassert'([H-B|Cs]):-(B==true->assertz(H);assertz((H:-B))),'$tx_reassert'(Cs).
 '$tx_taint'(Rs,Ip,Ts):-reverse(Rs,Os),'$tx_walk'(Os,Ip,[],[],Ts).
 '$tx_walk'([],_,_,Ts,Ts).
 '$tx_walk'([R|Rs],Ip,Ch,Ts0,Ts):-'$tx_step'(R,Ip,Ch,Ts0,Ch1,Ts1),'$tx_walk'(Rs,Ip,Ch1,Ts1,Ts).
-'$tx_step'(pred(F/N,_),_,Ch,Ts,[dyn(F/N)|Ch],Ts):-!.
+'$tx_step'(chg(F/N),_,Ch,Ts,[dyn(F/N)|Ch],Ts):-!.
 '$tx_step'(answer(T,_),Ip,Ch,Ts,Ch1,Ts):-!,(memberchk(T,Ip)->Ch1=[T|Ch];Ch1=Ch).
 '$tx_step'(evald(T),_,Ch,Ts,Ch1,Ts1):-!,('$tbl_idg'(T,idg(_,Dp,_,_,_)),'$tx_hit'(Dp,Ch)->Ch1=[T|Ch],Ts1=[T|Ts];Ch1=Ch,Ts1=Ts).
 '$tx_step'(_,_,Ch,Ts,Ch,Ts).

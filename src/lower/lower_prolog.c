@@ -1536,16 +1536,16 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     1, "$trie_new" }, { "$trie_alive", 1, "$trie_alive" }, { "$trie_destroy", 1, "$trie_destroy" }, { "$trie_insert", 5, "$trie_insert" }, { "$trie_lookup", 3, "$trie_lookup" }, { "$trie_delete", 3,
     "$trie_delete" }, { "$trie_entries", 2, "$trie_entries" }, { "$trie_entry_key", 3, "$trie_entry_key" }, { "$trie_count", 2, "$trie_count" }, { "$trie_meta_set", 3, "$trie_meta_set" },
     { "$trie_meta_get", 3, "$trie_meta_get" }, { "$tbl_vt", 1, "$tbl_vt" }, { "$tbh_close", 0, "$tbh_close" }, { "$tbh_leading", 0, "$tbh_leading" }, { "$tbh_get", 2, "$tbh_get" }, { "$tbh_own", 2,
-    "$tbh_own" }, { "$tbh_set", 2, "$tbh_set" }, { "$tbh_bset", 2, "$tbh_bset" }, { "$tbl_dlget", 1, "$tbl_dlget" }, { "$tbl_dlset", 1, "$tbl_dlset" }, { "$pl_cp_nth", 3, "$pl_cp_nth" },
-    { "$pl_pp_guard", 1, "$pl_pp_guard" }, { "$pl_pp_count", 2, "$pl_pp_count" }, { "$pl_pp_nth", 3, "$pl_pp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" }, { "halt", 0, "$halt" }, { "halt", 1,
-    "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" }, { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$print_s" },
-    { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" }, { "put_char", 2, "$put_char_c_s" }, { "flush_output", 1, "$flush_output_s" }, { "format", 3,
-    "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" }, { "open", 3, "$open" }, { "open", 4, "$open4" }, { "close", 1, "$close" }, { "close",
-    2, "$close" }, { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" }, { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" }, { "keysort", 2,
-    "$keysort" }, { "set_stream_position", 2, "$set_stream_position" }, { "op", 3, "$op" }, { "$pl_op_count", 1, "$pl_op_count" }, { "$pl_op_nth", 4, "$pl_op_nth" }, { "$pl_sp_count", 1,
-    "$pl_sp_count" }, { "$pl_sp_nth", 3, "$pl_sp_nth" }, { "$pl_cs_count", 1, "$pl_cs_count" }, { "$pl_cs_nth", 4, "$pl_cs_nth" }, { "wall_us", 1, "$wall_us" }, { "wall_ms", 1, "$wall_ms" }, { "sort",
-    1, "$gnu_sort1" }, { "msort", 1, "$gnu_msort1" }, { "keysort", 1, "$gnu_keysort1" }, { "line_count", 2, "$gnu_line_count" }, { "line_position", 2, "$gnu_line_position" }, { "$put_token", 2,
-    "$put_token" }, { "character_count", 2, "$gnu_character_count" }, { "stream_line_column", 3, "$gnu_stream_line_column" }, { "last_read_start_line_column", 2, "$gnu_last_read_start" },
+    "$tbh_own" }, { "$tbh_set", 2, "$tbh_set" }, { "$tbh_bset", 2, "$tbh_bset" }, { "$tbl_dlget", 1, "$tbl_dlget" }, { "$tbl_dlset", 1, "$tbl_dlset" }, { "$tx_db", 2, "$tx_db" }, { "$pl_cp_nth", 3,
+    "$pl_cp_nth" }, { "$pl_pp_guard", 1, "$pl_pp_guard" }, { "$pl_pp_count", 2, "$pl_pp_count" }, { "$pl_pp_nth", 3, "$pl_pp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" }, { "halt", 0, "$halt" },
+    { "halt", 1, "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" }, { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2,
+    "$print_s" }, { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" }, { "put_char", 2, "$put_char_c_s" }, { "flush_output", 1, "$flush_output_s" },
+    { "format", 3, "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" }, { "open", 3, "$open" }, { "open", 4, "$open4" }, { "close", 1,
+    "$close" }, { "close", 2, "$close" }, { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" }, { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" },
+    { "keysort", 2, "$keysort" }, { "set_stream_position", 2, "$set_stream_position" }, { "op", 3, "$op" }, { "$pl_op_count", 1, "$pl_op_count" }, { "$pl_op_nth", 4, "$pl_op_nth" }, { "$pl_sp_count",
+    1, "$pl_sp_count" }, { "$pl_sp_nth", 3, "$pl_sp_nth" }, { "$pl_cs_count", 1, "$pl_cs_count" }, { "$pl_cs_nth", 4, "$pl_cs_nth" }, { "wall_us", 1, "$wall_us" }, { "wall_ms", 1, "$wall_ms" },
+    { "sort", 1, "$gnu_sort1" }, { "msort", 1, "$gnu_msort1" }, { "keysort", 1, "$gnu_keysort1" }, { "line_count", 2, "$gnu_line_count" }, { "line_position", 2, "$gnu_line_position" }, { "$put_token",
+    2, "$put_token" }, { "character_count", 2, "$gnu_character_count" }, { "stream_line_column", 3, "$gnu_stream_line_column" }, { "last_read_start_line_column", 2, "$gnu_last_read_start" },
     { "absolute_file_name", 2, "$gnu_absolute_file_name" }, { "prolog_file_name", 2, "$gnu_prolog_file_name" }, { "$gnu_builtin", 2, "$gnu_builtin" }, { "working_directory", 1,
     "$gnu_working_directory" }, { "change_directory", 1, "$gnu_change_directory" }, { "make_directory", 1, "$gnu_make_directory" }, { "$gnu_os", 3, "$gnu_os" }, { "$compound0", 3, "$compound0" },
     { "set_stream", 2, "$set_stream" }, { "delete_file", 1, "$gnu_delete_file" }, { "file_exists", 1, "$gnu_file_exists" }, { "directory_files", 2, "$gnu_directory_files" }, { "term_hash", 2,
@@ -3003,9 +3003,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             if (!strcmp(nm, "erase") && t->n == 1) {
                 tree_t * clr = pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("clref_in")), pl_cc_fnc1("$db_erase_ref", (tree_t *) t->c[0]));
                 tree_t * er = pl_cc_fnc2(";", pl_cc_fnc2("->", pl_cc_fnc1("$rec_ref", (tree_t *) t->c[0]), pl_cc_fnc1("$rec_erase", (tree_t *) t->c[0])), clr);
-                if (g_lower.pl.hook_dyn_n > 0) er =
-                    pl_cc_fnc2(",", pl_cc_fnc1("$tx_pre", (tree_t *) t->c[0]),
-                    pl_cc_fnc2(",", er, pl_cc_fnc3("$tbl_dchange", (tree_t *) pl_atom_goal("erase"), (tree_t *) t->c[0], (tree_t *) pl_atom_goal("incr"))));
+                if (g_lower.pl.hook_dyn_n > 0) er = pl_cc_fnc2(",", er, pl_cc_fnc3("$tbl_dchange", (tree_t *) pl_atom_goal("erase"), (tree_t *) t->c[0], (tree_t *) pl_atom_goal("incr")));
                 return goal(cx, er, γnext, ωfail, entry_out);
             }
             if (!strcmp(nm, "retract") && t->n == 1) {

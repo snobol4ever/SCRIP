@@ -23630,7 +23630,7 @@ DESCR_t sno_array_d(DESCR_t a, DESCR_t init) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void * rt_pl_db_get(void *, int64_t);
 extern int rt_pl_db_assert(void *, void *, void *, int);
-extern int rt_pl_db_erase(void *, int);
+extern int rt_pl_db_erase(void *, void *, int);
 extern int rt_pl_db_abolish(void *, void *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void * pl_db_cell_of(DESCR_t *args, void *root) { DESCR_t k = rt_pl_deref_val(args[0]); if (k.v != DT_I) return (void *)0; return rt_pl_db_get(root, k.i); }
@@ -23832,6 +23832,15 @@ static DESCR_t pl_tbl_dl_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *r
     rt_pl_tr_gc_sync(cx->tr);
     { int ok = rt_pl_tbl_dl(root, set, (void *)&args[0], cx); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
 }
+extern int rt_pl_tx_db(void *, int, void *);
+DESCR_t rt_pl_dop_tx_db_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    DESCR_t op;
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    rt_pl_tr_gc_sync(cx->tr);
+    op = rt_pl_deref_val(args[0]);
+    { int ok = op.v == DT_I && rt_pl_tx_db(root, (int)op.i, (void *)&args[1]); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
+}
 DESCR_t rt_pl_dop_tbl_dlget_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) { return pl_tbl_dl_leaf(args, nargs, cx, root, 0); }
 DESCR_t rt_pl_dop_tbl_dlset_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) { return pl_tbl_dl_leaf(args, nargs, cx, root, 1); }
 DESCR_t rt_pl_dop_tbh_own_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) { return pl_tbh_put_leaf(args, nargs, cx, root, 0); }
@@ -23854,7 +23863,7 @@ DESCR_t rt_pl_dop_db_erase_c(DESCR_t *args, int nargs, void *root) {
         void *db = pl_db_cell_of(args, root);
         DESCR_t iv = rt_pl_deref_val(args[1]);
         if (!db || iv.v != DT_I) return FAILDESCR;
-        return (rt_pl_db_erase(db, (int)iv.i) || rt_pl_db_slot_erased(db, (int)iv.i)) ? pl_ok() : FAILDESCR;
+        return (rt_pl_db_erase(root, db, (int)iv.i) || rt_pl_db_slot_erased(db, (int)iv.i)) ? pl_ok() : FAILDESCR;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -23916,11 +23925,11 @@ static int pl_db_pair_parts(DESCR_t *p, DESCR_t *h, DESCR_t *b) {
     { DESCR_t *aa = (DESCR_t *)d->p; if (h) *h = aa[0]; if (b) *b = aa[1]; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern int rt_pl_db_match_erase(void *, void *);
+extern int rt_pl_db_match_erase(void *, void *, void *);
 DESCR_t rt_pl_dop_db_retractall_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
-    { void *db = pl_db_cell_of(args, root); if (!db) return pl_ok(); rt_pl_db_match_erase(db, (void *)&args[1]); return pl_ok(); }
+    { void *db = pl_db_cell_of(args, root); if (!db) return pl_ok(); rt_pl_db_match_erase(root, db, (void *)&args[1]); return pl_ok(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_db_killed(void *);
@@ -24373,14 +24382,14 @@ DESCR_t rt_pl_dop_db_ref_r_c(DESCR_t *args, int nargs, void *root) {
 }
 DESCR_t rt_pl_dop_db_erase_ref_c(DESCR_t *args, int nargs, void *root) {
     extern int rt_pl_db_slot_of_ref(void *, int);
-    extern int rt_pl_db_erase(void *, int);
+    extern int rt_pl_db_erase(void *, void *, int);
     int ref = 0;
     if (nargs != 1) return FAILDESCR;
     pl_atoms_ready();
     {
         void *db = pl_db_of_clref(rt_pl_deref_val(args[0]), root, &ref);
         if (!db) return FAILDESCR;
-        { int i = rt_pl_db_slot_of_ref(db, ref); if (i < 0) return FAILDESCR; return rt_pl_db_erase(db, i) ? pl_ok() : FAILDESCR; }
+        { int i = rt_pl_db_slot_of_ref(db, ref); if (i < 0) return FAILDESCR; return rt_pl_db_erase(root, db, i) ? pl_ok() : FAILDESCR; }
     }
 }
 static void *pl_db_of_term(DESCR_t *t, void *root, int create) {
@@ -24399,7 +24408,7 @@ DESCR_t rt_pl_dop_db_asserta_t_c(DESCR_t *args, int nargs, void *root) { return 
 DESCR_t rt_pl_dop_db_erase_t_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
-    { void *db = pl_db_of_term(&args[0], root, 0); DESCR_t iv = rt_pl_deref_val(args[1]); if (!db || iv.v != DT_I) return FAILDESCR; return rt_pl_db_erase(db, (int)iv.i) ? pl_ok() : FAILDESCR; }
+    { void *db = pl_db_of_term(&args[0], root, 0); DESCR_t iv = rt_pl_deref_val(args[1]); if (!db || iv.v != DT_I) return FAILDESCR; return rt_pl_db_erase(root, db, (int)iv.i) ? pl_ok() : FAILDESCR; }
 }
 DESCR_t rt_pl_dop_db_abolish_t_c(DESCR_t *args, int nargs, void *root) {
     extern int prolog_atom_intern(const char *);
@@ -24422,7 +24431,7 @@ DESCR_t rt_pl_dop_db_abolish_t_c(DESCR_t *args, int nargs, void *root) {
 DESCR_t rt_pl_dop_db_retractall_t_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 1) return FAILDESCR;
     pl_atoms_ready();
-    { void *db = pl_db_of_term(&args[0], root, 1); if (!db) return pl_ok(); rt_pl_db_match_erase(db, (void *)&args[0]); return pl_ok(); }
+    { void *db = pl_db_of_term(&args[0], root, 1); if (!db) return pl_ok(); rt_pl_db_match_erase(root, db, (void *)&args[0]); return pl_ok(); }
 }
 void * rt_pl_dop_db_alive_c(DESCR_t *args, int nargs, void *root) {
     extern void *rt_pl_ball_existence(DESCR_t *, int);
