@@ -7070,6 +7070,7 @@ static int pl_alias_idx(const char *nm) {
     if (!strcmp(nm, "current_output")) return fh_current_output();
     return fh_alias_idx(nm);
 }
+static int pl_fh_octet(int ix) { return ix >= 0 && ix < FH_N && g_fh[ix].enc && !strcmp(g_fh[ix].enc, "octet"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_stream_idx(DESCR_t s, int out) {
     extern FILE *fh_get(int);
@@ -7127,7 +7128,7 @@ static int pl_stream_resolve(DESCR_t s, int out, int textop, void **ball) {
         if (out == 0 && !is_in && idx != 0) { *ball = rt_pl_ball_permission3("input", "stream", d); return -1; }
         if (out < 0) out = !is_in && idx != 0;
         if (textop > 0 && g_fh[idx].type == 'b') { *ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", d); return -1; }
-        if (textop < 0 && g_fh[idx].type != 'b') { *ball = rt_pl_ball_permission3(out ? "output" : "input", "text_stream", d); return -1; }
+        if (textop < 0 && g_fh[idx].type != 'b' && !pl_fh_octet(idx)) { *ball = rt_pl_ball_permission3(out ? "output" : "input", "text_stream", d); return -1; }
     }
     return idx;
 }
@@ -8580,7 +8581,7 @@ static void *pl_byte_cur_ball(int out) {
     extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     int ix = out ? fh_current_output() : fh_current_input();
     DESCR_t who = !pl_gnu_dialect() ? pl_mk_stream(ix) : pl_mk_atom(out ? "current_output_stream" : "current_input_stream");
-    return (ix >= 0 && ix < FH_N && g_fh[ix].type != 'b') ? rt_pl_ball_permission3(out ? "output" : "input", "text_stream", who) : (void *)0;
+    return (ix >= 0 && ix < FH_N && g_fh[ix].type != 'b' && !pl_fh_octet(ix)) ? rt_pl_ball_permission3(out ? "output" : "input", "text_stream", who) : (void *)0;
 }
 static void *pl_past_eos_ball(void) {
     extern int fh_current_input(void);
