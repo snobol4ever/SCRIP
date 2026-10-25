@@ -3130,6 +3130,8 @@ inline std::string x86_icn_subject_set(int a, int mode, int k) {
          + x86("shr", "rax", 32L)
          + x86("test", "eax", "eax")
          + x86("je", L(k))
+         + x86("cmp", "eax", -1L)
+         + x86("je", L(k))
          + x86("mov", "r13", FRQ(a + 8))
          + x86("mov", "r15d", "eax")
          + x86("jmp", L(k + 1))
