@@ -21,6 +21,10 @@ typedef struct {
     int * decl_dyn_arity;
     int decl_dyn_n;
     int decl_dyn_cap;
+    const char ** hook_dyn_name;
+    int * hook_dyn_arity;
+    int hook_dyn_n;
+    int hook_dyn_cap;
     const char ** decl_other_name;
     int * decl_other_arity;
     int decl_other_n;

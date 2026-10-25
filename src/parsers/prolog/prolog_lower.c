@@ -567,7 +567,8 @@ static const pl_mspec_t pl_mod_meta_builtins[] = { { "call", 1, "0" }, { "call",
     { "exclude", 3, "1--" }, { "partition", 4, "1---" }, { "partition", 6, "2-----" }, { "convlist", 3, "2--" }, { "phrase", 2, "2-" }, { "phrase", 3, "2--" }, { "initialization", 1, "0" },
     { "initialization", 2, "0-" }, { "assertion", 1, "0" }, { "call_nth", 2, "0-" }, { "limit", 2, "-0" }, { "offset", 2, "-0" }, { "distinct", 1, "0" }, { "distinct", 2, "-0" }, { "$", 1, "0" },
     { "snapshot", 1, "0" }, { "transaction", 1, "0" }, { "tnot", 1, "0" }, { "call_delays", 2, "0-" }, { "call_residual_program", 2, "0-" }, { "get_residual", 2, "0-" }, { "tfindall", 3, "-0-" }, { "not_exists", 1, "0" },
-    { "sk_not", 1, "0" }, { "u_not", 1, "0" }, { "abolish_table_subgoals", 1, "0" }, { "abolish_table_call", 1, "0" }, { "call_with_depth_limit", 3, "0--" }, { "argv_options", 3, ":--" }, { "argv_options", 4, ":---" },
+    { "sk_not", 1, "0" }, { "u_not", 1, "0" }, { "abolish_table_subgoals", 1, "0" }, { "abolish_table_call", 1, "0" }, { "get_returns_for_call", 2, "0-" }, { "get_calls", 3, "0--" }, { "get_call", 3, "0--" },
+    { "current_table", 2, "0-" }, { "incr_is_invalid", 1, "0" }, { "incr_propagate_calls", 1, "0" }, { "incr_invalidate_calls", 1, "0" }, { "incr_invalidate_call", 1, "0" }, { "call_with_depth_limit", 3, "0--" }, { "argv_options", 3, ":--" }, { "argv_options", 4, ":---" },
     { "argv_usage", 1, ":" }, { "", 0, "" } };
 static int pl_mk_has(const cv_t *v, const char *mod, const char *name, int ar) {
     for (uint32_t i = 0; i < v->len; i++) {
@@ -1281,6 +1282,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
     for (PlClause *dcl = pl_prog->head; dcl; dcl = dcl->next) prolog_dcg_expand(dcl);
     pl_yall_lower_program(pl_prog);
     pl_module_flatten(pl_prog);
+    prolog_rewrite_incremental_dynamics(pl_prog);
     pl_dyn_mark(ct_strdup("$db_registry"), 0);
     for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) { int _isdir = (mcl->tr->n > 0 && mcl->tr->c[0] && mcl->tr->c[0]->t == TT_NUL); pld_mark_scan(mcl->tr, 1); (void) _isdir; }
     tree_t *prog = ast_node_new(TT_PROGRAM);

@@ -3495,20 +3495,26 @@ static int pl_dcg_body_var_goal(const tree_t *b) {
 typedef struct { const char *nm; int i; } pl_ckey_t;
 static int pl_ckey_cmp(const void *a, const void *b) { const pl_ckey_t *x = (const pl_ckey_t *)a, *y = (const pl_ckey_t *)b; int c = strcmp(x->nm, y->nm); return c ? c : (x->i > y->i) - (x->i < y->i); }
 static int pl_ckey_lower(const pl_ckey_t *so, int nk, const char *s) { int lo = 0, hi = nk; while (lo < hi) { int m = (lo + hi) / 2; if (strcmp(so[m].nm, s) < 0) lo = m + 1; else hi = m; } return lo; }
-static int pl_opts_have_incremental(const tree_t *o) {
+static int pl_opts_have(const tree_t *o, const char *opt) {
     if (!o) return 0;
-    if ((o->t == TT_QLIT || o->t == TT_NAME) && o->v.sval && !strcmp(o->v.sval, "incremental")) return 1;
-    if (o->t == TT_FNC && o->v.sval && !strcmp(o->v.sval, "incremental") && o->n == 1 && o->c[0] && o->c[0]->v.sval && !strcmp(o->c[0]->v.sval, "true")) return 1;
-    for (int i = 0; i < o->n; i++) if (pl_opts_have_incremental(o->c[i])) return 1;
+    if ((o->t == TT_QLIT || o->t == TT_NAME) && o->v.sval && !strcmp(o->v.sval, opt)) return 1;
+    if (o->t == TT_FNC && o->v.sval && !strcmp(o->v.sval, opt) && o->n == 1 && o->c[0] && o->c[0]->v.sval && !strcmp(o->c[0]->v.sval, "true")) return 1;
+    for (int i = 0; i < o->n; i++) if (pl_opts_have(o->c[i], opt)) return 1;
     return 0;
 }
-static void pl_collect_incr_dyn(const tree_t *t, cv_t *keys) {
+static int pl_opts_have_incremental(const tree_t *o) { return pl_opts_have(o, "incremental"); }
+static void pl_collect_opt_dyn(const tree_t *t, cv_t *keys, const char *opt) {
     if (!t) return;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "as") && t->n == 2) {
-        if (pl_opts_have_incremental(t->c[1])) pl_tree_collect_declared(t->c[0], keys);
+        if (pl_opts_have(t->c[1], opt)) pl_tree_collect_declared(t->c[0], keys);
         return;
     }
-    for (int i = 0; i < t->n; i++) pl_collect_incr_dyn(t->c[i], keys);
+    for (int i = 0; i < t->n; i++) pl_collect_opt_dyn(t->c[i], keys, opt);
+}
+static void pl_collect_incr_dyn(const tree_t *t, cv_t *keys) { pl_collect_opt_dyn(t, keys, "incremental"); }
+static tree_t *pl_tree_dup(const tree_t *t) {
+    if (!t) return (tree_t *)0;
+    { tree_t *c = ast_node_new(t->t); c->v = t->v; c->line = t->line; c->slen = t->slen; for (int i = 0; i < t->n; i++) ast_push(c, pl_tree_dup(t->c[i])); return c; }
 }
 static int pl_clause_arg_key(const tree_t *c, const char **nm, int *ar) {
     for (int k = 0; k < 4 && c && c->t == TT_FNC && c->v.sval && c->n == 2 && (!strcmp(c->v.sval, ":-") || !strcmp(c->v.sval, ":")); k++) c = !strcmp(c->v.sval, ":-") ? c->c[0] : c->c[1];
@@ -3517,7 +3523,7 @@ static int pl_clause_arg_key(const tree_t *c, const char **nm, int *ar) {
     if (c->t == TT_QLIT || c->t == TT_NAME) { *nm = c->v.sval; *ar = 0; return 1; }
     return 0;
 }
-static void pl_rewrite_incr_goals(tree_t *t, const cv_t *incr, const cv_t *all) {
+static void pl_rewrite_incr_goals(tree_t *t, const cv_t *incr, const cv_t *mono, const cv_t *all) {
     if (!t) return;
     if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "predicate_property") && t->n == 2 && t->c[1] && (t->c[1]->t == TT_QLIT || t->c[1]->t == TT_NAME) && t->c[1]->v.sval &&
         !strcmp(t->c[1]->v.sval, "incremental")) {
@@ -3525,42 +3531,55 @@ static void pl_rewrite_incr_goals(tree_t *t, const cv_t *incr, const cv_t *all) 
         int ar = 0;
         if (pl_clause_arg_key(t->c[0], &nm, &ar) && pl_cv_has(all, pl_pred_key(nm, ar))) { t->t = TT_QLIT; t->n = 0; t->v.sval = ct_strdup("true"); return; }
     }
-    if (t->t == TT_FNC && t->v.sval && t->n == 1) {
+    if (t->t == TT_FNC && t->v.sval && (t->n == 1 || t->n == 2)) {
         const char *f = t->v.sval, *nm = (const char *)0;
-        int ar = 0, db = !strcmp(f, "assert") || !strcmp(f, "asserta") || !strcmp(f, "assertz") || !strcmp(f, "retract") || !strcmp(f, "retractall");
-        if (db && pl_clause_arg_key(t->c[0], &nm, &ar) && pl_cv_has(incr, pl_pred_key(nm, ar))) {
-            tree_t *orig = ast_node_new(TT_FNC), *inv = ast_node_new(TT_QLIT);
+        int ar = 0, add = !strcmp(f, "assert") || !strcmp(f, "asserta") || !strcmp(f, "assertz"), db = add || (t->n == 1 && (!strcmp(f, "retract") || !strcmp(f, "retractall")));
+        const char *key = (db && pl_clause_arg_key(t->c[0], &nm, &ar)) ? pl_pred_key(nm, ar) : (const char *)0;
+        int hooked = key ? (pl_cv_has(mono, key) ? 2 : pl_cv_has(incr, key) ? 1 : 0) : 0;
+        if (hooked) {
+            tree_t *orig = ast_node_new(TT_FNC), *chg = ast_node_new(TT_FNC), *op = ast_node_new(TT_QLIT), *kd = ast_node_new(TT_QLIT);
             orig->v.sval = t->v.sval;
             orig->line = t->line;
-            ast_push(orig, t->c[0]);
-            inv->v.sval = ct_strdup("$incr_inval");
+            for (int i = 0; i < t->n; i++) ast_push(orig, t->c[i]);
+            op->v.sval = ct_strdup(f);
+            kd->v.sval = ct_strdup(hooked == 2 ? "mono" : "incr");
+            chg->v.sval = ct_strdup("$tbl_dchange");
+            chg->line = t->line;
+            ast_push(chg, op);
+            ast_push(chg, pl_tree_dup(t->c[0]));
+            ast_push(chg, kd);
             t->n = 0;
             t->v.sval = ct_strdup(",");
             ast_push(t, orig);
-            ast_push(t, inv);
+            ast_push(t, chg);
             return;
         }
     }
-    for (int i = 0; i < t->n; i++) pl_rewrite_incr_goals(t->c[i], incr, all);
+    for (int i = 0; i < t->n; i++) pl_rewrite_incr_goals(t->c[i], incr, mono, all);
 }
-static void pl_incremental_dynamics(PlProgram *prog) {
-    cv_t incr = { 0 }, all = { 0 };
+static int pl_incremental_dynamics(PlProgram *prog, int rewrite) {
+    cv_t incr = { 0 }, mono = { 0 }, all = { 0 };
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
         if (!pl_clause_is_directive(cl) || !cl->tr->c[1] || cl->tr->c[1]->t != TT_FNC || !cl->tr->c[1]->v.sval) continue;
         if (!strcmp(cl->tr->c[1]->v.sval, "dynamic")) {
             const tree_t *d = cl->tr->c[1];
             if (d->n == 2 && pl_opts_have_incremental(d->c[1])) { pl_tree_collect_declared(d->c[0], &incr); pl_tree_collect_declared(d->c[0], &all); }
+            if (d->n == 2 && pl_opts_have(d->c[1], "monotonic")) { pl_tree_collect_declared(d->c[0], &mono); pl_tree_collect_declared(d->c[0], &all); }
             pl_collect_incr_dyn(d, &incr);
             pl_collect_incr_dyn(d, &all);
+            pl_collect_opt_dyn(d, &mono, "monotonic");
+            pl_collect_opt_dyn(d, &all, "monotonic");
         }
         else if (!strcmp(cl->tr->c[1]->v.sval, "table")) pl_collect_incr_dyn(cl->tr->c[1], &all);
     }
-    if (all.len == 0) return;
-    for (PlClause *cl = prog->head; cl; cl = cl->next) if (cl->tr) pl_rewrite_incr_goals(cl->tr, &incr, &all);
+    if (all.len == 0) return 0;
+    if (rewrite) for (PlClause *cl = prog->head; cl; cl = cl->next) if (cl->tr) pl_rewrite_incr_goals(cl->tr, &incr, &mono, &all);
+    return (int)(incr.len + mono.len);
 }
+void prolog_rewrite_incremental_dynamics(PlProgram *prog) { if (prog) pl_incremental_dynamics(prog, 1); }
 void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
-    pl_incremental_dynamics(prog);
+    int hooked_dyn = pl_incremental_dynamics(prog, 0);
     cv_t user_defined = { 0 }, referenced = { 0 }, refkeys = { 0 }, wanted = { 0 }, attv_off = { 0 };
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
         const char *nm; int ar;
@@ -3583,7 +3602,8 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "current_prolog_flag")) pl_cv_add(&referenced, "$flag_member");
     if (pl_cv_has(&referenced, "current_predicate")) pl_cv_add(&referenced, "$cp_mq");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
-    if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); pl_cv_add(&referenced, "$tbl_icall"); }
+    if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); pl_cv_add(&referenced, "$tbl_icall"); pl_cv_add(&referenced, "$tbl_kcall"); }
+    if (hooked_dyn) { pl_cv_add(&referenced, "$tbl_dcall"); pl_cv_add(&referenced, "$tbl_dchange"); }
     if (pl_cv_has(&referenced, "source_file")) pl_cv_add(&referenced, "$src_file_add");
     if (pl_cv_has(&referenced, "load_files")) {
         pl_cv_add(&referenced, "tfindall");
@@ -3689,7 +3709,8 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_word_referenced(user_src, "reset") || pl_word_referenced(user_src, "shift")) pl_cv_add(&referenced, "$co_body");
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
     for (PlClause *cl = prog->head; cl; cl = cl->next) if (pl_clause_ssu(cl)) { pl_cv_add(&referenced, "subsumes_term"); break; }
-    if (pl_cv_has(&referenced, "$tbl_call") || pl_cv_has(&referenced, "$tbl_mcall") || pl_cv_has(&referenced, "$tbl_icall") || pl_word_referenced(user_src, "undefined")) {
+    if (pl_cv_has(&referenced, "$tbl_call") || pl_cv_has(&referenced, "$tbl_mcall") || pl_cv_has(&referenced, "$tbl_icall") || pl_cv_has(&referenced, "$tbl_kcall") || pl_cv_has(&referenced, "$tbl_dchange") ||
+        pl_word_referenced(user_src, "undefined")) {
         pl_cv_add(&referenced, "$tbl_call");
         pl_cv_add(&refkeys, pl_pred_key("$tbl_call", 2));
     }

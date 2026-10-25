@@ -30,6 +30,7 @@ void prolog_preprocess(PlProgram *prog);
 void prolog_fold_pieces(tree_t *t);
 PlProgram *prolog_parse(const char *src, const char *filename);
 void prolog_inject_prelude(PlProgram *prog, const char *user_src);
+void prolog_rewrite_incremental_dynamics(PlProgram *prog);
 void prolog_dcg_expand(PlClause *cl);
 PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet);
 int pl_prelude_defines(const char *nm, int ar);

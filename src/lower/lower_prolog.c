@@ -502,11 +502,42 @@ static int pl_tree_is_nil(const tree_t * t) { if (!t) return 0; if (t->t == TT_M
 static const char * const pl_db_mq_builtins[] = { "assert", "asserta", "assertz", "retract", "retractall", "abolish", NULL };
 static const char * const pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", "table", "module_transparent", "$module_restore",
     "public", "mode", NULL };
+static int pl_table_opt_kind(const tree_t * o);
+static void pl_hook_dyn_mark(const char * name, int arity) {
+    if (!name) return;
+    for (int i = 0; i < g_lower.pl.hook_dyn_n; i++) if (g_lower.pl.hook_dyn_name[i] && !strcmp(g_lower.pl.hook_dyn_name[i], name) && g_lower.pl.hook_dyn_arity[i] == arity) return;
+    if (g_lower.pl.hook_dyn_n >= g_lower.pl.hook_dyn_cap) {
+        int nc = g_lower.pl.hook_dyn_cap > 0 ? g_lower.pl.hook_dyn_cap * 2 : 16;
+        g_lower.pl.hook_dyn_name = (const char **) ct_grow((void *) g_lower.pl.hook_dyn_name, (size_t) nc * sizeof(const char *));
+        g_lower.pl.hook_dyn_arity = (int *) ct_grow((void *) g_lower.pl.hook_dyn_arity, (size_t) nc * sizeof(int));
+        g_lower.pl.hook_dyn_cap = nc;
+    }
+    g_lower.pl.hook_dyn_name[g_lower.pl.hook_dyn_n] = ct_strdup(name);
+    g_lower.pl.hook_dyn_arity[g_lower.pl.hook_dyn_n] = arity;
+    g_lower.pl.hook_dyn_n++;
+}
+static int pl_hook_dyn_is(const char * name, int arity) {
+    if (!name || g_stage2.rt_lowering) return 0;
+    for (int i = 0; i < g_lower.pl.hook_dyn_n; i++) if (g_lower.pl.hook_dyn_name[i] && !strcmp(g_lower.pl.hook_dyn_name[i], name) && g_lower.pl.hook_dyn_arity[i] == arity) return 1;
+    return 0;
+}
+static void pl_hook_dyn_record(const tree_t * spec) {
+    if (!spec) return;
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_hook_dyn_record(spec->c[0]); pl_hook_dyn_record(spec->c[1]); return; }
+    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_hook_dyn_record(spec->c[i]); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ":") && spec->n == 2) { pl_hook_dyn_record(spec->c[1]); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && (spec->c[0]->t == TT_QLIT || spec->c[0]->t == TT_NAME) && spec->c[0]->v.sval && spec->c[1] &&
+        spec->c[1]->t == TT_ILIT) pl_hook_dyn_mark(spec->c[0]->v.sval, (int) spec->c[1]->v.ival);
+}
 static void pl_decl_dynamic_record(stage2_t * s2, tree_t * spec, tree_t * marker) {
     if (!spec) return;
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_decl_dynamic_record(s2, spec->c[0], marker); pl_decl_dynamic_record(s2, spec->c[1], marker); return; }
     if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_decl_dynamic_record(s2, spec->c[i], marker); return; }
-    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "as") && spec->n == 2) { pl_decl_dynamic_record(s2, spec->c[0], marker); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "as") && spec->n == 2) {
+        if (pl_table_opt_kind(spec->c[1]) & 3) pl_hook_dyn_record(spec->c[0]);
+        pl_decl_dynamic_record(s2, spec->c[0], marker);
+        return;
+    }
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ":") && spec->n == 2) { pl_decl_dynamic_record(s2, spec->c[1], marker); return; }
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && (spec->c[0]->t == TT_QLIT || spec->c[0]->t == TT_NAME) && spec->c[0]->v.sval && spec->c[1] &&
         spec->c[1]->t == TT_ILIT) {
@@ -2925,7 +2956,10 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             }
             if (!strcmp(nm, "erase") && t->n == 1) {
                 tree_t * clr = pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("clref_in")), pl_cc_fnc1("$db_erase_ref", (tree_t *) t->c[0]));
-                return goal(cx, pl_cc_fnc2(";", pl_cc_fnc2("->", pl_cc_fnc1("$rec_ref", (tree_t *) t->c[0]), pl_cc_fnc1("$rec_erase", (tree_t *) t->c[0])), clr), γnext, ωfail, entry_out);
+                tree_t * er = pl_cc_fnc2(";", pl_cc_fnc2("->", pl_cc_fnc1("$rec_ref", (tree_t *) t->c[0]), pl_cc_fnc1("$rec_erase", (tree_t *) t->c[0])), clr);
+                if (g_lower.pl.hook_dyn_n > 0 && !g_stage2.rt_lowering) er =
+                    pl_cc_fnc2(",", er, pl_cc_fnc3("$tbl_dchange", (tree_t *) pl_atom_goal("erase"), (tree_t *) t->c[0], (tree_t *) pl_atom_goal("incr")));
+                return goal(cx, er, γnext, ωfail, entry_out);
             }
             if (!strcmp(nm, "retract") && t->n == 1) {
                 int ar = 0;
@@ -3355,6 +3389,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 }
             }
             { int r = pl_rung_of(nm); if (r && !g_runtime.eval.rt_fragment_emit && !g_stage2.rt_lowering && !pl_user_defines(nm, t->n) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
+            if (pl_hook_dyn_is(nm, t->n)) return goal(cx, pl_cc_fnc1("$tbl_dcall", (tree_t *) t), γnext, ωfail, entry_out);
             return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
         }
         case TT_QLIT:
@@ -3382,6 +3417,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             }
             { const char * ls = pl_det_leaf_sym(nm, 0); if (ls) return pl_leaf_lv(cx, ls, t, 0, γnext, ωfail, entry_out); }
             { int r = pl_rung_of(nm); if (r && !g_runtime.eval.rt_fragment_emit && !g_stage2.rt_lowering && !pl_user_defines(nm, 0) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
+            if (pl_hook_dyn_is(nm, 0)) return goal(cx, pl_cc_fnc1("$tbl_dcall", (tree_t *) t), γnext, ωfail, entry_out);
             return pl_user_call(cx, nm, t, 0, γnext, ωfail, entry_out);
         }
         case TT_CUT:
@@ -4147,21 +4183,23 @@ static int pl_table_specs(const tree_t * a, const char ** keys, const tree_t ** 
     return n + 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_table_opt_incr(const tree_t * o) {
+static int pl_table_opt_kind(const tree_t * o) {
     if (!o || !o->v.sval) return 0;
-    if (o->t == TT_FNC && o->n == 2 && !strcmp(o->v.sval, ",")) return pl_table_opt_incr(o->c[0]) || pl_table_opt_incr(o->c[1]);
-    return (o->t == TT_QLIT || o->t == TT_NAME) && !strcmp(o->v.sval, "incremental");
+    if (o->t == TT_FNC && o->n == 2 && !strcmp(o->v.sval, ",")) return pl_table_opt_kind(o->c[0]) | pl_table_opt_kind(o->c[1]);
+    if (o->t != TT_QLIT && o->t != TT_NAME) return 0;
+    return !strcmp(o->v.sval, "incremental") ? 1 : !strcmp(o->v.sval, "monotonic") ? 2 : !strcmp(o->v.sval, "lazy") ? 4 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_table_incr(const tree_t * a, const char ** keys, int nf, unsigned char * incr) {
+static void pl_table_kind(const tree_t * a, const char ** keys, int nf, unsigned char * kind) {
     if (!a || a->t != TT_FNC || !a->v.sval || a->n != 2) return;
-    if (!strcmp(a->v.sval, ",")) { pl_table_incr(a->c[0], keys, nf, incr); pl_table_incr(a->c[1], keys, nf, incr); return; }
-    if (strcmp(a->v.sval, "as") || !pl_table_opt_incr(a->c[1])) return;
+    if (!strcmp(a->v.sval, ",")) { pl_table_kind(a->c[0], keys, nf, kind); pl_table_kind(a->c[1], keys, nf, kind); return; }
+    int b = strcmp(a->v.sval, "as") ? 0 : pl_table_opt_kind(a->c[1]);
+    if (!b) return;
     int m = pl_table_specs(a->c[0], NULL, NULL, 0, 0);
     const char * ks[m > 0 ? m : 1];
     const tree_t * sp[m > 0 ? m : 1];
     m = pl_table_specs(a->c[0], ks, sp, 0, m);
-    for (int j = 0; j < m; j++) for (int k = 0; k < nf; k++) if (!strcmp(ks[j], keys[k]) && !sp[j]) incr[k] = 1;
+    for (int j = 0; j < m; j++) for (int k = 0; k < nf; k++) if (!strcmp(ks[j], keys[k])) kind[k] |= (unsigned char) b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_table_dir(const tree_t * s) {
@@ -4193,7 +4231,7 @@ static tree_t * pl_table_mode_copy(const tree_t * t) {
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * pl_table_wrapper(const char * key, const tree_t * spec, int incr) {
+static tree_t * pl_table_wrapper(const char * key, const tree_t * spec, int kind) {
     const char * sl = strrchr(key, '/');
     int ar = atoi(sl + 1);
     char nm[sl - key + 1], tn[sl - key + 6];
@@ -4204,10 +4242,12 @@ static tree_t * pl_table_wrapper(const char * key, const tree_t * spec, int incr
     cl->v.dval = ar;
     for (int i = 0; i < ar; i++) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = i; ast_push(cl, v); }
     tree_t * call = ast_node_new(TT_FNC);
-    call->v.sval = (char *) (spec ? "$tbl_mcall" : incr ? "$tbl_icall" : "$tbl_call");
+    const char * tk = (kind & 4) ? "lazy" : (kind & 2) ? "mono" : (kind & 1) ? "incr" : (const char *) 0;
+    call->v.sval = (char *) (spec ? "$tbl_mcall" : !tk ? "$tbl_call" : (kind & 6) ? "$tbl_kcall" : "$tbl_icall");
     ast_push(call, pl_table_goal(lp_strdup(nm), ar));
     ast_push(call, pl_table_goal(lp_strdup(tn), ar));
     if (spec) ast_push(call, pl_table_mode_copy(spec));
+    if (tk && (spec || (kind & 6))) ast_push(call, (tree_t *) pl_atom_goal(tk));
     ast_push(cl, call);
     tree_t * ch = ast_node_new(TT_CHOICE);
     ch->v.sval = (char *) lp_strdup(key);
@@ -4492,12 +4532,12 @@ static const tree_t * pl_table_rewrite(const tree_t * prog) {
     if (!nk) return prog;
     const char * keys[nk];
     const tree_t * specs[nk];
-    unsigned char done[nk], incr[nk];
+    unsigned char done[nk], kind[nk];
     int nf = 0;
     memset(done, 0, sizeof done);
-    memset(incr, 0, sizeof incr);
+    memset(kind, 0, sizeof kind);
     for (int i = 0; i < prog->n; i++) nf = pl_table_specs(pl_table_dir(prog->c[i]), keys, specs, nf, nk);
-    for (int i = 0; i < prog->n; i++) pl_table_incr(pl_table_dir(prog->c[i]), keys, nf, incr);
+    for (int i = 0; i < prog->n; i++) pl_table_kind(pl_table_dir(prog->c[i]), keys, nf, kind);
     tree_t * np = ast_node_new(prog->t);
     np->v = prog->v;
     np->line = prog->line;
@@ -4512,7 +4552,7 @@ static const tree_t * pl_table_rewrite(const tree_t * prog) {
         snprintf(b, sizeof b, "$tbl %s", keys[k]);
         rn->v.sval = (char *) lp_strdup(b);
         ast_push(np, pl_table_stmt(s, rn));
-        if (!done[k]) { done[k] = 1; ast_push(np, pl_table_stmt(s, pl_table_wrapper(keys[k], specs[k], incr[k]))); }
+        if (!done[k]) { done[k] = 1; ast_push(np, pl_table_stmt(s, pl_table_wrapper(keys[k], specs[k], kind[k]))); }
     }
     return np;
 }
@@ -5258,6 +5298,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     const char * dvn[ndvn];
     int dvc = 0;
     g_lower.pl.decl_dyn_n = 0;
+    g_lower.pl.hook_dyn_n = 0;
     g_lower.pl.decl_other_n = 0;
     g_stage2.pl_decl_multifile.len = 0;
     g_stage2.pl_decl_meta.len = 0;
