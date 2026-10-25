@@ -705,6 +705,21 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
             }
             for (int h = 0; h < n; h++) if (zon[h] && claim[h] == h && !known[h] && !indef[h]) indef[h] = 1;
         }
+        {
+            unsigned char * open = (unsigned char *)alloca((size_t)(n > 0 ? n : 1));
+            for (int pass = 0, moved = 1; moved && pass < n + 2; pass++) {
+                moved = 0;
+                for (int r = 0; r < n; r++) open[r] = (unsigned char)(zon[r] && claim[r] == r && !known[r] && !indef[r]);
+                for (int i = 0; i < n; i++) {
+                    if (!zon[i] || claim[i] < 0 || !known[claim[i]] || indef[claim[i]]) continue;
+                    for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
+                        int l, q = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l, open);
+                        if (q < 0 || !open[q] || known[q]) continue;
+                        base[q] = base[claim[i]] + l - (zout[q] - zd_k(nodes[q])); known[q] = 1; moved = 1;
+                    }
+                }
+            }
+        }
         if (pl && fam) for (int ph = 0; ph < 2; ph++) {
             for (int i = 0; i < n; i++) {
                 if (!zon[i] || claim[i] < 0 || !zd_edge_retains(nodes[i])) continue;
