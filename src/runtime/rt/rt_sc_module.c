@@ -27,7 +27,12 @@ extern char *rt_heap_strdup_c(const char *s);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _MATCHAT_(DESCR_t *args, int nargs) { (void)args; (void)nargs; return (DESCR_t){ .v = DT_I, .slen = 0, .i = (int64_t)g_rtccb[RTCC_SLOT_MATCHAT] }; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_sc_gva_reserve(void) { return g_runtime.misc.sc_mod.no_reserve ? 0 : SC_GVA_RESERVE; }
+long rt_sc_gva_reserve(void) {
+    const sc_module_t *m = &g_runtime.misc.sc_mod;
+    const sc_module_desc_t *d = (const sc_module_desc_t *)m->d;
+    if (m->no_reserve) return 0;
+    return (d && d->n_gva > SC_GVA_RESERVE) ? d->n_gva : SC_GVA_RESERVE;
+}
 void rt_sc_module_compiling(void) { g_runtime.misc.sc_mod.no_reserve = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static sc_module_t *sc_module_get(const char *lang);
@@ -59,10 +64,6 @@ static sc_module_t *sc_module_get(const char *lang) {
         void *h = dlopen(path, RTLD_NOW | RTLD_LOCAL);
         const sc_module_desc_t *d = h ? (const sc_module_desc_t *)dlsym(h, sym) : (const sc_module_desc_t *)0;
         if (!d || !d->main_alpha) return (sc_module_t *)0;
-        if (d->n_gva > SC_GVA_RESERVE) {
-            fprintf(stderr, "rt_sc_module: the parser module has %ld GVA cells and the runtime reserves %d for it -- raise SC_GVA_RESERVE in rt_sc_module.c\n", d->n_gva, (int)SC_GVA_RESERVE);
-            abort();
-        }
         m->d = d;
         memcpy(m->lang, lang, strlen(lang) + 1);
     }

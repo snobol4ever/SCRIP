@@ -1864,7 +1864,7 @@ $(RT_SO0): $(RT_PIC_OBJS) Makefile
 	$(CC) -shared $(RT_PIC_OBJS) -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic -static-libgcc -lm -lpthread -Wl,--exclude-libs,ALL -o $@
 out/scrip0: $(RT_SO0) $(SRC)/driver/scrip.c
 	@mkdir -p $(OBJ)
-	$(CC) $(CRT) -c $(SRC)/driver/scrip.c -o $(OBJ)/scrip_driver0.o
+	$(CC) $(CRT) -fPIC -c $(SRC)/driver/scrip.c -o $(OBJ)/scrip_driver0.o
 	$(CXX) -m64 -no-pie -rdynamic $(OBJ)/scrip_driver0.o -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt0 $(LIBS) -o $@
 $(SC_MOD_LANGS:%=out/sc_mod/scmod_%.sc): out/sc_mod/scmod_%.sc: bootstrap/mod_head.sc bootstrap/mod_tail.sc $(SC_MOD_LIB:%=bootstrap/%.sc) bootstrap/parser_%.sc Makefile
 	@mkdir -p out/sc_mod
