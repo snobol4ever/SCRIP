@@ -159,6 +159,8 @@ static inline IR_e ir_kind0(const IR_t * n) { return n->op0 ? n->op0 : n->op; }
 #define IR_SEAL_STMT_HOOK 8
 #define IR_SEAL_LABEL_HOOK 9
 #define IR_SEAL_TAIL_POP 10
+#define IR_SEAL_KILL_VALUE 11
+#define IR_SEAL_KILL_HOME 12
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_range_tag_has(const IR_t * nd, char a, char b, char c) {
     const char * t = nd ? IR_LIT(nd).sval : (const char *)0;

@@ -151,6 +151,12 @@ typedef struct {
     int tail;
     int tail_pop;
     lc_vec * pop_ok;
+    const tree_t * const * kill_gl;
+    int kill_ng;
+    const int * kill_first;
+    const int * kill_last;
+    const int * kill_co;
+    int kill_nv;
 } lcx_t;
 static const char * pl_vname(const lcx_t * cx, int slot);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -648,6 +654,38 @@ static void collect_conj(const tree_t * t, lc_vec * out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_goal_is_dollar(const tree_t * g);
 static IR_t * pl_lower_conj_guard(lcx_t * cx, const tree_t * const * gl, int ng, int k, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t ** redo_out, IR_t ** tail_out);
+static void pl_kill_mark(lcx_t * cx, const tree_t * g, IR_t * nd) {
+    int oi = -1;
+    if (!cx->kill_gl || !g || !nd || nd->op != IR_CALL_PROC_STAGED || g->t != TT_FNC) return;
+    for (int j = 0; j < cx->kill_ng && oi < 0; j++) if (cx->kill_gl[j] == g) oi = j;
+    if (oi < 0 || oi >= cx->kill_ng - 1) return;
+    for (int k = 0; k < g->n; k++) {
+        const tree_t * a = g->c[k];
+        IR_t * op = ir_call_arg(nd, k);
+        int v = (a && a->t == TT_VAR) ? (int) a->v.ival : -1;
+        if (v < 0 || v >= cx->kill_nv || cx->kill_last[v] != oi || (v < cx->nvalias && cx->valias[v])) continue;
+        if (cx->kill_co[v] < oi || (cx->kill_first[v] == oi && cx->kill_co[v] == oi)) continue;
+        if (!op || op->op != IR_VAR_REF || !IR_LIT(op).sval || strcmp(IR_LIT(op).sval, pl_vname(cx, v))) continue;
+        op->seal = cx->kill_first[v] == oi ? IR_SEAL_KILL_HOME : IR_SEAL_KILL_VALUE;
+    }
+}
+static void pl_kill_co(const tree_t * t, int nv, int * seen, int * ns) {
+    if (!t) return;
+    if (t->t == TT_VAR && (int) t->v.ival >= 0 && (int) t->v.ival < nv) { int v = (int) t->v.ival, dup = 0; for (int j = 0; j < *ns; j++) if (seen[j] == v) dup = 1; if (!dup) seen[(*ns)++] = v; }
+    for (int i = 0; i < t->n; i++) pl_kill_co(t->c[i], nv, seen, ns);
+}
+static void pl_kill_co_goal(const tree_t * const * ts, int nt, int gi, int * co, int nv) {
+    int nn = 1;
+    for (int i = 0; i < nt; i++) nn += pl_var_nodes(ts[i]);
+    int seen[nn], ns = 0;
+    for (int i = 0; i < nt; i++) pl_kill_co(ts[i], nv, seen, &ns);
+    if (ns > 1) for (int j = 0; j < ns; j++) if (co[seen[j]] > gi) co[seen[j]] = gi;
+}
+static void pl_kill_scan(const tree_t * t, int gi, int * first, int * last, int nv) {
+    if (!t) return;
+    if (t->t == TT_VAR && (int) t->v.ival >= 0 && (int) t->v.ival < nv) { int v = (int) t->v.ival; if (first[v] == -2) first[v] = gi; last[v] = gi; }
+    for (int i = 0; i < t->n; i++) pl_kill_scan(t->c[i], gi, first, last, nv);
+}
 static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t ** redo_out, IR_t ** tail_out) {
     if (cx->cur_key && cx->cutω == cx->clause_cutω) for (int k = 0; k < ng; k++) if (pl_goal_is_dollar(gl[k]))
         return pl_lower_conj_guard(cx, gl, ng, k, γtail, ωbase, entry_out, redo_out, tail_out);
@@ -672,6 +710,7 @@ static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t 
         cx->tail = (i == ng - 1) ? tail : 0;
         cx->tail_pop = (i == ng - 1) ? tail_pop : 0;
         IR_t * nd = goal(cx, gl[i], next, ωbase, &e);
+        pl_kill_mark(cx, gl[i], nd);
         cx->tail = 0;
         cx->tail_pop = 0;
         rd[i] = cx->meta_redo_set ? cx->meta_redo : NULL;
@@ -3702,8 +3741,23 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         int pop_from = cx.g->n;
         cx.tail_pop = pop_on;
         cx.pop_ok = pop_on ? &pop_ok : (lc_vec *) 0;
+        int kfirst[nva], klast[nva], kco[nva];
+        if (!pl_attv_on() && !pl_trace_wanted()) {
+            for (int v = 0; v < nva; v++) { kfirst[v] = -2; klast[v] = -2; kco[v] = cl->n; }
+            for (int i = 0; i < ar; i++) pl_kill_scan(cl->c[i], -1, kfirst, klast, nva);
+            for (int i = ar; i < cl->n; i++) pl_kill_scan(cl->c[i], i - ar, kfirst, klast, nva);
+            pl_kill_co_goal((const tree_t * const *) cl->c, ar, -1, kco, nva);
+            for (int i = ar; i < cl->n; i++) pl_kill_co_goal((const tree_t * const *)(cl->c + i), 1, i - ar, kco, nva);
+            cx.kill_co = kco;
+            cx.kill_gl = (const tree_t * const *)(cl->c + ar);
+            cx.kill_ng = cl->n - ar;
+            cx.kill_first = kfirst;
+            cx.kill_last = klast;
+            cx.kill_nv = nva;
+        }
         IR_t * first = pl_attv_on() ? pl_lower_conj(&cx, bg, nb, tret, step, &bentry, &redo, &tnode) :
             pl_lower_conj(&cx, (const tree_t * const *)(cl->c + ar), cl->n - ar, tret, step, &bentry, &redo, &tnode);
+        cx.kill_gl = (const tree_t * const *) 0;
         if (tnode && tnode->op == IR_CALL_PROC_STAGED && !pl_trace_wanted()) tnode->seal = PL_SEAL_TAIL;
         cx.tail_pop = 0;
         if (pop_on) pl_pop_vet(&cx, pop_from);

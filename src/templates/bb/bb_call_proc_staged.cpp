@@ -837,6 +837,62 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx, int pop
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int bb_proc_target_retains(const char *fname);
 static std::string bcps_block_beta(int act);
+static std::string bcps_kill_dead(int n, int bump, int home, int lb) {
+    int kt = g_emit.flat_frame_bytes;
+    const char * fb = x86_hb_on() ? x86_hb() : "r11";
+    std::string cp, st;
+    int vk[n > 0 ? n : 1], nk = 0;
+    if (n > 30) return cp;
+    for (int i = 0; i < n; i++) {
+        IR_t * a = ir_call_arg(_.node, i);
+        if (!a || a->op != IR_VAR_REF || !a->sval || a->seal != (home ? IR_SEAL_KILL_HOME : IR_SEAL_KILL_VALUE)) continue;
+        int vs = bb_varslot_peek(a->sval), seen = 0;
+        if (vs < 0 || zls_key_unbacked(g_emit_cfg, vs)) continue;
+        if (!home) cp += x86("mov", "rax", FRQB(vs, bump))
+                       + x86("mov", "rdx", FRQB(vs + 8, bump))
+                       + x86("test", "rax", "rax")
+                       + x86("je", L(lb + 1 + i))
+                       + x86("cmp", "al", (long)DT_PLVAR)
+                       + x86("jne", L(lb + 1 + 32 + i))
+                       + x86("lea", "rcx", FRQB(vs, bump))
+                       + x86("cmp", "rdx", "rcx")
+                       + x86("je", L(lb + 1 + i))
+                       + x86("def", L(lb + 1 + 32 + i))
+                       + x86_rsp_store64(16 * i, "rax")
+                       + x86_rsp_store64(16 * i + 8, "rdx")
+                       + x86("def", L(lb + 1 + i));
+        for (int k = 0; k < nk; k++) if (vk[k] == vs) seen = 1;
+        if (seen) continue;
+        vk[nk++] = vs;
+        st += home ? x86("mov", FRQB(vs, bump), 0L) + x86("mov", FRQB(vs + 8, bump), 0L)
+                   : x86("mov", "rax", FRQB(vs, bump))
+                   + x86("test", "rax", "rax")
+                   + x86("je", L(lb + 65 + nk))
+                   + x86("cmp", "al", (long)DT_PLVAR)
+                   + x86("jne", L(lb + 97 + nk))
+                   + x86("lea", "rcx", FRQB(vs, bump))
+                   + x86("cmp", "rcx", FRQB(vs + 8, bump))
+                   + x86("je", L(lb + 65 + nk))
+                   + x86("def", L(lb + 97 + nk))
+                   + x86("mov", FRQB(vs, bump), 0L)
+                   + x86("mov", FRQB(vs + 8, bump), 0L)
+                   + x86("def", L(lb + 65 + nk));
+    }
+    if (st.empty()) return st;
+    return x86("note",
+        home ? "a dead slot is not a root (ARCH-PROLOG-ACTIVATION-LIFETIME 6.4 R1): this call is a variable's first and last occurrence, so its home holds what the callee bound and "
+                   "no road reads it again; under B == B0 the cell is written to the null DESCR the prologue zeroes to, no trail entry, no frame map change"
+             : "a dead slot is not a root (ARCH-PROLOG-ACTIVATION-LIFETIME 6.4 R1): this call is a variable's last occurrence and not the last call; the block carries a NAME of the "
+                   "cell, so under B == B0 a cell holding a value or a REF is copied into each block entry that names it and then written to the null DESCR the prologue zeroes to "
+                   "(an unbound home, the zero DESCR or a self PLVAR, is left: the callee binds through the name); no trail entry, no frame map change")
+         + IF(!x86_hb_on(), x86("lea", "r11", RDQ("rsp", bump + (_.op_zres ? _.op_zabs : 0))))
+         + x86("mov", "rcx", RDQ(fb, kt - 40))
+         + x86("cmp", "r13", "rcx")
+         + x86("jne", L(lb))
+         + cp
+         + st
+         + x86("def", L(lb));
+}
 static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long idx) {
     int n = (int)_.op_ival; int kt = g_emit.flat_frame_bytes;
     const int zsp = _.op_zres && !bb_proc_target_retains(_.op_sval);
@@ -845,6 +901,7 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
          + x86("note", "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the argument block on this spine, the wires, a jump; no staged medium, no registry call, no C prologue")
          + IF(!zsp, x86("mov", FRQ(act), 0L))
          + bcps_block_build(argblks, n)
+         + bcps_kill_dead(n, 16 * n, 0, 400)
          + IF(pl_lco_armed, bcps_block_tail_arm(n, kt, 100, idx, _.op_seal == IR_SEAL_TAIL_POP))
          + x86_rsp_mark_save()
          + x86_lea_id("rcx", 3) + x86_lea_id("rdx", 4)
@@ -852,6 +909,7 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
          + x86("def", L(3))
          + x86_rsp_land(-16L * n)
          + x86_gc_site(X86_SITE_LANDING)
+         + bcps_kill_dead(n, 0, 1, 530)
          + IF(!zsp, x86("mov", FRQ(act), "rax"))
          + IF(!zsp, x86("mov", FRQ(act + 8), "rdx"))
          + IF(bcps_pl() && !zsp,
