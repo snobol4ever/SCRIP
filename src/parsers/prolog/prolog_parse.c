@@ -2654,7 +2654,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$ev'(tan(number),float).\n"
     "'$ev'(truncate(float),integer).\n"
     "'$ev'(xor(integer,integer),integer).\n"
-    "assertion(G):-(\\+ \\+ call(G)->true;throw(error(assertion_failed(G),assertion/1))).\n"
+    "assertion(G):-(\\+ \\+ catch(G,E,throw(error(assertion_error(E,G),_)))->true;throw(error(assertion_error(fail,G),_))).\n"
     "cyclic_term(T):- \\+ acyclic_term(T).\n"
     "context_module(user).\n"
     "utf8_codes([H|T]) --> utf8_code(H), !, utf8_codes(T).\n"
