@@ -1165,7 +1165,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
                         if (ci < 0 && !first && (c2->op == IR_SUCCEED || c2->op == IR_FAIL)) { c2 = (IR_t *)0; break; }
                         if (zdj_on && ci >= 0 && !first && claim[ci] < 0 && (bb_src_of(nodes[ci]) || (zd_omega_head(nodes, n, nodes[ci]) && !(g_emit_cfg && g_emit_cfg->spine_cells)))) { c2 =
                             (IR_t *)0; break; }
-                        if (zdj_on && !first && ci >= 0 && claim[ci] >= 0 && (claim[ci] != hi || (zarm[ci] != ei && (nodes[ci] == zd_chase(env->γ.node) || (g_emit_cfg &&
+                        if (zdj_on && !first && ci >= 0 && claim[ci] >= 0 && (claim[ci] != hi || ((zarm[ci] != ei || zarmj[ci] != a) && (nodes[ci] == zd_chase(env->γ.node) || (g_emit_cfg &&
                             (g_emit_cfg->spine_cells || (g_emit_cfg->home_frame && nodes[ci]->op == IR_UNMARK))))))) {
                             if (g_emitter.zd_plan__dg) fprintf(stderr, "[ZD-DJ] i=%d arm %d leaves the box into ci=%d of run %d\n", ei, a, ci, claim[ci]);
                             c2 = (IR_t *)0;
