@@ -14819,6 +14819,855 @@ static const char PL_PRELUDE_LIB_16_SRC[] =
     "    '$heaps_pairing'(Qs, Q3),\n"
     "    '$heaps_meld'(Q2, Q3, Q).\n";
 static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
+    { "json_read", 2 },
+    { "json_read", 3 },
+    { "atom_json_term", 3 },
+    { "json_write", 2 },
+    { "json_write", 3 },
+    { "is_json_term", 1 },
+    { "is_json_term", 2 },
+    { "json_read_dict", 2 },
+    { "json_read_dict", 3 },
+    { "json_write_dict", 2 },
+    { "json_write_dict", 3 },
+    { "atom_json_dict", 3 },
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
+    { 0, 0 }
+};
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
+    { 0, 0, 0 }
+};
+static const char PL_PRELUDE_LIB_17_SRC[] =
+    ":- dynamic 'json_write_hook'/4, 'json_dict_pairs'/2.\n"
+    "'$json_default_json_options'(json_options(@(null), @(true), @(false), error, atom, '', _)).\n"
+    "'$json_json_options_null'(json_options(A, _, _, _, _, _, _), A).\n"
+    "'$json_json_options_true'(json_options(_, A, _, _, _, _, _), A).\n"
+    "'$json_json_options_false'(json_options(_, _, A, _, _, _, _), A).\n"
+    "'$json_json_options_end_of_file'(json_options(_, _, _, A, _, _, _), A).\n"
+    "'$json_json_options_value_string_as'(json_options(_, _, _, _, A, _, _), A).\n"
+    "'$json_json_options_tag'(json_options(_, _, _, _, _, A, _), A).\n"
+    "'$json_json_options_default_tag'(json_options(_, _, _, _, _, _, A), A).\n"
+    "'$json_json_options_data'(null, json_options(A, _, _, _, _, _, _), A).\n"
+    "'$json_json_options_data'(true, json_options(_, A, _, _, _, _, _), A).\n"
+    "'$json_json_options_data'(false, json_options(_, _, A, _, _, _, _), A).\n"
+    "'$json_json_options_data'(end_of_file, json_options(_, _, _, A, _, _, _), A).\n"
+    "'$json_json_options_data'(value_string_as, json_options(_, _, _, _, A, _, _), A).\n"
+    "'$json_json_options_data'(tag, json_options(_, _, _, _, _, A, _), A).\n"
+    "'$json_json_options_data'(default_tag, json_options(_, _, _, _, _, _, A), A).\n"
+    "'$json_set_null_of_json_options'(A, json_options(_, B, C, D, E, F, G), json_options(A, B, C, D, E, F, G)) :-\n"
+    "    must_be(ground, A).\n"
+    "'$json_set_null_of_json_options'(A, B) :-\n"
+    "    must_be(ground, A),\n"
+    "    setarg(1, B, A).\n"
+    "'$json_nb_set_null_of_json_options'(A, B) :-\n"
+    "    must_be(ground, A),\n"
+    "    nb_setarg(1, B, A).\n"
+    "'$json_set_true_of_json_options'(A, json_options(B, _, C, D, E, F, G), json_options(B, A, C, D, E, F, G)) :-\n"
+    "    must_be(ground, A).\n"
+    "'$json_set_true_of_json_options'(A, B) :-\n"
+    "    must_be(ground, A),\n"
+    "    setarg(2, B, A).\n"
+    "'$json_nb_set_true_of_json_options'(A, B) :-\n"
+    "    must_be(ground, A),\n"
+    "    nb_setarg(2, B, A).\n"
+    "'$json_set_false_of_json_options'(A, json_options(B, C, _, D, E, F, G), json_options(B, C, A, D, E, F, G)) :-\n"
+    "    must_be(ground, A).\n"
+    "'$json_set_false_of_json_options'(A, B) :-\n"
+    "    must_be(ground, A),\n"
+    "    setarg(3, B, A).\n"
+    "'$json_nb_set_false_of_json_options'(A, B) :-\n"
+    "    must_be(ground, A),\n"
+    "    nb_setarg(3, B, A).\n"
+    "'$json_set_end_of_file_of_json_options'(A, json_options(B, C, D, _, E, F, G), json_options(B, C, D, A, E, F, G)) :-\n"
+    "    must_be(ground, A).\n"
+    "'$json_set_end_of_file_of_json_options'(A, B) :-\n"
+    "    must_be(ground, A),\n"
+    "    setarg(4, B, A).\n"
+    "'$json_nb_set_end_of_file_of_json_options'(A, B) :-\n"
+    "    must_be(ground, A),\n"
+    "    nb_setarg(4, B, A).\n"
+    "'$json_set_value_string_as_of_json_options'(A, json_options(B, C, D, E, _, F, G), json_options(B, C, D, E, A, F, G)) :-\n"
+    "    must_be(oneof([atom, string]), A).\n"
+    "'$json_set_value_string_as_of_json_options'(A, B) :-\n"
+    "    must_be(oneof([atom, string]), A),\n"
+    "    setarg(5, B, A).\n"
+    "'$json_nb_set_value_string_as_of_json_options'(A, B) :-\n"
+    "    must_be(oneof([atom, string]), A),\n"
+    "    nb_setarg(5, B, A).\n"
+    "'$json_set_tag_of_json_options'(A, json_options(B, C, D, E, F, _, G), json_options(B, C, D, E, F, A, G)) :-\n"
+    "    must_be(atom, A).\n"
+    "'$json_set_tag_of_json_options'(A, B) :-\n"
+    "    must_be(atom, A),\n"
+    "    setarg(6, B, A).\n"
+    "'$json_nb_set_tag_of_json_options'(A, B) :-\n"
+    "    must_be(atom, A),\n"
+    "    nb_setarg(6, B, A).\n"
+    "'$json_set_default_tag_of_json_options'(A, json_options(B, C, D, E, F, G, _), json_options(B, C, D, E, F, G, A)) :-\n"
+    "    must_be(atom, A).\n"
+    "'$json_set_default_tag_of_json_options'(A, B) :-\n"
+    "    must_be(atom, A),\n"
+    "    setarg(7, B, A).\n"
+    "'$json_nb_set_default_tag_of_json_options'(A, B) :-\n"
+    "    must_be(atom, A),\n"
+    "    nb_setarg(7, B, A).\n"
+    "'$json_set_json_options_field'(null(A), json_options(_, B, C, D, E, F, G), json_options(A, B, C, D, E, F, G)) :-\n"
+    "    must_be(ground, A).\n"
+    "'$json_set_json_options_field'(true(A), json_options(B, _, C, D, E, F, G), json_options(B, A, C, D, E, F, G)) :-\n"
+    "    must_be(ground, A).\n"
+    "'$json_set_json_options_field'(false(A), json_options(B, C, _, D, E, F, G), json_options(B, C, A, D, E, F, G)) :-\n"
+    "    must_be(ground, A).\n"
+    "'$json_set_json_options_field'(end_of_file(A), json_options(B, C, D, _, E, F, G), json_options(B, C, D, A, E, F, G)) :-\n"
+    "    must_be(ground, A).\n"
+    "'$json_set_json_options_field'(value_string_as(A), json_options(B, C, D, E, _, F, G), json_options(B, C, D, E, A, F, G)) :-\n"
+    "    must_be(oneof([atom, string]), A).\n"
+    "'$json_set_json_options_field'(tag(A), json_options(B, C, D, E, F, _, G), json_options(B, C, D, E, F, A, G)) :-\n"
+    "    must_be(atom, A).\n"
+    "'$json_set_json_options_field'(default_tag(A), json_options(B, C, D, E, F, G, _), json_options(B, C, D, E, F, G, A)) :-\n"
+    "    must_be(atom, A).\n"
+    "'$json_make_json_options'(A, B) :-\n"
+    "    '$json_make_json_options'(A, B, []).\n"
+    "'$json_make_json_options'(A, B, C) :-\n"
+    "    '$json_default_json_options'(D),\n"
+    "    '$json_set_json_options_fields'(A, D, B, C).\n"
+    "'$json_set_json_options_fields'(A, B, C) :-\n"
+    "    '$json_set_json_options_fields'(A, B, C, []).\n"
+    "'$json_set_json_options_fields'([], A, A, []).\n"
+    "'$json_set_json_options_fields'([A|B], C, D, E) :-\n"
+    "    (   '$json_set_json_options_field'(A, C, F)\n"
+    "    ->  '$json_set_json_options_fields'(B, F, D, E)\n"
+    "    ;   E=[A|G],\n"
+    "        '$json_set_json_options_fields'(B, C, D, G)\n"
+    "    ).\n"
+    "'$json_is_json_options'(A) :-\n"
+    "    var(A),\n"
+    "    !,\n"
+    "    fail.\n"
+    "'$json_is_json_options'(json_options(A, B, C, D, E, F, G)) :-\n"
+    "    ground(A),\n"
+    "    ground(B),\n"
+    "    ground(C),\n"
+    "    ground(D),\n"
+    "    ground(E),\n"
+    "    \\+ \\+ memberchk(E, [atom, string]),\n"
+    "    atom(F),\n"
+    "    atom(G).\n"
+    "'$json_default_json_dict_options'(json_options(null, true, false, error, string, '', _)).\n"
+    "atom_json_term(A, B, C) :-\n"
+    "    ground(A),\n"
+    "    !,\n"
+    "    setup_call_cleanup(( atom_to_memory_file(A, D),\n"
+    "                         open_memory_file(D,\n"
+    "                                          read,\n"
+    "                                          E,\n"
+    "                                          [free_on_close(true)])\n"
+    "                       ),\n"
+    "                       json_read(E, B, C),\n"
+    "                       close(E)).\n"
+    "atom_json_term(A, B, C) :-\n"
+    "    select_option(as(D), C, E, atom),\n"
+    "    (   '$json_type_term'(D, A, F)\n"
+    "    ->  true\n"
+    "    ;   must_be(oneof([atom, string, codes, chars]), D)\n"
+    "    ),\n"
+    "    with_output_to(F, json_write(current_output, B, E)).\n"
+    "'$json_type_term'(atom, A, atom(A)).\n"
+    "'$json_type_term'(string, A, string(A)).\n"
+    "'$json_type_term'(codes, A, codes(A)).\n"
+    "'$json_type_term'(chars, A, chars(A)).\n"
+    "json_read(A, B) :-\n"
+    "    '$json_default_json_options'(C),\n"
+    "    (   '$json_json_value_top'(A, B, C)\n"
+    "    ->  true\n"
+    "    ;   '$json_syntax_error'(illegal_json, A)\n"
+    "    ).\n"
+    "json_read(A, B, C) :-\n"
+    "    '$json_make_json_options'(C, D, _),\n"
+    "    (   '$json_json_value_top'(A, B, D)\n"
+    "    ->  true\n"
+    "    ;   '$json_syntax_error'(illegal_json, A)\n"
+    "    ).\n"
+    "'$json_json_value_top'(A, B, C) :-\n"
+    "    stream_property(A, type(binary)),\n"
+    "    !,\n"
+    "    setup_call_cleanup(set_stream(A, encoding(utf8)),\n"
+    "                       '$json_json_value_top_'(A, B, C),\n"
+    "                       set_stream(A, type(binary))).\n"
+    "'$json_json_value_top'(A, B, C) :-\n"
+    "    '$json_json_value_top_'(A, B, C).\n"
+    "'$json_json_value_top_'(A, B, C) :-\n"
+    "    get_code(A, D),\n"
+    "    '$json_ws'(D, A, E),\n"
+    "    (   E== -1\n"
+    "    ->  '$json_json_options_end_of_file'(C, F),\n"
+    "        (   F==error\n"
+    "        ->  '$json_syntax_error'(unexpected_end_of_file, A)\n"
+    "        ;   B=F\n"
+    "        )\n"
+    "    ;   '$json_json_term_top'(E, A, B, C)\n"
+    "    ).\n"
+    "'$json_json_value'(A, B, C, D) :-\n"
+    "    get_code(A, E),\n"
+    "    '$json_ws'(E, A, F),\n"
+    "    (   F== -1\n"
+    "    ->  '$json_syntax_error'(unexpected_end_of_file, A)\n"
+    "    ;   '$json_json_term'(F, A, B, C, D)\n"
+    "    ).\n"
+    "'$json_json_term'(A, B, C, D, E) :-\n"
+    "    '$json_json_term_top'(A, B, C, E),\n"
+    "    get_code(B, D).\n"
+    "'$json_json_term_top'(123, A, json(B), C) :-\n"
+    "    !,\n"
+    "    '$json_ws'(A, D),\n"
+    "    '$json_json_pairs'(D, A, B, C).\n"
+    "'$json_json_term_top'(91, A, B, C) :-\n"
+    "    !,\n"
+    "    '$json_ws'(A, D),\n"
+    "    '$json_json_array'(D, A, B, C).\n"
+    "'$json_json_term_top'(34, A, B, C) :-\n"
+    "    !,\n"
+    "    get_code(A, D),\n"
+    "    '$json_json_string_codes'(D, A, E),\n"
+    "    '$json_json_options_value_string_as'(C, F),\n"
+    "    '$json_codes_to_type'(F, E, B).\n"
+    "'$json_json_term_top'(45, A, B, _) :-\n"
+    "    !,\n"
+    "    json_read_number(A, 45, B).\n"
+    "'$json_json_term_top'(A, B, C, _) :-\n"
+    "    between(48, 57, A),\n"
+    "    !,\n"
+    "    json_read_number(B, A, C).\n"
+    "'$json_json_term_top'(A, B, C, D) :-\n"
+    "    '$json_json_read_constant'(A, B, E),\n"
+    "    '$json_json_constant'(E, C, D).\n"
+    "'$json_json_pairs'(125, _, [], _) :-\n"
+    "    !.\n"
+    "'$json_json_pairs'(A, B, [C|D], E) :-\n"
+    "    '$json_json_pair'(A, B, C, F, E),\n"
+    "    '$json_ws'(F, B, G),\n"
+    "    (   G==44\n"
+    "    ->  '$json_ws'(B, H),\n"
+    "        '$json_json_pairs'(H, B, D, E)\n"
+    "    ;   G==125\n"
+    "    ->  D=[]\n"
+    "    ;   '$json_syntax_error'(illegal_object, B)\n"
+    "    ).\n"
+    "'$json_json_pair'(A, B, C=D, E, F) :-\n"
+    "    '$json_json_string_as_atom'(A, B, C),\n"
+    "    '$json_ws'(B, G),\n"
+    "    G==58,\n"
+    "    '$json_json_value'(B, D, E, F).\n"
+    "'$json_json_array'(93, _, [], _) :-\n"
+    "    !.\n"
+    "'$json_json_array'(A, B, [C|D], E) :-\n"
+    "    '$json_json_term'(A, B, C, F, E),\n"
+    "    '$json_ws'(F, B, G),\n"
+    "    (   G==44\n"
+    "    ->  '$json_ws'(B, H),\n"
+    "        '$json_json_array'(H, B, D, E)\n"
+    "    ;   G==93\n"
+    "    ->  D=[]\n"
+    "    ;   '$json_syntax_error'(illegal_array, B)\n"
+    "    ).\n"
+    "'$json_codes_to_type'(atom, A, B) :-\n"
+    "    atom_codes(B, A).\n"
+    "'$json_codes_to_type'(string, A, B) :-\n"
+    "    string_codes(B, A).\n"
+    "'$json_codes_to_type'(codes, A, A).\n"
+    "'$json_json_string_as_atom'(34, A, B) :-\n"
+    "    get_code(A, C),\n"
+    "    '$json_json_string_codes'(C, A, D),\n"
+    "    atom_codes(B, D).\n"
+    "'$json_json_string_codes'(34, _, []) :-\n"
+    "    !.\n"
+    "'$json_json_string_codes'(92, A, [B|C]) :-\n"
+    "    !,\n"
+    "    get_code(A, D),\n"
+    "    (   '$json_escape'(D, A, B)\n"
+    "    ->  true\n"
+    "    ;   '$json_syntax_error'(illegal_string_escape, A)\n"
+    "    ),\n"
+    "    get_code(A, E),\n"
+    "    '$json_json_string_codes'(E, A, C).\n"
+    "'$json_json_string_codes'(-1, A, _) :-\n"
+    "    !,\n"
+    "    '$json_syntax_error'(eof_in_string, A).\n"
+    "'$json_json_string_codes'(A, B, [A|C]) :-\n"
+    "    get_code(B, D),\n"
+    "    '$json_json_string_codes'(D, B, C).\n"
+    "'$json_escape'(34, _, 34) :-\n"
+    "    !.\n"
+    "'$json_escape'(92, _, 92) :-\n"
+    "    !.\n"
+    "'$json_escape'(47, _, 47) :-\n"
+    "    !.\n"
+    "'$json_escape'(98, _, 8) :-\n"
+    "    !.\n"
+    "'$json_escape'(102, _, 12) :-\n"
+    "    !.\n"
+    "'$json_escape'(110, _, 10) :-\n"
+    "    !.\n"
+    "'$json_escape'(114, _, 13) :-\n"
+    "    !.\n"
+    "'$json_escape'(116, _, 9) :-\n"
+    "    !.\n"
+    "'$json_escape'(117, A, B) :-\n"
+    "    !,\n"
+    "    get_code(A, C),\n"
+    "    get_code(A, D),\n"
+    "    get_code(A, E),\n"
+    "    get_code(A, F),\n"
+    "    code_type(C, xdigit(G)),\n"
+    "    code_type(D, xdigit(H)),\n"
+    "    code_type(E, xdigit(I)),\n"
+    "    code_type(F, xdigit(J)),\n"
+    "    B is G<<12+H<<8+I<<4+J.\n"
+    "'$json_json_read_constant'(116, A, true) :-\n"
+    "    !,\n"
+    "    '$json_must_see'([114, 117, 101], A, true).\n"
+    "'$json_json_read_constant'(102, A, false) :-\n"
+    "    !,\n"
+    "    '$json_must_see'([97, 108, 115, 101], A, false).\n"
+    "'$json_json_read_constant'(110, A, null) :-\n"
+    "    !,\n"
+    "    '$json_must_see'([117, 108, 108], A, null).\n"
+    "'$json_must_see'([], _, _).\n"
+    "'$json_must_see'([A|B], C, D) :-\n"
+    "    get_code(C, E),\n"
+    "    (   E==A\n"
+    "    ->  true\n"
+    "    ;   '$json_syntax_error'(json_expected(D), C)\n"
+    "    ),\n"
+    "    '$json_must_see'(B, C, D).\n"
+    "'$json_json_constant'(true, A, B) :-\n"
+    "    !,\n"
+    "    '$json_json_options_true'(B, A).\n"
+    "'$json_json_constant'(false, A, B) :-\n"
+    "    !,\n"
+    "    '$json_json_options_false'(B, A).\n"
+    "'$json_json_constant'(null, A, B) :-\n"
+    "    !,\n"
+    "    '$json_json_options_null'(B, A).\n"
+    "'$json_ws'(A, B) :-\n"
+    "    get_code(A, C),\n"
+    "    json_skip_ws(A, C, B).\n"
+    "'$json_ws'(A, B, C) :-\n"
+    "    json_skip_ws(B, A, C).\n"
+    "'$json_syntax_error'(A, B) :-\n"
+    "    '$json_stream_error_context'(B, C),\n"
+    "    throw(error(syntax_error(json(A)), C)).\n"
+    "'$json_stream_error_context'(A, stream(A, B, C, D)) :-\n"
+    "    stream_pair(A, E, _),\n"
+    "    character_count(E, D),\n"
+    "    line_position(E, C),\n"
+    "    line_count(E, B).\n"
+    "'$json_default_json_write_state'(json_write_state(0, 2, 8, 72, false)).\n"
+    "'$json_json_write_state_indent'(json_write_state(A, _, _, _, _), A).\n"
+    "'$json_json_write_state_step'(json_write_state(_, A, _, _, _), A).\n"
+    "'$json_json_write_state_tab'(json_write_state(_, _, A, _, _), A).\n"
+    "'$json_json_write_state_width'(json_write_state(_, _, _, A, _), A).\n"
+    "'$json_json_write_state_serialize_unknown'(json_write_state(_, _, _, _, A), A).\n"
+    "'$json_json_write_state_data'(indent, json_write_state(A, _, _, _, _), A).\n"
+    "'$json_json_write_state_data'(step, json_write_state(_, A, _, _, _), A).\n"
+    "'$json_json_write_state_data'(tab, json_write_state(_, _, A, _, _), A).\n"
+    "'$json_json_write_state_data'(width, json_write_state(_, _, _, A, _), A).\n"
+    "'$json_json_write_state_data'(serialize_unknown, json_write_state(_, _, _, _, A), A).\n"
+    "'$json_set_indent_of_json_write_state'(A, json_write_state(_, B, C, D, E), json_write_state(A, B, C, D, E)) :-\n"
+    "    must_be(nonneg, A).\n"
+    "'$json_set_indent_of_json_write_state'(A, B) :-\n"
+    "    must_be(nonneg, A),\n"
+    "    setarg(1, B, A).\n"
+    "'$json_nb_set_indent_of_json_write_state'(A, B) :-\n"
+    "    must_be(nonneg, A),\n"
+    "    nb_setarg(1, B, A).\n"
+    "'$json_set_step_of_json_write_state'(A, json_write_state(B, _, C, D, E), json_write_state(B, A, C, D, E)) :-\n"
+    "    must_be(positive_integer, A).\n"
+    "'$json_set_step_of_json_write_state'(A, B) :-\n"
+    "    must_be(positive_integer, A),\n"
+    "    setarg(2, B, A).\n"
+    "'$json_nb_set_step_of_json_write_state'(A, B) :-\n"
+    "    must_be(positive_integer, A),\n"
+    "    nb_setarg(2, B, A).\n"
+    "'$json_set_tab_of_json_write_state'(A, json_write_state(B, C, _, D, E), json_write_state(B, C, A, D, E)) :-\n"
+    "    must_be(positive_integer, A).\n"
+    "'$json_set_tab_of_json_write_state'(A, B) :-\n"
+    "    must_be(positive_integer, A),\n"
+    "    setarg(3, B, A).\n"
+    "'$json_nb_set_tab_of_json_write_state'(A, B) :-\n"
+    "    must_be(positive_integer, A),\n"
+    "    nb_setarg(3, B, A).\n"
+    "'$json_set_width_of_json_write_state'(A, json_write_state(B, C, D, _, E), json_write_state(B, C, D, A, E)) :-\n"
+    "    must_be(nonneg, A).\n"
+    "'$json_set_width_of_json_write_state'(A, B) :-\n"
+    "    must_be(nonneg, A),\n"
+    "    setarg(4, B, A).\n"
+    "'$json_nb_set_width_of_json_write_state'(A, B) :-\n"
+    "    must_be(nonneg, A),\n"
+    "    nb_setarg(4, B, A).\n"
+    "'$json_set_serialize_unknown_of_json_write_state'(A, json_write_state(B, C, D, E, _), json_write_state(B, C, D, E, A)) :-\n"
+    "    must_be(boolean, A).\n"
+    "'$json_set_serialize_unknown_of_json_write_state'(A, B) :-\n"
+    "    must_be(boolean, A),\n"
+    "    setarg(5, B, A).\n"
+    "'$json_nb_set_serialize_unknown_of_json_write_state'(A, B) :-\n"
+    "    must_be(boolean, A),\n"
+    "    nb_setarg(5, B, A).\n"
+    "'$json_set_json_write_state_field'(indent(A), json_write_state(_, B, C, D, E), json_write_state(A, B, C, D, E)) :-\n"
+    "    must_be(nonneg, A).\n"
+    "'$json_set_json_write_state_field'(step(A), json_write_state(B, _, C, D, E), json_write_state(B, A, C, D, E)) :-\n"
+    "    must_be(positive_integer, A).\n"
+    "'$json_set_json_write_state_field'(tab(A), json_write_state(B, C, _, D, E), json_write_state(B, C, A, D, E)) :-\n"
+    "    must_be(positive_integer, A).\n"
+    "'$json_set_json_write_state_field'(width(A), json_write_state(B, C, D, _, E), json_write_state(B, C, D, A, E)) :-\n"
+    "    must_be(nonneg, A).\n"
+    "'$json_set_json_write_state_field'(serialize_unknown(A), json_write_state(B, C, D, E, _), json_write_state(B, C, D, E, A)) :-\n"
+    "    must_be(boolean, A).\n"
+    "'$json_make_json_write_state'(A, B) :-\n"
+    "    '$json_make_json_write_state'(A, B, []).\n"
+    "'$json_make_json_write_state'(A, B, C) :-\n"
+    "    '$json_default_json_write_state'(D),\n"
+    "    '$json_set_json_write_state_fields'(A, D, B, C).\n"
+    "'$json_set_json_write_state_fields'(A, B, C) :-\n"
+    "    '$json_set_json_write_state_fields'(A, B, C, []).\n"
+    "'$json_set_json_write_state_fields'([], A, A, []).\n"
+    "'$json_set_json_write_state_fields'([A|B], C, D, E) :-\n"
+    "    (   '$json_set_json_write_state_field'(A, C, F)\n"
+    "    ->  '$json_set_json_write_state_fields'(B, F, D, E)\n"
+    "    ;   E=[A|G],\n"
+    "        '$json_set_json_write_state_fields'(B, C, D, G)\n"
+    "    ).\n"
+    "'$json_is_json_write_state'(A) :-\n"
+    "    var(A),\n"
+    "    !,\n"
+    "    fail.\n"
+    "'$json_is_json_write_state'(json_write_state(A, B, C, D, E)) :-\n"
+    "    integer(A),\n"
+    "    A>=0,\n"
+    "    integer(B),\n"
+    "    B>0,\n"
+    "    integer(C),\n"
+    "    C>0,\n"
+    "    integer(D),\n"
+    "    D>=0,\n"
+    "    (   E==true\n"
+    "    ;   E==false\n"
+    "    ),\n"
+    "    !.\n"
+    "json_write(A, B) :-\n"
+    "    json_write(A, B, []).\n"
+    "json_write(A, B, C) :-\n"
+    "    '$json_make_json_write_state'(C, D, E),\n"
+    "    '$json_make_json_options'(E, F, _),\n"
+    "    '$json_json_write_term'(B, A, D, F).\n"
+    "'$json_json_write_term'(A, _, _, _) :-\n"
+    "    var(A),\n"
+    "    !,\n"
+    "    instantiation_error(A).\n"
+    "'$json_json_write_term'(json(A), B, C, D) :-\n"
+    "    !,\n"
+    "    '$json_json_write_object'(A, B, C, D).\n"
+    "'$json_json_write_term'(A, B, C, D) :-\n"
+    "    is_dict(A, E),\n"
+    "    !,\n"
+    "    '$json_json_pairs'(A, F),\n"
+    "    (   nonvar(E),\n"
+    "        '$json_json_options_tag'(D, G),\n"
+    "        G\\==''\n"
+    "    ->  H=[G-E|F]\n"
+    "    ;   H=F\n"
+    "    ),\n"
+    "    '$json_json_write_object'(H, B, C, D).\n"
+    "'$json_json_write_term'(A, B, C, D) :-\n"
+    "    is_list(A),\n"
+    "    !,\n"
+    "    '$json_space_if_not_at_left_margin'(B, C),\n"
+    "    write(B, '['),\n"
+    "    (   '$json_json_write_state_width'(C, E),\n"
+    "        (   E==0\n"
+    "        ->  true\n"
+    "        ;   '$json_json_write_state_indent'(C, F),\n"
+    "            '$json_json_print_length'(A,\n"
+    "                              D,\n"
+    "                              E,\n"
+    "                              F,\n"
+    "                              _)\n"
+    "        )\n"
+    "    ->  '$json_set_width_of_json_write_state'(0, C, G),\n"
+    "        '$json_write_array_hor'(A, B, G, D),\n"
+    "        write(B, ']')\n"
+    "    ;   '$json_step_indent'(C, G),\n"
+    "        '$json_write_array_ver'(A, B, G, D),\n"
+    "        '$json_indent'(B, C),\n"
+    "        write(B, ']')\n"
+    "    ).\n"
+    "'$json_json_write_term'(A, B, C, D) :-\n"
+    "    json_write_hook(A, B, C, D),\n"
+    "    !.\n"
+    "'$json_json_write_term'(A, B, _, _) :-\n"
+    "    number(A),\n"
+    "    !,\n"
+    "    (   float(A)\n"
+    "    ->  write(B, A)\n"
+    "    ;   integer(A)\n"
+    "    ->  write(B, A)\n"
+    "    ;   C is float(A)\n"
+    "    ->  write(B, C)\n"
+    "    ).\n"
+    "'$json_json_write_term'(A, B, _, C) :-\n"
+    "    '$json_json_options_true'(C, A),\n"
+    "    !,\n"
+    "    write(B, true).\n"
+    "'$json_json_write_term'(A, B, _, C) :-\n"
+    "    '$json_json_options_false'(C, A),\n"
+    "    !,\n"
+    "    write(B, false).\n"
+    "'$json_json_write_term'(A, B, _, C) :-\n"
+    "    '$json_json_options_null'(C, A),\n"
+    "    !,\n"
+    "    write(B, null).\n"
+    "'$json_json_write_term'(#(A), B, _, _) :-\n"
+    "    !,\n"
+    "    (   (   atom(A)\n"
+    "        ;   string(A)\n"
+    "        )\n"
+    "    ->  json_write_string(B, A)\n"
+    "    ;   term_string(A, C),\n"
+    "        json_write_string(B, C)\n"
+    "    ).\n"
+    "'$json_json_write_term'(A, B, _, _) :-\n"
+    "    atom(A),\n"
+    "    !,\n"
+    "    json_write_string(B, A).\n"
+    "'$json_json_write_term'(A, B, _, _) :-\n"
+    "    string(A),\n"
+    "    !,\n"
+    "    json_write_string(B, A).\n"
+    "'$json_json_write_term'(A, B, C, _) :-\n"
+    "    (   '$json_json_write_state_serialize_unknown'(C, true)\n"
+    "    ->  term_string(A, D),\n"
+    "        json_write_string(B, D)\n"
+    "    ;   type_error(json_term, A)\n"
+    "    ).\n"
+    "'$json_json_pairs'(A, B) :-\n"
+    "    json_dict_pairs(A, B),\n"
+    "    !.\n"
+    "'$json_json_pairs'(A, B) :-\n"
+    "    dict_pairs(A, _, B).\n"
+    "'$json_json_write_object'(A, B, C, D) :-\n"
+    "    '$json_space_if_not_at_left_margin'(B, C),\n"
+    "    write(B, '{'),\n"
+    "    (   '$json_json_write_state_width'(C, E),\n"
+    "        (   E==0\n"
+    "        ->  true\n"
+    "        ;   '$json_json_write_state_indent'(C, F),\n"
+    "            '$json_json_print_length'(json(A),\n"
+    "                              D,\n"
+    "                              E,\n"
+    "                              F,\n"
+    "                              _)\n"
+    "        )\n"
+    "    ->  '$json_set_width_of_json_write_state'(0, C, G),\n"
+    "        '$json_write_pairs_hor'(A, B, G, D),\n"
+    "        write(B, '}')\n"
+    "    ;   '$json_step_indent'(C, G),\n"
+    "        '$json_write_pairs_ver'(A, B, G, D),\n"
+    "        '$json_indent'(B, C),\n"
+    "        write(B, '}')\n"
+    "    ).\n"
+    "'$json_write_pairs_hor'([], _, _, _).\n"
+    "'$json_write_pairs_hor'([A|B], C, D, E) :-\n"
+    "    '$json_json_pair'(A, F, G),\n"
+    "    json_write_string(C, F),\n"
+    "    write(C, :),\n"
+    "    '$json_json_write_term'(G, C, D, E),\n"
+    "    (   B==[]\n"
+    "    ->  true\n"
+    "    ;   write(C, ', '),\n"
+    "        '$json_write_pairs_hor'(B, C, D, E)\n"
+    "    ).\n"
+    "'$json_write_pairs_ver'([], _, _, _).\n"
+    "'$json_write_pairs_ver'([A|B], C, D, E) :-\n"
+    "    '$json_indent'(C, D),\n"
+    "    '$json_json_pair'(A, F, G),\n"
+    "    json_write_string(C, F),\n"
+    "    write(C, :),\n"
+    "    '$json_json_write_term'(G, C, D, E),\n"
+    "    (   B==[]\n"
+    "    ->  true\n"
+    "    ;   write(C, ','),\n"
+    "        '$json_write_pairs_ver'(B, C, D, E)\n"
+    "    ).\n"
+    "'$json_json_pair'(A, _, _) :-\n"
+    "    var(A),\n"
+    "    !,\n"
+    "    instantiation_error(A).\n"
+    "'$json_json_pair'(A=B, A, B) :-\n"
+    "    !.\n"
+    "'$json_json_pair'(A-B, A, B) :-\n"
+    "    !.\n"
+    "'$json_json_pair'(A, B, C) :-\n"
+    "    compound(A),\n"
+    "    A=..[B, C],\n"
+    "    !.\n"
+    "'$json_json_pair'(A, _, _) :-\n"
+    "    type_error(json_pair, A).\n"
+    "'$json_write_array_hor'([], _, _, _).\n"
+    "'$json_write_array_hor'([A|B], C, D, E) :-\n"
+    "    '$json_json_write_term'(A, C, D, E),\n"
+    "    (   B==[]\n"
+    "    ->  write(C, ' ')\n"
+    "    ;   write(C, ', '),\n"
+    "        '$json_write_array_hor'(B, C, D, E)\n"
+    "    ).\n"
+    "'$json_write_array_ver'([], _, _, _).\n"
+    "'$json_write_array_ver'([A|B], C, D, E) :-\n"
+    "    '$json_indent'(C, D),\n"
+    "    '$json_json_write_term'(A, C, D, E),\n"
+    "    (   B==[]\n"
+    "    ->  true\n"
+    "    ;   write(C, ','),\n"
+    "        '$json_write_array_ver'(B, C, D, E)\n"
+    "    ).\n"
+    "'$json_indent'(A, B) :-\n"
+    "    '$json_json_write_state_indent'(B, C),\n"
+    "    '$json_json_write_state_tab'(B, D),\n"
+    "    json_write_indent(A, C, D).\n"
+    "'$json_step_indent'(A, B) :-\n"
+    "    '$json_json_write_state_indent'(A, C),\n"
+    "    '$json_json_write_state_step'(A, D),\n"
+    "    E is C+D,\n"
+    "    '$json_set_indent_of_json_write_state'(E, A, B).\n"
+    "'$json_space_if_not_at_left_margin'(A, B) :-\n"
+    "    stream_pair(A, _, C),\n"
+    "    line_position(C, D),\n"
+    "    (   D==0\n"
+    "    ;   '$json_json_write_state_indent'(B, D)\n"
+    "    ),\n"
+    "    !.\n"
+    "'$json_space_if_not_at_left_margin'(A, _) :-\n"
+    "    put_char(A, ' ').\n"
+    "'$json_json_print_length'(A, _, _, _, _) :-\n"
+    "    var(A),\n"
+    "    !,\n"
+    "    instantiation_error(A).\n"
+    "'$json_json_print_length'(json(A), B, C, D, E) :-\n"
+    "    !,\n"
+    "    F is D+2,\n"
+    "    F=<C,\n"
+    "    must_be(list, A),\n"
+    "    '$json_pairs_print_length'(A, B, C, F, E).\n"
+    "'$json_json_print_length'(A, B, C, D, E) :-\n"
+    "    is_dict(A),\n"
+    "    !,\n"
+    "    dict_pairs(A, _, F),\n"
+    "    G is D+2,\n"
+    "    G=<C,\n"
+    "    '$json_pairs_print_length'(F, B, C, G, E).\n"
+    "'$json_json_print_length'(A, B, C, D, E) :-\n"
+    "    is_list(A),\n"
+    "    !,\n"
+    "    F is D+2,\n"
+    "    F=<C,\n"
+    "    '$json_array_print_length'(A, B, C, F, E).\n"
+    "'$json_json_print_length'(A, B, C, D, E) :-\n"
+    "    '$json_json_options_null'(B, A),\n"
+    "    !,\n"
+    "    E is D+4,\n"
+    "    E=<C.\n"
+    "'$json_json_print_length'(A, B, C, D, E) :-\n"
+    "    '$json_json_options_false'(B, A),\n"
+    "    !,\n"
+    "    E is D+5,\n"
+    "    E=<C.\n"
+    "'$json_json_print_length'(A, B, C, D, E) :-\n"
+    "    '$json_json_options_true'(B, A),\n"
+    "    !,\n"
+    "    E is D+4,\n"
+    "    E=<C.\n"
+    "'$json_json_print_length'(A, _, B, C, D) :-\n"
+    "    number(A),\n"
+    "    !,\n"
+    "    write_length(A, E, []),\n"
+    "    D is C+E,\n"
+    "    D=<B.\n"
+    "'$json_json_print_length'(@(A), _, B, C, D) :-\n"
+    "    atom(A),\n"
+    "    !,\n"
+    "    atom_length(A, E),\n"
+    "    D is C+E,\n"
+    "    D=<B.\n"
+    "'$json_json_print_length'(A, _, B, C, D) :-\n"
+    "    '$json_string_len'(A, C, D),\n"
+    "    !,\n"
+    "    D=<B.\n"
+    "'$json_json_print_length'(A, _, B, C, D) :-\n"
+    "    write_length(A, E, []),\n"
+    "    D is C+E+2,\n"
+    "    D=<B.\n"
+    "'$json_pairs_print_length'([], _, _, A, A).\n"
+    "'$json_pairs_print_length'([A|B], C, D, E, F) :-\n"
+    "    '$json_pair_len'(A, C, D, E, G),\n"
+    "    (   B==[]\n"
+    "    ->  F=G\n"
+    "    ;   H is G+2,\n"
+    "        H=<D,\n"
+    "        '$json_pairs_print_length'(B, C, D, H, F)\n"
+    "    ).\n"
+    "'$json_pair_len'(A, B, C, D, E) :-\n"
+    "    compound(A),\n"
+    "    '$json_pair_nv'(A, F, G),\n"
+    "    !,\n"
+    "    '$json_string_len'(F, D, H),\n"
+    "    I is H+2,\n"
+    "    I=<C,\n"
+    "    '$json_json_print_length'(G, B, C, I, E).\n"
+    "'$json_pair_len'(A, _, _, _, _) :-\n"
+    "    type_error(pair, A).\n"
+    "'$json_pair_nv'(A=B, A, B) :-\n"
+    "    !.\n"
+    "'$json_pair_nv'(A-B, A, B) :-\n"
+    "    !.\n"
+    "'$json_pair_nv'(A, B, C) :-\n"
+    "    compound_name_arguments(A, B, [C]).\n"
+    "'$json_array_print_length'([], _, _, A, A).\n"
+    "'$json_array_print_length'([A|B], C, D, E, F) :-\n"
+    "    '$json_json_print_length'(A, C, D, E, G),\n"
+    "    (   B==[]\n"
+    "    ->  F=G\n"
+    "    ;   H is G+2,\n"
+    "        H=<D,\n"
+    "        '$json_array_print_length'(B, C, D, H, F)\n"
+    "    ).\n"
+    "'$json_string_len'(A, B, C) :-\n"
+    "    atom(A),\n"
+    "    !,\n"
+    "    atom_length(A, D),\n"
+    "    C is B+D+2.\n"
+    "'$json_string_len'(A, B, C) :-\n"
+    "    string(A),\n"
+    "    !,\n"
+    "    string_length(A, D),\n"
+    "    C is B+D+2.\n"
+    "is_json_term(A) :-\n"
+    "    '$json_default_json_options'(B),\n"
+    "    '$json_is_json_term2'(B, A).\n"
+    "is_json_term(A, B) :-\n"
+    "    '$json_make_json_options'(B, C, _),\n"
+    "    '$json_is_json_term2'(C, A).\n"
+    "'$json_is_json_term2'(_, A) :-\n"
+    "    var(A),\n"
+    "    !,\n"
+    "    fail.\n"
+    "'$json_is_json_term2'(A, json(B)) :-\n"
+    "    !,\n"
+    "    is_list(B),\n"
+    "    maplist('$json_is_json_pair'(A), B).\n"
+    "'$json_is_json_term2'(A, B) :-\n"
+    "    is_list(B),\n"
+    "    !,\n"
+    "    maplist('$json_is_json_term2'(A), B).\n"
+    "'$json_is_json_term2'(_, A) :-\n"
+    "    atomic(A),\n"
+    "    !.\n"
+    "'$json_is_json_term2'(A, B) :-\n"
+    "    '$json_json_options_true'(A, B).\n"
+    "'$json_is_json_term2'(A, B) :-\n"
+    "    '$json_json_options_false'(A, B).\n"
+    "'$json_is_json_term2'(A, B) :-\n"
+    "    '$json_json_options_null'(A, B).\n"
+    "'$json_is_json_pair'(_, A) :-\n"
+    "    var(A),\n"
+    "    !,\n"
+    "    fail.\n"
+    "'$json_is_json_pair'(A, B=C) :-\n"
+    "    atom(B),\n"
+    "    '$json_is_json_term2'(A, C).\n"
+    "json_read_dict(A, B) :-\n"
+    "    json_read_dict(A, B, []).\n"
+    "json_read_dict(A, B, C) :-\n"
+    "    '$json_make_json_dict_options'(C, D, _),\n"
+    "    (   '$json_json_value_top'(A, E, D)\n"
+    "    ->  true\n"
+    "    ;   '$json_syntax_error'(illegal_json, A)\n"
+    "    ),\n"
+    "    '$json_term_to_dict'(E, B, D).\n"
+    "'$json_term_to_dict'(json(A), B, C) :-\n"
+    "    !,\n"
+    "    (   '$json_json_options_tag'(C, D),\n"
+    "        E\\=='',\n"
+    "        select(D=F, A, G),\n"
+    "        '$json_to_atom'(F, E)\n"
+    "    ->  '$json_json_dict_pairs'(G, H, C)\n"
+    "    ;   '$json_json_options_default_tag'(C, I),\n"
+    "        (   var(I)\n"
+    "        ->  true\n"
+    "        ;   E=I\n"
+    "        ),\n"
+    "        '$json_json_dict_pairs'(A, H, C)\n"
+    "    ),\n"
+    "    dict_create(B, E, H).\n"
+    "'$json_term_to_dict'(A, B, _) :-\n"
+    "    atomic(A),\n"
+    "    A\\==[],\n"
+    "    !,\n"
+    "    B=A.\n"
+    "'$json_term_to_dict'(A, B, C) :-\n"
+    "    is_list(A),\n"
+    "    !,\n"
+    "    '$json_terms_to_dicts'(A, B, C).\n"
+    "'$json_term_to_dict'(A, A, B) :-\n"
+    "    (   '$json_json_options_true'(B, A)\n"
+    "    ;   '$json_json_options_false'(B, A)\n"
+    "    ;   '$json_json_options_null'(B, A)\n"
+    "    ;   '$json_json_options_end_of_file'(B, A)\n"
+    "    ),\n"
+    "    !.\n"
+    "'$json_json_dict_pairs'([], [], _).\n"
+    "'$json_json_dict_pairs'([A=B|C], [A=D|E], F) :-\n"
+    "    '$json_term_to_dict'(B, D, F),\n"
+    "    '$json_json_dict_pairs'(C, E, F).\n"
+    "'$json_terms_to_dicts'([], [], _).\n"
+    "'$json_terms_to_dicts'([A|B], [C|D], E) :-\n"
+    "    '$json_term_to_dict'(A, C, E),\n"
+    "    '$json_terms_to_dicts'(B, D, E).\n"
+    "'$json_to_atom'(A, B) :-\n"
+    "    string(A),\n"
+    "    !,\n"
+    "    atom_string(B, A).\n"
+    "'$json_to_atom'(A, A) :-\n"
+    "    atom(A).\n"
+    "json_write_dict(A, B) :-\n"
+    "    json_write_dict(A, B, []).\n"
+    "json_write_dict(A, B, C) :-\n"
+    "    '$json_make_json_write_state'(C, D, E),\n"
+    "    '$json_make_json_dict_options'(E, F, _),\n"
+    "    '$json_json_write_term'(B, A, D, F).\n"
+    "'$json_make_json_dict_options'(A, B, C) :-\n"
+    "    '$json_default_json_dict_options'(D),\n"
+    "    '$json_set_json_options_fields'(A, D, B, C).\n"
+    "atom_json_dict(A, B, C) :-\n"
+    "    ground(A),\n"
+    "    !,\n"
+    "    setup_call_cleanup(open_string(A, D),\n"
+    "                       json_read_dict(D, B, C),\n"
+    "                       close(D)).\n"
+    "atom_json_dict(A, B, C) :-\n"
+    "    select_option(as(D), C, E, atom),\n"
+    "    (   '$json_type_term'(D, A, F)\n"
+    "    ->  true\n"
+    "    ;   must_be(oneof([atom, string, codes]), D)\n"
+    "    ),\n"
+    "    with_output_to(F,\n"
+    "                   json_write_dict(current_output, B, E)).\n"
+    "'$json_json_syntax_error'(illegal_comment, A, B) :-\n"
+    "    A=['Illegal comment'|B].\n"
+    "'$json_json_syntax_error'(illegal_string_escape, A, B) :-\n"
+    "    A=['Illegal escape sequence in string'|B].\n";
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "lazy_list", 2 },
     { "lazy_list", 3 },
     { "lazy_list_materialize", 1 },
@@ -14833,16 +15682,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_EXPORTS[] = {
     { "lazy_list_iterator", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_17_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_17_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_17_SRC[] =
+static const char PL_PRELUDE_LIB_18_SRC[] =
     "lazy_list(A, B) :-\n"
     "    put_attr(B, lazy_lists, lazy_list(A, _)).\n"
     "lazy_lists:attr_unify_hook(A, B) :-\n"
@@ -15069,7 +15918,7 @@ static const char PL_PRELUDE_LIB_17_SRC[] =
     "lazy_findall(A, B, C, D) :-\n"
     "    engine_create(B, C, E),\n"
     "    lazy_list(lazy_engine_next(E, A), D).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "listing", 0 },
     { "listing", 1 },
     { "listing", 2 },
@@ -15078,19 +15927,19 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_EXPORTS[] = {
     { "portray_clause", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
     { "portray_clause", 1 },
     { "portray_clause", 2 },
     { "portray_clause", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_18_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_18_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_18_SRC[] =
+static const char PL_PRELUDE_LIB_19_SRC[] =
     "listing :-\n"
     "    context_module(Context),\n"
     "    '$listing_list_module'(Context, []).\n"
@@ -15931,7 +16780,7 @@ static const char PL_PRELUDE_LIB_18_SRC[] =
     "    ansi_format(Attributes, Format, Args).\n"
     "'$listing_comment'(Format, Args) :-\n"
     "    format(Format, Args).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
     { "member", 2 },
     { "append", 2 },
     { "append", 3 },
@@ -15969,16 +16818,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_EXPORTS[] = {
     { "subtract", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_19_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_19_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_19_SRC[] =
+static const char PL_PRELUDE_LIB_20_SRC[] =
     "member(El, [H|T]) :-\n"
     "    '$lists_member_'(T, El, H).\n"
     "'$lists_member_'(_, El, El).\n"
@@ -16269,7 +17118,7 @@ static const char PL_PRELUDE_LIB_19_SRC[] =
     "    ;   R = [E|R1],\n"
     "        subtract(T, D, R1)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
     { "main", 0 },
     { "argv_options", 3 },
     { "argv_options", 4 },
@@ -16278,16 +17127,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_EXPORTS[] = {
     { "cli_enable_development_system", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_20_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_20_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_21_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_20_SRC[] =
+static const char PL_PRELUDE_LIB_21_SRC[] =
     ":- dynamic\n"
     "    interactive/0.\n"
     "main :-\n"
@@ -16850,7 +17699,7 @@ static const char PL_PRELUDE_LIB_20_SRC[] =
     "    set_prolog_flag(xpce_threaded, true),\n"
     "    set_prolog_flag(message_ide, true),\n"
     "    set_prolog_flag(toplevel_goal, prolog).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
     { "$mctx_assert", 3 },
     { "$mctx_asserta", 3 },
     { "$mctx_assertz", 3 },
@@ -16864,16 +17713,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_EXPORTS[] = {
     { "$mctx_call", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_21_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_21_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_22_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_21_SRC[] =
+static const char PL_PRELUDE_LIB_22_SRC[] =
     "'$mctx_pick'([M|_],N,A,QN):-atom_concat(M,':',P),atom_concat(P,N,Q0),current_predicate(Q0/A),!,QN=Q0.\n"
     "'$mctx_pick'([_|Ms],N,A,QN):-'$mctx_pick'(Ms,N,A,QN).\n"
     "'$mctx_head'(M1,M2,H0,H):-nonvar(H0),callable(H0),H0\\=(_:_),functor(H0,N,A),'$mctx_pick'([M1,M2],N,A,QN),!,H0=..[_|As],H=..[QN|As].\n"
@@ -16912,7 +17761,7 @@ static const char PL_PRELUDE_LIB_21_SRC[] =
     "'$mctx_eff1'(M,C,As,M,E):-'$mctx_ext'(C,As,E).\n"
     "'$mctx_ext'(C,As,E):-nonvar(C),callable(C),C=..L0,append(L0,As,L1),E=..L1,!.\n"
     "'$mctx_ext'(C,_,C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
     { "empty_nb_set", 1 },
     { "add_nb_set", 2 },
     { "add_nb_set", 3 },
@@ -16921,16 +17770,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_EXPORTS[] = {
     { "nb_set_to_list", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_22_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_22_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_23_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_22_SRC[] =
+static const char PL_PRELUDE_LIB_23_SRC[] =
     "'$nb_set_initial_size'(32).\n"
     "empty_nb_set(nb_set(Buckets, 0)) :-\n"
     "    '$nb_set_initial_size'(Size),\n"
@@ -16992,7 +17841,7 @@ static const char PL_PRELUDE_LIB_22_SRC[] =
     "    nb_set_to_list(Set, OrdSet),\n"
     "    member(Key, OrdSet).\n"
     "size_nb_set(nb_set(_, Size), Size).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
     { "option", 2 },
     { "option", 3 },
     { "select_option", 3 },
@@ -17002,16 +17851,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_EXPORTS[] = {
     { "dict_options", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_23_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_23_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_24_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_23_SRC[] =
+static const char PL_PRELUDE_LIB_24_SRC[] =
     "option(Opt, Options, Default) :-\n"
     "    is_dict(Options),\n"
     "    !,\n"
@@ -17186,23 +18035,24 @@ static const char PL_PRELUDE_LIB_23_SRC[] =
     "    !.\n"
     "'$option_key_name'(Opt, _) :-\n"
     "    domain_error(option, Opt).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_EXPORTS[] = {
     { "opt_parse", 5 },
     { "opt_parse", 4 },
     { "opt_arguments", 3 },
     { "opt_help", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_24_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_24_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_25_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_24_SRC[] =
+static const char PL_PRELUDE_LIB_25_SRC[] =
+    ":- dynamic 'parse_type'/3.\n"
     "opt_arguments(OptsSpec, Opts, PositionalArgs) :-\n"
     "    current_prolog_flag(argv, Argv),\n"
     "    opt_parse(OptsSpec, Argv, Opts, PositionalArgs).\n"
@@ -17582,7 +18432,7 @@ static const char PL_PRELUDE_LIB_24_SRC[] =
     "'$optparse_flags'(OptSpec, Flags) :- memberchk(longflags(Flags), OptSpec).\n"
     "'$optparse_is_list_of_atoms'([]).\n"
     "'$optparse_is_list_of_atoms'([X|Xs]) :- atom(X), '$optparse_is_list_of_atoms'(Xs).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_EXPORTS[] = {
     { "is_ordset", 1 },
     { "list_to_ord_set", 2 },
     { "ord_add_element", 3 },
@@ -17605,16 +18455,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_EXPORTS[] = {
     { "ord_intersection", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_25_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_25_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_26_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_25_SRC[] =
+static const char PL_PRELUDE_LIB_26_SRC[] =
     "is_ordset(Term) :-\n"
     "    is_list(Term),\n"
     "    '$ordsets_is_ordset2'(Term).\n"
@@ -17833,7 +18683,7 @@ static const char PL_PRELUDE_LIB_25_SRC[] =
     "    ord_symdiff(T1, T2, Difference).\n"
     "'$ordsets_ord_symdiff'(>, H1, T1, H2, Set2, [H2|Difference]) :-\n"
     "    '$ordsets_ord_symdiff'(Set2, H1, T1, Difference).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_EXPORTS[] = {
     { "pairs_keys_values", 3 },
     { "pairs_values", 2 },
     { "pairs_keys", 2 },
@@ -17842,16 +18692,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_EXPORTS[] = {
     { "map_list_to_pairs", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_26_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_26_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_27_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_26_SRC[] =
+static const char PL_PRELUDE_LIB_27_SRC[] =
     "pairs_keys_values(Pairs, Keys, Values) :-\n"
     "    (   nonvar(Pairs) ->\n"
     "        '$pairs_pairs_keys_values_'(Pairs, Keys, Values)\n"
@@ -17895,7 +18745,7 @@ static const char PL_PRELUDE_LIB_26_SRC[] =
     "'$pairs_map_list_to_pairs2'([H|T0], Pred, [K-H|T]) :-\n"
     "    call(Pred, H, K),\n"
     "    '$pairs_map_list_to_pairs2'(T0, Pred, T).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
     { "re_match", 2 },
     { "re_match", 3 },
     { "re_matchsub", 3 },
@@ -17907,16 +18757,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_EXPORTS[] = {
     { "re_replace", 5 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_27_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_27_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_28_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_27_SRC[] =
+static const char PL_PRELUDE_LIB_28_SRC[] =
     "re_match(Re, S) :- re_match(Re, S, []).\n"
     "re_match(Re, S, Opts) :- '$re_prep'(Re, Opts, R), '$re_codes'(S, W), '$re_search'(R, W, 0, W, _, _), !.\n"
     "re_matchsub(Re, S, Sub) :- re_matchsub(Re, S, Sub, []).\n"
@@ -18140,7 +18990,7 @@ static const char PL_PRELUDE_LIB_27_SRC[] =
     "'$re_conv'(_, Cs, V) :- string_codes(V, Cs).\n"
     "'$re_take'(0, _, []) :- !.\n"
     "'$re_take'(N, [C|Cs], [C|Ts]) :- N1 is N - 1, '$re_take'(N1, Cs, Ts).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_EXPORTS[] = {
     { "begin_tests", 1 },
     { "begin_tests", 2 },
     { "end_tests", 1 },
@@ -18149,16 +18999,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_EXPORTS[] = {
     { "set_test_options", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_28_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_28_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_29_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_28_SRC[] =
+static const char PL_PRELUDE_LIB_29_SRC[] =
     ":- dynamic pj_test/4.\n"
     "begin_tests(Suite) :- pj_unit_open(Suite), pj_suites_add(Suite, []).\n"
     "begin_tests(Suite, Opts) :- pj_unit_open(Suite), pj_suites_add(Suite, Opts).\n"
@@ -18315,20 +19165,20 @@ static const char PL_PRELUDE_LIB_28_SRC[] =
     "pj_reverse(L, R) :- pj_rev(L, [], R).\n"
     "pj_rev([], R, R).\n"
     "pj_rev([H|T], A, R) :- pj_rev(T, [H|A], R).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
     { "valid_term_position", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_29_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_29_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_30_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_29_SRC[] =
+static const char PL_PRELUDE_LIB_30_SRC[] =
     "valid_term_position(Term, TermPos) :-\n"
     "    '$vtp'(0, 0x7fffffffffffffff, Term, TermPos).\n"
     "'$vtp'(OuterFrom, OuterTo, _Term, TermPos),\n"
@@ -18409,7 +19259,7 @@ static const char PL_PRELUDE_LIB_29_SRC[] =
     "'$vtp_tail'(Tail0, HdPart, Tail) =>\n"
     "    HdPart = [],\n"
     "    Tail0 = Tail.\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
     { "phrase_from_file", 2 },
     { "phrase_from_file", 3 },
     { "phrase_from_stream", 2 },
@@ -18419,16 +19269,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_EXPORTS[] = {
     { "lazy_list_character_count", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_30_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_30_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_31_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_30_SRC[] =
+static const char PL_PRELUDE_LIB_31_SRC[] =
     "phrase_from_file(Grammar, File) :-\n"
     "    phrase_from_file(Grammar, File, []).\n"
     "phrase_from_file(Grammar, File, Options) :-\n"
@@ -18510,7 +19360,7 @@ static const char PL_PRELUDE_LIB_30_SRC[] =
     "        )\n"
     "    ;   Value = Read\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
     { "unix", 1 },
     { "abs", 2 },
     { "sin", 2 },
@@ -18548,16 +19398,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_EXPORTS[] = {
     { "on_exception", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_31_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_31_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_32_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_31_SRC[] =
+static const char PL_PRELUDE_LIB_32_SRC[] =
     "unix(system(Command)) :-\n"
     "    shell(Command).\n"
     "unix(shell(Command)) :-\n"
@@ -18667,7 +19517,7 @@ static const char PL_PRELUDE_LIB_31_SRC[] =
     "    throw(Term).\n"
     "on_exception(Except, Goal, Recover) :-\n"
     "    catch(Goal, Except, Recover).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
     { "random", 1 },
     { "random_between", 3 },
     { "getrand", 1 },
@@ -18686,16 +19536,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_EXPORTS[] = {
     { "random", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_32_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_32_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_32_SRC[] =
+static const char PL_PRELUDE_LIB_33_SRC[] =
     "'$random_check_gmp' :-\n"
     "    current_arithmetic_function(random_float),\n"
     "    !.\n"
@@ -18865,7 +19715,7 @@ static const char PL_PRELUDE_LIB_32_SRC[] =
     "'$random_partial_list'(List) :-\n"
     "    '$skip_list'(_, List, Tail),\n"
     "    var(Tail).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "rb_new", 1 },
     { "rb_empty", 1 },
     { "rb_lookup", 3 },
@@ -18896,16 +19746,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_EXPORTS[] = {
     { "rb_in", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_33_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_33_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_33_SRC[] =
+static const char PL_PRELUDE_LIB_34_SRC[] =
     "rb_new(t(Nil,Nil)) :-\n"
     "    Nil = black('',_,_,'').\n"
     "rb_empty(t(Nil,Nil)) :-\n"
@@ -19514,7 +20364,7 @@ static const char PL_PRELUDE_LIB_33_SRC[] =
     "'$rbtrees_check_red_child'(black(_,_,_,_)) => true.\n"
     "'$rbtrees_check_red_child'(Node), Node = red(_,_,_,_) =>\n"
     "    domain_error(rb_black, Node).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
     { "read_line_to_codes", 2 },
     { "read_line_to_codes", 3 },
     { "read_stream_to_codes", 2 },
@@ -19525,16 +20375,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_EXPORTS[] = {
     { "read_file_to_terms", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_34_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_34_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_34_SRC[] =
+static const char PL_PRELUDE_LIB_35_SRC[] =
     "'$readutil_link_foreign' :-\n"
     "    catch(use_foreign_library(foreign(readutil)), _, fail),\n"
     "    !.\n"
@@ -19644,23 +20494,23 @@ static const char PL_PRELUDE_LIB_34_SRC[] =
     "        open(Path, read, Stream, Options),\n"
     "        '$readutil_read_stream_to_terms'(Stream, Terms, Tail, Options),\n"
     "        close(Stream)).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "record", 1 },
     { "current_record", 2 },
     { "current_record_predicate", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_35_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_35_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
     { 1150, "fx", "record" },
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_35_SRC[] =
+static const char PL_PRELUDE_LIB_36_SRC[] =
     "'$error_has_type'(record(M:Name), X) :-\n"
     "    '$record_is_record'(Name, M, X).\n"
     "'$record_is_record'(Name, M, X) :-\n"
@@ -19711,6 +20561,7 @@ static const char PL_PRELUDE_LIB_35_SRC[] =
     "    '$record_make_predicate'(Constructor),\n"
     "    '$record_is_predicate'(Constructor, Types),\n"
     "    '$record_current_clause'(RecordDef).\n"
+    ":- dynamic 'current_record'/5.\n"
     "current_record(Name, M:Term) :-\n"
     "    current_record(Name, M, Term, _, _).\n"
     "'$record_current_clause'(RecordDef) -->\n"
@@ -19952,7 +20803,7 @@ static const char PL_PRELUDE_LIB_35_SRC[] =
     "'$record_types'([Name|T0], [Name|TN], [any|TT]) :-\n"
     "    must_be(atom, Name),\n"
     "    '$record_types'(T0, TN, TT).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "assignment", 2 },
     { "constraint", 3 },
     { "constraint", 4 },
@@ -19968,16 +20819,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_EXPORTS[] = {
     { "variable_value", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_36_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_36_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_37_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_36_SRC[] =
+static const char PL_PRELUDE_LIB_37_SRC[] =
     ":- if(exists_source(library(clpr))).\n"
     ":- endif.\n"
     "gen_state_clpr(State) :- gen_state_clpr([], State).\n"
@@ -20918,7 +21769,7 @@ static const char PL_PRELUDE_LIB_36_SRC[] =
     "            print_message(warning, simplex(bounded))\n"
     "        ;   true\n"
     "        ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
     { "distinct", 1 },
     { "distinct", 2 },
     { "reduced", 1 },
@@ -20930,16 +21781,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_EXPORTS[] = {
     { "group_by", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_37_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_37_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_38_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_37_SRC[] =
+static const char PL_PRELUDE_LIB_38_SRC[] =
     "distinct(Goal) :-\n"
     "    distinct(Goal, Goal).\n"
     "distinct(Witness, Goal) :-\n"
@@ -21097,7 +21948,7 @@ static const char PL_PRELUDE_LIB_37_SRC[] =
     "    '$solution_sequences_ordered_term_variables'(By+Template, UVars),\n"
     "    ord_subtract(GVars, UVars, ExVars),\n"
     "    bagof(Template, ExVars^Goal, Bag).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
     { "dedent_lines", 3 },
     { "indent_lines", 3 },
     { "indent_lines", 4 },
@@ -21105,16 +21956,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_EXPORTS[] = {
     { "string_lines", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_38_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_38_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_39_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_38_SRC[] =
+static const char PL_PRELUDE_LIB_39_SRC[] =
     "'$strings_qq_var'(Vars, _=Var) :- member(V, Vars), V == Var, !.\n"
     "interpolate_string(Module:In, Out, Map, Options) :-\n"
     "    '$strings_comp_interpolate'(In, Compiled, Map, [module(Module)|Options]),\n"
@@ -21324,7 +22175,7 @@ static const char PL_PRELUDE_LIB_38_SRC[] =
     "    ->  atomics_to_string([Prefix, Line], Out)\n"
     "    ;   Out = Line\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
     { "open_string", 2 },
     { "directory_file_path", 3 },
     { "make_directory_path", 1 },
@@ -21345,16 +22196,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_EXPORTS[] = {
     { "set_prolog_stack", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_39_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_39_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_40_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_39_SRC[] =
+static const char PL_PRELUDE_LIB_40_SRC[] =
     "maplist(G, L1, L2, L3, L4, L5) :- '$swb_maplist'(L1, L2, L3, L4, L5, G).\n"
     "'$swb_maplist'([], [], [], [], [], _).\n"
     "'$swb_maplist'([A|As], [B|Bs], [C|Cs], [D|Ds], [E|Es], G) :- call(G, A, B, C, D, E), '$swb_maplist'(As, Bs, Cs, Ds, Es, G).\n"
@@ -21431,7 +22282,7 @@ static const char PL_PRELUDE_LIB_39_SRC[] =
     "'$swb_u8b'(B, [B2|R], C, R) :- B < 224, !, C is ((B /\\ 31) << 6) \\/ (B2 /\\ 63).\n"
     "'$swb_u8b'(B, [B2, B3|R], C, R) :- B < 240, !, C is ((B /\\ 15) << 12) \\/ ((B2 /\\ 63) << 6) \\/ (B3 /\\ 63).\n"
     "'$swb_u8b'(B, [B2, B3, B4|R], C, R) :- C is ((B /\\ 7) << 18) \\/ ((B2 /\\ 63) << 12) \\/ ((B3 /\\ 63) << 6) \\/ (B4 /\\ 63).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
     { "$tbl_call", 2 },
     { "$tbl_icall", 2 },
     { "$tbl_isincr", 1 },
@@ -21601,17 +22452,17 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_EXPORTS[] = {
     { "snapshot", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_40_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_QUIET[] = {
     { "undefined", 0 },
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_40_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_41_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_40_SRC[] =
+static const char PL_PRELUDE_LIB_41_SRC[] =
     "'$tbl_call'(G,I):-'$tbl_kcall'(G,I,plain).\n"
     "'$tbl_kcall'(G,I,TK):-(TK==incr->functor(G,F,N),('$tbl_isincr'(F/N)->true;assertz('$tbl_incrp'(F/N)));true),'$tbl_get'(G,I,plain,TK,T),'$tbl_answer'(T,G).\n"
     "'$tbl_icall'(G,I):-'$tbl_kcall'(G,I,incr).\n"
@@ -22053,7 +22904,7 @@ static const char PL_PRELUDE_LIB_40_SRC[] =
     "'$tbl_rs_src'(tab(K),S):-integer(S),'$tbl_dgoal'(S,G0),functor(G0,F,N),K=F/N.\n"
     "'$tbl_rsrun'([],_,_,_,[]).\n"
     "'$tbl_rsrun'([rs(_,Name,Vs0)|Rs],S,D,G,Fs):-copy_term(Vs0,Vs),G=..[_|As],'$tbl_app'(As,[Vs],As2),Gr=..[Name|As2],'$tbh_bset'(6,mono(S,1,D)),'$tbh_bset'(7,0),'$tbl_fa'(G,Gr,F1),'$tbl_rsrun'(Rs,S,D,G,F2),'$tbl_app'(F1,F2,Fs).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_EXPORTS[] = {
     { "term_size", 2 },
     { "variant", 2 },
     { "subsumes", 2 },
@@ -22070,16 +22921,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_EXPORTS[] = {
     { "same_functor", 4 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_41_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_41_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_42_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_41_SRC[] =
+static const char PL_PRELUDE_LIB_42_SRC[] =
     "term_size(Term, Size) :-\n"
     "    '$term_size'(Term, _, Size).\n"
     "variant(X, Y) :-\n"
@@ -22288,23 +23139,23 @@ static const char PL_PRELUDE_LIB_41_SRC[] =
     "    ;   functor(Term2, Name, Arity),\n"
     "        functor(Term1, Name, Arity)\n"
     "    ).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_EXPORTS[] = {
     { "writef", 1 },
     { "writef", 2 },
     { "swritef", 2 },
     { "swritef", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_42_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_42_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_43_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_42_SRC[] =
+static const char PL_PRELUDE_LIB_43_SRC[] =
     "writef(Format) :-\n"
     "    writef(Format, []).\n"
     "writef([F|String], List) :-\n"
@@ -22439,7 +23290,7 @@ static const char PL_PRELUDE_LIB_42_SRC[] =
     "    put(Head),\n"
     "    '$writef_$padout'(Tail).\n"
     "'$writef_$padout'([]).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_EXPORTS[] = {
     { "import", 1 },
     { "export", 1 },
     { "index", 1 },
@@ -22450,16 +23301,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_EXPORTS[] = {
     { "load_dyn", 1 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_43_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_43_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_44_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_43_SRC[] =
+static const char PL_PRELUDE_LIB_44_SRC[] =
     "import(_).\n"
     "export(_).\n"
     "index(_).\n"
@@ -22477,25 +23328,25 @@ static const char PL_PRELUDE_LIB_43_SRC[] =
     "'$xsb_ld_read'(S) :- repeat, read_term(S, T, []), ( T == end_of_file -> ! ; '$xsb_ld_one'(T), fail ).\n"
     "'$xsb_ld_one'((:- G)) :- !, ( catch(G, _, true) -> true ; true ).\n"
     "'$xsb_ld_one'(C) :- assertz(C).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_EXPORTS[] = {
     { "ord_setproduct", 3 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_44_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_44_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_45_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_44_SRC[] =
+static const char PL_PRELUDE_LIB_45_SRC[] =
     "ord_setproduct([], _, []).\n"
     "ord_setproduct([Head|Tail], Set, SetProduct) :- '$xos_product'(Set, Head, SetProduct, Rest), ord_setproduct(Tail, Set, Rest).\n"
     "'$xos_product'([], _, Set, Set).\n"
     "'$xos_product'([Head|Tail], X, [X-Head|TailX], Tl) :- '$xos_product'(Tail, X, TailX, Tl).\n";
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_EXPORTS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_EXPORTS[] = {
     { "gc_tables", 1 },
     { "abolish_table_info", 0 },
     { "close_open_tables", 1 },
@@ -22519,16 +23370,16 @@ static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_EXPORTS[] = {
     { "$atp_goal", 2 },
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_SHADOWS[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_SHADOWS[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_45_QUIET[] = {
+static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_46_QUIET[] = {
     { 0, 0 }
 };
-static const pl_prelude_lib_op_t PL_PRELUDE_LIB_45_OPS[] = {
+static const pl_prelude_lib_op_t PL_PRELUDE_LIB_46_OPS[] = {
     { 0, 0, 0 }
 };
-static const char PL_PRELUDE_LIB_45_SRC[] =
+static const char PL_PRELUDE_LIB_46_SRC[] =
     "gc_tables(0).\n"
     "abolish_table_info.\n"
     "close_open_tables(_).\n"
@@ -22585,34 +23436,35 @@ static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {
     { "gnu_fd", PL_PRELUDE_LIB_14_EXPORTS, PL_PRELUDE_LIB_14_OPS, PL_PRELUDE_LIB_14_SHADOWS, PL_PRELUDE_LIB_14_QUIET, PL_PRELUDE_LIB_14_SRC },
     { "hashtable", PL_PRELUDE_LIB_15_EXPORTS, PL_PRELUDE_LIB_15_OPS, PL_PRELUDE_LIB_15_SHADOWS, PL_PRELUDE_LIB_15_QUIET, PL_PRELUDE_LIB_15_SRC },
     { "heaps", PL_PRELUDE_LIB_16_EXPORTS, PL_PRELUDE_LIB_16_OPS, PL_PRELUDE_LIB_16_SHADOWS, PL_PRELUDE_LIB_16_QUIET, PL_PRELUDE_LIB_16_SRC },
-    { "lazy_lists", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
-    { "listing", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
-    { "lists", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
-    { "main", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC },
-    { "mctx", PL_PRELUDE_LIB_21_EXPORTS, PL_PRELUDE_LIB_21_OPS, PL_PRELUDE_LIB_21_SHADOWS, PL_PRELUDE_LIB_21_QUIET, PL_PRELUDE_LIB_21_SRC },
-    { "nb_set", PL_PRELUDE_LIB_22_EXPORTS, PL_PRELUDE_LIB_22_OPS, PL_PRELUDE_LIB_22_SHADOWS, PL_PRELUDE_LIB_22_QUIET, PL_PRELUDE_LIB_22_SRC },
-    { "option", PL_PRELUDE_LIB_23_EXPORTS, PL_PRELUDE_LIB_23_OPS, PL_PRELUDE_LIB_23_SHADOWS, PL_PRELUDE_LIB_23_QUIET, PL_PRELUDE_LIB_23_SRC },
-    { "optparse", PL_PRELUDE_LIB_24_EXPORTS, PL_PRELUDE_LIB_24_OPS, PL_PRELUDE_LIB_24_SHADOWS, PL_PRELUDE_LIB_24_QUIET, PL_PRELUDE_LIB_24_SRC },
-    { "ordsets", PL_PRELUDE_LIB_25_EXPORTS, PL_PRELUDE_LIB_25_OPS, PL_PRELUDE_LIB_25_SHADOWS, PL_PRELUDE_LIB_25_QUIET, PL_PRELUDE_LIB_25_SRC },
-    { "pairs", PL_PRELUDE_LIB_26_EXPORTS, PL_PRELUDE_LIB_26_OPS, PL_PRELUDE_LIB_26_SHADOWS, PL_PRELUDE_LIB_26_QUIET, PL_PRELUDE_LIB_26_SRC },
-    { "pcre", PL_PRELUDE_LIB_27_EXPORTS, PL_PRELUDE_LIB_27_OPS, PL_PRELUDE_LIB_27_SHADOWS, PL_PRELUDE_LIB_27_QUIET, PL_PRELUDE_LIB_27_SRC },
-    { "plunit", PL_PRELUDE_LIB_28_EXPORTS, PL_PRELUDE_LIB_28_OPS, PL_PRELUDE_LIB_28_SHADOWS, PL_PRELUDE_LIB_28_QUIET, PL_PRELUDE_LIB_28_SRC },
-    { "prolog_source", PL_PRELUDE_LIB_29_EXPORTS, PL_PRELUDE_LIB_29_OPS, PL_PRELUDE_LIB_29_SHADOWS, PL_PRELUDE_LIB_29_QUIET, PL_PRELUDE_LIB_29_SRC },
-    { "pure_input", PL_PRELUDE_LIB_30_EXPORTS, PL_PRELUDE_LIB_30_OPS, PL_PRELUDE_LIB_30_SHADOWS, PL_PRELUDE_LIB_30_QUIET, PL_PRELUDE_LIB_30_SRC },
-    { "quintus", PL_PRELUDE_LIB_31_EXPORTS, PL_PRELUDE_LIB_31_OPS, PL_PRELUDE_LIB_31_SHADOWS, PL_PRELUDE_LIB_31_QUIET, PL_PRELUDE_LIB_31_SRC },
-    { "random", PL_PRELUDE_LIB_32_EXPORTS, PL_PRELUDE_LIB_32_OPS, PL_PRELUDE_LIB_32_SHADOWS, PL_PRELUDE_LIB_32_QUIET, PL_PRELUDE_LIB_32_SRC },
-    { "rbtrees", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC },
-    { "readutil", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC },
-    { "record", PL_PRELUDE_LIB_35_EXPORTS, PL_PRELUDE_LIB_35_OPS, PL_PRELUDE_LIB_35_SHADOWS, PL_PRELUDE_LIB_35_QUIET, PL_PRELUDE_LIB_35_SRC },
-    { "simplex", PL_PRELUDE_LIB_36_EXPORTS, PL_PRELUDE_LIB_36_OPS, PL_PRELUDE_LIB_36_SHADOWS, PL_PRELUDE_LIB_36_QUIET, PL_PRELUDE_LIB_36_SRC },
-    { "solution_sequences", PL_PRELUDE_LIB_37_EXPORTS, PL_PRELUDE_LIB_37_OPS, PL_PRELUDE_LIB_37_SHADOWS, PL_PRELUDE_LIB_37_QUIET, PL_PRELUDE_LIB_37_SRC },
-    { "strings", PL_PRELUDE_LIB_38_EXPORTS, PL_PRELUDE_LIB_38_OPS, PL_PRELUDE_LIB_38_SHADOWS, PL_PRELUDE_LIB_38_QUIET, PL_PRELUDE_LIB_38_SRC },
-    { "swi_builtins", PL_PRELUDE_LIB_39_EXPORTS, PL_PRELUDE_LIB_39_OPS, PL_PRELUDE_LIB_39_SHADOWS, PL_PRELUDE_LIB_39_QUIET, PL_PRELUDE_LIB_39_SRC },
-    { "tabling", PL_PRELUDE_LIB_40_EXPORTS, PL_PRELUDE_LIB_40_OPS, PL_PRELUDE_LIB_40_SHADOWS, PL_PRELUDE_LIB_40_QUIET, PL_PRELUDE_LIB_40_SRC },
-    { "terms", PL_PRELUDE_LIB_41_EXPORTS, PL_PRELUDE_LIB_41_OPS, PL_PRELUDE_LIB_41_SHADOWS, PL_PRELUDE_LIB_41_QUIET, PL_PRELUDE_LIB_41_SRC },
-    { "writef", PL_PRELUDE_LIB_42_EXPORTS, PL_PRELUDE_LIB_42_OPS, PL_PRELUDE_LIB_42_SHADOWS, PL_PRELUDE_LIB_42_QUIET, PL_PRELUDE_LIB_42_SRC },
-    { "xsb_builtins", PL_PRELUDE_LIB_43_EXPORTS, PL_PRELUDE_LIB_43_OPS, PL_PRELUDE_LIB_43_SHADOWS, PL_PRELUDE_LIB_43_QUIET, PL_PRELUDE_LIB_43_SRC },
-    { "xsb_ordsets", PL_PRELUDE_LIB_44_EXPORTS, PL_PRELUDE_LIB_44_OPS, PL_PRELUDE_LIB_44_SHADOWS, PL_PRELUDE_LIB_44_QUIET, PL_PRELUDE_LIB_44_SRC },
-    { "xsb_tables", PL_PRELUDE_LIB_45_EXPORTS, PL_PRELUDE_LIB_45_OPS, PL_PRELUDE_LIB_45_SHADOWS, PL_PRELUDE_LIB_45_QUIET, PL_PRELUDE_LIB_45_SRC },
+    { "json", PL_PRELUDE_LIB_17_EXPORTS, PL_PRELUDE_LIB_17_OPS, PL_PRELUDE_LIB_17_SHADOWS, PL_PRELUDE_LIB_17_QUIET, PL_PRELUDE_LIB_17_SRC },
+    { "lazy_lists", PL_PRELUDE_LIB_18_EXPORTS, PL_PRELUDE_LIB_18_OPS, PL_PRELUDE_LIB_18_SHADOWS, PL_PRELUDE_LIB_18_QUIET, PL_PRELUDE_LIB_18_SRC },
+    { "listing", PL_PRELUDE_LIB_19_EXPORTS, PL_PRELUDE_LIB_19_OPS, PL_PRELUDE_LIB_19_SHADOWS, PL_PRELUDE_LIB_19_QUIET, PL_PRELUDE_LIB_19_SRC },
+    { "lists", PL_PRELUDE_LIB_20_EXPORTS, PL_PRELUDE_LIB_20_OPS, PL_PRELUDE_LIB_20_SHADOWS, PL_PRELUDE_LIB_20_QUIET, PL_PRELUDE_LIB_20_SRC },
+    { "main", PL_PRELUDE_LIB_21_EXPORTS, PL_PRELUDE_LIB_21_OPS, PL_PRELUDE_LIB_21_SHADOWS, PL_PRELUDE_LIB_21_QUIET, PL_PRELUDE_LIB_21_SRC },
+    { "mctx", PL_PRELUDE_LIB_22_EXPORTS, PL_PRELUDE_LIB_22_OPS, PL_PRELUDE_LIB_22_SHADOWS, PL_PRELUDE_LIB_22_QUIET, PL_PRELUDE_LIB_22_SRC },
+    { "nb_set", PL_PRELUDE_LIB_23_EXPORTS, PL_PRELUDE_LIB_23_OPS, PL_PRELUDE_LIB_23_SHADOWS, PL_PRELUDE_LIB_23_QUIET, PL_PRELUDE_LIB_23_SRC },
+    { "option", PL_PRELUDE_LIB_24_EXPORTS, PL_PRELUDE_LIB_24_OPS, PL_PRELUDE_LIB_24_SHADOWS, PL_PRELUDE_LIB_24_QUIET, PL_PRELUDE_LIB_24_SRC },
+    { "optparse", PL_PRELUDE_LIB_25_EXPORTS, PL_PRELUDE_LIB_25_OPS, PL_PRELUDE_LIB_25_SHADOWS, PL_PRELUDE_LIB_25_QUIET, PL_PRELUDE_LIB_25_SRC },
+    { "ordsets", PL_PRELUDE_LIB_26_EXPORTS, PL_PRELUDE_LIB_26_OPS, PL_PRELUDE_LIB_26_SHADOWS, PL_PRELUDE_LIB_26_QUIET, PL_PRELUDE_LIB_26_SRC },
+    { "pairs", PL_PRELUDE_LIB_27_EXPORTS, PL_PRELUDE_LIB_27_OPS, PL_PRELUDE_LIB_27_SHADOWS, PL_PRELUDE_LIB_27_QUIET, PL_PRELUDE_LIB_27_SRC },
+    { "pcre", PL_PRELUDE_LIB_28_EXPORTS, PL_PRELUDE_LIB_28_OPS, PL_PRELUDE_LIB_28_SHADOWS, PL_PRELUDE_LIB_28_QUIET, PL_PRELUDE_LIB_28_SRC },
+    { "plunit", PL_PRELUDE_LIB_29_EXPORTS, PL_PRELUDE_LIB_29_OPS, PL_PRELUDE_LIB_29_SHADOWS, PL_PRELUDE_LIB_29_QUIET, PL_PRELUDE_LIB_29_SRC },
+    { "prolog_source", PL_PRELUDE_LIB_30_EXPORTS, PL_PRELUDE_LIB_30_OPS, PL_PRELUDE_LIB_30_SHADOWS, PL_PRELUDE_LIB_30_QUIET, PL_PRELUDE_LIB_30_SRC },
+    { "pure_input", PL_PRELUDE_LIB_31_EXPORTS, PL_PRELUDE_LIB_31_OPS, PL_PRELUDE_LIB_31_SHADOWS, PL_PRELUDE_LIB_31_QUIET, PL_PRELUDE_LIB_31_SRC },
+    { "quintus", PL_PRELUDE_LIB_32_EXPORTS, PL_PRELUDE_LIB_32_OPS, PL_PRELUDE_LIB_32_SHADOWS, PL_PRELUDE_LIB_32_QUIET, PL_PRELUDE_LIB_32_SRC },
+    { "random", PL_PRELUDE_LIB_33_EXPORTS, PL_PRELUDE_LIB_33_OPS, PL_PRELUDE_LIB_33_SHADOWS, PL_PRELUDE_LIB_33_QUIET, PL_PRELUDE_LIB_33_SRC },
+    { "rbtrees", PL_PRELUDE_LIB_34_EXPORTS, PL_PRELUDE_LIB_34_OPS, PL_PRELUDE_LIB_34_SHADOWS, PL_PRELUDE_LIB_34_QUIET, PL_PRELUDE_LIB_34_SRC },
+    { "readutil", PL_PRELUDE_LIB_35_EXPORTS, PL_PRELUDE_LIB_35_OPS, PL_PRELUDE_LIB_35_SHADOWS, PL_PRELUDE_LIB_35_QUIET, PL_PRELUDE_LIB_35_SRC },
+    { "record", PL_PRELUDE_LIB_36_EXPORTS, PL_PRELUDE_LIB_36_OPS, PL_PRELUDE_LIB_36_SHADOWS, PL_PRELUDE_LIB_36_QUIET, PL_PRELUDE_LIB_36_SRC },
+    { "simplex", PL_PRELUDE_LIB_37_EXPORTS, PL_PRELUDE_LIB_37_OPS, PL_PRELUDE_LIB_37_SHADOWS, PL_PRELUDE_LIB_37_QUIET, PL_PRELUDE_LIB_37_SRC },
+    { "solution_sequences", PL_PRELUDE_LIB_38_EXPORTS, PL_PRELUDE_LIB_38_OPS, PL_PRELUDE_LIB_38_SHADOWS, PL_PRELUDE_LIB_38_QUIET, PL_PRELUDE_LIB_38_SRC },
+    { "strings", PL_PRELUDE_LIB_39_EXPORTS, PL_PRELUDE_LIB_39_OPS, PL_PRELUDE_LIB_39_SHADOWS, PL_PRELUDE_LIB_39_QUIET, PL_PRELUDE_LIB_39_SRC },
+    { "swi_builtins", PL_PRELUDE_LIB_40_EXPORTS, PL_PRELUDE_LIB_40_OPS, PL_PRELUDE_LIB_40_SHADOWS, PL_PRELUDE_LIB_40_QUIET, PL_PRELUDE_LIB_40_SRC },
+    { "tabling", PL_PRELUDE_LIB_41_EXPORTS, PL_PRELUDE_LIB_41_OPS, PL_PRELUDE_LIB_41_SHADOWS, PL_PRELUDE_LIB_41_QUIET, PL_PRELUDE_LIB_41_SRC },
+    { "terms", PL_PRELUDE_LIB_42_EXPORTS, PL_PRELUDE_LIB_42_OPS, PL_PRELUDE_LIB_42_SHADOWS, PL_PRELUDE_LIB_42_QUIET, PL_PRELUDE_LIB_42_SRC },
+    { "writef", PL_PRELUDE_LIB_43_EXPORTS, PL_PRELUDE_LIB_43_OPS, PL_PRELUDE_LIB_43_SHADOWS, PL_PRELUDE_LIB_43_QUIET, PL_PRELUDE_LIB_43_SRC },
+    { "xsb_builtins", PL_PRELUDE_LIB_44_EXPORTS, PL_PRELUDE_LIB_44_OPS, PL_PRELUDE_LIB_44_SHADOWS, PL_PRELUDE_LIB_44_QUIET, PL_PRELUDE_LIB_44_SRC },
+    { "xsb_ordsets", PL_PRELUDE_LIB_45_EXPORTS, PL_PRELUDE_LIB_45_OPS, PL_PRELUDE_LIB_45_SHADOWS, PL_PRELUDE_LIB_45_QUIET, PL_PRELUDE_LIB_45_SRC },
+    { "xsb_tables", PL_PRELUDE_LIB_46_EXPORTS, PL_PRELUDE_LIB_46_OPS, PL_PRELUDE_LIB_46_SHADOWS, PL_PRELUDE_LIB_46_QUIET, PL_PRELUDE_LIB_46_SRC },
     { 0, 0, 0, 0, 0, 0 }
 };
