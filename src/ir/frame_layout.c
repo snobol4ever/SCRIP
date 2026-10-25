@@ -2156,7 +2156,9 @@ void zls_home_pass(const IR_graph_t * g) {
         if (!cx) continue;
         if (cx->op == IR_UNMARK && (IR_LIT(cx).ival & 32) && cx->n_operands > 0 && planner_bound_spine(g, cx->operands[0])) continue;
         for (int oj = 0; oj < cx->n_operands; oj++) {
-            int p = cx->operands[oj] ? zls_reuse_index(&nx, cx->operands[oj]) : -1;
+            const IR_t * po = cx->operands[oj];
+            for (int cg = 0; g->home_frame && po && po->op == IR_CONJUNCTION && po->n_operands > 0 && cg < 16; cg++) po = po->operands[0];
+            int p = po ? zls_reuse_index(&nx, po) : -1;
             if (p < 0 || fcn_find(g->all[p], FCN_HOME) || (cx->op == IR_DISJUNCTION && g->cell_frame && !dy[p])) continue;
             int top = 0, hit = 0;
             stamp++;
