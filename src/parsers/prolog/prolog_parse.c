@@ -3571,15 +3571,20 @@ static void pl_lib_rename_goals(tree_t *g, int dcg, const cv_t *ek, const cv_t *
     if (j != -1) g->v.sval = pl_lib_private_name(j, f);
 }
 static tree_t *pl_lib_clause_head(PlClause *cl, int *dcg) {
-    tree_t *d = pl_clause_dcg(cl), *h;
+    tree_t *d = pl_clause_dcg(cl), *u = pl_clause_ssu(cl), *h;
     *dcg = d != (tree_t *)0;
-    h = d ? d->c[0] : (cl->tr && cl->tr->n > 0) ? cl->tr->c[0] : (tree_t *)0;
-    if (d && h && h->t == TT_FNC && h->n == 2 && h->v.sval && !strcmp(h->v.sval, ",")) h = h->c[0];
+    h = d ? d->c[0] : u ? u->c[0] : (cl->tr && cl->tr->n > 0) ? cl->tr->c[0] : (tree_t *)0;
+    if ((d || u) && h && h->t == TT_FNC && h->n == 2 && h->v.sval && !strcmp(h->v.sval, ",")) h = h->c[0];
     return (h && (h->t == TT_FNC || h->t == TT_QLIT) && h->v.sval) ? h : (tree_t *)0;
 }
 static void pl_lib_rename_clause(PlClause *cl, const cv_t *ek, const cv_t *ev) {
-    tree_t *d = pl_clause_dcg(cl);
-    if (pl_clause_ssu(cl)) return;
+    tree_t *d = pl_clause_dcg(cl), *u = pl_clause_ssu(cl);
+    if (u) {
+        tree_t *h = u->c[0];
+        if (h && h->t == TT_FNC && h->n == 2 && h->v.sval && !strcmp(h->v.sval, ",")) pl_lib_rename_goals(h->c[1], 0, ek, ev);
+        pl_lib_rename_goals(u->c[1], 0, ek, ev);
+        return;
+    }
     if (d) { pl_lib_rename_goals(d->c[1], 1, ek, ev); return; }
     if (cl->tr && cl->tr->n > 1) pl_lib_rename_goals(cl->tr->c[1], 0, ek, ev);
 }
@@ -4102,14 +4107,14 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     {
         cv_t bk = { 0 }, bv = { 0 };
         PlClause *ph = NULL, *pt = NULL;
+        (void)pl_prelude_defines("", -1);
         for (PlClause *cl = pre->head; cl; cl = cl->next) {
             const char *nm;
             int ar;
             if (cl->dq_forced == 3 + 1 || pl_clause_is_directive(cl) || !pl_clause_key(cl, &nm, &ar) || !nm || nm[0] == '$' || pl_lib_export_of(&bk, &bv, nm, ar) != -1) continue;
-            char *k = pl_pred_key(nm, ar);
-            if (pl_cv_has(&user_defined, k)) { CV_PUSH(bk, char *) = k; CV_PUSH(bv, void *) = (void *)(intptr_t)-2; }
+            char *k = pl_pred_key(nm, ar), *sn = pl_lib_private_name(-2, nm);
+            if (pl_cv_has(&user_defined, k) || pl_cv_has_key(&g_stage2.pl_prelude_keys, sn, ar)) { CV_PUSH(bk, char *) = k; CV_PUSH(bv, void *) = (void *)(intptr_t)-2; }
         }
-        if (bk.len) (void)pl_prelude_defines("", -1);
         for (PlClause *cl = bk.len ? pre->head : (PlClause *)0; cl; cl = cl->next) {
             const char *nm;
             int ar, dg = 0;
