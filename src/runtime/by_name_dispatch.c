@@ -23851,6 +23851,13 @@ static DESCR_t pl_tbl_dl_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *r
     { int ok = rt_pl_tbl_dl(root, set, (void *)&args[0], cx); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
 }
 extern int rt_pl_tx_db(void *, int, void *);
+extern int rt_pl_mod_ext(void *, void *, void *, void *, void *, pl_tr_ctx_t *);
+DESCR_t rt_pl_dop_mod_ext_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    if (nargs != 4) return FAILDESCR;
+    pl_atoms_ready();
+    rt_pl_tr_gc_sync(cx->tr);
+    { int ok = rt_pl_mod_ext(root, (void *)&args[0], (void *)&args[1], (void *)&args[2], (void *)&args[3], cx); rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
+}
 DESCR_t rt_pl_dop_tx_db_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
     DESCR_t op;
     if (nargs != 2) return FAILDESCR;

@@ -4638,6 +4638,29 @@ static void pl_db_tx_note(void *root, pl_db_t *db, int kind, int slot) {
     }
 }
 static void pl_db_erase_slot(void *root, pl_db_t *db, int i, int gen) { pl_db_note_erase(db, i, gen); pl_db_tx_note(root, db, 1, i); }
+int rt_pl_mod_ext(void *root, void *mc, void *gc, void *ec, void *out, pl_tr_ctx_t *cx) {
+    extern const char *prolog_atom_name(int);
+    extern int prolog_atom_intern(const char *);
+    extern int rt_proc_is_registered(const char *);
+    pl_cell_t *m = pl_deref((pl_cell_t *)mc), *g = pl_deref((pl_cell_t *)gc), *e = pl_deref((pl_cell_t *)ec), r = *g;
+    if ((int)m->v == DT_PLATOM && (int)e->v == DT_I && ((int)g->v == DT_PLATOM || ((int)g->v == DT_PLREF && g->p))) {
+        const char *mn = prolog_atom_name((int)m->i);
+        int ar = (int)g->v == DT_PLREF ? plc_fid_arity(g->slen) : 0;
+        const char *gn = (int)g->v == DT_PLREF ? prolog_atom_name(plc_fid_name(g->slen)) : prolog_atom_name((int)g->i);
+        if (mn && gn && strcmp(mn, "user")) {
+            char key[strlen(mn) + strlen(gn) + 24];
+            snprintf(key, sizeof key, "%s:%s/%d", mn, gn, ar + (int)e->i);
+            if (rt_proc_is_registered(key) || rt_pl_db_key_cell(root, key) >= 0) {
+                char qn[strlen(mn) + strlen(gn) + 2];
+                int qid;
+                snprintf(qn, sizeof qn, "%s:%s", mn, gn);
+                qid = prolog_atom_intern(qn);
+                r = (int)g->v == DT_PLREF ? pl_make_compound(qid, ar, g->p) : pl_make_atom(qid);
+            }
+        }
+    }
+    return plc_unify_cells_cx((pl_cell_t *)out, &r, cx) ? 1 : 0;
+}
 int rt_pl_tx_db(void *root, int op, void *recs) {
     extern int prolog_atom_intern(const char *);
     int txdb = prolog_atom_intern("$txdb");

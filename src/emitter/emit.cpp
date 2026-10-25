@@ -5439,7 +5439,7 @@ DESCR_t rt_pl_dop_trie_lookup(DESCR_t *, int); DESCR_t rt_pl_dop_trie_delete(DES
 DESCR_t rt_pl_dop_trie_count(DESCR_t *, int); DESCR_t rt_pl_dop_trie_meta_set(DESCR_t *, int); DESCR_t rt_pl_dop_trie_meta_get(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_vt(DESCR_t *, int);
 DESCR_t rt_pl_dop_tbh_close(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_leading(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_get(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_own(DESCR_t *, int);
 DESCR_t rt_pl_dop_tbh_set(DESCR_t *, int); DESCR_t rt_pl_dop_tbh_bset(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_dlget(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_dlset(DESCR_t *, int);
-    DESCR_t rt_pl_dop_tx_db(DESCR_t *, int);
+    DESCR_t rt_pl_dop_tx_db(DESCR_t *, int); DESCR_t rt_pl_dop_mod_ext(DESCR_t *, int);
 DESCR_t rt_pl_dop_trie_slice(DESCR_t *, int);
 DESCR_t rt_pl_dop_cpu_ms(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_retractall(DESCR_t *, int);
@@ -5621,7 +5621,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$tbh_close", 0, "rt_pl_dop_tbh_close", rt_pl_dop_tbh_close }, { "$tbh_leading", 0, "rt_pl_dop_tbh_leading", rt_pl_dop_tbh_leading },
         { "$tbh_get", 2, "rt_pl_dop_tbh_get", rt_pl_dop_tbh_get }, { "$tbh_own", 2, "rt_pl_dop_tbh_own", rt_pl_dop_tbh_own }, { "$tbh_set", 2, "rt_pl_dop_tbh_set", rt_pl_dop_tbh_set },
         { "$tbh_bset", 2, "rt_pl_dop_tbh_bset", rt_pl_dop_tbh_bset }, { "$tbl_dlget", 1, "rt_pl_dop_tbl_dlget", rt_pl_dop_tbl_dlget },
-        { "$tbl_dlset", 1, "rt_pl_dop_tbl_dlset", rt_pl_dop_tbl_dlset }, { "$tx_db", 2, "rt_pl_dop_tx_db", rt_pl_dop_tx_db },
+        { "$tbl_dlset", 1, "rt_pl_dop_tbl_dlset", rt_pl_dop_tbl_dlset }, { "$tx_db", 2, "rt_pl_dop_tx_db", rt_pl_dop_tx_db }, { "$mod_ext", 4, "rt_pl_dop_mod_ext", rt_pl_dop_mod_ext },
         { "$trie_slice", 4, "rt_pl_dop_trie_slice", rt_pl_dop_trie_slice },
         { "$cpu_ms", 1, "rt_pl_dop_cpu_ms", rt_pl_dop_cpu_ms },
         { "$pl_nb_getval_guard", 2, "rt_pl_dop_nb_getval_guard", rt_pl_dop_nb_getval_guard },

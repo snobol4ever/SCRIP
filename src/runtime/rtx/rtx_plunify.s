@@ -679,6 +679,7 @@ PL_ROOTCTX_LEAF(tbh_bset)
 PL_ROOTCTX_LEAF(tbl_dlget)
 PL_ROOTCTX_LEAF(tbl_dlset)
 PL_ROOTCTX_LEAF(tx_db)
+PL_ROOTCTX_LEAF(mod_ext)
 RTX_FUNC(rt_pl_dop_db_alive)
     RTX_SUB_RSP(8)
     mov     rdx, r14

@@ -222,6 +222,7 @@ static const struct { char sym[34]; unsigned mask; } rtx_clob_tab[] = {
     { "rt_pl_dop_heap_guard", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_keysort", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_list_guard", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_mod_ext", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_msort", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_name", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_nb_getval", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
