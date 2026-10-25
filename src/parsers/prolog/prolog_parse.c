@@ -3014,8 +3014,8 @@ static const char * const PL_PRELUDE_SRC =
     "'$lfx_clause'(H,M,_,Tb,H2):-'$lfx_head'(H,M,Tb,H2).\n"
     "'$lfx_head'(H,M,Tb,H2):-callable(H),H\\=(_:_),!,functor(H,F,N),'$lfx_q'(M,F,Q),(memberchk(k(F/N,_),Tb)->'$lfx_t'(Q,F2);F2=Q),H=..[_|As],H2=..[F2|As].\n"
     "'$lfx_head'(H,_,_,H).\n"
-    "'$lfx_body'(G,M,Ks,G3):-'$lfx_dbhook'(G,M,Op,C,Kd),!,'$lfx_body1'(G,M,Ks,G2),G3=(G2,'$tbl_dchange'(Op,C,Kd)).\n"
-    "'$lfx_body'(G,M,Ks,G3):-compound(G),G=erase(R),'$lfx_anyhook',!,'$lfx_body1'(G,M,Ks,G2),G3=(G2,'$tbl_dchange'(erase,R,incr)).\n"
+    "'$lfx_body'(G,M,Ks,G3):-'$lfx_dbhook'(G,M,Op,C,Kd),!,'$lfx_body1'(G,M,Ks,G2),G3=('$tx_pre'(C),G2,'$tbl_dchange'(Op,C,Kd)).\n"
+    "'$lfx_body'(G,M,Ks,G3):-compound(G),G=erase(R),'$lfx_anyhook',!,'$lfx_body1'(G,M,Ks,G2),G3=('$tx_pre'(R),G2,'$tbl_dchange'(erase,R,incr)).\n"
     "'$lfx_body'(G,M,Ks,G3):-'$lfx_body1'(G,M,Ks,G2),'$lfx_hookwrap'(G2,G3).\n"
     "'$lfx_anyhook':-catch('$tbl_dkind'(_,_),_,fail),!.\n"
     "'$lfx_hookwrap'(G,'$tbl_dcall'(G)):-callable(G),functor(G,Q,N),catch('$tbl_dkind'(Q/N,_),_,fail),!.\n"
@@ -3743,10 +3743,18 @@ static void pl_rewrite_incr_goals(tree_t *t, const cv_t *incr, const cv_t *mono,
             ast_push(chg, op);
             ast_push(chg, pl_tree_dup(t->c[0]));
             ast_push(chg, kd);
+            tree_t *pre = ast_node_new(TT_FNC), *inner = ast_node_new(TT_FNC);
+            pre->v.sval = ct_strdup("$tx_pre");
+            pre->line = t->line;
+            ast_push(pre, pl_tree_dup(t->c[0]));
+            inner->v.sval = ct_strdup(",");
+            inner->line = t->line;
+            ast_push(inner, orig);
+            ast_push(inner, chg);
             t->n = 0;
             t->v.sval = ct_strdup(",");
-            ast_push(t, orig);
-            ast_push(t, chg);
+            ast_push(t, pre);
+            ast_push(t, inner);
             return;
         }
     }
@@ -3799,7 +3807,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "current_predicate")) pl_cv_add(&referenced, "$cp_mq");
     if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); pl_cv_add(&referenced, "$tbl_icall"); pl_cv_add(&referenced, "$tbl_kcall"); }
-    if (hooked_dyn) { pl_cv_add(&referenced, "$tbl_dcall"); pl_cv_add(&referenced, "$tbl_dchange"); }
+    if (hooked_dyn) { pl_cv_add(&referenced, "$tbl_dcall"); pl_cv_add(&referenced, "$tbl_dchange"); pl_cv_add(&referenced, "$tx_pre"); }
     if (pl_cv_has(&referenced, "source_file")) pl_cv_add(&referenced, "$src_file_add");
     if (pl_cv_has(&referenced, "load_files")) {
         pl_cv_add(&referenced, "tfindall");
@@ -3808,6 +3816,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_cv_add(&referenced, "$tbl_kcall");
         pl_cv_add(&referenced, "$tbl_dcall");
         pl_cv_add(&referenced, "$tbl_dchange");
+        pl_cv_add(&referenced, "$tx_pre");
         pl_cv_add(&referenced, "incr_assert");
         pl_cv_add(&referenced, "incr_asserta");
         pl_cv_add(&referenced, "incr_assertz");
@@ -3912,7 +3921,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         pl_word_referenced(user_src, "undefined")) {
         pl_cv_add(&referenced, "$tbl_call");
         pl_cv_add(&refkeys, pl_pred_key("$tbl_call", 2));
-        static const struct { const char * nm; int ar; } tbl_roots[] = { { "$tbl_icall", 2 }, { "$tbl_kcall", 3 }, { "$tbl_mcall", 3 }, { "$tbl_mcall", 4 }, { "$tbl_dcall", 1 }, { "$tbl_dchange", 3 }, { 0, 0 } };
+        static const struct { const char * nm; int ar; } tbl_roots[] = { { "$tbl_icall", 2 }, { "$tbl_kcall", 3 }, { "$tbl_mcall", 3 }, { "$tbl_mcall", 4 }, { "$tbl_dcall", 1 }, { "$tbl_dchange", 3 }, { "$tx_pre", 1 }, { 0, 0 } };
         for (int ti = 0; tbl_roots[ti].nm; ti++) if (pl_cv_has(&referenced, tbl_roots[ti].nm)) pl_cv_add(&refkeys, pl_pred_key(tbl_roots[ti].nm, tbl_roots[ti].ar));
     }
     PlProgram *pre = pl_prelude_parse(PL_PRELUDE_SRC, -1, "", 0);

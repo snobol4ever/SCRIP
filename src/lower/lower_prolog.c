@@ -2994,7 +2994,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             if (!strcmp(nm, "erase") && t->n == 1) {
                 tree_t * clr = pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("clref_in")), pl_cc_fnc1("$db_erase_ref", (tree_t *) t->c[0]));
                 tree_t * er = pl_cc_fnc2(";", pl_cc_fnc2("->", pl_cc_fnc1("$rec_ref", (tree_t *) t->c[0]), pl_cc_fnc1("$rec_erase", (tree_t *) t->c[0])), clr);
-                if (g_lower.pl.hook_dyn_n > 0) er = pl_cc_fnc2(",", er, pl_cc_fnc3("$tbl_dchange", (tree_t *) pl_atom_goal("erase"), (tree_t *) t->c[0], (tree_t *) pl_atom_goal("incr")));
+                if (g_lower.pl.hook_dyn_n > 0) er =
+                    pl_cc_fnc2(",", pl_cc_fnc1("$tx_pre", (tree_t *) t->c[0]),
+                    pl_cc_fnc2(",", er, pl_cc_fnc3("$tbl_dchange", (tree_t *) pl_atom_goal("erase"), (tree_t *) t->c[0], (tree_t *) pl_atom_goal("incr"))));
                 return goal(cx, er, γnext, ωfail, entry_out);
             }
             if (!strcmp(nm, "retract") && t->n == 1) {
