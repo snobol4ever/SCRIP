@@ -8118,7 +8118,14 @@ PL_CX_LEAF_HEAD(msort, 2) { void *b = pl_sort_args_ball(args, 0); if (b) { cx->b
 PL_CX_LEAF_HEAD(char_type, 2) ok = rt_pl_char_type_cell(&args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
 typedef struct { const char *s; size_t blen; long n; int mode; long k0, k1; const char *sub; size_t sublen; long subn; long count; } pl_sa_t;
 static DESCR_t pl_mk_string_dup(const char *s, size_t n) { char *b = (char *)rt_wsb_alloc(n + 1); memcpy(b, s, n); b[n] = 0; return rt_pl_make_string_cell(b); }
-static const char *pl_sa_text(DESCR_t v, size_t *blen) { return pl_atom_str_n(rt_pl_deref_val(v), blen); }
+static int pl_sa_isnum(DESCR_t d) { return d.v == DT_I || d.v == DT_BIG || d.v == DT_R; }
+static size_t pl_sa_cap(DESCR_t v) { DESCR_t d = rt_pl_deref_val(v); return d.v == DT_I || d.v == DT_R ? 64 : 1; }
+static const char *pl_sa_text(DESCR_t v, size_t *blen, char *nb, size_t nbn) {
+    DESCR_t d = rt_pl_deref_val(v);
+    const char *s = pl_atom_str_n(d, blen);
+    if (s || !pl_sa_isnum(d) || !pl_swi_dialect()) return s;
+    return pl_cell_text_n(d, nb, nbn, &s, blen) ? s : (const char *)0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_sa_int(DESCR_t v, long *out) { DESCR_t d = rt_pl_deref_val(v); if (d.v != DT_I) return 0; *out = (long)d.i; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -8127,16 +8134,15 @@ static long pl_sa_next(const pl_sa_t *p, long b, size_t *off) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_sa_plan(DESCR_t *bla, const char *s, size_t blen, pl_sa_t *p) {
+static void pl_sa_plan(DESCR_t *bla, const char *s, size_t blen, pl_sa_t *p, char *sb, size_t sbn) {
     long B = 0, L = 0, A = 0;
     int hb = pl_sa_int(bla[0], &B), hl = pl_sa_int(bla[1], &L), ha = pl_sa_int(bla[2], &A);
-    DESCR_t sd = rt_pl_deref_val(bla[3]);
     p->s = s;
     p->blen = blen;
     p->n = (long)utf8_strlen_n(s, blen);
     p->count = 0;
     p->k0 = p->k1 = 0;
-    p->sub = pl_atom_str_n(sd, &p->sublen);
+    p->sub = pl_sa_text(bla[3], &p->sublen, sb, sbn);
     p->subn = p->sub ? (long)utf8_strlen_n(p->sub, p->sublen) : 0;
     if (hb + hl + ha >= 2) { long b = hb ? B : p->n - L - A, l = hl ? L : p->n - B - A; p->mode = 1; p->k0 = b; p->k1 = l; p->count = (b >= 0 && l >= 0 && b + l <= p->n) ? 1 : 0; return; }
     if (p->sub && hb) { p->mode = 1; p->k0 = B; p->k1 = p->subn; p->count = (B >= 0 && B + p->subn <= p->n) ? 1 : 0; return; }
@@ -8200,28 +8206,33 @@ DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *args, int nargs) {
     pl_sa_t p;
     if (nargs != 5) return FAILDESCR;
     pl_atoms_ready();
-    s = pl_sa_text(args[0], &blen);
-    if (!s) return FAILDESCR;
-    pl_sa_plan(args + 1, s, blen, &p);
-    return INTVAL(p.count - 1);
+    {
+        char nb[pl_sa_cap(args[0])], sb[pl_sa_cap(args[4])];
+        s = pl_sa_text(args[0], &blen, nb, sizeof nb);
+        if (!s) return FAILDESCR;
+        pl_sa_plan(args + 1, s, blen, &p, sb, sizeof sb);
+        return INTVAL(p.count - 1);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_sub_atom_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
     size_t blen = 0;
-    DESCR_t iv = rt_pl_deref_val(args[1]);
-    const char *s = pl_sa_text(args[0], &blen);
+    DESCR_t iv = rt_pl_deref_val(args[1]), sv = rt_pl_deref_val(args[5]);
+    char nb[pl_sa_cap(args[0])], sb[pl_sa_cap(args[5])];
+    const char *s = pl_sa_text(args[0], &blen, nb, sizeof nb);
     pl_sa_t p;
     long b, l, a;
     size_t boff, bspan;
     if (!s || iv.v != DT_I) return 0;
-    pl_sa_plan(args + 2, s, blen, &p);
+    pl_sa_plan(args + 2, s, blen, &p, sb, sizeof sb);
     if (!pl_sa_pick(&p, (long)iv.i, &b, &l)) return 0;
     a = p.n - b - l;
     if ((size_t)p.n == p.blen) { boff = (size_t)b; bspan = (size_t)l; } else { boff = utf8_char_offset(s, p.blen, (size_t)b + 1); bspan = utf8_char_bytes(s, p.blen, boff, (size_t)l); }
     {
         char *tr0 = cx->tr;
         int ok = plw_unify_vals(args[2], INTVAL(b), cx) && plw_unify_vals(args[3], INTVAL(l), cx) && plw_unify_vals(args[4], INTVAL(a), cx) &&
-            plw_unify_vals(args[5], rt_pl_deref_val(args[5]).v == DT_S ? pl_mk_string_dup(s + boff, bspan) : pl_mk_atom_dup(s + boff, bspan), cx);
+            (pl_sa_isnum(sv) && p.sub ? bspan == p.sublen &&
+            !memcmp(s + boff, p.sub, bspan) : plw_unify_vals(args[5], sv.v == DT_S ? pl_mk_string_dup(s + boff, bspan) : pl_mk_atom_dup(s + boff, bspan), cx));
         if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
         return ok;
     }
@@ -24781,9 +24792,9 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
     if (!strcmp(nm, "sub_atom") && n == 5) {
         DESCR_t x = rt_pl_deref_val(a[0]), s = rt_pl_deref_val(a[4]);
         if (pl_iso_unbound(x)) return rt_pl_ball_instantiation();
-        if (!pl_anum_is_text(x)) return rt_pl_ball_kind2("type_error", "atom", x);
+        if (!pl_anum_is_text(x) && !(pl_swi_dialect() && pl_anum_is_num(x))) return rt_pl_ball_kind2("type_error", "atom", x);
         for (int i = 1; i <= 3; i++) { DESCR_t v = rt_pl_deref_val(a[i]); if (!pl_iso_unbound(v) && v.v != DT_I && v.v != DT_BIG) return rt_pl_ball_kind2("type_error", "integer", v); }
-        if (!pl_iso_unbound(s) && !pl_anum_is_text(s)) return rt_pl_ball_kind2("type_error", "atom", s);
+        if (!pl_iso_unbound(s) && !pl_anum_is_text(s) && !(pl_swi_dialect() && pl_anum_is_num(s))) return rt_pl_ball_kind2("type_error", "atom", s);
         for (int i = 1; i <= 3; i++) {
             DESCR_t v = rt_pl_deref_val(a[i]);
             if (v.v == DT_I ? v.i < 0 : v.v == DT_BIG && pl_anum_big_sign(v) < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", v);
