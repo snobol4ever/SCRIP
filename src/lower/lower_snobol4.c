@@ -1937,7 +1937,8 @@ static IR_t * sco_stmt_hook(scx_t * cx, const tree_t * s, IR_t * body) {
     long line = (long) lp_s_int(s, ":line");
     if (!line) line = (long) lp_s_int(s, ":lline");
     if (g_lower.sno.uses_stmtkw) {
-        IR_t * hook = lc_build(cx->g, IR_STMT_MARK, body, body);
+        IR_t * tj = lc_build(cx->g, IR_SETEXIT_TEST, body, body);
+        IR_t * hook = lc_build(cx->g, IR_STMT_MARK, tj, tj);
         IR_LIT(hook).ival = (int64_t) stno;
         hook->pat_static = (int) line;
         hook->seal = IR_SEAL_STMT_HOOK;
@@ -4415,7 +4416,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         for (int i = 0; i < nst; i++) {
             if (lp_s_int(st[i], ":nocount") || sno_stmt_is_blank(st[i])) continue;
             IR_t * body = anchor[i]->γ.node;
-            IR_t * hook = lc_build(g, IR_STMT_MARK, body, body);
+            IR_t * tj = lc_build(g, IR_SETEXIT_TEST, body, body);
+            IR_t * hook = lc_build(g, IR_STMT_MARK, tj, tj);
             IR_LIT(hook).ival = (int64_t)(i + 1) + stno_base;
             int _lln = lp_s_int(st[i], ":lline");
             if (!_lln) _lln = lp_s_int(st[i], ":line");
