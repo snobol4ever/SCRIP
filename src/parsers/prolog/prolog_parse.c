@@ -3429,6 +3429,7 @@ static void pl_reach_add(pl_reach_t *r, const char *s, int n, int ar, int part) 
         e->n = n;
         e->ar = ar;
         e->part = part;
+        if (!part && ar == 2 && ((n == 8 && !memcmp(s, "b_getval", 8)) || (n == 9 && !memcmp(s, "nb_getval", 9)))) pl_reach_add(r, n == 9 ? "$nb_getval_hooked" : "$b_getval_hooked", n + 8, 2, 0);
     }
 }
 static void pl_dcg_collect_reach(const tree_t *b, pl_reach_t *r) {
