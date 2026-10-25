@@ -371,6 +371,7 @@ static int kwb_write_ent(const KWB_ENT_t *e, DESCR_t v) {
     int64_t iv = IS_INT(v) ? v.i : (int64_t)to_real(v);
     if (strcmp(e->name, "STLIMIT") && (iv < 0 || iv > 16777216 || (!strcmp(e->name, "PROFILE") && iv > 2))) return kwb_error(210, "keyword value assigned is negative or too large") ? 1 : -1;
     if (!strcmp(e->name, "MAXLNGTH") && iv < 1024) return kwb_error(287, "value assigned to keyword maxlngth is too small") ? 1 : -1;
+    if (!strcmp(e->name, "FULLSCAN") && iv == 0) return kwb_error(274, "value assigned to keyword fullscan is zero") ? 1 : -1;
     if (e->prot) return kwb_error(209, "keyword in assignment is protected") ? 1 : -1;
     if (e->cell) *e->cell = iv;
     if (!strcmp(e->name, "ERRTYPE")) return kwb_error((int)iv, g_runtime.kw.sno_errtext ? g_runtime.kw.sno_errtext : "") ? 1 : -1;
