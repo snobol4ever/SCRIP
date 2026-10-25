@@ -8393,12 +8393,26 @@ PL_ATOM_OP_LEAF(atom_length, 2) PL_ATOM_OP_LEAF(atom_concat, 3) PL_ATOM_OP_LEAF(
     }
     return plw_unify_vals(args[0], pl_list_from_arr((DESCR_t *)el.p, n), cx);
 }
+static int pl_alc_splits(DESCR_t *args) {
+    char sb[256];
+    const char *sep;
+    DESCR_t l = rt_pl_deref_val(args[0]), end;
+    long n = 0;
+    int cyc = 0;
+    if (pl_val_unbound(l)) return 1;
+    if (pl_val_unbound(rt_pl_deref_val(args[2])) || !pl_cell_text(args[1], sb, sizeof sb, &sep) || !sep[0]) return 0;
+    end = pl_spine_end(l, &n, &cyc);
+    if (cyc) return 0;
+    if (pl_val_unbound(end)) return 1;
+    for (DESCR_t cur = l; n-- > 0; cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) if (pl_val_unbound(rt_pl_deref_val(((DESCR_t *)cur.p)[0]))) return 1;
+    return 0;
+}
 DESCR_t rt_pl_dop_atomic_list_concat_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     int ok;
     if (nargs != 2 && nargs != 3) return FAILDESCR;
     pl_atoms_ready();
     rt_pl_tr_gc_sync(cx->tr);
-    if (nargs == 3 && pl_val_unbound(rt_pl_deref_val(args[0]))) ok = pl_split_text(args, cx);
+    if (nargs == 3 && pl_alc_splits(args)) ok = pl_split_text(args, cx);
     else ok = rt_pl_atom_op_cell("atomic_list_concat", &args[0], &args[1], nargs == 3 ? (void *)&args[2] : (void *)0, cx);
 PL_CX_LEAF_TAIL
 DESCR_t rt_pl_dop_concat_atom_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
@@ -24505,6 +24519,7 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
         if (n == 3 && !pl_is_nil(l) && pl_iso_unbound(l) && !pl_iso_unbound(r) && pl_atom_str(sep) && !pl_atom_str(sep)[0]) return rt_pl_ball_kind2("domain_error", "non_empty_atom", sep);
         if (n == 3 && !pl_is_nil(l) && pl_iso_unbound(l) && !pl_iso_unbound(r)) return (void *)0;
         if (n == 3 && pl_iso_unbound(sep)) return rt_pl_ball_instantiation();
+        if (n == 3 && pl_alc_splits(a)) return (void *)0;
         { void *b = pl_anum_atomics_in_list(l); if (b) return b; }
         return (void *)0;
     }
