@@ -6,7 +6,7 @@ SWI-Prolog libraries (src/parsers/prolog/prelude/*.pl)
 Library files of SWI-Prolog 9.0.4 (https://www.swi-prolog.org), vendored verbatim with their copyright and license
 headers, the version every SWI-Prolog test reference in SCRIP's corpus was cut from.  Copyright (c) the University of
 Amsterdam, VU University Amsterdam, SWI-Prolog Solutions b.v. and the authors each file names.  They are distributed
-under the BSD 2-Clause license their headers state:
+under the BSD 2-Clause license their headers state, all but the CLP(Q)/CLP(R) family listed in the next section:
 
     Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
     following conditions are met:
@@ -32,3 +32,45 @@ src/parsers/prolog/prolog_prelude_libs.inc.  library(clpfd) (clpfd.pl, Copyright
 BSD 2-Clause terms) and library(csv) are embedded as SWI-Prolog itself compiles them: the generator runs SWI's own term and goal expansion
 over the vendored file (../harness/scripts/util_gen_prolog_prelude_libs_expand.pl) and embeds the expanded clauses, because those
 libraries define part of themselves through expansion (clpfd's cis/2 and parse tables, csv's library(record) accessors).  dcg_basics.pl is SWI-Prolog's library/dcg/basics.pl (module dcg_basics), vendored verbatim under its module's name.
+
+SWI-Prolog's CLP(Q) and CLP(R) (src/parsers/prolog/prelude, 23 files)
+--------------------------------------------------------------------
+Part of CLP(Q) and CLP(R) by Leslie De Koninck, Copyright (C) 2006 K.U. Leuven and 1992-1995 Austrian Research Institute for
+Artificial Intelligence (OFAI), based on CLP(Q,R) by Christian Holzbaur for SICStus Prolog; vendored verbatim from SWI-Prolog 9.0.4
+with their copyright and license headers.  They are distributed under the GNU General Public License, version 2 or (at your
+option) any later version, with this special exception, which each file's header states:
+
+    As a special exception, if you link this library with other files, compiled with a Free Software compiler, to produce an
+    executable, this library does not by itself cause the resulting executable to be covered by the GNU General Public License.
+    This exception does not however invalidate any other reasons why the executable file might be covered by the GNU General
+    Public License.
+
+SCRIP takes them under GPL version 3, which section 13 of the GNU Affero General Public License version 3 lets SCRIP combine
+with its own AGPL-3 code (ruled CEO-1973, 2026-10-25).  Each file, its SWI-Prolog path and its license:
+
+    clpq.pl             library/clp/clpq.pl                 GPL-2.0-or-later with the exception above
+    bb_q.pl             library/clp/clpq/bb_q.pl            GPL-2.0-or-later with the exception above
+    bv_q.pl             library/clp/clpq/bv_q.pl            GPL-2.0-or-later with the exception above
+    fourmotz_q.pl       library/clp/clpq/fourmotz_q.pl      GPL-2.0-or-later with the exception above
+    ineq_q.pl           library/clp/clpq/ineq_q.pl          GPL-2.0-or-later with the exception above
+    itf_q.pl            library/clp/clpq/itf_q.pl           GPL-2.0-or-later with the exception above
+    nf_q.pl             library/clp/clpq/nf_q.pl            GPL-2.0-or-later with the exception above
+    store_q.pl          library/clp/clpq/store_q.pl         GPL-2.0-or-later with the exception above
+    clpr.pl             library/clp/clpr.pl                 GPL-2.0-or-later with the exception above
+    bb_r.pl             library/clp/clpr/bb_r.pl            GPL-2.0-or-later with the exception above
+    bv_r.pl             library/clp/clpr/bv_r.pl            GPL-2.0-or-later with the exception above
+    fourmotz_r.pl       library/clp/clpr/fourmotz_r.pl      GPL-2.0-or-later with the exception above
+    ineq_r.pl           library/clp/clpr/ineq_r.pl          GPL-2.0-or-later with the exception above
+    itf_r.pl            library/clp/clpr/itf_r.pl           GPL-2.0-or-later with the exception above
+    nf_r.pl             library/clp/clpr/nf_r.pl            GPL-2.0-or-later with the exception above
+    store_r.pl          library/clp/clpr/store_r.pl         GPL-2.0-or-later with the exception above
+    clpqr_class.pl      library/clp/clpqr/class.pl          GPL-2.0-or-later with the exception above
+    clpqr_dump.pl       library/clp/clpqr/dump.pl           GPL-2.0-or-later with the exception above
+    clpqr_geler.pl      library/clp/clpqr/geler.pl          GPL-2.0-or-later with the exception above
+    clpqr_itf.pl        library/clp/clpqr/itf.pl            GPL-2.0-or-later with the exception above
+    clpqr_ordering.pl   library/clp/clpqr/ordering.pl       GPL-2.0-or-later with the exception above
+    clpqr_project.pl    library/clp/clpqr/project.pl        GPL-2.0-or-later with the exception above
+    clpqr_redund.pl     library/clp/clpqr/redund.pl         GPL-2.0-or-later with the exception above
+
+Each is vendored one module file per library under its module's name (clpqr/itf.pl as clpqr_itf.pl), as the generator's LIB_PATH
+names them; library(simplex), library(ugraphs) and library(http/json) beside them are BSD 2-Clause like the libraries above.
