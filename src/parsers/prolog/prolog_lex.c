@@ -184,7 +184,7 @@ S_START:
     case D_EOF:                                                      {  SYNC(); return tok(TK_EOF, (char *)"", line);                                              }
     case D_SQUOTE:                                                   {  ADV(1); q = '\''; kind = TK_ATOM;     lx->slen = 0; lx->run0 = 0; lx->pc = (tree_t *)0; goto S_QUOTED; }
     case D_DQUOTE:                                                   {  ADV(1); q = '"';  kind = TK_STRING;   lx->slen = 0; lx->run0 = 0; lx->pc = (tree_t *)0; goto S_QUOTED; }
-    case D_BQUOTE:                                                   {  ADV(1); q = '`';  kind = TK_BQSTRING; lx->slen = 0;                    goto S_QUOTED;      }
+    case D_BQUOTE:                                                   {  ADV(1); q = '`';  kind = TK_BQSTRING; lx->slen = 0; lx->run0 = 0; lx->pc = (tree_t *)0; goto S_QUOTED;      }
     case D_UPPER:                                                    {  ADV(1);                                                                goto S_VAR;         }
     case D_USCORE:                                                   {  ADV(1);                                                                goto S_UNDERSCORE;  }
     case D_ZERO:    if (PEEK(1) == '\'')                             {  ADV(2);                                                                goto S_CHARCODE;    }
@@ -357,6 +357,6 @@ void lexer_init(Lexer *lx, const char *src) {
     lx->iso = 0;
     lx->swi = lx_dialect_marker(lx->src);
     lx->tstart = 0; lx->last_end = 0; lx->cm = NULL; lx->ncm = 0; lx->ccm = 0;
-    lx->sbuf = NULL; lx->slen = 0; lx->scap = 0;
+    lx->sbuf = NULL; lx->slen = 0; lx->scap = 0; lx->run0 = 0; lx->pc = NULL;
     memset(&lx->peek, 0, sizeof lx->peek);
 }
