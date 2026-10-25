@@ -1425,7 +1425,7 @@ void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int
             int p = -1, ub = -1;
             for (int j = 0; j < n && p < 0; j++) if (zon[j] && claim[j] >= 0 && nodes[j]->op == IR_UNMARK && nodes[j]->n_operands > 0 && zd_chase(nodes[j]->γ.node) == nodes[i]) p = j;
             if (p >= 0) ub = nidx(nodes, n, nodes[p]->operands[0]);
-            if (ub < 0 || !zon[ub] || claim[ub] < 0) continue;
+            if (ub < 0 || !zon[ub] || claim[ub] < 0 || ((IR_LIT(nodes[p]).ival & 32) && zd_pl_bspine(nodes[ub]))) continue;
             int cu = claim[ub], ku = known[cu] ? 1 : (fam[cu] >= 0 ? 2 : 0);
             if (!ku) continue;
             int q, b;
