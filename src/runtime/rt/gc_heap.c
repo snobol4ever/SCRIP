@@ -271,7 +271,7 @@ int rt_gcheap_grow(uint64_t need) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 _Static_assert(GC_ERR_RESERVE % 4096u == 0,
-    "ONE ROAD AND ONE ERROR AT THE CAP (ARCH-PROLOG-ACTIVATION-LIFETIME section 4; the cto's ruling (c) of 2026-10-22 under CEO-1895): where a catchable road is declared (hp_cap_road, set when "
+    "ONE ROAD AND ONE ERROR AT THE CAP (ARCH-PROLOG-ACTIVATION-LIFETIME section 6.5; the cto's ruling (c) of 2026-10-22 under CEO-1895): where a catchable road is declared (hp_cap_road, set when "
     "the Prolog trail that carries the ball is made), a request the cap refuses is served from the error reserve and the resource error is marked DUE (hp_cap_due 1) with the collection armed; t"
     "he poll that follows the allocating call collects, and a collection that leaves the reserve's page free above the compacted top re-arms the reserve and clears the mark, because the request "
     "then fit after a collection; a mark still due after it is RAISED by the poll's raise entry (rt_pl_cap_raise: the same error(resource_error(stack), _) the C road's size check raises, the bal"
@@ -622,7 +622,7 @@ static void gc_cap_reserve_refuse(uint64_t payload_bytes, uint16_t type) {
     fflush(stdout);
     fprintf(stderr,
         "[ZHP] REFUSED: %s allocated past the %u-byte error reserve of the %ld KB hard cap before the poll that follows it could raise the resource error (this request %llu payload bytes"
-        " of block kind %u); the reserve is sized to the largest burst one call makes between two polls, so this leaf is a measurement the reserve owes (ARCH-PROLOG-ACTIVATION-LIFETIME section 4)\n",
+        " of block kind %u); the reserve is sized to the largest burst one call makes between two polls, so this leaf is a measurement the reserve owes (ARCH-PROLOG-ACTIVATION-LIFETIME section 6.5)\n",
         leaf, GC_ERR_RESERVE, (long)((g_runtime.gc.hp_cap_end - g_runtime.gc.hp_arena) >> 10), (unsigned long long)payload_bytes, (unsigned)type);
     exit(2);
 }
