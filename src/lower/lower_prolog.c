@@ -558,6 +558,11 @@ static void pl_decl_dynamic_record(stage2_t * s2, tree_t * spec, tree_t * marker
         if (!resolve_pred_table_lookup(&s2->resolve_pred_table, key)) resolve_pred_table_insert(&s2->resolve_pred_table, ct_strdup(key), marker);
         return;
     }
+    if ((spec->t == TT_QLIT || spec->t == TT_NAME) && spec->v.sval) {
+        fprintf(stderr, "scrip: prolog: dynamic/1: type_error(predicate_indicator, %s) -- a bare atom declares nothing; the directive is reported and ignored as swipl reports and ignores it\n",
+            spec->v.sval);
+        return;
+    }
     pl_refuse("dynamic declaration shape", spec->v.sval ? spec->v.sval : "?", 10);
 }
 static int pl_flag_directive_is_advisory(const tree_t * subj) {
