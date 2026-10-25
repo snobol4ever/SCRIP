@@ -4139,7 +4139,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (dobody->op == IR_FAIL) { g_emitter.g_suspend_dobody_beta = &lbl_ω; }
             else { { int k = nidx(g_emitter.codegen_flat_chain_body_nodes, n, dobody);
                 if (k >= 0) { int do_alpha = g_emitter.codegen_flat_chain_body_nodes[i]->seal == 1 && !(dobody->op == IR_SCAN && dobody->n_operands > 2 && !dobody->operands[1]);
-                g_emitter.g_suspend_dobody_beta = (via_beta || (!do_alpha && (ir_is_generator_kind(ir_kind0(dobody)) || ir_kind0(dobody) == IR_CALL || ir_kind0(dobody) == IR_CALL_PROC_STAGED))) ?
+                g_emitter.g_suspend_dobody_beta = (via_beta || (!do_alpha && (ir_is_generator_kind(ir_kind0(dobody)) || ir_kind0(dobody) == IR_CALL || ir_kind0(dobody) == IR_CALL_PROC_STAGED ||
+                    dobody->op == IR_SCAN_TAB || dobody->op == IR_SCAN_MOVE))) ?
                     betas[k] :
                     lbls[k]; } } }
         }

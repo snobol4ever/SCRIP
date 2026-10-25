@@ -535,7 +535,6 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     int gb = name && icn_callable_proc_index(name) < 0 &&
         ((nargs >= 2 && nargs <= 4 && (!strcmp(name, "find") || !strcmp(name, "upto"))) || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto"))) || (nargs <= 6 && !strcmp(name, "bal")));
     int is_cursor_mover = name && (!strcmp(name, "tab") || !strcmp(name, "move"));
-    int fill_scan_defaults = gb && nargs == 1 && cx->scan_sp == 0 && (!strcmp(name, "find") || !strcmp(name, "upto"));
     int fill_bal_cset = gb && nargs == 0 && !strcmp(name, "bal");
     IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL), γ, ω);
     IR_LIT(call).sval = (char *) name;
@@ -564,7 +563,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
             const tree_t * na = k < nargs - 1 ? t->c[argbase + k + 1] : NULL;
             if (k == nargs - 1) cx->after_line = own_line;
             else if (na && na->line > 0 && (na->t == TT_KEYWORD || (na->t == TT_VAR && na->v.sval && na->v.sval[0] == '&'))) cx->after_line = na->line;
-            ae = lower(cx, a, (k == nargs - 1 && !fill_scan_defaults && !nstage) ? callin : NULL, aω, &ar);
+            ae = lower(cx, a, (k == nargs - 1 && !nstage) ? callin : NULL, aω, &ar);
         }
         aω = cx->beta;
         if (k == 0) entry = ae;
@@ -596,19 +595,6 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         ir_operand_push(call, kc);
         prev = kc;
         last_ar = kc;
-    }
-    if (fill_scan_defaults) {
-        IR_t * ks = build(cx, IR_KW_ICON, NULL, aω);
-        IR_LIT(ks).sval = (char *) "&subject";
-        IR_t * kp = build(cx, IR_KW_ICON, NULL, aω);
-        IR_LIT(kp).sval = (char *) "&pos";
-        if (prev) lc_γ_to(prev, ks);
-        else entry = ks;
-        lc_γ_to(ks, kp);
-        ir_operand_push(call, ks);
-        ir_operand_push(call, kp);
-        prev = kp;
-        last_ar = kp;
     }
     if ((icn_proc_is_generator(name) || gb || is_cursor_mover) && last_ar) lc_γ_to(last_ar, callin);
     const tree_t * la = (nargs > 0) ? t->c[argbase + nargs - 1] : NULL;
@@ -872,14 +858,17 @@ static int icn_scan_kind_for(const char * s) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_retag_scan_body(IR_graph_t * g, int lo) {
+static void icn_retag_scan_body(icx_t * cx, int lo) {
+    IR_graph_t * g = cx ? cx->g : (IR_graph_t *)0;
     if (!g || !g->all || lo < 0) return;
     for (int i = lo; i < g->n; i++) {
         IR_t * nd = g->all[i];
+        const char * nm;
         if (!nd) continue;
-        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN || nd->op == IR_CALL_ICON || nd->op == IR_CALL_BUILTIN_GEN) && IR_LIT(nd).sval && nd->n_operands == 1) {
-            int k = icn_scan_kind_for(IR_LIT(nd).sval);
-            if (k) nd->op = (IR_e) k;
+        nm = IR_LIT(nd).sval;
+        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN || nd->op == IR_CALL_ICON || nd->op == IR_CALL_BUILTIN_GEN) && nm && nd->n_operands == 1) {
+            int k = icn_scan_kind_for(nm);
+            if (k && !icn_is_proc(nm) && !icn_builtin_reassigned(nm) && !icn_is_local(cx, nm) && !icn_is_own_global(cx, nm)) nd->op = (IR_e) k;
         }
     }
 }
@@ -954,7 +943,7 @@ static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * 
     if (IR_LIT(enter).dval == 3.0) { IR_LIT(leave_succ).dval = 3.0; IR_LIT(leave_fail).dval = 3.0; }
     IR_t * body_beta = cx->beta;
     if (bv) ir_operand_push(leave_succ, bv);
-    icn_retag_scan_body(cx->g, scan_body_lo);
+    icn_retag_scan_body(cx, scan_body_lo);
     lc_γ_to(enter, b_entry);
     cx->beta = ω;
     IR_t * sr = NULL;
@@ -3079,6 +3068,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     }
     g->entry = icn_trace_call_wrap(cx, cx->pname, succ, PFAIL);
     if (cx->pname && !strcmp(cx->pname, "main")) { IR_t * qt = build(cx, IR_CALL, g->entry, g->entry); IR_LIT(qt).sval = (char *) "$quit_trap_300"; g->entry = qt; }
+    icn_retag_scan_body(cx, 0);
     icn_settle_fail_conduits(g);
     g->cell_frame = 1;
     g->spine_cells = 1;
