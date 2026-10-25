@@ -3623,6 +3623,14 @@ static char *pl_lib_private_name(int lib, const char *nm) {
     memcpy(r + a + 1, nm, b + 1);
     return r;
 }
+static const char *pl_lib_public_of(const char *cn) {
+    const char *c = cn ? strchr(cn, ':') : (const char *)0;
+    if (!c || !c[1]) return (const char *)0;
+    size_t a = (size_t)(c - cn);
+    if (a == 6 && !strncmp(cn, "system", 6)) return c + 1;
+    for (int k = 0; PL_PRELUDE_LIBS[k].lib; k++) if (strlen(PL_PRELUDE_LIBS[k].lib) == a && !strncmp(cn, PL_PRELUDE_LIBS[k].lib, a)) return c + 1;
+    return (const char *)0;
+}
 static void pl_lib_rename_goals(tree_t *g, int dcg, const cv_t *ek, const cv_t *ev) {
     if (!g || (g->t != TT_FNC && g->t != TT_QLIT && g->t != TT_NAME) || !g->v.sval) return;
     const char *f = g->v.sval;
@@ -4256,6 +4264,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             if (!root[i] && (gid[i] < 0 || !wf[gid[i]])) continue;
             if (!cdone[i]) {
                 pl_tree_collect_calls(pl_clause_body(pc[i]), &calls[i]);
+                for (uint32_t ci = 0, cn0 = calls[i].len; ci < cn0; ci++) { const char *pub = pl_lib_public_of(CV_AT(calls[i], char *, ci)); if (pub) pl_cv_add(&calls[i], pub); }
                 if (pl_cv_has(&calls[i], "call_cleanup") || pl_cv_has(&calls[i], "setup_call_cleanup") || pl_cv_has(&calls[i], "setup_call_catcher_cleanup")) pl_cv_add(&calls[i], "$scc_cut");
                 if (pl_cv_has(&calls[i], "string_concat")) pl_cv_add(&calls[i], "$string_concat_split");
                 if (pl_cv_has(&calls[i], "between")) { pl_cv_add(&calls[i], "$between_test"); pl_cv_add(&calls[i], "$between_big"); }
