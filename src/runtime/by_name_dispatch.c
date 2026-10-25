@@ -10251,6 +10251,108 @@ PL_CX_LEAF_HEAD(gnu_line_position, 2) { long c, l, p; ok = pl_gnu_position(args[
 PL_CX_LEAF_HEAD(gnu_character_count, 2) { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "character_count/2") && plw_unify_vals(args[1], INTVAL(c), cx); } PL_CX_LEAF_TAIL
 static int pl_tok_alpha(int c) { return c < 0x80 ? (isalnum(c) || c == '_') : iswalpha((wint_t)c); }
 static int pl_tok_symbol(int c) { return c > 0 && c < 0x80 && strchr("#$&*+-./:<=>?@\\^~", c); }
+static uint32_t pl_sha_rol(uint32_t x, int n) { return (x << n) | (x >> (32 - n)); }
+static uint32_t pl_sha_ror(uint32_t x, int n) { return (x >> n) | (x << (32 - n)); }
+static size_t pl_sha_pad(const unsigned char *m, size_t n, unsigned char *b, size_t nb) {
+    uint64_t bits = (uint64_t)n * 8;
+    memset(b, 0, nb);
+    if (n) memcpy(b, m, n);
+    b[n] = 0x80;
+    for (int i = 0; i < 8; i++) b[nb - 1 - i] = (unsigned char)(bits >> (8 * i));
+    return nb;
+}
+static uint32_t pl_sha_be32(const unsigned char *p) { return (uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | (uint32_t)p[3]; }
+static void pl_sha1(const unsigned char *m, size_t n, unsigned char *out) {
+    uint32_t h[5] = { 0x67452301u, 0xEFCDAB89u, 0x98BADCFEu, 0x10325476u, 0xC3D2E1F0u };
+    size_t nb = ((n + 8) / 64 + 1) * 64;
+    unsigned char b[nb];
+    pl_sha_pad(m, n, b, nb);
+    for (size_t o = 0; o < nb; o += 64) {
+        uint32_t w[80], a = h[0], c1 = h[1], c2 = h[2], c3 = h[3], c4 = h[4], f, k, t;
+        for (int i = 0; i < 16; i++) w[i] = pl_sha_be32(b + o + 4 * i);
+        for (int i = 16; i < 80; i++) w[i] = pl_sha_rol(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
+        for (int i = 0; i < 80; i++) {
+            if (i < 20) {
+                f = (c1 & c2) | (~c1 & c3);
+                k = 0x5A827999u;
+            } else if (i < 40) {
+                f = c1 ^ c2 ^ c3;
+                k = 0x6ED9EBA1u;
+            } else if (i < 60) {
+                f = (c1 & c2) | (c1 & c3) | (c2 & c3);
+                k = 0x8F1BBCDCu;
+            } else {
+                f = c1 ^ c2 ^ c3;
+                k = 0xCA62C1D6u;
+            }
+            t = pl_sha_rol(a, 5) + f + c4 + k + w[i];
+            c4 = c3;
+            c3 = c2;
+            c2 = pl_sha_rol(c1, 30);
+            c1 = a;
+            a = t;
+        }
+        h[0] += a;
+        h[1] += c1;
+        h[2] += c2;
+        h[3] += c3;
+        h[4] += c4;
+    }
+    for (int i = 0; i < 20; i++) out[i] = (unsigned char)(h[i / 4] >> (24 - 8 * (i % 4)));
+}
+static void pl_sha256(const unsigned char *m, size_t n, unsigned char *out) {
+    static const uint32_t k[64] = { 0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u, 0x3956c25bu, 0x59f111f1u, 0x923f82a4u, 0xab1c5ed5u, 0xd807aa98u, 0x12835b01u, 0x243185beu, 0x550c7dc3u,
+        0x72be5d74u, 0x80deb1feu, 0x9bdc06a7u, 0xc19bf174u, 0xe49b69c1u, 0xefbe4786u, 0x0fc19dc6u, 0x240ca1ccu, 0x2de92c6fu, 0x4a7484aau, 0x5cb0a9dcu, 0x76f988dau, 0x983e5152u, 0xa831c66du,
+        0xb00327c8u, 0xbf597fc7u, 0xc6e00bf3u, 0xd5a79147u, 0x06ca6351u, 0x14292967u, 0x27b70a85u, 0x2e1b2138u, 0x4d2c6dfcu, 0x53380d13u, 0x650a7354u, 0x766a0abbu, 0x81c2c92eu, 0x92722c85u,
+        0xa2bfe8a1u, 0xa81a664bu, 0xc24b8b70u, 0xc76c51a3u, 0xd192e819u, 0xd6990624u, 0xf40e3585u, 0x106aa070u, 0x19a4c116u, 0x1e376c08u, 0x2748774cu, 0x34b0bcb5u, 0x391c0cb3u, 0x4ed8aa4au,
+        0x5b9cca4fu, 0x682e6ff3u, 0x748f82eeu, 0x78a5636fu, 0x84c87814u, 0x8cc70208u, 0x90befffau, 0xa4506cebu, 0xbef9a3f7u, 0xc67178f2u };
+    uint32_t h[8] = { 0x6a09e667u, 0xbb67ae85u, 0x3c6ef372u, 0xa54ff53au, 0x510e527fu, 0x9b05688cu, 0x1f83d9abu, 0x5be0cd19u };
+    size_t nb = ((n + 8) / 64 + 1) * 64;
+    unsigned char b[nb];
+    pl_sha_pad(m, n, b, nb);
+    for (size_t o = 0; o < nb; o += 64) {
+        uint32_t w[64], v[8], t1, t2;
+        for (int i = 0; i < 16; i++) w[i] = pl_sha_be32(b + o + 4 * i);
+        for (int i = 16; i < 64; i++) {
+            uint32_t s0 = pl_sha_ror(w[i - 15], 7) ^ pl_sha_ror(w[i - 15], 18) ^ (w[i - 15] >> 3), s1 = pl_sha_ror(w[i - 2], 17) ^ pl_sha_ror(w[i - 2], 19) ^ (w[i - 2] >> 10);
+            w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+        }
+        for (int i = 0; i < 8; i++) v[i] = h[i];
+        for (int i = 0; i < 64; i++) {
+            t1 = v[7] + (pl_sha_ror(v[4], 6) ^ pl_sha_ror(v[4], 11) ^ pl_sha_ror(v[4], 25)) + ((v[4] & v[5]) ^ (~v[4] & v[6])) + k[i] + w[i];
+            t2 = (pl_sha_ror(v[0], 2) ^ pl_sha_ror(v[0], 13) ^ pl_sha_ror(v[0], 22)) + ((v[0] & v[1]) ^ (v[0] & v[2]) ^ (v[1] & v[2]));
+            for (int j = 7; j > 0; j--) v[j] = v[j - 1];
+            v[4] += t1;
+            v[0] = t1 + t2;
+        }
+        for (int i = 0; i < 8; i++) h[i] += v[i];
+    }
+    for (int i = 0; i < 32; i++) out[i] = (unsigned char)(h[i / 4] >> (24 - 8 * (i % 4)));
+}
+PL_CX_LEAF_HEAD(sha_hash, 3)
+    {
+        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        DESCR_t l = rt_pl_deref_val(args[0]), al = rt_pl_deref_val(args[1]);
+        const char *an = pl_atom_str(al);
+        size_t n = 0;
+        ok = 0;
+        for (DESCR_t q = l; pl_is_cons(q); q = rt_pl_deref_val(((DESCR_t *)q.p)[1])) n++;
+        {
+            unsigned char m[n ? n : 1], h[32];
+            size_t i = 0;
+            int hl = 0;
+            for (DESCR_t q = l; pl_is_cons(q); q = rt_pl_deref_val(((DESCR_t *)q.p)[1])) { DESCR_t e = rt_pl_deref_val(((DESCR_t *)q.p)[0]); m[i++] = (unsigned char)(e.v == DT_I ? e.i : 0); }
+            if (an && !strcmp(an, "sha1")) {
+                pl_sha1(m, n, h);
+                hl = 20;
+            } else if (an && !strcmp(an, "sha256")) {
+                pl_sha256(m, n, h);
+                hl = 32;
+            } else cx->ball = rt_pl_ball_kind2("domain_error", "algorithm", al);
+            if (hl) { DESCR_t el[32]; for (int j = 0; j < hl; j++) el[j] = INTVAL(h[j]); ok = plw_unify_vals(args[2], pl_list_from_arr(el, hl), cx); }
+        }
+    }
+PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(put_token, 2)
     {
         extern int fh_last_char(int);

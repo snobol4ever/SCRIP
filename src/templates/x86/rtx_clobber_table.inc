@@ -294,6 +294,7 @@ static const struct { char sym[34]; unsigned mask; } rtx_clob_tab[] = {
     { "rt_pl_dop_setarg", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_setof_group_at", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_setof_result", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
+    { "rt_pl_dop_sha_hash", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_shc", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_skip", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_dop_skip_list", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },

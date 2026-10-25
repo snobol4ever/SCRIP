@@ -2446,6 +2446,8 @@ static const struct { char n[64]; unsigned char rc; } GC_ALLOC_TAB[] = {
     { "rt_pl_dop_setof_group_at_c", GC_RET_DESCR },
     { "rt_pl_dop_setof_result", GC_RET_DESCR },
     { "rt_pl_dop_setof_result_c", GC_RET_DESCR },
+    { "rt_pl_dop_sha_hash", GC_RET_DESCR },
+    { "rt_pl_dop_sha_hash_c", GC_RET_DESCR },
     { "rt_pl_dop_shc", GC_RET_DESCR },
     { "rt_pl_dop_shc_c", GC_RET_DESCR },
     { "rt_pl_dop_skip", GC_RET_DESCR },
