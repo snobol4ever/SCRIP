@@ -282,18 +282,17 @@ extern "C" int zd_cross_cell(int off) {
     const int * out = g_emitter.g_zd_out_p, * xb = g_emitter.g_zd_xb_p, * cl = g_emitter.g_zd_claim_p, * fam = g_emitter.g_zd_fam_p, * fb = g_emitter.g_zd_fbase_p;
     const unsigned char * on = g_emitter.g_zd_plan_on;
     if (!nodes || !out || !on || g_emitter.g_zd_plan_nodes != nodes || i < 0 || i >= n || !on[i]) return -1;
-    for (int b = i - 1; b >= 0; b--) {
-        if (!on[b]) continue;
-        int key = zls_off(nodes[b]), kw = zd_k_own(nodes[b]);
-        if (key < 0 || off < key || off >= key + kw) continue;
-        long xi, xo;
-        if (xb && xb[i] != INT_MIN && xb[b] != INT_MIN) { xi = (long)xb[i] + out[i]; xo = (long)xb[b] + out[b]; }
-        else if (cl && cl[i] >= 0 && cl[i] == cl[b]) { xi = out[i]; xo = out[b]; }
-        else if (fam && fb && cl && cl[i] >= 0 && cl[b] >= 0 && fam[cl[i]] >= 0 && fam[cl[i]] == fam[cl[b]]) { xi = (long)fb[cl[i]] + out[i]; xo = (long)fb[cl[b]] + out[b]; }
-        else return -1;
-        return xi < xo ? -1 : (int)(xi - xo) + (off - key);
-    }
-    return -1;
+    int b = -1, key = -1;
+    for (int c = i - 1; c >= 0 && b < 0; c--) { int k = on[c] ? zls_off(nodes[c]) : -1; if (k >= 0 && off >= k && off < k + zd_k_own(nodes[c])) { b = c; key = k; } }
+    for (int c = i + 1; c < n && b < 0; c++) { int k = on[c] ? zls_off(nodes[c]) : -1; if (k >= 0 && off >= k && off < k + zd_k_own(nodes[c])) { b = c; key = k; } }
+    for (int c = b + 1; b > i && c < n; c++) { int k = on[c] ? zls_off(nodes[c]) : -1; if (k >= 0 && off >= k && off < k + zd_k_own(nodes[c])) return -1; }
+    if (b < 0) return -1;
+    long xi, xo;
+    if (xb && xb[i] != INT_MIN && xb[b] != INT_MIN) { xi = (long)xb[i] + out[i]; xo = (long)xb[b] + out[b]; }
+    else if (cl && cl[i] >= 0 && cl[i] == cl[b]) { xi = out[i]; xo = out[b]; }
+    else if (fam && fb && cl && cl[i] >= 0 && cl[b] >= 0 && fam[cl[i]] >= 0 && fam[cl[i]] == fam[cl[b]]) { xi = (long)fb[cl[i]] + out[i]; xo = (long)fb[cl[b]] + out[b]; }
+    else return -1;
+    return xi < xo ? -1 : (int)(xi - xo) + (off - key);
 }
 static int zd_bcs_words(const IR_t * nd, int w) {
     if (w == -1) return zd_dj_spine(nd);
