@@ -174,9 +174,10 @@ xwam_state(2,R):-'$tbl_dl'(DL),(DL==[]->R=0;R=1).
 '$tbl_wdrop'(S):-(S==none->true;'$trie_destroy'(S)).
 '$tbl_finvals'([],_).
 '$tbl_finvals'([e(_,Sk,V)|L],T):-(nonvar(V),V=r(P)->(member(_-[],P)->NV=true;NV=u(P)),'$trie_insert'(T,1,Sk,NV,_);true),'$tbl_finvals'(L,T).
-tnot(G):-'$tnot_split'(G,G1),'$tbl_vt'(VT),'$trie_lookup'(VT,G1,T),\+ '$trie_meta_get'(T,0,invalid),!,'$trie_meta_get'(T,0,S),'$tnot_st'(S,T,G1).
-tnot(G):-'$tnot_split'(G,G1),'$tnot_impl'(G1,I),!,'$tbl_get'(G1,I,plain,plain,T),'$trie_meta_get'(T,0,S),'$tnot_st'(S,T,G1).
+tnot(G):-'$tnot_split'(G,G1),'$tbl_vt'(VT),'$trie_lookup'(VT,G1,T),\+ '$trie_meta_get'(T,0,invalid),!,'$trie_meta_get'(T,0,S),'$tbl_use'(T),'$tnot_st'(S,T,G1).
+tnot(G):-'$tnot_split'(G,G1),'$tnot_impl'(G1,I),!,'$tnot_kind'(G1,TK),'$tbl_get'(G1,I,plain,TK,T),'$trie_meta_get'(T,0,S),'$tbl_use'(T),'$tnot_st'(S,T,G1).
 tnot(G):- \+ G.
+'$tnot_kind'(G,TK):-functor(G,F,N),('$tbl_isincr'(F/N)->TK=incr;functor(H,F,N),catch(clause(H,'$tbl_icall'(_,_)),_,fail)->assertz('$tbl_incrp'(F/N)),TK=incr;TK=plain).
 '$tnot_split'(G,_):-var(G),!,throw(error(instantiation_error,tnot/1)).
 '$tnot_split'(M:G,G1):-atom(M),!,('$mod_cl'(M,G,0,G1)->true;G1=G).
 '$tnot_split'(G,G).
