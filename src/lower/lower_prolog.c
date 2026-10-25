@@ -3339,7 +3339,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     int dyn = (pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar) || pl_rt_is_dynamic(pn, ar);
                     int def = dyn || pl_file_defines(pn, ar);
                     const char * meta = def ? (const char *) 0 : pl_meta_template(pn, ar);
-                    int bi = !def && (meta || pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
+                    int nonpred = (g_stage2.pl_dialect == PL_DIALECT_SWI) && (!strcmp(pn, "?-") || !strcmp(pn, ":-") || !strcmp(pn, "|"));
+                    int bi = !def && !nonpred && (meta || pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
                     const tree_t * props[8];
                     const char * pf = (def && !dyn) ? pl_pred_file(pn, ar) : (const char *) 0;
                     char rp[PATH_MAX];

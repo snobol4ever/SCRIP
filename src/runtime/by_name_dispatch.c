@@ -24277,7 +24277,7 @@ static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i, const char **fil
     if (kind && i == 1) return kind == 2 ? "dynamic" : "static";
     if (kind && fp && i == 2) { *file = fp; return "file"; }
     if (kind) return i == (fp ? 3 : 2) ? "defined" : (const char *)0;
-    if (pl_pi_is_builtin(nm, ar) && i < 3) return i == 1 ? "built_in" : "defined";
+    if (pl_pi_is_builtin(nm, ar) && !(!strcmp(nm, "?-") || !strcmp(nm, ":-") || !strcmp(nm, "|")) && i < 3) return i == 1 ? "built_in" : "defined";
     return (const char *)0;
 }
 DESCR_t rt_pl_dop_pl_pp_count_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
