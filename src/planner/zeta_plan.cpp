@@ -857,6 +857,8 @@ void zd_pl_bases(IR_t **nodes, int n, const unsigned char *zon, const int *zout,
                 for (int e = 0; e < zd_pl_edges(nodes[i]); e++) {
                     int l, q = zd_pl_entry(nodes, n, zon, zout, zgpop, zwpop, claim, i, e, &l, dead);
                     if (q >= 0 && claim[q] == q && aof[q] < 0) { aof[q] = aof[claim[i]]; moved = 1; }
+                    int lb, lq; (void) zd_pl_land(nodes, n, zon, zout, zgpop, zwpop, i, e, &lq, &lb);
+                    if (lq >= 0 && claim[lq] >= 0 && aof[claim[lq]] < 0) { aof[claim[lq]] = aof[claim[i]]; moved = 1; }
                 }
             }
         }
