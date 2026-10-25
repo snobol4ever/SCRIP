@@ -3749,13 +3749,17 @@ RTX_FUNC(gc_run_verdicts)
 RTX_ENDF(gc_run_verdicts)
 RTX_FUNC(rt_gc_visit_descr)
     RTX_PUSHS(rbx)
+    RTX_SUB_RSP(16)
     mov     rbx, rdi
+    mov     rax, GXMK(GX_DRAIN)
+    mov     qword ptr [rsp], rax
 .Lvd_again:
     mov     rdi, rbx
     RTX_CALL(rt_gc_visit_descr_a)
     test    rax, rax
     jne     .Lvd_nz
-    mov     GXMK(GX_DRAIN), 0
+    mov     rax, qword ptr [rsp]
+    mov     GXMK(GX_DRAIN), rax
     jmp     .Lvd_out
 .Lvd_nz:
     cmp     rax, 3
@@ -3768,6 +3772,7 @@ RTX_FUNC(rt_gc_visit_descr)
     mov     rdi, rax
     RTX_CALL(gc_run_verdicts)
 .Lvd_out:
+    RTX_ADD_RSP(16)
     RTX_POPS(rbx)
     RTX_GVA_R9
     ret
